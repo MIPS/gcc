@@ -710,7 +710,8 @@ static struct df_problem problem_RU =
   df_ru_bottom_dump,          /* Debugging end block.  */
   NULL,                       /* Incremental solution verify start.  */
   NULL,                       /* Incremental solution verfiy end.  */
-  NULL                        /* Dependent problem.  */
+  NULL,                       /* Dependent problem.  */
+  TV_DF_RU                    /* Timing variable.  */ 
 };
 
 
@@ -1205,7 +1206,8 @@ static struct df_problem problem_RD =
   df_rd_bottom_dump,          /* Debugging end block.  */
   NULL,                       /* Incremental solution verify start.  */
   NULL,                       /* Incremental solution verfiy end.  */
-  NULL                        /* Dependent problem.  */
+  NULL,                       /* Dependent problem.  */
+  TV_DF_RD                    /* Timing variable.  */ 
 };
 
 
@@ -1620,7 +1622,7 @@ df_lr_local_finalize (bitmap all_blocks ATTRIBUTE_UNUSED)
 	{
 	  /* If we are here, then it is because we are both verifying
 	  the solution and the dce changed the function.  In that case
-	  the verificantion info built will be wrong.  So we leave the
+	  the verification info built will be wrong.  So we leave the
 	  dirty flag true so that the verifier will skip the checking
 	  part and just clean up.*/
 	  df_lr->solutions_dirty = true;
@@ -1915,7 +1917,8 @@ static struct df_problem problem_LR =
   df_lr_bottom_dump,          /* Debugging end block.  */
   df_lr_verify_solution_start,/* Incremental solution verify start.  */
   df_lr_verify_solution_end,  /* Incremental solution verify end.  */
-  NULL                        /* Dependent problem.  */
+  NULL,                       /* Dependent problem.  */
+  TV_DF_LR                    /* Timing variable.  */ 
 };
 
 
@@ -2442,7 +2445,8 @@ static struct df_problem problem_UR =
   df_ur_bottom_dump,          /* Debugging end block.  */
   df_ur_verify_solution_start,/* Incremental solution verify start.  */
   df_ur_verify_solution_end,  /* Incremental solution verify end.  */
-  &problem_LR                 /* Dependent problem.  */
+  &problem_LR,                /* Dependent problem.  */
+  TV_DF_UD                    /* Timing variable.  */ 
 };
 
 
@@ -2589,28 +2593,34 @@ df_live_alloc (bitmap all_blocks)
     }
 }
 
+
 /* And the LR and UR info to produce the LIVE info.  */
 
 static void
 df_live_local_finalize (bitmap all_blocks)
 {
-  bitmap_iterator bi;
-  unsigned int bb_index;
 
-  EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
+  if (df_live->solutions_dirty)
     {
-      struct df_ur_bb_info *bb_ur_info = df_ur_get_bb_info (bb_index);
-      struct df_lr_bb_info *bb_lr_info = df_lr_get_bb_info (bb_index);
-      struct df_live_bb_info *bb_live_info = df_live_get_bb_info (bb_index);
-      
-      /* No register may reach a location where it is not used.  Thus
-	 we trim the rr result to the places where it is used.  */
-      bitmap_and (bb_live_info->in, bb_ur_info->in, bb_lr_info->in);
-      bitmap_and (bb_live_info->out, bb_ur_info->out, bb_lr_info->out);
-    }
+      bitmap_iterator bi;
+      unsigned int bb_index;
 
-  df_ur->solutions_dirty = false;
+      EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
+	{
+	  struct df_ur_bb_info *bb_ur_info = df_ur_get_bb_info (bb_index);
+	  struct df_lr_bb_info *bb_lr_info = df_lr_get_bb_info (bb_index);
+	  struct df_live_bb_info *bb_live_info = df_live_get_bb_info (bb_index);
+	  
+	  /* No register may reach a location where it is not used.  Thus
+	     we trim the rr result to the places where it is used.  */
+	  bitmap_and (bb_live_info->in, bb_ur_info->in, bb_lr_info->in);
+	  bitmap_and (bb_live_info->out, bb_ur_info->out, bb_lr_info->out);
+	}
+      
+      df_live->solutions_dirty = false;
+    }
 }
+
 
 /* Free all storage associated with the problem.  */
 
@@ -2690,7 +2700,8 @@ static struct df_problem problem_LIVE =
   df_live_bottom_dump,        /* Debugging end block.  */
   NULL,                       /* Incremental solution verify start.  */
   NULL,                       /* Incremental solution verfiy end.  */
-  &problem_UR                 /* Dependent problem.  */
+  &problem_UR,                /* Dependent problem.  */
+  TV_DF_LIVE                  /* Timing variable.  */ 
 };
 
 
@@ -3298,7 +3309,8 @@ static struct df_problem problem_UREC =
   df_urec_bottom_dump,        /* Debugging end block.  */
   NULL,                       /* Incremental solution verify start.  */
   NULL,                       /* Incremental solution verfiy end.  */
-  &problem_LR                 /* Dependent problem.  */
+  &problem_LR,                /* Dependent problem.  */
+  TV_DF_UREC                  /* Timing variable.  */ 
 };
 
 
@@ -3777,7 +3789,8 @@ static struct df_problem problem_CHAIN =
   df_chain_bottom_dump,       /* Debugging end block.  */
   NULL,                       /* Incremental solution verify start.  */
   NULL,                       /* Incremental solution verfiy end.  */
-  &problem_RD                 /* Dependent problem.  */
+  &problem_RD,                /* Dependent problem.  */
+  TV_DF_CHAIN                 /* Timing variable.  */ 
 };
 
 
@@ -4547,7 +4560,8 @@ static struct df_problem problem_RI =
   /* Technically this is only dependent on the live registers problem
      but it will produce information if built one of uninitialized
      register problems (UR, UREC) is also run.  */
-  &problem_LR                 /* Dependent problem.  */
+  &problem_LR,                /* Dependent problem.  */
+  TV_DF_RI                    /* Timing variable.  */ 
 };
 
 

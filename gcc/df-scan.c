@@ -433,7 +433,8 @@ static struct df_problem problem_SCAN =
   NULL,                       /* Debugging end block.  */
   NULL,                       /* Incremental solution verify start.  */
   NULL,                       /* Incremental solution verfiy end.  */
-  NULL                        /* Dependent problem.  */
+  NULL,                       /* Dependent problem.  */
+  TV_DF_SCAN                  /* Timing variable.  */
 };
 
 
@@ -2452,36 +2453,57 @@ df_refs_add_to_chains (struct df_collection_rec *collection_rec,
 	 insn.  A null rec is a signal that the caller will handle the
 	 chain specially.  */
       if (collection_rec->def_vec)
-	insn_rec->defs 
-	  = df_install_refs (bb, collection_rec->def_vec, 
-			     collection_rec->next_def,
-			     df->def_regs,
-			     &df->def_info, false);
+	{
+	  if (insn_rec->defs && *insn_rec->defs)
+	    free (insn_rec->defs);
+	  insn_rec->defs 
+	    = df_install_refs (bb, collection_rec->def_vec, 
+			       collection_rec->next_def,
+			       df->def_regs,
+			       &df->def_info, false);
+	}
       if (collection_rec->use_vec)
-	insn_rec->uses 
-	  = df_install_refs (bb, collection_rec->use_vec, 
-			     collection_rec->next_use,
-			     df->use_regs,
-			     &df->use_info, false);
+	{
+	  if (insn_rec->uses && *insn_rec->uses)
+	    free (insn_rec->uses);
+	  insn_rec->uses 
+	    = df_install_refs (bb, collection_rec->use_vec, 
+			       collection_rec->next_use,
+			       df->use_regs,
+			       &df->use_info, false);
+	}
       if (collection_rec->eq_use_vec)
-	insn_rec->eq_uses 
-	  = df_install_refs (bb, collection_rec->eq_use_vec, 
-			     collection_rec->next_eq_use,
-			     df->eq_use_regs,
-			     &df->use_info, true);
+	{
+	  if (insn_rec->eq_uses && *insn_rec->eq_uses)
+	    free (insn_rec->eq_uses);
+	  insn_rec->eq_uses 
+	    = df_install_refs (bb, collection_rec->eq_use_vec, 
+			       collection_rec->next_eq_use,
+			       df->eq_use_regs,
+			       &df->use_info, true);
+	}
       if (collection_rec->mw_vec)
-	insn_rec->mw_hardregs 
-	  = df_install_mws (collection_rec->mw_vec, 
-			    collection_rec->next_mw);
+	{
+	  if (insn_rec->mw_hardregs && *insn_rec->mw_hardregs)
+	    free (insn_rec->mw_hardregs);
+	  insn_rec->mw_hardregs 
+	    = df_install_mws (collection_rec->mw_vec, 
+			      collection_rec->next_mw);
+	}
     }
   else
     {
       struct df_scan_bb_info *bb_info = df_scan_get_bb_info (bb->index);
+
+      if (bb_info->artificial_defs && *bb_info->artificial_defs)
+	free (bb_info->artificial_defs);
       bb_info->artificial_defs 
 	= df_install_refs (bb, collection_rec->def_vec, 
 			   collection_rec->next_def,
 			   df->def_regs,
 			   &df->def_info, false);
+      if (bb_info->artificial_uses && *bb_info->artificial_uses)
+	free (bb_info->artificial_uses);
       bb_info->artificial_uses 
 	= df_install_refs (bb, collection_rec->use_vec, 
 			   collection_rec->next_use,

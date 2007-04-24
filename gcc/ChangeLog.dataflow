@@ -1,3 +1,42 @@
+2007-04-23  Steven Bosscher  <steven@gcc.gnu.org>
+	    Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df-scan.c (problem_SCAN): Add time variable.
+	(df_refs_add_to_chains): Delete the refs vectors before 
+	allocating new ones.
+	* df-core.c (df_analyze_problem): Push and pop problem specific 
+	time vectors.
+	* timevar.def (TV_DF_SCAN, TV_DF_RU, TV_DF_RD, TV_DF_LR, TV_DF_UD,
+	TV_DF_LIVE, TV_DF_UREC, TV_DF_CHAIN, TV_DF_RI): New problem
+	specific time vars.
+	* dse.c (positions_needed): Changed to be bitmask from sbitmap.
+	(store_info.rhs): New field.
+	(free_store_info, step6): Changed positions_needed to be bitmask
+	from sbitmap.
+	(read_info.begin, read_info.end): Changed to be int.
+	(deferred_change): New struct.
+	(deferred_change_pool): New variable.
+	(step0): Initialize deferred_change_pool.
+	(canon_address): Added parameter to cselib_expand_value_rtx and
+	improved debugging.
+	(clear_rhs_from_active_local_stores, replace_read): New function.
+	(record_store, check_mem_read_rtx): Added code to invalidate
+	store_info.rhs.  Changed positions_needed to be bitmask from
+	sbitmap.
+	(step1): Added code to process deferred_change_list.
+	(rest_of_handle_dse): Added deferred rescanning.
+	* df.h (df_problem.tv_id): New timevar for each problem.
+	* cselib.c (expand_loc, cselib_expand_value_rtx): Added code to
+	limit the amount of recursion allowed when expanding addresses.
+	* cselib.h (cselib_expand_value_rtx): Added max recursion
+	parameter.
+	* rtl.h (rhs_regno): Renamed tree to x.
+	* df-problems.c (df_problem problem_RU, df_problem problem_RD,
+	problem_LR, problem_UR, problem_LIVE, problem_UREC, problem_CHAIN,
+	problem_RI) Added timevar.
+	(df_live_local_finalize): Only update solution if dirty.
+	* Makefile.in (dse.o): Added dependencies.
+	
 2007-04-23  Ian Lance Taylor  <iant@google.com>
 
 	* lower-subreg.c (resolve_reg_notes): Discard REG_DEAD and

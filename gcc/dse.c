@@ -39,6 +39,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "alloc-pool.h"
 #include "alias.h"
+#include "insn-config.h"
+#include "expr.h"
+#include "recog.h"
 #include "dse.h"
 
 #ifndef BASELINE
@@ -222,15 +225,20 @@ struct store_info {
 
   /* The offset of the first and byte before the last byte associated
      with the operation.  */
-  HOST_WIDE_INT begin, end;
+  int begin, end;
 
-  /* An sbitmap as wide as the number of bytes in the word that
+  /* An bitmask as wide as the number of bytes in the word that
      contains a 1 if the byte may be needed.  The store is unused if
      all of the bits are 0.  */
-  sbitmap positions_needed;
+  long positions_needed;
 
   /* The next store info for this insn.  */
   struct store_info *next;
+
+  /* The right hand side of the store.  This is used if there is a
+     subsequent reload of the mems address somewhere later in the
+     basic block.  */
+  rtx rhs;  
 };
 
 typedef struct store_info *store_info_t;
@@ -249,7 +257,7 @@ struct read_info {
   /* The offset of the first and byte after the last byte associated
      with the operation.  If begin == end == 0, the read did not have
      a constant offset.  */
-  HOST_WIDE_INT begin, end;
+  int begin, end;
 
   /* The mem being read.  */
   rtx mem;
@@ -432,6 +440,25 @@ DEF_VEC_P(group_info_t);
 DEF_VEC_ALLOC_P(group_info_t,heap);
 
 static VEC(group_info_t,heap) *rtx_group_vec;
+
+
+/* This structure holds the set of changes that are being deferred
+   when removing read operation.  See replace_read.  */
+struct deferred_change {
+
+  /* The mem that is being replaced.  */
+  rtx *loc;
+
+  /* The reg it is being replaced with.  */
+  rtx reg;
+
+  struct deferred_change *next;
+};
+
+typedef struct deferred_change *deferred_change_t;
+static alloc_pool deferred_change_pool;
+
+static deferred_change_t deferred_change_list = NULL;
 
 /* This are used to hold the alias sets of spill variables.  Since
    these are never aliased and there may be a lot of them, it makes
@@ -638,6 +665,9 @@ step0 (void)
   rtx_group_info_pool
     = create_alloc_pool ("rtx_group_info_pool", 
 			 sizeof (struct group_info), 100);
+  deferred_change_pool
+    = create_alloc_pool ("deferred_change_pool", 
+			 sizeof (struct deferred_change), 10);
 
   rtx_group_table = htab_create (11, invariant_group_base_hash,
 				 invariant_group_base_eq, NULL);
@@ -677,7 +707,6 @@ free_store_info (insn_info_t insn_info)
   while (store_info)
     {
       store_info_t next = store_info->next;
-      sbitmap_free (store_info->positions_needed);
       if (store_info->cse_base)
 	pool_free (cse_store_info_pool, store_info);
       else
@@ -985,7 +1014,7 @@ canon_address (bool for_read, bb_info_t bb_info, rtx mem,
      val = *(base + offset);  
   */
 
-  expanded_address = cselib_expand_value_rtx (mem_address, scratch);
+  expanded_address = cselib_expand_value_rtx (mem_address, scratch, 5);
 
   /* If this fails, just go with the mem_address.  */
   if (!expanded_address)
@@ -1039,7 +1068,8 @@ canon_address (bool for_read, bb_info_t bb_info, rtx mem,
 	  return false;
 	}
       if (dump_file)
-	fprintf (dump_file, "  varying cselib base=%d\n", (*base)->value);
+	fprintf (dump_file, "  varying cselib base=%d offset = %d\n", 
+		 (*base)->value, (int)*offset);
     }
   else
     {
@@ -1051,6 +1081,27 @@ canon_address (bool for_read, bb_info_t bb_info, rtx mem,
       *group_id = group->id;
     }
   return true;
+}
+
+
+/* Clear the rhs field from the active_local_stores array.  */
+
+static void
+clear_rhs_from_active_local_stores (void)
+{
+  insn_info_t ptr = active_local_stores;
+
+  while (ptr)
+    {
+      store_info_t store_info = ptr->store_rec;
+      /* Skip the clobbers.  */
+      while (!store_info->is_set)
+	store_info = store_info->next;
+
+      store_info->rhs = NULL;
+
+      ptr = ptr->next_local_store;
+    }
 }
 
 
@@ -1103,9 +1154,12 @@ record_store (rtx body, bb_info_t bb_info)
 	  insn_info->cannot_delete = true;
 	}
       else if (!store_is_unused)
-      /* If the set or clobber is unused, then it does not effect our
-	 ability to get rid of the entire insn.  */
-	insn_info->cannot_delete = true;
+	{
+	  /* If the set or clobber is unused, then it does not effect our
+	     ability to get rid of the entire insn.  */
+	  insn_info->cannot_delete = true;
+	  clear_rhs_from_active_local_stores ();
+	}
       return 0;
     }
 
@@ -1115,7 +1169,10 @@ record_store (rtx body, bb_info_t bb_info)
 
   if (!canon_address (false, bb_info, mem, 
 		      &spill_alias_set, &group_id, &offset, &base))
-    return 0;
+    {
+      clear_rhs_from_active_local_stores ();
+      return 0;
+    }
 
   width = GET_MODE_SIZE (GET_MODE (mem));
 
@@ -1196,7 +1253,7 @@ record_store (rtx body, bb_info_t bb_info)
 	      && (GET_MODE (mem) == entry->mode))
 	    {
 	      delete = true;
-	      sbitmap_zero (s_info->positions_needed);
+	      s_info->positions_needed = 0;
 	    }
 	  if (dump_file)
 	    fprintf (dump_file, "    trying spill store in insn=%d alias_set=%d\n",
@@ -1212,18 +1269,29 @@ record_store (rtx body, bb_info_t bb_info)
 		     (int)s_info->begin, (int)s_info->end);
 	  for (i = offset; i < offset+width; i++)
 	    if (i >= s_info->begin && i < s_info->end)
-	      RESET_BIT (s_info->positions_needed, i - s_info->begin);
+	      s_info->positions_needed &= ~(1L << (i - s_info->begin));
+	}
+      else if (s_info->rhs)
+	/* Need to see if it is possible for this store to overwrite
+	   the value of store_info.  If it is, set the rhs to NULL to
+	   keep it from being used to remove a load.  */
+	{
+	  if (canon_true_dependence (s_info->mem, 
+				     GET_MODE (s_info->mem),
+				     s_info->mem_addr,
+				     mem, rtx_varies_p))
+	    s_info->rhs = NULL;
 	}
       
       /* An insn can be deleted if every position of every one of
 	 its s_infos is zero.  */
-      if (!sbitmap_empty_p (s_info->positions_needed))
+      if (s_info->positions_needed != 0)
 	delete = false;
-
+      
       if (delete)
 	{
 	  insn_info_t insn_to_delete = ptr;
-
+	  
 	  if (last)
 	    last->next_local_store = ptr->next_local_store;
 	  else
@@ -1233,10 +1301,12 @@ record_store (rtx body, bb_info_t bb_info)
 	}
       else
 	last = ptr;
-
+      
       ptr = next;
     }
-
+  
+  gcc_assert ((unsigned) width < sizeof (store_info->positions_needed) * CHAR_BIT);
+  
   /* Finish filling in the store_info.  */
   store_info->next = insn_info->store_rec;
   insn_info->store_rec = store_info;
@@ -1244,13 +1314,25 @@ record_store (rtx body, bb_info_t bb_info)
   store_info->alias_set = spill_alias_set;
   store_info->mem_addr = get_addr (XEXP (mem, 0));
   store_info->cse_base = base;
-  store_info->positions_needed = sbitmap_alloc (width);
-  sbitmap_ones (store_info->positions_needed);
+  store_info->positions_needed = (1L << width) - 1;
   store_info->group_id = group_id;
   store_info->begin = offset;
   store_info->end = offset + width;
   store_info->is_set = GET_CODE (body) == SET;
 
+  if (store_info->is_set 
+      /* No place to keep the value after ra.  */
+      && !reload_completed
+      /* The careful reviewer may wish to comment my checking that the
+	 rhs of a store is always a reg.  */
+      && REG_P (SET_SRC (body))
+      /* Sometimes the store and reload is used for truncation and
+	 rounding.  */
+      && !(FLOAT_MODE_P (GET_MODE (mem)) && (flag_float_store)))
+    store_info->rhs = SET_SRC (body);
+  else
+    store_info->rhs = NULL;
+  
   /* If this is a clobber, we return 0.  We will only be able to
      delete this insn if there is only one store USED store, but we
      can use the clobber to delete other stores earlier.  */
@@ -1264,6 +1346,101 @@ dump_insn_info (const char * start, insn_info_t insn_info)
   fprintf (dump_file, "%s insn=%d %s\n", start, 
 	   INSN_UID (insn_info->insn),
 	   insn_info->store_rec ? "has store" : "naked");
+}
+
+
+/* Take a sequence of:
+     A <- r1
+     ...
+     ... <- A
+
+   and change it into 
+   r2 <- r1
+   A <- r1
+   ...
+   ... <- r2
+
+   The STORE_INFO and STORE_INFO are for the store and the READ_INFO
+   and READ_INSN are for the read.  Return true if the replacement
+   went ok.  */
+
+static bool
+replace_read (store_info_t store_info, insn_info_t store_insn, 
+	      read_info_t read_info, insn_info_t read_insn, rtx *loc)
+{
+  if (!dbg_cnt (dse))
+    return false;
+
+  if (dump_file)
+    fprintf (dump_file, "generating move to replace load at %d from store at %d\n", 
+	     INSN_UID (read_insn->insn), INSN_UID (store_insn->insn)); 
+  if (GET_MODE (store_info->mem) == GET_MODE (read_info->mem))
+    {
+      rtx new_reg = gen_reg_rtx (GET_MODE (store_info->mem));
+      if (validate_change (read_insn->insn, loc, new_reg, 0))
+	{
+	  rtx insns;
+	  deferred_change_t deferred_change = pool_alloc (deferred_change_pool);
+
+	  start_sequence ();
+	  emit_move_insn (new_reg, store_info->rhs);
+	  insns = get_insns ();
+	  end_sequence ();
+	  emit_insn_before (insns, store_insn->insn);
+
+	  if (dump_file)
+	    fprintf (dump_file, " -- adding move insn %d: r%d = r%d\n", 
+		     INSN_UID (insns), REGNO (new_reg), REGNO (store_info->rhs)); 
+
+	  /* And now for the cludge part: cselib croaks if you just
+	     return at this point.  There are two reasons for this:
+
+	     1) Cselib has an idea of how many pseudos there are and
+	     that does not include the new one we just added.  
+
+	     2) Cselib does not know about the move insn we added
+	     above the store_info, and there is no way to tell it
+	     about it, because it has "moved on".
+
+	     So we are just going to have to lie.  The move insn is
+	     not really an issue, cselib did not see it.  But the use
+	     of the new pseudo read_insn is a real problem.  The way
+	     that we solve this problem is that we are just going to
+	     put the mem back keep a table of mems to get rid of.  At
+	     the end of the basic block we can put it back.  */
+
+	  *loc = read_info->mem;
+	  deferred_change->next = deferred_change_list;
+	  deferred_change_list = deferred_change;
+	  deferred_change->loc = loc;
+	  deferred_change->reg = new_reg;
+
+	  /* Get rid of the read_info, from the point of view of the
+	     rest of dse, play like this read never happened.  */
+	  read_insn->read_rec = read_info->next;
+	  pool_free (read_info_pool, read_info);
+	  return true;
+	}
+      else 
+	{
+	  if (dump_file)
+	    fprintf (dump_file, " -- validation failure\n"); 
+	  return false;
+	}
+    }
+  else
+    {
+      /* Someone with excellent rtl skills needs to fill this in.  You
+	 are guaranteed that the read is of the same size or smaller
+	 than the store, and that the read does not hang off one of
+	 the ends of the store.  But the offsets of each must be
+	 checked because the read does not have to line up on either
+	 end of the store so the begin fields need to be examined in
+	 both the store_info and read_info.  */
+      if (dump_file)
+	fprintf (dump_file, " -- complex load, currently unsupported.\n"); 
+      return false;
+    }
 }
 
 
@@ -1413,11 +1590,27 @@ check_mem_read_rtx (rtx *loc, void *data)
 					   store_info->mem_addr,
 					   mem, rtx_varies_p);
 	      
-	      /* The bases are the same, just see if the offsets
-		 overlap.  */
-	      else if ((offset < store_info->end) 
-		       && (offset + width > store_info->begin))
-		remove = true;
+	      /* If this read is just reading back something that we just
+		 stored, rewrite the read.  */
+	      else 
+		{
+		  if (store_info->rhs
+		      && (offset >= store_info->begin)
+		      && (offset + width <= store_info->end))
+		    {
+		      int mask = ((1L << width) - 1) << (offset - store_info->begin);
+		      
+		      if ((store_info->positions_needed & mask) == mask
+			  && replace_read (store_info, i_ptr, 
+					   read_info, insn_info, loc))
+			return 0;
+		    }
+		  /* The bases are the same, just see if the offsets
+		     overlap.  */
+		  if ((offset < store_info->end) 
+		      && (offset + width > store_info->begin))
+		    remove = true;
+		}
 	    }
 	  
 	  /* else 
@@ -1463,6 +1656,22 @@ check_mem_read_rtx (rtx *loc, void *data)
 	  /* Skip the clobbers.  */
 	  while (!store_info->is_set)
 	    store_info = store_info->next;
+
+	  /* If this read is just reading back something that we just
+	     stored, rewrite the read.  */
+	  if (store_info->rhs
+	      && store_info->group_id == -1
+	      && store_info->cse_base == base
+	      && (offset >= store_info->begin)
+	      && (offset + width <= store_info->end))
+	    {
+	      int mask = ((1L << width) - 1) << (offset - store_info->begin);
+	      
+	      if ((store_info->positions_needed & mask) == mask
+		  && replace_read (store_info, i_ptr, 
+				   read_info, insn_info, loc))
+		return 0;
+	    }
 
 	  if (!store_info->alias_set)
 	    remove = canon_true_dependence (store_info->mem, 
@@ -1713,6 +1922,19 @@ step1 (void)
 
 		  i_ptr = i_ptr->next_local_store;
 		}
+	    }
+
+	  /* Get rid of the loads that were discovered in
+	     replace_read.  Cselib is finished with this block.  */
+	  while (deferred_change_list)
+	    {
+	      deferred_change_t next = deferred_change_list->next;
+
+	      /* There is no reason to validate this change.  That was
+		 done earlier.  */
+	      *deferred_change_list->loc = deferred_change_list->reg;
+	      pool_free (deferred_change_pool, deferred_change_list);
+	      deferred_change_list = next;
 	    }
 
 	  /* Get rid of all of the cselib based store_infos in this
@@ -2784,23 +3006,6 @@ step6 (bool global_done)
 	}
     }
 
-  /* Get rid of the positions_needed bitmaps.  */
-  FOR_EACH_BB (bb)
-    {
-      bb_info_t bb_info = bb_table[bb->index];
-      insn_info_t insn_info = bb_info->last_insn;
-      while (insn_info)
-	{
-	  store_info_t store_info= insn_info->store_rec;
-	  while (store_info)
-	    {
-	      sbitmap_free (store_info->positions_needed);
-	      store_info = store_info->next;
-	    }
-	  insn_info = insn_info->prev_insn;
-	}
-    }
-
   if (clear_alias_sets)
     {
       BITMAP_FREE (clear_alias_sets);
@@ -2821,6 +3026,7 @@ step6 (bool global_done)
   free_alloc_pool (insn_info_pool);
   free_alloc_pool (bb_info_pool);
   free_alloc_pool (rtx_group_info_pool);
+  free_alloc_pool (deferred_change_pool);
 }
 
 
@@ -2839,6 +3045,8 @@ rest_of_handle_dse (void)
 #if 0
   dump_file = stderr;
 #endif
+
+  df_set_flags (DF_DEFER_INSN_RESCAN);
 
   step0 ();
   step1 ();

@@ -250,6 +250,8 @@ struct df_problem {
   df_verify_solution_start verify_start_fun;
   df_verify_solution_end verify_end_fun;
   struct df_problem *dependent_problem;
+  /* The timevar id associated with this pass.  */
+  unsigned int tv_id;
 };
 
 

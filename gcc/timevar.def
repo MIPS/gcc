@@ -57,6 +57,17 @@ DEFTIMEVAR (TV_DELETE_TRIVIALLY_DEAD , "trivially dead code")
 DEFTIMEVAR (TV_LIFE		     , "life analysis")
 DEFTIMEVAR (TV_LIFE_UPDATE	     , "life info update")
 
+/* Time spent in dataflow problems.  */
+DEFTIMEVAR (TV_DF_SCAN		     , "df scan insns")
+DEFTIMEVAR (TV_DF_RU		     , "df reaching uses")
+DEFTIMEVAR (TV_DF_RD		     , "df reaching defs")
+DEFTIMEVAR (TV_DF_LR		     , "df live regs")
+DEFTIMEVAR (TV_DF_UD		     , "df uninitialized regs")
+DEFTIMEVAR (TV_DF_LIVE		     , "df live&initialized regs")
+DEFTIMEVAR (TV_DF_UREC		     , "df uninitialized regs 2")
+DEFTIMEVAR (TV_DF_CHAIN		     , "df use-def / def-use chains")
+DEFTIMEVAR (TV_DF_RI		     , "df register information")
+
 DEFTIMEVAR (TV_ALIAS_ANALYSIS	     , "alias analysis")
 DEFTIMEVAR (TV_REG_SCAN		     , "register scan")
 DEFTIMEVAR (TV_REBUILD_JUMP	     , "rebuild jump labels")

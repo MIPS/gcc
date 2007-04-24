@@ -837,12 +837,13 @@ cselib_lookup_mem (rtx x, int create)
    expand to the same place.  */
 
 static rtx 
-expand_loc (struct elt_loc_list * p, bitmap regs_active)
+expand_loc (struct elt_loc_list * p, bitmap regs_active, int max_depth)
 {
   rtx reg_result = NULL;
   unsigned int regno = UINT_MAX;
+  struct elt_loc_list * p_in = p;
 
-  while (p)
+  for (; p; p = p -> next)
     {
       if (dump_file)
 	{
@@ -860,19 +861,23 @@ expand_loc (struct elt_loc_list * p, bitmap regs_active)
 	  reg_result = p->loc;
 	  regno = REGNO (p->loc);
 	}
+      /* Avoid infinite recursion and do not try to expand the
+	 value.  */
+      else if (GET_CODE (p->loc) == VALUE 
+	       && CSELIB_VAL_PTR (p->loc)->locs == p_in)
+	continue;
       else if (!REG_P (p->loc))
 	{
-	  rtx result = cselib_expand_value_rtx (p->loc, regs_active);
+	  rtx result = cselib_expand_value_rtx (p->loc, regs_active, max_depth - 1);
 	  if (result)
 	    return result;
 	}
 	
-      p = p -> next;
     }
   
   if (regno != UINT_MAX)
     {
-      rtx result = cselib_expand_value_rtx (reg_result, regs_active);
+      rtx result = cselib_expand_value_rtx (reg_result, regs_active, max_depth - 1);
       if (result)
 	return result;
     }
@@ -900,7 +905,7 @@ expand_loc (struct elt_loc_list * p, bitmap regs_active)
    It is clear on return.  */
 
 rtx
-cselib_expand_value_rtx (rtx orig, bitmap regs_active)
+cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 {
   rtx copy;
   int i, j;
@@ -908,6 +913,12 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active)
   const char *format_ptr;
 
   code = GET_CODE (orig);
+
+  /* For the context of dse, if we end up expand into a huge tree, we
+     will not have a useful address, so we might as well just give up
+     quickly.  */
+  if (max_depth <= 0)
+    return NULL;
 
   switch (code)
     {
@@ -945,7 +956,7 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active)
 		return orig;
 
 	      bitmap_set_bit (regs_active, regno);
-	      result = expand_loc (l->elt->locs, regs_active);
+	      result = expand_loc (l->elt->locs, regs_active, max_depth);
 	      bitmap_clear_bit (regs_active, regno);
 
 	      if (result)
@@ -981,7 +992,7 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active)
 
 
     case VALUE:
-      return expand_loc (CSELIB_VAL_PTR (orig)->locs, regs_active);
+      return expand_loc (CSELIB_VAL_PTR (orig)->locs, regs_active, max_depth);
 
       /* A MEM with a constant address is not sharable.  The problem is that
 	 the constant address may need to be reloaded.  If the mem is shared,
@@ -1006,7 +1017,7 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active)
       case 'e':
 	if (XEXP (orig, i) != NULL)
 	  {
-	    rtx result = cselib_expand_value_rtx (XEXP (orig, i), regs_active);
+	    rtx result = cselib_expand_value_rtx (XEXP (orig, i), regs_active, max_depth - 1);
 	    if (!result)
 	      return NULL;
 	    XEXP (copy, i) = result;
@@ -1020,7 +1031,7 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active)
 	    XVEC (copy, i) = rtvec_alloc (XVECLEN (orig, i));
 	    for (j = 0; j < XVECLEN (copy, i); j++)
 	      {
-		rtx result = cselib_expand_value_rtx (XVECEXP (orig, i, j), regs_active);
+		rtx result = cselib_expand_value_rtx (XVECEXP (orig, i, j), regs_active, max_depth - 1);
 		if (!result)
 		  return NULL;
 		XVECEXP (copy, i, j) = result;

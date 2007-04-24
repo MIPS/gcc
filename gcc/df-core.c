@@ -1242,6 +1242,8 @@ df_analyze_problem (struct dataflow *dflow,
 		    bitmap blocks_to_consider, 
 		    int *postorder, int n_blocks)
 {
+  timevar_push (dflow->problem->tv_id);
+
 #ifdef ENABLE_CHECKING
   if (dflow->problem->verify_start_fun)
     dflow->problem->verify_start_fun ();
@@ -1268,6 +1270,8 @@ df_analyze_problem (struct dataflow *dflow,
   if (dflow->problem->verify_end_fun)
     dflow->problem->verify_end_fun ();
 #endif
+
+  timevar_pop (dflow->problem->tv_id);
 
   dflow->computed = true;
 }

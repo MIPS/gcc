@@ -69,6 +69,6 @@ extern void cselib_process_insn (rtx);
 extern enum machine_mode cselib_reg_set_mode (rtx);
 extern int rtx_equal_for_cselib_p (rtx, rtx);
 extern int references_value_p (rtx, int);
-extern rtx cselib_expand_value_rtx (rtx, bitmap);
+extern rtx cselib_expand_value_rtx (rtx, bitmap, int);
 extern rtx cselib_subst_to_values (rtx);
 extern void cselib_invalidate_rtx (rtx);

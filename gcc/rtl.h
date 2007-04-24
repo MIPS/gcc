@@ -964,9 +964,9 @@ enum label_kind
 
 /* Force the REGNO macro to only be used on the lhs.  */
 inline static unsigned int
-rhs_regno (rtx tree)
+rhs_regno (rtx x)
 {
-  return XCUINT (tree, 0, REG);
+  return XCUINT (x, 0, REG);
 }
 
 
