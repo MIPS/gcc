@@ -68,7 +68,7 @@ gsi_end_p (gimple_stmt_iterator i)
 static inline bool
 gsi_one_before_end_p (gimple_stmt_iterator i)
 {
-  return *i.ptr != NULL && GS_NEXT (*i.ptr) == NULL;
+  return i.ptr == &GS_SEQ_LAST (i.seq);
 }
 
 /* Return the next gimple statement in I.  */

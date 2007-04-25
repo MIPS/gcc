@@ -1,5 +1,9 @@
 2007-04-25  Aldy Hernandez  <aldyh@redhat.com>
 
+        * gimple-iterator.h (gsi_one_before_end_p): Use GS_SEQ_LAST.
+
+2007-04-25  Aldy Hernandez  <aldyh@redhat.com>
+
 	* gimple-iterator.h: New file.
 
 2007-04-23  Aldy Hernandez  <aldyh@redhat.com>
