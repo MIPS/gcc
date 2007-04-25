@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package gnu.java.awt.font.opentype;
 
+import gnu.java.awt.font.opentype.truetype.Zone;
+
 import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Point2D;
@@ -88,7 +90,8 @@ public abstract class Scaler
                                          float pointSize,
                                          AffineTransform transform,
                                          boolean antialias,
-                                         boolean fractionalMetrics);
+                                         boolean fractionalMetrics,
+                                         Hinter hinter, int type);
 
 
   /**
@@ -189,4 +192,14 @@ public abstract class Scaler
                                    boolean antialiased,
                                    boolean fractionalMetrics,
                                    boolean horizontal);
+
+  /**
+   * Returns the raw outline data. This is used for the autofitter atm.
+   *
+   * @param glyph the glyph index
+   * @param transform the transform to apply
+   *
+   * @return the raw glyph outline
+   */
+  public abstract Zone getRawOutline(int glyph, AffineTransform transform);
 }

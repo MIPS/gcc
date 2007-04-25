@@ -5,36 +5,36 @@ JAVA_DEPEND = java.dep
 ## this file and restart the make process again
 sinclude $(JAVA_DEPEND)
 
-propertydirs :=  $(shell cd $(top_srcdir)/resource && $(FIND) gnu java javax org META-INF -type d ! -name CVS -print)
 propertyfiles :=  $(shell cd $(top_srcdir)/resource && $(FIND) gnu java javax org -name \*\.properties -print)
+cssfiles := $(shell cd $(top_srcdir) && $(FIND) gnu java javax org -name \*\.css -print)
 metafiles :=  $(shell cd $(top_srcdir)/resource && $(FIND) META-INF -name CVS -prune -o -name \*\.in -prune -o -type f -print)
 iconfiles :=  $(shell cd $(top_srcdir) && $(FIND) gnu/javax/swing/plaf/gtk/icons -name *.png -type f -print)
 
-compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:$(top_srcdir)/external/relaxngDatatype:.:$(USER_CLASSLIB):$(PATH_TO_ESCHER)
+compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:$(top_srcdir)/external/relaxngDatatype:$(top_srcdir)/external/jsr166:.:$(USER_CLASSLIB):$(PATH_TO_ESCHER)
 
 # handling source to bytecode compiler programs like gcj, jikes  and kjc
-if FOUND_GCJ
+if FOUND_ECJ
+JCOMPILER = $(ECJ) -1.5 -warn:-deprecation,serial,typeHiding,unchecked,unused,varargsCast -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
+else
+if FOUND_JAVAC
+JCOMPILER = $(JAVAC) -bootclasspath '' -classpath $(compile_classpath) -d . @classes
+#else
+#if FOUND_GCJ
 ## This should never be used when gcj is the compiler.
 ## See the compile-classes target.
-JAVAC = exit 1
-else
-if FOUND_JIKES
-JAVAC = $(JIKES) $(JIKESWARNINGS) +F $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(compile_classpath) -d . @classes
-else
-if FOUND_KJC
-## FIXME: from what I can tell, kjc does not support a -encoding option.
-JAVAC = $(KJC) -classpath .:$(USER_CLASSLIB) -d . @classes
-else
-if FOUND_GCJX
-JAVAC = $(GCJX) -g -encoding UTF-8 -classpath .:$(USER_CLASSLIB) -d . @classes
-else
-if FOUND_ECJ
-JAVAC = $(ECJ) -source 1.4 -encoding UTF-8 -warn:-deprecation,serial,unused -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
+#JCOMPILER = exit 1
+#else
+#if FOUND_JIKES
+#JCOMPILER = $(JIKES) $(JIKESWARNINGS) +F $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(compile_classpath) -d . @classes
+#else
+#if FOUND_KJC
+### FIXME: from what I can tell, kjc does not support a -encoding option.
+#JCOMPILER = $(KJC) -classpath .:$(USER_CLASSLIB) -d . @classes
+#endif # FOUND_KJC
+#endif # FOUND_GCJ
+#endif # FOUND_JIKES
+endif # FOUND_JAVAC
 endif # FOUND_ECJ
-endif # FOUND_GCJX
-endif # FOUND_KJC
-endif # FOUND_GCJ
-endif # FOUND_JIKES
 
 JAVAH = $(USER_JAVAH) -jni -classpath .:$(USER_CLASSLIB)
 
@@ -43,11 +43,11 @@ COLLECTIONS = collections.jar
 
 collections.jar: mkcollections.pl
 	./mkcollections.pl $(top_srcdir)
-if FOUND_GCJ
-	$(GCJ) -C `$(FIND) $(COLLECTIONS_PREFIX) -name '*.java' -type f -print`
-else
-	$(JAVAC) `$(FIND) $(COLLECTIONS_PREFIX) -name '*.java' -type f -print`
-endif
+#if FOUND_GCJ
+#	$(GCJ) -C `$(FIND) $(COLLECTIONS_PREFIX) -name '*.java' -type f -print`
+#else
+	$(JCOMPILER) `$(FIND) $(COLLECTIONS_PREFIX) -name '*.java' -type f -print`
+#endif
 	if test "$(FASTJAR)" != ""; then \
 	  $(FASTJAR) cf $@ $(COLLECTIONS_PREFIX); \
 	else \
@@ -103,21 +103,25 @@ glibj.zip: classes compile-classes resources
 endif # USE_PREBUILT_GLIBJ_ZIP
 
 resources: copy-vmresources.sh
-	if ! [ -e gnu ]; then mkdir gnu; fi
-	if ! [ -e gnu/java ]; then mkdir gnu/java; fi
-	if ! [ -e gnu/java/locale ]; then mkdir gnu/java/locale; fi
-	if ! [ -e gnu/javax/swing/plaf/gtk/icons ]; then mkdir -p gnu/javax/swing/plaf/gtk/icons; fi
-	@list='$(propertydirs)'; for p in $$list; do \
-	  if ! [ -e $$p ]; then mkdir $$p; fi; \
-	done
 	@list='$(propertyfiles)'; for p in $$list; do \
+          dirname=`dirname $$p`; \
+          if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
 	  cp $(top_srcdir)/resource/$$p $$p; \
 	done
+	@list='$(cssfiles)'; for p in $$list; do \
+          dirname=`dirname $$p`; \
+          if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
+	  cp $(top_srcdir)/$$p $$p; \
+	done
 	@list='$(metafiles)'; for p in $$list; do \
+          dirname=`dirname $$p`; \
+          if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
 	  cp $(top_srcdir)/resource/$$p $$p; \
 	done
 	@$(SHELL) ./copy-vmresources.sh
 	@list='$(iconfiles)'; for p in $$list; do \
+          dirname=`dirname $$p`; \
+          if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
 	  cp $(top_srcdir)/$$p $$p; \
 	done
 	touch resources
@@ -148,22 +152,22 @@ endif # REGEN_PARSER
 
 $(JAVA_DEPEND): genclasses
 
-if FOUND_GCJ
+#if FOUND_GCJ
 ## When building with gcj, we do a recursive make.  We split this rule
 ## out specially, rather than simply defining JAVAC, so that GNU make
 ## will see the recursive make invocation and still allow parallel
 ## builds.
+#compile-classes: classes $(JAVA_SRCS) Makefile
+#	$(MAKE) -f $(srcdir)/Makefile.gcj \
+#	  GCJ='$(GCJ)' \
+#	  compile_classpath='$(top_builddir):$(compile_classpath)' \
+#	  top_srcdir=$(top_srcdir)
+#   	  touch compile-classes
+#else
 compile-classes: classes $(JAVA_SRCS) Makefile
-	$(MAKE) -f $(srcdir)/Makefile.gcj \
-	  GCJ='$(GCJ)' \
-	  compile_classpath='$(top_builddir):$(compile_classpath)' \
-	  top_srcdir=$(top_srcdir)
+	$(JCOMPILER)
 	touch compile-classes
-else
-compile-classes: classes $(JAVA_SRCS) Makefile
-	$(JAVAC)
-	touch compile-classes
-endif
+#endif
 
 EXTRA_DIST = standard.omit.in mkcollections.pl.in Makefile.gcj split-for-gcj.sh
 CLEANFILES = compile-classes resources classes \

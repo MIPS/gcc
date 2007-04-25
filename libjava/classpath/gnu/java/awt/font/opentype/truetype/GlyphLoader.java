@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package gnu.java.awt.font.opentype.truetype;
 
+import gnu.java.awt.font.opentype.Hinter;
+
 import java.awt.geom.AffineTransform;
 import java.nio.ByteBuffer;
 
@@ -112,13 +114,18 @@ final class GlyphLoader
                         double pointSize,
                         AffineTransform transform,
                         boolean antialias,
-                        Zone glyphZone)
+                        Zone glyphZone, Hinter hinter)
   {
     glyphZone.setNumPoints(4);
     loadSubGlyph(glyphIndex, pointSize, transform, antialias, glyphZone,
-                 0, 0);
+                 0, 0, hinter);
   }
 
+  public void loadGlyph(int glyphIndex, AffineTransform transform,
+                        Zone glyphZone, Hinter hinter)
+  {
+    loadGlyph(glyphIndex, unitsPerEm, transform, false, glyphZone, hinter);
+  }
 
   private void loadSubGlyph(int glyphIndex,
                             double pointSize,
@@ -126,7 +133,8 @@ final class GlyphLoader
                             boolean antialias,
                             Zone glyphZone,
                             int preTranslateX,
-                            int preTranslateY)
+                            int preTranslateY,
+                            Hinter hinter)
   {
     ByteBuffer glyph;
     int numContours;
@@ -154,11 +162,11 @@ final class GlyphLoader
     if (numContours >= 0)
       loadSimpleGlyph(glyphIndex, pointSize, transform, antialias,
                       numContours, glyph, glyphZone,
-                      preTranslateX, preTranslateY);
+                      preTranslateX, preTranslateY, hinter);
     else
       loadCompoundGlyph(glyphIndex, pointSize, transform, antialias,
                         glyph, glyphZone,
-                        preTranslateX, preTranslateY);
+                        preTranslateX, preTranslateY, hinter);
   }
 
 
@@ -167,7 +175,8 @@ final class GlyphLoader
                                boolean antialias,
                                int numContours, ByteBuffer glyph,
                                Zone glyphZone,
-                               int preTranslateX, int preTranslateY)
+                               int preTranslateX, int preTranslateY,
+                               Hinter hinter)
   {
     int numPoints;
     int posInstructions, numInstructions;
@@ -198,10 +207,10 @@ final class GlyphLoader
     glyphZone.transform(pointSize, transform, unitsPerEm,
                         preTranslateX, preTranslateY);
 
-    if (execInstructions)
-    {
-      // FIXME: Hint the glyph.
-    }
+    if (execInstructions && hinter != null)
+      {
+        hinter.applyHints(glyphZone);
+      }
   }
 
 
@@ -224,7 +233,8 @@ final class GlyphLoader
                                  boolean antialias,
                                  ByteBuffer glyph,
                                  Zone glyphZone,
-                                 int preTranslateX, int preTranslateY)
+                                 int preTranslateX, int preTranslateY,
+                                 Hinter hinter)
   {
     short flags;
     int subGlyphIndex;
@@ -321,7 +331,7 @@ final class GlyphLoader
       loadSubGlyph(subGlyphIndex, pointSize, componentTransform,
                    antialias, subGlyphZone,
                    Math.round((float) e + preTranslateX),
-                   Math.round(-((float) f + preTranslateY)));
+                   Math.round(-((float) f + preTranslateY)), hinter);
       glyphZone.combineWithSubGlyph(subGlyphZone, 4);
       glyph.limit(lim).position(pos);
     }

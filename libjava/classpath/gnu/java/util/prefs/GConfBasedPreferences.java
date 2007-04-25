@@ -41,7 +41,6 @@ import gnu.java.util.prefs.gconf.GConfNativePeer;
 
 import java.security.Permission;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.prefs.AbstractPreferences;
 import java.util.prefs.BackingStoreException;
@@ -72,7 +71,6 @@ import java.util.prefs.BackingStoreException;
  * <br />
  * 
  * @author Mario Torre <neugens@limasoftware.net>
- * @version 1.0.1
  */
 public class GConfBasedPreferences
     extends AbstractPreferences
@@ -136,12 +134,20 @@ public class GConfBasedPreferences
         absolutePath = absolutePath.substring(0, absolutePath.length() - 1);
       }
 
+    // strip invalid characters
+    // please, note that all names are unescaped into the native peer
+    int index = absolutePath.lastIndexOf('/');
+    if (index > -1)
+      {
+        absolutePath = absolutePath.substring(0, index + 1);
+        absolutePath = absolutePath + GConfNativePeer.escapeString(name);
+      }
+    
     this.node = this.getRealRoot(isUser) + absolutePath;
 
     boolean nodeExist = backend.nodeExist(this.node);
 
     this.newNode = !nodeExist;
-    backend.startWatchingNode(this.node);
   }
 
   /**
@@ -156,7 +162,15 @@ public class GConfBasedPreferences
     // we don't check anything here, if the node is a new node this will be
     // detected in the constructor, so we simply return a new reference to
     // the requested node.
-    return new GConfBasedPreferences(this, name, this.isUser);
+    
+    GConfBasedPreferences preferenceNode
+      = new GConfBasedPreferences(this, name, this.isUser);
+    
+    // register the node for to GConf so that it can listen
+    // events outside the scope of the application
+    backend.startWatchingNode(this.node);
+    
+    return preferenceNode;
   }
 
   /**
@@ -170,7 +184,7 @@ public class GConfBasedPreferences
    */
   protected String[] childrenNamesSpi() throws BackingStoreException
   {
-    List nodeList = backend.getChildrenNodes(this.node);
+    List<String> nodeList = backend.getChildrenNodes(this.node);
     String[] nodes = new String[nodeList.size()];
     nodeList.toArray(nodes);
 
@@ -213,7 +227,7 @@ public class GConfBasedPreferences
    */
   protected String[] keysSpi() throws BackingStoreException
   {
-    List keyList = backend.getKeys(this.node);
+    List<String> keyList = backend.getKeys(this.node);
     String[] keys = new String[keyList.size()];
     keyList.toArray(keys);
 
@@ -231,31 +245,24 @@ public class GConfBasedPreferences
     try
       {
         // gets the listing of directories in this node
-        List dirs = backend.getChildrenNodes(directory);
+        List<String> dirs = backend.getChildrenNodes(directory);
 
         if (dirs.size() != 0)
           {
-            String currentDir = null;
-
-            for (Iterator itr = dirs.iterator(); itr.hasNext();)
+            for (String currentDir : dirs)
               {
-                currentDir = (String) itr.next();
-
                 // recursive search inside this directory
                 postorderRemove(currentDir);
               }
           }
 
         // remove all the keys associated to this directory
-        List entries = backend.getKeys(directory);
+        List<String> entries = backend.getKeys(directory);
 
         if (entries.size() != 0)
           {
-            String key = null;
-
-            for (Iterator keys = entries.iterator(); keys.hasNext();)
+            for (String key : entries)
               {
-                key = (String) keys.next();
                 this.removeSpi(key);
               }
           }
@@ -365,6 +372,10 @@ public class GConfBasedPreferences
   {
     String nodeName = "";
     
+    // strip key
+    // please, note that all names are unescaped into the native peer
+    key = GConfNativePeer.escapeString(key);
+    
     if (this.node.endsWith("/"))
       {
         nodeName = this.node + key;
@@ -373,7 +384,7 @@ public class GConfBasedPreferences
       {
         nodeName = this.node + "/" + key;
       }
-
+    
     return nodeName;
   }
 

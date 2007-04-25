@@ -39,7 +39,8 @@ exception statement from your version. */
 
 package java.io;
 
-import gnu.java.io.ObjectIdentityWrapper;
+import gnu.classpath.Pair;
+import gnu.classpath.VMStackWalker;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
@@ -50,11 +51,19 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.TreeSet;
-import java.util.Vector;
 
+/**
+ * @author Tom Tromey (tromey@redhat.com)
+ * @author Jeroen Frijters (jeroen@frijters.net)
+ * @author Guilhem Lavaux (guilhem@kaffe.org)
+ * @author Michael Koch (konqueror@gmx.de)
+ * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
+ */
 public class ObjectInputStream extends InputStream
   implements ObjectInput, ObjectStreamConstants
 {
@@ -97,8 +106,8 @@ public class ObjectInputStream extends InputStream
     this.blockDataInput = new DataInputStream(this);
     this.realInputStream = new DataInputStream(in);
     this.nextOID = baseWireHandle;
-    this.objectLookupTable = new Hashtable();
-    this.classLookupTable = new Hashtable();
+    handles = new HashMap<Integer,Pair<Boolean,Object>>();
+    this.classLookupTable = new Hashtable<Class,ObjectStreamClass>();
     setBlockDataMode(true);
     readStreamHeader();
   }
@@ -125,6 +134,70 @@ public class ObjectInputStream extends InputStream
   public final Object readObject()
     throws ClassNotFoundException, IOException
   {
+    return readObject(true);
+  }
+
+  /**
+   * <p>
+   * Returns the next deserialized object read from the
+   * underlying stream in an unshared manner.  Any object
+   * returned by this method will not be returned by
+   * subsequent calls to either this method or {@link #readObject()}.
+   * </p>
+   * <p>
+   * This behaviour is achieved by:
+   * </p>
+   * <ul>
+   * <li>Marking the handles created by successful calls to this
+   * method, so that future calls to {@link #readObject()} or
+   * {@link #readUnshared()} will throw an {@link ObjectStreamException}
+   * rather than returning the same object reference.</li>
+   * <li>Throwing an {@link ObjectStreamException} if the next
+   * element in the stream is a reference to an earlier object.</li>
+   * </ul>
+   *
+   * @return a reference to the deserialized object.
+   * @throws ClassNotFoundException if the class of the object being
+   *                                deserialized can not be found.
+   * @throws StreamCorruptedException if information in the stream
+   *                                  is inconsistent.
+   * @throws ObjectStreamException if the next object has already been
+   *                               returned by an earlier call to this
+   *                               method or {@link #readObject()}.
+   * @throws OptionalDataException if primitive data occurs next in the stream.
+   * @throws IOException if an I/O error occurs from the stream.
+   * @since 1.4
+   * @see #readObject()
+   */
+  public Object readUnshared()
+    throws IOException, ClassNotFoundException
+  {
+    return readObject(false);
+  }
+
+  /**
+   * Returns the next deserialized object read from the underlying stream.
+   *
+   * This method can be overriden by a class by implementing
+   * <code>private void readObject (ObjectInputStream)</code>.
+   *
+   * If an exception is thrown from this method, the stream is left in
+   * an undefined state. This method can also throw Errors and 
+   * RuntimeExceptions if caused by existing readResolve() user code.
+   * 
+   * @param shared true if handles created by this call should be shared
+   *               with later calls.
+   * @return The object read from the underlying stream.
+   *
+   * @exception ClassNotFoundException The class that an object being
+   * read in belongs to cannot be found.
+   *
+   * @exception IOException Exception from underlying
+   * <code>InputStream</code>.
+   */
+  private final Object readObject(boolean shared)
+    throws ClassNotFoundException, IOException
+  {
     if (this.useSubclassMethod)
       return readObjectOverride();
 
@@ -139,7 +212,7 @@ public class ObjectInputStream extends InputStream
 
     try
       {
- 	ret_val = parseContent(marker);
+ 	ret_val = parseContent(marker, shared);
       }
     finally
       {
@@ -156,13 +229,15 @@ public class ObjectInputStream extends InputStream
     * byte indicating its type.
     *
     * @param marker the byte marker.
+    * @param shared true if handles created by this call should be shared
+    *               with later calls.
     * @return an object which represents the parsed content.
     * @throws ClassNotFoundException if the class of an object being
     *                                read in cannot be found.
     * @throws IOException if invalid data occurs or one is thrown by the
     *                     underlying <code>InputStream</code>.
     */
-   private Object parseContent(byte marker)
+   private Object parseContent(byte marker, boolean shared)
      throws ClassNotFoundException, IOException
    {
      Object ret_val;
@@ -197,10 +272,12 @@ public class ObjectInputStream extends InputStream
        case TC_REFERENCE:
  	{
  	  if(dump) dumpElement("REFERENCE ");
- 	  Integer oid = new Integer(this.realInputStream.readInt());
- 	  if(dump) dumpElementln(Integer.toHexString(oid.intValue()));
- 	  ret_val = ((ObjectIdentityWrapper)
- 		     this.objectLookupTable.get(oid)).object;
+ 	  int oid = realInputStream.readInt();
+ 	  if(dump) dumpElementln(Integer.toHexString(oid));
+ 	  ret_val = lookupHandle(oid);
+	  if (!shared)
+	    throw new
+	      InvalidObjectException("References can not be read unshared.");
  	  break;
  	}
  	
@@ -209,7 +286,7 @@ public class ObjectInputStream extends InputStream
  	  if(dump) dumpElementln("CLASS");
  	  ObjectStreamClass osc = (ObjectStreamClass)readObject();
  	  Class clazz = osc.forClass();
- 	  assignNewHandle(clazz);
+ 	  assignNewHandle(clazz,shared);
  	  ret_val = clazz;
  	  break;
  	}
@@ -244,7 +321,7 @@ public class ObjectInputStream extends InputStream
                     new InternalError("Object ctor missing").initCause(x);
                 }
             }
- 	  assignNewHandle(osc);
+ 	  assignNewHandle(osc,shared);
  	  
  	  if (!is_consumed)
  	    {
@@ -284,7 +361,8 @@ public class ObjectInputStream extends InputStream
  	  if(dump) dumpElement("STRING=");
  	  String s = this.realInputStream.readUTF();
  	  if(dump) dumpElementln(s);
- 	  ret_val = processResolution(null, s, assignNewHandle(s));
+ 	  ret_val = processResolution(null, s, assignNewHandle(s,shared),
+				      shared);
  	  break;
  	}
  
@@ -297,12 +375,12 @@ public class ObjectInputStream extends InputStream
  	  int length = this.realInputStream.readInt();
  	  if(dump) dumpElementln (length + "; COMPONENT TYPE=" + componentType);
  	  Object array = Array.newInstance(componentType, length);
- 	  int handle = assignNewHandle(array);
+ 	  int handle = assignNewHandle(array,shared);
  	  readArrayElements(array, componentType);
  	  if(dump)
  	    for (int i = 0, len = Array.getLength(array); i < len; i++)
  	      dumpElementln("  ELEMENT[" + i + "]=" + Array.get(array, i));
- 	  ret_val = processResolution(null, array, handle);
+ 	  ret_val = processResolution(null, array, handle, shared);
  	  break;
  	}
  	
@@ -320,7 +398,7 @@ public class ObjectInputStream extends InputStream
 	    {
  	      Externalizable obj = osc.newInstance();
 	      
- 	      int handle = assignNewHandle(obj);
+ 	      int handle = assignNewHandle(obj,shared);
 	      
  	      boolean read_from_blocks = ((osc.getFlags() & SC_BLOCK_DATA) != 0);
 	      
@@ -338,22 +416,22 @@ public class ObjectInputStream extends InputStream
  		      throw new IOException("No end of block data seen for class with readExternal (ObjectInputStream) method.");
 		}
 
- 	      ret_val = processResolution(osc, obj, handle);
+ 	      ret_val = processResolution(osc, obj, handle,shared);
               break;
 	      
  	    } // end if (osc.realClassIsExternalizable)
  	  
  	  Object obj = newObject(clazz, osc.firstNonSerializableParentConstructor);
  	  
- 	  int handle = assignNewHandle(obj);
+ 	  int handle = assignNewHandle(obj,shared);
  	  Object prevObject = this.currentObject;
  	  ObjectStreamClass prevObjectStreamClass = this.currentObjectStreamClass;
-	  TreeSet prevObjectValidators = this.currentObjectValidators;
+	  TreeSet<ValidatorAndPriority> prevObjectValidators =
+	    this.currentObjectValidators;
  	  
  	  this.currentObject = obj;
 	  this.currentObjectValidators = null;
- 	  ObjectStreamClass[] hierarchy =
- 	    inputGetObjectStreamClasses(clazz);
+ 	  ObjectStreamClass[] hierarchy = hierarchy(clazz);
  	  
  	  for (int i = 0; i < hierarchy.length; i++)      
           {
@@ -387,7 +465,7 @@ public class ObjectInputStream extends InputStream
  		      byte writeMarker = this.realInputStream.readByte();
  		      while (writeMarker != TC_ENDBLOCKDATA)
 			{	
- 			  parseContent(writeMarker);
+ 			  parseContent(writeMarker, shared);
  			  writeMarker = this.realInputStream.readByte();
 			}
  		      if(dump) dumpElementln("yes");
@@ -402,7 +480,7 @@ public class ObjectInputStream extends InputStream
  	  
  	  this.currentObject = prevObject;
  	  this.currentObjectStreamClass = prevObjectStreamClass;
- 	  ret_val = processResolution(osc, obj, handle);
+ 	  ret_val = processResolution(osc, obj, handle, shared);
 	  if (currentObjectValidators != null)
 	    invokeValidators();
 	  this.currentObjectValidators = prevObjectValidators;
@@ -436,7 +514,7 @@ public class ObjectInputStream extends InputStream
 	     dumpElementln("CONSTANT NAME = " + constantName);
 	   Class clazz = osc.forClass();
 	   Enum instance = Enum.valueOf(clazz, constantName);
-	   assignNewHandle(instance);
+	   assignNewHandle(instance,shared);
 	   ret_val = instance;
 	   break;
 	 }
@@ -537,10 +615,8 @@ public class ObjectInputStream extends InputStream
     ObjectStreamField[] fields = new ObjectStreamField[field_count];
     ObjectStreamClass osc = new ObjectStreamClass(name, uid,
 						  flags, fields);
-    assignNewHandle(osc);
+    assignNewHandle(osc,true);
 
-    ClassLoader callersClassLoader = currentLoader();
-	      
     for (int i = 0; i < field_count; i++)
       {
 	if(dump) dumpElement("  TYPE CODE=");
@@ -560,12 +636,17 @@ public class ObjectInputStream extends InputStream
 	  class_name = String.valueOf(type_code);
 		  
 	fields[i] =
-	  new ObjectStreamField(field_name, class_name, callersClassLoader);
+	  new ObjectStreamField(field_name, class_name);
       }
 	      
     /* Now that fields have been read we may resolve the class
      * (and read annotation if needed). */
     Class clazz = resolveClass(osc);
+    ClassLoader loader = clazz.getClassLoader();
+    for (int i = 0; i < field_count; i++)
+      {
+        fields[i].resolveType(loader);
+      }
     boolean oldmode = setBlockDataMode(true);
     osc.setClass(clazz, lookupClass(clazz.getSuperclass()));
     classLookupTable.put(clazz, osc);
@@ -753,7 +834,7 @@ public class ObjectInputStream extends InputStream
 				       + "ObjectInputValidation object");
 
     if (currentObjectValidators == null)
-      currentObjectValidators = new TreeSet();
+      currentObjectValidators = new TreeSet<ValidatorAndPriority>();
     
     currentObjectValidators.add(new ValidatorAndPriority(validator, priority));
   }
@@ -775,7 +856,7 @@ public class ObjectInputStream extends InputStream
    *
    * @see java.io.ObjectOutputStream#annotateClass (java.lang.Class)
    */
-  protected Class resolveClass(ObjectStreamClass osc)
+  protected Class<?> resolveClass(ObjectStreamClass osc)
     throws ClassNotFoundException, IOException
   {
     String name = osc.getName();
@@ -814,7 +895,7 @@ public class ObjectInputStream extends InputStream
    */
   private ClassLoader currentLoader()
   {
-    return VMObjectInputStream.currentClassLoader();
+    return VMStackWalker.firstNonNullClassLoader();
   }
 
   /**
@@ -842,41 +923,20 @@ public class ObjectInputStream extends InputStream
   }
 
   /**
-   * Reconstruct class hierarchy the same way
-   * {@link java.io.ObjectStreamClass#getObjectStreamClasses(Class)} does
-   * but using lookupClass instead of ObjectStreamClass.lookup. This
-   * dup is necessary localize the lookup table. Hopefully some future
-   * rewritings will be able to prevent this.
+   * Reconstruct class hierarchy the same way {@link
+   * java.io.ObjectStreamClass#hierarchy} does but using lookupClass
+   * instead of ObjectStreamClass.lookup.
    *
    * @param clazz This is the class for which we want the hierarchy.
    *
    * @return An array of valid {@link java.io.ObjectStreamClass} instances which
    * represent the class hierarchy for clazz.
    */
-  private ObjectStreamClass[] inputGetObjectStreamClasses(Class clazz)
-  {
+  private ObjectStreamClass[] hierarchy(Class clazz)
+  { 
     ObjectStreamClass osc = lookupClass(clazz);
 
-    if (osc == null)
-      return new ObjectStreamClass[0];
-    else
-      {
-        Vector oscs = new Vector();
-
-        while (osc != null)
-          {
-            oscs.addElement(osc);
-            osc = osc.getSuper();
-	  }
-
-        int count = oscs.size();
-	ObjectStreamClass[] sorted_oscs = new ObjectStreamClass[count];
-
-        for (int i = count - 1; i >= 0; i--)
-          sorted_oscs[count - i - 1] = (ObjectStreamClass) oscs.elementAt(i);
-
-        return sorted_oscs;
-      }
+    return osc == null ? new ObjectStreamClass[0] : osc.hierarchy(); 
   }
 
   /**
@@ -898,12 +958,12 @@ public class ObjectInputStream extends InputStream
   }
 
 
-  protected Class resolveProxyClass(String[] intfs)
+  protected Class<?> resolveProxyClass(String[] intfs)
     throws IOException, ClassNotFoundException
   {
     ClassLoader cl = currentLoader();
     
-    Class[] clss = new Class[intfs.length];
+    Class<?>[] clss = new Class<?>[intfs.length];
     if(cl == null)
       {
 	for (int i = 0; i < intfs.length; i++)
@@ -1556,16 +1616,60 @@ public class ObjectInputStream extends InputStream
    * Assigns the next available handle to <code>obj</code>.
    *
    * @param obj The object for which we want a new handle.
+   * @param shared True if the handle should be shared
+   *               with later calls.
    * @return A valid handle for the specified object.
    */
-  private int assignNewHandle(Object obj)
+  private int assignNewHandle(Object obj, boolean shared)
   {
-    this.objectLookupTable.put(new Integer(this.nextOID),
-			       new ObjectIdentityWrapper(obj));
-    return this.nextOID++;
+    int handle = this.nextOID;
+    this.nextOID = handle + 1;
+    rememberHandle(obj,shared,handle);
+    return handle;
   }
 
-  private Object processResolution(ObjectStreamClass osc, Object obj, int handle)
+  /**
+   * Remember the object associated with the given handle.
+   *
+   * @param obj an object
+   * @param shared true if the reference should be shared
+   *               with later calls.
+   * @param handle a handle, must be >= baseWireHandle
+   *
+   * @see #lookupHandle
+   */
+  private void rememberHandle(Object obj, boolean shared,
+			      int handle)
+  {
+    handles.put(handle, new Pair<Boolean,Object>(shared, obj));
+  }
+  
+  /**
+   * Look up the object associated with a given handle.
+   *
+   * @param handle a handle, must be >= baseWireHandle
+   * @return the object remembered for handle or null if none.
+   * @throws StreamCorruptedException if the handle is invalid.
+   * @throws InvalidObjectException if the reference is not shared.
+   * @see #rememberHandle
+   */
+  private Object lookupHandle(int handle)
+    throws ObjectStreamException
+  {
+    Pair<Boolean,Object> result = handles.get(handle);
+    if (result == null)
+      throw new StreamCorruptedException("The handle, " + 
+					 Integer.toHexString(handle) +
+					 ", is invalid.");
+    if (!result.getLeft())
+      throw new InvalidObjectException("The handle, " + 
+				       Integer.toHexString(handle) +
+				       ", is not shared.");
+    return result.getRight();
+  }
+
+  private Object processResolution(ObjectStreamClass osc, Object obj, int handle,
+				   boolean shared)
     throws IOException
   {
     if (osc != null && obj instanceof Serializable)
@@ -1596,15 +1700,34 @@ public class ObjectInputStream extends InputStream
     if (this.resolveEnabled)
       obj = resolveObject(obj);
 
-    this.objectLookupTable.put(new Integer(handle),
-			       new ObjectIdentityWrapper(obj));
-
+    rememberHandle(obj, shared, handle);
+    if (!shared)
+      {
+	if (obj instanceof byte[])
+	  return ((byte[]) obj).clone();
+	if (obj instanceof short[])
+	  return ((short[]) obj).clone();
+	if (obj instanceof int[])
+	  return ((int[]) obj).clone();
+	if (obj instanceof long[])
+	  return ((long[]) obj).clone();
+	if (obj instanceof char[])
+	  return ((char[]) obj).clone();
+	if (obj instanceof boolean[])
+	  return ((boolean[]) obj).clone();
+	if (obj instanceof float[])
+	  return ((float[]) obj).clone();
+	if (obj instanceof double[])
+	  return ((double[]) obj).clone();
+	if (obj instanceof Object[])
+	  return ((Object[]) obj).clone();
+      }
     return obj;
   }
 
   private void clearHandles()
   {
-    this.objectLookupTable.clear();
+    handles.clear();
     this.nextOID = baseWireHandle;
   }
 
@@ -1875,10 +1998,10 @@ public class ObjectInputStream extends InputStream
   {
     try
       {
-	Iterator it = currentObjectValidators.iterator();
+	Iterator<ValidatorAndPriority> it = currentObjectValidators.iterator();
 	while(it.hasNext())
 	  {
-	    ValidatorAndPriority vap = (ValidatorAndPriority) it.next();
+	    ValidatorAndPriority vap = it.next();
 	    ObjectInputValidation validator = vap.validator;
 	    validator.validateObject();
 	  }
@@ -1931,13 +2054,13 @@ public class ObjectInputStream extends InputStream
   private boolean useSubclassMethod;
   private int nextOID;
   private boolean resolveEnabled;
-  private Hashtable objectLookupTable;
+  private Map<Integer,Pair<Boolean,Object>> handles;
   private Object currentObject;
   private ObjectStreamClass currentObjectStreamClass;
-  private TreeSet currentObjectValidators;
+  private TreeSet<ValidatorAndPriority> currentObjectValidators;
   private boolean readDataFromBlock;
   private boolean fieldsAlreadyRead;
-  private Hashtable classLookupTable;
+  private Hashtable<Class,ObjectStreamClass> classLookupTable;
   private GetField prereadFields;
 
   private static boolean dump;

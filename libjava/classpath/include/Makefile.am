@@ -75,7 +75,6 @@ $(top_srcdir)/include/gnu_java_awt_peer_gtk_GtkTextFieldPeer.h \
 $(top_srcdir)/include/gnu_java_awt_peer_gtk_GtkToolkit.h \
 $(top_srcdir)/include/gnu_java_awt_peer_gtk_GtkWindowPeer.h \
 $(top_srcdir)/include/gnu_java_awt_peer_gtk_GtkVolatileImage.h \
-$(top_srcdir)/include/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.h \
 $(top_srcdir)/include/GtkDragSourceContextPeer.h
 
 QTPEER_H_FILES = \
@@ -125,15 +124,17 @@ $(XMLJ_H_FILES) \
 $(GTKPEER_H_FILES) \
 $(QTPEER_H_FILES) \
 $(GCONF_PREFS_FILES) \
-$(top_srcdir)/include/gnu_java_net_VMPlainDatagramSocketImpl.h \
 $(top_srcdir)/include/gnu_java_net_VMPlainSocketImpl.h \
 $(top_srcdir)/include/gnu_java_net_local_LocalSocketImpl.h \
+$(top_srcdir)/include/gnu_java_nio_EpollSelectorImpl.h \
+$(top_srcdir)/include/gnu_java_nio_FileChannelImpl.h \
+$(top_srcdir)/include/gnu_java_nio_KqueueSelectorImpl.h \
 $(top_srcdir)/include/gnu_java_nio_VMChannel.h \
 $(top_srcdir)/include/gnu_java_nio_VMPipe.h \
 $(top_srcdir)/include/gnu_java_nio_VMSelector.h \
-$(top_srcdir)/include/gnu_java_nio_channels_FileChannelImpl.h \
 $(top_srcdir)/include/gnu_java_nio_charset_iconv_IconvEncoder.h \
 $(top_srcdir)/include/gnu_java_nio_charset_iconv_IconvDecoder.h \
+$(top_srcdir)/include/gnu_java_lang_management_VMOperatingSystemMXBeanImpl.h \
 $(top_srcdir)/include/java_io_VMFile.h \
 $(top_srcdir)/include/java_io_VMObjectInputStream.h \
 $(top_srcdir)/include/java_io_VMObjectStreamClass.h \
@@ -178,8 +179,6 @@ $(top_srcdir)/include/gnu_javax_sound_midi_dssi_%.h: $(top_builddir)/$(CLASSDIR)
 $(top_srcdir)/include/gnu_java_util_prefs_gconf_%.h: $(top_builddir)/$(CLASSDIR)/gnu/java/util/prefs/gconf/%.class
 	$(JAVAH) -o $@ gnu.java.util.prefs.gconf.$*
 
-$(top_srcdir)/include/gnu_java_net_VMPlainDatagramSocketImpl.h: $(top_srcdir)/vm/reference/gnu/java/net/VMPlainDatagramSocketImpl.java
-	$(JAVAH) -o $@ gnu.java.net.VMPlainDatagramSocketImpl
 $(top_srcdir)/include/gnu_java_net_VMPlainSocketImpl.h: $(top_srcdir)/vm/reference/gnu/java/net/VMPlainSocketImpl.java
 	$(JAVAH) -o $@ gnu.java.net.VMPlainSocketImpl
 $(top_srcdir)/include/gnu_java_net_local_LocalSocketImpl.h: $(top_srcdir)/gnu/java/net/local/LocalSocketImpl.java
@@ -190,6 +189,8 @@ $(top_srcdir)/include/gnu_java_nio_VMPipe.h: $(top_srcdir)/vm/reference/gnu/java
 	$(JAVAH) -o $@ gnu.java.nio.VMPipe
 $(top_srcdir)/include/gnu_java_nio_VMSelector.h: $(top_srcdir)/vm/reference/gnu/java/nio/VMSelector.java
 	$(JAVAH) -o $@ gnu.java.nio.VMSelector
+$(top_srcdir)/include/gnu_java_lang_management_VMOperatingSystemMXBeanImpl.h: $(top_srcdir)/vm/reference/gnu/java/lang/management/VMOperatingSystemMXBeanImpl.java
+	$(JAVAH) -o $@ gnu.java.lang.management.VMOperatingSystemMXBeanImpl
 $(top_srcdir)/include/java_io_VMFile.h: $(top_srcdir)/vm/reference/java/io/VMFile.java
 	$(JAVAH) -o $@ java.io.VMFile
 $(top_srcdir)/include/java_io_VMObjectInputStream.h: $(top_srcdir)/vm/reference/java/io/VMObjectInputStream.java
@@ -214,12 +215,21 @@ $(top_srcdir)/include/java_net_VMNetworkInterface.h: $(top_srcdir)/vm/reference/
 	$(JAVAH) -o $@ java.net.VMNetworkInterface
 $(top_srcdir)/include/java_net_VMURLConnection.h: $(top_srcdir)/vm/reference/java/net/VMURLConnection.java
 	$(JAVAH) -o $@ java.net.VMURLConnection
+
 $(top_srcdir)/include/java_nio_VMDirectByteBuffer.h: $(top_srcdir)/vm/reference/java/nio/VMDirectByteBuffer.java
 	$(JAVAH) -o $@ java.nio.VMDirectByteBuffer
 $(top_srcdir)/include/java_nio_MappedByteBufferImpl.h: $(top_srcdir)/java/nio/MappedByteBufferImpl.java
 	$(JAVAH) -o $@ java.nio.MappedByteBufferImpl
-$(top_srcdir)/include/gnu_java_nio_channels_FileChannelImpl.h: $(top_srcdir)/gnu/java/nio/channels/FileChannelImpl.java
-	$(JAVAH) -o $@ gnu.java.nio.channels.FileChannelImpl
+
+$(top_srcdir)/include/gnu_java_nio_FileChannelImpl.h: $(top_srcdir)/gnu/java/nio/FileChannelImpl.java
+	$(JAVAH) -o $@ gnu.java.nio.FileChannelImpl
+
+$(top_srcdir)/include/gnu_java_nio_KqueueSelectorImpl.h: $(top_srcdir)/gnu/java/nio/KqueueSelectorImpl.java
+	$(JAVAH) -o $@ gnu.java.nio.KqueueSelectorImpl
+
+$(top_srcdir)/include/gnu_java_nio_EpollSelectorImpl.h: $(top_srcdir)/gnu/java/nio/EpollSelectorImpl.java
+	$(JAVAH) -o $@ gnu.java.nio.EpollSelectorImpl
+
 $(top_srcdir)/include/gnu_java_nio_charset_iconv_IconvDecoder.h: $(top_srcdir)/gnu/java/nio/charset/iconv/IconvDecoder.java
 	$(JAVAH) -o $@ gnu.java.nio.charset.iconv.IconvDecoder
 $(top_srcdir)/include/gnu_java_nio_charset_iconv_IconvEncoder.h: $(top_srcdir)/gnu/java/nio/charset/iconv/IconvEncoder.java

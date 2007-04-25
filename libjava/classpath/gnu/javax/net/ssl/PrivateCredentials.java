@@ -1,5 +1,5 @@
 /* PrivateCredentials.java -- private key/certificate pairs.
-   Copyright (C) 2006  Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007  Free Software Foundation, Inc.
 
 This file is a part of GNU Classpath.
 
@@ -38,8 +38,6 @@ exception statement from your version.  */
 
 package gnu.javax.net.ssl;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.InputStream;
 import java.io.IOException;
@@ -51,6 +49,7 @@ import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Security;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -79,6 +78,7 @@ import gnu.javax.crypto.pad.WrongPaddingException;
 
 import gnu.java.security.der.DER;
 import gnu.java.security.der.DERReader;
+import gnu.java.util.Base64;
 
 /**
  * An instance of a manager factory parameters for holding a single
@@ -95,16 +95,16 @@ public class PrivateCredentials implements ManagerFactoryParameters
   public static final String BEGIN_RSA = "-----BEGIN RSA PRIVATE KEY";
   public static final String END_RSA   = "-----END RSA PRIVATE KEY";
 
-  private List privateKeys;
-  private List certChains;
+  private List<PrivateKey> privateKeys;
+  private List<X509Certificate[]> certChains;
 
   // Constructor.
   // -------------------------------------------------------------------------
 
   public PrivateCredentials()
   {
-    privateKeys = new LinkedList();
-    certChains = new LinkedList();
+    privateKeys = new LinkedList<PrivateKey>();
+    certChains = new LinkedList<X509Certificate[]>();
   }
 
   // Instance methods.
@@ -115,7 +115,7 @@ public class PrivateCredentials implements ManagerFactoryParameters
            IOException, NoSuchAlgorithmException, WrongPaddingException
   {
     CertificateFactory cf = CertificateFactory.getInstance("X.509");
-    Collection certs = cf.generateCertificates(certChain);
+    Collection<? extends Certificate> certs = cf.generateCertificates(certChain);
     X509Certificate[] chain = (X509Certificate[]) certs.toArray(new X509Certificate[0]);
 
     String alg = null;
@@ -199,11 +199,12 @@ public class PrivateCredentials implements ManagerFactoryParameters
           (BigInteger) der.read().getValue(),  // d mod (q-1)
           (BigInteger) der.read().getValue()); // coefficient
       }
+
     privateKeys.add(kf.generatePrivate(spec));
     certChains.add(chain);
   }
 
-  public List getPrivateKeys()
+  public List<PrivateKey> getPrivateKeys()
   {
     if (isDestroyed())
       {
@@ -212,7 +213,7 @@ public class PrivateCredentials implements ManagerFactoryParameters
     return privateKeys;
   }
 
-  public List getCertChains()
+  public List<X509Certificate[]> getCertChains()
   {
     return certChains;
   }
