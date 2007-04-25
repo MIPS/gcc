@@ -1,3 +1,79 @@
+2007-04-24  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.java
+	(getThreadStatus): Implement.
+
+2007-04-24  Keith Seitz  <keiths@redhat.com>
+
+	* headers.txt (gnu/gcj/jvmti/Breakpoint.h)[DIRECT_THREADED]:
+	Add _Jv_RewriteBreakpointInsn friend declaration.
+	* gnu/gcj/jvmti/natBreakpoint.cc (_Jv_RewriteBreakpointInsn)
+	[DIRECT_THREADED]: New function.
+	* gnu/gcj/jvmti/Breakpoint.h: Regenerate.
+	* interpret-run.cc: Define new REWRITE_INSN macro.
+	Changed all occurrences of insn rewriting to call REWRITE_INSN.
+
+2007-04-23  Keith Seitz  <keiths@redhat.com>
+
+	* include/no-gc.h (_Jv_IsThreadSuspended): Declare.
+	* include/boehm-gc.h (_Jv_IsThreadSuspended): Likewise.
+	* boehm.cc (_Jv_IsThreadSuspended): New function.
+	* nogc.cc (_Jv_IsThreadSuspended): Likewise.
+	* jvmti.cc (_Jv_JVMTI_GetThreadState): New function.
+	(_Jv_JVMTI_Interface): Define GetThreadState.
+
+2007-04-23  Kyle Galloway  <kgallowa@redhat.com>
+
+	* include/java-interp.h (_Jv_InterpFrame): Add pointer to the
+	interpreter PC.
+	(<init>): Add a pointer to the interpreter PC as a parameter with
+	default value NULL.
+	(get_pc): New method.
+	* interpret-run.cc: If debugging, pass a pointer to the PC when
+	creating the stack frame.
+	* jvmti.cc (_Jv_JVMTI_GetStackTrace): Call _Jv_InterpFrame::get_pc
+	to get the PC.
+
+2007-04-23  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (getSourceFile): Check
+	for null source file and throw an exception indicating this.
+
+2007-04-20  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/gcj/jvmti/BreakpointManager.java (newBreakpoint):
+	Install the new breakpoint into the bytecode.
+	(deleteBreakpoint): Remove the breakpoint from the bytecode.
+	* classpath/lib/gnu/gcj/jvmti/BreakpointManager.class:
+	Regenerate.
+	* gnu/gcj/jvmti/natBreakpoint.cc (initialize_native):
+	Don't install the breakpoint here.
+
+2007-04-19  Keith Seitz  <keiths@redhat.com>
+
+	* interpret-run.cc [insn_breakpoint]: Save the original
+	insn for the breakpoint before posting the JVMTI notification.
+
+2007-04-19  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/javax/net/ssl/provider/SSLSocketFactoryImpl.h: Rebuilt.
+
+2007-04-18  Tom Tromey  <tromey@redhat.com>
+
+	* Regenerated headers with new gjavah.
+
+2007-04-18  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/reflect/natVMProxy.cc (ncode_closure): Add
+	method_index.
+	(generateProxyClass): Add field $Proxy0.m.  Store methods array in
+	it.
+	(run_proxy): Retrieve the method to invoke from in $Proxy0.m.
+	* java/lang/Class.h: Remove _Jv_LookupProxyMethod.
+	* java/lang/natClass.cc: Likewise.
+	* headers.txt: Likewise.
+	* java/lang/reflect/Method.h: Likewise.
+
 2007-04-16  Andrew Haley  <aph@redhat.com>
 
 	* gnu/gcj/runtime/BootClassLoader.java (getBootURLLoader): New

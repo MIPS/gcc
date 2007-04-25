@@ -1511,6 +1511,7 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
   VEC_free (tree, heap, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo));
 
   free (loop_vinfo);
+  loop->aux = NULL;
 }
 
 
@@ -1714,15 +1715,6 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
       return false;
     }
 
-  /* stmts inside the loop that have been identified as performing
-     a reduction operation cannot have uses in the loop.  */
-  if (*dt == vect_reduction_def && TREE_CODE (*def_stmt) != PHI_NODE)
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "reduction used in loop.");
-      return false;
-    }
-
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "type of def: %d.",*dt);
 
@@ -1731,12 +1723,11 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
     case PHI_NODE:
       *def = PHI_RESULT (*def_stmt);
       gcc_assert (*dt == vect_induction_def || *dt == vect_reduction_def
-                  || *dt == vect_invariant_def);
+		  || *dt == vect_invariant_def);
       break;
 
     case GIMPLE_MODIFY_STMT:
       *def = GIMPLE_STMT_OPERAND (*def_stmt, 0);
-      gcc_assert (*dt == vect_loop_def || *dt == vect_invariant_def);
       break;
 
     default:
@@ -1782,7 +1773,7 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
   tree wide_vectype = get_vectype_for_scalar_type (type);
   enum tree_code c1, c2;
 
-  /* The result of a vectorized widening operation usually requires two vectors 
+  /* The result of a vectorized widening operation usually requires two vectors
      (because the widened results do not fit int one vector). The generated 
      vector results would normally be expected to be generated in the same 
      order as in the original scalar computation. i.e. if 8 results are 

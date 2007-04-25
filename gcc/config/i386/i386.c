@@ -1026,8 +1026,7 @@ unsigned int ix86_tune_features[X86_TUNE_LAST] = {
   m_486 | m_PENT | m_PPRO | m_ATHLON_K8_AMDFAM10 | m_K6 | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_DEEP_BRANCH_PREDICTION */
-  m_PPRO | m_K6_GEODE | m_ATHLON_K8_AMDFAM10 | m_PENT4
-  | m_NOCONA | m_CORE2 | m_GENERIC,
+  m_PPRO | m_K6_GEODE | m_ATHLON_K8_AMDFAM10 | m_PENT4 | m_GENERIC,
 
   /* X86_TUNE_BRANCH_PREDICTION_HINTS: Branch hints were put in P4 based
      on simulation result. But after P4 was made, no performance benefit
@@ -2895,12 +2894,15 @@ ix86_eax_live_at_start_p (void)
 static bool
 type_has_variadic_args_p (tree type)
 {
-  tree t;
+  tree n, t = TYPE_ARG_TYPES (type);
 
-  for (t = TYPE_ARG_TYPES (type); t; t = TREE_CHAIN (t))
-    if (t == void_list_node)
-      return false;
-  return true;
+  if (t == NULL)
+    return false;
+
+  while ((n = TREE_CHAIN (t)) != NULL)
+    t = n;
+
+  return TREE_VALUE (t) != void_type_node;
 }
 
 /* Value is the number of bytes of arguments automatically
@@ -16487,7 +16489,7 @@ static const struct builtin_description bdesc_2arg[] =
     BUILTIN_DESC_SWAP_OPERANDS },
   { MASK_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpngess", IX86_BUILTIN_CMPNGESS, UNGT,
     BUILTIN_DESC_SWAP_OPERANDS },
-  { MASK_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpordss", IX86_BUILTIN_CMPORDSS, UNORDERED, 0 },
+  { MASK_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpordss", IX86_BUILTIN_CMPORDSS, ORDERED, 0 },
 
   { MASK_SSE, CODE_FOR_sminv4sf3, "__builtin_ia32_minps", IX86_BUILTIN_MINPS, 0, 0 },
   { MASK_SSE, CODE_FOR_smaxv4sf3, "__builtin_ia32_maxps", IX86_BUILTIN_MAXPS, 0, 0 },

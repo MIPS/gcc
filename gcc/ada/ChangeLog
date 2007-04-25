@@ -1,3 +1,27 @@
+2007-04-22  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR ada/31660
+	* ada-tree.h (lang_tree_node): Fix typo in chain_next.
+
+2007-04-21  Jan Hubicka  <jh@suse.cz>
+
+	* misc.c (gnat_expand_body): Don't call target for destructors,
+	avoid redundant check on syntax errors.
+
+2007-04-21  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* ada-tree.h (lang_tree_node): Use GENERIC_NEXT
+	instead of checking GIMPLE_STMT_P in chain_next.
+
+2007-04-17  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR ada/31576
+	* system-linux-alpha.ads: Disable constant condition warning for the
+	Default_Bit_Order variable.
+	* system-linux-s390.ads: Likewise.
+	* system-linux-s390x.ads: Likewise.
+	* system-linux-sparc.ads: Likewise.
+
 2007-04-06  Javier Miranda  <miranda@adacore.com>
 	    Matt Heaney  <heaney@adacore.com>
 	    Robert Dewar  <dewar@adacore.com>

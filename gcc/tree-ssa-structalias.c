@@ -4793,7 +4793,7 @@ compute_points_to_sets (struct alias_info *ai)
       block_stmt_iterator bsi;
       tree phi;
 
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  if (is_gimple_reg (PHI_RESULT (phi)))
 	    {
@@ -4877,6 +4877,7 @@ delete_points_to_sets (void)
 
   for (i = 0; VEC_iterate (varinfo_t, varmap, i, v); i++)
     VEC_free (constraint_t, heap, graph->complex[i]);
+  free (graph->complex);
 
   free (graph->rep);
   free (graph->succs);
@@ -4945,7 +4946,7 @@ ipa_pta_execute (void)
 	      block_stmt_iterator bsi;
 	      tree phi;
 
-	      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 		{
 		  if (is_gimple_reg (PHI_RESULT (phi)))
 		    {

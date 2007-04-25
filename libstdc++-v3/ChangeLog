@@ -1,3 +1,106 @@
+2007-04-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.h (class collate, class collate_byname):
+	Move...
+	* include/bits/locale_classes.h: ... here.
+	* include/bits/locale_facets.tcc (locale::combine, locale::operator(),
+	has_facet, use_facet, collate::_M_compare, collate::_M_transform,
+	collate::do_compare, collate::do_transform, collate::do_hash): Move...
+	* include/bits/locale_classes.tcc: ... here, new.
+	* include/Makefile.am: Add.
+	* testsuite/util/testsuite_abi.h: Include <locale>.
+	* include/std/locale: Tweak.
+	* include/std/istream: Likewise.
+	* include/std/ostream: Likewise.
+	* include/bits/codecvt.h: Likewise.
+	* include/Makefile.in: Regenerate.
+
+	* include/bits/codecvt.h: Adjust extern template declarations.
+	* include/bits/ostream_insert.h: Likewise.
+	* include/bits/ostream.tcc: Likewise.
+
+	* include/bits/locale_facets.h: Do not include <bits/codecvt.h>.
+	* include/std/fstream: Do it here.
+	* include/bits/locale_facets_nonio.h: Likewise.
+
+2007-04-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.h (class time_base,
+	struct __timepunct_cache, class __timepunct, class time_get,
+	class time_get_byname, class time_put, class time_put_byname,
+	class money_base, struct __moneypunct_cache, class moneypunct,
+	class moneypunct_byname, class money_get, class money_put,
+	struct messages_base, class messages, class messages_byname): Move...
+	* include/bits/locale_facets_nonio.h: ... here.
+	* include/bits/locale_facets.tcc
+	(struct __use_cache<__moneypunct_cache<> >,
+	__moneypunct_cache<>::_M_cache, money_get<>::_M_extract,
+	money_get<>::__do_get, money_get<>::do_get, money_put<>::_M_insert,
+	money_put<>::__do_put, money_put<>::do_put, time_get<>::do_date_order,
+	time_get<>::_M_extract_via_format, time_get<>::_M_extract_num,
+	time_get<>::_M_extract_name, time_get<>::do_get_time,
+	time_get<>::do_get_date, time_get<>::do_get_weekday,
+	time_get<>::do_get_monthname, time_get<>::do_get_year, time_put<>::put,
+	time_put<>::do_put): Move...
+	* include/bits/locale_facets_nonio.tcc: ... here.
+	* include/Makefile.am: Add.
+	* include/std/locale: Adjust includes.
+	* include/std/fstream: Likewise.
+	* include/std/istream: Likewise.
+	* include/std/ostream: Likewise.
+	* include/Makefile.in: Regenerate.
+
+2007-04-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* scripts/testsuite_flags.in: Add --build-cc option.
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Set cc.  Fix typo
+	in previous change.
+	(v3_target_compile_as_c): Use cc.
+
+2007-04-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Use the same flags
+	for remote host testing we use for local host testing.  Copy all
+	testsuite headers to the remote host
+	(v3_target_compile_as_c): Use remote_exec, not just exec.
+
+2007-04-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/functional: Formatting fixes.
+
+2007-04-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/concurrence.h: Do not include <cstdlib>, use
+	__builtin_abort.
+	* include/debug/debug.h: Likewise.
+	* include/tr1/memory: Likewise.
+	* include/tr1/boost_shared_ptr.h: Likewise.
+	* include/tr1/functional: Likewise.
+
+2007-04-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc: Do not include <typeinfo>.
+	* testsuite/27_io/basic_ios/imbue/14072.cc: Do it here.
+	* testsuite/27_io/basic_ios/cons/char/3.cc: Likewise.
+	* testsuite/27_io/basic_istream/sentry/pod/1.cc: Likewise.
+	* testsuite/27_io/basic_ostream/sentry/pod/1.cc: Likewise.
+	* testsuite/21_strings/basic_string/inserters_extractors/
+	pod/10081-in.cc: Likewise.
+	* testsuite/21_strings/basic_string/inserters_extractors/
+	pod/10081-out.cc: Likewise.
+	* testsuite/22_locale/locale/cons/2.cc: Likewise.
+	* testsuite/22_locale/locale/cons/unicode.cc: Likewise.
+	* testsuite/22_locale/numpunct/members/pod/2.cc: Likewise.
+	* testsuite/22_locale/global_templates/1.cc: Likewise.
+
+2007-04-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* configure.ac: Allow both powerpc*-*-linux* and powerpc*-*-gnu*
+	for long double compatibility.
+	* configure: Regenerate.
+	* src/complex_io.cc, src/istream-inst.cc, src/ostream-inst.cc:
+	Condition some _GLIBCXX_LDBL_COMPAT calls on _GLIBCXX_USE_WCHAR_T.
+
 2007-04-14  Steve Ellcey  <sje@cup.hp.com>
 
 	* configure.ac: Change how LIBSUPCXX_PICFLAGS is set.

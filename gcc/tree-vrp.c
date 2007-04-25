@@ -272,6 +272,10 @@ set_value_range (value_range_t *vr, enum value_range_type t, tree min,
 
       cmp = compare_values (min, max);
       gcc_assert (cmp == 0 || cmp == -1 || cmp == -2);
+
+      if (needs_overflow_infinity (TREE_TYPE (min)))
+	gcc_assert (!is_overflow_infinity (min)
+		    || !is_overflow_infinity (max));
     }
 
   if (t == VR_UNDEFINED || t == VR_VARYING)
@@ -318,6 +322,23 @@ set_value_range_to_varying (value_range_t *vr)
   vr->min = vr->max = NULL_TREE;
   if (vr->equiv)
     bitmap_clear (vr->equiv);
+}
+
+/* Set value range VR to a single value.  This function is only called
+   with values we get from statements, and exists to clear the
+   TREE_OVERFLOW flag so that we don't think we have an overflow
+   infinity when we shouldn't.  */
+
+static inline void
+set_value_range_to_value (value_range_t *vr, tree val)
+{
+  gcc_assert (is_gimple_min_invariant (val));
+  if (is_overflow_infinity (val))
+    {
+      val = copy_node (val);
+      TREE_OVERFLOW (val) = 0;
+    }
+  set_value_range (vr, VR_RANGE, val, val, NULL);
 }
 
 /* Set value range VR to a non-negative range of type TYPE.
@@ -1646,7 +1667,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
   if (TREE_CODE (op0) == SSA_NAME)
     vr0 = *(get_value_range (op0));
   else if (is_gimple_min_invariant (op0))
-    set_value_range (&vr0, VR_RANGE, op0, op0, NULL);
+    set_value_range_to_value (&vr0, op0);
   else
     set_value_range_to_varying (&vr0);
 
@@ -1654,7 +1675,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
   if (TREE_CODE (op1) == SSA_NAME)
     vr1 = *(get_value_range (op1));
   else if (is_gimple_min_invariant (op1))
-    set_value_range (&vr1, VR_RANGE, op1, op1, NULL);
+    set_value_range_to_value (&vr1, op1);
   else
     set_value_range_to_varying (&vr1);
 
@@ -2053,7 +2074,7 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
   if (TREE_CODE (op0) == SSA_NAME)
     vr0 = *(get_value_range (op0));
   else if (is_gimple_min_invariant (op0))
-    set_value_range (&vr0, VR_RANGE, op0, op0, NULL);
+    set_value_range_to_value (&vr0, op0);
   else
     set_value_range_to_varying (&vr0);
 
@@ -2185,7 +2206,9 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
 	min = fold_unary_to_constant (code, TREE_TYPE (expr), vr0.max);
       else if (needs_overflow_infinity (TREE_TYPE (expr)))
 	{
-	  if (supports_overflow_infinity (TREE_TYPE (expr)))
+	  if (supports_overflow_infinity (TREE_TYPE (expr))
+	      && !is_overflow_infinity (vr0.min)
+	      && vr0.min != TYPE_MIN_VALUE (TREE_TYPE (expr)))
 	    min = positive_overflow_infinity (TREE_TYPE (expr));
 	  else
 	    {
@@ -2361,6 +2384,18 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
       if (needs_overflow_infinity (TREE_TYPE (expr)))
 	{
 	  gcc_assert (code != NEGATE_EXPR && code != ABS_EXPR);
+
+	  /* If both sides have overflowed, we don't know
+	     anything.  */
+	  if ((is_overflow_infinity (vr0.min)
+	       || TREE_OVERFLOW (min))
+	      && (is_overflow_infinity (vr0.max)
+		  || TREE_OVERFLOW (max)))
+	    {
+	      set_value_range_to_varying (vr);
+	      return;
+	    }
+
 	  if (is_overflow_infinity (vr0.min))
 	    min = vr0.min;
 	  else if (TREE_OVERFLOW (min))
@@ -2422,7 +2457,7 @@ extract_range_from_cond_expr (value_range_t *vr, tree expr)
   if (TREE_CODE (op0) == SSA_NAME)
     vr0 = *(get_value_range (op0));
   else if (is_gimple_min_invariant (op0))
-    set_value_range (&vr0, VR_RANGE, op0, op0, NULL);
+    set_value_range_to_value (&vr0, op0);
   else
     set_value_range_to_varying (&vr0);
 
@@ -2430,7 +2465,7 @@ extract_range_from_cond_expr (value_range_t *vr, tree expr)
   if (TREE_CODE (op1) == SSA_NAME)
     vr1 = *(get_value_range (op1));
   else if (is_gimple_min_invariant (op1))
-    set_value_range (&vr1, VR_RANGE, op1, op1, NULL);
+    set_value_range_to_value (&vr1, op1);
   else
     set_value_range_to_varying (&vr1);
 
@@ -2494,7 +2529,7 @@ extract_range_from_expr (value_range_t *vr, tree expr)
   else if (TREE_CODE_CLASS (code) == tcc_comparison)
     extract_range_from_comparison (vr, expr);
   else if (is_gimple_min_invariant (expr))
-    set_value_range (vr, VR_RANGE, expr, expr, NULL);
+    set_value_range_to_value (vr, expr);
   else
     set_value_range_to_varying (vr);
 
@@ -4233,6 +4268,36 @@ check_array_ref (tree ref, location_t* locus, bool ignore_off_by_one)
     }
 }
 
+/* Searches if the expr T, located at LOCATION computes
+   address of an ARRAY_REF, and call check_array_ref on it.  */
+
+static void
+search_for_addr_array(tree t, location_t* location)
+{
+  while (TREE_CODE (t) == SSA_NAME)
+    {
+      t = SSA_NAME_DEF_STMT (t);
+      if (TREE_CODE (t) != GIMPLE_MODIFY_STMT)
+	return;
+      t = GIMPLE_STMT_OPERAND (t, 1);
+    }
+
+
+  /* We are only interested in addresses of ARRAY_REF's.  */
+  if (TREE_CODE (t) != ADDR_EXPR) 
+    return;
+
+  /* Check each ARRAY_REFs in the reference chain. */
+  do 
+    {
+      if (TREE_CODE (t) == ARRAY_REF)
+	check_array_ref (t, location, true /*ignore_off_by_one*/);
+
+      t = TREE_OPERAND(t,0);
+    }
+  while (handled_component_p (t));
+}
+
 /* walk_tree() callback that checks if *TP is
    an ARRAY_REF inside an ADDR_EXPR (in which an array
    subscript one outside the valid range is allowed). Call
@@ -4250,43 +4315,21 @@ check_array_bounds (tree *tp, int *walk_subtree, void *data)
 
   if (TREE_CODE (t) == ARRAY_REF)
     check_array_ref (t, location, false /*ignore_off_by_one*/);
-  else if (TREE_CODE (t) == ADDR_EXPR)
+
+  if (TREE_CODE (t) == INDIRECT_REF
+      || (TREE_CODE (t) == RETURN_EXPR && TREE_OPERAND (t, 0)))
+    search_for_addr_array (TREE_OPERAND (t, 0), location);
+  else if (TREE_CODE (t) == CALL_EXPR)
     {
-       use_operand_p op;
-       tree use_stmt;
-       t = TREE_OPERAND (t, 0);
+      tree arg;
+      call_expr_arg_iterator iter;
 
-       /* Don't warn on statements like
-
-          ssa_name = 500 + &array[-200]
-
-          or
-
-          ssa_name = &array[-200]
-          other_name = ssa_name + 300;
-
-          which are sometimes
-          produced by other optimizing passes.  */
-
-       if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-           && BINARY_CLASS_P (GIMPLE_STMT_OPERAND (stmt, 1)))
-         *walk_subtree = FALSE;
-
-       if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-           && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == SSA_NAME
-           && single_imm_use (GIMPLE_STMT_OPERAND (stmt, 0), &op, &use_stmt)
-           && TREE_CODE (use_stmt) == GIMPLE_MODIFY_STMT
-           && BINARY_CLASS_P (GIMPLE_STMT_OPERAND (use_stmt, 1)))
-         *walk_subtree = FALSE;
-
-       while (*walk_subtree && handled_component_p (t))
-         {
-           if (TREE_CODE (t) == ARRAY_REF)
-             check_array_ref (t, location, true /*ignore_off_by_one*/);
-           t = TREE_OPERAND (t, 0);
-         }
-       *walk_subtree = FALSE;
+      FOR_EACH_CALL_EXPR_ARG (arg, iter, t) 
+	search_for_addr_array (arg, location);
     }
+
+  if (TREE_CODE (t) == ADDR_EXPR)
+    *walk_subtree = FALSE;
 
   return NULL_TREE;
 }
@@ -5098,6 +5141,14 @@ vrp_meet (value_range_t *vr0, value_range_t *vr1)
       else
 	goto give_up;
 
+      /* Check for useless ranges.  */
+      if (INTEGRAL_TYPE_P (TREE_TYPE (min))
+	  && ((min == TYPE_MIN_VALUE (TREE_TYPE (min))
+	       || is_overflow_infinity (min))
+	      && (max == TYPE_MAX_VALUE (TREE_TYPE (max))
+		  || is_overflow_infinity (max))))
+	goto give_up;
+
       /* The resulting set of equivalences is the intersection of
 	 the two sets.  */
       if (vr0->equiv && vr1->equiv && vr0->equiv != vr1->equiv)
@@ -5227,6 +5278,12 @@ vrp_visit_phi_node (tree phi)
 	    }
 	  else
 	    {
+	      if (is_overflow_infinity (arg))
+		{
+		  arg = copy_node (arg);
+		  TREE_OVERFLOW (arg) = 0;
+		}
+
 	      vr_arg.type = VR_RANGE;
 	      vr_arg.min = arg;
 	      vr_arg.max = arg;

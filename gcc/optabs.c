@@ -340,19 +340,19 @@ optab_for_tree_code (enum tree_code code, tree type)
 	vec_widen_umult_lo_optab : vec_widen_smult_lo_optab;
 
     case VEC_UNPACK_HI_EXPR:
-      return TYPE_UNSIGNED (type) ? 
+      return TYPE_UNSIGNED (type) ?
 	vec_unpacku_hi_optab : vec_unpacks_hi_optab;
 
     case VEC_UNPACK_LO_EXPR:
       return TYPE_UNSIGNED (type) ? 
 	vec_unpacku_lo_optab : vec_unpacks_lo_optab;
 
-    case VEC_PACK_MOD_EXPR:
-      return vec_pack_mod_optab;
-                                                                                
+    case VEC_PACK_TRUNC_EXPR:
+      return vec_pack_trunc_optab;
+
     case VEC_PACK_SAT_EXPR:
       return TYPE_UNSIGNED (type) ? vec_pack_usat_optab : vec_pack_ssat_optab;
-                                                                                
+
     default:
       break;
     }
@@ -1390,7 +1390,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 	  && mode1 != VOIDmode)
 	xop1 = copy_to_mode_reg (mode1, xop1);
 
-      if (binoptab == vec_pack_mod_optab 
+      if (binoptab == vec_pack_trunc_optab 
 	  || binoptab == vec_pack_usat_optab
           || binoptab == vec_pack_ssat_optab)
 	{
@@ -5516,6 +5516,7 @@ init_optabs (void)
 {
   unsigned int i;
   enum mode_class m1, m2;
+  enum machine_mode int_mode;
 
   /* Start by initializing all tables to contain CODE_FOR_nothing.  */
 
@@ -5550,6 +5551,8 @@ init_optabs (void)
   smul_widen_optab = init_optab (UNKNOWN);
   umul_widen_optab = init_optab (UNKNOWN);
   usmul_widen_optab = init_optab (UNKNOWN);
+  smadd_widen_optab = init_optab (UNKNOWN);
+  umadd_widen_optab = init_optab (UNKNOWN);
   sdiv_optab = init_optab (DIV);
   ssdiv_optab = init_optab (SS_DIV);
   usdiv_optab = init_optab (US_DIV);
@@ -5677,7 +5680,7 @@ init_optabs (void)
   vec_unpacks_lo_optab = init_optab (UNKNOWN);
   vec_unpacku_hi_optab = init_optab (UNKNOWN);
   vec_unpacku_lo_optab = init_optab (UNKNOWN);
-  vec_pack_mod_optab = init_optab (UNKNOWN);
+  vec_pack_trunc_optab = init_optab (UNKNOWN);
   vec_pack_usat_optab = init_optab (UNKNOWN);
   vec_pack_ssat_optab = init_optab (UNKNOWN);
 
@@ -5739,6 +5742,11 @@ init_optabs (void)
 
   /* Fill in the optabs with the insns we support.  */
   init_all_optabs ();
+
+  /* The ffs function operates on `int'.  Fall back on it if we do not
+     have a libgcc2 function for that width.  */
+  int_mode = mode_for_size (INT_TYPE_SIZE, MODE_INT, 0);
+  ffs_optab->handlers[(int) int_mode].libfunc = init_one_libfunc ("ffs");
 
   /* Initialize the optabs with the names of the library functions.  */
   init_integral_libfuncs (add_optab, "add", '3');
@@ -5916,10 +5924,6 @@ init_optabs (void)
   if (complex_double_type_node)
     abs_optab->handlers[TYPE_MODE (complex_double_type_node)].libfunc
       = init_one_libfunc ("cabs");
-
-  /* The ffs function operates on `int'.  */
-  ffs_optab->handlers[(int) mode_for_size (INT_TYPE_SIZE, MODE_INT, 0)].libfunc
-    = init_one_libfunc ("ffs");
 
   abort_libfunc = init_one_libfunc ("abort");
   memcpy_libfunc = init_one_libfunc ("memcpy");

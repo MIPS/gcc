@@ -100,6 +100,8 @@ static const char * const optabs[] =
   "smul_widen_optab->handlers[$B].insn_code = CODE_FOR_$(mul$a$b3$)$N",
   "umul_widen_optab->handlers[$B].insn_code = CODE_FOR_$(umul$a$b3$)$N",
   "usmul_widen_optab->handlers[$B].insn_code = CODE_FOR_$(usmul$a$b3$)$N",
+  "smadd_widen_optab->handlers[$B].insn_code = CODE_FOR_$(madd$a$b4$)$N",
+  "umadd_widen_optab->handlers[$B].insn_code = CODE_FOR_$(umadd$a$b4$)$N",
   "sdiv_optab->handlers[$A].insn_code = CODE_FOR_$(div$a3$)",
   "ssdiv_optab->handlers[$A].insn_code = CODE_FOR_$(ssdiv$Q$a3$)",
   "sdivv_optab->handlers[$A].insn_code = CODE_FOR_$(div$V$I$a3$)",
@@ -252,8 +254,9 @@ static const char * const optabs[] =
   "vec_unpacks_lo_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacks_lo_$a$)",
   "vec_unpacku_hi_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacku_hi_$a$)",
   "vec_unpacku_lo_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacku_lo_$a$)",
-  "vec_pack_mod_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_mod_$a$)",
-  "vec_pack_ssat_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_ssat_$a$)",  "vec_pack_usat_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_usat_$a$)"
+  "vec_pack_trunc_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_trunc_$a$)",
+  "vec_pack_ssat_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_ssat_$a$)",
+  "vec_pack_usat_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_usat_$a$)"
 };
 
 static void gen_insn (rtx);

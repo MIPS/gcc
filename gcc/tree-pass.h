@@ -71,6 +71,9 @@ enum tree_dump_index
 #define TDF_MEMSYMS	(1 << 14)	/* display memory symbols in expr.
                                            Implies TDF_VOPS.  */
 
+#define TDF_DIAGNOSTIC	(1 << 15)	/* A dump to be put in a diagnostic
+					   message.  */
+
 extern char *get_dump_file_name (enum tree_dump_index);
 extern int dump_enabled_p (enum tree_dump_index);
 extern int dump_initialized_p (enum tree_dump_index);
@@ -285,6 +288,7 @@ extern struct tree_opt_pass pass_warn_function_return;
 extern struct tree_opt_pass pass_warn_function_noreturn;
 extern struct tree_opt_pass pass_phiopt;
 extern struct tree_opt_pass pass_forwprop;
+extern struct tree_opt_pass pass_phiprop;
 extern struct tree_opt_pass pass_dse;
 extern struct tree_opt_pass pass_nrv;
 extern struct tree_opt_pass pass_mark_used_blocks;
