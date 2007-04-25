@@ -39,6 +39,7 @@ enum gs_code {
 #define GS_SEQ_FIRST(S)	(S)->first
 #define GS_SEQ_LAST(S)		(S)->last
 #define GS_SEQ_INIT {0, 0}
+#define GS_SEQ_EMPTY_P(S) (!GS_SEQ_FIRST ((S)))
 struct gs_sequence
 {
   gimple first;
@@ -317,6 +318,10 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
   struct gimple_statement_omp_single GTY ((tag ("GSS_OMP_SINGLE"))) gs_omp_single;
 };
 
+extern gimple gs_build_return (bool, tree);
+extern enum gimple_statement_structure_enum gimple_statement_structure (gimple);
+extern void gs_add (gimple, gs_seq);
+
 /* Error out if a gimple tuple is addressed incorrectly.  */
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
@@ -348,7 +353,7 @@ extern void gs_check_failed (const gimple, const char *, int, const char *, \
 static inline tree
 gs_assign_operand (gimple gs, int opno)
 {
-  enum gimple_statement_structure gss;
+  enum gimple_statement_structure_enum gss;
 
   GS_CHECK (gs, GS_ASSIGN);
 
@@ -356,9 +361,9 @@ gs_assign_operand (gimple gs, int opno)
   if (gss == GSS_ASSIGN_BINARY)
     return gs->gs_assign_binary.op[opno];
   else if (gss == GSS_ASSIGN_UNARY_REG)
-    return gs->gs_assign_unary_reg[opno];
+    return gs->gs_assign_unary_reg.op[opno];
   else if (gss == GSS_ASSIGN_UNARY_MEM)
-    return gs->gs_assign_unary_mem[opno];
+    return gs->gs_assign_unary_mem.op[opno];
 
   gcc_unreachable ();
   return NULL;
@@ -385,8 +390,6 @@ gs_return_operand_retval (gimple gs)
 
 #define GS_RETURN_OPERAND_RETVAL(G) (*gs_return_operand_retval ((G)))
 
+#include "gimple-iterator.h"
+
 #endif  /* GCC_GIMPLE_IR_H */
-
-extern gimple gs_build_return (bool, tree);
-extern enum gimple_statement_structure_enum gimple_statement_structure (gimple);
-extern void gs_add (gimple, gs_seq);

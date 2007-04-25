@@ -1,5 +1,15 @@
 2007-04-25  Aldy Hernandez  <aldyh@redhat.com>
 
+	* gimple-ir.h (GS_SEQ_EMPTY_P): New.
+	Move gs_build_return, gs_add, and gimple_statement_structure
+	prototypes.
+	(gs_assign_operand): Fix typos in gss.
+	Include gimple-iterator.h.
+	* Makefile.in (GIMPLE_IR_H): Add gimple-iterator.h.
+	(TREE_GIMPLE_H): Same.
+
+2007-04-25  Aldy Hernandez  <aldyh@redhat.com>
+
         * gimple-iterator.h (gsi_one_before_end_p): Use GS_SEQ_LAST.
 
 2007-04-25  Aldy Hernandez  <aldyh@redhat.com>

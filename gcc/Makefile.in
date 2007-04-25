@@ -734,7 +734,7 @@ PARAMS_H = params.h params.def
 BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def
 TREE_H = tree.h tree.def $(MACHMODE_H) tree-check.h $(BUILTINS_DEF) \
           input.h statistics.h vec.h treestruct.def $(HASHTAB_H)
-GIMPLE_IR_H = gimple-ir.h gs.def gsstruct.def
+GIMPLE_IR_H = gimple-ir.h gs.def gsstruct.def gimple-iterator.h
 BASIC_BLOCK_H = basic-block.h bitmap.h sbitmap.h varray.h $(PARTITION_H) \
           hard-reg-set.h cfghooks.h $(OBSTACK_H)
 GCOV_IO_H = gcov-io.h gcov-iov.h auto-host.h
@@ -776,7 +776,7 @@ MKDEPS_H = $(srcdir)/../libcpp/include/mkdeps.h
 SYMTAB_H = $(srcdir)/../libcpp/include/symtab.h
 CPP_ID_DATA_H = $(CPPLIB_H) $(srcdir)/../libcpp/include/cpp-id-data.h
 TREE_DUMP_H = tree-dump.h $(SPLAY_TREE_H)
-TREE_GIMPLE_H = tree-gimple.h tree-iterator.h gimple-ir.h
+TREE_GIMPLE_H = tree-gimple.h tree-iterator.h gimple-ir.h gimple-iterator.h
 TREE_FLOW_H = tree-flow.h tree-flow-inline.h tree-ssa-operands.h \
 		bitmap.h $(BASIC_BLOCK_H) hard-reg-set.h $(TREE_GIMPLE_H) \
 		$(HASHTAB_H) $(CGRAPH_H) $(IPA_REFERENCE_H)
