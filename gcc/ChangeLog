@@ -1,3 +1,95 @@
+2007-04-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vectorizer.h (stmt_vec_info_type): Add enum value
+	induc_vec_info_type.
+	(vectorizable_induction): New function declaration.
+	* tree-vect-transform.c (get_initial_def_for_induction): No need to
+	check if already vectorized.  Find first place in BB where new stmts
+	can be inserted.  Takes only one argument.
+	(vectorizable_induction): New function.
+	(vect_transform_stmt): Add case for induc_vec_info_type to call
+	vectorizable_induction.
+	(vect_transform_loop): Consider phis for vectorization.
+	* tree-vect-analyze.c (vect_determine_vectorization_factor): Simplify
+	condition.
+	(analyze_operations): Call vectorizable_induction when analyzing phis.  
+	Fix comment.
+	(vect_mark_stmts_to_be_vectorized): Remove redundant checks.
+	(vect_mark_relevant): Include phis in relevance analysis.
+	(vect_mark_stmts_to_be_vectorize): Likewise.
+	* tree-vect-patterns.c (widened_name_p): Remove obsolete asserts.
+
+2007-04-16  Lawrence Crowl  <crowl@google.com>
+
+	* doc/invoke.texi (Debugging Options): Add documentation for the
+	-femit-struct-debug options -femit-struct-debug-baseonly,
+	-femit-struct-debug-reduced, and
+	-femit-struct-debug-detailed[=...].
+
+	* c-opts.c (c_common_handle_option): Add
+	OPT_femit_struct_debug_baseonly, OPT_femit_struct_debug_reduced,
+	and OPT_femit_struct_debug_detailed_.
+	* c.opt: Add specifications for
+	-femit-struct-debug-baseonly, -femit-struct-debug-reduced,
+	and -femit-struct-debug-detailed[=...].
+	* opts.c (set_struct_debug_option): Parse the
+	-femit-struct-debug-... options.
+	* opts.c (matches_main_base, main_input_basename,
+	main_input_baselength, base_of_path, matches_main_base): Add
+	variables and functions to compare header base name to compilation
+	unit base name.
+	* opts.c (should_emit_struct_debug): Add to determine to emit a
+	structure based on the option.
+	(dump_struct_debug) Also disabled function to debug this
+	function.
+	* opts.c (handle_options): Save the base name of the
+	compilation unit.
+
+	* langhooks-def.h (LANG_HOOKS_GENERIC_TYPE_P): Define.
+        (LANG_HOOKS_FOR_TYPES_INITIALIZER): Add.
+	This hook indicates if a type is generic.  Set it by default
+	to "never generic".
+	* langhooks.h (struct lang_hooks_for_types): Add a new hook
+	to determine if a struct type is generic or not.
+	* cp/cp-tree.h (class_tmpl_impl_spec_p): Declare a C++ hook.
+	* cp/tree.c (class_tmpl_impl_spec_p): Implement the C++ hook.
+	* cp/cp-lang.c (LANG_HOOKS_GENERIC_TYPE_P): Override null C hook
+	with live C++ hook.
+
+	* flags.h (enum debug_info_usage): Add an enumeration to describe
+	a program's use of a structure type.
+	* dwarf2out.c (gen_struct_or_union_type_die): Add a new parameter
+	to indicate the program's usage of the type.  Filter structs based
+	on the -femit-struct-debug-... specification.
+	(gen_type_die): Split into two routines, gen_type_die and
+	gen_type_die_with_usage.  gen_type_die is now a wrapper
+	that assumes direct usage.
+	(gen_type_die_with_usage): Replace calls to gen_type_die
+	with gen_type_die_with_usage adding the program usage of
+	the referenced type.
+	(dwarf2out_imported_module_or_decl): Suppress struct debug
+	information using should_emit_struct_debug when appropriate.
+
+2007-04-16  Ian Lance Taylor  <iant@google.com>
+
+	PR tree-optimization/31522
+	* tree-vrp.c (vr_phi_edge_counts): New static variable.
+	(vrp_initialize): Allocate vr_phi_edge_counts.
+	(vrp_visit_phi_node): Don't push to infinity if we saw a new
+	executable edge.  Drop test for all constants.
+	(vrp_finalize): Free vrp_phi_edge_counts.
+
+	* doc/cpp.texi (Common Predefined Macros): Clarify description of
+	__GNUC_GNU_INLINE__ and __GNUC_STDC_INLINE__.
+
+	* tree-ssa-propagate.c (cfg_blocks_add): Insert blocks with fewer
+	predecessors at head rather than tail.
+
+2007-04-16  Matthias Klose  <doko@debian.org>
+
+	* gcc/config/alpha/linux.h (CPP_SPEC): Define.
+	* gcc/config/arm/linux-gas.h (SUBTARGET_CPP_SPEC): Extend.
+
 2007-04-19  Chao-ying Fu  <fu@mips.com>
 
 	* expr.c (convert_move): Support the move of fixed-point modes.
