@@ -34,6 +34,7 @@ enum gs_code {
 #define GS_SUBCODE_FLAGS(G) ((G)->base.subcode_flags)
 #define GS_NEXT(G) ((G)->base.next)
 #define GS_PREV(G) ((G)->base.prev)
+#define GS_LOCUS(G) ((G)->base.locus)
 
 /* A sequences of gimple statements.  */
 #define GS_SEQ_FIRST(S)	(S)->first
@@ -54,7 +55,7 @@ struct gimple_statement_base GTY(())
   gimple next;
   gimple prev;
   struct basic_block_def *bb;
-  source_locus locus;
+  location_t locus;
   tree block;
 };
 

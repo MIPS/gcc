@@ -586,7 +586,7 @@ lookup_tmp_var (tree val, bool is_formal)
    For other cases, use get_initialized_tmp_var instead.  */
 
 static tree
-internal_get_tmp_var (tree val, tree *pre_p, tree *post_p, bool is_formal)
+internal_get_tmp_var (tree val, gs_seq pre_p, gs_seq post_p, bool is_formal)
 {
   tree t, mod;
 
@@ -755,50 +755,42 @@ gimple_add_tmp_var (tree tmp)
     declare_vars (tmp, DECL_SAVED_TREE (current_function_decl), false);
 }
 
-/* Determines whether to assign a locus to the statement STMT.  */
+/* Determines whether to assign a locus to the statement GS.  */
 
 static bool
-should_carry_locus_p (tree stmt)
+should_carry_locus_p (gimple gs)
 {
   /* Don't emit a line note for a label.  We particularly don't want to
      emit one for the break label, since it doesn't actually correspond
      to the beginning of the loop/switch.  */
-  if (TREE_CODE (stmt) == LABEL_EXPR)
-    return false;
-
-  /* Do not annotate empty statements, since it confuses gcov.  */
-  if (!TREE_SIDE_EFFECTS (stmt))
+  if (GS_CODE (gs) == GS_LABEL)
     return false;
 
   return true;
 }
 
 static void
-annotate_one_with_locus (tree t, location_t locus)
+annotate_one_with_locus (gimple gs, location_t locus)
 {
-  if (CAN_HAVE_LOCATION_P (t)
-      && ! EXPR_HAS_LOCATION (t) && should_carry_locus_p (t))
-    SET_EXPR_LOCATION (t, locus);
+  /* All gimple statements have location.  */
+
+  if (! GS_LOCUS (gs) && should_carry_locus_p (gs))
+    GS_LOCUS (gs) = locus;
 }
 
 void
-annotate_all_with_locus (tree *stmt_p, location_t locus)
+annotate_all_with_locus (gs_seq stmt_p, location_t locus)
 {
-  tree_stmt_iterator i;
+  gimple_stmt_iterator i;
 
-  if (!*stmt_p)
+  if (GS_SEQ_EMPTY_P (stmt_p))
     return;
 
-  for (i = tsi_start (*stmt_p); !tsi_end_p (i); tsi_next (&i))
+  for (i = gsi_start (stmt_p); !gsi_end_p (i); gsi_next (&i))
     {
-      tree t = tsi_stmt (i);
+      gimple gs = gsi_stmt (i);
 
-      /* Assuming we've already been gimplified, we shouldn't
-	  see nested chaining constructs anymore.  */
-      gcc_assert (TREE_CODE (t) != STATEMENT_LIST
-		  && TREE_CODE (t) != COMPOUND_EXPR);
-
-      annotate_one_with_locus (t, locus);
+      annotate_one_with_locus (gs, locus);
     }
 }
 
@@ -4333,7 +4325,8 @@ gimplify_target_expr (tree *expr_p, tree *pre_p, tree *post_p)
 
 /* Gimplification of expression trees.  */
 
-/* Gimplify an expression which appears at statement context.  */; usually, this
+/* Gimplify an expression which appears at statement context; usually, this
+   means replacing it with a suitably gimple STATEMENT_LIST.  */
 
 void
 gimplify_stmt (tree *stmt_p, gs_seq seq_p)
@@ -5397,10 +5390,13 @@ gimplify_omp_atomic (tree *expr_p, tree *pre_p)
 /*  Gimplifies the expression tree pointed to by EXPR_P into SEQ_P.
     Return 0 if gimplification failed.
 
-    PRE_P points to the list where side effects that must happen before
-	EXPR should be stored.
+    SEQ_P is the sequence where the gimplified expression tree will be
+    	expanded to.
 
-    POST_P points to the list where side effects that must happen after
+    PRE_P is the sequence where side effects that must happen before EXPR
+	should be stored.
+
+    POST_P is the sequence where side effects that must happen after
 	EXPR should be stored, or NULL if there is no suitable list.  In
 	that case, we copy the result to a temporary, emit the
 	post-effects, and then return the temporary.
@@ -5428,8 +5424,8 @@ gimplify_expr (tree *expr_p, gs_seq seq_p, gs_seq pre_p, gs_seq post_p,
 	       bool (* gimple_test_f) (tree), fallback_t fallback)
 {
   tree tmp;
-  tree internal_pre = NULL_TREE;
-  tree internal_post = NULL_TREE;
+  struct gs_sequence internal_pre = GS_SEQ_INIT;
+  struct gs_sequence internal_post = GS_SEQ_INIT;
   tree save_expr;
   int is_statement = (pre_p == NULL);
   location_t saved_location;
@@ -5477,7 +5473,7 @@ gimplify_expr (tree *expr_p, gs_seq seq_p, gs_seq pre_p, gs_seq post_p,
 	}
 
       /* Do any language-specific gimplification.  */
-      ret = lang_hooks.gimplify_expr (expr_p, pre_p, post_p);
+      ret = lang_hooks.gimplify_expr (expr_p, seq_p, pre_p, post_p);
       if (ret == GS_OK)
 	{
 	  if (*expr_p == NULL_TREE)
@@ -5497,7 +5493,7 @@ gimplify_expr (tree *expr_p, gs_seq seq_p, gs_seq pre_p, gs_seq post_p,
 	case POSTDECREMENT_EXPR:
 	case PREINCREMENT_EXPR:
 	case PREDECREMENT_EXPR:
-	  ret = gimplify_self_mod_expr (expr_p, pre_p, post_p,
+	  ret = gimplify_self_mod_expr (expr_p, seq_p, pre_p, post_p,
 					fallback != fb_none);
 	  break;
 
@@ -5507,12 +5503,12 @@ gimplify_expr (tree *expr_p, gs_seq seq_p, gs_seq pre_p, gs_seq post_p,
 	case IMAGPART_EXPR:
 	case COMPONENT_REF:
 	case VIEW_CONVERT_EXPR:
-	  ret = gimplify_compound_lval (expr_p, pre_p, post_p,
+	  ret = gimplify_compound_lval (expr_p, seq_p, pre_p, post_p,
 					fallback ? fallback : fb_rvalue);
 	  break;
 
 	case COND_EXPR:
-	  ret = gimplify_cond_expr (expr_p, pre_p, fallback);
+	  ret = gimplify_cond_expr (expr_p, seq_p, pre_p, fallback);
 	  /* C99 code may assign to an array in a structure value of a
 	     conditional expression, and this has undefined behavior
 	     only on execution, so create a temporary if an lvalue is
@@ -5525,7 +5521,7 @@ gimplify_expr (tree *expr_p, gs_seq seq_p, gs_seq pre_p, gs_seq post_p,
 	  break;
 
 	case CALL_EXPR:
-	  ret = gimplify_call_expr (expr_p, pre_p, fallback != fb_none);
+	  ret = gimplify_call_expr (expr_p, seq_p, pre_p, fallback != fb_none);
 	  /* C99 code may assign to an array in a structure returned
 	     from a function, and this has undefined behavior only on
 	     execution, so create a temporary if an lvalue is
@@ -6017,7 +6013,7 @@ gimplify_expr (tree *expr_p, gs_seq seq_p, gs_seq pre_p, gs_seq post_p,
      gimplified form.  */
   if (fallback == fb_none || is_statement)
     {
-      if (internal_pre || internal_post)
+      if (!GS_SEQ_EMPTY_P (&internal_pre) || !GS_SEQ_EMPTY_P (&internal_post))
 	{
 	  append_to_statement_list (*expr_p, &internal_pre);
 	  append_to_statement_list (internal_post, &internal_pre);
@@ -6039,7 +6035,7 @@ gimplify_expr (tree *expr_p, gs_seq seq_p, gs_seq pre_p, gs_seq post_p,
   /* If it's sufficiently simple already, we're done.  Unless we are
      handling some post-effects internally; if that's the case, we need to
      copy into a temp before adding the post-effects to the tree.  */
-  if (!internal_post && (*gimple_test_f) (*expr_p))
+  if (GS_SEQ_EMPTY_P (&internal_post) && (*gimple_test_f) (*expr_p))
     goto out;
 
   /* Otherwise, we need to create a new temporary for the gimplified
@@ -6049,7 +6045,7 @@ gimplify_expr (tree *expr_p, gs_seq seq_p, gs_seq pre_p, gs_seq post_p,
      object the lvalue refers to would (probably) be modified by the
      postqueue; we need to copy the value out first, which means an
      rvalue.  */
-  if ((fallback & fb_lvalue) && !internal_post
+  if ((fallback & fb_lvalue) && GS_SEQ_EMPTY_P (&internal_post)
       && is_gimple_addressable (*expr_p))
     {
       /* An lvalue will do.  Take the address of the expression, store it
@@ -6066,7 +6062,7 @@ gimplify_expr (tree *expr_p, gs_seq seq_p, gs_seq pre_p, gs_seq post_p,
       /* An rvalue will do.  Assign the gimplified expression into a new
 	 temporary TMP and replace the original expression with TMP.  */
 
-      if (internal_post || (fallback & fb_lvalue))
+      if (!GS_SEQ_EMPTY_P (&internal_post) || (fallback & fb_lvalue))
 	/* The postqueue might change the value of the expression between
 	   the initialization and use of the temporary, so we can't use a
 	   formal temp.  FIXME do we care?  */
@@ -6099,7 +6095,7 @@ gimplify_expr (tree *expr_p, gs_seq seq_p, gs_seq pre_p, gs_seq post_p,
   /* Make sure the temporary matches our predicate.  */
   gcc_assert ((*gimple_test_f) (*expr_p));
 
-  if (internal_post)
+  if (!GS_SEQ_EMPTY_P (&internal_post))
     {
       annotate_all_with_locus (&internal_post, input_location);
       append_to_statement_list (internal_post, pre_p);
