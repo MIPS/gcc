@@ -75,7 +75,7 @@ namespace pb_ds
       get_prob();
 
     private:
-      typedef std::tr1::mt19937 base_generator_t;
+      typedef std::_GLIBCXX_TR1::mt19937 base_generator_t;
 
     private:
       base_generator_t m_base_generator;

@@ -78,7 +78,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     get_prob();
     
   private:
-    std::tr1::mt19937 _M_generator;
+    std::_GLIBCXX_TR1::mt19937 _M_generator;
   };
 
 

@@ -58,23 +58,23 @@ namespace pb_ds
 {
   namespace detail
   {
-    using std::tr1::is_same;
-    using std::tr1::is_const;
-    using std::tr1::is_pointer;
-    using std::tr1::is_reference;
-    using std::tr1::is_fundamental;
-    using std::tr1::is_member_object_pointer;
-    using std::tr1::is_member_pointer;
-    using std::tr1::is_base_of;
-    using std::tr1::remove_const;
-    using std::tr1::remove_reference;
+    using std::_GLIBCXX_TR1::is_same;
+    using std::_GLIBCXX_TR1::is_const;
+    using std::_GLIBCXX_TR1::is_pointer;
+    using std::_GLIBCXX_TR1::is_reference;
+    using std::_GLIBCXX_TR1::is_fundamental;
+    using std::_GLIBCXX_TR1::is_member_object_pointer;
+    using std::_GLIBCXX_TR1::is_member_pointer;
+    using std::_GLIBCXX_TR1::is_base_of;
+    using std::_GLIBCXX_TR1::remove_const;
+    using std::_GLIBCXX_TR1::remove_reference;
 
     // Need integral_const<bool, true> <-> integral_const<int, 1>, so
     // because of this use the following typedefs instead of importing
     // std::tr1's.
-    using std::tr1::integral_constant;
-    typedef std::tr1::integral_constant<int, 1> true_type;
-    typedef std::tr1::integral_constant<int, 0> false_type;
+    using std::_GLIBCXX_TR1::integral_constant;
+    typedef std::_GLIBCXX_TR1::integral_constant<int, 1> true_type;
+    typedef std::_GLIBCXX_TR1::integral_constant<int, 0> false_type;
 
     using __gnu_cxx::__conditional_type;
     using __gnu_cxx::__numeric_traits;

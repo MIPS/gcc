@@ -247,7 +247,7 @@ namespace __gnu_test
   // (see N1599).
   struct uneq_allocator_base
   {
-    typedef std::tr1::unordered_map<void*, int>   map_type;
+    typedef std::_GLIBCXX_TR1::unordered_map<void*, int>   map_type;
 
     // Avoid static initialization troubles and/or bad interactions
     // with tests linking testsuite_allocator.o and playing globally

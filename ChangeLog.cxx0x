@@ -1,3 +1,12 @@
+2007-04-26  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* libstdc++-v3/include/ext/pb_ds/detail/type_utils.hpp: Replace
+	"tr1" with _GLIBCXX_TR1.
+	* libstdc++-v3/include/ext/throw_allocator.h: Ditto.
+	* libstdc++-v3/include/ext/array_allocator.h: Ditto.
+	* libstdc++-v3/testsuite/util/testsuite_allocator.h: Ditto.
+	* libstdc++-v3/testsuite/util/rng/twister_rand_gen.hpp: Ditto.
+
 2007-04-24  Douglas Gregor  <doug.gregor@gmail.com>
 
 	* gcc/cp/typeck.c (structural_comptypes): Compare DECLTYPE_TYPE nodes.
