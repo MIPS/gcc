@@ -599,19 +599,26 @@ df_remove_problem (struct dataflow *dflow)
 {
   struct df_problem *problem;
   int i;
+  int start = 0;
 
   if (!dflow)
     return;
+
   problem = dflow->problem;
   gcc_assert (problem->remove_problem_fun);
 
+  /* Normally only optional problems are removed, but during global,
+     we remove ur and live and replace it with urec.  */
+  if (problem->id >= DF_FIRST_OPTIONAL_PROBLEM)
+    start = DF_FIRST_OPTIONAL_PROBLEM;
+
   /* Delete any problems that depended on this problem first.  */
-  for (i = DF_FIRST_OPTIONAL_PROBLEM; i < df->num_problems_defined; i++)
+  for (i = start; i < df->num_problems_defined; i++)
     if (df->problems_in_order[i]->problem->dependent_problem == problem)
       df_remove_problem (df->problems_in_order[i]);
 
   /* Now remove this problem.  */
-  for (i = DF_FIRST_OPTIONAL_PROBLEM; i < df->num_problems_defined; i++)
+  for (i = start; i < df->num_problems_defined; i++)
     if (df->problems_in_order[i] == dflow)
       {
 	int j;

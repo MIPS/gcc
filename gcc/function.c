@@ -5047,18 +5047,6 @@ thread_prologue_and_epilogue_insns (void)
 #endif
   edge_iterator ei;
 
-  /* Do not even think about running dce here!!!!  All life, as we
-     know it will cease!!!  There is dead code created by the previous
-     call to split_all_insns that is resurrected by the prologue and
-     epilogue.  This does not appear to be a bug in dce.  On the
-     x86-64 this shows up as failues in g++ excepion handling and is
-     extremely difficult to debug because the problem is with the way
-     that that the g++ library is compiled and this library was not
-     designed for modular testing.  All of the test cases that fail
-     because of running dce here fail in the g++ library, not in the
-     test case.  */
-  df_analyze ();
-
 #ifdef HAVE_prologue
   if (HAVE_prologue)
     {

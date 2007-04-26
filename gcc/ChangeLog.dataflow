@@ -1,3 +1,18 @@
+2007-04-26  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df-core.c (df_remove_problem): Allow df_ur and df_live 
+	problems to be removed.
+	* global.c (compute_regsets): Remove df_ur and df_live when
+	adding df_urec.
+	(rest_of_handle_global_alloc): Add back df_ur and df_live when
+	removing df_urec.
+	* timevar.def (TV_DF_UD): Renamed to TV_DF_UR.
+	* function.c (thread_prologue_and_epilogue_insns): Removed
+	call to df_analyze.
+	* df-problems.c (problem_UR): Added remove function and renamed TV.
+	(problem_LIVE): Added remove function.
+
+
 2007-04-26  Seongbae Park <seongbae.park@gmail.com>
 
 	* tree-pass.h: Declaration for new pass.

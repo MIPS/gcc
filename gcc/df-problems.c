@@ -2439,14 +2439,14 @@ static struct df_problem problem_UR =
   df_ur_transfer_function,    /* Transfer function.  */
   df_ur_local_finalize,       /* Finalize function.  */
   df_ur_free,                 /* Free all of the problem information.  */
-  NULL,                       /* Remove this problem from the stack of dataflow problems.  */
+  df_ur_free,                 /* Remove this problem from the stack of dataflow problems.  */
   NULL,                       /* Debugging.  */
   df_ur_top_dump,             /* Debugging start block.  */
   df_ur_bottom_dump,          /* Debugging end block.  */
   df_ur_verify_solution_start,/* Incremental solution verify start.  */
   df_ur_verify_solution_end,  /* Incremental solution verify end.  */
   &problem_LR,                /* Dependent problem.  */
-  TV_DF_UD                    /* Timing variable.  */ 
+  TV_DF_UR                    /* Timing variable.  */ 
 };
 
 
@@ -2694,7 +2694,7 @@ static struct df_problem problem_LIVE =
   NULL,                       /* Transfer function.  */
   df_live_local_finalize,     /* Finalize function.  */
   df_live_free,               /* Free all of the problem information.  */
-  NULL,                       /* Remove this problem from the stack of dataflow problems.  */
+  df_live_free,                /* Remove this problem from the stack of dataflow problems.  */
   NULL,                       /* Debugging.  */
   df_live_top_dump,           /* Debugging start block.  */
   df_live_bottom_dump,        /* Debugging end block.  */
