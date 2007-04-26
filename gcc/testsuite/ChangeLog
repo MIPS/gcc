@@ -1,3 +1,33 @@
+2007-04-25  Thiemo Seufer  <ths@mips.com>
+
+	* gcc.target/mips/mips16e-extends.c (cksum8): Change return
+	value to signed char.
+
+2007-04-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/reload-1.c. Include <stdint.h>.  Compile for all
+	ilp32 i?86-*-* and x86_64-*-* targets.  Do not skip test for -m64.
+	Use scan-rtl-dump-not procedure to scan RTL dump.  Cleanup csa dump.
+
+2007-04-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/31668
+	* gfortran.dg/c_by_val_2.f90: Add rejection test of %VAL with
+	statement functions.
+	* gfortran.dg/c_by_val_5.f90: New test.
+
+2007-04-25  Wolfgang Gellerich  <gellerich@de.ibm.com>
+
+	* gfortran.dg/equiv_6.f90 (set_arrays): Replaced subroutine
+	with two new subroutines to avoid parameter-induced aliasing.
+	* gfortran.dg/equiv_6.f90 (set_array_listpr): New.
+	* gfortran.dg/equiv_6.f90 (set_array_lisbit): New.
+
+2007-04-24  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/Warray-bounds.c: XFAIL test on 32-bit hppa targets.
+	* g++.dg/warn/Warray-bounds.C: Likewise.
+
 2007-04-24  Ian Lance Taylor  <iant@google.com>
 
 	PR tree-optimizatoin/31605
@@ -11,19 +41,19 @@
 
 2007-04-24  Douglas Gregor  <doug.gregor@gmail.com>
 
-       * g++.old-deja/g++.pt/defarg6.C: Only run with
-       -std=gnu++98.
-       * g++.old-deja/g++.pt/ucnid-1.C: Ditto.
-       * g++.dg/cpp0x/variadic61.C: Ditto.
-       * g++.dg/cpp0x/warn_cxx0x.C: Ditto.
-       * g++.dg/cpp0x/variadic62.C: Ditto.
-       * g++.dg/template/meminit1.C: Ditto.
-       * g++.dg/template/operator7.C: Ditto.
-       * g++.dg/template/static15.C: Ditto.
-       * g++.dg/template/invalid1.C: Ditto.
-       * g++.dg/template/shift1.C: Ditto.
-       * g++.dg/template/error10.C: Ditto.
-	
+	* g++.old-deja/g++.pt/defarg6.C: Only run with
+	-std=gnu++98.
+	* g++.old-deja/g++.pt/ucnid-1.C: Ditto.
+	* g++.dg/cpp0x/variadic61.C: Ditto.
+	* g++.dg/cpp0x/warn_cxx0x.C: Ditto.
+	* g++.dg/cpp0x/variadic62.C: Ditto.
+	* g++.dg/template/meminit1.C: Ditto.
+	* g++.dg/template/operator7.C: Ditto.
+	* g++.dg/template/static15.C: Ditto.
+	* g++.dg/template/invalid1.C: Ditto.
+	* g++.dg/template/shift1.C: Ditto.
+	* g++.dg/template/error10.C: Ditto.
+
 2007-04-24  Simon Martin  <simartin@users.sourceforge.net>
 
 	PR diagnostic/25923
@@ -122,7 +152,7 @@
 
 2007-04-22  Revital Eres  <eres@il.ibm.com>
 
-        * gcc.dg/var-expand2.c: New test.
+	* gcc.dg/var-expand2.c: New test.
 
 2007-04-22  Revital Eres  <eres@il.ibm.com>
 

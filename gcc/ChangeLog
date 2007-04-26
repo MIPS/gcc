@@ -1,3 +1,72 @@
+2007-04-25  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/lib1funcs.asm (__udivsi3, __divsi3): Throw an exception
+	for divide-by-zero.
+	(__umodsi3, __modsi3): Likewise.
+
+2007-04-25  Dirk Mueller  <dmueller@suse.de>
+
+	* c-typeck.c (build_compound_expr): Annotate warning()
+	call with OPT_Wunused_value.
+	* tree-ssa.c (warn_uninit): Annotate warning with
+	OPT_Wunintialized.
+	* c-common.c (handle_sentinel_attribute): Annotate warning
+	call with OPT_Wattributes.
+
+2007-04-25  Thiemo Seufer  <ths@mips.com>
+
+	* config/mips/mips.opt (mdmx, mmt, mno-mdmx): New options.
+	(mips16): Fix typo.
+	* config/mips/mips.h (ASM_SPEC): Pass -mmt/-mno-mt and -mdmx/-mno-mdmx
+	on to the assembler.  Improve handling of -mno-mips16.  Add handling
+	of -mno-mips3d, -mno-dsp, -mno-dspr2.
+	* doc/invoke.texi (MIPS Options): Whitespace cleanup.  Fix wrong use
+	of @itemx.  Document -mno-dsp, -mno-dspr2, -mno-paired-single, -mdmx,
+	-mno-mdmx, -mno-mips3d, -mmt and -mno-mt.
+
+2007-04-25  Danny Smith  <dannysmith.users.sourceforge.net>
+
+	PR target/31680
+	* config/i386/winnt.c (i386_pe_file_end): Strip only
+	USER_LABEL_PREFIX when writing export name.
+
+2007-04-25  Richard Sandiford  <richard@codesourcery.com>
+
+	* config.gcc (sh-wrs-vxworks): Don't include dbxelf.h.  Include
+	sh/elf.h, vx-common.h and vxworks.h.
+	* config/sh/sh.h: Include config/vxworks-dummy.h.
+	(SUBTARGET_OVERRIDE_OPTIONS): Define.
+	(OVERRIDE_OPTIONS): Use it.
+	* config/sh/sh.md (GOTaddr2picreg): Add suport for VxWorks RTPs.
+	(vxworks_picreg): New pattern.
+	* config/sh/vxworks.h (TARGET_OS_CPP_BUILTINS): Use
+	VXWORKS_OS_CPP_BUILTINS.
+	(LIB_SPEC, LINK_SPEC, STARTFILE_SPEC, ENDFILE_SPEC): Redefine
+	to their VXWORKS_* equivalents.
+	(SUBTARGET_OVERRIDE_OPTIONS, SUBTARGET_CPP_SPEC): Define.
+	(SUBTARGET_LINK_EMUL_SUFFIX, FUNCTION_PROFILER): Define.
+	* config/sh/lib1funcs.asm (NO_FPSCR_VALUES): Define for VxWorks PIC.
+	(set_fpscr, ic_invalidate): Add VxWorks PIC sequences.
+	* config/sh/t-vxworks (MULTILIB_OPTIONS): Add m4a, -mrtp and
+	-mrtp/-fPIC multilibs.
+	(MULTILIB_EXCEPTIONS): Generalize globs accordingly.
+	(MULTILIB_MATCHES, EXTRA_MULTILIB_PARTS): Define.
+	(MULTILIB_OSDIRNAMES): Delete.
+
+2007-04-25  Anatoly Sokolov <aesok@post.ru>
+
+	PR target/18989
+ 	* config/avr/avr.h (ASM_OUTPUT_ALIGN): Redefine.
+
+2007-04-24  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* real.c (mpfr_from_real): Handle Inf and NaN, and allow the
+	rounding mode to be specified by the caller.
+	(real_to_mpfr) Likewise.
+	* real.h: Update mpfr_from_real, mpfr_to_real prototypes to
+	include new arguments.
+	* builtins.c: Update mpfr_from_real, mpfr_to_real calls.
+
 2007-04-24  Ian Lance Taylor  <iant@google.com>
 
 	PR tree-optimization/31605

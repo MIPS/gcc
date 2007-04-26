@@ -1,3 +1,25 @@
+2007-04-25  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* module.c (module_char): Replace fgetc() with
+	getc(). 
+	(write_char): Replace fputc() with putc().
+	* scanner.c (load_line): Replace fgetc() with getc().
+	(gfc_read_orig_filename): Likewise.
+
+2007-04-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/31668
+	* error.c (error_print): Fix %% support.
+	* intrinsic.c (sort_actual): Improve error message.
+	* resolve.c (resolve_actual_arglist): Allow %VAL for
+	interfaces defined in the module declaration part.
+
+2007-04-25  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/31299
+	* intrinsic.texi (GETLOG): Update documentation to reflect
+	library changes.
+
 2007-04-24  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR fortran/31587
