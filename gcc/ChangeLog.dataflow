@@ -1,3 +1,14 @@
+2007-04-26  Seongbae Park <seongbae.park@gmail.com>
+
+	* tree-pass.h: Declaration for new pass.
+	* passes.c (init_optimization_passes): New pass.
+	* dce.c (prescan_insns_for_dce): Pass new param "fast" through.
+	(mark_artificial_uses, mark_reg_dependencies): New functions 
+	- resurrected from the old svn revision.
+	(end_ud_dce, rest_of_handle_ud_dce, gate_ud_dce): New function.
+	(pass_ud_rtl_dce): New pass.
+	(fast_dce): New parameter for prescan_insns_for_dce.
+
 2007-04-24  Seongbae Park <seongbae.park@gmail.com>
 
 	* final.c (leaf_renumber_regs_insn): Use SET_REGNO().

@@ -721,6 +721,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_initialize_regs);
       NEXT_PASS (pass_no_new_pseudos);
       NEXT_PASS (pass_outof_cfg_layout_mode);
+      NEXT_PASS (pass_ud_rtl_dce);
       NEXT_PASS (pass_combine);
       NEXT_PASS (pass_if_after_combine);
       NEXT_PASS (pass_partition_blocks);

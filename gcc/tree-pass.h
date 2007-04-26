@@ -344,6 +344,7 @@ extern struct tree_opt_pass pass_jump2;
 extern struct tree_opt_pass pass_lower_subreg;
 extern struct tree_opt_pass pass_cse;
 extern struct tree_opt_pass pass_fast_rtl_dce;
+extern struct tree_opt_pass pass_ud_rtl_dce;
 extern struct tree_opt_pass pass_rtl_dce;
 extern struct tree_opt_pass pass_rtl_dse1;
 extern struct tree_opt_pass pass_rtl_dse2;

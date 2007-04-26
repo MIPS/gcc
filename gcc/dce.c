@@ -347,7 +347,7 @@ mark_libcall (rtx start_insn, bool delete_parm)
    instructions are not marked.  */
 
 static void
-prescan_insns_for_dce (void)
+prescan_insns_for_dce (bool fast)
 {
   basic_block bb;
   rtx insn;
@@ -361,17 +361,125 @@ prescan_insns_for_dce (void)
       {
         rtx note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX);
         if (note)
-          mark_libcall (insn, true);
-        else if (deletable_insn_p (insn, true))
-	  mark_nonreg_stores (PATTERN (insn), insn, true);
+          mark_libcall (insn, fast);
+        else if (deletable_insn_p (insn, fast))
+          mark_nonreg_stores (PATTERN (insn), insn, fast);
         else
-	  mark_insn (insn, true);
+          mark_insn (insn, fast);
       }
 
   if (dump_file)
     fprintf (dump_file, "Finished finding needed instructions:\n");
 }
 
+
+/* UD-based DSE routines. */
+
+/* Mark instructions that define artifically-used registers, such as
+   the frame pointer and the stack pointer.  */
+
+static void
+mark_artificial_uses (void)
+{
+  basic_block bb;
+  struct df_link *defs;
+  struct df_ref **use_rec;
+
+  FOR_ALL_BB (bb)
+    {
+      for (use_rec = df_get_artificial_uses (bb->index); 
+	   *use_rec; use_rec++)
+	for (defs = DF_REF_CHAIN (*use_rec); defs; defs = defs->next)
+	  mark_insn (DF_REF_INSN (defs->ref), false);
+    }
+}
+
+/* Mark every instruction that defines a register value that INSN uses.  */
+
+static void
+mark_reg_dependencies (rtx insn)
+{
+  struct df_link *defs;
+  struct df_ref **use_rec;
+
+  /* If this is part of a libcall, mark the entire libcall.  */
+  if (find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX))
+    mark_libcall (insn, false);
+
+  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
+    {
+      struct df_ref *use = *use_rec;
+      if (dump_file)
+	{
+	  fprintf (dump_file, "Processing use of ");
+	  print_simple_rtl (dump_file, DF_REF_REG (use));
+	  fprintf (dump_file, " in insn %d:\n", INSN_UID (insn));
+	}
+      for (defs = DF_REF_CHAIN (use); defs; defs = defs->next)
+	mark_insn (DF_REF_INSN (defs->ref), false);
+    }
+}
+
+
+static void
+end_ud_dce (void)
+{
+  BITMAP_FREE (marked);
+  gcc_assert (VEC_empty (rtx, worklist));
+}
+
+
+/* UD-chain based DCE.  */
+
+static unsigned int
+rest_of_handle_ud_dce (void)
+{
+  rtx insn;
+
+  df_in_progress = false;
+  init_dce (false);
+
+  prescan_insns_for_dce (false);
+  mark_artificial_uses ();
+  while (VEC_length (rtx, worklist) > 0)
+    {
+      insn = VEC_pop (rtx, worklist);
+      mark_reg_dependencies (insn);
+    }
+  /* Before any insns are deleted, we must remove the chains since
+     they are not bidirectional.  */
+  df_remove_problem (df_chain);
+  delete_unmarked_insns ();
+
+  end_ud_dce ();
+  return 0;
+}
+
+
+static bool
+gate_ud_dce (void)
+{
+  return optimize > 1 && flag_dce;
+}
+
+struct tree_opt_pass pass_ud_rtl_dce =
+{
+  "dce",                                /* name */
+  gate_ud_dce,                        /* gate */
+  rest_of_handle_ud_dce,              /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_DCE,                               /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_df_finish |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'w'                                   /* letter */
+};
 
 /* -------------------------------------------------------------------------
    Fast DCE functions
@@ -581,7 +689,7 @@ fast_dce (void)
 
   int loop_count = 0;
 
-  prescan_insns_for_dce ();
+  prescan_insns_for_dce (true);
 
   for (i = 0; i < n_blocks; i++)
     bitmap_set_bit (all_blocks, postorder[i]);
@@ -647,7 +755,7 @@ fast_dce (void)
 
 	  if (old_flag & DF_LR_RUN_DCE)
 	    df_set_flags (DF_LR_RUN_DCE);
-	  prescan_insns_for_dce ();
+	  prescan_insns_for_dce (true);
 	}
       loop_count++;
     }
