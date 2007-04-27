@@ -1,3 +1,76 @@
+2007-04-27  Ian Lance Taylor  <iant@google.com>
+
+	PR middle-end/31710
+	* gcc.c-torture/compile/pr31710.c: New test.
+
+2007-04-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/30965
+	PR tree-optimization/30978
+	* gcc.dg/tree-ssa/pr30978.c: New testcase.
+	* gcc.dg/tree-ssa/bool-3.c: Remove XFAIL, explain why.
+	* gcc.dg/tree-ssa/ssa-fre-4.c: Use char instead of bool
+	* gcc.dg/strict-overflow-5.c: Adjust tree dump scanning.
+
+2007-04-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31715
+	* gcc.dg/Warray-bounds-4.c: New testcase.
+
+2007-04-26  Ian Lance Taylor  <iant@google.com>
+
+	PR target/28675
+	* gcc.c-torture/compile/pr28675.c: New test.
+
+2007-04-26  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/30016
+	* g++.dg/ext/vector6.C: New test.
+
+2007-04-26  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc.c-torture/execute/ieee/20000320-1.x: New.
+
+2007-04-26  Steve Ellcey  <sje@cup.hp.com>
+
+	PR middle-end/31617
+	* g++.dg/other/str_empty.C: Add expected warning.
+
+2007-04-26  Richard Guenther  <rguenther@suse.de>
+	Daniel Berlin  <dberlin@dberlin.org>
+
+	PR tree-optimization/30567
+	* g++.dg/other/pr30567.C: New testcase.
+
+2007-04-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31703
+	* gcc.c-torture/compile/pr31703.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-lim-1.c: Adjust pattern.
+	* gcc.dg/tree-ssa/ssa-lim-2.c: Likewise.
+
+2007-04-26  Wolfgang Gellerich  <gellerich@de.ibm.com>
+
+	* gfortran.dg/open_errors.f90: Added if statements checking
+	the value of iostat.
+
+2007-04-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/31598
+	* g++.dg/gomp/pr31598.C: New test.
+
+	PR tree-optimization/30558
+	* g++.dg/gomp/pr30558.C: New test.
+
+2007-04-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31338
+	* g++.dg/ext/complex2.C: New test.
+
+2007-04-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* g++.dg/ext/has_nothrow_assign.C: Adjust per N2255.
+
 2007-04-25  Thiemo Seufer  <ths@mips.com>
 
 	* gcc.target/mips/mips16e-extends.c (cksum8): Change return
@@ -30,7 +103,7 @@
 
 2007-04-24  Ian Lance Taylor  <iant@google.com>
 
-	PR tree-optimizatoin/31605
+	PR tree-optimization/31605
 	* gcc.c-torture/execute/pr31605.c: New test.
 
 2007-04-24  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>

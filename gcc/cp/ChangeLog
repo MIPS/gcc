@@ -1,3 +1,41 @@
+2007-04-27  Simon Baldwin  <simonb@google.com>
+
+	* decl.c (grokparms): Changed message format from %qD to %qE.
+
+2007-04-27  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* error.c (maybe_warn_variadic_templates): Variadic templates are
+       now in C++0x, so only warn about them in C++98 mode.
+	
+2007-04-26  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/30016
+	* typeck.c (build_reinterpret_cast_1): Only allow conversion to
+	integeral types from vectors types.
+
+2007-04-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/31598
+	* semantics.c (finish_omp_clauses): Don't create CP_OMP_CLAUSE_INFO
+	for type dependent OMP_CLAUSE_DECLs.
+
+2007-04-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31338
+	* cp-tree.h (ARITHMETIC_TYPE): Include COMPLEX_TYPE.
+	* typeck.c (type_after_usual_arithmetic_conversions): Adjust, as
+	COMPLEX_TYPE is now an ARITHMETIC_TYPE.
+	* init.c (build_zero_init): Adjust, as
+	COMPLEX_TYPE is now a SCALAR_TYPE.
+	* typeck2.c (digest_init): Allow brace-enclosed initializers for
+	COMPLEX_TYPE, even though that is now a SCALAR_TYPE.
+
+2007-04-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* semantics.c (classtype_has_nothrow_copy_or_assign_p): Adjust
+	per N2255; rename as classtype_has_nothrow_assign_or_copy_p.
+	(trait_expr_value): Adjust.
+
 2007-04-23  Simon Baldwin  <simonb@google.com>
 
 	* decl.c (grokparms): Added new error for duplicate function
