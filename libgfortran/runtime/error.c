@@ -33,7 +33,6 @@ Boston, MA 02110-1301, USA.  */
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
-#include <float.h>
 #include <errno.h>
 
 #ifdef HAVE_SIGNAL_H
@@ -71,6 +70,12 @@ Boston, MA 02110-1301, USA.  */
 void
 sys_exit (int code)
 {
+  /* Show error backtrace if possible.  */
+  if (code != 0 && code != 4
+      && (options.backtrace == 1
+	  || (options.backtrace == -1 && compile_options.backtrace == 1)))
+    show_backtrace ();
+
   /* Dump core if requested.  */
   if (code != 0
       && (options.dump_core == 1

@@ -675,6 +675,9 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
      successors and predecessors.  */
   max_gcse_regno = max_reg_num ();
 
+  df_ri_add_problem (DF_RI_LIFE);
+  df_analyze ();
+
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
 
@@ -1730,8 +1733,11 @@ hash_scan_set (rtx pat, rtx insn, struct hash_table *table)
 	{
 	  /* An expression is not anticipatable if its operands are
 	     modified before this insn or if this is not the only SET in
-	     this insn.  */
-	  int antic_p = oprs_anticipatable_p (src, insn) && single_set (insn);
+	     this insn.  The latter condition does not have to mean that
+	     SRC itself is not anticipatable, but we just will not be
+	     able to handle code motion of insns with multiple sets.  */
+	  int antic_p = oprs_anticipatable_p (src, insn)
+			&& !multiple_sets (insn);
 	  /* An expression is not available if its operands are
 	     subsequently modified, including this insn.  It's also not
 	     available if this is a branch, because we can't insert
@@ -4915,7 +4921,7 @@ hoist_code (void)
       if (! found)
         {
 	  free (domby);
-	continue;
+	  continue;
 	}
 
       /* Loop over all the hoistable expressions.  */
@@ -6639,14 +6645,12 @@ gate_handle_jump_bypass (void)
 static unsigned int
 rest_of_handle_jump_bypass (void)
 {
-  cleanup_cfg (CLEANUP_EXPENSIVE);
-  reg_scan (get_insns (), max_reg_num ());
-
+  delete_unreachable_blocks ();
   if (bypass_jumps ())
     {
-      rebuild_jump_labels (get_insns ());
-      cleanup_cfg (CLEANUP_EXPENSIVE);
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
+      rebuild_jump_labels (get_insns ());
+      cleanup_cfg (0);
     }
   return 0;
 }
@@ -6683,8 +6687,8 @@ rest_of_handle_gcse (void)
   int save_csb, save_cfj;
   int tem2 = 0, tem;
   tem = gcse_main (get_insns ());
-  rebuild_jump_labels (get_insns ());
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  rebuild_jump_labels (get_insns ());
   save_csb = flag_cse_skip_blocks;
   save_cfj = flag_cse_follow_jumps;
   flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
@@ -6694,7 +6698,6 @@ rest_of_handle_gcse (void)
   if (flag_expensive_optimizations)
     {
       timevar_push (TV_CSE);
-      reg_scan (get_insns (), max_reg_num ());
       tem2 = cse_main (get_insns (), max_reg_num ());
       purge_all_dead_edges ();
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
@@ -6708,8 +6711,7 @@ rest_of_handle_gcse (void)
     {
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
-      delete_dead_jumptables ();
-      cleanup_cfg (CLEANUP_EXPENSIVE);
+      cleanup_cfg (0);
       timevar_pop (TV_JUMP);
     }
 
@@ -6731,6 +6733,7 @@ struct tree_opt_pass pass_gcse =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_verify_flow | TODO_ggc_collect,  /* todo_flags_finish */
   'G'                                   /* letter */

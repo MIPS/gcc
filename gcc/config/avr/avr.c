@@ -208,6 +208,7 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at90pwm1",  4, "__AVR_AT90PWM1__" },
   { "at90pwm2",  4, "__AVR_AT90PWM2__" },
   { "at90pwm3",  4, "__AVR_AT90PWM3__" },
+  { "at90usb82",   4, "__AVR_AT90USB82__" },
     /* Enhanced, > 8K.  */
   { "avr5",      5, NULL },
   { "atmega16",  5, "__AVR_ATmega16__" },
@@ -224,9 +225,13 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "atmega323", 5, "__AVR_ATmega323__" },
   { "atmega324p",5, "__AVR_ATmega324P__" },
   { "atmega325", 5, "__AVR_ATmega325__" },
+  { "atmega325p",  5, "__AVR_ATmega325P__" },
   { "atmega3250", 5, "__AVR_ATmega3250__" },
+  { "atmega3250p", 5, "__AVR_ATmega3250P__" },
   { "atmega329", 5, "__AVR_ATmega329__" },
+  { "atmega329p",  5, "__AVR_ATmega329P__" },
   { "atmega3290", 5, "__AVR_ATmega3290__" },
+  { "atmega3290p", 5, "__AVR_ATmega3290P__" },
   { "atmega406", 5, "__AVR_ATmega406__" },
   { "atmega64",  5, "__AVR_ATmega64__" },
   { "atmega640", 5, "__AVR_ATmega640__" },
@@ -242,6 +247,7 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at90can32", 5, "__AVR_AT90CAN32__" },
   { "at90can64", 5, "__AVR_AT90CAN64__" },
   { "at90can128", 5, "__AVR_AT90CAN128__" },
+  { "at90usb162",  5, "__AVR_AT90USB162__" },
   { "at90usb646", 5, "__AVR_AT90USB646__" },
   { "at90usb647", 5, "__AVR_AT90USB647__" },
   { "at90usb1286", 5, "__AVR_AT90USB1286__" },
@@ -309,6 +315,8 @@ avr_override_options (void)
 {
   const struct mcu_type_s *t;
   const struct base_arch_s *base;
+
+  flag_delete_null_pointer_checks = 0;
 
   for (t = avr_mcu_types; t->name; t++)
     if (strcmp (t->name, avr_mcu_name) == 0)
@@ -4595,7 +4603,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
     }
   else
     {
-      const char *func_name = IDENTIFIER_POINTER (DECL_NAME (*node));
+      const char *func_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (*node));
       const char *attr = IDENTIFIER_POINTER (name);
 
       /* If the function has the 'signal' or 'interrupt' attribute, test to
@@ -4989,6 +4997,7 @@ avr_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
 	    *total = COSTS_N_INSNS (AVR_MEGA ? 2 : 1);
 	  else
 	    return false;
+	  break;
 
 	case HImode:
 	  if (AVR_HAVE_MUL)
@@ -4997,6 +5006,7 @@ avr_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
 	    *total = COSTS_N_INSNS (AVR_MEGA ? 2 : 1);
 	  else
 	    return false;
+	  break;
 
 	default:
 	  return false;
@@ -5604,6 +5614,10 @@ jump_over_one_insn_p (rtx insn, rtx dest)
 int
 avr_hard_regno_mode_ok (int regno, enum machine_mode mode)
 {
+  /* Disallow QImode in stack pointer regs.  */
+  if ((regno == REG_SP || regno == (REG_SP + 1)) && mode == QImode)
+    return 0;
+
   /* The only thing that can go into registers r28:r29 is a Pmode.  */
   if (regno == REG_Y && mode == Pmode)
     return 1;

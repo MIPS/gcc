@@ -942,6 +942,7 @@ unsigned bb_dom_dfs_out (enum cdi_direction, basic_block);
 
 extern edge try_redirect_by_replacing_jump (edge, basic_block, bool);
 extern void break_superblocks (void);
+extern void relink_block_chain (bool);
 extern void check_bb_profile (basic_block, FILE *);
 extern void update_bb_profile_for_threading (basic_block, int, gcov_type, edge);
 extern void init_rtl_bb_info (basic_block);

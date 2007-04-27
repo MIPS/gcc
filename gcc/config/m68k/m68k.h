@@ -316,7 +316,10 @@ Boston, MA 02110-1301, USA.  */
 #define FIRST_PSEUDO_REGISTER 25
 
 /* All m68k targets (except AmigaOS) use %a5 as the PIC register  */
-#define PIC_OFFSET_TABLE_REGNUM (flag_pic ? 13 : INVALID_REGNUM)
+#define PIC_OFFSET_TABLE_REGNUM				\
+  (!flag_pic ? INVALID_REGNUM				\
+   : reload_completed ? REGNO (pic_offset_table_rtx)	\
+   : PIC_REG)
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.
@@ -383,9 +386,8 @@ Boston, MA 02110-1301, USA.  */
         if (TEST_HARD_REG_BIT (x, i))				\
 	  fixed_regs[i] = call_used_regs[i] = 1;		\
     }								\
-  if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)		\
-    fixed_regs[PIC_OFFSET_TABLE_REGNUM]				\
-      = call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
+  if (flag_pic)							\
+    fixed_regs[PIC_REG] = call_used_regs[PIC_REG] = 1;		\
 }
 
 /* On the m68k, ordinary registers hold 32 bits worth;
@@ -401,12 +403,11 @@ Boston, MA 02110-1301, USA.  */
 #define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG) \
   m68k_hard_regno_rename_ok (OLD_REG, NEW_REG)
 
-/* Value is true if hard register REGNO can hold a value of machine-mode MODE.
-   On the 68000, the cpu registers can hold any mode except bytes in
-   address registers, the 68881 registers can hold only SFmode or DFmode.  */
-
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
   m68k_regno_mode_ok ((REGNO), (MODE))
+
+#define SECONDARY_RELOAD_CLASS(CLASS, MODE, X) \
+  m68k_secondary_reload_class (CLASS, MODE, X)
 
 #define MODES_TIEABLE_P(MODE1, MODE2)			\
   (! TARGET_HARD_FLOAT					\
@@ -535,47 +536,17 @@ extern enum reg_class regno_reg_class[];
 	  || GET_CODE (OP) == CONST))			\
    :							\
    (CODE) == 'Q'					\
-   ? (GET_CODE (OP) == MEM 				\
-      && GET_CODE (XEXP (OP, 0)) == REG)		\
+   ? m68k_matches_q_p (OP)				\
    :							\
    (CODE) == 'U'					\
-   ? (GET_CODE (OP) == MEM 				\
-      && GET_CODE (XEXP (OP, 0)) == PLUS		\
-      && GET_CODE (XEXP (XEXP (OP, 0), 0)) == REG	\
-      && GET_CODE (XEXP (XEXP (OP, 0), 1)) == CONST_INT) \
+   ? m68k_matches_u_p (OP)				\
    :							\
    (CODE) == 'W'					\
    ? const_call_operand (OP, VOIDmode)			\
    : 0)
 
-/* On the m68k, use a data reg if possible when the
-   value is a constant in the range where moveq could be used
-   and we ensure that QImodes are reloaded into data regs.  */
-#define PREFERRED_RELOAD_CLASS(X,CLASS)  \
-  ((GET_CODE (X) == CONST_INT			\
-    && (unsigned) (INTVAL (X) + 0x80) < 0x100	\
-    && (CLASS) != ADDR_REGS)			\
-   ? DATA_REGS					\
-   : (GET_MODE (X) == QImode && (CLASS) != ADDR_REGS) \
-   ? DATA_REGS					\
-   : (GET_CODE (X) == CONST_DOUBLE					\
-      && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)			\
-   ? (TARGET_HARD_FLOAT && (CLASS == FP_REGS || CLASS == DATA_OR_FP_REGS) \
-      ? FP_REGS : NO_REGS)						\
-   : (TARGET_PCREL				\
-      && (GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == CONST \
-	  || GET_CODE (X) == LABEL_REF))	\
-   ? ADDR_REGS					\
-   : (CLASS))
-
-/* Force QImode output reloads from subregs to be allocated to data regs,
-   since QImode stores from address regs are not supported.  We make the
-   assumption that if the class is not ADDR_REGS, then it must be a superset
-   of DATA_REGS.  */
-#define LIMIT_RELOAD_CLASS(MODE, CLASS) \
-  (((MODE) == QImode && (CLASS) != ADDR_REGS)	\
-   ? DATA_REGS					\
-   : (CLASS))
+#define PREFERRED_RELOAD_CLASS(X,CLASS) \
+  m68k_preferred_reload_class (X, CLASS)
 
 /* On the m68k, this is the size of MODE in words,
    except in the FP regs, where a single reg is always enough.  */
@@ -786,166 +757,52 @@ __transfer_from_trampoline ()					\
 /* 1 if X is an address register  */
 #define ADDRESS_REG_P(X) (REG_P (X) && REGNO_OK_FOR_BASE_P (REGNO (X)))
 
+/* True if SYMBOL + OFFSET constants must refer to something within
+   SYMBOL's section.  */
+#ifndef M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P
+#define M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P 0
+#endif
 
 #define MAX_REGS_PER_ADDRESS 2
 
-#define CONSTANT_ADDRESS_P(X)   \
-  (GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
-   || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST		\
-   || GET_CODE (X) == HIGH)
+#define CONSTANT_ADDRESS_P(X)						\
+  ((GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
+    || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST		\
+    || GET_CODE (X) == HIGH)						\
+   && LEGITIMATE_CONSTANT_P (X))
 
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
-#define LEGITIMATE_CONSTANT_P(X) (GET_MODE (X) != XFmode)
+#define LEGITIMATE_CONSTANT_P(X)				\
+  (GET_MODE (X) != XFmode					\
+   && !m68k_illegitimate_symbolic_constant_p (X))
 
 #ifndef REG_OK_STRICT
-#define PCREL_GENERAL_OPERAND_OK 0
+#define REG_STRICT_P 0
 #else
-#define PCREL_GENERAL_OPERAND_OK (TARGET_PCREL)
+#define REG_STRICT_P 1
 #endif
 
-#define LEGITIMATE_PIC_OPERAND_P(X)	\
-  (! symbolic_operand (X, VOIDmode)				\
-   || PCREL_GENERAL_OPERAND_OK)
+#define LEGITIMATE_PIC_OPERAND_P(X)				\
+  (!symbolic_operand (X, VOIDmode)				\
+   || (TARGET_PCREL && REG_STRICT_P))
 
-#ifndef REG_OK_STRICT
-
-/* Nonzero if X is a hard reg that can be used as an index
-   or if it is a pseudo reg.  */
-#define REG_OK_FOR_INDEX_P(X) !FP_REGNO_P (REGNO (X))
-/* Nonzero if X is a hard reg that can be used as a base reg
-   or if it is a pseudo reg.  */
 #define REG_OK_FOR_BASE_P(X) \
-  (!DATA_REGNO_P (REGNO (X)) && !FP_REGNO_P (REGNO (X)))
+  m68k_legitimate_base_reg_p (X, REG_STRICT_P)
 
-#else
+#define REG_OK_FOR_INDEX_P(X) \
+  m68k_legitimate_index_reg_p (X, REG_STRICT_P)
 
-/* Nonzero if X is a hard reg that can be used as an index.  */
-#define REG_OK_FOR_INDEX_P(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
-/* Nonzero if X is a hard reg that can be used as a base reg.  */
-#define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
-
-#endif
-
-/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
-   that is a valid memory address for an instruction.
-   The MODE argument is the machine mode for the MEM expression
-   that wants to use this address.
-
-   When generating PIC, an address involving a SYMBOL_REF is legitimate
-   if and only if it is the sum of pic_offset_table_rtx and the SYMBOL_REF.
-   We use LEGITIMATE_PIC_OPERAND_P to throw out the illegitimate addresses,
-   and we explicitly check for the sum of pic_offset_table_rtx and a SYMBOL_REF.
-
-   Likewise for a LABEL_REF when generating PIC.
-
-   The other macros defined here are used only in GO_IF_LEGITIMATE_ADDRESS.  */
-
-/* Allow SUBREG everywhere we allow REG.  This results in better code.  It
-   also makes function inlining work when inline functions are called with
-   arguments that are SUBREGs.  */
-
-#define LEGITIMATE_BASE_REG_P(X)   \
-  ((GET_CODE (X) == REG && REG_OK_FOR_BASE_P (X))	\
-   || (GET_CODE (X) == SUBREG				\
-       && GET_CODE (SUBREG_REG (X)) == REG		\
-       && REG_OK_FOR_BASE_P (SUBREG_REG (X))))
-
-#define INDIRECTABLE_1_ADDRESS_P(X)  \
-  ((CONSTANT_ADDRESS_P (X) && (!flag_pic || LEGITIMATE_PIC_OPERAND_P (X))) \
-   || LEGITIMATE_BASE_REG_P (X)						\
-   || ((GET_CODE (X) == PRE_DEC || GET_CODE (X) == POST_INC)		\
-       && LEGITIMATE_BASE_REG_P (XEXP (X, 0)))				\
-   || (GET_CODE (X) == PLUS						\
-       && LEGITIMATE_BASE_REG_P (XEXP (X, 0))				\
-       && GET_CODE (XEXP (X, 1)) == CONST_INT				\
-       && (TARGET_68020							\
-	   || ((unsigned) INTVAL (XEXP (X, 1)) + 0x8000) < 0x10000))	\
-   || (GET_CODE (X) == PLUS && XEXP (X, 0) == pic_offset_table_rtx 	\
-       && flag_pic && GET_CODE (XEXP (X, 1)) == SYMBOL_REF)		\
-   || (GET_CODE (X) == PLUS && XEXP (X, 0) == pic_offset_table_rtx 	\
-       && flag_pic && GET_CODE (XEXP (X, 1)) == LABEL_REF))
-
-#define GO_IF_NONINDEXED_ADDRESS(X, ADDR)  \
-{ if (INDIRECTABLE_1_ADDRESS_P (X)) goto ADDR; }
-
-/* Only labels on dispatch tables are valid for indexing from.  */
-#define GO_IF_INDEXABLE_BASE(X, ADDR)				\
-{ rtx temp;							\
-  if (GET_CODE (X) == LABEL_REF					\
-      && (temp = next_nonnote_insn (XEXP (X, 0))) != 0		\
-      && GET_CODE (temp) == JUMP_INSN				\
-      && (GET_CODE (PATTERN (temp)) == ADDR_VEC			\
-	  || GET_CODE (PATTERN (temp)) == ADDR_DIFF_VEC))	\
-    goto ADDR;							\
-  if (LEGITIMATE_BASE_REG_P (X)) goto ADDR; }
-
-#define GO_IF_INDEXING(X, ADDR)	\
-{ if (GET_CODE (X) == PLUS && LEGITIMATE_INDEX_P (XEXP (X, 0)))		\
-    { GO_IF_INDEXABLE_BASE (XEXP (X, 1), ADDR); }			\
-  if (GET_CODE (X) == PLUS && LEGITIMATE_INDEX_P (XEXP (X, 1)))		\
-    { GO_IF_INDEXABLE_BASE (XEXP (X, 0), ADDR); } }
-
-#define GO_IF_INDEXED_ADDRESS(X, ADDR)	 \
-{ GO_IF_INDEXING (X, ADDR);						\
-  if (GET_CODE (X) == PLUS)						\
-    { if (GET_CODE (XEXP (X, 1)) == CONST_INT				\
-	  && (TARGET_68020 || (unsigned) INTVAL (XEXP (X, 1)) + 0x80 < 0x100))		\
-	{ rtx go_temp = XEXP (X, 0); GO_IF_INDEXING (go_temp, ADDR); }	\
-      if (GET_CODE (XEXP (X, 0)) == CONST_INT				\
-	  && (TARGET_68020 || (unsigned) INTVAL (XEXP (X, 0)) + 0x80 < 0x100))		\
-	{ rtx go_temp = XEXP (X, 1); GO_IF_INDEXING (go_temp, ADDR); } } }
-
-/* ColdFire/5200 does not allow HImode index registers.  */
-#define LEGITIMATE_INDEX_REG_P(X)   \
-  ((GET_CODE (X) == REG && REG_OK_FOR_INDEX_P (X))	\
-   || (! TARGET_COLDFIRE					\
-       && GET_CODE (X) == SIGN_EXTEND			\
-       && GET_CODE (XEXP (X, 0)) == REG			\
-       && GET_MODE (XEXP (X, 0)) == HImode		\
-       && REG_OK_FOR_INDEX_P (XEXP (X, 0)))		\
-   || (GET_CODE (X) == SUBREG				\
-       && GET_CODE (SUBREG_REG (X)) == REG		\
-       && REG_OK_FOR_INDEX_P (SUBREG_REG (X))))
-
-#define LEGITIMATE_INDEX_P(X)   \
-   (LEGITIMATE_INDEX_REG_P (X)				\
-    || ((TARGET_68020 || TARGET_COLDFIRE) && GET_CODE (X) == MULT \
-	&& LEGITIMATE_INDEX_REG_P (XEXP (X, 0))		\
-	&& GET_CODE (XEXP (X, 1)) == CONST_INT		\
-	&& (INTVAL (XEXP (X, 1)) == 2			\
-	    || INTVAL (XEXP (X, 1)) == 4		\
-	    || (INTVAL (XEXP (X, 1)) == 8		\
-		&& (TARGET_COLDFIRE_FPU || !TARGET_COLDFIRE)))))
-
-/* ColdFire FPU only accepts addressing modes 2-5.  */
-#define GO_IF_COLDFIRE_FPU_LEGITIMATE_ADDRESS(MODE, X, ADDR)		\
-{ if (LEGITIMATE_BASE_REG_P (X)						\
-      || ((GET_CODE (X) == PRE_DEC || GET_CODE (X) == POST_INC)		\
-          && LEGITIMATE_BASE_REG_P (XEXP (X, 0)))			\
-      || ((GET_CODE (X) == PLUS) && LEGITIMATE_BASE_REG_P (XEXP (X, 0))	\
-          && (GET_CODE (XEXP (X, 1)) == CONST_INT)			\
-          && ((((unsigned) INTVAL (XEXP (X, 1)) + 0x8000) < 0x10000))))	\
-  goto ADDR;}
-
-/* If pic, we accept INDEX+LABEL, which is what do_tablejump makes.  */
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
-{ if (TARGET_COLDFIRE_FPU && (GET_MODE_CLASS (MODE) == MODE_FLOAT))	\
+  do									\
     {									\
-      GO_IF_COLDFIRE_FPU_LEGITIMATE_ADDRESS (MODE, X, ADDR);		\
+      if (m68k_legitimate_address_p (MODE, X, REG_STRICT_P))		\
+        goto ADDR;							\
     }									\
-  else									\
-    {									\
-      GO_IF_NONINDEXED_ADDRESS (X, ADDR);				\
-      GO_IF_INDEXED_ADDRESS (X, ADDR);					\
-      if (flag_pic && MODE == CASE_VECTOR_MODE && GET_CODE (X) == PLUS	\
-	  && LEGITIMATE_INDEX_P (XEXP (X, 0))				\
-	  && GET_CODE (XEXP (X, 1)) == LABEL_REF)			\
-	goto ADDR;							\
-    }}
+  while (0)
 
 /* Don't call memory_address_noforce for the address to fetch
-   the switch offset.  This address is ok as it stands (see above),
+   the switch offset.  This address is ok as it stands,
    but memory_address_noforce would alter it.  */
 #define PIC_CASE_VECTOR_ADDRESS(index) index
 
@@ -1105,6 +962,10 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 /* Before the prologue, the top of the frame is at 4(%sp).  */
 #define INCOMING_FRAME_SP_OFFSET 4
 
+/* All registers are live on exit from an interrupt routine.  */
+#define EPILOGUE_USES(REGNO) \
+  (reload_completed && m68k_interrupt_function_p (current_function_decl))
+
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N) \
   ((N) < 2 ? (N) : INVALID_REGNUM)
@@ -1241,6 +1102,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
    '$' for the letter `s' in an op code, but only on the 68040.
    '&' for the letter `d' in an op code, but only on the 68040.
    '/' for register prefix needed by longlong.h.
+   '?' for m68k_library_id_string
 
    'b' for byte insn (no effect, on the Sun; this is for the ISI).
    'd' to force memory addressing to be absolute, not relative.
@@ -1251,7 +1113,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)				\
   ((CODE) == '.' || (CODE) == '#' || (CODE) == '-'			\
    || (CODE) == '+' || (CODE) == '@' || (CODE) == '!'			\
-   || (CODE) == '$' || (CODE) == '&' || (CODE) == '/')
+   || (CODE) == '$' || (CODE) == '&' || (CODE) == '/' || (CODE) == '?')
 
 
 /* See m68k.c for the m68k specific codes.  */

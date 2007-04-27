@@ -259,6 +259,12 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 			last_insn = return_copy;
 			continue;
 		      }
+		    if (GET_CODE (PATTERN (return_copy)) == ASM_INPUT
+			&& strcmp (XSTR (PATTERN (return_copy), 0), "") == 0)
+		      {
+			last_insn = return_copy;
+			continue;
+		      }
 		    /* If the return register is not (in its entirety)
 		       likely spilled, the return copy might be
 		       partially or completely optimized away.  */
@@ -472,7 +478,7 @@ optimize_mode_switching (void)
 	  int last_mode = no_mode;
 	  HARD_REG_SET live_now;
 
-	  REG_SET_TO_HARD_REG_SET (live_now, DF_LIVE_IN (bb));
+	  REG_SET_TO_HARD_REG_SET (live_now, df_get_live_in (bb));
 
 	  /* Pretend the mode is clobbered across abnormal edges.  */
 	  {
@@ -617,7 +623,7 @@ optimize_mode_switching (void)
 	      mode = current_mode[j];
 	      src_bb = eg->src;
 
-	      REG_SET_TO_HARD_REG_SET (live_at_edge, DF_LIVE_OUT (src_bb));
+	      REG_SET_TO_HARD_REG_SET (live_at_edge, df_get_live_out (src_bb));
 
 	      start_sequence ();
 	      EMIT_MODE_SET (entity_map[j], mode, live_at_edge);
@@ -706,7 +712,6 @@ optimize_mode_switching (void)
     return 0;
 #endif
 
-  allocate_reg_info (max_regno, FALSE, FALSE);
   return 1;
 }
 

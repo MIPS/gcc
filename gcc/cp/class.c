@@ -1270,6 +1270,7 @@ check_bases (tree t,
       TYPE_POLYMORPHIC_P (t) |= TYPE_POLYMORPHIC_P (basetype);
       CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t)
 	|= CLASSTYPE_CONTAINS_EMPTY_CLASS_P (basetype);
+      TYPE_HAS_COMPLEX_DFLT (t) |= TYPE_HAS_COMPLEX_DFLT (basetype);      
     }
 }
 
@@ -2097,7 +2098,8 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
 				   fixed_offset, virtual_offset);
     }
   else
-    gcc_assert (!DECL_THUNK_P (fn));
+    gcc_assert (DECL_INVALID_OVERRIDER_P (overrider_target) ||
+		!DECL_THUNK_P (fn));
 
   /* Assume that we will produce a thunk that convert all the way to
      the final overrider, and not to an intermediate virtual base.  */
@@ -2341,16 +2343,6 @@ check_for_override (tree decl, tree ctype)
       if (!DECL_VINDEX (decl))
 	DECL_VINDEX (decl) = error_mark_node;
       IDENTIFIER_VIRTUAL_P (DECL_NAME (decl)) = 1;
-      if (DECL_DLLIMPORT_P (decl))
-	{
-	  /* When we handled the dllimport attribute we may not have known
-	     that this function is virtual   We can't use dllimport
-	     semantics for a virtual method because we need to initialize
-	     the vtable entry with a constant address.  */
-	  DECL_DLLIMPORT_P (decl) = 0;
-	  DECL_ATTRIBUTES (decl)
-	    = remove_attribute ("dllimport", DECL_ATTRIBUTES (decl));
-	}
     }
 }
 
@@ -2420,8 +2412,8 @@ warn_hidden (tree t)
       while (base_fndecls)
 	{
 	  /* Here we know it is a hider, and no overrider exists.  */
-	  warning (0, "%q+D was hidden", TREE_VALUE (base_fndecls));
-	  warning (0, "  by %q+D", fns);
+	  warning (OPT_Woverloaded_virtual, "%q+D was hidden", TREE_VALUE (base_fndecls));
+	  warning (OPT_Woverloaded_virtual, "  by %q+D", fns);
 	  base_fndecls = TREE_CHAIN (base_fndecls);
 	}
     }
@@ -2752,6 +2744,7 @@ check_field_decl (tree field,
 	    |= TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type);
 	  TYPE_HAS_COMPLEX_ASSIGN_REF (t) |= TYPE_HAS_COMPLEX_ASSIGN_REF (type);
 	  TYPE_HAS_COMPLEX_INIT_REF (t) |= TYPE_HAS_COMPLEX_INIT_REF (type);
+	  TYPE_HAS_COMPLEX_DFLT (t) |= TYPE_HAS_COMPLEX_DFLT (type);
 	}
 
       if (!TYPE_HAS_CONST_INIT_REF (type))
@@ -4112,6 +4105,8 @@ check_bases_and_members (tree t)
 	|| TYPE_HAS_ASSIGN_REF (t));
   TYPE_HAS_COMPLEX_ASSIGN_REF (t)
     |= TYPE_HAS_ASSIGN_REF (t) || TYPE_CONTAINS_VPTR_P (t);
+  TYPE_HAS_COMPLEX_DFLT (t)
+    |= (TYPE_HAS_DEFAULT_CONSTRUCTOR (t) || TYPE_CONTAINS_VPTR_P (t));
 
   /* Synthesize any needed methods.  */
   add_implicitly_declared_members (t,
@@ -6299,9 +6294,9 @@ note_name_declared_in_class (tree name, tree decl)
 	 A name N used in a class S shall refer to the same declaration
 	 in its context and when re-evaluated in the completed scope of
 	 S.  */
-      error ("declaration of %q#D", decl);
-      error ("changes meaning of %qD from %q+#D",
-	     DECL_NAME (OVL_CURRENT (decl)), (tree) n->value);
+      pedwarn ("declaration of %q#D", decl);
+      pedwarn ("changes meaning of %qD from %q+#D",
+	       DECL_NAME (OVL_CURRENT (decl)), (tree) n->value);
     }
 }
 

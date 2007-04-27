@@ -2031,6 +2031,8 @@ try_optimize_cfg (int mode)
 
 		      reorder_insns_nobb (label, label, bb_note);
 		      BB_HEAD (b) = bb_note;
+		      if (BB_END (b) == bb_note)
+			BB_END (b) = label;
 		    }
 		  if (dump_file)
 		    fprintf (dump_file, "Deleted label in block %i.\n",
@@ -2292,16 +2294,16 @@ cleanup_cfg (int mode)
 	}
       else
 	break;
-
-      /* Don't call delete_dead_jumptables in cfglayout mode, because
-	 that function assumes that jump tables are in the insns stream.
-	 But we also don't _have_ to delete dead jumptables in cfglayout
-	 mode because we shouldn't even be looking at things that are
-	 not in a basic block.  Dead jumptables are cleaned up when
-	 going out of cfglayout mode.  */
-      if (!(mode & CLEANUP_CFGLAYOUT))
-	delete_dead_jumptables ();
     }
+
+  /* Don't call delete_dead_jumptables in cfglayout mode, because
+     that function assumes that jump tables are in the insns stream.
+     But we also don't _have_ to delete dead jumptables in cfglayout
+     mode because we shouldn't even be looking at things that are
+     not in a basic block.  Dead jumptables are cleaned up when
+     going out of cfglayout mode.  */
+  if (!(mode & CLEANUP_CFGLAYOUT))
+    delete_dead_jumptables ();
 
   timevar_pop (TV_CLEANUP_CFG);
 
@@ -2341,7 +2343,6 @@ static unsigned int
 rest_of_handle_jump2 (void)
 {
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  reg_scan (get_insns (), max_reg_num ());
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)

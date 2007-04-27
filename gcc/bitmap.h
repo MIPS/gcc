@@ -70,29 +70,20 @@ typedef struct bitmap_element_def GTY(())
 } bitmap_element;
 
 struct bitmap_descriptor;
-/* Head of bitmap linked list.  
-   The gengtype doesn't cope with ifdefs inside the definition,
-   but for statistics we need bitmap descriptor pointer in.
-   Trick it by two copies of the definition.  This is safe
-   because the bitmap descriptor is not grabagecollected.  */
-#ifndef GATHER_STATISTICS
+/* Head of bitmap linked list.  gengtype ignores ifdefs, but for
+   statistics we need to add a bitmap descriptor pointer.  As it is
+   not collected, we can just GTY((skip)) it.   */
+
 typedef struct bitmap_head_def GTY(()) {
   bitmap_element *first;	/* First element in linked list.  */
   bitmap_element *current;	/* Last element looked at.  */
   unsigned int indx;		/* Index of last element looked at.  */
   bitmap_obstack *obstack;	/* Obstack to allocate elements from.
 				   If NULL, then use ggc_alloc.  */
-} bitmap_head;
-#else
-typedef struct bitmap_head_def {
-  bitmap_element *first;	/* First element in linked list.  */
-  bitmap_element *current;	/* Last element looked at.  */
-  unsigned int indx;		/* Index of last element looked at.  */
-  bitmap_obstack *obstack;	/* Obstack to allocate elements from.
-				   If NULL, then use ggc_alloc.  */
-  struct bitmap_descriptor *desc;
-} bitmap_head;
+#ifdef GATHER_STATISTICS
+  struct bitmap_descriptor GTY((skip)) *desc;
 #endif
+} bitmap_head;
 
 /* Global data */
 extern bitmap_element bitmap_zero_bits;	/* Zero bitmap element */
@@ -126,11 +117,12 @@ extern unsigned long bitmap_count_bits (bitmap);
    The operations supported are &, & ~, |, ^.  */
 extern void bitmap_and (bitmap, bitmap, bitmap);
 extern void bitmap_and_into (bitmap, bitmap);
-extern void bitmap_and_compl (bitmap, bitmap, bitmap);
+extern bool bitmap_and_compl (bitmap, bitmap, bitmap);
 extern bool bitmap_and_compl_into (bitmap, bitmap);
 #define bitmap_compl_and(DST, A, B) bitmap_and_compl (DST, B, A)
 extern void bitmap_compl_and_into (bitmap, bitmap);
 extern void bitmap_clear_range (bitmap, unsigned int, unsigned int);
+extern void bitmap_set_range (bitmap, unsigned int, unsigned int);
 extern bool bitmap_ior (bitmap, bitmap, bitmap);
 extern bool bitmap_ior_into (bitmap, bitmap);
 extern void bitmap_xor (bitmap, bitmap, bitmap);

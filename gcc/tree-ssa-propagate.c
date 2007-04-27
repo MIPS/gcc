@@ -1112,7 +1112,7 @@ fold_predicate_in (tree stmt)
   else
     return false;
 
-  val = vrp_evaluate_conditional (*pred_p, true);
+  val = vrp_evaluate_conditional (*pred_p, stmt);
   if (val)
     {
       if (modify_stmt_p)

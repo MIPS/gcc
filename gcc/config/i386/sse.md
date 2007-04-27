@@ -60,7 +60,9 @@
 (define_insn "*mov<mode>_internal"
   [(set (match_operand:SSEMODEI 0 "nonimmediate_operand" "=x,x ,m")
 	(match_operand:SSEMODEI 1 "nonimmediate_or_sse_const_operand"  "C ,xm,x"))]
-  "TARGET_SSE && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "TARGET_SSE
+   && (register_operand (operands[0], <MODE>mode)
+       || register_operand (operands[1], <MODE>mode))"
 {
   switch (which_alternative)
     {
@@ -140,7 +142,9 @@
 (define_insn "*movv4sf_internal"
   [(set (match_operand:V4SF 0 "nonimmediate_operand" "=x,x,m")
 	(match_operand:V4SF 1 "nonimmediate_or_sse_const_operand" "C,xm,x"))]
-  "TARGET_SSE"
+  "TARGET_SSE
+   && (register_operand (operands[0], V4SFmode)
+       || register_operand (operands[1], V4SFmode))"
 {
   switch (which_alternative)
     {
@@ -182,7 +186,9 @@
 (define_insn "*movv2df_internal"
   [(set (match_operand:V2DF 0 "nonimmediate_operand" "=x,x,m")
 	(match_operand:V2DF 1 "nonimmediate_or_sse_const_operand" "C,xm,x"))]
-  "TARGET_SSE && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "TARGET_SSE
+   && (register_operand (operands[0], V2DFmode)
+       || register_operand (operands[1], V2DFmode))"
 {
   switch (which_alternative)
     {
@@ -2746,7 +2752,7 @@
 	    (vec_select:V2SI
 	      (match_operand:V4SI 2 "nonimmediate_operand" "xm")
 	      (parallel [(const_int 0) (const_int 2)])))))]
-  "TARGET_SSE2 && ix86_binary_operator_ok (MULT, V8HImode, operands)"
+  "TARGET_SSE2 && ix86_binary_operator_ok (MULT, V4SImode, operands)"
   "pmuludq\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseimul")
    (set_attr "mode" "TI")])
@@ -2782,7 +2788,7 @@
 			   (const_int 3)
 			   (const_int 5)
 			   (const_int 7)]))))))]
-  "TARGET_SSE2"
+  "TARGET_SSE2 && ix86_binary_operator_ok (MULT, V8HImode, operands)"
   "pmaddwd\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseiadd")
    (set_attr "mode" "TI")])
@@ -3035,8 +3041,8 @@
 
 (define_expand "sdot_prodv8hi"
   [(match_operand:V4SI 0 "register_operand" "")
-   (match_operand:V8HI 1 "nonimmediate_operand" "")
-   (match_operand:V8HI 2 "nonimmediate_operand" "")
+   (match_operand:V8HI 1 "register_operand" "")
+   (match_operand:V8HI 2 "register_operand" "")
    (match_operand:V4SI 3 "register_operand" "")]
   "TARGET_SSE2"
 {
@@ -3079,7 +3085,7 @@
   [(set (match_operand:SSEMODE24 0 "register_operand" "=x")
 	(ashiftrt:SSEMODE24
 	  (match_operand:SSEMODE24 1 "register_operand" "0")
-	  (match_operand:SI 2 "nonmemory_operand" "xi")))]
+	  (match_operand:TI 2 "nonmemory_operand" "xn")))]
   "TARGET_SSE2"
   "psra<ssevecsize>\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseishft")
@@ -3089,7 +3095,7 @@
   [(set (match_operand:SSEMODE248 0 "register_operand" "=x")
 	(lshiftrt:SSEMODE248
 	  (match_operand:SSEMODE248 1 "register_operand" "0")
-	  (match_operand:SI 2 "nonmemory_operand" "xi")))]
+	  (match_operand:TI 2 "nonmemory_operand" "xn")))]
   "TARGET_SSE2"
   "psrl<ssevecsize>\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseishft")
@@ -3099,7 +3105,7 @@
   [(set (match_operand:SSEMODE248 0 "register_operand" "=x")
 	(ashift:SSEMODE248
 	  (match_operand:SSEMODE248 1 "register_operand" "0")
-	  (match_operand:SI 2 "nonmemory_operand" "xi")))]
+	  (match_operand:TI 2 "nonmemory_operand" "xn")))]
   "TARGET_SSE2"
   "psll<ssevecsize>\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseishft")
@@ -3243,7 +3249,7 @@
 	(umin:V16QI (match_operand:V16QI 1 "nonimmediate_operand" "")
 		    (match_operand:V16QI 2 "nonimmediate_operand" "")))]
   "TARGET_SSE2"
-  "ix86_fixup_binary_operands_no_copy (UMAX, V16QImode, operands);")
+  "ix86_fixup_binary_operands_no_copy (UMIN, V16QImode, operands);")
 
 (define_insn "*uminv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "=x")

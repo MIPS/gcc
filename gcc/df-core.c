@@ -408,6 +408,13 @@ static void df_set_bb_info (struct dataflow *, unsigned int, void *);
 static void df_set_clean_cfg (void);
 #endif
 
+/* An obstack for bitmap not related to specific dataflow problems.
+   This obstack should e.g. be used for bitmaps with a short life time
+   such as temporary bitmaps.  */
+
+bitmap_obstack df_bitmap_obstack;
+
+
 /*----------------------------------------------------------------------------
   Functions to create, destroy and manipulate an instance of df.
 ----------------------------------------------------------------------------*/
@@ -420,6 +427,7 @@ void
 df_add_problem (struct df_problem *problem)
 {
   struct dataflow *dflow;
+  int i;
 
   /* First try to add the dependent problem. */
   if (problem->dependent_problem)
@@ -437,8 +445,27 @@ df_add_problem (struct df_problem *problem)
   dflow->problem = problem;
   dflow->computed = false;
   dflow->solutions_dirty = true;
-  df->problems_in_order[df->num_problems_defined++] = dflow;
   df->problems_by_index[dflow->problem->id] = dflow;
+
+  /* Keep the defined problems ordered by index.  This solves the
+     problem that RI will use the information from UREC if UREC has
+     been defined, or from LIVE if LIVE is defined and otherwise LR.
+     However for this to work, the computation of RI must be pushed
+     after which ever of those problems is defined, but we do not
+     require any of those except for LR to have actually been
+     defined.  */ 
+  df->num_problems_defined++;
+  for (i = df->num_problems_defined - 2; i >= 0; i--)
+    {
+      if (problem->id < df->problems_in_order[i]->problem->id)
+	df->problems_in_order[i+1] = df->problems_in_order[i];
+      else
+	{
+	  df->problems_in_order[i+1] = dflow;
+	  return;
+	}
+    }
+  df->problems_in_order[0] = dflow;
 }
 
 
@@ -480,7 +507,7 @@ df_set_blocks (bitmap blocks)
       if (df->blocks_to_analyze)
 	{
 	  int p;
-	  bitmap diff = BITMAP_ALLOC (NULL);
+	  bitmap diff = BITMAP_ALLOC (&df_bitmap_obstack);
 	  bitmap_and_compl (diff, df->blocks_to_analyze, blocks);
 	  for (p = df->num_problems_defined - 1; p >= DF_FIRST_OPTIONAL_PROBLEM ;p--)
 	    {
@@ -526,7 +553,8 @@ df_set_blocks (bitmap blocks)
 		      if (!blocks_to_reset)
 			{
 			  basic_block bb;
-			  blocks_to_reset = BITMAP_ALLOC (NULL);
+			  blocks_to_reset =
+			    BITMAP_ALLOC (&df_bitmap_obstack);
 			  FOR_ALL_BB(bb)
 			    {
 			      bitmap_set_bit (blocks_to_reset, bb->index); 
@@ -538,9 +566,10 @@ df_set_blocks (bitmap blocks)
 	      if (blocks_to_reset)
 		BITMAP_FREE (blocks_to_reset);
 	    }
-	  df->blocks_to_analyze = BITMAP_ALLOC (NULL);
+	  df->blocks_to_analyze = BITMAP_ALLOC (&df_bitmap_obstack);
 	}
       bitmap_copy (df->blocks_to_analyze, blocks);
+      df->analyze_subset = true;
     }
   else
     {
@@ -551,6 +580,7 @@ df_set_blocks (bitmap blocks)
 	  BITMAP_FREE (df->blocks_to_analyze);
 	  df->blocks_to_analyze = NULL;
 	}
+      df->analyze_subset = false;
     }
 
   /* Setting the blocks causes the refs to be unorganized since only
@@ -569,19 +599,26 @@ df_remove_problem (struct dataflow *dflow)
 {
   struct df_problem *problem;
   int i;
+  int start = 0;
 
   if (!dflow)
     return;
+
   problem = dflow->problem;
   gcc_assert (problem->remove_problem_fun);
 
+  /* Normally only optional problems are removed, but during global,
+     we remove ur and live and replace it with urec.  */
+  if (problem->id >= DF_FIRST_OPTIONAL_PROBLEM)
+    start = DF_FIRST_OPTIONAL_PROBLEM;
+
   /* Delete any problems that depended on this problem first.  */
-  for (i = DF_FIRST_OPTIONAL_PROBLEM; i < df->num_problems_defined; i++)
+  for (i = start; i < df->num_problems_defined; i++)
     if (df->problems_in_order[i]->problem->dependent_problem == problem)
       df_remove_problem (df->problems_in_order[i]);
 
   /* Now remove this problem.  */
-  for (i = DF_FIRST_OPTIONAL_PROBLEM; i < df->num_problems_defined; i++)
+  for (i = start; i < df->num_problems_defined; i++)
     if (df->problems_in_order[i] == dflow)
       {
 	int j;
@@ -644,6 +681,7 @@ df_finish_pass (void)
       BITMAP_FREE (df->blocks_to_analyze);
       df->blocks_to_analyze = NULL;
       df_mark_solutions_dirty ();
+      df->analyze_subset = false;
     }
 
 #ifdef ENABLE_CHECKING
@@ -651,7 +689,8 @@ df_finish_pass (void)
   if (!(saved_flags & DF_NO_INSN_RESCAN))
     {
       df_lr_verify_transfer_functions ();
-      df_ur_verify_transfer_functions ();
+      if (df_ur)
+	df_ur_verify_transfer_functions ();
     }
 
 #ifdef DF_DEBUG_CFG
@@ -670,6 +709,8 @@ rest_of_handle_df_initialize (void)
   df = XCNEW (struct df);
   df->changeable_flags = 0;
 
+  bitmap_obstack_initialize (&df_bitmap_obstack);
+
   /* Set this to a conservative value.  Stack_ptr_mod will compute it
      correctly later.  */
   current_function_sp_is_unchanging = 0;
@@ -679,9 +720,12 @@ rest_of_handle_df_initialize (void)
 
   /* These three problems are permanent.  */
   df_lr_add_problem ();
-  df_ur_add_problem ();
-  df_live_add_problem ();
-  
+  if (optimize)
+    {
+      df_ur_add_problem ();
+      df_live_add_problem ();
+    }
+
   df->postorder = XNEWVEC (int, last_basic_block);
   df->postorder_inverted = XNEWVEC (int, last_basic_block);
   df->n_blocks = post_order_compute (df->postorder, true, true);
@@ -702,10 +746,17 @@ rest_of_handle_df_initialize (void)
 }
 
 
-struct tree_opt_pass pass_df_initialize =
+static bool
+gate_opt (void)
+{
+  return optimize > 0;
+}
+
+
+struct tree_opt_pass pass_df_initialize_opt =
 {
   "dfinit",                             /* name */
-  0,                                    /* gate */
+  gate_opt,                             /* gate */
   rest_of_handle_df_initialize,         /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
@@ -715,7 +766,32 @@ struct tree_opt_pass pass_df_initialize =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  'z'                                   /* letter */
+};
+
+
+static bool
+gate_no_opt (void)
+{
+  return optimize == 0;
+}
+
+
+struct tree_opt_pass pass_df_initialize_no_opt =
+{
+  "dfinit",                             /* name */
+  gate_no_opt,                          /* gate */
+  rest_of_handle_df_initialize,         /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
   'z'                                   /* letter */
 };
 
@@ -743,6 +819,8 @@ rest_of_handle_df_finish (void)
   free (df->hard_regs_live_count);
   free (df);
   df = NULL;
+
+  bitmap_obstack_release (&df_bitmap_obstack);
   return 0;
 }
 
@@ -750,7 +828,7 @@ rest_of_handle_df_finish (void)
 struct tree_opt_pass pass_df_finish =
 {
   "dfinish",                            /* name */
-  0,                                    /* gate */
+  NULL,					/* gate */
   rest_of_handle_df_finish,             /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
@@ -1006,7 +1084,7 @@ df_worklist_dataflow (struct dataflow *dataflow,
                       int *blocks_in_postorder,
                       int n_blocks)
 {
-  bitmap pending = BITMAP_ALLOC (NULL);
+  bitmap pending = BITMAP_ALLOC (&df_bitmap_obstack);
   sbitmap considered = sbitmap_alloc (last_basic_block);
   bitmap_iterator bi;
   unsigned int *bbindex_to_postorder;
@@ -1038,7 +1116,8 @@ df_worklist_dataflow (struct dataflow *dataflow,
       bitmap_set_bit (pending, i);
     }
 
-  dataflow->problem->init_fun (blocks_to_consider);
+  if (dataflow->problem->init_fun)
+    dataflow->problem->init_fun (blocks_to_consider);
 
   while (!bitmap_empty_p (pending))
     {
@@ -1170,6 +1249,8 @@ df_analyze_problem (struct dataflow *dflow,
 		    bitmap blocks_to_consider, 
 		    int *postorder, int n_blocks)
 {
+  timevar_push (dflow->problem->tv_id);
+
 #ifdef ENABLE_CHECKING
   if (dflow->problem->verify_start_fun)
     dflow->problem->verify_start_fun ();
@@ -1197,6 +1278,8 @@ df_analyze_problem (struct dataflow *dflow,
     dflow->problem->verify_end_fun ();
 #endif
 
+  timevar_pop (dflow->problem->tv_id);
+
   dflow->computed = true;
 }
 
@@ -1207,9 +1290,9 @@ df_analyze_problem (struct dataflow *dflow,
 void
 df_analyze (void)
 {
-  bitmap current_all_blocks = BITMAP_ALLOC (NULL);
-  int i;
+  bitmap current_all_blocks = BITMAP_ALLOC (&df_bitmap_obstack);
   bool everything;
+  int i;
   
   if (df->postorder)
     free (df->postorder);
@@ -1238,7 +1321,7 @@ df_analyze (void)
 
   /* Make sure that we have pruned any unreachable blocks from these
      sets.  */
-  if (df->blocks_to_analyze)
+  if (df->analyze_subset)
     {
       everything = false;
       bitmap_and_into (df->blocks_to_analyze, current_all_blocks);
@@ -1452,7 +1535,7 @@ df_compact_blocks (void)
   basic_block bb;
   void **problem_temps;
   int size = last_basic_block *sizeof (void *);
-  bitmap tmp = BITMAP_ALLOC (NULL);
+  bitmap tmp = BITMAP_ALLOC (&df_bitmap_obstack);
   problem_temps = xmalloc (size);
 
   for (p = 0; p < df->num_problems_defined; p++)
@@ -1632,7 +1715,8 @@ df_verify (void)
 {
   df_scan_verify ();
   df_lr_verify_transfer_functions ();
-  df_ur_verify_transfer_functions ();
+  if (df_ur)
+    df_ur_verify_transfer_functions ();
 }
 
 #ifdef DF_DEBUG_CFG
@@ -1960,8 +2044,6 @@ df_dump_start (FILE *file)
   if (df->blocks_to_analyze)
     fprintf (file, "def_info->table_size = %d, use_info->table_size = %d\n",
 	     DF_DEFS_TABLE_SIZE (), DF_USES_TABLE_SIZE ());
-  fprintf (file, "def_info->total_size = %d, use_info->total_size = %d\n",
-	   DF_DEFS_TOTAL_SIZE (), DF_USES_TOTAL_SIZE ());
 
   for (i = 0; i < df->num_problems_defined; i++)
     {

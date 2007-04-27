@@ -1213,12 +1213,12 @@ static int cfa_offset;
    `current_function_outgoing_args_size'.  Nevertheless, we must allow
    for it when allocating stack dynamic objects.  */
 
-#if defined(REG_PARM_STACK_SPACE) && ! defined(OUTGOING_REG_PARM_STACK_SPACE)
+#if defined(REG_PARM_STACK_SPACE)
 #define STACK_DYNAMIC_OFFSET(FNDECL)	\
 ((ACCUMULATE_OUTGOING_ARGS						      \
-  ? (current_function_outgoing_args_size + REG_PARM_STACK_SPACE (FNDECL)) : 0)\
- + (STACK_POINTER_OFFSET))						      \
-
+  ? (current_function_outgoing_args_size				      \
+     + (OUTGOING_REG_PARM_STACK_SPACE ? 0 : REG_PARM_STACK_SPACE (FNDECL)))   \
+  : 0) + (STACK_POINTER_OFFSET))
 #else
 #define STACK_DYNAMIC_OFFSET(FNDECL)	\
 ((ACCUMULATE_OUTGOING_ARGS ? current_function_outgoing_args_size : 0)	      \
@@ -3231,40 +3231,6 @@ gimplify_parameters (void)
   return stmts;
 }
 
-/* Indicate whether REGNO is an incoming argument to the current function
-   that was promoted to a wider mode.  If so, return the RTX for the
-   register (to get its mode).  PMODE and PUNSIGNEDP are set to the mode
-   that REGNO is promoted from and whether the promotion was signed or
-   unsigned.  */
-
-rtx
-promoted_input_arg (unsigned int regno, enum machine_mode *pmode, int *punsignedp)
-{
-  tree arg;
-
-  for (arg = DECL_ARGUMENTS (current_function_decl); arg;
-       arg = TREE_CHAIN (arg))
-    if (REG_P (DECL_INCOMING_RTL (arg))
-	&& REGNO (DECL_INCOMING_RTL (arg)) == regno
-	&& TYPE_MODE (DECL_ARG_TYPE (arg)) == TYPE_MODE (TREE_TYPE (arg)))
-      {
-	enum machine_mode mode = TYPE_MODE (TREE_TYPE (arg));
-	int unsignedp = TYPE_UNSIGNED (TREE_TYPE (arg));
-
-	mode = promote_mode (TREE_TYPE (arg), mode, &unsignedp, 1);
-	if (mode == GET_MODE (DECL_INCOMING_RTL (arg))
-	    && mode != DECL_MODE (arg))
-	  {
-	    *pmode = DECL_MODE (arg);
-	    *punsignedp = unsignedp;
-	    return DECL_INCOMING_RTL (arg);
-	  }
-      }
-
-  return 0;
-}
-
-
 /* Compute the size and offset from the start of the stacked arguments for a
    parm passed in mode PASSED_MODE and with type TYPE.
 
@@ -3520,7 +3486,7 @@ regno_clobbered_at_setjmp (bitmap setjmp_crosses, int regno)
     return 0;
 
   return ((REG_N_SETS (regno) > 1
-	   || REGNO_REG_SET_P (DF_LIVE_OUT (ENTRY_BLOCK_PTR), regno))
+	   || REGNO_REG_SET_P (df_get_live_out (ENTRY_BLOCK_PTR), regno))
 	  && REGNO_REG_SET_P (setjmp_crosses, regno));
 }
 
@@ -4540,6 +4506,14 @@ expand_function_end (void)
   /* Output the label for the naked return from the function.  */
   emit_label (naked_return_label);
 
+  /* @@@ This is a kludge.  We want to ensure that instructions that
+     may trap are not moved into the epilogue by scheduling, because
+     we don't always emit unwind information for the epilogue.
+     However, not all machine descriptions define a blockage insn, so
+     emit an ASM_INPUT to act as one.  */
+  if (! USING_SJLJ_EXCEPTIONS && flag_non_call_exceptions)
+    emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
+
   /* If stack protection is enabled for this function, check the guard.  */
   if (cfun->stack_protect_guard)
     stack_protect_epilogue ();
@@ -5072,18 +5046,6 @@ thread_prologue_and_epilogue_insns (void)
   rtx epilogue_end = NULL_RTX;
 #endif
   edge_iterator ei;
-
-  /* Do not even think about running dce here!!!!  All life, as we
-     know it will cease!!!  There is dead code created by the previous
-     call to split_all_insns that is resurrected by the prologue and
-     epilogue.  This does not appear to be a bug in dce.  On the
-     x86-64 this shows up as failues in g++ excepion handling and is
-     extremely difficult to debug because the problem is with the way
-     that that the g++ library is compiled and this library was not
-     designed for modular testing.  All of the test cases that fail
-     because of running dce here fail in the g++ library, not in the
-     test case.  */
-  df_analyze ();
 
 #ifdef HAVE_prologue
   if (HAVE_prologue)

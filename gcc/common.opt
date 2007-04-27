@@ -118,6 +118,10 @@ Wlarger-than-
 Common RejectNegative Joined UInteger Warning
 -Wlarger-than-<number>	Warn if an object is larger than <number> bytes
 
+Wlogical-op
+Common Warning Var(warn_logical_op)
+Warn when a logical operator is suspicously always evaluating to true or false
+
 Wunsafe-loop-optimizations
 Common Var(warn_unsafe_loop_optimizations) Warning
 Warn if the loop cannot be optimized due to nontrivial assumptions.
@@ -356,6 +360,10 @@ fcaller-saves
 Common Report Var(flag_caller_saves) Optimization
 Save registers around function calls
 
+fcheck-data-deps
+Common Report Var(flag_check_data_deps)
+Compare the results of several data dependence analyzers.
+
 fcommon
 Common Report Var(flag_no_common,0) Optimization
 Do not put uninitialized globals in the common section
@@ -464,10 +472,6 @@ Common Joined RejectNegative
 ffloat-store
 Common Report Var(flag_float_store) Optimization
 Don't allocate floats and doubles in extended-precision registers
-
-fflow-dce
-Common Var(flag_flow_dce) Init(0)
-Use the old flow dead code elimination support
 
 ; Nonzero for -fforce-addr: load memory address into a register before
 ; reference to memory.  This makes better cse but slower compilation.
@@ -655,9 +659,13 @@ fmudflapir
 Common RejectNegative Report Var(flag_mudflap_ignore_reads)
 Ignore read operations when inserting mudflap instrumentation
 
-fnew-dce
-Common Var(flag_new_dce) Init(1)
-Use the new RTL dead code elimination pass
+fdce
+Common Var(flag_dce) Init(1)
+Use the RTL dead code elimination pass
+
+fdse
+Common Var(flag_dse) Init(1)
+Use the RTL dead store elimination pass
 
 freschedule-modulo-scheduled-loops
 Common Report Var(flag_resched_modulo_sched) Optimization

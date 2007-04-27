@@ -357,27 +357,28 @@ layout_superblocks (void)
     }
 }
 
-/* Main entry point to this file.  FLAGS is the set of flags to pass
-   to cfg_layout_initialize().  */
+/* Main entry point to this file.  */
 
 void
-tracer (unsigned int flags)
+tracer (void)
 {
+  gcc_assert (current_ir_type () == IR_RTL_CFGLAYOUT);
+
   if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
     return;
 
-  cfg_layout_initialize (flags);
   mark_dfs_back_edges ();
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
   tail_duplicate ();
   layout_superblocks ();
+  relink_block_chain (/*stay_in_cfglayout_mode=*/true);
+  
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
-  cfg_layout_finalize ();
 
   /* Merge basic blocks in duplicated traces.  */
-  cleanup_cfg (CLEANUP_EXPENSIVE);
+  cleanup_cfg (0);
 }
 
 static bool
@@ -392,8 +393,7 @@ rest_of_handle_tracer (void)
 {
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
-  tracer (0);
-  reg_scan (get_insns (), max_reg_num ());
+  tracer ();
   return 0;
 }
 

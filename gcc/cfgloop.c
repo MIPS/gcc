@@ -1031,6 +1031,9 @@ record_loop_exits (void)
   edge_iterator ei;
   edge e;
 
+  if (!current_loops)
+    return;
+
   if (current_loops->state & LOOPS_HAVE_RECORDED_EXITS)
     return;
   current_loops->state |= LOOPS_HAVE_RECORDED_EXITS;

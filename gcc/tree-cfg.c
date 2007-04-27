@@ -2039,7 +2039,18 @@ find_taken_edge (basic_block bb, tree val)
     return find_taken_edge_switch_expr (bb, val);
 
   if (computed_goto_p (stmt))
-    return find_taken_edge_computed_goto (bb, TREE_OPERAND( val, 0));
+    {
+      /* Only optimize if the argument is a label, if the argument is
+	 not a label then we can not construct a proper CFG.
+
+         It may be the case that we only need to allow the LABEL_REF to
+         appear inside an ADDR_EXPR, but we also allow the LABEL_REF to
+         appear inside a LABEL_EXPR just to be safe.  */
+      if ((TREE_CODE (val) == ADDR_EXPR || TREE_CODE (val) == LABEL_EXPR)
+	  && TREE_CODE (TREE_OPERAND (val, 0)) == LABEL_DECL)
+	return find_taken_edge_computed_goto (bb, TREE_OPERAND (val, 0));
+      return NULL;
+    }
 
   gcc_unreachable ();
 }
@@ -4606,7 +4617,7 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
 	  if (p->new_label_map)
 	    {
 	      struct tree_map in, *out;
-	      in.from = t;
+	      in.base.from = t;
 	      out = htab_find_with_hash (p->new_label_map, &in, DECL_UID (t));
 	      if (out)
 		*tp = t = out->to;
@@ -4795,7 +4806,7 @@ new_label_mapper (tree decl, void *data)
 
   m = xmalloc (sizeof (struct tree_map));
   m->hash = DECL_UID (decl);
-  m->from = decl;
+  m->base.from = decl;
   m->to = create_artificial_label ();
   LABEL_DECL_UID (m->to) = LABEL_DECL_UID (decl);
 

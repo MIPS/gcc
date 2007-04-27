@@ -624,7 +624,7 @@ sprintf (STRING, "*.%s%lu", PREFIX, (unsigned long)(NUM))
     "r8","r9","r10","r11","r12","r13","r14","r15",	\
     "r16","r17","r18","r19","r20","r21","r22","r23",	\
     "r24","r25","r26","r27","r28","r29","r30","r31",	\
-    "__SPL__","__SPH__","argL","argH"}
+    "__SP_L__","__SP_H__","argL","argH"}
 
 #define FINAL_PRESCAN_INSN(insn, operand, nop) final_prescan_insn (insn, operand,nop)
 
@@ -769,10 +769,10 @@ mmcu=*:-mmcu=%*}"
   mmcu=at90usb*|\
   mmcu=at94k:-m avr5}\
 %{mmcu=atmega324*|\
-  mmcu=atmega325|\
-  mmcu=atmega3250|\
-  mmcu=atmega329|\
-  mmcu=atmega3290|\
+  mmcu=atmega325*|\
+  mmcu=atmega3250*|\
+  mmcu=atmega329*|\
+  mmcu=atmega3290*|\
   mmcu=atmega406|\
   mmcu=atmega48|\
   mmcu=atmega88|\
@@ -865,9 +865,13 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=atmega323:crtm323.o%s} \
 %{mmcu=atmega324p:crtm324p.o%s} \
 %{mmcu=atmega325:crtm325.o%s} \
+%{mmcu=atmega325p:crtm325p.o%s} \
 %{mmcu=atmega3250:crtm3250.o%s} \
+%{mmcu=atmega3250p:crtm3250p.o%s} \
 %{mmcu=atmega329:crtm329.o%s} \
+%{mmcu=atmega329p:crtm329p.o%s} \
 %{mmcu=atmega3290:crtm3290.o%s} \
+%{mmcu=atmega3290p:crtm3290p.o%s} \
 %{mmcu=atmega406:crtm406.o%s} \
 %{mmcu=atmega64:crtm64.o%s} \
 %{mmcu=atmega640:crtm640.o%s} \
@@ -883,6 +887,8 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=at90can32:crtcan32.o%s} \
 %{mmcu=at90can64:crtcan64.o%s} \
 %{mmcu=at90can128:crtcan128.o%s} \
+%{mmcu=at90usb82:crtusb82.o%s} \
+%{mmcu=at90usb162:crtusb162.o%s} \
 %{mmcu=at90usb646:crtusb646.o%s} \
 %{mmcu=at90usb647:crtusb647.o%s} \
 %{mmcu=at90usb1286:crtusb1286.o%s} \

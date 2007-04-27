@@ -7,6 +7,8 @@
 @c %**end of header
 @c @end ifnothtml
 
+@include gcc-common.texi
+
 @c Specify title for specific html page
 @ifset indexhtml
 @settitle Installing GCC
@@ -99,9 +101,8 @@ Free Documentation License}''.
 
 @c Part 3 Titlepage and Copyright
 @titlepage
-@sp 10
-@comment The title is printed in a large font.
-@center @titlefont{Installing GCC}
+@title Installing GCC
+@versionsubtitle
 
 @c The following two commands start the copyright page.
 @page
@@ -109,7 +110,7 @@ Free Documentation License}''.
 @insertcopying
 @end titlepage
 
-@c Part 4 Top node and Master Menu
+@c Part 4 Top node, Master Menu, and/or Table of Contents
 @ifinfo
 @node    Top, , , (dir)
 @comment node-name, next,          Previous, up
@@ -128,6 +129,10 @@ Free Documentation License}''.
 * Concept Index::   This index has two entries.
 @end menu
 @end ifinfo
+
+@iftex
+@contents
+@end iftex
 
 @c Part 5 The Body of the Document
 @c ***Installing GCC**********************************************************
@@ -370,14 +375,14 @@ Necessary to regenerate the top level @file{Makefile.in} file from
 @file{Makefile.tpl} and @file{Makefile.def}.
 
 @item GNU Bison version 1.28 (or later)
-Berkeley @command{yacc} (@command{byacc}) is also reported to work other
-than for GCJ.
 
-Necessary when modifying @file{*.y} files.
+Necessary when modifying @file{*.y} files.  Necessary to build the
+@code{treelang} front end (which is not enabled by default) from a
+checkout of the SVN repository; the generated files are not in the
+repository.  They are included in releases.
 
-Necessary to build GCC during development because the generated output
-files are not included in the SVN repository.  They are included in
-releases.
+Berkeley @command{yacc} (@command{byacc}) has been reported to work
+as well.
 
 @item Flex version 2.5.4 (or later)
 
@@ -1131,6 +1136,21 @@ Re-defining @code{LANGUAGES} when calling @samp{make} @strong{does not}
 work anymore, as those language sub-directories might not have been
 configured!
 
+@item --enable-stage1-languages=@var{lang1},@var{lang2},@dots{}
+Specify that a particular subset of compilers and their runtime
+libraries should be built with the system C compiler during stage 1 of
+the bootstrap process, rather than only in later stages with the
+bootstrapped C compiler.  The list of valid values is the same as for
+@option{--enable-languages}, and the option @code{all} will select all
+of the languages enabled by @option{--enable-languages}.  This option is
+primarily useful for GCC development; for instance, when a development
+version of the compiler cannot bootstrap due to compiler bugs, or when
+one is debugging front ends other than the C front end.  When this
+option is used, one can then build the target libraries for the
+specified languages with the stage-1 compiler by using @command{make
+stage1-bubble all-target}, or run the testsuite on the stage-1 compiler
+for the specified languages using @command{make stage1-start check-gcc}.
+
 @item --disable-libada
 Specify that the run-time libraries and tools used by GNAT should not
 be built.  This can be useful for debugging, or for compatibility with
@@ -1284,11 +1304,20 @@ is removed entirely in the next major release, unless someone steps
 forward to maintain the port.
 
 @item --enable-decimal-float
+@itemx --enable-decimal-float=yes
+@itemx --enable-decimal-float=no
+@itemx --enable-decimal-float=bid
+@itemx --enable-decimal-float=dpd
 @itemx --disable-decimal-float
-Enable (or disable) support for the C decimal floating point
-extension.  This is enabled by default only on PowerPC GNU/Linux
-systems.  Other systems may also support it, but require the user to
-specifically enable it.
+Enable (or disable) support for the C decimal floating point extension
+that is in the IEEE 754R extension to the IEEE754 floating point
+standard.  This is enabled by default only on PowerPC, i386, and
+x86_64 GNU/Linux systems.  Other systems may also support it, but
+require the user to specifically enable it.  You can optionally
+control which decimal floating point format is used (either @samp{bid}
+or @samp{dpd}).  The @samp{bid} (binary integer decimal) format is
+default on i386 and x86_64 systems, and the @samp{dpd} (densely packed
+decimal) format is default on PowerPC systems.
 
 @item --with-long-double-128
 Specify if @code{long double} type should be 128-bit by default on selected
@@ -1621,10 +1650,18 @@ that type mismatches occur, this could be the cause.
 
 The solution is not to use such a directory for building GCC@.
 
-When building from SVN or snapshots, or if you modify parser sources,
-you need the Bison parser generator installed.  If you do not modify
-parser sources, releases contain the Bison-generated files and you do
-not need Bison installed to build them.
+When building from SVN or snapshots and enabling the @code{treelang}
+front end, or if you modify @file{*.y} files, you need the Bison parser
+generator installed.  If you do not modify @file{*.y} files, releases
+contain the Bison-generated files and you do not need Bison installed
+to build them.  Note that most front ends now use hand-written parsers,
+which can be modified with no need for Bison.
+
+Similarly, when building from SVN or snapshots, or if you modify
+@file{*.l} files, you need the Flex lexical analyzer generator installed.
+There is still one Flex-based lexical analyzer (part of the build
+machinery, not of GCC itself) that is used even if you only build the
+C front end.
 
 When building from SVN or snapshots, or if you modify Texinfo
 documentation, you need version 4.4 or later of Texinfo installed if you
@@ -3546,10 +3583,13 @@ currently do not work, because the auxiliary programs
 anything but a MIPS.  It does work to cross compile for a MIPS
 if you use the GNU assembler and linker.
 
-The linker from GNU binutils versions prior to 2.17 has a bug which
-causes the runtime linker stubs in @file{libgcj.so} to be incorrectly
-generated.  If you want to use libgcj, either use binutils 2.17 or
-later to build it or export @samp{LD_BIND_NOW=1} in your runtime environment.
+The assembler from GNU binutils 2.17 and earlier has a bug in the way
+it sorts relocations for REL targets (o32, o64, EABI).  This can cause
+bad code to be generated for simple C++ programs.  Also the linker
+from GNU binutils versions prior to 2.17 has a bug which causes the
+runtime linker stubs in very large programs, like @file{libgcj.so}, to
+be incorrectly generated.  Binutils CVS snapshots and releases made
+after Nov. 9, 2006 are thought to be free from both of these problems.
 
 @html
 <hr />

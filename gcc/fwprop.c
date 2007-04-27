@@ -323,7 +323,8 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
 	  /* Dismiss transformation that we do not want to carry on.  */
 	  if (!valid_ops
 	      || new_op0 == op0
-	      || GET_MODE (new_op0) != GET_MODE (op0))
+	      || !(GET_MODE (new_op0) == GET_MODE (op0)
+		   || GET_MODE (new_op0) == VOIDmode))
 	    return true;
 
 	  canonicalize_address (new_op0);
@@ -430,7 +431,7 @@ propagate_rtx (rtx x, enum machine_mode mode, rtx old, rtx new)
 /* Return true if the register from reference REF is killed
    between FROM to (but not including) TO.  */
 
-static bool 
+static bool
 local_ref_killed_between_p (struct df_ref * ref, rtx from, rtx to)
 {
   rtx insn;
@@ -525,7 +526,7 @@ varying_mem_p (rtx *body, void *data ATTRIBUTE_UNUSED)
   rtx x = *body;
   return MEM_P (x) && !MEM_READONLY_P (x);
 }
-            
+
 /* Check if all uses in DEF_INSN can be used in TARGET_INSN.  This
    would require full computation of available expressions;
    we check only restricted conditions, see use_killed_between.  */
@@ -713,7 +714,6 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
 	    fprintf (dump_file, " Setting REG_EQUAL note\n");
 
 	  set_unique_reg_note (insn, REG_EQUAL, copy_rtx (new));
-	  df_notes_rescan (insn);
 
 	  /* ??? Is this still necessary if we add the note through
 	     set_unique_reg_note?  */
@@ -818,7 +818,7 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
           rtx note = find_reg_note (use_insn, REG_EQUAL, NULL_RTX);
 	  rtx old = note ? XEXP (note, 0) : SET_SRC (use_set);
 	  rtx new = simplify_replace_rtx (old, src, x);
-	  if (old != new)	
+	  if (old != new)
             set_unique_reg_note (use_insn, REG_EQUAL, copy_rtx (new));
 	}
       return false;
@@ -838,7 +838,7 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
 	loc = &XEXP (note, 0);
       else
 	loc = &SET_SRC (use_set);
-	  
+
       /* Do not replace an existing REG_EQUAL note if the insn is not
 	 recognized.  Either we're already replacing in the note, or
 	 we'll separately try plugging the definition in the note and
@@ -852,7 +852,7 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
     mode = GET_MODE (*loc);
 
   new = propagate_rtx (*loc, mode, reg, src);
-  
+
   if (!new)
     return false;
 
@@ -869,7 +869,7 @@ forward_propagate_into (struct df_ref *use)
   struct df_link *defs;
   struct df_ref *def;
   rtx def_insn, def_set, use_insn;
-  rtx parent;  
+  rtx parent;
 
   if (DF_REF_FLAGS (use) & DF_REF_READ_WRITE)
     return;
@@ -887,10 +887,8 @@ forward_propagate_into (struct df_ref *use)
   if (DF_REF_IS_ARTIFICIAL (def))
     return;
 
-  /* Do not propagate loop invariant definitions inside the loop if
-     we are going to unroll.  */
-  if (current_loops
-      && DF_REF_BB (def)->loop_father != DF_REF_BB (use)->loop_father)
+  /* Do not propagate loop invariant definitions inside the loop.  */
+  if (DF_REF_BB (def)->loop_father != DF_REF_BB (use)->loop_father)
     return;
 
   /* Check if the use is still present in the insn!  */
@@ -904,6 +902,8 @@ forward_propagate_into (struct df_ref *use)
     return;
 
   def_insn = DF_REF_INSN (def);
+  if (multiple_sets (def_insn))
+    return;
   def_set = single_set (def_insn);
   if (!def_set)
     return;
@@ -925,8 +925,7 @@ fwprop_init (void)
      loops and be careful about them.  But we have to call flow_loops_find
      before df_analyze, because flow_loops_find may introduce new jump
      insns (sadly) if we are not working in cfglayout mode.  */
-  if (flag_rerun_cse_after_loop && (flag_unroll_loops || flag_peel_loops))
-    loop_optimizer_init (0);
+  loop_optimizer_init (0);
 
   /* Now set up the dataflow problem (we only want use-def chains) and
      put the dataflow solver to work.  */
@@ -940,8 +939,7 @@ fwprop_init (void)
 static void
 fwprop_done (void)
 {
-  if (flag_rerun_cse_after_loop && (flag_unroll_loops || flag_peel_loops))
-    loop_optimizer_finalize ();
+  loop_optimizer_finalize ();
 
   free_dominance_info (CDI_DOMINATORS);
   cleanup_cfg (0);
@@ -980,8 +978,7 @@ fwprop (void)
     {
       struct df_ref *use = DF_USES_GET (i);
       if (use)
-	if (!current_loops 
-	    || DF_REF_TYPE (use) == DF_REF_REG_USE
+	if (DF_REF_TYPE (use) == DF_REF_REG_USE
 	    || DF_REF_BB (use)->loop_father == NULL)
 	  forward_propagate_into (use);
     }
@@ -993,8 +990,8 @@ fwprop (void)
 struct tree_opt_pass pass_rtl_fwprop =
 {
   "fwprop1",                            /* name */
-  gate_fwprop,				/* gate */   
-  fwprop,				/* execute */       
+  gate_fwprop,				/* gate */
+  fwprop,				/* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -1007,13 +1004,6 @@ struct tree_opt_pass pass_rtl_fwprop =
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
-
-static bool
-gate_fwprop_addr (void)
-{
-  return optimize > 0 && flag_forward_propagate && flag_rerun_cse_after_loop
-  	 && (flag_unroll_loops || flag_peel_loops);
-}
 
 static unsigned int
 fwprop_addr (void)
@@ -1042,8 +1032,8 @@ fwprop_addr (void)
 struct tree_opt_pass pass_rtl_fwprop_addr =
 {
   "fwprop2",                            /* name */
-  gate_fwprop_addr,			/* gate */   
-  fwprop_addr,				/* execute */       
+  gate_fwprop,				/* gate */
+  fwprop_addr,				/* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */

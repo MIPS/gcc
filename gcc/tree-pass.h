@@ -215,10 +215,6 @@ struct dump_file_info
    for the passes that are handed to register_dump_files.  */
 #define TODO_set_props			(1 << 15)
 
-/* Set by passes that may make SMT's that were previously never used
-   in statements, used.  */
-#define TODO_update_smt_usage           (1 << 16)
-
 /* Call df_finish at the end of the pass.  This is done after all of
    the dumpers have been allowed to run so that they have access to
    the instance before it is destroyed.  */
@@ -303,6 +299,7 @@ extern struct tree_opt_pass pass_rest_of_compilation;
 extern struct tree_opt_pass pass_sink_code;
 extern struct tree_opt_pass pass_fre;
 extern struct tree_opt_pass pass_linear_transform;
+extern struct tree_opt_pass pass_check_data_deps;
 extern struct tree_opt_pass pass_copy_prop;
 extern struct tree_opt_pass pass_store_ccp;
 extern struct tree_opt_pass pass_store_copy_prop;
@@ -347,6 +344,7 @@ extern struct tree_opt_pass pass_jump2;
 extern struct tree_opt_pass pass_lower_subreg;
 extern struct tree_opt_pass pass_cse;
 extern struct tree_opt_pass pass_fast_rtl_dce;
+extern struct tree_opt_pass pass_ud_rtl_dce;
 extern struct tree_opt_pass pass_rtl_dce;
 extern struct tree_opt_pass pass_rtl_dse1;
 extern struct tree_opt_pass pass_rtl_dse2;
@@ -356,6 +354,9 @@ extern struct tree_opt_pass pass_jump_bypass;
 extern struct tree_opt_pass pass_profiling;
 extern struct tree_opt_pass pass_rtl_ifcvt;
 extern struct tree_opt_pass pass_tracer;
+
+extern struct tree_opt_pass pass_into_cfg_layout_mode;
+extern struct tree_opt_pass pass_outof_cfg_layout_mode;
 
 extern struct tree_opt_pass pass_loop2;
 extern struct tree_opt_pass pass_rtl_loop_init;
@@ -367,9 +368,11 @@ extern struct tree_opt_pass pass_rtl_loop_done;
 
 extern struct tree_opt_pass pass_web;
 extern struct tree_opt_pass pass_cse2;
-extern struct tree_opt_pass pass_df_initialize;
+extern struct tree_opt_pass pass_df_initialize_opt;
+extern struct tree_opt_pass pass_df_initialize_no_opt;
 extern struct tree_opt_pass pass_regclass_init;
 extern struct tree_opt_pass pass_subregs_of_mode_init;
+extern struct tree_opt_pass pass_subregs_of_mode_finish;
 extern struct tree_opt_pass pass_inc_dec;
 extern struct tree_opt_pass pass_no_new_pseudos;
 extern struct tree_opt_pass pass_stack_ptr_mod;
@@ -406,6 +409,7 @@ extern struct tree_opt_pass pass_leaf_regs;
 extern struct tree_opt_pass pass_split_before_sched2;
 extern struct tree_opt_pass pass_sched2;
 extern struct tree_opt_pass pass_stack_regs;
+extern struct tree_opt_pass pass_stack_regs_run;
 extern struct tree_opt_pass pass_df_finish;
 extern struct tree_opt_pass pass_compute_alignments;
 extern struct tree_opt_pass pass_duplicate_computed_gotos;

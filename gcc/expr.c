@@ -1238,13 +1238,14 @@ block_move_libcall_safe_for_call_parm (void)
 
   /* If registers go on the stack anyway, any argument is sure to clobber
      an outgoing argument.  */
-#if defined (REG_PARM_STACK_SPACE) && defined (OUTGOING_REG_PARM_STACK_SPACE)
-  {
-    tree fn = emit_block_move_libcall_fn (false);
-    (void) fn;
-    if (REG_PARM_STACK_SPACE (fn) != 0)
-      return false;
-  }
+#if defined (REG_PARM_STACK_SPACE)
+  if (OUTGOING_REG_PARM_STACK_SPACE)
+    {
+      tree fn;
+      fn = emit_block_move_libcall_fn (false);
+      if (REG_PARM_STACK_SPACE (fn) != 0)
+	return false;
+    }
 #endif
 
   /* If any argument goes in memory, then it might clobber an outgoing
@@ -2988,7 +2989,7 @@ emit_move_resolve_push (enum machine_mode mode, rtx x)
    X is known to satisfy push_operand, and MODE is known to be complex.
    Returns the last instruction emitted.  */
 
-static rtx
+rtx
 emit_move_complex_push (enum machine_mode mode, rtx x, rtx y)
 {
   enum machine_mode submode = GET_MODE_INNER (mode);
@@ -3026,6 +3027,25 @@ emit_move_complex_push (enum machine_mode mode, rtx x, rtx y)
 		  read_complex_part (y, imag_first));
   return emit_move_insn (gen_rtx_MEM (submode, XEXP (x, 0)),
 			 read_complex_part (y, !imag_first));
+}
+
+/* A subroutine of emit_move_complex.  Perform the move from Y to X
+   via two moves of the parts.  Returns the last instruction emitted.  */
+
+rtx
+emit_move_complex_parts (rtx x, rtx y)
+{
+  /* Show the output dies here.  This is necessary for SUBREGs
+     of pseudos since we cannot track their lifetimes correctly;
+     hard regs shouldn't appear here except as return values.  */
+  if (!reload_completed && !reload_in_progress
+      && REG_P (x) && !reg_overlap_mentioned_p (x, y))
+    emit_insn (gen_rtx_CLOBBER (VOIDmode, x));
+
+  write_complex_part (x, read_complex_part (y, false), false);
+  write_complex_part (x, read_complex_part (y, true), true);
+
+  return get_last_insn ();
 }
 
 /* A subroutine of emit_move_insn_1.  Generate a move from Y into X.
@@ -3082,16 +3102,7 @@ emit_move_complex (enum machine_mode mode, rtx x, rtx y)
 	return ret;
     }
 
-  /* Show the output dies here.  This is necessary for SUBREGs
-     of pseudos since we cannot track their lifetimes correctly;
-     hard regs shouldn't appear here except as return values.  */
-  if (!reload_completed && !reload_in_progress
-      && REG_P (x) && !reg_overlap_mentioned_p (x, y))
-    emit_insn (gen_rtx_CLOBBER (VOIDmode, x));
-
-  write_complex_part (x, read_complex_part (y, false), false);
-  write_complex_part (x, read_complex_part (y, true), true);
-  return get_last_insn ();
+  return emit_move_complex_parts (x, y);
 }
 
 /* A subroutine of emit_move_insn_1.  Generate a move from Y into X.
@@ -4373,9 +4384,19 @@ store_expr (tree exp, rtx target, int call_param_p)
 	{
 	  if (TYPE_UNSIGNED (TREE_TYPE (exp))
 	      != SUBREG_PROMOTED_UNSIGNED_P (target))
-	    exp = fold_convert
-	      (lang_hooks.types.signed_or_unsigned_type
-	       (SUBREG_PROMOTED_UNSIGNED_P (target), TREE_TYPE (exp)), exp);
+	    {
+	      /* Some types, e.g. Fortran's logical*4, won't have a signed
+		 version, so use the mode instead.  */
+	      tree ntype
+		= (get_signed_or_unsigned_type
+		   (SUBREG_PROMOTED_UNSIGNED_P (target), TREE_TYPE (exp)));
+	      if (ntype == NULL)
+		ntype = lang_hooks.types.type_for_mode
+		  (TYPE_MODE (TREE_TYPE (exp)),
+		   SUBREG_PROMOTED_UNSIGNED_P (target));
+
+	      exp = fold_convert (ntype, exp);
+	    }
 
 	  exp = fold_convert (lang_hooks.types.type_for_mode
 				(GET_MODE (SUBREG_REG (target)),
@@ -6282,12 +6303,6 @@ safe_from_p (rtx x, tree exp, int top_p)
 	    && ! safe_from_p (x, TREE_OPERAND (exp, i), 0))
 	  return 0;
 
-      /* If this is a language-specific tree code, it may require
-	 special handling.  */
-      if ((unsigned int) TREE_CODE (exp)
-	  >= (unsigned int) LAST_AND_UNUSED_TREE_CODE
-	  && !lang_hooks.safe_from_p (x, exp))
-	return 0;
       break;
 
     case tcc_type:

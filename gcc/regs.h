@@ -48,8 +48,7 @@ extern int max_regno;
 
 /* Register information indexed by register number */
 typedef struct reg_info_def
-{				/* fields set by reg_scan */
-				/* fields set by reg_scan & flow_analysis */
+{				/* fields set by reg_scan & flow_analysis */
   int sets;			/* # of times (REG n) is set */
 
 				/* fields set by flow_analysis */

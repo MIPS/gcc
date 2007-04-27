@@ -964,9 +964,9 @@ enum label_kind
 
 /* Force the REGNO macro to only be used on the lhs.  */
 inline static unsigned int
-rhs_regno (rtx tree)
+rhs_regno (rtx x)
 {
-  return XCUINT (tree, 0, REG);
+  return XCUINT (x, 0, REG);
 }
 
 
@@ -1090,9 +1090,12 @@ do {									\
   GET_MODE (XCVECEXP (RTX, 4, N, ASM_OPERANDS))
 #ifdef USE_MAPPED_LOCATION
 #define ASM_OPERANDS_SOURCE_LOCATION(RTX) XCUINT (RTX, 5, ASM_OPERANDS)
+#define ASM_INPUT_SOURCE_LOCATION(RTX) XCUINT (RTX, 1, ASM_INPUT)
 #else
 #define ASM_OPERANDS_SOURCE_FILE(RTX) XCSTR (RTX, 5, ASM_OPERANDS)
 #define ASM_OPERANDS_SOURCE_LINE(RTX) XCINT (RTX, 6, ASM_OPERANDS)
+#define ASM_INPUT_SOURCE_FILE(RTX) XCSTR (RTX, 1, ASM_INPUT)
+#define ASM_INPUT_SOURCE_LINE(RTX) XCINT (RTX, 2, ASM_INPUT)
 #endif
 
 /* 1 if RTX is a mem that is statically allocated in read-only memory.  */
@@ -1644,7 +1647,6 @@ extern rtx simplify_gen_subreg (enum machine_mode, rtx, enum machine_mode,
 extern rtx simplify_replace_rtx (rtx, rtx, rtx);
 extern rtx simplify_rtx (rtx);
 extern rtx avoid_constant_pool_reference (rtx);
-extern bool constant_pool_reference_p (rtx x);
 extern bool mode_signbit_p (enum machine_mode, rtx);
 
 /* In regclass.c  */
@@ -1679,6 +1681,8 @@ extern int rtx_varies_p (rtx, int);
 extern int rtx_addr_varies_p (rtx, int);
 extern HOST_WIDE_INT get_integer_term (rtx);
 extern rtx get_related_value (rtx);
+extern bool offset_within_block_p (rtx, HOST_WIDE_INT);
+extern void split_const (rtx, rtx *, rtx *);
 extern int reg_mentioned_p (rtx, rtx);
 extern int count_occurrences (rtx, rtx, int);
 extern int reg_referenced_p (rtx, rtx);
@@ -1705,6 +1709,7 @@ extern int dead_or_set_regno_p (rtx, unsigned int);
 extern rtx find_reg_note (rtx, enum reg_note, rtx);
 extern rtx find_regno_note (rtx, enum reg_note, unsigned int);
 extern rtx find_reg_equal_equiv_note (rtx);
+extern rtx find_constant_src (rtx);
 extern int find_reg_fusage (rtx, enum rtx_code, rtx);
 extern int find_regno_fusage (rtx, enum rtx_code, unsigned int);
 extern int pure_call_p (rtx);
@@ -1755,19 +1760,13 @@ rtx remove_list_elem (rtx, rtx *);
 
 /* regclass.c */
 
-/* Maximum number of parallel sets and clobbers in any insn in this fn.
-   Always at least 3, since the combiner could put that many together
-   and we want this to remain correct for all the remaining passes.  */
-
-extern int max_parallel;
-
 /* Free up register info memory.  */
 extern void free_reg_info (void);
 
 /* recog.c */
 extern int asm_noperands (rtx);
 extern const char *decode_asm_operands (rtx, rtx *, rtx **, const char **,
-					enum machine_mode *);
+					enum machine_mode *, location_t *);
 
 extern enum reg_class reg_preferred_class (int);
 extern enum reg_class reg_alternate_class (int);
@@ -1864,7 +1863,17 @@ extern GTY(()) rtx return_address_pointer_rtx;
 
 #ifndef GENERATOR_FILE
 #include "genrtl.h"
-#ifndef USE_MAPPED_LOCATION
+#undef gen_rtx_ASM_INPUT
+#ifdef USE_MAPPED_LOCATION
+#define gen_rtx_ASM_INPUT(MODE, ARG0)				\
+  gen_rtx_fmt_si (ASM_INPUT, (MODE), (ARG0), 0)
+#define gen_rtx_ASM_INPUT_loc(MODE, ARG0, LOC)			\
+  gen_rtx_fmt_si (ASM_INPUT, (MODE), (ARG0), (LOC))
+#else
+#define gen_rtx_ASM_INPUT(MODE, ARG0)				\
+  gen_rtx_fmt_ssi (ASM_INPUT, (MODE), (ARG0), "", 0)
+#define gen_rtx_ASM_INPUT_loc(MODE, ARG0, LOC)			\
+  gen_rtx_fmt_ssi (ASM_INPUT, (MODE), (ARG0), (LOC).file, (LOC).line)
 #undef gen_rtx_ASM_OPERANDS
 #define gen_rtx_ASM_OPERANDS(MODE, ARG0, ARG1, ARG2, ARG3, ARG4, LOC) \
   gen_rtx_fmt_ssiEEsi (ASM_OPERANDS, (MODE), (ARG0), (ARG1), (ARG2), (ARG3), (ARG4), (LOC).file, (LOC).line)
@@ -2154,9 +2163,7 @@ extern void init_fake_stack_mems (void);
 extern void init_reg_sets (void);
 extern void regclass (rtx, int);
 extern void reg_scan (rtx, unsigned int);
-extern void reg_scan_update (rtx, rtx, unsigned int);
 extern void fix_register (const char *, int, int);
-extern void record_subregs_of_mode (rtx);
 #ifdef HARD_CONST
 extern void cannot_change_mode_set_regs (HARD_REG_SET *,
 					 enum machine_mode, unsigned int);
@@ -2210,7 +2217,6 @@ extern const char *read_rtx_filename;
 extern int read_rtx_lineno;
 
 /* In alias.c */
-extern void clear_reg_alias_info (rtx);
 extern rtx canon_rtx (rtx);
 extern int true_dependence (rtx, enum machine_mode, rtx, int (*)(rtx, int));
 extern rtx get_addr (rtx);
@@ -2241,7 +2247,7 @@ extern bool expensive_function_p (int);
 /* In cfgexpand.c */
 extern void add_reg_br_prob_note (rtx last, int probability);
 /* In tracer.c */
-extern void tracer (unsigned int);
+extern void tracer (void);
 
 /* In var-tracking.c */
 extern unsigned int variable_tracking_main (void);

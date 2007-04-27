@@ -91,6 +91,8 @@ gfc_gsymbol *gfc_gsym_root = NULL;
 
 static gfc_symbol *changed_syms = NULL;
 
+gfc_dt_list *gfc_derived_types;
+
 
 /*********** IMPLICIT NONE and IMPLICIT statement handlers ***********/
 
@@ -248,6 +250,37 @@ gfc_set_default_type (gfc_symbol * sym, int error_flag, gfc_namespace * ns)
   sym->attr.implicit_type = 1;
 
   return SUCCESS;
+}
+
+
+/* This function is called from parse.c(parse_progunit) to check the
+   type of the function is not implicitly typed in the host namespace
+   and to implicitly type the function result, if necessary.  */
+
+void
+gfc_check_function_type (gfc_namespace *ns)
+{
+  gfc_symbol *proc = ns->proc_name;
+
+  if (!proc->attr.contained || proc->result->attr.implicit_type)
+    return;
+
+  if (proc->result->ts.type == BT_UNKNOWN)
+    {
+      if (gfc_set_default_type (proc->result, 0, gfc_current_ns)
+		== SUCCESS)
+	{
+	  if (proc->result != proc)
+	    proc->ts = proc->result->ts;
+	}
+      else
+	{
+	  gfc_error ("unable to implicitly type the function result "
+		     "'%s' at %L", proc->result->name,
+		     &proc->result->declared_at);
+	  proc->result->attr.untyped = 1;
+	}
+    }
 }
 
 
@@ -2528,18 +2561,20 @@ free_sym_tree (gfc_symtree * sym_tree)
 }
 
 
-/* Free a derived type list.  */
+/* Free the derived type list.  */
 
 static void
-gfc_free_dt_list (gfc_dt_list * dt)
+gfc_free_dt_list (void)
 {
-  gfc_dt_list *n;
+  gfc_dt_list *dt, *n;
 
-  for (; dt; dt = n)
+  for (dt = gfc_derived_types; dt; dt = n)
     {
       n = dt->next;
       gfc_free (dt);
     }
+
+  gfc_derived_types = NULL;
 }
 
 
@@ -2605,8 +2640,6 @@ gfc_free_namespace (gfc_namespace * ns)
   gfc_free_equiv (ns->equiv);
   gfc_free_equiv_lists (ns->equiv_lists);
 
-  gfc_free_dt_list (ns->derived_types);
-
   for (i = GFC_INTRINSIC_BEGIN; i != GFC_INTRINSIC_END; i++)
     gfc_free_interface (ns->operator[i]);
 
@@ -2639,6 +2672,7 @@ gfc_symbol_done_2 (void)
 
   gfc_free_namespace (gfc_current_ns);
   gfc_current_ns = NULL;
+  gfc_free_dt_list ();
 }
 
 
@@ -2767,20 +2801,19 @@ gfc_symbol_state(void) {
 gfc_gsymbol *
 gfc_find_gsymbol (gfc_gsymbol *symbol, const char *name)
 {
-  gfc_gsymbol *s;
+  int c;
 
   if (symbol == NULL)
     return NULL;
-  if (strcmp (symbol->name, name) == 0)
-    return symbol;
 
-  s = gfc_find_gsymbol (symbol->left, name);
-  if (s != NULL)
-    return s;
+  while (symbol)
+    {
+      c = strcmp (name, symbol->name);
+      if (!c)
+	return symbol;
 
-  s = gfc_find_gsymbol (symbol->right, name);
-  if (s != NULL)
-    return s;
+      symbol = (c < 0) ? symbol->left : symbol->right;
+    }
 
   return NULL;
 }

@@ -250,6 +250,8 @@ struct df_problem {
   df_verify_solution_start verify_start_fun;
   df_verify_solution_end verify_end_fun;
   struct df_problem *dependent_problem;
+  /* The timevar id associated with this pass.  */
+  unsigned int tv_id;
 };
 
 
@@ -389,18 +391,17 @@ enum df_changeable_flags
   DF_LR_RUN_DCE           =  1, /* Run DCE.  */
   DF_NO_HARD_REGS         =  2, /* Skip hard registers in RD and CHAIN Building.  */
   DF_EQ_NOTES             =  4, /* Build chains with uses present in EQUIV/EQUAL notes. */
-  DF_RI_NO_UPDATE         =  8, /* Do not update the register info when df_analyze is run.  */
-  DF_NO_REGS_EVER_LIVE    = 16, /* Do not compute the regs_ever_live.  */
+  DF_NO_REGS_EVER_LIVE    =  8, /* Do not compute the regs_ever_live.  */
 
   /* Cause df_insn_rescan df_notes_rescan and df_insn_delete, to
   return immediately.  This is used by passes that know how to update
   the scanning them selves.  */
-  DF_NO_INSN_RESCAN       = 32,
+  DF_NO_INSN_RESCAN       = 16,
 
   /* Cause df_insn_rescan df_notes_rescan and df_insn_delete, to
   return after marking the insn for later processing.  This allows all
   rescans to be batched.  */
-  DF_DEFER_INSN_RESCAN    = 64
+  DF_DEFER_INSN_RESCAN    = 32
 };
 
 /* Two of these structures are inline in df, one for the uses and one
@@ -457,9 +458,15 @@ struct df
   struct dataflow *problems_by_index [DF_LAST_PROBLEM_PLUS1]; 
   int num_problems_defined;
 
-  /* If not NULL, the subset of blocks of the program to be considered
-     for analysis.  */ 
+  /* If not NULL, this subset of blocks of the program to be
+     considered for analysis.  At certain times, this will contain all
+     the blocks in the function so it cannot be used as an indicator
+     of if we are analyzing a subset.  See analyze_subset.  */ 
   bitmap blocks_to_analyze;
+
+  /* If this is true, then only a subset of the blocks of the program
+     is considered to compute the solutions of dataflow problems.  */
+  bool analyze_subset;
 
   /* True if someone added or deleted something from regs_ever_live so
      that the entry and exit blocks need be reprocessed.  */
@@ -612,13 +619,11 @@ struct df
    ARRAYS ARE A CACHE LOCALITY KILLER.  */
 
 #define DF_DEFS_TABLE_SIZE() (df->def_info.table_size)
-#define DF_DEFS_TOTAL_SIZE() (df->def_info.total_size)
 #define DF_DEFS_GET(ID) (df->def_info.refs[(ID)])
 #define DF_DEFS_SET(ID,VAL) (df->def_info.refs[(ID)]=(VAL))
 #define DF_DEFS_COUNT(ID) (df->def_info.count[(ID)])
 #define DF_DEFS_BEGIN(ID) (df->def_info.begin[(ID)])
 #define DF_USES_TABLE_SIZE() (df->use_info.table_size)
-#define DF_USES_TOTAL_SIZE() (df->use_info.total_size)
 #define DF_USES_GET(ID) (df->use_info.refs[(ID)])
 #define DF_USES_SET(ID,VAL) (df->use_info.refs[(ID)]=(VAL))
 #define DF_USES_COUNT(ID) (df->use_info.count[(ID)])
@@ -664,6 +669,12 @@ struct df
 #define DF_INSN_UID_USES(INSN) (DF_INSN_UID_GET(INSN)->uses)
 #define DF_INSN_UID_EQ_USES(INSN) (DF_INSN_UID_GET(INSN)->eq_uses)
 #define DF_INSN_UID_MWS(INSN) (DF_INSN_UID_GET(INSN)->mw_hardregs)
+
+/* An obstack for bitmap not related to specific dataflow problems.
+   This obstack should e.g. be used for bitmaps with a short life time
+   such as temporary bitmaps.  This obstack is declared in df-core.c.  */
+
+extern bitmap_obstack df_bitmap_obstack;
 
 /* This is a bitmap copy of regs_invalidated_by_call so that we can
    easily add it into bitmaps, etc. */ 
@@ -882,26 +893,21 @@ extern struct df_link *df_chain_create (struct df_ref *, struct df_ref *);
 extern void df_chain_unlink (struct df_ref *);
 extern void df_chain_copy (struct df_ref *, struct df_link *);
 extern bitmap df_get_live_in (basic_block);
+extern bitmap df_get_live_out (basic_block);
 extern bitmap df_get_live_top (basic_block);
 extern void df_grow_bb_info (struct dataflow *);
 extern void df_chain_dump (struct df_link *, FILE *);
 extern void df_print_bb_index (basic_block bb, FILE *file);
 extern void df_ru_add_problem (void);
-extern struct df_ru_bb_info *df_ru_get_bb_info (unsigned int);
 extern void df_rd_add_problem (void);
-extern struct df_rd_bb_info *df_rd_get_bb_info (unsigned int);
-extern struct df_lr_bb_info *df_lr_get_bb_info (unsigned int);
 extern void df_lr_simulate_artificial_refs_at_end (basic_block, bitmap);
 extern void df_lr_simulate_one_insn (basic_block, rtx, bitmap);
 extern void df_lr_add_problem (void);
 extern void df_lr_verify_transfer_functions (void);
 extern void df_ur_add_problem (void);
 extern void df_ur_verify_transfer_functions (void);
-extern struct df_ur_bb_info *df_ur_get_bb_info (unsigned int);
 extern void df_live_add_problem (void);
-extern struct df_live_bb_info *df_live_get_bb_info (unsigned int);
 extern void df_urec_add_problem (void);
-extern struct df_urec_bb_info *df_urec_get_bb_info (unsigned int);
 extern void df_chain_add_problem (enum df_chain_flags);
 extern void df_ri_add_problem (enum df_ri_flags);
 extern bitmap df_ri_get_setjmp_crosses (void);
@@ -909,15 +915,12 @@ extern bitmap df_ri_get_setjmp_crosses (void);
 /* Functions defined in df-scan.c.  */
 
 extern void df_scan_alloc (bitmap);
-extern struct df_scan_bb_info *df_scan_get_bb_info (unsigned int);
 extern void df_scan_add_problem (void);
 extern void df_grow_reg_info (void);
 extern void df_grow_insn_info (void);
 extern void df_scan_blocks (void);
 extern struct df_ref *df_ref_create (rtx, rtx *, rtx,basic_block, 
 				     enum df_ref_type, enum df_ref_flags);
-extern struct df_ref **df_get_artificial_defs (unsigned int);
-extern struct df_ref **df_get_artificial_uses (unsigned int);
 extern void df_ref_remove (struct df_ref *);
 extern struct df_insn_info * df_insn_create_insn_record (rtx);
 extern void df_insn_delete (basic_block, unsigned int);
@@ -943,6 +946,91 @@ extern void df_set_regs_ever_live (unsigned int, bool);
 extern void df_compute_regs_ever_live (bool);
 extern bool df_read_modify_subreg_p (rtx);
 extern void df_scan_verify (void);
+
+
+/* Get basic block info.  */
+
+static inline struct df_scan_bb_info *
+df_scan_get_bb_info (unsigned int index)
+{
+  if (index < df_scan->block_info_size)
+    return (struct df_scan_bb_info *) df_scan->block_info[index];
+  else
+    return NULL;
+}
+
+static inline struct df_ru_bb_info *
+df_ru_get_bb_info (unsigned int index)
+{
+  if (index < df_ru->block_info_size)
+    return (struct df_ru_bb_info *) df_ru->block_info[index];
+  else
+    return NULL;
+}
+
+static inline struct df_rd_bb_info *
+df_rd_get_bb_info (unsigned int index)
+{
+  if (index < df_rd->block_info_size)
+    return (struct df_rd_bb_info *) df_rd->block_info[index];
+  else
+    return NULL;
+}
+
+static inline struct df_lr_bb_info *
+df_lr_get_bb_info (unsigned int index)
+{
+  if (index < df_lr->block_info_size)
+    return (struct df_lr_bb_info *) df_lr->block_info[index];
+  else
+    return NULL;
+}
+
+static inline struct df_ur_bb_info *
+df_ur_get_bb_info (unsigned int index)
+{
+  if (index < df_ur->block_info_size)
+    return (struct df_ur_bb_info *) df_ur->block_info[index];
+  else
+    return NULL;
+}
+
+static inline struct df_live_bb_info *
+df_live_get_bb_info (unsigned int index)
+{
+  if (index < df_live->block_info_size)
+    return (struct df_live_bb_info *) df_live->block_info[index];
+  else
+    return NULL;
+}
+
+static inline struct df_urec_bb_info *
+df_urec_get_bb_info (unsigned int index)
+{
+  if (index < df_urec->block_info_size)
+    return (struct df_urec_bb_info *) df_urec->block_info[index];
+  else
+    return NULL;
+}
+
+
+/* Get the artificial defs for a basic block.  */
+
+static inline struct df_ref **
+df_get_artificial_defs (unsigned int bb_index)
+{
+  return df_scan_get_bb_info (bb_index)->artificial_defs;
+}
+
+
+/* Get the artificial uses for a basic block.  */
+
+static inline struct df_ref **
+df_get_artificial_uses (unsigned int bb_index)
+{
+  return df_scan_get_bb_info (bb_index)->artificial_uses;
+}
+
 
 /* web */
 

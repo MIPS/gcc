@@ -301,6 +301,7 @@ match_data_constant (gfc_expr **result)
   gfc_symbol *sym;
   gfc_expr *expr;
   match m;
+  locus old_loc;
 
   m = gfc_match_literal_constant (&expr, 1);
   if (m == MATCH_YES)
@@ -315,6 +316,23 @@ match_data_constant (gfc_expr **result)
   m = gfc_match_null (result);
   if (m != MATCH_NO)
     return m;
+
+  old_loc = gfc_current_locus;
+
+  /* Should this be a structure component, try to match it
+     before matching a name.  */
+  m = gfc_match_rvalue (result);
+  if (m == MATCH_ERROR)
+    return m;
+
+  if (m == MATCH_YES && (*result)->expr_type == EXPR_STRUCTURE)
+    {
+      if (gfc_simplify_expr (*result, 0) == FAILURE)
+	m = MATCH_ERROR;
+      return m;
+    }
+
+  gfc_current_locus = old_loc;
 
   m = gfc_match_name (name);
   if (m != MATCH_YES)
@@ -1373,9 +1391,9 @@ cleanup:
 }
 
 
-/* Match an extended-f77 kind specification.  This assumes that the kind
-   number is equal to the byte size for non-COMPLEX types, and equal to 
-   half of the byte size for COMPLEX.  */
+/* Match an extended-f77 "TYPESPEC*bytesize"-style kind specification.
+   This assumes that the byte size is equal to the kind number for
+   non-COMPLEX types, and equal to twice the kind number for COMPLEX.  */
 
 match
 gfc_match_old_kind_spec (gfc_typespec *ts)
@@ -2041,7 +2059,17 @@ gfc_match_import (void)
       switch (m)
 	{
 	case MATCH_YES:
-	  if (gfc_find_symbol (name, gfc_current_ns->parent, 1, &sym))
+	  if (gfc_current_ns->parent !=  NULL
+		  && gfc_find_symbol (name, gfc_current_ns->parent,
+				      1, &sym))
+	    {
+	       gfc_error ("Type name '%s' at %C is ambiguous", name);
+	       return MATCH_ERROR;
+	    }
+	  else if (gfc_current_ns->proc_name->ns->parent !=  NULL
+		  && gfc_find_symbol (name,
+			gfc_current_ns->proc_name->ns->parent,
+			1, &sym))
 	    {
 	       gfc_error ("Type name '%s' at %C is ambiguous", name);
 	       return MATCH_ERROR;
@@ -3029,12 +3057,6 @@ gfc_match_entry (void)
 	    return MATCH_ERROR;
 
 	  entry->result = result;
-	}
-
-      if (proc->attr.recursive && result == NULL)
-	{
-	  gfc_error ("RESULT attribute required in ENTRY statement at %C");
-	  return MATCH_ERROR;
 	}
     }
 
@@ -4219,6 +4241,7 @@ gfc_match_modproc (void)
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   match m;
+  gfc_namespace *module_ns;
 
   if (gfc_state_stack->state != COMP_INTERFACE
       || gfc_state_stack->previous == NULL
@@ -4229,6 +4252,14 @@ gfc_match_modproc (void)
       return MATCH_ERROR;
     }
 
+  module_ns = gfc_current_ns->parent;
+  for (; module_ns; module_ns = module_ns->parent)
+    if (module_ns->proc_name->attr.flavor == FL_MODULE)
+      break;
+
+  if (module_ns == NULL)
+    return MATCH_ERROR;
+
   for (;;)
     {
       m = gfc_match_name (name);
@@ -4237,7 +4268,7 @@ gfc_match_modproc (void)
       if (m != MATCH_YES)
 	return MATCH_ERROR;
 
-      if (gfc_get_symbol (name, gfc_current_ns->parent, &sym))
+      if (gfc_get_symbol (name, module_ns, &sym))
 	return MATCH_ERROR;
 
       if (sym->attr.proc != PROC_MODULE
@@ -4319,12 +4350,16 @@ loop:
     return m;
 
   /* Make sure the name isn't the name of an intrinsic type.  The
-     'double precision' type doesn't get past the name matcher.  */
+     'double {precision,complex}' types don't get past the name
+     matcher, unless they're written as a single word or in fixed
+     form.  */
   if (strcmp (name, "integer") == 0
       || strcmp (name, "real") == 0
       || strcmp (name, "character") == 0
       || strcmp (name, "logical") == 0
-      || strcmp (name, "complex") == 0)
+      || strcmp (name, "complex") == 0
+      || strcmp (name, "doubleprecision") == 0
+      || strcmp (name, "doublecomplex") == 0)
     {
       gfc_error ("Type name '%s' at %C cannot be the same as an intrinsic "
 		 "type", name);

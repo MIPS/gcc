@@ -1,4 +1,5 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -442,7 +443,7 @@ typedef struct gfc_unit
   struct gfc_unit *left, *right;
   int priority;
 
-  int read_bad, current_record;
+  int read_bad, current_record, saved_pos;
   enum
   { NO_ENDFILE, AT_ENDFILE, AFTER_ENDFILE }
   endfile;
@@ -622,6 +623,9 @@ internal_proto(file_position);
 extern int is_seekable (stream *);
 internal_proto(is_seekable);
 
+extern int is_special (stream *);
+internal_proto(is_special);
+
 extern int is_preconnected (stream *);
 internal_proto(is_preconnected);
 
@@ -690,9 +694,6 @@ extern void unlock_unit (gfc_unit *);
 internal_proto(unlock_unit);
 
 /* open.c */
-
-extern void test_endfile (gfc_unit *);
-internal_proto(test_endfile);
 
 extern gfc_unit *new_unit (st_parameter_open *, gfc_unit *, unit_flags *);
 internal_proto(new_unit);

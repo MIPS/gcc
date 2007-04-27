@@ -479,6 +479,7 @@ The implementation consists of four data structures:
 #include "regs.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "dce.h"
 
 /* Used to classify defs and uses according to relevancy.  */
 enum entry_type {
@@ -3819,10 +3820,7 @@ rest_of_handle_see (void)
   see_main ();
   no_new_pseudos = no_new_pseudos_bcp;
   
-  delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  cleanup_cfg (CLEANUP_EXPENSIVE);
-  reg_scan (get_insns (), max_reg_num ());
-
+  run_fast_dce ();
   return 0;
 }
 

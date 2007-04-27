@@ -885,7 +885,7 @@ static void record_address_regs (enum machine_mode, rtx, int, enum rtx_code,
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 static int auto_inc_dec_reg_p (rtx, enum machine_mode);
 #endif
-static void reg_scan_mark_refs (rtx, rtx, unsigned int);
+static void reg_scan_mark_refs (rtx, rtx);
 
 /* Wrapper around REGNO_OK_FOR_INDEX_P, to allow pseudo registers.  */
 
@@ -938,7 +938,8 @@ regclass_init (void)
 {
   int i;
 
-  df_compute_regs_ever_live (true);
+  if (df)
+    df_compute_regs_ever_live (true);
 
   init_cost.mem_cost = 10000;
   for (i = 0; i < N_REG_CLASSES; i++)
@@ -1175,6 +1176,8 @@ scan_one_insn (rtx insn, int pass)
 	    REG_N_REFS (REGNO (recog_data.operand[0]))++;
 	    REG_FREQ (REGNO (recog_data.operand[0])) += frequency;
 	  }
+
+      df_insn_rescan (insn);
 
       return PREV_INSN (newinsn);
     }
@@ -2203,7 +2206,6 @@ static unsigned int reg_n_max;
 void
 allocate_reg_life_data (void)
 {
-  max_regno = max_reg_num ();
   /* Recalculate the register space, in case it has grown.  Old style
      vector oriented regsets would set regset_{size,bytes} here also.  */
   allocate_reg_info (max_regno, FALSE, FALSE);
@@ -2224,6 +2226,7 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
   size_t min = (new_p) ? 0 : reg_n_max;
   struct reg_info_data *reg_data;
 
+  max_regno = max_reg_num ();
   if (num_regs > regno_allocated)
     {
       size_t old_allocated = regno_allocated;
@@ -2366,19 +2369,6 @@ clear_reg_info_regno (unsigned int regno)
 
    REPEAT is nonzero the second time this is called.  */
 
-/* Maximum number of parallel sets and clobbers in any insn in this fn.
-   Always at least 3, since the combiner could put that many together
-   and we want this to remain correct for all the remaining passes.
-   This corresponds to the maximum number of times note_stores will call
-   a function for any insn.  */
-
-int max_parallel;
-
-/* Used as a temporary to record the largest number of registers in
-   PARALLEL in a SET_DEST.  This is added to max_parallel.  */
-
-static int max_set_parallel;
-
 void
 reg_scan (rtx f, unsigned int nregs)
 {
@@ -2387,60 +2377,27 @@ reg_scan (rtx f, unsigned int nregs)
   timevar_push (TV_REG_SCAN);
 
   allocate_reg_info (nregs, TRUE, FALSE);
-  max_parallel = 3;
-  max_set_parallel = 0;
-
   for (insn = f; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       {
-	rtx pat = PATTERN (insn);
-	if (GET_CODE (pat) == PARALLEL
-	    && XVECLEN (pat, 0) > max_parallel)
-	  max_parallel = XVECLEN (pat, 0);
-	reg_scan_mark_refs (pat, insn, 0);
-
+	reg_scan_mark_refs (PATTERN (insn), insn);
 	if (REG_NOTES (insn))
-	  reg_scan_mark_refs (REG_NOTES (insn), insn, 0);
+	  reg_scan_mark_refs (REG_NOTES (insn), insn);
       }
-
-  max_parallel += max_set_parallel;
 
   timevar_pop (TV_REG_SCAN);
 }
 
-/* Update 'regscan' information by looking at the insns
-   from FIRST to LAST.  Some new REGs have been created,
-   and any REG with number greater than OLD_MAX_REGNO is
-   such a REG.  We only update information for those.  */
-
-void
-reg_scan_update (rtx first, rtx last, unsigned int old_max_regno)
-{
-  rtx insn;
-
-  allocate_reg_info (max_reg_num (), FALSE, FALSE);
-
-  for (insn = first; insn != last; insn = NEXT_INSN (insn))
-    if (INSN_P (insn))
-      {
-	rtx pat = PATTERN (insn);
-	if (GET_CODE (pat) == PARALLEL
-	    && XVECLEN (pat, 0) > max_parallel)
-	  max_parallel = XVECLEN (pat, 0);
-	reg_scan_mark_refs (pat, insn, old_max_regno);
-
-	if (REG_NOTES (insn))
-	  reg_scan_mark_refs (REG_NOTES (insn), insn, old_max_regno);
-      }
-}
 
 /* X is the expression to scan.  INSN is the insn it appears in.
    NOTE_FLAG is nonzero if X is from INSN's notes rather than its body.
    We should only record information for REGs with numbers
    greater than or equal to MIN_REGNO.  */
 
+extern struct tree_opt_pass *current_pass;
+
 static void
-reg_scan_mark_refs (rtx x, rtx insn, unsigned int min_regno)
+reg_scan_mark_refs (rtx x, rtx insn)
 {
   enum rtx_code code;
   rtx dest;
@@ -2461,46 +2418,24 @@ reg_scan_mark_refs (rtx x, rtx insn, unsigned int min_regno)
     case LABEL_REF:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
-      return;
-
     case REG:
-      {
-	unsigned int regno = REGNO (x);
-
-	if (regno >= min_regno)
-	  {
-	    /* If we are called by reg_scan_update() (indicated by min_regno
-	       being set), we also need to update the reference count.  */
-	    if (min_regno)
-	      REG_N_REFS (regno)++;
-	  }
-      }
-      break;
+      return;
 
     case EXPR_LIST:
       if (XEXP (x, 0))
-	reg_scan_mark_refs (XEXP (x, 0), insn, min_regno);
+	reg_scan_mark_refs (XEXP (x, 0), insn);
       if (XEXP (x, 1))
-	reg_scan_mark_refs (XEXP (x, 1), insn, min_regno);
+	reg_scan_mark_refs (XEXP (x, 1), insn);
       break;
 
     case INSN_LIST:
       if (XEXP (x, 1))
-	reg_scan_mark_refs (XEXP (x, 1), insn, min_regno);
+	reg_scan_mark_refs (XEXP (x, 1), insn);
       break;
 
     case CLOBBER:
-      {
-	rtx reg = XEXP (x, 0);
-	if (REG_P (reg)
-	    && REGNO (reg) >= min_regno)
-	  {
-	    REG_N_SETS (REGNO (reg))++;
-	    REG_N_REFS (REGNO (reg))++;
-	  }
-	else if (MEM_P (reg))
-	  reg_scan_mark_refs (XEXP (reg, 0), insn, min_regno);
-      }
+      if (MEM_P (XEXP (x, 0)))
+	reg_scan_mark_refs (XEXP (XEXP (x, 0), 0), insn);
       break;
 
     case SET:
@@ -2510,18 +2445,6 @@ reg_scan_mark_refs (rtx x, rtx insn, unsigned int min_regno)
 	   || GET_CODE (dest) == ZERO_EXTEND;
 	   dest = XEXP (dest, 0))
 	;
-
-      /* For a PARALLEL, record the number of things (less the usual one for a
-	 SET) that are set.  */
-      if (GET_CODE (dest) == PARALLEL)
-	max_set_parallel = MAX (max_set_parallel, XVECLEN (dest, 0) - 1);
-
-      if (REG_P (dest)
-	  && REGNO (dest) >= min_regno)
-	{
-	  REG_N_SETS (REGNO (dest))++;
-	  REG_N_REFS (REGNO (dest))++;
-	}
 
       /* If this is setting a pseudo from another pseudo or the sum of a
 	 pseudo and a constant integer and the other pseudo is known to be
@@ -2537,7 +2460,6 @@ reg_scan_mark_refs (rtx x, rtx insn, unsigned int min_regno)
 
       if (REG_P (SET_DEST (x))
 	  && REGNO (SET_DEST (x)) >= FIRST_PSEUDO_REGISTER
-	  && REGNO (SET_DEST (x)) >= min_regno
 	  /* If the destination pseudo is set more than once, then other
 	     sets might not be to a pointer value (consider access to a
 	     union in two threads of control in the presence of global
@@ -2573,7 +2495,7 @@ reg_scan_mark_refs (rtx x, rtx insn, unsigned int min_regno)
 
       /* If this is setting a register from a register or from a simple
 	 conversion of a register, propagate REG_EXPR.  */
-      if (REG_P (dest))
+      if (REG_P (dest) && !REG_ATTRS (dest))
 	{
 	  rtx src = SET_SRC (x);
 
@@ -2583,9 +2505,9 @@ reg_scan_mark_refs (rtx x, rtx insn, unsigned int min_regno)
 		 || (GET_CODE (src) == SUBREG && subreg_lowpart_p (src)))
 	    src = XEXP (src, 0);
 
-	  if (!REG_ATTRS (dest) && REG_P (src))
+	  if (REG_P (src))
 	    REG_ATTRS (dest) = REG_ATTRS (src);
-	  if (!REG_ATTRS (dest) && MEM_P (src))
+	  if (MEM_P (src))
 	    set_reg_attrs_from_mem (dest, src);
 	}
 
@@ -2598,12 +2520,12 @@ reg_scan_mark_refs (rtx x, rtx insn, unsigned int min_regno)
 	for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
 	  {
 	    if (fmt[i] == 'e')
-	      reg_scan_mark_refs (XEXP (x, i), insn, min_regno);
+	      reg_scan_mark_refs (XEXP (x, i), insn);
 	    else if (fmt[i] == 'E' && XVEC (x, i) != 0)
 	      {
 		int j;
 		for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-		  reg_scan_mark_refs (XVECEXP (x, i, j), insn, min_regno);
+		  reg_scan_mark_refs (XVECEXP (x, i, j), insn);
 	      }
 	  }
       }
@@ -2675,6 +2597,38 @@ som_eq (const void *x, const void *y)
 }
 
 
+static void
+record_subregs_of_mode (rtx subreg)
+{
+  struct subregs_of_mode_node dummy, *node;
+  enum machine_mode mode;
+  unsigned int regno;
+  void **slot;
+
+  if (!REG_P (SUBREG_REG (subreg)))
+    return;
+
+  regno = REGNO (SUBREG_REG (subreg));
+  mode = GET_MODE (subreg);
+
+  if (regno < FIRST_PSEUDO_REGISTER)
+    return;
+
+  dummy.block = regno & -8;
+  slot = htab_find_slot_with_hash (subregs_of_mode, &dummy,
+				   dummy.block, INSERT);
+  node = *slot;
+  if (node == NULL)
+    {
+      node = XCNEW (struct subregs_of_mode_node);
+      node->block = regno & -8;
+      *slot = node;
+    }
+
+  node->modes[mode] |= 1 << (regno & 7);
+}
+
+
 /* Call record_subregs_of_mode for all the subregs in X.  */
 
 static void 
@@ -2720,36 +2674,6 @@ init_subregs_of_mode (void)
   return 0;
 }
 
-void
-record_subregs_of_mode (rtx subreg)
-{
-  struct subregs_of_mode_node dummy, *node;
-  enum machine_mode mode;
-  unsigned int regno;
-  void **slot;
-
-  if (!REG_P (SUBREG_REG (subreg)))
-    return;
-
-  regno = REGNO (SUBREG_REG (subreg));
-  mode = GET_MODE (subreg);
-
-  if (regno < FIRST_PSEUDO_REGISTER)
-    return;
-
-  dummy.block = regno & -8;
-  slot = htab_find_slot_with_hash (subregs_of_mode, &dummy,
-				   dummy.block, INSERT);
-  node = *slot;
-  if (node == NULL)
-    {
-      node = XCNEW (struct subregs_of_mode_node);
-      node->block = regno & -8;
-      *slot = node;
-    }
-
-  node->modes[mode] |= 1 << (regno & 7);
-}
 
 /* Set bits in *USED which correspond to registers which can't change
    their mode from FROM to any mode in which REGNO was encountered.  */
@@ -2763,6 +2687,7 @@ cannot_change_mode_set_regs (HARD_REG_SET *used, enum machine_mode from,
   unsigned char mask;
   unsigned int i;
 
+  gcc_assert (subregs_of_mode);
   dummy.block = regno & -8;
   node = htab_find_with_hash (subregs_of_mode, &dummy, dummy.block);
   if (node == NULL)
@@ -2788,6 +2713,7 @@ invalid_mode_change_p (unsigned int regno, enum reg_class class,
   enum machine_mode to;
   unsigned char mask;
 
+  gcc_assert (subregs_of_mode);
   dummy.block = regno & -8;
   node = htab_find_with_hash (subregs_of_mode, &dummy, dummy.block);
   if (node == NULL)
@@ -2801,9 +2727,22 @@ invalid_mode_change_p (unsigned int regno, enum reg_class class,
 
   return false;
 }
+
+static unsigned int
+finish_subregs_of_mode (void)
+{
+  htab_delete (subregs_of_mode);
+  subregs_of_mode = 0;
+  return 0;
+}
 #else
 static unsigned int
 init_subregs_of_mode (void)
+{
+  return 0;
+}
+static unsigned int
+finish_subregs_of_mode (void)
 {
   return 0;
 }
@@ -2825,6 +2764,23 @@ struct tree_opt_pass pass_subregs_of_mode_init =
   "subregs_of_mode_init",               /* name */
   gate_subregs_of_mode_init,            /* gate */
   init_subregs_of_mode,                 /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+struct tree_opt_pass pass_subregs_of_mode_finish =
+{
+  "subregs_of_mode_finish",               /* name */
+  gate_subregs_of_mode_init,            /* gate */
+  finish_subregs_of_mode,               /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */

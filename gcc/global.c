@@ -282,8 +282,7 @@ static struct { int allocno1, allocno2;}
 /* Record all regs that are set in any one insn.
    Communication from mark_reg_{store,clobber} and global_conflicts.  */
 
-static rtx *regs_set;
-static int n_regs_set;
+static VEC(rtx, heap) *regs_set;
 
 
 /* Return true if *LOC contains an asm.  */
@@ -401,9 +400,14 @@ compute_regsets (HARD_REG_SET *elim_set,
   max_allocno = 0;
   /* Do not recompute the register info.  Local_alloc has played with
      this in a way that global expects.  */
-  /* Create a new version of df that has the special version of UR.  */
-  df_urec_add_problem ();
-  df_set_flags (DF_RI_NO_UPDATE);
+  /* Create a new version of df that has the special version of UR if
+     we are doing optimization.  */
+  if (optimize)
+    {
+      df_remove_problem (df_live);
+      df_remove_problem (df_ur);
+      df_urec_add_problem ();
+    }
   df_analyze ();
   df_set_flags (DF_NO_INSN_RESCAN);
 
@@ -606,6 +610,10 @@ global_alloc (void)
 
   if (max_allocno > 0)
     {
+      /* Make a vector that mark_reg_{store,clobber} will store in.  */
+      if (!regs_set)
+	regs_set = VEC_alloc (rtx, heap, 10);
+
       /* Scan all the insns and compute the conflicts among allocnos
 	 and between allocnos and hard regs.  */
 
@@ -745,9 +753,6 @@ global_conflicts (void)
   rtx insn;
   int *block_start_allocnos;
 
-  /* Make a vector that mark_reg_{store,clobber} will store in.  */
-  regs_set = XNEWVEC (rtx, max_parallel * 2);
-
   block_start_allocnos = XNEWVEC (int, max_allocno);
 
   FOR_EACH_BB (b)
@@ -872,13 +877,9 @@ global_conflicts (void)
 	  RTX_CODE code = GET_CODE (insn);
 	  rtx link;
 
-	  /* Make regs_set an empty set.  */
-
-	  n_regs_set = 0;
-
+	  gcc_assert (VEC_empty (rtx, regs_set));
 	  if (code == INSN || code == CALL_INSN || code == JUMP_INSN)
 	    {
-
 #if 0
 	      int i = 0;
 	      for (link = REG_NOTES (insn);
@@ -953,10 +954,11 @@ global_conflicts (void)
 
 	      /* Mark any registers set in INSN and then never used.  */
 
-	      while (n_regs_set-- > 0)
+	      while (!VEC_empty (rtx, regs_set))
 		{
+		  rtx reg = VEC_pop (rtx, regs_set);
 		  rtx note = find_regno_note (insn, REG_UNUSED,
-					      REGNO (regs_set[n_regs_set]));
+					      REGNO (reg));
 		  if (note)
 		    mark_reg_death (XEXP (note, 0));
 		}
@@ -970,8 +972,8 @@ global_conflicts (void)
 
   /* Clean up.  */
   free (block_start_allocnos);
-  free (regs_set);
 }
+
 /* Expand the preference information by looking for cases where one allocno
    dies in an insn that sets an allocno.  If those two allocnos don't conflict,
    merge any preferences between those allocnos.  */
@@ -1577,7 +1579,7 @@ mark_reg_store (rtx reg, rtx setter, void *data ATTRIBUTE_UNUSED)
   if (!REG_P (reg))
     return;
 
-  regs_set[n_regs_set++] = reg;
+  VEC_safe_push (rtx, heap, regs_set, reg);
 
   if (setter && GET_CODE (setter) != CLOBBER)
     set_preference (reg, SET_SRC (setter));
@@ -2132,8 +2134,16 @@ rest_of_handle_global_alloc (void)
      going to help here because it does not touch the artificial uses
      and defs.  */
   df_finish_pass ();
+  if (optimize)
+    {
+      df_ur_add_problem ();
+      df_live_add_problem ();
+    }
   df_scan_alloc (NULL);
   df_scan_blocks ();
+
+  if (optimize)
+    df_analyze ();
   return 0;
 }
 

@@ -78,7 +78,7 @@ notice_stack_pointer_modification (void)
   /* The value coming into this pass was 0, and the exit block uses
      are based on this.  If the value is now 1, we need to redo the
      exit block uses.  */
-  if (current_function_sp_is_unchanging)
+  if (df && current_function_sp_is_unchanging)
     df_update_exit_block_uses ();
 }
 
