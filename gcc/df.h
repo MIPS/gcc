@@ -43,14 +43,13 @@ struct df_link;
    last 5 are optional and can be added or deleted at any time.  */
 #define DF_SCAN  0 
 #define DF_LR    1      /* Live Registers backward. */
-#define DF_UR    2      /* Uninitialized Registers forwards. */
-#define DF_LIVE  3      /* Live Registers & Uninitialized Registers */
+#define DF_LIVE  2      /* Live Registers & Uninitialized Registers */
 
-#define DF_RU    4      /* Reaching Uses. */
-#define DF_RD    5      /* Reaching Defs. */
-#define DF_UREC  6      /* Uninitialized Registers with Early Clobber. */
-#define DF_CHAIN 7      /* Def-Use and/or Use-Def Chains. */
-#define DF_RI    8      /* Register Info. */
+#define DF_RU    3      /* Reaching Uses. */
+#define DF_RD    4      /* Reaching Defs. */
+#define DF_UREC  5      /* Uninitialized Registers with Early Clobber. */
+#define DF_CHAIN 6      /* Def-Use and/or Use-Def Chains. */
+#define DF_RI    7      /* Register Info. */
 
 #define DF_LAST_PROBLEM_PLUS1 (DF_RI + 1)
 #define DF_FIRST_OPTIONAL_PROBLEM DF_RU
@@ -268,7 +267,7 @@ struct dataflow
   /* The pool to allocate the block_info from. */
   alloc_pool block_pool;                
 
-  /* The lr and ur problems have their transfer functions recomputed
+  /* The lr and live problems have their transfer functions recomputed
      only if necessary.  This is possible for them because, the
      problems are kept active for the entire backend and their
      transfer functions are indexed by the REGNO.  These are not
@@ -292,7 +291,7 @@ struct dataflow
 
   /* True if the something has changed which invalidates the dataflow
      solutions.  Note that this bit is always true for all problems except 
-     lr, ur, and live.  */
+     lr and live.  */
   bool solutions_dirty;
 };
 
@@ -537,12 +536,11 @@ struct df
 #define DF_RU_BB_INFO(BB) (df_ru_get_bb_info((BB)->index))
 #define DF_RD_BB_INFO(BB) (df_rd_get_bb_info((BB)->index))
 #define DF_LR_BB_INFO(BB) (df_lr_get_bb_info((BB)->index))
-#define DF_UR_BB_INFO(BB) (df_ur_get_bb_info((BB)->index))
 #define DF_UREC_BB_INFO(BB) (df_urec_get_bb_info((BB)->index))
 #define DF_LIVE_BB_INFO(BB) (df_live_get_bb_info((BB)->index))
 
 /* Most transformations that wish to use live register analysis will
-   use these macros.  This info is the and of the lr and ur sets.  */
+   use these macros.  This info is the and of the lr and live sets.  */
 #define DF_LIVE_IN(BB) (DF_LIVE_BB_INFO(BB)->in) 
 #define DF_LIVE_OUT(BB) (DF_LIVE_BB_INFO(BB)->out) 
 
@@ -558,12 +556,6 @@ struct df
 #define DF_LR_IN(BB) (DF_LR_BB_INFO(BB)->in) 
 #define DF_LR_TOP(BB) (DF_LR_BB_INFO(BB)->top) 
 #define DF_LR_OUT(BB) (DF_LR_BB_INFO(BB)->out) 
-
-/* These macros are currently used by only combine which needs to know
-   what is really uninitialized.  */ 
-#define DF_UR_IN(BB) (DF_UR_BB_INFO(BB)->in) 
-#define DF_UR_OUT(BB) (DF_UR_BB_INFO(BB)->out) 
-
 
 /* Macros to access the elements within the ref structure.  */
 
@@ -768,23 +760,17 @@ struct df_lr_bb_info
 };
 
 
-
-/* Uninitialized registers.  All bitmaps are referenced by the register number.  */
-struct df_ur_bb_info 
+/* Uninitialized registers.  All bitmaps are referenced by the
+   register number.  Anded results of the forwards and backward live
+   info.  Note that the forwards live information is not available
+   separately.  */
+struct df_live_bb_info 
 {
   /* Local sets to describe the basic blocks.  */
   bitmap kill;  /* The set of registers unset in this block.  Calls,
 		   for instance, unset registers.  */
   bitmap gen;   /* The set of registers set in this block.  */
 
-  /* The results of the dataflow problem.  */
-  bitmap in;    /* At the top of the block.  */
-  bitmap out;   /* At the bottom of the block.  */
-};
-
-/* Anded results of LR and UR.  */
-struct df_live_bb_info 
-{
   /* The results of the dataflow problem.  */
   bitmap in;    /* At the top of the block.  */
   bitmap out;   /* At the bottom of the block.  */
@@ -816,7 +802,6 @@ extern struct df *df;
 #define df_ru    (df->problems_by_index[DF_RU])
 #define df_rd    (df->problems_by_index[DF_RD])
 #define df_lr    (df->problems_by_index[DF_LR])
-#define df_ur    (df->problems_by_index[DF_UR])
 #define df_live  (df->problems_by_index[DF_LIVE])
 #define df_urec  (df->problems_by_index[DF_UREC])
 #define df_chain (df->problems_by_index[DF_CHAIN])
@@ -904,8 +889,7 @@ extern void df_lr_simulate_artificial_refs_at_end (basic_block, bitmap);
 extern void df_lr_simulate_one_insn (basic_block, rtx, bitmap);
 extern void df_lr_add_problem (void);
 extern void df_lr_verify_transfer_functions (void);
-extern void df_ur_add_problem (void);
-extern void df_ur_verify_transfer_functions (void);
+extern void df_live_verify_transfer_functions (void);
 extern void df_live_add_problem (void);
 extern void df_urec_add_problem (void);
 extern void df_chain_add_problem (enum df_chain_flags);
@@ -982,15 +966,6 @@ df_lr_get_bb_info (unsigned int index)
 {
   if (index < df_lr->block_info_size)
     return (struct df_lr_bb_info *) df_lr->block_info[index];
-  else
-    return NULL;
-}
-
-static inline struct df_ur_bb_info *
-df_ur_get_bb_info (unsigned int index)
-{
-  if (index < df_ur->block_info_size)
-    return (struct df_ur_bb_info *) df_ur->block_info[index];
   else
     return NULL;
 }

@@ -405,7 +405,6 @@ compute_regsets (HARD_REG_SET *elim_set,
   if (optimize)
     {
       df_remove_problem (df_live);
-      df_remove_problem (df_ur);
       df_urec_add_problem ();
     }
   df_analyze ();
@@ -2135,10 +2134,7 @@ rest_of_handle_global_alloc (void)
      and defs.  */
   df_finish_pass ();
   if (optimize)
-    {
-      df_ur_add_problem ();
-      df_live_add_problem ();
-    }
+    df_live_add_problem ();
   df_scan_alloc (NULL);
   df_scan_blocks ();
 

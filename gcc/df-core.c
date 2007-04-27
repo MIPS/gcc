@@ -689,8 +689,8 @@ df_finish_pass (void)
   if (!(saved_flags & DF_NO_INSN_RESCAN))
     {
       df_lr_verify_transfer_functions ();
-      if (df_ur)
-	df_ur_verify_transfer_functions ();
+      if (df_live)
+	df_live_verify_transfer_functions ();
     }
 
 #ifdef DF_DEBUG_CFG
@@ -721,10 +721,7 @@ rest_of_handle_df_initialize (void)
   /* These three problems are permanent.  */
   df_lr_add_problem ();
   if (optimize)
-    {
-      df_ur_add_problem ();
-      df_live_add_problem ();
-    }
+    df_live_add_problem ();
 
   df->postorder = XNEWVEC (int, last_basic_block);
   df->postorder_inverted = XNEWVEC (int, last_basic_block);
@@ -1486,7 +1483,7 @@ bool
 df_get_bb_dirty (basic_block bb)
 {
   if (df)
-    return bitmap_bit_p (df_ur->out_of_date_transfer_functions, bb->index);
+    return bitmap_bit_p (df_live->out_of_date_transfer_functions, bb->index);
   else 
     return false;
 }
@@ -1715,8 +1712,8 @@ df_verify (void)
 {
   df_scan_verify ();
   df_lr_verify_transfer_functions ();
-  if (df_ur)
-    df_ur_verify_transfer_functions ();
+  if (df_live)
+    df_live_verify_transfer_functions ();
 }
 
 #ifdef DF_DEBUG_CFG

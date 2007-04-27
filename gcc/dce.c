@@ -53,11 +53,10 @@ static bool something_changed;
    yet been processed.  */
 static VEC(rtx,heap) *worklist;
 
-static bitmap_obstack dce_marked_bitmap_obstack;
 static bitmap_obstack dce_blocks_bitmap_obstack;
 static bitmap_obstack dce_tmp_bitmap_obstack;
 
-static bitmap marked = NULL;
+static sbitmap marked = NULL;
 
 /* Return true if INSN a normal instruction that can be deleted by the
    DCE pass.  */
@@ -113,11 +112,11 @@ deletable_insn_p (rtx insn, bool fast)
 
 /* Return true if INSN has not been marked as needed.  */
 
-static inline bool
+static inline int
 marked_insn_p (rtx insn)
 {
   if (insn)
-    return bitmap_bit_p (marked, INSN_UID (insn));
+    return TEST_BIT (marked, INSN_UID (insn));
   else 
     /* Artificial defs are always needed and they do not have an
        insn.  */
@@ -135,7 +134,7 @@ mark_insn (rtx insn, bool fast)
     {
       if (!fast)
 	VEC_safe_push (rtx, heap, worklist, insn);
-      bitmap_set_bit (marked, INSN_UID (insn));
+      SET_BIT (marked, INSN_UID (insn));
       if (dump_file)
 	fprintf (dump_file, "  Adding insn %d to worklist\n", INSN_UID (insn));
     }
@@ -191,10 +190,10 @@ init_dce (bool fast)
   if (dump_file)
     df_dump (dump_file);
 
-  bitmap_obstack_initialize (&dce_marked_bitmap_obstack);
   bitmap_obstack_initialize (&dce_blocks_bitmap_obstack);
   bitmap_obstack_initialize (&dce_tmp_bitmap_obstack);
-  marked = BITMAP_ALLOC (&dce_marked_bitmap_obstack);
+  marked = sbitmap_alloc (get_max_uid () + 1);
+  sbitmap_zero (marked);
 }
 
 
@@ -424,7 +423,7 @@ mark_reg_dependencies (rtx insn)
 static void
 end_ud_dce (void)
 {
-  BITMAP_FREE (marked);
+  sbitmap_free (marked);
   gcc_assert (VEC_empty (rtx, worklist));
 }
 
@@ -491,8 +490,7 @@ struct tree_opt_pass pass_ud_rtl_dce =
 static void
 fini_dce (void)
 {
-  BITMAP_FREE (marked);
-  bitmap_obstack_release (&dce_marked_bitmap_obstack);
+  sbitmap_free (marked);
   bitmap_obstack_release (&dce_blocks_bitmap_obstack);
   bitmap_obstack_release (&dce_tmp_bitmap_obstack);
   df_in_progress = false;
@@ -743,7 +741,7 @@ fast_dce (void)
 	  /* So something was deleted that requires a redo.  Do it on
 	     the cheap.  */
 	  delete_unmarked_insns ();
-	  bitmap_clear (marked);
+	  sbitmap_zero (marked);
 	  bitmap_clear (processed);
 	  bitmap_clear (redo_out);
 	  

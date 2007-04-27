@@ -60,7 +60,7 @@ initialize_uninitialized_regs (void)
     {
       rtx insn;
       bitmap lr = DF_LR_IN (bb);
-      bitmap ur = DF_UR_IN (bb);
+      bitmap ur = DF_LIVE_IN (bb);
       bitmap_clear (already_genned);
 
       FOR_BB_INSNS (bb, insn)

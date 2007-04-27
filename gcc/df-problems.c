@@ -2033,16 +2033,20 @@ df_lr_verify_transfer_functions (void)
 
 
 /*----------------------------------------------------------------------------
-   UNINITIALIZED REGISTERS
+   COMBINED LIVE REGISTERS AND UNINITIALIZED REGISTERS.
 
-   Find the set of uses for registers that are reachable from the entry
-   block without passing thru a definition.  In and out bitvectors are built
-   for each basic block.  The regnum is used to index into these sets.
-   See df.h for details.
+   First find the set of uses for registers that are reachable from
+   the entry block without passing thru a definition.  In and out
+   bitvectors are built for each basic block.  The regnum is used to
+   index into these sets.  See df.h for details.
+
+   Then the in and out sets here are the anded results of the in and
+   out sets from the lr and ur
+   problems. 
 ----------------------------------------------------------------------------*/
 
 /* Private data used to verify the solution for this problem.  */
-struct df_ur_problem_data
+struct df_live_problem_data
 {
   bitmap *in;
   bitmap *out;
@@ -2052,51 +2056,51 @@ struct df_ur_problem_data
 /* Set basic block info.  */
 
 static void
-df_ur_set_bb_info (unsigned int index, 
-		   struct df_ur_bb_info *bb_info)
+df_live_set_bb_info (unsigned int index, 
+		   struct df_live_bb_info *bb_info)
 {
-  gcc_assert (df_ur);
-  gcc_assert (index < df_ur->block_info_size);
-  df_ur->block_info[index] = bb_info;
+  gcc_assert (df_live);
+  gcc_assert (index < df_live->block_info_size);
+  df_live->block_info[index] = bb_info;
 }
 
 
 /* Free basic block info.  */
 
 static void
-df_ur_free_bb_info (basic_block bb ATTRIBUTE_UNUSED, 
+df_live_free_bb_info (basic_block bb ATTRIBUTE_UNUSED, 
 		    void *vbb_info)
 {
-  struct df_ur_bb_info *bb_info = (struct df_ur_bb_info *) vbb_info;
+  struct df_live_bb_info *bb_info = (struct df_live_bb_info *) vbb_info;
   if (bb_info)
     {
       BITMAP_FREE (bb_info->gen);
       BITMAP_FREE (bb_info->kill);
       BITMAP_FREE (bb_info->in);
       BITMAP_FREE (bb_info->out);
-      pool_free (df_ur->block_pool, bb_info);
+      pool_free (df_live->block_pool, bb_info);
     }
 }
 
 
-/* Allocate or reset bitmaps for DF_UR blocks. The solution bits are
+/* Allocate or reset bitmaps for DF_LIVE blocks. The solution bits are
    not touched unless the block is new.  */
 
 static void 
-df_ur_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
+df_live_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
 
-  if (!df_ur->block_pool)
-    df_ur->block_pool = create_alloc_pool ("df_ur_block pool", 
-					   sizeof (struct df_ur_bb_info), 100);
+  if (!df_live->block_pool)
+    df_live->block_pool = create_alloc_pool ("df_live_block pool", 
+					   sizeof (struct df_live_bb_info), 100);
 
-  df_grow_bb_info (df_ur);
+  df_grow_bb_info (df_live);
 
-  EXECUTE_IF_SET_IN_BITMAP (df_ur->out_of_date_transfer_functions, 0, bb_index, bi)
+  EXECUTE_IF_SET_IN_BITMAP (df_live->out_of_date_transfer_functions, 0, bb_index, bi)
     {
-      struct df_ur_bb_info *bb_info = df_ur_get_bb_info (bb_index);
+      struct df_live_bb_info *bb_info = df_live_get_bb_info (bb_index);
       if (bb_info)
 	{ 
 	  bitmap_clear (bb_info->kill);
@@ -2104,8 +2108,8 @@ df_ur_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 	}
       else
 	{ 
-	  bb_info = (struct df_ur_bb_info *) pool_alloc (df_ur->block_pool);
-	  df_ur_set_bb_info (bb_index, bb_info);
+	  bb_info = (struct df_live_bb_info *) pool_alloc (df_live->block_pool);
+	  df_live_set_bb_info (bb_index, bb_info);
 	  bb_info->kill = BITMAP_ALLOC (NULL);
 	  bb_info->gen = BITMAP_ALLOC (NULL);
 	  bb_info->in = BITMAP_ALLOC (NULL);
@@ -2118,7 +2122,7 @@ df_ur_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 /* Reset the global solution for recalculation.  */
 
 static void 
-df_ur_reset (bitmap all_blocks)
+df_live_reset (bitmap all_blocks)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
@@ -2136,10 +2140,10 @@ df_ur_reset (bitmap all_blocks)
 /* Compute local uninitialized register info for basic block BB.  */
 
 static void
-df_ur_bb_local_compute (unsigned int bb_index)
+df_live_bb_local_compute (unsigned int bb_index)
 {
   basic_block bb = BASIC_BLOCK (bb_index);
-  struct df_ur_bb_info *bb_info = df_ur_get_bb_info (bb_index);
+  struct df_live_bb_info *bb_info = df_live_get_bb_info (bb_index);
   rtx insn;
   struct df_ref **def_rec;
   int luid = 0;
@@ -2200,34 +2204,34 @@ df_ur_bb_local_compute (unsigned int bb_index)
 /* Compute local uninitialized register info.  */
 
 static void
-df_ur_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
+df_live_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
 
   df_grow_insn_info ();
 
-  EXECUTE_IF_SET_IN_BITMAP (df_ur->out_of_date_transfer_functions, 
+  EXECUTE_IF_SET_IN_BITMAP (df_live->out_of_date_transfer_functions, 
 			    0, bb_index, bi)
     {
-      df_ur_bb_local_compute (bb_index);
+      df_live_bb_local_compute (bb_index);
     }
 
-  bitmap_clear (df_ur->out_of_date_transfer_functions);
+  bitmap_clear (df_live->out_of_date_transfer_functions);
 }
 
 
 /* Initialize the solution vectors.  */
 
 static void 
-df_ur_init (bitmap all_blocks)
+df_live_init (bitmap all_blocks)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
 
   EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
     {
-      struct df_ur_bb_info *bb_info = df_ur_get_bb_info (bb_index);
+      struct df_live_bb_info *bb_info = df_live_get_bb_info (bb_index);
 
       bitmap_copy (bb_info->out, bb_info->gen);
       bitmap_clear (bb_info->in);
@@ -2237,10 +2241,10 @@ df_ur_init (bitmap all_blocks)
 /* Confluence function that ignores fake edges.  */
 
 static void
-df_ur_confluence_n (edge e)
+df_live_confluence_n (edge e)
 {
-  bitmap op1 = df_ur_get_bb_info (e->dest->index)->in;
-  bitmap op2 = df_ur_get_bb_info (e->src->index)->out;
+  bitmap op1 = df_live_get_bb_info (e->dest->index)->in;
+  bitmap op2 = df_live_get_bb_info (e->src->index)->out;
  
   if (e->flags & EDGE_FAKE) 
     return;
@@ -2252,345 +2256,15 @@ df_ur_confluence_n (edge e)
 /* Transfer function.  */
 
 static bool
-df_ur_transfer_function (int bb_index)
+df_live_transfer_function (int bb_index)
 {
-  struct df_ur_bb_info *bb_info = df_ur_get_bb_info (bb_index);
+  struct df_live_bb_info *bb_info = df_live_get_bb_info (bb_index);
   bitmap in = bb_info->in;
   bitmap out = bb_info->out;
   bitmap gen = bb_info->gen;
   bitmap kill = bb_info->kill;
 
   return bitmap_ior_and_compl (out, gen, in, kill);
-}
-
-
-/* Run the fast dce as a side effect of building LR.  */
-
-static void
-df_ur_local_finalize (bitmap all_blocks ATTRIBUTE_UNUSED)
-{
-  df_ur->solutions_dirty = false;
-}
-
-
-/* Free all storage associated with the problem.  */
-
-static void
-df_ur_free (void)
-{
-  if (df_ur->block_info)
-    {
-      unsigned int i;
-      
-      for (i = 0; i < df_ur->block_info_size; i++)
-	{
-	  struct df_ur_bb_info *bb_info = df_ur_get_bb_info (i);
-	  if (bb_info)
-	    {
-	      BITMAP_FREE (bb_info->gen);
-	      BITMAP_FREE (bb_info->kill);
-	      BITMAP_FREE (bb_info->in);
-	      BITMAP_FREE (bb_info->out);
-	    }
-	}
-      
-      free_alloc_pool (df_ur->block_pool);
-      df_ur->block_info_size = 0;
-      free (df_ur->block_info);
-    }
-  BITMAP_FREE (df_ur->out_of_date_transfer_functions);
-  free (df_ur);
-}
-
-
-/* Debugging info at top of bb.  */
-
-static void
-df_ur_top_dump (basic_block bb, FILE *file)
-{
-  struct df_ur_bb_info *bb_info = df_ur_get_bb_info (bb->index);
-  struct df_ur_problem_data *problem_data;
-
-  if (!bb_info || !bb_info->in)
-    return;
-      
-  fprintf (file, ";; ur  in  \t");
-  df_print_regset (file, bb_info->in);
-  if (df_ur->problem_data)
-    {
-      problem_data = (struct df_ur_problem_data *)df_ur->problem_data;
-      fprintf (file, ";;  old in  \t");
-      df_print_regset (file, problem_data->in[bb->index]);
-    }
-  fprintf (file, ";; ur  gen \t");
-  df_print_regset (file, bb_info->gen);
-  fprintf (file, ";; ur  kill\t");
-  df_print_regset (file, bb_info->kill);
-}
-
-
-/* Debugging info at bottom of bb.  */
-
-static void
-df_ur_bottom_dump (basic_block bb, FILE *file)
-{
-  struct df_ur_bb_info *bb_info = df_ur_get_bb_info (bb->index);
-  struct df_ur_problem_data *problem_data;
-
-  if (!bb_info || !bb_info->out)
-    return;
-      
-  fprintf (file, ";; ur  out \t");
-  df_print_regset (file, bb_info->out);
-  if (df_ur->problem_data)
-    {
-      problem_data = (struct df_ur_problem_data *)df_ur->problem_data;
-      fprintf (file, ";;  old out  \t");
-      df_print_regset (file, problem_data->out[bb->index]);
-    }
-}
-
-
-/* Build the datastructure to verify that the solution to the dataflow
-   equations is not dirty.  */
-
-static void
-df_ur_verify_solution_start (void)
-{
-  basic_block bb;
-  struct df_ur_problem_data *problem_data;
-  if (df_ur->solutions_dirty)
-    {
-      df_ur->problem_data = NULL;
-      return;
-    }
-
-  /* Set it true so that the solution is recomputed.  */ 
-  df_ur->solutions_dirty = true;
-
-  problem_data = XNEW (struct df_ur_problem_data);
-  df_ur->problem_data = problem_data;
-  problem_data->in = XNEWVEC (bitmap, last_basic_block);
-  problem_data->out = XNEWVEC (bitmap, last_basic_block);
-
-  FOR_ALL_BB (bb)
-    {
-      problem_data->in[bb->index] = BITMAP_ALLOC (NULL);
-      problem_data->out[bb->index] = BITMAP_ALLOC (NULL);
-      bitmap_copy (problem_data->in[bb->index], DF_UR_IN (bb));
-      bitmap_copy (problem_data->out[bb->index], DF_UR_OUT (bb));
-    }
-}
-
-
-/* Compare the saved datastructure and the new solution to the dataflow
-   equations.  */
-
-static void
-df_ur_verify_solution_end (void)
-{
-  struct df_ur_problem_data *problem_data;
-  basic_block bb;
-
-  if (df_ur->problem_data == NULL)
-    return;
-
-  problem_data = (struct df_ur_problem_data *)df_ur->problem_data;
-
-  FOR_ALL_BB (bb)
-    {
-      if ((!bitmap_equal_p (problem_data->in[bb->index], DF_UR_IN (bb)))
-	  || (!bitmap_equal_p (problem_data->out[bb->index], DF_UR_OUT (bb))))
-	{
-	  /*df_dump (stderr);*/
-	  gcc_unreachable ();
-	}
-    }
-
-  /* Cannot delete them immediately because you may want to dump them
-     if the comparison fails.  */
-  FOR_ALL_BB (bb)
-    {
-      BITMAP_FREE (problem_data->in[bb->index]);
-      BITMAP_FREE (problem_data->out[bb->index]);
-    }
-
-  free (problem_data->in);
-  free (problem_data->out);
-  free (problem_data);
-  df_ur->problem_data = NULL;
-}
-
-
-/* All of the information associated with every instance of the problem.  */
-
-static struct df_problem problem_UR =
-{
-  DF_UR,                      /* Problem id.  */
-  DF_FORWARD,                 /* Direction.  */
-  df_ur_alloc,                /* Allocate the problem specific data.  */
-  df_ur_reset,                /* Reset global information.  */
-  df_ur_free_bb_info,         /* Free basic block info.  */
-  df_ur_local_compute,        /* Local compute function.  */
-  df_ur_init,                 /* Init the solution specific data.  */
-  df_worklist_dataflow,       /* Worklist solver.  */
-  NULL,                       /* Confluence operator 0.  */ 
-  df_ur_confluence_n,         /* Confluence operator n.  */ 
-  df_ur_transfer_function,    /* Transfer function.  */
-  df_ur_local_finalize,       /* Finalize function.  */
-  df_ur_free,                 /* Free all of the problem information.  */
-  df_ur_free,                 /* Remove this problem from the stack of dataflow problems.  */
-  NULL,                       /* Debugging.  */
-  df_ur_top_dump,             /* Debugging start block.  */
-  df_ur_bottom_dump,          /* Debugging end block.  */
-  df_ur_verify_solution_start,/* Incremental solution verify start.  */
-  df_ur_verify_solution_end,  /* Incremental solution verify end.  */
-  &problem_LR,                /* Dependent problem.  */
-  TV_DF_UR                    /* Timing variable.  */ 
-};
-
-
-/* Create a new DATAFLOW instance and add it to an existing instance
-   of DF.  The returned structure is what is used to get at the
-   solution.  */
-
-void
-df_ur_add_problem (void)
-{
-  df_add_problem (&problem_UR);
-  /* These will be initialized when df_scan_blocks processes each
-     block.  */
-  df_ur->out_of_date_transfer_functions = BITMAP_ALLOC (NULL);
-}
-
-
-/* Verify that all of the lr related info is consistent and
-   correct.  */
-
-void
-df_ur_verify_transfer_functions (void)
-{
-  basic_block bb;
-  bitmap saved_gen;
-  bitmap saved_kill;
-  bitmap all_blocks;
-
-  if (!df)
-    return;
-
-  saved_gen = BITMAP_ALLOC (NULL);
-  saved_kill = BITMAP_ALLOC (NULL);
-  all_blocks = BITMAP_ALLOC (NULL);
-
-  df_grow_insn_info ();
-
-  FOR_ALL_BB (bb)
-    {
-      struct df_ur_bb_info *bb_info = df_ur_get_bb_info (bb->index);
-      bitmap_set_bit (all_blocks, bb->index);
-
-      if (bb_info)
-	{
-	  /* Make a copy of the transfer functions and then compute
-	     new ones to see if the transfer functions have
-	     changed.  */
-	  if (!bitmap_bit_p (df_ur->out_of_date_transfer_functions, 
-			     bb->index))
-	    {
-	      bitmap_copy (saved_gen, bb_info->gen);
-	      bitmap_copy (saved_kill, bb_info->kill);
-	      bitmap_clear (bb_info->gen);
-	      bitmap_clear (bb_info->kill);
-
-	      df_ur_bb_local_compute (bb->index);
-	      gcc_assert (bitmap_equal_p (saved_gen, bb_info->gen));
-	      gcc_assert (bitmap_equal_p (saved_kill, bb_info->kill));
-	    }
-	}
-      else
-	{
-	  /* If we do not have basic block info, the block must be in
-	     the list of dirty blocks or else some one has added a
-	     block behind our backs. */
-	  gcc_assert (bitmap_bit_p (df_ur->out_of_date_transfer_functions, 
-				    bb->index));
-	}
-      /* Make sure no one created a block without following
-	 procedures.  */
-      gcc_assert (df_scan_get_bb_info (bb->index));
-    }
-
-  /* Make sure there are no dirty bits in blocks that have been deleted.  */
-  gcc_assert (!bitmap_intersect_compl_p (df_ur->out_of_date_transfer_functions, 
-					 all_blocks)); 
-  BITMAP_FREE (saved_gen);
-  BITMAP_FREE (saved_kill);
-  BITMAP_FREE (all_blocks);
-}
-
-
-
-/*----------------------------------------------------------------------------
-   COMBINED LIVE REGISTERS AND UNINITIALIZED REGISTERS.
-
-   The in and out sets here are the anded results of the in and out
-   sets from the lr and ur problems. 
- ----------------------------------------------------------------------------*/
-
-/* Set basic block info.  */
-
-static void
-df_live_set_bb_info (unsigned int index, 
-		     struct df_live_bb_info *bb_info)
-{
-  gcc_assert (df_live);
-  gcc_assert (index < df_live->block_info_size);
-  df_live->block_info[index] = bb_info;
-}
-
-
-/* Free basic block info.  */
-
-static void
-df_live_free_bb_info (basic_block bb ATTRIBUTE_UNUSED, 
-		      void *vbb_info)
-{
-  struct df_live_bb_info *bb_info = (struct df_live_bb_info *) vbb_info;
-  if (bb_info)
-    {
-      BITMAP_FREE (bb_info->in);
-      BITMAP_FREE (bb_info->out);
-      pool_free (df_live->block_pool, bb_info);
-    }
-}
-
-
-/* Allocate or reset bitmaps for DF_LIVE blocks. The solution bits are
-   not touched unless the block is new.  */
-
-static void 
-df_live_alloc (bitmap all_blocks)
-{
-  unsigned int bb_index;
-  bitmap_iterator bi;
-
-  if (!df_live->block_pool)
-    df_live->block_pool = create_alloc_pool ("df_live_block pool", 
-					     sizeof (struct df_live_bb_info), 100);
-
-  df_grow_bb_info (df_live);
-
-  EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
-    {
-      struct df_live_bb_info *bb_info = df_live_get_bb_info (bb_index);
-      if (!bb_info)
-	{ 
-	  bb_info = (struct df_live_bb_info *) pool_alloc (df_live->block_pool);
-	  df_live_set_bb_info (bb_index, bb_info);
-	  bb_info->in = BITMAP_ALLOC (NULL);
-	  bb_info->out = BITMAP_ALLOC (NULL);
-	}
-    }
 }
 
 
@@ -2607,14 +2281,13 @@ df_live_local_finalize (bitmap all_blocks)
 
       EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
 	{
-	  struct df_ur_bb_info *bb_ur_info = df_ur_get_bb_info (bb_index);
 	  struct df_lr_bb_info *bb_lr_info = df_lr_get_bb_info (bb_index);
 	  struct df_live_bb_info *bb_live_info = df_live_get_bb_info (bb_index);
 	  
 	  /* No register may reach a location where it is not used.  Thus
 	     we trim the rr result to the places where it is used.  */
-	  bitmap_and (bb_live_info->in, bb_ur_info->in, bb_lr_info->in);
-	  bitmap_and (bb_live_info->out, bb_ur_info->out, bb_lr_info->out);
+	  bitmap_and_into (bb_live_info->in, bb_lr_info->in);
+	  bitmap_and_into (bb_live_info->out, bb_lr_info->out);
 	}
       
       df_live->solutions_dirty = false;
@@ -2636,6 +2309,8 @@ df_live_free (void)
 	  struct df_live_bb_info *bb_info = df_live_get_bb_info (i);
 	  if (bb_info)
 	    {
+	      BITMAP_FREE (bb_info->gen);
+	      BITMAP_FREE (bb_info->kill);
 	      BITMAP_FREE (bb_info->in);
 	      BITMAP_FREE (bb_info->out);
 	    }
@@ -2645,6 +2320,7 @@ df_live_free (void)
       df_live->block_info_size = 0;
       free (df_live->block_info);
     }
+  BITMAP_FREE (df_live->out_of_date_transfer_functions);
   free (df_live);
 }
 
@@ -2655,11 +2331,23 @@ static void
 df_live_top_dump (basic_block bb, FILE *file)
 {
   struct df_live_bb_info *bb_info = df_live_get_bb_info (bb->index);
+  struct df_live_problem_data *problem_data;
+
   if (!bb_info || !bb_info->in)
     return;
-  
+      
   fprintf (file, ";; live  in  \t");
   df_print_regset (file, bb_info->in);
+  if (df_live->problem_data)
+    {
+      problem_data = (struct df_live_problem_data *)df_live->problem_data;
+      fprintf (file, ";;  old in  \t");
+      df_print_regset (file, problem_data->in[bb->index]);
+    }
+  fprintf (file, ";; live  gen \t");
+  df_print_regset (file, bb_info->gen);
+  fprintf (file, ";; live  kill\t");
+  df_print_regset (file, bb_info->kill);
 }
 
 
@@ -2669,11 +2357,90 @@ static void
 df_live_bottom_dump (basic_block bb, FILE *file)
 {
   struct df_live_bb_info *bb_info = df_live_get_bb_info (bb->index);
+  struct df_live_problem_data *problem_data;
+
   if (!bb_info || !bb_info->out)
     return;
-  
-  fprintf (file, ";; live  out  \t");
+      
+  fprintf (file, ";; live  out \t");
   df_print_regset (file, bb_info->out);
+  if (df_live->problem_data)
+    {
+      problem_data = (struct df_live_problem_data *)df_live->problem_data;
+      fprintf (file, ";;  old out  \t");
+      df_print_regset (file, problem_data->out[bb->index]);
+    }
+}
+
+
+/* Build the datastructure to verify that the solution to the dataflow
+   equations is not dirty.  */
+
+static void
+df_live_verify_solution_start (void)
+{
+  basic_block bb;
+  struct df_live_problem_data *problem_data;
+  if (df_live->solutions_dirty)
+    {
+      df_live->problem_data = NULL;
+      return;
+    }
+
+  /* Set it true so that the solution is recomputed.  */ 
+  df_live->solutions_dirty = true;
+
+  problem_data = XNEW (struct df_live_problem_data);
+  df_live->problem_data = problem_data;
+  problem_data->in = XNEWVEC (bitmap, last_basic_block);
+  problem_data->out = XNEWVEC (bitmap, last_basic_block);
+
+  FOR_ALL_BB (bb)
+    {
+      problem_data->in[bb->index] = BITMAP_ALLOC (NULL);
+      problem_data->out[bb->index] = BITMAP_ALLOC (NULL);
+      bitmap_copy (problem_data->in[bb->index], DF_LIVE_IN (bb));
+      bitmap_copy (problem_data->out[bb->index], DF_LIVE_OUT (bb));
+    }
+}
+
+
+/* Compare the saved datastructure and the new solution to the dataflow
+   equations.  */
+
+static void
+df_live_verify_solution_end (void)
+{
+  struct df_live_problem_data *problem_data;
+  basic_block bb;
+
+  if (df_live->problem_data == NULL)
+    return;
+
+  problem_data = (struct df_live_problem_data *)df_live->problem_data;
+
+  FOR_ALL_BB (bb)
+    {
+      if ((!bitmap_equal_p (problem_data->in[bb->index], DF_LIVE_IN (bb)))
+	  || (!bitmap_equal_p (problem_data->out[bb->index], DF_LIVE_OUT (bb))))
+	{
+	  /*df_dump (stderr);*/
+	  gcc_unreachable ();
+	}
+    }
+
+  /* Cannot delete them immediately because you may want to dump them
+     if the comparison fails.  */
+  FOR_ALL_BB (bb)
+    {
+      BITMAP_FREE (problem_data->in[bb->index]);
+      BITMAP_FREE (problem_data->out[bb->index]);
+    }
+
+  free (problem_data->in);
+  free (problem_data->out);
+  free (problem_data);
+  df_live->problem_data = NULL;
 }
 
 
@@ -2681,27 +2448,27 @@ df_live_bottom_dump (basic_block bb, FILE *file)
 
 static struct df_problem problem_LIVE =
 {
-  DF_LIVE,                    /* Problem id.  */
-  DF_NONE,                    /* Direction.  */
-  df_live_alloc,              /* Allocate the problem specific data.  */
-  NULL,                       /* Reset global information.  */
-  df_live_free_bb_info,       /* Free basic block info.  */
-  NULL,                       /* Local compute function.  */
-  NULL,                       /* Init the solution specific data.  */
-  NULL,                       /* Iterative solver.  */
-  NULL,                       /* Confluence operator 0.  */ 
-  NULL,                       /* Confluence operator n.  */ 
-  NULL,                       /* Transfer function.  */
-  df_live_local_finalize,     /* Finalize function.  */
-  df_live_free,               /* Free all of the problem information.  */
-  df_live_free,                /* Remove this problem from the stack of dataflow problems.  */
-  NULL,                       /* Debugging.  */
-  df_live_top_dump,           /* Debugging start block.  */
-  df_live_bottom_dump,        /* Debugging end block.  */
-  NULL,                       /* Incremental solution verify start.  */
-  NULL,                       /* Incremental solution verfiy end.  */
-  &problem_UR,                /* Dependent problem.  */
-  TV_DF_LIVE                  /* Timing variable.  */ 
+  DF_LIVE,                      /* Problem id.  */
+  DF_FORWARD,                   /* Direction.  */
+  df_live_alloc,                /* Allocate the problem specific data.  */
+  df_live_reset,                /* Reset global information.  */
+  df_live_free_bb_info,         /* Free basic block info.  */
+  df_live_local_compute,        /* Local compute function.  */
+  df_live_init,                 /* Init the solution specific data.  */
+  df_worklist_dataflow,         /* Worklist solver.  */
+  NULL,                         /* Confluence operator 0.  */ 
+  df_live_confluence_n,         /* Confluence operator n.  */ 
+  df_live_transfer_function,    /* Transfer function.  */
+  df_live_local_finalize,       /* Finalize function.  */
+  df_live_free,                 /* Free all of the problem information.  */
+  df_live_free,                 /* Remove this problem from the stack of dataflow problems.  */
+  NULL,                         /* Debugging.  */
+  df_live_top_dump,             /* Debugging start block.  */
+  df_live_bottom_dump,          /* Debugging end block.  */
+  df_live_verify_solution_start,/* Incremental solution verify start.  */
+  df_live_verify_solution_end,  /* Incremental solution verify end.  */
+  &problem_LR,                  /* Dependent problem.  */
+  TV_DF_LIVE                    /* Timing variable.  */ 
 };
 
 
@@ -2713,7 +2480,76 @@ void
 df_live_add_problem (void)
 {
   df_add_problem (&problem_LIVE);
+  /* These will be initialized when df_scan_blocks processes each
+     block.  */
+  df_live->out_of_date_transfer_functions = BITMAP_ALLOC (NULL);
 }
+
+
+/* Verify that all of the lr related info is consistent and
+   correct.  */
+
+void
+df_live_verify_transfer_functions (void)
+{
+  basic_block bb;
+  bitmap saved_gen;
+  bitmap saved_kill;
+  bitmap all_blocks;
+
+  if (!df)
+    return;
+
+  saved_gen = BITMAP_ALLOC (NULL);
+  saved_kill = BITMAP_ALLOC (NULL);
+  all_blocks = BITMAP_ALLOC (NULL);
+
+  df_grow_insn_info ();
+
+  FOR_ALL_BB (bb)
+    {
+      struct df_live_bb_info *bb_info = df_live_get_bb_info (bb->index);
+      bitmap_set_bit (all_blocks, bb->index);
+
+      if (bb_info)
+	{
+	  /* Make a copy of the transfer functions and then compute
+	     new ones to see if the transfer functions have
+	     changed.  */
+	  if (!bitmap_bit_p (df_live->out_of_date_transfer_functions, 
+			     bb->index))
+	    {
+	      bitmap_copy (saved_gen, bb_info->gen);
+	      bitmap_copy (saved_kill, bb_info->kill);
+	      bitmap_clear (bb_info->gen);
+	      bitmap_clear (bb_info->kill);
+
+	      df_live_bb_local_compute (bb->index);
+	      gcc_assert (bitmap_equal_p (saved_gen, bb_info->gen));
+	      gcc_assert (bitmap_equal_p (saved_kill, bb_info->kill));
+	    }
+	}
+      else
+	{
+	  /* If we do not have basic block info, the block must be in
+	     the list of dirty blocks or else some one has added a
+	     block behind our backs. */
+	  gcc_assert (bitmap_bit_p (df_live->out_of_date_transfer_functions, 
+				    bb->index));
+	}
+      /* Make sure no one created a block without following
+	 procedures.  */
+      gcc_assert (df_scan_get_bb_info (bb->index));
+    }
+
+  /* Make sure there are no dirty bits in blocks that have been deleted.  */
+  gcc_assert (!bitmap_intersect_compl_p (df_live->out_of_date_transfer_functions, 
+					 all_blocks)); 
+  BITMAP_FREE (saved_gen);
+  BITMAP_FREE (saved_kill);
+  BITMAP_FREE (all_blocks);
+}
+
 
 
 /*----------------------------------------------------------------------------
@@ -3129,7 +2965,7 @@ df_urec_init (bitmap all_blocks)
 
 
 /* Or in the stack regs, hard regs and early clobber regs into the
-   ur_in sets of all of the blocks.  */
+   urec_in sets of all of the blocks.  */
  
 
 static void
@@ -3478,11 +3314,10 @@ df_chain_fully_remove_problem (void)
 
 static void  
 df_chain_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
-
 {
   df_chain_remove_problem ();
   df_chain->block_pool = create_alloc_pool ("df_chain_block pool", 
-					 sizeof (struct df_link), 100);
+					 sizeof (struct df_link), 50);
 }
 
 

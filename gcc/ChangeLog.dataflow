@@ -1,3 +1,53 @@
+2007-04-27  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* timevar.def (TV_DF_UR): Removed.
+	* df-scan.c (df_scan_alloc): Change pool size.  
+	* df-core.c (df_finish_pass, rest_of_handle_df_initialize,
+	df_get_bb_dirty, df_verify): Merged df_ur and df_live problems
+	into df_live.
+	* global.c (compute_regsets, rest_of_handle_global_alloc): Ditto.
+	* df.h (DF_UR, DF_UR_BB_INFO, DF_UR_IN, DF_UR_OUT, df_ur,
+	df_ur_get_bb_info): Removed.
+	(df_ur_bb_info): Merged df_ur and df_live problems
+	into df_live.
+	* init-regs.c (initialize_uninitialized_regs): Changed DF_UR_IN to
+	DF_LIVE_IN.
+	* df_problems.c (df_ur_problem_data): Renamed to
+	df_live_problem_data.
+	(df_ur_set_bb_info): Renamed to df_live_set_bb_info.
+	(df_ur_free_bb_info): Renamed to df_live_free_bb_info.
+	(df_ur_alloc): Renamed to df_live_alloc.
+	(df_ur_reset): Renamed to df_live_reset.
+	(df_ur_bb_local_compute): Renamed to df_live_bb_local_compute.
+	(df_ur_local_compute): Renamed to df_live_local_compute.
+	(df_ur_init): Renamed to df_live_init.
+	(df_ur_confluence_n): Renamed to df_live_confluence_n.
+	(df_ur_transfer_function): Renamed to df_live_transfer_function.
+	(df_ur_local_finalize): Removed.
+	(df_ur_free): Renamed to df_live_free.
+	(df_ur_top_dump): Renamed to df_live_top_dump.
+	(df_ur_bottom_dump): Renamed to df_live_bottom_dump.
+	(df_ur_verify_solution_start): Renamed to
+	df_live_verify_solution_start.
+	(df_ur_verify_solution_end): Renamed to
+	df_live_verify_solution_end.
+	(problem_UR): Renamed to problem_LIVE.
+	(df_ur_add_problem): Renamed to df_live_add_problem.
+	(df_ur_verify_transfer_functions): Renamed to
+	df_live_verify_transfer_functions.
+	(df_live_set_bb_info, df_live_free_bb_info, df_live_alloc,
+	df_live_free, df_live_top_dump, df_live_bottom_dump, 
+	df_live_add_problem): Deleted.
+	(df_chain_fully_remove_problem): Changed pool alloc block size.
+	* dce.c (dce_marked_bitmap_obstack): Removed.
+	(marked_insn_p, mark_insn, init_dce, end_ud_dce, fini_dce,
+	fast_dce): Changed marked to be sbitmap rather than bitmap.
+	* alloc_pool.c (create_alloc_pool, pool_alloc, pool_free): Split
+	free_list into virgin_free_list and returned_free_list.
+	* alloc_pool.h (free_list): Split into virgin_free_list and
+	returned_free_list.
+	(virgin_elts_remaining): New variable.
+	
 2007-04-26  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* df-core.c (df_remove_problem): Allow df_ur and df_live 
