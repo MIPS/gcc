@@ -525,10 +525,11 @@ propagate_necessity (struct edge_list *el)
 
 /* Remove dead PHI nodes from block BB.  */
 
-static void
+static bool
 remove_dead_phis (basic_block bb)
 {
   tree prev, phi;
+  bool something_changed = false;
 
   prev = NULL_TREE;
   phi = phi_nodes (bb);
@@ -540,6 +541,7 @@ remove_dead_phis (basic_block bb)
 	{
 	  tree next = PHI_CHAIN (phi);
 
+	  something_changed = true;
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Deleting : ");
@@ -557,6 +559,7 @@ remove_dead_phis (basic_block bb)
 	  phi = PHI_CHAIN (phi);
 	}
     }
+  return something_changed;
 }
 
 
@@ -604,7 +607,6 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	 3. If the post dominator has PHI nodes we may be able to compute
 	    the right PHI args for them.
 
-
 	 In each of these cases we must remove the control statement
 	 as it may reference SSA_NAMEs which are going to be removed and
 	 we remove all but one outgoing edge from the block.  */
@@ -617,6 +619,11 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	  /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
 	  redirect_edge_and_branch (EDGE_SUCC (bb, 0), post_dom_bb);
 	  PENDING_STMT (EDGE_SUCC (bb, 0)) = NULL;
+
+	  /* It is not sufficient to set cfg_altered below during edge
+	     removal, in case BB has two successors and one of them
+	     is POST_DOM_BB.  */
+	  cfg_altered = true;
 	}
       EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
       EDGE_SUCC (bb, 0)->count = bb->count;
@@ -649,9 +656,10 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 /* Eliminate unnecessary statements. Any instruction not marked as necessary
    contributes nothing to the program, and can be deleted.  */
 
-static void
+static bool
 eliminate_unnecessary_stmts (void)
 {
+  bool something_changed = false;
   basic_block bb;
   block_stmt_iterator i;
 
@@ -662,7 +670,7 @@ eliminate_unnecessary_stmts (void)
   FOR_EACH_BB (bb)
     {
       /* Remove dead PHI nodes.  */
-      remove_dead_phis (bb);
+      something_changed |= remove_dead_phis (bb);
     }
 
   FOR_EACH_BB (bb)
@@ -676,16 +684,46 @@ eliminate_unnecessary_stmts (void)
 
 	  /* If `i' is not necessary then remove it.  */
 	  if (! NECESSARY (t))
-	    remove_dead_stmt (&i, bb);
+	    {
+	      remove_dead_stmt (&i, bb);
+	      something_changed = true;
+	    }
 	  else
 	    {
 	      tree call = get_call_expr_in (t);
 	      if (call)
-		notice_special_calls (call);
+		{
+		  tree name;
+
+		  /* When LHS of var = call (); is dead, simplify it into
+		     call (); saving one operand.  */
+		  if (TREE_CODE (t) == GIMPLE_MODIFY_STMT
+		      && (TREE_CODE ((name = GIMPLE_STMT_OPERAND (t, 0)))
+			  == SSA_NAME)
+		      && !TEST_BIT (processed, SSA_NAME_VERSION (name)))
+		    {
+		      something_changed = true;
+		      if (dump_file && (dump_flags & TDF_DETAILS))
+			{
+			  fprintf (dump_file, "Deleting LHS of call: ");
+			  print_generic_stmt (dump_file, t, TDF_SLIM);
+			  fprintf (dump_file, "\n");
+			}
+		      push_stmt_changes (bsi_stmt_ptr (i));
+		      TREE_BLOCK (call) = TREE_BLOCK (t);
+		      bsi_replace (&i, call, false);
+		      maybe_clean_or_replace_eh_stmt (t, call);
+		      mark_symbols_for_renaming (call);
+		      pop_stmt_changes (bsi_stmt_ptr (i));
+		    }
+		  notice_special_calls (call);
+		}
 	      bsi_next (&i);
 	    }
 	}
     }
+
+  return something_changed;
 }
 
 
@@ -774,10 +812,11 @@ tree_dce_done (bool aggressive)
 	  as the last tree SSA pass, but keep this in mind when you
 	  start experimenting with pass ordering.  */
 
-static void
+static unsigned int
 perform_tree_ssa_dce (bool aggressive)
 {
   struct edge_list *el = NULL;
+  bool something_changed = 0;
 
   tree_dce_init (aggressive);
 
@@ -800,10 +839,11 @@ perform_tree_ssa_dce (bool aggressive)
 
   propagate_necessity (el);
 
-  eliminate_unnecessary_stmts ();
+  something_changed |= eliminate_unnecessary_stmts ();
+  something_changed |= cfg_altered;
 
-  if (aggressive)
-    free_dominance_info (CDI_POST_DOMINATORS);
+  /* We do not update postdominators, so free them unconditionally.  */
+  free_dominance_info (CDI_POST_DOMINATORS);
 
   /* If we removed paths in the CFG, then we need to update
      dominators as well.  I haven't investigated the possibility
@@ -818,30 +858,38 @@ perform_tree_ssa_dce (bool aggressive)
   tree_dce_done (aggressive);
 
   free_edge_list (el);
+
+  if (something_changed)
+    return (TODO_update_ssa | TODO_cleanup_cfg | TODO_ggc_collect 
+	    | TODO_remove_unused_locals);
+  else
+    return 0;
 }
 
 /* Pass entry points.  */
 static unsigned int
 tree_ssa_dce (void)
 {
-  perform_tree_ssa_dce (/*aggressive=*/false);
-  return 0;
+  return perform_tree_ssa_dce (/*aggressive=*/false);
 }
 
 static unsigned int
 tree_ssa_dce_loop (void)
 {
-  perform_tree_ssa_dce (/*aggressive=*/false);
-  free_numbers_of_iterations_estimates ();
-  scev_reset ();
-  return 0;
+  unsigned int todo;
+  todo = perform_tree_ssa_dce (/*aggressive=*/false);
+  if (todo)
+    {
+      free_numbers_of_iterations_estimates ();
+      scev_reset ();
+    }
+  return todo;
 }
 
 static unsigned int
 tree_ssa_cd_dce (void)
 {
-  perform_tree_ssa_dce (/*aggressive=*/optimize >= 2);
-  return 0;
+  return perform_tree_ssa_dce (/*aggressive=*/optimize >= 2);
 }
 
 static bool
@@ -859,16 +907,11 @@ struct tree_opt_pass pass_dce =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_DCE,				/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func 
-    | TODO_update_ssa
-    | TODO_cleanup_cfg
-    | TODO_ggc_collect
-    | TODO_verify_ssa
-    | TODO_remove_unused_locals,	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -881,14 +924,11 @@ struct tree_opt_pass pass_dce_loop =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_DCE,				/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func 
-    | TODO_update_ssa
-    | TODO_cleanup_cfg
-    | TODO_verify_ssa,			/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -901,15 +941,11 @@ struct tree_opt_pass pass_cd_dce =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_CD_DCE,			/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func
-    | TODO_update_ssa
-    | TODO_cleanup_cfg
-    | TODO_ggc_collect
-    | TODO_verify_ssa
-    | TODO_verify_flow,			/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa
+  | TODO_verify_flow,			/* todo_flags_finish */
   0					/* letter */
 };

@@ -22,8 +22,15 @@
 #define TARGET_VERSION fprintf (stderr, " (spu %s)", __DATE__);
 
 #define OVERRIDE_OPTIONS spu_override_options()
+#define C_COMMON_OVERRIDE_OPTIONS spu_c_common_override_options()
+
+#define OPTIMIZATION_OPTIONS(level,size) \
+	  spu_optimization_options(level,size)
+
+#define INIT_EXPANDERS spu_init_expanders()
 
 extern int target_flags;
+extern const char *spu_fixed_range_string;
 
 /* Default target_flags if no switches specified.  */
 #ifndef TARGET_DEFAULT
@@ -86,6 +93,7 @@ extern int target_flags;
 /* symbol_ref's of functions are not aligned to 16 byte boundary. */
 #define ALIGNED_SYMBOL_REF_P(X) \
 	(GET_CODE (X) == SYMBOL_REF \
+          && (SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_ALIGN1) == 0 \
 	  && (! SYMBOL_REF_FUNCTION_P (X) \
 	      || align_functions >= 16))
 
@@ -93,7 +101,10 @@ extern int target_flags;
 
 #define MAX_FIXED_MODE_SIZE 128
 
-#define STACK_SAVEAREA_MODE(save_level) SImode
+#define STACK_SAVEAREA_MODE(save_level) \
+  (save_level == SAVE_FUNCTION ? VOIDmode \
+    : save_level == SAVE_NONLOCAL ? SImode \
+      : Pmode)
 
 #define STACK_SIZE_MODE SImode
 
@@ -146,7 +157,7 @@ extern int target_flags;
 /* Register Basics */
 
 /* 128-130 are special registers that never appear in assembly code. */
-#define FIRST_PSEUDO_REGISTER 132
+#define FIRST_PSEUDO_REGISTER 131
 
 #define FIXED_REGISTERS {			    \
     1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
@@ -157,7 +168,7 @@ extern int target_flags;
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-    1, 1, 1, 1 \
+    1, 1, 1 \
 }
 
 #define CALL_USED_REGISTERS {			    \
@@ -169,7 +180,7 @@ extern int target_flags;
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-    1, 1, 1, 1 \
+    1, 1, 1 \
 }
 
 #define CONDITIONAL_REGISTER_USAGE \
@@ -240,8 +251,6 @@ enum reg_class {
 
 #define REGISTER_TARGET_PRAGMAS() do {					\
 targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
-  /* Don't give warnings about the main() function. */			\
-warn_main = 0;								\
 }while (0);
 
 
@@ -263,6 +272,8 @@ warn_main = 0;								\
 /* #define RETURN_ADDR_IN_PREVIOUS_FRAME */
 
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG(Pmode, LINK_REGISTER_REGNUM)
+
+#define ARG_POINTER_CFA_OFFSET(FNDECL) (-STACK_POINTER_OFFSET)
 
 
 /* Stack Checking */
@@ -292,9 +303,6 @@ warn_main = 0;								\
 /* Used to keep track of instructions that have clobbered the hint
  * buffer.  Users can also specify it in inline asm. */
 #define HBR_REGNUM 130
-
-/* Used to keep track of enabling and disabling interrupts. */
-#define INTR_REGNUM 131
 
 #define MAX_REGISTER_ARGS    72
 #define FIRST_ARG_REGNUM     3
@@ -329,7 +337,7 @@ warn_main = 0;								\
 
 #define REG_PARM_STACK_SPACE(FNDECL) 0
 
-#define OUTGOING_REG_PARM_STACK_SPACE 
+#define OUTGOING_REG_PARM_STACK_SPACE 1
 
 #define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE) (0)
 
@@ -371,6 +379,9 @@ warn_main = 0;								\
 
 #define FUNCTION_VALUE_REGNO_P(N) ((N) >= (FIRST_RETURN_REGNUM) && (N) <= (LAST_RETURN_REGNUM))
 
+
+/* Machine-specific symbol_ref flags.  */
+#define SYMBOL_FLAG_ALIGN1	(SYMBOL_FLAG_MACH_DEP << 0)
 
 /* Aggregate Return */
 
@@ -503,7 +514,7 @@ warn_main = 0;								\
  "$80", "$81", "$82", "$83", "$84", "$85", "$86", "$87", "$88", "$89", "$90", "$91", "$92", "$93", "$94", "$95", \
  "$96", "$97", "$98", "$99", "$100", "$101", "$102", "$103", "$104", "$105", "$106", "$107", "$108", "$109", "$110", "$111", \
  "$112", "$113", "$114", "$115", "$116", "$117", "$118", "$119", "$120", "$121", "$122", "$123", "$124", "$125", "$126", "$127", \
- "$vfp", "$vap", "hbr", "intr" \
+ "$vfp", "$vap", "hbr" \
 }
 
 #define PRINT_OPERAND(FILE, X, CODE)  print_operand(FILE, X, CODE)
@@ -547,6 +558,7 @@ warn_main = 0;								\
 
 #define NO_IMPLICIT_EXTERN_C 1
 
+#define HANDLE_PRAGMA_PACK_PUSH_POP 1
 
 
 /* These are set by the cmp patterns and used while expanding

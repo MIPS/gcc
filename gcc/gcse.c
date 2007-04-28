@@ -1,7 +1,7 @@
 /* Global common subexpression elimination/Partial redundancy elimination
    and global constant/copy propagation for GNU compiler.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+   2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2668,7 +2668,8 @@ try_replace_reg (rtx from, rtx to, rtx insn)
   /* If there is already a REG_EQUAL note, update the expression in it
      with our replacement.  */
   if (note != 0 && REG_NOTE_KIND (note) == REG_EQUAL)
-    XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), from, to);
+    set_unique_reg_note (insn, REG_EQUAL,
+			 simplify_replace_rtx (XEXP (note, 0), from, to));
 
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
     {
@@ -3731,7 +3732,7 @@ bypass_conditional_jumps (void)
   /* If we bypassed any register setting insns, we inserted a
      copy on the redirected edge.  These need to be committed.  */
   if (changed)
-    commit_edge_insertions();
+    commit_edge_insertions ();
 
   return changed;
 }
@@ -5127,7 +5128,7 @@ print_ldst_list (FILE * file)
 
   fprintf (file, "LDST list: \n");
 
-  for (ptr = first_ls_expr(); ptr != NULL; ptr = next_ls_expr (ptr))
+  for (ptr = first_ls_expr (); ptr != NULL; ptr = next_ls_expr (ptr))
     {
       fprintf (file, "  Pattern (%3d): ", ptr->index);
 
@@ -5908,6 +5909,39 @@ find_loads (rtx x, rtx store_pattern, int after)
   return ret;
 }
 
+static inline bool
+store_killed_in_pat (rtx x, rtx pat, int after)
+{
+  if (GET_CODE (pat) == SET)
+    {
+      rtx dest = SET_DEST (pat);
+
+      if (GET_CODE (dest) == ZERO_EXTRACT)
+	dest = XEXP (dest, 0);
+
+      /* Check for memory stores to aliased objects.  */
+      if (MEM_P (dest)
+	  && !expr_equiv_p (dest, x))
+	{
+	  if (after)
+	    {
+	      if (output_dependence (dest, x))
+		return true;
+	    }
+	  else
+	    {
+	      if (output_dependence (x, dest))
+		return true;
+	    }
+	}
+    }
+
+  if (find_loads (pat, x, after))
+    return true;
+
+  return false;
+}
+
 /* Check if INSN kills the store pattern X (is aliased with it).
    AFTER is true if we are checking the case when store X occurs
    after the insn.  Return true if it does.  */
@@ -5915,7 +5949,7 @@ find_loads (rtx x, rtx store_pattern, int after)
 static bool
 store_killed_in_insn (rtx x, rtx x_regs, rtx insn, int after)
 {
-  rtx reg, base, note;
+  rtx reg, base, note, pat;
 
   if (!INSN_P (insn))
     return false;
@@ -5942,31 +5976,19 @@ store_killed_in_insn (rtx x, rtx x_regs, rtx insn, int after)
       return false;
     }
 
-  if (GET_CODE (PATTERN (insn)) == SET)
+  pat = PATTERN (insn);
+  if (GET_CODE (pat) == SET)
     {
-      rtx pat = PATTERN (insn);
-      rtx dest = SET_DEST (pat);
-
-      if (GET_CODE (dest) == ZERO_EXTRACT)
-	dest = XEXP (dest, 0);
-
-      /* Check for memory stores to aliased objects.  */
-      if (MEM_P (dest)
-	  && !expr_equiv_p (dest, x))
-	{
-	  if (after)
-	    {
-	      if (output_dependence (dest, x))
-		return true;
-	    }
-	  else
-	    {
-	      if (output_dependence (x, dest))
-		return true;
-	    }
-	}
-      if (find_loads (SET_SRC (pat), x, after))
+      if (store_killed_in_pat (x, pat, after))
 	return true;
+    }
+  else if (GET_CODE (pat) == PARALLEL)
+    {
+      int i;
+
+      for (i = 0; i < XVECLEN (pat, 0); i++)
+	if (store_killed_in_pat (x, XVECEXP (pat, 0, i), after))
+	  return true;
     }
   else if (find_loads (PATTERN (insn), x, after))
     return true;

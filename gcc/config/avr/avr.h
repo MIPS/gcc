@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for ATMEL AVR at90s8515, ATmega103/103L, ATmega603/603L microcontrollers.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
@@ -37,8 +37,10 @@ Boston, MA 02110-1301, USA.  */
 	builtin_define ("__AVR_HAVE_LPMX__");	\
       if (avr_asm_only_p)			\
 	builtin_define ("__AVR_ASM_ONLY__");	\
-      if (avr_enhanced_p)			\
+      if (avr_have_mul_p)			\
 	builtin_define ("__AVR_ENHANCED__");	\
+      if (avr_have_mul_p)			\
+	builtin_define ("__AVR_HAVE_MUL__");	\
       if (avr_mega_p)				\
 	builtin_define ("__AVR_MEGA__");	\
       if (TARGET_NO_INTERRUPTS)			\
@@ -49,7 +51,7 @@ Boston, MA 02110-1301, USA.  */
 extern const char *avr_base_arch_macro;
 extern const char *avr_extra_arch_macro;
 extern int avr_mega_p;
-extern int avr_enhanced_p;
+extern int avr_have_mul_p;
 extern int avr_asm_only_p;
 extern int avr_have_movw_lpmx_p;
 #ifndef IN_LIBGCC2
@@ -57,8 +59,9 @@ extern GTY(()) section *progmem_section;
 #endif
 
 #define AVR_MEGA (avr_mega_p && !TARGET_SHORT_CALLS)
-#define AVR_ENHANCED (avr_enhanced_p)
+#define AVR_HAVE_MUL (avr_have_mul_p)
 #define AVR_HAVE_MOVW (avr_have_movw_lpmx_p)
+#define AVR_HAVE_LPMX (avr_have_movw_lpmx_p)
 
 #define TARGET_VERSION fprintf (stderr, " (GNU assembler syntax)");
 
@@ -621,7 +624,7 @@ sprintf (STRING, "*.%s%lu", PREFIX, (unsigned long)(NUM))
     "r8","r9","r10","r11","r12","r13","r14","r15",	\
     "r16","r17","r18","r19","r20","r21","r22","r23",	\
     "r24","r25","r26","r27","r28","r29","r30","r31",	\
-    "__SPL__","__SPH__","argL","argH"}
+    "__SP_L__","__SP_H__","argL","argH"}
 
 #define FINAL_PRESCAN_INSN(insn, operand, nop) final_prescan_insn (insn, operand,nop)
 
@@ -657,7 +660,11 @@ sprintf (STRING, "*.%s%lu", PREFIX, (unsigned long)(NUM))
 #define ASM_OUTPUT_SKIP(STREAM, N)		\
 fprintf (STREAM, "\t.skip %lu,0\n", (unsigned long)(N))
 
-#define ASM_OUTPUT_ALIGN(STREAM, POWER)
+#define ASM_OUTPUT_ALIGN(STREAM, POWER)			\
+  do {							\
+      if ((POWER) > 1)					\
+          fprintf (STREAM, "\t.p2align\t%d\n", POWER);	\
+  } while (0)
 
 #define CASE_VECTOR_MODE HImode
 
@@ -722,7 +729,7 @@ extern int avr_case_values_threshold;
 #define CC1PLUS_SPEC "%{!frtti:-fno-rtti} \
     %{!fenforce-eh-specs:-fno-enforce-eh-specs} \
     %{!fexceptions:-fno-exceptions}"
-/* A C string constant that tells the GCC drvier program options to
+/* A C string constant that tells the GCC driver program options to
    pass to `cc1plus'.  */
 
 #define ASM_SPEC "%{mmcu=avr25:-mmcu=avr2;\
@@ -754,9 +761,7 @@ mmcu=*:-mmcu=%*}"
   mmcu=at76*:-m avr3}\
 %{mmcu=atmega8*|\
   mmcu=atmega48|\
-  mmcu=at90pwm1|\
-  mmcu=at90pwm2|\
-  mmcu=at90pwm3:-m avr4}\
+  mmcu=at90pwm*:-m avr4}\
 %{mmcu=atmega16*|\
   mmcu=atmega32*|\
   mmcu=atmega406|\
@@ -766,25 +771,23 @@ mmcu=*:-mmcu=%*}"
   mmcu=at90usb*|\
   mmcu=at94k:-m avr5}\
 %{mmcu=atmega324*|\
-  mmcu=atmega325|\
-  mmcu=atmega3250|\
-  mmcu=atmega329|\
-  mmcu=atmega3290|\
+  mmcu=atmega325*|\
+  mmcu=atmega329*|\
   mmcu=atmega406|\
   mmcu=atmega48|\
   mmcu=atmega88|\
   mmcu=atmega64|\
   mmcu=atmega644*|\
-  mmcu=atmega645|\
-  mmcu=atmega6450|\
-  mmcu=atmega649|\
-  mmcu=atmega6490|\
+  mmcu=atmega645*|\
+  mmcu=atmega649*|\
   mmcu=atmega128|\
   mmcu=atmega162|\
   mmcu=atmega164*|\
   mmcu=atmega165*|\
   mmcu=atmega168|\
   mmcu=atmega169*|\
+  mmcu=atmega8hva|\
+  mmcu=atmega16hva|\
   mmcu=at90can*|\
   mmcu=at90pwm*|\
   mmcu=at90usb*: -Tdata 0x800100}\
@@ -862,9 +865,13 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=atmega323:crtm323.o%s} \
 %{mmcu=atmega324p:crtm324p.o%s} \
 %{mmcu=atmega325:crtm325.o%s} \
+%{mmcu=atmega325p:crtm325p.o%s} \
 %{mmcu=atmega3250:crtm3250.o%s} \
+%{mmcu=atmega3250p:crtm3250p.o%s} \
 %{mmcu=atmega329:crtm329.o%s} \
+%{mmcu=atmega329p:crtm329p.o%s} \
 %{mmcu=atmega3290:crtm3290.o%s} \
+%{mmcu=atmega3290p:crtm3290p.o%s} \
 %{mmcu=atmega406:crtm406.o%s} \
 %{mmcu=atmega64:crtm64.o%s} \
 %{mmcu=atmega640:crtm640.o%s} \
@@ -877,9 +884,13 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=atmega128:crtm128.o%s} \
 %{mmcu=atmega1280:crtm1280.o%s} \
 %{mmcu=atmega1281:crtm1281.o%s} \
+%{mmcu=atmega8hva:crtm8hva.o%s} \
+%{mmcu=atmega16hva:crtm16hva.o%s} \
 %{mmcu=at90can32:crtcan32.o%s} \
 %{mmcu=at90can64:crtcan64.o%s} \
 %{mmcu=at90can128:crtcan128.o%s} \
+%{mmcu=at90usb82:crtusb82.o%s} \
+%{mmcu=at90usb162:crtusb162.o%s} \
 %{mmcu=at90usb646:crtusb646.o%s} \
 %{mmcu=at90usb647:crtusb647.o%s} \
 %{mmcu=at90usb1286:crtusb1286.o%s} \
@@ -918,5 +929,7 @@ mmcu=*:-mmcu=%*}"
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
 #define DWARF2_DEBUGGING_INFO 1
+
+#define DWARF2_ADDR_SIZE 4
 
 #define OBJECT_FORMAT_ELF

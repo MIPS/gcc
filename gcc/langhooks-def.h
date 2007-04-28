@@ -1,5 +1,5 @@
 /* Default macros to initialize the lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -49,7 +49,6 @@ extern tree lhd_return_tree (tree);
 extern tree lhd_return_null_tree_v (void);
 extern tree lhd_return_null_tree (tree);
 extern tree lhd_do_nothing_iii_return_null_tree (int, int, int);
-extern int lhd_safe_from_p (rtx, tree);
 extern tree lhd_staticp (tree);
 extern void lhd_print_tree_nothing (FILE *, tree, int);
 extern const char *lhd_decl_printable_name (tree, int);
@@ -60,7 +59,6 @@ extern int lhd_expand_decl (tree);
 extern void lhd_print_error_function (struct diagnostic_context *,
 				      const char *);
 extern void lhd_set_decl_assembler_name (tree);
-extern bool lhd_can_use_bit_fields_p (void);
 extern bool lhd_warn_unused_global_decl (tree);
 extern void lhd_incomplete_type_error (tree, tree);
 extern tree lhd_type_promotes_to (tree);
@@ -78,11 +76,7 @@ extern tree lhd_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
 					     void *, struct pointer_set_t*);
 extern int lhd_tree_inlining_cannot_inline_tree_fn (tree *);
 extern int lhd_tree_inlining_disregard_inline_limits (tree);
-extern tree lhd_tree_inlining_add_pending_fn_decls (void *, tree);
 extern int lhd_tree_inlining_auto_var_in_fn_p (tree, tree);
-extern int lhd_tree_inlining_anon_aggr_type_p (tree);
-extern int lhd_tree_inlining_start_inlining (tree);
-extern void lhd_tree_inlining_end_inlining (tree);
 extern tree lhd_tree_inlining_convert_parm_for_inlining (tree, tree, tree, int);
 extern void lhd_initialize_diagnostics (struct diagnostic_context *);
 extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
@@ -111,12 +105,10 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 #define LANG_HOOKS_EXPAND_CONSTANT	lhd_return_tree
 #define LANG_HOOKS_EXPAND_EXPR		lhd_expand_expr
 #define LANG_HOOKS_EXPAND_DECL		lhd_expand_decl
-#define LANG_HOOKS_SAFE_FROM_P		lhd_safe_from_p
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL lhd_do_nothing_t
 #define LANG_HOOKS_STATICP		lhd_staticp
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL lhd_do_nothing_t
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME lhd_set_decl_assembler_name
-#define LANG_HOOKS_CAN_USE_BIT_FIELDS_P lhd_can_use_bit_fields_p
 #define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS false
 #define LANG_HOOKS_NO_BODY_BLOCKS	false
 #define LANG_HOOKS_PRINT_STATISTICS	lhd_do_nothing
@@ -132,6 +124,7 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 #define LANG_HOOKS_TREE_SIZE		lhd_tree_size
 #define LANG_HOOKS_TYPES_COMPATIBLE_P	lhd_types_compatible_p
 #define LANG_HOOKS_BUILTIN_FUNCTION	lhd_builtin_function
+#define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE	lhd_signed_or_unsigned_type
 #define LANG_HOOKS_EXPR_TO_DECL		lhd_expr_to_decl
 #define LANG_HOOKS_TO_TARGET_CHARSET	lhd_to_target_charset
 #define LANG_HOOKS_INIT_TS		lhd_do_nothing
@@ -153,18 +146,10 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
   lhd_tree_inlining_cannot_inline_tree_fn
 #define LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS \
   lhd_tree_inlining_disregard_inline_limits
-#define LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS \
-  lhd_tree_inlining_add_pending_fn_decls
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   lhd_tree_inlining_auto_var_in_fn_p
-#define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P \
-  lhd_tree_inlining_anon_aggr_type_p
 #define LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P \
   hook_bool_tree_tree_false
-#define LANG_HOOKS_TREE_INLINING_START_INLINING \
-  lhd_tree_inlining_start_inlining
-#define LANG_HOOKS_TREE_INLINING_END_INLINING \
-  lhd_tree_inlining_end_inlining
 #define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
   lhd_tree_inlining_convert_parm_for_inlining
 
@@ -172,12 +157,8 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
   LANG_HOOKS_TREE_INLINING_WALK_SUBTREES, \
   LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN, \
   LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS, \
-  LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS, \
   LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P, \
-  LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P, \
   LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P, \
-  LANG_HOOKS_TREE_INLINING_START_INLINING, \
-  LANG_HOOKS_TREE_INLINING_END_INLINING, \
   LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
 }
 
@@ -218,6 +199,7 @@ extern tree lhd_make_node (enum tree_code);
    so we create a compile-time error instead.  */
 #define LANG_HOOKS_MAKE_TYPE lhd_make_node
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR lhd_incomplete_type_error
+#define LANG_HOOKS_GENERIC_TYPE_P	hook_bool_tree_false
 #define LANG_HOOKS_TYPE_PROMOTES_TO lhd_type_promotes_to
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE lhd_register_builtin_type
 #define LANG_HOOKS_TYPE_MAX_SIZE	lhd_return_null_tree
@@ -232,6 +214,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_UNSIGNED_TYPE, \
   LANG_HOOKS_SIGNED_TYPE, \
   LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE, \
+  LANG_HOOKS_GENERIC_TYPE_P, \
   LANG_HOOKS_TYPE_PROMOTES_TO, \
   LANG_HOOKS_REGISTER_BUILTIN_TYPE, \
   LANG_HOOKS_INCOMPLETE_TYPE_ERROR, \
@@ -247,7 +230,6 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_GETDECLS	getdecls
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL lhd_warn_unused_global_decl
 #define LANG_HOOKS_WRITE_GLOBALS write_global_declarations
-#define LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE NULL
 #define LANG_HOOKS_DECL_OK_FOR_SIBCALL	lhd_decl_ok_for_sibcall
 #define LANG_HOOKS_COMDAT_GROUP lhd_comdat_group
 #define LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE hook_bool_tree_false
@@ -266,7 +248,6 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_GETDECLS, \
   LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL, \
   LANG_HOOKS_WRITE_GLOBALS, \
-  LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE, \
   LANG_HOOKS_DECL_OK_FOR_SIBCALL, \
   LANG_HOOKS_COMDAT_GROUP, \
   LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE, \
@@ -297,13 +278,11 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_EXPAND_CONSTANT, \
   LANG_HOOKS_EXPAND_EXPR, \
   LANG_HOOKS_EXPAND_DECL, \
-  LANG_HOOKS_SAFE_FROM_P, \
   LANG_HOOKS_FINISH_INCOMPLETE_DECL, \
   LANG_HOOKS_MARK_ADDRESSABLE, \
   LANG_HOOKS_STATICP, \
   LANG_HOOKS_DUP_LANG_SPECIFIC_DECL, \
   LANG_HOOKS_SET_DECL_ASSEMBLER_NAME, \
-  LANG_HOOKS_CAN_USE_BIT_FIELDS_P, \
   LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS, \
   LANG_HOOKS_NO_BODY_BLOCKS, \
   LANG_HOOKS_PRINT_STATISTICS, \

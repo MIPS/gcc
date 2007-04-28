@@ -1,0 +1,129 @@
+2007-04-14  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config.host: Recognize fido.
+
+2007-04-04  Janis Johnson  <janis187@us.ibm.com>
+
+	* configure: Check host, not target, for decimal float support.
+
+2007-04-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/t-crtpc: New file.
+	* config.host (i[34567]86-*-linux*): Add i386/t-crtpc to tm-file.
+        (x86_64-*-linux*): Ditto.
+
+2007-02-30  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config.host (x86_64-*-mingw*): New target.
+
+2007-03-23  Michael Meissner  <michael.meissner@amd.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Makefile.in (enable_decimal_float): New.
+	(DECNUMINC): Add
+	-I$(srcdir)/../libdecnumber/$(enable_decimal_float).
+	(dec-objects): Move decimal32, decimal64 and decimal128 to ...
+	(decbits-filenames): This.
+	(decbits-objects): New.
+	(libgcc-objects): Add $(decbits-objects).
+
+	* configure.ac: Support * --enable-decimal-float={no,yes,bid,dpd}.
+	Substitute enable_decimal_float.
+	* configure: Regenerated.
+
+2007-03-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config.host (cris-*-elf | cris-*-none): Set extra_parts.
+
+2007-03-12  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.in (install-info): New dummy target.
+
+2007-03-05  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config.host (bfin*-linux-uclibc*): Set extra_parts.
+
+2007-03-01  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.in: Add install-html and install-pdf dummy
+	targets.
+
+2007-02-05  Roger Sayle  <roger@eyesopen.com>
+	    Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.in <LIBUNWIND>: Make libgcc_s.so depend on libunwind.so.
+	(libgcc_s.so): Append -B./ to CFLAGS for $(SHLIB_LINK).
+	(libunwind.so): Likewise for $(SHLIBUNWIND_LINK).
+
+2007-01-29  Janis Johnson  <janis187@us.ibm.com>
+
+	* Makefile.in (dec-filenames): Add decExcept.
+
+2007-01-28  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	PR bootstrap/30469
+	* Makefile.in (CFLAGS): Forcibly remove -fprofile-generate and
+	-fprofile-use.
+
+2007-01-25  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* configure.ac: Add --enable-version-specific-runtime-libs.
+	Correct $slibdir default.
+	* configure: Regenerated.
+
+2007-01-23  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/t-ldbl128: Always use -mlong-double-128.
+
+2007-01-21  Andrew Pinski  <pinskia@gmail.com>
+
+	PR target/30519
+	* config.host (alpha*-*-linux*): Set extra_parts.
+
+2007-01-09  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/t-linux: New.
+	* config.host (sh*-*-linux*): Set tmake_file.
+
+2007-01-05  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.in (install): Handle multilibs.
+
+2007-01-04  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.in: Added .PHONY entry for documentation targets.
+
+2007-01-04  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.in: Add empty info, html, dvi, pdf targets.
+
+2007-01-04  Mike Stump  <mrs@apple.com>
+
+	* Makefile.in (MAKEINFO): Remove.
+	(PERL): Likewise.
+
+2007-01-04  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.ac: Add GCC_TOPLEV_SUBDIRS.
+	* configure: Regenerate.
+	* Makefile.in (host_subdir): Substitute it.
+	(gcc_objdir): Use it. 
+
+2007-01-04  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config.host (ia64*-*-linux*): Set tmake_file.
+
+2007-01-04  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.in (version): Define.
+
+2007-01-03  Daniel Jacobowitz  <dan@codesourcery.com>
+	    Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.in, config/i386/t-darwin, config/i386/t-darwin64,
+	config/i386/t-nwld, config/rs6000/t-darwin, config/rs6000/t-ldbl128,
+	config/i386/t-crtfm, config/alpha/t-crtfm, config/ia64/t-ia64,
+	config/sparc/t-crtfm, config/t-slibgcc-darwin,
+	config/rs6000/t-ppccomm, config.host, configure.ac, empty.mk,
+	shared-object.mk, siditi-object.mk, static-object.mk: New files.
+	* configure: Generated.

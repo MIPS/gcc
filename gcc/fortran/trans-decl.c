@@ -1,6 +1,6 @@
 /* Backend function setup
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
-   Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software
+   Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -129,7 +129,6 @@ tree gfor_fndecl_string_index;
 tree gfor_fndecl_string_scan;
 tree gfor_fndecl_string_verify;
 tree gfor_fndecl_string_trim;
-tree gfor_fndecl_string_repeat;
 tree gfor_fndecl_adjustl;
 tree gfor_fndecl_adjustr;
 
@@ -300,7 +299,7 @@ gfc_sym_mangled_identifier (gfc_symbol * sym)
     return gfc_sym_identifier (sym);
   else
     {
-      snprintf (name, sizeof name, "__%s__%s", sym->module, sym->name);
+      snprintf (name, sizeof name, "__%s_MOD_%s", sym->module, sym->name);
       return get_identifier (name);
     }
 }
@@ -315,7 +314,8 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
   char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
 
   if (sym->module == NULL || sym->attr.proc == PROC_EXTERNAL
-      || (sym->module != NULL && sym->attr.if_source == IFSRC_IFBODY))
+      || (sym->module != NULL && (sym->attr.external
+	    || sym->attr.if_source == IFSRC_IFBODY)))
     {
       if (strcmp (sym->name, "MAIN__") == 0
 	  || sym->attr.proc == PROC_INTRINSIC)
@@ -335,7 +335,7 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
     }
   else
     {
-      snprintf (name, sizeof name, "__%s__%s", sym->module, sym->name);
+      snprintf (name, sizeof name, "__%s_MOD_%s", sym->module, sym->name);
       return get_identifier (name);
     }
 }
@@ -406,59 +406,38 @@ gfc_finish_cray_pointee (tree decl, gfc_symbol *sym)
 }
 
 
-/* Finish processing of a declaration and install its initial value.  */
+/* Finish processing of a declaration without an initial value.  */
 
 static void
-gfc_finish_decl (tree decl, tree init)
+gfc_finish_decl (tree decl)
 {
-  if (TREE_CODE (decl) == PARM_DECL)
-    gcc_assert (init == NULL_TREE);
-  /* Remember that PARM_DECL doesn't have a DECL_INITIAL field per se
-     -- it overlaps DECL_ARG_TYPE.  */
-  else if (init == NULL_TREE)
-    gcc_assert (DECL_INITIAL (decl) == NULL_TREE);
-  else
-    gcc_assert (DECL_INITIAL (decl) == error_mark_node);
+  gcc_assert (TREE_CODE (decl) == PARM_DECL
+	      || DECL_INITIAL (decl) == NULL_TREE);
 
-  if (init != NULL_TREE)
-    {
-      if (TREE_CODE (decl) != TYPE_DECL)
-	DECL_INITIAL (decl) = init;
-      else
-	{
-	  /* typedef foo = bar; store the type of bar as the type of foo.  */
-	  TREE_TYPE (decl) = TREE_TYPE (init);
-	  DECL_INITIAL (decl) = init = 0;
-	}
-    }
+  if (TREE_CODE (decl) != VAR_DECL)
+    return;
 
-  if (TREE_CODE (decl) == VAR_DECL)
-    {
-      if (DECL_SIZE (decl) == NULL_TREE
-	  && TYPE_SIZE (TREE_TYPE (decl)) != NULL_TREE)
-	layout_decl (decl, 0);
+  if (DECL_SIZE (decl) == NULL_TREE
+      && TYPE_SIZE (TREE_TYPE (decl)) != NULL_TREE)
+    layout_decl (decl, 0);
 
-      /* A static variable with an incomplete type is an error if it is
-         initialized. Also if it is not file scope. Otherwise, let it
-         through, but if it is not `extern' then it may cause an error
-         message later.  */
-      /* An automatic variable with an incomplete type is an error.  */
-      if (DECL_SIZE (decl) == NULL_TREE
-          && (TREE_STATIC (decl) ? (DECL_INITIAL (decl) != 0
-				    || DECL_CONTEXT (decl) != 0)
-                                 : !DECL_EXTERNAL (decl)))
-	{
-	  gfc_fatal_error ("storage size not known");
-	}
+  /* A few consistency checks.  */
+  /* A static variable with an incomplete type is an error if it is
+     initialized. Also if it is not file scope. Otherwise, let it
+     through, but if it is not `extern' then it may cause an error
+     message later.  */
+  /* An automatic variable with an incomplete type is an error.  */
 
-      if ((DECL_EXTERNAL (decl) || TREE_STATIC (decl))
-	  && (DECL_SIZE (decl) != 0)
-	  && (TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST))
-	{
-	  gfc_fatal_error ("storage size not constant");
-	}
-    }
+  /* We should know the storage size.  */
+  gcc_assert (DECL_SIZE (decl) != NULL_TREE
+	      || (TREE_STATIC (decl) 
+		  ? (!DECL_INITIAL (decl) || !DECL_CONTEXT (decl))
+		  : DECL_EXTERNAL (decl)));
 
+  /* The storage size should be constant.  */
+  gcc_assert ((!DECL_EXTERNAL (decl) && !TREE_STATIC (decl))
+	      || !DECL_SIZE (decl)
+	      || TREE_CODE (DECL_SIZE (decl)) == INTEGER_CST);
 }
 
 
@@ -467,6 +446,7 @@ gfc_finish_decl (tree decl, tree init)
 static void
 gfc_finish_var_decl (tree decl, gfc_symbol * sym)
 {
+  tree new;
   /* TREE_ADDRESSABLE means the address of this variable is actually needed.
      This is the equivalent of the TARGET variables.
      We also need to set this if the variable is passed by reference in a
@@ -517,7 +497,6 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
 
   if (sym->attr.volatile_)
     {
-      tree new;
       TREE_THIS_VOLATILE (decl) = 1;
       new = build_qualified_type (TREE_TYPE (decl), TYPE_QUAL_VOLATILE);
       TREE_TYPE (decl) = new;
@@ -537,7 +516,7 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
     TREE_STATIC (decl) = 1;
 
   /* Handle threadprivate variables.  */
-  if (sym->attr.threadprivate && targetm.have_tls
+  if (sym->attr.threadprivate
       && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
     DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
 }
@@ -685,7 +664,7 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   tree type;
   gfc_array_spec *as;
   char *name;
-  int packed;
+  gfc_packed packed;
   int n;
   bool known_size;
 
@@ -718,28 +697,28 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
     {
       /* Create a descriptorless array pointer.  */
       as = sym->as;
-      packed = 0;
+      packed = PACKED_NO;
       if (!gfc_option.flag_repack_arrays)
 	{
 	  if (as->type == AS_ASSUMED_SIZE)
-	    packed = 2;
+	    packed = PACKED_FULL;
 	}
       else
 	{
 	  if (as->type == AS_EXPLICIT)
 	    {
-	      packed = 2;
+	      packed = PACKED_FULL;
 	      for (n = 0; n < as->rank; n++)
 		{
 		  if (!(as->upper[n]
 			&& as->lower[n]
 			&& as->upper[n]->expr_type == EXPR_CONSTANT
 			&& as->lower[n]->expr_type == EXPR_CONSTANT))
-		    packed = 1;
+		    packed = PACKED_PARTIAL;
 		}
 	    }
 	  else
-	    packed = 1;
+	    packed = PACKED_PARTIAL;
 	}
 
       type = gfc_typenode_for_spec (&sym->ts);
@@ -753,7 +732,7 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
       DECL_ARTIFICIAL (sym->backend_decl) = 1;
       sym->backend_decl = NULL_TREE;
       type = gfc_sym_type (sym);
-      packed = 2;
+      packed = PACKED_FULL;
     }
 
   ASM_FORMAT_PRIVATE_NAME (name, IDENTIFIER_POINTER (DECL_NAME (dummy)), 0);
@@ -768,16 +747,10 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
      frontend bugs.  */
   gcc_assert (sym->as->type != AS_DEFERRED);
 
-  switch (packed)
-    {
-    case 1:
-      GFC_DECL_PARTIAL_PACKED_ARRAY (decl) = 1;
-      break;
-
-    case 2:
-      GFC_DECL_PACKED_ARRAY (decl) = 1;
-      break;
-    }
+  if (packed == PACKED_PARTIAL)
+    GFC_DECL_PARTIAL_PACKED_ARRAY (decl) = 1;
+  else if (packed == PACKED_FULL)
+    GFC_DECL_PACKED_ARRAY (decl) = 1;
 
   gfc_build_qualified_array (decl, sym);
 
@@ -873,7 +846,8 @@ gfc_get_symbol_decl (gfc_symbol * sym)
   int byref;
 
   gcc_assert (sym->attr.referenced
-               || sym->ns->proc_name->attr.if_source == IFSRC_IFBODY);
+		|| sym->attr.use_assoc
+		|| sym->ns->proc_name->attr.if_source == IFSRC_IFBODY);
 
   if (sym->ns && sym->ns->proc_name->attr.function)
     byref = gfc_return_by_reference (sym->ns->proc_name);
@@ -1059,7 +1033,7 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
   gfc_expr e;
   gfc_intrinsic_sym *isym;
   gfc_expr argexpr;
-  char s[GFC_MAX_SYMBOL_LEN + 13]; /* "f2c_specific" and '\0'.  */
+  char s[GFC_MAX_SYMBOL_LEN + 23]; /* "_gfortran_f2c_specific" and '\0'.  */
   tree name;
   tree mangled_name;
 
@@ -1107,10 +1081,10 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
 	{
 	  /* Specific which needs a different implementation if f2c
 	     calling conventions are used.  */
-	  sprintf (s, "f2c_specific%s", e.value.function.name);
+	  sprintf (s, "_gfortran_f2c_specific%s", e.value.function.name);
 	}
       else
-	sprintf (s, "specific%s", e.value.function.name);
+	sprintf (s, "_gfortran_specific%s", e.value.function.name);
 
       name = get_identifier (s);
       mangled_name = name;
@@ -1323,7 +1297,7 @@ create_function_arglist (gfc_symbol * sym)
       DECL_CONTEXT (parm) = fndecl;
       DECL_ARG_TYPE (parm) = type;
       TREE_READONLY (parm) = 1;
-      gfc_finish_decl (parm, NULL_TREE);
+      gfc_finish_decl (parm);
       DECL_ARTIFICIAL (parm) = 1;
 
       arglist = chainon (arglist, parm);
@@ -1353,7 +1327,7 @@ create_function_arglist (gfc_symbol * sym)
 	  DECL_ARG_TYPE (length) = len_type;
 	  TREE_READONLY (length) = 1;
 	  DECL_ARTIFICIAL (length) = 1;
-	  gfc_finish_decl (length, NULL_TREE);
+	  gfc_finish_decl (length);
 	  if (sym->ts.cl->backend_decl == NULL
 	      || sym->ts.cl->backend_decl == length)
 	    {
@@ -1388,7 +1362,7 @@ create_function_arglist (gfc_symbol * sym)
       DECL_ARG_TYPE (parm) = TREE_VALUE (typelist);
       TREE_READONLY (parm) = 1;
       DECL_ARTIFICIAL (parm) = 1;
-      gfc_finish_decl (parm, NULL_TREE);
+      gfc_finish_decl (parm);
 
       arglist = chainon (arglist, parm);
       typelist = TREE_CHAIN (typelist);
@@ -1431,7 +1405,7 @@ create_function_arglist (gfc_symbol * sym)
 	  DECL_ARTIFICIAL (length) = 1;
 	  DECL_ARG_TYPE (length) = len_type;
 	  TREE_READONLY (length) = 1;
-	  gfc_finish_decl (length, NULL_TREE);
+	  gfc_finish_decl (length);
 
 	  /* TODO: Check string lengths when -fbounds-check.  */
 
@@ -1500,7 +1474,7 @@ create_function_arglist (gfc_symbol * sym)
       /* All implementation args are read-only.  */
       TREE_READONLY (parm) = 1;
 
-      gfc_finish_decl (parm, NULL_TREE);
+      gfc_finish_decl (parm);
 
       f->sym->backend_decl = parm;
 
@@ -1511,7 +1485,8 @@ create_function_arglist (gfc_symbol * sym)
   /* Add the hidden string length parameters.  */
   arglist = chainon (arglist, hidden_arglist);
 
-  gcc_assert (TREE_VALUE (hidden_typelist) == void_type_node);
+  gcc_assert (hidden_typelist == NULL_TREE
+              || TREE_VALUE (hidden_typelist) == void_type_node);
   DECL_ARGUMENTS (fndecl) = arglist;
 }
 
@@ -1777,7 +1752,7 @@ gfc_create_function_decl (gfc_namespace * ns)
 }
 
 /* Return the decl used to hold the function return value.  If
-   parent_flag is set, the context is the parent_scope*/
+   parent_flag is set, the context is the parent_scope.  */
 
 tree
 gfc_get_fake_result_decl (gfc_symbol * sym, int parent_flag)
@@ -1886,9 +1861,12 @@ gfc_get_fake_result_decl (gfc_symbol * sym, int parent_flag)
       sprintf (name, "__result_%.20s",
 	       IDENTIFIER_POINTER (DECL_NAME (this_function_decl)));
 
-      decl = build_decl (VAR_DECL, get_identifier (name),
-			 TREE_TYPE (TREE_TYPE (this_function_decl)));
-
+      if (!sym->attr.mixed_entry_master && sym->attr.function)
+	decl = build_decl (VAR_DECL, get_identifier (name),
+			   gfc_sym_type (sym));
+      else
+	decl = build_decl (VAR_DECL, get_identifier (name),
+			   TREE_TYPE (TREE_TYPE (this_function_decl)));
       DECL_ARTIFICIAL (decl) = 1;
       DECL_EXTERNAL (decl) = 0;
       TREE_PUBLIC (decl) = 0;
@@ -2031,15 +2009,6 @@ gfc_build_intrinsic_function_decls (void)
                                      gfc_charlen_type_node,
                                      pchar_type_node);
 
-  gfor_fndecl_string_repeat =
-    gfc_build_library_function_decl (get_identifier (PREFIX("string_repeat")),
-                                     void_type_node,
-                                     4,
-                                     pchar_type_node,
-                                     gfc_charlen_type_node,
-                                     pchar_type_node,
-                                     gfc_int4_type_node);
-
   gfor_fndecl_ttynam =
     gfc_build_library_function_decl (get_identifier (PREFIX("ttynam")),
                                      void_type_node,
@@ -2078,13 +2047,15 @@ gfc_build_intrinsic_function_decls (void)
 				     gfc_charlen_type_node, pchar_type_node);
 
   gfor_fndecl_si_kind =
-    gfc_build_library_function_decl (get_identifier ("selected_int_kind"),
+    gfc_build_library_function_decl (get_identifier
+					(PREFIX("selected_int_kind")),
                                      gfc_int4_type_node,
                                      1,
                                      pvoid_type_node);
 
   gfor_fndecl_sr_kind =
-    gfc_build_library_function_decl (get_identifier ("selected_real_kind"),
+    gfc_build_library_function_decl (get_identifier 
+					(PREFIX("selected_real_kind")),
                                      gfc_int4_type_node,
                                      2, pvoid_type_node,
                                      pvoid_type_node);
@@ -2304,27 +2275,31 @@ gfc_build_builtin_function_decls (void)
 
   gfor_fndecl_allocate =
     gfc_build_library_function_decl (get_identifier (PREFIX("allocate")),
-				     void_type_node, 2, ppvoid_type_node,
-				     gfc_int4_type_node);
+				     pvoid_type_node, 2,
+				     gfc_int4_type_node, gfc_pint4_type_node);
+  DECL_IS_MALLOC (gfor_fndecl_allocate) = 1;
 
   gfor_fndecl_allocate64 =
     gfc_build_library_function_decl (get_identifier (PREFIX("allocate64")),
-				     void_type_node, 2, ppvoid_type_node,
-				     gfc_int8_type_node);
+				     pvoid_type_node, 2,
+				     gfc_int8_type_node, gfc_pint4_type_node);
+  DECL_IS_MALLOC (gfor_fndecl_allocate64) = 1;
 
   gfor_fndecl_allocate_array =
     gfc_build_library_function_decl (get_identifier (PREFIX("allocate_array")),
-				     void_type_node, 2, ppvoid_type_node,
-				     gfc_int4_type_node);
+				     pvoid_type_node, 3, pvoid_type_node,
+				     gfc_int4_type_node, gfc_pint4_type_node);
+  DECL_IS_MALLOC (gfor_fndecl_allocate_array) = 1;
 
   gfor_fndecl_allocate64_array =
     gfc_build_library_function_decl (get_identifier (PREFIX("allocate64_array")),
-				     void_type_node, 2, ppvoid_type_node,
-				     gfc_int8_type_node);
+				     pvoid_type_node, 3, pvoid_type_node,
+				     gfc_int8_type_node, gfc_pint4_type_node);
+  DECL_IS_MALLOC (gfor_fndecl_allocate64_array) = 1;
 
   gfor_fndecl_deallocate =
     gfc_build_library_function_decl (get_identifier (PREFIX("deallocate")),
-				     void_type_node, 2, ppvoid_type_node,
+				     void_type_node, 2, pvoid_type_node,
 				     gfc_pint4_type_node);
 
   gfor_fndecl_stop_numeric =
@@ -2367,7 +2342,9 @@ gfc_build_builtin_function_decls (void)
   gfor_fndecl_set_std =
     gfc_build_library_function_decl (get_identifier (PREFIX("set_std")),
 				    void_type_node,
-				    3,
+				    5,
+				    gfc_int4_type_node,
+				    gfc_int4_type_node,
 				    gfc_int4_type_node,
 				    gfc_int4_type_node,
 				    gfc_int4_type_node);
@@ -2413,7 +2390,7 @@ gfc_trans_dummy_character (gfc_symbol *sym, gfc_charlen *cl, tree fnbody)
 {
   stmtblock_t body;
 
-  gfc_finish_decl (cl->backend_decl, NULL_TREE);
+  gfc_finish_decl (cl->backend_decl);
 
   gfc_start_block (&body);
 
@@ -3123,19 +3100,18 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   if (sym->attr.is_main_program)
     {
-      tree arglist, gfc_int4_type_node;
-
-      gfc_int4_type_node = gfc_get_int_type (4);
-      arglist = gfc_chainon_list (NULL_TREE,
-				  build_int_cst (gfc_int4_type_node,
-						 gfc_option.warn_std));
-      arglist = gfc_chainon_list (arglist,
-				  build_int_cst (gfc_int4_type_node,
-						 gfc_option.allow_std));
-      arglist = gfc_chainon_list (arglist,
-				  build_int_cst (gfc_int4_type_node,
-						 pedantic));
-      tmp = build_function_call_expr (gfor_fndecl_set_std, arglist);
+      tree gfc_int4_type_node = gfc_get_int_type (4);
+      tmp = build_call_expr (gfor_fndecl_set_std, 5,
+			     build_int_cst (gfc_int4_type_node,
+					    gfc_option.warn_std),
+			     build_int_cst (gfc_int4_type_node,
+					    gfc_option.allow_std),
+			     build_int_cst (gfc_int4_type_node,
+					    pedantic),
+			     build_int_cst (gfc_int4_type_node,
+					    gfc_option.flag_dump_core),
+			     build_int_cst (gfc_int4_type_node,
+					    gfc_option.flag_backtrace));
       gfc_add_expr_to_block (&body, tmp);
     }
 
@@ -3144,13 +3120,10 @@ gfc_generate_function_code (gfc_namespace * ns)
      needed.  */
   if (sym->attr.is_main_program && gfc_option.fpe != 0)
     {
-      tree arglist, gfc_c_int_type_node;
-
-      gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
-      arglist = gfc_chainon_list (NULL_TREE,
-				  build_int_cst (gfc_c_int_type_node,
-						 gfc_option.fpe));
-      tmp = build_function_call_expr (gfor_fndecl_set_fpe, arglist);
+      tree gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
+      tmp = build_call_expr (gfor_fndecl_set_fpe, 1,
+			     build_int_cst (gfc_c_int_type_node,
+					    gfc_option.fpe));
       gfc_add_expr_to_block (&body, tmp);
     }
 
@@ -3159,13 +3132,10 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   if (sym->attr.is_main_program && gfc_option.convert != CONVERT_NATIVE)
     {
-      tree arglist, gfc_c_int_type_node;
-
-      gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
-      arglist = gfc_chainon_list (NULL_TREE,
-				  build_int_cst (gfc_c_int_type_node,
-						 gfc_option.convert));
-      tmp = build_function_call_expr (gfor_fndecl_set_convert, arglist);
+      tree gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
+      tmp = build_call_expr (gfor_fndecl_set_convert, 1,
+			     build_int_cst (gfc_c_int_type_node,
+					    gfc_option.convert));
       gfc_add_expr_to_block (&body, tmp);
     }
 
@@ -3174,26 +3144,22 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   if (sym->attr.is_main_program && gfc_option.record_marker != 0)
     {
-      tree arglist, gfc_c_int_type_node;
-
-      gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
-      arglist = gfc_chainon_list (NULL_TREE,
-				  build_int_cst (gfc_c_int_type_node,
-						 gfc_option.record_marker));
-      tmp = build_function_call_expr (gfor_fndecl_set_record_marker, arglist);
+      tree gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
+      tmp = build_call_expr (gfor_fndecl_set_record_marker, 1,
+			     build_int_cst (gfc_c_int_type_node,
+					    gfc_option.record_marker));
       gfc_add_expr_to_block (&body, tmp);
-
     }
 
   if (sym->attr.is_main_program && gfc_option.max_subrecord_length != 0)
     {
-      tree arglist, gfc_c_int_type_node;
+      tree gfc_c_int_type_node;
 
       gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
-      arglist = gfc_chainon_list (NULL_TREE,
-				  build_int_cst (gfc_c_int_type_node,
-						 gfc_option.max_subrecord_length));
-      tmp = build_function_call_expr (gfor_fndecl_set_max_subrecord_length, arglist);
+      tmp = build_call_expr (gfor_fndecl_set_max_subrecord_length,
+			     1,
+			     build_int_cst (gfc_c_int_type_node,
+					    gfc_option.max_subrecord_length));
       gfc_add_expr_to_block (&body, tmp);
     }
 
@@ -3241,7 +3207,8 @@ gfc_generate_function_code (gfc_namespace * ns)
 
       if (result != NULL_TREE && sym->attr.function
 	    && sym->ts.type == BT_DERIVED
-	    && sym->ts.derived->attr.alloc_comp)
+	    && sym->ts.derived->attr.alloc_comp
+	    && !sym->attr.pointer)
 	{
 	  rank = sym->as ? sym->as->rank : 0;
 	  tmp2 = gfc_nullify_alloc_comp (sym->ts.derived, result, rank);
@@ -3254,9 +3221,12 @@ gfc_generate_function_code (gfc_namespace * ns)
 	warning (0, "Function return value not set");
       else
 	{
-	  /* Set the return value to the dummy result variable.  */
-	  tmp = build2 (MODIFY_EXPR, TREE_TYPE (result),
-			DECL_RESULT (fndecl), result);
+	  /* Set the return value to the dummy result variable.  The
+	     types may be different for scalar default REAL functions
+	     with -ff2c, therefore we have to convert.  */
+	  tmp = convert (TREE_TYPE (DECL_RESULT (fndecl)), result);
+	  tmp = build2 (MODIFY_EXPR, TREE_TYPE (tmp),
+			DECL_RESULT (fndecl), tmp);
 	  tmp = build1_v (RETURN_EXPR, tmp);
 	  gfc_add_expr_to_block (&block, tmp);
 	}
@@ -3355,8 +3325,7 @@ gfc_generate_constructors (void)
 
   for (; gfc_static_ctors; gfc_static_ctors = TREE_CHAIN (gfc_static_ctors))
     {
-      tmp =
-	build_function_call_expr (TREE_VALUE (gfc_static_ctors), NULL_TREE);
+      tmp = build_call_expr (TREE_VALUE (gfc_static_ctors), 0);
       DECL_SAVED_TREE (fndecl) = build_stmt (EXPR_STMT, tmp);
     }
 

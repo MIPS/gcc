@@ -28,19 +28,11 @@ The callgraph:
     sharing.
 
     The call-graph consist of nodes and edges represented via linked lists.
-    Each function (external or not) corresponds to the unique node (in
-    contrast to tree DECL nodes where we can have multiple nodes for each
-    function).
+    Each function (external or not) corresponds to the unique node.
 
     The mapping from declarations to call-graph nodes is done using hash table
-    based on DECL_ASSEMBLER_NAME, so it is essential for assembler name to
-    not change once the declaration is inserted into the call-graph.
-    The call-graph nodes are created lazily using cgraph_node function when
-    called for unknown declaration.
-
-    When built, there is one edge for each direct call.  It is possible that
-    the reference will be later optimized out.  The call-graph is built
-    conservatively in order to make conservative data flow analysis possible.
+    based on DECL_UID.  The call-graph nodes are created lazily using
+    cgraph_node function when called for unknown declaration.
 
     The callgraph at the moment does not represent indirect calls or calls
     from other compilation unit.  Flag NEEDED is set for each node that may
@@ -91,6 +83,7 @@ The callgraph:
 #include "intl.h"
 #include "tree-gimple.h"
 #include "tree-dump.h"
+#include "tree-flow.h"
 
 static void cgraph_node_remove_callers (struct cgraph_node *node);
 static inline void cgraph_edge_remove_caller (struct cgraph_edge *e);
@@ -105,10 +98,10 @@ struct cgraph_node *cgraph_nodes;
 /* Queue of cgraph nodes scheduled to be lowered.  */
 struct cgraph_node *cgraph_nodes_queue;
 
-/* Queue of cgraph nodes scheduled to be expanded.  This is a
+/* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
    secondary queue used during optimization to accommodate passes that
    may generate new functions that need to be optimized and expanded.  */
-struct cgraph_node *cgraph_expand_queue;
+struct cgraph_node *cgraph_new_nodes;
 
 /* Number of nodes in existence.  */
 int cgraph_n_nodes;
@@ -116,8 +109,14 @@ int cgraph_n_nodes;
 /* Maximal uid used in cgraph nodes.  */
 int cgraph_max_uid;
 
+/* Maximal pid used for profiling */
+int cgraph_max_pid;
+
 /* Set when whole unit has been analyzed so we can access global info.  */
 bool cgraph_global_info_ready = false;
+
+/* What state callgraph is in right now.  */
+enum cgraph_state cgraph_state = CGRAPH_STATE_CONSTRUCTION;
 
 /* Set when the cgraph is fully build and the basic flags are computed.  */
 bool cgraph_function_flags_ready = false;
@@ -156,6 +155,7 @@ eq_node (const void *p1, const void *p2)
 }
 
 /* Allocate new callgraph node and insert it into basic data structures.  */
+
 static struct cgraph_node *
 cgraph_create_node (void)
 {
@@ -164,6 +164,7 @@ cgraph_create_node (void)
   node = GGC_CNEW (struct cgraph_node);
   node->next = cgraph_nodes;
   node->uid = cgraph_max_uid++;
+  node->pid = -1;
   node->order = cgraph_order++;
   if (cgraph_nodes)
     cgraph_nodes->previous = node;
@@ -175,6 +176,7 @@ cgraph_create_node (void)
 }
 
 /* Return cgraph node assigned to DECL.  Create new one when needed.  */
+
 struct cgraph_node *
 cgraph_node (tree decl)
 {
@@ -295,6 +297,7 @@ cgraph_edge (struct cgraph_node *node, tree call_stmt)
 }
 
 /* Change call_smtt of edge E to NEW_STMT.  */
+
 void
 cgraph_set_call_stmt (struct cgraph_edge *e, tree new_stmt)
 {
@@ -321,7 +324,7 @@ cgraph_set_call_stmt (struct cgraph_edge *e, tree new_stmt)
 
 struct cgraph_edge *
 cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
-		    tree call_stmt, gcov_type count, int nest)
+		    tree call_stmt, gcov_type count, int freq, int nest)
 {
   struct cgraph_edge *edge = GGC_NEW (struct cgraph_edge);
 #ifdef ENABLE_CHECKING
@@ -359,6 +362,10 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
   caller->callees = edge;
   callee->callers = edge;
   edge->count = count;
+  gcc_assert (count >= 0);
+  edge->frequency = freq;
+  gcc_assert (freq >= 0);
+  gcc_assert (freq <= CGRAPH_FREQ_MAX);
   edge->loop_nest = nest;
   if (caller->call_site_hash)
     {
@@ -469,6 +476,28 @@ cgraph_node_remove_callers (struct cgraph_node *node)
   node->callers = NULL;
 }
 
+/* Release memory used to represent body of function NODE.  */
+
+void
+cgraph_release_function_body (struct cgraph_node *node)
+{
+  if (DECL_STRUCT_FUNCTION (node->decl)
+      && DECL_STRUCT_FUNCTION (node->decl)->gimple_df)
+    {
+      tree old_decl = current_function_decl;
+      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
+      current_function_decl = node->decl;
+      delete_tree_ssa ();
+      delete_tree_cfg_annotations ();
+      cfun->eh = NULL;
+      current_function_decl = old_decl;
+      pop_cfun();
+    }
+  DECL_SAVED_TREE (node->decl) = NULL;
+  DECL_STRUCT_FUNCTION (node->decl) = NULL;
+  DECL_INITIAL (node->decl) = error_mark_node;
+}
+
 /* Remove the node from cgraph.  */
 
 void
@@ -542,11 +571,7 @@ cgraph_remove_node (struct cgraph_node *node)
     }
 
   if (kill_body && flag_unit_at_a_time)
-    {
-      DECL_SAVED_TREE (node->decl) = NULL;
-      DECL_STRUCT_FUNCTION (node->decl) = NULL;
-      DECL_INITIAL (node->decl) = error_mark_node;
-    }
+    cgraph_release_function_body (node);
   node->decl = NULL;
   if (node->call_site_hash)
     {
@@ -638,7 +663,7 @@ void
 dump_cgraph_node (FILE *f, struct cgraph_node *node)
 {
   struct cgraph_edge *edge;
-  fprintf (f, "%s/%i:", cgraph_node_name (node), node->uid);
+  fprintf (f, "%s/%i(%i):", cgraph_node_name (node), node->uid, node->pid);
   if (node->global.inlined_to)
     fprintf (f, " (inline copy in %s/%i)",
 	     cgraph_node_name (node->global.inlined_to),
@@ -692,6 +717,9 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
       if (edge->count)
 	fprintf (f, "("HOST_WIDEST_INT_PRINT_DEC"x) ",
 		 (HOST_WIDEST_INT)edge->count);
+      if (edge->frequency)
+	fprintf (f, "(%.2f per call) ",
+		 edge->frequency / (double)CGRAPH_FREQ_BASE);
       if (!edge->inline_failed)
 	fprintf(f, "(inlined) ");
     }
@@ -706,6 +734,9 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
       if (edge->count)
 	fprintf (f, "("HOST_WIDEST_INT_PRINT_DEC"x) ",
 		 (HOST_WIDEST_INT)edge->count);
+      if (edge->frequency)
+	fprintf (f, "(%.2f per call) ",
+		 edge->frequency / (double)CGRAPH_FREQ_BASE);
       if (edge->loop_nest)
 	fprintf (f, "(nested in %i loops) ", edge->loop_nest);
     }
@@ -774,13 +805,16 @@ cgraph_function_possibly_inlined_p (tree decl)
 /* Create clone of E in the node N represented by CALL_EXPR the callgraph.  */
 struct cgraph_edge *
 cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
-		   tree call_stmt, gcov_type count_scale, int loop_nest,
-		   bool update_original)
+		   tree call_stmt, gcov_type count_scale, int freq_scale,
+		   int loop_nest, bool update_original)
 {
   struct cgraph_edge *new;
+  gcov_type count = e->count * count_scale / REG_BR_PROB_BASE;
+  gcov_type freq = e->frequency * (gcov_type) freq_scale / CGRAPH_FREQ_BASE;
 
-  new = cgraph_create_edge (n, e->callee, call_stmt,
-			    e->count * count_scale / REG_BR_PROB_BASE,
+  if (freq > CGRAPH_FREQ_MAX)
+    freq = CGRAPH_FREQ_MAX;
+  new = cgraph_create_edge (n, e->callee, call_stmt, count, freq,
 			    e->loop_nest + loop_nest);
 
   new->inline_failed = e->inline_failed;
@@ -800,7 +834,7 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
    function's profile to reflect the fact that part of execution is handled
    by node.  */
 struct cgraph_node *
-cgraph_clone_node (struct cgraph_node *n, gcov_type count, int loop_nest,
+cgraph_clone_node (struct cgraph_node *n, gcov_type count, int freq, int loop_nest,
 		   bool update_original)
 {
   struct cgraph_node *new = cgraph_create_node ();
@@ -832,7 +866,7 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int loop_nest,
     }
 
   for (e = n->callees;e; e=e->next_callee)
-    cgraph_clone_edge (e, new, e->call_stmt, count_scale, loop_nest,
+    cgraph_clone_edge (e, new, e->call_stmt, count_scale, freq, loop_nest,
 		       update_original);
 
   new->next_clone = n->next_clone;
@@ -916,23 +950,65 @@ cgraph_function_body_availability (struct cgraph_node *node)
   return avail;
 }
 
-/* Add the function FNDECL to the call graph.  FNDECL is assumed to be
-   in low GIMPLE form and ready to be processed by cgraph_finalize_function.
+/* Add the function FNDECL to the call graph.
+   Unlike cgraph_finalize_function, this function is intended to be used
+   by middle end and allows insertion of new function at arbitrary point
+   of compilation.  The function can be either in high, low or SSA form
+   GIMPLE.
 
-   When operating in unit-at-a-time, a new callgraph node is added to
-   CGRAPH_EXPAND_QUEUE, which is processed after all the original
-   functions in the call graph .
+   The function is assumed to be reachable and have address taken (so no
+   API breaking optimizations are performed on it).  
 
-   When not in unit-at-a-time, the new callgraph node is added to
-   CGRAPH_NODES_QUEUE for cgraph_assemble_pending_functions to
-   process.  */
+   Main work done by this function is to enqueue the function for later
+   processing to avoid need the passes to be re-entrant.  */
 
 void
-cgraph_add_new_function (tree fndecl)
+cgraph_add_new_function (tree fndecl, bool lowered)
 {
-  struct cgraph_node *n = cgraph_node (fndecl);
-  n->next_needed = cgraph_expand_queue;
-  cgraph_expand_queue = n;
+  struct cgraph_node *node;
+  switch (cgraph_state)
+    {
+      case CGRAPH_STATE_CONSTRUCTION:
+	/* Just enqueue function to be processed at nearest occurence.  */
+	node = cgraph_node (fndecl);
+	node->next_needed = cgraph_new_nodes;
+	if (lowered)
+	  node->lowered = true;
+	cgraph_new_nodes = node;
+        break;
+
+      case CGRAPH_STATE_IPA:
+      case CGRAPH_STATE_IPA_SSA:
+      case CGRAPH_STATE_EXPANSION:
+	/* Bring the function into finalized state and enqueue for later
+	   analyzing and compilation.  */
+	node = cgraph_node (fndecl);
+	node->local.local = false;
+	node->local.finalized = true;
+	node->reachable = node->needed = true;
+	if (lowered)
+	  node->lowered = true;
+	node->next_needed = cgraph_new_nodes;
+	cgraph_new_nodes = node;
+        break;
+
+      case CGRAPH_STATE_FINISHED:
+	/* At the very end of compilation we have to do all the work up
+	   to expansion.  */
+	push_cfun (DECL_STRUCT_FUNCTION (fndecl));
+	current_function_decl = fndecl;
+	tree_register_cfg_hooks ();
+	if (!lowered)
+          tree_lowering_passes (fndecl);
+	bitmap_obstack_initialize (NULL);
+	if (!gimple_in_ssa_p (DECL_STRUCT_FUNCTION (fndecl)) && optimize)
+	  execute_pass_list (pass_early_local_passes.sub);
+	bitmap_obstack_release (NULL);
+	tree_rest_of_compilation (fndecl);
+	pop_cfun ();
+	current_function_decl = NULL;
+	break;
+    }
 }
 
 #include "gt-cgraph.h"

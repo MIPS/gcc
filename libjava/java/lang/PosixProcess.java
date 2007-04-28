@@ -1,5 +1,5 @@
 // PosixProcess.java - Subclass of Process for POSIX systems.
-/* Copyright (C) 1998, 1999, 2004  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2004, 2006, 2007  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -25,19 +25,15 @@ import java.util.Map;
  * @author David Daney <ddaney@avtrex.com> Rewrote using
  * ProcessManager
  */
-
-// This is entirely internal to our implementation.
-// This file is copied to `ConcreteProcess.java' before compilation.
-// Hence the class name apparently does not match the file name.
-final class ConcreteProcess extends Process
+final class PosixProcess extends Process
 {
   static class ProcessManager extends Thread
   {
     /**
-     * A list of {@link ConcreteProcess ConcreteProcesses} to be
+     * A list of {@link PosixProcess PosixProcesses} to be
      * started.  The queueLock object is used as the lock Object
      * for all process related operations. To avoid dead lock
-     * ensure queueLock is obtained before ConcreteProcess.
+     * ensure queueLock is obtained before PosixProcess.
      */
     List queue = new LinkedList();
     private Map pidToProcess = new HashMap();
@@ -46,43 +42,48 @@ final class ConcreteProcess extends Process
 
     ProcessManager()
     {
-      super("ProcessManager");
+      // Use package private Thread constructor to place us in the
+      // root ThreadGroup with no InheritableThreadLocal.  If the
+      // InheritableThreadLocals were allowed to initialize, they could
+      // cause a Runtime.exec() to be called causing infinite
+      // recursion.
+      super("ProcessManager", true);
       // Don't keep the (main) process from exiting on our account.
       this.setDaemon(true);
     }
 
     /**
-     * Get the ConcreteProcess object with the given pid and
+     * Get the PosixProcess object with the given pid and
      * remove it from the map.  This method is called from the
      * native code for {@link #reap()).  The mapping is removed so
-     * the ConcreteProcesses can be GCed after they terminate.
+     * the PosixProcesses can be GCed after they terminate.
      *
      * @param p The pid of the process.
      */
-    private ConcreteProcess removeProcessFromMap(long p)
+    private PosixProcess removeProcessFromMap(long p)
     {
-      return (ConcreteProcess) pidToProcess.remove(new Long(p));
+      return (PosixProcess) pidToProcess.remove(new Long(p));
     }
 
     /**
-     * Put the given ConcreteProcess in the map using the Long
+     * Put the given PosixProcess in the map using the Long
      * value of its pid as the key.
      *
-     * @param p The ConcreteProcess.
+     * @param p The PosixProcess.
      */
-    void addProcessToMap(ConcreteProcess p)
+    void addProcessToMap(PosixProcess p)
     {
       pidToProcess.put(new Long(p.pid), p);
     }
 
     /**
-     * Queue up the ConcreteProcess and awake the ProcessManager.
-     * The ProcessManager will start the ConcreteProcess from its
+     * Queue up the PosixProcess and awake the ProcessManager.
+     * The ProcessManager will start the PosixProcess from its
      * thread so it can be reaped when it terminates.
      *
-     * @param p The ConcreteProcess.
+     * @param p The PosixProcess.
      */
-    void startExecuting(ConcreteProcess p)
+    void startExecuting(PosixProcess p)
     {
       synchronized (queueLock)
         {
@@ -154,7 +155,7 @@ final class ConcreteProcess extends Process
 		    }
 		  while (queue.size() > 0)
 		    {
-		      ConcreteProcess p = (ConcreteProcess) queue.remove(0);
+		      PosixProcess p = (PosixProcess) queue.remove(0);
 		      p.spawn(this);
 		    }
 	        }
@@ -353,11 +354,8 @@ final class ConcreteProcess extends Process
    */
   private native void nativeSpawn();
 
-  // This file is copied to `ConcreteProcess.java' before
-  // compilation.  Hence the constructor name apparently does not
-  // match the file name.
-  ConcreteProcess(String[] progarray, String[] envp, File dir)
-           throws IOException
+  PosixProcess(String[] progarray, String[] envp, File dir, boolean redirect)
+    throws IOException
   {
     // Check to ensure there is something to run, and avoid
     // dereferencing null pointers in native code.
@@ -367,6 +365,7 @@ final class ConcreteProcess extends Process
     this.progarray = progarray;
     this.envp = envp;
     this.dir = dir;
+    this.redirect = redirect;
 
     // Start a ProcessManager if there is not one already running.
     synchronized (queueLock)
@@ -378,7 +377,7 @@ final class ConcreteProcess extends Process
 	    processManager.waitUntilReady();
 	  }
 
-	// Queue this ConcreteProcess for starting by the ProcessManager.
+	// Queue this PosixProcess for starting by the ProcessManager.
 	processManager.startExecuting(this);
       }
 
@@ -421,6 +420,7 @@ final class ConcreteProcess extends Process
   private String[] progarray;
   private String[] envp;
   private File dir;
+  private boolean redirect;
 
   /** Set by the ProcessManager on problems starting. */
   private Throwable exception;
@@ -428,8 +428,8 @@ final class ConcreteProcess extends Process
   /** The process id.  This is cast to a pid_t on the native side. */
   private long pid;
 
-  // FIXME: Why doesn't the friend declaration in ConcreteProcess.h
-  // allow ConcreteProcess$ProcessManager native code access these
+  // FIXME: Why doesn't the friend declaration in PosixProcess.h
+  // allow PosixProcess$ProcessManager native code access these
   // when they are private?
 
   /** Before the process is forked. */

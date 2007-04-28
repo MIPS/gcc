@@ -1,5 +1,5 @@
 /* Prototypes for alpha.c functions used in the md file & elsewhere.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -35,10 +35,6 @@ extern void alpha_expand_prologue (void);
 extern void alpha_expand_epilogue (void);
 extern void alpha_output_filename (FILE *, const char *);
 
-extern bool alpha_const_ok_for_letter_p (HOST_WIDE_INT, int);
-extern bool alpha_const_double_ok_for_letter_p (rtx, int);
-extern bool alpha_extra_constraint (rtx, int);
-
 extern rtx alpha_tablejump_addr_vec (rtx);
 extern rtx alpha_tablejump_best_label (rtx);
 
@@ -51,11 +47,9 @@ extern rtx alpha_legitimize_reload_address (rtx, enum machine_mode,
 extern rtx split_small_symbolic_operand (rtx);
 
 extern void get_aligned_mem (rtx, rtx *, rtx *);
-extern rtx get_unaligned_address (rtx, int);
+extern rtx get_unaligned_address (rtx);
+extern rtx get_unaligned_offset (rtx, HOST_WIDE_INT);
 extern enum reg_class alpha_preferred_reload_class (rtx, enum reg_class);
-extern enum reg_class alpha_secondary_reload_class (enum reg_class,
-						    enum machine_mode, rtx,
-						    int);
 
 extern void alpha_set_memflags (rtx, rtx);
 extern bool alpha_split_const_mov (enum machine_mode, rtx *);

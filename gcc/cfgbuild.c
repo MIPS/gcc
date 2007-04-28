@@ -120,6 +120,11 @@ control_flow_insn_p (rtx insn)
 	      || can_throw_internal (insn));
 
     case INSN:
+      /* Treat trap instructions like noreturn calls (same provision).  */
+      if (GET_CODE (PATTERN (insn)) == TRAP_IF
+	  && XEXP (PATTERN (insn), 0) == const1_rtx)
+	return true;
+
       return (flag_non_call_exceptions && can_throw_internal (insn));
 
     case BARRIER:
@@ -543,9 +548,7 @@ find_basic_blocks (rtx f)
      actually lay them out.  */
 
   basic_block_info = VEC_alloc (basic_block, gc, n_basic_blocks);
-  VEC_safe_grow (basic_block, gc, basic_block_info, n_basic_blocks);
-  memset (VEC_address (basic_block, basic_block_info), 0,
-	  sizeof (basic_block) * n_basic_blocks);
+  VEC_safe_grow_cleared (basic_block, gc, basic_block_info, n_basic_blocks);
   SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
   SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
 

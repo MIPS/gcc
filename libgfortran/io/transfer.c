@@ -1,4 +1,5 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist transfer functions contributed by Paul Thomas
 
@@ -410,7 +411,6 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 	  /* Short read, e.g. if we hit EOF.  Apparently, we read
 	   more than was written to the last record.  */
 	  *nbytes = to_read_record;
-	  generate_error (&dtp->common, ERROR_SHORT_RECORD, NULL);
 	  return;
 	}
 
@@ -434,11 +434,10 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 
   /* Check whether we exceed the total record length.  */
 
-  if (dtp->u.p.current_unit->flags.has_recl)
+  if (dtp->u.p.current_unit->flags.has_recl
+      && (*nbytes > (size_t) dtp->u.p.current_unit->bytes_left))
     {
-      to_read_record =
-	*nbytes > (size_t) dtp->u.p.current_unit->bytes_left ?
-	*nbytes : (size_t) dtp->u.p.current_unit->bytes_left;
+      to_read_record = (size_t) dtp->u.p.current_unit->bytes_left;
       short_record = 1;
     }
   else
@@ -495,11 +494,11 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 	    }
 	  else
 	    {
-	      /* Let's make sure the file position is correctly set for the
-		 next read statement.  */
+	      /* Let's make sure the file position is correctly pre-positioned
+		 for the next read statement.  */
 
+	      dtp->u.p.current_unit->current_record = 0;
 	      next_record_r_unf (dtp, 0);
-	      us_read (dtp, 0);
 	      generate_error (&dtp->common, ERROR_SHORT_RECORD, NULL);
 	      return;
 	    }
@@ -1156,7 +1155,7 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	/* Format codes that don't transfer data.  */
 	case FMT_X:
 	case FMT_TR:
-	  consume_data_flag = 0 ;
+	  consume_data_flag = 0;
 
 	  pos = bytes_used + f->u.n + dtp->u.p.skips;
 	  dtp->u.p.skips = f->u.n + dtp->u.p.skips;
@@ -1172,6 +1171,7 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	      write_x (dtp, dtp->u.p.skips, dtp->u.p.pending_spaces);
 	      dtp->u.p.skips = dtp->u.p.pending_spaces = 0;
 	    }
+
 	  if (dtp->u.p.mode == READING)
 	    read_x (dtp, f->u.n);
 
@@ -1179,6 +1179,8 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 
 	case FMT_TL:
 	case FMT_T:
+	  consume_data_flag = 0;
+
 	  if (f->format == FMT_TL)
 	    {
 
@@ -1197,8 +1199,10 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	    }
 	  else /* FMT_T */
 	    {
-	      consume_data_flag = 0;
-	      pos = f->u.n - 1;
+	      if (dtp->u.p.mode == READING)
+		pos = f->u.n - 1;
+	      else
+		pos = f->u.n - dtp->u.p.pending_spaces - 1;
 	    }
 
 	  /* Standard 10.6.1.1: excessive left tabbing is reset to the
@@ -1478,7 +1482,7 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc, int kind,
 
       /* If the extent of even one dimension is zero, then the entire
 	 array section contains zero elements, so we return.  */
-      if (extent[n] == 0)
+      if (extent[n] <= 0)
 	return;
     }
 
@@ -1765,15 +1769,18 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
   /* Check the action.  */
 
   if (read_flag && dtp->u.p.current_unit->flags.action == ACTION_WRITE)
-    generate_error (&dtp->common, ERROR_BAD_ACTION,
-		    "Cannot read from file opened for WRITE");
+    {
+      generate_error (&dtp->common, ERROR_BAD_ACTION,
+		      "Cannot read from file opened for WRITE");
+      return;
+    }
 
   if (!read_flag && dtp->u.p.current_unit->flags.action == ACTION_READ)
-    generate_error (&dtp->common, ERROR_BAD_ACTION,
-		    "Cannot write to file opened for READ");
-
-  if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
-    return;
+    {
+      generate_error (&dtp->common, ERROR_BAD_ACTION,
+		      "Cannot write to file opened for READ");
+      return;
+    }
 
   dtp->u.p.first_item = 1;
 
@@ -1782,14 +1789,14 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
   if ((cf & IOPARM_DT_HAS_FORMAT) != 0)
     parse_format (dtp);
 
-  if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
-    return;
-
   if (dtp->u.p.current_unit->flags.form == FORM_UNFORMATTED
       && (cf & (IOPARM_DT_HAS_FORMAT | IOPARM_DT_LIST_FORMAT))
 	 != 0)
-    generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-		    "Format present for UNFORMATTED data transfer");
+    {
+      generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+		      "Format present for UNFORMATTED data transfer");
+      return;
+    }
 
   if ((cf & IOPARM_DT_HAS_NAMELIST_NAME) != 0 && dtp->u.p.ionml != NULL)
      {
@@ -1799,13 +1806,19 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
      }
   else if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED &&
 	   !(cf & (IOPARM_DT_HAS_FORMAT | IOPARM_DT_LIST_FORMAT)))
-    generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-		    "Missing format for FORMATTED data transfer");
+    {
+      generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+		      "Missing format for FORMATTED data transfer");
+    }
 
   if (is_internal_unit (dtp)
       && dtp->u.p.current_unit->flags.form == FORM_UNFORMATTED)
-    generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-		    "Internal file cannot be accessed by UNFORMATTED data transfer");
+    {
+      generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+		      "Internal file cannot be accessed by UNFORMATTED "
+		      "data transfer");
+      return;
+    }
 
   /* Check the record or position number.  */
 
@@ -1835,49 +1848,71 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
   if (dtp->u.p.advance_status != ADVANCE_UNSPECIFIED)
     {
       if (dtp->u.p.current_unit->flags.access == ACCESS_DIRECT)
-	generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-			"ADVANCE specification conflicts with sequential access");
+	{
+	  generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+			  "ADVANCE specification conflicts with sequential access");
+	  return;
+	}
 
       if (is_internal_unit (dtp))
-	generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-			"ADVANCE specification conflicts with internal file");
+	{
+	  generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+			  "ADVANCE specification conflicts with internal file");
+	  return;
+	}
 
       if ((cf & (IOPARM_DT_HAS_FORMAT | IOPARM_DT_LIST_FORMAT))
 	  != IOPARM_DT_HAS_FORMAT)
-	generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-			"ADVANCE specification requires an explicit format");
+	{
+	  generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+			  "ADVANCE specification requires an explicit format");
+	  return;
+	}
     }
 
   if (read_flag)
     {
       if ((cf & IOPARM_EOR) != 0 && dtp->u.p.advance_status != ADVANCE_NO)
-	generate_error (&dtp->common, ERROR_MISSING_OPTION,
-			"EOR specification requires an ADVANCE specification of NO");
+	{
+	  generate_error (&dtp->common, ERROR_MISSING_OPTION,
+			  "EOR specification requires an ADVANCE specification "
+			  "of NO");
+	  return;
+	}
 
       if ((cf & IOPARM_DT_HAS_SIZE) != 0 && dtp->u.p.advance_status != ADVANCE_NO)
-	generate_error (&dtp->common, ERROR_MISSING_OPTION,
-			"SIZE specification requires an ADVANCE specification of NO");
-
+	{
+	  generate_error (&dtp->common, ERROR_MISSING_OPTION,
+			  "SIZE specification requires an ADVANCE specification of NO");
+	  return;
+	}
     }
   else
     {				/* Write constraints.  */
       if ((cf & IOPARM_END) != 0)
-	generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-			"END specification cannot appear in a write statement");
+	{
+	  generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+			  "END specification cannot appear in a write statement");
+	  return;
+	}
 
       if ((cf & IOPARM_EOR) != 0)
-	generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-			"EOR specification cannot appear in a write statement");
+	{
+	  generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+			  "EOR specification cannot appear in a write statement");
+	  return;
+	}
 
       if ((cf & IOPARM_DT_HAS_SIZE) != 0)
-	generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-			"SIZE specification cannot appear in a write statement");
+	{
+	  generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+			  "SIZE specification cannot appear in a write statement");
+	  return;
+	}
     }
 
   if (dtp->u.p.advance_status == ADVANCE_UNSPECIFIED)
     dtp->u.p.advance_status = ADVANCE_YES;
-  if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
-    return;
 
   /* Sanity checks on the record number.  */
   if ((cf & IOPARM_DT_HAS_REC) != 0)
@@ -1946,6 +1981,10 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 
   dtp->u.p.blank_status = dtp->u.p.current_unit->flags.blank;
   dtp->u.p.sign_status = SIGN_S;
+  
+  /* Set the maximum position reached from the previous I/O operation.  This
+     could be greater than zero from a previous non-advancing write.  */
+  dtp->u.p.max_pos = dtp->u.p.current_unit->saved_pos;
 
   pre_position (dtp);
 
@@ -2013,7 +2052,7 @@ init_loop_spec (gfc_array_char *desc, array_loop_spec *ls)
   index = 1;
   for (i=0; i<rank; i++)
     {
-      ls[i].idx = 1;
+      ls[i].idx = desc->dim[i].lbound;
       ls[i].start = desc->dim[i].lbound;
       ls[i].end = desc->dim[i].ubound;
       ls[i].step = desc->dim[i].stride;
@@ -2050,8 +2089,9 @@ next_array_record (st_parameter_dt *dtp, array_loop_spec *ls)
           else
             carry = 0;
         }
-      index = index + (ls[i].idx - 1) * ls[i].step;
+      index = index + (ls[i].idx - ls[i].start) * ls[i].step;
     }
+
   return index;
 }
 
@@ -2151,6 +2191,7 @@ next_record_r (st_parameter_dt *dtp)
     
     case UNFORMATTED_SEQUENTIAL:
       next_record_r_unf (dtp, 1);
+      dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
       break;
 
     case FORMATTED_DIRECT:
@@ -2216,9 +2257,6 @@ next_record_r (st_parameter_dt *dtp)
 
       break;
     }
-
-  if (dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL)
-    test_endfile (dtp->u.p.current_unit);
 }
 
 
@@ -2376,6 +2414,7 @@ next_record_w (st_parameter_dt *dtp, int done)
 
     case UNFORMATTED_SEQUENTIAL:
       next_record_w_unf (dtp, 0);
+      dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
       break;
 
     case FORMATTED_STREAM:
@@ -2453,7 +2492,6 @@ next_record_w (st_parameter_dt *dtp, int done)
 	}
       else
 	{
-
 	  /* If this is the last call to next_record move to the farthest
 	  position reached in preparation for completing the record.
 	  (for file unit) */
@@ -2508,8 +2546,10 @@ next_record (st_parameter_dt *dtp, int done)
 
   if (!is_stream_io (dtp))
     {
-      /* keep position up to date for INQUIRE */
-      dtp->u.p.current_unit->flags.position = POSITION_ASIS;
+      /* Keep position up to date for INQUIRE */
+      if (done)
+	update_position (dtp->u.p.current_unit);
+
       dtp->u.p.current_unit->current_record = 0;
       if (dtp->u.p.current_unit->flags.access == ACCESS_DIRECT)
 	{
@@ -2539,7 +2579,7 @@ finalize_transfer (st_parameter_dt *dtp)
   GFC_INTEGER_4 cf = dtp->common.flags;
 
   if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    *dtp->size = (GFC_INTEGER_4) dtp->u.p.size_used;
+    *dtp->size = (GFC_IO_INT) dtp->u.p.size_used;
 
   if (dtp->u.p.eor_condition)
     {
@@ -2595,11 +2635,19 @@ finalize_transfer (st_parameter_dt *dtp)
       return;
     }
 
+  /* For non-advancing I/O, save the current maximum position for use in the
+     next I/O operation if needed.  */
   if (dtp->u.p.advance_status == ADVANCE_NO)
     {
+      int bytes_written = (int) (dtp->u.p.current_unit->recl
+	- dtp->u.p.current_unit->bytes_left);
+      dtp->u.p.current_unit->saved_pos =
+	dtp->u.p.max_pos > 0 ? dtp->u.p.max_pos - bytes_written : 0;
       flush (dtp->u.p.current_unit->s);
       return;
     }
+
+  dtp->u.p.current_unit->saved_pos = 0;
 
   next_record (dtp, 1);
   sfree (dtp->u.p.current_unit->s);
@@ -2615,7 +2663,7 @@ iolength_transfer (st_parameter_dt *dtp, bt type __attribute__((unused)),
 		   size_t size, size_t nelems)
 {
   if ((dtp->common.flags & IOPARM_DT_HAS_IOLENGTH) != 0)
-    *dtp->iolength += (GFC_INTEGER_4) size * nelems;
+    *dtp->iolength += (GFC_IO_INT) size * nelems;
 }
 
 
@@ -2677,15 +2725,15 @@ st_read (st_parameter_dt *dtp)
 
   data_transfer_init (dtp, 1);
 
-  /* Handle complications dealing with the endfile record.  It is
-     significant that this is the only place where ERROR_END is
-     generated.  Reading an end of file elsewhere is either end of
-     record or an I/O error. */
+  /* Handle complications dealing with the endfile record.  */
 
   if (dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL)
     switch (dtp->u.p.current_unit->endfile)
       {
       case NO_ENDFILE:
+	if (file_length (dtp->u.p.current_unit->s)
+	    == file_position (dtp->u.p.current_unit->s))
+	  dtp->u.p.current_unit->endfile = AT_ENDFILE;
 	break;
 
       case AT_ENDFILE:

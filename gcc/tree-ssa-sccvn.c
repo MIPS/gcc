@@ -342,13 +342,14 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
   while (ref)
     {
       vn_reference_op_s temp;
+      memset(&temp, 0, sizeof (temp));
       temp.opcode = TREE_CODE (ref);
-      temp.op0 = NULL;
-      temp.op1 = NULL;
-      temp.op2 = NULL;
 
       switch (temp.opcode)
 	{
+	case INDIRECT_REF:
+	  temp.op0 = TREE_OPERAND (ref, 0);
+	  break;
 	case BIT_FIELD_REF:
 	case COMPONENT_REF:
 	  temp.op0 = TREE_OPERAND (ref, 1);
@@ -802,10 +803,6 @@ set_ssa_val_to (tree from, tree to)
 	  VN_INFO (from)->has_constants = VN_INFO (to)->has_constants;
 	  VN_INFO (from)->expr = VN_INFO (to)->expr;
 	}
-#if 0
-      else
-      VN_INFO (from)->has_constants = false;
-#endif
     }
 
   if (SSA_VAL (from) != to)
@@ -1008,7 +1005,7 @@ expr_has_constants (tree expr)
     case tcc_binary:
       return is_gimple_min_invariant (TREE_OPERAND (expr, 0))
 	|| is_gimple_min_invariant (TREE_OPERAND (expr, 1));
-      /* XXX: We are such liars */
+      /* Constants inside reference ops are rarely interesting.  */
     case tcc_reference:
       return false;
     default:

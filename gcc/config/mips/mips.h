@@ -3,7 +3,7 @@
    1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
-   64 bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
+   64-bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
    Brendan Eich (brendan@microunity.com).
 
 This file is part of GCC.
@@ -24,6 +24,8 @@ the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
 
+#include "config/vxworks-dummy.h"
+
 /* MIPS external variables defined in mips.c.  */
 
 /* Which processor to schedule for.  Since there is no difference between
@@ -41,6 +43,9 @@ enum processor_type {
   PROCESSOR_24KC,
   PROCESSOR_24KF,
   PROCESSOR_24KX,
+  PROCESSOR_74KC,
+  PROCESSOR_74KF,
+  PROCESSOR_74KX,
   PROCESSOR_M4K,
   PROCESSOR_R3900,
   PROCESSOR_R6000,
@@ -83,7 +88,7 @@ struct mips_rtx_cost_data
 
 /* Which ABI to use.  ABI_32 (original 32, or o32), ABI_N32 (n32),
    ABI_64 (n64) are all defined by SGI.  ABI_O64 is o32 extended
-   to work on a 64 bit machine.  */
+   to work on a 64-bit machine.  */
 
 #define ABI_32  0
 #define ABI_N32 1
@@ -96,7 +101,7 @@ struct mips_rtx_cost_data
 struct mips_cpu_info {
   /* The 'canonical' name of the processor as far as GCC is concerned.
      It's typically a manufacturer's prefix followed by a numerical
-     designation.  It should be lower case.  */
+     designation.  It should be lowercase.  */
   const char *name;
 
   /* The internal processor number that most closely matches this
@@ -143,13 +148,15 @@ extern const struct mips_rtx_cost_data *mips_cost;
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
+/* True if we are generating position-independent VxWorks RTP code.  */
+#define TARGET_RTP_PIC (TARGET_VXWORKS_RTP && flag_pic)
+
 /* True if the call patterns should be split into a jalr followed by
-   an instruction to restore $gp.  This is only ever true for SVR4 PIC,
-   in which $gp is call-clobbered.  It is only safe to split the load
+   an instruction to restore $gp.  It is only safe to split the load
    from the call when every use of $gp is explicit.  */
 
 #define TARGET_SPLIT_CALLS \
-  (TARGET_EXPLICIT_RELOCS && TARGET_ABICALLS && !TARGET_NEWABI)
+  (TARGET_EXPLICIT_RELOCS && TARGET_CALL_CLOBBERED_GP)
 
 /* True if we're generating a form of -mabicalls in which we can use
    operators like %hi and %lo to refer to locally-binding symbols.
@@ -173,12 +180,23 @@ extern const struct mips_rtx_cost_data *mips_cost;
 	using sibling calls in this case anyway; they would usually
 	be longer than normal calls.
 
-      - TARGET_ABICALLS && !TARGET_EXPLICIT_RELOCS.  call_insn_operand
-	accepts global constants, but "jr $25" is the only allowed
-	sibcall.  */
-
+      - TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS.  call_insn_operand
+	accepts global constants, but all sibcalls must be indirect.  */
 #define TARGET_SIBCALLS \
-  (!TARGET_MIPS16 && (!TARGET_ABICALLS || TARGET_EXPLICIT_RELOCS))
+  (!TARGET_MIPS16 && (!TARGET_USE_GOT || TARGET_EXPLICIT_RELOCS))
+
+/* True if we need to use a global offset table to access some symbols.  */
+#define TARGET_USE_GOT (TARGET_ABICALLS || TARGET_RTP_PIC)
+
+/* True if TARGET_USE_GOT and if $gp is a call-clobbered register.  */
+#define TARGET_CALL_CLOBBERED_GP (TARGET_ABICALLS && TARGET_OLDABI)
+
+/* True if TARGET_USE_GOT and if $gp is a call-saved register.  */
+#define TARGET_CALL_SAVED_GP (TARGET_USE_GOT && !TARGET_CALL_CLOBBERED_GP)
+
+/* True if indirect calls must use register class PIC_FN_ADDR_REG.
+   This is true for both the PIC and non-PIC VxWorks RTP modes.  */
+#define TARGET_USE_PIC_FN_ADDR_REG (TARGET_ABICALLS || TARGET_VXWORKS_RTP)
 
 /* True if .gpword or .gpdword should be used for switch tables.
 
@@ -228,6 +246,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define TUNE_MIPS9000               (mips_tune == PROCESSOR_R9000)
 #define TUNE_SB1                    (mips_tune == PROCESSOR_SB1		\
 				     || mips_tune == PROCESSOR_SB1A)
+#define TUNE_74K                    (mips_tune == PROCESSOR_74KC	\
+				     || mips_tune == PROCESSOR_74KF	\
+				     || mips_tune == PROCESSOR_74KX)
 
 /* True if the pre-reload scheduler should try to create chains of
    multiply-add or multiply-subtract instructions.  For example,
@@ -339,6 +360,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
 								\
       if (TARGET_DSP)						\
 	builtin_define ("__mips_dsp");				\
+								\
+      if (TARGET_DSPR2)						\
+	builtin_define ("__mips_dspr2");			\
 								\
       MIPS_CPP_SET_PROCESSOR ("_MIPS_ARCH", mips_arch_info);	\
       MIPS_CPP_SET_PROCESSOR ("_MIPS_TUNE", mips_tune_info);	\
@@ -566,7 +590,7 @@ extern const struct mips_rtx_cost_data *mips_cost;
    ABI for which this is true.  */
 #define ABI_HAS_64BIT_SYMBOLS	(mips_abi == ABI_64 && !TARGET_SYM32)
 
-/* ISA has instructions for managing 64 bit fp and gp regs (e.g. mips3).  */
+/* ISA has instructions for managing 64-bit fp and gp regs (e.g. mips3).  */
 #define ISA_HAS_64BIT_REGS	(ISA_MIPS3				\
 				 || ISA_MIPS4				\
 				 || ISA_MIPS64)
@@ -620,6 +644,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
 				  || ISA_MIPS32R2			\
 				  || ISA_MIPS64)			\
 				 && !TARGET_MIPS16)
+
+/* Integer multiply-accumulate instructions should be generated.  */
+#define GENERATE_MADD_MSUB      (ISA_HAS_MADD_MSUB && !TUNE_74K)
 
 /* ISA has floating-point nmadd and nmsub instructions.  */
 #define ISA_HAS_NMADD_NMSUB	((ISA_MIPS4				\
@@ -704,7 +731,7 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define ISA_HAS_EXT_INS		(ISA_MIPS32R2				\
 				 && !TARGET_MIPS16)
 
-/* ISA has instructions for accessing top part of 64 bit fp regs */
+/* ISA has instructions for accessing top part of 64-bit fp regs.  */
 #define ISA_HAS_MXHC1		(TARGET_FLOAT64 && ISA_MIPS32R2)
 
 /* True if the result of a load is not available to the next instruction.
@@ -817,9 +844,12 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define ASM_SPEC "\
 %{G*} %(endian_spec) %{mips1} %{mips2} %{mips3} %{mips4} \
 %{mips32} %{mips32r2} %{mips64} \
-%{mips16:%{!mno-mips16:-mips16}} %{mno-mips16:-no-mips16} \
-%{mips3d:-mips3d} \
-%{mdsp} \
+%{mips16} %{mno-mips16:-no-mips16} \
+%{mips3d} %{mno-mips3d:-no-mips3d} \
+%{mdmx} %{mno-mdmx:-no-mdmx} \
+%{mdsp} %{mno-dsp} \
+%{mdspr2} %{mno-dspr2} \
+%{mmt} %{mno-mt} \
 %{mfix-vr4120} %{mfix-vr4130} \
 %(subtarget_asm_optimizing_spec) \
 %(subtarget_asm_debugging_spec) \
@@ -1123,7 +1153,7 @@ extern const struct mips_rtx_cost_data *mips_cost;
    on the full register even if a narrower mode is specified.  */
 #define WORD_REGISTER_OPERATIONS
 
-/* When in 64 bit mode, move insns will sign extend SImode and CCmode
+/* When in 64-bit mode, move insns will sign extend SImode and CCmode
    moves.  All other references are zero extended.  */
 #define LOAD_EXTEND_OP(MODE) \
   (TARGET_64BIT && ((MODE) == SImode || (MODE) == CCmode) \
@@ -1742,8 +1772,7 @@ extern const enum reg_class mips_regno_to_class[];
   ((flag_profile_values && ! TARGET_64BIT				\
     ? MAX (REG_PARM_STACK_SPACE(NULL), current_function_outgoing_args_size) \
     : current_function_outgoing_args_size)				\
-   + (TARGET_ABICALLS && !TARGET_NEWABI					\
-      ? MIPS_STACK_ALIGN (UNITS_PER_WORD) : 0))
+   + (TARGET_CALL_CLOBBERED_GP ? MIPS_STACK_ALIGN (UNITS_PER_WORD) : 0))
 
 #define RETURN_ADDR_RTX mips_return_addr
 
@@ -1803,7 +1832,7 @@ extern const enum reg_class mips_regno_to_class[];
    If `ACCUMULATE_OUTGOING_ARGS' is also defined, the only effect
    of this macro is to determine whether the space is included in
    `current_function_outgoing_args_size'.  */
-#define OUTGOING_REG_PARM_STACK_SPACE
+#define OUTGOING_REG_PARM_STACK_SPACE 1
 
 #define STACK_BOUNDARY (TARGET_NEWABI ? 128 : 64)
 
@@ -1893,8 +1922,8 @@ typedef struct mips_args {
 
   /* On the mips16, we need to keep track of which floating point
      arguments were passed in general registers, but would have been
-     passed in the FP regs if this were a 32 bit function, so that we
-     can move them to the FP regs if we wind up calling a 32 bit
+     passed in the FP regs if this were a 32-bit function, so that we
+     can move them to the FP regs if we wind up calling a 32-bit
      function.  We record this information in fp_code, encoded in base
      four.  A zero digit means no floating point argument, a one digit
      means an SFmode argument, and a two digit means a DFmode argument,
@@ -2211,8 +2240,11 @@ typedef struct mips_args {
    difference in cost between byte and (aligned) word loads.
 
    On RISC machines, it tends to generate better code to define
-   this as 1, since it avoids making a QI or HI mode register.  */
-#define SLOW_BYTE_ACCESS 1
+   this as 1, since it avoids making a QI or HI mode register.
+
+   But, generating word accesses for -mips16 is generally bad as shifts
+   (often extended) would be needed for byte accesses.  */
+#define SLOW_BYTE_ACCESS (!TARGET_MIPS16)
 
 /* Define this to be nonzero if shift instructions ignore all but the low-order
    few bits.  */
@@ -2297,13 +2329,13 @@ typedef struct mips_args {
    ("j" or "jal"), OPERANDS are its operands, and OPNO is the operand number
    of the target.
 
-   When generating -mabicalls without explicit relocation operators,
+   When generating GOT code without explicit relocation operators,
    all calls should use assembly macros.  Otherwise, all indirect
    calls should use "jr" or "jalr"; we will arrange to restore $gp
    afterwards if necessary.  Finally, we can only generate direct
    calls for -mabicalls by temporarily switching to non-PIC mode.  */
 #define MIPS_CALL(INSN, OPERANDS, OPNO)				\
-  (TARGET_ABICALLS && !TARGET_EXPLICIT_RELOCS			\
+  (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS			\
    ? "%*" INSN "\t%" #OPNO "%/"					\
    : REG_P (OPERANDS[OPNO])					\
    ? "%*" INSN "r\t%" #OPNO "%/"				\
@@ -2519,6 +2551,7 @@ while (0)
    the assembler uses length information on externals to allocate in
    data/sdata bss/sbss, thereby saving exec time.  */
 
+#undef ASM_OUTPUT_EXTERNAL
 #define ASM_OUTPUT_EXTERNAL(STREAM,DECL,NAME) \
   mips_output_external(STREAM,DECL,NAME)
 
@@ -2565,6 +2598,16 @@ do {									\
     fprintf (STREAM, "\t%s\t%sL%d\n",					\
 	     ptr_mode == DImode ? ".gpdword" : ".gpword",		\
 	     LOCAL_LABEL_PREFIX, VALUE);				\
+  else if (TARGET_RTP_PIC)						\
+    {									\
+      /* Make the entry relative to the start of the function.  */	\
+      rtx fnsym = XEXP (DECL_RTL (current_function_decl), 0);		\
+      fprintf (STREAM, "\t%s\t%sL%d-",					\
+	       Pmode == DImode ? ".dword" : ".word",			\
+	       LOCAL_LABEL_PREFIX, VALUE);				\
+      assemble_name (STREAM, XSTR (fnsym, 0));				\
+      fprintf (STREAM, "\n");						\
+    }									\
   else									\
     fprintf (STREAM, "\t%s\t%sL%d\n",					\
 	     ptr_mode == DImode ? ".dword" : ".word",			\

@@ -213,9 +213,6 @@ struct rtl_bb_info;
 /* Basic block information indexed by block number.  */
 struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")))
 {
-  /* Pointers to the first and last trees of the block.  */
-  tree stmt_list;
-
   /* The edges into and out of the block.  */
   VEC(edge,gc) *preds;
   VEC(edge,gc) *succs;
@@ -234,14 +231,9 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   struct basic_block_def *next_bb;
 
   union basic_block_il_dependent {
+      struct tree_bb_info * GTY ((tag ("0"))) tree;
       struct rtl_bb_info * GTY ((tag ("1"))) rtl;
     } GTY ((desc ("((%1.flags & BB_RTL) != 0)"))) il;
-
-  /* Chain of PHI nodes for this block.  */
-  tree phi_nodes;
-
-  /* A list of predictions.  */
-  struct edge_prediction *predictions;
 
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
@@ -278,6 +270,15 @@ struct rtl_bb_info GTY(())
 
   /* This field is used by the bb-reorder and tracer passes.  */
   int visited;
+};
+
+struct tree_bb_info GTY(())
+{
+  /* Pointers to the first and last trees of the block.  */
+  tree stmt_list;
+
+  /* Chain of PHI nodes for this block.  */
+  tree phi_nodes;
 };
 
 typedef struct basic_block_def *basic_block;
@@ -489,7 +490,6 @@ extern void insert_insn_on_edge (rtx, edge);
 basic_block split_edge_and_insert (edge, rtx);
 
 extern void commit_edge_insertions (void);
-extern void commit_edge_insertions_watch_calls (void);
 
 extern void remove_fake_edges (void);
 extern void remove_fake_exit_edges (void);
@@ -870,7 +870,6 @@ extern struct edge_list *pre_edge_rev_lcm (int, sbitmap *,
 extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
 
 /* In predict.c */
-extern void expected_value_to_br_prob (void);
 extern bool maybe_hot_bb_p (basic_block);
 extern bool probably_cold_bb_p (basic_block);
 extern bool probably_never_executed_bb_p (basic_block);
@@ -922,25 +921,6 @@ extern bool cleanup_cfg (int);
 extern bool delete_unreachable_blocks (void);
 extern bool merge_seq_blocks (void);
 
-typedef struct conflict_graph_def *conflict_graph;
-
-/* Callback function when enumerating conflicts.  The arguments are
-   the smaller and larger regno in the conflict.  Returns zero if
-   enumeration is to continue, nonzero to halt enumeration.  */
-typedef int (*conflict_graph_enum_fn) (int, int, void *);
-
-
-/* Prototypes of operations on conflict graphs.  */
-
-extern conflict_graph conflict_graph_new
- (int);
-extern void conflict_graph_delete (conflict_graph);
-extern int conflict_graph_add (conflict_graph, int, int);
-extern int conflict_graph_conflict_p (conflict_graph, int, int);
-extern void conflict_graph_enum (conflict_graph, int, conflict_graph_enum_fn,
-				 void *);
-extern void conflict_graph_merge_regs (conflict_graph, int, int);
-extern void conflict_graph_print (conflict_graph, FILE*);
 extern bool mark_dfs_back_edges (void);
 extern void set_edge_can_fallthru_flag (void);
 extern void update_br_prob_note (basic_block);
@@ -950,7 +930,7 @@ extern bool control_flow_insn_p (rtx);
 extern rtx get_last_bb_insn (basic_block);
 
 /* In bb-reorder.c */
-extern void reorder_basic_blocks (unsigned int);
+extern void reorder_basic_blocks (void);
 
 /* In dominance.c */
 
@@ -997,6 +977,7 @@ unsigned bb_dom_dfs_out (enum cdi_direction, basic_block);
 
 extern edge try_redirect_by_replacing_jump (edge, basic_block, bool);
 extern void break_superblocks (void);
+extern void relink_block_chain (bool);
 extern void check_bb_profile (basic_block, FILE *);
 extern void update_bb_profile_for_threading (basic_block, int, gcov_type, edge);
 extern void init_rtl_bb_info (basic_block);

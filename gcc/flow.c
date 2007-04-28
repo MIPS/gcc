@@ -2791,8 +2791,7 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
 	      regno_first += subreg_regno_offset (regno_first, inner_mode,
 						  SUBREG_BYTE (reg),
 						  outer_mode);
-	      regno_last = (regno_first
-			    + hard_regno_nregs[regno_first][outer_mode] - 1);
+	      regno_last = regno_first + subreg_nregs (reg) - 1;
 
 	      /* Since we've just adjusted the register number ranges, make
 		 sure REG matches.  Otherwise some_was_live will be clear
@@ -3438,7 +3437,13 @@ elim_reg_cond (rtx x, unsigned int regno)
 
   if (COMPARISON_P (x))
     {
-      if (REGNO (XEXP (x, 0)) == regno)
+      rtx reg;
+
+      reg = XEXP (x, 0);
+      if (GET_CODE (reg) == SUBREG)
+	reg = SUBREG_REG (reg);
+      gcc_assert (REG_P (reg));
+      if (REGNO (reg) == regno)
 	return const0_rtx;
       return x;
     }
@@ -4696,7 +4701,7 @@ rest_of_handle_life (void)
     cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE | CLEANUP_LOG_LINKS
                  | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
-  if (extra_warnings)
+  if (warn_clobbered)
     {
       setjmp_vars_warning (DECL_INITIAL (current_function_decl));
       setjmp_args_warning ();

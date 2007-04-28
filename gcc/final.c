@@ -1,6 +1,6 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -76,6 +76,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "cgraph.h"
 #include "coverage.h"
+#include "vecprim.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -320,7 +321,7 @@ dbr_sequence_length (void)
 
 static int *insn_lengths;
 
-varray_type insn_addresses_;
+VEC(int,heap) *insn_addresses_;
 
 /* Max uid for which the above arrays are valid.  */
 static int insn_lengths_max_uid;
@@ -1356,7 +1357,7 @@ asm_insn_count (rtx body)
   if (GET_CODE (body) == ASM_INPUT)
     template = XSTR (body, 0);
   else
-    template = decode_asm_operands (body, NULL, NULL, NULL, NULL);
+    template = decode_asm_operands (body, NULL, NULL, NULL, NULL, NULL);
 
   for (; *template; template++)
     if (IS_ASM_LOGICAL_LINE_SEPARATOR (*template) || *template == '\n')
@@ -2067,12 +2068,27 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	    if (string[0])
 	      {
+		location_t loc;
+
 		if (! app_on)
 		  {
 		    fputs (ASM_APP_ON, file);
 		    app_on = 1;
 		  }
+#ifdef USE_MAPPED_LOCATION
+		loc = ASM_INPUT_SOURCE_LOCATION (body);
+#else
+		loc.file = ASM_INPUT_SOURCE_FILE (body);
+		loc.line = ASM_INPUT_SOURCE_LINE (body);
+#endif
+		if (*loc.file && loc.line)
+		  fprintf (asm_out_file, "%s %i \"%s\" 1\n",
+			   ASM_COMMENT_START, loc.line, loc.file);
 		fprintf (asm_out_file, "\t%s\n", string);
+#if HAVE_AS_LINE_ZERO
+		if (*loc.file && loc.line)
+		  fprintf (asm_out_file, "%s 0 \"\" 2\n", ASM_COMMENT_START);
+#endif
 	      }
 	    break;
 	  }
@@ -2083,12 +2099,13 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    unsigned int noperands = asm_noperands (body);
 	    rtx *ops = alloca (noperands * sizeof (rtx));
 	    const char *string;
+	    location_t loc;
 
 	    /* There's no telling what that did to the condition codes.  */
 	    CC_STATUS_INIT;
 
 	    /* Get out the operand values.  */
-	    string = decode_asm_operands (body, ops, NULL, NULL, NULL);
+	    string = decode_asm_operands (body, ops, NULL, NULL, NULL, &loc);
 	    /* Inhibit dieing on what would otherwise be compiler bugs.  */
 	    insn_noperands = noperands;
 	    this_is_asm_operands = insn;
@@ -2105,7 +2122,14 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		    fputs (ASM_APP_ON, file);
 		    app_on = 1;
 		  }
+		if (loc.file && loc.line)
+		  fprintf (asm_out_file, "%s %i \"%s\" 1\n",
+			   ASM_COMMENT_START, loc.line, loc.file);
 	        output_asm_insn (string, ops);
+#if HAVE_AS_LINE_ZERO
+		if (loc.file && loc.line)
+		  fprintf (asm_out_file, "%s 0 \"\" 2\n", ASM_COMMENT_START);
+#endif
 	      }
 
 	    this_is_asm_operands = 0;
@@ -2261,6 +2285,76 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    else if (GET_CODE (SET_SRC (body)) == RETURN)
 	      /* Replace (set (pc) (return)) with (return).  */
 	      PATTERN (insn) = body = SET_SRC (body);
+
+	    /* Rerecognize the instruction if it has changed.  */
+	    if (result != 0)
+	      INSN_CODE (insn) = -1;
+	  }
+
+	/* If this is a conditional trap, maybe modify it if the cc's
+	   are in a nonstandard state so that it accomplishes the same
+	   thing that it would do straightforwardly if the cc's were
+	   set up normally.  */
+	if (cc_status.flags != 0
+	    && NONJUMP_INSN_P (insn)
+	    && GET_CODE (body) == TRAP_IF
+	    && COMPARISON_P (TRAP_CONDITION (body))
+	    && XEXP (TRAP_CONDITION (body), 0) == cc0_rtx)
+	  {
+	    /* This function may alter the contents of its argument
+	       and clear some of the cc_status.flags bits.
+	       It may also return 1 meaning condition now always true
+	       or -1 meaning condition now always false
+	       or 2 meaning condition nontrivial but altered.  */
+	    int result = alter_cond (TRAP_CONDITION (body));
+
+	    /* If TRAP_CONDITION has become always false, delete the
+	       instruction.  */
+	    if (result == -1)
+	      {
+		delete_insn (insn);
+		break;
+	      }
+
+	    /* If TRAP_CONDITION has become always true, replace
+	       TRAP_CONDITION with const_true_rtx.  */
+	    if (result == 1)
+	      TRAP_CONDITION (body) = const_true_rtx;
+
+	    /* Rerecognize the instruction if it has changed.  */
+	    if (result != 0)
+	      INSN_CODE (insn) = -1;
+	  }
+
+	/* If this is a conditional trap, maybe modify it if the cc's
+	   are in a nonstandard state so that it accomplishes the same
+	   thing that it would do straightforwardly if the cc's were
+	   set up normally.  */
+	if (cc_status.flags != 0
+	    && NONJUMP_INSN_P (insn)
+	    && GET_CODE (body) == TRAP_IF
+	    && COMPARISON_P (TRAP_CONDITION (body))
+	    && XEXP (TRAP_CONDITION (body), 0) == cc0_rtx)
+	  {
+	    /* This function may alter the contents of its argument
+	       and clear some of the cc_status.flags bits.
+	       It may also return 1 meaning condition now always true
+	       or -1 meaning condition now always false
+	       or 2 meaning condition nontrivial but altered.  */
+	    int result = alter_cond (TRAP_CONDITION (body));
+
+	    /* If TRAP_CONDITION has become always false, delete the
+	       instruction.  */
+	    if (result == -1)
+	      {
+		delete_insn (insn);
+		break;
+	      }
+
+	    /* If TRAP_CONDITION has become always true, replace
+	       TRAP_CONDITION with const_true_rtx.  */
+	    if (result == 1)
+	      TRAP_CONDITION (body) = const_true_rtx;
 
 	    /* Rerecognize the instruction if it has changed.  */
 	    if (result != 0)
@@ -3949,6 +4043,16 @@ rest_of_handle_final (void)
   timevar_push (TV_SYMOUT);
   (*debug_hooks->function_decl) (current_function_decl);
   timevar_pop (TV_SYMOUT);
+  if (DECL_STATIC_CONSTRUCTOR (current_function_decl)
+      && targetm.have_ctors_dtors)
+    targetm.asm_out.constructor (XEXP (DECL_RTL (current_function_decl), 0),
+				 decl_init_priority_lookup
+				   (current_function_decl));
+  if (DECL_STATIC_DESTRUCTOR (current_function_decl)
+      && targetm.have_ctors_dtors)
+    targetm.asm_out.destructor (XEXP (DECL_RTL (current_function_decl), 0),
+				decl_fini_priority_lookup
+				  (current_function_decl));
   return 0;
 }
 

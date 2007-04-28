@@ -1488,6 +1488,7 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   int num_branches;
   int prob, rev_prob;
   int msw_taken_prob = -1, msw_skip_prob = -1, lsw_taken_prob = -1;
+  rtx scratch = operands[4];
 
   comparison = prepare_cbranch_operands (operands, DImode, comparison);
   op1h = gen_highpart_mode (SImode, DImode, operands[1]);
@@ -1539,7 +1540,7 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
 	  return true;
 	}
       msw_taken = NE;
-      lsw_taken_prob = prob;
+      msw_taken_prob = prob;
       lsw_taken = NE;
       lsw_taken_prob = 0;
       break;
@@ -1611,6 +1612,13 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   operands[1] = op1h;
   operands[2] = op2h;
   operands[4] = NULL_RTX;
+  if (reload_completed
+      && ! arith_reg_or_0_operand (op2h, SImode) && true_regnum (op1h)
+      && (msw_taken != CODE_FOR_nothing || msw_skip != CODE_FOR_nothing))
+    {
+      emit_move_insn (scratch, operands[2]);
+      operands[2] = scratch;
+    }
   if (msw_taken != CODE_FOR_nothing)
     expand_cbranchsi4 (operands, msw_taken, msw_taken_prob);
   if (msw_skip != CODE_FOR_nothing)
@@ -1624,7 +1632,12 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   operands[1] = op1l;
   operands[2] = op2l;
   if (lsw_taken != CODE_FOR_nothing)
-    expand_cbranchsi4 (operands, lsw_taken, lsw_taken_prob);
+    {
+      if (reload_completed
+	  && ! arith_reg_or_0_operand (op2l, SImode) && true_regnum (op1l))
+	operands[4] = scratch;
+      expand_cbranchsi4 (operands, lsw_taken, lsw_taken_prob);
+    }
   if (msw_skip != CODE_FOR_nothing)
     emit_label (skip_label);
   return true;
@@ -3689,7 +3702,7 @@ broken_move (rtx insn)
       if (GET_CODE (pat) == PARALLEL)
 	pat = XVECEXP (pat, 0, 0);
       if (GET_CODE (pat) == SET
-	  /* We can load any 8 bit value if we don't care what the high
+	  /* We can load any 8-bit value if we don't care what the high
 	     order bits end up as.  */
 	  && GET_MODE (SET_DEST (pat)) != QImode
 	  && (CONSTANT_P (SET_SRC (pat))
@@ -5606,7 +5619,13 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	      temp = scavenge_reg (&temps);
 	    }
 	  if (temp < 0 && live_regs_mask)
-	    temp = scavenge_reg (live_regs_mask);
+	    {
+	      HARD_REG_SET temps;
+
+	      COPY_HARD_REG_SET (temps, *live_regs_mask);
+	      CLEAR_HARD_REG_BIT (temps, REGNO (reg));
+	      temp = scavenge_reg (&temps);
+	    }
 	  if (temp < 0)
 	    {
 	      rtx adj_reg, tmp_reg, mem;
@@ -5655,6 +5674,9 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	      emit_move_insn (adj_reg, mem);
 	      mem = gen_tmp_stack_mem (Pmode, gen_rtx_POST_INC (Pmode, reg));
 	      emit_move_insn (tmp_reg, mem);
+	      /* Tell flow the insns that pop r4/r5 aren't dead.  */
+	      emit_insn (gen_rtx_USE (VOIDmode, tmp_reg));
+	      emit_insn (gen_rtx_USE (VOIDmode, adj_reg));
 	      return;
 	    }
 	  const_reg = gen_rtx_REG (GET_MODE (reg), temp);
@@ -8581,7 +8603,7 @@ sh_insn_length_adjustment (rtx insn)
 	template = XSTR (body, 0);
       else if (asm_noperands (body) >= 0)
 	template
-	  = decode_asm_operands (body, NULL, NULL, NULL, NULL);
+	  = decode_asm_operands (body, NULL, NULL, NULL, NULL, NULL);
       else
 	return 0;
       do
@@ -8953,7 +8975,7 @@ sh_adjust_cost (rtx insn, rtx link ATTRIBUTE_UNUSED, rtx dep_insn, int cost)
 	     by 1 cycle.  */
 	  if (get_attr_type (insn) == TYPE_DYN_SHIFT
 	      && get_attr_any_int_load (dep_insn) == ANY_INT_LOAD_YES
-	      && reg_overlap_mentioned_p (SET_DEST (PATTERN (dep_insn)),
+	      && reg_overlap_mentioned_p (SET_DEST (dep_set),
 					  XEXP (SET_SRC (single_set (insn)),
 						1)))
 	    cost++;
@@ -9600,7 +9622,7 @@ sh_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
   if (TARGET_HARVARD)
     {
       if (!TARGET_INLINE_IC_INVALIDATE
-	  || !(TARGET_SH4A_ARCH || TARGET_SH4_300) && TARGET_USERMODE)
+	  || (!(TARGET_SH4A_ARCH || TARGET_SH4_300) && TARGET_USERMODE))
 	emit_library_call (function_symbol (NULL, "__ic_invalidate",
 					    FUNCTION_ORDINARY),
 			   0, VOIDmode, 1, tramp, SImode);
@@ -9638,7 +9660,7 @@ struct builtin_description
 
 /* describe number and signedness of arguments; arg[0] == result
    (1: unsigned, 2: signed, 4: don't care, 8: pointer 0: no argument */
-/* 9: 64 bit pointer, 10: 32 bit pointer */
+/* 9: 64-bit pointer, 10: 32-bit pointer */
 static const char signature_args[][4] =
 {
 #define SH_BLTIN_V2SI2 0
@@ -9891,8 +9913,7 @@ static rtx
 sh_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 		   enum machine_mode mode ATTRIBUTE_UNUSED, int ignore)
 {
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
-  tree arglist = TREE_OPERAND (exp, 1);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
   const struct builtin_description *d = &bdesc[fcode];
   enum insn_code icode = d->icode;
@@ -9925,10 +9946,9 @@ sh_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
       if (! signature_args[signature][i])
 	break;
-      arg = TREE_VALUE (arglist);
+      arg = CALL_EXPR_ARG (exp, i - 1);
       if (arg == error_mark_node)
 	return const0_rtx;
-      arglist = TREE_CHAIN (arglist);
       if (signature_args[signature][i] & 8)
 	{
 	  opmode = ptr_mode;
@@ -10147,7 +10167,6 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   epilogue_completed = 1;
   no_new_pseudos = 1;
   current_function_uses_only_leaf_regs = 1;
-  reset_block_changes ();
 
   emit_note (NOTE_INSN_PROLOGUE_END);
 
@@ -10304,7 +10323,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
      the insns emitted.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
 
-  insn_locators_initialize ();
+  insn_locators_alloc ();
   insns = get_insns ();
 
   if (optimize > 0)

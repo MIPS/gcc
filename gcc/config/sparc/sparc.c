@@ -3257,8 +3257,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
       insn = emit_move_insn (reg, pic_ref);
       /* Put a REG_EQUAL note on this insn, so that it can be optimized
 	 by loop.  */
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, orig,
-				  REG_NOTES (insn));
+      set_unique_reg_note (insn, REG_EQUAL, orig);
       return reg;
     }
   else if (GET_CODE (orig) == CONST)
@@ -3494,7 +3493,7 @@ mem_min_alignment (rtx mem, int desired)
    hard register number, and one indexed by mode.  */
 
 /* The purpose of sparc_mode_class is to shrink the range of modes so that
-   they all fit (as bit numbers) in a 32 bit word (again).  Each real mode is
+   they all fit (as bit numbers) in a 32-bit word (again).  Each real mode is
    mapped into one sparc_mode_class mode.  */
 
 enum sparc_mode_class {
@@ -5674,18 +5673,18 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   incr = valist;
   if (align)
     {
-      incr = fold (build2 (PLUS_EXPR, ptr_type_node, incr,
-			   ssize_int (align - 1)));
-      incr = fold (build2 (BIT_AND_EXPR, ptr_type_node, incr,
-			   ssize_int (-align)));
+      incr = fold_build2 (PLUS_EXPR, ptr_type_node, incr,
+			  ssize_int (align - 1));
+      incr = fold_build2 (BIT_AND_EXPR, ptr_type_node, incr,
+			  ssize_int (-align));
     }
 
   gimplify_expr (&incr, pre_p, post_p, is_gimple_val, fb_rvalue);
   addr = incr;
 
   if (BYTES_BIG_ENDIAN && size < rsize)
-    addr = fold (build2 (PLUS_EXPR, ptr_type_node, incr,
-			 ssize_int (rsize - size)));
+    addr = fold_build2 (PLUS_EXPR, ptr_type_node, incr,
+			ssize_int (rsize - size));
 
   if (indirect)
     {
@@ -5702,12 +5701,10 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       tree tmp = create_tmp_var (type, "va_arg_tmp");
       tree dest_addr = build_fold_addr_expr (tmp);
 
-      tree copy = build_function_call_expr
-	(implicit_built_in_decls[BUILT_IN_MEMCPY],
-	 tree_cons (NULL_TREE, dest_addr,
-		    tree_cons (NULL_TREE, addr,
-			       tree_cons (NULL_TREE, size_int (rsize),
-					  NULL_TREE))));
+      tree copy = build_call_expr (implicit_built_in_decls[BUILT_IN_MEMCPY], 3,
+				   dest_addr,
+				   addr,
+				   size_int (rsize));
 
       gimplify_and_add (copy, pre_p);
       addr = dest_addr;
@@ -5715,7 +5712,7 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   else
     addr = fold_convert (ptrtype, addr);
 
-  incr = fold (build2 (PLUS_EXPR, ptr_type_node, incr, ssize_int (rsize)));
+  incr = fold_build2 (PLUS_EXPR, ptr_type_node, incr, ssize_int (rsize));
   incr = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, valist, incr);
   gimplify_and_add (incr, post_p);
 
@@ -7986,8 +7983,9 @@ static rtx
 sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 		      enum machine_mode tmode, int ignore ATTRIBUTE_UNUSED)
 {
-  tree arglist;
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree arg;
+  call_expr_arg_iterator iter;
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int icode = DECL_FUNCTION_CODE (fndecl);
   rtx pat, op[4];
   enum machine_mode mode[4];
@@ -8002,11 +8000,8 @@ sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   else
     op[arg_count] = target;
 
-  for (arglist = TREE_OPERAND (exp, 1); arglist;
-       arglist = TREE_CHAIN (arglist))
+  FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
     {
-      tree arg = TREE_VALUE (arglist);
-
       arg_count++;
       mode[arg_count] = insn_data[icode].operand[arg_count].mode;
       op[arg_count] = expand_normal (arg);
@@ -8551,7 +8546,6 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   reload_completed = 1;
   epilogue_completed = 1;
   no_new_pseudos = 1;
-  reset_block_changes ();
 
   emit_note (NOTE_INSN_PROLOGUE_END);
 
@@ -8729,7 +8723,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
      instruction scheduling worth while.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
   insn = get_insns ();
-  insn_locators_initialize ();
+  insn_locators_alloc ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
   final (insn, file, 1);

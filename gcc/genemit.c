@@ -845,6 +845,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"expr.h\"\n");
   printf ("#include \"optabs.h\"\n");
   printf ("#include \"real.h\"\n");
+  printf ("#include \"dfp.h\"\n");
   printf ("#include \"flags.h\"\n");
   printf ("#include \"output.h\"\n");
   printf ("#include \"insn-config.h\"\n");
@@ -856,6 +857,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"tm-constrs.h\"\n");
   printf ("#include \"ggc.h\"\n\n");
   printf ("#include \"basic-block.h\"\n\n");
+  printf ("#include \"integrate.h\"\n\n");
   printf ("#define FAIL return (end_sequence (), _val)\n");
   printf ("#define DONE return (_val = get_insns (), end_sequence (), _val)\n\n");
 

@@ -1,5 +1,5 @@
 /* Common block and equivalence list handling
-   Copyright (C) 2000, 2003, 2004, 2005, 2006
+   Copyright (C) 2000, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Canqun Yang <canqun@nudt.edu.cn>
 
@@ -388,7 +388,7 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
 
       gfc_set_decl_location (decl, &com->where);
 
-      if (com->threadprivate && targetm.have_tls)
+      if (com->threadprivate)
 	DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
 
       /* Place the back end declaration for this common block in

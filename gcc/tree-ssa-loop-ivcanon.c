@@ -111,10 +111,10 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
   update_stmt (cond);
 }
 
-/* Computes an estimated number of insns in LOOP.  */
+/* Computes an estimated number of insns in LOOP, weighted by WEIGHTS.  */
 
 unsigned
-tree_num_loop_insns (struct loop *loop)
+tree_num_loop_insns (struct loop *loop, eni_weights *weights)
 {
   basic_block *body = get_loop_body (loop);
   block_stmt_iterator bsi;
@@ -122,7 +122,7 @@ tree_num_loop_insns (struct loop *loop)
 
   for (i = 0; i < loop->num_nodes; i++)
     for (bsi = bsi_start (body[i]); !bsi_end_p (bsi); bsi_next (&bsi))
-      size += estimate_num_insns (bsi_stmt (bsi));
+      size += estimate_num_insns (bsi_stmt (bsi), weights);
   free (body);
 
   return size;
@@ -182,7 +182,7 @@ try_unroll_loop_completely (struct loop *loop,
       if (ul == UL_SINGLE_ITER)
 	return false;
 
-      ninsns = tree_num_loop_insns (loop);
+      ninsns = tree_num_loop_insns (loop, &eni_size_weights);
 
       if (n_unroll * ninsns
 	  > (unsigned) PARAM_VALUE (PARAM_MAX_COMPLETELY_PEELED_INSNS))
@@ -223,8 +223,6 @@ try_unroll_loop_completely (struct loop *loop,
   if (n_unroll)
     {
       sbitmap wont_exit;
-      edge *edges_to_remove = XNEWVEC (edge, n_unroll);
-      unsigned int n_to_remove = 0;
 
       old_cond = COND_EXPR_COND (cond);
       COND_EXPR_COND (cond) = dont_exit;
@@ -237,8 +235,7 @@ try_unroll_loop_completely (struct loop *loop,
 
       if (!tree_duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					       n_unroll, wont_exit,
-					       exit, edges_to_remove,
-					       &n_to_remove,
+					       exit, NULL,
 					       DLTHE_FLAG_UPDATE_FREQ
 					       | DLTHE_FLAG_COMPLETTE_PEEL))
 	{
@@ -246,11 +243,9 @@ try_unroll_loop_completely (struct loop *loop,
 	  update_stmt (cond);
           free_original_copy_tables ();
 	  free (wont_exit);
-	  free (edges_to_remove);
 	  return false;
 	}
       free (wont_exit);
-      free (edges_to_remove);
       free_original_copy_tables ();
     }
   
@@ -484,6 +479,9 @@ remove_empty_loop (struct loop *loop)
   basic_block *body;
   unsigned n_before, freq_in, freq_h;
   gcov_type exit_count = exit->count;
+
+  if (dump_file)
+    fprintf (dump_file, "Removing empty loop %d\n", loop->num);
 
   non_exit = EDGE_SUCC (exit->src, 0);
   if (non_exit == exit)

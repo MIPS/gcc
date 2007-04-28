@@ -1,5 +1,5 @@
 /* Character scanner.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -113,7 +113,6 @@ gfc_scanner_done_1 (void)
       gfc_free(file_head);
       file_head = f;    
     }
-
 }
 
 
@@ -172,7 +171,6 @@ gfc_release_include_path (void)
 {
   gfc_directorylist *p;
 
-  gfc_free (gfc_option.module_dir);
   while (include_dirs != NULL)
     {
       p = include_dirs;
@@ -181,7 +179,6 @@ gfc_release_include_path (void)
       gfc_free (p);
     }
 
-  gfc_free (gfc_option.module_dir);
   while (intrinsic_modules_dirs != NULL)
     {
       p = intrinsic_modules_dirs;
@@ -189,6 +186,8 @@ gfc_release_include_path (void)
       gfc_free (p->path);
       gfc_free (p);
     }
+
+  gfc_free (gfc_option.module_dir);
 }
 
 
@@ -226,6 +225,9 @@ gfc_open_included_file (const char *name, bool include_cwd, bool module)
 {
   FILE *f;
 
+  if (IS_ABSOLUTE_PATH (name))
+    return gfc_open_file (name);
+
   if (include_cwd)
     {
       f = gfc_open_file (name);
@@ -239,15 +241,18 @@ gfc_open_included_file (const char *name, bool include_cwd, bool module)
 FILE *
 gfc_open_intrinsic_module (const char *name)
 {
+  if (IS_ABSOLUTE_PATH (name))
+    return gfc_open_file (name);
+
   return open_included_file (name, intrinsic_modules_dirs, true);
 }
+
 
 /* Test to see if we're at the end of the main source file.  */
 
 int
 gfc_at_end (void)
 {
-
   return end_flag;
 }
 
@@ -257,7 +262,6 @@ gfc_at_end (void)
 int
 gfc_at_eof (void)
 {
-
   if (gfc_at_end ())
     return 1;
 
@@ -288,7 +292,6 @@ gfc_at_bol (void)
 int
 gfc_at_eol (void)
 {
-
   if (gfc_at_eof ())
     return 1;
 
@@ -312,7 +315,7 @@ gfc_advance_line (void)
 
   gfc_current_locus.lb = gfc_current_locus.lb->next;
 
-  if (gfc_current_locus.lb != NULL)         
+  if (gfc_current_locus.lb != NULL)	 
     gfc_current_locus.nextc = gfc_current_locus.lb->line;
   else 
     {
@@ -339,7 +342,7 @@ next_char (void)
   if (gfc_current_locus.nextc == NULL)
     return '\n';
 
-  c = *gfc_current_locus.nextc++;
+  c = (unsigned char) *gfc_current_locus.nextc++;
   if (c == '\0')
     {
       gfc_current_locus.nextc--; /* Remain on this line.  */
@@ -348,6 +351,7 @@ next_char (void)
 
   return c;
 }
+
 
 /* Skip a comment.  When we come here the parse pointer is positioned
    immediately after the comment character.  If we ever implement
@@ -700,6 +704,9 @@ restart:
 	skip_comment_line ();
       else
 	gfc_advance_line ();
+      
+      if (gfc_at_eof())
+	goto not_continuation;
 
       /* We've got a continuation line.  If we are on the very next line after
 	 the last continuation, increment the continuation line count and
@@ -708,10 +715,9 @@ restart:
 	{
 	  if (++continue_count == gfc_option.max_continue_free)
 	    {
-	      if (gfc_notification_std (GFC_STD_GNU)
-		  || pedantic)
-		gfc_warning ("Limit of %d continuations exceeded in statement at %C",
-			      gfc_option.max_continue_free);
+	      if (gfc_notification_std (GFC_STD_GNU) || pedantic)
+		gfc_warning ("Limit of %d continuations exceeded in "
+			     "statement at %C", gfc_option.max_continue_free);
 	    }
 	}
       continue_line = gfc_current_locus.lb->linenum;
@@ -755,7 +761,8 @@ restart:
 	  if (in_string)
 	    {
 	      if (gfc_option.warn_ampersand)
-		gfc_warning_now ("Missing '&' in continued character constant at %C");
+		gfc_warning_now ("Missing '&' in continued character "
+				 "constant at %C");
 	      gfc_current_locus.nextc--;
 	    }
 	  /* Both !$omp and !$ -fopenmp continuation lines have & on the
@@ -829,10 +836,10 @@ restart:
 	{
 	  if (++continue_count == gfc_option.max_continue_fixed)
 	    {
-	      if (gfc_notification_std (GFC_STD_GNU)
-		  || pedantic)
-		gfc_warning ("Limit of %d continuations exceeded in statement at %C",
-			      gfc_option.max_continue_fixed);
+	      if (gfc_notification_std (GFC_STD_GNU) || pedantic)
+		gfc_warning ("Limit of %d continuations exceeded in "
+			     "statement at %C",
+			     gfc_option.max_continue_fixed);
 	    }
 	}
 
@@ -991,7 +998,7 @@ gfc_gobble_whitespace (void)
 	 parts of gfortran.  */
 
 static int
-load_line (FILE * input, char **pbuf, int *pbuflen)
+load_line (FILE *input, char **pbuf, int *pbuflen)
 {
   static int linenum = 0, current_line = 1;
   int c, maxlen, i, preprocessor_flag, buflen = *pbuflen;
@@ -1026,7 +1033,7 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
   buffer = *pbuf;
 
   preprocessor_flag = 0;
-  c = fgetc (input);
+  c = getc (input);
   if (c == '#')
     /* In order to not truncate preprocessor lines, we have to
        remember that this is one.  */
@@ -1035,7 +1042,7 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
 
   for (;;)
     {
-      c = fgetc (input);
+      c = getc (input);
 
       if (c == EOF)
 	break;
@@ -1043,14 +1050,14 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
 	{
 	  /* Check for illegal use of ampersand. See F95 Standard 3.3.1.3.  */
 	  if (gfc_current_form == FORM_FREE 
-		&& !seen_printable && seen_ampersand)
+	      && !seen_printable && seen_ampersand)
 	    {
 	      if (pedantic)
-		gfc_error_now
-		  ("'&' not allowed by itself in line %d", current_line);
+		gfc_error_now ("'&' not allowed by itself in line %d",
+			       current_line);
 	      else
-		gfc_warning_now
-		  ("'&' not allowed by itself in line %d", current_line);
+		gfc_warning_now ("'&' not allowed by itself in line %d",
+				 current_line);
 	    }
 	  break;
 	}
@@ -1060,31 +1067,16 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
       if (c == '\0')
 	continue;
 
-      if (c == '\032')
-	{
-	  /* Ctrl-Z ends the file.  */
-	  while (fgetc (input) != EOF);
-	  break;
-	}
-
-      /* Check for illegal use of ampersand. See F95 Standard 3.3.1.3.  */
       if (c == '&')
-	seen_ampersand = 1;
-
-      if ((c != ' ' && c != '&' && c != '!') || (c == '!' && !seen_ampersand))
-	seen_printable = 1;
-      
-      if (gfc_current_form == FORM_FREE 
-	    && c == '!' && !seen_printable && seen_ampersand)
 	{
-	  if (pedantic)
-	    gfc_error_now (
-	      "'&' not allowed by itself with comment in line %d", current_line);
+	  if (seen_ampersand)
+	    seen_ampersand = 0;
 	  else
-	    gfc_warning_now (
-	      "'&' not allowed by itself with comment in line %d", current_line);
-	  seen_printable = 1;
+	    seen_ampersand = 1;
 	}
+
+      if ((c != '&' && c != '!') || (c == '!' && !seen_ampersand))
+	seen_printable = 1;
 
       /* Is this a fixed-form comment?  */
       if (gfc_current_form == FORM_FIXED && i == 0
@@ -1097,8 +1089,8 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
 	      && current_line != linenum)
 	    {
 	      linenum = current_line;
-	      gfc_warning_now (
-		"Nonconforming tab character in column 1 of line %d", linenum);
+	      gfc_warning_now ("Nonconforming tab character in column 1 "
+			       "of line %d", linenum);
 	    }
 
 	  while (i <= 6)
@@ -1121,7 +1113,7 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
 		overlong line.  */
 	      buflen = buflen * 2;
 	      *pbuf = xrealloc (*pbuf, buflen + 1);
-	      buffer = (*pbuf)+i;
+	      buffer = (*pbuf) + i;
 	    }
 	}
       else if (i >= maxlen)
@@ -1129,7 +1121,7 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
 	  /* Truncate the rest of the line.  */
 	  for (;;)
 	    {
-	      c = fgetc (input);
+	      c = getc (input);
 	      if (c == '\n' || c == EOF)
 		break;
 
@@ -1228,10 +1220,10 @@ preprocessor_line (char *c)
   /* Make filename end at quote.  */
   unescape = 0;
   escaped = false;
-  while (*c && ! (! escaped && *c == '"'))
+  while (*c && ! (!escaped && *c == '"'))
     {
       if (escaped)
-        escaped = false;
+	escaped = false;
       else if (*c == '\\')
 	{
 	  escaped = true;
@@ -1400,6 +1392,7 @@ include_line (char *line)
   load_file (begin, false);
   return true;
 }
+
 
 /* Load a file into memory by calling load_line until the file ends.  */
 
@@ -1576,7 +1569,7 @@ unescape_filename (const char *ptr)
       ++p;
     }
 
-  if (! *p || p[1])
+  if (!*p || p[1])
     return NULL;
 
   /* Undo effects of cpp_quote_string.  */
@@ -1609,7 +1602,7 @@ gfc_read_orig_filename (const char *filename, const char **canon_source_file)
   if (gfc_src_file == NULL)
     return NULL;
 
-  c = fgetc (gfc_src_file);
+  c = getc (gfc_src_file);
   ungetc (c, gfc_src_file);
 
   if (c != '#')
@@ -1625,7 +1618,7 @@ gfc_read_orig_filename (const char *filename, const char **canon_source_file)
   if (filename == NULL)
     return NULL;
 
-  c = fgetc (gfc_src_file);
+  c = getc (gfc_src_file);
   ungetc (c, gfc_src_file);
 
   if (c != '#')

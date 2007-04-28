@@ -206,7 +206,7 @@
 ;; store	to memory
 ;; fstore	floating point register to memory
 ;; move		general purpose register to register
-;; movi8	8 bit immediate to general purpose register
+;; movi8	8-bit immediate to general purpose register
 ;; mt_group	other sh4 mt instructions
 ;; fmove	register to register, floating point
 ;; smpy		word precision integer multiply
@@ -263,7 +263,7 @@
 ;; store_media	SHmedia general register store instructions
 ;; mcmp_media	SHmedia multimedia compare, absolute, saturating ops
 ;; mac_media	SHmedia mac-style fixed point operations
-;; d2mpy_media	SHmedia: two 32 bit integer multiplies
+;; d2mpy_media	SHmedia: two 32-bit integer multiplies
 ;; atrans_media	SHmedia approximate transcendental functions
 ;; ustore_media	SHmedia unaligned stores
 ;; nil		no-op move, will be deleted.
@@ -420,10 +420,12 @@
 	 (eq_attr "type" "jump")
 	 (cond [(eq_attr "med_branch_p" "yes")
 		(const_int 2)
-		(and (eq (symbol_ref "GET_CODE (prev_nonnote_insn (insn))")
-                         (symbol_ref "INSN"))
-                     (eq (symbol_ref "INSN_CODE (prev_nonnote_insn (insn))")
-                         (symbol_ref "code_for_indirect_jump_scratch")))
+		(and (ne (symbol_ref "prev_nonnote_insn (insn)")
+			 (const_int 0))
+		     (and (eq (symbol_ref "GET_CODE (prev_nonnote_insn (insn))")
+			      (symbol_ref "INSN"))
+			  (eq (symbol_ref "INSN_CODE (prev_nonnote_insn (insn))")
+			      (symbol_ref "code_for_indirect_jump_scratch"))))
                 (cond [(eq_attr "braf_branch_p" "yes")
                        (const_int 6)
                        (eq (symbol_ref "flag_pic") (const_int 0))
@@ -2749,9 +2751,9 @@ label:
      See also smulsi3_highpart.
      ??? Alternatively, we could put this at the calling site of expand_binop,
      i.e. expand_expr.  */
-  REG_NOTES (last)
-    = gen_rtx_EXPR_LIST (REG_EQUAL, copy_rtx (SET_SRC (single_set (first))),
-			 REG_NOTES (last));
+  set_unique_reg_note (last, REG_EQUAL,
+		       copy_rtx (SET_SRC (single_set (first))));
+
   DONE;
 }")
 
@@ -2779,9 +2781,9 @@ label:
      See also smulsi3_highpart.
      ??? Alternatively, we could put this at the calling site of expand_binop,
      i.e. expand_expr.  */
-  REG_NOTES (last)
-    = gen_rtx_EXPR_LIST (REG_EQUAL, copy_rtx (SET_SRC (single_set (first))),
-			 REG_NOTES (last));
+  set_unique_reg_note (last, REG_EQUAL,
+		       copy_rtx (SET_SRC (single_set (first))));
+
   DONE;
 }")
 
@@ -3058,9 +3060,9 @@ label:
      See also {,u}mulhisi.
      ??? Alternatively, we could put this at the calling site of expand_binop,
      i.e. expand_mult_highpart.  */
-  REG_NOTES (last)
-    = gen_rtx_EXPR_LIST (REG_EQUAL, copy_rtx (SET_SRC (single_set (first))),
-			 REG_NOTES (last));
+  set_unique_reg_note (last, REG_EQUAL,
+		       copy_rtx (SET_SRC (single_set (first))));
+
   DONE;
 }")
 
@@ -4771,7 +4773,7 @@ label:
 
 ; N.B. This should agree with LOAD_EXTEND_OP and movqi.
 ; Because we use zero extension, we can't provide signed QImode compares
-; using a simple compare or conditional banch insn.
+; using a simple compare or conditional branch insn.
 (define_insn "truncdiqi2"
   [(set (match_operand:QI 0 "general_movdst_operand" "=r,m")
 	(truncate:QI (match_operand:DI 1 "register_operand" "r,r")))]
@@ -4923,7 +4925,7 @@ label:
 	lds.l	%1,%0
 	lds.l	%1,%0
 	fake	%1,%0"
-  [(set_attr "type" "pcload_si,move,movi8,mt_group,load_si,mac_gp,prget,arith,mac_mem,store,pstore,gp_mac,prset,mem_mac,pload,pcload_si")
+  [(set_attr "type" "pcload_si,move,movi8,mt_group,load_si,mac_gp,prget,arith,store,mac_mem,pstore,gp_mac,prset,mem_mac,pload,pcload_si")
    (set_attr "length" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*")])
 
 ;; t/r must come after r/r, lest reload will try to reload stuff like
@@ -4968,7 +4970,36 @@ label:
 	! move optimized away"
   [(set_attr "type" "pcload_si,move,movi8,move,*,load_si,mac_gp,prget,arith,store,mac_mem,pstore,gp_mac,prset,mem_mac,pload,load,fstore,pcload_si,gp_fpul,fpul_gp,fmove,fmove,fmove,nil")
    (set_attr "late_fp_use" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,yes,*,*,yes,*,*,*,*")
-   (set_attr "length" "*,*,*,4,*,4,*,*,*,4,*,*,*,*,*,*,*,*,*,*,*,*,*,*,0")])
+   (set_attr_alternative "length"
+     [(const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 4)
+      (const_int 2)
+      (if_then_else
+	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
+	(const_int 4) (const_int 2))
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (if_then_else
+	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
+	(const_int 4) (const_int 2))
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 0)])])
 
 (define_insn "movsi_i_lowpart"
   [(set (strict_low_part (match_operand:SI 0 "general_movdst_operand" "+r,r,r,r,r,r,r,m,r"))
@@ -5113,8 +5144,7 @@ label:
 {
   rtx insn = emit_insn (gen_movsi_const (operands[0], operands[1]));
 
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, copy_rtx (operands[1]),
-					REG_NOTES (insn));
+  set_unique_reg_note (insn, REG_EQUAL, copy_rtx (operands[1]));
 
   DONE;
 }")
@@ -5497,8 +5527,7 @@ label:
   else
     insn = emit_insn (gen_movdi_const_32bit (operands[0], operands[1]));
 
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, copy_rtx (operands[1]),
-					REG_NOTES (insn));
+  set_unique_reg_note (insn, REG_EQUAL, copy_rtx (operands[1]));
 
   DONE;
 }")
@@ -6572,7 +6601,31 @@ label:
 	! move optimized away"
   [(set_attr "type" "fmove,move,fmove,fmove,pcfload,fload,fstore,pcload,load,store,fmove,fmove,load,*,fpul_gp,gp_fpul,fstore,load,nil")
    (set_attr "late_fp_use" "*,*,*,*,*,*,yes,*,*,*,*,*,*,*,yes,*,yes,*,*")
-   (set_attr "length" "*,*,*,*,4,4,4,*,*,*,2,2,2,4,2,2,2,2,0")
+   (set_attr "length" "*,*,*,*,4,2,2,*,*,*,2,2,2,4,2,2,2,2,0")
+   (set_attr_alternative "length"
+     [(const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 4)
+      (if_then_else
+	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
+	(const_int 4) (const_int 2))
+      (if_then_else
+	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
+	(const_int 4) (const_int 2))
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 4)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 0)])
    (set (attr "fp_mode") (if_then_else (eq_attr "fmovd" "yes")
 					   (const_string "single")
 					   (const_string "none")))])
@@ -8288,6 +8341,14 @@ label:
    (set (match_dup 0) (plus:SI (match_dup 0) (reg:SI R0_REG)))]
   "" "
 {
+  if (TARGET_VXWORKS_RTP)
+    {
+      rtx gott_base = gen_rtx_SYMBOL_REF (Pmode, VXWORKS_GOTT_BASE);
+      rtx gott_index = gen_rtx_SYMBOL_REF (Pmode, VXWORKS_GOTT_INDEX);
+      emit_insn (gen_vxworks_picreg (gott_base, gott_index));
+      DONE;
+    }
+
   operands[0] = gen_rtx_REG (Pmode, PIC_REG);
   operands[1] = gen_rtx_SYMBOL_REF (VOIDmode, GOT_SYMBOL_NAME);
 
@@ -8323,13 +8384,27 @@ label:
 
       insn = emit_move_insn (operands[0], tr);
 
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, equiv,
-					    REG_NOTES (insn));
+      set_unique_reg_note (insn, REG_EQUAL, equiv);
 
       DONE;
     }
 }
 ")
+
+;; A helper for GOTaddr2picreg to finish up the initialization of the
+;; PIC register.
+
+(define_expand "vxworks_picreg"
+  [(set (reg:SI PIC_REG)
+	(const:SI (unspec:SI [(match_operand:SI 0 "" "")] UNSPEC_PIC)))
+   (set (reg:SI R0_REG)
+	(const:SI (unspec:SI [(match_operand:SI 1 "" "")] UNSPEC_PIC)))
+   (set (reg:SI PIC_REG)
+	(mem:SI (reg:SI PIC_REG)))
+   (set (reg:SI PIC_REG)
+	(mem:SI (plus:SI (reg:SI PIC_REG)
+			 (reg:SI R0_REG))))]
+  "TARGET_VXWORKS_RTP")
 
 (define_insn "*ptb"
   [(set (match_operand 0 "target_reg_operand" "=b")
@@ -8433,9 +8508,8 @@ label:
   /* ??? Should we have a special alias set for the GOT?  */
   insn = emit_move_insn (operands[0], mem);
 
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, XVECEXP (XEXP (operands[1],
-								  0), 0, 0),
-					REG_NOTES (insn));
+  set_unique_reg_note (insn, REG_EQUAL,
+		       XVECEXP (XEXP (operands[1], 0), 0, 0));
 
   DONE;
 }")
@@ -8494,8 +8568,7 @@ label:
 			 gen_rtx_PLUS (Pmode, t,
 				       gen_rtx_REG (Pmode, PIC_REG)));
 
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, operands[1],
-					REG_NOTES (insn));
+  set_unique_reg_note (insn, REG_EQUAL, operands[1]);
 
   DONE;
 }")
@@ -13203,9 +13276,8 @@ mov.l\\t1f,r0\\n\\
   emit_insn (gen_adddi3 (scratch, scratch, GEN_INT (-64)));
   emit_insn (gen_movdicc_false (scratch, operands[1], const0_rtx, scratch));
   last = emit_insn (gen_subdi3 (operands[0], const0_rtx, scratch));
-  REG_NOTES (last)
-    = gen_rtx_EXPR_LIST (REG_EQUAL,
-			 gen_rtx_FFS (DImode, operands[0]), REG_NOTES (last));
+  set_unique_reg_note (last, REG_EQUAL, gen_rtx_FFS (DImode, operands[0]));
+
   DONE;
 }")
 
@@ -13228,9 +13300,8 @@ mov.l\\t1f,r0\\n\\
   emit_insn (gen_nsbsi (scratch, discratch));
   last = emit_insn (gen_subsi3 (operands[0],
 				force_reg (SImode, GEN_INT (63)), scratch));
-  REG_NOTES (last)
-    = gen_rtx_EXPR_LIST (REG_EQUAL,
-			 gen_rtx_FFS (SImode, operands[0]), REG_NOTES (last));
+  set_unique_reg_note (last, REG_EQUAL, gen_rtx_FFS (SImode, operands[0]));
+
   DONE;
 }")
 

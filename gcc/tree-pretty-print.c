@@ -1,5 +1,5 @@
 /* Pretty formatting of GENERIC trees in C syntax.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006 
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Adapted from c-pretty-print.c by Diego Novillo <dnovillo@redhat.com>
 
@@ -33,6 +33,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-iterator.h"
 #include "tree-chrec.h"
 #include "tree-pass.h"
+#include "value-prof.h"
 
 /* Local functions, macros and variables.  */
 static int op_prio (tree);
@@ -73,7 +74,7 @@ do_niy (pretty_printer *buffer, tree node)
 
   if (EXPR_P (node))
     {
-      len = TREE_CODE_LENGTH (TREE_CODE (node));
+      len = TREE_OPERAND_LENGTH (node);
       for (i = 0; i < len; ++i)
 	{
 	  newline_and_indent (buffer, 2);
@@ -430,8 +431,8 @@ dump_symbols (pretty_printer *buffer, bitmap syms, int flags)
 
 
 /* Dump the node NODE on the pretty_printer BUFFER, SPC spaces of indent.
-   FLAGS specifies details to show in the dump (see TDF_* in tree.h).  If
-   IS_STMT is true, the object printed is considered to be a statement
+   FLAGS specifies details to show in the dump (see TDF_* in tree-pass.h).
+   If IS_STMT is true, the object printed is considered to be a statement
    and it is terminated by ';' if appropriate.  */
 
 int
@@ -569,6 +570,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 		pp_string (buffer, "vector ");
 		dump_generic_node (buffer, TREE_TYPE (node), 
 				   spc, flags, false);
+	      }
+	    else if (TREE_CODE (node) == INTEGER_TYPE)
+	      {
+		pp_string (buffer, (TYPE_UNSIGNED (node)
+				    ? "<unnamed-unsigned:"
+				    : "<unnamed-signed:"));
+		pp_decimal_int (buffer, TYPE_PRECISION (node));
+		pp_string (buffer, ">");
 	      }
 	    else
               pp_string (buffer, "<unnamed type>");
@@ -747,23 +756,20 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       else if (! host_integerp (node, 0))
 	{
 	  tree val = node;
+	  unsigned HOST_WIDE_INT low = TREE_INT_CST_LOW (val);
+	  HOST_WIDE_INT high = TREE_INT_CST_HIGH (val);
 
 	  if (tree_int_cst_sgn (val) < 0)
 	    {
 	      pp_character (buffer, '-');
-	      val = build_int_cst_wide (NULL_TREE,
-					-TREE_INT_CST_LOW (val),
-					~TREE_INT_CST_HIGH (val)
-					+ !TREE_INT_CST_LOW (val));
+	      high = ~high + !low;
+	      low = -low;
 	    }
 	  /* Would "%x%0*x" or "%x%*0x" get zero-padding on all
 	     systems?  */
-	  {
-	    sprintf (pp_buffer (buffer)->digit_buffer, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-		     TREE_INT_CST_HIGH (val),
-		     TREE_INT_CST_LOW (val));
-	    pp_string (buffer, pp_buffer (buffer)->digit_buffer);
-	  }
+	  sprintf (pp_buffer (buffer)->digit_buffer,
+		   HOST_WIDE_INT_PRINT_DOUBLE_HEX, high, low);
+	  pp_string (buffer, pp_buffer (buffer)->digit_buffer);
 	}
       else
 	pp_wide_integer (buffer, TREE_INT_CST_LOW (node));
@@ -946,8 +952,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       op1 = array_ref_element_size (node);
 
       if (!integer_zerop (op0)
-	  || (TYPE_SIZE_UNIT (TREE_TYPE (node))
-	      && !operand_equal_p (op1, TYPE_SIZE_UNIT (TREE_TYPE (node)), 0)))
+	  || TREE_OPERAND (node, 2)
+	  || TREE_OPERAND (node, 3))
 	{
 	  pp_string (buffer, "{lb: ");
 	  dump_generic_node (buffer, op0, spc, flags, false);
@@ -1092,9 +1098,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 		  || TREE_CODE (COND_EXPR_ELSE (node)) == GOTO_EXPR))
 	    {
 	      pp_space (buffer);
-	      dump_generic_node (buffer, COND_EXPR_THEN (node), 0, flags, true);
-	      pp_string (buffer, " else ");
-	      dump_generic_node (buffer, COND_EXPR_ELSE (node), 0, flags, true);
+	      dump_generic_node (buffer, COND_EXPR_THEN (node),
+				 0, flags, true);
+	      if (!IS_EMPTY_STMT (COND_EXPR_ELSE (node)))
+		{
+		  pp_string (buffer, " else ");
+		  dump_generic_node (buffer, COND_EXPR_ELSE (node),
+				     0, flags, true);
+		}
 	    }
 	  else if (!(flags & TDF_SLIM))
 	    {
@@ -1111,7 +1122,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 		}
 
 	      /* Output COND_EXPR_ELSE.  */
-	      if (COND_EXPR_ELSE (node))
+	      if (COND_EXPR_ELSE (node)
+		  && !IS_EMPTY_STMT (COND_EXPR_ELSE (node)))
 		{
 		  newline_and_indent (buffer, spc);
 		  pp_string (buffer, "else");
@@ -1169,12 +1181,22 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       /* Print parameters.  */
       pp_space (buffer);
       pp_character (buffer, '(');
-      op1 = TREE_OPERAND (node, 1);
-      if (op1)
-	dump_generic_node (buffer, op1, spc, flags, false);
+      {
+	tree arg;
+	call_expr_arg_iterator iter;
+	FOR_EACH_CALL_EXPR_ARG (arg, iter, node)
+	  {
+	    dump_generic_node (buffer, arg, spc, flags, false);
+	    if (more_call_expr_args_p (&iter))
+	      {
+		pp_character (buffer, ',');
+		pp_space (buffer);
+	      }
+	  }
+      }
       pp_character (buffer, ')');
 
-      op1 = TREE_OPERAND (node, 2);
+      op1 = CALL_EXPR_STATIC_CHAIN (node);
       if (op1)
 	{
 	  pp_string (buffer, " [static-chain: ");
@@ -1255,7 +1277,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
 	/* When the operands are expressions with less priority,
 	   keep semantics of the tree representation.  */
-	if (op_prio (op0) < op_prio (node))
+	if (op_prio (op0) <= op_prio (node))
 	  {
 	    pp_character (buffer, '(');
 	    dump_generic_node (buffer, op0, spc, flags, false);
@@ -1270,7 +1292,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
 	/* When the operands are expressions with less priority,
 	   keep semantics of the tree representation.  */
-	if (op_prio (op1) < op_prio (node))
+	if (op_prio (op1) <= op_prio (node))
 	  {
 	    pp_character (buffer, '(');
 	    dump_generic_node (buffer, op1, spc, flags, false);
@@ -1921,8 +1943,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, " > ");
       break;
 
-    case VEC_PACK_MOD_EXPR:
-      pp_string (buffer, " VEC_PACK_MOD_EXPR < ");
+    case VEC_PACK_TRUNC_EXPR:
+      pp_string (buffer, " VEC_PACK_TRUNC_EXPR < ");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
       pp_string (buffer, ", ");
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
@@ -2033,7 +2055,11 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
   if (is_stmt && is_expr)
     pp_semicolon (buffer);
-  pp_write_text_to_stream (buffer);
+
+  /* If we're building a diagnostic, the formatted text will be written
+     into BUFFER's stream by the caller; otherwise, write it now.  */
+  if (!(flags & TDF_DIAGNOSTIC))
+    pp_write_text_to_stream (buffer);
 
   return spc;
 }
@@ -2326,7 +2352,7 @@ op_prio (tree op)
     case VEC_RSHIFT_EXPR:
     case VEC_UNPACK_HI_EXPR:
     case VEC_UNPACK_LO_EXPR:
-    case VEC_PACK_MOD_EXPR:
+    case VEC_PACK_TRUNC_EXPR:
     case VEC_PACK_SAT_EXPR:
       return 16;
 
@@ -2524,7 +2550,7 @@ print_call_name (pretty_printer *buffer, tree node)
 
   gcc_assert (TREE_CODE (node) == CALL_EXPR);
 
-  op0 = TREE_OPERAND (node, 0);
+  op0 = CALL_EXPR_FN (node);
 
   if (TREE_CODE (op0) == NON_LVALUE_EXPR)
     op0 = TREE_OPERAND (op0, 0);
@@ -2691,8 +2717,8 @@ newline_and_indent (pretty_printer *buffer, int spc)
 static void
 dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 {
-  struct vdef_optype_d *vdefs;
-  struct vuse_optype_d *vuses;
+  struct voptype_d *vdefs;
+  struct voptype_d *vuses;
   int i, n;
 
   if (!ssa_operands_active () || !stmt_references_memory_p (stmt))
@@ -2932,6 +2958,29 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 {
   edge e;
   edge_iterator ei;
+  tree stmt;
+
+  stmt = last_stmt (bb);
+  if (stmt && TREE_CODE (stmt) == COND_EXPR)
+    {
+      edge true_edge, false_edge;
+
+      /* When we are emitting the code or changing CFG, it is possible that
+	 the edges are not yet created.  When we are using debug_bb in such
+	 a situation, we do not want it to crash.  */
+      if (EDGE_COUNT (bb->succs) != 2)
+	return;
+      extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
+
+      INDENT (indent + 2);
+      pp_cfg_jump (buffer, true_edge->dest);
+      newline_and_indent (buffer, indent);
+      pp_string (buffer, "else");
+      newline_and_indent (buffer, indent + 2);
+      pp_cfg_jump (buffer, false_edge->dest);
+      pp_newline (buffer);
+      return;
+    }
 
   /* If there is a fallthru edge, we may need to add an artificial goto to the
      dump.  */
@@ -3000,6 +3049,7 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
       INDENT (curr_indent);
       dump_generic_node (buffer, stmt, curr_indent, flags, true);
       pp_newline (buffer);
+      dump_histograms_for_stmt (cfun, buffer->buffer->stream, stmt);
     }
 
   dump_implicit_edges (buffer, bb, indent, flags);

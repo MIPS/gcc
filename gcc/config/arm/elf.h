@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    For ARM with ELF obj format.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2004, 2005
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2004, 2005, 2007
    Free Software Foundation, Inc.
    Contributed by Philip Blundell <philb@gnu.org> and
    Catherine Moore <clm@cygnus.com>
@@ -96,9 +96,10 @@
 /* Define this macro if jump tables (for `tablejump' insns) should be
    output in the text section, along with the assembler instructions.
    Otherwise, the readonly data section is used.  */
-/* We put ARM jump tables in the text section, because it makes the code
-   more efficient, but for Thumb it's better to put them out of band.  */
-#define JUMP_TABLES_IN_TEXT_SECTION (TARGET_ARM)
+/* We put ARM and Thumb-2 jump tables in the text section, because it makes
+   the code more efficient, but for Thumb-1 it's better to put them out of
+   band.  */
+#define JUMP_TABLES_IN_TEXT_SECTION (TARGET_32BIT)
 
 #ifndef LINK_SPEC
 #define LINK_SPEC "%{mbig-endian:-EB} %{mlittle-endian:-EL} -X"
@@ -125,6 +126,9 @@
 /* Output an element in the static constructor array.  */
 #undef TARGET_ASM_CONSTRUCTOR
 #define TARGET_ASM_CONSTRUCTOR arm_elf_asm_constructor
+
+#undef TARGET_ASM_DESTRUCTOR
+#define TARGET_ASM_DESTRUCTOR arm_elf_asm_destructor
 
 /* For PIC code we need to explicitly specify (PLT) and (GOT) relocs.  */
 #define NEED_PLT_RELOC	flag_pic

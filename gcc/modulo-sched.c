@@ -1,5 +1,5 @@
 /* Swing Modulo Scheduling implementation.
-   Copyright (C) 2004, 2005, 2006
+   Copyright (C) 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
@@ -744,7 +744,7 @@ generate_prolog_epilog (partial_schedule_ptr ps, struct loop * loop, rtx count_r
 
   /* Put the prolog on the entry edge.  */
   e = loop_preheader_edge (loop);
-  split_edge_and_insert (e, get_insns());
+  split_edge_and_insert (e, get_insns ());
 
   end_sequence ();
 
@@ -757,7 +757,7 @@ generate_prolog_epilog (partial_schedule_ptr ps, struct loop * loop, rtx count_r
   /* Put the epilogue on the exit edge.  */
   gcc_assert (single_exit (loop));
   e = single_exit (loop);
-  split_edge_and_insert (e, get_insns());
+  split_edge_and_insert (e, get_insns ());
   end_sequence ();
 }
 
@@ -868,6 +868,10 @@ canon_loop (struct loop *loop)
     }
 }
 
+/* Probability in % that the sms-ed loop rolls enough so that optimized
+   version may be entered.  Just a guess.  */
+#define PROB_SMS_ENOUGH_ITERATIONS 80
+
 /* Main entry point, perform SMS scheduling on the loops of the function
    that consist of single basic blocks.  */
 static void
@@ -882,13 +886,13 @@ sms_schedule (void)
   partial_schedule_ptr ps;
   struct df *df;
   basic_block bb = NULL;
-  struct loop *loop, *nloop;
+  struct loop *loop;
   basic_block condition_bb = NULL;
   edge latch_edge;
   gcov_type trip_count = 0;
 
   loop_optimizer_init (LOOPS_HAVE_PREHEADERS
-		       | LOOPS_HAVE_MARKED_SINGLE_EXITS);
+		       | LOOPS_HAVE_RECORDED_EXITS);
   if (!current_loops)
     return;  /* There are no loops to schedule.  */
 
@@ -1024,7 +1028,7 @@ sms_schedule (void)
   df = NULL;
 
   /* We don't want to perform SMS on new loops - created by versioning.  */
-  FOR_EACH_LOOP (li, loop, LI_ONLY_OLD)
+  FOR_EACH_LOOP (li, loop, 0)
     {
       rtx head, tail;
       rtx count_reg, count_init;
@@ -1181,8 +1185,12 @@ sms_schedule (void)
 		{
 		  rtx comp_rtx = gen_rtx_fmt_ee (GT, VOIDmode, count_reg,
 						 GEN_INT(stage_count));
+		  unsigned prob = (PROB_SMS_ENOUGH_ITERATIONS
+				   * REG_BR_PROB_BASE) / 100;
 
-		  nloop = loop_version (loop, comp_rtx, &condition_bb, true);
+		  loop_version (loop, comp_rtx, &condition_bb,
+				prob, prob, REG_BR_PROB_BASE - prob,
+				true);
 		}
 
 	      /* Set new iteration count of loop kernel.  */
@@ -1461,7 +1469,7 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
       bool unscheduled_nodes = false;
 
       if (dump_file)
-	fprintf(dump_file, "Starting with ii=%d\n", ii);
+	fprintf (dump_file, "Starting with ii=%d\n", ii);
       if (try_again_with_larger_ii)
 	{
 	  try_again_with_larger_ii = false;
@@ -1513,8 +1521,9 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
 	    }
 	  /* 2. Try scheduling u in window.  */
 	  if (dump_file)
-	    fprintf(dump_file, "Trying to schedule node %d in (%d .. %d) step %d\n",
-		    u, start, end, step);
+	    fprintf (dump_file,
+		     "Trying to schedule node %d in (%d .. %d) step %d\n",
+		     u, start, end, step);
 
           /* use must_follow & must_precede bitmaps to determine order
 	     of nodes within the cycle.  */
@@ -1548,7 +1557,7 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
 		    SET_BIT (sched_nodes, u);
 		    success = 1;
 		    if (dump_file)
-		      fprintf(dump_file, "Schedule in %d\n", c);
+		      fprintf (dump_file, "Schedule in %d\n", c);
 		    break;
 		  }
 	      }

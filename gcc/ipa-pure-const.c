@@ -163,7 +163,8 @@ check_operand (funct_state local,
 static void
 check_tree (funct_state local, tree t, bool checking_write)
 {
-  if ((TREE_CODE (t) == EXC_PTR_EXPR) || (TREE_CODE (t) == FILTER_EXPR))
+  if ((TREE_CODE (t) == EXC_PTR_EXPR) || (TREE_CODE (t) == FILTER_EXPR)
+      || TREE_CODE (t) == SSA_NAME)
     return;
 
   /* Any tree which is volatile disqualifies thie function from being
@@ -315,20 +316,15 @@ get_asm_expr_operands (funct_state local, tree stmt)
 static void
 check_call (funct_state local, tree call_expr) 
 {
-  int flags = call_expr_flags(call_expr);
-  tree operand_list = TREE_OPERAND (call_expr, 1);
+  int flags = call_expr_flags (call_expr);
   tree operand;
+  call_expr_arg_iterator iter;
   tree callee_t = get_callee_fndecl (call_expr);
   struct cgraph_node* callee;
   enum availability avail = AVAIL_NOT_AVAILABLE;
 
-  for (operand = operand_list;
-       operand != NULL_TREE;
-       operand = TREE_CHAIN (operand))
-    {
-      tree argument = TREE_VALUE (operand);
-      check_rhs_var (local, argument);
-    }
+  FOR_EACH_CALL_EXPR_ARG (operand, iter, call_expr)
+    check_rhs_var (local, operand);
   
   /* The const and pure flags are set by a variety of places in the
      compiler (including here).  If someone has already set the flags
@@ -451,7 +447,14 @@ scan_function (tree *tp,
 	      case ADDR_EXPR:
 		check_rhs_var (local, rhs);
 		break;
-	      case CALL_EXPR: 
+	      default:
+		break;
+	      }
+	    break;
+	  case tcc_vl_exp:
+	    switch (TREE_CODE (rhs)) 
+	      {
+	      case CALL_EXPR:
 		check_call (local, rhs);
 		break;
 	      default:

@@ -1,5 +1,5 @@
 ;; Predicate definitions for ATMEL AVR micro controllers.
-;; Copyright (C) 2006 Free Software Foundation, Inc.
+;; Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -28,29 +28,41 @@
   (and (match_code "reg")
        (match_test "REGNO (op) >= 16 && REGNO (op) <= 31")))
 
+(define_predicate "even_register_operand"
+  (and (match_code "reg")
+       (and (match_test "REGNO (op) <= 31")
+            (match_test "(REGNO (op) & 1) == 0"))))
+
+(define_predicate "odd_register_operand"
+  (and (match_code "reg")
+       (and (match_test "REGNO (op) <= 31")
+            (match_test "(REGNO (op) & 1) != 0"))))
+
 ;; SP register.
 (define_predicate "stack_register_operand"
   (and (match_code "reg")
        (match_test "REGNO (op) == REG_SP")))
 
-;; Return true if OP is a valid address for an I/O register.
-(define_predicate "io_address_operand"
-  (and (match_code "const_int")
-       (match_test "INTVAL (op) >= 0x20 
-                    && INTVAL (op) <= 0x60 - GET_MODE_SIZE (mode)")))
-
 ;; Return true if OP is a valid address for lower half of I/O space.
 (define_predicate "low_io_address_operand"
   (and (match_code "const_int")
-       (match_test "INTVAL (op) >= 0x20 
-                    && INTVAL (op) <= 0x40 - GET_MODE_SIZE (mode)")))
-       
-;; Return true if OP is a valid address for higth half of I/O space.
-(define_predicate "higth_io_address_operand"
+       (match_test "IN_RANGE((INTVAL (op)), 0x20, 0x3F)")))
+
+;; Return true if OP is a valid address for high half of I/O space.
+(define_predicate "high_io_address_operand"
   (and (match_code "const_int")
-       (match_test "INTVAL (op) >= 0x40 
-                    && INTVAL (op) <= 0x60 - GET_MODE_SIZE (mode)")))
-       
+       (match_test "IN_RANGE((INTVAL (op)), 0x40, 0x5F)")))
+
+;; Return 1 if OP is the zero constant for MODE.
+(define_predicate "const0_operand"
+  (and (match_code "const_int,const_double")
+       (match_test "op == CONST0_RTX (mode)")))
+
+;; Returns true if OP is either the constant zero or a register.
+(define_predicate "reg_or_0_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "const0_operand")))
+
 ;; Returns 1 if OP is a SYMBOL_REF.
 (define_predicate "symbol_ref_operand"
   (match_code "symbol_ref"))
@@ -83,3 +95,9 @@
 (define_predicate "simple_comparison_operator"
   (and (match_operand 0 "comparison_operator")
        (not (match_code "gt,gtu,le,leu"))))
+
+;; Return true if OP is a valid call operand.
+(define_predicate "call_insn_operand"
+  (and (match_code "mem")
+       (ior (match_test "register_operand (XEXP (op, 0), mode)")
+            (match_test "CONSTANT_ADDRESS_P (XEXP (op, 0))"))))

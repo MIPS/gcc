@@ -2249,6 +2249,14 @@ Unsigned 3 bit integer (in the range 0 to 7)
 @item P@var{n}
 Constant @var{n}, where @var{n} is a single-digit constant in the range 0 to 4.
 
+@item PA
+An integer equal to one of the MACFLAG_XXX constants that is suitable for
+use with either accumulator.
+
+@item PB
+An integer equal to one of the MACFLAG_XXX constants that is suitable for
+use only with accumulator A1.
+
 @item M1
 Constant 255.
 
@@ -2903,7 +2911,7 @@ cp3 registers.
 cp1 + cp2 + cp3 registers.
 
 @item I
-Unsigned 15 bit integer (in the range 0 to 32767).
+High 16-bit constant (32-bit constant with 16 LSBs zero).
 
 @item J
 Unsigned 5 bit integer (in the range 0 to 31).
@@ -2919,18 +2927,6 @@ Unsigned 14 bit integer (in the range 0 to 16383).
 
 @item N
 Signed 14 bit integer (in the range @minus{}8192 to 8191).
-
-@item O
-Signed 15 bit integer (in the range @minus{}16384 to 16383).
-
-@item P
-Signed 12 bit integer (in the range @minus{}2048 to 2047).
-
-@item J
-An integer constant with exactly a single bit set.
-
-@item Q
-An integer constant.
 
 @item Z
 Any SYMBOL_REF.
@@ -3063,7 +3059,9 @@ definitions.
 @deffn {MD Expression} define_register_constraint name regclass docstring
 All three arguments are string constants.
 @var{name} is the name of the constraint, as it will appear in
-@code{match_operand} expressions.  @var{regclass} can be either the
+@code{match_operand} expressions.  If @var{name} is a multi-letter
+constraint its length shall be the same for all constraints starting
+with the same letter.  @var{regclass} can be either the
 name of the corresponding register class (@pxref{Register Classes}),
 or a C expression which evaluates to the appropriate register class.
 If it is an expression, it must have no side effects, and it cannot
@@ -3593,35 +3591,48 @@ Operand 2 is an integer shift amount in bits.
 Operand 0 is where the resulting shifted vector is stored.
 The output and input vectors should have the same modes.
 
-@cindex @code{vec_pack_mod_@var{m}} instruction pattern
+@cindex @code{vec_pack_trunc_@var{m}} instruction pattern
+@item @samp{vec_pack_trunc_@var{m}}
+Narrow (demote) and merge the elements of two vectors. Operands 1 and 2
+are vectors of the same mode having N integral or floating point elements
+of size S.  Operand 0 is the resulting vector in which 2*N elements of
+size N/2 are concatenated after narrowing them down using truncation.
+
 @cindex @code{vec_pack_ssat_@var{m}} instruction pattern
 @cindex @code{vec_pack_usat_@var{m}} instruction pattern
-@item @samp{vec_pack_mod_@var{m}}, @samp{vec_pack_ssat_@var{m}}, @samp{vec_pack_usat_@var{m}}
-Narrow (demote) and merge the elements of two vectors.
-Operands 1 and 2 are vectors of the same mode.
+@item @samp{vec_pack_ssat_@var{m}}, @samp{vec_pack_usat_@var{m}}
+Narrow (demote) and merge the elements of two vectors.  Operands 1 and 2
+are vectors of the same mode having N integral elements of size S.
 Operand 0 is the resulting vector in which the elements of the two input
-vectors are concatenated after narrowing them down using modulo arithmetic or
-signed/unsigned saturating arithmetic.
+vectors are concatenated after narrowing them down using signed/unsigned
+saturating arithmetic.
 
 @cindex @code{vec_unpacks_hi_@var{m}} instruction pattern
 @cindex @code{vec_unpacks_lo_@var{m}} instruction pattern
+@item @samp{vec_unpacks_hi_@var{m}}, @samp{vec_unpacks_lo_@var{m}}
+Extract and widen (promote) the high/low part of a vector of signed
+integral or floating point elements.  The input vector (operand 1) has N
+elements of size S.  Widen (promote) the high/low elements of the vector
+using signed or floating point extension and place the resulting N/2
+values of size 2*S in the output vector (operand 0).
+
 @cindex @code{vec_unpacku_hi_@var{m}} instruction pattern
 @cindex @code{vec_unpacku_lo_@var{m}} instruction pattern
-@item @samp{vec_unpacks_hi_@var{m}}, @samp{vec_unpacks_lo_@var{m}}, @samp{vec_unpacku_hi_@var{m}}, @samp{vec_unpacku_lo_@var{m}}
-Extract and widen (promote) the high/low part of a vector of signed/unsigned
-elements. The input vector (operand 1) has N signed/unsigned elements of size S. 
-Using sign/zero extension widen (promote) the high/low elements of the vector,
-and place the resulting N/2 values of size 2*S in the output vector (operand 0).
+@item @samp{vec_unpacku_hi_@var{m}}, @samp{vec_unpacku_lo_@var{m}}
+Extract and widen (promote) the high/low part of a vector of unsigned
+integral elements.  The input vector (operand 1) has N elements of size S.
+Widen (promote) the high/low elements of the vector using zero extension and
+place the resulting N/2 values of size 2*S in the output vector (operand 0).
 
 @cindex @code{vec_widen_umult_hi_@var{m}} instruction pattern
 @cindex @code{vec_widen_umult_lo__@var{m}} instruction pattern
 @cindex @code{vec_widen_smult_hi_@var{m}} instruction pattern
 @cindex @code{vec_widen_smult_lo_@var{m}} instruction pattern
 @item @samp{vec_widen_umult_hi_@var{m}}, @samp{vec_widen_umult_lo_@var{m}}, @samp{vec_widen_smult_hi_@var{m}}, @samp{vec_widen_smult_lo_@var{m}}
-Signed/Unsigned widening multiplication. 
-The two inputs (operands 1 and 2) are vectors with N 
-signed/unsigned elements of size S. Multiply the high/low elements of the two 
-vectors, and put the N/2 products of size 2*S in the output vector (operand 0). 
+Signed/Unsigned widening multiplication.  The two inputs (operands 1 and 2)
+are vectors with N signed/unsigned elements of size S.  Multiply the high/low
+elements of the two vectors, and put the N/2 products of size 2*S in the
+output vector (operand 0).
 
 @cindex @code{mulhisi3} instruction pattern
 @item @samp{mulhisi3}
@@ -3657,6 +3668,24 @@ The least significant half of the product is discarded.
 @cindex @code{umul@var{m}3_highpart} instruction pattern
 @item @samp{umul@var{m}3_highpart}
 Similar, but the multiplication is unsigned.
+
+@cindex @code{madd@var{m}@var{n}4} instruction pattern
+@item @samp{madd@var{m}@var{n}4}
+Multiply operands 1 and 2, sign-extend them to mode @var{n}, add
+operand 3, and store the result in operand 0.  Operands 1 and 2
+have mode @var{m} and operands 0 and 3 have mode @var{n}.
+Both modes must be integer modes and @var{n} must be twice
+the size of @var{m}.
+
+In other words, @code{madd@var{m}@var{n}4} is like
+@code{mul@var{m}@var{n}3} except that it also adds operand 3.
+
+These instructions are not allowed to @code{FAIL}.
+
+@cindex @code{umadd@var{m}@var{n}4} instruction pattern
+@item @samp{umadd@var{m}@var{n}4}
+Like @code{madd@var{m}@var{n}4}, but zero-extend the multiplication
+operands instead of sign-extending them.
 
 @cindex @code{divmod@var{m}4} instruction pattern
 @item @samp{divmod@var{m}4}
@@ -3971,6 +4000,11 @@ destination, in the form of a @code{const_int} rtx.  Thus, if the
 compiler knows that both source and destination are word-aligned,
 it may provide the value 4 for this operand.
 
+Optional operands 5 and 6 specify expected alignment and size of block
+respectively.  The expected alignment differs from alignment in operand 4
+in a way that the blocks are not required to be aligned according to it in
+all cases. Expected size, when unknown, is set to @code{(const_int -1)}.
+
 Descriptions of multiple @code{movmem@var{m}} patterns can only be
 beneficial if the patterns for smaller modes have fewer restrictions
 on their first, second and fourth operands.  Note that the mode @var{m}
@@ -4002,6 +4036,11 @@ The fourth operand is the known alignment of the destination, in the form
 of a @code{const_int} rtx.  Thus, if the compiler knows that the
 destination is word-aligned, it may provide the value 4 for this
 operand.
+
+Optional operands 5 and 6 specify expected alignment and size of block
+respectively.  The expected alignment differs from alignment in operand 4
+in a way that the blocks are not required to be aligned according to it in
+all cases. Expected size, when unknown, is set to @code{(const_int -1)}.
 
 The use for multiple @code{setmem@var{m}} is as for @code{movmem@var{m}}.
 
@@ -4703,6 +4742,13 @@ respectively, a low or moderate degree of temporal locality.
 
 Targets that do not support write prefetches or locality hints can ignore
 the values of operands 1 and 2.
+
+@cindex @code{blockage} instruction pattern
+@item @samp{blockage}
+
+This pattern defines a pseudo insn that prevents the instruction
+scheduler from moving instructions across the boundary defined by the
+blockage insn.  Normally an UNSPEC_VOLATILE pattern.
 
 @cindex @code{memory_barrier} instruction pattern
 @item @samp{memory_barrier}
@@ -7250,8 +7296,12 @@ only worth to do when we are debugging the description and need to
 look more accurately at reservations of states.
 
 @item
-@dfn{time} means printing additional time statistics about
-generation of automata.
+@dfn{time} means printing time statistics about the generation of
+automata.
+
+@item
+@dfn{stats} means printing statistics about the generated automata
+such as the number of DFA states, NDFA states and arcs.
 
 @item
 @dfn{v} means a generation of the file describing the result automata.

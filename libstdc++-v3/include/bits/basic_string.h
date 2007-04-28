@@ -1,6 +1,7 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -388,6 +389,19 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       static void
       _S_copy_chars(_CharT* __p, const _CharT* __k1, const _CharT* __k2)
       { _M_copy(__p, __k1, __k2 - __k1); }
+
+      static int
+      _S_compare(size_type __n1, size_type __n2)
+      {
+	const difference_type __d = difference_type(__n1 - __n2);
+
+	if (__d > __gnu_cxx::__numeric_traits<int>::__max)
+	  return __gnu_cxx::__numeric_traits<int>::__max;
+	else if (__d < __gnu_cxx::__numeric_traits<int>::__min)
+	  return __gnu_cxx::__numeric_traits<int>::__min;
+	else
+	  return int(__d);
+      }
 
       void
       _M_mutate(size_type __pos, size_type __len1, size_type __len2);
@@ -1453,12 +1467,13 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
           return _S_construct(__beg, __end, __a, _Tag());
 	}
 
-      template<class _InIterator>
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 438. Ambiguity in the "do the right thing" clause
+      template<class _Integer>
         static _CharT*
-        _S_construct_aux(_InIterator __beg, _InIterator __end,
+        _S_construct_aux(_Integer __beg, _Integer __end,
 			 const _Alloc& __a, __true_type)
-	{ return _S_construct(static_cast<size_type>(__beg),
-			      static_cast<value_type>(__end), __a); }
+        { return _S_construct(static_cast<size_type>(__beg), __end, __a); }
 
       template<class _InIterator>
         static _CharT*
@@ -1933,7 +1948,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
 	int __r = traits_type::compare(_M_data(), __str.data(), __len);
 	if (!__r)
-	  __r =  __size - __osize;
+	  __r = _S_compare(__size, __osize);
 	return __r;
       }
 
@@ -2400,7 +2415,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 586. string inserter not a formatted function
-      return __os._M_insert(__str.data(), __str.size());
+      return __ostream_insert(__os, __str.data(), __str.size());
     }
 
   /**
