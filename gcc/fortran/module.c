@@ -4401,7 +4401,7 @@ gfc_use_module (void)
        }
 
       if (strcmp (module_name, "iso_c_binding") == 0
-	  && gfc_notify_std (GFC_STD_F2003, "New in Fortran 2003: "
+	  && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: "
 			     "ISO_C_BINDING module at %C") != FAILURE)
 	{
 	  import_iso_c_binding_module();

@@ -556,14 +556,14 @@ typedef struct
   unsigned implicit_type:1;	/* Type defined via implicit rules.  */
   unsigned untyped:1;           /* No implicit type could be found.  */
 
-   unsigned is_bind_c:1;           /* say if is bound to C */
-   /* these flags are both in the typespec and attribute.  the
-    * attribute list is what gets read from/written to a module file.
-    * the typespec is created from a decl being processed.
-    */
-   unsigned is_c_interop:1;        /* if it's c interoperable */
-   unsigned is_iso_c:1;            /* if sym is from iso_c_binding */
-   unsigned in_proc_decl:1;        /* if sym is from a proc decl stmt */
+  unsigned is_bind_c:1;		/* say if is bound to C */
+
+  /* These flags are both in the typespec and attribute.  The attribute
+     list is what gets read from/written to a module file.  The typespec
+     is created from a decl being processed.  */
+  unsigned is_c_interop:1;	/* It's c interoperable.  */
+  unsigned is_iso_c:1;		/* Symbol is from iso_c_binding.  */
+  unsigned in_proc_decl:1;	/* Symbol is from a proc decl stmt.  */
 
   /* Function/subroutine attributes */
   unsigned sequence:1, elemental:1, pure:1, recursive:1;
@@ -1042,6 +1042,8 @@ gfc_dt_list;
 
 #define gfc_get_dt_list() gfc_getmem(sizeof(gfc_dt_list))
 
+  /* A list of all derived types.  */
+  extern gfc_dt_list *gfc_derived_types;
 
 /* A namespace describes the contents of procedure, module or
    interface block.  */
@@ -1104,9 +1106,6 @@ typedef struct gfc_namespace
 
   /* A list of all alternate entry points to this procedure (or NULL).  */
   gfc_entry_list *entries;
-
-  /* A list of all derived types in this procedure (or NULL).  */
-  gfc_dt_list *derived_types;
 
   /* Set to 1 if namespace is a BLOCK DATA program unit.  */
   int is_block_data;

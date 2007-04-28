@@ -1,3 +1,86 @@
+2007-03-21  Richard Sandiford  <richard@codesourcery.com>
+
+	* lib/target-supports.exp (check_effective_target_nonpic): New
+	procedure.
+	* gcc.target/i386/20020616-1.c: Use an alternative to %ebx
+	when compiling PIC.
+	* gcc.target/i386/asm-4.c: Require nonpic.
+	* gcc.target/i386/cmov1.c: Likewise.
+	* gcc.target/i386/mul.c: Likewise.
+	* gcc.target/i386/pr21291.c: Require nonpic or ! ilp32.
+	* gcc.target/i386/ssetype-1.c: Require nonpic.
+	* gcc.target/i386/ssetype-3.c: Likewise.
+	* gcc.target/i386/ssetype-5.c: Likewise.
+
+2007-03-21  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.c-torture/execute/builtins/chk.h (LOCAL): Define.
+	* gcc.c-torture/execute/builtins/sprintf-chk.c (s1): Make LOCAL.
+	* gcc.c-torture/execute/builtins/stpcpy-chk.c (s1): Likewise.
+	* gcc.c-torture/execute/builtins/strcpy-chk.c (s1): Likewise.
+
+2007-03-19  Seongbae Park <seongbae.park@gmail.com>
+
+	PR tree-optimization/30590
+	* g++.dg/opt/pr30590.C: New testcase.
+
+2007-03-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/30762
+	* gcc.dg/pr30762-1.c: New test.
+	* gcc.dg/pr30762-2.c: New test.
+
+	PR inline-asm/30505
+	* gcc.target/i386/pr30505.c: New test.
+
+2007-03-19  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* gcc.target/arm/register-variables.c: New.
+
+2007-03-19  Jeff Law  <law@redhat.com>
+
+	* PR tree-optimization/30984
+	* gcc.c-torture/pr30984.c: New test.
+
+2007-03-19  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31254
+	* gcc.dg/torture/pr31254.c: New testcase.
+
+2007-03-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/torture/pr26565.c: Expect warning on packed field for
+	target default_packed.
+
+2007-03-19  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/31203
+	* gfortran.dg/string_length_1.f90: New test.
+
+2007-03-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/30395
+	* gcc.dg/pr16194.c: Provide define for REG on __hppa__.
+
+2007-03-18  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31052
+	* gfortran.dg/namelist_27.f90: New test.
+
+2007-03-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30531
+	* gfortran.dg/used_types_14.f90: New test.
+
+	PR fortran/31086
+	* gfortran.dg/used_types_15.f90: New test.
+
+2007-03-18  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/no-tree-dom-vect-bug.c: New test.
+	* gcc.dg/vect/vect.exp: Compile tests with -fno-tree-dominator-opts.
+ 
 2007-03-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR fortran/31120

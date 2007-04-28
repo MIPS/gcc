@@ -1163,13 +1163,18 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 {
   gfc_ref *ref;
 
-  /* if the formal arg has type BT_VOID, it's to one of the iso_c_binding
-   * procs c_f_pointer or c_f_procpointer, and we need to accept
-   * most pointers the user could give us.  this should allow that.
-   */
-  if(formal->ts.type == BT_VOID)
-     return 1;
-  
+  /* If the formal arg has type BT_VOID, it's to one of the iso_c_binding
+     procs c_f_pointer or c_f_procpointer, and we need to accept most
+     pointers the user could give us.  This should allow that.  */
+  if (formal->ts.type == BT_VOID)
+    return 1;
+
+  if (formal->ts.type == BT_DERIVED
+      && formal->ts.derived && formal->ts.derived->ts.is_iso_c
+      && actual->ts.type == BT_DERIVED
+      && actual->ts.derived && actual->ts.derived->ts.is_iso_c)
+    return 1;
+
   if (actual->ts.type == BT_PROCEDURE)
     {
       if (formal->attr.flavor != FL_PROCEDURE)

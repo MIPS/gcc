@@ -92,6 +92,8 @@ gfc_gsymbol *gfc_gsym_root = NULL;
 
 static gfc_symbol *changed_syms = NULL;
 
+gfc_dt_list *gfc_derived_types;
+
 
 /*********** IMPLICIT NONE and IMPLICIT statement handlers ***********/
 
@@ -1277,8 +1279,7 @@ gfc_add_is_bind_c (symbol_attribute *attr, const char *name, locus *where,
   if (where == NULL)
     where = &gfc_current_locus;
    
-  if (gfc_notify_std (GFC_STD_F2003,
-                      "New in Fortran 2003: BIND(C) at %L", where)
+  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: BIND(C) at %L", where)
       == FAILURE)
     return FAILURE;
 
@@ -2622,18 +2623,20 @@ free_sym_tree (gfc_symtree * sym_tree)
 }
 
 
-/* Free a derived type list.  */
+/* Free the derived type list.  */
 
 static void
-gfc_free_dt_list (gfc_dt_list * dt)
+gfc_free_dt_list (void)
 {
-  gfc_dt_list *n;
+  gfc_dt_list *dt, *n;
 
-  for (; dt; dt = n)
+  for (dt = gfc_derived_types; dt; dt = n)
     {
       n = dt->next;
       gfc_free (dt);
     }
+
+  gfc_derived_types = NULL;
 }
 
 
@@ -2699,8 +2702,6 @@ gfc_free_namespace (gfc_namespace * ns)
   gfc_free_equiv (ns->equiv);
   gfc_free_equiv_lists (ns->equiv_lists);
 
-  gfc_free_dt_list (ns->derived_types);
-
   for (i = GFC_INTRINSIC_BEGIN; i != GFC_INTRINSIC_END; i++)
     gfc_free_interface (ns->operator[i]);
 
@@ -2733,6 +2734,7 @@ gfc_symbol_done_2 (void)
 
   gfc_free_namespace (gfc_current_ns);
   gfc_current_ns = NULL;
+  gfc_free_dt_list ();
 }
 
 
@@ -2917,18 +2919,9 @@ gfc_get_gsymbol (const char *name)
 static gfc_symbol *
 get_iso_c_binding_dt (int sym_id, int parent_flag)
 {
-  gfc_dt_list *dt_list = NULL;
-  gfc_symbol *mod_sym = NULL;
+  gfc_dt_list *dt_list;
 
-  /* TODO: __iso_c_binding is also used as a string literal in module.c.
-     It needs to be made a global in case it's changed.  */
-  gfc_find_symbol ("__iso_c_binding", gfc_current_ns, 1, &mod_sym);
-  if (mod_sym == NULL)
-    /* This can happen if we're generating the args for one of the
-       procedures in iso_c_binding.  */
-    dt_list = gfc_current_ns->derived_types;
-  else
-    dt_list = mod_sym->ns->derived_types;
+  dt_list = gfc_derived_types;
 
   /* Loop through the derived types in the name list, searching for
      the desired symbol from iso_c_binding.  Search the parent namespaces
@@ -2940,14 +2933,6 @@ get_iso_c_binding_dt (int sym_id, int parent_flag)
         return dt_list->derived;
 
       dt_list = dt_list->next;
-
-      /* If we reached the end of the derived types in the current namespace,
-         we may need to look in the namespace.  */
-      if (dt_list == NULL && (parent_flag != 0 &&
-                              mod_sym->ns->parent != NULL))
-        /* Could not find the derived type in this namespace; look in the
-           parent namespace, if one exists.  */
-        dt_list = mod_sym->ns->parent->derived_types;
     }
 
   return NULL;
@@ -3594,7 +3579,7 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
 	tmp_sym->ts.derived = tmp_sym;
 
         /* Add the symbol created for the derived type to the current ns.  */
-        dt_list_ptr = &(gfc_current_ns->derived_types);
+        dt_list_ptr = &(gfc_derived_types);
         while (*dt_list_ptr != NULL && (*dt_list_ptr)->next != NULL)
           dt_list_ptr = &((*dt_list_ptr)->next);
 

@@ -3266,7 +3266,7 @@ match_proc_decl (void)
   /* Now that we know we successfully matched a proc decl, make
      sure the user didn't specify a standard that doesn't allow them.  */
   if (gfc_notify_std (GFC_STD_F2003,
-		      "New in Fortran 2003: procedure declaration "
+		      "Fortran 2003: procedure declaration "
 		      "statement at %C") == FAILURE)
     return MATCH_ERROR;
 

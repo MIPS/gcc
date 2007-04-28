@@ -1,7 +1,7 @@
 /* This file provides auxilliary functions for c_ptr_tests_8.  */
 
-#include <malloc.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 extern void abort (void);
 
