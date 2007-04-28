@@ -3,6 +3,12 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-04-28  Tobias Burnus  <burnus@net-b.de>
+
+	* symbol.c (get_iso_c_binding_dt, gen_special_c_interop_ptr,
+	gen_cptr_param, generate_isocbinding_symbol):
+	Remove unneeded argument to get_iso_c_binding_dt.
+
 2007-04-01  Tobias Burnus  <burnus@net-b.de>
 
 	* iso-c-binding.def: Add PR reference.

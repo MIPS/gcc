@@ -2917,7 +2917,7 @@ gfc_get_gsymbol (const char *name)
 
 
 static gfc_symbol *
-get_iso_c_binding_dt (int sym_id, int parent_flag)
+get_iso_c_binding_dt (int sym_id)
 {
   gfc_dt_list *dt_list;
 
@@ -3119,9 +3119,9 @@ gen_special_c_interop_ptr (int ptr_id, const char *ptr_name,
   /* The c_ptr and c_funptr derived types will provide the
      definition for c_null_ptr and c_null_funptr, respectively.  */
   if (ptr_id == ISOCBINDING_NULL_PTR)
-    tmp_sym->ts.derived = get_iso_c_binding_dt (ISOCBINDING_PTR, 1);
+    tmp_sym->ts.derived = get_iso_c_binding_dt (ISOCBINDING_PTR);
   else
-    tmp_sym->ts.derived = get_iso_c_binding_dt (ISOCBINDING_FUNPTR, 1);
+    tmp_sym->ts.derived = get_iso_c_binding_dt (ISOCBINDING_FUNPTR);
   if (tmp_sym->ts.derived == NULL)
     {
       /* This can occur if the user forgot to declare c_ptr or
@@ -3135,7 +3135,7 @@ gen_special_c_interop_ptr (int ptr_id, const char *ptr_name,
                                    ? "c_ptr" : "c_funptr"));
       tmp_sym->ts.derived =
         get_iso_c_binding_dt (ptr_id == ISOCBINDING_NULL_PTR
-                              ? ISOCBINDING_PTR : ISOCBINDING_FUNPTR, 1);
+                              ? ISOCBINDING_PTR : ISOCBINDING_FUNPTR);
     }
 
   /* Module name is some mangled version of iso_c_binding.  */
@@ -3231,7 +3231,7 @@ gen_cptr_param (gfc_formal_arglist **head,
   param_sym->attr.use_assoc = 1;
 
   /* Get the symbol for c_ptr, no matter what it's name is (user renamed).  */
-  c_ptr_sym = get_iso_c_binding_dt (ISOCBINDING_PTR, 1);
+  c_ptr_sym = get_iso_c_binding_dt (ISOCBINDING_PTR);
   if (c_ptr_sym == NULL)
     {
       /* This can happen if the user did not define c_ptr but they are
@@ -3660,10 +3660,10 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
 		tmp_sym->ts.type = BT_DERIVED;
                 if (s == ISOCBINDING_LOC)
                   tmp_sym->ts.derived =
-                    get_iso_c_binding_dt (ISOCBINDING_PTR, 1);
+                    get_iso_c_binding_dt (ISOCBINDING_PTR);
                 else
                   tmp_sym->ts.derived =
-                    get_iso_c_binding_dt (ISOCBINDING_FUNPTR, 1);
+                    get_iso_c_binding_dt (ISOCBINDING_FUNPTR);
 
                 if (tmp_sym->ts.derived == NULL)
                   {
@@ -3677,7 +3677,7 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
                     tmp_sym->ts.derived =
                       get_iso_c_binding_dt (s == ISOCBINDING_FUNLOC
                                             ? ISOCBINDING_FUNPTR
-                                            : ISOCBINDING_PTR, 1);
+                                            : ISOCBINDING_PTR);
                   }
 
 		/* The function result is itself (no result clause).  */
