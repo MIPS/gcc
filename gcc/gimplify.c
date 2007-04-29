@@ -49,6 +49,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "optabs.h"
 #include "pointer-set.h"
+#include "splay-tree.h"
 
 
 enum gimplify_omp_var_data
@@ -1606,9 +1607,7 @@ canonicalize_addr_expr (tree *expr_p)
   /* All checks succeeded.  Build a new node to merge the cast.  */
   *expr_p = build4 (ARRAY_REF, dctype, obj_expr,
 		    TYPE_MIN_VALUE (TYPE_DOMAIN (datype)),
-		    TYPE_MIN_VALUE (TYPE_DOMAIN (datype)),
-		    size_binop (EXACT_DIV_EXPR, TYPE_SIZE_UNIT (dctype),
-				size_int (TYPE_ALIGN_UNIT (dctype))));
+		    NULL_TREE, NULL_TREE);
   *expr_p = build1 (ADDR_EXPR, ctype, *expr_p);
 }
 

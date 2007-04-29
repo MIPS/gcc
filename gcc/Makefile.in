@@ -188,8 +188,6 @@ GCC_WARN_CFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $($@-warn)
 
 # These files are to have specific diagnostics suppressed, or are not to
 # be subject to -Werror:
-# Bison-1.75 output often yields (harmless) -Wtraditional warnings
-build/gengtype-yacc.o-warn = -Wno-error
 # flex output may yield harmless "no previous prototype" warnings
 build/gengtype-lex.o-warn = -Wno-error
 # SYSCALLS.c misses prototypes
@@ -289,8 +287,10 @@ CPPLIB = ../libcpp/libcpp.a
 CPPINC = -I$(srcdir)/../libcpp/include
 
 # Where to find decNumber
+enable_decimal_float = @enable_decimal_float@
 DECNUM = $(srcdir)/../libdecnumber
-DECNUMINC = -I$(DECNUM) -I../libdecnumber
+DECNUMFMT = $(srcdir)/../libdecnumber/$(enable_decimal_float)
+DECNUMINC = -I$(DECNUM) -I$(DECNUMFMT) -I../libdecnumber
 LIBDECNUMBER = ../libdecnumber/libdecnumber.a
 
 # Substitution type for target's getgroups 2nd arg.
@@ -770,7 +770,7 @@ PREDICT_H = predict.h predict.def
 CPPLIB_H = $(srcdir)/../libcpp/include/line-map.h \
 	$(srcdir)/../libcpp/include/cpplib.h
 DECNUM_H = $(DECNUM)/decContext.h $(DECNUM)/decDPD.h $(DECNUM)/decNumber.h \
-	$(DECNUM)/decimal32.h $(DECNUM)/decimal64.h $(DECNUM)/decimal128.h
+	$(DECNUMFMT)/decimal32.h $(DECNUMFMT)/decimal64.h $(DECNUMFMT)/decimal128.h
 MKDEPS_H = $(srcdir)/../libcpp/include/mkdeps.h
 SYMTAB_H = $(srcdir)/../libcpp/include/symtab.h
 CPP_ID_DATA_H = $(CPPLIB_H) $(srcdir)/../libcpp/include/cpp-id-data.h
@@ -787,8 +787,9 @@ SCEV_H = tree-scalar-evolution.h $(GGC_H) tree-chrec.h $(PARAMS_H)
 LAMBDA_H = lambda.h $(TREE_H) vec.h $(GGC_H)
 TREE_DATA_REF_H = tree-data-ref.h $(LAMBDA_H) omega.h
 VARRAY_H = varray.h $(MACHMODE_H) $(SYSTEM_H) coretypes.h $(TM_H)
-TREE_INLINE_H = tree-inline.h $(VARRAY_H) $(SPLAY_TREE_H)
+TREE_INLINE_H = tree-inline.h $(VARRAY_H) pointer-set.h
 REAL_H = real.h $(MACHMODE_H)
+EBIMAP_H = ebitmap.h sbitmap.h
 
 #
 # Now figure out from those variables how to compile and link.
@@ -969,6 +970,7 @@ OBJS-common = \
 	cfgloopmanip.o \
 	cfgrtl.o \
 	combine.o \
+	combine-stack-adj.o \
 	convert.o \
 	coverage.o \
 	cse.o \
@@ -987,6 +989,7 @@ OBJS-common = \
 	double-int.o \
 	dwarf2asm.o \
 	dwarf2out.o \
+	ebitmap.o \
 	emit-rtl.o \
 	et-forest.o \
 	except.o \
@@ -1187,7 +1190,7 @@ MOSTLYCLEANFILES = insn-flags.h insn-config.h insn-codes.h \
  insn-attr.h insn-attrtab.c insn-opinit.c insn-preds.c insn-constants.h \
  tm-preds.h tm-constrs.h \
  tree-check.h min-insn-modes.c insn-modes.c insn-modes.h \
- genrtl.c genrtl.h gt-*.h gtype-*.h gtype-desc.c gtyp-gen.h \
+ genrtl.c genrtl.h gt-*.h gtype-*.h gtype-desc.c gtyp-input.list \
  xgcc$(exeext) cpp$(exeext) cc1$(exeext) cc1*-dummy$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) \
  protoize$(exeext) unprotoize$(exeext) \
@@ -1463,60 +1466,6 @@ cpp$(exeext): $(GCC_OBJS) cppspec.o version.o intl.o prefix.o \
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(GCC_OBJS) cppspec.o \
 	  intl.o prefix.o version.o $(EXTRA_GCC_OBJS) $(LIBS)
 
-# Create links to binutils, especially for in-tree builds, to make -B.
-# use them.  We need hard links so that directories can be shuffled
-# during toplevel bootstrap.
-# Go through an additional indirection, because the file we create
-# can be either `sometool' (if it is a script) or `sometool$(exeext)'
-# (if it is a hard link).
-stamp-as: $(ORIGINAL_AS_FOR_TARGET)
-	@echo creating as; \
-	case "$(ORIGINAL_AS_FOR_TARGET)" in \
-	  ./as) ;; \
-	  ../*) \
-	     rm -f as$(exeext); \
-	     echo $(LN) $< as$(exeext); \
-	     $(LN) $< as$(exeext) || cp $< as$(exeext) ;; \
-	  *) \
-	     rm -f as; \
-	     echo '#!$(SHELL)' > as; \
-	     echo 'exec $(ORIGINAL_AS_FOR_TARGET) "$$@"' >> as ; \
-	     chmod +x as ;; \
-	esac
-	echo timestamp > $@
-
-stamp-collect-ld: $(ORIGINAL_LD_FOR_TARGET)
-	@echo creating collect-ld; \
-	case "$(ORIGINAL_LD_FOR_TARGET)" in \
-	  ./collect-ld) ;; \
-	  ../*) \
-	     rm -f collect-ld$(exeext); \
-	     echo $(LN) $< collect-ld$(exeext); \
-	     $(LN) $< collect-ld$(exeext) || cp $< collect-ld$(exeext) ;; \
-	  *) \
-	     rm -f collect-ld$(exeext); \
-	     echo '#!$(SHELL)' > collect-ld; \
-	     echo 'exec $(ORIGINAL_LD_FOR_TARGET) "$$@"' >> collect-ld ; \
-	     chmod +x collect-ld ;; \
-	esac
-	echo timestamp > $@
-
-stamp-nm: $(ORIGINAL_NM_FOR_TARGET)
-	@echo creating nm; \
-	case "$(ORIGINAL_NM_FOR_TARGET)" in \
-	  ./nm) ;; \
-	  ../*) \
-	     rm -f nm$(exeext); \
-	     echo $(LN) $< nm$(exeext); \
-	     $(LN) $< nm$(exeext) || cp $< nm$(exeext) ;; \
-	  *) \
-	     rm -f nm$(exeext); \
-	     echo '#!$(SHELL)' > nm; \
-	     echo 'exec $(ORIGINAL_NM_FOR_TARGET) "$$@"' >> nm ; \
-	     chmod +x nm ;; \
-	esac
-	echo timestamp > $@
-
 # Dump a specs file to make -B./ read these specs over installed ones.
 $(SPECS): xgcc$(exeext)
 	$(GCC_FOR_TARGET) -dumpspecs > tmp-specs
@@ -1564,7 +1513,7 @@ libgcc-support: libgcc.mvars stmp-int-hdrs $(STMP_FIXPROTO) $(TCONFIG_H) \
 	$(LIB2ADD_ST) $(LIB2ADDEH) $(srcdir)/emutls.c gcov-iov.h $(SFP_MACHINE)
 
 libgcc.mvars: config.status Makefile $(LIB2ADD) $(LIB2ADD_ST) specs \
-		xgcc$(exeext) stamp-as stamp-collect-ld stamp-nm
+		xgcc$(exeext)
 	: > tmp-libgcc.mvars
 	echo LIB1ASMFUNCS = '$(LIB1ASMFUNCS)' >> tmp-libgcc.mvars
 	echo LIB1ASMSRC = '$(LIB1ASMSRC)' >> tmp-libgcc.mvars
@@ -1697,7 +1646,7 @@ c-parser.o : c-parser.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 
 srcextra: gcc.srcextra lang.srcextra
 
-gcc.srcextra: gengtype-lex.c gengtype-yacc.c gengtype-yacc.h
+gcc.srcextra: gengtype-lex.c
 	-cp -p $^ $(srcdir)
 
 c-incpath.o: c-incpath.c c-incpath.h $(CONFIG_H) $(SYSTEM_H) $(CPPLIB_H) \
@@ -1745,6 +1694,8 @@ graph.o: graph.c $(SYSTEM_H) coretypes.h $(TM_H) toplev.h $(FLAGS_H) output.h \
     $(RTL_H) $(FUNCTION_H) hard-reg-set.h $(BASIC_BLOCK_H) graph.h $(OBSTACK_H)
 sbitmap.o: sbitmap.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
     $(FLAGS_H) hard-reg-set.h $(BASIC_BLOCK_H) $(OBSTACK_H)
+ebitmap.o: ebitmap.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+	$(EBITMAP_H)
 
 COLLECT2_OBJS = collect2.o tlink.o intl.o version.o
 COLLECT2_LIBS = @COLLECT2_LIBS@
@@ -1983,7 +1934,7 @@ tree-ssa-dse.o : tree-ssa-dse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 tree-ssa-forwprop.o : tree-ssa-forwprop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(GGC_H) $(TREE_H) $(RTL_H) $(TM_P_H) $(BASIC_BLOCK_H) \
    $(TREE_FLOW_H) tree-pass.h $(TREE_DUMP_H) $(DIAGNOSTIC_H) $(TIMEVAR_H) \
-   langhooks.h
+   langhooks.h $(FLAGS_H)
 tree-ssa-phiopt.o : tree-ssa-phiopt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(GGC_H) $(TREE_H) $(RTL_H) $(TM_P_H) $(BASIC_BLOCK_H) \
    $(TREE_FLOW_H) tree-pass.h $(TREE_DUMP_H) langhooks.h $(FLAGS_H) \
@@ -2135,7 +2086,7 @@ tree-ssa-loop-ivopts.o : tree-ssa-loop-ivopts.c $(TREE_FLOW_H) $(CONFIG_H) \
    output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    tree-pass.h $(GGC_H) $(RECOG_H) insn-config.h $(HASHTAB_H) $(SCEV_H) \
    $(CFGLOOP_H) $(PARAMS_H) langhooks.h $(BASIC_BLOCK_H) hard-reg-set.h \
-   tree-chrec.h $(VARRAY_H) tree-affine.h pointer-set.h
+   tree-chrec.h $(VARRAY_H) tree-affine.h pointer-set.h $(TARGET_H)
 tree-affine.o : tree-affine.c tree-affine.h $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) \
    output.h $(DIAGNOSTIC_H) $(TM_H) coretypes.h $(TREE_DUMP_H)
@@ -2179,7 +2130,7 @@ gimplify.o : gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    $(LANGHOOKS_DEF_H) $(TREE_FLOW_H) $(CGRAPH_H) $(TIMEVAR_H) $(TM_H) \
    coretypes.h except.h $(FLAGS_H) $(RTL_H) $(FUNCTION_H) $(EXPR_H) output.h \
    $(GGC_H) gt-gimplify.h $(HASHTAB_H) $(TARGET_H) toplev.h $(OPTABS_H) \
-   $(REAL_H)
+   $(REAL_H) $(SPLAY_TREE_H)
 gimple-low.o : gimple-low.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    $(DIAGNOSTIC_H) $(TREE_GIMPLE_H) $(TREE_INLINE_H) $(VARRAY_H) langhooks.h \
    $(LANGHOOKS_DEF_H) $(TREE_FLOW_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
@@ -2188,7 +2139,7 @@ gimple-low.o : gimple-low.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
 omp-low.o : omp-low.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) $(TREE_GIMPLE_H) $(TREE_INLINE_H) langhooks.h $(DIAGNOSTIC_H) \
    $(TREE_FLOW_H) $(TIMEVAR_H) $(FLAGS_H) $(EXPR_H) toplev.h tree-pass.h \
-   $(GGC_H)
+   $(GGC_H) $(SPLAY_TREE_H)
 tree-browser.o : tree-browser.c tree-browser.def $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(TREE_INLINE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) \
    $(TM_H) coretypes.h
@@ -2276,7 +2227,7 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    value-prof.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) \
    langhooks.h insn-flags.h $(CFGLAYOUT_H) $(CFGLOOP_H) hosthooks.h \
    $(CGRAPH_H) $(COVERAGE_H) alloc-pool.h $(GGC_H) $(INTEGRATE_H) \
-   $(CPPLIB_H) opts.h params.def tree-mudflap.h $(REAL_H)
+   $(CPPLIB_H) opts.h params.def tree-mudflap.h $(REAL_H) tree-pass.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
 	  -DTARGET_NAME=\"$(target_noncanonical)\" \
 	  -c $(srcdir)/toplev.c $(OUTPUT_OPTION)
@@ -2679,6 +2630,10 @@ regmove.o : regmove.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    insn-config.h $(TIMEVAR_H) tree-pass.h \
    $(RECOG_H) output.h $(REGS_H) hard-reg-set.h $(FLAGS_H) $(FUNCTION_H) \
    $(EXPR_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) except.h reload.h
+combine-stack-adj.o : combine-stack-adj.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(TM_H) $(RTL_H) insn-config.h $(TIMEVAR_H) tree-pass.h \
+   $(RECOG_H) output.h $(REGS_H) hard-reg-set.h $(FLAGS_H) $(FUNCTION_H) \
+   $(EXPR_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) except.h reload.h
 ddg.o : ddg.c $(DDG_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TARGET_H) \
    toplev.h $(RTL_H) $(TM_P_H) $(REGS_H) $(FUNCTION_H) \
    $(FLAGS_H) insn-config.h $(INSN_ATTR_H) except.h $(RECOG_H) \
@@ -2730,7 +2685,7 @@ predict.o: predict.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h output.h toplev.h $(RECOG_H) $(FUNCTION_H) except.h \
    $(TM_P_H) $(PREDICT_H) sreal.h $(PARAMS_H) $(TARGET_H) $(CFGLOOP_H) \
    $(COVERAGE_H) $(SCEV_H) $(GGC_H) predict.def $(TIMEVAR_H) $(TREE_DUMP_H) \
-   $(TREE_FLOW_H) tree-pass.h $(EXPR_H)
+   $(TREE_FLOW_H) tree-pass.h $(EXPR_H) pointer-set.h
 lists.o: lists.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h \
    $(RTL_H) $(GGC_H) gt-lists.h
 bb-reorder.o : bb-reorder.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -2838,7 +2793,7 @@ insn-automata.o : insn-automata.c $(CONFIG_H) $(SYSTEM_H) coretypes.h	\
 insn-emit.o : insn-emit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)	\
   $(RTL_H) $(EXPR_H) $(REAL_H) output.h insn-config.h $(OPTABS_H)	\
   reload.h $(RECOG_H) toplev.h $(FUNCTION_H) $(FLAGS_H) hard-reg-set.h	\
-  $(RESOURCE_H) $(TM_P_H) $(BASIC_BLOCK_H) tm-constrs.h
+  $(RESOURCE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(INTEGRATE_H) tm-constrs.h
 insn-extract.o : insn-extract.c $(CONFIG_H) $(SYSTEM_H) coretypes.h	\
   $(TM_H) $(RTL_H) toplev.h insn-config.h $(RECOG_H)
 insn-modes.o : insn-modes.c $(CONFIG_H) $(SYSTEM_H) coretypes.h	$(TM_H) \
@@ -2986,11 +2941,11 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/real.h $(srcdir)/varray.h $(srcdir)/insn-addr.h $(srcdir)/hwint.h \
   $(srcdir)/ipa-reference.h $(srcdir)/output.h \
   $(srcdir)/cselib.h $(srcdir)/basic-block.h  $(srcdir)/cgraph.h \
-  $(srcdir)/c-common.h $(srcdir)/c-tree.h $(srcdir)/reload.h \
+  $(srcdir)/reload.h \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
   $(srcdir)/ipa-prop.c $(srcdir)/ipa-cp.c $(srcdir)/ipa-inline.c \
   $(srcdir)/dbxout.c $(srcdir)/dwarf2out.c $(srcdir)/dwarf2asm.c \
-  $(srcdir)/dojump.c $(srcdir)/tree-profile.c \
+  $(srcdir)/dojump.c \
   $(srcdir)/emit-rtl.c $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
   $(srcdir)/function.c $(srcdir)/except.h \
   $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c $(srcdir)/optabs.c \
@@ -2999,7 +2954,6 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/sdbout.c $(srcdir)/stor-layout.c \
   $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
   $(srcdir)/tree-mudflap.c $(srcdir)/tree-flow.h \
-  $(srcdir)/c-objc-common.c $(srcdir)/c-common.c $(srcdir)/c-parser.c \
   $(srcdir)/tree-ssanames.c $(srcdir)/tree-eh.c $(srcdir)/tree-ssa-address.c \
   $(srcdir)/tree-phinodes.c $(srcdir)/tree-cfg.c \
   $(srcdir)/tree-dfa.c $(srcdir)/tree-ssa-propagate.c \
@@ -3009,69 +2963,38 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-profile.c $(srcdir)/tree-nested.c \
   $(srcdir)/ipa-reference.c $(srcdir)/tree-ssa-structalias.h \
   $(srcdir)/tree-ssa-structalias.c \
-  $(srcdir)/c-pragma.h $(srcdir)/omp-low.c $(srcdir)/varpool.c \
-  $(srcdir)/targhooks.c $(out_file) $(srcdir)/passes.c\
+  $(srcdir)/omp-low.c $(srcdir)/varpool.c \
+  $(srcdir)/targhooks.c $(out_file) $(srcdir)/passes.c \
   @all_gtfiles@
 
-GTFILES_FILES_LANGS = @all_gtfiles_files_langs@
-GTFILES_FILES_FILES = @all_gtfiles_files_files@
-GTFILES_LANG_DIR_NAMES = @subdirs@
-GTFILES_SRCDIR = @srcdir@
+GTFILES_H = $(subst /,-, $(subst $(srcdir)/,gt-, $(subst .c,.h, \
+		  $(filter %.c, $(GTFILES)))))
 
-GTFILES_FILES_FILES_C = $(subst $(srcdir)/,, \
-	$(filter %.c, $(GTFILES_FILES_FILES)))
-GTFILES_FILES_FILES_H = $(addprefix gt-, \
-	$(subst /,-,$(GTFILES_FILES_FILES_C:.c=.h)))
-GTFILES_LANG_DIR_NAMES_H = $(foreach d,$(GTFILES_LANG_DIR_NAMES), gtype-$(d).h)
-ALL_GTFILES_H := $(sort $(GTFILES_FILES_FILES_H) $(GTFILES_LANG_DIR_NAMES_H))
+GTFILES_LANG_H = $(patsubst [%], gtype-%.h, $(filter [%], $(GTFILES)))
+ALL_GTFILES_H := $(sort $(GTFILES_H) $(GTFILES_LANG_H))
 
-$(ALL_GTFILES_H) : s-gtype ; @true
+# $(GTFILES) may be too long to put on a command line, so we have to
+# write it out to a file (taking care not to do that in a way that
+# overflows a command line!) and then have gengtype read the file in.
+# The extra blank line in this definition is crucial: it makes the
+# $(foreach ...) below expand to many lines instead of one.
 
-
-gt-cgraph.h gt-coverage.h gtype-desc.h gtype-desc.c gt-except.h \
-gt-function.h gt-integrate.h gt-tree.h gt-varasm.h \
-gt-emit-rtl.h gt-explow.h gt-stor-layout.h gt-regclass.h \
-gt-lists.h gt-alias.h gt-cselib.h gt-gcse.h \
-gt-expr.h gt-sdbout.h gt-optabs.h gt-bitmap.h gt-dojump.h \
-gt-dwarf2out.h gt-dwarf2asm.h \
-gt-dbxout.h \
-gtype-c.h gt-cfglayout.h \
-gt-tree-mudflap.h gt-tree-vect-generic.h \
-gt-tree-profile.h gt-tree-ssa-address.h \
-gt-tree-iterator.h gt-gimplify.h \
-gt-tree-phinodes.h gt-tree-nested.h \
-gt-tree-ssa-propagate.h gt-varpool.h \
-gt-tree-ssa-structalias.h gt-ipa-inline.h gt-passes.h \
-gt-stringpool.h gt-targhooks.h gt-omp-low.h : s-gtype ; @true
-
-define echo_quoted_to_gtyp
- echo "\"$(gtyp)\", " >> tmp-gtyp.h
+define echo_to_gi.list
+echo '$(gtyp)' >> tmp-gi.list
 
 endef
 
-gtyp-gen.h: s-gtyp-gen ; @true
-s-gtyp-gen: Makefile
-	echo "/* This file is machine generated.  Do not edit.  */" > tmp-gtyp.h
-	echo "static const char *const srcdir = "  >> tmp-gtyp.h
-	echo "\"$(GTFILES_SRCDIR)\"" >> tmp-gtyp.h
-	echo ";" >> tmp-gtyp.h
-	echo "static const char *const lang_files[] = {" >> tmp-gtyp.h
-	$(foreach gtyp,$(GTFILES_FILES_FILES),$(echo_quoted_to_gtyp))
-	echo "NULL};" >> tmp-gtyp.h
-	echo "static const char *const langs_for_lang_files[] = {" >> tmp-gtyp.h
-	$(foreach gtyp,$(GTFILES_FILES_LANGS),$(echo_quoted_to_gtyp))
-	echo "NULL};" >> tmp-gtyp.h
-	echo "static const char *const all_files[] = {" >> tmp-gtyp.h
-	$(foreach gtyp,$(GTFILES),$(echo_quoted_to_gtyp))
-	echo " NULL};" >> tmp-gtyp.h
-	echo "static const char *const lang_dir_names[] = { \"c\", " >> tmp-gtyp.h
-	$(foreach gtyp,$(GTFILES_LANG_DIR_NAMES),$(echo_quoted_to_gtyp))
-	echo "NULL};" >> tmp-gtyp.h
-	$(SHELL) $(srcdir)/../move-if-change tmp-gtyp.h gtyp-gen.h
-	$(STAMP) s-gtyp-gen
+$(ALL_GTFILES_H) gtype-desc.c gtype-desc.h : s-gtype ; @true
 
-s-gtype: build/gengtype$(build_exeext) $(GTFILES)
-	$(RUN_GEN) build/gengtype$(build_exeext)
+gtyp-input.list: s-gtyp-input ; @true
+s-gtyp-input: Makefile
+	$(foreach gtyp, $(GTFILES), $(echo_to_gi.list))
+	$(SHELL) $(srcdir)/../move-if-change tmp-gi.list gtyp-input.list
+	$(STAMP) s-gtyp-input
+
+s-gtype: build/gengtype$(build_exeext) $(filter-out [%], $(GTFILES)) \
+	 gtyp-input.list
+	$(RUN_GEN) build/gengtype$(build_exeext) $(srcdir) gtyp-input.list
 	$(STAMP) s-gtype
 
 #
@@ -3135,12 +3058,11 @@ build/genextract.o : genextract.c $(RTL_BASE_H) $(BCONFIG_H)		\
 build/genflags.o : genflags.c $(RTL_BASE_H) $(OBSTACK_H) $(BCONFIG_H)	\
   $(SYSTEM_H) coretypes.h $(GTM_H) errors.h gensupport.h
 build/gengenrtl.o : gengenrtl.c $(BCONFIG_H) $(SYSTEM_H) rtl.def
-build/gengtype-lex.o : gengtype-lex.c gengtype.h gengtype-yacc.h	\
-  $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H) vec.h
-build/gengtype-yacc.o : gengtype-yacc.c gengtype.h $(BCONFIG_H)		\
-  $(SYSTEM_H) coretypes.h $(GTM_H)
-build/gengtype.o : gengtype.c $(BCONFIG_H) $(SYSTEM_H) coretypes.h	\
-  $(GTM_H) gengtype.h gtyp-gen.h rtl.def insn-notes.def errors.h
+build/gengtype-lex.o : gengtype-lex.c gengtype.h $(BCONFIG_H) $(SYSTEM_H)
+build/gengtype-parse.o : gengtype-parse.c gengtype.h $(BCONFIG_H)	\
+  $(SYSTEM_H)
+build/gengtype.o : gengtype.c $(BCONFIG_H) $(SYSTEM_H) gengtype.h 	\
+  rtl.def insn-notes.def errors.h
 build/genmddeps.o: genmddeps.c $(BCONFIG_H) $(SYSTEM_H) coretypes.h	\
   $(GTM_H) $(RTL_BASE_H) errors.h gensupport.h
 build/genmodes.o : genmodes.c $(BCONFIG_H) $(SYSTEM_H) errors.h		\
@@ -3177,18 +3099,12 @@ build/genautomata$(build_exeext) : BUILD_LIBS += -lm
 # These programs are not linked with the MD reader.
 build/gengenrtl$(build_exeext) : $(BUILD_ERRORS)
 build/genmodes$(build_exeext) : $(BUILD_ERRORS)
-build/gengtype$(build_exeext) : build/gengtype-lex.o \
-  build/gengtype-yacc.o $(BUILD_ERRORS)
+build/gengtype$(build_exeext) : build/gengtype-lex.o build/gengtype-parse.o \
+				$(BUILD_ERRORS)
 
 # Generated source files for gengtype.
 gengtype-lex.c : gengtype-lex.l
 	-$(FLEX) $(FLEXFLAGS) -o$@ $<
-# This is a pattern rule solely so that Make knows it need not run the
-# command twice.  The modifier to $@ ensures that Bison is asked to
-# produce a .c file, whether or not Make decides it needs the .h file
-# first.
-gengtype-y%.c gengtype-y%.h: gengtype-y%.y
-	-$(BISON) $(BISONFLAGS) -d -o $(@:.h=.c) $<
 
 #
 # Remake internationalization support.
@@ -3759,8 +3675,8 @@ mostlyclean: lang.mostlyclean
 	-rm -f gcc.vrs gcc.kys gcc.tps gcc.pgs gcc.fns
 # Delete core dumps.
 	-rm -f core */core
-# Delete file generated for gengtype.c
-	-rm -f gtyp-gen.h
+# Delete file generated for gengtype
+	-rm -f gtyp-input.list
 # Delete files generated by gengtype.c
 	-rm -f gtype-*
 	-rm -f gt-*

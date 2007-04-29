@@ -12,6 +12,8 @@ details.  */
  * compiled directly.	*/
 
   using namespace java::lang::reflect;
+  
+  pc_t pc = NULL;
 
   // FRAME_DESC registers this particular invocation as the top-most
   // interpreter frame.  This lets the stack tracing code (for
@@ -20,19 +22,107 @@ details.  */
   // destructor so it cleans up automatically when the interpreter
   // returns.
   java::lang::Thread *thread = java::lang::Thread::currentThread();
+  
+#ifdef DEBUG
+  _Jv_InterpFrame frame_desc (meth, thread, NULL, &pc);
+#else
   _Jv_InterpFrame frame_desc (meth, thread);
+#endif
 
   _Jv_word stack[meth->max_stack];
   _Jv_word *sp = stack;
 
   _Jv_word locals[meth->max_locals];
 
-#ifdef DEBUG  
+#ifdef DEBUG
+  // This is the information needed to get and set local variables with
+  // proper type checking.
   frame_desc.locals = locals;
   char locals_type[meth->max_locals];
-  memset (locals_type, 'x', meth->max_locals);
   frame_desc.locals_type = locals_type;
-#endif
+  
+  // Set all slots as invalid until they are written to.
+  memset (locals_type, 'x', meth->max_locals);
+  
+  // We need to set the local variable types for the method arguments since
+  // they are valid at invocation.
+  
+  _Jv_Method *method = meth->get_method ();
+  int type_ctr = 0;
+  
+  // If the method is non-static, we need to set the type for the "this" pointer.
+  if ((method->accflags & java::lang::reflect::Modifier::STATIC) == 0)
+    {
+      if (args)
+        {
+          // Set the "this" pointer for this frame.
+          _Jv_word *this_ptr = reinterpret_cast<_Jv_word *> (args);
+          frame_desc.obj_ptr = this_ptr[0].o;
+        }
+
+      frame_desc.locals_type[0] = 'o';
+      type_ctr++;
+    }
+  
+  // Now parse the method signature to set the types of the other arguments.  
+  int sig_len = method->signature->len ();
+  char *signature = method->signature->chars ();
+  for (int i = 1; signature[i] != ')' && i <= sig_len; i++)
+    {
+      if (signature[i] == 'Z' || signature[i] == 'B' || signature[i] == 'C' 
+          || signature[i] == 'S' || signature[i] == 'I')
+        {
+          frame_desc.locals_type[type_ctr] = 'i';
+          type_ctr++;
+          continue;
+        }
+      else if (signature[i] == 'F')
+        {
+          frame_desc.locals_type[type_ctr] = 'f';
+          type_ctr++;
+          continue;
+        }
+      else if (signature[i] == 'J')
+        {
+          frame_desc.locals_type[type_ctr] = 'l';
+          frame_desc.locals_type[type_ctr+1] = 'x';
+          type_ctr += 2;
+          continue;
+        }
+      else if (signature[i] == 'D')
+        {
+          frame_desc.locals_type[type_ctr] = 'd';
+          frame_desc.locals_type[type_ctr+1] = 'x';
+          type_ctr += 2;
+          continue;
+        }
+      else if (signature[i] == 'L')
+        {
+          frame_desc.locals_type[type_ctr] = 'o';
+          type_ctr++;
+          while (signature[i] != ';')
+            i++;
+          continue;
+        }
+      else if (signature[i] == '[')
+        {
+          frame_desc.locals_type[type_ctr] = 'o';
+          type_ctr++;
+          
+          // Ignore multi-dimensional arrays.
+          while (signature[i] == '[')
+            i++;
+          
+          // Check for an object array
+          if (signature[i] == 'L')
+            {
+              while (signature[i] != ';')
+                i++;
+            }
+          continue;
+        }
+    }
+#endif /* DEBUG */
 
 #define INSN_LABEL(op) &&insn_##op
 
@@ -251,8 +341,6 @@ details.  */
 #endif
   };
 
-  pc_t pc;
-
 #ifdef DIRECT_THREADED
 
 #ifdef DEBUG
@@ -271,9 +359,32 @@ details.  */
       goto *((pc++)->insn);						\
     }									\
   while (0)
+
+#undef REWRITE_INSN
+#define REWRITE_INSN(INSN,SLOT,VALUE)					\
+  do {									\
+    if (pc[-2].insn == breakpoint_insn->insn)				\
+      {									\
+	using namespace ::gnu::gcj::jvmti;				\
+	jlocation location = meth->insn_index (pc - 2);			\
+	_Jv_RewriteBreakpointInsn (meth->self, location, (pc_t) INSN);	\
+      }									\
+    else								\
+      pc[-2].insn = INSN;						\
+									\
+    pc[-1].SLOT = VALUE;						\
+  }									\
+  while (0)
+
 #else
 #undef NEXT_INSN
 #define NEXT_INSN goto *((pc++)->insn)
+#define REWRITE_INSN(INSN,SLOT,VALUE)		\
+  do {						\
+    pc[-2].insn = INSN;				\
+    pc[-1].SLOT = VALUE;			\
+  }						\
+  while (0)
 #endif
 
 #define INTVAL() ((pc++)->int_val)
@@ -356,15 +467,6 @@ details.  */
   */
   memcpy ((void*) locals, (void*) args, meth->args_raw_size);
 
-#ifdef DEBUG
-  // Get the object pointer for this method, after checking that it is
-  // non-static.
-  _Jv_Method *method = meth->get_method ();
-   
-  if ((method->accflags & java::lang::reflect::Modifier::STATIC) == 0)
-    frame_desc.obj_ptr = locals[0].o;
-#endif
-
   _Jv_word *pool_data = meth->defining_class->constants.data;
 
   /* These three are temporaries for common code used by several
@@ -432,8 +534,7 @@ details.  */
 #ifdef DIRECT_THREADED
 	// Rewrite instruction so that we use a faster pre-resolved
 	// method.
-	pc[-2].insn = &&invokevirtual_resolved;
-	pc[-1].datum = rmeth;
+	REWRITE_INSN (&&invokevirtual_resolved, datum, rmeth);
 #endif /* DIRECT_THREADED */
       }
       goto perform_invoke;
@@ -1767,8 +1868,7 @@ details.  */
 	  }
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = newinsn;
-	pc[-1].datum = field->u.addr;
+	REWRITE_INSN (newinsn, datum, field->u.addr);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -1858,8 +1958,7 @@ details.  */
 	  }
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = newinsn;
-	pc[-1].int_val = field_offset;
+	REWRITE_INSN (newinsn, int_val, field_offset);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -1974,8 +2073,7 @@ details.  */
 	  }
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = newinsn;
-	pc[-1].datum = field->u.addr;
+	REWRITE_INSN (newinsn, datum, field->u.addr);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -2073,8 +2171,7 @@ details.  */
 	  }
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = newinsn;
-	pc[-1].int_val = field_offset;
+	REWRITE_INSN (newinsn, int_val, field_offset);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -2149,8 +2246,7 @@ details.  */
 #ifdef DIRECT_THREADED
 	// Rewrite instruction so that we use a faster pre-resolved
 	// method.
-	pc[-2].insn = &&invokespecial_resolved;
-	pc[-1].datum = rmeth;
+	REWRITE_INSN (&&invokespecial_resolved, datum, rmeth);
 #endif /* DIRECT_THREADED */
       }
       goto perform_invoke;
@@ -2187,8 +2283,7 @@ details.  */
 #ifdef DIRECT_THREADED
 	// Rewrite instruction so that we use a faster pre-resolved
 	// method.
-	pc[-2].insn = &&invokestatic_resolved;
-	pc[-1].datum = rmeth;
+	REWRITE_INSN (&&invokestatic_resolved, datum, rmeth);
 #endif /* DIRECT_THREADED */
       }
       goto perform_invoke;
@@ -2226,8 +2321,7 @@ details.  */
 #ifdef DIRECT_THREADED
 	// Rewrite instruction so that we use a faster pre-resolved
 	// method.
-	pc[-2].insn = &&invokeinterface_resolved;
-	pc[-1].datum = rmeth;
+	REWRITE_INSN (&&invokeinterface_resolved, datum, rmeth);
 #else
 	// Skip dummy bytes.
 	pc += 2;
@@ -2265,8 +2359,7 @@ details.  */
 	PUSHA (res);
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = &&new_resolved;
-	pc[-1].datum = klass;
+	REWRITE_INSN (&&new_resolved, datum, klass);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -2301,8 +2394,7 @@ details.  */
 	PUSHA (result);
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = &&anewarray_resolved;
-	pc[-1].datum = klass;
+	REWRITE_INSN (&&anewarray_resolved, datum, klass);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -2346,8 +2438,7 @@ details.  */
 	PUSHA (value);
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = &&checkcast_resolved;
-	pc[-1].datum = to;
+	REWRITE_INSN (&&checkcast_resolved, datum, to);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -2374,8 +2465,7 @@ details.  */
 	PUSHI (to->isInstance (value));
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = &&instanceof_resolved;
-	pc[-1].datum = to;
+	REWRITE_INSN (&&instanceof_resolved, datum, to);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -2526,18 +2616,19 @@ details.  */
 	Thread *thread = Thread::currentThread ();
 	JNIEnv *jni_env = _Jv_GetCurrentJNIEnv ();
 
-	_Jv_JVMTI_PostEvent (JVMTI_EVENT_BREAKPOINT, thread, jni_env,
-			     method, location);
-
-	// Continue execution
+	// Save the insn here since the breakpoint could be removed
+	// before the JVMTI notification returns.
 	using namespace gnu::gcj::jvmti;
 	Breakpoint *bp
 	  = BreakpointManager::getBreakpoint (reinterpret_cast<jlong> (method),
 					      location);
 	JvAssert (bp != NULL);
-
 	pc_t opc = reinterpret_cast<pc_t> (bp->getInsn ());
 
+	_Jv_JVMTI_PostEvent (JVMTI_EVENT_BREAKPOINT, thread, jni_env,
+			     method, location);
+
+	// Continue execution
 #ifdef DIRECT_THREADED
 	goto *(opc->insn);
 #else

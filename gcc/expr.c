@@ -1237,13 +1237,14 @@ block_move_libcall_safe_for_call_parm (void)
 
   /* If registers go on the stack anyway, any argument is sure to clobber
      an outgoing argument.  */
-#if defined (REG_PARM_STACK_SPACE) && defined (OUTGOING_REG_PARM_STACK_SPACE)
-  {
-    tree fn = emit_block_move_libcall_fn (false);
-    (void) fn;
-    if (REG_PARM_STACK_SPACE (fn) != 0)
-      return false;
-  }
+#if defined (REG_PARM_STACK_SPACE)
+  if (OUTGOING_REG_PARM_STACK_SPACE)
+    {
+      tree fn;
+      fn = emit_block_move_libcall_fn (false);
+      if (REG_PARM_STACK_SPACE (fn) != 0)
+	return false;
+    }
 #endif
 
   /* If any argument goes in memory, then it might clobber an outgoing
@@ -4382,9 +4383,19 @@ store_expr (tree exp, rtx target, int call_param_p)
 	{
 	  if (TYPE_UNSIGNED (TREE_TYPE (exp))
 	      != SUBREG_PROMOTED_UNSIGNED_P (target))
-	    exp = fold_convert
-	      (lang_hooks.types.signed_or_unsigned_type
-	       (SUBREG_PROMOTED_UNSIGNED_P (target), TREE_TYPE (exp)), exp);
+	    {
+	      /* Some types, e.g. Fortran's logical*4, won't have a signed
+		 version, so use the mode instead.  */
+	      tree ntype
+		= (get_signed_or_unsigned_type
+		   (SUBREG_PROMOTED_UNSIGNED_P (target), TREE_TYPE (exp)));
+	      if (ntype == NULL)
+		ntype = lang_hooks.types.type_for_mode
+		  (TYPE_MODE (TREE_TYPE (exp)),
+		   SUBREG_PROMOTED_UNSIGNED_P (target));
+
+	      exp = fold_convert (ntype, exp);
+	    }
 
 	  exp = fold_convert (lang_hooks.types.type_for_mode
 				(GET_MODE (SUBREG_REG (target)),
@@ -6291,12 +6302,6 @@ safe_from_p (rtx x, tree exp, int top_p)
 	    && ! safe_from_p (x, TREE_OPERAND (exp, i), 0))
 	  return 0;
 
-      /* If this is a language-specific tree code, it may require
-	 special handling.  */
-      if ((unsigned int) TREE_CODE (exp)
-	  >= (unsigned int) LAST_AND_UNUSED_TREE_CODE
-	  && !lang_hooks.safe_from_p (x, exp))
-	return 0;
       break;
 
     case tcc_type:
@@ -6772,14 +6777,14 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
      information.  It would be better of the diagnostic routines
      used the file/line information embedded in the tree nodes rather
      than globals.  */
-  if (cfun && cfun->ib_boundaries_block && EXPR_HAS_LOCATION (exp))
+  if (cfun && EXPR_HAS_LOCATION (exp))
     {
       location_t saved_location = input_location;
       input_location = EXPR_LOCATION (exp);
-      emit_line_note (input_location);
+      set_curr_insn_source_location (input_location);
 
       /* Record where the insns produced belong.  */
-      record_block_change (TREE_BLOCK (exp));
+      set_curr_insn_block (TREE_BLOCK (exp));
 
       ret = expand_expr_real_1 (exp, target, tmode, modifier, alt_rtl);
 
@@ -6819,7 +6824,7 @@ static rtx
 expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		    enum expand_modifier modifier, rtx *alt_rtl)
 {
-  rtx op0, op1, temp, decl_rtl;
+  rtx op0, op1, op2, temp, decl_rtl;
   tree type;
   int unsignedp;
   enum machine_mode mode;
@@ -7972,6 +7977,47 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       return op0;
 
     case PLUS_EXPR:
+      /* Check if this is a case for multiplication and addition.  */
+      if (TREE_CODE (type) == INTEGER_TYPE
+	  && TREE_CODE (TREE_OPERAND (exp, 0)) == MULT_EXPR)
+	{
+	  tree subsubexp0, subsubexp1;
+	  enum tree_code code0, code1;
+
+	  subexp0 = TREE_OPERAND (exp, 0);
+	  subsubexp0 = TREE_OPERAND (subexp0, 0);
+	  subsubexp1 = TREE_OPERAND (subexp0, 1);
+	  code0 = TREE_CODE (subsubexp0);
+	  code1 = TREE_CODE (subsubexp1);
+	  if (code0 == NOP_EXPR && code1 == NOP_EXPR
+	      && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (subsubexp0, 0)))
+		  < TYPE_PRECISION (TREE_TYPE (subsubexp0)))
+	      && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (subsubexp0, 0)))
+		  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (subsubexp1, 0))))
+	      && (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (subsubexp0, 0)))
+		  == TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (subsubexp1, 0)))))
+	    {
+	      tree op0type = TREE_TYPE (TREE_OPERAND (subsubexp0, 0));
+	      enum machine_mode innermode = TYPE_MODE (op0type);
+	      bool zextend_p = TYPE_UNSIGNED (op0type);
+	      this_optab = zextend_p ? umadd_widen_optab : smadd_widen_optab;
+	      if (mode == GET_MODE_2XWIDER_MODE (innermode)
+		  && (this_optab->handlers[(int) mode].insn_code
+		      != CODE_FOR_nothing))
+		{
+		  expand_operands (TREE_OPERAND (subsubexp0, 0),
+				   TREE_OPERAND (subsubexp1, 0),
+				   NULL_RTX, &op0, &op1, EXPAND_NORMAL);
+		  op2 = expand_expr (TREE_OPERAND (exp, 1), subtarget,
+				     VOIDmode, 0);
+		  temp = expand_ternary_op (mode, this_optab, op0, op1, op2,
+					    target, unsignedp);
+		  gcc_assert (temp);
+		  return REDUCE_BIT_FIELD (temp);
+		}
+	    }
+	}
+
       /* If we are adding a constant, a VAR_DECL that is sp, fp, or ap, and
 	 something else, make sure we add the register to the constant and
 	 then to the other thing.  This case can occur during strength
@@ -8921,7 +8967,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	return target;
       }
 
-    case VEC_PACK_MOD_EXPR:
+    case VEC_PACK_TRUNC_EXPR:
     case VEC_PACK_SAT_EXPR:
       {
 	mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
@@ -8957,7 +9003,14 @@ reduce_to_bit_field_precision (rtx exp, rtx target, tree type)
   HOST_WIDE_INT prec = TYPE_PRECISION (type);
   if (target && GET_MODE (target) != GET_MODE (exp))
     target = 0;
-  if (TYPE_UNSIGNED (type))
+  /* For constant values, reduce using build_int_cst_type. */
+  if (GET_CODE (exp) == CONST_INT)
+    {
+      HOST_WIDE_INT value = INTVAL (exp);
+      tree t = build_int_cst_type (type, value);
+      return expand_expr (t, target, VOIDmode, EXPAND_NORMAL);
+    }
+  else if (TYPE_UNSIGNED (type))
     {
       rtx mask;
       if (prec < HOST_BITS_PER_WIDE_INT)

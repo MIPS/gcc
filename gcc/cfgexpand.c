@@ -1244,6 +1244,38 @@ maybe_dump_rtl_for_tree_stmt (tree stmt, rtx since)
     }
 }
 
+/* Returns the label_rtx expression for a label starting basic block BB.  */
+
+static rtx
+label_rtx_for_bb (basic_block bb)
+{
+  tree_stmt_iterator tsi;
+  tree lab, lab_stmt;
+
+  if (bb->flags & BB_RTL)
+    return block_label (bb);
+
+  /* We cannot use tree_block_label, as we no longer have stmt annotations.
+     TODO -- avoid creating the new tree labels.  */
+  for (tsi = tsi_start (bb_stmt_list (bb)); !tsi_end_p (tsi); tsi_next (&tsi))
+    {
+      lab_stmt = tsi_stmt (tsi);
+      if (TREE_CODE (lab_stmt) != LABEL_EXPR)
+	break;
+
+      lab = LABEL_EXPR_LABEL (lab_stmt);
+      if (DECL_NONLOCAL (lab))
+	break;
+
+      return label_rtx (lab);
+    }
+
+  lab = create_artificial_label ();
+  lab_stmt = build1 (LABEL_EXPR, void_type_node, lab);
+  tsi_link_before (&tsi, lab_stmt, TSI_NEW_STMT);
+  return label_rtx (lab);
+}
+
 /* A subroutine of expand_gimple_basic_block.  Expand one COND_EXPR.
    Returns a new basic block if we've terminated the current basic
    block and created a new one.  */
@@ -1256,17 +1288,17 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
   edge true_edge;
   edge false_edge;
   tree pred = COND_EXPR_COND (stmt);
-  tree then_exp = COND_EXPR_THEN (stmt);
-  tree else_exp = COND_EXPR_ELSE (stmt);
   rtx last2, last;
 
+  gcc_assert (COND_EXPR_THEN (stmt) == NULL_TREE);
+  gcc_assert (COND_EXPR_ELSE (stmt) == NULL_TREE);
   last2 = last = get_last_insn ();
 
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
   if (EXPR_LOCUS (stmt))
     {
-      emit_line_note (*(EXPR_LOCUS (stmt)));
-      record_block_change (TREE_BLOCK (stmt));
+      set_curr_insn_source_location (*(EXPR_LOCUS (stmt)));
+      set_curr_insn_block (TREE_BLOCK (stmt));
     }
 
   /* These flags have no purpose in RTL land.  */
@@ -1275,31 +1307,31 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
 
   /* We can either have a pure conditional jump with one fallthru edge or
      two-way jump that needs to be decomposed into two basic blocks.  */
-  if (TREE_CODE (then_exp) == GOTO_EXPR && IS_EMPTY_STMT (else_exp))
+  if (false_edge->dest == bb->next_bb)
     {
-      jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
+      jumpif (pred, label_rtx_for_bb (true_edge->dest));
       add_reg_br_prob_note (last, true_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
-      if (EXPR_LOCUS (then_exp))
-	emit_line_note (*(EXPR_LOCUS (then_exp)));
+      if (true_edge->goto_locus)
+  	set_curr_insn_source_location (*true_edge->goto_locus);
+      false_edge->flags |= EDGE_FALLTHRU;
       return NULL;
     }
-  if (TREE_CODE (else_exp) == GOTO_EXPR && IS_EMPTY_STMT (then_exp))
+  if (true_edge->dest == bb->next_bb)
     {
-      jumpifnot (pred, label_rtx (GOTO_DESTINATION (else_exp)));
+      jumpifnot (pred, label_rtx_for_bb (false_edge->dest));
       add_reg_br_prob_note (last, false_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
-      if (EXPR_LOCUS (else_exp))
-	emit_line_note (*(EXPR_LOCUS (else_exp)));
+      if (false_edge->goto_locus)
+  	set_curr_insn_source_location (*false_edge->goto_locus);
+      true_edge->flags |= EDGE_FALLTHRU;
       return NULL;
     }
-  gcc_assert (TREE_CODE (then_exp) == GOTO_EXPR
-	      && TREE_CODE (else_exp) == GOTO_EXPR);
 
-  jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
+  jumpif (pred, label_rtx_for_bb (true_edge->dest));
   add_reg_br_prob_note (last, true_edge->probability);
   last = get_last_insn ();
-  expand_expr (else_exp, const0_rtx, VOIDmode, 0);
+  emit_jump (label_rtx_for_bb (false_edge->dest));
 
   BB_END (bb) = last;
   if (BARRIER_P (BB_END (bb)))
@@ -1321,8 +1353,8 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
 
   maybe_dump_rtl_for_tree_stmt (stmt, last2);
 
-  if (EXPR_LOCUS (else_exp))
-    emit_line_note (*(EXPR_LOCUS (else_exp)));
+  if (false_edge->goto_locus)
+    set_curr_insn_source_location (*false_edge->goto_locus);
 
   return new_bb;
 }
@@ -1439,7 +1471,8 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
 static basic_block
 expand_gimple_basic_block (basic_block bb)
 {
-  block_stmt_iterator bsi = bsi_start (bb);
+  tree_stmt_iterator tsi;
+  tree stmts = bb_stmt_list (bb);
   tree stmt = NULL;
   rtx note, last;
   edge e;
@@ -1452,11 +1485,32 @@ expand_gimple_basic_block (basic_block bb)
 	       bb->index);
     }
 
+  bb->il.tree = NULL;
   init_rtl_bb_info (bb);
   bb->flags |= BB_RTL;
 
-  if (!bsi_end_p (bsi))
-    stmt = bsi_stmt (bsi);
+  /* Remove the RETURN_EXPR if we may fall though to the exit
+     instead.  */
+  tsi = tsi_last (stmts);
+  if (!tsi_end_p (tsi)
+      && TREE_CODE (tsi_stmt (tsi)) == RETURN_EXPR)
+    {
+      tree ret_stmt = tsi_stmt (tsi);
+
+      gcc_assert (single_succ_p (bb));
+      gcc_assert (single_succ (bb) == EXIT_BLOCK_PTR);
+
+      if (bb->next_bb == EXIT_BLOCK_PTR
+	  && !TREE_OPERAND (ret_stmt, 0))
+	{
+	  tsi_delink (&tsi);
+	  single_succ_edge (bb)->flags |= EDGE_FALLTHRU;
+	}
+    }
+
+  tsi = tsi_start (stmts);
+  if (!tsi_end_p (tsi))
+    stmt = tsi_stmt (tsi);
 
   if (stmt && TREE_CODE (stmt) == LABEL_EXPR)
     {
@@ -1469,7 +1523,7 @@ expand_gimple_basic_block (basic_block bb)
       BB_HEAD (bb) = NEXT_INSN (last);
       if (NOTE_P (BB_HEAD (bb)))
 	BB_HEAD (bb) = NEXT_INSN (BB_HEAD (bb));
-      bsi_next (&bsi);
+      tsi_next (&tsi);
       note = emit_note_after (NOTE_INSN_BASIC_BLOCK, BB_HEAD (bb));
 
       maybe_dump_rtl_for_tree_stmt (stmt, last);
@@ -1493,9 +1547,9 @@ expand_gimple_basic_block (basic_block bb)
 	ei_next (&ei);
     }
 
-  for (; !bsi_end_p (bsi); bsi_next (&bsi))
+  for (; !tsi_end_p (tsi); tsi_next (&tsi))
     {
-      tree stmt = bsi_stmt (bsi);
+      tree stmt = tsi_stmt (tsi);
       basic_block new_bb;
 
       if (!stmt)
@@ -1541,6 +1595,21 @@ expand_gimple_basic_block (basic_block bb)
 	      maybe_dump_rtl_for_tree_stmt (stmt, last);
 	    }
 	}
+    }
+
+  /* Expand implicit goto.  */
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    {
+      if (e->flags & EDGE_FALLTHRU)
+	break;
+    }
+
+  if (e && e->dest != bb->next_bb)
+    {
+      emit_jump (label_rtx_for_bb (e->dest));
+      if (e->goto_locus)
+        set_curr_insn_source_location (*e->goto_locus);
+      e->flags &= ~EDGE_FALLTHRU;
     }
 
   do_pending_stack_adjust ();
@@ -1610,6 +1679,19 @@ construct_init_block (void)
   return init_block;
 }
 
+/* For each lexical block, set BLOCK_NUMBER to the depth at which it is
+   found in the block tree.  */
+
+static void
+set_block_levels (tree block, int level)
+{
+  while (block)
+    {
+      BLOCK_NUMBER (block) = level;
+      set_block_levels (BLOCK_SUBBLOCKS (block), level + 1);
+      block = BLOCK_CHAIN (block);
+    }
+}
 
 /* Create a block containing landing pads and similar stuff.  */
 
@@ -1634,7 +1716,7 @@ construct_exit_block (void)
     input_location = cfun->function_end_locus;
 
   /* The following insns belong to the top scope.  */
-  record_block_change (DECL_INITIAL (current_function_decl));
+  set_curr_insn_block (DECL_INITIAL (current_function_decl));
 
   /* Generate rtl for function exit.  */
   expand_function_end ();
@@ -1762,8 +1844,16 @@ tree_expand_cfg (void)
   /* Some backends want to know that we are expanding to RTL.  */
   currently_expanding_to_rtl = 1;
 
-  /* Prepare the rtl middle end to start recording block changes.  */
-  reset_block_changes ();
+  insn_locators_alloc ();
+  if (!DECL_BUILT_IN (current_function_decl))
+    set_curr_insn_source_location (DECL_SOURCE_LOCATION (current_function_decl));
+  set_curr_insn_block (DECL_INITIAL (current_function_decl));
+  prologue_locator = curr_insn_locator ();
+
+  /* Make sure first insn is a note even if we don't want linenums.
+     This makes sure the first insn will never be deleted.
+     Also, final expects a note to appear there.  */
+  emit_note (NOTE_INSN_DELETED);
 
   /* Mark arrays indexed with non-constant indices with TREE_ADDRESSABLE.  */
   discover_nonconstant_array_refs ();
@@ -1810,6 +1900,8 @@ tree_expand_cfg (void)
     bb = expand_gimple_basic_block (bb);
 
   construct_exit_block ();
+  set_curr_insn_block (DECL_INITIAL (current_function_decl));
+  insn_locators_finalize ();
 
   /* We're done expanding trees to RTL.  */
   currently_expanding_to_rtl = 0;
@@ -1839,8 +1931,6 @@ tree_expand_cfg (void)
   /* Now that we're done expanding trees to RTL, we shouldn't have any
      more CONCATs anywhere.  */
   generating_concat_p = 0;
-
-  finalize_block_changes ();
 
   if (dump_file)
     {
@@ -1872,6 +1962,9 @@ tree_expand_cfg (void)
   return_label = NULL;
   naked_return_label = NULL;
   free_histograms ();
+  /* Tag the blocks with a depth number so that change_scope can find
+     the common parent easily.  */
+  set_block_levels (DECL_INITIAL (cfun->decl), 0);
   return 0;
 }
 

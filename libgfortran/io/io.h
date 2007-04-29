@@ -1,4 +1,5 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -78,6 +79,14 @@ stream;
 #define swrite(s, buf, nbytes) ((s)->write)(s, buf, nbytes)
 
 #define sset(s, c, n) ((s)->set)(s, c, n)
+
+/* Macros for testing what kinds of I/O we are doing.  */
+
+#define is_array_io(dtp) ((dtp)->internal_unit_desc)
+
+#define is_internal_unit(dtp) ((dtp)->u.p.unit_is_internal)
+
+#define is_stream_io(dtp) ((dtp)->u.p.current_unit->flags.access == ACCESS_STREAM)
 
 /* The array_loop_spec contains the variables for the loops over index ranges
    that are encountered.  Since the variables can be negative, ssize_t
@@ -442,7 +451,7 @@ typedef struct gfc_unit
   struct gfc_unit *left, *right;
   int priority;
 
-  int read_bad, current_record;
+  int read_bad, current_record, saved_pos;
   enum
   { NO_ENDFILE, AT_ENDFILE, AFTER_ENDFILE }
   endfile;
@@ -671,15 +680,6 @@ internal_proto(get_internal_unit);
 extern void free_internal_unit (st_parameter_dt *);
 internal_proto(free_internal_unit);
 
-extern int is_internal_unit (st_parameter_dt *);
-internal_proto(is_internal_unit);
-
-extern int is_array_io (st_parameter_dt *);
-internal_proto(is_array_io);
-
-extern int is_stream_io (st_parameter_dt *);
-internal_proto(is_stream_io);
-
 extern gfc_unit *find_unit (int);
 internal_proto(find_unit);
 
@@ -691,6 +691,9 @@ internal_proto(get_unit);
 
 extern void unlock_unit (gfc_unit *);
 internal_proto(unlock_unit);
+
+extern void update_position (gfc_unit *);
+internal_proto(update_position);
 
 /* open.c */
 

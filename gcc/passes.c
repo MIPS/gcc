@@ -524,6 +524,7 @@ init_optimization_passes (void)
 
       /* Initial scalar cleanups.  */
       NEXT_PASS (pass_ccp);
+      NEXT_PASS (pass_phiprop);
       NEXT_PASS (pass_fre);
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_forwprop);
@@ -653,7 +654,6 @@ init_optimization_passes (void)
       struct tree_opt_pass **p = &pass_rest_of_compilation.sub;
       NEXT_PASS (pass_init_function);
       NEXT_PASS (pass_jump);
-      NEXT_PASS (pass_insn_locators_initialize);
       NEXT_PASS (pass_rtl_eh);
       NEXT_PASS (pass_initial_value_sets);
       NEXT_PASS (pass_unshare_all_rtl);
@@ -666,7 +666,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_gcse);
       NEXT_PASS (pass_jump_bypass);
       NEXT_PASS (pass_rtl_ifcvt);
-      NEXT_PASS (pass_outof_cfg_layout_mode);
       NEXT_PASS (pass_tracer);
       /* Perform loop optimizations.  It might be better to do them a bit
 	 sooner, but we want the profile feedback to work more
@@ -685,6 +684,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_web);
       NEXT_PASS (pass_cse2);
       NEXT_PASS (pass_rtl_fwprop_addr);
+      NEXT_PASS (pass_outof_cfg_layout_mode);
       NEXT_PASS (pass_life);
       NEXT_PASS (pass_combine);
       NEXT_PASS (pass_if_after_combine);

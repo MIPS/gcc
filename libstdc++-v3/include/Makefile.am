@@ -89,11 +89,15 @@ bits_headers = \
 	${bits_srcdir}/istream.tcc \
 	${bits_srcdir}/list.tcc \
 	${bits_srcdir}/locale_classes.h \
+	${bits_srcdir}/locale_classes.tcc \
 	${bits_srcdir}/locale_facets.h \
 	${bits_srcdir}/locale_facets.tcc \
+	${bits_srcdir}/locale_facets_nonio.h \
+	${bits_srcdir}/locale_facets_nonio.tcc \
 	${bits_srcdir}/localefwd.h \
 	${bits_srcdir}/mask_array.h \
 	${bits_srcdir}/ostream.tcc \
+	${bits_srcdir}/ostream_insert.h \
 	${bits_srcdir}/postypes.h \
 	${bits_srcdir}/stream_iterator.h \
 	${bits_srcdir}/streambuf_iterator.h \
@@ -512,6 +516,7 @@ ext_headers = \
 	${ext_srcdir}/mt_allocator.h \
 	${ext_srcdir}/new_allocator.h \
 	${ext_srcdir}/numeric \
+	${ext_srcdir}/numeric_traits.h \
 	${ext_srcdir}/pod_char_traits.h \
 	${ext_srcdir}/pool_allocator.h \
 	${ext_srcdir}/rb_tree \
@@ -635,6 +640,7 @@ endif
 if GLIBCXX_C_HEADERS_C_GLOBAL
 c_compatibility_headers = \
 	${c_compatibility_srcdir}/complex.h \
+	${c_compatibility_srcdir}/fenv.h \
 	${c_compatibility_srcdir}/tgmath.h 
 endif
 

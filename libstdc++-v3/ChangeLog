@@ -1,3 +1,622 @@
+2007-04-27  Paolo Carlini  <pcarlini@suse.de>
+
+	DR 438, [DR].
+	* include/bits/basic_string.h (_S_construct_aux(_InIterator,
+	_InIterator, const _Alloc&, __true_type)): Do not cast the
+	second argument.
+	* include/ext/rc_string_base.h (_S_construct_aux(_Integer,
+	_Integer, const _Alloc&, std::__true_type)): Likewise.
+	* include/ext/sso_string_base.h (_M_construct_aux(_InIterator,
+	_InIterator, std::__true_type)): Likewise.
+	* include/bits/stl_deque.h (_M_initialize_dispatch(_Integer,
+	_Integer, __true_type)): Cast the first argument.
+	(_M_assign_dispatch(_Integer, _Integer, __true_type)): Do
+	not cast the arguments.
+	(_M_insert_dispatch(iterator, _Integer, _Integer, __true_type)):
+	Likewise.
+	* include/bits/stl_list.h (_M_initialize_dispatch(_Integer,
+	_Integer, __true_type)): Likewise.
+	(_M_assign_dispatch(_Integer, _Integer, __true_type)): Do
+	not cast both arguments.
+	* include/bits/stl_bvector.h (_M_initialize_dispatch(_Integer,
+	_Integer, __true_type)): Cast the first argument.
+	(_M_assign_dispatch(_Integer, _Integer, __true_type)): Do not
+	cast the arguments.
+	* include/bits/stl_vector.h (_M_initialize_dispatch(_Integer,
+	_Integer, __true_type)): Cast the first argument.
+	(_M_assign_dispatch(_Integer, _Integer, __true_type)): Do not
+	cast the arguments.
+	(_M_insert_dispatch(iterator, _Integer, _Integer, __true_type)):
+	Likewise.
+	* testsuite/21_strings/basic_string/requirements/dr438/
+	constructor.cc: New.
+	* testsuite/ext/vstring/requirements/dr438/constructor.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/deque/
+	assign_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/deque/
+	constructor.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/deque/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/deque/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/deque/
+	insert_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/list/
+	assign_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/list/
+	constructor.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/list/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/list/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/list/
+	insert_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/vector/
+	assign_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/vector/
+	constructor.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/vector/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/vector/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/vector/
+	insert_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/vector/
+	bool/constructor.cc: Likewise.
+	* docs/html/ext/howto.html: Add an entry for DR 438.
+
+2007-04-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_classes.h: Remove redundant inline specifiers.
+	* include/bits/ios_base.h: Likewise.
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: Adjust dg-error line
+	numbers.
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: Likewise.
+
+2007-04-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.h (class collate, class collate_byname):
+	Move...
+	* include/bits/locale_classes.h: ... here.
+	* include/bits/locale_facets.tcc (locale::combine, locale::operator(),
+	has_facet, use_facet, collate::_M_compare, collate::_M_transform,
+	collate::do_compare, collate::do_transform, collate::do_hash): Move...
+	* include/bits/locale_classes.tcc: ... here, new.
+	* include/Makefile.am: Add.
+	* testsuite/util/testsuite_abi.h: Include <locale>.
+	* include/std/locale: Tweak.
+	* include/std/istream: Likewise.
+	* include/std/ostream: Likewise.
+	* include/bits/codecvt.h: Likewise.
+	* include/Makefile.in: Regenerate.
+
+	* include/bits/codecvt.h: Adjust extern template declarations.
+	* include/bits/ostream_insert.h: Likewise.
+	* include/bits/ostream.tcc: Likewise.
+
+	* include/bits/locale_facets.h: Do not include <bits/codecvt.h>.
+	* include/std/fstream: Do it here.
+	* include/bits/locale_facets_nonio.h: Likewise.
+
+2007-04-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.h (class time_base,
+	struct __timepunct_cache, class __timepunct, class time_get,
+	class time_get_byname, class time_put, class time_put_byname,
+	class money_base, struct __moneypunct_cache, class moneypunct,
+	class moneypunct_byname, class money_get, class money_put,
+	struct messages_base, class messages, class messages_byname): Move...
+	* include/bits/locale_facets_nonio.h: ... here.
+	* include/bits/locale_facets.tcc
+	(struct __use_cache<__moneypunct_cache<> >,
+	__moneypunct_cache<>::_M_cache, money_get<>::_M_extract,
+	money_get<>::__do_get, money_get<>::do_get, money_put<>::_M_insert,
+	money_put<>::__do_put, money_put<>::do_put, time_get<>::do_date_order,
+	time_get<>::_M_extract_via_format, time_get<>::_M_extract_num,
+	time_get<>::_M_extract_name, time_get<>::do_get_time,
+	time_get<>::do_get_date, time_get<>::do_get_weekday,
+	time_get<>::do_get_monthname, time_get<>::do_get_year, time_put<>::put,
+	time_put<>::do_put): Move...
+	* include/bits/locale_facets_nonio.tcc: ... here.
+	* include/Makefile.am: Add.
+	* include/std/locale: Adjust includes.
+	* include/std/fstream: Likewise.
+	* include/std/istream: Likewise.
+	* include/std/ostream: Likewise.
+	* include/Makefile.in: Regenerate.
+
+2007-04-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* scripts/testsuite_flags.in: Add --build-cc option.
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Set cc.  Fix typo
+	in previous change.
+	(v3_target_compile_as_c): Use cc.
+
+2007-04-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Use the same flags
+	for remote host testing we use for local host testing.  Copy all
+	testsuite headers to the remote host
+	(v3_target_compile_as_c): Use remote_exec, not just exec.
+
+2007-04-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/functional: Formatting fixes.
+
+2007-04-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/concurrence.h: Do not include <cstdlib>, use
+	__builtin_abort.
+	* include/debug/debug.h: Likewise.
+	* include/tr1/memory: Likewise.
+	* include/tr1/boost_shared_ptr.h: Likewise.
+	* include/tr1/functional: Likewise.
+
+2007-04-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc: Do not include <typeinfo>.
+	* testsuite/27_io/basic_ios/imbue/14072.cc: Do it here.
+	* testsuite/27_io/basic_ios/cons/char/3.cc: Likewise.
+	* testsuite/27_io/basic_istream/sentry/pod/1.cc: Likewise.
+	* testsuite/27_io/basic_ostream/sentry/pod/1.cc: Likewise.
+	* testsuite/21_strings/basic_string/inserters_extractors/
+	pod/10081-in.cc: Likewise.
+	* testsuite/21_strings/basic_string/inserters_extractors/
+	pod/10081-out.cc: Likewise.
+	* testsuite/22_locale/locale/cons/2.cc: Likewise.
+	* testsuite/22_locale/locale/cons/unicode.cc: Likewise.
+	* testsuite/22_locale/numpunct/members/pod/2.cc: Likewise.
+	* testsuite/22_locale/global_templates/1.cc: Likewise.
+
+2007-04-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* configure.ac: Allow both powerpc*-*-linux* and powerpc*-*-gnu*
+	for long double compatibility.
+	* configure: Regenerate.
+	* src/complex_io.cc, src/istream-inst.cc, src/ostream-inst.cc:
+	Condition some _GLIBCXX_LDBL_COMPAT calls on _GLIBCXX_USE_WCHAR_T.
+
+2007-04-14  Steve Ellcey  <sje@cup.hp.com>
+
+	* configure.ac: Change how LIBSUPCXX_PICFLAGS is set.
+	* configure: Regenerate.
+
+2007-04-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/generic/c_locale.cc: Include <limits>.
+
+2007-04-13  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31556
+	* include/bits/stl_algobase.h (equal(_InputIterator1, _InputIterator1,
+	_InputIterator2, _BinaryPredicate), mismatch(_InputIterator1,
+	_InputIterator1, _InputIterator2, _BinaryPredicate)): Convert
+	predicate return to bool.
+	* include/bits/stl_algo.h (__find_if(_InputIterator, _InputIterator,
+	_Predicate, input_iterator_tag), search(_ForwardIterator1,
+	_ForwardIterator1, _ForwardIterator2, _ForwardIterator2,
+	_BinaryPredicate), __search_n(_ForwardIterator, _ForwardIterator,
+	_Integer, const _Tp&, _BinaryPredicate, std::forward_iterator_tag),
+	__search_n(_RandomAccessIter, _RandomAccessIter, _Integer, const _Tp&,
+	_BinaryPredicate, std::random_access_iterator_tag),
+	search_n(_ForwardIterator, _ForwardIterator, _Integer, const _Tp&,
+	_BinaryPredicate), remove_copy_if(_InputIterator, _InputIterator,
+	_OutputIterator, _Predicate), __unique_copy(_ForwardIterator,
+	_ForwardIterator, _OutputIterator, _BinaryPredicate,
+	forward_iterator_tag, output_iterator_tag),
+	__unique_copy(_InputIterator, _InputIterator, _OutputIterator,
+	_BinaryPredicate, input_iterator_tag, output_iterator_tag),
+	__unique_copy(_InputIterator, _InputIterator, _OutputIterator,
+	_BinaryPredicate, input_iterator_tag, output_iterator_tag),
+	__unique_copy(_InputIterator, _InputIterator, _ForwardIterator,
+	_BinaryPredicate, input_iterator_tag, forward_iterator_tag),
+	unique(_ForwardIterator, _ForwardIterator, _BinaryPredicate),
+	__partition(_BidirectionalIterator, _BidirectionalIterator, _Predicate,
+	bidirectional_iterator_tag), binary_search(_ForwardIterator,
+	_ForwardIterator, const _Tp&, _Compare),
+	next_permutation(_BidirectionalIterator, _BidirectionalIterator,
+	_Compare), prev_permutation(_BidirectionalIterator,
+	_BidirectionalIterator, _Compare)): Likewise.
+
+2007-04-13  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31554
+	* include/bits/stl_algo.h (stable_partition): Convert __buf.size()
+	to _DistanceType.
+
+2007-04-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/numeric_traits.h: Do not include <limits>.
+	(__numeric_traits_integer::__is_signed, __digits): Add.
+	(__numeric_traits_floating::__digits10, __max_exponent10): Add.
+	* src/istream.cc (ignore<char>(streamsize, int_type), operator>>
+	(basic_istream<char>&, char*), ignore<wchar_t>(streamsize,
+	int_type)): Use the latter.
+	* src/compatibility.cc (ignore<char>(streamsize),
+	ignore<wchar_t>(streamsize)): Likewise.
+	* include/ext/vstring_util.h (__vstring_utility<>::_S_compare):
+	Likewise.
+	* include/bits/stl_memory.h (__get_temporary_buffer): Likewise.
+	* include/bits/stl_algobase.h (lexicographical_compare(const char*,
+	const char*, const char*, const char*)): Likewise.
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_int(_InIter,
+	_InIter, ios_base&, ios_base::iostate&, _ValueT&),
+	num_put<>::_M_insert_int(_OutIter, ios_base&, _CharT, _ValueT),
+	num_put<>::_M_insert_float(_OutIter, ios_base&, _CharT, char,
+	_ValueT), collate<>::do_hash(const _CharT*, const _CharT*)): Likewise.
+	* include/bits/basic_string.h (basic_string<>::_S_compare): Likewise.
+	* include/bits/istream.tcc (operator>>(short&), operator>>(int&),
+	ignore(streamsize), ignore(streamsize, int_type), operator>>
+	(basic_istream<>&, _CharT*)): Likewise.
+	* include/bits/stl_bvector.h (vector<bool>::max_size): Likewise.
+	* include/tr1/functional_hash.h (struct hash<long double>): Likewise.
+	* include/std/istream: Do not include <limits>.
+	* include/tr1/cmath: Include <limits>.
+	* testsuite/23_containers/vector/bool/capacity/29134.cc: Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/12.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/13.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/wchar_t/12.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/wchar_t/13.cc:
+	Likewise.
+	* testsuite/27_io/ios_base/storage/2.cc: Likewise.
+
+	* include/tr1/hashtable: Do not include the whole <iterator>.
+
+2007-04-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/gnu/c_locale.h: Do not include <langinfo.h>
+	and <iconv.h>.
+	* config/locale/gnu/c++locale_internal.h: Include <langinfo.h>.
+
+2007-04-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/istream (class basic_istream<>): Remove unneded friend
+	declarations.
+
+2007-04-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/num_get/get/wchar_t/1.cc: Initialize v.
+
+2007-04-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::do_get(iter_type,
+	ios_base&, ios_base::iostate&, void*&)): Fix for sizeof(void*)
+	> sizeof(unsigned long).
+
+	* testsuite/22_locale/num_get/get/char/1.cc: Fix void* test.
+	* testsuite/22_locale/num_get/get/wchar_t/1.cc: Likewise.
+
+	* testsuite/22_locale/num_put/put/char/1.cc: Tweak comment.
+	* testsuite/22_locale/num_put/put/wchar_t/1.cc: Likewise.
+
+2007-04-11  Zack Weinberg  <zackw@panix.com>
+
+	* include/std/iosfwd: Do not include <bits/c++locale.h> and
+	<bits/functexcept.h>.
+
+2007-04-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/pb_ds/detail/resize_policy/
+	cc_hash_max_collision_check_resize_trigger_imp.hpp: Qualify
+	namespace std members.	
+	* include/ext/pb_ds/detail/list_update_policy/
+	counter_lu_metadata.hpp: Same.
+	* include/ext/throw_allocator.h: Same.
+	* include/ext/pod_char_traits.h: Same.
+	* include/ext/malloc_allocator.h: Same.
+	* libsupc++/del_op.cc: Same, simplify.
+
+	* include/bits/c++config: Adjust macro name.
+	
+	* include/c_global/cstring: Alphabetize.
+	* include/c_global/cwctype: Same.
+	
+2007-04-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/cmath: Include <bits/stl_algobase.h> instead of
+	the whole <algorithm>.
+
+2007-04-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits (__is_function_helper): New, uses
+	variadic templates.
+	(is_function): Forward to the latter.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_function/is_function.cc: Add test.
+
+2007-04-10  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28277 (partial: vstring bits)
+	* include/bits/ostream_insert.h: New.
+	* include/Makefile.am: Add.
+	* include/ext/vstring.h (operator<<(basic_ostream<>&,
+	const __versa_string<>&): Forward to __ostream_insert.
+	* include/bits/basic_string.h (operator<<(basic_ostream<>&,
+	const string<>&)): Likewise.
+	* include/std/ostream (operator<<(basic_ostream<>&, _CharT),
+	operator<<(basic_ostream<char,>&, char), operator<<(basic_ostream<>&,
+	const _CharT*), operator<<(basic_ostream<char,>&, const char*)):
+	Likewise.
+	* include/ext/vstring.tcc (operator<<(basic_ostream<>&,
+	const __versa_string<>&)): Remove.
+	(class basic_ostream): Remove friend declarations.
+	(basic_ostream<>::_M_write(char_type, streamsize),
+	_M_insert(const char_type*, streamsize)): Remove.
+	* include/bits/ostream.tcc (_M_insert(const char_type*, streamsize)):
+	Remove definition.
+	(operator<<(basic_ostream<>&, const char*)): Use __ostream_insert.
+	* config/abi/pre/gnu.ver: Adjust.
+	* src/ostream-inst.cc: Add __ostream_insert instantiations.
+	* include/bits/locale_facets.h (__pad<>::_S_pad): Remove __num
+	parameter.
+	* include/bits/locale_facets.tcc (__pad<>::_S_pad): Adjust.
+	(num_put<>::_M_pad(_CharT, streamsize, ios_base&, _CharT*,
+	const _CharT*, int&)): Likewise.
+	* include/Makefile.in: Rebuild.
+	* testsuite/ext/vstring/inserters_extractors/char/28277.cc: New.
+	* testsuite/ext/vstring/inserters_extractors/wchar_t/28277.cc: New.
+
+	* include/ext/vstring_util.h: Do not include the whole <locale>.
+	* include/ext/vstring.tcc (operator>>(basic_istream<>&,
+	__versa_string<>&, getline(basic_istream<>&, __versa_string<>&,
+	_CharT)): Tweak to refer to ios_base as a base of istream; do not
+	refer to non-standard types of istream.
+	* include/bits/istream.tcc (operator>>(basic_istream<>&, _CharT*),
+	ws(basic_istream<>&)): Do not refer to non-standard types of istream.
+	* include/std/bitset (operator>>(std::basic_istream<>&, bitset<>&)):
+	Avoid using basic_streambuf<>*.
+
+	* include/bits/istream.tcc (operator>>(basic_istream<>&,
+	basic_string<>&), getline(basic_istream<>&, basic_string<>&, _CharT)):
+	Move...
+	* include/bits/basic_string.tcc: ... here; tweak to refer to ios_base
+	as a base of istream; do not refer to non-standard types of istream.
+	* include/std/string: Tweak includes.
+
+	* include/ext/type_traits.h (__is_null_pointer): Add.
+	* include/ext/rc_string_base.h: Use it.
+	* include/ext/sso_string_base.h: Likewise.
+	* include/bits/basic_string.tcc (__is_null_pointer): Remove, use
+	the above.
+	* include/ext/vstring_util.h (__vstring_utility<>::_S_is_null_pointer):
+	Remove.
+
+2007-04-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits_fwd.h (__is_union_or_class): Remove.
+	* include/tr1/type_traits (struct __in_array,
+	struct __is_union_or_class, struct __is_union_or_class_helper,
+	struct __is_empty_helper, struct __is_polymorphic_helper):
+	Remove.
+	(struct is_enum): Use __is_enum.
+	(struct is_union): Use __is_union.
+	(struct is_class): Use __is_class.
+	(struct is_function): Adjust.
+	(struct is_empty): Use __is_empty.
+	(struct is_polymorphic): Use __is_polymorphic.
+	(struct is_abstract): Use __is_abstract.
+	(struct has_virtual_destructor): Use __has_virtual_destructor.
+	(struct __is_base_of_helper): Use __is_base_of.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_union_or_class/typedefs.cc: Remove.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_union_or_class/is_union_or_class.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_class/typedefs.cc: New.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_class/is_class.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_union/typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_union/is_union.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_virtual_destructor/typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_virtual_destructor/has_virtual_destructor.cc: Likewise.
+	* testsuite/util/testsuite_tr1.h (class VirtualDestructorClass): Add.
+	* testsuite/tr1/4_metaprogramming/type_properties/is_polymorphic/
+	is_polymorphic.cc: Add test.
+
+2007-04-08  Alexey Beshenov  <bav.272304@gmail.com>
+
+	PR libstdc++/31511
+	* include/c_global/cmath.tcc (__cmath_power): Use _Tp(1).
+	* include/c_std/cmath.tcc (__cmath_power): Likewise.
+
+2007-04-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31117
+	* config/locale/gnu/c_locale.cc (__convert_to_v): Do not use errno,
+	just check that the value is finite.
+	* config/locale/generic/c_locale.cc (__convert_to_v): Likewise.
+
+2007-04-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/type_traits.h (__numeric_traits): Move...
+	* include/ext/numeric_traits.h: ... here.
+	* include/Makefile.am: Add.
+	* include/ext/pb_ds/detail/type_utils.hpp: Include 
+	<ext/numeric_traits.h> too.
+	* include/tr1/random: Likewise.
+	* testsuite/ext/type_traits/numeric_traits.cc: Move...
+	* testsuite/ext/numeric_traits/numeric_traits.cc: ... here.
+	* include/Makefile.in: Regenerate.
+
+2007-04-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/valarray_array.h (__valarray_default_construct(_Tp*,
+	_Tp*)): Use __is_scalar instead of __is_pod.
+
+2007-04-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (__copy_aux(_II, _II, _OI),
+	__copy_backward_aux(_BI1, _BI1, _BI2)): Use __is_pod.
+	* include/bits/stl_deque.h (deque<>::_M_destroy_data(iterator,
+	iterator, const std::allocator<>&)): Use __has_trivial_constructor.
+	(deque<>::_M_destroy_data_dispatch): Remove.
+	* include/bits/stl_uninitialized.h (uninitialized_copy(_InputIterator,
+	_InputIterator, _ForwardIterator), uninitialized_fill(_ForwardIterator,
+	_ForwardIterator, const _Tp&), uninitialized_fill_n(_ForwardIterator,
+	_Size, const _Tp&)): Use __is_pod.
+	* include/bits/stl_tempbuf.h (_Temporary_buffer::
+	_Temporary_buffer(_ForwardIterator, _ForwardIterator)): Use __is_pod.
+	(_Temporary_buffer::_M_initialize_buffer): Remove.
+	* include/bits/stl_construct.h (_Destroy(_ForwardIterator,
+	_ForwardIterator)): Use __has_trivial_destructor.
+	(__destroy_aux): Remove.
+
+2007-04-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_map.h (map<>::insert(iterator, const value_type&):
+	Uglify parameter.
+
+2007-04-03  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31440
+	* include/bits/stl_tree.h (_M_lower_bound(_Link_type, _Link_type,
+	const _Key&), _M_upper_bound(_Link_type, _Link_type, const _Key&)):
+	Add.
+	(_M_equal_range(const _Key&) const): Remove.
+	(lower_bound(const key_type&), lower_bound(const key_type&) const,
+	upper_bound(const key_type&), upper_bound(const key_type&) const,
+	equal_range(const key_type&), equal_range(const key_type&) const):
+	Adjust.
+	(find(const _Key&), find(const _Key&) const): Tweak.
+	* testsuite/23_containers/map/operations/31440.cc: New.
+
+2007-04-02  Matthew Levine  <gcc@severeweblint.org>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31370
+	* include/bits/stl_bvector.h (vector<bool>::max_size): Fix.
+	(vector<bool>::_M_check_len): Add.
+	* include/bits/vector.tcc (_M_fill_insert(iterator, size_type, bool),
+	_M_insert_range(iterator, _ForwardIterator, _ForwardIterator,
+	std::forward_iterator_tag), _M_insert_aux(iterator, bool)): Use it.
+	* testsuite/23_containers/vector/bool/modifiers/insert/31370.cc: New.
+	* testsuite/23_containers/vector/bool/capacity/29134.cc: Adjust.
+
+	* include/bits/stl_vector.h (vector<>::_M_check_len): Add.
+	* include/bits/vector.tcc (_M_insert_aux(iterator, const _Tp&),
+	_M_fill_insert(iterator, size_type, const value_type&),
+	_M_range_insert(iterator, _ForwardIterator, _ForwardIterator,
+	std::forward_iterator_tag)): Use it.
+
+2007-04-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31401 (vstring bits)
+	* include/ext/vstring.tcc (find(const _CharT*, size_type,
+	size_type)): Avoid unsigned overflow.
+
+2007-04-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_put<>::do_put(iter_type,
+	ios_base&, char_type, const void*)): Fix for sizeof(const void*)
+	> sizeof(unsigned long).
+
+2007-04-01  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* include/tr1/poly_laguerre.tcc: Missing s/__alpha/__alpha1, line 278.
+
+2007-04-01  Richard Henderson  <rth@redhat.com>
+
+	* include/tr1/poly_laguerre.tcc: s/__alpha/__alpha1/g.
+	* include/tr1/ell_integral.tcc: Likewise.
+
+2007-03-31  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_bvector.h (_M_fill_insert(iterator, size_type,
+	bool), _M_insert_range(iterator, _ForwardIterator, _ForwardIterator,
+	std::forward_iterator_tag), _M_insert_aux(iterator, bool)): Move
+	out of line...
+	* include/bits/vector.tcc: ... here.
+
+2007-03-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/26099
+	* include/bits/cpp_type_traits.h (struct __is_pod, struct __is_empty):
+	Remove.
+	* include/bits/valarray_array.h: Adjust.
+	* include/bits/allocator.h: Likewise.
+	* include/bits/stl_tree.h: Likewise.
+
+2007-03-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31401
+	* include/bits/basic_string.tcc (find(const _CharT*, size_type,
+	size_type)): Avoid unsigned overflow.
+	* testsuite/21_strings/basic_string/find/char/4.cc: New.
+	* testsuite/21_strings/basic_string/find/wchar_t/4.cc: Likewise.
+
+2007-03-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/fstream.tcc (basic_filebuf<>::underflow):
+	Don't call codecvt::in at all if _M_ext_next >= _M_ext_end.
+	* testsuite/27_io/basic_filebuf/underflow/char/3.cc: New.
+
+2007-03-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/c_compatibility/complex.h: Without
+	__GXX_EXPERIMENTAL_CXX0X__ include_next complex.h.	
+	* include/c_compatibility/fenv.h: Same.
+	* include/c_compatibility/inttypes.h: Same.
+	* include/c_compatibility/stdbool.h: Same.
+	* include/c_compatibility/stdint.h: Same.
+	* include/c_compatibility/tgmath.h: Same.
+
+	* include/tr1/cinttypes: Use include_next.
+	* include/tr1/cstdint: Same.
+	* include/tr1/cstdbool: Same.
+
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Add check for tgmath.h
+	* configure: Regenerate.
+	* config.h.in: Same.
+	
+2007-03-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/functional: Formatting fixes.
+
+2007-03-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/wchar_t/4402.cc:
+	Likewise use std::numeric_limits<>::max().
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/4402.cc:
+	Minor tweaks.
+
+2007-03-23  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/4402.cc
+	(test02): Use std::numeric_limits<>::max() to get suitable large
+	values.
+
+2007-03-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/21_strings/headers/cstdlib/functions_std.cc: Without
+	C99 support, _GLIBCXX_USE_WCHAR_T not defined, so
+	dg-require-c-std.
+	* testsuite/tr1/6_containers/headers/functional/synopsis.cc: Same.
+	* testsuite/27_io/headers/iostream/synopsis.cc: Same.
+	* testsuite/27_io/headers/streambuf/types_std.cc: Same.
+	* testsuite/27_io/headers/sstream/types_std.cc: Same.
+	* testsuite/27_io/headers/ostream/types_std.cc: Same.
+	* testsuite/27_io/headers/istream/types_std.cc: Same.
+	* testsuite/27_io/headers/iostream/types_std.cc: Same.
+	* testsuite/27_io/headers/fstream/types_std.cc: Same.
+	* testsuite/21_strings/headers/string/types_std.cc: Same.
+	* testsuite/21_strings/headers/cwctype/functions_std.cc: Same.
+	* testsuite/21_strings/headers/cwctype/types_std.cc: Same.
+	* testsuite/21_strings/headers/cwchar/functions_std.cc: Same.
+	* testsuite/21_strings/headers/cwchar/types_std.cc: Same.
+	
+	* include/Makefile.am (c_compatibility_headers): Add fenv.h.
+	* include/Makefile.in: Regenerate.
+	* configure.host: Update comment.
+
+	* include/tr1/cfenv: Use include_next.
+
 2007-03-19  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/tr1/tuple (get(_Tuple_impl<>&, get(const _Tuple_impl<>&):

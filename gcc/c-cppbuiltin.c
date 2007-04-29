@@ -605,6 +605,12 @@ c_cpp_builtins (cpp_reader *pfile)
      new appearance would clobber any existing args.  */
   if (TARGET_DECLSPEC)
     builtin_define ("__declspec(x)=__attribute__((x))");
+
+  /* If decimal floating point is supported, tell the user if the
+     alternate format (BID) is used instead of the standard (DPD)
+     format.  */
+  if (ENABLE_DECIMAL_FLOAT && ENABLE_DECIMAL_BID_FORMAT)
+    cpp_define (pfile, "__DECIMAL_BID_FORMAT__");
 }
 
 /* Pass an object-like macro.  If it doesn't lie in the user's

@@ -308,7 +308,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os build_libsubdir build_subdir host_subdir target_subdir host host_cpu host_vendor host_os target target_cpu target_vendor target_os INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT multi_basedir toolexecdir toolexeclibdir CC ac_ct_CC EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE AM_FCFLAGS AM_CFLAGS AS ac_ct_AS AR ac_ct_AR RANLIB ac_ct_RANLIB LN_S LIBTOOL enable_shared enable_static FC FCFLAGS LDFLAGS ac_ct_FC extra_ldflags_libgfortran CPP CPPFLAGS EGREP FPU_HOST_HEADER LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os build_libsubdir build_subdir host_subdir target_subdir host host_cpu host_vendor host_os target target_cpu target_vendor target_os INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT multi_basedir toolexecdir toolexeclibdir CC ac_ct_CC EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE AM_FCFLAGS AM_CFLAGS LIBGFOR_USE_SYMVER_TRUE LIBGFOR_USE_SYMVER_FALSE AS ac_ct_AS AR ac_ct_AR RANLIB ac_ct_RANLIB LN_S LIBTOOL enable_shared enable_static FC FCFLAGS LDFLAGS ac_ct_FC extra_ldflags_libgfortran CPP CPPFLAGS EGREP FPU_HOST_HEADER LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -3206,6 +3206,82 @@ fi
 
 
 
+# Check for symbol versioning (copied from libssp).
+echo "$as_me:$LINENO: checking whether symbol versioning is supported" >&5
+echo $ECHO_N "checking whether symbol versioning is supported... $ECHO_C" >&6
+cat > conftest.map <<EOF
+FOO_1.0 {
+  global: *foo*; bar; local: *;
+};
+EOF
+save_LDFLAGS="$LDFLAGS"
+LDFLAGS="$LDFLAGS -fPIC -shared -Wl,--version-script,./conftest.map"
+
+if test x$gcc_no_link = xyes; then
+  { { echo "$as_me:$LINENO: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&5
+echo "$as_me: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+int foo;
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  gfortran_use_symver=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+gfortran_use_symver=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LDFLAGS="$save_LDFLAGS"
+echo "$as_me:$LINENO: result: $gfortran_use_symver" >&5
+echo "${ECHO_T}$gfortran_use_symver" >&6
+
+
+if test "x$gfortran_use_symver" = xyes; then
+  LIBGFOR_USE_SYMVER_TRUE=
+  LIBGFOR_USE_SYMVER_FALSE='#'
+else
+  LIBGFOR_USE_SYMVER_TRUE='#'
+  LIBGFOR_USE_SYMVER_FALSE=
+fi
+
+
 # Find other programs we need.
 if test -n "$ac_tool_prefix"; then
   # Extract the first word of "${ac_tool_prefix}as", so it can be a program name with args.
@@ -3956,7 +4032,6 @@ deplibs_check_method=$lt_cv_deplibs_check_method
 
 
 
-
 # Autoconf 2.13's AC_OBJEXT and AC_EXEEXT macros only works for C compilers!
 
 # find the maximum length of command line arguments
@@ -4353,7 +4428,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 4356 "configure"' > conftest.$ac_ext
+  echo '#line 4431 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -4743,7 +4818,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:4746:" \
+echo "$as_me:4821:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version </dev/null >&5\"") >&5
@@ -6112,10 +6187,7 @@ fi
 
 
 
-
-
-
-for ac_header in stdlib.h stdio.h string.h stddef.h math.h unistd.h signal.h
+for ac_header in stdlib.h string.h unistd.h signal.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
@@ -6268,8 +6340,7 @@ done
 
 
 
-
-for ac_header in time.h sys/params.h sys/time.h sys/times.h sys/resource.h
+for ac_header in time.h sys/time.h sys/times.h sys/resource.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
@@ -6576,7 +6647,8 @@ done
 
 
 
-for ac_header in fenv.h fptrap.h float.h execinfo.h
+
+for ac_header in fenv.h fptrap.h float.h execinfo.h pwd.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
@@ -10511,7 +10583,11 @@ fi
 done
 
 
-for ac_func in gettimeofday
+
+
+
+
+for ac_func in gettimeofday stat fstat lstat getpwuid
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
 echo "$as_me:$LINENO: checking for $ac_func" >&5
@@ -11104,9 +11180,85 @@ _ACEOF
 
 fi
 
+echo "$as_me:$LINENO: checking for geteuid in -lc" >&5
+echo $ECHO_N "checking for geteuid in -lc... $ECHO_C" >&6
+if test "${ac_cv_lib_c_geteuid+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lc  $LIBS"
+if test x$gcc_no_link = xyes; then
+  { { echo "$as_me:$LINENO: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&5
+echo "$as_me: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char geteuid ();
+int
+main ()
+{
+geteuid ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_c_geteuid=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_c_geteuid=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_c_geteuid" >&5
+echo "${ECHO_T}$ac_cv_lib_c_geteuid" >&6
+if test $ac_cv_lib_c_geteuid = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_GETEUID 1
+_ACEOF
+
+fi
+
 
 # Check for C99 (and other IEEE) math functions
-# ??? This list seems awful long. Is there a better way to test for these?
 echo "$as_me:$LINENO: checking for acosf in -lm" >&5
 echo $ECHO_N "checking for acosf in -lm... $ECHO_C" >&6
 if test "${ac_cv_lib_m_acosf+set}" = set; then
@@ -23289,85 +23441,6 @@ _ACEOF
 
 fi
 
-# Fallback in case isfinite is not available.
-echo "$as_me:$LINENO: checking for finite in -lm" >&5
-echo $ECHO_N "checking for finite in -lm... $ECHO_C" >&6
-if test "${ac_cv_lib_m_finite+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lm  $LIBS"
-if test x$gcc_no_link = xyes; then
-  { { echo "$as_me:$LINENO: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&5
-echo "$as_me: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&2;}
-   { (exit 1); exit 1; }; }
-fi
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char finite ();
-int
-main ()
-{
-finite ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_lib_m_finite=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-ac_cv_lib_m_finite=no
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:$LINENO: result: $ac_cv_lib_m_finite" >&5
-echo "${ECHO_T}$ac_cv_lib_m_finite" >&6
-if test $ac_cv_lib_m_finite = yes; then
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_FINITE 1
-_ACEOF
-
-fi
-
-
 # Check for GNU libc feenableexcept
 echo "$as_me:$LINENO: checking for feenableexcept in -lm" >&5
 echo $ECHO_N "checking for feenableexcept in -lm... $ECHO_C" >&6
@@ -24537,6 +24610,13 @@ echo "$as_me: error: conditional \"am__fastdepCC\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
+if test -z "${LIBGFOR_USE_SYMVER_TRUE}" && test -z "${LIBGFOR_USE_SYMVER_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"LIBGFOR_USE_SYMVER\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"LIBGFOR_USE_SYMVER\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
 
 : ${CONFIG_STATUS=./config.status}
 ac_clean_files_save=$ac_clean_files
@@ -25159,6 +25239,8 @@ s,@am__fastdepCC_TRUE@,$am__fastdepCC_TRUE,;t t
 s,@am__fastdepCC_FALSE@,$am__fastdepCC_FALSE,;t t
 s,@AM_FCFLAGS@,$AM_FCFLAGS,;t t
 s,@AM_CFLAGS@,$AM_CFLAGS,;t t
+s,@LIBGFOR_USE_SYMVER_TRUE@,$LIBGFOR_USE_SYMVER_TRUE,;t t
+s,@LIBGFOR_USE_SYMVER_FALSE@,$LIBGFOR_USE_SYMVER_FALSE,;t t
 s,@AS@,$AS,;t t
 s,@ac_ct_AS@,$ac_ct_AS,;t t
 s,@AR@,$AR,;t t
@@ -25911,32 +25993,50 @@ if test "$acx_cv_header_stdint" = stddef.h; then
 
     #ifndef _UINT8_T
     #define _UINT8_T
+    #ifndef __uint8_t_defined
+    #define __uint8_t_defined
     typedef unsigned $acx_cv_type_int8_t uint8_t;
+    #endif
     #endif
 
     #ifndef _UINT16_T
     #define _UINT16_T
+    #ifndef __uint16_t_defined
+    #define __uint16_t_defined
     typedef unsigned $acx_cv_type_int16_t uint16_t;
+    #endif
     #endif
 
     #ifndef _UINT32_T
     #define _UINT32_T
+    #ifndef __uint32_t_defined
+    #define __uint32_t_defined
     typedef unsigned $acx_cv_type_int32_t uint32_t;
+    #endif
     #endif
 
     #ifndef _INT8_T
     #define _INT8_T
+    #ifndef __int8_t_defined
+    #define __int8_t_defined
     typedef $acx_cv_type_int8_t int8_t;
+    #endif
     #endif
 
     #ifndef _INT16_T
     #define _INT16_T
+    #ifndef __int16_t_defined
+    #define __int16_t_defined
     typedef $acx_cv_type_int16_t int16_t;
+    #endif
     #endif
 
     #ifndef _INT32_T
     #define _INT32_T
+    #ifndef __int32_t_defined
+    #define __int32_t_defined
     typedef $acx_cv_type_int32_t int32_t;
+    #endif
     #endif
 EOF
 elif test "$ac_cv_type_u_int32_t" = yes; then
@@ -25955,17 +26055,26 @@ elif test "$ac_cv_type_u_int32_t" = yes; then
 
     #ifndef _UINT8_T
     #define _UINT8_T
+    #ifndef __uint8_t_defined
+    #define __uint8_t_defined
     typedef u_int8_t uint8_t;
+    #endif
     #endif
 
     #ifndef _UINT16_T
     #define _UINT16_T
+    #ifndef __uint16_t_defined
+    #define __uint16_t_defined
     typedef u_int16_t uint16_t;
+    #endif
     #endif
 
     #ifndef _UINT32_T
     #define _UINT32_T
+    #ifndef __uint32_t_defined
+    #define __uint32_t_defined
     typedef u_int32_t uint32_t;
+    #endif
     #endif
 EOF
 else
@@ -26014,7 +26123,10 @@ elif test "$ac_cv_type_u_int64_t" = yes; then
     #endif
     #ifndef _UINT64_T
     #define _UINT64_T
+    #ifndef __uint64_t_defined
+    #define __uint64_t_defined
     typedef u_int64_t uint64_t;
+    #endif
     #endif
 EOF
 elif test -n "$acx_cv_type_int64_t"; then
@@ -26027,7 +26139,10 @@ elif test -n "$acx_cv_type_int64_t"; then
     #endif
     #ifndef _UINT64_T
     #define _UINT64_T
+    #ifndef __uint64_t_defined
+    #define __uint64_t_defined
     typedef unsigned $acx_cv_type_int64_t uint64_t;
+    #endif
     #endif
 EOF
 else
@@ -26037,7 +26152,9 @@ else
     #if defined __STDC_VERSION__ && (__STDC_VERSION__-0) >= 199901L
     #ifndef _INT64_T
     #define _INT64_T
+    #ifndef __int64_t_defined
     typedef long long int64_t;
+    #endif
     #endif
     #ifndef _UINT64_T
     #define _UINT64_T
@@ -26083,8 +26200,12 @@ if test "$ac_cv_type_uintptr_t" != yes; then
   sed 's/^ *//' >> tmp-stdint.h <<EOF
 
     /* Define intptr_t based on sizeof(void*) = $ac_cv_sizeof_void_p */
+    #ifndef __uintptr_t_defined
     typedef u$acx_cv_type_intptr_t uintptr_t;
+    #endif
+    #ifndef __intptr_t_defined
     typedef $acx_cv_type_intptr_t  intptr_t;
+    #endif
 EOF
 fi
 

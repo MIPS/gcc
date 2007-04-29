@@ -24,6 +24,8 @@ Boston, MA 02110-1301, USA.  */
 #ifndef GCC_SH_H
 #define GCC_SH_H
 
+#include "config/vxworks-dummy.h"
+
 #define TARGET_VERSION \
   fputs (" (Hitachi SH)", stderr);
 
@@ -530,10 +532,13 @@ extern enum sh_divide_strategy_e sh_div_strategy;
 #define SH_DIV_STRATEGY_DEFAULT SH_DIV_CALL
 #endif
 
+#define SUBTARGET_OVERRIDE_OPTIONS (void) 0
+
 #define OVERRIDE_OPTIONS 						\
 do {									\
   int regno;								\
 									\
+  SUBTARGET_OVERRIDE_OPTIONS;						\
   if (flag_finite_math_only == 2)					\
     flag_finite_math_only						\
       = !flag_signaling_nans && TARGET_SH2E && ! TARGET_IEEE;		\
@@ -1979,6 +1984,13 @@ struct sh_args {
 
      - If T is set, a return trampoline will be set up for 64-bit
      return values to be split into 2 32-bit registers.  */
+    long call_cookie;
+
+  /* This is set to nonzero when the call in question must use the Renesas ABI,
+     even without the -mrenesas option.  */
+    int renesas_abi;
+};
+
 #define CALL_COOKIE_RET_TRAMP_SHIFT 0
 #define CALL_COOKIE_RET_TRAMP(VAL) ((VAL) << CALL_COOKIE_RET_TRAMP_SHIFT)
 #define CALL_COOKIE_STACKSEQ_SHIFT 1
@@ -1991,12 +2003,6 @@ struct sh_args {
   ((VAL) << CALL_COOKIE_INT_REG_SHIFT (REG))
 #define CALL_COOKIE_INT_REG_GET(COOKIE, REG) \
   (((COOKIE) >> CALL_COOKIE_INT_REG_SHIFT (REG)) & ((REG) < 4 ? 7 : 15))
-    long call_cookie;
-
-  /* This is set to nonzero when the call in question must use the Renesas ABI,
-     even without the -mrenesas option.  */
-    int renesas_abi;
-};
 
 #define CUMULATIVE_ARGS  struct sh_args
 

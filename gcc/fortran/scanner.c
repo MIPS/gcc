@@ -1033,7 +1033,7 @@ load_line (FILE *input, char **pbuf, int *pbuflen)
   buffer = *pbuf;
 
   preprocessor_flag = 0;
-  c = fgetc (input);
+  c = getc (input);
   if (c == '#')
     /* In order to not truncate preprocessor lines, we have to
        remember that this is one.  */
@@ -1042,7 +1042,7 @@ load_line (FILE *input, char **pbuf, int *pbuflen)
 
   for (;;)
     {
-      c = fgetc (input);
+      c = getc (input);
 
       if (c == EOF)
 	break;
@@ -1050,7 +1050,7 @@ load_line (FILE *input, char **pbuf, int *pbuflen)
 	{
 	  /* Check for illegal use of ampersand. See F95 Standard 3.3.1.3.  */
 	  if (gfc_current_form == FORM_FREE 
-		&& !seen_printable && seen_ampersand)
+	      && !seen_printable && seen_ampersand)
 	    {
 	      if (pedantic)
 		gfc_error_now ("'&' not allowed by itself in line %d",
@@ -1067,24 +1067,16 @@ load_line (FILE *input, char **pbuf, int *pbuflen)
       if (c == '\0')
 	continue;
 
-      /* Check for illegal use of ampersand. See F95 Standard 3.3.1.3.  */
       if (c == '&')
-	seen_ampersand = 1;
-
-      if ((c != ' ' && c != '&' && c != '!') || (c == '!' && !seen_ampersand))
-	seen_printable = 1;
-      
-      if (gfc_current_form == FORM_FREE 
-	    && c == '!' && !seen_printable && seen_ampersand)
 	{
-	  if (pedantic)
-	    gfc_error_now ("'&' not allowed by itself with comment in "
-			   "line %d", current_line);
+	  if (seen_ampersand)
+	    seen_ampersand = 0;
 	  else
-	    gfc_warning_now ("'&' not allowed by itself with comment in "
-			     "line %d", current_line);
-	  seen_printable = 1;
+	    seen_ampersand = 1;
 	}
+
+      if ((c != '&' && c != '!') || (c == '!' && !seen_ampersand))
+	seen_printable = 1;
 
       /* Is this a fixed-form comment?  */
       if (gfc_current_form == FORM_FIXED && i == 0
@@ -1129,7 +1121,7 @@ load_line (FILE *input, char **pbuf, int *pbuflen)
 	  /* Truncate the rest of the line.  */
 	  for (;;)
 	    {
-	      c = fgetc (input);
+	      c = getc (input);
 	      if (c == '\n' || c == EOF)
 		break;
 
@@ -1610,7 +1602,7 @@ gfc_read_orig_filename (const char *filename, const char **canon_source_file)
   if (gfc_src_file == NULL)
     return NULL;
 
-  c = fgetc (gfc_src_file);
+  c = getc (gfc_src_file);
   ungetc (c, gfc_src_file);
 
   if (c != '#')
@@ -1626,7 +1618,7 @@ gfc_read_orig_filename (const char *filename, const char **canon_source_file)
   if (filename == NULL)
     return NULL;
 
-  c = fgetc (gfc_src_file);
+  c = getc (gfc_src_file);
   ungetc (c, gfc_src_file);
 
   if (c != '#')

@@ -346,17 +346,28 @@ static bool
 if_convertible_gimple_modify_stmt_p (struct loop *loop, basic_block bb,
     				     tree m_expr)
 {
+  tree lhs, rhs;
+
+  if (TREE_CODE (m_expr) != GIMPLE_MODIFY_STMT)
+    return false;
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "-------------------------\n");
       print_generic_stmt (dump_file, m_expr, TDF_SLIM);
     }
 
-  /* Be conservative and do not handle immovable expressions.  */
-  if (movement_possibility (m_expr) == MOVE_IMPOSSIBLE)
+  lhs = GIMPLE_STMT_OPERAND (m_expr, 0);
+  rhs = GIMPLE_STMT_OPERAND (m_expr, 1);
+
+  /* Some of these constrains might be too conservative.  */
+  if (stmt_ends_bb_p (m_expr) || stmt_ann (m_expr)->has_volatile_ops
+      || (TREE_CODE (lhs) == SSA_NAME
+          && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
+      || TREE_SIDE_EFFECTS (rhs))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "stmt is movable. Don't take risk\n");
+        fprintf (dump_file, "stmt not suitable for ifcvt\n");
       return false;
     }
 
@@ -854,7 +865,7 @@ process_phi_nodes (struct loop *loop)
 	  release_phi_node (phi);
 	  phi = next;
 	}
-      bb->phi_nodes = NULL;
+      set_phi_nodes (bb, NULL_TREE);
     }
   return;
 }
@@ -949,9 +960,9 @@ combine_blocks (struct loop *loop)
 	}
 
       /* Update stmt list.  */
-      last = tsi_last (merge_target_bb->stmt_list);
-      tsi_link_after (&last, bb->stmt_list, TSI_NEW_STMT);
-      bb->stmt_list = alloc_stmt_list ();
+      last = tsi_last (bb_stmt_list (merge_target_bb));
+      tsi_link_after (&last, bb_stmt_list (bb), TSI_NEW_STMT);
+      set_bb_stmt_list (bb, NULL);
 
       delete_basic_block (bb);
     }

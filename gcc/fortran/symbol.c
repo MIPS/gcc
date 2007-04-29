@@ -1,6 +1,6 @@
 /* Maintain binary trees of symbols.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
-   Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -277,6 +277,37 @@ gfc_set_default_type (gfc_symbol * sym, int error_flag, gfc_namespace * ns)
     }
   
   return SUCCESS;
+}
+
+
+/* This function is called from parse.c(parse_progunit) to check the
+   type of the function is not implicitly typed in the host namespace
+   and to implicitly type the function result, if necessary.  */
+
+void
+gfc_check_function_type (gfc_namespace *ns)
+{
+  gfc_symbol *proc = ns->proc_name;
+
+  if (!proc->attr.contained || proc->result->attr.implicit_type)
+    return;
+
+  if (proc->result->ts.type == BT_UNKNOWN)
+    {
+      if (gfc_set_default_type (proc->result, 0, gfc_current_ns)
+		== SUCCESS)
+	{
+	  if (proc->result != proc)
+	    proc->ts = proc->result->ts;
+	}
+      else
+	{
+	  gfc_error ("unable to implicitly type the function result "
+		     "'%s' at %L", proc->result->name,
+		     &proc->result->declared_at);
+	  proc->result->attr.untyped = 1;
+	}
+    }
 }
 
 
@@ -2863,20 +2894,19 @@ gfc_symbol_state(void) {
 gfc_gsymbol *
 gfc_find_gsymbol (gfc_gsymbol *symbol, const char *name)
 {
-  gfc_gsymbol *s;
+  int c;
 
   if (symbol == NULL)
     return NULL;
-  if (strcmp (symbol->name, name) == 0)
-    return symbol;
 
-  s = gfc_find_gsymbol (symbol->left, name);
-  if (s != NULL)
-    return s;
+  while (symbol)
+    {
+      c = strcmp (name, symbol->name);
+      if (!c)
+	return symbol;
 
-  s = gfc_find_gsymbol (symbol->right, name);
-  if (s != NULL)
-    return s;
+      symbol = (c < 0) ? symbol->left : symbol->right;
+    }
 
   return NULL;
 }
