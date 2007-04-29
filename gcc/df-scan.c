@@ -2637,7 +2637,7 @@ df_ref_record (struct df_collection_rec *collection_rec,
 	  ref = df_ref_create_structure (collection_rec, regno_reg_rtx[i], loc, 
 					 bb, insn, ref_type, ref_flags);
 
-          gcc_assert ( ORIGINAL_REGNO (DF_REF_REG (ref)) == i);
+          gcc_assert (ORIGINAL_REGNO (DF_REF_REG (ref)) == i);
 	}
     }
   else

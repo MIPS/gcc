@@ -4132,6 +4132,8 @@ move_block_after_check (rtx jump)
   move_succs (&(jump_bb->succs), bb);
   move_succs (&(jump_bb_next->succs), jump_bb);
   move_succs (&t, jump_bb_next);
+
+  df_mark_solutions_dirty ();
   
   if (current_sched_info->fix_recovery_cfg)
     current_sched_info->fix_recovery_cfg 
@@ -4154,7 +4156,6 @@ move_succs (VEC(edge,gc) **succsp, basic_block to)
   FOR_EACH_EDGE (e, ei, to->succs)
     e->src = to;
 
-  df_mark_solutions_dirty ();
   *succsp = 0;
 }
 

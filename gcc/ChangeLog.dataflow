@@ -1,3 +1,21 @@
+2007-04-29  Steven Bosscher <steven@gcc.gnu.org>
+
+	Small cleanups without any semantics changes:
+	* df-scan.c (df_ref_record): Fix small style typo.
+	* df-core.c (df_hybrid_search_forward): Cleanup redundant loads.
+	(df_hybrid_search_backward): Likewise.
+	(df_worklist_dataflow): Check DIR against DF_NONE instead of 0.
+
+	Small speedups:
+	* haifa-sched.c (move_block_after_check): Mark df solutions dirty
+	here, instead of...
+	(move_succs): ...here.
+	* df-core.c (df_analyze): Only verify POSTORDER_INVERTED if
+	checking is enabled.
+
+	Fix Java bootstrap on ia64
+	* emit-rtl.c (try_split): Unshare RTL sequences produced by splitters.
+
 2007-04-27  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* timevar.def (TV_DF_UR): Removed.

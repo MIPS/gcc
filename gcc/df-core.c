@@ -864,8 +864,8 @@ df_hybrid_search_forward (basic_block bb,
   edge e;
   edge_iterator ei;
 
-  SET_BIT (visited, bb->index);
-  gcc_assert (TEST_BIT (pending, bb->index));
+  SET_BIT (visited, i);
+  gcc_assert (TEST_BIT (pending, i));
   RESET_BIT (pending, i);
 
   /*  Calculate <conf_op> of predecessor_outs.  */
@@ -927,8 +927,8 @@ df_hybrid_search_backward (basic_block bb,
   edge e;
   edge_iterator ei;
   
-  SET_BIT (visited, bb->index);
-  gcc_assert (TEST_BIT (pending, bb->index));
+  SET_BIT (visited, i);
+  gcc_assert (TEST_BIT (pending, i));
   RESET_BIT (pending, i);
 
   /*  Calculate <conf_op> of predecessor_outs.  */
@@ -1089,10 +1089,11 @@ df_worklist_dataflow (struct dataflow *dataflow,
   unsigned int index;
   enum df_flow_dir dir = dataflow->problem->dir;
 
-  gcc_assert (dir);
+  gcc_assert (dir != DF_NONE);
 
   /* BBINDEX_TO_POSTORDER maps the bb->index to the reverse postorder.  */
-  bbindex_to_postorder = (unsigned int *)xmalloc (last_basic_block * sizeof (unsigned int));
+  bbindex_to_postorder =
+    (unsigned int *)xmalloc (last_basic_block * sizeof (unsigned int));
 
   /* Initialize the array to an out-of-bound value.  */
   for (i = 0; i < last_basic_block; i++)
@@ -1300,6 +1301,9 @@ df_analyze (void)
   df->n_blocks = post_order_compute (df->postorder, true, true);
   df->n_blocks_inverted = inverted_post_order_compute (df->postorder_inverted);
 
+  /* These should be the same.  */
+  gcc_assert (df->n_blocks == df->n_blocks_inverted);
+
   /* We need to do this before the df_verify_all because this is
      not kept incrementally up to date.  */
   df_compute_regs_ever_live (false);
@@ -1313,8 +1317,13 @@ df_analyze (void)
 
   for (i = 0; i < df->n_blocks; i++)
     bitmap_set_bit (current_all_blocks, df->postorder[i]);
+
+#ifdef ENABLE_CHECKING
+  /* Verify that POSTORDER_INVERTED only contains blocks reachable from
+     the ENTRY block.  */
   for (i = 0; i < df->n_blocks_inverted; i++)
     gcc_assert (bitmap_bit_p (current_all_blocks, df->postorder_inverted[i]));
+#endif
 
   /* Make sure that we have pruned any unreachable blocks from these
      sets.  */
