@@ -447,11 +447,12 @@ gfc_copy_expr (gfc_expr *p)
 	  q->value.character.string = s;
 
 	  /* This is the case for the C_NULL_CHAR named constant.  */
-	  if (p->value.character.length == 0)
+	  if (p->value.character.length == 0
+	      && (p->ts.is_c_interop || p->ts.is_iso_c))
 	    {
 	      *s = '\0';
-	      /* Need to set the length to 1 to make sure the null terminator
-		 is copied.  --Rickett, 02.07.06.  */
+	      /* Need to set the length to 1 to make sure the NUL terminator
+		 is copied.  */
 	      q->value.character.length = 1;
 	    }
 	  else
