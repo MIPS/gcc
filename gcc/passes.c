@@ -717,7 +717,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_rtl_fwprop_addr);
       NEXT_PASS (pass_regclass_init);
       NEXT_PASS (pass_inc_dec);
-      NEXT_PASS (pass_stack_ptr_mod);
       NEXT_PASS (pass_initialize_regs);
       NEXT_PASS (pass_no_new_pseudos);
       NEXT_PASS (pass_outof_cfg_layout_mode);
@@ -729,6 +728,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_split_all_insns);
       NEXT_PASS (pass_lower_subreg2);
       NEXT_PASS (pass_df_initialize_no_opt);
+      NEXT_PASS (pass_stack_ptr_mod);
       NEXT_PASS (pass_mode_switching);
       NEXT_PASS (pass_see);
       NEXT_PASS (pass_sms);

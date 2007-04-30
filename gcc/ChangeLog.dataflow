@@ -1,3 +1,10 @@
+2007-04-30  Seongbae Park <seongbae.park@gmail.com>
+
+	* df-scan.c (df_reorganize_refs_by_reg_by_insn):
+	Scan artificial defs and uses as well.
+	* passes.c (init_optimization_passes):
+	Move pass_stack_ptr_mod from after pass_inc_dec.
+
 2007-04-29  Steven Bosscher <steven@gcc.gnu.org>
 
 	Small cleanups without any semantics changes:
