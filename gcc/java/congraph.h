@@ -86,7 +86,7 @@ struct _con_graph
   htab_t nodes;
 
   /* For con_graph_dump */
-  const char *filename;
+  char *filename;
 
   tree function;
 
@@ -108,6 +108,9 @@ struct _con_graph
 
   /* The dump_index of the next node */
   int dump_index;
+
+  /* Count the number of references. When its zero, this can be cleaned up */
+  int refs;
 };
 
 
@@ -187,9 +190,11 @@ struct _con_edge
 
 /* allocates a new, cleared and inited con_graph */
 con_graph new_con_graph (tree function, int bb_index, int count);
+void free_con_graph (con_graph);
 
 /* print the connection graph to file (in Graph::Easy format) */
 void con_graph_dump (con_graph cg);
+void con_graph_dump_prefix (con_graph cg, const char*);
 void prune_con_graph (con_graph cg);
 
 /* search through the list of connection graphs for the one
@@ -224,6 +229,7 @@ con_node add_callee_parameter (con_graph cg, tree id);
 
 /* add a new global node, identified by id, and return the node */
 con_node add_global_node (con_graph cg, tree id);
+con_node add_null_node (con_graph cg, tree id);
 
 /* add a new local node, identified by id, and return the node */
 con_node add_local_node (con_graph cg, tree id);
@@ -262,6 +268,8 @@ void assert_all_next_link_free (con_graph cg);
 
 /* Returns true if the node is a not an object */
 bool is_reference_node (con_node node);
+
+bool has_pointer_type (tree);
 
 /* Returns a list of object nodes, pointed to by node. They are
  * chained using the next_link field of the node returned
@@ -313,6 +321,8 @@ bool bypass_node (con_node node);
 void bypass_every_node (con_graph cg);
 
 void set_escape_state (con_node node, enum ea_escape_state);
+void propagate_all_escape_states (con_graph);
+void propagate_escape_state (con_node);
 /* ---------------------------------------------------
  *			edges
  * --------------------------------------------------- */

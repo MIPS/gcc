@@ -197,7 +197,11 @@ devirt_visit_call (tree call, devirt_type_t *type)
     return pass_through (SSA_PROP_VARYING);
   name = TREE_OPERAND (name, 0);
   if (TREE_CODE (name) != FUNCTION_DECL
-      || (name != alloc_object_node && name != alloc_no_finalizer_node))
+      || (name != alloc_object_node 
+	  && name != alloc_no_finalizer_node
+	  && name != soft_anewarray_node
+	  && name != soft_newarray_node
+	  && name != soft_multianewarray_node))
     return pass_through (SSA_PROP_VARYING);
 
   /* At this point we have an allocator call.  */
@@ -349,7 +353,7 @@ replace_call (tree *stmt, tree method, devirt_type_t *vtype)
   if (vtype->upper_bound != NULL_TREE)
     {
       tree found_method, signature;
-      if (dump_file) fprintf (dump_file, "Devirtualizing call in %s\n",
+      Dprintf (dump_file, "Devirtualizing call in %s\n",
 	       IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
       /* Here we know that the object is the result of a 'new'.  So,
 	 we don't have to insert a null check here, and we can turn
@@ -391,8 +395,8 @@ remove_stmt (tree stmt)
   basic_block bb = bb_for_stmt (stmt);
   block_stmt_iterator i; 
 
-  fprintf (dump_file, "Removing statement from block %d: ", bb->index);
-  print_generic_stmt (dump_file, stmt, 0);
+  Dprintf (dump_file, "Removing statement from block %d: ", bb->index);
+  Dprint_generic_stmt (dump_file, stmt, 0);
 
   for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
     {
@@ -436,7 +440,9 @@ propagate_function_value_to_call (tree stmt)
   tree casted_var = GIMPLE_STMT_OPERAND (use_stmt1, 0);
   gcc_assert (TREE_CODE (casted_var) == SSA_NAME);
   /* Check the type is as expected */
-  gcc_assert (TREE_TYPE (function) == TREE_TYPE (TREE_TYPE (nop_expr)));
+  /* I was never sure this was right */
+/*  gcc_assert (TREE_TYPE (function) == TREE_TYPE (TREE_TYPE
+ *  (nop_expr)));*/
 
   /* Find the indirect function call*/
   count = 0;
@@ -505,7 +511,10 @@ devirt_devirt (void)
 static unsigned int
 devirt (void)
 {
-  if (dump_file) fprintf (dump_file, "Beginning devirtualization\n");
+  Dprintf (dump_file, "Beginning devirtualization\n");
+
+  if (dump_file) 
+    dump_function_to_file (current_function_decl, dump_file, dump_flags);
 
   /* Avoid printing propagation info */
   FILE* saved = dump_file;
@@ -520,7 +529,7 @@ devirt (void)
   devirt_devirt ();
 
   devirt_destroy ();
-  if (dump_file) fprintf (dump_file, "Finished devirtualization\n");
+  Dprintf (dump_file, "Finished devirtualization\n");
   return 0;
 }
 
@@ -589,7 +598,7 @@ struct tree_opt_pass pass_gcj_devirtualize =
   PROP_ssa,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
+  TODO_dump_func,			/* todo_flags_start */
   TODO_dump_func
     | TODO_verify_ssa
     | TODO_update_ssa

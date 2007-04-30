@@ -26,7 +26,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include "tree.h"
 
-extern FILE* dump_file;
+void xprintf (const char*, ...);
 
 /* Quick hacks to avoid warnings */
 bool is_global (tree);
@@ -51,6 +51,7 @@ htab_con_node_eq (const void *p1, const void *p2)
 
   return ((n1->id == n2->id || n1->id == NULL || n2->id == NULL)
 	  && n1->uid == n2->uid 
+	  && n1->owner == n2->owner
 	  && n1->call_id == n2->call_id);
 }
 
@@ -104,6 +105,28 @@ new_con_graph (tree function, int bb_index, int count)
   return result;
 }
 
+void
+free_con_graph (con_graph cg)
+{
+  con_node node, next_node;
+  for (node = cg->root; node; node = next_node)
+    {
+      con_edge edge, next;
+      for (edge = node->out; edge; edge = next)
+	{
+	  next = edge->next_out;
+	  free (edge);
+	}
+      if (node->maps_to_obj)
+	free (node->maps_to_obj);
+
+      next_node = node->next;
+    }
+  free (cg->filename);
+  htab_delete (cg->nodes);
+  free (cg);
+}
+
 
 /* Finds the node from CG which is the same as NODE. */
 static con_node
@@ -139,13 +162,15 @@ graphs_equal (con_graph cg1,
       if (corr == NULL)
 	{
 	  df (node);
-	  fprintf (dump_file, "Node not found in graph %d\n", cg2->index);
+	  nl ();
+	  xprintf ("NOTEQUAL: Node not found in graph %d\n", cg2->index);
 	  return false;
 	}
       else if (corr->escape != node->escape)
 	{
 	  df (node);
-	  fprintf (dump_file, "different escape states\n");
+	  nl ();
+	  xprintf ("NOTEQUAL: different escape states\n");
 	  return false;
 	}
     }
@@ -157,13 +182,15 @@ graphs_equal (con_graph cg1,
       if (corr == NULL)
 	{
 	  df (node);
-	  fprintf (dump_file, "Node not found in graph %d\n", cg1->index);
+	  nl ();
+	  xprintf ("NOTEQUAL: Node not found in graph %d\n", cg1->index);
 	  return false;
 	}
       else if (corr->escape != node->escape)
 	{
 	  df (node);
-	  fprintf (dump_file, "different escape states\n");
+	  nl ();
+	  xprintf ("NOTEQUAL: different escape states\n");
 	  return false;
 	}
     }
@@ -178,9 +205,9 @@ graphs_equal (con_graph cg1,
 	  con_node corr2 = get_corresponding_node (cg2, out->target);
 	  if (get_edge (corr, corr2) == NULL)
 	    {
-	      fprintf (dump_file, "Edge missing from ");
+	      xprintf ("Edge missing from ");
 	      df (corr);
-	      fprintf (dump_file, "to ");
+	      xprintf ("to ");
 	      df (corr2);
 	      nl ();
 	      return false;
@@ -388,6 +415,14 @@ con_graph_dump_edge (con_edge edge, FILE * out)
   fprintf (out, "\n");
 }
 
+void
+con_graph_dump_prefix (con_graph cg, const char* prefix)
+{
+  char *filename = cg->filename;
+  cg->filename = concat (filename, prefix, NULL);
+  con_graph_dump (cg);
+  cg->filename = filename;
+}
 
 void
 con_graph_dump (con_graph cg)
@@ -478,15 +513,13 @@ mark_and_recurse (con_node node, sbitmap bm)
   SET_BIT (bm, node->dump_index);
   con_edge edge;
   for (edge = node->out; edge != NULL; edge = edge->next_out)
-    {
-      mark_and_recurse (edge->target, bm);
-    }
+    mark_and_recurse (edge->target, bm);
 }
 
 void
 clean_up_con_graph (con_graph cg)
 {
-  sbitmap bm = sbitmap_alloc (10000);
+  sbitmap bm = sbitmap_alloc (cg->dump_index);
   sbitmap_zero (bm);
   con_node node;
 
@@ -494,13 +527,48 @@ clean_up_con_graph (con_graph cg)
   tree parameters = DECL_ARGUMENTS (cg->function);
   while (parameters)
     {
-      node = get_existing_node (cg, parameters);
-      mark_and_recurse (node, bm);
+      if (has_pointer_type (parameters))
+	{
+	  node = get_existing_node (cg, parameters);
+	  gcc_assert (node);
+	  mark_and_recurse (node, bm);
+	}
       parameters = TREE_CHAIN (parameters);
+    }
+  if (has_pointer_type (DECL_RESULT (cg->function)))
+    {
+      con_node result = get_existing_node (cg, DECL_RESULT (cg->function));
+      gcc_assert (result);
+      mark_and_recurse (result, bm);
     }
 
   for (node = cg->root; node; node = node->next)
     {
+      xprintf ("Node ");
+      df (node);
+      nl ();
+      if (node->out)
+	{
+	  xprintf ("Edge from ");
+	  df (node->out->source);
+	  xprintf (" to ");
+	  df (node->out->target);
+	  nl ();
+	}
+      if (node->in)
+	{
+	  xprintf ("Edge from ");
+	  df (node->in->source);
+	  xprintf (" to ");
+	  df (node->in->target);
+	  nl ();
+	}
+    }
+
+  con_node next;
+  for (node = cg->root; node; node = next)
+    {
+      next = node->next; // it may be removed in a second
       if (!TEST_BIT (bm, node->dump_index))
 	remove_con_node (node, false);
     }
@@ -516,7 +584,7 @@ add_con_graph (con_graph cg)
 
   /* This wont have been added before */
   cg->function_name = DECL_ASSEMBLER_NAME (cg->function);
-  fprintf (dump_file, "Adding congraph: ");
+  xprintf ("Adding congraph: ");
   tf (cg->function_name, true);
 
   finder.function = cg->function_name;
@@ -531,7 +599,7 @@ get_cg_for_function (tree function)
 {
   struct _con_graph finder;
   finder.function_name = DECL_ASSEMBLER_NAME (function);
-  fprintf (dump_file, "Finding congraph: ");
+  xprintf ("Finding congraph: ");
   tf (finder.function_name, true);
 //  con_graph cg = htab_find (graphs, &finder);
   //if (cg) return cg;
@@ -589,6 +657,7 @@ add_node (con_graph cg, con_node node)
   finder.id = node->id;
   finder.uid = node->uid;
   finder.call_id = node->call_id;
+  finder.owner = node->owner;
   slot = htab_find_slot (cg->nodes, &finder, INSERT);
   *slot = (void*) node;
   
@@ -604,8 +673,7 @@ copy_nodes (con_graph dest, con_graph src)
       con_node other;
       if ((other = get_corresponding_node (dest, node)))
 	{
-	  if (node->escape > other->escape)
-	    other->escape = node->escape;
+	  set_escape_state (other, node->escape);
 	  continue;
 	}
 
@@ -696,6 +764,20 @@ add_global_node (con_graph cg, tree id)
 }
 
 con_node
+add_null_node (con_graph cg, tree id)
+{
+  con_node node;
+  gcc_assert (id);
+
+  node = new_con_node ();
+  node->id = id;
+  node->type = LOCAL_NODE;
+  node->escape = EA_NO_ESCAPE;
+  add_node (cg, node);
+  return node;
+}
+
+con_node
 add_local_node (con_graph cg, tree id)
 {
   con_node node;
@@ -725,7 +807,7 @@ add_callee_parameter (con_graph cg, tree id)
 }
 
 static con_node
-find_node (con_graph cg, tree id, int uid, tree call_id)
+find_node (con_graph cg, tree id, int uid, tree call_id, tree owner)
 {
   struct _con_node finder;
   gcc_assert (cg);
@@ -742,6 +824,7 @@ find_node (con_graph cg, tree id, int uid, tree call_id)
   finder.uid = uid;
   finder.graph = cg;
   finder.call_id = call_id;
+  finder.owner = owner;
 
   return htab_find (cg->nodes, &finder);
 }
@@ -786,7 +869,7 @@ get_existing_node (con_graph cg, tree id)
 con_node
 get_existing_node_with_call_id (con_graph cg, tree id, int uid, tree call_id)
 {
-  return find_node (cg, id, uid, call_id);
+  return find_node (cg, id, uid, call_id, NULL);
 }
 
 con_node
@@ -873,9 +956,9 @@ con_edge
 add_edge (con_node source, con_node target)
 {
   con_edge edge;
-/*  fprintf (dump_file, "Adding edge from ");
+/*  xprintf ("Adding edge from ");
   df (source);
-  fprintf (dump_file, " to ");
+  xprintf (" to ");
   df (target);
   nl ();*/
 
@@ -926,8 +1009,7 @@ add_edge (con_node source, con_node target)
   target->in = edge;
 
   /* update the escape state */
-  if (source->escape > target->escape)
-    target->escape = source->escape;
+  set_escape_state (target, source->escape);
 
   return edge;
 }
@@ -939,6 +1021,10 @@ remove_con_node (con_node node, bool check)
   void** slot;
   struct _con_node finder;
 
+  xprintf ("Removing node ");
+  df (node);
+  nl ();
+
   if (check)
     {
       /* this is only really designed to remove caller nodes */
@@ -949,8 +1035,10 @@ remove_con_node (con_node node, bool check)
       gcc_assert (node->type == CALLER_ACTUAL_NODE);
     }
 
-  if (check || node->out)
+  while (check || node->out)
     remove_con_edge (node->out); 
+  while (check || node->in)
+    remove_con_edge (node->in); 
 
   /* remove it from the hashtable and the list of nodes */
   cg = node->graph;
@@ -968,6 +1056,7 @@ remove_con_node (con_node node, bool check)
   finder.uid = node->uid;
   finder.call_id = node->call_id;
   finder.graph = node->graph;
+  finder.owner = node->owner;
   slot = htab_find_slot (cg->nodes, &finder, NO_INSERT);
   gcc_assert (*slot == node);
   htab_clear_slot (cg->nodes, slot);
@@ -982,9 +1071,9 @@ remove_con_edge (con_edge edge)
   con_node node;
   con_edge temp;
   gcc_assert (edge);
-  fprintf (dump_file, "Removing edge from ");
+  xprintf ("Removing edge from ");
   df (edge->source);
-  fprintf (dump_file, " to ");
+  xprintf (" to ");
   df (edge->target);
   nl ();
 
@@ -1039,6 +1128,7 @@ remove_con_edge (con_edge edge)
 	}
       gcc_assert (found_edge);
     }
+  free (edge);
 }
 
 /* Bypasses SRC and adds an edge from SRC to DEST, returning true if this
@@ -1056,11 +1146,11 @@ add_killing_edge (con_node src, con_node dest)
       return false;
     }
 
-  if (src->in != NULL)
-    {
-      gcc_assert (src->out != NULL);
+//  if (src->in != NULL)
+//    {
+//      gcc_assert (src->out != NULL);
       bypass_node (src);
-    }
+//    }
 
   add_edge (src, dest);
 
@@ -1070,7 +1160,7 @@ add_killing_edge (con_node src, con_node dest)
 static void
 assert_no_duplicate_indices (con_graph cg)
 {
-  sbitmap bm = sbitmap_alloc (10000);
+  sbitmap bm = sbitmap_alloc (cg->dump_index);
   sbitmap_zero (bm);
   con_node node;
   for (node = cg->root; node; node = node->next)
@@ -1173,18 +1263,6 @@ get_single_named_field_node (con_node node, tree field_id)
   return NULL;
 }
 
-void
-prune_con_graph (con_graph cg)
-{
-  con_node node;
-  for (node = cg->root; node; node = node->next)
-    {
-      if (node->type == LOCAL_NODE
-	  && TREE_CODE (node->id) == SSA_NAME)
-	remove_con_node (node, true);
-    }
-}
-
 con_node 
 get_field_nodes (con_node_vec nodes, tree field_id)
 {
@@ -1193,7 +1271,7 @@ get_field_nodes (con_node_vec nodes, tree field_id)
   con_node node;
   int i;
 
-  fprintf (dump_file, "Finding field node ");
+  xprintf ("Finding field node ");
   tf (field_id, false);
   nl ();
 
@@ -1215,7 +1293,7 @@ get_field_nodes (con_node_vec nodes, tree field_id)
 	  /* add it to the result list */
 	  if (edge->target->id == field_id)
 	    {
-	      fprintf (dump_file, "found it in ");
+	      xprintf ("found it in ");
 	      df (edge->source);
 	      /* TODO does this leave a possability of a circular list, or
 	       * should we check the entire list */
@@ -1237,7 +1315,7 @@ get_field_nodes (con_node_vec nodes, tree field_id)
 	  con_node field;
 	  gcc_assert (get_existing_field_node (node->graph, field_id, node->uid, node->id) == NULL);
 	  field = add_field_node (node->graph, field_id);
-	  fprintf (dump_file, "adding lazily to ");
+	  xprintf ("adding lazily to ");
 	  df (node);
 	  nl ();
 
@@ -1280,9 +1358,6 @@ get_field_nodes_vec (con_node object, con_node_vec fields)
 /* Redirects incoming deferred edges of NODE, so that the edge is removed,
  * and an edge between every incoming edge and every outgoing edge of
  * NODE. Returns false if all these edges already existed. */
-/* Note that bypassing a node doesnt mark the graph as changed. The node
- * isnt conceptually changed, as all nodes point to the same thing they
- * did before. */
 bool
 bypass_node (con_node node)
 {
@@ -1290,23 +1365,26 @@ bypass_node (con_node node)
   con_edge out;
 
   /* Dont bypass static fields */
-  if (TREE_CODE (node->id) == VAR_DECL)
+  if (is_global (node->id))
     {
-      fprintf (dump_file, "Static field, dont bypass\n");
+      xprintf ("Static field, dont bypass\n");
       return false;
     }
 
-  fprintf (dump_file, "Bypassing ");
+  xprintf ("Bypassing ");
   df (node);
   nl ();
   gcc_assert (node->type != OBJECT_NODE);
+  gcc_assert (node->type != FIELD_NODE);
   /* its time to admit that we can have end nodes */
 //  gcc_assert (node->out != NULL); /* this shouldnt be an end node */
 
   bool new_edge = false;
 
-  for (in = node->in; in != NULL; in = in->next_in)
+  con_edge next;
+  for (in = node->in; in != NULL; in = next)
     {
+      next = in->next_in;
       gcc_assert (in->type != POINTS_TO_EDGE);
       if (in->type == DEFERRED_EDGE)
 	{
@@ -1314,8 +1392,11 @@ bypass_node (con_node node)
 	    {
 	      if (!get_edge (in->source, out->target))
 		{
-		  add_edge (in->source, out->target);
-		  new_edge = true;
+		  if (in->source != out->target)
+		    {
+		      add_edge (in->source, out->target);
+		      new_edge = true;
+		    }
 		}
 	    }
 	  remove_con_edge (in);
@@ -1338,17 +1419,20 @@ bypass_every_node (con_graph cg)
   con_node node;
   for (node = cg->root; node; node = node->next)
     {
-      con_edge in;
+      con_edge in, next;;
 
-      for (in = node->in; in != NULL; in = in->next_in)
+      for (in = node->in; in != NULL; in = next)
 	{
+	  next = in->next_in;
+
 	  /* only replace deferred and points to edges */
 	  if (in->type == DEFERRED_EDGE)
 	    {
 	      con_edge out;
 	      for (out = node->out; out != NULL; out = out->next_out)
 		if (!get_edge (in->source, out->target))
-		  add_edge (in->source, out->target);
+		  if (in->source != out->target)
+		    add_edge (in->source, out->target);
 
 	      remove_con_edge (in);
 	    }
@@ -1451,16 +1535,6 @@ assert_all_next_link_free (con_graph cg)
 }
 
 void
-update_escape_state (con_node source, con_node target)
-{
-  gcc_assert (source);
-  gcc_assert (target);
-
-  if (source->escape == EA_GLOBAL_ESCAPE)
-    target->escape = EA_GLOBAL_ESCAPE;
-}
-
-void
 d (con_node node)
 {
   if (node == NIL_MARKER)
@@ -1493,6 +1567,7 @@ void
 serialize_con_graph (con_graph cg)
 {
   FILE* file = fopen (get_serialized_filename (cg->function), "w");
+  gcc_assert (file);
   con_node node;
   /* renumber the nodes from 1 - do this now else the owner might not be
    * renumbered when we dump the field */
@@ -1748,13 +1823,39 @@ l (con_graph cg)
     }
 }
 
+static const char*
+state_name (enum ea_escape_state state)
+{
+  switch (state)
+    {
+    case EA_NO_ESCAPE:
+      return "NO";
+    case EA_ARG_ESCAPE:
+      return "ARG";
+    case EA_GLOBAL_ESCAPE:
+      return "GLOBAL";
+    }
+  gcc_unreachable ();
+}
+
+/* sets the escape state of the first to that of the second */
 void 
 set_escape_state (con_node node, enum ea_escape_state state)
 {
-  if (node->escape < state)
-    {
-      node->escape = state;
-    }
+  if (state <= node->escape)
+    return;
+
+  df (node);
+  xprintf (": setting to %s from %s\n", 
+	   state_name (state), 
+	   state_name (node->escape));
+  node->escape = state;
+
+  /* We should also propagate this, since otherwise the results are
+   * flow-sensitive */
+  con_edge edge;
+  for (edge = node->out; edge; edge = edge->next_out)
+    set_escape_state (edge->target, state);
 }
 
 int 
@@ -1975,7 +2076,9 @@ get_points_to_and_terminals (con_graph cg, con_node source, tree phantom_id)
   /* this is a lonely node */
   if (VEC_empty (con_node, terminals) && VEC_empty (con_node, u))
     {
-      gcc_assert (source->out == NULL);
+      /* If there is a loop of deferred edges, there will be no terminal
+       * node, while this node will still have an outgoing edge */
+/*      gcc_assert (source->out == NULL);*/
       source->next_link = END_MARKER;
       VEC_quick_push (con_node, terminals, source);
     }
@@ -1994,13 +2097,13 @@ get_points_to_and_terminals (con_graph cg, con_node source, tree phantom_id)
 	   * with the same phantom_id; */
 	  phantom = add_object_node (cg, phantom_id);
 	  tf (phantom_id, false);
-	  fprintf (dump_file, "Adding a new phantom\n");
+	  xprintf ("Adding a new phantom\n");
 	  phantom->phantom = true;
 	}
       else
 	{
 	  tf (phantom_id, false);
-	  fprintf (dump_file, "Reusing an existing phantom\n");
+	  xprintf ("Reusing an existing phantom\n");
 	}
       gcc_assert (phantom->phantom);
 
@@ -2051,7 +2154,7 @@ update_nodes (con_node f, con_node f_bar, tree call_id)
 	      || ((f_bar->type == LOCAL_NODE) && is_actual_type (f)));
 
   add_to_maps_to_obj (f, f_bar);
-  update_escape_state (f, f_bar);
+  set_escape_state (f_bar, f->escape);
 
   /* get the nodes pointed to by each variable */
   points_to_f = get_points_to (f, VEC_alloc (con_node, heap, 10));
@@ -2068,15 +2171,16 @@ update_nodes (con_node f, con_node f_bar, tree call_id)
 
       for (j = 0; VEC_iterate (con_node, points_to_f_bar, j, o_bar); j++)
 	{
-	  gcc_assert (o_bar->graph->function != f->graph->function);
-	  gcc_assert (o_bar->graph->function == f_bar->graph->function);
+	  /* Recursion means these can have the same function */
+//	  gcc_assert (o_bar->graph->function != f->graph->function);
+//	  gcc_assert (o_bar->graph->function == f_bar->graph->function);
 	  gcc_assert (o_bar->type == OBJECT_NODE);
 	  if ( !in_maps_to_obj (o, o_bar))
 	    {
 	      con_node_vec fields;
 
 	      add_to_maps_to_obj (o, o_bar);
-	      update_escape_state (o, o_bar);
+	      set_escape_state (o_bar, o->escape);
 	      fields = get_field_nodes_vec (o, VEC_alloc (con_node, heap,
 							  1000));
 	      for (k = 0; VEC_iterate (con_node, fields, k, g); k++)
