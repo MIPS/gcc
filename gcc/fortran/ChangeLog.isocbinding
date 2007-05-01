@@ -3,6 +3,13 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-04-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* symbol.c:  Whitespace.  Fix comment punctuation and gammar. 
+	* decl.c:  Ditto.
+	* trans-common.c: Ditto.
+	* expr.c: Ditto.
+
 2007-04-29  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	* expr.c (gfc_copy_expr):  Check if p is_iso_c or is_c_interop.
