@@ -1,3 +1,13 @@
+2007-05-01  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	Do not delete regnotes when recreating them.
+	* df-problems.c (df_kill_notes): Store notes into new parameters
+	rather than killing them.
+	(df_set_note): New function.
+	(df_set_unused_notes_for_mw, df_set_dead_notes_for_mw,
+	df_create_unused_note, df_ri_bb_compute): Call df_set_note to
+	create new notes.
+	
 2007-04-30  Seongbae Park <seongbae.park@gmail.com>
 
 	* df-scan.c (df_reorganize_refs_by_reg_by_insn):
