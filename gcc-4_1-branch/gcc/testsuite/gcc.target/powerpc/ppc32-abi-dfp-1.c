@@ -6,7 +6,7 @@
 
 extern void abort (void);
 int failcnt = 0;
-                                                                                
+
 /* Support compiling the test to report individual failures; default is
    to abort as soon as a check fails.  */
 #ifdef DBG
@@ -29,7 +29,6 @@ typedef struct
 } reg_parms_t;
 
 reg_parms_t gparms;
-
 
 /* Testcase could break on future gcc's, if parameter regs
    are changed before this asm.  */
@@ -221,5 +220,9 @@ main ()
 	 515.2df, 516.2df);
   func5 (601.2df, 602.2dd, 603.2dl, 604.2df, 605.2dd, 606.2dl,
 	 607.2df, 608.2dd, 609.2dl, 610.2df, 611.2dd, 612.2dl);
+
+  if (failcnt != 0)
+    abort ();
+
   return 0;
 }

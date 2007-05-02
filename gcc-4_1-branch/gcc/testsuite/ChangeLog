@@ -1,5 +1,14 @@
 2007-05-02  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.target/powerpc/ppc32-abi-dfp-1.c: Abort for failure, fix
+	white space.
+	* gcc.target/powerpc/ppc64-abi-dfp-1.c: Ditto.
+	* gcc.dg/dfp/cast.c: Support debug mode.
+	* gcc.dg/dfp/convert-int.c: Support debug mode, modify test values,
+	add more checks.
+	* gcc.dg/dfp/convert-int-max.c: Support debug mode.
+	* gcc.dg/dfp/func-vararg-dfp.c: Return zero for success.
+
 	* gcc.dg/dfp/decfloat-constants.c: Check that the value of
 	DEC_EVAL_METHOD is in the valid range.
 
