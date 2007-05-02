@@ -109,12 +109,13 @@ static const st_option convert_opt[] =
   { NULL, 0}
 };
 
+
 /* Given a unit, test to see if the file is positioned at the terminal
    point, and if so, change state from NO_ENDFILE flag to AT_ENDFILE.
    This prevents us from changing the state from AFTER_ENDFILE to
    AT_ENDFILE.  */
 
-void
+static void
 test_endfile (gfc_unit * u)
 {
   if (u->endfile == NO_ENDFILE && file_length (u->s) == file_position (u->s))
@@ -209,7 +210,7 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
       u->current_record = 0;
       u->last_record = 0;
 
-      test_endfile (u);		/* We might be at the end.  */
+      test_endfile (u);
       break;
 
     case POSITION_APPEND:

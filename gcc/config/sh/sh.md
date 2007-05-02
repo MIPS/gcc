@@ -420,10 +420,12 @@
 	 (eq_attr "type" "jump")
 	 (cond [(eq_attr "med_branch_p" "yes")
 		(const_int 2)
-		(and (eq (symbol_ref "GET_CODE (prev_nonnote_insn (insn))")
-                         (symbol_ref "INSN"))
-                     (eq (symbol_ref "INSN_CODE (prev_nonnote_insn (insn))")
-                         (symbol_ref "code_for_indirect_jump_scratch")))
+		(and (ne (symbol_ref "prev_nonnote_insn (insn)")
+			 (const_int 0))
+		     (and (eq (symbol_ref "GET_CODE (prev_nonnote_insn (insn))")
+			      (symbol_ref "INSN"))
+			  (eq (symbol_ref "INSN_CODE (prev_nonnote_insn (insn))")
+			      (symbol_ref "code_for_indirect_jump_scratch"))))
                 (cond [(eq_attr "braf_branch_p" "yes")
                        (const_int 6)
                        (eq (symbol_ref "flag_pic") (const_int 0))
@@ -4923,7 +4925,7 @@ label:
 	lds.l	%1,%0
 	lds.l	%1,%0
 	fake	%1,%0"
-  [(set_attr "type" "pcload_si,move,movi8,mt_group,load_si,mac_gp,prget,arith,mac_mem,store,pstore,gp_mac,prset,mem_mac,pload,pcload_si")
+  [(set_attr "type" "pcload_si,move,movi8,mt_group,load_si,mac_gp,prget,arith,store,mac_mem,pstore,gp_mac,prset,mem_mac,pload,pcload_si")
    (set_attr "length" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*")])
 
 ;; t/r must come after r/r, lest reload will try to reload stuff like
@@ -4968,7 +4970,36 @@ label:
 	! move optimized away"
   [(set_attr "type" "pcload_si,move,movi8,move,*,load_si,mac_gp,prget,arith,store,mac_mem,pstore,gp_mac,prset,mem_mac,pload,load,fstore,pcload_si,gp_fpul,fpul_gp,fmove,fmove,fmove,nil")
    (set_attr "late_fp_use" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,yes,*,*,yes,*,*,*,*")
-   (set_attr "length" "*,*,*,4,*,4,*,*,*,4,*,*,*,*,*,*,*,*,*,*,*,*,*,*,0")])
+   (set_attr_alternative "length"
+     [(const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 4)
+      (const_int 2)
+      (if_then_else
+	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
+	(const_int 4) (const_int 2))
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (if_then_else
+	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
+	(const_int 4) (const_int 2))
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 0)])])
 
 (define_insn "movsi_i_lowpart"
   [(set (strict_low_part (match_operand:SI 0 "general_movdst_operand" "+r,r,r,r,r,r,r,m,r"))
@@ -6570,7 +6601,31 @@ label:
 	! move optimized away"
   [(set_attr "type" "fmove,move,fmove,fmove,pcfload,fload,fstore,pcload,load,store,fmove,fmove,load,*,fpul_gp,gp_fpul,fstore,load,nil")
    (set_attr "late_fp_use" "*,*,*,*,*,*,yes,*,*,*,*,*,*,*,yes,*,yes,*,*")
-   (set_attr "length" "*,*,*,*,4,4,4,*,*,*,2,2,2,4,2,2,2,2,0")
+   (set_attr "length" "*,*,*,*,4,2,2,*,*,*,2,2,2,4,2,2,2,2,0")
+   (set_attr_alternative "length"
+     [(const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 4)
+      (if_then_else
+	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
+	(const_int 4) (const_int 2))
+      (if_then_else
+	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
+	(const_int 4) (const_int 2))
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 4)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 0)])
    (set (attr "fp_mode") (if_then_else (eq_attr "fmovd" "yes")
 					   (const_string "single")
 					   (const_string "none")))])
@@ -8286,6 +8341,14 @@ label:
    (set (match_dup 0) (plus:SI (match_dup 0) (reg:SI R0_REG)))]
   "" "
 {
+  if (TARGET_VXWORKS_RTP)
+    {
+      rtx gott_base = gen_rtx_SYMBOL_REF (Pmode, VXWORKS_GOTT_BASE);
+      rtx gott_index = gen_rtx_SYMBOL_REF (Pmode, VXWORKS_GOTT_INDEX);
+      emit_insn (gen_vxworks_picreg (gott_base, gott_index));
+      DONE;
+    }
+
   operands[0] = gen_rtx_REG (Pmode, PIC_REG);
   operands[1] = gen_rtx_SYMBOL_REF (VOIDmode, GOT_SYMBOL_NAME);
 
@@ -8327,6 +8390,21 @@ label:
     }
 }
 ")
+
+;; A helper for GOTaddr2picreg to finish up the initialization of the
+;; PIC register.
+
+(define_expand "vxworks_picreg"
+  [(set (reg:SI PIC_REG)
+	(const:SI (unspec:SI [(match_operand:SI 0 "" "")] UNSPEC_PIC)))
+   (set (reg:SI R0_REG)
+	(const:SI (unspec:SI [(match_operand:SI 1 "" "")] UNSPEC_PIC)))
+   (set (reg:SI PIC_REG)
+	(mem:SI (reg:SI PIC_REG)))
+   (set (reg:SI PIC_REG)
+	(mem:SI (plus:SI (reg:SI PIC_REG)
+			 (reg:SI R0_REG))))]
+  "TARGET_VXWORKS_RTP")
 
 (define_insn "*ptb"
   [(set (match_operand 0 "target_reg_operand" "=b")

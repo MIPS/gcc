@@ -64,92 +64,6 @@ typedef struct
   mpz_t below, up;
 } bounds;
 
-/* Sets RESULT to VAL, taken unsigned if UNS is true and as signed
-   otherwise.  */
-
-static void
-mpz_set_double_int (mpz_t result, double_int val, bool uns)
-{
-  bool negate = false;
-  unsigned HOST_WIDE_INT vp[2];
-
-  if (!uns && double_int_negative_p (val))
-    {
-      negate = true;
-      val = double_int_neg (val);
-    }
-
-  vp[0] = val.low;
-  vp[1] = (unsigned HOST_WIDE_INT) val.high;
-  mpz_import (result, 2, -1, sizeof (HOST_WIDE_INT), 0, 0, vp);
-
-  if (negate)
-    mpz_neg (result, result);
-}
-
-/* Stores bounds of TYPE to MIN and MAX.  */
-
-static void
-get_type_bounds (tree type, mpz_t min, mpz_t max)
-{
-  if (TYPE_UNSIGNED (type))
-    {
-      mpz_set_ui (min, 0);
-      mpz_set_double_int (max, double_int_mask (TYPE_PRECISION (type)), true);
-    }
-  else
-    {
-      double_int mx, mn;
-      
-      mx = double_int_mask (TYPE_PRECISION (type) - 1);
-      mn = double_int_sext (double_int_add (mx, double_int_one),
-			    TYPE_PRECISION (type));
-      mpz_set_double_int (max, mx, true);
-      mpz_set_double_int (min, mn, false);
-    }
-}
-
-/* Returns VAL converted to TYPE.  If VAL does not fit in TYPE,
-   the minimum or maximum value of the type is returned instead.  */
-
-static double_int
-mpz_to_double_int (tree type, mpz_t val)
-{
-  mpz_t min, max;
-  unsigned HOST_WIDE_INT vp[2];
-  bool negate = false;
-  size_t count;
-  double_int res;
-
-  mpz_init (min);
-  mpz_init (max);
-  get_type_bounds (type, min, max);
-
-  if (mpz_cmp (val, min) < 0)
-    mpz_set (val, min);
-  else if (mpz_cmp (val, max) > 0)
-    mpz_set (val, max);
-
-  if (mpz_sgn (val) < 0)
-    negate = true;
-
-  vp[0] = 0;
-  vp[1] = 0;
-  mpz_export (vp, &count, -1, sizeof (HOST_WIDE_INT), 0, 0, val);
-  gcc_assert (count <= 2);
-  
-  mpz_clear (min);
-  mpz_clear (max);
-
-  res.low = vp[0];
-  res.high = (HOST_WIDE_INT) vp[1];
-
-  res = double_int_ext (res, TYPE_PRECISION (type), TYPE_UNSIGNED (type));
-  if (negate)
-    res = double_int_neg (res);
-
-  return res;
-}
 
 /* Splits expression EXPR to a variable part VAR and constant OFFSET.  */
 
@@ -212,7 +126,7 @@ determine_value_range (tree type, tree var, mpz_t off,
 
   /* If the computation may wrap, we know nothing about the value, except for
      the range of the type.  */
-  get_type_bounds (type, min, max);
+  get_type_static_bounds (type, min, max);
   if (!nowrap_type_p (type))
     return;
 
@@ -703,7 +617,7 @@ number_of_iterations_ne (tree type, affine_iv *iv, tree final,
 
   mpz_init (max);
   number_of_iterations_ne_max (max, iv->no_overflow, c, s, bnds);
-  niter->max = mpz_to_double_int (niter_type, max);
+  niter->max = mpz_get_double_int (niter_type, max, false);
   mpz_clear (max);
 
   /* First the trivial cases -- when the step is 1.  */
@@ -1081,7 +995,7 @@ number_of_iterations_lt (tree type, affine_iv *iv0, affine_iv *iv1,
 	niter->may_be_zero = fold_build2 (LT_EXPR, boolean_type_node,
 					  iv1->base, iv0->base);
       niter->niter = delta;
-      niter->max = mpz_to_double_int (niter_type, bnds->up);
+      niter->max = mpz_get_double_int (niter_type, bnds->up, false);
       return true;
     }
 
@@ -1128,7 +1042,7 @@ number_of_iterations_lt (tree type, affine_iv *iv0, affine_iv *iv1,
   mpz_add (tmp, bnds->up, mstep);
   mpz_sub_ui (tmp, tmp, 1);
   mpz_fdiv_q (tmp, tmp, mstep);
-  niter->max = mpz_to_double_int (niter_type, tmp);
+  niter->max = mpz_get_double_int (niter_type, tmp, false);
   mpz_clear (mstep);
   mpz_clear (tmp);
 
@@ -2474,7 +2388,7 @@ record_estimate (struct loop *loop, tree bound, double_int i_bound,
     delta = double_int_two;
   i_bound = double_int_add (i_bound, delta);
 
-  /* If an overflow occured, ignore the result.  */
+  /* If an overflow occurred, ignore the result.  */
   if (double_int_ucmp (i_bound, delta) < 0)
     return;
 
@@ -2581,12 +2495,15 @@ array_at_struct_end_p (tree ref)
 }
 
 /* Determine information about number of iterations a LOOP from the index
-   IDX of a data reference accessed in STMT.  Callback for for_each_index.  */
+   IDX of a data reference accessed in STMT.  RELIABLE is true if STMT is
+   guaranteed to be executed in every iteration of LOOP.  Callback for
+   for_each_index.  */
 
 struct ilb_data
 {
   struct loop *loop;
   tree stmt;
+  bool reliable;
 };
 
 static bool
@@ -2595,7 +2512,7 @@ idx_infer_loop_bounds (tree base, tree *idx, void *dta)
   struct ilb_data *data = dta;
   tree ev, init, step;
   tree low, high, type, next;
-  bool sign, upper = true;
+  bool sign, upper = data->reliable, at_end = false;
   struct loop *loop = data->loop;
 
   if (TREE_CODE (base) != ARRAY_REF)
@@ -2605,7 +2522,10 @@ idx_infer_loop_bounds (tree base, tree *idx, void *dta)
      do not really extend over their declared size.  However, for arrays of
      size greater than one, this is unlikely to be intended.  */
   if (array_at_struct_end_p (base))
-    upper = false;
+    {
+      at_end = true;
+      upper = false;
+    }
 
   ev = instantiate_parameters (loop, analyze_scalar_evolution (loop, *idx));
   init = initial_condition (ev);
@@ -2633,7 +2553,7 @@ idx_infer_loop_bounds (tree base, tree *idx, void *dta)
 
   /* The array of length 1 at the end of a structure most likely extends
      beyond its bounds.  */
-  if (!upper
+  if (at_end
       && operand_equal_p (low, high, 0))
     return true;
 
@@ -2665,23 +2585,27 @@ idx_infer_loop_bounds (tree base, tree *idx, void *dta)
 }
 
 /* Determine information about number of iterations a LOOP from the bounds
-   of arrays in the data reference REF accessed in STMT.  */
+   of arrays in the data reference REF accessed in STMT.  RELIABLE is true if
+   STMT is guaranteed to be executed in every iteration of LOOP.*/
 
 static void
-infer_loop_bounds_from_ref (struct loop *loop, tree stmt, tree ref)
+infer_loop_bounds_from_ref (struct loop *loop, tree stmt, tree ref,
+			    bool reliable)
 {
   struct ilb_data data;
 
   data.loop = loop;
   data.stmt = stmt;
+  data.reliable = reliable;
   for_each_index (&ref, idx_infer_loop_bounds, &data);
 }
 
 /* Determine information about number of iterations of a LOOP from the way
-   arrays are used in STMT.  */
+   arrays are used in STMT.  RELIABLE is true if STMT is guaranteed to be
+   executed in every iteration of LOOP.  */
 
 static void
-infer_loop_bounds_from_array (struct loop *loop, tree stmt)
+infer_loop_bounds_from_array (struct loop *loop, tree stmt, bool reliable)
 {
   tree call;
 
@@ -2693,10 +2617,10 @@ infer_loop_bounds_from_array (struct loop *loop, tree stmt)
       /* For each memory access, analyze its access function
 	 and record a bound on the loop iteration domain.  */
       if (REFERENCE_CLASS_P (op0))
-	infer_loop_bounds_from_ref (loop, stmt, op0);
+	infer_loop_bounds_from_ref (loop, stmt, op0, reliable);
 
       if (REFERENCE_CLASS_P (op1))
-	infer_loop_bounds_from_ref (loop, stmt, op1);
+	infer_loop_bounds_from_ref (loop, stmt, op1, reliable);
     }
   
   
@@ -2708,7 +2632,7 @@ infer_loop_bounds_from_array (struct loop *loop, tree stmt)
 
       FOR_EACH_CALL_EXPR_ARG (arg, iter, call)
 	if (REFERENCE_CLASS_P (arg))
-	  infer_loop_bounds_from_ref (loop, stmt, arg);
+	  infer_loop_bounds_from_ref (loop, stmt, arg, reliable);
     }
 }
 
@@ -2768,6 +2692,7 @@ infer_loop_bounds_from_undefined (struct loop *loop)
   basic_block *bbs;
   block_stmt_iterator bsi;
   basic_block bb;
+  bool reliable;
   
   bbs = get_loop_body (loop);
 
@@ -2776,21 +2701,40 @@ infer_loop_bounds_from_undefined (struct loop *loop)
       bb = bbs[i];
 
       /* If BB is not executed in each iteration of the loop, we cannot
-	 use it to infer any information about # of iterations of the loop.  */
-      if (!dominated_by_p (CDI_DOMINATORS, loop->latch, bb))
-	continue;
+	 use the operations in it to infer reliable upper bound on the
+	 # of iterations of the loop.  However, we can use it as a guess.  */
+      reliable = dominated_by_p (CDI_DOMINATORS, loop->latch, bb);
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  tree stmt = bsi_stmt (bsi);
 
-	  infer_loop_bounds_from_array (loop, stmt);
-	  infer_loop_bounds_from_signedness (loop, stmt);
+	  infer_loop_bounds_from_array (loop, stmt, reliable);
+
+	  if (reliable)
+	    infer_loop_bounds_from_signedness (loop, stmt);
   	}
 
     }
 
   free (bbs);
+}
+
+/* Converts VAL to double_int.  */
+
+static double_int
+gcov_type_to_double_int (gcov_type val)
+{
+  double_int ret;
+
+  ret.low = (unsigned HOST_WIDE_INT) val;
+  /* If HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_WIDEST_INT, avoid shifting by
+     the size of type.  */
+  val >>= HOST_BITS_PER_WIDE_INT - 1;
+  val >>= 1;
+  ret.high = (unsigned HOST_WIDE_INT) val;
+
+  return ret;
 }
 
 /* Records estimates on numbers of iterations of LOOP.  */
@@ -2836,7 +2780,8 @@ estimate_numbers_of_iterations_loop (struct loop *loop)
      iterations.  */
   if (loop->header->count != 0)
     {
-      bound = uhwi_to_double_int (expected_loop_iterations (loop) + 1);
+      gcov_type nit = expected_loop_iterations_unbounded (loop) + 1;
+      bound = gcov_type_to_double_int (nit);
       record_niter_bound (loop, bound, true, false);
     }
 

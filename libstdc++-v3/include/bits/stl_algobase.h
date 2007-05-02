@@ -64,13 +64,12 @@
 
 #include <bits/c++config.h>
 #include <cstring>
-#include <cwchar>
 #include <cstddef>
 #include <bits/functexcept.h>
 #include <bits/stl_pair.h>
 #include <bits/cpp_type_traits.h>
 #include <ext/type_traits.h>
-#include <limits>
+#include <ext/numeric_traits.h>
 #include <bits/stl_iterator_base_types.h>
 #include <bits/stl_iterator_base_funcs.h>
 #include <bits/stl_iterator.h>
@@ -161,9 +160,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	_ReferenceType1;
       typedef typename iterator_traits<_ForwardIterator2>::reference
 	_ReferenceType2;
-      std::__iter_swap<__are_same<_ValueType1, _ValueType2>::__value &&
-	__are_same<_ValueType1 &, _ReferenceType1>::__value &&
-	__are_same<_ValueType2 &, _ReferenceType2>::__value>::
+      std::__iter_swap<__are_same<_ValueType1, _ValueType2>::__value
+	&& __are_same<_ValueType1&, _ReferenceType1>::__value
+	&& __are_same<_ValueType2&, _ReferenceType2>::__value>::
 	iter_swap(__a, __b);
     }
 
@@ -285,6 +284,26 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       return __a;
     }
 
+
+  // If _Iterator is a __normal_iterator return its base (a plain pointer,
+  // normally) otherwise return it untouched.  See copy, fill, ... 
+  template<typename _Iterator,
+	   bool _BoolType = __is_normal_iterator<_Iterator>::__value>
+    struct __niter_base
+    {
+      static const _Iterator&
+      __b(const _Iterator& __it)
+      { return __it; }
+    };
+
+  template<typename _Iterator>
+    struct __niter_base<_Iterator, true>
+    {
+      static const typename _Iterator::_Iterator_type&
+      __b(const _Iterator& __it)
+      { return __it.base(); }
+    };
+
   // All of these auxiliary structs serve two purposes.  (1) Replace
   // calls to copy with memmove whenever possible.  (Memmove, not memcpy,
   // because the input and output ranges are permitted to overlap.)
@@ -341,7 +360,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       typedef typename iterator_traits<_II>::value_type _ValueTypeI;
       typedef typename iterator_traits<_OI>::value_type _ValueTypeO;
       typedef typename iterator_traits<_II>::iterator_category _Category;
-      const bool __simple = (__is_scalar<_ValueTypeI>::__value
+      const bool __simple = (__is_pod(_ValueTypeI)
 	                     && __is_pointer<_II>::__value
 	                     && __is_pointer<_OI>::__value
 			     && __are_same<_ValueTypeI, _ValueTypeO>::__value);
@@ -378,43 +397,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     __copy_aux(istreambuf_iterator<_CharT, char_traits<_CharT> >,
 	       istreambuf_iterator<_CharT, char_traits<_CharT> >, _CharT*);
 
-  template<bool, bool>
-    struct __copy_normal
-    {
-      template<typename _II, typename _OI>
-        static _OI
-        __copy_n(_II __first, _II __last, _OI __result)
-        { return std::__copy_aux(__first, __last, __result); }
-    };
-
-  template<>
-    struct __copy_normal<true, false>
-    {
-      template<typename _II, typename _OI>
-        static _OI
-        __copy_n(_II __first, _II __last, _OI __result)
-        { return std::__copy_aux(__first.base(), __last.base(), __result); }
-    };
-
-  template<>
-    struct __copy_normal<false, true>
-    {
-      template<typename _II, typename _OI>
-        static _OI
-        __copy_n(_II __first, _II __last, _OI __result)
-        { return _OI(std::__copy_aux(__first, __last, __result.base())); }
-    };
-
-  template<>
-    struct __copy_normal<true, true>
-    {
-      template<typename _II, typename _OI>
-        static _OI
-        __copy_n(_II __first, _II __last, _OI __result)
-        { return _OI(std::__copy_aux(__first.base(), __last.base(),
-				     __result.base())); }
-    };
-
   /**
    *  @brief Copies the range [first,last) into result.
    *  @param  first  An input iterator.
@@ -431,22 +413,21 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  Note that the end of the output range is permitted to be contained
    *  within [first,last).
   */
-  template<typename _InputIterator, typename _OutputIterator>
-    inline _OutputIterator
-    copy(_InputIterator __first, _InputIterator __last,
-	 _OutputIterator __result)
+  template<typename _II, typename _OI>
+    inline _OI
+    copy(_II __first, _II __last, _OI __result)
     {
       // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
-      __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
-	    typename iterator_traits<_InputIterator>::value_type>)
+      __glibcxx_function_requires(_InputIteratorConcept<_II>)
+      __glibcxx_function_requires(_OutputIteratorConcept<_OI,
+	    typename iterator_traits<_II>::value_type>)
       __glibcxx_requires_valid_range(__first, __last);
 
-       const bool __in = __is_normal_iterator<_InputIterator>::__value;
-       const bool __out = __is_normal_iterator<_OutputIterator>::__value;
-       return std::__copy_normal<__in, __out>::__copy_n(__first, __last,
-							__result);
+      return _OI(std::__copy_aux(__niter_base<_II>::__b(__first),
+				 __niter_base<_II>::__b(__last),
+				 __niter_base<_OI>::__b(__result)));
     }
+
 
   template<bool, typename>
     struct __copy_backward
@@ -495,7 +476,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       typedef typename iterator_traits<_BI1>::value_type _ValueType1;
       typedef typename iterator_traits<_BI2>::value_type _ValueType2;
       typedef typename iterator_traits<_BI1>::iterator_category _Category;
-      const bool __simple = (__is_scalar<_ValueType1>::__value
+      const bool __simple = (__is_pod(_ValueType1)
 	                     && __is_pointer<_BI1>::__value
 	                     && __is_pointer<_BI2>::__value
 			     && __are_same<_ValueType1, _ValueType2>::__value);
@@ -504,45 +485,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 								 __last,
 								 __result);
     }
-
-  template<bool, bool>
-    struct __copy_backward_normal
-    {
-      template<typename _BI1, typename _BI2>
-        static _BI2
-        __copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
-        { return std::__copy_backward_aux(__first, __last, __result); }
-    };
-
-  template<>
-    struct __copy_backward_normal<true, false>
-    {
-      template<typename _BI1, typename _BI2>
-        static _BI2
-        __copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
-        { return std::__copy_backward_aux(__first.base(), __last.base(),
-					  __result); }
-    };
-
-  template<>
-    struct __copy_backward_normal<false, true>
-    {
-      template<typename _BI1, typename _BI2>
-        static _BI2
-        __copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
-        { return _BI2(std::__copy_backward_aux(__first, __last,
-					       __result.base())); }
-    };
-
-  template<>
-    struct __copy_backward_normal<true, true>
-    {
-      template<typename _BI1, typename _BI2>
-        static _BI2
-        __copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
-        { return _BI2(std::__copy_backward_aux(__first.base(), __last.base(),
-					       __result.base())); }
-    };
 
   /**
    *  @brief Copies the range [first,last) into result.
@@ -573,11 +515,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	    typename iterator_traits<_BI2>::value_type>)
       __glibcxx_requires_valid_range(__first, __last);
 
-      const bool __bi1 = __is_normal_iterator<_BI1>::__value;
-      const bool __bi2 = __is_normal_iterator<_BI2>::__value;
-      return std::__copy_backward_normal<__bi1, __bi2>::__copy_b_n(__first,
-								   __last,
-								   __result);
+      return _BI2(std::__copy_backward_aux(__niter_base<_BI1>::__b(__first),
+					   __niter_base<_BI1>::__b(__last),
+					   __niter_base<_BI2>::__b(__result)));
     }
 
 
@@ -617,7 +557,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       std::__fill<__scalar>::fill(__first, __last, __value);
     }
 
-  // Specialization: for char types we can use memset (wmemset).
+  // Specialization: for char types we can use memset.
   inline void
   __fill_aux(unsigned char* __first, unsigned char* __last, unsigned char __c)
   { std::memset(__first, __c, __last - __first); }
@@ -629,32 +569,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   inline void
   __fill_aux(char* __first, char* __last, char __c)
   { std::memset(__first, static_cast<unsigned char>(__c), __last - __first); }
-
-#ifdef _GLIBCXX_USE_WCHAR_T
-  inline void
-  __fill_aux(wchar_t* __first, wchar_t* __last, wchar_t __c)
-  { std::wmemset(__first, __c, __last - __first); }
-#endif
-
-  template<bool>
-    struct __fill_normal
-    {
-      template<typename _ForwardIterator, typename _Tp>
-        static void
-        __fill_n(_ForwardIterator __first, _ForwardIterator __last,
-		 const _Tp& __value)
-        { std::__fill_aux(__first, __last, __value); }
-    };
-
-  template<>
-    struct __fill_normal<true>
-    {
-      template<typename _ForwardIterator, typename _Tp>
-        static void
-        __fill_n(_ForwardIterator __first, _ForwardIterator __last,
-		 const _Tp& __value)
-        { std::__fill_aux(__first.base(), __last.base(), __value); }
-    };
 
   /**
    *  @brief Fills the range [first,last) with copies of value.
@@ -676,8 +590,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 				  _ForwardIterator>)
       __glibcxx_requires_valid_range(__first, __last);
 
-      const bool __fi = __is_normal_iterator<_ForwardIterator>::__value;
-      std::__fill_normal<__fi>::__fill_n(__first, __last, __value);
+      std::__fill_aux(__niter_base<_ForwardIterator>::__b(__first),
+		      __niter_base<_ForwardIterator>::__b(__last), __value);
     }
 
 
@@ -740,34 +654,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       return __first + __n;
     }
 
-#ifdef _GLIBCXX_USE_WCHAR_T
-  template<typename _Size>
-    inline wchar_t*
-    __fill_n_aux(wchar_t* __first, _Size __n, wchar_t __c)
-    {
-      std::__fill_aux(__first, __first + __n, __c);
-      return __first + __n;
-    }
-#endif
-
-  template<bool>
-    struct __fill_n_normal
-    {
-      template<typename _OI, typename _Size, typename _Tp>
-        static _OI
-        __fill_n_n(_OI __first, _Size __n, const _Tp& __value)
-        { return std::__fill_n_aux(__first, __n, __value); }
-    };
-
-  template<>
-    struct __fill_n_normal<true>
-    {
-      template<typename _OI, typename _Size, typename _Tp>
-        static _OI
-        __fill_n_n(_OI __first, _Size __n, const _Tp& __value)
-        { return _OI(std::__fill_n_aux(__first.base(), __n, __value)); }
-    };
-
   /**
    *  @brief Fills the range [first,first+n) with copies of value.
    *  @param  first  An output iterator.
@@ -779,15 +665,15 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  types filling contiguous areas of memory, this becomes an inline call
    *  to @c memset or @ wmemset.
   */
-  template<typename _OutputIterator, typename _Size, typename _Tp>
-    inline _OutputIterator
-    fill_n(_OutputIterator __first, _Size __n, const _Tp& __value)
+  template<typename _OI, typename _Size, typename _Tp>
+    inline _OI
+    fill_n(_OI __first, _Size __n, const _Tp& __value)
     {
       // concept requirements
-      __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator, _Tp>)
+      __glibcxx_function_requires(_OutputIteratorConcept<_OI, _Tp>)
 
-      const bool __oi = __is_normal_iterator<_OutputIterator>::__value;
-      return std::__fill_n_normal<__oi>::__fill_n_n(__first, __n, __value);
+      return _OI(std::__fill_n_aux(__niter_base<_OI>::__b(__first), __n,
+				   __value));
     }
 
   /**
@@ -848,12 +734,53 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
       __glibcxx_requires_valid_range(__first1, __last1);
 
-      while (__first1 != __last1 && __binary_pred(*__first1, *__first2))
+      while (__first1 != __last1 && bool(__binary_pred(*__first1, *__first2)))
         {
 	  ++__first1;
 	  ++__first2;
         }
       return pair<_InputIterator1, _InputIterator2>(__first1, __first2);
+    }
+
+
+  template<bool _BoolType>
+    struct __equal
+    {
+      template<typename _II1, typename _II2>
+        static bool
+        equal(_II1 __first1, _II1 __last1, _II2 __first2)
+        {
+	  for (; __first1 != __last1; ++__first1, ++__first2)
+	    if (!(*__first1 == *__first2))
+	      return false;
+	  return true;
+	}
+    };
+
+  template<>
+    struct __equal<true>
+    {
+      template<typename _Tp>
+        static bool
+        equal(const _Tp* __first1, const _Tp* __last1, const _Tp* __first2)
+        {
+	  return !std::memcmp(__first1, __first2, sizeof(_Tp)
+			      * (__last1 - __first1));
+	}
+    };
+
+  template<typename _II1, typename _II2>
+    inline bool
+    __equal_aux(_II1 __first1, _II1 __last1, _II2 __first2)
+    {
+      typedef typename iterator_traits<_II1>::value_type _ValueType1;
+      typedef typename iterator_traits<_II2>::value_type _ValueType2;
+      const bool __simple = (__is_integer<_ValueType1>::__value
+	                     && __is_pointer<_II1>::__value
+	                     && __is_pointer<_II2>::__value
+			     && __are_same<_ValueType1, _ValueType2>::__value);
+
+      return std::__equal<__simple>::equal(__first1, __last1, __first2);
     }
 
   /**
@@ -867,23 +794,21 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  false depending on whether all of the corresponding elements of the
    *  ranges are equal.
   */
-  template<typename _InputIterator1, typename _InputIterator2>
+  template<typename _II1, typename _II2>
     inline bool
-    equal(_InputIterator1 __first1, _InputIterator1 __last1,
-	  _InputIterator2 __first2)
+    equal(_II1 __first1, _II1 __last1, _II2 __first2)
     {
       // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
+      __glibcxx_function_requires(_InputIteratorConcept<_II1>)
+      __glibcxx_function_requires(_InputIteratorConcept<_II2>)
       __glibcxx_function_requires(_EqualOpConcept<
-	    typename iterator_traits<_InputIterator1>::value_type,
-	    typename iterator_traits<_InputIterator2>::value_type>)
+	    typename iterator_traits<_II1>::value_type,
+	    typename iterator_traits<_II2>::value_type>)
       __glibcxx_requires_valid_range(__first1, __last1);
-      
-      for (; __first1 != __last1; ++__first1, ++__first2)
-	if (!(*__first1 == *__first2))
-	  return false;
-      return true;
+
+      return std::__equal_aux(__niter_base<_II1>::__b(__first1),
+			      __niter_base<_II1>::__b(__last1),
+			      __niter_base<_II2>::__b(__first2));
     }
 
   /**
@@ -912,7 +837,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __glibcxx_requires_valid_range(__first1, __last1);
 
       for (; __first1 != __last1; ++__first1, ++__first2)
-	if (!__binary_pred(*__first1, *__first2))
+	if (!bool(__binary_pred(*__first1, *__first2)))
 	  return false;
       return true;
     }
@@ -1018,7 +943,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     __glibcxx_requires_valid_range(__first1, __last1);
     __glibcxx_requires_valid_range(__first2, __last2);
 
-    if (std::numeric_limits<char>::is_signed)
+    if (__gnu_cxx::__numeric_traits<char>::__is_signed)
       return std::lexicographical_compare((const signed char*) __first1,
 					  (const signed char*) __last1,
 					  (const signed char*) __first2,

@@ -1,5 +1,5 @@
 /* gfortran header file
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -483,7 +483,8 @@ typedef struct
   /* Variable attributes.  */
   unsigned allocatable:1, dimension:1, external:1, intrinsic:1,
     optional:1, pointer:1, save:1, target:1, value:1, volatile_:1,
-    dummy:1, result:1, assign:1, threadprivate:1, not_always_present:1;
+    dummy:1, result:1, assign:1, threadprivate:1, not_always_present:1,
+    implied_index:1;
 
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
     protected:1,		/* Symbol has been marked as protected.  */
@@ -1844,6 +1845,7 @@ extern int gfc_default_logical_kind;
 extern int gfc_default_complex_kind;
 extern int gfc_c_int_kind;
 extern int gfc_intio_kind;
+extern int gfc_charlen_int_kind;
 extern int gfc_numeric_storage_size;
 extern int gfc_character_storage_size;
 
@@ -1852,6 +1854,7 @@ void gfc_clear_new_implicit (void);
 try gfc_add_new_implicit_range (int, int);
 try gfc_merge_new_implicit (gfc_typespec *);
 void gfc_set_implicit_none (void);
+void gfc_check_function_type (gfc_namespace *);
 
 gfc_typespec *gfc_get_default_type (gfc_symbol *, gfc_namespace *);
 try gfc_set_default_type (gfc_symbol *, int, gfc_namespace *);

@@ -1134,6 +1134,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (FP_REGNO_P (regno))
     return
       (SCALAR_FLOAT_MODE_P (mode)
+       && (mode != TDmode || (regno % 2) == 0)
        && mode != SDmode
        && FP_REGNO_P (regno + HARD_REGNO_NREGS (regno, mode) - 1))
       || (GET_MODE_CLASS (mode) == MODE_INT
@@ -5046,8 +5047,9 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	      || mode == DDmode || mode == TDmode
 	      || (mode == TFmode && !TARGET_IEEEQUAD)))
 	{
-	  /* _Decimal128 must use an even/odd register pair.  */
-	  if (mode == TDmode && cum->fregno % 2)
+	  /* _Decimal128 must use an even/odd register pair.  This assumes
+	     that the register number is odd when fregno is odd.  */
+	  if (mode == TDmode && (cum->fregno % 2) == 1)
 	    cum->fregno++;
 
 	  if (cum->fregno + (mode == TFmode || mode == TDmode ? 1 : 0)
@@ -5110,7 +5112,14 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       if (SCALAR_FLOAT_MODE_P (mode)
 	  && mode != SDmode
 	  && TARGET_HARD_FLOAT && TARGET_FPRS)
-	cum->fregno += (GET_MODE_SIZE (mode) + 7) >> 3;
+	{
+	  /* _Decimal128 must be passed in an even/odd float register pair.
+	     This assumes that the register number is odd when fregno is
+	     odd.  */
+	  if (mode == TDmode && (cum->fregno % 2) == 1)
+	    cum->fregno++;
+	  cum->fregno += (GET_MODE_SIZE (mode) + 7) >> 3;
+	}
 
       if (TARGET_DEBUG_ARG)
 	{
@@ -5602,8 +5611,9 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	      || (mode == TFmode && !TARGET_IEEEQUAD)
 	      || mode == DDmode || mode == TDmode))
 	{
-	  /* _Decimal128 must use an even/odd register pair.  */
-	  if (mode == TDmode && cum->fregno % 2)
+	  /* _Decimal128 must use an even/odd register pair.  This assumes
+	     that the register number is odd when fregno is odd.  */
+	  if (mode == TDmode && (cum->fregno % 2) == 1)
 	    cum->fregno++;
 
 	  if (cum->fregno + (mode == TFmode || mode == TDmode ? 1 : 0)
@@ -5636,6 +5646,11 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   else
     {
       int align_words = rs6000_parm_start (mode, type, cum->words);
+
+      /* _Decimal128 must be passed in an even/odd float register pair.
+	 This assumes that the register number is odd when fregno is odd.  */
+      if (mode == TDmode && (cum->fregno % 2) == 1)
+	cum->fregno++;
 
       if (USE_FP_FOR_ARG_P (cum, mode, type))
 	{
@@ -15159,7 +15174,7 @@ rs6000_emit_prologue (void)
       if (!info->lr_save_p)
 	rs6000_maybe_dead (emit_move_insn (gen_rtx_REG (Pmode, 0), lr));
 
-      rs6000_maybe_dead (emit_insn (gen_load_macho_picbase (lr, src)));
+      rs6000_maybe_dead (emit_insn (gen_load_macho_picbase (src)));
 
       insn = emit_move_insn (gen_rtx_REG (Pmode,
 					  RS6000_PIC_OFFSET_TABLE_REGNUM),
@@ -16024,7 +16039,6 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   reload_completed = 1;
   epilogue_completed = 1;
   no_new_pseudos = 1;
-  reset_block_changes ();
 
   /* Mark the end of the (empty) prologue.  */
   emit_note (NOTE_INSN_PROLOGUE_END);
@@ -16104,7 +16118,7 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
      instruction scheduling worth while.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
   insn = get_insns ();
-  insn_locators_initialize ();
+  insn_locators_alloc ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
   final (insn, file, 1);

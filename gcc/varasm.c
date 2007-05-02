@@ -2022,9 +2022,6 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
       decl = to;
     }
 
-  if (lang_hooks.decls.prepare_assemble_variable)
-    lang_hooks.decls.prepare_assemble_variable (decl);
-
   last_assemble_variable_decl = 0;
 
   /* Normally no need to say anything here for external references,
@@ -4063,9 +4060,8 @@ initializer_constant_valid_p (tree value, tree endtype)
 	    return null_pointer_node;
 	  /* Taking the address of a nested function involves a trampoline.  */
 	  if (TREE_CODE (value) == FUNCTION_DECL
-	      && ((decl_function_context (value)
-		   && !DECL_NO_STATIC_CHAIN (value))
-		  || DECL_DLLIMPORT_P (value)))
+	      && decl_function_context (value)
+	      && !DECL_NO_STATIC_CHAIN (value))
 	    return NULL_TREE;
 	  /* "&{...}" requires a temporary to hold the constructed
 	     object.  */

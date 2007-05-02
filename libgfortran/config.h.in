@@ -327,9 +327,6 @@
 /* Define to 1 if you have the <fenv.h> header file. */
 #undef HAVE_FENV_H
 
-/* libm includes finite */
-#undef HAVE_FINITE
-
 /* Define to 1 if you have the <floatingpoint.h> header file. */
 #undef HAVE_FLOATINGPOINT_H
 
@@ -378,8 +375,14 @@
 /* libm includes frexpl */
 #undef HAVE_FREXPL
 
+/* Define to 1 if you have the `fstat' function. */
+#undef HAVE_FSTAT
+
 /* Define to 1 if you have the `ftruncate' function. */
 #undef HAVE_FTRUNCATE
+
+/* libc includes geteuid */
+#undef HAVE_GETEUID
 
 /* libc includes getgid */
 #undef HAVE_GETGID
@@ -395,6 +398,9 @@
 
 /* libc includes getppid */
 #undef HAVE_GETPPID
+
+/* Define to 1 if you have the `getpwuid' function. */
+#undef HAVE_GETPWUID
 
 /* Define to 1 if you have the `getrlimit' function. */
 #undef HAVE_GETRLIMIT
@@ -489,8 +495,8 @@
 /* libm includes logl */
 #undef HAVE_LOGL
 
-/* Define to 1 if you have the <math.h> header file. */
-#undef HAVE_MATH_H
+/* Define to 1 if you have the `lstat' function. */
+#undef HAVE_LSTAT
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
@@ -521,6 +527,9 @@
 
 /* libm includes powl */
 #undef HAVE_POWL
+
+/* Define to 1 if you have the <pwd.h> header file. */
+#undef HAVE_PWD_H
 
 /* libm includes round */
 #undef HAVE_ROUND
@@ -582,14 +591,11 @@
 /* libm includes sqrtl */
 #undef HAVE_SQRTL
 
-/* Define to 1 if you have the <stddef.h> header file. */
-#undef HAVE_STDDEF_H
+/* Define to 1 if you have the `stat' function. */
+#undef HAVE_STAT
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
-
-/* Define to 1 if you have the <stdio.h> header file. */
-#undef HAVE_STDIO_H
 
 /* Define to 1 if you have the <stdlib.h> header file. */
 #undef HAVE_STDLIB_H
@@ -626,9 +632,6 @@
 
 /* Define to 1 if the target supports __sync_fetch_and_add */
 #undef HAVE_SYNC_FETCH_AND_ADD
-
-/* Define to 1 if you have the <sys/params.h> header file. */
-#undef HAVE_SYS_PARAMS_H
 
 /* Define to 1 if you have the <sys/resource.h> header file. */
 #undef HAVE_SYS_RESOURCE_H

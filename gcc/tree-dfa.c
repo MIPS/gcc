@@ -346,33 +346,53 @@ dump_variable (FILE *file, tree var)
   if (TREE_THIS_VOLATILE (var))
     fprintf (file, ", is volatile");
 
+  if (mem_sym_stats (cfun, var))
+    {
+      mem_sym_stats_t stats = mem_sym_stats (cfun, var);
+      fprintf (file, ", direct reads: %ld", stats->num_direct_reads);
+      fprintf (file, ", direct writes: %ld", stats->num_direct_writes);
+      fprintf (file, ", indirect reads: %ld", stats->num_indirect_reads);
+      fprintf (file, ", indirect writes: %ld", stats->num_indirect_writes);
+      fprintf (file, ", read frequency: %ld", stats->frequency_reads);
+      fprintf (file, ", write frequency: %ld", stats->frequency_writes);
+    }
+
   if (is_call_clobbered (var))
     {
+      const char *s = "";
       var_ann_t va = var_ann (var);
       unsigned int escape_mask = va->escape_mask;
 
       fprintf (file, ", call clobbered");
       fprintf (file, " (");
       if (escape_mask & ESCAPE_STORED_IN_GLOBAL)
-	fprintf (file, ", stored in global");
+	{ fprintf (file, "%sstored in global", s); s = ", "; }
       if (escape_mask & ESCAPE_TO_ASM)
-	fprintf (file, ", goes through ASM");
+	{ fprintf (file, "%sgoes through ASM", s); s = ", "; }
       if (escape_mask & ESCAPE_TO_CALL)
-	fprintf (file, ", passed to call");
+	{ fprintf (file, "%spassed to call", s); s = ", "; }
       if (escape_mask & ESCAPE_BAD_CAST)
-	fprintf (file, ", bad cast");
+	{ fprintf (file, "%sbad cast", s); s = ", "; }
       if (escape_mask & ESCAPE_TO_RETURN)
-	fprintf (file, ", returned from func");
+	{ fprintf (file, "%sreturned from func", s); s = ", "; }
       if (escape_mask & ESCAPE_TO_PURE_CONST)
-	fprintf (file, ", passed to pure/const");
+	{ fprintf (file, "%spassed to pure/const", s); s = ", "; }
       if (escape_mask & ESCAPE_IS_GLOBAL)
-	fprintf (file, ", is global var");
+	{ fprintf (file, "%sis global var", s); s = ", "; }
       if (escape_mask & ESCAPE_IS_PARM)
-	fprintf (file, ", is incoming pointer");
+	{ fprintf (file, "%sis incoming pointer", s); s = ", "; }
       if (escape_mask & ESCAPE_UNKNOWN)
-	fprintf (file, ", unknown escape");
-      fprintf (file, " )");
+	{ fprintf (file, "%sunknown escape", s); s = ", "; }
+      fprintf (file, ")");
     }
+
+  if (ann->noalias_state == NO_ALIAS)
+    fprintf (file, ", NO_ALIAS (does not alias other NO_ALIAS symbols)");
+  else if (ann->noalias_state == NO_ALIAS_GLOBAL)
+    fprintf (file, ", NO_ALIAS_GLOBAL (does not alias other NO_ALIAS symbols"
+	           " and global vars)");
+  else if (ann->noalias_state == NO_ALIAS_ANYTHING)
+    fprintf (file, ", NO_ALIAS_ANYTHING (does not alias any other symbols)");
 
   if (gimple_default_def (cfun, var))
     {
@@ -618,8 +638,8 @@ referenced_var_lookup (unsigned int uid)
 {
   struct int_tree_map *h, in;
   in.uid = uid;
-  h = (struct int_tree_map *) htab_find_with_hash (gimple_referenced_vars (cfun),
-						   &in, uid);
+  h = (struct int_tree_map *)
+	htab_find_with_hash (gimple_referenced_vars (cfun), &in, uid);
   gcc_assert (h || uid == 0);
   if (h)
     return h->to;
@@ -859,7 +879,7 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
   HOST_WIDE_INT bitsize = -1;
   HOST_WIDE_INT maxsize = -1;
   tree size_tree = NULL_TREE;
-  tree bit_offset = bitsize_zero_node;
+  HOST_WIDE_INT bit_offset = 0;
   bool seen_variable_array_ref = false;
 
   gcc_assert (!SSA_VAR_P (exp));
@@ -896,8 +916,7 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
       switch (TREE_CODE (exp))
 	{
 	case BIT_FIELD_REF:
-	  bit_offset = size_binop (PLUS_EXPR, bit_offset,
-				   TREE_OPERAND (exp, 2));
+	  bit_offset += tree_low_cst (TREE_OPERAND (exp, 2), 0);
 	  break;
 
 	case COMPONENT_REF:
@@ -907,14 +926,11 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 
 	    if (this_offset && TREE_CODE (this_offset) == INTEGER_CST)
 	      {
-		this_offset = size_binop (MULT_EXPR,
-					  fold_convert (bitsizetype,
-							this_offset),
-					  bitsize_unit_node);
-		bit_offset = size_binop (PLUS_EXPR,
-				         bit_offset, this_offset);
-		bit_offset = size_binop (PLUS_EXPR, bit_offset,
-					 DECL_FIELD_BIT_OFFSET (field));
+		HOST_WIDE_INT hthis_offset = tree_low_cst (this_offset, 0);
+
+		hthis_offset *= BITS_PER_UNIT;
+		bit_offset += hthis_offset;
+		bit_offset += tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 0);
 	      }
 	    else
 	      {
@@ -922,12 +938,8 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 		/* We need to adjust maxsize to the whole structure bitsize.
 		   But we can subtract any constant offset seen sofar,
 		   because that would get us out of the structure otherwise.  */
-		if (maxsize != -1
-		    && csize && host_integerp (csize, 1))
-		  {
-		    maxsize = (TREE_INT_CST_LOW (csize)
-			       - TREE_INT_CST_LOW (bit_offset));
-		  }
+		if (maxsize != -1 && csize && host_integerp (csize, 1))
+		  maxsize = TREE_INT_CST_LOW (csize) - bit_offset;
 		else
 		  maxsize = -1;
 	      }
@@ -941,17 +953,17 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 	    tree low_bound = array_ref_low_bound (exp);
 	    tree unit_size = array_ref_element_size (exp);
 
-	    if (! integer_zerop (low_bound))
-	      index = fold_build2 (MINUS_EXPR, TREE_TYPE (index),
-				   index, low_bound);
-	    index = size_binop (MULT_EXPR,
-				fold_convert (sizetype, index), unit_size);
-	    if (TREE_CODE (index) == INTEGER_CST)
+	    /* If the resulting bit-offset is constant, track it.  */
+	    if (host_integerp (index, 0)
+		&& host_integerp (low_bound, 0)
+		&& host_integerp (unit_size, 1))
 	      {
-		index = size_binop (MULT_EXPR,
-				    fold_convert (bitsizetype, index),
-				    bitsize_unit_node);
-		bit_offset = size_binop (PLUS_EXPR, bit_offset, index);
+		HOST_WIDE_INT hindex = tree_low_cst (index, 0);
+
+		hindex -= tree_low_cst (low_bound, 0);
+		hindex *= tree_low_cst (unit_size, 1);
+		hindex *= BITS_PER_UNIT;
+		bit_offset += hindex;
 
 		/* An array ref with a constant index up in the structure
 		   hierarchy will constrain the size of any variable array ref
@@ -964,12 +976,8 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 		/* We need to adjust maxsize to the whole array bitsize.
 		   But we can subtract any constant offset seen sofar,
 		   because that would get us outside of the array otherwise.  */
-		if (maxsize != -1
-		    && asize && host_integerp (asize, 1))
-		  {
-		    maxsize = (TREE_INT_CST_LOW (asize)
-			       - TREE_INT_CST_LOW (bit_offset));
-		  }
+		if (maxsize != -1 && asize && host_integerp (asize, 1))
+		  maxsize = TREE_INT_CST_LOW (asize) - bit_offset;
 		else
 		  maxsize = -1;
 
@@ -984,8 +992,7 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 	  break;
 
 	case IMAGPART_EXPR:
-	  bit_offset = size_binop (PLUS_EXPR, bit_offset,
-				   bitsize_int (bitsize));
+	  bit_offset += bitsize;
 	  break;
 
 	case VIEW_CONVERT_EXPR:
@@ -1011,16 +1018,39 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
   if (seen_variable_array_ref
       && maxsize != -1
       && host_integerp (TYPE_SIZE (TREE_TYPE (exp)), 1)
-      && TREE_INT_CST_LOW (bit_offset) + maxsize
-	 == TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (exp))))
+      && bit_offset + maxsize
+	   == (signed)TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (exp))))
     maxsize = -1;
 
   /* ???  Due to negative offsets in ARRAY_REF we can end up with
      negative bit_offset here.  We might want to store a zero offset
      in this case.  */
-  *poffset = TREE_INT_CST_LOW (bit_offset);
+  *poffset = bit_offset;
   *psize = bitsize;
   *pmax_size = maxsize;
 
   return exp;
+}
+
+
+/* Return memory reference statistics for variable VAR in function FN.
+   This is computed by alias analysis, but it is not kept
+   incrementally up-to-date.  So, these stats are only accurate if
+   pass_may_alias has been run recently.  If no alias information
+   exists, this function returns NULL.  */
+
+mem_sym_stats_t
+mem_sym_stats (struct function *fn, tree var)
+{
+  void **slot;
+  struct pointer_map_t *stats_map = gimple_mem_ref_stats (fn)->mem_sym_stats;
+
+  if (stats_map == NULL)
+    return NULL;
+
+  slot = pointer_map_contains (stats_map, var);
+  if (slot == NULL)
+    return NULL;
+
+  return (mem_sym_stats_t) *slot;
 }

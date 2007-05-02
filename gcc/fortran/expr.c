@@ -465,6 +465,7 @@ gfc_copy_expr (gfc_expr *p)
       switch (q->value.op.operator)
 	{
 	case INTRINSIC_NOT:
+	case INTRINSIC_PARENTHESES:
 	case INTRINSIC_UPLUS:
 	case INTRINSIC_UMINUS:
 	  q->value.op.op1 = gfc_copy_expr (p->value.op.op1);
@@ -771,8 +772,11 @@ simplify_intrinsic_op (gfc_expr *p, int type)
 
   switch (p->value.op.operator)
     {
-    case INTRINSIC_UPLUS:
     case INTRINSIC_PARENTHESES:
+      result = gfc_parentheses (op1);
+      break;
+
+    case INTRINSIC_UPLUS:
       result = gfc_uplus (op1);
       break;
 
@@ -899,6 +903,8 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
   int i;
   mpz_t delta;
   mpz_t offset;
+  mpz_t span;
+  mpz_t tmp;
   gfc_expr *e;
   try t;
 
@@ -907,6 +913,8 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
 
   mpz_init_set_ui (offset, 0);
   mpz_init (delta);
+  mpz_init (tmp);
+  mpz_init_set_ui (span, 1);
   for (i = 0; i < ar->dimen; i++)
     {
       e = gfc_copy_expr (ar->start[i]);
@@ -930,7 +938,13 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
 	}
 
       mpz_sub (delta, e->value.integer, ar->as->lower[i]->value.integer);
+      mpz_mul (delta, delta, span);
       mpz_add (offset, offset, delta);
+
+      mpz_set_ui (tmp, 1);
+      mpz_add (tmp, tmp, ar->as->upper[i]->value.integer);
+      mpz_sub (tmp, tmp, ar->as->lower[i]->value.integer);
+      mpz_mul (span, span, tmp);
     }
 
   if (cons)
@@ -949,6 +963,8 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
 depart:
   mpz_clear (delta);
   mpz_clear (offset);
+  mpz_clear (span);
+  mpz_clear (tmp);
   if (e)
     gfc_free_expr (e);
   *rval = cons;
@@ -1558,6 +1574,128 @@ et0 (gfc_expr *e)
 
 static try check_init_expr (gfc_expr *);
 
+
+/* Scalarize an expression for an elemental intrinsic call.  */
+
+static try
+scalarize_intrinsic_call (gfc_expr *e)
+{
+  gfc_actual_arglist *a, *b;
+  gfc_constructor *args[5], *ctor, *new_ctor;
+  gfc_expr *expr, *old;
+  int n, i, rank[5];
+
+  old = gfc_copy_expr (e);
+
+/* Assume that the old expression carries the type information and
+   that the first arg carries all the shape information.  */
+  expr = gfc_copy_expr (old->value.function.actual->expr);
+  gfc_free_constructor (expr->value.constructor);
+  expr->value.constructor = NULL;
+
+  expr->ts = old->ts;
+  expr->expr_type = EXPR_ARRAY;
+
+  /* Copy the array argument constructors into an array, with nulls
+     for the scalars.  */
+  n = 0;
+  a = old->value.function.actual;
+  for (; a; a = a->next)
+    {
+      /* Check that this is OK for an initialization expression.  */
+      if (a->expr && check_init_expr (a->expr) == FAILURE)
+	goto cleanup;
+
+      rank[n] = 0;
+      if (a->expr && a->expr->rank && a->expr->expr_type == EXPR_VARIABLE)
+	{
+	  rank[n] = a->expr->rank;
+	  ctor = a->expr->symtree->n.sym->value->value.constructor;
+	  args[n] = gfc_copy_constructor (ctor);
+	}
+      else if (a->expr && a->expr->expr_type == EXPR_ARRAY)
+	{
+	  if (a->expr->rank)
+	    rank[n] = a->expr->rank;
+	  else
+	    rank[n] = 1;
+	  args[n] = gfc_copy_constructor (a->expr->value.constructor);
+	}
+      else
+	args[n] = NULL;
+      n++;
+    }
+
+  for (i = 1; i < n; i++)
+    if (rank[i] && rank[i] != rank[0])
+      goto compliance;
+
+  /* Using the first argument as the master, step through the array
+     calling the function for each element and advancing the array
+     constructors together.  */
+  ctor = args[0];
+  new_ctor = NULL;
+  for (; ctor; ctor = ctor->next)
+    {
+	  if (expr->value.constructor == NULL)
+	    expr->value.constructor
+		= new_ctor = gfc_get_constructor ();
+	  else
+	    {
+	      new_ctor->next = gfc_get_constructor ();
+	      new_ctor = new_ctor->next;
+	    }
+	  new_ctor->expr = gfc_copy_expr (old);
+	  gfc_free_actual_arglist (new_ctor->expr->value.function.actual);
+	  a = NULL;
+	  b = old->value.function.actual;
+	  for (i = 0; i < n; i++)
+	    {
+	      if (a == NULL)
+		new_ctor->expr->value.function.actual
+			= a = gfc_get_actual_arglist ();
+	      else
+		{
+		  a->next = gfc_get_actual_arglist ();
+		  a = a->next;
+		}
+	      if (args[i])
+		a->expr = gfc_copy_expr (args[i]->expr);
+	      else
+		a->expr = gfc_copy_expr (b->expr);
+
+	      b = b->next;
+	    }
+
+	  /* Simplify the function calls.  */
+	  if (gfc_simplify_expr (new_ctor->expr, 0) == FAILURE)
+	    goto cleanup;
+
+	  for (i = 0; i < n; i++)
+	    if (args[i])
+	      args[i] = args[i]->next;
+
+	  for (i = 1; i < n; i++)
+	    if (rank[i] && ((args[i] != NULL && args[0] == NULL)
+			 || (args[i] == NULL && args[0] != NULL)))
+	      goto compliance;
+    }
+
+  free_expr0 (e);
+  *e = *expr;
+  gfc_free_expr (old);
+  return SUCCESS;
+
+compliance:
+  gfc_error_now ("elemental function arguments at %C are not compliant");
+
+cleanup:
+  gfc_free_expr (expr);
+  gfc_free_expr (old);
+  return FAILURE;
+}
+
+
 static try
 check_intrinsic_op (gfc_expr *e, try (*check_function) (gfc_expr *))
 {
@@ -1759,6 +1897,7 @@ check_init_expr (gfc_expr *e)
   gfc_actual_arglist *ap;
   match m;
   try t;
+  gfc_intrinsic_sym *isym;
 
   if (e == NULL)
     return SUCCESS;
@@ -1784,6 +1923,16 @@ check_init_expr (gfc_expr *e)
 		t = FAILURE;
 		break;
 	      }
+	}
+
+      /* Try to scalarize an elemental intrinsic function that has an
+	 array argument.  */
+      isym = gfc_find_function (e->symtree->n.sym->name);
+      if (isym && isym->elemental
+	    && e->value.function.actual->expr->expr_type == EXPR_ARRAY)
+	{
+	  if (scalarize_intrinsic_call (e) == SUCCESS)
+	    break;
 	}
 
       if (t == SUCCESS)

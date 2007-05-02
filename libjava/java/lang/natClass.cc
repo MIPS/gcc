@@ -29,6 +29,7 @@ details.  */
 #include <java/lang/reflect/Member.h>
 #include <java/lang/reflect/Method.h>
 #include <java/lang/reflect/Field.h>
+#include <java/lang/reflect/Proxy.h>
 #include <java/lang/reflect/Constructor.h>
 #include <java/lang/AbstractMethodError.h>
 #include <java/lang/ArrayStoreException.h>

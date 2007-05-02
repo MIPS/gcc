@@ -164,18 +164,19 @@ read_sf (st_parameter_dt *dtp, int *length, int no_error)
       return base;
     }
 
+  if (is_internal_unit (dtp))
+    {
+      readlen = *length;
+      q = salloc_r (dtp->u.p.current_unit->s, &readlen);
+      memcpy (p, q, readlen);
+      goto done;
+    }
+
   readlen = 1;
   n = 0;
 
   do
     {
-      if (is_internal_unit (dtp))
-	{
-	  /* readlen may be modified inside salloc_r if
-	     is_internal_unit (dtp) is true.  */
-	  readlen = 1;
-	}
-
       q = salloc_r (dtp->u.p.current_unit->s, &readlen);
       if (q == NULL)
 	break;
@@ -244,6 +245,8 @@ read_sf (st_parameter_dt *dtp, int *length, int no_error)
       dtp->u.p.sf_seen_eor = 0;
     }
   while (n < *length);
+
+ done:
   dtp->u.p.current_unit->bytes_left -= *length;
 
   if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
@@ -411,7 +414,6 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 	  /* Short read, e.g. if we hit EOF.  Apparently, we read
 	   more than was written to the last record.  */
 	  *nbytes = to_read_record;
-	  generate_error (&dtp->common, ERROR_SHORT_RECORD, NULL);
 	  return;
 	}
 
@@ -495,11 +497,11 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 	    }
 	  else
 	    {
-	      /* Let's make sure the file position is correctly set for the
-		 next read statement.  */
+	      /* Let's make sure the file position is correctly pre-positioned
+		 for the next read statement.  */
 
+	      dtp->u.p.current_unit->current_record = 0;
 	      next_record_r_unf (dtp, 0);
-	      us_read (dtp, 0);
 	      generate_error (&dtp->common, ERROR_SHORT_RECORD, NULL);
 	      return;
 	    }
@@ -1770,15 +1772,18 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
   /* Check the action.  */
 
   if (read_flag && dtp->u.p.current_unit->flags.action == ACTION_WRITE)
-    generate_error (&dtp->common, ERROR_BAD_ACTION,
-		    "Cannot read from file opened for WRITE");
+    {
+      generate_error (&dtp->common, ERROR_BAD_ACTION,
+		      "Cannot read from file opened for WRITE");
+      return;
+    }
 
   if (!read_flag && dtp->u.p.current_unit->flags.action == ACTION_READ)
-    generate_error (&dtp->common, ERROR_BAD_ACTION,
-		    "Cannot write to file opened for READ");
-
-  if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
-    return;
+    {
+      generate_error (&dtp->common, ERROR_BAD_ACTION,
+		      "Cannot write to file opened for READ");
+      return;
+    }
 
   dtp->u.p.first_item = 1;
 
@@ -1787,14 +1792,14 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
   if ((cf & IOPARM_DT_HAS_FORMAT) != 0)
     parse_format (dtp);
 
-  if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
-    return;
-
   if (dtp->u.p.current_unit->flags.form == FORM_UNFORMATTED
       && (cf & (IOPARM_DT_HAS_FORMAT | IOPARM_DT_LIST_FORMAT))
 	 != 0)
-    generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-		    "Format present for UNFORMATTED data transfer");
+    {
+      generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+		      "Format present for UNFORMATTED data transfer");
+      return;
+    }
 
   if ((cf & IOPARM_DT_HAS_NAMELIST_NAME) != 0 && dtp->u.p.ionml != NULL)
      {
@@ -1804,13 +1809,19 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
      }
   else if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED &&
 	   !(cf & (IOPARM_DT_HAS_FORMAT | IOPARM_DT_LIST_FORMAT)))
-    generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-		    "Missing format for FORMATTED data transfer");
+    {
+      generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+		      "Missing format for FORMATTED data transfer");
+    }
 
   if (is_internal_unit (dtp)
       && dtp->u.p.current_unit->flags.form == FORM_UNFORMATTED)
-    generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-		    "Internal file cannot be accessed by UNFORMATTED data transfer");
+    {
+      generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+		      "Internal file cannot be accessed by UNFORMATTED "
+		      "data transfer");
+      return;
+    }
 
   /* Check the record or position number.  */
 
@@ -1840,49 +1851,71 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
   if (dtp->u.p.advance_status != ADVANCE_UNSPECIFIED)
     {
       if (dtp->u.p.current_unit->flags.access == ACCESS_DIRECT)
-	generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-			"ADVANCE specification conflicts with sequential access");
+	{
+	  generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+			  "ADVANCE specification conflicts with sequential access");
+	  return;
+	}
 
       if (is_internal_unit (dtp))
-	generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-			"ADVANCE specification conflicts with internal file");
+	{
+	  generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+			  "ADVANCE specification conflicts with internal file");
+	  return;
+	}
 
       if ((cf & (IOPARM_DT_HAS_FORMAT | IOPARM_DT_LIST_FORMAT))
 	  != IOPARM_DT_HAS_FORMAT)
-	generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-			"ADVANCE specification requires an explicit format");
+	{
+	  generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+			  "ADVANCE specification requires an explicit format");
+	  return;
+	}
     }
 
   if (read_flag)
     {
       if ((cf & IOPARM_EOR) != 0 && dtp->u.p.advance_status != ADVANCE_NO)
-	generate_error (&dtp->common, ERROR_MISSING_OPTION,
-			"EOR specification requires an ADVANCE specification of NO");
+	{
+	  generate_error (&dtp->common, ERROR_MISSING_OPTION,
+			  "EOR specification requires an ADVANCE specification "
+			  "of NO");
+	  return;
+	}
 
       if ((cf & IOPARM_DT_HAS_SIZE) != 0 && dtp->u.p.advance_status != ADVANCE_NO)
-	generate_error (&dtp->common, ERROR_MISSING_OPTION,
-			"SIZE specification requires an ADVANCE specification of NO");
-
+	{
+	  generate_error (&dtp->common, ERROR_MISSING_OPTION,
+			  "SIZE specification requires an ADVANCE specification of NO");
+	  return;
+	}
     }
   else
     {				/* Write constraints.  */
       if ((cf & IOPARM_END) != 0)
-	generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-			"END specification cannot appear in a write statement");
+	{
+	  generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+			  "END specification cannot appear in a write statement");
+	  return;
+	}
 
       if ((cf & IOPARM_EOR) != 0)
-	generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-			"EOR specification cannot appear in a write statement");
+	{
+	  generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+			  "EOR specification cannot appear in a write statement");
+	  return;
+	}
 
       if ((cf & IOPARM_DT_HAS_SIZE) != 0)
-	generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
-			"SIZE specification cannot appear in a write statement");
+	{
+	  generate_error (&dtp->common, ERROR_OPTION_CONFLICT,
+			  "SIZE specification cannot appear in a write statement");
+	  return;
+	}
     }
 
   if (dtp->u.p.advance_status == ADVANCE_UNSPECIFIED)
     dtp->u.p.advance_status = ADVANCE_YES;
-  if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
-    return;
 
   /* Sanity checks on the record number.  */
   if ((cf & IOPARM_DT_HAS_REC) != 0)
@@ -2227,9 +2260,6 @@ next_record_r (st_parameter_dt *dtp)
 
       break;
     }
-
-  if (dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL)
-    test_endfile (dtp->u.p.current_unit);
 }
 
 
@@ -2519,8 +2549,10 @@ next_record (st_parameter_dt *dtp, int done)
 
   if (!is_stream_io (dtp))
     {
-      /* keep position up to date for INQUIRE */
-      dtp->u.p.current_unit->flags.position = POSITION_ASIS;
+      /* Keep position up to date for INQUIRE */
+      if (done)
+	update_position (dtp->u.p.current_unit);
+
       dtp->u.p.current_unit->current_record = 0;
       if (dtp->u.p.current_unit->flags.access == ACCESS_DIRECT)
 	{
@@ -2702,6 +2734,9 @@ st_read (st_parameter_dt *dtp)
     switch (dtp->u.p.current_unit->endfile)
       {
       case NO_ENDFILE:
+	if (file_length (dtp->u.p.current_unit->s)
+	    == file_position (dtp->u.p.current_unit->s))
+	  dtp->u.p.current_unit->endfile = AT_ENDFILE;
 	break;
 
       case AT_ENDFILE:

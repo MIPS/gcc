@@ -1,3 +1,15 @@
+2007-05-02  Victor Kaplansky <victork@il.ibm.com>
+	
+	Merged the following revisions from
+	svn+ssh://gcc.gnu.org/svn/gcc/trunk
+          123210-123860
+	  123861-123909
+	  123910-123942
+	  123943-123947
+	  123948-123954
+	  123955-124330
+
+
 2007-04-02  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vectorizer.c (new_stmt_vec_info): When setting def_type for

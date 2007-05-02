@@ -1,5 +1,6 @@
 /* Header for code translation functions
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software
+   Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -533,7 +534,6 @@ extern GTY(()) tree gfor_fndecl_string_index;
 extern GTY(()) tree gfor_fndecl_string_scan;
 extern GTY(()) tree gfor_fndecl_string_verify;
 extern GTY(()) tree gfor_fndecl_string_trim;
-extern GTY(()) tree gfor_fndecl_string_repeat;
 extern GTY(()) tree gfor_fndecl_adjustl;
 extern GTY(()) tree gfor_fndecl_adjustr;
 

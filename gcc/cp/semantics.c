@@ -3627,7 +3627,8 @@ finish_omp_clauses (tree clauses)
 	 Save the results, because later we won't be in the right context
 	 for making these queries.  */
       if (CLASS_TYPE_P (inner_type)
-	  && (need_default_ctor || need_copy_ctor || need_copy_assignment))
+	  && (need_default_ctor || need_copy_ctor || need_copy_assignment)
+	  && !type_dependent_expression_p (t))
 	{
 	  int save_errorcount = errorcount;
 	  tree info;
@@ -4005,6 +4006,188 @@ finish_static_assert (tree condition, tree message, location_t location,
         error ("non-constant condition for static assertion");
       input_location = saved_loc;
     }
+}
+
+/* Called from trait_expr_value to evaluate either __has_nothrow_assign or 
+   __has_nothrow_copy, depending on assign_p.  */
+
+static bool
+classtype_has_nothrow_assign_or_copy_p (tree type, bool assign_p)
+{
+  tree fns;
+
+  if (assign_p)
+    {
+      int ix;
+      ix = lookup_fnfields_1 (type, ansi_assopname (NOP_EXPR));
+      if (ix < 0)
+	return false;
+      fns = VEC_index (tree, CLASSTYPE_METHOD_VEC (type), ix);
+    } 
+  else if (TYPE_HAS_INIT_REF (type))
+    {
+      /* If construction of the copy constructor was postponed, create
+	 it now.  */
+      if (CLASSTYPE_LAZY_COPY_CTOR (type))
+	lazily_declare_fn (sfk_copy_constructor, type);
+      fns = CLASSTYPE_CONSTRUCTORS (type);
+    }
+  else
+    return false;
+
+  for (; fns; fns = OVL_NEXT (fns))
+    if (!TREE_NOTHROW (OVL_CURRENT (fns)))
+      return false;
+
+  return true;
+}
+
+/* Actually evaluates the trait.  */
+
+static bool
+trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
+{
+  enum tree_code type_code1;
+  tree t;
+
+  type_code1 = TREE_CODE (type1);
+
+  switch (kind)
+    {
+    case CPTK_HAS_NOTHROW_ASSIGN:
+      return (!CP_TYPE_CONST_P (type1) && type_code1 != REFERENCE_TYPE
+	      && (trait_expr_value (CPTK_HAS_TRIVIAL_ASSIGN, type1, type2)
+		  || (CLASS_TYPE_P (type1)
+		      && classtype_has_nothrow_assign_or_copy_p (type1,
+								 true))));
+
+    case CPTK_HAS_TRIVIAL_ASSIGN:
+      return (!CP_TYPE_CONST_P (type1) && type_code1 != REFERENCE_TYPE
+	      && (pod_type_p (type1)
+		    || (CLASS_TYPE_P (type1)
+			&& TYPE_HAS_TRIVIAL_ASSIGN_REF (type1))));
+
+    case CPTK_HAS_NOTHROW_CONSTRUCTOR:
+      type1 = strip_array_types (type1);
+      return (trait_expr_value (CPTK_HAS_TRIVIAL_CONSTRUCTOR, type1, type2) 
+	      || (CLASS_TYPE_P (type1)
+		  && (t = locate_ctor (type1, NULL)) && TREE_NOTHROW (t)));
+
+    case CPTK_HAS_TRIVIAL_CONSTRUCTOR:
+      type1 = strip_array_types (type1);
+      return (pod_type_p (type1)
+	      || (CLASS_TYPE_P (type1) && TYPE_HAS_TRIVIAL_DFLT (type1)));
+
+    case CPTK_HAS_NOTHROW_COPY:
+      return (trait_expr_value (CPTK_HAS_TRIVIAL_COPY, type1, type2)
+	      || (CLASS_TYPE_P (type1)
+		  && classtype_has_nothrow_assign_or_copy_p (type1, false)));
+
+    case CPTK_HAS_TRIVIAL_COPY:
+      return (pod_type_p (type1) || type_code1 == REFERENCE_TYPE
+	      || (CLASS_TYPE_P (type1) && TYPE_HAS_TRIVIAL_INIT_REF (type1)));
+
+    case CPTK_HAS_TRIVIAL_DESTRUCTOR:
+      type1 = strip_array_types (type1);
+      return (pod_type_p (type1)
+	      || (CLASS_TYPE_P (type1)
+		  && TYPE_HAS_TRIVIAL_DESTRUCTOR (type1)));
+
+    case CPTK_HAS_VIRTUAL_DESTRUCTOR:
+      return (CLASS_TYPE_P (type1)
+	      && (t = locate_dtor (type1, NULL)) && DECL_VIRTUAL_P (t));
+
+    case CPTK_IS_ABSTRACT:
+      return (CLASS_TYPE_P (type1) && CLASSTYPE_PURE_VIRTUALS (type1));
+
+    case CPTK_IS_BASE_OF:
+      return (NON_UNION_CLASS_TYPE_P (type1) && NON_UNION_CLASS_TYPE_P (type2)
+	      && DERIVED_FROM_P (type1, type2));
+
+    case CPTK_IS_CLASS:
+      return (NON_UNION_CLASS_TYPE_P (type1));
+
+    case CPTK_IS_CONVERTIBLE_TO:
+      /* TODO  */
+      return false;
+
+    case CPTK_IS_EMPTY:
+      return (NON_UNION_CLASS_TYPE_P (type1) && CLASSTYPE_EMPTY_P (type1));
+
+    case CPTK_IS_ENUM:
+      return (type_code1 == ENUMERAL_TYPE);
+
+    case CPTK_IS_POD:
+      return (pod_type_p (type1));
+
+    case CPTK_IS_POLYMORPHIC:
+      return (CLASS_TYPE_P (type1) && TYPE_POLYMORPHIC_P (type1));
+
+    case CPTK_IS_UNION:
+      return (type_code1 == UNION_TYPE);
+
+    default:
+      gcc_unreachable ();
+      return false;
+    }
+}
+
+/* Process a trait expression.  */
+
+tree
+finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
+{
+  gcc_assert (kind == CPTK_HAS_NOTHROW_ASSIGN
+	      || kind == CPTK_HAS_NOTHROW_CONSTRUCTOR
+	      || kind == CPTK_HAS_NOTHROW_COPY
+	      || kind == CPTK_HAS_TRIVIAL_ASSIGN
+	      || kind == CPTK_HAS_TRIVIAL_CONSTRUCTOR
+	      || kind == CPTK_HAS_TRIVIAL_COPY
+	      || kind == CPTK_HAS_TRIVIAL_DESTRUCTOR
+	      || kind == CPTK_HAS_VIRTUAL_DESTRUCTOR	      
+	      || kind == CPTK_IS_ABSTRACT
+	      || kind == CPTK_IS_BASE_OF
+	      || kind == CPTK_IS_CLASS
+	      || kind == CPTK_IS_CONVERTIBLE_TO
+	      || kind == CPTK_IS_EMPTY
+	      || kind == CPTK_IS_ENUM
+	      || kind == CPTK_IS_POD
+	      || kind == CPTK_IS_POLYMORPHIC
+	      || kind == CPTK_IS_UNION);
+
+  if (kind == CPTK_IS_CONVERTIBLE_TO)
+    {
+      sorry ("__is_convertible_to");
+      return error_mark_node;
+    }
+
+  if (type1 == error_mark_node
+      || ((kind == CPTK_IS_BASE_OF || kind == CPTK_IS_CONVERTIBLE_TO)
+	  && type2 == error_mark_node))
+    return error_mark_node;
+
+  if (processing_template_decl)
+    {
+      tree trait_expr = make_node (TRAIT_EXPR);
+      TREE_TYPE (trait_expr) = boolean_type_node;
+      TRAIT_EXPR_TYPE1 (trait_expr) = type1;
+      TRAIT_EXPR_TYPE2 (trait_expr) = type2;
+      TRAIT_EXPR_KIND (trait_expr) = kind;
+      return trait_expr;
+    }
+
+  /* The only required diagnostic.  */
+  if (kind == CPTK_IS_BASE_OF
+      && NON_UNION_CLASS_TYPE_P (type1) && NON_UNION_CLASS_TYPE_P (type2)
+      && !same_type_ignoring_top_level_qualifiers_p (type1, type2)
+      && !COMPLETE_TYPE_P (complete_type (type2)))
+    {
+      error ("incomplete type %qT not allowed", type2);
+      return error_mark_node;
+    }
+
+  return (trait_expr_value (kind, type1, type2)
+	  ? boolean_true_node : boolean_false_node);
 }
 
 #include "gt-cp-semantics.h"

@@ -484,9 +484,14 @@
 
 ;; Test for a pc-relative call operand
 (define_predicate "constant_call_address_operand"
-  (and (ior (match_code "symbol_ref")
-            (match_operand 0 "local_symbolic_operand"))
-       (match_test "ix86_cmodel != CM_LARGE && ix86_cmodel != CM_LARGE_PIC")))
+  (match_code "symbol_ref")
+{
+  if (ix86_cmodel == CM_LARGE || ix86_cmodel == CM_LARGE_PIC)
+    return false;
+  if (TARGET_DLLIMPORT_DECL_ATTRIBUTES && SYMBOL_REF_DLLIMPORT_P (op))
+    return false;
+  return true;
+})
 
 ;; True for any non-virtual or eliminable register.  Used in places where
 ;; instantiation of such a register may cause the pattern to not be recognized.
@@ -963,12 +968,10 @@
 	       mod,udiv,umod,ashift,rotate,ashiftrt,lshiftrt,rotatert"))
 
 ;; Return 1 if OP is a binary operator that can be promoted to wider mode.
-;; Modern CPUs have same latency for HImode and SImode multiply,
-;; but 386 and 486 do HImode multiply faster.  */
 (define_predicate "promotable_binary_operator"
   (ior (match_code "plus,and,ior,xor,ashift")
        (and (match_code "mult")
-	    (match_test "ix86_tune > PROCESSOR_I486"))))
+	    (match_test "TARGET_TUNE_PROMOTE_HIMODE_IMUL"))))
 
 ;; To avoid problems when jump re-emits comparisons like testqi_ext_ccno_0,
 ;; re-recognize the operand to avoid a copy_to_mode_reg that will fail.

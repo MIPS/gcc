@@ -168,7 +168,7 @@ static unsigned int attribute_hash_list (tree, hashval_t);
 tree global_trees[TI_MAX];
 tree integer_types[itk_none];
 
-unsigned char tree_contains_struct[256][64];
+unsigned char tree_contains_struct[MAX_TREE_CODES][64];
 
 /* Number of operands for each OpenMP clause.  */
 unsigned const char omp_clause_num_ops[] =
@@ -3128,7 +3128,16 @@ build3_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
   t = make_node_stat (code PASS_MEM_STAT);
   TREE_TYPE (t) = tt;
 
-  side_effects = TREE_SIDE_EFFECTS (t);
+  /* As a special exception, if COND_EXPR has NULL branches, we
+     assume that it is a gimple statement and always consider
+     it to have side effects.  */
+  if (code == COND_EXPR
+      && tt == void_type_node
+      && arg1 == NULL_TREE
+      && arg2 == NULL_TREE)
+    side_effects = true;
+  else
+    side_effects = TREE_SIDE_EFFECTS (t);
 
   PROCESS_ARG(0);
   PROCESS_ARG(1);
@@ -4165,6 +4174,15 @@ build_distinct_type_copy (tree type)
   TYPE_MAIN_VARIANT (t) = t;
   TYPE_NEXT_VARIANT (t) = 0;
   
+  /* VRP assumes that TREE_TYPE (TYPE_MIN_VALUE (type)) == type.  */
+  if (INTEGRAL_TYPE_P (t) || SCALAR_FLOAT_TYPE_P (t))
+    {
+      if (TYPE_MIN_VALUE (t) != NULL_TREE)
+	TYPE_MIN_VALUE (t) = fold_convert (t, TYPE_MIN_VALUE (t));
+      if (TYPE_MAX_VALUE (t) != NULL_TREE)
+	TYPE_MAX_VALUE (t) = fold_convert (t, TYPE_MAX_VALUE (t));
+    }
+
   return t;
 }
 
@@ -5826,7 +5844,7 @@ build_complex_type (tree component_type)
 	name = 0;
 
       if (name != 0)
-	TYPE_NAME (t) = get_identifier (name);
+	TYPE_NAME (t) = build_decl (TYPE_DECL, get_identifier (name), t);
     }
 
   return build_qualified_type (t, TYPE_QUALS (component_type));
@@ -6118,6 +6136,47 @@ int_fits_type_p (tree c, tree type)
   low = TREE_INT_CST_LOW (c);
   high = TREE_INT_CST_HIGH (c);
   return !fit_double_type (low, high, &low, &high, type);
+}
+
+/* Stores bounds of an integer TYPE in MIN and MAX.  If TYPE has non-constant
+   bounds or is a POINTER_TYPE, the maximum and/or minimum values that can be
+   represented (assuming two's-complement arithmetic) within the bit
+   precision of the type are returned instead.  */
+
+void
+get_type_static_bounds (tree type, mpz_t min, mpz_t max)
+{
+  if (!POINTER_TYPE_P (type) && TYPE_MIN_VALUE (type)
+      && TREE_CODE (TYPE_MIN_VALUE (type)) == INTEGER_CST)
+    mpz_set_double_int (min, tree_to_double_int (TYPE_MIN_VALUE (type)),
+			TYPE_UNSIGNED (type));
+  else
+    {
+      if (TYPE_UNSIGNED (type))
+	mpz_set_ui (min, 0);
+      else
+	{
+	  double_int mn;
+	  mn = double_int_mask (TYPE_PRECISION (type) - 1);
+	  mn = double_int_sext (double_int_add (mn, double_int_one),
+				TYPE_PRECISION (type));
+	  mpz_set_double_int (min, mn, false);
+	}
+    }
+
+  if (!POINTER_TYPE_P (type) && TYPE_MAX_VALUE (type) 
+      && TREE_CODE (TYPE_MAX_VALUE (type)) == INTEGER_CST)
+    mpz_set_double_int (max, tree_to_double_int (TYPE_MAX_VALUE (type)),
+			TYPE_UNSIGNED (type));
+  else
+    {
+      if (TYPE_UNSIGNED (type))
+	mpz_set_double_int (max, double_int_mask (TYPE_PRECISION (type)),
+			    true);
+      else
+	mpz_set_double_int (max, double_int_mask (TYPE_PRECISION (type) - 1),
+			    true);
+    }
 }
 
 /* Subprogram of following function.  Called by walk_tree.
@@ -7004,21 +7063,10 @@ build_common_tree_nodes_2 (int short_double)
   TYPE_MODE (dfloat128_type_node) = TDmode;
   dfloat128_ptr_type_node = build_pointer_type (dfloat128_type_node);
 
-  complex_integer_type_node = make_node (COMPLEX_TYPE);
-  TREE_TYPE (complex_integer_type_node) = integer_type_node;
-  layout_type (complex_integer_type_node);
-
-  complex_float_type_node = make_node (COMPLEX_TYPE);
-  TREE_TYPE (complex_float_type_node) = float_type_node;
-  layout_type (complex_float_type_node);
-
-  complex_double_type_node = make_node (COMPLEX_TYPE);
-  TREE_TYPE (complex_double_type_node) = double_type_node;
-  layout_type (complex_double_type_node);
-
-  complex_long_double_type_node = make_node (COMPLEX_TYPE);
-  TREE_TYPE (complex_long_double_type_node) = long_double_type_node;
-  layout_type (complex_long_double_type_node);
+  complex_integer_type_node = build_complex_type (integer_type_node);
+  complex_float_type_node = build_complex_type (float_type_node);
+  complex_double_type_node = build_complex_type (double_type_node);
+  complex_long_double_type_node = build_complex_type (long_double_type_node);
 
   {
     tree t = targetm.build_builtin_va_list ();
@@ -7229,11 +7277,18 @@ tree
 reconstruct_complex_type (tree type, tree bottom)
 {
   tree inner, outer;
-
-  if (POINTER_TYPE_P (type))
+  
+  if (TREE_CODE (type) == POINTER_TYPE)
     {
       inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
-      outer = build_pointer_type (inner);
+      outer = build_pointer_type_for_mode (inner, TYPE_MODE (type),
+					   TYPE_REF_CAN_ALIAS_ALL (type));
+    }
+  else if (TREE_CODE (type) == REFERENCE_TYPE)
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_reference_type_for_mode (inner, TYPE_MODE (type),
+					     TYPE_REF_CAN_ALIAS_ALL (type));
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {
@@ -7600,17 +7655,6 @@ range_in_array_bounds_p (tree ref)
     return false;
 
   return true;
-}
-
-/* Return true if T (assumed to be a DECL) is a global variable.  */
-
-bool
-is_global_var (tree t)
-{
-  if (MTAG_P (t))
-    return (TREE_STATIC (t) || MTAG_GLOBAL (t));
-  else
-    return (TREE_STATIC (t) || DECL_EXTERNAL (t));
 }
 
 /* Return true if T (assumed to be a DECL) must be assigned a memory

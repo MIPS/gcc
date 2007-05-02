@@ -1550,6 +1550,27 @@ output_btst (rtx *operands, rtx countop, rtx dataop, rtx insn, int signpos)
       if (count == 7
 	  && next_insn_tests_no_inequality (insn))
 	return "tst%.b %1";
+      /* Try to use `movew to ccr' followed by the appropriate branch insn.
+         On some m68k variants unfortunately that's slower than btst.
+         On 68000 and higher, that should also work for all HImode operands. */
+      if (TUNE_CPU32 || TARGET_COLDFIRE || optimize_size)
+	{
+	  if (count == 3 && DATA_REG_P (operands[1])
+	      && next_insn_tests_no_inequality (insn))
+	    {
+	    cc_status.flags = CC_NOT_NEGATIVE | CC_Z_IN_NOT_N | CC_NO_OVERFLOW;
+	    return "move%.w %1,%%ccr";
+	    }
+	  if (count == 2 && DATA_REG_P (operands[1])
+	      && next_insn_tests_no_inequality (insn))
+	    {
+	    cc_status.flags = CC_NOT_NEGATIVE | CC_INVERTED | CC_NO_OVERFLOW;
+	    return "move%.w %1,%%ccr";
+	    }
+	  /* count == 1 followed by bvc/bvs and
+	     count == 0 followed by bcc/bcs are also possible, but need
+	     m68k-specific CC_Z_IN_NOT_V and CC_Z_IN_NOT_C flags. */
+	}
 
       cc_status.flags = CC_NOT_NEGATIVE;
     }
@@ -4091,7 +4112,6 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   /* Pretend to be a post-reload pass while generating rtl.  */
   no_new_pseudos = 1;
   reload_completed = 1;
-  reset_block_changes ();
   allocate_reg_info (FIRST_PSEUDO_REGISTER, true, true);
 
   /* The "this" pointer is stored at 4(%sp).  */
@@ -4302,12 +4322,12 @@ m68k_libcall_value (enum machine_mode mode)
   case DFmode:
   case XFmode:
     if (TARGET_68881)
-      return gen_rtx_REG (mode, 16);
+      return gen_rtx_REG (mode, FP0_REG);
     break;
   default:
     break;
   }
-  return gen_rtx_REG (mode, 0);
+  return gen_rtx_REG (mode, D0_REG);
 }
 
 rtx
@@ -4321,7 +4341,7 @@ m68k_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
   case DFmode:
   case XFmode:
     if (TARGET_68881)
-      return gen_rtx_REG (mode, 16);
+      return gen_rtx_REG (mode, FP0_REG);
     break;
   default:
     break;

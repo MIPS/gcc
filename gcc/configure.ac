@@ -1884,6 +1884,10 @@ fi])
 
 ORIGINAL_AS_FOR_TARGET=$gcc_cv_as
 AC_SUBST(ORIGINAL_AS_FOR_TARGET)
+case "$ORIGINAL_AS_FOR_TARGET" in
+  ./as | ./as$build_exeext) ;;
+  *) AC_CONFIG_FILES(as:exec-tool.in, [chmod +x as]) ;;
+esac 
 
 AC_MSG_CHECKING(what assembler to use)
 if test "$gcc_cv_as" = ../gas/as-new$build_exeext; then
@@ -1935,6 +1939,10 @@ fi])
 
 ORIGINAL_LD_FOR_TARGET=$gcc_cv_ld
 AC_SUBST(ORIGINAL_LD_FOR_TARGET)
+case "$ORIGINAL_LD_FOR_TARGET" in
+  ./collect-ld | ./collect-ld$build_exeext) ;;
+  *) AC_CONFIG_FILES(collect-ld:exec-tool.in, [chmod +x collect-ld]) ;;
+esac 
 
 AC_MSG_CHECKING(what linker to use)
 if test "$gcc_cv_ld" = ../ld/ld-new$build_exeext; then
@@ -1992,6 +2000,11 @@ fi
 
 ORIGINAL_NM_FOR_TARGET=$gcc_cv_nm
 AC_SUBST(ORIGINAL_NM_FOR_TARGET)
+case "$ORIGINAL_NM_FOR_TARGET" in
+  ./nm | ./nm$build_exeext) ;;
+  *) AC_CONFIG_FILES(nm:exec-tool.in, [chmod +x nm]) ;;
+esac
+
 
 # Figure out what objdump we will be using.
 AS_VAR_SET_IF(gcc_cv_objdump,, [
@@ -2992,10 +3005,10 @@ LCF0:
     case $target in
       *-*-aix*) conftest_s='	.machine "pwr6"
 	.csect .text[[PR]]
-	dadd 1,3';;
+	dadd 1,2,3';;
       *) conftest_s='	.machine power6
 	.text
-	dadd 1,3';;
+	dadd 1,2,3';;
     esac
 
     gcc_GAS_CHECK_FEATURE([decimal float support],
@@ -3427,7 +3440,8 @@ fi
 # Some glibc targets used DFmode long double, but with glibc 2.4
 # and later they can use TFmode.
 case "$target" in
-  powerpc*-*-*gnu* | \
+  powerpc*-*-linux* | \
+  powerpc*-*-gnu* | \
   sparc*-*-linux* | \
   s390*-*-linux* | \
   alpha*-*-linux*)
@@ -3532,11 +3546,8 @@ all_outputs='Makefile gccbug libada-mk'
 all_lang_makefrags=
 # List of language subdirectory makefiles.  Deprecated.
 all_lang_makefiles=
-# Files for gengtype
+# Additional files for gengtype
 all_gtfiles="$target_gtfiles"
-# Files for gengtype with language
-all_gtfiles_files_langs=
-all_gtfiles_files_files=
 
 # These are the languages that are set in --enable-languages,
 # and are available in the GCC tree.
@@ -3613,24 +3624,13 @@ changequote([,])dnl
 	all_languages="$all_languages $language"
 	all_compilers="$all_compilers $compilers"
 	all_outputs="$all_outputs $outputs"
-	all_gtfiles="$all_gtfiles $gtfiles"
-	for f in $gtfiles
-	do
-		all_gtfiles_files_langs="$all_gtfiles_files_langs ${subdir} "
-		all_gtfiles_files_files="$all_gtfiles_files_files ${f} "
-	done
+	all_gtfiles="$all_gtfiles [[$subdir]] $gtfiles"
 done
 
 # Pick up gtfiles for c
 gtfiles=
-subdir="c"
 . ${srcdir}/c-config-lang.in
-all_gtfiles="$all_gtfiles $gtfiles"
-for f in $gtfiles
-do
-        all_gtfiles_files_langs="$all_gtfiles_files_langs ${subdir} "
-        all_gtfiles_files_files="$all_gtfiles_files_files ${f} "
-done
+all_gtfiles="$all_gtfiles [[c]] $gtfiles"
 
 check_languages=
 for language in $all_selected_languages
@@ -3762,8 +3762,6 @@ AC_SUBST(subdirs)
 AC_SUBST(srcdir)
 AC_SUBST(all_compilers)
 AC_SUBST(all_gtfiles)
-AC_SUBST(all_gtfiles_files_langs)
-AC_SUBST(all_gtfiles_files_files)
 AC_SUBST(all_lang_makefrags)
 AC_SUBST(all_lang_makefiles)
 AC_SUBST(all_languages)

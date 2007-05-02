@@ -1,5 +1,6 @@
 /* Expression translation
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software
+   Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -1347,7 +1348,7 @@ gfc_get_interface_mapping_charlen (gfc_interface_mapping * mapping,
 
 static tree
 gfc_get_interface_mapping_array (stmtblock_t * block, gfc_symbol * sym,
-				 int packed, tree data)
+				 gfc_packed packed, tree data)
 {
   tree type;
   tree var;
@@ -1499,14 +1500,16 @@ gfc_add_interface_mapping (gfc_interface_mapping * mapping,
 
       /* Create the replacement variable.  */
       tmp = gfc_conv_descriptor_data_get (desc);
-      value = gfc_get_interface_mapping_array (&se->pre, sym, 0, tmp);
+      value = gfc_get_interface_mapping_array (&se->pre, sym,
+					       PACKED_NO, tmp);
 
       /* Use DESC to work out the upper bounds, strides and offset.  */
       gfc_set_interface_mapping_bounds (&se->pre, TREE_TYPE (value), desc);
     }
   else
     /* Otherwise we have a packed array.  */
-    value = gfc_get_interface_mapping_array (&se->pre, sym, 2, se->expr);
+    value = gfc_get_interface_mapping_array (&se->pre, sym,
+					     PACKED_FULL, se->expr);
 
   new_sym->backend_decl = value;
 }
@@ -2392,17 +2395,23 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
   /* Generate the actual call.  */
   gfc_conv_function_val (se, sym);
+
   /* If there are alternate return labels, function type should be
      integer.  Can't modify the type in place though, since it can be shared
-     with other functions.  */
+     with other functions.  For dummy arguments, the typing is done to
+     to this result, even if it has to be repeated for each call.  */
   if (has_alternate_specifier
       && TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr))) != integer_type_node)
     {
-      gcc_assert (! sym->attr.dummy);
-      TREE_TYPE (sym->backend_decl)
-        = build_function_type (integer_type_node,
-                               TYPE_ARG_TYPES (TREE_TYPE (sym->backend_decl)));
-      se->expr = build_fold_addr_expr (sym->backend_decl);
+      if (!sym->attr.dummy)
+	{
+	  TREE_TYPE (sym->backend_decl)
+		= build_function_type (integer_type_node,
+		      TYPE_ARG_TYPES (TREE_TYPE (sym->backend_decl)));
+	  se->expr = build_fold_addr_expr (sym->backend_decl);
+	}
+      else
+	TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr))) = integer_type_node;
     }
 
   fntype = TREE_TYPE (TREE_TYPE (se->expr));
@@ -3934,6 +3943,7 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2, bool init_flag)
   if (expr1->expr_type == EXPR_VARIABLE
       && expr1->rank > 0
       && expr1->ref
+      && expr1->ref->next == NULL
       && gfc_full_array_ref_p (expr1->ref)
       && is_zero_initializer_p (expr2))
     {

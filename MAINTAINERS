@@ -130,6 +130,7 @@ fortran 95		Paul Thomas		pault@gcc.gnu.org
 fortran 95		Tobias Schlüter		tobias.schlueter@physik.uni-muenchen.de
 fortran 95		Janne Blomqvist		jb@gcc.gnu.org
 fortran 95		Brooks Moses		brooks.moses@codesourcery.com
+fortran 95		Tobias Burnus		burnus@net-b.de
 c++			Jason Merrill		jason@redhat.com
 c++			Mark Mitchell		mark@codesourcery.com
 c++			Nathan Sidwell		nathan@codesourcery.com
@@ -143,7 +144,8 @@ treelang                James A. Morrison	phython@gcc.gnu.org
 
 			Various Maintainers
 
-cpplib			Per Bothner		per@bothner.com
+libcpp			Per Bothner		per@bothner.com
+libcpp			All C and C++ front end maintainers
 fp-bit			Ian Lance Taylor	ian@airs.com
 libdecnumber		Ben Elliston		bje@au.ibm.com
 libgcc			Ian Lance Taylor	ian@airs.com
@@ -227,6 +229,7 @@ in changes outside of the parts of the compiler they maintain.
 loop optimizer		Zdenek Dvorak		dvorakz@suse.cz
 loop optimizer		Daniel Berlin		dberlin@dberlin.org
 middle-end		Richard Guenther	rguenther@suse.de
+libcpp			Tom Tromey		tromey@redhat.com
 
 Note individuals who maintain parts of the compiler as non-algorithmic
 maintainer need approval to check in algorithmic changes or changes
@@ -257,8 +260,8 @@ Steven Bosscher					stevenb.gcc@gmail.com
 Robert Bowdidge                                 bowdidge@apple.com
 Joel Brobecker					brobecker@gnat.com
 Dave Brolley					brolley@redhat.com
+Christian Bruel					christian.bruel@st.com
 Kevin Buettner					kevinb@redhat.com
-Tobias Burnus					burnus@net-b.de
 Andrew Cagney					cagney@redhat.com
 John Carr					jfc@mit.edu
 Steve Chamberlain				sac@transmeta.com
@@ -271,6 +274,7 @@ Christian Cornelssen				ccorn@cs.tu-berlin.de
 Roberto Costa					roberto.costa@st.com
 Ian Dall					ian@beware.dropbear.id.au
 David Daney					ddaney@avtrex.com
+Benoit Dupont de Dinechin			benoit.dupont-de-dinechin@st.com
 Mohan Embar					gnustuff@thisiscool.com
 Marc Espie					espie@cvs.openbsd.org
 Rafael Ávila de Espíndola			rafael.espindola@gmail.com
@@ -306,6 +310,7 @@ Mumit Khan					khan@xraylith.wisc.edu
 Matthias Klose					doko@debian.org
 Jeff Knaggs					jknaggs@redhat.com
 Michael Koch					konqueror@gmx.de
+Dave Korn					dave.korn@artimi.com
 Matt Kraai					kraai@ftbfs.org
 Andreas Krebbel					krebbel1@de.ibm.com
 Maxim Kuvyrkov					mkuvyrkov@ispras.ru
@@ -354,6 +359,7 @@ Nicolas Pitre					nico@cam.org
 Clinton Popetz					cpopetz@cpopetz.com
 Vladimir Prus					vladimir@codesourcery.com
 Jerry Quinn					jlquinn@optonline.net
+Dwarakanath Rajagopal				dwarak.rajagopal@amd.com
 Rolf Rasmussen					rolfwr@gcc.gnu.org
 Volker Reichelt					reichelt@igpm.rwth-aachen.de
 Tom Rix						trix@redhat.com

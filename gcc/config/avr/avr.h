@@ -624,7 +624,7 @@ sprintf (STRING, "*.%s%lu", PREFIX, (unsigned long)(NUM))
     "r8","r9","r10","r11","r12","r13","r14","r15",	\
     "r16","r17","r18","r19","r20","r21","r22","r23",	\
     "r24","r25","r26","r27","r28","r29","r30","r31",	\
-    "__SPL__","__SPH__","argL","argH"}
+    "__SP_L__","__SP_H__","argL","argH"}
 
 #define FINAL_PRESCAN_INSN(insn, operand, nop) final_prescan_insn (insn, operand,nop)
 
@@ -660,7 +660,11 @@ sprintf (STRING, "*.%s%lu", PREFIX, (unsigned long)(NUM))
 #define ASM_OUTPUT_SKIP(STREAM, N)		\
 fprintf (STREAM, "\t.skip %lu,0\n", (unsigned long)(N))
 
-#define ASM_OUTPUT_ALIGN(STREAM, POWER)
+#define ASM_OUTPUT_ALIGN(STREAM, POWER)			\
+  do {							\
+      if ((POWER) > 1)					\
+          fprintf (STREAM, "\t.p2align\t%d\n", POWER);	\
+  } while (0)
 
 #define CASE_VECTOR_MODE HImode
 
@@ -757,9 +761,7 @@ mmcu=*:-mmcu=%*}"
   mmcu=at76*:-m avr3}\
 %{mmcu=atmega8*|\
   mmcu=atmega48|\
-  mmcu=at90pwm1|\
-  mmcu=at90pwm2|\
-  mmcu=at90pwm3:-m avr4}\
+  mmcu=at90pwm*:-m avr4}\
 %{mmcu=atmega16*|\
   mmcu=atmega32*|\
   mmcu=atmega406|\
@@ -770,24 +772,22 @@ mmcu=*:-mmcu=%*}"
   mmcu=at94k:-m avr5}\
 %{mmcu=atmega324*|\
   mmcu=atmega325*|\
-  mmcu=atmega3250*|\
   mmcu=atmega329*|\
-  mmcu=atmega3290*|\
   mmcu=atmega406|\
   mmcu=atmega48|\
   mmcu=atmega88|\
   mmcu=atmega64|\
   mmcu=atmega644*|\
-  mmcu=atmega645|\
-  mmcu=atmega6450|\
-  mmcu=atmega649|\
-  mmcu=atmega6490|\
+  mmcu=atmega645*|\
+  mmcu=atmega649*|\
   mmcu=atmega128|\
   mmcu=atmega162|\
   mmcu=atmega164*|\
   mmcu=atmega165*|\
   mmcu=atmega168|\
   mmcu=atmega169*|\
+  mmcu=atmega8hva|\
+  mmcu=atmega16hva|\
   mmcu=at90can*|\
   mmcu=at90pwm*|\
   mmcu=at90usb*: -Tdata 0x800100}\
@@ -884,6 +884,8 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=atmega128:crtm128.o%s} \
 %{mmcu=atmega1280:crtm1280.o%s} \
 %{mmcu=atmega1281:crtm1281.o%s} \
+%{mmcu=atmega8hva:crtm8hva.o%s} \
+%{mmcu=atmega16hva:crtm16hva.o%s} \
 %{mmcu=at90can32:crtcan32.o%s} \
 %{mmcu=at90can64:crtcan64.o%s} \
 %{mmcu=at90can128:crtcan128.o%s} \
