@@ -42,5 +42,7 @@ int main ()
   if (DEC64_DEN != 0.000000000000001E-383DD) abort();
   if (DEC128_DEN != 0.000000000000000000000000000000001E-6143DL) abort();
 
+  if (DEC_EVAL_METHOD < -1 || DEC_EVAL_METHOD > 2) abort();
+
   return 0;
 }

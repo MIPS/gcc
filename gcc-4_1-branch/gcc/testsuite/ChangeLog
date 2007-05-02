@@ -1,3 +1,8 @@
+2007-05-02  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/dfp/decfloat-constants.c: Check that the value of
+	DEC_EVAL_METHOD is in the valid range.
+
 2007-04-03  Janis Johnson  <janis187@us.ibm.com>
 
 	gcc.target/powerpc/ppc32-abi-dfp-1.c: New test.

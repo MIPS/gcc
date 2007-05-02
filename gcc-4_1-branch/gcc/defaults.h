@@ -709,7 +709,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #endif
 
 #ifndef TARGET_DEC_EVAL_METHOD
-#define TARGET_DEC_EVAL_METHOD 2
+#define TARGET_DEC_EVAL_METHOD -1
 #endif
 
 #ifndef HOT_TEXT_SECTION_NAME

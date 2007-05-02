@@ -50,6 +50,13 @@
 #define TARGET_CPU_DEFAULT ((char *)0)
 #endif
 
+/* Set the value of DEC_EVAL_METHOD in float.h.  Software emulation
+   using decNumber performs evaluation to the range and precision of
+   the type.  */
+#ifndef TARGET_DEC_EVAL_METHOD
+#define TARGET_DEC_EVAL_METHOD 0
+#endif
+
 /* If configured for PPC405, support PPC405CR Erratum77.  */
 #ifdef CONFIG_PPC405CR
 #define PPC405_ERRATUM77 (rs6000_cpu == PROCESSOR_PPC405)

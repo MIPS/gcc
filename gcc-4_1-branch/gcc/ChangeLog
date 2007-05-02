@@ -1,3 +1,10 @@
+2007-05-02  Janis Johnson  <janis187@us.ibm.com>
+
+	* ginclude/float.h (DEC_EVAL_METHOD): Use correct name, default to
+	-1 if compiler has not defined __DEC_EVAL_METHOD__.
+	* defaults.h (TARGET_DEC_EVAL_METHOD): Define as -1.
+	* config/rs6000/rs6000.h (TARGET_DEC_EVAL_METHOD): Define as 0.
+
 2007-04-17  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Force TDmode
