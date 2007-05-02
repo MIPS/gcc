@@ -1,3 +1,93 @@
+2007-05-02  Russell Yanofsky <russ@yanofsky.org>
+            Pedro Lamarao <pedro.lamarao@mndfck.org>
+            Douglas Gregor <doug.gregor@gmail.com>
+            Howard Hinnant <howard.hinnant@gmail.com>
+
+	Add support for rvalue references to G++ under --std=c++0x mode
+        * gcc/testsuite/g++.dg/cpp0x/rv8p.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/temp-constructor-bug.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/cast-bug.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/elision_weak.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/collapse-bug.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/rv3p.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/rv7n.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/overload-conv-1.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/rv2n.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/deduce.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/temp-va-arg-bug.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/rv6p.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/template_deduction.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/implicit-copy.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/rv1p.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/cast.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/rv5n.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/decltype4.C: Compiler no longer
+        generates bogus errors.
+        * gcc/testsuite/g++.dg/cpp0x/collapse.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/overload-conv-2.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/rv4p.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/iop.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/rv3n.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/rv7p.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/reference_collapsing.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/overload.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/named.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/rv2p.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/rv6n.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/not_special.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/bind.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/rv1n.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/rv5p.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/elision.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/named_refs.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/unnamed_refs.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/rv4n.C: New.
+        * gcc/testsuite/g++.dg/cpp0x/elision_neg.C: New.
+        * gcc/testsuite/g++.dg/init/copy7.C: Run in C++98 mode.
+        * gcc/testsuite/g++.dg/overload/arg1.C: Ditto.
+        * gcc/testsuite/g++.dg/overload/arg4.C: Ditto.
+        * gcc/cp/call.c (conversion): new "rvaluedness_matches_p" member
+	(convert_class_to_reference): require reference type as first
+	parameter instead of base type
+	(reference_binding): add logic to handle rvalue references
+	(implicit_conversion): update inaccurate comment
+	(convert_like_real): disable creation of temporaries that are
+	impossible to initialize for types with move constructors
+	(maybe_handle_implicit_object): set "rvaluedness_matches_p"
+	(maybe_handle_ref_bind): return conversion instead of type node
+	(compare_ics): add logic to use "rvaluedness_matches_p" values to
+	determine preferred conversion sequences
+	* gcc/cp/cp-tree.h (TYPE_REF_IS_RVALUE): new macro
+	(LOOKUP_PREFER_RVALUE): new lookup flag
+	(declarator): new "rvalue_ref" flag
+	(cp_build_reference_type): new function
+	* gcc/cp/decl.c (grokdeclarator): implement reference collapsing
+	(copy_fn_p): don't consider constructors taking rvalue references
+	to be copy constructors
+	* gcc/cp/error.c (dump_type_prefix): format rvalue reference types
+	correctly in error messages
+	* gcc/cp/except.c (build_throw): move from certain lvalues when
+	throwing.
+	* gcc/cp/mangle.c (write_type): mangle rvalue references differently
+	than regular references
+	* gcc/cp/parser.c (make_reference_declarator): new boolean parameter
+	(cp_parser_make_indirect_declarator): new function
+	(cp_parser_new_declarator_opt): call cp_parser_make_indirect_declarator
+	(cp_parser_conversion_declarator_opt): same
+	(cp_parser_declarator): same
+	(cp_parser_ptr_operator): parse "&&" tokens into rvalue reference
+	declarators
+	* gcc/cp/pt.c (tsubst): implement reference collapsing
+	(maybe_adjust_types_for_deduction): implement special template
+	parameter deduction rule for rvalue references
+	(type_unification_real, try_one_overload, unify_pack_expansion):
+	update calls to	maybe_adjust_types_for_deduction
+	* gcc/cp/tree.c (lvalue_p_1): handle rvalue reference types
+	(cp_build_reference_type): new function
+	* gcc/cp/typeck.c (comptypes): don't consider rvalue and lvalue
+	reference types to be equivalent
+	(check_return_expr): move from certain lvalues when returning them
+
 2007-04-26  Douglas Gregor  <doug.gregor@gmail.com>
 
 	* libstdc++-v3/include/ext/pb_ds/detail/type_utils.hpp: Replace

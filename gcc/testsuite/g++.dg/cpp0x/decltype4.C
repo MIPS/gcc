@@ -35,7 +35,7 @@ int an_int = 5;
 int& i = an_int; 
 const int j = an_int; 
 
-CHECK_DECLTYPE(decltype(i)&, int&); // { dg-bogus "cannot declare reference" "GCC does not implement the resolution to core issue 106" { xfail *-*-* } 38 }
+CHECK_DECLTYPE(decltype(i)&, int&);
 CHECK_DECLTYPE(const decltype(j), const int);
 
 int foo(); 
