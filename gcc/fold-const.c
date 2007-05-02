@@ -6864,7 +6864,7 @@ fold_sign_changed_comparison (enum tree_code code, tree type,
   return fold_build2 (code, type, arg0_inner, arg1);
 }
 
-/* Tries to replace &a[idx] CODE s * delta with &a[idx CODE delta], if s is
+/* Tries to replace &a[idx] p+ s * delta with &a[idx + delta], if s is
    step of the array.  Reconstructs s and delta in the case of s * delta
    being an integer constant (and thus already folded).
    ADDR is the address. MULT is the multiplicative expression.
@@ -6872,7 +6872,7 @@ fold_sign_changed_comparison (enum tree_code code, tree type,
    NULL_TREE is returned.  */
 
 static tree
-try_move_mult_to_index (enum tree_code code, tree addr, tree op1)
+try_move_mult_to_index (tree addr, tree op1)
 {
   tree s, delta, step;
   tree ref = TREE_OPERAND (addr, 0), pref;
@@ -6956,7 +6956,7 @@ try_move_mult_to_index (enum tree_code code, tree addr, tree op1)
 		  || TREE_CODE (TYPE_MAX_VALUE (itype)) != INTEGER_CST)
 		continue;
 
-	      tmp = fold_binary (code, itype,
+	      tmp = fold_binary (PLUS_EXPR, itype,
 				 fold_convert (itype,
 					       TREE_OPERAND (ref, 1)),
 				 fold_convert (itype, delta));
@@ -6989,7 +6989,7 @@ try_move_mult_to_index (enum tree_code code, tree addr, tree op1)
       pos = TREE_OPERAND (pos, 0);
     }
 
-  TREE_OPERAND (pos, 1) = fold_build2 (code, itype,
+  TREE_OPERAND (pos, 1) = fold_build2 (PLUS_EXPR, itype,
 				       fold_convert (itype,
 						     TREE_OPERAND (pos, 1)),
 				       fold_convert (itype, delta));
@@ -9183,7 +9183,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	expressions.  */
       if (TREE_CODE (arg0) == ADDR_EXPR)
 	{
-	  tem = try_move_mult_to_index (PLUS_EXPR, arg0, arg1);
+	  tem = try_move_mult_to_index (arg0, arg1);
 	  if (tem)
 	    return fold_convert (type, tem);
 	}
@@ -9295,22 +9295,6 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 						 fold_convert (type, marg),
 						 fold_convert (type,
 							       parg1)));
-	    }
-
-	  /* Try replacing &a[i1] + c * i2 with &a[i1 + i2], if c is step
-	     of the array.  Loop optimizer sometimes produce this type of
-	     expressions.  */
-	  if (TREE_CODE (arg0) == ADDR_EXPR)
-	    {
-	      tem = try_move_mult_to_index (PLUS_EXPR, arg0, arg1);
-	      if (tem)
-		return fold_convert (type, tem);
-	    }
-	  else if (TREE_CODE (arg1) == ADDR_EXPR)
-	    {
-	      tem = try_move_mult_to_index (PLUS_EXPR, arg1, arg0);
-	      if (tem)
-		return fold_convert (type, tem);
 	    }
 	}
       else
@@ -9752,16 +9736,6 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 			          fold_convert (type, esz));
 			          
 	    }
-	}
-
-      /* Try replacing &a[i1] - c * i2 with &a[i1 - i2], if c is step
-	 of the array.  Loop optimizer sometimes produce this type of
-	 expressions.  */
-      if (TREE_CODE (arg0) == ADDR_EXPR)
-	{
-	  tem = try_move_mult_to_index (MINUS_EXPR, arg0, arg1);
-	  if (tem)
-	    return fold_convert (type, tem);
 	}
 
       if (flag_unsafe_math_optimizations

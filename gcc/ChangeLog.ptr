@@ -1,3 +1,15 @@
+2007-05-02  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* fold-const.c (try_move_mult_to_index): Remove code argument
+	and replace all uses with PLUS_EXPR.
+	(fold_binary <case POINTER_PLUS_EXR>): Remove code argument.
+	(fold_binary <case PLUS_EXPR>): Don't call try_move_mult_to_index.
+	(fold_binary <case MINUS_EXPR>): Likewise.
+	* tree-ssa-ccp.c (maybe_fold_stmt_indirect): Remove subtraction
+	case as it is always addition now.
+	(fold_stmt_r): Don't handle PLUS_EXPR/MINUS_EXPR specially.
+	Handle POINTER_PLUS_EXPR like PLUS_EXPR was handled before.
+
 2007-05-01  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	Merge mainline, revision 124343.
