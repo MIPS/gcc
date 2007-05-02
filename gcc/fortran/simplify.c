@@ -1938,19 +1938,56 @@ gfc_simplify_kind (gfc_expr *e)
 
 
 static gfc_expr *
+simplify_bound_dim (gfc_expr *array, int d, int upper, gfc_array_spec *as)
+{
+  gfc_expr *l, *u, *result;
+
+  /* The last dimension of an assumed-size array is special.  */
+  if (d == as->rank && as->type == AS_ASSUMED_SIZE && !upper)
+    {
+      if (as->lower[d-1]->expr_type == EXPR_CONSTANT)
+	return gfc_copy_expr (as->lower[d-1]);
+      else
+	return NULL;
+    }
+
+  /* Then, we need to know the extent of the given dimension.  */
+  l = as->lower[d-1];
+  u = as->upper[d-1];
+
+  if (l->expr_type != EXPR_CONSTANT || u->expr_type != EXPR_CONSTANT)
+    return NULL;
+
+  result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
+				&array->where);
+
+  if (mpz_cmp (l->value.integer, u->value.integer) > 0)
+    {
+      /* Zero extent.  */
+      if (upper)
+	mpz_set_si (result->value.integer, 0);
+      else
+	mpz_set_si (result->value.integer, 1);
+    }
+  else
+    {
+      /* Nonzero extent.  */
+      if (upper)
+	mpz_set (result->value.integer, u->value.integer);
+      else
+	mpz_set (result->value.integer, l->value.integer);
+    }
+
+  return range_check (result, upper ? "UBOUND" : "LBOUND");
+}
+
+
+static gfc_expr *
 simplify_bound (gfc_expr *array, gfc_expr *dim, int upper)
 {
   gfc_ref *ref;
   gfc_array_spec *as;
-  gfc_expr *l, *u, *result;
   int d;
-
-  if (dim == NULL)
-    /* TODO: Simplify constant multi-dimensional bounds.  */
-    return NULL;
-
-  if (dim->expr_type != EXPR_CONSTANT)
-    return NULL;
 
   if (array->expr_type != EXPR_VARIABLE)
     return NULL;
@@ -1992,55 +2029,89 @@ simplify_bound (gfc_expr *array, gfc_expr *dim, int upper)
   gcc_unreachable ();
 
  done:
+
   if (as->type == AS_DEFERRED || as->type == AS_ASSUMED_SHAPE)
     return NULL;
 
-  d = mpz_get_si (dim->value.integer);
-
-  if (d < 1 || d > as->rank
-      || (d == as->rank && as->type == AS_ASSUMED_SIZE && upper))
+  if (dim == NULL)
     {
-      gfc_error ("DIM argument at %L is out of bounds", &dim->where);
-      return &gfc_bad_expr;
-    }
+      /* Multi-dimensional bounds.  */
+      gfc_expr *bounds[GFC_MAX_DIMENSIONS];
+      gfc_expr *e;
+      gfc_constructor *head, *tail;
 
-  /* The last dimension of an assumed-size array is special.  */
-  if (d == as->rank && as->type == AS_ASSUMED_SIZE && !upper)
-    {
-      if (as->lower[d-1]->expr_type == EXPR_CONSTANT)
-	return gfc_copy_expr (as->lower[d-1]);
-      else
-	return NULL;
-    }
+      /* UBOUND(ARRAY) is not valid for an assumed-size array.  */
+      if (upper && as->type == AS_ASSUMED_SIZE)
+	{
+	  /* An error message will be emitted in
+	     check_assumed_size_reference (resolve.c).  */
+	  return &gfc_bad_expr;
+	}
 
-  /* Then, we need to know the extent of the given dimension.  */
-  l = as->lower[d-1];
-  u = as->upper[d-1];
+      /* Simplify the bounds for each dimension.  */
+      for (d = 0; d < array->rank; d++)
+	{
+	  bounds[d] = simplify_bound_dim (array, d + 1, upper, as);
+	  if (bounds[d] == NULL || bounds[d] == &gfc_bad_expr)
+	    {
+	      int j;
 
-  if (l->expr_type != EXPR_CONSTANT || u->expr_type != EXPR_CONSTANT)
-    return NULL;
+	      for (j = 0; j < d; j++)
+		gfc_free_expr (bounds[j]);
+	      return bounds[d];
+	    }
+	}
 
-  result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
-				&array->where);
+      /* Allocate the result expression.  */
+      e = gfc_get_expr ();
+      e->where = array->where;
+      e->expr_type = EXPR_ARRAY;
+      e->ts.type = BT_INTEGER;
+      e->ts.kind = gfc_default_integer_kind;
 
-  if (mpz_cmp (l->value.integer, u->value.integer) > 0)
-    {
-      /* Zero extent.  */
-      if (upper)
-	mpz_set_si (result->value.integer, 0);
-      else
-	mpz_set_si (result->value.integer, 1);
+      /* The result is a rank 1 array; its size is the rank of the first
+	 argument to {L,U}BOUND.  */
+      e->rank = 1;
+      e->shape = gfc_get_shape (1);
+      mpz_init_set_ui (e->shape[0], array->rank);
+
+      /* Create the constructor for this array.  */
+      head = tail = NULL;
+      for (d = 0; d < array->rank; d++)
+	{
+	  /* Get a new constructor element.  */
+	  if (head == NULL)
+	    head = tail = gfc_get_constructor ();
+	  else
+	    {
+	      tail->next = gfc_get_constructor ();
+	      tail = tail->next;
+	    }
+
+	  tail->where = e->where;
+	  tail->expr = bounds[d];
+	}
+      e->value.constructor = head;
+
+      return e;
     }
   else
     {
-      /* Nonzero extent.  */
-      if (upper)
-	mpz_set (result->value.integer, u->value.integer);
-      else
-	mpz_set (result->value.integer, l->value.integer);
-    }
+      /* A DIM argument is specified.  */
+      if (dim->expr_type != EXPR_CONSTANT)
+	return NULL;
 
-  return range_check (result, upper ? "UBOUND" : "LBOUND");
+      d = mpz_get_si (dim->value.integer);
+
+      if (d < 1 || d > as->rank
+	  || (d == as->rank && as->type == AS_ASSUMED_SIZE && upper))
+	{
+	  gfc_error ("DIM argument at %L is out of bounds", &dim->where);
+	  return &gfc_bad_expr;
+	}
+
+      return simplify_bound_dim (array, d, upper, as);
+    }
 }
 
 
@@ -2788,23 +2859,76 @@ gfc_expr *
 gfc_simplify_repeat (gfc_expr *e, gfc_expr *n)
 {
   gfc_expr *result;
-  int i, j, len, ncopies, nlen;
+  int i, j, len, ncop, nlen;
+  mpz_t ncopies;
 
-  if (e->expr_type != EXPR_CONSTANT || n->expr_type != EXPR_CONSTANT)
+  /* If NCOPIES isn't a constant, there's nothing we can do.  */
+  if (n->expr_type != EXPR_CONSTANT)
     return NULL;
 
-  if (n != NULL && (gfc_extract_int (n, &ncopies) != NULL || ncopies < 0))
+  /* If NCOPIES is negative, it's an error.  */
+  if (mpz_sgn (n->value.integer) < 0)
     {
-      gfc_error ("Invalid second argument of REPEAT at %L", &n->where);
+      gfc_error ("Argument NCOPIES of REPEAT intrinsic is negative at %L",
+		 &n->where);
       return &gfc_bad_expr;
     }
 
+  /* If we don't know the character length, we can do no more.  */
+  if (e->ts.cl == NULL || e->ts.cl->length == NULL
+      || e->ts.cl->length->expr_type != EXPR_CONSTANT)
+    return NULL;
+
+  /* If the source length is 0, any value of NCOPIES is valid
+     and everything behaves as if NCOPIES == 0.  */
+  mpz_init (ncopies);
+  if (mpz_sgn (e->ts.cl->length->value.integer) == 0)
+    mpz_set_ui (ncopies, 0);
+  else
+    mpz_set (ncopies, n->value.integer);
+
+  /* Check that NCOPIES isn't too large.  */
+  if (mpz_sgn (e->ts.cl->length->value.integer) != 0)
+    {
+      mpz_t max;
+      int i;
+
+      /* Compute the maximum value allowed for NCOPIES: huge(cl) / len.  */
+      mpz_init (max);
+      i = gfc_validate_kind (BT_INTEGER, gfc_charlen_int_kind, false);
+      mpz_tdiv_q (max, gfc_integer_kinds[i].huge,
+		  e->ts.cl->length->value.integer);
+
+      /* The check itself.  */
+      if (mpz_cmp (ncopies, max) > 0)
+	{
+	  mpz_clear (max);
+	  mpz_clear (ncopies);
+	  gfc_error ("Argument NCOPIES of REPEAT intrinsic is too large at %L",
+		     &n->where);
+	  return &gfc_bad_expr;
+	}
+
+      mpz_clear (max);
+    }
+  mpz_clear (ncopies);
+
+  /* For further simplification, we need the character string to be
+     constant.  */
+  if (e->expr_type != EXPR_CONSTANT)
+    return NULL;
+
+  if (mpz_sgn (e->ts.cl->length->value.integer) != 0)
+    gcc_assert (gfc_extract_int (n, &ncop) == NULL);
+  else
+    ncop = 0;
+
   len = e->value.character.length;
-  nlen = ncopies * len;
+  nlen = ncop * len;
 
   result = gfc_constant_result (BT_CHARACTER, e->ts.kind, &e->where);
 
-  if (ncopies == 0)
+  if (ncop == 0)
     {
       result->value.character.string = gfc_getmem (1);
       result->value.character.length = 0;
@@ -2815,7 +2939,7 @@ gfc_simplify_repeat (gfc_expr *e, gfc_expr *n)
   result->value.character.length = nlen;
   result->value.character.string = gfc_getmem (nlen + 1);
 
-  for (i = 0; i < ncopies; i++)
+  for (i = 0; i < ncop; i++)
     for (j = 0; j < len; j++)
       result->value.character.string[j + i * len]
       = e->value.character.string[j];

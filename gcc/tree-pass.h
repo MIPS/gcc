@@ -71,6 +71,9 @@ enum tree_dump_index
 #define TDF_MEMSYMS	(1 << 14)	/* display memory symbols in expr.
                                            Implies TDF_VOPS.  */
 
+#define TDF_DIAGNOSTIC	(1 << 15)	/* A dump to be put in a diagnostic
+					   message.  */
+
 extern char *get_dump_file_name (enum tree_dump_index);
 extern int dump_enabled_p (enum tree_dump_index);
 extern int dump_initialized_p (enum tree_dump_index);
@@ -215,10 +218,6 @@ struct dump_file_info
    for the passes that are handed to register_dump_files.  */
 #define TODO_set_props			(1 << 15)
 
-/* Set by passes that may make SMT's that were previously never used
-   in statements, used.  */
-#define TODO_update_smt_usage           (1 << 16)
-
 #define TODO_update_ssa_any		\
     (TODO_update_ssa			\
      | TODO_update_ssa_no_phi		\
@@ -289,6 +288,7 @@ extern struct tree_opt_pass pass_warn_function_return;
 extern struct tree_opt_pass pass_warn_function_noreturn;
 extern struct tree_opt_pass pass_phiopt;
 extern struct tree_opt_pass pass_forwprop;
+extern struct tree_opt_pass pass_phiprop;
 extern struct tree_opt_pass pass_dse;
 extern struct tree_opt_pass pass_nrv;
 extern struct tree_opt_pass pass_mark_used_blocks;
@@ -298,6 +298,7 @@ extern struct tree_opt_pass pass_rest_of_compilation;
 extern struct tree_opt_pass pass_sink_code;
 extern struct tree_opt_pass pass_fre;
 extern struct tree_opt_pass pass_linear_transform;
+extern struct tree_opt_pass pass_check_data_deps;
 extern struct tree_opt_pass pass_copy_prop;
 extern struct tree_opt_pass pass_store_ccp;
 extern struct tree_opt_pass pass_store_copy_prop;
@@ -331,7 +332,6 @@ extern struct tree_opt_pass pass_fixup_cfg;
 
 extern struct tree_opt_pass pass_init_function;
 extern struct tree_opt_pass pass_jump;
-extern struct tree_opt_pass pass_insn_locators_initialize;
 extern struct tree_opt_pass pass_rtl_eh;
 extern struct tree_opt_pass pass_initial_value_sets;
 extern struct tree_opt_pass pass_unshare_all_rtl;
@@ -346,6 +346,9 @@ extern struct tree_opt_pass pass_jump_bypass;
 extern struct tree_opt_pass pass_profiling;
 extern struct tree_opt_pass pass_rtl_ifcvt;
 extern struct tree_opt_pass pass_tracer;
+
+extern struct tree_opt_pass pass_into_cfg_layout_mode;
+extern struct tree_opt_pass pass_outof_cfg_layout_mode;
 
 extern struct tree_opt_pass pass_loop2;
 extern struct tree_opt_pass pass_rtl_loop_init;

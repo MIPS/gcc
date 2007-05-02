@@ -2376,9 +2376,6 @@ expand_builtin_cexpi (tree exp, rtx target, rtx subtarget)
       tree call, fn = NULL_TREE, narg;
       tree ctype = build_complex_type (type);
 
-      /* We can expand via the C99 cexp function.  */
-      gcc_assert (TARGET_C99_FUNCTIONS);
-
       if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CEXPIF)
 	fn = built_in_decls[BUILT_IN_CEXPF];
       else if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CEXPI)
@@ -2387,12 +2384,32 @@ expand_builtin_cexpi (tree exp, rtx target, rtx subtarget)
 	fn = built_in_decls[BUILT_IN_CEXPL];
       else
 	gcc_unreachable ();
+
+      /* If we don't have a decl for cexp create one.  This is the
+	 friendliest fallback if the user calls __builtin_cexpi
+	 without full target C99 function support.  */
+      if (fn == NULL_TREE)
+	{
+	  tree fntype;
+	  const char *name = NULL;
+
+	  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CEXPIF)
+	    name = "cexpf";
+	  else if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CEXPI)
+	    name = "cexp";
+	  else if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CEXPIL)
+	    name = "cexpl";
+
+	  fntype = build_function_type_list (ctype, ctype, NULL_TREE);
+	  fn = build_fn_decl (name, fntype);
+	}
+
       narg = fold_build2 (COMPLEX_EXPR, ctype,
 			  build_real (type, dconst0), arg);
 
       /* Make sure not to fold the cexp call again.  */
       call = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
-      return expand_expr (build_call_nary (ctype, call, 1, arg), 
+      return expand_expr (build_call_nary (ctype, call, 1, narg), 
 			  target, VOIDmode, 0);
     }
 
@@ -2480,9 +2497,51 @@ expand_builtin_int_roundingfn (tree exp, rtx target, rtx subtarget)
 
   /* Fall back to floating point rounding optab.  */
   fallback_fndecl = mathfn_built_in (TREE_TYPE (arg), fallback_fn);
-  /* We shouldn't get here on targets without TARGET_C99_FUNCTIONS.
-     ??? Perhaps convert (int)floorf(x) into (int)floor((double)x).  */
-  gcc_assert (fallback_fndecl != NULL_TREE);
+
+  /* For non-C99 targets we may end up without a fallback fndecl here
+     if the user called __builtin_lfloor directly.  In this case emit
+     a call to the floor/ceil variants nevertheless.  This should result
+     in the best user experience for not full C99 targets.  */
+  if (fallback_fndecl == NULL_TREE)
+    {
+      tree fntype;
+      const char *name = NULL;
+
+      switch (DECL_FUNCTION_CODE (fndecl))
+	{
+	case BUILT_IN_LCEIL:
+	case BUILT_IN_LLCEIL:
+	  name = "ceil";
+	  break;
+	case BUILT_IN_LCEILF:
+	case BUILT_IN_LLCEILF:
+	  name = "ceilf";
+	  break;
+	case BUILT_IN_LCEILL:
+	case BUILT_IN_LLCEILL:
+	  name = "ceill";
+	  break;
+	case BUILT_IN_LFLOOR:
+	case BUILT_IN_LLFLOOR:
+	  name = "floor";
+	  break;
+	case BUILT_IN_LFLOORF:
+	case BUILT_IN_LLFLOORF:
+	  name = "floorf";
+	  break;
+	case BUILT_IN_LFLOORL:
+	case BUILT_IN_LLFLOORL:
+	  name = "floorl";
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+
+      fntype = build_function_type_list (TREE_TYPE (arg),
+					 TREE_TYPE (arg), NULL_TREE);
+      fallback_fndecl = build_fn_decl (name, fntype);
+    }
+
   exp = build_call_expr (fallback_fndecl, 1, arg);
 
   tmp = expand_normal (exp);
@@ -5491,7 +5550,8 @@ expand_builtin_adjust_trampoline (tree exp)
   return tramp;
 }
 
-/* Expand a call to the built-in signbit, signbitf or signbitl function.
+/* Expand a call to the built-in signbit, signbitf, signbitl, signbitd32,
+   signbitd64, or signbitd128 function.
    Return NULL_RTX if a normal call should be emitted rather than expanding
    the function in-line.  EXP is the expression that is a call to the builtin
    function; if convenient, the result should be placed in TARGET.  */
@@ -5709,13 +5769,18 @@ expand_builtin_sync_operation (enum machine_mode mode, tree exp,
 			       rtx target, bool ignore)
 {
   rtx val, mem;
+  enum machine_mode old_mode;
 
   /* Expand the operands.  */
   mem = get_builtin_sync_mem (CALL_EXPR_ARG (exp, 0), mode);
 
   val = expand_expr (CALL_EXPR_ARG (exp, 1), NULL, mode, EXPAND_NORMAL);
-  /* If VAL is promoted to a wider mode, convert it back to MODE.  */
-  val = convert_to_mode (mode, val, 1);
+  /* If VAL is promoted to a wider mode, convert it back to MODE.  Take care
+     of CONST_INTs, where we know the old_mode only from the call argument.  */
+  old_mode = GET_MODE (val);
+  if (old_mode == VOIDmode)
+    old_mode = TYPE_MODE (TREE_TYPE (CALL_EXPR_ARG (exp, 1)));
+  val = convert_modes (mode, old_mode, val, 1);
 
   if (ignore)
     return expand_sync_operation (mem, val, code);
@@ -5733,18 +5798,27 @@ expand_builtin_compare_and_swap (enum machine_mode mode, tree exp,
 				 bool is_bool, rtx target)
 {
   rtx old_val, new_val, mem;
+  enum machine_mode old_mode;
 
   /* Expand the operands.  */
   mem = get_builtin_sync_mem (CALL_EXPR_ARG (exp, 0), mode);
 
 
   old_val = expand_expr (CALL_EXPR_ARG (exp, 1), NULL, mode, EXPAND_NORMAL);
-  /* If OLD_VAL is promoted to a wider mode, convert it back to MODE.  */
-  old_val = convert_to_mode (mode, old_val, 1);
+  /* If VAL is promoted to a wider mode, convert it back to MODE.  Take care
+     of CONST_INTs, where we know the old_mode only from the call argument.  */
+  old_mode = GET_MODE (old_val);
+  if (old_mode == VOIDmode)
+    old_mode = TYPE_MODE (TREE_TYPE (CALL_EXPR_ARG (exp, 1)));
+  old_val = convert_modes (mode, old_mode, old_val, 1);
 
   new_val = expand_expr (CALL_EXPR_ARG (exp, 2), NULL, mode, EXPAND_NORMAL);
-  /* If NEW_VAL is promoted to a wider mode, convert it back to MODE.  */
-  new_val = convert_to_mode (mode, new_val, 1);
+  /* If VAL is promoted to a wider mode, convert it back to MODE.  Take care
+     of CONST_INTs, where we know the old_mode only from the call argument.  */
+  old_mode = GET_MODE (new_val);
+  if (old_mode == VOIDmode)
+    old_mode = TYPE_MODE (TREE_TYPE (CALL_EXPR_ARG (exp, 2)));
+  new_val = convert_modes (mode, old_mode, new_val, 1);
 
   if (is_bool)
     return expand_bool_compare_and_swap (mem, old_val, new_val, target);
@@ -5763,12 +5837,17 @@ expand_builtin_lock_test_and_set (enum machine_mode mode, tree exp,
 				  rtx target)
 {
   rtx val, mem;
+  enum machine_mode old_mode;
 
   /* Expand the operands.  */
   mem = get_builtin_sync_mem (CALL_EXPR_ARG (exp, 0), mode);
   val = expand_expr (CALL_EXPR_ARG (exp, 1), NULL, mode, EXPAND_NORMAL);
-  /* If VAL is promoted to a wider mode, convert it back to MODE.  */
-  val = convert_to_mode (mode, val, 1);
+  /* If VAL is promoted to a wider mode, convert it back to MODE.  Take care
+     of CONST_INTs, where we know the old_mode only from the call argument.  */
+  old_mode = GET_MODE (val);
+  if (old_mode == VOIDmode)
+    old_mode = TYPE_MODE (TREE_TYPE (CALL_EXPR_ARG (exp, 1)));
+  val = convert_modes (mode, old_mode, val, 1);
 
   return expand_sync_lock_test_and_set (mem, val, target);
 }
@@ -6409,6 +6488,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     CASE_FLT_FN (BUILT_IN_SIGNBIT):
+    case BUILT_IN_SIGNBITD32:
+    case BUILT_IN_SIGNBITD64:
+    case BUILT_IN_SIGNBITD128:
       target = expand_builtin_signbit (exp, target);
       if (target)
 	return target;
@@ -10120,56 +10202,13 @@ build_function_call_expr (tree fndecl, tree arglist)
 {
   tree fntype = TREE_TYPE (fndecl);
   tree fn = build1 (ADDR_EXPR, build_pointer_type (fntype), fndecl);
-  return fold_builtin_call_list (TREE_TYPE (fntype), fn, arglist);
-}
-
-/* Construct a CALL_EXPR with type TYPE with FN as the function expression.
-   ARGLIST is a TREE_LIST of arguments.  */
-
-tree
-fold_builtin_call_list (tree type, tree fn, tree arglist)
-{
-  tree ret = NULL_TREE;
-  if (TREE_CODE (fn) == ADDR_EXPR)
-    {
-      tree fndecl = TREE_OPERAND (fn, 0);
-      if (TREE_CODE (fndecl) == FUNCTION_DECL
-	  && DECL_BUILT_IN (fndecl))
-	{
-	  /* FIXME: Don't use a list in this interface.  */
-	  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
-	    {
-	      ret = targetm.fold_builtin (fndecl, arglist, false);
-	      if (ret)
-		return ret;
-	    }
-	  else
-	    {
-	      tree tail = arglist;
-	      tree args[MAX_ARGS_TO_FOLD_BUILTIN];
-	      int nargs;
-	      tree exp;
-
-	      for (nargs = 0; nargs < MAX_ARGS_TO_FOLD_BUILTIN; nargs++)
-		{
-		  if (!tail)
-		    break;
-		  args[nargs] = TREE_VALUE (tail);
-		  tail = TREE_CHAIN (tail);
-		}
-	      if (nargs <= MAX_ARGS_TO_FOLD_BUILTIN)
-		{
-		  ret = fold_builtin_n (fndecl, args, nargs, false);
-		  if (ret)
-		    return ret;
-		}
-	      exp = build_call_list (type, fn, arglist);
-	      ret = fold_builtin_varargs (fndecl, exp, false);
-	      return ret ? ret : exp;
-	    }
-	}
-    }
-  return build_call_list (type, fn, arglist);
+  int n = list_length (arglist);
+  tree *argarray = (tree *) alloca (n * sizeof (tree));
+  int i;
+  
+  for (i = 0; i < n; i++, arglist = TREE_CHAIN (arglist))
+    argarray[i] = TREE_VALUE (arglist);
+  return fold_builtin_call_array (TREE_TYPE (fntype), fn, n, argarray);
 }
 
 /* Conveniently construct a function call expression.  FNDECL names the
@@ -10180,24 +10219,26 @@ tree
 build_call_expr (tree fndecl, int n, ...)
 {
   va_list ap;
-  tree ret;
   tree fntype = TREE_TYPE (fndecl);
   tree fn = build1 (ADDR_EXPR, build_pointer_type (fntype), fndecl);
+  tree *argarray = (tree *) alloca (n * sizeof (tree));
+  int i;
 
   va_start (ap, n);
-  ret = fold_builtin_call_valist (TREE_TYPE (fntype), fn, n, ap);
+  for (i = 0; i < n; i++)
+    argarray[i] = va_arg (ap, tree);
   va_end (ap);
-  return ret;
+  return fold_builtin_call_array (TREE_TYPE (fntype), fn, n, argarray);
 }
 
 /* Construct a CALL_EXPR with type TYPE with FN as the function expression.
-   N arguments are passed in the va_list AP.  */
+   N arguments are passed in the array ARGARRAY.  */
 
 tree
-fold_builtin_call_valist (tree type,
-			  tree fn,
-			  int n,
-			  va_list ap)
+fold_builtin_call_array (tree type,
+			 tree fn,
+			 int n,
+			 tree *argarray)
 {
   tree ret = NULL_TREE;
   int i;
@@ -10212,15 +10253,8 @@ fold_builtin_call_valist (tree type,
         if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
           {
             tree arglist = NULL_TREE;
-            va_list ap0;
-            va_copy (ap0, ap);
-            for (i = 0; i < n; i++)
-              {
-                tree arg = va_arg (ap0, tree);
-                arglist = tree_cons (NULL_TREE, arg, arglist);
-	       }
-            va_end (ap0);
-            arglist = nreverse (arglist);
+	    for (i = n - 1; i >= 0; i--)
+	      arglist = tree_cons (NULL_TREE, argarray[i], arglist);
             ret = targetm.fold_builtin (fndecl, arglist, false);
             if (ret)
               return ret;
@@ -10229,25 +10263,19 @@ fold_builtin_call_valist (tree type,
           {
             /* First try the transformations that don't require consing up
                an exp.  */
-            tree args[MAX_ARGS_TO_FOLD_BUILTIN];
-            va_list ap0;
-            va_copy (ap0, ap);
-            for (i = 0; i < n; i++)
-              args[i] = va_arg (ap0, tree);
-            va_end (ap0);
-            ret = fold_builtin_n (fndecl, args, n, false);
+            ret = fold_builtin_n (fndecl, argarray, n, false);
             if (ret)
               return ret;
           }
 
         /* If we got this far, we need to build an exp.  */
-        exp = build_call_valist (type, fn, n, ap);
+        exp = build_call_array (type, fn, n, argarray);
         ret = fold_builtin_varargs (fndecl, exp, false);
         return ret ? ret : exp;
       }
   }
 
-  return build_call_valist (type, fn, n, ap);
+  return build_call_array (type, fn, n, argarray);
 }
 
 /* Construct a new CALL_EXPR using the tail of the argument list of EXP
@@ -12171,7 +12199,7 @@ do_mpfr_ckconv (mpfr_srcptr m, tree type, int inexact)
     {
       REAL_VALUE_TYPE rr;
 
-      real_from_mpfr (&rr, m);
+      real_from_mpfr (&rr, m, type, GMP_RNDN);
       /* Proceed iff GCC's REAL_VALUE_TYPE can hold the MPFR value,
 	 check for overflow/underflow.  If the REAL_VALUE_TYPE is zero
 	 but the mpft_t is not, then we underflowed in the
@@ -12224,7 +12252,7 @@ do_mpfr_arg1 (tree arg, tree type, int (*func)(mpfr_ptr, mpfr_srcptr, mp_rnd_t),
 	  mpfr_t m;
 
 	  mpfr_init2 (m, prec);
-	  mpfr_from_real (m, ra);
+	  mpfr_from_real (m, ra, GMP_RNDN);
 	  mpfr_clear_flags ();
 	  inexact = func (m, m, GMP_RNDN);
 	  result = do_mpfr_ckconv (m, type, inexact);
@@ -12267,8 +12295,8 @@ do_mpfr_arg2 (tree arg1, tree arg2, tree type,
 	  mpfr_t m1, m2;
 
 	  mpfr_inits2 (prec, m1, m2, NULL);
-	  mpfr_from_real (m1, ra1);
-	  mpfr_from_real (m2, ra2);
+	  mpfr_from_real (m1, ra1, GMP_RNDN);
+	  mpfr_from_real (m2, ra2, GMP_RNDN);
 	  mpfr_clear_flags ();
 	  inexact = func (m1, m1, m2, GMP_RNDN);
 	  result = do_mpfr_ckconv (m1, type, inexact);
@@ -12315,9 +12343,9 @@ do_mpfr_arg3 (tree arg1, tree arg2, tree arg3, tree type,
 	  mpfr_t m1, m2, m3;
 
 	  mpfr_inits2 (prec, m1, m2, m3, NULL);
-	  mpfr_from_real (m1, ra1);
-	  mpfr_from_real (m2, ra2);
-	  mpfr_from_real (m3, ra3);
+	  mpfr_from_real (m1, ra1, GMP_RNDN);
+	  mpfr_from_real (m2, ra2, GMP_RNDN);
+	  mpfr_from_real (m3, ra3, GMP_RNDN);
 	  mpfr_clear_flags ();
 	  inexact = func (m1, m1, m2, m3, GMP_RNDN);
 	  result = do_mpfr_ckconv (m1, type, inexact);
@@ -12359,7 +12387,7 @@ do_mpfr_sincos (tree arg, tree arg_sinp, tree arg_cosp)
 	  mpfr_t m, ms, mc;
 
 	  mpfr_inits2 (prec, m, ms, mc, NULL);
-	  mpfr_from_real (m, ra);
+	  mpfr_from_real (m, ra, GMP_RNDN);
 	  mpfr_clear_flags ();
 	  inexact = mpfr_sin_cos (ms, mc, m, GMP_RNDN);
 	  result_s = do_mpfr_ckconv (ms, type, inexact);

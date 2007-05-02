@@ -265,6 +265,10 @@ ep9312*-*-*)
 	;;
 frv*)	cpu_type=frv
 	;;
+fido-*-*)
+	cpu_type=m68k
+	extra_headers=math-68881.h
+        ;;
 xscale-*-*)
 	cpu_type=arm
 	extra_headers="mmintrin.h"
@@ -569,9 +573,9 @@ case ${target} in
   ;;
 *-*-vxworks*)
   tmake_file=t-vxworks
-  tm_file="${tm_file} elfos.h svr4.h"
   xm_defines=POSIX
   extra_options="${extra_options} vxworks.opt"
+  extra_objs=vxworks.o
   case ${enable_threads} in
     no) ;;
     "" | yes | vxworks) thread_file='vxworks' ;;
@@ -693,7 +697,7 @@ arm-semi-aof | armel-semi-aof)
 	tmake_file="arm/t-arm arm/t-semi"
 	;;
 arm-wrs-vxworks)
-	tm_file="dbxelf.h elfos.h svr4.h vxworks.h arm/elf.h arm/aout.h arm/arm.h arm/vxworks.h"
+	tm_file="dbxelf.h elfos.h svr4.h vxworks.h arm/elf.h arm/aout.h ${tm_file} arm/vxworks.h"
 	tmake_file="${tmake_file} arm/t-arm arm/t-vxworks"
 	;;
 arm*-*-freebsd*|strongarm*-*-freebsd*)
@@ -810,7 +814,12 @@ bfin*-elf*)
         ;;
 bfin*-uclinux*)
 	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h bfin/uclinux.h"
-        tmake_file=bfin/t-bfin-elf
+        tmake_file=bfin/t-bfin-uclinux
+        use_collect2=no
+        ;;
+bfin*-linux-uclibc*)
+	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h linux.h bfin/linux.h"
+        tmake_file="t-slibgcc-elf-ver bfin/t-bfin-linux"
         use_collect2=no
         ;;
 bfin*-rtems*)
@@ -1123,14 +1132,14 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu)
 			# FIXME: -m64 for i[34567]86-*-* should be allowed just
 			# like -m32 for x86_64-*-*.
 			case X"${with_cpu}" in
-			Xgeneric|Xcore2|Xnocona|Xx86-64|Xamdfam10|Xk8|Xopteron|Xathlon64|Xathlon-fx)
+			Xgeneric|Xcore2|Xnocona|Xx86-64|Xamdfam10|Xbarcelona|Xk8|Xopteron|Xathlon64|Xathlon-fx)
 				;;
 			X)
 				with_cpu=generic
 				;;
 			*)
 				echo "Unsupported CPU used in --with-cpu=$with_cpu, supported values:" 1>&2
-				echo "generic core2 nocona x86-64 amdfam10 k8 opteron athlon64 athlon-fx" 1>&2
+				echo "generic core2 nocona x86-64 amdfam10 barcelona k8 opteron athlon64 athlon-fx" 1>&2
 				exit 1
 				;;
 			esac
@@ -1141,7 +1150,7 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu)
 	i[34567]86-*-knetbsd*-gnu) tm_file="${tm_file} i386/linux.h knetbsd-gnu.h i386/knetbsd-gnu.h" ;;
 	i[34567]86-*-kfreebsd*-gnu) tm_file="${tm_file} i386/linux.h kfreebsd-gnu.h i386/kfreebsd-gnu.h" ;;
 	esac
-	tmake_file="${tmake_file} i386/t-crtstuff i386/t-crtfm t-dfprules"
+	tmake_file="${tmake_file} i386/t-crtstuff i386/t-crtpc i386/t-crtfm t-dfprules"
 	;;
 x86_64-*-linux* | x86_64-*-kfreebsd*-gnu | x86_64-*-knetbsd*-gnu)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h linux.h \
@@ -1150,7 +1159,7 @@ x86_64-*-linux* | x86_64-*-kfreebsd*-gnu | x86_64-*-knetbsd*-gnu)
 	x86_64-*-kfreebsd*-gnu) tm_file="${tm_file} kfreebsd-gnu.h" ;;
 	x86_64-*-knetbsd*-gnu) tm_file="${tm_file} knetbsd-gnu.h" ;;
 	esac
-	tmake_file="${tmake_file} i386/t-linux64 i386/t-crtfm t-dfprules"
+	tmake_file="${tmake_file} i386/t-linux64 i386/t-crtpc i386/t-crtfm t-dfprules"
 	;;
 i[34567]86-*-gnu*)
 	;;
@@ -1252,14 +1261,14 @@ i[34567]86-*-solaris2*)
 		# FIXME: -m64 for i[34567]86-*-* should be allowed just
 		# like -m32 for x86_64-*-*.
 		case X"${with_cpu}" in
-		Xgeneric|Xcore2|Xnocona|Xx86-64|Xamdfam10|Xk8|Xopteron|Xathlon64|Xathlon-fx)
+		Xgeneric|Xcore2|Xnocona|Xx86-64|Xamdfam10|Xbarcelona|Xk8|Xopteron|Xathlon64|Xathlon-fx)
 			;;
 		X)
 			with_cpu=generic
 			;;
 		*)
 			echo "Unsupported CPU used in --with-cpu=$with_cpu, supported values:" 1>&2
-			echo "generic core2 nocona x86-64 amdfam10 k8 opteron athlon64 athlon-fx" 1>&2
+			echo "generic core2 nocona x86-64 amdfam10 barcelona k8 opteron athlon64 athlon-fx" 1>&2
 			exit 1
 			;;
 		esac
@@ -1311,14 +1320,14 @@ i[34567]86-*-sysv4*)		# Intel 80386's running system V.4
 	use_fixproto=yes
 	;;
 i[4567]86-wrs-vxworks|i[4567]86-wrs-vxworksae)
-	tm_file="${tm_file} i386/sysv4.h i386/unix.h i386/att.h vx-common.h"
+	tm_file="${tm_file} i386/unix.h i386/att.h elfos.h svr4.h vx-common.h"
 	case ${target} in
 	  *-vxworksae*)
-	    tm_file="${tm_file} vxworksae.h i386/vxworksae.h"
+	    tm_file="${tm_file} vxworksae.h i386/vx-common.h i386/vxworksae.h"
 	    tmake_file="${tmake_file} i386/t-vxworks i386/t-vxworksae"
 	    ;;
 	  *)
-	    tm_file="${tm_file} vxworks.h i386/vxworks.h"
+	    tm_file="${tm_file} vxworks.h i386/vx-common.h i386/vxworks.h"
 	    tmake_file="${tmake_file} i386/t-vxworks"
 	    ;;
 	esac
@@ -1337,7 +1346,7 @@ i[34567]86-*-pe | i[34567]86-*-cygwin*)
 		thread_file='posix'
 	fi
 	;;
-i[34567]86-*-mingw32*)
+i[34567]86-*-mingw32* | x86_64-*-mingw32*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/cygming.h i386/mingw32.h"
 	xm_file=i386/xm-mingw32.h
 	tmake_file="i386/t-cygming i386/t-mingw32"
@@ -1503,12 +1512,36 @@ m68k-*-coff*)
 	tm_file="${tm_file} m68k/m68k-none.h m68k/m68kemb.h dbxcoff.h m68k/coff.h dbx.h"
 	use_fixproto=yes
 	;;
-m68020-*-elf* | m68k-*-elf*)
-	default_m68k_cpu=68020
-	default_cf_cpu=5206
+m68020-*-elf* | m68k-*-elf* | fido-*-elf*)
+	case ${target} in
+	fido-*-elf*)
+		# Check that $with_cpu makes sense.
+		case $with_cpu in
+		"" | "fidoa")
+			;;
+		*)
+			echo "Cannot accept --with-cpu=$with_cpu"
+			exit 1
+			;;
+		esac
+		with_cpu=fidoa
+		;;
+	*)
+		default_m68k_cpu=68020
+		default_cf_cpu=5206
+		;;
+	esac
 	tm_file="${tm_file} m68k/m68k-none.h m68k/m68kelf.h dbxelf.h elfos.h m68k/m68kemb.h m68k/m68020-elf.h"
 	tm_defines="${tm_defines} MOTOROLA=1 USE_GAS"
-	tmake_file="m68k/t-floatlib m68k/t-m68kbare m68k/t-m68kelf m68k/t-mlibs"
+	tmake_file="m68k/t-floatlib m68k/t-m68kbare m68k/t-m68kelf"
+	# Add multilibs for targets other than fido.
+	case ${target} in
+	fido-*-elf*)
+		;;
+	*)
+		tmake_file="$tmake_file m68k/t-mlibs"
+		;;
+	esac
 	extra_parts="crtbegin.o crtend.o"
 	;;
 m68010-*-netbsdelf* | m68k*-*-netbsdelf*)
@@ -1542,7 +1575,7 @@ m68k-*-uclinux*)		# Motorola m68k/ColdFire running uClinux
 				# ABI.
 	default_m68k_cpu=68020
 	default_cf_cpu=5206
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h flat.h m68k/linux.h m68k/uclinux.h"
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h flat.h m68k/linux.h m68k/uclinux.h ./sysroot-suffix.h"
  	tm_defines="${tm_defines} MOTOROLA=1 USE_GAS UCLIBC_DEFAULT=1"
 	extra_options="${extra_options} linux.opt"
 	tmake_file="m68k/t-floatlib m68k/t-uclinux m68k/t-mlibs"
@@ -1700,9 +1733,7 @@ mips*-*-rtems*)
 	tmake_file="mips/t-elf t-rtems mips/t-rtems"
 	;;
 mips-wrs-vxworks)
-	# We want vxworks.h after mips/elf.h, which unfortunately means we
-	# have to redo the tm_file list from scratch.
-	tm_file="elfos.h mips/mips.h svr4.h mips/elf.h vxworks.h mips/vxworks.h"
+	tm_file="elfos.h ${tm_file} svr4.h mips/elf.h vx-common.h vxworks.h mips/vxworks.h"
 	tmake_file="${tmake_file} mips/t-vxworks"
 	;;
 mips-wrs-windiss)	# Instruction-level simulator for VxWorks.
@@ -1903,9 +1934,7 @@ powerpc-*-gnu*)
 	fi
 	;;
 powerpc-wrs-vxworks|powerpc-wrs-vxworksae)
-	# We want vxworks.h after rs6000/sysv4.h, which unfortunately
-	# means we have to redo the tm_file list from scratch.
-	tm_file="rs6000/rs6000.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h"
+	tm_file="${tm_file} elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h"
 	tmake_file="${tmake_file} rs6000/t-fprules rs6000/t-fprules-fpbit rs6000/t-ppccomm rs6000/t-vxworks"
 	extra_options="${extra_options} rs6000/sysv4.opt"
 	extra_headers=ppc-asm.h
@@ -2151,7 +2180,7 @@ sh-*-symbianelf* | sh[12346l]*-*-symbianelf* | \
 	  sh5-32media-nofpu | sh5-32media | sh5-compact-nofpu | sh5-compact | \
 	  sh2a-single-only | sh2a-single | sh2a-nofpu | sh2a | \
 	  sh4a-single-only | sh4a-single | sh4a-nofpu | sh4a | sh4al | \
-	  sh4-single-only | sh4-single | sh4-nofpu | sh4 | \
+	  sh4-single-only | sh4-single | sh4-nofpu | sh4 | sh4-300 | \
 	  sh3e | sh3 | sh2e | sh2 | sh1) ;;
 	"")	sh_cpu_default=${sh_cpu_target} ;;
 	*)	echo "with_cpu=$with_cpu not supported"; exit 1 ;;
@@ -2177,7 +2206,7 @@ sh-*-symbianelf* | sh[12346l]*-*-symbianelf* | \
 	for sh_multilib in ${sh_multilibs}; do
 		case ${sh_multilib} in
 		sh1 | sh2 | sh2e | sh3 | sh3e | \
-		sh4 | sh4-single | sh4-single-only | sh4-nofpu | \
+		sh4 | sh4-single | sh4-single-only | sh4-nofpu | sh4-300 |\
 		sh4a | sh4a-single | sh4a-single-only | sh4a-nofpu | sh4al | \
 		sh2a | sh2a-single | sh2a-single-only | sh2a-nofpu | \
 		sh5-64media | sh5-64media-nofpu | \
@@ -2207,7 +2236,7 @@ sh-*-rtems*)
 	;;
 sh-wrs-vxworks)
 	tmake_file="$tmake_file sh/t-sh sh/t-elf sh/t-vxworks"
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/embed-elf.h sh/vxworks.h"
+	tm_file="${tm_file} elfos.h svr4.h sh/elf.h sh/embed-elf.h vx-common.h vxworks.h sh/vxworks.h"
 	;;
 sh-*-*)
 	tm_file="${tm_file} dbxcoff.h sh/coff.h"
@@ -2589,7 +2618,7 @@ if test x$with_cpu = x ; then
       ;;
     i686-*-* | i786-*-*)
       case ${target_noncanonical} in
-        amdfam10-*)
+        amdfam10-*|barcelona-*)
           with_cpu=amdfam10
           ;;
         k8-*|opteron-*|athlon_64-*)
@@ -2635,7 +2664,7 @@ if test x$with_cpu = x ; then
       ;;
     x86_64-*-*)
       case ${target_noncanonical} in
-        amdfam10-*)
+        amdfam10-*|barcelona-*)
           with_cpu=amdfam10
           ;;
         k8-*|opteron-*|athlon_64-*)
@@ -2685,6 +2714,9 @@ if test x$with_cpu = x ; then
 	  with_cpu=m${default_m68k_cpu}
 	  ;;
       esac
+      ;;
+    mips*-*-vxworks)
+      with_arch=mips2
       ;;
     sparc*-*-*)
       with_cpu="`echo ${target} | sed 's/-.*$//'`"
@@ -2834,7 +2866,7 @@ case "${target}" in
 		esac
 		;;
 
-	m680[012]0-*-* | m68k*-*-*)
+	fido-*-* | m680[012]0-*-* | m68k*-*-*)
 		supported_defaults="arch cpu"
 		case "$with_arch" in
 		"" | "m68k"| "cf")
@@ -2917,7 +2949,7 @@ case "${target}" in
 				esac
 				# OK
 				;;
-			"" | amdfam10 | k8 | opteron | athlon64 | athlon-fx | nocona | core2 | generic)
+			"" | amdfam10 | barcelona | k8 | opteron | athlon64 | athlon-fx | nocona | core2 | generic)
 				# OK
 				;;
 			*)
@@ -3017,7 +3049,7 @@ case "${target}" in
 		for which in arch tune; do
 			eval "val=\$with_$which"
 			case ${val} in
-			"" | g5 | g6 | z900 | z990 | z9-109)
+			"" | g5 | g6 | z900 | z990 | z9-109 | z9-ec)
 				# OK
 				;;
 			*)
@@ -3128,7 +3160,7 @@ case ${target} in
 		fi
 		;;
 
-	m680[012]0-*-* | m68k*-*-*)
+	fido*-*-* | m680[012]0-*-* | m68k*-*-*)
 		target_cpu_default2=$m68k_cpu_ident
 		if [ x"$m68k_arch_family" != x ]; then
 		        tmake_file="m68k/t-$m68k_arch_family $tmake_file"

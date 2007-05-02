@@ -460,7 +460,7 @@ init_optimization_passes (void)
 
   /* Interprocedural optimization passes. 
      All these passes are ignored in -fno-unit-at-a-time
-     except for subpases of early_local_pases.  */
+     except for subpasses of early_local_passes.  */
   p = &all_ipa_passes;
   NEXT_PASS (pass_ipa_function_and_variable_visibility);
   NEXT_PASS (pass_ipa_early_inline);
@@ -524,6 +524,7 @@ init_optimization_passes (void)
 
       /* Initial scalar cleanups.  */
       NEXT_PASS (pass_ccp);
+      NEXT_PASS (pass_phiprop);
       NEXT_PASS (pass_fre);
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_forwprop);
@@ -590,6 +591,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_scev_cprop);
 	  NEXT_PASS (pass_empty_loop);
 	  NEXT_PASS (pass_record_bounds);
+	  NEXT_PASS (pass_check_data_deps);
 	  NEXT_PASS (pass_linear_transform);
 	  NEXT_PASS (pass_iv_canon);
 	  NEXT_PASS (pass_if_conversion);
@@ -652,11 +654,11 @@ init_optimization_passes (void)
       struct tree_opt_pass **p = &pass_rest_of_compilation.sub;
       NEXT_PASS (pass_init_function);
       NEXT_PASS (pass_jump);
-      NEXT_PASS (pass_insn_locators_initialize);
       NEXT_PASS (pass_rtl_eh);
       NEXT_PASS (pass_initial_value_sets);
       NEXT_PASS (pass_unshare_all_rtl);
       NEXT_PASS (pass_instantiate_virtual_regs);
+      NEXT_PASS (pass_into_cfg_layout_mode);
       NEXT_PASS (pass_jump2);
       NEXT_PASS (pass_lower_subreg);
       NEXT_PASS (pass_cse);
@@ -682,6 +684,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_web);
       NEXT_PASS (pass_cse2);
       NEXT_PASS (pass_rtl_fwprop_addr);
+      NEXT_PASS (pass_outof_cfg_layout_mode);
       NEXT_PASS (pass_life);
       NEXT_PASS (pass_combine);
       NEXT_PASS (pass_if_after_combine);

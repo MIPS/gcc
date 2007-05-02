@@ -423,11 +423,12 @@ average_num_loop_insns (struct loop *loop)
   return ninsns;
 }
 
-/* Returns expected number of LOOP iterations.
-   Compute upper bound on number of iterations in case they do not fit integer
-   to help loop peeling heuristics.  Use exact counts if at all possible.  */
-unsigned
-expected_loop_iterations (const struct loop *loop)
+/* Returns expected number of iterations of LOOP, according to
+   measured or guessed profile.  No bounding is done on the
+   value.  */
+
+gcov_type
+expected_loop_iterations_unbounded (const struct loop *loop)
 {
   edge e;
   edge_iterator ei;
@@ -450,8 +451,7 @@ expected_loop_iterations (const struct loop *loop)
       else
 	expected = (count_latch + count_in - 1) / count_in;
 
-      /* Avoid overflows.  */
-      return (expected > REG_BR_PROB_BASE ? REG_BR_PROB_BASE : expected);
+      return expected;
     }
   else
     {
@@ -471,6 +471,16 @@ expected_loop_iterations (const struct loop *loop)
 
       return (freq_latch + freq_in - 1) / freq_in;
     }
+}
+
+/* Returns expected number of LOOP iterations.  The returned value is bounded
+   by REG_BR_PROB_BASE.  */
+
+unsigned
+expected_loop_iterations (const struct loop *loop)
+{
+  gcov_type expected = expected_loop_iterations_unbounded (loop);
+  return (expected > REG_BR_PROB_BASE ? REG_BR_PROB_BASE : expected);
 }
 
 /* Returns the maximum level of nesting of subloops of LOOP.  */
@@ -513,11 +523,13 @@ seq_cost (rtx seq)
 /* The properties of the target.  */
 
 unsigned target_avail_regs;	/* Number of available registers.  */
-unsigned target_res_regs;	/* Number of reserved registers.  */
-unsigned target_small_cost;	/* The cost for register when there is a free one.  */
-unsigned target_pres_cost;	/* The cost for register when there are not too many
-				   free ones.  */
-unsigned target_spill_cost;	/* The cost for register when we need to spill.  */
+unsigned target_res_regs;	/* Number of registers reserved for temporary
+				   expressions.  */
+unsigned target_reg_cost;	/* The cost for register when there still
+				   is some reserve, but we are approaching
+				   the number of available registers.  */
+unsigned target_spill_cost;	/* The cost for register when we need
+				   to spill.  */
 
 /* Initialize the constants for computing set costs.  */
 
@@ -538,14 +550,20 @@ init_set_costs (void)
 
   target_res_regs = 3;
 
-  /* These are really just heuristic values.  */
+  /* Set up the costs for using extra registers:
+
+     1) If not many free registers remain, we should prefer having an
+	additional move to decreasing the number of available registers.
+	(TARGET_REG_COST).
+     2) If no registers are available, we need to spill, which may require
+	storing the old value to memory and loading it back
+	(TARGET_SPILL_COST).  */
 
   start_sequence ();
   emit_move_insn (reg1, reg2);
   seq = get_insns ();
   end_sequence ();
-  target_small_cost = seq_cost (seq);
-  target_pres_cost = 2 * target_small_cost;
+  target_reg_cost = seq_cost (seq);
 
   start_sequence ();
   emit_move_insn (mem, reg1);
@@ -555,27 +573,26 @@ init_set_costs (void)
   target_spill_cost = seq_cost (seq);
 }
 
-/* Calculates cost for having SIZE new loop global variables.  REGS_USED is the
-   number of global registers used in loop.  N_USES is the number of relevant
-   variable uses.  */
+/* Estimates cost of increased register pressure caused by making N_NEW new
+   registers live around the loop.  N_OLD is the number of registers live
+   around the loop.  */
 
 unsigned
-global_cost_for_size (unsigned size, unsigned regs_used, unsigned n_uses)
+estimate_reg_pressure_cost (unsigned n_new, unsigned n_old)
 {
-  unsigned regs_needed = regs_used + size;
-  unsigned cost = 0;
+  unsigned regs_needed = n_new + n_old;
 
+  /* If we have enough registers, we should use them and not restrict
+     the transformations unnecessarily.  */
   if (regs_needed + target_res_regs <= target_avail_regs)
-    cost += target_small_cost * size;
-  else if (regs_needed <= target_avail_regs)
-    cost += target_pres_cost * size;
-  else
-    {
-      cost += target_pres_cost * size;
-      cost += target_spill_cost * n_uses * (regs_needed - target_avail_regs) / regs_needed;
-    }
+    return 0;
 
-  return cost;
+  /* If we are close to running out of registers, try to preserve them.  */
+  if (regs_needed <= target_avail_regs)
+    return target_reg_cost * n_new;
+  
+  /* If we run out of registers, it is very expensive to add another one.  */
+  return target_spill_cost * n_new;
 }
 
 /* Sets EDGE_LOOP_EXIT flag for all loop exits.  */

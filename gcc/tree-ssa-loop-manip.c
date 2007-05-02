@@ -361,10 +361,16 @@ find_uses_to_rename (bitmap changed_bbs, bitmap *use_blocks, bitmap need_phis)
 void
 rewrite_into_loop_closed_ssa (bitmap changed_bbs, unsigned update_flag)
 {
-  bitmap loop_exits = get_loops_exits ();
+  bitmap loop_exits;
   bitmap *use_blocks;
   unsigned i, old_num_ssa_names;
-  bitmap names_to_rename = BITMAP_ALLOC (NULL);
+  bitmap names_to_rename;
+
+  if (!current_loops)
+    return;
+
+  loop_exits = get_loops_exits ();
+  names_to_rename = BITMAP_ALLOC (NULL);
 
   /* If the pass has caused the SSA form to be out-of-date, update it
      now.  */
@@ -389,6 +395,8 @@ rewrite_into_loop_closed_ssa (bitmap changed_bbs, unsigned update_flag)
   /* Fix up all the names found to be used outside their original
      loops.  */
   update_ssa (TODO_update_ssa);
+
+  current_loops->state |= LOOP_CLOSED_SSA;
 }
 
 /* Check invariants of the loop closed ssa form for the USE in BB.  */
@@ -503,7 +511,8 @@ ip_normal_pos (struct loop *loop)
 
   bb = single_pred (loop->latch);
   last = last_stmt (bb);
-  if (TREE_CODE (last) != COND_EXPR)
+  if (!last
+      || TREE_CODE (last) != COND_EXPR)
     return NULL;
 
   exit = EDGE_SUCC (bb, 0);
@@ -600,17 +609,6 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   scev_reset ();
 
   return true;
-}
-
-/* Build if (COND) goto THEN_LABEL; else goto ELSE_LABEL;  */
-
-static tree
-build_if_stmt (tree cond, tree then_label, tree else_label)
-{
-  return build3 (COND_EXPR, void_type_node,
-		 cond,
-		 build1 (GOTO_EXPR, void_type_node, then_label),
-		 build1 (GOTO_EXPR, void_type_node, else_label));
 }
 
 /* Returns true if we can unroll LOOP FACTOR times.  Number
@@ -930,9 +928,9 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
 				  REG_BR_PROB_BASE - exit->probability);
 
   bsi = bsi_last (exit_bb);
-  exit_if = build_if_stmt (boolean_true_node,
-			   tree_block_label (loop->latch),
-			   tree_block_label (rest));
+  exit_if = build3 (COND_EXPR, void_type_node, boolean_true_node,
+		    NULL_TREE, NULL_TREE);
+
   bsi_insert_after (&bsi, exit_if, BSI_NEW_STMT);
   new_exit = make_edge (exit_bb, rest, EDGE_FALSE_VALUE | irr);
   rescan_loop_exit (new_exit, true, false);

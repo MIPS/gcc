@@ -30,6 +30,7 @@ details.  */
 #include <java/lang/OutOfMemoryError.h>
 #include <java/lang/Thread.h>
 #include <java/lang/ThreadGroup.h>
+#include <java/lang/Thread$State.h>
 #include <java/lang/Throwable.h>
 #include <java/lang/VMClassLoader.h>
 #include <java/lang/reflect/Field.h>
@@ -521,6 +522,66 @@ _Jv_JVMTI_GetFrameCount (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
 }
 
 static jvmtiError JNICALL
+_Jv_JVMTI_GetThreadState (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
+			  jint *thread_state_ptr)
+{
+  REQUIRE_PHASE (env, JVMTI_PHASE_LIVE);
+
+  THREAD_DEFAULT_TO_CURRENT (thread);
+  THREAD_CHECK_VALID (thread);
+  NULL_CHECK (thread_state_ptr);
+
+  jint state = 0;
+  if (thread->isAlive ())
+    {
+      state |= JVMTI_THREAD_STATE_ALIVE;
+
+      _Jv_Thread_t *data = _Jv_ThreadGetData (thread);
+      if (_Jv_IsThreadSuspended (data))
+	state |= JVMTI_THREAD_STATE_SUSPENDED;
+
+      if (thread->isInterrupted ())
+	state |= JVMTI_THREAD_STATE_INTERRUPTED;
+
+      _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (thread->frame);
+      if (frame != NULL && frame->frame_type == frame_native)
+	state |= JVMTI_THREAD_STATE_IN_NATIVE;
+
+      using namespace java::lang;
+      Thread$State *ts = thread->getState ();
+      if (ts == Thread$State::RUNNABLE)
+	state |= JVMTI_THREAD_STATE_RUNNABLE;
+      else if (ts == Thread$State::BLOCKED)
+	state |= JVMTI_THREAD_STATE_BLOCKED_ON_MONITOR_ENTER;
+      else if (ts == Thread$State::TIMED_WAITING
+	       || ts == Thread$State::WAITING)
+	{
+	  state |= JVMTI_THREAD_STATE_WAITING;
+	  state |= ((ts == Thread$State::WAITING)
+		    ? JVMTI_THREAD_STATE_WAITING_INDEFINITELY
+		    : JVMTI_THREAD_STATE_WAITING_WITH_TIMEOUT);
+
+	  /* FIXME: We don't have a way to tell
+	     the caller why the thread is suspended,
+	     i.e., JVMTI_THREAD_STATE_SLEEPING,
+	     JVMTI_THREAD_STATE_PARKED, and
+	     JVMTI_THREAD_STATE_IN_OBJECT_WAIT
+	     are never set. */
+	}
+    }
+  else
+    {
+      using namespace java::lang;
+      Thread$State *ts = thread->getState ();
+      if (ts == Thread$State::TERMINATED)
+	state |= JVMTI_THREAD_STATE_TERMINATED;
+    }
+
+  *thread_state_ptr = state;
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
 _Jv_JVMTI_CreateRawMonitor (MAYBE_UNUSED jvmtiEnv *env, const char *name,
 			    jrawMonitorID *result)
 {
@@ -997,23 +1058,23 @@ _Jv_JVMTI_GetLocalVariableTable (MAYBE_UNUSED jvmtiEnv *env, jmethodID method,
                                  table_slot) 
             >= 0)
     {
+      char **str_ptr = &(*locals)[table_slot].name;
       jerr = env->Allocate (static_cast<jlong> (strlen (name) + 1),
-                             reinterpret_cast<unsigned char **>
-                               (&(*locals)[table_slot].name));
+                             reinterpret_cast<unsigned char **> (str_ptr));
       if (jerr != JVMTI_ERROR_NONE)
         return jerr;
       strcpy ((*locals)[table_slot].name, name);
-
-      jerr = env->Allocate (static_cast<jlong> (strlen (name) + 1),
-                               reinterpret_cast<unsigned char **>
-                                 (&(*locals)[table_slot].signature));
+      
+      str_ptr = &(*locals)[table_slot].signature;
+      jerr = env->Allocate (static_cast<jlong> (strlen (sig) + 1),
+                               reinterpret_cast<unsigned char **> (str_ptr));
       if (jerr != JVMTI_ERROR_NONE)
         return jerr;
       strcpy ((*locals)[table_slot].signature, sig);
-  
-      jerr = env->Allocate (static_cast<jlong> (strlen (name) + 1),
-                               reinterpret_cast<unsigned char **>
-                               (&(*locals)[table_slot].generic_signature));
+      
+      str_ptr = &(*locals)[table_slot].generic_signature;
+      jerr = env->Allocate (static_cast<jlong> (strlen (generic_sig) + 1),
+                               reinterpret_cast<unsigned char **> (str_ptr));
       if (jerr != JVMTI_ERROR_NONE)
         return jerr;
       strcpy ((*locals)[table_slot].generic_signature, generic_sig);
@@ -1111,7 +1172,13 @@ _Jv_JVMTI_GetArgumentsSize (jvmtiEnv *env, jmethodID method, jint *size)
           || sig[i] == 'I' || sig[i] == 'F')
         num_slots++;
       else if (sig[i] == 'J' || sig[i] == 'D')
-        num_slots+=2;
+        {
+          // If this is an array of wide types it uses a single slot
+          if (i > 0 && sig[i - 1] == '[')
+            num_slots++;
+          else
+            num_slots += 2;
+        }
       else if (sig[i] == 'L')
         {
           num_slots++;
@@ -1239,7 +1306,7 @@ _Jv_JVMTI_GetStackTrace (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
             = static_cast<_Jv_InterpMethod *> (frame->self);
           _Jv_InterpFrame *interp_frame 
             = static_cast<_Jv_InterpFrame *> (frame);
-          frames[i].location = imeth->insn_index (interp_frame->pc);
+          frames[i].location = imeth->insn_index (interp_frame->get_pc ());
         }
       else
         frames[i].location = -1;
@@ -1998,7 +2065,7 @@ struct _Jv_jvmtiEnv _Jv_JVMTI_Interface =
   UNIMPLEMENTED,		// GetThreadGroupInfo
   UNIMPLEMENTED,		// GetThreadGroupChildren
   _Jv_JVMTI_GetFrameCount,		// GetFrameCount
-  UNIMPLEMENTED,		// GetThreadState
+  _Jv_JVMTI_GetThreadState,	// GetThreadState
   RESERVED,			// reserved18
   UNIMPLEMENTED,		// GetFrameLocation
   UNIMPLEMENTED,		// NotifyPopFrame

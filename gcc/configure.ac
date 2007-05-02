@@ -1,7 +1,7 @@
 # configure.ac for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
 # Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -667,26 +667,57 @@ AC_ARG_ENABLE(__cxa_atexit,
 
 # Enable C extension for decimal float if target supports it.
 AC_ARG_ENABLE(decimal-float,
-[  --enable-decimal-float  enable decimal float extension to C],
+[  --enable-decimal-float={no,yes,bid,dpd}
+			enable decimal float extension to C.  Selecting 'bid'
+			or 'dpd' choses which decimal floating point format
+			to use],
 [
-  if test x$enablevar = xyes ; then
-    case $target in
-    powerpc*-*-linux* | i?86*-*-linux*)
+  case $enable_decimal_float in
+    yes | no | bid | dpd) ;;
+    *) AC_MSG_ERROR(['$enable_decimal_float' is an invalid value for --enable-decimal-float.
+Valid choices are 'yes', 'bid', 'dpd', and 'no'.]) ;;
+  esac
+],
+[
+  case $target in
+    powerpc*-*-linux* | i?86*-*-linux* | x86_64*-*-linux*)
       enable_decimal_float=yes
       ;;
     *)
       AC_MSG_WARN(decimal float is not supported for this target, ignored)
       enable_decimal_float=no
       ;;
-    esac
-  fi
-], [enable_decimal_float=no])
+  esac
+])
 
-AC_SUBST(enable_decimal_float)
-
-dfp=`if test $enable_decimal_float = yes; then echo 1; else echo 0; fi`
+dfp=`if test $enable_decimal_float != no; then echo 1; else echo 0; fi`
 AC_DEFINE_UNQUOTED(ENABLE_DECIMAL_FLOAT, $dfp,
 [Define to 1 to enable decimal float extension to C.])
+
+# x86's use BID format instead of DPD
+case x$enable_decimal_float in
+  xyes)
+    case $target in
+      i?86*-*-linux* | x86_64*-*-linux*)
+	enable_decimal_float=bid
+	;;
+      *)
+	enable_decimal_float=dpd
+	;;
+    esac
+    ;;
+  xno)
+    # ENABLE_DECIMAL_FLOAT is set to 0. But we have to have proper
+    # dependency on libdecnumber.
+    enable_decimal_float=dpd
+    ;;
+esac
+AC_SUBST(enable_decimal_float)
+
+bid=`if test $enable_decimal_float = bid; then echo 1; else echo 0; fi`
+AC_DEFINE_UNQUOTED(ENABLE_DECIMAL_BID_FORMAT, $bid,
+[Define to 1 to specify that we are using the BID decimal floating
+point format instead of DPD])
 
 # Enable threads
 # Pass with no value to take the default
@@ -754,7 +785,7 @@ AC_ARG_WITH(sysroot,
  esac
    
  TARGET_SYSTEM_ROOT_DEFINE='-DTARGET_SYSTEM_ROOT=\"$(TARGET_SYSTEM_ROOT)\"'
- CROSS_SYSTEM_HEADER_DIR='$(TARGET_SYSTEM_ROOT)$(NATIVE_SYSTEM_HEADER_DIR)'
+ CROSS_SYSTEM_HEADER_DIR='$(TARGET_SYSTEM_ROOT)$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
 	
  if test "x$exec_prefix" = xNONE; then
   if test "x$prefix" = xNONE; then
@@ -1610,6 +1641,11 @@ tm_file_list="options.h"
 tm_include_list="options.h"
 for f in $tm_file; do
   case $f in
+    ./* )
+       f=`echo $f | sed 's/^..//'`
+       tm_file_list="${tm_file_list} $f"
+       tm_include_list="${tm_include_list} $f"
+       ;;
     defaults.h )
        tm_file_list="${tm_file_list} \$(srcdir)/$f"
        tm_include_list="${tm_include_list} $f"
@@ -1699,7 +1735,7 @@ ALL=all.internal				AC_SUBST(ALL)
 SYSTEM_HEADER_DIR='$(NATIVE_SYSTEM_HEADER_DIR)'	AC_SUBST(SYSTEM_HEADER_DIR)
 
 if test "x$with_build_sysroot" != x; then
-  build_system_header_dir=$with_build_sysroot'$(NATIVE_SYSTEM_HEADER_DIR)'
+  build_system_header_dir=$with_build_sysroot'$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
 else
   # This value is used, even on a native system, because 
   # CROSS_SYSTEM_HEADER_DIR is just 
@@ -1848,6 +1884,10 @@ fi])
 
 ORIGINAL_AS_FOR_TARGET=$gcc_cv_as
 AC_SUBST(ORIGINAL_AS_FOR_TARGET)
+case "$ORIGINAL_AS_FOR_TARGET" in
+  ./as | ./as$build_exeext) ;;
+  *) AC_CONFIG_FILES(as:exec-tool.in, [chmod +x as]) ;;
+esac 
 
 AC_MSG_CHECKING(what assembler to use)
 if test "$gcc_cv_as" = ../gas/as-new$build_exeext; then
@@ -1899,6 +1939,10 @@ fi])
 
 ORIGINAL_LD_FOR_TARGET=$gcc_cv_ld
 AC_SUBST(ORIGINAL_LD_FOR_TARGET)
+case "$ORIGINAL_LD_FOR_TARGET" in
+  ./collect-ld | ./collect-ld$build_exeext) ;;
+  *) AC_CONFIG_FILES(collect-ld:exec-tool.in, [chmod +x collect-ld]) ;;
+esac 
 
 AC_MSG_CHECKING(what linker to use)
 if test "$gcc_cv_ld" = ../ld/ld-new$build_exeext; then
@@ -1956,6 +2000,11 @@ fi
 
 ORIGINAL_NM_FOR_TARGET=$gcc_cv_nm
 AC_SUBST(ORIGINAL_NM_FOR_TARGET)
+case "$ORIGINAL_NM_FOR_TARGET" in
+  ./nm | ./nm$build_exeext) ;;
+  *) AC_CONFIG_FILES(nm:exec-tool.in, [chmod +x nm]) ;;
+esac
+
 
 # Figure out what objdump we will be using.
 AS_VAR_SET_IF(gcc_cv_objdump,, [
@@ -2803,6 +2852,12 @@ foo:	nop
       [AC_DEFINE(HAVE_AS_IX86_FFREEP, 1,
         [Define if your assembler supports the ffreep mnemonic.])])
 
+    gcc_GAS_CHECK_FEATURE([sahf mnemonic],
+      gcc_cv_as_ix86_sahf,,,
+      [sahf],,
+      [AC_DEFINE(HAVE_AS_IX86_SAHF, 1,
+        [Define if your assembler supports the sahf mnemonic.])])
+
     gcc_GAS_CHECK_FEATURE([different section symbol subtraction],
       gcc_cv_as_ix86_diff_sect_delta,,,
       [.section .rodata
@@ -2926,6 +2981,12 @@ LCF0:
 	addis 11,30,_GLOBAL_OFFSET_TABLE_-.LCF0@ha';;
     esac
 
+    gcc_GAS_CHECK_FEATURE([rel16 relocs],
+      gcc_cv_as_powerpc_rel16, [2,17,0], -a32,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_REL16, 1,
+	  [Define if your assembler supports R_PPC_REL16 relocs.])])
+
     case $target in
       *-*-aix*) conftest_s='	.machine "pwr6"
 	.csect .text[[PR]]
@@ -2944,10 +3005,10 @@ LCF0:
     case $target in
       *-*-aix*) conftest_s='	.machine "pwr6"
 	.csect .text[[PR]]
-	dadd 1,3';;
+	dadd 1,2,3';;
       *) conftest_s='	.machine power6
 	.text
-	dadd 1,3';;
+	dadd 1,2,3';;
     esac
 
     gcc_GAS_CHECK_FEATURE([decimal float support],
@@ -2955,12 +3016,6 @@ LCF0:
       [$conftest_s],,
       [AC_DEFINE(HAVE_AS_DFP, 1,
 	  [Define if your assembler supports DFP instructions.])])
-
-    gcc_GAS_CHECK_FEATURE([rel16 relocs],
-      gcc_cv_as_powerpc_rel16, [2,17,0], -a32,
-      [$conftest_s],,
-      [AC_DEFINE(HAVE_AS_REL16, 1,
-	  [Define if your assembler supports R_PPC_REL16 relocs.])])
     ;;
 
   mips*-*-*)
@@ -3062,6 +3117,30 @@ if test x"$insn" != x; then
    fi],
   [AC_DEFINE(HAVE_AS_GSTABS_DEBUG_FLAG, 1,
 [Define if your assembler supports the --gstabs option.])])
+fi
+
+AC_CACHE_CHECK([assembler for tolerance to line number 0],
+ [gcc_cv_as_line_zero],
+ [gcc_cv_as_line_zero=no
+  if test $in_tree_gas = yes; then
+    gcc_GAS_VERSION_GTE_IFELSE(2, 16, 91, [gcc_cv_as_line_zero=yes])
+  elif test "x$gcc_cv_as" != x; then
+    { echo '# 1 "test.s" 1'; echo '# 0 "" 2'; } > conftest.s
+    if AC_TRY_COMMAND([$gcc_cv_as -o conftest.o conftest.s >&AS_MESSAGE_LOG_FD 2>conftest.out]) &&
+       test "x`cat conftest.out`" = x
+    then
+      gcc_cv_as_line_zero=yes
+    else
+      echo "configure: failed program was" >&AS_MESSAGE_LOG_FD
+      cat conftest.s >&AS_MESSAGE_LOG_FD
+      echo "configure: error output was" >&AS_MESSAGE_LOG_FD
+      cat conftest.out >&AS_MESSAGE_LOG_FD
+    fi
+    rm -f conftest.o conftest.s conftest.out
+  fi])
+if test "x$gcc_cv_as_line_zero" = xyes; then
+  AC_DEFINE([HAVE_AS_LINE_ZERO], 1,
+[Define if the assembler won't complain about a line such as # 0 "" 2.])
 fi
 
 AC_MSG_CHECKING(linker read-only and read-write section mixing)
@@ -3319,6 +3398,8 @@ AC_CACHE_CHECK(__stack_chk_fail in target C library,
       if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
 	if test "x$with_sysroot" = x; then
 	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-include"
+	elif test "x$with_build_sysroot" != "x"; then
+	  glibc_header_dir="${with_build_sysroot}/usr/include"
 	elif test "x$with_sysroot" = xyes; then
 	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-root/usr/include"
 	else
@@ -3359,7 +3440,8 @@ fi
 # Some glibc targets used DFmode long double, but with glibc 2.4
 # and later they can use TFmode.
 case "$target" in
-  powerpc*-*-*gnu* | \
+  powerpc*-*-linux* | \
+  powerpc*-*-gnu* | \
   sparc*-*-linux* | \
   s390*-*-linux* | \
   alpha*-*-linux*)
@@ -3370,6 +3452,8 @@ case "$target" in
       if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
 	if test "x$with_sysroot" = x; then
 	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-include"
+	elif test "x$with_build_sysroot" != "x"; then
+	  glibc_header_dir="${with_build_sysroot}/usr/include"
 	elif test "x$with_sysroot" = xyes; then
 	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-root/usr/include"
 	else
@@ -3462,11 +3546,8 @@ all_outputs='Makefile gccbug libada-mk'
 all_lang_makefrags=
 # List of language subdirectory makefiles.  Deprecated.
 all_lang_makefiles=
-# Files for gengtype
+# Additional files for gengtype
 all_gtfiles="$target_gtfiles"
-# Files for gengtype with language
-all_gtfiles_files_langs=
-all_gtfiles_files_files=
 
 # These are the languages that are set in --enable-languages,
 # and are available in the GCC tree.
@@ -3543,24 +3624,13 @@ changequote([,])dnl
 	all_languages="$all_languages $language"
 	all_compilers="$all_compilers $compilers"
 	all_outputs="$all_outputs $outputs"
-	all_gtfiles="$all_gtfiles $gtfiles"
-	for f in $gtfiles
-	do
-		all_gtfiles_files_langs="$all_gtfiles_files_langs ${subdir} "
-		all_gtfiles_files_files="$all_gtfiles_files_files ${f} "
-	done
+	all_gtfiles="$all_gtfiles [[$subdir]] $gtfiles"
 done
 
 # Pick up gtfiles for c
 gtfiles=
-subdir="c"
 . ${srcdir}/c-config-lang.in
-all_gtfiles="$all_gtfiles $gtfiles"
-for f in $gtfiles
-do
-        all_gtfiles_files_langs="$all_gtfiles_files_langs ${subdir} "
-        all_gtfiles_files_files="$all_gtfiles_files_files ${f} "
-done
+all_gtfiles="$all_gtfiles [[c]] $gtfiles"
 
 check_languages=
 for language in $all_selected_languages
@@ -3574,8 +3644,8 @@ done
 rm -f Make-hooks
 touch Make-hooks
 target_list="all.cross start.encap rest.encap tags \
-	install-common install-man install-info dvi pdf html \
-	uninstall info man srcextra srcman srcinfo \
+	install-common install-man install-info install-pdf dvi pdf \
+	html uninstall info man srcextra srcman srcinfo \
 	mostlyclean clean distclean maintainer-clean"
 
 for t in $target_list
@@ -3692,8 +3762,6 @@ AC_SUBST(subdirs)
 AC_SUBST(srcdir)
 AC_SUBST(all_compilers)
 AC_SUBST(all_gtfiles)
-AC_SUBST(all_gtfiles_files_langs)
-AC_SUBST(all_gtfiles_files_files)
 AC_SUBST(all_lang_makefrags)
 AC_SUBST(all_lang_makefiles)
 AC_SUBST(all_languages)

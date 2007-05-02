@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003, 2005, 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2003, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Andy Vaught and Janne Blomqvist
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -213,13 +213,17 @@ st_backspace (st_parameter_filepos *fpp)
   if (u->endfile == AFTER_ENDFILE)
     {
       u->endfile = AT_ENDFILE;
+      u->flags.position = POSITION_APPEND;
       flush (u->s);
       struncate (u->s);
     }
   else
     {
       if (file_position (u->s) == 0)
-	goto done;		/* Common special case */
+	{
+	  u->flags.position = POSITION_REWIND;
+	  goto done;		/* Common special case */
+	}
 
       if (u->mode == WRITING)
 	{
@@ -233,6 +237,7 @@ st_backspace (st_parameter_filepos *fpp)
       else
 	unformatted_backspace (fpp, u);
 
+      update_position (u);
       u->endfile = NO_ENDFILE;
       u->current_record = 0;
       u->bytes_left = 0;
@@ -271,6 +276,7 @@ st_endfile (st_parameter_filepos *fpp)
       flush (u->s);
       struncate (u->s);
       u->endfile = AFTER_ENDFILE;
+      update_position (u);
       unlock_unit (u);
     }
 
@@ -306,15 +312,27 @@ st_rewind (st_parameter_filepos *fpp)
 
 	  u->mode = READING;
 	  u->last_record = 0;
-	  if (sseek (u->s, 0) == FAILURE)
+
+	  if (file_position (u->s) != 0 && sseek (u->s, 0) == FAILURE)
 	    generate_error (&fpp->common, ERROR_OS, NULL);
 
-	  u->endfile = NO_ENDFILE;
+	  /* Handle special files like /dev/null differently.  */
+	  if (!is_special (u->s))
+	    {
+	      /* We are rewinding so we are not at the end.  */
+	      u->endfile = NO_ENDFILE;
+	    }
+	  else
+	    {
+	      /* Set this for compatibilty with g77 for /dev/null.  */
+	      if (file_length (u->s) == 0  && file_position (u->s) == 0)
+		u->endfile = AT_ENDFILE;
+	      /* Future refinements on special files can go here.  */
+	    }
+
 	  u->current_record = 0;
-	  u->bytes_left = 0;
 	  u->strm_pos = 1;
 	  u->read_bad = 0;
-	  test_endfile (u);
 	}
       /* Update position for INQUIRE.  */
       u->flags.position = POSITION_REWIND;

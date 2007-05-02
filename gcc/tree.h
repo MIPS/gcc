@@ -41,7 +41,8 @@ enum tree_code {
 
 #undef DEFTREECODE
 
-extern unsigned char tree_contains_struct[256][64];
+#define MAX_TREE_CODES 512
+extern unsigned char tree_contains_struct[MAX_TREE_CODES][64];
 #define CODE_CONTAINS_STRUCT(CODE, STRUCT) (tree_contains_struct[(CODE)][(STRUCT)])
 
 /* Number of language-independent tree codes.  */
@@ -80,7 +81,6 @@ extern const char *const tree_code_class_strings[];
 #define TREE_CODE_CLASS_STRING(CLASS)\
         tree_code_class_strings[(int) (CLASS)]
 
-#define MAX_TREE_CODES 256
 extern const enum tree_code_class tree_code_type[];
 #define TREE_CODE_CLASS(CODE)	tree_code_type[(int) (CODE)]
 
@@ -363,7 +363,7 @@ union tree_ann_d;
 
 struct tree_base GTY(())
 {
-  ENUM_BITFIELD(tree_code) code : 8;
+  ENUM_BITFIELD(tree_code) code : 16;
 
   unsigned side_effects_flag : 1;
   unsigned constant_flag : 1;
@@ -391,6 +391,8 @@ struct tree_base GTY(())
   unsigned lang_flag_5 : 1;
   unsigned lang_flag_6 : 1;
   unsigned visited : 1;
+
+  unsigned spare : 24;
 
   /* FIXME tuples: Eventually, we need to move this somewhere external to
      the trees.  */
@@ -949,7 +951,7 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
   (TREE_CODE_CLASS (TREE_CODE ((NODE))) == tcc_gimple_stmt)
 
 /* Nonzero if NODE is a GIMPLE tuple.  */
-#define GIMPLE_TUPLE_P(NODE) (GIMPLE_STMT_P (NODE))
+#define GIMPLE_TUPLE_P(NODE) (GIMPLE_STMT_P (NODE) || TREE_CODE (NODE) == PHI_NODE)
 
 /* A GIMPLE tuple that has a ``locus'' field.  */
 #define GIMPLE_TUPLE_HAS_LOCUS_P(NODE) GIMPLE_STMT_P ((NODE))
@@ -972,6 +974,11 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 /* A simple hash function for an arbitrary tree node.  This must not be
    used in hash tables which are saved to a PCH.  */
 #define TREE_HASH(NODE) ((size_t) (NODE) & 0777777)
+
+/* The TREE_CHAIN but it is able to handle tuples.  */
+#define GENERIC_NEXT(NODE)					\
+  (TREE_CODE (NODE) == PHI_NODE ? PHI_CHAIN (NODE) :		\
+     GIMPLE_STMT_P (NODE) ? NULL_TREE : TREE_CHAIN (NODE))
 
 /* Given an expression as a tree, strip any NON_LVALUE_EXPRs and NOP_EXPRs
    that don't change the machine mode.  */
@@ -1864,7 +1871,7 @@ struct tree_ssa_name GTY(())
 /* PHI_NODEs for each basic block are chained together in a single linked
    list.  The head of the list is linked from the block annotation, and
    the link to the next PHI is in PHI_CHAIN.  */
-#define PHI_CHAIN(NODE)		TREE_CHAIN (PHI_NODE_CHECK (NODE))
+#define PHI_CHAIN(NODE)			PHI_NODE_CHECK (NODE)->phi.chain
 
 #define PHI_NUM_ARGS(NODE)		PHI_NODE_CHECK (NODE)->phi.num_args
 #define PHI_ARG_CAPACITY(NODE)		PHI_NODE_CHECK (NODE)->phi.capacity
@@ -1883,7 +1890,8 @@ struct phi_arg_d GTY(())
 
 struct tree_phi_node GTY(())
 {
-  struct tree_common common;
+  struct tree_base common;
+  tree chain;
   tree result;
   int num_args;
   int capacity;
@@ -3804,6 +3812,8 @@ extern bool tree_expr_nonnegative_warnv_p (tree, bool *);
 extern bool may_negate_without_overflow_p (tree);
 extern tree get_inner_array_type (tree);
 
+extern tree get_signed_or_unsigned_type (int unsignedp, tree type);
+
 /* From expmed.c.  Since rtl.h is included after tree.h, we can't
    put the prototype here.  Rtl.h does declare the prototype if
    tree.h had been included.  */
@@ -4378,6 +4388,10 @@ extern void using_eh_for_cleanups (void);
    otherwise.  */
 extern int folding_initializer;
 
+/* Convert between trees and native memory representation.  */
+extern int native_encode_expr (tree, unsigned char *, int);
+extern tree native_interpret_expr (tree, unsigned char *, int);
+
 /* Fold constants as much as possible in an expression.
    Returns the simplified expression.
    Acts only on the top level of the expression;
@@ -4397,8 +4411,8 @@ extern tree fold_build3_stat (enum tree_code, tree, tree, tree, tree MEM_STAT_DE
 extern tree fold_build1_initializer (enum tree_code, tree, tree);
 extern tree fold_build2_initializer (enum tree_code, tree, tree, tree);
 extern tree fold_build3_initializer (enum tree_code, tree, tree, tree, tree);
-extern tree fold_build_call_list (tree, tree, tree);
-extern tree fold_build_call_list_initializer (tree, tree, tree);
+extern tree fold_build_call_array (tree, tree, int, tree *);
+extern tree fold_build_call_array_initializer (tree, tree, int, tree *);
 extern tree fold_convert (tree, tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
 extern tree fold_ignored_result (tree);
@@ -4408,6 +4422,7 @@ extern void fold_defer_overflow_warnings (void);
 extern void fold_undefer_overflow_warnings (bool, tree, int);
 extern void fold_undefer_and_ignore_overflow_warnings (void);
 extern bool fold_deferring_overflow_warnings_p (void);
+extern tree maybe_fold_offset_to_reference (tree, tree, tree);
 
 extern tree force_fit_type_double (tree, unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 				   int, bool);
@@ -4454,7 +4469,7 @@ enum operand_equal_flag
 };
 
 extern int operand_equal_p (tree, tree, unsigned int);
-
+extern int multiple_of_p (tree, tree, tree);
 extern tree omit_one_operand (tree, tree, tree);
 extern tree omit_two_operands (tree, tree, tree, tree);
 extern tree invert_truthvalue (tree);
@@ -4481,6 +4496,7 @@ extern enum tree_code invert_tree_comparison (enum tree_code, bool);
 
 extern bool tree_expr_nonzero_p (tree);
 extern bool tree_expr_nonzero_warnv_p (tree, bool *);
+extern int multiple_of_p (tree, tree, tree);
 
 /* In builtins.c */
 extern tree fold_call_expr (tree, bool);
@@ -4497,8 +4513,7 @@ extern bool fold_builtin_next_arg (tree, bool);
 extern enum built_in_function builtin_mathfn_code (tree);
 extern tree build_function_call_expr (tree, tree);
 extern tree fold_build_call_expr (tree, tree, tree, tree);
-extern tree fold_builtin_call_list (tree, tree, tree);
-extern tree fold_builtin_call_valist (tree, tree, int, va_list);
+extern tree fold_builtin_call_array (tree, tree, int, tree *);
 extern tree build_call_expr (tree, int, ...);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
 extern tree strip_float_extensions (tree);
@@ -4523,6 +4538,7 @@ extern int objects_must_conflict_p (tree, tree);
 /* In tree.c */
 extern int really_constant_p (tree);
 extern int int_fits_type_p (tree, tree);
+extern void get_type_static_bounds (tree, mpz_t, mpz_t);
 extern bool variably_modified_type_p (tree, tree);
 extern int tree_log2 (tree);
 extern int tree_floor_log2 (tree);
@@ -4540,7 +4556,6 @@ extern void expand_function_start (tree);
 extern void stack_protect_prologue (void);
 extern void stack_protect_epilogue (void);
 extern void recompute_tree_invariant_for_addr_expr (tree);
-extern bool is_global_var (tree t);
 extern bool needs_to_live_in_memory (tree);
 extern tree reconstruct_complex_type (tree, tree);
 

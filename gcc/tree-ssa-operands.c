@@ -142,6 +142,7 @@ static VEC(tree,heap) *build_vuses;
 /* Bitmap obstack for our datastructures that needs to survive across	
    compilations of multiple functions.  */
 static bitmap_obstack operands_bitmap_obstack;
+
 /* Set for building all the loaded symbols.  */
 static bitmap build_loads;
 
@@ -1071,6 +1072,7 @@ finalize_ssa_vuse_ops (tree stmt)
 	SET_USE (VUSE_OP_PTR (last, (int) i), op);
 
       VUSE_OPS (stmt) = last;
+      VEC_free (tree, heap, new_ops);
     }
 
 #ifdef ENABLE_CHECKING
@@ -1433,12 +1435,13 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
    get_expr_operands.  FULL_REF is a tree that contains the entire
    pointer dereference expression, if available, or NULL otherwise.
    OFFSET and SIZE come from the memory access expression that
-   generated this virtual operand.  */
+   generated this virtual operand.  IS_CALL_SITE is true if the
+   affected statement is a call site.  */
 
 static void 
 add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 		     tree full_ref, HOST_WIDE_INT offset,
-		     HOST_WIDE_INT size)
+		     HOST_WIDE_INT size, bool is_call_site)
 {
   bitmap aliases = NULL;
   tree sym;
@@ -1480,10 +1483,12 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
   
   if (MTAG_P (var))
     aliases = MTAG_ALIASES (var);
+
   if (aliases == NULL)
     {
       if (s_ann && !gimple_aliases_computed_p (cfun))
         s_ann->has_volatile_ops = true;
+
       /* The variable is not aliased or it is an alias tag.  */
       if (flags & opf_def)
 	append_vdef (var);
@@ -1508,18 +1513,34 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 	      al = referenced_var (i);
 	      if (!access_can_touch_variable (full_ref, al, offset, size))
 		continue;
-	      
+
+	      /* Call-clobbered tags may have non-call-clobbered
+		 symbols in their alias sets.  Ignore them if we are
+		 adding VOPs for a call site.  */
+	      if (is_call_site && !is_call_clobbered (al))
+		continue;
+
 	      none_added = false;
 	      append_vdef (al);
 	    }
 
-	  /* Even if no aliases have been added, we still need to
-	     establish def-use and use-def chains, lest
-	     transformations think that this is not a memory
-	     reference.  For an example of this scenario, see
-	     testsuite/g++.dg/opt/cleanup1.C.  */
-	  if (none_added)
-	    append_vdef (var);
+	  /* If the variable is also an alias tag, add a virtual
+	     operand for it, otherwise we will miss representing
+	     references to the members of the variable's alias set.	     
+	     This fixes the bug in gcc.c-torture/execute/20020503-1.c.
+	     
+	     It is also necessary to add bare defs on clobbers for
+	     SMT's, so that bare SMT uses caused by pruning all the
+	     aliases will link up properly with calls.   In order to
+	     keep the number of these bare defs we add down to the
+	     minimum necessary, we keep track of which SMT's were used
+	     alone in statement vdefs or VUSEs.  */
+	  if (none_added
+	      || (TREE_CODE (var) == SYMBOL_MEMORY_TAG
+		  && is_call_site))
+	    {
+	      append_vdef (var);
+	    }
 	}
       else
 	{
@@ -1529,6 +1550,13 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 	      al = referenced_var (i);
 	      if (!access_can_touch_variable (full_ref, al, offset, size))
 		continue;
+
+	      /* Call-clobbered tags may have non-call-clobbered
+		 symbols in their alias sets.  Ignore them if we are
+		 adding VOPs for a call site.  */
+	      if (is_call_site && !is_call_clobbered (al))
+		continue;
+
 	      none_added = false;
 	      append_vuse (al);
 	    }
@@ -1575,7 +1603,7 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 	append_use (var_p);
     }
   else
-    add_virtual_operand (var, s_ann, flags, NULL_TREE, 0, -1);
+    add_virtual_operand (var, s_ann, flags, NULL_TREE, 0, -1, false);
 }
 
 
@@ -1622,7 +1650,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags,
 	{
 	  /* PTR has its own memory tag.  Use it.  */
 	  add_virtual_operand (pi->name_mem_tag, s_ann, flags,
-			       full_ref, offset, size);
+			       full_ref, offset, size, false);
 	}
       else
 	{
@@ -1651,10 +1679,12 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags,
 
 	  if (v_ann->symbol_mem_tag)
 	    add_virtual_operand (v_ann->symbol_mem_tag, s_ann, flags,
-				 full_ref, offset, size);
-          /* Aliasing information is missing; mark statement as volatile so we
-             won't optimize it out too actively.  */
-          else if (s_ann && !gimple_aliases_computed_p (cfun)
+				 full_ref, offset, size, false);
+
+	  /* Aliasing information is missing; mark statement as
+	     volatile so we won't optimize it out too actively.  */
+          else if (s_ann
+	           && !gimple_aliases_computed_p (cfun)
                    && (flags & opf_def))
             s_ann->has_volatile_ops = true;
 	}
@@ -1743,12 +1773,11 @@ add_call_clobber_ops (tree stmt, tree callee)
   if (s_ann)
     s_ann->makes_clobbering_call = true;
 
-  /* If we created .GLOBAL_VAR earlier, just use it.  See compute_may_aliases 
-     for the heuristic used to decide whether to create .GLOBAL_VAR or not.  */
+  /* If we created .GLOBAL_VAR earlier, just use it.  */
   if (gimple_global_var (cfun))
     {
       tree var = gimple_global_var (cfun);
-      add_stmt_operand (&var, s_ann, opf_def);
+      add_virtual_operand (var, s_ann, opf_def, NULL, 0, -1, true);
       return;
     }
 
@@ -1772,10 +1801,13 @@ add_call_clobber_ops (tree stmt, tree callee)
       if (TREE_CODE (var) == STRUCT_FIELD_TAG)
 	real_var = SFT_PARENT_VAR (var);
 
-      not_read = not_read_b ? bitmap_bit_p (not_read_b, 
-					    DECL_UID (real_var)) : false;
-      not_written = not_written_b ? bitmap_bit_p (not_written_b, 
-						  DECL_UID (real_var)) : false;
+      not_read = not_read_b
+	         ? bitmap_bit_p (not_read_b, DECL_UID (real_var))
+	         : false;
+
+      not_written = not_written_b
+	            ? bitmap_bit_p (not_written_b, DECL_UID (real_var))
+		    : false;
       gcc_assert (!unmodifiable_var_p (var));
       
       clobber_stats.clobbered_vars++;
@@ -1789,7 +1821,7 @@ add_call_clobber_ops (tree stmt, tree callee)
 	  tree call = get_call_expr_in (stmt);
 	  if (call_expr_flags (call) & (ECF_CONST | ECF_PURE))
 	    {
-	      add_stmt_operand (&var, s_ann, opf_use);
+	      add_virtual_operand (var, s_ann, opf_use, NULL, 0, -1, true);
 	      clobber_stats.unescapable_clobbers_avoided++;
 	      continue;
 	    }
@@ -1804,12 +1836,12 @@ add_call_clobber_ops (tree stmt, tree callee)
 	{
 	  clobber_stats.static_write_clobbers_avoided++;
 	  if (!not_read)
-	    add_stmt_operand (&var, s_ann, opf_use);
+	    add_virtual_operand (var, s_ann, opf_use, NULL, 0, -1, true);
 	  else
 	    clobber_stats.static_read_clobbers_avoided++;
 	}
       else
-	add_virtual_operand (var, s_ann, opf_def, NULL, 0, -1);
+	add_virtual_operand (var, s_ann, opf_def, NULL, 0, -1, true);
     }
 }
 
@@ -1831,7 +1863,7 @@ add_call_read_ops (tree stmt, tree callee)
   if (gimple_global_var (cfun))
     {
       tree var = gimple_global_var (cfun);
-      add_stmt_operand (&var, s_ann, opf_use);
+      add_virtual_operand (var, s_ann, opf_use, NULL, 0, -1, true);
       return;
     }
   
@@ -1861,7 +1893,7 @@ add_call_read_ops (tree stmt, tree callee)
 	  continue;
 	}
             
-      add_stmt_operand (&var, s_ann, opf_use | opf_implicit);
+      add_virtual_operand (var, s_ann, opf_use, NULL, 0, -1, true);
     }
 }
 
@@ -2948,90 +2980,4 @@ stmt_references_memory_p (tree stmt)
     return false;
 
   return stmt_ann (stmt)->references_memory;
-}
-
-
-/* Return the memory partition tag (MPT) associated with memory
-   symbol SYM.  From a correctness standpoint, memory partitions can
-   be assigned in any arbitrary fashion as long as this rule is
-   observed: Given two memory partitions MPT.i and MPT.j, they must
-   not contain symbols in common.
-
-   Memory partitions are used when putting the program into Memory-SSA
-   form.  In particular, in Memory-SSA PHI nodes are not computed for
-   individual memory symbols.  They are computed for memory
-   partitions.  This reduces the amount of PHI nodes in the SSA graph
-   at the expense of precision (i.e., it makes unrelated stores affect
-   each other).
-   
-   However, it is possible to increase precision by changing this
-   partitioning scheme.  For instance, if the partitioning scheme is
-   such that get_mpt_for is the identity function (that is,
-   get_mpt_for (s) = s), this will result in ultimate precision at the
-   expense of huge SSA webs.
-
-   At the other extreme, a partitioning scheme that groups all the
-   symbols in the same set results in minimal SSA webs and almost
-   total loss of precision.  */
-
-tree
-get_mpt_for (tree sym)
-{
-  tree mpt;
-
-  /* Don't create a new tag unnecessarily.  */
-  mpt = memory_partition (sym);
-  if (mpt == NULL_TREE)
-    {
-      mpt = create_tag_raw (MEMORY_PARTITION_TAG, TREE_TYPE (sym), "MPT");
-      TREE_ADDRESSABLE (mpt) = 0;
-      MTAG_GLOBAL (mpt) = 1;
-      add_referenced_var (mpt);
-      VEC_safe_push (tree, heap, gimple_ssa_operands (cfun)->mpt_table, mpt);
-      MPT_SYMBOLS (mpt) = BITMAP_ALLOC (&operands_bitmap_obstack);
-      set_memory_partition (sym, mpt);
-    }
-
-  return mpt;
-}
-
-
-/* Dump memory partition information to FILE.  */
-
-void
-dump_memory_partitions (FILE *file)
-{
-  unsigned i, npart;
-  unsigned long nsyms;
-  tree mpt;
-
-  fprintf (file, "\nMemory partitions\n\n");
-  for (i = 0, npart = 0, nsyms = 0;
-      VEC_iterate (tree, gimple_ssa_operands (cfun)->mpt_table, i, mpt);
-      i++)
-    {
-      if (mpt)
-	{
-	  bitmap syms = MPT_SYMBOLS (mpt);
-	  unsigned long n = bitmap_count_bits (syms);
-
-	  fprintf (file, "#%u: ", i);
-	  print_generic_expr (file, mpt, 0);
-	  fprintf (file, ": %lu elements: ", n);
-	  dump_decl_set (file, syms);
-	  npart++;
-	  nsyms += n;
-	}
-    }
-
-  fprintf (file, "\n%u memory partitions holding %lu symbols\n", npart, nsyms);
-}
-
-
-/* Dump memory partition information to stderr.  */
-
-void
-debug_memory_partitions (void)
-{
-  dump_memory_partitions (stderr);
 }

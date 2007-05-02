@@ -590,6 +590,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
    || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
+	|| (MODE) == DDmode || (MODE) == TDmode				\
 	|| (MODE) == DImode)						\
        && (ALIGN) < 32))
 
@@ -1147,10 +1148,14 @@ enum reg_class
 #define SECONDARY_MEMORY_NEEDED(CLASS1,CLASS2,MODE)			\
  ((CLASS1) != (CLASS2) && (((CLASS1) == FLOAT_REGS			\
                             && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
-				|| ((MODE != DFmode) && (MODE != DImode)))) \
+				|| ((MODE != DFmode)			\
+				    && (MODE != DDmode)			\
+				    && (MODE != DImode))))		\
 			   || ((CLASS2) == FLOAT_REGS			\
                                && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
-				|| ((MODE != DFmode) && (MODE != DImode)))) \
+				   || ((MODE != DFmode)			\
+				       && (MODE != DDmode)		\
+				       && (MODE != DImode))))		\
 			   || (CLASS1) == ALTIVEC_REGS			\
 			   || (CLASS2) == ALTIVEC_REGS))
 
@@ -1277,7 +1282,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 
 /* Define this if the above stack space is to be considered part of the
    space allocated by the caller.  */
-#define OUTGOING_REG_PARM_STACK_SPACE
+#define OUTGOING_REG_PARM_STACK_SPACE 1
 
 /* This is the difference between the logical top of stack and the actual sp.
 

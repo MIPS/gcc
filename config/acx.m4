@@ -485,7 +485,8 @@ AC_DEFUN([GCC_TARGET_TOOL],
 if test "x${build}" != "x${host}" ; then
   if expr "x[$]$2" : "x/" > /dev/null; then
     # We already found the complete path
-    AC_MSG_RESULT(pre-installed in `dirname [$]$2`)
+    ac_dir=`dirname [$]$2`
+    AC_MSG_RESULT(pre-installed in $ac_dir)
   else
     # Canadian cross, just use what we found
     AC_MSG_RESULT(pre-installed)
@@ -508,7 +509,8 @@ else
     AC_MSG_RESULT(just compiled)
   el])if expr "x[$]$2" : "x/" > /dev/null; then
     # We already found the complete path
-    AC_MSG_RESULT(pre-installed in `dirname [$]$2`)
+    ac_dir=`dirname [$]$2`
+    AC_MSG_RESULT(pre-installed in $ac_dir)
   elif test "x$target" = "x$host"; then
     # We can use an host tool
     $2='$($3)'
@@ -549,4 +551,49 @@ AC_DEFUN([ACX_CHECK_PROG_VER],[
   if test $gcc_cv_prog_$2_modern = no; then
     $1="${CONFIG_SHELL-/bin/sh} $ac_aux_dir/missing $2"
   fi
+])
+
+dnl Support the --with-pkgversion configure option.
+dnl ACX_PKGVERSION(default-pkgversion)
+AC_DEFUN([ACX_PKGVERSION],[
+  AC_ARG_WITH(pkgversion,
+    AS_HELP_STRING([--with-pkgversion=PKG],
+                   [Use PKG in the version string in place of "$1"]),
+    [case "$withval" in
+      yes) AC_MSG_ERROR([package version not specified]) ;;
+      no)  PKGVERSION= ;;
+      *)   PKGVERSION="($withval) " ;;
+     esac],
+    PKGVERSION="($1) "
+  )
+  AC_SUBST(PKGVERSION)
+])
+
+dnl Support the --with-bugurl configure option.
+dnl ACX_BUGURL(default-bugurl)
+AC_DEFUN([ACX_BUGURL],[
+  AC_ARG_WITH(bugurl,
+    AS_HELP_STRING([--with-bugurl=URL],
+                   [Direct users to URL to report a bug]),
+    [case "$withval" in
+      yes) AC_MSG_ERROR([bug URL not specified]) ;;
+      no)  BUGURL=
+	   ;;
+      *)   BUGURL="$withval"
+	   ;;
+     esac],
+     BUGURL="$1"
+  )
+  case ${BUGURL} in
+  "")
+    REPORT_BUGS_TO=
+    REPORT_BUGS_TEXI=
+    ;;
+  *)
+    REPORT_BUGS_TO="<$BUGURL>"
+    REPORT_BUGS_TEXI=@uref{`echo "$BUGURL" | sed 's/@/@@/g'`}
+    ;;
+  esac;
+  AC_SUBST(REPORT_BUGS_TO)
+  AC_SUBST(REPORT_BUGS_TEXI)
 ])

@@ -685,8 +685,8 @@ struct sra_walk_fns
   void (*init) (struct sra_elt *elt, tree value, block_stmt_iterator *bsi);
 
   /* Invoked when we have a copy between one scalarizable reference ELT
-     and one non-scalarizable reference OTHER.  IS_OUTPUT is true if ELT
-     is on the left-hand side.  */
+     and one non-scalarizable reference OTHER without side-effects. 
+     IS_OUTPUT is true if ELT is on the left-hand side.  */
   void (*ldst) (struct sra_elt *elt, tree other,
 		block_stmt_iterator *bsi, bool is_output);
 
@@ -908,7 +908,7 @@ sra_walk_gimple_modify_stmt (tree expr, block_stmt_iterator *bsi,
   /* If the RHS is scalarizable, handle it.  There are only two cases.  */
   if (rhs_elt)
     {
-      if (!rhs_elt->is_scalar)
+      if (!rhs_elt->is_scalar && !TREE_SIDE_EFFECTS (lhs))
 	fns->ldst (rhs_elt, lhs, bsi, false);
       else
 	fns->use (rhs_elt, &GIMPLE_STMT_OPERAND (expr, 1), bsi, false, false);
@@ -951,7 +951,8 @@ sra_walk_gimple_modify_stmt (tree expr, block_stmt_iterator *bsi,
 	 The lvalue requirement prevents us from trying to directly scalarize
 	 the result of a function call.  Which would result in trying to call
 	 the function multiple times, and other evil things.  */
-      else if (!lhs_elt->is_scalar && is_gimple_addressable (rhs))
+      else if (!lhs_elt->is_scalar
+	       && !TREE_SIDE_EFFECTS (rhs) && is_gimple_addressable (rhs))
 	fns->ldst (lhs_elt, rhs, bsi, true);
 
       /* Otherwise we're being used in some context that requires the
@@ -1240,6 +1241,8 @@ instantiate_element (struct sra_elt *elt)
       
       DECL_IGNORED_P (var) = 0;
       TREE_NO_WARNING (var) = TREE_NO_WARNING (base);
+      if (elt->element && TREE_NO_WARNING (elt->element))
+	TREE_NO_WARNING (var) = 1;
     }
   else
     {
@@ -1609,9 +1612,6 @@ decide_instantiations (void)
     }
   bitmap_clear (&done_head);
   
-  if (!bitmap_empty_p (sra_candidates))
-    todoflags |= TODO_update_smt_usage;
-
   mark_set_for_renaming (sra_candidates);
 
   if (dump_file)
@@ -1697,7 +1697,6 @@ generate_one_element_ref (struct sra_elt *elt, tree base)
       }
 
     case ARRAY_TYPE:
-      todoflags |= TODO_update_smt_usage;
       if (TREE_CODE (elt->element) == RANGE_EXPR)
 	return build4 (ARRAY_RANGE_REF, elt->type, base,
 		       TREE_OPERAND (elt->element, 0), NULL, NULL);
@@ -1739,7 +1738,7 @@ sra_build_assignment (tree dst, tree src)
      anyway, there's little point in making tests and/or adding
      conversions to ensure the types of src and dst are the same.
      So we just assume type differences at this point are ok.  */
-  return build2 (GIMPLE_MODIFY_STMT, void_type_node, dst, src);
+  return build_gimple_modify_stmt (dst, src);
 }
 
 /* Generate a set of assignment statements in *LIST_P to copy all

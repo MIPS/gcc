@@ -84,7 +84,13 @@ Boston, MA 02110-1301, USA.  */
 #define DARWIN_SUBARCH_SPEC DARWIN_ARCH_SPEC
 
 /* Determine a minimum version based on compiler options.  */
-#define DARWIN_MINVERSION_SPEC	"10.4"
+#define DARWIN_MINVERSION_SPEC				\
+ "%{!m64|fgnu-runtime:10.4;				\
+    ,objective-c|,objc-cpp-output:10.5;			\
+    ,objective-c-header:10.5;				\
+    ,objective-c++|,objective-c++-cpp-output:10.5;	\
+    ,objective-c++-header|,objc++-cpp-output:10.5;	\
+    :10.4}"
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS                                   \

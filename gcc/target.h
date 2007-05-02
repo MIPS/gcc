@@ -1,5 +1,5 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
@@ -161,6 +161,12 @@ struct gcc_target
        If DECL is non-NULL, it is the VAR_DECL or FUNCTION_DECL with
        which this section is associated.  */
     void (* named_section) (const char *name, unsigned int flags, tree decl);
+
+    /* Return a mask describing how relocations should be treated when
+       selecting sections.  Bit 1 should be set if global relocations
+       should be placed in a read-write section; bit 0 should be set if
+       local relocations should be placed in a read-write section.  */
+    int (*reloc_rw_mask) (void);
 
     /* Return a section for EXP.  It may be a DECL or a constant.  RELOC
        is nonzero if runtime relocations must be applied; bit 1 will be
@@ -601,6 +607,12 @@ struct gcc_target
      hook should return NULL_RTX.  */
   rtx (* dwarf_register_span) (rtx);
 
+  /* If expand_builtin_init_dwarf_reg_sizes needs to fill in table
+     entries not corresponding directly to registers below
+     FIRST_PSEUDO_REGISTER, this hook should generate the necessary
+     code, given the address of the table.  */
+  void (* init_dwarf_reg_sizes_extra) (tree);
+
   /* Fetch the fixed register(s) which hold condition codes, for
      targets where it makes sense to look for duplicate assignments to
      the condition codes.  This should return true if there is such a
@@ -885,5 +897,17 @@ struct gcc_target
 };
 
 extern struct gcc_target targetm;
+
+struct gcc_targetcm {
+  /* Handle target switch CODE (an OPT_* value).  ARG is the argument
+     passed to the switch; it is NULL if no argument was.  VALUE is the
+     value of ARG if CODE specifies a UInteger option, otherwise it is
+     1 if the positive form of the switch was used and 0 if the negative
+     form was.  Return true if the switch was valid.  */
+  bool (*handle_c_option) (size_t code, const char *arg, int value);
+};
+
+/* Each target can provide their own.  */
+extern struct gcc_targetcm targetcm;
 
 #endif /* GCC_TARGET_H */

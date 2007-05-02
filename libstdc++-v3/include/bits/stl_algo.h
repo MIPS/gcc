@@ -1,6 +1,6 @@
 // Algorithm implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -63,7 +63,8 @@
 #define _ALGO_H 1
 
 #include <bits/stl_heap.h>
-#include <bits/stl_tempbuf.h>     // for _Temporary_buffer
+#include <bits/stl_tempbuf.h>  // for _Temporary_buffer
+#include <cstdlib>             // for rand
 #include <debug/debug.h>
 
 // See concept_check.h for the __glibcxx_*_requires macros.
@@ -185,7 +186,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     __find_if(_InputIterator __first, _InputIterator __last,
 	      _Predicate __pred, input_iterator_tag)
     {
-      while (__first != __last && !__pred(*__first))
+      while (__first != __last && !bool(__pred(*__first)))
 	++__first;
       return __first;
     }
@@ -293,17 +294,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  return __last;
 	}
     }
-
-  /**
-   *  @if maint
-   *  This is an overload of find() for streambuf iterators.
-   *  @endif
-  */
-  template<typename _CharT>
-    typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value,
-				    istreambuf_iterator<_CharT> >::__type
-    find(istreambuf_iterator<_CharT>, istreambuf_iterator<_CharT>,
-	 const _CharT&);
 
   /**
    *  @brief Find the first occurrence of a value in a sequence.
@@ -578,7 +568,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       ++__tmp;
       if (__tmp == __last2)
 	{
-	  while (__first1 != __last1 && !__predicate(*__first1, *__first2))
+	  while (__first1 != __last1
+		 && !bool(__predicate(*__first1, *__first2)))
 	    ++__first1;
 	  return __first1;
 	}
@@ -596,7 +587,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		break;
 	      ++__first1;
 	    }
-	  while (__first1 != __last1 && !__predicate(*__first1, *__first2))
+	  while (__first1 != __last1 &&
+		 !bool(__predicate(*__first1, *__first2)))
 	    ++__first1;
 	  if (__first1 == __last1)
 	    return __last1;
@@ -751,7 +743,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	       _Integer __count, const _Tp& __val,
 	       _BinaryPredicate __binary_pred, std::forward_iterator_tag)
     {
-      while (__first != __last && !__binary_pred(*__first, __val))
+      while (__first != __last && !bool(__binary_pred(*__first, __val)))
         ++__first;
 
       while (__first != __last)
@@ -760,7 +752,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	    __n = __count;
 	  _ForwardIterator __i = __first;
 	  ++__i;
-	  while (__i != __last && __n != 1 && __binary_pred(*__i, __val))
+	  while (__i != __last && __n != 1 && bool(__binary_pred(*__i, __val)))
 	    {
 	      ++__i;
 	      --__n;
@@ -770,7 +762,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  if (__i == __last)
 	    return __last;
 	  __first = ++__i;
-	  while (__first != __last && !__binary_pred(*__first, __val))
+	  while (__first != __last
+		 && !bool(__binary_pred(*__first, __val)))
 	    ++__first;
 	}
       return __last;
@@ -809,7 +802,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  // __lookAhead here is always pointing to the last element of next 
 	  // possible match.
-	  while (!__binary_pred(*__lookAhead, __val)) // the skip loop...
+	  while (!bool(__binary_pred(*__lookAhead, __val))) // the skip loop...
 	    {
 	      if (__tailSize < __pattSize)
 		return __last;  // Failure
@@ -862,46 +855,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	return __first;
       if (__count == 1)
 	{
-	  while (__first != __last && !__binary_pred(*__first, __val))
+	  while (__first != __last && !bool(__binary_pred(*__first, __val)))
 	    ++__first;
 	  return __first;
 	}
       return std::__search_n(__first, __last, __count, __val, __binary_pred,
 			     std::__iterator_category(__first));
-    }
-
-  /**
-   *  @brief Swap the elements of two sequences.
-   *  @param  first1  A forward iterator.
-   *  @param  last1   A forward iterator.
-   *  @param  first2  A forward iterator.
-   *  @return   An iterator equal to @p first2+(last1-first1).
-   *
-   *  Swaps each element in the range @p [first1,last1) with the
-   *  corresponding element in the range @p [first2,(last1-first1)).
-   *  The ranges must not overlap.
-  */
-  template<typename _ForwardIterator1, typename _ForwardIterator2>
-    _ForwardIterator2
-    swap_ranges(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
-		_ForwardIterator2 __first2)
-    {
-      // concept requirements
-      __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<
-				  _ForwardIterator1>)
-      __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<
-				  _ForwardIterator2>)
-      __glibcxx_function_requires(_ConvertibleConcept<
-	    typename iterator_traits<_ForwardIterator1>::value_type,
-	    typename iterator_traits<_ForwardIterator2>::value_type>)
-      __glibcxx_function_requires(_ConvertibleConcept<
-	    typename iterator_traits<_ForwardIterator2>::value_type,
-	    typename iterator_traits<_ForwardIterator1>::value_type>)
-      __glibcxx_requires_valid_range(__first1, __last1);
-
-      for ( ; __first1 != __last1; ++__first1, ++__first2)
-	std::iter_swap(__first1, __first2);
-      return __first2;
     }
 
   /**
@@ -1224,7 +1183,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __glibcxx_requires_valid_range(__first, __last);
 
       for ( ; __first != __last; ++__first)
-	if (!__pred(*__first))
+	if (!bool(__pred(*__first)))
 	  {
 	    *__result = *__first;
 	    ++__result;
@@ -1396,7 +1355,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       _ForwardIterator __next = __first;
       *__result = *__first;
       while (++__next != __last)
-	if (!__binary_pred(*__first, *__next))
+	if (!bool(__binary_pred(*__first, *__next)))
 	  {
 	    __first = __next;
 	    *++__result = *__first;
@@ -1427,7 +1386,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       typename iterator_traits<_InputIterator>::value_type __value = *__first;
       *__result = __value;
       while (++__first != __last)
-	if (!__binary_pred(__value, *__first))
+	if (!bool(__binary_pred(__value, *__first)))
 	  {
 	    __value = *__first;
 	    *++__result = __value;
@@ -1457,7 +1416,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       *__result = *__first;
       while (++__first != __last)
-	if (!__binary_pred(*__result, *__first))
+	if (!bool(__binary_pred(*__result, *__first)))
 	  *++__result = *__first;
       return ++__result;
     }
@@ -1618,7 +1577,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       _ForwardIterator __dest = __first;
       ++__first;
       while (++__first != __last)
-	if (!__binary_pred(*__dest, *__first))
+	if (!bool(__binary_pred(*__dest, *__first)))
 	  *++__dest = *__first;
       return ++__dest;
     }
@@ -2069,7 +2028,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  while (true)
 	    if (__first == __last)
 	      return __first;
-	    else if (!__pred(*__last))
+	    else if (!bool(__pred(*__last)))
 	      --__last;
 	    else
 	      break;
@@ -2230,7 +2189,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  return
 	    std::__stable_partition_adaptive(__first, __last, __pred,
 					  _DistanceType(__buf.requested_size()),
-					  __buf.begin(), __buf.size());
+					  __buf.begin(),
+					  _DistanceType(__buf.size()));
 	else
 	  return
 	    std::__inplace_stable_partition(__first, __last, __pred,
@@ -4270,7 +4230,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __glibcxx_requires_partitioned_pred(__first, __last, __val, __comp);
 
       _ForwardIterator __i = std::lower_bound(__first, __last, __val, __comp);
-      return __i != __last && !__comp(__val, *__i);
+      return __i != __last && !bool(__comp(__val, *__i));
     }
 
   // Set algorithms: includes, set_union, set_intersection, set_difference,
@@ -4918,7 +4878,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       if (__first == __last) return __first;
       _ForwardIterator __result = __first;
       while (++__first != __last)
-	if (__comp(*__result, *__first)) __result = __first;
+	if (__comp(*__result, *__first))
+	  __result = __first;
       return __result;
     }
 
@@ -5075,7 +5036,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  if (__comp(*__i, *__ii))
 	    {
 	      _BidirectionalIterator __j = __last;
-	      while (!__comp(*__i, *--__j))
+	      while (!bool(__comp(*__i, *--__j)))
 		{}
 	      std::iter_swap(__i, __j);
 	      std::reverse(__ii, __last);
@@ -5186,7 +5147,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  if (__comp(*__ii, *__i))
 	    {
 	      _BidirectionalIterator __j = __last;
-	      while (!__comp(*--__j, *__i))
+	      while (!bool(__comp(*--__j, *__i)))
 		{}
 	      std::iter_swap(__i, __j);
 	      std::reverse(__ii, __last);

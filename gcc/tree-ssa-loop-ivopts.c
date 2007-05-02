@@ -91,6 +91,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "params.h"
 #include "langhooks.h"
 #include "tree-affine.h"
+#include "target.h"
 
 /* The infinite cost.  */
 #define INFTY 10000000
@@ -2384,11 +2385,17 @@ produce_memory_decl_rtl (tree obj, int *regno)
     {
       const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (obj));
       x = gen_rtx_SYMBOL_REF (Pmode, name);
+      SET_SYMBOL_REF_DECL (x, obj);
+      x = gen_rtx_MEM (DECL_MODE (obj), x);
+      targetm.encode_section_info (obj, x, true);
     }
   else
-    x = gen_raw_REG (Pmode, (*regno)++);
+    {
+      x = gen_raw_REG (Pmode, (*regno)++);
+      x = gen_rtx_MEM (DECL_MODE (obj), x);
+    }
 
-  return gen_rtx_MEM (DECL_MODE (obj), x);
+  return x;
 }
 
 /* Prepares decl_rtl for variables referred in *EXPR_P.  Callback for
@@ -2947,6 +2954,12 @@ get_address_cost (bool symbol_present, bool var_present,
 	  if (sym_p)
 	    {
 	      base = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (""));
+	      /* ??? We can run into trouble with some backends by presenting
+		 it with symbols which havn't been properly passed through
+		 targetm.encode_section_info.  By setting the local bit, we
+		 enhance the probability of things working.  */
+	      SYMBOL_REF_FLAGS (base) = SYMBOL_FLAG_LOCAL;
+
 	      if (off_p)
 		base = gen_rtx_fmt_e (CONST, Pmode,
 				      gen_rtx_fmt_ee (PLUS, Pmode,
@@ -3074,17 +3087,18 @@ force_expr_to_var_cost (tree expr)
 
   if (!costs_initialized)
     {
-      tree var = create_tmp_var_raw (integer_type_node, "test_var");
-      rtx x = gen_rtx_MEM (DECL_MODE (var),
-			   gen_rtx_SYMBOL_REF (Pmode, "test_var"));
-      tree addr;
       tree type = build_pointer_type (integer_type_node);
+      tree var, addr;
+      rtx x;
+
+      var = create_tmp_var_raw (integer_type_node, "test_var");
+      TREE_STATIC (var) = 1;
+      x = produce_memory_decl_rtl (var, NULL);
+      SET_DECL_RTL (var, x);
 
       integer_cost = computation_cost (build_int_cst (integer_type_node,
 						      2000));
 
-      SET_DECL_RTL (var, x);
-      TREE_STATIC (var) = 1;
       addr = build1 (ADDR_EXPR, type, var);
       symbol_cost = computation_cost (addr) + 1;
 
@@ -3900,7 +3914,9 @@ determine_iv_costs (struct ivopts_data *data)
 static unsigned
 ivopts_global_cost_for_size (struct ivopts_data *data, unsigned size)
 {
-  return global_cost_for_size (size, data->regs_used, n_iv_uses (data));
+  /* We add size to the cost, so that we prefer eliminating ivs
+     if possible.  */
+  return size + estimate_reg_pressure_cost (size, data->regs_used);
 }
 
 /* For each size of the induction variable set determine the penalty.  */
@@ -3937,8 +3953,7 @@ determine_set_costs (struct ivopts_data *data)
     {
       fprintf (dump_file, "Global costs:\n");
       fprintf (dump_file, "  target_avail_regs %d\n", target_avail_regs);
-      fprintf (dump_file, "  target_small_cost %d\n", target_small_cost);
-      fprintf (dump_file, "  target_pres_cost %d\n", target_pres_cost);
+      fprintf (dump_file, "  target_reg_cost %d\n", target_reg_cost);
       fprintf (dump_file, "  target_spill_cost %d\n", target_spill_cost);
     }
 
@@ -4857,7 +4872,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 {
   tree comp;
   tree op, stmts, tgt, ass;
-  block_stmt_iterator bsi, pbsi;
+  block_stmt_iterator bsi;
 
   /* An important special case -- if we are asked to express value of
      the original iv by itself, just exit; there is no need to
@@ -4928,13 +4943,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       if (name_info (data, tgt)->preserve_biv)
 	return;
 
-      pbsi = bsi = bsi_start (bb_for_stmt (use->stmt));
-      while (!bsi_end_p (pbsi)
-	     && TREE_CODE (bsi_stmt (pbsi)) == LABEL_EXPR)
-	{
-	  bsi = pbsi;
-	  bsi_next (&pbsi);
-	}
+      bsi = bsi_after_labels (bb_for_stmt (use->stmt));
       break;
 
     case GIMPLE_MODIFY_STMT:
@@ -4947,22 +4956,18 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
     }
 
   op = force_gimple_operand (comp, &stmts, false, SSA_NAME_VAR (tgt));
+  if (stmts)
+    bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 
   if (TREE_CODE (use->stmt) == PHI_NODE)
     {
-      if (stmts)
-	bsi_insert_after (&bsi, stmts, BSI_CONTINUE_LINKING);
       ass = build_gimple_modify_stmt (tgt, op);
-      bsi_insert_after (&bsi, ass, BSI_NEW_STMT);
+      bsi_insert_before (&bsi, ass, BSI_SAME_STMT);
       remove_statement (use->stmt, false);
       SSA_NAME_DEF_STMT (tgt) = ass;
     }
   else
-    {
-      if (stmts)
-	bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
-      GIMPLE_STMT_OPERAND (use->stmt, 1) = op;
-    }
+    GIMPLE_STMT_OPERAND (use->stmt, 1) = op;
 }
 
 /* Replaces ssa name in index IDX by its basic variable.  Callback for

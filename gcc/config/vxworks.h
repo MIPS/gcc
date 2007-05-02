@@ -35,12 +35,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Since we provide a default -isystem, expand -isystem on the command
    line early.  */
 #undef VXWORKS_ADDITIONAL_CPP_SPEC
-#define VXWORKS_ADDITIONAL_CPP_SPEC " 					\
- %{!nostdinc:%{isystem*}}						\
- %{mrtp: -D__RTP__=1							\
-	 %{!nostdinc:-idirafter %:getenv(WIND_USR /h)}}			\
- %{!mrtp:-D_WRS_KERNEL=1						\
- 	 %{!nostdinc:-idirafter %:getenv(WIND_BASE /target/h)}}"
+#define VXWORKS_ADDITIONAL_CPP_SPEC		\
+ "%{!nostdinc:					\
+    %{isystem*} -idirafter			\
+    %{mrtp: %:getenv(WIND_USR /h)		\
+      ;:    %:getenv(WIND_BASE /target/h)}}"
 
 /* The references to __init and __fini will be satisfied by
    libc_internal.a.  */
@@ -79,28 +78,44 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
   "-lgcc %{mrtp:--exclude-libs=libc_internal,libgcc -lc_internal}"
 
 #undef VXWORKS_STARTFILE_SPEC
-#define	VXWORKS_STARTFILE_SPEC "%{mrtp:%{!shared:crt0.o%s}}"
+#define	VXWORKS_STARTFILE_SPEC "%{mrtp:%{!shared:-l:crt0.o}}"
 #define VXWORKS_ENDFILE_SPEC ""
 
-/* We can use .ctors/.dtors sections only in RTP mode.
-   Unfortunately this must be an integer constant expression;
-   fix up in override_options.  */
+/* Do VxWorks-specific parts of OVERRIDE_OPTIONS.  */
 #undef VXWORKS_OVERRIDE_OPTIONS
-#define VXWORKS_OVERRIDE_OPTIONS do { \
-  targetm.have_ctors_dtors = TARGET_VXWORKS_RTP; \
-} while (0)
+#define VXWORKS_OVERRIDE_OPTIONS vxworks_override_options ()
+extern void vxworks_override_options (void);
 
-/* The VxWorks runtime uses a clever trick to get the sentinel entry
-   (-1) inserted at the beginning of the .ctors segment.  This trick
-   will not work if we ever generate any entries in plain .ctors
-   sections; we must always use .ctors.PRIORITY.  */
-#define ALWAYS_NUMBER_CTORS_SECTIONS 1
+/* Only RTPs support prioritized constructors and destructors:
+   the implementation relies on numbered .ctors* sections.  */
+#define SUPPORTS_INIT_PRIORITY TARGET_VXWORKS_RTP
 
-/* The name of the symbol for the table of GOTs in a particular
-   RTP.  */
+/* VxWorks requires special handling of constructors and destructors.
+   All VxWorks configurations must use these functions.  */
+#define TARGET_ASM_CONSTRUCTOR vxworks_asm_out_constructor
+#define TARGET_ASM_DESTRUCTOR vxworks_asm_out_destructor
+extern void vxworks_asm_out_constructor (rtx symbol, int priority);
+extern void vxworks_asm_out_destructor (rtx symbol, int priority);
+
+/* Override the vxworks-dummy.h definitions.  TARGET_VXWORKS_RTP
+   is defined by vxworks.opt.  */
+#undef VXWORKS_GOTT_BASE
 #define VXWORKS_GOTT_BASE "__GOTT_BASE__"
-/* The name of the symbol for the index into the table of GOTs for the
-   GOT associated with the current shared library.  */
+#undef VXWORKS_GOTT_INDEX
 #define VXWORKS_GOTT_INDEX "__GOTT_INDEX__"
+
+/* A VxWorks implementation of TARGET_OS_CPP_BUILTINS.  */
+#define VXWORKS_OS_CPP_BUILTINS()					\
+  do									\
+    {									\
+      builtin_define ("__vxworks");					\
+      builtin_define ("__VXWORKS__");					\
+      builtin_assert ("system=unix");					\
+      if (TARGET_VXWORKS_RTP)						\
+	builtin_define ("__RTP__");					\
+      else								\
+	builtin_define ("_WRS_KERNEL");					\
+    }									\
+  while (0)
 
 #define VXWORKS_KIND VXWORKS_KIND_NORMAL

@@ -178,8 +178,7 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
        items with static storage duration that are not otherwise
        initialized are initialized to zero.  */
     ;
-  else if (SCALAR_TYPE_P (type)
-	   || TREE_CODE (type) == COMPLEX_TYPE)
+  else if (SCALAR_TYPE_P (type))
     init = convert (type, integer_zero_node);
   else if (CLASS_TYPE_P (type))
     {
@@ -1540,7 +1539,7 @@ static tree
 build_builtin_delete_call (tree addr)
 {
   mark_used (global_delete_fndecl);
-  return build_call (global_delete_fndecl, build_tree_list (NULL_TREE, addr));
+  return build_call_n (global_delete_fndecl, 1, addr);
 }
 
 /* Build and return a NEW_EXPR.  If NELTS is non-NULL, TYPE[NELTS] is

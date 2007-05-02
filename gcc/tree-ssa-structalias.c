@@ -256,10 +256,6 @@ struct variable_info
   /* Old points-to set for this variable.  */
   bitmap oldsolution;
 
-  /* Finished points-to set for this variable (IE what is returned
-     from find_what_p_points_to.  */
-  bitmap finished_solution;
-
   /* Variable ids represented by this node.  */
   bitmap variables;
 
@@ -374,7 +370,6 @@ new_var_info (tree t, unsigned int id, const char *name)
   ret->has_union = false;
   ret->solution = BITMAP_ALLOC (&pta_obstack);
   ret->oldsolution = BITMAP_ALLOC (&oldpta_obstack);
-  ret->finished_solution = NULL;
   ret->next = NULL;
   ret->collapsed_to = NULL;
   return ret;
@@ -2312,9 +2307,11 @@ could_have_pointers (tree t)
 {
   tree type = TREE_TYPE (t);
 
-  if (POINTER_TYPE_P (type) || AGGREGATE_TYPE_P (type)
+  if (POINTER_TYPE_P (type)
+      || AGGREGATE_TYPE_P (type)
       || TREE_CODE (type) == COMPLEX_TYPE)
     return true;
+
   return false;
 }
 
@@ -2524,6 +2521,7 @@ get_constraint_for (tree t, VEC (ce_s, heap) **results)
 	      tree pttype = TREE_TYPE (TREE_TYPE (t));
 
 	      get_constraint_for (exp, results);
+
 	      /* Make sure we capture constraints to all elements
 		 of an array.  */
 	      if ((handled_component_p (exp)
@@ -3001,6 +2999,7 @@ do_structure_copy (tree lhsop, tree rhsop)
     }
 }
 
+
 /* Update related alias information kept in AI.  This is used when
    building name tags, alias sets and deciding grouping heuristics.
    STMT is the statement to process.  This function also updates
@@ -3012,15 +3011,21 @@ update_alias_info (tree stmt, struct alias_info *ai)
   bitmap addr_taken;
   use_operand_p use_p;
   ssa_op_iter iter;
+  bool stmt_dereferences_ptr_p;
   enum escape_type stmt_escape_type = is_escape_site (stmt);
+  struct mem_ref_stats_d *mem_ref_stats = gimple_mem_ref_stats (cfun);
+
+  stmt_dereferences_ptr_p = false;
 
   if (stmt_escape_type == ESCAPE_TO_CALL
       || stmt_escape_type == ESCAPE_TO_PURE_CONST)
     {
-      ai->num_calls_found++;
+      mem_ref_stats->num_call_sites++;
       if (stmt_escape_type == ESCAPE_TO_PURE_CONST)
-	ai->num_pure_const_calls_found++;
+	mem_ref_stats->num_pure_const_call_sites++;
     }
+  else if (stmt_escape_type == ESCAPE_TO_ASM)
+    mem_ref_stats->num_asm_sites++;
 
   /* Mark all the variables whose address are taken by the statement.  */
   addr_taken = addresses_taken (stmt);
@@ -3044,17 +3049,15 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	}
     }
 
-  /* Process each operand use.  If an operand may be aliased, keep
-     track of how many times it's being used.  For pointers, determine
-     whether they are dereferenced by the statement, or whether their
-     value escapes, etc.  */
+  /* Process each operand use.  For pointers, determine whether they
+     are dereferenced by the statement, or whether their value
+     escapes, etc.  */
   FOR_EACH_PHI_OR_STMT_USE (use_p, stmt, iter, SSA_OP_USE)
     {
       tree op, var;
       var_ann_t v_ann;
       struct ptr_info_def *pi;
-      bool is_store, is_potential_deref;
-      unsigned num_uses, num_derefs;
+      unsigned num_uses, num_loads, num_stores;
 
       op = USE_FROM_PTR (use_p);
 
@@ -3074,12 +3077,11 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	     so that they can be treated like regular statements?
 	     Currently, they are treated as second-class
 	     statements.  */
-	  add_to_addressable_set (TREE_OPERAND (op, 0),
-				  &addressable_vars);
+	  add_to_addressable_set (TREE_OPERAND (op, 0), &addressable_vars);
 	  continue;
 	}
 
-      /* Ignore constants.  */
+      /* Ignore constants (they may occur in PHI node arguments).  */
       if (TREE_CODE (op) != SSA_NAME)
 	continue;
 
@@ -3110,7 +3112,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
 
       /* Determine whether OP is a dereferenced pointer, and if STMT
 	 is an escape point, whether OP escapes.  */
-      count_uses_and_derefs (op, stmt, &num_uses, &num_derefs, &is_store);
+      count_uses_and_derefs (op, stmt, &num_uses, &num_loads, &num_stores);
 
       /* Handle a corner case involving address expressions of the
 	 form '&PTR->FLD'.  The problem with these expressions is that
@@ -3133,7 +3135,6 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	 are not GIMPLE invariants), they can only appear on the RHS
 	 of an assignment and their base address is always an
 	 INDIRECT_REF expression.  */
-      is_potential_deref = false;
       if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
 	  && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == ADDR_EXPR
 	  && !is_gimple_val (GIMPLE_STMT_OPERAND (stmt, 1)))
@@ -3144,10 +3145,10 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	  tree base = get_base_address (TREE_OPERAND (rhs, 0));
 	  if (TREE_CODE (base) == INDIRECT_REF
 	      && TREE_OPERAND (base, 0) == op)
-	    is_potential_deref = true;
+	    num_loads++;
 	}
 
-      if (num_derefs > 0 || is_potential_deref)
+      if (num_loads + num_stores > 0)
 	{
 	  /* Mark OP as dereferenced.  In a subsequent pass,
 	     dereferenced pointers that point to a set of
@@ -3158,13 +3159,20 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	  /* If this is a store operation, mark OP as being
 	     dereferenced to store, otherwise mark it as being
 	     dereferenced to load.  */
-	  if (is_store)
+	  if (num_stores > 0)
 	    pointer_set_insert (ai->dereferenced_ptrs_store, var);
 	  else
 	    pointer_set_insert (ai->dereferenced_ptrs_load, var);
+
+	  /* Update the frequency estimate for all the dereferences of
+	     pointer OP.  */
+	  update_mem_sym_stats_from_stmt (op, stmt, num_loads, num_stores);
+	  
+	  /* Indicate that STMT contains pointer dereferences.  */
+	  stmt_dereferences_ptr_p = true;
 	}
 
-      if (stmt_escape_type != NO_ESCAPE && num_derefs < num_uses)
+      if (stmt_escape_type != NO_ESCAPE && num_loads + num_stores < num_uses)
 	{
 	  /* If STMT is an escape point and STMT contains at
 	     least one direct use of OP, then the value of OP
@@ -3189,13 +3197,55 @@ update_alias_info (tree stmt, struct alias_info *ai)
     return;
 
   /* Mark stored variables in STMT as being written to and update the
-     reference counter for potentially aliased symbols in STMT.  */
-  if (stmt_references_memory_p (stmt) && STORED_SYMS (stmt))
+     memory reference stats for all memory symbols referenced by STMT.  */
+  if (stmt_references_memory_p (stmt))
     {
       unsigned i;
       bitmap_iterator bi;
-      EXECUTE_IF_SET_IN_BITMAP (STORED_SYMS (stmt), 0, i, bi)
-	pointer_set_insert (ai->written_vars, referenced_var (i));
+
+      mem_ref_stats->num_mem_stmts++;
+
+      /* Notice that we only update memory reference stats for symbols
+	 loaded and stored by the statement if the statement does not
+	 contain pointer dereferences and it is not a call/asm site.
+	 This is to avoid double accounting problems when creating
+	 memory partitions.  After computing points-to information,
+	 pointer dereference statistics are used to update the
+	 reference stats of the pointed-to variables, so here we
+	 should only update direct references to symbols.
+
+	 Indirect references are not updated here for two reasons: (1)
+	 The first time we compute alias information, the sets
+	 LOADED/STORED are empty for pointer dereferences, (2) After
+	 partitioning, LOADED/STORED may have references to
+	 partitions, not the original pointed-to variables.  So, if we
+	 always counted LOADED/STORED here and during partitioning, we
+	 would count many symbols more than once.
+
+	 This does cause some imprecision when a statement has a
+	 combination of direct symbol references and pointer
+	 dereferences (e.g., MEMORY_VAR = *PTR) or if a call site has
+	 memory symbols in its argument list, but these cases do not
+	 occur so frequently as to constitute a serious problem.  */
+      if (STORED_SYMS (stmt))
+	EXECUTE_IF_SET_IN_BITMAP (STORED_SYMS (stmt), 0, i, bi)
+	  {
+	    tree sym = referenced_var (i);
+	    pointer_set_insert (ai->written_vars, sym);
+	    if (!stmt_dereferences_ptr_p
+		&& stmt_escape_type != ESCAPE_TO_CALL
+		&& stmt_escape_type != ESCAPE_TO_PURE_CONST
+		&& stmt_escape_type != ESCAPE_TO_ASM)
+	      update_mem_sym_stats_from_stmt (sym, stmt, 0, 1);
+	  }
+
+      if (!stmt_dereferences_ptr_p
+	  && LOADED_SYMS (stmt)
+	  && stmt_escape_type != ESCAPE_TO_CALL
+	  && stmt_escape_type != ESCAPE_TO_PURE_CONST
+	  && stmt_escape_type != ESCAPE_TO_ASM)
+	EXECUTE_IF_SET_IN_BITMAP (LOADED_SYMS (stmt), 0, i, bi)
+	  update_mem_sym_stats_from_stmt (referenced_var (i), stmt, 1, 0);
     }
 }
 
@@ -3320,9 +3370,9 @@ find_func_aliases (tree origt)
 	}
     }
   /* In IPA mode, we need to generate constraints to pass call
-     arguments through their calls.   There are two case, either a
-     modify_expr when we are returning a value, or just a plain
-     call_expr when we are not.   */
+     arguments through their calls.   There are two cases, either a
+     GIMPLE_MODIFY_STMT when we are returning a value, or just a plain
+     CALL_EXPR when we are not.   */
   else if (in_ipa_mode
 	   && ((TREE_CODE (t) == GIMPLE_MODIFY_STMT
 		&& TREE_CODE (GIMPLE_STMT_OPERAND (t, 1)) == CALL_EXPR
@@ -3393,6 +3443,7 @@ find_func_aliases (tree origt)
 	    }
 	  i++;
 	}
+
       /* If we are returning a value, assign it to the result.  */
       if (lhsop)
 	{
@@ -4093,8 +4144,8 @@ intra_create_variable_infos (void)
   tree t;
   struct constraint_expr lhs, rhs;
 
-  /* For each incoming pointer argument arg, ARG = ANYTHING or a
-     dummy variable if flag_argument_noalias > 2. */
+  /* For each incoming pointer argument arg, create the constraint ARG
+     = ANYTHING or a dummy variable if flag_argument_noalias is set.  */
   for (t = DECL_ARGUMENTS (current_function_decl); t; t = TREE_CHAIN (t))
     {
       varinfo_t p;
@@ -4102,11 +4153,11 @@ intra_create_variable_infos (void)
       if (!could_have_pointers (t))
 	continue;
 
-      /* With flag_argument_noalias greater than two means that the incoming
-	 argument cannot alias anything except for itself so create a HEAP
-	 variable.  */
-      if (POINTER_TYPE_P (TREE_TYPE (t))
-	  && flag_argument_noalias > 2)
+      /* If flag_argument_noalias is set, then function pointer
+	 arguments are guaranteed not to point to each other.  In that
+	 case, create an artificial variable PARM_NOALIAS and the
+	 constraint ARG = &PARM_NOALIAS.  */
+      if (POINTER_TYPE_P (TREE_TYPE (t)) && flag_argument_noalias > 0)
 	{
 	  varinfo_t vi;
 	  tree heapvar = heapvar_lookup (t);
@@ -4117,14 +4168,26 @@ intra_create_variable_infos (void)
 
 	  if (heapvar == NULL_TREE)
 	    {
+	      var_ann_t ann;
 	      heapvar = create_tmp_var_raw (TREE_TYPE (TREE_TYPE (t)),
 					    "PARM_NOALIAS");
-	      get_var_ann (heapvar)->is_heapvar = 1;
 	      DECL_EXTERNAL (heapvar) = 1;
 	      if (gimple_referenced_vars (cfun))
 		add_referenced_var (heapvar);
+
 	      heapvar_insert (t, heapvar);
+
+	      ann = get_var_ann (heapvar);
+	      if (flag_argument_noalias == 1)
+		ann->noalias_state = NO_ALIAS;
+	      else if (flag_argument_noalias == 2)
+		ann->noalias_state = NO_ALIAS_GLOBAL;
+	      else if (flag_argument_noalias == 3)
+		ann->noalias_state = NO_ALIAS_ANYTHING;
+	      else
+		gcc_unreachable ();
 	    }
+
 	  vi = get_vi_for_tree (heapvar);
 	  vi->is_artificial_var = 1;
 	  vi->is_heap_var = 1;
@@ -4147,6 +4210,75 @@ intra_create_variable_infos (void)
 	}
     }
 }
+
+/* Structure used to put solution bitmaps in a hashtable so they can
+   be shared among variables with the same points-to set.  */
+
+typedef struct shared_bitmap_info
+{
+  bitmap pt_vars;
+  hashval_t hashcode;
+} *shared_bitmap_info_t;
+
+static htab_t shared_bitmap_table;
+
+/* Hash function for a shared_bitmap_info_t */
+
+static hashval_t
+shared_bitmap_hash (const void *p)
+{
+  const shared_bitmap_info_t bi = (shared_bitmap_info_t) p;
+  return bi->hashcode;
+}
+
+/* Equality function for two shared_bitmap_info_t's. */
+
+static int
+shared_bitmap_eq (const void *p1, const void *p2)
+{
+  const shared_bitmap_info_t sbi1 = (shared_bitmap_info_t) p1;
+  const shared_bitmap_info_t sbi2 = (shared_bitmap_info_t) p2;
+  return bitmap_equal_p (sbi1->pt_vars, sbi2->pt_vars);
+}
+
+/* Lookup a bitmap in the shared bitmap hashtable, and return an already
+   existing instance if there is one, NULL otherwise.  */
+
+static bitmap
+shared_bitmap_lookup (bitmap pt_vars)
+{
+  void **slot;
+  struct shared_bitmap_info sbi;
+
+  sbi.pt_vars = pt_vars;
+  sbi.hashcode = bitmap_hash (pt_vars);
+  
+  slot = htab_find_slot_with_hash (shared_bitmap_table, &sbi,
+				   sbi.hashcode, NO_INSERT);
+  if (!slot)
+    return NULL;
+  else
+    return ((shared_bitmap_info_t) *slot)->pt_vars;
+}
+
+
+/* Add a bitmap to the shared bitmap hashtable.  */
+
+static void
+shared_bitmap_add (bitmap pt_vars)
+{
+  void **slot;
+  shared_bitmap_info_t sbi = XNEW (struct shared_bitmap_info);
+  
+  sbi->pt_vars = pt_vars;
+  sbi->hashcode = bitmap_hash (pt_vars);
+  
+  slot = htab_find_slot_with_hash (shared_bitmap_table, sbi,
+				   sbi->hashcode, INSERT);
+  gcc_assert (!*slot);
+  *slot = (void *) sbi;
+}
+
 
 /* Set bits in INTO corresponding to the variable uids in solution set
    FROM, which came from variable PTR.
@@ -4271,12 +4403,12 @@ set_used_smts (void)
     }
 }
 
-/* Merge the necessary SMT's into the solution set for VI, which is
+/* Merge the necessary SMT's into the bitmap INTO, which is
    P's varinfo.  This involves merging all SMT's that are a subset of
    the SMT necessary for P. */
 
 static void
-merge_smts_into (tree p, varinfo_t vi)
+merge_smts_into (tree p, bitmap solution)
 {
   unsigned int i;
   bitmap_iterator bi;
@@ -4294,7 +4426,7 @@ merge_smts_into (tree p, varinfo_t vi)
 
       /* Need to set the SMT subsets first before this
 	 will work properly.  */
-      bitmap_set_bit (vi->finished_solution, DECL_UID (smt));
+      bitmap_set_bit (solution, DECL_UID (smt));
       EXECUTE_IF_SET_IN_BITMAP (used_smts, 0, i, bi)
 	{
 	  tree newsmt = referenced_var (i);
@@ -4302,12 +4434,12 @@ merge_smts_into (tree p, varinfo_t vi)
 
 	  if (alias_set_subset_of (get_alias_set (newsmttype),
 				   smtset))
-	    bitmap_set_bit (vi->finished_solution, i);
+	    bitmap_set_bit (solution, i);
 	}
 
       aliases = MTAG_ALIASES (smt);
       if (aliases)
-        bitmap_ior_into (vi->finished_solution, aliases);
+        bitmap_ior_into (solution, aliases);
     }
 }
 
@@ -4360,7 +4492,9 @@ find_what_p_points_to (tree p)
 	  unsigned int i;
 	  bitmap_iterator bi;
 	  bool was_pt_anything = false;
-
+	  bitmap finished_solution;
+	  bitmap result;
+	  
 	  if (!pi->is_dereferenced)
 	    return false;
 
@@ -4392,32 +4526,31 @@ find_what_p_points_to (tree p)
 		}
 	    }
 
-	  /* Share the final set of variables between the SSA_NAME
-	     pointer infos for collapsed nodes that are collapsed to
-	     non-special variables.  This is because special vars have
-	     no real types associated with them, so while we know the
-	     pointers are equivalent to them, we need to generate the
-	     solution separately since it will include SMT's from the
-	     original non-collapsed variable.  */
-	  if (!vi->is_special_var && vi->finished_solution)
+	  /* Share the final set of variables when possible.  */
+	  
+	  finished_solution = BITMAP_GGC_ALLOC ();
+	  stats.points_to_sets_created++;
+	  
+	  /* Instead of using pt_anything, we instead merge in the SMT
+	     aliases for the underlying SMT.  */
+	  if (was_pt_anything)
 	    {
-	      pi->pt_vars = vi->finished_solution;
+	      merge_smts_into (p, finished_solution);
+	      pi->pt_global_mem = 1;
+	    }
+	  
+	  set_uids_in_ptset (vi->decl, finished_solution, vi->solution);
+	  result = shared_bitmap_lookup (finished_solution);
+
+	  if (!result)
+	    {
+	      shared_bitmap_add (finished_solution);
+	      pi->pt_vars = finished_solution;
 	    }
 	  else
 	    {
-	      vi->finished_solution = BITMAP_GGC_ALLOC ();
-	      stats.points_to_sets_created++;
-
-	      /* Instead of using pt_anything, we instead merge in the SMT
-		 aliases for the underlying SMT.  */
-	      if (was_pt_anything)
-		{
-		  merge_smts_into (p, vi);
-		  pi->pt_global_mem = 1;
-		}
-
-	      set_uids_in_ptset (vi->decl, vi->finished_solution, vi->solution);
-	      pi->pt_vars = vi->finished_solution;
+	      pi->pt_vars = result;
+	      bitmap_clear (finished_solution);
 	    }
 
 	  if (bitmap_empty_p (pi->pt_vars))
@@ -4591,7 +4724,8 @@ init_alias_vars (void)
   vi_for_tree = pointer_map_create ();
 
   memset (&stats, 0, sizeof (stats));
-
+  shared_bitmap_table = htab_create (511, shared_bitmap_hash,
+				     shared_bitmap_eq, free);
   init_base_vars ();
 }
 
@@ -4653,7 +4787,7 @@ compute_points_to_sets (struct alias_info *ai)
       block_stmt_iterator bsi;
       tree phi;
 
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  if (is_gimple_reg (PHI_RESULT (phi)))
 	    {
@@ -4726,6 +4860,7 @@ delete_points_to_sets (void)
   varinfo_t v;
   int i;
 
+  htab_delete (shared_bitmap_table);
   if (dump_file && (dump_flags & TDF_STATS))
     fprintf (dump_file, "Points to sets created:%d\n",
 	     stats.points_to_sets_created);
@@ -4736,6 +4871,7 @@ delete_points_to_sets (void)
 
   for (i = 0; VEC_iterate (varinfo_t, varmap, i, v); i++)
     VEC_free (constraint_t, heap, graph->complex[i]);
+  free (graph->complex);
 
   free (graph->rep);
   free (graph->succs);
@@ -4804,7 +4940,7 @@ ipa_pta_execute (void)
 	      block_stmt_iterator bsi;
 	      tree phi;
 
-	      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 		{
 		  if (is_gimple_reg (PHI_RESULT (phi)))
 		    {

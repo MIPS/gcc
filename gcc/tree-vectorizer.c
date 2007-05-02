@@ -767,12 +767,8 @@ slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
   block_stmt_iterator loop_cond_bsi;
   block_stmt_iterator incr_bsi;
   bool insert_after;
-  tree begin_label = tree_block_label (loop->latch);
-  tree exit_label = tree_block_label (single_exit (loop)->dest);
   tree init = build_int_cst (TREE_TYPE (niters), 0);
   tree step = build_int_cst (TREE_TYPE (niters), 1);
-  tree then_label;
-  tree else_label;
   LOC loop_loc;
 
   orig_cond = get_loop_exit_condition (loop);
@@ -784,20 +780,12 @@ slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
              &incr_bsi, insert_after, &indx_before_incr, &indx_after_incr);
 
   if (exit_edge->flags & EDGE_TRUE_VALUE) /* 'then' edge exits the loop.  */
-    {
-      cond = build2 (GE_EXPR, boolean_type_node, indx_after_incr, niters);
-      then_label = build1 (GOTO_EXPR, void_type_node, exit_label);
-      else_label = build1 (GOTO_EXPR, void_type_node, begin_label);
-    }
+    cond = build2 (GE_EXPR, boolean_type_node, indx_after_incr, niters);
   else /* 'then' edge loops back.  */
-    {
-      cond = build2 (LT_EXPR, boolean_type_node, indx_after_incr, niters);
-      then_label = build1 (GOTO_EXPR, void_type_node, begin_label);
-      else_label = build1 (GOTO_EXPR, void_type_node, exit_label);
-    }
+    cond = build2 (LT_EXPR, boolean_type_node, indx_after_incr, niters);
 
   cond_stmt = build3 (COND_EXPR, TREE_TYPE (orig_cond), cond,
-		     then_label, else_label);
+		      NULL_TREE, NULL_TREE);
   bsi_insert_before (&loop_cond_bsi, cond_stmt, BSI_SAME_STMT);
 
   /* Remove old loop exit test:  */
@@ -935,19 +923,15 @@ slpeel_add_loop_guard (basic_block guard_bb, tree cond, basic_block exit_bb,
 {
   block_stmt_iterator bsi;
   edge new_e, enter_e;
-  tree cond_stmt, then_label, else_label;
+  tree cond_stmt;
 
   enter_e = EDGE_SUCC (guard_bb, 0);
   enter_e->flags &= ~EDGE_FALLTHRU;
   enter_e->flags |= EDGE_FALSE_VALUE;
   bsi = bsi_last (guard_bb);
 
-  then_label = build1 (GOTO_EXPR, void_type_node,
-                       tree_block_label (exit_bb));
-  else_label = build1 (GOTO_EXPR, void_type_node,
-                       tree_block_label (enter_e->dest));
   cond_stmt = build3 (COND_EXPR, void_type_node, cond,
-   		     then_label, else_label);
+		      NULL_TREE, NULL_TREE);
   bsi_insert_after (&bsi, cond_stmt, BSI_NEW_STMT);
   /* Add new edge to connect guard block to the merge/loop-exit block.  */
   new_e = make_edge (guard_bb, exit_bb, EDGE_TRUE_VALUE);
@@ -1511,6 +1495,7 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
   VEC_free (tree, heap, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo));
 
   free (loop_vinfo);
+  loop->aux = NULL;
 }
 
 
@@ -1659,6 +1644,12 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
       *dt = vect_constant_def;
       return true;
     }
+  if (is_gimple_min_invariant (operand))
+   {
+      *def = operand;
+      *dt = vect_invariant_def;
+      return true;
+   }
     
   if (TREE_CODE (operand) != SSA_NAME)
     {
@@ -1686,7 +1677,7 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
   if (IS_EMPTY_STMT (*def_stmt))
     {
       tree arg = TREE_OPERAND (*def_stmt, 0);
-      if (TREE_CODE (arg) == INTEGER_CST || TREE_CODE (arg) == REAL_CST)
+      if (is_gimple_min_invariant (arg))
         {
           *def = operand;
           *dt = vect_invariant_def;
@@ -1714,15 +1705,6 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
       return false;
     }
 
-  /* stmts inside the loop that have been identified as performing
-     a reduction operation cannot have uses in the loop.  */
-  if (*dt == vect_reduction_def && TREE_CODE (*def_stmt) != PHI_NODE)
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "reduction used in loop.");
-      return false;
-    }
-
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "type of def: %d.",*dt);
 
@@ -1731,12 +1713,11 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
     case PHI_NODE:
       *def = PHI_RESULT (*def_stmt);
       gcc_assert (*dt == vect_induction_def || *dt == vect_reduction_def
-                  || *dt == vect_invariant_def);
+		  || *dt == vect_invariant_def);
       break;
 
     case GIMPLE_MODIFY_STMT:
       *def = GIMPLE_STMT_OPERAND (*def_stmt, 0);
-      gcc_assert (*dt == vect_loop_def || *dt == vect_invariant_def);
       break;
 
     default:
@@ -1782,7 +1763,7 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
   tree wide_vectype = get_vectype_for_scalar_type (type);
   enum tree_code c1, c2;
 
-  /* The result of a vectorized widening operation usually requires two vectors 
+  /* The result of a vectorized widening operation usually requires two vectors
      (because the widened results do not fit int one vector). The generated 
      vector results would normally be expected to be generated in the same 
      order as in the original scalar computation. i.e. if 8 results are 
@@ -2196,6 +2177,12 @@ vectorize_loops (void)
   loop_iterator li;
   struct loop *loop;
 
+  vect_loops_num = number_of_loops ();
+
+  /* Bail out if there are no loops.  */
+  if (vect_loops_num <= 1)
+    return 0;
+
   /* Fix the verbosity level if not defined explicitly by the user.  */
   vect_set_dump_settings ();
 
@@ -2208,7 +2195,6 @@ vectorize_loops (void)
   /* If some loop was duplicated, it gets bigger number 
      than all previously defined loops. This fact allows us to run 
      only over initial loops skipping newly generated ones.  */
-  vect_loops_num = number_of_loops ();
   FOR_EACH_LOOP (li, loop, 0)
     {
       loop_vec_info loop_vinfo;
@@ -2225,7 +2211,9 @@ vectorize_loops (void)
     }
   vect_loop_location = UNKNOWN_LOC;
 
-  if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS))
+  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS)
+      || (vect_print_dump_info (REPORT_VECTORIZED_LOOPS)
+	  && num_vectorized_loops > 0))
     fprintf (vect_dump, "vectorized %u loops in function.\n",
 	     num_vectorized_loops);
 

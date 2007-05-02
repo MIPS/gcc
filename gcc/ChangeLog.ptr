@@ -1,3 +1,9 @@
+2007-05-01  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	Merge mainline, revision 124343.
+	* tree-vect-transform.c (bump_vector_ptr): Create a POINTER_PLUS_EXPR
+	instead of PLUS_EXPR for the pointer increment statement.
+
 2007-02-25  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	Merge mainline, revision 122323.

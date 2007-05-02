@@ -1,6 +1,6 @@
 /* Backend support for Fortran 95 basic types and derived types.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
-   Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software
+   Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -96,6 +96,9 @@ int gfc_c_int_kind;
 /* The kind size used for record offsets. If the target system supports
    kind=8, this will be set to 8, otherwise it is set to 4.  */
 int gfc_intio_kind; 
+
+/* The integer kind used to store character lengths.  */
+int gfc_charlen_int_kind;
 
 /* The size of the numeric storage unit and character storage unit.  */
 int gfc_numeric_storage_size;
@@ -607,7 +610,8 @@ gfc_init_types (void)
   boolean_false_node = build_int_cst (boolean_type_node, 0);
 
   /* ??? Shouldn't this be based on gfc_index_integer_kind or so?  */
-  gfc_charlen_type_node = gfc_get_int_type (4);
+  gfc_charlen_int_kind = 4;
+  gfc_charlen_type_node = gfc_get_int_type (gfc_charlen_int_kind);
 }
 
 /* Get the type node for the given type and kind.  */
@@ -751,7 +755,7 @@ gfc_get_element_type (tree type)
   return element;
 }
 
-/* Build an array. This function is called from gfc_sym_type().
+/* Build an array.  This function is called from gfc_sym_type().
    Actually returns array descriptor type.
 
    Format of array descriptors is as follows:
@@ -771,54 +775,55 @@ gfc_get_element_type (tree type)
       index ubound;
     }
 
-   Translation code should use gfc_conv_descriptor_* rather than accessing
-   the descriptor directly. Any changes to the array descriptor type will
-   require changes in gfc_conv_descriptor_* and gfc_build_array_initializer.
+   Translation code should use gfc_conv_descriptor_* rather than
+   accessing the descriptor directly.  Any changes to the array
+   descriptor type will require changes in gfc_conv_descriptor_* and
+   gfc_build_array_initializer.
 
-   This is represented internally as a RECORD_TYPE. The index nodes are
-   gfc_array_index_type and the data node is a pointer to the data. See below
-   for the handling of character types.
+   This is represented internally as a RECORD_TYPE. The index nodes
+   are gfc_array_index_type and the data node is a pointer to the
+   data.  See below for the handling of character types.
 
    The dtype member is formatted as follows:
     rank = dtype & GFC_DTYPE_RANK_MASK // 3 bits
     type = (dtype & GFC_DTYPE_TYPE_MASK) >> GFC_DTYPE_TYPE_SHIFT // 3 bits
     size = dtype >> GFC_DTYPE_SIZE_SHIFT
 
-   I originally used nested ARRAY_TYPE nodes to represent arrays, but this
-   generated poor code for assumed/deferred size arrays.  These require
-   use of PLACEHOLDER_EXPR/WITH_RECORD_EXPR, which isn't part of the GENERIC
-   grammar.  Also, there is no way to explicitly set the array stride, so
-   all data must be packed(1).  I've tried to mark all the functions which
-   would require modification with a GCC ARRAYS comment.
+   I originally used nested ARRAY_TYPE nodes to represent arrays, but
+   this generated poor code for assumed/deferred size arrays.  These
+   require use of PLACEHOLDER_EXPR/WITH_RECORD_EXPR, which isn't part
+   of the GENERIC grammar.  Also, there is no way to explicitly set
+   the array stride, so all data must be packed(1).  I've tried to
+   mark all the functions which would require modification with a GCC
+   ARRAYS comment.
 
-   The data component points to the first element in the array.
-   The offset field is the position of the origin of the array
-   (ie element (0, 0 ...)).  This may be outsite the bounds of the array.
+   The data component points to the first element in the array.  The
+   offset field is the position of the origin of the array (ie element
+   (0, 0 ...)).  This may be outsite the bounds of the array.
 
    An element is accessed by
-   data[offset + index0*stride0 + index1*stride1 + index2*stride2]
+    data[offset + index0*stride0 + index1*stride1 + index2*stride2]
    This gives good performance as the computation does not involve the
-   bounds of the array.  For packed arrays, this is optimized further by
-   substituting the known strides.
+   bounds of the array.  For packed arrays, this is optimized further
+   by substituting the known strides.
 
-   This system has one problem: all array bounds must be withing 2^31 elements
-   of the origin (2^63 on 64-bit machines).  For example
-   integer, dimension (80000:90000, 80000:90000, 2) :: array
-   may not work properly on 32-bit machines because 80000*80000 > 2^31, so
-   the calculation for stride02 would overflow.  This may still work, but
-   I haven't checked, and it relies on the overflow doing the right thing.
+   This system has one problem: all array bounds must be within 2^31
+   elements of the origin (2^63 on 64-bit machines).  For example
+    integer, dimension (80000:90000, 80000:90000, 2) :: array
+   may not work properly on 32-bit machines because 80000*80000 >
+   2^31, so the calculation for stride02 would overflow.  This may
+   still work, but I haven't checked, and it relies on the overflow
+   doing the right thing.
 
    The way to fix this problem is to access elements as follows:
-   data[(index0-lbound0)*stride0 + (index1-lbound1)*stride1]
-   Obviously this is much slower.  I will make this a compile time option,
-   something like -fsmall-array-offsets.  Mixing code compiled with and without
-   this switch will work.
+    data[(index0-lbound0)*stride0 + (index1-lbound1)*stride1]
+   Obviously this is much slower.  I will make this a compile time
+   option, something like -fsmall-array-offsets.  Mixing code compiled
+   with and without this switch will work.
 
-   (1) This can be worked around by modifying the upper bound of the previous
-   dimension.  This requires extra fields in the descriptor (both real_ubound
-   and fake_ubound).  In tree.def there is mention of TYPE_SEP, which
-   may allow us to do this.  However I can't find mention of this anywhere
-   else.  */
+   (1) This can be worked around by modifying the upper bound of the
+   previous dimension.  This requires extra fields in the descriptor
+   (both real_ubound and fake_ubound).  */
 
 
 /* Returns true if the array sym does not require a descriptor.  */
@@ -1001,11 +1006,11 @@ gfc_get_dtype (tree type)
 }
 
 
-/* Build an array type for use without a descriptor.  Valid values of packed
-   are 0=no, 1=partial, 2=full, 3=static.  */
+/* Build an array type for use without a descriptor, packed according
+   to the value of PACKED.  */
 
 tree
-gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
+gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, gfc_packed packed)
 {
   tree range;
   tree type;
@@ -1031,7 +1036,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
   TYPE_LANG_SPECIFIC (type) = (struct lang_type *)
     ggc_alloc_cleared (sizeof (struct lang_type));
 
-  known_stride = (packed != 0);
+  known_stride = (packed != PACKED_NO);
   known_offset = 1;
   for (n = 0; n < as->rank; n++)
     {
@@ -1087,7 +1092,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
         }
 
       /* Only the first stride is known for partial packed arrays.  */
-      if (packed < 2)
+      if (packed == PACKED_NO || packed == PACKED_PARTIAL)
         known_stride = 0;
     }
 
@@ -1135,7 +1140,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
   mpz_clear (stride);
   mpz_clear (delta);
 
-  if (packed < 3 || !known_stride)
+  if (packed != PACKED_STATIC || !known_stride)
     {
       /* For dummy arrays and automatic (heap allocated) arrays we
 	 want a pointer to the array.  */
@@ -1345,7 +1350,8 @@ gfc_sym_type (gfc_symbol * sym)
 	      || sym->ts.cl->backend_decl)
 	    {
 	      type = gfc_get_nodesc_array_type (type, sym->as,
-						byref ? 2 : 3);
+						byref ? PACKED_FULL
+						      : PACKED_STATIC);
 	      byref = 0;
 	    }
         }
@@ -1441,7 +1447,7 @@ copy_dt_decls_ifequal (gfc_symbol *from, gfc_symbol *to)
   for (; to_cm; to_cm = to_cm->next, from_cm = from_cm->next)
     {
       to_cm->backend_decl = from_cm->backend_decl;
-      if (from_cm->ts.type == BT_DERIVED)
+      if (!from_cm->pointer && from_cm->ts.type == BT_DERIVED)
 	gfc_get_derived_type (to_cm->ts.derived);
 
       else if (from_cm->ts.type == BT_CHARACTER)
@@ -1463,7 +1469,6 @@ gfc_get_derived_type (gfc_symbol * derived)
   tree typenode, field, field_type, fieldlist;
   gfc_component *c;
   gfc_dt_list *dt;
-  gfc_namespace * ns;
 
   gcc_assert (derived && derived->attr.flavor == FL_DERIVED);
 
@@ -1479,39 +1484,6 @@ gfc_get_derived_type (gfc_symbol * derived)
     }
   else
     {
-      /* If an equal derived type is already available in the parent namespace,
-	 use its backend declaration and those of its components, rather than
-	 building anew so that potential dummy and actual arguments use the
-	 same TREE_TYPE.  If an equal type is found without a backend_decl,
-	 build the parent version and use it in the current namespace.  */
-      if (derived->ns->parent)
-	ns = derived->ns->parent;
-      else if (derived->ns->proc_name
-		 && derived->ns->proc_name->ns != derived->ns)
-	/* Derived types in an interface body obtain their parent reference
-	   through the proc_name symbol.  */
-	ns = derived->ns->proc_name->ns;
-      else
-	/* Sometimes there isn't a parent reference!  */
-	ns = NULL;
-
-      for (; ns; ns = ns->parent)
-	{
-	  for (dt = ns->derived_types; dt; dt = dt->next)
-	    {
-	      if (dt->derived == derived)
-		continue;
-
-	      if (dt->derived->backend_decl == NULL
-		    && gfc_compare_derived_types (dt->derived, derived))
-		gfc_get_derived_type (dt->derived);
-
-	      if (copy_dt_decls_ifequal (dt->derived, derived))
-		break;
-	    }
-	  if (derived->backend_decl)
-	    goto other_equal_dts;
-	}
 
       /* We see this derived type first time, so build the type node.  */
       typenode = make_node (RECORD_TYPE);
@@ -1567,7 +1539,8 @@ gfc_get_derived_type (gfc_symbol * derived)
 	      field_type = gfc_build_array_type (field_type, c->as);
 	    }
 	  else
-	    field_type = gfc_get_nodesc_array_type (field_type, c->as, 3);
+	    field_type = gfc_get_nodesc_array_type (field_type, c->as,
+						    PACKED_STATIC);
 	}
       else if (c->pointer)
 	field_type = build_pointer_type (field_type);
@@ -1591,12 +1564,8 @@ gfc_get_derived_type (gfc_symbol * derived)
 
   derived->backend_decl = typenode;
 
-other_equal_dts:
-  /* Add this backend_decl to all the other, equal derived types and
-     their components in this and sibling namespaces.  */
-  ns = derived->ns->parent ? derived->ns->parent->contained : derived->ns;
-  for (; ns; ns = ns->sibling)
-    for (dt = ns->derived_types; dt; dt = dt->next)
+    /* Add this backend_decl to all the other, equal derived types.  */
+    for (dt = gfc_derived_types; dt; dt = dt->next)
       copy_dt_decls_ifequal (derived, dt->derived);
 
   return derived->backend_decl;
@@ -1870,24 +1839,12 @@ gfc_type_for_mode (enum machine_mode mode, int unsignedp)
   return NULL_TREE;
 }
 
-/* Return a type the same as TYPE except unsigned or
-   signed according to UNSIGNEDP.  */
-
-tree
-gfc_signed_or_unsigned_type (int unsignedp, tree type)
-{
-  if (TREE_CODE (type) != INTEGER_TYPE || TYPE_UNSIGNED (type) == unsignedp)
-    return type;
-  else
-    return gfc_type_for_size (TYPE_PRECISION (type), unsignedp);
-}
-
 /* Return an unsigned type the same as TYPE in other respects.  */
 
 tree
 gfc_unsigned_type (tree type)
 {
-  return gfc_signed_or_unsigned_type (1, type);
+  return get_signed_or_unsigned_type (1, type);
 }
 
 /* Return a signed type the same as TYPE in other respects.  */
@@ -1895,7 +1852,7 @@ gfc_unsigned_type (tree type)
 tree
 gfc_signed_type (tree type)
 {
-  return gfc_signed_or_unsigned_type (0, type);
+  return get_signed_or_unsigned_type (0, type);
 }
 
 #include "gt-fortran-trans-types.h"

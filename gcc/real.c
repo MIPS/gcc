@@ -1791,9 +1791,10 @@ real_to_hexadecimal (char *str, const REAL_VALUE_TYPE *r, size_t buf_size,
 }
 
 /* Initialize R from a decimal or hexadecimal string.  The string is
-   assumed to have been syntax checked already.  */
+   assumed to have been syntax checked already.  Return -1 if the
+   value underflows, +1 if overflows, and 0 otherwise. */
 
-void
+int
 real_from_string (REAL_VALUE_TYPE *r, const char *str)
 {
   int exp = 0;
@@ -1865,7 +1866,7 @@ real_from_string (REAL_VALUE_TYPE *r, const char *str)
 
       /* If the mantissa is zero, ignore the exponent.  */
       if (!cmp_significand_0 (r))
-	goto underflow;
+	goto is_a_zero;
 
       if (*str == 'p' || *str == 'P')
 	{
@@ -1941,7 +1942,7 @@ real_from_string (REAL_VALUE_TYPE *r, const char *str)
 
       /* If the mantissa is zero, ignore the exponent.  */
       if (r->cl == rvc_zero)
-	goto underflow;
+	goto is_a_zero;
 
       if (*str == 'e' || *str == 'E')
 	{
@@ -1981,15 +1982,19 @@ real_from_string (REAL_VALUE_TYPE *r, const char *str)
     }
 
   r->sign = sign;
-  return;
+  return 0;
+
+ is_a_zero:
+  get_zero (r, sign);
+  return 0;
 
  underflow:
   get_zero (r, sign);
-  return;
+  return -1;
 
  overflow:
   get_inf (r, sign);
-  return;
+  return 1;
 }
 
 /* Legacy.  Similar, but return the result directly.  */
@@ -4986,29 +4991,58 @@ real_copysign (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *x)
    for initializing and clearing the MPFR parameter.  */
 
 void
-mpfr_from_real (mpfr_ptr m, const REAL_VALUE_TYPE *r)
+mpfr_from_real (mpfr_ptr m, const REAL_VALUE_TYPE *r, mp_rnd_t rndmode)
 {
   /* We use a string as an intermediate type.  */
   char buf[128];
   int ret;
 
+  /* Take care of Infinity and NaN.  */
+  if (r->cl == rvc_inf)
+    {
+      mpfr_set_inf (m, r->sign);
+      return;
+    }
+  
+  if (r->cl == rvc_nan)
+    {
+      mpfr_set_nan (m);
+      return;
+    }
+  
   real_to_hexadecimal (buf, r, sizeof (buf), 0, 1);
   /* mpfr_set_str() parses hexadecimal floats from strings in the same
      format that GCC will output them.  Nothing extra is needed.  */
-  ret = mpfr_set_str (m, buf, 16, GMP_RNDN);
+  ret = mpfr_set_str (m, buf, 16, rndmode);
   gcc_assert (ret == 0);
 }
 
-/* Convert from MPFR to REAL_VALUE_TYPE.  */
+/* Convert from MPFR to REAL_VALUE_TYPE, for a given type TYPE and rounding
+   mode RNDMODE.  TYPE is only relevant if M is a NaN.  */
 
 void
-real_from_mpfr (REAL_VALUE_TYPE *r, mpfr_srcptr m)
+real_from_mpfr (REAL_VALUE_TYPE *r, mpfr_srcptr m, tree type, mp_rnd_t rndmode)
 {
   /* We use a string as an intermediate type.  */
   char buf[128], *rstr;
   mp_exp_t exp;
 
-  rstr = mpfr_get_str (NULL, &exp, 16, 0, m, GMP_RNDN);
+  /* Take care of Infinity and NaN.  */
+  if (mpfr_inf_p (m))
+    {
+      real_inf (r);
+      if (mpfr_sgn (m) < 0)
+	*r = REAL_VALUE_NEGATE (*r);
+      return;
+    }
+
+  if (mpfr_nan_p (m))
+    {
+      real_nan (r, "", 1, TYPE_MODE (type));
+      return;
+    }
+
+  rstr = mpfr_get_str (NULL, &exp, 16, 0, m, rndmode);
 
   /* The additional 12 chars add space for the sprintf below.  This
      leaves 6 digits for the exponent which is supposedly enough.  */

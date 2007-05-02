@@ -46,8 +46,6 @@ struct sequence_stack GTY(())
   struct sequence_stack *next;
 };
 
-extern struct sequence_stack *sequence_stack;
-
 /* Stack of single obstacks.  */
 
 struct simple_obstack_stack
@@ -168,12 +166,12 @@ DEF_VEC_ALLOC_P(temp_slot_p,gc);
 
 enum function_frequency {
   /* This function most likely won't be executed at all.
-     (set only when profile feedback is available).  */
+     (set only when profile feedback is available or via function attribute). */
   FUNCTION_FREQUENCY_UNLIKELY_EXECUTED,
   /* The default value.  */
   FUNCTION_FREQUENCY_NORMAL,
   /* Optimize this function hard
-     (set only when profile feedback is available).  */
+     (set only when profile feedback is available or via function attribute). */
   FUNCTION_FREQUENCY_HOT
 };
 
@@ -348,9 +346,6 @@ struct function GTY(())
 
   /* Line number of the end of the function.  */
   location_t function_end_locus;
-
-  /* Array mapping insn uids to blocks.  */
-  VEC(tree,gc) *ib_boundaries_block;
 
   /* The variables unexpanded so far.  */
   tree unexpanded_var_list;
@@ -554,11 +549,6 @@ extern void number_blocks (tree);
 
 extern void clear_block_marks (tree);
 extern tree blocks_nreverse (tree);
-extern void reset_block_changes (void);
-extern void record_block_change (tree);
-extern void finalize_block_changes (void);
-extern void check_block_change (rtx, tree *);
-extern void free_block_changes (void);
 
 /* Return size needed for stack frame based on slots so far allocated.
    This size counts from zero.  It is not rounded to STACK_BOUNDARY;

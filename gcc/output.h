@@ -170,10 +170,6 @@ extern void emutls_finish (void);
    Prefixes such as % are optional.  */
 extern int decode_reg_name (const char *);
 
-/* Make the rtl for variable VAR be volatile.
-   Use this only for static variables.  */
-extern void make_var_volatile (tree);
-
 extern void assemble_alias (tree, tree);
 
 extern void default_assemble_visibility (tree, int);
@@ -271,6 +267,9 @@ extern bool assemble_integer (rtx, unsigned, unsigned, int);
 /* Assemble the floating-point constant D into an object of size MODE.  */
 extern void assemble_real (REAL_VALUE_TYPE, enum machine_mode, unsigned);
 #endif
+
+/* Write the address of the entity given by SYMBOL to SEC.  */
+extern void assemble_addr_to_section (rtx, section *);
 
 /* Return the size of the constant pool.  */
 extern int get_pool_size (void);
@@ -384,7 +383,6 @@ extern bool first_function_block_is_cold;
 /* Decide whether DECL needs to be in a writable section.
    RELOC is the same as for SELECT_SECTION.  */
 extern bool decl_readonly_section (tree, int);
-extern bool decl_readonly_section_1 (tree, int, int);
 
 /* This can be used to compute RELOC for the function above, when
    given a constant expression.  */
@@ -572,17 +570,20 @@ extern section *function_section (tree);
 extern section *unlikely_text_section (void);
 extern section *current_function_section (void);
 
+/* Return the numbered .ctors.N (if CONSTRUCTOR_P) or .dtors.N (if
+   not) section for PRIORITY.  */
+extern section *get_cdtor_priority_section (int, bool);
+
 extern bool unlikely_text_section_p (section *);
 extern void switch_to_section (section *);
 extern void output_section_asm_op (const void *);
 
 extern unsigned int default_section_type_flags (tree, const char *, int);
-extern unsigned int default_section_type_flags_1 (tree, const char *, int, int);
 
 extern bool have_global_bss_p (void);
 extern void default_no_named_section (const char *, unsigned int, tree);
 extern void default_elf_asm_named_section (const char *, unsigned int, tree);
-extern enum section_category categorize_decl_for_section (tree, int, int);
+extern enum section_category categorize_decl_for_section (tree, int);
 extern void default_coff_asm_named_section (const char *, unsigned int, tree);
 extern void default_pe_asm_named_section (const char *, unsigned int, tree);
 
@@ -593,15 +594,9 @@ extern void default_stabs_asm_out_constructor (rtx, int);
 extern void default_named_section_asm_out_constructor (rtx, int);
 extern void default_ctor_section_asm_out_constructor (rtx, int);
 
-extern section *default_select_section (tree, int,
-					       unsigned HOST_WIDE_INT);
-extern section *default_elf_select_section (tree, int,
-						   unsigned HOST_WIDE_INT);
-extern section *default_elf_select_section_1 (tree, int,
-						     unsigned HOST_WIDE_INT,
-						     int);
+extern section *default_select_section (tree, int, unsigned HOST_WIDE_INT);
+extern section *default_elf_select_section (tree, int, unsigned HOST_WIDE_INT);
 extern void default_unique_section (tree, int);
-extern void default_unique_section_1 (tree, int, int);
 extern section *default_function_rodata_section (tree);
 extern section *default_no_function_rodata_section (tree);
 extern section *default_select_rtx_section (enum machine_mode, rtx,

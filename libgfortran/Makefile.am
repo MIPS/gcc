@@ -1,13 +1,21 @@
 ## Process this file with automake to produce Makefile.in
 
 
-ACLOCAL_AMFLAGS = -I ../config
+ACLOCAL_AMFLAGS = -I .. -I ../config
 
 ## May be used by toolexeclibdir.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
+## Symbol versioning (copied from libssp).
+if LIBGFOR_USE_SYMVER
+version_arg = -Wl,--version-script=$(srcdir)/gfortran.map
+else
+version_arg =
+endif
+
 toolexeclib_LTLIBRARIES = libgfortran.la
-libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` -lm $(extra_ldflags_libgfortran)
+libgfortran_la_LINK = $(LINK)
+libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` -lm $(extra_ldflags_libgfortran) $(version_arg)
 
 myexeclib_LTLIBRARIES = libgfortranbegin.la
 myexeclibdir = $(libdir)/gcc/$(target_alias)/$(gcc_version)$(MULTISUBDIR)
@@ -97,6 +105,7 @@ runtime/in_pack_generic.c \
 runtime/in_unpack_generic.c
 
 gfor_src= \
+runtime/backtrace.c \
 runtime/compile_options.c \
 runtime/environ.c \
 runtime/error.c \
@@ -622,9 +631,10 @@ $(gfor_misc_specifics) \
 intrinsics/dprod_r8.f90 \
 intrinsics/f2c_specifics.F90
 
-# No install-html support yet.
-.PHONY: install-html
+# No install-html or install-pdf support in automake yet
+.PHONY: install-html install-pdf
 install-html:
+install-pdf:
 
 # Turn on vectorization and loop unrolling for matmul.
 $(patsubst %.c,%.lo,$(notdir $(i_matmul_c))): AM_CFLAGS += -ftree-vectorize -funroll-loops

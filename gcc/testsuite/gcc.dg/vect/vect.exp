@@ -65,6 +65,12 @@ if [istarget "powerpc*-*-*"] {
     lappend DEFAULT_VECTCFLAGS "-mcpu=ultrasparc" "-mvis"
     set dg-do-what-default run
 } elseif [istarget "alpha*-*-*"] {
+    # Alpha's vectorization capabilities are extremely limited.
+    # It's more effort than its worth disabling all of the tests
+    # that it cannot pass.  But if you actually want to see what
+    # does work, command out the return.
+    return
+
     lappend DEFAULT_VECTCFLAGS "-mmax"
     if [check_alpha_max_hw_available] {
 	set dg-do-what-default run
@@ -160,6 +166,12 @@ dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-trapping-math-*.\[cS\]]] 
 set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
 lappend DEFAULT_VECTCFLAGS "-fno-tree-scev-cprop"
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-tree-scev-cprop-*.\[cS\]]]  \
+	"" $DEFAULT_VECTCFLAGS
+
+# -fno-tree-dominator-opts
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fno-tree-dominator-opts"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-tree-dom-*.\[cS\]]]  \
 	"" $DEFAULT_VECTCFLAGS
 
 # With -Os

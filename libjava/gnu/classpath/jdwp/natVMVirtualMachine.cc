@@ -31,6 +31,7 @@ details. */
 #include <gnu/classpath/jdwp/Jdwp.h>
 #include <gnu/classpath/jdwp/JdwpConstants$StepDepth.h>
 #include <gnu/classpath/jdwp/JdwpConstants$StepSize.h>
+#include <gnu/classpath/jdwp/JdwpConstants$ThreadStatus.h>
 #include <gnu/classpath/jdwp/VMFrame.h>
 #include <gnu/classpath/jdwp/VMMethod.h>
 #include <gnu/classpath/jdwp/VMVirtualMachine.h>
@@ -46,6 +47,7 @@ details. */
 #include <gnu/classpath/jdwp/event/filters/IEventFilter.h>
 #include <gnu/classpath/jdwp/event/filters/LocationOnlyFilter.h>
 #include <gnu/classpath/jdwp/event/filters/StepFilter.h>
+#include <gnu/classpath/jdwp/exception/AbsentInformationException.h>
 #include <gnu/classpath/jdwp/exception/InvalidFrameException.h>
 #include <gnu/classpath/jdwp/exception/InvalidLocationException.h>
 #include <gnu/classpath/jdwp/exception/InvalidMethodException.h>
@@ -111,7 +113,13 @@ gnu::classpath::jdwp::VMVirtualMachine::initialize ()
   _stepping_threads = new ::java::util::Hashtable ();
 
   JavaVM *vm = _Jv_GetJavaVM ();
-  vm->GetEnv (reinterpret_cast<void **> (&_jdwp_jvmtiEnv), JVMTI_VERSION_1_0);
+  union
+  {
+    void *ptr;
+    jvmtiEnv *env;
+  } foo;
+  vm->GetEnv (&(foo.ptr), JVMTI_VERSION_1_0);
+  _jdwp_jvmtiEnv = foo.env;
 
   // Wait for VM_INIT to do more initialization
   jvmtiEventCallbacks callbacks;
@@ -439,16 +447,11 @@ gnu::classpath::jdwp::VMVirtualMachine::clearEvents (MAYBE_UNUSED jbyte kind)
 {
 }
 
-jint
-gnu::classpath::jdwp::VMVirtualMachine::getAllLoadedClassesCount (void)
-{
-  return 0;
-}
-
-java::util::Iterator *
+java::util::Collection *
 gnu::classpath::jdwp::VMVirtualMachine::getAllLoadedClasses (void)
 {
-  return NULL;
+  using namespace ::java::util;
+  return (Collection *) new ArrayList ();
 }
 
 jint
@@ -620,16 +623,44 @@ getFrameCount (Thread *thread)
 
 jint
 gnu::classpath::jdwp::VMVirtualMachine::
-getThreadStatus (MAYBE_UNUSED Thread *thread)
+getThreadStatus (Thread *thread)
 {
-  return 0;
+  jint thr_state, status;
+  
+  jvmtiError jerr = _jdwp_jvmtiEnv->GetThreadState (thread, &thr_state);
+  if (jerr != JVMTI_ERROR_NONE)
+    throw_jvmti_error (jerr);
+  
+  if (thr_state & JVMTI_THREAD_STATE_SLEEPING)
+    status = gnu::classpath::jdwp::JdwpConstants$ThreadStatus::SLEEPING;
+  else if (thr_state & JVMTI_THREAD_STATE_RUNNABLE)
+    status = gnu::classpath::jdwp::JdwpConstants$ThreadStatus::RUNNING;
+  else if (thr_state & JVMTI_THREAD_STATE_WAITING)
+    {
+      if (thr_state & (JVMTI_THREAD_STATE_IN_OBJECT_WAIT
+                       | JVMTI_THREAD_STATE_BLOCKED_ON_MONITOR_ENTER))
+        status = gnu::classpath::jdwp::JdwpConstants$ThreadStatus::MONITOR;
+      else
+        status = gnu::classpath::jdwp::JdwpConstants$ThreadStatus::WAIT;
+    }
+  else
+    {
+      // The thread is not SLEEPING, MONITOR, or WAIT.  It may, however, be
+      // alive but not yet started.
+      if (!(thr_state & (JVMTI_THREAD_STATE_ALIVE 
+                         | JVMTI_THREAD_STATE_TERMINATED)))
+        status = gnu::classpath::jdwp::JdwpConstants$ThreadStatus::RUNNING;
+      status = gnu::classpath::jdwp::JdwpConstants$ThreadStatus::ZOMBIE;     
+    }   
+
+  return status;
 }
 
 java::util::ArrayList *
 gnu::classpath::jdwp::VMVirtualMachine::
 getLoadRequests (MAYBE_UNUSED ClassLoader *cl)
 {
-  return NULL;
+  return new ::java::util::ArrayList ();
 }
 
 MethodResult *
@@ -644,9 +675,71 @@ executeMethod (MAYBE_UNUSED jobject obj, MAYBE_UNUSED Thread *thread,
 
 jstring
 gnu::classpath::jdwp::VMVirtualMachine::
-getSourceFile (MAYBE_UNUSED jclass clazz)
+getSourceFile (jclass clazz)
+{
+  jstring file = _Jv_GetInterpClassSourceFile (clazz);
+  
+  // Check if the source file was found.
+  if (file == NULL)
+    throw new exception::AbsentInformationException (
+                           _Jv_NewStringUTF("Source file not found"));
+  
+  return file;
+}
+
+void
+gnu::classpath::jdwp::VMVirtualMachine::
+redefineClasses (MAYBE_UNUSED JArray<jclass> *types,
+		 MAYBE_UNUSED JArray<jbyteArray> *bytecodes)
+{
+}
+
+void
+gnu::classpath::jdwp::VMVirtualMachine::
+setDefaultStratum (MAYBE_UNUSED jstring stratum)
+{
+}
+
+jstring
+gnu::classpath::jdwp::VMVirtualMachine::
+getSourceDebugExtension (MAYBE_UNUSED jclass klass)
 {
   return NULL;
+}
+
+jbyteArray
+gnu::classpath::jdwp::VMVirtualMachine::
+getBytecodes (MAYBE_UNUSED gnu::classpath::jdwp::VMMethod *method)
+{
+  return NULL;
+}
+
+gnu::classpath::jdwp::util::MonitorInfo *
+gnu::classpath::jdwp::VMVirtualMachine::
+getMonitorInfo (MAYBE_UNUSED jobject obj)
+{
+  return NULL;
+}
+
+jobjectArray
+gnu::classpath::jdwp::VMVirtualMachine::
+getOwnedMonitors (MAYBE_UNUSED ::java::lang::Thread *thread)
+{
+  return NULL;
+}
+
+jobject
+gnu::classpath::jdwp::VMVirtualMachine::
+getCurrentContendedMonitor (MAYBE_UNUSED ::java::lang::Thread *thread)
+{
+  return NULL;
+}
+
+void
+gnu::classpath::jdwp::VMVirtualMachine::
+popFrames (MAYBE_UNUSED ::java::lang::Thread *thread,
+	   MAYBE_UNUSED jlong frameId)
+{
 }
 
 // A simple caching function used while single-stepping

@@ -1,5 +1,6 @@
 /* params.def - Run-time parameters.
-   Copyright (C) 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007 
+   Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -452,6 +453,41 @@ DEFPARAM(PARAM_SCEV_MAX_EXPR_SIZE,
 	 "Bound on size of expressions used in the scalar evolutions analyzer",
 	 20, 0, 0)
 
+DEFPARAM(PARAM_OMEGA_MAX_VARS,
+ 	 "omega-max-vars",
+	 "Bound on the number of variables in Omega constraint systems",
+	 128, 0, 0)
+
+DEFPARAM(PARAM_OMEGA_MAX_GEQS,
+ 	 "omega-max-geqs",
+	 "Bound on the number of inequalities in Omega constraint systems",
+	 256, 0, 0)
+
+DEFPARAM(PARAM_OMEGA_MAX_EQS,
+ 	 "omega-max-eqs",
+	 "Bound on the number of equalities in Omega constraint systems",
+	 128, 0, 0)
+
+DEFPARAM(PARAM_OMEGA_MAX_WILD_CARDS,
+ 	 "omega-max-wild-cards",
+	 "Bound on the number of wild cards in Omega constraint systems",
+	 18, 0, 0)
+
+DEFPARAM(PARAM_OMEGA_HASH_TABLE_SIZE,
+ 	 "omega-hash-table-size",
+	 "Bound on the size of the hash table in Omega constraint systems",
+	 550, 0, 0)
+
+DEFPARAM(PARAM_OMEGA_MAX_KEYS,
+ 	 "omega-max-keys",
+	 "Bound on the number of keys in Omega constraint systems",
+	 500, 0, 0)
+
+DEFPARAM(PARAM_OMEGA_ELIMINATE_REDUNDANT_CONSTRAINTS,
+ 	 "omega-eliminate-redundant-constraints",
+	 "When set to 1, use expensive methods to eliminate all redundant constraints",
+	 0, 0, 1)
+
 DEFPARAM(PARAM_VECT_MAX_VERSION_CHECKS,
          "vect-max-version-checks",
          "Bound on number of runtime checks inserted by the vectorizer's loop versioning",
@@ -494,8 +530,13 @@ DEFPARAM(PARAM_MAX_RELOAD_SEARCH_INSNS,
 
 DEFPARAM(PARAM_MAX_ALIASED_VOPS,
          "max-aliased-vops",
-	 "The maximum number of virtual operators per statement allowed to represent aliases before triggering alias grouping",
-	 10, 0, 0)
+	 "The maximum number of virtual operators that a function is allowed to have before triggering memory partitioning heuristics",
+	 100, 0, 0)
+
+DEFPARAM(PARAM_AVG_ALIASED_VOPS,
+    	 "avg-aliased-vops",
+	 "The average number of virtual operators that memory statements are allowed to have before triggering memory partitioning heuristics",
+	 1, 0, 0)
 
 DEFPARAM(PARAM_MAX_SCHED_REGION_BLOCKS,
 	 "max-sched-region-blocks",
@@ -648,4 +689,5 @@ DEFPARAM (PARAM_VERIFY_CANONICAL_TYPES,
 /*
 Local variables:
 mode:c
-End: */
+End:
+*/

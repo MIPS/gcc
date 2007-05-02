@@ -65,12 +65,6 @@ struct nb_iter_bound
      are executed at most BOUND times.  */
   bool is_exit;
 
-  /* True if the bound is "realistic" -- i.e., most likely the loop really has
-     number of iterations close to the bound.  Exact bounds (if the number of
-     iterations of a loop is a constant) and bounds derived from the size of
-     data accessed in the loop are considered realistic.  */
-  bool realistic;
-
   /* The next bound in the list.  */
   struct nb_iter_bound *next;
 };
@@ -148,12 +142,18 @@ struct loop
     {
       /* Estimate was not computed yet.  */
       EST_NOT_COMPUTED,
-      /* Estimate was computed, but we could derive no useful bound.  */
-      EST_NOT_AVAILABLE,
       /* Estimate is ready.  */
       EST_AVAILABLE
     } estimate_state;
-  double_int estimated_nb_iterations;
+
+  /* An integer guaranteed to bound the number of iterations of the loop
+     from above.  */
+  bool any_upper_bound;
+  double_int nb_iterations_upper_bound;
+
+  /* An integer giving the expected number of iterations of the loop.  */
+  bool any_estimate;
+  double_int nb_iterations_estimate;
 
   /* Upper bound on number of iterations of a loop.  */
   struct nb_iter_bound *bounds;
@@ -169,7 +169,8 @@ enum
   LOOPS_HAVE_SIMPLE_LATCHES = 2,
   LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS = 4,
   LOOPS_HAVE_RECORDED_EXITS = 8,
-  LOOPS_MAY_HAVE_MULTIPLE_LATCHES = 16
+  LOOPS_MAY_HAVE_MULTIPLE_LATCHES = 16,
+  LOOP_CLOSED_SSA = 32
 };
 
 #define LOOPS_NORMAL (LOOPS_HAVE_PREHEADERS | LOOPS_HAVE_SIMPLE_LATCHES \
@@ -262,11 +263,13 @@ extern void verify_loop_structure (void);
 
 /* Loop analysis.  */
 extern bool just_once_each_iteration_p (const struct loop *, basic_block);
+gcov_type expected_loop_iterations_unbounded (const struct loop *);
 extern unsigned expected_loop_iterations (const struct loop *);
 extern rtx doloop_condition_get (rtx);
 
 void estimate_numbers_of_iterations_loop (struct loop *);
 HOST_WIDE_INT estimated_loop_iterations_int (struct loop *, bool);
+bool estimated_loop_iterations (struct loop *, bool, double_int *);
 
 /* Loop manipulation.  */
 extern bool can_duplicate_loop_p (struct loop *loop);
@@ -559,18 +562,14 @@ fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
 
 /* The properties of the target.  */
 
-extern unsigned target_avail_regs;	/* Number of available registers.  */
-extern unsigned target_res_regs;	/* Number of reserved registers.  */
-extern unsigned target_small_cost;	/* The cost for register when there
-					   is a free one.  */
-extern unsigned target_pres_cost;	/* The cost for register when there are
-					   not too many free ones.  */
-extern unsigned target_spill_cost;	/* The cost for register when we need
-					   to spill.  */
+extern unsigned target_avail_regs;
+extern unsigned target_res_regs;
+extern unsigned target_reg_cost;
+extern unsigned target_spill_cost;
 
 /* Register pressure estimation for induction variable optimizations & loop
    invariant motion.  */
-extern unsigned global_cost_for_size (unsigned, unsigned, unsigned);
+extern unsigned estimate_reg_pressure_cost (unsigned, unsigned);
 extern void init_set_costs (void);
 
 /* Loop optimizer initialization.  */

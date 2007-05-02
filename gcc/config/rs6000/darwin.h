@@ -122,9 +122,14 @@
   "%{!m64:%:version-compare(!> 10.4 mmacosx-version-min= crt2.o%s)}"
 
 /* Determine a minimum version based on compiler options.  */
-#define DARWIN_MINVERSION_SPEC	\
-  "%{m64:10.4;			\
-     shared-libgcc:10.3;	\
+#define DARWIN_MINVERSION_SPEC					\
+  "%{m64:%{fgnu-runtime:10.4;					\
+	   ,objective-c|,objc-cpp-output:10.5;			\
+	   ,objective-c-header:10.5;				\
+	   ,objective-c++|,objective-c++-cpp-output:10.5;	\
+	   ,objective-c++-header|,objc++-cpp-output:10.5;	\
+	   :10.4};						\
+     shared-libgcc:10.3;					\
      :10.1}"
 
 #undef SUBTARGET_EXTRA_SPECS
@@ -237,8 +242,6 @@
 
 /* This says how to output an assembler line to define a global common
    symbol.  */
-/* ? */
-#undef  ASM_OUTPUT_ALIGNED_COMMON
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)			\
   do {									\
     unsigned HOST_WIDE_INT _new_size = SIZE;				\
@@ -350,9 +353,6 @@
    ? GENERAL_REGS						\
    : (CLASS))
 
-/* Fix for emit_group_load (): force large constants to be pushed via regs.  */
-#define ALWAYS_PUSH_CONSTS_USING_REGS_P		1
-
 /* Compute field alignment.  This is similar to the version of the
    macro in the Apple version of GCC, except that version supports
    'mac68k' alignment, and that version uses the computed alignment
@@ -408,8 +408,6 @@
 #ifndef __LP64__
 #define MD_UNWIND_SUPPORT "config/rs6000/darwin-unwind.h"
 #endif
-
-#define HAS_MD_FALLBACK_FRAME_STATE_FOR 1
 
 /* True, iff we're generating fast turn around debugging code.  When
    true, we arrange for function prologues to start with 5 nops so

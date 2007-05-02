@@ -99,6 +99,22 @@ gfc_resolve_access (gfc_expr *f, gfc_expr *name ATTRIBUTE_UNUSED,
 
 
 void
+gfc_resolve_achar (gfc_expr *f, gfc_expr *x)
+{
+  
+  f->ts.type = BT_CHARACTER;
+  f->ts.kind = gfc_default_character_kind;
+  f->ts.cl = gfc_get_charlen ();
+  f->ts.cl->next = gfc_current_ns->cl_list;
+  gfc_current_ns->cl_list = f->ts.cl;
+  f->ts.cl->length = gfc_int_expr (1);
+
+  f->value.function.name
+    = gfc_get_string ("__achar_%c%d", gfc_type_letter (x->ts.type), x->ts.kind);
+}
+
+
+void
 gfc_resolve_acos (gfc_expr *f, gfc_expr *x)
 {
   f->ts = x->ts;
@@ -988,7 +1004,7 @@ gfc_resolve_ishftc (gfc_expr *f, gfc_expr *i, gfc_expr *shift, gfc_expr *size)
 {
   int s_kind;
 
-  s_kind = (size == NULL) ? gfc_default_integer_kind : shift->ts.kind;
+  s_kind = (size == NULL) ? gfc_default_integer_kind : size->ts.kind;
 
   f->ts = i->ts;
   f->value.function.name
@@ -2386,8 +2402,6 @@ gfc_resolve_alarm_sub (gfc_code *c)
 
   if (seconds->ts.kind != gfc_c_int_kind)
     gfc_convert_type (seconds, &ts, 2);
-  if (status != NULL && status->ts.kind != gfc_c_int_kind)
-    gfc_convert_type (status, &ts, 2);
 
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }

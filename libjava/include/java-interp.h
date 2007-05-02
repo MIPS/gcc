@@ -202,7 +202,7 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   }
 
   // return the method's invocation pointer (a stub).
-  void *ncode ();
+  void *ncode (jclass);
   void compile (const void * const *);
 
   static void run_normal (ffi_cif*, void*, ffi_raw*, void*);
@@ -293,6 +293,7 @@ class _Jv_InterpClass
   _Jv_MethodBase **interpreted_methods;
   _Jv_ushort     *field_initializers;
   jstring source_file_name;
+  _Jv_ClosureList **closures;
 
   friend class _Jv_ClassReader;
   friend class _Jv_InterpMethod;
@@ -305,6 +306,7 @@ class _Jv_InterpClass
 #endif
 
   friend _Jv_MethodBase ** _Jv_GetFirstMethod (_Jv_InterpClass *klass);
+  friend jstring _Jv_GetInterpClassSourceFile (jclass);
 };
 
 extern inline _Jv_MethodBase **
@@ -341,7 +343,7 @@ class _Jv_JNIMethod : public _Jv_MethodBase
   // This function is used when making a JNI call from the interpreter.
   static void call (ffi_cif *, void *, ffi_raw *, void *);
 
-  void *ncode ();
+  void *ncode (jclass);
 
   friend class _Jv_ClassReader;
   friend class _Jv_InterpreterEngine;
@@ -420,6 +422,9 @@ public:
     pc_t pc;
     jclass proxyClass;
   };
+  
+  // Pointer to the actual pc value.
+  pc_t *pc_ptr;
 
   //Debug info for local variables.
   _Jv_word *locals;
@@ -428,7 +433,8 @@ public:
   // Object pointer for this frame ("this")
   jobject obj_ptr;
 
-  _Jv_InterpFrame (void *meth, java::lang::Thread *thr, jclass proxyCls = NULL)
+  _Jv_InterpFrame (void *meth, java::lang::Thread *thr, jclass proxyCls = NULL,
+                   pc_t *pc = NULL)
   : _Jv_Frame (reinterpret_cast<_Jv_MethodBase *> (meth), thr,
 	             frame_interpreter)
   {
@@ -436,6 +442,7 @@ public:
     proxyClass = proxyCls;
     thr->interp_frame = (gnu::gcj::RawData *) this;
     obj_ptr = NULL;
+    pc_ptr = pc;
   }
 
   ~_Jv_InterpFrame ()
@@ -446,7 +453,20 @@ public:
   jobject get_this_ptr ()
   {
     return obj_ptr;
-  } 
+  }
+  
+  pc_t get_pc ()
+  {
+    pc_t pc;
+    
+    // If the PC_PTR is NULL, we are not debugging.
+    if (pc_ptr == NULL)
+      pc = 0;
+    else
+      pc = *pc_ptr;
+    
+    return pc - 1;
+  }
 };
 
 // A native frame in the call stack really just a placeholder

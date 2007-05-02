@@ -1,5 +1,5 @@
 ; Options for the C, ObjC, C++ and ObjC++ front ends.
-; Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -133,7 +133,7 @@ C ObjC Var(warn_bad_function_cast) Warning
 Warn about casting functions to incompatible types
 
 Wc++-compat
-C Var(warn_cxx_compat) Warning
+C ObjC Var(warn_cxx_compat) Warning
 Warn about C constructs that are not in the common subset of C and C++
 
 Wc++0x-compat
@@ -177,7 +177,7 @@ C++ ObjC++ Var(warn_deprecated) Init(1) Warning
 Warn about deprecated compiler features
 
 Wdiv-by-zero
-C ObjC C++ Var(warn_div_by_zero) Init(1) Warning
+C ObjC C++ ObjC++ Var(warn_div_by_zero) Init(1) Warning
 Warn about compile-time integer division by zero
 
 Weffc++
@@ -215,6 +215,10 @@ Warn if passing too many arguments to a function for its format string
 Wformat-nonliteral
 C ObjC C++ ObjC++ Var(warn_format_nonliteral) Warning
 Warn about format strings that are not literals
+
+Wformat-contains-nul
+C ObjC C++ ObjC++ Var(warn_format_contains_nul) Warning
+Warn about format strings that contain NUL bytes
 
 Wformat-security
 C ObjC C++ ObjC++ Var(warn_format_security) Warning
@@ -450,6 +454,10 @@ Wvariadic-macros
 C ObjC C++ ObjC++ Warning
 Do not warn about using variadic macros when -pedantic
 
+Wvla
+C ObjC C++ ObjC++ Var(warn_vla) Init(-1) Warning
+Warn if a variable length array is used
+
 Wwrite-strings
 C ObjC C++ ObjC++ Var(warn_write_strings) Warning
 In C++, nonzero means warn about deprecated conversion from string literals to `char *'.  In C, similar warning, except that the conversion is of course not deprecated by the ISO C standard.
@@ -554,6 +562,10 @@ fgnu-runtime
 ObjC ObjC++
 Generate code for GNU runtime environment
 
+fgnu89-inline
+C ObjC Var(flag_gnu89_inline) Init(-1)
+Use traditional GNU semantics for inline functions
+
 fguiding-decls
 C++ ObjC++
 
@@ -584,7 +596,7 @@ C++ ObjC++
 Emit implicit instantiations of templates
 
 ffriend-injection
-C++ Var(flag_friend_injection)
+C++ ObjC++ Var(flag_friend_injection)
 Inject friend functions into enclosing namespace
 
 flabels-ok
@@ -778,6 +790,18 @@ Generate lazy class lookup (via objc_getClass()) for use in Zero-Link mode
 gen-decls
 ObjC ObjC++
 Dump declarations to a .decl file
+
+femit-struct-debug-baseonly
+C ObjC C++ ObjC++
+-femit-struct-debug-baseonly	Aggressive reduced debug info for structs
+
+femit-struct-debug-reduced
+C ObjC C++ ObjC++
+-femit-struct-debug-reduced	Conservative reduced debug info for structs
+
+femit-struct-debug-detailed=
+C ObjC C++ ObjC++ Joined
+-femit-struct-debug-detailed=<spec-list>	Detailed reduced debug info for structs
 
 idirafter
 C ObjC C++ ObjC++ Joined Separate

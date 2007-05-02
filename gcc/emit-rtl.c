@@ -3077,6 +3077,37 @@ prev_cc0_setter (rtx insn)
 }
 #endif
 
+#ifdef AUTO_INC_DEC
+/* Find a RTX_AUTOINC class rtx which matches DATA.  */
+
+static int
+find_auto_inc (rtx *xp, void *data)
+{
+  rtx x = *xp;
+  rtx reg = data;
+
+  if (GET_RTX_CLASS (GET_CODE (x)) != RTX_AUTOINC)
+    return 0;
+
+  switch (GET_CODE (x))
+    {
+      case PRE_DEC:
+      case PRE_INC:
+      case POST_DEC:
+      case POST_INC:
+      case PRE_MODIFY:
+      case POST_MODIFY:
+	if (rtx_equal_p (reg, XEXP (x, 0)))
+	  return 1;
+	break;
+
+      default:
+	gcc_unreachable ();
+    }
+  return -1;
+}
+#endif
+
 /* Increment the label uses for all labels present in rtx.  */
 
 static void
@@ -3201,8 +3232,7 @@ try_split (rtx pat, rtx trial, int last)
       switch (REG_NOTE_KIND (note))
 	{
 	case REG_EH_REGION:
-	  insn = insn_last;
-	  while (insn != NULL_RTX)
+	  for (insn = insn_last; insn != NULL_RTX; insn = PREV_INSN (insn))
 	    {
 	      if (CALL_P (insn)
 		  || (flag_non_call_exceptions && INSN_P (insn)
@@ -3211,36 +3241,44 @@ try_split (rtx pat, rtx trial, int last)
 		  = gen_rtx_EXPR_LIST (REG_EH_REGION,
 				       XEXP (note, 0),
 				       REG_NOTES (insn));
-	      insn = PREV_INSN (insn);
 	    }
 	  break;
 
 	case REG_NORETURN:
 	case REG_SETJMP:
-	  insn = insn_last;
-	  while (insn != NULL_RTX)
+	  for (insn = insn_last; insn != NULL_RTX; insn = PREV_INSN (insn))
 	    {
 	      if (CALL_P (insn))
 		REG_NOTES (insn)
 		  = gen_rtx_EXPR_LIST (REG_NOTE_KIND (note),
 				       XEXP (note, 0),
 				       REG_NOTES (insn));
-	      insn = PREV_INSN (insn);
 	    }
 	  break;
 
 	case REG_NON_LOCAL_GOTO:
-	  insn = insn_last;
-	  while (insn != NULL_RTX)
+	  for (insn = insn_last; insn != NULL_RTX; insn = PREV_INSN (insn))
 	    {
 	      if (JUMP_P (insn))
 		REG_NOTES (insn)
 		  = gen_rtx_EXPR_LIST (REG_NOTE_KIND (note),
 				       XEXP (note, 0),
 				       REG_NOTES (insn));
-	      insn = PREV_INSN (insn);
 	    }
 	  break;
+
+#ifdef AUTO_INC_DEC
+	case REG_INC:
+	  for (insn = insn_last; insn != NULL_RTX; insn = PREV_INSN (insn))
+	    {
+	      rtx reg = XEXP (note, 0);
+	      if (!FIND_REG_INC_NOTE (insn, reg)
+		  && for_each_rtx (&PATTERN (insn), find_auto_inc, reg) > 0)
+		REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC, reg,
+						      REG_NOTES (insn));
+	    }
+	  break;
+#endif
 
 	default:
 	  break;
@@ -3298,7 +3336,7 @@ make_insn_raw (rtx pattern)
   INSN_CODE (insn) = -1;
   LOG_LINKS (insn) = NULL;
   REG_NOTES (insn) = NULL;
-  INSN_LOCATOR (insn) = 0;
+  INSN_LOCATOR (insn) = curr_insn_locator ();
   BLOCK_FOR_INSN (insn) = NULL;
 
 #ifdef ENABLE_RTL_CHECKING
@@ -3331,7 +3369,7 @@ make_jump_insn_raw (rtx pattern)
   LOG_LINKS (insn) = NULL;
   REG_NOTES (insn) = NULL;
   JUMP_LABEL (insn) = NULL;
-  INSN_LOCATOR (insn) = 0;
+  INSN_LOCATOR (insn) = curr_insn_locator ();
   BLOCK_FOR_INSN (insn) = NULL;
 
   return insn;
@@ -3352,7 +3390,7 @@ make_call_insn_raw (rtx pattern)
   LOG_LINKS (insn) = NULL;
   REG_NOTES (insn) = NULL;
   CALL_INSN_FUNCTION_USAGE (insn) = NULL;
-  INSN_LOCATOR (insn) = 0;
+  INSN_LOCATOR (insn) = curr_insn_locator ();
   BLOCK_FOR_INSN (insn) = NULL;
 
   return insn;
@@ -4182,7 +4220,10 @@ emit_insn_before_setloc (rtx pattern, rtx before, int loc)
   if (pattern == NULL_RTX || !loc)
     return last;
 
-  first = NEXT_INSN (first);
+  if (!first)
+    first = get_insns ();
+  else
+    first = NEXT_INSN (first);
   while (1)
     {
       if (active_insn_p (first) && !INSN_LOCATOR (first))
@@ -4417,42 +4458,6 @@ emit_barrier (void)
   INSN_UID (barrier) = cur_insn_uid++;
   add_insn (barrier);
   return barrier;
-}
-
-/* Make line numbering NOTE insn for LOCATION add it to the end
-   of the doubly-linked list, but only if line-numbers are desired for
-   debugging info and it doesn't match the previous one.  */
-
-rtx
-emit_line_note (location_t location)
-{
-  rtx note;
-  
-#ifdef USE_MAPPED_LOCATION
-  if (location == last_location)
-    return NULL_RTX;
-#else
-  if (location.file && last_location.file
-      && !strcmp (location.file, last_location.file)
-      && location.line == last_location.line)
-    return NULL_RTX;
-#endif
-  last_location = location;
-  
-  if (no_line_numbers)
-    {
-      cur_insn_uid++;
-      return NULL_RTX;
-    }
-
-#ifdef USE_MAPPED_LOCATION
-  note = emit_note ((int) location);
-#else
-  note = emit_note (location.line);
-  NOTE_SOURCE_FILE (note) = location.file;
-#endif
-  
-  return note;
 }
 
 /* Emit a copy of note ORIG.  */

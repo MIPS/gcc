@@ -48,7 +48,6 @@ static void record_effective_endpoints (void);
 static rtx label_for_bb (basic_block);
 static void fixup_reorder_chain (void);
 
-static void set_block_levels (tree, int);
 static void change_scope (rtx, tree, tree);
 
 void verify_insn_chain (void);
@@ -232,109 +231,138 @@ record_effective_endpoints (void)
    than the following one.  Similarly for the other properties.  */
 static VEC(int,heap) *block_locators_locs;
 static GTY(()) VEC(tree,gc) *block_locators_blocks;
-static VEC(int,heap) *line_locators_locs;
-static VEC(int,heap) *line_locators_lines;
-static VEC(int,heap) *file_locators_locs;
-static GTY(()) varray_type file_locators_files;
+static VEC(int,heap) *locations_locators_locs;
+DEF_VEC_O(location_t);
+DEF_VEC_ALLOC_O(location_t,heap);
+static VEC(location_t,heap) *locations_locators_vals;
 int prologue_locator;
 int epilogue_locator;
 
-/* During the RTL expansion the lexical blocks and line numbers are
-   represented via INSN_NOTEs.  Replace them by representation using
-   INSN_LOCATORs.  */
+/* Hold current location information and last location information, so the
+   datastructures are built lazilly only when some instructions in given
+   place are needed.  */
+location_t curr_location, last_location;
+static tree curr_block, last_block;
+static int curr_rtl_loc = -1;
 
-unsigned int
-insn_locators_initialize (void)
+/* Allocate insn locator datastructure.  */
+void
+insn_locators_alloc (void)
 {
-  tree block = NULL;
-  tree last_block = NULL;
-  rtx insn, next;
-  int loc = 0;
-  int line_number = 0, last_line_number = 0;
-  const char *file_name = NULL, *last_file_name = NULL;
-
   prologue_locator = epilogue_locator = 0;
 
   block_locators_locs = VEC_alloc (int, heap, 32);
   block_locators_blocks = VEC_alloc (tree, gc, 32);
-  line_locators_locs = VEC_alloc (int, heap, 32);
-  line_locators_lines = VEC_alloc (int, heap, 32);
-  file_locators_locs = VEC_alloc (int, heap, 32);
-  VARRAY_CHAR_PTR_INIT (file_locators_files, 32, "file_locators_files");
+  locations_locators_locs = VEC_alloc (int, heap, 32);
+  locations_locators_vals = VEC_alloc (location_t, heap, 32);
 
-  for (insn = get_insns (); insn; insn = next)
+#ifdef USE_MAPPED_LOCATION
+  last_location = -1;
+  curr_location = -1;
+#else
+  last_location.line = -1;
+  curr_location.line = -1;
+#endif
+  curr_block = NULL;
+  last_block = NULL;
+  curr_rtl_loc = 0;
+}
+
+/* At the end of emit stage, clear current location.  */
+void
+insn_locators_finalize (void)
+{
+  if (curr_rtl_loc >= 0)
+    epilogue_locator = curr_insn_locator ();
+  curr_rtl_loc = -1;
+}
+
+/* Set current location.  */
+void
+set_curr_insn_source_location (location_t location)
+{
+  /* IV opts calls into RTL expansion to compute costs of operations.  At this
+     time locators are not initialized.  */
+  if (curr_rtl_loc == -1)
+    return;
+#ifdef USE_MAPPED_LOCATION
+  if (location == last_location)
+    return;
+#else
+  if (location.file && last_location.file
+      && !strcmp (location.file, last_location.file)
+      && location.line == last_location.line)
+    return;
+#endif
+  curr_location = location;
+}
+
+/* Set current scope block. */
+void
+set_curr_insn_block (tree b)
+{
+  /* IV opts calls into RTL expansion to compute costs of operations.  At this
+     time locators are not initialized.  */
+  if (curr_rtl_loc == -1)
+    return;
+  if (b)
+    curr_block = b;
+}
+
+/* Return current insn locator.  */
+int
+curr_insn_locator (void)
+{
+  if (curr_rtl_loc == -1)
+    return 0;
+  if (last_block != curr_block)
     {
-      int active = 0;
-
-      next = NEXT_INSN (insn);
-
-      if (NOTE_P (insn))
-	{
-	  gcc_assert (NOTE_LINE_NUMBER (insn) != NOTE_INSN_BLOCK_BEG
-		      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BLOCK_END);
-	  if (NOTE_LINE_NUMBER (insn) > 0)
-	    {
-	      expanded_location xloc;
-	      NOTE_EXPANDED_LOCATION (xloc, insn);
-	      line_number = xloc.line;
-	      file_name = xloc.file;
-	      delete_insn (insn);
-	    }
-	}
-      else
-	active = (active_insn_p (insn)
-		  && GET_CODE (PATTERN (insn)) != ADDR_VEC
-		  && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC);
-
-      check_block_change (insn, &block);
-
-      if (active
-	  || !next
-	  || (!prologue_locator && file_name))
-	{
-	  if (last_block != block)
-	    {
-	      loc++;
-	      VEC_safe_push (int, heap, block_locators_locs, loc);
-	      VEC_safe_push (tree, gc, block_locators_blocks, block);
-	      last_block = block;
-	    }
-	  if (last_line_number != line_number)
-	    {
-	      loc++;
-	      VEC_safe_push (int, heap, line_locators_locs, loc);
-	      VEC_safe_push (int, heap, line_locators_lines, line_number);
-	      last_line_number = line_number;
-	    }
-	  if (last_file_name != file_name)
-	    {
-	      loc++;
-	      VEC_safe_push (int, heap, file_locators_locs, loc);
-	      VARRAY_PUSH_CHAR_PTR (file_locators_files, (char *) file_name);
-	      last_file_name = file_name;
-	    }
-	  if (!prologue_locator && file_name)
-	    prologue_locator = loc;
-	  if (!next)
-	    epilogue_locator = loc;
-	  if (active)
-	    INSN_LOCATOR (insn) = loc;
-	}
+      curr_rtl_loc++;
+      VEC_safe_push (int, heap, block_locators_locs, curr_rtl_loc);
+      VEC_safe_push (tree, gc, block_locators_blocks, curr_block);
+      last_block = curr_block;
     }
+#ifdef USE_MAPPED_LOCATION
+  if (last_location != curr_location)
+#else
+  if (last_location.file != curr_location.file
+      || last_location.line != curr_location.line)
+#endif
+    {
+      curr_rtl_loc++;
+      VEC_safe_push (int, heap, locations_locators_locs, curr_rtl_loc);
+      VEC_safe_push (location_t, heap, locations_locators_vals, &curr_location);
+      last_location = curr_location;
+    }
+  return curr_rtl_loc;
+}
 
-  /* Tag the blocks with a depth number so that change_scope can find
-     the common parent easily.  */
-  set_block_levels (DECL_INITIAL (cfun->decl), 0);
-
-  free_block_changes ();
+static unsigned int
+into_cfg_layout_mode (void)
+{
+  cfg_layout_initialize (0);
   return 0;
 }
 
-struct tree_opt_pass pass_insn_locators_initialize =
+static unsigned int
+outof_cfg_layout_mode (void)
 {
-  "locators",                           /* name */
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    if (bb->next_bb != EXIT_BLOCK_PTR)
+      bb->aux = bb->next_bb;
+
+  cfg_layout_finalize ();
+
+  return 0;
+}
+
+struct tree_opt_pass pass_into_cfg_layout_mode =
+{
+  "into_cfglayout",                     /* name */
   NULL,                                 /* gate */
-  insn_locators_initialize,             /* execute */
+  into_cfg_layout_mode,                 /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -347,20 +375,22 @@ struct tree_opt_pass pass_insn_locators_initialize =
   0                                     /* letter */
 };
 
-
-/* For each lexical block, set BLOCK_NUMBER to the depth at which it is
-   found in the block tree.  */
-
-static void
-set_block_levels (tree block, int level)
+struct tree_opt_pass pass_outof_cfg_layout_mode =
 {
-  while (block)
-    {
-      BLOCK_NUMBER (block) = level;
-      set_block_levels (BLOCK_SUBBLOCKS (block), level + 1);
-      block = BLOCK_CHAIN (block);
-    }
-}
+  "outof_cfglayout",                    /* name */
+  NULL,                                 /* gate */
+  outof_cfg_layout_mode,                /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
 
 /* Return sope resulting from combination of S1 and S2.  */
 static tree
@@ -460,18 +490,16 @@ insn_scope (rtx insn)
 }
 
 /* Return line number of the statement specified by the locator.  */
-int
-locator_line (int loc)
+static location_t
+locator_location (int loc)
 {
-  int max = VEC_length (int, line_locators_locs);
+  int max = VEC_length (int, locations_locators_locs);
   int min = 0;
 
-  if (!max || !loc)
-    return 0;
   while (1)
     {
       int pos = (min + max) / 2;
-      int tmp = VEC_index (int, line_locators_locs, pos);
+      int tmp = VEC_index (int, locations_locators_locs, pos);
 
       if (tmp <= loc && min != pos)
 	min = pos;
@@ -483,7 +511,19 @@ locator_line (int loc)
 	  break;
 	}
     }
-  return VEC_index (int, line_locators_lines, min);
+  return *VEC_index (location_t, locations_locators_vals, min);
+}
+
+/* Return source line of the statement that produced this insn.  */
+int
+locator_line (int loc)
+{
+  expanded_location xloc;
+  if (!loc)
+    return 0;
+  else
+    xloc = expand_location (locator_location (loc));
+  return xloc.line;
 }
 
 /* Return line number of the statement that produced this insn.  */
@@ -497,27 +537,12 @@ insn_line (rtx insn)
 const char *
 locator_file (int loc)
 {
-  int max = VEC_length (int, file_locators_locs);
-  int min = 0;
-
-  if (!max || !loc)
-    return NULL;
-  while (1)
-    {
-      int pos = (min + max) / 2;
-      int tmp = VEC_index (int, file_locators_locs, pos);
-
-      if (tmp <= loc && min != pos)
-	min = pos;
-      else if (tmp > loc && max != pos)
-	max = pos;
-      else
-	{
-	  min = pos;
-	  break;
-	}
-    }
-   return VARRAY_CHAR_PTR (file_locators_files, min);
+  expanded_location xloc;
+  if (!loc)
+    return 0;
+  else
+    xloc = expand_location (locator_location (loc));
+  return xloc.file;
 }
 
 /* Return source file of the statement that produced this insn.  */
@@ -580,13 +605,83 @@ reemit_insn_block_notes (void)
   reorder_blocks ();
 }
 
+
+/* Link the basic blocks in the correct order, compacting the basic
+   block queue while at it.  This also clears the visited flag on
+   all basic blocks.  If STAY_IN_CFGLAYOUT_MODE is false, this function
+   also clears the basic block header and footer fields.
+
+   This function is usually called after a pass (e.g. tracer) finishes
+   some transformations while in cfglayout mode.  The required sequence
+   of the basic blocks is in a linked list along the bb->aux field.
+   This functions re-links the basic block prev_bb and next_bb pointers
+   accordingly, and it compacts and renumbers the blocks.  */
+
+void
+relink_block_chain (bool stay_in_cfglayout_mode)
+{
+  basic_block bb, prev_bb;
+  int index;
+
+  /* Maybe dump the re-ordered sequence.  */
+  if (dump_file)
+    {
+      fprintf (dump_file, "Reordered sequence:\n");
+      for (bb = ENTRY_BLOCK_PTR->next_bb, index = NUM_FIXED_BLOCKS;
+	   bb;
+	   bb = bb->aux, index++)
+	{
+	  fprintf (dump_file, " %i ", index);
+	  if (get_bb_original (bb))
+	    fprintf (dump_file, "duplicate of %i ",
+		     get_bb_original (bb)->index);
+	  else if (forwarder_block_p (bb)
+		   && !LABEL_P (BB_HEAD (bb)))
+	    fprintf (dump_file, "compensation ");
+	  else
+	    fprintf (dump_file, "bb %i ", bb->index);
+	  fprintf (dump_file, " [%i]\n", bb->frequency);
+	}
+    }
+
+  /* Now reorder the blocks.  */
+  prev_bb = ENTRY_BLOCK_PTR;
+  bb = ENTRY_BLOCK_PTR->next_bb;
+  for (; bb; prev_bb = bb, bb = bb->aux)
+    {
+      bb->prev_bb = prev_bb;
+      prev_bb->next_bb = bb;
+    }
+  prev_bb->next_bb = EXIT_BLOCK_PTR;
+  EXIT_BLOCK_PTR->prev_bb = prev_bb;
+
+  /* Then, clean up the aux and visited fields.  */
+  FOR_ALL_BB (bb)
+    {
+      bb->aux = NULL;
+      bb->il.rtl->visited = 0;
+      if (!stay_in_cfglayout_mode)
+	bb->il.rtl->header = bb->il.rtl->footer = NULL;
+    }
+
+  /* Maybe reset the original copy tables, they are not valid anymore
+     when we renumber the basic blocks in compact_blocks.  If we are
+     are going out of cfglayout mode, don't re-allocate the tables.  */
+  free_original_copy_tables ();
+  if (stay_in_cfglayout_mode)
+    initialize_original_copy_tables ();
+  
+  /* Finally, put basic_block_info in the new order.  */
+  compact_blocks ();
+}
+
+
 /* Given a reorder chain, rearrange the code to match.  */
 
 static void
 fixup_reorder_chain (void)
 {
-  basic_block bb, prev_bb;
-  int index;
+  basic_block bb;
   rtx insn = NULL;
 
   if (cfg_layout_function_header)
@@ -600,9 +695,7 @@ fixup_reorder_chain (void)
   /* First do the bulk reordering -- rechain the blocks without regard to
      the needed changes to jumps and labels.  */
 
-  for (bb = ENTRY_BLOCK_PTR->next_bb, index = NUM_FIXED_BLOCKS;
-       bb != 0;
-       bb = bb->aux, index++)
+  for (bb = ENTRY_BLOCK_PTR->next_bb; bb; bb = bb->aux)
     {
       if (bb->il.rtl->header)
 	{
@@ -630,8 +723,6 @@ fixup_reorder_chain (void)
 	}
     }
 
-  gcc_assert (index == n_basic_blocks);
-
   NEXT_INSN (insn) = cfg_layout_function_footer;
   if (cfg_layout_function_footer)
     PREV_INSN (cfg_layout_function_footer) = insn;
@@ -643,7 +734,6 @@ fixup_reorder_chain (void)
 #ifdef ENABLE_CHECKING
   verify_insn_chain ();
 #endif
-  delete_dead_jumptables ();
 
   /* Now add jumps and labels as needed to match the blocks new
      outgoing edges.  */
@@ -784,42 +874,7 @@ fixup_reorder_chain (void)
 	}
     }
 
-  /* Put basic_block_info in the new order.  */
-
-  if (dump_file)
-    {
-      fprintf (dump_file, "Reordered sequence:\n");
-      for (bb = ENTRY_BLOCK_PTR->next_bb, index = NUM_FIXED_BLOCKS;
-	   bb;
-	   bb = bb->aux, index++)
-	{
-	  fprintf (dump_file, " %i ", index);
-	  if (get_bb_original (bb))
-	    fprintf (dump_file, "duplicate of %i ",
-		     get_bb_original (bb)->index);
-	  else if (forwarder_block_p (bb)
-		   && !LABEL_P (BB_HEAD (bb)))
-	    fprintf (dump_file, "compensation ");
-	  else
-	    fprintf (dump_file, "bb %i ", bb->index);
-	  fprintf (dump_file, " [%i]\n", bb->frequency);
-	}
-    }
-
-  prev_bb = ENTRY_BLOCK_PTR;
-  bb = ENTRY_BLOCK_PTR->next_bb;
-  index = NUM_FIXED_BLOCKS;
-
-  for (; bb; prev_bb = bb, bb = bb->aux, index ++)
-    {
-      bb->index = index;
-      SET_BASIC_BLOCK (index, bb);
-
-      bb->prev_bb = prev_bb;
-      prev_bb->next_bb = bb;
-    }
-  prev_bb->next_bb = EXIT_BLOCK_PTR;
-  EXIT_BLOCK_PTR->prev_bb = prev_bb;
+  relink_block_chain (/*stay_in_cfglayout_mode=*/false);
 
   /* Annoying special case - jump around dead jumptables left in the code.  */
   FOR_EACH_BB (bb)
@@ -1125,8 +1180,6 @@ break_superblocks (void)
 void
 cfg_layout_finalize (void)
 {
-  basic_block bb;
-
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
@@ -1139,23 +1192,13 @@ cfg_layout_finalize (void)
     fixup_fallthru_exit_predecessor ();
   fixup_reorder_chain ();
 
+  rebuild_jump_labels (get_insns ());
+  delete_dead_jumptables ();
+
 #ifdef ENABLE_CHECKING
   verify_insn_chain ();
-#endif
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-  {
-    bb->il.rtl->header = bb->il.rtl->footer = NULL;
-    bb->aux = NULL;
-    bb->il.rtl->visited = 0;
-  }
-
-  break_superblocks ();
-
-#ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
-
-  free_original_copy_tables ();
 }
 
 /* Checks whether all N blocks in BBS array can be copied.  */

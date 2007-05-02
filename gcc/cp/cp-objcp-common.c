@@ -124,6 +124,20 @@ cp_tree_size (enum tree_code code)
     case DEFAULT_ARG:		return sizeof (struct tree_default_arg);
     case OVERLOAD:		return sizeof (struct tree_overload);
     case STATIC_ASSERT:         return sizeof (struct tree_static_assert);
+    case TYPE_ARGUMENT_PACK:
+    case TYPE_PACK_EXPANSION:
+      return sizeof (struct tree_common);
+
+    case NONTYPE_ARGUMENT_PACK:
+    case EXPR_PACK_EXPANSION:
+      return sizeof (struct tree_exp);
+
+    case ARGUMENT_PACK_SELECT:
+      return sizeof (struct tree_argument_pack_select);
+
+    case TRAIT_EXPR:
+      return sizeof (struct tree_trait_expr);
+
     default:
       gcc_unreachable ();
     }
