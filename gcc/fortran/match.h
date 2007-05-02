@@ -1,5 +1,6 @@
 /* All matcher functions.
-   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005, 2007
+   Free Software Foundation, Inc.
    Contributed by Steven Bosscher
 
 This file is part of GCC.
@@ -35,9 +36,9 @@ extern gfc_st_label *gfc_statement_label;
 
 /****************** All gfc_match* routines *****************/
 
-/* match.c */
+/* match.c.  */
 
-/* Generic match subroutines */
+/* Generic match subroutines.  */
 match gfc_match_space (void);
 match gfc_match_eos (void);
 match gfc_match_small_literal_int (int *, int *);
@@ -47,7 +48,7 @@ match gfc_match_small_int (int *);
 match gfc_match_small_int_expr (int *, gfc_expr **);
 int gfc_match_strings (mstring *);
 match gfc_match_name (char *);
-match gfc_match_name_C(char *buffer);
+match gfc_match_name_C (char *buffer);
 match gfc_match_symbol (gfc_symbol **, int);
 match gfc_match_sym_tree (gfc_symtree **, int);
 match gfc_match_intrinsic_op (gfc_intrinsic_op *);
@@ -55,7 +56,7 @@ match gfc_match_char (char);
 match gfc_match (const char *, ...);
 match gfc_match_iterator (gfc_iterator *, int);
 
-/* Statement matchers */
+/* Statement matchers.  */
 match gfc_match_program (void);
 match gfc_match_pointer_assignment (void);
 match gfc_match_assignment (void);
@@ -76,14 +77,15 @@ match gfc_match_nullify (void);
 match gfc_match_deallocate (void);
 match gfc_match_return (void);
 match gfc_match_call (void);
-/* want to use this function to check for a common-block-name
- * that can exist in a bind statement, so i remove the "static"
- * declaration of the function in match.c.  --Rickett, 10.17.05
- *
- * should probably rename this now that it'll be globally seen to
- * something like gfc_match_common_name.  --Rickett, 10.17.05
- */
+
+/* We want to use this function to check for a common-block-name
+   that can exist in a bind statement, so removed the "static"
+   declaration of the function in match.c.
+ 
+   TODO: should probably rename this now that it'll be globally seen to
+   gfc_match_common_name.  */
 match match_common_name (char *name);
+
 match gfc_match_common (void);
 match gfc_match_block_data (void);
 match gfc_match_namelist (void);
@@ -100,9 +102,9 @@ match gfc_match_forall (gfc_statement *);
 
 gfc_common_head *gfc_get_common (const char *, int);
 
-/* openmp.c */
+/* openmp.c.  */
 
-/* OpenMP directive matchers */
+/* OpenMP directive matchers.  */
 match gfc_match_omp_eos (void);
 match gfc_match_omp_atomic (void);
 match gfc_match_omp_barrier (void);
@@ -122,7 +124,7 @@ match gfc_match_omp_workshare (void);
 match gfc_match_omp_end_nowait (void);
 match gfc_match_omp_end_single (void);
 
-/* decl.c */
+/* decl.c.  */
 
 match gfc_match_data (void);
 match gfc_match_null (gfc_expr **);
@@ -142,7 +144,7 @@ match gfc_match_implicit (void);
 
 void gfc_set_constant_character_len (int, gfc_expr *, bool);
 
-/* Matchers for attribute declarations */
+/* Matchers for attribute declarations.  */
 match gfc_match_allocatable (void);
 match gfc_match_dimension (void);
 match gfc_match_external (void);
@@ -161,23 +163,22 @@ match gfc_match_target (void);
 match gfc_match_value (void);
 match gfc_match_volatile (void);
 
-/* F03 c interop */
-/* some of these should be moved to another file rather than decl.c */
-/* decl.c */
-void set_com_block_bind_c (gfc_common_head *com_block, int is_bind_c);
-try set_binding_label (char *dest_label, const char *sym_name,
-                       int num_idents);
-try set_verify_bind_c_sym (gfc_symbol *tmp_sym, int num_idents);
-try set_verify_bind_c_com_block (gfc_common_head *com_block,
-                                 int num_idents);
+/* decl.c.  */
+
+/* Fortran 2003 c interop.
+   TODO: some of these should be moved to another file rather than decl.c */
+void set_com_block_bind_c (gfc_common_head *, int);
+try set_binding_label (char *, const char *, int);
+try set_verify_bind_c_sym (gfc_symbol *, int);
+try set_verify_bind_c_com_block (gfc_common_head *, int);
 try get_bind_c_idents (void);
 match gfc_match_bind_c_stmt (void);
 match gfc_match_proc_decl_stmt (void);
-match gfc_match_suffix (gfc_symbol *sym, gfc_symbol **result);
-match gfc_match_bind_c (gfc_symbol *sym);
-match gfc_get_type_attr_spec (symbol_attribute *attr);
+match gfc_match_suffix (gfc_symbol *, gfc_symbol **);
+match gfc_match_bind_c (gfc_symbol *);
+match gfc_get_type_attr_spec (symbol_attribute *);
 
-/* primary.c */
+/* primary.c.  */
 match gfc_match_structure_constructor (gfc_symbol *, gfc_expr **);
 match gfc_match_rvalue (gfc_expr **);
 match gfc_match_variable (gfc_expr **, int);
@@ -190,17 +191,17 @@ match gfc_match_literal_constant (gfc_expr **, int);
    only makes sure the init expr. is valid.  */
 match gfc_match_init_expr (gfc_expr **);
 
-/* array.c */
+/* array.c.  */
 match gfc_match_array_spec (gfc_array_spec **);
 match gfc_match_array_ref (gfc_array_ref *, gfc_array_spec *, int);
 match gfc_match_array_constructor (gfc_expr **);
 
-/* interface.c */
+/* interface.c.  */
 match gfc_match_generic_spec (interface_type *, char *, gfc_intrinsic_op *);
 match gfc_match_interface (void);
 match gfc_match_end_interface (void);
 
-/* io.c  */
+/* io.c.   */
 match gfc_match_format (void);
 match gfc_match_open (void);
 match gfc_match_close (void);
@@ -213,11 +214,11 @@ match gfc_match_read (void);
 match gfc_match_write (void);
 match gfc_match_print (void);
 
-/* matchexp.c */
+/* matchexp.c.  */
 match gfc_match_defined_op_name (char *, int);
 match gfc_match_expr (gfc_expr **);
 
-/* module.c */
+/* module.c.  */
 match gfc_match_use (void);
 void gfc_use_module (void);
 

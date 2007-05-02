@@ -397,13 +397,12 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
 int
 gfc_compare_types (gfc_typespec *ts1, gfc_typespec *ts2)
 {
-  /* see if one of the typespecs is a BT_VOID, which is what i'm using
-   * to allow the funcs like c_f_pointer to accept any pointer type.
-   * possibly should narrow this to just the one typespec coming in that
-   * is for the formal arg, but oh well..  --Rickett, 12.13.05
-   */
-   if(ts1->type == BT_VOID || ts2->type == BT_VOID)
-      return 1;
+  /* See if one of the typespecs is a BT_VOID, which is what is being used
+     to allow the funcs like c_f_pointer to accept any pointer type.
+     TODO: Possibly should narrow this to just the one typespec coming in
+     that is for the formal arg, but oh well.  */
+  if (ts1->type == BT_VOID || ts2->type == BT_VOID)
+    return 1;
    
   if (ts1->type != ts2->type)
     return 0;
@@ -431,7 +430,7 @@ compare_type_rank (gfc_symbol *s1, gfc_symbol *s2)
   r2 = (s2->as != NULL) ? s2->as->rank : 0;
 
   if (r1 != r2)
-    return 0;			/* Ranks differ */
+    return 0;			/* Ranks differ.  */
 
   return gfc_compare_types (&s1->ts, &s2->ts);
 }
@@ -758,7 +757,7 @@ count_types_test (gfc_formal_arglist *f1, gfc_formal_arglist *f2)
 	continue;
 
       if (arg[i].sym && arg[i].sym->attr.optional)
-	continue;		/* Skip optional arguments */
+	continue;		/* Skip optional arguments.  */
 
       arg[i].flag = k;
 
@@ -907,13 +906,13 @@ compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, int generic_flag)
 
   if (s1->attr.function != s2->attr.function
       && s1->attr.subroutine != s2->attr.subroutine)
-    return 0;			/* disagreement between function/subroutine */
+    return 0;		/* Disagreement between function/subroutine.  */
 
   f1 = s1->formal;
   f2 = s2->formal;
 
   if (f1 == NULL && f2 == NULL)
-    return 1;			/* Special case */
+    return 1;			/* Special case.  */
 
   if (count_types_test (f1, f2))
     return 0;
@@ -973,7 +972,7 @@ check_interface0 (gfc_interface *p, const char *interface_name)
 	    }
 	  else
 	    {
-	      /* Duplicate interface */
+	      /* Duplicate interface.  */
 	      qlast->next = q->next;
 	      gfc_free (q);
 	      q = qlast->next;
@@ -986,8 +985,7 @@ check_interface0 (gfc_interface *p, const char *interface_name)
 
 
 /* Check lists of interfaces to make sure that no two interfaces are
-   ambiguous.  Duplicate interfaces (from the same symbol) are OK
-   here.  */
+   ambiguous.  Duplicate interfaces (from the same symbol) are OK here.  */
 
 static int
 check_interface1 (gfc_interface *p, gfc_interface *q0,
@@ -999,7 +997,7 @@ check_interface1 (gfc_interface *p, gfc_interface *q0,
     for (q = q0; q; q = q->next)
       {
 	if (p->sym == q->sym)
-	  continue;		/* Duplicates OK here */
+	  continue;		/* Duplicates OK here.  */
 
 	if (p->sym->name == q->sym->name && p->sym->module == q->sym->module)
 	  continue;
@@ -1213,7 +1211,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 
       if (formal->attr.if_source == IFSRC_UNKNOWN
 	  || actual->symtree->n.sym->attr.external)
-	return 1;		/* Assume match */
+	return 1;		/* Assume match.  */
 
       return compare_interfaces (formal, actual->symtree->n.sym, 0);
     }
@@ -1246,7 +1244,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
       break;
 
   if (ref == NULL)
-    return 0;			/* Not an array element */
+    return 0;			/* Not an array element.  */
 
   return 1;
 }
@@ -1897,7 +1895,7 @@ find_sym_in_symtree (gfc_symbol *sym)
   if (st && st->n.sym == sym)
     return st;
 
-  /* if it's been renamed, resort to a brute-force search.  */
+  /* If it's been renamed, resort to a brute-force search.  */
   /* TODO: avoid having to do this search.  If the symbol doesn't exist
      in the symtree for the current namespace, it should probably be added.  */
   for (ns = gfc_current_ns; ns; ns = ns->parent)
@@ -1907,7 +1905,7 @@ find_sym_in_symtree (gfc_symbol *sym)
 	return st;
     }
   gfc_internal_error ("Unable to find symbol %s", sym->name);
-  /* Not reached */
+  /* Not reached.  */
 }
 
 
@@ -1966,7 +1964,7 @@ gfc_extend_expr (gfc_expr *e)
 
   if (sym == NULL)
     {
-      /* Don't use gfc_free_actual_arglist() */
+      /* Don't use gfc_free_actual_arglist().  */
       if (actual->next != NULL)
 	gfc_free (actual->next);
       gfc_free (actual);
@@ -2055,7 +2053,7 @@ gfc_extend_assign (gfc_code *c, gfc_namespace *ns)
    procedures can be present without interfaces.  */
 
 static try
-check_new_interface (gfc_interface * base, gfc_symbol * new)
+check_new_interface (gfc_interface *base, gfc_symbol *new)
 {
   gfc_interface *ip;
 

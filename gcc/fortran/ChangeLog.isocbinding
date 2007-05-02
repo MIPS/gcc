@@ -3,9 +3,18 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-05-02  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* interface.c: Whitespace.  Fix comment punctuation and grammar. 
+	* module.c: Ditto.
+	* match.c: Ditto.
+	* gfortran.h: Whitespace.  Fix comment punctuation and grammar.
+	Remove symbols in prototypes.
+	* match.h: Ditto.
+
 2007-04-30  Steven G. Kargl  <kargl@gcc.gnu.org>
 
-	* symbol.c:  Whitespace.  Fix comment punctuation and gammar. 
+	* symbol.c:  Whitespace.  Fix comment punctuation and grammar. 
 	* decl.c:  Ditto.
 	* trans-common.c: Ditto.
 	* expr.c: Ditto.

@@ -157,13 +157,11 @@ typedef enum
 { FORM_FREE, FORM_FIXED, FORM_UNKNOWN }
 gfc_source_form;
 
+/* Basic types.  BT_VOID is used by ISO C BInding so funcs like c_f_pointer
+   can take any arg with the pointer attribute as a param.  */
 typedef enum
 { BT_UNKNOWN = 1, BT_INTEGER, BT_REAL, BT_COMPLEX,
   BT_LOGICAL, BT_CHARACTER, BT_DERIVED, BT_PROCEDURE, BT_HOLLERITH,
-  /* this is so funcs like c_f_pointer can take any arg with the
-   * pointer attribute as a param.
-   * --Rickett, 12.13.05
-   */
   BT_VOID
 }
 bt;
@@ -616,8 +614,8 @@ typedef struct
   /* Special attributes for Cray pointers, pointees.  */
   unsigned cray_pointer:1, cray_pointee:1;
 
-  /* The symbol is a derived type with allocatable components, possibly nested.
-   */
+  /* The symbol is a derived type with allocatable components, possibly
+     nested.  */
   unsigned alloc_comp:1;
 
   /* The namespace where the VOLATILE attribute has been set.  */
@@ -972,12 +970,11 @@ typedef struct gfc_symbol
      it uniquely identifies a symbol from an intrinsic module.  */
   int intmod_sym_id;
 
-   /* this may be repetitive, since the typespec now has a binding
-    * label field.  --Rickett, 10.17.05
-    */
-   char binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
-   /* store a reference to the common_block, if this symbol is in one */
-   struct gfc_common_head *common_block;
+  /* This may be repetitive, since the typespec now has a binding
+     label field.  */
+  char binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
+  /* Store a reference to the common_block, if this symbol is in one.  */
+  struct gfc_common_head *common_block;
 }
 gfc_symbol;
 
@@ -1282,8 +1279,7 @@ gfc_simplify_f;
 
 /* Again like gfc_check_f, these specify the type of the resolution
    function associated with an intrinsic. The fX are just like in
-   gfc_check_f. f1m is used for MIN and MAX, s1 is used for abort().
-   */
+   gfc_check_f. f1m is used for MIN and MAX, s1 is used for abort().  */
 
 typedef union
 {
@@ -1855,7 +1851,7 @@ extern locus gfc_current_locus;
 /* misc.c */
 void *gfc_getmem (size_t) ATTRIBUTE_MALLOC;
 void gfc_free (void *);
-int gfc_terminal_width(void);
+int gfc_terminal_width (void);
 void gfc_clear_ts (gfc_typespec *);
 FILE *gfc_open_file (const char *);
 const char *gfc_basic_typename (bt);
@@ -1873,7 +1869,7 @@ void gfc_init_2 (void);
 void gfc_done_1 (void);
 void gfc_done_2 (void);
 
-int get_c_kind(const char *c_kind_name, CInteropKind_t kinds_table[]);
+int get_c_kind (const char *, CInteropKind_t *);
 
 /* options.c */
 unsigned int gfc_init_options (unsigned int, const char **);
@@ -1931,8 +1927,8 @@ gfc_expr *gfc_enum_initializer (gfc_expr *, locus);
 arith gfc_check_integer_range (mpz_t p, int kind);
 
 /* trans-types.c */
-try gfc_validate_c_kind(gfc_typespec *ts);
-try gfc_check_any_c_kind (gfc_typespec *ts);
+try gfc_validate_c_kind (gfc_typespec *);
+try gfc_check_any_c_kind (gfc_typespec *);
 int gfc_validate_kind (bt, int, bool);
 extern int gfc_index_integer_kind;
 extern int gfc_default_integer_kind;
@@ -1961,7 +1957,7 @@ try gfc_set_default_type (gfc_symbol *, int, gfc_namespace *);
 void gfc_set_component_attr (gfc_component *, symbol_attribute *);
 void gfc_get_component_attr (symbol_attribute *, gfc_component *);
 
-void gfc_set_sym_referenced (gfc_symbol * sym);
+void gfc_set_sym_referenced (gfc_symbol *);
 
 try gfc_add_attribute (symbol_attribute *, locus *);
 try gfc_add_allocatable (symbol_attribute *, locus *);
@@ -1972,7 +1968,7 @@ try gfc_add_optional (symbol_attribute *, locus *);
 try gfc_add_pointer (symbol_attribute *, locus *);
 try gfc_add_cray_pointer (symbol_attribute *, locus *);
 try gfc_add_cray_pointee (symbol_attribute *, locus *);
-try gfc_mod_pointee_as (gfc_array_spec *as);
+try gfc_mod_pointee_as (gfc_array_spec *);
 try gfc_add_protected (symbol_attribute *, const char *, locus *);
 try gfc_add_result (symbol_attribute *, const char *, locus *);
 try gfc_add_save (symbol_attribute *, const char *, locus *);
@@ -1995,8 +1991,7 @@ try gfc_add_subroutine (symbol_attribute *, const char *, locus *);
 try gfc_add_volatile (symbol_attribute *, const char *, locus *);
 
 try gfc_add_access (symbol_attribute *, gfc_access, const char *, locus *);
-try gfc_add_is_bind_c(symbol_attribute *, const char *,locus *,
-                      int is_proc_lang_bind_spec);
+try gfc_add_is_bind_c(symbol_attribute *, const char *, locus *, int);
 try gfc_add_value (symbol_attribute *, const char *, locus *);
 try gfc_add_flavor (symbol_attribute *, sym_flavor, const char *, locus *);
 try gfc_add_entry (symbol_attribute *, const char *, locus *);
@@ -2031,16 +2026,14 @@ gfc_symbol *gfc_new_symbol (const char *, gfc_namespace *);
 int gfc_find_symbol (const char *, gfc_namespace *, int, gfc_symbol **);
 int gfc_find_sym_tree (const char *, gfc_namespace *, int, gfc_symtree **);
 int gfc_get_symbol (const char *, gfc_namespace *, gfc_symbol **);
-try verify_c_interop (gfc_typespec *ts, const char *name, locus *where);
-try verify_c_interop_param (gfc_symbol *sym);
-try verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
-                       int is_in_common, gfc_common_head *com_block);
-try verify_bind_c_derived_type (gfc_symbol *derived_sym);
-try verify_com_block_vars_c_interop (gfc_common_head *com_block);
+try verify_c_interop (gfc_typespec *, const char *name, locus *where);
+try verify_c_interop_param (gfc_symbol *);
+try verify_bind_c_sym (gfc_symbol *, gfc_typespec *, int, gfc_common_head *);
+try verify_bind_c_derived_type (gfc_symbol *);
+try verify_com_block_vars_c_interop (gfc_common_head *);
 void generate_isocbinding_symbol (const char *, iso_c_binding_symbol, char *);
-gfc_symbol *get_iso_c_sym (gfc_symbol *old_sym, char *new_name,
-                           char *new_binding_label, int add_optional_arg);
-void copy_formal_args (gfc_symbol *dest, gfc_symbol *src);
+gfc_symbol *get_iso_c_sym (gfc_symbol *, char *, char *, int);
+void copy_formal_args (gfc_symbol *, gfc_symbol *);
 int gfc_get_sym_tree (const char *, gfc_namespace *, gfc_symtree **);
 int gfc_get_ha_symbol (const char *, gfc_symbol **);
 int gfc_get_ha_sym_tree (const char *, gfc_symtree **);
@@ -2049,7 +2042,7 @@ int gfc_symbols_could_alias (gfc_symbol *, gfc_symbol *);
 
 void gfc_undo_symbols (void);
 void gfc_commit_symbols (void);
-void gfc_commit_symbol (gfc_symbol * sym);
+void gfc_commit_symbol (gfc_symbol *);
 void gfc_free_namespace (gfc_namespace *);
 
 void gfc_symbol_init_2 (void);
@@ -2144,7 +2137,7 @@ try gfc_check_assign_symbol (gfc_symbol *, gfc_expr *);
 gfc_expr *gfc_default_initializer (gfc_typespec *);
 gfc_expr *gfc_get_variable_expr (gfc_symtree *);
 
-void gfc_expr_set_symbols_referenced (gfc_expr * expr);
+void gfc_expr_set_symbols_referenced (gfc_expr *);
 
 /* st.c */
 extern gfc_code new_st;
@@ -2166,7 +2159,7 @@ try gfc_resolve_iterator (gfc_iterator *, bool);
 try gfc_resolve_index (gfc_expr *, int);
 try gfc_resolve_dim_arg (gfc_expr *);
 int gfc_is_formal_arg (void);
-match gfc_iso_c_sub_interface(gfc_code *c, gfc_symbol *sym);
+match gfc_iso_c_sub_interface(gfc_code *, gfc_symbol *);
 
 
 /* array.c */
@@ -2191,7 +2184,7 @@ try gfc_resolve_array_constructor (gfc_expr *);
 try gfc_check_constructor_type (gfc_expr *);
 try gfc_check_iter_variable (gfc_expr *);
 try gfc_check_constructor (gfc_expr *, try (*)(gfc_expr *));
-gfc_constructor *gfc_copy_constructor (gfc_constructor * src);
+gfc_constructor *gfc_copy_constructor (gfc_constructor * );
 gfc_expr *gfc_get_array_element (gfc_expr *, int);
 try gfc_array_size (gfc_expr *, mpz_t *);
 try gfc_array_dimen_size (gfc_expr *, int, mpz_t *);
@@ -2199,7 +2192,7 @@ try gfc_array_ref_shape (gfc_array_ref *, mpz_t *);
 gfc_array_ref *gfc_find_array_ref (gfc_expr *);
 void gfc_insert_constructor (gfc_expr *, gfc_constructor *);
 gfc_constructor *gfc_get_constructor (void);
-tree gfc_conv_array_initializer (tree type, gfc_expr * expr);
+tree gfc_conv_array_initializer (tree type, gfc_expr *);
 try spec_size (gfc_array_spec *, mpz_t *);
 int gfc_is_compile_time_shape (gfc_array_spec *);
 
@@ -2214,7 +2207,7 @@ gfc_symbol *gfc_search_interface (gfc_interface *, int,
 try gfc_extend_expr (gfc_expr *);
 void gfc_free_formal_arglist (gfc_formal_arglist *);
 try gfc_extend_assign (gfc_code *, gfc_namespace *);
-try gfc_add_interface (gfc_symbol * sym);
+try gfc_add_interface (gfc_symbol *);
 
 /* io.c */
 extern gfc_st_label format_asterisk;

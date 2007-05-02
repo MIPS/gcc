@@ -409,6 +409,7 @@ find_pointer2 (void *p)
 
 
 /* Resolve any fixups using a known pointer.  */
+
 static void
 resolve_fixups (fixup_t *f, void *gp)
 {
@@ -609,7 +610,7 @@ gfc_match_use (void)
 	  if (type == INTERFACE_USER_OP && m == MATCH_YES
 	      && (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Renaming "
 				  "operators in USE statements at %C")
-	         == FAILURE))
+		 == FAILURE))
 	    goto cleanup;
 
 	  if (only_flag)
@@ -996,7 +997,7 @@ parse_string (void)
 
   len = 0;
 
-  /* See how long the string is */
+  /* See how long the string is.  */
   for ( ; ; )
     {
       c = module_char ();
@@ -1027,11 +1028,11 @@ parse_string (void)
     {
       c = module_char ();
       if (c == '\'')
-	module_char ();		/* Guaranteed to be another \'  */
+	module_char ();		/* Guaranteed to be another \'.  */
       *p++ = c;
     }
 
-  module_char ();		/* Terminating \'  */
+  module_char ();		/* Terminating \'.  */
   *p = '\0';			/* C-style string for debug purposes.  */
 }
 
@@ -1196,7 +1197,7 @@ parse_atom (void)
       bad_module ("Bad name");
     }
 
-  /* Not reached */
+  /* Not reached.  */
 }
 
 
@@ -1275,7 +1276,7 @@ find_enum (const mstring *m)
 
   bad_module ("find_enum(): Enum not found");
 
-  /* Not reached */
+  /* Not reached.  */
 }
 
 
@@ -1449,8 +1450,7 @@ mio_integer (int *ip)
 }
 
 
-/* Read or write a character pointer that points to a string on the
-   heap.  */
+/* Read or write a character pointer that points to a string on the heap.  */
 
 static const char *
 mio_allocated_string (const char *s)
@@ -1510,7 +1510,6 @@ mio_internal_string (char *string)
 }
 
 
-
 typedef enum
 { AB_ALLOCATABLE, AB_DIMENSION, AB_EXTERNAL, AB_INTRINSIC, AB_OPTIONAL,
   AB_POINTER, AB_SAVE, AB_TARGET, AB_DUMMY, AB_RESULT, AB_DATA,
@@ -1557,6 +1556,7 @@ static const mstring attr_bits[] =
     minit ("PROTECTED", AB_PROTECTED),
     minit (NULL, -1)
 };
+
 
 /* Specialization of mio_name.  */
 DECL_MIO_NAME (ab_attribute)
@@ -1651,12 +1651,12 @@ mio_symbol_attribute (symbol_attribute *attr)
 	MIO_NAME (ab_attribute) (AB_CRAY_POINTER, attr_bits);
       if (attr->cray_pointee)
 	MIO_NAME (ab_attribute) (AB_CRAY_POINTEE, attr_bits);
-      if(attr->is_bind_c)
-        MIO_NAME(ab_attribute) (AB_IS_BIND_C, attr_bits);
+      if (attr->is_bind_c)
+	MIO_NAME(ab_attribute) (AB_IS_BIND_C, attr_bits);
       if (attr->is_c_interop)
-        MIO_NAME(ab_attribute) (AB_IS_C_INTEROP, attr_bits);
+	MIO_NAME(ab_attribute) (AB_IS_C_INTEROP, attr_bits);
       if (attr->is_iso_c)
-        MIO_NAME(ab_attribute) (AB_IS_ISO_C, attr_bits);
+	MIO_NAME(ab_attribute) (AB_IS_ISO_C, attr_bits);
       if (attr->alloc_comp)
 	MIO_NAME (ab_attribute) (AB_ALLOC_COMP, attr_bits);
 
@@ -1699,9 +1699,9 @@ mio_symbol_attribute (symbol_attribute *attr)
 	    case AB_SAVE:
 	      attr->save = 1;
 	      break;
-            case AB_VALUE:
-              attr->value = 1;
-              break;
+	    case AB_VALUE:
+	      attr->value = 1;
+	      break;
 	    case AB_VOLATILE:
 	      attr->volatile_ = 1;
 	      break;
@@ -1756,15 +1756,15 @@ mio_symbol_attribute (symbol_attribute *attr)
 	    case AB_CRAY_POINTEE:
 	      attr->cray_pointee = 1;
 	      break;
-            case AB_IS_BIND_C:
-              attr->is_bind_c = 1;
-              break;
-            case AB_IS_C_INTEROP:
-              attr->is_c_interop = 1;
-              break;
-            case AB_IS_ISO_C:
-              attr->is_iso_c = 1;
-              break;
+	    case AB_IS_BIND_C:
+	      attr->is_bind_c = 1;
+	      break;
+	    case AB_IS_C_INTEROP:
+	      attr->is_c_interop = 1;
+	      break;
+	    case AB_IS_ISO_C:
+	      attr->is_iso_c = 1;
+	      break;
 	    case AB_ALLOC_COMP:
 	      attr->alloc_comp = 1;
 	      break;
@@ -1854,7 +1854,7 @@ mio_typespec (gfc_typespec *ts)
   else
     mio_symbol_ref (&ts->derived);
 
-  /* Add info for C interop and is_iso_c. */
+  /* Add info for C interop and is_iso_c.  */
   mio_integer (&ts->is_c_interop);
   mio_integer (&ts->is_iso_c);
   
@@ -2216,7 +2216,6 @@ mio_formal_arglist (gfc_symbol *sym)
     {
       for (f = sym->formal; f; f = f->next)
 	mio_symbol_ref (&f->sym);
-
     }
   else
     {
@@ -2300,7 +2299,7 @@ mio_symtree_ref (gfc_symtree **stp)
 	  f->next = p->u.rsym.stfixup;
 	  p->u.rsym.stfixup = f;
 
-	  f->pointer = (void **)stp;
+	  f->pointer = (void **) stp;
 	}
     }
 }
@@ -2627,7 +2626,7 @@ fix_mio_expr (gfc_expr *e)
 	 namespace, it has a unique name and we should look in the current
 	 namespace to see if the required, non-contained symbol is available
 	 yet. If so, the latter should be written.  */
-      if (e->symtree->n.sym && check_unique_name(e->symtree->name))
+      if (e->symtree->n.sym && check_unique_name (e->symtree->name))
 	ns_st = gfc_find_symtree (gfc_current_ns->sym_root,
 				  e->symtree->n.sym->name);
 
@@ -2830,7 +2829,7 @@ mio_expr (gfc_expr **ep)
 }
 
 
-/* Read and write namelists */
+/* Read and write namelists.  */
 
 static void
 mio_namelist (gfc_symbol *sym)
@@ -3013,7 +3012,7 @@ mio_symbol (gfc_symbol *sym)
 	}
     }
 
-  /* Save/restore common block links */
+  /* Save/restore common block links.  */
   mio_symbol_ref (&sym->common_next);
 
   mio_formal_arglist (sym);
@@ -3181,8 +3180,8 @@ load_generic_interfaces (void)
 	      p = p ? p : name;
 	      st = gfc_find_symtree (gfc_current_ns->sym_root, p);
 	      if (!sym->attr.generic
-		    && sym->module != NULL
-		    && strcmp(module, sym->module) != 0)
+		  && sym->module != NULL
+		  && strcmp(module, sym->module) != 0)
 		st->ambiguous = 1;
 	    }
 	  if (i == 1)
@@ -3228,9 +3227,9 @@ load_commons (void)
 	p->threadprivate = 1;
       p->use_assoc = 1;
 
-      /* get whether this was a bind(c) common or not */
+      /* Get whether this was a bind(c) common or not.  */
       mio_integer (&p->is_bind_c);
-      /* get the binding label */
+      /* Get the binding label.  */
       mio_internal_string (p->binding_label);
       
       mio_rparen ();
@@ -3240,9 +3239,9 @@ load_commons (void)
 }
 
 
-/* load_equiv()-- Load equivalences. The flag in_load_equiv informs
-   mio_expr_ref of this so that unused variables are not loaded and
-   so that the expression can be safely freed.*/
+/* Load equivalences.  The flag in_load_equiv informs mio_expr_ref of this
+   so that unused variables are not loaded and so that the expression can
+   be safely freed.  */
 
 static void
 load_equiv (void)
@@ -3257,7 +3256,7 @@ load_equiv (void)
   while (end != NULL && end->next != NULL)
     end = end->next;
 
-  while (peek_atom() != ATOM_RPAREN) {
+  while (peek_atom () != ATOM_RPAREN) {
     mio_lparen ();
     head = tail = NULL;
 
@@ -3310,6 +3309,7 @@ load_equiv (void)
   mio_rparen ();
   in_load_equiv = false;
 }
+
 
 /* Recursive function to traverse the pointer_info tree and load a
    needed symbol.  We return nonzero if we load a symbol and stop the
@@ -3368,8 +3368,7 @@ load_needed (pointer_info *p)
 }
 
 
-/* Recursive function for cleaning up things after a module has been
-   read.  */
+/* Recursive function for cleaning up things after a module has been read.  */
 
 static void
 read_cleanup (pointer_info *p)
@@ -3444,7 +3443,7 @@ read_module (void)
   gfc_symtree *st;
   gfc_symbol *sym;
 
-  get_module_locus (&operator_interfaces);	/* Skip these for now */
+  get_module_locus (&operator_interfaces);	/* Skip these for now.  */
   skip_list ();
 
   get_module_locus (&user_operators);
@@ -3544,8 +3543,7 @@ read_module (void)
 	    p = name;
 
 	  /* Skip symtree nodes not in an ONLY clause, unless there
-	     is an existing symtree loaded from another USE
-	     statement.  */
+	     is an existing symtree loaded from another USE statement.  */
 	  if (p == NULL)
 	    {
 	      st = gfc_find_symtree (gfc_current_ns->sym_root, name);
@@ -3582,11 +3580,11 @@ read_module (void)
 						     gfc_current_ns);
 		  sym = info->u.rsym.sym;
 		  sym->module = gfc_get_string (info->u.rsym.module);
-                  /* hmm, can we test this.  do we know it will be
-                   * initialized to zeros?? --Rickett, 03.13.06
-                   */
-                  if (info->u.rsym.binding_label[0] != '\0')
-                    strcpy (sym->binding_label, info->u.rsym.binding_label);
+
+		  /* TODO: hmm, can we test this?  Do we know it will be
+		     initialized to zeros?  */
+		  if (info->u.rsym.binding_label[0] != '\0')
+		    strcpy (sym->binding_label, info->u.rsym.binding_label);
 		}
 
 	      st->n.sym = sym;
@@ -3702,7 +3700,7 @@ gfc_check_access (gfc_access specific_access, gfc_access default_access)
 }
 
 
-/* Write a common block to the module */
+/* Write a common block to the module.  */
 
 static void
 write_common (gfc_symtree *st)
@@ -3711,8 +3709,7 @@ write_common (gfc_symtree *st)
   const char * name;
   int flags;
   const char *label;
-              
-
+	      
   if (st == NULL)
     return;
 
@@ -3732,9 +3729,10 @@ write_common (gfc_symtree *st)
   if (p->threadprivate) flags |= 2;
   mio_integer (&flags);
 
-  /* write out whether the common block is bind(c) or not */
-  mio_integer(&(p->is_bind_c));
-  /* write out the binding label, or the com name if no label given */
+  /* Write out whether the common block is bind(c) or not.  */
+  mio_integer (&(p->is_bind_c));
+
+  /* Write out the binding label, or the com name if no label given.  */
   if (p->is_bind_c)
     {
       label = p->binding_label;
@@ -3749,17 +3747,16 @@ write_common (gfc_symtree *st)
   mio_rparen ();
 }
 
-/* Write the blank common block to the module */
+
+/* Write the blank common block to the module.  */
 
 static void
 write_blank_common (void)
 {
   const char * name = BLANK_COMMON_NAME;
   int saved;
-  /* blank commons are not bind(c).  the draft probably says this,
-   * but i haven't checked.  just making it so for now.
-   * --Rickett, 04.12.06
-   */  
+  /* TODO: Blank commons are not bind(c).  The F2003 standard probably says
+     this, but it hasn't been checked.  Just making it so for now.  */  
   int is_bind_c = 0;  
 
   if (gfc_current_ns->blank_common.head == NULL)
@@ -3775,6 +3772,7 @@ write_blank_common (void)
 
   /* Write out whether the common block is bind(c) or not.  */
   mio_integer (&is_bind_c);
+
   /* Write out the binding label, which is BLANK_COMMON_NAME, though
      it doesn't matter because the label isn't used.  */
   mio_pool_string (&name);
@@ -3875,8 +3873,6 @@ write_symbol0 (gfc_symtree *st)
 
   write_symbol (p->integer, sym);
   p->u.wsym.state = WRITTEN;
-
-  return;
 }
 
 
@@ -3890,6 +3886,7 @@ write_symbol0 (gfc_symtree *st)
 static int
 write_symbol1 (pointer_info *p)
 {
+
   if (p == NULL)
     return 0;
 
@@ -4078,6 +4075,7 @@ read_md5_from_module_file (const char * filename, unsigned char md5[16])
   return 0;
 }
 
+
 /* Given module, dump it to disk.  If there was an error while
    processing the module, dump_flag will be set to zero and we delete
    the module file, even if it was already there.  */
@@ -4135,7 +4133,7 @@ gfc_dump_module (const char *name, int dump_flag)
 	   gfc_source_file, p);
   fgetpos (module_fp, &md5_pos);
   fputs ("00000000000000000000000000000000 -- "
-        "If you edit this, you'll get what you deserve.\n\n", module_fp);
+	"If you edit this, you'll get what you deserve.\n\n", module_fp);
 
   /* Initialize the MD5 context that will be used for output.  */
   md5_init_ctx (&ctx);
@@ -4187,16 +4185,16 @@ sort_iso_c_rename_list (void)
 
   for (curr = gfc_rename_list; curr; curr = curr->next)
     {
-      c_kind  = get_c_kind (curr->use_name, c_interop_kinds_table);
+      c_kind = get_c_kind (curr->use_name, c_interop_kinds_table);
       if (c_kind == ISOCBINDING_INVALID || c_kind == ISOCBINDING_LAST)
-        {
-          gfc_error ("Symbol '%s' referenced at %L does not exist in "
-                     "intrinsic module ISO_C_BINDING.", curr->use_name,
-                     &curr->where);
-        }
+	{
+	  gfc_error ("Symbol '%s' referenced at %L does not exist in "
+		     "intrinsic module ISO_C_BINDING.", curr->use_name,
+		     &curr->where);
+	}
       else
-        /* Put it in the list.  */
-        kinds_used[c_kind] = curr;
+	/* Put it in the list.  */
+	kinds_used[c_kind] = curr;
     }
 
   /* Make a new (sorted) rename list.  */
@@ -4211,24 +4209,23 @@ sort_iso_c_rename_list (void)
       i++;
       curr = tmp_list;
       for (; i < ISOCBINDING_NUMBER; i++)
-        if (kinds_used[i] != NULL)
-          {
-            curr->next = kinds_used[i];
-            curr = curr->next;
-            curr->next = NULL;
-          }
+	if (kinds_used[i] != NULL)
+	  {
+	    curr->next = kinds_used[i];
+	    curr = curr->next;
+	    curr->next = NULL;
+	  }
     }
 
   gfc_rename_list = tmp_list;
-  
-  return;
 }
 
 
-/* Import the instrinsic ISO_C_BINDING module, generating symbols in the
-   current namespace for all named constants, pointer types,
-   and procedures in the module unless the only clause was used
-   or a rename list was provided.  */
+/* Import the instrinsic ISO_C_BINDING module, generating symbols in
+   the current namespace for all named constants, pointer types, and
+   procedures in the module unless the only clause was used or a rename
+   list was provided.  */
+
 static void
 import_iso_c_binding_module (void)
 {
@@ -4240,7 +4237,7 @@ import_iso_c_binding_module (void)
   char *local_name;
 
   /* Look only in the current namespace.  */
-  mod_symtree = gfc_find_symtree(gfc_current_ns->sym_root, iso_c_module_name);
+  mod_symtree = gfc_find_symtree (gfc_current_ns->sym_root, iso_c_module_name);
 
   if (mod_symtree == NULL)
     {
@@ -4248,9 +4245,9 @@ import_iso_c_binding_module (void)
       gfc_get_sym_tree (iso_c_module_name, gfc_current_ns, &mod_symtree);
       
       if (mod_symtree != NULL)
-        mod_sym = mod_symtree->n.sym;
+	mod_sym = mod_symtree->n.sym;
       else
-        gfc_internal_error ("import_iso_c_binding_module(): Unable to "
+	gfc_internal_error ("import_iso_c_binding_module(): Unable to "
 			    "create symbol for %s", iso_c_module_name);
 
       mod_sym->attr.flavor = FL_MODULE;
@@ -4264,23 +4261,23 @@ import_iso_c_binding_module (void)
   if (only_flag)
     {
       /* Sort the rename list because there are dependencies between types
-         and procedures (e.g., c_loc needs c_ptr).  */
+	 and procedures (e.g., c_loc needs c_ptr).  */
       sort_iso_c_rename_list ();
       
       for (u = gfc_rename_list; u; u = u->next)
-        {
-          i = get_c_kind (u->use_name, c_interop_kinds_table);
+	{
+	  i = get_c_kind (u->use_name, c_interop_kinds_table);
 
-          if (i == ISOCBINDING_INVALID || i == ISOCBINDING_LAST)
+	  if (i == ISOCBINDING_INVALID || i == ISOCBINDING_LAST)
 	    {
-              gfc_error ("Symbol '%s' referenced at %L does not exist in "
-                         "intrinsic module ISO_C_BINDING.", u->use_name,
-                         &u->where);
-              continue;
-            }
+	      gfc_error ("Symbol '%s' referenced at %L does not exist in "
+			 "intrinsic module ISO_C_BINDING.", u->use_name,
+			 &u->where);
+	      continue;
+	    }
 	  
-          generate_isocbinding_symbol (iso_c_module_name, i, u->local_name);
-        }
+	  generate_isocbinding_symbol (iso_c_module_name, i, u->local_name);
+	}
     }
   else
     {
@@ -4294,7 +4291,7 @@ import_iso_c_binding_module (void)
 		  local_name = u->local_name;
 		  u->found = 1;
 		  break;
-	        }
+		}
 	    }
 	  generate_isocbinding_symbol (iso_c_module_name, i, local_name);
 	}
@@ -4312,6 +4309,7 @@ import_iso_c_binding_module (void)
 
 
 /* Add an integer named constant from a given module.  */
+
 static void
 create_int_parameter (const char *name, int value, const char *modname,
 		      intmod_id module, int id)
@@ -4496,8 +4494,8 @@ gfc_use_module (void)
       module_fp = gfc_open_intrinsic_module (filename);
 
       if (module_fp == NULL && specified_int)
-       gfc_fatal_error ("Can't find an intrinsic module named '%s' at %C",
-			module_name);
+	gfc_fatal_error ("Can't find an intrinsic module named '%s' at %C",
+			 module_name);
     }
 
   if (module_fp == NULL)
