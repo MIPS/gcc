@@ -1,3 +1,7 @@
+2007-05-03  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.target/mips/dpaq_sa_l_w.c: New test.
+
 2007-04-27  Ian Lance Taylor  <iant@google.com>
 
 	PR middle-end/31710
