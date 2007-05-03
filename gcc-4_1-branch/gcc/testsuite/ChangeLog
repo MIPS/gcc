@@ -1,3 +1,30 @@
+2007-04-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/30221
+	* g++.dg/init/ptrfn2.C: New test.
+	* g++.dg/init/ptrfn3.C: New test.
+
+2007-04-26  Ian Lance Taylor  <iant@google.com>
+
+	PR target/28675
+	* gcc.c-torture/compile/pr28675.c: New test.
+
+2007-04-26  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/30016
+	* g++.dg/ext/vector6.C: New test.
+
+2007-04-25  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31698
+	* g++.dg/other/pr31698.C: New testcase.
+
+	Backport from mainline:
+	2006-10-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/29446
+	* gcc.dg/torture/pr29446.c: New testcase.
+
 2007-04-26  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/31598

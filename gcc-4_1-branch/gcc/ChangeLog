@@ -1,3 +1,40 @@
+2007-04-29  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* reload.c (combine_reloads): When trying to use a dying register,
+	check whether it's uninitialized and don't use if so.
+
+2007-04-27  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR middle-end/30761
+	* reload1.c (eliminate_regs_in_insn): In the single_set special
+	case, attempt to re-recognize the insn before falling back to
+	having reload fix it up.
+
+2007-04-26  Ian Lance Taylor  <iant@google.com>
+
+	PR target/28675
+	* reload.c (find_reloads_subreg_address): If the address was valid
+	in the original mode but not in the new mode, reload the whole
+	address.
+
+2007-04-25  Anatoly Sokolov <aesok@post.ru>
+
+	PR target/18989
+ 	* config/avr/avr.h (ASM_OUTPUT_ALIGN): Redefine.
+
+2007-04-25  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-10-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/29446
+	* tree-vrp.c (fix_equivalence_set): Remove.
+	(extract_range_from_assert): Do not call fix_equivalence_set.
+	(debug_value_range): Print a newline.
+	(compare_name_with_value): For equivalence sets with
+	inconsistent value ranges conservatively bail out.
+	(compare_names): Likewise.
+
 2007-04-26  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/31598
