@@ -1078,7 +1078,7 @@ record_operand_costs (rtx insn, struct costs *op_costs,
    there.  */
 
 static rtx
-scan_one_insn (rtx insn, int pass)
+scan_one_insn (rtx insn, int pass ATTRIBUTE_UNUSED)
 {
   enum rtx_code pat_code;
   rtx set, note;

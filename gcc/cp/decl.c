@@ -52,6 +52,7 @@ Boston, MA 02110-1301, USA.  */
 #include "debug.h"
 #include "timevar.h"
 #include "tree-flow.h"
+#include "pointer-set.h"
 
 static tree grokparms (cp_parameter_declarator *, tree *);
 static const char *redeclaration_error_message (tree, tree);
@@ -4637,19 +4638,24 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p)
     {
       if (TREE_CODE (init) == CONSTRUCTOR)
 	{
+	  if (TREE_TYPE (init) && TYPE_PTRMEMFUNC_P (TREE_TYPE (init)))
+	    /* There is no need to reshape pointer-to-member function
+	       initializers, as they are always constructed correctly
+	       by the front end.  */
+           ;
+	  else if (COMPOUND_LITERAL_P (init))
 	  /* For a nested compound literal, there is no need to reshape since
 	     brace elision is not allowed. Even if we decided to allow it,
 	     we should add a call to reshape_init in finish_compound_literal,
 	     before calling digest_init, so changing this code would still
 	     not be necessary.  */
-	  if (!COMPOUND_LITERAL_P (init))
+	    gcc_assert (!BRACE_ENCLOSED_INITIALIZER_P (init));
+	  else
 	    {
 	      ++d->cur;
 	      gcc_assert (BRACE_ENCLOSED_INITIALIZER_P (init));
 	      return reshape_init (type, init);
 	    }
-	  else
-	    gcc_assert (!BRACE_ENCLOSED_INITIALIZER_P (init));
 	}
 
       warning (OPT_Wmissing_braces, "missing braces around initializer for %qT",
@@ -8898,6 +8904,7 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
   int ellipsis = !first_parm || first_parm->ellipsis_p;
   cp_parameter_declarator *parm;
   int any_error = 0;
+  struct pointer_set_t *unique_decls = pointer_set_create ();
 
   for (parm = first_parm; parm != NULL; parm = parm->next)
     {
@@ -8982,6 +8989,14 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
           && parm->next)
         error ("parameter packs must be at the end of the parameter list");
 
+      if (DECL_NAME (decl))
+        {
+          if (pointer_set_contains (unique_decls, DECL_NAME (decl)))
+            error ("multiple parameters named %qE", DECL_NAME (decl));
+          else
+            pointer_set_insert (unique_decls, DECL_NAME (decl));
+        }
+
       TREE_CHAIN (decl) = decls;
       decls = decl;
       result = tree_cons (init, type, result);
@@ -8992,6 +9007,7 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
     result = chainon (result, void_list_node);
   *parms = decls;
 
+  pointer_set_destroy (unique_decls);
   return result;
 }
 

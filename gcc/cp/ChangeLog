@@ -1,3 +1,123 @@
+2007-05-02  Seongbae Park  <seongbae.park@gmail.com>
+
+	PR c++/31663
+	* decl2.c (constrain_class_visibility): 
+	Use strip_pointer_or_array_types instead of strip_array_types.
+
+2007-04-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/30221
+	* decl.c (reshape_init_r): Don't reshape the first element if it
+	is a pointer to member function.
+
+2007-04-27  Simon Baldwin  <simonb@google.com>
+
+	* decl.c (grokparms): Changed message format from %qD to %qE.
+
+2007-04-27  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* error.c (maybe_warn_variadic_templates): Variadic templates are
+       now in C++0x, so only warn about them in C++98 mode.
+	
+2007-04-26  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/30016
+	* typeck.c (build_reinterpret_cast_1): Only allow conversion to
+	integeral types from vectors types.
+
+2007-04-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/31598
+	* semantics.c (finish_omp_clauses): Don't create CP_OMP_CLAUSE_INFO
+	for type dependent OMP_CLAUSE_DECLs.
+
+2007-04-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31338
+	* cp-tree.h (ARITHMETIC_TYPE): Include COMPLEX_TYPE.
+	* typeck.c (type_after_usual_arithmetic_conversions): Adjust, as
+	COMPLEX_TYPE is now an ARITHMETIC_TYPE.
+	* init.c (build_zero_init): Adjust, as
+	COMPLEX_TYPE is now a SCALAR_TYPE.
+	* typeck2.c (digest_init): Allow brace-enclosed initializers for
+	COMPLEX_TYPE, even though that is now a SCALAR_TYPE.
+
+2007-04-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* semantics.c (classtype_has_nothrow_copy_or_assign_p): Adjust
+	per N2255; rename as classtype_has_nothrow_assign_or_copy_p.
+	(trait_expr_value): Adjust.
+
+2007-04-23  Simon Baldwin  <simonb@google.com>
+
+	* decl.c (grokparms): Added new error for duplicate function
+	parameters names in function prototypes, to match gcc behavior.
+
+2007-04-23  Jan Hubicka  <jh@suse.cz>
+
+	* cp/decl2.c (finish_objects): Do not call target constructor/destructor
+	bits dirrectly.
+
+2007-04-21  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* cp-tree.h (lang_tree_node): Use GENERIC_NEXT
+	instead of checking GIMPLE_STMT_P in chain_next.
+
+2007-04-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31513
+	* call.c (convert_for_arg_passing): Convert bitfields to their
+	declared types.
+
+2007-04-17  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/31517
+	* pt.c (value_dependent_expression_p): Handle MODOP_EXPRs.
+
+2007-04-16  Seongbae Park <seongbae.park@gmail.com>
+
+	PR c++/29365
+
+	* cp/decl2.c (constrain_class_visibility):
+	Do not warn about the use of anonymous namespace in the main input file.
+
+2007-04-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (current_template_parms): Fix typo in comment.
+
+2007-04-15  Kazu Hirata  <kazu@codesourcery.com>
+
+	* cp-tree.h, error.c: Fix comment typos.
+
+2007-04-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/31074
+	* call.c (reference_binding): Add c_cast_p parm.  If true,
+	add quals to TO as needed to make it reference-compatible.
+
+2007-04-11  Jan Hubicka  <jh@suse.cz>
+
+	* cp/class.c (convert_to_base_statically): Fold produced tree; verify
+	that we are not processing template_decl.
+
+2007-04-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31449
+	* class.c (build_base_path): Ensure that the converted pointer has
+	the same cv-qualification as the input.
+
+2007-04-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* tree.c (cp_tree_equal): Deal with TRAIT_EXPR.
+
+2007-04-08  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* cp-objcp-common.h (LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS):
+	Do not set it.
+	(LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P): Do not set it.
+	* tree.c (cp_add_pending_fn_decls): Remove.
+	* cp-tree.h (cp_add_pending_fn_decls): Remove prototype.
+
 2007-04-07  Daniel Berlin  <dberlin@dberlin.org>
 
 	Revert change removing staticp.
@@ -12,8 +132,6 @@
 
 	* class.c (check_for_override): Don't remove dllmport attribute
 	of virtual methods.
-
-
 
 2007-04-03  Jakub Jelinek  <jakub@redhat.com>
 

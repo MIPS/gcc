@@ -5591,7 +5591,13 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	      temp = scavenge_reg (&temps);
 	    }
 	  if (temp < 0 && live_regs_mask)
-	    temp = scavenge_reg (live_regs_mask);
+	    {
+	      HARD_REG_SET temps;
+
+	      COPY_HARD_REG_SET (temps, *live_regs_mask);
+	      CLEAR_HARD_REG_BIT (temps, REGNO (reg));
+	      temp = scavenge_reg (&temps);
+	    }
 	  if (temp < 0)
 	    {
 	      rtx adj_reg, tmp_reg, mem;
@@ -5640,6 +5646,9 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	      emit_move_insn (adj_reg, mem);
 	      mem = gen_tmp_stack_mem (Pmode, gen_rtx_POST_INC (Pmode, reg));
 	      emit_move_insn (tmp_reg, mem);
+	      /* Tell flow the insns that pop r4/r5 aren't dead.  */
+	      emit_insn (gen_rtx_USE (VOIDmode, tmp_reg));
+	      emit_insn (gen_rtx_USE (VOIDmode, adj_reg));
 	      return;
 	    }
 	  const_reg = gen_rtx_REG (GET_MODE (reg), temp);
@@ -10134,7 +10143,6 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   epilogue_completed = 1;
   no_new_pseudos = 1;
   current_function_uses_only_leaf_regs = 1;
-  reset_block_changes ();
 
   emit_note (NOTE_INSN_PROLOGUE_END);
 
@@ -10291,7 +10299,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
      the insns emitted.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
 
-  insn_locators_initialize ();
+  insn_locators_alloc ();
   insns = get_insns ();
 
 #if 0

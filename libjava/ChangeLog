@@ -1,3 +1,181 @@
+2007-05-02  Tom Tromey  <tromey@redhat.com>
+
+	https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=238755
+	* java/lang/natCharacter.cc (Character::getType): Handle negative
+	code points.
+	(Character::toLowerCase): Likewise.
+	(Character::toUpperCase): Likewise.
+	(Character::digit): Likewise.
+	(Character::getNumericValue): Likewise.
+	(Character::getDirectionality): Likewise.
+	(Character::toTitleCase): Likewise.
+
+2007-04-30  Keith Seitz  <keiths@redhat.com>
+
+	* interpret-run.cc (NEXT_INSN)[DEBUG]: Advance PC before
+	executing the instruction.
+	* include/java-interp.h (_Jv_InterpFrame::get_pc): Subtract
+	one insn from the frame's PC. _Jv_InterpMethod::run et al
+	will advance the PC before executing the instruction.
+
+2007-04-27  Keith Seitz  <keiths@redhat.com>
+
+	* classpath/lib/gnu/classpath/jdwp/Jdwp.class: Regenerated.
+	* classpath/lib/gnu/classpath/jdwp/event/EventManager.class:
+	Regenerated.
+	* gnu/classpath/jdwp/event/EventManager.h: Regenerated.
+
+2007-04-27  Keith Seitz  <keiths@redhat.com>
+
+	* classpath/lib/gnu/classpath/jdwp/event/filters/
+	LocationOnlyFilter.class: Regenerated;
+	* classpath/lib/gnu/classpath/jdwp/util/Location.class:
+	Regenerated.
+	* gnu/classpath/jdwp/VMMethod.java
+	* classpath/lib/gnu/classpath/jdwp/VMMethod.class:
+	Regenerated.
+	* gnu/classpath/jdwp/VMMethod.h: Regenerated.
+	* gnu/classpath/jdwp/util/Location.h: Regenerated.
+
+2007-04-27  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/CairoGraphics2D.h: Regenerate.
+	* gnu/java/awt/peer/gtk/ComponentGraphics.h: Regenerate.
+
+2007-04-25  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/VMIdManager.java (getObjectId): Deal with null
+	objects.
+	(get): Deal with ObjectId of 0. 
+
+2007-04-24  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR libgcj/31084
+	* java/lang/natVMProcess.cc: Include platform.h before jvm.h.
+
+2007-04-24  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.java
+	(getThreadStatus): Implement.
+
+2007-04-24  Keith Seitz  <keiths@redhat.com>
+
+	* headers.txt (gnu/gcj/jvmti/Breakpoint.h)[DIRECT_THREADED]:
+	Add _Jv_RewriteBreakpointInsn friend declaration.
+	* gnu/gcj/jvmti/natBreakpoint.cc (_Jv_RewriteBreakpointInsn)
+	[DIRECT_THREADED]: New function.
+	* gnu/gcj/jvmti/Breakpoint.h: Regenerate.
+	* interpret-run.cc: Define new REWRITE_INSN macro.
+	Changed all occurrences of insn rewriting to call REWRITE_INSN.
+
+2007-04-23  Keith Seitz  <keiths@redhat.com>
+
+	* include/no-gc.h (_Jv_IsThreadSuspended): Declare.
+	* include/boehm-gc.h (_Jv_IsThreadSuspended): Likewise.
+	* boehm.cc (_Jv_IsThreadSuspended): New function.
+	* nogc.cc (_Jv_IsThreadSuspended): Likewise.
+	* jvmti.cc (_Jv_JVMTI_GetThreadState): New function.
+	(_Jv_JVMTI_Interface): Define GetThreadState.
+
+2007-04-23  Kyle Galloway  <kgallowa@redhat.com>
+
+	* include/java-interp.h (_Jv_InterpFrame): Add pointer to the
+	interpreter PC.
+	(<init>): Add a pointer to the interpreter PC as a parameter with
+	default value NULL.
+	(get_pc): New method.
+	* interpret-run.cc: If debugging, pass a pointer to the PC when
+	creating the stack frame.
+	* jvmti.cc (_Jv_JVMTI_GetStackTrace): Call _Jv_InterpFrame::get_pc
+	to get the PC.
+
+2007-04-23  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (getSourceFile): Check
+	for null source file and throw an exception indicating this.
+
+2007-04-20  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/gcj/jvmti/BreakpointManager.java (newBreakpoint):
+	Install the new breakpoint into the bytecode.
+	(deleteBreakpoint): Remove the breakpoint from the bytecode.
+	* classpath/lib/gnu/gcj/jvmti/BreakpointManager.class:
+	Regenerate.
+	* gnu/gcj/jvmti/natBreakpoint.cc (initialize_native):
+	Don't install the breakpoint here.
+
+2007-04-19  Keith Seitz  <keiths@redhat.com>
+
+	* interpret-run.cc [insn_breakpoint]: Save the original
+	insn for the breakpoint before posting the JVMTI notification.
+
+2007-04-19  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/javax/net/ssl/provider/SSLSocketFactoryImpl.h: Rebuilt.
+
+2007-04-18  Tom Tromey  <tromey@redhat.com>
+
+	* Regenerated headers with new gjavah.
+
+2007-04-18  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/reflect/natVMProxy.cc (ncode_closure): Add
+	method_index.
+	(generateProxyClass): Add field $Proxy0.m.  Store methods array in
+	it.
+	(run_proxy): Retrieve the method to invoke from in $Proxy0.m.
+	* java/lang/Class.h: Remove _Jv_LookupProxyMethod.
+	* java/lang/natClass.cc: Likewise.
+	* headers.txt: Likewise.
+	* java/lang/reflect/Method.h: Likewise.
+
+2007-04-16  Andrew Haley  <aph@redhat.com>
+
+	* gnu/gcj/runtime/BootClassLoader.java (getBootURLLoader): New
+	method.
+	(bootGetResource): Use getBootURLLoader() to load resources.
+	(bootGetResources): Likewise.
+
+	* java/lang/reflect/natMethod.cc (Method::invoke): In invoke also
+	check that the method's declaring class is accessible.
+
+2007-04-10  Keith Seitz  <keiths@redhat.com>
+
+	* sources.am: Regenerate.
+	* Makefile.in: Likewise.
+
+2007-04-09  Kyle Galloway  <kgallowa@redhat.com>
+
+	* interpret-run.cc: If debugging, check if args is NULL before
+	getting the "this" pointer.
+
+2007-04-09  Kyle Galloway  <kgallowa@redhat.com>
+
+	* classpath/gnu/classpath/jdwp/value/ArrayValue.java: New file.
+	* classpath/lib/gnu/classpath/jdwp/value/ArrayValue.class: New file.
+	* gnu/classpath/jdwp/ArrayValue.h: New file.
+	* gnu/classpath/jdwp/natVMFrame.cc (getValue): Add array case.
+	(setValue): Ditto. 
+
+2007-04-09  David Daney  <ddaney@avtrex.com>
+
+	PR libgcj/23758
+	* java/lang/natPosixProcess.cc (nativeSpawn): Move building of
+	environment before the fork.
+	* testsuite/libjava.lang/Process_7.java: New test.
+	* testsuite/libjava.lang/Process_7.out: Its expected results.
+	* testsuite/libjava.lang/Process_7.jar: Generated file.
+
+2007-04-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* prims.cc (load_jvmti_agent): Add the missing `,'.
+
+2007-04-09  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gij.cc (main): Accept -agentlib and -agentpath options.
+	* prims.cc (parse_init_args): Deal with -agentlib and -agentpath.
+	(load_jvmti_agent): New function.
+
 2007-04-04  Tania Bento  <tbento@redhat.com>
 
 	* java/text/DecimalFormatSymbols.java: Added the year 2007 to

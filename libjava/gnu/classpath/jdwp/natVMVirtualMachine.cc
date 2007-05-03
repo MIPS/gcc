@@ -31,6 +31,7 @@ details. */
 #include <gnu/classpath/jdwp/Jdwp.h>
 #include <gnu/classpath/jdwp/JdwpConstants$StepDepth.h>
 #include <gnu/classpath/jdwp/JdwpConstants$StepSize.h>
+#include <gnu/classpath/jdwp/JdwpConstants$ThreadStatus.h>
 #include <gnu/classpath/jdwp/VMFrame.h>
 #include <gnu/classpath/jdwp/VMMethod.h>
 #include <gnu/classpath/jdwp/VMVirtualMachine.h>
@@ -46,6 +47,7 @@ details. */
 #include <gnu/classpath/jdwp/event/filters/IEventFilter.h>
 #include <gnu/classpath/jdwp/event/filters/LocationOnlyFilter.h>
 #include <gnu/classpath/jdwp/event/filters/StepFilter.h>
+#include <gnu/classpath/jdwp/exception/AbsentInformationException.h>
 #include <gnu/classpath/jdwp/exception/InvalidFrameException.h>
 #include <gnu/classpath/jdwp/exception/InvalidLocationException.h>
 #include <gnu/classpath/jdwp/exception/InvalidMethodException.h>
@@ -621,9 +623,37 @@ getFrameCount (Thread *thread)
 
 jint
 gnu::classpath::jdwp::VMVirtualMachine::
-getThreadStatus (MAYBE_UNUSED Thread *thread)
+getThreadStatus (Thread *thread)
 {
-  return 0;
+  jint thr_state, status;
+  
+  jvmtiError jerr = _jdwp_jvmtiEnv->GetThreadState (thread, &thr_state);
+  if (jerr != JVMTI_ERROR_NONE)
+    throw_jvmti_error (jerr);
+  
+  if (thr_state & JVMTI_THREAD_STATE_SLEEPING)
+    status = gnu::classpath::jdwp::JdwpConstants$ThreadStatus::SLEEPING;
+  else if (thr_state & JVMTI_THREAD_STATE_RUNNABLE)
+    status = gnu::classpath::jdwp::JdwpConstants$ThreadStatus::RUNNING;
+  else if (thr_state & JVMTI_THREAD_STATE_WAITING)
+    {
+      if (thr_state & (JVMTI_THREAD_STATE_IN_OBJECT_WAIT
+                       | JVMTI_THREAD_STATE_BLOCKED_ON_MONITOR_ENTER))
+        status = gnu::classpath::jdwp::JdwpConstants$ThreadStatus::MONITOR;
+      else
+        status = gnu::classpath::jdwp::JdwpConstants$ThreadStatus::WAIT;
+    }
+  else
+    {
+      // The thread is not SLEEPING, MONITOR, or WAIT.  It may, however, be
+      // alive but not yet started.
+      if (!(thr_state & (JVMTI_THREAD_STATE_ALIVE 
+                         | JVMTI_THREAD_STATE_TERMINATED)))
+        status = gnu::classpath::jdwp::JdwpConstants$ThreadStatus::RUNNING;
+      status = gnu::classpath::jdwp::JdwpConstants$ThreadStatus::ZOMBIE;     
+    }   
+
+  return status;
 }
 
 java::util::ArrayList *
@@ -647,7 +677,14 @@ jstring
 gnu::classpath::jdwp::VMVirtualMachine::
 getSourceFile (jclass clazz)
 {
-  return _Jv_GetInterpClassSourceFile (clazz);
+  jstring file = _Jv_GetInterpClassSourceFile (clazz);
+  
+  // Check if the source file was found.
+  if (file == NULL)
+    throw new exception::AbsentInformationException (
+                           _Jv_NewStringUTF("Source file not found"));
+  
+  return file;
 }
 
 void

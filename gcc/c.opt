@@ -217,7 +217,7 @@ C ObjC C++ ObjC++ Var(warn_format_nonliteral) Warning
 Warn about format strings that are not literals
 
 Wformat-contains-nul
-C ObjC C++ ObjC++ Var(warn_format_contains_nul)
+C ObjC C++ ObjC++ Var(warn_format_contains_nul) Warning
 Warn about format strings that contain NUL bytes
 
 Wformat-security
@@ -790,6 +790,18 @@ Generate lazy class lookup (via objc_getClass()) for use in Zero-Link mode
 gen-decls
 ObjC ObjC++
 Dump declarations to a .decl file
+
+femit-struct-debug-baseonly
+C ObjC C++ ObjC++
+-femit-struct-debug-baseonly	Aggressive reduced debug info for structs
+
+femit-struct-debug-reduced
+C ObjC C++ ObjC++
+-femit-struct-debug-reduced	Conservative reduced debug info for structs
+
+femit-struct-debug-detailed=
+C ObjC C++ ObjC++ Joined
+-femit-struct-debug-detailed=<spec-list>	Detailed reduced debug info for structs
 
 idirafter
 C ObjC C++ ObjC++ Joined Separate

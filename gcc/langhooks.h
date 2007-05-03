@@ -40,12 +40,8 @@ struct lang_hooks_for_tree_inlining
 			 void *, struct pointer_set_t*);
   int (*cannot_inline_tree_fn) (tree *);
   int (*disregard_inline_limits) (tree);
-  tree (*add_pending_fn_decls) (void *, tree);
   int (*auto_var_in_fn_p) (tree, tree);
-  int (*anon_aggr_type_p) (tree);
   bool (*var_mod_type_p) (tree, tree);
-  int (*start_inlining) (tree);
-  void (*end_inlining) (tree);
   tree (*convert_parm_for_inlining) (tree, tree, tree, int);
 };
 
@@ -119,6 +115,10 @@ struct lang_hooks_for_types
      according to UNSIGNEDP.  */
   tree (*signed_or_unsigned_type) (int, tree);
 
+  /* True if the type is an instantiation of a generic type,
+     e.g. C++ template implicit specializations.  */
+  bool (*generic_p) (tree);
+
   /* Given a type, apply default promotions to unnamed function
      arguments and return the new type.  Return the same type if no
      change.  Required by any language that supports variadic
@@ -183,9 +183,6 @@ struct lang_hooks_for_decls
   /* Obtain a list of globals and do final output on them at end
      of compilation */
   void (*final_write_globals) (void);
-
-  /* Do necessary preparations before assemble_variable can proceed.  */
-  void (*prepare_assemble_variable) (tree);
 
   /* True if this decl may be called via a sibcall.  */
   bool (*ok_for_sibcall) (tree);

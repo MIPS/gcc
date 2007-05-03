@@ -27,6 +27,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "input.h"
 #include "statistics.h"
 #include "vec.h"
+#include "double-int.h"
 
 /* Codes of tree nodes */
 
@@ -951,7 +952,7 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
   (TREE_CODE_CLASS (TREE_CODE ((NODE))) == tcc_gimple_stmt)
 
 /* Nonzero if NODE is a GIMPLE tuple.  */
-#define GIMPLE_TUPLE_P(NODE) (GIMPLE_STMT_P (NODE))
+#define GIMPLE_TUPLE_P(NODE) (GIMPLE_STMT_P (NODE) || TREE_CODE (NODE) == PHI_NODE)
 
 /* A GIMPLE tuple that has a ``locus'' field.  */
 #define GIMPLE_TUPLE_HAS_LOCUS_P(NODE) GIMPLE_STMT_P ((NODE))
@@ -974,6 +975,11 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 /* A simple hash function for an arbitrary tree node.  This must not be
    used in hash tables which are saved to a PCH.  */
 #define TREE_HASH(NODE) ((size_t) (NODE) & 0777777)
+
+/* The TREE_CHAIN but it is able to handle tuples.  */
+#define GENERIC_NEXT(NODE)					\
+  (TREE_CODE (NODE) == PHI_NODE ? PHI_CHAIN (NODE) :		\
+     GIMPLE_STMT_P (NODE) ? NULL_TREE : TREE_CHAIN (NODE))
 
 /* Given an expression as a tree, strip any NON_LVALUE_EXPRs and NOP_EXPRs
    that don't change the machine mode.  */
@@ -1866,7 +1872,7 @@ struct tree_ssa_name GTY(())
 /* PHI_NODEs for each basic block are chained together in a single linked
    list.  The head of the list is linked from the block annotation, and
    the link to the next PHI is in PHI_CHAIN.  */
-#define PHI_CHAIN(NODE)		TREE_CHAIN (PHI_NODE_CHECK (NODE))
+#define PHI_CHAIN(NODE)			PHI_NODE_CHECK (NODE)->phi.chain
 
 #define PHI_NUM_ARGS(NODE)		PHI_NODE_CHECK (NODE)->phi.num_args
 #define PHI_ARG_CAPACITY(NODE)		PHI_NODE_CHECK (NODE)->phi.capacity
@@ -1885,7 +1891,8 @@ struct phi_arg_d GTY(())
 
 struct tree_phi_node GTY(())
 {
-  struct tree_common common;
+  struct tree_base common;
+  tree chain;
   tree result;
   int num_args;
   int capacity;
@@ -4382,6 +4389,10 @@ extern void using_eh_for_cleanups (void);
    otherwise.  */
 extern int folding_initializer;
 
+/* Convert between trees and native memory representation.  */
+extern int native_encode_expr (tree, unsigned char *, int);
+extern tree native_interpret_expr (tree, unsigned char *, int);
+
 /* Fold constants as much as possible in an expression.
    Returns the simplified expression.
    Acts only on the top level of the expression;
@@ -4412,6 +4423,7 @@ extern void fold_defer_overflow_warnings (void);
 extern void fold_undefer_overflow_warnings (bool, tree, int);
 extern void fold_undefer_and_ignore_overflow_warnings (void);
 extern bool fold_deferring_overflow_warnings_p (void);
+extern tree maybe_fold_offset_to_reference (tree, tree, tree);
 
 extern tree force_fit_type_double (tree, unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 				   int, bool);
@@ -4527,6 +4539,7 @@ extern int objects_must_conflict_p (tree, tree);
 /* In tree.c */
 extern int really_constant_p (tree);
 extern int int_fits_type_p (tree, tree);
+extern void get_type_static_bounds (tree, mpz_t, mpz_t);
 extern bool variably_modified_type_p (tree, tree);
 extern int tree_log2 (tree);
 extern int tree_floor_log2 (tree);

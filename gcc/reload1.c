@@ -3117,7 +3117,8 @@ eliminate_regs_in_insn (rtx insn, int replace)
 	  rtx links;
 	  for (links = REG_NOTES (insn); links; links = XEXP (links, 1))
 	    {
-	      if (REG_NOTE_KIND (links) == REG_EQUAL
+	      if ((REG_NOTE_KIND (links) == REG_EQUAL
+		   || REG_NOTE_KIND (links) == REG_EQUIV)
 		  && GET_CODE (XEXP (links, 0)) == PLUS
 		  && GET_CODE (XEXP (XEXP (links, 0), 1)) == CONST_INT)
 		{
@@ -3620,6 +3621,20 @@ update_eliminables (HARD_REG_SET *pset)
      the hard frame pointer.  */
   if (frame_pointer_needed && ! previous_frame_pointer_needed)
     SET_HARD_REG_BIT (*pset, HARD_FRAME_POINTER_REGNUM);
+}
+
+/* Return true if X is used as the target register of an elimination.  */
+
+bool
+elimination_target_reg_p (rtx x)
+{
+  struct elim_table *ep;
+
+  for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
+    if (ep->to_rtx == x && ep->can_eliminate)
+      return true;
+
+  return false;
 }
 
 /* Initialize the table of registers to eliminate.  */
@@ -6338,15 +6353,23 @@ merge_assigned_reloads (rtx insn)
 		transfer_replacements (i, j);
 	      }
 
-	  /* If this is now RELOAD_OTHER, look for any reloads that load
-	     parts of this operand and set them to RELOAD_FOR_OTHER_ADDRESS
-	     if they were for inputs, RELOAD_OTHER for outputs.  Note that
-	     this test is equivalent to looking for reloads for this operand
-	     number.  */
-	  /* We must take special care with RELOAD_FOR_OUTPUT_ADDRESS; it may
-	     share registers with a RELOAD_FOR_INPUT, so we can not change it
-	     to RELOAD_FOR_OTHER_ADDRESS.  We should never need to, since we
-	     do not modify RELOAD_FOR_OUTPUT.  */
+	  /* If this is now RELOAD_OTHER, look for any reloads that
+	     load parts of this operand and set them to
+	     RELOAD_FOR_OTHER_ADDRESS if they were for inputs,
+	     RELOAD_OTHER for outputs.  Note that this test is
+	     equivalent to looking for reloads for this operand
+	     number.
+
+	     We must take special care with RELOAD_FOR_OUTPUT_ADDRESS;
+	     it may share registers with a RELOAD_FOR_INPUT, so we can
+	     not change it to RELOAD_FOR_OTHER_ADDRESS.  We should
+	     never need to, since we do not modify RELOAD_FOR_OUTPUT.
+
+	     It is possible that the RELOAD_FOR_OPERAND_ADDRESS
+	     instruction is assigned the same register as the earlier
+	     RELOAD_FOR_OTHER_ADDRESS instruction.  Merging these two
+	     instructions will cause the RELOAD_FOR_OTHER_ADDRESS
+	     instruction to be deleted later on.  */
 
 	  if (rld[i].when_needed == RELOAD_OTHER)
 	    for (j = 0; j < n_reloads; j++)
@@ -6354,6 +6377,7 @@ merge_assigned_reloads (rtx insn)
 		  && rld[j].when_needed != RELOAD_OTHER
 		  && rld[j].when_needed != RELOAD_FOR_OTHER_ADDRESS
 		  && rld[j].when_needed != RELOAD_FOR_OUTPUT_ADDRESS
+		  && rld[j].when_needed != RELOAD_FOR_OPERAND_ADDRESS
 		  && (! conflicting_input
 		      || rld[j].when_needed == RELOAD_FOR_INPUT_ADDRESS
 		      || rld[j].when_needed == RELOAD_FOR_INPADDR_ADDRESS)
@@ -7172,10 +7196,6 @@ do_input_reload (struct insn_chain *chain, struct reload *rl, int j)
      actually no need to store the old value in it.  */
 
   if (optimize
-      /* Only attempt this for input reloads; for RELOAD_OTHER we miss
-	 that there may be multiple uses of the previous output reload.
-	 Restricting to RELOAD_FOR_INPUT is mostly paranoia.  */
-      && rl->when_needed == RELOAD_FOR_INPUT
       && (reload_inherited[j] || reload_override_in[j])
       && rl->reg_rtx
       && REG_P (rl->reg_rtx)
@@ -7883,6 +7903,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
       /* If that failed, copy the address register to the reload register.
 	 Then add the constant to the reload register.  */
 
+      gcc_assert (!reg_overlap_mentioned_p (out, op0));
       gen_reload (out, op1, opnum, type);
       insn = emit_insn (gen_add2_insn (out, op0));
       set_unique_reg_note (insn, REG_EQUIV, in);
@@ -8026,16 +8047,7 @@ delete_output_reload (rtx insn, int j, int last_reload_reg)
       if (rtx_equal_p (reg2, reg))
 	{
 	  if (reload_inherited[k] || reload_override_in[k] || k == j)
-	    {
-	      n_inherited++;
-	      reg2 = rld[k].out_reg;
-	      if (! reg2)
-		continue;
-	      while (GET_CODE (reg2) == SUBREG)
-		reg2 = XEXP (reg2, 0);
-	      if (rtx_equal_p (reg2, reg))
-		n_inherited++;
-	    }
+	    n_inherited++;
 	  else
 	    return;
 	}

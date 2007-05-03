@@ -2894,8 +2894,26 @@ c_build_qualified_type (tree type, int type_quals)
 	}
       if (!t)
 	{
+          tree domain = TYPE_DOMAIN (type);
+
 	  t = build_variant_type_copy (type);
 	  TREE_TYPE (t) = element_type;
+
+          if (TYPE_STRUCTURAL_EQUALITY_P (element_type)
+              || (domain && TYPE_STRUCTURAL_EQUALITY_P (domain)))
+            SET_TYPE_STRUCTURAL_EQUALITY (t);
+          else if (TYPE_CANONICAL (element_type) != element_type
+                   || (domain && TYPE_CANONICAL (domain) != domain))
+            {
+              tree unqualified_canon 
+                = build_array_type (TYPE_CANONICAL (element_type),
+                                    domain? TYPE_CANONICAL (domain) 
+                                          : NULL_TREE);
+              TYPE_CANONICAL (t) 
+                = c_build_qualified_type (unqualified_canon, type_quals);
+            }
+          else
+            TYPE_CANONICAL (t) = t;
 	}
       return t;
     }
@@ -3876,6 +3894,15 @@ strip_pointer_operator (tree t)
   return t;
 }
 
+/* Recursively remove pointer or array type from TYPE. */
+tree
+strip_pointer_or_array_types (tree t)
+{
+  while (TREE_CODE (t) == ARRAY_TYPE || POINTER_TYPE_P (t))
+    t = TREE_TYPE (t);
+  return t;
+}
+
 /* Used to compare case labels.  K1 and K2 are actually tree nodes
    representing case labels, or NULL_TREE for a `default' label.
    Returns -1 if K1 is ordered before K2, -1 if K1 is ordered after
@@ -4277,21 +4304,7 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode,
 void
 c_expand_body (tree fndecl)
 {
-
-  if (!DECL_INITIAL (fndecl)
-      || DECL_INITIAL (fndecl) == error_mark_node)
-    return;
-
   tree_rest_of_compilation (fndecl);
-
-  if (DECL_STATIC_CONSTRUCTOR (fndecl)
-      && targetm.have_ctors_dtors)
-    targetm.asm_out.constructor (XEXP (DECL_RTL (fndecl), 0),
-				 decl_init_priority_lookup (fndecl));
-  if (DECL_STATIC_DESTRUCTOR (fndecl)
-      && targetm.have_ctors_dtors)
-    targetm.asm_out.destructor (XEXP (DECL_RTL (fndecl), 0),
-				decl_fini_priority_lookup (fndecl));
 }
 
 /* Hook used by staticp to handle language-specific tree codes.  */
@@ -6061,14 +6074,16 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
 
       if (TREE_CODE (position) != INTEGER_CST)
 	{
-	  warning (0, "requested position is not an integer constant");
+	  warning (OPT_Wattributes, 
+		   "requested position is not an integer constant");
 	  *no_add_attrs = true;
 	}
       else
 	{
 	  if (tree_int_cst_lt (position, integer_zero_node))
 	    {
-	      warning (0, "requested position is less than zero");
+	      warning (OPT_Wattributes,
+		       "requested position is less than zero");
 	      *no_add_attrs = true;
 	    }
 	}

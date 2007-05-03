@@ -539,7 +539,7 @@ enum cp_tree_node_structure_enum {
 
 /* The resulting tree type.  */
 union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
-       chain_next ("(GIMPLE_STMT_P (&%h.generic) ? (union lang_tree_node *) 0 : (union lang_tree_node *)TREE_CHAIN (&%h.generic))")))
+       chain_next ("(union lang_tree_node *)GENERIC_NEXT (&%h.generic)")))
 {
   union tree_node GTY ((tag ("TS_CP_GENERIC"),
 			desc ("tree_node_structure (&%h)"))) generic;
@@ -787,8 +787,8 @@ struct saved_scope GTY(())
 #define current_lang_base scope_chain->lang_base
 #define current_lang_name scope_chain->lang_name
 
-/* When parsing a template declaration, a TREE_LIST representing the
-   active template parametesr.  Each node in the list represents one
+/* When parsing a template declaration, a TREE_LIST represents the
+   active template parameters.  Each node in the list represents one
    level of template parameters.  The innermost level is first in the
    list.  The depth of each level is stored as an INTEGER_CST in the
    TREE_PURPOSE of each node.  The parameters for that level are
@@ -2660,14 +2660,21 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 /* [basic.fundamental]
 
    Integral and floating types are collectively called arithmetic
-   types.  Keep these checks in ascending code order.  */
+   types.  
+
+   As a GNU extension, we also accept complex types.
+
+   Keep these checks in ascending code order.  */
 #define ARITHMETIC_TYPE_P(TYPE) \
-  (CP_INTEGRAL_TYPE_P (TYPE) || TREE_CODE (TYPE) == REAL_TYPE)
+  (CP_INTEGRAL_TYPE_P (TYPE) \
+   || TREE_CODE (TYPE) == REAL_TYPE \
+   || TREE_CODE (TYPE) == COMPLEX_TYPE)
 
 /* [basic.types]
 
    Arithmetic types, enumeration types, pointer types, and
    pointer-to-member types, are collectively called scalar types.
+   
    Keep these checks in ascending code order.  */
 #define SCALAR_TYPE_P(TYPE)			\
   (TYPE_PTRMEM_P (TYPE)				\
@@ -4632,6 +4639,7 @@ extern tree add_stmt_to_compound		(tree, tree);
 extern tree cxx_maybe_build_cleanup		(tree);
 extern void init_tree				(void);
 extern int pod_type_p				(tree);
+extern bool class_tmpl_impl_spec_p		(tree);
 extern int zero_init_p				(tree);
 extern tree canonical_type_variant		(tree);
 extern tree copy_binfo				(tree, tree, tree,
@@ -4686,7 +4694,6 @@ extern linkage_kind decl_linkage		(tree);
 extern tree cp_walk_subtrees (tree*, int*, walk_tree_fn,
 			      void*, struct pointer_set_t*);
 extern int cp_cannot_inline_tree_fn		(tree*);
-extern tree cp_add_pending_fn_decls		(void*,tree);
 extern int cp_auto_var_in_fn_p			(tree,tree);
 extern tree fold_if_not_in_template		(tree);
 extern tree rvalue				(tree);
