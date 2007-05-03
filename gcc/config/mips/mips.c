@@ -7622,7 +7622,9 @@ mips_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
       int size;
 
       /* ??? How should SCmode be handled?  */
-      if (mode == DImode || mode == DFmode)
+      if (mode == DImode || mode == DFmode
+	  || mode == DQmode || mode == UDQmode
+	  || mode == DAmode || mode == UDAmode)
 	return 0;
 
       size = type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);

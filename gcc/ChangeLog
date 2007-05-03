@@ -1,3 +1,25 @@
+2007-05-03  Chao-ying Fu  <fu@mips.com>
+
+	* doc/md.texi (madd@var{m}@var{n}4): Extend to fixed-point modes.
+	(ssmadd@var{m}@var{n}4, usmadd@var{m}@var{n}4): Document.
+	* optabs.c (init_optabs): Initialize ssmadd_widen_optab and
+	usmadd_widen_optab.
+	* optabs.h (OTI_ssmadd_widen, OTI_usmadd_widen): New optab_indexes.
+	(ssmadd_widen_optab, usmadd_widen_optab): Define.
+	* genopinit.c (optabs): Fill in ssmadd_widen_optab and
+	usmadd_widen_optab.
+	* tree.h (NON_SAT_FIXED_POINT_TYPE_P, SAT_FIXED_POINT_TYPE_P,
+	FIXED_POINT_TYPE_P): Define.
+	* expr.c (expand_expr_real_1): Support saturating and non-saturating
+	multiply and add for fixed-point types.
+	* c-typeck.c (c_common_type): Initialize mclass to 0 to avoid warnings.
+	* tree-ssa-reassoc.c (break_up_subtract_bb): We can do reassociation
+	for non-saturating fixed-point types
+	(reassociate_bb): Likewise.
+	* config/mips/mips-fixed.md (ssmaddsqdq4): New instruction.
+	* config/mips/mips.c (mips_pass_by_reference): Pass DQ, UDQ, DA, and
+	UDA modes in registers.
+
 2007-04-27  Ian Lance Taylor  <iant@google.com>
 
 	PR middle-end/31710

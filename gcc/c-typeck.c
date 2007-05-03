@@ -717,7 +717,7 @@ c_common_type (tree t1, tree t2)
 	     signed type.  */
 	  if (code1 == FIXED_POINT_TYPE && TYPE_UNSIGNED (t1))
 	    {
-	      unsigned char mclass;
+	      unsigned char mclass = 0;
 	      if (GET_MODE_CLASS (m1) == MODE_UFRACT)
 		mclass = MODE_FRACT;
 	      else if (GET_MODE_CLASS (m1) == MODE_UACCUM)
@@ -728,7 +728,7 @@ c_common_type (tree t1, tree t2)
 	    }
 	  if (code2 == FIXED_POINT_TYPE && TYPE_UNSIGNED (t2))
 	    {
-	      unsigned char mclass;
+	      unsigned char mclass = 0;
 	      if (GET_MODE_CLASS (m2) == MODE_UFRACT)
 		mclass = MODE_FRACT;
 	      else if (GET_MODE_CLASS (m2) == MODE_UACCUM)

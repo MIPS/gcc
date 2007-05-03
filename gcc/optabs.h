@@ -106,6 +106,14 @@ enum optab_index
   /* Unigned multiply and add with the result and addend one machine mode
      wider than the multiplicand and multiplier.  */
   OTI_umadd_widen,
+  /* Signed multiply and add with the result and addend one machine mode
+     wider than the multiplicand and multiplier.
+     All involved operations are saturating.  */
+  OTI_ssmadd_widen,
+  /* Unigned multiply and add with the result and addend one machine mode
+     wider than the multiplicand and multiplier.
+     All involved operations are saturating.  */
+  OTI_usmadd_widen,
 
   /* Signed divide */
   OTI_sdiv,
@@ -344,6 +352,8 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define usmul_widen_optab (optab_table[OTI_usmul_widen])
 #define smadd_widen_optab (optab_table[OTI_smadd_widen])
 #define umadd_widen_optab (optab_table[OTI_umadd_widen])
+#define ssmadd_widen_optab (optab_table[OTI_ssmadd_widen])
+#define usmadd_widen_optab (optab_table[OTI_usmadd_widen])
 #define sdiv_optab (optab_table[OTI_sdiv])
 #define smulv_optab (optab_table[OTI_smulv])
 #define sdivv_optab (optab_table[OTI_sdivv])

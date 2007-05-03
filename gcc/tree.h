@@ -1039,6 +1039,20 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
    || TREE_CODE (TYPE) == BOOLEAN_TYPE \
    || TREE_CODE (TYPE) == INTEGER_TYPE)
 
+/* Nonzero if TYPE represents a non-saturating fixed-point type.  */
+
+#define NON_SAT_FIXED_POINT_TYPE_P(TYPE) \
+  (TREE_CODE (TYPE) == FIXED_POINT_TYPE && !TYPE_SATURATING (TYPE))
+
+/* Nonzero if TYPE represents a saturating fixed-point type.  */
+
+#define SAT_FIXED_POINT_TYPE_P(TYPE) \
+  (TREE_CODE (TYPE) == FIXED_POINT_TYPE && TYPE_SATURATING (TYPE))
+
+/* Nonzero if TYPE represents a fixed-point type.  */
+
+#define FIXED_POINT_TYPE_P(TYPE)	(TREE_CODE (TYPE) == FIXED_POINT_TYPE)
+
 /* Nonzero if TYPE represents a scalar floating-point type.  */
 
 #define SCALAR_FLOAT_TYPE_P(TYPE) (TREE_CODE (TYPE) == REAL_TYPE)

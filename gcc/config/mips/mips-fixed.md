@@ -116,3 +116,16 @@
   [(set_attr "type"     "imul3")
    (set_attr "mode"     "<imode>")])
 
+(define_insn "ssmaddsqdq4"
+  [(set (match_operand:DQ 0 "register_operand" "=a")
+        (ss_plus:DQ
+         (ss_mult:DQ (sat_fixed_all:DQ (match_operand:SQ 1
+					"register_operand" "d"))
+                     (sat_fixed_all:DQ (match_operand:SQ 2
+					"register_operand" "d")))
+         (match_operand:DQ 3 "register_operand" "0")))]
+  "TARGET_DSP && !TARGET_64BIT"
+  "dpaq_sa.l.w\t%q0,%1,%2"
+  [(set_attr "type" "imadd")
+   (set_attr "mode" "SI")])
+

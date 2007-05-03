@@ -3685,7 +3685,7 @@ Similar, but the multiplication is unsigned.
 Multiply operands 1 and 2, sign-extend them to mode @var{n}, add
 operand 3, and store the result in operand 0.  Operands 1 and 2
 have mode @var{m} and operands 0 and 3 have mode @var{n}.
-Both modes must be integer modes and @var{n} must be twice
+Both modes must be integer or fixed-point modes and @var{n} must be twice
 the size of @var{m}.
 
 In other words, @code{madd@var{m}@var{n}4} is like
@@ -3697,6 +3697,16 @@ These instructions are not allowed to @code{FAIL}.
 @item @samp{umadd@var{m}@var{n}4}
 Like @code{madd@var{m}@var{n}4}, but zero-extend the multiplication
 operands instead of sign-extending them.
+
+@cindex @code{ssmadd@var{m}@var{n}4} instruction pattern
+@item @samp{ssmadd@var{m}@var{n}4}
+Like @code{madd@var{m}@var{n}4}, but all involved operations must be
+signed-saturating.
+
+@cindex @code{usmadd@var{m}@var{n}4} instruction pattern
+@item @samp{usmadd@var{m}@var{n}4}
+Like @code{umadd@var{m}@var{n}4}, but all involved operations must be
+unsigned-saturating.
 
 @cindex @code{divmod@var{m}4} instruction pattern
 @item @samp{divmod@var{m}4}
