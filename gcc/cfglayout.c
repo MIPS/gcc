@@ -1127,11 +1127,21 @@ cfg_layout_duplicate_bb (basic_block bb)
 void
 cfg_layout_initialize (unsigned int flags)
 {
+  rtx x;
+  basic_block bb;
+
   initialize_original_copy_tables ();
 
   cfg_layout_rtl_register_cfg_hooks ();
 
   record_effective_endpoints ();
+
+  /* Make sure that the targets of non local gotos are marked.  */
+  for (x = nonlocal_goto_handler_labels; x; x = XEXP (x, 1))
+    {
+      bb = BLOCK_FOR_INSN (XEXP (x, 0));
+      bb->flags |= BB_NON_LOCAL_GOTO_TARGET;
+    }
 
   cleanup_cfg (CLEANUP_CFGLAYOUT | flags);
 }

@@ -320,6 +320,9 @@ enum bb_flags
   /* Set on block that was duplicated.  */
   BB_DUPLICATED = 256,
 
+  /* Set if the label at the top of this block is the target of a non-local goto.  */
+  BB_NON_LOCAL_GOTO_TARGET = 512,
+
   /* Set on blocks that are in RTL format.  */
   BB_RTL = 1024,
 
