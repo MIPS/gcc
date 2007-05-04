@@ -4657,7 +4657,7 @@ expand_builtin_va_start (tree exp)
    current (padded) address and increment by the (padded) size.  */
 
 tree
-std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
+std_gimplify_va_arg_expr (tree valist, tree type, gs_seq pre_p, gs_seq post_p)
 {
   tree addr, t, type_size, rounded_size, valist_tmp;
   unsigned HOST_WIDE_INT align, boundary;
@@ -4713,7 +4713,8 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
   rounded_size = round_up (type_size, align);
 
   /* Reduce rounded_size so it's sharable with the postqueue.  */
-  gimplify_expr (&rounded_size, pre_p, post_p, is_gimple_val, fb_rvalue);
+  gimplify_expr (&rounded_size, NULL, pre_p, post_p,
+      		 is_gimple_val, fb_rvalue);
 
   /* Get AP.  */
   addr = valist_tmp;
@@ -4768,7 +4769,7 @@ dummy_object (tree type)
    builtin function, but a very special sort of operator.  */
 
 enum gimplify_status
-gimplify_va_arg_expr (tree *expr_p, tree *pre_p, tree *post_p)
+gimplify_va_arg_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p)
 {
   tree promoted_type, want_va_type, have_va_type;
   tree valist = TREE_OPERAND (*expr_p, 0);
@@ -4825,7 +4826,7 @@ gimplify_va_arg_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	 Call abort to encourage the user to fix the program.  */
       inform ("if this code is reached, the program will abort");
       t = build_call_expr (implicit_built_in_decls[BUILT_IN_TRAP], 0);
-      append_to_statement_list (t, pre_p);
+      gimplify_and_add (t, pre_p);
 
       /* This is dead code, but go ahead and finish so that the
 	 mode of the result comes out right.  */
@@ -4847,10 +4848,12 @@ gimplify_va_arg_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	      tree p1 = build_pointer_type (TREE_TYPE (va_list_type_node));
 	      valist = build_fold_addr_expr_with_type (valist, p1);
 	    }
-	  gimplify_expr (&valist, pre_p, post_p, is_gimple_val, fb_rvalue);
+	  gimplify_expr (&valist, NULL, pre_p, post_p, 
+	      		 is_gimple_val, fb_rvalue);
 	}
       else
-	gimplify_expr (&valist, pre_p, post_p, is_gimple_min_lval, fb_lvalue);
+	gimplify_expr (&valist, NULL, pre_p, post_p, 
+	    	       is_gimple_min_lval, fb_lvalue);
 
       if (!targetm.gimplify_va_arg_expr)
 	/* FIXME:Once most targets are converted we should merely

@@ -638,8 +638,8 @@ struct gcc_target
   tree (* build_builtin_va_list) (void);
 
   /* Gimplifies a VA_ARG_EXPR.  */
-  tree (* gimplify_va_arg_expr) (tree valist, tree type, tree *pre_p,
-				 tree *post_p);
+  tree (* gimplify_va_arg_expr) (tree valist, tree type,
+      				 gs_seq pre_p, gs_seq post_p);
 
   /* Validity-checking routines for PCH files, target-specific.
      get_pch_validity returns a pointer to the data to be stored,

@@ -4513,7 +4513,7 @@ extern tree build_call_expr (tree, int, ...);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
 extern tree strip_float_extensions (tree);
 extern tree c_strlen (tree, int);
-extern tree std_gimplify_va_arg_expr (tree, tree, tree *, tree *);
+extern tree std_gimplify_va_arg_expr (tree, tree, gs_seq, gs_seq);
 extern tree build_va_arg_indirect_ref (tree);
 extern tree build_string_literal (int, const char *);
 extern bool validate_arglist (tree, ...);
@@ -4611,7 +4611,7 @@ extern void push_function_context (void);
 extern void pop_function_context (void);
 extern void push_function_context_to (tree);
 extern void pop_function_context_from (tree);
-extern tree gimplify_parameters (void);
+extern struct gs_sequence gimplify_parameters (void);
 
 /* In print-rtl.c */
 #ifdef BUFSIZ

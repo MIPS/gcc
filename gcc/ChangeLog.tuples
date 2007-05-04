@@ -1,5 +1,17 @@
 2007-05-04  Aldy Hernandez  <aldyh@redhat.com>
 
+	* tree.h (std_gimplify_va_arg_expr): Change tree * to a sequence
+	in prototype.
+	(gimplify_parameters): Return a sequence.
+	* target.h (gimplify_va_arg_expr): Change tree * to a sequence.
+	* builtins.c (std_gimplify_va_arg_expr): Same.
+	Pass additional argument to gimplify_expr.
+	(gimplify_va_arg_expr): Change tree * to a sequence.
+	Change append_to_statement_list call to gimplify_and_add.
+	Pass additional argument to gimplify_expr calls.
+
+2007-05-04  Aldy Hernandez  <aldyh@redhat.com>
+
 	* tree-pretty-print.c (do_gs_niy): New.
 	(debug_gimple_stmt): New.
 	(debug_gimple_seq): New.
