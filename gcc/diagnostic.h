@@ -209,13 +209,17 @@ extern char *file_name_as_prefix (const char *);
 
 /* In tree-pretty-print.c  */
 extern int dump_generic_node (pretty_printer *, tree, int, int, bool);
+extern void dump_gimple_stmt (pretty_printer *, gimple, int, int);
 extern void print_generic_stmt (FILE *, tree, int);
 extern void print_generic_stmt_indented (FILE *, tree, int, int);
+extern void print_gimple_stmt (FILE *, gimple, int);
 extern void print_generic_expr (FILE *, tree, int);
 extern void print_generic_decl (FILE *, tree, int);
 
 extern void debug_generic_expr (tree);
 extern void debug_generic_stmt (tree);
 extern void debug_tree_chain (tree);
+extern void debug_gimple_stmt (gimple);
+extern void debug_gimple_seq (gs_seq);
 extern void debug_c_tree (tree);
 #endif /* ! GCC_DIAGNOSTIC_H */

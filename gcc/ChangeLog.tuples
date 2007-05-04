@@ -1,3 +1,13 @@
+2007-05-04  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-pretty-print.c (do_gs_niy): New.
+	(debug_gimple_stmt): New.
+	(debug_gimple_seq): New.
+	(print_gimple_stmt): New.
+	(dump_gimple_stmt): New.
+	* diagnostic.h: Add prototypes for dump_gimple_stmt,
+	print_gimple_stmt, debug_gimple_stmt, debug_gimple_seq.
+
 2007-04-26  Aldy Hernandez  <aldyh@redhat.com>
 
         * tree-gimple.h (annotate_all_with_locus): First argument is now a

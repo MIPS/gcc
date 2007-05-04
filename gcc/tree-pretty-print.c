@@ -46,6 +46,7 @@ static void maybe_init_pretty_print (FILE *);
 static void print_declaration (pretty_printer *, tree, int, int);
 static void print_struct_decl (pretty_printer *, tree, int, int);
 static void do_niy (pretty_printer *, tree);
+static void do_gs_niy (pretty_printer *, gimple);
 static void dump_vops (pretty_printer *, tree, int, int);
 static void dump_generic_bb_buff (pretty_printer *, basic_block, int, int);
 
@@ -53,6 +54,7 @@ static void dump_generic_bb_buff (pretty_printer *, basic_block, int, int);
   int i; for (i = 0; i<SPACE; i++) pp_space (buffer); } while (0)
 
 #define NIY do_niy(buffer,node)
+#define GS_NIY do_gs_niy(buffer,gs)
 
 #define PRINT_FUNCTION_NAME(NODE)  pp_printf             \
   (buffer, "%s", TREE_CODE (NODE) == NOP_EXPR ?              \
@@ -85,6 +87,15 @@ do_niy (pretty_printer *buffer, tree node)
   pp_string (buffer, " >>>\n");
 }
 
+/* Try to print something for an unknown gimple statement.  */
+
+static void
+do_gs_niy (pretty_printer *buffer, gimple gs)
+{
+  pp_printf (buffer, "<<< Unknown gimple statement: %s >>>\n",
+	     gs_code_name[(int) GS_CODE (gs)]);
+}
+
 void
 debug_generic_expr (tree t)
 {
@@ -111,6 +122,25 @@ debug_tree_chain (tree t)
   fprintf (stderr, "\n");
 }
 
+void
+debug_gimple_stmt (gimple gs)
+{
+  print_gimple_stmt (stderr, gs, TDF_VOPS|TDF_MEMSYMS);
+  fprintf (stderr, "\n");
+}
+
+void
+debug_gimple_seq (gs_seq seq)
+{
+  gimple_stmt_iterator i;
+
+  for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
+    {
+      gimple gs = gsi_stmt (i);
+      print_gimple_stmt (stderr, gs, TDF_VOPS|TDF_MEMSYMS);
+    }
+}
+
 /* Prints declaration DECL to the FILE with details specified by FLAGS.  */
 void
 print_generic_decl (FILE *file, tree decl, int flags)
@@ -128,6 +158,16 @@ print_generic_stmt (FILE *file, tree t, int flags)
 {
   maybe_init_pretty_print (file);
   dump_generic_node (&buffer, t, 0, flags, true);
+  pp_flush (&buffer);
+}
+
+/* Same, but for gimple statements.  */
+
+void
+print_gimple_stmt (FILE *file, gimple g, int flags)
+{
+  maybe_init_pretty_print (file);
+  dump_gimple_stmt (&buffer, g, 0, flags);
   pp_flush (&buffer);
 }
 
@@ -2058,6 +2098,78 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
   pp_write_text_to_stream (buffer);
 
   return spc;
+}
+
+/* Dump the gimple statement GS on the pretty_printer BUFFER, SPC
+   spaces of indent.  FLAGS specifies details to show in the dump (see
+   TDF_* in tree.h).  */
+
+void
+dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  tree t;
+
+  if (!gs)
+    return;
+
+  switch (GS_CODE (gs))
+    {
+    case GS_ASSIGN:
+      {
+	enum gimple_statement_structure_enum gss;
+
+	dump_generic_node (buffer, gs_assign_operand_lhs (gs), spc, flags,
+			   false);
+	pp_space (buffer);
+	pp_character (buffer, '=');
+	pp_space (buffer);
+
+	gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
+	switch (gss)
+	  {
+	  case GSS_ASSIGN_BINARY:
+	    dump_generic_node (buffer, GS_ASSIGN_BINARY_RHS1 (gs), spc,
+			       flags, false);
+	    pp_space (buffer);
+	    pp_string (buffer, op_symbol_1 (GS_SUBCODE_FLAGS (gs)));
+	    pp_space (buffer);
+	    dump_generic_node (buffer, GS_ASSIGN_BINARY_RHS2 (gs), spc,
+			       flags, false);
+	    break;
+	  case GSS_ASSIGN_UNARY_REG:
+	    dump_generic_node (buffer, GS_ASSIGN_UNARY_REG_RHS (gs), spc,
+			       flags, false);
+	    break;
+	  case GSS_ASSIGN_UNARY_MEM:
+	    dump_generic_node (buffer, GS_ASSIGN_UNARY_MEM_RHS (gs), spc,
+			       flags, false);
+	    break;
+	  default:
+	    gcc_unreachable ();
+	  }
+
+	break;
+      }
+    case GS_RETURN:
+      pp_string (buffer, "return");
+      t = GS_RETURN_OPERAND_RETVAL (gs);
+      if (t)
+	{
+	  pp_space (buffer);
+	  if (TREE_CODE (t) == GIMPLE_MODIFY_STMT)
+	    dump_generic_node (buffer, GIMPLE_STMT_OPERAND (t, 1),
+			       spc, flags, false);
+	  else
+	    dump_generic_node (buffer, t, spc, flags, false);
+	}
+      break;
+
+    default:
+      GS_NIY;
+    }
+
+  pp_semicolon (buffer);
+  pp_write_text_to_stream (buffer);
 }
 
 /* Print the declaration of a variable.  */
