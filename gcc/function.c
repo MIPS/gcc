@@ -3135,7 +3135,7 @@ gimplify_parm_type (tree *tp, int *walk_subtrees, void *data)
       else if (TYPE_SIZE (t) && !TREE_CONSTANT (TYPE_SIZE (t))
 	       && !TYPE_SIZES_GIMPLIFIED (t))
 	{
-	  gimplify_type_sizes (t, (tree *) data);
+	  gimplify_type_sizes (t, (gs_seq) data);
 	  *walk_subtrees = 1;
 	}
     }
@@ -3145,15 +3145,15 @@ gimplify_parm_type (tree *tp, int *walk_subtrees, void *data)
 
 /* Gimplify the parameter list for current_function_decl.  This involves
    evaluating SAVE_EXPRs of variable sized parameters and generating code
-   to implement callee-copies reference parameters.  Returns a list of
-   statements to add to the beginning of the function, or NULL if nothing
-   to do.  */
+   to implement callee-copies reference parameters.  Returns a sequence of
+   statements to add to the beginning of the function.  */
 
-tree
+struct gs_sequence
 gimplify_parameters (void)
 {
   struct assign_parm_data_all all;
-  tree fnargs, parm, stmts = NULL;
+  tree fnargs, parm;
+  struct gs_sequence stmts = GS_SEQ_INIT;
 
   assign_parms_initialize_all (&all);
   fnargs = assign_parms_augmented_arg_list (&all);
