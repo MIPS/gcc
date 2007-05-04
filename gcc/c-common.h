@@ -888,7 +888,7 @@ extern void warn_for_div_by_zero (tree divisor);
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
-extern int c_gimplify_expr (tree *, tree *, tree *);
+extern int c_gimplify_expr (tree *, gs_seq, gs_seq);
 extern tree c_build_bind_expr (tree, tree);
 
 /* In c-pch.c  */

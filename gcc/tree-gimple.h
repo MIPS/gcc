@@ -29,8 +29,8 @@ Boston, MA 02110-1301, USA.  */
 extern tree create_tmp_var_raw (tree, const char *);
 extern tree create_tmp_var_name (const char *);
 extern tree create_tmp_var (tree, const char *);
-extern tree get_initialized_tmp_var (tree, tree *, tree *);
-extern tree get_formal_tmp_var (tree, tree *);
+extern tree get_initialized_tmp_var (tree, gs_seq, gs_seq);
+extern tree get_formal_tmp_var (tree, gs_seq);
 
 extern void declare_vars (tree, tree, bool);
 
@@ -111,16 +111,16 @@ enum gimplify_status {
   GS_ALL_DONE	= 1	/* The expression is fully gimplified.  */
 };
 
-extern enum gimplify_status gimplify_expr (tree *, gs_seq, tree *, tree *,
+extern enum gimplify_status gimplify_expr (tree *, gs_seq, gs_seq, gs_seq,
 					   bool (*) (tree), fallback_t);
-extern void gimplify_type_sizes (tree, tree *);
-extern void gimplify_one_sizepos (tree *, tree *);
-extern void gimplify_stmt (tree *);
+extern void gimplify_type_sizes (tree, gs_seq);
+extern void gimplify_one_sizepos (tree *, gs_seq);
+extern void gimplify_stmt (tree *, gs_seq);
 extern void gimplify_to_stmt_list (tree *);
 extern void gimplify_body (tree *, gs_seq, tree, bool);
 extern void push_gimplify_context (void);
 extern void pop_gimplify_context (tree);
-extern void gimplify_and_add (tree, tree *);
+extern void gimplify_and_add (tree, gs_seq);
 
 /* Miscellaneous helpers.  */
 extern void gimple_add_tmp_var (tree);
@@ -131,7 +131,7 @@ extern tree build_and_jump (tree *);
 extern tree alloc_stmt_list (void);
 extern void free_stmt_list (tree);
 extern tree force_labels_r (tree *, int *, void *);
-extern enum gimplify_status gimplify_va_arg_expr (tree *, tree *, tree *);
+extern enum gimplify_status gimplify_va_arg_expr (tree *, gs_seq, gs_seq);
 struct gimplify_omp_ctx;
 extern void omp_firstprivatize_variable (struct gimplify_omp_ctx *, tree);
 extern tree gimple_boolify (tree);

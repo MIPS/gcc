@@ -1,5 +1,26 @@
 2007-05-04  Aldy Hernandez  <aldyh@redhat.com>
 
+	* tree-gimple.h (get_initialized_tmp_var): Adjust prototype
+	for sequences.
+	(get_formal_tmp_var): Same.
+	(gimplify_type_sizes): Same.
+	(gimplify_one_sizepos): Same.
+	(gimplify_stmt): Same.
+	(gimplify_and_add): Same.
+	(gimplify_va_arg_expr): Same.
+	* langhooks.h (lang_hooks): Same.
+	* function.c (gimplify_parm_type): Adjust for sequences.
+	(gimplify_parameters): Same.
+	* c-gimplify.c (gimplify_compound_literal_expr): Same.
+	(c_gimplify_expr): Same.
+	* tree-flow.h (force_gimple_operand): Same.
+	* c-common.h (c_gimplify_expr): Adjust prototype for sequences.
+	* config/i386/i386.c (ix86_gimplify_va_arg): Adjust for sequences.
+	Change call to append_to_statement_list to gimplify_and_add.
+	Add parameter to gimplify_expr.
+
+2007-05-04  Aldy Hernandez  <aldyh@redhat.com>
+
 	* gimple-ir.c (gs_code_name): Constify.
 	(gs_build_assign): New.
 	(gimple_statement_structure): Abstract code out to...
