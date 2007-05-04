@@ -1174,7 +1174,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
   exit_bb = single_exit (loop)->dest;
   new_phi = create_phi_node (SSA_NAME_VAR (vect_def), exit_bb);
   SET_PHI_ARG_DEF (new_phi, single_exit (loop)->dest_idx, vect_def);
-  exit_bsi = bsi_start (exit_bb);
+  exit_bsi = bsi_after_labels (exit_bb);
 
   /* 2.2 Get the relevant tree-code to use in the epilog for schemes 2,3 
          (i.e. when reduc_code is not available) and in the final adjustment
@@ -1223,7 +1223,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
       epilog_stmt = build_gimple_modify_stmt (vec_dest, tmp);
       new_temp = make_ssa_name (vec_dest, epilog_stmt);
       GIMPLE_STMT_OPERAND (epilog_stmt, 0) = new_temp;
-      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+      bsi_insert_before (&exit_bsi, epilog_stmt, BSI_SAME_STMT);
 
       extract_scalar_result = true;
     }
@@ -1280,13 +1280,13 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
 	      epilog_stmt = build_gimple_modify_stmt (vec_dest, tmp);
 	      new_name = make_ssa_name (vec_dest, epilog_stmt);
 	      GIMPLE_STMT_OPERAND (epilog_stmt, 0) = new_name;
-	      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+	      bsi_insert_before (&exit_bsi, epilog_stmt, BSI_SAME_STMT);
 
 	      tmp = build2 (code, vectype, new_name, new_temp);
 	      epilog_stmt = build_gimple_modify_stmt (vec_dest, tmp);
 	      new_temp = make_ssa_name (vec_dest, epilog_stmt);
 	      GIMPLE_STMT_OPERAND (epilog_stmt, 0) = new_temp;
-	      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+	      bsi_insert_before (&exit_bsi, epilog_stmt, BSI_SAME_STMT);
 	    }
 
 	  extract_scalar_result = true;
@@ -1316,7 +1316,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
 	  epilog_stmt = build_gimple_modify_stmt (new_scalar_dest, rhs);
 	  new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
 	  GIMPLE_STMT_OPERAND (epilog_stmt, 0) = new_temp;
-	  bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+	  bsi_insert_before (&exit_bsi, epilog_stmt, BSI_SAME_STMT);
 	      
 	  for (bit_offset = element_bitsize;
 	       bit_offset < vec_size_in_bits;
@@ -1331,13 +1331,13 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
 	      epilog_stmt = build_gimple_modify_stmt (new_scalar_dest, rhs);
 	      new_name = make_ssa_name (new_scalar_dest, epilog_stmt);
 	      GIMPLE_STMT_OPERAND (epilog_stmt, 0) = new_name;
-	      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+	      bsi_insert_before (&exit_bsi, epilog_stmt, BSI_SAME_STMT);
 
 	      tmp = build2 (code, scalar_type, new_name, new_temp);
 	      epilog_stmt = build_gimple_modify_stmt (new_scalar_dest, tmp);
 	      new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
 	      GIMPLE_STMT_OPERAND (epilog_stmt, 0) = new_temp;
-	      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+	      bsi_insert_before (&exit_bsi, epilog_stmt, BSI_SAME_STMT);
 	    }
 
 	  extract_scalar_result = false;
@@ -1366,7 +1366,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
       epilog_stmt = build_gimple_modify_stmt (new_scalar_dest, rhs);
       new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
       GIMPLE_STMT_OPERAND (epilog_stmt, 0) = new_temp; 
-      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+      bsi_insert_before (&exit_bsi, epilog_stmt, BSI_SAME_STMT);
     }
 
   /* 2.4 Adjust the final result by the initial value of the reduction
@@ -1382,7 +1382,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
       epilog_stmt = build_gimple_modify_stmt (new_scalar_dest, tmp);
       new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
       GIMPLE_STMT_OPERAND (epilog_stmt, 0) = new_temp;
-      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+      bsi_insert_before (&exit_bsi, epilog_stmt, BSI_SAME_STMT);
     }
 
   /* 2.6 Replace uses of s_out0 with uses of s_out3  */
@@ -4790,13 +4790,17 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio)
    prolog_niters = min ( LOOP_NITERS , 
                         (VF/group_size - addr_mis/elem_size)&(VF/group_size-1) )
 	 where group_size is the size of the interleaved group.
-*/
+
+   The above formulas assume that VF == number of elements in the vector. This
+   may not hold when there are multiple-types in the loop.
+   In this case, for some data-references in the loop the VF does not represent
+   the number of elements that fit in the vector.  Therefore, instead of VF we
+   use TYPE_VECTOR_SUBPARTS.  */
 
 static tree 
 vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
 {
   struct data_reference *dr = LOOP_VINFO_UNALIGNED_DR (loop_vinfo);
-  int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree var, stmt;
   tree iters, iters_name;
@@ -4809,6 +4813,7 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
   tree niters_type = TREE_TYPE (loop_niters);
   int group_size = 1;
   int element_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr))));
+  int nelements = TYPE_VECTOR_SUBPARTS (vectype);
 
   if (DR_GROUP_FIRST_DR (stmt_info))
     {
@@ -4829,7 +4834,7 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "known alignment = %d.", byte_misalign);
       iters = build_int_cst (niters_type, 
-			     (vf - elem_misalign)&(vf/group_size-1));
+			     (nelements - elem_misalign)&(nelements/group_size-1));
     }
   else
     {
@@ -4841,9 +4846,9 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
       tree type = lang_hooks.types.type_for_size (tree_low_cst (size, 1), 1);
       tree vectype_size_minus_1 = build_int_cst (type, vectype_align - 1);
       tree elem_size_log =
-        build_int_cst (type, exact_log2 (vectype_align/vf));
-      tree vf_minus_1 = build_int_cst (type, vf - 1);
-      tree vf_tree = build_int_cst (type, vf);
+        build_int_cst (type, exact_log2 (vectype_align/nelements));
+      tree nelements_minus_1 = build_int_cst (type, nelements - 1);
+      tree nelements_tree = build_int_cst (type, nelements);
       tree byte_misalign;
       tree elem_misalign;
 
@@ -4858,9 +4863,9 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
       elem_misalign =
         fold_build2 (RSHIFT_EXPR, type, byte_misalign, elem_size_log);
 
-      /* Create:  (niters_type) (VF - elem_misalign)&(VF - 1)  */
-      iters = fold_build2 (MINUS_EXPR, type, vf_tree, elem_misalign);
-      iters = fold_build2 (BIT_AND_EXPR, type, iters, vf_minus_1);
+      /* Create:  (niters_type) (nelements - elem_misalign)&(nelements - 1)  */
+      iters = fold_build2 (MINUS_EXPR, type, nelements_tree, elem_misalign);
+      iters = fold_build2 (BIT_AND_EXPR, type, iters, nelements_minus_1);
       iters = fold_convert (niters_type, iters);
     }
 
@@ -4915,8 +4920,8 @@ vect_update_init_of_dr (struct data_reference *dr, tree niters)
    NITERS iterations were peeled from the loop represented by LOOP_VINFO.  
    This function updates the information recorded for the data references in 
    the loop to account for the fact that the first NITERS iterations had 
-   already been executed.  Specifically, it updates the initial_condition of the
-   access_function of all the data_references in the loop.  */
+   already been executed.  Specifically, it updates the initial_condition of
+   the access_function of all the data_references in the loop.  */
 
 static void
 vect_update_inits_of_drs (loop_vec_info loop_vinfo, tree niters)
@@ -4925,7 +4930,7 @@ vect_update_inits_of_drs (loop_vec_info loop_vinfo, tree niters)
   VEC (data_reference_p, heap) *datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
   struct data_reference *dr;
 
-  if (vect_dump && (dump_flags & TDF_DETAILS))
+  if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_update_inits_of_dr ===");
 
   for (i = 0; VEC_iterate (data_reference_p, datarefs, i, dr); i++)

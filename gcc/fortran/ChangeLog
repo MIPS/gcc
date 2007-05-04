@@ -1,3 +1,66 @@
+2007-05-01  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+        PR fortran/31732
+	* dependency.c (gfc_full_array_ref_p):  If the reference is
+	to a single element, check that the array has a single
+	element and that the correct element is referenced.
+
+2007-05-01  Daniel Franke  <franke.daniel@gmail.com>
+
+	* intrinsic.c (add_functions): Fixed ELEMENTAL specifications.
+	(add_subroutines): Replaced magic numbers in function calls by
+	ELEMENTAL and NOT_ELEMENTAL respectively.
+	* intrinsic.texi (MVBITS): Changed class to elemental subroutine.
+	(RANDOM_NUMBER): Changed class to subroutine.
+	(HUGE, TINY): Changed class to inquiry function.
+
+2007-04-30  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* trans-const.c (gfc_conv_mpz_to_tree): Use mpz_get_double_int.
+	(gfc_conv_tree_to_mpz): New function.
+	(gfc_conv_mpfr_to_tree): Use real_from_mpfr.
+	(gfc_conv_tree_to_mpfr): New function.
+	* trans-const.h: (gfc_conv_tree_to_mpz): New prototype.
+	(gfc_conv_tree_to_mpfr): New prototype.
+
+2007-04-30  Daniel Franke  <franke.daniel@gmail.com>
+
+	* intrinsic.texi (IERRNO): Changed class to non-elemental function.
+	(LOG10): Removed COMPLEX as accepted argument type.
+	(NEW_LINE): Changed class from elemental to inquiry function.
+	(SIGN): Removed requirement of scalar arguments.
+	(SNGL): Changed class to elemental function.
+
+2007-04-29  Francois-Xavier Coudert <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31591
+	* simplify.c (simplify_bound_dim): New function.
+	(simplify_bound): Use the above. Perform simplification of LBOUND
+	and UBOUND when DIM argument is not present.
+
+2007-04-29  Daniel Franke  <franke.daniel@gmail.com>
+
+	* gfortran.texi: Cleaned up keyword index.
+	* invoke.texi: Likewise.
+	* intrinsic.texi: Likewise.
+			
+2007-04-29  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31645
+	* scanner.c (load_file): Discard the byte order mark if one is
+	found on the first non-preprocessor line of a file.
+
+2007-04-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31711
+	* trans-array.c (gfc_conv_resolve_dependencies): Create a temp
+	whenever a dependency is found.
+
+2007-04-28  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* options.c (gfc_handle_option): Ensure requested free form line
+	length is not too small.
+
 2007-04-27  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* intrinsic.texi (Transfer): Improve documentation.

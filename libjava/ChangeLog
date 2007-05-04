@@ -1,3 +1,36 @@
+2007-05-03  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=237304
+	* Makefile.in: Regenerate.
+	* scripts/makemake.tcl (scan_directory): Treat default.css as a
+	property file.
+	* classpath/javax/swing/text/html/default.css: Move to...
+	* classpath/resource/javax/swing/text/html/default.css: New file.
+	* classpath/javax/swing/text/html/HTMLEditorKit.java
+	(getStyleSheet): Throw RuntimeException when style loading fails.
+	* sources.am (property_files): Add
+	classpath/resource/javax/swing/text/html/default.css.
+
+2007-05-02  Tom Tromey  <tromey@redhat.com>
+
+	https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=238755
+	* java/lang/natCharacter.cc (Character::getType): Handle negative
+	code points.
+	(Character::toLowerCase): Likewise.
+	(Character::toUpperCase): Likewise.
+	(Character::digit): Likewise.
+	(Character::getNumericValue): Likewise.
+	(Character::getDirectionality): Likewise.
+	(Character::toTitleCase): Likewise.
+
+2007-04-30  Keith Seitz  <keiths@redhat.com>
+
+	* interpret-run.cc (NEXT_INSN)[DEBUG]: Advance PC before
+	executing the instruction.
+	* include/java-interp.h (_Jv_InterpFrame::get_pc): Subtract
+	one insn from the frame's PC. _Jv_InterpMethod::run et al
+	will advance the PC before executing the instruction.
+
 2007-04-27  Keith Seitz  <keiths@redhat.com>
 
 	* classpath/lib/gnu/classpath/jdwp/Jdwp.class: Regenerated.

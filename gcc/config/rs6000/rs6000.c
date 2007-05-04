@@ -1296,11 +1296,9 @@ rs6000_override_options (const char *default_cpu)
 	 {"801", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"821", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"823", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
-	 {"8540", PROCESSOR_PPC8540,
-	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_STRICT_ALIGN},
+	 {"8540", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_STRICT_ALIGN},
 	 /* 8548 has a dummy entry for now.  */
-	 {"8548", PROCESSOR_PPC8540,
-	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_STRICT_ALIGN},
+	 {"8548", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_STRICT_ALIGN},
 	 {"860", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"970", PROCESSOR_POWER4,
 	  POWERPC_7400_MASK | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
@@ -9587,7 +9585,6 @@ rs6000_init_libfuncs (void)
 	    set_optab_libfunc (ge_optab, TFmode, "__gcc_qge");
 	    set_optab_libfunc (lt_optab, TFmode, "__gcc_qlt");
 	    set_optab_libfunc (le_optab, TFmode, "__gcc_qle");
-	    set_optab_libfunc (unord_optab, TFmode, "__gcc_qunord");
 
 	    set_conv_libfunc (sext_optab, TFmode, SFmode, "__gcc_stoq");
 	    set_conv_libfunc (sext_optab, TFmode, DFmode, "__gcc_dtoq");
@@ -9598,6 +9595,9 @@ rs6000_init_libfuncs (void)
 	    set_conv_libfunc (sfloat_optab, TFmode, SImode, "__gcc_itoq");
 	    set_conv_libfunc (ufloat_optab, TFmode, SImode, "__gcc_utoq");
 	  }
+
+	if (!(TARGET_HARD_FLOAT && TARGET_FPRS))
+	  set_optab_libfunc (unord_optab, TFmode, "__gcc_qunord");
       }
     else
       {
@@ -16039,7 +16039,6 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   reload_completed = 1;
   epilogue_completed = 1;
   no_new_pseudos = 1;
-  reset_block_changes ();
 
   /* Mark the end of the (empty) prologue.  */
   emit_note (NOTE_INSN_PROLOGUE_END);
@@ -16119,7 +16118,7 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
      instruction scheduling worth while.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
   insn = get_insns ();
-  insn_locators_initialize ();
+  insn_locators_alloc ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
   final (insn, file, 1);

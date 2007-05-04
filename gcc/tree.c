@@ -4207,15 +4207,10 @@ build_distinct_type_copy (tree type)
   /* Make it its own variant.  */
   TYPE_MAIN_VARIANT (t) = t;
   TYPE_NEXT_VARIANT (t) = 0;
-  
-  /* VRP assumes that TREE_TYPE (TYPE_MIN_VALUE (type)) == type.  */
-  if (INTEGRAL_TYPE_P (t) || SCALAR_FLOAT_TYPE_P (t))
-    {
-      if (TYPE_MIN_VALUE (t) != NULL_TREE)
-	TYPE_MIN_VALUE (t) = fold_convert (t, TYPE_MIN_VALUE (t));
-      if (TYPE_MAX_VALUE (t) != NULL_TREE)
-	TYPE_MAX_VALUE (t) = fold_convert (t, TYPE_MAX_VALUE (t));
-    }
+
+  /* Note that it is now possible for TYPE_MIN_VALUE to be a value
+     whose TREE_TYPE is not t.  This can also happen in the Ada
+     frontend when using subtypes.  */
 
   return t;
 }
@@ -6182,6 +6177,47 @@ int_fits_type_p (tree c, tree type)
   return !fit_double_type (low, high, &low, &high, type);
 }
 
+/* Stores bounds of an integer TYPE in MIN and MAX.  If TYPE has non-constant
+   bounds or is a POINTER_TYPE, the maximum and/or minimum values that can be
+   represented (assuming two's-complement arithmetic) within the bit
+   precision of the type are returned instead.  */
+
+void
+get_type_static_bounds (tree type, mpz_t min, mpz_t max)
+{
+  if (!POINTER_TYPE_P (type) && TYPE_MIN_VALUE (type)
+      && TREE_CODE (TYPE_MIN_VALUE (type)) == INTEGER_CST)
+    mpz_set_double_int (min, tree_to_double_int (TYPE_MIN_VALUE (type)),
+			TYPE_UNSIGNED (type));
+  else
+    {
+      if (TYPE_UNSIGNED (type))
+	mpz_set_ui (min, 0);
+      else
+	{
+	  double_int mn;
+	  mn = double_int_mask (TYPE_PRECISION (type) - 1);
+	  mn = double_int_sext (double_int_add (mn, double_int_one),
+				TYPE_PRECISION (type));
+	  mpz_set_double_int (min, mn, false);
+	}
+    }
+
+  if (!POINTER_TYPE_P (type) && TYPE_MAX_VALUE (type) 
+      && TREE_CODE (TYPE_MAX_VALUE (type)) == INTEGER_CST)
+    mpz_set_double_int (max, tree_to_double_int (TYPE_MAX_VALUE (type)),
+			TYPE_UNSIGNED (type));
+  else
+    {
+      if (TYPE_UNSIGNED (type))
+	mpz_set_double_int (max, double_int_mask (TYPE_PRECISION (type)),
+			    true);
+      else
+	mpz_set_double_int (max, double_int_mask (TYPE_PRECISION (type) - 1),
+			    true);
+    }
+}
+
 /* Subprogram of following function.  Called by walk_tree.
 
    Return *TP if it is an automatic variable or parameter of the
@@ -7435,11 +7471,18 @@ tree
 reconstruct_complex_type (tree type, tree bottom)
 {
   tree inner, outer;
-
-  if (POINTER_TYPE_P (type))
+  
+  if (TREE_CODE (type) == POINTER_TYPE)
     {
       inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
-      outer = build_pointer_type (inner);
+      outer = build_pointer_type_for_mode (inner, TYPE_MODE (type),
+					   TYPE_REF_CAN_ALIAS_ALL (type));
+    }
+  else if (TREE_CODE (type) == REFERENCE_TYPE)
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_reference_type_for_mode (inner, TYPE_MODE (type),
+					     TYPE_REF_CAN_ALIAS_ALL (type));
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {

@@ -1244,6 +1244,10 @@ maybe_dump_rtl_for_tree_stmt (tree stmt, rtx since)
     }
 }
 
+/* Maps the blocks that do not contain tree labels to rtx labels.  */
+
+static struct pointer_map_t *lab_rtx_for_bb;
+
 /* Returns the label_rtx expression for a label starting basic block BB.  */
 
 static rtx
@@ -1251,12 +1255,17 @@ label_rtx_for_bb (basic_block bb)
 {
   tree_stmt_iterator tsi;
   tree lab, lab_stmt;
+  void **elt;
 
   if (bb->flags & BB_RTL)
     return block_label (bb);
 
-  /* We cannot use tree_block_label, as we no longer have stmt annotations.
-     TODO -- avoid creating the new tree labels.  */
+  elt = pointer_map_contains (lab_rtx_for_bb, bb);
+  if (elt)
+    return *elt;
+
+  /* Find the tree label if it is present.  */
+     
   for (tsi = tsi_start (bb_stmt_list (bb)); !tsi_end_p (tsi); tsi_next (&tsi))
     {
       lab_stmt = tsi_stmt (tsi);
@@ -1270,10 +1279,9 @@ label_rtx_for_bb (basic_block bb)
       return label_rtx (lab);
     }
 
-  lab = create_artificial_label ();
-  lab_stmt = build1 (LABEL_EXPR, void_type_node, lab);
-  tsi_link_before (&tsi, lab_stmt, TSI_NEW_STMT);
-  return label_rtx (lab);
+  elt = pointer_map_insert (lab_rtx_for_bb, bb);
+  *elt = gen_label_rtx ();
+  return *elt;
 }
 
 /* A subroutine of expand_gimple_basic_block.  Expand one COND_EXPR.
@@ -1297,8 +1305,8 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
   if (EXPR_LOCUS (stmt))
     {
-      emit_line_note (*(EXPR_LOCUS (stmt)));
-      record_block_change (TREE_BLOCK (stmt));
+      set_curr_insn_source_location (*(EXPR_LOCUS (stmt)));
+      set_curr_insn_block (TREE_BLOCK (stmt));
     }
 
   /* These flags have no purpose in RTL land.  */
@@ -1313,7 +1321,7 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
       add_reg_br_prob_note (last, true_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
       if (true_edge->goto_locus)
-	emit_line_note (*true_edge->goto_locus);
+  	set_curr_insn_source_location (*true_edge->goto_locus);
       false_edge->flags |= EDGE_FALLTHRU;
       return NULL;
     }
@@ -1323,7 +1331,7 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
       add_reg_br_prob_note (last, false_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
       if (false_edge->goto_locus)
-	emit_line_note (*false_edge->goto_locus);
+  	set_curr_insn_source_location (*false_edge->goto_locus);
       true_edge->flags |= EDGE_FALLTHRU;
       return NULL;
     }
@@ -1354,7 +1362,7 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
   maybe_dump_rtl_for_tree_stmt (stmt, last2);
 
   if (false_edge->goto_locus)
-    emit_line_note (*false_edge->goto_locus);
+    set_curr_insn_source_location (*false_edge->goto_locus);
 
   return new_bb;
 }
@@ -1477,6 +1485,7 @@ expand_gimple_basic_block (basic_block bb)
   rtx note, last;
   edge e;
   edge_iterator ei;
+  void **elt;
 
   if (dump_file)
     {
@@ -1510,20 +1519,32 @@ expand_gimple_basic_block (basic_block bb)
 
   tsi = tsi_start (stmts);
   if (!tsi_end_p (tsi))
-    stmt = tsi_stmt (tsi);
+    {
+      stmt = tsi_stmt (tsi);
+      if (TREE_CODE (stmt) != LABEL_EXPR)
+	stmt = NULL_TREE;
+    }
 
-  if (stmt && TREE_CODE (stmt) == LABEL_EXPR)
+  elt = pointer_map_contains (lab_rtx_for_bb, bb);
+
+  if (stmt || elt)
     {
       last = get_last_insn ();
 
-      expand_expr_stmt (stmt);
+      if (stmt)
+	{
+	  expand_expr_stmt (stmt);
+	  tsi_next (&tsi);
+	}
+
+      if (elt)
+	emit_label (*elt);
 
       /* Java emits line number notes in the top of labels.
 	 ??? Make this go away once line number notes are obsoleted.  */
       BB_HEAD (bb) = NEXT_INSN (last);
       if (NOTE_P (BB_HEAD (bb)))
 	BB_HEAD (bb) = NEXT_INSN (BB_HEAD (bb));
-      tsi_next (&tsi);
       note = emit_note_after (NOTE_INSN_BASIC_BLOCK, BB_HEAD (bb));
 
       maybe_dump_rtl_for_tree_stmt (stmt, last);
@@ -1608,7 +1629,7 @@ expand_gimple_basic_block (basic_block bb)
     {
       emit_jump (label_rtx_for_bb (e->dest));
       if (e->goto_locus)
-	emit_line_note (*e->goto_locus);
+        set_curr_insn_source_location (*e->goto_locus);
       e->flags &= ~EDGE_FALLTHRU;
     }
 
@@ -1679,6 +1700,19 @@ construct_init_block (void)
   return init_block;
 }
 
+/* For each lexical block, set BLOCK_NUMBER to the depth at which it is
+   found in the block tree.  */
+
+static void
+set_block_levels (tree block, int level)
+{
+  while (block)
+    {
+      BLOCK_NUMBER (block) = level;
+      set_block_levels (BLOCK_SUBBLOCKS (block), level + 1);
+      block = BLOCK_CHAIN (block);
+    }
+}
 
 /* Create a block containing landing pads and similar stuff.  */
 
@@ -1703,7 +1737,7 @@ construct_exit_block (void)
     input_location = cfun->function_end_locus;
 
   /* The following insns belong to the top scope.  */
-  record_block_change (DECL_INITIAL (current_function_decl));
+  set_curr_insn_block (DECL_INITIAL (current_function_decl));
 
   /* Generate rtl for function exit.  */
   expand_function_end ();
@@ -1831,8 +1865,16 @@ tree_expand_cfg (void)
   /* Some backends want to know that we are expanding to RTL.  */
   currently_expanding_to_rtl = 1;
 
-  /* Prepare the rtl middle end to start recording block changes.  */
-  reset_block_changes ();
+  insn_locators_alloc ();
+  if (!DECL_BUILT_IN (current_function_decl))
+    set_curr_insn_source_location (DECL_SOURCE_LOCATION (current_function_decl));
+  set_curr_insn_block (DECL_INITIAL (current_function_decl));
+  prologue_locator = curr_insn_locator ();
+
+  /* Make sure first insn is a note even if we don't want linenums.
+     This makes sure the first insn will never be deleted.
+     Also, final expects a note to appear there.  */
+  emit_note (NOTE_INSN_DELETED);
 
   /* Mark arrays indexed with non-constant indices with TREE_ADDRESSABLE.  */
   discover_nonconstant_array_refs ();
@@ -1875,10 +1917,14 @@ tree_expand_cfg (void)
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     e->flags &= ~EDGE_EXECUTABLE;
 
+  lab_rtx_for_bb = pointer_map_create ();
   FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR, next_bb)
     bb = expand_gimple_basic_block (bb);
+  pointer_map_destroy (lab_rtx_for_bb);
 
   construct_exit_block ();
+  set_curr_insn_block (DECL_INITIAL (current_function_decl));
+  insn_locators_finalize ();
 
   /* We're done expanding trees to RTL.  */
   currently_expanding_to_rtl = 0;
@@ -1908,8 +1954,6 @@ tree_expand_cfg (void)
   /* Now that we're done expanding trees to RTL, we shouldn't have any
      more CONCATs anywhere.  */
   generating_concat_p = 0;
-
-  finalize_block_changes ();
 
   if (dump_file)
     {
@@ -1941,6 +1985,9 @@ tree_expand_cfg (void)
   return_label = NULL;
   naked_return_label = NULL;
   free_histograms ();
+  /* Tag the blocks with a depth number so that change_scope can find
+     the common parent easily.  */
+  set_block_levels (DECL_INITIAL (cfun->decl), 0);
   return 0;
 }
 

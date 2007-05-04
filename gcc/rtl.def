@@ -696,6 +696,9 @@ DEF_RTL_EXPR(SS_NEG, "ss_neg", "e", RTX_UNARY)
 /* Negation with unsigned saturation.  */
 DEF_RTL_EXPR(US_NEG, "us_neg", "e", RTX_UNARY)
 
+/* Absolute value with signed saturation.  */
+DEF_RTL_EXPR(SS_ABS, "ss_abs", "e", RTX_UNARY)
+
 /* Shift left with signed saturation.  */
 DEF_RTL_EXPR(SS_ASHIFT, "ss_ashift", "ee", RTX_BIN_ARITH)
 

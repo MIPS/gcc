@@ -1,3 +1,416 @@
+2007-05-03  Dirk Mueller  <dmueller@suse.de>
+
+	* doc/invoke.texi (-m386,-m486,-mpentium,-mpentiumpro): Remove.
+
+	* config/i386/i386.h (CC1_CPU_SPEC): Remove handling for deprecated
+	options.
+
+	* config/i386/i386.opt (m386,m486,mpentium,mpentiumpro): Remove.
+
+2007-05-03  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/sourcebuild.texi (Test Directives) Clarify dg-excess-errors.
+
+2007-05-03  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/soft-fp/double.h, config/soft-fp/extended.h,
+	config/soft-fp/floatundidf.c, config/soft-fp/floatundisf.c,
+	config/soft-fp/floatunsidf.c, config/soft-fp/floatunsisf.c,
+	config/soft-fp/op-2.h, config/soft-fp/op-4.h,
+	config/soft-fp/op-common.h, config/soft-fp/quad.h: Update from
+	glibc CVS.
+
+2007-05-03  Ian Lance Taylor  <iant@google.com>
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Don't se
+	MASK_PPC_GFXOPT for 8540 or 8548.
+
+2007-05-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* tree-vect-transform.c (vect_update_inits_of_drs): Use
+	vect_print_dump_info() to output debug information.
+
+2007-05-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/31768
+	* config/i386/i386.c (print_operand) ['z']: Output 'w' for
+	operands of size 2 when operand is not MEM_P.
+
+2007-05-03  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/30565
+	* lambda-code.c (perfect_nestify): Fix updating of dominators.
+
+2007-05-03  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.md (addpdi3, us_truncpdisi2): New patterns.
+	(umulsi3_highpart): Use them.
+	* config/bfin/lib1funcs.asm (__umulsi3_highpart): Use unsigned move
+	for final accumulator to D regisster tranfser.
+
+2007-05-03  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/31699
+	* tree-vect-analyze.c (vect_update_misalignment_for_peel): Remove wrong
+	code.
+	(vect_enhance_data_refs_alignment): Compute peel amount using 
+	TYPE_VECTOR_SUBPARTS instead of vf.	
+	* tree-vect-transform.c (vect_gen_niters_for_prolog_loop): Likewise.
+
+2007-05-02  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR bootstrap/31776
+	* system.h: Remove inclusion of double-int.h
+	* tree.h: Include double-int.h
+	* gengtype.c: Likewise
+	* cfgloop.h: Likewise
+	* Makefile.in: Adjust dependencies on double-int.h
+
+2007-05-02  Eric Christopher  <echristo@apple.com>
+
+	* config/darwin.h (TARGET_OPTION_TRANSLATE_TABLE): Translate
+	-shared to -Zdynamiclib.
+
+2007-05-02  Seongbae Park  <seongbae.park@gmail.com>
+
+	PR c++/31663
+	* c-common.c (strip_pointer_or_array_types): New function.
+	* c-common.h (strip_pointer_or_array_types): New function declaration.
+
+2007-05-03  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/31771
+	* tree-cfg.c (move_block_to_fn): Assign bb to the correct index.
+
+2007-05-02  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/bpabi.S (aeabi_lcmp): Fix result on overflow.
+
+2007-05-02  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/29715
+	* fold-const.c (fold_comparision): Remove the "foo++ == CONST"
+	transformation.
+
+2007-05-02  Nick Clifton  <nickc@redhat.com>
+
+	* config/frv/predicates.md (symbolic_operand): Accept CONSTs.
+
+2007-05-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31146
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): New
+	argument, single_use_p.  If we have a single use that is
+	a conversion to the definition rhs type, propagate that rhs.
+	(forward_propagate_addr_expr): Pass single_use_p argument
+	to forward_propagate_addr_expr_1.
+
+2007-05-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_sse_comi): Remove unused
+	variable.
+
+2007-05-01  Dwarakanath Rajagopal <dwarak.rajagopal@amd.com>
+
+	* doc/invoke.texi: Fix typo, 'AMD Family 10h core' instead of
+	'AMD Family 10 core'.
+
+2007-05-01  Dwarakanath Rajagopal <dwarak.rajagopal@amd.com>
+
+	* config/i386/i386.c (override_options): Accept k8-sse3, opteron-sse3
+	and athlon64-sse3 as improved versions of k8, opteron and athlon64
+	with SSE3 instruction set support.
+	* doc/invoke.texi: Likewise.
+
+2007-05-01  Dwarakanath Rajagopal <dwarak.rajagopal@amd.com>
+
+	* config/i386/i386.c (override_options): Tuning 32-byte loop
+	alignment for amdfam10 architecture. Increasing the max loop
+	alignment to 24 bytes.
+
+2007-05-01  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/m68k/constraints.md: New.
+	* config/m68k/m68k.h (REG_CLASS_FROM_LETTER,
+	CONST_OK_FOR_LETTER_P, CONST_DOUBLE_OK_FOR_LETTER_P,
+	EXTRA_CONSTRAINT): Remove.
+	* config/m68k/m68k.md: Include constraints.md.
+	* expr.c (expand_expr_real_1): Copy DECL_RTL before using it.
+
+2007-05-01  Ian Lance Taylor  <iant@google.com>
+
+	PR tree-optimization/31739
+	* tree-vrp.c (vrp_val_is_max): New static function.
+	(vrp_val_is_min): New static function.
+	(set_value_range_to_value): Use TYPE_{MAX,MIN}_VALUE rather than
+	copying the node.
+	(set_value_range): Use vrp_val_is_{max,min}.
+	(extract_range_from_assert): Likewise.
+	(extract_range_from_binary_expr): Likewise.
+	(extract_range_from_unary_expr): Likewise.
+	(dump_value_range, vrp_meet): Likewise.
+	(vrp_visit_phi_node): Likewise.
+	* tree.c (build_distinct_type_copy): Revert change of 2007-04-27.
+
+2007-05-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/i386/gmon-sol2.c (size_t): New type.
+	(intptr_t): Likewise.
+	(s_textsize): Declare as size_t.
+	(sbrk): Declare.
+	(monstartup): Use size_t for sizes.
+	(_mcount): Save and restore registers.
+	(internal_mcount): Pass 0 as the first argument to monstartup
+	in 64-bit mode.
+	(moncontrol): Convert pointer to appropriately sized integer
+	before passing to profil.
+
+2007-05-01  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/darwin-ldouble.c (__gcc_qunord): Define if
+	__NO_FPRS__, not just if _SOFT_DOUBLE.
+	* config/rs6000/libgcc-ppc-glibc.ver (__gcc_qunord): Likewise.
+	* config/rs6000/rs6000.c (rs6000_init_libfuncs): Use __gcc_qunord
+	also for E500 double.
+	* config/rs6000/rs6000.md (buneq, bunge, bungt, bunle, bunlt,
+	suneq, sunge, sungt, sunle, sunlt): Disable for (TARGET_HARD_FLOAT
+	&& !TARGET_FPRS).
+
+2007-05-01  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-loop-manip.c (ip_normal_pos): Check if last stmt
+	is NULL.
+
+2007-05-01  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/libgcc-ppc-glibc.ver (__gcc_qgt): Fix typo.
+
+2007-05-01  Jan Hubicka  <jh@suse.cz>
+
+	* tree-vectorize.c (vect_is_simple_use): gimple_min_invariant is
+	invariant.
+
+2007-05-01  Jan Hubicka  <jh@suse.cz>
+
+	* tree.h (maybe_fold_offset_to_component_ref): Remove.
+	(maybe_fold_offset_to_reference): Declare.
+	* fold-const.c (fold_unary): Do not fold
+	(type *)&A into &A->field_of_type_and_offset_0
+	* tree-ssa-ccp.c (maybe_fold_offset_to_array_ref): When base type
+	size is unknown, give up.
+	(maybe_fold_offset_to_component_ref): Ignore firelds with unknown
+	offsets.
+	(maybe_fold_offset_to_reference): New.
+	(maybe_fold_stmt_indirect): Use it.
+	(fold_stmt_r): Fold (type *)&A+offset into A->field_if_type_and_offset.
+	* gimplify.c (gimplify_conversion): Canonicalize conversions to
+	field references.
+	(gimplify_expr): Likewise for plus_expr.
+
+2007-05-01  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-ssa-loop-ivopts.c (rewrite_use_nonlinear_expr): Use
+	bsi_after_labels.  Always insert statements before bsi.
+	* tree-vect-transform.c (vect_create_epilog_for_reduction): Ditto.
+	* predict.c (apply_return_prediction): Check for empty blocks.
+	* cfgexpand.c (lab_rtx_for_bb): New variable.
+	(label_rtx_for_bb): Do not create new tree labels.
+	(expand_gimple_basic_block): Add labels recorded in lab_rtx_for_bb.
+	(tree_expand_cfg): Initialize lab_rtx_for_bb.
+	* tree-cfg.c (build_tree_cfg): Call cleanup_dead_labels after
+	creating edges.
+	(label_for_bb): Add field used.
+	(update_eh_label, main_block_label): Mark the label used.
+	(cleanup_dead_labels): Remove unused labels.
+
+2007-05-01  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vrp.c (set_value_range): Do not allocate equiv bitmap
+	if it is not about to be set.
+	(get_value_range): Do not pre-allocate equiv bitmap.
+	(update_value_range): No need to clear equiv field.
+	(add_equivalence): Change prototype to get bitmap pointer.
+	Allocate bitmap here if it is not already.
+	(extract_range_from_assert): Do not allocate bitmap here.
+	Update callers to add_equivalence.
+	(extract_range_from_ssa_name): Likewise.
+	(get_vr_for_comparison): New static helper.
+	(compare_name_with_value): Handle NULL equiv bitmap by
+	peeling the first iteration of the comparison loop.
+	Use get_vr_for_comparison.
+	(compare_names): Handle NULL equiv bitmaps by using fake
+	ones.  Use get_vr_for_comparison.
+
+2007-04-30  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* double-int.c (mpz_set_double_int): Moved from
+	tree-ssa-loop-niter.c.
+	(mpz_get_double_int): Likewise; also, add option to wrap
+	out-of-range integers.
+	* double-int.h: New prototypes for above.
+	* tree.c (get_static_type_bounds): Moved from
+	tree-ssa-loop-niter.c; now returns TYPE_MIN_VALUE and
+	TYPE_MAX_VALUE if they exist..
+	* tree.h: New prototype for above.
+	* tree-ssa-loop-niter.c: Adjust mpz_to_double_int and
+	get_type_bounds calls.
+	(mpz_set_double_int): Move to double-int.c.
+	(get_type_bounds): Move to tree.c, rename to
+	get_static_type_bounds.
+	(mpz_to_double_int): Move to double-int.c, rename to
+	mpz_get_double_int.
+
+2007-04-30  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/lib1funcs.asm (__umodsi3, __modsi3): Rearrange so that
+	DIV0 exception can fall through to a normal return.
+
+2007-04-30  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/22156
+	Temporarily revert:
+	2007-04-06  Andreas Tobler  <a.tobler@schweiz.org>
+        * tree-sra.c (sra_build_elt_assignment): Initialize min/maxshift.
+	2007-04-05  Alexandre Oliva  <aoliva@redhat.com>
+	* tree-sra.c (try_instantiate_multiple_fields): Needlessly
+	initialize align to silence bogus warning.
+	2007-04-05  Alexandre Oliva  <aoliva@redhat.com>
+	* tree-sra.c (struct sra_elt): Add in_bitfld_block.  Remove
+	all_no_warning.
+	(struct sra_walk_fns): Remove use_all parameter from use.
+	(sra_hash_tree): Handle BIT_FIELD_REFs.
+	(sra_elt_hash): Don't hash bitfld blocks.
+	(sra_elt_eq): Skip them in parent compares as well.  Handle
+	BIT_FIELD_REFs.
+	(sra_walk_expr): Don't maintain or pass down use_all_p.
+	(scan_use): Remove use_all parameter.
+	(scalarize_use): Likewise.  Re-expand assignment to
+	BIT_FIELD_REF of gimple_reg.  De-scalarize before input or
+	output, and re-scalarize after output.  Don't mark anything
+	for no warning.
+	(scalarize_ldst): Adjust.
+	(scalarize_walk_gimple_modify_statement): Likewise.
+	(build_element_name_1): Handle BIT_FIELD_REFs.
+	(instantiate_element): Don't warn for any element whose parent
+	is used as a whole.
+	(instantiate_missing_elements_1): Return the sra_elt.
+	(canon_type_for_field): New.
+	(try_instantiate_multiple_fields): New.
+	(instantiate_missing_elemnts): Use them.
+	(mark_no_warning): Removed.
+	(generate_one_element_ref): Handle BIT_FIELD_REFs.
+	(REPLDUP, sra_build_elt_assignment): New.
+	(generate_copy_inout): Use them.
+	(generate_element_copy): Likewise.  Handle bitfld differences.
+	(generate_element_zero): Don't recurse for blocks.  Use
+	sra_build_elt_assignment.
+	(generate_one_element_int): Take elt instead of var.  Use
+	sra_build_elt_assignment.
+	(generate_element_init_1): Adjust.
+	(scalarize_use, scalarize_copy): Use REPLDUP.
+	(scalarize_ldst): Move assert before dereference.
+	(dump_sra_elt_name): Handle BIT_FIELD_REFs.
+
+2007-04-30  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/31721
+	* tree.c (reconstruct_complex_type): Reconstruct a reference
+	correctly.
+	Also use the same mode for the pointer as the old pointer type.
+
+2007-04-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* doc/trouble.texi (Interoperation): Remove note about Ultrix
+	Fortran compiler.
+
+2007-04-29  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR rtl-optimization/31676
+	* df-scan.c (record_nonlocal_goto_receiver_defs): New function.
+	(df_refs_record): Call it.
+
+2007-04-29  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* rtl.def (SS_ABS): New code.
+	* config/bfin/bfin.c (print_operand): New modifier 'v'.
+	(enum bfin_builtins): Add BFIN_BUILTIN_SUM_2X16, BFIN_BUILTIN_ABS_1x32,
+	BFIN_BUILTIN_ROUND_1x32, BFIN_BUILTIN_MULT_1x32x32,
+	BFIN_BUILTIN_MULT_1x32x32NS, BFIN_BUILTIN_SSASHIFT_1x32.
+	(bfin_init_builtins): Define them.
+	(bdesc_1arg, bdesc_2arg): Add some of them here, ...
+	(bfin_expand_builtin): ... and handle the others here.
+	* config/bfin/bfin.md (ssabssi2, ssroundsi2, ssashiftsi3,
+	flag_mul_macv2hi_parts_acconly_andcc0): New patterns.
+	(ss_absv2hi2): Renamed from absv2hi; use ss_abs code.
+	(ssashiftv2hi3, ssashifthi3, lshiftv2hi3, lshifthi3): Shift count
+	operand is only HImode.
+
+2007-04-29  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* regclass.c (scan_one_insn): Remove splitting of
+	two address insns.
+
+2007-04-28  Sandra Loosemore  <sandra@codesourcery.com>
+	    Nigel Stephens  <nigel@mips.com>
+
+	* config/mips/mips.h (SLOW_BYTE_ACCESS): Turn off for MIPS16.
+
+2007-04-28  Jan Hubicka  <jh@suse.cz>
+
+	* config/alpha/alpha.c (alpha_output_mi_thunk_osf): Use
+	insn_locators_alloc instead of insn_locators_initialize;
+	call reset_block_changes.
+	* config/sparc/sparc.c (sparc_output_mi_thunk): Likewise.
+	* config/sh/sh.c (sparc_output_mi_thunk): Likewise.
+	* config/is64/ia64.c (ia64_output_mi_thunk): Likewise.
+	* config/rs6000/rs6000.c (rs6000_output_mi_thunk): Likewise.
+	* config/score/score.c (th_output_mi_thunk): Likewise.
+	* config/mips/mips.c (mips_output_mi_thunk): Likewise.
+	* cfglyaout.c (set_curr_insn_source_location, set_curr_insn_block):
+	tolerate uninitialized locator info.
+
+	Re-apply:
+	* function.c (init_function_start): Don't init line number info.
+	(expand_function_end): Update.
+	(reset_block_changes, record_block_change, finalize_block_changes,
+	check_block_change, free_block_changes): Kill.
+	* function.h (reset_block_changes, record_block_change,
+	finalize_block_changes, check_block_change, free_block_changes): Remove
+	prototypes.
+	(struct function): Remove ib_boundaries_block.
+	* emit-rtl.c (make_insn_raw, make_jump_insn_raw, make_call_insn_raw):
+	Use curr_insn_locator to initialize locator.
+	(emit_line_note): Remove.
+	* cfgexpand.c (expand_gimple_cond_expr): Update.
+	(construct_exit_block): Likewise.
+	(tree_expand_cfg): Initialize/finalize locators.
+	* expr.c (expand_expr_real): Update.
+	* cfglayout.c (line_locators_locs, line_locators_lines,
+	file_locators_locs, file_locators_files): Remove.
+	(set_block_levels): Move to cfgexpand.c.
+	(insn_locators_initialize): Remove.
+	(pass_insn_locators_initialize): Remove.
+	(locations_locators_locs, locations_locators_vals): New static vars.
+	(curr_location, last_location, curr_block, last_block, curr_rtl_loc):
+	Likewise.
+	(insn_locators_alloc, insn_locators_finalize,
+	set_curr_insn_source_location, set_curr_insn_block, curr_insn_locator):
+	New functions.
+	(locator_location): New.
+	(locator_line, locator_file): Rewrite.
+	* rtl.h (emit_line_note): Kill.
+	(insn_locators_alloc, insn_locators_finalize,
+	set_curr_insn_source_location, set_curr_insn_block, curr_insn_locator):
+	Declare.
+	* tree-inline.c (initialize_cfun): Do not initialize
+	ib_boundaries_block.
+	* passes.c (pass_insn_locators_initialize): Remove.
+
+2007-04-28  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-cfg.c (move_block_to_fn): Release bb from dominance
+	info.  Update last_basic_block correctly.
+
 2007-04-27  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	PR target/31701
@@ -196,7 +609,7 @@
 
 2007-04-26  Anatoly Sokolov <aesok@post.ru>
 
-	* config/avr/avr.c (avr_mcu_types): Add support for ATmega8HVA and 
+	* config/avr/avr.c (avr_mcu_types): Add support for ATmega8HVA and
 	ATmega16HVA devices. Move AT90USB82 device to 'avr5' architecture.
 	* config/avr/avr.h (LINK_SPEC, CRT_BINUTILS_SPECS): (Ditto.).
 	* config/avr/t-avr (MULTILIB_MATCHES): (Ditto.).
@@ -383,12 +796,12 @@
 2007-04-24  Richard Guenther  <rguenther@suse.de>
 	    Olga Golovanevsky  <olga@il.ibm.com>
 
-	* fold-const.c (multiple_of_p): Check for bottom 
-	to be zero. 
+	* fold-const.c (multiple_of_p): Check for bottom
+	to be zero.
 
 2007-04-24  Richard Henderson  <rth@redhat.com>
 
-	* libgcc2.h (AVOID_FP_TYPE_CONVERSION): Rename from 
+	* libgcc2.h (AVOID_FP_TYPE_CONVERSION): Rename from
 	IS_IBM_EXTENDED.  Also define in terms of WIDEST_HARDWARE_FP_SIZE.
 	* libgcc2.c (__floatdisf): Avoid double-word arithmetic when
 	looking for non-zero bits shifted out.  Avoid a recursive call
