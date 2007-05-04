@@ -1533,12 +1533,9 @@ extern rtx assign_stack_temp_for_type (enum machine_mode,
 				       HOST_WIDE_INT, int, tree);
 extern rtx assign_temp (tree, int, int, int);
 
-struct basic_block_def;
-typedef struct basic_block_def *basic_block;
-
 /* In emit-rtl.c */
 extern rtx emit_insn_before (rtx, rtx);
-extern rtx emit_insn_before_noloc (rtx, rtx, basic_block);
+extern rtx emit_insn_before_noloc (rtx, rtx, struct basic_block_def *);
 extern rtx emit_insn_before_setloc (rtx, rtx, int);
 extern rtx emit_jump_insn_before (rtx, rtx);
 extern rtx emit_jump_insn_before_noloc (rtx, rtx);
@@ -1550,7 +1547,7 @@ extern rtx emit_barrier_before (rtx);
 extern rtx emit_label_before (rtx, rtx);
 extern rtx emit_note_before (int, rtx);
 extern rtx emit_insn_after (rtx, rtx);
-extern rtx emit_insn_after_noloc (rtx, rtx, basic_block);
+extern rtx emit_insn_after_noloc (rtx, rtx, struct basic_block_def *);
 extern rtx emit_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_jump_insn_after (rtx, rtx);
 extern rtx emit_jump_insn_after_noloc (rtx, rtx);
@@ -2058,8 +2055,8 @@ extern void set_first_insn (rtx);
 extern void set_last_insn (rtx);
 extern void link_cc0_insns (rtx);
 extern void add_insn (rtx);
-extern void add_insn_before (rtx, rtx, basic_block);
-extern void add_insn_after (rtx, rtx, basic_block);
+extern void add_insn_before (rtx, rtx, struct basic_block_def *);
+extern void add_insn_after (rtx, rtx, struct basic_block_def *);
 extern void remove_insn (rtx);
 extern rtx emit (rtx);
 extern rtx delete_insn (rtx);

@@ -1858,7 +1858,7 @@ combine_reloads (void)
 	/* Check that we don't use a hardreg for an uninitialized
 	   pseudo.  See also find_dummy_reload().  */
 	&& (ORIGINAL_REGNO (XEXP (note, 0)) < FIRST_PSEUDO_REGISTER
-	    || ! bitmap_bit_p (ENTRY_BLOCK_PTR->il.rtl->global_live_at_end,
+	    || ! bitmap_bit_p (DF_LR_OUT (ENTRY_BLOCK_PTR),
 			       ORIGINAL_REGNO (XEXP (note, 0)))))
       {
 	rld[output_reload].reg_rtx
