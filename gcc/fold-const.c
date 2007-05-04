@@ -5990,7 +5990,7 @@ constant_boolean_node (int value, tree type)
    offset is set to NULL_TREE.  Base will be canonicalized to
    something you can get the element type from using
    TREE_TYPE (TREE_TYPE (base)).  Offset will be the offset
-   in bytes to the base.  */
+   in bytes to the base in sizetype.  */
 
 static bool
 extract_array_ref (tree expr, tree *base, tree *offset)
@@ -5998,12 +5998,12 @@ extract_array_ref (tree expr, tree *base, tree *offset)
   /* One canonical form is a PLUS_EXPR with the first
      argument being an ADDR_EXPR with a possible NOP_EXPR
      attached.  */
-  if (TREE_CODE (expr) == PLUS_EXPR)
+  if (TREE_CODE (expr) == POINTER_PLUS_EXPR)
     {
       tree op0 = TREE_OPERAND (expr, 0);
       tree inner_base, dummy1;
       /* Strip NOP_EXPRs here because the C frontends and/or
-	 folders present us (int *)&x.a + 4B possibly.  */
+	 folders present us (int *)&x.a p+ 4 possibly.  */
       STRIP_NOPS (op0);
       if (extract_array_ref (op0, &inner_base, &dummy1))
 	{
@@ -6011,7 +6011,7 @@ extract_array_ref (tree expr, tree *base, tree *offset)
 	  if (dummy1 == NULL_TREE)
 	    *offset = TREE_OPERAND (expr, 1);
 	  else
-	    *offset = fold_build2 (PLUS_EXPR, TREE_TYPE (expr),
+	    *offset = fold_build2 (PLUS_EXPR, sizetype,
 				   dummy1, TREE_OPERAND (expr, 1));
 	  return true;
 	}

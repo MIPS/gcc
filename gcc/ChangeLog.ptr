@@ -1,3 +1,11 @@
+2007-05-04  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* tree-vrp.c  (compare_values_warnv): Convert val2 to
+	the type of val1.
+	* fold-const.c (extract_array_ref): Look for
+	POINTER_PLUS_EXPR instead of PLUS_EXPR's.
+	* tree-ssa-ccp.c (maybe_fold_stmt_indirect): Likewise.
+
 2007-05-02  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* c-format.c (check_format_arg): Handle POINTER_PLUS_EXPR

@@ -758,6 +758,10 @@ compare_values_warnv (tree val1, tree val2, bool *strict_overflow_p)
      both integers.  */
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (val1))
 	      == POINTER_TYPE_P (TREE_TYPE (val2)));
+  /* Convert the two values into the same type, this is needed because
+     sizetype causes sign extension even for unsigned types.  */
+  val2 = fold_convert (TREE_TYPE (val1), val2);
+  STRIP_USELESS_TYPE_CONVERSION (val2);
 
   if ((TREE_CODE (val1) == SSA_NAME
        || TREE_CODE (val1) == PLUS_EXPR

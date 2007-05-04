@@ -1853,8 +1853,8 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
   if (t)
     return t;
 
-  /* Add in any offset from a PLUS_EXPR.  */
-  if (TREE_CODE (base) == PLUS_EXPR)
+  /* Add in any offset from a POINTER_PLUS_EXPR.  */
+  if (TREE_CODE (base) == POINTER_PLUS_EXPR)
     {
       tree offset2;
 
