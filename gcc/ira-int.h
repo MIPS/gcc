@@ -49,9 +49,9 @@ extern struct loops ira_loops;
 /* Dump file of the allocator if it is not NULL.  */
 extern FILE *ira_dump_file;
 
-/* Pseudo and copy of pseudos.  */
-typedef struct pseudo *pseudo_t;
-typedef struct pseudo_copy *copy_t;
+/* Allocno and copy of allocnos.  */
+typedef struct allocno *allocno_t;
+typedef struct allocno_copy *copy_t;
 
 /* The following structure describes loop tree node (block or loop).
    We need such tree because the loop tree from cfgloop.h is not
@@ -71,23 +71,23 @@ struct ira_loop_tree_node
   /* The node containing given node.  */
   struct ira_loop_tree_node *father;
 
-  /* Pseudos in loop corresponding to regnos.  If it is NULL the loop
+  /* Allocnos in loop corresponding to regnos.  If it is NULL the loop
      is not included in the loop tree (e.g. it has abnormal enter/exit
      edges).  */
-  pseudo_t *regno_pseudo_map;
+  allocno_t *regno_allocno_map;
 
   /* Maximal register pressure inside loop for given class (defined
      only for cover_class).  */
   int reg_pressure [N_REG_CLASSES];
 
-  /* Pseudos referred in the loop node.  */
-  bitmap mentioned_pseudos;
+  /* Allocnos referred in the loop node.  */
+  bitmap mentioned_allocnos;
 
   /* Regnos modified in the loop node (including its subloops).  */
   bitmap modified_regnos;
 
-  /* Pseudos living at the loop borders.  */
-  bitmap border_pseudos;
+  /* Allocnos living at the loop borders.  */
+  bitmap border_allocnos;
 
   /* Copies referred in the loop node.  */
   bitmap local_copies;
@@ -142,43 +142,43 @@ extern struct ira_loop_tree_node *ira_loop_nodes;
 
 
 
-/* Node representing pseudos (register allocation entity).  */
-struct pseudo
+/* Node representing allocnos (register allocation entity).  */
+struct allocno
 {
-  /* The pseudo order number starting with 0.  */
+  /* The allocno order number starting with 0.  */
   int num;
-  /* Regno for pseudo or cap.  */
+  /* Regno for allocno or cap.  */
   int regno;
-  /* Final rtx representation of the pseudo.  */
+  /* Final rtx representation of the allocno.  */
   rtx reg;
-  /* Pseudos with the same regno are linked by the following member.
-     pseudos corresponding to inner loops are first in the list.  */
-  pseudo_t next_regno_pseudo;
-  /* There may be different pseudos with the same regno.  They are
+  /* Allocnos with the same regno are linked by the following member.
+     allocnos corresponding to inner loops are first in the list.  */
+  allocno_t next_regno_allocno;
+  /* There may be different allocnos with the same regno.  They are
      bound to a loop tree node.  */
   struct ira_loop_tree_node *loop_tree_node;
-  /* It is a pseudo (cap) representing given pseudo on upper loop tree
+  /* It is a allocno (cap) representing given allocno on upper loop tree
      level.  */
-  pseudo_t cap;
-  /* It is a link to pseudo (cap) on lower loop level represented by
+  allocno_t cap;
+  /* It is a link to allocno (cap) on lower loop level represented by
      given cap.  Null if it is not a cap.  */
-  pseudo_t cap_member;
-  /* Vector of conflicting pseudos with NULL end marker.  */
-  pseudo_t *conflict_pseudo_vec;
+  allocno_t cap_member;
+  /* Vector of conflicting allocnos with NULL end marker.  */
+  allocno_t *conflict_allocno_vec;
   /* Allocated and current size (both without NULL marker) of the
      previous array.  */
-  int conflict_pseudo_vec_size, conflict_pseudo_vec_active_size;
-  /* Hard registers conflicting with this pseudo and as a consequences
-     can not be assigned to the pseudo.  */
+  int conflict_allocno_vec_size, conflict_allocno_vec_active_size;
+  /* Hard registers conflicting with this allocno and as a consequences
+     can not be assigned to the allocno.  */
   HARD_REG_SET conflict_hard_regs;
-  /* Frequency of usage of the pseudo.  */
+  /* Frequency of usage of the allocno.  */
   int freq;
-  /* Hard register assigned to given pseudo.  Negative value means
-     that memory was allocated to the pseudo.  */
+  /* Hard register assigned to given allocno.  Negative value means
+     that memory was allocated to the allocno.  */
   int hard_regno;
-  /* Frequency of calls which given pseudo intersects.  */
+  /* Frequency of calls which given allocno intersects.  */
   int call_freq;
-  /* Calls which given pseudo intersects.  It can be NULL if there is
+  /* Calls which given allocno intersects.  It can be NULL if there is
      no one.  */
   rtx *calls_crossed;
   /* Length of the previous array (number of the intersected
@@ -186,129 +186,129 @@ struct pseudo
   int calls_crossed_num;
 
 #ifdef STACK_REGS
-  /* Set to TRUE if pseudo can't be allocated in the stack
+  /* Set to TRUE if allocno can't be allocated in the stack
      register.  */
-  int no_stack_reg_p;
+  unsigned int no_stack_reg_p : 1;
 #endif
-  /* TRUE value means than the pseudo was not removed from the
+  /* TRUE value means than the allocno was not removed from the
      conflicting graph during colouring.  */
-  int in_graph_p;
+  unsigned int in_graph_p : 1;
   /* TRUE if a hard register or memory has been assigned to the
-     pseudo.  */
-  int assigned_p;
-  /* TRUE if it is put on the stack to make other pseudos
+     allocno.  */
+  unsigned int assigned_p : 1;
+  /* TRUE if it is put on the stack to make other allocnos
      colorable.  */
-  int may_be_spilled_p;
-  /* Mode of the pseudo.  */
-  enum machine_mode mode;
-  /* Copies to other non-conflicting pseudos.  The copies can
+  unsigned int may_be_spilled_p : 1;
+  /* Mode of the allocno.  */
+  ENUM_BITFIELD(machine_mode) mode : 8;
+  /* Copies to other non-conflicting allocnos.  The copies can
      represent move insn or potential move insn usually because of two
      operand constraints.  */
-  copy_t pseudo_copies;
+  copy_t allocno_copies;
   /* Array of additional costs (initial and current during coloring)
-     for hard regno of pseudo cover class.  If given pseudo represents
-     a set of pseudos the current costs represents costs of the all
+     for hard regno of allocno cover class.  If given allocno represents
+     a set of allocnos the current costs represents costs of the all
      set.  */
   int *hard_reg_costs, *curr_hard_reg_costs;
   /* Array of decreasing costs (initial and current during coloring)
-     for conflicting pseudos for hard regno of the pseudo cover class.
+     for conflicting allocnos for hard regno of the allocno cover class.
      The member values can be NULL if all costs are the same.  If
-     given pseudo represents a set of pseudos the current costs
+     given allocno represents a set of allocnos the current costs
      represents costs of the all set.  */
   int *conflict_hard_reg_costs, *curr_conflict_hard_reg_costs;
-  /* Number of pseudos with TRUE in_graph_p value and conflicting with
-     given pseudo.  */
+  /* Number of allocnos with TRUE in_graph_p value and conflicting with
+     given allocno.  */
   int left_conflicts_num;
   /* Register class which should be used for allocation for given
-     pseudo.  NO_REGS means that we should use memory.  */
+     allocno.  NO_REGS means that we should use memory.  */
   enum reg_class cover_class;
   /* Minimal cost of usage register of the cover class and memory for
-     the pseudo.  */
+     the allocno.  */
   int cover_class_cost, memory_cost, original_memory_cost;
-  /* Number of hard register of the pseudo cover class really
-     availiable for the pseudo allocation.  */
+  /* Number of hard register of the allocno cover class really
+     availiable for the allocno allocation.  */
   int available_regs_num;
-  /* Pseudos in a bucket (used in coloring) chained by the following
+  /* Allocnos in a bucket (used in coloring) chained by the following
      two members.  */
-  pseudo_t next_bucket_pseudo;
-  pseudo_t prev_bucket_pseudo;
+  allocno_t next_bucket_allocno;
+  allocno_t prev_bucket_allocno;
   /* Used for temporary purposes.  */
   int temp;
 };
 
-/* All members of the pseudo node should be accessed only through the
+/* All members of the allocno node should be accessed only through the
    following macros.  */
-#define PSEUDO_NUM(P) ((P)->num)
-#define PSEUDO_REGNO(P) ((P)->regno)
-#define PSEUDO_REG(P) ((P)->reg)
-#define PSEUDO_NEXT_REGNO_PSEUDO(P) ((P)->next_regno_pseudo)
-#define PSEUDO_LOOP_TREE_NODE(P) ((P)->loop_tree_node)
-#define PSEUDO_CAP(P) ((P)->cap)
-#define PSEUDO_CAP_MEMBER(P) ((P)->cap_member)
-#define PSEUDO_CONFLICT_PSEUDO_VEC(P) ((P)->conflict_pseudo_vec)
-#define PSEUDO_CONFLICT_PSEUDO_VEC_SIZE(P) ((P)->conflict_pseudo_vec_size)
-#define PSEUDO_CONFLICT_PSEUDO_VEC_ACTIVE_SIZE(P) \
-  ((P)->conflict_pseudo_vec_active_size)
-#define PSEUDO_CONFLICT_HARD_REGS(P) ((P)->conflict_hard_regs)
-#define PSEUDO_FREQ(P) ((P)->freq)
-#define PSEUDO_HARD_REGNO(P) ((P)->hard_regno)
-#define PSEUDO_CALL_FREQ(P) ((P)->call_freq)
-#define PSEUDO_CALLS_CROSSED(P) ((P)->calls_crossed)
-#define PSEUDO_CALLS_CROSSED_NUM(P) ((P)->calls_crossed_num)
+#define ALLOCNO_NUM(P) ((P)->num)
+#define ALLOCNO_REGNO(P) ((P)->regno)
+#define ALLOCNO_REG(P) ((P)->reg)
+#define ALLOCNO_NEXT_REGNO_ALLOCNO(P) ((P)->next_regno_allocno)
+#define ALLOCNO_LOOP_TREE_NODE(P) ((P)->loop_tree_node)
+#define ALLOCNO_CAP(P) ((P)->cap)
+#define ALLOCNO_CAP_MEMBER(P) ((P)->cap_member)
+#define ALLOCNO_CONFLICT_ALLOCNO_VEC(P) ((P)->conflict_allocno_vec)
+#define ALLOCNO_CONFLICT_ALLOCNO_VEC_SIZE(P) ((P)->conflict_allocno_vec_size)
+#define ALLOCNO_CONFLICT_ALLOCNO_VEC_ACTIVE_SIZE(P) \
+  ((P)->conflict_allocno_vec_active_size)
+#define ALLOCNO_CONFLICT_HARD_REGS(P) ((P)->conflict_hard_regs)
+#define ALLOCNO_FREQ(P) ((P)->freq)
+#define ALLOCNO_HARD_REGNO(P) ((P)->hard_regno)
+#define ALLOCNO_CALL_FREQ(P) ((P)->call_freq)
+#define ALLOCNO_CALLS_CROSSED(P) ((P)->calls_crossed)
+#define ALLOCNO_CALLS_CROSSED_NUM(P) ((P)->calls_crossed_num)
 #ifdef STACK_REGS
-#define PSEUDO_NO_STACK_REG_P(P) ((P)->no_stack_reg_p)
+#define ALLOCNO_NO_STACK_REG_P(P) ((P)->no_stack_reg_p)
 #endif
-#define PSEUDO_IN_GRAPH_P(P) ((P)->in_graph_p)
-#define PSEUDO_ASSIGNED_P(P) ((P)->assigned_p)
-#define PSEUDO_MAY_BE_SPILLED_P(P) ((P)->may_be_spilled_p)
-#define PSEUDO_MODE(P) ((P)->mode)
-#define PSEUDO_COPIES(P) ((P)->pseudo_copies)
-#define PSEUDO_HARD_REG_COSTS(P) ((P)->hard_reg_costs)
-#define PSEUDO_CURR_HARD_REG_COSTS(P) ((P)->curr_hard_reg_costs)
-#define PSEUDO_CONFLICT_HARD_REG_COSTS(P) ((P)->conflict_hard_reg_costs)
-#define PSEUDO_CURR_CONFLICT_HARD_REG_COSTS(P) \
+#define ALLOCNO_IN_GRAPH_P(P) ((P)->in_graph_p)
+#define ALLOCNO_ASSIGNED_P(P) ((P)->assigned_p)
+#define ALLOCNO_MAY_BE_SPILLED_P(P) ((P)->may_be_spilled_p)
+#define ALLOCNO_MODE(P) ((P)->mode)
+#define ALLOCNO_COPIES(P) ((P)->allocno_copies)
+#define ALLOCNO_HARD_REG_COSTS(P) ((P)->hard_reg_costs)
+#define ALLOCNO_CURR_HARD_REG_COSTS(P) ((P)->curr_hard_reg_costs)
+#define ALLOCNO_CONFLICT_HARD_REG_COSTS(P) ((P)->conflict_hard_reg_costs)
+#define ALLOCNO_CURR_CONFLICT_HARD_REG_COSTS(P) \
   ((P)->curr_conflict_hard_reg_costs)
-#define PSEUDO_LEFT_CONFLICTS_NUM(P) ((P)->left_conflicts_num)
-#define PSEUDO_COVER_CLASS(P) ((P)->cover_class)
-#define PSEUDO_COVER_CLASS_COST(P) ((P)->cover_class_cost)
-#define PSEUDO_MEMORY_COST(P) ((P)->memory_cost)
-#define PSEUDO_ORIGINAL_MEMORY_COST(P) ((P)->original_memory_cost)
-#define PSEUDO_AVAILABLE_REGS_NUM(P) ((P)->available_regs_num)
-#define PSEUDO_NEXT_BUCKET_PSEUDO(P) ((P)->next_bucket_pseudo)
-#define PSEUDO_PREV_BUCKET_PSEUDO(P) ((P)->prev_bucket_pseudo)
-#define PSEUDO_TEMP(P) ((P)->temp)
+#define ALLOCNO_LEFT_CONFLICTS_NUM(P) ((P)->left_conflicts_num)
+#define ALLOCNO_COVER_CLASS(P) ((P)->cover_class)
+#define ALLOCNO_COVER_CLASS_COST(P) ((P)->cover_class_cost)
+#define ALLOCNO_MEMORY_COST(P) ((P)->memory_cost)
+#define ALLOCNO_ORIGINAL_MEMORY_COST(P) ((P)->original_memory_cost)
+#define ALLOCNO_AVAILABLE_REGS_NUM(P) ((P)->available_regs_num)
+#define ALLOCNO_NEXT_BUCKET_ALLOCNO(P) ((P)->next_bucket_allocno)
+#define ALLOCNO_PREV_BUCKET_ALLOCNO(P) ((P)->prev_bucket_allocno)
+#define ALLOCNO_TEMP(P) ((P)->temp)
 
-/* Map regno -> pseudo for the current loop tree node.  */
-extern pseudo_t *regno_pseudo_map;
+/* Map regno -> allocno for the current loop tree node.  */
+extern allocno_t *regno_allocno_map;
 
-/* Array of references to all pseudos.  The order number of the pseudo
+/* Array of references to all allocnos.  The order number of the allocno
    corresponds to the index in the array.  */
-extern pseudo_t *pseudos;
+extern allocno_t *allocnos;
 
 /* Size of the previous array.  */
-extern int pseudos_num;
+extern int allocnos_num;
 
-/* The following structure represents a copy of given pseudo to
-   another pseudo.  The copies represent move insns or potential move
+/* The following structure represents a copy of given allocno to
+   another allocno.  The copies represent move insns or potential move
    insns usually because of two operand constraints. */
-struct pseudo_copy
+struct allocno_copy
 {
   /* The order number of the copy node starting with 0.  */
   int num;
-  /* Pseudo connected by the copy.  The first one should have smaller
+  /* Allocno connected by the copy.  The first one should have smaller
      order number than the second one.  */
-  pseudo_t first, second;
+  allocno_t first, second;
   /* Execution frequency of the copy.  */
   int freq;
   /* It is a move insn if the copy represents it, potential move insn
      is represented by NULL.  */
   rtx move_insn;
-  /* Copies with the same pseudo as FIRST are linked by the two
+  /* Copies with the same allocno as FIRST are linked by the two
      following members.  */
-  copy_t prev_first_pseudo_copy, next_first_pseudo_copy;
-  /* Copies with the same pseudo as SECOND are linked by the two
+  copy_t prev_first_allocno_copy, next_first_allocno_copy;
+  /* Copies with the same allocno as SECOND are linked by the two
      following members.  */
-  copy_t prev_second_pseudo_copy, next_second_pseudo_copy;
+  copy_t prev_second_allocno_copy, next_second_allocno_copy;
 };
 
 /* Array of references to copies.  The order number of the copy
@@ -322,7 +322,7 @@ extern int copies_num;
    registers.  */
 struct spilled_reg_stack_slot
 {
-  /* Pseudo-registers have used the stack slot.  */
+  /* pseudo-registers have used the stack slot.  */
   regset_head spilled_regs;
   /* RTL representation of the stack slot.  */
   rtx mem;
@@ -341,8 +341,8 @@ extern struct spilled_reg_stack_slot *spilled_reg_stack_slots;
 extern struct df *build_df;
 
 /* Correspondingly overall cost of the allocation, cost of hard
-   register usage for the pseudos, cost of memory usage for the
-   pseudos, cost of loads, stores and register move insns generated
+   register usage for the allocnos, cost of memory usage for the
+   allocnos, cost of loads, stores and register move insns generated
    for register live range splitting.  */
 extern int overall_cost;
 extern int reg_cost, mem_cost;
@@ -410,6 +410,13 @@ extern int reg_class_cover_size;
    for the allocation.  */
 extern enum reg_class reg_class_cover [N_REG_CLASSES];
 
+/* The value is number of elements in the subsequent array.  */
+extern int important_classes_num;
+
+/* The array containing classes which are subclasses of a cover
+   class.  */
+extern enum reg_class important_classes [N_REG_CLASSES];
+
 /* Map of register classes to corresponding cover class containing the
    given class.  */
 extern enum reg_class class_translate [N_REG_CLASSES];
@@ -445,10 +452,10 @@ extern struct ira_loop_tree_node *ira_curr_loop_tree_node;
 extern void traverse_loop_tree (struct ira_loop_tree_node *,
 				void (*) (struct ira_loop_tree_node *),
 				void (*) (struct ira_loop_tree_node *));
-extern pseudo_t create_pseudo (int, int, struct ira_loop_tree_node *);
-extern void allocate_pseudo_conflicts (pseudo_t, int);
-extern void print_expanded_pseudo (pseudo_t);
-extern copy_t create_copy (pseudo_t, pseudo_t, int, rtx);
+extern allocno_t create_allocno (int, int, struct ira_loop_tree_node *);
+extern void allocate_allocno_conflicts (allocno_t, int);
+extern void print_expanded_allocno (allocno_t);
+extern copy_t create_copy (allocno_t, allocno_t, int, rtx);
 
 extern int ira_build (int);
 extern void ira_destroy (void);
@@ -456,16 +463,16 @@ extern void ira_destroy (void);
 /* ira-costs.c */
 extern void init_ira_costs_once (void);
 extern void ira_costs (void);
-extern void tune_pseudo_costs_and_cover_classes (void);
+extern void tune_allocno_costs_and_cover_classes (void);
 
 /* ira-conflicts.c */
-extern copy_t add_pseudo_copy (pseudo_t, pseudo_t, int, rtx);
-extern int pseudo_reg_conflict_p (int, int);
+extern copy_t add_allocno_copy (allocno_t, allocno_t, int, rtx);
+extern int allocno_reg_conflict_p (int, int);
 extern void debug_conflicts (void);
 extern void ira_build_conflicts (void);
 
 /* ira-color.c */
-extern void reassign_conflict_pseudos (int, int);
+extern void reassign_conflict_allocnos (int, int);
 extern void ira_color (void);
 
 /* ira-emit.c */

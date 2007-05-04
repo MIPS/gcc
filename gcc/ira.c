@@ -111,7 +111,7 @@ static void setup_prohibited_class_mode_regs (void);
 static void setup_eliminable_regset (void);
 static void find_reg_equiv_invariant_const (void);
 static void setup_reg_renumber (int, int);
-static int setup_pseudo_assignment_from_reg_renumber (void);
+static int setup_allocno_assignment_from_reg_renumber (void);
 static void calculate_allocation_cost (void);
 #ifdef ENABLE_IRA_CHECKING
 static void check_allocation (void);
@@ -136,8 +136,8 @@ int spilled_reg_stack_slots_num;
 struct spilled_reg_stack_slot *spilled_reg_stack_slots;
 
 /* The following variable values are correspondingly overall cost of
-   the allocation, cost of hard register usage for the pseudos, cost
-   of memory usage for the pseudos, cost of loads, stores and register
+   the allocation, cost of hard register usage for the allocnos, cost
+   of memory usage for the allocnos, cost of loads, stores and register
    move insns generated for register live range splitting.  */
 int overall_cost;
 int reg_cost, mem_cost;
@@ -422,37 +422,37 @@ hard_reg_not_in_set_p (int hard_regno, enum machine_mode mode,
 
 
 
-/* The function outputs information about allocation of all pseudos
+/* The function outputs information about allocation of all allocnos
    into file F.  */
 void
 print_disposition (FILE *f)
 {
   int i, n, max_regno;
-  pseudo_t p;
+  allocno_t a;
   basic_block bb;
 
   fprintf (f, "Disposition:");
   max_regno = max_reg_num ();
   for (n = 0, i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
-    for (p = regno_pseudo_map [i]; p != NULL; p = PSEUDO_NEXT_REGNO_PSEUDO (p))
+    for (a = regno_allocno_map [i]; a != NULL; a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
       {
 	if (n % 4 == 0)
 	  fprintf (f, "\n");
 	n++;
-	fprintf (f, " %4d:r%-4d", PSEUDO_NUM (p), PSEUDO_REGNO (p));
-	if ((bb = PSEUDO_LOOP_TREE_NODE (p)->bb) != NULL)
+	fprintf (f, " %4d:r%-4d", ALLOCNO_NUM (a), ALLOCNO_REGNO (a));
+	if ((bb = ALLOCNO_LOOP_TREE_NODE (a)->bb) != NULL)
 	  fprintf (f, "b%-3d", bb->index);
 	else
-	  fprintf (f, "l%-3d", PSEUDO_LOOP_TREE_NODE (p)->loop->num);
-	if (PSEUDO_HARD_REGNO (p) >= 0)
-	  fprintf (f, " %3d", PSEUDO_HARD_REGNO (p));
+	  fprintf (f, "l%-3d", ALLOCNO_LOOP_TREE_NODE (a)->loop->num);
+	if (ALLOCNO_HARD_REGNO (a) >= 0)
+	  fprintf (f, " %3d", ALLOCNO_HARD_REGNO (a));
 	else
 	  fprintf (f, " mem");
       }
   fprintf (f, "\n");
 }
 
-/* The function outputs information about allocation of all pseudos
+/* The function outputs information about allocation of all allocnos
    into stderr.  */
 void
 debug_disposition (void)
@@ -516,6 +516,12 @@ int reg_class_cover_size;
    IRA_COVER_CLASSES.  */
 enum reg_class reg_class_cover [N_REG_CLASSES];
 
+/* The value is number of elements in the subsequent array.  */
+int important_classes_num;
+
+/* The array containing classes which are subclasses of a cover
+   class.  */
+enum reg_class important_classes [N_REG_CLASSES];
 
 #ifdef IRA_COVER_CLASSES
 
@@ -539,6 +545,23 @@ setup_cover_classes (void)
       GO_IF_HARD_REG_EQUAL (temp_hard_regset, zero_hard_reg_set, cont);
       reg_class_cover [reg_class_cover_size++] = cl;
     cont:
+      ;
+    }
+  important_classes_num = 0;
+  for (cl = 0; cl < N_REG_CLASSES; cl++)
+    {
+      COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl]);
+      AND_COMPL_HARD_REG_SET (temp_hard_regset, fixed_reg_set);
+      GO_IF_HARD_REG_EQUAL (temp_hard_regset, zero_hard_reg_set, ignore);
+      for (j = 0; j < reg_class_cover_size; j++)
+	{
+	  GO_IF_HARD_REG_SUBSET (reg_class_contents [cl],
+				 reg_class_contents [reg_class_cover [j]], ok);
+	  continue;
+	ok:
+	  important_classes [important_classes_num++] = cl;
+	}
+      ignore:
       ;
     }
 }
@@ -874,30 +897,30 @@ find_reg_equiv_invariant_const (void)
 /* The function sets up REG_RENUMBER and CALLER_SAVE_NEEDED used by
    reload from the allocation found by IRA.  If AFTER_EMIT_P, the
    function is called after emitting the move insns, otherwise if
-   AFTER_CALL_P, the function is called right after splitting pseudos
+   AFTER_CALL_P, the function is called right after splitting allocnos
    around calls.  */
 static void
 setup_reg_renumber (int after_emit_p, int after_call_p)
 {
   int i, hard_regno;
-  pseudo_t p;
+  allocno_t a;
 
   caller_save_needed = 0;
-  for (i = 0; i < pseudos_num; i++)
+  for (i = 0; i < allocnos_num; i++)
     {
-      p = pseudos [i];
-      if (PSEUDO_CAP_MEMBER (p) != NULL)
+      a = allocnos [i];
+      if (ALLOCNO_CAP_MEMBER (a) != NULL)
 	/* It is a cap. */
 	continue;
-      if (! PSEUDO_ASSIGNED_P (p))
-	PSEUDO_ASSIGNED_P (p) = TRUE;
-      ira_assert (PSEUDO_ASSIGNED_P (p));
-      hard_regno = PSEUDO_HARD_REGNO (p);
+      if (! ALLOCNO_ASSIGNED_P (a))
+	ALLOCNO_ASSIGNED_P (a) = TRUE;
+      ira_assert (ALLOCNO_ASSIGNED_P (a));
+      hard_regno = ALLOCNO_HARD_REGNO (a);
       reg_renumber [after_emit_p 
-		    ? (int) REGNO (PSEUDO_REG (p)) : PSEUDO_REGNO (p)]
+		    ? (int) REGNO (ALLOCNO_REG (a)) : ALLOCNO_REGNO (a)]
 	= (hard_regno < 0 ? -1 : hard_regno);
-      if (hard_regno >= 0 && PSEUDO_CALLS_CROSSED_NUM (p) != 0
-	  && ! hard_reg_not_in_set_p (hard_regno, PSEUDO_MODE (p),
+      if (hard_regno >= 0 && ALLOCNO_CALLS_CROSSED_NUM (a) != 0
+	  && ! hard_reg_not_in_set_p (hard_regno, ALLOCNO_MODE (a),
 				      call_used_reg_set))
 	{
 	  ira_assert
@@ -908,60 +931,60 @@ setup_reg_renumber (int after_emit_p, int after_call_p)
     }
 }
 
-/* The function sets up pseudo assignment from reg_renumber.  If the
-   cover class of a pseudo does not correspond to the hard register,
-   return TRUE and mark the pseudo as unassigned.  */
+/* The function sets up allocno assignment from reg_renumber.  If the
+   cover class of a allocno does not correspond to the hard register,
+   return TRUE and mark the allocno as unassigned.  */
 static int
-setup_pseudo_assignment_from_reg_renumber (void)
+setup_allocno_assignment_from_reg_renumber (void)
 {
   int i, hard_regno;
-  pseudo_t p;
+  allocno_t a;
   int result = FALSE;
 
-  for (i = 0; i < pseudos_num; i++)
+  for (i = 0; i < allocnos_num; i++)
     {
-      p = pseudos [i];
-      hard_regno = PSEUDO_HARD_REGNO (p) = reg_renumber [PSEUDO_REGNO (p)];
-      ira_assert (! PSEUDO_ASSIGNED_P (p));
+      a = allocnos [i];
+      hard_regno = ALLOCNO_HARD_REGNO (a) = reg_renumber [ALLOCNO_REGNO (a)];
+      ira_assert (! ALLOCNO_ASSIGNED_P (a));
       if (hard_regno >= 0
-	  && hard_reg_not_in_set_p (hard_regno, PSEUDO_MODE (p),
+	  && hard_reg_not_in_set_p (hard_regno, ALLOCNO_MODE (a),
 				    reg_class_contents
-				    [PSEUDO_COVER_CLASS (p)]))
+				    [ALLOCNO_COVER_CLASS (a)]))
 	result = TRUE;
       else
-	PSEUDO_ASSIGNED_P (p) = TRUE;
+	ALLOCNO_ASSIGNED_P (a) = TRUE;
     }
   return result;
 }
 
 /* The function evaluates overall allocation cost and costs for using
-   registers and memory for pseudos.  */
+   registers and memory for allocnos.  */
 
 static void
 calculate_allocation_cost (void)
 {
   int i, hard_regno, cost;
-  pseudo_t p;
+  allocno_t a;
 
   overall_cost = reg_cost = mem_cost = 0;
-  for (i = 0; i < pseudos_num; i++)
+  for (i = 0; i < allocnos_num; i++)
     {
-      p = pseudos [i];
-      hard_regno = PSEUDO_HARD_REGNO (p);
+      a = allocnos [i];
+      hard_regno = ALLOCNO_HARD_REGNO (a);
       ira_assert (hard_regno < 0
 		  || ! hard_reg_not_in_set_p
-		       (hard_regno, PSEUDO_MODE (p),
-			reg_class_contents [PSEUDO_COVER_CLASS (p)])); 
+		       (hard_regno, ALLOCNO_MODE (a),
+			reg_class_contents [ALLOCNO_COVER_CLASS (a)])); 
       if (hard_regno < 0)
 	{
-	  cost = PSEUDO_MEMORY_COST (p);
+	  cost = ALLOCNO_MEMORY_COST (a);
 	  mem_cost += cost;
 	}
       else
 	{
-	  cost = (PSEUDO_HARD_REG_COSTS (p)
+	  cost = (ALLOCNO_HARD_REG_COSTS (a)
 		  [class_hard_reg_index
-		   [PSEUDO_COVER_CLASS (p)] [hard_regno]]);
+		   [ALLOCNO_COVER_CLASS (a)] [hard_regno]]);
 	  reg_cost += cost;
 	}
       overall_cost += cost;
@@ -984,30 +1007,30 @@ calculate_allocation_cost (void)
 static void
 check_allocation (void)
 {
-  pseudo_t p, conflict_p, *pseudo_vec;
+  allocno_t a, conflict_a, *allocno_vec;
   int i, hard_regno, conflict_hard_regno, j, nregs, conflict_nregs;
   
-  for (i = 0; i < pseudos_num; i++)
+  for (i = 0; i < allocnos_num; i++)
     {
-      p = pseudos [i];
-      if (PSEUDO_CAP_MEMBER (p) != NULL
-	  || (hard_regno = PSEUDO_HARD_REGNO (p)) < 0)
+      a = allocnos [i];
+      if (ALLOCNO_CAP_MEMBER (a) != NULL
+	  || (hard_regno = ALLOCNO_HARD_REGNO (a)) < 0)
 	continue;
-      nregs = hard_regno_nregs [hard_regno] [PSEUDO_MODE (p)];
-      pseudo_vec = PSEUDO_CONFLICT_PSEUDO_VEC (p);
-      for (j = 0; (conflict_p = pseudo_vec [j]) != NULL; j++)
-	if ((conflict_hard_regno = PSEUDO_HARD_REGNO (conflict_p)) >= 0)
+      nregs = hard_regno_nregs [hard_regno] [ALLOCNO_MODE (a)];
+      allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
+      for (j = 0; (conflict_a = allocno_vec [j]) != NULL; j++)
+	if ((conflict_hard_regno = ALLOCNO_HARD_REGNO (conflict_a)) >= 0)
 	  {
 	    conflict_nregs
 	      = (hard_regno_nregs
-		 [conflict_hard_regno] [PSEUDO_MODE (conflict_p)]);
+		 [conflict_hard_regno] [ALLOCNO_MODE (conflict_a)]);
 	    if ((conflict_hard_regno <= hard_regno
 		 && hard_regno < conflict_hard_regno + conflict_nregs)
 		|| (hard_regno <= conflict_hard_regno
 		    && conflict_hard_regno < hard_regno + nregs))
 	      {
 		fprintf (stderr, "bad allocation for %d and %d\n",
-			 PSEUDO_REGNO (p), PSEUDO_REGNO (conflict_p));
+			 ALLOCNO_REGNO (a), ALLOCNO_REGNO (conflict_a));
 		gcc_unreachable ();
 	      }
 	  }
@@ -1069,26 +1092,26 @@ static void
 print_redundant_copies (void)
 {
   int i, hard_regno;
-  pseudo_t p;
-  struct pseudo_copy *cp, *next_cp;
+  allocno_t a;
+  copy_t cp, next_cp;
   
-  for (i = 0; i < pseudos_num; i++)
+  for (i = 0; i < allocnos_num; i++)
     {
-      p = pseudos [i];
-      if (PSEUDO_CAP_MEMBER (p) != NULL)
+      a = allocnos [i];
+      if (ALLOCNO_CAP_MEMBER (a) != NULL)
 	/* It is a cap. */
 	continue;
-      hard_regno = PSEUDO_HARD_REGNO (p);
+      hard_regno = ALLOCNO_HARD_REGNO (a);
       if (hard_regno >= 0)
 	continue;
-      for (cp = PSEUDO_COPIES (p); cp != NULL; cp = next_cp)
-	if (cp->first == p)
-	  next_cp = cp->next_first_pseudo_copy;
+      for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
+	if (cp->first == a)
+	  next_cp = cp->next_first_allocno_copy;
 	else
 	  {
-	    next_cp = cp->next_second_pseudo_copy;
+	    next_cp = cp->next_second_allocno_copy;
 	    if (ira_dump_file != NULL && cp->move_insn != NULL_RTX
-		&& PSEUDO_HARD_REGNO (cp->first) == hard_regno)
+		&& ALLOCNO_HARD_REGNO (cp->first) == hard_regno)
 	      fprintf (ira_dump_file, "move %d(freq %d):%d\n",
 		       INSN_UID (cp->move_insn), cp->freq, hard_regno);
 	  }
@@ -1103,26 +1126,26 @@ setup_preferred_alternate_classes (void)
 {
   int i;
   enum reg_class cover_class;
-  pseudo_t p;
+  allocno_t a;
 
-  for (i = 0; i < pseudos_num; i++)
+  for (i = 0; i < allocnos_num; i++)
     {
-      p = pseudos [i];
-      cover_class = PSEUDO_COVER_CLASS (p);
+      a = allocnos [i];
+      cover_class = ALLOCNO_COVER_CLASS (a);
       if (cover_class == NO_REGS)
 	cover_class = GENERAL_REGS;
-      setup_reg_classes (PSEUDO_REGNO (p), cover_class, NO_REGS);
+      setup_reg_classes (ALLOCNO_REGNO (a), cover_class, NO_REGS);
     }
 }
 
 
 
 /* The value of max_regn_num () correspondingly before the allocator
-   and before splitting pseudos around calls.  */
+   and before splitting allocnos around calls.  */
 int ira_max_regno_before;
 int ira_max_regno_call_before;
 
-/* Flags for each regno (existing before the splitting pseudos around
+/* Flags for each regno (existing before the splitting allocnos around
    calls) about that the corresponding register crossed a call.  */
 char *original_regno_call_crossed_p;
 
@@ -1132,7 +1155,7 @@ ira (FILE *f)
 {
   int i, overall_cost_before, loops_p;
   int rebuild_p;
-  pseudo_t p;
+  allocno_t a;
 
   ira_dump_file = f;
 
@@ -1179,24 +1202,24 @@ ira (FILE *f)
   if (loops_p)
     {
       /* Even if new registers are not created rebuild IRA internal
-	 representation to use correct regno pseudo map.  */
+	 representation to use correct regno allocno map.  */
       ira_destroy ();
       ira_build (FALSE);
-      if (setup_pseudo_assignment_from_reg_renumber ())
+      if (setup_allocno_assignment_from_reg_renumber ())
 	{
-	  reassign_conflict_pseudos (max_regno, FALSE);
+	  reassign_conflict_allocnos (max_regno, FALSE);
 	  setup_reg_renumber (FALSE, FALSE);
 	}
     }
 
   original_regno_call_crossed_p = ira_allocate (max_regno * sizeof (char));
 
-  for (i = 0; i < pseudos_num; i++)
+  for (i = 0; i < allocnos_num; i++)
     {
-      p = pseudos [i];
-      ira_assert (PSEUDO_CAP_MEMBER (p) == NULL);
-      original_regno_call_crossed_p [PSEUDO_REGNO (p)]
-	= PSEUDO_CALLS_CROSSED_NUM (p) != 0;
+      a = allocnos [i];
+      ira_assert (ALLOCNO_CAP_MEMBER (a) == NULL);
+      original_regno_call_crossed_p [ALLOCNO_REGNO (a)]
+	= ALLOCNO_CALLS_CROSSED_NUM (a) != 0;
     }
   ira_max_regno_call_before = max_reg_num ();
   if (flag_caller_saves && flag_ira_split_around_calls)
@@ -1209,8 +1232,8 @@ ira (FILE *f)
 	  /* Allocate the reg_renumber array.  */
 	  allocate_reg_info (max_regno, FALSE, TRUE);
 	  ira_build (FALSE);
-	  setup_pseudo_assignment_from_reg_renumber ();
-	  reassign_conflict_pseudos ((flag_ira_assign_after_call_split
+	  setup_allocno_assignment_from_reg_renumber ();
+	  reassign_conflict_allocnos ((flag_ira_assign_after_call_split
 				      ? ira_max_regno_call_before
 				      : max_reg_num ()), TRUE);
   	  setup_reg_renumber (FALSE, TRUE);

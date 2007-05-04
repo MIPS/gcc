@@ -1,3 +1,21 @@
+2007-05-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-conflicts.c: Change pseudo to allocno.
+	* ira-color.c: Ditto.
+	* ira-emit.c: Ditto.
+	* ira-build.c: Ditto.
+	* ira.c: Ditto.
+	(important_classes_num, important_classes): New variables.
+	(setup_cover_classes): Set up the variable values.
+	* ira-costs.c: Ditto.
+	(record_reg_classes, record_address_regs, scan_one_insn,
+	find_pseudo_class_costs):  Process only important classes.
+	* ira-call.c: Ditto.  Add comments about placement optimization.
+	* ira-int.h: Ditto.
+	(allocno) Use one bit field for boolean members.
+	(important_classes_num, important_classes): New external
+	definitions.
+
 2007-03-16  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* flags.h (ira_algorithm): Add IRA_ALGORITHM_MIXED.

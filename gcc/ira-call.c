@@ -39,6 +39,97 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "output.h"
 #include "ira-int.h"
 
+/* The file is responsible for splitting the live range of
+   pseudo-registers living through calls which are assigned to
+   call-used hard-registers in two parts: one range (a new
+   pseudo-register is created for this) which lives through the calls
+   and another range (the original pseudo-register is used for the
+   range) lives between the calls.  Memory is assigned to new
+   pseudo-registers.  Move instructions connecting the two live ranges
+   (the original and new pseudo-registers) will be transformed into
+   load/store instructions in the reload pass.
+
+   This file also does global save/restore code redundancy
+   elimination.  It calculates points to put save/restore instructions
+   according the following data flow equations:
+
+   SaveOut(b) = intersect (SaveIn(p) - SaveIgnore(pb))
+                for each p in pred(b)
+
+                    | 0              if depth (b) <= depth (p)
+   SaveIgnore(pb) = | 
+                    | Ref(loop(b))   if depth (b) > depth (p)
+
+   SaveIn(b) = (SaveOut(b) - Kill(b)) U SaveGen(b)
+
+   RestoreIn(b) = intersect (RestoreOut(s) - RestoreIgnore(bs))
+                  for each s in succ(b)
+
+                       | 0           if depth (b) <= depth (s)
+   RestoreIgnore(bs) = |
+                       | Ref(loop(b))if depth (b) > depth (s)
+
+   RestoreOut(b) = (RestoreIn(b) - Kill(b)) U RestoreGen(b)
+
+   Here, Kill(b) is the set of allocnos referenced in basic block b
+   and SaveGen(b) and RestoreGen(b) is the set of allocnos which
+   should be correspondingly saved and restored in basic block b and
+   which are not referenced correspondingly before the last and after
+   the first calls they live through in basic block b.  SaveIn(b),
+   SaveOut(b), RestoreIn(b), RestoreOut(b) are allocnos
+   correspondingly to save and to restore at the start and the end of
+   basic block b.  Save and restore code is not moved to more
+   frequently executed points (inside loops).  The code can be moved
+   through a loop unless it is referenced in the loop (this set of
+   allocnos is denoted by Ref(loop)).
+
+   We should put code to save/restore an allocno on an edge (p,s) if
+   the allocno lives on the edge and the corresponding values of the
+   sets at end of p and at the start of s are different.  In practice,
+   code unification is done: if the save/restore code should be on all
+   outgoing edges or all incoming edges, it is placed at the edge
+   source and destination correspondingly.
+
+   Putting live ranges living through calls into memory means that
+   some conflicting pseudo-registers (such pseudo-registers should not
+   live through calls) assigned to memory have a chance to be assigned
+   to the corresponding call-used hard-register.  It is done by
+   ira-color.c:reassign_conflict_allocnos using simple priority-based
+   colouring for the conflicting pseudo-registers.  The bigger the
+   live range of pseudo-register living through calls, the better such
+   a chance is.  Therefore, we move spill/restore code as far as
+   possible inside basic blocks.
+
+   The implementation of save/restore code generation before the
+   reload pass has several advantages:
+
+     o simpler implementation of sharing stack slots used for spilled
+       pseudos and for saving pseudo values around calls.  Actually,
+       the same code for sharing stack slots allocated for pseudos is
+       used in this case.
+
+     o simpler implementation of moving save/restore code to increase
+       the range of memory pseudo can be stored in.
+
+     o simpler implementation of improving allocation by assigning
+       hard-registers to spilled pseudos which conflict with new
+       pseudos living through calls.
+
+   The disadvantage of such an approach is mainly in the reload pass,
+   whose behavior is hard to predict.  If the reload pass decides that
+   the original pseudos should be spilled, save/restore code will be
+   transformed into a memory-memory move.  To remove such nasty moves,
+   IRA is trying to use the same stack slot for the two pseudos.  It
+   is achieved using a standard preference technique to use the same
+   stack slot for pseudos involved in moves.  A move between pseudos
+   assigned to the same memory could be removed by post-reload
+   optimizations, but it is implemented in the reload pass because, if
+   it is not done earlier, a hard-register would be required for this
+   and most probably a pseudo-register would be spilled by the reload
+   to free the hard-register.
+
+*/
+
 /* ??? TODO: Abnormal edges  */
 /* The following structure contains basic block data flow information
    used to calculate registers to save restore.  */
@@ -74,7 +165,7 @@ static bitmap current_all_blocks;
 
 static rtx *reg_map;
 
-/* Numbers of currently live pseudos.  */
+/* Numbers of currently live pseudo-registers.  */
 static bitmap regs_live;
 
 /* Numbers of all registers which should be split around calls.  */
@@ -98,7 +189,7 @@ static bitmap temp_bitmap2;
    scan of all insns).  */
 static HARD_REG_SET hard_regs_live;
 
-/* Allocate and initialize data used for splitting pseudos around
+/* Allocate and initialize data used for splitting allocnos around
    calls.  */
 static void
 init_ira_call_data (void)
@@ -161,7 +252,7 @@ print_bitmap (FILE *f, bitmap b, const char *title)
   fprintf (f, "\n");
 }
 
-/* Print data used for splitting pseudos around calls to file F.  */
+/* Print data used for splitting allocnos around calls to file F.  */
 static void
 print_ira_call_data (FILE *f)
 {
@@ -190,14 +281,14 @@ print_ira_call_data (FILE *f)
     }
 }
 
-/* Print data used for splitting pseudos around calls to STDERR.  */
+/* Print data used for splitting allocnos around calls to STDERR.  */
 extern void
 debug_ira_call_data (void)
 {
   print_ira_call_data (stderr);
 }
 
-/* Finish data used for splitting pseudos around calls.  */
+/* Finish data used for splitting allocnos around calls.  */
 static void
 finish_ira_call_data (void)
 {
@@ -435,7 +526,7 @@ insert_one_insn (rtx insn, int before_p, rtx pat)
 }
 
 /* The function creates a new register (if it is not created yet) and
-   returns it for pseudo with REGNO.  */
+   returns it for allocno with REGNO.  */
 static rtx
 get_new_reg (unsigned int regno)
 {
@@ -730,7 +821,7 @@ calculate_restore (void)
 
 /* The function put save/restores insn according to the calculated
    equation.  The function even puts the insns inside blocks to
-   increase live range of pseudos which will be in memory.  */
+   increase live range of allocnos which will be in memory.  */
 static void
 put_save_restore (void)
 {
@@ -916,7 +1007,7 @@ put_save_restore (void)
   ira_free_bitmap (restore_at_start);
 }
 
-/* The function splits pseudos living through calls and assigned to a
+/* The function splits allocnos living through calls and assigned to a
    call used register.  If FLAG_IRA_MOVE_SPILLS, the function moves
    save/restore insns to correspondingly to the top and bottom of the
    CFG but not moving them to more frequently executed places.  */
@@ -940,34 +1031,34 @@ split_around_calls (void)
 
 
 
-/* The function returns regno of living through call pseudo which is
-   result of splitting pseudo with ORIGINAL_REGNO.  If there is no
+/* The function returns regno of living through call allocno which is
+   result of splitting allocno with ORIGINAL_REGNO.  If there is no
    such regno, the function returns -1.  */
 int
 get_around_calls_regno (int original_regno)
 {
-  pseudo_t p, another_p;
-  struct pseudo_copy *cp, *next_cp;
+  allocno_t a, another_a;
+  copy_t cp, next_cp;
 
   if (original_regno >= ira_max_regno_call_before)
     return -1;
-  p = regno_pseudo_map [original_regno];
-  for (cp = PSEUDO_COPIES (p); cp != NULL; cp = next_cp)
+  a = regno_allocno_map [original_regno];
+  for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
     {
-      if (cp->first == p)
+      if (cp->first == a)
 	{
-	  another_p = cp->second;
-	  next_cp = cp->next_first_pseudo_copy;
+	  another_a = cp->second;
+	  next_cp = cp->next_first_allocno_copy;
 	}
       else
 	{
-	  another_p = cp->first;
-	  next_cp = cp->next_second_pseudo_copy;
+	  another_a = cp->first;
+	  next_cp = cp->next_second_allocno_copy;
 	}
       if (cp->move_insn == NULL_RTX)
 	continue;
-      if (PSEUDO_REGNO (another_p) >= ira_max_regno_call_before)
-	return PSEUDO_REGNO (another_p);
+      if (ALLOCNO_REGNO (another_a) >= ira_max_regno_call_before)
+	return ALLOCNO_REGNO (another_a);
     }
   return -1;
 }

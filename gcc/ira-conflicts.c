@@ -39,10 +39,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "ira-int.h"
 
 /* The file contains code is analogous to one in global but the code
-   works on the pseudo basis.  */
+   works on the allocno basis.  */
 
-static void set_pseudo_live (pseudo_t);
-static void clear_pseudo_live (pseudo_t);
+static void set_allocno_live (allocno_t);
+static void clear_allocno_live (allocno_t);
 static void record_regno_conflict (int);
 static void mark_reg_store (rtx, rtx, void *);
 static void mark_reg_clobber (rtx, rtx, void *);
@@ -51,20 +51,20 @@ static void mark_reg_death (rtx);
 static int commutative_constraint_p (const char *);
 static int get_dup_num (int, int);
 static rtx get_dup (int, int);
-static void add_pseudo_copy_to_list (copy_t);
-static void remove_pseudo_copy_from_list (copy_t);
-static void swap_pseudo_copy_ends_if_necessary (copy_t);
-static void add_pseudo_copies (rtx);
+static void add_allocno_copy_to_list (copy_t);
+static void remove_allocno_copy_from_list (copy_t);
+static void swap_allocno_copy_ends_if_necessary (copy_t);
+static void add_allocno_copies (rtx);
 static enum reg_class single_reg_class (const char *, rtx op, rtx);
 static enum reg_class single_reg_operand_class (int);
 static void process_single_reg_class_operands (int);
 static void process_bb_node_for_conflicts (struct ira_loop_tree_node *);
 static void build_conflict_bit_table (void);
-static void propagate_pseudo_info (pseudo_t);
+static void propagate_allocno_info (allocno_t);
 static void propagate_info (void);
 static void mirror_conflicts (void);
-static void remove_conflict_pseudo_copies (void);
-static void build_pseudo_conflict_vects (void);
+static void remove_conflict_allocno_copies (void);
+static void build_allocno_conflict_vects (void);
 static void propagate_modified_regnos (struct ira_loop_tree_node *);
 static void print_conflicts (FILE *);
 
@@ -74,63 +74,63 @@ static void print_conflicts (FILE *);
 #define INT_BITS HOST_BITS_PER_WIDE_INT
 #define INT_TYPE HOST_WIDE_INT
 
-/* Bit mask for pseudos live at current point in the scan.  */
-static INT_TYPE *pseudos_live;
+/* Bit mask for allocnos live at current point in the scan.  */
+static INT_TYPE *allocnos_live;
 
 /* The same as previous but as bitmap.  */
-static bitmap pseudos_live_bitmap;
+static bitmap allocnos_live_bitmap;
 
 /* Set, clear or test bit number I in R, a bit vector indexed by
-   pseudo number.  */
-#define SET_PSEUDO_CONFLICT_ROW(R, I)				\
+   allocno number.  */
+#define SET_ALLOCNO_CONFLICT_ROW(R, I)				\
   ((R)[(unsigned) (I) / INT_BITS]				\
    |= ((INT_TYPE) 1 << ((unsigned) (I) % INT_BITS)))
 
-#define CLEAR_PSEUDO_CONFLICT_ROW(R, I)				\
+#define CLEAR_ALLOCNO_CONFLICT_ROW(R, I)				\
   ((R) [(unsigned) (I) / INT_BITS]				\
    &= ~((INT_TYPE) 1 << ((unsigned) (I) % INT_BITS)))
 
-#define TEST_PSEUDO_CONFLICT_ROW(R, I)				\
+#define TEST_ALLOCNO_CONFLICT_ROW(R, I)				\
   ((R) [(unsigned) (I) / INT_BITS]				\
    & ((INT_TYPE) 1 << ((unsigned) (I) % INT_BITS)))
 
-/* Set, clear or test bit number I in `pseudos_live',
-   a bit vector indexed by pseudo number.  */
-#define SET_PSEUDO_LIVE(I) SET_PSEUDO_CONFLICT_ROW (pseudos_live, I)
+/* Set, clear or test bit number I in `allocnos_live',
+   a bit vector indexed by allocno number.  */
+#define SET_ALLOCNO_LIVE(I) SET_ALLOCNO_CONFLICT_ROW (allocnos_live, I)
 
-#define CLEAR_PSEUDO_LIVE(I) CLEAR_PSEUDO_CONFLICT_ROW (pseudos_live, I)
+#define CLEAR_ALLOCNO_LIVE(I) CLEAR_ALLOCNO_CONFLICT_ROW (allocnos_live, I)
 
-#define TEST_PSEUDO_LIVE(I) TEST_PSEUDO_CONFLICT_ROW (pseudos_live, I)
+#define TEST_ALLOCNO_LIVE(I) TEST_ALLOCNO_CONFLICT_ROW (allocnos_live, I)
 
-/* pseudos_num by pseudos_num array of bits, recording whether two
-   pseudo's conflict (can't go in the same hardware register).
+/* allocnos_num by allocnos_num array of bits, recording whether two
+   allocno's conflict (can't go in the same hardware register).
 
    `conflicts' is symmetric after the call to mirror_conflicts.  */
 static INT_TYPE *conflicts;
 
-/* Number of ints required to hold pseudos_num bits.  This is the
+/* Number of ints required to hold allocnos_num bits.  This is the
    length of a row in `conflicts'.  */
-static int pseudo_row_words;
+static int allocno_row_words;
 
 /* Two macros to test 1 in an element of `conflicts'.  */
 #define CONFLICTP(I, J) \
- (conflicts[(I) * pseudo_row_words + (unsigned) (J) / INT_BITS]	\
+ (conflicts[(I) * allocno_row_words + (unsigned) (J) / INT_BITS]	\
   & ((INT_TYPE) 1 << ((unsigned) (J) % INT_BITS)))
 
-/* For each pseudo set in PSEUDO_SET, set PSEUDO to that pseudo, and
+/* For each allocno set in ALLOCNO_SET, set ALLOCNO to that allocno, and
    execute CODE.  */
-#define EXECUTE_IF_SET_IN_PSEUDO_SET(PSEUDO_SET, PSEUDO, CODE)		\
+#define EXECUTE_IF_SET_IN_ALLOCNO_SET(ALLOCNO_SET, ALLOCNO, CODE)		\
 do {									\
   int i_;								\
-  int pseudo_;								\
-  INT_TYPE *p_ = (PSEUDO_SET);						\
+  int allocno_;								\
+  INT_TYPE *p_ = (ALLOCNO_SET);						\
 									\
-  for (i_ = pseudo_row_words - 1, pseudo_ = 0; i_ >= 0;			\
-       i_--, pseudo_ += INT_BITS)					\
+  for (i_ = allocno_row_words - 1, allocno_ = 0; i_ >= 0;			\
+       i_--, allocno_ += INT_BITS)					\
     {									\
       unsigned INT_TYPE word_ = (unsigned INT_TYPE) *p_++;		\
 									\
-      for ((PSEUDO) = pseudo_; word_; word_ >>= 1, (PSEUDO)++)		\
+      for ((ALLOCNO) = allocno_; word_; word_ >>= 1, (ALLOCNO)++)		\
 	{								\
 	  if (word_ & 1)						\
 	    {CODE;}							\
@@ -146,46 +146,46 @@ static HARD_REG_SET hard_regs_live;
 /* Loop tree node corresponding to the current basic block.  */
 static struct ira_loop_tree_node *curr_bb_node;
 
-/* Current map regno -> pseudo.  */
-static pseudo_t *curr_regno_pseudo_map;
+/* Current map regno -> allocno.  */
+static allocno_t *curr_regno_allocno_map;
 
 /* The current pressure for the current basic block.  */
 static int curr_reg_pressure [N_REG_CLASSES];
 
-/* The function marks pseudo P as currently living.  */
+/* The function marks allocno A as currently living.  */
 static void
-set_pseudo_live (pseudo_t p)
+set_allocno_live (allocno_t a)
 {
   enum reg_class cover_class;
 
-  if (TEST_PSEUDO_LIVE (PSEUDO_NUM (p)))
+  if (TEST_ALLOCNO_LIVE (ALLOCNO_NUM (a)))
     return;
-  SET_PSEUDO_LIVE (PSEUDO_NUM (p));
-  bitmap_set_bit (pseudos_live_bitmap, PSEUDO_NUM (p));
-  cover_class = PSEUDO_COVER_CLASS (p);
+  SET_ALLOCNO_LIVE (ALLOCNO_NUM (a));
+  bitmap_set_bit (allocnos_live_bitmap, ALLOCNO_NUM (a));
+  cover_class = ALLOCNO_COVER_CLASS (a);
   curr_reg_pressure [cover_class]
-    += reg_class_nregs [cover_class] [PSEUDO_MODE (p)];
+    += reg_class_nregs [cover_class] [ALLOCNO_MODE (a)];
   if (curr_bb_node->reg_pressure [cover_class]
       < curr_reg_pressure [cover_class])
     curr_bb_node->reg_pressure [cover_class]
       = curr_reg_pressure [cover_class];
 }
 
-/* The function marks pseudo P as currently not living.  */
+/* The function marks allocno A as currently not living.  */
 static void
-clear_pseudo_live (pseudo_t p)
+clear_allocno_live (allocno_t a)
 {
   enum reg_class cover_class;
 
-  if (bitmap_bit_p (pseudos_live_bitmap, PSEUDO_NUM (p)))
+  if (bitmap_bit_p (allocnos_live_bitmap, ALLOCNO_NUM (a)))
     {
-      cover_class = PSEUDO_COVER_CLASS (p);
+      cover_class = ALLOCNO_COVER_CLASS (a);
       curr_reg_pressure [cover_class]
-	-= reg_class_nregs [cover_class] [PSEUDO_MODE (p)];
+	-= reg_class_nregs [cover_class] [ALLOCNO_MODE (a)];
       ira_assert (curr_reg_pressure [cover_class] >= 0);
     }
-  CLEAR_PSEUDO_LIVE (PSEUDO_NUM (p));
-  bitmap_clear_bit (pseudos_live_bitmap, PSEUDO_NUM (p));
+  CLEAR_ALLOCNO_LIVE (ALLOCNO_NUM (a));
+  bitmap_clear_bit (allocnos_live_bitmap, ALLOCNO_NUM (a));
 }
 
 /* Record all regs that are set in any one insn.  Communication from
@@ -195,7 +195,7 @@ static rtx *regs_set;
 /* Number elelments in the previous array.  */
 static int n_regs_set;
 
-/* Record a conflict between hard register REGNO or pseudo
+/* Record a conflict between hard register REGNO or allocno
    corresponding to pseudo-register REGNO and everything currently
    live.  */
 static void
@@ -206,42 +206,42 @@ record_regno_conflict (int regno)
   if (regno < FIRST_PSEUDO_REGISTER)
     {
       /* When a hard register becomes live, record conflicts with live
-	 pseudo regs.  */
-      EXECUTE_IF_SET_IN_PSEUDO_SET (pseudos_live, j,
+	 allocno regs.  */
+      EXECUTE_IF_SET_IN_ALLOCNO_SET (allocnos_live, j,
         {
-	  SET_HARD_REG_BIT (PSEUDO_CONFLICT_HARD_REGS (pseudos [j]), regno);
+	  SET_HARD_REG_BIT (ALLOCNO_CONFLICT_HARD_REGS (allocnos [j]), regno);
 	});
     }
   else
     {
       /* When a pseudo-register becomes live, record conflicts first
-	 with hard regs, then with other pseudos.  */
-      pseudo_t p = curr_regno_pseudo_map [regno];
+	 with hard regs, then with other allocnos.  */
+      allocno_t a = curr_regno_allocno_map [regno];
       int pn, pn_prod;
 
-      ira_assert (p != NULL || REG_N_REFS (regno) == 0);
-      if (p == NULL)
+      ira_assert (a != NULL || REG_N_REFS (regno) == 0);
+      if (a == NULL)
 	return;
-      pn = PSEUDO_NUM (p);
-      pn_prod = pn * pseudo_row_words;
-      IOR_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (p), hard_regs_live);
-      for (j = pseudo_row_words - 1; j >= 0; j--)
-	conflicts [pn_prod + j] |= pseudos_live [j];
-      /* Don't set up conflict for the pseudo with itself.  */
-      CLEAR_PSEUDO_CONFLICT_ROW (conflicts + pn_prod, pn);
+      pn = ALLOCNO_NUM (a);
+      pn_prod = pn * allocno_row_words;
+      IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a), hard_regs_live);
+      for (j = allocno_row_words - 1; j >= 0; j--)
+	conflicts [pn_prod + j] |= allocnos_live [j];
+      /* Don't set up conflict for the allocno with itself.  */
+      CLEAR_ALLOCNO_CONFLICT_ROW (conflicts + pn_prod, pn);
     }
 }
 
 /* Handle the case where REG is set by the insn being scanned, during
    the scan to accumulate conflicts.  Store a 1 in hard_regs_live or
-   pseudos_live for this register or the corresponding pseudo, record
+   allocnos_live for this register or the corresponding allocno, record
    how many consecutive hardware registers it actually needs, and
-   record a conflict with all other pseudos already live.
+   record a conflict with all other allocnos already live.
 
    Note that even if REG does not remain alive after this insn, we
    must mark it here as live, to ensure a conflict between REG and any
-   other pseudos set in this insn that really do live.  This is
-   because those other pseudos could be considered after this.
+   other allocnos set in this insn that really do live.  This is
+   because those other allocnos could be considered after this.
 
    REG might actually be something other than a register; if so, we do
    nothing.
@@ -266,11 +266,11 @@ mark_reg_store (rtx reg, rtx setter ATTRIBUTE_UNUSED,
 
   if (regno >= FIRST_PSEUDO_REGISTER)
     {
-      pseudo_t p = curr_regno_pseudo_map [regno];
+      allocno_t a = curr_regno_allocno_map [regno];
 
-      ira_assert (p != NULL || REG_N_REFS (regno) == 0);
-      if (p != NULL)
-	set_pseudo_live (p);
+      ira_assert (a != NULL || REG_N_REFS (regno) == 0);
+      if (a != NULL)
+	set_allocno_live (a);
       record_regno_conflict (regno);
     }
   else if (! TEST_HARD_REG_BIT (no_alloc_regs, regno))
@@ -305,8 +305,8 @@ mark_reg_clobber (rtx reg, rtx setter, void *data)
     mark_reg_store (reg, setter, data);
 }
 
-/* Record that REG (or the corresponding pseudo) has conflicts with
-   all the pseudo currently live.  Do not mark REG (or the pseudo)
+/* Record that REG (or the corresponding allocno) has conflicts with
+   all the allocno currently live.  Do not mark REG (or the allocno)
    itself as live.  */
 static void
 mark_reg_conflicts (rtx reg)
@@ -335,9 +335,9 @@ mark_reg_conflicts (rtx reg)
     }
 }
 
-/* Mark REG (or the corresponding pseudo) as being dead (following the
+/* Mark REG (or the corresponding allocno) as being dead (following the
    insn being scanned now).  Store a 0 in hard_regs_live or
-   pseudos_live for this register.  */
+   allocnos_live for this register.  */
 static void
 mark_reg_death (rtx reg)
 {
@@ -345,11 +345,11 @@ mark_reg_death (rtx reg)
 
   if (regno >= FIRST_PSEUDO_REGISTER)
     {
-      pseudo_t p = curr_regno_pseudo_map [regno];
+      allocno_t a = curr_regno_allocno_map [regno];
 
-      ira_assert (p != NULL || REG_N_REFS (regno) == 0);
-      if (p != NULL)
-	clear_pseudo_live (p);
+      ira_assert (a != NULL || REG_N_REFS (regno) == 0);
+      if (a != NULL)
+	clear_allocno_live (a);
     }
   else if (! TEST_HARD_REG_BIT (no_alloc_regs, regno))
     {
@@ -582,127 +582,127 @@ get_dup (int op_num, int use_commut_op_p)
     return recog_data.operand [n];
 }
 
-/* The function attaches copy CP to pseudos involved into the copy.  */
+/* The function attaches copy CP to allocnos involved into the copy.  */
 static void
-add_pseudo_copy_to_list (copy_t cp)
+add_allocno_copy_to_list (copy_t cp)
 {
-  pseudo_t first = cp->first, second = cp->second;
+  allocno_t first = cp->first, second = cp->second;
 
-  cp->prev_first_pseudo_copy = NULL;
-  cp->prev_second_pseudo_copy = NULL;
-  cp->next_first_pseudo_copy = PSEUDO_COPIES (first);
-  if (cp->next_first_pseudo_copy != NULL)
+  cp->prev_first_allocno_copy = NULL;
+  cp->prev_second_allocno_copy = NULL;
+  cp->next_first_allocno_copy = ALLOCNO_COPIES (first);
+  if (cp->next_first_allocno_copy != NULL)
     {
-      if (cp->next_first_pseudo_copy->first == first)
-	cp->next_first_pseudo_copy->prev_first_pseudo_copy = cp;
+      if (cp->next_first_allocno_copy->first == first)
+	cp->next_first_allocno_copy->prev_first_allocno_copy = cp;
       else
-	cp->next_first_pseudo_copy->prev_second_pseudo_copy = cp;
+	cp->next_first_allocno_copy->prev_second_allocno_copy = cp;
     }
-  cp->next_second_pseudo_copy = PSEUDO_COPIES (second);
-  if (cp->next_second_pseudo_copy != NULL)
+  cp->next_second_allocno_copy = ALLOCNO_COPIES (second);
+  if (cp->next_second_allocno_copy != NULL)
     {
-      if (cp->next_second_pseudo_copy->second == second)
-	cp->next_second_pseudo_copy->prev_second_pseudo_copy = cp;
+      if (cp->next_second_allocno_copy->second == second)
+	cp->next_second_allocno_copy->prev_second_allocno_copy = cp;
       else
-	cp->next_second_pseudo_copy->prev_first_pseudo_copy = cp;
+	cp->next_second_allocno_copy->prev_first_allocno_copy = cp;
     }
-  PSEUDO_COPIES (first) = cp;
-  PSEUDO_COPIES (second) = cp;
+  ALLOCNO_COPIES (first) = cp;
+  ALLOCNO_COPIES (second) = cp;
 }
 
-/* The function detaches copy CP from pseudos involved into the copy.  */
+/* The function detaches copy CP from allocnos involved into the copy.  */
 static void
-remove_pseudo_copy_from_list (copy_t cp)
+remove_allocno_copy_from_list (copy_t cp)
 {
-  pseudo_t first = cp->first, second = cp->second;
+  allocno_t first = cp->first, second = cp->second;
   copy_t prev, next;
 
-  next = cp->next_first_pseudo_copy;
-  prev = cp->prev_first_pseudo_copy;
+  next = cp->next_first_allocno_copy;
+  prev = cp->prev_first_allocno_copy;
   if (prev == NULL)
-    PSEUDO_COPIES (first) = next;
+    ALLOCNO_COPIES (first) = next;
   else if (prev->first == first)
-    prev->next_first_pseudo_copy = next;
+    prev->next_first_allocno_copy = next;
   else
-    prev->next_second_pseudo_copy = next;
+    prev->next_second_allocno_copy = next;
   if (next != NULL)
     {
       if (next->first == first)
-	next->prev_first_pseudo_copy = prev;
+	next->prev_first_allocno_copy = prev;
       else
-	next->prev_second_pseudo_copy = prev;
+	next->prev_second_allocno_copy = prev;
     }
-  cp->prev_first_pseudo_copy = cp->next_first_pseudo_copy = NULL;
+  cp->prev_first_allocno_copy = cp->next_first_allocno_copy = NULL;
 
-  next = cp->next_second_pseudo_copy;
-  prev = cp->prev_second_pseudo_copy;
+  next = cp->next_second_allocno_copy;
+  prev = cp->prev_second_allocno_copy;
   if (prev == NULL)
-    PSEUDO_COPIES (second) = next;
+    ALLOCNO_COPIES (second) = next;
   else if (prev->second == second)
-    prev->next_second_pseudo_copy = next;
+    prev->next_second_allocno_copy = next;
   else
-    prev->next_first_pseudo_copy = next;
+    prev->next_first_allocno_copy = next;
   if (next != NULL)
     {
       if (next->second == second)
-	next->prev_second_pseudo_copy = prev;
+	next->prev_second_allocno_copy = prev;
       else
-	next->prev_first_pseudo_copy = prev;
+	next->prev_first_allocno_copy = prev;
     }
-  cp->prev_second_pseudo_copy = cp->next_second_pseudo_copy = NULL;
+  cp->prev_second_allocno_copy = cp->next_second_allocno_copy = NULL;
 }
 
 /* The function makes copy CP a canonical copy where number of the
-   first pseudo is less than the second one.  */
+   first allocno is less than the second one.  */
 static void
-swap_pseudo_copy_ends_if_necessary (copy_t cp)
+swap_allocno_copy_ends_if_necessary (copy_t cp)
 {
-  pseudo_t temp;
+  allocno_t temp;
   copy_t temp_cp;
 
-  if (PSEUDO_NUM (cp->first) <= PSEUDO_NUM (cp->second))
+  if (ALLOCNO_NUM (cp->first) <= ALLOCNO_NUM (cp->second))
     return;
 
   temp = cp->first;
   cp->first = cp->second;
   cp->second = temp;
 
-  temp_cp = cp->prev_first_pseudo_copy;
-  cp->prev_first_pseudo_copy = cp->prev_second_pseudo_copy;
-  cp->prev_second_pseudo_copy = temp_cp;
+  temp_cp = cp->prev_first_allocno_copy;
+  cp->prev_first_allocno_copy = cp->prev_second_allocno_copy;
+  cp->prev_second_allocno_copy = temp_cp;
 
-  temp_cp = cp->next_first_pseudo_copy;
-  cp->next_first_pseudo_copy = cp->next_second_pseudo_copy;
-  cp->next_second_pseudo_copy = temp_cp;
+  temp_cp = cp->next_first_allocno_copy;
+  cp->next_first_allocno_copy = cp->next_second_allocno_copy;
+  cp->next_second_allocno_copy = temp_cp;
 }
 
-/* The function creates and returns new copy of pseudos FIRST and
+/* The function creates and returns new copy of allocnos FIRST and
    SECOND with frequency FREQ corresponding to move insn INSN (if
    any).  */
 copy_t
-add_pseudo_copy (pseudo_t first, pseudo_t second, int freq, rtx insn)
+add_allocno_copy (allocno_t first, allocno_t second, int freq, rtx insn)
 {
   copy_t cp;
 
   cp = create_copy (first, second, freq, insn);
   ira_assert (first != NULL && second != NULL);
-  add_pseudo_copy_to_list (cp);
-  swap_pseudo_copy_ends_if_necessary (cp);
+  add_allocno_copy_to_list (cp);
+  swap_allocno_copy_ends_if_necessary (cp);
   return cp;
 }
 
-/* The function processes INSN and create pseudo copies if
+/* The function processes INSN and create allocno copies if
    necessary.  For example, it might be because INSN is a
    pseudo-register move or INSN is two operand insn.  */
 static void
-add_pseudo_copies (rtx insn)
+add_allocno_copies (rtx insn)
 {
   rtx set, operand, dup;
   const char *str;
   int commut_p, bound_p;
   int i, j, freq, hard_regno, cost, index;
   copy_t cp;
-  pseudo_t p;
+  allocno_t a;
   enum reg_class class, cover_class;
   enum machine_mode mode;
 
@@ -722,16 +722,16 @@ add_pseudo_copies (rtx insn)
 	      if (HARD_REGISTER_P (SET_SRC (set)))
 		return;
 	      hard_regno = REGNO (SET_DEST (set));
-	      p = curr_regno_pseudo_map [REGNO (SET_SRC (set))];
+	      a = curr_regno_allocno_map [REGNO (SET_SRC (set))];
 	    }
 	  else
 	    {
 	      hard_regno = REGNO (SET_SRC (set));
-	      p = curr_regno_pseudo_map [REGNO (SET_DEST (set))];
+	      a = curr_regno_allocno_map [REGNO (SET_DEST (set))];
 	    }
 	  class = REGNO_REG_CLASS (hard_regno);
-	  mode = PSEUDO_MODE (p);
-	  cover_class = PSEUDO_COVER_CLASS (p);
+	  mode = ALLOCNO_MODE (a);
+	  cover_class = ALLOCNO_COVER_CLASS (a);
 	  if (! class_subset_p [class] [cover_class])
 	    return;
 	  if (reg_class_size [class]
@@ -745,13 +745,13 @@ add_pseudo_copies (rtx insn)
 	    cost = register_move_cost [mode] [cover_class] [class] * freq;
 	  else
 	    cost = register_move_cost [mode] [class] [cover_class] * freq;
-	  PSEUDO_HARD_REG_COSTS (p) [index] -= cost;
-	  PSEUDO_CONFLICT_HARD_REG_COSTS (p) [index] -= cost;
+	  ALLOCNO_HARD_REG_COSTS (a) [index] -= cost;
+	  ALLOCNO_CONFLICT_HARD_REG_COSTS (a) [index] -= cost;
 	}
       else
 	{
-	  cp = add_pseudo_copy (curr_regno_pseudo_map [REGNO (SET_DEST (set))],
-				curr_regno_pseudo_map [REGNO (SET_SRC (set))],
+	  cp = add_allocno_copy (curr_regno_allocno_map [REGNO (SET_DEST (set))],
+				curr_regno_allocno_map [REGNO (SET_SRC (set))],
 				freq, insn);
 	  bitmap_set_bit (ira_curr_loop_tree_node->local_copies, cp->num); 
 	}
@@ -781,16 +781,16 @@ add_pseudo_copies (rtx insn)
 			    if (HARD_REGISTER_P (dup))
 			      continue;
 			    hard_regno = REGNO (operand);
-			    p = curr_regno_pseudo_map [REGNO (dup)];
+			    a = curr_regno_allocno_map [REGNO (dup)];
 			  }
 			else
 			  {
 			    hard_regno = REGNO (dup);
-			    p = curr_regno_pseudo_map [REGNO (operand)];
+			    a = curr_regno_allocno_map [REGNO (operand)];
 			  }
 			class = REGNO_REG_CLASS (hard_regno);
-			mode = PSEUDO_MODE (p);
-			cover_class = PSEUDO_COVER_CLASS (p);
+			mode = ALLOCNO_MODE (a);
+			cover_class = ALLOCNO_COVER_CLASS (a);
 			if (! class_subset_p [class] [cover_class])
 			  continue;
 			index
@@ -804,16 +804,16 @@ add_pseudo_copies (rtx insn)
 			  cost
 			    = register_move_cost [mode] [class] [cover_class];
 			cost *= freq;
-			PSEUDO_HARD_REG_COSTS (p) [index] -= cost;
-			PSEUDO_CONFLICT_HARD_REG_COSTS (p) [index] -= cost;
+			ALLOCNO_HARD_REG_COSTS (a) [index] -= cost;
+			ALLOCNO_CONFLICT_HARD_REG_COSTS (a) [index] -= cost;
 			bound_p = TRUE;
 		      }
 		    else
 		      {
 			bound_p = TRUE;
-			cp = add_pseudo_copy
-			     (curr_regno_pseudo_map [REGNO (dup)],
-			      curr_regno_pseudo_map [REGNO (operand)],
+			cp = add_allocno_copy
+			     (curr_regno_allocno_map [REGNO (dup)],
+			      curr_regno_allocno_map [REGNO (operand)],
 			      freq, NULL_RTX);
 			bitmap_set_bit
 			  (ira_curr_loop_tree_node->local_copies, cp->num);
@@ -823,7 +823,7 @@ add_pseudo_copies (rtx insn)
 		continue;
 	      /* If an operand dies, prefer its hard register for the
 		 output operands by decreasing the hard register cost
-		 or creating the corresponding pseudo copies.  */
+		 or creating the corresponding allocno copies.  */
 	      for (j = 0; j < recog_data.n_operands; j++)
 		{
 		  dup = recog_data.operand [j];
@@ -840,16 +840,16 @@ add_pseudo_copies (rtx insn)
 			    if (HARD_REGISTER_P (dup))
 			      continue;
 			    hard_regno = REGNO (operand);
-			    p = curr_regno_pseudo_map [REGNO (dup)];
+			    a = curr_regno_allocno_map [REGNO (dup)];
 			  }
 			else
 			  {
 			    hard_regno = REGNO (dup);
-			    p = curr_regno_pseudo_map [REGNO (operand)];
+			    a = curr_regno_allocno_map [REGNO (operand)];
 			  }
 			class = REGNO_REG_CLASS (hard_regno);
-			mode = PSEUDO_MODE (p);
-			cover_class = PSEUDO_COVER_CLASS (p);
+			mode = ALLOCNO_MODE (a);
+			cover_class = ALLOCNO_COVER_CLASS (a);
 			if (! class_subset_p [class] [cover_class])
 			  continue;
 			index
@@ -863,14 +863,14 @@ add_pseudo_copies (rtx insn)
 			  cost
 			    = register_move_cost [mode] [class] [cover_class];
 			cost *= (freq < 8 ? 1 : freq / 8);
-			PSEUDO_HARD_REG_COSTS (p) [index] -= cost;
-			PSEUDO_CONFLICT_HARD_REG_COSTS (p) [index] -= cost;
+			ALLOCNO_HARD_REG_COSTS (a) [index] -= cost;
+			ALLOCNO_CONFLICT_HARD_REG_COSTS (a) [index] -= cost;
 		      }
 		    else
 		      {
-			cp = add_pseudo_copy
-			     (curr_regno_pseudo_map [REGNO (dup)],
-			      curr_regno_pseudo_map [REGNO (operand)],
+			cp = add_allocno_copy
+			     (curr_regno_allocno_map [REGNO (dup)],
+			      curr_regno_allocno_map [REGNO (operand)],
 			      (freq < 8 ? 1 : freq / 8), NULL_RTX);
 			bitmap_set_bit
 			  (ira_curr_loop_tree_node->local_copies, cp->num);
@@ -1028,15 +1028,15 @@ single_reg_operand_class (int op_num)
 }
 
 /* The function processes input (if IN_P) or output operands to find
-   pseudo which can use only one hard register and makes other
-   currently living pseudos conflicting with the hard register.  */
+   allocno which can use only one hard register and makes other
+   currently living allocnos conflicting with the hard register.  */
 static void
 process_single_reg_class_operands (int in_p)
 {
   int i, regno, px;
   enum reg_class cl, cover_class;
   rtx operand;
-  pseudo_t operand_p, p;
+  allocno_t operand_a, a;
 
   for (i = 0; i < recog_data.n_operands; i++)
     {
@@ -1051,7 +1051,7 @@ process_single_reg_class_operands (int in_p)
       if (cl == NO_REGS)
 	continue;
 
-      operand_p = NULL;
+      operand_a = NULL;
 
       if (GET_CODE (operand) == SUBREG)
 	operand = SUBREG_REG (operand);
@@ -1062,35 +1062,35 @@ process_single_reg_class_operands (int in_p)
 	  enum machine_mode mode;
 	  enum reg_class cover_class;
 
-	  operand_p = curr_regno_pseudo_map [regno];
-	  mode = PSEUDO_MODE (operand_p);
-	  cover_class = PSEUDO_MODE (operand_p);
+	  operand_a = curr_regno_allocno_map [regno];
+	  mode = ALLOCNO_MODE (operand_a);
+	  cover_class = ALLOCNO_MODE (operand_a);
 	  if (class_subset_p [cl] [cover_class]
 	      && (reg_class_size [cl]
 		  <= (unsigned) CLASS_MAX_NREGS (cl, mode)))
-	    PSEUDO_CONFLICT_HARD_REG_COSTS (operand_p)
+	    ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a)
 	      [class_hard_reg_index [cover_class] [class_hard_regs [cl] [0]]]
 	      -= (in_p
 		  ? register_move_cost [mode] [cover_class] [cl]
 		  : register_move_cost [mode] [cl] [cover_class]);
 	}
 
-      EXECUTE_IF_SET_IN_PSEUDO_SET (pseudos_live, px,
+      EXECUTE_IF_SET_IN_ALLOCNO_SET (allocnos_live, px,
         {
-	  p = pseudos [px];
-	  cover_class = PSEUDO_COVER_CLASS (p);
-	  if (p != operand_p)
-	    /* We could increase costs of P instead of making it
+	  a = allocnos [px];
+	  cover_class = ALLOCNO_COVER_CLASS (a);
+	  if (a != operand_a)
+	    /* We could increase costs of A instead of making it
 	       conflicting with the hard register.  But it works worse
 	       because it will be spilled in reload in anyway.  */
-	    IOR_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (p),
+	    IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
 			      reg_class_contents [cl]);
 	});
     }
 }
 
 /* The function processes insns of the basic block given by its
-   LOOP_TREE_NODE to update pseudo conflict table.  */
+   LOOP_TREE_NODE to update allocno conflict table.  */
 static void
 process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
 {
@@ -1110,10 +1110,10 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
       for (i = 0; i < reg_class_cover_size; i++)
 	curr_reg_pressure [reg_class_cover [i]] = 0;
       curr_bb_node = loop_tree_node;
-      curr_regno_pseudo_map = ira_curr_loop_tree_node->regno_pseudo_map;
+      curr_regno_allocno_map = ira_curr_loop_tree_node->regno_allocno_map;
       reg_live_in = DF_UPWARD_LIVE_IN (build_df, bb);
       reg_live_out = DF_UPWARD_LIVE_OUT (build_df, bb);
-      memset (pseudos_live, 0, pseudo_row_words * sizeof (INT_TYPE));
+      memset (allocnos_live, 0, allocno_row_words * sizeof (INT_TYPE));
       REG_SET_TO_HARD_REG_SET (hard_regs_live, reg_live_in);
       AND_COMPL_HARD_REG_SET (hard_regs_live, eliminable_regset);
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -1128,15 +1128,15 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
 	      curr_bb_node->reg_pressure [cover_class]
 		= curr_reg_pressure [cover_class];
 	  }
-      bitmap_clear (pseudos_live_bitmap);
+      bitmap_clear (allocnos_live_bitmap);
       EXECUTE_IF_SET_IN_BITMAP (reg_live_in, FIRST_PSEUDO_REGISTER, j, bi)
 	{
-	  pseudo_t p = curr_regno_pseudo_map [j];
+	  allocno_t a = curr_regno_allocno_map [j];
 	  
-	  ira_assert (p != NULL || REG_N_REFS (j) == 0);
-	  if (p == NULL)
+	  ira_assert (a != NULL || REG_N_REFS (j) == 0);
+	  if (a == NULL)
 	    continue;
-	  set_pseudo_live (p);
+	  set_allocno_live (a);
 	  record_regno_conflict (j);
 	}
       
@@ -1154,11 +1154,11 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
 	}
 #endif
       
-      /* Pseudos can't go in stack regs at the start of a basic block
+      /* Allocnos can't go in stack regs at the start of a basic block
 	 that is reached by an abnormal edge. Likewise for call
 	 clobbered regs, because caller-save, fixup_abnormal_edges and
 	 possibly the table driven EH machinery are not quite ready to
-	 handle such pseudos live across such edges.  */
+	 handle such allocnos live across such edges.  */
       FOR_EACH_EDGE (e, ei, bb->preds)
 	if (e->flags & EDGE_ABNORMAL)
 	  break;
@@ -1166,9 +1166,9 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
       if (e != NULL)
 	{
 #ifdef STACK_REGS
-	  EXECUTE_IF_SET_IN_PSEUDO_SET (pseudos_live, px,
+	  EXECUTE_IF_SET_IN_ALLOCNO_SET (allocnos_live, px,
 	    {
-	      PSEUDO_NO_STACK_REG_P (pseudos [px]) = TRUE;
+	      ALLOCNO_NO_STACK_REG_P (allocnos [px]) = TRUE;
 	    });
 	  for (px = FIRST_STACK_REG; px <= LAST_STACK_REG; px++)
 	    record_regno_conflict (px);
@@ -1182,7 +1182,7 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
 		record_regno_conflict (px);
 	}
   
-      /* Scan the code of this basic block, noting which pseudos and
+      /* Scan the code of this basic block, noting which allocnos and
 	 hard regs are born or die.  When one is born, record a
 	 conflict with all others currently live.  */
       FOR_BB_INSNS (bb, insn)
@@ -1195,14 +1195,14 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
 	  /* Make regs_set an empty set.  */
 	  n_regs_set = 0;
       
-	  /* Mark any pseudos clobbered by INSN as live, so they
+	  /* Mark any allocnos clobbered by INSN as live, so they
 	     conflict with the inputs.  */
 	  note_stores (PATTERN (insn), mark_reg_clobber, NULL);
 	  
 	  extract_insn (insn);
 	  process_single_reg_class_operands (TRUE);
 	  
-	  /* Mark any pseudos dead after INSN as dead now.  */
+	  /* Mark any allocnos dead after INSN as dead now.  */
 	  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
 	    if (REG_NOTE_KIND (link) == REG_DEAD)
 	      mark_reg_death (XEXP (link, 0));
@@ -1213,30 +1213,30 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
 	      
 	      get_call_invalidated_used_regs (insn, &clobbered_regs, FALSE);
 	      IOR_HARD_REG_SET (cfun->emit->call_used_regs, clobbered_regs);
-	      EXECUTE_IF_SET_IN_PSEUDO_SET (pseudos_live, i,
+	      EXECUTE_IF_SET_IN_ALLOCNO_SET (allocnos_live, i,
 	        {
 		  int freq;
-		  pseudo_t p = pseudos [i];
+		  allocno_t a = allocnos [i];
 		  
 		  freq = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (insn));
 		  if (freq == 0)
 		    freq = 1;
-		  PSEUDO_CALL_FREQ (p) += freq;
-		  PSEUDO_CALLS_CROSSED (p) [PSEUDO_CALLS_CROSSED_NUM (p)++]
+		  ALLOCNO_CALL_FREQ (a) += freq;
+		  ALLOCNO_CALLS_CROSSED (a) [ALLOCNO_CALLS_CROSSED_NUM (a)++]
 		    = insn;
-		  ira_assert (PSEUDO_CALLS_CROSSED_NUM (p)
-			      <= REG_N_CALLS_CROSSED (PSEUDO_REGNO (p)));
+		  ira_assert (ALLOCNO_CALLS_CROSSED_NUM (a)
+			      <= REG_N_CALLS_CROSSED (ALLOCNO_REGNO (a)));
 		  
-		  /* Don't allocate pseudos that cross calls, if this
+		  /* Don't allocate allocnos that cross calls, if this
 		     function receives a nonlocal goto.  */
 		  if (current_function_has_nonlocal_label)
-		    SET_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (p));
+		    SET_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a));
 		});
 	    }
 	  
-	  /* Mark any pseudos set in INSN as live, and mark them as
-	     conflicting with all other live pseudos.  Clobbers are
-	     processed again, so they conflict with the pseudos that
+	  /* Mark any allocnos set in INSN as live, and mark them as
+	     conflicting with all other live allocnos.  Clobbers are
+	     processed again, so they conflict with the allocnos that
 	     are set.  */
 	  note_stores (PATTERN (insn), mark_reg_store, NULL);
 	  
@@ -1246,15 +1246,15 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
 	      mark_reg_store (XEXP (link, 0), NULL_RTX, NULL);
 #endif
 	  
-	  /* If INSN has multiple outputs, then any pseudo that dies
+	  /* If INSN has multiple outputs, then any allocno that dies
 	     here and is used inside of an output must conflict with
 	     the other outputs.
 	     
 	     It is unsafe to use !single_set here since it will ignore
 	     an unused output.  Just because an output is unused does
 	     not mean the compiler can assume the side effect will not
-	     occur.  Consider if PSEUDO appears in the address of an
-	     output and we reload the output.  If we allocate PSEUDO
+	     occur.  Consider if ALLOCNO appears in the address of an
+	     output and we reload the output.  If we allocate ALLOCNO
 	     to the same hard register as an unused output we could
 	     set the hard register before the output reload insn.  */
 	  if (GET_CODE (PATTERN (insn)) == PARALLEL && multiple_sets (insn))
@@ -1281,7 +1281,7 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
 	  
 	  process_single_reg_class_operands (FALSE);
 	  
-	  /* Mark any pseudos set in INSN and then never used.  */
+	  /* Mark any allocnos set in INSN and then never used.  */
 	  while (n_regs_set-- > 0)
 	    {
 	      rtx note = find_regno_note (insn, REG_UNUSED,
@@ -1289,7 +1289,7 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
 	      if (note)
 		mark_reg_death (XEXP (note, 0));
 	    }
-	  add_pseudo_copies (insn);
+	  add_allocno_copies (insn);
 	}
     }
   /* Propagate register pressure: */
@@ -1306,105 +1306,105 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
       }
 }
 
-/* The function builds pseudo conflict table by traversing all basic
+/* The function builds allocno conflict table by traversing all basic
    blocks and their insns.  */
 static void
 build_conflict_bit_table (void)
 {
-  pseudo_row_words = (pseudos_num + INT_BITS - 1) / INT_BITS;
+  allocno_row_words = (allocnos_num + INT_BITS - 1) / INT_BITS;
   conflicts = ira_allocate (sizeof (INT_TYPE)
-			    * pseudos_num * pseudo_row_words);
-  memset (conflicts, 0, sizeof (INT_TYPE) * pseudos_num * pseudo_row_words);
-  pseudos_live = ira_allocate (sizeof (INT_TYPE) * pseudo_row_words);
-  pseudos_live_bitmap = ira_allocate_bitmap ();
+			    * allocnos_num * allocno_row_words);
+  memset (conflicts, 0, sizeof (INT_TYPE) * allocnos_num * allocno_row_words);
+  allocnos_live = ira_allocate (sizeof (INT_TYPE) * allocno_row_words);
+  allocnos_live_bitmap = ira_allocate_bitmap ();
   /* Make a vector that mark_reg_{store,clobber} will store in.  */
   regs_set = ira_allocate (sizeof (rtx) * max_parallel * 2);
   traverse_loop_tree (ira_loop_tree_root, NULL, process_bb_node_for_conflicts);
   /* Clean up.  */
   ira_free (regs_set);
-  ira_free_bitmap (pseudos_live_bitmap);
-  ira_free (pseudos_live);
+  ira_free_bitmap (allocnos_live_bitmap);
+  ira_free (allocnos_live);
 }
 
-/* The function propagates info about pseudo P to the corresponding
-   pseudo on upper loop tree level.  So pseudos on upper levels
-   accumulate information about the corresponding pseudos in nested
+/* The function propagates info about allocno A to the corresponding
+   allocno on upper loop tree level.  So allocnos on upper levels
+   accumulate information about the corresponding allocnos in nested
    loops.  */
 static void
-propagate_pseudo_info (pseudo_t p)
+propagate_allocno_info (allocno_t a)
 {
   int regno, j, n, pn, father_pn, another_father_pn;
-  pseudo_t father_p, another_p, another_father_p;
+  allocno_t father_a, another_a, another_father_a;
   struct ira_loop_tree_node *father;
-  struct pseudo_copy *cp, *next_cp;
+  copy_t cp, next_cp;
 
-  regno = PSEUDO_REGNO (p);
-  if ((father = PSEUDO_LOOP_TREE_NODE (p)->father) != NULL
-      && (father_p = father->regno_pseudo_map [regno]) != NULL)
+  regno = ALLOCNO_REGNO (a);
+  if ((father = ALLOCNO_LOOP_TREE_NODE (a)->father) != NULL
+      && (father_a = father->regno_allocno_map [regno]) != NULL)
     {
-      PSEUDO_CALL_FREQ (father_p) += PSEUDO_CALL_FREQ (p);
+      ALLOCNO_CALL_FREQ (father_a) += ALLOCNO_CALL_FREQ (a);
 #ifdef STACK_REGS
-      if (PSEUDO_NO_STACK_REG_P (p))
-	PSEUDO_NO_STACK_REG_P (father_p) = TRUE;
+      if (ALLOCNO_NO_STACK_REG_P (a))
+	ALLOCNO_NO_STACK_REG_P (father_a) = TRUE;
 #endif
-      IOR_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (father_p),
-			PSEUDO_CONFLICT_HARD_REGS (p));
-      pn = PSEUDO_NUM (p);
-      EXECUTE_IF_SET_IN_PSEUDO_SET (conflicts + pn * pseudo_row_words, j,
+      IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (father_a),
+			ALLOCNO_CONFLICT_HARD_REGS (a));
+      pn = ALLOCNO_NUM (a);
+      EXECUTE_IF_SET_IN_ALLOCNO_SET (conflicts + pn * allocno_row_words, j,
         {
-	  another_p = pseudos [j];
-	  if ((another_father_p = (father->regno_pseudo_map
-				   [PSEUDO_REGNO (another_p)])) == NULL)
+	  another_a = allocnos [j];
+	  if ((another_father_a = (father->regno_allocno_map
+				   [ALLOCNO_REGNO (another_a)])) == NULL)
 	    continue;
-	  father_pn = PSEUDO_NUM (father_p);
-	  another_father_pn = PSEUDO_NUM (another_father_p);
-	  SET_PSEUDO_CONFLICT_ROW
-	    (conflicts + father_pn * pseudo_row_words, another_father_pn);
-	  SET_PSEUDO_CONFLICT_ROW
-	    (conflicts + another_father_pn * pseudo_row_words, father_pn);
+	  father_pn = ALLOCNO_NUM (father_a);
+	  another_father_pn = ALLOCNO_NUM (another_father_a);
+	  SET_ALLOCNO_CONFLICT_ROW
+	    (conflicts + father_pn * allocno_row_words, another_father_pn);
+	  SET_ALLOCNO_CONFLICT_ROW
+	    (conflicts + another_father_pn * allocno_row_words, father_pn);
 	});
-      if ((n = PSEUDO_CALLS_CROSSED_NUM (p)) != 0)
+      if ((n = ALLOCNO_CALLS_CROSSED_NUM (a)) != 0)
 	{
-	  memcpy (PSEUDO_CALLS_CROSSED (father_p)
-		  + PSEUDO_CALLS_CROSSED_NUM (father_p),
-		  PSEUDO_CALLS_CROSSED (p), sizeof (rtx) * n);
-	  PSEUDO_CALLS_CROSSED_NUM (father_p) += n;
-	  ira_assert (PSEUDO_CALLS_CROSSED_NUM (father_p)
+	  memcpy (ALLOCNO_CALLS_CROSSED (father_a)
+		  + ALLOCNO_CALLS_CROSSED_NUM (father_a),
+		  ALLOCNO_CALLS_CROSSED (a), sizeof (rtx) * n);
+	  ALLOCNO_CALLS_CROSSED_NUM (father_a) += n;
+	  ira_assert (ALLOCNO_CALLS_CROSSED_NUM (father_a)
 		      <= REG_N_CALLS_CROSSED (regno));
 	}
-      for (cp = PSEUDO_COPIES (p); cp != NULL; cp = next_cp)
+      for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
 	{
-	  if (cp->first == p)
+	  if (cp->first == a)
 	    {
-	      next_cp = cp->next_first_pseudo_copy;
-	      another_p = cp->second;
+	      next_cp = cp->next_first_allocno_copy;
+	      another_a = cp->second;
 	    }
-	  else if (cp->second == p)
+	  else if (cp->second == a)
 	    {
-	      next_cp = cp->next_second_pseudo_copy;
-	      another_p = cp->first;
+	      next_cp = cp->next_second_allocno_copy;
+	      another_a = cp->first;
 	    }
 	  else
 	    gcc_unreachable ();
-	  if ((another_father_p = (father->regno_pseudo_map
-				   [PSEUDO_REGNO (another_p)])) != NULL)
-	    add_pseudo_copy
-	      (father_p, another_father_p, cp->freq, cp->move_insn);
+	  if ((another_father_a = (father->regno_allocno_map
+				   [ALLOCNO_REGNO (another_a)])) != NULL)
+	    add_allocno_copy
+	      (father_a, another_father_a, cp->freq, cp->move_insn);
 	}
     }
 }
 
-/* The function propagates info about pseudos to the corresponding
-   pseudos on upper loop tree level.  */
+/* The function propagates info about allocnos to the corresponding
+   allocnos on upper loop tree level.  */
 static void
 propagate_info (void)
 {
   int i;
-  pseudo_t p;
+  allocno_t a;
 
   for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
-    for (p = regno_pseudo_map [i]; p != NULL; p = PSEUDO_NEXT_REGNO_PSEUDO (p))
-      propagate_pseudo_info (p);
+    for (a = regno_allocno_map [i]; a != NULL; a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
+      propagate_allocno_info (a);
 }
 
 /* If CONFLICTP (i, j) is TRUE, make sure CONFLICTP (j, i) is also TRUE.  */
@@ -1413,20 +1413,20 @@ mirror_conflicts (void)
 {
   int i, j;
   unsigned INT_TYPE mask;
-  int rw = pseudo_row_words;
+  int rw = allocno_row_words;
   int rwb = rw * INT_BITS;
   INT_TYPE *p = conflicts;
   INT_TYPE *q0 = conflicts;
   INT_TYPE *q1, *q2;
 
-  for (i = pseudos_num - 1, mask = 1; i >= 0; i--, mask <<= 1)
+  for (i = allocnos_num - 1, mask = 1; i >= 0; i--, mask <<= 1)
     {
       if (! mask)
 	{
 	  mask = 1;
 	  q0++;
 	}
-      for (j = pseudo_row_words - 1, q1 = q0; j >= 0; j--, q1 += rwb)
+      for (j = allocno_row_words - 1, q1 = q0; j >= 0; j--, q1 += rwb)
 	{
 	  unsigned INT_TYPE word;
 
@@ -1444,7 +1444,7 @@ mirror_conflicts (void)
 /* The function returns TRUE if pseudo-registers REGNO1 and REGNO2
    conflict.  The function is called from reload.  */
 int
-pseudo_reg_conflict_p (int regno1, int regno2)
+allocno_reg_conflict_p (int regno1, int regno2)
 {
   int p_no1, p_no2;
 
@@ -1452,78 +1452,78 @@ pseudo_reg_conflict_p (int regno1, int regno2)
 	      && regno2 >= FIRST_PSEUDO_REGISTER);
   /* Reg info caclulated by dataflow infrastructure can be different
      from one calculated by regclass.  */
-  if (curr_regno_pseudo_map [regno1] == NULL
-      || curr_regno_pseudo_map [regno2] == NULL)
+  if (curr_regno_allocno_map [regno1] == NULL
+      || curr_regno_allocno_map [regno2] == NULL)
     return FALSE;
-  p_no1 = PSEUDO_NUM (curr_regno_pseudo_map [regno1]);
-  p_no2 = PSEUDO_NUM (curr_regno_pseudo_map [regno2]);
-  ira_assert (p_no1 >= 0 && p_no1 < pseudos_num
-	      && p_no2 >= 0 && p_no2 < pseudos_num);
+  p_no1 = ALLOCNO_NUM (curr_regno_allocno_map [regno1]);
+  p_no2 = ALLOCNO_NUM (curr_regno_allocno_map [regno2]);
+  ira_assert (p_no1 >= 0 && p_no1 < allocnos_num
+	      && p_no2 >= 0 && p_no2 < allocnos_num);
   return CONFLICTP (p_no1, p_no2) != 0;
 }
 
-/* Remove copies involving conflicting pseudos.  */
+/* Remove copies involving conflicting allocnos.  */
 static void
-remove_conflict_pseudo_copies (void)
+remove_conflict_allocno_copies (void)
 {
   int i;
-  pseudo_t p;
+  allocno_t a;
   copy_t cp, next_cp;
-  varray_type conflict_pseudo_copy_varray;
+  varray_type conflict_allocno_copy_varray;
 
-  VARRAY_GENERIC_PTR_NOGC_INIT (conflict_pseudo_copy_varray, get_max_uid (),
-				"copies of conflicting pseudos");
-  for (i = 0; i < pseudos_num; i++)
+  VARRAY_GENERIC_PTR_NOGC_INIT (conflict_allocno_copy_varray, get_max_uid (),
+				"copies of conflicting allocnos");
+  for (i = 0; i < allocnos_num; i++)
     {
-      p = pseudos [i];
-      for (cp = PSEUDO_COPIES (p); cp != NULL; cp = next_cp)
-	if (cp->first == p)
-	  next_cp = cp->next_first_pseudo_copy;
+      a = allocnos [i];
+      for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
+	if (cp->first == a)
+	  next_cp = cp->next_first_allocno_copy;
 	else
 	  {
-	    next_cp = cp->next_second_pseudo_copy;
-	    VARRAY_PUSH_GENERIC_PTR (conflict_pseudo_copy_varray, cp);
+	    next_cp = cp->next_second_allocno_copy;
+	    VARRAY_PUSH_GENERIC_PTR (conflict_allocno_copy_varray, cp);
 	  }
     }
-  for (i = VARRAY_ACTIVE_SIZE (conflict_pseudo_copy_varray) - 1; i >= 0; i--)
+  for (i = VARRAY_ACTIVE_SIZE (conflict_allocno_copy_varray) - 1; i >= 0; i--)
     {
-      cp = VARRAY_GENERIC_PTR (conflict_pseudo_copy_varray, i);
-      if (CONFLICTP (PSEUDO_NUM (cp->first), PSEUDO_NUM (cp->second)))
-	remove_pseudo_copy_from_list (cp);
+      cp = VARRAY_GENERIC_PTR (conflict_allocno_copy_varray, i);
+      if (CONFLICTP (ALLOCNO_NUM (cp->first), ALLOCNO_NUM (cp->second)))
+	remove_allocno_copy_from_list (cp);
     }
-  VARRAY_FREE (conflict_pseudo_copy_varray);
+  VARRAY_FREE (conflict_allocno_copy_varray);
 }
 
-/* The function builds conflict vectors of all pseudos from the
+/* The function builds conflict vectors of all allocnos from the
    conflict table.  */
 static void
-build_pseudo_conflict_vects (void)
+build_allocno_conflict_vects (void)
 {
   int i, j, px;
-  pseudo_t p, *conflict_pseudos, *vec;
+  allocno_t a, *conflict_allocnos, *vec;
 
-  conflict_pseudos = ira_allocate (sizeof (pseudo_t) * pseudos_num);
-  for (i = 0; i < pseudos_num; i++)
+  conflict_allocnos = ira_allocate (sizeof (allocno_t) * allocnos_num);
+  for (i = 0; i < allocnos_num; i++)
     {
-      p = pseudos [i];
-      ira_assert (i == PSEUDO_NUM (p));
+      a = allocnos [i];
+      ira_assert (i == ALLOCNO_NUM (a));
       px = 0;
-      EXECUTE_IF_SET_IN_PSEUDO_SET (conflicts + i * pseudo_row_words, j,
+      EXECUTE_IF_SET_IN_ALLOCNO_SET (conflicts + i * allocno_row_words, j,
 				    {
-				      conflict_pseudos [px++] = pseudos [j];
+				      conflict_allocnos [px++] = allocnos [j];
 				    });
-      allocate_pseudo_conflicts (p, px);
-      vec = PSEUDO_CONFLICT_PSEUDO_VEC (p);
-      memcpy (vec, conflict_pseudos, sizeof (pseudo_t) * px);
+      allocate_allocno_conflicts (a, px);
+      vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
+      memcpy (vec, conflict_allocnos, sizeof (allocno_t) * px);
       vec [px] = NULL;
-      PSEUDO_CONFLICT_PSEUDO_VEC_ACTIVE_SIZE (p) = px;
+      ALLOCNO_CONFLICT_ALLOCNO_VEC_ACTIVE_SIZE (a) = px;
     }
-  ira_free (conflict_pseudos);
+  ira_free (conflict_allocnos);
 }
 
 
 
-/* The function propagates information about pseudos modified inside
+/* The function propagates information about allocnos modified inside
    the loops.  */
 static void
 propagate_modified_regnos (struct ira_loop_tree_node *loop_tree_node)
@@ -1536,39 +1536,39 @@ propagate_modified_regnos (struct ira_loop_tree_node *loop_tree_node)
 
 
 
-/* The function outputs information about pseudo conflicts to FILE.  */
+/* The function outputs information about allocno conflicts to FILE.  */
 static void
 print_conflicts (FILE *file)
 {
   int i;
 
-  for (i = 0; i < pseudos_num; i++)
+  for (i = 0; i < allocnos_num; i++)
     {
       int j;
-      pseudo_t p;
+      allocno_t a;
       basic_block bb;
 
-      p = pseudos [i];
-      fprintf (file, ";; p%d(r%d,", PSEUDO_NUM (p), PSEUDO_REGNO (p));
-      if ((bb = PSEUDO_LOOP_TREE_NODE (p)->bb) != NULL)
+      a = allocnos [i];
+      fprintf (file, ";; a%d(r%d,", ALLOCNO_NUM (a), ALLOCNO_REGNO (a));
+      if ((bb = ALLOCNO_LOOP_TREE_NODE (a)->bb) != NULL)
 	fprintf (file, "b%d", bb->index);
       else
-	fprintf (file, "l%d", PSEUDO_LOOP_TREE_NODE (p)->loop->num);
+	fprintf (file, "l%d", ALLOCNO_LOOP_TREE_NODE (a)->loop->num);
       fprintf (file, ") conflicts:");
-      for (j = 0; j < pseudos_num; j++)
+      for (j = 0; j < allocnos_num; j++)
 	if (CONFLICTP (j, i))
 	  {
-	    fprintf (file, " p%d(r%d,",
-		     PSEUDO_NUM (pseudos [j]), PSEUDO_REGNO (pseudos [j]));
-	    if ((bb = PSEUDO_LOOP_TREE_NODE (pseudos [j])->bb) != NULL)
+	    fprintf (file, " a%d(r%d,",
+		     ALLOCNO_NUM (allocnos [j]), ALLOCNO_REGNO (allocnos [j]));
+	    if ((bb = ALLOCNO_LOOP_TREE_NODE (allocnos [j])->bb) != NULL)
 	      fprintf (file, "b%d)", bb->index);
 	    else
 	      fprintf (file, "l%d)",
-		       PSEUDO_LOOP_TREE_NODE (pseudos [j])->loop->num);
+		       ALLOCNO_LOOP_TREE_NODE (allocnos [j])->loop->num);
 	  }
       fprintf (file, "\n;;     conflict hard regs:");
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
-	if (TEST_HARD_REG_BIT (PSEUDO_CONFLICT_HARD_REGS (p), j))
+	if (TEST_HARD_REG_BIT (ALLOCNO_CONFLICT_HARD_REGS (a), j))
 	  fprintf (file, " %d", j);
       fprintf (file, "\n");
 
@@ -1576,7 +1576,7 @@ print_conflicts (FILE *file)
   fprintf (file, "\n");
 }
 
-/* The function outputs information about pseudo conflicts to
+/* The function outputs information about allocno conflicts to
    stderr.  */
 void
 debug_conflicts (void)
@@ -1586,12 +1586,12 @@ debug_conflicts (void)
 
 
 
-/* Entry function which builds pseudo conflicts.  */
+/* Entry function which builds allocno conflicts.  */
 void
 ira_build_conflicts (void)
 {
   int i;
-  pseudo_t p;
+  allocno_t a;
 
   build_conflict_bit_table ();
   mirror_conflicts ();
@@ -1599,24 +1599,24 @@ ira_build_conflicts (void)
       || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
     propagate_info ();
   /* We need finished conflict table for the subsequent call.  */
-  remove_conflict_pseudo_copies ();
-  build_pseudo_conflict_vects ();
-  for (i = 0; i < pseudos_num; i++)
+  remove_conflict_allocno_copies ();
+  build_allocno_conflict_vects ();
+  for (i = 0; i < allocnos_num; i++)
     {
-      p = pseudos [i];
-      if (PSEUDO_CALLS_CROSSED_NUM (p) != 0)
+      a = allocnos [i];
+      if (ALLOCNO_CALLS_CROSSED_NUM (a) != 0)
 	{
 	  if (! flag_caller_saves
 	      || (flag_ira_split_around_calls
-		  && ((ira_max_regno_before > PSEUDO_REGNO (p)
-		       && (reg_equiv_const [PSEUDO_REGNO (p)]
-			   || reg_equiv_invariant_p [PSEUDO_REGNO (p)]))
-		      || (ira_max_regno_before <= PSEUDO_REGNO (p)
-			  && PSEUDO_REGNO (p) < ira_max_regno_call_before))))
-	    IOR_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (p),
+		  && ((ira_max_regno_before > ALLOCNO_REGNO (a)
+		       && (reg_equiv_const [ALLOCNO_REGNO (a)]
+			   || reg_equiv_invariant_p [ALLOCNO_REGNO (a)]))
+		      || (ira_max_regno_before <= ALLOCNO_REGNO (a)
+			  && ALLOCNO_REGNO (a) < ira_max_regno_call_before))))
+	    IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
 			      call_used_reg_set);
           else
-	    IOR_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (p),
+	    IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
 			      no_caller_save_reg_set);
 	}
     }  

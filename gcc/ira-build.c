@@ -1,4 +1,4 @@
-/* Building pseudos for IRA.
+/* Building allocnos for IRA.
    Copyright (C) 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
@@ -45,20 +45,20 @@ static void finish_loop_tree_nodes (void);
 static void add_loop_to_tree (struct loop *);
 static void form_loop_tree (void);
 
-static void initiate_pseudos (void);
-static void check_pseudo_conflict_vec (pseudo_t, int);
-static void add_pseudo_conflict (pseudo_t, pseudo_t);
-static pseudo_t create_cap_pseudo (pseudo_t);
-static void finish_pseudos (void);
+static void initiate_allocnos (void);
+static void check_allocno_conflict_vec (allocno_t, int);
+static void add_allocno_conflict (allocno_t, allocno_t);
+static allocno_t create_cap_allocno (allocno_t);
+static void finish_allocnos (void);
 
 static void initiate_copies (void);
 static void finish_copies (void);
 
-static void create_insn_pseudos (rtx, int);
-static void create_bb_pseudos (struct ira_loop_tree_node *);
-static void create_loop_pseudos (edge);
-static void create_loop_tree_node_pseudos (struct ira_loop_tree_node *);
-static void create_pseudos (void);
+static void create_insn_allocnos (rtx, int);
+static void create_bb_allocnos (struct ira_loop_tree_node *);
+static void create_loop_allocnos (edge);
+static void create_loop_tree_node_allocnos (struct ira_loop_tree_node *);
+static void create_allocnos (void);
 static void create_loop_tree_node_caps (struct ira_loop_tree_node *);
 
 /* All natural loops.  */
@@ -75,13 +75,13 @@ struct ira_loop_tree_node *ira_bb_nodes;
 /* All loop data are referred through the following array.  */
 struct ira_loop_tree_node *ira_loop_nodes;
 
-/* Map regno -> pseudo for the current loop tree node.  */
-pseudo_t *regno_pseudo_map;
+/* Map regno -> allocno for the current loop tree node.  */
+allocno_t *regno_allocno_map;
 
-/* Array of references to all pseudos and its size.  The order number
-   of the pseudo corresponds to the index in the array.  */
-pseudo_t *pseudos;
-int pseudos_num;
+/* Array of references to all allocnos and its size.  The order number
+   of the allocno corresponds to the index in the array.  */
+allocno_t *allocnos;
+int allocnos_num;
 
 /* Array of references to copies and its size.  The order number of
    the copy corresponds to the index in the array.  */
@@ -117,12 +117,12 @@ create_loop_tree_nodes (int loops_p)
   last_basic_block_before_change = last_basic_block;
   for (i = 0; i < (unsigned int) last_basic_block; i++)
     {
-      ira_bb_nodes [i].regno_pseudo_map = NULL;
+      ira_bb_nodes [i].regno_allocno_map = NULL;
       memset (ira_bb_nodes [i].reg_pressure, 0,
 	      sizeof (ira_bb_nodes [i].reg_pressure));
-      ira_bb_nodes [i].mentioned_pseudos = NULL;
+      ira_bb_nodes [i].mentioned_allocnos = NULL;
       ira_bb_nodes [i].modified_regnos = NULL;
-      ira_bb_nodes [i].border_pseudos = NULL;
+      ira_bb_nodes [i].border_allocnos = NULL;
       ira_bb_nodes [i].local_copies = NULL;
     }
   ira_loop_nodes = ira_allocate (sizeof (struct ira_loop_tree_node)
@@ -132,7 +132,7 @@ create_loop_tree_nodes (int loops_p)
     {
       if (loop != ira_loops.tree_root)
 	{
-	  ira_loop_nodes [i].regno_pseudo_map = NULL;
+	  ira_loop_nodes [i].regno_allocno_map = NULL;
 	  if (! loops_p)
 	    continue;
 	  skip_p = FALSE;
@@ -156,15 +156,15 @@ create_loop_tree_nodes (int loops_p)
 	  if (skip_p)
 	    continue;
 	}
-      ira_loop_nodes [i].regno_pseudo_map
-	= ira_allocate (sizeof (pseudo_t) * max_regno);
-      memset (ira_loop_nodes [i].regno_pseudo_map, 0,
-	      sizeof (pseudo_t) * max_regno);
+      ira_loop_nodes [i].regno_allocno_map
+	= ira_allocate (sizeof (allocno_t) * max_regno);
+      memset (ira_loop_nodes [i].regno_allocno_map, 0,
+	      sizeof (allocno_t) * max_regno);
       memset (ira_loop_nodes [i].reg_pressure, 0,
 	      sizeof (ira_loop_nodes [i].reg_pressure));
-      ira_loop_nodes [i].mentioned_pseudos = ira_allocate_bitmap ();
+      ira_loop_nodes [i].mentioned_allocnos = ira_allocate_bitmap ();
       ira_loop_nodes [i].modified_regnos = ira_allocate_bitmap ();
-      ira_loop_nodes [i].border_pseudos = ira_allocate_bitmap ();
+      ira_loop_nodes [i].border_allocnos = ira_allocate_bitmap ();
       ira_loop_nodes [i].local_copies = ira_allocate_bitmap ();
     }
 }
@@ -177,27 +177,27 @@ finish_loop_tree_nodes (void)
   loop_p loop;
 
   for (i = 0; VEC_iterate (loop_p, ira_loops.larray, i, loop); i++)
-    if (ira_loop_nodes [i].regno_pseudo_map != NULL)
+    if (ira_loop_nodes [i].regno_allocno_map != NULL)
       {
 	ira_free_bitmap (ira_loop_nodes [i].local_copies);
-	ira_free_bitmap (ira_loop_nodes [i].border_pseudos);
+	ira_free_bitmap (ira_loop_nodes [i].border_allocnos);
 	ira_free_bitmap (ira_loop_nodes [i].modified_regnos);
-	ira_free_bitmap (ira_loop_nodes [i].mentioned_pseudos);
-	ira_free (ira_loop_nodes [i].regno_pseudo_map);
+	ira_free_bitmap (ira_loop_nodes [i].mentioned_allocnos);
+	ira_free (ira_loop_nodes [i].regno_allocno_map);
       }
   ira_free (ira_loop_nodes);
   for (i = 0; i < (unsigned int) last_basic_block_before_change; i++)
     {
       if (ira_bb_nodes [i].local_copies != NULL)
 	ira_free_bitmap (ira_bb_nodes [i].local_copies);
-      if (ira_bb_nodes [i].border_pseudos != NULL)
-	ira_free_bitmap (ira_bb_nodes [i].border_pseudos);
+      if (ira_bb_nodes [i].border_allocnos != NULL)
+	ira_free_bitmap (ira_bb_nodes [i].border_allocnos);
       if (ira_bb_nodes [i].modified_regnos != NULL)
 	ira_free_bitmap (ira_bb_nodes [i].modified_regnos);
-      if (ira_bb_nodes [i].mentioned_pseudos != NULL)
-	ira_free_bitmap (ira_bb_nodes [i].mentioned_pseudos);
-      if (ira_bb_nodes [i].regno_pseudo_map != NULL)
-	ira_free (ira_bb_nodes [i].regno_pseudo_map);
+      if (ira_bb_nodes [i].mentioned_allocnos != NULL)
+	ira_free_bitmap (ira_bb_nodes [i].mentioned_allocnos);
+      if (ira_bb_nodes [i].regno_allocno_map != NULL)
+	ira_free (ira_bb_nodes [i].regno_allocno_map);
     }
   ira_free (ira_bb_nodes);
 }
@@ -216,7 +216,7 @@ add_loop_to_tree (struct loop *loop)
      and because the nodes are not initialized yet.  */
   if (loop->outer != NULL)
     add_loop_to_tree (loop->outer);
-  if (ira_loop_nodes [loop->num].regno_pseudo_map != NULL
+  if (ira_loop_nodes [loop->num].regno_allocno_map != NULL
       && ira_loop_nodes [loop->num].inner == NULL)
     {
       /* We have not added loop node to the tree yet.  */
@@ -224,7 +224,7 @@ add_loop_to_tree (struct loop *loop)
       loop_node->loop = loop;
       loop_node->bb = NULL;
       for (father = loop->outer; father != NULL; father = father->outer)
-	if (ira_loop_nodes [father->num].regno_pseudo_map != NULL)
+	if (ira_loop_nodes [father->num].regno_allocno_map != NULL)
 	  break;
       if (father == NULL)
 	{
@@ -256,7 +256,7 @@ form_loop_tree (void)
   /* Can not use loop/bb node access macros because of potential
      checking and the nodes are not initialized yet.  */
   for (i = 0; VEC_iterate (loop_p, ira_loops.larray, i, loop); i++)
-     if (ira_loop_nodes [i].regno_pseudo_map != NULL)
+     if (ira_loop_nodes [i].regno_allocno_map != NULL)
        ira_loop_nodes [i].inner = NULL;
   FOR_EACH_BB_REVERSE (bb)
     {
@@ -266,7 +266,7 @@ form_loop_tree (void)
       bb_node->inner = NULL;
       bb_node->next = NULL;
       for (father = bb->loop_father; father != NULL; father = father->outer)
-	if (ira_loop_nodes [father->num].regno_pseudo_map != NULL)
+	if (ira_loop_nodes [father->num].regno_allocno_map != NULL)
 	  break;
       add_loop_to_tree (father);
       loop_node = &ira_loop_nodes [father->num];
@@ -275,269 +275,269 @@ form_loop_tree (void)
       loop_node->inner = bb_node;
     }
   ira_loop_tree_root = IRA_LOOP_NODE_BY_INDEX (ira_loops.tree_root->num);
-  ira_assert (ira_loop_tree_root->regno_pseudo_map != NULL);
+  ira_assert (ira_loop_tree_root->regno_allocno_map != NULL);
 }
 
 
 
-/* Varray containing references to all created pseudos.  It is a
-   container of array pseudos.  */
-static varray_type pseudo_varray;
+/* Varray containing references to all created allocnos.  It is a
+   container of array allocnos.  */
+static varray_type allocno_varray;
 
-/* The function initializes data concerning pseudos.  */
+/* The function initializes data concerning allocnos.  */
 static void
-initiate_pseudos (void)
+initiate_allocnos (void)
 {
-  VARRAY_GENERIC_PTR_NOGC_INIT (pseudo_varray, max_reg_num () * 2, "pseudos");
-  pseudos = NULL;
-  pseudos_num = 0;
-  regno_pseudo_map = ira_allocate (max_reg_num () * sizeof (pseudo_t));
-  memset (regno_pseudo_map, 0, max_reg_num () * sizeof (pseudo_t));
+  VARRAY_GENERIC_PTR_NOGC_INIT (allocno_varray, max_reg_num () * 2, "allocnos");
+  allocnos = NULL;
+  allocnos_num = 0;
+  regno_allocno_map = ira_allocate (max_reg_num () * sizeof (allocno_t));
+  memset (regno_allocno_map, 0, max_reg_num () * sizeof (allocno_t));
 }
 
-/* The function creates and returns pseudo corresponding to REGNO in
-   LOOP_TREE_NODE.  Add the pseudo to the list of pseudos with the
+/* The function creates and returns allocno corresponding to REGNO in
+   LOOP_TREE_NODE.  Add the allocno to the list of allocnos with the
    same regno if ! CAP_P.  */
-pseudo_t
-create_pseudo (int regno, int cap_p, struct ira_loop_tree_node *loop_tree_node)
+allocno_t
+create_allocno (int regno, int cap_p, struct ira_loop_tree_node *loop_tree_node)
 {
-  pseudo_t p;
+  allocno_t a;
 
-  p = ira_allocate (sizeof (struct pseudo));
-  PSEUDO_REGNO (p) = regno;
-  PSEUDO_LOOP_TREE_NODE (p) = loop_tree_node;
+  a = ira_allocate (sizeof (struct allocno));
+  ALLOCNO_REGNO (a) = regno;
+  ALLOCNO_LOOP_TREE_NODE (a) = loop_tree_node;
   if (! cap_p)
     {
-      PSEUDO_NEXT_REGNO_PSEUDO (p) = regno_pseudo_map [regno];
-      regno_pseudo_map [regno] = p;
-      if (loop_tree_node->regno_pseudo_map [regno] == NULL)
-	/* Remember that we can create temporary pseudos to break
+      ALLOCNO_NEXT_REGNO_ALLOCNO (a) = regno_allocno_map [regno];
+      regno_allocno_map [regno] = a;
+      if (loop_tree_node->regno_allocno_map [regno] == NULL)
+	/* Remember that we can create temporary allocnos to break
 	   cycles in register shuffle.  */
-	loop_tree_node->regno_pseudo_map [regno] = p;
+	loop_tree_node->regno_allocno_map [regno] = a;
     }
-  PSEUDO_CAP (p) = NULL;
-  PSEUDO_CAP_MEMBER (p) = NULL;
-  PSEUDO_NUM (p) = pseudos_num;
-  PSEUDO_CONFLICT_PSEUDO_VEC (p) = NULL;
-  PSEUDO_CONFLICT_PSEUDO_VEC_ACTIVE_SIZE (p) = 0;
-  CLEAR_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (p));
-  PSEUDO_FREQ (p) = 1;
-  PSEUDO_HARD_REGNO (p) = -1;
-  PSEUDO_CALL_FREQ (p) = 0;
-  PSEUDO_CALLS_CROSSED_NUM (p) = 0;
-  PSEUDO_CALLS_CROSSED (p) = NULL;
+  ALLOCNO_CAP (a) = NULL;
+  ALLOCNO_CAP_MEMBER (a) = NULL;
+  ALLOCNO_NUM (a) = allocnos_num;
+  ALLOCNO_CONFLICT_ALLOCNO_VEC (a) = NULL;
+  ALLOCNO_CONFLICT_ALLOCNO_VEC_ACTIVE_SIZE (a) = 0;
+  CLEAR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a));
+  ALLOCNO_FREQ (a) = 1;
+  ALLOCNO_HARD_REGNO (a) = -1;
+  ALLOCNO_CALL_FREQ (a) = 0;
+  ALLOCNO_CALLS_CROSSED_NUM (a) = 0;
+  ALLOCNO_CALLS_CROSSED (a) = NULL;
   /* ??? Too conservative.  */
   if (regno >= 0 && REG_N_CALLS_CROSSED (regno) != 0)
-    PSEUDO_CALLS_CROSSED (p)
+    ALLOCNO_CALLS_CROSSED (a)
       = ira_allocate (sizeof (rtx) * REG_N_CALLS_CROSSED (regno));
 #ifdef STACK_REGS
-  PSEUDO_NO_STACK_REG_P (p) = FALSE;
+  ALLOCNO_NO_STACK_REG_P (a) = FALSE;
 #endif
-  PSEUDO_IN_GRAPH_P (p) = FALSE;
-  PSEUDO_ASSIGNED_P (p) = FALSE;
-  PSEUDO_MAY_BE_SPILLED_P (p) = FALSE;
-  PSEUDO_MODE (p) = (regno < 0 ? VOIDmode : PSEUDO_REGNO_MODE (regno));
-  PSEUDO_COPIES (p) = NULL;
-  PSEUDO_HARD_REG_COSTS (p) = NULL;
-  PSEUDO_CONFLICT_HARD_REG_COSTS (p) = NULL;
-  PSEUDO_CURR_HARD_REG_COSTS (p) = NULL;
-  PSEUDO_CURR_CONFLICT_HARD_REG_COSTS (p) = NULL;
-  PSEUDO_LEFT_CONFLICTS_NUM (p) = -1;
-  PSEUDO_COVER_CLASS (p) = NO_REGS;
-  PSEUDO_COVER_CLASS_COST (p) = 0;
-  PSEUDO_MEMORY_COST (p) = 0;
-  PSEUDO_NEXT_BUCKET_PSEUDO (p) = NULL;
-  PSEUDO_PREV_BUCKET_PSEUDO (p) = NULL;
-  VARRAY_PUSH_GENERIC_PTR (pseudo_varray, p);
-  pseudos = (pseudo_t *) &VARRAY_GENERIC_PTR (pseudo_varray, 0);
-  pseudos_num = VARRAY_ACTIVE_SIZE (pseudo_varray);
-  return p;
+  ALLOCNO_IN_GRAPH_P (a) = FALSE;
+  ALLOCNO_ASSIGNED_P (a) = FALSE;
+  ALLOCNO_MAY_BE_SPILLED_P (a) = FALSE;
+  ALLOCNO_MODE (a) = (regno < 0 ? VOIDmode : PSEUDO_REGNO_MODE (regno));
+  ALLOCNO_COPIES (a) = NULL;
+  ALLOCNO_HARD_REG_COSTS (a) = NULL;
+  ALLOCNO_CONFLICT_HARD_REG_COSTS (a) = NULL;
+  ALLOCNO_CURR_HARD_REG_COSTS (a) = NULL;
+  ALLOCNO_CURR_CONFLICT_HARD_REG_COSTS (a) = NULL;
+  ALLOCNO_LEFT_CONFLICTS_NUM (a) = -1;
+  ALLOCNO_COVER_CLASS (a) = NO_REGS;
+  ALLOCNO_COVER_CLASS_COST (a) = 0;
+  ALLOCNO_MEMORY_COST (a) = 0;
+  ALLOCNO_NEXT_BUCKET_ALLOCNO (a) = NULL;
+  ALLOCNO_PREV_BUCKET_ALLOCNO (a) = NULL;
+  VARRAY_PUSH_GENERIC_PTR (allocno_varray, a);
+  allocnos = (allocno_t *) &VARRAY_GENERIC_PTR (allocno_varray, 0);
+  allocnos_num = VARRAY_ACTIVE_SIZE (allocno_varray);
+  return a;
 }
 
-/* The function allocates conflict vector of P for NUM pseudos.  */
+/* The function allocates conflict vector of A for NUM allocnos.  */
 void
-allocate_pseudo_conflicts (pseudo_t p, int num)
+allocate_allocno_conflicts (allocno_t a, int num)
 {
-  ira_assert (PSEUDO_CONFLICT_PSEUDO_VEC (p) == NULL);
-  PSEUDO_CONFLICT_PSEUDO_VEC (p)
-    = ira_allocate (sizeof (pseudo_t) * (num + 1));
-  PSEUDO_CONFLICT_PSEUDO_VEC (p) [0] = NULL;
-  PSEUDO_CONFLICT_PSEUDO_VEC_ACTIVE_SIZE (p) = 0;
-  PSEUDO_CONFLICT_PSEUDO_VEC_SIZE (p) = num;
+  ira_assert (ALLOCNO_CONFLICT_ALLOCNO_VEC (a) == NULL);
+  ALLOCNO_CONFLICT_ALLOCNO_VEC (a)
+    = ira_allocate (sizeof (allocno_t) * (num + 1));
+  ALLOCNO_CONFLICT_ALLOCNO_VEC (a) [0] = NULL;
+  ALLOCNO_CONFLICT_ALLOCNO_VEC_ACTIVE_SIZE (a) = 0;
+  ALLOCNO_CONFLICT_ALLOCNO_VEC_SIZE (a) = num;
 }
 
-/* The function checks that conflict vector of P has enough space to
-   contain NUM pseudo references.  If the space is not enough, the
+/* The function checks that conflict vector of A has enough space to
+   contain NUM allocno references.  If the space is not enough, the
    function expands the conflict vector.  */
 static void
-check_pseudo_conflict_vec (pseudo_t p, int num)
+check_allocno_conflict_vec (allocno_t a, int num)
 {
   int size;
-  pseudo_t *vec;
+  allocno_t *vec;
 
-  ira_assert (PSEUDO_CONFLICT_PSEUDO_VEC (p) != NULL);
-  if (PSEUDO_CONFLICT_PSEUDO_VEC_SIZE (p) >= num)
+  ira_assert (ALLOCNO_CONFLICT_ALLOCNO_VEC (a) != NULL);
+  if (ALLOCNO_CONFLICT_ALLOCNO_VEC_SIZE (a) >= num)
     return;
   size = 3 * num / 2 + 1;
-  vec = ira_allocate (sizeof (pseudo_t) * (size + 1));
-  memcpy (vec, PSEUDO_CONFLICT_PSEUDO_VEC (p),
-	  sizeof (pseudo_t)
-	  * (PSEUDO_CONFLICT_PSEUDO_VEC_ACTIVE_SIZE (p) + 1));
-  ira_free (PSEUDO_CONFLICT_PSEUDO_VEC (p));
-  PSEUDO_CONFLICT_PSEUDO_VEC (p) = vec;
-  PSEUDO_CONFLICT_PSEUDO_VEC_SIZE (p) = size;
+  vec = ira_allocate (sizeof (allocno_t) * (size + 1));
+  memcpy (vec, ALLOCNO_CONFLICT_ALLOCNO_VEC (a),
+	  sizeof (allocno_t)
+	  * (ALLOCNO_CONFLICT_ALLOCNO_VEC_ACTIVE_SIZE (a) + 1));
+  ira_free (ALLOCNO_CONFLICT_ALLOCNO_VEC (a));
+  ALLOCNO_CONFLICT_ALLOCNO_VEC (a) = vec;
+  ALLOCNO_CONFLICT_ALLOCNO_VEC_SIZE (a) = size;
 }
 
-/* The function adds P1 to conflict vector of P2 and vise versa.  */
+/* The function adds A1 to conflict vector of A2 and vise versa.  */
 static void
-add_pseudo_conflict (pseudo_t p1, pseudo_t p2)
+add_allocno_conflict (allocno_t a1, allocno_t a2)
 {
   int size1, size2;
-  pseudo_t *vec1, *vec2;
+  allocno_t *vec1, *vec2;
 
-  size1 = PSEUDO_CONFLICT_PSEUDO_VEC_ACTIVE_SIZE (p1);
-  size2 = PSEUDO_CONFLICT_PSEUDO_VEC_ACTIVE_SIZE (p2);
-  check_pseudo_conflict_vec (p1, size1 + 1);
-  check_pseudo_conflict_vec (p2, size2 + 1);
-  vec1 = PSEUDO_CONFLICT_PSEUDO_VEC (p1);
-  vec2 = PSEUDO_CONFLICT_PSEUDO_VEC (p2);
-  vec1 [size1] = p2;
-  vec2 [size2] = p1;
+  size1 = ALLOCNO_CONFLICT_ALLOCNO_VEC_ACTIVE_SIZE (a1);
+  size2 = ALLOCNO_CONFLICT_ALLOCNO_VEC_ACTIVE_SIZE (a2);
+  check_allocno_conflict_vec (a1, size1 + 1);
+  check_allocno_conflict_vec (a2, size2 + 1);
+  vec1 = ALLOCNO_CONFLICT_ALLOCNO_VEC (a1);
+  vec2 = ALLOCNO_CONFLICT_ALLOCNO_VEC (a2);
+  vec1 [size1] = a2;
+  vec2 [size2] = a1;
   vec1 [size1 + 1] = NULL;
   vec2 [size2 + 1] = NULL;
-  PSEUDO_CONFLICT_PSEUDO_VEC_ACTIVE_SIZE (p1)++;
-  PSEUDO_CONFLICT_PSEUDO_VEC_ACTIVE_SIZE (p2)++;
+  ALLOCNO_CONFLICT_ALLOCNO_VEC_ACTIVE_SIZE (a1)++;
+  ALLOCNO_CONFLICT_ALLOCNO_VEC_ACTIVE_SIZE (a2)++;
 }
 
-/* This recursive function outputs pseudo P and if it is cap the
+/* This recursive function outputs allocno A and if it is cap the
    function outputs members.  */
 void
-print_expanded_pseudo (pseudo_t p)
+print_expanded_allocno (allocno_t a)
 {
   basic_block bb;
 
-  fprintf (ira_dump_file, " p%d(r%d", PSEUDO_NUM (p), PSEUDO_REGNO (p));
-  if ((bb = PSEUDO_LOOP_TREE_NODE (p)->bb) != NULL)
+  fprintf (ira_dump_file, " a%d(r%d", ALLOCNO_NUM (a), ALLOCNO_REGNO (a));
+  if ((bb = ALLOCNO_LOOP_TREE_NODE (a)->bb) != NULL)
     fprintf (ira_dump_file, ",b%d", bb->index);
   else
-    fprintf (ira_dump_file, ",l%d", PSEUDO_LOOP_TREE_NODE (p)->loop->num);
-  if (PSEUDO_CAP_MEMBER (p) != NULL)
+    fprintf (ira_dump_file, ",l%d", ALLOCNO_LOOP_TREE_NODE (a)->loop->num);
+  if (ALLOCNO_CAP_MEMBER (a) != NULL)
     {
       fprintf (ira_dump_file, ":");
-      print_expanded_pseudo (PSEUDO_CAP_MEMBER (p));
+      print_expanded_allocno (ALLOCNO_CAP_MEMBER (a));
     }
   fprintf (ira_dump_file, ")");
 }
 
-/* The function creates and returns cap representing pseudo P in the
+/* The function creates and returns cap representing allocno A in the
    father loop.  */
-static pseudo_t
-create_cap_pseudo (pseudo_t p)
+static allocno_t
+create_cap_allocno (allocno_t a)
 {
   int i, regno, hard_regs_num, conflicts_num;
   int *reg_costs, *conflict_reg_costs;
   basic_block bb;
-  pseudo_t cap, conflict_pseudo, conflict_father_pseudo;
-  pseudo_t *pseudo_vec;
+  allocno_t cap, conflict_allocno, conflict_father_allocno;
+  allocno_t *allocno_vec;
   struct ira_loop_tree_node *father;
 
-  father = PSEUDO_LOOP_TREE_NODE (p)->father;
-  cap = create_pseudo (PSEUDO_REGNO (p), TRUE, father);
+  father = ALLOCNO_LOOP_TREE_NODE (a)->father;
+  cap = create_allocno (ALLOCNO_REGNO (a), TRUE, father);
   /* We just need to set a mode giving the same size.  */
-  PSEUDO_MODE (cap) = PSEUDO_MODE (p);
-  PSEUDO_COVER_CLASS (cap) = PSEUDO_COVER_CLASS (p);
-  PSEUDO_AVAILABLE_REGS_NUM (cap) = PSEUDO_AVAILABLE_REGS_NUM (p);
-  PSEUDO_CAP_MEMBER (cap) = p;
-  hard_regs_num = class_hard_regs_num [PSEUDO_COVER_CLASS (p)];
-  PSEUDO_HARD_REG_COSTS (cap) = reg_costs
+  ALLOCNO_MODE (cap) = ALLOCNO_MODE (a);
+  ALLOCNO_COVER_CLASS (cap) = ALLOCNO_COVER_CLASS (a);
+  ALLOCNO_AVAILABLE_REGS_NUM (cap) = ALLOCNO_AVAILABLE_REGS_NUM (a);
+  ALLOCNO_CAP_MEMBER (cap) = a;
+  hard_regs_num = class_hard_regs_num [ALLOCNO_COVER_CLASS (a)];
+  ALLOCNO_HARD_REG_COSTS (cap) = reg_costs
     = ira_allocate (hard_regs_num * sizeof (int));
-  memcpy (reg_costs, PSEUDO_HARD_REG_COSTS (p), hard_regs_num * sizeof (int));
-  PSEUDO_CONFLICT_HARD_REG_COSTS (cap) = conflict_reg_costs
+  memcpy (reg_costs, ALLOCNO_HARD_REG_COSTS (a), hard_regs_num * sizeof (int));
+  ALLOCNO_CONFLICT_HARD_REG_COSTS (cap) = conflict_reg_costs
     = ira_allocate (hard_regs_num * sizeof (int));
-  memcpy (conflict_reg_costs, PSEUDO_CONFLICT_HARD_REG_COSTS (p),
+  memcpy (conflict_reg_costs, ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
 	  hard_regs_num * sizeof (int));
-  PSEUDO_CURR_HARD_REG_COSTS (cap)
+  ALLOCNO_CURR_HARD_REG_COSTS (cap)
     = ira_allocate (hard_regs_num * sizeof (int));
-  PSEUDO_CURR_CONFLICT_HARD_REG_COSTS (cap)
+  ALLOCNO_CURR_CONFLICT_HARD_REG_COSTS (cap)
     = ira_allocate (hard_regs_num * sizeof (int));
   /* ??? costs, call_p etc.  */
-  bitmap_set_bit (father->mentioned_pseudos, PSEUDO_NUM (cap));
-  PSEUDO_CAP (p) = cap;
-  PSEUDO_AVAILABLE_REGS_NUM (cap) = PSEUDO_AVAILABLE_REGS_NUM (p);
-  PSEUDO_COVER_CLASS_COST (cap) = PSEUDO_COVER_CLASS_COST (p);
-  PSEUDO_MEMORY_COST (cap) = PSEUDO_MEMORY_COST (p);
-  PSEUDO_FREQ (cap) = PSEUDO_FREQ (p);
-  PSEUDO_CALL_FREQ (cap) = PSEUDO_CALL_FREQ (p);
-  IOR_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (cap),
-		    PSEUDO_CONFLICT_HARD_REGS (p));
-  PSEUDO_CALLS_CROSSED_NUM (cap) = PSEUDO_CALLS_CROSSED_NUM (p);
-  PSEUDO_CALLS_CROSSED (cap)
-    = ira_allocate (sizeof (rtx) * PSEUDO_CALLS_CROSSED_NUM (p));
-  memcpy (PSEUDO_CALLS_CROSSED (cap), PSEUDO_CALLS_CROSSED (p),
-	  sizeof (rtx) * PSEUDO_CALLS_CROSSED_NUM (p));
+  bitmap_set_bit (father->mentioned_allocnos, ALLOCNO_NUM (cap));
+  ALLOCNO_CAP (a) = cap;
+  ALLOCNO_AVAILABLE_REGS_NUM (cap) = ALLOCNO_AVAILABLE_REGS_NUM (a);
+  ALLOCNO_COVER_CLASS_COST (cap) = ALLOCNO_COVER_CLASS_COST (a);
+  ALLOCNO_MEMORY_COST (cap) = ALLOCNO_MEMORY_COST (a);
+  ALLOCNO_FREQ (cap) = ALLOCNO_FREQ (a);
+  ALLOCNO_CALL_FREQ (cap) = ALLOCNO_CALL_FREQ (a);
+  IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (cap),
+		    ALLOCNO_CONFLICT_HARD_REGS (a));
+  ALLOCNO_CALLS_CROSSED_NUM (cap) = ALLOCNO_CALLS_CROSSED_NUM (a);
+  ALLOCNO_CALLS_CROSSED (cap)
+    = ira_allocate (sizeof (rtx) * ALLOCNO_CALLS_CROSSED_NUM (a));
+  memcpy (ALLOCNO_CALLS_CROSSED (cap), ALLOCNO_CALLS_CROSSED (a),
+	  sizeof (rtx) * ALLOCNO_CALLS_CROSSED_NUM (a));
 #ifdef STACK_REGS
-  PSEUDO_NO_STACK_REG_P (cap) = PSEUDO_NO_STACK_REG_P (p);
+  ALLOCNO_NO_STACK_REG_P (cap) = ALLOCNO_NO_STACK_REG_P (a);
 #endif
-  pseudo_vec = PSEUDO_CONFLICT_PSEUDO_VEC (p);
-  for (conflicts_num = i = 0; (conflict_pseudo = pseudo_vec [i]) != NULL; i++)
+  allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
+  for (conflicts_num = i = 0; (conflict_allocno = allocno_vec [i]) != NULL; i++)
     conflicts_num++;
-  allocate_pseudo_conflicts (cap, conflicts_num);
-  for (conflicts_num = i = 0; (conflict_pseudo = pseudo_vec [i]) != NULL; i++)
+  allocate_allocno_conflicts (cap, conflicts_num);
+  for (conflicts_num = i = 0; (conflict_allocno = allocno_vec [i]) != NULL; i++)
     {
-      regno = PSEUDO_REGNO (conflict_pseudo);
-      conflict_father_pseudo = father->regno_pseudo_map [regno];
-      if (conflict_father_pseudo == NULL)
-	conflict_father_pseudo = PSEUDO_CAP (conflict_pseudo);
-      if (conflict_father_pseudo != NULL)
-	add_pseudo_conflict (cap, conflict_father_pseudo);
+      regno = ALLOCNO_REGNO (conflict_allocno);
+      conflict_father_allocno = father->regno_allocno_map [regno];
+      if (conflict_father_allocno == NULL)
+	conflict_father_allocno = ALLOCNO_CAP (conflict_allocno);
+      if (conflict_father_allocno != NULL)
+	add_allocno_conflict (cap, conflict_father_allocno);
     }
   if (ira_dump_file != NULL)
     {
       fprintf (ira_dump_file, "  Creating cap ");
-      print_expanded_pseudo (cap);
+      print_expanded_allocno (cap);
       fprintf (ira_dump_file, "\n    Conflicts:");
-      pseudo_vec = PSEUDO_CONFLICT_PSEUDO_VEC (cap);
-      for (i = 0; (conflict_pseudo = pseudo_vec [i]) != NULL; i++)
+      allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (cap);
+      for (i = 0; (conflict_allocno = allocno_vec [i]) != NULL; i++)
 	{
-	  fprintf (ira_dump_file, " p%d(r%d,", PSEUDO_NUM (conflict_pseudo),
-		   PSEUDO_REGNO (conflict_pseudo));
-	  if ((bb = PSEUDO_LOOP_TREE_NODE (conflict_pseudo)->bb) != NULL)
+	  fprintf (ira_dump_file, " a%d(r%d,", ALLOCNO_NUM (conflict_allocno),
+		   ALLOCNO_REGNO (conflict_allocno));
+	  if ((bb = ALLOCNO_LOOP_TREE_NODE (conflict_allocno)->bb) != NULL)
 	    fprintf (ira_dump_file, "b%d)", bb->index);
 	  else
 	    fprintf (ira_dump_file, "l%d)",
-		     PSEUDO_LOOP_TREE_NODE (conflict_pseudo)->loop->num);
+		     ALLOCNO_LOOP_TREE_NODE (conflict_allocno)->loop->num);
 	}
       fprintf (ira_dump_file, "\n");
     }
   return cap;
 }
 
-/* The function frees memory allocated for all pseudos.  */
+/* The function frees memory allocated for all allocnos.  */
 static void
-finish_pseudos (void)
+finish_allocnos (void)
 {
   int i;
-  pseudo_t p;
+  allocno_t a;
 
-  for (i = 0; i < pseudos_num; i++)
+  for (i = 0; i < allocnos_num; i++)
     {
-      p = pseudos [i];
-      if (PSEUDO_CONFLICT_PSEUDO_VEC (p) != NULL)
-	ira_free (PSEUDO_CONFLICT_PSEUDO_VEC (p));
-      if (PSEUDO_HARD_REG_COSTS (p) != NULL)
-	ira_free (PSEUDO_HARD_REG_COSTS (p));
-      if (PSEUDO_CONFLICT_HARD_REG_COSTS (p) != NULL)
-	ira_free (PSEUDO_CONFLICT_HARD_REG_COSTS (p));
-      if (PSEUDO_CURR_HARD_REG_COSTS (p) != NULL)
-	ira_free (PSEUDO_CURR_HARD_REG_COSTS (p));
-      if (PSEUDO_CURR_CONFLICT_HARD_REG_COSTS (p) != NULL)
-	ira_free (PSEUDO_CURR_CONFLICT_HARD_REG_COSTS (p));
-      if (PSEUDO_CALLS_CROSSED (p) != NULL)
-	ira_free (PSEUDO_CALLS_CROSSED (p));
-      ira_free (p);
+      a = allocnos [i];
+      if (ALLOCNO_CONFLICT_ALLOCNO_VEC (a) != NULL)
+	ira_free (ALLOCNO_CONFLICT_ALLOCNO_VEC (a));
+      if (ALLOCNO_HARD_REG_COSTS (a) != NULL)
+	ira_free (ALLOCNO_HARD_REG_COSTS (a));
+      if (ALLOCNO_CONFLICT_HARD_REG_COSTS (a) != NULL)
+	ira_free (ALLOCNO_CONFLICT_HARD_REG_COSTS (a));
+      if (ALLOCNO_CURR_HARD_REG_COSTS (a) != NULL)
+	ira_free (ALLOCNO_CURR_HARD_REG_COSTS (a));
+      if (ALLOCNO_CURR_CONFLICT_HARD_REG_COSTS (a) != NULL)
+	ira_free (ALLOCNO_CURR_CONFLICT_HARD_REG_COSTS (a));
+      if (ALLOCNO_CALLS_CROSSED (a) != NULL)
+	ira_free (ALLOCNO_CALLS_CROSSED (a));
+      ira_free (a);
     }
-  ira_free (regno_pseudo_map);
-  VARRAY_FREE (pseudo_varray);
+  ira_free (regno_allocno_map);
+  VARRAY_FREE (allocno_varray);
 }
 
 
@@ -546,7 +546,7 @@ finish_pseudos (void)
    container of array copies.  */
 static varray_type copy_varray;
 
-/* The function initializes data concerning pseudo copies.  */
+/* The function initializes data concerning allocno copies.  */
 static void
 initiate_copies (void)
 {
@@ -555,14 +555,14 @@ initiate_copies (void)
   copies_num = 0;
 }
 
-/* The function creates and returns copy of pseudos FIRST and SECOND
+/* The function creates and returns copy of allocnos FIRST and SECOND
    with frequency FREQ and move insn MOVE_INSN.  */
 copy_t
-create_copy (pseudo_t first, pseudo_t second, int freq, rtx move_insn)
+create_copy (allocno_t first, allocno_t second, int freq, rtx move_insn)
 {
   copy_t cp;
 
-  cp = ira_allocate (sizeof (struct pseudo_copy));
+  cp = ira_allocate (sizeof (struct allocno_copy));
   cp->num = copies_num;
   cp->first = first;
   cp->second = second;
@@ -623,11 +623,11 @@ traverse_loop_tree (struct ira_loop_tree_node *loop_node,
 /* The current basic block.  */
 static basic_block curr_bb;
 
-/* This recursive function creates pseudos corresponding to
+/* This recursive function creates allocnos corresponding to
    pseudo-registers containing in X.  Nonzero OUTPUT_P means that X is
    lvalue.  */
 static void
-create_insn_pseudos (rtx x, int output_p)
+create_insn_allocnos (rtx x, int output_p)
 {
   int i, j;
   const char *fmt;
@@ -639,14 +639,14 @@ create_insn_pseudos (rtx x, int output_p)
 
       if ((regno = REGNO (x)) >= FIRST_PSEUDO_REGISTER)
 	{
-	  pseudo_t p;
+	  allocno_t a;
 
-	  if ((p = ira_curr_loop_tree_node->regno_pseudo_map [regno]) == NULL)
-	    p = create_pseudo (regno, FALSE, ira_curr_loop_tree_node);
+	  if ((a = ira_curr_loop_tree_node->regno_allocno_map [regno]) == NULL)
+	    a = create_allocno (regno, FALSE, ira_curr_loop_tree_node);
 	  
-	  PSEUDO_FREQ (p) += REG_FREQ_FROM_BB (curr_bb);
-	  bitmap_set_bit (ira_curr_loop_tree_node->mentioned_pseudos,
-			  PSEUDO_NUM (p));
+	  ALLOCNO_FREQ (a) += REG_FREQ_FROM_BB (curr_bb);
+	  bitmap_set_bit (ira_curr_loop_tree_node->mentioned_allocnos,
+			  ALLOCNO_NUM (a));
 	  if (output_p)
 	    bitmap_set_bit (ira_curr_loop_tree_node->modified_regnos, regno);
 	}
@@ -654,25 +654,25 @@ create_insn_pseudos (rtx x, int output_p)
     }
   else if (code == SET)
     {
-      create_insn_pseudos (SET_DEST (x), TRUE);
-      create_insn_pseudos (SET_SRC (x), FALSE);
+      create_insn_allocnos (SET_DEST (x), TRUE);
+      create_insn_allocnos (SET_SRC (x), FALSE);
       return;
     }
   else if (code == CLOBBER)
     {
-      create_insn_pseudos (XEXP (x, 0), TRUE);
+      create_insn_allocnos (XEXP (x, 0), TRUE);
       return;
     }
   else if (code == MEM)
     {
-      create_insn_pseudos (XEXP (x, 0), FALSE);
+      create_insn_allocnos (XEXP (x, 0), FALSE);
       return;
     }
   else if (code == PRE_DEC || code == POST_DEC || code == PRE_INC || 
 	   code == POST_INC || code == POST_MODIFY || code == PRE_MODIFY)
     {
-      create_insn_pseudos (XEXP (x, 0), TRUE);
-      create_insn_pseudos (XEXP (x, 0), FALSE);
+      create_insn_allocnos (XEXP (x, 0), TRUE);
+      create_insn_allocnos (XEXP (x, 0), FALSE);
       return;
     }
 
@@ -680,71 +680,71 @@ create_insn_pseudos (rtx x, int output_p)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	create_insn_pseudos (XEXP (x, i), output_p);
+	create_insn_allocnos (XEXP (x, i), output_p);
       else if (fmt[i] == 'E')
 	for (j = 0; j < XVECLEN (x, i); j++)
-	  create_insn_pseudos (XVECEXP (x, i, j), output_p);
+	  create_insn_allocnos (XVECEXP (x, i, j), output_p);
     }
 }
 
-/* The function creates pseudos corresponding to pseudo-registers
+/* The function creates allocnos corresponding to pseudo-registers
    living in basic blocks represented by the corresponding loop tree
    node BB_NODE.  */
 static void
-create_bb_pseudos (struct ira_loop_tree_node *bb_node)
+create_bb_allocnos (struct ira_loop_tree_node *bb_node)
 {
   basic_block bb;
   rtx insn;
   unsigned int i;
   bitmap_iterator bi;
-  pseudo_t *map;
+  allocno_t *map;
 
   curr_bb = bb = bb_node->bb;
   ira_assert (bb != NULL);
   FOR_BB_INSNS (bb, insn)
     if (INSN_P (insn))
-      create_insn_pseudos (PATTERN (insn), FALSE);
-  /* It might be a pseudo living through from one subloop to
+      create_insn_allocnos (PATTERN (insn), FALSE);
+  /* It might be a allocno living through from one subloop to
      another.  */
-  map = ira_curr_loop_tree_node->regno_pseudo_map;
+  map = ira_curr_loop_tree_node->regno_allocno_map;
   EXECUTE_IF_SET_IN_REG_SET (DF_UPWARD_LIVE_IN (build_df, bb),
 			     FIRST_PSEUDO_REGISTER, i, bi)
     if (map [i] == NULL)
-      create_pseudo (i, FALSE, ira_curr_loop_tree_node);
+      create_allocno (i, FALSE, ira_curr_loop_tree_node);
 }
 
-/* The function creates pseudos corresponding to pseudo-registers
-   living on edge E (a loop enter or exit).  It also finds pseudos
+/* The function creates allocnos corresponding to pseudo-registers
+   living on edge E (a loop enter or exit).  It also finds allocnos
    living on the loop border. */
 static void
-create_loop_pseudos (edge e)
+create_loop_allocnos (edge e)
 {
   unsigned int i;
-  bitmap live_in_regs, border_pseudos;
+  bitmap live_in_regs, border_allocnos;
   bitmap_iterator bi;
-  pseudo_t *map;
+  allocno_t *map;
 
   live_in_regs = DF_UPWARD_LIVE_IN (build_df, e->dest);
-  map = ira_curr_loop_tree_node->regno_pseudo_map;
-  border_pseudos = ira_curr_loop_tree_node->border_pseudos;
+  map = ira_curr_loop_tree_node->regno_allocno_map;
+  border_allocnos = ira_curr_loop_tree_node->border_allocnos;
   EXECUTE_IF_SET_IN_REG_SET (DF_UPWARD_LIVE_OUT (build_df, e->src),
 			     FIRST_PSEUDO_REGISTER, i, bi)
     if (bitmap_bit_p (live_in_regs, i))
       {
 	if (map [i] == NULL)
-	  create_pseudo (i, FALSE, ira_curr_loop_tree_node);
-	bitmap_set_bit (border_pseudos, PSEUDO_NUM (map [i]));
+	  create_allocno (i, FALSE, ira_curr_loop_tree_node);
+	bitmap_set_bit (border_allocnos, ALLOCNO_NUM (map [i]));
       }
 }
 
-/* The function creates pseudos corresponding to pseudo-registers
+/* The function creates allocnos corresponding to pseudo-registers
    living in loop represented by the corresponding loop tree node
    LOOP_NODE.  */
 static void
-create_loop_tree_node_pseudos (struct ira_loop_tree_node *loop_node)
+create_loop_tree_node_allocnos (struct ira_loop_tree_node *loop_node)
 {
   if (loop_node->bb != NULL)
-    create_bb_pseudos (loop_node);
+    create_bb_allocnos (loop_node);
   else if (loop_node != ira_loop_tree_root)
     {
       int i;
@@ -754,87 +754,87 @@ create_loop_tree_node_pseudos (struct ira_loop_tree_node *loop_node)
 
       FOR_EACH_EDGE (e, ei, loop_node->loop->header->preds)
 	if (e->src != loop_node->loop->latch)
-	  create_loop_pseudos (e);
+	  create_loop_allocnos (e);
       
       edges = get_loop_exit_edges (loop_node->loop);
       for (i = 0; VEC_iterate (edge, edges, i, e); i++)
-	create_loop_pseudos (e);
+	create_loop_allocnos (e);
       VEC_free (edge, heap, edges);
     }
 }
 
-/* The function creates pseudos corresponding to pseudo-registers in
+/* The function creates allocnos corresponding to pseudo-registers in
    the current function.  The function traverses the loop tree for
    this.  */
 static void
-create_pseudos (void)
+create_allocnos (void)
 {
   int i;
-  pseudo_t p, father_p;
+  allocno_t a, father_a;
   struct ira_loop_tree_node *father;
 
-  traverse_loop_tree (ira_loop_tree_root, create_loop_tree_node_pseudos, NULL);
+  traverse_loop_tree (ira_loop_tree_root, create_loop_tree_node_allocnos, NULL);
   if (flag_ira_algorithm != IRA_ALGORITHM_REGIONAL
       && flag_ira_algorithm != IRA_ALGORITHM_MIXED)
     return;
   /* Propagate frequencies for regional register allocator.  */
   for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
-    for (p = regno_pseudo_map [i]; p != NULL; p = PSEUDO_NEXT_REGNO_PSEUDO (p))
-      if ((father = PSEUDO_LOOP_TREE_NODE (p)->father) != NULL
-	  && (father_p = father->regno_pseudo_map [i]) != NULL)
-	PSEUDO_FREQ (father_p) += PSEUDO_FREQ (p);
+    for (a = regno_allocno_map [i]; a != NULL; a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
+      if ((father = ALLOCNO_LOOP_TREE_NODE (a)->father) != NULL
+	  && (father_a = father->regno_allocno_map [i]) != NULL)
+	ALLOCNO_FREQ (father_a) += ALLOCNO_FREQ (a);
 }
 
 
 
-/* Bitmap of pseudos living only inside the current loop.  */
-static bitmap local_pseudos_bitmap;
+/* Bitmap of allocnos living only inside the current loop.  */
+static bitmap local_allocnos_bitmap;
 
-/* The function creates caps representing pseudos living only inside
+/* The function creates caps representing allocnos living only inside
    the loop given by LOOP_NODE on higher loop level.  */
 static void
 create_loop_tree_node_caps (struct ira_loop_tree_node *loop_node)
 {
   unsigned int i;
   bitmap_iterator bi;
-  pseudo_t p, cap, another_p, father_p;
-  struct pseudo_copy *cp, *next_cp;
+  allocno_t a, cap, another_a, father_a;
+  copy_t cp, next_cp;
   struct ira_loop_tree_node *father;
 
   if (loop_node->bb != NULL || loop_node == ira_loop_tree_root)
     return;
-  bitmap_and_compl (local_pseudos_bitmap, loop_node->mentioned_pseudos,
-		    loop_node->border_pseudos);
+  bitmap_and_compl (local_allocnos_bitmap, loop_node->mentioned_allocnos,
+		    loop_node->border_allocnos);
   father = loop_node->father;
-  EXECUTE_IF_SET_IN_BITMAP (local_pseudos_bitmap, 0, i, bi)
-    if (father->regno_pseudo_map [PSEUDO_REGNO (pseudos [i])] == NULL)
-      create_cap_pseudo (pseudos [i]);
-  EXECUTE_IF_SET_IN_BITMAP (local_pseudos_bitmap, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (local_allocnos_bitmap, 0, i, bi)
+    if (father->regno_allocno_map [ALLOCNO_REGNO (allocnos [i])] == NULL)
+      create_cap_allocno (allocnos [i]);
+  EXECUTE_IF_SET_IN_BITMAP (local_allocnos_bitmap, 0, i, bi)
     {
-      p = pseudos [i];
-      cap = PSEUDO_CAP (p);
+      a = allocnos [i];
+      cap = ALLOCNO_CAP (a);
       if (cap == NULL)
 	continue;
-      for (cp = PSEUDO_COPIES (p); cp != NULL; cp = next_cp)
+      for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
 	{
-	  if (cp->first == p)
+	  if (cp->first == a)
 	    {
-	      next_cp = cp->next_first_pseudo_copy;
-	      another_p = cp->second;
+	      next_cp = cp->next_first_allocno_copy;
+	      another_a = cp->second;
 	    }
-	  else if (cp->second == p)
+	  else if (cp->second == a)
 	    {
-	      next_cp = cp->next_second_pseudo_copy;
-	      another_p = cp->first;
+	      next_cp = cp->next_second_allocno_copy;
+	      another_a = cp->first;
 	    }
 	  else
 	    gcc_unreachable ();
-	  father_p = father->regno_pseudo_map [PSEUDO_REGNO (another_p)];
-	  if (father_p != NULL)
-	    /* Upper level pseudo might be not existing because it is
+	  father_a = father->regno_allocno_map [ALLOCNO_REGNO (another_a)];
+	  if (father_a != NULL)
+	    /* Upper level allocno might be not existing because it is
 	       not mentioned or lived on the border.  It is just
 	       living on bb start of the loop.  */
-	    add_pseudo_copy (cap, father_p, cp->freq, cp->move_insn);
+	    add_allocno_copy (cap, father_a, cp->freq, cp->move_insn);
 	}
     }
 }
@@ -842,9 +842,9 @@ create_loop_tree_node_caps (struct ira_loop_tree_node *loop_node)
 
 
 /* This entry function creates internal representation for IRA
-   (pseudos, copies, loop tree nodes).  If LOOPS_P is zero the nodes
+   (allocnos, copies, loop tree nodes).  If LOOPS_P is zero the nodes
    corresponding to the loops (except the root which corresponds the
-   all function) and correspondingly pseudos for the loops will be not
+   all function) and correspondingly allocnos for the loops will be not
    created (it will be done only for basic blocks).  Such value is
    used for Chaitin-Briggs and Chow's priority coloring.  The function
    returns nonzero if we generates loop structure (besides node
@@ -862,7 +862,7 @@ ira_build (int loops_p)
 
   CLEAR_HARD_REG_SET (cfun->emit->call_used_regs);
 
-  initiate_pseudos ();
+  initiate_allocnos ();
   initiate_copies ();
   ira_assert (current_loops == NULL);
   flow_loops_find (&ira_loops);
@@ -870,19 +870,19 @@ ira_build (int loops_p)
   create_loop_tree_nodes (loops_p);
   form_loop_tree ();
   free_dominance_info (CDI_DOMINATORS);
-  create_pseudos ();
+  create_allocnos ();
   ira_costs ();
   ira_build_conflicts ();
-  tune_pseudo_costs_and_cover_classes ();
+  tune_allocno_costs_and_cover_classes ();
   if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
       || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
     {
-      local_pseudos_bitmap = ira_allocate_bitmap ();
+      local_allocnos_bitmap = ira_allocate_bitmap ();
       traverse_loop_tree (ira_loop_tree_root, NULL,
 			  create_loop_tree_node_caps);
-      ira_free_bitmap (local_pseudos_bitmap);
+      ira_free_bitmap (local_allocnos_bitmap);
       for (i = 0; VEC_iterate (loop_p, ira_loops.larray, i, loop); i++)
-	if (ira_loop_nodes [i].regno_pseudo_map != NULL
+	if (ira_loop_nodes [i].regno_allocno_map != NULL
 	    && ira_loop_tree_root != &ira_loop_nodes [i])
 	  return TRUE;
     }
@@ -902,6 +902,6 @@ ira_destroy (void)
     bb->loop_father = NULL;
   current_loops = NULL;
   finish_copies ();
-  finish_pseudos ();
+  finish_allocnos ();
   df_finish (build_df);
 }
