@@ -1025,8 +1025,11 @@ mx_register_decls (tree decl, tree *stmt_list)
 
           /* Accumulate the two calls.  */
           /* ??? Set EXPR_LOCATION.  */
+#if 0
+	  /* FIXME tuples */
           gimplify_stmt (&register_fncall);
           gimplify_stmt (&unregister_fncall);
+#endif
 
           /* Add the __mf_register call at the current appending point.  */
           if (tsi_end_p (initially_stmts))

@@ -1,5 +1,15 @@
 2007-05-04  Aldy Hernandez  <aldyh@redhat.com>
 
+	* omp-low.c (build_omp_barrier): Adjust arguments for sequences.
+	(lower_rec_input_clauses): Disable non working code.
+	(lower_regimplify): Pass additional argument to gimplify_expr.
+	* tree-mudflap.c (mx_register_decls): Disable non working code.
+	* tree-inline.c (copy_bb): Disable non working code.
+	(setup_one_parameter): Same.
+	* tree-cfg.c (make_edges): Same.
+
+2007-05-04  Aldy Hernandez  <aldyh@redhat.com>
+
 	* tree-gimple.h (get_initialized_tmp_var): Adjust prototype
 	for sequences.
 	(get_formal_tmp_var): Same.

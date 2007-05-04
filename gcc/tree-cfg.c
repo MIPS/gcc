@@ -501,6 +501,8 @@ make_edges (void)
 	      fallthru = true;
 	      break;
 
+#if 0
+	      /* FIXME tuples */
 	    case OMP_PARALLEL:
 	    case OMP_FOR:
 	    case OMP_SINGLE:
@@ -516,6 +518,7 @@ make_edges (void)
 	      cur_region = new_omp_region (bb, code, cur_region);
 	      fallthru = false;
 	      break;
+#endif
 
 	    case OMP_RETURN:
 	      /* In the case of an OMP_SECTION, the edge will go somewhere
@@ -569,8 +572,11 @@ make_edges (void)
 	make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
     }
 
+#if 0
+  /* FIXME tuples */
   if (root_omp_region)
     free_omp_regions ();
+#endif
 
   /* Fold COND_EXPR_COND of each COND_EXPR.  */
   fold_cond_expr_cond ();

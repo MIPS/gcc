@@ -1426,7 +1426,7 @@ scan_omp (tree *stmt_p, omp_context *ctx)
 /* Build a call to GOMP_barrier.  */
 
 static void
-build_omp_barrier (tree *stmt_list)
+build_omp_barrier (gs_seq stmt_list)
 {
   tree t = build_call_expr (built_in_decls[BUILT_IN_GOMP_BARRIER], 0);
   gimplify_and_add (t, stmt_list);
@@ -1763,7 +1763,10 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	      if (x)
 		{
 		  dtor = x;
+#if 0
+		  /* FIXME tuples */
 		  gimplify_stmt (&dtor);
+#endif
 		  tsi_link_before (&diter, dtor, TSI_SAME_STMT);
 		}
 	      break;
@@ -4177,11 +4180,12 @@ lower_regimplify (tree *tp, struct walk_stmt_info *wi)
   tree pre = NULL;
 
   if (wi->is_lhs)
-    gs = gimplify_expr (tp, &pre, NULL, is_gimple_lvalue, fb_lvalue);
+    gs = gimplify_expr (tp, NULL, &pre, NULL, is_gimple_lvalue, fb_lvalue);
   else if (wi->val_only)
-    gs = gimplify_expr (tp, &pre, NULL, is_gimple_val, fb_rvalue);
+    gs = gimplify_expr (tp, NULL, &pre, NULL, is_gimple_val, fb_rvalue);
   else
-    gs = gimplify_expr (tp, &pre, NULL, is_gimple_formal_tmp_var, fb_rvalue);
+    gs = gimplify_expr (tp, NULL, &pre, NULL,
+			is_gimple_formal_tmp_var, fb_rvalue);
   gcc_assert (gs == GS_ALL_DONE);
 
   if (pre)
