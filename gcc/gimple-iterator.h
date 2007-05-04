@@ -88,6 +88,8 @@ gsi_prev (gimple_stmt_iterator *i)
 }
 
 /* Return a pointer to the current stmt.  */
+/* FIXME tuples: Probably uneeded.  Let's leave this in for now, until we're
+   sure we don't need it.  */
 
 static inline gimple *
 gsi_stmt_ptr (gimple_stmt_iterator i)

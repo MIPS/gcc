@@ -30,7 +30,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "gimple-ir.h"
 
 #define DEFGSCODE(SYM, NAME)	NAME,
-static const char *gs_code_name[] = {
+const char *const gs_code_name[] = {
 #include "gs.def"
 };
 #undef DEFGSCODE
@@ -49,7 +49,79 @@ gs_build_return (bool result_decl_p, tree retval)
   GS_RETURN_OPERAND_RETVAL (p) = retval;
   return p;
 }
+
+/* Construct a GS_ASSIGN statement.  */
+
+gimple
+gs_build_assign (tree lhs, tree rhs)
+{
+  gimple p;
+  enum gimple_statement_structure_enum gss;
+
+  gss = gss_for_assign (TREE_CODE (rhs));
+  switch (gss)
+    {
+    case GSS_ASSIGN_BINARY:
+      p = ggc_alloc_cleared (sizeof (struct gimple_statement_assign_binary));
+      GS_CODE (p) = GS_ASSIGN;
+      GS_SUBCODE_FLAGS (p) = TREE_CODE (rhs);
+      GS_ASSIGN_BINARY_LHS (p) = lhs;
+      GS_ASSIGN_BINARY_RHS1 (p) = TREE_OPERAND (rhs, 0);
+      GS_ASSIGN_BINARY_RHS2 (p) = TREE_OPERAND (rhs, 1);
+      break;
+    case GSS_ASSIGN_UNARY_REG:
+      p = ggc_alloc_cleared (sizeof (struct gimple_statement_assign_unary_reg));
+      GS_CODE (p) = GS_ASSIGN;
+      GS_ASSIGN_UNARY_REG_LHS (p) = lhs;
+      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (rhs))))
+	GS_ASSIGN_UNARY_REG_RHS (p) = TREE_OPERAND (rhs, 0);
+      else
+	GS_ASSIGN_UNARY_REG_RHS (p) = rhs;
+      GS_SUBCODE_FLAGS (p) = TREE_CODE (rhs);
+      break;
+    case GSS_ASSIGN_UNARY_MEM:
+      p = ggc_alloc_cleared (sizeof (struct gimple_statement_assign_unary_mem));
+      GS_CODE (p) = GS_ASSIGN;
+      GS_ASSIGN_UNARY_MEM_LHS (p) = lhs;
+      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (rhs))))
+	GS_ASSIGN_UNARY_MEM_RHS (p) = TREE_OPERAND (rhs, 0);
+      else
+	GS_ASSIGN_UNARY_MEM_RHS (p) = rhs;
+
+      GS_SUBCODE_FLAGS (p) = TREE_CODE (rhs);
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  GS_CODE (p) = GS_ASSIGN;
+  return p;
+}
 
+/* Given a CODE for the RHS of a GS_ASSIGN, return the GSS enum for it.  */
+
+enum gimple_statement_structure_enum
+gss_for_assign (enum tree_code code)
+{
+  enum tree_code_class class = TREE_CODE_CLASS (code);
+
+  if (class == tcc_binary || class == tcc_comparison)
+    return GSS_ASSIGN_BINARY;
+
+  /* There can be 3 types of unary operations:
+
+     SYM = <constant>		<== GSS_ASSIGN_UNARY_REG
+     SYM = SSA_NAME		<== GSS_ASSIGN_UNARY_REG
+     SYM = SYM2			<== GSS_ASSIGN_UNARY_MEM
+     SYM = UNARY_OP SYM2	<== GSS_ASSIGN_UNARY_MEM
+  */
+
+  if (class == tcc_constant || code == SSA_NAME)
+    return GSS_ASSIGN_UNARY_REG;
+
+  /* Must be class == tcc_unary.  */
+  return GSS_ASSIGN_UNARY_MEM;
+}
+
 /* Return which gimple structure is used by T.  The enums here are defined
    in gsstruct.def.  */
 
@@ -61,29 +133,7 @@ gimple_statement_structure (gimple gs)
 
   switch (code)
     {
-    case GS_ASSIGN:
-      {
-	enum tree_code_class class = TREE_CODE_CLASS (subcode);
-
-	if (class == tcc_binary
-	    || class == tcc_comparison)
-	  return GSS_ASSIGN_BINARY;
-	else 
-	  {
-	    /* There can be 3 types of unary operations:
-
-		 SYM = <constant>	<== GSS_ASSIGN_UNARY_REG
-		 SYM = SSA_NAME		<== GSS_ASSIGN_UNARY_REG
-	         SYM = SYM2		<== GSS_ASSIGN_UNARY_MEM
-		 SYM = UNARY_OP SYM2	<== GSS_ASSIGN_UNARY_MEM
-	    */
-	    if (class == tcc_constant || subcode == SSA_NAME)
-	      return GSS_ASSIGN_UNARY_REG;
-
-	    /* Must be class == tcc_unary.  */
-	    return GSS_ASSIGN_UNARY_MEM;
-	  }
-      }
+    case GS_ASSIGN:		return gss_for_assign (subcode);
     case GS_ASM:		return GSS_ASM;
     case GS_BIND:		return GSS_BIND;
     case GS_CALL:		return GSS_CALL;
@@ -109,10 +159,10 @@ gimple_statement_structure (gimple gs)
     case GS_OMP_PARALLEL:	return GSS_OMP_PARALLEL;
     case GS_OMP_SECTIONS:	return GSS_OMP_SECTIONS;
     case GS_OMP_SINGLE:		return GSS_OMP_SINGLE;
-    default: ;
+    default:
+      gcc_unreachable ();
+      return GSS_BASE;
     }
-  gcc_unreachable ();
-  return GSS_BASE;
 }
 
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
@@ -137,18 +187,23 @@ gs_check_failed (const gimple gs, const char *file, int line,
 void
 gs_add (gimple gs, gs_seq seq)
 {
+  gimple last;
+
   /* Make sure this stmt is not part of another chain.  */
   gcc_assert (GS_PREV (gs) == NULL);
+
+  for (last = gs; GS_NEXT (last) != NULL; last = GS_NEXT (last))
+    ;
 
   if (GS_SEQ_FIRST (seq) == NULL)
     {
       GS_SEQ_FIRST (seq) = gs;
-      GS_SEQ_LAST (seq) = gs;
+      GS_SEQ_LAST (seq) = last;
     }
   else
     {
       GS_PREV (gs) = GS_SEQ_LAST (seq);
       GS_NEXT (GS_SEQ_LAST (seq)) = gs;
-      GS_SEQ_LAST (seq) = gs;
+      GS_SEQ_LAST (seq) = last;
     }
 }

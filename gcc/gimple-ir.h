@@ -35,22 +35,23 @@ enum gs_code {
 #define GS_NEXT(G) ((G)->base.next)
 #define GS_PREV(G) ((G)->base.prev)
 #define GS_LOCUS(G) ((G)->base.locus)
+#define GS_LOCUS_EMPTY_P(G)	(GS_LOCUS ((G)).file == NULL \
+				 && GS_LOCUS ((G)).line == 0)
 
 /* A sequences of gimple statements.  */
 #define GS_SEQ_FIRST(S)	(S)->first
 #define GS_SEQ_LAST(S)		(S)->last
-#define GS_SEQ_INIT {0, 0}
+#define GS_SEQ_INIT (struct gs_sequence) {0, 0}
 #define GS_SEQ_EMPTY_P(S) (!GS_SEQ_FIRST ((S)))
 struct gs_sequence
 {
   gimple first;
   gimple last;
 };
-typedef struct gs_sequence *gs_seq;
 
 struct gimple_statement_base GTY(())
 {
-  unsigned int code : 16;
+  ENUM_BITFIELD(gs_code) code : 16;
   unsigned int subcode_flags : 16;
   gimple next;
   gimple prev;
@@ -63,7 +64,6 @@ struct gimple_statement_with_ops GTY(())
 {
   struct gimple_statement_base base;
   unsigned modified : 1;
-  bitmap address_taken;
   struct def_optype_d GTY((skip)) *def_ops;
   struct use_optype_d GTY((skip)) *use_ops;
 };
@@ -319,9 +319,15 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
   struct gimple_statement_omp_single GTY ((tag ("GSS_OMP_SINGLE"))) gs_omp_single;
 };
 
+/* Prototypes.  */
+
 extern gimple gs_build_return (bool, tree);
+extern gimple gs_build_assign (tree, tree);
 extern enum gimple_statement_structure_enum gimple_statement_structure (gimple);
 extern void gs_add (gimple, gs_seq);
+extern enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
+
+extern const char *const gs_code_name[];
 
 /* Error out if a gimple tuple is addressed incorrectly.  */
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
@@ -382,6 +388,23 @@ gs_assign_operand_rhs (gimple gs)
   return gs_assign_operand (gs, 1);
 }
 
+#define GS_ASSIGN_BINARY_LHS(G)		\
+  GS_CHECK ((G), GS_ASSIGN)->gs_assign_binary.op[0]
+#define GS_ASSIGN_BINARY_RHS1(G)	\
+  GS_CHECK ((G), GS_ASSIGN)->gs_assign_binary.op[1]
+#define GS_ASSIGN_BINARY_RHS2(G)	\
+  GS_CHECK ((G), GS_ASSIGN)->gs_assign_binary.op[2]
+
+#define GS_ASSIGN_UNARY_REG_LHS(G)	\
+    GS_CHECK ((G), GS_ASSIGN)->gs_assign_unary_reg.op[0]
+#define GS_ASSIGN_UNARY_REG_RHS(G)	\
+    GS_CHECK ((G), GS_ASSIGN)->gs_assign_unary_reg.op[1]
+
+#define GS_ASSIGN_UNARY_MEM_LHS(G)	\
+    GS_CHECK ((G), GS_ASSIGN)->gs_assign_unary_mem.op[0]
+#define GS_ASSIGN_UNARY_MEM_RHS(G)	\
+    GS_CHECK ((G), GS_ASSIGN)->gs_assign_unary_mem.op[1]
+
 /* GS_RETURN accessors.  */
 static inline tree *
 gs_return_operand_retval (gimple gs)
@@ -390,6 +413,15 @@ gs_return_operand_retval (gimple gs)
 }
 
 #define GS_RETURN_OPERAND_RETVAL(G) (*gs_return_operand_retval ((G)))
+
+/* Append sequence SRC to the end of sequence DST.  */
+
+static inline void
+gs_seq_append (gs_seq src, gs_seq dst)
+{
+  if (!GS_SEQ_EMPTY_P (src))
+    gs_add (GS_SEQ_FIRST (src), dst);
+}
 
 #include "gimple-iterator.h"
 

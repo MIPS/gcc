@@ -1,5 +1,28 @@
 2007-05-04  Aldy Hernandez  <aldyh@redhat.com>
 
+	* gimple-ir.c (gs_code_name): Constify.
+	(gs_build_assign): New.
+	(gimple_statement_structure): Abstract code out to...
+	(gss_for_assign): ...here.
+	(gs_add): Set the last item correctly.
+	* gimple-ir.h (GS_LOCUS_EMPTY_P): New.
+	(GS_SEQ_INIT): Add a cast.
+	(gimple_statement_base): Make code a gs_code enum.
+	(gimple_statement_with_ops): Remove address_taken.
+	(GS_ASSIGN_BINARY_LHS): New.
+	(GS_ASSIGN_BINARY_RHS1): New.
+	(GS_ASSIGN_BINARY_RHS2): New.
+	(GS_ASSIGN_UNARY_REG_LHS): New.
+	(GS_ASSIGN_UNARY_REG_RHS): New.
+	(GS_ASSIGN_UNARY_MEM_LHS): New.
+	(GS_ASSIGN_UNARY_MEM_RHS): New.
+	(gs_seq_append): New.
+	Move gs_seq typedef to...
+	* coretypes.h: ...here.
+	* gimple-iterator.h (gsi_stmt_ptr): Add FIXME note.
+
+2007-05-04  Aldy Hernandez  <aldyh@redhat.com>
+
 	* tree.h (std_gimplify_va_arg_expr): Change tree * to a sequence
 	in prototype.
 	(gimplify_parameters): Return a sequence.
