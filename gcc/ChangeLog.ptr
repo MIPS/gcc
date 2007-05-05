@@ -1,5 +1,14 @@
 2007-05-04  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
+	* fold-const.c (fold_binary <case POINTER_PLUS_EXPR>);
+	Add comment on why you get INT +p INT.
+	(fold_binary <case PLUS_EXPR>): Add folding of PTR+INT into
+	PTR p+ INT.
+	* dwarf2out.c (loc_descriptor_from_tree_1):
+	Handle POINT_PLUS_EXPR as a PLUS_EXPR.
+
+2007-05-04  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
 	* tree-vrp.c  (compare_values_warnv): Convert val2 to
 	the type of val1.
 	* fold-const.c (extract_array_ref): Look for
