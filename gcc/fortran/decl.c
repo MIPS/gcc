@@ -1389,7 +1389,7 @@ variable_decl (int elem)
     }
 
   /*  If this symbol has already shown up in a Cray Pointer declaration,
-      then we want to set the type & bail out. */
+      then we want to set the type & bail out.  */
   if (gfc_option.flag_cray_pointer)
     {
       gfc_find_symbol (name, gfc_current_ns, 1, &sym);
@@ -3690,7 +3690,7 @@ gfc_match_suffix (gfc_symbol *sym, gfc_symbol **result)
 	{
 	  /* Now see if there is a bind(c) after it.  */
 	  is_bind_c = gfc_match_bind_c (sym);
-	  /* We've found the result clause and possibly bind(c). */
+	  /* We've found the result clause and possibly bind(c).  */
 	  found_match = MATCH_YES;
 	}
       else
@@ -4251,7 +4251,7 @@ gfc_match_bind_c (gfc_symbol *sym)
 	  if (gfc_match_char ('\'') != MATCH_YES)
             {
               gfc_error ("Missing closing quote '\'' for binding label at %C");
-              /* User started string with "'" char. */
+              /* User started string with "'" char.  */
               return MATCH_ERROR;
             }
 	}
@@ -5761,7 +5761,7 @@ cleanup:
 }
 
 
-/* Match the enumerator definition statement. */
+/* Match the enumerator definition statement.  */
 
 match
 gfc_match_enumerator_def (void)

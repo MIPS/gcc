@@ -3680,7 +3680,7 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
             /* TODO!  This needs to be finished more for the expr of the
                function or something!
                This may not need to be here, because trying to do c_loc
-               as an external. */
+               as an external.  */
 	    if (s == ISOCBINDING_ASSOCIATED)
 	      {
 		tmp_sym->attr.function = 1;
@@ -3786,7 +3786,7 @@ get_iso_c_sym (gfc_symbol *old_sym, char *new_name,
   new_symtree->n.sym->attr = old_sym->attr;
   new_symtree->n.sym->ts = old_sym->ts;
   new_symtree->n.sym->module = gfc_get_string (old_sym->module);
-  /* Build the formal arg list. */
+  /* Build the formal arg list.  */
   build_formal_args (new_symtree->n.sym, old_sym, add_optional_arg);
 
   gfc_commit_symbol (new_symtree->n.sym);

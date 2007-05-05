@@ -1048,7 +1048,7 @@ finish_equivalences (gfc_namespace *ns)
 	   gfc_common_header to push create_common into using
 	   build_common_decl, so that the equivalence appears as an
 	   external symbol.  Otherwise, a local declaration is built using
-	   build_equiv_decl. */
+	   build_equiv_decl.  */
 	if (z->module)
 	  {
 	    c = gfc_get_common_head ();

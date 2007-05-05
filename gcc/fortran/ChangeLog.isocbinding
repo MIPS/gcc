@@ -3,6 +3,20 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-05-05  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* trans-array.c:  Whitespace.  Two spaces at end of comments.
+	* symbol.c: Ditto.
+	* decl.c: Ditto.
+	* trans-common.c: Ditto.
+	* trans-stmt.c: Ditto.
+	* io.c: Ditto.
+	* resolve.c: Ditto.
+	* match.c: Ditto.
+	* trans-decl.c: Ditto.
+	* trans-io.c: Ditto.
+	* trans-intrinsic.c: Ditto.
+
 2007-05-02  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	* interface.c: Whitespace.  Fix comment punctuation and grammar. 

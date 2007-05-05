@@ -2928,7 +2928,7 @@ gfc_match_equivalence (void)
       /* If one of the members of an equivalence is in common, then
 	 mark them all as being in common.  Before doing this, check
 	 that members of the equivalence group are not in different
-	 common blocks. */
+	 common blocks.  */
       if (common_flag)
 	for (set = eq; set; set = set->eq)
 	  {
