@@ -416,15 +416,16 @@ redirect_edge_pred (edge e, basic_block new_pred)
   connect_src (e);
 }
 
-/* Clear all basic block flags, with the exception of partitioning.  */
+/* Clear all basic block flags, with the exception of partitioning and
+   setjmp_target.  */
 void
 clear_bb_flags (void)
 {
   basic_block bb;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-    bb->flags = (BB_PARTITION (bb)  | (bb->flags & BB_DISABLE_SCHEDULE)
-		 | (bb->flags & BB_RTL));
+    bb->flags = (BB_PARTITION (bb)  
+		 | (bb->flags & (BB_DISABLE_SCHEDULE + BB_RTL + BB_NON_LOCAL_GOTO_TARGET)));
 }
 
 /* Check the consistency of profile information.  We can't do that
