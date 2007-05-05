@@ -1,5 +1,10 @@
 2007-05-04  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
+	* gcc.dg/tree-ssa/20030815-1.c: Remove testcase which is no longer
+	needed as the cast is gone in the first place.
+
+2007-05-04  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
 	* gcc.dg/max-1.c: Change local variable a to be a global one.
 
 2006-11-23  Andrew Pinski  <andrew_pinski@playstation.sony.com>
