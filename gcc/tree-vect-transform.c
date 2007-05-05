@@ -4849,7 +4849,7 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
   
       /* Create:  byte_misalign = addr & (vectype_size - 1)  */
       byte_misalign = 
-        fold_build2 (BIT_AND_EXPR, type, start_addr, vectype_size_minus_1);
+        fold_build2 (BIT_AND_EXPR, type, fold_convert (type, start_addr), vectype_size_minus_1);
   
       /* Create:  elem_misalign = byte_misalign / element_size  */
       elem_misalign =

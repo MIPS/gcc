@@ -1,5 +1,13 @@
 2007-05-04  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
+	* tree-vrp.c (extract_range_from_binary_expr): Handle
+	POINTER_PLUS_EXPRs.  Assert POINTER_PLUS_EXPR is
+	the only expression for pointer types.
+	* tree-vect-transform.c (vect_gen_niters_for_prolog_loop):
+	Add a cast when creating byte_misalign.
+
+2007-05-04  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
 	* fold-const.c (fold_binary <case POINTER_PLUS_EXPR>);
 	Add comment on why you get INT +p INT.
 	(fold_binary <case PLUS_EXPR>): Add folding of PTR+INT into

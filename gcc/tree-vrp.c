@@ -1681,6 +1681,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
      meaningful way.  Handle only arithmetic operations.  */
   if (code != PLUS_EXPR
       && code != MINUS_EXPR
+      && code != POINTER_PLUS_EXPR
       && code != MULT_EXPR
       && code != TRUNC_DIV_EXPR
       && code != FLOOR_DIV_EXPR
@@ -1751,26 +1752,15 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       || POINTER_TYPE_P (TREE_TYPE (op0))
       || POINTER_TYPE_P (TREE_TYPE (op1)))
     {
+      gcc_assert (code == POINTER_PLUS_EXPR);
       /* For pointer types, we are really only interested in asserting
-	 whether the expression evaluates to non-NULL.  FIXME, we used
-	 to gcc_assert (code == PLUS_EXPR || code == MINUS_EXPR), but
-	 ivopts is generating expressions with pointer multiplication
-	 in them.  */
-      if (code == PLUS_EXPR)
-	{
-	  if (range_is_nonnull (&vr0) || range_is_nonnull (&vr1))
-	    set_value_range_to_nonnull (vr, TREE_TYPE (expr));
-	  else if (range_is_null (&vr0) && range_is_null (&vr1))
-	    set_value_range_to_null (vr, TREE_TYPE (expr));
-	  else
-	    set_value_range_to_varying (vr);
-	}
+	 whether the expression evaluates to non-NULL.  */
+      if (range_is_nonnull (&vr0) || range_is_nonnull (&vr1))
+	set_value_range_to_nonnull (vr, TREE_TYPE (expr));
+      else if (range_is_null (&vr0) && range_is_null (&vr1))
+	set_value_range_to_null (vr, TREE_TYPE (expr));
       else
-	{
-	  /* Subtracting from a pointer, may yield 0, so just drop the
-	     resulting range to varying.  */
-	  set_value_range_to_varying (vr);
-	}
+	set_value_range_to_varying (vr);
 
       return;
     }
