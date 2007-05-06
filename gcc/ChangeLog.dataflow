@@ -1,3 +1,12 @@
+2007-05-05  Ramana Radhakrishnan <ramana.r@gmail.com>
+	    Serge Belyshev  <belyshev@depni.sinp.msu.ru>
+	    Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* combine.c (recog_for_combine): Keep unused notes from being 
+	generated for scratch registers.
+	* config/alpha/alpha.c: Add include for df.h.
+	
+
 2007-05-01  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	Do not delete regnotes when recreating them.

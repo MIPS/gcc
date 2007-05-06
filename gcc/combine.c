@@ -9746,8 +9746,12 @@ recog_for_combine (rtx *pnewpat, rtx insn, rtx *pnotes)
 	  if (REG_P (XEXP (XVECEXP (newpat, 0, i), 0))
 	      && ! reg_dead_at_p (XEXP (XVECEXP (newpat, 0, i), 0), insn))
 	    return -1;
-	  notes = gen_rtx_EXPR_LIST (REG_UNUSED,
-				     XEXP (XVECEXP (newpat, 0, i), 0), notes);
+	  if (GET_CODE (XEXP (XVECEXP (newpat, 0, i), 0)) != SCRATCH) 
+	    {
+	      gcc_assert (REG_P (XEXP (XVECEXP (newpat, 0, i), 0)));
+	      notes = gen_rtx_EXPR_LIST (REG_UNUSED,
+					 XEXP (XVECEXP (newpat, 0, i), 0), notes);
+	    }
 	}
       pat = newpat;
     }

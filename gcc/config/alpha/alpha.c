@@ -56,7 +56,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-flow.h"
 #include "tree-stdarg.h"
 #include "tm-constrs.h"
-
+#include "df.h"
 
 /* Specify which cpu to schedule for.  */
 enum processor_type alpha_tune;
