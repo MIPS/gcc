@@ -1,5 +1,10 @@
 2007-05-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
+	* tree-cfg.c (verify_expr): Change error
+	message about sizetype to be correct.
+
+2007-05-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
 	Merge mainline, revision 124478.
 	* fold-const.c (fold_unary): Handle for (T1)(X op Y),
 	only p+ as that is the only as that can be handled for

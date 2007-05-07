@@ -3281,12 +3281,12 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	  return t;
 	}
       /* Check to make sure the second operand is an integer with type of
-	 ssizetype.  */
+	 sizetype.  */
       if (!tree_ssa_useless_type_conversion_1 (sizetype,
 					       TREE_TYPE (TREE_OPERAND (t, 1))))
 	{
 	  error ("invalid operand to pointer plus, second operand is not an "
-		 "integer with type of ssizetype.");
+		 "integer with type of sizetype.");
 	  return t;
 	}
       /* FALLTHROUGH */
