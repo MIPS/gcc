@@ -181,7 +181,7 @@ build_headof (tree exp)
   type = build_qualified_type (ptr_type_node,
 			       cp_type_quals (TREE_TYPE (exp)));
   return build2 (POINTER_PLUS_EXPR, type, exp,
-		 convert_to_integer (ptrdiff_type_node, offset));
+		 convert_to_integer (sizetype, offset));
 }
 
 /* Get a bad_cast node for the program to throw...

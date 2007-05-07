@@ -2610,8 +2610,8 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	    return error_mark_node;
 	}
       /* ...and then the delta in the PMF.  */
-      instance_ptr = build2 (PLUS_EXPR, TREE_TYPE (instance_ptr),
-			     instance_ptr, delta);
+      instance_ptr = build2 (POINTER_PLUS_EXPR, TREE_TYPE (instance_ptr),
+			     instance_ptr, fold_convert (sizetype, delta));
 
       /* Hand back the adjusted 'this' argument to our caller.  */
       *instance_ptrptr = instance_ptr;
@@ -2622,7 +2622,8 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
       vtbl = build_indirect_ref (vtbl, NULL);
 
       /* Finally, extract the function pointer from the vtable.  */
-      e2 = fold_build2 (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, idx);
+      e2 = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (vtbl), vtbl,
+			fold_convert (sizetype, idx));
       e2 = build_indirect_ref (e2, NULL);
       TREE_CONSTANT (e2) = 1;
       TREE_INVARIANT (e2) = 1;

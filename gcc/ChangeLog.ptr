@@ -1,5 +1,10 @@
 2007-05-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
+	* tree.c (build2_stat): Check to make sure the
+	second operand is compatiable with sizetype.
+
+2007-05-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
 	* tree-cfg.c (verify_expr): Change error
 	message about sizetype to be correct.
 

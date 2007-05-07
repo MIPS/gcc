@@ -1,5 +1,14 @@
 2007-05-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
+	* typeck.c (get_member_function_from_ptrfunc):
+	Change over to using POINTER_PLUS_EXPR and convert
+	the second operand to sizetype.
+	* typeck2.c (build_m_component_ref): Likewise.
+	* rtti.c (build_headof): Use sizetype instead of
+	ptrdiff_type_node.
+
+2007-05-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
 	* method.c (thunk_adjust): Use POINTER_PLUS_EXPR for
 	adding to a pointer type. Use size_int instead of
 	ssize_int. Convert the index to sizetype before
