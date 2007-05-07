@@ -1,3 +1,79 @@
+2007-05-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* function.c (gimplify_parameters): Use new GS_SEQ_INIT definition.
+	* gimple-ir.h (GS_SEQ_INIT): Do not use C99 constructs.
+	* gimplify.c: Disable non working code throughout.
+	Pass additional call to gimplify_expr throughout.
+	(gimplify_ctx): Make conditional_cleanups a sequence.
+	(gimple_push_condition): Use GS_SEQ_EMPTY_P.
+	(gimple_pop_condition): Adapt for sequences.
+	(gimplify_and_add): Use gs_seq_append regardless of side effects.
+	(internal_get_tmp_var): Use sequences.
+	(get_formal_tmp_var): Same.
+	(get_initialized_tmp_var): Same.
+	(annotate_one_with_locus): Change GS_LOCUS to GS_LOCUS_EMPTY_P.
+	(gimplify_bind_expr): Use sequences.
+	Change append_to_statement_list to gimplify_and_add.
+	(gimplify_return_expr): Add gimplified code to pre_p.
+	(gimplify_decl_expr): New seq_p parameter.
+	(gimplify_loop_expr): Adapt for sequences.
+	Use gimplify_and_add instead of append_to_statement_list.
+	(gimplify_switch_expr): Same.
+	(gimplify_compound_lval): Use sequences.
+	(gimplify_self_mod_expr): Same.
+	Use gs_seq_append instead of append_to_statement_list.
+	(gimplify_arg): Use sequences.
+	(gimplify_call_expr): Same.
+	(gimplify_cond_expr): Use sequences.
+	(gimplify_init_ctor_preeval): Use sequences.
+	(gimplify_init_ctor_eval_range): Same.
+	Use gimplify_and_add instead of append_to_statement_list.
+	(gimplify_init_ctor_eval): Use sequences.
+	(gimplify_init_constructor): Same.
+	Remove one call to append_to_statement_list.
+	(gimplify_modify_expr_rhs): Use sequences.
+	(gimplify_modify_expr_complex_part): Use sequences.
+	Remove call to tree_to_gimple_tuple.
+	Build GS_ASSIGN tuple.
+	(gimplify_modify_expr): Use new argument.  Use sequences.
+	Do not call append_to_statement_list.
+	Build GS_ASSIGN tuple.
+	Do not call tree_to_gimple_tuple.
+	Set *expr_p to NULL when we do not want the value.
+	(gimplify_compound_expr): Use sequences.
+	(gimplify_save_expr): Same.
+	(gimplify_addr_expr): Same.
+	(gimplify_asm_expr): Same.
+	(gimplify_cleanup_point_expr): Same.
+	(gimple_push_cleanup): Same.
+	Build GS_ASSIGN tuples.
+	(gimplify_target_expr): Use sequences.
+	(gimplify_scan_omp_clauses): Same.
+	Add argument to gimplify_stmt calls.
+	(gimplify_omp_parallel): Same.
+	(gimplify_omp_for): Use sequences.
+	(gimplify_omp_workshare): Same.
+	(goa_stabilize_expr): Same.
+	(gimplify_omp_atomic_pipeline): Same.
+	(gimplify_omp_atomic_mutex): Same.
+	(gimplify_omp_atomic): Same.
+	(gimplify_expr): Same.
+	Call GS_SEQ_INIT with argument.
+	Use new seq_p argument.
+	Do not call tree_to_gimple_tuple.
+	Pass additional argument to gimplify_decl_expr.
+	Do not pass seq_p argument to gimplify_return_expr.
+	Call gs_seq_append instead of append_to_statement_list.
+	Check that all statements have been converted to tuples.
+	Make pre_p and seq_p sequences coexist.
+	(gimplify_type_sizes): Use sequences.
+	(gimplify_one_sizepos): Same.
+	(gimplify_body): Make parm_stmts a sequence.
+	Add argument to seq_p.
+	(gimplify_function_tree): Call debug_gimple_seq.
+	(force_gimple_operand): Use sequences.
+	(force_gimple_operand_bsi): Use sequences.
+
 2007-05-04  Aldy Hernandez  <aldyh@redhat.com>
 
 	* omp-low.c (build_omp_barrier): Adjust arguments for sequences.

@@ -41,7 +41,7 @@ enum gs_code {
 /* A sequences of gimple statements.  */
 #define GS_SEQ_FIRST(S)	(S)->first
 #define GS_SEQ_LAST(S)		(S)->last
-#define GS_SEQ_INIT (struct gs_sequence) {0, 0}
+#define GS_SEQ_INIT(SEQ)	((SEQ).first = NULL, (SEQ).last = NULL)
 #define GS_SEQ_EMPTY_P(S) (!GS_SEQ_FIRST ((S)))
 struct gs_sequence
 {
