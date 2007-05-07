@@ -302,7 +302,18 @@ build_base_path (enum tree_code code,
 	 field, because other parts of the compiler know that such
 	 expressions are always non-NULL.  */
       if (!virtual_access && integer_zerop (offset))
-	return build_nop (build_pointer_type (target_type), expr);
+	{
+	  tree class_type;
+	  /* TARGET_TYPE has been extracted from BINFO, and, is
+	     therefore always cv-unqualified.  Extract the
+	     cv-qualifiers from EXPR so that the expression returned
+	     matches the input.  */
+	  class_type = TREE_TYPE (TREE_TYPE (expr));
+	  target_type
+	    = cp_build_qualified_type (target_type,
+				       cp_type_quals (class_type));
+	  return build_nop (build_pointer_type (target_type), expr);
+	}
       null_test = error_mark_node;
     }
 
@@ -7101,7 +7112,13 @@ dfs_accumulate_vtbl_inits (tree binfo,
 
       /* Figure out the position to which the VPTR should point.  */
       vtbl = TREE_PURPOSE (l);
-      vtbl = build1 (ADDR_EXPR, vtbl_ptr_type_node, vtbl);
+      vtbl = build_address (vtbl);
+      /* ??? We should call fold_convert to convert the address to
+	 vtbl_ptr_type_node, which is the type of elements in the
+	 vtable.  However, the resulting NOP_EXPRs confuse other parts
+	 of the C++ front end.  */
+      gcc_assert (TREE_CODE (vtbl) == ADDR_EXPR);
+      TREE_TYPE (vtbl) = vtbl_ptr_type_node;
       index = size_binop (PLUS_EXPR,
 			  size_int (non_fn_entries),
 			  size_int (list_length (TREE_VALUE (l))));

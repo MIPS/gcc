@@ -3815,6 +3815,7 @@ start_decl (const cp_declarator *declarator,
   tree decl;
   tree type, tem;
   tree context;
+  bool was_public;
 
   *pushed_scope_p = NULL_TREE;
 
@@ -3969,6 +3970,8 @@ start_decl (const cp_declarator *declarator,
 		 decl);
     }
 
+  was_public = TREE_PUBLIC (decl);
+
   /* Enter this declaration into the symbol table.  */
   tem = maybe_push_decl (decl);
 
@@ -3988,6 +3991,17 @@ start_decl (const cp_declarator *declarator,
       && !DECL_THREAD_LOCAL_P (tem)
       && !have_global_bss_p ())
     DECL_COMMON (tem) = 1;
+
+  if (TREE_CODE (tem) == VAR_DECL
+      && DECL_NAMESPACE_SCOPE_P (tem) && !TREE_PUBLIC (tem) && !was_public
+      && !DECL_THIS_STATIC (tem) && !DECL_ARTIFICIAL (tem))
+    {
+      /* This is a const variable with implicit 'static'.  Set
+	 DECL_THIS_STATIC so we can tell it from variables that are
+	 !TREE_PUBLIC because of the anonymous namespace.  */
+      gcc_assert (cp_type_readonly (TREE_TYPE (tem)));
+      DECL_THIS_STATIC (tem) = 1;
+    }
 
   if (!processing_template_decl && TREE_CODE (tem) == VAR_DECL)
     start_decl_1 (tem, initialized);
@@ -4641,19 +4655,24 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p)
     {
       if (TREE_CODE (init) == CONSTRUCTOR)
 	{
+	  if (TREE_TYPE (init) && TYPE_PTRMEMFUNC_P (TREE_TYPE (init)))
+	    /* There is no need to reshape pointer-to-member function
+	       initializers, as they are always constructed correctly
+	       by the front end.  */
+           ;
+	  else if (COMPOUND_LITERAL_P (init))
 	  /* For a nested compound literal, there is no need to reshape since
 	     brace elision is not allowed. Even if we decided to allow it,
 	     we should add a call to reshape_init in finish_compound_literal,
 	     before calling digest_init, so changing this code would still
 	     not be necessary.  */
-	  if (!COMPOUND_LITERAL_P (init))
+	    gcc_assert (!BRACE_ENCLOSED_INITIALIZER_P (init));
+	  else
 	    {
 	      ++d->cur;
 	      gcc_assert (BRACE_ENCLOSED_INITIALIZER_P (init));
 	      return reshape_init (type, init);
 	    }
-	  else
-	    gcc_assert (!BRACE_ENCLOSED_INITIALIZER_P (init));
 	}
 
       warning (OPT_Wmissing_braces, "missing braces around initializer for %qT",
@@ -5301,14 +5320,6 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	{
 	  layout_var_decl (decl);
 	  maybe_commonize_var (decl);
-	  if (DECL_NAMESPACE_SCOPE_P (decl) && !TREE_PUBLIC (decl)
-	      && !DECL_THIS_STATIC (decl) && !DECL_ARTIFICIAL (decl))
-	    {
-	      /* This is a const variable with implicit 'static'.  Set
-		 DECL_THIS_STATIC so we can tell it from variables that are
-		 !TREE_PUBLIC because of the anonymous namespace.  */
-	      DECL_THIS_STATIC (decl) = 1;
-	    }
 	}
 
       make_rtl_for_nonlocal_decl (decl, init, asmspec);

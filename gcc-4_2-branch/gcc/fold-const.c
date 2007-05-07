@@ -7081,7 +7081,7 @@ native_encode_real (tree expr, unsigned char *ptr, int len)
 {
   tree type = TREE_TYPE (expr);
   int total_bytes = GET_MODE_SIZE (TYPE_MODE (type));
-  int byte, offset, word, words;
+  int byte, offset, word, words, bitpos;
   unsigned char value;
 
   /* There are always 32 bits in each long, no matter the size of
@@ -7091,19 +7091,20 @@ native_encode_real (tree expr, unsigned char *ptr, int len)
 
   if (total_bytes > len)
     return 0;
-  words = total_bytes / UNITS_PER_WORD;
+  words = 32 / UNITS_PER_WORD;
 
   real_to_target (tmp, TREE_REAL_CST_PTR (expr), TYPE_MODE (type));
 
-  for (byte = 0; byte < total_bytes; byte++)
+  for (bitpos = 0; bitpos < total_bytes * BITS_PER_UNIT;
+       bitpos += BITS_PER_UNIT)
     {
-      int bitpos = byte * BITS_PER_UNIT;
+      byte = (bitpos / BITS_PER_UNIT) & 3;
       value = (unsigned char) (tmp[bitpos / 32] >> (bitpos & 31));
 
-      if (total_bytes > UNITS_PER_WORD)
+      if (UNITS_PER_WORD < 4)
 	{
 	  word = byte / UNITS_PER_WORD;
-	  if (FLOAT_WORDS_BIG_ENDIAN)
+	  if (WORDS_BIG_ENDIAN)
 	    word = (words - 1) - word;
 	  offset = word * UNITS_PER_WORD;
 	  if (BYTES_BIG_ENDIAN)
@@ -7112,8 +7113,8 @@ native_encode_real (tree expr, unsigned char *ptr, int len)
 	    offset += byte % UNITS_PER_WORD;
 	}
       else
-	offset = BYTES_BIG_ENDIAN ? (total_bytes - 1) - byte : byte;
-      ptr[offset] = value;
+	offset = BYTES_BIG_ENDIAN ? 3 - byte : byte;
+      ptr[offset + ((bitpos / BITS_PER_UNIT) & ~3)] = value;
     }
   return total_bytes;
 }
@@ -7270,7 +7271,7 @@ native_interpret_real (tree type, unsigned char *ptr, int len)
 {
   enum machine_mode mode = TYPE_MODE (type);
   int total_bytes = GET_MODE_SIZE (mode);
-  int byte, offset, word, words;
+  int byte, offset, word, words, bitpos;
   unsigned char value;
   /* There are always 32 bits in each long, no matter the size of
      the hosts long.  We handle floating point representations with
@@ -7281,16 +7282,17 @@ native_interpret_real (tree type, unsigned char *ptr, int len)
   total_bytes = GET_MODE_SIZE (TYPE_MODE (type));
   if (total_bytes > len || total_bytes > 24)
     return NULL_TREE;
-  words = total_bytes / UNITS_PER_WORD;
+  words = 32 / UNITS_PER_WORD;
 
   memset (tmp, 0, sizeof (tmp));
-  for (byte = 0; byte < total_bytes; byte++)
+  for (bitpos = 0; bitpos < total_bytes * BITS_PER_UNIT;
+       bitpos += BITS_PER_UNIT)
     {
-      int bitpos = byte * BITS_PER_UNIT;
-      if (total_bytes > UNITS_PER_WORD)
+      byte = (bitpos / BITS_PER_UNIT) & 3;
+      if (UNITS_PER_WORD < 4)
 	{
 	  word = byte / UNITS_PER_WORD;
-	  if (FLOAT_WORDS_BIG_ENDIAN)
+	  if (WORDS_BIG_ENDIAN)
 	    word = (words - 1) - word;
 	  offset = word * UNITS_PER_WORD;
 	  if (BYTES_BIG_ENDIAN)
@@ -7299,8 +7301,8 @@ native_interpret_real (tree type, unsigned char *ptr, int len)
 	    offset += byte % UNITS_PER_WORD;
 	}
       else
-	offset = BYTES_BIG_ENDIAN ? (total_bytes - 1) - byte : byte;
-      value = ptr[offset];
+	offset = BYTES_BIG_ENDIAN ? 3 - byte : byte;
+      value = ptr[offset + ((bitpos / BITS_PER_UNIT) & ~3)];
 
       tmp[bitpos / 32] |= (unsigned long)value << (bitpos & 31);
     }
@@ -7761,7 +7763,7 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	    return fold_build1 (BIT_NOT_EXPR, type, fold_convert (type, tem));
 	}
 
-      tem = fold_convert_const (code, type, arg0);
+      tem = fold_convert_const (code, type, op0);
       return tem ? tem : NULL_TREE;
 
     case VIEW_CONVERT_EXPR:
@@ -11155,13 +11157,13 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		  return omit_one_operand (type, integer_zero_node, arg0);
 
 		case GE_EXPR:
-		  return fold_build2 (EQ_EXPR, type, arg0, arg1);
+		  return fold_build2 (EQ_EXPR, type, op0, op1);
 
 		case LE_EXPR:
 		  return omit_one_operand (type, integer_one_node, arg0);
 
 		case LT_EXPR:
-		  return fold_build2 (NE_EXPR, type, arg0, arg1);
+		  return fold_build2 (NE_EXPR, type, op0, op1);
 
 		/* The GE_EXPR and LT_EXPR cases above are not normally
 		   reached because of previous transformations.  */
@@ -11176,10 +11178,14 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		{
 		case GT_EXPR:
 		  arg1 = const_binop (PLUS_EXPR, arg1, integer_one_node, 0);
-		  return fold_build2 (EQ_EXPR, type, arg0, arg1);
+		  return fold_build2 (EQ_EXPR, type,
+				      fold_convert (TREE_TYPE (arg1), arg0),
+				      arg1);
 		case LE_EXPR:
 		  arg1 = const_binop (PLUS_EXPR, arg1, integer_one_node, 0);
-		  return fold_build2 (NE_EXPR, type, arg0, arg1);
+		  return fold_build2 (NE_EXPR, type,
+				      fold_convert (TREE_TYPE (arg1), arg0),
+				      arg1);
 		default:
 		  break;
 		}
@@ -11192,7 +11198,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		  return omit_one_operand (type, integer_zero_node, arg0);
 
 		case LE_EXPR:
-		  return fold_build2 (EQ_EXPR, type, arg0, arg1);
+		  return fold_build2 (EQ_EXPR, type, op0, op1);
 
 		case GE_EXPR:
 		  return omit_one_operand (type, integer_one_node, arg0);
@@ -11210,10 +11216,14 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		{
 		case GE_EXPR:
 		  arg1 = const_binop (MINUS_EXPR, arg1, integer_one_node, 0);
-		  return fold_build2 (NE_EXPR, type, arg0, arg1);
+		  return fold_build2 (NE_EXPR, type,
+				      fold_convert (TREE_TYPE (arg1), arg0),
+				      arg1);
 		case LT_EXPR:
 		  arg1 = const_binop (MINUS_EXPR, arg1, integer_one_node, 0);
-		  return fold_build2 (EQ_EXPR, type, arg0, arg1);
+		  return fold_build2 (EQ_EXPR, type,
+				      fold_convert (TREE_TYPE (arg1), arg0),
+				      arg1);
 		default:
 		  break;
 		}
@@ -11229,12 +11239,11 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		   and X >= signed_max+1 because previous transformations.  */
 		if (code == LE_EXPR || code == GT_EXPR)
 		  {
-		    tree st0, st1;
-		    st0 = lang_hooks.types.signed_type (TREE_TYPE (arg0));
-		    st1 = lang_hooks.types.signed_type (TREE_TYPE (arg1));
-		    return fold_build2 (code == LE_EXPR ? GE_EXPR: LT_EXPR,
-			       		type, fold_convert (st0, arg0),
-			       		build_int_cst (st1, 0));
+		    tree st;
+		    st = lang_hooks.types.signed_type (TREE_TYPE (arg1));
+		    return fold_build2 (code == LE_EXPR ? GE_EXPR : LT_EXPR,
+					type, fold_convert (st, arg0),
+					build_int_cst (st, 0));
 		  }
 	      }
 	  }

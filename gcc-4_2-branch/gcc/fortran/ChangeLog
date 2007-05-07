@@ -1,3 +1,57 @@
+2007-04-30  Daniel Franke  <franke.daniel@gmail.com>
+
+	* intrinsic.texi (IERRNO): Changed class to non-elemental function.
+	(LOG10): Removed COMPLEX as accepted argument type.
+	(NEW_LINE): Changed class from elemental to inquiry function.
+	(SIGN): Removed requirement of scalar arguments.
+	(SNGL): Changed class to elemental function.
+
+2007-04-29  Daniel Franke  <franke.daniel@gmail.com>
+
+	* gfortran.texi: Cleaned up keyword index.
+	* invoke.texi: Likewise.
+	* intrinsic.texi: Likewise.
+
+2007-04-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31711
+	* trans-array.c (gfc_conv_resolve_dependencies): Create a temp
+	whenever a dependency is found.
+
+2007-04-27  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi (Transfer): Improve documentation.
+
+2007-04-27  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.texi (Option Index): Add @samp as needed.
+	* invoke.texi: Removed extraneous line.
+	(-fshort-enums): Fixed intexing.
+
+2007-04-27  Daniel Franke  <franke.daniel@gmail.com>
+
+	Backport from trunk:
+	* intrinsic.texi (NULL, PACK, PRESENT, REPEAT, SCAN, SHAPE, 
+	SIZE, TRANSPOSE, TRIM, VERIFY): New.
+	(ADJUSTL, ADJUSTR, INDEX): Added cross references.
+	(INT, INT2, INT8, LONG): Enabled section header.
+
+	* intrinsic.texi (PRODUCT, RESHAPE, SPACING, SPREAD, SUM, 
+	SYSTEM_CLOCK, TRANSFER, UNPACK): New.
+	(DATE_AND_TIME, CPU_TIME, RRSPACING): Added cross references.
+
+	* intrinsic.texi (AND, FPUT, FPUTC, MODULO, OR, SET_EXPONENT,
+	XOR): Fixed examples.
+
+	* gfortran.texi: Added node and menu entry for an option index.
+	* invoke.texi: Moved command line option related entries of the concept 
+	index to the option index.
+
+2007-04-12  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/31234
+	* intrinsic.texi (RANDOM_SEED, RANDOM_NUMBER): New.
+
 2007-03-23  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* invoke.texi: Misc. small typo fixes.

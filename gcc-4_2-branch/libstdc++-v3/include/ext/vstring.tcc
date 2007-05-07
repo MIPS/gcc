@@ -1,6 +1,6 @@
 // Versatile string -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -279,7 +279,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
       if (__n <= __size)
 	{
-	  for (; __pos + __n <= __size; ++__pos)
+	  for (; __pos <= __size - __n; ++__pos)
 	    if (traits_type::eq(__data[__pos], __s[0])
 		&& traits_type::compare(__data + __pos + 1,
 					__s + 1, __n - 1) == 0)
@@ -612,39 +612,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	__in.setstate(__err);
       return __in;
     }      
-
-  template<typename _CharT, typename _Traits, typename _Alloc,
-           template <typename, typename, typename> class _Base>
-    basic_ostream<_CharT, _Traits>&
-    operator<<(basic_ostream<_CharT, _Traits>& __out,
-	       const __gnu_cxx::__versa_string<_CharT, _Traits,
-	                                       _Alloc, _Base>& __str)
-    {
-      typedef basic_ostream<_CharT, _Traits>            __ostream_type;
-
-      typename __ostream_type::sentry __cerb(__out);
-      if (__cerb)
-	{
-	  const streamsize __w = __out.width();
-	  streamsize __len = static_cast<streamsize>(__str.size());
-	  const _CharT* __s = __str.data();
-
-	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
-	  // 25. String operator<< uses width() value wrong
-	  if (__w > __len)
-	    {
-	      _CharT* __cs = (static_cast<
-			      _CharT*>(__builtin_alloca(sizeof(_CharT) * __w)));
-	      __pad<_CharT, _Traits>::_S_pad(__out, __out.fill(), __cs,
-					     __s, __w, __len, false);
-	      __s = __cs;
-	      __len = __w;
-	    }
-	  __out._M_write(__s, __len);
-	  __out.width(0);
-	}
-      return __out;
-    }
 
   template<typename _CharT, typename _Traits, typename _Alloc,
            template <typename, typename, typename> class _Base>
