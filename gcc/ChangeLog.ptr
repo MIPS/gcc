@@ -1,5 +1,12 @@
 2007-05-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
+	* tree-mudflap.c (mf_xform_derefs_1 <case BIT_FIELD_REF>):
+	Add a conversion of ofs to sizetype.
+	(mf_decl_eligible_p): Reformat for length issues.
+	(mf_xform_derefs_1): Likewise.
+
+2007-05-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
 	* tree.c (build2_stat): Check to make sure the
 	second operand is compatiable with sizetype.
 

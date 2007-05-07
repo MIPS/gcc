@@ -699,7 +699,8 @@ mf_decl_eligible_p (tree decl)
           /* The decl must have its address taken.  In the case of
              arrays, this flag is also set if the indexes are not
              compile-time known valid constants.  */
-          && TREE_ADDRESSABLE (decl)    /* XXX: not sufficient: return-by-value structs! */
+          && TREE_ADDRESSABLE (decl)
+		    /* XXX: not sufficient: return-by-value structs! */
           /* The type of the variable must be complete.  */
           && COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (decl))
 	  /* The decl hasn't been decomposed somehow.  */
@@ -758,7 +759,8 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
         while (1)
           {
 	    if (bitfield_ref_p && elt == NULL_TREE
-		&& (TREE_CODE (var) == ARRAY_REF || TREE_CODE (var) == COMPONENT_REF))
+		&& (TREE_CODE (var) == ARRAY_REF 
+		    || TREE_CODE (var) == COMPONENT_REF))
 	      elt = var;
 	
             if (TREE_CODE (var) == ARRAY_REF)
@@ -787,7 +789,8 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
                   return;
                 else
 		  {
-		    base = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (var)), var);
+		    base = build1 (ADDR_EXPR,
+				   build_pointer_type (TREE_TYPE (var)), var);
 		    break;
 		  }
               }
@@ -810,7 +813,8 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
               size = DECL_SIZE_UNIT (field);
             
 	    if (elt)
-	      elt = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (elt)), elt);
+	      elt = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (elt)),
+			    elt);
             addr = fold_convert (ptr_type_node, elt ? elt : base);
             addr = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node,
 				addr, fold_convert (sizetype,
@@ -831,7 +835,8 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
       addr = TREE_OPERAND (t, 0);
       base = addr;
       limit = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node,
-			   fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, base, size),
+			   fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, base,
+					size),
 			   build_int_cst (sizetype, -1));
       break;
 
@@ -839,7 +844,8 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
       addr = tree_mem_ref_addr (ptr_type_node, t);
       base = addr;
       limit = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node,
-			   fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, base, size),
+			   fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, base,
+					size),
 			   build_int_cst (sizetype, -1));
       break;
 
@@ -860,7 +866,7 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
         bpu = bitsize_int (BITS_PER_UNIT);
         ofs = convert (bitsizetype, TREE_OPERAND (t, 2));
         rem = size_binop (TRUNC_MOD_EXPR, ofs, bpu);
-        ofs = size_binop (TRUNC_DIV_EXPR, ofs, bpu);
+        ofs = fold_convert (sizetype, size_binop (TRUNC_DIV_EXPR, ofs, bpu));
 
         size = convert (bitsizetype, TREE_OPERAND (t, 1));
         size = size_binop (PLUS_EXPR, size, rem);
@@ -873,7 +879,8 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
 
         base = addr;
         limit = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node,
-                             fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, base, size),
+                             fold_build2 (POINTER_PLUS_EXPR, ptr_type_node,
+					   base, size),
                              size_int (-1));
       }
       break;
