@@ -658,9 +658,9 @@ create_mem_ref (block_stmt_iterator *bsi, tree type, aff_tree *addr)
 	{
 	  atype = TREE_TYPE (parts.base);
 	  parts.base = force_gimple_operand_bsi (bsi, 
-			fold_build2 (PLUS_EXPR, atype,
+			fold_build2 (POINTER_PLUS_EXPR, atype,
 				     parts.base,
-				     fold_convert (atype, parts.offset)),
+				     fold_convert (sizetype, parts.offset)),
 			true, NULL_TREE);
 	}
       else

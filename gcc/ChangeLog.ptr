@@ -1,5 +1,20 @@
 2007-05-07  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
+	* builtins.c (std_gimplify_va_arg_expr): Use fold_build2 for
+	the creating of POINTER_PLUS_EXPR.  For the BIT_AND_EXPR, cast
+	the operands to sizetype first and then cast the BIT_AND_EXPR
+	back to the pointer type.
+	* tree-ssa-address.c (create_mem_ref): Create A
+	POINTER_PLUS_EXPR for one case.
+	* tree.c (const_hash_1): Handle POINTER_PLUS_EXPR same as
+	PLUS_EXPR.
+	(compare_constant): Likewise.
+	(copy_constant): Likewise.
+	(compute_reloc_for_constant): Likewise.
+	(output_addressed_constants): Likewise.
+
+2007-05-07  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
 	* tree.def (POINTER_PLUS_EXPR): The second operand
 	is of type sizetype and not ssizetype.
 	* doc/c-tree.texi (POINTER_PLUS_EXPR): Document.

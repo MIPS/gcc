@@ -4684,14 +4684,16 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
   if (boundary > align
       && !integer_zerop (TYPE_SIZE (type)))
     {
-      t = size_int (boundary - 1);
       t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
-		  build2 (POINTER_PLUS_EXPR, TREE_TYPE (valist), valist_tmp, t));
+		  fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (valist),
+			       valist_tmp, size_int (boundary - 1)));
       gimplify_and_add (t, pre_p);
 
-      t = fold_convert (TREE_TYPE (valist), size_int (-boundary));
+      t = fold_convert (sizetype, valist_tmp);
       t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
-		  build2 (BIT_AND_EXPR, TREE_TYPE (valist), valist_tmp, t));
+		  fold_convert (TREE_TYPE (valist),
+				fold_build2 (BIT_AND_EXPR, sizetype, t,
+					     size_int (-boundary))));
       gimplify_and_add (t, pre_p);
     }
   else
