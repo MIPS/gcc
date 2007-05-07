@@ -1,3 +1,14 @@
+2007-05-07  Seongbae Park  <seongbae.park@gmail.com>
+
+	* dse.c (add_wild_read): Do not remove read_info_t
+	that has non-zero alias_set.
+	(canon_address): Remove unused parameter for_read and bb_info.
+	Remove the unused code path, and update the dump message.
+	(record_store): Accomodate canon_address signature change.
+	(check_mem_read_rtx): Don't bail out early for wild_read.
+	(check_mem_read_rtx): Accomodate canon_address signature change.
+	(scan_insn): Move call insn handling after note_uses.
+
 2007-05-05  Ramana Radhakrishnan <ramana.r@gmail.com>
 	    Serge Belyshev  <belyshev@depni.sinp.msu.ru>
 	    Kenneth Zadeck <zadeck@naturalbridge.com>

@@ -925,15 +925,19 @@ static void
 add_wild_read (bb_info_t bb_info)
 {
   insn_info_t insn_info = bb_info->last_insn;
-  read_info_t ptr = insn_info->read_rec;
+  read_info_t *ptr = &insn_info->read_rec;
 
-  while (ptr)
+  while (*ptr)
     {
-      read_info_t next = ptr->next;
-      pool_free (read_info_pool, ptr);
-      ptr = next;
+      read_info_t next = (*ptr)->next;
+      if ( (*ptr)->alias_set == 0 )
+        {
+          pool_free (read_info_pool, *ptr);
+          *ptr = next;
+	}
+      else 
+	ptr = &(*ptr)->next;
     }
-  insn_info->read_rec = NULL;
   insn_info->wild_read = true;
   active_local_stores = NULL;
 }
@@ -958,7 +962,7 @@ add_wild_read (bb_info_t bb_info)
    FOR_READ is true if this is a mem read and false if not.  */
 
 static bool
-canon_address (bool for_read, bb_info_t bb_info, rtx mem,
+canon_address (rtx mem,
 	       HOST_WIDE_INT *alias_set_out,
 	       int *group_id,
 	       HOST_WIDE_INT *offset, 
@@ -1059,12 +1063,8 @@ canon_address (bool for_read, bb_info_t bb_info, rtx mem,
       *group_id = -1;
       if (*base == NULL)
 	{
-	  if (for_read)
-	    {
-	      add_wild_read (bb_info);
-	      if (dump_file)
-		fprintf (dump_file, " adding wild read, no cselib val.\n");
-	    }
+	  if (dump_file)
+	    fprintf (dump_file, " no cselib val - should be a wild read.\n");
 	  return false;
 	}
       if (dump_file)
@@ -1167,8 +1167,7 @@ record_store (rtx body, bb_info_t bb_info)
   if (MEM_VOLATILE_P (mem))
       insn_info->cannot_delete = true;
 
-  if (!canon_address (false, bb_info, mem, 
-		      &spill_alias_set, &group_id, &offset, &base))
+  if (!canon_address (mem, &spill_alias_set, &group_id, &offset, &base))
     {
       clear_rhs_from_active_local_stores ();
       return 0;
@@ -1467,9 +1466,6 @@ check_mem_read_rtx (rtx *loc, void *data)
   bb_info = (bb_info_t) data;
   insn_info = bb_info->last_insn;
 
-  if (insn_info->wild_read)
-    return 0;
-
   if ((MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
       || (MEM_VOLATILE_P (mem)))
     {
@@ -1485,8 +1481,7 @@ check_mem_read_rtx (rtx *loc, void *data)
   if (MEM_READONLY_P (mem))
     return 0;
 
-  if (!canon_address (true, bb_info, mem, 
-		      &spill_alias_set, &group_id, &offset, &base))
+  if (!canon_address (mem, &spill_alias_set, &group_id, &offset, &base))
     {
       if (dump_file)
 	fprintf (dump_file, " adding wild read, canon_address failure.\n");
@@ -1727,6 +1722,21 @@ scan_insn (bb_info_t bb_info, rtx insn)
   insn_info->insn = insn;
   bb_info->last_insn = insn_info;
   
+
+  /* Cselib clears the table for this case, so we have to essentually
+     do the same.  */
+  if (NONJUMP_INSN_P (insn)
+      && GET_CODE (PATTERN (insn)) == ASM_OPERANDS
+      && MEM_VOLATILE_P (PATTERN (insn)))
+    {
+      add_wild_read (bb_info);
+      insn_info->cannot_delete = true;
+      return;
+    }
+
+  /* Look at all of the uses in the insn.  */
+  note_uses (&PATTERN (insn), check_mem_read_use, bb_info);
+
   if (CALL_P (insn))
     {
       insn_info->cannot_delete = true;
@@ -1743,20 +1753,6 @@ scan_insn (bb_info_t bb_info, rtx insn)
       add_wild_read (bb_info);
       return;
     }
-
-  /* Cselib clears the table for this case, so we have to essentually
-     do the same.  */
-  if (NONJUMP_INSN_P (insn)
-      && GET_CODE (PATTERN (insn)) == ASM_OPERANDS
-      && MEM_VOLATILE_P (PATTERN (insn)))
-    {
-      add_wild_read (bb_info);
-      insn_info->cannot_delete = true;
-      return;
-    }
-
-  /* Look at all of the uses in the insn.  */
-  note_uses (&PATTERN (insn), check_mem_read_use, bb_info);
 
 #if 0
   /* Look for memory reference in the notes.  */
