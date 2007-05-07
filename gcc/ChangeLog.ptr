@@ -1,3 +1,9 @@
+2007-05-07  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* tree.def (POINTER_PLUS_EXPR): The second operand
+	is of type sizetype and not ssizetype.
+	* doc/c-tree.texi (POINTER_PLUS_EXPR): Document.
+
 2007-05-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* tree-mudflap.c (mf_xform_derefs_1 <case BIT_FIELD_REF>):

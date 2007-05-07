@@ -613,7 +613,7 @@ DEFTREECODE (MINUS_EXPR, "minus_expr", tcc_binary, 2)
 DEFTREECODE (MULT_EXPR, "mult_expr", tcc_binary, 2)
 
 /* Plus expression but for pointers in that the first operand is always a pointer
-   and the second operand is an integer which is the same type as the ssizetype.  */
+   and the second operand is an integer which is the same type as the sizetype.  */
 DEFTREECODE (POINTER_PLUS_EXPR, "pointer_plus_expr", tcc_binary, 2)
 
 /* Division for integer result that rounds the quotient toward zero.  */
