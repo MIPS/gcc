@@ -1,3 +1,18 @@
+2007-05-04  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/22359
+	* io/intrinsics.c (fseek_sub): New.
+	* io/unix.c (fd_fseek): Change logical and physical offsets only
+	if seek succeeds.
+	* gfortran.map (fseek_sub): New.
+
+2007-05-04  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/31210
+	* io/transfer.c (transfer_character): Avoid passing a NULL
+	pointer as source to the transfer routines, if the string length
+	is zero.
+
 2007-04-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libfortran/31501

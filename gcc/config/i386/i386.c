@@ -8372,9 +8372,15 @@ print_operand (FILE *file, rtx x, int code)
 	      return;
 
 	    case 2:
+	      if (MEM_P (x))
+		{
 #ifdef HAVE_GAS_FILDS_FISTS
-	      putc ('s', file);
+		  putc ('s', file);
 #endif
+		  return;
+		}
+	      else
+		putc ('w', file);
 	      return;
 
 	    case 4:
@@ -17813,7 +17819,6 @@ ix86_expand_sse_comi (const struct builtin_description *d, tree exp,
   tree arg1 = CALL_EXPR_ARG (exp, 1);
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
-  rtx op2;
   enum machine_mode mode0 = insn_data[d->icode].operand[0].mode;
   enum machine_mode mode1 = insn_data[d->icode].operand[1].mode;
   enum rtx_code comparison = d->comparison;
@@ -17843,7 +17848,6 @@ ix86_expand_sse_comi (const struct builtin_description *d, tree exp,
       || !(*insn_data[d->icode].operand[1].predicate) (op1, mode1))
     op1 = copy_to_mode_reg (mode1, op1);
 
-  op2 = gen_rtx_fmt_ee (comparison, mode0, op0, op1);
   pat = GEN_FCN (d->icode) (op0, op1);
   if (! pat)
     return 0;

@@ -7840,25 +7840,23 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	    }
 	}
 
-      /* Convert (T1)((T2)X op Y) into (T1)X op Y, for pointer types T1 and
-	 T2 being pointers to types of the same size.  */
+      /* Convert (T1)(X p+ Y) into ((T1)X p+ Y), for pointer type,
+         when one of the new casts will fold away. Conservatively we assume
+	 that this happens when X or Y is NOP_EXPR or Y is INTEGER_CST. */
       if (POINTER_TYPE_P (type)
-	  && BINARY_CLASS_P (arg0)
-	  && TREE_CODE (TREE_OPERAND (arg0, 0)) == NOP_EXPR
-	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg0, 0))))
+	  && TREE_CODE (arg0) == POINTER_PLUS_EXPR
+	  && (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
+	      || TREE_CODE (TREE_OPERAND (arg0, 0)) == NOP_EXPR
+	      || TREE_CODE (TREE_OPERAND (arg0, 1)) == NOP_EXPR))
 	{
 	  tree arg00 = TREE_OPERAND (arg0, 0);
-	  tree t0 = type;
-	  tree t1 = TREE_TYPE (arg00);
-	  tree tt0 = TREE_TYPE (t0);
-	  tree tt1 = TREE_TYPE (t1);
-	  tree s0 = TYPE_SIZE (tt0);
-	  tree s1 = TYPE_SIZE (tt1);
+	  tree arg01 = TREE_OPERAND (arg0, 1);
 
-	  if (s0 && s1 && operand_equal_p (s0, s1, OEP_ONLY_CONST))
-	    return build2 (TREE_CODE (arg0), t0, fold_convert (t0, arg00),
-			   TREE_OPERAND (arg0, 1));
+	  return fold_build2 (TREE_CODE (arg0), type, fold_convert (type, arg00),
+			      fold_convert (sizetype, arg01));
 	}
+      /* TODO: Add folding of (T1)((sizetype)X +/- Y) into (T1)X + (-)Y where
+         T1 is a pointer type.  */
 
       /* Convert (T1)(~(T2)X) into ~(T1)X if T1 and T2 are integral types
 	 of the same precision, and X is a integer type not narrower than
@@ -8673,69 +8671,6 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
 		return tem;
 	    }
 	}
-    }
-
-  /* Convert foo++ == CONST into ++foo == CONST + INCR.  */
-  if (TREE_CONSTANT (arg1)
-      && (TREE_CODE (arg0) == POSTINCREMENT_EXPR
-	  || TREE_CODE (arg0) == POSTDECREMENT_EXPR)
-      /* This optimization is invalid for ordered comparisons
-         if CONST+INCR overflows or if foo+incr might overflow.
-	 This optimization is invalid for floating point due to rounding.
-	 For pointer types we assume overflow doesn't happen.  */
-      && (POINTER_TYPE_P (TREE_TYPE (arg0))
-	  || (INTEGRAL_TYPE_P (TREE_TYPE (arg0))
-	      && (code == EQ_EXPR || code == NE_EXPR))))
-    {
-      tree varop, newconst;
-
-      if (TREE_CODE (arg0) == POSTINCREMENT_EXPR)
-	{
-	  newconst = fold_build2 (PLUS_EXPR, TREE_TYPE (arg0),
-				  arg1, TREE_OPERAND (arg0, 1));
-	  varop = build2 (PREINCREMENT_EXPR, TREE_TYPE (arg0),
-			  TREE_OPERAND (arg0, 0),
-			  TREE_OPERAND (arg0, 1));
-	}
-      else
-	{
-	  newconst = fold_build2 (MINUS_EXPR, TREE_TYPE (arg0),
-				  arg1, TREE_OPERAND (arg0, 1));
-	  varop = build2 (PREDECREMENT_EXPR, TREE_TYPE (arg0),
-			  TREE_OPERAND (arg0, 0),
-			  TREE_OPERAND (arg0, 1));
-	}
-
-
-      /* If VAROP is a reference to a bitfield, we must mask
-	 the constant by the width of the field.  */
-      if (TREE_CODE (TREE_OPERAND (varop, 0)) == COMPONENT_REF
-	  && DECL_BIT_FIELD (TREE_OPERAND (TREE_OPERAND (varop, 0), 1))
-	  && host_integerp (DECL_SIZE (TREE_OPERAND
-					 (TREE_OPERAND (varop, 0), 1)), 1))
-	{
-	  tree fielddecl = TREE_OPERAND (TREE_OPERAND (varop, 0), 1);
-	  HOST_WIDE_INT size = tree_low_cst (DECL_SIZE (fielddecl), 1);
-	  tree folded_compare, shift;
-
-	  /* First check whether the comparison would come out
-	     always the same.  If we don't do that we would
-	     change the meaning with the masking.  */
-	  folded_compare = fold_build2 (code, type,
-					TREE_OPERAND (varop, 0), arg1);
-	  if (TREE_CODE (folded_compare) == INTEGER_CST)
-	    return omit_one_operand (type, folded_compare, varop);
-
-	  shift = build_int_cst (NULL_TREE,
-				 TYPE_PRECISION (TREE_TYPE (varop)) - size);
-	  shift = fold_convert (TREE_TYPE (varop), shift);
-	  newconst = fold_build2 (LSHIFT_EXPR, TREE_TYPE (varop),
-				  newconst, shift);
-	  newconst = fold_build2 (RSHIFT_EXPR, TREE_TYPE (varop),
-				  newconst, shift);
-	}
-
-      return fold_build2 (code, type, varop, newconst);
     }
 
   if (TREE_CODE (TREE_TYPE (arg0)) == INTEGER_TYPE

@@ -1,3 +1,15 @@
+2007-05-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	Merge mainline, revision 124478.
+	* fold-const.c (fold_unary): Handle for (T1)(X op Y),
+	only p+ as that is the only as that can be handled for
+	binary operators now.  Add a TODO for non pointer type
+	op's.
+	* gimplifier.c (gimplify_expr): Don't special case
+	PLUS_EXPR.  Special case POINTER_PLUS_EXPR instead,
+	remove check for pointer type as it will always be
+	a pointer type now.
+
 2007-05-04  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* tree-vrp.c (extract_range_from_binary_expr): Handle

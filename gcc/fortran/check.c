@@ -655,9 +655,6 @@ gfc_check_besn (gfc_expr *n, gfc_expr *x)
   if (type_check (n, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
 
-  if (scalar_check (x, 1) == FAILURE)
-    return FAILURE;
-
   if (type_check (x, 1, BT_REAL) == FAILURE)
     return FAILURE;
 
@@ -1031,22 +1028,6 @@ gfc_check_fnum (gfc_expr *unit)
     return FAILURE;
 
   if (scalar_check (unit, 0) == FAILURE)
-    return FAILURE;
-
-  return SUCCESS;
-}
-
-
-/* This is used for the g77 one-argument Bessel functions, and the
-   error function.  */
-
-try
-gfc_check_g77_math1 (gfc_expr *x)
-{
-  if (scalar_check (x, 0) == FAILURE)
-    return FAILURE;
-
-  if (type_check (x, 0, BT_REAL) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -2458,6 +2439,44 @@ gfc_check_fgetput (gfc_expr *c)
 {
   return gfc_check_fgetput_sub (c, NULL);
 }
+
+
+try
+gfc_check_fseek_sub (gfc_expr *unit, gfc_expr *offset, gfc_expr *whence, gfc_expr *status)
+{
+  if (type_check (unit, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (unit, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (offset, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (offset, 1) == FAILURE)
+    return FAILURE;
+
+  if (type_check (whence, 2, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (whence, 2) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (type_check (status, 3, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (kind_value_check (status, 3, 4) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (status, 3) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
 
 
 try

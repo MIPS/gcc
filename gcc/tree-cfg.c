@@ -3892,7 +3892,7 @@ tree_verify_flow_info (void)
 	}
     }
 
-  if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
+  if (dom_info_state (CDI_DOMINATORS) >= DOM_NO_FAST_QUERY)
     verify_dominators (CDI_DOMINATORS);
 
   return err;
@@ -4651,7 +4651,7 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
     }
 
   VEC_replace (basic_block, cfg->x_basic_block_info,
-               cfg->x_last_basic_block, bb);
+               bb->index, bb);
 
   /* The statements in BB need to be associated with a new TREE_BLOCK.
      Labels need to be associated with a new label-to-block map.  */
@@ -5402,7 +5402,7 @@ remove_edge_and_dominated_blocks (edge e)
   basic_block bb, dbb;
   bitmap_iterator bi;
 
-  if (!dom_computed[CDI_DOMINATORS])
+  if (!dom_info_available_p (CDI_DOMINATORS))
     {
       remove_edge (e);
       return;

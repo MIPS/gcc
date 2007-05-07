@@ -1,21 +1,305 @@
-2007-05-01  Dwarakanath Rajagopal <dwarak.rajagopal@amd.com>
+2007-05-06  Eric Botcazou  <ebotcazou@adacore.com>
 
-	* doc/invoke.texi: Fix typo, 'AMD Family 10h core' instead of 
-	'AMD Family 10 core'.
+	* timevar.c (timevar_print): Test ENABLE_ASSERT_CHECKING instead
+	of ASSERT_CHECKING.  Tweak message.
+
+2007-05-06  Revital Eres  <eres@il.ibm.com>
+
+	PR 30957
+	* loop-unroll.c (insert_var_expansion_initialization):
+	Initialize the expansions with -zero instead of +zero.
+
+2007-05-05  Aurelien Jarno  <aurelien@aurel32.net>
+
+	* config/pa/pa.md: Split tgd_load, tld_load and tie_load
+	into pic and non-pic versions. Mark r19 as used for 
+	tgd_load_pic, tld_load_pic and tie_load_pic. Mark r27 as used 
+	for tgd_load, tld_load and tie_load .
+	* config/pa/pa.c (legitimize_tls_address): Emit pic or non-pic
+	version of tgd_load, tld_load and tie_load depending on the 
+	value of flag_pic.
+
+2007-05-04  Ulrich Drepper  <drepper@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* crtstuff.c (HIDDEN_DTOR_LIST_END): New macro.
+	(__do_global_dtors_aux): Use more paranoid loop to run
+	destructors if HIDDEN_DTOR_LIST_END.
+	(__DTOR_END__): Export as a hidden symbol when HIDDEN_DTOR_LIST_END.
+
+2007-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* varasm.c (align_variable): Don't increase alignment for
+	DECL_THREAD_LOCAL_P variables above BITS_PER_WORD through
+	DATA_ALIGNMENT or CONSTANT_ALIGNMENT.
+
+2007-05-04  Josh Conner  <jconner@apple.com>
+
+	* basic-block.h (cdi_direction): Assign values to all enumeration
+	constants.
+	(dom_computed): Remove.
+	(dom_info_state): New.
+	(set_dom_info_availability): New.
+	* tree-ssa-loop-im.c (determine_invariantness): Initialize
+	walk_data.dom_direction.
+	* cfghooks.c (delete_basic_block): Use dom_info_available_p()
+	instead of dom_computed[].
+	(split_edge): Likewise.
+	(create_basic_block): Likewise.
+	(merge_blocks): Likewise.
+	* ifcvt.c (find_if_header): Likewise.
+	* tree-cfgcleanup.c (cleanup_tree_cfg): Likewise.
+	* tree-ssa-dce.c (remove_dead_stmt): Likewise.
+	* tree-ssa.c (verify_ssa): Likewise.
+	* tree-cfg.c (tree_verify_flow_info): Likewise.
+	(remove_edge_and_dominated_blocks): Likewise.
+	* dominance.c (dom_computed): Make static.
+	(calc_dfs_tree_nonrec): Change third param to a bool.
+	(calc_dfs_tree): Change second param to a bool.
+	(calc_idioms): Change second param to a bool.  Use
+	dom_convert_dir_to_idx.
+	(init_dom_info): Validate dir before using.
+	(dom_convert_dir_to_idx): New.
+	(calculate_dominance_info): Use dom_convert_dir_to_idx.  New
+	variable 'reverse' used for calling calc_dfs_tree and calc_idoms.
+	(free_dominance_info): Use dom_convert_dir_to_idx.
+	(get_immediate_dominator): Likewise.
+	(set_immediate_dominator): Likewise.
+	(get_dominated_by): Likewise.
+	(redirect_immediate_dominators): Likewise.
+	(nearest_common_denominator): Likewise.
+	(dominated_by_p): Likewise.
+	(bb_dom_dfs_in): Likewise.
+	(bb_dom_dfs_out): Likewise.
+	(recount_dominator): Likewise.
+	(iterate_fix_dominators): Likewise.
+	(add_to_dominance_info): Likewise.
+	(delete_from_dominance_info): Likewise.
+	(first_dom_son): Likewise.
+	(next_dom_son): Likewise.
+	(dom_info_available_p): Likewise.
+	(dom_info_state): New.
+	(set_dom_info_availability): New.
+
+2007-05-04  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.md ("fix_trunc<mode>di2", "fix_trunc<mode>si2"):
+	Expander removed.
+	("fix_trunc<DSF:mode><GPR:mode>2"): Expander added.
+
+2007-05-04  Bob Wilson  <bob.wilson@acm.org>
 	
+	* config/xtensa/xtensa.md (adddi3, adddi_carry): Delete.
+	(subdi3, subdi_carry): Delete.
+	
+2007-05-04  Jan Hubicka  <jh@suse.cz>
+	    Richard Guenther  <rguenther@suse.de>
+
+	* opts.c (decode_options): Do not fiddle with inlining
+	parameters in case of optimizing for size.
+	* ipa-inline.c (cgraph_decide_recursive_inlining): When optimizing
+	for size do nothing.
+	(cgraph_decide_inlining_of_small_function): When optimizing for
+	size never inline functions increasing caller size.
+	(cgraph_early_inlining): Inline for size when optimizing for size.
+
+2007-04-18  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.md (<optab>di3): Now a define_expand which expands
+	logical operations piecewise.
+	(<optab>di_zesidi_di, <optab>di_sesidi_di, negdi2, one_cmpldi2,
+	zero_extendsidi2, subdi_di_zesidi, subdi_zesidi_di, subdi_di_sesidi,
+	subdi_sesidi_di): Delete.
+	(add_with_carry): Produce carry in CC instead of a DREG to shorten
+	the generated sequence.  Allow three-reg add in constraints.  Rewrite
+	the rtl expression for carry to avoid zero_extend of a constant.
+	(sub_with_carry): New pattern.
+	(adddi3, subdi3): Change into define_expand.  For subtract, generate a
+	different sequence not involving jumps.
+	(notbi): Now a named pattern.
+
+2007-05-04  Bradley Lucier  <lucier@math.purdue.edu>
+
+	* doc/invoke.texi (i386 and x86-64 Options) [-mpc32, -mpc64, -mpc80]:
+	Add the note about a significant loss of accuracy of some
+	mathematical routines when these options are used.
+
+2007-05-04  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	* haifa-sched.c (rtx_vec_t): New typedef.
+	(contributes_to_priority_p): Extract piece of priority () into new
+	static function.
+	(priority): Use the function.  Add assertion.
+	(rank_for_schedule, set_priorities): Add assertion to check that
+	insn's priority is initialized.
+	(clear_priorities, calc_priorities): Change signature.  Make it update
+	all relevant insns.  Update all callers ('add_to_speculative_block ()'
+	and 'create_block_check_twin ()').
+	* sched-int.h (struct haifa_insn_data): Remove field 'priority_known'.
+	Add new field 'priority_status'.
+	(INSN_PRIORITY_STATUS): New macro.
+	(INSN_PRIORITY_KNOWN): Change to use INSN_PRIORITY_STATUS.
+
+2007-05-04  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	* sched-ebb.c (debug_ebb_dependencies): New static function.
+	(init_ready_list): Use it.
+
+	* sched-rgn.c (debug_dependencies): Split into 'debug_dependencies ()'
+	with changed signature and 'debug_rgn_dependencies ()'.
+	(debug_rgn_dependencies): New static function.
+	(init_ready_list): Use it.
+	
+	* sched-int.h (debug_dependencies): Declare.
+
+2007-05-04  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* libgcc-std.ver (__ffssi2): Added to GCC_4.3.0 section.
+
+2007-05-04  Dirk Mueller  <dmueller@suse.de>
+
+	* c.opt(Wmain,ffreestanding): Enable for C++,ObjC++.
+
+2007-05-03  Jan Hubicka  <jh@suse.cz>
+
+	* fold-const.c (fold_unary): Convert (T1)(X op Y) into ((T1)X op (T1)Y),
+	for pointer type in more cases than before.
+
+	* gimplify.c (gimplify_expr): Fold (void *)&a + 4.
+
+	* tree-object-size.c (plus_expr_object_size): When operand size is
+	unknown, return unknown.
+
+2007-05-03  Dirk Mueller  <dmueller@suse.de>
+
+	* doc/invoke.texi (-m386,-m486,-mpentium,-mpentiumpro): Remove.
+
+	* config/i386/i386.h (CC1_CPU_SPEC): Remove handling for deprecated
+	options.
+
+	* config/i386/i386.opt (m386,m486,mpentium,mpentiumpro): Remove.
+
+2007-05-03  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/sourcebuild.texi (Test Directives) Clarify dg-excess-errors.
+
+2007-05-03  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/soft-fp/double.h, config/soft-fp/extended.h,
+	config/soft-fp/floatundidf.c, config/soft-fp/floatundisf.c,
+	config/soft-fp/floatunsidf.c, config/soft-fp/floatunsisf.c,
+	config/soft-fp/op-2.h, config/soft-fp/op-4.h,
+	config/soft-fp/op-common.h, config/soft-fp/quad.h: Update from
+	glibc CVS.
+
+2007-05-03  Ian Lance Taylor  <iant@google.com>
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Don't se
+	MASK_PPC_GFXOPT for 8540 or 8548.
+
+2007-05-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* tree-vect-transform.c (vect_update_inits_of_drs): Use
+	vect_print_dump_info() to output debug information.
+
+2007-05-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/31768
+	* config/i386/i386.c (print_operand) ['z']: Output 'w' for
+	operands of size 2 when operand is not MEM_P.
+
+2007-05-03  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/30565
+	* lambda-code.c (perfect_nestify): Fix updating of dominators.
+
+2007-05-03  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.md (addpdi3, us_truncpdisi2): New patterns.
+	(umulsi3_highpart): Use them.
+	* config/bfin/lib1funcs.asm (__umulsi3_highpart): Use unsigned move
+	for final accumulator to D regisster tranfser.
+
+2007-05-03  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/31699
+	* tree-vect-analyze.c (vect_update_misalignment_for_peel): Remove wrong
+	code.
+	(vect_enhance_data_refs_alignment): Compute peel amount using 
+	TYPE_VECTOR_SUBPARTS instead of vf.	
+	* tree-vect-transform.c (vect_gen_niters_for_prolog_loop): Likewise.
+
+2007-05-02  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR bootstrap/31776
+	* system.h: Remove inclusion of double-int.h
+	* tree.h: Include double-int.h
+	* gengtype.c: Likewise
+	* cfgloop.h: Likewise
+	* Makefile.in: Adjust dependencies on double-int.h
+
+2007-05-02  Eric Christopher  <echristo@apple.com>
+
+	* config/darwin.h (TARGET_OPTION_TRANSLATE_TABLE): Translate
+	-shared to -Zdynamiclib.
+
+2007-05-02  Seongbae Park  <seongbae.park@gmail.com>
+
+	PR c++/31663
+	* c-common.c (strip_pointer_or_array_types): New function.
+	* c-common.h (strip_pointer_or_array_types): New function declaration.
+
+2007-05-03  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/31771
+	* tree-cfg.c (move_block_to_fn): Assign bb to the correct index.
+
+2007-05-02  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/bpabi.S (aeabi_lcmp): Fix result on overflow.
+
+2007-05-02  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/29715
+	* fold-const.c (fold_comparision): Remove the "foo++ == CONST"
+	transformation.
+
+2007-05-02  Nick Clifton  <nickc@redhat.com>
+
+	* config/frv/predicates.md (symbolic_operand): Accept CONSTs.
+
+2007-05-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31146
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): New
+	argument, single_use_p.  If we have a single use that is
+	a conversion to the definition rhs type, propagate that rhs.
+	(forward_propagate_addr_expr): Pass single_use_p argument
+	to forward_propagate_addr_expr_1.
+
+2007-05-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_sse_comi): Remove unused
+	variable.
+
 2007-05-01  Dwarakanath Rajagopal <dwarak.rajagopal@amd.com>
 
-	* config/i386/i386.c (override_options): Accept k8-sse3, opteron-sse3 
-	and athlon64-sse3 as improved versions of k8, opteron and athlon64 
+	* doc/invoke.texi: Fix typo, 'AMD Family 10h core' instead of
+	'AMD Family 10 core'.
+
+2007-05-01  Dwarakanath Rajagopal <dwarak.rajagopal@amd.com>
+
+	* config/i386/i386.c (override_options): Accept k8-sse3, opteron-sse3
+	and athlon64-sse3 as improved versions of k8, opteron and athlon64
 	with SSE3 instruction set support.
 	* doc/invoke.texi: Likewise.
-	
+
 2007-05-01  Dwarakanath Rajagopal <dwarak.rajagopal@amd.com>
 
 	* config/i386/i386.c (override_options): Tuning 32-byte loop
-	alignment for amdfam10 architecture. Increasing the max loop 
+	alignment for amdfam10 architecture. Increasing the max loop
 	alignment to 24 bytes.
-	
+
 2007-05-01  Kazu Hirata  <kazu@codesourcery.com>
 
 	* config/m68k/constraints.md: New.
@@ -152,7 +436,7 @@
 
 	* config/xtensa/lib1funcs.asm (__umodsi3, __modsi3): Rearrange so that
 	DIV0 exception can fall through to a normal return.
-	
+
 2007-04-30  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR middle-end/22156
@@ -475,7 +759,7 @@
 
 2007-04-26  Anatoly Sokolov <aesok@post.ru>
 
-	* config/avr/avr.c (avr_mcu_types): Add support for ATmega8HVA and 
+	* config/avr/avr.c (avr_mcu_types): Add support for ATmega8HVA and
 	ATmega16HVA devices. Move AT90USB82 device to 'avr5' architecture.
 	* config/avr/avr.h (LINK_SPEC, CRT_BINUTILS_SPECS): (Ditto.).
 	* config/avr/t-avr (MULTILIB_MATCHES): (Ditto.).
@@ -662,12 +946,12 @@
 2007-04-24  Richard Guenther  <rguenther@suse.de>
 	    Olga Golovanevsky  <olga@il.ibm.com>
 
-	* fold-const.c (multiple_of_p): Check for bottom 
-	to be zero. 
+	* fold-const.c (multiple_of_p): Check for bottom
+	to be zero.
 
 2007-04-24  Richard Henderson  <rth@redhat.com>
 
-	* libgcc2.h (AVOID_FP_TYPE_CONVERSION): Rename from 
+	* libgcc2.h (AVOID_FP_TYPE_CONVERSION): Rename from
 	IS_IBM_EXTENDED.  Also define in terms of WIDEST_HARDWARE_FP_SIZE.
 	* libgcc2.c (__floatdisf): Avoid double-word arithmetic when
 	looking for non-zero bits shifted out.  Avoid a recursive call
