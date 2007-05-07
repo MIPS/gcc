@@ -1,5 +1,11 @@
 2007-05-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
+	* typeck.c (build_unary_op): Remove code that used to
+	handle non lvalue increments/decrements as we now error
+	out all ways.
+
+2007-05-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
 	* typeck.c (get_member_function_from_ptrfunc):
 	Change over to using POINTER_PLUS_EXPR and convert
 	the second operand to sizetype.
