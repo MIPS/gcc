@@ -1,3 +1,115 @@
+2007-05-08  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* regrename.c (regrename_optimize): Renamed df_ri_add_problem to 
+	df_note_add_problem.
+	* auto-inc-dec.c (rest_of_handle_auto_inc_dec): Ditto.
+	* sched_ebb.c (schedule_ebbs): Renamed df_ri_add_problem to
+	df_note_add_problem.  Added call to regstat_compute_calls_crossed
+	and regstat_free_calls_crossed and deleted call to
+	allocate_reg_life_data.
+	* regstat.c (regstat_init_n_sets_and_refs,
+	regstat_free_n_sets_and_refs, regstat_bb_compute_ri,
+	regstat_compute_ri, regstat_free_ri,
+	regstat_bb_compute_calls_crossed, regstat_compute_calls_crossed, 
+	regstat_free_calls_crossed): New functions.
+	* final.c (rest_of_handle_final): Removed call to free_reg_info.
+	* cfg.c (dump_reg_info): Many changes to accomodate new
+	implementation of REG_BASIC_BLOCK, REG_N_SETS, REG_N_DEATHS, 
+	REG_N_CALLS_CROSSED.
+	* toplev.c (finalize): Removed call to free_reg_info.
+	* regs.h (REG_BASIC_BLOCK, REG_N_SETS, REG_N_REFS, REG_N_DEATHS, 
+	REG_N_CALLS_CROSSED, REG_FREQ, REG_N_THROWING_CALLS_CROSSED,
+	REG_LIVE_LENGTH, REG_BASIC_BLOCK): Changed implementation.
+	(allocate_reg_life_data, allocate_reg_info, clear_reg_info_regno):
+	Removed.
+	* mode-switching.c (optimize_mode_switching): Removed call to 
+	df_ri_add_problem.
+	* modulo-sched.c (sms_schedule): Renamed df_ri_add_problem to
+	df_note_add_problem.  Added call to regstat_compute_calls_crossed
+	and regstat_free_calls_crossed
+	(rest_of_handle_sms): Deleted call to allocate_reg_info.
+	* global.c (compute_regsets): Moved all dataflow to local_alloc.
+	(rest_of_handle_global_alloc): Call regstat_free_n_sets_and_refs
+	and regstat_free_ri.
+	* ifcvt.c (dead_or_predicable, if_convert): Removed calls to
+	allocate_reg_info.
+	* timevar.def (TV_DF_NOTE): New timevar. 
+	* regmove.c (copy_src_to_dest, regmove_optimize, fixup_match_1):
+	Changed calls to REG_N_SETS that changed the value to
+	INC_REG_N_SETS.
+	(regmove_optimize): Moved calls that compute df and register info
+	to after early out for flag_non_call_exceptions.  Added calls to 
+	regstat_init_n_sets_and_refs, regstat_compute_ri,
+	regstat_free_n_sets_and_refs and regstat_free_ri.
+	* local_alloc (local_alloc, equiv_init_movable_p): Added
+	NUM_FIXED_BLOCKS to tests for REG_BASIC_BLOCK.
+	(update_equiv_regs): Added code to update bitvectors when certain
+	local allocations are done.  Changed REG_N_SETS to
+	DF_REG_DEF_COUNT.  Added NUM_FIXED_BLOCKS to tests for
+	REG_BASIC_BLOCK.
+	(rest_of_handle_local_alloc): Moved computation of UREC from
+	global to here.
+	* function.c (regno_clobbered_at_setjmp): Added to test to see if
+	regno was valid.  Moved function size test higher in call
+	heirarchy.
+	(setjmp_args_warning): Added tests to early out of check if
+	function is small or there are no setjmps.  
+	* df.h (DF_RI, df_ri, DF_RI_LIFE, DF_RI_SETJMP, df_ri_add_problem,
+	df_ri_get_setjmp_crosses): Deleted.
+	(DF_NOTE, df_note, df_note_add_problem): Added.
+	* gcse (gcse_main): Removed computation of RI information and
+	removed calls to allocate_reg_info.
+	* init-regs.c (initialize_uninitialized_regs): Removed call to
+	allocate_reg_life_data.
+      	* regclass.c (reg_info_data, reg_info_head, reg_pref_buffer,
+	allocate_reg_life_data, allocate_reg_info, clear_reg_info_regno):
+	Deleted.
+	(scan_one_insn): Changed some calls to REG_N_SETS and REG_N_REFS
+	to INC_REG_N_SETS and INC_REG_N_REFS.
+	(regclass): Allocate register information locally.
+	(free_reg_info): Changed the structures freed.	
+	(reg_scan): Removed call to allocate_reg_info and changed call to
+	REG_N_SETS to DF_REG_DEF_COUNT.
+	* combine (try_combine, remove_death, distribute_notes): Removed
+	computation of REG_N_DEATHS.  Changed some references to
+	REG_N_SETS to INC_REG_N_SETS.
+	(rest_of_handle_combine): Replaced call to df_ri_add_problem with
+	call to df_note_add_problem, and added call to
+	regstat_init_n_sets_and_refs and regstat_free_n_sets_and_refs.
+	* bb-reorder (rest_of_handle_partition_blocks): Removed call to
+	allocate_reg_life_data.
+	* df-problems.c (reg_n_info, df_ri_problem_p, df_ri_problem_data,
+	df_ri_alloc, df_ri_start_dump, df_ri_get_setjmp_crosses): Removed.
+	(print_note): Renamed df_print_note.
+	(df_kill_notes): Added parameters to save notes rather than just
+	let them die and remake them.
+	(df_set_note): New function.
+	(df_set_unused_notes_for_mw, df_set_dead_notes_for_mw,
+	df_create_unused_note, df_ri_bb_compute, df_ri_compute,
+	df_ri_free): Removed ri information computations.
+	(df_ri_bb_compute): Renamed to df_note_bb_compute.
+	(df_ri_compute): Renamed to df_note_compute.
+	(df_ri_free): Renamed to df_note_free.
+	(problem_RI): Renamed to problem_NOTE
+	(df_ri_add_problem): Renamed to df_note_add_problem.
+	* (reg-stack.c): Changed call to df_ri_add_problem to 
+	df_note_add_problem.
+	* combine-stack-adj.c (rest_of_handle_stack_adjustments): Ditto.
+	* (Makefile.in): Added regstat.o.
+	* sched-rgn.c (schedule_insns): Changed call to df_ri_add_problem to 
+	df_note_add_problem.  Added calls to regstat_compute_calls_crossed
+	and regstat_free_calls_crossed.
+	* basic_block.h (REG_BLOCK_UNKNOWN, REG_BLOCK_GLOBAL,
+	REG_BASIC_BLOCK): Moved to regs.h.
+	* config/sparc/sparc.c (sparc_check_64): Changed REG_N_SETS to
+	DF_REG_DEF_COUNT.
+	* config/sh/sh.c (flow_dependent_p_1): Ditto.
+	(sh_md_init): Removed useless attempt to measure pressure on R0.
+	* config/m68k/m68k.c (m68k_output_mi_thunk): Removed call to
+	allocate_reg_info.
+	* reload1.c (delete_output_reload): Added NUM_FIXED_BLOCKS to
+	tests for REG_BASIC_BLOCK.
+	
 2007-05-07  Seongbae Park  <seongbae.park@gmail.com>
 
 	* dse.c (add_wild_read): Do not remove read_info_t

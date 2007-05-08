@@ -2258,7 +2258,6 @@ rest_of_handle_partition_blocks (void)
 {
   no_new_pseudos = 0;
   partition_hot_cold_basic_blocks ();
-  allocate_reg_life_data ();
   no_new_pseudos = 1;
   return 0;
 }

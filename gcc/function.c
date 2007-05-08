@@ -3482,8 +3482,10 @@ pad_below (struct args_size *offset_ptr, enum machine_mode passed_mode, tree siz
 static bool
 regno_clobbered_at_setjmp (bitmap setjmp_crosses, int regno)
 {
-  if (n_basic_blocks == NUM_FIXED_BLOCKS)
-    return 0;
+  /* There appear to be cases where some local vars never reach the
+     backend but have bogus regnos.  */
+  if (regno >= max_reg_num ())
+    return false;
 
   return ((REG_N_SETS (regno) > 1
 	   || REGNO_REG_SET_P (df_get_live_out (ENTRY_BLOCK_PTR), regno))
@@ -3537,7 +3539,11 @@ setjmp_args_warning (bitmap setjmp_crosses)
 void 
 generate_setjmp_warnings (void)
 {
-  bitmap setjmp_crosses = df_ri_get_setjmp_crosses ();
+  bitmap setjmp_crosses = regstat_get_setjmp_crosses ();
+
+  if (n_basic_blocks == NUM_FIXED_BLOCKS
+      || bitmap_empty_p (setjmp_crosses))
+    return;
 
   setjmp_vars_warning (setjmp_crosses, DECL_INITIAL (current_function_decl));
   setjmp_args_warning (setjmp_crosses);

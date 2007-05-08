@@ -195,7 +195,7 @@ regrename_optimize (void)
   char *first_obj;
 
   df_set_flags (DF_LR_RUN_DCE);
-  df_ri_add_problem (0);
+  df_note_add_problem ();
   df_analyze ();
   df_set_flags (DF_NO_INSN_RESCAN);
   

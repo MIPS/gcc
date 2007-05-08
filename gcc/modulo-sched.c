@@ -910,9 +910,10 @@ sms_schedule (void)
   df_set_flags (DF_LR_RUN_DCE);
   df_rd_add_problem ();
   df_ru_add_problem ();
-  df_ri_add_problem (DF_RI_LIFE);
+  df_note_add_problem ();
   df_chain_add_problem (DF_DU_CHAIN + DF_UD_CHAIN);
   df_analyze ();
+  regstat_compute_calls_crossed ();
   sched_init ();
 
   /* Allocate memory to hold the DDG array one entry for each loop.
@@ -1215,6 +1216,7 @@ sms_schedule (void)
       free_ddg (g);
     }
 
+  regstat_free_calls_crossed ();
   free (g_arr);
 
   /* Release scheduler data, needed until now because of DFA.  */
@@ -2470,7 +2472,6 @@ rest_of_handle_sms (void)
 
   /* Update the life information, because we add pseudos.  */
   max_regno = max_reg_num ();
-  allocate_reg_info (max_regno, FALSE, FALSE);
   no_new_pseudos = 1;
 
   /* Finalize layout changes.  */

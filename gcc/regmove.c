@@ -869,7 +869,7 @@ copy_src_to_dest (rtx insn, rtx src, rtx dest)
 
       /* Update the various register tables.  */
       dest_regno = REGNO (dest);
-      REG_N_SETS (dest_regno) ++;
+      INC_REG_N_SETS (dest_regno, 1);
       REG_LIVE_LENGTH (dest_regno)++;
       src_regno = REGNO (src);
       if (! find_reg_note (move_insn, REG_DEAD, src))
@@ -1080,13 +1080,16 @@ regmove_optimize (rtx f, int nregs)
   int i;
   rtx copy_src, copy_dst;
 
-  df_ri_add_problem (DF_RI_LIFE);
-  df_analyze ();
-
   /* ??? Hack.  Regmove doesn't examine the CFG, and gets mightily
      confused by non-call exceptions ending blocks.  */
   if (flag_non_call_exceptions)
     return;
+
+  df_note_add_problem ();
+  df_analyze ();
+
+  regstat_init_n_sets_and_refs ();
+  regstat_compute_ri ();
 
   /* Find out where a potential flags register is live, and so that we
      can suppress some optimizations in those zones.  */
@@ -1489,8 +1492,8 @@ regmove_optimize (rtx f, int nregs)
 		  dstno = REGNO (dst);
 		  srcno = REGNO (src);
 
-		  REG_N_SETS (dstno)++;
-		  REG_N_SETS (srcno)--;
+		  INC_REG_N_SETS (dstno, 1);
+		  INC_REG_N_SETS (srcno, -1);
 
 		  REG_N_CALLS_CROSSED (dstno) += num_calls;
 		  REG_N_CALLS_CROSSED (srcno) -= num_calls;
@@ -1530,6 +1533,8 @@ regmove_optimize (rtx f, int nregs)
       free (reg_set_in_bb);
       reg_set_in_bb = NULL;
     }
+  regstat_free_n_sets_and_refs ();
+  regstat_free_ri ();
 }
 
 /* Returns nonzero if INSN's pattern has matching constraints for any operand.
@@ -1884,7 +1889,7 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 	  && try_auto_increment (search_end, post_inc, 0, src, newconst, 1))
 	post_inc = 0;
       validate_change (insn, &XEXP (SET_SRC (set), 1), GEN_INT (insn_const), 0);
-      REG_N_SETS (REGNO (src))++;
+      INC_REG_N_SETS (REGNO (src), 1);
       REG_LIVE_LENGTH (REGNO (src))++;
     }
   if (overlap)
@@ -1951,7 +1956,7 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 	      && validate_change (insn, &SET_SRC (set), XEXP (note, 0), 0))
 	    {
 	      delete_insn (q);
-	      REG_N_SETS (REGNO (src))--;
+	      INC_REG_N_SETS (REGNO (src), -1);
 	      REG_N_CALLS_CROSSED (REGNO (src)) -= num_calls2;
 	      REG_LIVE_LENGTH (REGNO (src)) -= s_length2;
 	      insn_const = 0;
@@ -2023,8 +2028,8 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
       REG_N_CALLS_CROSSED (REGNO (src)) += s_num_calls;
     }
 
-  REG_N_SETS (REGNO (src))++;
-  REG_N_SETS (REGNO (dst))--;
+  INC_REG_N_SETS (REGNO (src), 1);
+  INC_REG_N_SETS (REGNO (dst), -1);
 
   REG_N_CALLS_CROSSED (REGNO (dst)) -= num_calls;
 

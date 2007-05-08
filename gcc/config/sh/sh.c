@@ -9042,7 +9042,7 @@ flow_dependent_p_1 (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
 static int
 sh_pr_n_sets (void)
 {
-  return REG_N_SETS (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
+  return DF_REG_DEF_COUNT (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
 }
 
 /* Return where to allocate pseudo for a given hard register initial
@@ -9293,12 +9293,6 @@ sh_md_init (FILE *dump ATTRIBUTE_UNUSED,
 static short
 high_pressure (enum machine_mode mode)
 {
-  /* Pressure on register r0 can lead to spill failures. so avoid sched1 for
-     functions that already have high pressure on r0. */
-  if ((REG_N_SETS (0) - REG_N_DEATHS (0)) >= R0_MAX_LIFE_REGIONS
-      && REG_LIVE_LENGTH (0) >= R0_MAX_LIVE_LENGTH)
-    return 1;
-
   if (mode == SFmode)
     return (CURR_REGMODE_PRESSURE (SFmode) > SFMODE_MAX_WEIGHT);
   else

@@ -1540,7 +1540,7 @@ df_compact_blocks (void)
   int i, p;
   basic_block bb;
   void **problem_temps;
-  int size = last_basic_block *sizeof (void *);
+  int size = last_basic_block * sizeof (void *);
   bitmap tmp = BITMAP_ALLOC (&df_bitmap_obstack);
   problem_temps = xmalloc (size);
 

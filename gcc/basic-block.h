@@ -464,18 +464,6 @@ struct control_flow_graph GTY(())
 
 extern bitmap_obstack reg_obstack;
 
-/* Indexed by n, gives number of basic block that  (REG n) is used in.
-   If the value is REG_BLOCK_GLOBAL (-2),
-   it means (REG n) is used in more than one basic block.
-   REG_BLOCK_UNKNOWN (-1) means it hasn't been seen yet so we don't know.
-   This information remains valid for the rest of the compilation
-   of the current function; it is used to control register allocation.  */
-
-#define REG_BLOCK_UNKNOWN -1
-#define REG_BLOCK_GLOBAL -2
-
-#define REG_BASIC_BLOCK(N)				\
-  (VEC_index (reg_info_p, reg_n_info, N)->basic_block)
 
 /* Stuff for recording basic block info.  */
 

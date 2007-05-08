@@ -3125,7 +3125,7 @@ reg_to_stack (void)
   if (i > LAST_STACK_REG)
     return false;
 
-  df_ri_add_problem (0);
+  df_note_add_problem ();
   df_analyze ();
 
   mark_dfs_back_edges ();

@@ -398,17 +398,6 @@ compute_regsets (HARD_REG_SET *elim_set,
   compact_blocks ();
 
   max_allocno = 0;
-  /* Do not recompute the register info.  Local_alloc has played with
-     this in a way that global expects.  */
-  /* Create a new version of df that has the special version of UR if
-     we are doing optimization.  */
-  if (optimize)
-    {
-      df_remove_problem (df_live);
-      df_urec_add_problem ();
-    }
-  df_analyze ();
-  df_set_flags (DF_NO_INSN_RESCAN);
 
   /* A machine may have certain hard registers that
      are safe to use only within a basic block.  */
@@ -2140,6 +2129,9 @@ rest_of_handle_global_alloc (void)
 
   if (optimize)
     df_analyze ();
+
+  regstat_free_n_sets_and_refs ();
+  regstat_free_ri ();
   return 0;
 }
 

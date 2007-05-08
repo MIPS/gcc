@@ -51,7 +51,6 @@ static void
 initialize_uninitialized_regs (void)
 {
   basic_block bb;
-  bool did_something = false;
   bitmap already_genned = BITMAP_ALLOC (NULL);
 
   df_analyze ();
@@ -103,7 +102,6 @@ initialize_uninitialized_regs (void)
 		  move_insn = get_insns ();
 		  end_sequence ();
 		  add_insn_before (move_insn, insn, bb);
-		  did_something = true;
 		  if (dump_file)
 		    fprintf (dump_file, 
 			     "adding initialization in %s of reg %d at in block %d for insn %d.\n", 
@@ -114,8 +112,6 @@ initialize_uninitialized_regs (void)
     }
 
   BITMAP_FREE (already_genned);
-  if (did_something)
-    allocate_reg_life_data ();
 }
 
 static bool

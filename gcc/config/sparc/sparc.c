@@ -7632,7 +7632,7 @@ sparc_check_64 (rtx x, rtx insn)
     y = gen_rtx_REG (SImode, REGNO (x) + WORDS_BIG_ENDIAN);
 
   if (flag_expensive_optimizations
-      && REG_N_SETS (REGNO (y)) == 1)
+      && DF_REG_DEF_COUNT (REGNO (y)) == 1)
     set_once = 1;
 
   if (insn == 0)

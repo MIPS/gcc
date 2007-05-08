@@ -574,52 +574,59 @@ dump_reg_info (FILE *file)
   if (reload_completed)
     return;
 
-  if (VEC_length (reg_info_p, reg_n_info) < max)
-    max = VEC_length (reg_info_p, reg_n_info);
+  if (reg_info_p_size < max)
+    max = reg_info_p_size;
 
   fprintf (file, "%d registers.\n", max);
   for (i = FIRST_PSEUDO_REGISTER; i < max; i++)
-    if (VEC_index (reg_info_p, reg_n_info, i) && REG_N_REFS (i))
-      {
-	enum reg_class class, altclass;
-	
+    {
+      enum reg_class class, altclass;
+      
+      if (regstat_n_sets_and_refs)
 	fprintf (file, "\nRegister %d used %d times across %d insns",
 		 i, REG_N_REFS (i), REG_LIVE_LENGTH (i));
-	if (REG_BASIC_BLOCK (i) >= 0)
-	  fprintf (file, " in block %d", REG_BASIC_BLOCK (i));
-	if (REG_N_SETS (i))
-	  fprintf (file, "; set %d time%s", REG_N_SETS (i),
-		   (REG_N_SETS (i) == 1) ? "" : "s");
-	if (regno_reg_rtx[i] != NULL && REG_USERVAR_P (regno_reg_rtx[i]))
-	  fprintf (file, "; user var");
-	if (REG_N_DEATHS (i) != 1)
-	  fprintf (file, "; dies in %d places", REG_N_DEATHS (i));
-	if (REG_N_CALLS_CROSSED (i) == 1)
-	  fprintf (file, "; crosses 1 call");
-	else if (REG_N_CALLS_CROSSED (i))
-	  fprintf (file, "; crosses %d calls", REG_N_CALLS_CROSSED (i));
-	if (regno_reg_rtx[i] != NULL
-	    && PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
-	  fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
-	
-	class = reg_preferred_class (i);
-	altclass = reg_alternate_class (i);
-	if (class != GENERAL_REGS || altclass != ALL_REGS)
-	  {
-	    if (altclass == ALL_REGS || class == ALL_REGS)
-	      fprintf (file, "; pref %s", reg_class_names[(int) class]);
-	    else if (altclass == NO_REGS)
-	      fprintf (file, "; %s or none", reg_class_names[(int) class]);
-	    else
-	      fprintf (file, "; pref %s, else %s",
-		       reg_class_names[(int) class],
-		       reg_class_names[(int) altclass]);
-	  }
-	
-	if (regno_reg_rtx[i] != NULL && REG_POINTER (regno_reg_rtx[i]))
-	  fprintf (file, "; pointer");
-	fprintf (file, ".\n");
-      }
+      else if (df)
+	fprintf (file, "\nRegister %d used %d times across %d insns",
+		 i, DF_REG_USE_COUNT (i) + DF_REG_DEF_COUNT (i), REG_LIVE_LENGTH (i));
+      
+      if (REG_BASIC_BLOCK (i) >= NUM_FIXED_BLOCKS)
+	fprintf (file, " in block %d", REG_BASIC_BLOCK (i));
+      if (regstat_n_sets_and_refs)
+	fprintf (file, "; set %d time%s", REG_N_SETS (i),
+		 (REG_N_SETS (i) == 1) ? "" : "s");
+      else if (df)
+	fprintf (file, "; set %d time%s", DF_REG_DEF_COUNT (i),
+		 (DF_REG_DEF_COUNT (i) == 1) ? "" : "s");
+      if (regno_reg_rtx[i] != NULL && REG_USERVAR_P (regno_reg_rtx[i]))
+	fprintf (file, "; user var");
+      if (REG_N_DEATHS (i) != 1)
+	fprintf (file, "; dies in %d places", REG_N_DEATHS (i));
+      if (REG_N_CALLS_CROSSED (i) == 1)
+	fprintf (file, "; crosses 1 call");
+      else if (REG_N_CALLS_CROSSED (i))
+	fprintf (file, "; crosses %d calls", REG_N_CALLS_CROSSED (i));
+      if (regno_reg_rtx[i] != NULL
+	  && PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
+	fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
+      
+      class = reg_preferred_class (i);
+      altclass = reg_alternate_class (i);
+      if (class != GENERAL_REGS || altclass != ALL_REGS)
+	{
+	  if (altclass == ALL_REGS || class == ALL_REGS)
+	    fprintf (file, "; pref %s", reg_class_names[(int) class]);
+	  else if (altclass == NO_REGS)
+	    fprintf (file, "; %s or none", reg_class_names[(int) class]);
+	  else
+	    fprintf (file, "; pref %s, else %s",
+		     reg_class_names[(int) class],
+		     reg_class_names[(int) altclass]);
+	}
+      
+      if (regno_reg_rtx[i] != NULL && REG_POINTER (regno_reg_rtx[i]))
+	fprintf (file, "; pointer");
+      fprintf (file, ".\n");
+    }
 }
 
 
@@ -629,7 +636,7 @@ dump_flow_info (FILE *file, int flags)
   basic_block bb;
 
   /* There are no pseudo registers after reload.  Don't dump them.  */
-  if (reg_n_info && (flags & TDF_DETAILS) != 0)
+  if (reg_info_p_size && (flags & TDF_DETAILS) != 0)
     dump_reg_info (file);
 
   fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);

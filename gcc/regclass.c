@@ -247,20 +247,6 @@ static char *in_inc_dec;
 
 static GTY(()) rtx top_of_stack[MAX_MACHINE_MODE];
 
-/* Linked list of reg_info structures allocated for reg_n_info array.
-   Grouping all of the allocated structures together in one lump
-   means only one call to bzero to clear them, rather than n smaller
-   calls.  */
-struct reg_info_data {
-  struct reg_info_data *next;	/* next set of reg_info structures */
-  size_t min_index;		/* minimum index # */
-  size_t max_index;		/* maximum index # */
-  char used_p;			/* nonzero if this has been used previously */
-  reg_info data[1];		/* beginning of the reg_info data */
-};
-
-static struct reg_info_data *reg_info_head;
-
 /* No more global register variables may be declared; true once
    regclass has been initialized.  */
 
@@ -864,10 +850,6 @@ static struct costs init_cost;
 
 static struct reg_pref *reg_pref;
 
-/* Allocated buffers for reg_pref.  */
-
-static struct reg_pref *reg_pref_buffer;
-
 /* Frequency of executions of current insn.  */
 
 static int frequency;
@@ -1162,18 +1144,18 @@ scan_one_insn (rtx insn, int pass ATTRIBUTE_UNUSED)
 	}
 
       /* This makes one more setting of new insns's dest.  */
-      REG_N_SETS (REGNO (recog_data.operand[0]))++;
-      REG_N_REFS (REGNO (recog_data.operand[0]))++;
+      INC_REG_N_SETS (REGNO (recog_data.operand[0]), 1);
+      INC_REG_N_REFS (REGNO (recog_data.operand[0]), 1);
       REG_FREQ (REGNO (recog_data.operand[0])) += frequency;
 
       *recog_data.operand_loc[1] = recog_data.operand[0];
-      REG_N_REFS (REGNO (recog_data.operand[0]))++;
+      INC_REG_N_REFS (REGNO (recog_data.operand[0]), 1);
       REG_FREQ (REGNO (recog_data.operand[0])) += frequency;
       for (i = recog_data.n_dups - 1; i >= 0; i--)
 	if (recog_data.dup_num[i] == 1)
 	  {
 	    *recog_data.dup_loc[i] = recog_data.operand[0];
-	    REG_N_REFS (REGNO (recog_data.operand[0]))++;
+	    INC_REG_N_REFS (REGNO (recog_data.operand[0]), 1);
 	    REG_FREQ (REGNO (recog_data.operand[0])) += frequency;
 	  }
 
@@ -1261,8 +1243,13 @@ regclass (rtx f, int nregs)
   rtx insn;
   int i;
   int pass;
+  max_regno = max_reg_num ();
 
   init_recog ();
+
+  reg_renumber = xmalloc (max_regno * sizeof (short));
+  reg_pref = XCNEWVEC (struct reg_pref, max_regno);
+  memset (reg_renumber, -1, max_regno * sizeof (short));
 
   costs = XNEWVEC (struct costs, nregs);
 
@@ -1320,9 +1307,6 @@ regclass (rtx f, int nregs)
 	 and find which class is preferred.  Store that in
 	 `prefclass'.  Record in `altclass' the largest register
 	 class any of whose registers is better than memory.  */
-
-      if (pass == 0)
-	reg_pref = reg_pref_buffer;
 
       if (dump_file)
 	{
@@ -2199,184 +2183,35 @@ auto_inc_dec_reg_p (rtx reg, enum machine_mode mode)
 }
 #endif
 
-static short *renumber;
-static size_t regno_allocated;
-static unsigned int reg_n_max;
-
-void
-allocate_reg_life_data (void)
-{
-  /* Recalculate the register space, in case it has grown.  Old style
-     vector oriented regsets would set regset_{size,bytes} here also.  */
-  allocate_reg_info (max_regno, FALSE, FALSE);
-}
-
-/* Allocate enough space to hold NUM_REGS registers for the tables used for
-   reg_scan and flow_analysis that are indexed by the register number.  If
-   NEW_P is nonzero, initialize all of the registers, otherwise only
-   initialize the new registers allocated.  The same table is kept from
-   function to function, only reallocating it when we need more room.  If
-   RENUMBER_P is nonzero, allocate the reg_renumber array also.  */
-
-void
-allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
-{
-  size_t size_info;
-  size_t size_renumber;
-  size_t min = (new_p) ? 0 : reg_n_max;
-  struct reg_info_data *reg_data;
-
-  max_regno = max_reg_num ();
-  if (num_regs > regno_allocated)
-    {
-      size_t old_allocated = regno_allocated;
-
-      regno_allocated = num_regs + (num_regs / 20);	/* Add some slop space.  */
-      size_renumber = regno_allocated * sizeof (short);
-
-      if (!reg_n_info)
-	{
-	  reg_n_info = VEC_alloc (reg_info_p, heap, regno_allocated);
-	  VEC_safe_grow_cleared (reg_info_p, heap, reg_n_info,
-				 regno_allocated);
-	  renumber = xmalloc (size_renumber);
-	  reg_pref_buffer = XNEWVEC (struct reg_pref, regno_allocated);
-	}
-      else
-	{
-	  size_t old_length = VEC_length (reg_info_p, reg_n_info);
-	  if (old_length < regno_allocated)
-	    {
-	      VEC_safe_grow_cleared (reg_info_p, heap, reg_n_info,
-				     regno_allocated);
-	    }
-	  else if (regno_allocated < old_length)
-	    {
-	      VEC_truncate (reg_info_p, reg_n_info, regno_allocated);
-	    }
-
-	  if (new_p)		/* If we're zapping everything, no need to realloc.  */
-	    {
-	      free ((char *) renumber);
-	      free ((char *) reg_pref);
-	      renumber = xmalloc (size_renumber);
-	      reg_pref_buffer = XNEWVEC (struct reg_pref, regno_allocated);
-	    }
-
-	  else
-	    {
-	      renumber = xrealloc (renumber, size_renumber);
-	      reg_pref_buffer = (struct reg_pref *) xrealloc (reg_pref_buffer,
-					  regno_allocated
-					  * sizeof (struct reg_pref));
-	    }
-	}
-
-      size_info = (regno_allocated - old_allocated) * sizeof (reg_info)
-	+ sizeof (struct reg_info_data) - sizeof (reg_info);
-      reg_data = xcalloc (size_info, 1);
-      reg_data->min_index = old_allocated;
-      reg_data->max_index = regno_allocated - 1;
-      reg_data->next = reg_info_head;
-      reg_info_head = reg_data;
-    }
-
-  reg_n_max = num_regs;
-  if (min < num_regs)
-    {
-      /* Loop through each of the segments allocated for the actual
-	 reg_info pages, and set up the pointers, zero the pages, etc.  */
-      for (reg_data = reg_info_head;
-	   reg_data && reg_data->max_index >= min;
-	   reg_data = reg_data->next)
-	{
-	  size_t min_index = reg_data->min_index;
-	  size_t max_index = reg_data->max_index;
-	  size_t max = MIN (max_index, num_regs);
-	  size_t local_min = min - min_index;
-	  size_t i;
-
-	  if (reg_data->min_index > num_regs)
-	    continue;
-
-	  if (min < min_index)
-	    local_min = 0;
-	  if (!reg_data->used_p)	/* page just allocated with calloc */
-	    reg_data->used_p = 1;	/* no need to zero */
-	  else
-	    memset (&reg_data->data[local_min], 0,
-		    sizeof (reg_info) * (max - min_index - local_min + 1));
-
-	  for (i = min_index+local_min; i <= max; i++)
-	    {
-	      VEC_replace (reg_info_p, reg_n_info, i,
-			   &reg_data->data[i-min_index]);
-	      REG_BASIC_BLOCK (i) = REG_BLOCK_UNKNOWN;
-	      renumber[i] = -1;
-	      reg_pref_buffer[i].prefclass = (char) NO_REGS;
-	      reg_pref_buffer[i].altclass = (char) NO_REGS;
-	    }
-	}
-    }
-
-  /* If {pref,alt}class have already been allocated, update the pointers to
-     the newly realloced ones.  */
-  if (reg_pref)
-    reg_pref = reg_pref_buffer;
-
-  if (renumber_p)
-    reg_renumber = renumber;
-}
-
 /* Free up the space allocated by allocate_reg_info.  */
 void
 free_reg_info (void)
 {
-  if (reg_n_info)
+  if (reg_pref)
     {
-      struct reg_info_data *reg_data;
-      struct reg_info_data *reg_next;
-
-      VEC_free (reg_info_p, heap, reg_n_info);
-      for (reg_data = reg_info_head; reg_data; reg_data = reg_next)
-	{
-	  reg_next = reg_data->next;
-	  free ((char *) reg_data);
-	}
-
-      free (reg_pref_buffer);
-      reg_pref_buffer = (struct reg_pref *) 0;
-      reg_info_head = (struct reg_info_data *) 0;
-      renumber = (short *) 0;
+      free (reg_pref);
+      reg_pref = NULL;
     }
-  regno_allocated = 0;
-  reg_n_max = 0;
+
+  if (reg_renumber)
+    {
+      free (reg_renumber);
+      reg_renumber = NULL;
+    }
 }
 
-/* Clear the information stored for REGNO.  */
-void
-clear_reg_info_regno (unsigned int regno)
-{
-  if (regno < regno_allocated)
-    memset (VEC_index (reg_info_p, reg_n_info, regno), 0, sizeof (reg_info));
-}
 
-/* This is the `regscan' pass of the compiler, run just before cse
-   and again just before loop.
-
-   It finds the first and last use of each pseudo-register
-   and counts the number of sets in the vector reg_n_sets.
-
-   REPEAT is nonzero the second time this is called.  */
+/* This is the `regscan' pass of the compiler, run just before cse and
+   again just before loop.  It finds the first and last use of each
+   pseudo-register.  */
 
 void
-reg_scan (rtx f, unsigned int nregs)
+reg_scan (rtx f, unsigned int nregs ATTRIBUTE_UNUSED)
 {
   rtx insn;
 
   timevar_push (TV_REG_SCAN);
 
-  allocate_reg_info (nregs, TRUE, FALSE);
   for (insn = f; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       {
@@ -2465,7 +2300,7 @@ reg_scan_mark_refs (rtx x, rtx insn)
 	     union in two threads of control in the presence of global
 	     optimizations).  So only set REG_POINTER on the destination
 	     pseudo if this is the only set of that pseudo.  */
-	  && REG_N_SETS (REGNO (SET_DEST (x))) == 1
+	  && DF_REG_DEF_COUNT (REGNO (SET_DEST (x))) == 1
 	  && ! REG_USERVAR_P (SET_DEST (x))
 	  && ! REG_POINTER (SET_DEST (x))
 	  && ((REG_P (SET_SRC (x))

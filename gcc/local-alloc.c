@@ -391,7 +391,7 @@ local_alloc (void)
 
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     {
-      if (REG_BASIC_BLOCK (i) >= 0 && REG_N_DEATHS (i) == 1)
+      if (REG_BASIC_BLOCK (i) >= NUM_FIXED_BLOCKS && REG_N_DEATHS (i) == 1)
 	reg_qty[i] = -2;
       else
 	reg_qty[i] = -1;
@@ -607,7 +607,7 @@ equiv_init_movable_p (rtx x, int regno)
     case REG:
       return (reg_equiv[REGNO (x)].loop_depth >= reg_equiv[regno].loop_depth
 	      && reg_equiv[REGNO (x)].replace)
-	     || (REG_BASIC_BLOCK (REGNO (x)) < 0 && ! rtx_varies_p (x, 0));
+	     || (REG_BASIC_BLOCK (REGNO (x)) < NUM_FIXED_BLOCKS && ! rtx_varies_p (x, 0));
 
     case UNSPEC_VOLATILE:
       return 0;
@@ -799,7 +799,8 @@ update_equiv_regs (void)
   rtx insn;
   basic_block bb;
   int loop_depth;
-
+  bitmap cleared_regs;
+  
   reg_equiv = XCNEWVEC (struct equivalence, max_regno);
   reg_equiv_init = ggc_alloc_cleared (max_regno * sizeof (rtx));
   reg_equiv_init_size = max_regno;
@@ -914,7 +915,7 @@ update_equiv_regs (void)
 	  if (note && GET_CODE (XEXP (note, 0)) == EXPR_LIST)
 	    note = NULL_RTX;
 
-	  if (REG_N_SETS (regno) != 1
+	  if (DF_REG_DEF_COUNT (regno) != 1
 	      && (! note
 		  || rtx_varies_p (XEXP (note, 0), 0)
 		  || (reg_equiv[regno].replacement
@@ -930,7 +931,7 @@ update_equiv_regs (void)
 
 	  /* If this register is known to be equal to a constant, record that
 	     it is always equivalent to the constant.  */
-	  if (REG_N_SETS (regno) == 1
+	  if (DF_REG_DEF_COUNT (regno) == 1
 	      && note && ! rtx_varies_p (XEXP (note, 0), 0))
 	    {
 	      rtx note_value = XEXP (note, 0);
@@ -955,7 +956,7 @@ update_equiv_regs (void)
 
 	  note = find_reg_note (insn, REG_EQUIV, NULL_RTX);
 
-	  if (note == 0 && REG_BASIC_BLOCK (regno) >= 0
+	  if (note == 0 && REG_BASIC_BLOCK (regno) >= NUM_FIXED_BLOCKS
 	      && MEM_P (SET_SRC (set))
 	      && validate_equiv_mem (insn, dest, SET_SRC (set)))
 	    note = set_unique_reg_note (insn, REG_EQUIV, copy_rtx (SET_SRC (set)));
@@ -1052,8 +1053,8 @@ update_equiv_regs (void)
 
       if (MEM_P (dest) && REG_P (src)
 	  && (regno = REGNO (src)) >= FIRST_PSEUDO_REGISTER
-	  && REG_BASIC_BLOCK (regno) >= 0
-	  && REG_N_SETS (regno) == 1
+	  && REG_BASIC_BLOCK (regno) >= NUM_FIXED_BLOCKS
+	  && DF_REG_DEF_COUNT (regno) == 1
 	  && reg_equiv[regno].init_insns != 0
 	  && reg_equiv[regno].init_insns != const0_rtx
 	  && ! find_reg_note (XEXP (reg_equiv[regno].init_insns, 0),
@@ -1076,6 +1077,7 @@ update_equiv_regs (void)
 	}
     }
 
+  cleared_regs = BITMAP_ALLOC (NULL);
   /* Now scan all regs killed in an insn to see if any of them are
      registers only used that once.  If so, see if we can replace the
      reference with the equivalent form.  If we can, delete the
@@ -1158,7 +1160,7 @@ update_equiv_regs (void)
 			}
 
 		      remove_death (regno, insn);
-		      REG_N_REFS (regno) = 0;
+		      SET_REG_N_REFS (regno, 0);
 		      REG_FREQ (regno) = 0;
 		      delete_insn (equiv_insn);
 
@@ -1166,6 +1168,7 @@ update_equiv_regs (void)
 			= XEXP (reg_equiv[regno].init_insns, 1);
 
 		      reg_equiv_init[regno] = NULL_RTX;
+		      bitmap_set_bit (cleared_regs, regno);
 		    }
 		  /* Move the initialization of the register to just before
 		     INSN.  Update the flow information.  */
@@ -1196,15 +1199,31 @@ update_equiv_regs (void)
 
 		      reg_equiv_init[regno]
 			= gen_rtx_INSN_LIST (VOIDmode, new_insn, NULL_RTX);
+		      bitmap_set_bit (cleared_regs, regno);
 		    }
 		}
 	    }
 	}
     }
 
+  if (!bitmap_empty_p (cleared_regs))
+    FOR_EACH_BB (bb)
+      {
+	bitmap_and_compl_into (DF_RA_LIVE_IN (bb), cleared_regs);
+	if (DF_RA_LIVE_TOP (bb))
+	  bitmap_and_compl_into (DF_RA_LIVE_TOP (bb), cleared_regs);
+	bitmap_and_compl_into (DF_RA_LIVE_OUT (bb), cleared_regs);
+	bitmap_and_compl_into (DF_LR_IN (bb), cleared_regs);
+	if (DF_LR_TOP (bb))
+	  bitmap_and_compl_into (DF_LR_TOP (bb), cleared_regs);
+	bitmap_and_compl_into (DF_LR_OUT (bb), cleared_regs);
+      }
+
+  BITMAP_FREE (cleared_regs);
 
   out:
   /* Clean up.  */
+
   end_alias_analysis ();
   free (reg_equiv);
 }
@@ -2496,18 +2515,24 @@ rest_of_handle_local_alloc (void)
   int rebuild_notes;
   int max_regno = max_reg_num ();
 
-  /* Allocate the reg_renumber array.  For non-optimizing compilation,
-     allocate the register info array too, because we have not
-     run neither dataflow nor regscan so far.  */
-  allocate_reg_info (max_regno, !optimize, TRUE);
+  df_note_add_problem ();
+  if (optimize)
+    {
+      /* Create a new version of df that has the special version of UR
+	 if we are doing optimization.  */
+      df_remove_problem (df_live);
+      df_urec_add_problem ();
+    }
+  df_analyze ();
+  regstat_init_n_sets_and_refs ();
+  regstat_compute_ri ();
 
-  df_ri_add_problem (DF_RI_LIFE + DF_RI_SETJMP);
   /* There is just too much going on in the register allocators to
      keep things up to date.  At the end we have to rescan anyway
      because things change when the reload_completed flag is set.  
      So we just turn off scanning and we will rescan by hand.  */
-  df_set_flags (DF_DEFER_INSN_RESCAN);
-  df_analyze ();
+  df_set_flags (DF_NO_INSN_RESCAN);
+
 
   /* If we are not optimizing, then this is the only place before
      register allocation where dataflow is done.  And that is needed

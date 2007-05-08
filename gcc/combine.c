@@ -2997,7 +2997,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	      if (REG_P (new_i3_dest)
 		  && REG_P (new_i2_dest)
 		  && REGNO (new_i3_dest) == REGNO (new_i2_dest))
-		REG_N_SETS (REGNO (new_i2_dest))++;
+		INC_REG_N_SETS (REGNO (new_i2_dest), 1);
 	    }
 	}
 
@@ -3317,17 +3317,8 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
 	  if (REG_NOTE_KIND (note) == REG_UNUSED
 	      && ! reg_set_p (XEXP (note, 0), PATTERN (undobuf.other_insn)))
-	    {
-	      if (REG_P (XEXP (note, 0)))
-		REG_N_DEATHS (REGNO (XEXP (note, 0)))--;
-
-	      remove_note (undobuf.other_insn, note);
-	    }
+	    remove_note (undobuf.other_insn, note);
 	}
-
-      for (note = new_other_notes; note; note = XEXP (note, 1))
-	if (REG_P (XEXP (note, 0)))
-	  REG_N_DEATHS (REGNO (XEXP (note, 0)))++;
 
       distribute_notes (new_other_notes, undobuf.other_insn,
 			undobuf.other_insn, NULL_RTX, NULL_RTX, NULL_RTX);
@@ -3555,26 +3546,13 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
     /* Distribute any notes added to I2 or I3 by recog_for_combine.  We
        know these are REG_UNUSED and want them to go to the desired insn,
-       so we always pass it as i3.  We have not counted the notes in
-       reg_n_deaths yet, so we need to do so now.  */
+       so we always pass it as i3.  */
 
     if (newi2pat && new_i2_notes)
-      {
-	for (temp = new_i2_notes; temp; temp = XEXP (temp, 1))
-	  if (REG_P (XEXP (temp, 0)))
-	    REG_N_DEATHS (REGNO (XEXP (temp, 0)))++;
-
-	distribute_notes (new_i2_notes, i2, i2, NULL_RTX, NULL_RTX, NULL_RTX);
-      }
-
+      distribute_notes (new_i2_notes, i2, i2, NULL_RTX, NULL_RTX, NULL_RTX);
+    
     if (new_i3_notes)
-      {
-	for (temp = new_i3_notes; temp; temp = XEXP (temp, 1))
-	  if (REG_P (XEXP (temp, 0)))
-	    REG_N_DEATHS (REGNO (XEXP (temp, 0)))++;
-
-	distribute_notes (new_i3_notes, i3, i3, NULL_RTX, NULL_RTX, NULL_RTX);
-      }
+      distribute_notes (new_i3_notes, i3, i3, NULL_RTX, NULL_RTX, NULL_RTX);
 
     /* If I3DEST was used in I3SRC, it really died in I3.  We may need to
        put a REG_DEAD note for it somewhere.  If NEWI2PAT exists and sets
@@ -3585,9 +3563,6 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
     if (i3dest_killed)
       {
-	if (REG_P (i3dest_killed))
-	  REG_N_DEATHS (REGNO (i3dest_killed))++;
-
 	if (newi2pat && reg_set_p (i3dest_killed, newi2pat))
 	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i3dest_killed,
 					       NULL_RTX),
@@ -3601,9 +3576,6 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
     if (i2dest_in_i2src)
       {
-	if (REG_P (i2dest))
-	  REG_N_DEATHS (REGNO (i2dest))++;
-
 	if (newi2pat && reg_set_p (i2dest, newi2pat))
 	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i2dest, NULL_RTX),
 			    NULL_RTX, i2, NULL_RTX, NULL_RTX, NULL_RTX);
@@ -3615,9 +3587,6 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
     if (i1dest_in_i1src)
       {
-	if (REG_P (i1dest))
-	  REG_N_DEATHS (REGNO (i1dest))++;
-
 	if (newi2pat && reg_set_p (i1dest, newi2pat))
 	  distribute_notes (gen_rtx_EXPR_LIST (REG_DEAD, i1dest, NULL_RTX),
 			    NULL_RTX, i2, NULL_RTX, NULL_RTX, NULL_RTX);
@@ -3658,7 +3627,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	    && ! i2dest_in_i2src)
 	  {
 	    regno = REGNO (i2dest);
-	    REG_N_SETS (regno)--;
+	    INC_REG_N_SETS (regno, -1);
 	  }
       }
 
@@ -3676,7 +3645,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
 	regno = REGNO (i1dest);
 	if (! added_sets_1 && ! i1dest_in_i1src)
-	  REG_N_SETS (regno)--;
+	  INC_REG_N_SETS (regno, -1);
       }
 
     /* Update reg_stat[].nonzero_bits et al for any changes that may have
@@ -12001,10 +11970,7 @@ remove_death (unsigned int regno, rtx insn)
   rtx note = find_regno_note (insn, REG_DEAD, regno);
 
   if (note)
-    {
-      REG_N_DEATHS (regno)--;
-      remove_note (insn, note);
-    }
+    remove_note (insn, note);
 
   return note;
 }
@@ -12106,8 +12072,6 @@ move_deaths (rtx x, rtx maybe_kill_insn, int from_luid, rtx to_insn,
 	    }
 	  else
 	    *pnotes = gen_rtx_EXPR_LIST (REG_DEAD, x, *pnotes);
-
-	  REG_N_DEATHS (regno)++;
 	}
 
       return;
@@ -12774,23 +12738,11 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	  XEXP (note, 1) = REG_NOTES (place);
 	  REG_NOTES (place) = note;
 	}
-      else if ((REG_NOTE_KIND (note) == REG_DEAD
-		|| REG_NOTE_KIND (note) == REG_UNUSED)
-	       && REG_P (XEXP (note, 0)))
-	REG_N_DEATHS (REGNO (XEXP (note, 0)))--;
 
       if (place2)
-	{
-	  if ((REG_NOTE_KIND (note) == REG_DEAD
-	       || REG_NOTE_KIND (note) == REG_UNUSED)
-	      && REG_P (XEXP (note, 0)))
-	    REG_N_DEATHS (REGNO (XEXP (note, 0)))++;
-
-	  REG_NOTES (place2) = gen_rtx_fmt_ee (GET_CODE (note),
-					       REG_NOTE_KIND (note),
-					       XEXP (note, 0),
-					       REG_NOTES (place2));
-	}
+	REG_NOTES (place2) 
+	  = gen_rtx_fmt_ee (GET_CODE (note), REG_NOTE_KIND (note),
+			    XEXP (note, 0), REG_NOTES (place2));
     }
 }
 
@@ -12943,8 +12895,10 @@ rest_of_handle_combine (void)
   int rebuild_jump_labels_after_combine;
 
   df_set_flags (DF_LR_RUN_DCE + DF_DEFER_INSN_RESCAN);
-  df_ri_add_problem (DF_RI_LIFE);
+  df_note_add_problem ();
   df_analyze ();
+
+  regstat_init_n_sets_and_refs ();
 
   rebuild_jump_labels_after_combine
     = combine_instructions (get_insns (), max_reg_num ());
@@ -12960,6 +12914,7 @@ rest_of_handle_combine (void)
       timevar_pop (TV_JUMP);
     }
 
+  regstat_free_n_sets_and_refs ();
   return 0;
 }
 

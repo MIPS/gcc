@@ -675,7 +675,7 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
      successors and predecessors.  */
   max_gcse_regno = max_reg_num ();
 
-  df_ri_add_problem (DF_RI_LIFE);
+  df_note_add_problem ();
   df_analyze ();
 
   if (dump_file)
@@ -811,7 +811,6 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
 
   /* We are finished with alias.  */
   end_alias_analysis ();
-  allocate_reg_info (max_reg_num (), FALSE, FALSE);
 
   if (!optimize_size && flag_gcse_sm)
     {
@@ -6611,7 +6610,6 @@ bypass_jumps (void)
 
   /* We are finished with alias.  */
   end_alias_analysis ();
-  allocate_reg_info (max_reg_num (), FALSE, FALSE);
 
   return changed;
 }

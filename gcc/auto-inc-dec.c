@@ -1513,7 +1513,7 @@ rest_of_handle_auto_inc_dec (void)
 
   mem_tmp = gen_rtx_MEM (Pmode, NULL_RTX);
 
-  df_ri_add_problem (0);
+  df_note_add_problem ();
   df_analyze ();
 
   reg_next_use = XCNEWVEC (rtx, max_reg);

@@ -3802,10 +3802,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	 expander called from noce_emit_cmove), we must resize the
 	 array first.  */
       if (max_regno < max_reg_num ())
-	{
-	  max_regno = max_reg_num ();
-	  allocate_reg_info (max_regno, FALSE, FALSE);
-	}
+	max_regno = max_reg_num ();
 
       FOR_BB_INSNS (merge_bb, insn)
 	{
@@ -4034,10 +4031,7 @@ if_convert (void)
 
   /* If we allocated new pseudos, we must resize the array for sched1.  */
   if (max_regno < max_reg_num ())
-    {
-      max_regno = max_reg_num ();
-      allocate_reg_info (max_regno, FALSE, FALSE);
-    }
+    max_regno = max_reg_num ();
 
   /* Write the final stats.  */
   if (dump_file && num_possible_if_blocks > 0)

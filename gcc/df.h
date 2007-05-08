@@ -49,9 +49,9 @@ struct df_link;
 #define DF_RD    4      /* Reaching Defs. */
 #define DF_UREC  5      /* Uninitialized Registers with Early Clobber. */
 #define DF_CHAIN 6      /* Def-Use and/or Use-Def Chains. */
-#define DF_RI    7      /* Register Info. */
+#define DF_NOTE  7      /* REG_DEF and REG_UNUSED notes. */
 
-#define DF_LAST_PROBLEM_PLUS1 (DF_RI + 1)
+#define DF_LAST_PROBLEM_PLUS1 (DF_NOTE + 1)
 #define DF_FIRST_OPTIONAL_PROBLEM DF_RU
 
 /* Dataflow direction.  */
@@ -374,13 +374,6 @@ enum df_chain_flags
   /* Flags that control the building of chains.  */
   DF_DU_CHAIN      =  1, /* Build DU chains.  */  
   DF_UD_CHAIN      =  2  /* Build UD chains.  */
-};
-
-enum df_ri_flags
-{
-  /* Flag to control the building of register info.  */
-  DF_RI_LIFE       =  1, /* Build register info.  */
-  DF_RI_SETJMP     =  2  /* Build pseudos that cross setjmp info.  */
 };
 
 enum df_changeable_flags 
@@ -805,7 +798,7 @@ extern struct df *df;
 #define df_live  (df->problems_by_index[DF_LIVE])
 #define df_urec  (df->problems_by_index[DF_UREC])
 #define df_chain (df->problems_by_index[DF_CHAIN])
-#define df_ri    (df->problems_by_index[DF_RI])
+#define df_note  (df->problems_by_index[DF_NOTE])
 
 /* This symbol turns on checking that each modfication of the cfg has
   been identified to the appropriate df routines.  It is not part of
@@ -817,6 +810,7 @@ extern struct df *df;
 #if 0
 #define DF_DEBUG_CFG
 #endif
+
 
 /* Functions defined in df-core.c.  */
 
@@ -893,8 +887,7 @@ extern void df_live_verify_transfer_functions (void);
 extern void df_live_add_problem (void);
 extern void df_urec_add_problem (void);
 extern void df_chain_add_problem (enum df_chain_flags);
-extern void df_ri_add_problem (enum df_ri_flags);
-extern bitmap df_ri_get_setjmp_crosses (void);
+extern void df_note_add_problem (void);
 
 /* Functions defined in df-scan.c.  */
 
@@ -1024,6 +1017,5 @@ extern bool unionfind_union (struct web_entry *, struct web_entry *);
 extern void union_defs (struct df_ref *,
                         struct web_entry *, struct web_entry *,
 			bool (*fun) (struct web_entry *, struct web_entry *));
-
 
 #endif /* GCC_DF_H */

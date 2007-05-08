@@ -539,9 +539,10 @@ schedule_ebbs (void)
   current_sched_info = &ebb_sched_info;
 
   df_set_flags (DF_LR_RUN_DCE);
-  df_ri_add_problem (DF_RI_LIFE);
+  df_note_add_problem ();
   df_analyze ();
   df_clear_flags (DF_LR_RUN_DCE);
+  regstat_compute_calls_crossed ();
   sched_init ();
 
   compute_bb_for_insn ();
@@ -591,15 +592,13 @@ schedule_ebbs (void)
     }
   bitmap_clear (&dont_calc_deps);
 
-  /* Updating register live information.  */
-  allocate_reg_life_data ();
-
   /* Reposition the prologue and epilogue notes in case we moved the
      prologue/epilogue insns.  */
   if (reload_completed)
     reposition_prologue_and_epilogue_notes ();
 
   sched_finish ();
+  regstat_free_calls_crossed ();
 }
 
 /* INSN has been added to/removed from current ebb.  */

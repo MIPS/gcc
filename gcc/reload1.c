@@ -8112,7 +8112,7 @@ delete_output_reload (rtx insn, int j, int last_reload_reg)
   if (rld[j].out != rld[j].in
       && REG_N_DEATHS (REGNO (reg)) == 1
       && REG_N_SETS (REGNO (reg)) == 1
-      && REG_BASIC_BLOCK (REGNO (reg)) >= 0
+      && REG_BASIC_BLOCK (REGNO (reg)) >= NUM_FIXED_BLOCKS
       && find_regno_note (insn, REG_DEAD, REGNO (reg)))
     {
       rtx i2;

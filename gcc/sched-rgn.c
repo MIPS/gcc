@@ -2887,8 +2887,9 @@ schedule_insns (void)
   current_sched_info = &region_sched_info;
 
   df_set_flags (DF_LR_RUN_DCE);
-  df_ri_add_problem (DF_RI_LIFE);
+  df_note_add_problem ();
   df_analyze ();
+  regstat_compute_calls_crossed ();
 
   sched_init ();
 
@@ -2933,6 +2934,8 @@ schedule_insns (void)
   free (rgn_bb_table);
   free (block_to_bb);
   free (containing_rgn);
+
+  regstat_free_calls_crossed ();
 
   bitmap_clear (&not_in_df);
 

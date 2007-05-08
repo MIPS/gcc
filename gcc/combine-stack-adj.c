@@ -465,7 +465,7 @@ rest_of_handle_stack_adjustments (void)
   if (!ACCUMULATE_OUTGOING_ARGS)
 #endif
     {
-      df_ri_add_problem (0);
+      df_note_add_problem ();
       df_analyze ();
       combine_stack_adjustments ();
     }
