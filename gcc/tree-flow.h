@@ -722,7 +722,6 @@ extern void free_omp_regions (void);
 #define PENDING_STMT(e)	((e)->insns.t)
 
 extern void delete_tree_cfg_annotations (void);
-extern void disband_implicit_edges (void);
 extern bool stmt_ends_bb_p (tree);
 extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
@@ -778,8 +777,10 @@ extern void start_recording_case_labels (void);
 extern void end_recording_case_labels (void);
 extern basic_block move_sese_region_to_fn (struct function *, basic_block,
 				           basic_block);
+void remove_edge_and_dominated_blocks (edge);
 
 /* In tree-cfgcleanup.c  */
+extern bitmap cfgcleanup_altered_bbs;
 extern bool cleanup_tree_cfg (void);
 extern bool cleanup_tree_cfg_loop (void);
 

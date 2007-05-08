@@ -439,12 +439,13 @@ Objective-C and Objective-C++ Dialects}.
 -mcall-prologues  -mno-tablejump  -mtiny-stack  -mint8}
 
 @emph{Blackfin Options}
-@gccoptlist{-momit-leaf-frame-pointer -mno-omit-leaf-frame-pointer @gol
--mspecld-anomaly -mno-specld-anomaly -mcsync-anomaly -mno-csync-anomaly @gol
--mlow-64k  -mno-low64k  -mstack-check-l1  -mid-shared-library @gol
--mno-id-shared-library -mshared-library-id=@var{n} @gol
--mleaf-id-shared-library  -mno-leaf-id-shared-library @gol
--msep-data  -mno-sep-data  -mlong-calls  -mno-long-calls}
+@gccoptlist{-mcpu=@var{cpu}  -msim  -momit-leaf-frame-pointer @gol
+-mno-omit-leaf-frame-pointer  -mspecld-anomaly  -mno-specld-anomaly @gol
+-mcsync-anomaly  -mno-csync-anomaly  -mlow-64k  -mno-low64k @gol
+-mstack-check-l1  -mid-shared-library  -mno-id-shared-library @gol
+-mshared-library-id=@var{n}  -mleaf-id-shared-library @gol
+-mno-leaf-id-shared-library  -msep-data  -mno-sep-data  -mlong-calls @gol
+-mno-long-calls}
 
 @emph{CRIS Options}
 @gccoptlist{-mcpu=@var{cpu}  -march=@var{cpu}  -mtune=@var{cpu} @gol
@@ -614,20 +615,22 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-EL  -EB  -march=@var{arch}  -mtune=@var{arch} @gol
 -mips1  -mips2  -mips3  -mips4  -mips32  -mips32r2  -mips64 @gol
 -mips16  -mno-mips16  -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
--mshared  -mno-shared  -mxgot  -mno-xgot  -mgp32  -mgp64  @gol
--mfp32  -mfp64  -mhard-float  -msoft-float  @gol
--msingle-float  -mdouble-float  -mdsp  -mdspr2  -mpaired-single  -mips3d @gol
+-mshared  -mno-shared  -mxgot  -mno-xgot  -mgp32  -mgp64 @gol
+-mfp32  -mfp64  -mhard-float  -msoft-float @gol
+-msingle-float  -mdouble-float  -mdsp  -mno-dsp  -mdspr2  -mno-dspr2 @gol
+-mpaired-single  -mno-paired-single  -mdmx  -mno-mdmx @gol
+-mips3d  -mno-mips3d  -mmt  -mno-mt @gol
 -mlong64  -mlong32  -msym32  -mno-sym32 @gol
 -G@var{num}  -membedded-data  -mno-embedded-data @gol
 -muninit-const-in-rodata  -mno-uninit-const-in-rodata @gol
--msplit-addresses  -mno-split-addresses  @gol
--mexplicit-relocs  -mno-explicit-relocs  @gol
+-msplit-addresses  -mno-split-addresses @gol
+-mexplicit-relocs  -mno-explicit-relocs @gol
 -mcheck-zero-division  -mno-check-zero-division @gol
 -mdivide-traps  -mdivide-breaks @gol
 -mmemcpy  -mno-memcpy  -mlong-calls  -mno-long-calls @gol
 -mmad  -mno-mad  -mfused-madd  -mno-fused-madd  -nocpp @gol
 -mfix-r4000  -mno-fix-r4000  -mfix-r4400  -mno-fix-r4400 @gol
--mfix-vr4120  -mno-fix-vr4120  -mfix-vr4130 @gol
+-mfix-vr4120  -mno-fix-vr4120  -mfix-vr4130  -mno-fix-vr4130 @gol
 -mfix-sb1  -mno-fix-sb1 @gol
 -mflush-func=@var{func}  -mno-flush-func @gol
 -mbranch-likely  -mno-branch-likely @gol
@@ -3029,7 +3032,10 @@ perfectly safe if the values of the variables involved are such that
 overflow never does, in fact, occur.  Therefore this warning can
 easily give a false positive: a warning about code which is not
 actually a problem.  To help focus on important issues, several
-warning levels are defined.
+warning levels are defined.  No warnings are issued for the use of
+undefined signed overflow when estimating how many iterations a loop
+will require, in particular when determining whether a loop will be
+executed at all.
 
 @table @option
 @item -Wstrict-overflow=1
@@ -3150,6 +3156,11 @@ functions.  This warning can be independently controlled by
 @item
 An empty body occurs in an @samp{if}, @samp{else} or
 @samp{do while} statement. This warning can be independently
+controlled by @option{-Wempty-body}.
+
+@item @r{(C++ only)}
+An empty body occurs in a @samp{while} or @samp{for} statement with no
+whitespacing before the semicolon. This warning can be independently
 controlled by @option{-Wempty-body}.
 
 @item
@@ -3416,8 +3427,10 @@ to them.
 
 @item -Wempty-body
 @opindex Wempty-body
-An empty body occurs in an @samp{if}, @samp{else} or @samp{do while}
-statement.  This warning is also enabled by @option{-Wextra}.
+Warn if an empty body occurs in an @samp{if}, @samp{else} or @samp{do
+while} statement.  Additionally, in C++, warn when an empty body occurs
+in a @samp{while} or @samp{for} statement with no whitespacing before
+the semicolon.  This warning is also enabled by @option{-Wextra}.
 
 @item -Wsign-compare
 @opindex Wsign-compare
@@ -7658,6 +7671,19 @@ is a small example of its usage:
 %@{fgnu-runtime:%:replace-outfile(-lobjc -lobjc-gnu)@}
 @end smallexample
 
+@item @code{print-asm-header}
+The @code{print-asm-header} function takes no arguments and simply
+prints a banner like:
+
+@smallexample
+Assember options
+================
+
+Use "-Wa,OPTION" to pass "OPTION" to the assembler.
+@end smallexample
+
+It is used to separate compiler options from assembler options
+in the @option{--target-help} output.
 @end table
 
 @item %@{@code{S}@}
@@ -8324,6 +8350,23 @@ size.
 @cindex Blackfin Options
 
 @table @gcctabopt
+@item -mcpu=@var{cpu}
+@opindex mcpu=
+Specifies the name of the target Blackfin processor. Currently, @var{cpu}
+can be one of @samp{bf531}, @samp{bf532}, @samp{bf533},
+@samp{bf534}, @samp{bf536}, @samp{bf537}, @samp{bf561}.
+Without this option, @samp{bf532} is used as the processor by default.
+The corresponding predefined processor macros for @var{cpu} is to
+be defined.  For the @samp{bfin-elf} toolchain, this causes the hardware
+BSP provided by libgloss to be linked in if @samp{-msim} is not given.
+Support for @samp{bf561} is incomplete; only the processor macro is defined.
+
+@item -msim
+@opindex msim
+Specifies that the program will be run on the simulator.  This causes
+the simulator BSP provided by libgloss to be linked in.  This option
+has effect only for @samp{bfin-elf} toolchain.
+
 @item -momit-leaf-frame-pointer
 @opindex momit-leaf-frame-pointer
 Don't keep the frame pointer in a register for leaf functions.  This
@@ -9873,8 +9916,10 @@ instruction set support.
 @item k8, opteron, athlon64, athlon-fx
 AMD K8 core based CPUs with x86-64 instruction set support.  (This supersets
 MMX, SSE, SSE2, 3dNOW!, enhanced 3dNOW! and 64-bit instruction set extensions.)
+@item k8-sse3, opteron-sse3, athlon64-sse3
+Improved versions of k8, opteron and athlon64 with SSE3 instruction set support.
 @item amdfam10, barcelona
-AMD Family 10 core based CPUs with x86-64 instruction set support.  (This
+AMD Family 10h core based CPUs with x86-64 instruction set support.  (This
 supersets MMX, SSE, SSE2, SSE3, SSE4A, 3dNOW!, enhanced 3dNOW!, ABM and 64-bit
 instruction set extensions.)
 @item winchip-c6
@@ -9907,18 +9952,6 @@ specifying @option{-march=@var{cpu-type}} implies @option{-mtune=@var{cpu-type}}
 @item -mcpu=@var{cpu-type}
 @opindex mcpu
 A deprecated synonym for @option{-mtune}.
-
-@item -m386
-@itemx -m486
-@itemx -mpentium
-@itemx -mpentiumpro
-@opindex m386
-@opindex m486
-@opindex mpentium
-@opindex mpentiumpro
-These options are synonyms for @option{-mtune=i386}, @option{-mtune=i486},
-@option{-mtune=pentium}, and @option{-mtune=pentiumpro} respectively.
-These synonyms are deprecated.
 
 @item -mfpmath=@var{unit}
 @opindex march
@@ -10121,12 +10154,21 @@ the system libraries and startup modules.
 @opindex mpc80
 
 Set 80387 floating-point precision to 32, 64 or 80 bits.  When @option{-mpc32}
-is specified, the significand of floating-point operations is rounded to 24
-bits (single precision), @option{-mpc64} rounds the significand of
-floating-point operations to 53 bits (double precision) and @option{-mpc80}
-rounds the significand of floating-point operations to 64 bits (extended
-double precision).  Note that a change of default precision control may
-affect the results returned by some of the mathematical functions.
+is specified, the significands of results of floating-point operations are
+rounded to 24 bits (single precision); @option{-mpc64} rounds the the
+significands of results of floating-point operations to 53 bits (double
+precision) and @option{-mpc80} rounds the significands of results of
+floating-point operations to 64 bits (extended double precision), which is
+the default.  When this option is used, floating-point operations in higher
+precisions are not available to the programmer without setting the FPU
+control word explicitly.
+
+Setting the rounding of floating-point operations to less than the default
+80 bits can speed some programs by 2% or more.  Note that some mathematical
+libraries assume that extended precision (80 bit) floating-point operations
+are enabled by default; routines in such libraries could suffer significant
+loss of accuracy, typically through so-called "catastrophic cancellation",
+when this option is used to set the precision to less than extended precision. 
 
 @item -mstackrealign
 @opindex mstackrealign
@@ -11469,25 +11511,25 @@ floating-point calculations using library calls instead.
 Assume that the floating-point coprocessor only supports single-precision
 operations.
 
-@itemx -mdouble-float
+@item -mdouble-float
 @opindex mdouble-float
 Assume that the floating-point coprocessor supports double-precision
 operations.  This is the default.
 
-@itemx -mdsp
+@item -mdsp
 @itemx -mno-dsp
 @opindex mdsp
 @opindex mno-dsp
 Use (do not use) the MIPS DSP ASE.  @xref{MIPS DSP Built-in Functions}.
 
-@itemx -mdspr2
+@item -mdspr2
 @itemx -mno-dspr2
 @opindex mdspr2
 @opindex mno-dspr2
 Use (do not use) the MIPS DSP ASE REV 2.  @xref{MIPS DSP Built-in Functions}.
 The option @option{-mdspr2} implies @option{-mdsp}.
 
-@itemx -mpaired-single
+@item -mpaired-single
 @itemx -mno-paired-single
 @opindex mpaired-single
 @opindex mno-paired-single
@@ -11496,12 +11538,26 @@ Use (do not use) paired-single floating-point instructions.
 when generating 64-bit code and requires hardware floating-point
 support to be enabled.
 
-@itemx -mips3d
+@item -mdmx
+@itemx -mno-mdmx
+@opindex mdmx
+@opindex mno-mdmx
+Use (do not use) MIPS Digital Media Extension instructions.
+This option can only be used when generating 64-bit code and requires
+hardware floating-point support to be enabled.
+
+@item -mips3d
 @itemx -mno-mips3d
 @opindex mips3d
 @opindex mno-mips3d
 Use (do not use) the MIPS-3D ASE@.  @xref{MIPS-3D Built-in Functions}.
 The option @option{-mips3d} implies @option{-mpaired-single}.
+
+@item -mmt
+@itemx -mno-mt
+@opindex mmt
+@opindex mno-mt
+Use (do not use) MT Multithreading instructions.
 
 @item -mlong64
 @opindex mlong64

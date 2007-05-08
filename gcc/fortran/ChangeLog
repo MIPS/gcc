@@ -1,3 +1,238 @@
+2007-05-08  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31692
+	* trans-array.c (gfc_conv_array_parameter): Convert full array
+	references to the result of the procedure enclusing the call.
+
+2007-05-08  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29397
+	PR fortran/29400
+	* decl.c (add_init_expr_to_sym): Expand a scalar initializer
+	for a parameter array into an array expression with the right
+	shape.
+	* array.c (spec_dimen_size): Remove static attribute.
+	* gfortran.h : Prototype for spec_dimen_size.
+
+2007-05-07  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31399
+	* trans-stmt.c (gfc_trans_do): Handle large loop counts.
+
+2007-05-07  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31764
+	* simplify.c (gfc_simplify_new_line): NEW_LINE can be simplified
+	even for non constant arguments.
+
+2007-05-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31201
+	* gfortran.h: Add runtime error codes from libgfortran.h. Define
+	MAX_UNIT_NUMBER.
+	* trans.c (gfc_trans_runtime_check): Update the format of runtime error
+	messages to match library runtime errors.  Use call to new library
+	function runtime_error_at().
+	* trans.h: Add prototype for new function gfc_trans_io_runtime_check.
+	Add declaration for library functions runtime_error_at and
+	generate_error.
+	* trans_io.c (gfc_trans_io_runtime_check): New function.
+	(set_parameter_value): Add error checking for UNIT numbers.
+	(set_parameter_ref): Initialize the users variable to zero. 
+	(gfc_trans_open): Move setting of unit number to after setting of common
+	flags so that runtime error trapping can be detected.
+	(gfc_trans_close): Likewise. (build_filepos): Likewise.
+	(gfc_trans_inquire): Likewise. (build_dt): Likewise.
+	* trans-decl.c: Add declarations for runtime_error_at and
+	generate_error. (gfc_build_builtin_function_decls): Build function
+	declarations for runtime_error_at and generate_error.
+
+2007-05-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31540
+	* resolve.c (resolve_fl_procedure): Resolve constant character
+	lengths.
+
+2007-05-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/31251
+	* decl.c (match_char_spec): Add check for invalid character lengths.
+
+2007-05-04  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi (CMPLX): Document result kind.
+	(COMPLEX): Add documentation.
+
+2007-05-04  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/31760
+	* intrinsic.c (add_functions): Replaced calls to gfc_check_g77_math1
+	by gfc_check_fn_r to avoid checks for scalarity.
+	* check.c (gfc_check_besn): Removed check for scalarity.
+	(gfc_check_g77_math1): Removed.
+	* intrinsic.h (gfc_check_g77_math1): Removed.
+
+2007-05-04  Daniel Franke  <franke.daniel@gmail.com>
+
+	* check.c (gfc_check_fseek_sub): Fixed typo.
+
+2007-05-04  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/22359
+	* intrinsic.c (add_subroutines): Added FSEEK.
+	* intrinsic.h (gfc_resolve_fseek_sub, gfc_check_fseek_sub): New.
+	* iresolve.c (gfc_resolve_fseek_sub): New.
+	* check.c (gfc_check_fseek_sub): New.
+	* intrinsic.texi (FSEEK): Updated.
+
+2007-05-04  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/31803
+	* expr.c (gfc_check_pointer_assign): Check for NULL pointer.
+
+2007-05-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/31251
+	* simplify.c (gfc_simplify_len): Only simplify integer lengths.
+
+2007-05-04  Francois-Xavier Coudert <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31781
+	* simplify.c (gfc_simplify_repeat): Don't put function call with
+	side effect in a gcc_assert().
+
+2007-05-04  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/25071
+	* interface.c (compare_actual_formal): Check character length.
+
+2007-05-01  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/31732
+	* dependency.c (gfc_full_array_ref_p):  If the reference is
+	to a single element, check that the array has a single
+	element and that the correct element is referenced.
+
+2007-05-01  Daniel Franke  <franke.daniel@gmail.com>
+
+	* intrinsic.c (add_functions): Fixed ELEMENTAL specifications.
+	(add_subroutines): Replaced magic numbers in function calls by
+	ELEMENTAL and NOT_ELEMENTAL respectively.
+	* intrinsic.texi (MVBITS): Changed class to elemental subroutine.
+	(RANDOM_NUMBER): Changed class to subroutine.
+	(HUGE, TINY): Changed class to inquiry function.
+
+2007-04-30  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* trans-const.c (gfc_conv_mpz_to_tree): Use mpz_get_double_int.
+	(gfc_conv_tree_to_mpz): New function.
+	(gfc_conv_mpfr_to_tree): Use real_from_mpfr.
+	(gfc_conv_tree_to_mpfr): New function.
+	* trans-const.h: (gfc_conv_tree_to_mpz): New prototype.
+	(gfc_conv_tree_to_mpfr): New prototype.
+
+2007-04-30  Daniel Franke  <franke.daniel@gmail.com>
+
+	* intrinsic.texi (IERRNO): Changed class to non-elemental function.
+	(LOG10): Removed COMPLEX as accepted argument type.
+	(NEW_LINE): Changed class from elemental to inquiry function.
+	(SIGN): Removed requirement of scalar arguments.
+	(SNGL): Changed class to elemental function.
+
+2007-04-29  Francois-Xavier Coudert <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31591
+	* simplify.c (simplify_bound_dim): New function.
+	(simplify_bound): Use the above. Perform simplification of LBOUND
+	and UBOUND when DIM argument is not present.
+
+2007-04-29  Daniel Franke  <franke.daniel@gmail.com>
+
+	* gfortran.texi: Cleaned up keyword index.
+	* invoke.texi: Likewise.
+	* intrinsic.texi: Likewise.
+			
+2007-04-29  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31645
+	* scanner.c (load_file): Discard the byte order mark if one is
+	found on the first non-preprocessor line of a file.
+
+2007-04-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31711
+	* trans-array.c (gfc_conv_resolve_dependencies): Create a temp
+	whenever a dependency is found.
+
+2007-04-28  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* options.c (gfc_handle_option): Ensure requested free form line
+	length is not too small.
+
+2007-04-27  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi (Transfer): Improve documentation.
+
+2007-04-27  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.texi (Option Index): Add @samp as needed.
+
+2007-04-27  Daniel Franke  <franke.daniel@gmail.com>
+
+	* gfortran.texi: Added node and menu entry for an option index.
+	* invoke.texi: Moved command line option related entries of the concept 
+	index to the option index.
+
+2007-04-27  Daniel Franke  <franke.daniel@gmail.com>
+
+	* intrinsic.texi (AND, FPUT, FPUTC, MODULO, OR, SET_EXPONENT,
+	XOR): Fixed examples.
+
+2007-04-27  Daniel Franke  <franke.daniel@gmail.com>
+
+	* intrinsic.texi (PRODUCT, RESHAPE, SPACING, SPREAD, SUM, 
+	SYSTEM_CLOCK, TRANSFER, UNPACK): New.
+	(DATE_AND_TIME, CPU_TIME, RRSPACING): Added cross references.
+
+2007-04-26  Daniel Franke  <franke.daniel@gmail.com>
+
+	* intrinsic.texi (NULL, PACK, PRESENT, REPEAT, SCAN, SHAPE, 
+	SIZE, TRANSPOSE, TRIM, VERIFY): New.
+	(ADJUSTL, ADJUSTR, INDEX): Added cross references.
+	(INT, INT2, INT8, LONG): Enabled section header.
+
+2007-04-25  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* module.c (module_char): Replace fgetc() with
+	getc(). 
+	(write_char): Replace fputc() with putc().
+	* scanner.c (load_line): Replace fgetc() with getc().
+	(gfc_read_orig_filename): Likewise.
+
+2007-04-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/31668
+	* error.c (error_print): Fix %% support.
+	* intrinsic.c (sort_actual): Improve error message.
+	* resolve.c (resolve_actual_arglist): Allow %VAL for
+	interfaces defined in the module declaration part.
+
+2007-04-25  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/31299
+	* intrinsic.texi (GETLOG): Update documentation to reflect
+	library changes.
+
+2007-04-24  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31587
+	* module.c (write_char): Add character to the MD5 buffer.
+	(read_md5_from_module_file): New function.
+	(gfc_dump_module): Compute MD5 for new module file. Call
+	read_md5_from_module_file. Only overwrite old module file
+	if the new MD5 is different.
+
 2007-04-23  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/31630

@@ -431,8 +431,8 @@ dump_symbols (pretty_printer *buffer, bitmap syms, int flags)
 
 
 /* Dump the node NODE on the pretty_printer BUFFER, SPC spaces of indent.
-   FLAGS specifies details to show in the dump (see TDF_* in tree.h).  If
-   IS_STMT is true, the object printed is considered to be a statement
+   FLAGS specifies details to show in the dump (see TDF_* in tree-pass.h).
+   If IS_STMT is true, the object printed is considered to be a statement
    and it is terminated by ';' if appropriate.  */
 
 int
@@ -2055,7 +2055,11 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
   if (is_stmt && is_expr)
     pp_semicolon (buffer);
-  pp_write_text_to_stream (buffer);
+
+  /* If we're building a diagnostic, the formatted text will be written
+     into BUFFER's stream by the caller; otherwise, write it now.  */
+  if (!(flags & TDF_DIAGNOSTIC))
+    pp_write_text_to_stream (buffer);
 
   return spc;
 }
@@ -2954,6 +2958,29 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 {
   edge e;
   edge_iterator ei;
+  tree stmt;
+
+  stmt = last_stmt (bb);
+  if (stmt && TREE_CODE (stmt) == COND_EXPR)
+    {
+      edge true_edge, false_edge;
+
+      /* When we are emitting the code or changing CFG, it is possible that
+	 the edges are not yet created.  When we are using debug_bb in such
+	 a situation, we do not want it to crash.  */
+      if (EDGE_COUNT (bb->succs) != 2)
+	return;
+      extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
+
+      INDENT (indent + 2);
+      pp_cfg_jump (buffer, true_edge->dest);
+      newline_and_indent (buffer, indent);
+      pp_string (buffer, "else");
+      newline_and_indent (buffer, indent + 2);
+      pp_cfg_jump (buffer, false_edge->dest);
+      pp_newline (buffer);
+      return;
+    }
 
   /* If there is a fallthru edge, we may need to add an artificial goto to the
      dump.  */

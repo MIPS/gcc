@@ -1040,7 +1040,8 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype)
 		 intrinsic.c.  */
 	      if (ptype != PROC_UNKNOWN
 		  && ptype != PROC_DUMMY
-		  && ptype != PROC_EXTERNAL)
+		  && ptype != PROC_EXTERNAL
+		  && ptype != PROC_MODULE)
 		{
 		  gfc_error ("By-value argument at %L is not allowed "
 			     "in this context", &e->where);
@@ -5811,6 +5812,11 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
   if (sym->ts.type == BT_CHARACTER)
     {
       gfc_charlen *cl = sym->ts.cl;
+
+      if (cl && cl->length && gfc_is_constant_expr (cl->length)
+	     && resolve_charlen (cl) == FAILURE)
+	return FAILURE;
+
       if (!cl || !cl->length || cl->length->expr_type != EXPR_CONSTANT)
 	{
 	  if (sym->attr.proc == PROC_ST_FUNCTION)

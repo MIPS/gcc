@@ -569,12 +569,14 @@ frame_related_constant_load (rtx reg, HOST_WIDE_INT constant, bool related)
     RTX_FRAME_RELATED_P (insn) = 1;
 }
 
-/* Generate efficient code to add a value to a P register.  We can use
-   P1 as a scratch register.  Set RTX_FRAME_RELATED_P on the generated
-   insns if FRAME is nonzero.  */
+/* Generate efficient code to add a value to a P register.
+   Set RTX_FRAME_RELATED_P on the generated insns if FRAME is nonzero.
+   EPILOGUE_P is zero if this function is called for prologue,
+   otherwise it's nonzero. And it's less than zero if this is for
+   sibcall epilogue.  */
 
 static void
-add_to_reg (rtx reg, HOST_WIDE_INT value, int frame)
+add_to_reg (rtx reg, HOST_WIDE_INT value, int frame, int epilogue_p)
 {
   if (value == 0)
     return;
@@ -584,8 +586,40 @@ add_to_reg (rtx reg, HOST_WIDE_INT value, int frame)
      in one instruction.  */
   if (value > 120 || value < -120)
     {
-      rtx tmpreg = gen_rtx_REG (SImode, REG_P1);
+      rtx tmpreg;
+      rtx tmpreg2;
       rtx insn;
+
+      tmpreg2 = NULL_RTX;
+
+      /* For prologue or normal epilogue, P1 can be safely used
+	 as the temporary register. For sibcall epilogue, we try to find
+	 a call used P register, which will be restored in epilogue.
+	 If we cannot find such a P register, we have to use one I register
+	 to help us.  */
+
+      if (epilogue_p >= 0)
+	tmpreg = gen_rtx_REG (SImode, REG_P1);
+      else
+	{
+	  int i;
+	  for (i = REG_P0; i <= REG_P5; i++)
+	    if ((regs_ever_live[i] && ! call_used_regs[i])
+		|| (!TARGET_FDPIC
+		    && i == PIC_OFFSET_TABLE_REGNUM
+		    && (current_function_uses_pic_offset_table
+			|| (TARGET_ID_SHARED_LIBRARY
+			    && ! current_function_is_leaf))))
+	      break;
+	  if (i <= REG_P5)
+	    tmpreg = gen_rtx_REG (SImode, i);
+	  else
+	    {
+	      tmpreg = gen_rtx_REG (SImode, REG_P1);
+	      tmpreg2 = gen_rtx_REG (SImode, REG_I0);
+	      emit_move_insn (tmpreg2, tmpreg);
+	    }
+	}
 
       if (frame)
 	frame_related_constant_load (tmpreg, value, TRUE);
@@ -595,6 +629,9 @@ add_to_reg (rtx reg, HOST_WIDE_INT value, int frame)
       insn = emit_insn (gen_addsi3 (reg, reg, tmpreg));
       if (frame)
 	RTX_FRAME_RELATED_P (insn) = 1;
+
+      if (tmpreg2 != NULL_RTX)
+	emit_move_insn (tmpreg, tmpreg2);
     }
   else
     do
@@ -702,14 +739,17 @@ do_link (rtx spreg, HOST_WIDE_INT frame_size, bool all)
 	  rtx insn = emit_insn (pat);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
-      add_to_reg (spreg, -frame_size, 1);
+      add_to_reg (spreg, -frame_size, 1, 0);
     }
 }
 
-/* Like do_link, but used for epilogues to deallocate the stack frame.  */
+/* Like do_link, but used for epilogues to deallocate the stack frame.
+   EPILOGUE_P is zero if this function is called for prologue,
+   otherwise it's nonzero. And it's less than zero if this is for
+   sibcall epilogue.  */
 
 static void
-do_unlink (rtx spreg, HOST_WIDE_INT frame_size, bool all)
+do_unlink (rtx spreg, HOST_WIDE_INT frame_size, bool all, int epilogue_p)
 {
   frame_size += arg_area_size ();
 
@@ -719,7 +759,7 @@ do_unlink (rtx spreg, HOST_WIDE_INT frame_size, bool all)
     {
       rtx postinc = gen_rtx_MEM (Pmode, gen_rtx_POST_INC (Pmode, spreg));
 
-      add_to_reg (spreg, frame_size, 0);
+      add_to_reg (spreg, frame_size, 0, epilogue_p);
       if (must_save_fp_p ())
 	{
 	  rtx fpreg = gen_rtx_REG (Pmode, REG_FP);
@@ -842,7 +882,7 @@ expand_interrupt_handler_epilogue (rtx spreg, e_funkind fkind)
      insns.  */
   MEM_VOLATILE_P (postinc) = 1;
 
-  do_unlink (spreg, get_frame_size (), all);
+  do_unlink (spreg, get_frame_size (), all, 1);
 
   if (lookup_attribute ("nesting", attrs))
     {
@@ -968,7 +1008,7 @@ bfin_expand_prologue (void)
 	{
 	  if (lim != p2reg)
 	    emit_move_insn (p2reg, lim);
-	  add_to_reg (p2reg, offset, 0);
+	  add_to_reg (p2reg, offset, 0, 0);
 	  lim = p2reg;
 	}
       emit_insn (gen_compare_lt (bfin_cc_rtx, spreg, lim));
@@ -987,13 +1027,15 @@ bfin_expand_prologue (void)
 
 /* Generate RTL for the epilogue of the current function.  NEED_RETURN is zero
    if this is for a sibcall.  EH_RETURN is nonzero if we're expanding an
-   eh_return pattern.  */
+   eh_return pattern. SIBCALL_P is true if this is a sibcall epilogue,
+   false otherwise.  */
 
 void
-bfin_expand_epilogue (int need_return, int eh_return)
+bfin_expand_epilogue (int need_return, int eh_return, bool sibcall_p)
 {
   rtx spreg = gen_rtx_REG (Pmode, REG_SP);
   e_funkind fkind = funkind (TREE_TYPE (current_function_decl));
+  int e = sibcall_p ? -1 : 1;
 
   if (fkind != SUBROUTINE)
     {
@@ -1001,7 +1043,7 @@ bfin_expand_epilogue (int need_return, int eh_return)
       return;
     }
 
-  do_unlink (spreg, get_frame_size (), false);
+  do_unlink (spreg, get_frame_size (), false, e);
 
   expand_epilogue_reg_restore (spreg, false, false);
 
@@ -1301,6 +1343,15 @@ print_operand (FILE *file, rtx x, char code)
 	    {
 	      gcc_assert (REGNO (x) == REG_A0 || REGNO (x) == REG_A1);
 	      fprintf (file, "%s.x", reg_names[REGNO (x)]);
+	    }
+	  else if (code == 'v')
+	    {
+	      if (REGNO (x) == REG_A0)
+		fprintf (file, "AV0");
+	      else if (REGNO (x) == REG_A1)
+		fprintf (file, "AV1");
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else if (code == 'D')
 	    {
@@ -2068,8 +2119,17 @@ bfin_handle_option (size_t code, const char *arg, int value)
 	bfin_cpu_type = BFIN_CPU_BF532;
       else if (strcmp (arg, "bf533") == 0)
 	bfin_cpu_type = BFIN_CPU_BF533;
+      else if (strcmp (arg, "bf534") == 0)
+	bfin_cpu_type = BFIN_CPU_BF534;
+      else if (strcmp (arg, "bf536") == 0)
+	bfin_cpu_type = BFIN_CPU_BF536;
       else if (strcmp (arg, "bf537") == 0)
 	bfin_cpu_type = BFIN_CPU_BF537;
+      else if (strcmp (arg, "bf561") == 0)
+	{
+	  warning (0, "bf561 support is incomplete yet.");
+	  bfin_cpu_type = BFIN_CPU_BF561;
+	}
       else
 	return false;
       return true;
@@ -4627,16 +4687,21 @@ enum bfin_builtins
   BFIN_BUILTIN_MIN_1X16,
   BFIN_BUILTIN_MAX_1X16,
 
+  BFIN_BUILTIN_SUM_2X16,
   BFIN_BUILTIN_DIFFHL_2X16,
   BFIN_BUILTIN_DIFFLH_2X16,
 
   BFIN_BUILTIN_SSADD_1X32,
   BFIN_BUILTIN_SSSUB_1X32,
   BFIN_BUILTIN_NORM_1X32,
+  BFIN_BUILTIN_ROUND_1X32,
   BFIN_BUILTIN_NEG_1X32,
+  BFIN_BUILTIN_ABS_1X32,
   BFIN_BUILTIN_MIN_1X32,
   BFIN_BUILTIN_MAX_1X32,
   BFIN_BUILTIN_MULT_1X32,
+  BFIN_BUILTIN_MULT_1X32X32,
+  BFIN_BUILTIN_MULT_1X32X32NS,
 
   BFIN_BUILTIN_MULHISILL,
   BFIN_BUILTIN_MULHISILH,
@@ -4647,6 +4712,7 @@ enum bfin_builtins
   BFIN_BUILTIN_LSHIFT_2X16,
   BFIN_BUILTIN_SSASHIFT_1X16,
   BFIN_BUILTIN_SSASHIFT_2X16,
+  BFIN_BUILTIN_SSASHIFT_1X32,
 
   BFIN_BUILTIN_CPLX_MUL_16,
   BFIN_BUILTIN_CPLX_MAC_16,
@@ -4755,6 +4821,8 @@ bfin_init_builtins (void)
   def_builtin ("__builtin_bfin_norm_fr1x16", short_ftype_int,
 	       BFIN_BUILTIN_NORM_1X16);
 
+  def_builtin ("__builtin_bfin_sum_fr2x16", short_ftype_v2hi,
+	       BFIN_BUILTIN_SUM_2X16);
   def_builtin ("__builtin_bfin_diff_hl_fr2x16", short_ftype_v2hi,
 	       BFIN_BUILTIN_DIFFHL_2X16);
   def_builtin ("__builtin_bfin_diff_lh_fr2x16", short_ftype_v2hi,
@@ -4775,10 +4843,18 @@ bfin_init_builtins (void)
 	       BFIN_BUILTIN_SSSUB_1X32);
   def_builtin ("__builtin_bfin_negate_fr1x32", int_ftype_int,
 	       BFIN_BUILTIN_NEG_1X32);
+  def_builtin ("__builtin_bfin_abs_fr1x32", int_ftype_int,
+	       BFIN_BUILTIN_ABS_1X32);
   def_builtin ("__builtin_bfin_norm_fr1x32", short_ftype_int,
 	       BFIN_BUILTIN_NORM_1X32);
+  def_builtin ("__builtin_bfin_round_fr1x32", short_ftype_int,
+	       BFIN_BUILTIN_ROUND_1X32);
   def_builtin ("__builtin_bfin_mult_fr1x32", int_ftype_short_short,
 	       BFIN_BUILTIN_MULT_1X32);
+  def_builtin ("__builtin_bfin_mult_fr1x32x32", int_ftype_int_int,
+	       BFIN_BUILTIN_MULT_1X32X32);
+  def_builtin ("__builtin_bfin_mult_fr1x32x32NS", int_ftype_int_int,
+	       BFIN_BUILTIN_MULT_1X32X32NS);
 
   /* Shifts.  */
   def_builtin ("__builtin_bfin_shl_fr1x16", short_ftype_int_int,
@@ -4789,6 +4865,8 @@ bfin_init_builtins (void)
 	       BFIN_BUILTIN_LSHIFT_1X16);
   def_builtin ("__builtin_bfin_lshl_fr2x16", v2hi_ftype_v2hi_int,
 	       BFIN_BUILTIN_LSHIFT_2X16);
+  def_builtin ("__builtin_bfin_shl_fr1x32", int_ftype_int_int,
+	       BFIN_BUILTIN_SSASHIFT_1X32);
 
   /* Complex numbers.  */
   def_builtin ("__builtin_bfin_cmplx_mul", v2hi_ftype_v2hi_v2hi,
@@ -4816,6 +4894,7 @@ static const struct builtin_description bdesc_2arg[] =
   { CODE_FOR_ssashifthi3, "__builtin_bfin_shl_fr1x16", BFIN_BUILTIN_SSASHIFT_1X16, -1 },
   { CODE_FOR_lshiftv2hi3, "__builtin_bfin_lshl_fr2x16", BFIN_BUILTIN_LSHIFT_2X16, -1 },
   { CODE_FOR_lshifthi3, "__builtin_bfin_lshl_fr1x16", BFIN_BUILTIN_LSHIFT_1X16, -1 },
+  { CODE_FOR_ssashiftsi3, "__builtin_bfin_shl_fr1x32", BFIN_BUILTIN_SSASHIFT_1X32, -1 },
 
   { CODE_FOR_sminhi3, "__builtin_bfin_min_fr1x16", BFIN_BUILTIN_MIN_1X16, -1 },
   { CODE_FOR_smaxhi3, "__builtin_bfin_max_fr1x16", BFIN_BUILTIN_MAX_1X16, -1 },
@@ -4848,12 +4927,14 @@ static const struct builtin_description bdesc_1arg[] =
   { CODE_FOR_abshi2, "__builtin_bfin_abs_fr1x16", BFIN_BUILTIN_ABS_1X16, 0 },
 
   { CODE_FOR_signbitssi2, "__builtin_bfin_norm_fr1x32", BFIN_BUILTIN_NORM_1X32, 0 },
+  { CODE_FOR_ssroundsi2, "__builtin_bfin_round_fr1x32", BFIN_BUILTIN_ROUND_1X32, 0 },
   { CODE_FOR_ssnegsi2, "__builtin_bfin_negate_fr1x32", BFIN_BUILTIN_NEG_1X32, 0 },
+  { CODE_FOR_ssabssi2, "__builtin_bfin_abs_fr1x32", BFIN_BUILTIN_ABS_1X32, 0 },
 
   { CODE_FOR_movv2hi_hi_low, "__builtin_bfin_extract_lo", BFIN_BUILTIN_EXTRACTLO, 0 },
   { CODE_FOR_movv2hi_hi_high, "__builtin_bfin_extract_hi", BFIN_BUILTIN_EXTRACTHI, 0 },
   { CODE_FOR_ssnegv2hi2, "__builtin_bfin_negate_fr2x16", BFIN_BUILTIN_NEG_2X16, 0 },
-  { CODE_FOR_absv2hi2, "__builtin_bfin_abs_fr2x16", BFIN_BUILTIN_ABS_2X16, 0 }
+  { CODE_FOR_ssabsv2hi2, "__builtin_bfin_abs_fr2x16", BFIN_BUILTIN_ABS_2X16, 0 }
 };
 
 /* Errors in the source file can cause expand_expr to return const0_rtx
@@ -4985,7 +5066,7 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
   tree arg0, arg1, arg2;
-  rtx op0, op1, op2, accvec, pat, tmp1, tmp2;
+  rtx op0, op1, op2, accvec, pat, tmp1, tmp2, a0reg, a1reg;
   enum machine_mode tmode, mode0;
 
   switch (fcode)
@@ -4999,10 +5080,12 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 
     case BFIN_BUILTIN_DIFFHL_2X16:
     case BFIN_BUILTIN_DIFFLH_2X16:
+    case BFIN_BUILTIN_SUM_2X16:
       arg0 = CALL_EXPR_ARG (exp, 0);
       op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      icode = (fcode == BFIN_BUILTIN_DIFFHL_2X16
-	       ? CODE_FOR_subhilov2hi3 : CODE_FOR_sublohiv2hi3);
+      icode = (fcode == BFIN_BUILTIN_DIFFHL_2X16 ? CODE_FOR_subhilov2hi3
+	       : fcode == BFIN_BUILTIN_DIFFLH_2X16 ? CODE_FOR_sublohiv2hi3
+	       : CODE_FOR_ssaddhilov2hi3);
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
 
@@ -5021,6 +5104,61 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
       if (! pat)
 	return 0;
       emit_insn (pat);
+      return target;
+
+    case BFIN_BUILTIN_MULT_1X32X32:
+    case BFIN_BUILTIN_MULT_1X32X32NS:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      if (! target
+	  || !register_operand (target, SImode))
+	target = gen_reg_rtx (SImode);
+
+      a1reg = gen_rtx_REG (PDImode, REG_A1);
+      a0reg = gen_rtx_REG (PDImode, REG_A0);
+      tmp1 = gen_lowpart (V2HImode, op0);
+      tmp2 = gen_lowpart (V2HImode, op1);
+      emit_insn (gen_flag_macinit1hi (a1reg,
+				      gen_lowpart (HImode, op0),
+				      gen_lowpart (HImode, op1),
+				      GEN_INT (MACFLAG_FU)));
+      emit_insn (gen_lshrpdi3 (a1reg, a1reg, GEN_INT (16)));
+
+      if (fcode == BFIN_BUILTIN_MULT_1X32X32)
+	emit_insn (gen_flag_mul_macv2hi_parts_acconly (a0reg, a1reg, tmp1, tmp2,
+						       const1_rtx, const1_rtx,
+						       const1_rtx, const0_rtx, a1reg,
+						       const0_rtx, GEN_INT (MACFLAG_NONE),
+						       GEN_INT (MACFLAG_M)));
+      else
+	{
+	  /* For saturating multiplication, there's exactly one special case
+	     to be handled: multiplying the smallest negative value with
+	     itself.  Due to shift correction in fractional multiplies, this
+	     can overflow.  Iff this happens, OP2 will contain 1, which, when
+	     added in 32 bits to the smallest negative, wraps to the largest
+	     positive, which is the result we want.  */
+	  op2 = gen_reg_rtx (V2HImode);
+	  emit_insn (gen_packv2hi (op2, tmp1, tmp2, const0_rtx, const0_rtx));
+	  emit_insn (gen_movsibi (gen_rtx_REG (BImode, REG_CC),
+				  gen_lowpart (SImode, op2)));
+	  emit_insn (gen_flag_mul_macv2hi_parts_acconly_andcc0 (a0reg, a1reg, tmp1, tmp2,
+								const1_rtx, const1_rtx,
+								const1_rtx, const0_rtx, a1reg,
+								const0_rtx, GEN_INT (MACFLAG_NONE),
+								GEN_INT (MACFLAG_M)));
+	  op2 = gen_reg_rtx (SImode);
+	  emit_insn (gen_movbisi (op2, gen_rtx_REG (BImode, REG_CC)));
+	}
+      emit_insn (gen_flag_machi_parts_acconly (a1reg, tmp2, tmp1,
+					       const1_rtx, const0_rtx,
+					       a1reg, const0_rtx, GEN_INT (MACFLAG_M)));
+      emit_insn (gen_ashrpdi3 (a1reg, a1reg, GEN_INT (15)));
+      emit_insn (gen_sum_of_accumulators (target, a0reg, a0reg, a1reg));
+      if (fcode == BFIN_BUILTIN_MULT_1X32X32NS)
+	emit_insn (gen_addsi3 (target, target, op2));
       return target;
 
     case BFIN_BUILTIN_CPLX_MUL_16:

@@ -1651,7 +1651,7 @@ override_options (void)
       {&core2_cost, 0, 0, 16, 7, 16, 7, 16},
       {&generic32_cost, 0, 0, 16, 7, 16, 7, 16},
       {&generic64_cost, 0, 0, 16, 7, 16, 7, 16},
-      {&amdfam10_cost, 0, 0, 32, 7, 32, 7, 32}
+      {&amdfam10_cost, 0, 0, 32, 24, 32, 7, 32}
     };
 
   static const char * const cpu_names[] = TARGET_CPU_DEFAULT_NAMES;
@@ -1726,12 +1726,21 @@ override_options (void)
       {"k8", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
 				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2
 				      | PTA_NO_SAHF},
+      {"k8-sse3", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
+                                      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2
+				      | PTA_SSE3 | PTA_NO_SAHF},
       {"opteron", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
 					| PTA_64BIT | PTA_3DNOW_A | PTA_SSE
 					| PTA_SSE2 | PTA_NO_SAHF},
+      {"opteron-sse3", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
+					| PTA_64BIT | PTA_3DNOW_A | PTA_SSE
+					| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF},
       {"athlon64", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
 					 | PTA_64BIT | PTA_3DNOW_A | PTA_SSE
 					 | PTA_SSE2 | PTA_NO_SAHF},
+      {"athlon64-sse3", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
+					 | PTA_64BIT | PTA_3DNOW_A | PTA_SSE
+                                         | PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF},
       {"athlon-fx", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
 					  | PTA_64BIT | PTA_3DNOW_A | PTA_SSE
 					  | PTA_SSE2 | PTA_NO_SAHF},
@@ -2783,7 +2792,8 @@ ix86_function_regparm (tree type, tree decl)
     return 2;
 
   /* Use register calling convention for local functions when possible.  */
-  if (decl && flag_unit_at_a_time && !profile_flag)
+  if (decl && TREE_CODE (decl) == FUNCTION_DECL
+      && flag_unit_at_a_time && !profile_flag)
     {
       struct cgraph_local_info *i = cgraph_local_info (decl);
       if (i && i->local)
@@ -4370,6 +4380,43 @@ ix86_return_in_memory (tree type)
     return return_in_memory_64 (type, mode);
   else
     return return_in_memory_32 (type, mode);
+}
+
+/* Return false iff TYPE is returned in memory.  This version is used
+   on Solaris 10.  It is similar to the generic ix86_return_in_memory,
+   but differs notably in that when MMX is available, 8-byte vectors
+   are returned in memory, rather than in MMX registers.  */
+
+int 
+ix86_sol10_return_in_memory (tree type)
+{
+  int size;
+  enum machine_mode mode = type_natural_mode (type);
+
+  if (TARGET_64BIT)
+    return return_in_memory_64 (type, mode);
+
+  if (mode == BLKmode)
+    return 1;
+
+  size = int_size_in_bytes (type);
+
+  if (VECTOR_MODE_P (mode))
+    {
+      /* Return in memory only if MMX registers *are* available.  This
+	 seems backwards, but it is consistent with the existing
+	 Solaris x86 ABI.  */
+      if (size == 8)
+	return TARGET_MMX;
+      if (size == 16)
+	return !TARGET_SSE;
+    }
+  else if (mode == TImode)
+    return !TARGET_SSE;
+  else if (mode == XFmode)
+    return 0;
+
+  return size > 12;
 }
 
 /* When returning SSE vector types, we have a choice of either
@@ -8326,9 +8373,15 @@ print_operand (FILE *file, rtx x, int code)
 	      return;
 
 	    case 2:
+	      if (MEM_P (x))
+		{
 #ifdef HAVE_GAS_FILDS_FISTS
-	      putc ('s', file);
+		  putc ('s', file);
 #endif
+		  return;
+		}
+	      else
+		putc ('w', file);
 	      return;
 
 	    case 4:
@@ -17767,7 +17820,6 @@ ix86_expand_sse_comi (const struct builtin_description *d, tree exp,
   tree arg1 = CALL_EXPR_ARG (exp, 1);
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
-  rtx op2;
   enum machine_mode mode0 = insn_data[d->icode].operand[0].mode;
   enum machine_mode mode1 = insn_data[d->icode].operand[1].mode;
   enum rtx_code comparison = d->comparison;
@@ -17797,7 +17849,6 @@ ix86_expand_sse_comi (const struct builtin_description *d, tree exp,
       || !(*insn_data[d->icode].operand[1].predicate) (op1, mode1))
     op1 = copy_to_mode_reg (mode1, op1);
 
-  op2 = gen_rtx_fmt_ee (comparison, mode0, op0, op1);
   pat = GEN_FCN (d->icode) (op0, op1);
   if (! pat)
     return 0;

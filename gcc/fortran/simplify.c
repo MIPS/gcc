@@ -1938,71 +1938,9 @@ gfc_simplify_kind (gfc_expr *e)
 
 
 static gfc_expr *
-simplify_bound (gfc_expr *array, gfc_expr *dim, int upper)
+simplify_bound_dim (gfc_expr *array, int d, int upper, gfc_array_spec *as)
 {
-  gfc_ref *ref;
-  gfc_array_spec *as;
   gfc_expr *l, *u, *result;
-  int d;
-
-  if (dim == NULL)
-    /* TODO: Simplify constant multi-dimensional bounds.  */
-    return NULL;
-
-  if (dim->expr_type != EXPR_CONSTANT)
-    return NULL;
-
-  if (array->expr_type != EXPR_VARIABLE)
-    return NULL;
-
-  /* Follow any component references.  */
-  as = array->symtree->n.sym->as;
-  for (ref = array->ref; ref; ref = ref->next)
-    {
-      switch (ref->type)
-	{
-	case REF_ARRAY:
-	  switch (ref->u.ar.type)
-	    {
-	    case AR_ELEMENT:
-	      as = NULL;
-	      continue;
-
-	    case AR_FULL:
-	      /* We're done because 'as' has already been set in the
-		 previous iteration.  */
-	      goto done;
-
-	    case AR_SECTION:
-	    case AR_UNKNOWN:
-	      return NULL;
-	    }
-
-	  gcc_unreachable ();
-
-	case REF_COMPONENT:
-	  as = ref->u.c.component->as;
-	  continue;
-
-	case REF_SUBSTRING:
-	  continue;
-	}
-    }
-
-  gcc_unreachable ();
-
- done:
-  if (as->type == AS_DEFERRED || as->type == AS_ASSUMED_SHAPE)
-    return NULL;
-
-  d = mpz_get_si (dim->value.integer);
-
-  if (d < 1 || d > as->rank
-      || (d == as->rank && as->type == AS_ASSUMED_SIZE && upper))
-    {
-      gfc_error ("DIM argument at %L is out of bounds", &dim->where);
-      return &gfc_bad_expr;
-    }
 
   /* The last dimension of an assumed-size array is special.  */
   if (d == as->rank && as->type == AS_ASSUMED_SIZE && !upper)
@@ -2044,6 +1982,139 @@ simplify_bound (gfc_expr *array, gfc_expr *dim, int upper)
 }
 
 
+static gfc_expr *
+simplify_bound (gfc_expr *array, gfc_expr *dim, int upper)
+{
+  gfc_ref *ref;
+  gfc_array_spec *as;
+  int d;
+
+  if (array->expr_type != EXPR_VARIABLE)
+    return NULL;
+
+  /* Follow any component references.  */
+  as = array->symtree->n.sym->as;
+  for (ref = array->ref; ref; ref = ref->next)
+    {
+      switch (ref->type)
+	{
+	case REF_ARRAY:
+	  switch (ref->u.ar.type)
+	    {
+	    case AR_ELEMENT:
+	      as = NULL;
+	      continue;
+
+	    case AR_FULL:
+	      /* We're done because 'as' has already been set in the
+		 previous iteration.  */
+	      goto done;
+
+	    case AR_SECTION:
+	    case AR_UNKNOWN:
+	      return NULL;
+	    }
+
+	  gcc_unreachable ();
+
+	case REF_COMPONENT:
+	  as = ref->u.c.component->as;
+	  continue;
+
+	case REF_SUBSTRING:
+	  continue;
+	}
+    }
+
+  gcc_unreachable ();
+
+ done:
+
+  if (as->type == AS_DEFERRED || as->type == AS_ASSUMED_SHAPE)
+    return NULL;
+
+  if (dim == NULL)
+    {
+      /* Multi-dimensional bounds.  */
+      gfc_expr *bounds[GFC_MAX_DIMENSIONS];
+      gfc_expr *e;
+      gfc_constructor *head, *tail;
+
+      /* UBOUND(ARRAY) is not valid for an assumed-size array.  */
+      if (upper && as->type == AS_ASSUMED_SIZE)
+	{
+	  /* An error message will be emitted in
+	     check_assumed_size_reference (resolve.c).  */
+	  return &gfc_bad_expr;
+	}
+
+      /* Simplify the bounds for each dimension.  */
+      for (d = 0; d < array->rank; d++)
+	{
+	  bounds[d] = simplify_bound_dim (array, d + 1, upper, as);
+	  if (bounds[d] == NULL || bounds[d] == &gfc_bad_expr)
+	    {
+	      int j;
+
+	      for (j = 0; j < d; j++)
+		gfc_free_expr (bounds[j]);
+	      return bounds[d];
+	    }
+	}
+
+      /* Allocate the result expression.  */
+      e = gfc_get_expr ();
+      e->where = array->where;
+      e->expr_type = EXPR_ARRAY;
+      e->ts.type = BT_INTEGER;
+      e->ts.kind = gfc_default_integer_kind;
+
+      /* The result is a rank 1 array; its size is the rank of the first
+	 argument to {L,U}BOUND.  */
+      e->rank = 1;
+      e->shape = gfc_get_shape (1);
+      mpz_init_set_ui (e->shape[0], array->rank);
+
+      /* Create the constructor for this array.  */
+      head = tail = NULL;
+      for (d = 0; d < array->rank; d++)
+	{
+	  /* Get a new constructor element.  */
+	  if (head == NULL)
+	    head = tail = gfc_get_constructor ();
+	  else
+	    {
+	      tail->next = gfc_get_constructor ();
+	      tail = tail->next;
+	    }
+
+	  tail->where = e->where;
+	  tail->expr = bounds[d];
+	}
+      e->value.constructor = head;
+
+      return e;
+    }
+  else
+    {
+      /* A DIM argument is specified.  */
+      if (dim->expr_type != EXPR_CONSTANT)
+	return NULL;
+
+      d = mpz_get_si (dim->value.integer);
+
+      if (d < 1 || d > as->rank
+	  || (d == as->rank && as->type == AS_ASSUMED_SIZE && upper))
+	{
+	  gfc_error ("DIM argument at %L is out of bounds", &dim->where);
+	  return &gfc_bad_expr;
+	}
+
+      return simplify_bound_dim (array, d, upper, as);
+    }
+}
+
+
 gfc_expr *
 gfc_simplify_lbound (gfc_expr *array, gfc_expr *dim)
 {
@@ -2065,14 +2136,15 @@ gfc_simplify_len (gfc_expr *e)
     }
 
   if (e->ts.cl != NULL && e->ts.cl->length != NULL
-      && e->ts.cl->length->expr_type == EXPR_CONSTANT)
+      && e->ts.cl->length->expr_type == EXPR_CONSTANT
+      && e->ts.cl->length->ts.type == BT_INTEGER)
     {
       result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
 				    &e->where);
       mpz_set (result->value.integer, e->ts.cl->length->value.integer);
       return range_check (result, "LEN");
     }
-  
+
   return NULL;
 }
 
@@ -2569,13 +2641,8 @@ gfc_simplify_new_line (gfc_expr *e)
 {
   gfc_expr *result;
 
-  if (e->expr_type != EXPR_CONSTANT)
-    return NULL;
-
   result = gfc_constant_result (BT_CHARACTER, e->ts.kind, &e->where);
-
   result->value.character.string = gfc_getmem (2);
-
   result->value.character.length = 1;
   result->value.character.string[0] = '\n';
   result->value.character.string[1] = '\0';     /* For debugger */
@@ -2848,7 +2915,10 @@ gfc_simplify_repeat (gfc_expr *e, gfc_expr *n)
     return NULL;
 
   if (mpz_sgn (e->ts.cl->length->value.integer) != 0)
-    gcc_assert (gfc_extract_int (n, &ncop) == NULL);
+    {
+      const char *res = gfc_extract_int (n, &ncop);
+      gcc_assert (res == NULL);
+    }
   else
     ncop = 0;
 

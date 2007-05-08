@@ -1,6 +1,6 @@
 // new abi support -*- C++ -*-
   
-// Copyright (C) 2000, 2002, 2003, 2004, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2002, 2003, 2004, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -50,6 +50,7 @@
 
 #include <stddef.h>
 #include <bits/cxxabi_tweaks.h>
+#include <cxxabi-forced.h>
  
 #ifdef __cplusplus
 namespace __cxxabiv1
@@ -136,7 +137,11 @@ namespace __cxxabiv1
 
   // DSO destruction.
   int
-  __cxa_atexit(void (*)(void*), void*, void*);
+  __cxa_atexit(void (*)(void*), void*, void*)
+#ifdef __cplusplus
+    throw ()
+#endif
+    ;
 
   int
   __cxa_finalize(void*);
@@ -525,6 +530,15 @@ namespace __cxxabiv1
   // null if there is none.
   extern "C" std::type_info*
   __cxa_current_exception_type();
+
+  // A magic placeholder class that can be caught by reference
+  // to recognize foreign exceptions.
+  class __foreign_exception
+  {
+    virtual ~__foreign_exception() throw();
+    virtual void __pure_dummy() = 0; // prevent catch by value
+  };
+
 } // namespace __cxxabiv1
 
 // User programs should use the alias `abi'. 

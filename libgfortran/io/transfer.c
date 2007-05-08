@@ -164,18 +164,19 @@ read_sf (st_parameter_dt *dtp, int *length, int no_error)
       return base;
     }
 
+  if (is_internal_unit (dtp))
+    {
+      readlen = *length;
+      q = salloc_r (dtp->u.p.current_unit->s, &readlen);
+      memcpy (p, q, readlen);
+      goto done;
+    }
+
   readlen = 1;
   n = 0;
 
   do
     {
-      if (is_internal_unit (dtp))
-	{
-	  /* readlen may be modified inside salloc_r if
-	     is_internal_unit (dtp) is true.  */
-	  readlen = 1;
-	}
-
       q = salloc_r (dtp->u.p.current_unit->s, &readlen);
       if (q == NULL)
 	break;
@@ -244,6 +245,8 @@ read_sf (st_parameter_dt *dtp, int *length, int no_error)
       dtp->u.p.sf_seen_eor = 0;
     }
   while (n < *length);
+
+ done:
   dtp->u.p.current_unit->bytes_left -= *length;
 
   if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
@@ -1398,8 +1401,17 @@ transfer_logical (st_parameter_dt *dtp, void *p, int kind)
 void
 transfer_character (st_parameter_dt *dtp, void *p, int len)
 {
+  static char *empty_string[0];
+
   if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
     return;
+
+  /* Strings of zero length can have p == NULL, which confuses the
+     transfer routines into thinking we need more data elements.  To avoid
+     this, we give them a nice pointer.  */
+  if (len == 0 && p == NULL)
+    p = empty_string;
+
   /* Currently we support only 1 byte chars, and the library is a bit
      confused of character kind vs. length, so we kludge it by setting
      kind = length.  */
@@ -1695,6 +1707,9 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
   memset (&dtp->u.p, 0, sizeof (dtp->u.p));
   dtp->u.p.ionml = ionml;
   dtp->u.p.mode = read_flag ? READING : WRITING;
+
+  if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
+    return;
 
   if ((cf & IOPARM_DT_HAS_SIZE) != 0)
     dtp->u.p.size_used = 0;  /* Initialize the count.  */
@@ -2546,8 +2561,10 @@ next_record (st_parameter_dt *dtp, int done)
 
   if (!is_stream_io (dtp))
     {
-      /* keep position up to date for INQUIRE */
-      dtp->u.p.current_unit->flags.position = POSITION_ASIS;
+      /* Keep position up to date for INQUIRE */
+      if (done)
+	update_position (dtp->u.p.current_unit);
+
       dtp->u.p.current_unit->current_record = 0;
       if (dtp->u.p.current_unit->flags.access == ACCESS_DIRECT)
 	{

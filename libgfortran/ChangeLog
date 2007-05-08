@@ -1,6 +1,81 @@
+2007-05-07  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/31607
+	* intrinsics/system.c (system_sub): Call flush_all_units.
+	* io/io.h (flush_all_units): Move prototype to libgfortran.h.
+	* libgfortran.h (flush_all_units): Add prototype.
+
+2007-05-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/31201
+	* runtime/error.c (runtime_error_at): New function.
+	(generate_error): Export this function.
+	* gfortran.map: Add _gfortran_generate_error and
+	_gfortran_runtime_error_at.
+	* libgfortran.h: Add comment to reference error codes in front end.
+	(library_start): Locate prototype with library_end macro and add
+	a new comment.  Add prototype for runtime_error_at. Export prototype for
+	generate_error.
+	* io/lock.c (library_start): Fix check for error condition.
+	* io/transfer.c (data_transfer_init): Add library check.
+
+2007-05-04  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/22359
+	* io/intrinsics.c (fseek_sub): New.
+	* io/unix.c (fd_fseek): Change logical and physical offsets only
+	if seek succeeds.
+	* gfortran.map (fseek_sub): New.
+
+2007-05-04  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/31210
+	* io/transfer.c (transfer_character): Avoid passing a NULL
+	pointer as source to the transfer routines, if the string length
+	is zero.
+
+2007-04-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/31501
+	* io/list_read.c (next_char): Fix whitespace.
+	* io/io.h: Remove prototypes and define macros for is_array_io,
+	is_stream_io, and is_internal_unit.
+	* io/unit.c (is_array_io), (is_internal_unit), (is_stream_io): Delete
+	these functions.
+	* io/transfer.c (read_sf): Change handling of internal_unit to make a
+	single call to salloc_r and use memcpy to transfer the data. 
+
+2007-04-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/31532
+	* io/file_pos.c (st_backspace): Set flags.position for end of file
+	condition and use new function update_position.
+	(st_endfile): Use new function update_position.
+	* io/io.h: Add prototype for new function.
+	* io/inquire.c (inquire_via_unit): If not direct access, set NEXTREC
+	to zero.
+	* io/unit.c (update_position): New function to update position info
+	used by inquire.
+	* io/transfer.c (next_record): Fix typo and use new function.
+
+2007-04-25  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/31299
+	* intrinsics/getlog.c: Use getpwuid and geteuid instead of
+	getlogin if they are available.
+	* configure.ac: Add checks for getpwuid and geteuid.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+
+2007-04-25  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* configure: Regenerate using autoconf 2.59.
+	* Makefile.in: Likewise.  
+	* config.h.in: Likewise.
+
 2007-04-24  Janne Blomqvist  <jb@gcc.gnu.org>
 
-	PR fortran/27740
+	PR libfortran/27740
 	* configure.ac: New test to determine if symbol versioning is
 	supported.
 	* Makefile.am: Use result of above test to add appropriate linker

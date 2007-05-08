@@ -1,3 +1,1048 @@
+2007-05-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/type_traits (make_signed): Remove specializations
+	for floating point types.
+	(make_unsigned): Same.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc: Fix.
+	* testsuite/20_util/make_signed/requirements/typedefs-1.cc: Same.
+	* testsuite/20_util/make_signed/requirements/typedefs-2.cc: Same.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc: Same.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-1.cc: Same.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-2.cc: Same.
+	
+2007-05-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/26_numerics/headers/cmath/types_std_c++0x_neg.cc: New.
+
+2007-05-08  Jason Merrill  <jason@redhat.com>
+
+	* libsupc++/cxxabi-internal.h: Remove, to be replaced by...
+	* libsupc++/cxxabi-forced.h: ...this new file.
+	* include/ext/vstring.tcc: Include cxxabi-forced.h instead.
+	* include/bits/istream.tcc: Likewise.
+	* include/bits/ostream.tcc: Likewise.
+	* include/bits/basic_string.tcc: Likewise.
+	* include/bits/ostream_insert.h: Likewise.
+	* include/bits/fstream.tcc: Likewise.
+	* include/std/bitset: Likewise.
+	* libsupc++/cxxabi.h: Restore previous contents.
+	* Makefile.am (headers): Add cxxabi-forced.h.
+	* Makefile.in: Regenerate.
+
+2007-05-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/testsuite_abi.cc: Add CXXABI_1.3.2.
+
+	* libsupc++/cxxabi-internal.h (__foreign_exception::__pure): To
+	__pure_virtual.
+
+2007-05-07  Jason Merrill  <jason@redhat.com>
+
+	* include/bits/ostream.tcc (operator<<(char*)): Add __s.
+
+	* config/abi/pre/gnu.ver: Fix symbol versions.
+	* config/abi/pre/gnu-versioned-namespace.ver: Likewise.
+
+2007-05-07  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/os/mingw32/os_defines.h (NOMINMAX): Update comment.
+
+2007-05-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/28145
+	* libsupc++/cxxabi.h (__forced_unwind, __foreign_exception):
+	New classes.
+	* libsupc++/eh_exception.cc: Define their destructors.
+	* config/abi/pre/gnu.ver: Export their type_infos.
+	* config/abi/pre/gnu-versioned-namespace.ver: Likewise.
+	* libsupc++/eh_personality.cc: A handler for abi::__forced_unwind
+	matches a forced unwind, and a handler for abi::__foreign_exception
+	matches a foreign exception.
+	
+	* include/bits/istream.tcc: Rethrow forced unwind.
+	* include/bits/ostream.tcc: Likewise.
+	* include/bits/ostream_insert.h: Likewise.
+	* include/bits/basic_string.tcc (operator>>, getline): Likewise.
+	* include/bits/fstream.tcc (basic_filebuf::close): Likewise.
+	* include/ext/vstring.cc (operator>>, getline): Likewise.
+	* src/istream.cc: Likewise.
+	* src/compatibility.cc (basic_istream::ignore): Likewise.
+	* include/std/bitset (operator>>): Likewise.
+	* include/std/fstream (basic_filebuf::close): Remove throw() spec.
+	* libsupc++/cxxabi-internal.h: Split out from...
+	* libsupc++/cxxabi.h: ...here.
+
+2007-05-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h: Do not include <cstring>.
+	(copy(const _Tp*, const _Tp*, _Tp*), __copy_b(const _Tp*, const _Tp*,
+	_Tp*)): Use __builtin_memmove.
+	(__fill_aux): Use __builtin_memset.
+	(equal(const _Tp*, const _Tp*, const _Tp*),
+	lexicographical_compare(const unsigned char*, const unsigned char*,
+	const unsigned char*, const unsigned char*)): Use __builtin_memcmp.
+	* include/bits/valarray_array.h: Do not include <cstring>.
+	(_Array_default_ctor<, true>::_S_do_it): Use __builtin_memset.
+	(_Array_copy_ctor<, true>::_S_do_it, _Array_copier<, true>::_S_do_it):
+	Use __builtin_memcpy.
+	* include/ext/algorithm
+	(__lexicographical_compare_3way(const unsigned char*,
+	const unsigned char*, const unsigned char*, const unsigned char*)):
+	Use __builtin_memcmp.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Adjust dg-error line number.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+
+2007-05-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/22_locale/num_put/put/char/14220.cc: XFAIL on Solaris
+	2.10.
+	* testsuite/22_locale/num_put/put/wchar_t/14220.cc: Likewise.
+
+	* testsuite/lib/libstdc++.exp (v3_target_compile_as_c): In
+	installed-tree testing, use "remote_exec host", not "remote_exec
+	exec".  Trip trailing newlines from output of -dumpversion and
+	-dumpmachine.
+
+2007-05-07  Benjamin Kosnik  <bkoz@redhat.com>
+            Howard Hinnant  <hhinnant@apple.com>
+
+	* include/std/type_traits: (make_signed, make_unsigned): Adjust
+	for enum sizes.	
+	* testsuite/20_util/make_unsigned/requirements/typedefs.cc: Move to...
+	* testsuite/20_util/make_unsigned/requirements/typedefs-1.cc: ...here.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-2.cc: Add,
+	compile with -funsigned-char -fshort-enums.
+	* testsuite/20_util/make_signed/requirements/typedefs.cc: Move to...
+	* testsuite/20_util/make_signed/requirements/typedefs-1.cc: ...here.
+	* testsuite/20_util/make_signed/requirements/typedefs-2.cc: Add,
+	compile with -funsigned-char -fshort-enums.
+
+	* testsuite/20_util/headers/type_traits/types_std_c++0x_neg.cc:
+	Add a temporary xfail to this test for all platforms.
+	
+2007-05-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/complex: Add missing extern template declarations.
+	* testsuite/26_numerics/complex/complex_inserters_extractors.cc:
+	Move...
+	* testsuite/26_numerics/complex/inserters_extractors/char/1.cc:
+	... here.
+	* testsuite/26_numerics/complex/inserters_extractors/wchar_t/1.cc:
+	New.
+
+2007-05-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31834
+	* testsuite/17_intro/headers/c++200x/all.cc: Protect inclusion
+	of C99 headers.
+	* testsuite/17_intro/headers/c++200x/all_multiple_inclusion.cc:
+	Likewise.
+
+2007-05-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/generic/c_locale.cc: Don't use __builtin_huge_val*
+	when __*_HAS_INFINITY__ is false.
+
+2007-05-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_raw_storage_iter.h (class raw_storage_iterator):
+	Adjust template parameter name.
+
+2007-05-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* libsupc++/cxxabi.h (__cxa_atexit): Conditionalize exception
+	specification on #ifdef __cplusplus.
+	
+2007-05-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_memory.h: Rename to stl_auto_ptr.h.
+	(__get_temporary_buffer, get_temporary_buffer,
+	return_temporary_buffer): Move...
+	* include/bits/stl_tempbuf.h: ... here.
+	* include/std/memory: Adjust includes.
+	* testsuite/20_util/auto_ptr/assign_neg.cc: Adjust dg-error line
+	numbers.
+	* include/Makefile.am: Adjust.
+	* include/Makefile.in: Regenerate.
+
+	* testsuite/util/testsuite_iterators.h: Do not include the entire
+	<iterator>.
+	* include/bits/stl_iterator_base_types.h: Adjust includes.
+	* testsuite/25_algorithms/unique_copy/2.cc: Include <functional>.
+
+2007-05-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* libsupc++/atexit_arm.cc: New file.
+	* libsupc++/vec.cc (__aeabi_atexit): Remove.
+	* libsupc++/cxxabi.h (__cxa_atexit): Add exception specification.
+
+	* libsupc++/Makefile.am: Add atexit_arm.cc.
+	* libsupc++/Makefile.in: Regenerated.
+
+2007-05-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_construct.h (_Destroy(_ForwardIterator,
+	_ForwardIterator __last, _Allocator)): Change the last parameter
+	to _Allocator&.
+	* include/bits/stl_uninitialized.h (__uninitialized_copy_a,
+	__uninitialized_fill_a, __uninitialized_fill_n_a,
+	__uninitialized_fill_copy, __uninitialized_copy_fill,
+	__uninitialized_copy_copy): Likewise.
+	* include/ext/rope: Adjust everywhere.
+	* include/ext/ropeimpl.h: Likewise.
+
+2007-05-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/type_traits (enable_if): New.
+	(conditional): New.
+	(__decay_selector, decay): New.
+	(__cv_selector, __match_cv_qualifiers): New.
+	(__make_unsigned, __make_unsigned_selector, make_unsigned): New.
+	(__make_signed, __make_signed_selector, make_signed): New.
+	(has_trivial_constructor): ... to has_trivial_default_constructor.
+	(has_nothrow_constructor): ... to has_nothrow_default_constructor.
+	(has_trivial_copy): ... to has_trivial_copy_constructor.
+	(has_nothrow_copy): ... to has_nothrow_copy_constructor.
+
+	* include/tr1/type_traits_fwd: Move to...
+	* include/tr1/type_traitsfwd: ... this, consistency with
+	ios/string/locale forward headers.
+	* include/tr1/type_traits: Adjust include.	
+	* include/Makefile.am (tr1_headers): Change type_traits_fwd.h to
+	type_traitsfwd.h.
+	* include/Makefile.in: Regenerate.
+
+	* testsuite/23_containers/tuple: Move...
+	* testsuite/20_util/tuple:... here.
+
+	* testsuite/20_util/conditional: New.
+	* testsuite/20_util/conditional/requirements: Same.
+	* testsuite/20_util/conditional/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/conditional/requirements/typedefs.cc: Same.
+	* testsuite/20_util/decay: Same.
+	* testsuite/20_util/decay/requirements: Same.
+	* testsuite/20_util/decay/requirements/explicit_instantiation.cc: Same.
+	* testsuite/20_util/decay/requirements/typedefs.cc: Same.
+	* testsuite/20_util/enable_if: Same.
+	* testsuite/20_util/enable_if/requirements: Same.
+	* testsuite/20_util/enable_if/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/enable_if/requirements/typedefs.cc: Same.
+	* testsuite/20_util/enable_if/requirements/typedefs_neg.cc: Same.
+	* testsuite/20_util/has_nothrow_copy_constructor: Same.
+	* testsuite/20_util/has_nothrow_copy_constructor/requirements: Same.
+	* testsuite/20_util/has_nothrow_copy_constructor/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/has_nothrow_copy_constructor/requirements/
+	typedefs.cc: Same.
+	* testsuite/20_util/has_nothrow_copy_constructor/value.cc: Same.
+	* testsuite/20_util/has_nothrow_default_constructor: Same.
+	* testsuite/20_util/has_nothrow_default_constructor/requirements: Same.
+	* testsuite/20_util/has_nothrow_default_constructor/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/has_nothrow_default_constructor/requirements/
+	typedefs.cc: Same.
+	* testsuite/20_util/has_nothrow_default_constructor/value.cc: Same.
+	* testsuite/20_util/has_trivial_copy_constructor: Same.
+	* testsuite/20_util/has_trivial_copy_constructor/requirements: Same.
+	* testsuite/20_util/has_trivial_copy_constructor/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/has_trivial_copy_constructor/requirements/
+	typedefs.cc: Same.
+	* testsuite/20_util/has_trivial_copy_constructor/value.cc: Same.
+	* testsuite/20_util/has_trivial_default_constructor: Same.
+	* testsuite/20_util/has_trivial_default_constructor/requirements: Same.
+	* testsuite/20_util/has_trivial_default_constructor/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/has_trivial_default_constructor/requirements/
+	typedefs.cc: Same.
+	* testsuite/20_util/has_trivial_default_constructor/value.cc: Same.
+	* testsuite/20_util/headers/type_traits/types_std_c++0x_neg.cc: Same.
+	* testsuite/20_util/make_signed: Same.
+	* testsuite/20_util/make_signed/requirements: Same.
+	* testsuite/20_util/make_signed/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/make_signed/requirements/typedefs.cc: Same.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc: Same.
+	* testsuite/20_util/make_unsigned: Same.
+	* testsuite/20_util/make_unsigned/requirements: Same.
+	* testsuite/20_util/make_unsigned/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/make_unsigned/requirements/typedefs.cc: Same.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc: Same.
+	
+2007-05-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31777
+	* include/ext/pool_allocator.h (__pool_alloc<>::allocate,
+	__pool_alloc<>::deallocate): Fix _S_force_new check.
+
+2007-05-01  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* 23_containers/requirements/sequences/dr438/deque/*: Move to...
+	* 23_containers/deque/requirements/dr438: ...here.
+	
+	* 23_containers/requirements/sequences/dr438/list/*: Move to...
+	* 23_containers/list/requirements/dr438: ...here.
+	
+	* 23_containers/requirements/sequences/dr438/vector/*: Move to...
+	* 23_containers/vector/requirements/dr438: ...here.
+
+2007-05-01  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* testsuite/*/explicit_instantiations.cc: Change to...
+	* testsuite/*/explicit_instantiation.cc: ... this.
+
+2007-05-01  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* testsuite/tr1/4_metaprogramming/*/explicit_instantiations.cc: Change
+	"basic_ofstream" in comment to type_traits.
+
+2007-04-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Directory layout flattening.
+
+	Added in testsuite:
+	* tr1/4_metaprogramming/add_const
+	* tr1/4_metaprogramming/add_const/requirements
+	* tr1/4_metaprogramming/add_const/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/add_const/requirements/typedefs.cc
+	* tr1/4_metaprogramming/add_cv
+	* tr1/4_metaprogramming/add_cv/requirements
+	* tr1/4_metaprogramming/add_cv/requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/add_cv/requirements/typedefs.cc
+	* tr1/4_metaprogramming/add_pointer
+	* tr1/4_metaprogramming/add_pointer/requirements
+	* tr1/4_metaprogramming/add_pointer/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/add_pointer/requirements/typedefs.cc
+	* tr1/4_metaprogramming/add_reference
+	* tr1/4_metaprogramming/add_reference/requirements
+	* tr1/4_metaprogramming/add_reference/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/add_reference/requirements/typedefs.cc
+	* tr1/4_metaprogramming/add_volatile
+	* tr1/4_metaprogramming/add_volatile/requirements
+	* tr1/4_metaprogramming/add_volatile/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/add_volatile/requirements/typedefs.cc
+	* tr1/4_metaprogramming/aligned_storage
+	* tr1/4_metaprogramming/aligned_storage/requirements
+	* tr1/4_metaprogramming/aligned_storage/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/aligned_storage/requirements/typedefs.cc
+	* tr1/4_metaprogramming/alignment_of
+	* tr1/4_metaprogramming/alignment_of/requirements
+	* tr1/4_metaprogramming/alignment_of/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/alignment_of/requirements/typedefs.cc
+	* tr1/4_metaprogramming/alignment_of/value.cc
+	* tr1/4_metaprogramming/extent
+	* tr1/4_metaprogramming/extent/requirements
+	* tr1/4_metaprogramming/extent/requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/extent/requirements/typedefs.cc
+	* tr1/4_metaprogramming/extent/value.cc
+	* tr1/4_metaprogramming/has_nothrow_assign
+	* tr1/4_metaprogramming/has_nothrow_assign/requirements
+	* tr1/4_metaprogramming/has_nothrow_assign/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/has_nothrow_assign/requirements/typedefs.cc
+	* tr1/4_metaprogramming/has_nothrow_assign/value.cc
+	* tr1/4_metaprogramming/has_nothrow_constructor
+	* tr1/4_metaprogramming/has_nothrow_constructor/requirements
+	* tr1/4_metaprogramming/has_nothrow_constructor/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/has_nothrow_constructor/
+	requirements/typedefs.cc
+	* tr1/4_metaprogramming/has_nothrow_constructor/value.cc
+	* tr1/4_metaprogramming/has_nothrow_copy
+	* tr1/4_metaprogramming/has_nothrow_copy/requirements
+	* tr1/4_metaprogramming/has_nothrow_copy/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/has_nothrow_copy/requirements/typedefs.cc
+	* tr1/4_metaprogramming/has_nothrow_copy/value.cc
+	* tr1/4_metaprogramming/has_trivial_assign
+	* tr1/4_metaprogramming/has_trivial_assign/requirements
+	* tr1/4_metaprogramming/has_trivial_assign/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/has_trivial_assign/requirements/typedefs.cc
+	* tr1/4_metaprogramming/has_trivial_assign/value.cc
+	* tr1/4_metaprogramming/has_trivial_constructor
+	* tr1/4_metaprogramming/has_trivial_constructor/requirements
+	* tr1/4_metaprogramming/has_trivial_constructor/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/has_trivial_constructor/
+	requirements/typedefs.cc
+	* tr1/4_metaprogramming/has_trivial_constructor/value.cc
+	* tr1/4_metaprogramming/has_trivial_copy
+	* tr1/4_metaprogramming/has_trivial_copy/requirements
+	* tr1/4_metaprogramming/has_trivial_copy/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/has_trivial_copy/requirements/typedefs.cc
+	* tr1/4_metaprogramming/has_trivial_copy/value.cc
+	* tr1/4_metaprogramming/has_trivial_destructor
+	* tr1/4_metaprogramming/has_trivial_destructor/requirements
+	* tr1/4_metaprogramming/has_trivial_destructor/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/has_trivial_destructor/requirements/typedefs.cc
+	* tr1/4_metaprogramming/has_trivial_destructor/value.cc
+	* tr1/4_metaprogramming/has_virtual_destructor
+	* tr1/4_metaprogramming/has_virtual_destructor/requirements
+	* tr1/4_metaprogramming/has_virtual_destructor/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/has_virtual_destructor/requirements/typedefs.cc
+	* tr1/4_metaprogramming/has_virtual_destructor/value.cc
+	* tr1/4_metaprogramming/integral_constant
+	* tr1/4_metaprogramming/integral_constant/requirements
+	* tr1/4_metaprogramming/integral_constant/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/integral_constant/requirements/typedefs.cc
+	* tr1/4_metaprogramming/integral_constant/true_false_value.cc
+	* tr1/4_metaprogramming/is_abstract
+	* tr1/4_metaprogramming/is_abstract/requirements
+	* tr1/4_metaprogramming/is_abstract/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_abstract/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_abstract/value.cc
+	* tr1/4_metaprogramming/is_arithmetic
+	* tr1/4_metaprogramming/is_arithmetic/requirements
+	* tr1/4_metaprogramming/is_arithmetic/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_arithmetic/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_arithmetic/value.cc
+	* tr1/4_metaprogramming/is_array
+	* tr1/4_metaprogramming/is_array/requirements
+	* tr1/4_metaprogramming/is_array/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_array/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_array/value.cc
+	* tr1/4_metaprogramming/is_base_of
+	* tr1/4_metaprogramming/is_base_of/requirements
+	* tr1/4_metaprogramming/is_base_of/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_base_of/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_base_of/value.cc
+	* tr1/4_metaprogramming/is_class
+	* tr1/4_metaprogramming/is_class/requirements
+	* tr1/4_metaprogramming/is_class/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_class/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_class/value.cc
+	* tr1/4_metaprogramming/is_compound
+	* tr1/4_metaprogramming/is_compound/requirements
+	* tr1/4_metaprogramming/is_compound/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_compound/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_compound/value.cc
+	* tr1/4_metaprogramming/is_const
+	* tr1/4_metaprogramming/is_const/requirements
+	* tr1/4_metaprogramming/is_const/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_const/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_const/value.cc
+	* tr1/4_metaprogramming/is_convertible
+	* tr1/4_metaprogramming/is_convertible/requirements
+	* tr1/4_metaprogramming/is_convertible/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_convertible/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_convertible/value.cc
+	* tr1/4_metaprogramming/is_empty
+	* tr1/4_metaprogramming/is_empty/requirements
+	* tr1/4_metaprogramming/is_empty/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_empty/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_empty/value.cc
+	* tr1/4_metaprogramming/is_enum
+	* tr1/4_metaprogramming/is_enum/requirements
+	* tr1/4_metaprogramming/is_enum/requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_enum/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_enum/value.cc
+	* tr1/4_metaprogramming/is_floating_point
+	* tr1/4_metaprogramming/is_floating_point/requirements
+	* tr1/4_metaprogramming/is_floating_point/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_floating_point/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_floating_point/value.cc
+	* tr1/4_metaprogramming/is_function
+	* tr1/4_metaprogramming/is_function/requirements
+	* tr1/4_metaprogramming/is_function/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_function/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_function/value.cc
+	* tr1/4_metaprogramming/is_fundamental
+	* tr1/4_metaprogramming/is_fundamental/requirements
+	* tr1/4_metaprogramming/is_fundamental/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_fundamental/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_fundamental/value.cc
+	* tr1/4_metaprogramming/is_integral
+	* tr1/4_metaprogramming/is_integral/requirements
+	* tr1/4_metaprogramming/is_integral/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_integral/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_integral/value.cc
+	* tr1/4_metaprogramming/is_member_function_pointer
+	* tr1/4_metaprogramming/is_member_function_pointer/requirements
+	* tr1/4_metaprogramming/is_member_function_pointer/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_member_function_pointer/
+	requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_member_function_pointer/value.cc
+	* tr1/4_metaprogramming/is_member_object_pointer
+	* tr1/4_metaprogramming/is_member_object_pointer/requirements
+	* tr1/4_metaprogramming/is_member_object_pointer/
+	requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_member_object_pointer/
+	requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_member_object_pointer/value.cc
+	* tr1/4_metaprogramming/is_member_pointer
+	* tr1/4_metaprogramming/is_member_pointer/requirements
+	* tr1/4_metaprogramming/is_member_pointer/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_member_pointer/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_member_pointer/value.cc
+	* tr1/4_metaprogramming/is_object
+	* tr1/4_metaprogramming/is_object/requirements
+	* tr1/4_metaprogramming/is_object/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_object/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_object/value.cc
+	* tr1/4_metaprogramming/is_pod
+	* tr1/4_metaprogramming/is_pod/requirements
+	* tr1/4_metaprogramming/is_pod/requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_pod/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_pod/value.cc
+	* tr1/4_metaprogramming/is_pointer
+	* tr1/4_metaprogramming/is_pointer/requirements
+	* tr1/4_metaprogramming/is_pointer/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_pointer/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_pointer/value.cc
+	* tr1/4_metaprogramming/is_polymorphic
+	* tr1/4_metaprogramming/is_polymorphic/requirements
+	* tr1/4_metaprogramming/is_polymorphic/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_polymorphic/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_polymorphic/value.cc
+	* tr1/4_metaprogramming/is_reference
+	* tr1/4_metaprogramming/is_reference/requirements
+	* tr1/4_metaprogramming/is_reference/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_reference/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_reference/value.cc
+	* tr1/4_metaprogramming/is_same
+	* tr1/4_metaprogramming/is_same/requirements
+	* tr1/4_metaprogramming/is_same/requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_same/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_same/value.cc
+	* tr1/4_metaprogramming/is_scalar
+	* tr1/4_metaprogramming/is_scalar/requirements
+	* tr1/4_metaprogramming/is_scalar/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_scalar/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_scalar/value.cc
+	* tr1/4_metaprogramming/is_signed
+	* tr1/4_metaprogramming/is_signed/requirements
+	* tr1/4_metaprogramming/is_signed/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_signed/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_signed/value.cc
+	* tr1/4_metaprogramming/is_union
+	* tr1/4_metaprogramming/is_union/requirements
+	* tr1/4_metaprogramming/is_union/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_union/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_union/value.cc
+	* tr1/4_metaprogramming/is_unsigned
+	* tr1/4_metaprogramming/is_unsigned/requirements
+	* tr1/4_metaprogramming/is_unsigned/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_unsigned/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_unsigned/value.cc
+	* tr1/4_metaprogramming/is_void
+	* tr1/4_metaprogramming/is_void/requirements
+	* tr1/4_metaprogramming/is_void/requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_void/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_void/value.cc
+	* tr1/4_metaprogramming/is_volatile
+	* tr1/4_metaprogramming/is_volatile/requirements
+	* tr1/4_metaprogramming/is_volatile/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/is_volatile/requirements/typedefs.cc
+	* tr1/4_metaprogramming/is_volatile/value.cc
+	* tr1/4_metaprogramming/rank
+	* tr1/4_metaprogramming/rank/requirements
+	* tr1/4_metaprogramming/rank/requirements/explicit_instantiations.cc
+	* tr1/4_metaprogramming/rank/requirements/typedefs.cc
+	* tr1/4_metaprogramming/rank/value.cc
+	* tr1/4_metaprogramming/remove_all_extents
+	* tr1/4_metaprogramming/remove_all_extents/requirements
+	* tr1/4_metaprogramming/remove_all_extents/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/remove_all_extents/value.cc
+	* tr1/4_metaprogramming/remove_const
+	* tr1/4_metaprogramming/remove_const/requirements
+	* tr1/4_metaprogramming/remove_const/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/remove_const/value.cc
+	* tr1/4_metaprogramming/remove_cv
+	* tr1/4_metaprogramming/remove_cv/requirements
+	* tr1/4_metaprogramming/remove_cv/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/remove_cv/value.cc
+	* tr1/4_metaprogramming/remove_extent
+	* tr1/4_metaprogramming/remove_extent/requirements
+	* tr1/4_metaprogramming/remove_extent/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/remove_extent/value.cc
+	* tr1/4_metaprogramming/remove_pointer
+	* tr1/4_metaprogramming/remove_pointer/requirements
+	* tr1/4_metaprogramming/remove_pointer/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/remove_pointer/value.cc
+	* tr1/4_metaprogramming/remove_reference
+	* tr1/4_metaprogramming/remove_reference/requirements
+	* tr1/4_metaprogramming/remove_reference/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/remove_reference/value.cc
+	* tr1/4_metaprogramming/remove_volatile
+	* tr1/4_metaprogramming/remove_volatile/requirements
+	* tr1/4_metaprogramming/remove_volatile/requirements/
+	explicit_instantiations.cc
+	* tr1/4_metaprogramming/remove_volatile/value.cc
+
+	Deleted in testsuite:	
+	* tr1/4_metaprogramming/alignment_of/alignment_of.cc
+	* tr1/4_metaprogramming/alignment_of/typedefs.cc
+	* tr1/4_metaprogramming/array_modifications
+	* tr1/4_metaprogramming/array_modifications/remove_all_extents.cc
+	* tr1/4_metaprogramming/array_modifications/remove_extent.cc
+	* tr1/4_metaprogramming/composite_type_traits
+	* tr1/4_metaprogramming/composite_type_traits/is_arithmetic
+	* tr1/4_metaprogramming/composite_type_traits/is_arithmetic/
+	is_arithmetic.cc
+	* tr1/4_metaprogramming/composite_type_traits/is_arithmetic/typedefs.cc
+	* tr1/4_metaprogramming/composite_type_traits/is_compound
+	* tr1/4_metaprogramming/composite_type_traits/is_compound/
+	is_compound.cc
+	* tr1/4_metaprogramming/composite_type_traits/is_compound/typedefs.cc
+	* tr1/4_metaprogramming/composite_type_traits/is_fundamental
+	* tr1/4_metaprogramming/composite_type_traits/is_fundamental/
+	is_fundamental.cc
+	* tr1/4_metaprogramming/composite_type_traits/is_fundamental/
+	typedefs.cc
+	* tr1/4_metaprogramming/composite_type_traits/is_member_pointer
+	* tr1/4_metaprogramming/composite_type_traits/is_member_pointer/
+	is_member_pointer.cc
+	* tr1/4_metaprogramming/composite_type_traits/is_member_pointer/
+	typedefs.cc
+	* tr1/4_metaprogramming/composite_type_traits/is_object
+	* tr1/4_metaprogramming/composite_type_traits/is_object/24808.cc
+	* tr1/4_metaprogramming/composite_type_traits/is_object/is_object.cc
+	* tr1/4_metaprogramming/composite_type_traits/is_object/typedefs.cc
+	* tr1/4_metaprogramming/composite_type_traits/is_scalar
+	* tr1/4_metaprogramming/composite_type_traits/is_scalar/is_scalar.cc
+	* tr1/4_metaprogramming/composite_type_traits/is_scalar/typedefs.cc
+	* tr1/4_metaprogramming/const_volatile_modifications
+	* tr1/4_metaprogramming/const_volatile_modifications/add_const.cc
+	* tr1/4_metaprogramming/const_volatile_modifications/add_cv.cc
+	* tr1/4_metaprogramming/const_volatile_modifications/add_volatile.cc
+	* tr1/4_metaprogramming/const_volatile_modifications/remove_const.cc
+	* tr1/4_metaprogramming/const_volatile_modifications/remove_cv.cc
+	* tr1/4_metaprogramming/const_volatile_modifications/remove_volatile.cc
+	* tr1/4_metaprogramming/extent/extent.cc
+	* tr1/4_metaprogramming/extent/typedefs.cc
+	* tr1/4_metaprogramming/has_nothrow_assign/has_nothrow_assign.cc
+	* tr1/4_metaprogramming/has_nothrow_assign/typedefs.cc
+	* tr1/4_metaprogramming/has_nothrow_constructor/
+	has_nothrow_constructor.cc
+	* tr1/4_metaprogramming/has_nothrow_constructor/typedefs.cc
+	* tr1/4_metaprogramming/has_nothrow_copy/has_nothrow_copy.cc
+	* tr1/4_metaprogramming/has_nothrow_copy/typedefs.cc
+	* tr1/4_metaprogramming/has_trivial_assign/has_trivial_assign.cc
+	* tr1/4_metaprogramming/has_trivial_assign/typedefs.cc
+	* tr1/4_metaprogramming/has_trivial_constructor/
+	has_trivial_constructor.cc
+	* tr1/4_metaprogramming/has_trivial_constructor/typedefs.cc
+	* tr1/4_metaprogramming/has_trivial_copy/has_trivial_copy.cc
+	* tr1/4_metaprogramming/has_trivial_copy/typedefs.cc
+	* tr1/4_metaprogramming/has_trivial_destructor/
+	has_trivial_destructor.cc
+	* tr1/4_metaprogramming/has_trivial_destructor/typedefs.cc
+	* tr1/4_metaprogramming/has_virtual_destructor/
+	has_virtual_destructor.cc
+	* tr1/4_metaprogramming/has_virtual_destructor/typedefs.cc
+	* tr1/4_metaprogramming/helper_classes
+	* tr1/4_metaprogramming/helper_classes/static_definition.cc
+	* tr1/4_metaprogramming/helper_classes/true_false_type.cc
+	* tr1/4_metaprogramming/helper_classes/true_false_type_typedefs.cc
+	* tr1/4_metaprogramming/helper_classes/typedefs.cc
+	* tr1/4_metaprogramming/integral_constant/true_false_type.cc
+	* tr1/4_metaprogramming/integral_constant/typedefs.cc
+	* tr1/4_metaprogramming/is_abstract/is_abstract.cc
+	* tr1/4_metaprogramming/is_abstract/typedefs.cc
+	* tr1/4_metaprogramming/is_arithmetic/is_arithmetic.cc
+	* tr1/4_metaprogramming/is_arithmetic/typedefs.cc
+	* tr1/4_metaprogramming/is_array/is_array.cc
+	* tr1/4_metaprogramming/is_array/typedefs.cc
+	* tr1/4_metaprogramming/is_base_of/is_base_of.cc
+	* tr1/4_metaprogramming/is_base_of/typedefs.cc
+	* tr1/4_metaprogramming/is_class/is_class.cc
+	* tr1/4_metaprogramming/is_class/typedefs.cc
+	* tr1/4_metaprogramming/is_compound/is_compound.cc
+	* tr1/4_metaprogramming/is_compound/typedefs.cc
+	* tr1/4_metaprogramming/is_const/is_const.cc
+	* tr1/4_metaprogramming/is_const/typedefs.cc
+	* tr1/4_metaprogramming/is_convertible/is_convertible.cc
+	* tr1/4_metaprogramming/is_convertible/typedefs.cc
+	* tr1/4_metaprogramming/is_empty/is_empty.cc
+	* tr1/4_metaprogramming/is_empty/typedefs.cc
+	* tr1/4_metaprogramming/is_enum/is_enum.cc
+	* tr1/4_metaprogramming/is_enum/typedefs.cc
+	* tr1/4_metaprogramming/is_floating_point/is_floating_point.cc
+	* tr1/4_metaprogramming/is_floating_point/typedefs.cc
+	* tr1/4_metaprogramming/is_function/is_function.cc
+	* tr1/4_metaprogramming/is_function/typedefs.cc
+	* tr1/4_metaprogramming/is_fundamental/is_fundamental.cc
+	* tr1/4_metaprogramming/is_fundamental/typedefs.cc
+	* tr1/4_metaprogramming/is_integral/is_integral.cc
+	* tr1/4_metaprogramming/is_integral/typedefs.cc
+	* tr1/4_metaprogramming/is_member_function_pointer/
+	is_member_function_pointer.cc
+	* tr1/4_metaprogramming/is_member_function_pointer/typedefs.cc
+	* tr1/4_metaprogramming/is_member_object_pointer/
+	is_member_object_pointer.cc
+	* tr1/4_metaprogramming/is_member_object_pointer/typedefs.cc
+	* tr1/4_metaprogramming/is_member_pointer/is_member_pointer.cc
+	* tr1/4_metaprogramming/is_member_pointer/typedefs.cc
+	* tr1/4_metaprogramming/is_object/is_object.cc
+	* tr1/4_metaprogramming/is_object/typedefs.cc
+	* tr1/4_metaprogramming/is_pod/is_pod.cc
+	* tr1/4_metaprogramming/is_pod/typedefs.cc
+	* tr1/4_metaprogramming/is_pointer/is_pointer.cc
+	* tr1/4_metaprogramming/is_pointer/typedefs.cc
+	* tr1/4_metaprogramming/is_polymorphic/is_polymorphic.cc
+	* tr1/4_metaprogramming/is_polymorphic/typedefs.cc
+	* tr1/4_metaprogramming/is_reference/is_reference.cc
+	* tr1/4_metaprogramming/is_reference/typedefs.cc
+	* tr1/4_metaprogramming/is_same/is_same.cc
+	* tr1/4_metaprogramming/is_same/typedefs.cc
+	* tr1/4_metaprogramming/is_scalar/is_scalar.cc
+	* tr1/4_metaprogramming/is_scalar/typedefs.cc
+	* tr1/4_metaprogramming/is_signed/is_signed.cc
+	* tr1/4_metaprogramming/is_signed/typedefs.cc
+	* tr1/4_metaprogramming/is_union/is_union.cc
+	* tr1/4_metaprogramming/is_union/typedefs.cc
+	* tr1/4_metaprogramming/is_unsigned/is_unsigned.cc
+	* tr1/4_metaprogramming/is_unsigned/typedefs.cc
+	* tr1/4_metaprogramming/is_void/is_void.cc
+	* tr1/4_metaprogramming/is_void/typedefs.cc
+	* tr1/4_metaprogramming/is_volatile/is_volatile.cc
+	* tr1/4_metaprogramming/is_volatile/typedefs.cc
+	* tr1/4_metaprogramming/other_transformations
+	* tr1/4_metaprogramming/other_transformations/aligned_storage
+	* tr1/4_metaprogramming/other_transformations/aligned_storage/
+	aligned_storage.cc
+	* tr1/4_metaprogramming/other_transformations/aligned_storage/
+	typedefs.cc
+	* tr1/4_metaprogramming/pointer_modifications
+	* tr1/4_metaprogramming/pointer_modifications/add_pointer.cc
+	* tr1/4_metaprogramming/pointer_modifications/remove_pointer.cc
+	* tr1/4_metaprogramming/primary_type_categories
+	* tr1/4_metaprogramming/primary_type_categories/is_array
+	* tr1/4_metaprogramming/primary_type_categories/is_array/is_array.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_array/typedefs.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_class
+	* tr1/4_metaprogramming/primary_type_categories/is_class/is_class.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_class/typedefs.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_enum
+	* tr1/4_metaprogramming/primary_type_categories/is_enum/24808.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_enum/is_enum.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_enum/typedefs.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_floating_point
+	* tr1/4_metaprogramming/primary_type_categories/is_floating_point/
+	is_floating_point.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_floating_point/
+	typedefs.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_function
+	* tr1/4_metaprogramming/primary_type_categories/is_function/24808.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_function/
+	is_function.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_function/typedefs.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_integral
+	* tr1/4_metaprogramming/primary_type_categories/is_integral/
+	is_integral.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_integral/typedefs.cc
+	* tr1/4_metaprogramming/primary_type_categories/
+	is_member_function_pointer
+	* tr1/4_metaprogramming/primary_type_categories/
+	is_member_function_pointer/is_member_function_pointer.cc
+	* tr1/4_metaprogramming/primary_type_categories/
+	is_member_function_pointer/typedefs.cc
+	* tr1/4_metaprogramming/primary_type_categories/
+	is_member_object_pointer
+	* tr1/4_metaprogramming/primary_type_categories/
+	is_member_object_pointer/is_member_object_pointer.cc
+	* tr1/4_metaprogramming/primary_type_categories/
+	is_member_object_pointer/typedefs.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_pointer
+	* tr1/4_metaprogramming/primary_type_categories/is_pointer/
+	is_pointer.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_pointer/typedefs.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_reference
+	* tr1/4_metaprogramming/primary_type_categories/is_reference/
+	is_reference.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_reference/
+	typedefs.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_union
+	* tr1/4_metaprogramming/primary_type_categories/is_union/is_union.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_union/typedefs.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_void
+	* tr1/4_metaprogramming/primary_type_categories/is_void/is_void.cc
+	* tr1/4_metaprogramming/primary_type_categories/is_void/typedefs.cc
+	* tr1/4_metaprogramming/rank/rank.cc
+	* tr1/4_metaprogramming/rank/typedefs.cc
+	* tr1/4_metaprogramming/reference_modifications/add_reference.cc
+	* tr1/4_metaprogramming/reference_modifications/remove_reference.cc
+	* tr1/4_metaprogramming/relationships_between_types
+	* tr1/4_metaprogramming/relationships_between_types/is_base_of
+	* tr1/4_metaprogramming/relationships_between_types/is_base_of/
+	is_base_of.cc
+	* tr1/4_metaprogramming/relationships_between_types/is_base_of/
+	typedefs.cc
+	* tr1/4_metaprogramming/relationships_between_types/is_convertible
+	* tr1/4_metaprogramming/relationships_between_types/is_convertible/
+	is_convertible.cc
+	* tr1/4_metaprogramming/relationships_between_types/is_convertible/
+	typedefs.cc
+	* tr1/4_metaprogramming/relationships_between_types/is_same
+	* tr1/4_metaprogramming/relationships_between_types/is_same/is_same.cc
+	* tr1/4_metaprogramming/relationships_between_types/is_same/typedefs.cc
+	* tr1/4_metaprogramming/type_properties
+	* tr1/4_metaprogramming/type_properties/alignment_of
+	* tr1/4_metaprogramming/type_properties/alignment_of/alignment_of.cc
+	* tr1/4_metaprogramming/type_properties/alignment_of/typedefs.cc
+	* tr1/4_metaprogramming/type_properties/extent
+	* tr1/4_metaprogramming/type_properties/extent/extent.cc
+	* tr1/4_metaprogramming/type_properties/extent/typedefs.cc
+	* tr1/4_metaprogramming/type_properties/has_nothrow_assign
+	* tr1/4_metaprogramming/type_properties/has_nothrow_assign/
+	has_nothrow_assign.cc
+	* tr1/4_metaprogramming/type_properties/has_nothrow_assign/typedefs.cc
+	* tr1/4_metaprogramming/type_properties/has_nothrow_constructor
+	* tr1/4_metaprogramming/type_properties/has_nothrow_constructor/
+	has_nothrow_constructor.cc
+	* tr1/4_metaprogramming/type_properties/has_nothrow_constructor/
+	typedefs.cc
+	* tr1/4_metaprogramming/type_properties/has_nothrow_copy
+	* tr1/4_metaprogramming/type_properties/has_nothrow_copy/
+	has_nothrow_copy.cc
+	* tr1/4_metaprogramming/type_properties/has_nothrow_copy/typedefs.cc
+	* tr1/4_metaprogramming/type_properties/has_trivial_assign
+	* tr1/4_metaprogramming/type_properties/has_trivial_assign/
+	has_trivial_assign.cc
+	* tr1/4_metaprogramming/type_properties/has_trivial_assign/typedefs.cc
+	* tr1/4_metaprogramming/type_properties/has_trivial_constructor
+	* tr1/4_metaprogramming/type_properties/has_trivial_constructor/
+	has_trivial_constructor.cc
+	* tr1/4_metaprogramming/type_properties/has_trivial_constructor/
+	typedefs.cc
+	* tr1/4_metaprogramming/type_properties/has_trivial_copy
+	* tr1/4_metaprogramming/type_properties/has_trivial_copy/
+	has_trivial_copy.cc
+	* tr1/4_metaprogramming/type_properties/has_trivial_copy/typedefs.cc
+	* tr1/4_metaprogramming/type_properties/has_trivial_destructor
+	* tr1/4_metaprogramming/type_properties/has_trivial_destructor/
+	has_trivial_destructor.cc
+	* tr1/4_metaprogramming/type_properties/has_trivial_destructor/
+	typedefs.cc
+	* tr1/4_metaprogramming/type_properties/has_virtual_destructor
+	* tr1/4_metaprogramming/type_properties/has_virtual_destructor/
+	has_virtual_destructor.cc
+	* tr1/4_metaprogramming/type_properties/has_virtual_destructor/
+	typedefs.cc
+	* tr1/4_metaprogramming/type_properties/is_abstract
+	* tr1/4_metaprogramming/type_properties/is_abstract/is_abstract.cc
+	* tr1/4_metaprogramming/type_properties/is_abstract/typedefs.cc
+	* tr1/4_metaprogramming/type_properties/is_const
+	* tr1/4_metaprogramming/type_properties/is_const/is_const.cc
+	* tr1/4_metaprogramming/type_properties/is_const/typedefs.cc
+	* tr1/4_metaprogramming/type_properties/is_empty
+	* tr1/4_metaprogramming/type_properties/is_empty/is_empty.cc
+	* tr1/4_metaprogramming/type_properties/is_empty/typedefs.cc
+	* tr1/4_metaprogramming/type_properties/is_pod
+	* tr1/4_metaprogramming/type_properties/is_pod/is_pod.cc
+	* tr1/4_metaprogramming/type_properties/is_pod/typedefs.cc
+	* tr1/4_metaprogramming/type_properties/is_polymorphic
+	* tr1/4_metaprogramming/type_properties/is_polymorphic/24809.cc
+	* tr1/4_metaprogramming/type_properties/is_polymorphic/
+	is_polymorphic.cc
+	* tr1/4_metaprogramming/type_properties/is_polymorphic/typedefs.cc
+	* tr1/4_metaprogramming/type_properties/is_signed
+	* tr1/4_metaprogramming/type_properties/is_signed/is_signed.cc
+	* tr1/4_metaprogramming/type_properties/is_signed/typedefs.cc
+	* tr1/4_metaprogramming/type_properties/is_unsigned
+	* tr1/4_metaprogramming/type_properties/is_unsigned/is_unsigned.cc
+	* tr1/4_metaprogramming/type_properties/is_unsigned/typedefs.cc
+	* tr1/4_metaprogramming/type_properties/is_volatile
+	* tr1/4_metaprogramming/type_properties/is_volatile/is_volatile.cc
+	* tr1/4_metaprogramming/type_properties/is_volatile/typedefs.cc
+	* tr1/4_metaprogramming/type_properties/rank
+	* tr1/4_metaprogramming/type_properties/rank/rank.cc
+	* tr1/4_metaprogramming/type_properties/rank/typedefs.cc
+
+2007-04-30  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/lib/libstdc++.exp (v3_target_compile_as_c): Correct
+	regexp to filter out -nostdinc++.
+
+2007-04-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/30449 (equal)
+	* include/bits/stl_algobase.h (struct __niter_base): Add.
+	(copy(_II, _II, _OI), copy_backward(_BI1, _BI1, _BI2),
+	fill(_ForwardIterator, _ForwardIterator, const _Tp&),
+	fill_n(_OI, _Size, const _Tp&), equal(_II1, _II1, _II2)):
+	Use it.
+	(struct __copy_normal, __copy_backward_normal,
+	struct __fill_normal, struct __fill_n_normal): Remove.
+	(struct __equal, struct __equal_aux): Add.
+	* include/bits/stl_iterator.h: Add _Iterator_type typedef.
+
+	* include/bits/stl_algobase.h (__fill_aux(wchar_t*,
+	wchar_t*, wchar_t), __fill_n_aux(wchar_t*, _Size, wchar_t)):
+	Remove.
+
+	* testsuite/23_containers/requirements/sequences/dr438/vector/
+	constructor_1_neg.cc: Adjust dg-error line number.
+	* testsuite/23_containers/requirements/sequences/dr438/vector/
+	constructor_2_neg.cc: Likewise.
+
+2007-04-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits (is_pod): Use __is_pod.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_trivial_destructor/has_trivial_destructor.cc: Adjust.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_nothrow_constructor/has_nothrow_constructor.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_trivial_constructor/has_trivial_constructor.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	is_pod/is_pod.cc: Likewise.
+
+2007-04-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/localefwd.h: Remove redundant inline qualifiers.
+	(__check_facet): Move...
+	* include/bits/basic_ios.h: ... here.
+	(widen(char), narrow(char_type, char)): Define inline.
+	* include/bits/basic_ios.tcc (widen(char), narrow(char_type, char)):
+	Remove.
+
+2007-04-27  Paolo Carlini  <pcarlini@suse.de>
+
+	DR 438, [DR].
+	* include/bits/basic_string.h (_S_construct_aux(_InIterator,
+	_InIterator, const _Alloc&, __true_type)): Do not cast the
+	second argument.
+	* include/ext/rc_string_base.h (_S_construct_aux(_Integer,
+	_Integer, const _Alloc&, std::__true_type)): Likewise.
+	* include/ext/sso_string_base.h (_M_construct_aux(_InIterator,
+	_InIterator, std::__true_type)): Likewise.
+	* include/bits/stl_deque.h (_M_initialize_dispatch(_Integer,
+	_Integer, __true_type)): Cast the first argument.
+	(_M_assign_dispatch(_Integer, _Integer, __true_type)): Do
+	not cast the arguments.
+	(_M_insert_dispatch(iterator, _Integer, _Integer, __true_type)):
+	Likewise.
+	* include/bits/stl_list.h (_M_initialize_dispatch(_Integer,
+	_Integer, __true_type)): Likewise.
+	(_M_assign_dispatch(_Integer, _Integer, __true_type)): Do
+	not cast both arguments.
+	* include/bits/stl_bvector.h (_M_initialize_dispatch(_Integer,
+	_Integer, __true_type)): Cast the first argument.
+	(_M_assign_dispatch(_Integer, _Integer, __true_type)): Do not
+	cast the arguments.
+	* include/bits/stl_vector.h (_M_initialize_dispatch(_Integer,
+	_Integer, __true_type)): Cast the first argument.
+	(_M_assign_dispatch(_Integer, _Integer, __true_type)): Do not
+	cast the arguments.
+	(_M_insert_dispatch(iterator, _Integer, _Integer, __true_type)):
+	Likewise.
+	* testsuite/21_strings/basic_string/requirements/dr438/
+	constructor.cc: New.
+	* testsuite/ext/vstring/requirements/dr438/constructor.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/deque/
+	assign_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/deque/
+	constructor.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/deque/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/deque/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/deque/
+	insert_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/list/
+	assign_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/list/
+	constructor.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/list/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/list/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/list/
+	insert_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/vector/
+	assign_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/vector/
+	constructor.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/vector/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/vector/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/vector/
+	insert_neg.cc: Likewise.
+	* testsuite/23_containers/requirements/sequences/dr438/vector/
+	bool/constructor.cc: Likewise.
+	* docs/html/ext/howto.html: Add an entry for DR 438.
+
+2007-04-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_classes.h: Remove redundant inline specifiers.
+	* include/bits/ios_base.h: Likewise.
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: Adjust dg-error line
+	numbers.
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: Likewise.
+
+2007-04-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.h (class collate, class collate_byname):
+	Move...
+	* include/bits/locale_classes.h: ... here.
+	* include/bits/locale_facets.tcc (locale::combine, locale::operator(),
+	has_facet, use_facet, collate::_M_compare, collate::_M_transform,
+	collate::do_compare, collate::do_transform, collate::do_hash): Move...
+	* include/bits/locale_classes.tcc: ... here, new.
+	* include/Makefile.am: Add.
+	* testsuite/util/testsuite_abi.h: Include <locale>.
+	* include/std/locale: Tweak.
+	* include/std/istream: Likewise.
+	* include/std/ostream: Likewise.
+	* include/bits/codecvt.h: Likewise.
+	* include/Makefile.in: Regenerate.
+
+	* include/bits/codecvt.h: Adjust extern template declarations.
+	* include/bits/ostream_insert.h: Likewise.
+	* include/bits/ostream.tcc: Likewise.
+
+	* include/bits/locale_facets.h: Do not include <bits/codecvt.h>.
+	* include/std/fstream: Do it here.
+	* include/bits/locale_facets_nonio.h: Likewise.
+
 2007-04-23  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/locale_facets.h (class time_base,
