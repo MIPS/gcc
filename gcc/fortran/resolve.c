@@ -5812,6 +5812,11 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
   if (sym->ts.type == BT_CHARACTER)
     {
       gfc_charlen *cl = sym->ts.cl;
+
+      if (cl && cl->length && gfc_is_constant_expr (cl->length)
+	     && resolve_charlen (cl) == FAILURE)
+	return FAILURE;
+
       if (!cl || !cl->length || cl->length->expr_type != EXPR_CONSTANT)
 	{
 	  if (sym->attr.proc == PROC_ST_FUNCTION)
@@ -6131,9 +6136,7 @@ resolve_fl_parameter (gfc_symbol *sym)
 static void
 resolve_symbol (gfc_symbol *sym)
 {
-  /* Zero if we are checking a formal namespace.  */
-  static int formal_ns_flag = 1;
-  int formal_ns_save, check_constant, mp_flag;
+  int check_constant, mp_flag;
   gfc_symtree *symtree;
   gfc_symtree *this_symtree;
   gfc_namespace *ns;
@@ -6340,18 +6343,9 @@ resolve_symbol (gfc_symbol *sym)
 
   formal_arg_flag = 0;
 
-  /* Resolve formal namespaces.  The symbols in formal namespaces that
-     themselves are from procedures in formal namespaces will not stand
-     resolution, except when they are use associated.
-     TODO: Fix the symbols in formal namespaces so that resolution can
-     be done unconditionally.  */
-  if (formal_ns_flag && sym != NULL && sym->formal_ns != NULL)
-    {
-      formal_ns_save = formal_ns_flag;
-      formal_ns_flag = sym->attr.use_assoc ? 1 : 0;
-      gfc_resolve (sym->formal_ns);
-      formal_ns_flag = formal_ns_save;
-    }
+  /* Resolve formal namespaces.  */
+  if (sym->formal_ns && sym->formal_ns != gfc_current_ns)
+    gfc_resolve (sym->formal_ns);
 
   /* Check threadprivate restrictions.  */
   if (sym->attr.threadprivate && !sym->attr.save

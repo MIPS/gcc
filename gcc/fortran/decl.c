@@ -974,7 +974,44 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp,
 
       /* Add initializer.  Make sure we keep the ranks sane.  */
       if (sym->attr.dimension && init->rank == 0)
-	init->rank = sym->as->rank;
+	{
+	  mpz_t size;
+	  gfc_expr *array;
+	  gfc_constructor *c;
+	  int n;
+	  if (sym->attr.flavor == FL_PARAMETER
+		&& init->expr_type == EXPR_CONSTANT
+		&& spec_size (sym->as, &size) == SUCCESS
+		&& mpz_cmp_si (size, 0) > 0)
+	    {
+	      array = gfc_start_constructor (init->ts.type, init->ts.kind,
+					     &init->where);
+
+	      array->value.constructor = c = NULL;
+	      for (n = 0; n < (int)mpz_get_si (size); n++)
+		{
+		  if (array->value.constructor == NULL)
+		    {
+		      array->value.constructor = c = gfc_get_constructor ();
+		      c->expr = init;
+		    }
+		  else
+		    {
+		      c->next = gfc_get_constructor ();
+		      c = c->next;
+		      c->expr = gfc_copy_expr (init);
+		    }
+		}
+
+	      array->shape = gfc_get_shape (sym->as->rank);
+	      for (n = 0; n < sym->as->rank; n++)
+		spec_dimen_size (sym->as, n, &array->shape[n]);
+
+	      init = array;
+	      mpz_clear (size);
+	    }
+	  init->rank = sym->as->rank;
+	}
 
       sym->value = init;
       *initp = NULL;
@@ -1626,11 +1663,20 @@ rparen:
 syntax:
   gfc_error ("Syntax error in CHARACTER declaration at %C");
   m = MATCH_ERROR;
+  gfc_free_expr (len);
+  return m;
 
 done:
-  if (m == MATCH_YES && gfc_validate_kind (BT_CHARACTER, kind, true) < 0)
+  if (gfc_validate_kind (BT_CHARACTER, kind, true) < 0)
     {
       gfc_error ("Kind %d is not a CHARACTER kind at %C", kind);
+      m = MATCH_ERROR;
+    }
+
+  if (seen_length == 1 && len != NULL
+      && len->ts.type != BT_INTEGER && len->ts.type != BT_UNKNOWN)
+    {
+      gfc_error ("Expression at %C must be of INTEGER type");
       m = MATCH_ERROR;
     }
 

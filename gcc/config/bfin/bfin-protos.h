@@ -29,7 +29,10 @@ typedef enum bfin_cpu
   BFIN_CPU_BF531,
   BFIN_CPU_BF532,
   BFIN_CPU_BF533,
-  BFIN_CPU_BF537
+  BFIN_CPU_BF534,
+  BFIN_CPU_BF536,
+  BFIN_CPU_BF537,
+  BFIN_CPU_BF561
 } bfin_cpu_t;
 
 /* Value of -mcpu= */
@@ -89,7 +92,7 @@ extern bool bfin_legitimate_address_p (Mmode, rtx, int);
 extern rtx bfin_va_arg (tree, tree);
 
 extern void bfin_expand_prologue (void);
-extern void bfin_expand_epilogue (int, int);
+extern void bfin_expand_epilogue (int, int, bool);
 extern int push_multiple_operation (rtx, Mmode);
 extern int pop_multiple_operation (rtx, Mmode);
 extern void output_push_multiple (rtx, rtx *);

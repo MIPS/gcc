@@ -1,3 +1,98 @@
+2007-05-08  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31630
+	* resolve.c (resolve_symbol): Remove the flagging mechanism from the
+	formal namespace resolution and instead check that the formal
+	namespace is not the current namespace.
+
+2007-05-08  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31692
+	* trans-array.c (gfc_conv_array_parameter): Convert full array
+	references to the result of the procedure enclusing the call.
+
+2007-05-08  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29397
+	PR fortran/29400
+	* decl.c (add_init_expr_to_sym): Expand a scalar initializer
+	for a parameter array into an array expression with the right
+	shape.
+	* array.c (spec_dimen_size): Remove static attribute.
+	* gfortran.h : Prototype for spec_dimen_size.
+
+2007-05-07  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31399
+	* trans-stmt.c (gfc_trans_do): Handle large loop counts.
+
+2007-05-07  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31764
+	* simplify.c (gfc_simplify_new_line): NEW_LINE can be simplified
+	even for non constant arguments.
+
+2007-05-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31201
+	* gfortran.h: Add runtime error codes from libgfortran.h. Define
+	MAX_UNIT_NUMBER.
+	* trans.c (gfc_trans_runtime_check): Update the format of runtime error
+	messages to match library runtime errors.  Use call to new library
+	function runtime_error_at().
+	* trans.h: Add prototype for new function gfc_trans_io_runtime_check.
+	Add declaration for library functions runtime_error_at and
+	generate_error.
+	* trans_io.c (gfc_trans_io_runtime_check): New function.
+	(set_parameter_value): Add error checking for UNIT numbers.
+	(set_parameter_ref): Initialize the users variable to zero. 
+	(gfc_trans_open): Move setting of unit number to after setting of common
+	flags so that runtime error trapping can be detected.
+	(gfc_trans_close): Likewise. (build_filepos): Likewise.
+	(gfc_trans_inquire): Likewise. (build_dt): Likewise.
+	* trans-decl.c: Add declarations for runtime_error_at and
+	generate_error. (gfc_build_builtin_function_decls): Build function
+	declarations for runtime_error_at and generate_error.
+
+2007-05-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31540
+	* resolve.c (resolve_fl_procedure): Resolve constant character
+	lengths.
+
+2007-05-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/31251
+	* decl.c (match_char_spec): Add check for invalid character lengths.
+
+2007-05-04  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi (CMPLX): Document result kind.
+	(COMPLEX): Add documentation.
+
+2007-05-04  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/31760
+	* intrinsic.c (add_functions): Replaced calls to gfc_check_g77_math1
+	by gfc_check_fn_r to avoid checks for scalarity.
+	* check.c (gfc_check_besn): Removed check for scalarity.
+	(gfc_check_g77_math1): Removed.
+	* intrinsic.h (gfc_check_g77_math1): Removed.
+
+2007-05-04  Daniel Franke  <franke.daniel@gmail.com>
+
+	* check.c (gfc_check_fseek_sub): Fixed typo.
+
+2007-05-04  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/22359
+	* intrinsic.c (add_subroutines): Added FSEEK.
+	* intrinsic.h (gfc_resolve_fseek_sub, gfc_check_fseek_sub): New.
+	* iresolve.c (gfc_resolve_fseek_sub): New.
+	* check.c (gfc_check_fseek_sub): New.
+	* intrinsic.texi (FSEEK): Updated.
+
 2007-05-04  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/31803
