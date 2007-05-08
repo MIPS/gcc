@@ -23,6 +23,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include "machmode.h"
 #include "real.h"
+#include "double-int.h"
 
 struct fixed_value GTY(())
 {
