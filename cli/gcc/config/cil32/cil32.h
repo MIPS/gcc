@@ -1,6 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for cil32.
 
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006-2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -47,6 +47,9 @@ Roberto Costa <roberto.costa@st.com>   */
 #define LINK_SPEC "--no-stdlib %{!nostdlib:-l gcc4net.dll} %{shared:--format dll}"
 #define STARTFILE_SPEC ""
 #define ENDFILE_SPEC ""
+
+/* This is undefined macro for collect2 disabling */
+#define LINKER_NAME "ld"
 
 /* Node: Run-time Target */
 
@@ -523,16 +526,48 @@ struct cum_args {int regs;};
 #define NO_IMPLICIT_EXTERN_C
 
 extern struct tree_opt_pass pass_gen_cil;
-extern struct tree_opt_pass pass_simp_cil;
+extern struct tree_opt_pass pass_simp_cil_early;
+extern struct tree_opt_pass pass_simp_cil_final;
 
 /* cil32 builtin ID */
 enum cil32_builtin
 {
-  CIL32_BUILTIN_VA_ARG,
-  CIL32_BUILTIN_IS_LITTLE_ENDIAN
+  CIL32_BUILT_IN_VA_START,
+  CIL32_BUILT_IN_VA_ARG,
+  CIL32_BUILT_IN_VA_END,
+  CIL32_BUILT_IN_VA_COPY,
+  CIL32_BUILT_IN_IS_LITTLE_ENDIAN,
+  CIL32_V2SF_CTOR,
+  CIL32_V4SF_CTOR,
+  CIL32_V4QI_CTOR,
+  CIL32_V2HI_CTOR,
+  CIL32_V8QI_CTOR,
+  CIL32_V4HI_CTOR,
+  CIL32_V2SI_CTOR,
+  CIL32_V4SI_CTOR,
+  CIL32_V8HI_CTOR,
+  CIL32_V16QI_CTOR
 };
 
-extern tree cil32_is_LE_decl;
+extern tree cil32_builtin_va_start_decl;
+extern tree cil32_builtin_va_arg_decl;
+extern tree cil32_builtin_va_end_decl;
+extern tree cil32_builtin_va_copy_decl;
+extern tree cil32_builtin_is_LE_decl;
+
+extern tree cil32_va_list_type;
+extern tree cil32_arg_iterator_type;
+
+extern tree cil32_v2sf_ctor;
+extern tree cil32_v4sf_ctor;
+extern tree cil32_v4qi_ctor;
+extern tree cil32_v2hi_ctor;
+extern tree cil32_v8qi_ctor;
+extern tree cil32_v4hi_ctor;
+extern tree cil32_v2si_ctor;
+extern tree cil32_v4si_ctor;
+extern tree cil32_v8hi_ctor;
+extern tree cil32_v16qi_ctor;
 
 /*
  * Local variables:

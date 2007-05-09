@@ -624,7 +624,9 @@ execute_optimize_stdarg (void)
   va_list_simple_ptr = POINTER_TYPE_P (va_list_type_node)
 		       && (TREE_TYPE (va_list_type_node) == void_type_node
 			   || TREE_TYPE (va_list_type_node) == char_type_node);
-  gcc_assert (is_gimple_reg_type (va_list_type_node) == va_list_simple_ptr);
+
+  if (is_gimple_reg_type (va_list_type_node) != va_list_simple_ptr)
+    goto finish;
 
   FOR_EACH_BB (bb)
     {

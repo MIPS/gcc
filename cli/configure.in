@@ -521,6 +521,7 @@ case "${target}" in
   cil32-*-*)
     unsupported_languages="$unsupported_languages ada fortran java"
     skipdirs="$skipdirs target-libssp target-libiberty target-libmudflap"
+    target_configdirs="${target_configdirs} target-libgcc4net"
     ;;
   cris-*-* | crisv32-*-*)
     unsupported_languages="$unsupported_languages java"

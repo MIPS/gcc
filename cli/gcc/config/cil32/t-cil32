@@ -1,6 +1,6 @@
 # Hi emacs, use Makefile syntax mode. -*-mode: Makefile; -*-
 
-#    Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+#   Copyright (C) 2006-2007 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -48,13 +48,7 @@ gt-gen-cil.h : s-gtype ; @true
 
 
 LIBGCC =
-INSTALL_LIBGCC =  install-gcc4net
+INSTALL_LIBGCC = install-gcc4net
 
-install-gcc4net: gcc4net.dll installdirs
-	$(INSTALL_DATA) gcc4net.dll $(DESTDIR)$(libdir)/
-	$(INSTALL_DATA) gcc4net.dll $(DESTDIR)$(libsubdir)/
-
-MCS=mcs
-
-gcc4net.dll: $(srcdir)/config/cil32/gcc4net.cs
-	$(MCS) $< -unsafe -target:library -out:$@
+install-gcc4net:
+	#Nothig to do

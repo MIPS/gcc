@@ -1,6 +1,6 @@
 /* Layout of basic blocks.
 
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2006-2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -195,7 +195,7 @@ struct tree_opt_pass pass_bb_layout =
   /* ??? If TER is enabled, we also kill gimple.  */
   0,                                    /* properties_destroyed */
   0,
-  0,
+  TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
 

@@ -482,7 +482,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_mudflap_2);
 #if defined(DISABLE_RTL_PASSES)
   NEXT_PASS (pass_bb_layout);
-  NEXT_PASS (pass_simp_cil);
+  NEXT_PASS (pass_simp_cil_final);
   NEXT_PASS (pass_gen_cil);   /*   <--- CIL   */
   NEXT_PASS (pass_free_datastructures);
   NEXT_PASS (pass_free_cfg_annotations);
@@ -496,6 +496,9 @@ init_optimization_passes (void)
   *p = NULL;
 
   p = &pass_all_optimizations.sub;
+#if defined(DISABLE_RTL_PASSES) && 0
+  NEXT_PASS (pass_simp_cil_early);
+#endif
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_reset_cc_flags);
   NEXT_PASS (pass_create_structure_vars);

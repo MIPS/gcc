@@ -1,6 +1,6 @@
 /* Simplify GENERIC trees before CIL emission.
 
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2006-2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -144,7 +144,7 @@ Roberto Costa <roberto.costa@st.com>   */
       A few built-in functions require special simplifications
       in order to make their emission easier; in particular:
       *) the 1st argument of BUILT_IN_VA_START, BUILT_IN_VA_END and
-         CIL32_BUILTIN_VA_ARG has to be a variable or an ADDR_EXPR node.
+         CIL32_BUILT_IN_VA_ARG has to be a variable or an ADDR_EXPR node.
          More in general, this is true any time va_list is passed
          as a parameter.
       *) the 1st argument of BUILT_IN_VA_COPY has to be a local variable
@@ -196,7 +196,7 @@ static void simp_cond_stmt (block_stmt_iterator, tree);
 static void rescale_out_edge_probabilities (basic_block, int);
 static void simp_switch (block_stmt_iterator *, tree *);
 static void simp_trivial_switch (block_stmt_iterator *, tree *);
-static void simp_builtin_call (block_stmt_iterator, tree);
+static void simp_builtin_call (block_stmt_iterator, tree *);
 static void simp_abs (block_stmt_iterator *, tree *);
 static void simp_min_max (block_stmt_iterator *, tree *);
 static void simp_cond_expr (block_stmt_iterator *, tree *);
@@ -218,6 +218,8 @@ static void split_use (block_stmt_iterator, tree *, bool);
 static void rename_var (tree, const char*, unsigned long);
 static void simp_vars (void);
 static unsigned int simp_cil (void);
+static unsigned int simp_cil_early (void);
+static unsigned int simp_cil_final (void);
 static bool simp_cil_gate (void);
 
 #define UPDATE_ADDRESSABLE(NODE)  \
@@ -227,6 +229,7 @@ do { tree _node = (NODE); \
      if (TREE_CODE (_node) == VAR_DECL || TREE_CODE (_node) == PARM_DECL) \
        TREE_ADDRESSABLE (_node) = 1; } while (0)
 
+static bool simp_final;
 static tree res_var;
 
 /* Return the integer type with size BITS bits.
@@ -325,27 +328,28 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
           else
             simp_cil_node (bsi, &COND_EXPR_COND (node));
 
-          simp_cond_stmt (*bsi, node);
+          if (simp_final)
+            simp_cond_stmt (*bsi, node);
         }
       else
         {
           simp_cil_node (bsi, &COND_EXPR_COND (node));
           simp_cil_node (bsi, &COND_EXPR_THEN (node));
           simp_cil_node (bsi, &COND_EXPR_ELSE (node));
-          simp_cond_expr (bsi, node_ptr);
+          if (simp_final)
+            simp_cond_expr (bsi, node_ptr);
         }
       break;
 
     case SWITCH_EXPR:
       simp_cil_node (bsi, &SWITCH_COND (node));
-      simp_switch (bsi, node_ptr);
+      if (simp_final)
+        simp_switch (bsi, node_ptr);
       break;
 
     case CALL_EXPR:
       {
         tree args = TREE_OPERAND (node, 1);
-        tree fun_expr;
-        tree dfun = NULL_TREE;
 
         simp_cil_node (bsi, &TREE_OPERAND (node, 0));
 
@@ -355,14 +359,19 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
             args = TREE_CHAIN (args);
           }
 
-        fun_expr = TREE_OPERAND (node, 0);
-        if (TREE_CODE (fun_expr) == ADDR_EXPR
-            && TREE_CODE (TREE_OPERAND (fun_expr, 0)) == FUNCTION_DECL)
-          dfun = TREE_OPERAND (fun_expr, 0);
+        if (simp_final)
+          {
+            tree fun_expr = TREE_OPERAND (node, 0);
+            tree dfun = NULL_TREE;
 
-        /* Calls to some built-in functions require ad-hoc simplifications */
-        if (dfun && DECL_BUILT_IN (dfun))
-          simp_builtin_call (*bsi, node);
+            if (TREE_CODE (fun_expr) == ADDR_EXPR
+                && TREE_CODE (TREE_OPERAND (fun_expr, 0)) == FUNCTION_DECL)
+              dfun = TREE_OPERAND (fun_expr, 0);
+
+            /* Calls to some built-in funs require ad-hoc simplifications */
+            if (dfun && DECL_BUILT_IN (dfun))
+              simp_builtin_call (*bsi, node_ptr);
+          }
       }
       break;
 
@@ -442,6 +451,8 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
     case NOP_EXPR:
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
       simp_cil_node (bsi, &TREE_OPERAND (node, 0));
       break;
 
@@ -494,7 +505,7 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
       if (AGGREGATE_TYPE_P (TREE_TYPE (TREE_OPERAND (node, 0)))
           && TREE_CODE (TREE_OPERAND (node, 0)) == CALL_EXPR)
         split_use (*bsi, &TREE_OPERAND (node, 0), false);
-      if (DECL_BIT_FIELD (TREE_OPERAND (node, 1)))
+      if (simp_final && DECL_BIT_FIELD (TREE_OPERAND (node, 1)))
         {
           tree stmt = bsi_stmt (*bsi);
 
@@ -513,7 +524,8 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
         split_use (*bsi, &TREE_OPERAND (node, 0), false);
       gcc_assert (TREE_CODE (bsi_stmt (*bsi)) != MODIFY_EXPR
                   || TREE_OPERAND (bsi_stmt (*bsi), 0) != node);
-      simp_bitfield_ref (bsi, node_ptr);
+      if (simp_final)
+        simp_bitfield_ref (bsi, node_ptr);
       break;
 
     case TARGET_MEM_REF:
@@ -551,7 +563,8 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
       break;
 
     case RETURN_EXPR:
-      if (!TREE_OPERAND (node, 0)
+      if (simp_final
+          && !TREE_OPERAND (node, 0)
           && TREE_CODE (TREE_TYPE (DECL_RESULT (current_function_decl)))
           != VOID_TYPE)
         {
@@ -568,10 +581,15 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
       break;
 
     case RESULT_DECL:
-      if (res_var == NULL_TREE)
-        res_var = create_tmp_var (TREE_TYPE (node), "cilsimp");
+      if (simp_final
+          && (TREE_CODE (bsi_stmt (*bsi)) != RETURN_EXPR
+              || TREE_CODE (TREE_OPERAND (bsi_stmt (*bsi), 0)) != MODIFY_EXPR))
+        {
+          if (res_var == NULL_TREE)
+            res_var = create_tmp_var (TREE_TYPE (node), "cilsimp");
 
-      *node_ptr = res_var;
+          *node_ptr = res_var;
+        }
       break;
 
     case ABS_EXPR:
@@ -586,6 +604,11 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
       simp_cil_node (bsi, &TREE_OPERAND (node, 1));
       if (TARGET_EXPAND_MINMAX)
         simp_min_max (bsi, node_ptr);
+      break;
+
+    case GOTO_EXPR:
+      if (TREE_CODE (GOTO_DESTINATION (node)) != LABEL_DECL)
+        simp_cil_node (bsi, &GOTO_DESTINATION (node));
       break;
 
     default:
@@ -1203,14 +1226,16 @@ simp_trivial_switch (block_stmt_iterator *bsi, tree *node_ptr)
 }
 
 /* Force specific arguments of the CALL_EXPR to a built-in function
-   pointed by NODE to be local variables.
+   pointed by NODE_PTR to be local variables.
    Which arguments are forced depend on the built-in function.
-   BSI is the iterator of the statement that contains NODE
-   (in order to allow insertion of new statements).   */
+   BSI is the iterator of the statement that contains *NODE_PTR
+   (in order to allow insertion of new statements).  */
 
 static void
-simp_builtin_call (block_stmt_iterator bsi, tree node)
+simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
 {
+  tree node = *node_ptr;
+  location_t locus = EXPR_LOCATION (bsi_stmt (bsi));
   tree fun_expr = TREE_OPERAND (node, 0);
   tree dfun = TREE_OPERAND (fun_expr, 0);
 
@@ -1219,59 +1244,218 @@ simp_builtin_call (block_stmt_iterator bsi, tree node)
   gcc_assert (TREE_CODE (dfun) == FUNCTION_DECL);
   gcc_assert (DECL_BUILT_IN (dfun));
 
-  if (DECL_BUILT_IN_CLASS (dfun) == BUILT_IN_MD)
-    {
-      switch (DECL_FUNCTION_CODE (dfun))
-        {
-        case CIL32_BUILTIN_VA_ARG:
-          {
-            tree va = TREE_VALUE (TREE_OPERAND (node, 1));
-
-            gcc_assert (POINTER_TYPE_P (TREE_TYPE (va))
-                        && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va)))
-                           == va_list_type_node);
-
-            if (TREE_CODE (va) != ADDR_EXPR && TREE_CODE (va) != VAR_DECL)
-              split_use (bsi, &TREE_VALUE (TREE_OPERAND (node, 1)), true);
-          }
-          break;
-
-        default:
-            ;
-        }
-    }
-  else
+  if (DECL_BUILT_IN_CLASS (dfun) != BUILT_IN_MD)
     {
       switch (DECL_FUNCTION_CODE (dfun))
         {
         case BUILT_IN_VA_START:
-        case BUILT_IN_VA_END:
           {
-            tree va = TREE_VALUE (TREE_OPERAND (node, 1));
+            tree args = TREE_OPERAND (node, 1);
+            tree va_ref = TREE_VALUE (args);
+            tree va;
+
+            switch (TREE_CODE (va_ref)) {
+            case INDIRECT_REF:
+            case ADDR_EXPR:
+              va = TREE_OPERAND (va_ref, 0);
+              break;
+
+            case VAR_DECL:
+              va = build1 (INDIRECT_REF, cil32_va_list_type, va_ref);
+              break;
+
+            default:
+              gcc_assert(0);
+              break;
+            }
 
             gcc_assert (POINTER_TYPE_P (TREE_TYPE (va))
                         && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va)))
-                           == va_list_type_node);
+                           == cil32_arg_iterator_type);
 
-            if (TREE_CODE (va) != ADDR_EXPR && TREE_CODE (va) != VAR_DECL)
-              split_use (bsi, &TREE_VALUE (TREE_OPERAND (node, 1)), true);
+            {
+              tree argiter = create_tmp_var (cil32_arg_iterator_type, "arg_iterator");
+              location_t locus = EXPR_LOCATION (bsi_stmt (bsi));
+              tree stmt = build2 (MODIFY_EXPR, cil32_va_list_type,
+                                               va,
+                                               build1 (ADDR_EXPR, cil32_va_list_type, argiter));
+              SET_EXPR_LOCATION (stmt, locus);
+              bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
+            }
+
+            {
+              tree stmt;
+              tree new_args;
+
+              new_args = tree_cons (NULL, va, NULL);
+
+              stmt = build_function_call_expr (cil32_builtin_va_start_decl,
+                                               new_args);
+              bsi_replace (&bsi, stmt, true);
+            }
+
+          }
+          break;
+
+        case BUILT_IN_VA_END:
+          {
+            tree va_ref = TREE_VALUE (TREE_OPERAND (node, 1));
+            tree va;
+
+            switch (TREE_CODE (va_ref)) {
+            case INDIRECT_REF:
+            case ADDR_EXPR:
+              va = TREE_OPERAND (va_ref, 0);
+              break;
+
+            case VAR_DECL:
+              va = build1 (INDIRECT_REF, cil32_va_list_type, va_ref);
+              break;
+
+            default:
+              gcc_assert(0);
+              break;
+            }
+
+            gcc_assert (POINTER_TYPE_P (TREE_TYPE (va))
+                        && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va)))
+                           == cil32_arg_iterator_type);
+
+            {
+              tree stmt;
+              tree new_args;
+
+              new_args = tree_cons (NULL, va, NULL);
+
+              stmt = build_function_call_expr (cil32_builtin_va_end_decl,
+                                               new_args);
+              bsi_replace (&bsi, stmt, true);
+            }
           }
           break;
 
         case BUILT_IN_VA_COPY:
           {
-            tree va_dest = TREE_VALUE (TREE_OPERAND (node, 1));
+            tree args = TREE_OPERAND (node, 1);
+            tree va_dest_ref = TREE_VALUE (args);
+            tree va_dest;
+            tree va_src = TREE_VALUE (TREE_CHAIN (args));
 
-            gcc_assert (TREE_CODE (va_dest) == ADDR_EXPR);
-            if (TREE_CODE (TREE_OPERAND (va_dest, 0)) != VAR_DECL
-                || DECL_FILE_SCOPE_P (TREE_OPERAND (va_dest, 0)))
-              split_use (bsi, &TREE_OPERAND (va_dest, 0), true);
-            recompute_tree_invariant_for_addr_expr (va_dest);
+            switch (TREE_CODE (va_dest_ref)) {
+            case INDIRECT_REF:
+            case ADDR_EXPR:
+              va_dest = TREE_OPERAND (va_dest_ref, 0);
+              break;
+
+            case VAR_DECL:
+              va_dest = build1 (INDIRECT_REF, cil32_va_list_type, va_dest_ref);
+              break;
+
+            default:
+              gcc_assert(0);
+              break;
+            }
+
+            gcc_assert (POINTER_TYPE_P (TREE_TYPE (va_dest))
+                        && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va_dest)))
+                           == cil32_arg_iterator_type);
+
+            gcc_assert (POINTER_TYPE_P (TREE_TYPE (va_src))
+                        && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va_src)))
+                           == cil32_arg_iterator_type);
+
+            {
+              tree argiter = create_tmp_var (cil32_arg_iterator_type, "arg_iterator");
+              location_t locus = EXPR_LOCATION (bsi_stmt (bsi));
+              tree stmt = build2 (MODIFY_EXPR, cil32_va_list_type,
+                                               va_dest,
+                                               build1 (ADDR_EXPR, cil32_va_list_type, argiter));
+              SET_EXPR_LOCATION (stmt, locus);
+              bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
+            }
+
+            {
+              tree stmt;
+              tree new_args;
+
+              new_args = tree_cons (NULL, va_src, NULL);
+              new_args = tree_cons (NULL, va_dest,  new_args);
+
+              stmt = build_function_call_expr (cil32_builtin_va_copy_decl,
+                                               new_args);
+              bsi_replace (&bsi, stmt, true);
+            }
+          }
+          break;
+
+        case BUILT_IN_OBJECT_SIZE:
+          {
+            /* Inspired from 'expand_builtin_object_size' in builtins.c. We
+               return -1 for types 0 and 1, and 0 for types 2 and 3.  */
+            tree args = TREE_OPERAND (node, 1);
+            tree arg2 = TREE_VALUE (TREE_CHAIN (args));
+            int  obj_type;
+            gcc_assert (TREE_CODE (arg2) == INTEGER_CST);
+            obj_type = TREE_INT_CST_LOW (arg2);
+            switch (obj_type)
+              {
+              case 0:
+              case 1:
+                *node_ptr = integer_zero_node;
+                break;
+
+              case 2:
+              case 3:
+                *node_ptr = integer_minus_one_node;
+                break;
+
+              default:
+                gcc_assert (0);
+              }
+          }
+          break;
+
+        case BUILT_IN_PREFETCH:
+          {
+            tree exp = TREE_VALUE (TREE_OPERAND (node, 1));
+
+            gcc_assert (bsi_stmt (bsi) == node);
+
+            /* For a target that does not support data prefetch,
+               evaluate the memory address argument in case it has
+               side effects.  */
+
+            if (! TREE_SIDE_EFFECTS (exp))
+              exp = build1 (NOP_EXPR, void_type_node, integer_zero_node);
+
+            SET_EXPR_LOCATION (exp, locus);
+            *node_ptr = exp;
+          }
+          break;
+
+        case BUILT_IN_FRAME_ADDRESS:
+        case BUILT_IN_RETURN_ADDRESS:
+          {
+            /* Supported (sort of) only for non-zero parameter, when it is ok
+               to return NULL.  */
+            tree args = TREE_OPERAND (node, 1);
+            tree arg = TREE_VALUE (args);
+            int  int_arg;
+            gcc_assert (TREE_CODE (arg) == INTEGER_CST);
+            int_arg = TREE_INT_CST_LOW (arg);
+            if (int_arg == 0)
+              {
+                internal_error ("__builtin_{return,frame}_address not implemented\n");
+              }
+            else
+              {
+                *node_ptr = integer_zero_node;
+              }
           }
           break;
 
         default:
-            ;
+          ;
         }
     }
 }
@@ -2018,10 +2202,10 @@ simp_bitfield (block_stmt_iterator *bsi, tree *node_ptr,
 
   if (off > 0)
     {
-      tmp_var = create_tmp_var (obj_ptr_type, "cilsimp");
-      tmp_stmt = build2 (MODIFY_EXPR, obj_ptr_type,
+      tmp_var = create_tmp_var (new_type_ptr, "cilsimp");
+      tmp_stmt = build2 (MODIFY_EXPR, new_type_ptr,
                          tmp_var,
-                         build2 (PLUS_EXPR, obj_ptr_type,
+                         build2 (PLUS_EXPR, new_type_ptr,
                                  t,
                                  build_int_cst (long_integer_type_node, off)));
       SET_EXPR_LOCATION (tmp_stmt, locus);
@@ -2228,10 +2412,10 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
 
   if (off > 0)
     {
-      tmp_var = create_tmp_var (obj_ptr_type, "cilsimp");
-      tmp_stmt = build2 (MODIFY_EXPR, obj_ptr_type,
+      tmp_var = create_tmp_var (new_type_ptr, "cilsimp");
+      tmp_stmt = build2 (MODIFY_EXPR, new_type_ptr,
                          tmp_var,
-                         build2 (PLUS_EXPR, obj_ptr_type,
+                         build2 (PLUS_EXPR, new_type_ptr,
                                  t,
                                  build_int_cst (long_integer_type_node, off)));
       SET_EXPR_LOCATION (tmp_stmt, locus);
@@ -2769,9 +2953,87 @@ expand_init_to_stmt_list1 (tree decl, tree init,
           break;
 
         case VECTOR_TYPE:
-          fprintf (stderr, "CIL: Cannot handle rhs: ");
-          debug_generic_expr (init);
-          gcc_assert (0);
+          {
+            tree fun, stmt;
+            tree args = NULL;
+            tree value;
+            tree ctor_fun = NULL;
+            unsigned HOST_WIDE_INT idx;
+            tree vector_type = TREE_TYPE (init);
+            tree vector_elt_type = TREE_TYPE (vector_type);
+            int vec_size = TREE_INT_CST_LOW (TYPE_SIZE (vector_type));
+            int elt_size = TREE_INT_CST_LOW (TYPE_SIZE (vector_elt_type));
+            int num_elt = vec_size / elt_size;
+            int i, num_args = 0;
+
+            /* Build the list of args. */
+            FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (init), idx, value)
+              {
+                args = tree_cons (NULL, value, args);
+                ++num_args;
+              }
+            /* The constructor might not initialize all args.  */
+            for(i = num_args; i < num_elt; ++i )
+                args = tree_cons (NULL, integer_zero_node, args);
+
+            /* find the right constructor */
+            if (TREE_CODE (vector_elt_type) == INTEGER_TYPE)
+              {
+                switch (num_elt)
+                  {
+                  case 2:
+                    if (vec_size == 32)
+                      ctor_fun = cil32_v2hi_ctor;
+                    else if (vec_size == 64)
+                      ctor_fun = cil32_v2si_ctor;
+                    break;
+
+                  case 4:
+                    if (vec_size == 32)
+                      ctor_fun = cil32_v4qi_ctor;
+                    else if (vec_size == 64)
+                      ctor_fun = cil32_v4hi_ctor;
+                    else if (vec_size == 128)
+                      ctor_fun = cil32_v4si_ctor;
+                    break;
+
+                  case 8:
+                    if (vec_size == 64)
+                      ctor_fun = cil32_v8qi_ctor;
+                    else if (vec_size == 128)
+                      ctor_fun = cil32_v8hi_ctor;
+                    break;
+
+                  case 16:
+                    if (vec_size == 128)
+                      ctor_fun = cil32_v16qi_ctor;
+                    break;
+
+                  default:
+                    fprintf (stderr,
+                             "V%d int vectors not supported\n",
+                             num_elt);
+                    gcc_assert (0);
+                    break;
+                  }
+              }
+            else if (TREE_CODE (vector_elt_type) == REAL_TYPE)
+              {
+                if (num_elt != 2 && num_elt != 4)
+                  {
+                    fprintf (stderr, "V%dSF vectors not supported\n", num_elt);
+                    gcc_assert (0);
+                  }
+                ctor_fun = cil32_v2sf_ctor;
+              }
+            gcc_assert (ctor_fun);
+
+            /* Note that the args list must be reversed. Can do better? */
+            fun = build_function_call_expr (ctor_fun, nreverse (args));
+            stmt = build2 (MODIFY_EXPR, TREE_TYPE (decl), decl, fun);
+            append_to_statement_list (stmt, stmt_list1);
+            append_to_statement_list (stmt, stmt_list2);
+          }
           break;
 
         default:
@@ -2909,7 +3171,7 @@ expand_init_to_stmt_list (tree decl, tree init, tree *stmt_list)
 
           from_ptr = fold_build3 (COND_EXPR,
                                   TREE_TYPE (sconst),
-                                  build_function_call_expr (cil32_is_LE_decl, NULL_TREE),
+                                  build_function_call_expr (cil32_builtin_is_LE_decl, NULL_TREE),
                                   sconst,
                                   sconst2);
         }
@@ -3011,6 +3273,7 @@ simp_cil (void)
   basic_block bb;
   block_stmt_iterator bsi;
 
+  push_gimplify_context ();
   res_var = NULL_TREE;
 
   simp_vars ();
@@ -3058,7 +3321,7 @@ simp_cil (void)
           tree stmt;
           bsi = bsi_last (bb);
           stmt = bsi_stmt (bsi);
-          if (TREE_CODE (stmt) != RETURN_EXPR)
+          if (simp_final && TREE_CODE (stmt) != RETURN_EXPR)
             {
               tree ret_type = TREE_TYPE (DECL_RESULT (current_function_decl));
               tree ret_stmt;
@@ -3073,7 +3336,22 @@ simp_cil (void)
         }
     }
 
+  pop_gimplify_context (NULL);
   return 0;
+}
+
+static unsigned int
+simp_cil_early (void)
+{
+  simp_final = false;
+  return simp_cil ();
+}
+
+static unsigned int
+simp_cil_final (void)
+{
+  simp_final = true;
+  return simp_cil ();
 }
 
 /* Gate function of CIL simplify pass. */
@@ -3086,11 +3364,31 @@ simp_cil_gate (void)
 
 /* Define the parameters of the tree-simp-CIL pass.  */
 
-struct tree_opt_pass pass_simp_cil =
+struct tree_opt_pass pass_simp_cil_early =
 {
   "simpcil",                            /* name */
   simp_cil_gate,			/* gate */
-  simp_cil,			        /* execute */
+  simp_cil_early,			        /* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_REST_OF_COMPILATION,		/* tv_id */
+  PROP_cfg,                     	/* properties_required */
+  0,					/* properties_provided */
+  /* ??? If TER is enabled, we also kill gimple.  */
+  0,    				/* properties_destroyed */
+  0,
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Define the parameters of the tree-final-simp-CIL pass.  */
+
+struct tree_opt_pass pass_simp_cil_final =
+{
+  "finsimpcil",                            /* name */
+  simp_cil_gate,			/* gate */
+  simp_cil_final,		        /* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
