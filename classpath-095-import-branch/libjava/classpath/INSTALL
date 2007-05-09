@@ -50,6 +50,11 @@ Suggested Software
         - gdk-pixbuf
 
 	- XTest Extension (libXtst) for GdkRobot support in java.awt.
+	
+	- There is a bug in earlier versions of at-spi, atk, and gail, which are
+	used for GNOME accessibility.  Prior to version 1.18.0 of these packages,
+	gtk graphical applications should be run without accessibility (clear the
+	GTK_MODULES environment variable).
 
 	For building gcjwebplugin you'll need the Mozilla plugin
 	support headers and libraries.
@@ -111,6 +116,9 @@ Suggested Software
 	  - fluidsynth: a real-time SoundFont 2 based soft-synth
 	    http://www.fluidsynth.org/
 
+	For enabling the com.sun.tools.javac support in tools.zip you
+	will a need jar file containing the Eclipse Java Compiler.
+	Otherwise com.sun.tools.javac will not be included in tools.zip.
 
 This package was designed to use the GNU standard for configuration
 and makefiles.  To build and install do the following:
@@ -147,6 +155,8 @@ gives a complete list.
                           path to the jay executable
   --with-glibj-zip=ABS.PATH
                           use prebuilt glibj.zip class library
+  --with-ecj-jar=ABS.PATH specify jar file containing the Eclipse Java
+                          Compiler
 
 For more flags run configure --help.
 

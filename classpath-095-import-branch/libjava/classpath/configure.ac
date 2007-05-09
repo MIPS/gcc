@@ -6,7 +6,7 @@ dnl -----------------------------------------------------------
 dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
 
-AC_INIT([GNU Classpath],[0.94-pre],[classpath@gnu.org],[classpath])
+AC_INIT([GNU Classpath],[0.95],[classpath@gnu.org],[classpath])
 AC_CONFIG_SRCDIR(java/lang/System.java)
 
 AC_CANONICAL_TARGET
@@ -37,7 +37,7 @@ CLASSPATH_CONVENIENCE="-no-undefined"
 AC_SUBST(CLASSPATH_CONVENIENCE)
 
 AC_PREREQ(2.59)
-AM_INIT_AUTOMAKE([1.9.0 gnu std-options tar-ustar])
+AM_INIT_AUTOMAKE([1.9.0 gnu std-options tar-ustar -Wno-portability])
 AC_CONFIG_HEADERS([include/config.h])
 AC_PREFIX_DEFAULT(/usr/local/classpath)
 
@@ -178,7 +178,9 @@ AC_ARG_ENABLE([dssi],
                 no) COMPILE_DSSI=no ;;
                 *) COMPILE_DSSI=yes ;;
               esac],
-              [AC_CHECK_HEADERS([dssi.h],COMPILE_DSSI=yes,COMPILE_DSSI=no)])
+              [COMPILE_DSSI=no
+	       AC_CHECK_HEADERS([dssi.h], [
+	         AC_CHECK_HEADERS([jack/jack.h],COMPILE_DSSI=yes)])])
 AM_CONDITIONAL(CREATE_DSSI_LIBRARIES, test "x${COMPILE_DSSI}" = xyes)
 
 dnl -----------------------------------------------------------
@@ -311,6 +313,7 @@ AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 dnl AC_PROG_AWK
 AC_PROG_CC
+AM_PROG_CC_C_O
 AC_PROG_CPP
 
 # Handle -Werror default case.
@@ -377,7 +380,7 @@ if test "x${COMPILE_JNI}" = xyes; then
 		  lstat readlink \
  		  inet_aton inet_addr inet_pton \
 		  getifaddrs kqueue kevent epoll_create \
-                  readdir_r ])
+                  readdir_r getloadavg])
 
   LIBMAGIC=
   AC_CHECK_LIB(magic, magic_open, LIBMAGIC=-lmagic)
@@ -417,7 +420,9 @@ if test "x${COMPILE_JNI}" = xyes; then
           [AC_MSG_RESULT(no)])])])
 
   AC_C_CONST
+  AC_C_INLINE
   AC_C_ATTRIBUTE
+  AX_FUNC_WHICH_GETHOSTBYNAME_R
 
   dnl See if we HAVE_ICONV, how ICONV_CONST is set and LTLIBICONV
   AM_ICONV
@@ -471,6 +476,7 @@ if test "x${COMPILE_JNI}" = xyes; then
     PKG_CHECK_MODULES(GTK, gtk+-2.0 >= 2.8 gthread-2.0 >= 2.2 gdk-pixbuf-2.0)
     PKG_CHECK_MODULES(FREETYPE2, freetype2)
     PKG_CHECK_MODULES(PANGOFT2, pangoft2)
+    PKG_CHECK_MODULES(CAIRO, cairo >= 1.1.8)
     dnl Check if we can link against the XRender library and set
     dnl HAVE_XRENDER accordingly.
     AC_CHECK_LIB([Xrender], [XRenderQueryExtension],
@@ -496,7 +502,7 @@ if test "x${COMPILE_JNI}" = xyes; then
 
   dnl gconf-peer
   if  test "x${COMPILE_GCONF_PEER}" = xyes; then
-    PKG_CHECK_MODULES(GCONF, gconf-2.0 >= 2.11.2)
+    PKG_CHECK_MODULES(GCONF, gconf-2.0 >= 2.6.0)
     AC_SUBST(GCONF_CFLAGS)
     AC_SUBST(GCONF_LIBS)
     dnl we also need gdk for locking
@@ -588,23 +594,33 @@ if test "x${COMPILE_JNI}" = xyes; then
   if test "x${COMPILE_PLUGIN}" = xyes; then
     PKG_CHECK_MODULES(MOZILLA, mozilla-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
     if test "x${MOZILLA_FOUND}" = xno; then
-      PKG_CHECK_MODULES(MOZILLA, firefox-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+      PKG_CHECK_MODULES(MOZILLA, firefox-plugin firefox-xpcom, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
     fi
     if test "x${MOZILLA_FOUND}" = xno; then
-      PKG_CHECK_MODULES(MOZILLA, xulrunner-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+      PKG_CHECK_MODULES(MOZILLA, xulrunner-plugin xulrunner-xpcom, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
     fi
     if test "x${MOZILLA_FOUND}" = xno; then
-      PKG_CHECK_MODULES(MOZILLA, mozilla-firefox-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+      PKG_CHECK_MODULES(MOZILLA, mozilla-firefox-plugin mozilla-firefox-xpcom, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
     fi
     if test "x${MOZILLA_FOUND}" = xno; then
-      PKG_CHECK_MODULES(MOZILLA, seamonkey-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+      PKG_CHECK_MODULES(MOZILLA, seamonkey-plugin seamonkey-xpcom, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
     fi
+    if test "x${MOZILLA_FOUND}" = xno; then
+      PKG_CHECK_MODULES(MOZILLA, iceape-plugin iceape-xpcom, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+    fi
+    if test "x${MOZILLA_FOUND}" = xno; then
+      AC_MSG_ERROR([Couldn't find plugin support headers and libraries, try --disable-plugin])
+    fi
+
     PKG_CHECK_MODULES(GLIB, glib-2.0)
+    PKG_CHECK_MODULES(GTK, gtk+-2.0 >= 2.8 gthread-2.0 >= 2.2 gdk-pixbuf-2.0)
 
     AC_SUBST(MOZILLA_CFLAGS)
     AC_SUBST(MOZILLA_LIBS)
     AC_SUBST(GLIB_CFLAGS)
     AC_SUBST(GLIB_LIBS)
+    AC_SUBST(GTK_CFLAGS)
+    AC_SUBST(GTK_LIBS)
 
     AC_SUBST(PLUGIN_DIR, $HOME/.mozilla/plugins/)
   fi
@@ -683,6 +699,18 @@ AC_ARG_ENABLE([load-library],
               [INIT_LOAD_LIBRARY="true"])
 AC_SUBST(INIT_LOAD_LIBRARY)
 
+
+dnl -----------------------------------------------------------
+dnl Specify the jar file containing the Eclipse Java Compiler.  If
+dnl this option is not specified then the com.sun.tools.javac
+dnl implementation will not be included in tools.zip.
+dnl -----------------------------------------------------------
+AC_ARG_WITH([ecj-jar],
+  	    [AS_HELP_STRING([--with-ecj-jar=ABS.PATH],
+  	    [specify jar file containing the Eclipse Java Compiler])],
+  	    [ECJ_JAR=$withval]
+  	    )
+AC_SUBST(ECJ_JAR)
 
 dnl -----------------------------------------------------------
 dnl Should the VM explicitly run class initialization subfunctions for

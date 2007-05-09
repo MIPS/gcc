@@ -3,12 +3,12 @@
 GLIBJ_BOOTCLASSPATH='$(top_builddir)/lib':'$(top_builddir)/lib/glibj.zip'
 GLIBJ_CLASSPATH=asm
 
-# Setup the compiler to use the GNU Classpath library we just build
-if FOUND_GCJX
-JCOMPILER = $(GCJX) -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -sourcepath '' -classpath $(GLIBJ_CLASSPATH):.
-else
+# Setup the compiler to use the GNU Classpath library we just built.
 if FOUND_ECJ
-JCOMPILER = $(ECJ) -1.5 -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath .:$(GLIBJ_CLASSPATH)
+JCOMPILER = $(ECJ) -1.5 -encoding UTF-8 -warn:-deprecation,serial,typeHiding,unchecked,unused,varargsCast -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath .:$(GLIBJ_CLASSPATH)
+else
+if FOUND_JAVAC
+JCOMPILER = $(JAVAC) -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath .:$(GLIBJ_CLASSPATH)
 else
 error dunno how to setup the JCOMPILER and compile
 endif
@@ -49,12 +49,14 @@ gjar_CFLAGS = \
 gnative2ascii_SOURCES = toolwrapper.c
 gnative2ascii_CFLAGS = \
 	-DTOOLPACKAGE="\"native2ascii\"" \
-	-DTOOLNAME="\"gnative2ascii\""
+	-DTOOLNAME="\"gnative2ascii\"" \
+	-DMAINCLASS="\"Native2ASCII\""
 
 gserialver_SOURCES = toolwrapper.c
 gserialver_CFLAGS = \
 	-DTOOLPACKAGE="\"serialver\"" \
-	-DTOOLNAME="\"gserialver\""
+	-DTOOLNAME="\"gserialver\"" \
+	-DMAINCLASS="\"SerialVer\""
 
 grmiregistry_SOURCES = toolwrapper.c
 grmiregistry_CFLAGS = \
@@ -98,6 +100,10 @@ EXTRA_DIST = toolwrapper.c gappletviewer.in gjarsigner.in gkeytool.in \
 
 # All our example java source files
 TOOLS_JAVA_FILES = $(srcdir)/gnu/classpath/tools/*/*.java \
+	$(srcdir)/com/sun/javadoc/*.java \
+	$(srcdir)/com/sun/tools/doclets/*.java \
+	$(srcdir)/com/sun/tools/javac/*.java \
+	$(srcdir)/sun/rmi/rmic/*.java \
 	$(srcdir)/external/asm/org/objectweb/asm/*.java \
 	$(srcdir)/external/asm/org/objectweb/asm/attrs/*.java \
 	$(srcdir)/external/asm/org/objectweb/asm/commons/*.java \
@@ -151,11 +157,19 @@ $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
 ## Compile ASM separately as it is latin-1 encoded.
 	find $(srcdir)/external/asm -name '*.java' -print > asm.lst
 	AC=`echo $(JCOMPILER) | sed -e 's/UTF-8/ISO-8859-1/g'`; \
-	  $$AC -d asm @asm.lst
-	find $(srcdir)/gnu/classpath/tools -name '*.java' -print > classes.lst
-	$(JCOMPILER) -d classes @classes.lst
+	  $$AC -g -d asm @asm.lst
+	find $(srcdir)/gnu/classpath/tools \
+	     $(srcdir)/com/sun/javadoc \
+	     $(srcdir)/com/sun/tools/doclets \
+	     $(srcdir)/com/sun/tools/javac \
+	     $(srcdir)/sun/rmi/rmic \
+	     -name '*.java' -print > classes.lst
+	$(JCOMPILER) -g -d classes @classes.lst
+	cat classes.lst asm.lst > all-classes.lst
 ## Copy over tools resource files.
-	@list=`cd $(top_srcdir)/resource && find gnu/classpath/tools -name \*.properties -print`; \
+	@list=`cd $(top_srcdir)/resource && find gnu/classpath/tools \
+	       com/sun/javadoc com/sun/tools/doclets com/sun/tools/javac \
+	       sun/rmi/rmic -name \*.properties -print`; \
 	for p in $$list; do \
 	  dirname=classes/`dirname $$p`; \
 	  if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
@@ -172,11 +186,11 @@ $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
 	if test "$(ZIP)" != ""; then $(ZIP) -u -r ../$(TOOLS_ZIP) .; fi; \
 	if test "$(FASTJAR)" != ""; then $(FASTJAR) uf ../$(TOOLS_ZIP) .; fi; \
 	cd ..)
-	rm -rf classes classes.lst
+	rm -rf classes
 
 # Zip file be gone! (and make sure the classes are gone too)
 clean-local:
-	rm -rf $(TOOLS_ZIP) classes asm asm.lst
+	rm -rf $(TOOLS_ZIP) classes classes.lst asm asm.lst all-classes.lst
 
 # FIXME: remove this when GNU Classpath includes a bootstrap VM.
 installcheck-binSCRIPTS:

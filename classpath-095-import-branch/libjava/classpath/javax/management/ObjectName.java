@@ -1,5 +1,5 @@
 /* ObjectName.java -- Represent the name of a bean, or a pattern for a name.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -44,6 +44,11 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
+
+import java.io.IOException;
+import java.io.InvalidObjectException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 
 /**
  * <p>
@@ -97,30 +102,56 @@ public class ObjectName
   implements Serializable, QueryExp
 {
 
+  private static final long serialVersionUID = 1081892073854801359L;
+
+  /**
+   * The wildcard {@link ObjectName} {@code "*:*"}
+   *
+   * @since 1.6
+   */
+  public static final ObjectName WILDCARD;
+
   /**
    * The domain of the name.
    */
-  private String domain;
+  private transient String domain;
 
   /**
    * The properties, as key-value pairs.
    */
-  private TreeMap properties;
+  private transient TreeMap<String,String> properties;
 
   /**
    * The properties as a string (stored for ordering).
    */
-  private String propertyListString;
+  private transient String propertyListString;
 
   /**
    * True if this object name is a property pattern.
    */
-  private boolean propertyPattern;
+  private transient boolean propertyPattern;
 
   /**
    * The management server associated with this object name.
    */
-  private MBeanServer server;
+  private transient MBeanServer server;
+
+  /**
+   * Static initializer to set up the wildcard.
+   */
+  static
+  {
+    try
+      {
+	WILDCARD = new ObjectName("");
+      }
+    catch (MalformedObjectNameException e)
+      {
+	throw (InternalError) (new InternalError("A problem occurred " +
+						 "initializing the ObjectName " +
+						 "wildcard.").initCause(e));
+      }
+  }
 
   /**
    * Constructs an {@link ObjectName} instance from the given string,
@@ -143,38 +174,55 @@ public class ObjectName
   public ObjectName(String name)
     throws MalformedObjectNameException
   {
+    if (name.length() == 0)
+      name = "*:*";
+    parse(name);
+  }
+
+  /**
+   * Parse the name in the same form as the constructor.  Used by
+   * readObject().
+   */
+  private void parse(String name)
+    throws MalformedObjectNameException
+  {
     int domainSep = name.indexOf(':');
     if (domainSep == -1)
       throw new MalformedObjectNameException("No domain separator was found.");
     domain = name.substring(0, domainSep);
     String rest = name.substring(domainSep + 1);
-    if (rest.equals("*"))
-      propertyPattern = true;
-    else
+    properties = new TreeMap<String,String>();
+    String[] pairs = rest.split(",");
+    if (pairs.length == 0 && !isPattern())
+      throw new MalformedObjectNameException("A name that is not a " +
+					     "pattern must contain at " +
+					     "least one key-value pair.");
+    propertyListString = "";
+    for (int a = 0; a < pairs.length; ++a)
       {
-	if (rest.endsWith(",*"))
+	if (pairs[a].equals("*"))
 	  {
+	    if (propertyPattern)
+	      throw new MalformedObjectNameException("Multiple wildcards " +
+						     "in properties.");
 	    propertyPattern = true;
-	    propertyListString = rest.substring(0, rest.length() - 2);
+	    continue;
 	  }
-	else
-	  propertyListString = rest;
-	String[] pairs = propertyListString.split(",");
-	if (pairs.length == 0 && !isPattern())
-	  throw new MalformedObjectNameException("A name that is not a " +
-						 "pattern must contain at " +
-						 "least one key-value pair.");
-	properties = new TreeMap();
-	for (int a = 0; a < pairs.length; ++a)
-	  {
-	    int sep = pairs[a].indexOf('=');
-	    String key = pairs[a].substring(0, sep);
-	    if (properties.containsKey(key))
-	      throw new MalformedObjectNameException("The same key occurs " +
-						     "more than once.");
-	    properties.put(key, pairs[a].substring(sep + 1));
-	  }	
+	int sep = pairs[a].indexOf('=');
+	if (sep == -1)
+	  throw new MalformedObjectNameException("A key must be " +
+						 "followed by a value.");
+	String key = pairs[a].substring(0, sep);
+	if (properties.containsKey(key))
+	  throw new MalformedObjectNameException("The same key occurs " +
+						 "more than once.");
+	String value = pairs[a].substring(sep+1);
+	properties.put(key, value);
+	propertyListString += key + "=" + value + ",";
       }
+    if (propertyListString.length() > 0)
+      propertyListString =
+	propertyListString.substring(0, propertyListString.length() - 1);
     checkComponents();
   }
 
@@ -197,7 +245,7 @@ public class ObjectName
     throws MalformedObjectNameException
   {
     this.domain = domain;
-    properties = new TreeMap();
+    properties = new TreeMap<String,String>();
     properties.put(key, value);
     checkComponents();
   }
@@ -216,10 +264,11 @@ public class ObjectName
    * @throws NullPointerException if one of the parameters is
    *                              <code>null</code>.
    */
-  public ObjectName(String domain, Hashtable properties)
+  public ObjectName(String domain, Hashtable<String,String> properties)
     throws MalformedObjectNameException
   {
     this.domain = domain;
+    this.properties = new TreeMap<String,String>();
     this.properties.putAll(properties);
     checkComponents();
   }
@@ -242,7 +291,7 @@ public class ObjectName
     if (domain.indexOf('\n') != -1)
       throw new MalformedObjectNameException("The domain includes a newline " +
 					     "character.");
-    char[] chars = new char[] { ':', ',', '*', '?', '=' };
+    char[] chars = new char[] { '\n', ':', ',', '*', '?', '=' };
     Iterator i = properties.entrySet().iterator();
     while (i.hasNext())
       {
@@ -263,8 +312,9 @@ public class ObjectName
 	      }
 	    catch (IllegalArgumentException e)
 	      {
-		throw new MalformedObjectNameException("The quoted value is " +
-						       "invalid.");
+		throw (MalformedObjectNameException)
+		  new MalformedObjectNameException("The quoted value is " +
+						   "invalid.").initCause(e);
 	      }
 	  }
 	else if (quote != -1)
@@ -305,70 +355,80 @@ public class ObjectName
   {
     if (name.isPattern())
       return false;
-    if (isPattern())
+
+    if (!isPattern())
+      return equals(name);
+
+    if (isDomainPattern())
       {
-	boolean domainMatch, propMatch;
-	if (isDomainPattern())
-	  {
-	    String oDomain = name.getDomain();
-	    int oLength = oDomain.length();
-	    for (int a = 0; a < domain.length(); ++a)
-	      {
-		char n = domain.charAt(a);
-		if (oLength == a && n != '*')
-		  return false;
-		if (n == '?')
-		  continue;
-		if (n == '*')
-		  if ((a + 1) < domain.length())
-		    {
-		      if (oLength == a)
-			return false;
-		      char next;
-		      do
-			{
-			  next = domain.charAt(a + 1);
-			} while (next == '*');
-		      if (next == '?')
-			continue;
-		      int pos = a;
-		      while (oDomain.charAt(pos) != next)
-			{
-			  ++pos;
-			  if (pos == oLength)
-			    return false;
-			}
-		    }
-		if (n != oDomain.charAt(a))
-		  return false;
-	      }
-	    domainMatch = true;
-	  }
-	else
-	  domainMatch = domain.equals(name.getDomain());
-	if (isPropertyPattern())
-	  {
-	    Hashtable oProps = name.getKeyPropertyList();
-	    Iterator i = properties.entrySet().iterator();
-	    while (i.hasNext())
-	      {
-		Map.Entry entry = (Map.Entry) i.next();
-		String key = (String) entry.getKey();
-		if (!(oProps.containsKey(key)))
-		  return false;
-		String val = (String) entry.getValue();
-		if (!(val.equals(oProps.get(key))))
-		  return false;
-	      }
-	    propMatch = true;
-	  }
-	else
-	  propMatch =
-	    getCanonicalKeyPropertyListString().equals
-	    (name.getCanonicalKeyPropertyListString());
-	return domainMatch && propMatch;
+	if (!domainMatches(domain, 0, name.getDomain(), 0))
+	  return false;
       }
-    return equals(name);
+    else
+      {
+	if (!domain.equals(name.getDomain()))
+	  return false;
+      }
+
+    if (isPropertyPattern())
+      {
+	Hashtable oProps = name.getKeyPropertyList();
+	Iterator i = properties.entrySet().iterator();
+	while (i.hasNext())
+	  {
+	    Map.Entry entry = (Map.Entry) i.next();
+	    String key = (String) entry.getKey();
+	    if (!(oProps.containsKey(key)))
+	      return false;
+	    String val = (String) entry.getValue();
+	    if (!(val.equals(oProps.get(key))))
+	      return false;
+	  }
+      }
+    else
+      {
+	if (!getCanonicalKeyPropertyListString().equals
+	    (name.getCanonicalKeyPropertyListString()))
+	  return false;
+      }
+    return true;
+  }
+
+  /**
+   * Returns true if the domain matches the pattern.
+   *
+   * @param pattern the pattern to match against.
+   * @param patternindex the index into the pattern to start matching.
+   * @param domain the domain to match.
+   * @param domainindex the index into the domain to start matching.
+   * @return true if the domain matches the pattern.
+   */
+  private static boolean domainMatches(String pattern, int patternindex,
+				       String domain, int domainindex)
+  {
+    while (patternindex < pattern.length())
+      {
+	char c = pattern.charAt(patternindex++);
+	
+	if (c == '*')
+	  {
+	    for (int i = domain.length(); i >= domainindex; i--)
+	      {
+		if (domainMatches(pattern, patternindex, domain, i))
+		  return true;
+	      }
+	    return false;
+	  }
+
+	if (domainindex >= domain.length())
+	  return false;
+	
+	if (c != '?' && c != domain.charAt(domainindex))
+	  return false;
+
+	domainindex++;
+      }
+    return true;
   }
 
   /**
@@ -542,7 +602,8 @@ public class ObjectName
    *                                      specifications.
    * @throws NullPointerException if <code>name</code> is <code>null</code>.
    */
-  public static ObjectName getInstance(String domain, Hashtable properties)
+  public static ObjectName getInstance(String domain,
+				       Hashtable<String,String> properties)
     throws MalformedObjectNameException
   {
     return new ObjectName(domain, properties);
@@ -565,16 +626,15 @@ public class ObjectName
   /**
    * Returns the properties in a {@link java.util.Hashtable}.  The table
    * contains each of the properties as keys mapped to their value.  The
-   * returned table may be unmodifiable.  If the case that the table is
-   * modifiable, changes made to it will not be reflected in the object
-   * name.
+   * returned table is not unmodifiable, but changes made to it will not
+   * be reflected in the object name.
    *
    * @return a {@link java.util.Hashtable}, containing each of the object
    *         name's properties.
    */
-  public Hashtable getKeyPropertyList()
+  public Hashtable<String,String> getKeyPropertyList()
   {
-    return (Hashtable) Collections.unmodifiableMap(new Hashtable(properties));
+    return new Hashtable<String,String>(properties);
   }
 
   /**
@@ -674,7 +734,8 @@ public class ObjectName
    */
   public static String quote(String string)
   {
-    StringBuilder builder = new StringBuilder('"');
+    StringBuilder builder = new StringBuilder();
+    builder.append('"');
     for (int a = 0; a < string.length(); ++a)
       {
 	char s = string.charAt(a);
@@ -715,20 +776,68 @@ public class ObjectName
 
   /**
    * Returns a textual representation of the object name.
-   * The format is unspecified, but it should be expected that
-   * two equivalent object names will return the same string
-   * from this method.
+   *
+   * <p>The format is unspecified beyond that equivalent object
+   * names will return the same string from this method, but note
+   * that Tomcat depends on the string returned by this method
+   * being a valid textual representation of the object name and
+   * will fail to start if it is not.
    *
    * @return a textual representation of the object name.
    */
   public String toString()
   {
-    return getClass().toString() +
-      "[domain = " + domain +
-      ",properties = " + properties +
-      ",propertyPattern = " + propertyPattern +
-      "]";
+    return getCanonicalName();
   }
+
+
+  /**
+   * Serialize this {@link ObjectName}.  The serialized
+   * form is the same as the string parsed by the constructor.
+   *
+   * @param out the output stream to write to.
+   * @throws IOException if an I/O error occurs.
+   */
+  private void writeObject(ObjectOutputStream out)
+    throws IOException
+  {
+    out.defaultWriteObject();
+    StringBuffer buffer = new StringBuffer(getDomain());
+    buffer.append(':');
+    String properties = getKeyPropertyListString();
+    buffer.append(properties);
+    if (isPropertyPattern())
+      {
+       if (properties.length() == 0)
+         buffer.append("*");
+       else
+         buffer.append(",*");
+      }
+    out.writeObject(buffer.toString());
+  }
+
+  /**
+   * Reads the serialized form, which is that used
+   * by the constructor.
+   *
+   * @param in the input stream to read from.
+   * @throws IOException if an I/O error occurs.
+   */
+  private void readObject(ObjectInputStream in) 
+    throws IOException, ClassNotFoundException
+   {
+     in.defaultReadObject();
+     String objectName = (String)in.readObject();
+     try
+       {
+         parse(objectName);
+       }
+     catch (MalformedObjectNameException x)
+       {
+         throw new InvalidObjectException(x.toString());
+       }
+   }
+
 
   /**
    * Unquotes the supplied string.  The quotation marks are removed as
@@ -762,10 +871,12 @@ public class ObjectName
 	  {
 	    n = q.charAt(++a);
 	    if (n != '"' && n != '?' && n != '*' &&
-		n != '\n' && n != '\\')
+		n != 'n' && n != '\\')
 	      throw new IllegalArgumentException("Illegal escaped character: "
 						 + n);
 	  }
+	else if (n == '"' || n == '\n') 
+	  throw new IllegalArgumentException("Illegal character: " + n);
 	builder.append(n);
       }
 
