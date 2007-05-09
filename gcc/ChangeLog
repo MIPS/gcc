@@ -1,5 +1,9 @@
 2007-05-09  Kaz Kojima  <kkojima@gcc.gnu.org>
 
+	* df-core.c (df_get_bb_dirty): Return false if df_live is null.
+
+2007-05-09  Kaz Kojima  <kkojima@gcc.gnu.org>
+
 	* config/sh/sh.c (r0_life_regions): New variable.
 	(find_r0_life_regions): New static function.
 	(sh_md_init_global): Call find_r0_life_regions when

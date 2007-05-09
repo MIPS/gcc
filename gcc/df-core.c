@@ -1491,7 +1491,7 @@ df_mark_solutions_dirty (void)
 bool 
 df_get_bb_dirty (basic_block bb)
 {
-  if (df)
+  if (df && df_live)
     return bitmap_bit_p (df_live->out_of_date_transfer_functions, bb->index);
   else 
     return false;
