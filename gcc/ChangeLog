@@ -1,3 +1,13 @@
+2007-05-09  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (r0_life_regions): New variable.
+	(find_r0_life_regions): New static function.
+	(sh_md_init_global): Call find_r0_life_regions when
+	reload_completed isn't set.
+	(R0_MAX_LIVE_LENGTH): Remove.
+	(high__pressure): Return 1 if r0_life_regions is over
+	the given threshold.
+
 2007-05-03  Ian Lance Taylor  <iant@google.com>
 
 	* config/rs6000/rs6000.c (rs6000_override_options): Don't se
