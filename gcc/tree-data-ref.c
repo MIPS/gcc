@@ -1327,6 +1327,7 @@ analyze_offset_expr (tree expr,
       *step  = size_binop (MULT_EXPR, left_step, right_offset);
       break;
    
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
       /* Combine the recursive calculations for step and misalignment.  */
@@ -1398,9 +1399,15 @@ address_analysis (tree expr, tree stmt, bool is_read, struct data_reference *dr,
   tree dummy, address_aligned_to = NULL_TREE;
   struct ptr_info_def *dummy1;
   subvar_t dummy2;
+  enum tree_code code = TREE_CODE (expr);
 
   switch (TREE_CODE (expr))
     {
+    case POINTER_PLUS_EXPR:
+
+	code = PLUS_EXPR;
+	/* FALL THROUGH */
+
     case PLUS_EXPR:
     case MINUS_EXPR:
       /* EXPR is of form {base +/- offset} (or {offset +/- base}).  */
@@ -1446,7 +1453,7 @@ address_analysis (tree expr, tree stmt, bool is_read, struct data_reference *dr,
 	 otherwise, misalignment is NULL.  */
       if (TREE_CODE (offset_expr) == INTEGER_CST && address_misalign)
 	{
-	  *misalign = size_binop (TREE_CODE (expr), address_misalign, 
+	  *misalign = size_binop (code, address_misalign, 
 				  offset_expr);
 	  *aligned_to = address_aligned_to;
 	}
@@ -1458,7 +1465,7 @@ address_analysis (tree expr, tree stmt, bool is_read, struct data_reference *dr,
 
       /* Combine offset (from EXPR {base + offset}) with the offset calculated
 	 for base.  */
-      *offset = size_binop (TREE_CODE (expr), address_offset, offset_expr);
+      *offset = size_binop (code, address_offset, offset_expr);
       return base_addr0 ? base_addr0 : base_addr1;
 
     case ADDR_EXPR:
@@ -1845,7 +1852,7 @@ analyze_offset (tree offset, tree *invariant, tree *constant)
   *constant = NULL_TREE;
 
   /* Not PLUS/MINUS expression - recursion stop condition.  */
-  if (code != PLUS_EXPR && code != MINUS_EXPR)
+  if (code != PLUS_EXPR && code != MINUS_EXPR && code != POINTER_PLUS_EXPR)
     {
       if (TREE_CODE (offset) == INTEGER_CST)
 	*constant = offset;
@@ -2011,7 +2018,7 @@ create_data_ref (tree memref, tree stmt, bool is_read)
 			     fold_convert (ssizetype, step), type_size);
 
       init_cond = chrec_convert (chrec_type (access_fn), init_cond, stmt);
-      new_step = chrec_convert (chrec_type (access_fn), new_step, stmt);
+      new_step = chrec_convert_rhs (chrec_type (access_fn), new_step, stmt);
       if (automatically_generated_chrec_p (init_cond)
 	  || automatically_generated_chrec_p (new_step))
 	{

@@ -4670,12 +4670,21 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
       init_expr = unshare_expr (initial_condition_in_loop_num (access_fn, 
 							       loop->num));
 
-      ni = fold_build2 (PLUS_EXPR, TREE_TYPE (init_expr),
-			fold_build2 (MULT_EXPR, TREE_TYPE (init_expr),
-				     fold_convert (TREE_TYPE (init_expr), 
-						   niters), 
-				     step_expr),
-			init_expr);
+      if (POINTER_TYPE_P (TREE_TYPE (init_expr)))
+	ni = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (init_expr), 
+			  init_expr, 
+			  fold_convert (sizetype, 
+					fold_build2 (MULT_EXPR, TREE_TYPE (niters),
+						     niters, step_expr)));
+      else
+	ni = fold_build2 (PLUS_EXPR, TREE_TYPE (init_expr),
+			  fold_build2 (MULT_EXPR, TREE_TYPE (init_expr),
+				       fold_convert (TREE_TYPE (init_expr),
+						     niters),
+				       step_expr),
+			  init_expr);
+
+
 
       var = create_tmp_var (TREE_TYPE (init_expr), "tmp");
       add_referenced_var (var);

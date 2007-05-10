@@ -1,3 +1,57 @@
+2007-05-09  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+            Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* fold-const.c  (fold_to_nonsharp_ineq_using_bound): Don't
+	use a pointer type for MINUS_EXPR.
+	(fold_binary <case MINUS_EXPR>): Fold (PTR0 p+ A) - (PTR1 p+ B)
+	into (PTR0 - PTR1) + (A - B). Fold (PTR0 p+ A) - PTR1 into
+	(PTR0 - PTR1) + A iff (PTR0 - PTR1) simplifies.
+	* tree-chrec.c (chrec_fold_plus_poly_poly): For
+	POINTER_PLUS_EXPR, use a different right hand side type.
+	Handle POINTER_PLUS_EXPR like PLUS_EXPR.
+	(chrec_fold_plus_1): Likewise.
+	(convert_affine_scev): Likewise.
+	(chrec_convert_aggressive): Likewise.
+	(chrec_fold_plus): For pointer types, use POINTER_PLUS_EXPR
+	instead of PLUS_EXPR.
+	(reset_evolution_in_loop): For pointer types, the new_evol
+	should be sizetype.
+	(chrec_convert_rhs): New function.
+	* tree-chrec.h (chrec_convert_rhs): New prototype.
+	(build_polynomial_chrec): For pointer types, the right hand
+	side should be sizetype and not the same as the left hand side.
+	* tree-scalar-evolution.c (add_to_evolution_1): Convert the
+	increment using chrec_convert_rhs instead of chrec_convert.
+	(follow_ssa_edge_in_rhs): Handle POINTER_PLUS_EXPR like
+	PLUS_EXPR except for the right hand side's type will be
+	sizetype.
+	(interpret_rhs_modify_stmt): Handle POINTER_PLUS_EXPR.
+	(fold_used_pointer_cast): Kill.
+	(pointer_offset_p): Kill.
+	(fold_used_pointer): Kill.
+	(pointer_used_p): Kill.
+	(analyze_scalar_evolution_1 <case GIMPLE_MODIFY_STMT>): Don't
+	call fold_used_pointer.
+	(instantiate_parameters_1): Convert the increment
+	using chrec_convert_rhs instead of chrec_convert.
+	Handle POINTER_PLUS_EXPR as PLUS_EXPR.
+	* tree-ssa-loop-niter.c (split_to_var_and_offset): Handle
+	POINTER_PLUS_EXPR as PLUS_EXPR.
+	(assert_loop_rolls_lt): For pointer types, use sizetype when
+	creating MINUS_EXPR/PLUS_EXPRs.
+	(number_of_iterations_le): Likewise.
+	(expand_simple_operations): POINTER_PLUS_EXPR are simple also.
+	(derive_constant_upper_bound): Handle POINTER_PLUS_EXPR just
+	like PLUS_EXPR and MINUS_EXPR.
+	* tree-data-ref.c (analyze_offset_expr): Likewise.
+	(address_analysis): Handle POINTER_PLUS_EXPR as PLUS_EXPR.
+	(analyze_offset): Handle POINTER_PLUS_EXPR also.
+	(create_data_ref): Convert the increment
+	using chrec_convert_rhs instead of chrec_convert.
+	* tree-vect-transform.c (vect_update_ivs_after_vectorizer):
+	For pointer types, create POINTER_PLUS_EXPR instead of
+	PLUS_EXPR and also create MULT_EXPR in sizetype.
+
 2007-05-07  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* builtins.c (std_gimplify_va_arg_expr): Use fold_build2 for
