@@ -43,6 +43,7 @@ Boston, MA 02110-1301, USA.  */
 #include "target-def.h"
 #include "debug.h"
 #include "flags.h"
+#include "df.h"
 
 enum reg_class regno_reg_class[] =
 {
@@ -4166,7 +4167,7 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 	  /* Use the static chain register as a temporary (call-clobbered)
 	     GOT pointer for this function.  We can use the static chain
 	     register because it isn't live on entry to the thunk.  */
-	  REGNO (pic_offset_table_rtx) = STATIC_CHAIN_REGNUM;
+	  SET_REGNO (pic_offset_table_rtx, STATIC_CHAIN_REGNUM);
 	  emit_insn (gen_load_got (pic_offset_table_rtx));
 	}
       legitimize_pic_address (XEXP (mem, 0), Pmode, static_chain_rtx);
@@ -4188,7 +4189,7 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 
   /* Restore the original PIC register.  */
   if (flag_pic)
-    REGNO (pic_offset_table_rtx) = PIC_REG;
+    SET_REGNO (pic_offset_table_rtx, PIC_REG);
 }
 
 /* Worker function for TARGET_STRUCT_VALUE_RTX.  */
