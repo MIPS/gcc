@@ -1,3 +1,13 @@
+2007-05-07  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* typeck.c (build_unary_op): Remove code that used to
+	handle non lvalue increments/decrements.
+
+2007-05-07  Mike Stump  <mrs@apple.com>
+
+	* parser.c (check_empty_body): Add.
+	(cp_parser_iteration_statement): Add call to check_empty_body.
+
 2007-05-05  Geoffrey Keating  <geoffk@apple.com>
 
 	PR 31775

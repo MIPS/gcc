@@ -1863,7 +1863,8 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 	return NULL_TREE;
       base = TREE_OPERAND (base, 0);
 
-      offset = int_const_binop (PLUS_EXPR, offset, offset2, 1);
+      offset = fold_convert (sizetype,
+			     int_const_binop (PLUS_EXPR, offset, offset2, 1));
     }
 
   if (TREE_CODE (base) == ADDR_EXPR)

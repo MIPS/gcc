@@ -6008,11 +6008,10 @@ extract_array_ref (tree expr, tree *base, tree *offset)
       if (extract_array_ref (op0, &inner_base, &dummy1))
 	{
 	  *base = inner_base;
-	  if (dummy1 == NULL_TREE)
-	    *offset = TREE_OPERAND (expr, 1);
-	  else
+	  *offset = fold_convert (sizetype, TREE_OPERAND (expr, 1));
+	  if (dummy1 != NULL_TREE)
 	    *offset = fold_build2 (PLUS_EXPR, sizetype,
-				   dummy1, TREE_OPERAND (expr, 1));
+				   dummy1, *offset);
 	  return true;
 	}
     }
@@ -6030,6 +6029,7 @@ extract_array_ref (tree expr, tree *base, tree *offset)
 	  *base = TREE_OPERAND (op0, 0);
 	  *offset = fold_build2 (MULT_EXPR, TREE_TYPE (idx), idx,
 				 array_ref_element_size (op0)); 
+	  *offset = fold_convert (sizetype, *offset);
 	}
       else
 	{
@@ -6879,6 +6879,7 @@ try_move_mult_to_index (tree addr, tree op1)
   tree ret, pos;
   tree itype;
   bool mdim = false;
+  STRIP_NOPS (op1);
 
   /* Canonicalize op1 into a possibly non-constant delta
      and an INTEGER_CST s.  */
@@ -9119,7 +9120,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	expressions.  */
       if (TREE_CODE (arg0) == ADDR_EXPR)
 	{
-	  tem = try_move_mult_to_index (arg0, arg1);
+	  tem = try_move_mult_to_index (arg0, fold_convert (sizetype, arg1));
 	  if (tem)
 	    return fold_convert (type, tem);
 	}

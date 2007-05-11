@@ -1,3 +1,18 @@
+2007-05-10  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	Merge mainline, revision 124602.
+
+	* fold-const.c  (extract_array_ref): Make sure the offset
+	is converted to sizetype.
+	(try_move_mult_to_index): Strip the NOPs from the offset.
+	(fold_binary <case POINTER_PLUS_EXPR>): Convert the second
+	operand to sizetype before calling try_move_mult_to_index.
+	* tree-ssa-loop-niter.c (number_of_iterations_lt_to_ne):
+	For pointer types, use sizetype when
+	creating MINUS_EXPR/PLUS_EXPRs.
+	* tree-ssa-ccp.c (maybe_fold_stmt_indirect): Make sure
+	the offset is converted to sizetype.
+
 2007-05-11  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* config/spu/spu.c (spu_va_start): Create POINTER_PLUS_EXPR

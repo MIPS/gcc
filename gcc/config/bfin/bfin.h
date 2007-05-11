@@ -59,8 +59,17 @@ extern int target_flags;
 	case BFIN_CPU_BF533:			\
 	  builtin_define ("__ADSPBF533__");	\
 	  break;				\
+	case BFIN_CPU_BF534:			\
+	  builtin_define ("__ADSPBF534__");	\
+	  break;				\
+	case BFIN_CPU_BF536:			\
+	  builtin_define ("__ADSPBF536__");	\
+	  break;				\
 	case BFIN_CPU_BF537:			\
 	  builtin_define ("__ADSPBF537__");	\
+	  break;				\
+	case BFIN_CPU_BF561:			\
+	  builtin_define ("__ADSPBF561__");	\
 	  break;				\
 	}					\
 						\
@@ -217,6 +226,18 @@ extern const char *bfin_library_id_string;
 #define FRAME_POINTER_REQUIRED (bfin_frame_pointer_required ())
 
 /*#define DATA_ALIGNMENT(TYPE, BASIC-ALIGN) for arrays.. */
+
+/* If defined, a C expression to compute the alignment for a local
+   variable.  TYPE is the data type, and ALIGN is the alignment that
+   the object would ordinarily have.  The value of this macro is used
+   instead of that alignment to align the object.
+
+   If this macro is not defined, then ALIGN is used.
+
+   One use of this macro is to increase alignment of medium-size
+   data to make it all fit in fewer cache lines.  */
+
+#define LOCAL_ALIGNMENT(TYPE, ALIGN) bfin_local_alignment ((TYPE), (ALIGN))
 
 /* Make strings word-aligned so strcpy from constants will be faster.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)  \
@@ -913,6 +934,10 @@ do {					       \
    in one reasonably fast instruction.  */
 #define MOVE_MAX UNITS_PER_WORD
 
+/* If a memory-to-memory move would take MOVE_RATIO or more simple
+   move-instruction pairs, we will do a movmem or libcall instead.  */
+
+#define MOVE_RATIO 5
 
 /* STORAGE LAYOUT: target machine storage layout
    Define this macro as a C expression which is nonzero if accessing

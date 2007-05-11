@@ -679,12 +679,15 @@ number_of_iterations_lt_to_ne (tree type, affine_iv *iv0, affine_iv *iv1,
   mpz_t mmod;
   tree assumption = boolean_true_node, bound, noloop;
   bool ret = false;
+  tree type1 = type;
+  if (POINTER_TYPE_P (type))
+    type1 = sizetype;
 
   if (TREE_CODE (mod) != INTEGER_CST)
     return false;
   if (integer_nonzerop (mod))
     mod = fold_build2 (MINUS_EXPR, niter_type, step, mod);
-  tmod = fold_convert (type, mod);
+  tmod = fold_convert (type1, mod);
 
   mpz_init (mmod);
   mpz_set_double_int (mmod, tree_to_double_int (mod), true);
@@ -698,7 +701,7 @@ number_of_iterations_lt_to_ne (tree type, affine_iv *iv0, affine_iv *iv1,
       if (!iv1->no_overflow && !integer_zerop (mod))
 	{
 	  bound = fold_build2 (MINUS_EXPR, type,
-			       TYPE_MAX_VALUE (type), tmod);
+			       TYPE_MAX_VALUE (type1), tmod);
 	  assumption = fold_build2 (LE_EXPR, boolean_type_node,
 				    iv1->base, bound);
 	  if (integer_zerop (assumption))
@@ -709,7 +712,7 @@ number_of_iterations_lt_to_ne (tree type, affine_iv *iv0, affine_iv *iv1,
       else
 	noloop = fold_build2 (GT_EXPR, boolean_type_node,
 			      iv0->base,
-			      fold_build2 (PLUS_EXPR, type,
+			      fold_build2 (PLUS_EXPR, type1,
 					   iv1->base, tmod));
     }
   else
@@ -719,8 +722,8 @@ number_of_iterations_lt_to_ne (tree type, affine_iv *iv0, affine_iv *iv1,
 	 iv0->base - MOD <= iv1->base. */
       if (!iv0->no_overflow && !integer_zerop (mod))
 	{
-	  bound = fold_build2 (PLUS_EXPR, type,
-			       TYPE_MIN_VALUE (type), tmod);
+	  bound = fold_build2 (PLUS_EXPR, type1,
+			       TYPE_MIN_VALUE (type1), tmod);
 	  assumption = fold_build2 (GE_EXPR, boolean_type_node,
 				    iv0->base, bound);
 	  if (integer_zerop (assumption))
@@ -730,7 +733,7 @@ number_of_iterations_lt_to_ne (tree type, affine_iv *iv0, affine_iv *iv1,
 	noloop = boolean_false_node;
       else
 	noloop = fold_build2 (GT_EXPR, boolean_type_node,
-			      fold_build2 (MINUS_EXPR, type,
+			      fold_build2 (MINUS_EXPR, type1,
 					   iv0->base, tmod),
 			      iv1->base);
     }
