@@ -1,3 +1,13 @@
+2007-05-11  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/spu/spu.c (spu_va_start): Create POINTER_PLUS_EXPR
+	instead of PLUS_EXPR when doing addition on pointer
+	types.  Use sizetype for the second operand.
+	(spu_gimplify_va_arg_expr): Likewise.
+	* tree-ssa.c (tree_ssa_useless_type_conversion_1):
+	Convert the MIN/MAX of the inner type to the outer
+	type before comparing them.
+
 2007-05-09  Andrew Pinski  <andrew_pinski@playstation.sony.com>
             Zdenek Dvorak  <dvorakz@suse.cz>
 
