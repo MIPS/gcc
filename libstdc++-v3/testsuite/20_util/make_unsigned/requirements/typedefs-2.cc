@@ -1,4 +1,4 @@
-// { dg-options "-std=gnu++0x" }
+// { dg-options "-std=gnu++0x -funsigned-char -fshort-enums" }
 
 // 2007-05-03  Benjamin Kosnik  <bkoz@redhat.com>
 //
@@ -50,15 +50,8 @@ void test01()
   typedef make_unsigned<volatile wchar_t>::type  	test23_type;
   VERIFY( (is_same<test23_type, volatile unsigned wchar_t>::value) );
 
-#if 0
-  // XXX 
-  // When is_unsigned works for floating points types this should pass
-  typedef make_unsigned<volatile float>::type  	test24_type;
-  VERIFY( (is_same<test24_type, volatile unsigned int>::value) );
-#endif
-
   typedef make_unsigned<test_enum>::type  	test25_type;
-  VERIFY( (is_same<test25_type, unsigned int>::value) );
+  VERIFY( (is_same<test25_type, unsigned short>::value) );
 }
 
 int main()
