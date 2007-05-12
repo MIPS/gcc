@@ -1,3 +1,9 @@
+2007-05-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* except.c (expand_start_catch_block):  Do a
+	NEGATIVE and then a POINTER_PLUS_EXPR instead
+	of a MINUS_EXPR.
+
 2007-05-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* cp-gimplify.c (cxx_omp_clause_apply_fn): Convert
