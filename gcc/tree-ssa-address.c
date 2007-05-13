@@ -290,9 +290,10 @@ tree_mem_ref_addr (tree type, tree mem_ref)
 
   if (addr_off)
     {
-      addr = fold_convert (type, addr_off);
       if (addr_base)
-	addr = fold_build2 (PLUS_EXPR, type, addr_base, addr);
+	addr = fold_build2 (POINTER_PLUS_EXPR, type, addr_base, addr_off);
+      else
+	addr = fold_convert (type, addr_off);
     }
   else if (addr_base)
     addr = addr_base;

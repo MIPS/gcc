@@ -1,5 +1,10 @@
 2007-05-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
+	* tree-ssa-address.c (tree_mem_ref_addr): When adding
+	the offset to the base, use POINTER_PLUS_EXPR.
+
+2007-05-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
 	* expr.c (expand_expr_addr_expr_1): Call expand_expr
 	for the offset with the modifier as EXPAND_INITIALIZER
 	if the modifier is EXPAND_INITIALIZER.
