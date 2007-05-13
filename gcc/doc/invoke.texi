@@ -248,7 +248,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
 -Wsign-compare  -Wstack-protector @gol
--Wstrict-aliasing -Wstrict-aliasing=2 @gol
+-Wstrict-aliasing -Wstrict-aliasing=n @gol
 -Wstrict-overflow -Wstrict-overflow=@var{n} @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum @gol
 -Wsystem-headers  -Wtrigraphs  -Wundef  -Wuninitialized @gol
@@ -439,12 +439,13 @@ Objective-C and Objective-C++ Dialects}.
 -mcall-prologues  -mno-tablejump  -mtiny-stack  -mint8}
 
 @emph{Blackfin Options}
-@gccoptlist{-momit-leaf-frame-pointer -mno-omit-leaf-frame-pointer @gol
--mspecld-anomaly -mno-specld-anomaly -mcsync-anomaly -mno-csync-anomaly @gol
--mlow-64k  -mno-low64k  -mstack-check-l1  -mid-shared-library @gol
--mno-id-shared-library -mshared-library-id=@var{n} @gol
--mleaf-id-shared-library  -mno-leaf-id-shared-library @gol
--msep-data  -mno-sep-data  -mlong-calls  -mno-long-calls}
+@gccoptlist{-mcpu=@var{cpu}  -msim  -momit-leaf-frame-pointer @gol
+-mno-omit-leaf-frame-pointer  -mspecld-anomaly  -mno-specld-anomaly @gol
+-mcsync-anomaly  -mno-csync-anomaly  -mlow-64k  -mno-low64k @gol
+-mstack-check-l1  -mid-shared-library  -mno-id-shared-library @gol
+-mshared-library-id=@var{n}  -mleaf-id-shared-library @gol
+-mno-leaf-id-shared-library  -msep-data  -mno-sep-data  -mlong-calls @gol
+-mno-long-calls}
 
 @emph{CRIS Options}
 @gccoptlist{-mcpu=@var{cpu}  -march=@var{cpu}  -mtune=@var{cpu} @gol
@@ -3007,14 +3008,40 @@ It warns about code which might break the strict aliasing rules that the
 compiler is using for optimization.  The warning does not catch all
 cases, but does attempt to catch the more common pitfalls.  It is
 included in @option{-Wall}.
+It is equivalent to -Wstrict-aliasing=3
 
-@item -Wstrict-aliasing=2
-@opindex Wstrict-aliasing=2
+@item -Wstrict-aliasing=n
+@opindex Wstrict-aliasing=n
 This option is only active when @option{-fstrict-aliasing} is active.
 It warns about code which might break the strict aliasing rules that the
-compiler is using for optimization.  This warning catches more cases than
-@option{-Wstrict-aliasing}, but it will also give a warning for some ambiguous
-cases that are safe.
+compiler is using for optimization.
+Higher levels correspond to higher accuracy (fewer false positives).
+Higher levels also correspond to more effort, similar to the way -O works.
+@option{-Wstrict-aliasing} is equivalent to @option{-Wstrict-aliasing=n},
+with n=3.
+
+Level 1: Most aggressive, quick, least accurate.
+Possibly useful when higher levels
+do not warn but -fstrict-aliasing still breaks the code, as it has very few 
+false negatives.  However, it has many false positives.
+Warns for all pointer conversions between possibly incompatible types, 
+even if never dereferenced.  Runs in the frontend only.
+
+Level 2: Aggressive, quick, not too precise.
+May still have many false positives (not as many as level 1 though),
+and few false negatives (but possibly more than level 1).
+Unlike level 1, it only warns when an address is taken.  Warns about
+incomplete types.  Runs in the frontend only.
+
+Level 3 (default for @option{-Wstrict-aliasing}): 
+Should have very few false positives and few false 
+negatives.  Slightly slower than levels 1 or 2 when optimization is enabled.
+Takes care of the common punn+dereference pattern in the frontend:
+@code{*(int*)&some_float}.
+If optimization is enabled, it also runs in the backend, where it deals 
+with multiple statement cases using flow-sensitive points-to information.
+Only warns when the converted pointer is dereferenced.
+Does not warn about incomplete types.
 
 @item -Wstrict-overflow
 @item -Wstrict-overflow=@var{n}
@@ -3155,6 +3182,11 @@ functions.  This warning can be independently controlled by
 @item
 An empty body occurs in an @samp{if}, @samp{else} or
 @samp{do while} statement. This warning can be independently
+controlled by @option{-Wempty-body}.
+
+@item @r{(C++ only)}
+An empty body occurs in a @samp{while} or @samp{for} statement with no
+whitespacing before the semicolon. This warning can be independently
 controlled by @option{-Wempty-body}.
 
 @item
@@ -3421,8 +3453,10 @@ to them.
 
 @item -Wempty-body
 @opindex Wempty-body
-An empty body occurs in an @samp{if}, @samp{else} or @samp{do while}
-statement.  This warning is also enabled by @option{-Wextra}.
+Warn if an empty body occurs in an @samp{if}, @samp{else} or @samp{do
+while} statement.  Additionally, in C++, warn when an empty body occurs
+in a @samp{while} or @samp{for} statement with no whitespacing before
+the semicolon.  This warning is also enabled by @option{-Wextra}.
 
 @item -Wsign-compare
 @opindex Wsign-compare
@@ -8342,6 +8376,23 @@ size.
 @cindex Blackfin Options
 
 @table @gcctabopt
+@item -mcpu=@var{cpu}
+@opindex mcpu=
+Specifies the name of the target Blackfin processor. Currently, @var{cpu}
+can be one of @samp{bf531}, @samp{bf532}, @samp{bf533},
+@samp{bf534}, @samp{bf536}, @samp{bf537}, @samp{bf561}.
+Without this option, @samp{bf532} is used as the processor by default.
+The corresponding predefined processor macros for @var{cpu} is to
+be defined.  For the @samp{bfin-elf} toolchain, this causes the hardware
+BSP provided by libgloss to be linked in if @samp{-msim} is not given.
+Support for @samp{bf561} is incomplete; only the processor macro is defined.
+
+@item -msim
+@opindex msim
+Specifies that the program will be run on the simulator.  This causes
+the simulator BSP provided by libgloss to be linked in.  This option
+has effect only for @samp{bfin-elf} toolchain.
+
 @item -momit-leaf-frame-pointer
 @opindex momit-leaf-frame-pointer
 Don't keep the frame pointer in a register for leaf functions.  This
