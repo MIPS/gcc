@@ -45,6 +45,7 @@ Boston, MA 02110-1301, USA.  */
 #include "bitmap.h"
 #include "langhooks.h"
 #include "cfgloop.h"
+#include "tree-ssa-sccvn.h"
 
 /* TODO:
 
@@ -3867,7 +3868,9 @@ execute_pre (bool do_fre)
     insert_fake_stores ();
 
   /* Collect and value number expressions computed in each basic block.  */
+  run_scc_vn ();
   compute_avail ();
+  free_scc_vn ();
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
