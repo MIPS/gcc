@@ -1,3 +1,14 @@
+2007-05-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	Merge mainline, revision 124657
+	* tree-data-ref.c (split_constant_offset): Handle
+	POINTER_PLUS_EXPR
+	exactly the same as PLUS_EXPR/MINUS_EXPR except for the offset
+	needs to be calcuated using PLUS_EXPR instead of
+	POINTER_PLUS_EXPR.
+	* builtins.c (fold_builtin_memchr): Use POINTER_PLUS_EXPR
+	instead of PLUS_EXPR for adding to a pointer.
+
 2006-05-15  Zdenek Dvorak <dvorakz@suse.cz>
 
 	* tree-ssa-loop-ivopts.c (determine_base_object): Abort for PLUS_EXPR

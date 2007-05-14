@@ -3204,6 +3204,70 @@ resolve_variable (gfc_expr *e)
 }
 
 
+/* Checks to see that the correct symbol has been host associated.
+   The only situation where this arises is that in which a twice
+   contained function is parsed after the host association is made.
+   Therefore, on detecting this, the line is rematched, having got
+   rid of the existing references and actual_arg_list.  */
+static bool
+check_host_association (gfc_expr *e)
+{
+  gfc_symbol *sym, *old_sym;
+  locus temp_locus;
+  gfc_expr *expr;
+  int n;
+
+  if (e->symtree == NULL || e->symtree->n.sym == NULL)
+    return e->expr_type == EXPR_FUNCTION;
+
+  old_sym = e->symtree->n.sym;
+  if (gfc_current_ns->parent
+	&& gfc_current_ns->parent->parent
+	&& old_sym->ns != gfc_current_ns)
+    {
+      gfc_find_symbol (old_sym->name, gfc_current_ns->parent, 1, &sym);
+      if (sym && old_sym != sym && sym->attr.flavor == FL_PROCEDURE)
+	{
+	  temp_locus = gfc_current_locus;
+	  gfc_current_locus = e->where;
+
+	  gfc_buffer_error (1);
+
+	  gfc_free_ref_list (e->ref);
+	  e->ref = NULL;
+
+	  if (e->expr_type == EXPR_FUNCTION)
+	    {
+	      gfc_free_actual_arglist (e->value.function.actual);
+	      e->value.function.actual = NULL;
+	    }
+
+	  if (e->shape != NULL)
+	    {
+	      for (n = 0; n < e->rank; n++)
+		mpz_clear (e->shape[n]);
+
+	      gfc_free (e->shape);
+	    }
+
+	  gfc_match_rvalue (&expr);
+	  gfc_clear_error ();
+	  gfc_buffer_error (0);
+
+	  gcc_assert (expr && sym == expr->symtree->n.sym);
+
+	  *e = *expr;
+	  gfc_free (expr);
+	  sym->refs++;
+
+	  gfc_current_locus = temp_locus;
+	}
+    }
+
+  return e->expr_type == EXPR_FUNCTION;
+}
+
+
 /* Resolve an expression.  That is, make sure that types of operands agree
    with their operators, intrinsic operators are converted to function calls
    for overloaded types and unresolved function references are resolved.  */
@@ -3223,13 +3287,16 @@ gfc_resolve_expr (gfc_expr *e)
       break;
 
     case EXPR_FUNCTION:
-      t = resolve_function (e);
-      break;
-
     case EXPR_VARIABLE:
-      t = resolve_variable (e);
-      if (t == SUCCESS)
-	expression_rank (e);
+
+      if (check_host_association (e))
+	t = resolve_function (e);
+      else
+	{
+	  t = resolve_variable (e);
+	  if (t == SUCCESS)
+	    expression_rank (e);
+	}
       break;
 
     case EXPR_SUBSTRING:
@@ -6070,16 +6137,21 @@ resolve_fl_namelist (gfc_symbol *sym)
     }
 
   /* 14.1.2 A module or internal procedure represent local entities
-     of the same type as a namelist member and so are not allowed.
-     Note that this is sometimes caught by check_conflict so the
-     same message has been used.  */
+     of the same type as a namelist member and so are not allowed.  */
   for (nl = sym->namelist; nl; nl = nl->next)
     {
       if (nl->sym->ts.kind != 0 && nl->sym->attr.flavor == FL_VARIABLE)
 	continue;
+
+      if (nl->sym->attr.function && nl->sym == nl->sym->result)
+	if ((nl->sym == sym->ns->proc_name)
+	       ||
+	    (sym->ns->parent && nl->sym == sym->ns->parent->proc_name))
+	  continue;
+
       nlsym = NULL;
-      if (sym->ns->parent && nl->sym && nl->sym->name)
-	gfc_find_symbol (nl->sym->name, sym->ns->parent, 0, &nlsym);
+      if (nl->sym && nl->sym->name)
+	gfc_find_symbol (nl->sym->name, sym->ns, 1, &nlsym);
       if (nlsym && nlsym->attr.flavor == FL_PROCEDURE)
 	{
 	  gfc_error ("PROCEDURE attribute conflicts with NAMELIST "
