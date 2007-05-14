@@ -27,6 +27,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "input.h"
 #include "statistics.h"
 #include "vec.h"
+#include "double-int.h"
 
 /* Codes of tree nodes */
 
@@ -4422,8 +4423,7 @@ extern void fold_defer_overflow_warnings (void);
 extern void fold_undefer_overflow_warnings (bool, tree, int);
 extern void fold_undefer_and_ignore_overflow_warnings (void);
 extern bool fold_deferring_overflow_warnings_p (void);
-extern tree maybe_fold_offset_to_component_ref (tree, tree, tree,
-				                tree, bool);
+extern tree maybe_fold_offset_to_reference (tree, tree, tree);
 
 extern tree force_fit_type_double (tree, unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 				   int, bool);
@@ -4539,6 +4539,7 @@ extern int objects_must_conflict_p (tree, tree);
 /* In tree.c */
 extern int really_constant_p (tree);
 extern int int_fits_type_p (tree, tree);
+extern void get_type_static_bounds (tree, mpz_t, mpz_t);
 extern bool variably_modified_type_p (tree, tree);
 extern int tree_log2 (tree);
 extern int tree_floor_log2 (tree);

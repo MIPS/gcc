@@ -936,8 +936,8 @@ extern void reorder_basic_blocks (void);
 
 enum cdi_direction
 {
-  CDI_DOMINATORS,
-  CDI_POST_DOMINATORS
+  CDI_DOMINATORS = 1,
+  CDI_POST_DOMINATORS = 2
 };
 
 enum dom_state
@@ -947,8 +947,8 @@ enum dom_state
   DOM_OK		/* Everything is ok.  */
 };
 
-extern enum dom_state dom_computed[2];
-
+extern enum dom_state dom_info_state (enum cdi_direction);
+extern void set_dom_info_availability (enum cdi_direction, enum dom_state);
 extern bool dom_info_available_p (enum cdi_direction);
 extern void calculate_dominance_info (enum cdi_direction);
 extern void free_dominance_info (enum cdi_direction);
@@ -1159,7 +1159,8 @@ extern bool rtx_equiv_p (rtx *, rtx, int, struct equiv_info *);
 extern bool condjump_equiv_p (struct equiv_info *, bool);
 
 /* Return true when one of the predecessor edges of BB is marked with EDGE_EH.  */
-static inline bool bb_has_eh_pred (basic_block bb)
+static inline bool
+bb_has_eh_pred (basic_block bb)
 {
   edge e;
   edge_iterator ei;

@@ -1130,15 +1130,14 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   /* Initialize misalignment to unknown.  */
   DR_MISALIGNMENT (dr) = -1;
 
-  misalign = DR_OFFSET_MISALIGNMENT (dr);
+  misalign = DR_INIT (dr);
   aligned_to = DR_ALIGNED_TO (dr);
   base_addr = DR_BASE_ADDRESS (dr);
   base = build_fold_indirect_ref (base_addr);
   vectype = STMT_VINFO_VECTYPE (stmt_info);
   alignment = ssize_int (TYPE_ALIGN (vectype)/BITS_PER_UNIT);
 
-  if ((aligned_to && tree_int_cst_compare (aligned_to, alignment) < 0)
-      || !misalign)
+  if (tree_int_cst_compare (aligned_to, alignment) < 0)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	{
@@ -1257,15 +1256,6 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
     dr_size *= DR_GROUP_SIZE (vinfo_for_stmt (DR_GROUP_FIRST_DR (stmt_info)));
   if (DR_GROUP_FIRST_DR (peel_stmt_info))
     dr_peel_size *= DR_GROUP_SIZE (peel_stmt_info);
-
-  if (known_alignment_for_access_p (dr)
-      && known_alignment_for_access_p (dr_peel)
-      && (DR_MISALIGNMENT (dr) / dr_size ==
-          DR_MISALIGNMENT (dr_peel) / dr_peel_size))
-    {
-      DR_MISALIGNMENT (dr) = 0;
-      return;
-    }
 
   /* It can be assumed that the data refs with the same alignment as dr_peel
      are aligned in the vector loop.  */
@@ -1507,7 +1497,8 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 		 the prolog loop ({VF - misalignment}), is a multiple of the
 		 number of the interleaved accesses.  */
 	      int elem_size, mis_in_elements;
-	      int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+	      tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+	      int nelements = TYPE_VECTOR_SUBPARTS (vectype);
 
 	      /* FORNOW: handle only known alignment.  */
 	      if (!known_alignment_for_access_p (dr))
@@ -1516,10 +1507,10 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 		  break;
 		}
 
-	      elem_size = UNITS_PER_SIMD_WORD / vf;
+	      elem_size = UNITS_PER_SIMD_WORD / nelements;
 	      mis_in_elements = DR_MISALIGNMENT (dr) / elem_size;
 
-	      if ((vf - mis_in_elements) % DR_GROUP_SIZE (stmt_info))
+	      if ((nelements - mis_in_elements) % DR_GROUP_SIZE (stmt_info))
 		{
 		  do_peeling = false;
 		  break;
@@ -1541,6 +1532,10 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
     {
       int mis;
       int npeel = 0;
+      tree stmt = DR_STMT (dr0);
+      stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+      tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+      int nelements = TYPE_VECTOR_SUBPARTS (vectype);
 
       if (known_alignment_for_access_p (dr0))
         {
@@ -1550,7 +1545,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
              factor minus the misalignment as an element count.  */
           mis = DR_MISALIGNMENT (dr0);
           mis /= GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr0))));
-          npeel = LOOP_VINFO_VECT_FACTOR (loop_vinfo) - mis;
+          npeel = nelements - mis;
 
 	  /* For interleaved data access every iteration accesses all the 
 	     members of the group, therefore we divide the number of iterations
@@ -2048,7 +2043,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
             }
           return false;
         }
-      if (!DR_MEMTAG (dr))
+      if (!DR_SYMBOL_TAG (dr))
         {
           if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
             {

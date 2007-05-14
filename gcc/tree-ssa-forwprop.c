@@ -559,7 +559,8 @@ forward_propagate_addr_into_variable_array_index (tree offset, tree lhs,
    be not totally successful, yet things may have been changed).  */
 
 static bool
-forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt)
+forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
+			       bool single_use_p)
 {
   tree lhs, rhs, array_ref;
 
@@ -584,10 +585,20 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt)
       /* Continue propagating into the RHS.  */
     }
 
-  /* Trivial case.  The use statement could be a trivial copy or a
+  /* Trivial cases.  The use statement could be a trivial copy or a
      useless conversion.  Recurse to the uses of the lhs as copyprop does
      not copy through differen variant pointers and FRE does not catch
-     all useless conversions.  */
+     all useless conversions.  Treat the case of a single-use name and
+     a conversion to def_rhs type separate, though.  */
+  else if (TREE_CODE (lhs) == SSA_NAME
+	   && (TREE_CODE (rhs) == NOP_EXPR
+	       || TREE_CODE (rhs) == CONVERT_EXPR)
+	   && TREE_TYPE (rhs) == TREE_TYPE (def_rhs)
+	   && single_use_p)
+    {
+      GIMPLE_STMT_OPERAND (use_stmt, 1) = unshare_expr (def_rhs);
+      return true;
+    }
   else if ((TREE_CODE (lhs) == SSA_NAME
       	    && rhs == name)
 	   || ((TREE_CODE (rhs) == NOP_EXPR
@@ -702,6 +713,7 @@ forward_propagate_addr_expr (tree name, tree rhs)
   imm_use_iterator iter;
   tree use_stmt;
   bool all = true;
+  bool single_use_p = has_single_use (name);
 
   FOR_EACH_IMM_USE_STMT (use_stmt, iter, name)
     {
@@ -715,7 +727,7 @@ forward_propagate_addr_expr (tree name, tree rhs)
 	  continue;
 	}
 
-     /* If the use is in a deeper loop nest, then we do not want
+      /* If the use is in a deeper loop nest, then we do not want
 	to propagate the ADDR_EXPR into the loop as that is likely
 	adding expression evaluations into the loop.  */
       if (bb_for_stmt (use_stmt)->loop_depth > stmt_loop_depth)
@@ -723,10 +735,18 @@ forward_propagate_addr_expr (tree name, tree rhs)
 	  all = false;
 	  continue;
 	}
-      
+
+      /* If the use_stmt has side-effects, don't propagate into it.  */
+      if (stmt_ann (use_stmt)->has_volatile_ops)
+	{
+	  all = false;
+	  continue;
+	}
+
       push_stmt_changes (&use_stmt);
 
-      result = forward_propagate_addr_expr_1 (name, rhs, use_stmt);
+      result = forward_propagate_addr_expr_1 (name, rhs, use_stmt,
+					      single_use_p);
       all &= result;
 
       pop_stmt_changes (&use_stmt);

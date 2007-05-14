@@ -1076,8 +1076,8 @@ phi_translate (tree expr, bitmap_set_t set1, bitmap_set_t set2,
 		newexpr->base.ann = NULL;
 		vn_lookup_or_add_with_vuses (newexpr, tvuses);
 		expr = newexpr;
-		phi_trans_add (oldexpr, newexpr, pred, tvuses);
 	      }
+	    phi_trans_add (oldexpr, expr, pred, tvuses);
 	  }
       }
       return expr;
@@ -1189,8 +1189,8 @@ phi_translate (tree expr, bitmap_set_t set1, bitmap_set_t set2,
 		vn_lookup_or_add_with_vuses (newexpr, newvuses);
 	      }
 	    expr = newexpr;
-	    phi_trans_add (oldexpr, newexpr, pred, newvuses);
 	  }
+	phi_trans_add (oldexpr, expr, pred, newvuses);
       }
       return expr;
       break;
@@ -1234,8 +1234,8 @@ phi_translate (tree expr, bitmap_set_t set1, bitmap_set_t set2,
 		vn_lookup_or_add (newexpr, NULL);
 	      }
 	    expr = newexpr;
-	    phi_trans_add (oldexpr, newexpr, pred, NULL);
 	  }
+	phi_trans_add (oldexpr, expr, pred, NULL);
       }
       return expr;
 
@@ -1267,8 +1267,8 @@ phi_translate (tree expr, bitmap_set_t set1, bitmap_set_t set2,
 		vn_lookup_or_add (newexpr, NULL);
 	      }
 	    expr = newexpr;
-	    phi_trans_add (oldexpr, newexpr, pred, NULL);
 	  }
+	phi_trans_add (oldexpr, expr, pred, NULL);
       }
       return expr;
 

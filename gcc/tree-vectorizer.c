@@ -832,7 +832,7 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, edge e)
     }
 
   /* Generate new loop structure.  */
-  new_loop = duplicate_loop (loop, loop->outer);
+  new_loop = duplicate_loop (loop, loop_outer (loop));
   if (!new_loop)
     {
       free (bbs);
@@ -962,7 +962,7 @@ slpeel_can_duplicate_loop_p (struct loop *loop, edge e)
   if (loop->inner
       /* All loops have an outer scope; the only case loop->outer is NULL is for
          the function itself.  */
-      || !loop->outer
+      || !loop_outer (loop)
       || loop->num_nodes != 2
       || !empty_block_p (loop->latch)
       || !single_exit (loop)
@@ -1644,6 +1644,12 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
       *dt = vect_constant_def;
       return true;
     }
+  if (is_gimple_min_invariant (operand))
+   {
+      *def = operand;
+      *dt = vect_invariant_def;
+      return true;
+   }
     
   if (TREE_CODE (operand) != SSA_NAME)
     {
@@ -1671,7 +1677,7 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
   if (IS_EMPTY_STMT (*def_stmt))
     {
       tree arg = TREE_OPERAND (*def_stmt, 0);
-      if (TREE_CODE (arg) == INTEGER_CST || TREE_CODE (arg) == REAL_CST)
+      if (is_gimple_min_invariant (arg))
         {
           *def = operand;
           *dt = vect_invariant_def;

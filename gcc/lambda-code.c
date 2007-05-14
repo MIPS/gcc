@@ -1187,12 +1187,11 @@ invariant_in_loop_and_outer_loops (struct loop *loop, tree op)
 {
   if (is_gimple_min_invariant (op))
     return true;
-  if (loop->depth == 0)
+  if (loop_depth (loop) == 0)
     return true;
   if (!expr_invariant_in_loop_p (loop, op))
     return false;
-  if (loop->outer 
-      && !invariant_in_loop_and_outer_loops (loop->outer, op))
+  if (!invariant_in_loop_and_outer_loops (loop_outer (loop), op))
     return false;
   return true;
 }
@@ -2521,7 +2520,8 @@ perfect_nestify (struct loop *loop,
   set_immediate_dominator (CDI_DOMINATORS, preheaderbb, 
 			   single_exit (loop)->src);
   set_immediate_dominator (CDI_DOMINATORS, latchbb, bodybb);
-  set_immediate_dominator (CDI_DOMINATORS, olddest, bodybb);
+  set_immediate_dominator (CDI_DOMINATORS, olddest,
+			   recount_dominator (CDI_DOMINATORS, olddest));
   /* Create the new iv.  */
   oldivvar = VEC_index (tree, loopivs, 0);
   ivvar = create_tmp_var (TREE_TYPE (oldivvar), "perfectiv");
