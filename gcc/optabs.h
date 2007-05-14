@@ -358,13 +358,10 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define usmul_widen_optab (optab_table[OTI_usmul_widen])
 #define smadd_widen_optab (optab_table[OTI_smadd_widen])
 #define umadd_widen_optab (optab_table[OTI_umadd_widen])
-<<<<<<< .working
 #define ssmadd_widen_optab (optab_table[OTI_ssmadd_widen])
 #define usmadd_widen_optab (optab_table[OTI_usmadd_widen])
-=======
 #define smsub_widen_optab (optab_table[OTI_smsub_widen])
 #define umsub_widen_optab (optab_table[OTI_umsub_widen])
->>>>>>> .merge-right.r124718
 #define sdiv_optab (optab_table[OTI_sdiv])
 #define smulv_optab (optab_table[OTI_smulv])
 #define sdivv_optab (optab_table[OTI_sdivv])

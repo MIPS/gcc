@@ -1,3 +1,7 @@
+2007-05-14  Chao-ying Fu  <fu@mips.com>
+
+	* optabs.h: Remove three lines after merging from mainline.
+
 2007-05-14  Dave Korn  <dave.korn@artimi.com>
 
 	* genautomata.c (gen_regexp_el):  Allocate correct size for regexp.
