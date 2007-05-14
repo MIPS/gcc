@@ -1,3 +1,8 @@
+2006-05-15  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-loop-ivopts.c (determine_base_object): Abort for PLUS_EXPR
+	in pointer type.
+
 2007-05-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* tree-ssa-address.c (tree_mem_ref_addr): When adding
@@ -37,7 +42,7 @@
 	type before comparing them.
 
 2007-05-09  Andrew Pinski  <andrew_pinski@playstation.sony.com>
-            Zdenek Dvorak  <dvorakz@suse.cz>
+	    Zdenek Dvorak  <dvorakz@suse.cz>
 
 	* fold-const.c  (fold_to_nonsharp_ineq_using_bound): Don't
 	use a pointer type for MINUS_EXPR.

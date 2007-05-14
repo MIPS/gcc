@@ -755,7 +755,7 @@ static tree
 determine_base_object (tree expr)
 {
   enum tree_code code = TREE_CODE (expr);
-  tree base, obj, op0, op1;
+  tree base, obj;
 
   /* If this is a pointer casted to any type, we need to determine
      the base object for the pointer; so handle conversions before
@@ -788,21 +788,10 @@ determine_base_object (tree expr)
     case POINTER_PLUS_EXPR:
       return determine_base_object (TREE_OPERAND (expr, 0));
 
-    /* FIXME: these should not exist.  */
     case PLUS_EXPR:
     case MINUS_EXPR:
-      op0 = determine_base_object (TREE_OPERAND (expr, 0));
-      op1 = determine_base_object (TREE_OPERAND (expr, 1));
-      
-      if (!op1)
-	return op0;
-
-      if (!op0)
-	return (code == PLUS_EXPR
-		? op1
-		: fold_build1 (NEGATE_EXPR, ptr_type_node, op1));
-
-      return fold_build2 (code, ptr_type_node, op0, op1);
+      /* Pointer adition is done solely using POINTER_PLUS_EXPR.  */
+      gcc_unreachable ();
 
     default:
       return fold_convert (ptr_type_node, expr);
