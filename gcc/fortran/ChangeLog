@@ -1,3 +1,52 @@
+2007-05-14  Rafael Avila de Espindola  <espindola@google.com>
+
+	* f95-lang.c (LANG_HOOKS_UNSIGNED_TYPE): Remove.
+	* trans-intrinsic.c (gfc_conv_intrinsic_ishft): Use unsigned_type_for
+	instead of gfc_unsigned_type.
+	* trans-stmt.c (gfc_trans_do): Use unsigned_type_for instead of
+	gfc_unsigned_type.
+	* trans-types.c (gfc_unsigned_type): Remove.
+	* trans-types.h (gfc_unsigned_type): Remove.
+
+2007-05-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30746
+	* resolve.c (check_host_association): New function that detects
+	incorrect host association and corrects it.
+	(gfc_resolve_expr): Call the new function for variables and
+	functions.
+	* match.h : Remove prototype for gfc_match_rvalue.
+	* gfortran.h : Add prototype for gfc_match_rvalue.
+
+2007-05-11 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/30876
+	* trans-expr.c (gfc_conv_function_call): Reduce indirection for
+	direct assignments of recursive array valued functions.
+	* primary.c (gfc_match_rvalue): Correct error for recursive
+	function calls such that directly recursive calls of scalar
+	function without an explicit result are disallowed.
+
+2007-05-11 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/30878
+	* resolve.c (resolve_fl_namelist): It is not an error if the
+	namelist element is the result variable of the enclosing
+	function.  Search for the symbol in current and all parent
+	namespaces for a potential conflict.
+	* symbol.c (check_conflict): Remove the conflict between
+	'in_namelist' and 'FL_PROCEDURE' because the symbol info
+	is not available to exclude function result variables.
+	* trans-io.c (nml_get_addr_expr): Use the fake result decl
+	if the symbol is an implicit result variable.
+
+2007-05-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31474
+	* decl.c (get_proc_name): If an entry has already been declared
+	as a module procedure, pick up the symbol and the symtree and
+	use them for the entry.
+
 2007-05-08  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/31630

@@ -1,3 +1,27 @@
+2007-05-14  Rafael Avila de Espindola  <espindola@google.com>
+
+	* cp-objcp-common.h (LANG_HOOKS_UNSIGNED_TYPE): Remove.
+	* decl.c (grokdeclarator): Use unsigned_type_for instead of
+	c_common_unsigned_type.
+
+2007-05-11  Silvius Rus  <rus@google.com>
+
+	* cp/typeck.c (build_indirect_ref): Add call to
+	strict_aliasing_warning.
+	(build_reinterpret_cast_1): Condition call to
+	strict_aliasing_warning. 
+
+2007-05-11  Jan Hubicka  <jh@suse.cz>
+
+	* semantics.c (expand_or_defer_fn): Do not call c_record_cdtor_fn.
+	* decl2.c (start_objects): ctors and dtors are no longer public.
+	(cp_write_global_declarations): Do not call c_build_cdtor_fns.
+	
+2007-05-07  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* typeck.c (build_unary_op): Remove code that used to
+	handle non lvalue increments/decrements.
+
 2007-05-07  Mike Stump  <mrs@apple.com>
 
 	* parser.c (check_empty_body): Add.

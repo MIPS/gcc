@@ -670,11 +670,6 @@ const struct attribute_spec c_common_format_attribute_table[] =
   { NULL,                     0, 0, false, false, false, NULL }
 };
 
-/* Functions called automatically at the beginning and end of execution.  */
-
-tree static_ctors;
-tree static_dtors;
-
 /* Push current bindings for the function name VAR_DECLS.  */
 
 void
@@ -1024,35 +1019,67 @@ warn_logical_operator (enum tree_code code, tree arg1, tree
    strict aliasing mode is in effect. OTYPE is the original
    TREE_TYPE of EXPR, and TYPE the type we're casting to. */
 
-void
+bool
 strict_aliasing_warning (tree otype, tree type, tree expr)
 {
-  if (flag_strict_aliasing && warn_strict_aliasing
-      && POINTER_TYPE_P (type) && POINTER_TYPE_P (otype)
-      && TREE_CODE (expr) == ADDR_EXPR
+  if (!(flag_strict_aliasing && POINTER_TYPE_P (type) 
+        && POINTER_TYPE_P (otype) && !VOID_TYPE_P (TREE_TYPE (type))))
+    return false;
+
+  if ((warn_strict_aliasing > 1) && TREE_CODE (expr) == ADDR_EXPR
       && (DECL_P (TREE_OPERAND (expr, 0))
-          || handled_component_p (TREE_OPERAND (expr, 0)))
-      && !VOID_TYPE_P (TREE_TYPE (type)))
+          || handled_component_p (TREE_OPERAND (expr, 0))))
     {
       /* Casting the address of an object to non void pointer. Warn
          if the cast breaks type based aliasing.  */
-      if (!COMPLETE_TYPE_P (TREE_TYPE (type)))
-        warning (OPT_Wstrict_aliasing, "type-punning to incomplete type "
-                 "might break strict-aliasing rules");
+      if (!COMPLETE_TYPE_P (TREE_TYPE (type)) && warn_strict_aliasing == 2)
+	{
+	  warning (OPT_Wstrict_aliasing, "type-punning to incomplete type "
+		   "might break strict-aliasing rules");
+	  return true;
+	}
       else
         {
-          HOST_WIDE_INT set1 = get_alias_set (TREE_TYPE (TREE_OPERAND (expr, 0)));
+          /* warn_strict_aliasing >= 3.   This includes the default (3).  
+             Only warn if the cast is dereferenced immediately.  */
+          HOST_WIDE_INT set1 =
+	    get_alias_set (TREE_TYPE (TREE_OPERAND (expr, 0)));
           HOST_WIDE_INT set2 = get_alias_set (TREE_TYPE (type));
 
           if (!alias_sets_conflict_p (set1, set2))
-            warning (OPT_Wstrict_aliasing, "dereferencing type-punned "
-                     "pointer will break strict-aliasing rules");
-          else if (warn_strict_aliasing > 1
-                  && !alias_sets_might_conflict_p (set1, set2))
-            warning (OPT_Wstrict_aliasing, "dereferencing type-punned "
-                     "pointer might break strict-aliasing rules");
+	    {
+	      warning (OPT_Wstrict_aliasing, "dereferencing type-punned "
+		       "pointer will break strict-aliasing rules");
+	      return true;
+	    }
+          else if (warn_strict_aliasing == 2
+		   && !alias_sets_might_conflict_p (set1, set2))
+	    {
+	      warning (OPT_Wstrict_aliasing, "dereferencing type-punned "
+		       "pointer might break strict-aliasing rules");
+	      return true;
+	    }
         }
     }
+  else
+    if ((warn_strict_aliasing == 1) && !VOID_TYPE_P (TREE_TYPE (otype)))
+      {
+        /* At this level, warn for any conversions, even if an address is
+           not taken in the same statement.  This will likely produce many
+           false positives, but could be useful to pinpoint problems that
+           are not revealed at higher levels.  */
+        HOST_WIDE_INT set1 = get_alias_set (TREE_TYPE (otype));
+        HOST_WIDE_INT set2 = get_alias_set (TREE_TYPE (type));
+        if (!COMPLETE_TYPE_P(type)
+            || !alias_sets_might_conflict_p (set1, set2))
+	  {
+            warning (OPT_Wstrict_aliasing, "dereferencing type-punned "
+                     "pointer might break strict-aliasing rules");
+            return true;
+          }
+      }
+
+  return false;
 }
 
 /* Print a warning about if (); or if () .. else; constructs
@@ -1308,7 +1335,7 @@ warnings_for_convert_and_check (tree type, tree expr, tree result)
           else if (warn_conversion)
             conversion_warning (type, expr);
         }
-      else if (!int_fits_type_p (expr, c_common_unsigned_type (type))) 
+      else if (!int_fits_type_p (expr, unsigned_type_for (type))) 
 	warning (OPT_Woverflow,
 		 "overflow in implicit constant conversion");
       /* No warning for converting 0x80000000 to int.  */
@@ -2122,39 +2149,6 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
   return 0;
 }
 
-/* Return an unsigned type the same as TYPE in other respects.  */
-tree
-c_common_unsigned_type (tree type)
-{
-  tree type1 = TYPE_MAIN_VARIANT (type);
-  if (type1 == signed_char_type_node || type1 == char_type_node)
-    return unsigned_char_type_node;
-  if (type1 == integer_type_node)
-    return unsigned_type_node;
-  if (type1 == short_integer_type_node)
-    return short_unsigned_type_node;
-  if (type1 == long_integer_type_node)
-    return long_unsigned_type_node;
-  if (type1 == long_long_integer_type_node)
-    return long_long_unsigned_type_node;
-  if (type1 == widest_integer_literal_type_node)
-    return widest_unsigned_literal_type_node;
-#if HOST_BITS_PER_WIDE_INT >= 64
-  if (type1 == intTI_type_node)
-    return unsigned_intTI_type_node;
-#endif
-  if (type1 == intDI_type_node)
-    return unsigned_intDI_type_node;
-  if (type1 == intSI_type_node)
-    return unsigned_intSI_type_node;
-  if (type1 == intHI_type_node)
-    return unsigned_intHI_type_node;
-  if (type1 == intQI_type_node)
-    return unsigned_intQI_type_node;
-
-  return c_common_signed_or_unsigned_type (1, type);
-}
-
 /* Return a signed type the same as TYPE in other respects.  */
 
 tree
@@ -2599,7 +2593,8 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 	      default:
 		break;
 	      }
-	  type = c_common_unsigned_type (type);
+	  /* unsigned_type_for doesn't support C bit fields */
+	  type = c_common_signed_or_unsigned_type (1, type);
 	}
 
       if (TREE_CODE (primop0) != INTEGER_CST)
@@ -3839,7 +3834,7 @@ c_common_nodes_and_builtins (void)
   else
     {
       signed_wchar_type_node = c_common_signed_type (wchar_type_node);
-      unsigned_wchar_type_node = c_common_unsigned_type (wchar_type_node);
+      unsigned_wchar_type_node = unsigned_type_for (wchar_type_node);
     }
 
   /* This is for wide string constants.  */
@@ -3857,7 +3852,7 @@ c_common_nodes_and_builtins (void)
   default_function_type = build_function_type (integer_type_node, NULL_TREE);
   ptrdiff_type_node
     = TREE_TYPE (identifier_global_value (get_identifier (PTRDIFF_TYPE)));
-  unsigned_ptrdiff_type_node = c_common_unsigned_type (ptrdiff_type_node);
+  unsigned_ptrdiff_type_node = unsigned_type_for (ptrdiff_type_node);
 
   lang_hooks.decls.pushdecl
     (build_decl (TYPE_DECL, get_identifier ("__builtin_va_list"),
@@ -7213,61 +7208,6 @@ warn_for_unused_label (tree label)
 	warning (OPT_Wunused_label, "label %q+D defined but not used", label);
       else
         warning (OPT_Wunused_label, "label %q+D declared but not defined", label);
-    }
-}
-
-/* If FNDECL is a static constructor or destructor, add it to the list
-   of functions to be called by the file scope initialization
-   function.  */
-
-void
-c_record_cdtor_fn (tree fndecl)
-{
-  if (targetm.have_ctors_dtors)
-    return;
-
-  if (DECL_STATIC_CONSTRUCTOR (fndecl))
-    static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
-  if (DECL_STATIC_DESTRUCTOR (fndecl))
-    static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
-}
-
-/* Synthesize a function which calls all the global ctors or global
-   dtors in this file.  This is only used for targets which do not
-   support .ctors/.dtors sections.  FIXME: Migrate into cgraph.  */
-static void
-build_cdtor (int method_type, tree cdtors)
-{
-  tree body = 0;
-
-  if (!cdtors)
-    return;
-
-  for (; cdtors; cdtors = TREE_CHAIN (cdtors))
-    append_to_statement_list (build_function_call (TREE_VALUE (cdtors), 0),
-			      &body);
-
-  cgraph_build_static_cdtor (method_type, body, DEFAULT_INIT_PRIORITY);
-}
-
-/* Generate functions to call static constructors and destructors
-   for targets that do not support .ctors/.dtors sections.  These
-   functions have magic names which are detected by collect2.  */
-
-void
-c_build_cdtor_fns (void)
-{
-  if (!targetm.have_ctors_dtors)
-    {
-      build_cdtor ('I', static_ctors); 
-      static_ctors = NULL_TREE;
-      build_cdtor ('D', static_dtors); 
-      static_dtors = NULL_TREE;
-    }
-  else
-    {
-      gcc_assert (!static_ctors);
-      gcc_assert (!static_dtors);
     }
 }
 

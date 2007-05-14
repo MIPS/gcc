@@ -254,7 +254,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "params.h"
 
 static tree analyze_scalar_evolution_1 (struct loop *, tree, tree);
-static tree resolve_mixers (struct loop *, tree);
 
 /* The cached information about a ssa name VAR, claiming that inside LOOP,
    the value of VAR can be expressed as CHREC.  */
@@ -1535,7 +1534,7 @@ interpret_loop_phi (struct loop *loop, tree loop_phi_node)
 	(phi_loop, PHI_RESULT (loop_phi_node));
 
       /* Dive one level deeper.  */
-      subloop = superloop_at_depth (phi_loop, loop->depth + 1);
+      subloop = superloop_at_depth (phi_loop, loop_depth (loop) + 1);
 
       /* Interpret the subloop.  */
       res = compute_overall_effect_of_inner_loop (subloop, evolution_fn);
@@ -1681,7 +1680,7 @@ compute_scalar_evolution_in_loop (struct loop *wrto_loop,
   if (def_loop == wrto_loop)
     return ev;
 
-  def_loop = superloop_at_depth (def_loop, wrto_loop->depth + 1);
+  def_loop = superloop_at_depth (def_loop, loop_depth (wrto_loop) + 1);
   res = compute_overall_effect_of_inner_loop (def_loop, ev);
 
   return analyze_scalar_evolution_1 (wrto_loop, res, chrec_not_analyzed_yet);
@@ -2024,7 +2023,7 @@ analyze_scalar_evolution_in_loop (struct loop *wrto_loop, struct loop *use_loop,
 	  || !val)
 	return chrec_dont_know;
 
-      use_loop = use_loop->outer;
+      use_loop = loop_outer (use_loop);
     }
 }
 
@@ -2170,8 +2169,8 @@ instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache
       /* Don't instantiate loop-closed-ssa phi nodes.  */
       if (TREE_CODE (res) == SSA_NAME
 	  && (loop_containing_stmt (SSA_NAME_DEF_STMT (res)) == NULL
-	      || (loop_containing_stmt (SSA_NAME_DEF_STMT (res))->depth
-		  > def_loop->depth)))
+	      || (loop_depth (loop_containing_stmt (SSA_NAME_DEF_STMT (res)))
+		  > loop_depth (def_loop))))
 	{
 	  if (res == chrec)
 	    res = loop_closed_phi_def (chrec);
@@ -2409,7 +2408,7 @@ instantiate_parameters (struct loop *loop,
    care about causing overflows, as long as they do not affect value
    of an expression.  */
 
-static tree
+tree
 resolve_mixers (struct loop *loop, tree chrec)
 {
   htab_t cache = htab_create (10, hash_scev_info, eq_scev_info, del_scev_info);
@@ -2967,7 +2966,8 @@ scev_const_prop (void)
       tree_block_label (exit->dest);
       bsi = bsi_after_labels (exit->dest);
 
-      ex_loop = superloop_at_depth (loop, exit->dest->loop_father->depth + 1);
+      ex_loop = superloop_at_depth (loop,
+				    loop_depth (exit->dest->loop_father) + 1);
 
       for (phi = phi_nodes (exit->dest); phi; phi = next_phi)
 	{
