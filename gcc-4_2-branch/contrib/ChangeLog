@@ -1,3 +1,11 @@
+2007-05-13  Release Manager
+
+	* GCC 4.2.0 released.
+
+2007-05-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* gennews (files): Reference GCC 4.2 web pages.
+
 2007-04-04  Eric Christopher  <echristo@apple.com>
 
 	Backport from mainline:

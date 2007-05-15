@@ -1,3 +1,17 @@
+2007-05-13  Release Manager
+
+	* GCC 4.2.0 released.
+
+2007-05-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31797
+	* gcc.c-torture/compile/pr31797.c: New testcase.
+
+2007-05-11  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/31880
+	* gfortran.dg/unf_read_corrupted_2.f90: New test.
+
 2007-04-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	PR C++/30221
