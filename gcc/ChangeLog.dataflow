@@ -3,6 +3,20 @@
 	* config/m68k/m68k.c: include df.h.
 	(m68k_output_mi_thunk): use SET_REGNO.
 
+2007-05-09  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* df-core.c (df_get_bb_dirty): Return false if df_live is null.
+
+2007-05-09  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (r0_life_regions): New variable.
+	(find_r0_life_regions): New static function.
+	(sh_md_init_global): Call find_r0_life_regions when
+	reload_completed isn't set.
+	(R0_MAX_LIVE_LENGTH): Remove.
+	(high__pressure): Return 1 if r0_life_regions is over
+	the given threshold.
+
 2007-05-08  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* regrename.c (regrename_optimize): Renamed df_ri_add_problem to 
