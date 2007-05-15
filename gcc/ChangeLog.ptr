@@ -1,3 +1,13 @@
+2007-05-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/rs6000/rs6000.c (rs6000_va_start): Use POINTER_PLUS_EXPR
+	instead of PLUS_EXPR for pointer addition.
+	(rs6000_va_start): Likewise.
+	Also use sizetype for the offset.
+	* tree-stdarg.c (va_list_counter_bump): Check for PLUS_EXPR
+	and POINTER_PLUS_EXPR.
+	(check_va_list_escapes): Likewise.
+
 2007-05-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* config/i386/i386.c (ix86_va_start): Use POINTER_PLUS_EXPR
