@@ -4939,10 +4939,12 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
  else
     {
       HOST_WIDE_INT align = FUNCTION_ARG_BOUNDARY (VOIDmode, type) / 8;
-      t = build2 (PLUS_EXPR, TREE_TYPE (ovf), ovf,
-		  build_int_cst (TREE_TYPE (ovf), align - 1));
+      t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (ovf), ovf,
+		  size_int (align - 1));
+      t = fold_convert (sizetype, t);
       t = build2 (BIT_AND_EXPR, TREE_TYPE (t), t,
-		  build_int_cst (TREE_TYPE (t), -align));
+		  size_int (-align));
+      t = fold_convert (TREE_TYPE (ovf), t);
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
