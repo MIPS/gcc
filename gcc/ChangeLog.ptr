@@ -1,4 +1,11 @@
-2007-05-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+2007-05-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/i386/i386.c (ix86_va_start): Use POINTER_PLUS_EXPR
+	for the pointer addition and also use size_int/sizetype
+	for the offset.
+	(ix86_gimplify_va_arg): Likewise.
+
+2007-05-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	Merge mainline, revision 124657
 	* tree-data-ref.c (split_constant_offset): Handle
