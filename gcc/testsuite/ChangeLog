@@ -1,3 +1,7 @@
+2007-05-15  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.target/mips/dpsq_sa_l_w.c: New test.
+
 2007-05-14  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc.target/m68k/interrupt_thread-1.c,
