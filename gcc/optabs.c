@@ -5557,6 +5557,8 @@ init_optabs (void)
   usmadd_widen_optab = init_optab (UNKNOWN);
   smsub_widen_optab = init_optab (UNKNOWN);
   umsub_widen_optab = init_optab (UNKNOWN);
+  ssmsub_widen_optab = init_optab (UNKNOWN);
+  usmsub_widen_optab = init_optab (UNKNOWN);
   sdiv_optab = init_optab (DIV);
   ssdiv_optab = init_optab (SS_DIV);
   usdiv_optab = init_optab (US_DIV);

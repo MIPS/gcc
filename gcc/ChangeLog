@@ -1,3 +1,17 @@
+2007-05-15  Chao-ying Fu  <fu@mips.com>
+
+	* doc/md.texi (msub@var{m}@var{n}4): Extend to fixed-point modes.
+	(ssmsub@var{m}@var{n}4, usmsub@var{m}@var{n}4): Document.
+	* optabs.c (init_optabs): Initialize ssmsub_widen_optab and
+	usmsub_widen_optab.
+	* optabs.h (OTI_ssmsub_widen, OTI_usmsub_widen): New optab_indexes.
+	(ssmsub_widen_optab, usmsub_widen_optab): Define.
+	* genopinit.c (optabs): Fill in ssmsub_widen_optab and
+	usmsub_widen_optab.
+	* expr.c (expand_expr_real_1): Support saturating and non-saturating
+	multiply and subtract for fixed-point types.
+	* config/mips/mips-fixed.md (ssmsubsqdq4): New instruction.
+
 2007-05-14  Chao-ying Fu  <fu@mips.com>
 
 	* optabs.h: Remove three lines after merging from mainline.

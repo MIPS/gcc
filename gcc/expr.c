@@ -8170,18 +8170,21 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
     case MINUS_EXPR:
       /* Check if this is a case for multiplication and subtraction.  */
-      if (TREE_CODE (type) == INTEGER_TYPE
+      if ((TREE_CODE (type) == INTEGER_TYPE
+	   || TREE_CODE (type) == FIXED_POINT_TYPE)
 	  && TREE_CODE (TREE_OPERAND (exp, 1)) == MULT_EXPR)
 	{
 	  tree subsubexp0, subsubexp1;
-	  enum tree_code code0, code1;
+	  enum tree_code code0, code1, this_code;
 
 	  subexp1 = TREE_OPERAND (exp, 1);
 	  subsubexp0 = TREE_OPERAND (subexp1, 0);
 	  subsubexp1 = TREE_OPERAND (subexp1, 1);
 	  code0 = TREE_CODE (subsubexp0);
 	  code1 = TREE_CODE (subsubexp1);
-	  if (code0 == NOP_EXPR && code1 == NOP_EXPR
+	  this_code = TREE_CODE (type) == INTEGER_TYPE ? NOP_EXPR
+						       : FIXED_CONVERT_EXPR;
+	  if (code0 == this_code && code1 == this_code
 	      && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (subsubexp0, 0)))
 		  < TYPE_PRECISION (TREE_TYPE (subsubexp0)))
 	      && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (subsubexp0, 0)))
@@ -8192,7 +8195,12 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	      tree op0type = TREE_TYPE (TREE_OPERAND (subsubexp0, 0));
 	      enum machine_mode innermode = TYPE_MODE (op0type);
 	      bool zextend_p = TYPE_UNSIGNED (op0type);
-	      this_optab = zextend_p ? umsub_widen_optab : smsub_widen_optab;
+	      bool sat_p = TYPE_SATURATING (TREE_TYPE (subsubexp0));
+	      if (sat_p == 0)
+		this_optab = zextend_p ? umsub_widen_optab : smsub_widen_optab;
+	      else
+		this_optab = zextend_p ? usmsub_widen_optab
+				       : ssmsub_widen_optab;
 	      if (mode == GET_MODE_2XWIDER_MODE (innermode)
 		  && (this_optab->handlers[(int) mode].insn_code
 		      != CODE_FOR_nothing))
