@@ -3834,17 +3834,25 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
       /* For TEST, we're interested in a range of insns, not a whole block.
 	 Moreover, we're interested in the insns live from OTHER_BB.  */
       
+      /* The loop below takes the set of live registers 
+         after JUMP, and calculates the live set before EARLIEST. */
       bitmap_copy (test_live, DF_LIVE_IN (other_bb));
       for (insn = jump; ; insn = prev)
 	{
 	  if (INSN_P (insn))
 	    {
 	      unsigned int uid = INSN_UID (insn);
-	      struct df_ref **def_rec;
-	      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+	      struct df_ref **rec;
+	      for (rec = DF_INSN_UID_DEFS (uid); *rec; rec++)
 		{
-		  struct df_ref *def = *def_rec;
+		  struct df_ref *def = *rec;
 		  bitmap_set_bit (test_set, DF_REF_REGNO (def));
+		  bitmap_clear_bit (test_live, DF_REF_REGNO (def));
+		}
+	      for (rec = DF_INSN_UID_USES (uid); *rec; rec++)
+		{
+		  struct df_ref *def = *rec;
+		  bitmap_set_bit (test_live, DF_REF_REGNO (def));
 		}
 	    }
 	  prev = PREV_INSN (insn);
@@ -3958,7 +3966,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 /* Main entry point for all if-conversion.  */
 
 static void
-if_convert (void)
+if_convert (bool recompute_dominance)
 {
   basic_block bb;
   int pass;
@@ -3980,7 +3988,7 @@ if_convert (void)
   free_dominance_info (CDI_DOMINATORS);
 
   /* Compute postdominators if we think we'll use them.  */
-  if (HAVE_conditional_execution)
+  if (HAVE_conditional_execution || recompute_dominance)
     calculate_dominance_info (CDI_POST_DOMINATORS);
 
   df_set_flags (DF_LR_RUN_DCE);
@@ -4067,7 +4075,7 @@ rest_of_handle_if_conversion (void)
       if (dump_file)
         dump_flow_info (dump_file, dump_flags);
       cleanup_cfg (CLEANUP_EXPENSIVE);
-      if_convert ();
+      if_convert (false);
     }
 
   cleanup_cfg (0);
@@ -4105,7 +4113,7 @@ static unsigned int
 rest_of_handle_if_after_combine (void)
 {
   no_new_pseudos = 0;
-  if_convert ();
+  if_convert (true);
   no_new_pseudos = 1;
   return 0;
 }
@@ -4140,7 +4148,7 @@ static unsigned int
 rest_of_handle_if_after_reload (void)
 {
   if (flag_if_conversion2)
-    if_convert ();
+    if_convert (true);
   return 0;
 }
 
