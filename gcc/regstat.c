@@ -58,6 +58,7 @@ regstat_init_n_sets_and_refs (void)
   unsigned int i;
   unsigned int max_regno = max_reg_num ();
 
+  timevar_push (TV_REG_STATS);
   df_grow_reg_info ();
   gcc_assert (!regstat_n_sets_and_refs);
 
@@ -68,6 +69,8 @@ regstat_init_n_sets_and_refs (void)
       SET_REG_N_SETS (i, DF_REG_DEF_COUNT (i));
       SET_REG_N_REFS (i, DF_REG_USE_COUNT (i) + REG_N_SETS (i));
     }
+  timevar_pop (TV_REG_STATS);
+
 }
 
 
@@ -338,6 +341,7 @@ regstat_compute_ri (void)
 
   gcc_assert (!reg_info_p);
 
+  timevar_push (TV_REG_STATS);
   setjmp_crosses = BITMAP_ALLOC (&df_bitmap_obstack);
   max_regno = max_reg_num ();
   reg_info_p_size = max_regno;
@@ -362,6 +366,7 @@ regstat_compute_ri (void)
   
   BITMAP_FREE (local_live);
   BITMAP_FREE (local_processed);
+  timevar_pop (TV_REG_STATS);
 }
 
 
@@ -478,6 +483,7 @@ regstat_compute_calls_crossed (void)
   /* Initialize everything.  */
   gcc_assert (!reg_info_p);
 
+  timevar_push (TV_REG_STATS);
   max_regno = max_reg_num ();
   reg_info_p_size = max_regno;
   reg_info_p = xcalloc (max_regno, sizeof (struct reg_info_t));
@@ -488,6 +494,7 @@ regstat_compute_calls_crossed (void)
     }
 
   BITMAP_FREE (live);
+  timevar_pop (TV_REG_STATS);
 }
 
 

@@ -166,13 +166,13 @@ df_print_bb_index (basic_block bb, FILE *file)
     FOR_EACH_EDGE (e, ei, bb->preds)
     {
       basic_block pred = e->src;
-      fprintf (file, "%d ", pred->index);
+      fprintf (file, "%d%s ", pred->index, e->flags & EDGE_EH ? "(EH)" : "");
     } 
   fprintf (file, ")->[%d]->( ", bb->index);
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
       basic_block succ = e->dest;
-      fprintf (file, "%d ", succ->index);
+      fprintf (file, "%d%s ", succ->index, e->flags & EDGE_EH ? "(EH)" : "");
     } 
   fprintf (file, ")\n");
 }

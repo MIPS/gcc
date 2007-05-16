@@ -1,3 +1,17 @@
+2007-05-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* regstat.c (regstat_init_n_sets_and_refs, regstat_compute_ri,
+	regstat_compute_calls_crossed): Added time variable TV_REG_STATS.
+	* timevar.def (TV_REG_STATS): Added.
+	(TV_DF_RI): Deleted.
+	* df-problems.c (df_print_bb_index): Added identifer for eh blocks.
+	* dce.c (deletable_insn_p): Added code to not delete 
+	RTX_FRAME_RELATED_P insns.
+	(dce_process_block): Removed insns_deleted and added code to reset
+	live set before confluence function.  
+	(rest_of_handle_fast_dce): Added code to turn off df's version of dce if 
+	flag_dce is not set and added DF_NO_INSN_RESCAN to flags that are cleared.
+
 2007-05-10  Roman Zippel <zippel@linux-m68k.org>
 
 	* config/m68k/m68k.c: include df.h.

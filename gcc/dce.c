@@ -66,6 +66,11 @@ deletable_insn_p (rtx insn, bool fast)
 {
   rtx x;
 
+  /* These insns may not have real uses but are there because the
+     dwarf unwinder may need to see the values they compute.  */
+  if (RTX_FRAME_RELATED_P (insn))
+    return false;
+
   switch (GET_CODE (PATTERN (insn)))
     {
     case USE:
@@ -506,9 +511,6 @@ dce_process_block (basic_block bb, bool redo_out)
   bitmap local_live = BITMAP_ALLOC (&dce_tmp_bitmap_obstack);
   rtx insn;
   bool block_changed;
-#ifdef ENABLE_CHECKING
-  bool insns_deleted = false;
-#endif
   struct df_ref **def_rec, **use_rec;
   unsigned int bb_index = bb->index;
 
@@ -520,8 +522,15 @@ dce_process_block (basic_block bb, bool redo_out)
       edge e;
       edge_iterator ei;
       df_confluence_function_n con_fun_n = df_lr->problem->con_fun_n;
+      bitmap_clear (DF_LR_OUT (bb));
       FOR_EACH_EDGE (e, ei, bb->succs)
 	(*con_fun_n) (e);
+    }
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "processing block %d live out = ", bb->index);
+      df_print_regset (dump_file, DF_LR_OUT (bb));
     }
 
   bitmap_copy (local_live, DF_LR_OUT (bb));
@@ -551,7 +560,6 @@ dce_process_block (basic_block bb, bool redo_out)
 	  {	
 	    bool needed = false;
 
-
 	    /* The insn is needed if there is someone who uses the output.  */
 	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	      if (bitmap_bit_p (local_live, DF_REF_REGNO (*def_rec)))
@@ -580,10 +588,6 @@ dce_process_block (basic_block bb, bool redo_out)
 		else
 		  mark_insn (insn, true);
 	      }
-#ifdef ENABLE_CHECKING
-	    else
-	      insns_deleted = true;
-#endif
 	  }
 	
 	/* No matter if the instruction is needed or not, we remove
@@ -660,12 +664,7 @@ dce_process_block (basic_block bb, bool redo_out)
 
   block_changed = !bitmap_equal_p (local_live, DF_LR_IN (bb));
   if (block_changed)
-    {
-#ifdef ENABLE_CHECKING
-      gcc_assert (insns_deleted);
-#endif
-      bitmap_copy (DF_LR_IN (bb), local_live);
-    }
+    bitmap_copy (DF_LR_IN (bb), local_live);
 
   BITMAP_FREE (local_live);
   return block_changed;
@@ -717,15 +716,10 @@ fast_dce (void)
 	      edge_iterator ei;
 	      FOR_EACH_EDGE (e, ei, bb->preds)
 		if (bitmap_bit_p (processed, e->src->index))
-		  /* Be very tricky about when we need to iterate the
-		     analysis.  We only have redo the analysis if we
-		     delete an instrution from a block that used
-		     something that was live on entry to the block and
-		     we have already processed the pred of that block.
-
-		     Since we are processing the blocks postorder,
-		     that will only happen if the block is at the top
-		     of a loop and the pred is inside the loop.  */
+		  /* Be tricky about when we need to iterate the
+		     analysis.  We only have redo the analysis if the
+		     bitmaps change at the top of a block that is the
+		     entry to a loop.  */
 		  global_changed = true;
 		else
 		  bitmap_set_bit (redo_out, e->src->index);
@@ -792,15 +786,19 @@ rest_of_handle_fast_dce (void)
 void
 run_fast_df_dce (void)
 {
-  /* If dce is able to delete something, it has to happen immediately.
-     Otherwise there will be problems handling the eq_notes.  */
-  enum df_changeable_flags old_flags = df_clear_flags (DF_DEFER_INSN_RESCAN);
-
-  df_in_progress = true;
-  rest_of_handle_fast_dce ();
-  df_set_flags (old_flags);
+  if (flag_dce)
+    {
+      /* If dce is able to delete something, it has to happen
+	 immediately.  Otherwise there will be problems handling the
+	 eq_notes.  */
+      enum df_changeable_flags old_flags 
+	= df_clear_flags (DF_DEFER_INSN_RESCAN + DF_NO_INSN_RESCAN);
+      
+      df_in_progress = true;
+      rest_of_handle_fast_dce ();
+      df_set_flags (old_flags);
+    }
 }
-
 
 static bool
 gate_fast_dce (void)
