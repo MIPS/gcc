@@ -1,5 +1,19 @@
 2007-05-17  Matthias Klose  <doko@ubuntu.com>
 
+	Merged from classpath:
+	* gnu/java/nio/SelectorProviderImpl.java: Whitespace merge.
+	* java/lang/System.java(inheritedChannel): New.
+	* java/lang/Character.java: Remove stray`;'.
+	* java/net/MulticastSocket.java: Merged.
+	* java/text/DateFormatSymbols.java(getInstance): New, comment updates.
+	* java/text/Collator.java(getInstance): Merged.
+	* java/util/Calendar.java: New attributes ALL_STYLES, SHORT, LONG.
+	getDisplayName, getDisplayNames: New.
+	* java/util/logging/Logger.java: Merged.
+	* Regenerate .class and .h files.
+
+2007-05-17  Matthias Klose  <doko@ubuntu.com>
+
 	* java/io/File.java: Merge with classpath-0.95, new method
 	setFilePermissions, new attribute EXEC.
 	* java/io/natFilePosix.cc (setFilePermissions): New.
