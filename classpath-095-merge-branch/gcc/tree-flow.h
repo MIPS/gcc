@@ -860,6 +860,8 @@ extern void debug_all_mem_sym_stats (void);
    definition, a function with this prototype is called.  */
 typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
+/* In tree-ssa-alias-warnings.c  */
+extern void strict_aliasing_warning_backend (void);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
@@ -1111,7 +1113,7 @@ bool multiplier_allowed_in_address_p (HOST_WIDE_INT, enum machine_mode);
 unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode);
 
 /* In tree-ssa-threadupdate.c.  */
-extern bool thread_through_all_blocks (void);
+extern bool thread_through_all_blocks (bool);
 extern void register_jump_thread (edge, edge);
 
 /* In gimplify.c  */

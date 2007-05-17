@@ -1,7 +1,7 @@
-// 2001-02-11 gdr
-// Origin: Craig Rodrigues <rodrigc@mediaone.net>
+// 2001-02-26 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -19,16 +19,33 @@
 // Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
-// 21.1.2: char_traits typedefs
+// 19.1 Exception classes
 
 #include <string>
+#include <stdexcept>
+#include <cstring>
+#include <testsuite_hooks.h>
 
-int main()
+// libstdc++/2089
+class fuzzy_logic : public std::logic_error
 {
-  // 21.1.3: char_traits<char>::int_type == int
-  // dg-options -ansi -pedantic-err
-  std::char_traits<char>::int_type* p = 0;
-  int* q __attribute__((unused)) = p;                   // dg-do compile
+public:
+  fuzzy_logic() : std::logic_error("whoa") { }
+};
 
+void test03()
+{
+  bool test __attribute__((unused)) = true;
+  try
+    { throw fuzzy_logic(); }
+  catch(const fuzzy_logic& obj)
+    { VERIFY( std::strcmp("whoa", obj.what()) == 0 ); }
+  catch(...)
+    { VERIFY( false ); }
+}
+
+int main(void)
+{
+  test03();
   return 0;
 }

@@ -261,6 +261,10 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind,
     gfc_conv_string_parameter (se);
   else
     {
+      /* Avoid multiple evaluation of substring start.  */
+      if (!CONSTANT_CLASS_P (start.expr) && !DECL_P (start.expr))
+	start.expr = gfc_evaluate_now (start.expr, &se->pre);
+
       /* Change the start of the string.  */
       if (TYPE_STRING_FLAG (TREE_TYPE (se->expr)))
 	tmp = se->expr;
@@ -279,6 +283,9 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind,
       gfc_conv_expr_type (&end, ref->u.ss.end, gfc_charlen_type_node);
       gfc_add_block_to_block (&se->pre, &end.pre);
     }
+  if (!CONSTANT_CLASS_P (end.expr) && !DECL_P (end.expr))
+    end.expr = gfc_evaluate_now (end.expr, &se->pre);
+
   if (flag_bounds_check)
     {
       tree nonempty = fold_build2 (LE_EXPR, boolean_type_node,
@@ -928,13 +935,11 @@ gfc_conv_string_tmp (gfc_se * se, tree type, tree len)
     {
       /* Allocate a temporary to hold the result.  */
       var = gfc_create_var (type, "pstr");
-      tmp = build_call_expr (gfor_fndecl_internal_malloc, 1, len);
-      tmp = convert (type, tmp);
+      tmp = gfc_call_malloc (&se->pre, type, len);
       gfc_add_modify_expr (&se->pre, var, tmp);
 
       /* Free the temporary afterwards.  */
-      tmp = convert (pvoid_type_node, var);
-      tmp = build_call_expr (gfor_fndecl_internal_free, 1, tmp);
+      tmp = gfc_call_free (convert (pvoid_type_node, var));
       gfc_add_expr_to_block (&se->post, tmp);
     }
 
@@ -2317,7 +2322,17 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   if (byref)
     {
       if (se->direct_byref)
-	retargs = gfc_chainon_list (retargs, se->expr);
+	{
+	  /* Sometimes, too much indirection can be applied; eg. for
+	     function_result = array_valued_recursive_function.  */
+	  if (TREE_TYPE (TREE_TYPE (se->expr))
+		&& TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr)))
+		&& GFC_DESCRIPTOR_TYPE_P
+			(TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr)))))
+	    se->expr = build_fold_indirect_ref (se->expr);
+
+	  retargs = gfc_chainon_list (retargs, se->expr);
+	}
       else if (sym->result->attr.dimension)
 	{
 	  gcc_assert (se->loop && info);

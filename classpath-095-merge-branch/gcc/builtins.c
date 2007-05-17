@@ -105,6 +105,7 @@ static rtx expand_builtin_next_arg (void);
 static rtx expand_builtin_va_start (tree);
 static rtx expand_builtin_va_end (tree);
 static rtx expand_builtin_va_copy (tree);
+static rtx expand_builtin_memchr (tree, rtx, enum machine_mode);
 static rtx expand_builtin_memcmp (tree, rtx, enum machine_mode);
 static rtx expand_builtin_strcmp (tree, rtx, enum machine_mode);
 static rtx expand_builtin_strncmp (tree, rtx, enum machine_mode);
@@ -172,6 +173,7 @@ static tree fold_builtin_int_roundingfn (tree, tree);
 static tree fold_builtin_bitop (tree, tree);
 static tree fold_builtin_memory_op (tree, tree, tree, tree, bool, int);
 static tree fold_builtin_strchr (tree, tree, tree);
+static tree fold_builtin_memchr (tree, tree, tree, tree);
 static tree fold_builtin_memcmp (tree, tree, tree);
 static tree fold_builtin_strcmp (tree, tree);
 static tree fold_builtin_strncmp (tree, tree, tree);
@@ -1882,7 +1884,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
 	  exp = build_call_expr (fndecl, 1, arg);
 	}
 
-      op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+      op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
       start_sequence ();
 
@@ -2135,7 +2137,7 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
 	  exp = build_call_expr (fndecl, 1, arg);
 	}
 
-      op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+      op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
       start_sequence ();
 
@@ -2247,7 +2249,7 @@ expand_builtin_interclass_mathfn (tree exp, rtx target, rtx subtarget)
 	  exp = build_call_expr (fndecl, 1, arg);
 	}
 
-      op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+      op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
       if (mode != GET_MODE (op0))
 	op0 = convert_to_mode (mode, op0, 0);
@@ -2339,7 +2341,7 @@ expand_builtin_cexpi (tree exp, rtx target, rtx subtarget)
       op1 = gen_reg_rtx (mode);
       op2 = gen_reg_rtx (mode);
 
-      op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+      op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
       /* Compute into op1 and op2.  */
       expand_twoval_unop (sincos_optab, op0, op2, op1, 0);
@@ -2410,14 +2412,14 @@ expand_builtin_cexpi (tree exp, rtx target, rtx subtarget)
       /* Make sure not to fold the cexp call again.  */
       call = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
       return expand_expr (build_call_nary (ctype, call, 1, narg), 
-			  target, VOIDmode, 0);
+			  target, VOIDmode, EXPAND_NORMAL);
     }
 
   /* Now build the proper return type.  */
   return expand_expr (build2 (COMPLEX_EXPR, build_complex_type (type),
 			      make_tree (TREE_TYPE (arg), op2),
 			      make_tree (TREE_TYPE (arg), op1)),
-		      target, VOIDmode, 0);
+		      target, VOIDmode, EXPAND_NORMAL);
 }
 
 /* Expand a call to one of the builtin rounding functions gcc defines
@@ -2477,7 +2479,7 @@ expand_builtin_int_roundingfn (tree exp, rtx target, rtx subtarget)
       exp = build_call_expr (fndecl, 1, arg);
     }
 
-  op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+  op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
   start_sequence ();
 
@@ -2606,7 +2608,7 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target, rtx subtarget)
       exp = build_call_expr (fndecl, 1, arg);
     }
 
-  op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+  op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
   start_sequence ();
 
@@ -2873,7 +2875,7 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
 	      && !optimize_size
 	      && powi_cost (n) <= POWI_MAX_MULTS)))
     {
-      op = expand_expr (arg0, subtarget, VOIDmode, 0);
+      op = expand_expr (arg0, subtarget, VOIDmode, EXPAND_NORMAL);
       if (n != 1)
 	{
 	  op = force_reg (mode, op);
@@ -2902,7 +2904,7 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
 	  op = expand_builtin (call_expr, NULL_RTX, subtarget, mode, 0);
 	  if (n != 1)
 	    {
-	      op2 = expand_expr (narg0, subtarget, VOIDmode, 0);
+	      op2 = expand_expr (narg0, subtarget, VOIDmode, EXPAND_NORMAL);
 	      op2 = force_reg (mode, op2);
 	      op2 = expand_powi (op2, mode, abs (n / 2));
 	      op = expand_simple_binop (mode, MULT, op, op2, NULL_RTX,
@@ -2946,7 +2948,7 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
 				      0, OPTAB_LIB_WIDEN);
 	  if (n != 1)
 	    {
-	      op2 = expand_expr (narg0, subtarget, VOIDmode, 0);
+	      op2 = expand_expr (narg0, subtarget, VOIDmode, EXPAND_NORMAL);
 	      op2 = force_reg (mode, op2);
 	      op2 = expand_powi (op2, mode, abs (n / 3));
 	      op = expand_simple_binop (mode, MULT, op, op2, NULL_RTX,
@@ -3000,7 +3002,7 @@ expand_builtin_powi (tree exp, rtx target, rtx subtarget)
 	      || (! optimize_size
 		  && powi_cost (n) <= POWI_MAX_MULTS)))
 	{
-	  op0 = expand_expr (arg0, subtarget, VOIDmode, 0);
+	  op0 = expand_expr (arg0, subtarget, VOIDmode, EXPAND_NORMAL);
 	  op0 = force_reg (mode, op0);
 	  return expand_powi (op0, mode, n);
 	}
@@ -3014,10 +3016,10 @@ expand_builtin_powi (tree exp, rtx target, rtx subtarget)
   if (target == NULL_RTX)
     target = gen_reg_rtx (mode);
 
-  op0 = expand_expr (arg0, subtarget, mode, 0);
+  op0 = expand_expr (arg0, subtarget, mode, EXPAND_NORMAL);
   if (GET_MODE (op0) != mode)
     op0 = convert_to_mode (mode, op0, 0);
-  op1 = expand_expr (arg1, 0, mode2, 0);
+  op1 = expand_expr (arg1, NULL_RTX, mode2, EXPAND_NORMAL);
   if (GET_MODE (op1) != mode2)
     op1 = convert_to_mode (mode2, op1, 0);
 
@@ -3976,6 +3978,26 @@ expand_builtin_bzero (tree exp)
   return expand_builtin_memset_args (dest, integer_zero_node,
 				     fold_convert (sizetype, size),
 				     const0_rtx, VOIDmode, exp);
+}
+
+/* Expand a call to the memchr builtin.  Return NULL_RTX if we failed the
+   caller should emit a normal call, otherwise try to get the result
+   in TARGET, if convenient (and in mode MODE if that's convenient).  */
+
+static rtx
+expand_builtin_memchr (tree exp, rtx target, enum machine_mode mode)
+{
+  if (validate_arglist (exp, POINTER_TYPE, INTEGER_TYPE,
+			INTEGER_TYPE, VOID_TYPE))
+    {
+      tree type = TREE_TYPE (exp);
+      tree result = fold_builtin_memchr (CALL_EXPR_ARG (exp, 0),
+					 CALL_EXPR_ARG (exp, 1),
+					 CALL_EXPR_ARG (exp, 2), type);
+      if (result)
+	return expand_expr (result, target, mode, EXPAND_NORMAL);
+    }
+  return NULL_RTX;
 }
 
 /* Expand expression EXP, which is a call to the memcmp built-in function.
@@ -5017,7 +5039,7 @@ expand_builtin_bswap (tree exp, rtx target, rtx subtarget)
 
   arg = CALL_EXPR_ARG (exp, 0);
   mode = TYPE_MODE (TREE_TYPE (arg));
-  op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+  op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
   target = expand_unop (mode, bswap_optab, op0, target, 1);
 
@@ -5041,7 +5063,8 @@ expand_builtin_unop (enum machine_mode target_mode, tree exp, rtx target,
     return NULL_RTX;
 
   /* Compute the argument.  */
-  op0 = expand_expr (CALL_EXPR_ARG (exp, 0), subtarget, VOIDmode, 0);
+  op0 = expand_expr (CALL_EXPR_ARG (exp, 0), subtarget,
+		     VOIDmode, EXPAND_NORMAL);
   /* Compute op, into TARGET if possible.
      Set TARGET to wherever the result comes back.  */
   target = expand_unop (TYPE_MODE (TREE_TYPE (CALL_EXPR_ARG (exp, 0))),
@@ -5120,7 +5143,7 @@ expand_builtin_fabs (tree exp, rtx target, rtx subtarget)
 
   arg = CALL_EXPR_ARG (exp, 0);
   mode = TYPE_MODE (TREE_TYPE (arg));
-  op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+  op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
   return expand_abs (mode, op0, target, 0, safe_from_p (target, arg, 1));
 }
 
@@ -5744,7 +5767,7 @@ get_builtin_sync_mem (tree loc, enum machine_mode mode)
 {
   rtx addr, mem;
 
-  addr = expand_expr (loc, NULL, Pmode, EXPAND_SUM);
+  addr = expand_expr (loc, NULL_RTX, Pmode, EXPAND_SUM);
 
   /* Note that we explicitly do not want any alias information for this
      memory, so that we kill all other live memories.  Otherwise we don't
@@ -5777,7 +5800,7 @@ expand_builtin_sync_operation (enum machine_mode mode, tree exp,
   /* Expand the operands.  */
   mem = get_builtin_sync_mem (CALL_EXPR_ARG (exp, 0), mode);
 
-  val = expand_expr (CALL_EXPR_ARG (exp, 1), NULL, mode, EXPAND_NORMAL);
+  val = expand_expr (CALL_EXPR_ARG (exp, 1), NULL_RTX, mode, EXPAND_NORMAL);
   /* If VAL is promoted to a wider mode, convert it back to MODE.  Take care
      of CONST_INTs, where we know the old_mode only from the call argument.  */
   old_mode = GET_MODE (val);
@@ -5807,7 +5830,8 @@ expand_builtin_compare_and_swap (enum machine_mode mode, tree exp,
   mem = get_builtin_sync_mem (CALL_EXPR_ARG (exp, 0), mode);
 
 
-  old_val = expand_expr (CALL_EXPR_ARG (exp, 1), NULL, mode, EXPAND_NORMAL);
+  old_val = expand_expr (CALL_EXPR_ARG (exp, 1), NULL_RTX,
+			 mode, EXPAND_NORMAL);
   /* If VAL is promoted to a wider mode, convert it back to MODE.  Take care
      of CONST_INTs, where we know the old_mode only from the call argument.  */
   old_mode = GET_MODE (old_val);
@@ -5815,7 +5839,8 @@ expand_builtin_compare_and_swap (enum machine_mode mode, tree exp,
     old_mode = TYPE_MODE (TREE_TYPE (CALL_EXPR_ARG (exp, 1)));
   old_val = convert_modes (mode, old_mode, old_val, 1);
 
-  new_val = expand_expr (CALL_EXPR_ARG (exp, 2), NULL, mode, EXPAND_NORMAL);
+  new_val = expand_expr (CALL_EXPR_ARG (exp, 2), NULL_RTX,
+			 mode, EXPAND_NORMAL);
   /* If VAL is promoted to a wider mode, convert it back to MODE.  Take care
      of CONST_INTs, where we know the old_mode only from the call argument.  */
   old_mode = GET_MODE (new_val);
@@ -5844,7 +5869,7 @@ expand_builtin_lock_test_and_set (enum machine_mode mode, tree exp,
 
   /* Expand the operands.  */
   mem = get_builtin_sync_mem (CALL_EXPR_ARG (exp, 0), mode);
-  val = expand_expr (CALL_EXPR_ARG (exp, 1), NULL, mode, EXPAND_NORMAL);
+  val = expand_expr (CALL_EXPR_ARG (exp, 1), NULL_RTX, mode, EXPAND_NORMAL);
   /* If VAL is promoted to a wider mode, convert it back to MODE.  Take care
      of CONST_INTs, where we know the old_mode only from the call argument.  */
   old_mode = GET_MODE (val);
@@ -6341,6 +6366,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
     case BUILT_IN_STRNCMP:
       target = expand_builtin_strncmp (exp, target, mode);
+      if (target)
+	return target;
+      break;
+
+    case BUILT_IN_MEMCHR:
+      target = expand_builtin_memchr (exp, target, mode);
       if (target)
 	return target;
       break;
@@ -8654,6 +8685,48 @@ fold_builtin_strncpy (tree fndecl, tree dest, tree src, tree len, tree slen)
 		       build_call_expr (fn, 3, dest, src, len));
 }
 
+/* Fold function call to builtin memchr.  ARG1, ARG2 and LEN are the
+   arguments to the call, and TYPE is its return type.
+   Return NULL_TREE if no simplification can be made.  */
+
+static tree
+fold_builtin_memchr (tree arg1, tree arg2, tree len, tree type)
+{
+  if (!validate_arg (arg1, POINTER_TYPE)
+      || !validate_arg (arg2, INTEGER_TYPE)
+      || !validate_arg (len, INTEGER_TYPE))
+    return NULL_TREE;
+  else
+    {
+      const char *p1;
+
+      if (TREE_CODE (arg2) != INTEGER_CST
+	  || !host_integerp (len, 1))
+	return NULL_TREE;
+
+      p1 = c_getstr (arg1);
+      if (p1 && compare_tree_int (len, strlen (p1) + 1) <= 0)
+	{
+	  char c;
+	  const char *r;
+	  tree tem;
+
+	  if (target_char_cast (arg2, &c))
+	    return NULL_TREE;
+
+	  r = memchr (p1, c, tree_low_cst (len, 1));
+
+	  if (r == NULL)
+	    return build_int_cst (TREE_TYPE (arg1), 0);
+
+	  tem = fold_build2 (PLUS_EXPR, TREE_TYPE (arg1), arg1,
+			     build_int_cst (TREE_TYPE (arg1), r - p1));
+	  return fold_convert (type, tem);
+	}
+      return NULL_TREE;
+    }
+}
+
 /* Fold function call to builtin memcmp with arguments ARG1 and ARG2.
    Return NULL_TREE if no simplification can be made.  */
 
@@ -9982,6 +10055,9 @@ fold_builtin_3 (tree fndecl, tree arg0, tree arg1, tree arg2, bool ignore)
 
     case BUILT_IN_STRNCMP:
       return fold_builtin_strncmp (arg0, arg1, arg2);
+
+    case BUILT_IN_MEMCHR:
+      return fold_builtin_memchr (arg0, arg1, arg2, type);
 
     case BUILT_IN_BCMP:
     case BUILT_IN_MEMCMP:
