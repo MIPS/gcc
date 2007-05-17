@@ -1,3 +1,11 @@
+2007-05-17  Matthias Klose  <doko@ubuntu.com>
+
+	* java/io/File.java: Merge with classpath-0.95, new method
+	setFilePermissions, new attribute EXEC.
+	* java/io/natFilePosix.cc (setFilePermissions): New.
+	_access: Handle EXEC query.
+	* classpath/lib/java/io/File.class, java/io/File.h: Regenerate.
+
 2007-05-13  Matthias Klose  <doko@ubuntu.com>
 
 	Imported GNU Classpath 0.95.
