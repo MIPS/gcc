@@ -3837,23 +3837,13 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
       /* The loop below takes the set of live registers 
          after JUMP, and calculates the live set before EARLIEST. */
       bitmap_copy (test_live, DF_LIVE_IN (other_bb));
+      df_simulate_artificial_refs_at_end (test_bb, test_live);
       for (insn = jump; ; insn = prev)
 	{
 	  if (INSN_P (insn))
 	    {
-	      unsigned int uid = INSN_UID (insn);
-	      struct df_ref **rec;
-	      for (rec = DF_INSN_UID_DEFS (uid); *rec; rec++)
-		{
-		  struct df_ref *def = *rec;
-		  bitmap_set_bit (test_set, DF_REF_REGNO (def));
-		  bitmap_clear_bit (test_live, DF_REF_REGNO (def));
-		}
-	      for (rec = DF_INSN_UID_USES (uid); *rec; rec++)
-		{
-		  struct df_ref *def = *rec;
-		  bitmap_set_bit (test_live, DF_REF_REGNO (def));
-		}
+	      df_simulate_find_defs (insn, test_set);
+	      df_simulate_one_insn_backwards (test_bb, insn, test_live);
 	    }
 	  prev = PREV_INSN (insn);
 	  if (insn == earliest)

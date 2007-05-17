@@ -2925,7 +2925,8 @@ peephole2_optimize (void)
       peep2_current = MAX_INSNS_PER_PEEP2;
 
       /* Start up propagation.  */
-      df_lr_simulate_artificial_refs_at_end (bb, live);
+      bitmap_copy (live, DF_LR_OUT (bb));
+      df_simulate_artificial_refs_at_end (bb, live);
       bitmap_copy (peep2_insn_data[MAX_INSNS_PER_PEEP2].live_before, live);
 
       for (insn = BB_END (bb); ; insn = prev)
@@ -2945,7 +2946,7 @@ peephole2_optimize (void)
 		  && peep2_insn_data[peep2_current].insn == NULL_RTX)
 		peep2_current_count++;
 	      peep2_insn_data[peep2_current].insn = insn;
-	      df_lr_simulate_one_insn (bb, insn, live);
+	      df_simulate_one_insn_backwards (bb, insn, live);
 	      COPY_REG_SET (peep2_insn_data[peep2_current].live_before, live);
 
 	      if (RTX_FRAME_RELATED_P (insn))
@@ -3107,7 +3108,7 @@ peephole2_optimize (void)
 			    peep2_current_count++;
 			  peep2_insn_data[i].insn = x;
 			  df_insn_rescan (x);
-			  df_lr_simulate_one_insn (bb, x, live);
+			  df_simulate_one_insn_backwards (bb, x, live);
 			  bitmap_copy (peep2_insn_data[i].live_before, live);
 			}
 		      x = PREV_INSN (x);

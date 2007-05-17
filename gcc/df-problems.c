@@ -1357,8 +1357,7 @@ df_lr_bb_local_compute (unsigned int bb_index)
   for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
     {
       struct df_ref *def = *def_rec;
-      if (((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	  && (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
+      if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
 	{
 	  unsigned int dregno = DF_REF_REGNO (def);
 	  bitmap_set_bit (bb_info->def, dregno);
@@ -1670,105 +1669,6 @@ df_lr_free (void)
 
   BITMAP_FREE (df_lr->out_of_date_transfer_functions);
   free (df_lr);
-}
-
-
-/* Public auxillary functions.  */
-
-/* Get the variables live at the end of BB and apply the artifical
-   uses and defs at the end of BB.  */
-
-void 
-df_lr_simulate_artificial_refs_at_end (basic_block bb, bitmap live)
-{
-  struct df_ref **def_rec;
-  struct df_ref **use_rec;
-  int bb_index = bb->index;
-  
-  bitmap_copy (live, DF_LR_OUT (bb));
-  for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
-    {
-      struct df_ref *def = *def_rec;
-      if (((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	  && (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
-	bitmap_clear_bit (live, DF_REF_REGNO (def));
-    }
-
-  for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
-    {
-      struct df_ref *use = *use_rec;
-      if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
-	bitmap_set_bit (live, DF_REF_REGNO (use));
-    }
-}
-
-
-/* Simulate the effects of INSN on the bitmap LIVE.  */
-void 
-df_lr_simulate_one_insn (basic_block bb, rtx insn, bitmap live)
-{
-  struct df_ref **def_rec;
-  struct df_ref **use_rec;
-  unsigned int uid = INSN_UID (insn);
-
-  if (! INSN_P (insn))
-    return;	
-  
-  if (CALL_P (insn))
-    {
-      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
-	{
-	  struct df_ref *def = *def_rec;
-	  unsigned int dregno = DF_REF_REGNO (def);
-	  
-	  if (DF_REF_FLAGS (def) & DF_REF_MUST_CLOBBER)
-	    {
-	      if (dregno >= FIRST_PSEUDO_REGISTER
-		  || !(SIBLING_CALL_P (insn)
-		       && bitmap_bit_p (df->exit_block_uses, dregno)
-		       && !refers_to_regno_p (dregno, dregno+1,
-					      current_function_return_rtx,
-					      (rtx *)0)))
-		{
-		  /* If the def is to only part of the reg, it does
-		     not kill the other defs that reach here.  */
-		  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-		    bitmap_clear_bit (live, dregno);
-		}
-	    }
-	  else
-	    /* This is the return value.  */
-	    if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-	      bitmap_clear_bit (live, dregno);
-	}
-    }
-  else
-    {
-      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
-	{
-	  struct df_ref *def = *def_rec;
-	  unsigned int dregno = DF_REF_REGNO (def);
-  
-	  /* If the def is to only part of the reg, it does
-	     not kill the other defs that reach here.  */
-	  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-	    bitmap_clear_bit (live, dregno);
-	}
-    }
-  
-  for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
-    {
-      struct df_ref *use = *use_rec;
-      /* Add use to set of uses in this BB.  */
-      bitmap_set_bit (live, DF_REF_REGNO (use));
-    }
-
-  /* These regs are considered always live so if they end up dying
-     because of some def, we need to bring the back again.  */
-  if (df_has_eh_preds (bb))
-    bitmap_ior_into (live, df->eh_block_artificial_uses);
-  else
-    bitmap_ior_into (live, df->regular_block_artificial_uses);
 }
 
 
@@ -4214,6 +4114,238 @@ void
 df_note_add_problem (void)
 {
   df_add_problem (&problem_NOTE);
+}
+
+
+
+
+/*----------------------------------------------------------------------------
+   Functions for simulating the effects of single insns.  
+
+   You can either simulate in the forwards direction, starting from
+   the top of a block or the backwards direction from the end of the
+   block.  The main difference is that if you go forwards, the uses
+   are examined first then the defs, and if you go backwards, the defs
+   are examined first then the uses.
+
+   If you start at the top of the block, use one of DF_LIVE_IN or
+   DF_LR_IN.  If you start at the bottom of the block use one of
+   DF_LIVE_OUT or DF_LR_OUT.  BE SURE TO PASS A COPY OF THESE SETS,
+   THEY WILL BE DESTROYED.
+
+----------------------------------------------------------------------------*/
+
+
+/* Find the set of DEFs for INSN.  */
+
+void
+df_simulate_find_defs (rtx insn, bitmap defs)
+{
+  struct df_ref **def_rec;
+  unsigned int uid = INSN_UID (insn);
+
+  if (CALL_P (insn))
+    {
+      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+	{
+	  struct df_ref *def = *def_rec;
+	  unsigned int dregno = DF_REF_REGNO (def);
+	  
+	  if (DF_REF_FLAGS (def) & DF_REF_MUST_CLOBBER)
+	    {
+	      if (dregno >= FIRST_PSEUDO_REGISTER
+		  || !(SIBLING_CALL_P (insn)
+		       && bitmap_bit_p (df->exit_block_uses, dregno)
+		       && !refers_to_regno_p (dregno, dregno+1,
+					      current_function_return_rtx,
+					      (rtx *)0)))
+		{
+		  /* If the def is to only part of the reg, it does
+		     not kill the other defs that reach here.  */
+		  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
+		    bitmap_set_bit (defs, dregno);
+		}
+	    }
+	  else
+	    /* This is the return value.  */
+	    if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
+	      bitmap_set_bit (defs, dregno);
+	}
+    }
+  else
+    {
+      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+	{
+	  struct df_ref *def = *def_rec;
+	  /* If the def is to only part of the reg, it does
+	     not kill the other defs that reach here.  */
+	  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
+	    bitmap_set_bit (defs, DF_REF_REGNO (def));
+	}
+    }
+}
+
+
+/* Simulate the effects of the defs of INSN on LIVE.  */
+
+static inline void
+df_simulate_defs (rtx insn, bitmap live)
+{
+  struct df_ref **def_rec;
+  unsigned int uid = INSN_UID (insn);
+
+  if (CALL_P (insn))
+    {
+      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+	{
+	  struct df_ref *def = *def_rec;
+	  unsigned int dregno = DF_REF_REGNO (def);
+	  
+	  if (DF_REF_FLAGS (def) & DF_REF_MUST_CLOBBER)
+	    {
+	      if (dregno >= FIRST_PSEUDO_REGISTER
+		  || !(SIBLING_CALL_P (insn)
+		       && bitmap_bit_p (df->exit_block_uses, dregno)
+		       && !refers_to_regno_p (dregno, dregno+1,
+					      current_function_return_rtx,
+					      (rtx *)0)))
+		{
+		  /* If the def is to only part of the reg, it does
+		     not kill the other defs that reach here.  */
+		  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
+		    bitmap_clear_bit (live, dregno);
+		}
+	    }
+	  else
+	    /* This is the return value.  */
+	    if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
+	      bitmap_clear_bit (live, dregno);
+	}
+    }
+  else
+    {
+      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+	{
+	  struct df_ref *def = *def_rec;
+	  unsigned int dregno = DF_REF_REGNO (def);
+  
+	  /* If the def is to only part of the reg, it does
+	     not kill the other defs that reach here.  */
+	  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
+	    bitmap_clear_bit (live, dregno);
+	}
+    }
+}  
+
+
+/* Simulate the effects of the uses of INSN on LIVE.  */
+
+static inline void 
+df_simulate_uses (rtx insn, bitmap live)
+{
+  struct df_ref **use_rec;
+  unsigned int uid = INSN_UID (insn);
+
+  for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
+    {
+      struct df_ref *use = *use_rec;
+      /* Add use to set of uses in this BB.  */
+      bitmap_set_bit (live, DF_REF_REGNO (use));
+    }
+}
+
+
+/* Add back the always live regs in BB to LIVE.  */
+
+static inline void
+df_simulate_fixup_sets (basic_block bb, bitmap live)
+{
+  /* These regs are considered always live so if they end up dying
+     because of some def, we need to bring the back again.  */
+  if (df_has_eh_preds (bb))
+    bitmap_ior_into (live, df->eh_block_artificial_uses);
+  else
+    bitmap_ior_into (live, df->regular_block_artificial_uses);
+}
+
+
+/* Apply the artifical uses and defs at the top of BB in a forwards
+   direction.  */
+
+void 
+df_simulate_artificial_refs_at_top (basic_block bb, bitmap live)
+{
+  struct df_ref **def_rec;
+  struct df_ref **use_rec;
+  int bb_index = bb->index;
+  
+  for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
+    {
+      struct df_ref *use = *use_rec;
+      if (DF_REF_FLAGS (use) & DF_REF_AT_TOP)
+	bitmap_set_bit (live, DF_REF_REGNO (use));
+    }
+
+  for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
+    {
+      struct df_ref *def = *def_rec;
+      if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
+	bitmap_clear_bit (live, DF_REF_REGNO (def));
+    }
+}
+
+
+/* Simulate the forwards effects of INSN on the bitmap LIVE.  */
+
+void 
+df_simulate_one_insn_forwards (basic_block bb, rtx insn, bitmap live)
+{
+  if (! INSN_P (insn))
+    return;	
+  
+  df_simulate_uses (insn, live);
+  df_simulate_defs (insn, live);
+  df_simulate_fixup_sets (bb, live);
+}
+
+
+/* Apply the artifical uses and defs at the end of BB in a backwards
+   direction.  */
+
+void 
+df_simulate_artificial_refs_at_end (basic_block bb, bitmap live)
+{
+  struct df_ref **def_rec;
+  struct df_ref **use_rec;
+  int bb_index = bb->index;
+  
+  for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
+    {
+      struct df_ref *def = *def_rec;
+      if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
+	bitmap_clear_bit (live, DF_REF_REGNO (def));
+    }
+
+  for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
+    {
+      struct df_ref *use = *use_rec;
+      if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
+	bitmap_set_bit (live, DF_REF_REGNO (use));
+    }
+}
+
+
+/* Simulate the backwards effects of INSN on the bitmap LIVE.  */
+
+void 
+df_simulate_one_insn_backwards (basic_block bb, rtx insn, bitmap live)
+{
+  if (! INSN_P (insn))
+    return;	
+  
+  df_simulate_defs (insn, live);
+  df_simulate_uses (insn, live);
+  df_simulate_fixup_sets (bb, live);
 }
 
 

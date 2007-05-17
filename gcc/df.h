@@ -879,8 +879,6 @@ extern void df_chain_dump (struct df_link *, FILE *);
 extern void df_print_bb_index (basic_block bb, FILE *file);
 extern void df_ru_add_problem (void);
 extern void df_rd_add_problem (void);
-extern void df_lr_simulate_artificial_refs_at_end (basic_block, bitmap);
-extern void df_lr_simulate_one_insn (basic_block, rtx, bitmap);
 extern void df_lr_add_problem (void);
 extern void df_lr_verify_transfer_functions (void);
 extern void df_live_verify_transfer_functions (void);
@@ -888,6 +886,11 @@ extern void df_live_add_problem (void);
 extern void df_urec_add_problem (void);
 extern void df_chain_add_problem (enum df_chain_flags);
 extern void df_note_add_problem (void);
+extern void df_simulate_find_defs (rtx, bitmap);
+extern void df_simulate_artificial_refs_at_top (basic_block, bitmap);
+extern void df_simulate_one_insn_forwards (basic_block, rtx, bitmap);
+extern void df_simulate_artificial_refs_at_end (basic_block, bitmap);
+extern void df_simulate_one_insn_backwards (basic_block, rtx, bitmap);
 
 /* Functions defined in df-scan.c.  */
 

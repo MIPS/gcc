@@ -1,3 +1,27 @@
+2007-05-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* ifcvt.c (dead_or_predictable): Replaced insn dfa with new df
+	routines.
+	* recog.c (peephole2_optimize): Replaced
+	df_lr_simulate_artificial_refs_at_end and df_lr_simulate_one_insn
+	with df_simulate_artificial_refs_at_end and
+	df_simulate_one_insn_backwards.
+	* rtl-factoring.c (collect_pattern_seqs, clear_regs_live_in_seq):
+	Ditto.
+	* df.h (df_lr_simulate_artificial_refs_at_end, 
+	df_lr_simulate_one_insn): Removed.
+	(df_simulate_find_defs, df_simulate_artificial_refs_at_top,
+	df_simulate_one_insn_forwards, df_simulate_artificial_refs_at_end,
+	df_simulate_one_insn_backwards): Added.
+	* df-problems.c (df_lr_bb_local_compute): Removed unnecessary
+	tests.
+	(df_lr_simulate_artificial_refs_at_end, df_lr_simulate_one_insn):
+	Removed.
+	(df_simulate_find_defs, df_simulate_defs, df_simulate_uses,
+	df_simulate_fixup_sets, df_simulate_artificial_refs_at_top,
+	df_simulate_one_insn_forwards, df_simulate_artificial_refs_at_end,
+	df_simulate_one_insn_backwards): Added.
+
 2007-05-16  Seongbae Park <seongbae.park@gmail.com>
 
 	* ifcvt.c (dead_or_predicable): Update test_live as well as test_set.
