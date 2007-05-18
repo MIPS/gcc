@@ -221,7 +221,7 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   PTR GTY ((skip (""))) aux;
 
   /* Innermost loop containing the block.  */
-  struct loop * GTY ((skip (""))) loop_father;
+  struct loop *loop_father;
 
   /* The dominance and postdominance information node.  */
   struct et_node * GTY ((skip (""))) dom[2];
@@ -1172,5 +1172,9 @@ bb_has_eh_pred (basic_block bb)
     }
   return false;
 }
+
+/* In cfgloopmanip.c.  */
+extern edge mfb_kj_edge;
+bool mfb_keep_just (edge);
 
 #endif /* GCC_BASIC_BLOCK_H */

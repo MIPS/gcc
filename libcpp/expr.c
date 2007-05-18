@@ -92,20 +92,22 @@ interpret_float_suffix (const uchar *s, size_t len)
       case 'k': case 'K': k++; break;
       case 'u': case 'U': u++; break;
       case 'h': case 'H': h++; break;
-      case 'f': case 'F': f++; break;
-      case 'l': case 'L': l++;
+      case 'f': case 'F':
+	if (d > 0)
+	  return 0;
+	f++;
+	break;
+      case 'l': case 'L':
+	if (d > 0)
+	  return 0;
+	l++;
 	/* If there are two Ls, they must be adjacent and the same case.  */
 	if (l == 2 && s[len] != s[len + 1])
 	  return 0;
-        break;
+	break;
       case 'i': case 'I':
       case 'j': case 'J': i++; break;
-      case 'd': case 'D':
-	/* Disallow fd, ld suffixes.  */
-	if (d && (f || l))
-	  return 0;
-	d++;
-	break;
+      case 'd': case 'D': d++; break;
       default:
 	return 0;
       }
@@ -322,6 +324,10 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token)
                      (int) (limit - str), str);
           return CPP_N_INVALID;
         }
+
+      if ((result & CPP_N_DFLOAT) && CPP_PEDANTIC (pfile))
+	cpp_error (pfile, CPP_DL_PEDWARN,
+		   "decimal float constants are a GCC extension");
 
       result |= CPP_N_FLOATING;
     }

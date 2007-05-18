@@ -1,3 +1,128 @@
+2007-05-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/31628
+	* gcc.target/i386/pr31628.c: New.
+
+2007-05-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/31344
+	* gcc.dg/pr31344.c: New test.
+
+2007-05-17  Ian Lance Taylor  <iant@google.com>
+
+	PR tree-optimization/31953
+	* gcc.c-torture/compile/pr31953.c: New test.
+
+2007-05-17  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-1.c: Test reentrant gamma functions.
+
+	* gcc.dg/torture/builtin-math-2.c: Add tests for remquo, remainder
+	and drem.
+	* gcc.dg/torture/builtin-math-4.c: Likewise.
+
+	* gcc.dg/torture/builtin-math-2.c: Test y0, y1, yn.
+	* gcc.dg/torture/builtin-math-4.c: Likewise.
+
+	* gcc.dg/torture/builtin-math-4.c: New test.
+
+2007-05-17  Janis Johnson  <janis187@us.ibm.com>
+	    Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* gcc.target/powerpc/pr18096-1.c: Change dg-warning to dg-error.
+	* gcc.dg/cpp/include2.c: Ditto.
+	* gcc.dg/cpp/mac-dir-2.c: Ditto.
+	* gcc.dg/cpp/paste5.c: Ditto.
+	* gcc.dg/cpp/paste6.c: Ditto.
+	* gcc.dg/cpp/paste8.c: Ditto.
+	* gcc.dg/cpp/paste11.c: Ditto.
+	* gcc.dg/cpp/paste13.c: Ditto.
+	* gcc.dg/cpp/skipping2.c: Ditto.
+	* gcc.dg/reg-vol-struct-1.c: Ditto.
+	* gcc.dg/Wshadow-1.c: Ditto.
+	* gcc.dg/cpp/trad/comment.c: Ditto.
+	* gcc.dg/cpp/trad/literals-2.c: Change dg-error to dg-warning.
+	* gcc.dg/cpp/if-2.c: Ditto.
+	* gcc.dg/array-5.c: Ditto.
+	* gcc.dg/inline-15.c: Ditto.
+	* gcc.dg/pr27953.c: Ditto.
+	* gcc.dg/Wno-c++-compat.c: Ditto.
+
+2007-05-17  Kazu Hirata  <kazu@codesourcery.com>
+
+	* g++.dg/cpp/_Pragma1.C: Skip on fido-*-* and m68k-*-*.
+
+2007-05-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20070517-1.c: New test.
+
+2007-05-17  Daniel Franke <franke.daniel@gmail.com>
+
+	PR fortran/31919
+	* gfortran.dg/min_max_conformance.f90: New test.
+
+2007-05-17  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/ssa-dom-thread-2.c: New test.
+	* gcc.dg/vect/vect-102.c, gcc.dg/vect/vect-103.c,
+	gcc.dg/vect/vect-104.c: Use more complex construction to prevent vectorizing.
+	* gcc.dg/tree-ssa/pr21559.c: Update outcome.
+
+2007-05-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/24659
+	* gcc.dg/vect/vect-floatint-conversion-2.c: New test.
+	* gcc.dg/vect/vect-intfloat-conversion-1.c: Require vect_float,
+	not vect_int target.
+	* gcc.dg/vect/vect-intfloat-conversion-2.c: Require vect_float,
+	not vect_int target.  Loop is vectorized for vect_intfloat_cvt
+	targets.
+	* gcc.dg/vect/vect-intfloat-conversion-3.c: New test.
+	* gcc.dg/vect/vect-intfloat-conversion-4a.c: New test.
+	* gcc.dg/vect/vect-intfloat-conversion-4b.c: New test.
+
+2007-05-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/torture/fp-int-convert-float128.c: Do not xfail for i?86-*-*
+	and x86_64-*-* targets.
+	* gcc.dg/torture/fp-int-convert-float128-timode.c: Ditto.
+
+2007-05-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/18769
+	PR fortran/30881
+	PR fortran/31194
+	PR fortran/31216
+	PR fortran/31427
+	* transfer_simplify_1.f90: New test.
+	* transfer_simplify_2.f90: New test.
+
+2007-05-15  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	* gfortran.dg/unf_io_convert_3.f90: Fix dg directive.
+
+2007-05-14  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/dfp/usual-arith-conv-bad.c: New test.
+
+	* gcc.dg/fltconst-pedantic-dfp.c: New test.
+
+	PR c/31924
+	* gcc.dg/fltconst-1.c: New test.
+
+	* gcc.dg/dfp/func-mixed.c: Replace invalid constant suffixes.
+	* gcc.dg/dfp/operator-assignment.c: Ditto.
+
+2007-05-14  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/29928
+	* g++.dg/rtti/typeid5.C: New.
+
+2007-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31725
+	* gfortran.dg/substr_4.f: New test.
+
 2007-05-15  Chao-ying Fu  <fu@mips.com>
 
 	* gcc.target/mips/dpsq_sa_l_w.c: New test.
@@ -9,22 +134,22 @@
 	gcc.target/m68k/interrupt_thread-3.c: New.
 	* gcc.target/m68k/m68k.exp: Accept fido.
 
-2007-05-13  Dominique d'Humières  <dominiq@lps.ens.fr>
+2007-05-13  Dominique d'Humieres  <dominiq@lps.ens.fr>
 
-	* alloc_comp_basics_1.f90: Fix dg directive.
-	* altreturn_3.f90: Likewise.
-	* assumed_dummy_1.f90: Likewise.
-	* default_numeric_type_1.f90: Likewise.
-	* inquire_iolength.f90: Likewise.
-	* module_naming_1.f90: Likewise.
-	* oldstyle_2.f90: Likewise.
-	* operator_2.f90: Likewise.
-	* parameter_array_element_1.f90: Likewise.
-	* used_types_11.f90: Likewise.
-	* zero_array_components_1.f90: Likewise.
-	* fmt_zero_precision.f90: Fix dg-output directives.
-	* parameter_array_dummy.f90: Likewise.
-	* real_const_3.f90: Likewise.
+	* gfortran.dg/alloc_comp_basics_1.f90: Fix dg directive.
+	* gfortran.dg/altreturn_3.f90: Likewise.
+	* gfortran.dg/assumed_dummy_1.f90: Likewise.
+	* gfortran.dg/default_numeric_type_1.f90: Likewise.
+	* gfortran.dg/inquire_iolength.f90: Likewise.
+	* gfortran.dg/module_naming_1.f90: Likewise.
+	* gfortran.dg/oldstyle_2.f90: Likewise.
+	* gfortran.dg/operator_2.f90: Likewise.
+	* gfortran.dg/parameter_array_element_1.f90: Likewise.
+	* gfortran.dg/used_types_11.f90: Likewise.
+	* gfortran.dg/zero_array_components_1.f90: Likewise.
+	* gfortran.dg/fmt_zero_precision.f90: Fix dg-output directives.
+	* gfortran.dg/parameter_array_dummy.f90: Likewise.
+	* gfortran.dg/real_const_3.f90: Likewise.
 
 2007-05-13  Zdenek Dvorak  <dvorakz@suse.cz>
 
@@ -712,7 +837,7 @@
 	* g++.dg/expr/bitfield8.C: New test.
 
 2007-04-17  Joseph Myers  <joseph@codesourcery.com>
-            Richard Sandiford  <richard@codesourcery.com>
+	    Richard Sandiford  <richard@codesourcery.com>
 
 	* lib/target-supports.exp (check_profiling_available): Return 0
 	for uClibc with -p or -pg.
