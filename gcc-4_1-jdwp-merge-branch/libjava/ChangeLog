@@ -1,3 +1,104 @@
+2007-05-18  Keith Seitz  <keiths@redhat.com>
+
+	Merged from trunk:
+
+	2007-05-17  Kyle Galloway  <kgallowa@redhat.com>
+	* classpath/gnu/classpath/jdwp/processor/ReferenceTypeCommandSet.java
+	(executeMethods): Remove cast to ClassReferenceTypeId.
+	* classpath/lib/gnu/classpath/jdwp/processor/
+	ReferenceTypeCommandSet.class: Rebuilt.
+
+	2007-05-17  Kyle Galloway  <kgallowa@redhat.com>
+	* gnu/classpath/jdwp/natVMMethod.cc (getModifiers): Check for native
+	classes and mark methods as native appropriately.
+
+	2007-05-17  Kyle Galloway  <kgallowa@redhat.com>
+	* gnu/classpath/jdwp/VMFrame.java (<init>): Add parameter for "this"
+	pointer.
+	* gnu/classpath/jdwp/VMFrame.h: Regenerated.
+	* classpath/lib/gnu/classpath/jdwp/VMFrame.class: Rebuilt.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (getFrame): Use new
+	VMFrame constructor.
+
+	2007-05-16  Keith Seitz  <keiths@redhat.com>
+	* include/java-interp.h (breakpoint_at): Declare.
+	* interpret.cc (breakpoint_at): New function.
+	* gnu/classpath/jdwp/VMVirtualMachine.java (_event_list):
+	New member.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (initialize):
+	Initialize _event_list.
+	(handle_single_step): If there is a breakpoint at the
+	location at which we are stopping, do not send the notification.
+	Instead add the event to a list of events that occur at this
+	location.
+	(jdwpBreakpointCB): If the event list is not empty, send
+	whatever events are in it and the breakpoint event in a single
+	notification.
+	Mark parameter jni_env as MAYBE_UNUSED.
+	* classpath/lib/gnu/classpath/jdwp/VMVirtualMachine.class:
+	Regenerated.
+	* gnu/classpath/jdwp/VMVirtualMachine.h: Regenerated.
+
+	2007-05-15  Keith Seitz  <keiths@redhat.com>
+	* interpret.cc (STOREA): Rewrite using temporary variable to
+	avoid double-macro expansion side-effects.
+	(STOREI): Likewise.
+	(STOREF): Likewise.
+	(STOREL)[SIZEOF_VOID_P == 8]: Likewise.
+	(STORED)[SIZEOF_VOID_P == 8]: Likewise.
+	(STOREL)[SIZEOF_VOID_P != 8]: Likewise.
+	(STORED)[SIZEOF_VOID_P != 8]: Likewise.
+	(POKEI): Likewise.
+
+	2007-05-07  Keith Seitz  <keiths@redhat.com>
+	* classpath/lib/gnu/classpath/jdwp/Jdwp.class: Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/Jdwp$1.class: Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/event/Event.class:
+	Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/transport/JdwpConnection.class:
+	Regenerate.
+	* gnu/classpath/jdwp/Jdwp.h: Regenerate.
+	* gnu/classpath/jdwp/event/Event.h: Regenerate.
+	* gnu/classpath/jdwp/transport/JdwpConnection.h: Regenerate.
+
+	2007-05-04  Kyle Galloway  <kgallowa@redhat.com>
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (getClassMethod): Change
+	to use JVMTI.
+
+	2007-05-03  Keith Seitz  <keiths@redhat.com>
+	* interpret.cc: Don't include ExceptionEvent.h.
+	* gnu/gcj/jvmti/natExceptionEvent.cc: Remove.
+	* Makefile.am (nat_source_files): Remove natExceptionEvent.cc.
+	* Makefile.in: Regenerated.
+
+	2007-05-03  Keith Seitz  <keiths@redhat.com>
+	* include/jvmti-int.h (_Jv_ReportJVMTIExceptionThrow):
+	Declare.
+	* interpret.cc (_Jv_ReportJVMTIExceptionThrow): New function.
+	(find_catch_location): New function.
+	(REPORT_EXCEPTION): New macro.
+	(throw_internal_error): Use REPORT_EXCEPTION.
+	(throw_incompatible_class_change_error): Likewise.
+	(throw_null_pointer_exception): Likewise.
+	(throw_class_format_error): Likewise.
+	* interpret-run.cc (INTERP_REPORT_EXCEPTION)[DEBUG]: Set
+	to REPORT_EXCEPTION.
+	(INTERP_REPORT_EXCEPTION)[!DEBUG]: Make nop.
+	(insn_new): Use INTERP_REPORT_EXCEPTION.
+	(insn_athrow): Likewise.
+	Remove previous JVMTI exception notifications.
+	Add JVMTI ExceptionCatch notificatin.
+	* jni.cc (_Jv_PopSystemFrame): Notify JVMTI clients of
+	exception throw.
+	* gnu/gcj/jvmti/ExceptionEvent.java: Removed.
+	* gnu/gcj/jvmti/ExceptionEvent.h: Removed. 
+	* classpath/lib/gnu/gcj/jvmti/ExceptionEvent.class: Removed.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(jdwpExceptionCB): New function.
+	(jdwpVMInitCB): Set Exception event handler and enable.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
 2007-05-03  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=237304

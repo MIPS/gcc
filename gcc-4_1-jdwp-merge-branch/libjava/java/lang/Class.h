@@ -1,6 +1,6 @@
 // Class.h - Header file for java.lang.Class.  -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -269,7 +269,10 @@ _Jv_Utf8Const *_Jv_GetClassNameUtf8 (jclass);
 // Finds a desired interpreter method in the given class or NULL if not found
 class _Jv_MethodBase;
 _Jv_MethodBase *_Jv_FindInterpreterMethod (jclass, jmethodID);
+jstring _Jv_GetInterpClassSourceFile (jclass);
 #endif
+
+jbyte _Jv_GetClassState (jclass);
 
 // Friend classes and functions to implement the ClassLoader
 class java::lang::ClassLoader;
@@ -571,7 +574,9 @@ private:
 #ifdef INTERPRETER
   friend _Jv_MethodBase *(::_Jv_FindInterpreterMethod) (jclass klass,
 							jmethodID desired_method);
+  friend jstring ::_Jv_GetInterpClassSourceFile (jclass);
 #endif
+  friend jbyte (::_Jv_GetClassState) (jclass klass);
 
   // Friends classes and functions to implement the ClassLoader
   friend class java::lang::ClassLoader;
