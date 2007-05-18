@@ -2793,7 +2793,8 @@ ix86_function_regparm (tree type, tree decl)
     return 2;
 
   /* Use register calling convention for local functions when possible.  */
-  if (decl && flag_unit_at_a_time && !profile_flag)
+  if (decl && TREE_CODE (decl) == FUNCTION_DECL
+      && flag_unit_at_a_time && !profile_flag)
     {
       struct cgraph_local_info *i = cgraph_local_info (decl);
       if (i && i->local)
@@ -7302,6 +7303,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
 	  insns = get_insns ();
 	  end_sequence ();
 
+	  CONST_OR_PURE_CALL_P (insns) = 1;
 	  emit_libcall_block (insns, dest, rax, x);
 	}
       else if (TARGET_64BIT && TARGET_GNU2_TLS)
@@ -7332,6 +7334,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
 
 	  note = gen_rtx_EXPR_LIST (VOIDmode, const0_rtx, NULL);
 	  note = gen_rtx_EXPR_LIST (VOIDmode, ix86_tls_get_addr (), note);
+	  CONST_OR_PURE_CALL_P (insns) = 1;
 	  emit_libcall_block (insns, base, rax, note);
 	}
       else if (TARGET_64BIT && TARGET_GNU2_TLS)
@@ -21166,6 +21169,8 @@ ix86_scalar_mode_supported_p (enum machine_mode mode)
 {
   if (DECIMAL_FLOAT_MODE_P (mode))
     return true;
+  else if (mode == TFmode)
+    return TARGET_64BIT;
   else
     return default_scalar_mode_supported_p (mode);
 }

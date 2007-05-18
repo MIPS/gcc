@@ -5045,7 +5045,7 @@ make_tree (tree type, rtx x)
 			  make_tree (type, XEXP (x, 1)));
 
     case LSHIFTRT:
-      t = lang_hooks.types.unsigned_type (type);
+      t = unsigned_type_for (type);
       return fold_convert (type, build2 (RSHIFT_EXPR, t,
 			    		 make_tree (t, XEXP (x, 0)),
 				    	 make_tree (type, XEXP (x, 1))));
@@ -5066,7 +5066,7 @@ make_tree (tree type, rtx x)
 				    	 make_tree (t, XEXP (x, 0)),
 				    	 make_tree (t, XEXP (x, 1))));
     case UDIV:
-      t = lang_hooks.types.unsigned_type (type);
+      t = unsigned_type_for (type);
       return fold_convert (type, build2 (TRUNC_DIV_EXPR, t,
 				    	 make_tree (t, XEXP (x, 0)),
 				    	 make_tree (t, XEXP (x, 1))));

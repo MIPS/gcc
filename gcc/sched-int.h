@@ -527,8 +527,10 @@ struct haifa_insn_data
   unsigned int fed_by_spec_load : 1;
   unsigned int is_load_insn : 1;
 
-  /* Nonzero if priority has been computed already.  */
-  unsigned int priority_known : 1;
+  /* '> 0' if priority is valid,
+     '== 0' if priority was not yet computed,
+     '< 0' if priority in invalid and should be recomputed.  */
+  signed char priority_status;
 
   /* Nonzero if instruction has internal dependence
      (e.g. add_dependence was invoked with (insn == elem)).  */
@@ -560,7 +562,8 @@ extern struct haifa_insn_data *h_i_d;
 #define CANT_MOVE(insn)		(h_i_d[INSN_UID (insn)].cant_move)
 #define INSN_DEP_COUNT(INSN)	(h_i_d[INSN_UID (INSN)].dep_count)
 #define INSN_PRIORITY(INSN)	(h_i_d[INSN_UID (INSN)].priority)
-#define INSN_PRIORITY_KNOWN(INSN) (h_i_d[INSN_UID (INSN)].priority_known)
+#define INSN_PRIORITY_STATUS(INSN) (h_i_d[INSN_UID (INSN)].priority_status)
+#define INSN_PRIORITY_KNOWN(INSN) (INSN_PRIORITY_STATUS (INSN) > 0)
 #define INSN_REG_WEIGHT(INSN)	(h_i_d[INSN_UID (INSN)].reg_weight)
 #define HAS_INTERNAL_DEP(INSN)  (h_i_d[INSN_UID (INSN)].has_internal_dep)
 #define TODO_SPEC(INSN)         (h_i_d[INSN_UID (INSN)].todo_spec)
@@ -852,5 +855,8 @@ extern void * xrecalloc (void *, size_t, size_t, size_t);
 extern void unlink_bb_notes (basic_block, basic_block);
 extern void add_block (basic_block, basic_block);
 extern rtx bb_note (basic_block);
+
+/* Functions in sched-rgn.c.  */
+extern void debug_dependencies (rtx, rtx);
 
 #endif /* GCC_SCHED_INT_H */

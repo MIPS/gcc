@@ -439,6 +439,12 @@ bool get_array_ctor_strlen (gfc_constructor *, tree *);
 /* Generate a runtime error check.  */
 void gfc_trans_runtime_check (tree, const char *, stmtblock_t *, locus *);
 
+/* Generate a call to free() after checking that its arg is non-NULL.  */
+tree gfc_call_free (tree);
+
+/* Allocate memory after performing a few checks.  */
+tree gfc_call_malloc (stmtblock_t *, tree, tree);
+
 /* Generate code for an assignment, includes scalarization.  */
 tree gfc_trans_assignment (gfc_expr *, gfc_expr *, bool);
 
@@ -448,6 +454,7 @@ tree gfc_trans_pointer_assignment (gfc_expr *, gfc_expr *);
 /* Initialize function decls for library functions.  */
 void gfc_build_intrinsic_lib_fndecls (void);
 /* Create function decls for IO library functions.  */
+void gfc_trans_io_runtime_check (tree, tree, int, const char *, stmtblock_t *);
 void gfc_build_io_library_fndecls (void);
 /* Build a function decl for a library function.  */
 tree gfc_build_library_function_decl (tree, tree, int, ...);
@@ -471,11 +478,8 @@ struct gimplify_omp_ctx;
 void gfc_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *, tree);
 
 /* Runtime library function decls.  */
-extern GTY(()) tree gfor_fndecl_internal_malloc;
-extern GTY(()) tree gfor_fndecl_internal_malloc64;
 extern GTY(()) tree gfor_fndecl_internal_realloc;
 extern GTY(()) tree gfor_fndecl_internal_realloc64;
-extern GTY(()) tree gfor_fndecl_internal_free;
 extern GTY(()) tree gfor_fndecl_allocate;
 extern GTY(()) tree gfor_fndecl_allocate64;
 extern GTY(()) tree gfor_fndecl_allocate_array;
@@ -487,6 +491,9 @@ extern GTY(()) tree gfor_fndecl_stop_numeric;
 extern GTY(()) tree gfor_fndecl_stop_string;
 extern GTY(()) tree gfor_fndecl_select_string;
 extern GTY(()) tree gfor_fndecl_runtime_error;
+extern GTY(()) tree gfor_fndecl_runtime_error_at;
+extern GTY(()) tree gfor_fndecl_os_error;
+extern GTY(()) tree gfor_fndecl_generate_error;
 extern GTY(()) tree gfor_fndecl_set_fpe;
 extern GTY(()) tree gfor_fndecl_set_std;
 extern GTY(()) tree gfor_fndecl_ttynam;

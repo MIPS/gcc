@@ -492,7 +492,7 @@ fd_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
       if (n < 0)
 	return NULL;
 
-      s->physical_offset = where + n;
+      s->physical_offset = m + n;
       s->active += n;
     }
   else
@@ -503,7 +503,7 @@ fd_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
       if (do_read (s, s->buffer + s->active, &n) != 0)
 	return NULL;
 
-      s->physical_offset = where + n;
+      s->physical_offset = m + n;
       s->active += n;
     }
 
@@ -601,10 +601,14 @@ fd_seek (unix_stream * s, gfc_offset offset)
       return SUCCESS;
     }
 
-  s->physical_offset = s->logical_offset = offset;
-  s->active = 0;
+  if (lseek (s->fd, offset, SEEK_SET) >= 0)
+    {
+      s->physical_offset = s->logical_offset = offset;
+      s->active = 0;
+      return SUCCESS;
+    }
 
-  return (lseek (s->fd, offset, SEEK_SET) < 0) ? FAILURE : SUCCESS;
+  return FAILURE;
 }
 
 

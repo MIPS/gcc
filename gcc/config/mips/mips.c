@@ -412,6 +412,7 @@ static rtx mips_expand_builtin_bposge (enum mips_builtin_type, rtx);
 static void mips_encode_section_info (tree, rtx, int);
 static void mips_extra_live_on_entry (bitmap);
 static int mips_mode_rep_extended (enum machine_mode, enum machine_mode);
+static bool mips_offset_within_alignment_p (rtx, HOST_WIDE_INT);
 
 /* Structure to be filled in by compute_frame_size with register
    save masks, and offsets for the current function.  */
@@ -1350,6 +1351,28 @@ mips_classify_symbol (rtx x)
   return SYMBOL_GENERAL;
 }
 
+/* Returns true if OFFSET is within the range [0, ALIGN), where ALIGN
+   is the alignment (in bytes) of SYMBOL_REF X.  */
+
+static bool
+mips_offset_within_alignment_p (rtx x, HOST_WIDE_INT offset)
+{
+  /* If for some reason we can't get the alignment for the
+     symbol, initializing this to one means we won't accept any
+     offset.  */
+  HOST_WIDE_INT align = 1;
+  tree t;
+
+  /* Get the alignment of the symbol we're referring to.  */
+  t = SYMBOL_REF_DECL (x);
+  if (t)
+    align = DECL_ALIGN_UNIT (t);
+
+  if (offset >= 0 && offset < align)
+    return true;
+  return false;
+}
+
 /* Return true if X is a symbolic constant that can be calculated in
    the same way as a bare symbol.  If it is, store the type of the
    symbol in *SYMBOL_TYPE.  */
@@ -1361,7 +1384,10 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
 
   split_const (x, &x, &offset);
   if (UNSPEC_ADDRESS_P (x))
-    *symbol_type = UNSPEC_ADDRESS_TYPE (x);
+    {
+      *symbol_type = UNSPEC_ADDRESS_TYPE (x);
+      x = UNSPEC_ADDRESS (x);
+    }
   else if (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF)
     {
       *symbol_type = mips_classify_symbol (x);
@@ -1416,14 +1442,18 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
 	 to GOT overflow.  */
       return SMALL_INT (offset);
 
+    case SYMBOL_TPREL:
+    case SYMBOL_DTPREL:
+      /* There is no carry between the HI and LO REL relocations, so the
+	 offset is only valid if we know it won't lead to such a carry.  */
+      return mips_offset_within_alignment_p (x, INTVAL (offset));
+
     case SYMBOL_GOT_DISP:
     case SYMBOL_GOTOFF_DISP:
     case SYMBOL_GOTOFF_CALL:
     case SYMBOL_GOTOFF_LOADGP:
     case SYMBOL_TLSGD:
     case SYMBOL_TLSLDM:
-    case SYMBOL_DTPREL:
-    case SYMBOL_TPREL:
     case SYMBOL_GOTTPREL:
     case SYMBOL_TLS:
     case SYMBOL_HALF:
@@ -3528,7 +3558,7 @@ mips_emit_fcc_reload (rtx dest, rtx src, rtx scratch)
     src = gen_rtx_REG (SFmode, true_regnum (src));
 
   fp1 = gen_rtx_REG (SFmode, REGNO (scratch));
-  fp2 = gen_rtx_REG (SFmode, REGNO (scratch) + FP_INC);
+  fp2 = gen_rtx_REG (SFmode, REGNO (scratch) + MAX_FPRS_PER_FMT);
 
   emit_move_insn (copy_rtx (fp1), src);
   emit_move_insn (copy_rtx (fp2), CONST0_RTX (SFmode));
@@ -3872,7 +3902,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (mips_abi != ABI_EABI || !info.fpr_p)
     cum->num_gprs = info.reg_offset + info.reg_words;
   else if (info.reg_words > 0)
-    cum->num_fprs += FP_INC;
+    cum->num_fprs += MAX_FPRS_PER_FMT;
 
   if (info.stack_words > 0)
     cum->stack_words = info.stack_offset + info.stack_words;
@@ -4006,10 +4036,11 @@ function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
   if (!info.fpr_p)
     return gen_rtx_REG (mode, GP_ARG_FIRST + info.reg_offset);
-  else if (info.reg_offset == 1)
-    /* This code handles the special o32 case in which the second word
-       of the argument structure is passed in floating-point registers.  */
-    return gen_rtx_REG (mode, FP_ARG_FIRST + FP_INC);
+  else if (mips_abi == ABI_32 && TARGET_DOUBLE_FLOAT && info.reg_offset > 0)
+    /* In o32, the second argument is always passed in $f14
+       for TARGET_DOUBLE_FLOAT, regardless of whether the
+       first argument was a word or doubleword.  */
+    return gen_rtx_REG (mode, FP_ARG_FIRST + 2);
   else
     return gen_rtx_REG (mode, FP_ARG_FIRST + info.reg_offset);
 }
@@ -4150,7 +4181,8 @@ mips_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
 	  mode = TARGET_SINGLE_FLOAT ? SFmode : DFmode;
 
-	  for (i = local_cum.num_fprs; i < MAX_ARGS_IN_REGISTERS; i += FP_INC)
+	  for (i = local_cum.num_fprs; i < MAX_ARGS_IN_REGISTERS;
+	       i += MAX_FPRS_PER_FMT)
 	    {
 	      rtx ptr, mem;
 
@@ -5098,7 +5130,9 @@ override_options (void)
 	    temp = ((regno & 1) == 0 || size <= UNITS_PER_WORD);
 
 	  else if (FP_REG_P (regno))
-	    temp = ((regno % FP_INC) == 0)
+	    temp = ((((regno % MAX_FPRS_PER_FMT) == 0)
+		     || (MIN_FPRS_PER_FMT == 1
+			 && size <= UNITS_PER_FPREG))
 		    && (((class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT
 			  || class == MODE_VECTOR_FLOAT)
 			 && size <= UNITS_PER_FPVALUE)
@@ -5112,7 +5146,7 @@ override_options (void)
 			    && size >= MIN_UNITS_PER_WORD
 			    && size <= UNITS_PER_FPREG)
 			/* Allow TFmode for CCmode reloads.  */
-			|| (ISA_HAS_8CC && mode == TFmode));
+			|| (ISA_HAS_8CC && mode == TFmode)));
 
           else if (ACC_REG_P (regno))
 	    temp = (INTEGRAL_MODE_P (mode)
@@ -6285,6 +6319,15 @@ mips_save_reg_p (unsigned int regno)
   if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
     return true;
 
+ /* Save both registers in an FPR pair if either one is used.  This is
+    needed for the case when MIN_FPRS_PER_FMT == 1, which allows the odd
+    register to be used without the even register.  */
+ if (FP_REG_P (regno)
+     && MAX_FPRS_PER_FMT == 2 
+     && regs_ever_live[regno + 1]
+     && !call_used_regs[regno + 1])
+   return true;
+
   /* We need to save the old frame pointer before setting up a new one.  */
   if (regno == HARD_FRAME_POINTER_REGNUM && frame_pointer_needed)
     return true;
@@ -6437,15 +6480,15 @@ compute_frame_size (HOST_WIDE_INT size)
     }
 
   /* This loop must iterate over the same space as its companion in
-     save_restore_insns.  */
-  for (regno = (FP_REG_LAST - FP_INC + 1);
+     mips_for_each_saved_reg.  */
+  for (regno = (FP_REG_LAST - MAX_FPRS_PER_FMT + 1);
        regno >= FP_REG_FIRST;
-       regno -= FP_INC)
+       regno -= MAX_FPRS_PER_FMT)
     {
       if (mips_save_reg_p (regno))
 	{
-	  fp_reg_size += FP_INC * UNITS_PER_FPREG;
-	  fmask |= ((1 << FP_INC) - 1) << (regno - FP_REG_FIRST);
+	  fp_reg_size += MAX_FPRS_PER_FMT * UNITS_PER_FPREG;
+	  fmask |= ((1 << MAX_FPRS_PER_FMT) - 1) << (regno - FP_REG_FIRST);
 	}
     }
 
@@ -6467,7 +6510,8 @@ compute_frame_size (HOST_WIDE_INT size)
   cfun->machine->frame.fmask = fmask;
   cfun->machine->frame.initialized = reload_completed;
   cfun->machine->frame.num_gp = gp_reg_size / UNITS_PER_WORD;
-  cfun->machine->frame.num_fp = fp_reg_size / (FP_INC * UNITS_PER_FPREG);
+  cfun->machine->frame.num_fp = (fp_reg_size
+				 / (MAX_FPRS_PER_FMT * UNITS_PER_FPREG));
 
   if (mask)
     {
@@ -6490,7 +6534,7 @@ compute_frame_size (HOST_WIDE_INT size)
 
       offset = (args_size + cprestore_size + var_size
 		+ gp_reg_rounded + fp_reg_size
-		- FP_INC * UNITS_PER_FPREG);
+		- MAX_FPRS_PER_FMT * UNITS_PER_FPREG);
       cfun->machine->frame.fp_sp_offset = offset;
       cfun->machine->frame.fp_save_offset = offset - total_size;
     }
@@ -6593,9 +6637,9 @@ mips_for_each_saved_reg (HOST_WIDE_INT sp_offset, mips_save_restore_fn fn)
      compute_frame_size.  */
   offset = cfun->machine->frame.fp_sp_offset - sp_offset;
   fpr_mode = (TARGET_SINGLE_FLOAT ? SFmode : DFmode);
-  for (regno = (FP_REG_LAST - FP_INC + 1);
+  for (regno = (FP_REG_LAST - MAX_FPRS_PER_FMT + 1);
        regno >= FP_REG_FIRST;
-       regno -= FP_INC)
+       regno -= MAX_FPRS_PER_FMT)
     if (BITSET_P (cfun->machine->frame.fmask, regno - FP_REG_FIRST))
       {
 	mips_save_restore_reg (fpr_mode, regno, offset, fn);
@@ -7507,7 +7551,7 @@ mips_return_fpr_pair (enum machine_mode mode,
 {
   int inc;
 
-  inc = (TARGET_NEWABI ? 2 : FP_INC);
+  inc = (TARGET_NEWABI ? 2 : MAX_FPRS_PER_FMT);
   return gen_rtx_PARALLEL
     (mode,
      gen_rtvec (2,
@@ -7645,7 +7689,7 @@ mips_cannot_change_mode_class (enum machine_mode from,
 	     registers, the first register always holds the low word.
 	     We therefore can't allow FPRs to change between single-word
 	     and multi-word modes.  */
-	  if (FP_INC > 1 && reg_classes_intersect_p (FP_REGS, class))
+	  if (MAX_FPRS_PER_FMT > 1 && reg_classes_intersect_p (FP_REGS, class))
 	    return true;
 	}
       else

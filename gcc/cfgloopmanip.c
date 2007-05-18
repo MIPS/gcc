@@ -41,7 +41,6 @@ static int find_path (edge, basic_block **);
 static void fix_loop_placements (struct loop *, bool *);
 static bool fix_bb_placement (basic_block);
 static void fix_bb_placements (basic_block, bool *);
-static basic_block create_preheader (struct loop *, int);
 static void unloop (struct loop *, bool *);
 
 #define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
@@ -102,7 +101,7 @@ fix_bb_placement (basic_block bb)
 
       act = e->dest->loop_father;
       if (act->header == e->dest)
-	act = act->outer;
+	act = loop_outer (act);
 
       if (flow_loop_nested_p (loop, act))
 	loop = act;
@@ -138,9 +137,9 @@ fix_loop_placement (struct loop *loop)
 	father = act;
     }
 
-  if (father != loop->outer)
+  if (father != loop_outer (loop))
     {
-      for (act = loop->outer; act != father; act = act->outer)
+      for (act = loop_outer (loop); act != father; act = loop_outer (act))
 	act->num_nodes -= loop->num_nodes;
       flow_loop_tree_node_remove (loop);
       flow_loop_tree_node_add (father, loop);
@@ -305,7 +304,7 @@ remove_path (edge e)
      we belong to.  In this case first unloop the loops, then proceed
      normally.   We may assume that e->dest is not a header of any loop,
      as it now has exactly one predecessor.  */
-  while (e->src->loop_father->outer
+  while (loop_outer (e->src->loop_father)
 	 && dominated_by_p (CDI_DOMINATORS,
 			    e->src->loop_father->latch, e->dest))
     unloop (e->src->loop_father, &irred_invalidated);
@@ -399,7 +398,7 @@ static void
 place_new_loop (struct loop *loop)
 {
   loop->num = number_of_loops ();
-  VEC_safe_push (loop_p, heap, current_loops->larray, loop);
+  VEC_safe_push (loop_p, gc, current_loops->larray, loop);
 }
 
 /* Given LOOP structure with filled header and latch, find the body of the
@@ -434,7 +433,7 @@ add_loop (struct loop *loop, struct loop *outer)
 
       /* If we find a direct subloop of OUTER, move it to LOOP.  */
       subloop = bbs[i]->loop_father;
-      if (subloop->outer == outer
+      if (loop_outer (subloop) == outer
 	  && subloop->header == bbs[i])
 	{
 	  flow_loop_tree_node_remove (subloop);
@@ -477,7 +476,7 @@ loopify (edge latch_edge, edge header_edge,
   unsigned n_dom_bbs, i;
   sbitmap seen;
   struct loop *loop = alloc_loop ();
-  struct loop *outer = succ_bb->loop_father->outer;
+  struct loop *outer = loop_outer (succ_bb->loop_father);
   int freq;
   gcov_type cnt;
   edge e;
@@ -592,7 +591,7 @@ unloop (struct loop *loop, bool *irred_invalidated)
     if (body[i]->loop_father == loop)
       {
 	remove_bb_from_loops (body[i]);
-	add_bb_to_loop (body[i], loop->outer);
+	add_bb_to_loop (body[i], loop_outer (loop));
       }
   free(body);
 
@@ -600,7 +599,7 @@ unloop (struct loop *loop, bool *irred_invalidated)
     {
       ploop = loop->inner;
       flow_loop_tree_node_remove (ploop);
-      flow_loop_tree_node_add (loop->outer, ploop);
+      flow_loop_tree_node_add (loop_outer (loop), ploop);
     }
 
   /* Remove the loop and free its data.  */
@@ -627,9 +626,9 @@ fix_loop_placements (struct loop *loop, bool *irred_invalidated)
 {
   struct loop *outer;
 
-  while (loop->outer)
+  while (loop_outer (loop))
     {
-      outer = loop->outer;
+      outer = loop_outer (loop);
       if (!fix_loop_placement (loop))
 	break;
 
@@ -1085,8 +1084,8 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
    MFB_KJ_EDGE to the entry part.  E is the edge for that we should decide
    whether to redirect it.  */
 
-static edge mfb_kj_edge;
-static bool
+edge mfb_kj_edge;
+bool
 mfb_keep_just (edge e)
 {
   return e != mfb_kj_edge;
@@ -1097,7 +1096,7 @@ mfb_keep_just (edge e)
    entry; otherwise we also force preheader block to have only one successor.
    The function also updates dominators.  */
 
-static basic_block
+basic_block
 create_preheader (struct loop *loop, int flags)
 {
   edge e, fallthru;
@@ -1393,7 +1392,7 @@ fix_loop_structure (bitmap changed_bbs)
   FOR_EACH_BB (bb)
     {
       if (changed_bbs)
-	bb->aux = (void *) (size_t) bb->loop_father->depth;
+	bb->aux = (void *) (size_t) loop_depth (bb->loop_father);
       bb->loop_father = current_loops->tree_root;
     }
 
@@ -1416,7 +1415,7 @@ fix_loop_structure (bitmap changed_bbs)
 	{
 	  ploop = loop->inner;
 	  flow_loop_tree_node_remove (ploop);
-	  flow_loop_tree_node_add (loop->outer, ploop);
+	  flow_loop_tree_node_add (loop_outer (loop), ploop);
 	}
 
       /* Remove the loop and free its data.  */
@@ -1439,7 +1438,7 @@ fix_loop_structure (bitmap changed_bbs)
   FOR_EACH_LOOP (li, loop, 0)
     {
       ploop = superloop[loop->num];
-      if (ploop != loop->outer)
+      if (ploop != loop_outer (loop))
 	{
 	  flow_loop_tree_node_remove (loop);
 	  flow_loop_tree_node_add (ploop, loop);
@@ -1452,7 +1451,7 @@ fix_loop_structure (bitmap changed_bbs)
     {
       FOR_EACH_BB (bb)
 	{
-	  if ((void *) (size_t) bb->loop_father->depth != bb->aux)
+	  if ((void *) (size_t) loop_depth (bb->loop_father) != bb->aux)
 	    bitmap_set_bit (changed_bbs, bb->index);
 
     	  bb->aux = NULL;

@@ -73,7 +73,7 @@ static bool deps_seen;
 static bool verbose;
 
 /* If -lang-fortran seen.  */
-static bool lang_fortran = false;
+bool lang_fortran = false;
 
 /* Dependency output file.  */
 static const char *deps_file;
@@ -400,7 +400,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       if (c_dialect_cxx ())
 	warn_sign_compare = value;
       warn_switch = value;
-      warn_strict_aliasing = value;
+      set_Wstrict_aliasing (value);
       warn_address = value;
       warn_strict_overflow = value;
       warn_array_bounds = value;

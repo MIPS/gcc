@@ -26,6 +26,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "gfortran.h"
 #include "arith.h"
 #include "intrinsic.h"
+#include "target-memory.h"
 
 gfc_expr gfc_bad_expr;
 
@@ -2136,14 +2137,15 @@ gfc_simplify_len (gfc_expr *e)
     }
 
   if (e->ts.cl != NULL && e->ts.cl->length != NULL
-      && e->ts.cl->length->expr_type == EXPR_CONSTANT)
+      && e->ts.cl->length->expr_type == EXPR_CONSTANT
+      && e->ts.cl->length->ts.type == BT_INTEGER)
     {
       result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
 				    &e->where);
       mpz_set (result->value.integer, e->ts.cl->length->value.integer);
       return range_check (result, "LEN");
     }
-  
+
   return NULL;
 }
 
@@ -2640,13 +2642,8 @@ gfc_simplify_new_line (gfc_expr *e)
 {
   gfc_expr *result;
 
-  if (e->expr_type != EXPR_CONSTANT)
-    return NULL;
-
   result = gfc_constant_result (BT_CHARACTER, e->ts.kind, &e->where);
-
   result->value.character.string = gfc_getmem (2);
-
   result->value.character.length = 1;
   result->value.character.string[0] = '\n';
   result->value.character.string[1] = '\0';     /* For debugger */
@@ -2919,7 +2916,10 @@ gfc_simplify_repeat (gfc_expr *e, gfc_expr *n)
     return NULL;
 
   if (mpz_sgn (e->ts.cl->length->value.integer) != 0)
-    gcc_assert (gfc_extract_int (n, &ncop) == NULL);
+    {
+      const char *res = gfc_extract_int (n, &ncop);
+      gcc_assert (res == NULL);
+    }
   else
     ncop = 0;
 
@@ -3866,12 +3866,81 @@ gfc_simplify_tiny (gfc_expr *e)
 gfc_expr *
 gfc_simplify_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
 {
-  /* Reference mold and size to suppress warning.  */
-  if (gfc_init_expr && (mold || size))
-    gfc_error ("TRANSFER intrinsic not implemented for initialization at %L",
-	       &source->where);
+  gfc_expr *result;
+  gfc_expr *mold_element;
+  size_t source_size;
+  size_t result_size;
+  size_t result_elt_size;
+  size_t buffer_size;
+  mpz_t tmp;
+  unsigned char *buffer;
 
-  return NULL;
+  if (!gfc_is_constant_expr (source)
+	|| !gfc_is_constant_expr (size))
+    return NULL;
+
+  /* Calculate the size of the source.  */
+  if (source->expr_type == EXPR_ARRAY
+      && gfc_array_size (source, &tmp) == FAILURE)
+    gfc_internal_error ("Failure getting length of a constant array.");
+
+  source_size = gfc_target_expr_size (source);
+
+  /* Create an empty new expression with the appropriate characteristics.  */
+  result = gfc_constant_result (mold->ts.type, mold->ts.kind,
+				&source->where);
+  result->ts = mold->ts;
+
+  mold_element = mold->expr_type == EXPR_ARRAY
+		 ? mold->value.constructor->expr
+		 : mold;
+
+  /* Set result character length, if needed.  Note that this needs to be
+     set even for array expressions, in order to pass this information into 
+     gfc_target_interpret_expr.  */
+  if (result->ts.type == BT_CHARACTER)
+    result->value.character.length = mold_element->value.character.length;
+  
+  /* Set the number of elements in the result, and determine its size.  */
+  result_elt_size = gfc_target_expr_size (mold_element);
+  if (mold->expr_type == EXPR_ARRAY || size)
+    {
+      int result_length;
+
+      result->expr_type = EXPR_ARRAY;
+      result->rank = 1;
+
+      if (size)
+	result_length = (size_t)mpz_get_ui (size->value.integer);
+      else
+	{
+	  result_length = source_size / result_elt_size;
+	  if (result_length * result_elt_size < source_size)
+	    result_length += 1;
+	}
+
+      result->shape = gfc_get_shape (1);
+      mpz_init_set_ui (result->shape[0], result_length);
+
+      result_size = result_length * result_elt_size;
+    }
+  else
+    {
+      result->rank = 0;
+      result_size = result_elt_size;
+    }
+
+  /* Allocate the buffer to store the binary version of the source.  */
+  buffer_size = MAX (source_size, result_size);
+  buffer = (unsigned char*)alloca (buffer_size);
+
+  /* Now write source to the buffer.  */
+  gfc_target_encode_expr (source, buffer, buffer_size);
+
+  /* And read the buffer back into the new expression.  */
+  gfc_target_interpret_expr (buffer, buffer_size, result);
+
+  return result;
 }
 
 

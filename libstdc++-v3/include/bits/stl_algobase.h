@@ -63,7 +63,6 @@
 #define _ALGOBASE_H 1
 
 #include <bits/c++config.h>
-#include <cstring>
 #include <cstddef>
 #include <bits/functexcept.h>
 #include <bits/stl_pair.h>
@@ -348,7 +347,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
         static _Tp*
         copy(const _Tp* __first, const _Tp* __last, _Tp* __result)
         { 
-	  std::memmove(__result, __first, sizeof(_Tp) * (__last - __first));
+	  __builtin_memmove(__result, __first,
+			    sizeof(_Tp) * (__last - __first));
 	  return __result + (__last - __first);
 	}
     };
@@ -464,7 +464,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
         __copy_b(const _Tp* __first, const _Tp* __last, _Tp* __result)
         { 
 	  const ptrdiff_t _Num = __last - __first;
-	  std::memmove(__result - _Num, __first, sizeof(_Tp) * _Num);
+	  __builtin_memmove(__result - _Num, __first, sizeof(_Tp) * _Num);
 	  return __result - _Num;
 	}
     };
@@ -560,15 +560,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // Specialization: for char types we can use memset.
   inline void
   __fill_aux(unsigned char* __first, unsigned char* __last, unsigned char __c)
-  { std::memset(__first, __c, __last - __first); }
+  { __builtin_memset(__first, __c, __last - __first); }
 
   inline void
   __fill_aux(signed char* __first, signed char* __last, signed char __c)
-  { std::memset(__first, static_cast<unsigned char>(__c), __last - __first); }
+  { __builtin_memset(__first, static_cast<unsigned char>(__c),
+		     __last - __first); }
 
   inline void
   __fill_aux(char* __first, char* __last, char __c)
-  { std::memset(__first, static_cast<unsigned char>(__c), __last - __first); }
+  { __builtin_memset(__first, static_cast<unsigned char>(__c),
+		     __last - __first); }
 
   /**
    *  @brief Fills the range [first,last) with copies of value.
@@ -676,72 +678,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 				   __value));
     }
 
-  /**
-   *  @brief Finds the places in ranges which don't match.
-   *  @param  first1  An input iterator.
-   *  @param  last1   An input iterator.
-   *  @param  first2  An input iterator.
-   *  @return   A pair of iterators pointing to the first mismatch.
-   *
-   *  This compares the elements of two ranges using @c == and returns a pair
-   *  of iterators.  The first iterator points into the first range, the
-   *  second iterator points into the second range, and the elements pointed
-   *  to by the iterators are not equal.
-  */
-  template<typename _InputIterator1, typename _InputIterator2>
-    pair<_InputIterator1, _InputIterator2>
-    mismatch(_InputIterator1 __first1, _InputIterator1 __last1,
-	     _InputIterator2 __first2)
-    {
-      // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
-      __glibcxx_function_requires(_EqualOpConcept<
-	    typename iterator_traits<_InputIterator1>::value_type,
-	    typename iterator_traits<_InputIterator2>::value_type>)
-      __glibcxx_requires_valid_range(__first1, __last1);
-
-      while (__first1 != __last1 && *__first1 == *__first2)
-        {
-	  ++__first1;
-	  ++__first2;
-        }
-      return pair<_InputIterator1, _InputIterator2>(__first1, __first2);
-    }
-
-  /**
-   *  @brief Finds the places in ranges which don't match.
-   *  @param  first1  An input iterator.
-   *  @param  last1   An input iterator.
-   *  @param  first2  An input iterator.
-   *  @param  binary_pred  A binary predicate @link s20_3_1_base functor@endlink.
-   *  @return   A pair of iterators pointing to the first mismatch.
-   *
-   *  This compares the elements of two ranges using the binary_pred
-   *  parameter, and returns a pair
-   *  of iterators.  The first iterator points into the first range, the
-   *  second iterator points into the second range, and the elements pointed
-   *  to by the iterators are not equal.
-  */
-  template<typename _InputIterator1, typename _InputIterator2,
-	   typename _BinaryPredicate>
-    pair<_InputIterator1, _InputIterator2>
-    mismatch(_InputIterator1 __first1, _InputIterator1 __last1,
-	     _InputIterator2 __first2, _BinaryPredicate __binary_pred)
-    {
-      // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
-      __glibcxx_requires_valid_range(__first1, __last1);
-
-      while (__first1 != __last1 && bool(__binary_pred(*__first1, *__first2)))
-        {
-	  ++__first1;
-	  ++__first2;
-        }
-      return pair<_InputIterator1, _InputIterator2>(__first1, __first2);
-    }
-
 
   template<bool _BoolType>
     struct __equal
@@ -764,8 +700,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
         static bool
         equal(const _Tp* __first1, const _Tp* __last1, const _Tp* __first2)
         {
-	  return !std::memcmp(__first1, __first2, sizeof(_Tp)
-			      * (__last1 - __first1));
+	  return !__builtin_memcmp(__first1, __first2, sizeof(_Tp)
+				   * (__last1 - __first1));
 	}
     };
 
@@ -931,8 +867,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
     const size_t __len1 = __last1 - __first1;
     const size_t __len2 = __last2 - __first2;
-    const int __result = std::memcmp(__first1, __first2,
-				     std::min(__len1, __len2));
+    const int __result = __builtin_memcmp(__first1, __first2,
+					  std::min(__len1, __len2));
     return __result != 0 ? __result < 0 : __len1 < __len2;
   }
 

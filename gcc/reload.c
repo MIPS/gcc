@@ -88,6 +88,9 @@ a register with any other reload.  */
 
 #define REG_OK_STRICT
 
+/* We do not enable this with ENABLE_CHECKING, since it is awfully slow.  */
+#undef DEBUG_RELOAD
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -1181,7 +1184,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 
   /* If IN appears in OUT, we can't share any input-only reload for IN.  */
   if (in != 0 && out != 0 && MEM_P (out)
-      && (REG_P (in) || MEM_P (in))
+      && (REG_P (in) || MEM_P (in) || GET_CODE (in) == PLUS)
       && reg_overlap_mentioned_for_reload_p (in, XEXP (out, 0)))
     dont_share = 1;
 
@@ -6103,8 +6106,12 @@ subst_reloads (rtx insn)
       rtx reloadreg = rld[r->what].reg_rtx;
       if (reloadreg)
 	{
-#ifdef ENABLE_CHECKING
-	  /* Internal consistency test.  Check that we don't modify
+#ifdef DEBUG_RELOAD
+	  /* This checking takes a very long time on some platforms
+	     causing the gcc.c-torture/compile/limits-fnargs.c test
+	     to time out during testing.  See PR 31850.
+
+	     Internal consistency test.  Check that we don't modify
 	     anything in the equivalence arrays.  Whenever something from
 	     those arrays needs to be reloaded, it must be unshared before
 	     being substituted into; the equivalence must not be modified.
@@ -6126,7 +6133,7 @@ subst_reloads (rtx insn)
 	      CHECK_MODF (reg_equiv_mem);
 #undef CHECK_MODF
 	    }
-#endif /* ENABLE_CHECKING */
+#endif /* DEBUG_RELOAD */
 
 	  /* If we're replacing a LABEL_REF with a register, add a
 	     REG_LABEL note to indicate to flow which label this
@@ -6517,7 +6524,8 @@ reg_overlap_mentioned_for_reload_p (rtx x, rtx in)
       if (REG_P (in))
 	return 0;
       else if (GET_CODE (in) == PLUS)
-	return (reg_overlap_mentioned_for_reload_p (x, XEXP (in, 0))
+	return (rtx_equal_p (x, in)
+		|| reg_overlap_mentioned_for_reload_p (x, XEXP (in, 0))
 		|| reg_overlap_mentioned_for_reload_p (x, XEXP (in, 1)));
       else return (reg_overlap_mentioned_for_reload_p (XEXP (x, 0), in)
 		   || reg_overlap_mentioned_for_reload_p (XEXP (x, 1), in));

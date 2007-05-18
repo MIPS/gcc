@@ -721,12 +721,13 @@ unformatted_read (st_parameter_dt *dtp, bt type,
       p = dest;
       
       /* By now, all complex variables have been split into their
-	 constituent reals.  For types with padding, we only need to
-	 read kind bytes.  We don't care about the contents
-	 of the padding.  If we hit a short record, then sz is
-	 adjusted accordingly, making later reads no-ops.  */
+	 constituent reals.  */
       
-      sz = kind;
+      if (type == BT_REAL || type == BT_COMPLEX)
+	sz = size_from_real_kind (kind);
+      else
+	sz = kind;
+
       for (i=0; i<nelems; i++)
 	{
  	  read_block_direct (dtp, buffer, &sz);
@@ -767,11 +768,13 @@ unformatted_write (st_parameter_dt *dtp, bt type,
       p = source;
 
       /* By now, all complex variables have been split into their
-	 constituent reals.  For types with padding, we only need to
-	 read kind bytes.  We don't care about the contents
-	 of the padding.  */
+	 constituent reals.  */
 
-      sz = kind;
+      if (type == BT_REAL || type == BT_COMPLEX)
+	sz = size_from_real_kind (kind);
+      else
+	sz = kind;
+
       for (i=0; i<nelems; i++)
 	{
 	  reverse_memcpy(buffer, p, size);
@@ -1401,8 +1404,17 @@ transfer_logical (st_parameter_dt *dtp, void *p, int kind)
 void
 transfer_character (st_parameter_dt *dtp, void *p, int len)
 {
+  static char *empty_string[0];
+
   if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
     return;
+
+  /* Strings of zero length can have p == NULL, which confuses the
+     transfer routines into thinking we need more data elements.  To avoid
+     this, we give them a nice pointer.  */
+  if (len == 0 && p == NULL)
+    p = empty_string;
+
   /* Currently we support only 1 byte chars, and the library is a bit
      confused of character kind vs. length, so we kludge it by setting
      kind = length.  */
@@ -1698,6 +1710,9 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
   memset (&dtp->u.p, 0, sizeof (dtp->u.p));
   dtp->u.p.ionml = ionml;
   dtp->u.p.mode = read_flag ? READING : WRITING;
+
+  if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
+    return;
 
   if ((cf & IOPARM_DT_HAS_SIZE) != 0)
     dtp->u.p.size_used = 0;  /* Initialize the count.  */

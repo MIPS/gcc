@@ -807,7 +807,7 @@ static bool
 loop_canon_p (struct loop *loop)
 {
 
-  if (loop->inner || ! loop->outer)
+  if (loop->inner || !loop_outer (loop))
     return false;
 
   if (!single_exit (loop))

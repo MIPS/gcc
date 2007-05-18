@@ -3865,7 +3865,7 @@ tree_verify_flow_info (void)
 	}
     }
 
-  if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
+  if (dom_info_state (CDI_DOMINATORS) >= DOM_NO_FAST_QUERY)
     verify_dominators (CDI_DOMINATORS);
 
   return err;
@@ -4367,7 +4367,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
   if (loop->header == entry->dest)
     {
       copying_header = true;
-      loop->copy = loop->outer;
+      loop->copy = loop_outer (loop);
 
       if (!dominated_by_p (CDI_DOMINATORS, loop->latch, exit->src))
 	return false;
@@ -5375,7 +5375,7 @@ remove_edge_and_dominated_blocks (edge e)
   basic_block bb, dbb;
   bitmap_iterator bi;
 
-  if (!dom_computed[CDI_DOMINATORS])
+  if (!dom_info_available_p (CDI_DOMINATORS))
     {
       remove_edge (e);
       return;
