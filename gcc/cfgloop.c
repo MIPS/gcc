@@ -284,9 +284,6 @@ establish_preds (struct loop *loop, struct loop *father)
   unsigned depth = loop_depth (father) + 1;
   unsigned i;
 
-  /* Remember the current loop depth if it is the largest seen so far.  */
-  cfun->max_loop_depth = MAX (cfun->max_loop_depth, (int) depth);
-
   VEC_truncate (loop_p, loop->superloops, 0);
   VEC_reserve (loop_p, gc, loop->superloops, depth);
   for (i = 0; VEC_iterate (loop_p, father->superloops, i, ploop); i++)
