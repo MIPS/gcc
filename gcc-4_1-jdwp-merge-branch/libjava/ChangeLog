@@ -99,6 +99,249 @@
 	* sources.am: Regenerated.
 	* Makefile.in: Regenerated.
 
+	2007-02-15  Kyle Galloway  <kgallowa@redhat.com>
+	* defineclass.cc (_Jv_ClassReader::read_one_code_attribute):
+	Added LocalVariableTable attribute handling.
+	(_Jv_ClassReader::pool_Utf8_to_char_arr): New method.
+	* jvmti.cc (_Jv_JVMTI_GetLocalVariableTable): New method.
+	* include/java-interp.h: Added local_var_table and 
+	local_var_table_len fields to _Jv_InterpMethod.
+	(_Jv_InterpMethod::get_local_var_table): New method.
+	* testsuite/libjava.jvmti/interp/getlocalvartable.java: New test.
+	* testsuite/libjava.jvmti/interp/getlocalvartable.jar: New test.
+	* testsuite/libjava.jvmti/interp/getlocalvartable.out: Output
+	for new test.
+	* testsuite/libjava.jvmti/interp/getlocalvartable.h: New test.
+	* testsuite/libjava.jvmti/interp/natgetlocalvartable.cc: New test.
+
+	2007-02-15  Kyle Galloway  <kgallowa@redhat.com>
+	* gnu/classpath/jdwp/natVMVirtualMachine (getFrames): Implement.
+
+	2007-02-13  Keith Seitz  <keiths@redhat.com>
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(jdwpBreakpointCB): New function.
+	(jdwpVMInitCB): Define and enable the breakpoint
+	callback.
+
+	2007-02-12  Keith Seitz  <keiths@redhat.com>
+	* jvmti.cc (_Jv_JVMTI_GetStackTrace): Remove cast
+	from jthread to Thread *; it is no longer needed.
+	(_Jv_JVMTI_GetFrameCount): Likewise.
+	Fix small formatting typo.
+
+	2007-02-09  Keith Seitz  <keiths@redhat.com>
+	* gnu/classpath/jdwp/VMVirtualMachine.java
+	(_stepping_threads): New member.
+	* classpath/lib/gnu/classpath/jdwp/VMVirtualMachine.class:
+	Regenerated.
+	* gnu/classpath/jdwp/VMVirtualMachine.h:
+	Regenerated.
+	* gnu/claspath/jdwp/natVMVirtualMachine.cc
+	(get_request_step_filter): New function.
+	(DISABLE_EVENT): New macro.
+	(initialize): Initialize _stepping_threads.
+	(registerEvent): Implement EVENT_SINGLE_STEP.
+	(unregisterEvent): Likewise.
+
+	2007-02-08  Keith Seitz  <keiths@redhat.com>
+	* sources.am: Regenerate.
+	* Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+	* gcj/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+
+	* classpath/lib/javax/management/MBeanServerFactory.class:
+	Regenerate.
+
+	2007-02-08  Kyle Galloway  <kgallowa@redhat.com>
+	* classpath/gnu/classpath/jdwp/processor/
+	StackFrameCommandSet.java (executeGetValues): Pass jlong instead
+	of ByteBuffer.
+	(executeSetValues): Ditto.
+	(executeThisObject): Ditto.
+	* classpath/gnu/classpath/jdwp/processor/
+	StackFrameCommandSet.class: Rebuilt.
+	* classpath/lib/gnu/classpath/jdwp/VMVirtualMachine.class:
+	Rebuilt.
+	* classpath/lib/gnu/classpath/jdwp/VMFrame.class: Rebuilt.
+	* classpath/lib/gnu/classpath/jdwp/exception/
+	InvalidFrameException.java: New file.
+	* gnu/classpath/jdwp/VMFrame.java: Added field for thread of
+	frame.
+	(Constructor): New method.
+	* gnu/classpath/jdwp/VMFrame.h: Regenerated.
+	* gnu/classpath/jdwp/VMVirtualMachine.java
+	(getFrame): Changed ByteBuffer to jlong.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(getFrame): Implement.
+	* gnu/classpath/jdwp/VMVirtualMachine.h: Regenerated.
+
+	2007-02-08  Kyle Galloway  <kgallowa@redhat.com>
+	* include/java-interp.h (_Jv_InterpFrame): obj_ptr field added
+	to hold "this" pointer for frame.
+	(_Jv_InterpFrame::get_this_ptr): New method.
+	* interpret-run.cc: Copy the "this" pointer into obj_ptr.
+
+	2007-02-07  Keith Seitz  <keiths@redhat.com>
+	* include/java-interp.h (_Jv_Frame::depth):
+	New function.
+	* jvmti.cc (_Jv_JVMTI_GetFrameCount): Use _Jv_Frame::depth.
+
+	2007-02-07  Kyle Galloway  <kgallowa@redhat.com>
+	* jvmti.cc (CHECK_FOR_NATIVE_METHOD): New macro.
+	(_Jv_JVMTI_GetMaxLocals): New method.
+	* include/java-interp.h
+	(_Jv_InterpMethod::get_max_locals): New method.
+
+	2007-02-05  Keith Seitz  <keiths@redhat.com>
+	* jvmti.cc (_envListLock): Change type to
+	ReentrantReadWriteLock.
+	(_Jv_JVMTI_DisposeEnvironment): Switch to read/write
+	lock.
+	(check_enabled_event): Likewise.
+	(_Jv_GetJVMTIEnv): Likewise.
+	(_Jv_JVMTI_Init): Likewise.
+	(_Jv_JVMTI_PostEvent): Likewise. 
+
+	2007-02-05  Keith Seitz  <keiths@redhat.com>
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(registerEvent): Implement EVENT_BREAKPOINT.
+	(unregisterEvent): Likewise.
+	(get_request_location): New function.
+
+	2007-02-02  Kyle Galloway  <kgallowa@redhat.com>
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (getFrameCount):
+	Implment.
+
+	2007-01-31  Keith Seitz  <keiths@redhat.com>
+	* include/jvmti-int.h (JVMTI): Declare member "enabled".
+	* jvmti.cc (JVMTI): Add member "enabled".
+	(_Jv_GetJVMTIEnv): Mark JVMTI enabled.
+	* interpret.cc (_Jv_InterpMethod::ncode): Use JVMTI::enabled
+	instead of gnu::classpath::jdwp::Jdwp::isDebugging.
+	(_Jv_CompileMethod): If JVMTI is enabled, use run_debug
+	instead of run to compile the method.
+
+	* interpret-run.cc [DEBUG] (NEXT_INSN): Add JVMTI single step
+	notification.
+
+	2007-01-31  Keith Seitz  <keiths@redhat.com>
+	* testsuite/libjava.jvmti/getmethodname.h: New file.
+	* testsuite/libjava.jvmti/getmethodname.jar: New file.
+
+	2007-01-29  Kyle Galloway  <kgallowa@redhat.com>
+	* include/java-interp.h:  Added _Jv_Frame class and its two
+	subclasses _Jv_InterpFrame and _Jv_NativeFrame.  Also moved
+	_Jv_FrameType from java-stack.h.
+	* include/java-stack.h: Removed _Jv_FrameType.
+	* java/lang/Thread.java: Added frame member to hold new
+	composite frame stack.
+	* java/lang/Thread.h: Regenerated.
+	* java/lang/Thread.class: Rebuilt.
+	* jni.cc (_Jv_JNIMethod::call): Push a frame onto the stack when
+	calling a JNI method.
+	* jvmti.cc (_Jv_JVMTI_GetStackTrace): New Method.
+	(_Jv_JVMTI_GetFrameCount): New method.
+	* stacktrace.cc (UnwindTraceFn): Modified to use new _Jv_Frame
+	classes.
+	* testsuite/libjava.jvmti/interp/getstacktrace.jar: New test.
+	* testsuite/libjava.jvmti/interp/natgetstacktrace.cc: New test.
+	* testsuite/libjava.jvmti/interp/getstacktrace.h: New test.
+	* testsuite/libjava.jvmti/interp/getstacktrace.jar: New test.
+	* testsuite/libjava.jvmti/interp/getstacktrace.out: Output file
+	for test. 
+
+	2007-01-29  Keith Seitz  <keiths@redhat.com>
+	* include/jvmti_md.h (_CLASSPATH_VM_JVMTI_TYPES_DEFINED):
+	Define.
+	[__GCJ_JNI_IMPL__]: Define our own JVMTI types when building
+	gcj. All jvmti object types now are defined to be their
+	corresponding java classes.
+	* jvmti.cc (_Jv_JVMTI_SuspendThread): Remove casting from
+	jthread to Thread*.
+	(_Jv_JVMTI_ResumeThread): Likewise.
+	(_Jv_JVMTI_InterruptThread): Likewise.
+	(_Jv_JVMTI_SetEventNotificationMode): Likewise.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(jdwpClassPrepareCB): Likewise.
+	(jdwpThreadEndCB): Likewise.
+	(jdwpThreadStartCB): Likewise.
+	(jdwpVMInitCB): Likewise.
+ 
+	2007-01-27  Keith Seitz  <keiths@redhat.com>
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(getAllClassMethods): Move error handling to ...
+	(throw_jvmti_error): ... here.
+	(jdwpClassPrepareCB): New function.
+	(jdwpThreadEndCB): New function.
+	(jdwpThreadStartCB): New function.
+	(jdwpVMDeathCB): New function.
+	(jdwpVMInitCB): Define and enable callbacks for
+	ClassPrepare, ThreadEnd, ThreadStart, and VMDeath.
+
+	2007-01-25  Keith Seitz  <keiths@redhat.com>
+	* include/jvmti-int.h (_Jv_GetJDWP_JVMTIEnv): Declare.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(_Jv_GetJDWP_JVMTIEnv): New function.
+	* gnu/classpath/jdwp/natVMMethod.cc (getName): Implement.
+	(getSignature): Implement.
+	(getModifiers): Implement.
+
+	2007-01-25  Keith Seitz  <keiths@redhat.com>
+	* jvmti.cc (_Jv_JVMTI_GetMethodName): New function.
+	(_Jv_JVMTI_Interface): Define GetMethodName.
+	* testsuite/libjava.jvmti/getmethodname.java: New file.
+	* testsuite/libjava.jvmti/natgetmethodname.cc: New file.
+	* testsuite/libjava.jvmti/getmethodname.out: New file. 
+
+	2007-01-24  Kyle Galloway  <kgallowa@redhat.com>
+	* libjava/testsuite/libjava.jvmti/jvmti-interp.exp: New file.
+	* libjava/testsuite/libjava.jvmti/interp: New folder.
+	* libjava/testsuite/lib/libjava.exp (exec_gij): New Method.
+
+	2007-01-24  Keith Seitz  <keiths@redhat.com>
+	* link.cc (_Jv_Linker::wait_for_state): Add JVMTI
+	CLASS_PREPARE notification.
+
+	2007-01-24  Keith Seitz  <keiths@redhat.com>
+	* interpret.cc: Include gnu/gcj/jvmti/Breakpoint.h,
+	gnu/gcj/jvmti/BreakpointManager.h, jvmti.h, and jvmti-int.h
+	* interpret-run.cc: Implement insn_breakpoint.
+
+	2007-01-24  Keith Seitz  <keiths@redhat.com>
+	* prims.cc (_Jv_RunMain): Send JVMTI event notifications
+	for VM_INIT and VM_DEATH instead of the JDWP notifications.
+
+	2007-01-24  Keith Seitz  <keiths@redhat.com>
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(getAllClassMethods): Implement.
+
+	2007-01-22  Keith Seitz  <keiths@redhat.com>
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(getClassMethod): Implement.
+
+	2007-01-22  Keith  Seitz  <keiths@redhat.com>
+	* java/lang/Class.h (_Jv_GetClassStatus): Declare.
+	* java/lang/natClass.cc (_Jv_GetClassStatus): New function.
+	* jvmti.cc (_Jv_JVMTI_GetClassStatus): New function.
+	(_Jv_JVMTI_Interface): Define GetClassStatus.
+
+	2007-01-19  Keith Seitz  <keiths@redhat.com>
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc: Mark unused parameters
+	in methods and reformat.
+
+	* gnu/classpath/jdwp/natVMFrame.cc: Mark unused parameters with
+	MAYBE_UNUSED.
+
+	2007-01-18  Keith Seitz  <keiths@redhat.com>
+	From Macro Trudel <mtrudel@gmx.ch>:
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (jdwpVMInitCB):
+	Use JNICALL.
+
+	2007-01-17  Keith Seitz  <keiths@redhat.com>
+	* java/lang/natThread.cc (finish_): Add JVMTI ThreadEnd notification.
+	(_Jv_NotifyThreadStart): Add JVMTI ThreadStart notification.
+
 2007-05-03  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=237304
