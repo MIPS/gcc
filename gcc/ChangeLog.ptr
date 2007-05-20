@@ -1,3 +1,12 @@
+2007-05-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (sh_va_start): Call make_tree with sizetype
+	and convert its result to a pointer type.  Use POINTER_PLUS_EXPR
+	for the pointer additions and also use size_int for the offsets.
+	(sh_gimplify_va_arg_expr): Use POINTER_PLUS_EXPR for the pointer
+	additions and also use size_int for the offsets.  Perform
+	BIT_AND_EXPR on sizetype arguments.
+
 2007-05-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	(forward_propagate_addr_into_variable_array_index):
