@@ -4095,8 +4095,8 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
       if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
 	  || (target_cmp = comp_target_types (type, rhstype))
 	  || is_opaque_pointer
-	  || (c_common_unsigned_type (mvl)
-	      == c_common_unsigned_type (mvr)))
+	  || (unsigned_type_for (mvl)
+	      == unsigned_type_for (mvr)))
 	{
 	  if (pedantic
 	      && ((VOID_TYPE_P (ttl) && TREE_CODE (ttr) == FUNCTION_TYPE)
@@ -8148,7 +8148,11 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       int none_complex = (code0 != COMPLEX_TYPE && code1 != COMPLEX_TYPE);
 
       if (shorten || common || short_compare)
-	result_type = c_common_type (type0, type1);
+	{
+	  result_type = c_common_type (type0, type1);
+	  if (result_type == error_mark_node)
+	    return error_mark_node;
+	}
 
       /* For certain operations (which identify themselves by shorten != 0)
 	 if both args were extended from the same smaller type,

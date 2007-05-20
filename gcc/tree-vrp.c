@@ -358,7 +358,7 @@ set_value_range_to_varying (value_range_t *vr)
    infinity when we shouldn't.  */
 
 static inline void
-set_value_range_to_value (value_range_t *vr, tree val)
+set_value_range_to_value (value_range_t *vr, tree val, bitmap equiv)
 {
   gcc_assert (is_gimple_min_invariant (val));
   if (is_overflow_infinity (val))
@@ -374,7 +374,7 @@ set_value_range_to_value (value_range_t *vr, tree val)
 	  val = TYPE_MIN_VALUE (TREE_TYPE (val));
 	}
     }
-  set_value_range (vr, VR_RANGE, val, val, NULL);
+  set_value_range (vr, VR_RANGE, val, val, equiv);
 }
 
 /* Set value range VR to a non-negative range of type TYPE.
@@ -418,8 +418,7 @@ set_value_range_to_nonnull (value_range_t *vr, tree type)
 static inline void
 set_value_range_to_null (value_range_t *vr, tree type)
 {
-  tree zero = build_int_cst (type, 0);
-  set_value_range (vr, VR_RANGE, zero, zero, vr->equiv);
+  set_value_range_to_value (vr, build_int_cst (type, 0), vr->equiv);
 }
 
 
@@ -1702,7 +1701,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
   if (TREE_CODE (op0) == SSA_NAME)
     vr0 = *(get_value_range (op0));
   else if (is_gimple_min_invariant (op0))
-    set_value_range_to_value (&vr0, op0);
+    set_value_range_to_value (&vr0, op0, NULL);
   else
     set_value_range_to_varying (&vr0);
 
@@ -1710,7 +1709,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
   if (TREE_CODE (op1) == SSA_NAME)
     vr1 = *(get_value_range (op1));
   else if (is_gimple_min_invariant (op1))
-    set_value_range_to_value (&vr1, op1);
+    set_value_range_to_value (&vr1, op1, NULL);
   else
     set_value_range_to_varying (&vr1);
 
@@ -2107,7 +2106,7 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
   if (TREE_CODE (op0) == SSA_NAME)
     vr0 = *(get_value_range (op0));
   else if (is_gimple_min_invariant (op0))
-    set_value_range_to_value (&vr0, op0);
+    set_value_range_to_value (&vr0, op0, NULL);
   else
     set_value_range_to_varying (&vr0);
 
@@ -2490,7 +2489,7 @@ extract_range_from_cond_expr (value_range_t *vr, tree expr)
   if (TREE_CODE (op0) == SSA_NAME)
     vr0 = *(get_value_range (op0));
   else if (is_gimple_min_invariant (op0))
-    set_value_range_to_value (&vr0, op0);
+    set_value_range_to_value (&vr0, op0, NULL);
   else
     set_value_range_to_varying (&vr0);
 
@@ -2498,7 +2497,7 @@ extract_range_from_cond_expr (value_range_t *vr, tree expr)
   if (TREE_CODE (op1) == SSA_NAME)
     vr1 = *(get_value_range (op1));
   else if (is_gimple_min_invariant (op1))
-    set_value_range_to_value (&vr1, op1);
+    set_value_range_to_value (&vr1, op1, NULL);
   else
     set_value_range_to_varying (&vr1);
 
@@ -2528,7 +2527,10 @@ extract_range_from_comparison (value_range_t *vr, tree expr)
 	 its type may be different from _Bool.  Convert VAL to EXPR's
 	 type.  */
       val = fold_convert (TREE_TYPE (expr), val);
-      set_value_range (vr, VR_RANGE, val, val, vr->equiv);
+      if (is_gimple_min_invariant (val))
+	set_value_range_to_value (vr, val, vr->equiv);
+      else
+	set_value_range (vr, VR_RANGE, val, val, vr->equiv);
     }
   else
     /* The result of a comparison is always true or false.  */
@@ -2562,7 +2564,7 @@ extract_range_from_expr (value_range_t *vr, tree expr)
   else if (TREE_CODE_CLASS (code) == tcc_comparison)
     extract_range_from_comparison (vr, expr);
   else if (is_gimple_min_invariant (expr))
-    set_value_range_to_value (vr, expr);
+    set_value_range_to_value (vr, expr, NULL);
   else
     set_value_range_to_varying (vr);
 
@@ -5865,13 +5867,7 @@ identify_jump_threads (void)
 static void
 finalize_jump_threads (void)
 {
-  bool cfg_altered = false;
-  cfg_altered = thread_through_all_blocks ();
-
-  /* If we threaded jumps, then we need to recompute the dominance
-     information.  */
-  if (cfg_altered)
-    free_dominance_info (CDI_DOMINATORS);
+  thread_through_all_blocks (false);
   VEC_free (tree, heap, stack);
 }
 
@@ -5990,21 +5986,18 @@ vrp_finalize (void)
 static unsigned int
 execute_vrp (void)
 {
-  insert_range_assertions ();
-
-  loop_optimizer_init (LOOPS_NORMAL);
+  loop_optimizer_init (LOOPS_NORMAL | LOOPS_HAVE_RECORDED_EXITS);
   if (current_loops)
-    scev_initialize ();
+    {
+      rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
+      scev_initialize ();
+    }
+
+  insert_range_assertions ();
 
   vrp_initialize ();
   ssa_propagate (vrp_visit_stmt, vrp_visit_phi_node);
   vrp_finalize ();
-
-  if (current_loops)
-    {
-      scev_finalize ();
-      loop_optimizer_finalize ();
-    }
 
   /* ASSERT_EXPRs must be removed before finalizing jump threads
      as finalizing jump threads calls the CFG cleanup code which
@@ -6019,6 +6012,12 @@ execute_vrp (void)
   update_ssa (TODO_update_ssa);
 
   finalize_jump_threads ();
+  if (current_loops)
+    {
+      scev_finalize ();
+      loop_optimizer_finalize ();
+    }
+
   return 0;
 }
 
