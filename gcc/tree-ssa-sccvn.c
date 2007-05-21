@@ -79,9 +79,9 @@ typedef struct vn_tables_s
 
 typedef struct vn_binary_op_s
 {
+  enum tree_code opcode;
   tree type;
   tree op0;
-  enum tree_code opcode;
   tree op1;
   hashval_t hashcode;
   tree result;
@@ -90,9 +90,9 @@ typedef struct vn_binary_op_s
 
 typedef struct vn_unary_op_s
 {
+  enum tree_code opcode;
   tree type;
   tree op0;
-  enum tree_code opcode;
   hashval_t hashcode;
   tree result;
 } *vn_unary_op_t;
@@ -519,10 +519,10 @@ vn_unary_op_insert (tree op, tree result)
   vn_unary_op_t vuo1 = (vn_unary_op_t) pool_alloc (current_info->unary_op_pool);
 
   vuo1->opcode = TREE_CODE (op);
-  vuo1->type == TREE_TYPE (op);
+  vuo1->type = TREE_TYPE (op);
   vuo1->op0 = TREE_OPERAND (op, 0);
   vuo1->result = result;
-
+  
   if (TREE_CODE (vuo1->op0) == SSA_NAME)
     vuo1->op0 = SSA_VAL (vuo1->op0);
 
@@ -786,8 +786,15 @@ static inline bool
 set_ssa_val_to (tree from, tree to)
 {
   gcc_assert (to != NULL && is_gimple_reg (from));
-
-/*   gcc_assert (TREE_CODE (to) == SSA_NAME || is_gimple_min_invariant (to));  */
+  /* Make sure we don't create chains of copies, so that we get the
+  best value numbering.  visit_copy has code to make sure this doesn't
+  happen, we are doing this here to assert that nothing else breaks
+  this.  */
+  gcc_assert (TREE_CODE (to) != SSA_NAME
+	      || TREE_CODE (SSA_VAL (to)) != SSA_NAME
+	      || SSA_VAL (to) == to
+	      || to == from);
+  gcc_assert (TREE_CODE (to) == SSA_NAME || is_gimple_min_invariant (to));
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -845,8 +852,11 @@ defs_to_varying (tree stmt)
 static bool
 visit_copy (tree lhs, tree rhs)
 {
-  if (SSA_VAL (rhs) != rhs)
-    return set_ssa_val_to (lhs, SSA_VAL (rhs));
+
+  /* Follow chains of copies to their destination.  */
+  while (SSA_VAL (rhs) != rhs && TREE_CODE (SSA_VAL (rhs)) == SSA_NAME)
+    rhs = SSA_VAL (rhs);
+
   return set_ssa_val_to (lhs, rhs);
 }
 

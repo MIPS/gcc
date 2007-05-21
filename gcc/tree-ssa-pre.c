@@ -3340,6 +3340,7 @@ compute_avail (void)
   basic_block *worklist;
   size_t sp = 0;
   tree param;
+
   /* For arguments with default definitions, we pretend they are
      defined in the entry block.  */
   for (param = DECL_ARGUMENTS (current_function_decl);
@@ -3404,11 +3405,25 @@ compute_avail (void)
       /* Generate values for PHI nodes.  */
       for (phi = phi_nodes (block); phi; phi = PHI_CHAIN (phi))
 	{
+	  tree result = PHI_RESULT (phi);
 	  /* We have no need for virtual phis, as they don't represent
 	     actual computations.  */
-	  if (is_gimple_reg (PHI_RESULT (phi)))
+	  if (is_gimple_reg (result))
 	    {
-	      add_to_sets (PHI_RESULT (phi), PHI_RESULT (phi), NULL,
+	      tree val = result;
+	      if (is_gimple_min_invariant (VN_INFO (result)->valnum))
+		{
+		  if (dump_file && (dump_flags & TDF_DETAILS)) 
+		    {
+		      fprintf (dump_file, "SCCVN says ");
+		      print_generic_expr (dump_file, result, 0);
+		      fprintf (dump_file, "value numbers to ");
+		      print_generic_stmt (dump_file, VN_INFO (result)->valnum,
+					  0);
+		    }
+		  val = VN_INFO (result)->valnum;
+		}
+	      add_to_sets (PHI_RESULT (phi), val, NULL,
 			   PHI_GEN (block), AVAIL_OUT (block));
 	    }
 	}
@@ -3425,7 +3440,7 @@ compute_avail (void)
 	  ann = stmt_ann (stmt);
 
 	  ann->uid = stmt_uid++;
-
+	  
 	  /* For regular value numbering, we are only interested in
 	     assignments of the form X_i = EXPR, where EXPR represents
 	     an "interesting" computation, it has no volatile operands
@@ -3440,8 +3455,23 @@ compute_avail (void)
 	      stmt = TREE_OPERAND (stmt, 0);
 	      if (stmt && TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
 		{
-		  lhs  = GIMPLE_STMT_OPERAND (stmt, 0);
+		  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
 		  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+		  if (TREE_CODE (lhs) == SSA_NAME
+		      && is_gimple_min_invariant (VN_INFO (lhs)->valnum))
+		    {
+		      if (dump_file && (dump_flags & TDF_DETAILS)) 
+			{
+			  fprintf (dump_file, "SCCVN says ");
+			  print_generic_expr (dump_file, lhs, 0);
+			  fprintf (dump_file, " value numbers to ");
+			  print_generic_stmt (dump_file, VN_INFO (lhs)->valnum,
+					      0);
+			}
+		      vn_add (lhs, VN_INFO (lhs)->valnum);
+		      continue;
+		    }
+  
 		  if (TREE_CODE (rhs) == SSA_NAME
 		      && !is_undefined_value (rhs))
 		    bitmap_value_insert_into_set (EXP_GEN (block), rhs);
@@ -3461,7 +3491,21 @@ compute_avail (void)
 	    {
 	      tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
 	      tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
-
+	      
+	      if (TREE_CODE (lhs) == SSA_NAME
+		  && is_gimple_min_invariant (VN_INFO (lhs)->valnum))
+		{
+		  if (dump_file && (dump_flags & TDF_DETAILS)) 
+		    {
+		      fprintf (dump_file, "SCCVN says ");
+		      print_generic_expr (dump_file, lhs, 0);
+		      fprintf (dump_file, " value numbers to ");
+		      print_generic_stmt (dump_file, VN_INFO (lhs)->valnum,
+					  0);
+		    }
+		  vn_add (lhs, VN_INFO (lhs)->valnum);
+		  continue;
+		}
 	      /* Try to look through loads.  */
 	      if (TREE_CODE (lhs) == SSA_NAME
 		  && !ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_USES)
