@@ -241,6 +241,7 @@ con_node add_result_node (con_graph cg, tree id);
 
 /* Get the node with the specified id from cg */
 con_node get_existing_node (con_graph cg, tree id);
+con_node existing_node (con_graph cg, tree id);
 
 /* Get the node with the specified id from cg, or add it if it doesnt
  * exist */
@@ -371,7 +372,10 @@ bool in_maps_to_obj (con_node source, con_node target);
 void add_to_maps_to_obj (con_node source, con_node target);
 void update_escape_state (con_node source, con_node target);
 void serialize_con_graph (con_graph);
+
 con_graph deserialize_con_graph (tree);
+const char* get_serialized_filename (tree);
+const char* get_cg_function_name (tree function);
 
 void d (con_node node);
 void l (con_graph cg);

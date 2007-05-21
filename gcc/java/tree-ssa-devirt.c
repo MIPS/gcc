@@ -379,8 +379,8 @@ replace_call (tree *stmt, tree method, devirt_type_t *vtype)
       /* For an interface method, we can only reduce if the merge type
 	 we've found actually implements the interface.  */
       if (vtype->lower_bound
-	  && can_widen_reference_to (vtype->lower_bound,
-				     TYPE_NAME (DECL_CONTEXT (method))))
+	  && can_widen_reference_to (TREE_TYPE (vtype->lower_bound),
+				     DECL_CONTEXT (method)))
 	{
 	  /* FIXME: for now we don't handle these.  */
 	  /* it would be fairly simple though... */
@@ -622,5 +622,6 @@ init_gcj_devirt (void)
     p = &((*p)->next);
   *p = &pass_gcj_devirtualize;
   pass_gcj_devirtualize.next = next;
+
   register_dump_files (&pass_gcj_devirtualize, true, 0);
 }

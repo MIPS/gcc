@@ -39,6 +39,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "except.h"
 #include "congraph.h"
 #include "java/java-tree.h"
+#include "java/ipa-stack-allocate.h"
 
 //#define DUMP_BB_GRAPHS
 /*
@@ -47,19 +48,23 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
  * TODO you must propagate before you bypass
  */
 
-void init_gcj_stack_allocate (void);
-void devirt (void);
-void gcj_invariants (void);
-void register_dump_files (struct tree_opt_pass*, bool, int);
-
-static bool ea_interprocedural;
-static bool ea_flow_sensitive;
-
 static int iteration_count;
 static bool current_block_is_final;
+/* Stores the connection graphs for basic blocks, indexed by basic block. */
+static con_graph* bb_graphs;
 
-void xprintf (const char* format_string, ...);
+bool ea_flow_sensitive;
+bool ea_interprocedural;
+bool ea_field_sensitive;
+bool ea_stack_allocate;
+bool ea_instrument;
+bool ea_necessary;
+bool ea_offline_devirt;
 
+
+/* -------------------------------------------------------------*
+ *		 general use function here			*
+ * -------------------------------------------------------------*/
 __attribute__((__format__(__printf__, 1, 2))) void xprintf (const char* format_string, ...)
 {
   if (dump_file == NULL)
@@ -72,12 +77,20 @@ __attribute__((__format__(__printf__, 1, 2))) void xprintf (const char* format_s
   va_end(argp);
 }
 
+void
+setup_flag_ipa_stack_allocate (void)
+{
+  ea_stack_allocate = (flag_ipa_stack_allocate & 1);
+  ea_flow_sensitive = (flag_ipa_stack_allocate & 2);
+  ea_interprocedural = (flag_ipa_stack_allocate & 4);
+  ea_field_sensitive = (flag_ipa_stack_allocate & 8);
+  ea_instrument = (flag_ipa_stack_allocate & 16);
+  ea_necessary = (flag_ipa_stack_allocate & 32);
+  // 64 is -DPRINT_ALLOCATION_INFO
+  ea_offline_devirt = (flag_ipa_stack_allocate & 128);
+}
 
-/* -------------------------------------------------------------*
- *		 general use function here			*
- * -------------------------------------------------------------*/
-
-static tree
+tree
 LHS (tree stmt)
 {
   tree result; 
@@ -90,7 +103,7 @@ LHS (tree stmt)
   return result;
 }
 
-static tree
+tree
 RHS (tree stmt)
 {
   tree result; 
@@ -111,12 +124,16 @@ has_pointer_type (tree stmt)
   if (GIMPLE_STMT_P (stmt))
     return has_pointer_type (GIMPLE_STMT_OPERAND (stmt, 0));
 
-  /* TODO arrays of ints should be dealt with, no? */
   tree type = TREE_TYPE (stmt);
   if (type && TREE_CODE (type) == ARRAY_TYPE)
-    return has_pointer_type (TREE_TYPE (stmt));
+    return true;
 
-  return POINTER_TYPE_P (TREE_TYPE (stmt));
+  // Not interested in pointers to booleans and such
+  return POINTER_TYPE_P (type) 
+    && (TREE_CODE (TREE_TYPE (type)) == RECORD_TYPE
+	|| VOID_TYPE_P (TREE_TYPE (type)));
+     
+
 }
 
 void
@@ -174,13 +191,42 @@ is_null (tree rhs)
     && TREE_INT_CST_LOW (rhs) == 0;
 }
 
-static bool 
-is_rhs (tree rhs)
+// Returns VAR if it represents a varaible we want to add to the graph, else returns NULL
+static tree
+get_var (con_graph cg, tree var)
 {
-  return SSA_VAR_P (rhs) || is_null (rhs);
+ if (!(SSA_VAR_P (var) 
+       || is_null (var)
+       || TREE_CODE (var) == ADDR_EXPR
+       || TREE_CODE (var) == INDIRECT_REF)
+      && has_pointer_type (var))
+    return NULL;
+
+  // check that addr_exprs are added
+  tree addr_expr = var; // keep the outer one as VAR
+  while (TREE_CODE (addr_expr) == ADDR_EXPR)
+    {
+      tree inner = LHS (var);
+      con_node inner_node = existing_node (cg, inner);
+      con_node addr_node = existing_node (cg, addr_expr);
+      if (get_edge (addr_node, inner_node) == NULL)
+	add_edge (addr_node, inner_node);
+      addr_expr = inner;
+    }
+
+  // same, except with indirect ref instead
+  if (TREE_CODE (var) == INDIRECT_REF)
+    {
+      tree inner = LHS (var);
+      con_node inner_node = existing_node (cg, inner);
+      con_node indirect_node = existing_node (cg, var);
+      if (get_edge (indirect_node, inner_node) == NULL)
+	add_edge (indirect_node, inner_node);
+    }
+
+  return var;
 }
 
-bool is_global (tree);
 
 bool
 is_global (tree var)
@@ -190,9 +236,10 @@ is_global (tree var)
   if (TREE_CODE (var) == SSA_NAME)
     return false;
 
-  if (TREE_CODE (var) == ADDR_EXPR
-    && TREE_CODE (LHS (var)) == FUNCTION_DECL
-    && METHOD_STATIC (LHS (var)))
+  if (TREE_CODE (var) == ADDR_EXPR)
+    return is_global (LHS (var));
+
+  if (TREE_CODE (var) == INDIRECT_REF)
     return true;
 
   if (TREE_CODE (var) == EXC_PTR_EXPR)
@@ -200,6 +247,9 @@ is_global (tree var)
 
   if (TREE_CODE (var) == INTEGER_CST)
     return false;
+
+  if (TREE_CODE (var) == LABEL_DECL)
+    return true;
 
   if (FIELD_STATIC (var))
     return true;
@@ -246,7 +296,7 @@ update_caller_nodes (con_graph caller, con_graph callee, tree call_id)
   while (parameters)
     {
       gcc_assert (arguments);
-      tree argument = TREE_VALUE (arguments);
+      tree argument = get_var (caller, TREE_VALUE (arguments));
       if (has_pointer_type (parameters))
 	{
 	  gcc_assert (has_pointer_type (argument));
@@ -327,13 +377,13 @@ update_caller_nodes (con_graph caller, con_graph callee, tree call_id)
  * extracting trees from statements and calling insertions	*
  * -------------------------------------------------------------*/
 static void
-do_assignment (con_node p, con_node q)
+do_assignment (con_node p, con_node q, bool killing)
 {
   gcc_assert (p && q);
   gcc_assert (p->type != RETURN_NODE && q->type != RETURN_NODE);
 
   /* Is it a static field? */
-  if (ea_flow_sensitive && !is_global (p->id))
+  if (ea_flow_sensitive && !is_global (p->id) && killing)
     {
       /* if theres no outgoing edges from p, this isnt really a killing
        * def, but it does change the graph */
@@ -355,14 +405,14 @@ do_assignment (con_node p, con_node q)
 }
 
 static bool
-is_return_stmt (tree stmt, tree* result_decl, tree* q_name)
+is_return_stmt (con_graph cg, tree stmt, tree* result_decl, tree* q_name)
 {
   return TREE_CODE (stmt) == RETURN_EXPR
     && (stmt = TREE_OPERAND (stmt, 0))
     && GIMPLE_STMT_P (stmt)
     && has_pointer_type (stmt)
-    && (*result_decl = LHS (stmt))
-    && (*q_name = RHS (stmt));
+    && (*result_decl = get_var (cg, LHS (stmt)))
+    && (*q_name = get_var (cg, RHS (stmt)));
 }
 
 static tree
@@ -451,7 +501,7 @@ do_memory_allocation (con_graph cg, tree p_name, tree obj_name, tree type)
     }
   else { /* On a second iteration, this can come from a backedge */ }
 
-  do_assignment (p, obj_node);
+  do_assignment (p, obj_node, true);
 }
 
 
@@ -463,38 +513,6 @@ do_global_memory_allocation (con_graph cg, tree p_name, tree obj_name, tree type
   con_node object = get_existing_node (cg, obj_name);
   object->escape = EA_GLOBAL_ESCAPE;
 }
-
-#if 0
-static bool
-check_indirect_goto (con_graph cg, tree modify_stmt)
-{
-  /* make p global */
-  /* p = &*label
-   * modify_stmt
-   *   var_decl - p
-   *   addr_expr
-   *     label_decl
-   */
-  tree p_name, addr_expr;
-  con_node p;
-
-  if (!(GIMPLE_STMT_P (modify_stmt) 
-    && has_pointer_type (modify_stmt)
-    && SSA_VAR_P (p_name = LHS (modify_stmt))
-    && ((TREE_CODE (addr_expr = RHS (modify_stmt)) == ADDR_EXPR) 
-    && TREE_CODE (LHS (addr_expr)) == LABEL_DECL)))
-    {
-      return false;
-    }
-
-
-  p = get_existing_node (cg, p_name);
-  p->escape = EA_GLOBAL_ESCAPE;
-
-  gcc_assert (p->next_link == NULL);
-  return true;
-}
-#endif
 
 /* This array is a global array, referring probably to a string pool. Make
  * it global so that the phantom object to which it refers is also made
@@ -528,20 +546,44 @@ is_reference_cast (con_graph cg, tree stmt, tree* p_name, tree* q_name)
   return GIMPLE_STMT_P (stmt)
 	&& has_pointer_type (stmt) 
 	&& is_gimple_cast (RHS (stmt))
-	&& SSA_VAR_P (*p_name = LHS (stmt)) 
-	&& SSA_VAR_P (*q_name = LHS (RHS (stmt)))
-	&& get_existing_node (cg, (*q_name)); /* We can end up casting from
-						vtable offsets, which we
-						dont add nodes for */
+	&& (*p_name = get_var (cg, LHS (stmt)))
+	&& (*q_name = get_var (cg, LHS (RHS (stmt))));
 }
 
+#if 0
+//shouldnt need with get_var to extract the var from the addr_expr
 static bool
-is_reference_copy (tree stmt, tree* p_name, tree* q_name)
+is_address_copy (tree stmt, tree* p_name, tree* q_name)
+{
+  tree addr_expr;
+  return GIMPLE_STMT_P (stmt)
+	&& has_pointer_type (stmt) 
+	&& TREE_CODE (addr_expr = RHS (stmt)) == ADDR_EXPR
+	&& SSA_VAR_P (*p_name = LHS (stmt)) 
+	&& SSA_VAR_P (*q_name = LHS (addr_expr));
+}
+#endif
+
+static bool
+is_reference_copy (con_graph cg, tree stmt, tree* p_name, tree* q_name)
 {
   return (GIMPLE_STMT_P (stmt) 
 	&& has_pointer_type (stmt)
+	&& (*p_name = get_var (cg, LHS (stmt))) 
+	&& (*q_name = get_var (cg, RHS (stmt))));
+}
+
+// used in (x == null && y = null)
+static bool
+is_bitwise_copy (con_graph cg, tree stmt, tree* p_name, tree* q_name, tree* r_name)
+{
+  tree bitwise_ior;
+  return (GIMPLE_STMT_P (stmt) 
+	&& has_pointer_type (stmt)
 	&& SSA_VAR_P (*p_name = LHS (stmt)) 
-	&& is_rhs (*q_name = RHS (stmt)));
+	&& TREE_CODE (bitwise_ior = RHS (stmt)) == BIT_IOR_EXPR
+	&& (*q_name = get_var (cg, LHS (bitwise_ior)))
+	&& (*r_name = get_var (cg, RHS (bitwise_ior))));
 }
 
 static void
@@ -549,6 +591,33 @@ do_reference_copy (con_graph cg, tree p_name, tree q_name)
 {
   con_node p = get_existing_node (cg, p_name);
   con_node q = get_existing_node (cg, q_name);
+  if (!q)
+    {
+      if (is_null (q_name))
+	q = add_null_node (cg, q_name);
+      else if (is_global (q_name))
+	q = add_global_node (cg, q_name);
+      else 
+	q = add_local_node (cg, q_name);
+    }
+  gcc_assert (q);
+
+  xprintf ("New reference (copy)\n");
+  if (p) 
+    do_assignment (p, q, true);
+  else
+    {
+      p = add_local_node (cg, p_name);
+      add_edge (p, q);
+    }
+}
+
+static void
+do_bitwise_copy (con_graph cg, tree p_name, tree q_name, tree r_name)
+{
+  con_node p = get_existing_node (cg, p_name);
+  con_node q = get_existing_node (cg, q_name);
+  con_node r = get_existing_node (cg, r_name);
   if (!q)
     {
       if (is_null (q_name))
@@ -561,14 +630,28 @@ do_reference_copy (con_graph cg, tree p_name, tree q_name)
     }
   gcc_assert (q);
 
+  if (!r)
+    {
+      if (is_null (r_name))
+	r = add_null_node (cg, r_name);
+      else
+	{
+	  gcc_assert (is_global (r_name));
+	  r = add_global_node (cg, r_name);
+	}
+    }
+  gcc_assert (r);
+
   xprintf ("New reference (copy)\n");
   if (p) 
-    do_assignment (p, q);
+    do_assignment (p, q, true);
   else
     {
       p = add_local_node (cg, p_name);
       add_edge (p, q);
     }
+
+  add_edge (p, r);
 }
 
 static void
@@ -578,7 +661,7 @@ do_assignment_from_global_array (con_graph cg, tree p_name, tree q_name)
   con_node q = get_existing_node (cg, q_name);
   gcc_assert (q);
   if (p)
-    do_assignment (p, q);
+    do_assignment (p, q, true);
   else
     {
       p = add_local_node (cg, p_name);
@@ -595,6 +678,62 @@ do_return_stmt (con_graph cg, tree result_decl, tree q_name)
   if (!p) p = add_local_node (cg, result_decl);
   do_reference_copy (cg, result_decl, q_name);
   add_edge (cg->return_node, p);
+}
+
+static bool
+is_virtual_function_call (tree stmt, tree* function, tree* arguments, tree* return_value, tree* call_id)
+{
+  tree obj_type_ref;
+  if (!(GIMPLE_STMT_P (stmt) 
+      && has_pointer_type (stmt)
+      && SSA_VAR_P (LHS (stmt))
+      && TREE_CODE (obj_type_ref = RHS (stmt)) == OBJ_TYPE_REF))
+    return false;
+
+  // the obj type ref only holds the function, and not the arguments or
+  // the return value. Those are contained in the indirect function call.
+  *function = OBJ_TYPE_REF_TOKEN (RHS (stmt));
+ 
+  /* Follow the returned variable through the cast to find the indirect
+   * function call */
+  tree var = LHS (stmt);
+
+  imm_use_iterator iter;
+  use_operand_p use_p;
+  tree indirect_function_var;
+  FOR_EACH_IMM_USE_FAST (use_p, iter, var)
+    {
+      indirect_function_var = USE_STMT (use_p);
+    }
+
+  tree casted_var = GIMPLE_STMT_OPERAND (indirect_function_var, 0);
+  gcc_assert (TREE_CODE (casted_var) == SSA_NAME);
+
+  /* Find the indirect function call */
+  tree indirect_call;
+  FOR_EACH_IMM_USE_FAST (use_p, iter, casted_var)
+    {
+      indirect_call = USE_STMT (use_p);
+    }
+  tree call_expr;
+  if (TREE_CODE (indirect_call) == CALL_EXPR)
+    {
+      // this is a call expr with NO return value
+      call_expr = indirect_call;
+      *return_value = NULL;
+    }
+  else
+    {
+      gcc_assert (TREE_CODE (RHS (indirect_call)) == CALL_EXPR);
+      // this is a call expr with a return value
+      call_expr = RHS (indirect_call);
+      *return_value = LHS (indirect_call);
+    }
+
+  // indirect function calls cant have null arguments
+  *arguments = RHS (call_expr);
+  *call_id = call_expr;
+  return true;
 }
 
 static bool
@@ -657,9 +796,6 @@ is_throw (tree stmt, tree* p_name)
     && SSA_VAR_P (*p_name = TREE_VALUE (arguments));
 }
 
-/* Stores the connection graphs for basic blocks, indexed by basic block. */
-static con_graph* bb_graphs;
-
 /* This probably isnt right */
 static void
 do_throw (con_graph cg, tree p_name)
@@ -710,6 +846,7 @@ is_special_function_call (tree stmt)
   return false;
 }
 
+/*
 static void
 do_clone (con_graph cg, tree p_name, tree q_name, tree phantom_id)
 {
@@ -745,12 +882,15 @@ is_clonable (tree type)
   return inherits_from_p (cloneable, type) 
     || interface_of_p (type, cloneable);
 }
+*/
+
 
 static void
-do_function_call (con_graph cg, tree function, tree arguments, tree return_value, tree call_id)
+do_function_call (con_graph cg, tree function, tree arguments, tree return_value, tree call_id, bool virtual)
 {
   /* Check the function doesnt belong to java.lang.Object */
   /* TODO move these into the special category */
+#if 0  
   if (DECL_CONTEXT (function) == object_type_node)
     {
       /* Object () does nothing, and clone () causes an exception to be
@@ -817,6 +957,7 @@ do_function_call (con_graph cg, tree function, tree arguments, tree return_value
 
       return;
     }
+#endif
 
   if (return_value)
     {
@@ -824,35 +965,72 @@ do_function_call (con_graph cg, tree function, tree arguments, tree return_value
 	add_local_node (cg, return_value);
     }
 
-  /* update caller nodes for the constructors (at a minimum) */
-  /* TODO do this for other function calls */
-  con_graph callee_cg = get_cg_for_function (function);
-  if (callee_cg)
+  if (ea_interprocedural || is_function_constructor (function))
     {
-      if (ea_interprocedural || is_function_constructor (function))
+      /* update caller nodes for the constructors (at a minimum) */
+      bool conservative = false;
+      if (!virtual)
 	{
-	  xprintf ("Updating graph with callee graph\n");
-	  update_caller_nodes (cg, callee_cg, get_call_expr_in (call_id));
-	}
-    }
-  else
-    {
-      xprintf ("MISSED OPPORTUNITY: No callee graph\n");
-      /* Make all the nodes global escape */
-      tree argument_list = arguments;
-      while (argument_list)
-	{
-	  tree argument = TREE_VALUE (argument_list);
-	  if (TREE_CODE (argument) == ADDR_EXPR)
-	    argument = LHS (argument);
-
-	  if (has_pointer_type (argument))
+	  con_graph callee_cg = deserialize_con_graph (function);
+	  if (callee_cg == NULL)
+	    conservative = true;
+	  else
 	    {
-	      con_node arg_node = get_existing_node (cg, argument);
-	      if (arg_node)
-		arg_node->escape = EA_GLOBAL_ESCAPE;
+	      xprintf ("Updating graph with callee graph\n");
+	      update_caller_nodes (cg, callee_cg, get_call_expr_in (call_id));
 	    }
-	  argument_list = TREE_CHAIN (argument_list);
+	}
+      else
+	{
+	  // get a list of all callee functions
+	  submethod_list s 
+	    = get_submethod_list (DECL_ASSEMBLER_NAME (function),
+				  DECL_NAME (TYPE_NAME (TREE_TYPE
+							(TREE_TYPE
+							 (TREE_VALUE
+							  (arguments))))));
+	  if (s == NULL)
+	    conservative = true;
+	  else
+	    {
+
+	      // find the graphs
+	      tree name;
+	      int i;
+	      for (i = 0; VEC_iterate (tree, s->submethod_names, i, name); 
+		   i++)
+		{
+		  con_graph callee_cg = deserialize_con_graph (name);
+		  if (callee_cg == NULL)
+		    {
+		      conservative = true;
+		      break;
+		    }
+
+		  xprintf ("Updating graph with callee graph: %s\n", 
+			   IDENTIFIER_POINTER (name));
+		  update_caller_nodes (cg, callee_cg, 
+				       get_call_expr_in (call_id));
+		}
+	    }
+	}
+
+      if (conservative)
+	{
+	  xprintf ("MISSED OPPORTUNITY: No callee graph\n");
+	  /* Make all the nodes global escape */
+	  tree argument_list = arguments;
+	  while (argument_list)
+	    {
+	      tree argument = get_var (cg, TREE_VALUE (argument_list));
+	      if (argument)
+		{
+		  con_node arg_node = get_existing_node (cg, argument);
+		  if (arg_node)
+		    arg_node->escape = EA_GLOBAL_ESCAPE;
+		}
+	      argument_list = TREE_CHAIN (argument_list);
+	    }
 	}
     }
 }
@@ -864,8 +1042,7 @@ is_field_ref (tree stmt, tree* ref_name, tree* f_name)
   return (TREE_CODE (stmt) == COMPONENT_REF
 	  && (indirect_ref = LHS (stmt))
 	  && TREE_CODE (indirect_ref) == INDIRECT_REF
-	  && (*ref_name = LHS (indirect_ref))
-	  && SSA_VAR_P (*ref_name)
+	  && (*ref_name = get_var (NULL, LHS (indirect_ref)))
 	  && (*f_name = RHS (stmt))
 	  && (TREE_CODE (*f_name) == FIELD_DECL));
 }
@@ -912,7 +1089,7 @@ do_assignment_to_exception_object (con_graph cg, tree p_name, tree q_name)
   con_node q = get_existing_node (cg, q_name);
   gcc_assert (q); /* This should be the def of p */
 
-  do_assignment (p, q);
+  do_assignment (p, q, true);
 }
 
 static void
@@ -922,12 +1099,12 @@ do_assignment_from_exception_object (con_graph cg, tree p_name, tree q_name)
   set_escape_state (q, EA_ARG_ESCAPE);
 
   con_node p = existing_local_node (cg, p_name);
-  do_assignment (p, q);
+  do_assignment (p, q, true);
 }
 
 
 static bool
-is_assignment_to_array (tree stmt, tree *p_name, tree *f_name, tree *q_name)
+is_assignment_to_array (con_graph cg, tree stmt, tree *p_name, tree *f_name, tree *q_name)
 {
   /* this is a mix of assignment to field, and assignment to array */
   /* p.data[x] = q:*/
@@ -941,18 +1118,17 @@ is_assignment_to_array (tree stmt, tree *p_name, tree *f_name, tree *q_name)
 	&& SSA_VAR_P (*p_name = LHS (indirect_ref))
 	&& TREE_CODE (*f_name = RHS (component_ref)) == FIELD_DECL
 	&& DECL_NAME (*f_name) == get_identifier ("data")
-	&& is_rhs (*q_name = RHS (stmt));
+	&& (*q_name = get_var (cg, RHS (stmt)));
 }
 
 static bool
-is_assignment_to_field (tree stmt, tree* p_name, tree* f_name, tree* q_name)
+is_assignment_to_field (con_graph cg, tree stmt, tree* p_name, tree* f_name, tree* q_name)
 {
-  /* TODO allow NULL on the rhs */
   return (GIMPLE_STMT_P (stmt)
 	&& has_pointer_type (stmt)
 	&& is_field_ref (LHS (stmt), p_name, f_name)
 	&& DECL_NAME (*f_name) != get_identifier ("vtable")
-	&& is_rhs (*q_name = RHS (stmt)));
+	&& (*q_name = get_var (cg, RHS (stmt))));
 }
 
 
@@ -1046,7 +1222,7 @@ static bool
 stmt_in_virtual_function (con_graph cg, tree stmt)
 {
   tree f_name, plus_expr;
-  tree obj_type_ref, q_name;
+  tree q_name;
   tree indirect_ref;
   tree call_expr;
 
@@ -1055,7 +1231,7 @@ stmt_in_virtual_function (con_graph cg, tree stmt)
        && has_pointer_type (stmt)
        && SSA_VAR_P (LHS (stmt))
        && is_field_ref (RHS (stmt), &q_name, &f_name)
-       && SSA_VAR_P (q_name)
+       && get_var (cg, q_name)
        && DECL_NAME (f_name) == get_identifier ("vtable")))
     {
       xprintf ("vtable\n");
@@ -1110,14 +1286,14 @@ stmt_in_virtual_function (con_graph cg, tree stmt)
 
   /* The object_type_reference: 
    * a4 = (OBJ_TYPE_REF (a3, this_8->function_name)); */
-  if (GIMPLE_STMT_P (stmt) 
+/*  if (GIMPLE_STMT_P (stmt) 
       && has_pointer_type (stmt)
       && SSA_VAR_P (LHS (stmt))
       && TREE_CODE (obj_type_ref = RHS (stmt)) == OBJ_TYPE_REF)
     {
-      xprintf ("MISSED OPPORTUNITY: virtual function call\n");
+      xprintf ("virtual function call\n");
       return true;
-    }
+    }*/
 
   /* A bog-standard cast, in which the RHS isnt in the cg:
    * a5 = (TYPE:: *) a4; */
@@ -1154,13 +1330,9 @@ stmt_in_virtual_function (con_graph cg, tree stmt)
       tree arguments = TREE_OPERAND (call_expr, 1);
       while (arguments)
 	{
-	  tree argument = TREE_VALUE (arguments);
-	  if (has_pointer_type (argument))
+	  tree argument = get_var (cg, TREE_VALUE (arguments));
+	  if (argument)
 	    {
-	      // check for eg &isjversion1.class
-	      if (TREE_CODE (argument) == ADDR_EXPR)
-		argument = LHS (argument);
-
 	      con_node node = get_existing_node (cg, argument);
 	      if (node) // if it doesnt exist, dont bother creating it
 		node->escape = EA_GLOBAL_ESCAPE;
@@ -1728,9 +1900,10 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
   gcc_assert (cg);
   gcc_assert (stmt);
 
-  tree p_name, q_name, f_name;
+  tree p_name, q_name, f_name, r_name;
   tree function, arguments, return_value;
   tree type;
+  tree call_id;
 
   /* recognize all the statement types, and update the connection
    * graph accordingly */
@@ -1746,21 +1919,26 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
       do_global_memory_allocation (cg, p_name, stmt, type);
 
   else if (is_reference_cast (cg, stmt, &p_name, &q_name)
-	   || is_reference_copy (stmt, &p_name, &q_name)
+	   || is_reference_copy (cg, stmt, &p_name, &q_name)
+//	   || is_address_copy (stmt, &p_name, &q_name)
 	   || is_function_cast (stmt, &p_name, &q_name)
 	   || is_check_cast (stmt, &p_name, &q_name)
 	   || is_exception_offset (cg, stmt, &p_name, &q_name)
 	   || is_exception_dereference (cg, stmt, &p_name, &q_name))
       do_reference_copy (cg, p_name, q_name);
 
+  else if (is_bitwise_copy (cg, stmt, &p_name, &q_name, &r_name))
+    do_bitwise_copy (cg, p_name, q_name, r_name);
+
+
   else if (is_throw (stmt, &p_name))
     do_throw (cg, p_name);
 
-  else if (is_assignment_to_field (stmt, &p_name, &f_name, &q_name)
-	   || is_assignment_to_array (stmt, &p_name, &f_name, &q_name))
+  else if (is_assignment_to_field (cg, stmt, &p_name, &f_name, &q_name)
+	   || is_assignment_to_array (cg, stmt, &p_name, &f_name, &q_name))
       do_assignment_to_field (cg, p_name, f_name, q_name, stmt);
 
-  else if (is_return_stmt (stmt, &return_value, &q_name))
+  else if (is_return_stmt (cg, stmt, &return_value, &q_name))
     do_return_stmt (cg, return_value, q_name);
 
   else if (is_assignment_from_exception (stmt, &p_name, &q_name))
@@ -1782,7 +1960,10 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
 
 
   else if (is_function_call (stmt, &function, &arguments, &return_value))
-      do_function_call (cg, function, arguments, return_value, stmt);
+      do_function_call (cg, function, arguments, return_value, stmt, false);
+
+  else if (is_virtual_function_call (stmt, &function, &arguments, &return_value, &call_id))
+      do_function_call (cg, function, arguments, return_value, call_id, true);
 
   else if (get_call_expr_in (stmt) != NULL)
     {
@@ -1814,7 +1995,6 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
       xprintf ("Still to be dealt with\n");
       con_graph_dump (cg);
       gcc_unreachable ();
-      assert_all_next_link_free (cg);
     }
 
   /* check whether this statement means that the block may be a final block */
@@ -1931,13 +2111,50 @@ delete_graphs (void)
       free_con_graph (bb_graphs [i]);
 }
 
+static void
+print_results (con_graph cg)
+{
+  int global = 0;
+  int arg = 0;
+  int no = 0;
+  basic_block bb;
+  block_stmt_iterator bsi;
+  FOR_EACH_BB (bb)
+    {
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree stmt = bsi_stmt (bsi);
+	  tree p_name;
+	  tree type;
+	  if (is_memory_allocation (stmt, &p_name, &type) 
+	      || is_global_memory_allocation (stmt, &p_name, &type))
+	    {
+	      con_node object = get_existing_node (cg, p_name);
+	      gcc_assert (object);
+	      switch (object->escape)
+		{
+		case EA_GLOBAL_ESCAPE: global++; break;
+		case EA_ARG_ESCAPE: arg++; break;
+		case EA_NO_ESCAPE: no++; break;
+		}
+	    }
+	}
+    }
+	
+  FILE* results = fopen ("results", "a");
+  fprintf (results, "%s:%d:%d:%d\n", 
+	   IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (cfun->decl)), 
+	   no, arg, global);
+  fclose (results);
+}
 
-static con_graph
+
+static void
 process_function (tree function)
 {
   /* only process one function */
-//  if (DECL_NAME (function) != get_identifier ("expansion_choices"))
-//    return NULL;
+//  if (DECL_NAME (function) != get_identifier ("invokeCommon"))
+  //  return;
 
   xprintf ("Processing function: %s\n", 
 	   IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (function)));
@@ -2011,28 +2228,7 @@ process_function (tree function)
   free_dominance_info (CDI_DOMINATORS);
   gcc_assert (cg);
 
-  /* make the allocation use alloca */
-  /*
-  for (node = cg->root; node; node = node->next)
-    {
-
-      if ( node->type == OBJECT_NODE 
-	   && node->phantom == false 
-	   && node->escape == EA_NO_ESCAPE)
-	{
-	  enum statement_type type = get_statement_type (cg, node->id);
-	  if (type == OBJECT_ALLOCATION)
-	    replace_object_with_alloca (node); 
-	  else if (type == OBJECT_ARRAY_ALLOCATION)
-	    replace_array_with_alloca (node);
-	  else if (type == PRIM_ARRAY_ALLOCATION)
-	    replace_prim_array_with_alloca (node);
-	  else if (type == MULTI_ARRAY_ALLOCATION)
-	    replace_multi_array_with_alloca (node);
-	}
-    }
-    */
-
+  print_results (cg);
   cg->filename = concat (cg->filename, "_final_", NULL);
   con_graph_dump_prefix (cg, "before_cleanup");
   bypass_every_node (cg);
@@ -2040,7 +2236,7 @@ process_function (tree function)
   serialize_con_graph (cg);
   con_graph_dump (cg);
 
-  return cg;
+  free_con_graph (cg);
 }
 
 static unsigned int
@@ -2056,7 +2252,6 @@ execute_ipa_stack_allocate (void)
   /* Init the store of connection graphs */
   init_graphs ();
 
-  /* TODO should I use postorder from ipa.c ? */
   struct cgraph_node **order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
 
   int order_pos = ipa_utils_reduced_inorder (order, true, false);
@@ -2072,9 +2267,7 @@ execute_ipa_stack_allocate (void)
 	  tree_register_cfg_hooks ();
 	  current_function_decl = node->decl;
 
-	  con_graph cg = process_function (current_function_decl);
-	  free_con_graph (cg);
-//	  add_con_graph (cg);
+	  process_function (current_function_decl);
 
 	  /* Clean up function */
 	  current_function_decl = NULL;
@@ -2105,19 +2298,7 @@ execute_ipa_stack_allocate (void)
 static bool
 gate_ipa_stack_allocate (void)
 {
-  switch (flag_ipa_stack_allocate)
-    {
-    case 1:
-      ea_interprocedural = false;
-      ea_flow_sensitive = true;
-      return true;
-    case 3:
-      ea_interprocedural = true;
-      ea_flow_sensitive = true;
-      return true;
-    default:
-      return false;
-    }
+  return ea_stack_allocate;
 }
 
 struct tree_opt_pass pass_ipa_stack_allocate = {
@@ -2197,7 +2378,8 @@ execute_instrument_stack_allocate (void)
 static bool
 gate_instrument_stack_allocate (void)
 {
-  return flag_ipa_stack_allocate == 2;
+  setup_flag_ipa_stack_allocate ();
+  return ea_instrument;
 }
 
 struct tree_opt_pass pass_instrument_stack_allocate = {
@@ -2232,4 +2414,11 @@ init_gcj_stack_allocate (void)
   pass_instrument_stack_allocate.sub = NULL;
 
   register_dump_files (&pass_ipa_stack_allocate, true, 0);
+
+  FILE* results_file = fopen ("results", "a"); // guarantee this is created in all circumstances
+  gcc_assert (results_file);
+  fclose (results_file);
+
+  init_offline_devirt ();
 }
+

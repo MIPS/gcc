@@ -56,7 +56,7 @@ static tree make_method_value (tree);
 static tree build_java_method_type (tree, tree, int);
 static int32 hashUtf8String (const char *, int);
 static tree make_field_value (tree);
-static tree get_dispatch_vector (tree);
+//static tree get_dispatch_vector (tree);
 static tree get_dispatch_table (tree, tree);
 static int supers_all_compiled (tree type);
 static tree maybe_layout_super_class (tree, tree);
@@ -1457,7 +1457,8 @@ make_method_value (tree mdecl)
   return minit;
 }
 
-static tree
+tree get_dispatch_vector (tree type);
+tree
 get_dispatch_vector (tree type)
 {
   tree vtable = TYPE_VTABLE (type);

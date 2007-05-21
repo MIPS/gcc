@@ -46,11 +46,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "tree-dump.h"
 #include "opts.h"
 #include "options.h"
-
-extern void init_gcj_devirt (void);
-extern void init_gcj_stack_allocate (void);
-extern void init_gcj_invariant (void);
-extern void init_gcj_necessary (void);
+#include "ipa-stack-allocate.h"
 
 static bool java_init (void);
 static void java_finish (void);
@@ -599,11 +595,6 @@ java_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   no_unit_at_a_time_default = 1;
 
   jcf_path_init ();
-  init_gcj_stack_allocate (); /* Do this first so that the others can join just before it */
-  init_gcj_necessary ();
-  init_gcj_devirt ();
-  init_gcj_invariant ();
-
   return CL_Java;
 }
 
@@ -620,6 +611,13 @@ static bool
 java_post_options (const char **pfilename)
 {
   const char *filename = *pfilename;
+
+  init_gcj_stack_allocate (); /* Do this first so that the others can join just before it */
+  init_gcj_necessary ();
+  init_gcj_offline_devirt ();
+  init_gcj_devirt ();
+  init_gcj_invariant ();
+  setup_flag_ipa_stack_allocate ();
 
   /* Use tree inlining.  */
   if (!flag_no_inline)

@@ -73,6 +73,9 @@ is_actual_type (con_node node)
 static char*
 get_cg_filename (tree function, int bb_index, int count)
 {
+  if (TREE_CODE (function) == IDENTIFIER_NODE)
+    return (char*)(IDENTIFIER_POINTER (function));
+
   /* Make strings for the two digits */
   char bb_digits[10];
   sprintf (bb_digits, "%d", bb_index);
@@ -592,25 +595,6 @@ add_con_graph (con_graph cg)
   *slot = (void*) cg;
 }
 
-
-/* search through the list of connection graphs FUNCTION */
-con_graph
-get_cg_for_function (tree function)
-{
-  struct _con_graph finder;
-  finder.function_name = DECL_ASSEMBLER_NAME (function);
-  xprintf ("Finding congraph: ");
-  tf (finder.function_name, true);
-//  con_graph cg = htab_find (graphs, &finder);
-  //if (cg) return cg;
-
-  con_graph cg = deserialize_con_graph (function);
-//  if (cg)
-//    add_con_graph (cg);
-  return cg;
-}
-
-
 /* ---------------------------------------------------
  *			nodes
  * --------------------------------------------------- */
@@ -857,6 +841,16 @@ get_uid (tree id)
   if (SSA_VAR_P (id) && TREE_CODE (id) != SSA_NAME)
     return DECL_UID (id);
   return 0;
+}
+
+con_node
+existing_node (con_graph cg, tree id)
+{
+  con_node result = get_existing_node (cg, id);
+  if (result == NULL)
+    result = add_local_node (cg, id);
+
+  return result;
 }
 
 con_node
@@ -1555,18 +1549,72 @@ d (con_node node)
     }
 }
 
-static char* 
-get_serialized_filename (tree function)
+const char* 
+get_serialized_filename (tree name)
 {
+  char* result = NULL;
+  int count = 0;
+  // if the name is too long, we rename it "too_long_x", and add x to a
+  // file called too_long
+  if (IDENTIFIER_LENGTH (name) > 240)
+    {
+      // find the too_long file
+      const char* too_long = get_serialized_filename ( get_identifier ("too_long"));
+      FILE* file = fopen (too_long, "r");
+
+      // is the current name there
+      if (file)
+	{
+	  while (!feof (file))
+	    {
+	      char buffer[1000];
+	      buffer[999] = '\0'; /* set last char as NULL */
+	      char* result = fgets (buffer, 999, file);
+	      if (result == NULL) break;
+	      gcc_assert (buffer[999] == '\0');
+
+	      /* function name */
+	      char* function_name = strtok (buffer, "::");
+	      gcc_assert (function_name != NULL);
+
+	      char* file_name = strtok (NULL, "::");
+	      gcc_assert (file_name != NULL);
+
+	      // found it
+	      if (get_identifier (function_name) == name)
+		count = atoi (file_name);
+	    }
+	  fclose (file);
+	}
+
+      // if we couldnt find it (auto create file if it doesnt exist)
+      if (result == NULL)
+	{
+	  file = fopen (too_long, "a");
+	  fprintf (file, "%s::%d\n", IDENTIFIER_POINTER (name), count);
+	}
+
+      // make a string out of it
+      char num[10];
+      sprintf (num, "%d", count);
+
+
+      return concat ("serialized/too_long_",
+		     num,
+		     NULL);
+    }
   return concat ("serialized/", 
-		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (function)),
+		 IDENTIFIER_POINTER (name),
 		 NULL);
 }
 
 void
 serialize_con_graph (con_graph cg)
 {
-  FILE* file = fopen (get_serialized_filename (cg->function), "w");
+  const char* filename 
+    = get_serialized_filename (DECL_ASSEMBLER_NAME (cg->function));
+  FILE* file = fopen (filename, "w");
+
   gcc_assert (file);
   con_node node;
   /* renumber the nodes from 1 - do this now else the owner might not be
@@ -1634,15 +1682,29 @@ get_node_numbered (con_graph cg, int number)
   gcc_unreachable ();
 }
 
-con_graph
-deserialize_con_graph (tree function)
+// this could be a function_decl or an identifier
+const char* 
+get_cg_function_name (tree function)
 {
-  char* filename = get_serialized_filename (function);
-  FILE* file = fopen (filename, "r");
+  tree identifier;
+  if (TREE_CODE (function) == FUNCTION_DECL)
+    identifier = DECL_ASSEMBLER_NAME (function);
+  else if (TREE_CODE (function) == IDENTIFIER_NODE)
+    identifier = function;
+  else
+    gcc_unreachable ();
+
+  return IDENTIFIER_POINTER (identifier);
+}
+
+con_graph
+deserialize_con_graph (tree function_name)
+{
+  FILE* file = fopen (get_cg_function_name (function_name), "r");
   if (!file) return NULL;
 
   char buffer[1000];
-  con_graph cg = new_con_graph (function, 1 /*EXIT_BLOCK*/, 0);
+  con_graph cg = new_con_graph (function_name, 1 /*EXIT_BLOCK*/, 0);
   cg->deserialized = true;
 
   /* Find the number of nodes in the graph */
