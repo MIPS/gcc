@@ -1,3 +1,15 @@
+2007-05-21  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* dbgcnt.def: Fixed comment.
+	* df-scan.c (df_get_regular_block_artificial_uses): Added frame
+	pointer after reload if frame_pointer_needed.
+	* df.h (df_simulate_defs, df_simulate_uses): Made public.
+	* df-problems.c (df_simulate_defs, df_simulate_uses): Made public.
+	* dce.c (deletable_insn_p): Only allow frame-related insns to be
+	deleted if there is a REG_MAYBE_DEAD note.
+	(dce_process_block): Now uses df_simulate_defs and
+	df_simulate_uses.
+
 2007-05-20  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* cfg.c (dump_bb_info): Fixed dump formatting problem.

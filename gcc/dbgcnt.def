@@ -50,7 +50,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    or constant-propagation for each insn,
    or a block straightening, etc.
    See dce.c for an example. With the dbg_cnt () call in dce.c,
-   now a developer can use -fdbg-cnt=new_dce:N
+   now a developer can use -fdbg-cnt=dce:N
    to stop doing the dead code elimination after N times.
 
    How to use it ?

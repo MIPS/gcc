@@ -887,6 +887,8 @@ extern void df_urec_add_problem (void);
 extern void df_chain_add_problem (enum df_chain_flags);
 extern void df_note_add_problem (void);
 extern void df_simulate_find_defs (rtx, bitmap);
+extern void df_simulate_defs (rtx, bitmap);
+extern void df_simulate_uses (rtx, bitmap);
 extern void df_simulate_artificial_refs_at_top (basic_block, bitmap);
 extern void df_simulate_one_insn_forwards (basic_block, rtx, bitmap);
 extern void df_simulate_artificial_refs_at_end (basic_block, bitmap);

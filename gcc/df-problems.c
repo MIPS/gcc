@@ -4188,7 +4188,7 @@ df_simulate_find_defs (rtx insn, bitmap defs)
 
 /* Simulate the effects of the defs of INSN on LIVE.  */
 
-static inline void
+void
 df_simulate_defs (rtx insn, bitmap live)
 {
   struct df_ref **def_rec;
@@ -4240,7 +4240,7 @@ df_simulate_defs (rtx insn, bitmap live)
 
 /* Simulate the effects of the uses of INSN on LIVE.  */
 
-static inline void 
+void 
 df_simulate_uses (rtx insn, bitmap live)
 {
   struct df_ref **use_rec;

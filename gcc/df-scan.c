@@ -3392,10 +3392,15 @@ df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
 {
   bitmap_clear (regular_block_artificial_uses);
 
-  /* Before reload, there are a few registers that must be forced
-     live everywhere -- which might not already be the case for
-     blocks within infinite loops.  */
-  if (!reload_completed)
+  if (reload_completed)
+    {
+      if (frame_pointer_needed)
+	bitmap_set_bit (regular_block_artificial_uses, FRAME_POINTER_REGNUM);
+    }
+  else
+    /* Before reload, there are a few registers that must be forced
+       live everywhere -- which might not already be the case for
+       blocks within infinite loops.  */
     {
       /* Any reference to any pseudo before reload is a potential
 	 reference of the frame pointer.  */

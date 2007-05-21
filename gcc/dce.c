@@ -68,7 +68,8 @@ deletable_insn_p (rtx insn, bool fast)
 
   /* These insns may not have real uses but are there because the
      dwarf unwinder may need to see the values they compute.  */
-  if (RTX_FRAME_RELATED_P (insn))
+  if (RTX_FRAME_RELATED_P (insn) 
+      && find_reg_note (insn, REG_MAYBE_DEAD, NULL_RTX) == 0)
     return false;
 
   switch (GET_CODE (PATTERN (insn)))
@@ -591,57 +592,13 @@ dce_process_block (basic_block bb, bool redo_out)
 	  }
 	
 	/* No matter if the instruction is needed or not, we remove
-	   any regno in the defs from the live set.  This code is a
-	   hacked up version of the regular scanning code in
-	   df-problems.c:df_lr_bb_local_compute.  It must stay in sync.
-	*/
-	if (CALL_P (insn))
-	  {
-	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-	      {
-		struct df_ref *def = *def_rec;
-		unsigned int dregno = DF_REF_REGNO (def);
-		
-		if (DF_REF_FLAGS (def) & DF_REF_MUST_CLOBBER)
-		  {
-		    if (dregno >= FIRST_PSEUDO_REGISTER
-			|| !(SIBLING_CALL_P (insn)
-			     && bitmap_bit_p (df->exit_block_uses, dregno)
-			     && !refers_to_regno_p (dregno, dregno+1,
-						    current_function_return_rtx,
-						    (rtx *)0)))
-		      {
-			/* If the def is to only part of the reg, it does
-			   not kill the other defs that reach here.  */
-			if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-			  bitmap_clear_bit (local_live, dregno);
-		      }
-		  }
-		else
-		  /* This is the return value.  */
-		  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-		    bitmap_clear_bit (local_live, dregno);
-	      }
-	  }
-	else
-	  {
-	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-	      {
-		struct df_ref *def = *def_rec;
-		unsigned int dregno = DF_REF_REGNO (def);
-		/* If the def is to only part of the reg, it does
-		   not kill the other defs that reach here.  */
-		if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-		  bitmap_clear_bit (local_live, dregno);
-	      }
-	  }
+	   any regno in the defs from the live set.  */
+	df_simulate_defs (insn, local_live);
 
+	/* On the other hand, we do not allow the dead uses to set
+	   anything in local_live.  */
 	if (marked_insn_p (insn))
-	  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
-	    {
-	      unsigned int regno = DF_REF_REGNO (*use_rec);
-	      bitmap_set_bit (local_live, regno);
-	    }
+	  df_simulate_uses (insn, local_live);
       }
   
   for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
