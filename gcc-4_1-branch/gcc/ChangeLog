@@ -1,3 +1,7 @@
+2007-05-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* c-typeck.c (build_binary_op): Return early for error.
+
 2007-05-02  Janis Johnson  <janis187@us.ibm.com>
 
 	* ginclude/float.h (DEC_EVAL_METHOD): Use correct name, default to

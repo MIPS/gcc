@@ -1,5 +1,7 @@
 2007-05-21  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/dfp/usual-arith-conv-bad.c: New test.
+
         * gcc.dg/fltconst-pedantic-dfp.c: New test.
 
 	PR c/31924
