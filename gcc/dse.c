@@ -943,6 +943,45 @@ add_wild_read (bb_info_t bb_info)
 }
 
 
+/* Return true if X is a constant or one of the registers that behaves
+   as a constant over the life of a function.  */
+
+static bool
+const_or_frame_p (rtx x)
+{
+  if (!x)
+    return true;
+
+  switch (GET_CODE (x))
+    {
+    case MEM:
+      return !MEM_READONLY_P (x);
+
+    case CONST:
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST_VECTOR:
+    case SYMBOL_REF:
+    case LABEL_REF:
+      return true;
+
+    case REG:
+      /* Note that we have to test for the actual rtx used for the frame
+	 and arg pointers and not just the register number in case we have
+	 eliminated the frame and/or arg pointer and are using it
+	 for pseudos.  */
+      if (x == frame_pointer_rtx || x == hard_frame_pointer_rtx
+	  /* The arg pointer varies if it is not a fixed register.  */
+	  || (x == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM])
+	  || x == pic_offset_table_rtx)
+	return true;
+      return false;
+
+    default:
+      return false;
+    }
+}
+
 /* Take all reasonable action to put the address of MEM into the form 
    that we can do analysis on.  
 
@@ -969,7 +1008,7 @@ canon_address (rtx mem,
 	       cselib_val **base)
 {
   rtx mem_address = XEXP (mem, 0);
-  rtx expanded_address, simplified_address, address;
+  rtx expanded_address, address;
   /* Make sure that cselib is has initialized all of the operands of
      the address before asking it to do the subst.  */
 
@@ -1007,6 +1046,13 @@ canon_address (rtx mem,
 
   cselib_lookup (mem_address, Pmode, 1);
 
+  if (dump_file)
+    {
+      fprintf (dump_file, "  mem: ");
+      print_inline_rtx (dump_file, mem_address, 0);
+      fprintf (dump_file, "\n");
+    }
+
   /* Use cselib to replace all of the reg references with the full
      expression.  This will take care of the case where we have 
 
@@ -1023,23 +1069,19 @@ canon_address (rtx mem,
   /* If this fails, just go with the mem_address.  */
   if (!expanded_address)
     expanded_address = mem_address;
-  
-  /* Do whatever simplifications we can over the resulting expression.  */
-  simplified_address = simplify_rtx (expanded_address);
-  if (!simplified_address)
-    simplified_address = expanded_address;
 
   /* Split the address into canonical BASE + OFFSET terms.  */
-  address = canon_rtx (simplified_address);
+  address = canon_rtx (expanded_address);
 
   *offset = 0;
 
   if (dump_file)
     {
-      fprintf (dump_file, "  mem: ");
-      print_inline_rtx (dump_file, mem, 0);
+      fprintf (dump_file, "\n   after cselib_expand address: ");
+      print_inline_rtx (dump_file, expanded_address, 0);
+      fprintf (dump_file, "\n");
 
-      fprintf (dump_file, "\n   address: ");
+      fprintf (dump_file, "\n   after canon_rtx address: ");
       print_inline_rtx (dump_file, address, 0);
       fprintf (dump_file, "\n");
     }
@@ -1053,14 +1095,20 @@ canon_address (rtx mem,
       address = XEXP (address, 0);
     }
 
-  /* These are just too hard to deal with.  */
-  if (GET_CODE (address) == AND)
-    return false;
+  if (const_or_frame_p (address))
+    {
+      group_info_t group = get_group_info (address);
 
-  if (rtx_varies_p (address, false))
+      if (dump_file)
+	fprintf (dump_file, "  gid=%d offset=%d \n", group->id, (int)*offset);
+      *base = NULL;
+      *group_id = group->id;
+    }
+  else
     {
       *base = cselib_lookup (address, Pmode, true);
       *group_id = -1;
+
       if (*base == NULL)
 	{
 	  if (dump_file)
@@ -1070,15 +1118,6 @@ canon_address (rtx mem,
       if (dump_file)
 	fprintf (dump_file, "  varying cselib base=%d offset = %d\n", 
 		 (*base)->value, (int)*offset);
-    }
-  else
-    {
-      group_info_t group = get_group_info (address);
-
-      if (dump_file)
-	fprintf (dump_file, "  const base = %d\n", group->id);
-      *base = NULL;
-      *group_id = group->id;
     }
   return true;
 }
@@ -1206,7 +1245,7 @@ record_store (rtx body, bb_info_t bb_info)
       set_usage_bits (group, offset, width);
 
       if (dump_file)
-	fprintf (dump_file, " processing const base store %d[%d..%d)\n",
+	fprintf (dump_file, " processing const base store gid=%d[%d..%d)\n",
 		 group_id, (int)offset, (int)(offset+width));
     }
   else
@@ -1548,10 +1587,10 @@ check_mem_read_rtx (rtx *loc, void *data)
       if (dump_file)
 	{
 	  if (width == -1)
-	    fprintf (dump_file, " processing const load %d[BLK]\n",
+	    fprintf (dump_file, " processing const load gid=%d[BLK]\n",
 		     group_id);
 	  else
-	    fprintf (dump_file, " processing const load %d[%d..%d)\n",
+	    fprintf (dump_file, " processing const load gid=%d[%d..%d)\n",
 		     group_id, (int)offset, (int)(offset+width));
 	}
 

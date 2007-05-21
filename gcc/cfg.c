@@ -547,7 +547,10 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
       if ((flags & TDF_DETAILS)
 	  && (bb->flags & BB_RTL)
 	  && df)
-	df_dump_top (bb, file);
+	{
+	  fprintf (file, "\n");
+	  df_dump_top (bb, file);
+	}
    }
 
   if (footer)
@@ -559,7 +562,10 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
       if ((flags & TDF_DETAILS)
 	  && (bb->flags & BB_RTL)
 	  && df)
-	df_dump_bottom (bb, file);
+	{
+	  fprintf (file, "\n");
+	  df_dump_bottom (bb, file);
+	}
    }
 
   putc ('\n', file);

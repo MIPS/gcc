@@ -845,13 +845,6 @@ expand_loc (struct elt_loc_list * p, bitmap regs_active, int max_depth)
 
   for (; p; p = p -> next)
     {
-      if (dump_file)
-	{
-	  fprintf (dump_file, "substitution: ");
-	  print_inline_rtx (dump_file, p->loc, 0);
-	  fprintf (dump_file, "\n");
-	}
-      
       /* Avoid infinite recursion trying to expand a reg into a
 	 the same reg.  */
       if ((REG_P (p->loc)) 
@@ -868,7 +861,13 @@ expand_loc (struct elt_loc_list * p, bitmap regs_active, int max_depth)
 	continue;
       else if (!REG_P (p->loc))
 	{
-	  rtx result = cselib_expand_value_rtx (p->loc, regs_active, max_depth - 1);
+	  rtx result;
+	  if (dump_file)
+	    {
+	      print_inline_rtx (dump_file, p->loc, 0);
+	      fprintf (dump_file, "\n");
+	    }
+	  result = cselib_expand_value_rtx (p->loc, regs_active, max_depth - 1);
 	  if (result)
 	    return result;
 	}
@@ -877,11 +876,25 @@ expand_loc (struct elt_loc_list * p, bitmap regs_active, int max_depth)
   
   if (regno != UINT_MAX)
     {
-      rtx result = cselib_expand_value_rtx (reg_result, regs_active, max_depth - 1);
+      rtx result;
+      if (dump_file)
+	fprintf (dump_file, "r%d\n", regno);
+
+      result = cselib_expand_value_rtx (reg_result, regs_active, max_depth - 1);
       if (result)
 	return result;
     }
 
+  if (dump_file)
+    {
+      if (reg_result)
+	{
+	  print_inline_rtx (dump_file, reg_result, 0);
+	  fprintf (dump_file, "\n");
+	}
+      else 
+	fprintf (dump_file, "NULL\n");
+    }
   return reg_result;
 }
 
@@ -907,7 +920,7 @@ expand_loc (struct elt_loc_list * p, bitmap regs_active, int max_depth)
 rtx
 cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 {
-  rtx copy;
+  rtx copy, scopy;
   int i, j;
   RTX_CODE code;
   const char *format_ptr;
@@ -956,6 +969,10 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 		return orig;
 
 	      bitmap_set_bit (regs_active, regno);
+
+	      if (dump_file)
+		fprintf (dump_file, "expanding: r%d into: ", regno);
+
 	      result = expand_loc (l->elt->locs, regs_active, max_depth);
 	      bitmap_clear_bit (regs_active, regno);
 
@@ -992,13 +1009,23 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 
 
     case VALUE:
-      return expand_loc (CSELIB_VAL_PTR (orig)->locs, regs_active, max_depth);
-
-      /* A MEM with a constant address is not sharable.  The problem is that
-	 the constant address may need to be reloaded.  If the mem is shared,
-	 then reloading one copy of this mem will cause all copies to appear
-	 to have been reloaded.  */
-
+      {
+	rtx result;
+	if (dump_file)
+	  fprintf (dump_file, "expanding value %s into: ", GET_MODE_NAME (GET_MODE (orig)));
+	
+	result = expand_loc (CSELIB_VAL_PTR (orig)->locs, regs_active, max_depth);
+	if (result 
+	    && GET_CODE (result) == CONST_INT
+	    && GET_MODE (orig) != VOIDmode)
+	  {
+	    result = gen_rtx_CONST (GET_MODE (orig), result);
+	    if (dump_file)
+	      fprintf (dump_file, "  wrapping const_int result in const to preserve mode %s\n", 
+		       GET_MODE_NAME (GET_MODE (orig)));
+	  }
+	return result;
+      }
     default:
       break;
     }
@@ -1054,6 +1081,10 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
       default:
 	gcc_unreachable ();
       }
+
+  scopy = simplify_rtx (copy);
+  if (scopy)
+    return scopy;
   return copy;
 }
 
