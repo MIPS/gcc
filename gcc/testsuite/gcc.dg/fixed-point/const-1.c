@@ -1,7 +1,9 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
-/* Check if the constant 1 is ok.  */
+/* N1169 6.4.4 - Constants.
+
+   Check if the constant 1 is ok.  */
 
 short _Fract sf = 1.0hr;
 _Fract f = 1.0r;

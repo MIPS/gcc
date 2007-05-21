@@ -1,7 +1,9 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
-/* Check if defined fixed-point constants are ok.  */
+/* N1169 7.18a.3 - Precision macros.
+
+   Check if defined fixed-point constants are ok.  */
 
 short _Fract sf = __SFRACT_MAX__;
 _Fract f = __FRACT_MAX__;

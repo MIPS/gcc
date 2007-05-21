@@ -1,7 +1,9 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
-/* Check if all conversions are ok.  */
+/* C99 6.3 Conversions.
+
+   Check if all conversions are ok.  */
 
 #define CONV(TYPE, NAME) \
         float NAME ## _to_SF (TYPE a) { return a; } \
@@ -115,7 +117,19 @@
 	_Sat TYPE SATUSAC_to_SAT ## NAME (_Sat unsigned short _Accum a) { return a; } \
 	_Sat TYPE SATUAC_to_SAT ## NAME (_Sat unsigned _Accum a) { return a; } \
 	_Sat TYPE SATULAC_to_SAT ## NAME (_Sat unsigned long _Accum a) { return a; } \
-	_Sat TYPE SATULLAC_to_SAT ## NAME (_Sat unsigned long long _Accum a) { return a; }
+	_Sat TYPE SATULLAC_to_SAT ## NAME (_Sat unsigned long long _Accum a) { return a; } \
+	_Complex int NAME ## _to_CI (TYPE a) { return a; } \
+	_Complex unsigned int NAME ## _to_CUI (TYPE a) { return a; } \
+	_Complex float NAME ## _to_CF (TYPE a) { return a; } \
+	_Complex double NAME ## _to_CD (TYPE a) { return a; } \
+	TYPE CI_to_ ## NAME (_Complex int a) { return a; } \
+	TYPE CUI_to_ ## NAME (_Complex unsigned int a) { return a; } \
+	TYPE CF_to_ ## NAME (_Complex float a) { return a; } \
+	TYPE CD_to_ ## NAME (_Complex double a) { return a; } \
+	_Sat TYPE CI_to_SAT ## NAME (_Complex int a) { return a; } \
+	_Sat TYPE CUI_to_SAT ## NAME (_Complex unsigned int a) { return a; } \
+	_Sat TYPE CF_to_SAT ## NAME (_Complex float a) { return a; } \
+	_Sat TYPE CD_to_SAT ## NAME (_Complex double a) { return a; }
 
 CONV(short _Fract, sf);
 CONV(_Fract, f);

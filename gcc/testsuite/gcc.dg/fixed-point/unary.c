@@ -1,9 +1,11 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
-extern void abort (void);
+/* C99 6.5.3 Unary operators.
 
-/* Check unary operators ++ -- + - !.  */
+   Check unary operators ++ -- + - !.  */
+
+extern void abort (void);
 
 #define INCDEC(TYPE,POSTFIX) \
   { TYPE a = 0.0 ## POSTFIX; \

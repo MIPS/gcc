@@ -1,9 +1,17 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
-extern void abort (void);
+/* N1169 6.5.7 - Bitwise shift operands.
+   C99 6.5.5 Multiplicative operators.
+   C99 6.5.6 Additive operators.
+   C99 6.5.7 Bitwise shift operators.
+   C99 6.5.8 Relational operators.
+   C99 6.5.9 Equality operators.
+   C99 6.5.16 Assignment operators.
 
-/* Check binary operators + - * / << >> < <= >= > == != += -= *= /= <<= >>=.  */
+   Check binary operators + - * / << >> < <= >= > == != += -= *= /= <<= >>=.  */
+
+extern void abort (void);
 
 #define BINARY(TYPE,POSTFIX) \
   { TYPE a = 0.5 ## POSTFIX; \

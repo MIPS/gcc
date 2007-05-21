@@ -1,9 +1,11 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99 -O0" } */
 
-extern void abort (void);
+/* C99 6.3 Conversions.
 
-/* Check conversions involving fixed-point.  */
+   Check conversions involving fixed-point.  */
+
+extern void abort (void);
 
 /* Fixed-point to fixed-point.  */
 #define CONV(TYPE1,POSTFIX1,TYPE2,POSTFIX2) \

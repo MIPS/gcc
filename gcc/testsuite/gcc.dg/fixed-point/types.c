@@ -1,7 +1,9 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
-/* Check if all types are ok.  */
+/* N1169 6.3.1.3a - Fixed-point types (NEW CLAUSE).
+
+   Check if all types are ok.  */
 
 short _Fract q0;
 _Fract q1;

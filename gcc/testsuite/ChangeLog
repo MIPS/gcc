@@ -1,3 +1,15 @@
+2007-05-21  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.dg/fixed-ponit/allconv.c: Update comments.
+	Add tests for complex types.
+	* gcc.dg/fixed-ponit/unary.c, gcc.dg/fixed-ponit/convert.c,
+	* gcc.dg/fixed-ponit/convert.c, gcc.dg/fixed-ponit/types.c,
+	* gcc.dg/fixed-ponit/const-1.c, gcc.dg/fixed-ponit/binary.c,
+	* gcc.dg/fixed-ponit/allop.c, gcc.dg/fixed-ponit/constant.c,
+	* gcc.dg/fixed-ponit/define.c, gcc.dg/fixed-ponit/allop-const.c:
+	Update comments.
+	* gcc.dg/fixed-ponit/call-by-value.c: New.
+
 2007-05-18  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/31628

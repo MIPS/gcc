@@ -1,7 +1,9 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
-/* Check if fixed-point constants are ok.  */
+/* N1169 6.4.4.2a - Fixed-point constants (NEW CLAUSE).
+
+   Check if fixed-point constants are ok.  */
 
 _Accum k0 = 0k;
 _Accum k1 = 9999.0e0k;

@@ -1,7 +1,16 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
-/* Check if all operations on constants are ok.  */
+/* N1169 6.5.7 - Bitwise shift operands.
+   C99 6.5.3 Unary operators.
+   C99 6.5.5 Multiplicative operators.
+   C99 6.5.6 Additive operators.
+   C99 6.5.7 Bitwise shift operators.
+   C99 6.5.8 Relational operators.
+   C99 6.5.9 Equality operators.
+   C99 6.5.16 Assignment operators.
+
+   Check if all operations on constants are ok.  */
 
 #define ALLOPCONST(TYPE,NAME,POSTFIX) \
 	TYPE NAME ## plus = +0.1 ## POSTFIX; \
