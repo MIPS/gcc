@@ -1,5 +1,7 @@
 2007-05-21  Janis Johnson  <janis187@us.ibm.com>
 
+        * gcc.dg/fltconst-pedantic-dfp.c: New test.
+
 	PR c/31924
         * gcc.dg/fltconst-1.c: New test.
 
