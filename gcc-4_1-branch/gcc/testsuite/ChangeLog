@@ -1,5 +1,14 @@
 2007-05-21  Janis Johnson  <janis187@us.ibm.com>
 
+	* /gcc.dg/dfp/convert-bfp.c: Support -DDBG for individual failures.
+	* /gcc.dg/dfp/convert-dfp.c: Ditto.
+	* /gcc.dg/dfp/convert-complex.c: Ditto.
+	* /gcc.dg/dfp/func-array.c: Ditto.
+	* /gcc.dg/dfp/func-mixed.c: Ditto.
+	* /gcc.dg/dfp/func-scalar.c: Ditto.
+	* /gcc.dg/dfp/func-struct.c: Ditto.
+	* /gcc.dg/dfp/operator-assignment.c: Ditto.
+
 	* gcc.dg/dfp/usual-arith-conv-bad.c: New test.
 
         * gcc.dg/fltconst-pedantic-dfp.c: New test.
