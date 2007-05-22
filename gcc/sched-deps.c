@@ -122,7 +122,6 @@ static void add_back_dep (rtx, rtx, enum reg_note, ds_t);
 static void adjust_add_sorted_back_dep (rtx, rtx, rtx *);
 static void adjust_back_add_forw_dep (rtx, rtx *);
 static void delete_forw_dep (rtx, rtx);
-static dw_t estimate_dep_weak (rtx, rtx);
 #ifdef INSN_SCHEDULING
 #ifdef ENABLE_CHECKING
 static void check_dep_status (enum reg_note, ds_t, bool);
@@ -2250,7 +2249,7 @@ delete_forw_dep (rtx insn, rtx elem)
 }
 
 /* Estimate the weakness of dependence between MEM1 and MEM2.  */
-static dw_t
+dw_t
 estimate_dep_weak (rtx mem1, rtx mem2)
 {
   rtx r1, r2;

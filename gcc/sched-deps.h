@@ -153,6 +153,7 @@ extern void add_back_forw_dep (rtx, rtx, enum reg_note, ds_t);
 extern void delete_back_forw_dep (rtx, rtx);
 extern dw_t get_dep_weak (ds_t, ds_t);
 extern ds_t set_dep_weak (ds_t, ds_t, dw_t);
+extern dw_t estimate_dep_weak (rtx, rtx);
 extern ds_t ds_merge (ds_t, ds_t);
 
 extern void sched_deps_local_init (bool);

@@ -1792,14 +1792,14 @@ static int tick_check_cycle;
 /* Whether we have seen a true dependence while checking.  */
 static int tick_check_seen_true_dep;
 
-/* An implementation of note_dep hook.  Update minimal scheduling cycle 
-   for tick_check_insn given that it depends on PRO with status DS.  */
+/* Update minimal scheduling cycle for tick_check_insn given that it depends
+   on PRO with status DS and weight DW.  */
 static void
-tick_check_note_dep (insn_t pro, ds_t ds)
+tick_check_dep_with_dw (insn_t pro, ds_t ds, dw_t dw)
 {
   insn_t con;
   enum reg_note dt;
-  int tick;
+  int tick, dc;
 
   con = tick_check_insn;
 
@@ -1824,7 +1824,15 @@ tick_check_note_dep (insn_t pro, ds_t ds)
       if (dt == REG_DEP_TRUE)
         tick_check_seen_true_dep = 1;
 
-      tick = INSN_SCHED_CYCLE (pro) + dep_cost (pro, dt, con);
+      if (flag_sel_sched_mem_deps_zero_cost
+	  && dt == REG_DEP_TRUE 
+	  && dw != MIN_DEP_WEAK)
+	dc = 0;
+      else
+	dc = dep_cost (pro, dt, con);
+
+      tick = INSN_SCHED_CYCLE (pro) + dc;
+
       /* When there are several kinds of dependencies between pro and con,
          only REG_DEP_TRUE should be taken into account.  */
       if (tick > tick_check_cycle && (dt == REG_DEP_TRUE 
@@ -1833,12 +1841,24 @@ tick_check_note_dep (insn_t pro, ds_t ds)
     }
 }
 
+/* An implementation of note_dep hook.	*/
+static void
+tick_check_note_dep (insn_t pro, ds_t ds)
+{
+  tick_check_dep_with_dw (pro, ds, MIN_DEP_WEAK);
+}
+
 /* An implementation of note_mem_dep hook.  */
 static void
-tick_check_note_mem_dep (rtx mem1 ATTRIBUTE_UNUSED, rtx mem2 ATTRIBUTE_UNUSED,
-			 insn_t pro, ds_t ds)
+tick_check_note_mem_dep (rtx mem1, rtx mem2, insn_t pro, ds_t ds)
 {
-  tick_check_note_dep (pro, ds);
+  dw_t dw;
+
+  dw = (ds_to_dt (ds) == REG_DEP_TRUE
+	? estimate_dep_weak (mem1, mem2)
+	: MIN_DEP_WEAK);
+
+  tick_check_dep_with_dw (pro, ds, dw);
 }
 
 static struct sched_deps_info_def tick_check_deps_info =

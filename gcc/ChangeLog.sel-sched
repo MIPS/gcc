@@ -1,3 +1,14 @@
+2007-05-22  Alexander Monakov  <amonakov@ispras.ru>
+
+	* sel-sched-ir.c (tick_check_dep_with_dw): Rename from
+	tick_check_note_dep, ignore cost for true memory dependencies that are
+	not likely to alias.
+	(tick_check_note_dep): New implementation.
+	(tick_check_note_mem_dep): Calculate dependence weight.
+	* common.opt (fsel-sched-mem-deps-zero-cost): New option.
+	* sched-deps.c (estimate_dep_weak): Remove static qualifier.
+	* sched-deps.h (estimate_dep_weak): Declare.
+
 2007-05-22  Dmitry Zhurikhin  <zhur@ispras.ru>
 
 	* config/ia64/ia64.c (scheduled_good_insn): New static helper function.
