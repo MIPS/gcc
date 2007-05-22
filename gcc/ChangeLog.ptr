@@ -1,3 +1,11 @@
+2007-05-21  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/32015
+	* tree.c (build2_stat): Make sure that
+	MULT_EXPR is not used with pointers.
+	* tree-chrec.c (chrec_apply): Use chrec_convert_rhs
+	on the argument x instead of chrec_convert.
+
 2007-05-20  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* config/sh/sh.c (sh_va_start): Call make_tree with sizetype

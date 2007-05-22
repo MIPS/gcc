@@ -572,8 +572,8 @@ chrec_apply (unsigned var,
   if (evolution_function_is_affine_p (chrec))
     {
       /* "{a, +, b} (x)"  ->  "a + b*x".  */
-      x = chrec_convert (type, x, NULL_TREE);
-      res = chrec_fold_multiply (type, CHREC_RIGHT (chrec), x);
+      x = chrec_convert_rhs (type, x, NULL_TREE);
+      res = chrec_fold_multiply (TREE_TYPE (x), CHREC_RIGHT (chrec), x);
       if (!integer_zerop (CHREC_LEFT (chrec)))
 	res = chrec_fold_plus (type, CHREC_LEFT (chrec), res);
     }

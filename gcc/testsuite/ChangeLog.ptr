@@ -1,3 +1,8 @@
+2007-05-21  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/32015
+	* gcc.c-torture/compile/20070520-1.c: New test.
+
 2007-05-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	 * g++.dg/ext/java-1.C: New test.
