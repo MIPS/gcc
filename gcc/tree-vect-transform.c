@@ -489,7 +489,7 @@ vect_init_vector (tree stmt, tree vector_var, tree vector_type)
   tree new_temp;
   basic_block new_bb;
  
-  if (loop->inner && (loop->inner == (bb_for_stmt (stmt))->loop_father))
+  if (nested_in_vect_loop_p (loop, stmt))
     loop = loop->inner;
 
   new_var = vect_get_new_vect_var (vector_type, vect_simple_var, "cst_");
@@ -580,7 +580,7 @@ get_initial_def_for_induction (tree iv_phi)
     step_expr = build_real (scalar_type, dconst0);
 
   /* Is phi in an inner-loop, while vectorizing an enclosing outer-loop?  */
-  if (loop->inner && (loop->inner == (bb_for_stmt (iv_phi))->loop_father))
+  if (nested_in_vect_loop_p (loop, iv_phi))
     {
       nested_in_vect_loop = true;
       iv_loop = loop->inner;
@@ -612,40 +612,40 @@ get_initial_def_for_induction (tree iv_phi)
     {
       /* iv_loop is the loop to be vectorized. Create:
 	 vec_init = [X, X+S, X+2*S, X+3*S] (S = step_expr, X = init_expr)  */
-  new_var = vect_get_new_vect_var (scalar_type, vect_scalar_var, "var_");
-  add_referenced_var (new_var);
+      new_var = vect_get_new_vect_var (scalar_type, vect_scalar_var, "var_");
+      add_referenced_var (new_var);
 
-  new_name = force_gimple_operand (init_expr, &stmts, false, new_var);
-  if (stmts)
-    {
-      new_bb = bsi_insert_on_edge_immediate (pe, stmts);
-      gcc_assert (!new_bb);
-    }
+      new_name = force_gimple_operand (init_expr, &stmts, false, new_var);
+      if (stmts)
+	{
+	  new_bb = bsi_insert_on_edge_immediate (pe, stmts);
+	  gcc_assert (!new_bb);
+	}
 
-  t = NULL_TREE;
+      t = NULL_TREE;
       t = tree_cons (NULL_TREE, init_expr, t);
-  for (i = 1; i < nunits; i++)
-    {
-      tree tmp;
+      for (i = 1; i < nunits; i++)
+	{
+	  tree tmp;
 
 	  /* Create: new_name_i = new_name + step_expr  */
-      tmp = fold_build2 (PLUS_EXPR, scalar_type, new_name, step_expr);
-      init_stmt = build_gimple_modify_stmt (new_var, tmp);
-      new_name = make_ssa_name (new_var, init_stmt);
-      GIMPLE_STMT_OPERAND (init_stmt, 0) = new_name;
+	  tmp = fold_build2 (PLUS_EXPR, scalar_type, new_name, step_expr);
+	  init_stmt = build_gimple_modify_stmt (new_var, tmp);
+	  new_name = make_ssa_name (new_var, init_stmt);
+	  GIMPLE_STMT_OPERAND (init_stmt, 0) = new_name;
 
-      new_bb = bsi_insert_on_edge_immediate (pe, init_stmt);
-      gcc_assert (!new_bb);
+	  new_bb = bsi_insert_on_edge_immediate (pe, init_stmt);
+	  gcc_assert (!new_bb);
 
-      if (vect_print_dump_info (REPORT_DETAILS))
-        {
-          fprintf (vect_dump, "created new init_stmt: ");
-          print_generic_expr (vect_dump, init_stmt, TDF_SLIM);
-        }
-      t = tree_cons (NULL_TREE, new_name, t);
-    }
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    {
+	      fprintf (vect_dump, "created new init_stmt: ");
+	      print_generic_expr (vect_dump, init_stmt, TDF_SLIM);
+	    }
+	  t = tree_cons (NULL_TREE, new_name, t);
+	}
       /* Create a vector from [new_name_0, new_name_1, ..., new_name_nunits-1]  */
-  vec = build_constructor_from_list (vectype, nreverse (t));
+      vec = build_constructor_from_list (vectype, nreverse (t));
       vec_init = vect_init_vector (iv_phi, vec, vectype);
     }
 
@@ -1221,10 +1221,10 @@ get_initial_def_for_reduction (tree stmt, tree init_val, tree *adjustment_def)
   tree t = NULL_TREE;
   int i;
   tree vector_type;
-  bool nested_in_vect_loop= false; 
+  bool nested_in_vect_loop = false; 
 
   gcc_assert (INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type));
-  if (loop->inner && (loop->inner == (bb_for_stmt (stmt))->loop_father))
+  if (nested_in_vect_loop_p (loop, stmt))
     nested_in_vect_loop = true;
   else
     gcc_assert (loop == (bb_for_stmt (stmt))->loop_father);
@@ -1347,7 +1347,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
   bool nested_in_vect_loop = false;
   int op_type;
   
-  if (loop->inner && (loop->inner == (bb_for_stmt (stmt))->loop_father))
+  if (nested_in_vect_loop_p (loop, stmt))
     {
       loop = loop->inner;
       nested_in_vect_loop = true;
@@ -1763,12 +1763,16 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   tree new_stmt = NULL_TREE;
   int j;
 
-  if (loop->inner && (loop->inner == (bb_for_stmt (stmt))->loop_father))
+  if (nested_in_vect_loop_p (loop, stmt))
     {
       loop = loop->inner;
       /* FORNOW. This restriction should be relaxed.  */
       if (ncopies > 1)
-	return false;
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "multiple types in nested loop.");
+	  return false;
+	}
     }
 
   gcc_assert (ncopies >= 1);
@@ -1839,9 +1843,9 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   gcc_assert (dt == vect_reduction_def);
   gcc_assert (TREE_CODE (def_stmt) == PHI_NODE);
   if (orig_stmt) 
-    gcc_assert (orig_stmt == vect_is_simple_reduction (loop, def_stmt));
+    gcc_assert (orig_stmt == vect_is_simple_reduction (loop_vinfo, def_stmt));
   else
-    gcc_assert (stmt == vect_is_simple_reduction (loop, def_stmt));
+    gcc_assert (stmt == vect_is_simple_reduction (loop_vinfo, def_stmt));
   
   if (STMT_VINFO_LIVE_P (vinfo_for_stmt (def_stmt)))
     return false;
@@ -2062,6 +2066,7 @@ vectorizable_call (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt), prev_stmt_info;
   tree vectype_out, vectype_in;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree fndecl, rhs, new_temp, def, def_stmt, rhs_type, lhs_type;
   enum vect_def_type dt[2];
   int ncopies, j, nargs;
@@ -2169,6 +2174,14 @@ vectorizable_call (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	     / TYPE_VECTOR_SUBPARTS (vectype_out));
   gcc_assert (ncopies >= 1);
 
+  /* FORNOW. This restriction should be relaxed.  */
+  if (nested_in_vect_loop_p (loop, stmt) && ncopies > 1)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "multiple types in nested loop.");
+      return false;
+    }
+
   /* Handle def.  */
   scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   vec_dest = vect_create_destination_var (scalar_dest, vectype_out);
@@ -2241,6 +2254,7 @@ vectorizable_conversion (tree stmt, block_stmt_iterator * bsi,
   tree vec_oprnd0 = NULL_TREE;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   enum tree_code code;
   tree new_temp;
   tree def, def_stmt;
@@ -2306,6 +2320,14 @@ vectorizable_conversion (tree stmt, block_stmt_iterator * bsi,
      needs to be generated.  */
   ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits_in;
   gcc_assert (ncopies >= 1);
+
+  /* FORNOW. This restriction should be relaxed.  */
+  if (nested_in_vect_loop_p (loop, stmt) && ncopies > 1)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+	fprintf (vect_dump, "multiple types in nested loop.");
+      return false;
+    }
 
   if (!vect_is_simple_use (op0, loop_vinfo, &def_stmt, &def, &dt0))
     {
@@ -2555,6 +2577,7 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   enum tree_code code;
   enum machine_mode vec_mode;
   tree new_temp;
@@ -2573,6 +2596,13 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   int j;
 
   gcc_assert (ncopies >= 1);
+  /* FORNOW. This restriction should be relaxed.  */
+  if (nested_in_vect_loop_p (loop, stmt) && ncopies > 1)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "multiple types in nested loop.");
+      return false;
+    }
 
   if (!STMT_VINFO_RELEVANT_P (stmt_info))
     return false;
@@ -2826,6 +2856,7 @@ vectorizable_type_demotion (tree stmt, block_stmt_iterator *bsi,
   tree vec_oprnd0=NULL, vec_oprnd1=NULL;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   enum tree_code code;
   tree new_temp;
   tree def, def_stmt;
@@ -2882,6 +2913,13 @@ vectorizable_type_demotion (tree stmt, block_stmt_iterator *bsi,
 
   ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits_out;
   gcc_assert (ncopies >= 1);
+  /* FORNOW. This restriction should be relaxed.  */
+  if (nested_in_vect_loop_p (loop, stmt) && ncopies > 1)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "multiple types in nested loop.");
+      return false;
+    }
 
   if (! ((INTEGRAL_TYPE_P (TREE_TYPE (scalar_dest))
 	  && INTEGRAL_TYPE_P (TREE_TYPE (op0)))
@@ -3040,6 +3078,7 @@ vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
   tree vec_oprnd0=NULL, vec_oprnd1=NULL;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   enum tree_code code, code1 = CODE_FOR_nothing, code2 = CODE_FOR_nothing;
   tree decl1 = NULL_TREE, decl2 = NULL_TREE;
   int op_type; 
@@ -3085,6 +3124,13 @@ vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
   nunits_in = TYPE_VECTOR_SUBPARTS (vectype_in);
   ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits_in;
   gcc_assert (ncopies >= 1);
+  /* FORNOW. This restriction should be relaxed.  */
+  if (nested_in_vect_loop_p (loop, stmt) && ncopies > 1)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "multiple types in nested loop.");
+      return false;
+    }
 
   scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   vectype_out = get_vectype_for_scalar_type (TREE_TYPE (scalar_dest));
@@ -3381,6 +3427,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info), *first_dr = NULL;
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   enum machine_mode vec_mode;
   tree dummy;
   enum dr_alignment_support alignment_support_cheme;
@@ -3400,6 +3447,13 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   VEC(tree,heap) *scalar_oprnds = NULL, *vec_oprnds = NULL;
 
   gcc_assert (ncopies >= 1);
+  /* FORNOW. This restriction should be relaxed.  */
+  if (nested_in_vect_loop_p (loop, stmt) && ncopies > 1)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "multiple types in nested loop.");
+      return false;
+    }
 
   if (!STMT_VINFO_RELEVANT_P (stmt_info))
     return false;
@@ -4156,6 +4210,15 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   bool strided_load = false;
   tree first_stmt;
 
+  gcc_assert (ncopies >= 1);
+  /* FORNOW. This restriction should be relaxed.  */
+  if (nested_in_vect_loop_p (loop, stmt) && ncopies > 1)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "multiple types in nested loop.");
+      return false;
+    }
+
   if (!STMT_VINFO_RELEVANT_P (stmt_info))
     return false;
 
@@ -4451,6 +4514,7 @@ vectorizable_live_operation (tree stmt,
   tree operation;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   int i;
   int op_type;
   tree op;
@@ -4466,6 +4530,10 @@ vectorizable_live_operation (tree stmt,
     return false;
 
   if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) != SSA_NAME)
+    return false;
+
+  /* FORNOW. CHECKME. */
+  if (nested_in_vect_loop_p (loop, stmt))
     return false;
 
   operation = GIMPLE_STMT_OPERAND (stmt, 1);

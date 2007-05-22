@@ -558,50 +558,17 @@ exist_non_indexing_operands_for_use_p (tree use, tree stmt)
 }
 
 
-/* Function vect_analyze_scalar_cycles.
+/* Function vect_analyze_scalar_cycles_1.
 
-   Examine the cross iteration def-use cycles of scalar variables, by
-   analyzing the loop (scalar) PHIs; Classify each cycle as one of the
-   following: invariant, induction, reduction, unknown.
-   
-   Some forms of scalar cycles are not yet supported.
-
-   Example1: reduction: (unsupported yet)
-
-              loop1:
-              for (i=0; i<N; i++)
-                 sum += a[i];
-
-   Example2: induction: (unsupported yet)
-
-              loop2:
-              for (i=0; i<N; i++)
-                 a[i] = i;
-
-   Note: the following loop *is* vectorizable:
-
-              loop3:
-              for (i=0; i<N; i++)
-                 a[i] = b[i];
-
-         even though it has a def-use cycle caused by the induction variable i:
-
-              loop: i_2 = PHI (i_0, i_1)
-                    a[i_2] = ...;
-                    i_1 = i_2 + 1;
-                    GOTO loop;
-
-         because the def-use cycle in loop3 is considered "not relevant" - i.e.,
-         it does not need to be vectorized because it is only used for array
-         indexing (see 'mark_stmts_to_be_vectorized'). The def-use cycle in
-         loop2 on the other hand is relevant (it is being written to memory).
-*/
+   Examine the cross iteration def-use cycles of scalar variables
+   in LOOP. LOOP_VINFO represents the loop that is noe being
+   considered for vectorization (can be LOOP, or an outer-loop
+   enclosing LOOP).  */
 
 static void
-vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
+vect_analyze_scalar_cycles_1 (loop_vec_info loop_vinfo, struct loop *loop)
 {
   tree phi;
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block bb = loop->header;
   tree dumy;
   VEC(tree,heap) *worklist = VEC_alloc (tree, heap, 64);
@@ -667,7 +634,7 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
       gcc_assert (is_gimple_reg (SSA_NAME_VAR (def)));
       gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_unknown_def_type);
 
-      reduc_stmt = vect_is_simple_reduction (loop, phi);
+      reduc_stmt = vect_is_simple_reduction (loop_vinfo, phi);
       if (reduc_stmt)
         {
           if (vect_print_dump_info (REPORT_DETAILS))
@@ -683,6 +650,48 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 
   VEC_free (tree, heap, worklist);
   return;
+}
+
+
+/* Function vect_analyze_scalar_cycles.
+
+   Examine the cross iteration def-use cycles of scalar variables, by
+   analyzing the loop-header PHIs of scalar variables; Classify each 
+   cycle as one of the following: invariant, induction, reduction, unknown.
+   We do that for the loop represented by LOOP_VINFO, and also to its
+   inner-loop, if exists.
+   Examples for scalar cycles:
+
+   Example1: reduction:
+
+              loop1:
+              for (i=0; i<N; i++)
+                 sum += a[i];
+
+   Example2: induction:
+
+              loop2:
+              for (i=0; i<N; i++)
+                 a[i] = i;  */
+
+static void
+vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
+{
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+
+  vect_analyze_scalar_cycles_1 (loop_vinfo, loop);
+
+  /* When vectorizing an outer-loop, the inner-loop is executed sequentially.
+     Reductions in such inner-loop therefore have different properties than
+     the reductions in the nest that gets vectorized:
+     1. When vectorized, they are executed in the same order as in the original
+        scalar loop, so we can't change the order of computation when
+        vectorizing them.
+     2. FIXME: Inner-loop reductions can be used in the inner-loop, so the 
+        current checks are too strict.  */
+
+  if (loop->inner)
+    vect_analyze_scalar_cycles_1 (loop_vinfo, loop->inner);
 }
 
 
@@ -2343,12 +2352,7 @@ process_use (tree stmt, tree use, loop_vec_info loop_vinfo, bool live_p,
       && bb->loop_father == def_bb->loop_father)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
-	{
-	  fprintf (vect_dump, 
-		   "reduc-stmt defining reduc-phi in the same nest - skip.");
-	  print_generic_stmt (vect_dump, def_stmt, TDF_SLIM);
-	  print_generic_stmt (vect_dump, stmt, TDF_SLIM);
-	}
+	fprintf (vect_dump, "reduc-stmt defining reduc-phi in the same nest.");
       if (STMT_VINFO_IN_PATTERN_P (dstmt_vinfo))
 	dstmt_vinfo = vinfo_for_stmt (STMT_VINFO_RELATED_STMT (dstmt_vinfo));
       gcc_assert (STMT_VINFO_RELEVANT (dstmt_vinfo) < vect_used_by_reduction);
@@ -2547,17 +2551,22 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
       if (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def)
         {
-	  switch (relevant)
+	  enum vect_relevant tmp_relevant = relevant;
+	  switch (tmp_relevant)
 	    {
 	    case vect_unused_in_loop:
 	      gcc_assert (TREE_CODE (stmt) != PHI_NODE);
+	      relevant = vect_used_by_reduction;
 	      break;
+
 	    case vect_used_in_outer_by_reduction:
 	    case vect_used_in_outer:
 	      break;
+
 	    case vect_used_by_reduction:
 	      if (TREE_CODE (stmt) == PHI_NODE)
 		break;
+	      /* fall through */
 	    case vect_used_in_loop:
 	    default:
 	      if (vect_print_dump_info (REPORT_DETAILS))
@@ -2565,7 +2574,6 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	      VEC_free (tree, heap, worklist);
 	      return false;
 	    }
-	  relevant = vect_used_by_reduction;
 	  live_p = false;	
 	}
 
@@ -2729,24 +2737,9 @@ vect_analyze_loop_1 (struct loop *loop)
   if (!loop_vinfo)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "bad loop form.");
+        fprintf (vect_dump, "bad inner-loop form.");
       return NULL;
     }
-
-  /* Classify all cross-iteration scalar data-flow cycles.  */
-  /* FIXME: Since the inner-loop is executed sequentially (the iterations of
-     the outerloop are combined) inner-loop scalar-cycles that are detected
-     as a "reduction" actually have different properties than the reductions in
-     the nest that gets vectorized:
-     1. When vectorized, they are executed in the same order as in the original
-	scalar loop, so we can't change the order of computation when 
-	vectorizing defs that are marked as "used_by_reduction".
-     2. Inner-loop reductions can be used in the inner-loop, so the current
-	checks are too strict.
-     So we need to differenciate between regular reductions and "inner-loop
-     reductions".  */
-      
-  vect_analyze_scalar_cycles (loop_vinfo);
 
   return loop_vinfo;
 }

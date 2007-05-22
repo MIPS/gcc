@@ -1,3 +1,48 @@
+2007-05-22  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vectorizer.c (vect_is_simple_use): Remove multitypes check.
+	Moved to vectorizable_* functions.
+	* tree-vect-transform.c (vectorizable_reduction): Call
+	nested_in_vect_loop_p. Check for multitypes in the inner-loop.
+	(vectorizable_call): Likewise.
+	(vectorizable_conversion): Likewise.
+	(vectorizable_operation): Likewise.
+	(vectorizable_type_promotion): Likewise.
+	(vectorizable_type_demotion): Likewise.
+	(vectorizable_store): Likewise.
+	(vectorizable_live_operation): Likewise.
+
+	* tree-vectorizer.c (supportable_widening_operation): Also check if
+	used by an outer-loop reduction.
+	(vect_is_simple_reduction): Takes a loop_vec_info as argument instead
+	of struct loop. Call nested_in_vect_loop_p and don't require
+	flag_unsafe_math_optimizations if it returns true.
+	* tree-vectorizer.h (vect_is_simple_reduction): Takes a loop_vec_info
+	as argument instead of struct loop.
+	* tree-vect-analyze.c (vect_analyze_scalar_cycles_1): New function.
+	Same code as what used to be vect_analyze_scalar_cycles, only with
+	additional argument loop, and loop_info passed to
+	vect_is_simple_reduction instead of loop.
+	(vect_analyze_scalar_cycles): Codee factored out into
+	vect_analyze_scalar_cycles_1. Call it for each relevant loop-nest.
+	Updated documentation.
+	(vect_mark_stmts_to_be_vectorized): 'relevant' doen't change to
+	vect_used_by_reduction in case it is vect_used_in_outer*.
+	(vect_analyze_loop_1): Don't call vect_analyze_scalar_cycles.
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): Check if there
+	are uses in the loop.
+	* tree-vect-transform.c (vectorizable_reduction): pass loop_info to
+	vect_is_simple_reduction instead of loop.
+
+	* tree-vect-analyze.c (process_use): Remove printouts.
+	* tree-vect-transform.c (get_initial_def_for_induction): Fix
+	indentation.
+	
+	* tree-vectorizer.h (nested_in_vect_loop_p): New function.
+	* tree-vect-transform.c (vect_init_vector): Call nested_in_vect_loop_p.
+	(get_initial_def_for_reduction): Likewise.
+	(vect_create_epilog_for_reduction): Likewise.
+
 2007-05-02  Victor Kaplansky <victork@il.ibm.com>
 	
 	Merged the following revisions from

@@ -161,6 +161,11 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out)
   tree type, half_type;
   tree pattern_expr;
   tree prod_type;
+  tree name;
+  imm_use_iterator imm_iter;
+  use_operand_p use_p;
+  loop_vec_info loop_info = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_info);
 
   if (TREE_CODE (last_stmt) != GIMPLE_MODIFY_STMT)
     return NULL;
@@ -194,6 +199,23 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out)
 
   if (TREE_CODE (expr) != PLUS_EXPR)
     return NULL;
+
+  /* A DOT_PROD_EXPR can be vectorized only if its ok to change the
+     computation order.  Here we check if the summation has any uses
+     in LOOP, which would require maintaining the same computation order.  */
+  name = GIMPLE_STMT_OPERAND (last_stmt, 0);
+  if (TREE_CODE (name) == SSA_NAME)
+    {
+      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, name)
+	{
+	  tree use_stmt = USE_STMT (use_p);
+	  basic_block bb = bb_for_stmt (use_stmt);
+	  if (flow_bb_inside_loop_p (loop, bb)
+	      && (TREE_CODE (use_stmt) != PHI_NODE
+		  || !is_loop_header_bb_p (bb)))
+            return NULL;
+	}
+    }
 
   if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
     {

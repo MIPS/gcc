@@ -1774,28 +1774,6 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "type of def: %d.",*dt);
 
-  /* FORNOW. We currently don't support multiple data-types in inner-loops
-     during outer-loop vectorization.  This restriction will be relaxed.  */
-  if (*def_stmt
-      && loop->inner 
-      && (loop->inner == (bb_for_stmt (*def_stmt))->loop_father))  
-    {
-      stmt_vec_info stmt_info = vinfo_for_stmt (*def_stmt);
-      tree vectype = STMT_VINFO_VECTYPE (stmt_info);
-
-      if (vectype)
-	{
-	  int nunits = TYPE_VECTOR_SUBPARTS (vectype);
-	  int ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
-	  if (ncopies > 1)
-	    {
-	      if (vect_print_dump_info (REPORT_DETAILS))
-		fprintf (vect_dump, "Multiple-types in inner-loop.");
-	      return false;
-	    }
-	}
-    }
-
   switch (TREE_CODE (*def_stmt))
     {
     case PHI_NODE:
@@ -1864,7 +1842,8 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
      of {mult_even,mult_odd} generate the following vectors:
         vect1: [res1,res3,res5,res7], vect2: [res2,res4,res6,res8].  */
 
-   if (STMT_VINFO_RELEVANT (stmt_info) == vect_used_by_reduction)
+   if (STMT_VINFO_RELEVANT (stmt_info) == vect_used_by_reduction
+       || STMT_VINFO_RELEVANT (stmt_info) == vect_used_in_outer_by_reduction)
      ordered_p = false;
    else
      ordered_p = true;
@@ -1993,8 +1972,10 @@ reduction_code_for_scalar_code (enum tree_code code,
    Conditions 2,3 are tested in vect_mark_stmts_to_be_vectorized.  */
 
 tree
-vect_is_simple_reduction (struct loop *loop, tree phi)
+vect_is_simple_reduction (loop_vec_info loop_info, tree phi)
 {
+  struct loop *loop = (bb_for_stmt (phi))->loop_father;
+  struct loop *vect_loop = LOOP_VINFO_LOOP (loop_info);
   edge latch_e = loop_latch_edge (loop);
   tree loop_arg = PHI_ARG_DEF_FROM_EDGE (phi, latch_e);
   tree def_stmt, def1, def2;
@@ -2006,6 +1987,8 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
   tree name;
   imm_use_iterator imm_iter;
   use_operand_p use_p;
+
+  gcc_assert (loop == vect_loop || flow_loop_nested_p (vect_loop, loop));
 
   name = PHI_RESULT (phi);
   nloop_uses = 0;
@@ -2118,8 +2101,16 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
       return NULL_TREE;
     }
 
+  /* Generally, when vectorizing a reduction we change the order of the
+     computation.  This may change the behavior of the program in some
+     cases, so we need to check that this is ok.  One exception is when 
+     vectorizing an outer-loop: the inner-loop is executed sequentially,
+     and therefore vectorizing reductions in the inner-loop durint 
+     outer-loop vectorization is safe.  */
+
   /* CHECKME: check for !flag_finite_math_only too?  */
-  if (SCALAR_FLOAT_TYPE_P (type) && !flag_unsafe_math_optimizations)
+  if (SCALAR_FLOAT_TYPE_P (type) && !flag_unsafe_math_optimizations
+      && !nested_in_vect_loop_p (vect_loop, def_stmt)) 
     {
       /* Changing the order of operations changes the semantics.  */
       if (vect_print_dump_info (REPORT_DETAILS))
@@ -2129,7 +2120,8 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
         }
       return NULL_TREE;
     }
-  else if (INTEGRAL_TYPE_P (type) && TYPE_OVERFLOW_TRAPS (type))
+  else if (INTEGRAL_TYPE_P (type) && TYPE_OVERFLOW_TRAPS (type)
+	   && !nested_in_vect_loop_p (vect_loop, def_stmt))
     {
       /* Changing the order of operations changes the semantics.  */
       if (vect_print_dump_info (REPORT_DETAILS))

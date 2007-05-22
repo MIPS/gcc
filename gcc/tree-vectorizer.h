@@ -160,6 +160,13 @@ loop_vec_info_for_loop (struct loop *loop)
   return (loop_vec_info) loop->aux;
 }
 
+static inline bool
+nested_in_vect_loop_p (struct loop *loop, tree stmt)
+{
+  return (loop->inner 
+          && (loop->inner == (bb_for_stmt (stmt))->loop_father));
+}
+
 /*-----------------------------------------------------------------*/
 /* Info on vectorized defs.                                        */
 /*-----------------------------------------------------------------*/
@@ -419,7 +426,7 @@ extern tree get_vectype_for_scalar_type (tree);
 extern bool vect_is_simple_use (tree, loop_vec_info, tree *, tree *,
 				enum vect_def_type *);
 extern bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *);
-extern tree vect_is_simple_reduction (struct loop *, tree);
+extern tree vect_is_simple_reduction (loop_vec_info, tree);
 extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
 extern enum dr_alignment_support vect_supportable_dr_alignment
   (struct data_reference *);
