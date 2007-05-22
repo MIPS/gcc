@@ -507,6 +507,16 @@ DEFPARAM(PARAM_MAX_SCHED_REGION_INSNS,
 	 "The maximum number of insns in a region to be considered for interblock scheduling",
 	 100, 0, 0)
 
+DEFPARAM(PARAM_MAX_PIPELINE_REGION_BLOCKS,
+	 "max-pipeline-region-blocks",
+	 "The maximum number of blocks in a region to be considered for interblock scheduling",
+	 30, 0, 0)
+
+DEFPARAM(PARAM_MAX_PIPELINE_REGION_INSNS,
+	 "max-pipeline-region-insns",
+	 "The maximum number of insns in a region to be considered for interblock scheduling",
+	 500, 0, 0)
+
 DEFPARAM(PARAM_MIN_SPEC_PROB,
          "min-spec-prob",
          "The minimum probability of reaching a source block for interblock speculative scheduling",
@@ -569,6 +579,21 @@ DEFPARAM(PARAM_REGION_STOP,
 
 DEFPARAM(PARAM_REGION_P,
          "region-p",
+         "Allow something",
+         0, 0, 0)
+	 
+DEFPARAM(PARAM_INSN_START,
+         "insn-start",
+         "Allow something",
+         0, 0, 0)
+
+DEFPARAM(PARAM_INSN_STOP,
+         "insn-stop",
+         "Allow something",
+         0, 0, 0)
+
+DEFPARAM(PARAM_INSN_P,
+         "insn-p",
          "Allow something",
          0, 0, 0)
 

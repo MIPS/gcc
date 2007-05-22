@@ -38,6 +38,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "ggc.h"
 #include "sched-int.h"
 #include "sched-rgn.h"
+#include "cfgloop.h"
 
 /* tc_t is a short for target context.  This is a state of the target
    backend.  */
@@ -614,6 +615,16 @@ extern rtx exit_insn;
 /* Return true in INSN is in current fence.  */
 #define IN_CURRENT_FENCE_P(INSN) (flist_lookup (fences, INSN) != NULL)
 
+/* Marks loop as being considered for pipelining.  */
+#define MARK_LOOP_FOR_PIPELINING(LOOP) ((LOOP)->aux = (void *)(size_t)(1))
+#define LOOP_MARKED_FOR_PIPELINING_P(LOOP) ((size_t)((LOOP)->aux))
+
+/* Saved loop preheader to transfer when scheduling the loop.  */
+#define LOOP_PREHEADER_BLOCKS(LOOP) ((size_t)((LOOP)->aux) == 1 \
+                                     ? NULL \
+                                     : ((VEC(basic_block, heap) *) (LOOP)->aux))
+#define SET_LOOP_PREHEADER_BLOCKS(LOOP,BLOCKS) ((LOOP)->aux = BLOCKS)
+
 /* When false, only notes may be added.  */
 extern bool can_add_real_insns_p;
 
@@ -750,8 +761,12 @@ extern sel_bb_info_t sel_bb_info;
 /* Used in bb_in_ebb_p.  */
 extern bitmap_head *forced_ebb_heads;
 
-/* Used in a sanity check in generate_bookkeeping_insn.  */
-extern basic_block last_added_block;
+/* The loop nest being pipelined.  */
+extern struct loop *current_loop_nest;
+
+/* Saves pipelined blocks.  Bitmap is indexed by bb->index.  */
+extern sbitmap bbs_pipelined;
+
 
 
 extern bool enable_moveup_set_path_p;
@@ -869,9 +884,22 @@ extern void sel_add_or_remove_bb_1 (basic_block, bool);
 extern void sel_add_or_remove_bb (basic_block, bool);
 extern void sel_remove_empty_bb (basic_block, bool);
 extern basic_block sel_split_block (basic_block, insn_t);
+extern basic_block sel_split_edge (edge);
 extern basic_block sel_redirect_edge_force (edge, basic_block);
+extern edge sel_redirect_edge_and_branch (edge, basic_block);
 extern basic_block sel_create_basic_block (void *, void *, basic_block);
 extern basic_block sel_create_basic_block_before (basic_block);
+extern void pipeline_outer_loops (void);
+extern void pipeline_outer_loops_init (void);
+extern void pipeline_outer_loops_finish (void);
+extern void sel_sched_region (int);
+extern void sel_find_rgns (void);
+extern loop_p get_loop_nest_for_rgn (unsigned int);
+extern bool considered_for_pipelining_p (struct loop *);
+extern void make_region_from_loop_preheader (VEC(basic_block, heap) **);
+extern void sel_add_loop_preheader (void);
+extern void clear_outdated_rtx_info (basic_block);
+
 
 /* Various initialization functions.  */
 extern void init_lv_sets (void);
@@ -888,8 +916,129 @@ typedef struct
   edge e1;
   edge e2;
   edge_iterator ei;
+  basic_block bb;
   int flags;
+
+  /* If skip to loop exits, save here information about loop exits.  */
+  int cur_exit;
+  VEC (edge, heap) *loop_exits;
 } succ_iterator;
+
+
+/* True when BB is a header of the inner loop.  */
+static bool
+inner_loop_header_p (basic_block bb)
+{
+  struct loop *inner_loop; 
+
+  if (!flag_sel_sched_pipelining_outer_loops
+      || !current_loop_nest)
+    return false;
+
+  if (bb == EXIT_BLOCK_PTR)
+    return false;
+
+  inner_loop = bb->loop_father;
+  if (inner_loop == current_loop_nest)
+    return false;
+
+  /* If successor belongs to another loop.  */
+  if (bb == inner_loop->header
+      && flow_bb_inside_loop_p (current_loop_nest, bb))
+    {
+      /* Could be '=' here because of wrong loop depths.  */
+      gcc_assert (inner_loop->depth >= current_loop_nest->depth);
+      return true;
+    }
+
+  return false;  
+}
+
+/* Return exit edges of LOOP, filtering out edges with the same dest bb.  */
+
+static inline VEC (edge, heap) *
+get_loop_exit_edges_unique_dests (const struct loop *loop)
+{
+  VEC (edge, heap) *edges = NULL;
+  struct loop_exit *exit;
+
+  gcc_assert (loop->latch != EXIT_BLOCK_PTR
+              && current_loops->state & LOOPS_HAVE_RECORDED_EXITS);
+
+  for (exit = loop->exits.next; exit->e; exit = exit->next)
+    {
+      int i;
+      edge e;
+      bool was_dest = false;
+      
+      for (i = 0; VEC_iterate (edge, edges, i, e); i++)
+        if (e->dest == exit->e->dest)
+          {
+            was_dest = true;
+            break;
+          }
+
+      if (!was_dest)
+        VEC_safe_push (edge, heap, edges, exit->e);
+    }
+  return edges;
+}
+
+
+/* Collect all loop exits recursively, skipping empty BBs between them.  
+   E.g. if BB is a loop header which has several loop exits,
+   traverse all of them and if any of them turns out to be another loop header
+   (after skipping empty BBs), add its loop exits to the resulting vector 
+   as well.  */
+static inline VEC(edge, heap) *
+get_all_loop_exits (basic_block bb)
+{
+  VEC(edge, heap) *exits = NULL;
+
+  /* If bb is empty, and we're skipping to loop exits, then
+     consider bb as a possible gate to the inner loop now.  */
+  while (bb_empty_p (bb) 
+	 && in_current_region_p (bb))
+    bb = single_succ (bb);
+
+  /* And now check whether we should skip over inner loop.  */
+  if (inner_loop_header_p (bb))
+    {
+      struct loop *this_loop = bb->loop_father;
+      int i;
+      edge e;
+
+      exits = get_loop_exit_edges_unique_dests (this_loop);
+
+      /* Traverse all loop headers.  */
+      for (i = 0; VEC_iterate (edge, exits, i, e); i++)
+	if (in_current_region_p (e->dest))
+	  {
+	    VEC(edge, heap) *next_exits = get_all_loop_exits (e->dest);
+  
+	    if (next_exits)
+	      {
+		int j;
+		edge ne;
+  
+		/* Add all loop exits for the current edge into the
+		   resulting vector.  */
+		for (j = 0; VEC_iterate (edge, next_exits, j, ne); j++)
+		  VEC_safe_push (edge, heap, exits, ne);
+  
+		/* Remove the original edge.  */
+		VEC_ordered_remove (edge, exits, i);
+
+		/*  Decrease the loop counter so we won't skip anything.  */
+		i--;
+		continue;
+	      }
+	  }
+    }
+
+  return exits;
+}
+
 
 /* Flags to pass to cfg_succs () and FOR_EACH_SUCC ().
    NB: Any successor will fall into exactly one category.   */
@@ -900,6 +1049,10 @@ typedef struct
 #define SUCCS_BACK (2)
 /* Include successors that are outside of the current region.  */
 #define SUCCS_OUT (4)
+/* When pipelining of the outer loops is enabled, skip innermost loops 
+   to their exits.  */
+#define SUCCS_SKIP_TO_LOOP_EXITS (8)
+
 /* Include all successors.  */
 #define SUCCS_ALL (SUCCS_NORMAL | SUCCS_BACK | SUCCS_OUT)
 
@@ -916,6 +1069,14 @@ _succ_iter_start (insn_t *succp, insn_t insn, int flags)
 
   i.flags = flags;
 
+  /* Avoid 'uninitialized' warning.  */
+  *succp = NULL;
+  i.e1 = NULL;
+  i.e2 = NULL;
+  i.bb = bb;
+  i.cur_exit = -1;
+  i.loop_exits = NULL;
+
   if (bb != EXIT_BLOCK_PTR && BB_END (bb) != insn)
     {
       i.bb_end = false;
@@ -930,17 +1091,12 @@ _succ_iter_start (insn_t *succp, insn_t insn, int flags)
       i.bb_end = true;
     }
 
-  /* Avoid 'uninitialized' warning.  */
-  *succp = NULL;
-  i.e1 = NULL;
-  i.e2 = NULL;
-
   return i;
 }
 
 static inline bool
 _succ_iter_cond (succ_iterator *ip, rtx *succp, rtx insn,
-                 bool check (edge, int, edge *))
+                 bool check (edge, basic_block, int, edge *))
 {
   if (!ip->bb_end)
     {
@@ -954,9 +1110,71 @@ _succ_iter_cond (succ_iterator *ip, rtx *succp, rtx insn,
     }
   else
     {
-      while (ei_cond (ip->ei, &(ip->e1))
-	     && !check (ip->e1, ip->flags, &ip->e2))
-	ei_next (&(ip->ei));
+      while (1) 
+        {
+          edge e_tmp = NULL;
+
+          /* First, try loop exits, if we have them.  */
+          if (ip->loop_exits)
+            {
+              do
+                {
+                  VEC_iterate (edge, ip->loop_exits, ip->cur_exit, e_tmp);
+                  ip->cur_exit++;
+                }
+	      while (e_tmp && !check (e_tmp, ip->bb, ip->flags, &ip->e2));
+              
+              if (!e_tmp)
+                VEC_free (edge, heap, ip->loop_exits);
+            }
+
+          /* If we have found a successor, then great.  */
+          if (e_tmp)
+            {
+              ip->e1 = e_tmp;
+              break;
+            }
+
+          /* If not, then try the next edge.  */
+          while (ei_cond (ip->ei, &(ip->e1)))
+            {
+              basic_block bb = ip->e1->dest;
+
+              /* Consider bb as a possible loop header.  */
+              if ((ip->flags & SUCCS_SKIP_TO_LOOP_EXITS)
+                  && flag_sel_sched_pipelining_outer_loops
+		  && (!in_current_region_p (bb) 
+		      || BLOCK_TO_BB (ip->bb->index) 
+			 < BLOCK_TO_BB (bb->index)))
+                {
+		  /* Get all loop exits recursively.  */
+		  ip->loop_exits = get_all_loop_exits (bb);
+
+		  if (ip->loop_exits)
+		    {
+  		      ip->cur_exit = 0;
+		      /* Move the iterator now, because we won't do 
+			 succ_iter_next until loop exits will end.  */
+		      ei_next (&(ip->ei));
+		      break;
+		    }
+                }
+
+              /* bb is not a loop header, check as usual.  */
+              if (check (ip->e1, ip->bb, ip->flags, &ip->e2))
+                break;
+
+              ei_next (&(ip->ei));
+            }
+
+          /* If loop_exits are non null, we have found an inner loop; do one more iteration 
+             to fetch an edge from these exits.  */
+          if (ip->loop_exits)
+            continue;
+
+          /* Otherwise, we've found an edge in a usual way.  Break now.  */
+          break;
+        }
 
       if (ip->e1)
 	{
@@ -966,10 +1184,10 @@ _succ_iter_cond (succ_iterator *ip, rtx *succp, rtx insn,
 	    *succp = exit_insn;
 	  else
 	    {
-	      *succp = next_nonnote_insn (bb_note (bb));
-
-	      gcc_assert (ip->flags != SUCCS_NORMAL
-			  || *succp == NEXT_INSN (bb_note (bb)));
+              *succp = next_nonnote_insn (bb_note (bb));
+              
+              gcc_assert (ip->flags != SUCCS_NORMAL
+                          || *succp == NEXT_INSN (bb_note (bb)));
 	    }
 
 	  return true;
@@ -984,7 +1202,7 @@ _succ_iter_next (succ_iterator *ip)
 {
   gcc_assert (!ip->e2 || ip->e1);
 
-  if (ip->bb_end && ip->e1)
+  if (ip->bb_end && ip->e1 && !ip->loop_exits)
     ei_next (&(ip->ei));
 }
 
@@ -993,48 +1211,72 @@ _succ_iter_next (succ_iterator *ip)
    FLAGS are used to specify whether back edges and out-of-region edges
    should be considered.  */
 static inline bool
-_eligible_successor_edge_p (edge e1, int flags, edge *e2p)
+_eligible_successor_edge_p (edge e1, basic_block real_pred, int flags, edge *e2p)
 {
   edge e2 = e1;
   basic_block bb;
+  bool src_outside_rgn = !in_current_region_p (e1->src);
 
   gcc_assert (flags != 0);
 
-  if (!in_current_region_p (e1->src))
-    /* Any successor of the block that is outside current region is
-       ineligible.
-       Possibly this is impossible.  */
+  if (src_outside_rgn)
     {
-      gcc_assert (flags & SUCCS_OUT);
+      /* Any successor of the block that is outside current region is
+         ineligible, except when we're skipping to loop exits.  */
+      gcc_assert (flags & (SUCCS_OUT | SUCCS_SKIP_TO_LOOP_EXITS));
 
-      return false;
+      if (flags & SUCCS_OUT)
+	return false;
     }
 
-  /* Skip empty blocks.  */
-  do
-    {
-      bb = e2->dest;
+  bb = e2->dest;
 
+  /* Skip empty blocks, but be careful not to leave the region.  */
+  while (1)
+    {
       if (!bb_empty_p (bb))
-	break;
+        break;
+        
+      if (!in_current_region_p (bb) 
+          && !(flags & SUCCS_OUT))
+        return false;
 
       e2 = EDGE_SUCC (bb, 0);
+      bb = e2->dest;
     }
-  while (1);
-
+  
   if (e2p)
     *e2p = e2;
 
   if (in_current_region_p (bb))
-    /* This is either normal or back edge.  */
     {
-      if (/* During pipelining we ignore back edges.  */
-	  pipelining_p
-	  /* BLOCK_TO_BB set topological order of the region.  */
-	  || BLOCK_TO_BB (e1->src->index) < BLOCK_TO_BB (bb->index))
-	return !!(flags & SUCCS_NORMAL);
-      else
-	return !!(flags & SUCCS_BACK);
+      /* BLOCK_TO_BB sets topological order of the region here.  
+         It is important to use REAL_PRED here as we may well have 
+         e1->src outside current region, when skipping to loop exits.  */
+      bool succeeds_in_top_order 
+        = BLOCK_TO_BB (real_pred->index) < BLOCK_TO_BB (bb->index);
+
+      /* We are advancing forward in the region, as usual.  */
+      if (succeeds_in_top_order)
+        {
+          /* We are skipping to loop exits here.  */
+          gcc_assert (!src_outside_rgn
+                      || flag_sel_sched_pipelining_outer_loops);
+
+          return !!(flags & SUCCS_NORMAL);
+        }
+
+      /* This is a back edge.  During pipelining we ignore back edges, 
+         but only when it leads to the same loop.  It can lead to the header
+         of the outer loop, which will also be the preheader of 
+         the current loop.  */
+      if (pipelining_p
+           && (!flag_sel_sched_pipelining_outer_loops
+               || e1->src->loop_father == bb->loop_father))
+        return !!(flags & SUCCS_NORMAL);
+
+      /* A back edge should be requested explicitly.  */
+      return !!(flags & SUCCS_BACK);
     }
 
   return !!(flags & SUCCS_OUT);

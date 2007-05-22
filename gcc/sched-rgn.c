@@ -124,7 +124,6 @@ static int min_spec_prob;
 
 static void find_single_block_region (bool);
 static void find_rgns (void);
-static void extend_rgns (int *, int *, sbitmap, int *);
 static bool too_large (int, int *, int *);
 
 /* Blocks of the current region being scheduled.  */
@@ -562,7 +561,7 @@ too_large (int block, int *num_bbs, int *num_insns)
    of edge tables.  That would simplify it somewhat.  */
 
 static void
-find_rgns (void)
+haifa_find_rgns (void)
 {
   int *max_hdr, *dfs_nr, *degree;
   char no_loops = 1;
@@ -1022,6 +1021,19 @@ find_rgns (void)
   sbitmap_free (in_stack);
 }
 
+
+/* Wrapper function.
+   If FLAG_SEL_SCHED_PIPELINING_OUTER_LOOPS is set, then use custom
+   function to form a region.  Otherwise just call find_rgns_haifa.  */
+static void
+find_rgns (void)
+{
+  if (SEL_SCHED_P && flag_sel_sched_pipelining_outer_loops)
+    sel_find_rgns ();
+  else
+    haifa_find_rgns ();
+}
+
 static int gather_region_statistics (int **);
 static void print_region_statistics (int *, int, int *, int);
 
@@ -1091,7 +1103,7 @@ print_region_statistics (int *s1, int s1_sz, int *s2, int s2_sz)
    LOOP_HDR - mapping from block to the containing loop
    (two blocks can reside within one region if they have
    the same loop header).  */
-static void
+void
 extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 {
   int *order, i, rescan = 0, idx = *idxp, iter = 0, max_iter, *max_hdr;
@@ -2903,7 +2915,8 @@ sched_rgn_init (bool single_blocks_p, bool ebbs_p)
   else
     {
       /* Compute the dominators and post dominators.  */
-      calculate_dominance_info (CDI_DOMINATORS);
+      if (!SEL_SCHED_P || !flag_sel_sched_pipelining_outer_loops)
+	calculate_dominance_info (CDI_DOMINATORS);
 
       /* Find regions.  */
       find_rgns ();
@@ -2913,7 +2926,8 @@ sched_rgn_init (bool single_blocks_p, bool ebbs_p)
 
       /* For now.  This will move as more and more of haifa is converted
 	 to using the cfg code in flow.c.  */
-      free_dominance_info (CDI_DOMINATORS);
+      if (!SEL_SCHED_P || !flag_sel_sched_pipelining_outer_loops)
+	free_dominance_info (CDI_DOMINATORS);
     }
   RGN_BLOCKS (nr_regions) = RGN_BLOCKS (nr_regions - 1) +
     RGN_NR_BLOCKS (nr_regions - 1);

@@ -6599,7 +6599,9 @@ scheduled_good_insn (rtx last)
        last != NULL && !NOTE_INSN_BASIC_BLOCK_P (last)
        && !stops_p[INSN_UID (last)];
        last = PREV_INSN (last))
-    if (recog_memoized (last) >= 0)
+    /* We could hit a NOTE_INSN_DELETED here which is actually outside
+       the ebb we're scheduling.  */
+    if (INSN_P (last) && recog_memoized (last) >= 0)
       return 1;
 
   return 0;

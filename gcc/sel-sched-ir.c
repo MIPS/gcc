@@ -65,9 +65,15 @@ struct sel_insn_data *s_i_d = NULL;
 /* An array holding bb info.  */
 sel_bb_info_t sel_bb_info = NULL;
 
-/* The basic block that already has been processed by the sched_data_update (),
-   but hasn't been in sel_add_or_remove_bb () yet.  */
-basic_block last_added_block = NULL;
+/* The loop nest being pipelined.  */
+struct loop *current_loop_nest;
+
+/* LOOP_NESTS is a vector containing the corresponding loop nest for
+   each region.  */
+static VEC(loop_p, heap) *loop_nests = NULL;
+
+/* Saves blocks already in loop regions, indexed by bb->index.  */
+static sbitmap bbs_in_loop_rgns = NULL;
 
 /* A maximum UID that is used as a size to per-insn arrays.  */
 int sel_max_uid = 0;
@@ -116,6 +122,13 @@ static void sel_rtl_insn_added (insn_t);
 #define RTL_HOOKS_INSN_ADDED sel_rtl_insn_added
 const struct rtl_hooks sel_rtl_hooks = RTL_HOOKS_INITIALIZER;
 
+
+/* Array containing reverse topological index of function basic blocks,
+   indexed by BB->INDEX.  */
+static int *rev_top_order_index = NULL;
+
+/* Length of the above array.  */
+static int rev_top_order_index_len = -1;
 
 /* A regset pool structure.  */
 static struct
@@ -581,14 +594,28 @@ fence_clear (fence_t f)
 void
 init_fences (basic_block bb)
 {
-  flist_add (&fences, cfg_succ (bb_note (bb)),
-	     state_create (),
-	     create_deps_context () /* dc */,
-	     create_target_context (true) /* tc */,
-	     NULL_RTX /* last_scheduled_insn */, NULL_RTX /* sched_next */,
-	     1 /* cycle */, 0 /* cycle_issued_insns */, 
-	     1 /* starts_cycle_p */, 0 /* after_stall_p */);
-}
+  int succs_num;
+  insn_t *succs;
+  int i;
+
+  cfg_succs_1 (bb_note (bb), SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS, 
+	       &succs, &succs_num);
+
+  gcc_assert (flag_sel_sched_pipelining_outer_loops
+	      || succs_num == 1);
+
+  for (i = 0; i < succs_num; i++)
+    {
+      flist_add (&fences, succs[i],
+		 state_create (),
+		 create_deps_context () /* dc */,
+		 create_target_context (true) /* tc */,
+		 NULL_RTX /* last_scheduled_insn */, NULL_RTX /* sched_next */,
+		 1 /* cycle */, 0 /* cycle_issued_insns */, 
+		 1 /* starts_cycle_p */, 0 /* after_stall_p */);
+  
+    }
+  }
 
 /* Add a new fence to NEW_FENCES list, initializing it from all 
    other parameters.  */
@@ -1792,7 +1819,7 @@ static int tick_check_cycle;
 /* Whether we have seen a true dependence while checking.  */
 static int tick_check_seen_true_dep;
 
-/* Update minimal scheduling cycle for tick_check_insn given that it depends
+/* Update minimal scheduling cycle for tick_check_insn given that it depends 
    on PRO with status DS and weight DW.  */
 static void
 tick_check_dep_with_dw (insn_t pro, ds_t ds, dw_t dw)
@@ -1825,11 +1852,11 @@ tick_check_dep_with_dw (insn_t pro, ds_t ds, dw_t dw)
         tick_check_seen_true_dep = 1;
 
       if (flag_sel_sched_mem_deps_zero_cost
-	  && dt == REG_DEP_TRUE 
-	  && dw != MIN_DEP_WEAK)
-	dc = 0;
+          && dt == REG_DEP_TRUE 
+          && dw != MIN_DEP_WEAK)
+        dc = 0;
       else
-	dc = dep_cost (pro, dt, con);
+        dc = dep_cost (pro, dt, con);
 
       tick = INSN_SCHED_CYCLE (pro) + dc;
 
@@ -1841,7 +1868,7 @@ tick_check_dep_with_dw (insn_t pro, ds_t ds, dw_t dw)
     }
 }
 
-/* An implementation of note_dep hook.	*/
+/* An implementation of note_dep hook.  */
 static void
 tick_check_note_dep (insn_t pro, ds_t ds)
 {
@@ -1855,8 +1882,8 @@ tick_check_note_mem_dep (rtx mem1, rtx mem2, insn_t pro, ds_t ds)
   dw_t dw;
 
   dw = (ds_to_dt (ds) == REG_DEP_TRUE
-	? estimate_dep_weak (mem1, mem2)
-	: MIN_DEP_WEAK);
+        ? estimate_dep_weak (mem1, mem2)
+        : MIN_DEP_WEAK);
 
   tick_check_dep_with_dw (pro, ds, dw);
 }
@@ -2010,6 +2037,11 @@ sel_rtl_insn_added (insn_t insn)
     {
       if (insn_init.how == INSN_INIT_HOW_NOW)
 	{
+
+          if (INSN_P (insn) && BLOCK_FOR_INSN (insn))
+            gcc_assert (CONTAINING_RGN (BB_TO_BLOCK (0)) 
+                        == CONTAINING_RGN (BLOCK_FOR_INSN (insn)->index));
+
 	  if ((insn_init.todo & INSN_INIT_TODO_LUID)
 	      && INSN_NEED_LUID_P (insn))
 	    sched_data_update (NULL, NULL, insn);
@@ -2271,6 +2303,7 @@ sel_init_insn_info (insn_t insn)
   if (INSN_P (insn) && (todo & INSN_INIT_TODO_SEQNO))
     {
       int seqno;
+      insn_t succ;
 
       gcc_assert (INSN_SIMPLEJUMP_P (insn));
 
@@ -2280,22 +2313,43 @@ sel_init_insn_info (insn_t insn)
 	{
 	  insn_t *preds;
 	  int i, n;
+          basic_block bb = BLOCK_FOR_INSN (insn);
 
-	  cfg_preds (BLOCK_FOR_INSN (insn), &preds, &n);
+          /* We can have preds outside a region when splitting edges
+             for pipelining of an outer loop.  Use succ instead.  */
+          if (single_pred_p (bb)
+              && !in_current_region_p (single_pred (bb)))
+            {
+              
+              gcc_assert (flag_sel_sched_pipelining_outer_loops
+                          && current_loop_nest);
 
-	  seqno = INSN_SEQNO (preds[0]);
+              succ = cfg_succ_1 (insn, (SUCCS_NORMAL 
+                                        | SUCCS_SKIP_TO_LOOP_EXITS));
+              gcc_assert (succ);
 
-	  for (i = 1; i < n; i++)
-	    {
-	      gcc_unreachable ();
-	      if (INSN_SEQNO (preds[i]) > seqno)
-		seqno = INSN_SEQNO (preds[i]);
-	    }
-
-	  free (preds);
+              seqno = INSN_SEQNO (succ);
+            }
+          else
+            {
+              
+              cfg_preds (BLOCK_FOR_INSN (insn), &preds, &n);
+              seqno = INSN_SEQNO (preds[0]);
+              
+              for (i = 1; i < n; i++)
+                {
+                  gcc_unreachable ();
+                  if (INSN_SEQNO (preds[i]) > seqno)
+                    seqno = INSN_SEQNO (preds[i]);
+                }
+              
+              free (preds);
+            }
 	}
 
-      gcc_assert (seqno <= INSN_SEQNO (cfg_succ (insn)));
+      succ = cfg_succ (insn);
+      gcc_assert ((succ && seqno <= INSN_SEQNO (succ))
+		  || (!succ && flag_sel_sched_pipelining_outer_loops));
 
       INSN_SEQNO (insn) = seqno;
     }
@@ -2426,8 +2480,11 @@ free_lv_sets (void)
 }
 
 
-
 /* Functions to work with control-flow graph.  */
+
+/* The basic block that already has been processed by the sched_data_update (),
+   but hasn't been in sel_add_or_remove_bb () yet.  */
+static VEC (basic_block, heap) *last_added_blocks = NULL;
 
 /* Return first insn in BB.  BB must not be empty.  
    ??? BB_HEAD must be used instead of this.  */
@@ -2457,13 +2514,17 @@ in_current_region_p (basic_block bb)
 basic_block
 sel_create_basic_block (void *headp, void *endp, basic_block after)
 {
-  gcc_assert (last_added_block == NULL);
+  basic_block new_bb;
+  
+  gcc_assert (flag_sel_sched_pipelining_outer_loops 
+              || last_added_blocks == NULL);
 
-  last_added_block = old_create_basic_block (headp, endp, after);
+  new_bb = old_create_basic_block (headp, endp, after);
+  VEC_safe_push (basic_block, heap, last_added_blocks, new_bb);
 
-  sched_data_update (NULL, last_added_block, NULL);
+  sched_data_update (NULL, new_bb, NULL);
 
-  return last_added_block;
+  return new_bb;
 }
 
 /* True when BB is empty.  A block containing only a label is considered 
@@ -2582,6 +2643,9 @@ cfg_preds_1 (basic_block bb, insn_t **preds, int *n, int *size)
     {
       basic_block pred_bb = e->src;
       insn_t bb_end = BB_END (pred_bb);
+
+      /* ??? This code is not supposed to walk out of a region.  */
+      gcc_assert (in_current_region_p (pred_bb));
 
       if (bb_note (pred_bb) == bb_end)
 	cfg_preds_1 (pred_bb, preds, n, size);
@@ -2757,6 +2821,69 @@ is_ineligible_successor (insn_t insn, ilist_t p)
     return false;
 }
 
+/* Recomputes the reverse topological order for the function and
+   saves it in REV_TOP_ORDER_INDEX.  REV_TOP_ORDER_INDEX_LEN is also
+   modified appropriately.  */
+static void
+recompute_rev_top_order (void)
+{
+  int *postorder;
+  int n_blocks, i;
+
+  if (!rev_top_order_index || rev_top_order_index_len < last_basic_block)
+    {
+      rev_top_order_index_len = last_basic_block; 
+      rev_top_order_index = XRESIZEVEC (int, rev_top_order_index,
+                                        rev_top_order_index_len);
+    }
+
+  postorder = XNEWVEC (int, n_basic_blocks);
+
+  n_blocks = post_order_compute (postorder, true);
+  gcc_assert (n_basic_blocks == n_blocks);
+
+  /* Build reverse function: for each basic block with BB->INDEX == K
+     rev_top_order_index[K] is it's reverse topological sort number.  */
+  for (i = 0; i < n_blocks; i++)
+    {
+      gcc_assert (postorder[i] < rev_top_order_index_len);
+      rev_top_order_index[postorder[i]] = i;
+    }
+
+  free (postorder);
+}
+
+/* Clear all flags from insns in BB that could spoil its rescheduling.  */
+void
+clear_outdated_rtx_info (basic_block bb)
+{
+  rtx insn;
+
+  FOR_BB_INSNS (bb, insn)
+    if (INSN_P (insn) && SCHED_GROUP_P (insn))
+      SCHED_GROUP_P (insn) = 0;
+}
+
+/* Returns a position in RGN where BB can be inserted retaining 
+   topological order.  */
+static int
+find_place_to_insert_bb (basic_block bb, int rgn)
+{
+  int i, bbi = bb->index, cur_bbi;
+  
+  for (i = RGN_NR_BLOCKS (rgn) - 1; i >= 0; i--)
+    {
+      cur_bbi = BB_TO_BLOCK (i);
+      if (rev_top_order_index[bbi] 
+          < rev_top_order_index[cur_bbi])
+        break;
+    }
+              
+  /* We skipped the right block, so we increase i.  We accomodate
+     it for increasing by step later, so we decrease i.  */
+  return (i + 1) - 1;
+}
+
 /* Add (or remove depending on ADD_P) BB to (from) the current region 
    and update sched-rgn.c data.  */
 void
@@ -2765,51 +2892,67 @@ sel_add_or_remove_bb_1 (basic_block bb, bool add_p)
   int i, pos, bbi = -2, rgn;
   int step = add_p ? 1 : 0;
 
+  rgn = CONTAINING_RGN (BB_TO_BLOCK (0));
+
   if (step)
     {
-      /* Calculate topological index of BB's predesessor.
-	 (BBI + 1) will be the topological sort number of the BB.  */
+      bool has_preds_outside_rgn = false;
+      edge e;
+      edge_iterator ei;
 
-      if (EDGE_COUNT (bb->preds) == 1)
-	{
-	  basic_block pred = EDGE_PRED (bb, 0)->src;
+      /* Find whether we have preds outside the region.  */
+      FOR_EACH_EDGE (e, ei, bb->preds)
+        if (!in_current_region_p (e->src))
+          {
+            has_preds_outside_rgn = true;
+            break;
+          }
 
-	  if (!in_current_region_p (pred))
-	    /* This is the case when we generate an extra empty block
-	       to serve as region head during pipelining.
-	       BB will be the new head.  */
-	    {
-	      gcc_assert (EDGE_COUNT (bb->succs) == 1
-			  && in_current_region_p (EDGE_SUCC (bb, 0)->dest)
-			  && (BLOCK_TO_BB (EDGE_SUCC (bb, 0)->dest->index)
-			      == 0));
+      /* Recompute the top order -- needed when we have > 1 pred
+         and in case we don't have preds outside.  */
+      if (flag_sel_sched_pipelining_outer_loops
+          && (has_preds_outside_rgn || EDGE_COUNT (bb->preds) > 1))
+        {
+          recompute_rev_top_order ();
+          bbi = find_place_to_insert_bb (bb, rgn);
+        }
+      else if (has_preds_outside_rgn)
+        {
+          /* This is the case when we generate an extra empty block
+             to serve as region head during pipelining.  */
+          e = EDGE_SUCC (bb, 0);
+          gcc_assert (EDGE_COUNT (bb->succs) == 1
+                      && in_current_region_p (EDGE_SUCC (bb, 0)->dest)
+                      && (BLOCK_TO_BB (e->dest->index) == 0));
+                  
+          bbi = -1;
+        }
+      else
+        {
+          if (EDGE_COUNT (bb->succs) > 0)
+            {
+              /* We don't have preds outside the region.  We should have the only 
+                 pred, because the multiple preds case comes from the pipelining of 
+                 outer loops, and that is handled above.  Just take the bbi of 
+                 this single pred.  */
 
-	      bbi = -1;
-	    }
-	}
+              int pred_bbi;
 
-      if (bbi == -2)
-	{
-	  if (EDGE_COUNT (bb->succs) > 0)
-	    {
-	      int pred_bbi;
+              gcc_assert (EDGE_COUNT (bb->preds) == 1);
 
-	      gcc_assert (EDGE_COUNT (bb->preds) == 1);
-
-	      pred_bbi = EDGE_PRED (bb, 0)->src->index;
-
-	      bbi = BLOCK_TO_BB (pred_bbi);
-	    }
-	  else
-	    /* BB doesn't have no successors.  It is safe to put it in the
-	       end.  */
-	    bbi = current_nr_blocks - 1;
-	}
+              pred_bbi = EDGE_PRED (bb, 0)->src->index;
+              bbi = BLOCK_TO_BB (pred_bbi);
+            }
+          else
+            /* BB has no successors.  It is safe to put it in the end.  */
+            bbi = current_nr_blocks - 1;
+        }
     }
   else
     bbi = BLOCK_TO_BB (bb->index);
-
-  rgn = CONTAINING_RGN (BB_TO_BLOCK (0));
+  
+  /* Assert that we've found a proper place.  */
+  gcc_assert (bbi != -2);
 
   bbi += step;
   pos = RGN_BLOCKS (rgn) + bbi;
@@ -2856,13 +2999,12 @@ sel_add_or_remove_bb_1 (basic_block bb, bool add_p)
       RGN_NR_BLOCKS (rgn)--;
       for (i = rgn + 1; i <= nr_regions; i++)
 	RGN_BLOCKS (i)--;
-
-      delete_basic_block (bb);
     }
 }
 
 /* Add (remove depending on ADD_P) BB to (from) the current region 
-   and update all data.  */
+   and update all data.  If BB is NULL, add all blocks from 
+   last_added_blocks vector.  */
 void
 sel_add_or_remove_bb (basic_block bb, bool add_p)
 {
@@ -2870,13 +3012,47 @@ sel_add_or_remove_bb (basic_block bb, bool add_p)
 
   if (add_p)
     {
-      gcc_assert (last_added_block != NULL);
-      last_added_block = NULL;
+      /* When bb is passed explicitly, the vector should contain 
+         the only element that equals to bb; otherwise, the vector
+         should not be NULL.  */
+      gcc_assert (last_added_blocks != NULL);
+
+      if (bb)
+        {
+          gcc_assert (VEC_length (basic_block, last_added_blocks) == 1
+                      && VEC_index (basic_block, 
+                                    last_added_blocks, 0) == bb);
+          VEC_free (basic_block, heap, last_added_blocks);
+        }
     }
   else
     gcc_assert (BB_NOTE_LIST (bb) == NULL_RTX);
 
-  sel_add_or_remove_bb_1 (bb, add_p);
+  if (bb)
+    sel_add_or_remove_bb_1 (bb, add_p);
+  else
+    {
+      int i;
+      basic_block temp_bb = NULL;
+
+      /* It is enough to call init once per vector.  */
+      gcc_assert (add_p);
+
+      for (i = 0; 
+           VEC_iterate (basic_block, last_added_blocks, i, bb); i++)
+        {
+          sel_add_or_remove_bb_1 (bb, add_p);
+          temp_bb = bb;
+        }
+
+      /* We need to fetch at least one bb so we know the region 
+         to update.  */
+      bb = temp_bb;
+      VEC_free (basic_block, heap, last_added_blocks);
+    }
+
+  if (!add_p)
+    delete_basic_block (bb);
 
   b = sched_rgn_local_init (CONTAINING_RGN (bb->index), true);
   gcc_assert (!b);
@@ -2994,9 +3170,63 @@ sel_split_block (basic_block bb, insn_t after)
 
   new_bb = split_block (bb, after)->dest;
 
-  sel_add_or_remove_bb (new_bb, true);
+  /* Update the latch when we've splitted it.  This should be checked
+     for all outer loops, too.  */
+  if (flag_sel_sched_pipelining_outer_loops 
+      && current_loop_nest)
+    {
+      struct loop * loop;
 
-  /*gcc_assert (bb_empty_p (bb));*/
+      for (loop = current_loop_nest; loop; loop = loop->outer)
+        if (considered_for_pipelining_p (loop) && bb == loop->latch)
+          {
+            gcc_assert (loop == current_loop_nest);
+            loop->latch = new_bb;
+            gcc_assert (loop_latch_edge (loop));
+          }
+    }
+
+  sel_add_or_remove_bb (new_bb, true);
+  return new_bb;
+}
+
+/* Splits E and adds the newly created basic block to the current region.
+   Returns this basic block.  */
+basic_block
+sel_split_edge (edge e)
+{
+  basic_block new_bb;
+  
+  /* We don't need to split edges inside a region.  */
+  gcc_assert (!in_current_region_p (e->src)
+              && in_current_region_p (e->dest));
+
+  insn_init.what = INSN_INIT_WHAT_INSN;
+  insn_init.todo = INSN_INIT_TODO_ALL | INSN_INIT_TODO_LV_SET;
+  insn_init.how = INSN_INIT_HOW_DEFERRED;
+
+  new_bb = split_edge (e);
+
+  if (flag_sel_sched_pipelining_outer_loops 
+      && current_loop_nest)
+    {
+      int i;
+      basic_block bb;
+
+      /* Some of the basic blocks could not have been added to the loop.  
+         Do this now, until this is fixed in force_fallthru.  */
+      for (i = 0; 
+           VEC_iterate (basic_block, last_added_blocks, i, bb); i++)
+        if (!bb->loop_father)
+          add_bb_to_loop (bb, e->dest->loop_father);
+    }
+
+  /* Add all last_added_blocks to the region.  */
+  sel_add_or_remove_bb (NULL, true);
+
+  /* Now the CFG has been updated, and we can init data for the newly 
+     created insns.  */
+  sel_insn_deferred_init ();
 
   return new_bb;
 }
@@ -3014,8 +3244,6 @@ sel_redirect_edge_force (edge e, basic_block to)
   insn_init.how = INSN_INIT_HOW_DEFERRED;
   jump_bb = redirect_edge_and_branch_force (e, to);
 
-  gcc_assert (last_added_block == jump_bb);
-
   if (jump_bb)
     sel_add_or_remove_bb (jump_bb, true);
 
@@ -3027,7 +3255,37 @@ sel_redirect_edge_force (edge e, basic_block to)
      INSN_SIMPLEJUMP_P ().  */
   gcc_assert (jump_bb == NULL || bb_jump_only_p (jump_bb));
 
+  /* This function could not be used to spoil the loop structure by now,
+     thus we don't care to update anything.  But check it to be sure.  */
+  if (flag_sel_sched_pipelining_outer_loops && current_loop_nest)
+    gcc_assert (loop_latch_edge (current_loop_nest));
+
   return jump_bb;
+}
+
+/* A wrapper for redirect_edge_and_branch.  */
+edge
+sel_redirect_edge_and_branch (edge e, basic_block to)
+{
+  edge ee;
+  bool latch_edge_p;
+
+  latch_edge_p = (flag_sel_sched_pipelining_outer_loops 
+                  && current_loop_nest
+                  && e == loop_latch_edge (current_loop_nest));
+
+  ee = redirect_edge_and_branch (e, to);
+
+  /* When we've redirected a latch edge, update the header.  */
+  if (latch_edge_p)
+    {
+      current_loop_nest->header = to;
+      gcc_assert (loop_latch_edge (current_loop_nest));
+    }
+
+  gcc_assert (ee == e && last_added_blocks == NULL);
+
+  return ee;
 }
 
 /* A wrapper for create_basic_block_before, which also extends per-bb 
@@ -3136,6 +3394,379 @@ setup_sched_and_deps_infos (void)
   current_sched_info = &sched_sel_haifa_sched_info;
 
   sched_deps_info = &sel_sched_deps_info;
+}
+
+/* Adds basic block BB to region RGN at the position *BB_ORD_INDEX,
+   *BB_ORD_INDEX after that is increased.  */
+static void
+sel_add_block_to_region (basic_block bb, int *bb_ord_index, int rgn)
+{
+  RGN_NR_BLOCKS (rgn) += 1;
+  RGN_DONT_CALC_DEPS (rgn) = 0;
+  RGN_HAS_REAL_EBB (rgn) = 0;
+  CONTAINING_RGN (bb->index) = rgn;
+  BLOCK_TO_BB (bb->index) = *bb_ord_index;
+  rgn_bb_table[RGN_BLOCKS (rgn) + *bb_ord_index] = bb->index;
+  (*bb_ord_index)++;
+
+  /* FIXME: it is true only when not scheduling ebbs.  */
+  RGN_BLOCKS (rgn + 1) = RGN_BLOCKS (rgn) + RGN_NR_BLOCKS (rgn);
+}
+
+
+/* Creates a new empty region and returns it's number.  */
+static int
+sel_create_new_region (void)
+{
+  int new_rgn_number = nr_regions;
+
+  RGN_NR_BLOCKS (new_rgn_number) = 0;
+
+  /* FIXME: This will work only when EBBs are not created.  */
+  if (new_rgn_number != 0)
+    RGN_BLOCKS (new_rgn_number) = RGN_BLOCKS (new_rgn_number - 1) + 
+      RGN_NR_BLOCKS (new_rgn_number - 1);
+  else
+    RGN_BLOCKS (new_rgn_number) = 0;
+
+  /* Set the blocks of the next region so the other functions may
+     calculate the number of blocks in the region.  */
+  RGN_BLOCKS (new_rgn_number + 1) = RGN_BLOCKS (new_rgn_number) + 
+    RGN_NR_BLOCKS (new_rgn_number);
+
+  nr_regions++;
+
+  return new_rgn_number;
+}
+
+/* If BB1 has a smaller topological sort number than BB2, returns -1;
+   if greater, returns 1.  */
+static int
+bb_top_order_comparator (const void *x, const void *y)
+{
+  basic_block bb1 = *(const basic_block *) x;
+  basic_block bb2 = *(const basic_block *) y;
+
+  gcc_assert (bb1 == bb2 
+	      || rev_top_order_index[bb1->index] 
+		 != rev_top_order_index[bb2->index]);
+
+  /* It's a reverse topological order in REV_TOP_ORDER_INDEX, so
+     bbs with greater number should go earlier.  */
+  if (rev_top_order_index[bb1->index] > rev_top_order_index[bb2->index])
+    return -1;
+  else
+    return 1;
+}
+
+/* Create a region for LOOP and return its number.  If we don't want 
+   to pipeline LOOP, return -1.  */
+static int
+make_region_from_loop (struct loop *loop)
+{
+  unsigned int i;
+  int num_insns;
+  int new_rgn_number = -1;
+  struct loop *inner;
+
+  /* Basic block index, to be assigned to BLOCK_TO_BB.  */
+  int bb_ord_index = 0;
+  basic_block *loop_blocks;
+  basic_block preheader_block;
+
+  if (loop->num_nodes 
+      > (unsigned) PARAM_VALUE (PARAM_MAX_PIPELINE_REGION_BLOCKS))
+    return -1;
+  
+  /* Don't pipeline loops whose latch belongs to some of its inner loops.  */
+  for (inner = loop->inner; inner; inner = inner->inner)
+    if (flow_bb_inside_loop_p (inner, loop->latch))
+      return -1;
+
+  num_insns = 0;
+  loop_blocks = get_loop_body_in_custom_order (loop, bb_top_order_comparator);
+
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      num_insns += (common_sched_info->estimate_number_of_insns
+                    (loop_blocks [i]));
+
+      if ((loop_blocks[i]->flags & BB_IRREDUCIBLE_LOOP)
+          || num_insns > PARAM_VALUE (PARAM_MAX_PIPELINE_REGION_INSNS))
+        {
+          free (loop_blocks);
+          return -1;
+        }
+      
+    }
+
+  preheader_block = loop_preheader_edge (loop)->src;
+  gcc_assert (preheader_block);
+  gcc_assert (loop_blocks[0] == loop->header);
+
+  new_rgn_number = sel_create_new_region ();
+
+  sel_add_block_to_region (preheader_block, &bb_ord_index, new_rgn_number);
+  SET_BIT (bbs_in_loop_rgns, preheader_block->index);
+
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      /* Add only those blocks that haven't been scheduled in the inner loop.
+	 The exception is the basic blocks with bookkeeping code - they should
+	 be added to the region (and they actually don't belong to the loop 
+	 body, but to the region containing that loop body).  */
+
+      gcc_assert (new_rgn_number >= 0);
+
+      if (! TEST_BIT (bbs_in_loop_rgns, loop_blocks[i]->index))
+	{
+	  sel_add_block_to_region (loop_blocks[i], &bb_ord_index, 
+                                   new_rgn_number);
+	  SET_BIT (bbs_in_loop_rgns, loop_blocks[i]->index);
+	}
+    }
+
+  free (loop_blocks);
+  MARK_LOOP_FOR_PIPELINING (loop);
+
+  return new_rgn_number;
+}
+
+/* Create a new region from preheader blocks LOOP_BLOCKS.  */
+void
+make_region_from_loop_preheader (VEC(basic_block, heap) **loop_blocks)
+{
+  unsigned int i;
+  int new_rgn_number = -1;
+  basic_block bb;
+
+  /* Basic block index, to be assigned to BLOCK_TO_BB.  */
+  int bb_ord_index = 0;
+
+  new_rgn_number = sel_create_new_region ();
+
+  for (i = 0; VEC_iterate (basic_block, *loop_blocks, i, bb); i++)
+    {
+      gcc_assert (new_rgn_number >= 0);
+
+      sel_add_block_to_region (bb, &bb_ord_index, new_rgn_number);
+    }
+
+  VEC_free (basic_block, heap, *loop_blocks);
+  gcc_assert (*loop_blocks == NULL);
+}
+
+
+/* Create region(s) from loop nest LOOP, such that inner loops will be
+   pipelined before outer loops.  Returns true when a region for LOOP 
+   is created.  */
+static bool
+make_regions_from_loop_nest (struct loop *loop)
+{   
+  struct loop *cur_loop;
+  int rgn_number;
+
+  /* Traverse all inner nodes of the loop.  */
+  for (cur_loop = loop->inner; cur_loop; cur_loop = cur_loop->next)
+    if (! TEST_BIT (bbs_in_loop_rgns, cur_loop->header->index)
+        && ! make_regions_from_loop_nest (cur_loop))
+      return false;
+
+  /* At this moment all regular inner loops should have been pipelined.
+     Try to create a region from this loop.  */
+  rgn_number = make_region_from_loop (loop);
+
+  if (rgn_number < 0)
+    return false;
+
+  VEC_safe_push (loop_p, heap, loop_nests, loop);
+  return true;
+}
+
+/* Initalize data structures needed.  */
+void
+pipeline_outer_loops_init (void)
+{
+  /* Collect loop information to be used in outer loops pipelining.  */
+  loop_optimizer_init (LOOPS_HAVE_PREHEADERS
+                       | LOOPS_HAVE_FALLTHRU_PREHEADERS
+		       | LOOPS_HAVE_RECORDED_EXITS
+		       | LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS);
+  current_loop_nest = NULL;
+
+  bbs_in_loop_rgns = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (bbs_in_loop_rgns);
+
+  recompute_rev_top_order ();
+}
+
+/* Returns a struct loop for region RGN.  */
+loop_p
+get_loop_nest_for_rgn (unsigned int rgn)
+{
+  /* Regions created with extend_rgns don't have corresponding loop nests,
+     because they don't represent loops.  */
+  if (rgn < VEC_length (loop_p, loop_nests))
+    return VEC_index (loop_p, loop_nests, rgn);
+  else
+    return NULL;
+}
+
+/* True when LOOP was included into pipelining regions.   */
+bool
+considered_for_pipelining_p (struct loop *loop)
+{
+  if (loop->depth == 0)
+    return false;
+
+  /* Now, the loop could be too large or irreducible.  Check whether its 
+     region is in LOOP_NESTS.  
+     We determine the region number of LOOP as the region number of its 
+     latch.  We can't use header here, because this header could be 
+     just removed preheader and it will give us the wrong region number.
+     Latch can't be used because it could be in the inner loop too.  */
+  if (LOOP_MARKED_FOR_PIPELINING_P (loop))
+    {
+      int rgn = CONTAINING_RGN (loop->latch->index);
+
+      gcc_assert ((unsigned) rgn < VEC_length (loop_p, loop_nests));
+      return true;
+    }
+  
+  return false;
+}
+
+/* Makes regions from the rest of the blocks, after loops are chosen 
+   for pipelining.  */
+static void
+make_regions_from_the_rest (void)
+{
+  int cur_rgn_blocks;
+  int *loop_hdr;
+  int i;
+
+  basic_block bb;
+  edge e;
+  edge_iterator ei;
+  int *degree;
+  int new_regions;
+
+  /* Index in rgn_bb_table where to start allocating new regions.  */
+  cur_rgn_blocks = nr_regions ? RGN_BLOCKS (nr_regions) : 0;
+  new_regions = nr_regions;
+
+  /* Make regions from all the rest basic blocks - those that don't belong to 
+     any loop or belong to irreducible loops.  Prepare the data structures
+     for extend_rgns.  */
+
+  /* LOOP_HDR[I] == -1 if I-th bb doesn't belong to any loop,
+     LOOP_HDR[I] == LOOP_HDR[J] iff basic blocks I and J reside within the same
+     loop.  */
+  loop_hdr = XNEWVEC (int, last_basic_block);
+  degree = XCNEWVEC (int, last_basic_block);
+
+
+  /* For each basic block that belongs to some loop assign the number
+     of innermost loop it belongs to.  */
+  for (i = 0; i < last_basic_block; i++)
+    loop_hdr[i] = -1;
+
+  FOR_EACH_BB (bb)
+    {
+      if (bb->loop_father && !bb->loop_father->num == 0
+	  && !(bb->flags & BB_IRREDUCIBLE_LOOP))
+	loop_hdr[bb->index] = bb->loop_father->num;
+    }
+
+  /* For each basic block degree is calculated as the number of incoming 
+     edges, that are going out of bbs that are not yet scheduled.
+     The basic blocks that are scheduled have degree value of zero.  */
+  FOR_EACH_BB (bb) 
+    {
+      degree[bb->index] = 0;
+
+      if (!TEST_BIT (bbs_in_loop_rgns, bb->index))
+	{
+	  FOR_EACH_EDGE (e, ei, bb->preds)
+	    if (!TEST_BIT (bbs_in_loop_rgns, e->src->index))
+	      degree[bb->index]++;
+	}
+      else
+	degree[bb->index] = -1;
+    }
+
+  extend_rgns (degree, &cur_rgn_blocks, bbs_in_loop_rgns, loop_hdr);
+
+  free (degree);
+  free (loop_hdr);
+}
+
+/* Free data structures used in pipelining of outer loops.  */
+void pipeline_outer_loops_finish (void)
+{
+  loop_iterator li;
+  struct loop *loop;
+
+  /* Release aux fields so we don't free them later by mistake.  */
+  FOR_EACH_LOOP (li, loop, 0)
+    loop->aux = NULL;
+
+  loop_optimizer_finalize ();
+  free_dominance_info (CDI_DOMINATORS);
+
+  VEC_free (loop_p, heap, loop_nests);
+
+  free (rev_top_order_index);
+  rev_top_order_index = NULL;
+}
+
+/* This function replaces the find_rgns when 
+   FLAG_SEL_SCHED_PIPELINING_OUTER_LOOPS is set.  */
+void 
+sel_find_rgns (void)
+{
+  struct loop *loop;
+
+  if (current_loops)
+    /* Start traversing from the root node.  */
+    for (loop = VEC_index (loop_p, current_loops->larray, 0)->inner; 
+	 loop; loop = loop->next)
+      make_regions_from_loop_nest (loop);
+
+  /* Make regions from all the rest basic blocks and schedule them.
+     These blocks include blocks that don't belong to any loop or belong  
+     to irreducible loops.  */
+  make_regions_from_the_rest ();
+
+  /* We don't need bbs_in_loop_rgns anymore.  */
+  sbitmap_free (bbs_in_loop_rgns);
+  bbs_in_loop_rgns = NULL;
+}
+
+/* Adds the preheader blocks from previous loop to current region taking 
+   it from LOOP_PREHEADER_BLOCKS (current_loop_nest).  
+   This function is only used with -fsel-sched-pipelining-outer-loops.  */
+void
+sel_add_loop_preheader (void)
+{
+  int i;
+  basic_block bb;
+  int rgn = CONTAINING_RGN (BB_TO_BLOCK (0));
+  VEC(basic_block, heap) *preheader_blocks 
+    = LOOP_PREHEADER_BLOCKS (current_loop_nest);
+
+  for (i = 0; VEC_iterate (basic_block, 
+			   LOOP_PREHEADER_BLOCKS (current_loop_nest), i, bb); i++)
+    {
+      
+      sel_add_or_remove_bb_1 (bb, true);
+      
+      /* Set variables for the current region.  */
+      sched_rgn_local_preinit (rgn);
+    }
+  
+  VEC_free (basic_block, heap, preheader_blocks);
+  MARK_LOOP_FOR_PIPELINING (current_loop_nest);
 }
 
 #endif

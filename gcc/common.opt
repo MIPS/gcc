@@ -828,11 +828,15 @@ Schedule instructions that are below join point
 
 fsel-sched-pipelining
 Common Report Var(flag_sel_sched_pipelining) Init(1)
-Perform software pipelining during selective scheduling
+Perform software pipelining of inner loops during selective scheduling
 
 fsel-sched-pipelining-verbose
 Common Report Var(flag_sel_sched_pipelining_verbose) Init(0)
 Be verbose when doing software pipelining
+
+fsel-sched-pipelining-outer-loops
+Common Report Var(flag_sel_sched_pipelining_outer_loops) Init(1)
+Perform software pipelining of outer loops during selective scheduling
 
 fsel-sched-reschedule-pipelined
 Common Report Var(flag_sel_sched_reschedule_pipelined) Init(1)

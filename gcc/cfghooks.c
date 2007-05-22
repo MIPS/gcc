@@ -336,6 +336,10 @@ redirect_edge_and_branch_force (edge e, basic_block dest)
     rescan_loop_exit (e, false, true);
 
   ret = cfg_hooks->redirect_edge_and_branch_force (e, dest);
+  if (ret != NULL
+      && dom_info_available_p (CDI_DOMINATORS))
+    set_immediate_dominator (CDI_DOMINATORS, ret, src);
+
   if (current_loops != NULL)
     {
       if (ret != NULL)
@@ -665,6 +669,8 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
   /* Redirect back edges we want to keep.  */
   for (ei = ei_start (dummy->preds); (e = ei_safe_edge (ei)); )
     {
+      basic_block e_src;
+
       if (redirect_edge_p (e))
 	{
 	  ei_next (&ei);
@@ -681,9 +687,20 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
       if (fallthru->count < 0)
 	fallthru->count = 0;
 
+      e_src = e->src;
       jump = redirect_edge_and_branch_force (e, bb);
-      if (jump)
-	new_bb_cbk (jump);
+      if (jump != NULL)
+        {
+          /* If we redirected the loop latch edge, the JUMP block now acts like
+             the new latch of the loop.  */
+          if (current_loops != NULL
+              && dummy->loop_father->header == dummy
+              && dummy->loop_father->latch == e_src)
+            dummy->loop_father->latch = jump;
+          
+          if (new_bb_cbk != NULL)
+            new_bb_cbk (jump);
+        }
     }
 
   if (dom_info_available_p (CDI_DOMINATORS))
@@ -700,9 +717,12 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
       /* If we do not split a loop header, then both blocks belong to the
 	 same loop.  In case we split loop header and do not redirect the
 	 latch edge to DUMMY, then DUMMY belongs to the outer loop, and
-	 BB becomes the new header.  */
+	 BB becomes the new header.  If latch is not recorded for the loop,
+	 we leave this updating on the caller (this may only happen during
+	 loop analysis).  */
       loop = dummy->loop_father;
       if (loop->header == dummy
+	  && loop->latch != NULL
 	  && find_edge (loop->latch, dummy) == NULL)
 	{
 	  remove_bb_from_loops (dummy);

@@ -196,6 +196,9 @@ extern void print_value (char *, rtx, int);
 /* Functions in haifa-sched.c.  */
 extern int haifa_classify_insn (rtx);
 
+/* Functions in sel-sched-ir.c.  */
+extern void sel_find_rgns (void);
+
 /* Exception Free Loads:
 
    We define five classes of speculative loads: IFREE, IRISKY,
@@ -767,5 +770,7 @@ extern void compute_priorities (void);
 extern void debug_dependencies (void);
 extern int contributes_to_priority (rtx, rtx);
 extern void free_rgn_deps (bool);
+extern void extend_rgns (int *, int *, sbitmap, int *);
+
 
 #endif /* GCC_SCHED_INT_H */

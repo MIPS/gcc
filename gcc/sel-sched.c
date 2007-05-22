@@ -158,7 +158,7 @@ static int need_stall = 0;
 /* Whether we can issue more instructions.  */
 static int can_issue_more;
 
-/* A vector of expressions used to be able to sort them.  */
+/* A vector of expressions is used to be able to sort them.  */
 DEF_VEC_P(rhs_t);
 DEF_VEC_ALLOC_P(rhs_t,heap);
 static VEC(rhs_t, heap) *vec_av_set = NULL;
@@ -223,7 +223,7 @@ extract_new_fences_from (fence_t fence, flist_tail_t new_fences,
       insn_t succ;
       succ_iterator si;
 
-      FOR_EACH_SUCC (succ, si, insn)
+      FOR_EACH_SUCC_1 (succ, si, insn, SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS)
 	{
 	  int seqno = INSN_SEQNO (succ);
 
@@ -1624,7 +1624,7 @@ compute_av_set (insn_t insn, ilist_t p, int ws, int flags)
      for current instruction to it later.  */
   /* TODO: optimize - do copy_shallow instead of union for 
      num_successors == 1.  */
-  /* FIXME: avoid recursion here wherever possible, f.e.
+  /* FIXME: avoid recursion here wherever possible, e.g.
      when num_successors == 1.  */
   av1 = NULL;
   rhs_in_all_succ_branches = NULL;
@@ -1827,7 +1827,7 @@ compute_live_below_insn (insn_t insn, regset regs)
   insn_t succ;
   succ_iterator succ_i;
 
-  FOR_EACH_SUCC_1 (succ, succ_i, insn, SUCCS_NORMAL | SUCCS_BACK | SUCCS_OUT)
+  FOR_EACH_SUCC_1 (succ, succ_i, insn, SUCCS_ALL)
     IOR_REG_SET (regs, compute_live (succ));
 }
 
@@ -2761,8 +2761,24 @@ generate_bookkeeping_insn (rhs_t c_rhs, rtx reg, insn_t join_point, edge e1,
   if (!src)
     {
       /* We need to create a new basic block for bookkeeping insn.  */
-
       can_add_real_insns_p = false;
+
+      /* Check that we don't spoil the loop structure.  */
+      if (flag_sel_sched_pipelining_outer_loops && current_loop_nest)
+        {
+          basic_block latch = current_loop_nest->latch;
+
+          /* We do not split header.  */
+          gcc_assert (bb != current_loop_nest->header);
+#if 0
+	  /* We do not redirect a latch edge.  */
+          gcc_assert (e1 != loop_latch_edge (current_loop_nest));
+#endif
+          /* We do not redirect the only edge to the latch block.  */
+          gcc_assert (e1->dest != latch
+                      || !single_pred_p (latch)
+                      || e1 != single_pred_edge (latch));
+        }
 
       /* Split the head of the BB to insert BOOK_INSN there.  */
       new_bb = sel_split_block (bb, NULL);
@@ -2782,21 +2798,15 @@ generate_bookkeeping_insn (rhs_t c_rhs, rtx reg, insn_t join_point, edge e1,
       if (e1->flags & EDGE_FALLTHRU)
         res = sel_redirect_edge_force (e1, new_bb);
       else
-        /* We can use sel_redirect_edge_force () in this clause too.  */
-        {
-          edge ee = redirect_edge_and_branch (e1, new_bb);
-  
-          gcc_assert (ee == e1 && !last_added_block);
-        }
+        sel_redirect_edge_and_branch (e1, new_bb);
+
       gcc_assert (e1->dest == new_bb);
-  
       gcc_assert (bb_empty_p (bb));
+      
       place_to_insert = BB_END (bb);
     }
   else
-    {
-      place_to_insert = src_end;
-    }
+    place_to_insert = src_end;
 
   /* Remove unreachable empty blocks.  */
   while (EDGE_COUNT (empty_bb->preds) == 0)
@@ -2833,6 +2843,8 @@ generate_bookkeeping_insn (rhs_t c_rhs, rtx reg, insn_t join_point, edge e1,
   return res;
 }
 
+static int fill_insns_run = 0;
+
 /* Gather a parallel group of insns at FENCE and assign their seqno 
    to SEQNO.  All scheduled insns are gathered in SCHEDULED_INSNS_TAILPP 
    list for later recalculation of seqnos.  */
@@ -2845,7 +2857,6 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
   state_t temp_state = alloca (dfa_state_size);
   rtx best_reg = NULL_RTX;
 
-  memcpy (temp_state, FENCE_STATE (fence), dfa_state_size);
   blist_add (&bnds, insn, NULL, FENCE_DC (fence));
   bnds_tailp = &BLIST_NEXT (bnds);
 
@@ -2890,6 +2901,40 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
       while ((bnds1 = BLIST_NEXT (bnds1)));
 
       sel_dump_cfg ("after-compute_av");
+
+      /* If debug parameters tell us to ignore this attempt to move an insn,
+         obey.  */
+      {
+        int now;
+        int start;
+        int stop;
+        bool do_p;
+
+        now = ++fill_insns_run;
+        start = PARAM_VALUE (PARAM_INSN_START);
+        stop = PARAM_VALUE (PARAM_INSN_STOP);
+        do_p = (PARAM_VALUE (PARAM_INSN_P) == 1);
+
+        if (do_p)
+          do_p = (start <= now) && (now <= stop);
+        else
+          do_p = (start > now) || (now > stop);
+
+        if (!do_p)
+          /* Leave only the next insn in av_vliw.  */
+          {
+            av_set_iterator av_it;
+            rhs_t expr;
+            bnd_t bnd = BLIST_BND (bnds);
+            insn_t next = BND_TO (bnd);
+
+            gcc_assert (BLIST_NEXT (bnds) == NULL);
+
+            FOR_EACH_RHS_1 (expr, av_it, &av_vliw)
+              if (RHS_INSN (expr) != next)
+                av_set_iter_remove (&av_it);
+          }
+      }
 
       /* Now we've computed AV_VLIW - the set of expressions that can be
 	 scheduled on FENCE.  */
@@ -3129,6 +3174,8 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	  /* Advance the DFA.  */
 	  if (recog_memoized (insn) >= 0)
 	    {
+              memcpy (temp_state, FENCE_STATE (fence), dfa_state_size);
+
 	      succs_n = state_transition (FENCE_STATE (fence), insn);
 	      gcc_assert (succs_n < 0);
 
@@ -3188,7 +3235,8 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	  line_finish ();
 
 	  /* Add new boundaries.  */
-	  cfg_succs (insn, &succs, &succs_n);
+	  cfg_succs_1 (insn, SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS, 
+		       &succs, &succs_n);
 	  while (succs_n--)
 	    {
 	      insn_t succ = succs[succs_n];
@@ -3573,27 +3621,27 @@ static int cur_seqno;
 static void
 init_seqno_1 (basic_block bb, sbitmap visited_bbs)
 {
-  edge e;
-  edge_iterator ei;
   int bbi = BLOCK_TO_BB (bb->index);
   insn_t insn, note = bb_note (bb);
+  insn_t succ_insn;
+  succ_iterator si;
+
 
   SET_BIT (visited_bbs, bbi);
 
-  FOR_EACH_EDGE (e, ei, bb->succs)
+  FOR_EACH_SUCC_1 (succ_insn, si, BB_END (bb), 
+		   SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS)
     {
-      basic_block succ = e->dest;
+      basic_block succ = BLOCK_FOR_INSN (succ_insn);
+      int succ_bbi = BLOCK_TO_BB (succ->index);
 
-      if (in_current_region_p (succ))
+      gcc_assert (in_current_region_p (succ));
+
+      if (!TEST_BIT (visited_bbs, succ_bbi))
 	{
-	  int succ_bbi = BLOCK_TO_BB (succ->index);
+	  gcc_assert (succ_bbi > bbi);
 
-	  if (!TEST_BIT (visited_bbs, succ_bbi))
-	    {
-	      gcc_assert (succ_bbi > bbi);
-
-	      init_seqno_1 (succ, visited_bbs);
-	    }
+	  init_seqno_1 (succ, visited_bbs);
 	}
     }
 
@@ -3677,6 +3725,130 @@ add_region_head (void)
     }
 }
 
+/* While pipelining outer loops, returns TRUE if BB is a loop preheader.  */
+static bool
+is_loop_preheader_p (basic_block bb)
+{
+  /* A preheader may even have the loop depth equal to the depth of 
+     the current loop, when it came from it.  Use topological sorting
+     to get the right information.  */
+  if (flag_sel_sched_pipelining_outer_loops 
+      && current_loop_nest)
+    {
+      struct loop *outer;
+      /* BB is placed before the header, so, it is a preheader block.  */
+      if (BLOCK_TO_BB (bb->index) 
+          < BLOCK_TO_BB (current_loop_nest->header->index))
+        return true;
+
+      /* Support the situation when the latch block of outer loop
+         could be from here.  */
+      for (outer = current_loop_nest->outer; outer; outer = outer->outer)
+        if (considered_for_pipelining_p (outer) && outer->latch == bb)
+          gcc_unreachable ();
+    }
+  return false;
+}
+
+/* Removes the loop preheader from the current region and saves it in
+   PREHEADER_BLOCKS of the father loop, so they will be added later to 
+   region that represents an outer loop.  
+   This function is only used with -fsel-sched-pipelining-outer-loops.  */
+static void
+sel_remove_loop_preheader (void)
+{
+  int i, old_len;
+  int cur_rgn = CONTAINING_RGN (BB_TO_BLOCK (0));
+  basic_block bb;
+  VEC(basic_block, heap) *preheader_blocks 
+    = LOOP_PREHEADER_BLOCKS (current_loop_nest->outer);
+
+  gcc_assert (flag_sel_sched_pipelining_outer_loops && current_loop_nest);
+  old_len = VEC_length (basic_block, preheader_blocks);
+
+  /* Add blocks that aren't within the current loop to PREHEADER_BLOCKS.  */
+  for (i = 0; i < RGN_NR_BLOCKS (cur_rgn); i++)
+    {
+      bb = BASIC_BLOCK (BB_TO_BLOCK (i));
+
+      /* If the basic block belongs to region, but doesn't belong to 
+	 corresponding loop, then it should be a preheader.  */
+      if (is_loop_preheader_p (bb))
+        VEC_safe_push (basic_block, heap, preheader_blocks, bb);
+    }
+  
+  /* Remove these blocks only after iterating over the whole region.  */
+  for (i = VEC_length (basic_block, preheader_blocks) - 1;
+       i >= old_len;
+       i--)
+    {
+       bb =  VEC_index (basic_block, preheader_blocks, i); 
+       sel_add_or_remove_bb_1 (bb, false);
+    }
+
+  if (!considered_for_pipelining_p (current_loop_nest->outer))
+    /* Immediately create new region from preheader.  */
+    make_region_from_loop_preheader (&preheader_blocks);
+  else
+    /* Store preheader within the father's loop structure.  */
+    SET_LOOP_PREHEADER_BLOCKS (current_loop_nest->outer, preheader_blocks);
+}
+
+/* Split all edges incoming to current region, but not those that 
+   come to loop header, and not those that come to preheader.  */
+static void
+split_edges_incoming_to_rgn (void)
+{
+  int i;
+  int cur_rgn = CONTAINING_RGN (BB_TO_BLOCK (0));
+  edge e;
+  VEC(edge, heap) *edges_to_split = NULL;
+
+  if (!current_loop_nest)
+    return;
+
+  for (i = 0; i < RGN_NR_BLOCKS (cur_rgn); i++)
+    {
+      edge_iterator ei;
+      basic_block bb;
+      bool has_preds_in_rgn;
+
+      bb = BASIC_BLOCK (BB_TO_BLOCK (i));
+
+      /* Skip header, preheaders, and single pred blocks.  */
+      if (bb == current_loop_nest->header)
+        continue;
+      if (bb->loop_depth < current_loop_nest->depth)
+        continue;
+      if (EDGE_COUNT (bb->preds) < 2)
+        continue;
+
+      /* Skip also blocks that don't have preds in the region.  */
+      has_preds_in_rgn = false;
+      FOR_EACH_EDGE (e, ei, bb->preds)
+        if (in_current_region_p (e->src))
+          {
+            has_preds_in_rgn = true;
+            break;
+          }
+      if (!has_preds_in_rgn)
+        continue;
+
+      /* Record all edges we need to split.  */
+      FOR_EACH_EDGE (e, ei, bb->preds)
+        if (!in_current_region_p (e->src))
+          VEC_safe_push (edge, heap, edges_to_split, e);
+    }
+  
+  for (i = 0; VEC_iterate (edge, edges_to_split, i, e); i++)
+    /* Some of edges could be already redirected by previous splits.
+       So check this again before calling sel_split_edge.  */
+    if (!in_current_region_p (e->src))
+      sel_split_edge (e);
+
+  VEC_free (edge, heap, edges_to_split);
+}
+
 /* Save old RTL hooks here.  */
 static struct rtl_hooks old_rtl_hooks;
 
@@ -3692,6 +3864,22 @@ sel_region_init (int rgn)
      until sched_data_update.  */
   if (sched_rgn_local_preinit (rgn))
     return true;
+
+  /* If this loop has any saved loop preheaders from nested loops,
+     add these basic blocks to the current region.  */
+  if (flag_sel_sched_pipelining_outer_loops)
+    {
+      current_loop_nest = get_loop_nest_for_rgn (rgn);
+  
+      if (current_loop_nest 
+	  && LOOP_PREHEADER_BLOCKS (current_loop_nest))
+        {
+          sel_add_loop_preheader ();
+          
+          /* Check that we're starting with a valid information.  */
+          gcc_assert (loop_latch_edge (current_loop_nest));
+        }
+    }
 
   /* We don't need the semantics of moveup_set_path, because filtering of 
      dependencies inside a sched group is handled by tick_check_p and 
@@ -3756,7 +3944,21 @@ sel_region_init (int rgn)
   memset (reg_rename_tick, 0, sizeof reg_rename_tick);
 
   if (pipelining_p)
-    pipelining_p = add_region_head ();
+    {
+      /* If pipelining of outer loops is enabled, the loop header is
+	 already created with loop optimizer, so if current region
+	 has a corresponding loop nest, we should pipeline it.  */
+      if (flag_sel_sched_pipelining_outer_loops)
+      {
+	pipelining_p = (current_loop_nest != NULL);
+        
+        if (pipelining_p)
+          split_edges_incoming_to_rgn ();
+
+      }
+      else
+	pipelining_p = add_region_head ();
+    }
 
   setup_dump_cfg_params (pipelining_p);
 
@@ -3845,6 +4047,11 @@ sel_region_finish (void)
 
           if (bitmap_bit_p (scheduled_blocks, i))
             continue;
+
+	  /* While pipelining outer loops, skip bundling for loop 
+             preheaders.  Those will be rescheduled in the outer loop.  */
+	  if (is_loop_preheader_p (bb))
+	    continue;
 
           line_start ();
           print ("Finishing schedule in bbs: ");
@@ -4066,6 +4273,10 @@ sel_region_finish (void)
 
   /* Reset OLD_READY_VECLEN.  */
   old_ready_veclen = 0;
+
+  /* Remove current loop preheader from this loop.  */
+  if (flag_sel_sched_pipelining_outer_loops && current_loop_nest)
+    sel_remove_loop_preheader ();
 }
 
 
@@ -4262,7 +4473,14 @@ sel_sched_region_1 (void)
   fences = NULL;
 
   if (data->orig_max_seqno >= 1)
-    init_fences (EBB_FIRST_BB (0));
+    {
+      /* When pipelining outer loops, create fences on the loop header,
+	 not preheader.  */
+      if (current_loop_nest)
+	init_fences (current_loop_nest->header);
+      else
+	init_fences (EBB_FIRST_BB (0));
+    }
 
   global_level = 1;
   stage = 1;
@@ -4294,7 +4512,15 @@ sel_sched_region_1 (void)
                 {
                   bb = EBB_FIRST_BB (i);
                   head = bb_head (bb);
-  
+
+                  /* While pipelining outer loops, skip bundling for loop 
+                     preheaders.  Those will be rescheduled in the outer loop.  */
+                  if (is_loop_preheader_p (bb))
+                    {
+                      clear_outdated_rtx_info (bb);
+                      continue;
+                    }
+                  
                   if (head != NULL_RTX && INSN_SCHED_CYCLE (head) <= 0)
                     {
                       gcc_assert (INSN_SCHED_CYCLE (head) == 0);
@@ -4323,11 +4549,15 @@ sel_sched_region_1 (void)
         {
           basic_block loop_entry;
 
-          /* Schedule region pre-header first.  */
+          /* Schedule region pre-header first, if not pipelining 
+             outer loops.  */
           bb = EBB_FIRST_BB (0);
           head = bb_head (bb);
-  
-          if (head != NULL_RTX)
+          
+          if (is_loop_preheader_p (bb))          
+            /* Don't leave old flags on insns in bb.  */
+            clear_outdated_rtx_info (bb);
+          else if (head != NULL_RTX)
             {
               gcc_assert (INSN_SCHED_CYCLE (head) == 0);
               flist_tail_init (new_fences);
@@ -4396,7 +4626,7 @@ sel_sched_region_1 (void)
 }
 
 /* Schedule the RGN region.  */
-static void
+void
 sel_sched_region (int rgn)
 {
   if (sel_region_init (rgn))
@@ -4446,6 +4676,9 @@ sel_sched_region (int rgn)
 static void
 sel_global_init (void)
 {
+  if (flag_sel_sched_pipelining_outer_loops)
+    pipeline_outer_loops_init ();
+
   setup_sched_dump_to_stderr ();
   setup_sched_and_deps_infos ();
 
@@ -4499,6 +4732,9 @@ sel_global_finish (void)
     }
 
   free_sel_dump_data ();
+
+  if (flag_sel_sched_pipelining_outer_loops)
+    pipeline_outer_loops_finish ();
 }
 
 /* The entry point.  */

@@ -1,3 +1,86 @@
+2007-05-22  Dmitry Melnik  <dm@ispras.ru>
+	    Andrey Belevantsev  <abel@ispras.ru>
+
+	Implement pipelining of outer loops.
+	* common.opt (fsel-sched-pipelining-outer-loops): New flag.
+	* params.def (PARAM_MAX_PIPELINE_REGION_{BLOCKS, INSNS}): New params.
+	(PARAM_INSN_START, PARAM_INSN_STOP, PARAM_INSN_P): New debug params.
+	* cfgloop.h (LOOPS_HAVE_FALLTHRU_PREHEADERS): New enum field.
+	* loop-init.c (loop_optimizer_init): When LOOPS_HAVE_FALLTHRU_PREHEADERS,
+	set CP_FALLTHRU_PREHEADERS when calling create_preheaders.
+	(loop_optimizer_finalize): Do not verify flow info after reload.
+	* cfgloopmanip.c (create_preheader): Honor CP_FALLTHRU_PREHEADERS.
+	Assert that the preheader edge will be fall thru when it is set.
+	* cfgloop.c (get_loop_body_in_custom_order): New function.
+	* sel-sched-int.h (sel_find_rgns, extend_rgns): Add definition.
+	* sel-sched-ir.h: Include cfgloop.h.
+	(MARK_LOOP_FOR_PIPELINING, LOOP_MARKEG_FOR_PIPELINING_P,
+	LOOP_PREHEADER_BLOCKS, SET_LOOP_PREHEADER_BLOCKS): New macros.
+	(current_loop_nest, bbs_pipelined, sel_split_edge, 
+	sel_redirect_edge_and_branch, pipeline_outer_loops, 
+	pipeline_outer_loops_init, pipeline_outer_loops_finish,
+	sel_sched_region, sel_find_rgns, get_loop_nest_for_rgn,
+	considered_for_pipelining_p, make_region_from_loop_preheader,
+	sel_add_loop_preheader, clear_outdated_rtx_info): Add definitions.
+	(succ_iterator): Add bb and loop_exits fields.
+	(inner_loop_header_p, get_loop_exit_edges_unique_dests,
+	get_all_loop_exits): New static inline functions.
+	(SUCCS_SKIP_TO_LOOP_EXITS): New #define.
+	(_succ_iter_start, _succ_iter_cond, _succ_iter_next,
+	_eligible_succesor_edge_p): Implement skipping to loop exits iterator.
+	* sel-sched-ir.c (current_loop_nest, loop_nests, bbs_in_loop_rgns,
+	rev_top_order_index, rev_top_ordex_index_len): New static variables. 
+	(last_added_block): Change to vector last_added_blocks.
+	(sel_add_block_to_region, sel_create_new_region, bb_top_order_comparator,
+	make_region_from_loop, make_region_from_loop_preheader, 
+	make_regions_from_loop_nest, pipeline_outer_loops_init, 
+	pipeline_outer_loops_finish, get_loop_nest_for_rgn, 
+	considered_for_pipelining_p, make_regions_from_the_rest,
+	sel_find_rgns, sel_add_loop_preheader): New functions.  
+	(init_fences): Use SUCCS_SKIP_TO_LOOP_EXITS, adapt to multiple 
+	region entries.  
+	(tick_check_note_dep, tick_check_note_mem_dep): Fix comment.  Tidy.
+	(sel_rtl_insn_added): Assert that we adding an insn to the current region.
+	(sel_init_insn_info): When pipelining outer loops, get SEQNO not only
+	from preds, but from succs also.  Change asserts accordingly.
+	(sel_create_basic_block): Adapt for using a vector of added blocks.
+	(sel_add_or_remove_bb): Likewise.
+	(sel_split_block, sel_split_edge): Likewise.  Fix loop structures
+	in case we've spoiled them.
+	(sel_redireect_edge_force, sel_redirect_edge_and_branch): Likewise.
+	(cfg_pred_1): Assert that we're walking inside the current region.
+	(clear_outdated_rtx_info, find_place_to_insert_bb, 
+	recompute_rev_top_order): New functions.
+	(sel_add_or_remove_bb_1): Use them.
+	* sel-sched.c (compute_av_set): Fix typo in comment.
+	(compute_live_below_insn): Use SUCCS_ALL instead of equivalent flag
+	combination.
+	(extract_new_fences_from): Use SUCCS_SKIP_TO_LOOP_EXITS.
+	(generate_bookkeeping_insn): Check that we don't spoil current loop.
+	Use sel_redirect_edge_and_branch.  Tidy.
+	(fill_insns_run): New global debug variable.
+	(fill_insns): Use it.  Move temp_state initialization to proper place.
+	Use SUCCS_SKIP_TO_LOOP_EXITS.
+	(init_seqno_1): Likewise.  Tidy.
+	(is_loop_preheader_p, sel_remove_loop_preheader, 
+	split_edges_incoming_to_rgn): New.
+	(sel_region_init): Initialize current_loop_nest.  Move loop preheader
+	to appropriate region.  Set pipelining_p to true when current_loop_nest
+	is not NULL; call split_edges_incoming_to_rgn.
+	(sel_region_finish): Do not reschedule and bundle loop preheader.
+	Remove it for later inclusion into correct region.
+	(sel_sched_region_1): When pipelining outer loops, init fences with 
+	a loop header.  Clear outdated info for loop preheader after scheduling.
+	(sel_sched_region): Call pipeline_outer_loops_{init,finish}.
+	* sel-sched-dump.c (sel_print_insn): Change order of checks.
+	* sched-rgn.c (find_rgns): Rename to haifa_find_rgns.  Implement
+	new find_rgns function.
+	(extend_rgns): Export.
+	(sched_rgn_init): Calculate and free dominance info only when 
+	we don't pipelining outer loops.
+	* config/ia64/ia64.c (scheduled_good_insn): Check INSN_P before
+	calling recog_memoized.
+
 2007-05-22  Alexander Monakov  <amonakov@ispras.ru>
 
 	* sel-sched-ir.c (tick_check_dep_with_dw): Rename from

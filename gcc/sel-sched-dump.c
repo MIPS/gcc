@@ -482,7 +482,7 @@ sel_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
 
   /* '+' before insn means it is a new cycle start and it's not been 
      scheduled yet.  '>' - has been scheduled.  */
-  if (s_i_d && INSN_VI (insn) && INSN_UID (insn) < sel_max_uid)
+  if (s_i_d && INSN_UID (insn) < sel_max_uid && INSN_VI (insn))
     if (GET_MODE (insn) == TImode)
       sprintf (buf, "%s %4d", 
                (VINSN_SCHED_TIMES (INSN_VI (insn)) > 0) ? "> " : "< ", 
