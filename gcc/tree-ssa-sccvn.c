@@ -45,22 +45,55 @@ Boston, MA 02110-1301, USA.  */
 #include "cfgloop.h"
 #include "tree-ssa-sccvn.h"
 
-/* This algorithm is based on the SCC algorithm presented by Keith Cooper
-   and L. Taylor Simpson.  In straight line code, it is equivalent to a
-   regular hash based value numbering that is performed in reverse
-   postorder.   For code with cycles, we iterate over the cycles to
-   find the best fixed point solution for the values in the cycle, by
-   using an optimistic hashtable that assumes values to be equivalent,
-   and later proving those equivalences to be correct or incorrect.
+/* This algorithm is based on the SCC algorithm presented by Keith
+   Cooper and L. Taylor Simpson in "SCC-Based Value numbering".  In
+   straight line code, it is equivalent to a regular hash based value
+   numbering that is performed in reverse postorder.  
+
+   For code with cycles, there are two alternatives, both of which
+   require keeping the hashtables separate from the actual list of
+   value numbers for SSA names.
+   
+   1. Iterate value numbering in an RPO walk of the blocks, removing
+   all the entries from the hashtable after each iteration (but
+   keeping the SSA name->value 
+   number mapping between iterations).  Iteration until it does not
+   change.
+
+   2. Perform value numbering as part of an SCC walk on the SSA graph,
+   iterating only the cycles in the SSA graph until they do not change
+   (using a separate, optimistic hashtable for value numbering the SCC
+   operands).
+
+   The second is not just faster in practice (because most SSA graph
+   cycles do not involve all the variables in the graph), it also has
+   some nice properties.
+
+   One of these nice properties is that when we pop an SCC off the
+   stack, we are guaranteed to have processed all the operands coming from
+   *outside of that SCC*, so we do not need to do anything special to
+   ensure they have value numbers.
+
+   Another nice property is that the SCC walk is done as part of a DFS
+   of the SSA graph, which makes it easy to perform combining and
+   simplifying operations at the same time.
+
+   The code below is deliberately written in a way that makes it easy
+   to separate the SCC walk from the other work it does.
 
    TODO:
-     A very simple extension to this algorithm will give you the
-     ability to see through aggregate copies.  This is that value
-     numbering vuses will enable you to discover more loads or stores
+     1. A very simple extension to this algorithm will give you the
+     ability to see through aggregate copies (among other things).
+     This is that value numbering vuses will enable you to discover
+     more loads or stores 
      that are the same, because the base SSA form will have a
      different set of vuses for a use of a copy, and a use of the
-     original variable
+     original variable.
 
+     Doing this should only require looking at virtual phis/etc, and
+     SSA_VAL'ing the vuses before we place them in the structs.
+
+     2. 
 */
      
 

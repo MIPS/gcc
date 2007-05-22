@@ -650,9 +650,8 @@ bitmap_set_and (bitmap_set_t dest, bitmap_set_t orig)
   if (dest != orig)
     {
       bitmap temp = BITMAP_ALLOC (&grand_bitmap_obstack);
-      
+
       bitmap_and_into (dest->values, orig->values);
-      
       bitmap_copy (temp, dest->expressions);
       EXECUTE_IF_SET_IN_BITMAP (temp, 0, i, bi)
 	{
@@ -1069,9 +1068,9 @@ phi_translate (tree expr, bitmap_set_t set1, bitmap_set_t set2,
 
 	    tvuses = translate_vuses_through_block (vuses, phiblock, pred);
 	    if (vuses != tvuses && ! newexpr)
- 	      newexpr = temp_copy_call_expr (expr);
+	      newexpr = temp_copy_call_expr (expr);
 
- 	    if (newexpr)
+	    if (newexpr)
 	      {
 		newexpr->base.ann = NULL;
 		vn_lookup_or_add_with_vuses (newexpr, tvuses);
@@ -1396,14 +1395,14 @@ value_dies_in_block_x (tree vh, basic_block block)
   int i;
   tree vuse;
   VEC (tree, gc) *vuses = VALUE_HANDLE_VUSES (vh);
-  
+
   /* Conservatively, a value dies if it's vuses are defined in this
      block, unless they come from phi nodes (which are merge operations,
      rather than stores.  */
   for (i = 0; VEC_iterate (tree, vuses, i, vuse); i++)
     {
       tree def = SSA_NAME_DEF_STMT (vuse);
-      
+
       if (bb_for_stmt (def) != block)
 	continue;
       if (TREE_CODE (def) == PHI_NODE)
@@ -1573,7 +1572,7 @@ clean (bitmap_set_t set, basic_block block)
 }
 
 static sbitmap has_abnormal_preds;
-			      
+
 /* List of blocks that may have changed during ANTIC computation and
    thus need to be iterated over.  */
 
@@ -1680,7 +1679,7 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
       if (phi_nodes (first))
 	{
 	  bitmap_set_t from = ANTIC_IN (first);
-	      
+
 	  if (!BB_VISITED (first))
 	    from = maximal_set;
 	  phi_translate_set (ANTIC_OUT, from, block, first);
@@ -1695,22 +1694,22 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
 
       for (i = 1; VEC_iterate (basic_block, worklist, i, bprime); i++)
 	{
-	  if (phi_nodes (bprime)) 
+	  if (phi_nodes (bprime))
 	    {
 	      bitmap_set_t tmp = bitmap_set_new ();
 	      bitmap_set_t from = ANTIC_IN (bprime);
-	      
+
 	      if (!BB_VISITED (bprime))
 		from = maximal_set;
 	      phi_translate_set (tmp, from, block, bprime);
 	      bitmap_set_and (ANTIC_OUT, tmp);
 	      bitmap_set_free (tmp);
 	    }
-	  else 
+	  else
 	    {
 	      if (!BB_VISITED (bprime))
 		bitmap_set_and (ANTIC_OUT, maximal_set);
-	      else 
+	      else
 		bitmap_set_and (ANTIC_OUT, ANTIC_IN (bprime));
 	    }
 	}
@@ -2011,7 +2010,7 @@ compute_antic (void)
    ANTIC_SAFE_LOADS are those loads generated in a block that actually
    occur before any kill to their vuses in the block, and thus, are
    safe at the top of the block.  This function computes the set by
-   walking the EXP_GEN set for the block, and checking the VUSES.  
+   walking the EXP_GEN set for the block, and checking the VUSES.
 
    This set could be computed as ANTIC calculation is proceeding, but
    but because it does not actually change during that computation, it is
@@ -2024,7 +2023,7 @@ compute_antic_safe (void)
   basic_block bb;
   bitmap_iterator bi;
   unsigned int i;
-  
+
   FOR_EACH_BB (bb)
     {
       FOR_EACH_EXPR_ID_IN_SET (EXP_GEN (bb), i, bi)
@@ -2038,26 +2037,26 @@ compute_antic_safe (void)
 	      tree vuse;
 	      tree stmt;
 	      bool okay = true;
-	      
+
 	      if (!maybe)
 		continue;
 	      stmt = SSA_NAME_DEF_STMT (maybe);
-	      
+
 	      FOR_EACH_SSA_TREE_OPERAND (vuse, stmt, i,
 					 SSA_OP_VIRTUAL_USES)
-		{		      
+		{
 		  tree def = SSA_NAME_DEF_STMT (vuse);
-		  
+
 		  if (bb_for_stmt (def) != bb)
 		    continue;
-		  
+
 		  /* See if the vuse is defined by a statement that
 		     comes before us in the block.  Phi nodes are not
 		     stores, so they do not count.  */
 		  if (TREE_CODE (def) != PHI_NODE
 		      && stmt_ann (def)->uid < stmt_ann (stmt)->uid)
 		    {
-		      okay = false;      
+		      okay = false;
 		      break;
 		    }
 		}
@@ -3030,77 +3029,6 @@ create_value_expr_from (tree expr, basic_block block, tree stmt)
   return vexpr;
 }
 
-/* Given a statement STMT and its right hand side which is a load, try
-   to look for the expression stored in the location for the load, and
-   return true if a useful equivalence was recorded for LHS.  */
-
-static bool
-try_look_through_load (tree lhs, tree mem_ref, tree stmt, basic_block block)
-{
-  tree store_stmt = NULL;
-  tree rhs;
-  ssa_op_iter i;
-  tree vuse;
-
-  FOR_EACH_SSA_TREE_OPERAND (vuse, stmt, i, SSA_OP_VIRTUAL_USES)
-    {
-      tree def_stmt;
-
-      gcc_assert (TREE_CODE (vuse) == SSA_NAME);
-      def_stmt = SSA_NAME_DEF_STMT (vuse);
-
-      /* If there is no useful statement for this VUSE, we'll not find a
-	 useful expression to return either.  Likewise, if there is a
-	 statement but it is not a simple assignment or it has virtual
-	 uses, we can stop right here.  Note that this means we do
-	 not look through PHI nodes, which is intentional.  */
-      if (!def_stmt
-	  || TREE_CODE (def_stmt) != GIMPLE_MODIFY_STMT
-	  || !ZERO_SSA_OPERANDS (def_stmt, SSA_OP_VIRTUAL_USES))
-	return false;
-
-      /* If this is not the same statement as one we have looked at for
-	 another VUSE of STMT already, we have two statements producing
-	 something that reaches our STMT.  */
-      if (store_stmt && store_stmt != def_stmt)
-	return false;
-      else
-	{
-	  /* Is this a store to the exact same location as the one we are
-	     loading from in STMT?  */
-	  if (!operand_equal_p (GIMPLE_STMT_OPERAND (def_stmt, 0), mem_ref, 0))
-	    return false;
-
-	  /* Otherwise remember this statement and see if all other VUSEs
-	     come from the same statement.  */
-	  store_stmt = def_stmt;
-	}
-    }
-
-  /* Alright then, we have visited all VUSEs of STMT and we've determined
-     that all of them come from the same statement STORE_STMT.  See if there
-     is a useful expression we can deduce from STORE_STMT.  */
-  rhs = GIMPLE_STMT_OPERAND (store_stmt, 1);
-  if ((TREE_CODE (rhs) == SSA_NAME
-       && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs))
-      || is_gimple_min_invariant (rhs)
-      || TREE_CODE (rhs) == ADDR_EXPR
-      || TREE_INVARIANT (rhs))
-    {
-
-      /* Yay!  Compute a value number for the RHS of the statement and
-	 add its value to the AVAIL_OUT set for the block.  Add the LHS
-	 to TMP_GEN.  */
-      add_to_sets (lhs, rhs, store_stmt, TMP_GEN (block), AVAIL_OUT (block));
-      if (TREE_CODE (rhs) == SSA_NAME
-	  && !is_undefined_value (rhs))
-	bitmap_value_insert_into_set (EXP_GEN (block), rhs);
-      return true;
-    }
-
-  return false;
-}
-
 /* Return a copy of NODE that is stored in the temporary alloc_pool's.
    This is made recursively true, so that the operands are stored in
    the pool as well.  */
@@ -3323,6 +3251,132 @@ try_combine_conversion (tree *expr_p)
   return false;
 }
 
+/* Create value handles for PHI in BLOCK.  */
+
+static void
+make_values_for_phi (tree phi, basic_block block)
+{
+  tree result = PHI_RESULT (phi);
+  /* We have no need for virtual phis, as they don't represent
+     actual computations.  */
+  if (is_gimple_reg (result))
+    {
+      tree val = result;
+      tree sccvnval = VN_INFO (result)->valnum;
+      if (is_gimple_min_invariant (sccvnval))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "SCCVN says ");
+	      print_generic_expr (dump_file, result, 0);
+	      fprintf (dump_file, "value numbers to ");
+	      print_generic_stmt (dump_file, sccvnval, 0);
+	    }
+	  val = sccvnval;
+	}
+      add_to_sets (PHI_RESULT (phi), val, NULL,
+		   PHI_GEN (block), AVAIL_OUT (block));
+    }
+}
+
+
+/* Create value handles for STMT in BLOCK.  Return true if we handled
+   the statement.  */
+
+static bool
+make_values_for_stmt (tree stmt, basic_block block)
+{
+
+  tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+  tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+
+  if (TREE_CODE (lhs) == SSA_NAME
+      && VN_INFO (lhs)->valnum != lhs)
+    {
+      tree val = VN_INFO (lhs)->valnum;
+      bool is_invariant = is_gimple_min_invariant (val);
+      tree valvh = !is_invariant ? get_value_handle (val) : NULL_TREE;
+      
+      if (valvh || is_invariant)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "SCCVN says ");
+	      print_generic_expr (dump_file, lhs, 0);
+	      fprintf (dump_file, " value numbers to ");
+	      if (valvh && !is_invariant)
+		{
+		  print_generic_expr (dump_file, val, 0);
+		  fprintf (dump_file, " (");
+		  print_generic_expr (dump_file, valvh, 0);
+		  fprintf (dump_file, ")\n");
+		}
+	      else
+		print_generic_stmt (dump_file, val, 0);  
+	    }
+	  if (valvh && !is_invariant)
+	    val = valvh;
+	  vn_add (lhs, val);
+	}
+      
+      return true;
+    }
+
+  STRIP_USELESS_TYPE_CONVERSION (rhs);
+  if (can_value_number_operation (rhs))
+    {
+      /* For value numberable operation, create a
+	 duplicate expression with the operands replaced
+	 with the value handles of the original RHS.  */
+      tree newt = create_value_expr_from (rhs, block, stmt);
+      if (newt)
+	{
+	  /* If we can combine a conversion expression
+	     with the expression for its operand just
+	     record the value number for it.  */
+	  if (try_combine_conversion (&newt))
+	    vn_add (lhs, newt);
+	  else
+	    {
+	      tree val = vn_lookup_or_add (newt, stmt);
+	      vn_add (lhs, val);
+	      if (!in_fre)
+		{
+		  bitmap_value_insert_into_set (maximal_set, newt);
+		  bitmap_value_insert_into_set (EXP_GEN (block),
+						newt);
+		}
+
+	    }
+	  if (!in_fre)
+	    bitmap_insert_into_set (TMP_GEN (block), lhs);
+	  bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);
+	  return true;
+	}
+    }
+  else if ((TREE_CODE (rhs) == SSA_NAME
+	    && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs))
+	   || is_gimple_min_invariant (rhs)
+	   || TREE_CODE (rhs) == ADDR_EXPR
+	   || TREE_INVARIANT (rhs)
+	   || DECL_P (rhs))
+    {
+      /* Compute a value number for the RHS of the statement
+	 and add its value to the AVAIL_OUT set for the block.
+	 Add the LHS to TMP_GEN.  */
+      add_to_sets (lhs, rhs, stmt, TMP_GEN (block),
+		   AVAIL_OUT (block));
+
+      if (TREE_CODE (rhs) == SSA_NAME
+	  && !is_undefined_value (rhs)
+	  && !in_fre)
+	bitmap_value_insert_into_set (EXP_GEN (block), rhs);
+      return true;
+    }
+  return false;
+
+}
+
 /* Compute the AVAIL set for all basic blocks.
 
    This function performs value numbering of the statements in each basic
@@ -3404,29 +3458,7 @@ compute_avail (void)
 
       /* Generate values for PHI nodes.  */
       for (phi = phi_nodes (block); phi; phi = PHI_CHAIN (phi))
-	{
-	  tree result = PHI_RESULT (phi);
-	  /* We have no need for virtual phis, as they don't represent
-	     actual computations.  */
-	  if (is_gimple_reg (result))
-	    {
-	      tree val = result;
-	      if (is_gimple_min_invariant (VN_INFO (result)->valnum))
-		{
-		  if (dump_file && (dump_flags & TDF_DETAILS)) 
-		    {
-		      fprintf (dump_file, "SCCVN says ");
-		      print_generic_expr (dump_file, result, 0);
-		      fprintf (dump_file, "value numbers to ");
-		      print_generic_stmt (dump_file, VN_INFO (result)->valnum,
-					  0);
-		    }
-		  val = VN_INFO (result)->valnum;
-		}
-	      add_to_sets (PHI_RESULT (phi), val, NULL,
-			   PHI_GEN (block), AVAIL_OUT (block));
-	    }
-	}
+	make_values_for_phi (phi, block);
 
       /* Now compute value numbers and populate value sets with all
 	 the expressions computed in BLOCK.  */
@@ -3440,7 +3472,7 @@ compute_avail (void)
 	  ann = stmt_ann (stmt);
 
 	  ann->uid = stmt_uid++;
-	  
+
 	  /* For regular value numbering, we are only interested in
 	     assignments of the form X_i = EXPR, where EXPR represents
 	     an "interesting" computation, it has no volatile operands
@@ -3460,7 +3492,7 @@ compute_avail (void)
 		  if (TREE_CODE (lhs) == SSA_NAME
 		      && is_gimple_min_invariant (VN_INFO (lhs)->valnum))
 		    {
-		      if (dump_file && (dump_flags & TDF_DETAILS)) 
+		      if (dump_file && (dump_flags & TDF_DETAILS))
 			{
 			  fprintf (dump_file, "SCCVN says ");
 			  print_generic_expr (dump_file, lhs, 0);
@@ -3471,7 +3503,7 @@ compute_avail (void)
 		      vn_add (lhs, VN_INFO (lhs)->valnum);
 		      continue;
 		    }
-  
+
 		  if (TREE_CODE (rhs) == SSA_NAME
 		      && !is_undefined_value (rhs))
 		    bitmap_value_insert_into_set (EXP_GEN (block), rhs);
@@ -3487,76 +3519,11 @@ compute_avail (void)
 	      && !ann->has_volatile_ops
 	      && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == SSA_NAME
 	      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI
-	           (GIMPLE_STMT_OPERAND (stmt, 0)))
+		   (GIMPLE_STMT_OPERAND (stmt, 0)))
 	    {
-	      tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
-	      tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
-	      
-	      if (TREE_CODE (lhs) == SSA_NAME
-		  && is_gimple_min_invariant (VN_INFO (lhs)->valnum))
-		{
-		  if (dump_file && (dump_flags & TDF_DETAILS)) 
-		    {
-		      fprintf (dump_file, "SCCVN says ");
-		      print_generic_expr (dump_file, lhs, 0);
-		      fprintf (dump_file, " value numbers to ");
-		      print_generic_stmt (dump_file, VN_INFO (lhs)->valnum,
-					  0);
-		    }
-		  vn_add (lhs, VN_INFO (lhs)->valnum);
-		  continue;
-		}
-	      /* Try to look through loads.  */
-	      if (TREE_CODE (lhs) == SSA_NAME
-		  && !ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_USES)
-		  && try_look_through_load (lhs, rhs, stmt, block))
+	      if (make_values_for_stmt (stmt, block))
 		continue;
 
-	      STRIP_USELESS_TYPE_CONVERSION (rhs);
-	      if (can_value_number_operation (rhs))
-		{
-		  /* For value numberable operation, create a
-		     duplicate expression with the operands replaced
-		     with the value handles of the original RHS.  */
-		  tree newt = create_value_expr_from (rhs, block, stmt);
-		  if (newt)
-		    {
-		      /* If we can combine a conversion expression
-			 with the expression for its operand just
-			 record the value number for it.  */
-		      if (try_combine_conversion (&newt))
-			vn_add (lhs, newt);
-		      else
-			{
-			  tree val = vn_lookup_or_add (newt, stmt);
-			  vn_add (lhs, val);
-			  if (!in_fre)
-			    bitmap_value_insert_into_set (maximal_set, newt);
-			  bitmap_value_insert_into_set (EXP_GEN (block), newt);
-			}
-		      bitmap_insert_into_set (TMP_GEN (block), lhs);
-		      bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);
-		      continue;
-		    }
-		}
-	      else if ((TREE_CODE (rhs) == SSA_NAME
-			&& !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs))
-		       || is_gimple_min_invariant (rhs)
-		       || TREE_CODE (rhs) == ADDR_EXPR
-		       || TREE_INVARIANT (rhs)
-		       || DECL_P (rhs))
-		{
-		  /* Compute a value number for the RHS of the statement
-		     and add its value to the AVAIL_OUT set for the block.
-		     Add the LHS to TMP_GEN.  */
-		  add_to_sets (lhs, rhs, stmt, TMP_GEN (block),
-			       AVAIL_OUT (block));
-
-		  if (TREE_CODE (rhs) == SSA_NAME
-		      && !is_undefined_value (rhs))
-		    bitmap_value_insert_into_set (EXP_GEN (block), rhs);
-		  continue;
-		}
 	    }
 
 	  /* For any other statement that we don't recognize, simply
@@ -3730,14 +3697,14 @@ remove_dead_inserted_code (void)
       else
 	{
 	  /* Propagate through the operands.  Examine all the USE, VUSE and
-	     VDEF operands in this statement.  Mark all the statements 
+	     VDEF operands in this statement.  Mark all the statements
 	     which feed this statement's uses as necessary.  */
 	  ssa_op_iter iter;
 	  tree use;
 
 	  /* The operands of VDEF expressions are also needed as they
 	     represent potential definitions that may reach this
-	     statement (VDEF operands allow us to follow def-def 
+	     statement (VDEF operands allow us to follow def-def
 	     links).  */
 
 	  FOR_EACH_SSA_TREE_OPERAND (use, t, iter, SSA_OP_ALL_USES)
@@ -3826,7 +3793,7 @@ init_pre (bool do_fre)
 					    tree_code_size (EQ_EXPR), 30);
   modify_expr_node_pool = create_alloc_pool ("GIMPLE_MODIFY_STMT nodes",
 					     tree_code_size (GIMPLE_MODIFY_STMT),
-  					     30);
+					     30);
   obstack_init (&temp_call_expr_obstack);
   modify_expr_template = NULL;
 
