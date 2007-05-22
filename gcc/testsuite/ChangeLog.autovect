@@ -1,3 +1,24 @@
+2007-05-22  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-outer-1.c: New test.
+	* gcc.dg/vect/vect-outer-1a.c: New test.
+	* gcc.dg/vect/vect-outer-1b.c: New test.
+	* gcc.dg/vect/vect-outer-2.c: New test.
+	* gcc.dg/vect/vect-outer-2a.c: New test.
+	* gcc.dg/vect/vect-outer-2b.c: New test.
+	* gcc.dg/vect/vect-outer-3.c: New test.
+	* gcc.dg/vect/vect-outer-3a.c: New test.
+	* gcc.dg/vect/vect-outer-3b.c: New test.
+	* gcc.dg/vect/vect-outer-3c.c: New test.
+	* gcc.dg/vect/vect-outer-4.c: New test.
+	* gcc.dg/vect/vect-outer-4a.c: New test.
+	* gcc.dg/vect/vect-outer-4b.c: New test.
+	* gcc.dg/vect/vect-outer-4c.c: New test.
+	* gcc.dg/vect/vect-outer-4d.c: New test.
+	* gcc.dg/vect/vect-outer-5.c: New test.
+	* gcc.dg/vect/vect-outer-6.c: New test.
+	* gcc.dg/vect/vect-outer-fir.c: New test.
+
 2007-04-02  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* gcc.dg/vect/vect.exp: Compile tests with -fno-tree-scev-cprop

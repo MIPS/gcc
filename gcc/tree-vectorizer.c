@@ -1346,6 +1346,13 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   STMT_VINFO_IN_PATTERN_P (res) = false;
   STMT_VINFO_RELATED_STMT (res) = NULL;
   STMT_VINFO_DATA_REF (res) = NULL;
+
+  STMT_VINFO_DR_BASE_ADDRESS (res) = NULL;
+  STMT_VINFO_DR_OFFSET (res) = NULL;
+  STMT_VINFO_DR_INIT (res) = NULL;
+  STMT_VINFO_DR_STEP (res) = NULL;
+  STMT_VINFO_DR_ALIGNED_TO (res) = NULL;
+
   if (TREE_CODE (stmt) == PHI_NODE && is_loop_header_bb_p (bb_for_stmt (stmt)))
     STMT_VINFO_DEF_TYPE (res) = vect_unknown_def_type;
   else
@@ -1650,13 +1657,20 @@ get_vectype_for_scalar_type (tree scalar_type)
 enum dr_alignment_support
 vect_supportable_dr_alignment (struct data_reference *dr)
 {
-  tree vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (DR_STMT (dr)));
+  tree stmt = DR_STMT (dr);
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   enum machine_mode mode = (int) TYPE_MODE (vectype);
+  struct loop *vect_loop = LOOP_VINFO_LOOP (STMT_VINFO_LOOP_VINFO (stmt_info));
+  bool nested_in_vect_loop = nested_in_vect_loop_p (vect_loop, stmt);
 
   if (aligned_access_p (dr))
     return dr_aligned;
 
   /* Possibly unaligned access.  */
+  /* FORNOW */
+  if (nested_in_vect_loop)
+    return dr_unaligned_unsupported;
   
   if (DR_IS_READ (dr))
     {

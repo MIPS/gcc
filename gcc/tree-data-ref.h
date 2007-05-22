@@ -335,6 +335,7 @@ DEF_VEC_O (data_ref_loc);
 DEF_VEC_ALLOC_O (data_ref_loc, heap);
 
 bool get_references_in_stmt (tree, VEC (data_ref_loc, heap) **);
+extern void split_constant_offset (tree exp, tree *var, tree *off);
 extern tree find_data_references_in_loop (struct loop *,
 					  VEC (data_reference_p, heap) **);
 extern void compute_data_dependences_for_loop (struct loop *, bool,

@@ -1,5 +1,33 @@
 2007-05-22  Dorit Nuzman  <dorit@il.ibm.com>
 
+	* tree-vect-transform.c (vect_create_addr_base_for_vector_ref): Takes
+	additional argument loop. Updated the function documentation. Handle
+	the 'nested_in_vect_loop' case (the case when the dataref is in an
+	inner-loop nested in an outer-loop that is now being vectorized).
+	(vect_create_data_ref_ptr): Call vect_create_addr_base_for_vector_ref
+	with additional argument. Handle the 'nested_in_vect_loop' case.
+	(vectorizable_load): Handle the 'nested_in_vect_loop' case.
+	(vectorizable_store): Handle the 'nested_in_vect_loop' case.
+	(vect_gen_niters_for_prolog_loop): Call
+	vect_create_addr_base_for_vector_ref with additional argument.
+	(vect_create_cond_for_align_checks): Likewise.
+	* tree-vect-analyze.c (vect_compute_data_ref_alignment): Handle the
+	'nested_in_vect_loop' case.
+	(vect_analyze_data_ref_access): Likewise.
+	(vect_analyze_data_refs): Likewise. Call split_constant_offset.
+	* tree-vectorizer.c (new_stmt_vec_info): Initialize new fields.
+	(vect_supportable_dr_alignment): Handle the 'nested_in_vect_loop' case.
+	* tree-vectorizer.h (_stmt_vec_info): Added new fields:
+	dr_base_address, dr_init, dr_offset, dr_step, and dr_aligned_to, along
+	with new access functions for these fields: STMT_VINFO_DR_BASE_ADDRESS,
+	STMT_VINFO_DR_INIT, STMT_VINFO_DR_OFFSET, STMT_VINFO_DR_STEP, and
+	STMT_VINFO_DR_ALIGNED_TO.
+	* tree-data-refs.c (split_constant_offset): New (brought over from
+	mainline).
+	* tree-data-refs.h (split_constant_offset): Likewise.
+
+2007-05-22  Dorit Nuzman  <dorit@il.ibm.com>
+
 	* tree-vectorizer.c (vect_is_simple_use): Remove multitypes check.
 	Moved to vectorizable_* functions.
 	* tree-vect-transform.c (vectorizable_reduction): Call
@@ -10,6 +38,7 @@
 	(vectorizable_type_promotion): Likewise.
 	(vectorizable_type_demotion): Likewise.
 	(vectorizable_store): Likewise.
+	(vectorizable_load): Likewise.
 	(vectorizable_live_operation): Likewise.
 
 	* tree-vectorizer.c (supportable_widening_operation): Also check if

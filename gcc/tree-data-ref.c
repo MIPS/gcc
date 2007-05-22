@@ -129,6 +129,87 @@ static bool subscript_dependence_tester_1 (struct data_dependence_relation *,
 					   struct data_reference *,
 					   struct data_reference *);
 
+/* Expresses EXP as VAR + OFF, where off is a constant.  The type of OFF
+   will be ssizetype.  */
+
+void
+split_constant_offset (tree exp, tree *var, tree *off)
+{
+  tree type = TREE_TYPE (exp), otype;
+  tree var0, var1;
+  tree off0, off1;
+
+  *var = exp;
+  STRIP_NOPS (exp);
+  otype = TREE_TYPE (exp);
+
+  switch (TREE_CODE (exp))
+    {
+    case INTEGER_CST:
+      *var = build_int_cst (type, 0);
+      *off = fold_convert (ssizetype, exp);
+      return;
+
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+      split_constant_offset (TREE_OPERAND (exp, 0), &var0, &off0);
+      split_constant_offset (TREE_OPERAND (exp, 1), &var1, &off1);
+      *var = fold_convert (type, fold_build2 (TREE_CODE (exp), otype,
+                                              var0, var1));
+      *off = size_binop (TREE_CODE (exp), off0, off1);
+      return;
+
+    case MULT_EXPR:
+      off1 = TREE_OPERAND (exp, 1);
+      if (TREE_CODE (off1) != INTEGER_CST)
+        break;
+
+      split_constant_offset (TREE_OPERAND (exp, 0), &var0, &off0);
+      *var = fold_convert (type, fold_build2 (MULT_EXPR, otype,
+                                              var0, off1));
+      *off = size_binop (MULT_EXPR, off0, fold_convert (ssizetype, off1));
+      return;
+
+    case ADDR_EXPR:
+      {
+        tree op, base, poffset;
+        HOST_WIDE_INT pbitsize, pbitpos;
+        enum machine_mode pmode;
+        int punsignedp, pvolatilep;
+
+        op = TREE_OPERAND (exp, 0);
+        if (!handled_component_p (op))
+          break;
+
+        base = get_inner_reference (op, &pbitsize, &pbitpos, &poffset,
+                                    &pmode, &punsignedp, &pvolatilep, false);
+
+        if (pbitpos % BITS_PER_UNIT != 0)
+          break;
+        base = build_fold_addr_expr (base);
+        off0 = ssize_int (pbitpos / BITS_PER_UNIT);
+
+        if (poffset)
+          {
+            split_constant_offset (poffset, &poffset, &off1);
+            off0 = size_binop (PLUS_EXPR, off0, off1);
+            base = fold_build2 (PLUS_EXPR, TREE_TYPE (base),
+                                base,
+                                fold_convert (TREE_TYPE (base), poffset));
+          }
+
+        *var = fold_convert (type, base);
+        *off = off0;
+        return;
+      }
+
+    default:
+      break;
+    }
+
+  *off = ssize_int (0);
+}
+
 /* Determine if PTR and DECL may alias, the result is put in ALIASED.
    Return FALSE if there is no symbol memory tag for PTR.  */
 
