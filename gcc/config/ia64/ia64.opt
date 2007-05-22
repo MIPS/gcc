@@ -144,6 +144,10 @@ msched-count-spec-in-critical-path
 Common Report Var(mflag_sched_count_spec_in_critical_path) Init(0)
 Count speculative dependencies while calculating priority of instructions
 
+msched-stop-bits-after-every-cycle
+Target Report Var(mflag_sched_stop_bits_after_every_cycle) Init(1)
+Place a stop bit after every cycle when scheduling
+
 msel-sched-renaming
 Common Report Var(mflag_sel_sched_renaming) Init(1)
 Do register renaming in selective scheduling

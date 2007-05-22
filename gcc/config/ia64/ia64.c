@@ -6587,6 +6587,24 @@ ia64_first_cycle_multipass_dfa_lookahead_guard_spec (rtx insn)
 
 static rtx dfa_pre_cycle_insn;
 
+/* Returns 1 when a meaningful insn was scheduled between the last group
+   barrier and LAST.  */
+static int
+scheduled_good_insn (rtx last)
+{
+  if (last && recog_memoized (last) >= 0)
+    return 1;
+
+  for ( ;
+       last != NULL && !NOTE_INSN_BASIC_BLOCK_P (last)
+       && !stops_p[INSN_UID (last)];
+       last = PREV_INSN (last))
+    if (recog_memoized (last) >= 0)
+      return 1;
+
+  return 0;
+}
+
 /* We are about to being issuing INSN.  Return nonzero if we cannot
    issue it on given cycle CLOCK and return zero if we should not sort
    the ready queue on the next clock start.  */
@@ -6603,7 +6621,12 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
   gcc_assert (!(reload_completed && safe_group_barrier_needed (insn))
               || last_scheduled_insn);
 
-  if ((reload_completed && safe_group_barrier_needed (insn))
+  if ((reload_completed
+       && (safe_group_barrier_needed (insn)
+	   || (mflag_sched_stop_bits_after_every_cycle
+	       && last_clock != clock
+	       && last_scheduled_insn
+	       && scheduled_good_insn (last_scheduled_insn))))
       || (last_scheduled_insn
 	  && (GET_CODE (last_scheduled_insn) == CALL_INSN
 	      || GET_CODE (PATTERN (last_scheduled_insn)) == ASM_INPUT
@@ -8323,6 +8346,7 @@ final_emit_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 {
   rtx insn;
   int need_barrier_p = 0;
+  int seen_good_insn = 0;
   rtx prev_insn = NULL_RTX;
 
   init_insn_group_barriers ();
@@ -8344,6 +8368,7 @@ final_emit_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 	    emit_insn_after (gen_insn_group_barrier (GEN_INT (3)), last);
 
 	  init_insn_group_barriers ();
+	  seen_good_insn = 0;
 	  need_barrier_p = 0;
 	  prev_insn = NULL_RTX;
 	}
@@ -8352,10 +8377,14 @@ final_emit_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 	  if (recog_memoized (insn) == CODE_FOR_insn_group_barrier)
 	    {
 	      init_insn_group_barriers ();
+	      seen_good_insn = 0;
 	      need_barrier_p = 0;
 	      prev_insn = NULL_RTX;
 	    }
-	  else if (need_barrier_p || group_barrier_needed (insn))
+	  else if (need_barrier_p || group_barrier_needed (insn)
+		   || (mflag_sched_stop_bits_after_every_cycle
+		       && GET_MODE (insn) == TImode
+		       && seen_good_insn))
 	    {
 	      if (TARGET_EARLY_STOP_BITS)
 		{
@@ -8379,19 +8408,29 @@ final_emit_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 		       last != insn;
 		       last = NEXT_INSN (last))
 		    if (INSN_P (last))
-		      group_barrier_needed (last);
+		      {
+			group_barrier_needed (last);
+			if (recog_memoized (last) >= 0)
+			  seen_good_insn = 1;
+		      }
 		}
 	      else
 		{
 		  emit_insn_before (gen_insn_group_barrier (GEN_INT (3)),
 				    insn);
 		  init_insn_group_barriers ();
+		  seen_good_insn = 0;
 		}
               group_barrier_needed (insn);
+	      if (recog_memoized (insn) >= 0)
+		seen_good_insn = 1;
 	      prev_insn = NULL_RTX;
 	    }
 	  else if (recog_memoized (insn) >= 0)
-	    prev_insn = insn;
+	    {
+	      prev_insn = insn;
+	      seen_good_insn = 1;
+	    }
 	  need_barrier_p = (GET_CODE (insn) == CALL_INSN
 			    || GET_CODE (PATTERN (insn)) == ASM_INPUT
 			    || asm_noperands (PATTERN (insn)) >= 0);
