@@ -542,7 +542,6 @@ compute_use_by_pseudos (HARD_REG_SET *to, regset from)
   EXECUTE_IF_SET_IN_REG_SET (from, FIRST_PSEUDO_REGISTER, regno, rsi)
     {
       int r = reg_renumber[regno];
-      int nregs;
 
       if (r < 0)
 	{
@@ -553,11 +552,7 @@ compute_use_by_pseudos (HARD_REG_SET *to, regset from)
 	  gcc_assert (reload_completed);
 	}
       else
-	{
-	  nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (regno)];
-	  while (nregs-- > 0)
-	    SET_HARD_REG_BIT (*to, r + nregs);
-	}
+	add_to_hard_reg_set (to, PSEUDO_REGNO_MODE (regno), r);
     }
 }
 
@@ -620,6 +615,61 @@ replace_pseudos_in (rtx *loc, enum machine_mode mem_mode, rtx usage)
     else if (*fmt == 'E')
       for (j = 0; j < XVECLEN (x, i); j++)
 	replace_pseudos_in (& XVECEXP (x, i, j), mem_mode, usage);
+}
+
+/* Determine if the current function has an exception receiver block
+   that reaches the exit block via non-exceptional edges  */
+
+static bool
+has_nonexceptional_receiver (void)
+{
+  edge e;
+  edge_iterator ei;
+  basic_block *tos, *worklist, bb;
+
+  /* If we're not optimizing, then just err on the safe side.  */
+  if (!optimize)
+    return true;
+  
+  /* First determine which blocks can reach exit via normal paths.  */
+  tos = worklist = xmalloc (sizeof (basic_block) * (n_basic_blocks + 1));
+
+  FOR_EACH_BB (bb)
+    bb->flags &= ~BB_REACHABLE;
+
+  /* Place the exit block on our worklist.  */
+  EXIT_BLOCK_PTR->flags |= BB_REACHABLE;
+  *tos++ = EXIT_BLOCK_PTR;
+  
+  /* Iterate: find everything reachable from what we've already seen.  */
+  while (tos != worklist)
+    {
+      bb = *--tos;
+
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	if (!(e->flags & EDGE_ABNORMAL))
+	  {
+	    basic_block src = e->src;
+
+	    if (!(src->flags & BB_REACHABLE))
+	      {
+		src->flags |= BB_REACHABLE;
+		*tos++ = src;
+	      }
+	  }
+    }
+  free (worklist);
+
+  /* Now see if there's a reachable block with an exceptional incoming
+     edge.  */
+  FOR_EACH_BB (bb)
+    if (bb->flags & BB_REACHABLE)
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	if (e->flags & EDGE_ABNORMAL)
+	  return true;
+
+  /* No exceptional block reached exit unexceptionally.  */
+  return false;
 }
 
 
@@ -688,9 +738,12 @@ reload (rtx first, int global)
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     mark_home_live (i);
 
-  /* A function that receives a nonlocal goto must save all call-saved
+  /* A function that has a nonlocal label that can reach the exit
+     block via non-exceptional paths must save all call-saved
      registers.  */
-  if (current_function_has_nonlocal_label)
+  if (current_function_calls_unwind_init
+      || (current_function_has_nonlocal_label
+	  && has_nonexceptional_receiver ()))
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
       if (! call_used_regs[i] && ! fixed_regs[i] && ! LOCAL_REGNO (i))
 	regs_ever_live[i] = 1;
@@ -2136,7 +2189,7 @@ mark_home_live (int regno)
   i = reg_renumber[regno];
   if (i < 0)
     return;
-  lim = i + hard_regno_nregs[i][PSEUDO_REGNO_MODE (regno)];
+  lim = end_hard_regno (PSEUDO_REGNO_MODE (regno), i);
   while (i < lim)
     regs_ever_live[i++] = 1;
 }
@@ -3707,10 +3760,7 @@ spill_hard_reg (unsigned int regno, int cant_eliminate)
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     if (reg_renumber[i] >= 0
 	&& (unsigned int) reg_renumber[i] <= regno
-	&& ((unsigned int) reg_renumber[i]
-	    + hard_regno_nregs[(unsigned int) reg_renumber[i]]
-			      [PSEUDO_REGNO_MODE (i)]
-	    > regno))
+	&& end_hard_regno (PSEUDO_REGNO_MODE (i), reg_renumber[i]) > regno)
       SET_REGNO_REG_SET (&spilled_pseudos, i);
 }
 
@@ -3835,9 +3885,8 @@ finish_spills (int global)
 	  AND_HARD_REG_SET (chain->used_spill_regs, used_spill_regs);
 
 	  /* Make sure we only enlarge the set.  */
-	  GO_IF_HARD_REG_SUBSET (used_by_pseudos2, chain->used_spill_regs, ok);
-	  gcc_unreachable ();
-	ok:;
+	  gcc_assert (hard_reg_set_subset_p (used_by_pseudos2,
+					    chain->used_spill_regs));
 	}
     }
 
@@ -4532,8 +4581,7 @@ clear_reload_reg_in_use (unsigned int regno, int opnum,
 	    {
 	      unsigned int conflict_start = true_regnum (rld[i].reg_rtx);
 	      unsigned int conflict_end
-		= (conflict_start
-		   + hard_regno_nregs[conflict_start][rld[i].mode]);
+		= end_hard_regno (rld[i].mode, conflict_start);
 
 	      /* If there is an overlap with the first to-be-freed register,
 		 adjust the interval start.  */

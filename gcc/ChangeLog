@@ -1,3 +1,804 @@
+2007-05-23  Sandra Loosemore  <sandra@codesourcery.com>
+	    Nigel Stephens  <nigel@mips.com>
+	    Richard Sandiford  <richard@codesourcery.com>
+
+	Fix up MIPS16 hard float and add support for complex.
+
+	* config/mips/mips.h (TARGET_HARD_FLOAT_ABI): New.
+	(TARGET_SOFT_FLOAT_ABI): New.
+	(TARGET_CPU_CPP_BUILTINS): Define __mips_hard_float and
+	__mips_soft_float to reflect the ABI in use, not whether the
+	FPU is directly accessible (e.g., in MIPS16 mode).
+	(UNITS_PER_HWFPVALUE): Use TARGET_SOFT_FLOAT_ABI.
+	(UNITS_PER_FPVALUE): Likewise.
+
+	* config/mips/mips.c (mips_expand_call): Remove redundant
+	TARGET_MIPS16 check.
+	(mips_arg_regno): New.
+	(function_arg_advance): When setting bits in cum->fp_code for
+	MIPS16, don't subtract 1 from cum->arg_number, since it is now
+	zero-based.
+	(function_arg): Use mips_arg_regno.
+	(mips_return_mode_in_fpr_p): New.
+	(mips16_call_stub_mode_suffix): New.
+	(mips16_cfun_returns_in_fpr_p): New.
+	(mips_save_reg_p): Use mips16_cfun_returns_in_fpr_p.
+	(mips_output_function_prologue): Test mips16_hard_float, not
+	!TARGET_SOFT_FLOAT, to decide when a function stub is required.
+	(mips_expand_epilogue): Call MIPS16 helper routines to copy
+	return value into a floating-point register.
+	(mips_can_use_return_insn): Use mips16_cfun_returns_in_fpr_p.
+	(mips_function_value): Rewrite to use mips_return_mode_in_fpr_p.
+	(mips16_fp_args): Handle MIPS32r2 ISA which supports
+	TARGET_FLOAT64, and use mfhc1/mthc1 to copy the most significant
+	word of double arguments from or to the high bits of 64-bit
+	floating point registers.
+	(build_mips16_function_stub): Fill in DECL_RESULT for stubdecl.
+	(mips16_fpret_double): New helper function.
+	(build_mips16_call_stub): Use mips16_return_mode_in_fpr_p.  Add
+	support for complex modes.  Fill in DECL_RESULT for stubdecl.
+	(mips_init_libfuncs): Remove redundant TARGET_MIPS16 check.
+
+	* config/mips/mips16.S 
+	(RET, ARG1, ARG2): New.
+	(MERGE_GPRf, MERGE_GPRt): New.
+	(DELAYt, DELAYf): New.
+	(MOVE_SF_BYTE0, MOVE_SI_BYTE0): New.
+	(MOVE_SF_BYTE4, MOVE_SF_BYTE8): New.
+	(MOVE_DF_BYTE0, MOVE_DF_BYTE8): New.
+	(MOVE_SF_RET, MOVE_SC_RET, MOVE_DF_RET, MOVE_DC_RET, MOVE_SI_RET): New.
+	(SFOP): Renamed to...
+	(OPSF3): This, and macro-ified.  Updated all uses.
+	(SFOP2): Renamed to...
+	(OPSF2): This, and macro-ified.  Updated all uses.
+	(SFCMP): Renamed to...
+	(CMPSF): This, and macro-ified.  Updated all uses.
+	(SFREVCMP): Renamed to...
+	(REVCMPSF): This, and macro-ified.  Updated all uses.
+	(__mips16_floatsisf, __mips16_fix_truncsfsi): Macro-ified.
+	(LDDBL1, LDDBL2, RETDBL): Deleted.
+	(DFOP): Renamed to...
+	(OPDF3): This, and macro-ified.  Updated all uses.
+	(DFOP2): Renamed to...
+	(OPDF2): This, and macro-ified.  Updated all uses.
+	(__mips16_extendsfdf2, __mips16_truncdfsf2): Macro-ified.
+	(DFCMP): Renamed to...
+	(CMPDF): This, and macro-ified.  Updated all uses.
+	(DFREVCMP): Renamed to...
+	(REVCMPDF): This, and macro-ified.  Updated all uses.
+	(__mips16_floatsidf, __mips16_fix_truncdfsi): Macro-ified.
+	(RET_FUNCTION): New.
+	(__mips16_ret_sf, __mips16_ret_df): Macro-ified.
+	(__mips16_ret_sc, __mips16_ret_dc): New.
+	(STUB_ARGS_0, STUB_ARGS_1, STUB_ARGS_5, STUB_ARGS_9, STUB_ARGS_2,
+	STUB_ARGS_6, STUB_ARGS_10): New.
+	(CALL_STUB_NO_RET): New.
+	(__mips16_call_stub_1): Macro-ified.
+	(__mips16_call_stub_5): Macro-ified.
+	(__mips16_call_stub_2): Macro-ified.
+	(__mips16_call_stub_6): Macro-ified.
+	(__mips16_call_stub_9): Macro-ified.
+	(__mips16_call_stub_10): Macro-ified.
+	(CALL_STUB_RET): New.
+	(__mips16_call_stub_sf_0): Macro-ified.
+	(__mips16_call_stub_sf_1): Macro-ified.
+	(__mips16_call_stub_sf_5): Macro-ified.
+	(__mips16_call_stub_sf_2): Macro-ified.
+	(__mips16_call_stub_sf_6): Macro-ified.
+	(__mips16_call_stub_sf_9): Macro-ified.
+	(__mips16_call_stub_sf_10): Macro-ified.
+	(__mips16_call_stub_df_0): Macro-ified.
+	(__mips16_call_stub_df_1): Macro-ified.
+	(__mips16_call_stub_df_5): Macro-ified.
+	(__mips16_call_stub_df_2): Macro-ified.
+	(__mips16_call_stub_df_6): Macro-ified.
+	(__mips16_call_stub_df_9): Macro-ified.
+	(__mips16_call_stub_df_10): Macro-ified.
+	(__mips16_call_stub_sc_0): New.
+	(__mips16_call_stub_sc_1): New.
+	(__mips16_call_stub_sc_5): New.
+	(__mips16_call_stub_sc_2): New.
+	(__mips16_call_stub_sc_6): New.
+	(__mips16_call_stub_sc_9): New.
+	(__mips16_call_stub_sc_10): New.
+	(__mips16_call_stub_dc_0): New.
+	(__mips16_call_stub_dc_1): New.
+	(__mips16_call_stub_dc_5): New.
+	(__mips16_call_stub_dc_2): New.
+	(__mips16_call_stub_dc_6): New.
+	(__mips16_call_stub_dc_9): New.
+	(__mips16_call_stub_dc_10): New.
+	
+	* config/mips/t-elf (LIB1ASMFUNCS): Add MIPS16 floating-point stubs.
+	* config/mips/t-isa3264 (LIB1ASMFUNCS): Likewise.
+	* config/mips/t-r2900 (LIB1ASMFUNCS): Likewise.
+
+2007-05-23  Ian Lance Taylor  <iant@google.com>
+
+	* doc/invoke.texi (Invoking GCC): Document that the order of the
+	-l option matters.
+
+2007-05-23  Chen Liqin  <liqin@sunnorth.com.cn>
+
+	PR target/30987
+	* config/score/misc.md (bitclr_c, bitset_c, bittgl_c): remove.
+	* config/score/predicate.md (const_pow2, const_npow2): remove.
+	* config/score/score.h (ASM_OUTPUT_EXTERNAL): add ASM_OUTPUT_EXTERNAL undef.
+	PR target/30474
+	* config/score/score.c (score_print_operand): makes sure that only lower 
+        bits are used.
+	
+2007-05-22  Ian Lance Taylor  <iant@google.com>
+
+	* tree-vrp.c (avoid_overflow_infinity): New static function,
+	broken out of set_value_range_to_value.
+	(set_value_range_to_value): Call avoid_overflow_infinity.
+	(extract_range_from_assert): Likewise.
+
+2007-05-22  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/31095
+	 * builtins.c (expand_builtin_memmove_args): Strip nops that don't
+	change the type before looking for a COMPOUND_EXPR.
+
+2007-05-22  Ian Lance Taylor  <iant@google.com>
+
+	* lower-subreg.c (decompose_multiword_subregs): If we change an
+	insn, call remove_retval_note on it.
+
+2007-05-22  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* regs.h (end_hard_regno): New function.
+	(END_HARD_REGNO, END_REGNO): New macros.
+	(add_to_hard_reg_set): New function.
+	(remove_from_hard_reg_set): Likewise.
+	(in_hard_reg_set_p): Likewise.
+	(overlaps_hard_reg_set_p): Likewise.
+	* bt-load.c (find_btr_reference): Use overlaps_hard_reg_set_p.
+	(note_btr_set): Use END_HARD_REGNO.
+	* caller-save.c (setup_save_areas): Use end_hard_regno.
+	(mark_set_regs): Use END_HARD_REGNO.
+	(add_stored_regs): Use end_hard_regno.
+	(mark_referenced_regs): Use add_to_hard_reg_set.
+	* combine.c (update_table_tick): Use END_REGNO.
+	(record_value_for_reg): Likewise.
+	(record_dead_and_set_regs): Likewise.
+	(get_last_value_validate): Likewise.
+	(use_crosses_set_p): Likewise.
+	(reg_dead_at_p_1): Likewise.
+	(reg_dead_at_p): Likewise.
+	(mark_used_regs_combine): Use add_to_hard_reg_set.
+	(move_deaths): Use END_HARD_REGNO.
+	(reg_bitfield_target_p): Use end_hard_regno.
+	(distribute_notes): Use END_HARD_REGNO.
+	* cse.c (mention_regs): Use END_REGNO.
+	(insert): Use add_to_hard_reg_set.
+	(invalidate): Use END_HARD_REGNO.
+	(invalidate_for_call): Likewise.
+	(exp_equiv_p): Use END_REGNO.
+	(cse_insn): Likewise.
+	* cselib.c (cselib_invalidate_regno): Use end_hard_regno.
+	* df-problems.c (df_urec_mark_reg_change): Use END_HARD_REGNO.
+	* df-scan.c (df_ref_record): Use END_HARD_REGNO.
+	* function.c (keep_stack_depressed): Use end_hard_regno.
+	* global.c (global_alloc): Use end_hard_regno.
+	(global_conflicts): Use add_to_hard_reg_set instead of
+	mark_reg_live_nc.
+	(find_reg): Likewise.
+	(mark_reg_store): Likewise.
+	(mark_reg_conflicts): Likewise.
+	(mark_reg_death): Use remove_from_hard_reg_set.
+	(mark_reg_live_nc): Delete.
+	(set_preference): Use end_hard_regno.
+	* local-alloc.c (mark_life): Use add_to_hard_reg_set and
+	remove_from_hard_reg_set.
+	(post_mark_life): Use add_to_hard_reg_set.
+	* mode-switching.c (reg_dies): Use remove_from_hard_reg_set.
+	(reg_becomes_live): Use add_to_hard_reg_set.
+	* recog.c (reg_fits_class_p): Use in_hard_reg_set_p.
+	(peep2_find_free_register): Use add_to_hard_reg_set.
+	* reg-stack.c (convert_regs_exit): Use END_HARD_REGNO.
+	* regclass.c (record_reg_classes): Use in_hard_reg_set_p.
+	* regrename.c (note_sets): Use add_to_hard_reg_set.
+	(clear_dead_regs): Use remove_from_hard_reg_set.
+	(regrename_optimize): Use add_to_hard_reg_set.
+	(find_oldest_value_reg): Use in_hard_reg_set_p.
+	* reload.c (push_reload): Use in_hard_reg_set_p and end_hard_regno.
+	(hard_reg_set_here_p): Use end_hard_regno.
+	(decompose): Likewise.
+	(reg_overlap_mentioned_for_reload_p): Use END_HARD_REGNO.
+	(find_equiv_reg): Use in_hard_reg_set_p and end_hard_regno.
+	* reload1.c (compute_use_by_pseudos): Use add_to_hard_reg_set.
+	(mark_home_live): Use end_hard_regno.
+	(spill_hard_reg): Likewise.
+	(clear_reload_reg_in_use): Likewise.
+	* reorg.c (delete_prior_computation): Use END_REGNO.
+	* resource.c (update_live_status): Use END_HARD_REGNO.
+	(mark_referenced_resources): Use add_to_hard_reg_set.
+	(mark_set_resources): Likewise.
+	(mark_target_live_regs): Likewise.  Use remove_from_hard_reg_set.
+	* rtlanal.c (refers_to_regno_p): Use END_REGNO.
+	(reg_overlap_mentioned_p): Likewise.
+	(dead_or_set_p): Likewise.  Use an exclusive upper loop bound.
+	(covers_regno_no_parallel_p): Use END_REGNO.
+	(find_regno_note): Likewise.
+	(find_reg_fusage): Use END_HARD_REGNO.
+	* stmt.c (decl_overlaps_hard_reg_set_p): Use overlaps_hard_reg_set_p.
+	* var-tracking.c (emit_note_insn_var_location): Use end_hard_regno.
+
+2007-05-22  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* mode-switching.c (reg_dies): Change type of second argument to
+	"HARD_REG_SET *".
+	(optimize_mode_switching): Update accordingly.
+
+2007-05-22  Richard Sandiford  <richard@codesourcery.com>
+
+	* hard-reg-set.h (GO_IF_HARD_REG_SUBSET, GO_IF_HARD_REG_EQUAL): Delete
+	in favor of...
+	(hard_reg_subset_p, hard_reg_sets_equal_p, hard_reg_sets_intersect_p)
+	(hard_reg_set_empty_p): ...these new functions.
+	* bt-load.c (choose_btr): Use hard_reg_subset_p instead of
+	GO_IF_HARD_REG_SUBSET.
+	* cfgcleanup.c (old_insns_match_p): Use hard_reg_sets_equal_p
+	instead of GO_IF_HARD_REG_EQUAL.
+	* df-problems.c (df_urec_local_compute): Use hard_reg_set_empty_p
+	instead of GO_IF_HARD_REG_EQUAL.
+	* global.c (find_reg): Use hard_reg_set_empty_p instead of
+	GO_IF_HARD_REG_SUBSET.
+	(modify_reg_pav): Use hard_reg_set_empty_p instead of
+	GO_IF_HARD_REG_EQUAL.
+	* local-alloc.c (find_free_reg): Use hard_reg_subset_p instead
+	of GO_IF_HARD_REG_SUBSET.
+	* reg-stack.c (change_stack, convert_regs_1): Use hard_reg_sets_equal_p
+	instead of GO_IF_HARD_REG_EQUAL.
+	* regclass.c (init_reg_sets_1, reg_scan_mark_refs): Use
+	hard_reg_subset_p instead of GO_IF_HARD_REG_SUBSET.
+	(reg_classes_intersect_p): Use hard_reg_sets_intersect_p instead
+	of GO_IF_HARD_REG_SUBSET,
+	* reload1.c (finish_spills): Use hard_reg_subset_p instead of
+	GO_IF_HARD_REG_SUBSET.
+	* struct-equiv.c (death_notes_match_p): Use hard_reg_sets_equal_p
+	instead of GO_IF_HARD_REG_EQUAL.
+	* config/sh/sh.c (push_regs, calc_live_regs): Use
+	hard_reg_sets_intersect_p instead of hard_regs_intersect_p.
+	(hard_regs_intersect_p): Delete.
+
+2007-05-22  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/sourcebuild.texi (Test Directives) Add dg-message.
+
+2007-05-22  H.J. Lu  <hongjiu.lu@intel.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	* config.gcc (i[34567]86-*-*): Add smmintrin.h to
+	extra_headers.
+	(x86_64-*-*): Likewise.
+
+	* i386/i386-modes.def (V2QI): New.
+
+	* config/i386/i386.c (ix86_handle_option): Handle SSE4.1 and
+	SSE4A.
+	(override_options): Support SSE4.1.
+	(IX86_BUILTIN_BLENDPD): New for SSE4.1.
+	(IX86_BUILTIN_BLENDPS): Likewise.
+	(IX86_BUILTIN_BLENDVPD): Likewise.
+	(IX86_BUILTIN_BLENDVPS): Likewise.
+	(IX86_BUILTIN_PBLENDVB128): Likewise.
+	(IX86_BUILTIN_PBLENDW128): Likewise.
+	(IX86_BUILTIN_DPPD): Likewise.
+	(IX86_BUILTIN_DPPS): Likewise.
+	(IX86_BUILTIN_INSERTPS128): Likewise.
+	(IX86_BUILTIN_MOVNTDQA): Likewise.
+	(IX86_BUILTIN_MPSADBW128): Likewise.
+	(IX86_BUILTIN_PACKUSDW128): Likewise.
+	(IX86_BUILTIN_PCMPEQQ): Likewise.
+	(IX86_BUILTIN_PHMINPOSUW128): Likewise.
+	(IX86_BUILTIN_PMAXSB128): Likewise.
+	(IX86_BUILTIN_PMAXSD128): Likewise.
+	(IX86_BUILTIN_PMAXUD128): Likewise.
+	(IX86_BUILTIN_PMAXUW128): Likewise.
+	(IX86_BUILTIN_PMINSB128): Likewise.
+	(IX86_BUILTIN_PMINSD128): Likewise.
+	(IX86_BUILTIN_PMINUD128): Likewise.
+	(IX86_BUILTIN_PMINUW128): Likewise.
+	(IX86_BUILTIN_PMOVSXBW128): Likewise.
+	(IX86_BUILTIN_PMOVSXBD128): Likewise.
+	(IX86_BUILTIN_PMOVSXBQ128): Likewise.
+	(IX86_BUILTIN_PMOVSXWD128): Likewise.
+	(IX86_BUILTIN_PMOVSXWQ128): Likewise.
+	(IX86_BUILTIN_PMOVSXDQ128): Likewise.
+	(IX86_BUILTIN_PMOVZXBW128): Likewise.
+	(IX86_BUILTIN_PMOVZXBD128): Likewise.
+	(IX86_BUILTIN_PMOVZXBQ128): Likewise.
+	(IX86_BUILTIN_PMOVZXWD128): Likewise.
+	(IX86_BUILTIN_PMOVZXWQ128): Likewise.
+	(IX86_BUILTIN_PMOVZXDQ128): Likewise.
+	(IX86_BUILTIN_PMULDQ128): Likewise.
+	(IX86_BUILTIN_PMULLD128): Likewise.
+	(IX86_BUILTIN_ROUNDPD): Likewise.
+	(IX86_BUILTIN_ROUNDPS): Likewise.
+	(IX86_BUILTIN_ROUNDSD): Likewise.
+	(IX86_BUILTIN_ROUNDSS): Likewise.
+	(IX86_BUILTIN_PTESTZ): Likewise.
+	(IX86_BUILTIN_PTESTC): Likewise.
+	(IX86_BUILTIN_PTESTNZC): Likewise.
+	(IX86_BUILTIN_VEC_EXT_V16QI): Likewise.
+	(IX86_BUILTIN_VEC_SET_V2DI): Likewise.
+	(IX86_BUILTIN_VEC_SET_V4SF): Likewise.
+	(IX86_BUILTIN_VEC_SET_V4SI): Likewise.
+	(IX86_BUILTIN_VEC_SET_V16QI): Likewise.
+	(bdesc_ptest): New.
+	(bdesc_sse_3arg): Likewise.
+	(bdesc_2arg): Likewise.
+	(bdesc_1arg): Likewise.
+	(ix86_init_mmx_sse_builtins): Support SSE4.1.  Handle SSE builtins
+	with 3 args.
+	(ix86_expand_sse_4_operands_builtin): New.
+	(ix86_expand_unop_builtin): Support 2 arg builtins with a constant
+	smaller than 8 bits as the 2nd arg.
+	(ix86_expand_sse_ptest): New.
+	(ix86_expand_builtin): Support SSE4.1. Support 3 arg SSE builtins.
+	(ix86_expand_vector_set): Support SSE4.1.
+	(ix86_expand_vector_extract): Likewise.
+
+	* config/i386/i386.h (TARGET_CPU_CPP_BUILTINS): Define
+	__SSE4_1__ for -msse4.1.
+
+	* config/i386/i386.md (UNSPEC_BLENDV): New for SSE4.1.
+	(UNSPEC_INSERTPS): Likewise.
+	(UNSPEC_DP): Likewise.
+	(UNSPEC_MOVNTDQA): Likewise.
+	(UNSPEC_MPSADBW): Likewise.
+	(UNSPEC_PHMINPOSUW): Likewise.
+	(UNSPEC_PTEST): Likewise.
+	(UNSPEC_ROUNDP): Likewise.
+	(UNSPEC_ROUNDS): Likewise.
+
+	* config/i386/i386.opt (msse4.1): New for SSE4.1.
+
+	* config/i386/predicates.md (const_pow2_1_to_2_operand): New.
+	(const_pow2_1_to_32768_operand): Likewise.
+
+	* config/i386/smmintrin.h: New. The SSE4.1 intrinsic header
+	file.
+
+	* config/i386/sse.md (*vec_setv4sf_sse4_1): New pattern for
+	SSE4.1.
+	(sse4_1_insertps): Likewise.
+	(*sse4_1_extractps): Likewise.
+	(sse4_1_ptest): Likewise.
+	(sse4_1_mulv2siv2di3): Likewise.
+	(*sse4_1_mulv4si3): Likewise.
+	(*sse4_1_smax<mode>3): Likewise.
+	(*sse4_1_umax<mode>3): Likewise.
+	(*sse4_1_smin<mode>3): Likewise.
+	(*sse4_1_umin<mode>3): Likewise.
+	(sse4_1_eqv2di3): Likewise.
+	(*sse4_1_pinsrb): Likewise.
+	(*sse4_1_pinsrd): Likewise.
+	(*sse4_1_pinsrq): Likewise.
+	(*sse4_1_pextrb): Likewise.
+	(*sse4_1_pextrb_memory): Likewise.
+	(*sse4_1_pextrw_memory): Likewise.
+	(*sse4_1_pextrq): Likewise.
+	(sse4_1_blendpd): Likewise.
+	(sse4_1_blendps): Likewise.
+	(sse4_1_blendvpd): Likewise.
+	(sse4_1_blendvps): Likewise.
+	(sse4_1_dppd): Likewise.
+	(sse4_1_dpps): Likewise.
+	(sse4_1_movntdqa): Likewise.
+	(sse4_1_mpsadbw): Likewise.
+	(sse4_1_packusdw): Likewise.
+	(sse4_1_pblendvb): Likewise.
+	(sse4_1_pblendw): Likewise.
+	(sse4_1_phminposuw): Likewise.
+	(sse4_1_extendv8qiv8hi2): Likewise.
+	(*sse4_1_extendv8qiv8hi2): Likewise.
+	(sse4_1_extendv4qiv4si2): Likewise.
+	(*sse4_1_extendv4qiv4si2): Likewise.
+	(sse4_1_extendv2qiv2di2): Likewise.
+	(*sse4_1_extendv2qiv2di2): Likewise.
+	(sse4_1_extendv4hiv4si2): Likewise.
+	(*sse4_1_extendv4hiv4si2): Likewise.
+	(sse4_1_extendv2hiv2di2): Likewise.
+	(*sse4_1_extendv2hiv2di2): Likewise.
+	(sse4_1_extendv2siv2di2): Likewise.
+	(*sse4_1_extendv2siv2di2): Likewise.
+	(sse4_1_zero_extendv8qiv8hi2): Likewise.
+	(*sse4_1_zero_extendv8qiv8hi2): Likewise.
+	(sse4_1_zero_extendv4qiv4si2): Likewise.
+	(*sse4_1_zero_extendv4qiv4si2): Likewise.
+	(sse4_1_zero_extendv2qiv2di2): Likewise.
+	(*sse4_1_zero_extendv2qiv2di2): Likewise.
+	(sse4_1_zero_extendv4hiv4si2): Likewise.
+	(*sse4_1_zero_extendv4hiv4si2): Likewise.
+	(sse4_1_zero_extendv2hiv2di2): Likewise.
+	(*sse4_1_zero_extendv2hiv2di2): Likewise.
+	(sse4_1_zero_extendv2siv2di2): Likewise.
+	(*sse4_1_zero_extendv2siv2di2): Likewise.
+	(sse4_1_roundpd): Likewise.
+	(sse4_1_roundps): Likewise.
+	(sse4_1_roundsd): Likewise.
+	(sse4_1_roundss): Likewise.
+	(mulv4si3): Don't expand for SSE4.1.
+	(smax<mode>3): Likewise.
+	(umaxv4si3): Likewise.
+	(uminv16qi3): Likewise.
+	(umin<mode>3): Likewise.
+	(umaxv8hi3): Rewrite.  Only enabled for SSE4.1.
+
+	* doc/extend.texi: Document SSE4.1 built-in functions.
+
+	* doc/invoke.texi: Document -msse4.1.
+
+2007-05-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/m68k/linux.h (ASM_SPEC): Add asm_pcrel_spec.
+	* config/m68k/m68k-none.h (ASM_SPEC): Don't override here.
+	* config/m68k/m68k.h (ASM_PCREL_SPEC): New.
+	(ASM_SPEC): Add asm_pcrel_spec.
+	(EXTRA_SPECS): Add asm_pcrel_spec.
+
+2007-05-21  David Daney  <ddaney@avtrex.com>
+
+	* doc/install.texi (Building a cross compiler): Add requirements
+	for Java cross compiler.
+
+2007-05-21  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/31995
+	* tree-chrec.c (evolution_function_is_affine_multivariate_p):
+	Add loopno argument.  Use evolution_function_is_invariant_rec_p
+	instead of evolution_function_is_constant_p.
+	Update calls to evolution_function_is_affine_multivariate_p.
+	* tree-chrec.h  (evolution_function_is_affine_multivariate_p):
+	Add loopno argument.
+	* tree-scalar-evolution.c (gather_chrec_stats): Call
+	evolution_function_is_affine_multivariate_p with a  loop
+	number of 0.
+	* tree-data-ref.c (analyze_miv_subscript): Likewise.
+	(analyze_overlapping_iterations): Likewise.
+	(access_functions_are_affine_or_constant_p):
+	Likewise.
+	(build_classic_dist_vector_1): If the access functions
+	are equal, don't do anything.
+
+2007-05-21  Paolo Bonzini  <bonzini@gnu.org>
+            Paolo Carlini  <pcarlini@suse.de>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define
+	__GCC_HAVE_SYNC_COMPARE_AND_SWAP_1, __GCC_HAVE_SYNC_COMPARE_AND_SWAP_2,
+	__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4, __GCC_HAVE_SYNC_COMPARE_AND_SWAP_8,
+	__GCC_HAVE_SYNC_COMPARE_AND_SWAP_16, if appropriate.
+	* doc/cpp.texi ([Standard Predefined Macros]): Document.
+
+2007-05-21  Mike Stump  <mrs@apple.com>
+
+	* config/darwin.h (LINK_COMMAND_SPEC): Add .cxx for dsymutil
+	handling as well.
+	* config/darwin9.h (LINK_COMMAND_SPEC): Likewise.
+
+2007-05-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/tmmintrin.h (_mm_alignr_epi8): Provide macro
+	implementation if __OPTIMIZE__ is not defined.
+	(_mm_alignr_pi8): Ditto.
+	* config/i386/ammintrin.h (_mm_extracti_si64): Ditto.
+	(_mm_inserti_si64): Ditto.
+	* config/i386/emmintrin.h (_mm_shuffle_pd): Ditto.
+	(_mm_slli_epi16): Ditto.
+	(_mm_slli_epi32): Ditto.
+	(_mm_slli_epi64): Ditto.
+	(_mm_srai_epi16): Ditto.
+	(_mm_srai_epi32): Ditto.
+	(_mm_srli_si128): Ditto.
+	(_mm_slli_si128): Ditto.
+	(_mm_srli_epi16): Ditto.
+	(_mm_srli_epi32): Ditto.
+	(_mm_srli_epi64): Ditto.
+	(_mm_extract_epi16): Ditto.
+	(_mm_insert_epi16): Ditto.
+	(_mm_shufflehi_epi16): Ditto.
+	(_mm_shufflelo_epi16): Ditto.
+	(_mm_shuffle_epi32): Ditto.
+	* config/i386/xmmintrin.h (_mm_extract_pi16): Ditto.
+	(_m_pextrw): Ditto.
+	(_mm_insert_pi16): Ditto.
+	(_m_pinsrw): Ditto.
+	(_mm_shuffle_pi16): Ditto.
+	(_m_pshufw): Ditto.
+	(_mm_shufle_ps): Ditto.
+	(_mm_prefetch): Ditto.
+
+2007-05-21  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* defaults.h (IBM_FLOAT_FORMAT): Macro definition removed.
+	* doc/tm.texi (IBM_FLOAT_FORMAT): Documentation entry removed.
+	* real.c (encode_i370_single, decode_i370_single,
+	encode_i370_double, decode_i370_double): Functions removed.
+	(i370_single_format, i370_double_format): Initializations removed.
+	(real_maxval, round_for_format, exact_real_truncate, significand_size):
+	Consider the log2_b field to always be one.
+	(ieee_single_format, mips_single_format, coldfire_single_format,
+	ieee_double_format, mips_double_format,	coldfire_double_format,
+	ieee_extended_motorola_format, ieee_extended_intel_96_format,
+	ieee_extended_intel_128_format, ieee_extended_intel_96_round_53_format,
+	ibm_extended_format, mips_extended_format, ieee_quad_format,
+	mips_quad_format, vax_f_format, vax_d_format, vax_g_format,
+	decimal_single_format, decimal_double_format, decimal_quad_format,
+	c4x_single_format, c4x_extended_format, real_internal_format): Remove
+	initialization of log2_b.
+	* real.h (i370_single_format, i370_double_format): Declarations removed.
+	* c-cppbuiltin.c (builtin_define_float_constants): Consider the log2_b
+	field to always be one.
+
+2007-05-21  Andreas Schwab  <schwab@suse.de>
+
+	* config/ia64/ia64.c (emit_predicate_relation_info): Fix use of
+	NOTE_INSN_BASIC_BLOCK_P.
+	(process_for_unwind_directive): Likewise.
+
+2007-05-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* builtins.c (expand_builtin_setjmp_setup): Update comment.
+	* function.h (struct function): Move va_list_gpr_size,
+	va_list_fpr_size, function_frequency to front of bitfields.  Add
+	calls_unwind_init.
+	(current_function_calls_unwind_init): New.
+	* except.c (expand_builtin_unwind_init): Set
+	current_function_calls_unwind_init not
+	current_function_has_nonlocal_label.
+	* reload1.c (has_nonexceptional_receiver): New.
+	(reload): Use it and current_function_calls_unwind_init to
+	determine whether call-saved regs must be saved.
+
+2007-05-20  Jan Hubicka  <jh@suse.cz>
+
+	* gengtype.c (adjust_field_rtx_def): Use NOTE_KIND instead of
+	NOTE_LINE_NUMBER; use NOTE_INSN_BASIC_BLOCK_P when possible.
+	* ddg.c (create_ddg): LIkewise.
+	* final.c (final): Remove hunk moving line numbernotes around since
+	they are no longer present at this stage.
+	(final_scan_insn): Use NOTE_KIND instead of
+	NOTE_LINE_NUMBER; use NOTE_INSN_BASIC_BLOCK_P when possible.
+	(output_asm_label): Likewise.
+	* reorg.c (dbr_schedule): Likewise.
+	* haifa-sched.c (unlink_other_notes): Likewise.
+	* mode-switching.c (optimize_mode_switching): Likewise.
+	* graph.c (start_bb): Likewise.
+	* rtl.def (NOTE): Update description.
+	* jump.c (squeeze_notes): Delete.
+	(mark_jump_label): Use NOTE_KIND instead of NOTE_LINE_NUMBER; use
+	NOTE_INSN_BASIC_BLOCK_P when possible.
+	* ifcvt.c (dead_or_predicable): Remove call of squeeze_notes.
+	* dwarf2out.c (gen_label_die): Use NOTE_KIND instead of
+        NOTE_LINE_NUMBER; use NOTE_INSN_BASIC_BLOCK_P when possible.
+	(dwarf2out_var_location): Likewise.
+	* cfgbuild.c (make_edges): Likewise.
+	(find_basic_blocks_1): Likewise.
+	* function.c (reorder_blocks_1): Likewise.
+	(epilogue_done): Likewise.
+	(reposition_prologue_and_epilogue_notes): Likewise.
+	* print-rtl.c (print_rtx): Likewise; drop code for printing line number
+	notes.
+	(print_rtl): Likewise.
+	(print_rtl_single): Likewise.
+	* gcse.c (insert_insn_start_bb): Likewise.
+	* alias.c (init_alias_analysis): Likewise.
+	* calls.c (fixup_tail_calls): Likewise.
+	* except.c (sjlj_emit_function_enter): Likewise.
+	* emit-rtl.c (add_insn_after): Likeiwse.
+	(emit_label_before): Likewise.
+	(emit_label_after): Likewise.
+	(emit_note_before, emit_note_after, emit_note): Update
+	parameter to be enum insn_note; do not deal with source
+	files.
+	* cfgcleanup.c (merge_blocks_move_predecessor_nojumps):
+	Use NOTE_KIND instead of NOTE_LINE_NUMBER; use NOTE_INSN_BASIC_BLOCK_P
+	when possible.
+	(merge_blocks_move_successor_nojumps): Simplify now when
+	we don't have BLOCK notes.
+	(try_optimize_cfg): Likewise.
+	* cfglayout.c (skip_insns_after_block): Likewise.
+	(record_effective_endpoints): Likewise.
+	(duplicate_insn_chain): Likewise.
+	* varasm.c (output_constant_pool_1): Likewise.
+	* sched-deps.c (sched_analyze): Likewise.
+	* rtl.c (NOTE_INSN_MAX_isnt_negative_adjust_NOTE_INSN_BIAS):
+	Exterminate.
+	(note_insn_name): Simplify now when NOTE_INSN_BIAS is gone.
+	* rtl.h (NOTE_SOURCE_LOCATION, NOTE_EXPANDED_LOCATION): Exterminate.
+	(SET_INSN_DELETED): Simplify.
+	(NOTE_LINE_NUMBER): Exterminate.
+	(NOTE_LINE_KIND): New.
+	(NOTE_INSN_BASIC_BLOCK_P): Update.
+	(enum insn_note): Simplify.
+	(GET_NOTE_INSN_NAME) Simplify.
+	(emit_note_before, emit_note_after, emit_note): Update prototype.
+	(squeeze_notes): Remove.
+	* sched-int.h (NOTE_NOT_BB_P): Update.
+	* resource.c (mark_target_live_regs): Update.
+	* sched-rgn.c (debug_dependencies): Update.
+	* sched-vis.c (print_insn): Update.
+	* config/alpha/alpha.c (alpha_handle_trap_shadows): Update.
+	* config/i386/i386.c (ix86_output_function_epilogue): Update.
+	* config/sh/sh.c (sh_adjust_unroll_max): Function dead since gcc 4.0.0.
+	(TARGET_ADJUST_UNROLL_MAX): Likewise.
+	(split_branches): Update.
+	(sh_optimize_target_register_callee_saved): Remove hunk dead since gcc
+	4.0.0.
+	(sh_adjust_unroll_max): Exterminate.
+	* config/c4x/c4x.c (c4x_reorg): Use SET_INSN_DELETED.
+	* config/m68hc11/m68hc11.c (m68hc11_check_z_replacement): Likewise.
+	(m68hc11_reorg): Likewise.
+	* config/ia64/ia64.c (emit_insn_group_barriers): Update.
+	(emit_predicate_relation_info): Update.
+	(process_for_unwind_directive): Update.
+	* config/rs6000/rs6000.c (rs6000_output_function_epilogue): Update.
+	(output_call): Update.
+	* config/pa/pa.c (output_lbranch): Update.
+	(output_millicode_call): Update.
+	(output_call): Update.
+	(pa_combine_instructions): Update.
+	* config/mips/mips.c (mips16_gp_pseudo_reg): Update.
+	* config/bfin/bfin.c (gen_one_bundle): Update.
+	* cfgrtl.c (can_delete_note_p): Update.
+	(delete_insn): Update.
+	(rtl_merge_blocks): Update.
+	(commit_one_edge_insertion): Update.
+	(rtl_verify_flow_info): Update.
+	* stmt.c (expand_case): Do not call squeeze_notes.
+
+2007-05-20  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+	
+	PR middle-end/7651
+	PR c++/11856
+	PR c/12963
+	PR c/23587
+	PR other/29694
+	* c.opt (Wtype-limits): New.
+	* doc/invoke.texi (Wtype-limits): Document it.
+	(Wextra): Enabled by -Wextra.
+	* c-opts.c (c_common_post_options): Enabled by -Wextra.
+	* c-common.c (shorten_compare): Warn with Wtype-limits.
+
+2007-05-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/tmmintrin.h (_mm_alignr_epi32): Implement as always
+	inlined function, not as a macro.
+	(_mm_alignr_pi8): Ditto.
+	* config/i386/ammintrin.h (_mm_extracti_si64): Ditto.
+	(_mm_inserti_si64): Ditto.
+	* config/i386/emmintrin.h (_mm_shuffle_pd): Ditto.
+	(_mm_extract_epi16): Ditto.
+	(_mm_insert_epi16): Ditto.
+	(_mm_shufflehi_epi16): Ditto.
+	(_mm_shufflelo_epi16): Ditto.
+	(_mm_shuffle_epi32): Ditto.
+	* config/i386/xmmintrin.h (_mm_set_ss): Use 0.0f for float constant.
+	* config/386/mm3dnow.h: Add __attribute__((__always_inline__)) to
+	all functions.
+	(_m_from_float): Add __extension__ to conversion.  Use 0.0f for
+	float constant.
+	(_m_to_float): Use C89 compatible assignment.
+
+2007-04-20  Martin Michlmayr  <tbm@cyrius.com>
+
+	PR target/32007
+	* config/arm/lib1funcs.asm: Define __ARM_ARCH__ on v2/v3 machines.
+
+2007-05-20  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR middle-end/7651
+	* doc/invoke.texi (Wreturn-type): Complete description.
+	(Wextra): Delete item about return-type warning.
+	* c-decl.c: Delete redundant Wextra warning.
+	
+2007-05-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/31585
+	* config/i386/pmmintrin.h: Do not include xmmintrin.h
+	* config/i386/xmmintrin.h (_mm_extract_pi16): Implement as always
+	inlined function, not as a macro.
+	(_mm_prefetch): Ditto.
+	(_m_pextrw): Ditto.
+	(_mm_insert_pi16): Ditto.
+	(_m_pinsrw): Ditto.
+	(_mm_shuffle_pi16): Ditto.  Add const to __N argument.
+	(_m_pshufw): Ditto. Add const to __N argument.
+	(_mm_shufle_ps): Ditto.  Add const to __mask argument.
+	* config/i386/emmintrin.h (_mm_slli_epi16): Add const to __B argument.
+	(_mm_slli_epi32): Ditto.
+	(_mm_srli_si128): Implement as always inlined function, not as a macro.
+	Add __inline to function declaration.
+	(_mm_slli_si128): Ditto.
+
+2007-05-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sfp-machine.h (FP_EX_INVALID, FP_EX_DENORM,
+	FP_EXP_DIVZERO, FP_EX_OVERFLOW, FP_EX_UNDERFLOW, FP_EX_INEXACT):
+	New constants.
+	(struct fenv): New structure.
+	(FP_HANDLE_EXCEPTIONS): New define.
+	(FP_RND_NEAREST, FP_RND_ZERO, FP_RND_PINF, FP_RND_MINF): New constants.
+	(_FP_DECL_EXP): New define.
+	(FP_INIT_ROUNDMODE): New define.
+	(FP_ROUNDMODE): New define.
+
+2007-05-19  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* doc/invoke.texi (Warning Options): Add -Wconversion-sign.
+	(Wconversion): Update description.
+	(Wconversion-sign): New.
+	* c.opt (Wconversion-sign): New.
+	* c-opts.c (c_common_post_options): Uninitialized Wconversion-sign
+	means disabled for C++. Otherwise, take the status of Wconversion.
+	* c-common.c (conversion_warning): Warn with either Wconversion or
+	Wconversion-sign.
+	(warnings_for_convert_and_check): Conditions are already checked by
+	conversion_warning.
+	(convert_and_check): Don't check warnings if the conversion failed.
+
+2007-05-19 Andy Hutchinson <HutchinsonAndy@netscape.net>
+	   Anatoly Sokolov <aesok@dol.ru>
+
+	* config/avr/avr-protos.h (expand_prologue, expand_epilogue, 
+	avr_epilogue_uses) : Add declaration.
+	* config/avr/predicates.md (avr_sp_immediate_operand): New predicate.
+	* config/avr/constraints.md (R): New constraint.
+	config/avr/avr.md (SREG_ADDR, UNSPEC_SEI, UNSPEC_CLI, 
+	UNSPECV_PROLOGUE_SAVES, UNSPECV_EPILOGUE_RESTORES): New constants.
+	(*pop1, *pop2, *pop3, *pop4, *pop5): Combine into ...
+	(*addhi3_sp_R_pc2, *addhi3_sp_R_pc3): ... these patterns.
+	(*movhi_sp, popqi, pophi, enable_interrupt, disable_interrupt, 
+	call_prologue_saves, epilogue_restores, return_from_epilogue,
+	return_from_main_epilogue, return_from_interrupt_epilogue, 
+	return_from_naked_epilogue, prologue, epilogue): New patterns.
+	(jump): Handle symbol reference.
+	* config/avr/avr.c (out_adj_frame_ptr, out_set_stack_ptr, 
+	avr_output_function_prologue, avr_output_function_epilogue): Remove 
+	functions.
+	(avr_init_machine_status, expand_prologue, expand_epilogue, 
+	avr_asm_function_end_prologue, avr_epilogue_uses, 
+	avr_asm_function_begin_epilogue): New functions.
+	(prologue_size, epilogue_size, jump_tables_size): Remove global 
+	variables.
+	(TARGET_ASM_FUNCTION_PROLOGUE, TARGET_ASM_FUNCTION_EPILOGUE): Remove.
+	(TARGET_ASM_FUNCTION_END_PROLOGUE): Define.
+	(TARGET_ASM_FUNCTION_BEGIN_EPILOGUE): Define.
+	(avr_override_options): Initialise init_machine_status.
+	(output_movhi): Handle all stack pointer loads.
+	(out_movqi_r_mr, out_movqi_mr_r): Handle SREG_ADDR address.
+	(avr_output_addr_vec_elt): Do not use variable jump_tables_size.
+	* config/avr/avr.h (AVR_2_BYTE_PC, AVR_3_BYTE_PC): New.
+	(EPILOGUE_USES) Redefine.
+	(machine_function) Declare.
+
+2007-05-19  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/mips/mips.c (mips_offset_within_alignment_p): Tweak comment.
+	Use a single return statement.
+
+2007-05-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR middle-end/30250
+	* builtins.c (do_mpfr_lgamma_r): New.
+	(fold_builtin_2): Handle builtin gamma_r/lgamma_r.
+	* tree.h (CASE_FLT_FN_REENT): New.
+
+2007-05-18  Geoffrey Keating  <geoffk@apple.com>
+
+	* dwarf2out.c (print_die): Use '%ld' not '%lu' to print a 'long'.
+	(output_die): Use 'unsigned long' with %x.
+	* sched-vis.c (print_value): Use 'unsigned HOST_WIDE_INT' and
+	HOST_WIDE_INT_PRINT_HEX to print HOST_WIDE_INT.
+	* tree-dump.c (dump_pointer): Use 'unsigned long' for %lx.
+
+	* unwind-dw2.c (uw_identify_context): Use the CFA, not the IP.
+
 2007-05-23  Chao-ying Fu  <fu@mips.com>
 
 	* Makefile.in (USER_H): Add $(srcdir)/ginclude/stdfix.h.

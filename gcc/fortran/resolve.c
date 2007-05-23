@@ -1013,6 +1013,13 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype)
 	  e->ref->u.ar.as = sym->as;
 	}
 
+      /* Expressions are assigned a default ts.type of BT_PROCEDURE in
+	 primary.c (match_actual_arg). If above code determines that it
+	 is a  variable instead, it needs to be resolved as it was not
+	 done at the beginning of this function.  */
+      if (gfc_resolve_expr (e) != SUCCESS)
+	return FAILURE;
+
     argument_list:
       /* Check argument list functions %VAL, %LOC and %REF.  There is
 	 nothing to do for %REF.  */
@@ -1560,7 +1567,8 @@ resolve_function (gfc_expr *expr)
      procedure,it must be external and should be checked for usage.  */
   if (sym && !sym->attr.dummy && !sym->attr.contained
       && sym->attr.proc != PROC_ST_FUNCTION
-      && !sym->attr.use_assoc)
+      && !sym->attr.use_assoc
+      && sym->name  )
     resolve_global_procedure (sym, &expr->where, 0);
 
   /* Switch off assumed size checking and do this again for certain kinds
@@ -1742,8 +1750,6 @@ resolve_function (gfc_expr *expr)
     {
       if (expr->symtree->n.sym->result
 	    && expr->symtree->n.sym->result->ts.type != BT_UNKNOWN)
-	expr->ts = expr->symtree->n.sym->result->ts;
-      else
 	expr->ts = expr->symtree->n.sym->result->ts;
     }
 

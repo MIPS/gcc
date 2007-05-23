@@ -1,3 +1,75 @@
+2007-05-23  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32046
+	* trans-expr.c (gfc_trans_zero_assign): Convert the result of
+	TYPE_SIZE_UNIT into a signed type.
+	(gfc_trans_array_copy):  Likewise.
+	(gfc_trans_array_constructor_copy): Likewise.
+	* trans-array.c (gfc_trans_create_temp_array): Likewise.
+	(gfc_grow_array): Likewise.
+	(gfc_array_init_size): Likewise.
+	(gfc_duplicate_allocatable): Likewise.
+	* trans-stmt.c (allocate_temp_for_forall_nest_1): Likewise.
+
+2007-05-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/18923
+	* resolve.c (resolve_function): Don't call resolve_global_procedure if
+	there is no name. Delete duplicated statement in ELSE clause.
+
+2007-05-22 Francois-Xavier Coudert <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31627
+	* trans-array.c (gfc_trans_array_bound_check): Take extra argument to
+	indicate whether we should check the upper bound in that dimension.
+	(gfc_conv_array_index_offset): Check only the lower bound of the
+	last dimension for assumed-size arrays.
+	(gfc_conv_array_ref): Likewise.
+	(gfc_conv_ss_startstride): Likewise.
+
+2007-05-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/32002
+	* resolve.c (resolve_actual_arglist): Resolve actual argument after
+	being identified as variable.
+
+2007-05-21  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32027
+	* trans-stmt.c (gfc_trans_do): Fix the value of loop variable
+	when the loop ends.
+
+2007-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* trans-stmt.c (gfc_trans_do): Fix a typo in comment.
+
+2007-05-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31867
+	PR fortran/31994
+	* trans-array.c (gfc_conv_expr_descriptor): Obtain the stored
+	offset for non-descriptor, source arrays and correct for stride
+	not equal to one before writing to field of output descriptor.
+
+2007-05-20  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/32001
+	* check.c (check_rest): Improved argument conformance check and 
+	fixed error message generation.
+
+2007-05-19  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30820
+	* Make-lang.in: Remove use of -Wno-error for expr.o, resolve.o,
+	simplify.o and trans-common.o.
+
+2007-05-19  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31974
+	* trans-array.c (gfc_trans_auto_array_allocation): Avoid
+	multiplication of mismatched types.
+
 2007-05-18  Daniel Franke  <franke.daniel@gmail.com>
 
 	PR fortran/24633

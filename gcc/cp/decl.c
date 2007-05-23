@@ -1297,29 +1297,35 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
     }
   else if (TREE_CODE (olddecl) != TREE_CODE (newdecl))
     {
-      if ((TREE_CODE (olddecl) == TYPE_DECL && DECL_ARTIFICIAL (olddecl)
-	   && TREE_CODE (newdecl) != TYPE_DECL
-	   && ! (TREE_CODE (newdecl) == TEMPLATE_DECL
-		 && TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == TYPE_DECL))
-	  || (TREE_CODE (newdecl) == TYPE_DECL && DECL_ARTIFICIAL (newdecl)
-	      && TREE_CODE (olddecl) != TYPE_DECL
-	      && ! (TREE_CODE (olddecl) == TEMPLATE_DECL
-		    && (TREE_CODE (DECL_TEMPLATE_RESULT (olddecl))
-			== TYPE_DECL))))
+      /* C++ Standard, 3.3, clause 4:
+	 "[Note: a namespace name or a class template name must be unique
+	 in its declarative region (7.3.2, clause 14). ]"  */
+      if (TREE_CODE (olddecl) != NAMESPACE_DECL
+	  && TREE_CODE (newdecl) != NAMESPACE_DECL
+	  && (TREE_CODE (olddecl) != TEMPLATE_DECL
+	      || TREE_CODE (DECL_TEMPLATE_RESULT (olddecl)) != TYPE_DECL)
+	  && (TREE_CODE (newdecl) != TEMPLATE_DECL
+	      || TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) != TYPE_DECL))
 	{
-	  /* We do nothing special here, because C++ does such nasty
-	     things with TYPE_DECLs.  Instead, just let the TYPE_DECL
-	     get shadowed, and know that if we need to find a TYPE_DECL
-	     for a given name, we can look in the IDENTIFIER_TYPE_VALUE
-	     slot of the identifier.  */
-	  return NULL_TREE;
+	  if ((TREE_CODE (olddecl) == TYPE_DECL && DECL_ARTIFICIAL (olddecl)
+	       && TREE_CODE (newdecl) != TYPE_DECL)
+	      || (TREE_CODE (newdecl) == TYPE_DECL && DECL_ARTIFICIAL (newdecl)
+		  && TREE_CODE (olddecl) != TYPE_DECL))
+	    {
+	      /* We do nothing special here, because C++ does such nasty
+		 things with TYPE_DECLs.  Instead, just let the TYPE_DECL
+		 get shadowed, and know that if we need to find a TYPE_DECL
+		 for a given name, we can look in the IDENTIFIER_TYPE_VALUE
+		 slot of the identifier.  */
+	      return NULL_TREE;
+	    }
+	    
+	    if ((TREE_CODE (newdecl) == FUNCTION_DECL
+		 && DECL_FUNCTION_TEMPLATE_P (olddecl))
+		|| (TREE_CODE (olddecl) == FUNCTION_DECL
+		    && DECL_FUNCTION_TEMPLATE_P (newdecl)))
+	      return NULL_TREE;
 	}
-
-      if ((TREE_CODE (newdecl) == FUNCTION_DECL
-	   && DECL_FUNCTION_TEMPLATE_P (olddecl))
-	  || (TREE_CODE (olddecl) == FUNCTION_DECL
-	      && DECL_FUNCTION_TEMPLATE_P (newdecl)))
-	return NULL_TREE;
 
       error ("%q#D redeclared as different kind of symbol", newdecl);
       if (TREE_CODE (olddecl) == TREE_LIST)
@@ -11636,39 +11642,80 @@ complete_vars (tree type)
   complete_type_check_abstract (type);
 }
 
-/* If DECL is of a type which needs a cleanup, build that cleanup
-   here.  */
+/* If DECL is of a type which needs a cleanup, build and return an
+   expression to perform that cleanup here.  Return NULL_TREE if no
+   cleanup need be done.  */
 
 tree
 cxx_maybe_build_cleanup (tree decl)
 {
-  tree type = TREE_TYPE (decl);
+  tree type;
+  tree attr;
+  tree cleanup;
 
-  if (type != error_mark_node && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+  /* Assume no cleanup is required.  */
+  cleanup = NULL_TREE;
+
+  if (error_operand_p (decl))
+    return cleanup;
+
+  /* Handle "__attribute__((cleanup))".  We run the cleanup function
+     before the destructor since the destructor is what actually
+     terminates the lifetime of the object.  */
+  attr = lookup_attribute ("cleanup", DECL_ATTRIBUTES (decl));
+  if (attr)
+    {
+      tree id;
+      tree fn;
+      tree arg;
+
+      /* Get the name specified by the user for the cleanup function.  */
+      id = TREE_VALUE (TREE_VALUE (attr));
+      /* Look up the name to find the cleanup function to call.  It is
+	 important to use lookup_name here because that is what is
+	 used in c-common.c:handle_cleanup_attribute when performing
+	 initial checks on the attribute.  Note that those checks
+	 include ensuring that the function found is not an overloaded
+	 function, or an object with an overloaded call operator,
+	 etc.; we can rely on the fact that the functionfound is an
+	 ordinary FUNCTION_DECL.  */
+      fn = lookup_name (id);
+      arg = build_address (decl);
+      mark_used (decl);
+      cleanup = build_function_call (fn, build_tree_list (NULL_TREE,
+							  arg));
+    }
+  /* Handle ordinary C++ destructors.  */
+  type = TREE_TYPE (decl);
+  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
     {
       int flags = LOOKUP_NORMAL|LOOKUP_DESTRUCTOR;
-      tree rval;
       bool has_vbases = (TREE_CODE (type) == RECORD_TYPE
 			 && CLASSTYPE_VBASECLASSES (type));
+      tree addr;
+      tree call;
 
       if (TREE_CODE (type) == ARRAY_TYPE)
-	rval = decl;
+	addr = decl;
       else
 	{
 	  cxx_mark_addressable (decl);
-	  rval = build_unary_op (ADDR_EXPR, decl, 0);
+	  addr = build_unary_op (ADDR_EXPR, decl, 0);
 	}
 
       /* Optimize for space over speed here.  */
       if (!has_vbases || flag_expensive_optimizations)
 	flags |= LOOKUP_NONVIRTUAL;
 
-      rval = build_delete (TREE_TYPE (rval), rval,
+      call = build_delete (TREE_TYPE (addr), addr,
 			   sfk_complete_destructor, flags, 0);
-
-      return rval;
+      if (cleanup)
+	cleanup = build_compound_expr (cleanup, call);
+      else
+	cleanup = call;
     }
-  return NULL_TREE;
+
+  return cleanup;
 }
 
 /* When a stmt has been parsed, this function is called.  */

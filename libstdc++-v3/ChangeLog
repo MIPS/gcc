@@ -1,3 +1,25 @@
+2007-05-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/util/testsuite_allocator.h (check_new): Assign false
+	to new_called.
+	(check_delete): Likewise for delete_called.
+
+2007-05-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/gnu/c_locale.h: Do not include <cstdarg>, use builtins.
+	* config/locale/generic/c_locale.h: Likewise.
+
+2007-05-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31621
+	* acinclude.m4 ([GLIBCXX_CHECK_LINKER_FEATURES]): Use the C compiler.
+	* configure: Regenerate.
+
+2007-05-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h: Shuffle the functions to better match the
+	order in the standard.
+
 2007-05-17  Paolo Carlini  <pcarlini@suse.de>
 
 	* config/locale/gnu/c_locale.h: Do not include <libintl.h>.
