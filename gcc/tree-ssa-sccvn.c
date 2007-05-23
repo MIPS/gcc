@@ -81,6 +81,12 @@ Boston, MA 02110-1301, USA.  */
    The code below is deliberately written in a way that makes it easy
    to separate the SCC walk from the other work it does.
 
+   In order to propagate constants through the code, we track which
+   expressions contain constants, and use those while folding.  In
+   theory, we could also track expressions whose value numbers are
+   replaced, in case we end up folding based on expression identities,
+   but this is generally a waste of time.
+
    TODO:
      1. A very simple extension to this algorithm will give you the
      ability to see through aggregate copies (among other things).
@@ -1010,8 +1016,8 @@ visit_phi (tree phi)
     {
       if (is_gimple_min_invariant (sameval))
 	{
-	  VN_INFO (PHI_RESULT (phi))->expr = sameval;
 	  VN_INFO (PHI_RESULT (phi))->has_constants = true;
+	  VN_INFO (PHI_RESULT (phi))->expr = sameval;
 	}
       return set_ssa_val_to (PHI_RESULT (phi), sameval);
     }
@@ -1192,7 +1198,8 @@ visit_use (tree use)
   bool changed = false;
   tree stmt = SSA_NAME_DEF_STMT (use);
   stmt_ann_t ann;
-
+  
+  gcc_assert (!SSA_NAME_IN_FREE_LIST (use));
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Value numbering ");
@@ -1230,7 +1237,7 @@ visit_use (tree use)
 	  tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
 	  tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 	  tree simplified;
-
+	  
 	  STRIP_USELESS_TYPE_CONVERSION (rhs);
 
 	  simplified = try_to_simplify (stmt, rhs);
@@ -1290,7 +1297,19 @@ visit_use (tree use)
 	      VN_INFO (lhs)->has_constants = true;
 	      VN_INFO (lhs)->expr = rhs;
 	    }
+	  else if (TREE_CODE (lhs) == SSA_NAME)
+	    {
+	      /* We reset expr and constantness here because we may
+	      have been value numbering optimistically, and are now
+	      instead using the valid table where they are no longer
+	      constant.  */
+	      VN_INFO (lhs)->has_constants = false;
+	      VN_INFO (lhs)->expr = lhs;
+	    }
 	  
+	  /* XXX: Need to reset expr and constantness here.
+	     Otherwise we could make optimistic assumptions that are
+	     wrong during optimistic value numbering. */
 	  if (TREE_CODE (lhs) == SSA_NAME
 	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
 	    changed = defs_to_varying (stmt);
@@ -1657,12 +1676,6 @@ free_scc_vn (void)
   XDELETE (optimistic_info);
 }
 
-static bool
-gate_scc_vn (void)
-{
-  return 1;
-}
-
 void
 run_scc_vn (void)
 {
@@ -1689,7 +1702,8 @@ run_scc_vn (void)
     {
       tree name = ssa_name (i);
       if (name && is_gimple_reg (name)
-	  && VN_INFO (name)->visited == false)
+	  && VN_INFO (name)->visited == false
+	  && !has_zero_uses (name))
 	DFS (name);
     }
 
@@ -1716,29 +1730,4 @@ run_scc_vn (void)
     }
 }
 
-/* Execute SCC value numbering and return the list of TODO flags
-   needed to be set.  */
-static unsigned int
-execute_scc_vn (void)
-{
-  run_scc_vn ();
-  free_scc_vn ();
-  return 0;
-}
 
-struct tree_opt_pass pass_scc_vn =
-{
-  "sccvn",				/* name */
-  gate_scc_vn,				/* gate */
-  execute_scc_vn,				/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_SCC_VN,				/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
-  0					/* letter */
-};

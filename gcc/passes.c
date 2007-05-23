@@ -578,7 +578,6 @@ init_optimization_passes (void)
 	 which can create arbitrary GIMPLE.  */
       NEXT_PASS (pass_may_alias);
       NEXT_PASS (pass_split_crit_edges);
-      NEXT_PASS (pass_scc_vn);
       NEXT_PASS (pass_pre);
       NEXT_PASS (pass_may_alias);
       NEXT_PASS (pass_sink_code);
