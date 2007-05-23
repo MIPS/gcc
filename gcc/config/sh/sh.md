@@ -8377,19 +8377,14 @@ label:
 	  {
 	    rtx r0 = gen_rtx_REG (SImode, R0_REG);
 	    rtx tmp = gen_rtx_REG (SImode, MACL_REG);
-	    rtx i;
 
 	    /* We can't tell at this point whether the sibcall is a
 	       sibcall_compact and, if it is, whether it uses r0 or
 	       mach as operand 2, so let the instructions that
 	       preserve r0 be optimized away if r0 turns out to be
 	       dead.  */
-	    i = emit_insn_before (gen_rtx_SET (SImode, tmp, r0), insn);
-	    REG_NOTES (i) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					       REG_NOTES (i));
-	    i = emit_move_insn (r0, tmp);
-	    REG_NOTES (i) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					       REG_NOTES (i));
+	    emit_insn_before (gen_rtx_SET (SImode, tmp, r0), insn);
+	    emit_move_insn (r0, tmp);
 	    break;
 	  }
     }

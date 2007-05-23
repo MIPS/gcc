@@ -1038,12 +1038,7 @@ m68k_expand_prologue (void)
   if (flag_pic
       && !TARGET_SEP_DATA
       && current_function_uses_pic_offset_table)
-    {
-      insn = emit_insn (gen_load_got (pic_offset_table_rtx));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-					    const0_rtx,
-					    REG_NOTES (insn));
-    }
+    insn = emit_insn (gen_load_got (pic_offset_table_rtx));
 }
 
 /* Return true if a simple (return) instruction is sufficient for this

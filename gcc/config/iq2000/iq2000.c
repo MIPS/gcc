@@ -1964,13 +1964,6 @@ iq2000_expand_prologue (void)
 	  PUT_CODE (SET_SRC (pattern), ASHIFTRT);
 
 	  insn = emit_insn (pattern);
-
-	  /* Global life information isn't valid at this point, so we
-	     can't check whether these shifts are actually used.  Mark
-	     them MAYBE_DEAD so that flow2 will remove them, and not
-	     complain about dead code in the prologue.  */
-	  REG_NOTES(insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, NULL_RTX,
-					       REG_NOTES (insn));
 	}
     }
 

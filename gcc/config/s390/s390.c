@@ -7419,12 +7419,7 @@ s390_emit_prologue (void)
       rtx insns = s390_load_got ();
 
       for (insn = insns; insn; insn = NEXT_INSN (insn))
-	{
-	  annotate_constant_pool_refs (&PATTERN (insn));
-
-	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, NULL_RTX,
-						REG_NOTES (insn));
-	}
+	annotate_constant_pool_refs (&PATTERN (insn));
 
       emit_insn (insns);
     }

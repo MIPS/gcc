@@ -6010,9 +6010,7 @@ ix86_expand_prologue (void)
 	      LABEL_PRESERVE_P (label) = 1;
 	      gcc_assert (REGNO (pic_offset_table_rtx) != REGNO (tmp_reg));
 	      insn = emit_insn (gen_set_rip_rex64 (pic_offset_table_rtx, label));
-              REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
 	      insn = emit_insn (gen_set_got_offset_rex64 (tmp_reg, label));
-              REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
 	      insn = emit_insn (gen_adddi3 (pic_offset_table_rtx,
 					    pic_offset_table_rtx, tmp_reg));
 	    }
@@ -6021,14 +6019,6 @@ ix86_expand_prologue (void)
 	}
       else
         insn = emit_insn (gen_set_got (pic_offset_table_rtx));
-
-      /* Even with accurate pre-reload life analysis, we can wind up
-	 deleting all references to the pic register after reload.
-	 Consider if cross-jumping unifies two sides of a branch
-	 controlled by a comparison vs the only read from a global.
-	 In which case, allow the set_got to be deleted, though we're
-	 too late to do anything about the ebx save in the prologue.  */
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
     }
 
   /* Prevent function calls from be scheduled before the call to mcount.

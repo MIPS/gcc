@@ -2790,16 +2790,6 @@ spill_restore_mem (rtx reg, HOST_WIDE_INT cfa_off)
 	    insn = emit_insn (seq);
 	}
       spill_fill_data.init_after = insn;
-
-      /* If DISP is 0, we may or may not have a further adjustment
-	 afterward.  If we do, then the load/store insn may be modified
-	 to be a post-modify.  If we don't, then this copy may be
-	 eliminated by copyprop_hardreg_forward, which makes this
-	 insn garbage, which runs afoul of the sanity check in
-	 propagate_one_insn.  So mark this insn as legal to delete.  */
-      if (disp == 0)
-	REG_NOTES(insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					     REG_NOTES (insn));
     }
 
   mem = gen_rtx_MEM (GET_MODE (reg), spill_fill_data.iter_reg[iter]);
@@ -3228,12 +3218,6 @@ ia64_expand_prologue (void)
       insn = emit_move_insn (gen_rtx_REG (DImode,
 					  current_frame_info.r[reg_save_gp]),
 			     pic_offset_table_rtx);
-      /* We don't know for sure yet if this is actually needed, since
-	 we've not split the PIC call patterns.  If all of the calls
-	 are indirect, and not followed by any uses of the gp, then
-	 this save is dead.  Allow it to go away.  */
-      REG_NOTES (insn)
-	= gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, REG_NOTES (insn));
     }
 
   /* We should now be at the base of the gr/br/fr spill area.  */

@@ -1,3 +1,27 @@
+2007-05-23  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df-scan.c (df_get_regular_block_artificial_uses): Set the
+	HARD_FRAME_POINTER not the FRAME_POINTER after reload.  Set both
+	the HARD_FRAME_POINTER and the FRAME_POINTER before reload.
+	* dse.c (const_or_frame_p): Removed unnecessary test.
+	* config/s390/s390.c (s390_emit_prologue): Removed REG_MAYBE_DEAD
+	notes.
+	* config/spu/spu.c (frame_emit_add_imm, spu_expand_prologue): Ditto.
+	* config/i386/i386.c (ix86_expand_prologue): Ditto.
+	* config/sh/sh.c (sh_expand_prologue): Ditto.
+	* config/sh/sh.md (define_expand): Ditto.
+	* config/iq2000/iq2000.c (iq2000_expand_prologue): Ditto.
+	* config/mn10300/mn10300.c (expand_prologue): Ditto.
+	* config/ia64/ia64.c (spill_restore_mem, ia64_expand_prologue): Ditto.
+	* config/m68k/m68k.c (m68k_expand_prologue): Ditto.
+	* config/rs6000/rs6000.c (rs6000_maybe_dead): Removed.
+	(rs6000_emit_load_toc_table, rs6000_emit_prologue): Removed calls
+	to rs6000_maybe_dead.
+	* config/bfin/bfin.c (expand_interrupt_handler_prologue,
+	bfin_load_pic_reg): Removed REG_MAYBE_DEAD notes.
+	* reg-notes.def (MAYBE_DEAD): Removed.
+	* dce.c (deletable_insn_p): Removed test of RTX_FRAME_RELATED_P.
+	
 2007-05-21  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* dbgcnt.def: Fixed comment.

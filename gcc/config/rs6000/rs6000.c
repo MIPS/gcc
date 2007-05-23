@@ -616,7 +616,6 @@ struct processor_costs power6_cost = {
 static bool rs6000_function_ok_for_sibcall (tree, tree);
 static const char *rs6000_invalid_within_doloop (rtx);
 static rtx rs6000_generate_compare (enum rtx_code);
-static void rs6000_maybe_dead (rtx);
 static void rs6000_emit_stack_tie (void);
 static void rs6000_frame_related (rtx, rtx, HOST_WIDE_INT, rtx, rtx);
 static rtx spe_synthesize_frame_save (rtx);
@@ -14010,15 +14009,6 @@ rs6000_ra_ever_killed (void)
   return 0;
 }
 
-/* Add a REG_MAYBE_DEAD note to the insn.  */
-static void
-rs6000_maybe_dead (rtx insn)
-{
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-					const0_rtx,
-					REG_NOTES (insn));
-}
-
 /* Emit instructions needed to load the TOC register.
    This is only needed when TARGET_TOC, TARGET_MINIMAL_TOC, and there is
    a constant pool; or for SVR4 -fpic.  */
@@ -14026,7 +14016,7 @@ rs6000_maybe_dead (rtx insn)
 void
 rs6000_emit_load_toc_table (int fromprolog)
 {
-  rtx dest, insn;
+  rtx dest;
   dest = gen_rtx_REG (Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
 
   if (TARGET_ELF && TARGET_SECURE_PLT && DEFAULT_ABI != ABI_AIX && flag_pic)
@@ -14046,29 +14036,16 @@ rs6000_emit_load_toc_table (int fromprolog)
 	  tmp1 = gen_reg_rtx (Pmode);
 	  tmp2 = gen_reg_rtx (Pmode);
 	}
-      insn = emit_insn (gen_load_toc_v4_PIC_1 (lab));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_move_insn (tmp1,
+      emit_insn (gen_load_toc_v4_PIC_1 (lab));
+      emit_move_insn (tmp1,
 			     gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_insn (gen_load_toc_v4_PIC_3b (tmp2, tmp1, got, lab));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_insn (gen_load_toc_v4_PIC_3c (dest, tmp2, got, lab));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+      emit_insn (gen_load_toc_v4_PIC_3b (tmp2, tmp1, got, lab));
+      emit_insn (gen_load_toc_v4_PIC_3c (dest, tmp2, got, lab));
     }
   else if (TARGET_ELF && DEFAULT_ABI == ABI_V4 && flag_pic == 1)
     {
-      insn = emit_insn (gen_load_toc_v4_pic_si ());
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_move_insn (dest,
-			     gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+      emit_insn (gen_load_toc_v4_pic_si ());
+      emit_move_insn (dest, gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
     }
   else if (TARGET_ELF && DEFAULT_ABI != ABI_AIX && flag_pic == 2)
     {
@@ -14087,13 +14064,10 @@ rs6000_emit_load_toc_table (int fromprolog)
 	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCL", rs6000_pic_labelno);
 	  symL = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
 
-	  rs6000_maybe_dead (emit_insn (gen_load_toc_v4_PIC_1 (symF)));
-	  rs6000_maybe_dead (emit_move_insn (dest,
-					     gen_rtx_REG (Pmode,
-							  LINK_REGISTER_REGNUM)));
-	  rs6000_maybe_dead (emit_insn (gen_load_toc_v4_PIC_2 (temp0, dest,
-							       symL,
-							       symF)));
+	  emit_insn (gen_load_toc_v4_PIC_1 (symF));
+	  emit_move_insn (dest,
+			  gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
+	  emit_insn (gen_load_toc_v4_PIC_2 (temp0, dest, symL, symF));
 	}
       else
 	{
@@ -14105,9 +14079,7 @@ rs6000_emit_load_toc_table (int fromprolog)
 			  gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
 	  emit_move_insn (temp0, gen_rtx_MEM (Pmode, dest));
 	}
-      insn = emit_insn (gen_addsi3 (dest, temp0, dest));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+      emit_insn (gen_addsi3 (dest, temp0, dest));
     }
   else if (TARGET_ELF && !TARGET_AIX && flag_pic == 0 && TARGET_MINIMAL_TOC)
     {
@@ -14117,23 +14089,17 @@ rs6000_emit_load_toc_table (int fromprolog)
       ASM_GENERATE_INTERNAL_LABEL (buf, "LCTOC", 1);
       realsym = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
 
-      insn = emit_insn (gen_elf_high (dest, realsym));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_insn (gen_elf_low (dest, dest, realsym));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+      emit_insn (gen_elf_high (dest, realsym));
+      emit_insn (gen_elf_low (dest, dest, realsym));
     }
   else
     {
       gcc_assert (DEFAULT_ABI == ABI_AIX);
 
       if (TARGET_32BIT)
-	insn = emit_insn (gen_load_toc_aix_si (dest));
+	emit_insn (gen_load_toc_aix_si (dest));
       else
-	insn = emit_insn (gen_load_toc_aix_di (dest));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+	emit_insn (gen_load_toc_aix_di (dest));
     }
 }
 
@@ -15183,13 +15149,11 @@ rs6000_emit_prologue (void)
 	  rtx lr = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
 
 	  insn = emit_move_insn (frame_ptr_rtx, lr);
-	  rs6000_maybe_dead (insn);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 
 	  rs6000_emit_load_toc_table (TRUE);
 
 	  insn = emit_move_insn (lr, frame_ptr_rtx);
-	  rs6000_maybe_dead (insn);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
       else
@@ -15205,17 +15169,16 @@ rs6000_emit_prologue (void)
 
       /* Save and restore LR locally around this call (in R0).  */
       if (!info->lr_save_p)
-	rs6000_maybe_dead (emit_move_insn (gen_rtx_REG (Pmode, 0), lr));
+	emit_move_insn (gen_rtx_REG (Pmode, 0), lr);
 
-      rs6000_maybe_dead (emit_insn (gen_load_macho_picbase (src)));
+      emit_insn (gen_load_macho_picbase (src));
 
-      insn = emit_move_insn (gen_rtx_REG (Pmode,
-					  RS6000_PIC_OFFSET_TABLE_REGNUM),
-			     lr);
-      rs6000_maybe_dead (insn);
+      emit_move_insn (gen_rtx_REG (Pmode,
+				   RS6000_PIC_OFFSET_TABLE_REGNUM),
+		      lr);
 
       if (!info->lr_save_p)
-	rs6000_maybe_dead (emit_move_insn (lr, gen_rtx_REG (Pmode, 0)));
+	emit_move_insn (lr, gen_rtx_REG (Pmode, 0));
     }
 #endif
 }

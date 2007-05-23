@@ -949,9 +949,6 @@ add_wild_read (bb_info_t bb_info)
 static bool
 const_or_frame_p (rtx x)
 {
-  if (!x)
-    return true;
-
   switch (GET_CODE (x))
     {
     case MEM:

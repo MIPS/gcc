@@ -1570,16 +1570,11 @@ frame_emit_add_imm (rtx dst, rtx src, HOST_WIDE_INT imm, rtx scratch)
     }
   else
     {
-      insn = emit_insn (gen_movsi (scratch, gen_int_mode (imm, SImode)));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					    REG_NOTES (insn));
+      emit_insn (gen_movsi (scratch, gen_int_mode (imm, SImode)));
       insn = emit_insn (gen_addsi3 (dst, src, scratch));
       if (REGNO (src) == REGNO (scratch))
 	abort ();
     }
-  if (REGNO (dst) == REGNO (scratch))
-    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					  REG_NOTES (insn));
   return insn;
 }
 
@@ -1687,11 +1682,7 @@ spu_expand_prologue (void)
     {
       rtx pic_reg = get_pic_reg ();
       insn = emit_insn (gen_load_pic_offset (pic_reg, scratch_reg_0));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					    REG_NOTES (insn));
       insn = emit_insn (gen_subsi3 (pic_reg, pic_reg, scratch_reg_0));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					    REG_NOTES (insn));
     }
 
   if (total_size > 0)

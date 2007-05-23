@@ -845,23 +845,11 @@ expand_interrupt_handler_prologue (rtx spreg, e_funkind fkind)
       rtx insn;
 
       insn = emit_move_insn (r0reg, gen_rtx_REG (SImode, REG_SEQSTAT));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					    NULL_RTX);
       insn = emit_insn (gen_ashrsi3 (r0reg, r0reg, GEN_INT (26)));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					    NULL_RTX);
       insn = emit_insn (gen_ashlsi3 (r0reg, r0reg, GEN_INT (26)));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					    NULL_RTX);
       insn = emit_move_insn (r1reg, spreg);
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					    NULL_RTX);
       insn = emit_move_insn (r2reg, gen_rtx_REG (Pmode, REG_FP));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					    NULL_RTX);
       insn = emit_insn (gen_addsi3 (r2reg, r2reg, GEN_INT (8)));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					    NULL_RTX);
     }
 }
 
@@ -948,7 +936,6 @@ bfin_load_pic_reg (rtx dest)
 			 gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
 					 UNSPEC_LIBRARY_OFFSET));
   insn = emit_insn (gen_movsi (dest, gen_rtx_MEM (Pmode, addr)));
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
   return dest;
 }
 

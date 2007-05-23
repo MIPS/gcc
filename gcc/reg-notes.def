@@ -143,12 +143,6 @@ REG_NOTE (EH_REGION)
 /* Used by haifa-sched to save NOTE_INSN notes across scheduling.  */
 REG_NOTE (SAVE_NOTE)
 
-/* Indicates that this insn (which is part of the prologue) computes a
-   value which might not be used later, and if so it's OK to delete
-   the insn.  Normally, deleting any insn in the prologue is an error.
-   At present the parameter is unused and set to (const_int 0).  */
-REG_NOTE (MAYBE_DEAD)
-
 /* Indicates that a call does not return.  */
 REG_NOTE (NORETURN)
 

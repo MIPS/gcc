@@ -66,12 +66,6 @@ deletable_insn_p (rtx insn, bool fast)
 {
   rtx x;
 
-  /* These insns may not have real uses but are there because the
-     dwarf unwinder may need to see the values they compute.  */
-  if (RTX_FRAME_RELATED_P (insn) 
-      && find_reg_note (insn, REG_MAYBE_DEAD, NULL_RTX) == 0)
-    return false;
-
   switch (GET_CODE (PATTERN (insn)))
     {
     case USE:

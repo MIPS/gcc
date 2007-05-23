@@ -3395,7 +3395,7 @@ df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
   if (reload_completed)
     {
       if (frame_pointer_needed)
-	bitmap_set_bit (regular_block_artificial_uses, FRAME_POINTER_REGNUM);
+	bitmap_set_bit (regular_block_artificial_uses, HARD_FRAME_POINTER_REGNUM);
     }
   else
     /* Before reload, there are a few registers that must be forced
@@ -3406,6 +3406,10 @@ df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
 	 reference of the frame pointer.  */
       bitmap_set_bit (regular_block_artificial_uses, FRAME_POINTER_REGNUM);
       
+#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+      bitmap_set_bit (regular_block_artificial_uses, HARD_FRAME_POINTER_REGNUM);
+#endif
+
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
       /* Pseudos with argument area equivalences may require
 	 reloading via the argument pointer.  */
