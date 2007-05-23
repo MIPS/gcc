@@ -359,6 +359,21 @@ get_reg_attrs (tree decl, int offset)
   return *slot;
 }
 
+
+#if !HAVE_blockage
+/* Generate an empty ASM_INPUT, which is used to block attempts to schedule
+   across this insn. */
+
+rtx
+gen_blockage (void)
+{
+  rtx x = gen_rtx_ASM_INPUT (VOIDmode, "");
+  MEM_VOLATILE_P (x) = true;
+  return x;
+}
+#endif
+
+
 /* Generate a new REG rtx.  Make sure ORIGINAL_REGNO is set properly, and
    don't attempt to share with the various global pieces of rtl (such as
    frame_pointer_rtx).  */

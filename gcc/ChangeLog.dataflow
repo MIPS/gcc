@@ -1,3 +1,16 @@
+2007-05-23 Paolo Bonzini <bonzini@gnu.org>
+
+	* emit-rtl.c [!HAVE_blockage]: Provide a gen_blockage routine here.
+	* rtl.h (gen_blockage): Add prototype.
+
+	* cse.c (last_bb_reg_used_in, reg_used_in_multiple_bb): Remove.
+	(mark_reg_use_bb): Remove.
+	(cse_main): Remove the initialization of reg_used_in_multiple_bb
+	and last_bb_reg_used_in, and the insn walk that calls mark_reg_use_bb.
+	(cse_ebb_live_in, cse_ebb_live_out): New.
+	(cse_extended_basic_block): Set them.
+	(make_regs_eqv): Use them.
+
 2007-05-23  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* df-scan.c (df_get_regular_block_artificial_uses): Set the
