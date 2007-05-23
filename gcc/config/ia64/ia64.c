@@ -9999,6 +9999,7 @@ ia64_optimization_options (int level ATTRIBUTE_UNUSED,
   set_param_value ("simultaneous-prefetches", 6);
   set_param_value ("l1-cache-line-size", 32);
 
+  set_param_value("selsched-mem-true-dep-cost", 4);
 }
 
 /* HP-UX version_id attribute.

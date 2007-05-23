@@ -552,6 +552,14 @@ DEFPARAM(PARAM_SELSCHED_MAX_LOOKAHEAD,
          "The maximum size of the lookahead window of selective scheduling",
          32, 0, 0)
 
+/* Minimal distance (in CPU cycles) between store and load targeting same
+   memory locations.  */
+
+DEFPARAM (PARAM_SELSCHED_MEM_TRUE_DEP_COST,
+	  "selsched-mem-true-dep-cost",
+	  "Minimal distance between overlapping store and load",
+	  1, 0, 0)
+
 DEFPARAM(PARAM_ALLOW_START,
          "allow_start",
          "Allow something",

@@ -1851,12 +1851,24 @@ tick_check_dep_with_dw (insn_t pro, ds_t ds, dw_t dw)
       if (dt == REG_DEP_TRUE)
         tick_check_seen_true_dep = 1;
 
-      if (flag_sel_sched_mem_deps_zero_cost
-          && dt == REG_DEP_TRUE 
-          && dw != MIN_DEP_WEAK)
-        dc = 0;
-      else
-        dc = dep_cost (pro, dt, con);
+      /* Adjust cost depending on dependency kind.  */
+      switch (dw)
+	{
+	case 0:
+	  /* Not a true memory dependence, use default cost.  */
+	  dc = dep_cost (pro, dt, con);
+	  break;
+	case MIN_DEP_WEAK:
+	  /* Store and load are likely to alias, use higher cost to avoid stall.  */
+	  dc = PARAM_VALUE (PARAM_SELSCHED_MEM_TRUE_DEP_COST);
+	  break;
+	default:
+	  /* Store and load are likely to be independent.  */
+	  if (flag_sel_sched_mem_deps_zero_cost)
+	    dc = 0;
+	  else
+	    dc = dep_cost (pro, dt, con);
+	}
 
       tick = INSN_SCHED_CYCLE (pro) + dc;
 
@@ -1872,7 +1884,7 @@ tick_check_dep_with_dw (insn_t pro, ds_t ds, dw_t dw)
 static void
 tick_check_note_dep (insn_t pro, ds_t ds)
 {
-  tick_check_dep_with_dw (pro, ds, MIN_DEP_WEAK);
+  tick_check_dep_with_dw (pro, ds, 0);
 }
 
 /* An implementation of note_mem_dep hook.  */
@@ -1883,7 +1895,7 @@ tick_check_note_mem_dep (rtx mem1, rtx mem2, insn_t pro, ds_t ds)
 
   dw = (ds_to_dt (ds) == REG_DEP_TRUE
         ? estimate_dep_weak (mem1, mem2)
-        : MIN_DEP_WEAK);
+        : 0);
 
   tick_check_dep_with_dw (pro, ds, dw);
 }

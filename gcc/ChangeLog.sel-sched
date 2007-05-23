@@ -1,3 +1,13 @@
+2007-05-23  Alexander Monakov  <amonakov@ispras.ru>
+
+	* sel-sched-ir.c (tick_check_dep_with_dw): Use special higher cost for
+	memory dependencies that are likely to alias.
+	(tick_check_note_dep, tick_check_note_mem_dep): Pass 0 to
+	tick_check_dep_with_dw to indicate non-memory or non-true memory
+	dependencies.
+	* params.def (PARAM_SELSCHED_MEM_TRUE_DEP_COST): New parameter.
+	* config/ia64/ia64.c (ia64_optimization_options): Set it to 4.
+
 2007-05-22  Dmitry Melnik  <dm@ispras.ru>
 	    Andrey Belevantsev  <abel@ispras.ru>
 
