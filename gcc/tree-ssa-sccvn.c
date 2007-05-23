@@ -559,11 +559,6 @@ vn_unary_op_insert (tree op, tree result)
   if (TREE_CODE (vuo1->op0) == SSA_NAME)
     vuo1->op0 = SSA_VAL (vuo1->op0);
 
-#if 0
-  /* XXX: Shouldn't set this here. */
-  if (is_gimple_min_invariant (vuo1->op0))
-    VN_INFO (result)->has_constants = true;
-#endif
   vuo1->hashcode = vn_unary_op_compute_hash (vuo1);
   slot = htab_find_slot_with_hash (current_info->unary, vuo1, vuo1->hashcode,
 				   INSERT);
@@ -653,13 +648,6 @@ vn_binary_op_insert (tree op, tree result)
     vbo1->op0 = SSA_VAL (vbo1->op0);
   if (TREE_CODE (vbo1->op1) == SSA_NAME)
     vbo1->op1 = SSA_VAL (vbo1->op1);
-
-#if 0
-  /* XXX: Shouldn't set this here. */
-  if (is_gimple_min_invariant (vbo1->op0)
-      || is_gimple_min_invariant (vbo1->op1))
-    VN_INFO (result)->has_constants = true;
-#endif
 
   if (tree_swap_operands_p (vbo1->op0, vbo1->op1, false)
       && commutative_tree_code (vbo1->opcode))
@@ -751,9 +739,6 @@ vn_phi_lookup (tree phi)
       VEC_safe_push (tree, heap, shared_lookup_phiargs, def);
     }
   vp1.phiargs = shared_lookup_phiargs;
-#if 0
-  vp1.orig_phi = phi;
-#endif
   vp1.block = bb_for_stmt (phi);
   vp1.hashcode = vn_phi_compute_hash (&vp1);
   slot = htab_find_slot_with_hash (current_info->phis, &vp1, vp1.hashcode,
@@ -781,9 +766,6 @@ vn_phi_insert (tree phi, tree result)
       VEC_safe_push (tree, heap, args, def);
     }
   vp1->phiargs = args;
-#if 0
-  vp1->orig_phi = phi;
-#endif
   vp1->block = bb_for_stmt (phi);
   vp1->result = result;
   vp1->hashcode = vn_phi_compute_hash (vp1);
@@ -841,7 +823,9 @@ set_ssa_val_to (tree from, tree to)
   /* XXX: Should not be setting this here.  */
   if (is_gimple_min_invariant (to))
     {
+      gcc_assert (VN_INFO (from)->has_constants);
       VN_INFO (from)->has_constants = true;
+      VN_INFO (from)->expr = to;
     }
   else
     {
@@ -1067,6 +1051,88 @@ expr_has_constants (tree expr)
   return false;
 }
 
+/* Simplify the binary expression RHS, and return the result if
+   simplified. */
+static tree
+simplify_binary_expression (tree rhs)
+{
+  tree result = NULL_TREE;
+  tree op0 = TREE_OPERAND (rhs, 0);
+  tree op1 = TREE_OPERAND (rhs, 1);
+  tree oldop0 = op0;
+  tree oldop1 = op1;
+  bool op0isval = false;
+  bool op1isval = false;
+  
+  /* This will not catch every single case we could combine, but will
+     catch those with constants.  The goal here is to simultaneously
+     combine constants between expressions, but avoid infinite
+     expansion of expressions during simplification.  */
+  if (TREE_CODE (op0) == SSA_NAME)
+    {
+      if (VN_INFO (op0)->has_constants)
+	op0 = VN_INFO (op0)->expr;
+      else if (SSA_VAL (op0) != VN_TOP && SSA_VAL (op0) != op0)
+	{
+	  op0 = VN_INFO (op0)->valnum;
+	  op0isval = true;
+	}
+    }
+  
+  if (TREE_CODE (op1) == SSA_NAME)
+    {
+      if (VN_INFO (op1)->has_constants)
+	op1 = VN_INFO (op1)->expr;
+      else if (SSA_VAL (op1) != VN_TOP && SSA_VAL (op1) != op1)
+	{
+	  op1 = VN_INFO (op1)->valnum;
+	  op1isval = true;
+	}
+    }
+  result = fold_binary (TREE_CODE (rhs), TREE_TYPE (rhs), op0, op1);
+  
+  /* Make sure result is not a complex expression consiting
+     of operators of operators (IE (a + b) + (a + c))
+     Otherwise, we will end up with unbounded expressions if
+     fold does anything at all.  */
+  if (result)
+    {
+      if (is_gimple_min_invariant (result))
+	return result;
+      else if (SSA_VAR_P (result))
+	return result;
+      else if (EXPR_P (result))
+	{
+	  switch (TREE_CODE_CLASS (TREE_CODE (result)))
+	    {
+	    case tcc_unary:
+	      {
+		tree op0 = TREE_OPERAND (result, 0);
+		if (!EXPR_P (op0))
+		  return result;
+	      }
+	      break;
+	    case tcc_binary:
+	      {
+		tree op0 = TREE_OPERAND (result, 0);
+		tree op1 = TREE_OPERAND (result, 1);
+		if (!EXPR_P (op0) && !EXPR_P (op1))
+		  return result;
+	      }
+	      break;
+	    default:
+	      break;
+	    }
+	}
+    }
+  else if ((op0isval && oldop0 != op0) || (oldop1 != op1 && op1isval))
+    {
+      /* This will canonicalize to a value expression.  */
+      return fold_build2 (TREE_CODE (rhs), TREE_TYPE (rhs), op0, op1);
+    }
+  return NULL_TREE;
+}
+
 /* Try to simplify RHS using equivalences, constant folding, and black
    magic.  */
 
@@ -1092,6 +1158,8 @@ try_to_simplify (tree stmt, tree rhs)
 	      return result;
 	  }
 	  break;
+	  /* We could do a little more with unary ops, if they expand
+	     into binary ops, but it's debatable whether it is worth it. */
 	case tcc_unary:
 	  {
 	    tree result = NULL_TREE;
@@ -1105,59 +1173,7 @@ try_to_simplify (tree stmt, tree rhs)
 	  break;
 	case tcc_binary:
 	  {
-	    tree result = NULL_TREE;
-	    tree op0 = TREE_OPERAND (rhs, 0);
-	    tree op1 = TREE_OPERAND (rhs, 1);
-
-	    if (TREE_CODE (op0) == SSA_NAME)
-	      {
-		if (VN_INFO (op0)->has_constants)
-		  op0 = VN_INFO (op0)->expr;
-		else if (VN_INFO (op0)->valnum != VN_TOP)
-		  op0 = VN_INFO (op0)->valnum;
-	      }
-
-	    if (TREE_CODE (op1) == SSA_NAME)
-	      {
-		if (VN_INFO (op1)->has_constants)
-		  op1 = VN_INFO (op1)->expr;
-		else if (VN_INFO (op1)->valnum != VN_TOP)
-		  op1 = VN_INFO (op1)->valnum;
-	      }
-	    result = fold_binary (TREE_CODE (rhs), TREE_TYPE (rhs), op0, op1);
-
-	    /* Make sure result is not a complex expression consiting
-	       of operators of operators (IE (a + b) + (a + c))
-	       Otherwise, we will end up with unbounded expressions if
-	       fold does anything at all.  */
-	    if (result)
-	      {
-		if (is_gimple_min_invariant (result))
-		  return result;
-		if (EXPR_P (result))
-		  {
-		    switch (TREE_CODE_CLASS (TREE_CODE (result)))
-		      {
-		      case tcc_unary:
-			{
-			  tree op0 = TREE_OPERAND (result, 0);
-			  if (!EXPR_P (op0))
-			    return result;
-			}
-			break;
-		      case tcc_binary:
-			{
-			  tree op0 = TREE_OPERAND (result, 0);
-			  tree op1 = TREE_OPERAND (result, 1);
-			  if (!EXPR_P (op0) && !EXPR_P (op1))
-			    return result;
-			}
-			break;
-		      default:
-			break;
-		      }
-		  }
-	      }
+	    return simplify_binary_expression (rhs);
 	  }
 	  break;
 	default:
@@ -1183,7 +1199,6 @@ visit_use (tree use)
       print_generic_expr (dump_file, use, 0);
       fprintf (dump_file, "\n");
     }
-
 
   /* RETURN_EXPR may have an embedded MODIFY_STMT.  */
   if (TREE_CODE (stmt) == RETURN_EXPR
@@ -1219,7 +1234,7 @@ visit_use (tree use)
 	  STRIP_USELESS_TYPE_CONVERSION (rhs);
 
 	  simplified = try_to_simplify (stmt, rhs);
-
+	    
 	  /* Setting value numbers to constants will screw up phi
 	     congruence because constants are not uniquely
 	     associated with a single ssa name that can be looked up.
@@ -1228,9 +1243,9 @@ visit_use (tree use)
 	      && TREE_CODE (lhs) == SSA_NAME
 	      && simplified != rhs)
 	    {
-	      changed = set_ssa_val_to (lhs, simplified);
 	      VN_INFO (lhs)->expr = simplified;
 	      VN_INFO (lhs)->has_constants = true;
+	      changed = set_ssa_val_to (lhs, simplified);
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
 		  print_generic_expr (dump_file, lhs, 0);
@@ -1248,7 +1263,8 @@ visit_use (tree use)
 	    }
 	  else if (simplified)
 	    {
-
+	      tree oldrhs = rhs;
+	      
 	      if (TREE_CODE (lhs) == SSA_NAME)
 		{
 		  VN_INFO (lhs)->has_constants = expr_has_constants (simplified);
@@ -1258,7 +1274,7 @@ visit_use (tree use)
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
 		  fprintf (dump_file, "RHS ");
-		  print_generic_expr (dump_file, rhs, 0);
+		  print_generic_expr (dump_file, oldrhs, 0);
 		  fprintf (dump_file, " simplified to ");
 		  print_generic_expr (dump_file, simplified, 0);
 		  if (TREE_CODE (lhs) == SSA_NAME)
@@ -1269,7 +1285,12 @@ visit_use (tree use)
 
 		}
 	    }
-
+	  else if (expr_has_constants (rhs) && TREE_CODE (lhs) == SSA_NAME)
+	    {
+	      VN_INFO (lhs)->has_constants = true;
+	      VN_INFO (lhs)->expr = rhs;
+	    }
+	  
 	  if (TREE_CODE (lhs) == SSA_NAME
 	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
 	    changed = defs_to_varying (stmt);
@@ -1280,7 +1301,11 @@ visit_use (tree use)
 	  else if (TREE_CODE (lhs) == SSA_NAME)
 	    {
 	      if (is_gimple_min_invariant (rhs))
-		changed = set_ssa_val_to (lhs, rhs);
+		{
+		  VN_INFO (lhs)->has_constants = true;
+		  VN_INFO (lhs)->expr = rhs;
+		  changed = set_ssa_val_to (lhs, rhs);
+		}
 	      else if (TREE_CODE (rhs) == SSA_NAME)
 		changed = visit_copy (lhs, rhs);
 	      else
@@ -1398,9 +1423,18 @@ process_scc (VEC (tree, heap) *scc)
 	fprintf (dump_file, "Processing SCC required %d iterations\n",
 		 iterations);
 
-      /* Finally, visit the SCC once using the valid table.  */
+      /* Finally, visit the SCC once using the valid table.  We also
+	 have to reset the value of the expr's and the has_constants,
+	 or else it will retain the optimistic expression and value,
+	 which is wrong for the valid world.  */
       current_info = valid_info;
-      for (i = 0; VEC_iterate (tree, scc, i, var); i++)
+      for (i = 0; VEC_iterate (tree, scc, i, var); i++)	 
+ 	{
+ 	  vn_ssa_aux_t vninfo = VN_INFO (var);
+ 	  vninfo->expr = var; 
+ 	  vninfo->has_constants = 0;
+	} 
+      for (i = 0; VEC_iterate (tree, scc, i, var); i++)	
 	visit_use (var);
     }
 }

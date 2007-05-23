@@ -3289,35 +3289,48 @@ make_values_for_stmt (tree stmt, basic_block block)
 
   tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
   tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+  tree val = NULL_TREE;
+  bool is_invariant = false;
+  tree valvh = NULL_TREE;
 
   if (TREE_CODE (lhs) == SSA_NAME
-      && VN_INFO (lhs)->valnum != lhs)
+      && VN_INFO (lhs)->valnum != lhs)    
     {
-      tree val = VN_INFO (lhs)->valnum;
-      bool is_invariant = is_gimple_min_invariant (val);
-      tree valvh = !is_invariant ? get_value_handle (val) : NULL_TREE;
-      
-      if (valvh || is_invariant)
+      val = VN_INFO (lhs)->valnum;
+      is_invariant = is_gimple_min_invariant (val);
+      valvh = !is_invariant ? get_value_handle (val) : NULL_TREE;
+    }
+  
+
+  if (valvh || is_invariant)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "SCCVN says ");
-	      print_generic_expr (dump_file, lhs, 0);
-	      fprintf (dump_file, " value numbers to ");
-	      if (valvh && !is_invariant)
-		{
-		  print_generic_expr (dump_file, val, 0);
-		  fprintf (dump_file, " (");
-		  print_generic_expr (dump_file, valvh, 0);
-		  fprintf (dump_file, ")\n");
-		}
-	      else
-		print_generic_stmt (dump_file, val, 0);  
-	    }
+	  fprintf (dump_file, "SCCVN says ");
+	  print_generic_expr (dump_file, lhs, 0);
+	  fprintf (dump_file, " value numbers to ");
 	  if (valvh && !is_invariant)
-	    val = valvh;
-	  vn_add (lhs, val);
+	    {
+	      print_generic_expr (dump_file, val, 0);
+	      fprintf (dump_file, " (");
+	      print_generic_expr (dump_file, valvh, 0);
+	      fprintf (dump_file, ")\n");
+	    }
+	  else
+	    print_generic_stmt (dump_file, val, 0);  
 	}
+      if (valvh && !is_invariant)
+	vn_add (lhs, valvh);
+      else
+	vn_add (lhs, val);
+    
+      if (!in_fre)
+	{
+	  bitmap_value_insert_into_set (EXP_GEN (block), val);
+	  bitmap_value_insert_into_set (maximal_set, val);
+	  bitmap_insert_into_set (TMP_GEN (block), lhs);
+	}
+      bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);
       
       return true;
     }
@@ -3348,6 +3361,7 @@ make_values_for_stmt (tree stmt, basic_block block)
 		}
 
 	    }
+	  
 	  if (!in_fre)
 	    bitmap_insert_into_set (TMP_GEN (block), lhs);
 	  bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);
