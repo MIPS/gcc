@@ -6211,8 +6211,8 @@ sh_expand_prologue (void)
       int tr = sh_media_register_for_return ();
 
       if (tr >= 0)
-	rtx insn = emit_move_insn (gen_rtx_REG (DImode, tr),
-				   gen_rtx_REG (DImode, PR_MEDIA_REG));
+	emit_move_insn (gen_rtx_REG (DImode, tr),
+			gen_rtx_REG (DImode, PR_MEDIA_REG));
     }
 
   /* Emit the code for SETUP_VARARGS.  */
