@@ -1,3 +1,8 @@
+2007-05-23  Chao-ying Fu  <fu@mips.com>
+
+	* Makefile.in (USER_H): Add $(srcdir)/ginclude/stdfix.h.
+	* ginclude/stdfix.h: New file.
+
 2007-05-18  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/31989
