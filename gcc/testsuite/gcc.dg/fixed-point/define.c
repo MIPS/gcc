@@ -5,62 +5,154 @@
 
    Check if defined fixed-point constants are ok.  */
 
-short _Fract sf = __SFRACT_MAX__;
-_Fract f = __FRACT_MAX__;
-long _Fract lf = __LFRACT_MAX__;
-long long _Fract llf = __LLFRACT_MAX__;
+#include <stdfix.h>
 
-unsigned short _Fract usf = __USFRACT_MAX__;
-unsigned _Fract uf = __UFRACT_MAX__;
-unsigned long _Fract ulf = __ULFRACT_MAX__;
-unsigned long long _Fract ullf = __ULLFRACT_MAX__;
+short fract sf = SFRACT_MAX;
+fract f = FRACT_MAX;
+long fract lf = LFRACT_MAX;
+long long fract llf = LLFRACT_MAX;
 
-short _Fract sfm = __SFRACT_MIN__;
-_Fract fm = __FRACT_MIN__;
-long _Fract lfm = __LFRACT_MIN__;
-long long _Fract llfm = __LLFRACT_MIN__;
+unsigned short fract usf = USFRACT_MAX;
+unsigned fract uf = UFRACT_MAX;
+unsigned long fract ulf = ULFRACT_MAX;
+unsigned long long fract ullf = ULLFRACT_MAX;
 
-unsigned short _Fract usfm = __USFRACT_MIN__;
-unsigned _Fract ufm = __UFRACT_MIN__;
-unsigned long _Fract ulfm = __ULFRACT_MIN__;
-unsigned long long _Fract ullfm = __ULLFRACT_MIN__;
+sat short fract Ssf = SFRACT_MAX;
+sat fract Sf = FRACT_MAX;
+sat long fract Slf = LFRACT_MAX;
+sat long long fract Sllf = LLFRACT_MAX;
 
-short _Fract sfE = __SFRACT_EPSILON__;
-_Fract fE = __FRACT_EPSILON__;
-long _Fract lfE = __LFRACT_EPSILON__;
-long long _Fract llfE = __LLFRACT_EPSILON__;
+sat unsigned short fract Susf = USFRACT_MAX;
+sat unsigned fract Suf = UFRACT_MAX;
+sat unsigned long fract Sulf = ULFRACT_MAX;
+sat unsigned long long fract Sullf = ULLFRACT_MAX;
 
-unsigned short _Fract usfE = __USFRACT_EPSILON__;
-unsigned _Fract ufE = __UFRACT_EPSILON__;
-unsigned long _Fract ulfE = __ULFRACT_EPSILON__;
-unsigned long long _Fract ullfE = __ULLFRACT_EPSILON__;
+short fract sfm = SFRACT_MIN;
+fract fm = FRACT_MIN;
+long fract lfm = LFRACT_MIN;
+long long fract llfm = LLFRACT_MIN;
 
-short _Accum sk = __SACCUM_MAX__;
-_Accum k = __ACCUM_MAX__;
-long _Accum lk = __LACCUM_MAX__;
-long long _Accum llk = __LLACCUM_MAX__;
+unsigned short fract usfm = USFRACT_MIN;
+unsigned fract ufm = UFRACT_MIN;
+unsigned long fract ulfm = ULFRACT_MIN;
+unsigned long long fract ullfm = ULLFRACT_MIN;
 
-unsigned short _Accum usk = __USACCUM_MAX__;
-unsigned _Accum uk = __UACCUM_MAX__;
-unsigned long _Accum ulk = __ULACCUM_MAX__;
-unsigned long long _Accum ullk = __ULLACCUM_MAX__;
+sat short fract Ssfm = SFRACT_MIN;
+sat fract Sfm = FRACT_MIN;
+sat long fract Slfm = LFRACT_MIN;
+sat long long fract Sllfm = LLFRACT_MIN;
 
-short _Accum skm = __SACCUM_MIN__;
-_Accum km = __ACCUM_MIN__;
-long _Accum lkm = __LACCUM_MIN__;
-long long _Accum llkm = __LLACCUM_MIN__;
+sat unsigned short fract Susfm = USFRACT_MIN;
+sat unsigned fract Sufm = UFRACT_MIN;
+sat unsigned long fract Sulfm = ULFRACT_MIN;
+sat unsigned long long fract Sullfm = ULLFRACT_MIN;
 
-unsigned short _Accum uskm = __USACCUM_MIN__;
-unsigned _Accum ukm = __UACCUM_MIN__;
-unsigned long _Accum ulkm = __ULACCUM_MIN__;
-unsigned long long _Accum ullkm = __ULLACCUM_MIN__;
+short fract sfE = SFRACT_EPSILON;
+fract fE = FRACT_EPSILON;
+long fract lfE = LFRACT_EPSILON;
+long long fract llfE = LLFRACT_EPSILON;
 
-short _Accum skE = __SACCUM_EPSILON__;
-_Accum kE = __ACCUM_EPSILON__;
-long _Accum lkE = __LACCUM_EPSILON__;
-long long _Accum llkE = __LLACCUM_EPSILON__;
+unsigned short fract usfE = USFRACT_EPSILON;
+unsigned fract ufE = UFRACT_EPSILON;
+unsigned long fract ulfE = ULFRACT_EPSILON;
+unsigned long long fract ullfE = ULLFRACT_EPSILON;
 
-unsigned short _Accum uskE = __USACCUM_EPSILON__;
-unsigned _Accum ukE = __UACCUM_EPSILON__;
-unsigned long _Accum ulkE = __ULACCUM_EPSILON__;
-unsigned long long _Accum ullkE = __ULLACCUM_EPSILON__;
+sat short fract SsfE = SFRACT_EPSILON;
+sat fract SfE = FRACT_EPSILON;
+sat long fract SlfE = LFRACT_EPSILON;
+sat long long fract SllfE = LLFRACT_EPSILON;
+
+sat unsigned short fract SusfE = USFRACT_EPSILON;
+sat unsigned fract SufE = UFRACT_EPSILON;
+sat unsigned long fract SulfE = ULFRACT_EPSILON;
+sat unsigned long long fract SullfE = ULLFRACT_EPSILON;
+
+short accum sk = SACCUM_MAX;
+accum k = ACCUM_MAX;
+long accum lk = LACCUM_MAX;
+long long accum llk = LLACCUM_MAX;
+
+unsigned short accum usk = USACCUM_MAX;
+unsigned accum uk = UACCUM_MAX;
+unsigned long accum ulk = ULACCUM_MAX;
+unsigned long long accum ullk = ULLACCUM_MAX;
+
+sat short accum Ssk = SACCUM_MAX;
+sat accum Sk = ACCUM_MAX;
+sat long accum Slk = LACCUM_MAX;
+sat long long accum Sllk = LLACCUM_MAX;
+
+sat unsigned short accum Susk = USACCUM_MAX;
+sat unsigned accum Suk = UACCUM_MAX;
+sat unsigned long accum Sulk = ULACCUM_MAX;
+sat unsigned long long accum Sullk = ULLACCUM_MAX;
+
+short accum skm = SACCUM_MIN;
+accum km = ACCUM_MIN;
+long accum lkm = LACCUM_MIN;
+long long accum llkm = LLACCUM_MIN;
+
+unsigned short accum uskm = USACCUM_MIN;
+unsigned accum ukm = UACCUM_MIN;
+unsigned long accum ulkm = ULACCUM_MIN;
+unsigned long long accum ullkm = ULLACCUM_MIN;
+
+sat short accum Sskm = SACCUM_MIN;
+sat accum Skm = ACCUM_MIN;
+sat long accum Slkm = LACCUM_MIN;
+sat long long accum Sllkm = LLACCUM_MIN;
+
+sat unsigned short accum Suskm = USACCUM_MIN;
+sat unsigned accum Sukm = UACCUM_MIN;
+sat unsigned long accum Sulkm = ULACCUM_MIN;
+sat unsigned long long accum Sullkm = ULLACCUM_MIN;
+
+short accum skE = SACCUM_EPSILON;
+accum kE = ACCUM_EPSILON;
+long accum lkE = LACCUM_EPSILON;
+long long accum llkE = LLACCUM_EPSILON;
+
+unsigned short accum uskE = USACCUM_EPSILON;
+unsigned accum ukE = UACCUM_EPSILON;
+unsigned long accum ulkE = ULACCUM_EPSILON;
+unsigned long long accum ullkE = ULLACCUM_EPSILON;
+
+sat short accum SskE = SACCUM_EPSILON;
+sat accum SkE = ACCUM_EPSILON;
+sat long accum SlkE = LACCUM_EPSILON;
+sat long long accum SllkE = LLACCUM_EPSILON;
+
+sat unsigned short accum SuskE = USACCUM_EPSILON;
+sat unsigned accum SukE = UACCUM_EPSILON;
+sat unsigned long accum SulkE = ULACCUM_EPSILON;
+sat unsigned long long accum SullkE = ULLACCUM_EPSILON;
+
+int fbit_sf = SFRACT_FBIT;
+int fbit_f = FRACT_FBIT;
+int fbit_lf = LFRACT_FBIT;
+int fbit_llf = LLFRACT_FBIT;
+
+int fbit_usf = USFRACT_FBIT;
+int fbit_uf = UFRACT_FBIT;
+int fbit_ulf = ULFRACT_FBIT;
+int fbit_ullf = ULLFRACT_FBIT;
+
+int fbit_sk = SACCUM_FBIT;
+int fbit_k = ACCUM_FBIT;
+int fbit_lk = LACCUM_FBIT;
+int fbit_llk = LLACCUM_FBIT;
+
+int fbit_usk = USACCUM_FBIT;
+int fbit_uk = UACCUM_FBIT;
+int fbit_ulk = ULACCUM_FBIT;
+int fbit_ullk = ULLACCUM_FBIT;
+
+int ibit_sk = SACCUM_IBIT;
+int ibit_k = ACCUM_IBIT;
+int ibit_lk = LACCUM_IBIT;
+int ibit_llk = LLACCUM_IBIT;
+
+int ibit_usk = USACCUM_IBIT;
+int ibit_uk = UACCUM_IBIT;
+int ibit_ulk = ULACCUM_IBIT;
+int ibit_ullk = ULLACCUM_IBIT;

@@ -1,3 +1,8 @@
+2007-05-23  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.dg/fixed-point/define.c: Update to include <stdfix.h>,
+	use precision, macros, and test FBIT and IBIT.
+
 2007-05-22  Chao-ying Fu  <fu@mips.com>
 
 	* ChangeLog: Fix typos.
