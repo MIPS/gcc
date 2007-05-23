@@ -218,7 +218,7 @@ static void ia64_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void ia64_output_function_end_prologue (FILE *);
 
 static int ia64_issue_rate (void);
-static int ia64_adjust_cost_2 (rtx, int, rtx, int);
+static int ia64_adjust_cost_2 (rtx, int, rtx, int, dw_t);
 static void ia64_sched_init (FILE *, int, int);
 static void ia64_sched_init_global (FILE *, int, int);
 static void ia64_sched_finish_global (FILE *, int);
@@ -6293,20 +6293,37 @@ ia64_single_set (rtx insn)
 
 /* Adjust the cost of a scheduling dependency.
    Return the new cost of a dependency of type DEP_TYPE or INSN on DEP_INSN.
-   COST is the current cost.  */
+   COST is the current cost, DW is dependency weakness.  */
 
 static int
-ia64_adjust_cost_2 (rtx insn, int dep_type1, rtx dep_insn, int cost)
+ia64_adjust_cost_2 (rtx insn, int dep_type1, rtx dep_insn, int cost, dw_t dw)
 {
   enum reg_note dep_type = (enum reg_note) dep_type1;
   enum attr_itanium_class dep_class;
   enum attr_itanium_class insn_class;
 
+  insn_class = ia64_safe_itanium_class (insn);
+  dep_class = ia64_safe_itanium_class (dep_insn);
+
+  /* Treat true memory dependencies separately.  */
+  if (dw == MIN_DEP_WEAK)
+    /* Store and load are likely to alias, use higher cost to avoid stall.  */
+    return PARAM_VALUE (PARAM_SCHED_MEM_TRUE_DEP_COST);
+  else if (dw > MIN_DEP_WEAK)
+    {
+      /* Store and load are less likely to alias.  */
+      if (mflag_sched_fp_mem_deps_zero_cost && dep_class == ITANIUM_CLASS_STF)
+	/* Assume there will be no cache conflict for floating-point data.
+	   For integer data, L1 conflict penalty is huge (17 cycles), so we
+	   never assume it will not cause a conflict.  */
+	return 0;
+      else
+	return cost;
+    }
+
   if (dep_type != REG_DEP_OUTPUT)
     return cost;
 
-  insn_class = ia64_safe_itanium_class (insn);
-  dep_class = ia64_safe_itanium_class (dep_insn);
   if (dep_class == ITANIUM_CLASS_ST || dep_class == ITANIUM_CLASS_STF
       || insn_class == ITANIUM_CLASS_ST || insn_class == ITANIUM_CLASS_STF)
     return 0;
@@ -9999,7 +10016,7 @@ ia64_optimization_options (int level ATTRIBUTE_UNUSED,
   set_param_value ("simultaneous-prefetches", 6);
   set_param_value ("l1-cache-line-size", 32);
 
-  set_param_value("selsched-mem-true-dep-cost", 4);
+  set_param_value("sched-mem-true-dep-cost", 4);
 }
 
 /* HP-UX version_id attribute.

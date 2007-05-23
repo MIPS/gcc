@@ -339,7 +339,7 @@ struct gcc_target
     /* Given the current cost, COST, of an insn, INSN, calculate and
        return a new cost based on its relationship to DEP_INSN through the
        dependence of type DEP_TYPE.  The default is to make no adjustment.  */
-    int (* adjust_cost_2) (rtx insn, int, rtx def_insn, int cost);
+    int (* adjust_cost_2) (rtx insn, int, rtx def_insn, int cost, int dw);
 
     /* The following member value is a pointer to a function called
        by the insn scheduler. This hook is called to notify the backend

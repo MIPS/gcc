@@ -148,6 +148,10 @@ msched-stop-bits-after-every-cycle
 Target Report Var(mflag_sched_stop_bits_after_every_cycle) Init(1)
 Place a stop bit after every cycle when scheduling
 
+msched-fp-mem-deps-zero-cost
+Target Report Var(mflag_sched_fp_mem_deps_zero_cost) Init(1)
+Assume that floating-point stores and loads are not likely to cause conflict when placed into one instruction group
+
 msel-sched-renaming
 Common Report Var(mflag_sel_sched_renaming) Init(1)
 Do register renaming in selective scheduling

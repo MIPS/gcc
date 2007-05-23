@@ -495,7 +495,7 @@ haifa_classify_insn (rtx insn)
 /* Forward declarations.  */
 
 HAIFA_INLINE static int insn_cost1 (rtx, enum reg_note, rtx, rtx);
-static int dep_cost_1 (rtx, enum reg_note, rtx, rtx, int);
+static int dep_cost_1 (rtx, enum reg_note, dw_t, rtx, rtx, int);
 static int priority (rtx);
 static int rank_for_schedule (const void *, const void *);
 static void swap_sort (rtx *, int);
@@ -644,12 +644,12 @@ insn_cost1 (rtx insn, enum reg_note dep_type, rtx link, rtx used)
   if (used == 0)
     return cost;
 
-  return dep_cost_1 (insn, dep_type, link, used, cost);
+  return dep_cost_1 (insn, dep_type, 0, link, used, cost);
 }
 
 /* Compute the cost of the INSN given the dependence attributes.  */
 static int
-dep_cost_1 (rtx insn, enum reg_note dep_type, rtx link, rtx used, int cost)
+dep_cost_1 (rtx insn, enum reg_note dep_type, dw_t dw, rtx link, rtx used, int cost)
 {
   /* A USE insn should never require the value used to be computed.
      This allows the computation of a function's result and parameter
@@ -678,7 +678,8 @@ dep_cost_1 (rtx insn, enum reg_note dep_type, rtx link, rtx used, int cost)
 	}
 
       if (targetm.sched.adjust_cost_2)
-	cost = targetm.sched.adjust_cost_2 (used, (int) dep_type, insn, cost);
+	cost = targetm.sched.adjust_cost_2 (used, (int) dep_type, insn, cost,
+					    dw);
       else
 	{
           if (!link && targetm.sched.adjust_cost)
@@ -704,9 +705,9 @@ dep_cost_1 (rtx insn, enum reg_note dep_type, rtx link, rtx used, int cost)
 
 /* A convenience wrapper.  */
 int
-dep_cost (rtx pro, enum reg_note dt, rtx con)
+dep_cost (rtx pro, enum reg_note dt, dw_t dw, rtx con)
 {
-  return dep_cost_1 (pro, dt, NULL, con, -1);
+  return dep_cost_1 (pro, dt, dw, NULL, con, -1);
 }
 
 /* Compute the priority number for INSN.

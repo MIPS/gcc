@@ -1826,7 +1826,7 @@ tick_check_dep_with_dw (insn_t pro, ds_t ds, dw_t dw)
 {
   insn_t con;
   enum reg_note dt;
-  int tick, dc;
+  int tick;
 
   con = tick_check_insn;
 
@@ -1846,35 +1846,16 @@ tick_check_dep_with_dw (insn_t pro, ds_t ds, dw_t dw)
 	}
 
       gcc_assert (INSN_SCHED_CYCLE (pro) > 0);
-      
+
       dt = ds_to_dt (ds);
       if (dt == REG_DEP_TRUE)
         tick_check_seen_true_dep = 1;
 
-      /* Adjust cost depending on dependency kind.  */
-      switch (dw)
-	{
-	case 0:
-	  /* Not a true memory dependence, use default cost.  */
-	  dc = dep_cost (pro, dt, con);
-	  break;
-	case MIN_DEP_WEAK:
-	  /* Store and load are likely to alias, use higher cost to avoid stall.  */
-	  dc = PARAM_VALUE (PARAM_SELSCHED_MEM_TRUE_DEP_COST);
-	  break;
-	default:
-	  /* Store and load are likely to be independent.  */
-	  if (flag_sel_sched_mem_deps_zero_cost)
-	    dc = 0;
-	  else
-	    dc = dep_cost (pro, dt, con);
-	}
-
-      tick = INSN_SCHED_CYCLE (pro) + dc;
+      tick = INSN_SCHED_CYCLE (pro) + dep_cost (pro, dt, dw, con);
 
       /* When there are several kinds of dependencies between pro and con,
          only REG_DEP_TRUE should be taken into account.  */
-      if (tick > tick_check_cycle && (dt == REG_DEP_TRUE 
+      if (tick > tick_check_cycle && (dt == REG_DEP_TRUE
                                       || !tick_check_seen_true_dep))
 	tick_check_cycle = tick;
     }

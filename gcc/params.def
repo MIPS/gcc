@@ -555,9 +555,9 @@ DEFPARAM(PARAM_SELSCHED_MAX_LOOKAHEAD,
 /* Minimal distance (in CPU cycles) between store and load targeting same
    memory locations.  */
 
-DEFPARAM (PARAM_SELSCHED_MEM_TRUE_DEP_COST,
-	  "selsched-mem-true-dep-cost",
-	  "Minimal distance between overlapping store and load",
+DEFPARAM (PARAM_SCHED_MEM_TRUE_DEP_COST,
+	  "sched-mem-true-dep-cost",
+	  "Minimal distance between possibly conflicting store and load",
 	  1, 0, 0)
 
 DEFPARAM(PARAM_ALLOW_START,

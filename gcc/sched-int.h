@@ -272,7 +272,6 @@ enum INSN_TRAP_CLASS
 extern size_t dfa_state_size;
 
 extern void advance_state (state_t);
-extern int dep_cost (rtx, enum reg_note, rtx);
 
 extern void sched_init (void);
 extern void sched_finish (void);
@@ -735,6 +734,7 @@ enum SPEC_SCHED_FLAGS {
 #endif
 
 /* Functions in haifa-sched.c.  */
+extern int dep_cost (rtx, enum reg_note, dw_t, rtx);
 extern int no_real_insns_p (rtx, rtx);
 
 extern int insn_cost (rtx, rtx, rtx);

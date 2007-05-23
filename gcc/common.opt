@@ -850,10 +850,6 @@ fsel-sched-substitution
 Common Report Var(flag_sel_sched_substitution) Init(0)
 Perform substitution in selective scheduling
 
-fsel-sched-mem-deps-zero-cost
-Common Report Var(flag_sel_sched_mem_deps_zero_cost) Init(1)
-Set the cost of may alias true mem deps to zero
-
 fsel-sched-verbose
 Common Report Var(flag_sel_sched_verbose) Init(0)
 Be verbose when running selective scheduling
