@@ -1250,6 +1250,10 @@ enum reg_class
 			   || (CLASS2) == ALTIVEC_REGS		\
 			   || (MODE) == SDmode))
 
+/* For cpus that cannot load/store SDmode values from the 64-bit
+   FP registers without using a full 64-bit load/store, we need
+   to allocate a full 64-bit stack slot for them.  */
+
 #define SECONDARY_MEMORY_NEEDED_RTX(MODE)			\
  assign_stack_local (MODE, ((MODE) == SDmode) ?			\
 			    GET_MODE_SIZE (DDmode) :		\
@@ -1273,6 +1277,7 @@ enum reg_class
   (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)				\
    ? ((GET_MODE_SIZE (FROM) < 8 || GET_MODE_SIZE (TO) < 8		\
        || TARGET_IEEEQUAD)						\
+      && (FROM != SDmode || TO != DDmode || CLASS != FLOAT_REGS)	\
       && reg_classes_intersect_p (FLOAT_REGS, CLASS))			\
    : (((TARGET_E500_DOUBLE						\
 	&& ((((TO) == DFmode) + ((FROM) == DFmode)) == 1		\

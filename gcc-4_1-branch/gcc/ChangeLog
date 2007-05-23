@@ -1,3 +1,21 @@
+2007-05-22  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* emit-rtl.c (validate_subreg): Skip DDmode paradoxical subregs
+	of SDmode regs.
+	* combine.c (expand_field_assignment): Likewise.
+	* config/rs6000/rs6000.h (SECONDARY_MEMORY_NEEDED_RTX): Add comment.
+	(CANNOT_CHANGE_MODE_CLASS): Handle DDmode paradoxical subregs
+	of SDmode regs.
+	* config/rs6000/dfp.md (movsd): Change stack temp to DDmode.
+	Replace gen_sd2di_internal with gen_movsd_subreg_store.
+	Replace gen_di2sd_internal with gen_movsd_subreg_load.
+	(sd2di_internal, di2sd_internal): Delete define_insn's.
+	(movsd_subreg_store, movsd_subreg_load): New define_insns's.
+	(negdd2, negdd2_fpr, absdd2, absdd2_fpr, nabsdd2_fpr,
+	movdd_hardfloat64_mfpgpr, negtd2, negtd2_fpr, abstd2, abstd2_fpr,
+	nabstd2_fpr): Fixup whitespace.
+	* reload1.c (alter_reg): Remove SDmode hack.
+
 2007-05-21  Janis Johnson  <janis187@us.ibm.com>
 
 	* c-typeck.c (build_binary_op): Return early for error.

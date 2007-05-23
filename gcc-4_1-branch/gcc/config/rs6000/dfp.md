@@ -38,9 +38,9 @@
   else if (MEM_P (operands[0]) && REG_P (operands[1]))
     {
       rtx intreg = gen_reg_rtx (SImode);
-      rtx stack = assign_stack_temp (DImode, GET_MODE_SIZE (DImode), 0);
+      rtx stack = assign_stack_temp (DDmode, GET_MODE_SIZE (DDmode), 0);
       rtx dst = adjust_address (operands[0], SImode, 0);
-      emit_insn (gen_sd2di_internal (stack, operands[1]));
+      emit_insn (gen_movsd_subreg_store (stack, operands[1]));
       emit_move_insn (intreg, adjust_address (stack, SImode, 4));
       emit_move_insn (dst, intreg);
       DONE;
@@ -48,11 +48,11 @@
   else if (REG_P (operands[0]) && MEM_P (operands[1]))
     {
       rtx intreg = gen_reg_rtx (SImode);
-      rtx stack = assign_stack_temp (DImode, GET_MODE_SIZE (DImode), 0);
+      rtx stack = assign_stack_temp (DDmode, GET_MODE_SIZE (DDmode), 0);
       rtx src = adjust_address (operands[1], SImode, 0);
       emit_move_insn (intreg, src);
       emit_move_insn (adjust_address (stack, SImode, 4), intreg);
-      emit_insn (gen_di2sd_internal (operands[0], stack));
+      emit_insn (gen_movsd_subreg_load (operands[0], stack));
       DONE;
     }
   else if (MEM_P (operands[0]) && MEM_P (operands[1]))
@@ -82,9 +82,9 @@
 	}
       else
 	{
-	  rtx stack = assign_stack_temp (DImode, GET_MODE_SIZE (DImode), 0);
-	  emit_insn (gen_sd2di_internal (stack, operands[1]));
-	  emit_move_insn (dst, simplify_gen_subreg (mode, stack, DImode, 4));
+	  rtx stack = assign_stack_temp (DDmode, GET_MODE_SIZE (DDmode), 0);
+	  emit_insn (gen_movsd_subreg_store (stack, operands[1]));
+	  emit_move_insn (dst, adjust_address (stack, SImode, 4));
 	}
       DONE;
     }
@@ -101,19 +101,18 @@
 	}
       else
 	{
-	  rtx stack = assign_stack_temp (DImode, GET_MODE_SIZE (DImode), 0);
-	  emit_move_insn (simplify_gen_subreg (mode, stack, DImode, 4), src);
-	  emit_insn (gen_di2sd_internal (operands[0], stack));
+	  rtx stack = assign_stack_temp (DDmode, GET_MODE_SIZE (DDmode), 0);
+	  emit_move_insn (adjust_address (stack, SImode, 4), src);
+	  emit_insn (gen_movsd_subreg_load (operands[0], stack));
 	}
       DONE;
     }
   else if (REG_P (operands[0]) && REGNO (operands[0]) <= 31
 	   && REG_P (operands[1]) && REGNO (operands[1]) > 31)
     {
-      enum machine_mode mode = GET_MODE (operands[0]);
-      rtx subreg = simplify_gen_subreg (SImode, operands[0], mode, 0);
-      rtx stack = assign_stack_temp (DImode, GET_MODE_SIZE (DImode), 0);
-      emit_insn (gen_sd2di_internal (stack, operands[1]));
+      rtx subreg = simplify_gen_subreg (SImode, operands[0], SDmode, 0);
+      rtx stack = assign_stack_temp (DDmode, GET_MODE_SIZE (DDmode), 0);
+      emit_insn (gen_movsd_subreg_store (stack, operands[1]));
       emit_move_insn (subreg, adjust_address (stack, SImode, 4));
       DONE;
     }
@@ -121,27 +120,6 @@
     rs6000_emit_move (operands[0], operands[1], SDmode);
   DONE;
 }")
-
-; Here, we use (set (reg) (unspec:DI [(fix:SI ...)] UNSPEC_FCTIWZ))
-; rather than (set (subreg:SI (reg)) (fix:SI ...))
-; because the first makes it clear that operand 0 is not live
-; before the instruction.
-
-(define_insn "sd2di_internal"
-  [(set (match_operand:DI 0 "memory_operand" "=o")
-	(unspec:DI [(match_operand:SD 1 "gpc_reg_operand" "f")]
-		   UNSPEC_MOVSD_F2M))]
-  "TARGET_HARD_FLOAT && TARGET_FPRS"
-  "stfd%U0%X0 %1,%0"
-  [(set_attr "type" "fpstore")])
-
-(define_insn "di2sd_internal"
-  [(set (match_operand:SD 0 "gpc_reg_operand" "=f,r")
-	(unspec:SD [(match_operand:DI 1 "memory_operand" "o,o")]
-		   UNSPEC_MOVSD_M2F))]
-  "TARGET_HARD_FLOAT && TARGET_FPRS"
-  "lfd%U1%X1 %0,%1"
-  [(set_attr "type" "fpload")])
 
 (define_split
   [(set (match_operand:SD 0 "gpc_reg_operand" "")
@@ -212,35 +190,55 @@
   [(set_attr "type" "*,mtjmpr,*,mfjmpr,load,store,*,*,*,*,*,*")
    (set_attr "length" "4,4,4,4,4,4,4,4,4,4,8,4")])
 
+(define_insn "movsd_subreg_store"
+  [(set (match_operand:DD 0 "nonimmediate_operand" "=m")
+	(subreg:DD (match_operand:SD 1 "input_operand" "f") 0))]
+  "(gpc_reg_operand (operands[0], DDmode)
+   || gpc_reg_operand (operands[1], SDmode))
+   && TARGET_HARD_FLOAT && TARGET_FPRS"
+  "stfd%U0%X0 %1,%0"
+  [(set_attr "type" "fpstore")
+   (set_attr "length" "4")])
+
+(define_insn "movsd_subreg_load"
+  [(set (subreg:DD (match_operand:SD 0 "nonimmediate_operand" "=f") 0)
+	(match_operand:DD 1 "input_operand" "m"))]
+  "(gpc_reg_operand (operands[0], SDmode)
+   || gpc_reg_operand (operands[1], DDmode))
+   && TARGET_HARD_FLOAT && TARGET_FPRS"
+  "lfd%U1%X1 %0,%1"
+  [(set_attr "type" "fpload")
+   (set_attr "length" "4")])
+
 (define_expand "negdd2"
   [(set (match_operand:DD 0 "gpc_reg_operand" "")
-        (neg:DD (match_operand:DD 1 "gpc_reg_operand" "")))]
+	(neg:DD (match_operand:DD 1 "gpc_reg_operand" "")))]
   "TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)"
   "")
 
 (define_insn "*negdd2_fpr"
   [(set (match_operand:DD 0 "gpc_reg_operand" "=f")
-        (neg:DD (match_operand:DD 1 "gpc_reg_operand" "f")))]
+	(neg:DD (match_operand:DD 1 "gpc_reg_operand" "f")))]
   "TARGET_HARD_FLOAT && TARGET_FPRS"
   "fneg %0,%1"
   [(set_attr "type" "fp")])
 
 (define_expand "absdd2"
   [(set (match_operand:DD 0 "gpc_reg_operand" "")
-        (abs:DD (match_operand:DD 1 "gpc_reg_operand" "")))]
+	(abs:DD (match_operand:DD 1 "gpc_reg_operand" "")))]
   "TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)"
   "")
 
 (define_insn "*absdd2_fpr"
   [(set (match_operand:DD 0 "gpc_reg_operand" "=f")
-        (abs:DD (match_operand:DD 1 "gpc_reg_operand" "f")))]
+	(abs:DD (match_operand:DD 1 "gpc_reg_operand" "f")))]
   "TARGET_HARD_FLOAT && TARGET_FPRS"
   "fabs %0,%1"
   [(set_attr "type" "fp")])
 
 (define_insn "*nabsdd2_fpr"
   [(set (match_operand:DD 0 "gpc_reg_operand" "=f")
-        (neg:DD (abs:DD (match_operand:DF 1 "gpc_reg_operand" "f"))))]
+	(neg:DD (abs:DD (match_operand:DF 1 "gpc_reg_operand" "f"))))]
   "TARGET_HARD_FLOAT && TARGET_FPRS"
   "fnabs %0,%1"
   [(set_attr "type" "fp")])
@@ -478,7 +476,7 @@
 ; List Y->r and r->Y before r->r for reload.
 (define_insn "*movdd_hardfloat64_mfpgpr"
   [(set (match_operand:DD 0 "nonimmediate_operand" "=Y,r,!r,f,f,m,*c*l,!r,*h,!r,!r,!r,r,f")
-        (match_operand:DD 1 "input_operand" "r,Y,r,f,m,f,r,h,0,G,H,F,f,r"))]
+	(match_operand:DD 1 "input_operand" "r,Y,r,f,m,f,r,h,0,G,H,F,f,r"))]
   "TARGET_POWERPC64 && TARGET_MFPGPR && TARGET_HARD_FLOAT && TARGET_FPRS
    && (gpc_reg_operand (operands[0], DDmode)
        || gpc_reg_operand (operands[1], DDmode))"
@@ -545,33 +543,33 @@
 
 (define_expand "negtd2"
   [(set (match_operand:TD 0 "gpc_reg_operand" "")
-        (neg:TD (match_operand:TD 1 "gpc_reg_operand" "")))]
+	(neg:TD (match_operand:TD 1 "gpc_reg_operand" "")))]
   "TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)"
   "")
 
 (define_insn "*negtd2_fpr"
   [(set (match_operand:TD 0 "gpc_reg_operand" "=f")
-        (neg:TD (match_operand:TD 1 "gpc_reg_operand" "f")))]
+	(neg:TD (match_operand:TD 1 "gpc_reg_operand" "f")))]
   "TARGET_HARD_FLOAT && TARGET_FPRS"
   "fneg %0,%1"
   [(set_attr "type" "fp")])
 
 (define_expand "abstd2"
   [(set (match_operand:TD 0 "gpc_reg_operand" "")
-        (abs:TD (match_operand:TD 1 "gpc_reg_operand" "")))]
+	(abs:TD (match_operand:TD 1 "gpc_reg_operand" "")))]
   "TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)"
   "")
 
 (define_insn "*abstd2_fpr"
   [(set (match_operand:TD 0 "gpc_reg_operand" "=f")
-        (abs:TD (match_operand:TD 1 "gpc_reg_operand" "f")))]
+	(abs:TD (match_operand:TD 1 "gpc_reg_operand" "f")))]
   "TARGET_HARD_FLOAT && TARGET_FPRS"
   "fabs %0,%1"
   [(set_attr "type" "fp")])
 
 (define_insn "*nabstd2_fpr"
   [(set (match_operand:TD 0 "gpc_reg_operand" "=f")
-        (neg:TD (abs:TD (match_operand:DF 1 "gpc_reg_operand" "f"))))]
+	(neg:TD (abs:TD (match_operand:DF 1 "gpc_reg_operand" "f"))))]
   "TARGET_HARD_FLOAT && TARGET_FPRS"
   "fnabs %0,%1"
   [(set_attr "type" "fp")])
