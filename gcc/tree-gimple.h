@@ -111,7 +111,7 @@ enum gimplify_status {
   GS_ALL_DONE	= 1	/* The expression is fully gimplified.  */
 };
 
-extern enum gimplify_status gimplify_expr (tree *, gs_seq, gs_seq, gs_seq,
+extern enum gimplify_status gimplify_expr (tree *, gs_seq, gs_seq, bool,
 					   bool (*) (tree), fallback_t);
 extern void gimplify_type_sizes (tree, gs_seq);
 extern void gimplify_one_sizepos (tree *, gs_seq);

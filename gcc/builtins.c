@@ -4713,8 +4713,8 @@ std_gimplify_va_arg_expr (tree valist, tree type, gs_seq pre_p, gs_seq post_p)
   rounded_size = round_up (type_size, align);
 
   /* Reduce rounded_size so it's sharable with the postqueue.  */
-  gimplify_expr (&rounded_size, NULL, pre_p, post_p,
-      		 is_gimple_val, fb_rvalue);
+  gimplify_expr (&rounded_size, pre_p, post_p, false,
+       		 is_gimple_val, fb_rvalue);
 
   /* Get AP.  */
   addr = valist_tmp;
@@ -4848,11 +4848,11 @@ gimplify_va_arg_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p)
 	      tree p1 = build_pointer_type (TREE_TYPE (va_list_type_node));
 	      valist = build_fold_addr_expr_with_type (valist, p1);
 	    }
-	  gimplify_expr (&valist, NULL, pre_p, post_p, 
+	  gimplify_expr (&valist, pre_p, post_p, false,
 	      		 is_gimple_val, fb_rvalue);
 	}
       else
-	gimplify_expr (&valist, NULL, pre_p, post_p, 
+	gimplify_expr (&valist, pre_p, post_p, false,
 	    	       is_gimple_min_lval, fb_lvalue);
 
       if (!targetm.gimplify_va_arg_expr)

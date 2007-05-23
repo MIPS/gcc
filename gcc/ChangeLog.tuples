@@ -1,3 +1,40 @@
+2007-05-23  Aldy Hernandez  <aldyh@redhat.com>
+
+        * builtins.c (std_gimplify_va_arg_expr): Add argument to gimplify_expr.
+        Remove seq argument.
+        (gimplify_va_arg_expr): Same.
+        * tree-gimple.h: Same.
+        * langhooks.c (lhd_gimplify_expr): Change pre_p and post_p types to
+        sequences.
+        * langhooks-def.h (lhd_gimplify_expr): Change 
+        * langhooks.h (struct lang_hooks): Remove argument.
+        * gimplify.c (internal_get_tmp_var): Adjust calls to gimplify_expr
+        for new arguments.
+        (gimplify_switch_expr): Same.
+        (gimplify_var_or_parm_decl): Same.
+        (gimplify_compound_lval): Same.
+        (gimplify_self_mod_expr): Same.
+        (gimplify_arg): Same.
+        (gimplify_call_expr): Same.
+        (gimplify_init_ctor_preeval): Same.
+        (gimplify_init_constructor): Same.
+        (gimplify_modify_expr_rhs): Same.
+        (gimplify_modify_expr): Same.
+        (gimplify_save_expr): Same.
+        (gimplify_addr_expr): Same.
+        (gimplify_asm_expr): Same.
+        (gimplify_target_expr): Same.
+        (omp_check_private): Same.
+        (gimplify_scan_omp_clauses): Same.
+        (gimplify_omp_parallel): Same.
+        (gimplify_omp_for): Same.
+        (goa_stabilize_expr): Same.
+        (gimplify_omp_atomic): Same.
+        (gimplify_one_sizepos): Same.
+        (force_gimple_operand): Same.
+        (gimplify_expr): Remove seq_p argument.  Add new is_statement
+        argument.  Adjust accordingly.  Make seq_p required.
+
 2007-05-07  Aldy Hernandez  <aldyh@redhat.com>
 
 	* function.c (gimplify_parameters): Use new GS_SEQ_INIT definition.

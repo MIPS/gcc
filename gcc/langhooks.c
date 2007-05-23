@@ -378,8 +378,8 @@ lhd_expr_size (tree exp)
 /* lang_hooks.gimplify_expr re-writes *EXPR_P into GIMPLE form.  */
 
 int
-lhd_gimplify_expr (tree *expr_p ATTRIBUTE_UNUSED, tree *pre_p ATTRIBUTE_UNUSED,
-		   tree *post_p ATTRIBUTE_UNUSED)
+lhd_gimplify_expr (tree *expr_p ATTRIBUTE_UNUSED, gs_seq pre_p ATTRIBUTE_UNUSED,
+		   gs_seq post_p ATTRIBUTE_UNUSED)
 {
   return GS_UNHANDLED;
 }
