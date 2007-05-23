@@ -94,12 +94,14 @@ Boston, MA 02110-1301, USA.  */
      more loads or stores 
      that are the same, because the base SSA form will have a
      different set of vuses for a use of a copy, and a use of the
-     original variable.
+     original variable.    
 
-     Doing this should only require looking at virtual phis/etc, and
-     SSA_VAL'ing the vuses before we place them in the structs.
-
-     2. 
+     Doing this requires value numbering stores using the value they
+       store, the address, and their vuses (not vdefs).    Any matches
+       means we are storing the same value into 
+       a store, an we should set SSA_VAL(vdef) = SSA_VAL (vuse) for
+       each vdef before storing in the table.
+       Otherwise, SSA_VAL (vdef) = vdef for all vdefs in the store.
 */
      
 
@@ -167,12 +169,24 @@ typedef struct vn_reference_s
   tree result;
 } *vn_reference_t;
 
+/* Valid hashtables storing information we have proven to be
+   correct.  */
 static vn_tables_t valid_info;
+
+/* Optimistic hashtables storing information we are making assumptions
+   during iterations.  */
 static vn_tables_t optimistic_info;
+
+/* Pointer to the set of hashtables that is currently being used.
+   Should always point to either the optimistic_info, or the
+   valid_info.  */
 static vn_tables_t current_info;
 static int *rpo_numbers;
 
 #define SSA_VAL(x) (VN_INFO ((x))->valnum)
+
+/* This represents the top of the VN lattice, which is the universal
+   value.  */
 tree VN_TOP;
 
 static unsigned int next_dfs_num;
@@ -806,7 +820,8 @@ print_scc (FILE *out, VEC (tree, heap) *scc)
 static inline bool
 set_ssa_val_to (tree from, tree to)
 {
-  gcc_assert (to != NULL && is_gimple_reg (from));
+  gcc_assert (to != NULL);
+  
   /* Make sure we don't create chains of copies, so that we get the
   best value numbering.  visit_copy has code to make sure this doesn't
   happen, we are doing this here to assert that nothing else breaks
@@ -861,7 +876,7 @@ defs_to_varying (tree stmt)
   ssa_op_iter iter;
   def_operand_p defp;
 
-  FOR_EACH_SSA_DEF_OPERAND (defp, stmt, iter, SSA_OP_DEF)
+  FOR_EACH_SSA_DEF_OPERAND (defp, stmt, iter, SSA_OP_ALL_DEFS)
     {
       tree def = DEF_FROM_PTR (defp);
       changed |= set_ssa_val_to (def, def);
@@ -1307,9 +1322,6 @@ visit_use (tree use)
 	      VN_INFO (lhs)->expr = lhs;
 	    }
 	  
-	  /* XXX: Need to reset expr and constantness here.
-	     Otherwise we could make optimistic assumptions that are
-	     wrong during optimistic value numbering. */
 	  if (TREE_CODE (lhs) == SSA_NAME
 	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
 	    changed = defs_to_varying (stmt);
@@ -1447,12 +1459,14 @@ process_scc (VEC (tree, heap) *scc)
 	 or else it will retain the optimistic expression and value,
 	 which is wrong for the valid world.  */
       current_info = valid_info;
+#if 0
       for (i = 0; VEC_iterate (tree, scc, i, var); i++)	 
  	{
  	  vn_ssa_aux_t vninfo = VN_INFO (var);
  	  vninfo->expr = var; 
  	  vninfo->has_constants = 0;
 	} 
+#endif
       for (i = 0; VEC_iterate (tree, scc, i, var); i++)	
 	visit_use (var);
     }
@@ -1485,8 +1499,8 @@ DFS (tree name)
       && (TREE_CODE (defstmt) != PHI_NODE
 	  || is_gimple_reg (PHI_RESULT (defstmt))))
     {
-      FOR_EACH_PHI_OR_STMT_USE (usep, SSA_NAME_DEF_STMT (name),
-				iter, SSA_OP_USE | SSA_OP_VIRTUAL_USES)
+      FOR_EACH_PHI_OR_STMT_USE (usep, SSA_NAME_DEF_STMT (name), iter,
+				SSA_OP_ALL_USES)
 	{
 	  tree use = USE_FROM_PTR (usep);
 
@@ -1503,7 +1517,7 @@ DFS (tree name)
 	      && VN_INFO (use)->on_sccstack)
 	    {
 	      VN_INFO (name)->low = MIN (VN_INFO (use)->dfsnum,
-					  VN_INFO (name)->low);
+					 VN_INFO (name)->low);
 	    }
 	}
     }
@@ -1678,9 +1692,7 @@ free_scc_vn (void)
 
 void
 run_scc_vn (void)
-{
-  init_scc_vn ();
-  
+{  
   size_t i;
   tree param;
 
