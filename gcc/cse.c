@@ -531,12 +531,10 @@ struct cse_basic_block_data
     } *path;
 };
 
-/* A simple bitmap to track which regs have sets in more than one
-   basic block.  */
-static sbitmap reg_used_in_multiple_bb;
 
-/* An array used to initialize REG_SET_IN_MULTIPLE_BB.  */
-static basic_block *last_bb_reg_used_in;
+/* Pointers to the live in/live out bitmaps for the boundaries of the
+   current EBB.  */
+static bitmap cse_ebb_live_in, cse_ebb_live_out;
 
 /* A simple bitmap to track which basic blocks have been visited
    already as part of an already processed extended basic block.  */
@@ -941,9 +939,10 @@ make_regs_eqv (unsigned int new, unsigned int old)
       && ((new < FIRST_PSEUDO_REGISTER && FIXED_REGNO_P (new))
 	  || (new >= FIRST_PSEUDO_REGISTER
 	      && (firstr < FIRST_PSEUDO_REGISTER
-		  || (TEST_BIT (reg_used_in_multiple_bb, new)
-		      && last_bb_reg_used_in[new]->index
-			 > last_bb_reg_used_in[firstr]->index)))))
+		  || (bitmap_bit_p (cse_ebb_live_out, new)
+		      && !bitmap_bit_p (cse_ebb_live_out, firstr))
+		  || (bitmap_bit_p (cse_ebb_live_in, new)
+		      && !bitmap_bit_p (cse_ebb_live_in, firstr))))))
     {
       reg_eqv_table[firstr].prev = new;
       reg_eqv_table[new].next = firstr;
@@ -6017,6 +6016,8 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
   qty_table = XNEWVEC (struct qty_table_elem, max_qty);
 
   new_basic_block ();
+  cse_ebb_live_in = DF_LIVE_IN (ebb_data->path[0].bb);
+  cse_ebb_live_out = DF_LIVE_OUT (ebb_data->path[path_size - 1].bb);
   for (path_entry = 0; path_entry < path_size; path_entry++)
     {
       basic_block bb;
@@ -6187,30 +6188,6 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
   free (qty_table);
 }
 
-/* Set a bit in REG_USED_IN_MULTIPLE_BB if X points to a REG rtx, and
-   DATA (a basic block) is not the basic block stored in REG_USED_IN_BB
-   for this REG.  Anyway, update REG_USED_IN_BB.  */
-static int
-mark_reg_use_bb (rtx *x, void *data)
-{
-  basic_block bb = data;
-  rtx p = *x;
-  int regno;
-
-  if (!p)
-    return -1;
-  if (!REG_P (*x))
-    return 0;
-
-  regno = REGNO (*x);
-  if (last_bb_reg_used_in[regno] != bb)
-    {
-      if (last_bb_reg_used_in[regno])
-	SET_BIT (reg_used_in_multiple_bb, regno);
-      last_bb_reg_used_in[regno] = bb;
-    }
-  return -1;
-}
 
 /* Perform cse on the instructions of a function.
    F is the first instruction.
@@ -6254,18 +6231,6 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
   cse_visited_basic_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (cse_visited_basic_blocks);
 
-  reg_used_in_multiple_bb = sbitmap_alloc (nregs);
-  last_bb_reg_used_in = XCNEWVEC (basic_block, nregs);
-  sbitmap_zero (reg_used_in_multiple_bb);
-
-  FOR_EACH_BB (bb)
-    {
-      rtx insn;
-      FOR_BB_INSNS (bb, insn)
-	if (INSN_P (insn))
-	  for_each_rtx (&PATTERN (insn), mark_reg_use_bb, bb);
-    }
-
   /* Loop over basic blocks in reverse completion order (RPO),
      excluding the ENTRY and EXIT blocks.  */
   n_blocks = pre_and_rev_post_order_compute (NULL, rc_order, false);
@@ -6306,11 +6271,9 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
 
   /* Clean up.  */
   end_alias_analysis ();
-  free (last_bb_reg_used_in);
   free (reg_eqv_table);
   free (ebb_data.path);
   sbitmap_free (cse_visited_basic_blocks);
-  sbitmap_free (reg_used_in_multiple_bb);
   free (rc_order);
   rtl_hooks = general_rtl_hooks;
 
