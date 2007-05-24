@@ -649,9 +649,6 @@ gfc_check_atan2 (gfc_expr *y, gfc_expr *x)
 try
 gfc_check_besn (gfc_expr *n, gfc_expr *x)
 {
-  if (scalar_check (n, 0) == FAILURE)
-    return FAILURE;
-
   if (type_check (n, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
 
@@ -1489,17 +1486,17 @@ min_max_args (gfc_actual_arglist *arg)
 
 
 static try
-check_rest (bt type, int kind, gfc_actual_arglist *arg)
+check_rest (bt type, int kind, gfc_actual_arglist *arglist)
 {
-  gfc_expr *x;
-  int n;
+  gfc_actual_arglist *arg, *tmp;
 
-  if (min_max_args (arg) == FAILURE)
+  gfc_expr *x;
+  int m, n;
+
+  if (min_max_args (arglist) == FAILURE)
     return FAILURE;
 
-  n = 1;
-
-  for (; arg; arg = arg->next, n++)
+  for (arg = arglist, n=1; arg; arg = arg->next, n++)
     {
       x = arg->expr;
       if (x->ts.type != type || x->ts.kind != kind)
@@ -1517,6 +1514,15 @@ check_rest (bt type, int kind, gfc_actual_arglist *arg)
 			 gfc_basic_typename (type), kind);
 	      return FAILURE;
 	    }
+	}
+
+      for (tmp = arglist, m=1; tmp != arg; tmp = tmp->next, m++)
+        {
+	  char buffer[80];
+	  snprintf (buffer, 80, "arguments 'a%d' and 'a%d' for intrinsic '%s'",
+		    m, n, gfc_current_intrinsic);
+	  if (gfc_check_conformance (buffer, tmp->expr, x) == FAILURE)
+	    return FAILURE;
 	}
     }
 
@@ -1797,24 +1803,10 @@ gfc_check_product_sum (gfc_actual_arglist *ap)
 try
 gfc_check_merge (gfc_expr *tsource, gfc_expr *fsource, gfc_expr *mask)
 {
-  char buffer[80];
-
   if (same_type_check (tsource, 0, fsource, 1) == FAILURE)
     return FAILURE;
 
   if (type_check (mask, 2, BT_LOGICAL) == FAILURE)
-    return FAILURE;
-
-  snprintf (buffer, 80, "arguments '%s' and '%s' for intrinsic '%s'",
-	    gfc_current_intrinsic_arg[0], gfc_current_intrinsic_arg[1],
-	    gfc_current_intrinsic);
-  if (gfc_check_conformance (buffer, tsource, fsource) == FAILURE)
-    return FAILURE;
-
-  snprintf (buffer, 80, "arguments '%s' and '%s' for intrinsic '%s'",
-	    gfc_current_intrinsic_arg[0], gfc_current_intrinsic_arg[2],
-	    gfc_current_intrinsic);
-  if (gfc_check_conformance (buffer, tsource, mask) == FAILURE)
     return FAILURE;
 
   return SUCCESS;

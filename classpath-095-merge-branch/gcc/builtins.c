@@ -231,6 +231,13 @@ static tree do_mpfr_arg2 (tree, tree, tree,
 static tree do_mpfr_arg3 (tree, tree, tree, tree,
 			  int (*)(mpfr_ptr, mpfr_srcptr, mpfr_srcptr, mpfr_srcptr, mp_rnd_t));
 static tree do_mpfr_sincos (tree, tree, tree);
+#if MPFR_VERSION >= MPFR_VERSION_NUM(2,3,0)
+static tree do_mpfr_bessel_n (tree, tree, tree,
+			      int (*)(mpfr_ptr, long, mpfr_srcptr, mp_rnd_t),
+			      const REAL_VALUE_TYPE *, bool);
+static tree do_mpfr_remquo (tree, tree, tree);
+static tree do_mpfr_lgamma_r (tree, tree, tree);
+#endif
 
 /* Return true if NODE should be considered for inline expansion regardless
    of the optimization level.  This means whenever a function is invoked with
@@ -689,8 +696,7 @@ expand_builtin_setjmp_setup (rtx buf_addr, rtx receiver_label)
      need to go on during alloca.  */
   current_function_calls_setjmp = 1;
 
-  /* Set this so all the registers get saved in our frame; we need to be
-     able to copy the saved values for any registers from frames we unwind.  */
+  /* We have a nonlocal label.   */
   current_function_has_nonlocal_label = 1;
 }
 
@@ -1647,6 +1653,11 @@ expand_builtin_classify_type (tree exp)
   case BUILT_IN_MATHFN: case BUILT_IN_MATHFN##F: case BUILT_IN_MATHFN##L: \
   fcode = BUILT_IN_MATHFN; fcodef = BUILT_IN_MATHFN##F ; \
   fcodel = BUILT_IN_MATHFN##L ; break;
+/* Similar to above, but appends _R after any F/L suffix.  */
+#define CASE_MATHFN_REENT(BUILT_IN_MATHFN) \
+  case BUILT_IN_MATHFN##_R: case BUILT_IN_MATHFN##F_R: case BUILT_IN_MATHFN##L_R: \
+  fcode = BUILT_IN_MATHFN##_R; fcodef = BUILT_IN_MATHFN##F_R ; \
+  fcodel = BUILT_IN_MATHFN##L_R ; break;
 
 /* Return mathematic function equivalent to FN but operating directly
    on TYPE, if available.  If we can't do the conversion, return zero.  */
@@ -1686,6 +1697,7 @@ mathfn_built_in (tree type, enum built_in_function fn)
       CASE_MATHFN (BUILT_IN_FMOD)
       CASE_MATHFN (BUILT_IN_FREXP)
       CASE_MATHFN (BUILT_IN_GAMMA)
+      CASE_MATHFN_REENT (BUILT_IN_GAMMA) /* GAMMA_R */
       CASE_MATHFN (BUILT_IN_HUGE_VAL)
       CASE_MATHFN (BUILT_IN_HYPOT)
       CASE_MATHFN (BUILT_IN_ILOGB)
@@ -1698,6 +1710,7 @@ mathfn_built_in (tree type, enum built_in_function fn)
       CASE_MATHFN (BUILT_IN_LDEXP)
       CASE_MATHFN (BUILT_IN_LFLOOR)
       CASE_MATHFN (BUILT_IN_LGAMMA)
+      CASE_MATHFN_REENT (BUILT_IN_LGAMMA) /* LGAMMA_R */
       CASE_MATHFN (BUILT_IN_LLCEIL)
       CASE_MATHFN (BUILT_IN_LLFLOOR)
       CASE_MATHFN (BUILT_IN_LLRINT)
@@ -3472,6 +3485,7 @@ expand_builtin_memmove_args (tree dest, tree src, tree len,
 
   if (result)
     {
+      STRIP_TYPE_NOPS (result);
       while (TREE_CODE (result) == COMPOUND_EXPR)
 	{
 	  expand_expr (TREE_OPERAND (result, 0), const0_rtx, VOIDmode,
@@ -9766,6 +9780,32 @@ fold_builtin_1 (tree fndecl, tree arg0, bool ignore)
 			     &dconstm1, NULL, false);
     break;
 
+#if MPFR_VERSION >= MPFR_VERSION_NUM(2,3,0)
+    CASE_FLT_FN (BUILT_IN_J0):
+      if (validate_arg (arg0, REAL_TYPE))
+	return do_mpfr_arg1 (arg0, type, mpfr_j0,
+			     NULL, NULL, 0);
+    break;
+
+    CASE_FLT_FN (BUILT_IN_J1):
+      if (validate_arg (arg0, REAL_TYPE))
+	return do_mpfr_arg1 (arg0, type, mpfr_j1,
+			     NULL, NULL, 0);
+    break;
+
+    CASE_FLT_FN (BUILT_IN_Y0):
+      if (validate_arg (arg0, REAL_TYPE))
+	return do_mpfr_arg1 (arg0, type, mpfr_y0,
+			     &dconst0, NULL, false);
+    break;
+
+    CASE_FLT_FN (BUILT_IN_Y1):
+      if (validate_arg (arg0, REAL_TYPE))
+	return do_mpfr_arg1 (arg0, type, mpfr_y1,
+			     &dconst0, NULL, false);
+    break;
+#endif
+
     CASE_FLT_FN (BUILT_IN_NAN):
     case BUILT_IN_NAND32:
     case BUILT_IN_NAND64:
@@ -9876,6 +9916,34 @@ fold_builtin_2 (tree fndecl, tree arg0, tree arg1, bool ignore)
 
   switch (fcode)
     {
+#if MPFR_VERSION >= MPFR_VERSION_NUM(2,3,0)
+    CASE_FLT_FN (BUILT_IN_JN):
+      if (validate_arg (arg0, INTEGER_TYPE)
+	  && validate_arg (arg1, REAL_TYPE))
+	return do_mpfr_bessel_n (arg0, arg1, type, mpfr_jn, NULL, 0);
+    break;
+
+    CASE_FLT_FN (BUILT_IN_YN):
+      if (validate_arg (arg0, INTEGER_TYPE)
+	  && validate_arg (arg1, REAL_TYPE))
+	return do_mpfr_bessel_n (arg0, arg1, type, mpfr_yn,
+				 &dconst0, false);
+    break;
+
+    CASE_FLT_FN (BUILT_IN_DREM):
+    CASE_FLT_FN (BUILT_IN_REMAINDER):
+      if (validate_arg (arg0, REAL_TYPE)
+          && validate_arg(arg1, REAL_TYPE))
+        return do_mpfr_arg2 (arg0, arg1, type, mpfr_remainder);
+    break;
+
+    CASE_FLT_FN_REENT (BUILT_IN_GAMMA): /* GAMMA_R */
+    CASE_FLT_FN_REENT (BUILT_IN_LGAMMA): /* LGAMMA_R */
+      if (validate_arg (arg0, REAL_TYPE)
+	  && validate_arg(arg1, POINTER_TYPE))
+	return do_mpfr_lgamma_r (arg0, arg1, type);
+    break;
+#endif
 
     CASE_FLT_FN (BUILT_IN_ATAN2):
       if (validate_arg (arg0, REAL_TYPE)
@@ -10031,6 +10099,15 @@ fold_builtin_3 (tree fndecl, tree arg0, tree arg1, tree arg2, bool ignore)
 	  && validate_arg(arg2, REAL_TYPE))
 	return do_mpfr_arg3 (arg0, arg1, arg2, type, mpfr_fma);
     break;
+
+#if MPFR_VERSION >= MPFR_VERSION_NUM(2,3,0)
+    CASE_FLT_FN (BUILT_IN_REMQUO):
+      if (validate_arg (arg0, REAL_TYPE)
+	  && validate_arg(arg1, REAL_TYPE)
+	  && validate_arg(arg2, POINTER_TYPE))
+	return do_mpfr_remquo (arg0, arg1, arg2);
+    break;
+#endif
 
     case BUILT_IN_MEMSET:
       return fold_builtin_memset (arg0, arg1, arg2, type, ignore);
@@ -12505,3 +12582,185 @@ do_mpfr_sincos (tree arg, tree arg_sinp, tree arg_cosp)
     }
   return result;
 }
+
+#if MPFR_VERSION >= MPFR_VERSION_NUM(2,3,0)
+/* If argument ARG1 is an INTEGER_CST and ARG2 is a REAL_CST, call the
+   two-argument mpfr order N Bessel function FUNC on them and return
+   the resulting value as a tree with type TYPE.  The mpfr precision
+   is set to the precision of TYPE.  We assume that function FUNC
+   returns zero if the result could be calculated exactly within the
+   requested precision.  */
+static tree
+do_mpfr_bessel_n (tree arg1, tree arg2, tree type,
+		  int (*func)(mpfr_ptr, long, mpfr_srcptr, mp_rnd_t),
+		  const REAL_VALUE_TYPE *min, bool inclusive)
+{
+  tree result = NULL_TREE;
+
+  STRIP_NOPS (arg1);
+  STRIP_NOPS (arg2);
+
+  /* To proceed, MPFR must exactly represent the target floating point
+     format, which only happens when the target base equals two.  */
+  if (REAL_MODE_FORMAT (TYPE_MODE (type))->b == 2
+      && host_integerp (arg1, 0)
+      && TREE_CODE (arg2) == REAL_CST && !TREE_OVERFLOW (arg2))
+    {
+      const HOST_WIDE_INT n = tree_low_cst(arg1, 0);
+      const REAL_VALUE_TYPE *const ra = &TREE_REAL_CST (arg2);
+
+      if (n == (long)n
+	  && !real_isnan (ra) && !real_isinf (ra)
+	  && (!min || real_compare (inclusive ? GE_EXPR: GT_EXPR , ra, min)))
+        {
+	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
+	  int inexact;
+	  mpfr_t m;
+
+	  mpfr_init2 (m, prec);
+	  mpfr_from_real (m, ra, GMP_RNDN);
+	  mpfr_clear_flags ();
+	  inexact = func (m, n, m, GMP_RNDN);
+	  result = do_mpfr_ckconv (m, type, inexact);
+	  mpfr_clear (m);
+	}
+    }
+  
+  return result;
+}
+
+/* If arguments ARG0 and ARG1 are REAL_CSTs, call mpfr_remquo() to set
+   the pointer *(ARG_QUO) and return the result.  The type is taken
+   from the type of ARG0 and is used for setting the precision of the
+   calculation and results.  */
+
+static tree
+do_mpfr_remquo (tree arg0, tree arg1, tree arg_quo)
+{
+  tree const type = TREE_TYPE (arg0);
+  tree result = NULL_TREE;
+  
+  STRIP_NOPS (arg0);
+  STRIP_NOPS (arg1);
+  
+  /* To proceed, MPFR must exactly represent the target floating point
+     format, which only happens when the target base equals two.  */
+  if (REAL_MODE_FORMAT (TYPE_MODE (type))->b == 2
+      && TREE_CODE (arg0) == REAL_CST && !TREE_OVERFLOW (arg0)
+      && TREE_CODE (arg1) == REAL_CST && !TREE_OVERFLOW (arg1))
+    {
+      const REAL_VALUE_TYPE *const ra0 = TREE_REAL_CST_PTR (arg0);
+      const REAL_VALUE_TYPE *const ra1 = TREE_REAL_CST_PTR (arg1);
+
+      if (!real_isnan (ra0) && !real_isinf (ra0)
+	  && !real_isnan (ra1) && !real_isinf (ra1))
+        {
+	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
+	  tree result_rem;
+	  long integer_quo;
+	  mpfr_t m0, m1;
+
+	  mpfr_inits2 (prec, m0, m1, NULL);
+	  mpfr_from_real (m0, ra0, GMP_RNDN);
+	  mpfr_from_real (m1, ra1, GMP_RNDN);
+	  mpfr_clear_flags ();
+	  mpfr_remquo (m0, &integer_quo, m0, m1, GMP_RNDN);
+	  /* Remquo is independent of the rounding mode, so pass
+	     inexact=0 to do_mpfr_ckconv().  */
+	  result_rem = do_mpfr_ckconv (m0, type, /*inexact=*/ 0);
+	  mpfr_clears (m0, m1, NULL);
+	  if (result_rem)
+	    {
+	      /* MPFR calculates quo in the host's long so it may
+		 return more bits in quo than the target int can hold
+		 if sizeof(host long) > sizeof(target int).  This can
+		 happen even for native compilers in LP64 mode.  In
+		 these cases, modulo the quo value with the largest
+		 number that the target int can hold while leaving one
+		 bit for the sign.  */
+	      if (sizeof (integer_quo) * CHAR_BIT > INT_TYPE_SIZE)
+		integer_quo %= (long)(1UL << (INT_TYPE_SIZE - 1));
+
+	      /* Dereference the quo pointer argument.  */
+	      arg_quo = build_fold_indirect_ref (arg_quo);
+	      /* Proceed iff a valid pointer type was passed in.  */
+	      if (TYPE_MAIN_VARIANT (TREE_TYPE (arg_quo)) == integer_type_node)
+	        {
+		  /* Set the value. */
+		  tree result_quo = fold_build2 (MODIFY_EXPR,
+						 TREE_TYPE (arg_quo), arg_quo,
+						 build_int_cst (NULL, integer_quo));
+		  TREE_SIDE_EFFECTS (result_quo) = 1;
+		  /* Combine the quo assignment with the rem.  */
+		  result = non_lvalue (fold_build2 (COMPOUND_EXPR, type,
+						    result_quo, result_rem));
+		}
+	    }
+	}
+    }
+  return result;
+}
+
+/* If ARG is a REAL_CST, call mpfr_lgamma() on it and return the
+   resulting value as a tree with type TYPE.  The mpfr precision is
+   set to the precision of TYPE.  We assume that this mpfr function
+   returns zero if the result could be calculated exactly within the
+   requested precision.  In addition, the integer pointer represented
+   by ARG_SG will be dereferenced and set to the appropriate signgam
+   (-1,1) value.  */
+
+static tree
+do_mpfr_lgamma_r (tree arg, tree arg_sg, tree type)
+{
+  tree result = NULL_TREE;
+
+  STRIP_NOPS (arg);
+  
+  /* To proceed, MPFR must exactly represent the target floating point
+     format, which only happens when the target base equals two.  Also
+     verify ARG is a constant and that ARG_SG is an int pointer.  */
+  if (REAL_MODE_FORMAT (TYPE_MODE (type))->b == 2
+      && TREE_CODE (arg) == REAL_CST && !TREE_OVERFLOW (arg)
+      && TREE_CODE (TREE_TYPE (arg_sg)) == POINTER_TYPE
+      && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (arg_sg))) == integer_type_node)
+    {
+      const REAL_VALUE_TYPE *const ra = TREE_REAL_CST_PTR (arg);
+
+      /* In addition to NaN and Inf, the argument cannot be zero or a
+	 negative integer.  */
+      if (!real_isnan (ra) && !real_isinf (ra)
+	  && ra->cl != rvc_zero
+	  && !(real_isneg(ra) && real_isinteger(ra, TYPE_MODE (type))))
+        {
+	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
+	  int inexact, sg;
+	  mpfr_t m;
+	  tree result_lg;
+
+	  mpfr_init2 (m, prec);
+	  mpfr_from_real (m, ra, GMP_RNDN);
+	  mpfr_clear_flags ();
+	  inexact = mpfr_lgamma (m, &sg, m, GMP_RNDN);
+	  result_lg = do_mpfr_ckconv (m, type, inexact);
+	  mpfr_clear (m);
+	  if (result_lg)
+	    {
+	      tree result_sg;
+
+	      /* Dereference the arg_sg pointer argument.  */
+	      arg_sg = build_fold_indirect_ref (arg_sg);
+	      /* Assign the signgam value into *arg_sg. */
+	      result_sg = fold_build2 (MODIFY_EXPR,
+				       TREE_TYPE (arg_sg), arg_sg,
+				       build_int_cst (NULL, sg));
+	      TREE_SIDE_EFFECTS (result_sg) = 1;
+	      /* Combine the signgam assignment with the lgamma result.  */
+	      result = non_lvalue (fold_build2 (COMPOUND_EXPR, type,
+						result_sg, result_lg));
+	    }
+	}
+    }
+
+  return result;
+}
+#endif

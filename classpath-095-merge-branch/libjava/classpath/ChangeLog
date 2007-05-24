@@ -1,3 +1,34 @@
+2007-05-19  Andreas Tobler  <a.tobler@schweiz.org>
+
+	PR libgcj/31659
+	* m4/ax_create_stdint_h.m4: Apply patch from PR31659.
+	* configure: Regenerate.
+
+2007-05-07 Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/Jdwp.java (notify): Rewrite to call
+	new array-based method.
+	(notify): New function.
+	(sendEvent): Rewrite to use sendEvents.
+	(sendEvents): New method.
+	* gnu/classpath/jdwp/event/Event.java (toPacket): Make static.
+	Change parameters to use arrays for events and requests.
+	Add suspendPolicy parameter.
+	Move per-event data transformation to...
+	(_toData): ... here.
+	* gnu/classpath/jdwp/transport/JdwpConnection.java
+	(sendEvent): Renamed to ...
+	(sendEvents): ... this.
+	Change parameters to use arrays for events and requests.
+	Add suspendPolicy parameter.
+
+2007-05-03  Andrew Haley  <aph@redhat.com>
+
+	* gnu/javax/management/Server.java (Server): Record the delegate.
+	(registerMBean): Notify the delegate.
+	(unregisterMBean): Likewise.
+	(notify): New method.
+
 2007-04-23  Mark Wielaard  <mark@klomp.org>
 
 	* configure.ac (VERSION): Set to 0.95.
