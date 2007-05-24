@@ -1,3 +1,8 @@
+2007-05-24  Matthias Klose  <doko@ubuntu.com>
+
+	* java/io/natFileWin32.cc (setFilePermissions): New (stub only).
+	_access: Handle EXEC query, stub only.
+
 2007-05-17  Matthias Klose  <doko@ubuntu.com>
 
 	Merged from classpath:
