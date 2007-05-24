@@ -1659,7 +1659,6 @@ init_scc_vn (void)
   basic_block bb;
   size_t id = 0;
 
-  connect_infinite_loops_to_exit ();
   calculate_dominance_info (CDI_DOMINATORS);
   sccstack = NULL;
   next_dfs_num = 1;
@@ -1724,7 +1723,6 @@ free_scc_vn (void)
   VEC_free (tree, heap, shared_lookup_vops);
   VEC_free (vn_reference_op_s, heap, shared_lookup_references);
   XDELETEVEC (rpo_numbers);
-  remove_fake_exit_edges ();
   for (i = 0; i < num_ssa_names; i++)
     {
       tree name = ssa_name (i);
