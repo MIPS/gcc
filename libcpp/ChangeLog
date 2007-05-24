@@ -1,3 +1,8 @@
+2007-05-24  Chao-ying Fu  <fu@mips.com>
+
+	* expr.c (cpp_classify_number): Warn about fixed-point constants
+	when -pedantic.
+
 2007-05-23  Simon Martin  <simartin@users.sourceforge.net>
 
 	PR preprocessor/20077

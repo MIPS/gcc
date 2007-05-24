@@ -265,6 +265,9 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token)
 	  if (radix == 8)
 	    radix = 10;
 
+	  if (CPP_PEDANTIC (pfile))
+	    cpp_error (pfile, CPP_DL_PEDWARN,
+		       "fixed-point constants are a GCC extension");
 	  goto syntax_ok;
 	}
       else
@@ -324,6 +327,10 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token)
                      (int) (limit - str), str);
           return CPP_N_INVALID;
         }
+
+      if ((result & (CPP_N_FRACT | CPP_N_ACCUM)) && CPP_PEDANTIC (pfile))
+	cpp_error (pfile, CPP_DL_PEDWARN,
+		   "fixed-point constants are a GCC extension");
 
       if ((result & CPP_N_DFLOAT) && CPP_PEDANTIC (pfile))
 	cpp_error (pfile, CPP_DL_PEDWARN,
