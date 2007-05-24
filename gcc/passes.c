@@ -105,6 +105,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Global variables used to communicate with passes.  */
 int dump_flags;
 bool in_gimple_form;
+bool first_pass_instance;
 
 
 /* This is called from various places for FUNCTION_DECL, VAR_DECL,
@@ -392,6 +393,8 @@ next_pass_1 (struct tree_opt_pass **list, struct tree_opt_pass *pass)
       memcpy (new, pass, sizeof (*new));
       new->next = NULL;
 
+      new->todo_flags_start &= ~TODO_mark_first_instance;
+
       /* Indicate to register_dump_files that this pass has duplicates,
          and so it should rename the dump file.  The first instance will
          be -1, and be number of duplicates = -static_pass_number - 1.
@@ -406,6 +409,7 @@ next_pass_1 (struct tree_opt_pass **list, struct tree_opt_pass *pass)
     }
   else
     {
+      pass->todo_flags_start |= TODO_mark_first_instance;
       pass->static_pass_number = -1;
       *list = pass;
     }  
@@ -586,7 +590,9 @@ init_optimization_passes (void)
 	  struct tree_opt_pass **p = &pass_tree_loop.sub;
 	  NEXT_PASS (pass_tree_loop_init);
 	  NEXT_PASS (pass_copy_prop);
+	  NEXT_PASS (pass_dce_loop);
 	  NEXT_PASS (pass_lim);
+	  NEXT_PASS (pass_predcom);
 	  NEXT_PASS (pass_tree_unswitch);
 	  NEXT_PASS (pass_scev_cprop);
 	  NEXT_PASS (pass_empty_loop);
@@ -931,6 +937,9 @@ execute_todo (unsigned int flags)
   if (need_ssa_update_p ())
     gcc_assert (flags & TODO_update_ssa_any);
 #endif
+
+  /* Inform the pass whether it is the first time it is run.  */
+  first_pass_instance = (flags & TODO_mark_first_instance) != 0;
 
   do_per_function (execute_function_todo, (void *)(size_t) flags);
 

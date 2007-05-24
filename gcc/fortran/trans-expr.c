@@ -261,6 +261,10 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind,
     gfc_conv_string_parameter (se);
   else
     {
+      /* Avoid multiple evaluation of substring start.  */
+      if (!CONSTANT_CLASS_P (start.expr) && !DECL_P (start.expr))
+	start.expr = gfc_evaluate_now (start.expr, &se->pre);
+
       /* Change the start of the string.  */
       if (TYPE_STRING_FLAG (TREE_TYPE (se->expr)))
 	tmp = se->expr;
@@ -279,6 +283,9 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind,
       gfc_conv_expr_type (&end, ref->u.ss.end, gfc_charlen_type_node);
       gfc_add_block_to_block (&se->pre, &end.pre);
     }
+  if (!CONSTANT_CLASS_P (end.expr) && !DECL_P (end.expr))
+    end.expr = gfc_evaluate_now (end.expr, &se->pre);
+
   if (flag_bounds_check)
     {
       tree nonempty = fold_build2 (LE_EXPR, boolean_type_node,
@@ -928,13 +935,11 @@ gfc_conv_string_tmp (gfc_se * se, tree type, tree len)
     {
       /* Allocate a temporary to hold the result.  */
       var = gfc_create_var (type, "pstr");
-      tmp = build_call_expr (gfor_fndecl_internal_malloc, 1, len);
-      tmp = convert (type, tmp);
+      tmp = gfc_call_malloc (&se->pre, type, len);
       gfc_add_modify_expr (&se->pre, var, tmp);
 
       /* Free the temporary afterwards.  */
-      tmp = convert (pvoid_type_node, var);
-      tmp = build_call_expr (gfor_fndecl_internal_free, 1, tmp);
+      tmp = gfc_call_free (convert (pvoid_type_node, var));
       gfc_add_expr_to_block (&se->post, tmp);
     }
 
@@ -3614,8 +3619,9 @@ gfc_trans_zero_assign (gfc_expr * expr)
   if (!len || TREE_CODE (len) != INTEGER_CST)
     return NULL_TREE;
 
+  tmp = TYPE_SIZE_UNIT (gfc_get_element_type (type));
   len = fold_build2 (MULT_EXPR, gfc_array_index_type, len,
-                     TYPE_SIZE_UNIT (gfc_get_element_type (type)));
+		     fold_convert (gfc_array_index_type, tmp));
 
   /* Convert arguments to the correct types.  */
   if (!POINTER_TYPE_P (TREE_TYPE (dest)))
@@ -3668,6 +3674,7 @@ gfc_trans_array_copy (gfc_expr * expr1, gfc_expr * expr2)
 {
   tree dst, dlen, dtype;
   tree src, slen, stype;
+  tree tmp;
 
   dst = gfc_get_symbol_decl (expr1->symtree->n.sym);
   src = gfc_get_symbol_decl (expr2->symtree->n.sym);
@@ -3686,14 +3693,16 @@ gfc_trans_array_copy (gfc_expr * expr1, gfc_expr * expr2)
   dlen = GFC_TYPE_ARRAY_SIZE (dtype);
   if (!dlen || TREE_CODE (dlen) != INTEGER_CST)
     return NULL_TREE;
+  tmp = TYPE_SIZE_UNIT (gfc_get_element_type (dtype));
   dlen = fold_build2 (MULT_EXPR, gfc_array_index_type, dlen,
-		      TYPE_SIZE_UNIT (gfc_get_element_type (dtype)));
+		      fold_convert (gfc_array_index_type, tmp));
 
   slen = GFC_TYPE_ARRAY_SIZE (stype);
   if (!slen || TREE_CODE (slen) != INTEGER_CST)
     return NULL_TREE;
+  tmp = TYPE_SIZE_UNIT (gfc_get_element_type (stype));
   slen = fold_build2 (MULT_EXPR, gfc_array_index_type, slen,
-		      TYPE_SIZE_UNIT (gfc_get_element_type (stype)));
+		      fold_convert (gfc_array_index_type, tmp));
 
   /* Sanity check that they are the same.  This should always be
      the case, as we should already have checked for conformance.  */
@@ -3715,6 +3724,7 @@ gfc_trans_array_constructor_copy (gfc_expr * expr1, gfc_expr * expr2)
   tree dst, dtype;
   tree src, stype;
   tree len;
+  tree tmp;
 
   nelem = gfc_constant_array_constructor_p (expr2->value.constructor);
   if (nelem == 0)
@@ -3736,8 +3746,9 @@ gfc_trans_array_constructor_copy (gfc_expr * expr1, gfc_expr * expr2)
   if (compare_tree_int (len, nelem) != 0)
     return NULL_TREE;
 
+  tmp = TYPE_SIZE_UNIT (gfc_get_element_type (dtype));
   len = fold_build2 (MULT_EXPR, gfc_array_index_type, len,
-		     TYPE_SIZE_UNIT (gfc_get_element_type (dtype)));
+		     fold_convert (gfc_array_index_type, tmp));
 
   stype = gfc_typenode_for_spec (&expr2->ts);
   src = gfc_build_constant_array_constructor (expr2, stype);

@@ -102,9 +102,10 @@ may @emph{not} be grouped: @option{-dr} is very different from @w{@samp{-d
 @cindex order of options
 @cindex options, order
 You can mix options and other arguments.  For the most part, the order
-you use doesn't matter.  Order does matter when you use several options
-of the same kind; for example, if you specify @option{-L} more than once,
-the directories are searched in the order specified.
+you use doesn't matter.  Order does matter when you use several
+options of the same kind; for example, if you specify @option{-L} more
+than once, the directories are searched in the order specified.  Also,
+the placement of the @option{-l} option is significant.
 
 Many options have long names starting with @samp{-f} or with
 @samp{-W}---for example,
@@ -224,10 +225,10 @@ Objective-C and Objective-C++ Dialects}.
 @item Warning Options
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
 @gccoptlist{-fsyntax-only  -pedantic  -pedantic-errors @gol
--w  -Wextra  -Wall  -Waddress  -Waggregate-return -Warray-bounds @gol
+-w  -Wextra  -Wall  -Waddress  -Waggregate-return  -Warray-bounds @gol
 -Wno-attributes -Wc++-compat -Wc++0x-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment @gol
--Wconversion -Wcoverage-mismatch -Wno-deprecated-declarations @gol
+-Wconversion  -Wcoverage-mismatch  -Wno-deprecated-declarations @gol
 -Wdisabled-optimization  -Wno-div-by-zero  @gol
 -Wempty-body  -Wno-endif-labels @gol
 -Werror  -Werror=* @gol
@@ -247,11 +248,11 @@ Objective-C and Objective-C++ Dialects}.
 -Wparentheses  -Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
--Wsign-compare  -Wstack-protector @gol
+-Wsign-compare  -Wsign-conversion  -Wstack-protector @gol
 -Wstrict-aliasing -Wstrict-aliasing=n @gol
 -Wstrict-overflow -Wstrict-overflow=@var{n} @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum @gol
--Wsystem-headers  -Wtrigraphs  -Wundef  -Wuninitialized @gol
+-Wsystem-headers  -Wtrigraphs  -Wtype-limits  -Wundef  -Wuninitialized @gol
 -Wunknown-pragmas  -Wno-pragmas -Wunreachable-code @gol
 -Wunused  -Wunused-function  -Wunused-label  -Wunused-parameter @gol
 -Wunused-value  -Wunused-variable @gol
@@ -333,7 +334,7 @@ Objective-C and Objective-C++ Dialects}.
 -ffinite-math-only  -fno-signed-zeros @gol
 -fno-toplevel-reorder -fno-trapping-math  -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer  -foptimize-register-move @gol
--foptimize-sibling-calls  -fprefetch-loop-arrays @gol
+-foptimize-sibling-calls  -fpredictive-commoning -fprefetch-loop-arrays @gol
 -fprofile-generate -fprofile-use @gol
 -fregmove  -frename-registers @gol
 -freorder-blocks  -freorder-blocks-and-partition -freorder-functions @gol
@@ -547,7 +548,8 @@ Objective-C and Objective-C++ Dialects}.
 -mno-fp-ret-in-387  -msoft-float @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} -mcx16 -msahf @gol
--mmmx  -msse  -msse2 -msse3 -mssse3 -msse4a -m3dnow -mpopcnt -mabm @gol
+-mmmx  -msse  -msse2 -msse3 -mssse3 -msse4.1 @gol
+-msse4a -m3dnow -mpopcnt -mabm @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
@@ -2807,9 +2809,13 @@ This warning is enabled by @option{-Wall} for C and C++.
 
 @item -Wreturn-type
 @opindex Wreturn-type
-Warn whenever a function is defined with a return-type that defaults to
-@code{int}.  Also warn about any @code{return} statement with no
-return-value in a function whose return-type is not @code{void}.
+@opindex Wno-return-type
+Warn whenever a function is defined with a return-type that defaults
+to @code{int}.  Also warn about any @code{return} statement with no
+return-value in a function whose return-type is not @code{void}
+(falling off the end of the function body is considered returning
+without a value), and about a @code{return} statement with a
+expression in a function whose return-type is @code{void}.
 
 Also warn if the return type of a function has a type qualifier
 such as @code{const}.  For ISO C such a type qualifier has no effect,
@@ -3130,23 +3136,11 @@ messages for these events:
 
 @itemize @bullet
 @item
-A function can return either with or without a value.  (Falling
-off the end of the function body is considered returning without
-a value.)  For example, this function would evoke such a
-warning:
-
-@smallexample
-@group
-foo (a)
-@{
-  if (a > 0)
-    return a;
-@}
-@end group
-@end smallexample
-
-@item
-An unsigned value is compared against zero with @samp{<} or @samp{>=}.
+Warn if a comparison is always true or always false due to the limited
+range of the data type, but do not warn for constant expressions.  For
+example, warn if an unsigned variable is compared against zero with
+@samp{<} or @samp{>=}.  This warning can be independently controlled
+by @option{-Wtype-limits}.
 
 @item @r{(C only)}
 Storage-class specifiers like @code{static} are not the first things
@@ -3388,6 +3382,15 @@ convenience in calculations with @code{void *} pointers and pointers
 to functions.  In C++, warn also when an arithmetic operation involves
 @code{NULL}.  This warning is also enabled by @option{-pedantic}.
 
+@item -Wtype-limits
+@opindex Wtype-limits
+@opindex Wno-type-limits
+Warn if a comparison is always true or always false due to the limited
+range of the data type, but do not warn for constant expressions.  For
+example, warn if an unsigned variable is compared against zero with
+@samp{<} or @samp{>=}.  This warning is also enabled by
+@option{-Wextra}.
+
 @item -Wbad-function-cast @r{(C only)}
 @opindex Wbad-function-cast
 Warn whenever a function call is cast to a non-matching type.
@@ -3437,19 +3440,24 @@ Warn for variables that might be changed by @samp{longjmp} or
 
 @item -Wconversion
 @opindex Wconversion
+@opindex Wno-conversion
 Warn for implicit conversions that may alter a value. This includes
 conversions between real and integer, like @code{abs (x)} when
 @code{x} is @code{double}; conversions between signed and unsigned,
 like @code{unsigned ui = -1}; and conversions to smaller types, like
 @code{sqrtf (M_PI)}. Do not warn for explicit casts like @code{abs
 ((int) x)} and @code{ui = (unsigned) -1}, or if the value is not
-changed by the conversion like in @code{abs (2.0)}.
+changed by the conversion like in @code{abs (2.0)}.  Warnings about
+conversions between signed and unsigned integers can be disabled by
+using @option{-Wno-sign-conversion}.
 
 For C++, also warn for conversions between @code{NULL} and non-pointer
 types; confusing overload resolution for user-defined conversions; and
 conversions that will never use a type conversion operator:
 conversions to @code{void}, the same type, a base class or a reference
-to them.
+to them. Warnings about conversions between signed and unsigned
+integers are disabled by default in C++ unless
+@option{-Wsign-conversion} is explicitly enabled.
 
 @item -Wempty-body
 @opindex Wempty-body
@@ -3467,6 +3475,14 @@ Warn when a comparison between signed and unsigned values could produce
 an incorrect result when the signed value is converted to unsigned.
 This warning is also enabled by @option{-Wextra}; to get the other warnings
 of @option{-Wextra} without this warning, use @samp{-Wextra -Wno-sign-compare}.
+
+@item -Wsign-conversion
+@opindex Wsign-conversion
+@opindex Wno-sign-conversion
+Warn for implicit conversions that may change the sign of an integer
+value, like assigning a signed integer expression to an unsigned
+integer variable. An explicit cast silences the warning. In C, this
+option is enabled also by @option{-Wconversion}.
 
 @item -Waddress
 @opindex Waddress
@@ -4479,7 +4495,7 @@ different text / bss / data / heap / stack / dso start locations.
 @item -fdump-unnumbered
 @opindex fdump-unnumbered
 When doing debugging dumps (see @option{-d} option above), suppress instruction
-numbers, line number note and address output.  This makes it more feasible to
+numbers and address output.  This makes it more feasible to
 use diff on debugging dumps for compiler invocations with different
 options, in particular with and without @option{-g}.
 
@@ -4985,7 +5001,8 @@ invoking @option{-O2} on programs that use computed gotos.
 @opindex O3
 Optimize yet more.  @option{-O3} turns on all optimizations specified by
 @option{-O2} and also turns on the @option{-finline-functions},
-@option{-funswitch-loops} and @option{-fgcse-after-reload} options.
+@option{-funswitch-loops}, @option{-fpredictive-commoning} and
+@option{-fgcse-after-reload} options.
 
 @item -O0
 @opindex O0
@@ -5695,6 +5712,14 @@ This optimization is enabled by default.
 @opindex fvariable-expansion-in-unroller
 With this option, the compiler will create multiple copies of some
 local variables when unrolling a loop which can result in superior code.
+
+@item -fpredictive-commoning
+@opindex fpredictive-commoning
+Perform predictive commoning optimization, i.e., reusing computations
+(especially memory loads and stores) performed in previous
+iterations of loops.
+
+This option is enabled at level @option{-O3}.
 
 @item -fprefetch-loop-arrays
 @opindex fprefetch-loop-arrays
@@ -10246,6 +10271,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mno-sse3
 @item -mssse3
 @itemx -mno-ssse3
+@item -msse4.1
+@itemx -mno-sse4.1
 @item -msse4a
 @item -mno-sse4a
 @item -m3dnow
@@ -10261,7 +10288,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @opindex m3dnow
 @opindex mno-3dnow
 These switches enable or disable the use of instructions in the MMX,
-SSE, SSE2, SSE3, SSSE3, SSE4A, ABM or 3DNow! extended instruction sets.
+SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4A, ABM or 3DNow! extended
+instruction sets.
 These extensions are also available as built-in functions: see
 @ref{X86 Built-in Functions}, for details of the functions enabled and
 disabled by these switches.

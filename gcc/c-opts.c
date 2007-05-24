@@ -1059,10 +1059,13 @@ c_common_post_options (const char **pfilename)
   if (flag_objc_exceptions && !flag_objc_sjlj_exceptions)
     flag_exceptions = 1;
 
-  /* -Wextra implies -Wclobbered, -Wempty-body, -Wsign-compare, 
+  /* -Wextra implies -Wtype-limits, -Wclobbered, 
+     -Wempty-body, -Wsign-compare, 
      -Wmissing-field-initializers, -Wmissing-parameter-type
      -Wold-style-declaration, and -Woverride-init, 
      but not if explicitly overridden.  */
+  if (warn_type_limits == -1)
+    warn_type_limits = extra_warnings;
   if (warn_clobbered == -1)
     warn_clobbered = extra_warnings;
   if (warn_empty_body == -1)
@@ -1104,7 +1107,14 @@ c_common_post_options (const char **pfilename)
 	}
       if (flag_inline_functions)
 	flag_inline_trees = 2;
-    }
+    } 
+
+  /* In C, -Wconversion enables -Wsign-conversion (unless disabled
+     through -Wno-sign-conversion). While in C++,
+     -Wsign-conversion needs to be requested explicitly.  */
+  if (warn_sign_conversion == -1)
+    warn_sign_conversion =  (c_dialect_cxx ()) ? 0 : warn_conversion;
+
 
   /* Special format checking options don't work without -Wformat; warn if
      they are used.  */
