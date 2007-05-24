@@ -48,15 +48,15 @@ Boston, MA 02110-1301, USA.  */
 /* This algorithm is based on the SCC algorithm presented by Keith
    Cooper and L. Taylor Simpson in "SCC-Based Value numbering".  In
    straight line code, it is equivalent to a regular hash based value
-   numbering that is performed in reverse postorder.  
+   numbering that is performed in reverse postorder.
 
    For code with cycles, there are two alternatives, both of which
    require keeping the hashtables separate from the actual list of
    value numbers for SSA names.
-   
+
    1. Iterate value numbering in an RPO walk of the blocks, removing
    all the entries from the hashtable after each iteration (but
-   keeping the SSA name->value 
+   keeping the SSA name->value
    number mapping between iterations).  Iteration until it does not
    change.
 
@@ -86,24 +86,8 @@ Boston, MA 02110-1301, USA.  */
    theory, we could also track expressions whose value numbers are
    replaced, in case we end up folding based on expression identities,
    but this is generally a waste of time.
-
-   TODO:
-     1. A very simple extension to this algorithm will give you the
-     ability to see through aggregate copies (among other things).
-     This is that value numbering vuses will enable you to discover
-     more loads or stores 
-     that are the same, because the base SSA form will have a
-     different set of vuses for a use of a copy, and a use of the
-     original variable.    
-
-     Doing this requires value numbering stores using the value they
-       store, the address, and their vuses (not vdefs).    Any matches
-       means we are storing the same value into 
-       a store, an we should set SSA_VAL(vdef) = SSA_VAL (vuse) for
-       each vdef before storing in the table.
-       Otherwise, SSA_VAL (vdef) = vdef for all vdefs in the store.
 */
-     
+
 
 typedef struct vn_tables_s
 {
@@ -154,7 +138,6 @@ typedef struct vn_reference_op_struct
   tree op1;
   tree op2;
   tree op3;
-  hashval_t hashcode;
 } vn_reference_op_s;
 typedef vn_reference_op_s *vn_reference_op_t;
 
@@ -209,15 +192,6 @@ VN_INFO_SET (tree name, vn_ssa_aux_t value)
 	       SSA_NAME_VERSION (name), value);
 }
 
-#if 0
-static hashval_t
-vn_reference_op_hash (const void *p1)
-{
-  const vn_reference_op_t vro1 = (vn_reference_op_t) p1;
-  return vro1->hashcode;
-}
-#endif
-
 static int
 vn_reference_op_eq (const void *p1, const void *p2)
 {
@@ -227,7 +201,9 @@ vn_reference_op_eq (const void *p1, const void *p2)
     && vro1->type == vro2->type
     && expressions_equal_p (vro1->op0, vro2->op0)
     && expressions_equal_p (vro1->op1, vro2->op1)
-    && expressions_equal_p (vro1->op2, vro2->op2);
+    && expressions_equal_p (vro1->op2, vro2->op2)
+    && expressions_equal_p (vro1->op3, vro2->op3);
+;
 }
 
 static hashval_t
@@ -235,7 +211,8 @@ vn_reference_op_compute_hash (const vn_reference_op_t vro1)
 {
   return iterative_hash_expr (vro1->op0, vro1->opcode)
     + iterative_hash_expr (vro1->op1, vro1->opcode)
-    + iterative_hash_expr (vro1->op2, vro1->opcode);
+    + iterative_hash_expr (vro1->op2, vro1->opcode)
+    + iterative_hash_expr (vro1->op3, vro1->opcode);
 }
 
 static hashval_t
@@ -308,7 +285,7 @@ vuses_to_vec (tree stmt, VEC (tree, heap) **result)
   if (!stmt)
     return;
 
-  FOR_EACH_SSA_TREE_OPERAND (vuse, stmt, iter, SSA_OP_VUSE)
+  FOR_EACH_SSA_TREE_OPERAND (vuse, stmt, iter, SSA_OP_VIRTUAL_USES)
     VEC_safe_push (tree, heap, *result, vuse);
 
   if (VEC_length (tree, *result) > 1)
@@ -376,21 +353,8 @@ shared_vuses_from_stmt (tree stmt)
   return shared_lookup_vops;
 }
 
-
-/* Copy the names from virtual defs from STMT into SHARED_LOOKUP_VOPS.
-   This function will overwrite the current SHARED_LOOKUP_VOPS
-   variable.  */
-
-static VEC (tree, heap) *
-shared_vdefs_from_stmt (tree stmt)
-{
-  VEC_truncate (tree, shared_lookup_vops, 0);
-  vdefs_to_vec (stmt, &shared_lookup_vops);
-
-  return shared_lookup_vops;
-}
-
-
+/* Copy the reference class operations present in REF into RESULT, a vector of
+   vn_reference_op_s's.  */
 static void
 copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 {
@@ -404,7 +368,8 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
       switch (temp.opcode)
 	{
 	case INDIRECT_REF:
-	  temp.op0 = TREE_OPERAND (ref, 0);
+	  /* The only operand is the address, which gets its own
+	     vn_reference_op_s structure.  */
 	  break;
 	case BIT_FIELD_REF:
 	case COMPONENT_REF:
@@ -435,6 +400,9 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
     }
 }
 
+/* Create a vector of vn_reference_op_s structures from REF, a
+   REFERENCE_CLASS_P tree.  The vector is not shared. */
+
 static VEC(vn_reference_op_s, heap) *
 create_reference_ops_from_ref (tree ref)
 {
@@ -445,6 +413,10 @@ create_reference_ops_from_ref (tree ref)
 }
 
 static VEC(vn_reference_op_s, heap) *shared_lookup_references;
+
+/* Create a vector of vn_reference_op_s structures from REF, a
+   REFERENCE_CLASS_P tree.  The vector is shared among all callers of
+   this function.  */
 
 static VEC(vn_reference_op_s, heap) *
 shared_reference_ops_from_ref (tree ref)
@@ -457,6 +429,10 @@ shared_reference_ops_from_ref (tree ref)
 }
 
 
+/* Transform any SSA_NAME's in a vector of vn_reference_op_s
+   structures into their value numbers.  This is done in-place, and
+   the vector passed in is returned.  */
+
 static VEC (vn_reference_op_s, heap) *
 valueize_refs (VEC (vn_reference_op_s, heap) *orig)
 {
@@ -466,8 +442,25 @@ valueize_refs (VEC (vn_reference_op_s, heap) *orig)
   for (i = 0; VEC_iterate (vn_reference_op_s, orig, i, vro); i++)
     {
       if (vro->opcode == SSA_NAME)
-	vro->op0 = SSA_VAL (vro->op0) ? SSA_VAL (vro->op0) : vro->op0;
+	vro->op0 = SSA_VAL (vro->op0);
     }
+
+  return orig;
+}
+
+/* Transform any SSA_NAME's in ORIG, a vector of vuse trees, into
+   their value numbers. This is done in-place, and the vector passed
+   in is returned.  */
+
+static VEC (tree, heap) *
+valueize_vuses (VEC (tree, heap) *orig)
+{
+  tree vuse;
+  int i;
+
+  for (i = 0; VEC_iterate (tree, orig, i, vuse); i++)
+    VEC_replace (tree, orig, i, SSA_VAL (vuse));
+
 
   return orig;
 }
@@ -479,11 +472,10 @@ valueize_refs (VEC (vn_reference_op_s, heap) *orig)
 static tree
 vn_reference_lookup (tree op, VEC (tree, heap) *vuses)
 {
-
   void **slot;
   struct vn_reference_s vr1;
 
-  vr1.vuses = vuses;
+  vr1.vuses = valueize_vuses (vuses);
   vr1.operands = valueize_refs (shared_reference_ops_from_ref (op));
   vr1.hashcode = vn_reference_compute_hash (&vr1);
   slot = htab_find_slot_with_hash (current_info->references, &vr1, vr1.hashcode,
@@ -500,16 +492,26 @@ static void
 vn_reference_insert (tree op, tree result, VEC(tree, heap) *vuses)
 {
   void **slot;
-  vn_reference_t vr1 = (vn_reference_t) pool_alloc (current_info->references_pool);
+  vn_reference_t vr1;
 
-  vr1->vuses = vuses;
+  vr1 = (vn_reference_t) pool_alloc (current_info->references_pool);
+
+  vr1->vuses = valueize_vuses (vuses);
   vr1->operands = valueize_refs (create_reference_ops_from_ref (op));
   vr1->hashcode = vn_reference_compute_hash (vr1);
   vr1->result = result;
 
   slot = htab_find_slot_with_hash (current_info->references, vr1, vr1->hashcode,
 				   INSERT);
-  gcc_assert (!*slot);
+
+  /* Because we lookup stores using vuses, and value number failures
+     using the vdefs (see visit_reference_op_store for how and why),
+     it's possible that on failure we may try to insert an already
+     inserted store.  We have no ssa name to name a store by, so it's
+     not like we could do anything interesting here anyway.  It's not
+     harmful or wrong, it just is the way things work.  */
+
+  /*  gcc_assert (!*slot); */
 
   *slot = vr1;
 }
@@ -575,7 +577,7 @@ vn_unary_op_insert (tree op, tree result)
   vuo1->type = TREE_TYPE (op);
   vuo1->op0 = TREE_OPERAND (op, 0);
   vuo1->result = result;
-  
+
   if (TREE_CODE (vuo1->op0) == SSA_NAME)
     vuo1->op0 = SSA_VAL (vuo1->op0);
 
@@ -722,7 +724,7 @@ vn_phi_eq (const void *p1, const void *p2)
     {
       int i;
       tree phi1op;
-      
+
       /* Any phi in the same block will have it's arguments in the
 	 same edge order, because of how we store phi nodes.  */
       for (i = 0; VEC_iterate (tree, vp1->phiargs, i, phi1op); i++)
@@ -821,7 +823,7 @@ static inline bool
 set_ssa_val_to (tree from, tree to)
 {
   gcc_assert (to != NULL);
-  
+
   /* Make sure we don't create chains of copies, so that we get the
   best value numbering.  visit_copy has code to make sure this doesn't
   happen, we are doing this here to assert that nothing else breaks
@@ -972,19 +974,81 @@ static bool
 visit_reference_op_store (tree lhs, tree op, tree stmt)
 {
   bool changed = false;
-  tree result = vn_reference_lookup (lhs, shared_vdefs_from_stmt (stmt));
+  tree result;
+  bool resultsame = false;
 
-  if (!result)
+  /* First we want to lookup using the *vuses* from the store and see
+     if there the last store to this location with the same address
+     had the same value.
+
+     The vuses represent the memory state before the store.  If the
+     memory state, address, and value of the store is the same as the
+     last store to this location, then this store will produce the
+     same memory state as that store.
+
+     In this case the vdefs for this store are
+     value numbered to those vuses, since they represent the same
+     memory state.
+
+     Otherwise, the vdefs for the store are used when inserting into
+     the table, since the store generates a new memory state.  */
+
+  result = vn_reference_lookup (lhs, shared_vuses_from_stmt (stmt));
+
+  if (result)
     {
+      if (TREE_CODE (result) == SSA_NAME)
+	result = SSA_VAL (result);
+      resultsame = expressions_equal_p (result, op);
+    }
+
+  if (!result || !resultsame)
+    {
+      VEC(tree, heap) *vdefs = copy_vdefs_from_stmt (stmt);
+      int i;
+      tree vdef;
+
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
+	  fprintf (dump_file, "No store match\n");
 	  fprintf (dump_file, "Value numbering store ");
 	  print_generic_expr (dump_file, lhs, 0);
 	  fprintf (dump_file, " to ");
 	  print_generic_expr (dump_file, op, 0);
 	  fprintf (dump_file, "\n");
 	}
-      vn_reference_insert (lhs, op, copy_vdefs_from_stmt (stmt));
+      /* Have to set value numbers before insert, since insert is
+	 going to valueize the references in-place.  */
+      for (i = 0; VEC_iterate (tree, vdefs, i, vdef); i++)
+	changed |= set_ssa_val_to (vdef, vdef);
+      vn_reference_insert (lhs, op, vdefs);
+    }
+  else
+    {
+      /* We had a match, so value number the vdefs to have the value
+	 number of the vuses they came from.  */
+      ssa_op_iter op_iter;
+      def_operand_p var;
+      vuse_vec_p vv;
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Store matched earlier value,"
+		 "value numbering store vdefs to matching vuses.\n");
+
+      FOR_EACH_SSA_VDEF_OPERAND (var, vv, stmt, op_iter)
+	{
+	  tree def = DEF_FROM_PTR (var);
+	  tree use;
+
+	  /* Uh, if the vuse is a multiuse, we can't really do much
+	     here, sadly.  */
+	  if (VUSE_VECT_NUM_ELEM (*vv) != 1)
+	    use = def;
+	  else
+	    use = VUSE_ELEMENT_VAR (*vv, 0);
+
+	  changed |= set_ssa_val_to (def, SSA_VAL (use));
+	}
     }
 
   return changed;
@@ -1084,7 +1148,7 @@ simplify_binary_expression (tree rhs)
   tree oldop1 = op1;
   bool op0isval = false;
   bool op1isval = false;
-  
+
   /* This will not catch every single case we could combine, but will
      catch those with constants.  The goal here is to simultaneously
      combine constants between expressions, but avoid infinite
@@ -1099,7 +1163,7 @@ simplify_binary_expression (tree rhs)
 	  op0isval = true;
 	}
     }
-  
+
   if (TREE_CODE (op1) == SSA_NAME)
     {
       if (VN_INFO (op1)->has_constants)
@@ -1111,7 +1175,7 @@ simplify_binary_expression (tree rhs)
 	}
     }
   result = fold_binary (TREE_CODE (rhs), TREE_TYPE (rhs), op0, op1);
-  
+
   /* Make sure result is not a complex expression consiting
      of operators of operators (IE (a + b) + (a + c))
      Otherwise, we will end up with unbounded expressions if
@@ -1213,7 +1277,7 @@ visit_use (tree use)
   bool changed = false;
   tree stmt = SSA_NAME_DEF_STMT (use);
   stmt_ann_t ann;
-  
+
   gcc_assert (!SSA_NAME_IN_FREE_LIST (use));
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1228,19 +1292,17 @@ visit_use (tree use)
     stmt = TREE_OPERAND (stmt, 0);
 
   ann = stmt_ann (stmt);
-  
+
   /* Handle uninitialized uses.  */
   if (IS_EMPTY_STMT (stmt))
     {
-      if (is_gimple_reg (use))
-	changed = set_ssa_val_to (use, use);
+      changed = set_ssa_val_to (use, use);
     }
   else
     {
       if (TREE_CODE (stmt) == PHI_NODE)
 	{
-	  if (is_gimple_reg (PHI_RESULT (stmt)))
-	    changed = visit_phi (stmt);
+	  changed = visit_phi (stmt);
 	}
       else if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
 	       || (ann && ann->has_volatile_ops))
@@ -1252,11 +1314,11 @@ visit_use (tree use)
 	  tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
 	  tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 	  tree simplified;
-	  
+
 	  STRIP_USELESS_TYPE_CONVERSION (rhs);
 
 	  simplified = try_to_simplify (stmt, rhs);
-	    
+
 	  /* Setting value numbers to constants will screw up phi
 	     congruence because constants are not uniquely
 	     associated with a single ssa name that can be looked up.
@@ -1286,7 +1348,7 @@ visit_use (tree use)
 	  else if (simplified)
 	    {
 	      tree oldrhs = rhs;
-	      
+
 	      if (TREE_CODE (lhs) == SSA_NAME)
 		{
 		  VN_INFO (lhs)->has_constants = expr_has_constants (simplified);
@@ -1321,7 +1383,7 @@ visit_use (tree use)
 	      VN_INFO (lhs)->has_constants = false;
 	      VN_INFO (lhs)->expr = lhs;
 	    }
-	  
+
 	  if (TREE_CODE (lhs) == SSA_NAME
 	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
 	    changed = defs_to_varying (stmt);
@@ -1454,20 +1516,9 @@ process_scc (VEC (tree, heap) *scc)
 	fprintf (dump_file, "Processing SCC required %d iterations\n",
 		 iterations);
 
-      /* Finally, visit the SCC once using the valid table.  We also
-	 have to reset the value of the expr's and the has_constants,
-	 or else it will retain the optimistic expression and value,
-	 which is wrong for the valid world.  */
+      /* Finally, visit the SCC once using the valid table.  */
       current_info = valid_info;
-#if 0
-      for (i = 0; VEC_iterate (tree, scc, i, var); i++)	 
- 	{
- 	  vn_ssa_aux_t vninfo = VN_INFO (var);
- 	  vninfo->expr = var; 
- 	  vninfo->has_constants = 0;
-	} 
-#endif
-      for (i = 0; VEC_iterate (tree, scc, i, var); i++)	
+      for (i = 0; VEC_iterate (tree, scc, i, var); i++)
 	visit_use (var);
     }
 }
@@ -1495,9 +1546,7 @@ DFS (tree name)
 
 
   /* Recursively DFS on our operands, looking for SCC's.  */
-  if (!IS_EMPTY_STMT (defstmt)
-      && (TREE_CODE (defstmt) != PHI_NODE
-	  || is_gimple_reg (PHI_RESULT (defstmt))))
+  if (!IS_EMPTY_STMT (defstmt))
     {
       FOR_EACH_PHI_OR_STMT_USE (usep, SSA_NAME_DEF_STMT (name), iter,
 				SSA_OP_ALL_USES)
@@ -1679,7 +1728,7 @@ free_scc_vn (void)
   for (i = 0; i < num_ssa_names; i++)
     {
       tree name = ssa_name (i);
-      if (name && is_gimple_reg (name))
+      if (name)
 	XDELETE (VN_INFO (name));
     }
   VEC_free (vn_ssa_aux_t, heap, vn_ssa_aux_table);
@@ -1692,7 +1741,7 @@ free_scc_vn (void)
 
 void
 run_scc_vn (void)
-{  
+{
   size_t i;
   tree param;
 
@@ -1713,7 +1762,7 @@ run_scc_vn (void)
   for (i = 0; i < num_ssa_names; i++)
     {
       tree name = ssa_name (i);
-      if (name && is_gimple_reg (name)
+      if (name
 	  && VN_INFO (name)->visited == false
 	  && !has_zero_uses (name))
 	DFS (name);
@@ -1725,8 +1774,7 @@ run_scc_vn (void)
       for (i = 0; i < num_ssa_names; i++)
 	{
 	  tree name = ssa_name (i);
-	  if (name && is_gimple_reg (name)
-	      && VN_INFO (name)->visited
+	  if (name && VN_INFO (name)->visited
 	      && (SSA_VAL (name) != name
 		  || is_gimple_min_invariant (VN_INFO (name)->expr)))
 	    {
@@ -1741,5 +1789,3 @@ run_scc_vn (void)
 	}
     }
 }
-
-
