@@ -86,6 +86,17 @@ Boston, MA 02110-1301, USA.  */
    theory, we could also track expressions whose value numbers are
    replaced, in case we end up folding based on expression identities,
    but this is generally a waste of time.
+
+   TODO: 
+
+   1. We can iterate only the changing portions of the SCC's, but
+   I have not seen an SCC big enough for this to be a win.  
+
+   2. In some cases, we can prevent having to process every ssa name a
+   multi-vop statement produces.  This requires noting which uses have
+   been processed, and for ssa names not involved in cycles, only
+   allowing the processed name to be visited once.
+
 */
 
 
@@ -137,7 +148,6 @@ typedef struct vn_reference_op_struct
   tree op0;
   tree op1;
   tree op2;
-  tree op3;
 } vn_reference_op_s;
 typedef vn_reference_op_s *vn_reference_op_t;
 
@@ -201,9 +211,7 @@ vn_reference_op_eq (const void *p1, const void *p2)
     && vro1->type == vro2->type
     && expressions_equal_p (vro1->op0, vro2->op0)
     && expressions_equal_p (vro1->op1, vro2->op1)
-    && expressions_equal_p (vro1->op2, vro2->op2)
-    && expressions_equal_p (vro1->op3, vro2->op3);
-;
+    && expressions_equal_p (vro1->op2, vro2->op2);
 }
 
 static hashval_t
@@ -211,8 +219,7 @@ vn_reference_op_compute_hash (const vn_reference_op_t vro1)
 {
   return iterative_hash_expr (vro1->op0, vro1->opcode)
     + iterative_hash_expr (vro1->op1, vro1->opcode)
-    + iterative_hash_expr (vro1->op2, vro1->opcode)
-    + iterative_hash_expr (vro1->op3, vro1->opcode);
+    + iterative_hash_expr (vro1->op2, vro1->opcode);
 }
 
 static hashval_t
@@ -499,7 +506,7 @@ vn_reference_insert (tree op, tree result, VEC(tree, heap) *vuses)
   vr1->vuses = valueize_vuses (vuses);
   vr1->operands = valueize_refs (create_reference_ops_from_ref (op));
   vr1->hashcode = vn_reference_compute_hash (vr1);
-  vr1->result = result;
+  vr1->result = TREE_CODE (result) == SSA_NAME ? SSA_VAL (result) : result;
 
   slot = htab_find_slot_with_hash (current_info->references, vr1, vr1->hashcode,
 				   INSERT);
@@ -694,7 +701,6 @@ vn_phi_compute_hash (vn_phi_t vp1)
   tree phi1op;
 
   result = vp1->block->index;
-#if 1
 
   for (i = 0; VEC_iterate (tree, vp1->phiargs, i, phi1op); i++)
     {
@@ -702,7 +708,7 @@ vn_phi_compute_hash (vn_phi_t vp1)
 	continue;
       result += iterative_hash_expr (phi1op, result);
     }
-#endif
+
   return result;
 }
 
@@ -881,6 +887,8 @@ defs_to_varying (tree stmt)
   FOR_EACH_SSA_DEF_OPERAND (defp, stmt, iter, SSA_OP_ALL_DEFS)
     {
       tree def = DEF_FROM_PTR (defp);
+
+      VN_INFO (def)->use_processed = true;
       changed |= set_ssa_val_to (def, def);
     }
   return changed;
@@ -1020,7 +1028,11 @@ visit_reference_op_store (tree lhs, tree op, tree stmt)
       /* Have to set value numbers before insert, since insert is
 	 going to valueize the references in-place.  */
       for (i = 0; VEC_iterate (tree, vdefs, i, vdef); i++)
-	changed |= set_ssa_val_to (vdef, vdef);
+	{
+	  VN_INFO (vdef)->use_processed = true;
+	  changed |= set_ssa_val_to (vdef, vdef);
+	}
+      
       vn_reference_insert (lhs, op, vdefs);
     }
   else
@@ -1046,7 +1058,8 @@ visit_reference_op_store (tree lhs, tree op, tree stmt)
 	    use = def;
 	  else
 	    use = VUSE_ELEMENT_VAR (*vv, 0);
-
+	  
+	  VN_INFO (def)->use_processed = true;
 	  changed |= set_ssa_val_to (def, SSA_VAL (use));
 	}
     }
@@ -1116,6 +1129,7 @@ visit_phi (tree phi)
 }
 
 /* Return true if EXPR contains constants.  */
+
 static bool
 expr_has_constants (tree expr)
 {
@@ -1136,8 +1150,36 @@ expr_has_constants (tree expr)
   return false;
 }
 
+/* Replace SSA_NAMES in expr with their value numbers, and return the
+   result.
+   This is performed in place. */
+static tree
+valueize_expr (tree expr)
+{
+  switch (TREE_CODE_CLASS (TREE_CODE (expr))) 
+    {
+    case tcc_unary:
+      if (TREE_CODE (TREE_OPERAND (expr, 0)) == SSA_NAME
+	  && SSA_VAL (TREE_OPERAND (expr, 0)) != VN_TOP)
+	TREE_OPERAND (expr, 0) = SSA_VAL (TREE_OPERAND (expr, 0));
+      break;
+    case tcc_binary:
+      if (TREE_CODE (TREE_OPERAND (expr, 0)) == SSA_NAME
+	  && SSA_VAL (TREE_OPERAND (expr, 0)) != VN_TOP)
+	TREE_OPERAND (expr, 0) = SSA_VAL (TREE_OPERAND (expr, 0));
+      if (TREE_CODE (TREE_OPERAND (expr, 1)) == SSA_NAME
+	  && SSA_VAL (TREE_OPERAND (expr, 1)) != VN_TOP)
+	TREE_OPERAND (expr, 1) = SSA_VAL (TREE_OPERAND (expr, 1));
+      break;
+    default:
+      break;
+    }
+  return expr;
+}
+
 /* Simplify the binary expression RHS, and return the result if
    simplified. */
+
 static tree
 simplify_binary_expression (tree rhs)
 {
@@ -1156,7 +1198,7 @@ simplify_binary_expression (tree rhs)
   if (TREE_CODE (op0) == SSA_NAME)
     {
       if (VN_INFO (op0)->has_constants)
-	op0 = VN_INFO (op0)->expr;
+	op0 = valueize_expr (VN_INFO (op0)->expr);
       else if (SSA_VAL (op0) != VN_TOP && SSA_VAL (op0) != op0)
 	{
 	  op0 = VN_INFO (op0)->valnum;
@@ -1167,7 +1209,7 @@ simplify_binary_expression (tree rhs)
   if (TREE_CODE (op1) == SSA_NAME)
     {
       if (VN_INFO (op1)->has_constants)
-	op1 = VN_INFO (op1)->expr;
+	op1 = valueize_expr (VN_INFO (op1)->expr);
       else if (SSA_VAL (op1) != VN_TOP && SSA_VAL (op1) != op1)
 	{
 	  op1 = VN_INFO (op1)->valnum;
@@ -1210,7 +1252,7 @@ simplify_binary_expression (tree rhs)
 	    }
 	}
     }
-  else if ((op0isval && oldop0 != op0) || (oldop1 != op1 && op1isval))
+  else if (0 && ((op0isval && oldop0 != op0) || (oldop1 != op1 && op1isval)))
     {
       /* This will canonicalize to a value expression.  */
       return fold_build2 (TREE_CODE (rhs), TREE_TYPE (rhs), op0, op1);
@@ -1235,6 +1277,9 @@ try_to_simplify (tree stmt, tree rhs)
     {
       switch (TREE_CODE_CLASS (TREE_CODE (rhs)))
 	{
+	  /* For references, see if we find a result for the lookup,
+	     and use it if we do.  */
+
 	case tcc_reference:
 	  {
 	    tree result = vn_reference_lookup (rhs,
@@ -1250,10 +1295,15 @@ try_to_simplify (tree stmt, tree rhs)
 	    tree result = NULL_TREE;
 	    tree op0 = TREE_OPERAND (rhs, 0);
 	    if (TREE_CODE (op0) == SSA_NAME && VN_INFO (op0)->has_constants)
-	      result = fold_unary (TREE_CODE (rhs), TREE_TYPE (rhs),
-				   VN_INFO (op0)->expr);
-	    if (result && is_gimple_min_invariant (result))
-	      return result;
+	      op0 = VN_INFO (op0)->expr;
+	    else if (TREE_CODE (op0) == SSA_NAME && SSA_VAL (op0) != op0)
+	      op0 = SSA_VAL (op0);
+	    result = fold_unary (TREE_CODE (rhs), TREE_TYPE (rhs), op0);
+	    if (result)
+	      {
+		STRIP_USELESS_TYPE_CONVERSION (result);
+		return result;
+	      }
 	  }
 	  break;
 	case tcc_binary:
@@ -1278,12 +1328,15 @@ visit_use (tree use)
   tree stmt = SSA_NAME_DEF_STMT (use);
   stmt_ann_t ann;
 
+  VN_INFO (use)->use_processed = true;
+  
   gcc_assert (!SSA_NAME_IN_FREE_LIST (use));
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Value numbering ");
       print_generic_expr (dump_file, use, 0);
-      fprintf (dump_file, "\n");
+      fprintf (dump_file, " stmt = ");
+      print_generic_stmt (dump_file, stmt, 0);
     }
 
   /* RETURN_EXPR may have an embedded MODIFY_STMT.  */
@@ -1327,15 +1380,21 @@ visit_use (tree use)
 	      && TREE_CODE (lhs) == SSA_NAME
 	      && simplified != rhs)
 	    {
-	      VN_INFO (lhs)->expr = simplified;
+	      VN_INFO (lhs)->expr = unshare_expr (simplified);
 	      VN_INFO (lhs)->has_constants = true;
 	      changed = set_ssa_val_to (lhs, simplified);
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
-		  print_generic_expr (dump_file, lhs, 0);
-		  fprintf (dump_file, " simplified to value ");
+		  fprintf (dump_file, "RHS ");
+		  print_generic_expr (dump_file, rhs, 0);
+		  fprintf (dump_file, " simplified to ");
 		  print_generic_expr (dump_file, simplified, 0);
-		  fprintf (dump_file, "\n");
+		  if (TREE_CODE (lhs) == SSA_NAME)
+		    fprintf (dump_file, " has constants %d\n",
+			     VN_INFO (lhs)->has_constants);
+		  else
+		    fprintf (dump_file, "\n");
+
 		}
 	      goto done;
 	    }
@@ -1352,7 +1411,7 @@ visit_use (tree use)
 	      if (TREE_CODE (lhs) == SSA_NAME)
 		{
 		  VN_INFO (lhs)->has_constants = expr_has_constants (simplified);
-		  VN_INFO (lhs)->expr = simplified;
+		  VN_INFO (lhs)->expr = unshare_expr (simplified);
 		}
 	      rhs = simplified;
 	      if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1372,7 +1431,7 @@ visit_use (tree use)
 	  else if (expr_has_constants (rhs) && TREE_CODE (lhs) == SSA_NAME)
 	    {
 	      VN_INFO (lhs)->has_constants = true;
-	      VN_INFO (lhs)->expr = rhs;
+	      VN_INFO (lhs)->expr = unshare_expr (rhs);
 	    }
 	  else if (TREE_CODE (lhs) == SSA_NAME)
 	    {
@@ -1491,8 +1550,10 @@ process_scc (VEC (tree, heap) *scc)
   /* If the SCC has a single member, just visit it.  */
 
   if (VEC_length (tree, scc) == 1)
-    {
-      visit_use (VEC_index (tree, scc, 0));
+    {      
+      tree use = VEC_index (tree, scc, 0);
+      if (!VN_INFO (use)->use_processed)
+	visit_use (use);
     }
   else
     {
@@ -1544,7 +1605,6 @@ DFS (tree name)
   VN_INFO (name)->on_sccstack = true;
   defstmt = SSA_NAME_DEF_STMT (name);
 
-
   /* Recursively DFS on our operands, looking for SCC's.  */
   if (!IS_EMPTY_STMT (defstmt))
     {
@@ -1553,6 +1613,8 @@ DFS (tree name)
 	{
 	  tree use = USE_FROM_PTR (usep);
 
+	  /* Since we handle phi nodes, we will sometimes get
+	     invariants in the use expression.  */
 	  if (TREE_CODE (use) != SSA_NAME)
 	    continue;
 
@@ -1577,7 +1639,8 @@ DFS (tree name)
       VEC (tree, heap) *scc = NULL;
       tree x;
 
-      /* Found an SCC, pop it off the SCC stack and process it.  */
+      /* Found an SCC, pop the components off the SCC stack and
+	 process them.  */
       do
 	{
 	  x = VEC_pop (tree, sccstack);
@@ -1588,8 +1651,10 @@ DFS (tree name)
 
       if (VEC_length (tree, scc) > 1)
 	sort_scc (scc);
+
       if (dump_file && (dump_flags & TDF_DETAILS))
 	print_scc (dump_file, scc);
+
       process_scc (scc);
 
       VEC_free (tree, heap, scc);
@@ -1757,7 +1822,7 @@ run_scc_vn (void)
 	}
     }
 
-  for (i = 0; i < num_ssa_names; i++)
+  for (i = num_ssa_names - 1; i > 0; i--)
     {
       tree name = ssa_name (i);
       if (name

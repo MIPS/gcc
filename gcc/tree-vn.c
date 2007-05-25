@@ -55,12 +55,9 @@ typedef struct val_expr_pair_d
   hashval_t hashcode;
 } *val_expr_pair_t;
 
-static void set_value_handle (tree e, tree v);
-
-
 /* Create and return a new value handle node of type TYPE.  */
 
-static tree
+tree
 make_value_handle (tree type)
 {
   static unsigned int id = 0;
@@ -175,7 +172,7 @@ val_expr_pair_expr_eq (const void *p1, const void *p2)
 
 /* Set the value handle for expression E to value V.  */
    
-static void
+void
 set_value_handle (tree e, tree v)
 {
   if (TREE_CODE (e) == SSA_NAME)

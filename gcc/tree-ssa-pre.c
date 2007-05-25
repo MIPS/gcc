@@ -2905,6 +2905,8 @@ add_to_sets (tree var, tree expr, tree stmt, bitmap_set_t s1,
 {
   tree val = vn_lookup_or_add (expr, stmt);
 
+  gcc_assert (!get_value_handle (var) || var == expr);
+  
   /* VAR and EXPR may be the same when processing statements for which
      we are not computing value numbers (e.g., non-assignments, or
      statements that make aliased stores).  In those cases, we are
@@ -3014,7 +3016,8 @@ create_value_expr_from (tree expr, basic_block block, tree stmt)
 	/* Create a value handle for OP and add it to VEXPR.  */
 	val = vn_lookup_or_add (op, NULL);
 
-      if (!is_undefined_value (op) && TREE_CODE (op) != TREE_LIST)
+      if (!is_undefined_value (op) && TREE_CODE (op) != TREE_LIST
+	  && !in_fre)
 	bitmap_value_insert_into_set (EXP_GEN (block), op);
 
       if (TREE_CODE (val) == VALUE_HANDLE)
@@ -3203,52 +3206,54 @@ realify_fake_stores (void)
     }
 }
 
-/* Tree-combine a value number expression *EXPR_P that does a type
-   conversion with the value number expression of its operand.
-   Returns true, if *EXPR_P simplifies to a value number or
-   gimple min-invariant expression different from EXPR_P and
-   sets *EXPR_P to the simplified expression value number.
-   Otherwise returns false and does not change *EXPR_P.  */
+/* Given an SSA_NAME, see if SCCVN has a value number for it, and if
+   so, return the value handle for this value number, creating it if
+   necessary.
+   Return NULL if SCCVN has no info for us.  */
 
-static bool
-try_combine_conversion (tree *expr_p)
+static tree
+get_sccvn_value (tree name)
 {
-  tree expr = *expr_p;
-  tree t;
-  bitmap_set_t exprset;
-  unsigned int firstbit;
-
-  if (!((TREE_CODE (expr) == NOP_EXPR
-	 || TREE_CODE (expr) == CONVERT_EXPR
-	 || TREE_CODE (expr) == REALPART_EXPR
-	 || TREE_CODE (expr) == IMAGPART_EXPR)
-	&& TREE_CODE (TREE_OPERAND (expr, 0)) == VALUE_HANDLE
-	&& !VALUE_HANDLE_VUSES (TREE_OPERAND (expr, 0))))
-    return false;
-
-  exprset = VALUE_HANDLE_EXPR_SET (TREE_OPERAND (expr, 0));
-  firstbit = bitmap_first_set_bit (exprset->expressions);
-  t = fold_unary (TREE_CODE (expr), TREE_TYPE (expr),
-		  expression_for_id (firstbit));
-  if (!t)
-    return false;
-
-  /* Strip useless type conversions, which is safe in the optimizers but
-     not generally in fold.  */
-  STRIP_USELESS_TYPE_CONVERSION (t);
-
-  /* Disallow value expressions we have no value number for already, as
-     we would miss a leader for it here.  */
-  if (!(TREE_CODE (t) == VALUE_HANDLE
-	|| is_gimple_min_invariant (t)))
-    t = vn_lookup (t, NULL);
-
-  if (t && t != expr)
+  if (TREE_CODE (name) == SSA_NAME
+      && VN_INFO (name)->valnum != name
+      && VN_INFO (name)->valnum != VN_TOP)
     {
-      *expr_p = t;
-      return true;
+      tree val = VN_INFO (name)->valnum;
+      bool is_invariant = is_gimple_min_invariant (val);
+      tree valvh = !is_invariant ? get_value_handle (val) : NULL_TREE;
+
+      /* We may end up with situations where SCCVN has chosen a
+	 representative for the equivalence set that we have not
+	 visited yet.  In this case, just create the value handle for
+	 it.  */
+      if (!valvh && !is_invariant)
+	{
+	  gcc_assert (VN_INFO (val)->valnum == val);
+	  valvh = vn_lookup_or_add (val, NULL);
+	}
+      
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "SCCVN says ");
+	  print_generic_expr (dump_file, name, 0);
+	  fprintf (dump_file, " value numbers to ");
+	  if (valvh && !is_invariant)
+	    {
+	      print_generic_expr (dump_file, val, 0);
+	      fprintf (dump_file, " (");
+	      print_generic_expr (dump_file, valvh, 0);
+	      fprintf (dump_file, ")\n");
+	    }
+	  else
+	    print_generic_stmt (dump_file, val, 0);  
+	}
+
+      if (!is_invariant)
+	return valvh;
+      else
+	return val;
     }
-  return false;
+  return NULL_TREE;
 }
 
 /* Create value handles for PHI in BLOCK.  */
@@ -3261,21 +3266,16 @@ make_values_for_phi (tree phi, basic_block block)
      actual computations.  */
   if (is_gimple_reg (result))
     {
-      tree val = result;
-      tree sccvnval = VN_INFO (result)->valnum;
-      if (is_gimple_min_invariant (sccvnval))
+      tree sccvnval = get_sccvn_value (result);
+      if (sccvnval)
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "SCCVN says ");
-	      print_generic_expr (dump_file, result, 0);
-	      fprintf (dump_file, "value numbers to ");
-	      print_generic_stmt (dump_file, sccvnval, 0);
-	    }
-	  val = sccvnval;
+	  vn_add (result, sccvnval);
+	  bitmap_insert_into_set (PHI_GEN (block), result);
+	  bitmap_value_insert_into_set (AVAIL_OUT (block), result);
 	}
-      add_to_sets (PHI_RESULT (phi), val, NULL,
-		   PHI_GEN (block), AVAIL_OUT (block));
+      else
+	add_to_sets (result, result, NULL,
+		     PHI_GEN (block), AVAIL_OUT (block));
     }
 }
 
@@ -3289,45 +3289,17 @@ make_values_for_stmt (tree stmt, basic_block block)
 
   tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
   tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
-  tree val = NULL_TREE;
-  bool is_invariant = false;
   tree valvh = NULL_TREE;
 
-  if (TREE_CODE (lhs) == SSA_NAME
-      && VN_INFO (lhs)->valnum != lhs)    
+  valvh = get_sccvn_value (lhs);
+  if (valvh)
     {
-      val = VN_INFO (lhs)->valnum;
-      is_invariant = is_gimple_min_invariant (val);
-      valvh = !is_invariant ? get_value_handle (val) : NULL_TREE;
-    }
-  
-
-  if (valvh || is_invariant)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "SCCVN says ");
-	  print_generic_expr (dump_file, lhs, 0);
-	  fprintf (dump_file, " value numbers to ");
-	  if (valvh && !is_invariant)
-	    {
-	      print_generic_expr (dump_file, val, 0);
-	      fprintf (dump_file, " (");
-	      print_generic_expr (dump_file, valvh, 0);
-	      fprintf (dump_file, ")\n");
-	    }
-	  else
-	    print_generic_stmt (dump_file, val, 0);  
-	}
-      if (valvh && !is_invariant)
-	vn_add (lhs, valvh);
-      else
-	vn_add (lhs, val);
+      vn_add (lhs, valvh);
     
       if (!in_fre)
 	{
-	  bitmap_value_insert_into_set (EXP_GEN (block), val);
-	  bitmap_value_insert_into_set (maximal_set, val);
+	  bitmap_value_insert_into_set (EXP_GEN (block), lhs);
+	  bitmap_value_insert_into_set (maximal_set, lhs);
 	  bitmap_insert_into_set (TMP_GEN (block), lhs);
 	}
       bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);
@@ -3344,29 +3316,34 @@ make_values_for_stmt (tree stmt, basic_block block)
       tree newt = create_value_expr_from (rhs, block, stmt);
       if (newt)
 	{
-	  /* If we can combine a conversion expression
-	     with the expression for its operand just
-	     record the value number for it.  */
-	  if (try_combine_conversion (&newt))
-	    vn_add (lhs, newt);
+	  tree lhsval = get_value_handle (lhs);
+	  /* If we already have a value number for the LHS, reuse
+	     it rather than creating a new one.  */
+	  if (lhsval)
+	    {
+	      set_value_handle (newt, lhsval);
+	      if (!is_gimple_min_invariant (lhsval))
+		add_to_value (lhsval, newt);
+	    }
 	  else
 	    {
 	      tree val = vn_lookup_or_add (newt, stmt);
 	      vn_add (lhs, val);
-	      if (!in_fre)
-		{
-		  bitmap_value_insert_into_set (maximal_set, newt);
-		  bitmap_value_insert_into_set (EXP_GEN (block),
-						newt);
-		}
-
 	    }
 	  
 	  if (!in_fre)
-	    bitmap_insert_into_set (TMP_GEN (block), lhs);
-	  bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);
-	  return true;
+	    {
+	      bitmap_value_insert_into_set (maximal_set, newt);
+	      bitmap_value_insert_into_set (EXP_GEN (block),
+					    newt);
+	    }
+	  
 	}
+      
+      if (!in_fre)
+	bitmap_insert_into_set (TMP_GEN (block), lhs);
+      bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);
+      return true;
     }
   else if ((TREE_CODE (rhs) == SSA_NAME
 	    && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs))
@@ -3519,7 +3496,8 @@ compute_avail (void)
 		    }
 
 		  if (TREE_CODE (rhs) == SSA_NAME
-		      && !is_undefined_value (rhs))
+		      && !is_undefined_value (rhs)
+		      && !in_fre)
 		    bitmap_value_insert_into_set (EXP_GEN (block), rhs);
 
 		  FOR_EACH_SSA_TREE_OPERAND (op, realstmt, iter, SSA_OP_DEF)

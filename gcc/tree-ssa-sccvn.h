@@ -33,14 +33,17 @@ typedef struct vn_ssa_aux
   unsigned int low;
   bool on_sccstack;
 
-  /* Value number.
-     Note: This should always be an SSA_NAME or VN_TOP.
-     Constants are not allowed.*/
+  /* Value number. This may be an SSA name or a constant.  */
   tree valnum;
   /* Representative expression, if not a direct constant. */
   tree expr;
   /* Whether the representative expression contains constants.  */
   bool has_constants;
+  /* Whether the SSA_NAME has been value numbered already.  This is
+     only saying whether visit_use has been called on it at least
+     once.  It cannot be used to avoid visitation for SSA_NAME's
+     involved in non-singleton SCC's.  */
+  bool use_processed;
 } *vn_ssa_aux_t;
 
 /* Return the value numbering info for an SSA_NAME.  */
