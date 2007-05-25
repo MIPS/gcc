@@ -6323,8 +6323,8 @@ mips_save_reg_p (unsigned int regno)
     needed for the case when MIN_FPRS_PER_FMT == 1, which allows the odd
     register to be used without the even register.  */
  if (FP_REG_P (regno)
-     && MAX_FPRS_PER_FMT == 2 
-     && regs_ever_live[regno + 1]
+     && MAX_FPRS_PER_FMT == 2
+     && df_regs_ever_live_p (regno + 1)
      && !call_used_regs[regno + 1])
    return true;
 
@@ -7220,9 +7220,13 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   /* Pick a global pointer.  Use a call-clobbered register if
      TARGET_CALL_SAVED_GP, so that we can use a sibcall.  */
   if (TARGET_USE_GOT)
-    cfun->machine->global_pointer
-      = REGNO (pic_offset_table_rtx)
-      = TARGET_CALL_SAVED_GP ? 15 : GLOBAL_POINTER_REGNUM;
+    {
+      cfun->machine->global_pointer =
+	TARGET_CALL_SAVED_GP ? 15 : GLOBAL_POINTER_REGNUM;
+
+      SET_REGNO (pic_offset_table_rtx, cfun->machine->global_pointer);
+
+    }
 
   /* Set up the global pointer for n32 or n64 abicalls.  */
   mips_emit_loadgp ();

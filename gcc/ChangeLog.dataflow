@@ -1,3 +1,8 @@
+2007-05-24  Eric Christopher  <echristo@gmail.com>
+
+	* config/mips/mips.c (mips_save_reg_p): Use df_regs_ever_live_p.
+	(mips_output_mi_thunk): Use SET_REGNO.
+
 2007-05-23  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* config/sh/sh.c (sh_expand_prologue): Fix typo.
