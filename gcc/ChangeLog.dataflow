@@ -1,3 +1,10 @@
+2007-05-25  Ian Lance Taylor  <iant@google.com>
+
+	* reload1.c (mark_home_live_1): New static function, broken out of
+	mark_home_live.
+	(mark_home_live): Call mark_home_live_1.
+	(scan_paradoxical_subregs): Call mark_home_live_1.
+
 2007-05-24  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* config/spu/spu.md (smulsi3_highpart): Unshare the rtl chain.

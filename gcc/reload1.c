@@ -2141,20 +2141,30 @@ alter_reg (int i, int from_reg)
     }
 }
 
-/* Mark the slots in regs_ever_live for the hard regs
-   used by pseudo-reg number REGNO.  */
+/* Mark the slots in regs_ever_live for the hard regs used by
+   pseudo-reg number REGNO, accessed in MODE.  */
 
-void
-mark_home_live (int regno)
+static void
+mark_home_live_1 (int regno, enum machine_mode mode)
 {
   int i, lim;
 
   i = reg_renumber[regno];
   if (i < 0)
     return;
-  lim = i + hard_regno_nregs[i][PSEUDO_REGNO_MODE (regno)];
+  lim = i + hard_regno_nregs[i][mode];
   while (i < lim)
     df_set_regs_ever_live(i++, true);
+}
+
+/* Mark the slots in regs_ever_live for the hard regs
+   used by pseudo-reg number REGNO.  */
+
+void
+mark_home_live (int regno)
+{
+  if (reg_renumber[regno] >= 0)
+    mark_home_live_1 (regno, PSEUDO_REGNO_MODE (regno));
 }
 
 /* This function handles the tracking of elimination offsets around branches.
@@ -3905,8 +3915,11 @@ scan_paradoxical_subregs (rtx x)
       if (REG_P (SUBREG_REG (x))
 	  && (GET_MODE_SIZE (GET_MODE (x))
 	      > reg_max_ref_width[REGNO (SUBREG_REG (x))]))
-	reg_max_ref_width[REGNO (SUBREG_REG (x))]
-	  = GET_MODE_SIZE (GET_MODE (x));
+	{
+	  reg_max_ref_width[REGNO (SUBREG_REG (x))]
+	    = GET_MODE_SIZE (GET_MODE (x));
+	  mark_home_live_1 (REGNO (SUBREG_REG (x)), GET_MODE (x));
+	}
       return;
 
     default:
