@@ -7217,7 +7217,7 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	}
       if ((int) i <= (int) RID_LAST_MODIFIER)
 	{
-	  /* "long", "short", "signed", "unsigned" or "_Complex".  */
+	  /* "long", "short", "signed", "unsigned", "_Complex" or "_Sat".  */
 	  bool dupe = false;
 	  switch (i)
 	    {
@@ -7431,7 +7431,8 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	}
       else
 	{
-	  /* "void", "_Bool", "char", "int", "float" or "double".  */
+	  /* "void", "_Bool", "char", "int", "float", "double", "_Fract"
+	     or "_Accum".  */
 	  if (specs->typespec_word != cts_none)
 	    {
 	      error ("two or more data types in declaration specifiers");
@@ -7777,6 +7778,8 @@ finish_declspecs (struct c_declspecs *specs)
      "_Complex short" is equivalent to "_Complex short int".  */
   if (specs->typespec_word == cts_none)
     {
+      if (specs->saturating_p)
+	error ("%<_Sat%> is used without %<_Fract%> or %<_Accum%>");
       if (specs->long_p || specs->short_p
 	  || specs->signed_p || specs->unsigned_p)
 	{

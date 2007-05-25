@@ -1,3 +1,10 @@
+2007-05-25  Chao-ying Fu  <fu@mips.com>
+
+	* c-decl.c (declspecs_add_type): Update comments to include
+	_Sat, _Fract, and _Accum.
+	(finish_declspecs): Give errors when _Sat is used without _Fract
+	or _Accum.
+
 2007-05-23  Sandra Loosemore  <sandra@codesourcery.com>
 	    Nigel Stephens  <nigel@mips.com>
 	    Richard Sandiford  <richard@codesourcery.com>
