@@ -202,3 +202,102 @@ _Complex _Accum *k283; /* { dg-error "error" "_Complex _Accum" } */
 _Accum _Complex *k286; /* { dg-error "error" "_Accum _Complex" } */
 unsigned _Accum *k289;
 signed _Accum *k292;
+
+void _Sat *s0;  /* { dg-error "error" "void _Sat" } */
+char _Sat *s3;  /* { dg-error "error" "char _Sat" } */
+short _Sat *s6; /* { dg-error "error" "short _Sat" } */
+int _Sat *s9;   /* { dg-error "error" "int _Sat" } */
+long _Sat *s12;   /* { dg-error "error" "long _Sat" } */
+float _Sat *s15;   /* { dg-error "error" "float _Sat" } */
+double _Sat *s18;   /* { dg-error "error" "double _Sat" } */
+signed _Sat *s21;   /* { dg-error "error" "signed _Sat" } */
+_Bool _Sat *s24;   /* { dg-error "error" "_Bool _Sat" } */
+int _Sat *s27;   /* { dg-error "error" "int _Sat" } */
+type _Sat *s30;   /* { dg-error "error" "type _Sat" } */
+char signed _Sat *s33;  /* { dg-error "error" "char signed _Sat" } */
+char unsigned _Sat *s36; /* { dg-error "error" "char unsigned _Sat" } */
+short _Sat *s39;  /* { dg-error "error" "short _Sat" } */
+short signed _Sat *s42;  /* { dg-error "error" "short signed _Sat" } */
+short unsigned _Sat *s45;  /* { dg-error "error" "short unsigned _Sat" } */
+_Sat short*s48;  /* { dg-error "error" "_Sat short" } */
+_Sat short signed*s51;  /* { dg-error "error" "_Sat short signed" } */
+_Sat short unsigned*s54;  /* { dg-error "error" "_Sat short unsigned" } */
+_Sat long*s57;  /* { dg-error "error" "_Sat long" } */
+_Sat long signed*s60;  /* { dg-error "error" "_Sat long signed" } */
+_Sat long unsigned*s63;  /* { dg-error "error" "_Sat long unsigned" } */
+_Sat signed long*s66;  /* { dg-error "error" "_Sat signed long" } */
+_Sat signed short*s69;  /* { dg-error "error" "_Sat signed short" } */
+int signed _Sat *s72;  /* { dg-error "error" "int signed _Sat" } */
+int unsigned _Sat *s75;  /* { dg-error "error" "int unsigned _Sat" } */
+long int _Sat *s78;  /* { dg-error "error" "long int _Sat" } */
+long long _Sat *s81;  /* { dg-error "error" "long long _Sat" } */
+long double _Sat *s84;  /* { dg-error "error" "long double _Sat" } */
+long signed _Sat *s87;  /* { dg-error "error" "long signed _Sat" } */
+long unsigned _Sat *s90;  /* { dg-error "error" "long unsigned _Sat" } */
+double long _Sat *s93;  /* { dg-error "error" "double long _Sat" } */
+signed char _Sat *s96;   /* { dg-error "error" "signed char _Sat" } */
+signed short _Sat *s99;   /* { dg-error "error" "signed short _Sat" } */
+signed int _Sat *s102;  /* { dg-error "error" "signed int _Sat" } */
+signed long _Sat *s105; /* { dg-error "error" "signed long _Sat" } */
+unsigned char _Sat *s108; /* { dg-error "error" "unsigned char _Sat" } */
+unsigned short _Sat *s111; /* { dg-error "error" "unsigned short _Sat" } */
+unsigned int _Sat *s114; /* { dg-error "error" "unsigned int _Sat" } */
+unsigned long _Sat *s117; /* { dg-error "error" "unsigned long _Sat" } */
+short int signed _Sat *s120; /* { dg-error "error" "short int signed _Sat" } */
+short int unsigned _Sat *s123; /* { dg-error "error" "short int unsigned _Sat" } */
+short signed int _Sat *s126; /* { dg-error "error" "short signed int _Sat" } */
+short unsigned int _Sat *s129; /* { dg-error "error" "short unsigned int _Sat" } */
+int short signed _Sat *s132; /* { dg-error "error" "int short signed _Sat" } */
+int short unsigned _Sat *s135; /* { dg-error "error" "int short unsigned _Sat" } */
+int long long _Sat *s138; /* { dg-error "error" "int long long _Sat" } */
+int long signed _Sat *s141; /* { dg-error "error" "int long signed _Sat" } */
+int long unsigned _Sat *s144; /* { dg-error "error" "int long unsigned _Sat" } */
+int signed short _Sat *s147; /* { dg-error "error" "int signed short _Sat" } */
+int signed long _Sat *s150; /* { dg-error "error" "int signed long _Sat" } */
+int unsigned short _Sat *s153; /* { dg-error "error" "int unsigned short _Sat" } */
+int unsigned long _Sat *s156; /* { dg-error "error" "int unsigned long _Sat" } */
+long int long _Sat *s159; /* { dg-error "error" "long int long _Sat" } */
+long int signed _Sat *s162; /* { dg-error "error" "long int signed _Sat" } */
+long int unsigned _Sat *s165; /* { dg-error "error" "long int unsigned _Sat" } */
+long long int _Sat *s168; /* { dg-error "error" "long long int _Sat" } */
+long long signed _Sat *s171; /* { dg-error "error" "long long signed _Sat" } */
+long long unsigned _Sat *s175; /* { dg-error "error" "long long unsigned _Sat" } */
+long signed int _Sat *s178; /* { dg-error "error" "long signed int _Sat" } */
+long unsigned int _Sat *s181; /* { dg-error "error" "long unsigned int _Sat" } */
+long unsigned long _Sat *s184; /* { dg-error "error" "long unsigned long _Sat" } */
+signed short int _Sat *s187; /* { dg-error "error" "signed short int _Sat" } */
+signed int short _Sat *s190; /* { dg-error "error" "signed int short _Sat" } */
+signed int long _Sat *s192; /* { dg-error "error" "signed int long _Sat" } */
+signed long int _Sat *s195; /* { dg-error "error" "signed long int _Sat" } */
+signed long long _Sat *s198; /* { dg-error "error" "signed long long _Sat" } */
+unsigned short int _Sat *s201; /* { dg-error "error" "unsigned short int _Sat" } */
+unsigned int short _Sat *s204; /* { dg-error "error" "unsigned int short _Sat" } */
+unsigned int long _Sat *s207; /* { dg-error "error" "unsigned int long _Sat" } */
+unsigned long int _Sat *s210; /* { dg-error "error" "unsigned long int _Sat" } */
+unsigned long long _Sat *s213; /* { dg-error "error" "unsigned long long _Sat" } */
+int long long signed _Sat *s216; /* { dg-error "error" "int long long signed _Sat" } */
+int long long unsigned _Sat *s219; /* { dg-error "error" "int long long unsigned _Sat" } */
+int long signed long _Sat *s222; /* { dg-error "error" "int long signed long _Sat" } */
+int long unsigned long _Sat *s226; /* { dg-error "error" "int long unsigned long _Sat" } */
+int signed long long _Sat *s229; /* { dg-error "error" "int signed long long _Sat" } */
+int unsigned long long _Sat *s232; /* { dg-error "error" "int unsigned long long _Sat" } */
+long int long signed _Sat *s235; /* { dg-error "error" "long int long signed _Sat" } */
+long int long unsigned _Sat *s238; /* { dg-error "error" "long int long unsigned _Sat" } */
+long int signed long _Sat *s241; /* { dg-error "error" "long int signed long _Sat" } */
+long int unsigned long _Sat *s244; /* { dg-error "error" "long int unsigned long _Sat" } */
+long long int signed _Sat *s247; /* { dg-error "error" "long long int signed _Sat" } */
+long long int unsigned _Sat *s250; /* { dg-error "error" "long long int unsigned _Sat" } */
+long long signed int _Sat *s253; /* { dg-error "error" "long long signed int _Sat" } */
+long long unsigned int _Sat *s256; /* { dg-error "error" "long long unsigned int _Sat" } */
+long signed int long _Sat *s259; /* { dg-error "error" "long signed int long _Sat" } */
+long signed long int _Sat *s262; /* { dg-error "error" "long signed long int _Sat" } */
+long unsigned int long _Sat *s265; /* { dg-error "error" "long unsigned int long _Sat" } */
+long unsigned long int _Sat *s268; /* { dg-error "error" "long unsigned long int _Sat" } */
+signed long long int _Sat *s271; /* { dg-error "error" "signed long long int _Sat" } */
+unsigned int long long _Sat *s274; /* { dg-error "error" "unsigned int long long _Sat" } */
+unsigned long int long _Sat *s277; /* { dg-error "error" "unsigned long int long _Sat" } */
+unsigned long long int _Sat *s280; /* { dg-error "error" "unsigned long long int _Sat" } */
+_Complex _Sat *s283; /* { dg-error "error" "_Complex _Sat" } */
+_Sat _Complex *s286; /* { dg-error "error" "_Sat _Complex" } */
+unsigned _Sat *s289; /* { dg-error "error" "unsigned _Sat" } */
+signed _Sat *s292; /* { dg-error "error" "signed _Sat" } */

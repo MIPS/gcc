@@ -1,3 +1,7 @@
+2007-05-25  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.dg/fixed-point/typespec.c: Add tests for _Sat.
+
 2007-05-24  Chao-ying Fu  <fu@mips.com>
 
 	* gcc.dg/fixed-point/constant.c: Add constants for _Fract.
@@ -7,9 +11,8 @@
 	* gcc.dg/fixed-point/keywords-c99.c,
 	* gcc.dg/fixed-point/keywords-ignored-c99.c,
 	* gcc.dg/fixed-point/keywords-pedantic.c,
-	* gcc.dg/fixed-point keywords-reserved.c
+	* gcc.dg/fixed-point keywords-reserved.c,
 	* gcc.dg/fixed-point/modes.c, gcc.dg/fixed-point/typespec.c: New tests.
-
 
 2007-05-23  Simon Martin  <simartin@users.sourceforge.net>
 
