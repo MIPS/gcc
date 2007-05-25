@@ -1,3 +1,8 @@
+2007-05-24  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/spu/spu.md (smulsi3_highpart): Unshare the rtl chain.
+	(umulsi3_highpart): Likewise.
+
 2007-05-24  Eric Christopher  <echristo@gmail.com>
 
 	* config/mips/mips.c (mips_save_reg_p): Use df_regs_ever_live_p.
