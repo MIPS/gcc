@@ -3950,6 +3950,7 @@ emit_note_before (enum insn_note subtype, rtx before)
   INSN_UID (note) = cur_insn_uid++;
   NOTE_KIND (note) = subtype;
   BLOCK_FOR_INSN (note) = NULL;
+  memset (&NOTE_DATA (note), 0, sizeof (NOTE_DATA (note)));
 
   add_insn_before (note, before);
   return note;
@@ -4147,6 +4148,7 @@ emit_note_after (enum insn_note subtype, rtx after)
   INSN_UID (note) = cur_insn_uid++;
   NOTE_KIND (note) = subtype;
   BLOCK_FOR_INSN (note) = NULL;
+  memset (&NOTE_DATA (note), 0, sizeof (NOTE_DATA (note)));
   add_insn_after (note, after);
   return note;
 }

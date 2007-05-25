@@ -1,3 +1,226 @@
+2007-05-25  Dirk Mueller  <dmueller@suse.de>
+	    Marcus Meissner <meissner@suse.de>
+
+	* doc/extend.texi (alloc_size): New attribute.
+	* c-common.c (handle_alloc_size_attribute): New.
+	* tree-object-size.c (alloc_object_size): Use alloc_size
+	attribute, if available.
+
+2007-05-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (__builtin_ia32_vec_ext_v2df): Mark it
+	with MASK_SSE2.
+	(__builtin_ia32_vec_ext_v2di): Likewise.
+	(__builtin_ia32_vec_ext_v4si): Likewise.
+	(__builtin_ia32_vec_ext_v8hi): Likewise.
+	(__builtin_ia32_vec_ext_v16qi): Likewise.
+	(__builtin_ia32_vec_set_v8hi): Likewise.
+
+2007-05-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*vec_extractv2di_1_sse2): Correct shift.
+
+2007-05-25  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/arm/arm-protos.h (arm_encode_call_attribute): Delete.
+	(arm_is_longcall_p): Rename to...
+	(arm_is_long_call_p): ...this.  Take a single tree argument and
+	return a bool.
+	* config/arm/arm.h (CALL_SHORT, CALL_LONG, CALL_NORMAL): Delete.
+	(CUMULATIVE_ARGS): Remove call_cookie.
+	(SHORT_CALL_FLAG_CHAR, LONG_CALL_FLAG_CHAR, ENCODED_SHORT_CALL_ATTR_P)
+	(ENCODED_LONG_CALL_ATTR_P): Delete.
+	(ARM_NAME_ENCODING_LENGTHS): Remove SHORT_CALL_FLAG_CHAR and
+	LONG_CALL_FLAG_CHAR cases.
+	(ARM_DECLARE_FUNCTION_SIZE): Delete.
+	* config/arm/elf.h (ASM_DECLARE_FUNCTION_SIZE): Don't use
+	ARM_DECLARE_FUNCTION_SIZE.
+	* config/arm/arm.c (arm_init_cumulative_args): Don't set call_cookie.
+	(arm_function_arg): Return const0_rtx for VOIDmode arguments.
+	(arm_encode_call_attribute, current_file_function_operand): Delete.
+	(arm_function_in_section_p): New function.
+	(arm_is_longcall_p): Rename to...
+	(arm_is_long_call_p): ...this.  Take the target function as a single
+	argument and return a bool.  Do not rely on call cookies.  Check
+	whether the target symbol is in the same section as the current
+	function, not just the same compilation unit.
+	(arm_function_ok_for_sibcall): Use arm_is_long_call_p.
+	(arm_encode_section_info): Don't encode a call type.
+	* config/arm/arm.md (call, call_value): Update calls to
+	arm_is_long(_)call_p.  Simplify logic.
+	(*call_symbol, *call_value_symbol, *call_insn, *call_value_insn):
+	Update calls to arm_is_long(_)call_p.
+
+2007-05-25  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31982
+	* tree-ssa-forwprop.c
+	(forward_propagate_addr_into_variable_array_index): Handle arrays
+	with element size one.
+
+2007-05-24  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/spu/spu.md (smulsi3_highpart): Unshare the rtl chain.
+	(umulsi3_highpart): Likewise.
+
+2007-05-24  Ian Lance Taylor  <iant@google.com>
+
+	PR rtl-optimization/32069
+	* regclass.c (regclass): Don't crash if the entry in regno_reg_rtx
+	is NULL.
+
+2007-05-24  Ollie Wild  <aaw@google.com>
+
+	* doc/cpp.texi (Common Predefined Macros): Add __COUNTER__
+	description.
+
+2007-05-24  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* postreload-gcse.c (reg_changed_after_insn_p): New function.
+	(oprs_unchanged_p): Use it to check all registers in a REG.
+	(record_opr_changes): Look for clobbers in CALL_INSN_FUNCTION_USAGE.
+	(reg_set_between_after_reload_p): Delete.
+	(reg_used_between_after_reload_p): Likewise.
+	(reg_set_or_used_since_bb_start): Likewise.
+	(eliminate_partially_redundant_load): Use reg_changed_after_insn_p
+	and reg_used_between_p instead of reg_set_or_used_since_bb_start.
+	Use reg_set_between_p instead of reg_set_between_after_reload_p.
+	* rtlanal.c (reg_set_p): Check whether REG overlaps
+	regs_invalidated_by_call, rather than just checking the
+	membership of REGNO (REG).
+
+2007-05-24  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* doc/passes.texi: Document predictive commoning.
+	* doc/invoke.texi (-fpredictive-commoning): Document.
+	* opts.c (decode_options): Enable flag_predictive_commoning on -O3.
+	* tree-ssa-loop-im.c (get_lsm_tmp_name): Export.  Allow
+	adding indices to the generated name.
+	(schedule_sm): Pass 0 to get_lsm_tmp_name.
+	* tree-ssa-loop-niter.c (stmt_dominates_stmt_p): Export.
+	* tree-pretty-print.c (op_symbol_1): Renamed to ...
+	(op_symbol_code): ... and exported.
+	(dump_omp_clause, op_symbol): Use op_symbol_code
+	instead of op_symbol_1.
+	* tree-pass.h (pass_predcom): Declare.
+	* timevar.def (TV_PREDCOM): New timevar.
+	* tree-ssa-loop.c (run_tree_predictive_commoning,
+	gate_tree_predictive_commoning, pass_predcom): New.
+	* tree-data-ref.c (find_data_references_in_loop): Find the
+	references in dominance order.
+	(canonicalize_base_object_address): Ensure that the result has
+	pointer type.
+	(dr_analyze_innermost): Export.
+	(create_data_ref): Code to fail for references with invariant
+	address moved ...
+	(find_data_references_in_stmt): ... here.
+	* tree-data-ref.h (dr_analyze_innermost): Declare.
+	* tree-affine.c: Include tree-gimple.h and hashtab.h.
+	(aff_combination_find_elt, name_expansion_hash,
+	name_expansion_eq, tree_to_aff_combination_expand,
+	double_int_constant_multiple_p, aff_combination_constant_multiple_p):
+	New functions.
+	* tree-affine.h (aff_combination_constant_multiple_p,
+	tree_to_aff_combination_expand): Declare.
+	* tree-predcom.c: New file.
+	* common.opt (fpredictive-commoning): New option.
+	* tree-flow.h (op_symbol_code, tree_predictive_commoning,
+	stmt_dominates_stmt_p, get_lsm_tmp_name): Declare.
+	* Makefile.in (tree-predcom.o): Add.
+	(tree-affine.o): Add TREE_GIMPLE_H dependency.
+	* passes.c (init_optimization_passes):  Add dceloop after
+	copy propagation in loop optimizer.  Add predictive commoning
+	to loop optimizer passes.
+
+2007-05-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* target-def.h (TARGET_MANGLE_DECL_ASSEMBLER_NAME): Correct
+	default hook.
+
+2007-05-24  Jan Hubicka  <jh@suse.cz>
+
+	* gengenrtl.c (gendecl, gendef): Output the gens annotated for
+	statistics.
+	(genheader): Include statistics.h.
+
+	* doc/invoke.texi (-fdump-unnumbered): Update docs when line number
+	notes are gone.
+	* print-rtl.c (flag_dump_unnumbered): Update comments.
+	(print_rtl): Fix my previous change.
+	* emit-rtl.c (emit_note_before, emit_note_after): Clear out note
+	specific data.
+
+2007-05-24  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR middle-end/32018
+	* tree-ssa-threadupdate.c (thread_through_loop_header): Use
+	set_loop_copy.
+	(thread_through_all_blocks): Call initialize_original_copy_tables
+	and free_original_copy_tables.
+	* cfgloopmanip.c (duplicate_loop, duplicate_loop_to_header_edge):
+	Use set_loop_copy.
+	* tree-cfg.c (tree_duplicate_sese_region): Ditto.
+	* cfghooks.c (duplicate_block): Use get_loop_copy.
+	* cfg.c: Include cfgloop.h.
+	(loop_copy): New hash table.
+	(initialize_original_copy_tables): Initialize loop_copy table.
+	(free_original_copy_tables): Free loop_copy table.
+	(copy_original_table_clear, copy_original_table_set,
+	set_loop_copy, get_loop_copy): New functions.
+	(set_bb_original, set_bb_copy): Use copy_original_table_set.
+	* cfgloop.h (struct loop): Remove copy field.
+	* Makefile.in (cfg.o): Add CFGLOOP_H dependency.
+	* basic-block.h (set_loop_copy, get_loop_copy): Declare.
+
+2007-05-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_handle_option): Handle SSE4.1 for
+	-msse/-msse2/-msse3.
+
+2007-05-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_init_mmx_sse_builtins): Mark
+	__builtin_ia32_vec_set_v2di with MASK_64BIT.
+
+2007-05-24  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR target/27067
+	* doc/tm.texi (TARGET_MANGLE_DECL_ASSEMBLER_NAME): Document.
+	* targhooks.h (default_mangle_decl_assembler_name): Declare
+	default hook.
+	* targhooks.c (default_mangle_decl_assembler_name): Define
+	default hook.
+	* target-def.h (TARGET_MANGLE_DECL_ASSEMBLER_NAME) New. Set to
+	default hook.
+	* target.h (struct gcc_target): Add mangle_decl_assembler_name field.
+	* langhooks.c (lhd_set_decl_assembler_name): Call
+	targetm.mangle_decl_assembler_name for names with global scope.
+
+	* config/i386/cygming.h (TARGET_MANGLE_DECL_ASSEMBLER_NAME) Override
+	default.
+	(ASM_OUTPUT_DEF_FROM_DECLS): Simplify to use DECL_ASSEMBLER_NAME.
+	* config/i386/i386-protos.h (i386_pe_mangle_decl_assembler_name):
+	Declare.
+	* config/i386/winnt.c (i386_pe_maybe_mangle_decl_assembler_name):
+	New. Factored out of i386_pe_encode_section_info.
+	(gen_stdcall_or_fastcall_suffix): Get name identifier as argument.
+	Move check for prior decoration of stdcall
+	symbols to i386_pe_encode_section_info.
+	(i386_pe_encode_section_info): Adjust call to
+	gen_stdcall_or_fastcall_suffix.  Use
+	i386_pe_maybe_mangle_decl_assembler_name, if needed.
+	(i386_pe_mangle_decl_assembler_name): New. Wrap
+	i386_pe_maybe_mangle_decl_assembler_name.
+
+2007-05-16  Rafael Avila de Espindola  <espindola@google.com>
+
+	* c-common.c (c_common_signed_or_unsigned_type): Delay the check for
+	INTEGRAL_TYPE_P and TYPE_UNSIGNED.
+	* langhooks.c (get_signed_or_unsigned_type): Don't check for
+	INTEGRAL_TYPE_P or TYPE_UNSIGNED.
+	(lhd_signed_or_unsigned_type): Check for INTEGRAL_TYPE_P and
+	TYPE_UNSIGNED.
+
 2007-05-25  Chao-ying Fu  <fu@mips.com>
 
 	* c-decl.c (declspecs_add_type): Update comments to include
@@ -128,12 +351,14 @@
 2007-05-23  Chen Liqin  <liqin@sunnorth.com.cn>
 
 	PR target/30987
-	* config/score/misc.md (bitclr_c, bitset_c, bittgl_c): remove.
-	* config/score/predicate.md (const_pow2, const_npow2): remove.
-	* config/score/score.h (ASM_OUTPUT_EXTERNAL): add ASM_OUTPUT_EXTERNAL undef.
+	* config/score/misc.md (bitclr_c, bitset_c, bittgl_c): Remove.
+	* config/score/predicate.md (const_pow2, const_npow2): Remove.
+	* config/score/score.h (ASM_OUTPUT_EXTERNAL): Add ASM_OUTPUT_EXTERNAL
+	undef.
+
 	PR target/30474
-	* config/score/score.c (score_print_operand): makes sure that only lower 
-        bits are used.
+	* config/score/score.c (score_print_operand): Make sure that only
+	lower bits are used.
 	
 2007-05-22  Ian Lance Taylor  <iant@google.com>
 
@@ -460,20 +685,19 @@
 	Add loopno argument.  Use evolution_function_is_invariant_rec_p
 	instead of evolution_function_is_constant_p.
 	Update calls to evolution_function_is_affine_multivariate_p.
-	* tree-chrec.h  (evolution_function_is_affine_multivariate_p):
+	* tree-chrec.h (evolution_function_is_affine_multivariate_p):
 	Add loopno argument.
 	* tree-scalar-evolution.c (gather_chrec_stats): Call
-	evolution_function_is_affine_multivariate_p with a  loop
+	evolution_function_is_affine_multivariate_p with a loop
 	number of 0.
 	* tree-data-ref.c (analyze_miv_subscript): Likewise.
 	(analyze_overlapping_iterations): Likewise.
-	(access_functions_are_affine_or_constant_p):
-	Likewise.
+	(access_functions_are_affine_or_constant_p): Likewise.
 	(build_classic_dist_vector_1): If the access functions
 	are equal, don't do anything.
 
 2007-05-21  Paolo Bonzini  <bonzini@gnu.org>
-            Paolo Carlini  <pcarlini@suse.de>
+	    Paolo Carlini  <pcarlini@suse.de>
 	    Uros Bizjak  <ubizjak@gmail.com>
 
 	* c-cppbuiltin.c (c_cpp_builtins): Define
@@ -484,7 +708,7 @@
 
 2007-05-21  Mike Stump  <mrs@apple.com>
 
-	* config/darwin.h (LINK_COMMAND_SPEC): Add .cxx for dsymutil
+	* config/darwin.h (LINK_COMMAND_SPEC): Add .cxx/.cp for dsymutil
 	handling as well.
 	* config/darwin9.h (LINK_COMMAND_SPEC): Likewise.
 
@@ -582,7 +806,7 @@
 	NOTE_INSN_BASIC_BLOCK_P when possible.
 	* ifcvt.c (dead_or_predicable): Remove call of squeeze_notes.
 	* dwarf2out.c (gen_label_die): Use NOTE_KIND instead of
-        NOTE_LINE_NUMBER; use NOTE_INSN_BASIC_BLOCK_P when possible.
+	NOTE_LINE_NUMBER; use NOTE_INSN_BASIC_BLOCK_P when possible.
 	(dwarf2out_var_location): Likewise.
 	* cfgbuild.c (make_edges): Likewise.
 	(find_basic_blocks_1): Likewise.

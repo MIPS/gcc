@@ -1,3 +1,105 @@
+2007-05-25  Dirk Mueller  <dmueller@suse.de>
+	    Marcus Meissner <meissner@suse.de>
+
+	* testsuite/gcc.dg/attr-alloc_size.c: New.
+
+2007-05-25  Simon Martin  <simartin@users.sourceforge.net>
+	    Lee Millward  <lee.millward@gmail.com>
+
+	PR c++/31745
+	* g++.dg/parse/crash34.C: New test.
+
+	* g++.dg/parse/crash35.C: New test.
+
+2007-05-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/sse2-check.h: New.
+	* gcc.target/i386/sse2-vec-1.c: Likewise.
+	* gcc.target/i386/sse2-vec-2.c: Likewise.
+	* gcc.target/i386/sse2-vec-3.c: Likewise.
+	* gcc.target/i386/sse2-vec-4.c: Likewise.
+	* gcc.target/i386/sse2-vec-5.c: Likewise.
+	* gcc.target/i386/sse2-vec-6.c: Likewise.
+
+2007-05-25  Douglas Gregor <doug.gregor@gmail.com>
+
+	PR c++/31431
+	PR c++/31432
+	PR c++/31434
+	PR c++/31435
+	PR c++/31437
+	PR c++/31438
+	PR c++/31442
+	PR c++/31443
+	PR c++/31444
+	PR c++/31445
+	* g++.dg/cpp0x/pr31431.C: New.
+	* g++.dg/cpp0x/pr31437.C: New.
+	* g++.dg/cpp0x/pr31442.C: New.
+	* g++.dg/cpp0x/pr31444.C: New.
+	* g++.dg/cpp0x/pr31431-2.C: New.
+	* g++.dg/cpp0x/pr31432.C: New.
+	* g++.dg/cpp0x/pr31434.C: New.
+	* g++.dg/cpp0x/pr31438.C: New.
+	* g++.dg/cpp0x/pr31443.C: New.
+	* g++.dg/cpp0x/pr31445.C: New.
+	* g++.dg/cpp0x/variadic-crash1.C: New.
+
+2007-05-25  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.target/arm/long-calls-1.c: New test.
+	* gcc.target/arm/long-calls-2.c: Likewise.
+	* gcc.target/arm/long-calls-3.c: Likewise.
+	* gcc.target/arm/long-calls-4.c: Likewise.
+
+2007-05-25  Richard Guenther  <rguenther@suse.de>
+	Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-optimization/31982
+	* gcc.dg/tree-ssa/forwprop-2.c: New testcase.
+
+2007-05-25  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32047
+	* gfortran.dg/result_in_spec_2.f90: New test.
+
+2007-05-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-math-4.c: Fix dg-xfail-if.
+
+2007-05-24  Ollie Wild  <aaw@google.com>
+
+	* gcc.dg/cpp/counter-1.c: New test.
+	* gcc.dg/pch/counter-1.c: New test.
+	* gcc.dg/pch/counter-1.hs: New file.
+	* gcc.dg/pch/counter-2.c: New test.
+	* gcc.dg/pch/counter-2.hs: New file.
+	* gcc.dg/pch/counter-3.c: New test.
+	* gcc.dg/pch/counter-3.hs: New file.
+
+2007-05-24  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/predcom-1.c: New test.
+	* gcc.dg/tree-ssa/predcom-2.c: New test.
+	* gcc.dg/tree-ssa/predcom-3.c: New test.
+	* gcc.dg/tree-ssa/predcom-4.c: New test.
+	* gcc.dg/tree-ssa/predcom-5.c: New test.
+	* gcc.dg/vect/dump-tree-dceloop-pr26359.c: Test dceloop2 dumps.
+
+2007-05-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/32062
+	* gcc.target/i386/sse4_1-check.h (MASK): New.
+
+2007-05-24 Francois-Xavier Coudert <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32038
+	* gfortran.dg/pr25603.f: Initialize integer variables.
+
+2007-05-23  Ian Lance Taylor  <iant@google.com>
+
+	* g++.dg/other/vrp1.C: New test.
+
 2007-05-25  Chao-ying Fu  <fu@mips.com>
 
 	* gcc.dg/fixed-point/typespec.c: Add tests for _Sat.
@@ -299,7 +401,7 @@
 	* gcc.dg/vect/vect-102a.c: New test.
 
 2007-05-21  Paolo Bonzini  <bonzini@gnu.org>
-            Paolo Carlini  <pcarlini@suse.de>
+	    Paolo Carlini  <pcarlini@suse.de>
 	    Uros Bizjak  <ubizjak@gmail.com>
 
 	* gcc.dg/gcc-have-sync-compare-and-swap.c,

@@ -556,6 +556,7 @@ static tree handle_cleanup_attribute (tree *, tree, tree, int, bool *);
 static tree handle_warn_unused_result_attribute (tree *, tree, tree, int,
 						 bool *);
 static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
+static tree handle_alloc_size_attribute (tree *, tree, tree, int, bool *);
 
 static void check_function_nonnull (tree, int, tree *);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
@@ -650,6 +651,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_warn_unused_result_attribute },
   { "sentinel",               0, 1, false, true, true,
 			      handle_sentinel_attribute },
+  { "alloc_size",	      1, 2, false, true, true,
+			      handle_alloc_size_attribute },
   { "cold",                   0, 0, true,  false, false,
 			      handle_cold_attribute },
   { "hot",                    0, 0, true,  false, false,
@@ -2200,9 +2203,6 @@ tree
 c_common_signed_or_unsigned_type (int unsignedp, tree type)
 {
   tree type1;
-  if (!INTEGRAL_TYPE_P (type)
-      || TYPE_UNSIGNED (type) == unsignedp)
-    return type;
 
   /* This block of code emulates the behavior of the old
      c_common_unsigned_type. In particular, it returns
@@ -2244,6 +2244,10 @@ c_common_signed_or_unsigned_type (int unsignedp, tree type)
      bit-field types.  C++ does not have these separate bit-field
      types, and producing a signed or unsigned variant of an
      ENUMERAL_TYPE may cause other problems as well.  */
+
+  if (!INTEGRAL_TYPE_P (type)
+      || TYPE_UNSIGNED (type) == unsignedp)
+    return type;
 
 #define TYPE_OK(node)							    \
   (TYPE_MODE (type) == TYPE_MODE (node)					    \
@@ -5795,6 +5799,37 @@ handle_malloc_attribute (tree *node, tree name, tree ARG_UNUSED (args),
       *no_add_attrs = true;
     }
 
+  return NULL_TREE;
+}
+
+/* Handle a "alloc_size" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_alloc_size_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+			     int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree params = TYPE_ARG_TYPES (*node);
+  unsigned arg_count = 0;
+
+  for (; TREE_CHAIN (params); params = TREE_CHAIN (params))
+    arg_count ++;
+
+  for (; args; args = TREE_CHAIN (args))
+    {
+      tree position = TREE_VALUE (args);
+
+      if (TREE_CODE (position) != INTEGER_CST
+	  || TREE_INT_CST_HIGH (position) 
+	  || TREE_INT_CST_LOW (position) < 1
+	  || TREE_INT_CST_LOW (position) > arg_count )
+	{
+	  warning (OPT_Wattributes, 
+	           "alloc_size parameter outside range");
+	  *no_add_attrs = true;
+	  return NULL_TREE;
+	}
+    }
   return NULL_TREE;
 }
 
