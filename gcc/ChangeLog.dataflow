@@ -1,3 +1,13 @@
+2007-05-27  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* dse.c (insn_info.stack_read, group_info.frame_related): New
+	variable.
+	(get_group_info): Initialize frame_related.
+	(scan_insn, scan_reads_nospill): Remove frame_related stores from
+	consideration for const functions.
+	(step1, step2_init, step3_exit_block_scan): Use frame_related field.
+	(step3_scan, step5_nospill): Change parameters to scan_reads_nospill.
+	
 2007-05-25  Ian Lance Taylor  <iant@google.com>
 
 	* reload1.c (mark_home_live_1): New static function, broken out of

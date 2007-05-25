@@ -284,6 +284,13 @@ struct insn_info {
      contains a wild read, the use_rec will be null.  */
   bool wild_read;
 
+  /* This field is set for const function calls.  Const functions
+     cannot read memory, but they can read the stack because that is
+     where they may get their parms.  So having this set is less
+     severe than a wild read, it just means that all of the stores to
+     the stack are killed rather than all stores.  */
+  bool stack_read;
+
   /* This is true if any of the sets within the store contains a
      cselib base.  Such stores can only be deleted by the local
      algorithm.  */
@@ -419,6 +426,10 @@ struct group_info {
   /* True if there are any positions that are to be processed
      globally.  */
   bool process_globally;
+
+  /* True if the base of this group is either the frame_pointer or
+     hard_frame_pointer.  */
+  bool frame_related;
 
   /* The offset_map is used to map the offsets from this base into
      postions in the global bitmaps.  It is only created after all of
@@ -628,6 +639,8 @@ get_group_info (rtx base)
       gi->store2_p = BITMAP_ALLOC (NULL);
       gi->group_kill = BITMAP_ALLOC (NULL);
       gi->process_globally = false;
+      gi->frame_related = 
+	(base == frame_pointer_rtx) || (base == hard_frame_pointer_rtx);
       gi->offset_map_size_n = 0;
       gi->offset_map_size_p = 0;
       gi->offset_map_n = NULL;
@@ -1776,12 +1789,44 @@ scan_insn (bb_info_t bb_info, rtx insn)
   if (CALL_P (insn))
     {
       insn_info->cannot_delete = true;
-      /* Const functions cannot do anything bad i.e. read memory, so
-	 they are just noise with respect to this analysis.  */
+      /* Const functions cannot do anything bad i.e. read memory,
+	 however, they can read their parameters which may have been
+	 pushed onto the stack.  */
       if (CONST_OR_PURE_CALL_P (insn) && !pure_call_p (insn))
 	{
+	  insn_info_t i_ptr = active_local_stores;
+	  insn_info_t last = NULL;
+
 	  if (dump_file)
 	    fprintf (dump_file, "const call %d\n", INSN_UID (insn));
+
+	  while (i_ptr)
+	    {
+	      store_info_t store_info = i_ptr->store_rec;
+
+	      /* Skip the clobbers.  */
+	      while (!store_info->is_set)
+		store_info = store_info->next;
+
+	      /* Remove the frame related stores.  */
+	      if (store_info->group_id >= 0
+		  && VEC_index (group_info_t, rtx_group_vec, store_info->group_id)->frame_related)
+		{
+		  if (dump_file)
+		    dump_insn_info ("removing from active", i_ptr);
+		  
+		  if (last)
+		    last->next_local_store = i_ptr->next_local_store;
+		  else
+		    active_local_stores = i_ptr->next_local_store;
+		}
+	      else
+		last = i_ptr;
+	      i_ptr = i_ptr->next_local_store;
+	    }
+
+	  insn_info->stack_read = true;
+	  
 	  return;
 	}
 
@@ -1947,8 +1992,7 @@ step1 (void)
 		      {
 			group_info_t group 
 			  = VEC_index (group_info_t, rtx_group_vec, store_info->group_id);
-			if ((group->rtx_base == frame_pointer_rtx)
-			    || (group->rtx_base == hard_frame_pointer_rtx))
+			if (group->frame_related)
 			  delete_dead_store_insn (i_ptr);
 		      }
 
@@ -2019,9 +2063,7 @@ step2_init (void)
 	 This has the effect of making the eligible even if there is
 	 only one store.   */
 
-      if (stores_off_frame_dead_at_return
-	  && ((group->rtx_base == frame_pointer_rtx)
-	      || (group->rtx_base == hard_frame_pointer_rtx)))
+      if (stores_off_frame_dead_at_return && group->frame_related)
 	{
 	  bitmap_ior_into (group->store2_n, group->store1_n);
 	  bitmap_ior_into (group->store2_p, group->store1_p);
@@ -2296,13 +2338,26 @@ scan_stores_spill (store_info_t store_info, bitmap gen, bitmap kill)
    may be NULL.  */
 
 static void
-scan_reads_nospill (read_info_t read_info, bitmap gen, bitmap kill)
+scan_reads_nospill (insn_info_t insn_info, bitmap gen, bitmap kill)
 {
+  read_info_t read_info = insn_info->read_rec;
+  int i;
+  group_info_t group;
+
+  /* For const function calls kill the stack related stores.  */
+  if (insn_info->stack_read)
+    {
+      for (i = 0; VEC_iterate (group_info_t, rtx_group_vec, i, group); i++)
+	if (group->process_globally && group->frame_related)
+	  {
+	    if (kill)
+	      bitmap_ior_into (kill, group->group_kill);
+	    bitmap_and_compl_into (gen, group->group_kill); 
+	  }
+    }
+
   while (read_info)
     {
-      int i;
-      group_info_t group;
-      
       for (i = 0; VEC_iterate (group_info_t, rtx_group_vec, i, group); i++)
 	{
 	  if (group->process_globally)
@@ -2460,7 +2515,7 @@ step3_scan (bool for_spills, basic_block bb)
 	  else
 	    {
 	      scan_stores_nospill (insn_info->store_rec, bb_info->gen, bb_info->kill);
-	      scan_reads_nospill (insn_info->read_rec, bb_info->gen, bb_info->kill);
+	      scan_reads_nospill (insn_info, bb_info->gen, bb_info->kill);
 	    }
 	}	  
 
@@ -2485,9 +2540,7 @@ step3_exit_block_scan (bb_info_t bb_info)
       
       for (i = 0; VEC_iterate (group_info_t, rtx_group_vec, i, group); i++)
 	{
-	  if (group->process_globally
-	      && ((group->rtx_base == frame_pointer_rtx)
-		  || (group->rtx_base == hard_frame_pointer_rtx)))
+	  if (group->process_globally && group->frame_related)
 	    bitmap_ior_into (bb_info->gen, group->group_kill);
 	}
     }
@@ -2906,7 +2959,7 @@ step5_nospill (void)
 		{
 		  if (dump_file)
 		    fprintf (dump_file, "regular read\n");
-		  scan_reads_nospill (insn_info->read_rec, v, NULL);
+		  scan_reads_nospill (insn_info, v, NULL);
 		}
 	    }
 	      
