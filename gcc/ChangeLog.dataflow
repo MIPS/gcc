@@ -1,4 +1,9 @@
-2007-05-27  Kenneth Zadeck <zadeck@naturalbridge.com>
+2007-05-25  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* emit-rtl.c (try_split): Remove unnecessary setting/resetting
+	of the USED flags of TRIAL.
+
+2007-05-25  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* dse.c (insn_info.stack_read, group_info.frame_related): New
 	variable.
