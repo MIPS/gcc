@@ -1,3 +1,8 @@
+2007-05-26  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* bt-load.c: Include recog.h.
+	(move_btr_def): Use validate_replace_rtx instead of replace_rtx.
+
 2007-05-25  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* emit-rtl.c (try_split): Remove unnecessary setting/resetting

@@ -1,5 +1,5 @@
 /* Perform branch target register load optimizations.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm_p.h"
 #include "toplev.h"
 #include "tree-pass.h"
+#include "recog.h"
 #include "df.h"
 
 /* Target register optimizations - these are performed after reload.  */
@@ -1231,7 +1232,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
 	replacement_rtx = btr_rtx;
       else
 	replacement_rtx = gen_rtx_REG (GET_MODE (user->use), btr);
-      replace_rtx (user->insn, user->use, replacement_rtx);
+      validate_replace_rtx (user->insn, user->use, replacement_rtx);
       user->use = replacement_rtx;
     }
 }
