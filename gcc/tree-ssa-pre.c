@@ -2041,7 +2041,9 @@ compute_antic_safe (void)
 	      if (!maybe)
 		continue;
 	      stmt = SSA_NAME_DEF_STMT (maybe);
-
+	      if (TREE_CODE (stmt) == PHI_NODE)
+		continue;
+	      
 	      FOR_EACH_SSA_TREE_OPERAND (vuse, stmt, i,
 					 SSA_OP_VIRTUAL_USES)
 		{
@@ -3246,7 +3248,7 @@ get_sccvn_value (tree name)
 	    print_generic_stmt (dump_file, val, 0);  
 	}
 
-      if (!is_invariant)
+      if (valvh)
 	return valvh;
       else
 	return val;
@@ -3288,33 +3290,32 @@ make_values_for_stmt (tree stmt, basic_block block)
   tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
   tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
   tree valvh = NULL_TREE;
-
+  tree lhsval;
+  
   valvh = get_sccvn_value (lhs);
+  /* Shortcut for FRE. We have no need to create value expressions,
+     just want to know what values are available where.  */
   if (valvh)
     {
-      vn_add (lhs, valvh);
-    
-      if (!in_fre)
-	{
-	  bitmap_value_insert_into_set (EXP_GEN (block), lhs);
-	  bitmap_value_insert_into_set (maximal_set, lhs);
-	  bitmap_insert_into_set (TMP_GEN (block), lhs);
-	}
-      bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);
-      
-      return true;
+      vn_add (lhs, valvh);    
+      bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);      
+      if (in_fre)
+	return true;
     }
   else if (in_fre)
     {
+      /* For FRE, if SCCVN didn't find anything, we aren't going to
+	 either, so just make up a new value number.  */
       vn_lookup_or_add (lhs, NULL);
       bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);
       return true;
     }
   
+  lhsval = valvh ? valvh : get_value_handle (lhs);
+
   STRIP_USELESS_TYPE_CONVERSION (rhs);
   if (can_value_number_operation (rhs))
     {
-      tree lhsval = get_value_handle (lhs);
       /* For value numberable operation, create a
 	 duplicate expression with the operands replaced
 	 with the value handles of the original RHS.  */
@@ -3351,15 +3352,28 @@ make_values_for_stmt (tree stmt, basic_block block)
 	   || TREE_INVARIANT (rhs)
 	   || DECL_P (rhs))
     {
-      /* Compute a value number for the RHS of the statement
-	 and add its value to the AVAIL_OUT set for the block.
-	 Add the LHS to TMP_GEN.  */
-      add_to_sets (lhs, rhs, stmt, TMP_GEN (block),
-		   AVAIL_OUT (block));
-
+      
+      if (lhsval)
+	{
+	  set_value_handle (rhs, lhsval);
+	  if (!is_gimple_min_invariant (lhsval))
+	    add_to_value (lhsval, rhs);
+	  bitmap_insert_into_set (TMP_GEN (block), lhs);
+	  bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);
+	  bitmap_value_insert_into_set (maximal_set, lhs);
+	}
+      else
+	{
+	  /* Compute a value number for the RHS of the statement
+	     and add its value to the AVAIL_OUT set for the block.
+	     Add the LHS to TMP_GEN.  */
+	  add_to_sets (lhs, rhs, stmt, TMP_GEN (block),
+		       AVAIL_OUT (block));
+	}
       if (TREE_CODE (rhs) == SSA_NAME
 	  && !is_undefined_value (rhs))
 	bitmap_value_insert_into_set (EXP_GEN (block), rhs);
+      
       return true;
     }
   return false;

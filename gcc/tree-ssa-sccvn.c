@@ -87,10 +87,10 @@ Boston, MA 02110-1301, USA.  */
    replaced, in case we end up folding based on expression identities,
    but this is generally a waste of time.
 
-   TODO: 
+   TODO:
 
    1. We can iterate only the changing portions of the SCC's, but
-   I have not seen an SCC big enough for this to be a win.  
+   I have not seen an SCC big enough for this to be a win.
 
    2. In some cases, we can prevent having to process every ssa name a
    multi-vop statement produces.  This requires noting which uses have
@@ -360,11 +360,44 @@ shared_vuses_from_stmt (tree stmt)
   return shared_lookup_vops;
 }
 
-/* Copy the reference class operations present in REF into RESULT, a vector of
+/* Copy the operations present in load/store/call REF into RESULT, a vector of
    vn_reference_op_s's.  */
 static void
 copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 {
+  if (TREE_CODE (ref) == CALL_EXPR)
+    {
+      vn_reference_op_s temp;
+      tree callfn;
+      call_expr_arg_iterator iter;
+      tree callarg;
+
+      /* Copy the call_expr opcode, type, function being called, and
+	 arguments.  */
+      memset(&temp, 0, sizeof (temp));
+      temp.type = TREE_TYPE (ref);
+      temp.opcode = CALL_EXPR;
+      VEC_safe_push (vn_reference_op_s, heap, *result, &temp);
+
+      callfn = get_callee_fndecl (ref);
+      if (!callfn)
+	callfn = CALL_EXPR_FN (ref);
+      temp.type = TREE_TYPE (callfn);
+      temp.opcode = TREE_CODE (callfn);
+      temp.op0 = callfn;
+      VEC_safe_push (vn_reference_op_s, heap, *result, &temp);
+
+      FOR_EACH_CALL_EXPR_ARG (callarg, iter, ref)
+	{
+	  memset(&temp, 0, sizeof (temp));
+	  temp.type = TREE_TYPE (callarg);
+	  temp.opcode = TREE_CODE (callarg);
+	  temp.op0 = callarg;
+	  VEC_safe_push (vn_reference_op_s, heap, *result, &temp);
+	}
+      return;
+    }
+
   while (ref)
     {
       vn_reference_op_s temp;
@@ -379,14 +412,18 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	     vn_reference_op_s structure.  */
 	  break;
 	case BIT_FIELD_REF:
-	case COMPONENT_REF:
+	  /* Record bits and position.  */
 	  temp.op0 = TREE_OPERAND (ref, 1);
 	  temp.op1 = TREE_OPERAND (ref, 2);
 	  break;
-	case ARRAY_REF:
+	case COMPONENT_REF:
+	  /* Record field as operand.  */
 	  temp.op0 = TREE_OPERAND (ref, 1);
-	  temp.op1 = TREE_OPERAND (ref, 2);
-	  temp.op2 = TREE_OPERAND (ref, 3);
+	  break;
+	case ARRAY_REF:
+	  /* Record index as operand.  */
+	  temp.op0 = TREE_OPERAND (ref, 1);
+	  temp.op1 = TREE_OPERAND (ref, 3);
 	  break;
 	case VAR_DECL:
 	case PARM_DECL:
@@ -448,7 +485,8 @@ valueize_refs (VEC (vn_reference_op_s, heap) *orig)
 
   for (i = 0; VEC_iterate (vn_reference_op_s, orig, i, vro); i++)
     {
-      if (vro->opcode == SSA_NAME)
+      if (vro->opcode == SSA_NAME
+	  || (vro->op0 && TREE_CODE (vro->op0) == SSA_NAME))
 	vro->op0 = SSA_VAL (vro->op0);
     }
 
@@ -481,28 +519,12 @@ vn_reference_lookup (tree op, VEC (tree, heap) *vuses)
 {
   void **slot;
   struct vn_reference_s vr1;
+
   vr1.vuses = valueize_vuses (vuses);
-  if (dump_file)
-    {
-      size_t i;
-      tree vuse;
-      fprintf (dump_file, "lookup for ");
-      print_generic_expr (dump_file, op, 0);
-      fprintf (dump_file, "vuses: ");
-      for (i = 0; VEC_iterate (tree, vr1.vuses, i, vuse); i++)
-	{
-	  print_generic_expr (dump_file, vuse, dump_flags);
-	  if (VEC_length (tree, vuses) - 1 != i)
-	    fprintf (dump_file, ",");
-	}
-      fprintf (dump_file, "\n");
-    }
   vr1.operands = valueize_refs (shared_reference_ops_from_ref (op));
   vr1.hashcode = vn_reference_compute_hash (&vr1);
   slot = htab_find_slot_with_hash (current_info->references, &vr1, vr1.hashcode,
 				   NO_INSERT);
-  if (dump_file)
-    fprintf (dump_file, "%s\n", slot ? "Succeeded" : "Failed");
   if (!slot)
     return NULL_TREE;
 
@@ -1049,7 +1071,7 @@ visit_reference_op_store (tree lhs, tree op, tree stmt)
 	  VN_INFO (vdef)->use_processed = true;
 	  changed |= set_ssa_val_to (vdef, vdef);
 	}
-      
+
       vn_reference_insert (lhs, op, vdefs);
     }
   else
@@ -1075,7 +1097,7 @@ visit_reference_op_store (tree lhs, tree op, tree stmt)
 	    use = def;
 	  else
 	    use = VUSE_ELEMENT_VAR (*vv, 0);
-	  
+
 	  VN_INFO (def)->use_processed = true;
 	  changed |= set_ssa_val_to (def, SSA_VAL (use));
 	}
@@ -1174,7 +1196,7 @@ expr_has_constants (tree expr)
 static tree
 valueize_expr (tree expr)
 {
-  switch (TREE_CODE_CLASS (TREE_CODE (expr))) 
+  switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
     case tcc_unary:
       if (TREE_CODE (TREE_OPERAND (expr, 0)) == SSA_NAME
@@ -1318,10 +1340,7 @@ try_to_simplify (tree stmt, tree rhs)
 	      op0 = SSA_VAL (op0);
 	    result = fold_unary (TREE_CODE (rhs), TREE_TYPE (rhs), op0);
 	    if (result)
-	      {
-		STRIP_USELESS_TYPE_CONVERSION (result);
-		return result;
-	      }
+	      return result;
 	  }
 	  break;
 	case tcc_binary:
@@ -1347,7 +1366,7 @@ visit_use (tree use)
   stmt_ann_t ann;
 
   VN_INFO (use)->use_processed = true;
-  
+
   gcc_assert (!SSA_NAME_IN_FREE_LIST (use));
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1488,6 +1507,14 @@ visit_use (tree use)
 		    case tcc_binary:
 		      changed = visit_binary_op (lhs, rhs);
 		      break;
+		      /* If tcc_vl_expr ever encompasses more than
+			 CALL_EXPR, this will need to be changed.  */
+		    case tcc_vl_exp:
+		      if (call_expr_flags (rhs)  & (ECF_PURE | ECF_CONST))
+			changed = visit_reference_op_load (lhs, rhs, stmt);
+		      else
+			changed = defs_to_varying (stmt);
+		      break;
 		    case tcc_declaration:
 		    case tcc_reference:
 		      changed = visit_reference_op_load (lhs, rhs, stmt);
@@ -1514,6 +1541,7 @@ visit_use (tree use)
 }
 
 /* Compare two operands by reverse postorder index */
+
 static int
 compare_ops (const void *pa, const void *pb)
 {
@@ -1576,7 +1604,7 @@ process_scc (VEC (tree, heap) *scc)
   /* If the SCC has a single member, just visit it.  */
 
   if (VEC_length (tree, scc) == 1)
-    {      
+    {
       tree use = VEC_index (tree, scc, 0);
       if (!VN_INFO (use)->use_processed)
 	visit_use (use);
