@@ -2905,8 +2905,6 @@ add_to_sets (tree var, tree expr, tree stmt, bitmap_set_t s1,
 {
   tree val = vn_lookup_or_add (expr, stmt);
 
-  gcc_assert (!get_value_handle (var) || var == expr);
-  
   /* VAR and EXPR may be the same when processing statements for which
      we are not computing value numbers (e.g., non-assignments, or
      statements that make aliased stores).  In those cases, we are
@@ -3306,17 +3304,23 @@ make_values_for_stmt (tree stmt, basic_block block)
       
       return true;
     }
-
+  else if (in_fre)
+    {
+      vn_lookup_or_add (lhs, NULL);
+      bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);
+      return true;
+    }
+  
   STRIP_USELESS_TYPE_CONVERSION (rhs);
   if (can_value_number_operation (rhs))
     {
+      tree lhsval = get_value_handle (lhs);
       /* For value numberable operation, create a
 	 duplicate expression with the operands replaced
 	 with the value handles of the original RHS.  */
       tree newt = create_value_expr_from (rhs, block, stmt);
       if (newt)
 	{
-	  tree lhsval = get_value_handle (lhs);
 	  /* If we already have a value number for the LHS, reuse
 	     it rather than creating a new one.  */
 	  if (lhsval)
@@ -3331,17 +3335,12 @@ make_values_for_stmt (tree stmt, basic_block block)
 	      vn_add (lhs, val);
 	    }
 	  
-	  if (!in_fre)
-	    {
-	      bitmap_value_insert_into_set (maximal_set, newt);
-	      bitmap_value_insert_into_set (EXP_GEN (block),
-					    newt);
-	    }
-	  
-	}
+	  bitmap_value_insert_into_set (maximal_set, newt);
+	  bitmap_value_insert_into_set (EXP_GEN (block),
+					newt);
+	}      
       
-      if (!in_fre)
-	bitmap_insert_into_set (TMP_GEN (block), lhs);
+      bitmap_insert_into_set (TMP_GEN (block), lhs);
       bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);
       return true;
     }
@@ -3359,8 +3358,7 @@ make_values_for_stmt (tree stmt, basic_block block)
 		   AVAIL_OUT (block));
 
       if (TREE_CODE (rhs) == SSA_NAME
-	  && !is_undefined_value (rhs)
-	  && !in_fre)
+	  && !is_undefined_value (rhs))
 	bitmap_value_insert_into_set (EXP_GEN (block), rhs);
       return true;
     }
@@ -3397,9 +3395,11 @@ compute_avail (void)
 	  tree def = gimple_default_def (cfun, param);
 
 	  vn_lookup_or_add (def, NULL);
-	  bitmap_insert_into_set (TMP_GEN (ENTRY_BLOCK_PTR), def);
 	  if (!in_fre)
-	    bitmap_value_insert_into_set (maximal_set, def);
+	    {
+	      bitmap_insert_into_set (TMP_GEN (ENTRY_BLOCK_PTR), def);
+	      bitmap_value_insert_into_set (maximal_set, def);
+	    }
 	  bitmap_value_insert_into_set (AVAIL_OUT (ENTRY_BLOCK_PTR), def);
 	}
     }
@@ -3413,9 +3413,11 @@ compute_avail (void)
 	  tree def = gimple_default_def (cfun, param);
 
 	  vn_lookup_or_add (def, NULL);
-	  bitmap_insert_into_set (TMP_GEN (ENTRY_BLOCK_PTR), def);
-	  if (!in_fre)
-	    bitmap_value_insert_into_set (maximal_set, def);
+	  if (!in_fre) 
+	    {
+	      bitmap_insert_into_set (TMP_GEN (ENTRY_BLOCK_PTR), def);
+	      bitmap_value_insert_into_set (maximal_set, def);
+	    }
 	  bitmap_value_insert_into_set (AVAIL_OUT (ENTRY_BLOCK_PTR), def);
 	}
     }

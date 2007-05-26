@@ -294,7 +294,7 @@ vn_lookup_with_vuses (tree expr, VEC (tree, gc) *vuses)
   /* Constants are their own value.  */
   if (is_gimple_min_invariant (expr))
     return expr;
-
+  
   vep.e = expr;
   vep.vuses = vuses;
   vep.hashcode = vn_compute (expr, 0);

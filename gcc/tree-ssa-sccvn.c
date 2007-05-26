@@ -481,14 +481,31 @@ vn_reference_lookup (tree op, VEC (tree, heap) *vuses)
 {
   void **slot;
   struct vn_reference_s vr1;
-
   vr1.vuses = valueize_vuses (vuses);
+  if (dump_file)
+    {
+      size_t i;
+      tree vuse;
+      fprintf (dump_file, "lookup for ");
+      print_generic_expr (dump_file, op, 0);
+      fprintf (dump_file, "vuses: ");
+      for (i = 0; VEC_iterate (tree, vr1.vuses, i, vuse); i++)
+	{
+	  print_generic_expr (dump_file, vuse, dump_flags);
+	  if (VEC_length (tree, vuses) - 1 != i)
+	    fprintf (dump_file, ",");
+	}
+      fprintf (dump_file, "\n");
+    }
   vr1.operands = valueize_refs (shared_reference_ops_from_ref (op));
   vr1.hashcode = vn_reference_compute_hash (&vr1);
   slot = htab_find_slot_with_hash (current_info->references, &vr1, vr1.hashcode,
 				   NO_INSERT);
+  if (dump_file)
+    fprintf (dump_file, "%s\n", slot ? "Succeeded" : "Failed");
   if (!slot)
     return NULL_TREE;
+
   return ((vn_reference_t)*slot)->result;
 }
 
@@ -1141,7 +1158,8 @@ expr_has_constants (tree expr)
     case tcc_binary:
       return is_gimple_min_invariant (TREE_OPERAND (expr, 0))
 	|| is_gimple_min_invariant (TREE_OPERAND (expr, 1));
-      /* Constants inside reference ops are rarely interesting.  */
+      /* Constants inside reference ops are rarely interesting, but
+	 it can take a lot of looking to find them.  */
     case tcc_reference:
       return false;
     default:
@@ -1470,9 +1488,17 @@ visit_use (tree use)
 		    case tcc_binary:
 		      changed = visit_binary_op (lhs, rhs);
 		      break;
+		    case tcc_declaration:
 		    case tcc_reference:
 		      changed = visit_reference_op_load (lhs, rhs, stmt);
 		      break;
+		    case tcc_expression:
+		      if (TREE_CODE (rhs) == ADDR_EXPR)
+			{
+			  changed = visit_unary_op (lhs, rhs);
+			  goto done;
+			}
+		      /* Fallthrough.  */
 		    default:
 		      changed = defs_to_varying (stmt);
 		      break;
