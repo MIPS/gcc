@@ -11,15 +11,14 @@
 
 #if defined(__hppa) && defined(__hpux)
 /* PA HP-UX doesn't have the entire C99 runtime.  */
-#elif defined(__sun) && ! defined (_STDC_C99)
-/* Solaris up to 9 doesn't have the entire C99 runtime.
-   Solaris 10 defines _STDC_C99 if __STDC_VERSION__ is >= 199901L.  */
 #elif defined(__sgi)
 /* Irix6 doesn't have the entire C99 runtime.  */
 #elif defined(__FreeBSD__) && (__FreeBSD__ < 5)
 /* FreeBSD before version 5 doesn't have the entire C99 runtime. */
 #elif defined(__netware__)
 /* NetWare doesn't have the entire C99 runtime.  */
+#elif defined(__vxworks)
+/* VxWorks doesn't have a full C99 time.  (cabs is missing, for example.)  */
 #elif (defined(__APPLE__) && defined(__ppc__) \
        && ! defined (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__))
 /* MacOS versions before 10.3 don't have many C99 functions.  
@@ -43,6 +42,15 @@
    lacks the C99 functions.  */
 #include <sys/types.h>
 #if defined(_NEWLIB_VERSION) || defined(__UCLIBC__)
+#elif defined(__sun) && __STDC_VERSION__ - 0 < 199901L
+/* If you're including this file, you probably want to test the newer
+   behaviour, so ensure the right flags were used for each test: */
+#error forgot to set -std=c99.
+#elif defined(__sun) && ! defined (_STDC_C99)
+/* Solaris up to 9 doesn't have the entire C99 runtime.
+   Solaris 10 defines _STDC_C99 if __STDC_VERSION__ is >= 199901L.
+   This macro is defined in <sys/feature_tests.h> which is included by
+   various system headers, in this case <sys/types.h> above.  */
 #else
 #define HAVE_C99_RUNTIME
 #endif

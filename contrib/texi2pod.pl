@@ -36,6 +36,7 @@ $shift = "";
 $fnno = 1;
 $inf = "";
 $ibase = "";
+@ipath = ();
 
 while ($_ = shift) {
     if (/^-D(.*)$/) {
@@ -51,6 +52,13 @@ while ($_ = shift) {
 	die "flags may only contain letters, digits, hyphens, dashes and underscores\n"
 	    unless $flag =~ /^[a-zA-Z0-9_-]+$/;
 	$defs{$flag} = $value;
+    } elsif (/^-I(.*)$/) {
+	if ($1 ne "") {
+	    $flag = $1;
+	} else {
+	    $flag = shift;
+	}
+        push (@ipath, $flag);
     } elsif (/^-/) {
 	usage();
     } else {
@@ -154,6 +162,8 @@ while(<$inf>) {
 	} elsif ($ended =~ /^(?:itemize|enumerate|[fv]?table)$/) {
 	    $_ = "\n=back\n";
 	    $ic = pop @icstack;
+	} elsif ($ended eq "multitable") {
+	    $_ = "\n=back\n";
 	} else {
 	    die "unknown command \@end $ended at line $.\n";
 	}
@@ -229,10 +239,14 @@ while(<$inf>) {
 	$inf = gensym();
 	$file = postprocess($1);
 
-	# Try cwd and $ibase.
-	open($inf, "<" . $file) 
-	    or open($inf, "<" . $ibase . "/" . $file)
-		or die "cannot open $file or $ibase/$file: $!\n";
+	# Try cwd and $ibase, then explicit -I paths.
+	$done = 0;
+	foreach $path ("", $ibase, @ipath) {
+	    $mypath = $file;
+	    $mypath = $path . "/" . $mypath if ($path ne "");
+	    open($inf, "<" . $mypath) and ($done = 1, last);
+	}
+	die "cannot find $file" if !$done;
 	next;
     };
 
@@ -240,6 +254,8 @@ while(<$inf>) {
 	and $_ = "\n=head2 $1\n";
     /^\@subsection\s+(.+)$/
 	and $_ = "\n=head3 $1\n";
+    /^\@subsubsection\s+(.+)$/
+	and $_ = "\n=head4 $1\n";
 
     # Block command handlers:
     /^\@itemize(?:\s+(\@[a-z]+|\*|-))?/ and do {
@@ -266,6 +282,12 @@ while(<$inf>) {
 	$endw = "enumerate";
     };
 
+    /^\@multitable\s.*/ and do {
+	push @endwstack, $endw;
+	$endw = "multitable";
+	$_ = "\n=over 4\n";
+    };
+
     /^\@([fv]?table)\s+(\@[a-z]+)/ and do {
 	push @endwstack, $endw;
 	push @icstack, $ic;
@@ -283,6 +305,16 @@ while(<$inf>) {
 	$endw = $1;
 	$shift = "\t";
 	$_ = "";	# need a paragraph break
+    };
+
+    /^\@item\s+(.*\S)\s*$/ and $endw eq "multitable" and do {
+	@columns = ();
+	for $column (split (/\s*\@tab\s*/, $1)) {
+	    # @strong{...} is used a @headitem work-alike
+	    $column =~ s/^\@strong{(.*)}$/$1/;
+	    push @columns, $column;
+	}
+	$_ = "\n=item ".join (" : ", @columns)."\n";
     };
 
     /^\@itemx?\s*(.+)?$/ and do {
@@ -369,6 +401,9 @@ sub postprocess
     s/\@refill//g;
     s/\@gol//g;
     s/\@\*\s*\n?//g;
+
+    # Anchors are thrown away
+    s/\@anchor\{(?:[^\}]*)\}//g;
 
     # @uref can take one, two, or three arguments, with different
     # semantics each time.  @url and @email are just like @uref with

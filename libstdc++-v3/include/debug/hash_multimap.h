@@ -28,6 +28,10 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file debug/hash_multimap.h
+ *  This file is a GNU debug extension to the Standard C++ Library.
+ */
+
 #ifndef _GLIBCXX_DEBUG_HASH_MULTIMAP_H
 #define _GLIBCXX_DEBUG_HASH_MULTIMAP_H 1
 
@@ -181,7 +185,7 @@ namespace __debug
       erase(const key_type& __key)
       {
 	std::pair<iterator, iterator> __victims = this->equal_range(__key);
-	size_t __num_victims = 0;
+	std::size_t __num_victims = 0;
 	while (__victims.first != __victims.second)
 	{
 	  this->erase(__victims.first++);

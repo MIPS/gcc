@@ -68,20 +68,12 @@ binfo_or_else (tree base, tree type)
 }
 
 /* According to ARM $7.1.6, "A `const' object may be initialized, but its
-   value may not be changed thereafter.  Thus, we emit hard errors for these,
-   rather than just pedwarns.  If `SOFT' is 1, then we just pedwarn.  (For
-   example, conversions to references.)  */
+   value may not be changed thereafter.  */
 
 void
-readonly_error (tree arg, const char* string, int soft)
+readonly_error (tree arg, const char* string)
 {
   const char *fmt;
-  void (*fn) (const char *, ...) ATTRIBUTE_GCC_CXXDIAG(1,2);
-
-  if (soft)
-    fn = pedwarn;
-  else
-    fn = error;
 
   if (TREE_CODE (arg) == COMPONENT_REF)
     {
@@ -89,7 +81,7 @@ readonly_error (tree arg, const char* string, int soft)
 	fmt = "%s of data-member %qD in read-only structure";
       else
 	fmt = "%s of read-only data-member %qD";
-      (*fn) (fmt, string, TREE_OPERAND (arg, 1));
+      error (fmt, string, TREE_OPERAND (arg, 1));
     }
   else if (TREE_CODE (arg) == VAR_DECL)
     {
@@ -99,21 +91,21 @@ readonly_error (tree arg, const char* string, int soft)
 	fmt = "%s of constant field %qD";
       else
 	fmt = "%s of read-only variable %qD";
-      (*fn) (fmt, string, arg);
+      error (fmt, string, arg);
     }
   else if (TREE_CODE (arg) == PARM_DECL)
-    (*fn) ("%s of read-only parameter %qD", string, arg);
+    error ("%s of read-only parameter %qD", string, arg);
   else if (TREE_CODE (arg) == INDIRECT_REF
 	   && TREE_CODE (TREE_TYPE (TREE_OPERAND (arg, 0))) == REFERENCE_TYPE
 	   && (TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL
 	       || TREE_CODE (TREE_OPERAND (arg, 0)) == PARM_DECL))
-    (*fn) ("%s of read-only reference %qD", string, TREE_OPERAND (arg, 0));
+    error ("%s of read-only reference %qD", string, TREE_OPERAND (arg, 0));
   else if (TREE_CODE (arg) == RESULT_DECL)
-    (*fn) ("%s of read-only named return value %qD", string, arg);
+    error ("%s of read-only named return value %qD", string, arg);
   else if (TREE_CODE (arg) == FUNCTION_DECL)
-    (*fn) ("%s of function %qD", string, arg);
+    error ("%s of function %qD", string, arg);
   else
-    (*fn) ("%s of read-only location", string);
+    error ("%s of read-only location", string);
 }
 
 
@@ -377,7 +369,7 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
     case UNION_TYPE:
     case ENUMERAL_TYPE:
       if (!decl)
-	p_msg ("invalid use of undefined type %q#T", type);
+	p_msg ("invalid use of incomplete type %q#T", type);
       if (!TYPE_TEMPLATE_INFO (type))
 	p_msg ("forward declaration of %q+#T", type);
       else
@@ -403,7 +395,16 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
       break;
 
     case TEMPLATE_TYPE_PARM:
-      p_msg ("invalid use of template type parameter");
+      p_msg ("invalid use of template type parameter %qT", type);
+      break;
+
+    case BOUND_TEMPLATE_TEMPLATE_PARM:
+      p_msg ("invalid use of template template parameter %qT",
+            TYPE_NAME (type));
+      break;
+
+    case TYPENAME_TYPE:
+      p_msg ("invalid use of dependent type %qT", type);
       break;
 
     case UNKNOWN_TYPE:
@@ -724,6 +725,15 @@ digest_init (tree type, tree init)
 
 	  return error_mark_node;
 	}
+
+      if (TREE_CODE (type) == ARRAY_TYPE
+	  && TREE_CODE (init) != CONSTRUCTOR)
+	{
+	  error ("array must be initialized with a brace-enclosed"
+		 " initializer");
+	  return error_mark_node;
+	}
+
       return convert_for_initialization (NULL_TREE, type, init,
 					 LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING,
 					 "initialization", NULL_TREE, 0);
@@ -782,8 +792,8 @@ process_init_constructor_array (tree type, tree init)
     /* Vectors are like simple fixed-size arrays.  */
     len = TYPE_VECTOR_SUBPARTS (type);
 
-  /* There cannot be more initializers than needed (or reshape_init would
-     detect this before we do.  */
+  /* There cannot be more initializers than needed as otherwise
+     reshape_init would have already rejected the initializer.  */
   if (!unbounded)
     gcc_assert (VEC_length (constructor_elt, v) <= len);
 
@@ -793,7 +803,10 @@ process_init_constructor_array (tree type, tree init)
 	{
 	  gcc_assert (TREE_CODE (ce->index) == INTEGER_CST);
 	  if (compare_tree_int (ce->index, i) != 0)
-	    sorry ("non-trivial designated initializers not supported");
+	    {
+	      ce->value = error_mark_node;
+	      sorry ("non-trivial designated initializers not supported");
+	    }
 	}
       else
 	ce->index = size_int (i);
@@ -817,7 +830,7 @@ process_init_constructor_array (tree type, tree init)
 	if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (type)))
 	  {
 	    /* If this type needs constructors run for default-initialization,
-	      we can't rely on the backend to do it for us, so build up
+	      we can't rely on the back end to do it for us, so build up
 	      TARGET_EXPRs.  If the type in question is a class, just build
 	      one up; if it's an array, recurse.  */
 	    if (IS_AGGR_TYPE (TREE_TYPE (type)))
@@ -835,7 +848,7 @@ process_init_constructor_array (tree type, tree init)
 	     add anything to the CONSTRUCTOR.  */
 	  break;
 
-	flags |= picflag_from_initializer (next);    
+	flags |= picflag_from_initializer (next);
 	CONSTRUCTOR_APPEND_ELT (v, size_int (i), next);
       }
 
@@ -890,8 +903,11 @@ process_init_constructor_record (tree type, tree init)
 	      gcc_assert (TREE_CODE (ce->index) == FIELD_DECL
 			  || TREE_CODE (ce->index) == IDENTIFIER_NODE);
 	      if (ce->index != field
-	          && ce->index != DECL_NAME (field))
-		sorry ("non-trivial designated initializers not supported");
+		  && ce->index != DECL_NAME (field))
+		{
+		  ce->value = error_mark_node;
+		  sorry ("non-trivial designated initializers not supported");
+		}
 	    }
 
 	  gcc_assert (ce->value);
@@ -901,7 +917,7 @@ process_init_constructor_record (tree type, tree init)
       else if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (field)))
 	{
 	  /* If this type needs constructors run for
-	     default-initialization, we can't rely on the backend to do it
+	     default-initialization, we can't rely on the back end to do it
 	     for us, so build up TARGET_EXPRs.  If the type in question is
 	     a class, just build one up; if it's an array, recurse.  */
 	  if (IS_AGGR_TYPE (TREE_TYPE (field)))
@@ -1017,7 +1033,7 @@ process_init_constructor_union (tree type, tree init)
    After the execution, the initializer will have TREE_CONSTANT if all elts are
    constant, and TREE_STATIC set if, in addition, all elts are simple enough
    constants that the assembler and linker can compute them.
-   
+
    The function returns the initializer itself, or error_mark_node in case
    of error.  */
 
@@ -1196,9 +1212,7 @@ build_m_component_ref (tree datum, tree component)
   tree binfo;
   tree ctype;
 
-  datum = decay_conversion (datum);
-
-  if (datum == error_mark_node || component == error_mark_node)
+  if (error_operand_p (datum) || error_operand_p (component))
     return error_mark_node;
 
   ptrmem_type = TREE_TYPE (component);
@@ -1214,7 +1228,7 @@ build_m_component_ref (tree datum, tree component)
   if (! IS_AGGR_TYPE (objtype))
     {
       error ("cannot apply member pointer %qE to %qE, which is of "
-	     "non-aggregate type %qT",
+	     "non-class type %qT",
 	     component, datum, objtype);
       return error_mark_node;
     }
@@ -1297,12 +1311,11 @@ build_functional_cast (tree exp, tree parms)
 
   if (! IS_AGGR_TYPE (type))
     {
-      /* This must build a C cast.  */
       if (parms == NULL_TREE)
-	parms = integer_zero_node;
-      else
-	parms = build_x_compound_expr_from_list (parms, "functional cast");
+	return cp_convert (type, integer_zero_node);
 
+      /* This must build a C cast.  */
+      parms = build_x_compound_expr_from_list (parms, "functional cast");
       return build_c_cast (type, parms);
     }
 
@@ -1321,9 +1334,9 @@ build_functional_cast (tree exp, tree parms)
   if (parms && TREE_CHAIN (parms) == NULL_TREE)
     return build_c_cast (type, TREE_VALUE (parms));
 
-  /* We need to zero-initialize POD types.  Let's do that for everything
-     that doesn't need a constructor.  */
-  if (parms == NULL_TREE && !TYPE_NEEDS_CONSTRUCTING (type)
+  /* We need to zero-initialize POD types.  */
+  if (parms == NULL_TREE 
+      && !CLASSTYPE_NON_POD_P (type)
       && TYPE_HAS_DEFAULT_CONSTRUCTOR (type))
     {
       exp = build_constructor (type, NULL);

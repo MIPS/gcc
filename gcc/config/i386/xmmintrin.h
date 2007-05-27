@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -41,8 +41,9 @@
 /* Get _mm_malloc () and _mm_free ().  */
 #include <mm_malloc.h>
 
-/* The data type intended for user use.  */
-typedef float __m128 __attribute__ ((__vector_size__ (16)));
+/* The Intel API is flexible enough that we must allow aliasing with other
+   vector types, and their scalar components.  */
+typedef float __m128 __attribute__ ((__vector_size__ (16), __may_alias__));
 
 /* Internal data types for implementing the intrinsics.  */
 typedef float __v4sf __attribute__ ((__vector_size__ (16)));
@@ -1109,7 +1110,6 @@ _m_pmulhuw (__m64 __A, __m64 __B)
 
 /* Return a combination of the four 16-bit values in A.  The selector
    must be an immediate.  */
-#ifdef __SSE2__
 #if 0
 static __inline __m64 __attribute__((__always_inline__))
 _mm_shuffle_pi16 (__m64 __A, int __N)
@@ -1126,7 +1126,6 @@ _m_pshufw (__m64 __A, int __N)
 #define _mm_shuffle_pi16(A, N) \
   ((__m64) __builtin_ia32_pshufw ((__v4hi)(A), (N)))
 #define _m_pshufw(A, N)		_mm_shuffle_pi16 ((A), (N))
-#endif
 #endif
 
 /* Conditionally store byte elements of A into P.  The high bit of each
@@ -1244,7 +1243,9 @@ do {									\
 } while (0)
 
 /* For backward source compatibility.  */
-#include <emmintrin.h>
+#ifdef __SSE2__
+# include <emmintrin.h>
+#endif
 
 #endif /* __SSE__ */
 #endif /* _XMMINTRIN_H_INCLUDED */

@@ -44,9 +44,7 @@
      mangle_vtbl_for_type:		virtual table data
      mangle_vtt_for_type:		VTT data
      mangle_ctor_vtbl_for_type:		`C-in-B' constructor virtual table data
-     mangle_thunk:			thunk function or entry
-
-*/
+     mangle_thunk:			thunk function or entry  */
 
 #include "config.h"
 #include "system.h"
@@ -1647,6 +1645,11 @@ write_type (tree type)
 	  write_type (TREE_TYPE (type));
 	  break;
 
+        case TYPE_PACK_EXPANSION:
+          write_string ("U10__variadic");
+          write_type (PACK_EXPANSION_PATTERN (type));
+          break;
+
 	default:
 	  gcc_unreachable ();
 	}
@@ -1734,10 +1737,6 @@ write_builtin_type (tree type)
       break;
 
     case INTEGER_TYPE:
-      /* If this is size_t, get the underlying int type.  */
-      if (TYPE_IS_SIZETYPE (type))
-	type = TYPE_DOMAIN (type);
-
       /* TYPE may still be wchar_t, since that isn't in
 	 integer_type_nodes.  */
       if (type == wchar_type_node)
@@ -2025,6 +2024,12 @@ write_expression (tree expr)
       code = TREE_CODE (expr);
     }
 
+  if (code == BASELINK)
+    {
+      expr = BASELINK_FUNCTIONS (expr);
+      code = TREE_CODE (expr);
+    }
+
   /* Handle pointers-to-members by making them look like expression
      nodes.  */
   if (code == PTRMEM_CST)
@@ -2206,7 +2211,7 @@ write_expression (tree expr)
 	  break;
 
 	default:
-	  for (i = 0; i < TREE_CODE_LENGTH (code); ++i)
+	  for (i = 0; i < TREE_OPERAND_LENGTH (expr); ++i)
 	    {
 	      tree operand = TREE_OPERAND (expr, i);
 	      /* As a GNU extension, the middle operand of a
@@ -2302,7 +2307,15 @@ write_template_arg (tree node)
 	G.need_abi_warning = 1;
     }
 
-  if (TYPE_P (node))
+  if (ARGUMENT_PACK_P (node))
+    {
+      /* Expand the template argument pack. */
+      tree args = ARGUMENT_PACK_ARGS (node);
+      int i, length = TREE_VEC_LENGTH (args);
+      for (i = 0; i < length; ++i)
+        write_template_arg (TREE_VEC_ELT (args, i));
+    }
+  else if (TYPE_P (node))
     write_type (node);
   else if (code == TEMPLATE_DECL)
     /* A template appearing as a template arg is a template template arg.  */
@@ -2741,8 +2754,7 @@ mangle_call_offset (const tree fixed_offset, const tree virtual_offset)
 
    <special-name> ::= T <call-offset> <base encoding>
 		  ::= Tc <this_adjust call-offset> <result_adjust call-offset>
-					<base encoding>
-*/
+					<base encoding>  */
 
 tree
 mangle_thunk (tree fn_decl, const int this_adjusting, tree fixed_offset,
@@ -2818,6 +2830,9 @@ mangle_conv_op_name_for_type (const tree type)
 {
   void **slot;
   tree identifier;
+
+  if (type == error_mark_node)
+    return error_mark_node;
 
   if (conv_type_names == NULL)
     conv_type_names = htab_create_ggc (31, &hash_type, &compare_type, NULL);

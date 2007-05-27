@@ -1,6 +1,6 @@
 // Bits and pieces used in algorithms -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -64,12 +64,13 @@
 
 #include <bits/c++config.h>
 #include <cstring>
-#include <climits>
-#include <cstdlib>
+#include <cwchar>
 #include <cstddef>
-#include <iosfwd>
+#include <bits/functexcept.h>
 #include <bits/stl_pair.h>
 #include <bits/cpp_type_traits.h>
+#include <ext/type_traits.h>
+#include <limits>
 #include <bits/stl_iterator_base_types.h>
 #include <bits/stl_iterator_base_funcs.h>
 #include <bits/stl_iterator.h>
@@ -166,8 +167,39 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	iter_swap(__a, __b);
     }
 
-#undef min
-#undef max
+  /**
+   *  @brief Swap the elements of two sequences.
+   *  @param  first1  A forward iterator.
+   *  @param  last1   A forward iterator.
+   *  @param  first2  A forward iterator.
+   *  @return   An iterator equal to @p first2+(last1-first1).
+   *
+   *  Swaps each element in the range @p [first1,last1) with the
+   *  corresponding element in the range @p [first2,(last1-first1)).
+   *  The ranges must not overlap.
+  */
+  template<typename _ForwardIterator1, typename _ForwardIterator2>
+    _ForwardIterator2
+    swap_ranges(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
+		_ForwardIterator2 __first2)
+    {
+      // concept requirements
+      __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<
+				  _ForwardIterator1>)
+      __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<
+				  _ForwardIterator2>)
+      __glibcxx_function_requires(_ConvertibleConcept<
+	    typename iterator_traits<_ForwardIterator1>::value_type,
+	    typename iterator_traits<_ForwardIterator2>::value_type>)
+      __glibcxx_function_requires(_ConvertibleConcept<
+	    typename iterator_traits<_ForwardIterator2>::value_type,
+	    typename iterator_traits<_ForwardIterator1>::value_type>)
+      __glibcxx_requires_valid_range(__first1, __last1);
+
+      for (; __first1 != __last1; ++__first1, ++__first2)
+	std::iter_swap(__first1, __first2);
+      return __first2;
+    }
 
   /**
    *  @brief This does what you think it does.
@@ -318,20 +350,33 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     }
 
   // Helpers for streambuf iterators (either istream or ostream).
+  // NB: avoid including <iosfwd>, relatively large.
   template<typename _CharT>
-    typename __enable_if<ostreambuf_iterator<_CharT>,
-			 __is_char<_CharT>::__value>::__type
-    __copy_aux(_CharT*, _CharT*, ostreambuf_iterator<_CharT>);
+    struct char_traits;
+
+  template<typename _CharT, typename _Traits>
+    class istreambuf_iterator;
+
+  template<typename _CharT, typename _Traits>
+    class ostreambuf_iterator;
 
   template<typename _CharT>
-    typename __enable_if<ostreambuf_iterator<_CharT>,
-			 __is_char<_CharT>::__value>::__type
-    __copy_aux(const _CharT*, const _CharT*, ostreambuf_iterator<_CharT>);
+    typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value, 
+	     ostreambuf_iterator<_CharT, char_traits<_CharT> > >::__type
+    __copy_aux(_CharT*, _CharT*,
+	       ostreambuf_iterator<_CharT, char_traits<_CharT> >);
 
   template<typename _CharT>
-    typename __enable_if<_CharT*, __is_char<_CharT>::__value>::__type
-    __copy_aux(istreambuf_iterator<_CharT>, istreambuf_iterator<_CharT>,
-	       _CharT*);
+    typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value, 
+	     ostreambuf_iterator<_CharT, char_traits<_CharT> > >::__type
+    __copy_aux(const _CharT*, const _CharT*,
+	       ostreambuf_iterator<_CharT, char_traits<_CharT> >);
+
+  template<typename _CharT>
+    typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value,
+				    _CharT*>::__type
+    __copy_aux(istreambuf_iterator<_CharT, char_traits<_CharT> >,
+	       istreambuf_iterator<_CharT, char_traits<_CharT> >, _CharT*);
 
   template<bool, bool>
     struct __copy_normal
@@ -402,13 +447,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        return std::__copy_normal<__in, __out>::__copy_n(__first, __last,
 							__result);
     }
-
-  // Overload for streambuf iterators.
-  template<typename _CharT>
-    typename __enable_if<ostreambuf_iterator<_CharT>,
-			 __is_char<_CharT>::__value>::__type
-    copy(istreambuf_iterator<_CharT>, istreambuf_iterator<_CharT>,
-	 ostreambuf_iterator<_CharT>);
 
   template<bool, typename>
     struct __copy_backward
@@ -542,6 +580,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 								   __result);
     }
 
+
   template<bool>
     struct __fill
     {
@@ -569,6 +608,54 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	}
     };
 
+  template<typename _ForwardIterator, typename _Tp>
+    inline void
+    __fill_aux(_ForwardIterator __first, _ForwardIterator __last,
+	       const _Tp& __value)
+    {
+      const bool __scalar = __is_scalar<_Tp>::__value;
+      std::__fill<__scalar>::fill(__first, __last, __value);
+    }
+
+  // Specialization: for char types we can use memset (wmemset).
+  inline void
+  __fill_aux(unsigned char* __first, unsigned char* __last, unsigned char __c)
+  { std::memset(__first, __c, __last - __first); }
+
+  inline void
+  __fill_aux(signed char* __first, signed char* __last, signed char __c)
+  { std::memset(__first, static_cast<unsigned char>(__c), __last - __first); }
+
+  inline void
+  __fill_aux(char* __first, char* __last, char __c)
+  { std::memset(__first, static_cast<unsigned char>(__c), __last - __first); }
+
+#ifdef _GLIBCXX_USE_WCHAR_T
+  inline void
+  __fill_aux(wchar_t* __first, wchar_t* __last, wchar_t __c)
+  { std::wmemset(__first, __c, __last - __first); }
+#endif
+
+  template<bool>
+    struct __fill_normal
+    {
+      template<typename _ForwardIterator, typename _Tp>
+        static void
+        __fill_n(_ForwardIterator __first, _ForwardIterator __last,
+		 const _Tp& __value)
+        { std::__fill_aux(__first, __last, __value); }
+    };
+
+  template<>
+    struct __fill_normal<true>
+    {
+      template<typename _ForwardIterator, typename _Tp>
+        static void
+        __fill_n(_ForwardIterator __first, _ForwardIterator __last,
+		 const _Tp& __value)
+        { std::__fill_aux(__first.base(), __last.base(), __value); }
+    };
+
   /**
    *  @brief Fills the range [first,last) with copies of value.
    *  @param  first  A forward iterator.
@@ -576,12 +663,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @param  value  A reference-to-const of arbitrary type.
    *  @return   Nothing.
    *
-   *  This function fills a range with copies of the same value.  For one-byte
-   *  types filling contiguous areas of memory, this becomes an inline call to
-   *  @c memset.
+   *  This function fills a range with copies of the same value.  For char
+   *  types filling contiguous areas of memory, this becomes an inline call
+   *  to @c memset or @c wmemset.
   */
   template<typename _ForwardIterator, typename _Tp>
-    void
+    inline void
     fill(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value)
     {
       // concept requirements
@@ -589,58 +676,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 				  _ForwardIterator>)
       __glibcxx_requires_valid_range(__first, __last);
 
-      const bool __scalar = __is_scalar<_Tp>::__value;
-      std::__fill<__scalar>::fill(__first, __last, __value);
-    }
-
-  // Specialization: for one-byte types we can use memset.
-  inline void
-  fill(unsigned char* __first, unsigned char* __last, const unsigned char& __c)
-  {
-    __glibcxx_requires_valid_range(__first, __last);
-    const unsigned char __tmp = __c;
-    std::memset(__first, __tmp, __last - __first);
-  }
-
-  inline void
-  fill(signed char* __first, signed char* __last, const signed char& __c)
-  {
-    __glibcxx_requires_valid_range(__first, __last);
-    const signed char __tmp = __c;
-    std::memset(__first, static_cast<unsigned char>(__tmp), __last - __first);
-  }
-
-  inline void
-  fill(char* __first, char* __last, const char& __c)
-  {
-    __glibcxx_requires_valid_range(__first, __last);
-    const char __tmp = __c;
-    std::memset(__first, static_cast<unsigned char>(__tmp), __last - __first);
-  }
-
-  template<typename _Tp, typename _Ref, typename _Ptr>
-    struct _Deque_iterator;
-
-  // Overload for deque::iterators, exploiting the "segmented-iterator
-  // optimization".  NB: leave const_iterators alone!
-  template<typename _Tp>
-    void
-    fill(const _Deque_iterator<_Tp, _Tp&, _Tp*>& __first,
-	 const _Deque_iterator<_Tp, _Tp&, _Tp*>& __last, const _Tp& __value)
-    {
-      typedef typename _Deque_iterator<_Tp, _Tp&, _Tp*>::_Self _Self;
-
-      for (typename _Self::_Map_pointer __node = __first._M_node + 1;
-           __node < __last._M_node; ++__node)
-	std::fill(*__node, *__node + _Self::_S_buffer_size(), __value);
-
-      if (__first._M_node != __last._M_node)
-	{
-	  std::fill(__first._M_cur, __first._M_last, __value);
-	  std::fill(__last._M_first, __last._M_cur, __value);
-	}
-      else
-	std::fill(__first._M_cur, __last._M_cur, __value);
+      const bool __fi = __is_normal_iterator<_ForwardIterator>::__value;
+      std::__fill_normal<__fi>::__fill_n(__first, __last, __value);
     }
 
 
@@ -671,6 +708,66 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	}
     };
 
+  template<typename _OutputIterator, typename _Size, typename _Tp>
+    inline _OutputIterator
+    __fill_n_aux(_OutputIterator __first, _Size __n, const _Tp& __value)
+    {
+      const bool __scalar = __is_scalar<_Tp>::__value;
+      return std::__fill_n<__scalar>::fill_n(__first, __n, __value);
+    }
+
+  template<typename _Size>
+    inline unsigned char*
+    __fill_n_aux(unsigned char* __first, _Size __n, unsigned char __c)
+    {
+      std::__fill_aux(__first, __first + __n, __c);
+      return __first + __n;
+    }
+
+  template<typename _Size>
+    inline signed char*
+    __fill_n_aux(signed char* __first, _Size __n, signed char __c)
+    {
+      std::__fill_aux(__first, __first + __n, __c);
+      return __first + __n;
+    }
+
+  template<typename _Size>
+    inline char*
+    __fill_n_aux(char* __first, _Size __n, char __c)
+    {
+      std::__fill_aux(__first, __first + __n, __c);
+      return __first + __n;
+    }
+
+#ifdef _GLIBCXX_USE_WCHAR_T
+  template<typename _Size>
+    inline wchar_t*
+    __fill_n_aux(wchar_t* __first, _Size __n, wchar_t __c)
+    {
+      std::__fill_aux(__first, __first + __n, __c);
+      return __first + __n;
+    }
+#endif
+
+  template<bool>
+    struct __fill_n_normal
+    {
+      template<typename _OI, typename _Size, typename _Tp>
+        static _OI
+        __fill_n_n(_OI __first, _Size __n, const _Tp& __value)
+        { return std::__fill_n_aux(__first, __n, __value); }
+    };
+
+  template<>
+    struct __fill_n_normal<true>
+    {
+      template<typename _OI, typename _Size, typename _Tp>
+        static _OI
+        __fill_n_n(_OI __first, _Size __n, const _Tp& __value)
+        { return _OI(std::__fill_n_aux(__first.base(), __n, __value)); }
+    };
+
   /**
    *  @brief Fills the range [first,first+n) with copies of value.
    *  @param  first  An output iterator.
@@ -678,43 +775,19 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @param  value  A reference-to-const of arbitrary type.
    *  @return   The iterator at first+n.
    *
-   *  This function fills a range with copies of the same value.  For one-byte
-   *  types filling contiguous areas of memory, this becomes an inline call to
-   *  @c memset.
+   *  This function fills a range with copies of the same value.  For char
+   *  types filling contiguous areas of memory, this becomes an inline call
+   *  to @c memset or @ wmemset.
   */
   template<typename _OutputIterator, typename _Size, typename _Tp>
-    _OutputIterator
+    inline _OutputIterator
     fill_n(_OutputIterator __first, _Size __n, const _Tp& __value)
     {
       // concept requirements
       __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator, _Tp>)
 
-      const bool __scalar = __is_scalar<_Tp>::__value;
-      return std::__fill_n<__scalar>::fill_n(__first, __n, __value);
-    }
-
-  template<typename _Size>
-    inline unsigned char*
-    fill_n(unsigned char* __first, _Size __n, const unsigned char& __c)
-    {
-      std::fill(__first, __first + __n, __c);
-      return __first + __n;
-    }
-
-  template<typename _Size>
-    inline signed char*
-    fill_n(char* __first, _Size __n, const signed char& __c)
-    {
-      std::fill(__first, __first + __n, __c);
-      return __first + __n;
-    }
-
-  template<typename _Size>
-    inline char*
-    fill_n(char* __first, _Size __n, const char& __c)
-    {
-      std::fill(__first, __first + __n, __c);
-      return __first + __n;
+      const bool __oi = __is_normal_iterator<_OutputIterator>::__value;
+      return std::__fill_n_normal<__oi>::__fill_n_n(__first, __n, __value);
     }
 
   /**
@@ -945,17 +1018,16 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     __glibcxx_requires_valid_range(__first1, __last1);
     __glibcxx_requires_valid_range(__first2, __last2);
 
-#if CHAR_MAX == SCHAR_MAX
-    return std::lexicographical_compare((const signed char*) __first1,
-					(const signed char*) __last1,
-					(const signed char*) __first2,
-					(const signed char*) __last2);
-#else /* CHAR_MAX == SCHAR_MAX */
-    return std::lexicographical_compare((const unsigned char*) __first1,
-					(const unsigned char*) __last1,
-					(const unsigned char*) __first2,
-					(const unsigned char*) __last2);
-#endif /* CHAR_MAX == SCHAR_MAX */
+    if (std::numeric_limits<char>::is_signed)
+      return std::lexicographical_compare((const signed char*) __first1,
+					  (const signed char*) __last1,
+					  (const signed char*) __first2,
+					  (const signed char*) __last2);
+    else
+      return std::lexicographical_compare((const unsigned char*) __first1,
+					  (const unsigned char*) __last1,
+					  (const unsigned char*) __first2,
+					  (const unsigned char*) __last2);
   }
 
 _GLIBCXX_END_NAMESPACE

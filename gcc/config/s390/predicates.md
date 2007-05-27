@@ -62,7 +62,8 @@
 ;; Allow SYMBOL_REFs and @PLT stubs.
 
 (define_special_predicate "bras_sym_operand"
-  (ior (match_code "symbol_ref")
+  (ior (and (match_code "symbol_ref")
+	    (match_test "!flag_pic || SYMBOL_REF_LOCAL_P (op)"))
        (and (match_code "const")
 	    (and (match_test "GET_CODE (XEXP (op, 0)) == UNSPEC")
 		 (match_test "XINT (XEXP (op, 0), 1) == UNSPEC_PLT")))))
@@ -80,14 +81,17 @@
 (define_predicate "shift_count_or_setmem_operand"
   (match_code "reg, subreg, plus, const_int")
 {
-  HOST_WIDE_INT offset = 0;
+  HOST_WIDE_INT offset;
+  rtx base;
 
   /* Extract base register and offset.  */
   if (!s390_decompose_shift_count (op, &base, &offset))
     return false;
 
-  if (op && REGNO (op) < FIRST_PSEUDO_REGISTER
-      && !GENERAL_REGNO_P (REGNO (op)))
+  /* Don't allow any non-base hard registers.  Doing so without
+     confusing reload and/or regrename would be tricky, and doesn't
+     buy us much anyway.  */
+  if (base && REGNO (base) < FIRST_PSEUDO_REGISTER && !ADDR_REG_P (base))
     return false;
 
   /* Unfortunately we have to reject constants that are invalid
@@ -122,8 +126,8 @@
       if (GET_CODE (XEXP (op, 1)) != CONST_INT
           || (INTVAL (XEXP (op, 1)) & 1) != 0)
         return false;
-      if (INTVAL (XEXP (op, 1)) >= (HOST_WIDE_INT)1 << 32
-	  || INTVAL (XEXP (op, 1)) < -((HOST_WIDE_INT)1 << 32))
+      if (INTVAL (XEXP (op, 1)) >= (HOST_WIDE_INT)1 << 31
+	  || INTVAL (XEXP (op, 1)) < -((HOST_WIDE_INT)1 << 31))
         return false;
       op = XEXP (op, 0);
     }

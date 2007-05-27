@@ -1,6 +1,7 @@
 // istream classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -41,9 +42,6 @@
 #define _ISTREAM_TCC 1
 
 #pragma GCC system_header
-
-#include <locale>
-#include <ostream> // For flush()
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -86,30 +84,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     }
 
   template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(__istream_type& (*__pf)(__istream_type&))
-    { return __pf(*this); }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(__ios_type& (*__pf)(__ios_type&))
-    {
-      __pf(*this);
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(ios_base& (*__pf)(ios_base&))
-    {
-      __pf(*this);
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
     template<typename _ValueT>
       basic_istream<_CharT, _Traits>&
       basic_istream<_CharT, _Traits>::
@@ -145,7 +119,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  if (numeric_limits<short>::min() <= __l
 	      && __l <= numeric_limits<short>::max())
-	    __n = __l;
+	    __n = short(__l);
 	  else
 	    this->setstate(ios_base::failbit);
 	}
@@ -165,7 +139,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  if (numeric_limits<int>::min() <= __l
 	      && __l <= numeric_limits<int>::max())
-	    __n = __l;
+	    __n = int(__l);
 	  else
 	    this->setstate(ios_base::failbit);
 	}
@@ -1012,12 +986,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       return __in;
     }
 
-  template<class _CharT, class _Traits, class _Alloc>
-    inline basic_istream<_CharT,_Traits>&
-    getline(basic_istream<_CharT, _Traits>& __in,
-	    basic_string<_CharT,_Traits,_Alloc>& __str)
-    { return getline(__in, __str, __in.widen('\n')); }
-
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.
   // NB:  This syntax is a GNU extension.
@@ -1031,6 +999,20 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   extern template istream& operator>>(istream&, unsigned char*);
   extern template istream& operator>>(istream&, signed char*);
 
+  extern template istream& istream::_M_extract(unsigned short&);
+  extern template istream& istream::_M_extract(unsigned int&);  
+  extern template istream& istream::_M_extract(long&);
+  extern template istream& istream::_M_extract(unsigned long&);
+  extern template istream& istream::_M_extract(bool&);
+#ifdef _GLIBCXX_USE_LONG_LONG
+  extern template istream& istream::_M_extract(long long&);
+  extern template istream& istream::_M_extract(unsigned long long&);
+#endif
+  extern template istream& istream::_M_extract(float&);
+  extern template istream& istream::_M_extract(double&);
+  extern template istream& istream::_M_extract(long double&);
+  extern template istream& istream::_M_extract(void*&);
+
   extern template class basic_iostream<char>;
 
 #ifdef _GLIBCXX_USE_WCHAR_T
@@ -1038,6 +1020,20 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   extern template wistream& ws(wistream&);
   extern template wistream& operator>>(wistream&, wchar_t&);
   extern template wistream& operator>>(wistream&, wchar_t*);
+
+  extern template wistream& wistream::_M_extract(unsigned short&);
+  extern template wistream& wistream::_M_extract(unsigned int&);  
+  extern template wistream& wistream::_M_extract(long&);
+  extern template wistream& wistream::_M_extract(unsigned long&);
+  extern template wistream& wistream::_M_extract(bool&);
+#ifdef _GLIBCXX_USE_LONG_LONG
+  extern template wistream& wistream::_M_extract(long long&);
+  extern template wistream& wistream::_M_extract(unsigned long long&);
+#endif
+  extern template wistream& wistream::_M_extract(float&);
+  extern template wistream& wistream::_M_extract(double&);
+  extern template wistream& wistream::_M_extract(long double&);
+  extern template wistream& wistream::_M_extract(void*&);
 
   extern template class basic_iostream<wchar_t>;
 #endif

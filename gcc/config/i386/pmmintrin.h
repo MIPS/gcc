@@ -1,4 +1,4 @@
-/* Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -25,12 +25,16 @@
    Public License.  */
 
 /* Implemented from the specification included in the Intel C++ Compiler
-   User Guide and Reference, version 8.0.  */
+   User Guide and Reference, version 9.0.  */
 
 #ifndef _PMMINTRIN_H_INCLUDED
 #define _PMMINTRIN_H_INCLUDED
 
-#ifdef __SSE3__
+#ifndef __SSE3__
+# error "SSE3 instruction set not enabled"
+#else
+
+/* We need definitions from the SSE2 and SSE header files*/
 #include <xmmintrin.h>
 #include <emmintrin.h>
 
@@ -110,7 +114,6 @@ _mm_lddqu_si128 (__m128i const *__P)
   return (__m128i) __builtin_ia32_lddqu ((char const *)__P);
 }
 
-#if 0
 static __inline void __attribute__((__always_inline__))
 _mm_monitor (void const * __P, unsigned int __E, unsigned int __H)
 {
@@ -122,10 +125,6 @@ _mm_mwait (unsigned int __E, unsigned int __H)
 {
   __builtin_ia32_mwait (__E, __H);
 }
-#else
-#define _mm_monitor(P, E, H)	__builtin_ia32_monitor ((P), (E), (H))
-#define _mm_mwait(E, H)		__builtin_ia32_mwait ((E), (H))
-#endif
 
 #endif /* __SSE3__ */
 

@@ -79,7 +79,7 @@ pop_stmt_list (tree t)
   cur_stmt_list = chain;
 
   /* If the statement list is completely empty, just return it.  This is
-     just as good small as build_empty_stmt, with the advantage that 
+     just as good small as build_empty_stmt, with the advantage that
      statement lists are merged when they appended to one another.  So
      using the STATEMENT_LIST avoids pathological buildup of EMPTY_STMT_P
      statements.  */
@@ -115,6 +115,9 @@ build_stmt (enum tree_code code, ...)
   va_list p;
   bool side_effects;
 
+  /* This function cannot be used to construct variably-sized nodes.  */
+  gcc_assert (TREE_CODE_CLASS (code) != tcc_vl_exp);
+
   va_start (p, code);
 
   ret = make_node (code);
@@ -132,7 +135,7 @@ build_stmt (enum tree_code code, ...)
     {
       tree t = va_arg (p, tree);
       if (t && !TYPE_P (t))
-        side_effects |= TREE_SIDE_EFFECTS (t);
+	side_effects |= TREE_SIDE_EFFECTS (t);
       TREE_OPERAND (ret, i) = t;
     }
 

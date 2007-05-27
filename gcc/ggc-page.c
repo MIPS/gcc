@@ -186,11 +186,19 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 static const size_t extra_order_size_table[] = {
   sizeof (struct stmt_ann_d),
+  sizeof (struct var_ann_d),
   sizeof (struct tree_decl_non_common),
   sizeof (struct tree_field_decl),
   sizeof (struct tree_parm_decl),
   sizeof (struct tree_var_decl),
   sizeof (struct tree_list),
+  sizeof (struct tree_ssa_name),
+  sizeof (struct function),
+  sizeof (struct basic_block_def),
+  sizeof (bitmap_element),
+  /* PHI nodes with one to three arguments are already covered by the
+     above sizes.  */
+  sizeof (struct tree_phi_node) + sizeof (struct phi_arg_d) * 3,
   TREE_EXP_SIZE (2),
   RTL_SIZE (2),			/* MEM, PLUS, etc.  */
   RTL_SIZE (9),			/* INSN */
@@ -1021,8 +1029,8 @@ release_pages (void)
 
 /* This table provides a fast way to determine ceil(log_2(size)) for
    allocation requests.  The minimum allocation size is eight bytes.  */
-
-static unsigned char size_lookup[257] =
+#define NUM_SIZE_LOOKUP 512
+static unsigned char size_lookup[NUM_SIZE_LOOKUP] =
 {
   3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4,
   4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
@@ -1040,7 +1048,22 @@ static unsigned char size_lookup[257] =
   8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
   8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
   8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-  8
+  8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9
 };
 
 /* Typed allocation function.  Does nothing special in this collector.  */
@@ -1061,14 +1084,14 @@ ggc_alloc_stat (size_t size MEM_STAT_DECL)
   struct page_entry *entry;
   void *result;
 
-  if (size <= 256)
+  if (size < NUM_SIZE_LOOKUP)
     {
       order = size_lookup[size];
       object_size = OBJECT_SIZE (order);
     }
   else
     {
-      order = 9;
+      order = 10;
       while (size > (object_size = OBJECT_SIZE (order)))
 	order++;
     }
@@ -1511,8 +1534,11 @@ init_ggc (void)
       int o;
       int i;
 
-      o = size_lookup[OBJECT_SIZE (order)];
-      for (i = OBJECT_SIZE (order); size_lookup [i] == o; --i)
+      i = OBJECT_SIZE (order);
+      if (i >= NUM_SIZE_LOOKUP)
+	continue;
+
+      for (o = size_lookup[i]; o == size_lookup [i]; --i)
 	size_lookup[i] = order;
     }
 
@@ -1991,10 +2017,12 @@ ggc_print_statistics (void)
     for (i = 0; i < NUM_ORDERS; i++)
       if (G.stats.total_allocated_per_order[i])
         {
-          fprintf (stderr, "Total Overhead  page size %7d:     %10lld\n",
-                   OBJECT_SIZE (i), G.stats.total_overhead_per_order[i]);
-          fprintf (stderr, "Total Allocated page size %7d:     %10lld\n",
-                   OBJECT_SIZE (i), G.stats.total_allocated_per_order[i]);
+          fprintf (stderr, "Total Overhead  page size %7ul:     %10lld\n",
+                   (unsigned long) OBJECT_SIZE (i),
+		   G.stats.total_overhead_per_order[i]);
+          fprintf (stderr, "Total Allocated page size %7ul:     %10lld\n",
+                   (unsigned long) OBJECT_SIZE (i),
+		   G.stats.total_allocated_per_order[i]);
         }
   }
 #endif
@@ -2023,11 +2051,11 @@ ggc_pch_count_object (struct ggc_pch_data *d, void *x ATTRIBUTE_UNUSED,
 {
   unsigned order;
 
-  if (size <= 256)
+  if (size < NUM_SIZE_LOOKUP)
     order = size_lookup[size];
   else
     {
-      order = 9;
+      order = 10;
       while (size > OBJECT_SIZE (order))
 	order++;
     }
@@ -2068,11 +2096,11 @@ ggc_pch_alloc_object (struct ggc_pch_data *d, void *x ATTRIBUTE_UNUSED,
   unsigned order;
   char *result;
 
-  if (size <= 256)
+  if (size < NUM_SIZE_LOOKUP)
     order = size_lookup[size];
   else
     {
-      order = 9;
+      order = 10;
       while (size > OBJECT_SIZE (order))
 	order++;
     }
@@ -2097,11 +2125,11 @@ ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
   unsigned order;
   static const char emptyBytes[256];
 
-  if (size <= 256)
+  if (size < NUM_SIZE_LOOKUP)
     order = size_lookup[size];
   else
     {
-      order = 9;
+      order = 10;
       while (size > OBJECT_SIZE (order))
 	order++;
     }

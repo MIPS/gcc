@@ -1,6 +1,7 @@
 // Character Traits for use by standard string and iostream -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -28,23 +29,25 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-//
-// ISO C++ 14882: 21  Strings library
-//
-
 /** @file char_traits.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+//
+// ISO C++ 14882: 21  Strings library
+//
 
 #ifndef _CHAR_TRAITS_H
 #define _CHAR_TRAITS_H 1
 
 #pragma GCC system_header
 
-#include <cstring>            // For memmove, memset, memchr
-#include <bits/stl_algobase.h>// For copy, lexicographical_compare, fill_n
-#include <bits/postypes.h>    // For streampos
+#include <cstring>              // For memmove, memset, memchr
+#include <bits/stl_algobase.h>  // For copy, fill_n
+#include <bits/postypes.h>      // For streampos
+#include <cstdio>               // For EOF
+#include <cwchar>               // For WEOF, wmemmove, wmemset, etc.
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
@@ -148,7 +151,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     char_traits<_CharT>::
     compare(const char_type* __s1, const char_type* __s2, std::size_t __n)
     {
-      for (size_t __i = 0; __i < __n; ++__i)
+      for (std::size_t __i = 0; __i < __n; ++__i)
 	if (lt(__s1[__i], __s2[__i]))
 	  return -1;
 	else if (lt(__s2[__i], __s1[__i]))

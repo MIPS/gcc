@@ -51,10 +51,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "struct-reorg.h"
 #include "opts.h"
 #include "ipa-type-escape.h"
+#include "tree-dump.h"
 
 extern void debug_tree_ssa (void);
 FILE *vcg_dump = NULL;
-  
+
+/* Nodes visited by walk_tree fucntion.  */
+static struct pointer_set_t *visited_nodes;
+
 /*  ************** Static Global Data Structures  ********************  */
 
 /* A linked list of information about program statemetns that use structs
@@ -168,7 +172,7 @@ struct new_var_data *new_global_vars = NULL;
 static bool similar_struct_decls_p (tree, tree);
 static struct new_var_data * is_in_list_of_globals (tree);
 static void create_new_global_vars_for_func (struct struct_list *);
-
+void add_call_to_malloc_list (tree);
 static bool
 replace_old_field_types (struct struct_tree_list *, tree, tree,
 			 struct struct_tree_list **);
@@ -893,7 +897,7 @@ get_stmt_accessed_fields_1 (tree stmt, tree op, struct data_structure *ds,
 /* Analyze the statement STMT and search for field accesses of the given
    data structure DS, returns zero if there are any.  Otherwise it returns 
    the accesses distance produced by this instruction.  We assume this is a 
-   GIMPLE statement meaning that a memory access must be in a MODIFY_EXPR.  */
+   GIMPLE statement meaning that a memory access must be in a GIMPLE_MODIFY_STMT.  */
 static int
 get_stmt_accessed_fields (tree stmt, struct data_structure *ds, sbitmap fields,
 			  basic_block bb, struct function *context)
@@ -902,15 +906,15 @@ get_stmt_accessed_fields (tree stmt, struct data_structure *ds, sbitmap fields,
     
 
   code = TREE_CODE (stmt);
-  if (code != MODIFY_EXPR)
+  if (code != GIMPLE_MODIFY_STMT)
     return 0;
 
   /* Analyze the left side of the MODIFY.  If dist is not zero it means
      that the left side (OP0) is a memory access that means that the
      right side cannot be a memory access, so just return DIST.  */
-  dist0 = get_stmt_accessed_fields_1 (stmt, TREE_OPERAND (stmt, 0), ds, fields, 
+  dist0 = get_stmt_accessed_fields_1 (stmt, GIMPLE_STMT_OPERAND (stmt, 0), ds, fields, 
 				      bb, context);
-  dist1 = get_stmt_accessed_fields_1 (stmt, TREE_OPERAND (stmt, 1), ds, fields, 
+  dist1 = get_stmt_accessed_fields_1 (stmt, GIMPLE_STMT_OPERAND (stmt, 1), ds, fields, 
 				      bb, context);
 
   if (! dist0 || ! dist1)
@@ -1426,10 +1430,22 @@ insert_into_var_list (struct struct_tree_list *new_vars, tree var_list,
 }
 #endif
 
-/* Given an old variable ORIG_SSA_NAME, this function generates 
+static void
+finish_global_creation (tree new_decl)
+{
+  if (!var_ann (new_decl))
+    create_var_ann (new_decl); 
+
+  mark_call_clobbered (new_decl, ESCAPE_UNKNOWN);
+  mark_sym_for_renaming (new_decl); 
+  if (gimple_referenced_vars (cfun))
+    add_referenced_var (new_decl);  
+}
+
+/* Given an old variable ORIG_DECL, this function generates 
    new variables to replace it accoriding to the set of types decided before.  */
 static struct struct_tree_list *
-make_new_vars_2 (tree orig_ssa_name, struct data_structure *struct_data)
+make_new_vars_3 (tree orig_decl, struct data_structure *struct_data)
 {
   struct struct_tree_list *new_vars = NULL;
   struct struct_tree_list *tmp_node;
@@ -1438,8 +1454,7 @@ make_new_vars_2 (tree orig_ssa_name, struct data_structure *struct_data)
   bool pointer_type_p = false;
   bool array_type_p = false;
   int i;
-  tree orig_decl = SSA_NAME_VAR (orig_ssa_name);
-    
+  
   if (POINTER_TYPE_P (TREE_TYPE (orig_decl)))
     pointer_type_p = true;
   else if (TREE_CODE (TREE_TYPE (orig_decl)) == ARRAY_TYPE)
@@ -1454,7 +1469,7 @@ make_new_vars_2 (tree orig_ssa_name, struct data_structure *struct_data)
       char *new_name = NULL;
       char *old_name;
       int len;
-      struct cgraph_varpool_node *new_node;
+      struct varpool_node *new_node;
       
       /* IFF the original variable decl has a name, create an appropriate new
 	 name for the new decl and attach it to the new decl.  */
@@ -1467,8 +1482,122 @@ make_new_vars_2 (tree orig_ssa_name, struct data_structure *struct_data)
 	  old_name = (char *) IDENTIFIER_POINTER (DECL_NAME (orig_decl));
 	  len = strlen (old_name) + 6;
 	  new_name = (char *) xmalloc (len * sizeof (char));
-	  sprintf (new_name, "%s_%d_%d", old_name, 
-		   SSA_NAME_VERSION (orig_ssa_name), i);
+	  sprintf (new_name, "%s_%d", old_name, i);
+	  
+	  /* Make sure there isn't anything else that already has that 
+	     name.  */
+      
+	  new_len = strlen (new_name) + 5;
+	  tmp_name = (char *) xmalloc (new_len * sizeof (char));
+	  sprintf (tmp_name, "%s", new_name);
+
+	  while (maybe_get_identifier (tmp_name))
+	    sprintf (tmp_name, "%s.%d", new_name, counter++);
+	  new_name = tmp_name;
+
+	  id_node = get_identifier (new_name);
+	}
+      else
+	id_node = NULL;
+      
+      /* Create the appropriate type for the new variable decl, and attach
+         it.  */
+      
+      if (pointer_type_p)
+	new_type = build_pointer_type (new_type);
+      else if (array_type_p)
+	new_type = build_array_type (new_type, 
+				     TYPE_DOMAIN (TREE_TYPE (orig_decl)));
+
+      new_decl = build_decl (VAR_DECL, id_node, new_type);
+
+      DECL_ARTIFICIAL (new_decl) = 1;
+      DECL_EXTERNAL (new_decl) = DECL_EXTERNAL (orig_decl);
+      TREE_STATIC (new_decl) = TREE_STATIC (orig_decl);
+      TREE_PUBLIC (new_decl) = TREE_PUBLIC (orig_decl);
+      TREE_USED (new_decl) = TREE_USED (orig_decl);
+      DECL_CONTEXT (new_decl) = DECL_CONTEXT (orig_decl);
+      TREE_THIS_VOLATILE (new_decl) = TREE_THIS_VOLATILE (orig_decl);
+      TREE_ADDRESSABLE (new_decl) = TREE_ADDRESSABLE (orig_decl);
+
+  
+      /* If original var was readonly, we make new vars also readonly 
+	 and gave them default definitions of themselves. */
+
+      if (TREE_CODE (orig_decl) == VAR_DECL &&
+	  TREE_READONLY (orig_decl))
+	TREE_READONLY (new_decl) = 1;
+
+      if (vcg_dump)
+	{
+	  fprintf (vcg_dump, "\norig_decl is:");
+	  print_generic_expr(vcg_dump, orig_decl, 0);
+	  fprintf (vcg_dump, "\nnew_decl is:");
+	  print_generic_expr(vcg_dump, new_decl, 0);
+	}
+
+      new_node = varpool_node (new_decl);
+      notice_global_symbol (new_decl);
+      varpool_mark_needed_node (new_node);
+      varpool_finalize_decl (new_decl);
+
+            
+      /* Stuff the new var decl into a struct_tree_list node, and append it
+	 to the front of the list created so far.  */
+      
+      tmp_node = (struct struct_tree_list *) xmalloc (sizeof 
+						   (struct struct_tree_list));
+      tmp_node->data = new_decl;
+      tmp_node->next = new_vars;
+      new_vars = tmp_node;
+    }
+
+  /* Return the list of new var decls.  */
+
+  return new_vars;
+}
+
+/* Given an old variable ORIG_DECL, this function generates 
+   new variables to replace it accoriding to the set of types decided before.  */
+static struct struct_tree_list *
+make_new_vars_2 (tree orig_decl, struct data_structure *struct_data)
+{
+  struct struct_tree_list *new_vars = NULL;
+  struct struct_tree_list *tmp_node;
+  struct struct_tree_list *new_types = struct_data->new_types;
+  struct struct_tree_list *current;
+  bool pointer_type_p = false;
+  bool array_type_p = false;
+  int i;
+  
+  if (POINTER_TYPE_P (TREE_TYPE (orig_decl)))
+    pointer_type_p = true;
+  else if (TREE_CODE (TREE_TYPE (orig_decl)) == ARRAY_TYPE)
+    array_type_p = true;
+
+  /* For each new type...  */
+  for (current = new_types, i = 0; current; current = current->next, i++)
+    {
+      tree new_type = current->data;
+      tree new_decl = NULL;
+      tree id_node;
+      char *new_name = NULL;
+      char *old_name;
+      int len;
+      struct varpool_node *new_node;
+      
+      /* IFF the original variable decl has a name, create an appropriate new
+	 name for the new decl and attach it to the new decl.  */
+      if (DECL_NAME (orig_decl)
+	  && IDENTIFIER_POINTER (DECL_NAME (orig_decl)))
+	{
+	  int counter = 0;
+	  int new_len;
+	  char *tmp_name;
+	  old_name = (char *) IDENTIFIER_POINTER (DECL_NAME (orig_decl));
+	  len = strlen (old_name) + 6;
+	  new_name = (char *) xmalloc (len * sizeof (char));
+	  sprintf (new_name, "%s_%d", old_name, i);
 	  
 	  /* Make sure there isn't anything else that already has that 
 	     name.  */
@@ -1510,8 +1639,8 @@ make_new_vars_2 (tree orig_ssa_name, struct data_structure *struct_data)
       mark_call_clobbered (new_decl, ESCAPE_UNKNOWN);
       mark_sym_for_renaming (new_decl);
       
-      if (referenced_vars)
-	add_referenced_tmp_var (new_decl);
+      if (gimple_referenced_vars (cfun))
+	 add_referenced_var (new_decl); 
 
       /* If original var was readonly, we make new vars also readonly 
 	 and gave them default definitions of themselves. */
@@ -1520,18 +1649,18 @@ make_new_vars_2 (tree orig_ssa_name, struct data_structure *struct_data)
 	  TREE_READONLY (orig_decl))
 	TREE_READONLY (new_decl) = 1;
 
-      if (debug_mode && vcg_dump)
+      if (vcg_dump)
 	{
 	  fprintf (vcg_dump, "\norig_decl is:");
-	  debug_tree (orig_decl);
+	  print_generic_expr(vcg_dump, orig_decl, 0);
 	  fprintf (vcg_dump, "\nnew_decl is:");
-	  debug_tree (new_decl);
+	  print_generic_expr(vcg_dump, new_decl, 0);
 	}
 
-      new_node = cgraph_varpool_node (new_decl);
+      new_node = varpool_node (new_decl);
       notice_global_symbol (new_decl);
-      cgraph_varpool_mark_needed_node (new_node);
-      cgraph_varpool_finalize_decl (new_decl);
+      varpool_mark_needed_node (new_node);
+      varpool_finalize_decl (new_decl);
 
             
       /* Stuff the new var decl into a struct_tree_list node, and append it
@@ -1617,8 +1746,8 @@ make_new_vars_1 (tree orig_ssa_name, struct data_structure *struct_data)
 
       mark_sym_for_renaming (new_decl);
       
-      if (referenced_vars)
-	add_referenced_tmp_var (new_decl);
+      if (gimple_referenced_vars (cfun))
+	add_referenced_var (new_decl);
 
       /* If original var was readonly, we make new vars also readonly 
 	 and gave them default definitions of themselves. */
@@ -1714,7 +1843,7 @@ replace_var_types (tree old_record, tree new_record)
       {
 	push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	current_function_decl = node->decl;
-	if (in_ssa_p)
+	if (gimple_in_ssa_p (cfun))
 	  {
 	    for (i = 1; i < num_ssa_names; i++)
 	      {
@@ -1908,7 +2037,7 @@ create_new_vars (struct struct_list *data_struct_list)
   struct struct_tree_list *new_vars_list = NULL;
   struct new_var_data *return_list = NULL;
 
-  if (in_ssa_p)
+  if (gimple_in_ssa_p (cfun))
     {
       for (i = 1; i < num_ssa_names; i++)
 	{
@@ -1957,8 +2086,8 @@ create_new_vars (struct struct_list *data_struct_list)
 			for (cur = tmp_node->new_vars; cur; cur = cur->next)
 			  {
 			    tree var_decl = cur->data;
-			    if (referenced_vars)
-			      add_referenced_tmp_var (var_decl);
+			    if (gimple_referenced_vars (cfun))
+			      add_referenced_var (var_decl);
 			  }
 
 			break;			
@@ -1986,8 +2115,8 @@ create_new_vars (struct struct_list *data_struct_list)
 			   for (cur = tmp_node->new_vars; cur; cur = cur->next)
 			     {
 			       	tree var_decl = cur->data;
-				if (referenced_vars)
-				  add_referenced_tmp_var (var_decl);
+				if (gimple_referenced_vars (cfun))
+				  add_referenced_var (var_decl);
 			     }
 			   
 			   if (vcg_dump)
@@ -2081,7 +2210,7 @@ collect_malloc_data (void)
 		tree decl;
 
 		if (call && (decl = get_callee_fndecl (call)) 
-		    && TREE_CODE (stmt) == MODIFY_EXPR)
+		    && TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
 		  {
 		    if (DECL_FUNCTION_CODE (decl) == BUILT_IN_ALLOCA ||
 			DECL_FUNCTION_CODE (decl) == BUILT_IN_MALLOC ||
@@ -2109,7 +2238,7 @@ collect_malloc_data (void)
       tree result_var;
       tree fn_decl;
       tree malloc_fn_decl;
-      tree tmp;
+      tree call_expr;
       tree arg1;
       tree arg2;
       tree num_elts = NULL_TREE;
@@ -2117,10 +2246,10 @@ collect_malloc_data (void)
       bool is_calloc = false;
       bool is_alloca = false;
 
-      if (TREE_CODE (stmt) != MODIFY_EXPR)
+      if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
 	fatal_error ("Call to malloc not part of an assignment.");
 
-      result_var = TREE_OPERAND (stmt, 0);
+      result_var = GIMPLE_STMT_OPERAND (stmt, 0);
 
       /* The assumption below is that the result of malloc is always 
 	 assigned to a (temporary) local variable (of type void *). 
@@ -2132,14 +2261,9 @@ collect_malloc_data (void)
 
       fn_decl = DECL_CONTEXT (SSA_NAME_VAR (result_var));
 
-      tmp = TREE_OPERAND (stmt, 1);
-
-      malloc_fn_decl = TREE_OPERAND (tmp, 0);
-      if (TREE_CODE (malloc_fn_decl) != ADDR_EXPR)
-	fatal_error ("Expected ADDR_EXPR in function call; found something else.");
-
-      malloc_fn_decl = TREE_OPERAND (malloc_fn_decl, 0);
-
+      call_expr = get_call_expr_in (stmt);
+      malloc_fn_decl = get_callee_fndecl (call_expr);
+      
       if (TREE_CODE (malloc_fn_decl) != FUNCTION_DECL)
 	fatal_error ("Expected FUNCTION_DECL, found something else.");
 
@@ -2153,19 +2277,21 @@ collect_malloc_data (void)
       if (!is_malloc && !is_calloc && !is_alloca)
 	fatal_error ("Unidentified version of MALLOC used.");
       
-      if (TREE_CODE (tmp) == CALL_EXPR)
+      if (TREE_CODE (call_expr) == CALL_EXPR)
 	{
-	  tmp = TREE_OPERAND (tmp, 1);  /* Get the argument. */
-	  arg1 = TREE_VALUE (tmp);  /* Arguments are in a TREE_LIST.  */
+	  call_expr_arg_iterator iter;
+
+	  arg1 = first_call_expr_arg (call_expr, &iter);
+
 	  if (is_malloc || is_alloca)
 	    size_var = arg1;
 	  else if (is_calloc)
 	    {
 	      num_elts = arg1;
-	      tmp = TREE_CHAIN (tmp);
-	      arg2 = TREE_VALUE (tmp);
+	      arg2 = next_call_expr_arg (&iter);
 	      size_var = arg2;
 	    }
+
 	}
       else
 	fatal_error ("Was expecting a function call; found something else.");
@@ -2243,10 +2369,10 @@ record_malloc_1 (tree *tp, int *walk_subtrees, void *data)
 
   switch (TREE_CODE (t))
     {
-    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
       {
-	tree lhs = TREE_OPERAND (t, 0);
-	tree rhs = TREE_OPERAND (t, 1);
+	tree lhs = GIMPLE_STMT_OPERAND (t, 0);
+	tree rhs = GIMPLE_STMT_OPERAND (t, 1);
 
 	if (TREE_CODE (rhs) == NOP_EXPR)
 	  rhs = TREE_OPERAND (rhs, 0);
@@ -2354,11 +2480,11 @@ add_field_mallocs (tree cur_lhs,
 		   struct data_structure *struct_data,
 		   tree *new_mallocs_list,
 		   struct malloc_struct *cur_malloc,
-		   tree malloc_fn_decl)
+		   tree malloc_fn_decl,
+		   tree malloc_call_stmt)
 {
   tree cur_field;
   tree new_struct_size;
-  tree arg_list;
   tree call_expr;
   tree new_lhs;
   struct cgraph_node *c_node;
@@ -2388,25 +2514,19 @@ add_field_mallocs (tree cur_lhs,
 
 	  new_struct_size = lang_hooks.optimize.sizeof_type (field_type,
 						      true, 0);
-	  arg_list = build_tree_list (NULL_TREE, new_struct_size);
-	  call_expr = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (malloc_fn_decl)),
-			      build1 (ADDR_EXPR,
-				      build_pointer_type (TREE_TYPE (malloc_fn_decl)),
-				      malloc_fn_decl),
-			      arg_list,
-			      NULL_TREE);
 
+	  call_expr = build_call_expr (malloc_fn_decl, 1, new_struct_size);
 	  void_pointer_type = build_pointer_type (void_type_node);
 	  tmp_var1 = create_tmp_var_raw (void_pointer_type, NULL);
 	  gimple_add_tmp_var (tmp_var1);
-	  call_stmt = build2 (MODIFY_EXPR, void_pointer_type,
+	  call_stmt = build2 (GIMPLE_MODIFY_STMT, void_pointer_type,
 			     tmp_var1,
 			     call_expr);
 	  append_to_statement_list (call_stmt, new_mallocs_list);
 
 	  tmp_var2 = create_tmp_var_raw (save_type, NULL);
 	  gimple_add_tmp_var (tmp_var2);
-	  convert_stmt = build2 (MODIFY_EXPR, save_type,
+	  convert_stmt = build2 (GIMPLE_MODIFY_STMT, save_type,
 				tmp_var2,
 				build1 (CONVERT_EXPR, save_type, tmp_var1));
 
@@ -2414,7 +2534,7 @@ add_field_mallocs (tree cur_lhs,
 
 	  new_lhs = lang_hooks.optimize.build_field_reference (lang_hooks.optimize.build_pointer_ref (cur_lhs, ""),
 					   field_identifier);
-	  new_malloc_stmt = build2 (MODIFY_EXPR, TREE_TYPE (new_lhs),
+	  new_malloc_stmt = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (new_lhs),
 				   new_lhs,
 				   tmp_var2);
 
@@ -2425,17 +2545,18 @@ add_field_mallocs (tree cur_lhs,
 
 	  tmp_var3 = create_tmp_var_raw (TREE_TYPE (new_rhs), NULL);
 	  gimple_add_tmp_var (tmp_var3);
-	  assign_stmt = build2 (MODIFY_EXPR, TREE_TYPE (new_rhs),
+	  assign_stmt = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (new_rhs),
 			       tmp_var3,
 			       new_rhs);
 	  append_to_statement_list (assign_stmt, new_mallocs_list);
 
 	  c_node = cgraph_node (cur_malloc->context);
 	  c_node2 = cgraph_node (malloc_fn_decl);
-	  cgraph_create_edge (c_node, c_node2, assign_stmt, /*FKZ HACK*/0, 0);
+	  cgraph_create_edge (c_node, c_node2, assign_stmt, /*FKZ HACK*/0, 0,
+			      bb_for_stmt (malloc_call_stmt)->loop_depth);
 
 	  add_field_mallocs (tmp_var3, field_type, struct_data, new_mallocs_list,
-			     cur_malloc, malloc_fn_decl);
+			     cur_malloc, malloc_fn_decl, malloc_call_stmt);
 	  
 	}
     }
@@ -2446,11 +2567,11 @@ create_cascading_mallocs (struct malloc_struct *cur_malloc,
 			  struct data_structure *struct_data,
 			  struct new_var_data *cur_var,
 			  tree malloc_fn_decl,
-			  tree *new_mallocs_list)
+			  tree *new_mallocs_list,
+			  tree malloc_call_stmt)
 {
   tree new_struct_type;
   tree new_struct_size;
-  tree arg_list;
   tree call_expr;
   tree new_malloc_tree;
   struct cgraph_node *c_node;
@@ -2488,15 +2609,8 @@ create_cascading_mallocs (struct malloc_struct *cur_malloc,
   new_struct_size = lang_hooks.optimize.sizeof_type (new_struct_type, 
 						     true, 0);
 
-  arg_list = build_tree_list (NULL_TREE, new_struct_size);
-  call_expr = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (malloc_fn_decl)),
-		      build1 (ADDR_EXPR, 
-			      build_pointer_type (TREE_TYPE (malloc_fn_decl)),
-			      malloc_fn_decl),
-		      arg_list,
-		      NULL_TREE);
-
-  new_malloc_tree = build2 (MODIFY_EXPR, TREE_TYPE (cur_var->new_vars->data),
+  call_expr = build_call_expr (malloc_fn_decl, 1, new_struct_size);
+  new_malloc_tree = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (cur_var->new_vars->data),
 			   cur_var->new_vars->data,
 			   build1 (NOP_EXPR, TREE_TYPE (cur_var->new_vars->data), 
 				   call_expr));
@@ -2505,10 +2619,11 @@ create_cascading_mallocs (struct malloc_struct *cur_malloc,
 
   c_node = cgraph_node (cur_malloc->context);
   c_node2 = cgraph_node (malloc_fn_decl);
-  cgraph_create_edge (c_node, c_node2, new_malloc_tree, /*FKZ HACK*/0, 0);
+  cgraph_create_edge (c_node, c_node2, new_malloc_tree, /*FKZ HACK*/0, 0, 
+		      bb_for_stmt (malloc_call_stmt)->loop_depth);
 
   add_field_mallocs (cur_var->new_vars->data, new_struct_type, struct_data,
-		     new_mallocs_list, cur_malloc, malloc_fn_decl);
+		     new_mallocs_list, cur_malloc, malloc_fn_decl, malloc_call_stmt);
 
   cfun = save_cfun;
   current_function_decl = save_fn_decl;
@@ -2532,7 +2647,6 @@ create_new_malloc (tree new_var_decl, struct data_structure *struct_data,
   tree old_malloc_size;
   tree div_stmt;
   tree mult_stmt;
-  tree arg_list;
   tree call_expr;
   tree void_pointer_type = build_pointer_type (void_type_node);
 				
@@ -2543,11 +2657,11 @@ create_new_malloc (tree new_var_decl, struct data_structure *struct_data,
   new_malloc_result_var = create_tmp_var (void_pointer_type, NULL);
 
   if (new_malloc_factor_var)
-    add_referenced_tmp_var (new_malloc_factor_var);
+    add_referenced_var (new_malloc_factor_var);
   if (new_malloc_size_var)
-    add_referenced_tmp_var (new_malloc_size_var);
+    add_referenced_var (new_malloc_size_var);
   if (new_malloc_result_var)
-    add_referenced_tmp_var (new_malloc_result_var);
+    add_referenced_var (new_malloc_result_var);
 
 		    
   new_struct_type = TREE_TYPE (new_var_decl);
@@ -2569,7 +2683,7 @@ create_new_malloc (tree new_var_decl, struct data_structure *struct_data,
   if (! (*new_mallocs_list_p))
     *new_mallocs_list_p = alloc_stmt_list ();
 				
-  div_stmt = build2 (MODIFY_EXPR, integer_type_node,
+  div_stmt = build2 (GIMPLE_MODIFY_STMT, integer_type_node,
 		     new_malloc_factor_var,
 		     build2 (TRUNC_DIV_EXPR, 
 			     integer_type_node,
@@ -2578,9 +2692,9 @@ create_new_malloc (tree new_var_decl, struct data_structure *struct_data,
   append_to_statement_list (div_stmt, 
 			    new_mallocs_list_p);
   update_stmt (div_stmt);
-  mark_new_vars_to_rename (div_stmt);
+  mark_symbols_for_renaming (div_stmt);
 						 
-  mult_stmt = build2 (MODIFY_EXPR, integer_type_node,
+  mult_stmt = build2 (GIMPLE_MODIFY_STMT, integer_type_node,
 		      new_malloc_size_var,
 		      build2 (MULT_EXPR, 
 			      integer_type_node,
@@ -2590,42 +2704,29 @@ create_new_malloc (tree new_var_decl, struct data_structure *struct_data,
   append_to_statement_list (mult_stmt, 
 			    new_mallocs_list_p);
   update_stmt (mult_stmt);
-  mark_new_vars_to_rename (mult_stmt);
+  mark_symbols_for_renaming (mult_stmt);
 
   /* Wrap the new malloc size expr up into a 
      TREE_LIST (function arguments are always 
      in TREE_LIST form).  */
 
-  arg_list = build_tree_list (NULL_TREE, 
-			      new_malloc_size_var);
 
-  if (malloc_call->num_elts)
-    arg_list = tree_cons (NULL_TREE, 
-			  malloc_call->num_elts,
-			  arg_list);
-
-  call_expr =  build3 (CALL_EXPR,
-		       TREE_TYPE 
-		       (TREE_TYPE 
-			(malloc_fn_decl)),
-		       build1 (ADDR_EXPR,
-			       build_pointer_type 
-			       (TREE_TYPE 
-				(malloc_fn_decl)),
-			       malloc_fn_decl), 
-		       arg_list,
-		       NULL_TREE);
+  if (!malloc_call->num_elts)
+    call_expr = build_call_expr (malloc_fn_decl, 1, new_malloc_size_var); 
+  else
+    call_expr = build_call_expr (malloc_fn_decl, 2, 
+				 malloc_call->num_elts, new_malloc_size_var); 
 				
-  call_stmt = build2 (MODIFY_EXPR,
+  call_stmt = build2 (GIMPLE_MODIFY_STMT,
 		      TREE_TYPE (TREE_TYPE (malloc_fn_decl)),
 		      new_malloc_result_var,
 		      call_expr);
   append_to_statement_list (call_stmt, 
 			    new_mallocs_list_p);
   update_stmt (call_stmt);
-  mark_new_vars_to_rename (call_stmt);
+  mark_symbols_for_renaming (call_stmt);
 
-  final_assignment_stmt = build2 (MODIFY_EXPR, 
+  final_assignment_stmt = build2 (GIMPLE_MODIFY_STMT, 
 				  TREE_TYPE 
 				  (new_var_decl),
 				  new_var_decl,
@@ -2636,7 +2737,7 @@ create_new_malloc (tree new_var_decl, struct data_structure *struct_data,
   append_to_statement_list (final_assignment_stmt, 
 			    new_mallocs_list_p);
   update_stmt (final_assignment_stmt);
-  mark_new_vars_to_rename (final_assignment_stmt);
+  mark_symbols_for_renaming (final_assignment_stmt);
 				
   return call_stmt;
 }
@@ -2730,7 +2831,7 @@ fix_test_of_malloc_result (basic_block bb, struct new_var_data *new_vars)
 				     new_else);
 
 		  update_stmt (new_stmt);
-		  mark_new_vars_to_rename (new_stmt);
+		  mark_symbols_for_renaming (new_stmt);
 
 		  if (first_stmt)
 		    {
@@ -2764,7 +2865,7 @@ fix_test_of_malloc_result (basic_block bb, struct new_var_data *new_vars)
 		      append_to_statement_list (new_label,
 						&stmt_list);
 		      update_stmt (new_label);
-		      mark_new_vars_to_rename (new_label);
+		      mark_symbols_for_renaming (new_label);
 
 		      new_goto = build_and_jump 
 			(&LABEL_EXPR_LABEL (new_label));
@@ -2890,8 +2991,7 @@ create_new_mallocs (struct malloc_struct *cur_malloc,
   struct new_var_data *cur_var;
   tree malloc_fn_decl = NULL_TREE;
   tree new_mallocs_list = NULL_TREE;
-  tree tmp_tree;
-  tree rhs;
+  tree call_stmt, call_expr;
   struct cgraph_node *c_node;
   struct cgraph_node *c_node_2;
 
@@ -2909,35 +3009,19 @@ create_new_mallocs (struct malloc_struct *cur_malloc,
 	 very particular structure; the code tests this assumption
 	 and fails if it is false.  */
       
-      tmp_tree = cur_malloc->malloc_list[i].call_stmt;
+      call_stmt = cur_malloc->malloc_list[i].call_stmt;
       
-      if (TREE_CODE (tmp_tree) != MODIFY_EXPR)
-	fatal_error ("Expected MODIFY_EXPR");
-	  
-      rhs = TREE_OPERAND (tmp_tree, 1);
-      while (TREE_CODE (rhs) == NOP_EXPR)
-	rhs = TREE_OPERAND (rhs, 0);
-	  
-      if (TREE_CODE (rhs) != CALL_EXPR)
-	fatal_error ("Expected CALL_EXPR");
-      else
-	tmp_tree = TREE_OPERAND (rhs, 0);
-	  
-      if (TREE_CODE (tmp_tree) != ADDR_EXPR)
-	fatal_error ("Expected ADDR_EXPR");
-      else
-	tmp_tree = TREE_OPERAND (tmp_tree, 0);
-	  
-      if (TREE_CODE (tmp_tree) != FUNCTION_DECL)
+      call_expr = get_call_expr_in (call_stmt);
+      malloc_fn_decl = get_callee_fndecl (call_expr);
+      
+      if (TREE_CODE (malloc_fn_decl) != FUNCTION_DECL)
 	fatal_error ("Expected FUNCTION_DECL");
       else
 	{
-	  if (DECL_FUNCTION_CODE (tmp_tree) != BUILT_IN_ALLOCA
-	      && DECL_FUNCTION_CODE (tmp_tree) != BUILT_IN_MALLOC
-	      && DECL_FUNCTION_CODE (tmp_tree) != BUILT_IN_CALLOC)
-	    fatal_error ("Expected malloc or calloc function");
-	      
-	  malloc_fn_decl = tmp_tree;
+	  if (DECL_FUNCTION_CODE (malloc_fn_decl) != BUILT_IN_ALLOCA
+	      && DECL_FUNCTION_CODE (malloc_fn_decl) != BUILT_IN_MALLOC
+	      && DECL_FUNCTION_CODE (malloc_fn_decl) != BUILT_IN_CALLOC)
+	    fatal_error ("Expected malloc or calloc function");	      
 	}
 
       /* Check newly created variables against the lhs of the malloc
@@ -2971,7 +3055,7 @@ create_new_mallocs (struct malloc_struct *cur_malloc,
 
 			if (struct_data->struct_clustering->direct_access)
 			  {
-			    tree call_stmt = create_new_malloc (new_var_decl, struct_data, 
+			    tree cstmt = create_new_malloc (new_var_decl, struct_data, 
 								&new_mallocs_list,
 								&(cur_malloc->malloc_list[i]), 
 								malloc_fn_decl);
@@ -2980,8 +3064,8 @@ create_new_mallocs (struct malloc_struct *cur_malloc,
 			    c_node = cgraph_node (cur_malloc->context);
 			    c_node_2 = cgraph_node (malloc_fn_decl);
 			    cgraph_create_edge (c_node, c_node_2, 
-						call_stmt /*FKZ HACK*/, 
-						0, 0);
+						cstmt /*FKZ HACK*/, 
+						0, 0, bb_for_stmt (call_stmt)->loop_depth);
 			  }
 			else
 			  {
@@ -2992,7 +3076,8 @@ create_new_mallocs (struct malloc_struct *cur_malloc,
 						      cur_struct->struct_data,
 						      cur_var,
 						      malloc_fn_decl,
-						      &new_mallocs_list);
+						      &new_mallocs_list,
+						      call_stmt);
 			  }
 		      }
 		  }
@@ -3049,39 +3134,147 @@ create_new_mallocs (struct malloc_struct *cur_malloc,
    function returns it.  */
 
 static struct new_var_data *
-search_lhs_for_struct_vars (tree stmt, tree lhs, struct new_var_data *new_vars)
+find_new_var_for_orig (tree lhs, struct new_var_data *new_vars)
 {
-  ssa_op_iter iter;
-  tree op;
   struct new_var_data *current;
+  
+  gcc_assert (lhs && new_vars);
 
-  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF|SSA_OP_VMAYDEF|SSA_OP_VMUSTDEF)	  
+  switch (TREE_CODE (lhs))
     {
-      if (TREE_CODE (lhs) == SSA_NAME)
+    case SSA_NAME:
+      {
+	for (current = new_vars; current; current = current->next)
+	  {
+	    if (current->orig_var == lhs)
+	      return current;
+	  }
+      }
+      break;
+    case PARM_DECL:
+    case VAR_DECL:
+      {
+	for (current = new_global_vars; current; current = current->next)
+	  {
+	    if (current->orig_var == lhs)
+	      return current;
+	  }
+      }
+      break;
+    default:
+      return NULL;
+    }
+  return NULL;
+}
+
+static struct struct_tree_list *
+build_tree_list_node (tree data, struct struct_tree_list * last)  
+{
+  struct struct_tree_list * tmp_node;
+
+  tmp_node = (struct struct_tree_list *) xmalloc (sizeof 
+						  (struct struct_tree_list));
+  tmp_node->data = data;
+  tmp_node->next = last; 
+
+  return tmp_node;
+}
+
+typedef struct aux_data
+{
+  struct new_var_data *new_vars;
+  struct struct_tree_list *list;
+}aux_data_t;
+
+static tree
+search_tree_for_struct_vars_1 (tree *tp, int *walk_subtrees, void *data)
+{
+  struct new_var_data * new_vars = ((aux_data_t *)data)->new_vars;
+  tree t = *tp;
+  int length = TREE_OPERAND_LENGTH (t);
+
+  if (length > 0 && (TREE_CODE (t) != COMPONENT_REF))
+    {
+      int i;
+
+      for (i = 0; i < length; i++)
+	  walk_tree (&TREE_OPERAND (t, i), search_tree_for_struct_vars_1,data, NULL);
+      *walk_subtrees = 0;
+      return NULL;
+    }
+  else
+    {
+      switch (TREE_CODE (t))  
 	{
-	  if (op == lhs)
-	    {
-	      for (current = new_vars; current; current = current->next)
-		{
-		  if (current->orig_var == op)
-		    return current;
-		}
-	    }
-	}
-      else if (TREE_CODE (lhs) == VAR_DECL)
-	{
-	  if (SSA_NAME_VAR (op) == lhs)
-	    {
-	      for (current = new_vars; current; current = current->next)
-		{
-		  if (current->orig_var == op)
-		    return current;
-		}
-	    }
+	case PARM_DECL:
+	case VAR_DECL:
+	  {
+	    struct new_var_data *current;
+
+	    /* Check in globals.  */
+	    for (current = new_global_vars; current; current = current->next)
+	      {
+		if (current->orig_var == t)
+		  {
+		    ((aux_data_t *)data)->list = build_tree_list_node (t, 
+								       ((aux_data_t *)data)->list);  
+		    *walk_subtrees = 0;
+		    return NULL;
+		  }
+
+	      }
+
+	    *walk_subtrees = 0;
+	  }
+	  break;
+
+	case SSA_NAME:
+	  {
+	    struct new_var_data *current;
+
+	    /* Check in locals.  */
+	    for (current = new_vars; current; current = current->next)
+	      {
+		if (current->orig_var == t)
+		  {
+		    ((aux_data_t *)data)->list = build_tree_list_node (t, 
+								       ((aux_data_t *)data)->list);  
+		    *walk_subtrees = 0;
+		    return NULL;
+		  }
+
+	      }
+
+	    *walk_subtrees = 0;
+	  }
+	  break;
+
+	case COMPONENT_REF:
+	  *walk_subtrees = 0;
+	  break;
+
+	default:
+	  *walk_subtrees = 0;
+	  break;
 	}
     }
-
   return NULL;
+}
+
+/* This function checks to see if TREE contains any of the original 
+   variables listed in NEW_VARS. If so, it returns a list of such 
+   original variable found.  */
+
+static struct struct_tree_list *
+search_tree_for_struct_vars (tree rhs, struct new_var_data *new_vars)
+{
+  aux_data_t data;
+
+  gcc_assert (rhs);
+  data.new_vars = new_vars;
+  data.list = NULL;
+  walk_tree (&rhs, search_tree_for_struct_vars_1, (void*)&data, NULL);
+  return data.list;
 }
 
 /* This function checks to see if tree RHS contains any of the original 
@@ -3119,7 +3312,8 @@ search_rhs_for_struct_vars (tree stmt, tree rhs, struct new_var_data *new_vars)
 									(struct struct_tree_list));
 			tmp_node->data = current->orig_var;
 			tmp_node->next = return_list;
-			return_list = tmp_node;			
+			return_list = tmp_node;		
+
 			break;
 		      }
 		  }
@@ -3266,19 +3460,22 @@ find_var_of_given_type (tree old_type, tree new_type,
 		    print_generic_stmt (vcg_dump, old_rhs, 0);
 		  }
 
-		if (SSA_NAME_VAR (rhs_var->data) == old_rhs)
+		if (rhs_var->data == old_rhs)
 		  {
-		    for (current = new_vars; current && !found;
+		    for (current = new_global_vars; current && !found;
 			 current = current->next)
 		      {
 			if (current->orig_var == rhs_var->data)
-			  {
+			  {			 
 			    for (cur = current->new_vars; cur && !found; cur = cur->next)
 			      {
 				if (equivalent_types_p (TREE_TYPE (cur->data), new_type)
 				    || similar_struct_decls_p (TREE_TYPE (cur->data),
 							       tmp_type))
+				  {
+				    finish_global_creation (cur->data);
 				    *new_rhs = cur->data;
+				  }
 			      }
 			  }		      
 		      }
@@ -3472,7 +3669,8 @@ build_new_stmts (tree lhs, struct struct_tree_list *rhs_vars,
     tmp_lhs = lhs;
 
   /* Find the lhs var in the new_vars list.  */
-  cur_var = search_lhs_for_struct_vars (stmt, tmp_lhs, new_vars);
+  cur_var = find_new_var_for_orig (tmp_lhs, new_vars);
+
   
   if (vcg_dump)
     {
@@ -3486,6 +3684,7 @@ build_new_stmts (tree lhs, struct struct_tree_list *rhs_vars,
 	debug_tree (lhs);
       fprintf (vcg_dump, "\ntmp_lhs is: ");
       print_generic_stmt (vcg_dump, tmp_lhs, 0);
+
     }
   
   if (!cur_var)
@@ -3495,9 +3694,9 @@ build_new_stmts (tree lhs, struct struct_tree_list *rhs_vars,
       struct struct_tree_list *current2;
       struct new_var_data *cur_rhs_var;
       tree old_var;
-      tree old_rhs = TREE_OPERAND (stmt, 1);
+      tree old_rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
-      rhs_vars = search_rhs_for_struct_vars (stmt, old_rhs, new_vars);
+      rhs_vars = search_tree_for_struct_vars (old_rhs, new_vars);
 
       if (!rhs_vars)
 	fatal_error ("Can't find correct number of structs in rhs.");
@@ -3529,7 +3728,7 @@ build_new_stmts (tree lhs, struct struct_tree_list *rhs_vars,
 	      
 	      find_and_substitute_types_and_vars (old_type, new_type, new_vars,
 						  &new_rhs, old_rhs, rhs_vars);
-	      new_stmt = build2 (MODIFY_EXPR, TREE_TYPE (new_lhs),
+	      new_stmt = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (new_lhs),
 				new_lhs, new_rhs);
 	      if (!new_stmt_list)
 		new_stmt_list = alloc_stmt_list ();
@@ -3544,7 +3743,7 @@ build_new_stmts (tree lhs, struct struct_tree_list *rhs_vars,
 	tree new_var_decl = cur_lhs->data;
 	tree new_type = TREE_TYPE (new_var_decl);
 	tree old_type = TREE_TYPE (cur_var->orig_var);
-	tree old_rhs = TREE_OPERAND (stmt, 1);	
+	tree old_rhs = GIMPLE_STMT_OPERAND (stmt, 1);	
 	tree new_rhs = recursively_copy_node (old_rhs); 
 	tree new_lhs;
 	struct struct_tree_list * rhs_var;
@@ -3561,6 +3760,7 @@ build_new_stmts (tree lhs, struct struct_tree_list *rhs_vars,
 	    fprintf (vcg_dump, "\nold_rhs is: ");
 	    print_generic_stmt (vcg_dump, old_rhs, 0);
 	  
+	    
 	    for (rhs_var = rhs_vars; rhs_var; rhs_var = rhs_var->next)
 	      {
 		fprintf (vcg_dump, "\nrhs_var->data is: ");
@@ -3575,11 +3775,11 @@ build_new_stmts (tree lhs, struct struct_tree_list *rhs_vars,
 	if (vcg_dump)
 	  fprintf (vcg_dump, "\nWe got after find_var...\n ");
 	
-	new_stmt = build2 (MODIFY_EXPR, TREE_TYPE (new_lhs),
+	new_stmt = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (new_lhs),
 			   new_lhs, new_rhs);
 	
 	update_stmt (new_stmt);
-	mark_new_vars_to_rename (new_stmt);
+	mark_symbols_for_renaming (new_stmt);
 
 	if (vcg_dump)
 	  {
@@ -3604,10 +3804,10 @@ find_base (tree arg0, tree arg1, block_stmt_iterator bsi)
     {
       tree stmt = bsi_stmt (bsi);
       
-      if (TREE_CODE (stmt) == MODIFY_EXPR)
+      if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
 	{
-	  tree lhs = TREE_OPERAND (stmt, 0);
-	  tree rhs = TREE_OPERAND (stmt, 1);
+	  tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+	  tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
 	  if (lhs == arg0)
 	    {
@@ -3696,7 +3896,7 @@ update_struct_offset (struct struct_list *data_struct_list,
 
   tree lhs = use->lhs;
   tree new_stmt_list = alloc_stmt_list ();
-  tree convert = TREE_OPERAND (use->stmt, 1);  /* stmt rhs */
+  tree convert = GIMPLE_STMT_OPERAND (use->stmt, 1);  /* stmt rhs */
   tree arg0 = TREE_OPERAND (convert, 0);       /* int being converted */
   tree new_int_type = TREE_TYPE (arg0);
   bool found = false;  
@@ -3725,11 +3925,11 @@ update_struct_offset (struct struct_list *data_struct_list,
 
   index_var = create_tmp_var (integer_type_node, NULL);   
   
-  if (referenced_vars)
-    add_referenced_tmp_var (index_var);
+  if (gimple_referenced_vars (cfun))
+    add_referenced_var (index_var);
 
   if (exact_log2 (orig_struct_size) == -1)
-    new_stmt = build2 (MODIFY_EXPR, new_int_type,
+    new_stmt = build2 (GIMPLE_MODIFY_STMT, new_int_type,
 		       index_var,
 		       build2 (TRUNC_DIV_EXPR, 
 			      new_int_type,
@@ -3737,7 +3937,7 @@ update_struct_offset (struct struct_list *data_struct_list,
 						   orig_struct_size)));
 
   else
-    new_stmt = build2 (MODIFY_EXPR, integer_type_node,
+    new_stmt = build2 (GIMPLE_MODIFY_STMT, integer_type_node,
 		       index_var,
 		       build2 (RSHIFT_EXPR, 
 			       integer_type_node,
@@ -3745,7 +3945,7 @@ update_struct_offset (struct struct_list *data_struct_list,
 						    exact_log2 (orig_struct_size))));
 
   update_stmt (new_stmt);
-  mark_new_vars_to_rename (new_stmt);
+  mark_symbols_for_renaming (new_stmt);
   append_to_statement_list (new_stmt, &new_stmt_list);
 
   for (tmp_node = struct_data->new_types;
@@ -3763,14 +3963,14 @@ update_struct_offset (struct struct_list *data_struct_list,
       size_var = create_tmp_var (integer_type_node,
 	 NULL);
 
-      if (referenced_vars)
-	add_referenced_tmp_var (size_var);
+      if (gimple_referenced_vars (cfun))
+	add_referenced_var (size_var);
       
       new_struct_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (new_struct_type)) / 
 	(TYPE_PRECISION (char_type_node) / BITS_PER_UNIT);
 
       if (exact_log2 (new_struct_size) == -1)
-	new_stmt1 = build2 (MODIFY_EXPR, integer_type_node,
+	new_stmt1 = build2 (GIMPLE_MODIFY_STMT, integer_type_node,
 			    size_var,
 			    build2 (MULT_EXPR, 
 				   integer_type_node,
@@ -3778,7 +3978,7 @@ update_struct_offset (struct struct_list *data_struct_list,
 				build_int_cst (integer_type_node,
 					       new_struct_size)));
       else
-	new_stmt1 = build2 (MODIFY_EXPR, integer_type_node,
+	new_stmt1 = build2 (GIMPLE_MODIFY_STMT, integer_type_node,
 			    size_var,
 			    build2 (LSHIFT_EXPR, 
 				    integer_type_node,
@@ -3787,7 +3987,7 @@ update_struct_offset (struct struct_list *data_struct_list,
 
 
       update_stmt (new_stmt1);
-      mark_new_vars_to_rename (new_stmt1);
+      mark_symbols_for_renaming (new_stmt1);
       append_to_statement_list (new_stmt1, 
 				&new_stmt_list);
  
@@ -3795,14 +3995,14 @@ update_struct_offset (struct struct_list *data_struct_list,
       size_var1 = create_tmp_var (new_int_type,
 	 NULL);
 
-      if (referenced_vars)
-	add_referenced_tmp_var (size_var1);
+      if (gimple_referenced_vars (cfun))
+	add_referenced_var (size_var1);
 
-      new_stmt11 = build2 (MODIFY_EXPR, new_int_type,
+      new_stmt11 = build2 (GIMPLE_MODIFY_STMT, new_int_type,
 			   size_var1, fold_convert (new_int_type, size_var));
 
       update_stmt (new_stmt11);
-      mark_new_vars_to_rename (new_stmt11);
+      mark_symbols_for_renaming (new_stmt11);
       append_to_statement_list (new_stmt11, 
 				&new_stmt_list);
 
@@ -3812,13 +4012,13 @@ update_struct_offset (struct struct_list *data_struct_list,
       if (!typecast_var)
 	fatal_error ("Unable to find newly created var.");
       
-      new_stmt2 = build2 (MODIFY_EXPR, TREE_TYPE (typecast_var),
+      new_stmt2 = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (typecast_var),
 			 typecast_var, 
 			 build1 (NOP_EXPR, TREE_TYPE (typecast_var),
 				 size_var1));
       
       update_stmt (new_stmt2);
-      mark_new_vars_to_rename (new_stmt2);
+      mark_symbols_for_renaming (new_stmt2);
       append_to_statement_list (new_stmt2, 
 				&new_stmt_list);
 
@@ -3830,6 +4030,7 @@ update_struct_offset (struct struct_list *data_struct_list,
 
 }
 
+#if 0
 /* This function is helper for update_field_accesses.
    Given VAR as it appear in stmt, it looks for new_var_data 
    correspondent to this VAR's ssa_name as it appear in STMT 
@@ -3882,6 +4083,7 @@ find_orig_variable (tree var, struct new_var_data *new_vars, int arg_position, t
       
       return NULL;
 }
+#endif
 
 /* This function goes to every place where a field in the original struct
    (STRUCT_DATA) is accessed, and updates the field access code to 
@@ -3894,7 +4096,6 @@ update_field_accesses (struct struct_list *data_struct_list,
   int i;
   struct struct_list *cur_struct;
   struct data_field_entry cur_field;
-  struct new_var_data *cur_var;
   struct new_var_data *found_var;
   tree new_stmt_list = NULL_TREE;
 
@@ -3906,7 +4107,6 @@ update_field_accesses (struct struct_list *data_struct_list,
 	  {
 	    struct access_site *cur_access;
 	    struct field_map *new_mapping;
-	    struct field_map *cur_map_pos;
 	    
 	    cur_field = cur_struct->struct_data->fields[i];
 	    new_mapping = cur_field.new_mapping;
@@ -3921,7 +4121,6 @@ update_field_accesses (struct struct_list *data_struct_list,
 		tree new_access = NULL_TREE;
 		tree field_identifier;
 		tree outer_tree;
-		bool found = false;
 		tree_stmt_iterator *insertion_point = NULL;
 		block_stmt_iterator bsi;
 		bool is_indirect_ref = false;
@@ -3935,6 +4134,7 @@ update_field_accesses (struct struct_list *data_struct_list,
 		
 		outer_tree = cur_access->stmt;
 
+
 		if (TREE_CODE (access) == VAR_DECL
 		    || TREE_CODE (access) == PARM_DECL
 		    || TREE_CODE (access) == INDIRECT_REF)
@@ -3945,9 +4145,9 @@ update_field_accesses (struct struct_list *data_struct_list,
 		if (cur_access->context != cfun)
 		  continue;
 
-		if (TREE_OPERAND (outer_tree, 0) == access)
+		if (GIMPLE_STMT_OPERAND (outer_tree, 0) == access)
 		  arg_position = 0;
-		else if (TREE_OPERAND (outer_tree, 1) == access)
+		else if (GIMPLE_STMT_OPERAND (outer_tree, 1) == access)
 		  arg_position = 1;
 		else
 		  fatal_error ("Field access is not direct child of statement.");
@@ -4013,7 +4213,8 @@ update_field_accesses (struct struct_list *data_struct_list,
 		  fatal_error ("Field decls should match but don't.");
 		
 		if (TREE_CODE (arg0) == VAR_DECL
-		    || TREE_CODE (arg0) == PARM_DECL)
+		    || TREE_CODE (arg0) == PARM_DECL
+		    || TREE_CODE (arg0) == SSA_NAME)
 		  old_var = arg0;
 		else
 		  old_var = TREE_OPERAND (arg0, 0);
@@ -4027,7 +4228,8 @@ update_field_accesses (struct struct_list *data_struct_list,
 		    print_generic_stmt (vcg_dump, outer_tree, 0);
 		  }
 
-		found_var = find_orig_variable (old_var, new_vars, arg_position, outer_tree);
+
+		found_var = find_new_var_for_orig (old_var, new_vars);
 		if (!found_var)
 		  fatal_error ("Original variable was not found for fields access.");
 
@@ -4066,156 +4268,18 @@ update_field_accesses (struct struct_list *data_struct_list,
 		      }
 		  }
 
+
+		GIMPLE_STMT_OPERAND (outer_tree, arg_position) = new_access;
+		update_stmt (outer_tree);
+		mark_symbols_for_renaming (outer_tree); 
+		
 		if (vcg_dump)
 		  {
-		    fprintf (vcg_dump, "\nnew_access is:\n");
-		    print_generic_stmt (vcg_dump, new_access, 0);
+		    fprintf (vcg_dump, "\nouter_tree is:\n");
+		    print_generic_stmt (vcg_dump, outer_tree, 0);
 		  }
 
-		TREE_OPERAND (outer_tree, arg_position) = new_access;
-		update_stmt (outer_tree);
-		mark_new_vars_to_rename (outer_tree); 
-		
-		continue;
  
-		for (cur_var = new_vars; cur_var && !found; 
-		     cur_var = cur_var->next)
-		  {
-		    if (old_var == SSA_NAME_VAR (cur_var->orig_var))
-		      {
-			struct struct_tree_list *current;
-			found = true;
-			for (current = cur_var->new_vars; current; 
-			     current = current->next)
-			  {
-			    tree var_type = TREE_TYPE (current->data);
-			    
-			    while (POINTER_TYPE_P (var_type))
-			      var_type = TREE_TYPE (var_type);
-
-			    if (TREE_CODE (var_type) == ARRAY_TYPE)
-			      var_type = TREE_TYPE (var_type);
-			    
-			    if (similar_struct_decls_p (var_type, new_mapping->decl))
-			      {
-				tree tmp_field;
-				tree tmp_type;
-				tree save_type;
-				tree old_var;
-				tree new_var;
-				tree new_stmt;
-				new_access = NULL_TREE;
-				old_var = current->data;
-				for (cur_map_pos = new_mapping; cur_map_pos;
-				     cur_map_pos = cur_map_pos->contains)
-				  {
-				    if (cur_map_pos->contains)
-				      {
-					field_identifier = NULL_TREE;
-					for (tmp_field = TYPE_FIELDS (cur_map_pos->decl);
-					     tmp_field && !field_identifier;
-					     tmp_field = TREE_CHAIN (tmp_field))
-					  {
-					    tmp_type = TREE_TYPE (tmp_field);
-					    save_type = tmp_type;
-					    while (POINTER_TYPE_P (tmp_type))
-					      tmp_type = TREE_TYPE (tmp_type);
-					    if (similar_struct_decls_p (tmp_type,
-									cur_map_pos->contains->decl))
-					      field_identifier = DECL_NAME (tmp_field);
-					  }
-					if (!field_identifier)
-					  fatal_error ("Could not find field for substruct in superstruct.");
-					
-					if (! new_stmt_list)
-					  new_stmt_list = alloc_stmt_list ();
-					
-					new_var = create_tmp_var_raw (save_type,
-								      NULL);
-					gimple_add_tmp_var (new_var);
-					
-					if (is_indirect_ref)
-					  new_stmt = build2 (MODIFY_EXPR,
-							    save_type,
-							    new_var,
-							    lang_hooks.optimize.build_field_reference 
-							    (lang_hooks.optimize.build_pointer_ref 
-							     (old_var, ""),
-							     field_identifier));
-					else if (is_array_ref)
-					  new_stmt = build2 (MODIFY_EXPR,
-							    save_type,
-							    new_var,
-							    lang_hooks.optimize.build_field_reference
-							    (lang_hooks.optimize.build_array_ref
-							     (old_var, array_ref_index),
-							     field_identifier));
-					else
-					  new_stmt = build2 (MODIFY_EXPR,
-							    save_type,
-							    new_var,
-							    lang_hooks.optimize.build_field_reference
-							    (old_var,
-							     field_identifier));
-					
-					append_to_statement_list (new_stmt, 
-								  &new_stmt_list);
-					old_var = new_var;
-				      }
-				    else
-				      {
-					field_identifier = DECL_NAME (arg1);
-					if (is_indirect_ref)
-					  new_access = lang_hooks.optimize.build_field_reference
-					    (lang_hooks.optimize.build_pointer_ref (old_var, ""),
-					     field_identifier);
-					else if (is_array_ref)
-					  new_access = lang_hooks.optimize.build_field_reference
-
-					    (lang_hooks.optimize.build_array_ref (old_var, array_ref_index),
-					     field_identifier);
-					else
-					  new_access = lang_hooks.optimize.build_field_reference
-					    (old_var, field_identifier);
-
-					if (vcg_dump)
-					  {
-					    fprintf (vcg_dump, "\nnew_access is:\n");
-					    if (debug_mode)
-					      debug_tree (new_access);
-					  }
-
-				      }
-				  }
-				
-				if (!new_access)
-				  fatal_error ("Couldn't find correct field access.");
-				
-				/*
-				  if (access == TREE_OPERAND (cur_access->stmt, 0))
-				  TREE_OPERAND (cur_access->stmt, 0) = new_access;
-				  else if (access == TREE_OPERAND (cur_access->stmt,
-				  1))
-				  TREE_OPERAND (cur_access->stmt, 1) = new_access;
-				  else
-				  fatal_error 
-				  ("Cannot locate field access within statement.");
-				*/
-				
-				TREE_OPERAND (outer_tree, arg_position) = new_access;
-				
-				if (new_stmt_list)
-				  {
-				    /* Insert new stmts before access stmt */
-				    add_bb_info (cur_access->bb, new_stmt_list);
-				    tsi_link_before (insertion_point,
-						     new_stmt_list,
-						     TSI_CONTINUE_LINKING);
-				  }
-			      }
-			  }
-		      }
-		  }
 	      }
 	  }
       }  
@@ -4278,11 +4342,11 @@ collect_struct_use_data (struct cgraph_node *c_node, struct struct_list *data_st
 	   bsi_next (&bsi))
 	{
 	  cur_stmt = bsi_stmt (bsi);
-	  if (TREE_CODE (cur_stmt) == MODIFY_EXPR)
+	  if (TREE_CODE (cur_stmt) == GIMPLE_MODIFY_STMT)
 	    {
 	      struct data_structure *struct_data = NULL;
-	      tree lhs = TREE_OPERAND (cur_stmt, 0);
-	      tree rhs = TREE_OPERAND (cur_stmt, 1);
+	      tree lhs = GIMPLE_STMT_OPERAND (cur_stmt, 0);
+	      tree rhs = GIMPLE_STMT_OPERAND (cur_stmt, 1);
 	      bool is_part_of_malloc = false;
 			  
 	      /* If stmt is part of a set of malloc statements,
@@ -4391,9 +4455,8 @@ collect_struct_use_data (struct cgraph_node *c_node, struct struct_list *data_st
 		    {
 		      struct struct_tree_list *rhs_vars;
 				  
-		      rhs_vars = search_rhs_for_struct_vars (cur_stmt, rhs,
-							     new_vars_list);
-				  
+		      rhs_vars = search_tree_for_struct_vars (rhs, new_vars_list);
+				
 		      if (rhs_vars || struct_data)
 			{
 			  /* We've found a "use" that needs to be
@@ -4446,16 +4509,17 @@ collect_struct_use_data (struct cgraph_node *c_node, struct struct_list *data_st
     {
       struct struct_list *cur_struct;
       tree plus_stmt = cur->data;
-      tree plus_expr = TREE_OPERAND (plus_stmt, 1);
+      tree plus_expr = GIMPLE_STMT_OPERAND (plus_stmt, 1);
       tree arg0 = TREE_OPERAND (plus_expr, 0);
       tree arg1 = TREE_OPERAND (plus_expr, 1);
       struct struct_tree_list *tmp_ptr;
       bool found = false;
+
 		  
       for (tmp_ptr = base_modifies; tmp_ptr && !found;
 	   tmp_ptr = tmp_ptr->next)
-	if (TREE_OPERAND (tmp_ptr->data, 0) == arg0
-	    || TREE_OPERAND (tmp_ptr->data, 0) == arg1)
+	if ( GIMPLE_STMT_OPERAND (tmp_ptr->data, 0) == arg0
+	    || GIMPLE_STMT_OPERAND (tmp_ptr->data, 0) == arg1)
 	  found = 1;
 		  
       if (!found)
@@ -4505,7 +4569,7 @@ collect_struct_use_data (struct cgraph_node *c_node, struct struct_list *data_st
   for (cur_use = first_use_in_fn; cur_use; cur_use = cur_use->next)
     {
       tree convert_stmt = cur_use->stmt;
-      tree convert_lhs = TREE_OPERAND (convert_stmt, 0);
+      tree convert_lhs = GIMPLE_STMT_OPERAND (convert_stmt, 0);
       struct struct_tree_list *tmp_ptr, *tmp, *tmp1;
       bool found = false;
 		  
@@ -4517,9 +4581,9 @@ collect_struct_use_data (struct cgraph_node *c_node, struct struct_list *data_st
 		  
       for (tmp_ptr = plus_modifies; tmp_ptr && !found;
 	   tmp_ptr = tmp_ptr->next)
-	if ((TREE_OPERAND (TREE_OPERAND (tmp_ptr->data, 1), 0) 
+	if ((TREE_OPERAND (GIMPLE_STMT_OPERAND (tmp_ptr->data, 1), 0) 
 	     == convert_lhs)
-	    || (TREE_OPERAND (TREE_OPERAND (tmp_ptr->data, 1), 1) 
+	    || (TREE_OPERAND (GIMPLE_STMT_OPERAND (tmp_ptr->data, 1), 1) 
 		== convert_lhs))
 	  found = true;
 		  
@@ -4759,27 +4823,25 @@ replace_old_field_types (struct struct_tree_list *new_type_list,
   return recursive;
 }
 
-static bool
-search_for_bit_field_ref (tree t)
+static tree
+search_for_bit_field_ref (tree *t, int *walk_subtrees ATTRIBUTE_UNUSED, 
+			  void *data ATTRIBUTE_UNUSED)
 {
-  int i;
-  bool ret_val = false;
-  
-  if (TREE_CODE (t) == BIT_FIELD_REF)
-    ret_val = true;
-  else
+  tree curr = *t;
+
+  if (!curr)
+    return curr;
+
+  switch (TREE_CODE (curr))
     {
-      for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (t)); i++)
-	{
-	  tree operand = TREE_OPERAND (t, i);
-	  if (operand)
-	    {
-	      ret_val = ret_val || search_for_bit_field_ref (operand);
-	    }
-	}
+    case BIT_FIELD_REF:
+      return curr;
+      break;
+    default:
+      break;
     }
 
-  return ret_val;
+  return NULL_TREE;
 }
 
 static bool
@@ -4797,8 +4859,13 @@ contains_bit_field_accesses_p (struct data_structure *struct_data)
 	   cur_access = cur_access->next)
 	{
 	  tree cur_stmt = cur_access->stmt;
-	  ret_val = search_for_bit_field_ref (cur_stmt);
-	  if (ret_val)
+	  tree ret = NULL_TREE;
+
+	  visited_nodes = pointer_set_create ();
+	  ret = walk_tree (&cur_stmt, search_for_bit_field_ref, NULL,visited_nodes);
+	  pointer_set_destroy (visited_nodes);
+	  visited_nodes = NULL;
+	  if (ret)
 	    return true;
 	}
     }
@@ -4926,8 +4993,8 @@ struct_passed_to_external_function (tree decl)
 	{
 	  tree call_stmt;
 	  tree call_site;
-	  tree arg_list;
 	  tree arg;
+	  call_expr_arg_iterator iter;
 	  struct cgraph_edge *caller;
 
 	  for (caller = c_node->callers; caller; caller = caller->next_caller)
@@ -4935,16 +5002,14 @@ struct_passed_to_external_function (tree decl)
 	      call_stmt = caller->call_stmt;
 	      if (TREE_CODE (call_stmt) == CALL_EXPR)
 		call_site = call_stmt;
-	      else if (TREE_CODE (call_stmt) == MODIFY_EXPR
-		       && TREE_CODE (TREE_OPERAND (call_stmt, 1)) == CALL_EXPR)
-		call_site = TREE_OPERAND (call_stmt, 1);
+	      else if (TREE_CODE (call_stmt) == GIMPLE_MODIFY_STMT
+		       && TREE_CODE (GIMPLE_STMT_OPERAND (call_stmt, 1)) == CALL_EXPR)
+		call_site = GIMPLE_STMT_OPERAND (call_stmt, 1);
 	      else
 		abort ();
-	      for (arg_list = TREE_OPERAND (call_site, 1); arg_list;
-		   arg_list = TREE_CHAIN (arg_list))
+	      FOR_EACH_CALL_EXPR_ARG (arg, iter, call_site)
 		{
 		  tree arg_type;
-		  arg = TREE_VALUE (arg_list);
 
 		  arg_type = TREE_TYPE (arg);
 		  while (POINTER_TYPE_P (arg_type)
@@ -5240,6 +5305,8 @@ free_new_global_vars (struct new_var_data *new_vars)
     }	 
 }
 
+
+
 /* Do transformation for a function represented by NODE.  */
 static void
 do_reorg_for_func (struct cgraph_node *node, 
@@ -5256,20 +5323,18 @@ do_reorg_for_func (struct cgraph_node *node,
     print_use_list (uses_list);
 
   create_new_mallocs_for_func (node, data_struct_list, new_vars); 
- 
-  update_struct_use_stmts (data_struct_list, new_vars, uses_list);
 
+  update_struct_use_stmts (data_struct_list, new_vars, uses_list);
+  
   update_field_accesses (data_struct_list, new_vars);
 
   free_new_vars (new_vars);
 
-  free_uses_list (uses_list);
+  free_uses_list (uses_list); 
 
   update_ssa (TODO_update_ssa);
 
   cleanup_tree_cfg ();
-  if (debug_mode)
-    debug_tree_ssa ();
 
 }
 
@@ -5316,7 +5381,7 @@ create_new_global_vars_for_func (struct struct_list *data_struct_list)
   struct new_var_data *tmp_node;
   struct struct_tree_list *new_vars_list = NULL;
 
-  if (in_ssa_p)
+  if (gimple_in_ssa_p (cfun))
     {
       for (i = 1; i < num_ssa_names; i++)
 	{
@@ -5358,7 +5423,7 @@ create_new_global_vars_for_func (struct struct_list *data_struct_list)
 		{
 		  if (!is_in_list_of_globals (SSA_NAME_VAR (ssa_name)))
 		    {
-		      new_vars_list = make_new_vars_2 (ssa_name, struct_data);
+		      new_vars_list = make_new_vars_2 (SSA_NAME_VAR (ssa_name), struct_data);
 
 		      tmp_node = (struct new_var_data *) xmalloc (sizeof 
 							      (struct new_var_data));
@@ -5376,21 +5441,59 @@ create_new_global_vars_for_func (struct struct_list *data_struct_list)
     }
 }
 
+static void
+create_non_ssa_new_global_vars (struct struct_list *data_struct_list,
+				tree global)
+{
+  struct struct_list *cur_struct;
+  struct new_var_data *tmp_node;
+  struct struct_tree_list *new_vars_list = NULL;
+  tree glob_type;
+
+  glob_type = TREE_TYPE (global);
+	  
+  while (POINTER_TYPE_P (glob_type)
+	 || TREE_CODE (glob_type) == ARRAY_TYPE)
+    glob_type = TREE_TYPE (glob_type);
+
+  for (cur_struct = data_struct_list; cur_struct;
+       cur_struct = cur_struct->next)
+    {
+
+      struct data_structure *struct_data = cur_struct->struct_data;
+
+      if (similar_struct_decls_p (glob_type, struct_data->decl))
+	{
+	  if (!is_in_list_of_globals (global))
+	    {
+	      new_vars_list = make_new_vars_3 (global, struct_data);
+
+	      tmp_node = (struct new_var_data *) xmalloc (sizeof 
+							      (struct new_var_data));
+	      tmp_node->orig_var = global;
+		    
+	      tmp_node->new_vars = new_vars_list;
+	      tmp_node->next = NULL;
+	      add_to_global_vars_list (tmp_node);
+
+	      break;
+	    }
+	}
+    }
+}
 
 static void
 create_new_global_vars (struct struct_list *data_struct_list)
 {
   struct cgraph_node *node;
-  struct cgraph_varpool_node *current_varpool;
+  struct varpool_node *current_varpool;
   tree var_decl;
 
 
   if (vcg_dump)
     {
       fprintf(vcg_dump, "\nprinting varspool ...\n");
-      for (current_varpool = cgraph_varpool_nodes_queue; 
-	   current_varpool;
-	   current_varpool = current_varpool->next_needed)
+      FOR_EACH_STATIC_VARIABLE(current_varpool)
 	{
 	  var_decl = current_varpool->decl;
 	  if (!var_decl || TREE_CODE (var_decl) != VAR_DECL)
@@ -5398,6 +5501,8 @@ create_new_global_vars (struct struct_list *data_struct_list)
 
 	  fprintf (vcg_dump, "\nglobal var is:");
 	  print_generic_stmt (vcg_dump, var_decl, 0);
+
+	  create_non_ssa_new_global_vars (data_struct_list, var_decl);
 	}
     }
 
@@ -5407,7 +5512,7 @@ create_new_global_vars (struct struct_list *data_struct_list)
 	push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	current_function_decl = node->decl;
 	if (vcg_dump)
-	fprintf (vcg_dump, "\nFunction to do reorg is  %s: \n",
+	fprintf (vcg_dump, "\nFunction to create new globals in is  %s: \n",
 		 (char *) IDENTIFIER_POINTER (DECL_NAME (node->decl)));
 	create_new_global_vars_for_func (data_struct_list);
 	free_dominance_info (CDI_DOMINATORS);
@@ -5440,9 +5545,11 @@ do_reorg1 (struct struct_list *data_struct_list)
 	if (vcg_dump)
 	  fprintf (vcg_dump, "\nFunction to do reorg is  %s: \n",
 		   (char *) IDENTIFIER_POINTER (DECL_NAME (node->decl)));
-	if (debug_mode)
+	if (1)
 	  debug_tree_ssa ();
 	do_reorg_for_func (node, data_struct_list);
+	if (0)
+	  debug_tree_ssa ();
 	free_dominance_info (CDI_DOMINATORS);
 	free_dominance_info (CDI_POST_DOMINATORS);
 	current_function_decl = NULL;
@@ -5740,7 +5847,7 @@ build_data_structure_list (void)
   tree var_list;
   struct struct_list *tmp; 
   struct struct_list *data_struct_list = NULL;
-  struct cgraph_varpool_node *current_varpool;
+  struct varpool_node *current_varpool;
   struct cgraph_node *c_node;
 
   /* For every global variable in the program:
@@ -5748,8 +5855,7 @@ build_data_structure_list (void)
      data structure.
   */ 
 
-  for (current_varpool = cgraph_varpool_nodes_queue; current_varpool;
-       current_varpool = current_varpool->next_needed)
+  FOR_EACH_STATIC_VARIABLE (current_varpool)
     {
 
       var_decl = current_varpool->decl;
@@ -5835,21 +5941,20 @@ perform_escape_analysis (bitmap escaped_vars, bitmap escaped_types,
 	    {
 	      tree call_stmt = caller->call_stmt;
 	      tree call_expr; /* = caller->call_stmt; */
-	      tree arg_list; /* = TREE_OPERAND (call_expr, 1); */
+	      tree arg;
+	      call_expr_arg_iterator iter;
+
 
 	      if (TREE_CODE (call_stmt) == CALL_EXPR)
 		call_expr = call_stmt;
-	      else if (TREE_CODE (call_stmt) == MODIFY_EXPR
-		       && TREE_CODE (TREE_OPERAND (call_stmt, 1)) == CALL_EXPR)
-		call_expr = TREE_OPERAND (call_stmt, 1);
+	      else if (TREE_CODE (call_stmt) == GIMPLE_MODIFY_STMT
+		       && TREE_CODE (GIMPLE_STMT_OPERAND (call_stmt, 1)) == CALL_EXPR)
+		call_expr = GIMPLE_STMT_OPERAND (call_stmt, 1);
 	      else
 		abort ();
 
-	      arg_list = TREE_OPERAND (call_expr, 1);
-	      
-	      for ( ; arg_list ; arg_list = TREE_CHAIN (arg_list))
+	      FOR_EACH_CALL_EXPR_ARG (arg, iter, call_expr)
 		{
-		  tree arg = TREE_VALUE (arg_list);
 		  tree arg_type = TREE_TYPE (arg);
 
 		  while (POINTER_TYPE_P (arg_type))
@@ -5900,13 +6005,14 @@ perform_escape_analysis (bitmap escaped_vars, bitmap escaped_types,
 	    {
 	      tree call_stmt = caller->call_stmt;
 	      tree call_expr; 
-	      tree arg_list;
+	      tree arg;
+	      call_expr_arg_iterator iter;
 	      
 	      if (TREE_CODE (call_stmt) == CALL_EXPR)
 		call_expr = call_stmt;
-	      else if (TREE_CODE (call_stmt) == MODIFY_EXPR
-		       && TREE_CODE (TREE_OPERAND (call_stmt, 1)) == CALL_EXPR)
-		call_expr = TREE_OPERAND (call_stmt, 1);
+	      else if (TREE_CODE (call_stmt) == GIMPLE_MODIFY_STMT
+		       && TREE_CODE (GIMPLE_STMT_OPERAND (call_stmt, 1)) == CALL_EXPR)
+		call_expr = GIMPLE_STMT_OPERAND (call_stmt, 1);
 	      else
 		abort ();
 
@@ -5914,10 +6020,8 @@ perform_escape_analysis (bitmap escaped_vars, bitmap escaped_types,
 		debug_gimple (call_expr);
 
 	      if (call_expr)
-		for (arg_list = TREE_OPERAND (call_expr, 1); arg_list;
-		     arg_list = TREE_CHAIN (arg_list))
-		  {
-		    tree arg = TREE_VALUE (arg_list);
+	        FOR_EACH_CALL_EXPR_ARG (arg, iter, call_expr)
+	          {
 		    tree arg_type = TREE_TYPE (arg);
 
 		    while (POINTER_TYPE_P (arg_type))

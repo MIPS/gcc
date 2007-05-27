@@ -64,7 +64,7 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION reorg_structs
 
 /* Each front end provides its own lang hook initializer.  */
-const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER; 
+const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
 /* Tree code classes.  */
 

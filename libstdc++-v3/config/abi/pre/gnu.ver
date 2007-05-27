@@ -1,6 +1,7 @@
 ## Linker script for GNU versioning (GNU ld 2.13.91+ only.)
 ##
-## Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+## Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+## Free Software Foundation, Inc.
 ##
 ## This file is part of the GNU ISO C++ Library.  This library is free
 ## software; you can redistribute it and/or modify it under the
@@ -26,7 +27,7 @@ GLIBCXX_3.4 {
     extern "C++"
     {
       std::[A-Za]*;
-      std::ba[a-r]*;
+#     std::ba[a-r]*;
       std::basic_[a-e]*;
       std::basic_f[a-r]*;
 #     std::basic_fstream;
@@ -56,7 +57,9 @@ GLIBCXX_3.4 {
       std::b[b-z]*;
       std::c[a-g]*;
 #     std::char_traits;
-      std::c[i-z]*;
+#     std::c[i-z]*;
+      std::c[i-s]*;
+      std::c[u-z]*;
       std::[d-h]*;
       std::i[a-n]*;
       std::ios_base::[A-Ha-z]*;
@@ -120,12 +123,20 @@ GLIBCXX_3.4 {
       std::__moneypunct_cache*;
       std::__numpunct_cache*;
       std::__timepunct_cache*;
-      __gnu_debug::_Safe_iterator_base*;
-      __gnu_debug::_Safe_sequence_base*;
       __gnu_debug::_Error_formatter*
     };
 
     # Names not in an 'extern' block are mangled names.
+
+    # __gnu_debug::_Safe_sequence_base and _Safe_iterator_base
+    _ZN11__gnu_debug19_Safe_sequence_base13_M_detach_allEv;
+    _ZN11__gnu_debug19_Safe_sequence_base18_M_detach_singularEv;
+    _ZN11__gnu_debug19_Safe_sequence_base22_M_revalidate_singularEv;
+    _ZN11__gnu_debug19_Safe_sequence_base7_M_swapERS0_;
+    _ZN11__gnu_debug19_Safe_iterator_base9_M_attachEPNS_19_Safe_sequence_baseEb;
+    _ZN11__gnu_debug19_Safe_iterator_base9_M_detachEv;
+    _ZNK11__gnu_debug19_Safe_iterator_base11_M_singularEv;
+    _ZNK11__gnu_debug19_Safe_iterator_base14_M_can_compareERKS0_;
 
     # std::string
     _ZNSsC*;
@@ -285,7 +296,7 @@ GLIBCXX_3.4 {
     _ZNSoC*;
     _ZNSoD*;
     _ZNKSo6sentrycvbEv;
-    _ZNSo8_M_write*;
+    _ZNSo8_M_writeEPKc[il];
     _ZNSo[0-9][a-z]*;
     _ZNSolsE*[^g];
 
@@ -299,7 +310,7 @@ GLIBCXX_3.4 {
     _ZNSt13basic_ostreamIwSt11char_traitsIwEE5tellpEv;
     _ZNSt13basic_ostreamIwSt11char_traitsIwEE5writeEPKw*;
     _ZNSt13basic_ostreamIwSt11char_traitsIwEE6sentry*;
-    _ZNSt13basic_ostreamIwSt11char_traitsIwEE8_M_write*;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEE8_M_writeEPKw[il];
     _ZNSt13basic_ostreamIwSt11char_traitsIwEElsE*[^g];
 
     # std::ostream operators and inserters
@@ -328,6 +339,22 @@ GLIBCXX_3.4 {
 
     # bool std::has_facet 
     _ZSt9has_facetIS*;
+
+    # std::use_facet
+    _ZSt9use_facetIS*;
+
+    # std::ctype
+    _ZNKSt5ctypeIcE8*;
+    _ZNKSt5ctypeIcE9*;
+    _ZNKSt5ctypeIcE10*;
+    _ZNKSt5ctypeIw*;
+    _ZNSt5ctypeI[cw]*;
+
+    # std::ctype_base
+    _ZNSt10ctype_base*;
+
+    # std::ctype_byname
+    _ZNSt12ctype_bynameI[cw]*;
 
     # std::num_get
     _ZNKSt7num_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE*;
@@ -378,8 +405,8 @@ GLIBCXX_3.4 {
 
     # __gnu_cxx::__atomic_add
     # __gnu_cxx::__exchange_and_add
-    _ZN9__gnu_cxx12__atomic_add*;
-    _ZN9__gnu_cxx18__exchange_and_add*;
+    _ZN9__gnu_cxx12__atomic_addEPV[il]i;
+    _ZN9__gnu_cxx18__exchange_and_addEPV[il]i;
 
     # debug mode
     _ZN10__gnu_norm15_List_node_base4hook*;
@@ -448,6 +475,13 @@ GLIBCXX_3.4 {
     _ZTSSt23__codecvt_abstract_baseI[cw]c11__mbstate_tE;
     _ZTSN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;
     _ZTSN9__gnu_cxx13stdio_filebufI[cw]St11char_traitsI[cw]EEE;
+
+    # std::bad_alloc::~bad_alloc, std::bad_cast::~bad_cast,
+    # std::bad_typeid::~bad_typeid, std::bad_exception::~bad_exception
+    _ZNSt9bad_allocD*;
+    _ZNSt8bad_castD*;
+    _ZNSt10bad_typeidD*;
+    _ZNSt13bad_exceptionD*;
 
     # function-scope static objects requires a guard variable.
     _ZGVNSt[^1]*;
@@ -659,8 +693,21 @@ GLIBCXX_3.4.9 {
     _ZNSt13basic_istreamIwSt11char_traitsIwEE10_M_extractI[^g]*;
 
     _ZSt21__copy_streambufs_eofI[cw]St11char_traitsI[cw]EE[il]PSt15basic_streambuf*;
-} GLIBCXX_3.4.8;
 
+    _ZNSo9_M_insertEPKc[il];
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEE9_M_insertEPKw[il];
+
+    _ZN11__gnu_debug19_Safe_sequence_base12_M_get_mutexEv;
+    _ZN11__gnu_debug19_Safe_iterator_base16_M_attach_singleEPNS_19_Safe_sequence_baseEb;
+    _ZN11__gnu_debug19_Safe_iterator_base16_M_detach_singleEv;
+    _ZN11__gnu_debug19_Safe_iterator_base12_M_get_mutexEv;
+
+    _ZNKSt9bad_alloc4whatEv;
+    _ZNKSt8bad_cast4whatEv;
+    _ZNKSt10bad_typeid4whatEv;
+    _ZNKSt13bad_exception4whatEv;
+
+} GLIBCXX_3.4.8;
 
 # Symbols in the support library (libsupc++) have their own tag.
 CXXABI_1.3 {

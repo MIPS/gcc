@@ -111,6 +111,9 @@
 /* Define to 1 if you have the <gconv.h> header file. */
 #undef HAVE_GCONV_H
 
+/* Define if _Unwind_GetIPInfo is available. */
+#undef HAVE_GETIPINFO
+
 /* Define to 1 if you have the `getpagesize' function. */
 #undef HAVE_GETPAGESIZE
 
@@ -127,14 +130,8 @@
 /* Define to 1 if you have the `hypotl' function. */
 #undef HAVE_HYPOTL
 
-/* Define to 1 if you have the `iconv' function. */
+/* Define if you have the iconv() function. */
 #undef HAVE_ICONV
-
-/* Define to 1 if you have the `iconv_close' function. */
-#undef HAVE_ICONV_CLOSE
-
-/* Define to 1 if you have the `iconv_open' function. */
-#undef HAVE_ICONV_OPEN
 
 /* Define to 1 if you have the <ieeefp.h> header file. */
 #undef HAVE_IEEEFP_H
@@ -237,9 +234,6 @@
 
 /* Define to 1 if you have the <nan.h> header file. */
 #undef HAVE_NAN_H
-
-/* Define to 1 if you have the `nl_langinfo' function. */
-#undef HAVE_NL_LANGINFO
 
 /* Define if poll is available in <poll.h>. */
 #undef HAVE_POLL
@@ -360,6 +354,9 @@
 
 /* Define to 1 if you have the `tanl' function. */
 #undef HAVE_TANL
+
+/* Define to 1 if you have the <tgmath.h> header file. */
+#undef HAVE_TGMATH_H
 
 /* Define to 1 if the target supports thread-local storage. */
 #undef HAVE_TLS
@@ -631,6 +628,9 @@
 /* Define to 1 if you have the `__signbitl' function. */
 #undef HAVE___SIGNBITL
 
+/* Define as const if the declaration of iconv() needs const. */
+#undef ICONV_CONST
+
 /* Name of package */
 #undef PACKAGE
 
@@ -654,6 +654,9 @@
 
 /* Version number of package */
 #undef VERSION
+
+/* Define if builtin atomic operations are supported on this host. */
+#undef _GLIBCXX_ATOMIC_BUILTINS
 
 /* Define to use concept checking code from the boost libraries. */
 #undef _GLIBCXX_CONCEPT_CHECKS
@@ -729,9 +732,6 @@
    namespace std::tr1. */
 #undef _GLIBCXX_USE_C99_STDINT_TR1
 
-/* Define if iconv and related functions exist and are usable. */
-#undef _GLIBCXX_USE_ICONV
-
 /* Define if LFS support is available. */
 #undef _GLIBCXX_USE_LFS
 
@@ -740,6 +740,10 @@
 
 /* Define if NLS translations are to be used. */
 #undef _GLIBCXX_USE_NLS
+
+/* Define if dev/random and dev/urandom are available for the random_device of
+   TR1 (Chapter 5.1). */
+#undef _GLIBCXX_USE_RANDOM_TR1
 
 /* Define if code specialized for wchar_t should be used. */
 #undef _GLIBCXX_USE_WCHAR_T

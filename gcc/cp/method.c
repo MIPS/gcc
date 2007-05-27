@@ -161,6 +161,9 @@ make_thunk (tree function, bool this_adjusting,
   DECL_DECLARED_INLINE_P (thunk) = 0;
   /* Nor has it been deferred.  */
   DECL_DEFERRED_FN (thunk) = 0;
+  /* Nor is it a template instantiation.  */
+  DECL_USE_TEMPLATE (thunk) = 0;
+  DECL_TEMPLATE_INFO (thunk) = NULL;
 
   /* Add it to the list of thunks associated with FUNCTION.  */
   TREE_CHAIN (thunk) = DECL_THUNKS (function);
@@ -404,10 +407,6 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 	}
     }
 
-  /* The back-end expects DECL_INITIAL to contain a BLOCK, so we
-     create one.  */
-  DECL_INITIAL (thunk_fndecl) = make_node (BLOCK);
-
   /* Set up cloned argument trees for the thunk.  */
   t = NULL_TREE;
   for (a = DECL_ARGUMENTS (function); a; a = TREE_CHAIN (a))
@@ -416,21 +415,28 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       TREE_CHAIN (x) = t;
       DECL_CONTEXT (x) = thunk_fndecl;
       SET_DECL_RTL (x, NULL_RTX);
+      DECL_HAS_VALUE_EXPR_P (x) = 0;
       t = x;
     }
   a = nreverse (t);
   DECL_ARGUMENTS (thunk_fndecl) = a;
-  BLOCK_VARS (DECL_INITIAL (thunk_fndecl)) = a;
 
   if (this_adjusting
       && targetm.asm_out.can_output_mi_thunk (thunk_fndecl, fixed_offset,
 					      virtual_value, alias))
     {
       const char *fnname;
+      tree fn_block;
+      
       current_function_decl = thunk_fndecl;
       DECL_RESULT (thunk_fndecl)
 	= build_decl (RESULT_DECL, 0, integer_type_node);
       fnname = XSTR (XEXP (DECL_RTL (thunk_fndecl), 0), 0);
+      /* The back end expects DECL_INITIAL to contain a BLOCK, so we
+	 create one.  */
+      fn_block = make_node (BLOCK);
+      BLOCK_VARS (fn_block) = a;
+      DECL_INITIAL (thunk_fndecl) = fn_block;
       init_function_start (thunk_fndecl);
       current_function_is_thunk = 1;
       assemble_start_function (thunk_fndecl, fnname);
@@ -446,6 +452,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
     }
   else
     {
+      int i;
+      tree *argarray = (tree *) alloca (list_length (a) * sizeof (tree));
       /* If this is a covariant thunk, or we don't have the necessary
 	 code for efficient thunks, generate a thunk function that
 	 just makes a call to the real function.  Unfortunately, this
@@ -469,11 +477,10 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 			  fixed_offset, virtual_offset);
 
       /* Build up the call to the real function.  */
-      t = tree_cons (NULL_TREE, t, NULL_TREE);
-      for (a = TREE_CHAIN (a); a; a = TREE_CHAIN (a))
-	t = tree_cons (NULL_TREE, a, t);
-      t = nreverse (t);
-      t = build_call (alias, t);
+      argarray[0] = t;
+      for (i = 1, a = TREE_CHAIN (a); a; a = TREE_CHAIN (a), i++)
+	argarray[i] = a;
+      t = build_call_a (alias, i, argarray);
       CALL_FROM_THUNK_P (t) = 1;
 
       if (VOID_TYPE_P (TREE_TYPE (t)))
@@ -780,7 +787,7 @@ synthesize_method (tree fndecl)
       tree arg_chain = FUNCTION_FIRST_USER_PARMTYPE (fndecl);
       if (arg_chain != void_list_node)
 	do_build_copy_constructor (fndecl);
-      else if (TYPE_NEEDS_CONSTRUCTING (current_class_type))
+      else
 	finish_mem_initializers (NULL_TREE);
     }
 
@@ -943,6 +950,10 @@ locate_copy (tree type, void *client_)
       if (!parms)
 	continue;
       src_type = non_reference (TREE_VALUE (parms));
+
+      if (src_type == error_mark_node)
+        return NULL_TREE;
+
       if (!same_type_ignoring_top_level_qualifiers_p (src_type, type))
 	continue;
       if (!sufficient_parms_p (TREE_CHAIN (parms)))
@@ -978,6 +989,7 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
   tree fn_type;
   tree raises = empty_except_spec;
   tree rhs_parm_type = NULL_TREE;
+  tree this_parm;
   tree name;
   HOST_WIDE_INT saved_processing_template_decl;
 
@@ -1067,8 +1079,7 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
       DECL_ASSIGNMENT_OPERATOR_P (fn) = 1;
       SET_OVERLOADED_OPERATOR_CODE (fn, NOP_EXPR);
     }
-  /* Create the argument list.  The call to "grokclassfn" will add the
-     "this" parameter and any other implicit parameters.  */
+  /* Create the explicit arguments.  */
   if (rhs_parm_type)
     {
       /* Note that this parameter is *not* marked DECL_ARTIFICIAL; we
@@ -1077,10 +1088,12 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
       DECL_ARGUMENTS (fn) = cp_build_parm_decl (NULL_TREE, rhs_parm_type);
       TREE_READONLY (DECL_ARGUMENTS (fn)) = 1;
     }
+  /* Add the "this" parameter.  */
+  this_parm = build_this_parm (fn_type, TYPE_UNQUALIFIED);
+  TREE_CHAIN (this_parm) = DECL_ARGUMENTS (fn);
+  DECL_ARGUMENTS (fn) = this_parm;
 
-  grokclassfn (type, fn, kind == sfk_destructor ? DTOR_FLAG : NO_SPECIAL,
-	       TYPE_UNQUALIFIED);
-  grok_special_member_properties (fn);
+  grokclassfn (type, fn, kind == sfk_destructor ? DTOR_FLAG : NO_SPECIAL);
   set_linkage_according_to_type (type, fn);
   rest_of_decl_compilation (fn, toplevel_bindings_p (), at_eof);
   DECL_IN_AGGR_P (fn) = 1;
@@ -1178,5 +1191,26 @@ skip_artificial_parms_for (tree fn, tree list)
     list = TREE_CHAIN (list);
   return list;
 }
+
+/* Given a FUNCTION_DECL FN and a chain LIST, return the number of
+   artificial parms in FN.  */
+
+int
+num_artificial_parms_for (tree fn)
+{
+  int count = 0;
+
+  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
+    count++;
+  else
+    return 0;
+
+  if (DECL_HAS_IN_CHARGE_PARM_P (fn))
+    count++;
+  if (DECL_HAS_VTT_PARM_P (fn))
+    count++;
+  return count;
+}
+
 
 #include "gt-cp-method.h"

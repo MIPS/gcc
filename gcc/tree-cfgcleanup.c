@@ -1,5 +1,6 @@
 /* CFG cleanup for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -28,7 +29,7 @@ Boston, MA 02110-1301, USA.  */
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "output.h"
-#include "errors.h"
+#include "toplev.h"
 #include "flags.h"
 #include "function.h"
 #include "expr.h"
@@ -78,6 +79,9 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
     {
       edge e;
       edge_iterator ei;
+      bool warned;
+
+      fold_defer_overflow_warnings ();
 
       switch (TREE_CODE (expr))
 	{
@@ -88,7 +92,10 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	case SWITCH_EXPR:
 	  val = fold (SWITCH_COND (expr));
 	  if (TREE_CODE (val) != INTEGER_CST)
-	    return false;
+	    {
+	      fold_undefer_and_ignore_overflow_warnings ();
+	      return false;
+	    }
 	  break;
 
 	default:
@@ -97,13 +104,24 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 
       taken_edge = find_taken_edge (bb, val);
       if (!taken_edge)
-	return false;
+	{
+	  fold_undefer_and_ignore_overflow_warnings ();
+	  return false;
+	}
 
       /* Remove all the edges except the one that is always executed.  */
+      warned = false;
       for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
 	{
 	  if (e != taken_edge)
 	    {
+	      if (!warned)
+		{
+		  fold_undefer_overflow_warnings
+		    (true, expr, WARN_STRICT_OVERFLOW_CONDITIONAL);
+		  warned = true;
+		}
+
 	      taken_edge->probability += e->probability;
 	      taken_edge->count += e->count;
 	      remove_edge (e);
@@ -112,6 +130,8 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	  else
 	    ei_next (&ei);
 	}
+      if (!warned)
+	fold_undefer_and_ignore_overflow_warnings ();
       if (taken_edge->probability > REG_BR_PROB_BASE)
 	taken_edge->probability = REG_BR_PROB_BASE;
     }
@@ -138,10 +158,10 @@ cleanup_control_flow (void)
   tree stmt;
 
   /* Detect cases where a mid-block call is now known not to return.  */
-  if (cfun->ssa)
-    while (VEC_length (tree, modified_noreturn_calls))
+  if (cfun->gimple_df)
+    while (VEC_length (tree, MODIFIED_NORETURN_CALLS (cfun)))
       {
-	stmt = VEC_pop (tree, modified_noreturn_calls);
+	stmt = VEC_pop (tree, MODIFIED_NORETURN_CALLS (cfun));
 	bb = bb_for_stmt (stmt);
 	if (bb != NULL && last_stmt (bb) != stmt && noreturn_call_p (stmt))
 	  split_block (bb, stmt);
@@ -153,7 +173,7 @@ cleanup_control_flow (void)
 
       /* If the last statement of the block could throw and now cannot,
 	 we need to prune cfg.  */
-      tree_purge_dead_eh_edges (bb);
+      retval |= tree_purge_dead_eh_edges (bb);
 
       if (bsi_end_p (bsi))
 	continue;
@@ -232,6 +252,9 @@ static bool
 tree_forwarder_block_p (basic_block bb, bool phi_wanted)
 {
   block_stmt_iterator bsi;
+  edge_iterator ei;
+  edge e, succ;
+  basic_block dest;
 
   /* BB must have a single outgoing edge.  */
   if (single_succ_p (bb) != 1
@@ -281,6 +304,22 @@ tree_forwarder_block_p (basic_block bb, bool phi_wanted)
 
       if (dest->loop_father->header == dest)
 	return false;
+    }
+
+  /* If we have an EH edge leaving this block, make sure that the
+     destination of this block has only one predecessor.  This ensures
+     that we don't get into the situation where we try to remove two
+     forwarders that go to the same basic block but are handlers for
+     different EH regions.  */
+  succ = single_succ_edge (bb);
+  dest = succ->dest;
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      if (e->flags & EDGE_EH)
+        {
+	  if (!single_pred_p (dest))
+	    return false;
+	}
     }
 
   return true;
@@ -555,7 +594,7 @@ cleanup_tree_cfg (void)
 
 /* Cleanup cfg and repair loop structures.  */
 
-void
+bool
 cleanup_tree_cfg_loop (void)
 {
   bool changed = cleanup_tree_cfg ();
@@ -563,8 +602,8 @@ cleanup_tree_cfg_loop (void)
   if (changed)
     {
       bitmap changed_bbs = BITMAP_ALLOC (NULL);
-      fix_loop_structure (current_loops, changed_bbs);
       calculate_dominance_info (CDI_DOMINATORS);
+      fix_loop_structure (changed_bbs);
 
       /* This usually does nothing.  But sometimes parts of cfg that originally
 	 were inside a loop get out of it due to edge removal (since they
@@ -574,10 +613,11 @@ cleanup_tree_cfg_loop (void)
       BITMAP_FREE (changed_bbs);
 
 #ifdef ENABLE_CHECKING
-      verify_loop_structure (current_loops);
+      verify_loop_structure ();
 #endif
       scev_reset ();
     }
+  return changed;
 }
 
 /* Merge the PHI nodes at BB into those at BB's sole successor.  */
@@ -758,13 +798,12 @@ merge_phi_nodes (void)
 	  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	    {
 	      tree result = PHI_RESULT (phi);
-	      int num_uses = num_imm_uses (result);
 	      use_operand_p imm_use;
 	      tree use_stmt;
 
 	      /* If the PHI's result is never used, then we can just
 		 ignore it.  */
-	      if (num_uses == 0)
+	      if (has_zero_uses (result))
 		continue;
 
 	      /* Get the single use of the result of this PHI node.  */

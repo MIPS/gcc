@@ -93,7 +93,7 @@ compile_resource_data (const char *name, const char *buffer, int length)
   layout_decl (decl, 0);
   pushdecl (decl);
   rest_of_decl_compilation (decl, global_bindings_p (), 0);
-  cgraph_varpool_finalize_decl (decl);
+  varpool_finalize_decl (decl);
 
   resources = tree_cons (NULL_TREE, decl, resources);
 }
@@ -116,8 +116,7 @@ write_resource_constructor (tree *list_p)
   for (iter = nreverse (resources); iter ; iter = TREE_CHAIN (iter))
     {
       t = build_fold_addr_expr (TREE_VALUE (iter));
-      t = tree_cons (NULL, t, NULL);
-      t = build_function_call_expr (register_resource_fn, t);
+      t = build_call_expr (register_resource_fn, 1, t);
       append_to_statement_list (t, list_p);
     }
 }

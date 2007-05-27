@@ -319,6 +319,7 @@ dequeue_and_dump (dump_info_p di)
 	case tcc_expression:
 	case tcc_reference:
 	case tcc_statement:
+	case tcc_vl_exp:
 	  /* These nodes are handled explicitly below.  */
 	  break;
 
@@ -576,6 +577,11 @@ dequeue_and_dump (dump_info_p di)
       dump_child ("op 1", TREE_OPERAND (t, 1));
       break;
 
+    case GIMPLE_MODIFY_STMT:
+      dump_child ("op 0", GIMPLE_STMT_OPERAND (t, 0));
+      dump_child ("op 1", GIMPLE_STMT_OPERAND (t, 1));
+      break;
+
     case COMPONENT_REF:
       dump_child ("op 0", TREE_OPERAND (t, 0));
       dump_child ("op 1", TREE_OPERAND (t, 1));
@@ -602,8 +608,19 @@ dequeue_and_dump (dump_info_p di)
       break;
 
     case CALL_EXPR:
-      dump_child ("fn", TREE_OPERAND (t, 0));
-      dump_child ("args", TREE_OPERAND (t, 1));
+      {
+	int i = 0;
+	tree arg;
+	call_expr_arg_iterator iter;
+	dump_child ("fn", CALL_EXPR_FN (t));
+	FOR_EACH_CALL_EXPR_ARG (arg, iter, t)
+	  {
+	    char buffer[32];
+	    sprintf (buffer, "%u", i);
+	    dump_child (buffer, arg);
+	    i++;
+	  }
+      }
       break;
 
     case CONSTRUCTOR:
@@ -650,12 +667,12 @@ dequeue_and_dump (dump_info_p di)
 
     case CASE_LABEL_EXPR:
       dump_child ("name", CASE_LABEL (t));
-      if (CASE_LOW (t)) {
-        dump_child ("low ", CASE_LOW (t));
-	if (CASE_HIGH (t)) {
-	  dump_child ("high", CASE_HIGH (t));
+      if (CASE_LOW (t))
+	{
+	  dump_child ("low ", CASE_LOW (t));
+	  if (CASE_HIGH (t))
+	    dump_child ("high", CASE_HIGH (t));
 	}
-      }
       break;
     case LABEL_EXPR:
       dump_child ("name", TREE_OPERAND (t,0));
@@ -739,7 +756,7 @@ dump_node (tree t, int flags, FILE *stream)
 
 
 /* Table of tree dump switches. This must be consistent with the
-   TREE_DUMP_INDEX enumeration in tree.h.  */
+   tree_dump_index enumeration in tree-pass.h.  */
 static struct dump_file_info dump_files[TDI_end] =
 {
   {NULL, NULL, NULL, 0, 0, 0, 0},
@@ -784,6 +801,7 @@ static const struct dump_option_value_info dump_options[] =
   {"lineno", TDF_LINENO},
   {"uid", TDF_UID},
   {"stmtaddr", TDF_STMTADDR},
+  {"memsyms", TDF_MEMSYMS},
   {"all", ~(TDF_RAW | TDF_SLIM | TDF_LINENO | TDF_TREE | TDF_RTL | TDF_IPA 
 	    | TDF_STMTADDR | TDF_GRAPH)},
   {NULL, 0}
@@ -956,12 +974,12 @@ dump_end (enum tree_dump_index phase ATTRIBUTE_UNUSED, FILE *stream)
 static int
 dump_enable_all (int flags, int letter)
 {
-  int ir_type = (flags & (TDF_TREE | TDF_RTL | TDF_IPA));
+  int ir_dump_type = (flags & (TDF_TREE | TDF_RTL | TDF_IPA));
   int n = 0;
   size_t i;
 
   for (i = TDI_none + 1; i < (size_t) TDI_end; i++)
-    if ((dump_files[i].flags & ir_type)
+    if ((dump_files[i].flags & ir_dump_type)
 	&& (letter == 0 || letter == dump_files[i].letter))
       {
         dump_files[i].state = -1;
@@ -970,7 +988,7 @@ dump_enable_all (int flags, int letter)
       }
 
   for (i = 0; i < extra_dump_files_in_use; i++)
-    if ((extra_dump_files[i].flags & ir_type)
+    if ((extra_dump_files[i].flags & ir_dump_type)
 	&& (letter == 0 || letter == extra_dump_files[i].letter))
       {
         extra_dump_files[i].state = -1;
@@ -996,6 +1014,9 @@ dump_switch_p_1 (const char *arg, struct dump_file_info *dfi, bool doglob)
 
   option_value = skip_leading_substring (arg, doglob ? dfi->glob : dfi->swtch);
   if (!option_value)
+    return 0;
+
+  if (*option_value && *option_value != '-')
     return 0;
 
   ptr = option_value;

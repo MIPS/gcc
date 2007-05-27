@@ -1,5 +1,6 @@
 /* Default language-specific hooks.
-   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -185,13 +186,6 @@ lhd_set_decl_assembler_name (tree decl)
     }
 }
 
-/* By default we always allow bit-field based optimizations.  */
-bool
-lhd_can_use_bit_fields_p (void)
-{
-  return true;
-}
-
 /* Type promotion for variable arguments.  */
 tree
 lhd_type_promotes_to (tree ARG_UNUSED (type))
@@ -262,6 +256,16 @@ lhd_decl_printable_name (tree decl, int ARG_UNUSED (verbosity))
 {
   gcc_assert (decl && DECL_NAME (decl));
   return IDENTIFIER_POINTER (DECL_NAME (decl));
+}
+
+/* This is the default dwarf_name function.  */
+
+const char *
+lhd_dwarf_name (tree t, int verbosity)
+{
+  gcc_assert (DECL_P (t));
+
+  return lang_hooks.decl_printable_name (t, verbosity);
 }
 
 /* This compares two types for equivalence ("compatible" in C-based languages).
@@ -625,7 +629,7 @@ lhd_omp_predetermined_sharing (tree decl ATTRIBUTE_UNUSED)
 tree
 lhd_omp_assignment (tree clause ATTRIBUTE_UNUSED, tree dst, tree src)
 {
-  return build2 (MODIFY_EXPR, void_type_node, dst, src);
+  return build_gimple_modify_stmt (dst, src);
 }
 
 /* Register language specific type size variables as potentially OpenMP
@@ -635,4 +639,43 @@ void
 lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
 				   tree t ATTRIBUTE_UNUSED)
 {
+}
+
+tree
+add_builtin_function (const char *name,
+		      tree type,
+		      int function_code,
+		      enum built_in_class cl,
+		      const char *library_name,
+		      tree attrs)
+{
+  tree   id = get_identifier (name);
+  tree decl = build_decl (FUNCTION_DECL, id, type);
+
+  TREE_PUBLIC (decl)         = 1;
+  DECL_EXTERNAL (decl)       = 1;
+  DECL_BUILT_IN_CLASS (decl) = cl;
+  DECL_FUNCTION_CODE (decl)  = function_code;
+
+  if (library_name)
+    {
+      tree libname = get_identifier (library_name);
+      SET_DECL_ASSEMBLER_NAME (decl, libname);
+    }
+
+  /* Possibly apply some default attributes to this built-in function.  */
+  if (attrs)
+    decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
+  else
+    decl_attributes (&decl, NULL_TREE, 0);
+
+  return lang_hooks.builtin_function (decl);
+
+}
+
+tree
+lhd_builtin_function (tree decl)
+{
+  lang_hooks.decls.pushdecl (decl);
+  return decl;
 }

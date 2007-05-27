@@ -129,7 +129,10 @@ Boston, MA 02110-1301, USA.  */
    %{static:-a archive} %{shared:-b}"
 #endif
 
-/* hpux 11 has posix threads.  */
+/* HP-UX 11 has posix threads.  HP libc contains pthread stubs so that
+   non-threaded applications can be linked with a thread-safe libc
+   without a subsequent loss of performance.  For more details, see
+   <http://docs.hp.com/en/1896/pthreads.html>.  */
 #undef LIB_SPEC
 #define LIB_SPEC \
   "%{!shared:\
@@ -144,7 +147,7 @@ Boston, MA 02110-1301, USA.  */
 /* Under hpux11, the normal location of the `ld' and `as' programs is the
    /usr/ccs/bin directory.  */
 
-#ifndef CROSS_COMPILE
+#ifndef CROSS_DIRECTORY_STRUCTURE
 #undef MD_EXEC_PREFIX
 #define MD_EXEC_PREFIX "/usr/ccs/bin/"
 #endif
@@ -153,7 +156,7 @@ Boston, MA 02110-1301, USA.  */
    the /usr/ccs/lib directory.  However, the profiling files are in
    /opt/langtools/lib.  */
 
-#ifndef CROSS_COMPILE
+#ifndef CROSS_DIRECTORY_STRUCTURE
 #undef MD_STARTFILE_PREFIX
 #define MD_STARTFILE_PREFIX "/usr/ccs/lib/"
 #define MD_STARTFILE_PREFIX_1 "/opt/langtools/lib/"
@@ -188,3 +191,6 @@ Boston, MA 02110-1301, USA.  */
    with secondary definition (weak) symbols.  */
 #undef TARGET_SOM_SDEF
 #define TARGET_SOM_SDEF 1
+
+#undef TARGET_HPUX_11
+#define TARGET_HPUX_11 1

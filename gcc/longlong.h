@@ -521,6 +521,11 @@ UDItype __umulsidi3 (USItype, USItype);
   __asm__ ("bfffo %1{%b2:%b2},%0"					\
 	   : "=d" ((USItype) (count))					\
 	   : "od" ((USItype) (x)), "n" (0))
+/* Some ColdFire architectures have a ff1 instruction supported via
+   __builtin_clz. */
+#elif defined (__mcfisaaplus__) || defined (__mcfisac__)
+#define count_leading_zeros(count,x) ((count) = __builtin_clz (x))
+#define COUNT_LEADING_ZEROS_0 32
 #endif
 #endif /* mc68000 */
 
@@ -831,17 +836,50 @@ UDItype __umulsidi3 (USItype, USItype);
   } while (0)
 #endif
 
-#if defined (__sh2__) && W_TYPE_SIZE == 32
+#if defined(__sh__) && !__SHMEDIA__ && W_TYPE_SIZE == 32
+#ifndef __sh1__
 #define umul_ppmm(w1, w0, u, v) \
   __asm__ (								\
-       "dmulu.l	%2,%3\n\tsts	macl,%1\n\tsts	mach,%0"		\
-	   : "=r" ((USItype)(w1)),					\
-	     "=r" ((USItype)(w0))					\
+       "dmulu.l	%2,%3\n\tsts%M1	macl,%1\n\tsts%M0	mach,%0"	\
+	   : "=r<" ((USItype)(w1)),					\
+	     "=r<" ((USItype)(w0))					\
 	   : "r" ((USItype)(u)),					\
 	     "r" ((USItype)(v))						\
 	   : "macl", "mach")
 #define UMUL_TIME 5
 #endif
+
+/* This is the same algorithm as __udiv_qrnnd_c.  */
+#define UDIV_NEEDS_NORMALIZATION 1
+
+#define udiv_qrnnd(q, r, n1, n0, d) \
+  do {									\
+    extern UWtype __udiv_qrnnd_16 (UWtype, UWtype)			\
+                        __attribute__ ((visibility ("hidden")));	\
+    /* r0: rn r1: qn */ /* r0: n1 r4: n0 r5: d r6: d1 */ /* r2: __m */	\
+    __asm__ (								\
+	"mov%M4 %4,r5\n"						\
+"	swap.w %3,r4\n"							\
+"	swap.w r5,r6\n"							\
+"	jsr @%5\n"							\
+"	shll16 r6\n"							\
+"	swap.w r4,r4\n"							\
+"	jsr @%5\n"							\
+"	swap.w r1,%0\n"							\
+"	or r1,%0"							\
+	: "=r" (q), "=&z" (r)						\
+	: "1" (n1), "r" (n0), "rm" (d), "r" (&__udiv_qrnnd_16)		\
+	: "r1", "r2", "r4", "r5", "r6", "pr");				\
+  } while (0)
+
+#define UDIV_TIME 80
+
+#define sub_ddmmss(sh, sl, ah, al, bh, bl)				\
+  __asm__ ("clrt;subc %5,%1; subc %4,%0"				\
+	   : "=r" (sh), "=r" (sl)					\
+	   : "0" (ah), "1" (al), "r" (bh), "r" (bl))
+
+#endif /* __sh__ */
 
 #if defined (__SH5__) && __SHMEDIA__ && W_TYPE_SIZE == 32
 #define __umulsidi3(u,v) ((UDItype)(USItype)u*(USItype)v)
@@ -1155,6 +1193,23 @@ UDItype __umulsidi3 (USItype, USItype);
 	     : "g" (__xx.__ll), "g" (d));				\
   } while (0)
 #endif /* __vax__ */
+
+#if defined (__xtensa__) && W_TYPE_SIZE == 32
+/* This code is not Xtensa-configuration-specific, so rely on the compiler
+   to expand builtin functions depending on what configuration features
+   are available.  This avoids library calls when the operation can be
+   performed in-line.  */
+#define umul_ppmm(w1, w0, u, v)						\
+  do {									\
+    DWunion __w;							\
+    __w.ll = __builtin_umulsidi3 (u, v);				\
+    w1 = __w.s.high;							\
+    w0 = __w.s.low;							\
+  } while (0)
+#define __umulsidi3(u, v)		__builtin_umulsidi3 (u, v)
+#define count_leading_zeros(COUNT, X)	((COUNT) = __builtin_clz (X))
+#define count_trailing_zeros(COUNT, X)	((COUNT) = __builtin_ctz (X))
+#endif /* __xtensa__ */
 
 #if defined (__z8000__) && W_TYPE_SIZE == 16
 #define add_ssaaaa(sh, sl, ah, al, bh, bl) \

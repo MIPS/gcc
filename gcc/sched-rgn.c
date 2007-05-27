@@ -1146,7 +1146,7 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
      (We don't count single block regions here).
 
      By default we do at most 2 iterations.
-     This can be overriden with max-sched-extend-regions-iters parameter:
+     This can be overridden with max-sched-extend-regions-iters parameter:
      0 - disable region extension,
      N > 0 - do at most N iterations.  */
   
@@ -1711,12 +1711,12 @@ update_live (rtx insn, int src)
 static void
 set_spec_fed (rtx load_insn)
 {
-  rtx link;
+  dep_link_t link;
 
-  for (link = INSN_DEPEND (load_insn); link; link = XEXP (link, 1))
-    if (GET_MODE (link) == VOIDmode)
-      FED_BY_SPEC_LOAD (XEXP (link, 0)) = 1;
-}				/* set_spec_fed */
+  FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (load_insn))
+    if (DEP_LINK_KIND (link) == REG_DEP_TRUE)
+      FED_BY_SPEC_LOAD (DEP_LINK_CON (link)) = 1;
+}
 
 /* On the path from the insn to load_insn_bb, find a conditional
 branch depending on insn, that guards the speculative load.  */
@@ -1724,17 +1724,18 @@ branch depending on insn, that guards the speculative load.  */
 static int
 find_conditional_protection (rtx insn, int load_insn_bb)
 {
-  rtx link;
+  dep_link_t link;
 
   /* Iterate through DEF-USE forward dependences.  */
-  for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
+  FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (insn))
     {
-      rtx next = XEXP (link, 0);
+      rtx next = DEP_LINK_CON (link);
+
       if ((CONTAINING_RGN (BLOCK_NUM (next)) ==
 	   CONTAINING_RGN (BB_TO_BLOCK (load_insn_bb)))
 	  && IS_REACHABLE (INSN_BB (next), load_insn_bb)
 	  && load_insn_bb != INSN_BB (next)
-	  && GET_MODE (link) == VOIDmode
+	  && DEP_LINK_KIND (link) == REG_DEP_TRUE
 	  && (JUMP_P (next)
 	      || find_conditional_protection (next, load_insn_bb)))
 	return 1;
@@ -1753,20 +1754,20 @@ find_conditional_protection (rtx insn, int load_insn_bb)
    and if insn1 is on the path
    region-entry -> ... -> bb_trg -> ... load_insn.
 
-   Locate insn1 by climbing on LOG_LINKS from load_insn.
-   Locate the branch by following INSN_DEPEND from insn1.  */
+   Locate insn1 by climbing on INSN_BACK_DEPS from load_insn.
+   Locate the branch by following INSN_FORW_DEPS from insn1.  */
 
 static int
 is_conditionally_protected (rtx load_insn, int bb_src, int bb_trg)
 {
-  rtx link;
+  dep_link_t link;
 
-  for (link = LOG_LINKS (load_insn); link; link = XEXP (link, 1))
+  FOR_EACH_DEP_LINK (link, INSN_BACK_DEPS (load_insn))
     {
-      rtx insn1 = XEXP (link, 0);
+      rtx insn1 = DEP_LINK_PRO (link);
 
       /* Must be a DEF-USE dependence upon non-branch.  */
-      if (GET_MODE (link) != VOIDmode
+      if (DEP_LINK_KIND (link) != REG_DEP_TRUE
 	  || JUMP_P (insn1))
 	continue;
 
@@ -1809,28 +1810,27 @@ is_conditionally_protected (rtx load_insn, int bb_src, int bb_trg)
 static int
 is_pfree (rtx load_insn, int bb_src, int bb_trg)
 {
-  rtx back_link;
+  dep_link_t back_link;
   candidate *candp = candidate_table + bb_src;
 
   if (candp->split_bbs.nr_members != 1)
     /* Must have exactly one escape block.  */
     return 0;
 
-  for (back_link = LOG_LINKS (load_insn);
-       back_link; back_link = XEXP (back_link, 1))
+  FOR_EACH_DEP_LINK (back_link, INSN_BACK_DEPS (load_insn))
     {
-      rtx insn1 = XEXP (back_link, 0);
+      rtx insn1 = DEP_LINK_PRO (back_link);
 
-      if (GET_MODE (back_link) == VOIDmode)
+      if (DEP_LINK_KIND (back_link) == REG_DEP_TRUE)
 	{
 	  /* Found a DEF-USE dependence (insn1, load_insn).  */
-	  rtx fore_link;
+	  dep_link_t fore_link;
 
-	  for (fore_link = INSN_DEPEND (insn1);
-	       fore_link; fore_link = XEXP (fore_link, 1))
+	  FOR_EACH_DEP_LINK (fore_link, INSN_FORW_DEPS (insn1))
 	    {
-	      rtx insn2 = XEXP (fore_link, 0);
-	      if (GET_MODE (fore_link) == VOIDmode)
+	      rtx insn2 = DEP_LINK_CON (fore_link);
+
+	      if (DEP_LINK_KIND (fore_link) == REG_DEP_TRUE)
 		{
 		  /* Found a DEF-USE dependence (insn1, insn2).  */
 		  if (haifa_classify_insn (insn2) != PFREE_CANDIDATE)
@@ -1863,7 +1863,7 @@ is_prisky (rtx load_insn, int bb_src, int bb_trg)
   if (FED_BY_SPEC_LOAD (load_insn))
     return 1;
 
-  if (LOG_LINKS (load_insn) == NULL)
+  if (deps_list_empty_p (INSN_BACK_DEPS (load_insn)))
     /* Dependence may 'hide' out of the region.  */
     return 1;
 
@@ -2038,7 +2038,7 @@ can_schedule_ready_p (rtx insn)
     return 1;
 }
 
-/* Updates counter and other information.  Splitted from can_schedule_ready_p ()
+/* Updates counter and other information.  Split from can_schedule_ready_p ()
    because when we schedule insn speculatively then insn passed to
    can_schedule_ready_p () differs from the one passed to
    begin_schedule_ready ().  */
@@ -2089,7 +2089,7 @@ new_ready (rtx next, ds_t ts)
 	      && ((recog_memoized (next) >= 0
 		   && min_insn_conflict_delay (curr_state, next, next) 
                    > PARAM_VALUE (PARAM_MAX_SCHED_INSN_CONFLICT_DELAY))
-                  || RECOVERY_BLOCK (next)
+                  || IS_SPECULATION_CHECK_P (next)
 		  || !check_live (next, INSN_BB (next))
 		  || (not_ex_free = !is_exception_free (next, INSN_BB (next),
 							target_bb)))))
@@ -2284,7 +2284,9 @@ add_branch_dependences (rtx head, rtx tail)
     {
       if (!NOTE_P (insn))
 	{
-	  if (last != 0 && !find_insn_list (insn, LOG_LINKS (last)))
+	  if (last != 0
+	      && (find_link_by_pro_in_deps_list (INSN_BACK_DEPS (last), insn)
+		  == NULL))
 	    {
 	      if (! sched_insns_conditions_mutex_p (last, insn))
 		add_dependence (last, insn, REG_DEP_ANTI);
@@ -2573,7 +2575,7 @@ debug_dependencies (void)
 
       for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
 	{
-	  rtx link;
+	  dep_link_t link;
 
 	  if (! INSN_P (insn))
 	    {
@@ -2584,13 +2586,6 @@ debug_dependencies (void)
 		  n = NOTE_LINE_NUMBER (insn);
 		  if (n < 0)
 		    fprintf (sched_dump, "%s\n", GET_NOTE_INSN_NAME (n));
-		  else
-		    {
-		      expanded_location xloc;
-		      NOTE_EXPANDED_LOCATION (xloc, insn);
-		      fprintf (sched_dump, "line %d, file %s\n",
-			       xloc.line, xloc.file);
-		    }
 		}
 	      else
 		fprintf (sched_dump, " {%s}\n", GET_RTX_NAME (GET_CODE (insn)));
@@ -2605,7 +2600,7 @@ debug_dependencies (void)
 		   INSN_BB (insn),
 		   INSN_DEP_COUNT (insn),
 		   INSN_PRIORITY (insn),
-		   insn_cost (insn, 0, 0));
+		   insn_cost (insn));
 
 	  if (recog_memoized (insn) < 0)
 	    fprintf (sched_dump, "nothing");
@@ -2613,8 +2608,8 @@ debug_dependencies (void)
 	    print_reservation (sched_dump, insn);
 
 	  fprintf (sched_dump, "\t: ");
-	  for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
-	    fprintf (sched_dump, "%d ", INSN_UID (XEXP (link, 0)));
+	  FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (insn))
+	    fprintf (sched_dump, "%d ", INSN_UID (DEP_LINK_CON (link)));
 	  fprintf (sched_dump, "\n");
 	}
     }
@@ -2672,11 +2667,11 @@ schedule_region (int rgn)
       for (bb = 0; bb < current_nr_blocks; bb++)
 	init_deps (bb_deps + bb);
 
-      /* Compute LOG_LINKS.  */
+      /* Compute backward dependencies.  */
       for (bb = 0; bb < current_nr_blocks; bb++)
         compute_block_backward_dependences (bb);
 
-      /* Compute INSN_DEPEND.  */
+      /* Compute forward dependencies.  */
       for (bb = current_nr_blocks - 1; bb >= 0; bb--)
         {
           rtx head, tail;
@@ -2752,7 +2747,7 @@ schedule_region (int rgn)
 	compute_dom_prob_ps (bb);
 
       /* Cleanup ->aux used for EDGE_TO_BIT mapping.  */
-      /* We don't need them anymore.  But we want to avoid dublication of
+      /* We don't need them anymore.  But we want to avoid duplication of
 	 aux fields in the newly created edges.  */
       FOR_EACH_BB (block)
 	{
@@ -2768,7 +2763,6 @@ schedule_region (int rgn)
     {
       basic_block first_bb, last_bb, curr_bb;
       rtx head, tail;
-      int b = BB_TO_BLOCK (bb);
 
       first_bb = EBB_FIRST_BB (bb);
       last_bb = EBB_LAST_BB (bb);
@@ -2784,11 +2778,6 @@ schedule_region (int rgn)
       current_sched_info->prev_head = PREV_INSN (head);
       current_sched_info->next_tail = NEXT_INSN (tail);
 
-      if (write_symbols != NO_DEBUG)
-	{
-	  save_line_notes (b, head, tail);
-	  rm_line_notes (head, tail);
-	}
 
       /* rm_other_notes only removes notes which are _inside_ the
 	 block---that is, it won't remove notes before the first real insn
@@ -2839,17 +2828,6 @@ schedule_region (int rgn)
   /* Sanity check: verify that all region insns were scheduled.  */
   gcc_assert (sched_rgn_n_insns == rgn_n_insns);
 
-  /* Restore line notes.  */
-  if (write_symbols != NO_DEBUG)
-    {
-      for (bb = 0; bb < current_nr_blocks; bb++)
-	{
-	  rtx head, tail;
-
-	  get_ebb_head_tail (EBB_FIRST_BB (bb), EBB_LAST_BB (bb), &head, &tail);
-	  restore_line_notes (head, tail);
-	}
-    }
 
   /* Done with this region.  */
 
@@ -2952,7 +2930,7 @@ schedule_insns (void)
 
   init_regions ();
 
-  /* EBB_HEAD is a region-scope sctructure.  But we realloc it for
+  /* EBB_HEAD is a region-scope structure.  But we realloc it for
      each region to save time/memory/something else.  */
   ebb_head = 0;
   
@@ -2996,7 +2974,7 @@ schedule_insns (void)
      liveness.  */
   for (rgn = 0; rgn < nr_regions; rgn++)    
     if (RGN_NR_BLOCKS (rgn) > 1
-	/* Or the only block of this region has been splitted.  */
+	/* Or the only block of this region has been split.  */
 	|| RGN_HAS_REAL_EBB (rgn)
 	/* New blocks (e.g. recovery blocks) should be processed
 	   as parts of large regions.  */
@@ -3044,10 +3022,6 @@ schedule_insns (void)
      prologue/epilogue insns.  */
   if (reload_completed)
     reposition_prologue_and_epilogue_notes (get_insns ());
-
-  /* Delete redundant line notes.  */
-  if (write_symbols != NO_DEBUG)
-    rm_redundant_line_notes ();
 
   if (sched_verbose)
     {
@@ -3152,14 +3126,20 @@ add_block1 (basic_block bb, basic_block after)
 	 is _always_ valid for access.  */
 
       i = BLOCK_TO_BB (after->index) + 1;
-      for (pos = ebb_head[i]; rgn_bb_table[pos] != after->index; pos--);
+      pos = ebb_head[i] - 1;
+      /* Now POS is the index of the last block in the region.  */
+
+      /* Find index of basic block AFTER.  */
+      for (; rgn_bb_table[pos] != after->index; pos--);
+
       pos++;
       gcc_assert (pos > ebb_head[i - 1]);
+
       /* i - ebb right after "AFTER".  */
       /* ebb_head[i] - VALID.  */
 
       /* Source position: ebb_head[i]
-	 Destination posistion: ebb_head[i] + 1
+	 Destination position: ebb_head[i] + 1
 	 Last position: 
 	   RGN_BLOCKS (nr_regions) - 1
 	 Number of elements to copy: (last_position) - (source_position) + 1

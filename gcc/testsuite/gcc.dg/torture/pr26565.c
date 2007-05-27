@@ -1,4 +1,6 @@
 /* { dg-do run } */
+/* m32c is already packed.  */
+/* { dg-skip-if "" { "m32c-*-*" } { "*" } { "" } } */
 
 void *memcpy(void *dest, const void *src, __SIZE_TYPE__ n);
 
@@ -9,7 +11,7 @@ struct timeval {
 struct outdata {
     long align;
     char seq;
-    struct timeval tv __attribute__((packed));
+    struct timeval tv __attribute__((packed)); /* { dg-warning "attribute ignored" "" { target default_packed } } */
 };
 
 void send_probe(struct outdata *outdata, struct timeval *tp) __attribute__((noinline));

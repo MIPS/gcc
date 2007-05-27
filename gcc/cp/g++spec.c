@@ -1,4 +1,4 @@
-/* Specific flags and argument handling of the C++ front-end.
+/* Specific flags and argument handling of the C++ front end.
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
@@ -149,19 +149,27 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	    saw_verbose_flag = 1;
 	  else if (strncmp (argv[i], "-x", 2) == 0)
 	    {
+	      const char * arg;
+	      if (argv[i][2] != '\0')
+		arg = argv[i]+2;
+	      else if ((argv[i+1]) != NULL)
+		/* We need to swallow arg on next loop.  */
+		quote = arg = argv[i+1];
+  	      else  /* Error condition, message will be printed later.  */
+		arg = "";
+	      if (library == 0
+		  && (strcmp (arg, "c++") == 0
+		      || strcmp (arg, "c++-cpp-output") == 0
+		      || strcmp (arg, "objective-c++") == 0
+		      || strcmp (arg, "objective-c++-cpp-output") == 0))
+		library = 1;
+		
+	      saw_speclang = 1;
+	    }
+	  else if (strcmp (argv[i], "-ObjC++") == 0)
+	    {
 	      if (library == 0)
-		{
-		  const char * arg;
-		  if (argv[i][2] != '\0')
-		    arg = argv[i]+2;
-		  else if (argv[i+1] != NULL)
-		    arg = argv[i+1];
-		  else  /* Error condition, message will be printed later.  */
-		    arg = "";
-		  if (strcmp (arg, "c++") == 0
-		      || strcmp (arg, "c++-cpp-output") == 0)
-		    library = 1;
-		}
+		library = 1;
 	      saw_speclang = 1;
 	    }
 	  /* Arguments that go directly to the linker might be .o files,
@@ -236,13 +244,6 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 
   if (quote)
     fatal ("argument to '%s' missing\n", quote);
-
-  /* If we know we don't have to do anything, bail now.  */
-  if (! added && library <= 0)
-    {
-      free (args);
-      return;
-    }
 
   /* There's no point adding -shared-libgcc if we don't have a shared
      libgcc.  */

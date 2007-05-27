@@ -1,6 +1,6 @@
 // natVMClassLoader.cc - VMClassLoader native methods
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -32,8 +32,11 @@ details.  */
 #include <java/security/ProtectionDomain.h>
 #include <java/lang/ClassFormatError.h>
 #include <java/lang/StringBuffer.h>
+#include <java/lang/SecurityManager.h>
 #include <java/lang/Runtime.h>
 #include <java/util/HashSet.h>
+#include <java/lang/SecurityException.h>
+#include <java/lang/VirtualMachineError.h>
 
 java::lang::Class *
 java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
@@ -45,6 +48,9 @@ java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
 {
   jclass klass = VMCompiler::compileClass(loader, name, data,
 					  offset, length, pd);
+
+  if (klass)
+    _Jv_RegisterInitiatingLoader (klass, klass->loader);
 
 #ifdef INTERPRETER
   if (klass == NULL)
@@ -93,6 +99,20 @@ java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
       JvAssert (klass->state == JV_STATE_LOADED);
     }
 #endif // INTERPRETER
+
+  if (! klass)
+    {
+      StringBuffer *sb = new StringBuffer();
+      if (name)
+	{
+	  sb->append(JvNewStringLatin1("found class file for class "));
+	  sb->append(name);
+	}
+      else
+	sb->append(JvNewStringLatin1("found unnamed class file"));
+      sb->append(JvNewStringLatin1(", but no interpreter configured in this libgcj"));
+      throw new VirtualMachineError(sb->toString());
+    }
 
   return klass;
 }
@@ -186,6 +206,16 @@ java::lang::VMClassLoader::nativeFindClass (jstring name)
 jclass
 java::lang::VMClassLoader::loadClass(jstring name, jboolean resolve)
 {
+  using namespace ::java::lang;
+
+  SecurityManager *sm = (SecurityManager *)SecurityManager::current;
+  if (sm)
+    {
+      jint lastDot = name->lastIndexOf('.');
+      if (lastDot != -1)
+	sm->checkPackageAccess(name->substring(0, lastDot));
+    }
+
   // We try the boot loader first, so that the endorsed directory
   // overrides compiled-in classes.
   jclass klass = NULL;

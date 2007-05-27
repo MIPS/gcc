@@ -683,7 +683,7 @@ alloc_aux_for_blocks (int size)
   else
     /* Check whether AUX data are still allocated.  */
     gcc_assert (!first_block_aux_obj);
-  
+
   first_block_aux_obj = obstack_alloc (&block_aux_obstack, 0);
   if (size)
     {
@@ -861,7 +861,7 @@ brief_dump_cfg (FILE *file)
 
 /* An edge originally destinating BB of FREQUENCY and COUNT has been proved to
    leave the block by TAKEN_EDGE.  Update profile of BB such that edge E can be
-   redirected to destination of TAKEN_EDGE. 
+   redirected to destination of TAKEN_EDGE.
 
    This function may leave the profile inconsistent in the case TAKEN_EDGE
    frequency or count is believed to be lower than FREQUENCY or COUNT
@@ -949,15 +949,28 @@ scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
   edge e;
   if (num < 0)
     num = 0;
-  if (num > den)
+
+  /* Scale NUM and DEN to avoid overflows.  Frequencies are in order of
+     10^4, if we make DEN <= 10^3, we can afford to upscale by 100
+     and still safely fit in int during calculations.  */
+  if (den > 1000)
+    {
+      if (num > 1000000)
+	return;
+
+      num = RDIV (1000 * num, den);
+      den = 1000;
+    }
+  if (num > 100 * den)
     return;
-  /* Assume that the users are producing the fraction from frequencies
-     that never grow far enough to risk arithmetic overflow.  */
-  gcc_assert (num < 65536);
+
   for (i = 0; i < nbbs; i++)
     {
       edge_iterator ei;
       bbs[i]->frequency = RDIV (bbs[i]->frequency * num, den);
+      /* Make sure the frequencies do not grow over BB_FREQ_MAX.  */
+      if (bbs[i]->frequency > BB_FREQ_MAX)
+	bbs[i]->frequency = BB_FREQ_MAX;
       bbs[i]->count = RDIV (bbs[i]->count * num, den);
       FOR_EACH_EDGE (e, ei, bbs[i]->succs)
 	e->count = RDIV (e->count * num, den);
@@ -972,8 +985,8 @@ scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
    by NUM/DEN, in gcov_type arithmetic.  More accurate than previous
    function but considerably slower.  */
 void
-scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num, 
-			         gcov_type den)
+scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num,
+				 gcov_type den)
 {
   int i;
   edge e;

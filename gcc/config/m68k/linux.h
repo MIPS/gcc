@@ -23,14 +23,10 @@ Boston, MA 02110-1301, USA.  */
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (68k GNU/Linux with ELF)");
 
-/* Default target comes from config.gcc.  */
-
-#undef TARGET_DEFAULT
-#ifdef TARGET_CPU_DEFAULT
-#define TARGET_DEFAULT TARGET_CPU_DEFAULT
-#else
-#define TARGET_DEFAULT (MASK_BITFIELD|MASK_68881|MASK_68020)
-#endif
+/* Add %(asm_cpu_spec) to the svr4.h definition of ASM_SPEC.  */
+#undef ASM_SPEC
+#define ASM_SPEC \
+  "%(asm_cpu_spec) %{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*}"
 
 /* for 68k machines this only needs to be TRUE for the 68000 */
 
@@ -62,50 +58,11 @@ Boston, MA 02110-1301, USA.  */
 
 #define ASM_COMMENT_START "|"
 
-#undef SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
-
-#undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
-
-#undef WCHAR_TYPE
-#define WCHAR_TYPE "long int"
-
-#undef WCHAR_TYPE_SIZE
-#define WCHAR_TYPE_SIZE BITS_PER_WORD
-
 /* Target OS builtins.  */
-#define TARGET_OS_CPP_BUILTINS()		\
-  do						\
-    {						\
-	LINUX_TARGET_OS_CPP_BUILTINS();		\
-	builtin_define_std ("mc68000");		\
-	builtin_define_std ("mc68020");		\
-   }						\
-  while (0)
-
-#define TARGET_OBJFMT_CPP_BUILTINS()		\
-  do						\
-    {						\
-	builtin_define ("__ELF__");		\
-    }						\
-  while (0)
+#define TARGET_OS_CPP_BUILTINS() LINUX_TARGET_OS_CPP_BUILTINS()
 
 #undef CPP_SPEC
-#if TARGET_DEFAULT & MASK_68881
-#define CPP_SPEC \
-  "%{!msoft-float:-D__HAVE_68881__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
-#else
-#define CPP_SPEC \
-  "%{m68881:-D__HAVE_68881__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
-#endif
-
-/* We override the ASM_SPEC from svr4.h because we must pass -m68040 down
-   to the assembler.  */
-#undef ASM_SPEC
-#define ASM_SPEC \
-  "%{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*} %{Wa,*:%*} \
-%{m68040} %{m68060:-m68040}"
+#define CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 
 /* Provide a LINK_SPEC appropriate for GNU/Linux.  Here we provide support
    for the special GCC options -static and -shared, which allow us to
@@ -125,7 +82,7 @@ Boston, MA 02110-1301, USA.  */
 
 #define GLIBC_DYNAMIC_LINKER "/lib/ld.so.1"
 
-#undef	LINK_SPEC
+#undef LINK_SPEC
 #define LINK_SPEC "-m m68kelf %{shared} \
   %{!shared: \
     %{!static: \
@@ -192,12 +149,6 @@ Boston, MA 02110-1301, USA.  */
     fprintf (FILE, "\tjbsr _mcount\n");					\
 }
 
-/* How to renumber registers for dbx and gdb.
-   On the Sun-3, the floating point registers have numbers
-   18 to 25, not 16 to 23 as they do in the compiler.  */
-
-#define DBX_REGISTER_NUMBER(REGNO) ((REGNO) < 16 ? (REGNO) : (REGNO) + 2)
-
 /* Do not break .stabs pseudos into continuations.  */
 
 #define DBX_CONTIN_LENGTH 0
@@ -227,20 +178,6 @@ Boston, MA 02110-1301, USA.  */
 #undef FUNCTION_VALUE
 #define FUNCTION_VALUE(VALTYPE, FUNC)					\
   m68k_function_value (VALTYPE, FUNC)
-
-/* For compatibility with the large body of existing code which does
-   not always properly declare external functions returning pointer
-   types, the m68k/SVR4 convention is to copy the value returned for
-   pointer functions from a0 to d0 in the function epilogue, so that
-   callers that have neglected to properly declare the callee can
-   still find the correct return value.  */
-
-#define FUNCTION_EXTRA_EPILOGUE(FILE, SIZE)				\
-do {									\
-  if (current_function_returns_pointer					\
-      && ! find_equiv_reg (0, get_last_insn (), 0, 0, 0, 8, Pmode))	\
-    asm_fprintf (FILE, "\tmove.l %Ra0,%Rd0\n");				\
-} while (0);
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.
@@ -292,3 +229,5 @@ do {									\
 }
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+
+#define MD_UNWIND_SUPPORT "config/m68k/linux-unwind.h"

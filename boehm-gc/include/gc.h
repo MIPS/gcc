@@ -3,6 +3,7 @@
  * Copyright (c) 1991-1995 by Xerox Corporation.  All rights reserved.
  * Copyright 1996-1999 by Silicon Graphics.  All rights reserved.
  * Copyright 1999 by Hewlett-Packard Company.  All rights reserved.
+ * Copyright (C) 2007 Free Software Foundation, Inc
  *
  * THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY EXPRESSED
  * OR IMPLIED.  ANY USE IS AT YOUR OWN RISK.
@@ -68,7 +69,6 @@
 # ifdef __cplusplus
     extern "C" {
 # endif
-
 
 /* Define word and signed_word to be unsigned and signed types of the 	*/
 /* size as char * or void *.  There seems to be no way to do this	*/
@@ -500,7 +500,7 @@ GC_API GC_PTR GC_malloc_atomic_ignore_off_page GC_PROTO((size_t lb));
 #   define GC_RETURN_ADDR (GC_word)__return_address
 #endif
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__GLIBC__)
 # include <features.h>
 # if (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 1 || __GLIBC__ > 2) \
      && !defined(__ia64__)
@@ -603,6 +603,8 @@ GC_API GC_PTR GC_debug_realloc_replacement
 	GC_debug_register_finalizer_ignore_self(p, f, d, of, od)
 #   define GC_REGISTER_FINALIZER_NO_ORDER(p, f, d, of, od) \
 	GC_debug_register_finalizer_no_order(p, f, d, of, od)
+#   define GC_REGISTER_FINALIZER_UNREACHABLE(p, f, d, of, od) \
+	GC_debug_register_finalizer_unreachable(p, f, d, of, od)
 #   define GC_MALLOC_STUBBORN(sz) GC_debug_malloc_stubborn(sz, GC_EXTRAS);
 #   define GC_CHANGE_STUBBORN(p) GC_debug_change_stubborn(p)
 #   define GC_END_STUBBORN_CHANGE(p) GC_debug_end_stubborn_change(p)
@@ -625,6 +627,8 @@ GC_API GC_PTR GC_debug_realloc_replacement
 	GC_register_finalizer_ignore_self(p, f, d, of, od)
 #   define GC_REGISTER_FINALIZER_NO_ORDER(p, f, d, of, od) \
 	GC_register_finalizer_no_order(p, f, d, of, od)
+#   define GC_REGISTER_FINALIZER_UNREACHABLE(p, f, d, of, od) \
+	GC_register_finalizer_unreachable(p, f, d, of, od)
 #   define GC_MALLOC_STUBBORN(sz) GC_malloc_stubborn(sz)
 #   define GC_CHANGE_STUBBORN(p) GC_change_stubborn(p)
 #   define GC_END_STUBBORN_CHANGE(p) GC_end_stubborn_change(p)
@@ -717,6 +721,19 @@ GC_API void GC_debug_register_finalizer_no_order
 	GC_PROTO((GC_PTR obj, GC_finalization_proc fn, GC_PTR cd,
 		  GC_finalization_proc *ofn, GC_PTR *ocd));
 
+/* This is a special finalizer that is useful when an object's  */
+/* finalizer must be run when the object is known to be no      */
+/* longer reachable, not even from other finalizable objects.   */
+/* This can be used in combination with finalizer_no_order so   */
+/* as to release resources that must not be released while an   */
+/* object can still be brought back to life by other            */
+/* finalizers.                                                  */
+GC_API void GC_register_finalizer_unreachable
+	GC_PROTO((GC_PTR obj, GC_finalization_proc fn, GC_PTR cd,
+		  GC_finalization_proc *ofn, GC_PTR *ocd));
+GC_API void GC_debug_register_finalizer_unreachable
+	GC_PROTO((GC_PTR obj, GC_finalization_proc fn, GC_PTR cd,
+		  GC_finalization_proc *ofn, GC_PTR *ocd));
 
 /* The following routine may be used to break cycles between	*/
 /* finalizable objects, thus causing cyclic finalizable		*/
@@ -912,6 +929,25 @@ GC_API void (*GC_is_visible_print_proc)
 # if defined(PCR) || defined(GC_SOLARIS_THREADS) || \
      defined(GC_PTHREADS) || defined(GC_WIN32_THREADS)
    	/* Any flavor of threads except SRC_M3.	*/
+
+/* Register the current thread as a new thread whose stack(s) should    */
+/* be traced by the GC.  						*/
+/* If a platform does not implicitly do so, this must be called before  */
+/* a thread can allocate garbage collected memory, or assign pointers	*/
+/* to the garbage collected heap.  Once registered, a thread will be	*/
+/* stopped during garbage collections.					*/
+GC_API void GC_register_my_thread GC_PROTO((void));
+
+/* Register the current thread, with the indicated stack base, as	*/
+/* a new thread whose stack(s) should be traced by the GC.  If a 	*/
+/* platform does not implicitly do so, this must be called before a	*/
+/* thread can allocate garbage collected memory, or assign pointers	*/
+/* to the garbage collected heap.  Once registered, a thread will be	*/
+/* stopped during garbage collections.					*/
+GC_API void GC_unregister_my_thread GC_PROTO((void));
+
+GC_API GC_PTR GC_get_thread_stack_base GC_PROTO((void));
+
 /* This returns a list of objects, linked through their first		*/
 /* word.  Its use can greatly reduce lock contention problems, since	*/
 /* the allocation lock can be acquired and released many fewer times.	*/
@@ -924,6 +960,15 @@ GC_PTR GC_malloc_many(size_t lb);
 extern void GC_thr_init GC_PROTO((void));/* Needed for Solaris/X86	*/
 
 #endif /* THREADS && !SRC_M3 */
+
+/* Register a callback to control the scanning of dynamic libraries.
+   When the GC scans the static data of a dynamic library, it will
+   first call a user-supplied routine with filename of the library and
+   the address and length of the memory region.  This routine should
+   return nonzero if that region should be scanned.  */
+GC_API void GC_register_has_static_roots_callback 
+  (int (*callback)(const char *, void *, size_t));
+
 
 #if defined(GC_WIN32_THREADS) && !defined(__CYGWIN32__) && !defined(__CYGWIN__)
 # include <windows.h>
@@ -1031,4 +1076,14 @@ extern void GC_thr_init GC_PROTO((void));/* Needed for Solaris/X86	*/
     }  /* end of extern "C" */
 #endif
 
+/* External thread suspension support. These functions do not implement
+ * suspension counts or any other higher-level abstraction. Threads which
+ * have been suspended numerous times will resume with the very first call
+ * to GC_resume_thread.
+ */
+#if defined(GC_PTHREADS) && !defined(GC_SOLARIS_THREADS) \
+  && !defined(GC_WIN32_THREADS) && !defined(GC_DARWIN_THREADS)
+GC_API void GC_suspend_thread GC_PROTO((pthread_t));
+GC_API void GC_resume_thread GC_PROTO((pthread_t));
+#endif
 #endif /* _GC_H */

@@ -66,7 +66,7 @@ Boston, MA 02110-1301, USA.  */
    file which includes this one.  */
 
 #undef STRING_ASM_OP
-#define STRING_ASM_OP   ".stringz"
+#define STRING_ASM_OP   "\t.stringz\t"
 
 #define TEXT_SECTION_ASM_OP "\t.text"
 #define DATA_SECTION_ASM_OP "\t.data"
@@ -104,6 +104,9 @@ Boston, MA 02110-1301, USA.  */
 /* NOTE: (*targetm.asm_out.internal_label)() is defined for us by elfos.h, and
    does what we want (i.e. uses colons).  It must be compatible with
    ASM_GENERATE_INTERNAL_LABEL(), so do not define it here.  */
+
+/* Use the default.  */
+#undef ASM_OUTPUT_INTERNAL_LABEL
 
 /* Use the default.  */
 #undef TARGET_ASM_GLOBALIZE_LABEL

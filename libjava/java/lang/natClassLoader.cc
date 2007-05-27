@@ -51,8 +51,6 @@ details.  */
 // Hash function for Utf8Consts.
 #define HASH_UTF(Utf) ((Utf)->hash16() % HASH_LEN)
 
-static jclass loaded_classes[HASH_LEN];
-
 // This records classes which will be registered with the system class
 // loader when it is initialized.
 static jclass system_class_list;
@@ -61,6 +59,8 @@ static jclass system_class_list;
 // initialized the system class loader; it lets us know that we should
 // no longer pay attention to the system abi flag.
 #define SYSTEM_LOADER_INITIALIZED ((jclass) -1)
+
+static jclass loaded_classes[HASH_LEN];
 
 // This is the root of a linked list of classes
 static jclass stack_head;
@@ -156,6 +156,71 @@ _Jv_UnregisterInitiatingLoader (jclass klass, java::lang::ClassLoader *loader)
   loader->loadedClasses->remove(klass->name->toString());
 }
 
+
+// Class registration.
+//
+// There are two kinds of functions that register classes.  
+//
+// Type 1:
+//
+// These take the address of a class that is in an object file.
+// Because these classes are not allocated on the heap, It is also
+// necessary to register the address of the object for garbage
+// collection.  This is used with the "old" C++ ABI and with
+// -findirect-dispatch -fno-indirect-classes.
+//
+// Type 2:
+//
+// These take an initializer struct, create the class, and return the
+// address of the newly created class to their caller.  These are used
+// with -findirect-dispatch.
+//
+// _Jv_RegisterClasses() and _Jv_RegisterClasses_Counted() are
+// functions of Type 1, and _Jv_NewClassFromInitializer() and
+// _Jv_RegisterNewClasses() are of Type 2.
+
+
+// Check that the file we're trying to load has been compiled with a
+// compatible version of gcj.  In previous versions of libgcj we
+// silently failed to register classes of an incompatible ABI version,
+// but this was totally bogus.
+void
+_Jv_CheckABIVersion (unsigned long value)
+{
+  // We are compatible with GCJ 4.0.0 BC-ABI classes. This release used a
+  // different format for the version ID string.
+   if (value == OLD_GCJ_40_BC_ABI_VERSION)
+     return;
+     
+  // The 20 low-end bits are used for the version number.
+  unsigned long version = value & 0xfffff;
+
+  if (value & FLAG_BINARYCOMPAT_ABI)
+    {
+      int abi_rev = version % 100;
+      int abi_ver = version - abi_rev;
+      // We are compatible with abi_rev 0 and 1.
+      if (abi_ver == GCJ_40_BC_ABI_VERSION && abi_rev <= 1)
+        return;
+    }
+  else
+    {
+      // C++ ABI
+      if (version == GCJ_CXX_ABI_VERSION)
+	return;
+
+      // If we've loaded a library that uses the C++ ABI, and this
+      // library is an incompatible version, then we're dead.  There's
+      // no point throwing an exception: that will crash.
+      JvFail ("gcj linkage error.\n"
+	      "Incorrect library ABI version detected.  Aborting.\n");
+    }
+
+  throw new ::java::lang::ClassFormatError
+    (JvNewStringLatin1 ("Library compiled with later ABI version than"
+			" this version of libgcj supports"));
+}
+
 // This function is called many times during startup, before main() is
 // run.  At that point in time we know for certain we are running 
 // single-threaded, so we don't need to lock when adding classes to the 
@@ -164,12 +229,14 @@ _Jv_UnregisterInitiatingLoader (jclass klass, java::lang::ClassLoader *loader)
 void
 _Jv_RegisterClasses (const jclass *classes)
 {
+  _Jv_RegisterLibForGc (classes);
+
   for (; *classes; ++classes)
     {
       jclass klass = *classes;
 
-      if (_Jv_CheckABIVersion ((unsigned long) klass->next_or_version))
-	(*_Jv_RegisterClassHook) (klass);
+      _Jv_CheckABIVersion ((unsigned long) klass->next_or_version);
+      (*_Jv_RegisterClassHook) (klass);
     }
 }
 
@@ -178,15 +245,69 @@ void
 _Jv_RegisterClasses_Counted (const jclass * classes, size_t count)
 {
   size_t i;
+
+  _Jv_RegisterLibForGc (classes);
+
   for (i = 0; i < count; i++)
     {
       jclass klass = classes[i];
 
-      if (_Jv_CheckABIVersion ((unsigned long) klass->next_or_version))
-	(*_Jv_RegisterClassHook) (klass);
+      _Jv_CheckABIVersion ((unsigned long) klass->next_or_version);
+      (*_Jv_RegisterClassHook) (klass);
     }
 }
 
+// Create a class on the heap from an initializer struct.
+inline jclass
+_Jv_NewClassFromInitializer (const char *class_initializer)
+{
+  const unsigned long version 
+    = ((unsigned long) 
+       ((::java::lang::Class *)class_initializer)->next_or_version);
+  _Jv_CheckABIVersion (version);
+  
+  /* We create an instance of java::lang::Class and copy all of its
+     fields except the first word (the vtable pointer) from
+     CLASS_INITIALIZER.  This first word is pre-initialized by
+     _Jv_AllocObj, and we don't want to overwrite it.  */
+  
+  jclass new_class
+    = (jclass)_Jv_AllocObj (sizeof (::java::lang::Class),
+			    &::java::lang::Class::class$);
+  const char *src = class_initializer + sizeof (void*);
+  char *dst = (char*)new_class + sizeof (void*);
+  size_t len = (::java::lang::Class::initializerSize (version) 
+		- sizeof (void*));
+  memcpy (dst, src, len);
+  
+  new_class->engine = &_Jv_soleIndirectCompiledEngine;
+  
+  (*_Jv_RegisterClassHook) (new_class);
+  
+  return new_class;
+}
+
+// Called by compiler-generated code at DSO initialization.  CLASSES
+// is an array of pairs: the first item of each pair is a pointer to
+// the initialized data that is a class initializer in a DSO, and the
+// second is a pointer to a class reference.
+// _Jv_NewClassFromInitializer() creates the new class (on the Java
+// heap) and we write the address of the new class into the address
+// pointed to by the second word.
+void
+_Jv_RegisterNewClasses (char **classes)
+{
+  _Jv_InitGC ();
+
+  const char *initializer;
+
+  while ((initializer = *classes++))
+    {
+      jclass *class_ptr = (jclass *)*classes++;
+      *class_ptr = _Jv_NewClassFromInitializer (initializer);
+    }      
+}
+  
 void
 _Jv_RegisterClassHookDefault (jclass klass)
 {
@@ -389,6 +510,12 @@ static _Jv_IDispatchTable *array_idt = NULL;
 static jshort array_depth = 0;
 static jclass *array_ancestors = NULL;
 
+static jclass interfaces[] =
+{
+  &java::lang::Cloneable::class$,
+  &java::io::Serializable::class$
+};
+
 // Create a class representing an array of ELEMENT and store a pointer to it
 // in element->arrayclass. LOADER is the ClassLoader which _initiated_ the 
 // instantiation of this array. ARRAY_VTABLE is the vtable to use for the new 
@@ -464,11 +591,6 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
   array_class->element_type = element;
 
   // Register our interfaces.
-  static jclass interfaces[] =
-    {
-      &java::lang::Cloneable::class$,
-      &java::io::Serializable::class$
-    };
   array_class->interfaces = interfaces;
   array_class->interface_count = sizeof interfaces / sizeof interfaces[0];
 

@@ -21,9 +21,11 @@ Boston, MA 02110-1301, USA.  */
 
 /* Force the default endianness and ABI flags onto the command line
    in order to make the other specs easier to write.  */
+#undef DRIVER_SELF_SPECS
 #define DRIVER_SELF_SPECS \
-"%{!EB:%{!EL:%(endian_spec)}}", \
-"%{!mabi=*: -mabi=n32}"
+NO_SHARED_SPECS \
+" %{!EB:%{!EL:%(endian_spec)}}" \
+" %{!mabi=*: -mabi=n32}"
 
 #undef SUBTARGET_ASM_SPEC
 #define SUBTARGET_ASM_SPEC "\
@@ -64,11 +66,6 @@ Boston, MA 02110-1301, USA.  */
 
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX (TARGET_OLDABI ? "$" : ".")
-
-/* The size in bytes of a DWARF field indicating an offset or length
-   relative to a debug info section, specified to be 4 bytes in the DWARF-2
-   specification.  The SGI/MIPS ABI defines it to be the same as PTR_SIZE.  */
-#define DWARF_OFFSET_SIZE PTR_SIZE
 
 /* GNU/Linux doesn't use the same floating-point format that IRIX uses
    for long double.  There's no need to override this here, since

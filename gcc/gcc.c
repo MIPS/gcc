@@ -1,7 +1,7 @@
 /* Compiler driver program that can handle many languages.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
-   Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -86,6 +86,7 @@ compilation is specified by a string called a "spec".  */
 #include "prefix.h"
 #include "gcc.h"
 #include "flags.h"
+#include "opts.h"
 
 /* By default there is no special suffix for target executables.  */
 /* FIXME: when autoconf is fixed, remove the host check - dj */
@@ -167,6 +168,11 @@ static int print_multi_lib;
 
 static int print_help_list;
 
+/* Flag saying to print the sysroot suffix used for searching for
+   headers.  */
+
+static int print_sysroot_headers_suffix;
+
 /* Flag indicating whether we should print the command and arguments */
 
 static int verbose_flag;
@@ -178,9 +184,9 @@ static int verbose_flag;
    shell scripts to capture the driver-generated command line.  */
 static int verbose_only_flag;
 
-/* Flag indicating to print target specific command line options.  */
+/* Flag indicating how to print command line options of sub-processes.  */
 
-static int target_help_flag;
+static int print_subprocess_help;
 
 /* Flag indicating whether we should report subprocess execution times
    (if this is supported by the system - see pexecute.c).  */
@@ -237,7 +243,7 @@ static const char *spec_machine = DEFAULT_TARGET_MACHINE;
 /* Nonzero if cross-compiling.
    When -b is used, the value comes from the `specs' file.  */
 
-#ifdef CROSS_COMPILE
+#ifdef CROSS_DIRECTORY_STRUCTURE
 static const char *cross_compile = "1";
 #else
 static const char *cross_compile = "0";
@@ -349,6 +355,7 @@ static void init_gcc_specs (struct obstack *, const char *, const char *,
 static const char *convert_filename (const char *, int, int);
 #endif
 
+static const char *getenv_spec_function (int, const char **);
 static const char *if_exists_spec_function (int, const char **);
 static const char *if_exists_else_spec_function (int, const char **);
 static const char *replace_outfile_spec_function (int, const char **);
@@ -509,15 +516,18 @@ or with constant text in a single argument.
           part of that switch that matched the '*'.
  %{.S:X}  substitutes X, if processing a file with suffix S.
  %{!.S:X} substitutes X, if NOT processing a file with suffix S.
-
+ %{,S:X}  substitutes X, if processing a file which will use spec S.
+ %{!,S:X} substitutes X, if NOT processing a file which will use spec S.
+	  
  %{S|T:X} substitutes X if either -S or -T was given to CC.  This may be
-	  combined with !, ., and * as above binding stronger than the OR.
+	  combined with '!', '.', ',', and '*' as above binding stronger
+	  than the OR.
 	  If %* appears in X, all of the alternatives must be starred, and
 	  only the first matching alternative is substituted.
  %{S:X;   if S was given to CC, substitutes X;
    T:Y;   else if T was given to CC, substitutes Y;
     :D}   else substitutes D.  There can be as many clauses as you need.
-          This may be combined with ., !, |, and * as above.
+          This may be combined with '.', '!', ',', '|', and '*' as above.
 
  %(Spec) processes a specification defined in a specs file as *Spec:
  %[Spec] as above, but put __ around -D arguments
@@ -681,10 +691,6 @@ proper position among the other output files.  */
 #endif
 #endif
 
-#ifndef LINK_GCC_MATH_SPEC
-#define LINK_GCC_MATH_SPEC ""
-#endif
-
 #ifndef LINK_PIE_SPEC
 #ifdef HAVE_LD_PIE
 #define LINK_PIE_SPEC "%{pie:-pie} "
@@ -704,10 +710,10 @@ proper position among the other output files.  */
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
-    %{static:} %{L*} %(mfwrap) %{fopenmp:%:include(libgomp.spec)%(link_gomp)}\
-    %(link_libgcc) %o %(mflib)\
+    %{static:} %{L*} %(mfwrap) %(link_libgcc) %o\
+    %{fopenmp:%:include(libgomp.spec)%(link_gomp)} %(mflib)\
     %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
-    %{!nostdlib:%{!nodefaultlibs:%(link_gcc_math) %(link_ssp) %(link_gcc_c_sequence)}}\
+    %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
 #endif
 
@@ -738,7 +744,6 @@ static const char *cc1_spec = CC1_SPEC;
 static const char *cc1plus_spec = CC1PLUS_SPEC;
 static const char *link_gcc_c_sequence_spec = LINK_GCC_C_SEQUENCE_SPEC;
 static const char *link_ssp_spec = LINK_SSP_SPEC;
-static const char *link_gcc_math_spec = LINK_GCC_MATH_SPEC;
 static const char *asm_spec = ASM_SPEC;
 static const char *asm_final_spec = ASM_FINAL_SPEC;
 static const char *link_spec = LINK_SPEC;
@@ -779,8 +784,9 @@ static const char *cpp_unique_options =
  %{MD:-MD %{!o:%b.d}%{o*:%.d%*}}\
  %{MMD:-MMD %{!o:%b.d}%{o*:%.d%*}}\
  %{M} %{MM} %{MF*} %{MG} %{MP} %{MQ*} %{MT*}\
- %{!E:%{!M:%{!MM:%{MD|MMD:%{o*:-MQ %*}}}}}\
- %{remap} %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
+ %{!E:%{!M:%{!MM:%{!MT:%{!MQ:%{MD|MMD:%{o*:-MQ %*}}}}}}}\
+ %{remap} %{g3|ggdb3|gstabs3|gcoff3|gxcoff3|gvms3:-dD}\
+ %{H} %C %{D*&U*&A*} %{i*} %Z %i\
  %{fmudflap:-D_MUDFLAP -include mf-runtime.h}\
  %{fmudflapth:-D_MUDFLAP -D_MUDFLAPTH -include mf-runtime.h}\
  %{E|M|MM:%W{o*}}";
@@ -808,6 +814,7 @@ static const char *cc1_options =
  %{v:-version} %{pg:-p} %{p} %{f*} %{undef}\
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
+ %{--help=*:--help=%(VALUE)}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
  %{fsyntax-only:-o %j} %{-param*}\
  %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}\
@@ -1126,6 +1133,7 @@ static const struct option_map option_map[] =
    {"--print-multi-directory", "-print-multi-directory", 0},
    {"--print-multi-os-directory", "-print-multi-os-directory", 0},
    {"--print-prog-name", "-print-prog-name=", "aj"},
+   {"--print-sysroot-headers-suffix", "-print-sysroot-headers-suffix", 0},
    {"--profile", "-p", 0},
    {"--profile-blocks", "-a", 0},
    {"--quiet", "-q", 0},
@@ -1459,7 +1467,7 @@ static const char *gcc_libexec_prefix;
 #define STANDARD_STARTFILE_PREFIX_2 "/usr/lib/"
 #endif
 
-#ifdef CROSS_COMPILE  /* Don't use these prefixes for a cross compiler.  */
+#ifdef CROSS_DIRECTORY_STRUCTURE  /* Don't use these prefixes for a cross compiler.  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
 #undef MD_STARTFILE_PREFIX_1
@@ -1476,25 +1484,33 @@ static const char *gcc_libexec_prefix;
 #define MD_STARTFILE_PREFIX_1 ""
 #endif
 
+/* These directories are locations set at configure-time based on the
+   --prefix option provided to configure.  Their initializers are
+   defined in Makefile.in.  These paths are not *directly* used when
+   gcc_exec_prefix is set because, in that case, we know where the
+   compiler has been installed, and use paths relative to that
+   location instead.  */
 static const char *const standard_exec_prefix = STANDARD_EXEC_PREFIX;
+static const char *const standard_libexec_prefix = STANDARD_LIBEXEC_PREFIX;
+static const char *const standard_bindir_prefix = STANDARD_BINDIR_PREFIX;
+static const char *const standard_startfile_prefix = STANDARD_STARTFILE_PREFIX;
+
+/* For native compilers, these are well-known paths containing
+   components that may be provided by the system.  For cross
+   compilers, these paths are not used.  */
 static const char *const standard_exec_prefix_1 = "/usr/libexec/gcc/";
 static const char *const standard_exec_prefix_2 = "/usr/lib/gcc/";
 static const char *md_exec_prefix = MD_EXEC_PREFIX;
-
 static const char *md_startfile_prefix = MD_STARTFILE_PREFIX;
 static const char *md_startfile_prefix_1 = MD_STARTFILE_PREFIX_1;
-static const char *const standard_startfile_prefix = STANDARD_STARTFILE_PREFIX;
 static const char *const standard_startfile_prefix_1
   = STANDARD_STARTFILE_PREFIX_1;
 static const char *const standard_startfile_prefix_2
   = STANDARD_STARTFILE_PREFIX_2;
 
+/* A relative path to be used in finding the location of tools
+   relative to the driver.  */
 static const char *const tooldir_base_prefix = TOOLDIR_BASE_PREFIX;
-static const char *tooldir_prefix;
-
-static const char *const standard_bindir_prefix = STANDARD_BINDIR_PREFIX;
-
-static const char *standard_libexec_prefix = STANDARD_LIBEXEC_PREFIX;
 
 /* Subdirectory to use for locating libraries.  Set by
    set_multilib_dir based on the compilation options.  */
@@ -1546,7 +1562,6 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("cc1plus",			&cc1plus_spec),
   INIT_STATIC_SPEC ("link_gcc_c_sequence",	&link_gcc_c_sequence_spec),
   INIT_STATIC_SPEC ("link_ssp",			&link_ssp_spec),
-  INIT_STATIC_SPEC ("link_gcc_math",		&link_gcc_math_spec),
   INIT_STATIC_SPEC ("endfile",			&endfile_spec),
   INIT_STATIC_SPEC ("link",			&link_spec),
   INIT_STATIC_SPEC ("lib",			&lib_spec),
@@ -1596,11 +1611,15 @@ static struct spec_list *specs = (struct spec_list *) 0;
 
 static const struct spec_function static_spec_functions[] =
 {
+  { "getenv",                   getenv_spec_function },
   { "if-exists",		if_exists_spec_function },
   { "if-exists-else",		if_exists_else_spec_function },
   { "replace-outfile",		replace_outfile_spec_function },
   { "version-compare",		version_compare_spec_function },
   { "include",			include_spec_function },
+#ifdef EXTRA_SPEC_FUNCTIONS
+  EXTRA_SPEC_FUNCTIONS
+#endif
   { 0, 0 }
 };
 
@@ -2751,6 +2770,7 @@ add_prefix (struct path_prefix *pprefix, const char *prefix,
 }
 
 /* Same as add_prefix, but prepending target_system_root to prefix.  */
+/* The target_system_root prefix has been relocated by gcc_exec_prefix.  */
 static void
 add_sysrooted_prefix (struct path_prefix *pprefix, const char *prefix,
 		      const char *component,
@@ -3166,6 +3186,8 @@ display_help (void)
   fputs (_("  -pass-exit-codes         Exit with highest error code from a phase\n"), stdout);
   fputs (_("  --help                   Display this information\n"), stdout);
   fputs (_("  --target-help            Display target specific command line options\n"), stdout);
+  fputs (_("  --help={target|optimizers|warnings|undocumented|params}[,{[^]joined|[^]separate}]\n"), stdout);
+  fputs (_("                           Display specific types of command line options\n"), stdout);
   if (! verbose_flag)
     fputs (_("  (Use '-v --help' to display command line options of sub-processes)\n"), stdout);
   fputs (_("  -dumpspecs               Display all of the built in spec strings\n"), stdout);
@@ -3180,6 +3202,7 @@ display_help (void)
   -print-multi-lib         Display the mapping between command line options and\n\
                            multiple library search directories\n"), stdout);
   fputs (_("  -print-multi-os-directory Display the relative path to OS libraries\n"), stdout);
+  fputs (_("  -print-sysroot-headers-suffix Display the sysroot suffix used to find headers\n"), stdout);
   fputs (_("  -Wa,<options>            Pass comma-separated <options> on to the assembler\n"), stdout);
   fputs (_("  -Wp,<options>            Pass comma-separated <options> on to the preprocessor\n"), stdout);
   fputs (_("  -Wl,<options>            Pass comma-separated <options> on to the linker\n"), stdout);
@@ -3194,7 +3217,7 @@ display_help (void)
   fputs (_("  -std=<standard>          Assume that the input sources are for <standard>\n"), stdout);
   fputs (_("\
   --sysroot=<directory>    Use <directory> as the root directory for headers\n\
-                           for headers and libraries\n"), stdout);
+                           and libraries\n"), stdout);
   fputs (_("  -B <directory>           Add <directory> to the compiler's search paths\n"), stdout);
   fputs (_("  -b <machine>             Run gcc for target <machine>, if installed\n"), stdout);
   fputs (_("  -V <version>             Run gcc version number <version>, if installed\n"), stdout);
@@ -3280,6 +3303,7 @@ process_command (int argc, const char **argv)
   int is_modify_target_name;
   unsigned int j;
 #endif
+  const char *tooldir_prefix;
 
   GET_ENVIRONMENT (gcc_exec_prefix, "GCC_EXEC_PREFIX");
 
@@ -3376,11 +3400,27 @@ process_command (int argc, const char **argv)
 	putenv (concat ("GCC_EXEC_PREFIX=", gcc_exec_prefix, NULL));
     }
   else
-    gcc_libexec_prefix = make_relative_prefix (gcc_exec_prefix,
-					       standard_exec_prefix,
-					       standard_libexec_prefix);
+    {
+      /* make_relative_prefix requires a program name, but
+	 GCC_EXEC_PREFIX is typically a directory name with a trailing
+	 / (which is ignored by make_relative_prefix), so append a
+	 program name.  */
+      char *tmp_prefix = concat (gcc_exec_prefix, "gcc", NULL);
+      gcc_libexec_prefix = make_relative_prefix (tmp_prefix,
+						 standard_exec_prefix,
+						 standard_libexec_prefix);
+
+      /* The path is unrelocated, so fallback to the original setting.  */
+      if (!gcc_libexec_prefix)
+	gcc_libexec_prefix = standard_libexec_prefix;
+
+      free (tmp_prefix);
+    }
 #else
 #endif
+  /* From this point onward, gcc_exec_prefix is non-null if the toolchain
+     is relocated. The toolchain was either relocated using GCC_EXEC_PREFIX
+     or an automatically created GCC_EXEC_PREFIX from argv[0].  */
 
   if (gcc_exec_prefix)
     {
@@ -3542,7 +3582,7 @@ process_command (int argc, const char **argv)
 	{
 	  /* translate_options () has turned --version into -fversion.  */
 	  printf (_("%s (GCC) %s\n"), programname, version_string);
-	  printf ("Copyright %s 2006 Free Software Foundation, Inc.\n",
+	  printf ("Copyright %s 2007 Free Software Foundation, Inc.\n",
 		  _("(C)"));
 	  fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
@@ -3564,10 +3604,19 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  add_assembler_option ("--help", 6);
 	  add_linker_option ("--help", 6);
 	}
+      else if (strncmp (argv[i], "-fhelp=", 7) == 0)
+	{
+	  /* translate_options () has turned --help into -fhelp.  */
+	  print_subprocess_help = 2;
+
+	  /* We will be passing a dummy file on to the sub-processes.  */
+	  n_infiles++;
+	  n_switches++;
+	}
       else if (strcmp (argv[i], "-ftarget-help") == 0)
 	{
 	  /* translate_options() has turned --target-help into -ftarget-help.  */
-	  target_help_flag = 1;
+	  print_subprocess_help = 1;
 
 	  /* We will be passing a dummy file on to the sub-processes.  */
 	  n_infiles++;
@@ -3598,6 +3647,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	print_multi_directory = 1;
       else if (! strcmp (argv[i], "-print-multi-os-directory"))
 	print_multi_os_directory = 1;
+      else if (! strcmp (argv[i], "-print-sysroot-headers-suffix"))
+	print_sysroot_headers_suffix = 1;
       else if (! strncmp (argv[i], "-Wa,", 4))
 	{
 	  int prev, j;
@@ -3738,7 +3789,10 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  switch (c)
 	    {
 	    case 'b':
-	      if (NULL == strchr(argv[i] + 2, '-')) break;
+	      if (NULL == strchr(argv[i] + 2, '-'))
+		goto normal_switch;
+
+	      /* Fall through.  */
 	    case 'V':
 	      fatal ("'-%c' must come at the start of the command line", c);
 	      break;
@@ -3772,28 +3826,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 		    tmp[len] = DIR_SEPARATOR;
 		    tmp[++ len] = 0;
 		    value = tmp;
-		  }
-
-		/* As a kludge, if the arg is "[foo/]stageN/", just
-		   add "[foo/]include" to the include prefix.  */
-		if ((len == 7
-		     || (len > 7
-			 && (IS_DIR_SEPARATOR (value[len - 8]))))
-		    && strncmp (value + len - 7, "stage", 5) == 0
-		    && ISDIGIT (value[len - 2])
-		    && (IS_DIR_SEPARATOR (value[len - 1])))
-		  {
-		    if (len == 7)
-		      add_prefix (&include_prefixes, "./", NULL,
-				  PREFIX_PRIORITY_B_OPT, 0, 0);
-		    else
-		      {
-		        char *string = xmalloc (len - 6);
-			memcpy (string, value, len - 7);
-			string[len - 7] = 0;
-		        add_prefix (&include_prefixes, string, NULL,
-				    PREFIX_PRIORITY_B_OPT, 0, 0);
-		      }
 		  }
 
 		add_prefix (&exec_prefixes, value, NULL,
@@ -3927,62 +3959,50 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       use_pipes = 0;
     }
 
-  /* Set up the search paths before we go looking for config files.  */
+  /* Set up the search paths.  We add directories that we expect to
+     contain GNU Toolchain components before directories specified by
+     the machine description so that we will find GNU components (like
+     the GNU assembler) before those of the host system.  */ 
 
-  /* These come before the md prefixes so that we will find gcc's subcommands
-     (such as cpp) rather than those of the host system.  */
-  /* Use 2 as fourth arg meaning try just the machine as a suffix,
-     as well as trying the machine and the version.  */
+  /* If we don't know where the toolchain has been installed, use the
+     configured-in locations.  */
+  if (!gcc_exec_prefix)
+    {
 #ifndef OS2
-  add_prefix (&exec_prefixes, standard_libexec_prefix, "GCC",
-	      PREFIX_PRIORITY_LAST, 1, 0);
-  add_prefix (&exec_prefixes, standard_libexec_prefix, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 2, 0);
-  add_prefix (&exec_prefixes, standard_exec_prefix, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 2, 0);
-  add_prefix (&exec_prefixes, standard_exec_prefix_1, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 2, 0);
-  add_prefix (&exec_prefixes, standard_exec_prefix_2, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 2, 0);
+      add_prefix (&exec_prefixes, standard_libexec_prefix, "GCC",
+		  PREFIX_PRIORITY_LAST, 1, 0);
+      add_prefix (&exec_prefixes, standard_libexec_prefix, "BINUTILS",
+		  PREFIX_PRIORITY_LAST, 2, 0);
+      add_prefix (&exec_prefixes, standard_exec_prefix, "BINUTILS",
+		  PREFIX_PRIORITY_LAST, 2, 0);
 #endif
+      add_prefix (&startfile_prefixes, standard_exec_prefix, "BINUTILS",
+		  PREFIX_PRIORITY_LAST, 1, 0);
+    }
 
-  add_prefix (&startfile_prefixes, standard_exec_prefix, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 1, 0);
-  add_prefix (&startfile_prefixes, standard_exec_prefix_2, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 1, 0);
+  /* If not cross-compiling, search well-known system locations.  */
+  if (*cross_compile == '0')
+    {
+#ifndef OS2
+      add_prefix (&exec_prefixes, standard_exec_prefix_1, "BINUTILS",
+		  PREFIX_PRIORITY_LAST, 2, 0);
+      add_prefix (&exec_prefixes, standard_exec_prefix_2, "BINUTILS",
+		  PREFIX_PRIORITY_LAST, 2, 0);
+#endif
+      add_prefix (&startfile_prefixes, standard_exec_prefix_2, "BINUTILS",
+		  PREFIX_PRIORITY_LAST, 1, 0);
+    }
 
+  gcc_assert (!IS_ABSOLUTE_PATH (tooldir_base_prefix));
   tooldir_prefix = concat (tooldir_base_prefix, spec_machine,
 			   dir_separator_str, NULL);
 
-  /* If tooldir is relative, base it on exec_prefixes.  A relative
-     tooldir lets us move the installed tree as a unit.
-
-     If GCC_EXEC_PREFIX is defined, then we want to add two relative
-     directories, so that we can search both the user specified directory
-     and the standard place.  */
-
-  if (!IS_ABSOLUTE_PATH (tooldir_prefix))
-    {
-      if (gcc_exec_prefix)
-	{
-	  char *gcc_exec_tooldir_prefix
-	    = concat (gcc_exec_prefix, spec_machine, dir_separator_str,
-		      spec_version, dir_separator_str, tooldir_prefix, NULL);
-
-	  add_prefix (&exec_prefixes,
-		      concat (gcc_exec_tooldir_prefix, "bin",
-			      dir_separator_str, NULL),
-		      NULL, PREFIX_PRIORITY_LAST, 0, 0);
-	  add_prefix (&startfile_prefixes,
-		      concat (gcc_exec_tooldir_prefix, "lib",
-			      dir_separator_str, NULL),
-		      NULL, PREFIX_PRIORITY_LAST, 0, 1);
-	}
-
-      tooldir_prefix = concat (standard_exec_prefix, spec_machine,
-			       dir_separator_str, spec_version,
-			       dir_separator_str, tooldir_prefix, NULL);
-    }
+  /* Look for tools relative to the location from which the driver is
+     running, or, if that is not available, the configured prefix.  */
+  tooldir_prefix
+    = concat (gcc_exec_prefix ? gcc_exec_prefix : standard_exec_prefix,
+	      spec_machine, dir_separator_str,
+	      spec_version, dir_separator_str, tooldir_prefix, NULL);
 
   add_prefix (&exec_prefixes,
 	      concat (tooldir_prefix, "bin", dir_separator_str, NULL),
@@ -4058,9 +4078,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	;
       else if (! strcmp (argv[i], "-print-multi-os-directory"))
 	;
-      else if (! strcmp (argv[i], "-ftarget-help"))
-	;
-      else if (! strcmp (argv[i], "-fhelp"))
+      else if (! strcmp (argv[i], "-print-sysroot-headers-suffix"))
 	;
       else if (! strncmp (argv[i], "--sysroot=", strlen ("--sysroot=")))
 	{
@@ -4227,34 +4245,14 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
     error ("warning: '-x %s' after last input file has no effect", spec_lang);
 
   /* Ensure we only invoke each subprocess once.  */
-  if (target_help_flag || print_help_list)
+  if (print_subprocess_help || print_help_list)
     {
       n_infiles = 1;
 
-      /* Create a dummy input file, so that we can pass --target-help on to
-	 the various sub-processes.  */
+      /* Create a dummy input file, so that we can pass
+	 the help option on to the various sub-processes.  */
       infiles[0].language = "c";
       infiles[0].name   = "help-dummy";
-
-      if (target_help_flag)
-	{
-	  switches[n_switches].part1     = "--target-help";
-	  switches[n_switches].args      = 0;
-	  switches[n_switches].live_cond = SWITCH_OK;
-	  switches[n_switches].validated = 0;
-
-	  n_switches++;
-	}
-
-      if (print_help_list)
-	{
-	  switches[n_switches].part1     = "--help";
-	  switches[n_switches].args      = 0;
-	  switches[n_switches].live_cond = SWITCH_OK;
-	  switches[n_switches].validated = 0;
-
-	  n_switches++;
-	}
     }
 
   switches[n_switches].part1 = 0;
@@ -4992,6 +4990,14 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 
 	      for_each_path (&include_prefixes, false, info.append_len,
 			     spec_path, &info);
+
+	      info.append = "include-fixed";
+	      if (*sysroot_hdrs_suffix_spec)
+		info.append = concat (info.append, dir_separator_str,
+				      multilib_dir, NULL);
+	      info.append_len = strlen (info.append);
+	      for_each_path (&include_prefixes, false, info.append_len,
+			     spec_path, &info);
 	    }
 	    break;
 
@@ -5526,25 +5532,22 @@ handle_spec_function (const char *p)
 static inline bool
 input_suffix_matches (const char *atom, const char *end_atom)
 {
-  /* We special case the semantics of {.s:...} and {.S:...} and their
-     negative variants.  Instead of testing the input filename suffix,
-     we test whether the input source file is an assembler file or an
-     assembler-with-cpp file respectively.  This allows us to correctly
-     handle the -x command line option.  */
-
-  if (atom + 1 == end_atom
-      && input_file_compiler
-      && input_file_compiler->suffix)
-    {
-      if (*atom == 's')
-	return !strcmp (input_file_compiler->suffix, "@assembler");
-      if (*atom == 'S')
-	return !strcmp (input_file_compiler->suffix, "@assembler-with-cpp");
-    }
-
   return (input_suffix
 	  && !strncmp (input_suffix, atom, end_atom - atom)
 	  && input_suffix[end_atom - atom] == '\0');
+}
+
+/* Subroutine of handle_braces.  Returns true if the current
+   input file's spec name matches the atom bracketed by ATOM and END_ATOM.  */
+static bool
+input_spec_matches (const char *atom, const char *end_atom)
+{
+  return (input_file_compiler
+	  && input_file_compiler->suffix
+	  && input_file_compiler->suffix[0] != '\0'
+	  && !strncmp (input_file_compiler->suffix + 1, atom,
+		       end_atom - atom)
+	  && input_file_compiler->suffix[end_atom - atom + 1] == '\0');
 }
 
 /* Subroutine of handle_braces.  Returns true if a switch
@@ -5610,6 +5613,7 @@ handle_braces (const char *p)
   const char *orig = p;
 
   bool a_is_suffix;
+  bool a_is_spectype;
   bool a_is_starred;
   bool a_is_negated;
   bool a_matched;
@@ -5630,8 +5634,12 @@ handle_braces (const char *p)
 	goto invalid;
 
       /* Scan one "atom" (S in the description above of %{}, possibly
-	 with !, ., or * modifiers).  */
-      a_matched = a_is_suffix = a_is_starred = a_is_negated = false;
+	 with '!', '.', '@', ',', or '*' modifiers).  */
+      a_matched = false;
+      a_is_suffix = false;
+      a_is_starred = false;
+      a_is_negated = false;
+      a_is_spectype = false;
 
       SKIP_WHITE();
       if (*p == '!')
@@ -5640,6 +5648,8 @@ handle_braces (const char *p)
       SKIP_WHITE();
       if (*p == '.')
 	p++, a_is_suffix = true;
+      else if (*p == ',')
+	p++, a_is_spectype = true;
 
       atom = p;
       while (ISIDNUM(*p) || *p == '-' || *p == '+' || *p == '='
@@ -5657,7 +5667,7 @@ handle_braces (const char *p)
 	  /* Substitute the switch(es) indicated by the current atom.  */
 	  ordered_set = true;
 	  if (disjunct_set || n_way_choice || a_is_negated || a_is_suffix
-	      || atom == end_atom)
+	      || a_is_spectype || atom == end_atom)
 	    goto invalid;
 
 	  mark_matching_switches (atom, end_atom, a_is_starred);
@@ -5676,7 +5686,8 @@ handle_braces (const char *p)
 	  if (atom == end_atom)
 	    {
 	      if (!n_way_choice || disj_matched || *p == '|'
-		  || a_is_negated || a_is_suffix || a_is_starred)
+		  || a_is_negated || a_is_suffix || a_is_spectype 
+		  || a_is_starred)
 		goto invalid;
 
 	      /* An empty term may appear as the last choice of an
@@ -5687,28 +5698,30 @@ handle_braces (const char *p)
 	    }
 	  else
 	    {
-	       if (a_is_suffix && a_is_starred)
-		 goto invalid;
+	      if ((a_is_suffix || a_is_spectype) && a_is_starred)
+		goto invalid;
+	      
+	      if (!a_is_starred)
+		disj_starred = false;
 
-	       if (!a_is_starred)
-		 disj_starred = false;
-
-	       /* Don't bother testing this atom if we already have a
-                  match.  */
-	       if (!disj_matched && !n_way_matched)
-		 {
-		   if (a_is_suffix)
-		     a_matched = input_suffix_matches (atom, end_atom);
-		   else
-		     a_matched = switch_matches (atom, end_atom, a_is_starred);
-
-		   if (a_matched != a_is_negated)
-		     {
-		       disj_matched = true;
-		       d_atom = atom;
-		       d_end_atom = end_atom;
-		     }
-		 }
+	      /* Don't bother testing this atom if we already have a
+		 match.  */
+	      if (!disj_matched && !n_way_matched)
+		{
+		  if (a_is_suffix)
+		    a_matched = input_suffix_matches (atom, end_atom);
+		  else if (a_is_spectype)
+		    a_matched = input_spec_matches (atom, end_atom);
+		  else
+		    a_matched = switch_matches (atom, end_atom, a_is_starred);
+		  
+		  if (a_matched != a_is_negated)
+		    {
+		      disj_matched = true;
+		      d_atom = atom;
+		      d_end_atom = end_atom;
+		    }
+		}
 	    }
 
 	  if (*p == ':')
@@ -6087,6 +6100,8 @@ main (int argc, char **argv)
 
   expandargv (&argc, &argv);
 
+  prune_options (&argc, &argv);
+
 #ifdef GCC_DRIVER_HOST_INITIALIZATION
   /* Perform host dependent initialization when needed.  */
   GCC_DRIVER_HOST_INITIALIZATION;
@@ -6303,18 +6318,16 @@ main (int argc, char **argv)
 			      PREFIX_PRIORITY_LAST, 0, 1);
       else if (*cross_compile == '0')
 	{
-	  if (gcc_exec_prefix)
-	    add_prefix (&startfile_prefixes,
-			concat (gcc_exec_prefix, machine_suffix,
-				standard_startfile_prefix, NULL),
-			NULL, PREFIX_PRIORITY_LAST, 0, 1);
 	  add_prefix (&startfile_prefixes,
-		      concat (standard_exec_prefix,
-			      machine_suffix,
+		      concat (gcc_exec_prefix 
+			      ? gcc_exec_prefix : standard_exec_prefix, 
+			      machine_suffix, 
 			      standard_startfile_prefix, NULL),
 		      NULL, PREFIX_PRIORITY_LAST, 0, 1);
 	}
 
+      /* Sysrooted prefixes are relocated because target_system_root is
+	 also relocated by gcc_exec_prefix.  */
       if (*standard_startfile_prefix_1)
  	add_sysrooted_prefix (&startfile_prefixes,
 			      standard_startfile_prefix_1, "BINUTILS",
@@ -6358,7 +6371,9 @@ main (int argc, char **argv)
 
   if (print_search_dirs)
     {
-      printf (_("install: %s%s\n"), standard_exec_prefix, machine_suffix);
+      printf (_("install: %s%s\n"),
+	      gcc_exec_prefix ? gcc_exec_prefix : standard_exec_prefix,
+	      gcc_exec_prefix ? "" : machine_suffix);
       printf (_("programs: %s\n"),
 	      build_search_list (&exec_prefixes, "", false, false));
       printf (_("libraries: %s\n"),
@@ -6403,14 +6418,19 @@ main (int argc, char **argv)
       return (0);
     }
 
-  if (target_help_flag)
-   {
-      /* Print if any target specific options.  */
-
-      /* We do not exit here. Instead we have created a fake input file
-         called 'target-dummy' which needs to be compiled, and we pass this
-         on to the various sub-processes, along with the --target-help
-         switch.  */
+  if (print_sysroot_headers_suffix)
+    {
+      if (*sysroot_hdrs_suffix_spec)
+	{
+	  printf("%s\n", (target_sysroot_hdrs_suffix
+			  ? target_sysroot_hdrs_suffix
+			  : ""));
+	  return (0);
+	}
+      else
+	/* The error status indicates that only one set of fixed
+	   headers should be built.  */
+	fatal ("not configured with sysroot headers suffix");
     }
 
   if (print_help_list)
@@ -6932,7 +6952,7 @@ next_member:
     p++;
 
   SKIP_WHITE ();
-  if (*p == '.')
+  if (*p == '.' || *p == ',')
     suffix = true, p++;
 
   atom = p;
@@ -7649,6 +7669,27 @@ print_multilib_info (void)
     }
 }
 
+/* getenv built-in spec function.
+
+   Returns the value of the environment variable given by its first
+   argument, concatenated with the second argument.  If the
+   environment variable is not defined, a fatal error is issued.  */
+
+static const char *
+getenv_spec_function (int argc, const char **argv)
+{
+  char *value;
+
+  if (argc != 2)
+    return NULL;
+
+  value = getenv (argv[0]);
+  if (!value)
+    fatal ("environment variable \"%s\" not defined", argv[0]);
+
+  return concat (value, argv[1], NULL);
+}
+
 /* if-exists built-in spec function.
 
    Checks to see if the file specified by the absolute pathname in

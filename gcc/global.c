@@ -38,6 +38,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "toplev.h"
 #include "tree-pass.h"
 #include "timevar.h"
+#include "vecprim.h"
 
 /* This pass of the compiler performs global register allocation.
    It assigns hard register numbers to all the pseudo registers
@@ -325,34 +326,38 @@ static void make_accurate_live_analysis (void);
 
 
 
-/* Perform allocation of pseudo-registers not allocated by local_alloc.
+/* Look through the list of eliminable registers.  Add registers
+   clobbered by asm statements to LIVE_REGS.  Set ELIM_SET to the set of
+   registers which may be eliminated.  Set NO_GLOBAL_SET to the set of
+   registers which may not be used across blocks.
 
-   Return value is nonzero if reload failed
-   and we must not do any more for this function.  */
+   ASM_CLOBBERED is the set of registers clobbered by some asm statement.
 
-static int
-global_alloc (void)
+   This will normally be called with LIVE_REGS as the global variable
+   regs_ever_live, ELIM_SET as the file static variable
+   eliminable_regset, and NO_GLOBAL_SET as the file static variable
+   NO_GLOBAL_ALLOC_REGS.  */
+
+static void
+compute_regsets (char asm_clobbered[FIRST_PSEUDO_REGISTER],
+                 char live_regs[FIRST_PSEUDO_REGISTER],
+                 HARD_REG_SET *elim_set, 
+                 HARD_REG_SET *no_global_set)
 {
-  int retval;
 #ifdef ELIMINABLE_REGS
   static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
+  size_t i;
 #endif
   int need_fp
     = (! flag_omit_frame_pointer
        || (current_function_calls_alloca && EXIT_IGNORE_STACK)
        || FRAME_POINTER_REQUIRED);
 
-  size_t i;
-  rtx x;
-
-  make_accurate_live_analysis ();
-
-  max_allocno = 0;
-
   /* A machine may have certain hard registers that
      are safe to use only within a basic block.  */
 
-  CLEAR_HARD_REG_SET (no_global_alloc_regs);
+  CLEAR_HARD_REG_SET (*no_global_set);
+  CLEAR_HARD_REG_SET (*elim_set);
 
   /* Build the regset of all eliminable registers and show we can't use those
      that we already know won't be eliminated.  */
@@ -363,45 +368,63 @@ global_alloc (void)
 	= (! CAN_ELIMINATE (eliminables[i].from, eliminables[i].to)
 	   || (eliminables[i].to == STACK_POINTER_REGNUM && need_fp));
 
-      if (!regs_asm_clobbered[eliminables[i].from])
+      if (!asm_clobbered[eliminables[i].from])
 	{
-	  SET_HARD_REG_BIT (eliminable_regset, eliminables[i].from);
+	  SET_HARD_REG_BIT (*elim_set, eliminables[i].from);
 
 	  if (cannot_elim)
-	    SET_HARD_REG_BIT (no_global_alloc_regs, eliminables[i].from);
+	    SET_HARD_REG_BIT (*no_global_set, eliminables[i].from);
 	}
       else if (cannot_elim)
 	error ("%s cannot be used in asm here",
 	       reg_names[eliminables[i].from]);
       else
-	regs_ever_live[eliminables[i].from] = 1;
+	live_regs[eliminables[i].from] = 1;
     }
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-  if (!regs_asm_clobbered[HARD_FRAME_POINTER_REGNUM])
+  if (!asm_clobbered[HARD_FRAME_POINTER_REGNUM])
     {
-      SET_HARD_REG_BIT (eliminable_regset, HARD_FRAME_POINTER_REGNUM);
+      SET_HARD_REG_BIT (*elim_set, HARD_FRAME_POINTER_REGNUM);
       if (need_fp)
-	SET_HARD_REG_BIT (no_global_alloc_regs, HARD_FRAME_POINTER_REGNUM);
+	SET_HARD_REG_BIT (*no_global_set, HARD_FRAME_POINTER_REGNUM);
     }
   else if (need_fp)
     error ("%s cannot be used in asm here",
 	   reg_names[HARD_FRAME_POINTER_REGNUM]);
   else
-    regs_ever_live[HARD_FRAME_POINTER_REGNUM] = 1;
+    live_regs[HARD_FRAME_POINTER_REGNUM] = 1;
 #endif
 
 #else
-  if (!regs_asm_clobbered[FRAME_POINTER_REGNUM])
+  if (!asm_clobbered[FRAME_POINTER_REGNUM])
     {
-      SET_HARD_REG_BIT (eliminable_regset, FRAME_POINTER_REGNUM);
+      SET_HARD_REG_BIT (*elim_set, FRAME_POINTER_REGNUM);
       if (need_fp)
-	SET_HARD_REG_BIT (no_global_alloc_regs, FRAME_POINTER_REGNUM);
+	SET_HARD_REG_BIT (*no_global_set, FRAME_POINTER_REGNUM);
     }
   else if (need_fp)
     error ("%s cannot be used in asm here", reg_names[FRAME_POINTER_REGNUM]);
   else
-    regs_ever_live[FRAME_POINTER_REGNUM] = 1;
+    live_regs[FRAME_POINTER_REGNUM] = 1;
 #endif
+}
+
+/* Perform allocation of pseudo-registers not allocated by local_alloc.
+
+   Return value is nonzero if reload failed
+   and we must not do any more for this function.  */
+
+static int
+global_alloc (void)
+{
+  int retval;
+  size_t i;
+  rtx x;
+
+  make_accurate_live_analysis ();
+
+  compute_regsets (regs_asm_clobbered, regs_ever_live,
+                   &eliminable_regset, &no_global_alloc_regs);
 
   /* Track which registers have already been used.  Start with registers
      explicitly in the rtl, then registers allocated by local register
@@ -458,6 +481,7 @@ global_alloc (void)
 	reg_may_share[r2] = r1;
     }
 
+  max_allocno = 0;
   for (i = FIRST_PSEUDO_REGISTER; i < (size_t) max_regno; i++)
     /* Note that reg_live_length[i] < 0 indicates a "constant" reg
        that we are supposed to refrain from putting in a hard reg.
@@ -741,6 +765,21 @@ global_conflicts (void)
 	    In cases #1 and #2 the conflict will be recorded when we
 	    scan the instruction that makes either X or Y become live.  */
 	record_conflicts (block_start_allocnos, ax);
+
+#ifdef EH_RETURN_DATA_REGNO
+	if (bb_has_eh_pred (b))
+	  {
+	    unsigned int i;
+	    
+	    for (i = 0; ; ++i)
+	      {
+		unsigned int regno = EH_RETURN_DATA_REGNO (i);
+		if (regno == INVALID_REGNUM)
+		  break;
+		record_one_conflict (regno);
+	      }
+	  }
+#endif
 
 	/* Pseudos can't go in stack regs at the start of a basic block that
 	   is reached by an abnormal edge. Likewise for call clobbered regs,
@@ -2046,6 +2085,7 @@ struct bb_info
 #define BB_INFO(BB) ((struct bb_info *) (BB)->aux)
 #define BB_INFO_BY_INDEX(N) BB_INFO (BASIC_BLOCK(N))
 
+static struct bitmap_obstack greg_obstack;
 /* The function allocates the info structures of each basic block.  It
    also initialized LIVE_PAVIN and LIVE_PAVOUT as if all hard
    registers were partially available.  */
@@ -2062,14 +2102,15 @@ allocate_bb_info (void)
   init = BITMAP_ALLOC (NULL);
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     bitmap_set_bit (init, i);
+  bitmap_obstack_initialize (&greg_obstack); 
   FOR_EACH_BB (bb)
     {
       bb_info = bb->aux;
-      bb_info->earlyclobber = BITMAP_ALLOC (NULL);
-      bb_info->avloc = BITMAP_ALLOC (NULL);
-      bb_info->killed = BITMAP_ALLOC (NULL);
-      bb_info->live_pavin = BITMAP_ALLOC (NULL);
-      bb_info->live_pavout = BITMAP_ALLOC (NULL);
+      bb_info->earlyclobber = BITMAP_ALLOC (&greg_obstack);
+      bb_info->avloc = BITMAP_ALLOC (&greg_obstack);
+      bb_info->killed = BITMAP_ALLOC (&greg_obstack);
+      bb_info->live_pavin = BITMAP_ALLOC (&greg_obstack);
+      bb_info->live_pavout = BITMAP_ALLOC (&greg_obstack);
       bitmap_copy (bb_info->live_pavin, init);
       bitmap_copy (bb_info->live_pavout, init);
     }
@@ -2081,18 +2122,7 @@ allocate_bb_info (void)
 static void
 free_bb_info (void)
 {
-  basic_block bb;
-  struct bb_info *bb_info;
-
-  FOR_EACH_BB (bb)
-    {
-      bb_info = BB_INFO (bb);
-      BITMAP_FREE (bb_info->live_pavout);
-      BITMAP_FREE (bb_info->live_pavin);
-      BITMAP_FREE (bb_info->killed);
-      BITMAP_FREE (bb_info->avloc);
-      BITMAP_FREE (bb_info->earlyclobber);
-    }
+  bitmap_obstack_release (&greg_obstack); 
   free_aux_for_blocks ();
 }
 
@@ -2123,9 +2153,6 @@ mark_reg_change (rtx reg, rtx setter, void *data)
 
 /* Classes of registers which could be early clobbered in the current
    insn.  */
-
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
 
 static VEC(int,heap) *earlyclobber_regclass;
 
@@ -2417,7 +2444,7 @@ modify_reg_pav (void)
   CLEAR_HARD_REG_SET (stack_hard_regs);
   for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
     SET_HARD_REG_BIT(stack_hard_regs, i);
-  stack_regs = BITMAP_ALLOC (NULL);
+  stack_regs = BITMAP_ALLOC (&greg_obstack);
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     {
       COPY_HARD_REG_SET (used, reg_class_contents[reg_preferred_class (i)]);
@@ -2511,6 +2538,8 @@ rest_of_handle_global_alloc (void)
     failure = global_alloc ();
   else
     {
+      compute_regsets (regs_asm_clobbered, regs_ever_live,
+                       &eliminable_regset, &no_global_alloc_regs);
       build_insn_chain (get_insns ());
       failure = reload (get_insns (), 0);
     }

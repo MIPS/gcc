@@ -1,5 +1,6 @@
 /* -----------------------------------------------------------------------
    ffi.c - Copyright (c) 1998 Geoffrey Keating
+   Copyright (C) 2007 Free Software Foundation, Inc
 
    PowerPC Foreign Function Interface
 
@@ -80,10 +81,8 @@ enum { ASM_NEEDS_REGISTERS = 4 };
 
 */
 
-/*@-exportheader@*/
 void
 ffi_prep_args_SYSV (extended_cif *ecif, unsigned *const stack)
-/*@=exportheader@*/
 {
   const unsigned bytes = ecif->cif->bytes;
   const unsigned flags = ecif->cif->flags;
@@ -354,10 +353,8 @@ enum { ASM_NEEDS_REGISTERS64 = 4 };
 
 */
 
-/*@-exportheader@*/
 void FFI_HIDDEN
 ffi_prep_args64 (extended_cif *ecif, unsigned long *const stack)
-/*@=exportheader@*/
 {
   const unsigned long bytes = ecif->cif->bytes;
   const unsigned long flags = ecif->cif->flags;
@@ -789,24 +786,14 @@ ffi_prep_cif_machdep (ffi_cif *cif)
   return FFI_OK;
 }
 
-/*@-declundef@*/
-/*@-exportheader@*/
-extern void ffi_call_SYSV(/*@out@*/ extended_cif *,
-			  unsigned, unsigned,
-			  /*@out@*/ unsigned *,
+extern void ffi_call_SYSV(extended_cif *, unsigned, unsigned, unsigned *,
 			  void (*fn)());
-extern void FFI_HIDDEN ffi_call_LINUX64(/*@out@*/ extended_cif *,
-					unsigned long, unsigned long,
-					/*@out@*/ unsigned long *,
+extern void FFI_HIDDEN ffi_call_LINUX64(extended_cif *, unsigned long,
+					unsigned long, unsigned long *,
 					void (*fn)());
-/*@=declundef@*/
-/*@=exportheader@*/
 
 void
-ffi_call(/*@dependent@*/ ffi_cif *cif,
-	 void (*fn)(),
-	 /*@out@*/ void *rvalue,
-	 /*@dependent@*/ void **avalue)
+ffi_call(ffi_cif *cif, void (*fn)(), void *rvalue, void **avalue)
 {
   extended_cif ecif;
 
@@ -818,9 +805,7 @@ ffi_call(/*@dependent@*/ ffi_cif *cif,
 
   if ((rvalue == NULL) && (cif->rtype->type == FFI_TYPE_STRUCT))
     {
-      /*@-sysunrecog@*/
       ecif.rvalue = alloca(cif->rtype->size);
-      /*@=sysunrecog@*/
     }
   else
     ecif.rvalue = rvalue;
@@ -832,15 +817,11 @@ ffi_call(/*@dependent@*/ ffi_cif *cif,
     case FFI_SYSV:
     case FFI_GCC_SYSV:
     case FFI_LINUX:
-      /*@-usedef@*/
       ffi_call_SYSV (&ecif, -cif->bytes, cif->flags, ecif.rvalue, fn);
-      /*@=usedef@*/
       break;
 #else
     case FFI_LINUX64:
-      /*@-usedef@*/
       ffi_call_LINUX64 (&ecif, -(long) cif->bytes, cif->flags, ecif.rvalue, fn);
-      /*@=usedef@*/
       break;
 #endif
     default:
@@ -854,27 +835,24 @@ ffi_call(/*@dependent@*/ ffi_cif *cif,
 #define MIN_CACHE_LINE_SIZE 8
 
 static void
-flush_icache (char *addr1, int size)
+flush_icache (char *wraddr, char *xaddr, int size)
 {
   int i;
-  char * addr;
   for (i = 0; i < size; i += MIN_CACHE_LINE_SIZE)
-    {
-      addr = addr1 + i;
-      __asm__ volatile ("icbi 0,%0;" "dcbf 0,%0;"
-			: : "r" (addr) : "memory");
-    }
-  addr = addr1 + size - 1;
-  __asm__ volatile ("icbi 0,%0;" "dcbf 0,%0;" "sync;" "isync;"
-		    : : "r"(addr) : "memory");
+    __asm__ volatile ("icbi 0,%0;" "dcbf 0,%1;"
+		      : : "r" (xaddr + i), "r" (wraddr + i) : "memory");
+  __asm__ volatile ("icbi 0,%0;" "dcbf 0,%1;" "sync;" "isync;"
+		    : : "r"(xaddr + size - 1), "r"(wraddr + size - 1)
+		    : "memory");
 }
 #endif
 
 ffi_status
-ffi_prep_closure (ffi_closure *closure,
-		  ffi_cif *cif,
-		  void (*fun) (ffi_cif *, void *, void **, void *),
-		  void *user_data)
+ffi_prep_closure_loc (ffi_closure *closure,
+		      ffi_cif *cif,
+		      void (*fun) (ffi_cif *, void *, void **, void *),
+		      void *user_data,
+		      void *codeloc)
 {
 #ifdef POWERPC64
   void **tramp = (void **) &closure->tramp[0];
@@ -882,7 +860,7 @@ ffi_prep_closure (ffi_closure *closure,
   FFI_ASSERT (cif->abi == FFI_LINUX64);
   /* Copy function address and TOC from ffi_closure_LINUX64.  */
   memcpy (tramp, (char *) ffi_closure_LINUX64, 16);
-  tramp[2] = (void *) closure;
+  tramp[2] = codeloc;
 #else
   unsigned int *tramp;
 
@@ -898,10 +876,10 @@ ffi_prep_closure (ffi_closure *closure,
   tramp[8] = 0x7c0903a6;  /*   mtctr   r0 */
   tramp[9] = 0x4e800420;  /*   bctr */
   *(void **) &tramp[2] = (void *) ffi_closure_SYSV; /* function */
-  *(void **) &tramp[3] = (void *) closure;          /* context */
+  *(void **) &tramp[3] = codeloc;                   /* context */
 
   /* Flush the icache.  */
-  flush_icache (&closure->tramp[0],FFI_TRAMPOLINE_SIZE);
+  flush_icache ((char *)tramp, (char *)codeloc, FFI_TRAMPOLINE_SIZE);
 #endif
 
   closure->cif = cif;

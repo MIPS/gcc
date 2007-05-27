@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -62,6 +62,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm_p.h"
 #include "target-def.h"
 #include "ggc.h"
+#include "hard-reg-set.h"
 #include "reload.h"
 #include "optabs.h"
 #include "recog.h"
@@ -153,6 +154,15 @@ unsigned int
 default_min_divisions_for_recip_mul (enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return have_insn_for (DIV, mode) ? 3 : 2;
+}
+
+/* The default implementation of TARGET_MODE_REP_EXTENDED.  */
+
+int
+default_mode_rep_extended (enum machine_mode mode ATTRIBUTE_UNUSED,
+			   enum machine_mode mode_rep ATTRIBUTE_UNUSED)
+{
+  return UNKNOWN;
 }
 
 /* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */
@@ -309,6 +319,25 @@ default_invalid_within_doloop (rtx insn)
   return NULL;
 }
 
+/* Mapping of builtin functions to vectorized variants.  */
+
+tree
+default_builtin_vectorized_function (enum built_in_function fn ATTRIBUTE_UNUSED,
+				     tree type_out ATTRIBUTE_UNUSED,
+				     tree type_in ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+/* Vectorized conversion.  */
+
+tree
+default_builtin_vectorized_conversion (enum tree_code code ATTRIBUTE_UNUSED,
+				       tree type ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
 bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
 	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
@@ -403,7 +432,7 @@ default_external_stack_protect_fail (void)
       stack_chk_fail_decl = t;
     }
 
-  return build_function_call_expr (t, NULL_TREE);
+  return build_call_expr (t, 0);
 }
 
 tree
@@ -436,7 +465,7 @@ default_hidden_stack_protect_fail (void)
       stack_chk_fail_decl = t;
     }
 
-  return build_function_call_expr (t, NULL_TREE);
+  return build_call_expr (t, 0);
 #endif
 }
 
@@ -466,6 +495,21 @@ default_function_value (tree ret_type ATTRIBUTE_UNUSED,
 #else
   return NULL_RTX;
 #endif
+}
+
+rtx
+default_internal_arg_pointer (void)
+{
+  /* If the reg that the virtual arg pointer will be translated into is
+     not a fixed reg or is the stack pointer, make a copy of the virtual
+     arg pointer, and address parms via the copy.  The frame pointer is
+     considered fixed even though it is not marked as such.  */
+  if ((ARG_POINTER_REGNUM == STACK_POINTER_REGNUM
+       || ! (fixed_regs[ARG_POINTER_REGNUM]
+	     || ARG_POINTER_REGNUM == FRAME_POINTER_REGNUM)))
+    return copy_to_reg (virtual_incoming_args_rtx);
+  else
+    return virtual_incoming_args_rtx;
 }
 
 enum reg_class
@@ -568,6 +612,23 @@ bool
 default_narrow_bitfield (void)
 {
   return !STRICT_ALIGNMENT;
+}
+
+bool
+default_handle_c_option (size_t code ATTRIBUTE_UNUSED,
+			 const char *arg ATTRIBUTE_UNUSED,
+			 int value ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+/* By default, if flag_pic is true, then neither local nor global relocs
+   should be placed in readonly memory.  */
+
+int
+default_reloc_rw_mask (void)
+{
+  return flag_pic ? 3 : 0;
 }
 
 #include "gt-targhooks.h"

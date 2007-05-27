@@ -3,7 +3,7 @@
 
 // 2003-04-30  Petur Runolfsson <peturr02@ru.is>
 
-// Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,8 +21,12 @@
 // Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
+// No asserts, avoid leaking the semaphores if a VERIFY fails.
+#undef _GLIBCXX_ASSERT
+
 #include <testsuite_hooks.h>
 #include <cstdio>
+#include <cstdlib>
 #include <iostream>
 #include <unistd.h>
 #include <signal.h>
@@ -33,7 +37,7 @@
 // Check that wcin.rdbuf()->sputbackc() puts characters back to stdin.
 // If wcin.rdbuf() is a filebuf, this succeeds when stdin is a regular
 // file, but fails otherwise, hence the named fifo.
-void test01()
+bool test01()
 {
   using namespace std;
   using namespace __gnu_test;
@@ -83,11 +87,12 @@ void test01()
   VERIFY( c5 != WEOF );
   VERIFY( c5 == c4 );
   s2.signal();
-  s1.wait(); 
+  s1.wait();
+
+  return test;
 }
 
 int main()
 {
-  test01();
-  return 0;
+  return !test01();
 }

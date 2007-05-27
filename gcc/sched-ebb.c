@@ -145,7 +145,7 @@ begin_schedule_ready (rtx insn, rtx last)
       gcc_assert (!e || !(e->flags & EDGE_COMPLEX));	    
 
       gcc_assert (BLOCK_FOR_INSN (insn) == last_bb
-		  && !RECOVERY_BLOCK (insn)
+		  && !IS_SPECULATION_CHECK_P (insn)
 		  && BB_HEAD (last_bb) != insn
 		  && BB_END (last_bb) == insn);
 
@@ -166,7 +166,8 @@ begin_schedule_ready (rtx insn, rtx last)
 	  gcc_assert (NOTE_INSN_BASIC_BLOCK_P (BB_END (bb)));
 	}
       else
-	bb = create_basic_block (insn, 0, last_bb);
+	/* Create an empty unreachable block after the INSN.  */
+	bb = create_basic_block (NEXT_INSN (insn), NULL_RTX, last_bb);
       
       /* split_edge () creates BB before E->DEST.  Keep in mind, that
 	 this operation extends scheduling region till the end of BB.
@@ -299,28 +300,24 @@ static struct sched_info ebb_sched_info =
 static basic_block
 earliest_block_with_similiar_load (basic_block last_block, rtx load_insn)
 {
-  rtx back_link;
+  dep_link_t back_link;
   basic_block bb, earliest_block = NULL;
 
-  for (back_link = LOG_LINKS (load_insn);
-       back_link;
-       back_link = XEXP (back_link, 1))
+  FOR_EACH_DEP_LINK (back_link, INSN_BACK_DEPS (load_insn))
     {
-      rtx insn1 = XEXP (back_link, 0);
+      rtx insn1 = DEP_LINK_PRO (back_link);
 
-      if (GET_MODE (back_link) == VOIDmode)
+      if (DEP_LINK_KIND (back_link) == REG_DEP_TRUE)
 	{
 	  /* Found a DEF-USE dependence (insn1, load_insn).  */
-	  rtx fore_link;
+	  dep_link_t fore_link;
 
-	  for (fore_link = INSN_DEPEND (insn1);
-	       fore_link;
-	       fore_link = XEXP (fore_link, 1))
+	  FOR_EACH_DEP_LINK (fore_link, INSN_FORW_DEPS (insn1))
 	    {
-	      rtx insn2 = XEXP (fore_link, 0);
+	      rtx insn2 = DEP_LINK_CON (fore_link);
 	      basic_block insn2_block = BLOCK_FOR_INSN (insn2);
 
-	      if (GET_MODE (fore_link) == VOIDmode)
+	      if (DEP_LINK_KIND (fore_link) == REG_DEP_TRUE)
 		{
 		  if (earliest_block != NULL
 		      && earliest_block->index < insn2_block->index)
@@ -403,7 +400,7 @@ add_deps_for_risky_insns (rtx head, rtx tail)
 						  REG_DEP_ANTI, DEP_ANTI);
 
 		    if (res == DEP_CREATED)
-		      add_forw_dep (insn, LOG_LINKS (insn));
+		      add_forw_dep (DEPS_LIST_FIRST (INSN_BACK_DEPS (insn)));
 		    else
 		      gcc_assert (res != DEP_CHANGED);
 		  }
@@ -450,12 +447,12 @@ schedule_ebb (rtx head, rtx tail)
     {
       init_deps_global ();
 
-      /* Compute LOG_LINKS.  */
+      /* Compute backward dependencies.  */
       init_deps (&tmp_deps);
       sched_analyze (&tmp_deps, head, tail);
       free_deps (&tmp_deps);
 
-      /* Compute INSN_DEPEND.  */
+      /* Compute forward dependencies.  */
       compute_forward_dependences (head, tail);
 
       add_deps_for_risky_insns (head, tail);
@@ -477,12 +474,6 @@ schedule_ebb (rtx head, rtx tail)
 
   current_sched_info->prev_head = PREV_INSN (head);
   current_sched_info->next_tail = NEXT_INSN (tail);
-
-  if (write_symbols != NO_DEBUG)
-    {
-      save_line_notes (first_bb->index, head, tail);
-      rm_line_notes (head, tail);
-    }
 
   /* rm_other_notes only removes notes which are _inside_ the
      block---that is, it won't remove notes before the first real insn
@@ -518,9 +509,6 @@ schedule_ebb (rtx head, rtx tail)
   gcc_assert (sched_n_insns == n_insns);
   head = current_sched_info->head;
   tail = current_sched_info->tail;
-
-  if (write_symbols != NO_DEBUG)
-    restore_line_notes (head, tail);
 
   if (EDGE_COUNT (last_bb->preds) == 0)
     /* LAST_BB is unreachable.  */
@@ -680,9 +668,6 @@ schedule_ebbs (void)
   if (reload_completed)
     reposition_prologue_and_epilogue_notes (get_insns ());
 
-  if (write_symbols != NO_DEBUG)
-    rm_redundant_line_notes ();
-
   sched_finish ();
 }
 
@@ -718,9 +703,13 @@ advance_target_bb (basic_block bb, rtx insn)
     {
       if (BLOCK_FOR_INSN (insn) != bb
 	  && control_flow_insn_p (insn)
-	  && !RECOVERY_BLOCK (insn)
-	  && !RECOVERY_BLOCK (BB_END (bb)))
+	  /* We handle interblock movement of the speculation check
+	     or over a speculation check in
+	     haifa-sched.c: move_block_after_check ().  */
+	  && !IS_SPECULATION_BRANCHY_CHECK_P (insn)
+	  && !IS_SPECULATION_BRANCHY_CHECK_P (BB_END (bb)))
 	{
+	  /* Assert that we don't move jumps across blocks.  */
 	  gcc_assert (!control_flow_insn_p (BB_END (bb))
 		      && NOTE_INSN_BASIC_BLOCK_P (BB_HEAD (bb->next_bb)));
 	  return bb;
@@ -728,10 +717,19 @@ advance_target_bb (basic_block bb, rtx insn)
       else
 	return 0;
     }
-  else if (bb != last_bb)
-    return bb->next_bb;
   else
-    gcc_unreachable ();
+    /* Return next non empty block.  */
+    {
+      do
+	{
+	  gcc_assert (bb != last_bb);
+
+	  bb = bb->next_bb;
+	}
+      while (bb_note (bb) == BB_END (bb));
+
+      return bb;
+    }
 }
 
 /* Fix internal data after interblock movement of jump instruction.

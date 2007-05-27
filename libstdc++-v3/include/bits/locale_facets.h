@@ -1,6 +1,7 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -28,14 +29,14 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-//
-// ISO C++ 14882: 22.1  Locales
-//
-
 /** @file locale_facets.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+//
+// ISO C++ 14882: 22.1  Locales
+//
 
 #ifndef _LOCALE_FACETS_H
 #define _LOCALE_FACETS_H 1
@@ -44,9 +45,12 @@
 
 #include <ctime>	// For struct tm
 #include <cwctype>	// For wctype_t
+#include <cctype>
+#include <bits/ctype_base.h>	
 #include <iosfwd>
 #include <bits/ios_base.h>  // For ios_base, ios_base::iostate
 #include <streambuf>
+#include <bits/cpp_type_traits.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -129,7 +133,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   // 22.2.1.1  Template class ctype
   // Include host and configuration specific ctype enums for ctype_base.
-  #include <bits/ctype_base.h>
 
   // Common base for ctype<_CharT>.
   /**
@@ -1504,15 +1507,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     use_facet<ctype<wchar_t> >(const locale& __loc);
 #endif //_GLIBCXX_USE_WCHAR_T
 
-  // Include host and configuration specific ctype inlines.
-  #include <bits/ctype_inline.h>
-
   /// @brief  class ctype_byname [22.2.1.2].
   template<typename _CharT>
     class ctype_byname : public ctype<_CharT>
     {
     public:
-      typedef _CharT		char_type;
+      typedef typename ctype<_CharT>::mask  mask;
 
       explicit
       ctype_byname(const char* __s, size_t __refs = 0);
@@ -1524,13 +1524,40 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   /// 22.2.1.4  Class ctype_byname specializations.
   template<>
-    ctype_byname<char>::ctype_byname(const char*, size_t refs);
+    class ctype_byname<char> : public ctype<char>
+    {
+    public:
+      explicit
+      ctype_byname(const char* __s, size_t __refs = 0);
 
+    protected:
+      virtual
+      ~ctype_byname();
+    };
+
+#ifdef _GLIBCXX_USE_WCHAR_T
   template<>
-    ctype_byname<wchar_t>::ctype_byname(const char*, size_t refs);
+    class ctype_byname<wchar_t> : public ctype<wchar_t>
+    {
+    public:
+      explicit
+      ctype_byname(const char* __s, size_t __refs = 0);
 
-  // 22.2.1.5  Template class codecvt
-  #include <bits/codecvt.h>
+    protected:
+      virtual
+      ~ctype_byname();
+    };
+#endif
+
+_GLIBCXX_END_NAMESPACE
+
+// Include host and configuration specific ctype inlines.
+#include <bits/ctype_inline.h>
+
+// 22.2.1.5  Template class codecvt
+#include <bits/codecvt.h>
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
 
   // 22.2.2  The numeric category.
   class __num_base
@@ -2124,6 +2151,44 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
         iter_type
         _M_extract_int(iter_type, iter_type, ios_base&, ios_base::iostate&,
 		       _ValueT& __v) const;
+
+      template<typename _CharT2>
+      typename __gnu_cxx::__enable_if<__is_char<_CharT2>::__value, int>::__type
+        _M_find(const _CharT2*, size_t __len, _CharT2 __c) const
+        {
+	  int __ret = -1;
+	  if (__len <= 10)
+	    {
+	      if (__c >= _CharT2('0') && __c < _CharT2(_CharT2('0') + __len))
+		__ret = __c - _CharT2('0');
+	    }
+	  else
+	    {
+	      if (__c >= _CharT2('0') && __c <= _CharT2('9'))
+		__ret = __c - _CharT2('0');
+	      else if (__c >= _CharT2('a') && __c <= _CharT2('f'))
+		__ret = 10 + (__c - _CharT2('a'));
+	      else if (__c >= _CharT2('A') && __c <= _CharT2('F'))
+		__ret = 10 + (__c - _CharT2('A'));
+	    }
+	  return __ret;
+	}
+
+      template<typename _CharT2>
+      typename __gnu_cxx::__enable_if<!__is_char<_CharT2>::__value, 
+				      int>::__type
+        _M_find(const _CharT2* __zero, size_t __len, _CharT2 __c) const
+        {
+	  int __ret = -1;
+	  const char_type* __q = char_traits<_CharT2>::find(__zero, __len, __c);
+	  if (__q)
+	    {
+	      __ret = __q - __zero;
+	      if (__ret > 15)
+		__ret -= 6;
+	    }
+	  return __ret;
+	}
 
       //@{
       /**
@@ -2991,8 +3056,12 @@ _GLIBCXX_END_LDBL_NAMESPACE
 				 const tm*) const;
 #endif
 
+_GLIBCXX_END_NAMESPACE
+
   // Include host and configuration specific timepunct functions.
   #include <bits/time_members.h>
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
 
   /**
    *  @brief  Facet for parsing dates and times.
@@ -4546,9 +4615,12 @@ _GLIBCXX_END_LDBL_NAMESPACE
       { }
     };
 
+_GLIBCXX_END_NAMESPACE
+
   // Include host and configuration specific messages functions.
   #include <bits/messages_members.h>
 
+_GLIBCXX_BEGIN_NAMESPACE(std)
 
   // Subclause convenience interfaces, inlines.
   // NB: These are inline because, when used in a loop, some compilers

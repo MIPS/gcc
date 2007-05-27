@@ -1,5 +1,5 @@
 /* Optimization of PHI nodes by converting them into straightline code.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -410,7 +410,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
 	return false;
 
       tmp = create_tmp_var (TREE_TYPE (cond), NULL);
-      add_referenced_tmp_var (tmp);
+      add_referenced_var (tmp);
       new_var = make_ssa_name (tmp, NULL);
       old_result = cond;
       cond = new_var;
@@ -439,7 +439,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
 		     TREE_OPERAND (old_result, 0),
 		     TREE_OPERAND (old_result, 1));
 
-      new1 = build2 (MODIFY_EXPR, TREE_TYPE (old_result), new_var, new1);
+      new1 = build_gimple_modify_stmt (new_var, new1);
       SSA_NAME_DEF_STMT (new_var) = new1;
 
       bsi_insert_after (&bsi, new1, BSI_NEW_STMT);
@@ -470,7 +470,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
       || (e1 == true_edge && integer_onep (arg1))
       || (e1 == false_edge && integer_zerop (arg1)))
     {
-      new = build2 (MODIFY_EXPR, TREE_TYPE (new_var1), new_var1, cond);
+      new = build_gimple_modify_stmt (new_var1, cond);
     }
   else
     {
@@ -512,16 +512,16 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
 
 	  op0 = TREE_OPERAND (cond, 0);
 	  tmp = create_tmp_var (TREE_TYPE (op0), NULL);
-	  add_referenced_tmp_var (tmp);
+	  add_referenced_var (tmp);
 	  cond_tmp = make_ssa_name (tmp, NULL);
-	  new = build2 (MODIFY_EXPR, TREE_TYPE (cond_tmp), cond_tmp, op0);
+	  new = build_gimple_modify_stmt (cond_tmp, op0);
 	  SSA_NAME_DEF_STMT (cond_tmp) = new;
 
 	  bsi_insert_after (&bsi, new, BSI_NEW_STMT);
 	  cond = fold_convert (TREE_TYPE (result), cond_tmp);
 	}
 
-      new = build2 (MODIFY_EXPR, TREE_TYPE (new_var1), new_var1, cond);
+      new = build_gimple_modify_stmt (new_var1, cond);
     }
 
   bsi_insert_after (&bsi, new, BSI_NEW_STMT);
@@ -715,11 +715,11 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
       tree lhs, rhs, op0, op1, bound;
 
       if (!assign
-	  || TREE_CODE (assign) != MODIFY_EXPR)
+	  || TREE_CODE (assign) != GIMPLE_MODIFY_STMT)
 	return false;
 
-      lhs = TREE_OPERAND (assign, 0);
-      rhs = TREE_OPERAND (assign, 1);
+      lhs = GIMPLE_STMT_OPERAND (assign, 0);
+      rhs = GIMPLE_STMT_OPERAND (assign, 1);
       ass_code = TREE_CODE (rhs);
       if (ass_code != MAX_EXPR && ass_code != MIN_EXPR)
 	return false;
@@ -853,8 +853,7 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 
   /* Emit the statement to compute min/max.  */
   result = duplicate_ssa_name (PHI_RESULT (phi), NULL);
-  new = build2 (MODIFY_EXPR, type, result,
-		build2 (minmax, type, arg0, arg1));
+  new = build_gimple_modify_stmt (result, build2 (minmax, type, arg0, arg1));
   SSA_NAME_DEF_STMT (result) = new;
   bsi = bsi_last (cond_bb);
   bsi_insert_before (&bsi, new, BSI_NEW_STMT);
@@ -901,11 +900,11 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
   /* If we got here, then we have found the only executable statement
      in OTHER_BLOCK.  If it is anything other than arg = -arg1 or
      arg1 = -arg0, then we can not optimize.  */
-  if (TREE_CODE (assign) != MODIFY_EXPR)
+  if (TREE_CODE (assign) != GIMPLE_MODIFY_STMT)
     return false;
 
-  lhs = TREE_OPERAND (assign, 0);
-  rhs = TREE_OPERAND (assign, 1);
+  lhs = GIMPLE_STMT_OPERAND (assign, 0);
+  rhs = GIMPLE_STMT_OPERAND (assign, 1);
 
   if (TREE_CODE (rhs) != NEGATE_EXPR)
     return false;
@@ -959,15 +958,15 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
   if (negate)
     {
       tree tmp = create_tmp_var (TREE_TYPE (result), NULL);
-      add_referenced_tmp_var (tmp);
+      add_referenced_var (tmp);
       lhs = make_ssa_name (tmp, NULL);
     }
   else
     lhs = result;
 
   /* Build the modify expression with abs expression.  */
-  new = build2 (MODIFY_EXPR, TREE_TYPE (lhs),
-		lhs, build1 (ABS_EXPR, TREE_TYPE (lhs), rhs));
+  new = build_gimple_modify_stmt (lhs,
+				  build1 (ABS_EXPR, TREE_TYPE (lhs), rhs));
   SSA_NAME_DEF_STMT (lhs) = new;
 
   bsi = bsi_last (cond_bb);
@@ -978,8 +977,9 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
       /* Get the right BSI.  We want to insert after the recently
 	 added ABS_EXPR statement (which we know is the first statement
 	 in the block.  */
-      new = build2 (MODIFY_EXPR, TREE_TYPE (result),
-		    result, build1 (NEGATE_EXPR, TREE_TYPE (lhs), lhs));
+      new = build_gimple_modify_stmt (result,
+				      build1 (NEGATE_EXPR, TREE_TYPE (lhs),
+					      lhs));
       SSA_NAME_DEF_STMT (result) = new;
 
       bsi_insert_after (&bsi, new, BSI_NEW_STMT);

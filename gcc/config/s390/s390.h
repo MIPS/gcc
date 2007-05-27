@@ -51,7 +51,8 @@ enum processor_flags
   PF_IEEE_FLOAT = 1,
   PF_ZARCH = 2,
   PF_LONG_DISPLACEMENT = 4,
-  PF_EXTIMM = 8
+  PF_EXTIMM = 8,
+  PF_DFP = 16
 };
 
 extern enum processor_type s390_tune;
@@ -68,11 +69,15 @@ extern enum processor_flags s390_arch_flags;
 	(s390_arch_flags & PF_LONG_DISPLACEMENT)
 #define TARGET_CPU_EXTIMM \
  	(s390_arch_flags & PF_EXTIMM)
+#define TARGET_CPU_DFP \
+ 	(s390_arch_flags & PF_DFP)
 
 #define TARGET_LONG_DISPLACEMENT \
        (TARGET_ZARCH && TARGET_CPU_LONG_DISPLACEMENT)
 #define TARGET_EXTIMM \
        (TARGET_ZARCH && TARGET_CPU_EXTIMM)
+#define TARGET_DFP \
+       (TARGET_ZARCH && TARGET_CPU_DFP)
 
 /* Run-time target specification.  */
 
@@ -103,9 +108,9 @@ extern enum processor_flags s390_arch_flags;
 #define TARGET_IEEE_FLOAT          1
 
 #ifdef DEFAULT_TARGET_64BIT
-#define TARGET_DEFAULT             (MASK_64BIT | MASK_ZARCH | MASK_HARD_FLOAT)
+#define TARGET_DEFAULT             (MASK_64BIT | MASK_ZARCH)
 #else
-#define TARGET_DEFAULT             MASK_HARD_FLOAT
+#define TARGET_DEFAULT             0
 #endif
 
 /* Support for configure-time defaults.  */
@@ -471,7 +476,9 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 
 /* We need secondary memory to move data between GPRs and FPRs.  */
 #define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE) \
- ((CLASS1) != (CLASS2) && ((CLASS1) == FP_REGS || (CLASS2) == FP_REGS))
+ ((CLASS1) != (CLASS2)                                \
+  && ((CLASS1) == FP_REGS || (CLASS2) == FP_REGS)     \
+  && (!TARGET_DFP || GET_MODE_SIZE (MODE) != 8))
 
 /* Get_secondary_mem widens its argument to BITS_PER_WORD which loses on 64bit
    because the movsi and movsf patterns don't handle r/f moves.  */
@@ -480,34 +487,6 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
   ? mode_for_size (32, GET_MODE_CLASS (MODE), 0)	\
   : MODE)
 
-
-/* Define various machine-dependent constraint letters.  */
-
-#define REG_CLASS_FROM_LETTER(C)                                        \
-  ((C) == 'a' ? ADDR_REGS :                                             \
-   (C) == 'd' ? GENERAL_REGS :                                          \
-   (C) == 'f' ? FP_REGS :                                               \
-   (C) == 'c' ? CC_REGS : 						\
-   (C) == 't' ? ACCESS_REGS : NO_REGS)
-
-#define CONST_OK_FOR_CONSTRAINT_P(VALUE, C, STR)                          \
-  s390_const_ok_for_constraint_p ((VALUE), (C), (STR))
-
-#define CONST_DOUBLE_OK_FOR_CONSTRAINT_P(VALUE, C, STR)			\
-  s390_const_double_ok_for_constraint_p ((VALUE), (C), (STR))
-
-#define EXTRA_CONSTRAINT_STR(OP, C, STR)                               	\
-  s390_extra_constraint_str ((OP), (C), (STR))
-#define EXTRA_MEMORY_CONSTRAINT(C, STR)					\
-  ((C) == 'Q' || (C) == 'R' || (C) == 'S' || (C) == 'T' || (C) == 'A')
-#define EXTRA_ADDRESS_CONSTRAINT(C, STR)				\
-  ((C) == 'U' || (C) == 'W' || (C) == 'Y')
-
-#define CONSTRAINT_LEN(C, STR)                                  	\
-  ((C) == 'N' ? 5 : 	                                                \
-   (C) == 'O' ? 2 :							\
-   (C) == 'A' ? 2 :							\
-   (C) == 'B' ? 2 : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
 
 /* Stack layout and calling conventions.  */
 

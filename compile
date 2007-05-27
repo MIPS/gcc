@@ -1,6 +1,4 @@
-
-
-##!/bin/bash
+#! /bin/sh
 # Wrapper for compilers which do not understand `-c -o'.
 
 scriptversion=2005-05-14.22

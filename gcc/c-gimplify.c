@@ -187,7 +187,7 @@ gimplify_compound_literal_expr (tree *expr_p, tree *pre_p)
   /* This decl isn't mentioned in the enclosing block, so add it to the
      list of temps.  FIXME it seems a bit of a kludge to say that
      anonymous artificial vars aren't pushed, but everything else is.  */
-  if (DECL_NAME (decl) == NULL_TREE)
+  if (DECL_NAME (decl) == NULL_TREE && !DECL_SEEN_IN_BIND_EXPR_P (decl))
     gimple_add_tmp_var (decl);
 
   gimplify_and_add (decl_s, pre_p);
@@ -216,7 +216,7 @@ c_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p ATTRIBUTE_UNUSED)
 	  && !warn_init_self)
 	TREE_NO_WARNING (DECL_EXPR_DECL (*expr_p)) = 1;
       return GS_UNHANDLED;
-      
+
     case COMPOUND_LITERAL_EXPR:
       return gimplify_compound_literal_expr (expr_p, pre_p);
 

@@ -1,6 +1,6 @@
 // natMethod.cc - Native code for Method class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001 , 2002, 2003, 2004, 2005 Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001 , 2002, 2003, 2004, 2005, 2006 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -47,6 +47,11 @@ details.  */
 #else
 #include <java/lang/UnsupportedOperationException.h>
 #endif
+
+typedef JArray< ::java::lang::annotation::Annotation * > * anno_a_t;
+typedef JArray< JArray< ::java::lang::annotation::Annotation * > *> * anno_aa_t;
+
+
 
 struct cpair
 {
@@ -183,10 +188,33 @@ java::lang::reflect::Method::invoke (jobject obj, jobjectArray args)
 }
 
 jint
-java::lang::reflect::Method::getModifiers ()
+java::lang::reflect::Method::getModifiersInternal ()
 {
-  // Ignore all unknown flags.
-  return _Jv_FromReflectedMethod (this)->accflags & Modifier::ALL_FLAGS;
+  return _Jv_FromReflectedMethod (this)->accflags;
+}
+
+jstring
+java::lang::reflect::Method::getSignature()
+{
+  return declaringClass->getReflectionSignature (this);
+}
+
+jobject
+java::lang::reflect::Method::getDefaultValue()
+{
+  return declaringClass->getMethodDefaultValue(this);
+}
+
+anno_a_t
+java::lang::reflect::Method::getDeclaredAnnotationsInternal()
+{
+  return (anno_a_t) declaringClass->getDeclaredAnnotations(this, false);
+}
+
+anno_aa_t
+java::lang::reflect::Method::getParameterAnnotationsInternal()
+{
+  return (anno_aa_t) declaringClass->getDeclaredAnnotations(this, true);
 }
 
 jstring

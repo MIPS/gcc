@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- internal _Meta class.
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -28,12 +28,12 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-// Written by Gabriel Dos Reis <Gabriel.Dos-Reis@cmla.ens-cachan.fr>
-
 /** @file valarray_before.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+// Written by Gabriel Dos Reis <Gabriel.Dos-Reis@cmla.ens-cachan.fr>
 
 #ifndef _VALARRAY_BEFORE_H
 #define _VALARRAY_BEFORE_H 1
@@ -589,7 +589,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     : _BinBase<_Oper, valarray<_Tp>, valarray<_Tp> >
     {
       typedef _BinBase<_Oper, valarray<_Tp>, valarray<_Tp> > _Base;
-      typedef _Tp value_type;
+      typedef typename _Base::value_type value_type;
 
       _BinClos(const valarray<_Tp>& __v, const valarray<_Tp>& __w)
       : _Base(__v, __w) {}

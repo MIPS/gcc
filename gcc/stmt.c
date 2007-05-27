@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -260,15 +260,16 @@ n_occurrences (int c, const char *s)
    insn is volatile; don't optimize it.  */
 
 static void
-expand_asm (tree string, int vol)
+expand_asm_loc (tree string, int vol, location_t locus)
 {
   rtx body;
 
   if (TREE_CODE (string) == ADDR_EXPR)
     string = TREE_OPERAND (string, 0);
 
-  body = gen_rtx_ASM_INPUT (VOIDmode,
-			    ggc_strdup (TREE_STRING_POINTER (string)));
+  body = gen_rtx_ASM_INPUT_loc (VOIDmode,
+				ggc_strdup (TREE_STRING_POINTER (string)),
+				locus);
 
   MEM_VOLATILE_P (body) = vol;
 
@@ -693,7 +694,11 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
   CLEAR_HARD_REG_SET (clobbered_regs);
   for (tail = clobbers; tail; tail = TREE_CHAIN (tail))
     {
-      const char *regname = TREE_STRING_POINTER (TREE_VALUE (tail));
+      const char *regname;
+
+      if (TREE_VALUE (tail) == error_mark_node)
+	return;
+      regname = TREE_STRING_POINTER (TREE_VALUE (tail));
 
       i = decode_reg_name (regname);
       if (i >= 0 || i == -4)
@@ -881,9 +886,13 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
       val = TREE_VALUE (tail);
       type = TREE_TYPE (val);
+      /* EXPAND_INITIALIZER will not generate code for valid initializer
+	 constants, but will still generate code for other types of operand.
+	 This is the behavior we want for constant constraints.  */
       op = expand_expr (val, NULL_RTX, VOIDmode,
-			(allows_mem && !allows_reg
-			 ? EXPAND_MEMORY : EXPAND_NORMAL));
+			allows_reg ? EXPAND_NORMAL
+			: allows_mem ? EXPAND_MEMORY
+			: EXPAND_INITIALIZER);
 
       /* Never pass a CONCAT to an ASM.  */
       if (GET_CODE (op) == CONCAT)
@@ -1086,7 +1095,7 @@ expand_asm_expr (tree exp)
 
   if (ASM_INPUT_P (exp))
     {
-      expand_asm (ASM_STRING (exp), ASM_VOLATILE_P (exp));
+      expand_asm_loc (ASM_STRING (exp), ASM_VOLATILE_P (exp), input_location);
       return;
     }
 
@@ -1354,6 +1363,9 @@ expand_expr_stmt (tree exp)
   tree type;
 
   value = expand_expr (exp, const0_rtx, VOIDmode, 0);
+  if (GIMPLE_TUPLE_P (exp))
+    type = void_type_node;
+  else
   type = TREE_TYPE (exp);
 
   /* If all we do is reference a volatile value in memory,
@@ -1407,12 +1419,14 @@ warn_if_unused_value (tree exp, location_t locus)
     case PREDECREMENT_EXPR:
     case POSTDECREMENT_EXPR:
     case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
     case INIT_EXPR:
     case TARGET_EXPR:
     case CALL_EXPR:
     case TRY_CATCH_EXPR:
     case WITH_CLEANUP_EXPR:
     case EXIT_EXPR:
+    case VA_ARG_EXPR:
       return 0;
 
     case BIND_EXPR:
@@ -1465,7 +1479,7 @@ warn_if_unused_value (tree exp, location_t locus)
       /* If this is an expression which has no operands, there is no value
 	 to be unused.  There are no such language-independent codes,
 	 but front ends may define such.  */
-      if (EXPRESSION_CLASS_P (exp) && TREE_CODE_LENGTH (TREE_CODE (exp)) == 0)
+      if (EXPRESSION_CLASS_P (exp) && TREE_OPERAND_LENGTH (exp) == 0)
 	return 0;
 
     warn:
@@ -1574,10 +1588,10 @@ expand_return (tree retval)
       expand_null_return ();
       return;
     }
-  else if ((TREE_CODE (retval) == MODIFY_EXPR
+  else if ((TREE_CODE (retval) == GIMPLE_MODIFY_STMT
 	    || TREE_CODE (retval) == INIT_EXPR)
-	   && TREE_CODE (TREE_OPERAND (retval, 0)) == RESULT_DECL)
-    retval_rhs = TREE_OPERAND (retval, 1);
+	   && TREE_CODE (GENERIC_TREE_OPERAND (retval, 0)) == RESULT_DECL)
+    retval_rhs = GENERIC_TREE_OPERAND (retval, 1);
   else
     retval_rhs = retval;
 
@@ -1596,7 +1610,7 @@ expand_return (tree retval)
      (and in expand_call).  */
 
   else if (retval_rhs != 0
-	   && TYPE_MODE (TREE_TYPE (retval_rhs)) == BLKmode
+	   && TYPE_MODE (GENERIC_TREE_TYPE (retval_rhs)) == BLKmode
 	   && REG_P (result_rtl))
     {
       int i;

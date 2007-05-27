@@ -500,7 +500,7 @@ extern enum cmodel sparc_cmodel;
 /* TARGET_HARD_MUL: Use hardware multiply instructions but not %y.
    TARGET_HARD_MUL32: Use hardware multiply instructions with rd %y
    to get high 32 bits.  False in V8+ or V9 because multiply stores
-   a 64 bit result in a register.  */
+   a 64-bit result in a register.  */
 
 #define TARGET_HARD_MUL32				\
   ((TARGET_V8 || TARGET_SPARCLITE			\
@@ -708,7 +708,7 @@ if (TARGET_ARCH64				\
    even those that are not normally considered general registers.
 
    SPARC has 32 integer registers and 32 floating point registers.
-   64 bit SPARC has 32 additional fp regs, but the odd numbered ones are not
+   64-bit SPARC has 32 additional fp regs, but the odd numbered ones are not
    accessible.  We still account for them to simplify register computations
    (e.g.: in CLASS_MAX_NREGS).  There are also 4 fp condition code registers, so
    32+32+32+4 == 100.
@@ -1701,6 +1701,10 @@ do {									\
 #define DYNAMIC_CHAIN_ADDRESS(frame)	\
   plus_constant (frame, 14 * UNITS_PER_WORD + SPARC_STACK_BIAS)
 
+/* Given an rtx for the frame pointer,
+   return an rtx for the address of the frame.  */
+#define FRAME_ADDR_RTX(frame) plus_constant (frame, SPARC_STACK_BIAS)
+
 /* The return address isn't on the stack, it is in a register, so we can't
    access it from the current frame pointer.  We can access it from the
    previous frame pointer though by reading a value from the register window
@@ -2171,19 +2175,6 @@ do {                                                                    \
 	 : (sparc_cpu == PROCESSOR_NIAGARA \
 	    ? 4 \
 	 : 3)))
-
-#define PREFETCH_BLOCK \
-	((sparc_cpu == PROCESSOR_ULTRASPARC \
-          || sparc_cpu == PROCESSOR_ULTRASPARC3 \
-	  || sparc_cpu == PROCESSOR_NIAGARA) \
-         ? 64 : 32)
-
-#define SIMULTANEOUS_PREFETCHES \
-	((sparc_cpu == PROCESSOR_ULTRASPARC \
-	  || sparc_cpu == PROCESSOR_NIAGARA) \
-         ? 2 \
-         : (sparc_cpu == PROCESSOR_ULTRASPARC3 \
-            ? 8 : 3))
 
 /* Control the assembler format that we output.  */
 

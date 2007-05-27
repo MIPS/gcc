@@ -1,5 +1,5 @@
 `/* Implementation of the MATMUL intrinsic
-   Copyright 2002, 2005 Free Software Foundation, Inc.
+   Copyright 2002, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -34,22 +34,22 @@ Boston, MA 02110-1301, USA.  */
 #include "libgfortran.h"'
 include(iparm.m4)dnl
 
-`#if defined (HAVE_'rtype_name`)'
+`#if defined (HAVE_'rtype_name`)
 
 /* Dimensions: retarray(x,y) a(x, count) b(count,y).
    Either a or b can be rank 1.  In this case x or y is 1.  */
 
-extern void matmul_`'rtype_code (rtype * const restrict, 
+extern void matmul_'rtype_code` ('rtype` * const restrict, 
 	gfc_array_l4 * const restrict, gfc_array_l4 * const restrict);
-export_proto(matmul_`'rtype_code);
+export_proto(matmul_'rtype_code`);
 
 void
-matmul_`'rtype_code (rtype * const restrict retarray, 
+matmul_'rtype_code` ('rtype` * const restrict retarray, 
 	gfc_array_l4 * const restrict a, gfc_array_l4 * const restrict b)
 {
   const GFC_INTEGER_4 * restrict abase;
   const GFC_INTEGER_4 * restrict bbase;
-  rtype_name * restrict dest;
+  'rtype_name` * restrict dest;
   index_type rxstride;
   index_type rystride;
   index_type xcount;
@@ -95,7 +95,7 @@ matmul_`'rtype_code (rtype * const restrict retarray,
         }
           
       retarray->data
-	= internal_malloc_size (sizeof (rtype_name) * size0 ((array_t *) retarray));
+	= internal_malloc_size (sizeof ('rtype_name`) * size0 ((array_t *) retarray));
       retarray->offset = 0;
     }
 
@@ -112,16 +112,9 @@ matmul_`'rtype_code (rtype * const restrict retarray,
       bbase = GFOR_POINTER_L8_TO_L4 (bbase);
     }
   dest = retarray->data;
-
-  if (retarray->dim[0].stride == 0)
-    retarray->dim[0].stride = 1;
-  if (a->dim[0].stride == 0)
-    a->dim[0].stride = 1;
-  if (b->dim[0].stride == 0)
-    b->dim[0].stride = 1;
-
+'
 sinclude(`matmul_asm_'rtype_code`.m4')dnl
-
+`
   if (GFC_DESCRIPTOR_RANK (retarray) == 1)
     {
       rxstride = retarray->dim[0].stride;
@@ -198,3 +191,4 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
 }
 
 #endif
+'

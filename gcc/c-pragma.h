@@ -49,9 +49,26 @@ typedef enum pragma_kind {
   PRAGMA_FIRST_EXTERNAL
 } pragma_kind;
 
-/* Cause the `yydebug' variable to be defined.  */
-#define YYDEBUG 1
-extern int yydebug;
+
+/* All clauses defined by OpenMP 2.5.
+   Used internally by both C and C++ parsers.  */
+typedef enum pragma_omp_clause {
+  PRAGMA_OMP_CLAUSE_NONE = 0,
+
+  PRAGMA_OMP_CLAUSE_COPYIN,
+  PRAGMA_OMP_CLAUSE_COPYPRIVATE,
+  PRAGMA_OMP_CLAUSE_DEFAULT,
+  PRAGMA_OMP_CLAUSE_FIRSTPRIVATE,
+  PRAGMA_OMP_CLAUSE_IF,
+  PRAGMA_OMP_CLAUSE_LASTPRIVATE,
+  PRAGMA_OMP_CLAUSE_NOWAIT,
+  PRAGMA_OMP_CLAUSE_NUM_THREADS,
+  PRAGMA_OMP_CLAUSE_ORDERED,
+  PRAGMA_OMP_CLAUSE_PRIVATE,
+  PRAGMA_OMP_CLAUSE_REDUCTION,
+  PRAGMA_OMP_CLAUSE_SCHEDULE,
+  PRAGMA_OMP_CLAUSE_SHARED
+} pragma_omp_clause;
 
 extern struct cpp_reader* parse_in;
 
@@ -99,7 +116,7 @@ extern enum cpp_ttype pragma_lex (tree *);
    having enum cpp_ttype declared.  */
 extern enum cpp_ttype c_lex_with_flags (tree *, location_t *, unsigned char *);
 
-/* If 1, then lex strings into the execution character set.  
+/* If 1, then lex strings into the execution character set.
    If 0, lex strings into the host character set.
    If -1, lex both, and chain them together, such that the former
    is the TREE_CHAIN of the latter.  */

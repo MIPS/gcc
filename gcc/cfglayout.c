@@ -37,9 +37,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "alloc-pool.h"
 #include "flags.h"
 #include "tree-pass.h"
+#include "vecprim.h"
 
 /* Holds the interesting trailing notes for the function.  */
-rtx cfg_layout_function_footer, cfg_layout_function_header;
+rtx cfg_layout_function_footer;
+rtx cfg_layout_function_header;
 
 static rtx skip_insns_after_block (basic_block);
 static void record_effective_endpoints (void);
@@ -116,7 +118,7 @@ skip_insns_after_block (basic_block bb)
 	  if (NEXT_INSN (insn)
 	      && JUMP_P (NEXT_INSN (insn))
 	      && (GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_VEC
-	          || GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_DIFF_VEC))
+		  || GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_DIFF_VEC))
 	    {
 	      insn = NEXT_INSN (insn);
 	      last_insn = insn;
@@ -195,7 +197,7 @@ record_effective_endpoints (void)
     continue;
   /* No basic blocks at all?  */
   gcc_assert (insn);
-  
+
   if (PREV_INSN (insn))
     cfg_layout_function_header =
 	    unlink_insn_chain (get_insns (), PREV_INSN (insn));
@@ -221,9 +223,6 @@ record_effective_endpoints (void)
     cfg_layout_function_footer = unlink_insn_chain (cfg_layout_function_footer, get_last_insn ());
 }
 
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
-
 /* Data structures representing mapping of INSN_LOCATOR into scope blocks, line
    numbers and files.  In order to be GGC friendly we need to use separate
    varrays.  This also slightly improve the memory locality in binary search.
@@ -266,7 +265,7 @@ insn_locators_initialize (void)
   for (insn = get_insns (); insn; insn = next)
     {
       int active = 0;
-      
+
       next = NEXT_INSN (insn);
 
       if (NOTE_P (insn))
@@ -279,13 +278,14 @@ insn_locators_initialize (void)
 	      NOTE_EXPANDED_LOCATION (xloc, insn);
 	      line_number = xloc.line;
 	      file_name = xloc.file;
+	      delete_insn (insn);
 	    }
 	}
       else
 	active = (active_insn_p (insn)
 		  && GET_CODE (PATTERN (insn)) != ADDR_VEC
 		  && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC);
-      
+
       check_block_change (insn, &block);
 
       if (active
@@ -333,8 +333,8 @@ insn_locators_initialize (void)
 struct tree_opt_pass pass_insn_locators_initialize =
 {
   "locators",                           /* name */
-  NULL,                                 /* gate */   
-  insn_locators_initialize,             /* execute */       
+  NULL,                                 /* gate */
+  insn_locators_initialize,             /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -347,6 +347,60 @@ struct tree_opt_pass pass_insn_locators_initialize =
   0                                     /* letter */
 };
 
+static unsigned int
+into_cfg_layout_mode (void)
+{
+  cfg_layout_initialize (0);
+  return 0;
+}
+
+static unsigned int
+outof_cfg_layout_mode (void)
+{
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    if (bb->next_bb != EXIT_BLOCK_PTR)
+      bb->aux = bb->next_bb;
+
+  cfg_layout_finalize ();
+
+  return 0;
+}
+
+struct tree_opt_pass pass_into_cfg_layout_mode =
+{
+  "into_cfglayout",                     /* name */
+  NULL,                                 /* gate */
+  into_cfg_layout_mode,                 /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+struct tree_opt_pass pass_outof_cfg_layout_mode =
+{
+  "outof_cfglayout",                    /* name */
+  NULL,                                 /* gate */
+  outof_cfg_layout_mode,                /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
 
 /* For each lexical block, set BLOCK_NUMBER to the depth at which it is
    found in the block tree.  */
@@ -551,7 +605,7 @@ reemit_insn_block_notes (void)
 
       this_block = insn_scope (insn);
       /* For sequences compute scope resulting from merging all scopes
-         of instructions nested inside.  */
+	 of instructions nested inside.  */
       if (GET_CODE (PATTERN (insn)) == SEQUENCE)
 	{
 	  int i;
@@ -580,13 +634,83 @@ reemit_insn_block_notes (void)
   reorder_blocks ();
 }
 
+
+/* Link the basic blocks in the correct order, compacting the basic
+   block queue while at it.  This also clears the visited flag on
+   all basic blocks.  If STAY_IN_CFGLAYOUT_MODE is false, this function
+   also clears the basic block header and footer fields.
+
+   This function is usually called after a pass (e.g. tracer) finishes
+   some transformations while in cfglayout mode.  The required sequence
+   of the basic blocks is in a linked list along the bb->aux field.
+   This functions re-links the basic block prev_bb and next_bb pointers
+   accordingly, and it compacts and renumbers the blocks.  */
+
+void
+relink_block_chain (bool stay_in_cfglayout_mode)
+{
+  basic_block bb, prev_bb;
+  int index;
+
+  /* Maybe dump the re-ordered sequence.  */
+  if (dump_file)
+    {
+      fprintf (dump_file, "Reordered sequence:\n");
+      for (bb = ENTRY_BLOCK_PTR->next_bb, index = NUM_FIXED_BLOCKS;
+	   bb;
+	   bb = bb->aux, index++)
+	{
+	  fprintf (dump_file, " %i ", index);
+	  if (get_bb_original (bb))
+	    fprintf (dump_file, "duplicate of %i ",
+		     get_bb_original (bb)->index);
+	  else if (forwarder_block_p (bb)
+		   && !LABEL_P (BB_HEAD (bb)))
+	    fprintf (dump_file, "compensation ");
+	  else
+	    fprintf (dump_file, "bb %i ", bb->index);
+	  fprintf (dump_file, " [%i]\n", bb->frequency);
+	}
+    }
+
+  /* Now reorder the blocks.  */
+  prev_bb = ENTRY_BLOCK_PTR;
+  bb = ENTRY_BLOCK_PTR->next_bb;
+  for (; bb; prev_bb = bb, bb = bb->aux)
+    {
+      bb->prev_bb = prev_bb;
+      prev_bb->next_bb = bb;
+    }
+  prev_bb->next_bb = EXIT_BLOCK_PTR;
+  EXIT_BLOCK_PTR->prev_bb = prev_bb;
+
+  /* Then, clean up the aux and visited fields.  */
+  FOR_ALL_BB (bb)
+    {
+      bb->aux = NULL;
+      bb->il.rtl->visited = 0;
+      if (!stay_in_cfglayout_mode)
+	bb->il.rtl->header = bb->il.rtl->footer = NULL;
+    }
+
+  /* Maybe reset the original copy tables, they are not valid anymore
+     when we renumber the basic blocks in compact_blocks.  If we are
+     are going out of cfglayout mode, don't re-allocate the tables.  */
+  free_original_copy_tables ();
+  if (stay_in_cfglayout_mode)
+    initialize_original_copy_tables ();
+  
+  /* Finally, put basic_block_info in the new order.  */
+  compact_blocks ();
+}
+
+
 /* Given a reorder chain, rearrange the code to match.  */
 
 static void
 fixup_reorder_chain (void)
 {
-  basic_block bb, prev_bb;
-  int index;
+  basic_block bb;
   rtx insn = NULL;
 
   if (cfg_layout_function_header)
@@ -600,9 +724,7 @@ fixup_reorder_chain (void)
   /* First do the bulk reordering -- rechain the blocks without regard to
      the needed changes to jumps and labels.  */
 
-  for (bb = ENTRY_BLOCK_PTR->next_bb, index = NUM_FIXED_BLOCKS;
-       bb != 0;
-       bb = bb->aux, index++)
+  for (bb = ENTRY_BLOCK_PTR->next_bb; bb; bb = bb->aux)
     {
       if (bb->il.rtl->header)
 	{
@@ -630,8 +752,6 @@ fixup_reorder_chain (void)
 	}
     }
 
-  gcc_assert (index == n_basic_blocks);
-
   NEXT_INSN (insn) = cfg_layout_function_footer;
   if (cfg_layout_function_footer)
     PREV_INSN (cfg_layout_function_footer) = insn;
@@ -643,7 +763,6 @@ fixup_reorder_chain (void)
 #ifdef ENABLE_CHECKING
   verify_insn_chain ();
 #endif
-  delete_dead_jumptables ();
 
   /* Now add jumps and labels as needed to match the blocks new
      outgoing edges.  */
@@ -675,7 +794,7 @@ fixup_reorder_chain (void)
 	    {
 	      /* If the old fallthru is still next, nothing to do.  */
 	      if (bb->aux == e_fall->dest
-	          || e_fall->dest == EXIT_BLOCK_PTR)
+		  || e_fall->dest == EXIT_BLOCK_PTR)
 		continue;
 
 	      /* The degenerated case of conditional jump jumping to the next
@@ -769,7 +888,7 @@ fixup_reorder_chain (void)
 	  bb->aux = nb;
 	  /* Don't process this new block.  */
 	  bb = nb;
-	  
+
 	  /* Make sure new bb is tagged for correct section (same as
 	     fall-thru source, since you cannot fall-throu across
 	     section boundaries).  */
@@ -784,42 +903,7 @@ fixup_reorder_chain (void)
 	}
     }
 
-  /* Put basic_block_info in the new order.  */
-
-  if (dump_file)
-    {
-      fprintf (dump_file, "Reordered sequence:\n");
-      for (bb = ENTRY_BLOCK_PTR->next_bb, index = NUM_FIXED_BLOCKS;
-	   bb;
-	   bb = bb->aux, index++)
-	{
-	  fprintf (dump_file, " %i ", index);
-	  if (get_bb_original (bb))
-	    fprintf (dump_file, "duplicate of %i ",
-		     get_bb_original (bb)->index);
-	  else if (forwarder_block_p (bb)
-		   && !LABEL_P (BB_HEAD (bb)))
-	    fprintf (dump_file, "compensation ");
-	  else
-	    fprintf (dump_file, "bb %i ", bb->index);
-	  fprintf (dump_file, " [%i]\n", bb->frequency);
-	}
-    }
-
-  prev_bb = ENTRY_BLOCK_PTR;
-  bb = ENTRY_BLOCK_PTR->next_bb;
-  index = NUM_FIXED_BLOCKS;
-
-  for (; bb; prev_bb = bb, bb = bb->aux, index ++)
-    {
-      bb->index = index;
-      SET_BASIC_BLOCK (index, bb);
-
-      bb->prev_bb = prev_bb;
-      prev_bb->next_bb = bb;
-    }
-  prev_bb->next_bb = EXIT_BLOCK_PTR;
-  EXIT_BLOCK_PTR->prev_bb = prev_bb;
+  relink_block_chain (/*stay_in_cfglayout_mode=*/false);
 
   /* Annoying special case - jump around dead jumptables left in the code.  */
   FOR_EACH_BB (bb)
@@ -981,24 +1065,22 @@ duplicate_insn_chain (rtx from, rtx to)
 	  switch (NOTE_LINE_NUMBER (insn))
 	    {
 	      /* In case prologue is empty and function contain label
-	         in first BB, we may want to copy the block.  */
+		 in first BB, we may want to copy the block.  */
 	    case NOTE_INSN_PROLOGUE_END:
 
 	    case NOTE_INSN_DELETED:
 	    case NOTE_INSN_DELETED_LABEL:
 	      /* No problem to strip these.  */
 	    case NOTE_INSN_EPILOGUE_BEG:
-	    case NOTE_INSN_FUNCTION_END:
 	      /* Debug code expect these notes to exist just once.
-	         Keep them in the master copy.
-	         ??? It probably makes more sense to duplicate them for each
-	         epilogue copy.  */
+		 Keep them in the master copy.
+		 ??? It probably makes more sense to duplicate them for each
+		 epilogue copy.  */
 	    case NOTE_INSN_FUNCTION_BEG:
 	      /* There is always just single entry to function.  */
 	    case NOTE_INSN_BASIC_BLOCK:
 	      break;
 
-	    case NOTE_INSN_REPEATED_LINE_NUMBER:
 	    case NOTE_INSN_SWITCH_TEXT_SECTIONS:
 	      emit_note_copy (insn);
 	      break;
@@ -1007,9 +1089,9 @@ duplicate_insn_chain (rtx from, rtx to)
 	      /* All other notes should have already been eliminated.
 	       */
 	      gcc_assert (NOTE_LINE_NUMBER (insn) >= 0);
-	      
+
 	      /* It is possible that no_line_number is set and the note
-	         won't be emitted.  */
+		 won't be emitted.  */
 	      emit_note_copy (insn);
 	    }
 	  break;
@@ -1127,8 +1209,6 @@ break_superblocks (void)
 void
 cfg_layout_finalize (void)
 {
-  basic_block bb;
-
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
@@ -1141,23 +1221,13 @@ cfg_layout_finalize (void)
     fixup_fallthru_exit_predecessor ();
   fixup_reorder_chain ();
 
+  rebuild_jump_labels (get_insns ());
+  delete_dead_jumptables ();
+
 #ifdef ENABLE_CHECKING
   verify_insn_chain ();
-#endif
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-  {
-    bb->il.rtl->header = bb->il.rtl->footer = NULL;
-    bb->aux = NULL;
-    bb->il.rtl->visited = 0;
-  }
-
-  break_superblocks ();
-
-#ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
-
-  free_original_copy_tables ();
 }
 
 /* Checks whether all N blocks in BBS array can be copied.  */
@@ -1211,7 +1281,7 @@ end:
 
    Created copies of N_EDGES edges in array EDGES are stored in array NEW_EDGES,
    also in the same order.
-   
+
    Newly created basic blocks are put after the basic block AFTER in the
    instruction stream, and the order of the blocks in BBS array is preserved.  */
 
@@ -1232,9 +1302,7 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
       new_bb = new_bbs[i] = duplicate_block (bb, NULL, after);
       after = new_bb;
       bb->flags |= BB_DUPLICATED;
-      /* Add to loop.  */
-      add_bb_to_loop (new_bb, bb->loop_father->copy);
-      /* Possibly set header.  */
+      /* Possibly set loop header.  */
       if (bb->loop_father->header == bb && bb->loop_father != base)
 	new_bb->loop_father->header = new_bb;
       /* Or latch.  */

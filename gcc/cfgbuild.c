@@ -28,7 +28,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
    Available functionality:
      - CFG construction
-         find_basic_blocks  */
+	 find_basic_blocks  */
 
 #include "config.h"
 #include "system.h"
@@ -124,8 +124,8 @@ control_flow_insn_p (rtx insn)
 
     case BARRIER:
       /* It is nonsense to reach barrier when looking for the
-         end of basic block, but before dead code is eliminated
-         this may happen.  */
+	 end of basic block, but before dead code is eliminated
+	 this may happen.  */
       return false;
 
     default:
@@ -145,7 +145,7 @@ count_basic_blocks (rtx f)
   for (insn = f; insn; insn = NEXT_INSN (insn))
     {
       /* Code labels and barriers causes current basic block to be
-         terminated at previous real insn.  */
+	 terminated at previous real insn.  */
       if ((LABEL_P (insn) || BARRIER_P (insn))
 	  && saw_insn)
 	count++, saw_insn = false;
@@ -543,9 +543,7 @@ find_basic_blocks (rtx f)
      actually lay them out.  */
 
   basic_block_info = VEC_alloc (basic_block, gc, n_basic_blocks);
-  VEC_safe_grow (basic_block, gc, basic_block_info, n_basic_blocks);
-  memset (VEC_address (basic_block, basic_block_info), 0,
-	  sizeof (basic_block) * n_basic_blocks);
+  VEC_safe_grow_cleared (basic_block, gc, basic_block_info, n_basic_blocks);
   SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
   SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
 
@@ -612,13 +610,13 @@ purge_dead_tablejump_edges (basic_block bb, rtx table)
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
       if (FULL_STATE (e->dest) & BLOCK_USED_BY_TABLEJUMP)
-        SET_STATE (e->dest, FULL_STATE (e->dest)
-                            & ~(size_t) BLOCK_USED_BY_TABLEJUMP);
+	SET_STATE (e->dest, FULL_STATE (e->dest)
+			    & ~(size_t) BLOCK_USED_BY_TABLEJUMP);
       else if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
-        {
-          remove_edge (e);
-          continue;
-        }
+	{
+	  remove_edge (e);
+	  continue;
+	}
       ei_next (&ei);
     }
 }

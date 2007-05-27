@@ -43,6 +43,7 @@
 #include "basic-block.h"
 #include "toplev.h"
 #include "et-forest.h"
+#include "timevar.h"
 
 /* Whether the dominators and the postdominators are available.  */
 enum dom_state dom_computed[2];
@@ -616,6 +617,7 @@ calculate_dominance_info (enum cdi_direction dir)
   if (dom_computed[dir] == DOM_OK)
     return;
 
+  timevar_push (TV_DOMINANCE);
   if (!dom_info_available_p (dir))
     {
       gcc_assert (!n_bbs_in_dom_tree[dir]);
@@ -643,6 +645,8 @@ calculate_dominance_info (enum cdi_direction dir)
     }
 
   compute_dom_fast_query (dir);
+
+  timevar_pop (TV_DOMINANCE);
 }
 
 /* Free dominance information for direction DIR.  */
@@ -659,6 +663,7 @@ free_dominance_info (enum cdi_direction dir)
       et_free_tree_force (bb->dom[dir]);
       bb->dom[dir] = NULL;
     }
+  et_free_pools ();
 
   n_bbs_in_dom_tree[dir] = 0;
 
@@ -902,6 +907,28 @@ dominated_by_p (enum cdi_direction dir, basic_block bb1, basic_block bb2)
   	    && n1->dfs_num_out <= n2->dfs_num_out);
 
   return et_below (n1, n2);
+}
+
+/* Returns the entry dfs number for basic block BB, in the direction DIR.  */
+
+unsigned
+bb_dom_dfs_in (enum cdi_direction dir, basic_block bb)
+{
+  struct et_node *n = bb->dom[dir];
+
+  gcc_assert (dom_computed[dir] == DOM_OK);
+  return n->dfs_num_in;
+}
+
+/* Returns the exit dfs number for basic block BB, in the direction DIR.  */
+
+unsigned
+bb_dom_dfs_out (enum cdi_direction dir, basic_block bb)
+{
+  struct et_node *n = bb->dom[dir];
+
+  gcc_assert (dom_computed[dir] == DOM_OK);
+  return n->dfs_num_out;
 }
 
 /* Verify invariants of dominator structure.  */

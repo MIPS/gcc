@@ -46,6 +46,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 static gfc_file *gfc_current_backend_file;
 
+char gfc_msg_bounds[] = N_("Array bound mismatch");
+char gfc_msg_fault[] = N_("Array reference out of bounds");
+char gfc_msg_wrong_return[] = N_("Incorrect function return value");
+
 
 /* Advance along TREE_CHAIN n times.  */
 
@@ -136,11 +140,13 @@ gfc_evaluate_now (tree expr, stmtblock_t * pblock)
 }
 
 
-/* Build a MODIFY_EXPR node and add it to a given statement block PBLOCK.
-   A MODIFY_EXPR is an assignment: LHS <- RHS.  */
+/* Build a MODIFY_EXPR (or GIMPLE_MODIFY_STMT) node and add it to a
+   given statement block PBLOCK.  A MODIFY_EXPR is an assignment:
+   LHS <- RHS.  */
 
 void
-gfc_add_modify_expr (stmtblock_t * pblock, tree lhs, tree rhs)
+gfc_add_modify (stmtblock_t * pblock, tree lhs, tree rhs,
+		bool tuples_p)
 {
   tree tmp;
 
@@ -153,7 +159,8 @@ gfc_add_modify_expr (stmtblock_t * pblock, tree lhs, tree rhs)
 	      || AGGREGATE_TYPE_P (TREE_TYPE (lhs)));
 #endif
 
-  tmp = fold_build2 (MODIFY_EXPR, void_type_node, lhs, rhs);
+  tmp = fold_build2 (tuples_p ? GIMPLE_MODIFY_STMT : MODIFY_EXPR,
+		     void_type_node, lhs, rhs);
   gfc_add_expr_to_block (pblock, tmp);
 }
 
@@ -295,6 +302,9 @@ gfc_build_array_ref (tree base, tree offset)
   if (DECL_P (base))
     TREE_ADDRESSABLE (base) = 1;
 
+  /* Strip NON_LVALUE_EXPR nodes.  */
+  STRIP_TYPE_NOPS (offset);
+
   return build4 (ARRAY_REF, type, base, offset, NULL_TREE, NULL_TREE);
 }
 
@@ -302,12 +312,15 @@ gfc_build_array_ref (tree base, tree offset)
 /* Generate a runtime error if COND is true.  */
 
 void
-gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
+gfc_trans_runtime_check (tree cond, const char * msgid, stmtblock_t * pblock,
+			 locus * where)
 {
   stmtblock_t block;
   tree body;
   tree tmp;
-  tree args;
+  tree arg;
+  char * message;
+  int line;
 
   if (integer_zerop (cond))
     return;
@@ -315,20 +328,24 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
   /* The code to generate the error.  */
   gfc_start_block (&block);
 
-  gcc_assert (TREE_CODE (msg) == STRING_CST);
+  if (where)
+    {
+#ifdef USE_MAPPED_LOCATION
+      line = LOCATION_LINE (where->lb->location);
+#else 
+      line = where->lb->linenum;
+#endif
+      asprintf (&message, "%s (in file '%s', at line %d)", _(msgid),
+		where->lb->file->filename, line);
+    }
+  else
+    asprintf (&message, "%s (in file '%s', around line %d)", _(msgid),
+	      gfc_source_file, input_line + 1);
 
-  TREE_USED (msg) = 1;
+  arg = gfc_build_addr_expr (pchar_type_node, gfc_build_cstring_const(message));
+  gfc_free(message);
 
-  tmp = gfc_build_addr_expr (pchar_type_node, msg);
-  args = gfc_chainon_list (NULL_TREE, tmp);
-
-  tmp = gfc_build_addr_expr (pchar_type_node, gfc_strconst_current_filename);
-  args = gfc_chainon_list (args, tmp);
-
-  tmp = build_int_cst (NULL_TREE, input_line);
-  args = gfc_chainon_list (args, tmp);
-
-  tmp = build_function_call_expr (gfor_fndecl_runtime_error, args);
+  tmp = build_call_expr (gfor_fndecl_runtime_error, 1, arg);
   gfc_add_expr_to_block (&block, tmp);
 
   body = gfc_finish_block (&block);
@@ -341,9 +358,8 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
     {
       /* Tell the compiler that this isn't likely.  */
       cond = fold_convert (long_integer_type_node, cond);
-      tmp = gfc_chainon_list (NULL_TREE, cond);
-      tmp = gfc_chainon_list (tmp, build_int_cst (long_integer_type_node, 0));
-      cond = build_function_call_expr (built_in_decls[BUILT_IN_EXPECT], tmp);
+      tmp = build_int_cst (long_integer_type_node, 0);
+      cond = build_call_expr (built_in_decls[BUILT_IN_EXPECT], 2, cond, tmp);
       cond = fold_convert (boolean_type_node, cond);
 
       tmp = build3_v (COND_EXPR, cond, body, build_empty_stmt ());
@@ -465,6 +481,10 @@ gfc_trans_code (gfc_code * code)
 	  res = gfc_trans_pointer_assign (code);
 	  break;
 
+	case EXEC_INIT_ASSIGN:
+	  res = gfc_trans_init_assign (code);
+	  break;
+
 	case EXEC_CONTINUE:
 	  res = NULL_TREE;
 	  break;
@@ -494,7 +514,11 @@ gfc_trans_code (gfc_code * code)
 	  break;
 
 	case EXEC_CALL:
-	  res = gfc_trans_call (code);
+	  res = gfc_trans_call (code, false);
+	  break;
+
+	case EXEC_ASSIGN_CALL:
+	  res = gfc_trans_call (code, true);
 	  break;
 
 	case EXEC_RETURN:
@@ -635,30 +659,6 @@ gfc_generate_code (gfc_namespace * ns)
     {
       gfc_generate_block_data (ns);
       return;
-    }
-
-  /* Main program subroutine.  */
-  if (!ns->proc_name)
-    {
-      gfc_symbol *main_program;
-      symbol_attribute attr;
-
-      /* Lots of things get upset if a subroutine doesn't have a symbol, so we
-         make one now.  Hopefully we've set all the required fields.  */
-      gfc_get_symbol ("MAIN__", ns, &main_program);
-      gfc_clear_attr (&attr);
-      attr.flavor = FL_PROCEDURE;
-      attr.proc = PROC_UNKNOWN;
-      attr.subroutine = 1;
-      attr.access = ACCESS_PUBLIC;
-      attr.is_main_program = 1;
-      main_program->attr = attr;
-
-      /* Set the location to the first line of code.  */
-      if (ns->code)
-	main_program->declared_at = ns->code->loc;
-      ns->proc_name = main_program;
-      gfc_commit_symbols ();
     }
 
   gfc_generate_function_code (ns);

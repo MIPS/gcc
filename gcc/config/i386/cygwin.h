@@ -146,7 +146,7 @@ char cygwin_tool_include_dir[sizeof (TOOL_INCLUDE_DIR) + 1
 #undef TOOL_INCLUDE_DIR
 #define TOOL_INCLUDE_DIR ((const char *) cygwin_tool_include_dir)
 
-#ifndef CROSS_COMPILE
+#ifndef CROSS_DIRECTORY_STRUCTURE
 #undef STANDARD_INCLUDE_DIR
 #define STANDARD_INCLUDE_DIR "/usr/include"
 char cygwin_standard_include_dir[sizeof (STANDARD_INCLUDE_DIR) + 1
@@ -235,6 +235,6 @@ while (0)
 
 /* Every program on cygwin links against cygwin1.dll which contains 
    the pthread routines.  There is no need to explicitly link them
-   and the -pthread flag is not recognised.  */
+   and the -pthread flag is not recognized.  */
 #undef GOMP_SELF_SPECS
 #define GOMP_SELF_SPECS ""

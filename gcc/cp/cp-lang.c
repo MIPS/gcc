@@ -36,6 +36,7 @@ Boston, MA 02110-1301, USA.  */
 
 enum c_language_kind c_language = clk_cxx;
 static void cp_init_ts (void);
+static const char * cxx_dwarf_name (tree t, int verbosity);
 
 /* Lang hooks common to C++ and ObjC++ are declared in cp/cp-objcp-common.h;
    consequently, there should be very few hooks below.  */
@@ -46,6 +47,8 @@ static void cp_init_ts (void);
 #define LANG_HOOKS_INIT cxx_init
 #undef LANG_HOOKS_DECL_PRINTABLE_NAME
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
+#undef LANG_HOOKS_DWARF_NAME
+#define LANG_HOOKS_DWARF_NAME cxx_dwarf_name
 #undef LANG_HOOKS_FOLD_OBJ_TYPE_REF
 #define LANG_HOOKS_FOLD_OBJ_TYPE_REF cp_fold_obj_type_ref
 #undef LANG_HOOKS_INIT_TS
@@ -125,11 +128,11 @@ cp_init_ts (void)
   tree_contains_struct[NAMESPACE_DECL][TS_DECL_WRTL] = 1;
   tree_contains_struct[USING_DECL][TS_DECL_WRTL] = 1;
   tree_contains_struct[TEMPLATE_DECL][TS_DECL_WRTL] = 1;
-  
+
   tree_contains_struct[NAMESPACE_DECL][TS_DECL_COMMON] = 1;
   tree_contains_struct[USING_DECL][TS_DECL_COMMON] = 1;
   tree_contains_struct[TEMPLATE_DECL][TS_DECL_COMMON] = 1;
- 
+
   tree_contains_struct[NAMESPACE_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[USING_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[TEMPLATE_DECL][TS_DECL_MINIMAL] = 1;
@@ -138,10 +141,20 @@ cp_init_ts (void)
 
 }
 
+static const char *
+cxx_dwarf_name (tree t, int verbosity)
+{
+  gcc_assert (DECL_P (t));
+
+  if (verbosity >= 2)
+    return decl_as_string (t, TFF_DECL_SPECIFIERS | TFF_UNQUALIFIED_NAME);
+
+  return cxx_printable_name (t, verbosity);
+}
+
 void
 finish_file (void)
 {
-  cp_finish_file ();
 }
 
 #include "gtype-cp.h"

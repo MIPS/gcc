@@ -34,20 +34,16 @@ Boston, MA 02110-1301, USA.  */
 #include "tm_p.h"
 #include "cppdefault.h"
 #include "prefix.h"
+#include "target.h"
+#include "target-def.h"
 
 /* Pragmas.  */
 
-#define BAD(gmsgid) do { warning (0, gmsgid); return; } while (0)
+#define BAD(gmsgid) do { warning (OPT_Wpragmas, gmsgid); return; } while (0)
+#define BAD2(msgid, arg) do { warning (OPT_Wpragmas, msgid, arg); return; } while (0)
 
 static bool using_frameworks = false;
 
-/* Maintain a small stack of alignments.  This is similar to pragma
-   pack's stack, but simpler.  */
-
-static void push_field_alignment (int);
-static void pop_field_alignment (void);
-static const char *find_subframework_file (const char *, const char *);
-static void add_system_framework_path (char *);
 static const char *find_subframework_header (cpp_reader *pfile, const char *header,
 					     cpp_dir **dirp);
 
@@ -58,6 +54,9 @@ typedef struct align_stack
 } align_stack;
 
 static struct align_stack * field_align_stack = NULL;
+
+/* Maintain a small stack of alignments.  This is similar to pragma
+   pack's stack, but simpler.  */
 
 static void
 push_field_alignment (int bit_alignment)
@@ -113,7 +112,7 @@ darwin_pragma_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
     BAD ("malformed '#pragma options', ignoring");
 
   if (pragma_lex (&x) != CPP_EOF)
-    warning (0, "junk at end of '#pragma options'");
+    warning (OPT_Wpragmas, "junk at end of '#pragma options'");
 
   arg = IDENTIFIER_POINTER (t);
   if (!strcmp (arg, "mac68k"))
@@ -123,7 +122,7 @@ darwin_pragma_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
   else if (!strcmp (arg, "reset"))
     pop_field_alignment ();
   else
-    warning (0, "malformed '#pragma options align={mac68k|power|reset}', ignoring");
+    BAD ("malformed '#pragma options align={mac68k|power|reset}', ignoring");
 }
 
 /* #pragma unused ([var {, var}*]) */
@@ -156,7 +155,29 @@ darwin_pragma_unused (cpp_reader *pfile ATTRIBUTE_UNUSED)
     BAD ("missing ')' after '#pragma unused', ignoring");
 
   if (pragma_lex (&x) != CPP_EOF)
-    warning (0, "junk at end of '#pragma unused'");
+    BAD ("junk at end of '#pragma unused'");
+}
+
+/* Parse the ms_struct pragma.  */
+void
+darwin_pragma_ms_struct (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  const char *arg;
+  tree t;
+
+  if (pragma_lex (&t) != CPP_NAME)
+    BAD ("malformed '#pragma ms_struct', ignoring");
+  arg = IDENTIFIER_POINTER (t);
+
+  if (!strcmp (arg, "on"))
+    darwin_ms_struct = true;
+  else if (!strcmp (arg, "off") || !strcmp (arg, "reset"))
+    darwin_ms_struct = false;
+  else
+    BAD ("malformed '#pragma ms_struct {on|off|reset}', ignoring");
+
+  if (pragma_lex (&t) != CPP_EOF)
+    BAD ("junk at end of '#pragma ms_struct'");
 }
 
 static struct {
@@ -295,7 +316,7 @@ framework_construct_pathname (const char *fname, cpp_dir *dir)
   /* Append framework_header_dirs and header file name */
   for (i = 0; framework_header_dirs[i].dirName; i++)
     {
-      strncpy (&frname[frname_len], 
+      strncpy (&frname[frname_len],
 	       framework_header_dirs[i].dirName,
 	       framework_header_dirs[i].dirNameLen);
       strcpy (&frname[frname_len + framework_header_dirs[i].dirNameLen],
@@ -318,8 +339,8 @@ find_subframework_file (const char *fname, const char *pname)
 {
   char *sfrname;
   const char *dot_framework = ".framework/";
-  char *bufptr; 
-  int sfrname_len, i, fname_len; 
+  char *bufptr;
+  int sfrname_len, i, fname_len;
   struct cpp_dir *fast_dir;
   static struct cpp_dir subframe_dir;
   struct stat st;
@@ -329,7 +350,7 @@ find_subframework_file (const char *fname, const char *pname)
   /* Subframework files must have / in the name.  */
   if (bufptr == 0)
     return 0;
-    
+
   fname_len = bufptr - fname;
   fast_dir = find_framework (fname, fname_len);
 
@@ -344,7 +365,7 @@ find_subframework_file (const char *fname, const char *pname)
     return 0;
 
   /* Now translate. For example,                  +- bufptr
-     fname = CarbonCore/OSUtils.h                 | 
+     fname = CarbonCore/OSUtils.h                 |
      pname = /System/Library/Frameworks/Foundation.framework/Headers/Foundation.h
      into
      sfrname = /System/Library/Frameworks/Foundation.framework/Frameworks/CarbonCore.framework/Headers/OSUtils.h */
@@ -352,10 +373,10 @@ find_subframework_file (const char *fname, const char *pname)
   sfrname = XNEWVEC (char, strlen (pname) + strlen (fname) + 2 +
 			      strlen ("Frameworks/") + strlen (".framework/")
 			      + strlen ("PrivateHeaders"));
- 
+
   bufptr += strlen (dot_framework);
 
-  sfrname_len = bufptr - pname; 
+  sfrname_len = bufptr - pname;
 
   strncpy (&sfrname[0], pname, sfrname_len);
 
@@ -371,12 +392,12 @@ find_subframework_file (const char *fname, const char *pname)
   /* Append framework_header_dirs and header file name */
   for (i = 0; framework_header_dirs[i].dirName; i++)
     {
-      strncpy (&sfrname[sfrname_len], 
+      strncpy (&sfrname[sfrname_len],
 	       framework_header_dirs[i].dirName,
 	       framework_header_dirs[i].dirNameLen);
       strcpy (&sfrname[sfrname_len + framework_header_dirs[i].dirNameLen],
 	      &fname[fname_len]);
-    
+
       if (stat (sfrname, &st) == 0)
 	{
 	  if (fast_dir != &subframe_dir)
@@ -433,7 +454,7 @@ add_framework_path (char *path)
   add_cpp_dir_path (p, BRACKET);
 }
 
-static const char *framework_defaults [] = 
+static const char *framework_defaults [] =
   {
     "/System/Library/Frameworks",
     "/Library/Frameworks",
@@ -450,9 +471,9 @@ darwin_register_objc_includes (const char *sysroot, const char *iprefix,
   /* We do not do anything if we do not want the standard includes. */
   if (!stdinc)
     return;
-  
+
   fname = GCC_INCLUDE_DIR "-gnu-runtime";
-  
+
   /* Register the GNU OBJC runtime include path if we are compiling  OBJC
     with GNU-runtime.  */
 
@@ -469,13 +490,13 @@ darwin_register_objc_includes (const char *sysroot, const char *iprefix,
           /* FIXME: wrap the headers for C++awareness.  */
 	  add_path (str, SYSTEM, /*c++aware=*/false, false);
 	}
-      
+
       /* Should this directory start with the sysroot?  */
       if (sysroot)
 	str = concat (sysroot, fname, NULL);
       else
 	str = update_path (fname, "");
-      
+
       add_path (str, SYSTEM, /*c++aware=*/false, false);
     }
 }
@@ -546,13 +567,13 @@ find_subframework_header (cpp_reader *pfile, const char *header, cpp_dir **dirp)
 
 /* Return the value of darwin_macosx_version_min suitable for the
    __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ macro,
-   so '10.4.2' becomes 1042.  
+   so '10.4.2' becomes 1042.
    Print a warning if the version number is not known.  */
 static const char *
 version_as_macro (void)
 {
   static char result[] = "1000";
-  
+
   if (strncmp (darwin_macosx_version_min, "10.", 3) != 0)
     goto fail;
   if (! ISDIGIT (darwin_macosx_version_min[3]))
@@ -570,9 +591,9 @@ version_as_macro (void)
     }
   else
     result[3] = '0';
-  
+
   return result;
-  
+
  fail:
   error ("Unknown value %qs of -mmacosx-version-min",
 	 darwin_macosx_version_min);
@@ -593,7 +614,34 @@ darwin_cpp_builtins (cpp_reader *pfile)
      to be defined and won't work if it isn't.  */
   builtin_define_with_value ("__APPLE_CC__", "1", false);
 
-  if (darwin_macosx_version_min)
-    builtin_define_with_value ("__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__",
-			       version_as_macro(), false);
+  builtin_define_with_value ("__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__",
+			     version_as_macro(), false);
 }
+
+/* Handle C family front-end options.  */
+
+static bool
+handle_c_option (size_t code,
+		 const char *arg,
+		 int value ATTRIBUTE_UNUSED)
+{
+  switch (code)
+    {
+    default:
+      /* Unrecognized options that we said we'd handle turn into
+	 errors if not listed here.  */
+      return false;
+
+    case OPT_iframework:
+      add_system_framework_path (xstrdup (arg));
+      break;
+    }
+
+  /* We recognized the option.  */
+  return true;
+}
+
+#undef TARGET_HANDLE_C_OPTION
+#define TARGET_HANDLE_C_OPTION handle_c_option
+
+struct gcc_targetcm targetcm = TARGETCM_INITIALIZER;

@@ -1,6 +1,7 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -28,23 +29,24 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-//
-// ISO C++ 14882: 27.4  Iostreams base classes
-//
-
 /** @file ios_base.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+//
+// ISO C++ 14882: 27.4  Iostreams base classes
+//
 
 #ifndef _IOS_BASE_H
 #define _IOS_BASE_H 1
 
 #pragma GCC system_header
 
-#include <bits/atomicity.h>
+#include <ext/atomicity.h>
 #include <bits/localefwd.h>
 #include <bits/locale_classes.h>
+#include <cstdio>  // For SEEK_CUR, SEEK_END
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -476,12 +478,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       : _M_next(__cb), _M_fn(__fn), _M_index(__index), _M_refcount(0) { }
 
       void
-      _M_add_reference() { __gnu_cxx::__atomic_add(&_M_refcount, 1); }
+      _M_add_reference() { __gnu_cxx::__atomic_add_dispatch(&_M_refcount, 1); }
 
       // 0 => OK to delete.
       int
       _M_remove_reference() 
-      { return __gnu_cxx::__exchange_and_add(&_M_refcount, -1); }
+      { return __gnu_cxx::__exchange_and_add_dispatch(&_M_refcount, -1); }
     };
 
      _Callback_list*	_M_callbacks;

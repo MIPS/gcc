@@ -3,7 +3,7 @@
 
 // 2006-03-22  Paolo Carlini  <pcarlini@suse.de>
 
-// Copyright (C) 2006 Free Software Foundation, Inc.
+// Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,9 +21,13 @@
 // Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
+// No asserts, avoid leaking the semaphores if a VERIFY fails.
+#undef _GLIBCXX_ASSERT
+
 #include <testsuite_hooks.h>
 #include <fstream>
 #include <sstream>
+#include <cstdlib>
 #include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -31,7 +35,7 @@
 #include <sys/stat.h>
 
 // libstdc++/26777
-void test01()
+bool test01()
 {
   using namespace std;
   using namespace __gnu_test;
@@ -77,10 +81,11 @@ void test01()
   fbin.close();
 
   VERIFY( oss.str() == "Whatever" );
+
+  return test;
 }
 
 int main()
 {
-  test01();
-  return 0;
+  return !test01();
 }

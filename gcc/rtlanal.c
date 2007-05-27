@@ -1,6 +1,6 @@
 /* Analyze RTL for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software
    Foundation, Inc.
 
 This file is part of GCC.
@@ -37,6 +37,19 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "real.h"
 #include "regs.h"
 #include "function.h"
+#include "tree.h"
+
+/* Information about a subreg of a hard register.  */
+struct subreg_info
+{
+  /* Offset of first hard register involved in the subreg.  */
+  int offset;
+  /* Number of hard registers involved in the subreg.  */
+  int nregs;
+  /* Whether this subreg can be represented as a hard reg with the new
+     mode.  */
+  bool representable_p;
+};
 
 /* Forward declarations */
 static void set_of_1 (rtx, rtx, void *);
@@ -45,6 +58,9 @@ static bool covers_regno_no_parallel_p (rtx, unsigned int);
 static int rtx_referenced_p_1 (rtx *, void *);
 static int computed_jump_p_1 (rtx);
 static void parms_set (rtx, rtx, void *);
+static void subreg_get_info (unsigned int, enum machine_mode,
+			     unsigned int, enum machine_mode,
+			     struct subreg_info *);
 
 static unsigned HOST_WIDE_INT cached_nonzero_bits (rtx, enum machine_mode,
                                                    rtx, enum machine_mode,
@@ -67,6 +83,22 @@ static int non_rtx_starting_operands[NUM_RTX_CODE];
    and set by `-m...' switches.  Must be defined in rtlanal.c.  */
 
 int target_flags;
+
+/* Truncation narrows the mode from SOURCE mode to DESTINATION mode.
+   If TARGET_MODE_REP_EXTENDED (DESTINATION, DESTINATION_REP) is
+   SIGN_EXTEND then while narrowing we also have to enforce the
+   representation and sign-extend the value to mode DESTINATION_REP.
+
+   If the value is already sign-extended to DESTINATION_REP mode we
+   can just switch to DESTINATION mode on it.  For each pair of
+   integral modes SOURCE and DESTINATION, when truncating from SOURCE
+   to DESTINATION, NUM_SIGN_BIT_COPIES_IN_REP[SOURCE][DESTINATION]
+   contains the number of high-order bits in SOURCE that have to be
+   copies of the sign-bit so that we can do this mode-switch to
+   DESTINATION.  */
+
+static unsigned int
+num_sign_bit_copies_in_rep[MAX_MODE_INT + 1][MAX_MODE_INT + 1];
 
 /* Return 1 if the value of X is unstable
    (would be different at a different point in the program).
@@ -352,17 +384,7 @@ nonzero_address_p (rtx x)
 
     case PLUS:
       if (GET_CODE (XEXP (x, 1)) == CONST_INT)
-	{
-	  /* Pointers aren't allowed to wrap.  If we've got a register
-	     that is known to be a pointer, and a positive offset, then
-	     the composite can't be zero.  */
-	  if (INTVAL (XEXP (x, 1)) > 0
-	      && REG_P (XEXP (x, 0))
-	      && REG_POINTER (XEXP (x, 0)))
-	    return true;
-
-	  return nonzero_address_p (XEXP (x, 0));
-	}
+        return nonzero_address_p (XEXP (x, 0));
       /* Handle PIC references.  */
       else if (XEXP (x, 0) == pic_offset_table_rtx
 	       && CONSTANT_P (XEXP (x, 1)))
@@ -475,6 +497,61 @@ get_related_value (rtx x)
   return 0;
 }
 
+/* Return true if SYMBOL is a SYMBOL_REF and OFFSET + SYMBOL points
+   to somewhere in the same object or object_block as SYMBOL.  */
+
+bool
+offset_within_block_p (rtx symbol, HOST_WIDE_INT offset)
+{
+  tree decl;
+
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    return false;
+
+  if (offset == 0)
+    return true;
+
+  if (offset > 0)
+    {
+      if (CONSTANT_POOL_ADDRESS_P (symbol)
+	  && offset < (int) GET_MODE_SIZE (get_pool_mode (symbol)))
+	return true;
+
+      decl = SYMBOL_REF_DECL (symbol);
+      if (decl && offset < int_size_in_bytes (TREE_TYPE (decl)))
+	return true;
+    }
+
+  if (SYMBOL_REF_HAS_BLOCK_INFO_P (symbol)
+      && SYMBOL_REF_BLOCK (symbol)
+      && SYMBOL_REF_BLOCK_OFFSET (symbol) >= 0
+      && ((unsigned HOST_WIDE_INT) offset + SYMBOL_REF_BLOCK_OFFSET (symbol)
+	  < (unsigned HOST_WIDE_INT) SYMBOL_REF_BLOCK (symbol)->size))
+    return true;
+
+  return false;
+}
+
+/* Split X into a base and a constant offset, storing them in *BASE_OUT
+   and *OFFSET_OUT respectively.  */
+
+void
+split_const (rtx x, rtx *base_out, rtx *offset_out)
+{
+  if (GET_CODE (x) == CONST)
+    {
+      x = XEXP (x, 0);
+      if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == CONST_INT)
+	{
+	  *base_out = XEXP (x, 0);
+	  *offset_out = XEXP (x, 1);
+	  return;
+	}
+    }
+  *base_out = x;
+  *offset_out = const0_rtx;
+}
+
 /* Return the number of places FIND appears within X.  If COUNT_DEST is
    zero, we do not count occurrences inside the destination of a SET.  */
 
@@ -503,6 +580,12 @@ count_occurrences (rtx x, rtx find, int count_dest)
     case CC0:
       return 0;
 
+    case EXPR_LIST:
+      count = count_occurrences (XEXP (x, 0), find, count_dest);
+      if (XEXP (x, 1))
+	count += count_occurrences (XEXP (x, 1), find, count_dest);
+      return count;
+	
     case MEM:
       if (MEM_P (find) && rtx_equal_p (x, find))
 	return 1;
@@ -1164,7 +1247,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, rtx x,
 	  unsigned int inner_regno = subreg_regno (x);
 	  unsigned int inner_endregno
 	    = inner_regno + (inner_regno < FIRST_PSEUDO_REGISTER
-			     ? hard_regno_nregs[inner_regno][GET_MODE (x)] : 1);
+			     ? subreg_nregs (x) : 1);
 
 	  return endregno > inner_regno && regno < inner_endregno;
 	}
@@ -1254,13 +1337,15 @@ reg_overlap_mentioned_p (rtx x, rtx in)
       regno = REGNO (SUBREG_REG (x));
       if (regno < FIRST_PSEUDO_REGISTER)
 	regno = subreg_regno (x);
+      endregno = regno + (regno < FIRST_PSEUDO_REGISTER
+			  ? subreg_nregs (x) : 1);
       goto do_reg;
 
     case REG:
       regno = REGNO (x);
-    do_reg:
       endregno = regno + (regno < FIRST_PSEUDO_REGISTER
 			  ? hard_regno_nregs[regno][GET_MODE (x)] : 1);
+    do_reg:
       return refers_to_regno_p (regno, endregno, in, (rtx*) 0);
 
     case MEM:
@@ -1382,6 +1467,11 @@ note_uses (rtx *pbody, void (*fun) (rtx *, void *), void *data)
     case PARALLEL:
       for (i = XVECLEN (body, 0) - 1; i >= 0; i--)
 	note_uses (&XVECEXP (body, 0, i), fun, data);
+      return;
+
+    case SEQUENCE:
+      for (i = XVECLEN (body, 0) - 1; i >= 0; i--)
+	note_uses (&PATTERN (XVECEXP (body, 0, i)), fun, data);
       return;
 
     case USE:
@@ -1642,15 +1732,46 @@ find_reg_equal_equiv_note (rtx insn)
 
   if (!INSN_P (insn))
     return 0;
+
   for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
     if (REG_NOTE_KIND (link) == REG_EQUAL
 	|| REG_NOTE_KIND (link) == REG_EQUIV)
       {
-	if (single_set (insn) == 0)
+	/* FIXME: We should never have REG_EQUAL/REG_EQUIV notes on
+	   insns that have multiple sets.  Checking single_set to
+	   make sure of this is not the proper check, as explained
+	   in the comment in set_unique_reg_note.
+
+	   This should be changed into an assert.  */
+	if (GET_CODE (PATTERN (insn)) == PARALLEL && multiple_sets (insn))
 	  return 0;
 	return link;
       }
   return NULL;
+}
+
+/* Check whether INSN is a single_set whose source is known to be
+   equivalent to a constant.  Return that constant if so, otherwise
+   return null.  */
+
+rtx
+find_constant_src (rtx insn)
+{
+  rtx note, set, x;
+
+  set = single_set (insn);
+  if (set)
+    {
+      x = avoid_constant_pool_reference (SET_SRC (set));
+      if (CONSTANT_P (x))
+	return x;
+    }
+
+  note = find_reg_equal_equiv_note (insn);
+  if (note && CONSTANT_P (XEXP (note, 0)))
+    return XEXP (note, 0);
+
+  return NULL_RTX;
 }
 
 /* Return true if DATUM, or any overlap of DATUM, of kind CODE is found
@@ -1777,6 +1898,24 @@ remove_note (rtx insn, rtx note)
       }
 
   gcc_unreachable ();
+}
+
+/* Remove REG_EQUAL and/or REG_EQUIV notes if INSN has such notes.  */
+
+void
+remove_reg_equal_equiv_notes (rtx insn)
+{
+  rtx *loc;
+
+  loc = &REG_NOTES (insn);
+  while (*loc)
+    {
+      enum reg_note kind = REG_NOTE_KIND (*loc);
+      if (kind == REG_EQUAL || kind == REG_EQUIV)
+	*loc = XEXP (*loc, 1);
+      else
+	loc = &XEXP (*loc, 1);
+    }
 }
 
 /* Search LISTP (an EXPR_LIST) for an entry whose first operand is NODE and
@@ -2831,10 +2970,15 @@ auto_inc_p (rtx x)
 int
 loc_mentioned_in_p (rtx *loc, rtx in)
 {
-  enum rtx_code code = GET_CODE (in);
-  const char *fmt = GET_RTX_FORMAT (code);
+  enum rtx_code code;
+  const char *fmt;
   int i, j;
 
+  if (!in)
+    return 0;
+
+  code = GET_CODE (in);
+  fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (loc == &in->u.fld[i].rt_rtx)
@@ -2904,6 +3048,164 @@ subreg_lsb (rtx x)
 		       SUBREG_BYTE (x));
 }
 
+/* Fill in information about a subreg of a hard register.
+   xregno - A regno of an inner hard subreg_reg (or what will become one).
+   xmode  - The mode of xregno.
+   offset - The byte offset.
+   ymode  - The mode of a top level SUBREG (or what may become one).
+   info   - Pointer to structure to fill in.  */
+static void
+subreg_get_info (unsigned int xregno, enum machine_mode xmode,
+		 unsigned int offset, enum machine_mode ymode,
+		 struct subreg_info *info)
+{
+  int nregs_xmode, nregs_ymode;
+  int mode_multiple, nregs_multiple;
+  int offset_adj, y_offset, y_offset_adj;
+  int regsize_xmode, regsize_ymode;
+  bool rknown;
+
+  gcc_assert (xregno < FIRST_PSEUDO_REGISTER);
+
+  rknown = false;
+
+  /* If there are holes in a non-scalar mode in registers, we expect
+     that it is made up of its units concatenated together.  */
+  if (HARD_REGNO_NREGS_HAS_PADDING (xregno, xmode))
+    {
+      enum machine_mode xmode_unit;
+
+      nregs_xmode = HARD_REGNO_NREGS_WITH_PADDING (xregno, xmode);
+      if (GET_MODE_INNER (xmode) == VOIDmode)
+	xmode_unit = xmode;
+      else
+	xmode_unit = GET_MODE_INNER (xmode);
+      gcc_assert (HARD_REGNO_NREGS_HAS_PADDING (xregno, xmode_unit));
+      gcc_assert (nregs_xmode
+		  == (GET_MODE_NUNITS (xmode)
+		      * HARD_REGNO_NREGS_WITH_PADDING (xregno, xmode_unit)));
+      gcc_assert (hard_regno_nregs[xregno][xmode]
+		  == (hard_regno_nregs[xregno][xmode_unit]
+		      * GET_MODE_NUNITS (xmode)));
+
+      /* You can only ask for a SUBREG of a value with holes in the middle
+	 if you don't cross the holes.  (Such a SUBREG should be done by
+	 picking a different register class, or doing it in memory if
+	 necessary.)  An example of a value with holes is XCmode on 32-bit
+	 x86 with -m128bit-long-double; it's represented in 6 32-bit registers,
+	 3 for each part, but in memory it's two 128-bit parts.  
+	 Padding is assumed to be at the end (not necessarily the 'high part')
+	 of each unit.  */
+      if ((offset / GET_MODE_SIZE (xmode_unit) + 1 
+	   < GET_MODE_NUNITS (xmode))
+	  && (offset / GET_MODE_SIZE (xmode_unit)
+	      != ((offset + GET_MODE_SIZE (ymode) - 1)
+		  / GET_MODE_SIZE (xmode_unit))))
+	{
+	  info->representable_p = false;
+	  rknown = true;
+	}
+    }
+  else
+    nregs_xmode = hard_regno_nregs[xregno][xmode];
+  
+  nregs_ymode = hard_regno_nregs[xregno][ymode];
+
+  /* Paradoxical subregs are otherwise valid.  */
+  if (!rknown
+      && offset == 0
+      && GET_MODE_SIZE (ymode) > GET_MODE_SIZE (xmode))
+    {
+      info->representable_p = true;
+      /* If this is a big endian paradoxical subreg, which uses more
+	 actual hard registers than the original register, we must
+	 return a negative offset so that we find the proper highpart
+	 of the register.  */
+      if (GET_MODE_SIZE (ymode) > UNITS_PER_WORD
+	  ? WORDS_BIG_ENDIAN : BYTES_BIG_ENDIAN)
+	info->offset = nregs_xmode - nregs_ymode;
+      else
+	info->offset = 0;
+      info->nregs = nregs_ymode;
+      return;
+    }
+
+  /* If registers store different numbers of bits in the different
+     modes, we cannot generally form this subreg.  */
+  if (!HARD_REGNO_NREGS_HAS_PADDING (xregno, xmode)
+      && !HARD_REGNO_NREGS_HAS_PADDING (xregno, ymode)
+      && (GET_MODE_SIZE (xmode) % nregs_xmode) == 0
+      && (GET_MODE_SIZE (ymode) % nregs_ymode) == 0)
+    {
+      regsize_xmode = GET_MODE_SIZE (xmode) / nregs_xmode;
+      regsize_ymode = GET_MODE_SIZE (ymode) / nregs_ymode;
+      if (!rknown && regsize_xmode > regsize_ymode && nregs_ymode > 1)
+	{
+	  info->representable_p = false;
+	  info->nregs
+	    = (GET_MODE_SIZE (ymode) + regsize_xmode - 1) / regsize_xmode;
+	  info->offset = offset / regsize_xmode;
+	  return;
+	}
+      if (!rknown && regsize_ymode > regsize_xmode && nregs_xmode > 1)
+	{
+	  info->representable_p = false;
+	  info->nregs
+	    = (GET_MODE_SIZE (ymode) + regsize_xmode - 1) / regsize_xmode;
+	  info->offset = offset / regsize_xmode;
+	  return;
+	}
+    }
+
+  /* Lowpart subregs are otherwise valid.  */
+  if (!rknown && offset == subreg_lowpart_offset (ymode, xmode))
+    {
+      info->representable_p = true;
+      rknown = true;
+
+      if (offset == 0 || nregs_xmode == nregs_ymode)
+	{
+	  info->offset = 0;
+	  info->nregs = nregs_ymode;
+	  return;
+	}
+    }
+
+  /* This should always pass, otherwise we don't know how to verify
+     the constraint.  These conditions may be relaxed but
+     subreg_regno_offset would need to be redesigned.  */
+  gcc_assert ((GET_MODE_SIZE (xmode) % GET_MODE_SIZE (ymode)) == 0);
+  gcc_assert ((nregs_xmode % nregs_ymode) == 0);
+
+  /* The XMODE value can be seen as a vector of NREGS_XMODE
+     values.  The subreg must represent a lowpart of given field.
+     Compute what field it is.  */
+  offset_adj = offset;
+  offset_adj -= subreg_lowpart_offset (ymode,
+				       mode_for_size (GET_MODE_BITSIZE (xmode)
+						      / nregs_xmode,
+						      MODE_INT, 0));
+
+  /* Size of ymode must not be greater than the size of xmode.  */
+  mode_multiple = GET_MODE_SIZE (xmode) / GET_MODE_SIZE (ymode);
+  gcc_assert (mode_multiple != 0);
+
+  y_offset = offset / GET_MODE_SIZE (ymode);
+  y_offset_adj = offset_adj / GET_MODE_SIZE (ymode);
+  nregs_multiple = nregs_xmode / nregs_ymode;
+
+  gcc_assert ((offset_adj % GET_MODE_SIZE (ymode)) == 0);
+  gcc_assert ((mode_multiple % nregs_multiple) == 0);
+
+  if (!rknown)
+    {
+      info->representable_p = (!(y_offset_adj % (mode_multiple / nregs_multiple)));
+      rknown = true;
+    }
+  info->offset = (y_offset / (mode_multiple / nregs_multiple)) * nregs_ymode;
+  info->nregs = nregs_ymode;
+}
+
 /* This function returns the regno offset of a subreg expression.
    xregno - A regno of an inner hard subreg_reg (or what will become one).
    xmode  - The mode of xregno.
@@ -2914,58 +3216,9 @@ unsigned int
 subreg_regno_offset (unsigned int xregno, enum machine_mode xmode,
 		     unsigned int offset, enum machine_mode ymode)
 {
-  int nregs_xmode, nregs_ymode, nregs_xmode_unit_int;
-  int mode_multiple, nregs_multiple;
-  int y_offset;
-  enum machine_mode xmode_unit, xmode_unit_int;
-
-  gcc_assert (xregno < FIRST_PSEUDO_REGISTER);
-
-  if (GET_MODE_INNER (xmode) == VOIDmode)
-    xmode_unit = xmode;
-  else
-    xmode_unit = GET_MODE_INNER (xmode);
-  
-  if (FLOAT_MODE_P (xmode_unit))
-    {
-      xmode_unit_int = int_mode_for_mode (xmode_unit);
-      if (xmode_unit_int == BLKmode)
-	/* It's probably bad to be here; a port should have an integer mode
-	   that's the same size as anything of which it takes a SUBREG.  */
-	xmode_unit_int = xmode_unit;
-    }
-  else
-    xmode_unit_int = xmode_unit;
-
-  nregs_xmode_unit_int = hard_regno_nregs[xregno][xmode_unit_int];
-
-  /* Adjust nregs_xmode to allow for 'holes'.  */
-  if (nregs_xmode_unit_int != hard_regno_nregs[xregno][xmode_unit])
-    nregs_xmode = nregs_xmode_unit_int * GET_MODE_NUNITS (xmode);
-  else
-    nregs_xmode = hard_regno_nregs[xregno][xmode];
-    
-  nregs_ymode = hard_regno_nregs[xregno][ymode];
-
-  /* If this is a big endian paradoxical subreg, which uses more actual
-     hard registers than the original register, we must return a negative
-     offset so that we find the proper highpart of the register.  */
-  if (offset == 0
-      && nregs_ymode > nregs_xmode
-      && (GET_MODE_SIZE (ymode) > UNITS_PER_WORD
-	  ? WORDS_BIG_ENDIAN : BYTES_BIG_ENDIAN))
-    return nregs_xmode - nregs_ymode;
-
-  if (offset == 0 || nregs_xmode == nregs_ymode)
-    return 0;
-
-  /* Size of ymode must not be greater than the size of xmode.  */
-  mode_multiple = GET_MODE_SIZE (xmode) / GET_MODE_SIZE (ymode);
-  gcc_assert (mode_multiple != 0);
-
-  y_offset = offset / GET_MODE_SIZE (ymode);
-  nregs_multiple =  nregs_xmode / nregs_ymode;
-  return (y_offset / (mode_multiple / nregs_multiple)) * nregs_ymode;
+  struct subreg_info info;
+  subreg_get_info (xregno, xmode, offset, ymode, &info);
+  return info.offset;
 }
 
 /* This function returns true when the offset is representable via
@@ -2979,98 +3232,9 @@ bool
 subreg_offset_representable_p (unsigned int xregno, enum machine_mode xmode,
 			       unsigned int offset, enum machine_mode ymode)
 {
-  int nregs_xmode, nregs_ymode, nregs_xmode_unit, nregs_xmode_unit_int;
-  int mode_multiple, nregs_multiple;
-  int y_offset;
-  enum machine_mode xmode_unit, xmode_unit_int;
-
-  gcc_assert (xregno < FIRST_PSEUDO_REGISTER);
-
-  if (GET_MODE_INNER (xmode) == VOIDmode)
-    xmode_unit = xmode;
-  else
-    xmode_unit = GET_MODE_INNER (xmode);
-  
-  if (FLOAT_MODE_P (xmode_unit))
-    {
-      xmode_unit_int = int_mode_for_mode (xmode_unit);
-      if (xmode_unit_int == BLKmode)
-	/* It's probably bad to be here; a port should have an integer mode
-	   that's the same size as anything of which it takes a SUBREG.  */
-	xmode_unit_int = xmode_unit;
-    }
-  else
-    xmode_unit_int = xmode_unit;
-
-  nregs_xmode_unit = hard_regno_nregs[xregno][xmode_unit];
-  nregs_xmode_unit_int = hard_regno_nregs[xregno][xmode_unit_int];
-
-  /* If there are holes in a non-scalar mode in registers, we expect
-     that it is made up of its units concatenated together.  */
-  if (nregs_xmode_unit != nregs_xmode_unit_int)
-    {
-      gcc_assert (nregs_xmode_unit * GET_MODE_NUNITS (xmode)
-		  == hard_regno_nregs[xregno][xmode]);
-
-      /* You can only ask for a SUBREG of a value with holes in the middle
-	 if you don't cross the holes.  (Such a SUBREG should be done by
-	 picking a different register class, or doing it in memory if
-	 necessary.)  An example of a value with holes is XCmode on 32-bit
-	 x86 with -m128bit-long-double; it's represented in 6 32-bit registers,
-	 3 for each part, but in memory it's two 128-bit parts.  
-	 Padding is assumed to be at the end (not necessarily the 'high part')
-	 of each unit.  */
-      if (nregs_xmode_unit != nregs_xmode_unit_int
-	  && (offset / GET_MODE_SIZE (xmode_unit_int) + 1 
-	      < GET_MODE_NUNITS (xmode))
-	  && (offset / GET_MODE_SIZE (xmode_unit_int) 
-	      != ((offset + GET_MODE_SIZE (ymode) - 1)
-		  / GET_MODE_SIZE (xmode_unit_int))))
-	return false;
-
-      nregs_xmode = nregs_xmode_unit_int * GET_MODE_NUNITS (xmode);
-    }
-  else
-    nregs_xmode = hard_regno_nregs[xregno][xmode];
-  
-  nregs_ymode = hard_regno_nregs[xregno][ymode];
-
-  /* Paradoxical subregs are otherwise valid.  */
-  if (offset == 0
-      && nregs_ymode > nregs_xmode
-      && (GET_MODE_SIZE (ymode) > UNITS_PER_WORD
-	  ? WORDS_BIG_ENDIAN : BYTES_BIG_ENDIAN))
-    return true;
-
-  /* Lowpart subregs are otherwise valid.  */
-  if (offset == subreg_lowpart_offset (ymode, xmode))
-    return true;
-
-  /* This should always pass, otherwise we don't know how to verify
-     the constraint.  These conditions may be relaxed but
-     subreg_regno_offset would need to be redesigned.  */
-  gcc_assert ((GET_MODE_SIZE (xmode) % GET_MODE_SIZE (ymode)) == 0);
-  gcc_assert ((nregs_xmode % nregs_ymode) == 0);
-
-  /* The XMODE value can be seen as a vector of NREGS_XMODE
-     values.  The subreg must represent a lowpart of given field.
-     Compute what field it is.  */
-  offset -= subreg_lowpart_offset (ymode,
-				   mode_for_size (GET_MODE_BITSIZE (xmode)
-						  / nregs_xmode,
-						  MODE_INT, 0));
-
-  /* Size of ymode must not be greater than the size of xmode.  */
-  mode_multiple = GET_MODE_SIZE (xmode) / GET_MODE_SIZE (ymode);
-  gcc_assert (mode_multiple != 0);
-
-  y_offset = offset / GET_MODE_SIZE (ymode);
-  nregs_multiple =  nregs_xmode / nregs_ymode;
-
-  gcc_assert ((offset % GET_MODE_SIZE (ymode)) == 0);
-  gcc_assert ((mode_multiple % nregs_multiple) == 0);
-
-  return (!(y_offset % (mode_multiple / nregs_multiple)));
+  struct subreg_info info;
+  subreg_get_info (xregno, xmode, offset, ymode, &info);
+  return info.representable_p;
 }
 
 /* Return the final regno that a subreg expression refers to.  */
@@ -3088,6 +3252,21 @@ subreg_regno (rtx x)
   return ret;
 
 }
+
+/* Return the number of registers that a subreg expression refers
+   to.  */
+unsigned int
+subreg_nregs (rtx x)
+{
+  struct subreg_info info;
+  rtx subreg = SUBREG_REG (x);
+  int regno = REGNO (subreg);
+
+  subreg_get_info (regno, GET_MODE (subreg), SUBREG_BYTE (x), GET_MODE (x),
+		   &info);
+  return info.nregs;
+}
+
 struct parms_set_data
 {
   int nregs;
@@ -3270,7 +3449,7 @@ rtx_cost (rtx x, enum rtx_code outer_code ATTRIBUTE_UNUSED)
       total = COSTS_N_INSNS (7);
       break;
     case USE:
-      /* Used in loop.c and combine.c as a marker.  */
+      /* Used in combine.c as a marker.  */
       total = 0;
       break;
     default:
@@ -4632,6 +4811,50 @@ get_condition (rtx jump, rtx *earliest, int allow_cc_mode, int valid_at_insn_p)
 				 allow_cc_mode, valid_at_insn_p);
 }
 
+/* Initialize the table NUM_SIGN_BIT_COPIES_IN_REP based on
+   TARGET_MODE_REP_EXTENDED.
+
+   Note that we assume that the property of
+   TARGET_MODE_REP_EXTENDED(B, C) is sticky to the integral modes
+   narrower than mode B.  I.e., if A is a mode narrower than B then in
+   order to be able to operate on it in mode B, mode A needs to
+   satisfy the requirements set by the representation of mode B.  */
+
+static void
+init_num_sign_bit_copies_in_rep (void)
+{
+  enum machine_mode mode, in_mode;
+
+  for (in_mode = GET_CLASS_NARROWEST_MODE (MODE_INT); in_mode != VOIDmode;
+       in_mode = GET_MODE_WIDER_MODE (mode))
+    for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != in_mode;
+	 mode = GET_MODE_WIDER_MODE (mode))
+      {
+	enum machine_mode i;
+
+	/* Currently, it is assumed that TARGET_MODE_REP_EXTENDED
+	   extends to the next widest mode.  */
+	gcc_assert (targetm.mode_rep_extended (mode, in_mode) == UNKNOWN
+		    || GET_MODE_WIDER_MODE (mode) == in_mode);
+
+	/* We are in in_mode.  Count how many bits outside of mode
+	   have to be copies of the sign-bit.  */
+	for (i = mode; i != in_mode; i = GET_MODE_WIDER_MODE (i))
+	  {
+	    enum machine_mode wider = GET_MODE_WIDER_MODE (i);
+
+	    if (targetm.mode_rep_extended (i, wider) == SIGN_EXTEND
+		/* We can only check sign-bit copies starting from the
+		   top-bit.  In order to be able to check the bits we
+		   have already seen we pretend that subsequent bits
+		   have to be sign-bit copies too.  */
+		|| num_sign_bit_copies_in_rep [in_mode][mode])
+	      num_sign_bit_copies_in_rep [in_mode][mode]
+		+= GET_MODE_BITSIZE (wider) - GET_MODE_BITSIZE (i);
+	  }
+      }
+}
+
 /* Suppose that truncation from the machine mode of X to MODE is not a
    no-op.  See if there is anything special about X so that we can
    assume it already contains a truncated value of MODE.  */
@@ -4639,9 +4862,20 @@ get_condition (rtx jump, rtx *earliest, int allow_cc_mode, int valid_at_insn_p)
 bool
 truncated_to_mode (enum machine_mode mode, rtx x)
 {
-  return REG_P (x) && rtl_hooks.reg_truncated_to_mode (mode, x);
-}
+  /* This register has already been used in MODE without explicit
+     truncation.  */
+  if (REG_P (x) && rtl_hooks.reg_truncated_to_mode (mode, x))
+    return true;
 
+  /* See if we already satisfy the requirements of MODE.  If yes we
+     can just switch to MODE.  */
+  if (num_sign_bit_copies_in_rep[GET_MODE (x)][mode]
+      && (num_sign_bit_copies (x, GET_MODE (x))
+	  >= num_sign_bit_copies_in_rep[GET_MODE (x)][mode] + 1))
+    return true;
+
+  return false;
+}
 
 /* Initialize non_rtx_starting_operands, which is used to speed up
    for_each_rtx.  */
@@ -4655,6 +4889,8 @@ init_rtlanal (void)
       const char *first = strpbrk (format, "eEV");
       non_rtx_starting_operands[i] = first ? first - format : -1;
     }
+
+  init_num_sign_bit_copies_in_rep ();
 }
 
 /* Check whether this is a constant pool constant.  */

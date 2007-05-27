@@ -1,3 +1,7 @@
+2007-05-27  Olga Golovanevsky  <olga@il.ibm.com>
+
+	* merge from mainline.
+
 2006-09-20  Olga Golovanevsky  <olga@il.ibm.com>
 
 	* flagf.h (flag_ipa_reorg_struct): Replace flag_reorg_struct.

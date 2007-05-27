@@ -51,6 +51,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "diagnostic.h"
 #include "langhooks.h"
+#include "target.h"
 
 static struct pointer_set_t *visited_nodes;
 
@@ -162,8 +163,17 @@ check_operand (funct_state local,
 static void
 check_tree (funct_state local, tree t, bool checking_write)
 {
-  if ((TREE_CODE (t) == EXC_PTR_EXPR) || (TREE_CODE (t) == FILTER_EXPR))
+  if ((TREE_CODE (t) == EXC_PTR_EXPR) || (TREE_CODE (t) == FILTER_EXPR)
+      || TREE_CODE (t) == SSA_NAME)
     return;
+
+  /* Any tree which is volatile disqualifies thie function from being
+     const or pure. */
+  if (TREE_THIS_VOLATILE (t))
+    {
+      local->pure_const_state = IPA_NEITHER;
+      return;
+    }
 
   while (TREE_CODE (t) == REALPART_EXPR 
 	 || TREE_CODE (t) == IMAGPART_EXPR
@@ -182,12 +192,13 @@ check_tree (funct_state local, tree t, bool checking_write)
       
       /* Any indirect reference that occurs on the lhs
 	 disqualifies the function from being pure or const. Any
-	 indirect reference to a volatile disqualifies the
-	 function from being pure or const.  Any indirect
-	 reference that occurs on the rhs disqualifies the
+	 indirect reference that occurs on the rhs disqualifies the
 	 function from being const.  */
-      if (checking_write || TREE_THIS_VOLATILE (t)) 
-	local->pure_const_state = IPA_NEITHER;
+      if (checking_write) 
+	{
+	  local->pure_const_state = IPA_NEITHER;
+	  return;
+	}
       else if (local->pure_const_state == IPA_CONST)
 	local->pure_const_state = IPA_PURE;
     }
@@ -305,20 +316,15 @@ get_asm_expr_operands (funct_state local, tree stmt)
 static void
 check_call (funct_state local, tree call_expr) 
 {
-  int flags = call_expr_flags(call_expr);
-  tree operand_list = TREE_OPERAND (call_expr, 1);
+  int flags = call_expr_flags (call_expr);
   tree operand;
+  call_expr_arg_iterator iter;
   tree callee_t = get_callee_fndecl (call_expr);
   struct cgraph_node* callee;
   enum availability avail = AVAIL_NOT_AVAILABLE;
 
-  for (operand = operand_list;
-       operand != NULL_TREE;
-       operand = TREE_CHAIN (operand))
-    {
-      tree argument = TREE_VALUE (operand);
-      check_rhs_var (local, argument);
-    }
+  FOR_EACH_CALL_EXPR_ARG (operand, iter, call_expr)
+    check_rhs_var (local, operand);
   
   /* The const and pure flags are set by a variety of places in the
      compiler (including here).  If someone has already set the flags
@@ -402,11 +408,11 @@ scan_function (tree *tp,
       *walk_subtrees = 0;
       break;
 
-    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
       {
 	/* First look on the lhs and see what variable is stored to */
-	tree lhs = TREE_OPERAND (t, 0);
-	tree rhs = TREE_OPERAND (t, 1);
+	tree lhs = GIMPLE_STMT_OPERAND (t, 0);
+	tree rhs = GIMPLE_STMT_OPERAND (t, 1);
 	check_lhs_var (local, lhs);
 
 	/* For the purposes of figuring out what the cast affects */
@@ -441,7 +447,14 @@ scan_function (tree *tp,
 	      case ADDR_EXPR:
 		check_rhs_var (local, rhs);
 		break;
-	      case CALL_EXPR: 
+	      default:
+		break;
+	      }
+	    break;
+	  case tcc_vl_exp:
+	    switch (TREE_CODE (rhs)) 
+	      {
+	      case CALL_EXPR:
 		check_call (local, rhs);
 		break;
 	      default:
@@ -499,9 +512,11 @@ analyze_function (struct cgraph_node *fn)
   l->pure_const_state = IPA_CONST;
   l->state_set_in_source = false;
 
-  /* If this is a volatile function, do not touch this unless it has
-     been marked as const or pure by the front end.  */
-  if (TREE_THIS_VOLATILE (decl))
+  /* If this function does not return normally or does not bind local,
+     do not touch this unless it has been marked as const or pure by the
+     front end.  */
+  if (TREE_THIS_VOLATILE (decl)
+      || !targetm.binds_local_p (decl))
     {
       l->pure_const_state = IPA_NEITHER;
       return;
@@ -538,7 +553,7 @@ analyze_function (struct cgraph_node *fn)
 	      walk_tree (bsi_stmt_ptr (bsi), scan_function, 
 			 fn, visited_nodes);
 	      if (l->pure_const_state == IPA_NEITHER) 
-		return;
+		goto end;
 	    }
 	}
 
@@ -564,6 +579,14 @@ analyze_function (struct cgraph_node *fn)
 	  current_function_decl = old_decl;
 	  pop_cfun ();
 	}
+    }
+
+end:
+  if (dump_file)
+    {
+      fprintf (dump_file, "after local analysis of %s with initial value = %d\n ", 
+	       cgraph_node_name (fn),
+	       l->pure_const_state);
     }
 }
 

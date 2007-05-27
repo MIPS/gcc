@@ -22,7 +22,9 @@ libmudflapth =
 endif
 
 toolexeclib_LTLIBRARIES = libmudflap.la $(libmudflapth)
-include_HEADERS = mf-runtime.h
+target_noncanonical = @target_noncanonical@
+libsubincludedir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)/include
+nobase_libsubinclude_HEADERS = mf-runtime.h
 
 
 libmudflap_la_SOURCES = \
@@ -104,6 +106,11 @@ AM_MAKEFLAGS = \
 	"DESTDIR=$(DESTDIR)"
 
 MAKEOVERRIDES=
+
+# No install-html or install-pdf support in automake yet
+.PHONY: install-html install-pdf
+install-html:
+install-pdf:
 
 ## ################################################################
 

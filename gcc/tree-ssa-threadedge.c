@@ -1,5 +1,5 @@
 /* SSA Jump Threading
-   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Jeff Law  <law@redhat.com>
 
 This file is part of GCC.
@@ -84,18 +84,20 @@ static tree
 lhs_of_dominating_assert (tree op, basic_block bb, tree stmt)
 {
   imm_use_iterator imm_iter;
-  use_operand_p imm_use;
+  tree use_stmt;
+  use_operand_p use_p;
 
-  FOR_EACH_IMM_USE_SAFE (imm_use, imm_iter, op)
+  FOR_EACH_IMM_USE_FAST (use_p, imm_iter, op)
     {
-      tree use_stmt = USE_STMT (imm_use);
-
+      use_stmt = USE_STMT (use_p);
       if (use_stmt != stmt
-          && TREE_CODE (use_stmt) == MODIFY_EXPR
-          && TREE_CODE (TREE_OPERAND (use_stmt, 1)) == ASSERT_EXPR
-          && TREE_OPERAND (TREE_OPERAND (use_stmt, 1), 0) == op
+          && TREE_CODE (use_stmt) == GIMPLE_MODIFY_STMT
+          && TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1)) == ASSERT_EXPR
+          && TREE_OPERAND (GIMPLE_STMT_OPERAND (use_stmt, 1), 0) == op
 	  && dominated_by_p (CDI_DOMINATORS, bb, bb_for_stmt (use_stmt)))
-	op = TREE_OPERAND (use_stmt, 0);
+	{
+	  return GIMPLE_STMT_OPERAND (use_stmt, 0);
+	}
     }
   return op;
 }
@@ -209,7 +211,8 @@ record_temporary_equivalences_from_phis (edge e, VEC(tree, heap) **stack)
 static tree
 record_temporary_equivalences_from_stmts_at_dest (edge e,
 						  VEC(tree, heap) **stack,
-						  tree (*simplify) (tree))
+						  tree (*simplify) (tree,
+								    tree))
 {
   block_stmt_iterator bsi;
   tree stmt = NULL;
@@ -243,11 +246,11 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
       if (stmt_count > max_stmt_count)
 	return NULL;
 
-      /* If this is not a MODIFY_EXPR which sets an SSA_NAME to a new
+      /* If this is not a GIMPLE_MODIFY_STMT which sets an SSA_NAME to a new
 	 value, then do not try to simplify this statement as it will
 	 not simplify in any way that is helpful for jump threading.  */
-      if (TREE_CODE (stmt) != MODIFY_EXPR
-	  || TREE_CODE (TREE_OPERAND (stmt, 0)) != SSA_NAME)
+      if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
+	  || TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) != SSA_NAME)
 	continue;
 
       /* At this point we have a statement which assigns an RHS to an
@@ -257,10 +260,10 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
 
 	 Handle simple copy operations as well as implied copies from
 	 ASSERT_EXPRs.  */
-      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME)
-	cached_lhs = TREE_OPERAND (stmt, 1);
-      else if (TREE_CODE (TREE_OPERAND (stmt, 1)) == ASSERT_EXPR)
-	cached_lhs = TREE_OPERAND (TREE_OPERAND (stmt, 1), 0);
+      if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == SSA_NAME)
+	cached_lhs = GIMPLE_STMT_OPERAND (stmt, 1);
+      else if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == ASSERT_EXPR)
+	cached_lhs = TREE_OPERAND (GIMPLE_STMT_OPERAND (stmt, 1), 0);
       else
 	{
 	  /* A statement that is not a trivial copy or ASSERT_EXPR.
@@ -294,26 +297,26 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
 	     here, because fold expects all the operands of an expression
 	     to be folded before the expression itself is folded, but we
 	     can't just substitute the folded condition here.  */
-	  if (TREE_CODE (TREE_OPERAND (stmt, 1)) == COND_EXPR)
+	  if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == COND_EXPR)
 	    {
-	      tree cond = COND_EXPR_COND (TREE_OPERAND (stmt, 1));
+	      tree cond = COND_EXPR_COND (GIMPLE_STMT_OPERAND (stmt, 1));
 	      cond = fold (cond);
 	      if (cond == boolean_true_node)
-		pre_fold_expr = COND_EXPR_THEN (TREE_OPERAND (stmt, 1));
+		pre_fold_expr = COND_EXPR_THEN (GIMPLE_STMT_OPERAND (stmt, 1));
 	      else if (cond == boolean_false_node)
-		pre_fold_expr = COND_EXPR_ELSE (TREE_OPERAND (stmt, 1));
+		pre_fold_expr = COND_EXPR_ELSE (GIMPLE_STMT_OPERAND (stmt, 1));
 	      else
-		pre_fold_expr = TREE_OPERAND (stmt, 1);
+		pre_fold_expr = GIMPLE_STMT_OPERAND (stmt, 1);
 	    }
 	  else
-	    pre_fold_expr = TREE_OPERAND (stmt, 1);
+	    pre_fold_expr = GIMPLE_STMT_OPERAND (stmt, 1);
 
 	  if (pre_fold_expr)
 	    {
 	      cached_lhs = fold (pre_fold_expr);
 	      if (TREE_CODE (cached_lhs) != SSA_NAME
 		  && !is_gimple_min_invariant (cached_lhs))
-	        cached_lhs = (*simplify) (stmt);
+	        cached_lhs = (*simplify) (stmt, stmt);
 	    }
 
 	  /* Restore the statement's original uses/defs.  */
@@ -329,7 +332,7 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
       if (cached_lhs
 	  && (TREE_CODE (cached_lhs) == SSA_NAME
 	      || is_gimple_min_invariant (cached_lhs)))
-	record_temporary_equivalence (TREE_OPERAND (stmt, 0),
+	record_temporary_equivalence (GIMPLE_STMT_OPERAND (stmt, 0),
 				      cached_lhs,
 				      stack);
     }
@@ -351,7 +354,7 @@ static tree
 simplify_control_stmt_condition (edge e,
 				 tree stmt,
 				 tree dummy_cond,
-				 tree (*simplify) (tree),
+				 tree (*simplify) (tree, tree),
 				 bool handle_dominating_asserts)
 {
   tree cond, cached_lhs;
@@ -423,16 +426,21 @@ simplify_control_stmt_condition (edge e,
 
       /* We absolutely do not care about any type conversions
          we only care about a zero/nonzero value.  */
+      fold_defer_overflow_warnings ();
+
       cached_lhs = fold (COND_EXPR_COND (dummy_cond));
       while (TREE_CODE (cached_lhs) == NOP_EXPR
 	     || TREE_CODE (cached_lhs) == CONVERT_EXPR
 	     || TREE_CODE (cached_lhs) == NON_LVALUE_EXPR)
 	cached_lhs = TREE_OPERAND (cached_lhs, 0);
-	    
+
+      fold_undefer_overflow_warnings (is_gimple_min_invariant (cached_lhs),
+				      stmt, WARN_STRICT_OVERFLOW_CONDITIONAL);
+
       /* If we have not simplified the condition down to an invariant,
 	 then use the pass specific callback to simplify the condition.  */
       if (! is_gimple_min_invariant (cached_lhs))
-	cached_lhs = (*simplify) (dummy_cond);
+	cached_lhs = (*simplify) (dummy_cond, stmt);
     }
 
   /* We can have conditionals which just test the state of a variable
@@ -459,7 +467,7 @@ simplify_control_stmt_condition (edge e,
       /* If we haven't simplified to an invariant yet, then use the
 	 pass specific callback to try and simplify it further.  */
       if (cached_lhs && ! is_gimple_min_invariant (cached_lhs))
-        cached_lhs = (*simplify) (stmt);
+        cached_lhs = (*simplify) (stmt, stmt);
     }
   else
     cached_lhs = NULL;
@@ -487,7 +495,7 @@ thread_across_edge (tree dummy_cond,
 		    edge e,
 		    bool handle_dominating_asserts,
 		    VEC(tree, heap) **stack,
-		    tree (*simplify) (tree))
+		    tree (*simplify) (tree, tree))
 {
   tree stmt;
 

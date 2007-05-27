@@ -1,4 +1,4 @@
-/* Copyright (C) 2003, 2004, 2005  Free Software Foundation
+/* Copyright (C) 2003, 2004, 2005, 2006, 2007  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -51,6 +51,7 @@ details.  */
 #include <java/lang/NullPointerException.h>
 #include <java/lang/ArrayIndexOutOfBoundsException.h>
 #include <java/lang/IllegalArgumentException.h>
+#include <java/net/UnknownHostException.h>
 
 union SockAddr
 {
@@ -71,8 +72,6 @@ gnu::java::net::PlainSocketImpl::create (jboolean stream)
       throw new ::java::io::IOException (JvNewStringUTF (strerr));
     }
 
-  _Jv_platform_close_on_exec (sock);
-
   // We use native_fd in place of fd here.  From leaving fd null we avoid
   // the double close problem in FileDescriptor.finalize.
   native_fd = sock;
@@ -87,6 +86,11 @@ gnu::java::net::PlainSocketImpl::bind (::java::net::InetAddress *host, jint lpor
   jbyte *bytes = elements (haddress);
   int len = haddress->length;
   int i = 1;
+
+  // The following is needed for OS X/PPC, otherwise bind() fails with an
+  // error. I found the issue and following fix on some mailing list, but
+  // no explanation was given as to why this solved the problem.
+  memset (&u, 0, sizeof (u));
 
   if (len == 4)
     {
@@ -136,10 +140,13 @@ gnu::java::net::PlainSocketImpl::bind (::java::net::InetAddress *host, jint lpor
 
 void
 gnu::java::net::PlainSocketImpl::connect (::java::net::SocketAddress *addr,
-                                     jint timeout)
+					  jint timeout)
 {
   ::java::net::InetSocketAddress *tmp = (::java::net::InetSocketAddress*) addr;
   ::java::net::InetAddress *host = tmp->getAddress();
+  if (! host)
+    throw new ::java::net::UnknownHostException(tmp->toString());
+
   jint rport = tmp->getPort();
 	
   // Set the SocketImpl's address and port fields before we try to
@@ -276,8 +283,6 @@ gnu::java::net::PlainSocketImpl::accept (gnu::java::net::PlainSocketImpl *s)
   if (new_socket < 0)
     goto error;
 
-  _Jv_platform_close_on_exec (new_socket);
-
   jbyteArray raddr;
   jint rport;
   if (u.address.sin_family == AF_INET)
@@ -299,7 +304,7 @@ gnu::java::net::PlainSocketImpl::accept (gnu::java::net::PlainSocketImpl *s)
 
   s->native_fd = new_socket;
   s->localport = localport;
-  s->address = new ::java::net::InetAddress (raddr, NULL);
+  s->address = ::java::net::InetAddress::getByAddress (raddr);
   s->port = rport;
   return;
 
@@ -355,7 +360,7 @@ gnu::java::net::PlainSocketImpl$SocketOutputStream::write(jbyteArray b, jint off
   if (offset < 0 || len < 0 || offset + len > JvGetArrayLength (b))
     throw new ::java::lang::ArrayIndexOutOfBoundsException;
 
-  write_helper (this$0->native_fd, elements (b) + offset * sizeof (jbyte), len);
+  write_helper (this$0->native_fd, elements (b) + offset, len);
 }
 
 static void
@@ -426,8 +431,7 @@ gnu::java::net::PlainSocketImpl$SocketInputStream::read(jbyteArray buffer,
   if (offset < 0 || count < 0 || offset + count > bsize)
     throw new ::java::lang::ArrayIndexOutOfBoundsException;
 
-  return read_helper (this$0,
-		      elements (buffer) + offset * sizeof (jbyte), count);
+  return read_helper (this$0, elements (buffer) + offset, count);
 }
 
 static jint
@@ -799,7 +803,7 @@ gnu::java::net::PlainSocketImpl::getOption (jint optID)
           else
             throw new ::java::net::SocketException
               (JvNewStringUTF ("invalid family"));
-          localAddress = new ::java::net::InetAddress (laddr, NULL);
+          localAddress = ::java::net::InetAddress::getByAddress (laddr);
         }
 
       return localAddress;

@@ -1,14 +1,46 @@
-// Constructor.java - Represents a constructor for a class.
+/* java.lang.reflect.Constructor - reflection of Java constructors
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2003  Free Software Foundation
+This file is part of GNU Classpath.
 
-   This file is part of libgcj.
-
-This software is copyrighted work licensed under the terms of the
-Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
-details.  */
+GNU Classpath is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
  
+GNU Classpath is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Classpath; see the file COPYING.  If not, write to the
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
+
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
+
+
 package java.lang.reflect;
+
+import gnu.java.lang.reflect.MethodSignatureParser;
+import java.lang.annotation.Annotation;
 
 /**
  * The Constructor class represents a constructor of a class. It also allows
@@ -37,15 +69,19 @@ package java.lang.reflect;
  * @author Tom Tromey <tromey@redhat.com>
  * @see Member
  * @see Class
- * @see java.lang.Class#getConstructor(Object[])
- * @see java.lang.Class#getDeclaredConstructor(Object[])
+ * @see java.lang.Class#getConstructor(Class[])
+ * @see java.lang.Class#getDeclaredConstructor(Class[])
  * @see java.lang.Class#getConstructors()
  * @see java.lang.Class#getDeclaredConstructors()
  * @since 1.1
  * @status updated to 1.4
  */
-public final class Constructor extends AccessibleObject implements Member
+public final class Constructor<T> extends AccessibleObject
+  implements Member, GenericDeclaration
 {
+  private static final int CONSTRUCTOR_MODIFIERS
+    = Modifier.PRIVATE | Modifier.PROTECTED | Modifier.PUBLIC;
+
   /**
    * This class is uninstantiable except from native code.
    */
@@ -57,7 +93,7 @@ public final class Constructor extends AccessibleObject implements Member
    * Gets the class that declared this constructor.
    * @return the class that declared this member
    */
-  public Class getDeclaringClass ()
+  public Class<T> getDeclaringClass ()
   {
     return declaringClass;
   }
@@ -67,10 +103,17 @@ public final class Constructor extends AccessibleObject implements Member
    * it was declared in).
    * @return the name of this constructor
    */
-  public String getName ()
+  public String getName()
   {
     return declaringClass.getName();
   }
+
+  /**
+   * Return the raw modifiers for this constructor.  In particular
+   * this will include the synthetic and varargs bits.
+   * @return the constructor's modifiers
+   */
+  private native int getModifiersInternal();
 
   /**
    * Gets the modifiers this constructor uses.  Use the <code>Modifier</code>
@@ -80,7 +123,31 @@ public final class Constructor extends AccessibleObject implements Member
    * @return an integer representing the modifiers to this Member
    * @see Modifier
    */
-  public native int getModifiers ();
+  public int getModifiers ()
+  {
+    return getModifiersInternal() & CONSTRUCTOR_MODIFIERS;
+  }
+
+  /**
+   * Return true if this constructor is synthetic, false otherwise.
+   * A synthetic member is one which is created by the compiler,
+   * and which does not appear in the user's source code.
+   * @since 1.5
+   */
+  public boolean isSynthetic()
+  {
+    return (getModifiersInternal() & Modifier.SYNTHETIC) != 0;
+  }
+
+  /**
+   * Return true if this is a varargs constructor, that is if
+   * the constructor takes a variable number of arguments.
+   * @since 1.5
+   */
+  public boolean isVarArgs()
+  {
+    return (getModifiersInternal() & Modifier.VARARGS) != 0;
+  }
 
   /**
    * Get the parameter list for this constructor, in declaration order. If the
@@ -88,11 +155,11 @@ public final class Constructor extends AccessibleObject implements Member
    *
    * @return a list of the types of the constructor's parameters
    */
-  public Class[] getParameterTypes ()
+  public Class<?>[] getParameterTypes ()
   {
     if (parameter_types == null)
       getType ();
-    return (Class[]) parameter_types.clone();
+    return (Class<?>[]) parameter_types.clone();
   }
 
   /**
@@ -102,11 +169,11 @@ public final class Constructor extends AccessibleObject implements Member
    *
    * @return a list of the types in the constructor's throws clause
    */
-  public Class[] getExceptionTypes ()
+  public Class<?>[] getExceptionTypes ()
   {
     if (exception_types == null)
       getType();
-    return (Class[]) exception_types.clone();
+    return (Class<?>[]) exception_types.clone();
   }
 
   /**
@@ -126,14 +193,14 @@ public final class Constructor extends AccessibleObject implements Member
   }
 
   /**
-   * Get the hash code for the Constructor.
+   * Get the hash code for the Constructor. The Constructor hash code is the
+   * hash code of the declaring class's name.
    *
    * @return the hash code for the object
    */
   public int hashCode ()
   {
-    // FIXME.
-    return getName().hashCode() + declaringClass.getName().hashCode();
+    return declaringClass.getName().hashCode();
   }
 
   /**
@@ -146,7 +213,7 @@ public final class Constructor extends AccessibleObject implements Member
    *
    * @return the String representation of the Constructor
    */
-  public String toString ()
+  public String toString()
   {
     if (parameter_types == null)
       getType ();
@@ -167,6 +234,45 @@ public final class Constructor extends AccessibleObject implements Member
       }
     b.append(")");
     return b.toString();
+  }
+
+  static <X extends GenericDeclaration>
+  void addTypeParameters(StringBuilder sb, TypeVariable<X>[] typeArgs)
+  {
+    if (typeArgs.length == 0)
+      return;
+    sb.append('<');
+    for (int i = 0; i < typeArgs.length; ++i)
+      {
+        if (i > 0)
+          sb.append(',');
+        sb.append(typeArgs[i]);
+      }
+    sb.append("> ");
+  }
+
+  public String toGenericString()
+  {
+    StringBuilder sb = new StringBuilder(128);
+    Modifier.toString(getModifiers(), sb).append(' ');
+    addTypeParameters(sb, getTypeParameters());
+    sb.append(getDeclaringClass().getName()).append('(');
+    Type[] types = getGenericParameterTypes();
+    if (types.length > 0)
+      {
+        sb.append(types[0]);
+        for (int i = 1; i < types.length; ++i)
+          sb.append(',').append(types[i]);
+      }
+    sb.append(')');
+    types = getGenericExceptionTypes();
+    if (types.length > 0)
+      {
+        sb.append(" throws ").append(types[0]);
+        for (int i = 1; i < types.length; i++)
+          sb.append(',').append(types[i]);
+      }
+    return sb.toString();
   }
 
   /**
@@ -199,15 +305,114 @@ public final class Constructor extends AccessibleObject implements Member
    * @throws ExceptionInInitializerError if construction triggered class
    *         initialization, which then failed
    */
-  public native Object newInstance (Object[] args)
+  public native T newInstance (Object... args)
     throws InstantiationException, IllegalAccessException,
     IllegalArgumentException, InvocationTargetException;
+
+  /**
+   * Returns an array of <code>TypeVariable</code> objects that represents
+   * the type variables declared by this constructor, in declaration order.
+   * An array of size zero is returned if this constructor has no type
+   * variables.
+   *
+   * @return the type variables associated with this constructor.
+   * @throws GenericSignatureFormatError if the generic signature does
+   *         not conform to the format specified in the Virtual Machine
+   *         specification, version 3.
+   * @since 1.5
+   */
+  public TypeVariable<Constructor<T>>[] getTypeParameters()
+  {
+    String sig = getSignature();
+    if (sig == null)
+      return new TypeVariable[0];
+    MethodSignatureParser p = new MethodSignatureParser(this, sig);
+    return p.getTypeParameters();
+  }
+
+  /**
+   * Return the String in the Signature attribute for this constructor. If there
+   * is no Signature attribute, return null.
+   */
+  private native String getSignature();
+
+  /**
+   * Returns an array of <code>Type</code> objects that represents
+   * the exception types declared by this constructor, in declaration order.
+   * An array of size zero is returned if this constructor declares no
+   * exceptions.
+   *
+   * @return the exception types declared by this constructor. 
+   * @throws GenericSignatureFormatError if the generic signature does
+   *         not conform to the format specified in the Virtual Machine
+   *         specification, version 3.
+   * @since 1.5
+   */
+  public Type[] getGenericExceptionTypes()
+  {
+    String sig = getSignature();
+    if (sig == null)
+      return getExceptionTypes();
+    MethodSignatureParser p = new MethodSignatureParser(this, sig);
+    return p.getGenericExceptionTypes();
+  }
+
+  /**
+   * Returns an array of <code>Type</code> objects that represents
+   * the parameter list for this constructor, in declaration order.
+   * An array of size zero is returned if this constructor takes no
+   * parameters.
+   *
+   * @return a list of the types of the constructor's parameters
+   * @throws GenericSignatureFormatError if the generic signature does
+   *         not conform to the format specified in the Virtual Machine
+   *         specification, version 3.
+   * @since 1.5
+   */
+  public Type[] getGenericParameterTypes()
+  {
+    String sig = getSignature();
+    if (sig == null)
+      return getParameterTypes();
+    MethodSignatureParser p = new MethodSignatureParser(this, sig);
+    return p.getGenericParameterTypes();
+  }
+
+  public <T extends Annotation> T getAnnotation(Class<T> annoClass)
+  {
+    Annotation[] annos = getDeclaredAnnotations();
+    for (int i = 0; i < annos.length; ++i)
+      if (annos[i].annotationType() == annoClass)
+	return (T) annos[i];
+    return null;
+  }
+
+  public Annotation[] getDeclaredAnnotations()
+  {
+    Annotation[] result = getDeclaredAnnotationsInternal();
+    if (result == null)
+      result = new Annotation[0];
+    return result;
+  }
+
+  public Annotation[][] getParameterAnnotations()
+  {
+    // FIXME: should check that we have the right number
+    // of parameters ...?
+    Annotation[][] result = getParameterAnnotationsInternal();
+    if (result == null)
+      result = new Annotation[0][0];
+    return result;
+  }
+
+  private native Annotation[] getDeclaredAnnotationsInternal();
+  private native Annotation[][] getParameterAnnotationsInternal();
 
   // Update cached values from method descriptor in class.
   private native void getType ();
 
   // Declaring class.
-  private Class declaringClass;
+  private Class<T> declaringClass;
 
   // Exception types.
   private Class[] exception_types;

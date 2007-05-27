@@ -197,6 +197,13 @@ extern long get_run_time (void);
 extern char *make_relative_prefix (const char *, const char *,
                                    const char *) ATTRIBUTE_MALLOC;
 
+/* Generate a relocated path to some installation directory without
+   attempting to follow any soft links.  Allocates
+   return value using malloc.  */
+
+extern char *make_relative_prefix_ignore_links (const char *, const char *,
+						const char *) ATTRIBUTE_MALLOC;
+
 /* Choose a temporary directory to use for scratch files.  */
 
 extern char *choose_temp_base (void) ATTRIBUTE_MALLOC;
@@ -393,6 +400,19 @@ extern struct pex_obj *pex_init (int flags, const char *pname,
    PEX_BINARY_INPUT.  */
 #define PEX_BINARY_OUTPUT	0x20
 
+/* Capture stderr to a pipe.  The output can be read by
+   calling pex_read_err and reading from the returned
+   FILE object.  This flag may be specified only for
+   the last program in a pipeline.  
+
+   This flag is supported only on Unix and Windows.  */
+#define PEX_STDERR_TO_PIPE	0x40
+
+/* Capture stderr in binary mode.  This flag is ignored
+   on Unix.  */
+#define PEX_BINARY_ERROR	0x80
+
+
 /* Execute one program.  Returns NULL on success.  On error returns an
    error string (typically just the name of a system call); the error
    string is statically allocated.
@@ -448,6 +468,37 @@ extern const char *pex_run (struct pex_obj *obj, int flags,
 			    const char *outname, const char *errname,
 			    int *err);
 
+/* As for pex_run (), but takes an extra parameter to enable the
+   environment for the child process to be specified.
+
+   ENV		The environment for the child process, specified as
+		an array of character pointers.  Each element of the
+		array should point to a string of the form VAR=VALUE,
+                with the exception of the last element which must be
+                a null pointer.
+*/
+
+extern const char *pex_run_in_environment (struct pex_obj *obj, int flags,
+			                   const char *executable,
+                                           char * const *argv,
+                                           char * const *env,
+              	          		   const char *outname,
+					   const char *errname, int *err);
+
+/* Return a stream for a temporary file to pass to the first program
+   in the pipeline as input.  The file name is chosen as for pex_run.
+   pex_run closes the file automatically; don't close it yourself.  */
+
+extern FILE *pex_input_file (struct pex_obj *obj, int flags,
+                             const char *in_name);
+
+/* Return a stream for a pipe connected to the standard input of the
+   first program in the pipeline.  You must have passed
+   `PEX_USE_PIPES' to `pex_init'.  Close the returned stream
+   yourself.  */
+
+extern FILE *pex_input_pipe (struct pex_obj *obj, int binary);
+
 /* Read the standard output of the last program to be executed.
    pex_run can not be called after this.  BINARY should be non-zero if
    the file should be opened in binary mode; this is ignored on Unix.
@@ -455,6 +506,14 @@ extern const char *pex_run (struct pex_obj *obj, int flags,
    will be closed by pex_free.  */
 
 extern FILE *pex_read_output (struct pex_obj *, int binary);
+
+/* Read the standard error of the last program to be executed.
+   pex_run can not be called after this.  BINARY should be non-zero if
+   the file should be opened in binary mode; this is ignored on Unix.
+   Returns NULL on error.  Don't call fclose on the returned FILE; it
+   will be closed by pex_free.  */
+
+extern FILE *pex_read_err (struct pex_obj *, int binary);
 
 /* Return exit status of all programs in VECTOR.  COUNT indicates the
    size of VECTOR.  The status codes in the vector are in the order of

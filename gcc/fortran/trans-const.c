@@ -33,12 +33,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "trans-const.h"
 #include "trans-types.h"
 
-/* String constants.  */
-tree gfc_strconst_bounds;
-tree gfc_strconst_fault;
-tree gfc_strconst_wrong_return;
-tree gfc_strconst_current_filename;
-
 tree gfc_rank_cst[GFC_MAX_DIMENSIONS + 1];
 
 /* Build a constant with given type from an int_cst.  */
@@ -154,17 +148,6 @@ gfc_init_constants (void)
 
   for (n = 0; n <= GFC_MAX_DIMENSIONS; n++)
     gfc_rank_cst[n] = build_int_cst (gfc_array_index_type, n);
-
-  gfc_strconst_bounds = gfc_build_cstring_const ("Array bound mismatch");
-
-  gfc_strconst_fault =
-    gfc_build_cstring_const ("Array reference out of bounds");
-
-  gfc_strconst_wrong_return =
-    gfc_build_cstring_const ("Incorrect function return value");
-
-  gfc_strconst_current_filename =
-    gfc_build_cstring_const (gfc_source_file);
 }
 
 /* Converts a GMP integer into a backend tree node.  */
@@ -182,23 +165,33 @@ gfc_conv_mpz_to_tree (mpz_t i, int kind)
     }
   else
     {
-      unsigned HOST_WIDE_INT words[2];
-      size_t count;
+      unsigned HOST_WIDE_INT *words;
+      size_t count, numb;
+
+      /* Determine the number of unsigned HOST_WIDE_INT that are required
+         for represent the value.  The code to calculate count is
+	 extracted from the GMP manual, section "Integer Import and Export":
+         http://gmplib.org/manual/Integer-Import-and-Export.html  */
+      numb = 8*sizeof(HOST_WIDE_INT);
+      count = (mpz_sizeinbase (i, 2) + numb-1) / numb;
+      if (count < 2)
+	count = 2;
+      words = (unsigned HOST_WIDE_INT *) alloca (count * sizeof(HOST_WIDE_INT));
 
       /* Since we know that the value is not zero (mpz_fits_slong_p),
 	 we know that at least one word will be written, but we don't know
 	 about the second.  It's quicker to zero the second word before
 	 than conditionally clear it later.  */
       words[1] = 0;
-
+      
       /* Extract the absolute value into words.  */
-      mpz_export (words, &count, -1, sizeof (HOST_WIDE_INT), 0, 0, i);
+      mpz_export (words, &count, -1, sizeof(HOST_WIDE_INT), 0, 0, i);
 
-      /* We assume that all numbers are in range for its type, and that
-	 we never create a type larger than 2*HWI, which is the largest
-	 that the middle-end can handle.  */
-      gcc_assert (count == 1 || count == 2);
-
+      /* We don't assume that all numbers are in range for its type.
+         However, we never create a type larger than 2*HWI, which is the
+	 largest that the middle-end can handle. So, we only take the
+	 first two elements of words, which is equivalent to wrapping the
+	 value if it's larger than the type range.  */
       low = words[0];
       high = words[1];
 
@@ -226,10 +219,30 @@ gfc_conv_mpfr_to_tree (mpfr_t f, int kind)
   mp_exp_t exp;
   char *p, *q;
   int n;
+  REAL_VALUE_TYPE real;
 
   n = gfc_validate_kind (BT_REAL, kind, false);
 
   gcc_assert (gfc_real_kinds[n].radix == 2);
+
+  type = gfc_get_real_type (kind);
+
+  /* Take care of Infinity and NaN.  */
+  if (mpfr_inf_p (f))
+    {
+      real_inf (&real);
+      if (mpfr_sgn (f) < 0)
+	real = REAL_VALUE_NEGATE(real);
+      res = build_real (type , real);
+      return res;
+    }
+
+  if (mpfr_nan_p (f))
+    {
+      real_nan (&real, "", 0, TYPE_MODE (type));
+      res = build_real (type , real);
+      return res;
+    }
 
   /* mpfr chooses too small a number of hexadecimal digits if the
      number of binary digits is not divisible by four, therefore we
@@ -251,7 +264,6 @@ gfc_conv_mpfr_to_tree (mpfr_t f, int kind)
   else
     sprintf (q, "0x.%sp%d", p, (int) exp);
 
-  type = gfc_get_real_type (kind);
   res = build_real (type, REAL_VALUE_ATOF (q, TYPE_MODE (type)));
 
   gfc_free (q);

@@ -95,7 +95,7 @@ gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations,
 			  struct loop *first_loop,
 			  unsigned int *dependence_steps, 
 			  unsigned int *nb_deps_not_carried_by_loop, 
-			  unsigned int *access_strides)
+			  double_int *access_strides)
 {
   unsigned int i, j;
   struct data_dependence_relation *ddr;
@@ -103,7 +103,7 @@ gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations,
 
   *dependence_steps = 0;
   *nb_deps_not_carried_by_loop = 0;
-  *access_strides = 0;
+  *access_strides = double_int_zero;
 
   for (i = 0; VEC_iterate (ddr_p, dependence_relations, i, ddr); i++)
     {
@@ -134,24 +134,32 @@ gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations,
   for (i = 0; VEC_iterate (data_reference_p, datarefs, i, dr); i++)
     {
       unsigned int it;
+      tree ref = DR_REF (dr);
       tree stmt = DR_STMT (dr);
       struct loop *stmt_loop = loop_containing_stmt (stmt);
       struct loop *inner_loop = first_loop->inner;
-      
+
       if (inner_loop != stmt_loop 
 	  && !flow_loop_nested_p (inner_loop, stmt_loop))
 	continue;
-      for (it = 0; it < DR_NUM_DIMENSIONS (dr); it++)
+
+      for (it = 0; it < DR_NUM_DIMENSIONS (dr); 
+	   it++, ref = TREE_OPERAND (ref, 0))
 	{
 	  tree chrec = DR_ACCESS_FN (dr, it);
-	  tree tstride = evolution_part_in_loop_num 
-	    (chrec, loop->num);
-	  
+	  tree tstride = evolution_part_in_loop_num (chrec, loop->num);
+	  tree array_size = TYPE_SIZE (TREE_TYPE (ref));
+	  double_int dstride;
+
 	  if (tstride == NULL_TREE
-	      || TREE_CODE (tstride) != INTEGER_CST)
+	      || array_size == NULL_TREE 
+	      || TREE_CODE (tstride) != INTEGER_CST
+	      || TREE_CODE (array_size) != INTEGER_CST)
 	    continue;
-	  
-	  (*access_strides) += int_cst_value (tstride);
+
+	  dstride = double_int_mul (tree_to_double_int (array_size), 
+				    tree_to_double_int (tstride));
+	  (*access_strides) = double_int_add (*access_strides, dstride);
 	}
     }
 }
@@ -174,9 +182,12 @@ try_interchange_loops (lambda_trans_matrix trans,
   struct loop *loop_i;
   struct loop *loop_j;
   unsigned int dependence_steps_i, dependence_steps_j;
-  unsigned int access_strides_i, access_strides_j;
+  double_int access_strides_i, access_strides_j;
   unsigned int nb_deps_not_carried_by_i, nb_deps_not_carried_by_j;
   struct data_dependence_relation *ddr;
+
+  if (VEC_length (ddr_p, dependence_relations) == 0)
+    return trans;
 
   /* When there is an unknown relation in the dependence_relations, we
      know that it is no worth looking at this loop nest: give up.  */
@@ -216,7 +227,7 @@ try_interchange_loops (lambda_trans_matrix trans,
 	*/
 	if (dependence_steps_i < dependence_steps_j 
 	    || nb_deps_not_carried_by_i > nb_deps_not_carried_by_j
-	    || access_strides_i < access_strides_j)
+	    || double_int_ucmp (access_strides_i, access_strides_j) < 0)
 	  {
 	    lambda_matrix_row_exchange (LTM_MATRIX (trans),
 					loop_i->depth - first_loop->depth,
@@ -233,26 +244,26 @@ try_interchange_loops (lambda_trans_matrix trans,
   return trans;
 }
 
-/* Perform a set of linear transforms on LOOPS.  */
+/* Perform a set of linear transforms on loops.  */
 
 void
-linear_transform_loops (struct loops *loops)
+linear_transform_loops (void)
 {
-  unsigned int i;
+  bool modified = false;
+  loop_iterator li;
   VEC(tree,heap) *oldivs = NULL;
   VEC(tree,heap) *invariants = NULL;
+  struct loop *loop_nest;
   
-  for (i = 1; i < loops->num; i++)
+  FOR_EACH_LOOP (li, loop_nest, 0)
     {
       unsigned int depth = 0;
       VEC (ddr_p, heap) *dependence_relations;
       VEC (data_reference_p, heap) *datarefs;
-      struct loop *loop_nest = loops->parray[i];
       struct loop *temp;
       lambda_loopnest before, after;
       lambda_trans_matrix trans;
       bool problem = false;
-      bool need_perfect_nest = false;
       /* If it's not a loop nest, we don't want it.
          We also don't handle sibling loops properly, 
          which are loops of the following form:
@@ -262,12 +273,12 @@ linear_transform_loops (struct loops *loops)
                {
 	        ...
                }
-           for (j = 0; j < 50; j++)
+             for (j = 0; j < 50; j++)
                {
                 ...
                }
            } */
-      if (!loop_nest || !loop_nest->inner)
+      if (!loop_nest->inner || !single_exit (loop_nest))
 	continue;
       VEC_truncate (tree, oldivs, 0);
       VEC_truncate (tree, invariants, 0);
@@ -275,7 +286,7 @@ linear_transform_loops (struct loops *loops)
       for (temp = loop_nest->inner; temp; temp = temp->inner)
 	{
 	  /* If we have a sibling loop or multiple exit edges, jump ship.  */
-	  if (temp->next || !temp->single_exit)
+	  if (temp->next || !single_exit (temp))
 	    {
 	      problem = true;
 	      break;
@@ -305,7 +316,7 @@ linear_transform_loops (struct loops *loops)
 	{
 	  if (dump_file)
 	   fprintf (dump_file, "Won't transform loop. Optimal transform is the identity transform\n");
-	  continue;
+	  goto free_and_continue;
 	}
 
       /* Check whether the transformation is legal.  */
@@ -313,19 +324,15 @@ linear_transform_loops (struct loops *loops)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "Can't transform loop, transform is illegal:\n");
-	  continue;
+	  goto free_and_continue;
 	}
 
-      if (!perfect_nest_p (loop_nest))
-	need_perfect_nest = true;
+      before = gcc_loopnest_to_lambda_loopnest (loop_nest, &oldivs,
+						&invariants);
 
-      before = gcc_loopnest_to_lambda_loopnest (loops,
-						loop_nest, &oldivs, 
-						&invariants,
-						need_perfect_nest);
       if (!before)
-	continue;
-            
+	goto free_and_continue;
+
       if (dump_file)
 	{
 	  fprintf (dump_file, "Before:\n");
@@ -342,10 +349,12 @@ linear_transform_loops (struct loops *loops)
 
       lambda_loopnest_to_gcc_loopnest (loop_nest, oldivs, invariants,
 				       after, trans);
+      modified = true;
 
       if (dump_file)
 	fprintf (dump_file, "Successfully transformed loop.\n");
 
+    free_and_continue:
       free_dependence_relations (dependence_relations);
       free_data_refs (datarefs);
     }
@@ -353,5 +362,7 @@ linear_transform_loops (struct loops *loops)
   VEC_free (tree, heap, oldivs);
   VEC_free (tree, heap, invariants);
   scev_reset ();
-  rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa_full_phi);
+
+  if (modified)
+    rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa_full_phi);
 }

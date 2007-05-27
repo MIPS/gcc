@@ -1,7 +1,7 @@
 // javaprims.h - Main external header file for libgcj.  -*- c++ -*-
 
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation
 
    This file is part of libgcj.
@@ -55,10 +55,13 @@ extern "Java"
       class CharArrayReader;
       class CharArrayWriter;
       class CharConversionException;
+      class Closeable;
       class DataInput;
       class DataInputStream;
       class DataOutput;
       class DataOutputStream;
+      class DeleteFileHelper;
+      class DeleteFileHelper$1;
       class EOFException;
       class Externalizable;
       class File;
@@ -75,6 +78,7 @@ extern "Java"
       class FilterOutputStream;
       class FilterReader;
       class FilterWriter;
+      class Flushable;
       class IOException;
       class InputStream;
       class InputStreamReader;
@@ -87,18 +91,24 @@ extern "Java"
       class NotSerializableException;
       class ObjectInput;
       class ObjectInputStream;
+      class ObjectInputStream$1;
+      class ObjectInputStream$2;
       class ObjectInputStream$GetField;
       class ObjectInputStream$ValidatorAndPriority;
       class ObjectInputValidation;
       class ObjectOutput;
       class ObjectOutputStream;
+      class ObjectOutputStream$1;
       class ObjectOutputStream$PutField;
       class ObjectStreamClass;
+      class ObjectStreamClass$1;
+      class ObjectStreamClass$2;
       class ObjectStreamClass$InterfaceComparator;
       class ObjectStreamClass$MemberComparator;
       class ObjectStreamConstants;
       class ObjectStreamException;
       class ObjectStreamField;
+      class ObjectStreamField$1;
       class OptionalDataException;
       class OutputStream;
       class OutputStreamWriter;
@@ -123,6 +133,7 @@ extern "Java"
       class SyncFailedException;
       class UTFDataFormatException;
       class UnsupportedEncodingException;
+      class VMObjectInputStream;
       class VMObjectStreamClass;
       class WriteAbortedException;
       class Writer;
@@ -131,6 +142,7 @@ extern "Java"
     namespace lang
     {
       class AbstractMethodError;
+      class Appendable;
       class ArithmeticException;
       class ArrayIndexOutOfBoundsException;
       class ArrayStoreException;
@@ -141,20 +153,23 @@ extern "Java"
       class Character;
       class Character$Subset;
       class Character$UnicodeBlock;
+      class Character$UnicodeBlock$NameType;
       class Class;
       class ClassCastException;
       class ClassCircularityError;
       class ClassFormatError;
       class ClassLoader;
+      class ClassLoader$AnnotationsKey;
       class ClassNotFoundException;
       class CloneNotSupportedException;
       class Cloneable;
       class Comparable;
       class Compiler;
-      class ConcreteProcess;
-      class ConcreteProcess$EOFInputStream;
-      class ConcreteProcess$ProcessManager;
+      class Deprecated;
       class Double;
+      class EcosProcess;
+      class Enum;
+      class EnumConstantNotPresentException;
       class Error;
       class Exception;
       class ExceptionInInitializerError;
@@ -173,6 +188,7 @@ extern "Java"
       class Integer;
       class InternalError;
       class InterruptedException;
+      class Iterable;
       class LinkageError;
       class Long;
       class Math;
@@ -187,15 +203,21 @@ extern "Java"
       class NumberFormatException;
       class Object;
       class OutOfMemoryError;
+      class Override;
       class Package;
+      class PosixProcess;
+      class PosixProcess$EOFInputStream;
+      class PosixProcess$ProcessManager;
       class Process;
+      class ProcessBuilder;
+      class Readable;
       class Runnable;
       class Runtime;
       class RuntimeException;
       class RuntimePermission;
-      class SecurityContext;
       class SecurityException;
       class SecurityManager;
+      class SecurityManager$1;
       class Short;
       class StackOverflowError;
       class StackTraceElement;
@@ -205,13 +227,20 @@ extern "Java"
       class StringBuffer;
       class StringBuilder;
       class StringIndexOutOfBoundsException;
+      class SuppressWarnings;
       class System;
+      class System$EnvironmentCollection;
+      class System$EnvironmentMap;
+      class System$EnvironmentSet;
       class Thread;
+      class Thread$State;
+      class Thread$UncaughtExceptionHandler;
       class ThreadDeath;
       class ThreadGroup;
       class ThreadLocal;
       class Throwable;
       class Throwable$StaticData;
+      class TypeNotPresentException;
       class UnknownError;
       class UnsatisfiedLinkError;
       class UnsupportedClassVersionError;
@@ -220,11 +249,56 @@ extern "Java"
       class VMCompiler;
       class VMDouble;
       class VMFloat;
-      class VMSecurityManager;
+      class VMProcess;
       class VMThrowable;
       class VerifyError;
       class VirtualMachineError;
       class Void;
+      class Win32Process;
+      class Win32Process$EOFInputStream;
+      namespace annotation
+      {
+        class Annotation;
+        class AnnotationFormatError;
+        class AnnotationTypeMismatchException;
+        class Documented;
+        class ElementType;
+        class IncompleteAnnotationException;
+        class Inherited;
+        class Retention;
+        class RetentionPolicy;
+        class Target;
+      }
+
+      namespace instrument
+      {
+        class ClassDefinition;
+        class ClassFileTransformer;
+        class IllegalClassFormatException;
+        class Instrumentation;
+        class UnmodifiableClassException;
+      }
+
+      namespace management
+      {
+        class ClassLoadingMXBean;
+        class CompilationMXBean;
+        class GarbageCollectorMXBean;
+        class ManagementFactory;
+        class ManagementPermission;
+        class MemoryMXBean;
+        class MemoryManagerMXBean;
+        class MemoryNotificationInfo;
+        class MemoryPoolMXBean;
+        class MemoryType;
+        class MemoryUsage;
+        class OperatingSystemMXBean;
+        class RuntimeMXBean;
+        class ThreadInfo;
+        class ThreadMXBean;
+        class VMManagementFactory;
+      }
+
       namespace ref
       {
         class PhantomReference;
@@ -237,21 +311,31 @@ extern "Java"
       namespace reflect
       {
         class AccessibleObject;
+        class AnnotatedElement;
         class Array;
         class Constructor;
         class Field;
+        class GenericArrayType;
+        class GenericDeclaration;
+        class GenericSignatureFormatError;
         class InvocationHandler;
         class InvocationTargetException;
+        class MalformedParameterizedTypeException;
         class Member;
         class Method;
         class Modifier;
+        class ParameterizedType;
         class Proxy;
         class Proxy$ClassFactory;
         class Proxy$ProxyData;
         class Proxy$ProxySignature;
         class Proxy$ProxyType;
         class ReflectPermission;
+        class Type;
+        class TypeVariable;
         class UndeclaredThrowableException;
+        class VMProxy;
+        class WildcardType;
       }
     }
 
@@ -259,12 +343,24 @@ extern "Java"
     {
       class AbstractCollection;
       class AbstractList;
+      class AbstractList$1;
+      class AbstractList$2;
+      class AbstractList$3;
       class AbstractList$RandomAccessSubList;
       class AbstractList$SubList;
       class AbstractMap;
-      class AbstractMap$BasicMapEntry;
+      class AbstractMap$1;
+      class AbstractMap$2;
+      class AbstractMap$3;
+      class AbstractMap$4;
+      class AbstractMap$SimpleEntry;
+      class AbstractMap$SimpleImmutableEntry;
+      class AbstractQueue;
       class AbstractSequentialList;
       class AbstractSet;
+      class ArrayDeque;
+      class ArrayDeque$DeqIterator;
+      class ArrayDeque$DescendingIterator;
       class ArrayList;
       class Arrays;
       class Arrays$ArrayList;
@@ -272,6 +368,26 @@ extern "Java"
       class Calendar;
       class Collection;
       class Collections;
+      class Collections$1;
+      class Collections$1$SynchronizedMapEntry;
+      class Collections$2;
+      class Collections$3;
+      class Collections$4;
+      class Collections$5;
+      class Collections$6;
+      class Collections$7;
+      class Collections$8;
+      class Collections$9;
+      class Collections$CheckedCollection;
+      class Collections$CheckedIterator;
+      class Collections$CheckedList;
+      class Collections$CheckedListIterator;
+      class Collections$CheckedMap;
+      class Collections$CheckedMap$CheckedEntrySet;
+      class Collections$CheckedRandomAccessList;
+      class Collections$CheckedSet;
+      class Collections$CheckedSortedMap;
+      class Collections$CheckedSortedSet;
       class Collections$CopiesList;
       class Collections$EmptyList;
       class Collections$EmptyMap;
@@ -285,17 +401,17 @@ extern "Java"
       class Collections$SynchronizedList;
       class Collections$SynchronizedListIterator;
       class Collections$SynchronizedMap;
-      class Collections$SynchronizedMapEntry;
       class Collections$SynchronizedRandomAccessList;
       class Collections$SynchronizedSet;
       class Collections$SynchronizedSortedMap;
       class Collections$SynchronizedSortedSet;
       class Collections$UnmodifiableCollection;
-      class Collections$UnmodifiableEntrySet;
       class Collections$UnmodifiableIterator;
       class Collections$UnmodifiableList;
       class Collections$UnmodifiableListIterator;
       class Collections$UnmodifiableMap;
+      class Collections$UnmodifiableMap$UnmodifiableEntrySet;
+      class Collections$UnmodifiableMap$UnmodifiableEntrySet$UnmodifiableMapEntry;
       class Collections$UnmodifiableRandomAccessList;
       class Collections$UnmodifiableSet;
       class Collections$UnmodifiableSortedMap;
@@ -304,26 +420,66 @@ extern "Java"
       class ConcurrentModificationException;
       class Currency;
       class Date;
+      class Deque;
       class Dictionary;
+      class DuplicateFormatFlagsException;
       class EmptyStackException;
+      class EnumMap;
+      class EnumMap$1;
+      class EnumMap$2;
+      class EnumMap$3;
+      class EnumMap$4;
+      class EnumMap$5;
+      class EnumMap$6;
+      class EnumMap$7;
+      class EnumSet;
+      class EnumSet$1;
       class Enumeration;
       class EventListener;
       class EventListenerProxy;
       class EventObject;
+      class FormatFlagsConversionMismatchException;
+      class Formattable;
+      class FormattableFlags;
+      class Formatter;
+      class Formatter$BigDecimalLayoutForm;
+      class FormatterClosedException;
       class GregorianCalendar;
       class HashMap;
+      class HashMap$1;
+      class HashMap$2;
+      class HashMap$3;
       class HashMap$HashEntry;
       class HashMap$HashIterator;
       class HashSet;
       class Hashtable;
-      class Hashtable$Enumerator;
+      class Hashtable$1;
+      class Hashtable$2;
+      class Hashtable$3;
+      class Hashtable$EntryEnumerator;
+      class Hashtable$EntryIterator;
       class Hashtable$HashEntry;
-      class Hashtable$HashIterator;
+      class Hashtable$KeyEnumerator;
+      class Hashtable$KeyIterator;
+      class Hashtable$ValueEnumerator;
+      class Hashtable$ValueIterator;
       class IdentityHashMap;
+      class IdentityHashMap$1;
+      class IdentityHashMap$2;
+      class IdentityHashMap$3;
       class IdentityHashMap$IdentityEntry;
       class IdentityHashMap$IdentityIterator;
+      class IllegalFormatCodePointException;
+      class IllegalFormatConversionException;
+      class IllegalFormatException;
+      class IllegalFormatFlagsException;
+      class IllegalFormatPrecisionException;
+      class IllegalFormatWidthException;
+      class InputMismatchException;
+      class InvalidPropertiesFormatException;
       class Iterator;
       class LinkedHashMap;
+      class LinkedHashMap$1;
       class LinkedHashMap$LinkedHashEntry;
       class LinkedHashSet;
       class LinkedList;
@@ -335,19 +491,25 @@ extern "Java"
       class Locale;
       class Map;
       class Map$Entry;
-      class Map$Map;
+      class MissingFormatArgumentException;
+      class MissingFormatWidthException;
       class MissingResourceException;
-      class MyResources;
+      class NavigableMap;
+      class NavigableSet;
       class NoSuchElementException;
       class Observable;
       class Observer;
+      class PriorityQueue;
+      class PriorityQueue$1;
       class Properties;
       class PropertyPermission;
       class PropertyPermissionCollection;
       class PropertyResourceBundle;
+      class Queue;
       class Random;
       class RandomAccess;
       class ResourceBundle;
+      class ResourceBundle$1;
       class ResourceBundle$BundleKey;
       class Set;
       class SimpleTimeZone;
@@ -356,22 +518,215 @@ extern "Java"
       class Stack;
       class StringTokenizer;
       class TimeZone;
+      class TimeZone$1;
       class Timer;
       class Timer$Scheduler;
       class Timer$TaskQueue;
       class TimerTask;
       class TooManyListenersException;
       class TreeMap;
+      class TreeMap$1;
+      class TreeMap$2;
+      class TreeMap$3;
+      class TreeMap$4;
+      class TreeMap$5;
+      class TreeMap$6;
       class TreeMap$Node;
       class TreeMap$SubMap;
       class TreeMap$TreeIterator;
       class TreeSet;
+      class UUID;
+      class UnknownFormatConversionException;
+      class UnknownFormatFlagsException;
       class VMTimeZone;
       class Vector;
+      class Vector$1;
       class WeakHashMap;
+      class WeakHashMap$1;
+      class WeakHashMap$2;
       class WeakHashMap$WeakBucket;
-      class WeakHashMap$WeakEntry;
+      class WeakHashMap$WeakBucket$WeakEntry;
       class WeakHashMap$WeakEntrySet;
+      namespace concurrent
+      {
+        class AbstractExecutorService;
+        class ArrayBlockingQueue;
+        class ArrayBlockingQueue$Itr;
+        class BlockingDeque;
+        class BlockingQueue;
+        class BrokenBarrierException;
+        class Callable;
+        class CancellationException;
+        class CompletionService;
+        class ConcurrentHashMap;
+        class ConcurrentHashMap$EntryIterator;
+        class ConcurrentHashMap$EntrySet;
+        class ConcurrentHashMap$HashEntry;
+        class ConcurrentHashMap$HashIterator;
+        class ConcurrentHashMap$KeyIterator;
+        class ConcurrentHashMap$KeySet;
+        class ConcurrentHashMap$Segment;
+        class ConcurrentHashMap$ValueIterator;
+        class ConcurrentHashMap$Values;
+        class ConcurrentHashMap$WriteThroughEntry;
+        class ConcurrentLinkedQueue;
+        class ConcurrentLinkedQueue$Itr;
+        class ConcurrentLinkedQueue$Node;
+        class ConcurrentMap;
+        class ConcurrentNavigableMap;
+        class ConcurrentSkipListMap;
+        class ConcurrentSkipListMap$ComparableUsingComparator;
+        class ConcurrentSkipListMap$EntryIterator;
+        class ConcurrentSkipListMap$EntrySet;
+        class ConcurrentSkipListMap$HeadIndex;
+        class ConcurrentSkipListMap$Index;
+        class ConcurrentSkipListMap$Iter;
+        class ConcurrentSkipListMap$KeyIterator;
+        class ConcurrentSkipListMap$KeySet;
+        class ConcurrentSkipListMap$Node;
+        class ConcurrentSkipListMap$SubMap;
+        class ConcurrentSkipListMap$SubMap$SubMapEntryIterator;
+        class ConcurrentSkipListMap$SubMap$SubMapIter;
+        class ConcurrentSkipListMap$SubMap$SubMapKeyIterator;
+        class ConcurrentSkipListMap$SubMap$SubMapValueIterator;
+        class ConcurrentSkipListMap$ValueIterator;
+        class ConcurrentSkipListMap$Values;
+        class ConcurrentSkipListSet;
+        class CopyOnWriteArrayList;
+        class CopyOnWriteArraySet;
+        class CountDownLatch;
+        class CountDownLatch$Sync;
+        class CyclicBarrier;
+        class CyclicBarrier$Generation;
+        class DelayQueue;
+        class DelayQueue$Itr;
+        class Delayed;
+        class Exchanger;
+        class Exchanger$Node;
+        class Exchanger$Slot;
+        class ExecutionException;
+        class Executor;
+        class ExecutorCompletionService;
+        class ExecutorCompletionService$QueueingFuture;
+        class ExecutorService;
+        class Executors;
+        class Executors$1;
+        class Executors$2;
+        class Executors$3;
+        class Executors$4;
+        class Executors$5;
+        class Executors$6;
+        class Executors$DefaultThreadFactory;
+        class Executors$DelegatedExecutorService;
+        class Executors$DelegatedScheduledExecutorService;
+        class Executors$FinalizableDelegatedExecutorService;
+        class Executors$PrivilegedCallable;
+        class Executors$PrivilegedCallableUsingCurrentClassLoader;
+        class Executors$PrivilegedThreadFactory;
+        class Executors$RunnableAdapter;
+        class Future;
+        class FutureTask;
+        class FutureTask$Sync;
+        class LinkedBlockingDeque;
+        class LinkedBlockingDeque$AbstractItr;
+        class LinkedBlockingDeque$DescendingItr;
+        class LinkedBlockingDeque$Itr;
+        class LinkedBlockingDeque$Node;
+        class LinkedBlockingQueue;
+        class LinkedBlockingQueue$Itr;
+        class LinkedBlockingQueue$Node;
+        class PriorityBlockingQueue;
+        class PriorityBlockingQueue$Itr;
+        class RejectedExecutionException;
+        class RejectedExecutionHandler;
+        class RunnableFuture;
+        class RunnableScheduledFuture;
+        class ScheduledExecutorService;
+        class ScheduledFuture;
+        class ScheduledThreadPoolExecutor;
+        class ScheduledThreadPoolExecutor$1;
+        class ScheduledThreadPoolExecutor$DelayedWorkQueue;
+        class ScheduledThreadPoolExecutor$ScheduledFutureTask;
+        class Semaphore;
+        class Semaphore$FairSync;
+        class Semaphore$NonfairSync;
+        class Semaphore$Sync;
+        class SynchronousQueue;
+        class SynchronousQueue$EmptyIterator;
+        class SynchronousQueue$FifoWaitQueue;
+        class SynchronousQueue$LifoWaitQueue;
+        class SynchronousQueue$TransferQueue;
+        class SynchronousQueue$TransferQueue$QNode;
+        class SynchronousQueue$TransferStack;
+        class SynchronousQueue$TransferStack$SNode;
+        class SynchronousQueue$Transferer;
+        class SynchronousQueue$WaitQueue;
+        class ThreadFactory;
+        class ThreadPoolExecutor;
+        class ThreadPoolExecutor$AbortPolicy;
+        class ThreadPoolExecutor$CallerRunsPolicy;
+        class ThreadPoolExecutor$DiscardOldestPolicy;
+        class ThreadPoolExecutor$DiscardPolicy;
+        class ThreadPoolExecutor$Worker;
+        class TimeUnit;
+        class TimeUnit$1;
+        class TimeUnit$2;
+        class TimeUnit$3;
+        class TimeUnit$4;
+        class TimeUnit$5;
+        class TimeUnit$6;
+        class TimeUnit$7;
+        class TimeoutException;
+        namespace atomic
+        {
+          class AtomicBoolean;
+          class AtomicInteger;
+          class AtomicIntegerArray;
+          class AtomicIntegerFieldUpdater;
+          class AtomicIntegerFieldUpdater$AtomicIntegerFieldUpdaterImpl;
+          class AtomicLong;
+          class AtomicLongArray;
+          class AtomicLongFieldUpdater;
+          class AtomicLongFieldUpdater$CASUpdater;
+          class AtomicLongFieldUpdater$LockedUpdater;
+          class AtomicMarkableReference;
+          class AtomicMarkableReference$ReferenceBooleanPair;
+          class AtomicReference;
+          class AtomicReferenceArray;
+          class AtomicReferenceFieldUpdater;
+          class AtomicReferenceFieldUpdater$AtomicReferenceFieldUpdaterImpl;
+          class AtomicStampedReference;
+          class AtomicStampedReference$ReferenceIntegerPair;
+        }
+
+        namespace locks
+        {
+          class AbstractOwnableSynchronizer;
+          class AbstractQueuedLongSynchronizer;
+          class AbstractQueuedLongSynchronizer$ConditionObject;
+          class AbstractQueuedLongSynchronizer$Node;
+          class AbstractQueuedSynchronizer;
+          class AbstractQueuedSynchronizer$ConditionObject;
+          class AbstractQueuedSynchronizer$Node;
+          class Condition;
+          class Lock;
+          class LockSupport;
+          class ReadWriteLock;
+          class ReentrantLock;
+          class ReentrantLock$FairSync;
+          class ReentrantLock$NonfairSync;
+          class ReentrantLock$Sync;
+          class ReentrantReadWriteLock;
+          class ReentrantReadWriteLock$FairSync;
+          class ReentrantReadWriteLock$NonfairSync;
+          class ReentrantReadWriteLock$ReadLock;
+          class ReentrantReadWriteLock$Sync;
+          class ReentrantReadWriteLock$Sync$HoldCounter;
+          class ReentrantReadWriteLock$Sync$ThreadLocalHoldCounter;
+          class ReentrantReadWriteLock$WriteLock;
+        }
+      }
+
       namespace jar
       {
         class Attributes;
@@ -391,13 +746,17 @@ extern "Java"
         class ConsoleHandler;
         class ErrorManager;
         class FileHandler;
+        class FileHandler$ostr;
         class Filter;
         class Formatter;
         class Handler;
         class Level;
         class LogManager;
+        class LogManager$1;
         class LogRecord;
         class Logger;
+        class Logger$1;
+        class LoggingMXBean;
         class LoggingPermission;
         class MemoryHandler;
         class SimpleFormatter;
@@ -409,6 +768,8 @@ extern "Java"
       namespace prefs
       {
         class AbstractPreferences;
+        class AbstractPreferences$1;
+        class AbstractPreferences$2;
         class BackingStoreException;
         class InvalidPreferencesFormatException;
         class NodeChangeEvent;
@@ -416,11 +777,13 @@ extern "Java"
         class PreferenceChangeEvent;
         class PreferenceChangeListener;
         class Preferences;
+        class Preferences$1;
         class PreferencesFactory;
       }
 
       namespace regex
       {
+        class MatchResult;
         class Matcher;
         class Pattern;
         class PatternSyntaxException;
@@ -444,6 +807,7 @@ extern "Java"
         class ZipEntry;
         class ZipException;
         class ZipFile;
+        class ZipFile$1;
         class ZipFile$PartialInputStream;
         class ZipFile$ZipEntryEnumeration;
         class ZipInputStream;
@@ -490,6 +854,7 @@ extern "C" jstring _Jv_NewStringLatin1(const char*, jsize)
 extern "C" jsize _Jv_GetStringUTFLength (jstring);
 extern "C" jsize _Jv_GetStringUTFRegion (jstring, jsize, jsize, char *);
 extern "C" jint _Jv_hashUtf8String (const char*, int);
+extern bool _Jv_is_proxy (void *pc);
 
 struct _Jv_VMOption
 {
@@ -536,6 +901,10 @@ extern "C" void _Jv_RegisterClassHookDefault (jclass);
 typedef unsigned short _Jv_ushort __attribute__((__mode__(__HI__)));
 typedef unsigned int _Jv_uint __attribute__((__mode__(__SI__)));
 typedef unsigned int _Jv_ulong __attribute__((__mode__(__DI__)));
+
+// The type to use when treating a pointer as an integer.  Similar to
+// uintptr_t in C99.
+typedef unsigned int _Jv_uintptr_t __attribute__((__mode__(__pointer__)));
 
 class _Jv_Utf8Const
 {

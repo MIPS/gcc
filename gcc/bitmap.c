@@ -28,6 +28,94 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "obstack.h"
 #include "ggc.h"
 #include "bitmap.h"
+#include "hashtab.h"
+
+#ifdef GATHER_STATISTICS
+
+/* Store information about each particular bitmap.  */
+struct bitmap_descriptor
+{
+  const char *function;
+  const char *file;
+  int line;
+  int allocated;
+  int created;
+  int peak;
+  int current;
+  int nsearches;
+};
+
+/* Hashtable mapping bitmap names to descriptors.  */
+static htab_t bitmap_desc_hash;
+
+/* Hashtable helpers.  */
+static hashval_t
+hash_descriptor (const void *p)
+{
+  const struct bitmap_descriptor *d = p;
+  return htab_hash_pointer (d->file) + d->line;
+}
+struct loc
+{
+  const char *file;
+  const char *function;
+  int line;
+};
+static int
+eq_descriptor (const void *p1, const void *p2)
+{
+  const struct bitmap_descriptor *d = p1;
+  const struct loc *l = p2;
+  return d->file == l->file && d->function == l->function && d->line == l->line;
+}
+
+/* For given file and line, return descriptor, create new if needed.  */
+static struct bitmap_descriptor *
+bitmap_descriptor (const char *file, const char *function, int line)
+{
+  struct bitmap_descriptor **slot;
+  struct loc loc;
+
+  loc.file = file;
+  loc.function = function;
+  loc.line = line;
+
+  if (!bitmap_desc_hash)
+    bitmap_desc_hash = htab_create (10, hash_descriptor, eq_descriptor, NULL);
+
+  slot = (struct bitmap_descriptor **)
+    htab_find_slot_with_hash (bitmap_desc_hash, &loc,
+			      htab_hash_pointer (file) + line,
+			      1);
+  if (*slot)
+    return *slot;
+  *slot = xcalloc (sizeof (**slot), 1);
+  (*slot)->file = file;
+  (*slot)->function = function;
+  (*slot)->line = line;
+  return *slot;
+}
+
+/* Register new bitmap.  */
+void
+bitmap_register (bitmap b MEM_STAT_DECL)
+{
+  b->desc = bitmap_descriptor (_loc_name, _loc_function, _loc_line);
+  b->desc->created++;
+}
+
+/* Account the overhead.  */
+static void
+register_overhead (bitmap b, int amount)
+{
+  b->desc->current += amount;
+  if (amount > 0)
+    b->desc->allocated += amount;
+  gcc_assert (b->desc->current >= 0);
+  if (b->desc->peak < b->desc->current)
+    b->desc->peak = b->desc->current;
+}
+#endif
 
 /* Global data */
 bitmap_element bitmap_zero_bits;  /* An element of all zero bits.  */
@@ -50,7 +138,7 @@ static inline void
 bitmap_elem_to_freelist (bitmap head, bitmap_element *elt)
 {
   bitmap_obstack *bit_obstack = head->obstack;
-  
+
   elt->next = NULL;
   if (bit_obstack)
     {
@@ -89,9 +177,12 @@ bitmap_element_free (bitmap head, bitmap_element *elt)
       head->current = next != 0 ? next : prev;
       if (head->current)
 	head->indx = head->current->indx;
-      else 
+      else
 	head->indx = 0;
     }
+#ifdef GATHER_STATISTICS
+  register_overhead (head, -((int)sizeof (bitmap_element)));
+#endif
   bitmap_elem_to_freelist (head, elt);
 }
 
@@ -102,11 +193,11 @@ bitmap_element_allocate (bitmap head)
 {
   bitmap_element *element;
   bitmap_obstack *bit_obstack = head->obstack;
-      
+
   if (bit_obstack)
     {
       element = bit_obstack->elements;
-      
+
       if (element)
 	/* Use up the inner list first before looking at the next
 	   element of the outer list.  */
@@ -139,6 +230,9 @@ bitmap_element_allocate (bitmap head)
 	element = GGC_NEW (bitmap_element);
     }
 
+#ifdef GATHER_STATISTICS
+  register_overhead (head, sizeof (bitmap_element));
+#endif
   memset (element->bits, 0, sizeof (element->bits));
 
   return element;
@@ -151,8 +245,17 @@ bitmap_elt_clear_from (bitmap head, bitmap_element *elt)
 {
   bitmap_element *prev;
   bitmap_obstack *bit_obstack = head->obstack;
+#ifdef GATHER_STATISTICS
+  int n;
+#endif
 
   if (!elt) return;
+#ifdef GATHER_STATISTICS
+  n = 0;
+  for (prev = elt; prev; prev = prev->next)
+    n++;
+  register_overhead (head, -sizeof (bitmap_element) * n);
+#endif
 
   prev = elt->prev;
   if (prev)
@@ -163,7 +266,7 @@ bitmap_elt_clear_from (bitmap head, bitmap_element *elt)
 	  head->current = prev;
 	  head->indx = prev->indx;
 	}
-    } 
+    }
   else
     {
       head->first = NULL;
@@ -171,10 +274,10 @@ bitmap_elt_clear_from (bitmap head, bitmap_element *elt)
       head->indx = 0;
     }
 
-  /* Put the entire list onto the free list in one operation. */ 
+  /* Put the entire list onto the free list in one operation. */
   if (bit_obstack)
     {
-      elt->prev = bit_obstack->elements; 
+      elt->prev = bit_obstack->elements;
       bit_obstack->elements = elt;
     }
   else
@@ -222,20 +325,17 @@ bitmap_obstack_release (bitmap_obstack *bit_obstack)
 {
   if (!bit_obstack)
     bit_obstack = &bitmap_default_obstack;
-  
+
   bit_obstack->elements = NULL;
   bit_obstack->heads = NULL;
   obstack_free (&bit_obstack->obstack, NULL);
-#ifdef ENABLE_CHECKING
-  memset (&bit_obstack->obstack, 0xab, sizeof (*&bit_obstack->obstack));
-#endif
 }
 
 /* Create a new bitmap on an obstack.  If BIT_OBSTACK is NULL, create
    it on the default bitmap obstack.  */
 
 bitmap
-bitmap_obstack_alloc (bitmap_obstack *bit_obstack)
+bitmap_obstack_alloc_stat (bitmap_obstack *bit_obstack MEM_STAT_DECL)
 {
   bitmap map;
 
@@ -246,7 +346,10 @@ bitmap_obstack_alloc (bitmap_obstack *bit_obstack)
     bit_obstack->heads = (void *)map->first;
   else
     map = XOBNEW (&bit_obstack->obstack, bitmap_head);
-  bitmap_initialize (map, bit_obstack);
+  bitmap_initialize_stat (map, bit_obstack PASS_MEM_STAT);
+#ifdef GATHER_STATISTICS
+  register_overhead (map, sizeof (bitmap_head));
+#endif
 
   return map;
 }
@@ -254,12 +357,15 @@ bitmap_obstack_alloc (bitmap_obstack *bit_obstack)
 /* Create a new GCd bitmap.  */
 
 bitmap
-bitmap_gc_alloc (void)
+bitmap_gc_alloc_stat (ALONE_MEM_STAT_DECL)
 {
   bitmap map;
 
   map = GGC_NEW (struct bitmap_head_def);
-  bitmap_initialize (map, NULL);
+  bitmap_initialize_stat (map, NULL PASS_MEM_STAT);
+#ifdef GATHER_STATISTICS
+  register_overhead (map, sizeof (bitmap_head));
+#endif
 
   return map;
 }
@@ -273,6 +379,9 @@ bitmap_obstack_free (bitmap map)
     {
       bitmap_clear (map);
       map->first = (void *)map->obstack->heads;
+#ifdef GATHER_STATISTICS
+      register_overhead (map, -((int)sizeof (bitmap_head)));
+#endif
       map->obstack->heads = map;
     }
 }
@@ -433,6 +542,9 @@ bitmap_find_bit (bitmap head, unsigned int bit)
   bitmap_element *element;
   unsigned int indx = bit / BITMAP_ELEMENT_ALL_BITS;
 
+#ifdef GATHER_STATISTICS
+  head->desc->nsearches++;
+#endif
   if (head->current == 0
       || head->indx == indx)
     return head->current;
@@ -532,7 +644,7 @@ bitmap_bit_p (bitmap head, int bit)
 
 #if GCC_VERSION < 3400
 /* Table of number of set bits in a character, indexed by value of char.  */
-static unsigned char popcount_table[] = 
+static unsigned char popcount_table[] =
 {
     0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,
     1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
@@ -574,13 +686,13 @@ bitmap_count_bits (bitmap a)
 	 of BITMAP_WORD is not material.  */
 	  count += __builtin_popcountl (elt->bits[ix]);
 #else
-	  count += bitmap_popcount (elt->bits[ix]);	  
+	  count += bitmap_popcount (elt->bits[ix]);
 #endif
 	}
     }
   return count;
 }
-      
+
 
 
 /* Return the bit number of the first set bit in the bitmap.  The
@@ -593,7 +705,7 @@ bitmap_first_set_bit (bitmap a)
   unsigned bit_no;
   BITMAP_WORD word;
   unsigned ix;
-  
+
   gcc_assert (elt);
   bit_no = elt->indx * BITMAP_ELEMENT_ALL_BITS;
   for (ix = 0; ix != BITMAP_ELEMENT_WORDS; ix++)
@@ -628,7 +740,7 @@ bitmap_first_set_bit (bitmap a)
     word >>= 2, bit_no += 2;
   if (!(word & 0x1))
     word >>= 1, bit_no += 1;
-  
+
  gcc_assert (word & 1);
 #endif
  return bit_no;
@@ -667,7 +779,7 @@ bitmap_and (bitmap dst, bitmap a, bitmap b)
 
 	  if (!dst_elt)
 	    dst_elt = bitmap_elt_insert_after (dst, dst_prev, a_elt->indx);
-	  else 
+	  else
 	    dst_elt->indx = a_elt->indx;
 	  for (ix = BITMAP_ELEMENT_WORDS; ix--;)
 	    {
@@ -685,6 +797,8 @@ bitmap_and (bitmap dst, bitmap a, bitmap b)
 	  b_elt = b_elt->next;
 	}
     }
+  /* Ensure that dst->current is valid.  */
+  dst->current = dst->first;
   bitmap_elt_clear_from (dst, dst_elt);
   gcc_assert (!dst->current == !dst->first);
   if (dst->current)
@@ -700,7 +814,7 @@ bitmap_and_into (bitmap a, bitmap b)
   bitmap_element *b_elt = b->first;
   bitmap_element *next;
 
-  if (a == b) 
+  if (a == b)
     return;
 
   while (a_elt && b_elt)
@@ -749,7 +863,7 @@ bitmap_and_compl (bitmap dst, bitmap a, bitmap b)
   bitmap_element *dst_prev = NULL;
 
   gcc_assert (dst != a && dst != b);
-  
+
   if (a == b)
     {
       bitmap_clear (dst);
@@ -780,7 +894,7 @@ bitmap_and_compl (bitmap dst, bitmap a, bitmap b)
 
 	  if (!dst_elt)
 	    dst_elt = bitmap_elt_insert_after (dst, dst_prev, a_elt->indx);
-	  else 
+	  else
 	    dst_elt->indx = a_elt->indx;
 	  for (ix = BITMAP_ELEMENT_WORDS; ix--;)
 	    {
@@ -798,6 +912,8 @@ bitmap_and_compl (bitmap dst, bitmap a, bitmap b)
 	  b_elt = b_elt->next;
 	}
     }
+  /* Ensure that dst->current is valid.  */
+  dst->current = dst->first;
   bitmap_elt_clear_from (dst, dst_elt);
   gcc_assert (!dst->current == !dst->first);
   if (dst->current)
@@ -872,7 +988,7 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
      to the result.  If the current is less than first index, find the
      next one.  Otherwise, just set elt to be current.  */
   if (!elt)
-    { 
+    {
       if (head->current)
 	{
 	  if (head->indx < first_index)
@@ -881,7 +997,7 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
 	      if (!elt)
 		return;
 	    }
-	  else 
+	  else
 	    elt = head->current;
 	}
       else
@@ -898,11 +1014,11 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
       if (elt_start_bit >= start && elt_end_bit_plus1 <= end_bit_plus1)
 	/* Get rid of the entire elt and go to the next one.  */
 	bitmap_element_free (head, elt);
-      else 
+      else
 	{
 	  /* Going to have to knock out some bits in this elt.  */
-	  unsigned int first_word_to_mod; 
-	  BITMAP_WORD first_mask; 
+	  unsigned int first_word_to_mod;
+	  BITMAP_WORD first_mask;
 	  unsigned int last_word_to_mod;
 	  BITMAP_WORD last_mask;
 	  unsigned int i;
@@ -915,7 +1031,7 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
 	      first_word_to_mod = (start - elt_start_bit) / BITMAP_WORD_BITS;
 
 	      /* This mask should have 1s in all bits >= start position. */
-	      first_mask = 
+	      first_mask =
 		(((BITMAP_WORD) 1) << ((start % BITMAP_WORD_BITS))) - 1;
 	      first_mask = ~first_mask;
 	    }
@@ -925,8 +1041,8 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
 	      first_word_to_mod = 0;
 	      first_mask = 0;
 	      first_mask = ~first_mask;
-	    }	      
-	    
+	    }
+
 	  if (elt_end_bit_plus1 <= end_bit_plus1)
 	    {
 	      /* The last bit to turn off is beyond this elt.  */
@@ -937,11 +1053,11 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
 	  else
 	    {
 	      /* The last bit to turn off is inside to this elt.  */
-	      last_word_to_mod = 
+	      last_word_to_mod =
 		(end_bit_plus1 - elt_start_bit) / BITMAP_WORD_BITS;
 
 	      /* The last mask should have 1s below the end bit.  */
-	      last_mask = 
+	      last_mask =
 		(((BITMAP_WORD) 1) << (((end_bit_plus1) % BITMAP_WORD_BITS))) - 1;
 	    }
 
@@ -970,7 +1086,7 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
 	}
       elt = next_elt;
     }
-  
+
   if (elt)
     {
       head->current = elt;
@@ -1056,7 +1172,7 @@ bitmap_ior (bitmap dst, bitmap a, bitmap b)
   bitmap_element *a_elt = a->first;
   bitmap_element *b_elt = b->first;
   bitmap_element *dst_prev = NULL;
-  bool changed = false;  
+  bool changed = false;
 
   gcc_assert (dst != a && dst != b);
 
@@ -1066,7 +1182,7 @@ bitmap_ior (bitmap dst, bitmap a, bitmap b)
 	{
 	  /* Matching elts, generate A | B.  */
 	  unsigned ix;
-	      
+
 	  if (!changed && dst_elt && dst_elt->indx == a_elt->indx)
 	    {
 	      for (ix = BITMAP_ELEMENT_WORDS; ix--;)
@@ -1085,12 +1201,12 @@ bitmap_ior (bitmap dst, bitmap a, bitmap b)
 	      changed = true;
 	      if (!dst_elt)
 		dst_elt = bitmap_elt_insert_after (dst, dst_prev, a_elt->indx);
-	      else 
+	      else
 		dst_elt->indx = a_elt->indx;
 	      for (ix = BITMAP_ELEMENT_WORDS; ix--;)
 		{
 		  BITMAP_WORD r = a_elt->bits[ix] | b_elt->bits[ix];
-		  
+
 		  dst_elt->bits[ix] = r;
 		}
 	    }
@@ -1118,7 +1234,7 @@ bitmap_ior (bitmap dst, bitmap a, bitmap b)
 	  if (!changed && dst_elt && dst_elt->indx == src->indx)
 	    {
 	      unsigned ix;
-	      
+
 	      for (ix = BITMAP_ELEMENT_WORDS; ix--;)
 		if (src->bits[ix] != dst_elt->bits[ix])
 		  {
@@ -1131,11 +1247,11 @@ bitmap_ior (bitmap dst, bitmap a, bitmap b)
 	      changed = true;
 	      if (!dst_elt)
 		dst_elt = bitmap_elt_insert_after (dst, dst_prev, src->indx);
-	      else 
+	      else
 		dst_elt->indx = src->indx;
 	      memcpy (dst_elt->bits, src->bits, sizeof (dst_elt->bits));
 	    }
-	  
+
 	  dst_prev = dst_elt;
 	  dst_elt = dst_elt->next;
 	}
@@ -1190,7 +1306,7 @@ bitmap_ior_into (bitmap a, bitmap b)
 	    for (ix = BITMAP_ELEMENT_WORDS; ix--;)
 	      {
 		BITMAP_WORD r = a_elt->bits[ix] | b_elt->bits[ix];
-		
+
 		a_elt->bits[ix] = r;
 	      }
 	  else
@@ -1277,13 +1393,15 @@ bitmap_xor (bitmap dst, bitmap a, bitmap b)
 
 	  if (!dst_elt)
 	    dst_elt = bitmap_elt_insert_after (dst, dst_prev, src->indx);
-	  else 
+	  else
 	    dst_elt->indx = src->indx;
 	  memcpy (dst_elt->bits, src->bits, sizeof (dst_elt->bits));
 	  dst_prev = dst_elt;
 	  dst_elt = dst_elt->next;
 	}
     }
+  /* Ensure that dst->current is valid.  */
+  dst->current = dst->first;
   bitmap_elt_clear_from (dst, dst_elt);
   gcc_assert (!dst->current == !dst->first);
   if (dst->current)
@@ -1357,7 +1475,7 @@ bitmap_equal_p (bitmap a, bitmap b)
   bitmap_element *a_elt;
   bitmap_element *b_elt;
   unsigned ix;
-  
+
   for (a_elt = a->first, b_elt = b->first;
        a_elt && b_elt;
        a_elt = a_elt->next, b_elt = b_elt->next)
@@ -1379,7 +1497,7 @@ bitmap_intersect_p (bitmap a, bitmap b)
   bitmap_element *a_elt;
   bitmap_element *b_elt;
   unsigned ix;
-  
+
   for (a_elt = a->first, b_elt = b->first;
        a_elt && b_elt;)
     {
@@ -1450,7 +1568,7 @@ bitmap_ior_and_compl_into (bitmap a, bitmap from1, bitmap from2)
 {
   bitmap_head tmp;
   bool changed;
-  
+
   bitmap_initialize (&tmp, &bitmap_default_obstack);
   bitmap_and_compl (&tmp, from1, from2);
   changed = bitmap_ior_into (a, &tmp);
@@ -1521,6 +1639,81 @@ bitmap_print (FILE *file, bitmap head, const char *prefix, const char *suffix)
       comma = ", ";
     }
   fputs (suffix, file);
+}
+#ifdef GATHER_STATISTICS
+
+
+/* Used to accumulate statistics about bitmap sizes.  */
+struct output_info
+{
+  int count;
+  int size;
+};
+
+/* Called via htab_traverse.  Output bitmap descriptor pointed out by SLOT
+   and update statistics.  */
+static int
+print_statistics (void **slot, void *b)
+{
+  struct bitmap_descriptor *d = (struct bitmap_descriptor *) *slot;
+  struct output_info *i = (struct output_info *) b;
+  char s[4096];
+
+  if (d->allocated)
+    {
+      const char *s1 = d->file;
+      const char *s2;
+      while ((s2 = strstr (s1, "gcc/")))
+	s1 = s2 + 4;
+      sprintf (s, "%s:%i (%s)", s1, d->line, d->function);
+      s[41] = 0;
+      fprintf (stderr, "%-41s %6d %10d %10d %10d %10d\n", s,
+	       d->created, d->allocated, d->peak, d->current, d->nsearches);
+      i->size += d->allocated;
+      i->count += d->created;
+    }
+  return 1;
+}
+#endif
+/* Output per-bitmap memory usage statistics.  */
+void
+dump_bitmap_statistics (void)
+{
+#ifdef GATHER_STATISTICS
+  struct output_info info;
+
+  if (!bitmap_desc_hash)
+    return;
+
+  fprintf (stderr, "\nBitmap                                     Overall "
+		   "Allocated     Peak        Leak   searched "
+		   "  per search\n");
+  fprintf (stderr, "---------------------------------------------------------------------------------\n");
+  info.count = 0;
+  info.size = 0;
+  htab_traverse (bitmap_desc_hash, print_statistics, &info);
+  fprintf (stderr, "---------------------------------------------------------------------------------\n");
+  fprintf (stderr, "%-40s %7d %10d\n",
+	   "Total", info.count, info.size);
+  fprintf (stderr, "---------------------------------------------------------------------------------\n");
+#endif
+}
+
+/* Compute hash of bitmap (for purposes of hashing).  */
+hashval_t
+bitmap_hash (bitmap head)
+{
+  bitmap_element *ptr;
+  BITMAP_WORD hash = 0;
+  int ix;
+
+  for (ptr = head->first; ptr; ptr = ptr->next)
+    {
+      hash ^= ptr->indx;
+      for (ix = 0; ix != BITMAP_ELEMENT_WORDS; ix++)
+	hash ^= ptr->bits[ix];
+    }
+  return (hashval_t)hash;
 }
 
 #include "gt-bitmap.h"

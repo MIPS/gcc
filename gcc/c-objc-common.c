@@ -135,16 +135,6 @@ c_objc_common_init (void)
      want an enhanced ObjC implementation.  */
   diagnostic_format_decoder (global_dc) = &c_tree_printer;
 
-  /* If still unspecified, make it match -std=c99
-     (allowing for -pedantic-errors).  */
-  if (mesg_implicit_function_declaration < 0)
-    {
-      if (flag_isoc99)
-	mesg_implicit_function_declaration = flag_pedantic_errors ? 2 : 1;
-      else
-	mesg_implicit_function_declaration = 0;
-    }
-
   return true;
 }
 
@@ -198,7 +188,7 @@ c_tree_printer (pretty_printer *pp, text_info *text, const char *spec,
     case 'T':
       gcc_assert (TYPE_P (t));
       name = TYPE_NAME (t);
-      
+
       if (name && TREE_CODE (name) == TYPE_DECL)
 	{
 	  if (DECL_NAME (name))
@@ -256,4 +246,12 @@ int
 c_types_compatible_p (tree x, tree y)
 {
     return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y));
+}
+
+/* Determine if the type is a vla type for the backend.  */
+
+bool
+c_vla_unspec_p (tree x, tree fn ATTRIBUTE_UNUSED)
+{
+  return c_vla_type_p (x);
 }

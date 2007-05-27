@@ -1,6 +1,6 @@
 // new abi support -*- C++ -*-
   
-// Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2002, 2003, 2004, 2006 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -54,11 +54,11 @@
 #ifdef __cplusplus
 namespace __cxxabiv1
 {  
-  typedef __cxa_cdtor_return_type (*__cxa_cdtor_type)(void *);
-
   extern "C" 
   {
 #endif
+
+  typedef __cxa_cdtor_return_type (*__cxa_cdtor_type)(void *);
 
   // Allocate array.
   void* 
@@ -467,7 +467,7 @@ namespace __cxxabiv1
   {
   public:
     unsigned int 		__flags;  // Details about the class hierarchy.
-    unsigned int 		__base_count;  // Dumber of direct bases.
+    unsigned int 		__base_count;  // Number of direct bases.
 
     // The array of bases uses the trailing array struct hack so this
     // class is not constructable with a normal constructor. It is

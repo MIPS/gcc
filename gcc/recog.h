@@ -74,6 +74,7 @@ extern void init_recog_no_volatile (void);
 extern int check_asm_operands (rtx);
 extern int asm_operand_ok (rtx, const char *);
 extern int validate_change (rtx, rtx *, rtx, int);
+extern bool canonicalize_change_group (rtx insn, rtx x);
 extern int insn_invalid_p (rtx);
 extern int verify_changes (int);
 extern void confirm_change_group (void);
@@ -87,6 +88,7 @@ extern int strict_memory_address_p (enum machine_mode, rtx);
 extern int validate_replace_rtx (rtx, rtx, rtx);
 extern void validate_replace_rtx_group (rtx, rtx, rtx);
 extern void validate_replace_src_group (rtx, rtx, rtx);
+extern bool validate_simplify_insn (rtx insn);
 extern int num_changes_pending (void);
 #ifdef HAVE_cc0
 extern int next_insn_tests_no_inequality (rtx);

@@ -575,7 +575,7 @@ parse_format_list (st_parameter_dt *dtp)
     case FMT_DOLLAR:
       get_fnode (fmt, &head, &tail, FMT_DOLLAR);
       tail->repeat = 1;
-      notify_std (GFC_STD_GNU, "Extension: $ descriptor");
+      notify_std (&dtp->common, GFC_STD_GNU, "Extension: $ descriptor");
       goto between_desc;
 
     case FMT_T:
@@ -671,7 +671,7 @@ parse_format_list (st_parameter_dt *dtp)
 	    {
 	      fmt->saved_token = t;
 	      fmt->value = 1;	/* Default width */
-	      notify_std(GFC_STD_GNU, posint_required);
+	      notify_std (&dtp->common, GFC_STD_GNU, posint_required);
 	    }
 	}
 
@@ -725,8 +725,16 @@ parse_format_list (st_parameter_dt *dtp)
       t = format_lex (fmt);
       if (t != FMT_PERIOD)
 	{
-	  fmt->error = period_required;
-	  goto finished;
+	  /* We treat a missing decimal descriptor as 0.  Note: This is only
+	     allowed if -std=legacy, otherwise an error occurs.  */
+	  if (compile_options.warn_std != 0)
+	    {
+	      fmt->error = period_required;
+	      goto finished;
+	    }
+	  fmt->saved_token = t;
+	  tail->u.real.d = 0;
+	  break;
 	}
 
       t = format_lex (fmt);
@@ -1059,7 +1067,7 @@ next_format0 (fnode * f)
 /* next_format()-- Return the next format node.  If the format list
  * ends up being exhausted, we do reversion.  Reversion is only
  * allowed if the we've seen a data descriptor since the
- * initialization or the last reversion.  We return NULL if the there
+ * initialization or the last reversion.  We return NULL if there
  * are no more data descriptors to return (which is an error
  * condition). */
 

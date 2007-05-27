@@ -1,6 +1,6 @@
 /* Utility macros to read Java(TM) .class files and byte codes.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
-   Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -106,7 +106,6 @@ typedef struct JCF GTY(()) {
   unsigned char * GTY ((skip)) buffer_end;
   unsigned char * GTY ((skip)) read_ptr;
   unsigned char * GTY ((skip)) read_end;
-  unsigned int java_source : 1;
   unsigned int right_zip : 1;
   unsigned int finished : 1;
   jcf_filbuf_t filbuf;
@@ -178,7 +177,7 @@ typedef struct JCF GTY(()) {
 #define JCF_ZERO(JCF)  \
   ((JCF)->buffer = (JCF)->buffer_end = (JCF)->read_ptr = (JCF)->read_end = 0,\
    (JCF)->read_state = 0, (JCF)->filename = (JCF)->classname = 0, \
-   CPOOL_INIT(&(JCF)->cpool), (JCF)->java_source = 0, (JCF)->zipd = 0, \
+   CPOOL_INIT(&(JCF)->cpool), (JCF)->zipd = 0, \
    (JCF)->finished = 0)
 
 /* Given that PTR points to a 2-byte unsigned integer in network
@@ -224,34 +223,43 @@ typedef struct JCF GTY(()) {
 #define ACC_FINAL 0x0010
 #define ACC_SYNCHRONIZED 0x0020
 #define ACC_SUPER 0x0020
+#define ACC_BRIDGE 0x0040
 #define ACC_VOLATILE 0x0040
 #define ACC_TRANSIENT 0x0080
+#define ACC_VARARGS 0x0080
 #define ACC_NATIVE 0x0100
 #define ACC_INTERFACE 0x0200
 #define ACC_ABSTRACT 0x0400
 #define ACC_STRICT 0x0800
+#define ACC_SYNTHETIC 0x01000
+#define ACC_ANNOTATION 0x02000
+#define ACC_ENUM 0x04000
 /* "Invisible" refers to Miranda methods inserted into an abstract
-   #class.  It is also used in the runtime.  */
-#define ACC_INVISIBLE 0x1000
+   class.  It is also used in the runtime.  */
+#define ACC_INVISIBLE 0x8000
 
 #define ACC_VISIBILITY (ACC_PUBLIC | ACC_PRIVATE | ACC_PROTECTED)
 
-#define CONSTANT_Class 7
-#define CONSTANT_Fieldref 9
-#define CONSTANT_Methodref 10
-#define CONSTANT_InterfaceMethodref 11
-#define CONSTANT_String 8
-#define CONSTANT_Integer 3
-#define CONSTANT_Float 4
-#define CONSTANT_Long 5
-#define CONSTANT_Double 6
-#define CONSTANT_NameAndType 12
-#define CONSTANT_Utf8 1
-#define CONSTANT_Unicode 2
+enum cpool_tag
+{
+  CONSTANT_Class = 7,
+  CONSTANT_Fieldref = 9,
+  CONSTANT_Methodref = 10,
+  CONSTANT_InterfaceMethodref = 11,
+  CONSTANT_String = 8,
+  CONSTANT_Integer = 3,
+  CONSTANT_Float = 4,
+  CONSTANT_Long = 5,
+  CONSTANT_Double = 6,
+  CONSTANT_NameAndType = 12,
+  CONSTANT_Utf8 = 1,
+  CONSTANT_Unicode = 2,
+  CONSTANT_None = 0
+};
 
 #define DEFAULT_CLASS_PATH "."
 
-extern const char *find_class (const char *, int, JCF*, int);
+extern const char *find_class (const char *, int, JCF *);
 extern const char *find_classfile (char *, JCF*, const char *);
 extern int jcf_filbuf_from_stdio (JCF *jcf, int count);
 extern int jcf_unexpected_eof (JCF*, int) ATTRIBUTE_NORETURN;
@@ -304,6 +312,7 @@ extern void jcf_path_seal (int);
 extern void *jcf_path_start (void);
 extern void *jcf_path_next (void *);
 extern char *jcf_path_name (void *);
+extern char *jcf_path_compute (const char *);
 extern int jcf_path_is_zipfile (void *);
 extern int jcf_path_is_system (void *);
 extern int jcf_path_max_len (void);

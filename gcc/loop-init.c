@@ -33,93 +33,96 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "flags.h"
 
 
-/* Initialize loop optimizer.  This is used by the tree and RTL loop
+/* Initialize loop structures.  This is used by the tree and RTL loop
    optimizers.  FLAGS specify what properties to compute and/or ensure for
    loops.  */
 
-struct loops *
+void
 loop_optimizer_init (unsigned flags)
 {
-  struct loops *loops = XCNEW (struct loops);
-  edge e;
-  edge_iterator ei;
-  static bool first_time = true;
+  struct loops *loops;
 
-  /* Do not initialize set cost before RTL backend is initialized. */
-  if (first_time && (ENTRY_BLOCK_PTR->flags & BB_RTL))
-    {
-      first_time = false;
-      init_set_costs ();
-    }
-
-  /* Avoid annoying special cases of edges going to exit
-     block.  */
-
-  for (ei = ei_start (EXIT_BLOCK_PTR->preds); (e = ei_safe_edge (ei)); )
-    if ((e->flags & EDGE_FALLTHRU) && !single_succ_p (e->src))
-      split_edge (e);
-    else
-      ei_next (&ei);
+  gcc_assert (!current_loops);
+  loops = XCNEW (struct loops);
 
   /* Find the loops.  */
 
-  if (flow_loops_find (loops) <= 1)
-    {
-      /* No loops.  */
-      flow_loops_free (loops);
-      free (loops);
+  flow_loops_find (loops);
+  current_loops = loops;
 
-      return NULL;
+  if (number_of_loops () <= 1)
+    {
+      /* No loops (the 1 returned by number_of_loops corresponds to the fake
+	 loop that we put as a root of the loop tree).  */
+      loop_optimizer_finalize ();
+      return;
     }
 
-  /* Not going to update these.  */
-  free (loops->cfg.rc_order);
-  loops->cfg.rc_order = NULL;
-  free (loops->cfg.dfs_order);
-  loops->cfg.dfs_order = NULL;
+  if (flags & LOOPS_MAY_HAVE_MULTIPLE_LATCHES)
+    {
+      /* If the loops may have multiple latches, we cannot canonicalize
+	 them further (and most of the loop manipulation functions will
+	 not work).  However, we avoid modifying cfg, which some
+	 passes may want.  */
+      gcc_assert ((flags & ~(LOOPS_MAY_HAVE_MULTIPLE_LATCHES
+			     | LOOPS_HAVE_RECORDED_EXITS)) == 0);
+      current_loops->state = LOOPS_MAY_HAVE_MULTIPLE_LATCHES;
+    }
+  else
+    disambiguate_loops_with_multiple_latches ();
 
   /* Create pre-headers.  */
   if (flags & LOOPS_HAVE_PREHEADERS)
-    create_preheaders (loops, CP_SIMPLE_PREHEADERS);
+    create_preheaders (CP_SIMPLE_PREHEADERS);
 
   /* Force all latches to have only single successor.  */
   if (flags & LOOPS_HAVE_SIMPLE_LATCHES)
-    force_single_succ_latches (loops);
+    force_single_succ_latches ();
 
   /* Mark irreducible loops.  */
   if (flags & LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
-    mark_irreducible_loops (loops);
+    mark_irreducible_loops ();
 
-  if (flags & LOOPS_HAVE_MARKED_SINGLE_EXITS)
-    mark_single_exit_loops (loops);
+  if (flags & LOOPS_HAVE_RECORDED_EXITS)
+    record_loop_exits ();
 
   /* Dump loops.  */
-  flow_loops_dump (loops, dump_file, NULL, 1);
+  flow_loops_dump (dump_file, NULL, 1);
 
 #ifdef ENABLE_CHECKING
   verify_dominators (CDI_DOMINATORS);
-  verify_loop_structure (loops);
+  verify_loop_structure ();
 #endif
-
-  return loops;
 }
 
-/* Finalize loop optimizer.  */
-void
-loop_optimizer_finalize (struct loops *loops)
-{
-  unsigned i;
+/* Finalize loop structures.  */
 
-  if (!loops)
+void
+loop_optimizer_finalize (void)
+{
+  loop_iterator li;
+  struct loop *loop;
+  basic_block bb;
+
+  if (!current_loops)
     return;
 
-  for (i = 1; i < loops->num; i++)
-    if (loops->parray[i])
-      free_simple_loop_desc (loops->parray[i]);
+  FOR_EACH_LOOP (li, loop, 0)
+    {
+      free_simple_loop_desc (loop);
+    }
 
   /* Clean up.  */
-  flow_loops_free (loops);
-  free (loops);
+  if (current_loops->state & LOOPS_HAVE_RECORDED_EXITS)
+    release_recorded_exits ();
+  flow_loops_free (current_loops);
+  free (current_loops);
+  current_loops = NULL;
+
+  FOR_ALL_BB (bb)
+    {
+      bb->loop_father = NULL;
+    }
 
   /* Checking.  */
 #ifdef ENABLE_CHECKING
@@ -168,13 +171,12 @@ struct tree_opt_pass pass_loop2 =
 static unsigned int
 rtl_loop_init (void)
 {
+  gcc_assert (current_ir_type () == IR_RTL_CFGLAYOUT);
+  
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
 
-  /* Initialize structures for layout changes.  */
-  cfg_layout_initialize (0);
-
-  current_loops = loop_optimizer_init (LOOPS_NORMAL);
+  loop_optimizer_init (LOOPS_NORMAL);
   return 0;
 }
 
@@ -197,21 +199,12 @@ struct tree_opt_pass pass_rtl_loop_init =
 
 
 /* Finalization of the RTL loop passes.  */
+
 static unsigned int
 rtl_loop_done (void)
 {
-  basic_block bb;
-
-  if (current_loops)
-    loop_optimizer_finalize (current_loops);
-
+  loop_optimizer_finalize ();
   free_dominance_info (CDI_DOMINATORS);
-
-  /* Finalize layout changes.  */
-  FOR_EACH_BB (bb)
-    if (bb->next_bb != EXIT_BLOCK_PTR)
-      bb->aux = bb->next_bb;
-  cfg_layout_finalize ();
 
   cleanup_cfg (CLEANUP_EXPENSIVE);
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
@@ -219,7 +212,6 @@ rtl_loop_done (void)
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
 
-  current_loops = NULL;
   return 0;
 }
 
@@ -252,7 +244,7 @@ static unsigned int
 rtl_move_loop_invariants (void)
 {
   if (current_loops)
-    move_loop_invariants (current_loops);
+    move_loop_invariants ();
   return 0;
 }
 
@@ -285,7 +277,7 @@ static unsigned int
 rtl_unswitch (void)
 {
   if (current_loops)
-    unswitch_loops (current_loops);
+    unswitch_loops ();
   return 0;
 }
 
@@ -328,7 +320,7 @@ rtl_unroll_and_peel_loops (void)
       if (flag_unroll_all_loops)
 	flags |= UAP_UNROLL_ALL;
 
-      unroll_and_peel_loops (current_loops, flags);
+      unroll_and_peel_loops (flags);
     }
   return 0;
 }
@@ -367,7 +359,7 @@ rtl_doloop (void)
 {
 #ifdef HAVE_doloop_end
   if (current_loops)
-    doloop_optimize_loops (current_loops);
+    doloop_optimize_loops ();
 #endif
   return 0;
 }

@@ -1,6 +1,7 @@
 /* Functions related to invoking methods and overloaded functions.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
 
@@ -39,6 +40,7 @@ Boston, MA 02110-1301, USA.  */
 #include "intl.h"
 #include "target.h"
 #include "convert.h"
+#include "langhooks.h"
 
 /* The various kinds of conversion.  */
 
@@ -267,17 +269,38 @@ build_addr_func (tree function)
 
 /* Build a CALL_EXPR, we can handle FUNCTION_TYPEs, METHOD_TYPEs, or
    POINTER_TYPE to those.  Note, pointer to member function types
-   (TYPE_PTRMEMFUNC_P) must be handled by our callers.  */
+   (TYPE_PTRMEMFUNC_P) must be handled by our callers.  There are
+   two variants.  build_call_a is the primitive taking an array of
+   arguments, while build_call_n is a wrapper that handles varargs.  */
 
 tree
-build_call (tree function, tree parms)
+build_call_n (tree function, int n, ...)
+{
+  if (n == 0)
+    return build_call_a (function, 0, NULL);
+  else
+    {
+      tree *argarray = (tree *) alloca (n * sizeof (tree));
+      va_list ap;
+      int i;
+
+      va_start (ap, n);
+      for (i = 0; i < n; i++)
+	argarray[i] = va_arg (ap, tree);
+      va_end (ap);
+      return build_call_a (function, n, argarray);
+    }
+}
+
+tree
+build_call_a (tree function, int n, tree *argarray)
 {
   int is_constructor = 0;
   int nothrow;
-  tree tmp;
   tree decl;
   tree result_type;
   tree fntype;
+  int i;
 
   function = build_addr_func (function);
 
@@ -325,16 +348,16 @@ build_call (tree function, tree parms)
      for tags in STL, which are used to control overload resolution.
      We don't need to handle other cases of copying empty classes.  */
   if (! decl || ! DECL_BUILT_IN (decl))
-    for (tmp = parms; tmp; tmp = TREE_CHAIN (tmp))
-      if (is_empty_class (TREE_TYPE (TREE_VALUE (tmp)))
-	  && ! TREE_ADDRESSABLE (TREE_TYPE (TREE_VALUE (tmp))))
+    for (i = 0; i < n; i++)
+      if (is_empty_class (TREE_TYPE (argarray[i]))
+	  && ! TREE_ADDRESSABLE (TREE_TYPE (argarray[i])))
 	{
-	  tree t = build0 (EMPTY_CLASS_EXPR, TREE_TYPE (TREE_VALUE (tmp)));
-	  TREE_VALUE (tmp) = build2 (COMPOUND_EXPR, TREE_TYPE (t),
-				     TREE_VALUE (tmp), t);
+	  tree t = build0 (EMPTY_CLASS_EXPR, TREE_TYPE (argarray[i]));
+	  argarray[i] = build2 (COMPOUND_EXPR, TREE_TYPE (t),
+				argarray[i], t);
 	}
 
-  function = build3 (CALL_EXPR, result_type, function, parms, NULL_TREE);
+  function = build_call_array (result_type, function, n, argarray);
   TREE_HAS_CONSTRUCTOR (function) = is_constructor;
   TREE_NOTHROW (function) = nothrow;
 
@@ -426,9 +449,14 @@ null_ptr_cst_p (tree t)
      A null pointer constant is an integral constant expression
      (_expr.const_) rvalue of integer type that evaluates to zero.  */
   t = integral_constant_value (t);
-  if (t == null_node
-      || (CP_INTEGRAL_TYPE_P (TREE_TYPE (t)) && integer_zerop (t)))
+  if (t == null_node)
     return true;
+  if (CP_INTEGRAL_TYPE_P (TREE_TYPE (t)) && integer_zerop (t))
+    {
+      STRIP_NOPS (t);
+      if (!TREE_OVERFLOW (t))
+	return true;
+    }
   return false;
 }
 
@@ -608,20 +636,26 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
   tcode = TREE_CODE (to);
 
   conv = build_identity_conv (from, expr);
-  if (fcode == FUNCTION_TYPE)
+  if (fcode == FUNCTION_TYPE || fcode == ARRAY_TYPE)
     {
-      from = build_pointer_type (from);
-      fcode = TREE_CODE (from);
-      conv = build_conv (ck_lvalue, from, conv);
-    }
-  else if (fcode == ARRAY_TYPE)
-    {
-      from = build_pointer_type (TREE_TYPE (from));
+      from = type_decays_to (from);
       fcode = TREE_CODE (from);
       conv = build_conv (ck_lvalue, from, conv);
     }
   else if (fromref || (expr && lvalue_p (expr)))
-    conv = build_conv (ck_rvalue, from, conv);
+    {
+      if (expr)
+	{
+	  tree bitfield_type;
+	  bitfield_type = is_bitfield_expr_with_lowered_type (expr);
+	  if (bitfield_type)
+	    {
+	      from = strip_top_quals (bitfield_type);
+	      fcode = TREE_CODE (from);
+	    }
+	}
+      conv = build_conv (ck_rvalue, from, conv);
+    }
 
    /* Allow conversion between `__complex__' data types.  */
   if (tcode == COMPLEX_TYPE && fcode == COMPLEX_TYPE)
@@ -713,7 +747,19 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 		  that necessitates this conversion is ill-formed.
 		  Therefore, we use DERIVED_FROM_P, and do not check
 		  access or uniqueness.  */
-	       && DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from)))
+	       && DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from))
+	       /* If FROM is not yet complete, then we must be parsing
+		  the body of a class.  We know what's derived from
+		  what, but we can't actually perform a
+		  derived-to-base conversion.  For example, in:
+
+		     struct D : public B { 
+                       static const int i = sizeof((B*)(D*)0);
+                     };
+
+                  the D*-to-B* conversion is a reinterpret_cast, not a
+		  static_cast.  */
+	       && COMPLETE_TYPE_P (TREE_TYPE (from)))
 	{
 	  from =
 	    cp_build_qualified_type (TREE_TYPE (to),
@@ -815,7 +861,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	conv->rank = cr_promotion;
     }
   else if (fcode == VECTOR_TYPE && tcode == VECTOR_TYPE
-	   && vector_types_convertible_p (from, to))
+	   && vector_types_convertible_p (from, to, false))
     return build_conv (ck_std, to, conv);
   else if (!(flags & LOOKUP_CONSTRUCTOR_CALLABLE)
 	   && IS_AGGR_TYPE (to) && IS_AGGR_TYPE (from)
@@ -1784,14 +1830,19 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 	break;
       if (TYPE_PTR_P (type1) && TYPE_PTR_P (type2))
 	break;
-      if (TREE_CODE (type1) == ENUMERAL_TYPE && TREE_CODE (type2) == ENUMERAL_TYPE)
+      if (TREE_CODE (type1) == ENUMERAL_TYPE 
+	  && TREE_CODE (type2) == ENUMERAL_TYPE)
 	break;
-      if (TYPE_PTR_P (type1) && null_ptr_cst_p (args[1]))
+      if (TYPE_PTR_P (type1) 
+	  && null_ptr_cst_p (args[1])
+	  && !uses_template_parms (type1))
 	{
 	  type2 = type1;
 	  break;
 	}
-      if (null_ptr_cst_p (args[0]) && TYPE_PTR_P (type2))
+      if (null_ptr_cst_p (args[0]) 
+	  && TYPE_PTR_P (type2)
+	  && !uses_template_parms (type2))
 	{
 	  type1 = type2;
 	  break;
@@ -2690,6 +2741,8 @@ resolve_args (tree args)
 	  error ("invalid use of void expression");
 	  return error_mark_node;
 	}
+      else if (invalid_nonstatic_memfn_p (arg))
+	return error_mark_node;
     }
   return args;
 }
@@ -2815,16 +2868,21 @@ build_new_function_call (tree fn, tree args, bool koenig_p)
    required by the allocation, and is updated if that is changed here.
    *COOKIE_SIZE is non-NULL if a cookie should be used.  If this
    function determines that no cookie should be used, after all,
-   *COOKIE_SIZE is set to NULL_TREE.  */
+   *COOKIE_SIZE is set to NULL_TREE.  If FN is non-NULL, it will be
+   set, upon return, to the allocation function called.  */
 
 tree
-build_operator_new_call (tree fnname, tree args, tree *size, tree *cookie_size)
+build_operator_new_call (tree fnname, tree args,
+			 tree *size, tree *cookie_size,
+			 tree *fn)
 {
   tree fns;
   struct z_candidate *candidates;
   struct z_candidate *cand;
   bool any_viable_p;
 
+  if (fn)
+    *fn = NULL_TREE;
   args = tree_cons (NULL_TREE, *size, args);
   args = resolve_args (args);
   if (args == error_mark_node)
@@ -2901,6 +2959,10 @@ build_operator_new_call (tree fnname, tree args, tree *size, tree *cookie_size)
        else
 	 *cookie_size = NULL_TREE;
      }
+
+   /* Tell our caller which function we decided to call.  */
+   if (fn)
+     *fn = cand->fn;
 
    /* Build the CALL_EXPR.  */
    return build_over_call (cand, LOOKUP_NORMAL);
@@ -3185,8 +3247,8 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
      array-to-pointer (_conv.array_), and function-to-pointer
      (_conv.func_) standard conversions are performed on the second
      and third operands.  */
-  arg2_type = TREE_TYPE (arg2);
-  arg3_type = TREE_TYPE (arg3);
+  arg2_type = unlowered_expr_type (arg2);
+  arg3_type = unlowered_expr_type (arg3);
   if (VOID_TYPE_P (arg2_type) || VOID_TYPE_P (arg3_type))
     {
       /* Do the conversions.  We don't these for `void' type arguments
@@ -3233,8 +3295,16 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	result_type = void_type_node;
       else
 	{
-	  error ("%qE has type %<void%> and is not a throw-expression",
-		    VOID_TYPE_P (arg2_type) ? arg2 : arg3);
+	  if (VOID_TYPE_P (arg2_type))
+            error ("second operand to the conditional operator "
+                   "is of type %<void%>, "
+                   "but the third operand is neither a throw-expression "
+                   "nor of type %<void%>");
+	  else
+	    error ("third operand to the conditional operator "
+                   "is of type %<void%>, "
+		   "but the second operand is neither a throw-expression "
+                   "nor of type %<void%>");
 	  return error_mark_node;
 	}
 
@@ -3273,20 +3343,29 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	  || (conv3 && conv3->kind == ck_ambig))
 	{
 	  error ("operands to ?: have different types %qT and %qT",
-             arg2_type, arg3_type);
+		 arg2_type, arg3_type);
 	  result = error_mark_node;
 	}
-      else if (conv2 && !conv2->bad_p)
+      else if (conv2 && (!conv2->bad_p || !conv3))
 	{
 	  arg2 = convert_like (conv2, arg2);
 	  arg2 = convert_from_reference (arg2);
 	  arg2_type = TREE_TYPE (arg2);
+	  /* Even if CONV2 is a valid conversion, the result of the
+	     conversion may be invalid.  For example, if ARG3 has type
+	     "volatile X", and X does not have a copy constructor
+	     accepting a "volatile X&", then even if ARG2 can be
+	     converted to X, the conversion will fail.  */
+	  if (error_operand_p (arg2))
+	    result = error_mark_node;
 	}
-      else if (conv3 && !conv3->bad_p)
+      else if (conv3 && (!conv3->bad_p || !conv2))
 	{
 	  arg3 = convert_like (conv3, arg3);
 	  arg3 = convert_from_reference (arg3);
 	  arg3_type = TREE_TYPE (arg3);
+	  if (error_operand_p (arg3))
+	    result = error_mark_node;
 	}
 
       /* Free all the conversions we allocated.  */
@@ -3483,8 +3562,8 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 
   if (!result_type)
     {
-	  error ("operands to ?: have different types %qT and %qT",
-             arg2_type, arg3_type);
+      error ("operands to ?: have different types %qT and %qT",
+	     arg2_type, arg3_type);
       return error_mark_node;
     }
 
@@ -3494,16 +3573,18 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
   /* We can't use result_type below, as fold might have returned a
      throw_expr.  */
 
-  /* Expand both sides into the same slot, hopefully the target of the
-     ?: expression.  We used to check for TARGET_EXPRs here, but now we
-     sometimes wrap them in NOP_EXPRs so the test would fail.  */
-  if (!lvalue_p && CLASS_TYPE_P (TREE_TYPE (result)))
-    result = get_target_expr (result);
-
-  /* If this expression is an rvalue, but might be mistaken for an
-     lvalue, we must add a NON_LVALUE_EXPR.  */
-  if (!lvalue_p && real_lvalue_p (result))
-    result = rvalue (result);
+  if (!lvalue_p)
+    {
+      /* Expand both sides into the same slot, hopefully the target of
+	 the ?: expression.  We used to check for TARGET_EXPRs here,
+	 but now we sometimes wrap them in NOP_EXPRs so the test would
+	 fail.  */
+      if (CLASS_TYPE_P (TREE_TYPE (result)))
+	result = get_target_expr (result);
+      /* If this expression is an rvalue, but might be mistaken for an
+	 lvalue, we must add a NON_LVALUE_EXPR.  */
+      result = rvalue (result);
+    }
 
   return result;
 }
@@ -3606,6 +3687,7 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
   void *p;
   bool strict_p;
   bool any_viable_p;
+  bool expl_eq_arg1 = false;
 
   if (error_operand_p (arg1)
       || error_operand_p (arg2)
@@ -3635,6 +3717,12 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
     case CALL_EXPR:
       return build_object_call (arg1, arg2);
 
+    case TRUTH_ORIF_EXPR:
+    case TRUTH_ANDIF_EXPR:
+    case TRUTH_AND_EXPR:
+    case TRUTH_OR_EXPR:
+      if (COMPARISON_CLASS_P (arg1))
+	expl_eq_arg1 = true;
     default:
       break;
     }
@@ -3842,6 +3930,12 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 		conv = conv->u.next;
 	      arg3 = convert_like (conv, arg3);
 	    }
+
+	  if (!expl_eq_arg1) 
+	    {
+	      warn_logical_operator (code, arg1, arg2);
+	      expl_eq_arg1 = true;
+	    }
 	}
     }
 
@@ -3862,6 +3956,12 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
     case INDIRECT_REF:
       return build_indirect_ref (arg1, "unary *");
 
+    case TRUTH_ANDIF_EXPR:
+    case TRUTH_ORIF_EXPR:
+    case TRUTH_AND_EXPR:
+    case TRUTH_OR_EXPR:
+      if (!expl_eq_arg1)
+	warn_logical_operator (code, arg1, arg2);
     case PLUS_EXPR:
     case MINUS_EXPR:
     case MULT_EXPR:
@@ -3880,8 +3980,6 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
     case BIT_AND_EXPR:
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
-    case TRUTH_ANDIF_EXPR:
-    case TRUTH_ORIF_EXPR:
       return cp_build_binary_op (code, arg1, arg2);
 
     case UNARY_PLUS_EXPR:
@@ -3928,14 +4026,17 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
    SIZE is the size of the memory block to be deleted.
    GLOBAL_P is true if the delete-expression should not consider
    class-specific delete operators.
-   PLACEMENT is the corresponding placement new call, or NULL_TREE.  */
+   PLACEMENT is the corresponding placement new call, or NULL_TREE.
+   If PLACEMENT is non-NULL, then ALLOC_FN is the allocation function
+   called to perform the placement new.  */
 
 tree
 build_op_delete_call (enum tree_code code, tree addr, tree size,
-		      bool global_p, tree placement)
+		      bool global_p, tree placement,
+		      tree alloc_fn)
 {
   tree fn = NULL_TREE;
-  tree fns, fnname, argtypes, args, type;
+  tree fns, fnname, argtypes, type;
   int pass;
 
   if (addr == error_mark_node)
@@ -3966,30 +4067,21 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
   if (fns == NULL_TREE)
     fns = lookup_name_nonclass (fnname);
 
+  /* Strip const and volatile from addr.  */
+  addr = cp_convert (ptr_type_node, addr);
+
   if (placement)
     {
-      tree alloc_fn;
-      tree call_expr;
-
-      /* Find the allocation function that is being called.  */
-      call_expr = placement;
-      /* Extract the function.  */
-      alloc_fn = get_callee_fndecl (call_expr);
+      /* Get the parameter types for the allocation function that is
+	 being called.  */
       gcc_assert (alloc_fn != NULL_TREE);
-      /* Then the second parm type.  */
       argtypes = TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (alloc_fn)));
-      /* Also the second argument.  */
-      args = TREE_CHAIN (TREE_OPERAND (call_expr, 1));
     }
   else
     {
       /* First try it without the size argument.  */
       argtypes = void_list_node;
-      args = NULL_TREE;
     }
-
-  /* Strip const and volatile from addr.  */
-  addr = cp_convert (ptr_type_node, addr);
 
   /* We make two tries at finding a matching `operator delete'.  On
      the first pass, we look for a one-operator (or placement)
@@ -4027,7 +4119,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	  /* On the second pass, the second argument must be
 	     "size_t".  */
 	  else if (pass == 1
-		   && same_type_p (TREE_VALUE (t), sizetype)
+		   && same_type_p (TREE_VALUE (t), size_type_node)
 		   && TREE_CHAIN (t) == void_list_node)
 	    break;
 	}
@@ -4047,23 +4139,31 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
       /* If the FN is a member function, make sure that it is
 	 accessible.  */
       if (DECL_CLASS_SCOPE_P (fn))
-	perform_or_defer_access_check (TYPE_BINFO (type), fn);
-
-      if (pass == 0)
-	args = tree_cons (NULL_TREE, addr, args);
-      else
-	args = tree_cons (NULL_TREE, addr,
-			  build_tree_list (NULL_TREE, size));
+	perform_or_defer_access_check (TYPE_BINFO (type), fn, fn);
 
       if (placement)
 	{
 	  /* The placement args might not be suitable for overload
 	     resolution at this point, so build the call directly.  */
+	  int nargs = call_expr_nargs (placement);
+	  tree *argarray = (tree *) alloca (nargs * sizeof (tree));
+	  int i;
+	  argarray[0] = addr;
+	  for (i = 1; i < nargs; i++)
+	    argarray[i] = CALL_EXPR_ARG (placement, i);
 	  mark_used (fn);
-	  return build_cxx_call (fn, args);
+	  return build_cxx_call (fn, nargs, argarray);
 	}
       else
-	return build_function_call (fn, args);
+	{
+	  tree args;
+	  if (pass == 0)
+	    args = tree_cons (NULL_TREE, addr, NULL_TREE);
+	  else
+	    args = tree_cons (NULL_TREE, addr,
+			      build_tree_list (NULL_TREE, size));
+	  return build_function_call (fn, args);
+	}
     }
 
   /* If we are doing placement delete we do nothing if we don't find a
@@ -4078,21 +4178,22 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 
 /* If the current scope isn't allowed to access DECL along
    BASETYPE_PATH, give an error.  The most derived class in
-   BASETYPE_PATH is the one used to qualify DECL.  */
+   BASETYPE_PATH is the one used to qualify DECL. DIAG_DECL is
+   the declaration to use in the error diagnostic.  */
 
 bool
-enforce_access (tree basetype_path, tree decl)
+enforce_access (tree basetype_path, tree decl, tree diag_decl)
 {
   gcc_assert (TREE_CODE (basetype_path) == TREE_BINFO);
 
   if (!accessible_p (basetype_path, decl, true))
     {
       if (TREE_PRIVATE (decl))
-	error ("%q+#D is private", decl);
+	error ("%q+#D is private", diag_decl);
       else if (TREE_PROTECTED (decl))
-	error ("%q+#D is protected", decl);
+	error ("%q+#D is protected", diag_decl);
       else
-	error ("%q+#D is inaccessible", decl);
+	error ("%q+#D is inaccessible", diag_decl);
       error ("within this context");
       return false;
     }
@@ -4141,6 +4242,31 @@ build_temp (tree expr, tree type, int flags,
   return expr;
 }
 
+/* Perform warnings about peculiar, but valid, conversions from/to NULL.
+   EXPR is implicitly converted to type TOTYPE.
+   FN and ARGNUM are used for diagnostics.  */
+
+static void
+conversion_null_warnings (tree totype, tree expr, tree fn, int argnum)
+{
+  tree t = non_reference (totype);
+
+  /* Issue warnings about peculiar, but valid, uses of NULL.  */
+  if (expr == null_node && TREE_CODE (t) != BOOLEAN_TYPE && ARITHMETIC_TYPE_P (t))
+    {
+      if (fn)
+	warning (OPT_Wconversion, "passing NULL to non-pointer argument %P of %qD",
+		 argnum, fn);
+      else
+	warning (OPT_Wconversion, "converting to non-pointer type %qT from NULL", t);
+    }
+
+  /* Issue warnings if "false" is converted to a NULL pointer */
+  else if (expr == boolean_false_node && fn && POINTER_TYPE_P (t))
+    warning (OPT_Wconversion,
+	     "converting %<false%> to pointer type for argument %P of %qD",
+	     argnum, fn);
+}
 
 /* Perform the conversions in CONVS on the expression EXPR.  FN and
    ARGNUM are used for diagnostics.  ARGNUM is zero based, -1
@@ -4189,30 +4315,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
     }
 
   if (issue_conversion_warnings)
-    {
-      tree t = non_reference (totype);
-
-      /* Issue warnings about peculiar, but valid, uses of NULL.  */
-      if (ARITHMETIC_TYPE_P (t) && expr == null_node)
-	{
-	  if (fn)
-	    warning (OPT_Wconversion, "passing NULL to non-pointer argument %P of %qD",
-		     argnum, fn);
-	  else
-	    warning (OPT_Wconversion, "converting to non-pointer type %qT from NULL", t);
-	}
-
-      /* Warn about assigning a floating-point type to an integer type.  */
-      if (TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
-	  && TREE_CODE (t) == INTEGER_TYPE)
-	{
-	  if (fn)
-	    warning (OPT_Wconversion, "passing %qT for argument %P to %qD",
-		     TREE_TYPE (expr), argnum, fn);
-	  else
-	    warning (OPT_Wconversion, "converting to %qT from %qT", t, TREE_TYPE (expr));
-	}
-    }
+    conversion_null_warnings (totype, expr, fn, argnum);
 
   switch (convs->kind)
     {
@@ -4299,7 +4402,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 
   expr = convert_like_real (convs->u.next, expr, fn, argnum,
 			    convs->kind == ck_ref_bind ? -1 : 1,
-			    /*issue_conversion_warnings=*/false,
+			    convs->kind == ck_ref_bind ? issue_conversion_warnings : false, 
 			    c_cast_p);
   if (expr == error_mark_node)
     return error_mark_node;
@@ -4307,6 +4410,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
   switch (convs->kind)
     {
     case ck_rvalue:
+      expr = convert_bitfield_to_declared_type (expr);
       if (! IS_AGGR_TYPE (totype))
 	return expr;
       /* Else fall through.  */
@@ -4428,7 +4532,7 @@ call_builtin_trap (void)
   tree fn = implicit_built_in_decls[BUILT_IN_TRAP];
 
   gcc_assert (fn != NULL);
-  fn = build_call (fn, NULL_TREE);
+  fn = build_call_n (fn, 0);
   return fn;
 }
 
@@ -4494,10 +4598,12 @@ build_x_va_arg (tree expr, tree type)
 
   if (! pod_type_p (type))
     {
+      /* Remove reference types so we don't ICE later on.  */
+      tree type1 = non_reference (type);
       /* Undefined behavior [expr.call] 5.2.2/7.  */
       warning (0, "cannot receive objects of non-POD type %q#T through %<...%>; "
 	       "call will abort at runtime", type);
-      expr = convert (build_pointer_type (type), null_node);
+      expr = convert (build_pointer_type (type1), null_node);
       expr = build2 (COMPOUND_EXPR, TREE_TYPE (expr),
 		     call_builtin_trap (), expr);
       expr = build_indirect_ref (expr, NULL);
@@ -4557,10 +4663,14 @@ convert_default_arg (tree type, tree arg, tree fn, int parmnum)
     }
   else
     {
-      /* This could get clobbered by the following call.  */
-      if (TREE_HAS_CONSTRUCTOR (arg))
-	arg = copy_node (arg);
-
+      /* We must make a copy of ARG, in case subsequent processing
+	 alters any part of it.  For example, during gimplification a
+	 cast of the form (T) &X::f (where "f" is a member function)
+	 will lead to replacing the PTRMEM_CST for &X::f with a
+	 VAR_DECL.  We can avoid the copy for constants, since they
+	 are never modified in place.  */
+      if (!CONSTANT_CLASS_P (arg))
+	arg = unshare_expr (arg);
       arg = convert_for_initialization (0, type, arg, LOOKUP_NORMAL,
 					"default argument", fn, parmnum);
       arg = convert_for_arg_passing (type, arg);
@@ -4657,11 +4767,14 @@ build_over_call (struct z_candidate *cand, int flags)
   tree args = cand->args;
   conversion **convs = cand->convs;
   conversion *conv;
-  tree converted_args = NULL_TREE;
   tree parm = TYPE_ARG_TYPES (TREE_TYPE (fn));
+  int parmlen;
   tree arg, val;
   int i = 0;
+  int j = 0;
   int is_method = 0;
+  int nargs;
+  tree *argarray;
 
   /* In a template, there is no need to perform all of the work that
      is normally done.  We are only interested in the type of the call
@@ -4672,7 +4785,7 @@ build_over_call (struct z_candidate *cand, int flags)
       tree expr;
       tree return_type;
       return_type = TREE_TYPE (TREE_TYPE (fn));
-      expr = build3 (CALL_EXPR, return_type, fn, args, NULL_TREE);
+      expr = build_call_list (return_type, fn, args);
       if (TREE_THIS_VOLATILE (fn) && cfun)
 	current_function_returns_abnormally = 1;
       if (!VOID_TYPE_P (return_type))
@@ -4718,20 +4831,27 @@ build_over_call (struct z_candidate *cand, int flags)
       if (DECL_TEMPLATE_INFO (fn)
 	  && DECL_MEMBER_TEMPLATE_P (DECL_TI_TEMPLATE (fn)))
 	perform_or_defer_access_check (cand->access_path,
-				       DECL_TI_TEMPLATE (fn));
+				       DECL_TI_TEMPLATE (fn), fn);
       else
-	perform_or_defer_access_check (cand->access_path, fn);
+	perform_or_defer_access_check (cand->access_path, fn, fn);
     }
 
   if (args && TREE_CODE (args) != TREE_LIST)
     args = build_tree_list (NULL_TREE, args);
   arg = args;
 
+  /* Find maximum size of vector to hold converted arguments.  */
+  parmlen = list_length (parm);
+  nargs = list_length (args);
+  if (parmlen > nargs)
+    nargs = parmlen;
+  argarray = (tree *) alloca (nargs * sizeof (tree));
+
   /* The implicit parameters to a constructor are not considered by overload
      resolution, and must be of the proper type.  */
   if (DECL_CONSTRUCTOR_P (fn))
     {
-      converted_args = tree_cons (NULL_TREE, TREE_VALUE (arg), converted_args);
+      argarray[j++] = TREE_VALUE (arg);
       arg = TREE_CHAIN (arg);
       parm = TREE_CHAIN (parm);
       /* We should never try to call the abstract constructor.  */
@@ -4739,8 +4859,7 @@ build_over_call (struct z_candidate *cand, int flags)
 
       if (DECL_HAS_VTT_PARM_P (fn))
 	{
-	  converted_args = tree_cons
-	    (NULL_TREE, TREE_VALUE (arg), converted_args);
+	  argarray[j++] = TREE_VALUE (arg);
 	  arg = TREE_CHAIN (arg);
 	  parm = TREE_CHAIN (parm);
 	}
@@ -4784,7 +4903,7 @@ build_over_call (struct z_candidate *cand, int flags)
       converted_arg = build_base_path (PLUS_EXPR, converted_arg,
 				       base_binfo, 1);
 
-      converted_args = tree_cons (NULL_TREE, converted_arg, converted_args);
+      argarray[j++] = converted_arg;
       parm = TREE_CHAIN (parm);
       arg = TREE_CHAIN (arg);
       ++i;
@@ -4797,22 +4916,24 @@ build_over_call (struct z_candidate *cand, int flags)
       tree type = TREE_VALUE (parm);
 
       conv = convs[i];
+
+      /* Don't make a copy here if build_call is going to.  */
+      if (conv->kind == ck_rvalue
+	  && !TREE_ADDRESSABLE (complete_type (type)))
+	conv = conv->u.next;
+
       val = convert_like_with_context
 	(conv, TREE_VALUE (arg), fn, i - is_method);
 
       val = convert_for_arg_passing (type, val);
-      converted_args = tree_cons (NULL_TREE, val, converted_args);
+      argarray[j++] = val;
     }
 
   /* Default arguments */
   for (; parm && parm != void_list_node; parm = TREE_CHAIN (parm), i++)
-    converted_args
-      = tree_cons (NULL_TREE,
-		   convert_default_arg (TREE_VALUE (parm),
-					TREE_PURPOSE (parm),
-					fn, i - is_method),
-		   converted_args);
-
+    argarray[j++] = convert_default_arg (TREE_VALUE (parm),
+					 TREE_PURPOSE (parm),
+					 fn, i - is_method);
   /* Ellipsis */
   for (; arg; arg = TREE_CHAIN (arg))
     {
@@ -4821,13 +4942,14 @@ build_over_call (struct z_candidate *cand, int flags)
 	/* Do no conversions for magic varargs.  */;
       else
 	a = convert_arg_to_ellipsis (a);
-      converted_args = tree_cons (NULL_TREE, a, converted_args);
+      argarray[j++] = a;
     }
 
-  converted_args = nreverse (converted_args);
+  gcc_assert (j <= nargs);
+  nargs = j;
 
   check_function_arguments (TYPE_ATTRIBUTES (TREE_TYPE (fn)),
-			    converted_args, TYPE_ARG_TYPES (TREE_TYPE (fn)));
+			    nargs, argarray, TYPE_ARG_TYPES (TREE_TYPE (fn)));
 
   /* Avoid actually calling copy constructors and copy assignment operators,
      if possible.  */
@@ -4837,8 +4959,7 @@ build_over_call (struct z_candidate *cand, int flags)
   else if (cand->num_convs == 1 && DECL_COPY_CONSTRUCTOR_P (fn))
     {
       tree targ;
-      arg = skip_artificial_parms_for (fn, converted_args);
-      arg = TREE_VALUE (arg);
+      arg = argarray[num_artificial_parms_for (fn)];
 
       /* Pull out the real argument, disregarding const-correctness.  */
       targ = arg;
@@ -4893,11 +5014,11 @@ build_over_call (struct z_candidate *cand, int flags)
 	   && TYPE_HAS_TRIVIAL_ASSIGN_REF (DECL_CONTEXT (fn)))
     {
       tree to = stabilize_reference
-	(build_indirect_ref (TREE_VALUE (converted_args), 0));
+	(build_indirect_ref (argarray[0], 0));
       tree type = TREE_TYPE (to);
       tree as_base = CLASSTYPE_AS_BASE (type);
 
-      arg = TREE_VALUE (TREE_CHAIN (converted_args));
+      arg = argarray[1];
       if (tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (as_base)))
 	{
 	  arg = build_indirect_ref (arg, 0);
@@ -4907,17 +5028,16 @@ build_over_call (struct z_candidate *cand, int flags)
 	{
 	  /* We must only copy the non-tail padding parts.
 	     Use __builtin_memcpy for the bitwise copy.  */
+	
+	  tree arg0, arg1, arg2, t;
 
-	  tree args, t;
-
-	  args = tree_cons (NULL, TYPE_SIZE_UNIT (as_base), NULL);
-	  args = tree_cons (NULL, arg, args);
-	  t = build_unary_op (ADDR_EXPR, to, 0);
-	  args = tree_cons (NULL, t, args);
+	  arg2 = TYPE_SIZE_UNIT (as_base);
+	  arg1 = arg;
+	  arg0 = build_unary_op (ADDR_EXPR, to, 0);
 	  t = implicit_built_in_decls[BUILT_IN_MEMCPY];
-	  t = build_call (t, args);
+	  t = build_call_n (t, 3, arg0, arg1, arg2);
 
-	  t = convert (TREE_TYPE (TREE_VALUE (args)), t);
+	  t = convert (TREE_TYPE (arg0), t);
 	  val = build_indirect_ref (t, 0);
 	}
 
@@ -4928,20 +5048,20 @@ build_over_call (struct z_candidate *cand, int flags)
 
   if (DECL_VINDEX (fn) && (flags & LOOKUP_NONVIRTUAL) == 0)
     {
-      tree t, *p = &TREE_VALUE (converted_args);
-      tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (*p)),
+      tree t;
+      tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (argarray[0])),
 				DECL_CONTEXT (fn),
 				ba_any, NULL);
       gcc_assert (binfo && binfo != error_mark_node);
 
-      *p = build_base_path (PLUS_EXPR, *p, binfo, 1);
-      if (TREE_SIDE_EFFECTS (*p))
-	*p = save_expr (*p);
+      argarray[0] = build_base_path (PLUS_EXPR, argarray[0], binfo, 1);
+      if (TREE_SIDE_EFFECTS (argarray[0]))
+	argarray[0] = save_expr (argarray[0]);
       t = build_pointer_type (TREE_TYPE (fn));
       if (DECL_CONTEXT (fn) && TYPE_JAVA_INTERFACE (DECL_CONTEXT (fn)))
-	fn = build_java_interface_fn_ref (fn, *p);
+	fn = build_java_interface_fn_ref (fn, argarray[0]);
       else
-	fn = build_vfn_ref (*p, DECL_VINDEX (fn));
+	fn = build_vfn_ref (argarray[0], DECL_VINDEX (fn));
       TREE_TYPE (fn) = t;
     }
   else if (DECL_INLINE (fn))
@@ -4949,19 +5069,19 @@ build_over_call (struct z_candidate *cand, int flags)
   else
     fn = build_addr_func (fn);
 
-  return build_cxx_call (fn, converted_args);
+  return build_cxx_call (fn, nargs, argarray);
 }
 
-/* Build and return a call to FN, using ARGS.  This function performs
-   no overload resolution, conversion, or other high-level
-   operations.  */
+/* Build and return a call to FN, using NARGS arguments in ARGARRAY.
+   This function performs no overload resolution, conversion, or other
+   high-level operations.  */
 
 tree
-build_cxx_call (tree fn, tree args)
+build_cxx_call (tree fn, int nargs, tree *argarray)
 {
   tree fndecl;
 
-  fn = build_call (fn, args);
+  fn = build_call_a (fn, nargs, argarray);
 
   /* If this call might throw an exception, note that fact.  */
   fndecl = get_callee_fndecl (fn);
@@ -4995,7 +5115,7 @@ static GTY(()) tree java_iface_lookup_fn;
 static tree
 build_java_interface_fn_ref (tree fn, tree instance)
 {
-  tree lookup_args, lookup_fn, method, idx;
+  tree lookup_fn, method, idx;
   tree klass_ref, iface, iface_ref;
   int i;
 
@@ -5007,9 +5127,9 @@ build_java_interface_fn_ref (tree fn, tree instance)
 				     tree_cons (NULL_TREE, java_int_type_node,
 						endlink)));
       java_iface_lookup_fn
-	= builtin_function ("_Jv_LookupInterfaceMethodIdx",
-			    build_function_type (ptr_type_node, t),
-			    0, NOT_BUILT_IN, NULL, NULL_TREE);
+	= add_builtin_function ("_Jv_LookupInterfaceMethodIdx",
+				build_function_type (ptr_type_node, t),
+				0, NOT_BUILT_IN, NULL, NULL_TREE);
     }
 
   /* Look up the pointer to the runtime java.lang.Class object for `instance'.
@@ -5042,13 +5162,11 @@ build_java_interface_fn_ref (tree fn, tree instance)
     }
   idx = build_int_cst (NULL_TREE, i);
 
-  lookup_args = tree_cons (NULL_TREE, klass_ref,
-			   tree_cons (NULL_TREE, iface_ref,
-				      build_tree_list (NULL_TREE, idx)));
   lookup_fn = build1 (ADDR_EXPR,
 		      build_pointer_type (TREE_TYPE (java_iface_lookup_fn)),
 		      java_iface_lookup_fn);
-  return build3 (CALL_EXPR, ptr_type_node, lookup_fn, lookup_args, NULL_TREE);
+  return build_call_nary (ptr_type_node, lookup_fn,
+			  3, klass_ref, iface_ref, idx);
 }
 
 /* Returns the value to use for the in-charge parameter when making a
@@ -5179,7 +5297,7 @@ build_special_member_call (tree instance, tree name, tree args,
 
   return build_new_method_call (instance, fns, args,
 				TYPE_BINFO (BINFO_TYPE (binfo)),
-				flags);
+				flags, /*fn=*/NULL);
 }
 
 /* Return the NAME, as a C string.  The NAME indicates a function that
@@ -5227,11 +5345,13 @@ name_as_c_string (tree name, tree type, bool *free_p)
   return pretty_name;
 }
 
-/* Build a call to "INSTANCE.FN (ARGS)".  */
+/* Build a call to "INSTANCE.FN (ARGS)".  If FN_P is non-NULL, it will
+   be set, upon return, to the function called.  */
 
 tree
 build_new_method_call (tree instance, tree fns, tree args,
-		       tree conversion_path, int flags)
+		       tree conversion_path, int flags,
+		       tree *fn_p)
 {
   struct z_candidate *candidates = 0, *cand;
   tree explicit_targs = NULL_TREE;
@@ -5252,6 +5372,10 @@ build_new_method_call (tree instance, tree fns, tree args,
   void *p;
 
   gcc_assert (instance != NULL_TREE);
+
+  /* We don't know what function we're going to call, yet.  */
+  if (fn_p)
+    *fn_p = NULL_TREE;
 
   if (error_operand_p (instance)
       || error_operand_p (fns)
@@ -5409,8 +5533,10 @@ build_new_method_call (tree instance, tree fns, tree args,
 	}
       else
 	{
+	  fn = cand->fn;
+
 	  if (!(flags & LOOKUP_NONVIRTUAL)
-	      && DECL_PURE_VIRTUAL_P (cand->fn)
+	      && DECL_PURE_VIRTUAL_P (fn)
 	      && instance == current_class_ref
 	      && (DECL_CONSTRUCTOR_P (current_function_decl)
 		  || DECL_DESTRUCTOR_P (current_function_decl)))
@@ -5419,40 +5545,56 @@ build_new_method_call (tree instance, tree fns, tree args,
 	    warning (0, (DECL_CONSTRUCTOR_P (current_function_decl) ?
 		      "abstract virtual %q#D called from constructor"
 		      : "abstract virtual %q#D called from destructor"),
-		     cand->fn);
+		     fn);
 
-	  if (TREE_CODE (TREE_TYPE (cand->fn)) == METHOD_TYPE
+	  if (TREE_CODE (TREE_TYPE (fn)) == METHOD_TYPE
 	      && is_dummy_object (instance_ptr))
 	    {
 	      error ("cannot call member function %qD without object",
-		     cand->fn);
+		     fn);
 	      call = error_mark_node;
 	    }
 	  else
 	    {
-	      if (DECL_VINDEX (cand->fn) && ! (flags & LOOKUP_NONVIRTUAL)
+	      if (DECL_VINDEX (fn) && ! (flags & LOOKUP_NONVIRTUAL)
 		  && resolves_to_fixed_type_p (instance, 0))
 		flags |= LOOKUP_NONVIRTUAL;
-
+	      /* Now we know what function is being called.  */
+	      if (fn_p)
+		*fn_p = fn;
+	      /* Build the actual CALL_EXPR.  */
 	      call = build_over_call (cand, flags);
-
 	      /* In an expression of the form `a->f()' where `f' turns
 		 out to be a static member function, `a' is
 		 none-the-less evaluated.  */
-	      if (TREE_CODE (TREE_TYPE (cand->fn)) != METHOD_TYPE
+	      if (TREE_CODE (TREE_TYPE (fn)) != METHOD_TYPE
 		  && !is_dummy_object (instance_ptr)
-		  && TREE_SIDE_EFFECTS (instance))
+		  && TREE_SIDE_EFFECTS (instance_ptr))
 		call = build2 (COMPOUND_EXPR, TREE_TYPE (call),
-			       instance, call);
+			       instance_ptr, call);
+	      else if (call != error_mark_node
+		       && DECL_DESTRUCTOR_P (cand->fn)
+		       && !VOID_TYPE_P (TREE_TYPE (call)))
+		/* An explicit call of the form "x->~X()" has type
+		   "void".  However, on platforms where destructors
+		   return "this" (i.e., those where
+		   targetm.cxx.cdtor_returns_this is true), such calls
+		   will appear to have a return value of pointer type
+		   to the low-level call machinery.  We do not want to
+		   change the low-level machinery, since we want to be
+		   able to optimize "delete f()" on such platforms as
+		   "operator delete(~X(f()))" (rather than generating
+		   "t = f(), ~X(t), operator delete (t)").  */
+		call = build_nop (void_type_node, call);
 	    }
 	}
     }
 
   if (processing_template_decl && call != error_mark_node)
-    call = (build_min_non_dep
-	    (CALL_EXPR, call,
+    call = (build_min_non_dep_call_list
+	    (call,
 	     build_min_nt (COMPONENT_REF, orig_instance, orig_fns, NULL_TREE),
-	     orig_args, NULL_TREE));
+	     orig_args));
 
  /* Free all the conversions we allocated.  */
   obstack_free (&conversion_obstack, p);
@@ -6029,7 +6171,7 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
 	      if (warn)
 		{
 		  warning (OPT_Wsign_promo, "passing %qT chooses %qT over %qT",
-                           type, type1, type2);
+			   type, type1, type2);
 		  warning (OPT_Wsign_promo, "  in call to %qD", w->fn);
 		}
 	      else
@@ -6350,6 +6492,14 @@ perform_implicit_conversion (tree type, tree expr)
     {
       error ("could not convert %qE to %qT", expr, type);
       expr = error_mark_node;
+    }
+  else if (processing_template_decl)
+    {
+      /* In a template, we are only concerned about determining the
+	 type of non-dependent expressions, so we do not have to
+	 perform the actual conversion.  */
+      if (TREE_TYPE (expr) != type)
+	expr = build_nop (type, expr);
     }
   else
     expr = convert_like (conv, expr);

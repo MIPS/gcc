@@ -86,7 +86,9 @@ call_ ## FUNC (void)					\
 }
 #endif
 
-#if defined(OBJECT_FORMAT_ELF) && defined(HAVE_LD_EH_FRAME_HDR) \
+#if defined(OBJECT_FORMAT_ELF) \
+    && !defined(OBJECT_FORMAT_FLAT) \
+    && defined(HAVE_LD_EH_FRAME_HDR) \
     && !defined(inhibit_libc) && !defined(CRTSTUFFT_O) \
     && defined(__GLIBC__) && __GLIBC__ >= 2
 #include <link.h>
@@ -225,6 +227,9 @@ STATIC void *__JCR_LIST__[]
    in one DSO or the main program is not used in another object.  The
    dynamic linker takes care of this.  */
 
+#ifdef TARGET_LIBGCC_SDATA_SECTION
+extern void *__dso_handle __attribute__ ((__section__ (TARGET_LIBGCC_SDATA_SECTION)));
+#endif
 #ifdef HAVE_GAS_HIDDEN
 extern void *__dso_handle __attribute__ ((__visibility__ ("hidden")));
 #endif

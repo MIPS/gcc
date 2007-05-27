@@ -51,7 +51,8 @@ static const char dir_separator_str[] = { DIR_SEPARATOR, 0 };
 static void add_env_var_paths (const char *, int);
 static void add_standard_paths (const char *, const char *, const char *, int);
 static void free_path (struct cpp_dir *, int);
-static void merge_include_chains (cpp_reader *, int);
+static void merge_include_chains (const char *, cpp_reader *, int);
+static void add_sysroot_to_chain (const char *, int);
 static struct cpp_dir *remove_duplicates (cpp_reader *, struct cpp_dir *,
 					   struct cpp_dir *,
 					   struct cpp_dir *, int);
@@ -127,6 +128,7 @@ add_standard_paths (const char *sysroot, const char *iprefix,
 		    const char *imultilib, int cxx_stdinc)
 {
   const struct default_include *p;
+  int relocated = cpp_relocated();
   size_t len;
 
   if (iprefix && (len = cpp_GCC_INCLUDE_DIR_len) != 0)
@@ -163,6 +165,31 @@ add_standard_paths (const char *sysroot, const char *iprefix,
 	  /* Should this directory start with the sysroot?  */
 	  if (sysroot && p->add_sysroot)
 	    str = concat (sysroot, p->fname, NULL);
+	  else if (!p->add_sysroot && relocated
+		   && strncmp (p->fname, cpp_PREFIX, cpp_PREFIX_len) == 0)
+	    {
+ 	      static const char *relocated_prefix;
+	      /* If this path starts with the configure-time prefix, 
+		 but the compiler has been relocated, replace it 
+		 with the run-time prefix.  The run-time exec prefix
+		 is GCC_EXEC_PREFIX.  Compute the path from there back
+		 to the toplevel prefix.  */
+	      if (!relocated_prefix)
+		{
+		  char *dummy;
+		  /* Make relative prefix expects the first argument
+		     to be a program, not a directory.  */
+		  dummy = concat (gcc_exec_prefix, "dummy", NULL);
+		  relocated_prefix 
+		    = make_relative_prefix (dummy,
+					    cpp_EXEC_PREFIX,
+					    cpp_PREFIX);
+		}
+	      str = concat (relocated_prefix,
+			    p->fname + cpp_PREFIX_len, 
+			    NULL);
+	      str = update_path (str, p->component);
+	    }
 	  else
 	    str = update_path (p->fname, p->component);
 
@@ -220,8 +247,8 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 	  /* Remove this one if it is in the system chain.  */
 	  reason = REASON_DUP_SYS;
 	  for (tmp = system; tmp; tmp = tmp->next)
-           if (INO_T_EQ (tmp->ino, cur->ino) && tmp->dev == cur->dev
-               && cur->construct == tmp->construct)
+	   if (INO_T_EQ (tmp->ino, cur->ino) && tmp->dev == cur->dev
+	       && cur->construct == tmp->construct)
 	      break;
 
 	  if (!tmp)
@@ -229,16 +256,16 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 	      /* Duplicate of something earlier in the same chain?  */
 	      reason = REASON_DUP;
 	      for (tmp = head; tmp != cur; tmp = tmp->next)
-               if (INO_T_EQ (cur->ino, tmp->ino) && cur->dev == tmp->dev
-                   && cur->construct == tmp->construct)
+	       if (INO_T_EQ (cur->ino, tmp->ino) && cur->dev == tmp->dev
+		   && cur->construct == tmp->construct)
 		  break;
 
 	      if (tmp == cur
 		  /* Last in the chain and duplicate of JOIN?  */
 		  && !(cur->next == NULL && join
 		       && INO_T_EQ (cur->ino, join->ino)
-                      && cur->dev == join->dev
-                      && cur->construct == join->construct))
+		      && cur->dev == join->dev
+		      && cur->construct == join->construct))
 		{
 		  /* Unique, so keep this directory.  */
 		  pcur = &cur->next;
@@ -256,6 +283,19 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
   return head;
 }
 
+/* Add SYSROOT to any user-supplied paths in CHAIN starting with
+   "=".  */
+
+static void
+add_sysroot_to_chain (const char *sysroot, int chain)
+{
+  struct cpp_dir *p;
+
+  for (p = heads[chain]; p != NULL; p = p->next)
+    if (p->name[0] == '=' && p->user_supplied_p)
+      p->name = concat (sysroot, p->name + 1, NULL);
+}
+
 /* Merge the four include chains together in the order quote, bracket,
    system, after.  Remove duplicate dirs (as determined by
    INO_T_EQ()).
@@ -267,8 +307,17 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
    written -iquote bar -Ifoo -Iquux.  */
 
 static void
-merge_include_chains (cpp_reader *pfile, int verbose)
+merge_include_chains (const char *sysroot, cpp_reader *pfile, int verbose)
 {
+  /* Add the sysroot to user-supplied paths starting with "=".  */
+  if (sysroot)
+    {
+      add_sysroot_to_chain (sysroot, QUOTE);
+      add_sysroot_to_chain (sysroot, BRACKET);
+      add_sysroot_to_chain (sysroot, SYSTEM);
+      add_sysroot_to_chain (sysroot, AFTER);
+    }
+
   /* Join the SYSTEM and AFTER chains.  Remove duplicates in the
      resulting SYSTEM chain.  */
   if (heads[SYSTEM])
@@ -384,7 +433,7 @@ register_include_chains (cpp_reader *pfile, const char *sysroot,
      include chain.  */
   add_env_var_paths ("CPATH", BRACKET);
   add_env_var_paths (lang_env_vars[idx], SYSTEM);
-  
+
   target_c_incpath.extra_pre_includes (sysroot, iprefix, stdinc);
 
   /* Finally chain on the standard directories.  */
@@ -393,7 +442,7 @@ register_include_chains (cpp_reader *pfile, const char *sysroot,
 
   target_c_incpath.extra_includes (sysroot, iprefix, stdinc);
 
-  merge_include_chains (pfile, verbose);
+  merge_include_chains (sysroot, pfile, verbose);
 
   cpp_set_include_chains (pfile, heads[QUOTE], heads[BRACKET],
 			  quote_ignores_source_dir);

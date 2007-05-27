@@ -62,7 +62,7 @@ typedef char bool;
    (SJLJ or DWARF). We need a consistently named interface to import from
    a-except, so wrappers are defined here.
 
-   Besides, eventhough the compiler is never setup to use the GCC propagation
+   Besides, even though the compiler is never setup to use the GCC propagation
    circuitry, it still relies on exceptions internally and part of the sources
    to handle to exceptions are shared with the run-time library.  We need
    dummy definitions for the wrappers to satisfy the linker in this case.
@@ -540,7 +540,7 @@ get_region_description_for (_Unwind_Context *uw_context,
                             region_descriptor *region)
 {
   const unsigned char * p;
-  _Unwind_Word tmp;
+  _uleb128_t tmp;
   unsigned char lpbase_encoding;
 
   /* Get the base address of the lsda information. If the provided context
@@ -705,7 +705,7 @@ get_call_site_action_for (_Unwind_Context *uw_context,
     }
   else
     {
-      _Unwind_Word cs_lp, cs_action;
+      _uleb128_t cs_lp, cs_action;
 
       /* Let the caller know there may be an action to take, but let it
 	 determine the kind.  */
@@ -765,7 +765,7 @@ get_call_site_action_for (_Unwind_Context *uw_context,
   while (p < region->action_table)
     {
       _Unwind_Ptr cs_start, cs_len, cs_lp;
-      _Unwind_Word cs_action;
+      _uleb128_t cs_action;
 
       /* Note that all call-site encodings are "absolute" displacements.  */
       p = read_encoded_value (0, region->call_site_encoding, p, &cs_start);
@@ -913,7 +913,7 @@ get_action_description_for (_Unwind_Context *uw_context,
     {
       const unsigned char * p = action->table_entry;
 
-      _Unwind_Sword ar_filter, ar_disp;
+      _sleb128_t ar_filter, ar_disp;
 
       action->kind = nothing;
 

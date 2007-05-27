@@ -780,6 +780,24 @@ s390_emit_compare (enum rtx_code code, rtx op0, rtx op1)
   return ret;
 }
 
+/* Emit a SImode compare and swap instruction setting MEM to NEW if OLD
+   matches CMP.
+   Return the correct condition RTL to be placed in the IF_THEN_ELSE of the
+   conditional branch testing the result.  */
+
+static rtx
+s390_emit_compare_and_swap (enum rtx_code code, rtx old, rtx mem, rtx cmp, rtx new)
+{
+  rtx ret;
+
+  emit_insn (gen_sync_compare_and_swap_ccsi (old, mem, cmp, new));
+  ret = gen_rtx_fmt_ee (code, VOIDmode, s390_compare_emitted, const0_rtx);
+
+  s390_compare_emitted = NULL_RTX;
+
+  return ret;
+}
+
 /* Emit a jump instruction to TARGET.  If COND is NULL_RTX, emit an
    unconditional jump, else a conditional jump under condition COND.  */
 
@@ -1322,6 +1340,8 @@ s390_handle_arch_option (const char *arg,
 				    | PF_LONG_DISPLACEMENT},
       {"z9-109", PROCESSOR_2094_Z9_109, PF_IEEE_FLOAT | PF_ZARCH
                                        | PF_LONG_DISPLACEMENT | PF_EXTIMM},
+      {"z9-ec", PROCESSOR_2094_Z9_109, PF_IEEE_FLOAT | PF_ZARCH
+                             | PF_LONG_DISPLACEMENT | PF_EXTIMM | PF_DFP },
     };
   size_t i;
 
@@ -1400,10 +1420,33 @@ override_options (void)
     }
 
   /* Sanity checks.  */
-  if (TARGET_ZARCH && !(s390_arch_flags & PF_ZARCH))
+  if (TARGET_ZARCH && !TARGET_CPU_ZARCH)
     error ("z/Architecture mode not supported on %s", s390_arch_string);
   if (TARGET_64BIT && !TARGET_ZARCH)
     error ("64-bit ABI not supported in ESA/390 mode");
+
+  if (TARGET_HARD_DFP && (!TARGET_CPU_DFP || !TARGET_ZARCH))
+    {
+      if (target_flags_explicit & MASK_SOFT_DFP)
+	{
+	  if (!TARGET_CPU_DFP)
+	    error ("Hardware decimal floating point instructions"
+		   " not available on %s", s390_arch_string);
+	  if (!TARGET_ZARCH)
+	    error ("Hardware decimal floating point instructions"
+		   " not available in ESA/390 mode");
+	}
+      else
+	target_flags |= MASK_SOFT_DFP;
+    }
+
+  if ((target_flags_explicit & MASK_SOFT_FLOAT) && TARGET_SOFT_FLOAT)
+    {
+      if ((target_flags_explicit & MASK_SOFT_DFP) && TARGET_HARD_DFP)
+	error ("-mhard-dfp can't be used in conjunction with -msoft-float");
+
+      target_flags |= MASK_SOFT_DFP;
+    }
 
   /* Set processor cost function.  */
   if (s390_tune == PROCESSOR_2094_Z9_109)
@@ -1419,9 +1462,7 @@ override_options (void)
 
   if (s390_stack_size)
     {
-      if (!s390_stack_guard)
-	error ("-mstack-size implies use of -mstack-guard");
-      else if (s390_stack_guard >= s390_stack_size)
+      if (s390_stack_guard >= s390_stack_size)
 	error ("stack size must be greater than the stack guard value");
       else if (s390_stack_size > 1 << 16)
 	error ("stack size must not be greater than 64k");
@@ -1739,7 +1780,6 @@ s390_decompose_address (rtx addr, struct s390_address *out)
       if (GET_CODE (disp) == UNSPEC
           && (XINT (disp, 1) == UNSPEC_GOT
 	      || XINT (disp, 1) == UNSPEC_GOTNTPOFF)
-	  && offset == 0
 	  && flag_pic == 1)
         {
 	  ;
@@ -1843,14 +1883,16 @@ s390_legitimate_address_without_index_p (rtx op)
   return true;
 }
 
-/* Return 1 if OP is a valid operand for a C constraint, 0 else.  */
+
+/* Evaluates constraint strings described by the regular expression
+   ([A|B](Q|R|S|T))|U|W and returns 1 if OP is a valid operand for the
+   constraint given in STR, or 0 else.  */
 
 int
-s390_extra_constraint_str (rtx op, int c, const char * str)
+s390_mem_constraint (const char *str, rtx op)
 {
   struct s390_address addr;
-
-  gcc_assert (c == str[0]);
+  char c = str[0];
 
   /* Check for offsettable variants of memory constraints.  */
   if (c == 'A')
@@ -1860,8 +1902,7 @@ s390_extra_constraint_str (rtx op, int c, const char * str)
 	return 0;
 
       if ((reload_completed || reload_in_progress)
-	  ? !offsettable_memref_p (op)
-	  : !offsettable_nonstrict_memref_p (op))
+	  ? !offsettable_memref_p (op) : !offsettable_nonstrict_memref_p (op))
 	return 0;
 
       c = str[1];
@@ -1969,129 +2010,119 @@ s390_extra_constraint_str (rtx op, int c, const char * str)
   return 1;
 }
 
-/* Return true if VALUE matches the constraint STR.  */
+
+
+/* Evaluates constraint strings starting with letter O.  Input
+   parameter C is the second letter following the "O" in the constraint
+   string. Returns 1 if VALUE meets the respective constraint and 0
+   otherwise.  */
 
 int
-s390_const_double_ok_for_constraint_p (rtx value,
-				       int c,
-				       const char * str)
+s390_O_constraint_str (const char c, HOST_WIDE_INT value)
 {
-  gcc_assert (c == str[0]);
+  if (!TARGET_EXTIMM)
+    return 0;
 
-  switch (str[0])
+  switch (c)
     {
-    case 'G':
-      /* The floating point zero constant.  */
-      return (GET_MODE_CLASS (GET_MODE (value)) == MODE_FLOAT
-              && value == CONST0_RTX (GET_MODE (value)));
-      
+    case 's':
+      return trunc_int_for_mode (value, SImode) == value;
+
+    case 'p':
+      return value == 0
+	|| s390_single_part (GEN_INT (value), DImode, SImode, 0) == 1;
+
+    case 'n':
+      return value == -1
+	|| s390_single_part (GEN_INT (value), DImode, SImode, -1) == 1;
+
     default:
-      return 0;
+      gcc_unreachable ();
     }
 }
 
-/* Return true if VALUE matches the constraint STR.  */
+
+/* Evaluates constraint strings starting with letter N.  Parameter STR
+   contains the letters following letter "N" in the constraint string.
+   Returns true if VALUE matches the constraint.  */
 
 int
-s390_const_ok_for_constraint_p (HOST_WIDE_INT value,
-				int c,
-				const char * str)
+s390_N_constraint_str (const char *str, HOST_WIDE_INT value)
 {
   enum machine_mode mode, part_mode;
   int def;
   int part, part_goal;
 
-  gcc_assert (c == str[0]);
 
-  switch (str[0])
+  if (str[0] == 'x')
+    part_goal = -1;
+  else
+    part_goal = str[0] - '0';
+
+  switch (str[1])
     {
-    case 'I':
-      return (unsigned int)value < 256;
-
-    case 'J':
-      return (unsigned int)value < 4096;
-
-    case 'K':
-      return value >= -32768 && value < 32768;
-
-    case 'L':
-      return (TARGET_LONG_DISPLACEMENT ?
-	      (value >= -524288 && value <= 524287)
-	      : (value >= 0 && value <= 4095));
-    case 'M':
-      return value == 2147483647;
-
-    case 'N':
-      if (str[1] == 'x')
-	part_goal = -1;
-      else
-	part_goal = str[1] - '0';
-
-      switch (str[2])
-	{
-  	case 'Q': part_mode = QImode; break;
- 	case 'H': part_mode = HImode; break;
- 	case 'S': part_mode = SImode; break;
-	default:  return 0;
-	}
-
-      switch (str[3])
-	{
-	case 'H': mode = HImode; break;
-	case 'S': mode = SImode; break;
-	case 'D': mode = DImode; break;
-	default: return 0;
-	}
-
-      switch (str[4])
-	{
-	case '0': def = 0;  break;
-	case 'F': def = -1; break;
-	default: return 0;
-	}
-
-      if (GET_MODE_SIZE (mode) <= GET_MODE_SIZE (part_mode))
-	return 0;
-
-      part = s390_single_part (GEN_INT (value), mode, part_mode, def);
-      if (part < 0)
-	return 0;
-      if (part_goal != -1 && part_goal != part)
-	return 0;
-
+    case 'Q':
+      part_mode = QImode;
       break;
-
-    case 'O':
-      if (!TARGET_EXTIMM)
-	return 0;
-      
-      switch (str[1])
-	{
-	case 's':
-	  return trunc_int_for_mode (value, SImode) == value;
-	  
-	case 'p':
-	  return value == 0
-	    || s390_single_part (GEN_INT (value), DImode, SImode, 0) == 1;
-	  
-	case 'n':
-	  return value == -1
-	    || s390_single_part (GEN_INT (value), DImode, SImode, -1) == 1;
-	  
-	default:
-	  gcc_unreachable ();
-	}
+    case 'H':
+      part_mode = HImode;
       break;
-
-    case 'P':
-      return legitimate_reload_constant_p (GEN_INT (value));
-
+    case 'S':
+      part_mode = SImode;
+      break;
     default:
       return 0;
     }
 
+  switch (str[2])
+    {
+    case 'H':
+      mode = HImode;
+      break;
+    case 'S':
+      mode = SImode;
+      break;
+    case 'D':
+      mode = DImode;
+      break;
+    default:
+      return 0;
+    }
+
+  switch (str[3])
+    {
+    case '0':
+      def = 0;
+      break;
+    case 'F':
+      def = -1;
+      break;
+    default:
+      return 0;
+    }
+
+  if (GET_MODE_SIZE (mode) <= GET_MODE_SIZE (part_mode))
+    return 0;
+
+  part = s390_single_part (GEN_INT (value), mode, part_mode, def);
+  if (part < 0)
+    return 0;
+  if (part_goal != -1 && part_goal != part)
+    return 0;
+
   return 1;
 }
+
+
+/* Returns true if the input parameter VALUE is a float zero.  */
+
+int
+s390_float_const_zero_p (rtx value)
+{
+  return (GET_MODE_CLASS (GET_MODE (value)) == MODE_FLOAT
+	  && value == CONST0_RTX (GET_MODE (value)));
+}
+
 
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
@@ -3012,7 +3043,10 @@ legitimize_pic_address (rtx orig, rtx reg)
 		|| (GET_CODE (op0) == SYMBOL_REF && SYMBOL_REF_LOCAL_P (op0)))
 	      && GET_CODE (op1) == CONST_INT)
 	    {
-              if (TARGET_CPU_ZARCH && larl_operand (op0, VOIDmode))
+              if (TARGET_CPU_ZARCH
+		  && larl_operand (op0, VOIDmode)
+		  && INTVAL (op1) < (HOST_WIDE_INT)1 << 31
+		  && INTVAL (op1) >= -((HOST_WIDE_INT)1 << 31))
                 {
                   if (INTVAL (op1) & 1)
                     {
@@ -3022,7 +3056,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 
                       if (!DISP_IN_RANGE (INTVAL (op1)))
                         {
-                          int even = INTVAL (op1) - 1;
+                          HOST_WIDE_INT even = INTVAL (op1) - 1;
                           op0 = gen_rtx_PLUS (Pmode, op0, GEN_INT (even));
 			  op0 = gen_rtx_CONST (Pmode, op0);
                           op1 = const1_rtx;
@@ -4197,11 +4231,9 @@ s390_expand_cs_hqi (enum machine_mode mode, rtx target, rtx mem, rtx cmp, rtx ne
     newv = force_reg (SImode, expand_simple_binop (SImode, IOR, new, val,
 						   NULL_RTX, 1, OPTAB_DIRECT));
 
-  /* Emit compare_and_swap pattern.  */
-  emit_insn (gen_sync_compare_and_swap_ccsi (res, ac.memsi, cmpv, newv));
-      
   /* Jump to end if we're done (likely?).  */
-  s390_emit_jump (csend, s390_emit_compare (EQ, cmpv, ac.memsi));
+  s390_emit_jump (csend, s390_emit_compare_and_swap (EQ, res, ac.memsi,
+						     cmpv, newv));
 
   /* Check for changes outside mode.  */
   resv = expand_simple_binop (SImode, AND, res, ac.modemaski, 
@@ -4219,7 +4251,7 @@ s390_expand_cs_hqi (enum machine_mode mode, rtx target, rtx mem, rtx cmp, rtx ne
 }
 
 /* Expand an atomic operation CODE of mode MODE.  MEM is the memory location
-   and VAL the value to play with.  If AFTER is true then store the the value
+   and VAL the value to play with.  If AFTER is true then store the value
    MEM holds after the operation, if AFTER is false then store the value MEM
    holds before the operation.  If TARGET is zero then discard that value, else
    store it to TARGET.  */
@@ -4294,13 +4326,9 @@ s390_expand_atomic (enum machine_mode mode, enum rtx_code code,
     default:
       gcc_unreachable ();
     }
-  /* Emit compare_and_swap pattern.  */
-  emit_insn (gen_sync_compare_and_swap_ccsi (cmp, ac.memsi, cmp, new));
 
-  /* Loop until swapped (unlikely?).  */
-  s390_emit_jump (csloop, gen_rtx_fmt_ee (NE, CCZ1mode,
-					  gen_rtx_REG (CCZ1mode, CC_REGNUM),
-					  const0_rtx));
+  s390_emit_jump (csloop, s390_emit_compare_and_swap (NE, cmp,
+						      ac.memsi, cmp, new));
 
   /* Return the correct part of the bitfield.  */
   if (target)
@@ -4391,42 +4419,25 @@ s390_delegitimize_address (rtx orig_x)
 static void
 print_shift_count_operand (FILE *file, rtx op)
 {
-  HOST_WIDE_INT offset = 0;
+  HOST_WIDE_INT offset;
+  rtx base;
 
   /* Extract base register and offset.  */
   if (!s390_decompose_shift_count (op, &base, &offset))
     gcc_unreachable ();
 
-      op = XEXP (op, 0);
-    }
-
-  /* We can have an integer constant, an address register,
-     or a sum of the two.  */
-  if (GET_CODE (op) == CONST_INT)
-    {
-      offset = INTVAL (op);
-      op = NULL_RTX;
-    }
-  if (op && GET_CODE (op) == PLUS && GET_CODE (XEXP (op, 1)) == CONST_INT)
-    {
-      offset = INTVAL (XEXP (op, 1));
-      op = XEXP (op, 0);
-    }
-  while (op && GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-
   /* Sanity check.  */
-  if (op)
+  if (base)
     {
-      gcc_assert (GET_CODE (op) == REG);
-      gcc_assert (REGNO (op) < FIRST_PSEUDO_REGISTER);
-      gcc_assert (REGNO_REG_CLASS (REGNO (op)) == ADDR_REGS);
+      gcc_assert (GET_CODE (base) == REG);
+      gcc_assert (REGNO (base) < FIRST_PSEUDO_REGISTER);
+      gcc_assert (REGNO_REG_CLASS (REGNO (base)) == ADDR_REGS);
     }
 
   /* Offsets are constricted to twelve bits.  */
   fprintf (file, HOST_WIDE_INT_PRINT_DEC, offset & ((1 << 12) - 1));
-  if (op)
-    fprintf (file, "(%s)", reg_names[REGNO (op)]);
+  if (base)
+    fprintf (file, "(%s)", reg_names[REGNO (base)]);
 }
 
 /* See 'get_some_local_dynamic_name'.  */
@@ -6745,8 +6756,8 @@ s390_init_frame_layout (void)
       /* Try to predict whether we'll need the base register.  */
       base_used = cfun->machine->split_branches_pending_p
 		  || current_function_uses_const_pool
-		  || (!DISP_IN_RANGE (-frame_size)
-		      && !CONST_OK_FOR_K (-frame_size));
+		  || (!DISP_IN_RANGE (frame_size)
+		      && !CONST_OK_FOR_K (frame_size));
 
       /* Decide which register to use as literal pool base.  In small
 	 leaf functions, try to use an unused call-clobbered register
@@ -7257,21 +7268,47 @@ s390_emit_prologue (void)
 
       if (s390_stack_size)
   	{
-	  HOST_WIDE_INT stack_check_mask = ((s390_stack_size - 1)
-					    & ~(s390_stack_guard - 1));
-	  rtx t = gen_rtx_AND (Pmode, stack_pointer_rtx,
-			       GEN_INT (stack_check_mask));
+	  HOST_WIDE_INT stack_guard;
 
-	  if (TARGET_64BIT)
-	    gen_cmpdi (t, const0_rtx);
+	  if (s390_stack_guard)
+	    stack_guard = s390_stack_guard;
 	  else
-	    gen_cmpsi (t, const0_rtx);
+	    {
+	      /* If no value for stack guard is provided the smallest power of 2
+		 larger than the current frame size is chosen.  */
+	      stack_guard = 1;
+	      while (stack_guard < cfun_frame_layout.frame_size)
+		stack_guard <<= 1;
+	    }
 
-	  emit_insn (gen_conditional_trap (gen_rtx_EQ (CCmode, 
-						       gen_rtx_REG (CCmode, 
-								    CC_REGNUM),
-						       const0_rtx),
-					   const0_rtx));
+	  if (cfun_frame_layout.frame_size >= s390_stack_size)
+	    {
+	      warning (0, "frame size of function %qs is "
+		       HOST_WIDE_INT_PRINT_DEC
+		       " bytes exceeding user provided stack limit of "
+		       HOST_WIDE_INT_PRINT_DEC " bytes.  "
+		       "An unconditional trap is added.",
+		       current_function_name(), cfun_frame_layout.frame_size,
+		       s390_stack_size);
+	      emit_insn (gen_trap ());
+	    }
+	  else
+	    {
+	      HOST_WIDE_INT stack_check_mask = ((s390_stack_size - 1)
+						& ~(stack_guard - 1));
+	      rtx t = gen_rtx_AND (Pmode, stack_pointer_rtx,
+				   GEN_INT (stack_check_mask));
+	      if (TARGET_64BIT)
+		gen_cmpdi (t, const0_rtx);
+	      else
+		gen_cmpsi (t, const0_rtx);
+
+	      emit_insn (gen_conditional_trap (gen_rtx_EQ (CCmode,
+							   gen_rtx_REG (CCmode,
+								     CC_REGNUM),
+							   const0_rtx),
+					       const0_rtx));
+	    }
   	}
 
       if (s390_warn_framesize > 0 
@@ -7943,7 +7980,7 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 
   if (cfun->va_list_gpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (gpr), gpr,
 	          build_int_cst (NULL_TREE, n_gpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -7951,7 +7988,7 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 
   if (cfun->va_list_fpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (fpr), fpr,
 	          build_int_cst (NULL_TREE, n_fpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -7971,7 +8008,7 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 
       t = build2 (PLUS_EXPR, TREE_TYPE (ovf), t, build_int_cst (NULL_TREE, off));
 
-      t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -7984,7 +8021,7 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
       t = build2 (PLUS_EXPR, TREE_TYPE (sav), t,
 	          build_int_cst (NULL_TREE, -RETURN_REGNUM * UNITS_PER_WORD));
   
-      t = build2 (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (sav), sav, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -8117,7 +8154,7 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
 	      fold_convert (TREE_TYPE (reg), size_int (sav_scale)));
   t = build2 (PLUS_EXPR, ptr_type_node, t, fold_convert (ptr_type_node, u));
 
-  t = build2 (MODIFY_EXPR, void_type_node, addr, t);
+  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
   gimplify_and_add (t, pre_p);
 
   t = build1 (GOTO_EXPR, void_type_node, lab_over);
@@ -8136,12 +8173,12 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
 
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
-  u = build2 (MODIFY_EXPR, void_type_node, addr, t);
+  u = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
   gimplify_and_add (u, pre_p);
 
   t = build2 (PLUS_EXPR, ptr_type_node, t, 
 	      fold_convert (ptr_type_node, size_int (size)));
-  t = build2 (MODIFY_EXPR, ptr_type_node, ovf, t);
+  t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, ovf, t);
   gimplify_and_add (t, pre_p);
 
   t = build1 (LABEL_EXPR, void_type_node, lab_over);
@@ -8196,14 +8233,14 @@ s390_init_builtins (void)
   tree ftype;
 
   ftype = build_function_type (ptr_type_node, void_list_node);
-  lang_hooks.builtin_function ("__builtin_thread_pointer", ftype,
-			       S390_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, NULL_TREE);
+  add_builtin_function ("__builtin_thread_pointer", ftype,
+			S390_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
+			NULL, NULL_TREE);
 
   ftype = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
-  lang_hooks.builtin_function ("__builtin_set_thread_pointer", ftype,
-			       S390_BUILTIN_SET_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, NULL_TREE);
+  add_builtin_function ("__builtin_set_thread_pointer", ftype,
+			S390_BUILTIN_SET_THREAD_POINTER, BUILT_IN_MD,
+			NULL, NULL_TREE);
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -8222,13 +8259,14 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   unsigned int const *code_for_builtin =
     TARGET_64BIT ? code_for_builtin_64 : code_for_builtin_31;
 
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
-  tree arglist = TREE_OPERAND (exp, 1);
   enum insn_code icode;
   rtx op[MAX_ARGS], pat;
   int arity;
   bool nonvoid;
+  tree arg;
+  call_expr_arg_iterator iter;
 
   if (fcode >= S390_BUILTIN_max)
     internal_error ("bad builtin fcode");
@@ -8238,13 +8276,11 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
   nonvoid = TREE_TYPE (TREE_TYPE (fndecl)) != void_type_node;
 
-  for (arglist = TREE_OPERAND (exp, 1), arity = 0;
-       arglist;
-       arglist = TREE_CHAIN (arglist), arity++)
+  arity = 0;
+  FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
     {
       const struct insn_operand_data *insn_op;
 
-      tree arg = TREE_VALUE (arglist);
       if (arg == error_mark_node)
 	return NULL_RTX;
       if (arity > MAX_ARGS)
@@ -8256,6 +8292,7 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
       if (!(*insn_op->predicate) (op[arity], insn_op->mode))
 	op[arity] = copy_to_mode_reg (insn_op->mode, op[arity]);
+      arity++;
     }
 
   if (nonvoid)
@@ -8715,28 +8752,26 @@ s390_valid_pointer_mode (enum machine_mode mode)
   return (mode == SImode || (TARGET_64BIT && mode == DImode));
 }
 
-/* Checks whether the given ARGUMENT_LIST would use a caller
+/* Checks whether the given CALL_EXPR would use a caller
    saved register.  This is used to decide whether sibling call
    optimization could be performed on the respective function
    call.  */
 
 static bool
-s390_call_saved_register_used (tree argument_list)
+s390_call_saved_register_used (tree call_expr)
 {
   CUMULATIVE_ARGS cum;
   tree parameter;
   enum machine_mode mode;
   tree type;
   rtx parm_rtx;
-  int reg;
+  int reg, i;
 
   INIT_CUMULATIVE_ARGS (cum, NULL, NULL, 0, 0);
 
-  while (argument_list)
+  for (i = 0; i < call_expr_nargs (call_expr); i++)
     {
-      parameter = TREE_VALUE (argument_list);
-      argument_list = TREE_CHAIN (argument_list);
-
+      parameter = CALL_EXPR_ARG (call_expr, i);
       gcc_assert (parameter);
 
       /* For an undeclared variable passed as parameter we will get
@@ -8792,11 +8827,7 @@ s390_function_ok_for_sibcall (tree decl, tree exp)
   /* Register 6 on s390 is available as an argument register but unfortunately
      "caller saved". This makes functions needing this register for arguments
      not suitable for sibcalls.  */
-  if (TREE_OPERAND (exp, 1)
-      && s390_call_saved_register_used (TREE_OPERAND (exp, 1)))
-      return false;
-
-  return true;
+  return !s390_call_saved_register_used (exp);
 }
 
 /* Return the fixed registers used for condition codes.  */
