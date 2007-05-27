@@ -1,5 +1,11 @@
 2007-05-27  Kenneth Zadeck <zadeck@naturalbridge.com>
 
+	* df-core.c (df_hybrid_search_forward, df_hybrid_search_backward
+	df_iterative_dataflow): Removed.
+	* df.h (df_iterative_dataflow): Removed.
+	
+2007-05-27  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* dse.c (replace_inc_dec, delete_dead_store_insn, scan_insn, 
 	dse_record_singleton_alias_set, dse_confluence_0,
 	dse_confluence_n, step4, step5_nospill, step5_spill,

@@ -845,7 +845,6 @@ extern struct df_ref *df_find_def (rtx, rtx);
 extern bool df_reg_defined (rtx, rtx);
 extern struct df_ref *df_find_use (rtx, rtx);
 extern bool df_reg_used (rtx, rtx);
-extern void df_iterative_dataflow (struct dataflow *,bitmap, int *, int);
 extern void df_worklist_dataflow (struct dataflow *,bitmap, int *, int);
 extern void df_print_regset (FILE *file, bitmap r);
 extern void df_dump (FILE *);
