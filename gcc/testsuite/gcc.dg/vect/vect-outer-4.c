@@ -50,7 +50,6 @@ int main (void)
   return 0;
 }
 
-/* FORNOW. Until we support the 0-stride access coeff[j]  */
-/* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 1 "vect" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "zero step in outer loop." 1 "vect" } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */

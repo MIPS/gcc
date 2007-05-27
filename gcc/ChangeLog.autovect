@@ -1,3 +1,19 @@
+2007-05-28  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_analyze_data_ref_access): Don't fail on 
+	zero step in the outer-loop for loads.
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Takes additional
+	argument (inv_p). Support zero step in the outer-loop.
+	(vect_init_vector): Takes additional argument (bsi). Use it, if
+	available, to insert the vector initialization.
+	(get_initial_def_for_induction): Pass additional argument in call to
+	vect_init_vector.
+	(vect_get_vec_def_for_operand): Likewise.
+	(vectorizable_store): Pass additional argument in call to
+	vect_create_data_ref_ptr.
+	(vect_setup_realignment): Likewise.
+	(vectorizable_load): Likewise. Handle invariant load.
+
 2007-05-22  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-transform.c (vect_create_addr_base_for_vector_ref): Takes

@@ -1832,7 +1832,7 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 
   if (nested_in_vect_loop_p (loop, stmt))
     {
-      /* For the rest of the analysis we use the outer-loop step  */
+      /* For the rest of the analysis we use the outer-loop step.  */
       step = STMT_VINFO_DR_STEP (stmt_info);
       dr_step = TREE_INT_CST_LOW (step);
       
@@ -1840,7 +1840,10 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 	{
 	  if (vect_print_dump_info (REPORT_ALIGNMENT))
 	    fprintf (vect_dump, "zero step in outer loop.");
-  	  return false; 
+	  if (DR_IS_READ (dr))
+  	    return true; 
+	  else
+	    return false;
 	}
     }
     
