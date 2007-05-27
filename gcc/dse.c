@@ -43,10 +43,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "expr.h"
 #include "recog.h"
 #include "dse.h"
-
-#ifndef BASELINE
 #include "dbgcnt.h"
-#endif
 
 /* This file contains three techniques for performing Dead Store
    Elimination (dse).  
@@ -755,16 +752,10 @@ replace_inc_dec (rtx *r, void *d)
       {
 	rtx r1 = XEXP (x, 0);
 	rtx c = gen_int_mode (Pmode, data->size);
-#ifdef BASELINE
-	add_insn_before (data->insn, 
-			 gen_rtx_SET (Pmode, r1, 
-				      gen_rtx_PLUS (Pmode, r1, c)));
-#else
 	add_insn_before (data->insn, 
 			 gen_rtx_SET (Pmode, r1, 
 				      gen_rtx_PLUS (Pmode, r1, c)),
 			 NULL);
-#endif
 	return -1;
       }
 		 
@@ -773,16 +764,10 @@ replace_inc_dec (rtx *r, void *d)
       {
 	rtx r1 = XEXP (x, 0);
 	rtx c = gen_int_mode (Pmode, -data->size);
-#ifdef BASELINE
-	add_insn_before (data->insn, 
-			 gen_rtx_SET (Pmode, r1, 
-				      gen_rtx_PLUS (Pmode, r1, c)));
-#else
 	add_insn_before (data->insn, 
 			 gen_rtx_SET (Pmode, r1, 
 				      gen_rtx_PLUS (Pmode, r1, c)),
 			 NULL);
-#endif
 	return -1;
       }
 	
@@ -793,13 +778,8 @@ replace_inc_dec (rtx *r, void *d)
 	   insn that contained it.  */
 	rtx add = XEXP (x, 0);
 	rtx r1 = XEXP (add, 0);
-#ifdef BASELINE
-	add_insn_before (data->insn, 
-			 gen_rtx_SET (Pmode, r1, add));
-#else
 	add_insn_before (data->insn, 
 			 gen_rtx_SET (Pmode, r1, add), NULL);
-#endif
 	return -1;
       }
 
@@ -849,10 +829,8 @@ delete_dead_store_insn (insn_info_t insn_info)
 {
   read_info_t read_info;
 
-#ifndef BASELINE
   if (!dbg_cnt (dse))
     return;
-#endif
 
   check_for_inc_dec (insn_info->insn);
   if (dump_file)
@@ -1835,11 +1813,6 @@ scan_insn (bb_info_t bb_info, rtx insn)
       return;
     }
 
-#if 0
-  /* Look for memory reference in the notes.  */
-  for_each_rtx (&REG_NOTES (insn), check_mem_read_rtx, bb_info);
-#endif
-
   /* Assuming that there are sets in these insns, we cannot delete
      them.  */
   if ((GET_CODE (PATTERN (insn)) == CLOBBER)
@@ -2076,7 +2049,6 @@ step2_init (void)
       group->offset_map_size_p++;
       group->offset_map_p = XNEWVEC (int, group->offset_map_size_p);
       group->process_globally = false;
-#if 1
       if (dump_file)
 	{
 	  fprintf (dump_file, "group %d(%d+%d): ", i, 
@@ -2085,7 +2057,6 @@ step2_init (void)
 	  bitmap_print (dump_file, group->store2_n, "n ", " ");
 	  bitmap_print (dump_file, group->store2_p, "p ", "\n");
 	}
-#endif 
     }
 }
 
@@ -2232,10 +2203,6 @@ dse_record_singleton_alias_set (HOST_WIDE_INT alias_set,
 						 sizeof (struct clear_alias_mode_holder), 100);
     }
 
-#if 0
-  fprintf (stderr, "registering alias set %d(%s)\n", (int)alias_set, GET_MODE_NAME (mode));
-#endif 
- 
   bitmap_set_bit (clear_alias_sets, alias_set);
 
   tmp_holder.alias_set = alias_set;
@@ -2652,19 +2619,10 @@ step3 (bool for_spills)
 
 
 static void
-#ifdef BASELINE
-dse_confluence_0 (struct dataflow * d ATTRIBUTE_UNUSED, basic_block bb)
-#else
 dse_confluence_0 (basic_block bb)
-#endif
 {
   bb_info_t bb_info = bb_table[bb->index];
 
-#if 0
-  if (dump_file)
-    fprintf (dump_file, "confluence_0 called with %d\n", 
-	     bb->index);
-#endif
   if (bb->index == EXIT_BLOCK)
     return;
 
@@ -2680,24 +2638,10 @@ dse_confluence_0 (basic_block bb)
    there, that means they are all ones.  */
 
 static void
-#ifdef BASELINE
-dse_confluence_n (struct dataflow * d ATTRIBUTE_UNUSED, edge e)
-#else
 dse_confluence_n (edge e)
-#endif
 {
   bb_info_t src_info = bb_table[e->src->index];
   bb_info_t dest_info = bb_table[e->dest->index];
-
-#if 0
-  if (dump_file)
-    {
-      fprintf (dump_file, "confluence_n called with %d->%d\n", 
-	       e->src->index, e->dest->index);
-      df_print_bb_index (e->src, dump_file);
-      df_print_bb_index (e->dest, dump_file);
-    }
-#endif
 
   if (dest_info->in)
     {
@@ -2729,19 +2673,10 @@ dse_confluence_n (edge e)
 */
 
 static bool
-#ifdef BASELINE
-dse_transfer_function (struct dataflow * d ATTRIBUTE_UNUSED, int bb_index)
-#else
 dse_transfer_function (int bb_index)
-#endif
 {
   bb_info_t bb_info = bb_table[bb_index];
 
-#if 0
-  if (dump_file)
-    fprintf (dump_file, "transfer called with %d\n", 
-	     bb_index);
-#endif
   if (bb_info->kill)
     {
       if (bb_info->out)
@@ -2777,55 +2712,15 @@ dse_transfer_function (int bb_index)
     }
 }
 
-#ifdef BASELINE
-static struct df_problem problem =
-{
-  0,                          /* Problem id.  */
-  DF_BACKWARD,                /* Direction.  */
-  NULL,                       /* Allocate the problem specific data.  */
-  NULL,                       /* Reset global information.  */
-  NULL,                       /* Free basic block info.  */
-  NULL,                       /* Local compute function.  */
-  NULL,                       /* Init the solution specific data.  */
-  df_iterative_dataflow,      /* Iterative solver.  */
-  dse_confluence_0,           /* Confluence operator 0.  */ 
-  dse_confluence_n,           /* Confluence operator n.  */ 
-  dse_transfer_function,      /* Transfer function.  */
-  NULL,                       /* Finalize function.  */
-  NULL,                       /* Free all of the problem information.  */
-  NULL,                       /* Debugging.  */
-  NULL,                       /* Dependent problem.  */
-  0                           /* Changeable flags.  */
-};
-#endif
-
-#ifdef BASELINE
-static struct dataflow dflow;
-#endif
-
 /* Solve the dataflow equations.  */
 
 static void
 step4 (void)
 {
-#ifdef BASELINE
-  int *postorder = XNEWVEC (int, last_basic_block);
-  int  n_blocks = post_order_compute (postorder, true);
-#endif
-
-#ifdef BASELINE
-  dflow.flags = 0;
-  dflow.df = shared_df;
-  dflow.problem = &problem;
-  df_analyze_problem (&dflow, all_blocks, all_blocks, all_blocks,
-		      postorder, n_blocks, false);
-  free (postorder);
-#else
   df_simple_dataflow (DF_BACKWARD, NULL, dse_confluence_0, 
 		      dse_confluence_n, dse_transfer_function, 
 	   	      all_blocks, df_get_postorder (DF_BACKWARD), 
 		      df_get_n_blocks (DF_BACKWARD));
-#endif
   if (dump_file)
     {
       basic_block bb;
@@ -2913,16 +2808,12 @@ step5_nospill (void)
 		    {
 		      int index = get_bitmap_index (group_info, i);
 		      
-#if 1
 		      if (dump_file)
 			fprintf (dump_file, "i = %d, index = %d\n", (int)i, index); 
-#endif
 		      if (index == 0 || !bitmap_bit_p (v, index))
 			{
-#if 1
 			  if (dump_file)
 			    fprintf (dump_file, "failing at i = %d\n", (int)i); 
-#endif
 			  deleted = false;
 			  break;
 			}
@@ -2930,9 +2821,7 @@ step5_nospill (void)
 		}
 	      if (deleted)
 		{
-#ifndef BASELINE
 		  if (dbg_cnt (dse))
-#endif
 		    {
 		      check_for_inc_dec (insn_info->insn);
 		      delete_insn (insn_info->insn);
@@ -3009,20 +2898,15 @@ step5_spill (void)
 		    deleted = false;
 		  store_info = store_info->next;
 		}
-	      if (deleted)
+	      if (deleted && dbg_cnt (dse))
 		{
-#ifndef BASELINE
-		  if (dbg_cnt (dse))
-#endif
-		    {
-		      if (dump_file)
-			fprintf (dump_file, "Spill deleting insn %d\n", 
-				 INSN_UID (insn_info->insn));
-		      check_for_inc_dec (insn_info->insn);
-		      delete_insn (insn_info->insn);
-		      spill_deleted++;
-		      insn_info->insn = NULL;
-		    }
+		  if (dump_file)
+		    fprintf (dump_file, "Spill deleting insn %d\n", 
+			     INSN_UID (insn_info->insn));
+		  check_for_inc_dec (insn_info->insn);
+		  delete_insn (insn_info->insn);
+		  spill_deleted++;
+		  insn_info->insn = NULL;
 		}
 	    }
 	  
@@ -3126,10 +3010,6 @@ static unsigned int
 rest_of_handle_dse (void)
 {
   bool did_global = false;
-  FILE * saved_dump_file = dump_file;
-#if 0
-  dump_file = stderr;
-#endif
 
   df_set_flags (DF_DEFER_INSN_RESCAN);
 
@@ -3138,10 +3018,8 @@ rest_of_handle_dse (void)
   step2_init ();
   if (step2_nospill ())
     {
-#ifndef BASELINE 
       df_set_flags (DF_LR_RUN_DCE);
       df_analyze ();
-#endif
       did_global = true;
       if (dump_file)
 	fprintf (dump_file, "doing global processing\n");
@@ -3157,13 +3035,11 @@ rest_of_handle_dse (void)
      everything else do not apply here.  */ 
   if (clear_alias_sets && step2_spill ())
     {
-#ifndef BASELINE 
       if (!did_global)
 	{
 	  df_set_flags (DF_LR_RUN_DCE);
 	  df_analyze ();
 	}
-#endif
       did_global = true;
       if (dump_file)
 	fprintf (dump_file, "doing global spill processing\n");
@@ -3177,18 +3053,13 @@ rest_of_handle_dse (void)
   if (dump_file)
     fprintf (dump_file, "dse: local deletions = %d, global deletions = %d, spill deletions = %d\n",
 	     locally_deleted, globally_deleted, spill_deleted);
-  dump_file = saved_dump_file;
   return 0;
 }
 
 static bool
 gate_dse (void)
 {
-#ifdef BASELINE
-  return optimize > 0;
-#else
   return optimize > 0 && flag_dse;
-#endif
 }
 
 struct tree_opt_pass pass_rtl_dse1 =
@@ -3205,9 +3076,7 @@ struct tree_opt_pass pass_rtl_dse1 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-#ifndef BASELINE
   TODO_df_finish |
-#endif
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
 };
@@ -3220,19 +3089,13 @@ struct tree_opt_pass pass_rtl_dse2 =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-#ifdef BASELINE
-  TV_DSE1,                              /* tv_id */
-#else
   TV_DSE2,                              /* tv_id */
-#endif
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-#ifndef BASELINE
   TODO_df_finish |
-#endif
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
 };

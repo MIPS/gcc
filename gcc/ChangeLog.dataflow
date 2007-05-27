@@ -1,3 +1,12 @@
+2007-05-27  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* dse.c (replace_inc_dec, delete_dead_store_insn, scan_insn, 
+	dse_record_singleton_alias_set, dse_confluence_0,
+	dse_confluence_n, step4, step5_nospill, step5_spill,
+	rest_of_handle_dse, pass_rtl_dse1, pass_rtl_dse2): Removed code
+	to allow dse to run on trunk in front of flow.c
+	(problem): Removed.
+	
 2007-05-26  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* bt-load.c: Include recog.h.
