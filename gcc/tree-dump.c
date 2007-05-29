@@ -166,7 +166,7 @@ void
 dump_pointer (dump_info_p di, const char *field, void *ptr)
 {
   dump_maybe_newline (di);
-  fprintf (di->stream, "%-4s: %-8lx ", field, (long) ptr);
+  fprintf (di->stream, "%-4s: %-8lx ", field, (unsigned long) ptr);
   di->column += 15;
 }
 
@@ -803,7 +803,7 @@ static const struct dump_option_value_info dump_options[] =
   {"stmtaddr", TDF_STMTADDR},
   {"memsyms", TDF_MEMSYMS},
   {"all", ~(TDF_RAW | TDF_SLIM | TDF_LINENO | TDF_TREE | TDF_RTL | TDF_IPA 
-	    | TDF_STMTADDR | TDF_GRAPH)},
+	    | TDF_STMTADDR | TDF_GRAPH | TDF_DIAGNOSTIC)},
   {NULL, 0}
 };
 

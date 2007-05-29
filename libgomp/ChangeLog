@@ -1,3 +1,17 @@
+2007-05-23  Steve Ellcey  <sje@cup.hp.com>
+
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2007-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/linux/proc.c: New file.
+
+	PR libgomp/28482
+	* configure.tgt: Don't link with -Wl,-z,nodlopen even on Linux.
+
 2007-04-19  Daniel Franke  <franke.daniel@gmail.com>
 
 	* libgomp.texi (GOMP_CPU_AFFINITY): Updated.

@@ -1,3 +1,7 @@
+2007-05-29  Aldy Hernandez  <aldyh@redhat.com>
+
+	Merged revisions 124007-125166 from mainline.
+
 2007-05-23  Aldy Hernandez  <aldyh@redhat.com>
 
         * builtins.c (std_gimplify_va_arg_expr): Add argument to gimplify_expr.

@@ -1785,6 +1785,13 @@ gfc_type_for_size (unsigned bits, int unsignedp)
 	  if (type && bits == TYPE_PRECISION (type))
 	    return type;
 	}
+
+      /* Handle TImode as a special case because it is used by some backends
+         (eg. ARM) even though it is not available for normal use.  */
+#if HOST_BITS_PER_WIDE_INT >= 64
+      if (bits == TYPE_PRECISION (intTI_type_node))
+	return intTI_type_node;
+#endif
     }
   else
     {
@@ -1837,14 +1844,6 @@ gfc_type_for_mode (enum machine_mode mode, int unsignedp)
     }
 
   return NULL_TREE;
-}
-
-/* Return an unsigned type the same as TYPE in other respects.  */
-
-tree
-gfc_unsigned_type (tree type)
-{
-  return get_signed_or_unsigned_type (1, type);
 }
 
 /* Return a signed type the same as TYPE in other respects.  */

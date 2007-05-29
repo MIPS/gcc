@@ -288,6 +288,11 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define TARGET_OLDABI		    (mips_abi == ABI_32 || mips_abi == ABI_O64)
 #define TARGET_NEWABI		    (mips_abi == ABI_N32 || mips_abi == ABI_64)
 
+/* Similar to TARGET_HARD_FLOAT and TARGET_SOFT_FLOAT, but reflect the ABI
+   in use rather than whether the FPU is directly accessible.  */
+#define TARGET_HARD_FLOAT_ABI (TARGET_HARD_FLOAT || mips16_hard_float)
+#define TARGET_SOFT_FLOAT_ABI (!TARGET_HARD_FLOAT_ABI)
+
 /* IRIX specific stuff.  */
 #define TARGET_IRIX	   0
 #define TARGET_IRIX6	   0
@@ -406,9 +411,11 @@ extern const struct mips_rtx_cost_data *mips_cost;
 	  builtin_define ("_MIPS_ISA=_MIPS_ISA_MIPS64");	\
 	}							\
 								\
-      if (TARGET_HARD_FLOAT)					\
+      /* These defines reflect the ABI in use, not whether the  \
+	 FPU is directly accessible.  */			\
+      if (TARGET_HARD_FLOAT_ABI)				\
 	builtin_define ("__mips_hard_float");			\
-      else if (TARGET_SOFT_FLOAT)				\
+      else							\
 	builtin_define ("__mips_soft_float");			\
 								\
       if (TARGET_SINGLE_FLOAT)					\
@@ -844,10 +851,12 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define ASM_SPEC "\
 %{G*} %(endian_spec) %{mips1} %{mips2} %{mips3} %{mips4} \
 %{mips32} %{mips32r2} %{mips64} \
-%{mips16:%{!mno-mips16:-mips16}} %{mno-mips16:-no-mips16} \
-%{mips3d:-mips3d} \
-%{mdsp} \
-%{mdspr2} \
+%{mips16} %{mno-mips16:-no-mips16} \
+%{mips3d} %{mno-mips3d:-no-mips3d} \
+%{mdmx} %{mno-mdmx:-no-mdmx} \
+%{mdsp} %{mno-dsp} \
+%{mdspr2} %{mno-dspr2} \
+%{mmt} %{mno-mt} \
 %{mfix-vr4120} %{mfix-vr4130} \
 %(subtarget_asm_optimizing_spec) \
 %(subtarget_asm_debugging_spec) \
@@ -1019,18 +1028,24 @@ extern const struct mips_rtx_cost_data *mips_cost;
 /* For MIPS, width of a floating point register.  */
 #define UNITS_PER_FPREG (TARGET_FLOAT64 ? 8 : 4)
 
-/* If register $f0 holds a floating-point value, $f(0 + FP_INC) is
-   the next available register.  */
-#define FP_INC (TARGET_FLOAT64 || TARGET_SINGLE_FLOAT ? 1 : 2)
+/* The number of consecutive floating-point registers needed to store the
+   largest format supported by the FPU.  */
+#define MAX_FPRS_PER_FMT (TARGET_FLOAT64 || TARGET_SINGLE_FLOAT ? 1 : 2)
+
+/* The number of consecutive floating-point registers needed to store the
+   smallest format supported by the FPU.  */
+#define MIN_FPRS_PER_FMT \
+  (ISA_MIPS32 || ISA_MIPS32R2 || ISA_MIPS64 ? 1 : MAX_FPRS_PER_FMT) 
 
 /* The largest size of value that can be held in floating-point
    registers and moved with a single instruction.  */
-#define UNITS_PER_HWFPVALUE (TARGET_SOFT_FLOAT ? 0 : FP_INC * UNITS_PER_FPREG)
+#define UNITS_PER_HWFPVALUE \
+  (TARGET_SOFT_FLOAT_ABI ? 0 : MAX_FPRS_PER_FMT * UNITS_PER_FPREG)
 
 /* The largest size of value that can be held in floating-point
    registers.  */
 #define UNITS_PER_FPVALUE			\
-  (TARGET_SOFT_FLOAT ? 0			\
+  (TARGET_SOFT_FLOAT_ABI ? 0			\
    : TARGET_SINGLE_FLOAT ? UNITS_PER_FPREG	\
    : LONG_DOUBLE_TYPE_SIZE / BITS_PER_UNIT)
 
@@ -2238,8 +2253,11 @@ typedef struct mips_args {
    difference in cost between byte and (aligned) word loads.
 
    On RISC machines, it tends to generate better code to define
-   this as 1, since it avoids making a QI or HI mode register.  */
-#define SLOW_BYTE_ACCESS 1
+   this as 1, since it avoids making a QI or HI mode register.
+
+   But, generating word accesses for -mips16 is generally bad as shifts
+   (often extended) would be needed for byte accesses.  */
+#define SLOW_BYTE_ACCESS (!TARGET_MIPS16)
 
 /* Define this to be nonzero if shift instructions ignore all but the low-order
    few bits.  */

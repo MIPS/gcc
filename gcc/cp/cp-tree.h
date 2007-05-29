@@ -303,7 +303,8 @@ typedef struct ptrmem_cst * ptrmem_cst_t;
 #define DECL_MAIN_P(NODE)				\
    (DECL_EXTERN_C_FUNCTION_P (NODE)			\
     && DECL_NAME (NODE) != NULL_TREE			\
-    && MAIN_NAME_P (DECL_NAME (NODE)))
+    && MAIN_NAME_P (DECL_NAME (NODE)))                  \
+    && flag_hosted
 
 /* The overloaded FUNCTION_DECL.  */
 #define OVL_FUNCTION(NODE) \
@@ -539,7 +540,7 @@ enum cp_tree_node_structure_enum {
 
 /* The resulting tree type.  */
 union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
-       chain_next ("(GIMPLE_STMT_P (&%h.generic) ? (union lang_tree_node *) 0 : (union lang_tree_node *)TREE_CHAIN (&%h.generic))")))
+       chain_next ("(union lang_tree_node *)GENERIC_NEXT (&%h.generic)")))
 {
   union tree_node GTY ((tag ("TS_CP_GENERIC"),
 			desc ("tree_node_structure (&%h)"))) generic;
@@ -2660,14 +2661,21 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 /* [basic.fundamental]
 
    Integral and floating types are collectively called arithmetic
-   types.  Keep these checks in ascending code order.  */
+   types.  
+
+   As a GNU extension, we also accept complex types.
+
+   Keep these checks in ascending code order.  */
 #define ARITHMETIC_TYPE_P(TYPE) \
-  (CP_INTEGRAL_TYPE_P (TYPE) || TREE_CODE (TYPE) == REAL_TYPE)
+  (CP_INTEGRAL_TYPE_P (TYPE) \
+   || TREE_CODE (TYPE) == REAL_TYPE \
+   || TREE_CODE (TYPE) == COMPLEX_TYPE)
 
 /* [basic.types]
 
    Arithmetic types, enumeration types, pointer types, and
    pointer-to-member types, are collectively called scalar types.
+   
    Keep these checks in ascending code order.  */
 #define SCALAR_TYPE_P(TYPE)			\
   (TYPE_PTRMEM_P (TYPE)				\
@@ -4385,7 +4393,7 @@ extern bool uses_parameter_packs                (tree);
 extern bool template_parameter_pack_p           (tree);
 extern bool template_parms_variadic_p           (tree);
 extern tree make_pack_expansion                 (tree);
-extern void check_for_bare_parameter_packs      (tree);
+extern bool check_for_bare_parameter_packs      (tree);
 extern int template_class_depth			(tree);
 extern int is_specialization_of			(tree, tree);
 extern bool is_specialization_of_friend		(tree, tree);

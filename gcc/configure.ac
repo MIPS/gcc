@@ -206,6 +206,9 @@ if test x"${DEFAULT_LINKER+set}" = x"set"; then
 	[Define to enable the use of a default linker.])
 fi
 
+gnu_ld=`if test x"$gnu_ld_flag" = x"yes"; then echo 1; else echo 0; fi`
+AC_DEFINE_UNQUOTED(HAVE_GNU_LD, $gnu_ld, [Define if using GNU ld.])
+
 AC_MSG_CHECKING([whether a default linker was specified])
 if test x"${DEFAULT_LINKER+set}" = x"set"; then
   if test x"$gnu_ld_flag" = x"no"; then
@@ -787,17 +790,20 @@ AC_ARG_WITH(sysroot,
  TARGET_SYSTEM_ROOT_DEFINE='-DTARGET_SYSTEM_ROOT=\"$(TARGET_SYSTEM_ROOT)\"'
  CROSS_SYSTEM_HEADER_DIR='$(TARGET_SYSTEM_ROOT)$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
 	
- if test "x$exec_prefix" = xNONE; then
-  if test "x$prefix" = xNONE; then
-   test_prefix=/usr/local
-  else
-   test_prefix=$prefix
-  fi
+ if test "x$prefix" = xNONE; then
+  test_prefix=/usr/local
  else
-  test_prefix=$exec_prefix
+  test_prefix=$prefix
+ fi
+ if test "x$exec_prefix" = xNONE; then
+  test_exec_prefix=$test_prefix
+ else
+  test_exec_prefix=$exec_prefix
  fi
  case ${TARGET_SYSTEM_ROOT} in
  "${test_prefix}"|"${test_prefix}/"*|\
+ "${test_exec_prefix}"|"${test_exec_prefix}/"*|\
+ '${prefix}'|'${prefix}/'*|\
  '${exec_prefix}'|'${exec_prefix}/'*)
    t="$TARGET_SYSTEM_ROOT_DEFINE -DTARGET_SYSTEM_ROOT_RELOCATABLE"
    TARGET_SYSTEM_ROOT_DEFINE="$t"

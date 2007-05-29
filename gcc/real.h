@@ -126,9 +126,6 @@ struct real_format
   /* The radix of the exponent and digits of the significand.  */
   int b;
 
-  /* log2(b).  */
-  int log2_b;
-
   /* Size of the significand in digits of radix B.  */
   int p;
 
@@ -272,8 +269,6 @@ extern const struct real_format mips_quad_format;
 extern const struct real_format vax_f_format;
 extern const struct real_format vax_d_format;
 extern const struct real_format vax_g_format;
-extern const struct real_format i370_single_format;
-extern const struct real_format i370_double_format;
 extern const struct real_format c4x_single_format;
 extern const struct real_format c4x_extended_format;
 extern const struct real_format real_internal_format;
@@ -434,8 +429,8 @@ extern void real_copysign (REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *);
 /* Convert between MPFR and REAL_VALUE_TYPE.  The caller is
    responsible for initializing and clearing the MPFR parameter.  */
 
-extern void real_from_mpfr (REAL_VALUE_TYPE *, mpfr_srcptr);
-extern void mpfr_from_real (mpfr_ptr, const REAL_VALUE_TYPE *);
+extern void real_from_mpfr (REAL_VALUE_TYPE *, mpfr_srcptr, tree, mp_rnd_t);
+extern void mpfr_from_real (mpfr_ptr, const REAL_VALUE_TYPE *, mp_rnd_t);
 
 /* Check whether the real constant value given is an integer.  */
 extern bool real_isinteger (const REAL_VALUE_TYPE *c, enum machine_mode mode);

@@ -27,17 +27,9 @@ m32
 Target RejectNegative Negative(m64) Report InverseMask(64BIT)
 Generate 32bit i386 code
 
-m386
-Target RejectNegative Undocumented
-;; Deprecated
-
 m3dnow
 Target Report Mask(3DNOW)
 Support 3DNow! built-in functions
-
-m486
-Target RejectNegative Undocumented
-;; Deprecated
 
 m64
 Target RejectNegative Negative(m32) Report Mask(64BIT)
@@ -155,14 +147,6 @@ mpc
 Target RejectNegative Report Joined Var(ix87_precision_string)
 Set 80387 floating-point precision (-mpc32, -mpc64, -mpc80)
 
-mpentium
-Target RejectNegative Undocumented
-;; Deprecated
-
-mpentiumpro
-Target RejectNegative Undocumented
-;; Deprecated
-
 mpreferred-stack-boundary=
 Target RejectNegative Joined Var(ix86_preferred_stack_boundary_string)
 Attempt to keep stack aligned to this power of 2
@@ -202,6 +186,10 @@ Support MMX, SSE, SSE2 and SSE3 built-in functions and code generation
 mssse3
 Target Report Mask(SSSE3)
 Support MMX, SSE, SSE2, SSE3 and SSSE3 built-in functions and code generation
+
+msse4.1
+Target Report Mask(SSE4_1)
+Support MMX, SSE, SSE2, SSE3, SSSE3 and SSE4.1 built-in functions and code generation
 
 msse4a
 Target Report Mask(SSE4A)

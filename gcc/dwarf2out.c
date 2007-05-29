@@ -5768,11 +5768,11 @@ print_die (dw_die_ref die, FILE *outfile)
   unsigned ix;
 
   print_spaces (outfile);
-  fprintf (outfile, "DIE %4lu: %s\n",
+  fprintf (outfile, "DIE %4ld: %s\n",
 	   die->die_offset, dwarf_tag_name (die->die_tag));
   print_spaces (outfile);
   fprintf (outfile, "  abbrev id: %lu", die->die_abbrev);
-  fprintf (outfile, " offset: %lu\n", die->die_offset);
+  fprintf (outfile, " offset: %ld\n", die->die_offset);
 
   for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
     {
@@ -5820,7 +5820,7 @@ print_die (dw_die_ref die, FILE *outfile)
 	      if (AT_ref (a)->die_symbol)
 		fprintf (outfile, "die -> label: %s", AT_ref (a)->die_symbol);
 	      else
-		fprintf (outfile, "die -> %lu", AT_ref (a)->die_offset);
+		fprintf (outfile, "die -> %ld", AT_ref (a)->die_offset);
 	    }
 	  else
 	    fprintf (outfile, "die -> <null>");
@@ -7091,7 +7091,8 @@ output_die (dw_die_ref die)
     output_die_symbol (die);
 
   dw2_asm_output_data_uleb128 (die->die_abbrev, "(DIE (0x%lx) %s)",
-			       die->die_offset, dwarf_tag_name (die->die_tag));
+			       (unsigned long)die->die_offset,
+			       dwarf_tag_name (die->die_tag));
 
   for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
     {
@@ -7273,7 +7274,7 @@ output_die (dw_die_ref die)
   /* Add null byte to terminate sibling list.  */
   if (die->die_child != NULL)
     dw2_asm_output_data (1, 0, "end of children of DIE 0x%lx",
-			 die->die_offset);
+			 (unsigned long) die->die_offset);
 }
 
 /* Output the compilation unit that appears at the beginning of the
@@ -9694,28 +9695,13 @@ round_up_to_align (HOST_WIDE_INT t, unsigned int align)
 static HOST_WIDE_INT
 field_byte_offset (tree decl)
 {
-  unsigned int type_align_in_bits;
-  unsigned int decl_align_in_bits;
-  unsigned HOST_WIDE_INT type_size_in_bits;
   HOST_WIDE_INT object_offset_in_bits;
-  tree type;
-  tree field_size_tree;
   HOST_WIDE_INT bitpos_int;
-  HOST_WIDE_INT deepest_bitpos;
-  unsigned HOST_WIDE_INT field_size_in_bits;
 
   if (TREE_CODE (decl) == ERROR_MARK)
     return 0;
 
   gcc_assert (TREE_CODE (decl) == FIELD_DECL);
-
-  type = field_type (decl);
-  field_size_tree = DECL_SIZE (decl);
-
-  /* The size could be unspecified if there was an error, or for
-     a flexible array member.  */
-  if (! field_size_tree)
-    field_size_tree = bitsize_zero_node;
 
   /* We cannot yet cope with fields whose positions are variable, so
      for now, when we see such things, we simply return 0.  Someday, we may
@@ -9725,76 +9711,105 @@ field_byte_offset (tree decl)
 
   bitpos_int = int_bit_position (decl);
 
-  /* If we don't know the size of the field, pretend it's a full word.  */
-  if (host_integerp (field_size_tree, 1))
-    field_size_in_bits = tree_low_cst (field_size_tree, 1);
-  else
-    field_size_in_bits = BITS_PER_WORD;
+#ifdef PCC_BITFIELD_TYPE_MATTERS
+  if (PCC_BITFIELD_TYPE_MATTERS)
+    {
+      tree type;
+      tree field_size_tree;
+      HOST_WIDE_INT deepest_bitpos;
+      unsigned HOST_WIDE_INT field_size_in_bits;
+      unsigned int type_align_in_bits;
+      unsigned int decl_align_in_bits;
+      unsigned HOST_WIDE_INT type_size_in_bits;
 
-  type_size_in_bits = simple_type_size_in_bits (type);
-  type_align_in_bits = simple_type_align_in_bits (type);
-  decl_align_in_bits = simple_decl_align_in_bits (decl);
+      type = field_type (decl);
+      field_size_tree = DECL_SIZE (decl);
 
-  /* The GCC front-end doesn't make any attempt to keep track of the starting
-     bit offset (relative to the start of the containing structure type) of the
-     hypothetical "containing object" for a bit-field.  Thus, when computing
-     the byte offset value for the start of the "containing object" of a
-     bit-field, we must deduce this information on our own. This can be rather
-     tricky to do in some cases.  For example, handling the following structure
-     type definition when compiling for an i386/i486 target (which only aligns
-     long long's to 32-bit boundaries) can be very tricky:
+      /* The size could be unspecified if there was an error, or for
+         a flexible array member.  */
+      if (! field_size_tree)
+        field_size_tree = bitsize_zero_node;
+
+      /* If we don't know the size of the field, pretend it's a full word.  */
+      if (host_integerp (field_size_tree, 1))
+        field_size_in_bits = tree_low_cst (field_size_tree, 1);
+      else
+        field_size_in_bits = BITS_PER_WORD;
+
+      type_size_in_bits = simple_type_size_in_bits (type);
+      type_align_in_bits = simple_type_align_in_bits (type);
+      decl_align_in_bits = simple_decl_align_in_bits (decl);
+
+      /* The GCC front-end doesn't make any attempt to keep track of the
+         starting bit offset (relative to the start of the containing
+         structure type) of the hypothetical "containing object" for a
+         bit-field.  Thus, when computing the byte offset value for the
+         start of the "containing object" of a bit-field, we must deduce
+         this information on our own. This can be rather tricky to do in
+         some cases.  For example, handling the following structure type
+         definition when compiling for an i386/i486 target (which only
+         aligns long long's to 32-bit boundaries) can be very tricky:
 
 	 struct S { int field1; long long field2:31; };
 
-     Fortunately, there is a simple rule-of-thumb which can be used in such
-     cases.  When compiling for an i386/i486, GCC will allocate 8 bytes for the
-     structure shown above.  It decides to do this based upon one simple rule
-     for bit-field allocation.  GCC allocates each "containing object" for each
-     bit-field at the first (i.e. lowest addressed) legitimate alignment
-     boundary (based upon the required minimum alignment for the declared type
-     of the field) which it can possibly use, subject to the condition that
-     there is still enough available space remaining in the containing object
-     (when allocated at the selected point) to fully accommodate all of the
-     bits of the bit-field itself.
+         Fortunately, there is a simple rule-of-thumb which can be used
+         in such cases.  When compiling for an i386/i486, GCC will
+         allocate 8 bytes for the structure shown above.  It decides to
+         do this based upon one simple rule for bit-field allocation.
+         GCC allocates each "containing object" for each bit-field at
+         the first (i.e. lowest addressed) legitimate alignment boundary
+         (based upon the required minimum alignment for the declared
+         type of the field) which it can possibly use, subject to the
+         condition that there is still enough available space remaining
+         in the containing object (when allocated at the selected point)
+         to fully accommodate all of the bits of the bit-field itself.
 
-     This simple rule makes it obvious why GCC allocates 8 bytes for each
-     object of the structure type shown above.  When looking for a place to
-     allocate the "containing object" for `field2', the compiler simply tries
-     to allocate a 64-bit "containing object" at each successive 32-bit
-     boundary (starting at zero) until it finds a place to allocate that 64-
-     bit field such that at least 31 contiguous (and previously unallocated)
-     bits remain within that selected 64 bit field.  (As it turns out, for the
-     example above, the compiler finds it is OK to allocate the "containing
-     object" 64-bit field at bit-offset zero within the structure type.)
+         This simple rule makes it obvious why GCC allocates 8 bytes for
+         each object of the structure type shown above.  When looking
+         for a place to allocate the "containing object" for `field2',
+         the compiler simply tries to allocate a 64-bit "containing
+         object" at each successive 32-bit boundary (starting at zero)
+         until it finds a place to allocate that 64- bit field such that
+         at least 31 contiguous (and previously unallocated) bits remain
+         within that selected 64 bit field.  (As it turns out, for the
+         example above, the compiler finds it is OK to allocate the
+         "containing object" 64-bit field at bit-offset zero within the
+         structure type.)
 
-     Here we attempt to work backwards from the limited set of facts we're
-     given, and we try to deduce from those facts, where GCC must have believed
-     that the containing object started (within the structure type). The value
-     we deduce is then used (by the callers of this routine) to generate
-     DW_AT_location and DW_AT_bit_offset attributes for fields (both bit-fields
-     and, in the case of DW_AT_location, regular fields as well).  */
+         Here we attempt to work backwards from the limited set of facts
+         we're given, and we try to deduce from those facts, where GCC
+         must have believed that the containing object started (within
+         the structure type). The value we deduce is then used (by the
+         callers of this routine) to generate DW_AT_location and
+         DW_AT_bit_offset attributes for fields (both bit-fields and, in
+         the case of DW_AT_location, regular fields as well).  */
 
-  /* Figure out the bit-distance from the start of the structure to the
-     "deepest" bit of the bit-field.  */
-  deepest_bitpos = bitpos_int + field_size_in_bits;
+      /* Figure out the bit-distance from the start of the structure to
+         the "deepest" bit of the bit-field.  */
+      deepest_bitpos = bitpos_int + field_size_in_bits;
 
-  /* This is the tricky part.  Use some fancy footwork to deduce where the
-     lowest addressed bit of the containing object must be.  */
-  object_offset_in_bits = deepest_bitpos - type_size_in_bits;
-
-  /* Round up to type_align by default.  This works best for bitfields.  */
-  object_offset_in_bits
-    = round_up_to_align (object_offset_in_bits, type_align_in_bits);
-
-  if (object_offset_in_bits > bitpos_int)
-    {
-      /* Sigh, the decl must be packed.  */
+      /* This is the tricky part.  Use some fancy footwork to deduce
+         where the lowest addressed bit of the containing object must
+         be.  */
       object_offset_in_bits = deepest_bitpos - type_size_in_bits;
 
-      /* Round up to decl_align instead.  */
+      /* Round up to type_align by default.  This works best for
+         bitfields.  */
       object_offset_in_bits
-	= round_up_to_align (object_offset_in_bits, decl_align_in_bits);
+        = round_up_to_align (object_offset_in_bits, type_align_in_bits);
+
+      if (object_offset_in_bits > bitpos_int)
+        {
+          object_offset_in_bits = deepest_bitpos - type_size_in_bits;
+
+          /* Round up to decl_align instead.  */
+          object_offset_in_bits
+            = round_up_to_align (object_offset_in_bits, decl_align_in_bits);
+        }
     }
+  else
+#endif
+    object_offset_in_bits = bitpos_int;
 
   return object_offset_in_bits / BITS_PER_UNIT;
 }
@@ -12219,7 +12234,7 @@ gen_label_die (tree decl, dw_die_ref context_die)
       if (insn
 	  && (LABEL_P (insn)
 	      || ((NOTE_P (insn)
-	           && NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED_LABEL))))
+	           && NOTE_KIND (insn) == NOTE_INSN_DELETED_LABEL))))
 	{
 	  /* When optimization is enabled (via -O) some parts of the compiler
 	     (e.g. jump.c and cse.c) may try to delete CODE_LABEL insns which
@@ -13835,7 +13850,7 @@ dwarf2out_var_location (rtx loc_note)
   if (last_insn != NULL_RTX
       && last_insn == prev_insn
       && NOTE_P (prev_insn)
-      && NOTE_LINE_NUMBER (prev_insn) == NOTE_INSN_VAR_LOCATION)
+      && NOTE_KIND (prev_insn) == NOTE_INSN_VAR_LOCATION)
     {
       newloc->label = last_label;
     }

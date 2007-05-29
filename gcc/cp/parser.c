@@ -1999,7 +1999,7 @@ static void cp_parser_consume_semicolon_at_end_of_statement
   (cp_parser *);
 static void cp_parser_skip_to_end_of_block_or_statement
   (cp_parser *);
-static void cp_parser_skip_to_closing_brace
+static bool cp_parser_skip_to_closing_brace
   (cp_parser *);
 static void cp_parser_skip_to_end_of_template_parameter_list
   (cp_parser *);
@@ -2599,9 +2599,10 @@ cp_parser_skip_to_end_of_block_or_statement (cp_parser* parser)
 }
 
 /* Skip tokens until a non-nested closing curly brace is the next
-   token.  */
+   token, or there are no more tokens. Return true in the first case,
+   false otherwise.  */
 
-static void
+static bool
 cp_parser_skip_to_closing_brace (cp_parser *parser)
 {
   unsigned nesting_depth = 0;
@@ -2615,13 +2616,13 @@ cp_parser_skip_to_closing_brace (cp_parser *parser)
 	case CPP_EOF:
 	case CPP_PRAGMA_EOL:
 	  /* If we've run out of tokens, stop.  */
-	  return;
+	  return false;
 
 	case CPP_CLOSE_BRACE:
 	  /* If the next token is a non-nested `}', then we have reached
 	     the end of the current block.  */
 	  if (nesting_depth-- == 0)
-	    return;
+	    return true;
 	  break;
 
 	case CPP_OPEN_BRACE:
@@ -7065,6 +7066,51 @@ cp_parser_condition (cp_parser* parser)
   return cp_parser_expression (parser, /*cast_p=*/false);
 }
 
+/* We check for a ) immediately followed by ; with no whitespacing
+   between.  This is used to issue a warning for:
+
+     while (...);
+
+   and:
+
+     for (...);
+
+   as the semicolon is probably extraneous.
+
+   On parse errors, the next token might not be a ), so do nothing in
+   that case. */
+
+static void
+check_empty_body (cp_parser* parser, const char* type)
+{
+  cp_token *token;
+  cp_token *close_paren;
+  expanded_location close_loc;
+  expanded_location semi_loc;
+  
+  close_paren = cp_lexer_peek_token (parser->lexer);
+  if (close_paren->type != CPP_CLOSE_PAREN)
+    return;
+
+  close_loc = expand_location (close_paren->location);
+  token = cp_lexer_peek_nth_token (parser->lexer, 2);
+
+  if (token->type != CPP_SEMICOLON
+      || (token->flags & PREV_WHITE))
+    return;
+
+  semi_loc =  expand_location (token->location);
+  if (close_loc.line == semi_loc.line
+#ifdef USE_MAPPED_LOCATION
+      && close_loc.column+1 == semi_loc.column
+#endif
+      )
+    warning (OPT_Wempty_body,
+	     "suggest a space before %<;%> or explicit braces around empty "
+	     "body in %<%s%> statement",
+	     type);
+}
+
 /* Parse an iteration-statement.
 
    iteration-statement:
@@ -7107,6 +7153,7 @@ cp_parser_iteration_statement (cp_parser* parser)
 	/* Parse the condition.  */
 	condition = cp_parser_condition (parser);
 	finish_while_stmt_cond (condition, statement);
+	check_empty_body (parser, "while");
 	/* Look for the `)'.  */
 	cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 	/* Parse the dependent statement.  */
@@ -7168,6 +7215,7 @@ cp_parser_iteration_statement (cp_parser* parser)
 	if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN))
 	  expression = cp_parser_expression (parser, /*cast_p=*/false);
 	finish_for_expr (expression, statement);
+	check_empty_body (parser, "for");
 	/* Look for the `)'.  */
 	cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
@@ -11248,8 +11296,8 @@ cp_parser_namespace_alias_definition (cp_parser* parser)
       error ("%<namespace%> definition is not allowed here");
       /* Skip the definition.  */
       cp_lexer_consume_token (parser->lexer);
-      cp_parser_skip_to_closing_brace (parser);
-      cp_lexer_consume_token (parser->lexer);
+      if (cp_parser_skip_to_closing_brace (parser))
+	cp_lexer_consume_token (parser->lexer);
       return;
     }
   cp_parser_require (parser, CPP_EQ, "`='");
@@ -13771,11 +13819,10 @@ cp_parser_class_specifier (cp_parser* parser)
      entire class body.  */
   if (!xref_basetypes (type, bases))
     {
-      cp_parser_skip_to_closing_brace (parser);
-
       /* Consuming the closing brace yields better error messages
          later on.  */
-      cp_lexer_consume_token (parser->lexer);
+      if (cp_parser_skip_to_closing_brace (parser))
+	cp_lexer_consume_token (parser->lexer);
       pop_deferring_access_checks ();
       return error_mark_node;
     }

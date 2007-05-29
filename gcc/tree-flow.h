@@ -722,7 +722,6 @@ extern void free_omp_regions (void);
 #define PENDING_STMT(e)	((e)->insns.t)
 
 extern void delete_tree_cfg_annotations (void);
-extern void disband_implicit_edges (void);
 extern bool stmt_ends_bb_p (tree);
 extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
@@ -778,13 +777,16 @@ extern void start_recording_case_labels (void);
 extern void end_recording_case_labels (void);
 extern basic_block move_sese_region_to_fn (struct function *, basic_block,
 				           basic_block);
+void remove_edge_and_dominated_blocks (edge);
 
 /* In tree-cfgcleanup.c  */
+extern bitmap cfgcleanup_altered_bbs;
 extern bool cleanup_tree_cfg (void);
 extern bool cleanup_tree_cfg_loop (void);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
+extern const char *op_symbol_code (enum tree_code);
 
 /* In tree-dfa.c  */
 extern var_ann_t create_var_ann (tree);
@@ -832,7 +834,6 @@ extern void debug_points_to_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
-extern bool is_aliased_with (tree, tree);
 extern struct ptr_info_def *get_ptr_info (tree);
 extern void new_type_alias (tree, tree, tree);
 extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *,
@@ -859,6 +860,8 @@ extern void debug_all_mem_sym_stats (void);
    definition, a function with this prototype is called.  */
 typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
+/* In tree-ssa-alias-warnings.c  */
+extern void strict_aliasing_warning_backend (void);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
@@ -969,6 +972,7 @@ unsigned int tree_unroll_loops_completely (bool);
 unsigned int tree_ssa_prefetch_arrays (void);
 unsigned int remove_empty_loops (void);
 void tree_ssa_iv_optimize (void);
+void tree_predictive_commoning (void);
 
 bool number_of_iterations_exit (struct loop *, edge,
 				struct tree_niter_desc *niter, bool);
@@ -1014,6 +1018,7 @@ void tree_transform_and_unroll_loop (struct loop *, unsigned,
 				     edge, struct tree_niter_desc *,
 				     transform_callback, void *);
 bool contains_abnormal_ssa_name_p (tree);
+bool stmt_dominates_stmt_p (tree, tree);
 
 /* In tree-ssa-threadedge.c */
 extern bool potentially_threadable_block (basic_block);
@@ -1031,6 +1036,7 @@ enum move_pos
     MOVE_POSSIBLE		/* Unlimited movement.  */
   };
 extern enum move_pos movement_possibility (tree);
+char *get_lsm_tmp_name (tree, unsigned);
 
 /* The reasons a variable may escape a function.  */
 enum escape_type 
@@ -1110,7 +1116,7 @@ bool multiplier_allowed_in_address_p (HOST_WIDE_INT, enum machine_mode);
 unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode);
 
 /* In tree-ssa-threadupdate.c.  */
-extern bool thread_through_all_blocks (void);
+extern bool thread_through_all_blocks (bool);
 extern void register_jump_thread (edge, edge);
 
 /* In gimplify.c  */

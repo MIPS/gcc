@@ -48,11 +48,15 @@ Boston, MA 02110-1301, USA.  */
 %{m68060}%{mcpu32}%{m68332}%{m5200}%{m5206e}%{m528x}%{m5307}%{m5407}%{mcfv4e}\
 %{mcpu=*:-mcpu=%*}%{march=*:-march=%*}\
 "
+#define ASM_PCREL_SPEC "%{fPIC|fpic|mpcrel:--pcrel} \
+ %{msep-data|mid-shared-library:--pcrel} \
+"
 
-#define ASM_SPEC "%(asm_cpu_spec)"
+#define ASM_SPEC "%(asm_cpu_spec) %(asm_pcrel_spec)"
 
 #define EXTRA_SPECS					\
   { "asm_cpu_spec", ASM_CPU_SPEC },			\
+  { "asm_pcrel_spec", ASM_PCREL_SPEC },			\
   SUBTARGET_EXTRA_SPECS
 
 #define SUBTARGET_EXTRA_SPECS
@@ -485,74 +489,6 @@ extern enum reg_class regno_reg_class[];
 #define INDEX_REG_CLASS GENERAL_REGS
 #define BASE_REG_CLASS ADDR_REGS
 
-/* We do a trick here to modify the effective constraints on the
-   machine description; we zorch the constraint letters that aren't
-   appropriate for a specific target.  This allows us to guarantee
-   that a specific kind of register will not be used for a given target
-   without fiddling with the register classes above.  */
-#define REG_CLASS_FROM_LETTER(C) \
-  ((C) == 'a' ? ADDR_REGS :			\
-   ((C) == 'd' ? DATA_REGS :			\
-    ((C) == 'f' ? (TARGET_HARD_FLOAT ?		\
-		   FP_REGS : NO_REGS) :		\
-     NO_REGS)))
-
-/* For the m68k, `I' is used for the range 1 to 8
-   allowed as immediate shift counts and in addq.
-   `J' is used for the range of signed numbers that fit in 16 bits.
-   `K' is for numbers that moveq can't handle.
-   `L' is for range -8 to -1, range of values that can be added with subq.
-   `M' is for numbers that moveq+notb can't handle.
-   'N' is for range 24 to 31, rotatert:SI 8 to 1 expressed as rotate.
-   'O' is for 16 (for rotate using swap).
-   'P' is for range 8 to 15, rotatert:HI 8 to 1 expressed as rotate.
-   'R' is for numbers that mov3q can handle.  */
-#define CONST_OK_FOR_LETTER_P(VALUE, C) \
-  ((C) == 'I' ? (VALUE) > 0 && (VALUE) <= 8 : \
-   (C) == 'J' ? (VALUE) >= -0x8000 && (VALUE) <= 0x7FFF : \
-   (C) == 'K' ? (VALUE) < -0x80 || (VALUE) >= 0x80 : \
-   (C) == 'L' ? (VALUE) < 0 && (VALUE) >= -8 : \
-   (C) == 'M' ? (VALUE) < -0x100 || (VALUE) >= 0x100 : \
-   (C) == 'N' ? (VALUE) >= 24 && (VALUE) <= 31 : \
-   (C) == 'O' ? (VALUE) == 16 : \
-   (C) == 'P' ? (VALUE) >= 8 && (VALUE) <= 15 : \
-   (C) == 'R' ? valid_mov3q_const (VALUE) : 0)
-
-/* "G" defines all of the floating constants that are *NOT* 68881
-   constants.  This is so 68881 constants get reloaded and the
-   fpmovecr is used.  */
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)  \
-  ((C) == 'G' ? ! (TARGET_68881 && standard_68881_constant_p (VALUE)) : 0 )
-
-/* `Q' means address register indirect addressing mode.
-   `S' is for operands that satisfy 'm' when -mpcrel is in effect.
-   `T' is for operands that satisfy 's' when -mpcrel is not in effect.
-   `U' is for register offset addressing.
-   `W' is for const_call_operands.  */
-#define EXTRA_CONSTRAINT(OP,CODE)			\
-  ((CODE) == 'S'					\
-   ? (TARGET_PCREL					\
-      && GET_CODE (OP) == MEM				\
-      && (GET_CODE (XEXP (OP, 0)) == SYMBOL_REF		\
-	  || GET_CODE (XEXP (OP, 0)) == LABEL_REF	\
-	  || GET_CODE (XEXP (OP, 0)) == CONST))		\
-   : 							\
-   (CODE) == 'T'					\
-   ? (!flag_pic						\
-      && (GET_CODE (OP) == SYMBOL_REF			\
-	  || GET_CODE (OP) == LABEL_REF			\
-	  || GET_CODE (OP) == CONST))			\
-   :							\
-   (CODE) == 'Q'					\
-   ? m68k_matches_q_p (OP)				\
-   :							\
-   (CODE) == 'U'					\
-   ? m68k_matches_u_p (OP)				\
-   :							\
-   (CODE) == 'W'					\
-   ? const_call_operand (OP, VOIDmode)			\
-   : 0)
-
 #define PREFERRED_RELOAD_CLASS(X,CLASS) \
   m68k_preferred_reload_class (X, CLASS)
 
@@ -971,8 +907,10 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #define INCOMING_FRAME_SP_OFFSET 4
 
 /* All registers are live on exit from an interrupt routine.  */
-#define EPILOGUE_USES(REGNO) \
-  (reload_completed && m68k_interrupt_function_p (current_function_decl))
+#define EPILOGUE_USES(REGNO)					\
+  (reload_completed						\
+   && (m68k_get_function_kind (current_function_decl)	\
+       == m68k_fk_interrupt_handler))
 
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N) \
@@ -1164,6 +1102,13 @@ enum fpu_type
   FPUTYPE_NONE,
   FPUTYPE_68881,
   FPUTYPE_COLDFIRE
+};
+
+enum m68k_function_kind
+{
+  m68k_fk_normal_function,
+  m68k_fk_interrupt_handler,
+  m68k_fk_interrupt_thread
 };
 
 /* Variables in m68k.c; see there for details.  */
