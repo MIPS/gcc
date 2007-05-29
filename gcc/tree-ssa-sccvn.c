@@ -56,9 +56,8 @@ Boston, MA 02110-1301, USA.  */
 
    1. Iterate value numbering in an RPO walk of the blocks, removing
    all the entries from the hashtable after each iteration (but
-   keeping the SSA name->value
-   number mapping between iterations).  Iteration until it does not
-   change.
+   keeping the SSA name->value number mapping between iterations).
+   Iterate until it does not change.
 
    2. Perform value numbering as part of an SCC walk on the SSA graph,
    iterating only the cycles in the SSA graph until they do not change
@@ -84,21 +83,25 @@ Boston, MA 02110-1301, USA.  */
    In order to propagate constants through the code, we track which
    expressions contain constants, and use those while folding.  In
    theory, we could also track expressions whose value numbers are
-   replaced, in case we end up folding based on expression identities,
-   but this is generally a waste of time.
+   replaced, in case we end up folding based on expression
+   identities.
 
+   In order to value number memory, we assign value numbers to vuses.
+   This enables us to note that, for example, stores to the same
+   address of the same value from the same starting memory states are
+   equivalent.  
    TODO:
 
    1. We can iterate only the changing portions of the SCC's, but
    I have not seen an SCC big enough for this to be a win.
-
-   2. In some cases, we can prevent having to process every ssa name a
-   multi-vop statement produces.  This requires noting which uses have
-   been processed, and for ssa names not involved in cycles, only
-   allowing the processed name to be visited once.
-
+   2. If you differentiate between phi nodes for loops and phi nodes
+   for if-then-else, you can properly consider phi nodes in different
+   blocks for equivalence.
+   3. We could value number vuses in more cases, particularly, whole
+   structure copies.
 */
 
+/* The set of hashtables and alloc_pool's for their items.  */
 
 typedef struct vn_tables_s
 {
@@ -112,6 +115,10 @@ typedef struct vn_tables_s
   alloc_pool references_pool;
 } *vn_tables_t;
 
+/* Binary operations in the hashtable consist of two operands, an
+   opcode, and a type.  Result is the value number of the operation,
+   and hashcode is stored to avoid having to calculate it
+   repeatedly.  */
 
 typedef struct vn_binary_op_s
 {
@@ -124,6 +131,10 @@ typedef struct vn_binary_op_s
 } *vn_binary_op_t;
 
 
+/* Unary operations in the hashtable consist of a single operand, an
+   opcode, and a type.  Result is the value number of the operation,
+   and hashcode is stored to avoid having to calculate it repeatedly. */
+
 typedef struct vn_unary_op_s
 {
   enum tree_code opcode;
@@ -133,6 +144,12 @@ typedef struct vn_unary_op_s
   tree result;
 } *vn_unary_op_t;
 
+/* Phi nodes in the hashtable consist of their non-VN_TOP phi
+   arguments, and the basic block the phi is in. Result is the value
+   number of the operation, and hashcode is stored to avoid having to
+   calculate it repeatedly.  Phi nodes not in the same block are never
+   considered equivalent.  */
+
 typedef struct vn_phi_s
 {
   VEC(tree, heap) *phiargs;
@@ -140,6 +157,12 @@ typedef struct vn_phi_s
   hashval_t hashcode;
   tree result;
 } *vn_phi_t;
+
+/* Reference operands only exist in reference operations structures.
+   They consist of an opcode, type, and some number of operands.  For
+   a given opcode, some, all, or none of the operands may be used.
+   The operands are there to store the information that makes up the
+   portion of the addressing calculation that opcode performs.  */
 
 typedef struct vn_reference_op_struct
 {
@@ -154,6 +177,14 @@ typedef vn_reference_op_s *vn_reference_op_t;
 DEF_VEC_O(vn_reference_op_s);
 DEF_VEC_ALLOC_O(vn_reference_op_s, heap);
 
+/* A reference operation in the hashtable is representation as a
+   collection of vuses, representing the memory state at the time of
+   the operation, and a collection of operands that make up the
+   addressing calculation.  If two vn_reference_t's have the same set
+   of operands, they access the same memory location. We also store
+   the resulting value number, and the hashcode.  The vuses are
+   always stored in order sorted by ssa name version.  */
+
 typedef struct vn_reference_s
 {
   VEC(tree, heap) *vuses;
@@ -164,30 +195,47 @@ typedef struct vn_reference_s
 
 /* Valid hashtables storing information we have proven to be
    correct.  */
+
 static vn_tables_t valid_info;
 
 /* Optimistic hashtables storing information we are making assumptions
    during iterations.  */
+
 static vn_tables_t optimistic_info;
 
 /* Pointer to the set of hashtables that is currently being used.
    Should always point to either the optimistic_info, or the
    valid_info.  */
+
 static vn_tables_t current_info;
+
+
+/* Reverse post order index for each basic block.  */
+
 static int *rpo_numbers;
 
 #define SSA_VAL(x) (VN_INFO ((x))->valnum)
 
 /* This represents the top of the VN lattice, which is the universal
    value.  */
+
 tree VN_TOP;
+
+/* Next DFS number and the stack for strongly connected component
+   detection. */
 
 static unsigned int next_dfs_num;
 static VEC (tree, heap) *sccstack;
 
 DEF_VEC_P(vn_ssa_aux_t);
 DEF_VEC_ALLOC_P(vn_ssa_aux_t, heap);
+
+/* Table of vn_ssa_aux_t's, one per ssa_name.  */
+
 static VEC (vn_ssa_aux_t, heap) *vn_ssa_aux_table;
+
+/* Return the value numbering information for a given SSA name.  */
+
 vn_ssa_aux_t
 VN_INFO (tree name)
 {
@@ -195,12 +243,18 @@ VN_INFO (tree name)
 		    SSA_NAME_VERSION (name));
 }
 
+/* Set the value numbering info for a given SSA name to a given
+   value.  */
+
 static inline void
 VN_INFO_SET (tree name, vn_ssa_aux_t value)
 {
   VEC_replace (vn_ssa_aux_t, vn_ssa_aux_table,
 	       SSA_NAME_VERSION (name), value);
 }
+
+/* Compare two reference operands P1 and P2 for equality.  return true if
+   they are equal, and false otherwise.  */
 
 static int
 vn_reference_op_eq (const void *p1, const void *p2)
@@ -214,6 +268,8 @@ vn_reference_op_eq (const void *p1, const void *p2)
     && expressions_equal_p (vro1->op2, vro2->op2);
 }
 
+/* Compute the hash for a reference operand VRO1  */
+
 static hashval_t
 vn_reference_op_compute_hash (const vn_reference_op_t vro1)
 {
@@ -222,12 +278,16 @@ vn_reference_op_compute_hash (const vn_reference_op_t vro1)
     + iterative_hash_expr (vro1->op2, vro1->opcode);
 }
 
+/* Return the hashcode for a given reference operation P1.  */
+
 static hashval_t
 vn_reference_hash (const void *p1)
 {
   const vn_reference_t vr1 = (vn_reference_t) p1;
   return vr1->hashcode;
 }
+
+/* Compute a hash for the reference operation VR1 and return it.  */
 
 static inline hashval_t
 vn_reference_compute_hash (const vn_reference_t vr1)
@@ -245,6 +305,9 @@ vn_reference_compute_hash (const vn_reference_t vr1)
   return result;
 }
 
+/* Return true if reference operations P1 and P2 are equivalent.  This
+   means they have the same set of operands and vuses.  */
+
 static int
 vn_reference_eq (const void *p1, const void *p2)
 {
@@ -259,19 +322,26 @@ vn_reference_eq (const void *p1, const void *p2)
       && vr1->operands == vr2->operands)
     return true;
 
+  /* Impossible for them to be equivalent if they have different
+     number of vuses.  */
   if (VEC_length (tree, vr1->vuses) != VEC_length (tree, vr2->vuses))
     return false;
 
+  /* We require that address operands be canonicalized in a way that
+     two memory references will have the same operands if they are
+     equivalent.  */
   if (VEC_length (vn_reference_op_s, vr1->operands)
       != VEC_length (vn_reference_op_s, vr2->operands))
     return false;
 
+  /* The memory state is more often different than the address of the
+     store/load, so check it first.  */
   for (i = 0; VEC_iterate (tree, vr1->vuses, i, v); i++)
     {
       if (VEC_index (tree, vr2->vuses, i) != v)
 	return false;
     }
-
+  
   for (i = 0; VEC_iterate (vn_reference_op_s, vr1->operands, i, vro); i++)
     {
       if (!vn_reference_op_eq (VEC_index (vn_reference_op_s, vr2->operands, i),
@@ -362,9 +432,11 @@ shared_vuses_from_stmt (tree stmt)
 
 /* Copy the operations present in load/store/call REF into RESULT, a vector of
    vn_reference_op_s's.  */
+
 static void
 copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 {
+  /* Calls are different from all other reference operations.  */
   if (TREE_CODE (ref) == CALL_EXPR)
     {
       vn_reference_op_s temp;
@@ -397,6 +469,8 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	}
       return;
     }
+
+  /* For non-calls, reference-opize the addressing info.  */
 
   while (ref)
     {
@@ -553,14 +627,17 @@ vn_reference_insert (tree op, tree result, VEC(tree, heap) *vuses)
   /* Because we lookup stores using vuses, and value number failures
      using the vdefs (see visit_reference_op_store for how and why),
      it's possible that on failure we may try to insert an already
-     inserted store.  We have no ssa name to name a store by, so it's
-     not like we could do anything interesting here anyway.  It's not
-     harmful or wrong, it just is the way things work.  */
+     inserted store.  This is not wrong, there is no ssa name for a
+     store that we could use as a differentiator anyway.  Thus, unlike
+     the other lookup functions, you cannot gcc_assert (!*slot)
+     here.  */
 
-  /*  gcc_assert (!*slot); */
 
   *slot = vr1;
 }
+
+
+/* Return the stored hashcode for a unary operation.  */
 
 static hashval_t
 vn_unary_op_hash (const void *p1)
@@ -569,11 +646,15 @@ vn_unary_op_hash (const void *p1)
   return vuo1->hashcode;
 }
 
+/* Hash a unary operation P1 and return the result.  */
+
 static inline hashval_t
 vn_unary_op_compute_hash (const vn_unary_op_t vuo1)
 {
   return iterative_hash_expr (vuo1->op0, vuo1->opcode);
 }
+
+/* Return true if P1 and P2, two unary operations, are equivalent.  */
 
 static int
 vn_unary_op_eq (const void *p1, const void *p2)
@@ -634,6 +715,7 @@ vn_unary_op_insert (tree op, tree result)
   *slot = vuo1;
 }
 
+/* Compute and return the hash value for binary operation VBO1.  */
 
 static inline hashval_t
 vn_binary_op_compute_hash (const vn_binary_op_t vbo1)
@@ -642,12 +724,17 @@ vn_binary_op_compute_hash (const vn_binary_op_t vbo1)
     + iterative_hash_expr (vbo1->op1, vbo1->opcode);
 }
 
+/* Return the computed hashcode for binary operation P1.  */
+
 static hashval_t
 vn_binary_op_hash (const void *p1)
 {
   const vn_binary_op_t vbo1 = (vn_binary_op_t) p1;
   return vbo1->hashcode;
 }
+
+/* Compare binary operations P1 and P2 and return true if they are
+   equivalent.  */
 
 static int
 vn_binary_op_eq (const void *p1, const void *p2)
@@ -703,8 +790,8 @@ static void
 vn_binary_op_insert (tree op, tree result)
 {
   void **slot;
-  vn_binary_op_t vbo1 = (vn_binary_op_t) pool_alloc (current_info->binary_op_pool);
-
+  vn_binary_op_t vbo1;
+  vbo1 = (vn_binary_op_t) pool_alloc (current_info->binary_op_pool);
 
   vbo1->opcode = TREE_CODE (op);
   vbo1->type = TREE_TYPE (op);
@@ -732,6 +819,8 @@ vn_binary_op_insert (tree op, tree result)
   *slot = vbo1;
 }
 
+/* Compute a hashcode for PHI operation VP1 and return it.  */
+
 static inline hashval_t
 vn_phi_compute_hash (vn_phi_t vp1)
 {
@@ -751,6 +840,8 @@ vn_phi_compute_hash (vn_phi_t vp1)
   return result;
 }
 
+/* Return the computed hashcode for phi operation P1.  */
+
 static hashval_t
 vn_phi_hash (const void *p1)
 {
@@ -759,6 +850,7 @@ vn_phi_hash (const void *p1)
 }
 
 /* Compare two phi entries for equality, ignoring VN_TOP arguments.  */
+
 static int
 vn_phi_eq (const void *p1, const void *p2)
 {
@@ -799,6 +891,8 @@ vn_phi_lookup (tree phi)
   int i;
 
   VEC_truncate (tree, shared_lookup_phiargs, 0);
+
+  /* Canonicalize the SSA_NAME's to their value number.  */
   for (i = 0; i < PHI_NUM_ARGS (phi); i++)
     {
       tree def = PHI_ARG_DEF (phi, i);
@@ -826,6 +920,7 @@ vn_phi_insert (tree phi, tree result)
   int i;
   VEC (tree, heap) *args = NULL;
 
+  /* Canonicalize the SSA_NAME's to their value number.  */
   for (i = 0; i < PHI_NUM_ARGS (phi); i++)
     {
       tree def = PHI_ARG_DEF (phi, i);
@@ -839,12 +934,14 @@ vn_phi_insert (tree phi, tree result)
 
   slot = htab_find_slot_with_hash (current_info->phis, vp1, vp1->hashcode,
 				   INSERT);
-  /*  gcc_assert (!*slot); */
+
+  /* Because we iterate over phi operations more than once, it's
+     possible the slot might already exist here, hence no assert.*/
   *slot = vp1;
 }
 
 
-/* Print SCC to OUT. */
+/* Print set of components in strongly connected component SCC to OUT. */
 
 static void
 print_scc (FILE *out, VEC (tree, heap) *scc)
@@ -870,13 +967,15 @@ set_ssa_val_to (tree from, tree to)
   gcc_assert (to != NULL);
 
   /* Make sure we don't create chains of copies, so that we get the
-  best value numbering.  visit_copy has code to make sure this doesn't
-  happen, we are doing this here to assert that nothing else breaks
-  this.  */
+     best value numbering.  visit_copy has code to make sure this doesn't
+     happen, we are doing this here to assert that nothing else breaks
+     this.  */
   gcc_assert (TREE_CODE (to) != SSA_NAME
 	      || TREE_CODE (SSA_VAL (to)) != SSA_NAME
 	      || SSA_VAL (to) == to
 	      || to == from);
+  /* The only thing we allow as value numbers are ssa_names and
+     invariants.  So assert that here.  */
   gcc_assert (TREE_CODE (to) == SSA_NAME || is_gimple_min_invariant (to));
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -886,23 +985,6 @@ set_ssa_val_to (tree from, tree to)
       fprintf (dump_file, " to ");
       print_generic_expr (dump_file, to, 0);
       fprintf (dump_file, "\n");
-    }
-
-  /* XXX: Should not be setting this here.  */
-  if (is_gimple_min_invariant (to))
-    {
-      gcc_assert (VN_INFO (from)->has_constants);
-      VN_INFO (from)->has_constants = true;
-      VN_INFO (from)->expr = to;
-    }
-  else
-    {
-      if (TREE_CODE (from) == SSA_NAME && from != to
-	  && TREE_CODE (to) == SSA_NAME)
-	{
-	  VN_INFO (from)->has_constants = VN_INFO (to)->has_constants;
-	  VN_INFO (from)->expr = VN_INFO (to)->expr;
-	}
     }
 
   if (SSA_VAL (from) != to)
@@ -943,6 +1025,11 @@ visit_copy (tree lhs, tree rhs)
   /* Follow chains of copies to their destination.  */
   while (SSA_VAL (rhs) != rhs && TREE_CODE (SSA_VAL (rhs)) == SSA_NAME)
     rhs = SSA_VAL (rhs);
+  
+  /* The copy may have a more interesting constant filled expression
+     (we don't, since we know our RHS is just an SSA name).  */
+  VN_INFO (lhs)->has_constants = VN_INFO (rhs)->has_constants;
+  VN_INFO (lhs)->expr = VN_INFO (rhs)->expr;
 
   return set_ssa_val_to (lhs, rhs);
 }
@@ -1033,9 +1120,9 @@ visit_reference_op_store (tree lhs, tree op, tree stmt)
      last store to this location, then this store will produce the
      same memory state as that store.
 
-     In this case the vdefs for this store are
-     value numbered to those vuses, since they represent the same
-     memory state.
+     In this case the vdef versions for this store are value numbered to those
+     vuse versions, since they represent the same memory state after
+     this store.
 
      Otherwise, the vdefs for the store are used when inserting into
      the table, since the store generates a new memory state.  */
@@ -1092,7 +1179,8 @@ visit_reference_op_store (tree lhs, tree op, tree stmt)
 	  tree use;
 
 	  /* Uh, if the vuse is a multiuse, we can't really do much
-	     here, sadly.  */
+	     here, sadly, since we don't know which value number of
+	     which vuse to use.  */
 	  if (VUSE_VECT_NUM_ELEM (*vv) != 1)
 	    use = def;
 	  else
@@ -1118,9 +1206,8 @@ visit_phi (tree phi)
   bool allsame = true;
   int i;
 
-  /* See if all non-TOP arguments have the same value.  If so, that is
-     the value of the phi node, since TOP is equivalent to
-     everything.  */
+  /* See if all non-TOP arguments have the same value.  TOP is
+     equivalent to everything, so we can ignore it.  */
   for (i = 0; i < PHI_NUM_ARGS (phi); i++)
     {
       tree def = PHI_ARG_DEF (phi, i);
@@ -1143,6 +1230,8 @@ visit_phi (tree phi)
 	}
     }
 
+  /* If all value numbered to the same value, the phi node has that
+     value.  */
   if (allsame)
     {
       if (is_gimple_min_invariant (sameval))
@@ -1150,9 +1239,13 @@ visit_phi (tree phi)
 	  VN_INFO (PHI_RESULT (phi))->has_constants = true;
 	  VN_INFO (PHI_RESULT (phi))->expr = sameval;
 	}
+      if (TREE_CODE (sameval) == SSA_NAME)
+	return visit_copy (PHI_RESULT (phi), sameval);
+      
       return set_ssa_val_to (PHI_RESULT (phi), sameval);
     }
 
+  /* Otherwise, see if it is equivalent to a phi node in this block.  */
   result = vn_phi_lookup (phi);
   if (result)
     changed = set_ssa_val_to (PHI_RESULT (phi), result);
@@ -1193,6 +1286,7 @@ expr_has_constants (tree expr)
 /* Replace SSA_NAMES in expr with their value numbers, and return the
    result.
    This is performed in place. */
+
 static tree
 valueize_expr (tree expr)
 {
@@ -1226,10 +1320,6 @@ simplify_binary_expression (tree rhs)
   tree result = NULL_TREE;
   tree op0 = TREE_OPERAND (rhs, 0);
   tree op1 = TREE_OPERAND (rhs, 1);
-  tree oldop0 = op0;
-  tree oldop1 = op1;
-  bool op0isval = false;
-  bool op1isval = false;
 
   /* This will not catch every single case we could combine, but will
      catch those with constants.  The goal here is to simultaneously
@@ -1240,10 +1330,7 @@ simplify_binary_expression (tree rhs)
       if (VN_INFO (op0)->has_constants)
 	op0 = valueize_expr (VN_INFO (op0)->expr);
       else if (SSA_VAL (op0) != VN_TOP && SSA_VAL (op0) != op0)
-	{
-	  op0 = VN_INFO (op0)->valnum;
-	  op0isval = true;
-	}
+	op0 = VN_INFO (op0)->valnum;      
     }
 
   if (TREE_CODE (op1) == SSA_NAME)
@@ -1251,10 +1338,7 @@ simplify_binary_expression (tree rhs)
       if (VN_INFO (op1)->has_constants)
 	op1 = valueize_expr (VN_INFO (op1)->expr);
       else if (SSA_VAL (op1) != VN_TOP && SSA_VAL (op1) != op1)
-	{
-	  op1 = VN_INFO (op1)->valnum;
-	  op1isval = true;
-	}
+	op1 = VN_INFO (op1)->valnum;
     }
   result = fold_binary (TREE_CODE (rhs), TREE_TYPE (rhs), op0, op1);
 
@@ -1291,11 +1375,6 @@ simplify_binary_expression (tree rhs)
 	      break;
 	    }
 	}
-    }
-  else if (0 && ((op0isval && oldop0 != op0) || (oldop1 != op1 && op1isval)))
-    {
-      /* This will canonicalize to a value expression.  */
-      return fold_build2 (TREE_CODE (rhs), TREE_TYPE (rhs), op0, op1);
     }
   return NULL_TREE;
 }
@@ -1408,18 +1487,8 @@ visit_use (tree use)
 	  STRIP_USELESS_TYPE_CONVERSION (rhs);
 
 	  simplified = try_to_simplify (stmt, rhs);
-
-	  /* Setting value numbers to constants will screw up phi
-	     congruence because constants are not uniquely
-	     associated with a single ssa name that can be looked up.
-	  */
-	  if (simplified && is_gimple_min_invariant (simplified)
-	      && TREE_CODE (lhs) == SSA_NAME
-	      && simplified != rhs)
+	  if (simplified && simplified != rhs)
 	    {
-	      VN_INFO (lhs)->expr = unshare_expr (simplified);
-	      VN_INFO (lhs)->has_constants = true;
-	      changed = set_ssa_val_to (lhs, simplified);
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
 		  fprintf (dump_file, "RHS ");
@@ -1433,6 +1502,18 @@ visit_use (tree use)
 		    fprintf (dump_file, "\n");
 
 		}
+	    }
+	  /* Setting value numbers to constants will screw up phi
+	     congruence because constants are not uniquely
+	     associated with a single ssa name that can be looked up.
+	  */
+	  if (simplified && is_gimple_min_invariant (simplified)
+	      && TREE_CODE (lhs) == SSA_NAME
+	      && simplified != rhs)
+	    {
+	      VN_INFO (lhs)->expr = simplified;
+	      VN_INFO (lhs)->has_constants = true;
+	      changed = set_ssa_val_to (lhs, simplified);
 	      goto done;
 	    }
 	  else if (simplified && TREE_CODE (simplified) == SSA_NAME
@@ -1448,6 +1529,8 @@ visit_use (tree use)
 	      if (TREE_CODE (lhs) == SSA_NAME)
 		{
 		  VN_INFO (lhs)->has_constants = expr_has_constants (simplified);
+		  /* We have to unshare the expression or else
+		     valuizing may change the IL stream.  */
 		  VN_INFO (lhs)->expr = unshare_expr (simplified);
 		}
 	      rhs = simplified;
@@ -1473,9 +1556,10 @@ visit_use (tree use)
 	  else if (TREE_CODE (lhs) == SSA_NAME)
 	    {
 	      /* We reset expr and constantness here because we may
-	      have been value numbering optimistically, and are now
-	      instead using the valid table where they are no longer
-	      constant.  */
+		 have been value numbering optimistically, and
+		 iterating. They may become non-constant in this case,
+		 even if they were optimistically constant. */
+		 
 	      VN_INFO (lhs)->has_constants = false;
 	      VN_INFO (lhs)->expr = lhs;
 	    }
@@ -1606,7 +1690,7 @@ process_scc (VEC (tree, heap) *scc)
   if (VEC_length (tree, scc) == 1)
     {
       tree use = VEC_index (tree, scc, 0);
-      if (!VN_INFO (use)->use_processed)
+      //      if (!VN_INFO (use)->use_processed)
 	visit_use (use);
     }
   else
@@ -1723,6 +1807,8 @@ free_phi (void *vp)
 }
 
 
+/* Free a reference operation structure VP.  */
+
 static void
 free_reference (void *vp)
 {
@@ -1732,6 +1818,7 @@ free_reference (void *vp)
 }
 
 /* Allocate a value number table.  */
+
 static void
 allocate_vn_table (vn_tables_t table)
 {
@@ -1756,6 +1843,7 @@ allocate_vn_table (vn_tables_t table)
 }
 
 /* Free a value number table.  */
+
 static void
 free_vn_table (vn_tables_t table)
 {
