@@ -835,7 +835,7 @@ issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)
       /* Determine the address to prefetch.  */
       delta = (ahead + ap * ref->prefetch_mod) * ref->group->step;
       addr = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node,
-			  addr_base, build_int_cst (sizetype, delta));
+			  addr_base, size_int (delta));
       addr = force_gimple_operand_bsi (&bsi, unshare_expr (addr), true, NULL);
 
       /* Create the prefetch instruction.  */

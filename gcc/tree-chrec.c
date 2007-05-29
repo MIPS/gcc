@@ -335,6 +335,7 @@ chrec_fold_plus (tree type,
 		 tree op0,
 		 tree op1)
 {
+  enum tree_code code;
   if (automatically_generated_chrec_p (op0)
       || automatically_generated_chrec_p (op1))
     return chrec_fold_automatically_generated_operands (op0, op1);
@@ -343,11 +344,13 @@ chrec_fold_plus (tree type,
     return op1;
   if (integer_zerop (op1))
     return op0;
+
+  if (POINTER_TYPE_P (type))
+    code = POINTER_PLUS_EXPR;
+  else
+    code = PLUS_EXPR;
   
-  return chrec_fold_plus_1 ((POINTER_TYPE_P (type)
-			     ? POINTER_PLUS_EXPR
-			     : PLUS_EXPR),
-			    type, op0, op1);
+  return chrec_fold_plus_1 (code, type, op0, op1);
 }
 
 /* Fold the subtraction of two chrecs.  */
@@ -1225,7 +1228,8 @@ convert_affine_scev (struct loop *loop, tree type,
 }
 
 
-/* Convert CHREC for the right hand side of a CREC. */
+/* Convert CHREC for the right hand side of a CREC.
+   The increment for a pointer type is always sizetype.  */
 tree 
 chrec_convert_rhs (tree type, tree chrec, tree at_stmt)
 {

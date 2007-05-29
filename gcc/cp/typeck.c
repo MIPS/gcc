@@ -3576,6 +3576,10 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
      RESULT_TYPE.  */
   if (processing_template_decl)
     {
+      /* Since the middle-end checks the type when doing a build2, we
+	 need to build the tree in pieces.  This built tree will never
+	 get out of the front-end as we replace it when instantiating
+	 the template.  */
       tree tmp = build2 (resultcode,
 			 build_type ? build_type : result_type,
 			 NULL_TREE, op1);

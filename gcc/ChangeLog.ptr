@@ -1,3 +1,19 @@
+2007-05-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* fold-const.c (try_move_mult_to_index):
+	Say why we strip the nops.
+	(fold_unary <case NOP_EXPR>): Remove
+	TODO as we cannot get that case.
+	* tree-chrec.c (chrec_fold_plus):
+	Cleanup the code to chose which
+	tree code is used.
+	(chrec_convert_rhs): Add comment on
+	why the increment is sizetype for
+	pointers.
+	* tree-mudflap.c (mf_xform_derefs_1):
+	Use size_int instead of build_int_cst.
+	* tree-ssa-loop-prefetch.c (issue_prefetch_ref): Likewise.
+
 2007-05-21  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	PR tree-opt/32015

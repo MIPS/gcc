@@ -837,7 +837,7 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
       limit = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node,
 			   fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, base,
 					size),
-			   build_int_cst (sizetype, -1));
+			   size_int (-1));
       break;
 
     case TARGET_MEM_REF:
@@ -846,7 +846,7 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
       limit = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node,
 			   fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, base,
 					size),
-			   build_int_cst (sizetype, -1));
+			   size_int (-1));
       break;
 
     case ARRAY_RANGE_REF:

@@ -1,3 +1,8 @@
+2007-05-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* typeck.c (build_binary_op): Add a comment on why creating
+	the tree in pieces while processing templates.
+
 2007-05-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* except.c (expand_start_catch_block):  Do a

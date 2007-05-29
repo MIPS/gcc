@@ -6879,6 +6879,8 @@ try_move_mult_to_index (tree addr, tree op1)
   tree ret, pos;
   tree itype;
   bool mdim = false;
+
+  /*  Stip the nops that might be added when converting op1 to sizetype. */
   STRIP_NOPS (op1);
 
   /* Canonicalize op1 into a possibly non-constant delta
@@ -7856,8 +7858,6 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	  return fold_build2 (TREE_CODE (arg0), type, fold_convert (type, arg00),
 			      fold_convert (sizetype, arg01));
 	}
-      /* TODO: Add folding of (T1)((sizetype)X +/- Y) into (T1)X + (-)Y where
-         T1 is a pointer type.  */
 
       /* Convert (T1)(~(T2)X) into ~(T1)X if T1 and T2 are integral types
 	 of the same precision, and X is a integer type not narrower than
