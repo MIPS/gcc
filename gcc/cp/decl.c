@@ -7839,7 +7839,7 @@ grokdeclarator (const cp_declarator *declarator,
 		type = cp_build_reference_type
 		       ((TREE_CODE (type) == REFERENCE_TYPE
 			 ? TREE_TYPE (type) : type),
-			(declarator->u.pointer.rvalue_ref
+			(declarator->u.reference.rvalue_ref
 			 && (TREE_CODE(type) != REFERENCE_TYPE
 			     || TYPE_REF_IS_RVALUE (type))));
 
@@ -9121,6 +9121,57 @@ copy_fn_p (tree d)
   if (args && args != void_list_node && !TREE_PURPOSE (args))
     /* There are more non-optional args.  */
     return 0;
+
+  return result;
+}
+
+/* D is a constructor or overloaded `operator='.
+
+   Let T be the class in which D is declared. Then, this function
+   returns true when D is a move constructor or move assignment
+   operator, false otherwise.  */
+
+bool
+move_fn_p (tree d)
+{
+  tree args;
+  tree arg_type;
+  bool result = false;
+
+  gcc_assert (DECL_FUNCTION_MEMBER_P (d));
+
+  if (!flag_cpp0x)
+    /* There are no move constructors if we aren't in C++0x mode.  */
+    return false;
+
+  if (TREE_CODE (d) == TEMPLATE_DECL
+      || (DECL_TEMPLATE_INFO (d)
+         && DECL_MEMBER_TEMPLATE_P (DECL_TI_TEMPLATE (d))))
+    /* Instantiations of template member functions are never copy
+       functions.  Note that member functions of templated classes are
+       represented as template functions internally, and we must
+       accept those as copy functions.  */
+    return 0;
+
+  args = FUNCTION_FIRST_USER_PARMTYPE (d);
+  if (!args)
+    return 0;
+
+  arg_type = TREE_VALUE (args);
+  if (arg_type == error_mark_node)
+    return 0;
+
+  if (TREE_CODE (arg_type) == REFERENCE_TYPE
+      && TYPE_REF_IS_RVALUE (arg_type)
+      && same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (arg_type)),
+                      DECL_CONTEXT (d)))
+    result = true;
+
+  args = TREE_CHAIN (args);
+
+  if (args && args != void_list_node && !TREE_PURPOSE (args))
+    /* There are more non-optional args.  */
+    return false;
 
   return result;
 }

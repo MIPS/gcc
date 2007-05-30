@@ -1,3 +1,33 @@
+2007-05-30  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* g++.dg/cpp0x/rvo.C: New.
+
+2007-05-30  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* typeck.c (check_return_expr): Factor out the tests common to the
+	named return value optimization and returning an rvalue.
+	* decl.c (grokdeclarator): Use cp_declarator's "reference" member
+	to get information about the rvalue references.
+	(move_fn_p): New.
+	* call.c (reference_binding): Simplify computation of
+	rvaluedness_matches_p.
+	(convert_like_real): Update comment about forcing temporaries.
+	(build_over_call): We can elide move constructors as well as copy
+	constructors. 
+	* except.c (build_throw): Fix typo in comment.
+	* tree.c (lvalue_p_1): Fix formatting.
+	(cp_build_reference_type): Use copy_node rather than make_node to
+	create the rvalue reference type.
+	* mangle.c (write_type): Make rvalue references with 'RR'.
+	* cp-tree.h (DECL_MOVE_CONSTRUCTOR_P): New.
+	(struct cp_declarator): Create a "reference" member for
+	cdk_reference, and storing qualifiers and the rvalue_ref flag.
+	(move_fn_p): Declare.
+	* pt.c (tsubst): When forming a reference-to-reference, apply the
+	resolution to core issue #106 unless we're in strict C++98 mode.
+	* parser.c (make_reference_declarator): Update the "reference"
+	section of the cp_declarator. 
+
 2007-05-02  Russell Yanofsky <russ@yanofsky.org>
             Pedro Lamarao <pedro.lamarao@mndfck.org>
             Douglas Gregor <doug.gregor@gmail.com>

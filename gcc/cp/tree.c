@@ -71,8 +71,8 @@ lvalue_p_1 (tree ref,
   if (TREE_CODE (ref) == INDIRECT_REF
       && TREE_CODE (TREE_TYPE (TREE_OPERAND (ref, 0)))
 	  == REFERENCE_TYPE)
-    return lvalue_p_1(TREE_OPERAND (ref, 0),
-		      treat_class_rvalues_as_lvalues);
+    return lvalue_p_1 (TREE_OPERAND (ref, 0),
+                       treat_class_rvalues_as_lvalues);
 
   if (TREE_CODE (TREE_TYPE (ref)) == REFERENCE_TYPE)
     {
@@ -633,20 +633,20 @@ cp_build_reference_type (tree to_type, bool rval)
     if (TYPE_REF_IS_RVALUE (t))
       return t;
 
-  t = make_node (REFERENCE_TYPE);
+  t = copy_node (lvalue_ref);
 
-  TREE_TYPE (t) = to_type;
-  TYPE_MODE (t) = ptr_mode;
-  TYPE_REF_CAN_ALIAS_ALL (t) = false;
   TYPE_REF_IS_RVALUE (t) = true;
   TYPE_NEXT_REF_TO (t) = TYPE_NEXT_REF_TO (lvalue_ref);
   TYPE_NEXT_REF_TO (lvalue_ref) = t;
+  TYPE_MAIN_VARIANT (t) = t;
 
   if (TYPE_STRUCTURAL_EQUALITY_P (to_type))
     SET_TYPE_STRUCTURAL_EQUALITY (t);
   else if (TYPE_CANONICAL (to_type) != to_type)
     TYPE_CANONICAL (t) 
       = cp_build_reference_type (TYPE_CANONICAL (to_type), rval);
+  else
+    TYPE_CANONICAL (t) = t;
 
   layout_type (t);
 

@@ -1761,6 +1761,10 @@ struct lang_decl GTY(())
 #define DECL_COPY_CONSTRUCTOR_P(NODE) \
   (DECL_CONSTRUCTOR_P (NODE) && copy_fn_p (NODE) > 0)
 
+/* Nonzero if NODE (a FUNCTION_DECL) is a move constructor.  */
+#define DECL_MOVE_CONSTRUCTOR_P(NODE) \
+  (DECL_CONSTRUCTOR_P (NODE) && move_fn_p (NODE))
+
 /* Nonzero if NODE is a destructor.  */
 #define DECL_DESTRUCTOR_P(NODE)				\
   (DECL_LANG_SPECIFIC (NODE)->decl_flags.destructor_attr)
@@ -4024,15 +4028,21 @@ struct cp_declarator {
       /* The bounds to the array.  */
       tree bounds;
     } array;
-    /* For cdk_pointer, cdk_reference, and cdk_ptrmem.  */
+    /* For cdk_pointer and cdk_ptrmem.  */
     struct {
       /* The cv-qualifiers for the pointer.  */
       cp_cv_quals qualifiers;
       /* For cdk_ptrmem, the class type containing the member.  */
       tree class_type;
-      /* For cdk_reference, is this rvalue reference */
-      bool rvalue_ref;
     } pointer;
+    /* For cdk_reference */
+    struct {
+      /* The cv-qualifiers for the reference.  These qualifiers are
+         only used to diagnose ill-formed code.  */
+      cp_cv_quals qualifiers;
+      /* Whether this is an rvalue reference */
+      bool rvalue_ref;
+    } reference;
   } u;
 };
 
@@ -4195,6 +4205,7 @@ extern tree build_ptrmem_type			(tree, tree);
 /* the grokdeclarator prototype is in decl.h */
 extern tree build_this_parm			(tree, cp_cv_quals);
 extern int copy_fn_p				(tree);
+extern bool move_fn_p                           (tree);
 extern tree get_scope_of_declarator		(const cp_declarator *);
 extern void grok_special_member_properties	(tree);
 extern int grok_ctor_properties			(tree, tree);

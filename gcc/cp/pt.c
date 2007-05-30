@@ -8643,11 +8643,11 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	   -- Attempting to create a reference to a reference type or
 	      a reference to void.
 
-	  Under C++0x [14.8.2/2 temp.deduct], as part of the solution to
-	  DR106, creating a reference to a reference type during type
-	  deduction is no longer a cause for failure.   */
+	  Core issue 106 says that creating a reference to a reference
+	  during instantiation is no longer a cause for failure. We
+	  only enforce this check in strict C++98 mode.  */
 	if ((TREE_CODE (type) == REFERENCE_TYPE
-	     && (!flag_cpp0x || code != REFERENCE_TYPE))
+	     && ((!flag_cpp0x && flag_iso) || code != REFERENCE_TYPE))
 	    || (code == REFERENCE_TYPE && TREE_CODE (type) == VOID_TYPE))
 	  {
 	    static location_t last_loc;

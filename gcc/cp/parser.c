@@ -967,9 +967,8 @@ make_reference_declarator (cp_cv_quals cv_qualifiers, cp_declarator *target,
 
   declarator = make_declarator (cdk_reference);
   declarator->declarator = target;
-  declarator->u.pointer.qualifiers = cv_qualifiers;
-  declarator->u.pointer.class_type = NULL_TREE;
-  declarator->u.pointer.rvalue_ref = rvalue_ref;
+  declarator->u.reference.qualifiers = cv_qualifiers;
+  declarator->u.reference.rvalue_ref = rvalue_ref;
   if (target)
     {
       declarator->parameter_pack_p = target->parameter_pack_p;

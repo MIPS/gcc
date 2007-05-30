@@ -1181,9 +1181,8 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags)
 	   be treated as an rvalue.  */
 	conv->rvaluedness_matches_p = TYPE_REF_IS_RVALUE (rto);
       else
-	conv->rvaluedness_matches_p
-	  = ((lvalue_p && !TYPE_REF_IS_RVALUE (rto)))
-	     || (!lvalue_p && TYPE_REF_IS_RVALUE (rto));
+	conv->rvaluedness_matches_p 
+          = (TYPE_REF_IS_RVALUE (rto) == !lvalue_p);
 
       if ((lvalue_p & clk_bitfield) != 0
 	  || ((lvalue_p & clk_packed) != 0 && !TYPE_PACKED (to)))
@@ -4478,13 +4477,13 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       {
 	tree ref_type = totype;
 
-	/* If necessary, create a temporary.
+	/* If necessary, create a temporary. 
 
-	   ??? VA_ARG_EXPR and CONSTRUCTOR expressions are special cases
-	   that seem to need temporaries, even when their types are
-	   reference compatible with the type of reference being bound,
-	   so the upcoming call to build_unary_op (ADDR_EXPR, expr, ...)
-	   doesn't fail.  */
+           VA_ARG_EXPR and CONSTRUCTOR expressions are special cases
+           that need temporaries, even when their types are reference
+           compatible with the type of reference being bound, so the
+           upcoming call to build_unary_op (ADDR_EXPR, expr, ...)
+           doesn't fail.  */
 	if (convs->need_temporary_p
 	    || TREE_CODE (expr) == CONSTRUCTOR
 	    || TREE_CODE (expr) == VA_ARG_EXPR)
@@ -5002,7 +5001,9 @@ build_over_call (struct z_candidate *cand, int flags)
 
   if (! flag_elide_constructors)
     /* Do things the hard way.  */;
-  else if (cand->num_convs == 1 && DECL_COPY_CONSTRUCTOR_P (fn))
+  else if (cand->num_convs == 1 
+           && (DECL_COPY_CONSTRUCTOR_P (fn) 
+               || DECL_MOVE_CONSTRUCTOR_P (fn)))
     {
       tree targ;
       arg = argarray[num_artificial_parms_for (fn)];

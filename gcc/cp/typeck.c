@@ -6562,6 +6562,7 @@ check_return_expr (tree retval, bool *no_warning)
      promotions.  */
   tree valtype;
   int fn_returns_value_p;
+  bool named_return_value_okay_p;
 
   *no_warning = false;
 
@@ -6710,20 +6711,26 @@ check_return_expr (tree retval, bool *no_warning)
 
      See finish_function and finalize_nrv for the rest of this optimization.  */
 
+  named_return_value_okay_p = 
+    (retval != NULL_TREE
+     /* Must be a local, automatic variable.  */
+     && TREE_CODE (retval) == VAR_DECL
+     && DECL_CONTEXT (retval) == current_function_decl
+     && ! TREE_STATIC (retval)
+     && (DECL_ALIGN (retval)
+         >= DECL_ALIGN (DECL_RESULT (current_function_decl)))
+     /* The cv-unqualified type of the returned value must be the
+        same as the cv-unqualified return type of the
+        function.  */
+     && same_type_p ((TYPE_MAIN_VARIANT (TREE_TYPE (retval))),
+                     (TYPE_MAIN_VARIANT
+                      (TREE_TYPE (TREE_TYPE (current_function_decl))))));
+     
   if (fn_returns_value_p && flag_elide_constructors)
     {
-      if (retval != NULL_TREE
-	  && (current_function_return_value == NULL_TREE
-	      || current_function_return_value == retval)
-	  && TREE_CODE (retval) == VAR_DECL
-	  && DECL_CONTEXT (retval) == current_function_decl
-	  && ! TREE_STATIC (retval)
-	  && (DECL_ALIGN (retval)
-	      >= DECL_ALIGN (DECL_RESULT (current_function_decl)))
-	  && same_type_p ((TYPE_MAIN_VARIANT
-			   (TREE_TYPE (retval))),
-			  (TYPE_MAIN_VARIANT
-			   (TREE_TYPE (TREE_TYPE (current_function_decl))))))
+      if (named_return_value_okay_p
+          && (current_function_return_value == NULL_TREE
+              || current_function_return_value == retval))
 	current_function_return_value = retval;
       else
 	current_function_return_value = error_mark_node;
@@ -6752,23 +6759,12 @@ check_return_expr (tree retval, bool *no_warning)
       /* Under C++0x [12.8/16 class.copy], a returned lvalue is sometimes
 	 treated as an rvalue for the purposes of overload resolution to
 	 favor move constructors over copy constructors.  */
-      if (/* Must be a local, automatic variable.  */
-	  TREE_CODE (retval) == VAR_DECL
-	  && DECL_CONTEXT (retval) == current_function_decl
-	  && ! TREE_STATIC (retval)
-	  && (DECL_ALIGN (retval)
-	      >= DECL_ALIGN (DECL_RESULT (current_function_decl)))
-	   /* The variable much not have the `volatile' qualifier.  */
+      if (flag_cpp0x 
+          && named_return_value_okay_p
+          /* The variable must not have the `volatile' qualifier.  */
 	  && !(cp_type_quals (TREE_TYPE (retval)) & TYPE_QUAL_VOLATILE)
 	  /* The return type must be a class type.  */
-	  && CLASS_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl)))
-	  /* The cv-unqualified type of the returned value must be the
-	     same as the cv-unqualified return type of the
-	     function.  */
-	  && same_type_p ((TYPE_MAIN_VARIANT
-			   (TREE_TYPE (retval))),
-			  (TYPE_MAIN_VARIANT
-			   (TREE_TYPE (TREE_TYPE (current_function_decl))))))
+	  && CLASS_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
 	flags = flags | LOOKUP_PREFER_RVALUE;
 
       /* First convert the value to the function's return type, then

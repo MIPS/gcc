@@ -718,7 +718,7 @@ build_throw (tree exp)
 	      TREE_CODE (exp) == VAR_DECL
 	      && DECL_CONTEXT (exp) == current_function_decl
 	      && ! TREE_STATIC (exp)
-	      /* The variable much not have the `volatile' qualifier.  */
+	      /* The variable must not have the `volatile' qualifier.  */
 	      && !(cp_type_quals (TREE_TYPE (exp)) & TYPE_QUAL_VOLATILE))
 	    flags = flags | LOOKUP_PREFER_RVALUE;
 
