@@ -406,7 +406,7 @@ static struct mem_insn
 {
   rtx insn;           /* The insn being parsed.  */
   rtx pat;            /* The pattern of the insn.  */
-  rtx *mem_pat;       /* The address of the field that holds the mem */
+  rtx *mem_loc;       /* The address of the field that holds the mem */
                       /* that is to be replaced.  */
   bool reg1_is_const; /* True if reg1 is const, false if reg1 is a reg.  */
   rtx reg0;
@@ -499,13 +499,14 @@ insert_move_insn_before (rtx next_insn, rtx dest_reg, rtx src_reg)
 }
 
   
-/* To have reached this point, the change is a legitimate one from a
-   dataflow point of view.  The only questions are is this a valid
-   change to the instruction and is this a profitable change to the
-   instruction.  */
+/* Change mem_insn.mem_loc so that uses NEW_ADDR that increments
+   INC_REG.  To have reached this point, the change is a legitimate
+   one from a dataflow point of view.  The only questions are is this
+   a valid change to the instruction and is this a profitable change
+   to the instruction.  */
 
 static bool
-attempt_change (rtx new_addr_pat, rtx inc_reg)
+attempt_change (rtx new_addr, rtx inc_reg)
 {
   /* There are four cases: For the two cases that involve an add
      instruction, we are going to have to delete the add and insert a
@@ -519,14 +520,14 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
   basic_block bb = BASIC_BLOCK (BLOCK_NUM (mem_insn.insn));
   rtx mov_insn = NULL;
   int regno;
-  rtx mem = *mem_insn.mem_pat;
+  rtx mem = *mem_insn.mem_loc;
   enum machine_mode mode = GET_MODE (mem);
   rtx new_mem;
   int old_cost = 0;
   int new_cost = 0;
 
   PUT_MODE (mem_tmp, mode);
-  XEXP (mem_tmp, 0) = new_addr_pat;
+  XEXP (mem_tmp, 0) = new_addr;
 
   old_cost = rtx_cost (mem, 0) 
     + rtx_cost (PATTERN (inc_insn.insn), 0);
@@ -545,8 +546,8 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
      an offset even though we know the offset in many cases.  These
      assume you are changing where the address is pointing by the
      offset.  */
-  new_mem = replace_equiv_address_nv (mem, new_addr_pat);
-  if (! validate_change (mem_insn.insn, mem_insn.mem_pat, new_mem, 0))
+  new_mem = replace_equiv_address_nv (mem, new_addr);
+  if (! validate_change (mem_insn.insn, mem_insn.mem_loc, new_mem, 0))
     {
       if (dump_file)
 	fprintf (dump_file, "validation failure\n"); 
@@ -650,7 +651,7 @@ static bool
 try_merge (void)
 {
   enum gen_form gen_form;
-  rtx mem = *mem_insn.mem_pat;
+  rtx mem = *mem_insn.mem_loc;
   rtx inc_reg = inc_insn.form == FORM_POST_ADD ?
     inc_insn.reg_res : mem_insn.reg0;
 
@@ -919,7 +920,7 @@ find_address (rtx *address_of_x)
   if (code == MEM && rtx_equal_p (XEXP (x, 0), inc_insn.reg_res))
     {
       /* Match with *reg0.  */
-      mem_insn.mem_pat = address_of_x;
+      mem_insn.mem_loc = address_of_x;
       mem_insn.reg0 = inc_insn.reg_res;
       mem_insn.reg1_is_const = true;
       mem_insn.reg1_val = 0;
@@ -930,7 +931,7 @@ find_address (rtx *address_of_x)
       && rtx_equal_p (XEXP (XEXP (x, 0), 0), inc_insn.reg_res))
     {
       rtx b = XEXP (XEXP (x, 0), 1);
-      mem_insn.mem_pat = address_of_x;
+      mem_insn.mem_loc = address_of_x;
       mem_insn.reg0 = inc_insn.reg_res;
       mem_insn.reg1 = b;
       mem_insn.reg1_is_const = inc_insn.reg1_is_const;
@@ -1307,7 +1308,7 @@ find_mem (rtx *address_of_x)
   if (code == MEM && REG_P (XEXP (x, 0)))
     {
       /* Match with *reg0.  */
-      mem_insn.mem_pat = address_of_x;
+      mem_insn.mem_loc = address_of_x;
       mem_insn.reg0 = XEXP (x, 0);
       mem_insn.reg1_is_const = true;
       mem_insn.reg1_val = 0;
@@ -1319,7 +1320,7 @@ find_mem (rtx *address_of_x)
       && REG_P (XEXP (XEXP (x, 0), 0)))
     {
       rtx reg1 = XEXP (XEXP (x, 0), 1);
-      mem_insn.mem_pat = address_of_x;
+      mem_insn.mem_loc = address_of_x;
       mem_insn.reg0 = XEXP (XEXP (x, 0), 0);
       mem_insn.reg1 = reg1;
       if (GET_CODE (reg1) == CONST_INT)
