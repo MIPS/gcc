@@ -289,18 +289,20 @@ resolve_contained_fntype (gfc_symbol *sym, gfc_namespace *ns)
     return;
 
   /* Try to find out of what the return type is.  */
-  if (sym->result != NULL)
-    sym = sym->result;
-
-  if (sym->ts.type == BT_UNKNOWN)
+  if (sym->result->ts.type == BT_UNKNOWN)
     {
-      t = gfc_set_default_type (sym, 0, ns);
+      t = gfc_set_default_type (sym->result, 0, ns);
 
-      if (t == FAILURE && !sym->attr.untyped)
+      if (t == FAILURE && !sym->result->attr.untyped)
 	{
-	  gfc_error ("Contained function '%s' at %L has no IMPLICIT type",
-		     sym->name, &sym->declared_at); /* FIXME */
-	  sym->attr.untyped = 1;
+	  if (sym->result == sym)
+	    gfc_error ("Contained function '%s' at %L has no IMPLICIT type",
+		       sym->name, &sym->declared_at);
+	  else
+	    gfc_error ("Result '%s' of contained function '%s' at %L has "
+		       "no IMPLICIT type", sym->result->name, sym->name,
+		       &sym->result->declared_at);
+	  sym->result->attr.untyped = 1;
 	}
     }
 
@@ -310,9 +312,9 @@ resolve_contained_fntype (gfc_symbol *sym, gfc_namespace *ns)
      in external functions.  Internal function results are not on that list;
      ergo, not permitted.  */
 
-  if (sym->ts.type == BT_CHARACTER)
+  if (sym->result->ts.type == BT_CHARACTER)
     {
-      gfc_charlen *cl = sym->ts.cl;
+      gfc_charlen *cl = sym->result->ts.cl;
       if (!cl || !cl->length)
 	gfc_error ("Character-valued internal function '%s' at %L must "
 		   "not be assumed length", sym->name, &sym->declared_at);
@@ -1013,6 +1015,13 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype)
 	  e->ref->u.ar.as = sym->as;
 	}
 
+      /* Expressions are assigned a default ts.type of BT_PROCEDURE in
+	 primary.c (match_actual_arg). If above code determines that it
+	 is a  variable instead, it needs to be resolved as it was not
+	 done at the beginning of this function.  */
+      if (gfc_resolve_expr (e) != SUCCESS)
+	return FAILURE;
+
     argument_list:
       /* Check argument list functions %VAL, %LOC and %REF.  There is
 	 nothing to do for %REF.  */
@@ -1170,7 +1179,7 @@ resolve_elemental_actual (gfc_expr *expr, gfc_code *c)
 	  && formal_optional
 	  && arg->expr->rank
 	  && (set_by_optional || arg->expr->rank != rank)
-	  && !(isym && isym->generic_id == GFC_ISYM_CONVERSION))
+	  && !(isym && isym->id == GFC_ISYM_CONVERSION))
 	{
 	  gfc_warning ("'%s' at %L is an array and OPTIONAL; IF IT IS "
 		       "MISSING, it cannot be the actual argument of an "
@@ -1825,7 +1834,8 @@ resolve_function (gfc_expr *expr)
      procedure,it must be external and should be checked for usage.  */
   if (sym && !sym->attr.dummy && !sym->attr.contained
       && sym->attr.proc != PROC_ST_FUNCTION
-      && !sym->attr.use_assoc)
+      && !sym->attr.use_assoc
+      && sym->name  )
     resolve_global_procedure (sym, &expr->where, 0);
 
   /* Switch off assumed size checking and do this again for certain kinds
@@ -1921,7 +1931,7 @@ resolve_function (gfc_expr *expr)
       t = FAILURE;
     }
 
-#define GENERIC_ID expr->value.function.isym->generic_id
+#define GENERIC_ID expr->value.function.isym->id
   else if (expr->value.function.actual != NULL
 	   && expr->value.function.isym != NULL
 	   && GENERIC_ID != GFC_ISYM_LBOUND
@@ -2020,8 +2030,6 @@ resolve_function (gfc_expr *expr)
     {
       if (expr->symtree->n.sym->result
 	    && expr->symtree->n.sym->result->ts.type != BT_UNKNOWN)
-	expr->ts = expr->symtree->n.sym->result->ts;
-      else
 	expr->ts = expr->symtree->n.sym->result->ts;
     }
 
@@ -3646,6 +3654,70 @@ resolve_variable (gfc_expr *e)
 }
 
 
+/* Checks to see that the correct symbol has been host associated.
+   The only situation where this arises is that in which a twice
+   contained function is parsed after the host association is made.
+   Therefore, on detecting this, the line is rematched, having got
+   rid of the existing references and actual_arg_list.  */
+static bool
+check_host_association (gfc_expr *e)
+{
+  gfc_symbol *sym, *old_sym;
+  locus temp_locus;
+  gfc_expr *expr;
+  int n;
+
+  if (e->symtree == NULL || e->symtree->n.sym == NULL)
+    return e->expr_type == EXPR_FUNCTION;
+
+  old_sym = e->symtree->n.sym;
+  if (gfc_current_ns->parent
+	&& gfc_current_ns->parent->parent
+	&& old_sym->ns != gfc_current_ns)
+    {
+      gfc_find_symbol (old_sym->name, gfc_current_ns->parent, 1, &sym);
+      if (sym && old_sym != sym && sym->attr.flavor == FL_PROCEDURE)
+	{
+	  temp_locus = gfc_current_locus;
+	  gfc_current_locus = e->where;
+
+	  gfc_buffer_error (1);
+
+	  gfc_free_ref_list (e->ref);
+	  e->ref = NULL;
+
+	  if (e->expr_type == EXPR_FUNCTION)
+	    {
+	      gfc_free_actual_arglist (e->value.function.actual);
+	      e->value.function.actual = NULL;
+	    }
+
+	  if (e->shape != NULL)
+	    {
+	      for (n = 0; n < e->rank; n++)
+		mpz_clear (e->shape[n]);
+
+	      gfc_free (e->shape);
+	    }
+
+	  gfc_match_rvalue (&expr);
+	  gfc_clear_error ();
+	  gfc_buffer_error (0);
+
+	  gcc_assert (expr && sym == expr->symtree->n.sym);
+
+	  *e = *expr;
+	  gfc_free (expr);
+	  sym->refs++;
+
+	  gfc_current_locus = temp_locus;
+	}
+    }
+
+  return e->expr_type == EXPR_FUNCTION;
+}
+
+
 /* Resolve an expression.  That is, make sure that types of operands agree
    with their operators, intrinsic operators are converted to function calls
    for overloaded types and unresolved function references are resolved.  */
@@ -3665,13 +3737,16 @@ gfc_resolve_expr (gfc_expr *e)
       break;
 
     case EXPR_FUNCTION:
-      t = resolve_function (e);
-      break;
-
     case EXPR_VARIABLE:
-      t = resolve_variable (e);
-      if (t == SUCCESS)
-	expression_rank (e);
+
+      if (check_host_association (e))
+	t = resolve_function (e);
+      else
+	{
+	  t = resolve_variable (e);
+	  if (t == SUCCESS)
+	    expression_rank (e);
+	}
       break;
 
     case EXPR_SUBSTRING:
@@ -6454,6 +6529,11 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
   if (sym->ts.type == BT_CHARACTER)
     {
       gfc_charlen *cl = sym->ts.cl;
+
+      if (cl && cl->length && gfc_is_constant_expr (cl->length)
+	     && resolve_charlen (cl) == FAILURE)
+	return FAILURE;
+
       if (!cl || !cl->length || cl->length->expr_type != EXPR_CONSTANT)
 	{
 	  if (sym->attr.proc == PROC_ST_FUNCTION)
@@ -6746,16 +6826,21 @@ resolve_fl_namelist (gfc_symbol *sym)
     }
 
   /* 14.1.2 A module or internal procedure represent local entities
-     of the same type as a namelist member and so are not allowed.
-     Note that this is sometimes caught by check_conflict so the
-     same message has been used.  */
+     of the same type as a namelist member and so are not allowed.  */
   for (nl = sym->namelist; nl; nl = nl->next)
     {
       if (nl->sym->ts.kind != 0 && nl->sym->attr.flavor == FL_VARIABLE)
 	continue;
+
+      if (nl->sym->attr.function && nl->sym == nl->sym->result)
+	if ((nl->sym == sym->ns->proc_name)
+	       ||
+	    (sym->ns->parent && nl->sym == sym->ns->parent->proc_name))
+	  continue;
+
       nlsym = NULL;
-      if (sym->ns->parent && nl->sym && nl->sym->name)
-	gfc_find_symbol (nl->sym->name, sym->ns->parent, 0, &nlsym);
+      if (nl->sym && nl->sym->name)
+	gfc_find_symbol (nl->sym->name, sym->ns, 1, &nlsym);
       if (nlsym && nlsym->attr.flavor == FL_PROCEDURE)
 	{
 	  gfc_error ("PROCEDURE attribute conflicts with NAMELIST "
@@ -6812,9 +6897,7 @@ resolve_fl_parameter (gfc_symbol *sym)
 static void
 resolve_symbol (gfc_symbol *sym)
 {
-  /* Zero if we are checking a formal namespace.  */
-  static int formal_ns_flag = 1;
-  int formal_ns_save, check_constant, mp_flag;
+  int check_constant, mp_flag;
   gfc_symtree *symtree;
   gfc_symtree *this_symtree;
   gfc_namespace *ns;
@@ -7091,18 +7174,9 @@ resolve_symbol (gfc_symbol *sym)
 
   formal_arg_flag = 0;
 
-  /* Resolve formal namespaces.  The symbols in formal namespaces that
-     themselves are from procedures in formal namespaces will not stand
-     resolution, except when they are use associated.
-     TODO: Fix the symbols in formal namespaces so that resolution can
-     be done unconditionally.  */
-  if (formal_ns_flag && sym != NULL && sym->formal_ns != NULL)
-    {
-      formal_ns_save = formal_ns_flag;
-      formal_ns_flag = sym->attr.use_assoc ? 1 : 0;
-      gfc_resolve (sym->formal_ns);
-      formal_ns_flag = formal_ns_save;
-    }
+  /* Resolve formal namespaces.  */
+  if (sym->formal_ns && sym->formal_ns != gfc_current_ns)
+    gfc_resolve (sym->formal_ns);
 
   /* Check threadprivate restrictions.  */
   if (sym->attr.threadprivate && !sym->attr.save

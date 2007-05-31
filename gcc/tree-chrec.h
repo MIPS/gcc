@@ -36,8 +36,7 @@ extern GTY(()) tree chrec_known;
 static inline bool
 automatically_generated_chrec_p (tree chrec)
 {
-  return (chrec == chrec_not_analyzed_yet 
-	  || chrec == chrec_dont_know
+  return (chrec == chrec_dont_know
 	  || chrec == chrec_known);
 }
 
@@ -80,7 +79,7 @@ extern bool chrec_contains_symbols (tree);
 extern bool chrec_contains_symbols_defined_in_loop (tree, unsigned);
 extern bool chrec_contains_undetermined (tree);
 extern bool tree_contains_chrecs (tree, int *);
-extern bool evolution_function_is_affine_multivariate_p (tree);
+extern bool evolution_function_is_affine_multivariate_p (tree, int);
 extern bool evolution_function_is_univariate_p (tree);
 extern unsigned nb_vars_in_chrec (tree);
 

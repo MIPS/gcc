@@ -48,11 +48,15 @@ Boston, MA 02110-1301, USA.  */
 %{m68060}%{mcpu32}%{m68332}%{m5200}%{m5206e}%{m528x}%{m5307}%{m5407}%{mcfv4e}\
 %{mcpu=*:-mcpu=%*}%{march=*:-march=%*}\
 "
+#define ASM_PCREL_SPEC "%{fPIC|fpic|mpcrel:--pcrel} \
+ %{msep-data|mid-shared-library:--pcrel} \
+"
 
-#define ASM_SPEC "%(asm_cpu_spec)"
+#define ASM_SPEC "%(asm_cpu_spec) %(asm_pcrel_spec)"
 
 #define EXTRA_SPECS					\
   { "asm_cpu_spec", ASM_CPU_SPEC },			\
+  { "asm_pcrel_spec", ASM_PCREL_SPEC },			\
   SUBTARGET_EXTRA_SPECS
 
 #define SUBTARGET_EXTRA_SPECS
@@ -903,8 +907,10 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #define INCOMING_FRAME_SP_OFFSET 4
 
 /* All registers are live on exit from an interrupt routine.  */
-#define EPILOGUE_USES(REGNO) \
-  (reload_completed && m68k_interrupt_function_p (current_function_decl))
+#define EPILOGUE_USES(REGNO)					\
+  (reload_completed						\
+   && (m68k_get_function_kind (current_function_decl)	\
+       == m68k_fk_interrupt_handler))
 
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N) \
@@ -1096,6 +1102,13 @@ enum fpu_type
   FPUTYPE_NONE,
   FPUTYPE_68881,
   FPUTYPE_COLDFIRE
+};
+
+enum m68k_function_kind
+{
+  m68k_fk_normal_function,
+  m68k_fk_interrupt_handler,
+  m68k_fk_interrupt_thread
 };
 
 /* Variables in m68k.c; see there for details.  */

@@ -3865,7 +3865,7 @@ tree_verify_flow_info (void)
 	}
     }
 
-  if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
+  if (dom_info_state (CDI_DOMINATORS) >= DOM_NO_FAST_QUERY)
     verify_dominators (CDI_DOMINATORS);
 
   return err;
@@ -4360,14 +4360,14 @@ tree_duplicate_sese_region (edge entry, edge exit,
 	return false;
     }
 
-  loop->copy = loop;
+  set_loop_copy (loop, loop);
 
   /* In case the function is used for loop header copying (which is the primary
      use), ensure that EXIT and its copy will be new latch and entry edges.  */
   if (loop->header == entry->dest)
     {
       copying_header = true;
-      loop->copy = loop->outer;
+      set_loop_copy (loop, loop_outer (loop));
 
       if (!dominated_by_p (CDI_DOMINATORS, loop->latch, exit->src))
 	return false;
@@ -5375,7 +5375,7 @@ remove_edge_and_dominated_blocks (edge e)
   basic_block bb, dbb;
   bitmap_iterator bi;
 
-  if (!dom_computed[CDI_DOMINATORS])
+  if (!dom_info_available_p (CDI_DOMINATORS))
     {
       remove_edge (e);
       return;

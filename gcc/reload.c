@@ -88,6 +88,9 @@ a register with any other reload.  */
 
 #define REG_OK_STRICT
 
+/* We do not enable this with ENABLE_CHECKING, since it is awfully slow.  */
+#undef DEBUG_RELOAD
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -1180,7 +1183,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 
   /* If IN appears in OUT, we can't share any input-only reload for IN.  */
   if (in != 0 && out != 0 && MEM_P (out)
-      && (REG_P (in) || MEM_P (in))
+      && (REG_P (in) || MEM_P (in) || GET_CODE (in) == PLUS)
       && reg_overlap_mentioned_for_reload_p (in, XEXP (out, 0)))
     dont_share = 1;
 
@@ -1256,17 +1259,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	}
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (HARD_REGNO_MODE_OK (i, mode)
-	    && TEST_HARD_REG_BIT (reg_class_contents[(int) class], i))
-	  {
-	    int nregs = hard_regno_nregs[i][mode];
-
-	    int j;
-	    for (j = 1; j < nregs; j++)
-	      if (! TEST_HARD_REG_BIT (reg_class_contents[(int) class], i + j))
-		break;
-	    if (j == nregs)
-	      break;
-	  }
+	    && in_hard_reg_set_p (reg_class_contents[(int) class], mode, i))
+	  break;
       if (i == FIRST_PSEUDO_REGISTER)
 	{
 	  error_for_asm (this_insn, "impossible register constraint "
@@ -1530,18 +1524,15 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 		|| ! bitmap_bit_p (ENTRY_BLOCK_PTR->il.rtl->global_live_at_end,
 				   ORIGINAL_REGNO (XEXP (note, 0))))
 	    && ! refers_to_regno_for_reload_p (regno,
-					       (regno
-						+ hard_regno_nregs[regno]
-								  [rel_mode]),
+					       end_hard_regno (rel_mode,
+							       regno),
 					       PATTERN (this_insn), inloc)
 	    /* If this is also an output reload, IN cannot be used as
 	       the reload register if it is set in this insn unless IN
 	       is also OUT.  */
 	    && (out == 0 || in == out
 		|| ! hard_reg_set_here_p (regno,
-					  (regno
-					   + hard_regno_nregs[regno]
-							     [rel_mode]),
+					  end_hard_regno (rel_mode, regno),
 					  PATTERN (this_insn)))
 	    /* ??? Why is this code so different from the previous?
 	       Is there any simple coherent way to describe the two together?
@@ -1570,8 +1561,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 
 	    if (offs == nregs
 		&& (! (refers_to_regno_for_reload_p
-		       (regno, (regno + hard_regno_nregs[regno][inmode]),
-				in, (rtx *)0))
+		       (regno, end_hard_regno (inmode, regno), in, (rtx *) 0))
 		    || can_reload_into (in, regno, inmode)))
 	      {
 		rld[i].reg_rtx = gen_rtx_REG (rel_mode, regno);
@@ -2086,7 +2076,7 @@ hard_reg_set_here_p (unsigned int beg_regno, unsigned int end_regno, rtx x)
 
 	  /* See if this reg overlaps range under consideration.  */
 	  if (r < end_regno
-	      && r + hard_regno_nregs[r][GET_MODE (op0)] > beg_regno)
+	      && end_hard_regno (GET_MODE (op0), r) > beg_regno)
 	    return 1;
 	}
     }
@@ -2406,7 +2396,7 @@ decompose (rtx x)
 	}
       else
 	/* A hard reg.  */
-	val.end = val.start + hard_regno_nregs[val.start][GET_MODE (x)];
+	val.end = end_hard_regno (GET_MODE (x), val.start);
       break;
 
     case SUBREG:
@@ -6102,8 +6092,12 @@ subst_reloads (rtx insn)
       rtx reloadreg = rld[r->what].reg_rtx;
       if (reloadreg)
 	{
-#ifdef ENABLE_CHECKING
-	  /* Internal consistency test.  Check that we don't modify
+#ifdef DEBUG_RELOAD
+	  /* This checking takes a very long time on some platforms
+	     causing the gcc.c-torture/compile/limits-fnargs.c test
+	     to time out during testing.  See PR 31850.
+
+	     Internal consistency test.  Check that we don't modify
 	     anything in the equivalence arrays.  Whenever something from
 	     those arrays needs to be reloaded, it must be unshared before
 	     being substituted into; the equivalence must not be modified.
@@ -6125,7 +6119,7 @@ subst_reloads (rtx insn)
 	      CHECK_MODF (reg_equiv_mem);
 #undef CHECK_MODF
 	    }
-#endif /* ENABLE_CHECKING */
+#endif /* DEBUG_RELOAD */
 
 	  /* If we're replacing a LABEL_REF with a register, add a
 	     REG_LABEL note to indicate to flow which label this
@@ -6493,7 +6487,7 @@ reg_overlap_mentioned_for_reload_p (rtx x, rtx in)
 	  return 0;
 	}
 
-      endregno = regno + hard_regno_nregs[regno][GET_MODE (x)];
+      endregno = END_HARD_REGNO (x);
 
       return refers_to_regno_for_reload_p (regno, endregno, in, (rtx*) 0);
     }
@@ -6516,7 +6510,8 @@ reg_overlap_mentioned_for_reload_p (rtx x, rtx in)
       if (REG_P (in))
 	return 0;
       else if (GET_CODE (in) == PLUS)
-	return (reg_overlap_mentioned_for_reload_p (x, XEXP (in, 0))
+	return (rtx_equal_p (x, in)
+		|| reg_overlap_mentioned_for_reload_p (x, XEXP (in, 0))
 		|| reg_overlap_mentioned_for_reload_p (x, XEXP (in, 1)));
       else return (reg_overlap_mentioned_for_reload_p (XEXP (x, 0), in)
 		   || reg_overlap_mentioned_for_reload_p (XEXP (x, 1), in));
@@ -6725,17 +6720,9 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
 		}
 	      else if ((unsigned) valueno >= FIRST_PSEUDO_REGISTER)
 		continue;
-	      else
-		{
-		  int i;
-
-		  for (i = hard_regno_nregs[valueno][mode] - 1; i >= 0; i--)
-		    if (! TEST_HARD_REG_BIT (reg_class_contents[(int) class],
-					     valueno + i))
-		      break;
-		  if (i >= 0)
-		    continue;
-		}
+	      else if (!in_hard_reg_set_p (reg_class_contents[(int) class],
+					  mode, valueno))
+		continue;
 	      value = valtry;
 	      where = p;
 	      break;
@@ -6769,9 +6756,7 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
      and is also a register that appears in the address of GOAL.  */
 
   if (goal_mem && value == SET_DEST (single_set (where))
-      && refers_to_regno_for_reload_p (valueno,
-				       (valueno
-					+ hard_regno_nregs[valueno][mode]),
+      && refers_to_regno_for_reload_p (valueno, end_hard_regno (mode, valueno),
 				       goal, (rtx*) 0))
     return 0;
 

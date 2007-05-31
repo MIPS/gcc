@@ -4086,7 +4086,7 @@ grokdeclarator (const struct c_declarator *declarator,
      "signed".  */
   if (bitfield && !flag_signed_bitfields && !declspecs->explicit_signed_p
       && TREE_CODE (type) == INTEGER_TYPE)
-    type = c_common_unsigned_type (type);
+    type = unsigned_type_for (type);
 
   /* Figure out the type qualifiers for the declaration.  There are
      two ways a declaration can become qualified.  One is something
@@ -6788,20 +6788,9 @@ finish_function (void)
       TREE_NO_WARNING (fndecl) = 1;
     }
 
-  /* With just -Wextra, complain only if function returns both with
-     and without a value.  */
-  if (extra_warnings
-      && current_function_returns_value
-      && current_function_returns_null)
-    warning (OPT_Wextra, "this function may return with or without a value");
-
   /* Store the end of the function, so that we get good line number
      info for the epilogue.  */
   cfun->function_end_locus = input_location;
-
-  /* Keep track of functions declared with the "constructor" and
-     "destructor" attribute.  */
-  c_record_cdtor_fn (fndecl);
 
   /* Finalize the ELF visibility for the function.  */
   c_determine_visibility (fndecl);
@@ -7922,10 +7911,6 @@ c_write_global_declarations (void)
   for (t = all_translation_units; t; t = TREE_CHAIN (t))
     c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
   c_write_global_declarations_1 (BLOCK_VARS (ext_block));
-
-  /* Call functions declared with the "constructor" or "destructor"
-     attribute.  */
-  c_build_cdtor_fns ();
 
   /* We're done parsing; proceed to optimize and emit assembly.
      FIXME: shouldn't be the front end's responsibility to call this.  */

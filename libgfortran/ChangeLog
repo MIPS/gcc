@@ -1,3 +1,145 @@
+2007-05-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32124
+	* runtime/memory.c (allocate_size): Use ERROR_ALLOCATION.
+	(allocate,allocate64): Use stat variable if present.
+
+2007-05-27  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* runtime/string.c (compare0): Use gfc_charlen_type instead of
+	int.
+	(fstrlen): Likewise.
+	(find_option): Likewise.
+	(fstrcpy): Use gfc_charlen_type instead of int, return length.
+	(cf_strcpy): Likewise.
+	* libgfortran.h: Change string prototypes to use gfc_charlen_type.
+	* io/open.c (new_unit): Use snprintf if available.
+	* io/list_read.c (nml_touch_nodes): Use memcpy instead of
+	strcpy/strcat.
+	(nml_read_obj): Likewise.
+	* io/transfer.c (st_set_nml_var): Likewise.
+	* io/write.c (output_float): Use snprintf if available.
+	(nml_write_obj) Use memcpy instead of strcpy/strcat.
+
+2007-05-26  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* io/unix.c (unix_stream): Rearrange struct members, remove
+	small_buffer.
+	(int_stream): New struct.
+	(fd_alloc): Always use existing buffer, never reallocate.
+	(fd_sfree): Remove check for buffer != small_buffer.
+	(fd_close): Likewise.
+	(mem_alloc_r_at): Change to use int_stream.
+	(mem_alloc_w_at): Likewise.
+	(mem_read): Likewise.
+	(mem_write): Likewise.
+	(mem_set): Likewise.
+	(mem_truncate): Likewise.
+	(mem_close): Likewise.
+	(mem_sfree): Likewise.
+	(empty_internal_buffer): Likewise.
+	(open_internal): Likewise.
+	
+2007-05-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* io/transfer.c (unformatted_read): Use size from front end eliminating
+	use of size_from_real_kind. (unformatted_write): Ditto.
+
+2007-05-23  Steve Ellcey  <sje@cup.hp.com>
+
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+
+2007-05-22  Tobias Burnus  <burnus@net-b.de>
+
+	* libgfortran.h: Mark stop_numeric as noreturn.
+
+2007-05-22  Tobias Burnus  <burnus@net-b.de>
+
+	PR libgfortran/31295
+	* intrinsics/eoshift0.c (eoshift0): Silence uninitialized warning.
+	* intrinsics/eoshift2.c (eoshift2): Ditto.
+
+2007-05-18  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/31964
+	* intrinsics/ishftc.c (ishftc4, ishftc8, ishftc16): Fix mask to handle
+	shift of bit-size number of bits.
+
+2007-05-17  Tobias Burnus <burnus@net-b.de>
+
+	PR fortran/31917
+	* runtime/environ.c (mark_range): Fix setting default convert unit.
+
+2007-05-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/31922
+	* intrinsics/string_intrinsics.c (string_trim): Set result to null if
+	string length is zero.
+
+2007-05-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR libfortran/31915
+	* io/transfer.c (unformatted_read): Use proper size for real(10).
+	  (unformatted_write): Ditto.
+
+2007-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30723
+	* runtime/memory.c (internal_malloc, internal_malloc64,
+	internal_free): Remove.
+	* runtime/error.c (os_error): Export function.
+	* intrinsics/move_alloc.c: Include stdlib.h.
+	(move_alloc): Call free instead of internal_free.
+	(move_alloc_c): Wrap long lines.
+	* libgfortran.h (os_error): Export prototype.
+	(internal_free): Remove prototype.
+	* gfortran.map (GFORTRAN_1.0): Remove _gfortran_internal_free,
+	_gfortran_internal_malloc and _gfortran_internal_malloc64.
+	Add _gfortran_os_error.
+
+2007-05-09  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/31880
+	* io/unix.c (fd_alloc_r_at): Fix calculation of physical offset.
+
+2007-05-07  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/31607
+	* intrinsics/system.c (system_sub): Call flush_all_units.
+	* io/io.h (flush_all_units): Move prototype to libgfortran.h.
+	* libgfortran.h (flush_all_units): Add prototype.
+
+2007-05-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/31201
+	* runtime/error.c (runtime_error_at): New function.
+	(generate_error): Export this function.
+	* gfortran.map: Add _gfortran_generate_error and
+	_gfortran_runtime_error_at.
+	* libgfortran.h: Add comment to reference error codes in front end.
+	(library_start): Locate prototype with library_end macro and add
+	a new comment.  Add prototype for runtime_error_at. Export prototype for
+	generate_error.
+	* io/lock.c (library_start): Fix check for error condition.
+	* io/transfer.c (data_transfer_init): Add library check.
+
+2007-05-04  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/22359
+	* io/intrinsics.c (fseek_sub): New.
+	* io/unix.c (fd_fseek): Change logical and physical offsets only
+	if seek succeeds.
+	* gfortran.map (fseek_sub): New.
+
+2007-05-04  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/31210
+	* io/transfer.c (transfer_character): Avoid passing a NULL
+	pointer as source to the transfer routines, if the string length
+	is zero.
+
 2007-04-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libfortran/31501

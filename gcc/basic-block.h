@@ -221,7 +221,7 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   PTR GTY ((skip (""))) aux;
 
   /* Innermost loop containing the block.  */
-  struct loop * GTY ((skip (""))) loop_father;
+  struct loop *loop_father;
 
   /* The dominance and postdominance information node.  */
   struct et_node * GTY ((skip (""))) dom[2];
@@ -919,7 +919,6 @@ extern void free_aux_for_edges (void);
 extern void find_basic_blocks (rtx);
 extern bool cleanup_cfg (int);
 extern bool delete_unreachable_blocks (void);
-extern bool merge_seq_blocks (void);
 
 extern bool mark_dfs_back_edges (void);
 extern void set_edge_can_fallthru_flag (void);
@@ -936,8 +935,8 @@ extern void reorder_basic_blocks (void);
 
 enum cdi_direction
 {
-  CDI_DOMINATORS,
-  CDI_POST_DOMINATORS
+  CDI_DOMINATORS = 1,
+  CDI_POST_DOMINATORS = 2
 };
 
 enum dom_state
@@ -947,8 +946,8 @@ enum dom_state
   DOM_OK		/* Everything is ok.  */
 };
 
-extern enum dom_state dom_computed[2];
-
+extern enum dom_state dom_info_state (enum cdi_direction);
+extern void set_dom_info_availability (enum cdi_direction, enum dom_state);
 extern bool dom_info_available_p (enum cdi_direction);
 extern void calculate_dominance_info (enum cdi_direction);
 extern void free_dominance_info (enum cdi_direction);
@@ -988,6 +987,9 @@ extern void set_bb_original (basic_block, basic_block);
 extern basic_block get_bb_original (basic_block);
 extern void set_bb_copy (basic_block, basic_block);
 extern basic_block get_bb_copy (basic_block);
+void set_loop_copy (struct loop *, struct loop *);
+struct loop *get_loop_copy (struct loop *);
+
 
 extern rtx insert_insn_end_bb_new (rtx, basic_block);
 
@@ -1159,7 +1161,8 @@ extern bool rtx_equiv_p (rtx *, rtx, int, struct equiv_info *);
 extern bool condjump_equiv_p (struct equiv_info *, bool);
 
 /* Return true when one of the predecessor edges of BB is marked with EDGE_EH.  */
-static inline bool bb_has_eh_pred (basic_block bb)
+static inline bool
+bb_has_eh_pred (basic_block bb)
 {
   edge e;
   edge_iterator ei;
@@ -1171,5 +1174,9 @@ static inline bool bb_has_eh_pred (basic_block bb)
     }
   return false;
 }
+
+/* In cfgloopmanip.c.  */
+extern edge mfb_kj_edge;
+bool mfb_keep_just (edge);
 
 #endif /* GCC_BASIC_BLOCK_H */

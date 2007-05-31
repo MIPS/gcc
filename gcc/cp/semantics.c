@@ -2283,6 +2283,11 @@ finish_member_declaration (tree decl)
   /* Mark the DECL as a member of the current class.  */
   DECL_CONTEXT (decl) = current_class_type;
 
+  /* Check for bare parameter packs in the member variable declaration.  */
+  if (TREE_CODE (decl) == FIELD_DECL
+      && !check_for_bare_parameter_packs (TREE_TYPE (decl)))
+    TREE_TYPE (decl) = error_mark_node;
+
   /* [dcl.link]
 
      A C language linkage is ignored for the names of class members
@@ -3187,10 +3192,6 @@ expand_or_defer_fn (tree fn)
       TREE_ASM_WRITTEN (fn) = 1;
       return;
     }
-
-  /* Keep track of functions declared with the "constructor" and
-     "destructor" attribute.  */
-  c_record_cdtor_fn (fn);
 
   /* We make a decision about linkage for these functions at the end
      of the compilation.  Until that point, we do not want the back

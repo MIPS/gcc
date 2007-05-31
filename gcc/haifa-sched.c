@@ -738,7 +738,7 @@ priority (rtx insn)
   if (! INSN_P (insn))
     return 0;
 
-  /* We should not be insterested in priority of an already scheduled insn.  */
+  /* We should not be interested in priority of an already scheduled insn.  */
   gcc_assert (QUEUE_INDEX (insn) != QUEUE_SCHEDULED);
 
   if (!INSN_PRIORITY_KNOWN (insn))
@@ -1305,8 +1305,8 @@ unlink_other_notes (rtx insn, rtx tail)
         }
 
       /* See sched_analyze to see how these are handled.  */
-      if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_BEG
-	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_END)
+      if (NOTE_KIND (insn) != NOTE_INSN_EH_REGION_BEG
+	  && NOTE_KIND (insn) != NOTE_INSN_EH_REGION_END)
 	{
 	  /* Insert the note at the end of the notes list.  */
 	  PREV_INSN (insn) = note_list;

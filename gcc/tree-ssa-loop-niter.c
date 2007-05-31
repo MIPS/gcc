@@ -1247,7 +1247,7 @@ number_of_iterations_cond (struct loop *loop,
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file,
-	       "Analysing # of iterations of loop %d\n", loop->num);
+	       "Analyzing # of iterations of loop %d\n", loop->num);
 
       fprintf (dump_file, "  exit condition ");
       dump_affine_iv (dump_file, iv0);
@@ -2364,7 +2364,7 @@ record_estimate (struct loop *loop, tree bound, double_int i_bound,
      list.  */
   if (upper)
     {
-      struct nb_iter_bound *elt = XNEW (struct nb_iter_bound);
+      struct nb_iter_bound *elt = GGC_NEW (struct nb_iter_bound);
 
       elt->bound = i_bound;
       elt->stmt = at_stmt;
@@ -2816,7 +2816,7 @@ estimate_numbers_of_iterations (void)
 
 /* Returns true if statement S1 dominates statement S2.  */
 
-static bool
+bool
 stmt_dominates_stmt_p (tree s1, tree s2)
 {
   basic_block bb1 = bb_for_stmt (s1), bb2 = bb_for_stmt (s2);
@@ -3023,7 +3023,7 @@ free_numbers_of_iterations_estimates_loop (struct loop *loop)
   for (bound = loop->bounds; bound; bound = next)
     {
       next = bound->next;
-      free (bound);
+      ggc_free (bound);
     }
 
   loop->bounds = NULL;

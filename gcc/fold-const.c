@@ -65,7 +65,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "langhooks.h"
 #include "md5.h"
 
-/* Non-zero if we are folding constants inside an initializer; zero
+/* Nonzero if we are folding constants inside an initializer; zero
    otherwise.  */
 int folding_initializer = 0;
 
@@ -888,7 +888,7 @@ div_if_zero_remainder (enum tree_code code, tree arg1, tree arg2)
 
   int1l = TREE_INT_CST_LOW (arg1);
   int1h = TREE_INT_CST_HIGH (arg1);
-  /* &obj[0] + -128 really should be compiled as &obj[-8] rahter than
+  /* &obj[0] + -128 really should be compiled as &obj[-8] rather than
      &obj[some_exotic_number].  */
   if (POINTER_TYPE_P (type))
     {
@@ -910,7 +910,7 @@ div_if_zero_remainder (enum tree_code code, tree arg1, tree arg2)
   return build_int_cst_wide (type, quol, quoh);
 }
 
-/* This is non-zero if we should defer warnings about undefined
+/* This is nonzero if we should defer warnings about undefined
    overflow.  This facility exists because these warnings are a
    special case.  The code to estimate loop iterations does not want
    to issue any warnings, since it works with expressions which do not
@@ -1411,7 +1411,7 @@ fold_negate_expr (tree t)
 	    {
 	      tree ntype = TYPE_UNSIGNED (type)
 			   ? lang_hooks.types.signed_type (type)
-			   : lang_hooks.types.unsigned_type (type);
+			   : unsigned_type_for (type);
 	      tree temp = fold_convert (ntype, TREE_OPERAND (t, 0));
 	      temp = fold_build2 (RSHIFT_EXPR, ntype, temp, op1);
 	      return fold_convert (type, temp);
@@ -4352,7 +4352,7 @@ build_range_check (tree type, tree exp, int in_p, tree low, tree high)
     {
       if (! TYPE_UNSIGNED (etype))
 	{
-	  etype = lang_hooks.types.unsigned_type (etype);
+	  etype = unsigned_type_for (etype);
 	  high = fold_convert (etype, high);
 	  exp = fold_convert (etype, exp);
 	}
@@ -4420,7 +4420,7 @@ build_range_check (tree type, tree exp, int in_p, tree low, tree high)
 
       /* Check if (unsigned) INT_MAX + 1 == (unsigned) INT_MIN
 	 for the type in question, as we rely on this here.  */
-      utype = lang_hooks.types.unsigned_type (etype);
+      utype = unsigned_type_for (etype);
       maxv = fold_convert (utype, TYPE_MAX_VALUE (etype));
       maxv = range_binop (PLUS_EXPR, NULL_TREE, maxv, 1,
 			  integer_one_node, 1);
@@ -7798,7 +7798,7 @@ fold_unary (enum tree_code code, tree type, tree op0)
 		  && (LOAD_EXTEND_OP (TYPE_MODE (TREE_TYPE (and0)))
 		      == ZERO_EXTEND))
 		{
-		  tree uns = lang_hooks.types.unsigned_type (TREE_TYPE (and0));
+		  tree uns = unsigned_type_for (TREE_TYPE (and0));
 		  and0 = fold_convert (uns, and0);
 		  and1 = fold_convert (uns, and1);
 		}
@@ -7831,7 +7831,7 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	}
 
       /* Convert (T1)(~(T2)X) into ~(T1)X if T1 and T2 are integral types
-	 of the same precision, and X is a integer type not narrower than
+	 of the same precision, and X is an integer type not narrower than
 	 types T1 or T2, i.e. the cast (T2)X isn't an extension.  */
       if (INTEGRAL_TYPE_P (type)
 	  && TREE_CODE (op0) == BIT_NOT_EXPR
@@ -11220,7 +11220,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	      || TREE_CODE (arg0) == ROUND_MOD_EXPR)
 	  && integer_pow2p (TREE_OPERAND (arg0, 1)))
 	{
-	  tree newtype = lang_hooks.types.unsigned_type (TREE_TYPE (arg0));
+	  tree newtype = unsigned_type_for (TREE_TYPE (arg0));
 	  tree newmod = fold_build2 (TREE_CODE (arg0), newtype,
 				     fold_convert (newtype,
 						   TREE_OPERAND (arg0, 0)),
@@ -12329,7 +12329,7 @@ fold_ternary (enum tree_code code, tree type, tree op0, tree op1, tree op2)
 	      else if ((TREE_INT_CST_HIGH (arg1) & mask_hi) == 0
 		       && (TREE_INT_CST_LOW (arg1) & mask_lo) == 0)
 		{
-		  tem_type = lang_hooks.types.unsigned_type (TREE_TYPE (tem));
+		  tem_type = unsigned_type_for (TREE_TYPE (tem));
 		  tem = fold_convert (tem_type, tem);
 		}
 	      else
@@ -13485,9 +13485,14 @@ tree_expr_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
       /* ... fall through ...  */
 
     default:
-      if (truth_value_p (TREE_CODE (t)))
-	/* Truth values evaluate to 0 or 1, which is nonnegative.  */
-	return true;
+      {
+	tree type = TREE_TYPE (t);
+	if ((TYPE_PRECISION (type) != 1 || TYPE_UNSIGNED (type))
+	    && truth_value_p (TREE_CODE (t)))
+	  /* Truth values evaluate to 0 or 1, which is nonnegative unless we
+             have a signed:1 type (where the value is -1 and 0).  */
+	  return true;
+      }
     }
 
   /* We don't know sign of `t', so be conservative and return false.  */
