@@ -853,7 +853,7 @@ bitmap_and_into (bitmap a, bitmap b)
 }
 
 
-/* Insert an element equal to DST_ELT after DST_PREV, overwriting DST_ELT
+/* Insert an element equal to SRC_ELT after DST_PREV, overwriting DST_ELT
    if non-NULL.  CHANGED is true if the destination bitmap had already been
    changed; the new value of CHANGED is returned.  */
 

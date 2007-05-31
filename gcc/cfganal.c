@@ -878,7 +878,7 @@ inverted_post_order_compute (int *post_order)
             }
         }
 
-      /* Detect any inifinite loop and activate the kludge. 
+      /* Detect any infinite loop and activate the kludge. 
          Note that this doesn't check EXIT_BLOCK itself
          since EXIT_BLOCK is always added after the outer do-while loop.  */
       FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
@@ -910,7 +910,7 @@ inverted_post_order_compute (int *post_order)
               }
           }
 
-      if (has_unvisited_bb == true && sp == 0)
+      if (has_unvisited_bb && sp == 0)
         {
           /* No blocks are reachable from EXIT at all. 
              Find a dead-end from the ENTRY, and restart the iteration. */

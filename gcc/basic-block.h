@@ -30,7 +30,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "predict.h"
 #include "vec.h"
 #include "function.h"
-#include "rtl.h"
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -295,44 +294,44 @@ DEF_VEC_ALLOC_P(basic_block,heap);
 enum bb_flags
 {
   /* Only set on blocks that have just been created by create_bb.  */
-  BB_NEW = 2,
+  BB_NEW = 1 << 0,
 
   /* Set by find_unreachable_blocks.  Do not rely on this being set in any
      pass.  */
-  BB_REACHABLE = 4,
+  BB_REACHABLE = 1 << 1,
 
   /* Set for blocks in an irreducible loop by loop analysis.  */
-  BB_IRREDUCIBLE_LOOP = 8,
+  BB_IRREDUCIBLE_LOOP = 1 << 2,
 
   /* Set on blocks that may actually not be single-entry single-exit block.  */
-  BB_SUPERBLOCK = 16,
+  BB_SUPERBLOCK = 1 << 3,
 
   /* Set on basic blocks that the scheduler should not touch.  This is used
      by SMS to prevent other schedulers from messing with the loop schedule.  */
-  BB_DISABLE_SCHEDULE = 32,
+  BB_DISABLE_SCHEDULE = 1 << 4,
 
   /* Set on blocks that should be put in a hot section.  */
-  BB_HOT_PARTITION = 64,
+  BB_HOT_PARTITION = 1 << 5,
 
   /* Set on blocks that should be put in a cold section.  */
-  BB_COLD_PARTITION = 128,
+  BB_COLD_PARTITION = 1 << 6,
 
   /* Set on block that was duplicated.  */
-  BB_DUPLICATED = 256,
+  BB_DUPLICATED = 1 << 7,
 
   /* Set if the label at the top of this block is the target of a non-local goto.  */
-  BB_NON_LOCAL_GOTO_TARGET = 512,
+  BB_NON_LOCAL_GOTO_TARGET = 1 << 8,
 
   /* Set on blocks that are in RTL format.  */
-  BB_RTL = 1024,
+  BB_RTL = 1 << 9 ,
 
   /* Set on blocks that are forwarder blocks.
      Only used in cfgcleanup.c.  */
-  BB_FORWARDER_BLOCK = 2048,
+  BB_FORWARDER_BLOCK = 1 << 10,
 
   /* Set on blocks that cannot be threaded through.
      Only used in cfgcleanup.c.  */
-  BB_NONTHREADABLE_BLOCK = 4096
+  BB_NONTHREADABLE_BLOCK = 1 << 11
 };
 
 /* Dummy flag for convenience in the hot/cold partitioning code.  */
@@ -423,12 +422,6 @@ struct control_flow_graph GTY(())
 
 #define FOR_EACH_BB_REVERSE(BB) FOR_EACH_BB_REVERSE_FN(BB, cfun)
 
-#define FOR_EACH_BB_IN_REGION(BB, REGION) \
-  for (BB= (REGION)->region_info->first_bb_in_region; BB; BB = BB->next_bb_in_region)
-
-#define FOR_EACH_BB_REVERSE_IN_REGION(BB, REGION) \
-  for (BB= (REGION)->region_info->last_bb_in_region; BB; BB = BB->prev_bb_in_region)
-
 /* For iterating over insns in basic block.  */
 #define FOR_BB_INSNS(BB, INSN)			\
   for ((INSN) = BB_HEAD (BB);			\
@@ -438,18 +431,17 @@ struct control_flow_graph GTY(())
 /* For iterating over insns in basic block when we might remove the
    current insn.  */
 #define FOR_BB_INSNS_SAFE(BB, INSN, CURR)			\
-  for ((INSN) = BB_HEAD (BB), (CURR)=(INSN) ? NEXT_INSN ((INSN)): NULL;	\
+  for ((INSN) = BB_HEAD (BB), (CURR) = (INSN) ? NEXT_INSN ((INSN)): NULL;	\
        (INSN) && (INSN) != NEXT_INSN (BB_END (BB));	\
        (INSN) = (CURR), (CURR) = (INSN) ? NEXT_INSN ((INSN)) : NULL)
        
-
 #define FOR_BB_INSNS_REVERSE(BB, INSN)		\
   for ((INSN) = BB_END (BB);			\
        (INSN) && (INSN) != PREV_INSN (BB_HEAD (BB));	\
        (INSN) = PREV_INSN (INSN))
 
 #define FOR_BB_INSNS_REVERSE_SAFE(BB, INSN, CURR)	\
-  for ((INSN) = BB_END (BB),(CURR)=(INSN) ? PREV_INSN ((INSN)) : NULL;	\
+  for ((INSN) = BB_END (BB),(CURR) = (INSN) ? PREV_INSN ((INSN)) : NULL;	\
        (INSN) && (INSN) != PREV_INSN (BB_HEAD (BB));	\
        (INSN) = (CURR), (CURR) = (INSN) ? PREV_INSN ((INSN)) : NULL)
 
