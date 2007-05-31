@@ -15610,17 +15610,17 @@ fi
 
 
 # Source file extension for Java test sources.
-ac_ext=java
+ac_ext=c
 
 # Object file extension for compiled Java test sources.
 objext=o
 objext_GCJ=$objext
 
 # Code to be used in simple compile tests
-lt_simple_compile_test_code="class foo {}"
+lt_simple_compile_test_code="int some_variable = 0;"
 
 # Code to be used in simple link tests
-lt_simple_link_test_code='public class conftest { public static void main(String[] argv) {}; }'
+lt_simple_link_test_code='int main(){return(0);}'
 
 # ltmain only uses $CC for tagged configurations so make sure $CC is set.
 
@@ -15654,8 +15654,6 @@ $RM conftest*
 
 
 # Allow CC to be a program name with arguments.
-lt_save_CC="$CC"
-CC=${GCJ-"gcj"}
 compiler=$CC
 compiler_GCJ=$CC
 for cc_temp in $compiler""; do
@@ -15703,11 +15701,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:15706: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:15704: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:15710: \$? = $ac_status" >&5
+   echo "$as_me:15708: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -16019,11 +16017,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:16022: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:16020: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:16026: \$? = $ac_status" >&5
+   echo "$as_me:16024: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -16118,11 +16116,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:16121: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:16119: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:16125: \$? = $ac_status" >&5
+   echo "$as_me:16123: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -16170,11 +16168,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:16173: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:16171: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:16177: \$? = $ac_status" >&5
+   echo "$as_me:16175: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -18177,13 +18175,13 @@ fi
 
 fi
 
+compiler_GCJ=${GCJ-gcj}
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-CC="$lt_save_CC"
 
 if test "x$CC" != xcc; then
   echo "$as_me:$LINENO: checking whether $CC and cc understand -c and -o together" >&5
@@ -18497,7 +18495,7 @@ if test "${enable_sjlj_exceptions+set}" = set; then
   :
 else
   cat > conftest.$ac_ext << EOF
-#line 18500 "configure"
+#line 18498 "configure"
 struct S { ~S(); };
 void bar();
 void foo()

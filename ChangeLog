@@ -1,3 +1,35 @@
+2007-05-31  Dorit Nuzman   <dorit@il.ibm.com>
+
+	* MAINTAINERS (Various Maintainers): Add myself as
+	auto-vectorizer maintainer.
+
+2003-05-31  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR libjava/32098
+	* libtool.m4: Revert previous change.
+	* ltgcc.m4: Put it here.
+
+2003-05-30  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* MAINTAINERS (Various Maintainers): Add myself as
+	auto-vectorizer maintainer.
+
+2007-05-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libjava/32098
+	* libtool.m4 (_LT_LANG_GCJ_CONFIG): Use gcc to test gcj features.
+
+2007-05-30  Richard Guenther  <rguenther@suse.de>
+
+	* MAINTAINERS (Various Maintainers): Add myself as
+	auto-vectorizer maintainer.
+
+2007-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/29382
+	* configure.ac: Don't use -fkeep-inline-functions for GCC < 3.3.1.
+	* configure: Rebuilt.
+
 2007-05-28  Roberto Costa  <robsettantasei@gmail.com>
 
 	* MAINTAINERS (Write After Approval): Removed my name.
@@ -436,6 +468,7 @@
 	install-gcc.
 	* Makefile.in: Regenerate.
 
+>>>>>>> .merge-right.r70
 2006-12-04  Richard Guenther  <rguenther@suse.de>
 
 	* MAINTAINERS (Non-Algorithmic Maintainers): New section.

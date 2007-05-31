@@ -1,3 +1,93 @@
+2007-05-31  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/32160
+	* gfortran.dg/predcom-1.f: New test.
+
+2007-05-31  Richard Guenther  <rguenther@suse.de>
+
+	* g++.dg/other/str_empty.C: Move...
+	* g++.dg/other/pr30567.C: Move...
+	* g++.dg/tree-ssa/pr27218.C: Move...
+	* g++.dg/torture: ...here and remove dg-options.
+
+2007-05-31  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/32158
+	* g++.dg/ext/is_pod_incomplete.C: New.
+
+2007-05-31  Russell Yanofsky <russ@yanofsky.org>
+            Douglas Gregor <doug.gregor@gmail.com>
+            Pedro Lamarao <pedro.lamarao@mndfck.org>
+            Howard Hinnant <howard.hinnant@gmail.com>
+
+	PR c++/7412
+	PR c++/29939
+        * g++.dg/cpp0x/rv8p.C: New.
+        * g++.dg/cpp0x/temp-constructor-bug.C: New.
+        * g++.dg/cpp0x/cast-bug.C: New.
+        * g++.dg/cpp0x/elision_weak.C: New.
+        * g++.dg/cpp0x/collapse-bug.C: New.
+        * g++.dg/cpp0x/rv3p.C: New.
+        * g++.dg/cpp0x/rv7n.C: New.
+        * g++.dg/cpp0x/overload-conv-1.C: New.
+        * g++.dg/cpp0x/rv2n.C: New.
+        * g++.dg/cpp0x/deduce.C: New.
+        * g++.dg/cpp0x/temp-va-arg-bug.C: New.
+        * g++.dg/cpp0x/rv6p.C: New.
+        * g++.dg/cpp0x/template_deduction.C: New.
+        * g++.dg/cpp0x/implicit-copy.C: New.
+        * g++.dg/cpp0x/rv1p.C: New.
+        * g++.dg/cpp0x/cast.C: New.
+        * g++.dg/cpp0x/rv5n.C: New.
+        * g++.dg/cpp0x/collapse.C: New.
+        * g++.dg/cpp0x/overload-conv-2.C: New.
+        * g++.dg/cpp0x/rv4p.C: New.
+	* g++.dg/cpp0x/rvo.C: New.
+        * g++.dg/cpp0x/iop.C: New.
+        * g++.dg/cpp0x/rv3n.C: New.
+        * g++.dg/cpp0x/rv7p.C: New.
+        * g++.dg/cpp0x/reference_collapsing.C: New.
+        * g++.dg/cpp0x/overload.C: New.
+        * g++.dg/cpp0x/named.C: New.
+        * g++.dg/cpp0x/rv2p.C: New.
+        * g++.dg/cpp0x/rv6n.C: New.
+        * g++.dg/cpp0x/not_special.C: New.
+        * g++.dg/cpp0x/bind.C: New.
+        * g++.dg/cpp0x/rv1n.C: New.
+        * g++.dg/cpp0x/rv5p.C: New.
+        * g++.dg/cpp0x/elision.C: New.
+        * g++.dg/cpp0x/named_refs.C: New.
+        * g++.dg/cpp0x/unnamed_refs.C: New.
+        * g++.dg/cpp0x/rv4n.C: New.
+        * g++.dg/cpp0x/elision_neg.C: New.
+        * g++.dg/init/copy7.C: Run in C++98 mode.
+        * g++.dg/overload/arg1.C: Ditto.
+        * g++.dg/overload/arg4.C: Ditto.
+
+2007-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/31809
+	* g++.dg/opt/static5.C: New test.
+
+2007-05-30  Richard Guenther  <rguenther@suse.de>
+
+	* g++.dg/dg.exp: Prune torture/.
+	* g++.dg/torture/dg-torture.exp: New testsuite.
+
+2007-05-30  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc.target/arm/pr27387.C: Move and rename to ...
+	* g++.dg/inherit/thunk8.C: ... here.
+
+2007-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/31769
+	* g++.dg/gomp/pr31769.C: New test.
+
+2007-05-29  Hui-May Chang  <hm.chang@apple.com>
+
+	* gcc.target/i386/stack-realign.c: New.
+
 2007-05-29  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	* gcc.dg/tree-ssa/prefetch-6.c: New test.
@@ -13,6 +103,10 @@
 
 	PR c++/31339
 	* g++.dg/ext/boolcomplex-1.c: New test.
+
+2007-05-28  Razya Ladelsky  <razya@il.ibm.com>
+
+        * gcc.dg/matrix: New directory.
 
 2007-05-28  Tobias Burnus  <burnus@net-b.de>
 
