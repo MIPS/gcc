@@ -1,5 +1,11 @@
 2007-05-30  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
+	* builtins.c (std_expand_builtin_va_start): Use
+	sizetype for the call to make_tree and then convert
+	to the pointer type.
+
+2007-05-30  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
 	PR tree-op/32145
 	* tree-vrp.c (extract_range_from_assert): Create
 	POINTER_PLUS_EXPR for pointer types.
