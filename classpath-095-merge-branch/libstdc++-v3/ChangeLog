@@ -1,3 +1,74 @@
+2007-05-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* aclocal.m4: Regenerate.
+
+	* testsuite/17_intro/headers/c++1998/c++_for_c.tar: Remove.
+	* testsuite/17_intro/headers/c++1998/c++.tar: Likewise.
+
+2007-05-28  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/31717 
+	* acinclude.m4 (GLIBCXX_ENABLE_CLOCALE): Re-organize. Sanity check
+	gnu locale model requests to make sure it will work for the requested
+	target. Add checks for strxfrm_l, strerror_l when in gnu locale,
+	and strerror_r everywhere.
+	* aclocal.m4: Regenerated.
+	* configure: Regenerated.
+	* config.h.in: Regenerated.
+	
+2007-05-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/boost_shared_ptr.h
+	(_Sp_counted_base<_S_mutex>::_M_add_ref_lock()): Do not wrap in
+	#ifdef __GTHREADS.
+
+2007-05-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/c_global/cwchar: Do not include <ctime>.
+	* include/c_std/cwchar: Likewise.
+	* include/ext/throw_allocator.h: Do it here.
+	
+2007-05-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/gnu/c_locale.h (__convert_from_v): Fix typo.
+
+2007-05-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/concurrence.h: Use __GCC_HAVE_SYNC_COMPARE_AND_SWAP_*.
+
+2007-05-24  Steve Ellcey  <sje@cup.hp.com>
+
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* libmath/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+	* po/Makefile.in: Regenerate.
+	* src/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2007-05-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/gnu/c_locale.h (__convert_from_v): Only switch to the
+	"C" locale if the current one isn't already "C" (for old glibcs).
+	* config/os/gnu-linux/ctype_noninline.h (ctype<char>::classic_table,
+	ctype<char>::ctype(__c_locale, const mask*, bool, size_t),
+	ctype<char>::ctype(const mask*, bool, size_t)): Likewise, for generic
+	locale model.
+	* config/locale/gnu/messages_members.h
+	(messages<>::messages(__c_locale, const char*, size_t),
+	messages_byname<_CharT>::messages_byname(const char*, size_t)):
+	Only dynamically allocate memory if __s != "C".
+	* config/locale/gnu/time_members.h
+	(__timepunct<_CharT>::__timepunct(__c_locale, const char*, size_t)):
+	Likewise.
+	* config/locale/generic/time_members.h
+	(__timepunct<_CharT>::__timepunct(__c_locale, const char*, size_t)):
+	Likewise.
+
+	* testsuite/util/testsuite_allocator.h: Revert last change.
+
 2007-05-22  Paolo Carlini  <pcarlini@suse.de>
 
 	* testsuite/util/testsuite_allocator.h (check_new): Assign false

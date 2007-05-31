@@ -1,9 +1,9 @@
-2007-05-24  Matthias Klose  <doko@ubuntu.com>
+2007-05-31  Matthias Klose  <doko@ubuntu.com>
 
 	* java/io/natFileWin32.cc (setFilePermissions): New (stub only).
 	_access: Handle EXEC query, stub only.
 
-2007-05-17  Matthias Klose  <doko@ubuntu.com>
+2007-05-31  Matthias Klose  <doko@ubuntu.com>
 
 	Merged from classpath:
 	* gnu/java/nio/SelectorProviderImpl.java: Whitespace merge.
@@ -17,7 +17,7 @@
 	* java/util/logging/Logger.java: Merged.
 	* Regenerate .class and .h files.
 
-2007-05-17  Matthias Klose  <doko@ubuntu.com>
+2007-05-31  Matthias Klose  <doko@ubuntu.com>
 
 	* java/io/File.java: Merge with classpath-0.95, new method
 	setFilePermissions, new attribute EXEC.
@@ -25,7 +25,7 @@
 	_access: Handle EXEC query.
 	* classpath/lib/java/io/File.class, java/io/File.h: Regenerate.
 
-2007-05-13  Matthias Klose  <doko@ubuntu.com>
+2007-05-31  Matthias Klose  <doko@ubuntu.com>
 
 	Imported GNU Classpath 0.95.
 
@@ -85,6 +85,54 @@
 	* gcj/javaprims.h: Update class declarations.
 	* scripts/classes.pl: Update usage.
 	* HACKING: Mention to build all peers.
+
+2007-05-31  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR libjava/32098
+	* configure: Regenerated.
+	* aclocal.m4: Regenerated.
+
+2007-05-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libjava/32098
+	* configure: Regenerated.
+
+2007-05-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure.ac: Don't include ../config/confsubdir.m4.
+	* aclocal.m4: Regenerated.
+	* configure: Likewise.
+
+2007-05-27  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/32078
+	* configure.ac: Include confsubdir.m4.
+	* configure: Regenerate.
+
+2007-05-24  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (_Jv_InterpFrame::get_pc): Only deduct
+	one when pc_ptr is non-NULL.
+
+	* prims.cc (parse_init_args): Enable JVMTI with agentlib
+	and agentpath options.
+
+	* testsuite/lib/libjava.exp (exec_gij): Add new addl_flags
+	parameter.
+	* testsuite/libjava.jvmti/jvmti-interp.exp (gij_jvmti_test_one):
+	Pass '-agentlib:dummyagent' when executing gij.
+	(gij_jvmti_run): Build dummy JVMTI agent before running tests,
+	and remove it when finished.
+	* testsuite/libjava.jvmti/dummyagent.c: New file.
+
+2007-05-23  Steve Ellcey  <sje@cup.hp.com>
+
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+	* gcj/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
 
 2007-05-17  Kyle Galloway  <kgallowa@redhat.com>
 

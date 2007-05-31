@@ -2334,6 +2334,13 @@ gfc_check_size (gfc_expr *array, gfc_expr *dim)
 
 
 try
+gfc_check_sizeof (gfc_expr *arg __attribute__((unused)))
+{
+  return SUCCESS;
+}
+
+
+try
 gfc_check_sleep_sub (gfc_expr *seconds)
 {
   if (type_check (seconds, 0, BT_INTEGER) == FAILURE)
@@ -2601,6 +2608,13 @@ try
 gfc_check_transfer (gfc_expr *source ATTRIBUTE_UNUSED,
 		    gfc_expr *mold ATTRIBUTE_UNUSED, gfc_expr *size)
 {
+  if (mold->ts.type == BT_HOLLERITH)
+    {
+      gfc_error ("'MOLD' argument of 'TRANSFER' intrinsic at %L must not be %s",
+		 &mold->where, gfc_basic_typename (BT_HOLLERITH));
+      return FAILURE;
+    }
+
   if (size != NULL)
     {
       if (type_check (size, 2, BT_INTEGER) == FAILURE)

@@ -127,7 +127,7 @@ static const char dir_separator_str[] = { DIR_SEPARATOR, 0 };
 /* Flag set by cppspec.c to 1.  */
 int is_cpp_driver;
 
-/* Flag set to non-zero if an @file argument has been supplied to gcc.  */
+/* Flag set to nonzero if an @file argument has been supplied to gcc.  */
 static bool at_file_supplied;
 
 /* Flag saying to pass the greatest exit code returned by a sub-process
@@ -7963,7 +7963,7 @@ static const char *
 print_asm_header_spec_function (int arg ATTRIBUTE_UNUSED,
 				const char **argv ATTRIBUTE_UNUSED)
 {
-  printf (_("Assember options\n================\n\n"));
+  printf (_("Assembler options\n=================\n\n"));
   printf (_("Use \"-Wa,OPTION\" to pass \"OPTION\" to the assembler.\n\n"));
   fflush (stdout);
   return NULL;
