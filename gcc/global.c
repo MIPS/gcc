@@ -1,6 +1,7 @@
 /* Allocate registers for pseudo-registers that span basic blocks.
    Copyright (C) 1987, 1988, 1991, 1994, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 

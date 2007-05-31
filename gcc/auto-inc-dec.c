@@ -1,5 +1,5 @@
 /* Discovery of auto-inc and auto-dec instructions.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
    
 This file is part of GCC.
@@ -42,16 +42,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "df.h"
 #include "dbgcnt.h"
 
-enum form
-  {
 /* This pass was originally removed from flow.c. However there is
    almost nothing that remains of that code.
 
    There are (4) basic forms that are matched:
 
-*/
-    FORM_PRE_ADD,
-/*
            a <- b + c
            ...
            *a
@@ -61,9 +56,6 @@ enum form
            a <- b
            ...
            *(a += c) pre
-*/
-    FORM_PRE_INC,
-/*
            a += c
            ...
            *a
@@ -71,9 +63,6 @@ enum form
         becomes
 
            *(a += c) pre
-*/
-    FORM_POST_ADD,
-/*
            *a
            ...
            b <- a + c
@@ -86,12 +75,6 @@ enum form
            b <- a
            ...
            *(b += c) post
-
-*/
-    FORM_POST_INC,
-    FORM_last
-  };
-/*
            *a
            ...
            a <- a + c
@@ -167,8 +150,16 @@ enum form
 
            *(a += c) pre
 */
-
 #ifdef AUTO_INC_DEC
+
+enum form
+{
+  FORM_PRE_ADD,
+  FORM_PRE_INC,
+  FORM_POST_ADD,
+  FORM_POST_INC,
+  FORM_last
+};
 
 /* The states of the second operands of mem refs and inc insns.  If no
    second operand of the mem_ref was found, it is assumed to just be
@@ -224,7 +215,7 @@ set_inc_state (HOST_WIDE_INT val, int size)
    and location (relative to the mem reference) of inc insn.  */
 
 static bool initialized = false;
-static enum gen_form decision_table [INC_last][INC_last][FORM_last];
+static enum gen_form decision_table[INC_last][INC_last][FORM_last];
 
 static void
 init_decision_table (void)
@@ -361,7 +352,7 @@ static struct inc_insn
 static void 
 dump_inc_insn (FILE *file)
 {
-  const char * f = ((inc_insn.form == FORM_PRE_ADD) 
+  const char *f = ((inc_insn.form == FORM_PRE_ADD) 
 	      || (inc_insn.form == FORM_PRE_INC)) ? "pre" : "post";
 
   dump_insn_slim (file, inc_insn.insn);
@@ -443,12 +434,12 @@ dump_mem_insn (FILE *file)
 
    The arrays are not cleared when we move from block to block so
    whenever an insn is retrieved from these arrays, it's block number
-   must be comared with the current block.
+   must be compared with the current block.
 */
 
-static rtx * reg_next_use = NULL;
-static rtx * reg_next_inc_use = NULL;
-static rtx * reg_next_def = NULL;
+static rtx *reg_next_use = NULL;
+static rtx *reg_next_inc_use = NULL;
+static rtx *reg_next_def = NULL;
 
 
 /* Move dead note that match PATTERN to TO_INSN from FROM_INSN.  We do
@@ -467,7 +458,7 @@ move_dead_notes (rtx to_insn, rtx from_insn, rtx pattern)
     {
       next_note = XEXP (note, 1);
       
-      if ((REG_NOTE_KIND(note) == REG_DEAD)
+      if ((REG_NOTE_KIND (note) == REG_DEAD)
 	  && pattern == XEXP (note, 0))
 	{
 	  XEXP (note, 1) = REG_NOTES (to_insn);
@@ -499,11 +490,11 @@ insert_move_insn_before (rtx next_insn, rtx dest_reg, rtx src_reg)
 }
 
   
-/* Change mem_insn.mem_loc so that uses NEW_ADDR that increments
-   INC_REG.  To have reached this point, the change is a legitimate
-   one from a dataflow point of view.  The only questions are is this
-   a valid change to the instruction and is this a profitable change
-   to the instruction.  */
+/* Change mem_insn.mem_loc so that uses NEW_ADDR which has an
+   increment of INC_REG.  To have reached this point, the change is a
+   legitimate one from a dataflow point of view.  The only questions
+   are is this a valid change to the instruction and is this a
+   profitable change to the instruction.  */
 
 static bool
 attempt_change (rtx new_addr, rtx inc_reg)
@@ -565,23 +556,23 @@ attempt_change (rtx new_addr, rtx inc_reg)
       move_dead_notes (mov_insn, inc_insn.insn, inc_insn.reg0);
 
       regno = REGNO (inc_insn.reg_res);
-      reg_next_def [regno] = mov_insn;
-      reg_next_use [regno] = NULL;
+      reg_next_def[regno] = mov_insn;
+      reg_next_use[regno] = NULL;
       regno = REGNO (inc_insn.reg0);
-      reg_next_use [regno] = mov_insn;
+      reg_next_use[regno] = mov_insn;
       df_recompute_luids (bb);
       break;
 
     case FORM_POST_INC:
       regno = REGNO (inc_insn.reg_res);
-      if (reg_next_use [regno] == reg_next_inc_use[regno])
+      if (reg_next_use[regno] == reg_next_inc_use[regno])
 	reg_next_inc_use[regno] = NULL;
 
       /* Fallthru.  */
     case FORM_PRE_INC:
       regno = REGNO (inc_insn.reg_res);
-      reg_next_def [regno] = mem_insn.insn;
-      reg_next_use [regno] = NULL;
+      reg_next_def[regno] = mem_insn.insn;
+      reg_next_use[regno] = NULL;
 
       break;
 
@@ -594,31 +585,31 @@ attempt_change (rtx new_addr, rtx inc_reg)
 	 pointer for the main iteration has not yet hit that.  It is
 	 still pointing to the mem insn. */
       regno = REGNO (inc_insn.reg_res);
-      reg_next_def [regno] = mem_insn.insn;
-      reg_next_use [regno] = NULL;
+      reg_next_def[regno] = mem_insn.insn;
+      reg_next_use[regno] = NULL;
 
       regno = REGNO (inc_insn.reg0);
-      reg_next_use [regno] = mem_insn.insn;
-      if ((reg_next_use [regno] == reg_next_inc_use[regno])
+      reg_next_use[regno] = mem_insn.insn;
+      if ((reg_next_use[regno] == reg_next_inc_use[regno])
 	  || (reg_next_inc_use[regno] == inc_insn.insn))
 	reg_next_inc_use[regno] = NULL;
       df_recompute_luids (bb);
       break;
 
     case FORM_last:
+    default:
       gcc_unreachable ();
     }
 
   if (!inc_insn.reg1_is_const)
     {
       regno = REGNO (inc_insn.reg1);
-      reg_next_use [regno] = mem_insn.insn;
-      if ((reg_next_use [regno] == reg_next_inc_use[regno])
+      reg_next_use[regno] = mem_insn.insn;
+      if ((reg_next_use[regno] == reg_next_inc_use[regno])
 	  || (reg_next_inc_use[regno] == inc_insn.insn))
 	reg_next_inc_use[regno] = NULL;
     }
 
-  /* Recompute the df info for the insns that have changed. */
   delete_insn (inc_insn.insn);
 
   if (dump_file && mov_insn)
@@ -655,7 +646,7 @@ try_merge (void)
   rtx inc_reg = inc_insn.form == FORM_POST_ADD ?
     inc_insn.reg_res : mem_insn.reg0;
 
-  /* The width of the mem being access.  */
+  /* The width of the mem being accessed.  */
   int size = GET_MODE_SIZE (GET_MODE (mem));
   rtx last_insn = NULL;
 
@@ -670,6 +661,7 @@ try_merge (void)
       last_insn = inc_insn.insn;
       break;
     case FORM_last:
+    default:
       gcc_unreachable ();
     }
 
@@ -779,7 +771,7 @@ try_merge (void)
 }
 
 /* Return the next insn that uses (if reg_next_use is passed in
-   NEXT_ARRAY) or defines if reg_next_def is passed in NEXT_ARRAY)
+   NEXT_ARRAY) or defines (if reg_next_def is passed in NEXT_ARRAY)
    REGNO in BB.  */
 
 static rtx
@@ -827,7 +819,7 @@ reverse_inc (void)
    This function is called in two contexts, if BEFORE_MEM is true,
    this is called for each insn in the basic block.  If BEFORE_MEM is
    false, it is called for the instruction in the block that uses the
-   index register for som memory reference that is currently being
+   index register for some memory reference that is currently being
    processed.  */
 
 static bool
@@ -912,7 +904,7 @@ find_address (rtx *address_of_x)
 {
   rtx x = *address_of_x;
   enum rtx_code code = GET_CODE (x);
-  const char * const fmt = GET_RTX_FORMAT (code);
+  const char *const fmt = GET_RTX_FORMAT (code);
   int i;
   int value = 0;
   int tem;
@@ -1001,7 +993,7 @@ find_address (rtx *address_of_x)
    a suitable add or inc insn that follows the mem reference and
    determine if it is suitable to merge.
 
-   In the case where the MEM_)INSN has two registers in the reference,
+   In the case where the MEM_INSN has two registers in the reference,
    this function may be called recursively.  The first time looking
    for an add of the first register, and if that fails, looking for an
    add of the second register.  The FIRST_TRY parameter is used to
@@ -1302,7 +1294,7 @@ find_mem (rtx *address_of_x)
 {
   rtx x = *address_of_x;
   enum rtx_code code = GET_CODE (x);
-  const char * const fmt = GET_RTX_FORMAT (code);
+  const char *const fmt = GET_RTX_FORMAT (code);
   int i;
 
   if (code == MEM && REG_P (XEXP (x, 0)))

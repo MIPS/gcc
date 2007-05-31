@@ -1,5 +1,5 @@
 /* RTL dead code elimination.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -647,7 +647,7 @@ fast_dce (void)
       global_changed = false;
       for (i = 0; i < n_blocks; i++)
 	{
-	  int index = postorder [i];
+	  int index = postorder[i];
 	  basic_block bb = BASIC_BLOCK (index);
 	  bool local_changed;
 

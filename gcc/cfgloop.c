@@ -1,5 +1,6 @@
 /* Natural loop discovery code for GNU compiler.
-   Copyright (C) 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 

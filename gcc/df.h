@@ -1,6 +1,6 @@
 /* Form lists of pseudo register references for autoinc optimization
    for GNU compiler.  This is part of flow optimization.
-   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2006
+   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes 
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
@@ -446,8 +446,8 @@ struct df
      the problem local data without having to search the first
      array.  */
 
-  struct dataflow *problems_in_order [DF_LAST_PROBLEM_PLUS1]; 
-  struct dataflow *problems_by_index [DF_LAST_PROBLEM_PLUS1]; 
+  struct dataflow *problems_in_order[DF_LAST_PROBLEM_PLUS1]; 
+  struct dataflow *problems_by_index[DF_LAST_PROBLEM_PLUS1]; 
   int num_problems_defined;
 
   /* If not NULL, this subset of blocks of the program to be

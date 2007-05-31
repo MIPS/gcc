@@ -1,6 +1,6 @@
 /* Common subexpression elimination library for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -837,11 +837,11 @@ cselib_lookup_mem (rtx x, int create)
    expand to the same place.  */
 
 static rtx 
-expand_loc (struct elt_loc_list * p, bitmap regs_active, int max_depth)
+expand_loc (struct elt_loc_list *p, bitmap regs_active, int max_depth)
 {
   rtx reg_result = NULL;
   unsigned int regno = UINT_MAX;
-  struct elt_loc_list * p_in = p;
+  struct elt_loc_list *p_in = p;
 
   for (; p; p = p -> next)
     {

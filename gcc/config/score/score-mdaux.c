@@ -1,5 +1,5 @@
 /* score-mdaux.c for Sunplus S+CORE processor
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Sunnorth
 
    This file is part of GCC.

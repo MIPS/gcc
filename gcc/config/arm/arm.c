@@ -1646,7 +1646,7 @@ use_return_insn (int iscond, rtx sibling)
 
   if (TARGET_REALLY_IWMMXT)
     for (regno = FIRST_IWMMXT_REGNUM; regno <= LAST_IWMMXT_REGNUM; regno++)
-      if (df_regs_ever_live_p (regno) && ! call_used_regs [regno])
+      if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
 	return 0;
 
   return 1;
@@ -9748,7 +9748,7 @@ arm_compute_save_reg0_reg12_mask (void)
 
       for (reg = 0; reg <= max_reg; reg++)
 	if (df_regs_ever_live_p (reg)
-	    || (! current_function_is_leaf && call_used_regs [reg]))
+	    || (! current_function_is_leaf && call_used_regs[reg]))
 	  save_reg_mask |= (1 << reg);
 
       /* Also save the pic base register if necessary.  */
@@ -9766,7 +9766,7 @@ arm_compute_save_reg0_reg12_mask (void)
       /* In the normal case we only need to save those registers
 	 which are call saved and which are used by this function.  */
       for (reg = 0; reg <= last_reg; reg++)
-	if (df_regs_ever_live_p (reg) && ! call_used_regs [reg])
+	if (df_regs_ever_live_p (reg) && ! call_used_regs[reg])
 	  save_reg_mask |= (1 << reg);
 
       /* Handle the frame pointer as a special case.  */
@@ -11045,7 +11045,7 @@ arm_get_frame_offsets (void)
 	  for (regno = FIRST_IWMMXT_REGNUM;
 	       regno <= LAST_IWMMXT_REGNUM;
 	       regno++)
-	    if (df_regs_ever_live_p (regno) && ! call_used_regs [regno])
+	    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
 	      saved += 8;
 	}
 
@@ -11193,7 +11193,7 @@ arm_save_coproc_regs(void)
   rtx insn;
 
   for (reg = LAST_IWMMXT_REGNUM; reg >= FIRST_IWMMXT_REGNUM; reg--)
-    if (df_regs_ever_live_p (reg) && ! call_used_regs [reg])
+    if (df_regs_ever_live_p (reg) && ! call_used_regs[reg])
       {
 	insn = gen_rtx_PRE_DEC (V2SImode, stack_pointer_rtx);
 	insn = gen_rtx_MEM (V2SImode, insn);

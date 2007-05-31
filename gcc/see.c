@@ -1,5 +1,5 @@
 /* Sign extension elimination optimization for GNU compiler.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Leehod Baruch <leehod@il.ibm.com>
 
 This file is part of GCC.
@@ -3253,7 +3253,7 @@ see_handle_relevant_uses (struct df_ref *ref, rtx insn)
   enum rtx_code extension_code;
   rtx reg = DF_REF_REAL_REG (ref);
 
-  root_entry = unionfind_root (&use_entry [DF_REF_ID (ref)]);
+  root_entry = unionfind_root (&use_entry[DF_REF_ID (ref)]);
   
   if (ENTRY_EI (root_entry)->relevancy != SIGN_EXTENDED_DEF
       && ENTRY_EI (root_entry)->relevancy != ZERO_EXTENDED_DEF)

@@ -1,5 +1,5 @@
 /* Target Definitions for MorphoRISC1
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
    This file is part of GCC.
@@ -414,7 +414,7 @@ enum save_direction
    && (regno) != GPR_FP		  				\
    && (regno) != GPR_SP		  				\
    && (regno) != GPR_R0		  				\
-      &&   (( df_regs_ever_live_p (regno) && ! call_used_regs [regno] ) \
+      &&   (( df_regs_ever_live_p (regno) && ! call_used_regs[regno] ) \
        /* Save ira register in an interrupt handler.  */	\
 	|| (interrupt_handler && (regno) == GPR_INTERRUPT_LINK)	\
        /* Save any register used in an interrupt handler.  */	\

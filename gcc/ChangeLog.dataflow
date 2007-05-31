@@ -1,5 +1,117 @@
 2007-05-30  Kenneth Zadeck <zadeck@naturalbridge.com>
 
+	* auto-inc-dec.c: Updated copyright date.
+	(enum form, set_inc_state, dump_inc_insn, move_dead_notes,
+	insert_move_insn_before, attempt_change, try_merge, find_address, 
+	find_mem): Reformatted.
+	(reverse_inc, find_address): Fixed spelling.
+	(attempt_change, try_merge): Add default case.
+	* basic-block.h: Updated copyright date.
+	* bitmap.c: Updated copyright date.
+	* bitmap.h: Updated copyright date.
+	* cfganal.c: Updated copyright date.
+	* cfg.c: Updated copyright date.
+	* cfghooks.h: Updated copyright date.
+	* cfglayout.c: Updated copyright date.
+	* cfgloop.c: Updated copyright date.
+	* cfgloop.h: Updated copyright date.
+	* cfgrtl.c: Updated copyright date.
+	* combine.c: Updated copyright date.
+	* combine-stack-adj.c: Updated copyright date.
+	* config/arc/arc.c: Updated copyright date.
+	* config/arm/arm.c: (use_return_insn, 
+	arm_compute_save_reg0_reg12_mask, arm_get_frame_offsets,
+	arm_save_coproc_regs): Fixed formatting.
+	* config/bfin/bfin.c: Updated copyright date.
+	* config/c4x/c4x.c: Updated copyright date.
+	* config/c4x/c4x.h: Updated copyright date.
+	* config/cris/cris.c: Updated copyright date.
+	* config/crx/crx.c: Updated copyright date.
+	* config/crx/crx.h: Updated copyright date.
+	* config/darwin.c: Updated copyright date.
+	* config/frv/frv.c: Updated copyright date.
+	* config/h8300/h8300.c: Updated copyright date.
+	* config/h8300/h8300.md: Updated copyright date.
+	* config/ia64/ia64.h: Updated copyright date.
+	* config/iq2000/iq2000.c: Updated copyright date.
+	* config/iq2000/iq2000.h: Updated copyright date.
+	* config/m32c/m32c.c: Updated copyright date.
+	* config/m68hc11/m68hc11.c: Updated copyright date.
+	* config/m68k/m68k.c: Updated copyright date.
+	* config/mips/mips.c: Updated copyright date.
+	* config/mips/mips.md: Updated copyright date.
+	* config/mmix/mmix.c: Updated copyright date.
+	* config/mn10300/mn10300.c: Updated copyright date.
+	* config/mt/mt.c: Updated copyright date.
+	(mt_print_operand_simple_address, mt_print_operand): Fixed formatting.
+	* config/mt/mt.h: Updated copyright date and fixed formatting.
+       	* config/pa/pa.c: Updated copyright date.
+	* config/pa/pa.h: Updated copyright date.
+	* config/pdp11/pdp11.c: Updated copyright date.
+	* config/pdp11/pdp11.h: Updated copyright date.
+	* config/rs6000/predicates.md: Updated copyright date.
+	* config/s390/s390.c: Updated copyright date.
+	* config/score/score-mdaux.c: Updated copyright date.
+	* config/sh/sh.c: Updated copyright date.
+	* config/sh/sh.md: Updated copyright date.
+	* config/sparc/sparc.c: Updated copyright date.
+	* config/stormy16/stormy16.c: Updated copyright date.
+	* config/v850/v850.c: Updated copyright date.
+	* config/vax/vax.c: Updated copyright date.
+	* cselib.c: Updated copyright date.
+	(expand_loc): Fixed formatting.
+	* cselib.h: Updated copyright date.
+	* dbgcnt.c: Updated copyright date.
+	* dbgcnt.def: Updated copyright date.
+	* dbgcnt.h: Updated copyright date.
+	* dce.c: Updated copyright date.
+	(fast_dce): Fixed formatting.
+	* dce.h: Updated copyright date.
+	* ddg.c: Updated copyright date.
+	* ddg.h: Updated copyright date.
+	* df-core.c: Updated copyright date.
+	* df.h: Updated copyright date and fixed formatting.
+	* doc/cfg.texi: Updated copyright date.
+	* doc/rtl.texi: Updated copyright date.
+	* dominance.c: Updated copyright date.
+	* function.h: Updated copyright date.
+	* fwprop.c: Updated copyright date.
+	* global.c: Updated copyright date.
+	* integrate.c: Updated copyright date.
+	* local-alloc.c: Updated copyright date.
+	* loop-init.c: Updated copyright date.
+	* loop-invariant.c: Updated copyright date.
+	* loop-iv.c: Updated copyright date.
+	* optabs.h: Updated copyright date.
+	* output.h: Updated copyright date.
+	* postreload.c: Updated copyright date.
+	* postreload-gcse.c: Updated copyright date.
+	* recog.h: Updated copyright date.
+	* regmove.c: Updated copyright date.
+	* reg-notes.def: Updated copyright date.
+	* regrename.c: Updated copyright date.
+	* reg-stack.c: Updated copyright date.
+	* reload.c: Updated copyright date.
+	* reorg.c: Updated copyright date.
+	* resource.c: Updated copyright date.
+	* resource.h: Updated copyright date.
+	* rtl-factoring.c: Updated copyright date.
+	* sbitmap.c: Updated copyright date.
+	* sbitmap.h: Updated copyright date.
+	* sched-deps.c: Updated copyright date.
+	* sched-ebb.c: Updated copyright date.
+	* sched-int.h: Updated copyright date.
+	* sched-rgn.c: Updated copyright date.
+	* sched-vis.c: Updated copyright date.
+	* see.c: Updated copyright date.
+	(see_handle_relevant_uses): Fixed formatting.
+	* stack-ptr-mod.c: Updated copyright date.
+	* struct-equiv.c: Updated copyright date.
+	* tracer.c: Updated copyright date.
+	* web.c: Updated copyright date.
+
+2007-05-30  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* auto-inc-dec.c (mem_insn.mem_pat): Renamed mem_loc.
 	(attempt_change): Fixed comments and renamed new_addr_pat to new_addr.
 	(try_merge, attempt_change, find_address, find_mem): Renamed
