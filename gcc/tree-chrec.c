@@ -107,7 +107,10 @@ chrec_fold_plus_poly_poly (enum tree_code code,
   gcc_assert (poly1);
   gcc_assert (TREE_CODE (poly0) == POLYNOMIAL_CHREC);
   gcc_assert (TREE_CODE (poly1) == POLYNOMIAL_CHREC);
-  gcc_assert (chrec_type (poly0) == chrec_type (poly1));
+  if (POINTER_TYPE_P (chrec_type (poly0)))
+    gcc_assert (chrec_type (poly1) == sizetype);
+  else
+    gcc_assert (chrec_type (poly0) == chrec_type (poly1));
   gcc_assert (type == chrec_type (poly0));
   
   /*

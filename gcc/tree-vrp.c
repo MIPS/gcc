@@ -1482,10 +1482,14 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 		    }
 		  max = negative_overflow_infinity (TREE_TYPE (var_vr->min));
 		}
-	      else
+	      else if (!POINTER_TYPE_P (TREE_TYPE (var_vr->min)))
 		max = fold_build2 (MINUS_EXPR, TREE_TYPE (var_vr->min),
 				   anti_min,
 				   build_int_cst (TREE_TYPE (var_vr->min), 1));
+	      else
+		max = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (var_vr->min),
+				   anti_min,
+				   size_int (-1));
 	      min = real_min;
 	      set_value_range (vr_p, VR_RANGE, min, max, vr_p->equiv);
 	    }

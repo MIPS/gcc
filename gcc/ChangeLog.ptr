@@ -1,3 +1,14 @@
+2007-05-30  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-op/32145
+	* tree-vrp.c (extract_range_from_assert): Create
+	POINTER_PLUS_EXPR for pointer types.
+
+	PR tree-opt/32144
+	* tree-chrec.c (chrec_fold_plus_poly_poly): If the
+	first chrec is a pointer type, then the second should
+	be sizetype and not the first's type.	
+
 2007-05-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* fold-const.c (try_move_mult_to_index):
