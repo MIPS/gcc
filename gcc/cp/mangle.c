@@ -1541,6 +1541,10 @@ write_local_name (const tree function, const tree local_entity,
 	    ::= G <type>    # imaginary (C 2000)     [not supported]
 	    ::= U <source-name> <type>   # vendor extended type qualifier
 
+   C++0x extensions
+
+     <type> ::= RR <type>   # rvalue reference-to
+
    TYPE is a type node.  */
 
 static void
@@ -1635,6 +1639,8 @@ write_type (tree type)
 	  break;
 
 	case REFERENCE_TYPE:
+	  if (TYPE_REF_IS_RVALUE (type))
+            write_char('R');
 	  write_char ('R');
 	  write_type (TREE_TYPE (type));
 	  break;
@@ -2621,8 +2627,9 @@ get_identifier_nocopy (const char *name)
 void
 mangle_decl (const tree decl)
 {
-  SET_DECL_ASSEMBLER_NAME (decl,
-			   get_identifier_nocopy (mangle_decl_string (decl)));
+  tree id = get_identifier_nocopy (mangle_decl_string (decl));
+  id = targetm.mangle_decl_assembler_name (decl, id);
+  SET_DECL_ASSEMBLER_NAME (decl, id);
 }
 
 /* Generate the mangled representation of TYPE.  */

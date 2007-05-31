@@ -102,9 +102,10 @@ may @emph{not} be grouped: @option{-dr} is very different from @w{@samp{-d
 @cindex order of options
 @cindex options, order
 You can mix options and other arguments.  For the most part, the order
-you use doesn't matter.  Order does matter when you use several options
-of the same kind; for example, if you specify @option{-L} more than once,
-the directories are searched in the order specified.
+you use doesn't matter.  Order does matter when you use several
+options of the same kind; for example, if you specify @option{-L} more
+than once, the directories are searched in the order specified.  Also,
+the placement of the @option{-l} option is significant.
 
 Many options have long names starting with @samp{-f} or with
 @samp{-W}---for example,
@@ -333,7 +334,7 @@ Objective-C and Objective-C++ Dialects}.
 -ffinite-math-only  -fno-signed-zeros @gol
 -fno-toplevel-reorder -fno-trapping-math  -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer  -foptimize-register-move @gol
--foptimize-sibling-calls  -fprefetch-loop-arrays @gol
+-foptimize-sibling-calls  -fpredictive-commoning -fprefetch-loop-arrays @gol
 -fprofile-generate -fprofile-use @gol
 -fregmove  -frename-registers @gol
 -freorder-blocks  -freorder-blocks-and-partition -freorder-functions @gol
@@ -547,7 +548,8 @@ Objective-C and Objective-C++ Dialects}.
 -mno-fp-ret-in-387  -msoft-float @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} -mcx16 -msahf @gol
--mmmx  -msse  -msse2 -msse3 -mssse3 -msse4a -m3dnow -mpopcnt -mabm @gol
+-mmmx  -msse  -msse2 -msse3 -mssse3 -msse4.1 @gol
+-msse4a -m3dnow -mpopcnt -mabm @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
@@ -4493,7 +4495,7 @@ different text / bss / data / heap / stack / dso start locations.
 @item -fdump-unnumbered
 @opindex fdump-unnumbered
 When doing debugging dumps (see @option{-d} option above), suppress instruction
-numbers, line number note and address output.  This makes it more feasible to
+numbers and address output.  This makes it more feasible to
 use diff on debugging dumps for compiler invocations with different
 options, in particular with and without @option{-g}.
 
@@ -4999,7 +5001,8 @@ invoking @option{-O2} on programs that use computed gotos.
 @opindex O3
 Optimize yet more.  @option{-O3} turns on all optimizations specified by
 @option{-O2} and also turns on the @option{-finline-functions},
-@option{-funswitch-loops} and @option{-fgcse-after-reload} options.
+@option{-funswitch-loops}, @option{-fpredictive-commoning} and
+@option{-fgcse-after-reload} options.
 
 @item -O0
 @opindex O0
@@ -5709,6 +5712,14 @@ This optimization is enabled by default.
 @opindex fvariable-expansion-in-unroller
 With this option, the compiler will create multiple copies of some
 local variables when unrolling a loop which can result in superior code.
+
+@item -fpredictive-commoning
+@opindex fpredictive-commoning
+Perform predictive commoning optimization, i.e., reusing computations
+(especially memory loads and stores) performed in previous
+iterations of loops.
+
+This option is enabled at level @option{-O3}.
 
 @item -fprefetch-loop-arrays
 @opindex fprefetch-loop-arrays
@@ -7716,8 +7727,8 @@ The @code{print-asm-header} function takes no arguments and simply
 prints a banner like:
 
 @smallexample
-Assember options
-================
+Assembler options
+=================
 
 Use "-Wa,OPTION" to pass "OPTION" to the assembler.
 @end smallexample
@@ -10260,6 +10271,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mno-sse3
 @item -mssse3
 @itemx -mno-ssse3
+@item -msse4.1
+@itemx -mno-sse4.1
 @item -msse4a
 @item -mno-sse4a
 @item -m3dnow
@@ -10275,7 +10288,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @opindex m3dnow
 @opindex mno-3dnow
 These switches enable or disable the use of instructions in the MMX,
-SSE, SSE2, SSE3, SSSE3, SSE4A, ABM or 3DNow! extended instruction sets.
+SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4A, ABM or 3DNow! extended
+instruction sets.
 These extensions are also available as built-in functions: see
 @ref{X86 Built-in Functions}, for details of the functions enabled and
 disabled by these switches.

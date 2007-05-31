@@ -919,7 +919,6 @@ extern void free_aux_for_edges (void);
 extern void find_basic_blocks (rtx);
 extern bool cleanup_cfg (int);
 extern bool delete_unreachable_blocks (void);
-extern bool merge_seq_blocks (void);
 
 extern bool mark_dfs_back_edges (void);
 extern void set_edge_can_fallthru_flag (void);
@@ -988,6 +987,9 @@ extern void set_bb_original (basic_block, basic_block);
 extern basic_block get_bb_original (basic_block);
 extern void set_bb_copy (basic_block, basic_block);
 extern basic_block get_bb_copy (basic_block);
+void set_loop_copy (struct loop *, struct loop *);
+struct loop *get_loop_copy (struct loop *);
+
 
 extern rtx insert_insn_end_bb_new (rtx, basic_block);
 

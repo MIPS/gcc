@@ -573,7 +573,14 @@ split_constant_offset (tree exp, tree *var, tree *off)
 static tree
 canonicalize_base_object_address (tree addr)
 {
+  tree orig = addr;
+
   STRIP_NOPS (addr);
+
+  /* The base address may be obtained by casting from integer, in that case
+     keep the cast.  */
+  if (!POINTER_TYPE_P (TREE_TYPE (addr)))
+    return orig;
 
   if (TREE_CODE (addr) != ADDR_EXPR)
     return addr;
@@ -584,7 +591,7 @@ canonicalize_base_object_address (tree addr)
 /* Analyzes the behavior of the memory reference DR in the innermost loop that
    contains it.  */
 
-static void
+void
 dr_analyze_innermost (struct data_reference *dr)
 {
   tree stmt = DR_STMT (dr);
@@ -653,7 +660,7 @@ dr_analyze_innermost (struct data_reference *dr)
 }
 
 /* Determines the base object and the list of indices of memory reference
-   DR, analysed in loop nest NEST.  */
+   DR, analyzed in loop nest NEST.  */
 
 static void
 dr_analyze_indices (struct data_reference *dr, struct loop *nest)
@@ -764,7 +771,7 @@ free_data_ref (data_reference_p dr)
    data_reference description of MEMREF.  NEST is the outermost loop of the
    loop nest in that the reference should be analysed.  */
 
-static struct data_reference *
+struct data_reference *
 create_data_ref (struct loop *nest, tree memref, tree stmt, bool is_read)
 {
   struct data_reference *dr;
@@ -802,16 +809,6 @@ create_data_ref (struct loop *nest, tree memref, tree stmt, bool is_read)
       fprintf (dump_file, "\n\tsymbol tag: ");
       print_generic_expr (dump_file, DR_SYMBOL_TAG (dr), TDF_SLIM);
       fprintf (dump_file, "\n");
-    }
-
-  /* FIXME -- data dependence analysis does not work correctly for objects with
-     invariant addresses.  Let us fail here until the problem is fixed.  */
-  if (dr_address_invariant_p (dr))
-    {
-      free_data_ref (dr);
-      dr = NULL;
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "\tFAILED as dr address is invariant\n");
     }
 
   return dr;  
@@ -1228,7 +1225,7 @@ initialize_data_dependence_relation (struct data_reference *a,
 
   /* If the base of the object is not invariant in the loop nest, we cannot
      analyse it.  TODO -- in fact, it would suffice to record that there may
-     be arbitrary depencences in the loops where the base object varies.  */
+     be arbitrary dependences in the loops where the base object varies.  */
   if (!object_address_invariant_in_loop_p (VEC_index (loop_p, loop_nest, 0),
 					   DR_BASE_OBJECT (a)))
     {
@@ -2458,7 +2455,7 @@ analyze_miv_subscript (tree chrec_a,
   
   else if (evolution_function_is_constant_p (difference)
 	   /* For the moment, the following is verified:
-	      evolution_function_is_affine_multivariate_p (chrec_a) */
+	      evolution_function_is_affine_multivariate_p (chrec_a, 0) */
 	   && !gcd_of_steps_may_divide_p (chrec_a, difference))
     {
       /* testsuite/.../ssa-chrec-33.c
@@ -2472,9 +2469,9 @@ analyze_miv_subscript (tree chrec_a,
       dependence_stats.num_miv_independent++;
     }
   
-  else if (evolution_function_is_affine_multivariate_p (chrec_a)
+  else if (evolution_function_is_affine_multivariate_p (chrec_a, 0)
 	   && !chrec_contains_symbols (chrec_a)
-	   && evolution_function_is_affine_multivariate_p (chrec_b)
+	   && evolution_function_is_affine_multivariate_p (chrec_b, 0)
 	   && !chrec_contains_symbols (chrec_b))
     {
       /* testsuite/.../ssa-chrec-35.c
@@ -2563,7 +2560,7 @@ analyze_overlapping_iterations (tree chrec_a,
   /* If they are the same chrec, and are affine, they overlap 
      on every iteration.  */
   else if (eq_evolutions_p (chrec_a, chrec_b)
-	   && evolution_function_is_affine_multivariate_p (chrec_a))
+	   && evolution_function_is_affine_multivariate_p (chrec_a, 0))
     {
       dependence_stats.num_same_subscript_function++;
       *overlap_iterations_a = conflict_fn (1, affine_fn_cst (integer_zero_node));
@@ -2575,8 +2572,8 @@ analyze_overlapping_iterations (tree chrec_a,
      yet. */
   else if ((chrec_contains_symbols (chrec_a) 
 	    || chrec_contains_symbols (chrec_b))
-	   && (!evolution_function_is_affine_multivariate_p (chrec_a)
-	       || !evolution_function_is_affine_multivariate_p (chrec_b)))
+	   && (!evolution_function_is_affine_multivariate_p (chrec_a, 0)
+	       || !evolution_function_is_affine_multivariate_p (chrec_b, 0)))
     {
       dependence_stats.num_subscript_undetermined++;
       *overlap_iterations_a = conflict_fn_not_known ();
@@ -2745,7 +2742,7 @@ build_classic_dist_vector_1 (struct data_dependence_relation *ddr,
 	  init_v[index] = 1;
 	  *init_b = true;
 	}
-      else
+      else if (!operand_equal_p (access_fn_a, access_fn_b, 0))
 	{
 	  /* This can be for example an affine vs. constant dependence
 	     (T[i] vs. T[3]) that is not an affine dependence and is
@@ -3182,7 +3179,7 @@ access_functions_are_affine_or_constant_p (struct data_reference *a)
 
   for (i = 0; VEC_iterate (tree, fns, i, t); i++)
     if (!evolution_function_is_constant_p (t)
-	&& !evolution_function_is_affine_multivariate_p (t))
+	&& !evolution_function_is_affine_multivariate_p (t, 0))
       return false;
   
   return true;
@@ -3846,7 +3843,7 @@ compute_self_dependence (struct data_dependence_relation *ddr)
    COMPUTE_SELF_AND_RR is FALSE, don't compute read-read and self
    relations.  */
 
-static void 
+void 
 compute_all_dependences (VEC (data_reference_p, heap) *datarefs,
 			 VEC (ddr_p, heap) **dependence_relations,
 			 VEC (loop_p, heap) *loop_nest,
@@ -3965,13 +3962,20 @@ find_data_references_in_stmt (struct loop *nest, tree stmt,
   for (i = 0; VEC_iterate (data_ref_loc, references, i, ref); i++)
     {
       dr = create_data_ref (nest, *ref->pos, stmt, ref->is_read);
-      if (dr)
-	VEC_safe_push (data_reference_p, heap, *datarefs, dr);
-      else
+      gcc_assert (dr != NULL);
+  
+      /* FIXME -- data dependence analysis does not work correctly for objects with
+	 invariant addresses.  Let us fail here until the problem is fixed.  */
+      if (dr_address_invariant_p (dr))
 	{
+	  free_data_ref (dr);
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "\tFAILED as dr address is invariant\n");
 	  ret = false;
 	  break;
 	}
+
+      VEC_safe_push (data_reference_p, heap, *datarefs, dr);
     }
   VEC_free (data_ref_loc, heap, references);
   return ret;
@@ -3992,7 +3996,7 @@ find_data_references_in_loop (struct loop *loop,
   unsigned int i;
   block_stmt_iterator bsi;
 
-  bbs = get_loop_body (loop);
+  bbs = get_loop_body_in_dom_order (loop);
 
   for (i = 0; i < loop->num_nodes; i++)
     {
@@ -4051,7 +4055,7 @@ find_loop_nest_1 (struct loop *loop, VEC (loop_p, heap) **loop_nest)
    contain the loops from the outermost to the innermost, as they will
    appear in the classic distance vector.  */
 
-static bool
+bool
 find_loop_nest (struct loop *loop, VEC (loop_p, heap) **loop_nest)
 {
   VEC_safe_push (loop_p, heap, *loop_nest, loop);

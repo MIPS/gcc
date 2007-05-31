@@ -1195,6 +1195,7 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 	    {
 	      array = gfc_start_constructor (init->ts.type, init->ts.kind,
 					     &init->where);
+
 	      array->value.constructor = c = NULL;
 	      for (n = 0; n < (int)mpz_get_si (size); n++)
 		{

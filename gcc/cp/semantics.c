@@ -2283,6 +2283,11 @@ finish_member_declaration (tree decl)
   /* Mark the DECL as a member of the current class.  */
   DECL_CONTEXT (decl) = current_class_type;
 
+  /* Check for bare parameter packs in the member variable declaration.  */
+  if (TREE_CODE (decl) == FIELD_DECL
+      && !check_for_bare_parameter_packs (TREE_TYPE (decl)))
+    TREE_TYPE (decl) = error_mark_node;
+
   /* [dcl.link]
 
      A C language linkage is ignored for the names of class members
@@ -4172,11 +4177,15 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
       return trait_expr;
     }
 
+  complete_type (type1);
+  if (type2)
+    complete_type (type2);
+
   /* The only required diagnostic.  */
   if (kind == CPTK_IS_BASE_OF
       && NON_UNION_CLASS_TYPE_P (type1) && NON_UNION_CLASS_TYPE_P (type2)
       && !same_type_ignoring_top_level_qualifiers_p (type1, type2)
-      && !COMPLETE_TYPE_P (complete_type (type2)))
+      && !COMPLETE_TYPE_P (type2))
     {
       error ("incomplete type %qT not allowed", type2);
       return error_mark_node;

@@ -2615,7 +2615,7 @@ gather_chrec_stats (tree chrec, struct chrec_stats *stats)
 	    fprintf (dump_file, "  affine_univariate\n");
 	  stats->nb_affine++;
 	}
-      else if (evolution_function_is_affine_multivariate_p (chrec))
+      else if (evolution_function_is_affine_multivariate_p (chrec, 0))
 	{
 	  if (dump_file && (dump_flags & TDF_STATS))
 	    fprintf (dump_file, "  affine_multivariate\n");
@@ -2863,6 +2863,8 @@ scev_analysis (void)
 void
 scev_finalize (void)
 {
+  if (!scalar_evolution_info)
+    return;
   htab_delete (scalar_evolution_info);
   BITMAP_FREE (already_instantiated);
   scalar_evolution_info = NULL;
@@ -2885,7 +2887,7 @@ scev_const_prop (void)
   unsigned i;
   loop_iterator li;
 
-  if (!current_loops)
+  if (number_of_loops () <= 1)
     return 0;
 
   FOR_EACH_BB (bb)
@@ -2966,7 +2968,6 @@ scev_const_prop (void)
       /* Ensure that it is possible to insert new statements somewhere.  */
       if (!single_pred_p (exit->dest))
 	split_loop_exit_edge (exit);
-      tree_block_label (exit->dest);
       bsi = bsi_after_labels (exit->dest);
 
       ex_loop = superloop_at_depth (loop,

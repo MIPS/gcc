@@ -201,6 +201,27 @@ is_overflow_infinity (tree val)
 	      || operand_equal_p (val, TYPE_MIN_VALUE (TREE_TYPE (val)), 0)));
 }
 
+/* If VAL is now an overflow infinity, return VAL.  Otherwise, return
+   the same value with TREE_OVERFLOW clear.  This can be used to avoid
+   confusing a regular value with an overflow value.  */
+
+static inline tree
+avoid_overflow_infinity (tree val)
+{
+  if (!is_overflow_infinity (val))
+    return val;
+
+  if (operand_equal_p (val, TYPE_MAX_VALUE (TREE_TYPE (val)), 0))
+    return TYPE_MAX_VALUE (TREE_TYPE (val));
+  else
+    {
+#ifdef ENABLE_CHECKING
+      gcc_assert (operand_equal_p (val, TYPE_MIN_VALUE (TREE_TYPE (val)), 0));
+#endif
+      return TYPE_MIN_VALUE (TREE_TYPE (val));
+    }
+}
+
 
 /* Return whether VAL is equal to the maximum value of its type.  This
    will be true for a positive overflow infinity.  We can't do a
@@ -361,24 +382,12 @@ static inline void
 set_value_range_to_value (value_range_t *vr, tree val, bitmap equiv)
 {
   gcc_assert (is_gimple_min_invariant (val));
-  if (is_overflow_infinity (val))
-    {
-      if (operand_equal_p (val, TYPE_MAX_VALUE (TREE_TYPE (val)), 0))
-	val = TYPE_MAX_VALUE (TREE_TYPE (val));
-      else
-	{
-#ifdef ENABLE_CHECKING
-	  gcc_assert (operand_equal_p (val,
-				       TYPE_MIN_VALUE (TREE_TYPE (val)), 0));
-#endif
-	  val = TYPE_MIN_VALUE (TREE_TYPE (val));
-	}
-    }
+  val = avoid_overflow_infinity (val);
   set_value_range (vr, VR_RANGE, val, val, equiv);
 }
 
 /* Set value range VR to a non-negative range of type TYPE.
-   OVERFLOW_INFINITY indicates whether to use a overflow infinity
+   OVERFLOW_INFINITY indicates whether to use an overflow infinity
    rather than TYPE_MAX_VALUE; this should be true if we determine
    that the range is nonnegative based on the assumption that signed
    overflow does not occur.  */
@@ -598,7 +607,7 @@ symbolic_range_p (value_range_t *vr)
           || !is_gimple_min_invariant (vr->max));
 }
 
-/* Return true if value range VR uses a overflow infinity.  */
+/* Return true if value range VR uses an overflow infinity.  */
 
 static inline bool
 overflow_infinity_range_p (value_range_t *vr)
@@ -1102,6 +1111,8 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
       limit = TREE_OPERAND (cond, 0);
       cond_code = swap_tree_comparison (TREE_CODE (cond));
     }
+
+  limit = avoid_overflow_infinity (limit);
 
   type = TREE_TYPE (limit);
   gcc_assert (limit != var);
@@ -4616,7 +4627,7 @@ vrp_visit_assignment (tree stmt, tree *output_p)
 }
 
 /* Helper that gets the value range of the SSA_NAME with version I
-   or a symbolic range contaning the SSA_NAME only if the value range
+   or a symbolic range containing the SSA_NAME only if the value range
    is varying or undefined.  */
 
 static inline value_range_t
@@ -4780,7 +4791,7 @@ compare_names (enum tree_code comp, tree n1, tree n2,
       t = retval = NULL_TREE;
       EXECUTE_IF_SET_IN_BITMAP (e2, 0, i2, bi2)
 	{
-	  bool sop;
+	  bool sop = false;
 
 	  value_range_t vr2 = get_vr_for_comparison (i2);
 
@@ -5987,11 +5998,8 @@ static unsigned int
 execute_vrp (void)
 {
   loop_optimizer_init (LOOPS_NORMAL | LOOPS_HAVE_RECORDED_EXITS);
-  if (current_loops)
-    {
-      rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
-      scev_initialize ();
-    }
+  rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
+  scev_initialize ();
 
   insert_range_assertions ();
 
@@ -6012,11 +6020,8 @@ execute_vrp (void)
   update_ssa (TODO_update_ssa);
 
   finalize_jump_threads ();
-  if (current_loops)
-    {
-      scev_finalize ();
-      loop_optimizer_finalize ();
-    }
+  scev_finalize ();
+  loop_optimizer_finalize ();
 
   return 0;
 }

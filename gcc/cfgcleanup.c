@@ -974,12 +974,8 @@ old_insns_match_p (int mode ATTRIBUTE_UNUSED, rtx i1, rtx i2)
 	if (REG_NOTE_KIND (note) == REG_DEAD && STACK_REG_P (XEXP (note, 0)))
 	  SET_HARD_REG_BIT (i2_regset, REGNO (XEXP (note, 0)));
 
-      GO_IF_HARD_REG_EQUAL (i1_regset, i2_regset, done);
-
-      return false;
-
-    done:
-      ;
+      if (!hard_reg_set_equal_p (i1_regset, i2_regset))
+	return false;
     }
 #endif
 
@@ -2168,31 +2164,6 @@ delete_unreachable_blocks (void)
 
   if (changed)
     tidy_fallthru_edges ();
-  return changed;
-}
-
-/* Merges sequential blocks if possible.  */
-
-bool
-merge_seq_blocks (void)
-{
-  basic_block bb;
-  bool changed = false;
-
-  for (bb = ENTRY_BLOCK_PTR->next_bb; bb != EXIT_BLOCK_PTR; )
-    {
-      if (single_succ_p (bb)
-	  && can_merge_blocks_p (bb, single_succ (bb)))
-	{
-	  /* Merge the blocks and retry.  */
-	  merge_blocks (bb, single_succ (bb));
-	  changed = true;
-	  continue;
-	}
-
-      bb = bb->next_bb;
-    }
-
   return changed;
 }
 

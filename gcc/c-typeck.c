@@ -2662,11 +2662,11 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
     {
       if ((code1 == STRING_CST && !integer_zerop (arg2.value))
 	  || (code2 == STRING_CST && !integer_zerop (arg1.value)))
-	warning (OPT_Waddress, "comparison with string literal results in unspecified behaviour");
+	warning (OPT_Waddress, "comparison with string literal results in unspecified behavior");
     }
   else if (TREE_CODE_CLASS (code) == tcc_comparison
 	   && (code1 == STRING_CST || code2 == STRING_CST))
-    warning (OPT_Waddress, "comparison with string literal results in unspecified behaviour");
+    warning (OPT_Waddress, "comparison with string literal results in unspecified behavior");
 
   if (TREE_OVERFLOW_P (result.value) 
       && !TREE_OVERFLOW_P (arg1.value) 
@@ -2908,8 +2908,11 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	  arg = stabilize_reference (arg);
 	  real = build_unary_op (REALPART_EXPR, arg, 1);
 	  imag = build_unary_op (IMAGPART_EXPR, arg, 1);
+	  real = build_unary_op (code, real, 1);
+	  if (real == error_mark_node || imag == error_mark_node)
+	    return error_mark_node;
 	  return build2 (COMPLEX_EXPR, TREE_TYPE (arg),
-			 build_unary_op (code, real, 1), imag);
+			 real, imag);
 	}
 
       /* Report invalid types.  */

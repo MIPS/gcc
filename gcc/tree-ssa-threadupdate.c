@@ -530,7 +530,7 @@ thread_block (basic_block bb, bool noloop_only)
   /* If we thread the latch of the loop to its exit, the loop ceases to
      exist.  Make sure we do not restrict ourselves in order to preserve
      this loop.  */
-  if (current_loops && loop->header == bb)
+  if (loop->header == bb)
     {
       e = loop_latch_edge (loop);
       e2 = e->aux;
@@ -552,7 +552,6 @@ thread_block (basic_block bb, bool noloop_only)
 	  /* If NOLOOP_ONLY is true, we only allow threading through the
 	     header of a loop to exit edges.  */
 	  || (noloop_only
-	      && current_loops
 	      && bb == bb->loop_father->header
 	      && !loop_exit_edge_p (bb->loop_father, e2)))
 	{
@@ -918,10 +917,10 @@ thread_through_loop_header (struct loop *loop, bool may_peel_loop_headers)
 
       /* The duplicate of the header is the new preheader of the loop.  Ensure
 	 that it is placed correctly in the loop hierarchy.  */
-      loop->copy = loop_outer (loop);
+      set_loop_copy (loop, loop_outer (loop));
 
       thread_block (header, false);
-      loop->copy = NULL;
+      set_loop_copy (loop, NULL);
       new_preheader = e->dest;
 
       /* Create the new latch block.  This is always necessary, as the latch
@@ -1023,6 +1022,9 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   struct loop *loop;
   loop_iterator li;
 
+  /* We must know about loops in order to preserve them.  */
+  gcc_assert (current_loops != NULL);
+
   if (threaded_edges == NULL)
     return false;
 
@@ -1031,9 +1033,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
 
   mark_threaded_blocks (threaded_blocks);
 
-  if (current_loops)
-    FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
-      loop->copy = NULL;
+  initialize_original_copy_tables ();
 
   /* First perform the threading requests that do not affect
      loop structure.  */
@@ -1048,16 +1048,13 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   /* Then perform the threading through loop headers.  We start with the
      innermost loop, so that the changes in cfg we perform won't affect
      further threading.  */
-  if (current_loops)
+  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
-      FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
-	{
-	  if (!loop->header
-	      || !bitmap_bit_p (threaded_blocks, loop->header->index))
-	    continue;
+      if (!loop->header
+	  || !bitmap_bit_p (threaded_blocks, loop->header->index))
+	continue;
 
-	  retval |= thread_through_loop_header (loop, may_peel_loop_headers);
-	}
+      retval |= thread_through_loop_header (loop, may_peel_loop_headers);
     }
 
   if (retval)
@@ -1066,6 +1063,8 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   if (dump_file && (dump_flags & TDF_STATS))
     fprintf (dump_file, "\nJumps threaded: %lu\n",
 	     thread_stats.num_threaded_edges);
+
+  free_original_copy_tables ();
 
   BITMAP_FREE (threaded_blocks);
   threaded_blocks = NULL;
