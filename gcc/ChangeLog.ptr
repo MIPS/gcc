@@ -1,3 +1,12 @@
+2007-05-31  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* tree-vrp.c (extract_range_from_binary_expr): Handle
+	MIN_EXPR/MAX_EXPR for pointers type.
+
+	PR tree-opt/32167
+	* tree-chrec.c (chrec_fold_plus): When either
+	operand is zero, convert the other operand.
+
 2007-05-30  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* builtins.c (std_expand_builtin_va_start): Use

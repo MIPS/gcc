@@ -344,9 +344,9 @@ chrec_fold_plus (tree type,
     return chrec_fold_automatically_generated_operands (op0, op1);
 
   if (integer_zerop (op0))
-    return op1;
+    return chrec_convert (type, op1, NULL_TREE);
   if (integer_zerop (op1))
-    return op0;
+    return chrec_convert (type, op0, NULL_TREE);
 
   if (POINTER_TYPE_P (type))
     code = POINTER_PLUS_EXPR;

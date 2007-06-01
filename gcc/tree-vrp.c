@@ -1756,6 +1756,21 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       || POINTER_TYPE_P (TREE_TYPE (op0))
       || POINTER_TYPE_P (TREE_TYPE (op1)))
     {
+      if (code == MIN_EXPR || code == MAX_EXPR)
+	{
+	  /* For MIN/MAX expressions with pointers, we only care about
+	     nullness, if both are non null, then the result is nonnull.
+	     If both are null, then the result is null. Other wise they
+	     are varrying.  */
+	  if (range_is_nonnull (&vr0) && range_is_nonnull (&vr1))
+	    set_value_range_to_nonnull (vr, TREE_TYPE (expr));
+	  else if (range_is_null (&vr0) && range_is_null (&vr1))
+	    set_value_range_to_null (vr, TREE_TYPE (expr));
+	  else
+	    set_value_range_to_varying (vr);
+
+	  return;
+	}
       gcc_assert (code == POINTER_PLUS_EXPR);
       /* For pointer types, we are really only interested in asserting
 	 whether the expression evaluates to non-NULL.  */
