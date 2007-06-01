@@ -2589,30 +2589,36 @@ gimplify_cond_expr (tree *expr_p, gs_seq pre_p, fallback_t fallback)
 /* A subroutine of gimplify_modify_expr.  Replace a MODIFY_EXPR with
    a call to __builtin_memcpy.  */
 
-#if 0
-/* FIXME tuples */
 static enum gimplify_status
-gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value)
+gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value,
+    				gs_seq seq_p)
 {
   tree t, to, to_ptr, from, from_ptr;
+  gimple gs;
 
   to = GENERIC_TREE_OPERAND (*expr_p, 0);
   from = GENERIC_TREE_OPERAND (*expr_p, 1);
 
   from_ptr = build_fold_addr_expr (from);
-
   to_ptr = build_fold_addr_expr (to);
   t = implicit_built_in_decls[BUILT_IN_MEMCPY];
-  t = build_call_expr (t, 3, to_ptr, from_ptr, size);
+
+  gs = gs_build_call (t, 3, to_ptr, from_ptr, size);
 
   if (want_value)
     {
-      t = build1 (NOP_EXPR, TREE_TYPE (to_ptr), t);
-      t = build1 (INDIRECT_REF, TREE_TYPE (to), t);
+      /* tmp = memcpy() */
+      t = create_tmp_var (TREE_TYPE (to_ptr), NULL);
+      GS_CALL_LHS (gs) = t;
+      gs_add (gs, seq_p);
+
+      *expr_p = build1 (INDIRECT_REF, TREE_TYPE (to), t);
+      return GS_ALL_DONE;
     }
 
-  *expr_p = t;
-  return GS_OK;
+  gs_add (gs, seq_p);
+  *expr_p = NULL;
+  return GS_ALL_DONE;
 }
 
 /* A subroutine of gimplify_modify_expr.  Replace a MODIFY_EXPR with
@@ -2620,26 +2626,34 @@ gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value)
    a CONSTRUCTOR with an empty element list.  */
 
 static enum gimplify_status
-gimplify_modify_expr_to_memset (tree *expr_p, tree size, bool want_value)
+gimplify_modify_expr_to_memset (tree *expr_p, tree size, bool want_value,
+    				gs_seq seq_p)
 {
   tree t, to, to_ptr;
+  gimple gs;
 
   to = GENERIC_TREE_OPERAND (*expr_p, 0);
 
   to_ptr = build_fold_addr_expr (to);
   t = implicit_built_in_decls[BUILT_IN_MEMSET];
-  t = build_call_expr (t, 3, to_ptr, integer_zero_node, size);
+
+  gs = gs_build_call (t, 3, to_ptr, integer_zero_node, size);
 
   if (want_value)
     {
-      t = build1 (NOP_EXPR, TREE_TYPE (to_ptr), t);
-      t = build1 (INDIRECT_REF, TREE_TYPE (to), t);
+      /* tmp = memset() */
+      t = create_tmp_var (TREE_TYPE (to_ptr), NULL);
+      GS_CALL_LHS (gs) = t;
+      gs_add (gs, seq_p);
+
+      *expr_p = build1 (INDIRECT_REF, TREE_TYPE (to), t);
+      return GS_ALL_DONE;
     }
 
-  *expr_p = t;
-  return GS_OK;
+  gs_add (gs, seq_p);
+  *expr_p = NULL;
+  return GS_ALL_DONE;
 }
-#endif
 
 /* A subroutine of gimplify_init_ctor_preeval.  Called via walk_tree,
    determine, cautiously, if a CONSTRUCTOR overlaps the lhs of an
@@ -3662,6 +3676,7 @@ gimplify_modify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
 				  want_value);
   if (ret != GS_UNHANDLED)
     return ret;
+#endif
 
   /* If we've got a variable sized assignment between two lvalues (i.e. does
      not involve a call), then we can make things a bit more straightforward
@@ -3672,14 +3687,14 @@ gimplify_modify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
       tree size = TREE_OPERAND (*from_p, 1);
 
       if (TREE_CODE (from) == CONSTRUCTOR)
-	return gimplify_modify_expr_to_memset (expr_p, size, want_value);
+	return gimplify_modify_expr_to_memset (expr_p, size, want_value, pre_p);
       if (is_gimple_addressable (from))
 	{
 	  *from_p = from;
-	  return gimplify_modify_expr_to_memcpy (expr_p, size, want_value);
+	  return gimplify_modify_expr_to_memcpy (expr_p, size, want_value,
+	      					 pre_p);
 	}
     }
-#endif
 
   /* Transform partial stores to non-addressable complex variables into
      total stores.  This allows us to use real instead of virtual operands
@@ -3836,13 +3851,11 @@ gimplify_compound_expr (tree *expr_p, gs_seq pre_p, bool want_value)
 }
 #endif
 
-/* Gimplifies a statement list.  These may be created either by an
-   enlightened front-end, or by shortcut_cond_expr.  */
+/* Gimplifies a statement list onto a sequence.  These may be created either
+   by an enlightened front-end, or by shortcut_cond_expr.  */
 
-#if 0
-/* FIXME tuples */
 static enum gimplify_status
-gimplify_statement_list (tree *expr_p, tree *pre_p)
+gimplify_statement_list (tree *expr_p, gs_seq pre_p)
 {
   tree temp = voidify_wrapper_expr (*expr_p, NULL);
 
@@ -3850,36 +3863,23 @@ gimplify_statement_list (tree *expr_p, tree *pre_p)
 
   while (!tsi_end_p (i))
     {
-      tree t;
-
-#if 0
-/* FIXME tuples */
-      gimplify_stmt (tsi_stmt_ptr (i));
-#endif
-      gcc_unreachable();
-
-      t = tsi_stmt (i);
-      if (t == NULL)
-	tsi_delink (&i);
-      else if (TREE_CODE (t) == STATEMENT_LIST)
-	{
-	  tsi_link_before (&i, t, TSI_SAME_STMT);
-	  tsi_delink (&i);
-	}
-      else
-	tsi_next (&i);
-    }
+      gimplify_stmt (tsi_stmt_ptr (i), pre_p);
+      /* FIXME tuples: We probably don't need to delink.  GC will take care of
+	 this.  */
+      tsi_delink (&i); }
 
   if (temp)
     {
-      append_to_statement_list (*expr_p, pre_p);
+      gimplify_expr (expr_p, pre_p, NULL, false, 
+
+	  /* FIXME tuples: I'm not sure of either of these.  */
+	  is_gimple_val, fb_rvalue);
+
       *expr_p = temp;
-      return GS_OK;
     }
 
   return GS_ALL_DONE;
 }
-#endif
 
 /*  Gimplify a SAVE_EXPR node.  EXPR_P points to the expression to
     gimplify.  After gimplification, EXPR_P will point to a new temporary
@@ -5892,11 +5892,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	  break;
 
 	case STATEMENT_LIST:
-#if 0
-/* FIXME tuples */
 	  ret = gimplify_statement_list (expr_p, pre_p);
-#endif
-	  gcc_unreachable();
 	  break;
 
 	case WITH_SIZE_EXPR:

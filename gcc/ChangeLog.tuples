@@ -1,3 +1,22 @@
+2007-05-31  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gimple-ir.c (gs_build_call): New.
+        * gimple-ir.h (GS_CALL_LHS): New.
+        (GS_CALL_FN): New.
+        (GS_CALL_CHAIN): New.
+        (GS_CALL_NARGS): New.
+        (GS_CALL_ARG): New.
+        (gs_call_lhs): New.
+        (gs_call_fn): New.
+        (gs_call_chain): New.
+        (gs_call_nargs): New.
+        (gs_call_arg): New.
+        * gimplify.c (gimplify_modify_expr_to_memcpy): Enable and rewrite for 
+        tuples.
+        (gimplify_modify_expr_to_memset): Same.
+	(gimplify_statement_list): Same.
+        (gimplify_expr): Enable STATEMENT_LIST case.
+
 2007-05-29  Aldy Hernandez  <aldyh@redhat.com>
 
 	Merged revisions 124007-125166 from mainline.

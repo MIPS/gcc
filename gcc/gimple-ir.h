@@ -323,6 +323,7 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
 
 extern gimple gs_build_return (bool, tree);
 extern gimple gs_build_assign (tree, tree);
+extern gimple gs_build_call (tree, int, ...);
 extern enum gimple_statement_structure_enum gimple_statement_structure (gimple);
 extern void gs_add (gimple, gs_seq);
 extern enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
@@ -404,6 +405,43 @@ gs_assign_operand_rhs (gimple gs)
     GS_CHECK ((G), GS_ASSIGN)->gs_assign_unary_mem.op[0]
 #define GS_ASSIGN_UNARY_MEM_RHS(G)	\
     GS_CHECK ((G), GS_ASSIGN)->gs_assign_unary_mem.op[1]
+
+/* GS_CALL accessors.  */
+#define GS_CALL_LHS(G)		(*gs_call_lhs ((G)))
+#define GS_CALL_FN(G)		(*gs_call_fn ((G)))
+#define GS_CALL_CHAIN(G)	(*gs_call_chain ((G)))
+#define GS_CALL_NARGS(G)	(*gs_call_nargs ((G)))
+#define GS_CALL_ARG(G, N)	(*gs_call_arg ((G), (N)))
+
+static inline tree *
+gs_call_lhs (gimple gs)
+{
+  return &GS_CHECK (gs, GS_CALL)->gs_call.lhs;
+}
+
+static inline tree *
+gs_call_fn (gimple gs)
+{
+  return &GS_CHECK (gs, GS_CALL)->gs_call.fn;
+}
+
+static inline tree *
+gs_call_chain (gimple gs)
+{
+  return &GS_CHECK (gs, GS_CALL)->gs_call.fn;
+}
+
+static inline unsigned long *
+gs_call_nargs (gimple gs)
+{
+  return &GS_CHECK (gs, GS_CALL)->gs_call.nargs;
+}
+
+static inline tree *
+gs_call_arg (gimple gs, unsigned int n)
+{
+  return &GS_CHECK (gs, GS_CALL)->gs_call.args[n];
+}
 
 /* GS_RETURN accessors.  */
 static inline tree *

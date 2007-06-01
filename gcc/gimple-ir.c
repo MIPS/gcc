@@ -50,6 +50,35 @@ gs_build_return (bool result_decl_p, tree retval)
   return p;
 }
 
+/* Construct a GS_CALL statement.
+
+   FUNC is the function decl.
+   NARGS is the number of arguments.
+   The ... are the arguments.  */
+
+gimple
+gs_build_call (tree func, int nargs, ...)
+{
+  va_list ap;
+  gimple p;
+  int i;
+
+  p = ggc_alloc_cleared (sizeof (struct gimple_statement_call) +
+      sizeof (tree) * nargs - 1);
+
+  GS_CODE (p) = GS_CALL;
+  GS_SUBCODE_FLAGS (p) = 0;
+  GS_CALL_NARGS (p) = nargs;
+  GS_CALL_FN (p) = func;
+
+  va_start (ap, nargs);
+  for (i = 0; i < nargs; ++i)
+    GS_CALL_ARG (p, i) = va_arg (ap, tree);
+  va_end (ap);
+
+  return p;
+}
+
 /* Construct a GS_ASSIGN statement.  */
 
 gimple
