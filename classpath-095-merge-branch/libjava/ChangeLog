@@ -86,6 +86,11 @@
 	* scripts/classes.pl: Update usage.
 	* HACKING: Mention to build all peers.
 
+2007-05-31  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_NewClassFromInitializer): Clear
+	INTERPRETED access modifier.
+
 2007-05-31  Paolo Bonzini  <bonzini@gnu.org>
 
 	PR libjava/32098

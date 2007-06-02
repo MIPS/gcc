@@ -1,3 +1,124 @@
+2007-06-01  David Daney  <ddaney@avtrex.com>
+
+	* config/mips/mips.c (mips_output_mi_thunk): Only load gp if not
+	LOADGP_ABSOLUTE and not binds_local_p.
+	
+2007-06-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.h (LINK_SPEC): Pass -fpie through to the linker.
+
+2007-06-01  Ian Lance Taylor  <iant@google.com>
+
+	* tree-vrp.c (compare_name_with_value): Always set
+	used_strict_overflow if we get a result from the variable itself.
+
+2007-06-01  Ian Lance Taylor  <iant@google.com>
+
+	PR rtl-optimization/31455
+	* lower-subreg.c (find_decomposable_subregs): Don't decompose
+	subregs which have a cast between modes which are not tieable.
+
+2007-06-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* expr.c (force_operand) [DIV, MOD, UDIV, UMOD, ASHIFTRT]: Remove
+	breaks after return statements.
+
+2007-06-01  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (fpscr_set_from_mem): Call get_free_reg
+	only after no_new_pseudos.
+
+2007-05-31  Eric Christopher  <echristo@apple.com>
+
+	* expr.c (convert_move): Assert that we don't have a BLKmode
+	operand.
+	(store_expr): Handle BLKmode moves by calling emit_block_move.
+
+2007-05-31  Daniel Berlin  <dberlin@dberlin.org>
+
+	* c-typeck.c (build_indirect_ref): Include type in error message.
+	(build_binary_op): Pass types to binary_op_error.
+	* c-common.c (binary_op_error): Take two type arguments, print out
+	types with error.
+	* c-common.h (binary_op_error): Update prototype.
+
+2007-05-31  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c: Correct coments on -mno-sse4.
+
+2007-05-31  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config.gcc (i[34567]86-*-*): Add nmmintrin.h to
+	extra_headers.
+	(x86_64-*-*): Likewise.
+
+	* config/i386/i386.c (OPTION_MASK_ISA_MMX_UNSET): New.
+	(OPTION_MASK_ISA_3DNOW_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE2_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE3_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSSE3_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4_1_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4_2_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4): Likewise.
+	(OPTION_MASK_ISA_SSE4_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4A_UNSET): Likewise.
+	(ix86_handle_option): Use OPTION_MASK_ISA_*_UNSET.  Handle
+	SSE4.2.
+	(override_options): Support SSE4.2.
+	(ix86_build_const_vector): Support SImode and DImode.
+	(ix86_build_signbit_mask): Likewise.
+	(ix86_expand_int_vcond): Support V2DImode.
+	(IX86_BUILTIN_CRC32QI): New for SSE4.2.
+	(IX86_BUILTIN_CRC32HI): Likewise.
+	(IX86_BUILTIN_CRC32SI): Likewise.
+	(IX86_BUILTIN_CRC32DI): Likewise.
+	(IX86_BUILTIN_PCMPGTQ): Likewise.
+	(bdesc_crc32): Likewise.
+	(bdesc_sse_3arg): Likewise.
+	(ix86_expand_crc32): Likewise.
+	(ix86_init_mmx_sse_builtins): Support SSE4.2.
+	(ix86_expand_builtin): Likewise.
+
+	* config/i386/i386.h (TARGET_CPU_CPP_BUILTINS): Define
+	__SSE4_2__ for -msse4.2.
+
+	* config/i386/i386.md (UNSPEC_CRC32): New for SSE4.2.
+	(CRC32MODE): Likewise.
+	(crc32modesuffix): Likewise.
+	(crc32modeconstraint): Likewise.
+	(sse4_2_crc32<mode>): Likewise.
+	(sse4_2_crc32di): Likewise.
+
+	* config/i386/i386.opt (msse4.2): New for SSE4.2.
+	(msse4): Likewise.
+
+	* config/i386/nmmintrin.h: New. The dummy SSE4.2 intrinsic header
+	file.
+
+	* config/i386/smmintrin.h: Add SSE4.2 intrinsics.
+
+	* config/i386/sse.md (sse4_2_gtv2di3): New pattern for
+	SSE4.2.
+	(vcond<mode>): Use SSEMODEI instead of SSEMODE124.
+	(vcondu<mode>): Likewise.
+
+	* doc/extend.texi: Document SSE4.2 built-in functions.
+
+	* doc/invoke.texi: Document -msse4.2/-msse4.
+
+2007-05-31  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/32160
+	* tree-predcom.c (predcom_tmp_var): New function.  Mark created
+	variable as gimple reg.
+	(initialize_root_vars, initialize_root_vars_lm): Use predcom_tmp_var.
+
+2007-05-31  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc.c (main): Don't consider linker options when issuing the
+	warning about a linker input file not being used.
+
 2007-05-30  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* tree-vrp.c (compare_names): Initialize sop.
