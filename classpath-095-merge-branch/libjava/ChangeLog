@@ -1,9 +1,9 @@
-2007-05-31  Matthias Klose  <doko@ubuntu.com>
+2007-06-03  Matthias Klose  <doko@ubuntu.com>
 
 	* java/io/natFileWin32.cc (setFilePermissions): New (stub only).
 	_access: Handle EXEC query, stub only.
 
-2007-05-31  Matthias Klose  <doko@ubuntu.com>
+2007-06-03  Matthias Klose  <doko@ubuntu.com>
 
 	Merged from classpath:
 	* gnu/java/nio/SelectorProviderImpl.java: Whitespace merge.
@@ -17,7 +17,7 @@
 	* java/util/logging/Logger.java: Merged.
 	* Regenerate .class and .h files.
 
-2007-05-31  Matthias Klose  <doko@ubuntu.com>
+2007-06-03  Matthias Klose  <doko@ubuntu.com>
 
 	* java/io/File.java: Merge with classpath-0.95, new method
 	setFilePermissions, new attribute EXEC.
@@ -25,7 +25,7 @@
 	_access: Handle EXEC query.
 	* classpath/lib/java/io/File.class, java/io/File.h: Regenerate.
 
-2007-05-31  Matthias Klose  <doko@ubuntu.com>
+2007-06-03  Matthias Klose  <doko@ubuntu.com>
 
 	Imported GNU Classpath 0.95.
 
@@ -85,6 +85,10 @@
 	* gcj/javaprims.h: Update class declarations.
 	* scripts/classes.pl: Update usage.
 	* HACKING: Mention to build all peers.
+
+2007-06-02  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure: Regenerate.
 
 2007-05-31  Andrew Haley  <aph@redhat.com>
 
