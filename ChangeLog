@@ -1,3 +1,8 @@
+2007-06-01  Steve Ellcey  <sje@cup.hp.com>
+
+	* libtool.m4 (LT_CMD_MAX_LEN): Try using getconf to set
+	lt_cv_sys_max_cmd_len.
+
 2007-05-31  Dorit Nuzman   <dorit@il.ibm.com>
 
 	* MAINTAINERS (Various Maintainers): Add myself as
@@ -468,7 +473,6 @@
 	install-gcc.
 	* Makefile.in: Regenerate.
 
->>>>>>> .merge-right.r70
 2006-12-04  Richard Guenther  <rguenther@suse.de>
 
 	* MAINTAINERS (Non-Algorithmic Maintainers): New section.

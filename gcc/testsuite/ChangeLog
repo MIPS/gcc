@@ -1,3 +1,57 @@
+2007-05-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32124
+	* gfortran.dg/allocate_stat_1.f90: Remove.
+
+2007-06-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/sse4_2-check.h: New.
+	* gcc.target/i386/sse4_2-crc32b.c: Likewise.
+	* gcc.target/i386/sse4_2-crc32.h: Likewise.
+	* gcc.target/i386/sse4_2-crc32l.c: Likewise.
+	* gcc.target/i386/sse4_2-crc32q.c: Likewise.
+	* gcc.target/i386/sse4_2-crc32w.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpestri-1.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpestri-2.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpestrm-1.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpestrm-2.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpgtq.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpistri-1.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpistri-2.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpistrm-1.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpistrm-2.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpstr.h: Likewise.
+	* gcc.target/i386/sse4_2-popcnt.h: Likewise.
+	* gcc.target/i386/sse4_2-popcntl.c: Likewise.
+	* gcc.target/i386/sse4_2-popcntq.c: Likewise.
+
+2007-06-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pie-link.c: New test.
+
+2007-06-01  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wstrict-overflow-17.c: New test.
+
+2007-06-01  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc.dg/builtin-return-1.c (g): New.
+	(main): Allocate at least 64 bytes on the stack.
+
+2007-05-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/cleanup3.C: New test.
+
+2007-05-31  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	* gcc.c-torture/compile/limits-caselabels.c: Fix for targets where
+	int is 16 bits.
+
+007-05-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32156
+	* gfortran.dg/char_array_constructor_3.f90: New test.
+
 2007-05-31  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	PR tree-optimization/32160
@@ -106,7 +160,7 @@
 
 2007-05-28  Razya Ladelsky  <razya@il.ibm.com>
 
-        * gcc.dg/matrix: New directory.
+	* gcc.dg/matrix: New directory.
 
 2007-05-28  Tobias Burnus  <burnus@net-b.de>
 
