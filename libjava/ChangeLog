@@ -1,3 +1,131 @@
+2007-06-02  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure: Regenerate.
+
+2007-05-31  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_NewClassFromInitializer): Clear
+	INTERPRETED access modifier.
+
+2007-05-31  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR libjava/32098
+	* configure: Regenerated.
+	* aclocal.m4: Regenerated.
+
+2007-05-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libjava/32098
+	* configure: Regenerated.
+
+2007-05-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure.ac: Don't include ../config/confsubdir.m4.
+	* aclocal.m4: Regenerated.
+	* configure: Likewise.
+
+2007-05-27  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/32078
+	* configure.ac: Include confsubdir.m4.
+	* configure: Regenerate.
+
+2007-05-24  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (_Jv_InterpFrame::get_pc): Only deduct
+	one when pc_ptr is non-NULL.
+
+	* prims.cc (parse_init_args): Enable JVMTI with agentlib
+	and agentpath options.
+
+	* testsuite/lib/libjava.exp (exec_gij): Add new addl_flags
+	parameter.
+	* testsuite/libjava.jvmti/jvmti-interp.exp (gij_jvmti_test_one):
+	Pass '-agentlib:dummyagent' when executing gij.
+	(gij_jvmti_run): Build dummy JVMTI agent before running tests,
+	and remove it when finished.
+	* testsuite/libjava.jvmti/dummyagent.c: New file.
+
+2007-05-23  Steve Ellcey  <sje@cup.hp.com>
+
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+	* gcj/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2007-05-17  Kyle Galloway  <kgallowa@redhat.com>
+
+	* classpath/gnu/classpath/jdwp/processor/ReferenceTypeCommandSet.java
+	(executeMethods): Remove cast to ClassReferenceTypeId.
+	* classpath/lib/gnu/classpath/jdwp/processor/
+	ReferenceTypeCommandSet.class: Rebuilt.
+
+2007-05-17  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/natVMMethod.cc (getModifiers): Check for native
+	classes and mark methods as native appropriately.
+
+2007-05-17  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/VMFrame.java (<init>): Add parameter for "this"
+	pointer.
+	* gnu/classpath/jdwp/VMFrame.h: Regenerated.
+	* classpath/lib/gnu/classpath/jdwp/VMFrame.class: Rebuilt.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (getFrame): Use new
+	VMFrame constructor.
+
+2007-05-16  David Daney  <ddaney@avtrex.com>
+
+	* include/java-stack.h (_Jv_FrameInfo): Remove union definition.
+	(_Jv_StackFrame): Remove commented out code.
+	(_Jv_UnwindState): Remove superfluous 'typedef'.
+	* sun/misc/natUnsafe.cc (spinlock): Add white space to quiet
+	compiler warnings.
+	* gnu/java/lang/management/natVMMemoryPoolMXBeanImpl.cc
+	(getCollectionUsage): Don't declare unused parameter n.
+	(getMemoryManagerNames): Same.
+	* gnu/gcj/util/natGCInfo.cc (gc_debug_info): Remove superfluous
+	'typedef'.
+
+2007-05-16  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (breakpoint_at): Declare.
+	* interpret.cc (breakpoint_at): New function.
+	* gnu/classpath/jdwp/VMVirtualMachine.java (_event_list):
+	New member.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (initialize):
+	Initialize _event_list.
+	(handle_single_step): If there is a breakpoint at the
+	location at which we are stopping, do not send the notification.
+	Instead add the event to a list of events that occur at this
+	location.
+	(jdwpBreakpointCB): If the event list is not empty, send
+	whatever events are in it and the breakpoint event in a single
+	notification.
+	Mark parameter jni_env as MAYBE_UNUSED.
+	* classpath/lib/gnu/classpath/jdwp/VMVirtualMachine.class:
+	Regenerated.
+	* gnu/classpath/jdwp/VMVirtualMachine.h: Regenerated.
+
+2007-05-15  David Daney  <ddaney@avtrex.com>
+
+	* classpath/lib/javax/swing/text/html/HTMLEditorKit.class: Regenerate
+	* gnu/java/awt/peer/gtk/ComponentGraphics.h: Same.
+
+2007-05-15  Keith Seitz  <keiths@redhat.com>
+
+	* interpret.cc (STOREA): Rewrite using temporary variable to
+	avoid double-macro expansion side-effects.
+	(STOREI): Likewise.
+	(STOREF): Likewise.
+	(STOREL)[SIZEOF_VOID_P == 8]: Likewise.
+	(STORED)[SIZEOF_VOID_P == 8]: Likewise.
+	(STOREL)[SIZEOF_VOID_P != 8]: Likewise.
+	(STORED)[SIZEOF_VOID_P != 8]: Likewise.
+	(POKEI): Likewise.
+
 2007-05-12  David Daney  <ddaney@avtrex.com>
 
 	PR libgcj/29324

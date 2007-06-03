@@ -478,8 +478,8 @@ tidy_after_forward_propagate_addr (tree stmt)
   mark_symbols_for_renaming (stmt);
 }
 
-/* DEF_RHS defines LHS which is contains the address of the 0th element
-   in an array.  USE_STMT uses LHS to compute the address of an
+/* DEF_RHS contains the address of the 0th element in an array. 
+   USE_STMT uses type of DEF_RHS to compute the address of an
    arbitrary element within the array.  The (variable) byte offset
    of the element is contained in OFFSET.
 
@@ -494,7 +494,7 @@ tidy_after_forward_propagate_addr (tree stmt)
    with the new address computation.  */
 
 static bool
-forward_propagate_addr_into_variable_array_index (tree offset, tree lhs,
+forward_propagate_addr_into_variable_array_index (tree offset,
 						  tree def_rhs, tree use_stmt)
 {
   tree index;
@@ -504,19 +504,27 @@ forward_propagate_addr_into_variable_array_index (tree offset, tree lhs,
   if (TREE_CODE (offset) != GIMPLE_MODIFY_STMT)
     return false;
 
-  /* The RHS of the statement which defines OFFSET must be a
-     multiplication of an object by the size of the array elements. 
-     This implicitly verifies that the size of the array elements
-     is constant.  */
-  offset = GIMPLE_STMT_OPERAND (offset, 1);
-  if (TREE_CODE (offset) != MULT_EXPR
-      || TREE_CODE (TREE_OPERAND (offset, 1)) != INTEGER_CST
-      || !simple_cst_equal (TREE_OPERAND (offset, 1),
-			    TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (lhs)))))
-    return false;
+  /* Try to find an expression for a proper index.  This is either
+     a multiplication expression by the element size or just the
+     ssa name we came along in case the element size is one.  */
+  if (integer_onep (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (def_rhs)))))
+    index = GIMPLE_STMT_OPERAND (offset, 0);
+  else
+    {
+      /* The RHS of the statement which defines OFFSET must be a
+	 multiplication of an object by the size of the array elements. 
+	 This implicitly verifies that the size of the array elements
+	 is constant.  */
+     offset = GIMPLE_STMT_OPERAND (offset, 1);
+      if (TREE_CODE (offset) != MULT_EXPR
+	  || TREE_CODE (TREE_OPERAND (offset, 1)) != INTEGER_CST
+	  || !simple_cst_equal (TREE_OPERAND (offset, 1),
+				TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (def_rhs)))))
+	return false;
 
-  /* The first operand to the MULT_EXPR is the desired index.  */
-  index = TREE_OPERAND (offset, 0);
+      /* The first operand to the MULT_EXPR is the desired index.  */
+      index = TREE_OPERAND (offset, 0);
+    }
 
   /* Replace the pointer addition with array indexing.  */
   GIMPLE_STMT_OPERAND (use_stmt, 1) = unshare_expr (def_rhs);
@@ -659,7 +667,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
       bool res;
       tree offset_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 1));
       
-      res = forward_propagate_addr_into_variable_array_index (offset_stmt, lhs,
+      res = forward_propagate_addr_into_variable_array_index (offset_stmt,
 							      def_rhs, use_stmt);
       return res;
     }

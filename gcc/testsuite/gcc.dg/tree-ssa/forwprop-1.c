@@ -19,3 +19,4 @@ void f(struct a * b, __SIZE_TYPE__ i)
 /* { dg-final { scan-tree-dump "t\\\[i.*\\\] = 1;" "forwprop2" } } */
 /* { dg-final { cleanup-tree-dump "forwprop?" } } */
 
+

@@ -26,10 +26,6 @@ Boston, MA 02110-1301, USA.  */
 
 struct diagnostic_context;
 
-/* Provide a hook routine for alias sets that always returns 1.  This is
-   used by languages that haven't deal with alias sets yet.  */
-extern HOST_WIDE_INT hook_get_alias_set_0 (tree);
-
 /* Note to creators of new hooks:
 
    The macros in this file should NOT be surrounded by a
@@ -211,7 +207,6 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_MAKE_TYPE, \
   LANG_HOOKS_TYPE_FOR_MODE, \
   LANG_HOOKS_TYPE_FOR_SIZE, \
-  LANG_HOOKS_UNSIGNED_TYPE, \
   LANG_HOOKS_SIGNED_TYPE, \
   LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE, \
   LANG_HOOKS_GENERIC_TYPE_P, \

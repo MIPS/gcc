@@ -1,5 +1,5 @@
 /* Common declarations for all of libgfortran.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -583,7 +583,7 @@ extern const char *xtoa (GFC_UINTEGER_LARGEST, char *, size_t);
 internal_proto(xtoa);
 
 extern void os_error (const char *) __attribute__ ((noreturn));
-internal_proto(os_error);
+iexport_proto(os_error);
 
 extern void show_locus (st_parameter_common *);
 internal_proto(show_locus);
@@ -634,9 +634,6 @@ internal_proto(free_mem);
 extern void *internal_malloc_size (size_t);
 internal_proto(internal_malloc_size);
 
-extern void internal_free (void *);
-iexport_proto(internal_free);
-
 /* environ.c */
 
 extern int check_buffered (int);
@@ -653,17 +650,17 @@ internal_proto(get_unformatted_convert);
 
 /* string.c */
 
-extern int find_option (st_parameter_common *, const char *, int,
+extern int find_option (st_parameter_common *, const char *, gfc_charlen_type,
 			const st_option *, const char *);
 internal_proto(find_option);
 
-extern int fstrlen (const char *, int);
+extern gfc_charlen_type fstrlen (const char *, gfc_charlen_type);
 internal_proto(fstrlen);
 
-extern void fstrcpy (char *, int, const char *, int);
+extern gfc_charlen_type fstrcpy (char *, gfc_charlen_type, const char *, gfc_charlen_type);
 internal_proto(fstrcpy);
 
-extern void cf_strcpy (char *, int, const char *);
+extern gfc_charlen_type cf_strcpy (char *, gfc_charlen_type, const char *);
 internal_proto(cf_strcpy);
 
 /* io/intrinsics.c */
@@ -688,7 +685,7 @@ internal_proto(st_printf);
 
 /* stop.c */
 
-extern void stop_numeric (GFC_INTEGER_4);
+extern void stop_numeric (GFC_INTEGER_4) __attribute__ ((noreturn));
 iexport_proto(stop_numeric);
 
 /* reshape_packed.c */

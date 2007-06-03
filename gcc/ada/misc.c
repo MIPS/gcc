@@ -159,8 +159,6 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_TYPE_FOR_SIZE	gnat_type_for_size
 #undef  LANG_HOOKS_SIGNED_TYPE
 #define LANG_HOOKS_SIGNED_TYPE		gnat_signed_type
-#undef  LANG_HOOKS_UNSIGNED_TYPE
-#define LANG_HOOKS_UNSIGNED_TYPE	gnat_unsigned_type
 #undef  LANG_HOOKS_ATTRIBUTE_TABLE
 #define LANG_HOOKS_ATTRIBUTE_TABLE	gnat_internal_attribute_table
 #undef  LANG_HOOKS_BUILTIN_FUNCTION
@@ -898,7 +896,7 @@ enumerate_modes (void (*f) (int, int, int, int, int, int, unsigned int))
 	{
 	  const struct real_format *fmt = REAL_MODE_FORMAT (inner_mode);
 
-	  mantissa = fmt->p * fmt->log2_b;
+	  mantissa = fmt->p;
 	}
 
       if (!skip_p && j != VOIDmode)

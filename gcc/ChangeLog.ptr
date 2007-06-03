@@ -1,3 +1,7 @@
+2007-06-01  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	Merge mainline, revision 125285
+
 2007-05-31  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* tree-vrp.c (extract_range_from_binary_expr): Handle

@@ -4086,7 +4086,7 @@ grokdeclarator (const struct c_declarator *declarator,
      "signed".  */
   if (bitfield && !flag_signed_bitfields && !declspecs->explicit_signed_p
       && TREE_CODE (type) == INTEGER_TYPE)
-    type = c_common_unsigned_type (type);
+    type = unsigned_type_for (type);
 
   /* Figure out the type qualifiers for the declaration.  There are
      two ways a declaration can become qualified.  One is something
@@ -6787,13 +6787,6 @@ finish_function (void)
 	       "no return statement in function returning non-void");
       TREE_NO_WARNING (fndecl) = 1;
     }
-
-  /* With just -Wextra, complain only if function returns both with
-     and without a value.  */
-  if (extra_warnings
-      && current_function_returns_value
-      && current_function_returns_null)
-    warning (OPT_Wextra, "this function may return with or without a value");
 
   /* Store the end of the function, so that we get good line number
      info for the epilogue.  */

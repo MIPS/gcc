@@ -338,20 +338,11 @@ init_reg_sets_1 (void)
 	  COPY_HARD_REG_SET (c, reg_class_contents[i]);
 	  IOR_HARD_REG_SET (c, reg_class_contents[j]);
 	  for (k = 0; k < N_REG_CLASSES; k++)
-	    {
-	      GO_IF_HARD_REG_SUBSET (reg_class_contents[k], c,
-				     subclass1);
-	      continue;
-
-	    subclass1:
-	      /* Keep the largest subclass.  */		/* SPEE 900308 */
-	      GO_IF_HARD_REG_SUBSET (reg_class_contents[k],
-				     reg_class_contents[(int) reg_class_subunion[i][j]],
-				     subclass2);
+	    if (hard_reg_set_subset_p (reg_class_contents[k], c)
+		&& !hard_reg_set_subset_p (reg_class_contents[k],
+					  reg_class_contents
+					  [(int) reg_class_subunion[i][j]]))
 	      reg_class_subunion[i][j] = (enum reg_class) k;
-	    subclass2:
-	      ;
-	    }
 	}
     }
 
@@ -369,9 +360,9 @@ init_reg_sets_1 (void)
 	  COPY_HARD_REG_SET (c, reg_class_contents[i]);
 	  IOR_HARD_REG_SET (c, reg_class_contents[j]);
 	  for (k = 0; k < N_REG_CLASSES; k++)
-	    GO_IF_HARD_REG_SUBSET (c, reg_class_contents[k], superclass);
+	    if (hard_reg_set_subset_p (c, reg_class_contents[k]))
+	      break;
 
-	superclass:
 	  reg_class_superunion[i][j] = (enum reg_class) k;
 	}
     }
@@ -394,23 +385,21 @@ init_reg_sets_1 (void)
 	continue;
 
       for (j = i + 1; j < N_REG_CLASSES; j++)
-	{
-	  enum reg_class *p;
+	if (hard_reg_set_subset_p (reg_class_contents[i],
+				  reg_class_contents[j]))
+	  {
+	    /* Reg class I is a subclass of J.
+	       Add J to the table of superclasses of I.  */
+	    enum reg_class *p;
 
-	  GO_IF_HARD_REG_SUBSET (reg_class_contents[i], reg_class_contents[j],
-				 subclass);
-	  continue;
-	subclass:
-	  /* Reg class I is a subclass of J.
-	     Add J to the table of superclasses of I.  */
-	  p = &reg_class_superclasses[i][0];
-	  while (*p != LIM_REG_CLASSES) p++;
-	  *p = (enum reg_class) j;
-	  /* Add I to the table of superclasses of J.  */
-	  p = &reg_class_subclasses[j][0];
-	  while (*p != LIM_REG_CLASSES) p++;
-	  *p = (enum reg_class) i;
-	}
+	    p = &reg_class_superclasses[i][0];
+	    while (*p != LIM_REG_CLASSES) p++;
+	    *p = (enum reg_class) j;
+	    /* Add I to the table of superclasses of J.  */
+	    p = &reg_class_subclasses[j][0];
+	    while (*p != LIM_REG_CLASSES) p++;
+	    *p = (enum reg_class) i;
+	  }
     }
 
   /* Initialize "constant" tables.  */
@@ -1225,6 +1214,9 @@ regclass (rtx f, int nregs)
 	  int class;
 	  struct costs *p = &costs[i];
 
+	  if (regno_reg_rtx[i] == NULL)
+	    continue;
+
 	  /* In non-optimizing compilation REG_N_REFS is not initialized
 	     yet.  */
 	  if (optimize && !REG_N_REFS (i) && !REG_N_SETS (i))
@@ -1777,7 +1769,6 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 	  unsigned int regno = REGNO (ops[!i]);
 	  enum machine_mode mode = GET_MODE (ops[!i]);
 	  int class;
-	  unsigned int nr;
 
 	  if (regno >= FIRST_PSEUDO_REGISTER && reg_pref != 0
 	      && reg_pref[regno].prefclass != NO_REGS)
@@ -1796,18 +1787,9 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		{
 		  if (reg_class_size[class] == 1)
 		    op_costs[i].cost[class] = -1;
-		  else
-		    {
-		      for (nr = 0; nr < (unsigned) hard_regno_nregs[regno][mode]; nr++)
-			{
-			  if (! TEST_HARD_REG_BIT (reg_class_contents[class],
-						   regno + nr))
-			    break;
-			}
-
-		      if (nr == (unsigned) hard_regno_nregs[regno][mode])
-			op_costs[i].cost[class] = -1;
-		    }
+		  else if (in_hard_reg_set_p (reg_class_contents[class],
+					     mode, regno))
+		    op_costs[i].cost[class] = -1;
 		}
 	}
 }
@@ -2502,15 +2484,10 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag, unsigned int min_regno)
 int
 reg_class_subset_p (enum reg_class c1, enum reg_class c2)
 {
-  if (c1 == c2) return 1;
-
-  if (c2 == ALL_REGS)
-  win:
-    return 1;
-  GO_IF_HARD_REG_SUBSET (reg_class_contents[(int) c1],
-			 reg_class_contents[(int) c2],
-			 win);
-  return 0;
+  return (c1 == c2
+	  || c2 == ALL_REGS
+	  || hard_reg_set_subset_p (reg_class_contents[(int) c1],
+				   reg_class_contents[(int) c2]));
 }
 
 /* Return nonzero if there is a register that is in both C1 and C2.  */
@@ -2518,21 +2495,11 @@ reg_class_subset_p (enum reg_class c1, enum reg_class c2)
 int
 reg_classes_intersect_p (enum reg_class c1, enum reg_class c2)
 {
-  HARD_REG_SET c;
-
-  if (c1 == c2) return 1;
-
-  if (c1 == ALL_REGS || c2 == ALL_REGS)
-    return 1;
-
-  COPY_HARD_REG_SET (c, reg_class_contents[(int) c1]);
-  AND_HARD_REG_SET (c, reg_class_contents[(int) c2]);
-
-  GO_IF_HARD_REG_SUBSET (c, reg_class_contents[(int) NO_REGS], lose);
-  return 1;
-
- lose:
-  return 0;
+  return (c1 == c2
+	  || c1 == ALL_REGS
+	  || c2 == ALL_REGS
+	  || hard_reg_set_intersect_p (reg_class_contents[(int) c1],
+				      reg_class_contents[(int) c2]));
 }
 
 #ifdef CANNOT_CHANGE_MODE_CLASS

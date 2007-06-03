@@ -37,7 +37,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* Local functions, macros and variables.  */
 static int op_prio (tree);
-static const char *op_symbol_1 (enum tree_code);
 static const char *op_symbol (tree);
 static void pretty_print_string (pretty_printer *, const char*);
 static void print_call_name (pretty_printer *, tree);
@@ -296,7 +295,7 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 
     case OMP_CLAUSE_REDUCTION:
       pp_string (buffer, "reduction(");
-      pp_string (buffer, op_symbol_1 (OMP_CLAUSE_REDUCTION_CODE (clause)));
+      pp_string (buffer, op_symbol_code (OMP_CLAUSE_REDUCTION_CODE (clause)));
       pp_character (buffer, ':');
       dump_generic_node (buffer, OMP_CLAUSE_DECL (clause),
 	  spc, flags, false);
@@ -1944,6 +1943,18 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, " > ");
       break;
 
+    case VEC_UNPACK_FLOAT_HI_EXPR:
+      pp_string (buffer, " VEC_UNPACK_FLOAT_HI_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
+    case VEC_UNPACK_FLOAT_LO_EXPR:
+      pp_string (buffer, " VEC_UNPACK_FLOAT_LO_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
     case VEC_PACK_TRUNC_EXPR:
       pp_string (buffer, " VEC_PACK_TRUNC_EXPR < ");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
@@ -1951,7 +1962,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
       pp_string (buffer, " > ");
       break;
-                                                                                
+
     case VEC_PACK_SAT_EXPR:
       pp_string (buffer, " VEC_PACK_SAT_EXPR < ");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
@@ -1959,7 +1970,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
       pp_string (buffer, " > ");
       break;
-                                                                                
+
+    case VEC_PACK_FIX_TRUNC_EXPR:
+      pp_string (buffer, " VEC_PACK_FIX_TRUNC_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
     case BLOCK:
       {
 	tree t;
@@ -2354,6 +2373,8 @@ op_prio (tree op)
     case VEC_RSHIFT_EXPR:
     case VEC_UNPACK_HI_EXPR:
     case VEC_UNPACK_LO_EXPR:
+    case VEC_UNPACK_FLOAT_HI_EXPR:
+    case VEC_UNPACK_FLOAT_LO_EXPR:
     case VEC_PACK_TRUNC_EXPR:
     case VEC_PACK_SAT_EXPR:
       return 16;
@@ -2370,10 +2391,10 @@ op_prio (tree op)
 }
 
 
-/* Return the symbol associated with operator OP.  */
+/* Return the symbol associated with operator CODE.  */
 
-static const char *
-op_symbol_1 (enum tree_code code)
+const char *
+op_symbol_code (enum tree_code code)
 {
   switch (code)
     {
@@ -2540,10 +2561,12 @@ op_symbol_1 (enum tree_code code)
     }
 }
 
+/* Return the symbol associated with operator OP.  */
+
 static const char *
 op_symbol (tree op)
 {
-  return op_symbol_1 (TREE_CODE (op));
+  return op_symbol_code (TREE_CODE (op));
 }
 
 /* Prints the name of a CALL_EXPR.  */

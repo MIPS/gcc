@@ -818,8 +818,8 @@ gfc_trans_simple_do (gfc_code * code, stmtblock_t *pblock, tree dovar,
        body;
 cycle_label:
        dovar += step
-       countm1--;
        if (countm1 ==0) goto exit_label;
+       countm1--;
      }
 exit_label:
 
@@ -890,7 +890,7 @@ gfc_trans_do (gfc_code * code)
     {
       tree ustep;
 
-      utype = gfc_unsigned_type (type);
+      utype = unsigned_type_for (type);
 
       /* tmp = abs(to - from) / abs(step) */
       ustep = fold_convert (utype, fold_build1 (ABS_EXPR, type, step));
@@ -905,7 +905,7 @@ gfc_trans_do (gfc_code * code)
       /* TODO: We could use the same width as the real type.
 	 This would probably cause more problems that it solves
 	 when we implement "long double" types.  */
-      utype = gfc_unsigned_type (gfc_array_index_type);
+      utype = unsigned_type_for (gfc_array_index_type);
       tmp = fold_build2 (MINUS_EXPR, type, to, from);
       tmp = fold_build2 (RDIV_EXPR, type, tmp, step);
       tmp = fold_build1 (FIX_TRUNC_EXPR, utype, tmp);
@@ -947,6 +947,10 @@ gfc_trans_do (gfc_code * code)
       gfc_add_expr_to_block (&body, tmp);
     }
 
+  /* Increment the loop variable.  */
+  tmp = build2 (PLUS_EXPR, type, dovar, step);
+  gfc_add_modify_expr (&body, dovar, tmp);
+
   /* End with the loop condition.  Loop until countm1 == 0.  */
   cond = fold_build2 (EQ_EXPR, boolean_type_node, countm1,
 		      build_int_cst (utype, 0));
@@ -954,10 +958,6 @@ gfc_trans_do (gfc_code * code)
   tmp = fold_build3 (COND_EXPR, void_type_node,
 		     cond, tmp, build_empty_stmt ());
   gfc_add_expr_to_block (&body, tmp);
-
-  /* Increment the loop variable.  */
-  tmp = build2 (PLUS_EXPR, type, dovar, step);
-  gfc_add_modify_expr (&body, dovar, tmp);
 
   /* Decrement the loop count.  */
   tmp = build2 (MINUS_EXPR, utype, countm1, build_int_cst (utype, 1));
@@ -1139,7 +1139,8 @@ gfc_trans_integer_select (gfc_code * code)
 
 	  if (cp->low)
 	    {
-	      low = gfc_conv_constant_to_tree (cp->low);
+	      low = gfc_conv_mpz_to_tree (cp->low->value.integer,
+					  cp->low->ts.kind);
 
 	      /* If there's only a lower bound, set the high bound to the
 		 maximum value of the case expression.  */
@@ -1169,7 +1170,8 @@ gfc_trans_integer_select (gfc_code * code)
 		  || (cp->low
 		      && mpz_cmp (cp->low->value.integer,
 				  cp->high->value.integer) != 0))
-		high = gfc_conv_constant_to_tree (cp->high);
+		high = gfc_conv_mpz_to_tree (cp->high->value.integer,
+					     cp->high->ts.kind);
 
 	      /* Unbounded case.  */
 	      if (!cp->low)
@@ -1712,14 +1714,7 @@ gfc_do_allocate (tree bytesize, tree size, tree * pdata, stmtblock_t * pblock,
       tmpvar = gfc_create_var (build_pointer_type (type), "temp");
       *pdata = convert (pvoid_type_node, tmpvar);
 
-      if (gfc_index_integer_kind == 4)
-	tmp = gfor_fndecl_internal_malloc;
-      else if (gfc_index_integer_kind == 8)
-	tmp = gfor_fndecl_internal_malloc64;
-      else
-	gcc_unreachable ();
-      tmp = build_call_expr (tmp, 1, bytesize);
-      tmp = convert (TREE_TYPE (tmpvar), tmp);
+      tmp = gfc_call_malloc (pblock, TREE_TYPE (tmpvar), bytesize);
       gfc_add_modify_expr (pblock, tmpvar, tmp);
     }
   return tmpvar;
@@ -2093,7 +2088,7 @@ allocate_temp_for_forall_nest_1 (tree type, tree size, stmtblock_t * block,
   tree unit;
   tree tmp;
 
-  unit = TYPE_SIZE_UNIT (type);
+  unit = fold_convert (gfc_array_index_type, TYPE_SIZE_UNIT (type));
   if (!integer_onep (unit))
     bytesize = fold_build2 (MULT_EXPR, gfc_array_index_type, size, unit);
   else
@@ -2230,7 +2225,7 @@ gfc_trans_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
   if (ptemp1)
     {
       /* Free the temporary.  */
-      tmp = build_call_expr (gfor_fndecl_internal_free, 1, ptemp1);
+      tmp = gfc_call_free (ptemp1);
       gfc_add_expr_to_block (block, tmp);
     }
 }
@@ -2388,7 +2383,7 @@ gfc_trans_pointer_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
   /* Free the temporary.  */
   if (ptemp1)
     {
-      tmp = build_call_expr (gfor_fndecl_internal_free, 1, ptemp1);
+      tmp = gfc_call_free (ptemp1);
       gfc_add_expr_to_block (block, tmp);
     }
 }
@@ -2723,7 +2718,7 @@ gfc_trans_forall_1 (gfc_code * code, forall_info * nested_forall_info)
   if (pmask)
     {
       /* Free the temporary for the mask.  */
-      tmp = build_call_expr (gfor_fndecl_internal_free, 1, pmask);
+      tmp = gfc_call_free (pmask);
       gfc_add_expr_to_block (&block, tmp);
     }
   if (maskindex)
@@ -3320,14 +3315,14 @@ gfc_trans_where_2 (gfc_code * code, tree mask, bool invert,
   /* If we allocated a pending mask array, deallocate it now.  */
   if (ppmask)
     {
-      tmp = build_call_expr (gfor_fndecl_internal_free, 1, ppmask);
+      tmp = gfc_call_free (ppmask);
       gfc_add_expr_to_block (block, tmp);
     }
 
   /* If we allocated a current mask array, deallocate it now.  */
   if (pcmask)
     {
-      tmp = build_call_expr (gfor_fndecl_internal_free, 1, pcmask);
+      tmp = gfc_call_free (pcmask);
       gfc_add_expr_to_block (block, tmp);
     }
 }
