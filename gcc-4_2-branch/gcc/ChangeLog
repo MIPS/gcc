@@ -1,3 +1,174 @@
+2007-05-31  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2007-05-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (__builtin_ia32_vec_ext_v2df): Mark it
+	with MASK_SSE2.
+	(__builtin_ia32_vec_ext_v2di): Likewise.
+	(__builtin_ia32_vec_ext_v4si): Likewise.
+	(__builtin_ia32_vec_ext_v8hi): Likewise.
+	(__builtin_ia32_vec_set_v8hi): Likewise.
+
+2007-05-31  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2007-05-05  Aurelien Jarno  <aurelien@aurel32.net>
+
+	* config/pa/pa.md: Split tgd_load, tld_load and tie_load
+	into pic and non-pic versions. Mark r19 as used for 
+	tgd_load_pic, tld_load_pic and tie_load_pic. Mark r27 as used 
+	for tgd_load, tld_load and tie_load .
+	* config/pa/pa.c (legitimize_tls_address): Emit pic or non-pic
+	version of tgd_load, tld_load and tie_load depending on the 
+	value of flag_pic.
+
+2007-05-27  Daniel Berlin <dberlin@dberlin.org>
+
+	Fix PR/30052
+	Backport PTA solver from mainline
+
+	* pointer-set.c: Copy from mainline
+	* pointer-set.h: Ditto.
+	* tree-ssa-structalias.c: Copy solver portions from mainline.
+	* Makefile.in (tree-ssa-structalias.o): Update dependencies
+
+2007-05-30  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* tree-vrp.c (compare_names): Initialize sop.
+
+2007-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/31769
+	* except.c (duplicate_eh_regions): Clear prev_try if
+	ERT_MUST_NOT_THROW region is inside of ERT_TRY region.
+
+2007-05-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/32100
+	* fold-const.c (tree_expr_nonnegative_warnv_p): Don't
+	return true when truth_value_p is true and the type
+	is of signed:1.
+
+2007-05-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2007-05-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (*vec_extractv2di_1_sse2): Do not calculate
+	"memory" attribute for "sseishft" type insn without operands[2].
+
+	2007-05-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*vec_extractv2di_1_sse2): Correct shift.
+
+2007-05-22  Ian Lance Taylor  <iant@google.com>
+
+	* tree-vrp.c (avoid_overflow_infinity): New static function,
+	broken out of set_value_range_to_value.
+	(set_value_range_to_value): Call avoid_overflow_infinity.
+	(extract_range_from_assert): Likewise.
+
+2007-05-23  Chen Liqin  <liqin@sunnorth.com.cn>
+
+	PR target/30987
+	* config/score/misc.md (bitclr_c, bitset_c, bittgl_c): remove.
+	* config/score/predicate.md (const_pow2, const_npow2): remove.
+	* config/score/score.h (ASM_OUTPUT_EXTERNAL): add ASM_OUTPUT_EXTERNAL undef.
+	PR target/30474
+	* config/score/score.c (score_print_operand): makes sure that only lower 
+	bits are used.
+	
+2007-05-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/31167
+	Backport from mainline.
+	* config/i386/i386.md (*addti3_1, *addti3_1 splitter): Use
+	x86_64_general_operand as operand[2] predicate.  Remove "iF"
+	from operand constraints and use "e" constraint instead.
+	(*subti3_1, *subti3_1 splitter): Ditto.
+	(*negti2_1, *negti2_1 splitter): Use nonimmediate_operand as
+	operand[1] predicate.
+
+2007-05-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/30041
+	Backport from mainline.
+	* config/i386/sse.md ("*sse3_movddup"): Use operands[0] and
+	operands[1] in insn constraint.  Correct type attribute to sselog1.
+
+2007-05-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/31701
+	Backport from mainline.
+	* config/sh/sh.c (output_stack_adjust): Avoid using the frame
+	register itself to hold the offset constant.  Tell flow the use
+	of r4 and r5 when they are used.
+
+2007-05-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/31480
+	Backport from mainline.
+	* config/sh/sh.md (length): Check if prev_nonnote_insn (insn)
+	is null.
+
+2007-05-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/31022
+	Backport from mainline.
+	* config/sh/sh.c (sh_adjust_cost): Use the result of single_set
+	instead of PATTERN.
+
+2007-05-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/27405
+	Backport from mainline.
+	* config/sh/sh.md (cmp{eq,gt,gtu}{si,di}_media): Remove.
+	(cmpsi{eq,gt,gtu}{si,di}_media): Rename to
+	cmp{eq,gt,gtu}{si,di}_media.
+	(*cmpne0si_media): Remove.
+	(*movsicc_umin): Adjust gen_cmp*_media call.
+	(unordered): Change the mode of unordered and operands[1] to
+	SImode.
+	(seq): Adjust gen_cmp*_media calls.  Make the mode of
+	a temporary result of compare SImode if needed.  If the mode
+	of operands[0] is DImode, extend the temporary result to DImode.
+	(slt, sle, sgt, sge, sgtu, sltu, sleu, sgue, sne): Likewise.
+	(sunorderd): Change the mode of match_operand and unorderd to
+	SImode.
+	(cmpeq{sf,df}_media): Remove.
+	(cmpsieq{sf,df}_media): Rename to cmpeq{sf,df}_media.
+	(cmp{gt,ge,un}{sf,df}_media): Change the mode of match_operand
+	and compare operation to SImode.
+
+2007-05-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/soft-fp/double.h, config/soft-fp/extended.h,
+	config/soft-fp/floatundidf.c, config/soft-fp/floatundisf.c,
+	config/soft-fp/floatunsidf.c, config/soft-fp/floatunsisf.c,
+	config/soft-fp/op-2.h, config/soft-fp/op-4.h,
+	config/soft-fp/op-common.h, config/soft-fp/quad.h: Update from
+	glibc CVS.
+
+2007-05-17  Ian Lance Taylor  <iant@google.com>
+
+	PR tree-optimization/31953
+	* tree-vrp.c (set_value_range_to_value): Add equiv parameter.
+	Change all callers.
+	(set_value_range_to_null): Call set_value_range_to_value.
+	(extract_range_from_comparison): Likewise.
+
+2007-05-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/31691
+	* combine.c (simplify_set): Build a new src pattern instead of
+	substituting its operands in the COMPARE case.
+
+2007-05-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* BASE-VER: Set to 4.2.1.
+	* DEV-PHASE: Set to prerelease.
+
 2007-05-13  Release Manager
 
 	* GCC 4.2.0 released.
@@ -307,7 +478,8 @@
 2007-04-03  Stuart Hastings  <stuart@apple.com>
 
 	PR 31281
-	* objc/objc-act.c (next_sjlj_build_catch_list): Delete volatile from rethrow decl.
+	* objc/objc-act.c (next_sjlj_build_catch_list): Delete volatile
+	from rethrow decl.
 	* cse.c (record_jump_equiv): Bail out on CCmode comparisons.
 
 2007-04-03  Jakub Jelinek  <jakub@redhat.com>

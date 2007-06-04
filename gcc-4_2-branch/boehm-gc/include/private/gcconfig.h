@@ -302,7 +302,10 @@
 #   if defined(__ppc__)  || defined(__ppc64__)
 #    define POWERPC
 #    define mach_type_known
-#   elif defined(__i386__) || defined(__x86_64)
+#   elif defined(__x86_64__)
+#    define X86_64
+#    define mach_type_known
+#   elif defined(__i386__)
 #    define I386
 #    define mach_type_known
 #   endif
@@ -791,26 +794,29 @@
 #     define DATAEND (_end)
 #   endif
 #   ifdef DARWIN
-#     if defined(__ppc64__) || defined(__x86_64)
-#       define ALIGNMENT 8
-#       define CPP_WORDSZ 64
-#     else
-#       define ALIGNMENT 4
-#     endif
 #     define OS_TYPE "DARWIN"
 #     define DYNAMIC_LOADING
+#     if defined(__ppc64__)
+#       define ALIGNMENT 8
+#       define CPP_WORDSZ 64
+#       define STACKBOTTOM ((ptr_t) 0x7fff5fc00000)
+#       define CACHE_LINE_SIZE 64
+#       ifndef HBLKSIZE
+#         define HBLKSIZE 4096
+#       endif
+#     else
+#       define ALIGNMENT 4
+#       define STACKBOTTOM ((ptr_t) 0xc0000000)
+#     endif
       /* XXX: see get_end(3), get_etext() and get_end() should not be used.
-         These aren't used when dyld support is enabled (it is by default) */
+	 These aren't used when dyld support is enabled (it is by default) */
 #     define DATASTART ((ptr_t) get_etext())
 #     define DATAEND	((ptr_t) get_end())
-#     define STACKBOTTOM ((ptr_t) 0xc0000000)
 #     define USE_MMAP
 #     define USE_MMAP_ANON
 #     define USE_ASM_PUSH_REGS
-      /* This is potentially buggy. It needs more testing. See the comments in
-         os_dep.c.  It relies on threads to track writes. */
 #     ifdef GC_DARWIN_THREADS
-/* #       define MPROTECT_VDB -- diabled for now.  May work for some apps. */
+#       define MPROTECT_VDB
 #     endif
 #     include <unistd.h>
 #     define GETPAGESIZE() getpagesize()
@@ -822,7 +828,7 @@
 	  __asm__ __volatile__ ("dcbtst 0,%0" : : "r" ((const void *) (x)))
 #     endif
       /* There seems to be some issues with trylock hanging on darwin. This
-         should be looked into some more */
+	 should be looked into some more */
 #     define NO_PTHREAD_TRYLOCK
 #   endif
 #   ifdef FREEBSD
@@ -1317,23 +1323,21 @@
 #     define DARWIN_DONT_PARSE_STACK
 #     define DYNAMIC_LOADING
       /* XXX: see get_end(3), get_etext() and get_end() should not be used.
-        These aren't used when dyld support is enabled (it is by default) */
+	 These aren't used when dyld support is enabled (it is by default) */
 #     define DATASTART ((ptr_t) get_etext())
 #     define DATAEND	((ptr_t) get_end())
 #     define STACKBOTTOM ((ptr_t) 0xc0000000)
 #     define USE_MMAP
 #     define USE_MMAP_ANON
 #     define USE_ASM_PUSH_REGS
-      /* This is potentially buggy. It needs more testing. See the comments in
-        os_dep.c.  It relies on threads to track writes. */
 #     ifdef GC_DARWIN_THREADS
-/* #       define MPROTECT_VDB -- disabled for now.  May work for some apps. */
+#       define MPROTECT_VDB
 #     endif
 #     include <unistd.h>
 #     define GETPAGESIZE() getpagesize()
       /* There seems to be some issues with trylock hanging on darwin. This
-         should be looked into some more */
-#      define NO_PTHREAD_TRYLOCK
+	 should be looked into some more */
+#     define NO_PTHREAD_TRYLOCK
 #   endif /* DARWIN */
 # endif
 
@@ -1985,6 +1989,26 @@
 #	    define PREFETCH(x) __builtin_prefetch((x), 0, 0)
 #	    define PREFETCH_FOR_WRITE(x) __builtin_prefetch((x), 1)
 #	endif
+#   endif
+#   ifdef DARWIN
+#     define OS_TYPE "DARWIN"
+#     define DARWIN_DONT_PARSE_STACK
+#     define DYNAMIC_LOADING
+      /* XXX: see get_end(3), get_etext() and get_end() should not be used.
+	 These aren't used when dyld support is enabled (it is by default) */
+#     define DATASTART ((ptr_t) get_etext())
+#     define DATAEND	((ptr_t) get_end())
+#     define STACKBOTTOM ((ptr_t) 0x7fff5fc00000)
+#     define USE_MMAP
+#     define USE_MMAP_ANON
+#     ifdef GC_DARWIN_THREADS
+#       define MPROTECT_VDB
+#     endif
+#     include <unistd.h>
+#     define GETPAGESIZE() getpagesize()
+      /* There seems to be some issues with trylock hanging on darwin. This
+	 should be looked into some more */
+#     define NO_PTHREAD_TRYLOCK
 #   endif
 #   ifdef FREEBSD
 #	define OS_TYPE "FREEBSD"
