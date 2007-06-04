@@ -1,3 +1,8 @@
+2007-06-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* tree-predcom.c (ref_at_iteration): If we have a pointer
+	type do the multiplication in sizetype.
+
 2007-06-01  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	Merge mainline, revision 125285
