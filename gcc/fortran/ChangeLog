@@ -1,3 +1,139 @@
+2007-05-29  Daniel Franke  <franke.daniel@gmail.com>
+
+	* gfortran.h: Renamed 'enum gfc_generic_isym_id' to 'enum gfc_isym_id',
+	added missing GFC_ISYM_* enumerators, ordered alphabetically.
+	(struct gfc_intrinsic_sym): Renamed 'generic_id' to 'id'.
+	(gfc_find_subroutine): New prototype.
+	* intrinsic.c (add_sym, add_sym_*): Added argument 'id' and changed all callers.
+	(find_subroutine): Renamed to 'gfc_find_subroutine', removed static.  
+	* dependency.c: Changed usage of isym->generic_id to isym->id.  
+	* openmp.c: Likewise.  
+	* resolve.c: Likewise.  
+	* trans-array.c: Likewise.  
+	* trans-expr.c: Likewise.  
+	* trans-intrinsic.c: Likewise.  
+	* trans-openmp.c: Likewise.
+
+2007-05-28  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* gfortran.h (gfc_generic_isym_id): Add GFC_ISYM_SIZEOF.
+	* intrinsic.c (add_functions): Add stuff for SIZEOF intrinsic.
+	* intrinsic.h (gfc_check_sizeof): Add prototype of ...
+	* check.c (gfc_check_sizeof): .. new function.
+	* trans-intrinsic.c (gfc_conv_intrinsic_sizeof): New function.
+	(gfc_conv_intrinsic_strcmp): Whitespace fix.
+	(gfc_conv_intrinsic_array_transfer): Remove double initialization,
+	use fold_build. where appropriate.
+	(gfc_conv_intrinsic_function): Add case for SIZEOF.
+	* intrinsic.texi: Add documentation for SIZEOF.
+
+2007-05-28  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* trans-array.c (gfc_conv_expr_descriptor): Edit comment.
+
+2007-05-28  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR fortran/31972
+	* target-memory.c (gfc_target_expr_size): Add handling
+	for size of BT_HOLLERITH variables.
+	* check.c (gfc_check_transfer): Reject BT_HOLLERITH
+	variables in MOLD argument of TRANSFER.
+
+2007-05-28  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.h (gfc_expr): Remove from_H, add "representation"
+	struct.
+	* primary.c (match_hollerith_constant): Store the representation
+ 	of the Hollerith in representation, not in value.character.
+	* arith.c: Add dependency on target-memory.h.
+	(eval_intrinsic): Remove check for from_H.
+	(hollerith2representation): New function.
+	(gfc_hollerith2int): Determine value of the new constant.
+	(gfc_hollerith2real): Likewise.
+	(gfc_hollerith2complex): Likewise.
+	(gfc_hollerith2logical): Likewise.
+	(gfc_hollerith2character): Point both representation.string and
+	value.character.string at the value string.
+	* data.c (create_character_initializer): For BT_HOLLERITH
+	rvalues, get the value from the representation rather than
+	value.character.
+	* expr.c (free_expr0): Update handling of BT_HOLLERITH values
+	and values with representation.string.
+	(gfc_copy_expr): Likewise.
+	* intrinsic.c (do_simplify): Remove special treatement of
+	variables resulting from Hollerith constants.
+	* dump-parse-trees.c (gfc_show_expr): Update handling of
+	Holleriths.
+	* trans-const.c (gfc_conv_constant_to_tree): Replace from_H
+	check with check for representation.string; get Hollerith
+	representation from representation.string, not value.character.
+	* trans-expr.c (is_zero_initializer_p): Replace from_H check
+	with check for representation.string.
+	* trans-stmt.c (gfc_trans_integer_select): Use
+	gfc_conv_mpz_to_tree for case values, so as to avoid picking up
+	the memory representation if the case is given by a transfer
+	expression.
+	* target-memory.c (gfc_target_encode_expr): Use the known memory
+	representation rather than the value, if it exists.
+	(gfc_target_interpret_expr): Store the memory representation of
+	the interpreted expression as well as its value.
+	(interpret_integer): Move to gfc_interpret_integer, make
+	non-static.
+	(interpret_float): Move to gfc_interpret_float, make non-static.
+	(interpret_complex): Move to gfc_interpret_complex, make
+	non-static.
+	(interpret_logical): Move to gfc_interpret_logical, make
+	non-static.
+	(interpret_character): Move to gfc_interpret_character, make
+	non-static.
+	(interpret_derived): Move to gfc_interpret_derived, make
+	non-static.
+	* target-memory.h: Add prototypes for newly-exported
+	gfc_interpret_* functions.
+
+2007-05-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/31812
+	* parse.c (next_statement): Warn for truncated lines if source is free
+	form.
+
+2007-05-27 Paul Thomas  <pault@gcc.gnu.org>
+	   Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32088
+	* symbol.c (gfc_check_function_type): Copy dimensions of
+	  result variable.
+	* resolve.c (resolve_contained_fntype): Improve symbol output in
+	  the error message.
+
+2007-05-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/31813
+	* io.c (check_format): Add warning for H specifier in format.
+	
+2007-05-26  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.texi: Document the GFORTRAN_ERROR_DUMPCORE and
+	GFORTRAN_ERROR_BACKTRACE environment variables.
+
+2007-05-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31219
+	* trans.h : Add no_function_call bitfield to gfc_se structure.
+	Add stmtblock_t argument to prototype of get_array_ctor_strlen.
+	* trans-array.c (get_array_ctor_all_strlen): New function.
+	(get_array_ctor_strlen): Add new stmtblock_t argument and call
+	new function for character elements that are not constants,
+	arrays or variables.
+	(gfc_conv_array_parameter): Call get_array_ctor_strlen to get
+	good string length.
+	* trans-intrinsic (gfc_conv_intrinsic_len): Add new argument
+	to call of get_array_ctor_strlen.
+
+2007-05-25  Kazu Hirata  <kazu@codesourcery.com>
+
+	* intrinsic.texi: Fix typos.
+
 2007-05-25  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/32047

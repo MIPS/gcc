@@ -4493,6 +4493,7 @@
    psrldq\t{$8, %0|%0, 8}
    movq\t{%H1, %0|%0, %H1}"
   [(set_attr "type" "ssemov,sseishft,ssemov")
+   (set_attr "memory" "*,none,*")
    (set_attr "mode" "V2SF,TI,TI")])
 
 ;; Not sure this is ever used, but it doesn't hurt to have it. -aoliva
@@ -4721,7 +4722,10 @@
    (match_operand:V16QI 1 "register_operand" "")]
   "TARGET_SSE2"
 {
-  ix86_expand_sse_unpack (operands, true, true);
+  if (TARGET_SSE4_1)
+    ix86_expand_sse4_unpack (operands, true, true);
+  else
+    ix86_expand_sse_unpack (operands, true, true);
   DONE;
 })
 
@@ -4730,7 +4734,10 @@
    (match_operand:V16QI 1 "register_operand" "")]
   "TARGET_SSE2"
 {
-  ix86_expand_sse_unpack (operands, false, true);
+  if (TARGET_SSE4_1)
+    ix86_expand_sse4_unpack (operands, false, true);
+  else
+    ix86_expand_sse_unpack (operands, false, true);
   DONE;
 })
 
@@ -4739,7 +4746,10 @@
    (match_operand:V16QI 1 "register_operand" "")]
   "TARGET_SSE2"
 {
-  ix86_expand_sse_unpack (operands, true, false);
+  if (TARGET_SSE4_1)
+    ix86_expand_sse4_unpack (operands, true, false);
+  else
+    ix86_expand_sse_unpack (operands, true, false);
   DONE;
 })
 
@@ -4748,7 +4758,10 @@
    (match_operand:V16QI 1 "register_operand" "")]
   "TARGET_SSE2"
 {
-  ix86_expand_sse_unpack (operands, false, false);
+  if (TARGET_SSE4_1)
+    ix86_expand_sse4_unpack (operands, false, false);
+  else
+    ix86_expand_sse_unpack (operands, false, false);
   DONE;
 })
 
@@ -4757,7 +4770,10 @@
    (match_operand:V8HI 1 "register_operand" "")]
   "TARGET_SSE2"
 {
-  ix86_expand_sse_unpack (operands, true, true);
+  if (TARGET_SSE4_1)
+    ix86_expand_sse4_unpack (operands, true, true);
+  else
+    ix86_expand_sse_unpack (operands, true, true);
   DONE;
 })
 
@@ -4766,7 +4782,10 @@
    (match_operand:V8HI 1 "register_operand" "")]
   "TARGET_SSE2"
 {
-  ix86_expand_sse_unpack (operands, false, true);
+  if (TARGET_SSE4_1)
+    ix86_expand_sse4_unpack (operands, false, true);
+  else
+    ix86_expand_sse_unpack (operands, false, true);
   DONE;
 })
 
@@ -4775,7 +4794,10 @@
    (match_operand:V8HI 1 "register_operand" "")]
   "TARGET_SSE2"
 {
-  ix86_expand_sse_unpack (operands, true, false);
+  if (TARGET_SSE4_1)
+    ix86_expand_sse4_unpack (operands, true, false);
+  else
+    ix86_expand_sse_unpack (operands, true, false);
   DONE;
 })
 
@@ -4784,7 +4806,10 @@
    (match_operand:V8HI 1 "register_operand" "")]
   "TARGET_SSE2"
 {
-  ix86_expand_sse_unpack (operands, false, false);
+  if (TARGET_SSE4_1)
+    ix86_expand_sse4_unpack (operands, false, false);
+  else
+    ix86_expand_sse_unpack (operands, false, false);
   DONE;
 })
 
@@ -4793,7 +4818,10 @@
    (match_operand:V4SI 1 "register_operand" "")]
   "TARGET_SSE2"
 {
-  ix86_expand_sse_unpack (operands, true, true);
+  if (TARGET_SSE4_1)
+    ix86_expand_sse4_unpack (operands, true, true);
+  else
+    ix86_expand_sse_unpack (operands, true, true);
   DONE;
 })
 
@@ -4802,7 +4830,10 @@
    (match_operand:V4SI 1 "register_operand" "")]
   "TARGET_SSE2"
 {
-  ix86_expand_sse_unpack (operands, false, true);
+  if (TARGET_SSE4_1)
+    ix86_expand_sse4_unpack (operands, false, true);
+  else
+    ix86_expand_sse_unpack (operands, false, true);
   DONE;
 })
 
@@ -4811,7 +4842,10 @@
    (match_operand:V4SI 1 "register_operand" "")]
   "TARGET_SSE2"
 {
-  ix86_expand_sse_unpack (operands, true, false);
+  if (TARGET_SSE4_1)
+    ix86_expand_sse4_unpack (operands, true, false);
+  else
+    ix86_expand_sse_unpack (operands, true, false);
   DONE;
 })
 
@@ -4820,7 +4854,10 @@
    (match_operand:V4SI 1 "register_operand" "")]
   "TARGET_SSE2"
 {
-  ix86_expand_sse_unpack (operands, false, false);
+  if (TARGET_SSE4_1)
+    ix86_expand_sse4_unpack (operands, false, false);
+  else
+    ix86_expand_sse_unpack (operands, false, false);
   DONE;
 })
 

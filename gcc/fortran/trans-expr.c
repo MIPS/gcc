@@ -1655,7 +1655,7 @@ gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
     case EXPR_FUNCTION:
       if (expr->value.function.esym == NULL
 	    && expr->value.function.isym != NULL
-	    && expr->value.function.isym->generic_id == GFC_ISYM_LEN
+	    && expr->value.function.isym->id == GFC_ISYM_LEN
 	    && expr->value.function.actual->expr->expr_type == EXPR_VARIABLE
 	    && gfc_apply_interface_mapping_to_expr (mapping,
 			expr->value.function.actual->expr))
@@ -3567,8 +3567,9 @@ is_zero_initializer_p (gfc_expr * expr)
 {
   if (expr->expr_type != EXPR_CONSTANT)
     return false;
-  /* We ignore Hollerith constants for the time being.  */
-  if (expr->from_H)
+
+  /* We ignore constants with prescribed memory representations for now.  */
+  if (expr->representation.string)
     return false;
 
   switch (expr->ts.type)

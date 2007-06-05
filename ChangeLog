@@ -1,3 +1,28 @@
+2003-05-30  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* MAINTAINERS (Various Maintainers): Add myself as
+	auto-vectorizer maintainer.
+
+2007-05-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libjava/32098
+	* libtool.m4 (_LT_LANG_GCJ_CONFIG): Use gcc to test gcj features.
+
+2007-05-30  Richard Guenther  <rguenther@suse.de>
+
+	* MAINTAINERS (Various Maintainers): Add myself as
+	auto-vectorizer maintainer.
+
+2007-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/29382
+	* configure.ac: Don't use -fkeep-inline-functions for GCC < 3.3.1.
+	* configure: Rebuilt.
+
+2007-05-28  Roberto Costa  <robsettantasei@gmail.com>
+
+	* MAINTAINERS (Write After Approval): Removed my name.
+
 2007-05-25  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* MAINTAINERS (Write After Approval): Remove myself.

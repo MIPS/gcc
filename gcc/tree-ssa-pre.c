@@ -3802,7 +3802,7 @@ init_pre (bool do_fre)
 /* Deallocate data structures used by PRE.  */
 
 static void
-fini_pre (bool do_fre)
+fini_pre (void)
 {
   basic_block bb;
   unsigned int i;
@@ -3850,7 +3850,7 @@ fini_pre (bool do_fre)
 	  && TREE_CODE (SSA_NAME_VALUE (name)) == VALUE_HANDLE)
 	SSA_NAME_VALUE (name) = NULL;
     }
-  if (!do_fre && current_loops)
+  if (current_loops != NULL)
     loop_optimizer_finalize ();
 }
 
@@ -3916,7 +3916,7 @@ execute_pre (bool do_fre)
       realify_fake_stores ();
     }
 
-  fini_pre (do_fre);
+  fini_pre ();
 }
 
 /* Gate and execute functions for PRE.  */

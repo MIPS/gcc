@@ -1,3 +1,103 @@
+2007-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/31809
+	* g++.dg/opt/static5.C: New test.
+
+2007-05-30  Richard Guenther  <rguenther@suse.de>
+
+	* g++.dg/dg.exp: Prune torture/.
+	* g++.dg/torture/dg-torture.exp: New testsuite.
+
+2007-05-30  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc.target/arm/pr27387.C: Move and rename to ...
+	* g++.dg/inherit/thunk8.C: ... here.
+
+2007-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/31769
+	* g++.dg/gomp/pr31769.C: New test.
+
+2007-05-29  Hui-May Chang  <hm.chang@apple.com>
+
+	* gcc.target/i386/stack-realign.c: New.
+
+2007-05-29  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/prefetch-6.c: New test.
+
+2007-05-29  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* gfortran.dg/sizeof.f90: New.
+
+2007-05-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR c/31339
+	* gcc.dg/boolcomplex-1.c: New test.
+
+	PR c++/31339
+	* g++.dg/ext/boolcomplex-1.c: New test.
+
+2007-05-28  Razya Ladelsky  <razya@il.ibm.com>
+
+        * gcc.dg/matrix: New directory.
+
+2007-05-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32124
+	* gfortran.dg/allocate_stat_1.f90: New.
+
+2007-05-28  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR fortran/31972
+	* transfer_hollerith_1.f90: New test.
+
+2007-05-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/32100
+	* gcc.c-torture/execute/vrp-7.c: New test.
+	 
+2007-05-28  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.dg/transfer_simplify_4.f90: New test.
+
+2007-05-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32088
+	* gfortran.dg/func_result_3.f90: New.
+
+2007-05-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR middle-end/32083
+	* gfortran.dg/transfer_simplify_3.f90: New.
+
+2007-05-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32065
+	* gcc.target/i386/pr32065-1.c: Rename from pr32065.c.  Add -std=gnu99
+	to compile options.
+	* gcc.target/i386/pr32065-2.c: New test.
+
+2007-05-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/31813
+	* gfortran.dg/io_constraints_2.f90: Update.
+
+2007-05-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31219
+	* gfortran.dg/array_constructor_17.f90: New test.
+
+2007-05-25  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/32090
+	* g++.dg/opt/array2.C: New testcase.
+
+2007-05-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32065
+	* gcc.target/i386/pr32065.c: New test.
+
 2007-05-25  Dirk Mueller  <dmueller@suse.de>
 	    Marcus Meissner <meissner@suse.de>
 

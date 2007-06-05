@@ -660,7 +660,7 @@ dr_analyze_innermost (struct data_reference *dr)
 }
 
 /* Determines the base object and the list of indices of memory reference
-   DR, analysed in loop nest NEST.  */
+   DR, analyzed in loop nest NEST.  */
 
 static void
 dr_analyze_indices (struct data_reference *dr, struct loop *nest)
@@ -771,7 +771,7 @@ free_data_ref (data_reference_p dr)
    data_reference description of MEMREF.  NEST is the outermost loop of the
    loop nest in that the reference should be analysed.  */
 
-static struct data_reference *
+struct data_reference *
 create_data_ref (struct loop *nest, tree memref, tree stmt, bool is_read)
 {
   struct data_reference *dr;
@@ -1225,7 +1225,7 @@ initialize_data_dependence_relation (struct data_reference *a,
 
   /* If the base of the object is not invariant in the loop nest, we cannot
      analyse it.  TODO -- in fact, it would suffice to record that there may
-     be arbitrary depencences in the loops where the base object varies.  */
+     be arbitrary dependences in the loops where the base object varies.  */
   if (!object_address_invariant_in_loop_p (VEC_index (loop_p, loop_nest, 0),
 					   DR_BASE_OBJECT (a)))
     {
@@ -3843,7 +3843,7 @@ compute_self_dependence (struct data_dependence_relation *ddr)
    COMPUTE_SELF_AND_RR is FALSE, don't compute read-read and self
    relations.  */
 
-static void 
+void 
 compute_all_dependences (VEC (data_reference_p, heap) *datarefs,
 			 VEC (ddr_p, heap) **dependence_relations,
 			 VEC (loop_p, heap) *loop_nest,
@@ -4055,7 +4055,7 @@ find_loop_nest_1 (struct loop *loop, VEC (loop_p, heap) **loop_nest)
    contain the loops from the outermost to the innermost, as they will
    appear in the classic distance vector.  */
 
-static bool
+bool
 find_loop_nest (struct loop *loop, VEC (loop_p, heap) **loop_nest)
 {
   VEC_safe_push (loop_p, heap, *loop_nest, loop);
