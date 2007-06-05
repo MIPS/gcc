@@ -53,7 +53,8 @@ static tree vect_create_data_ref_ptr
   (tree, block_stmt_iterator *, tree, tree *, tree *, bool, tree, bool *); 
 static tree vect_create_addr_base_for_vector_ref 
   (tree, tree *, tree, struct loop *);
-static tree vect_setup_realignment (tree, block_stmt_iterator *, tree *);
+static tree vect_setup_realignment 
+  (tree, block_stmt_iterator *, tree *, enum dr_alignment_support);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, tree, tree *);
 static tree vect_init_vector (tree, tree, tree, block_stmt_iterator *);
@@ -427,7 +428,10 @@ vect_create_data_ref_ptr (tree stmt,
 
   if (only_init) /* No update in loop is required.  */
     {
-      /* FORNOW */
+      /* This path is only taken when this function is called to create
+	 a vector pointer for a load at the loop-preheader to support
+	 the optimized explicit realignment scheme, which we don't
+	 support for the inner-loop of outer-loop vectorization.  */
       gcc_assert (!nested_in_vect_loop);
 
       /* Copy the points-to information if it exists. */
@@ -470,6 +474,7 @@ vect_create_data_ref_ptr (tree stmt,
 
   if (!nested_in_vect_loop)
     return vptr;
+  gcc_assert (!only_init);
 
   /** (5) Handle the updating of the vector-pointer inside the inner-loop
 	  nested in LOOP, if exists: **/
@@ -500,8 +505,10 @@ vect_create_data_ref_ptr (tree stmt,
 
 /* Function bump_vector_ptr
 
-   Increment a pointer (to a vector type) by vector-size. Connect the new 
-   increment stmt to the existing def-use update-chain of the pointer.
+   Increment a pointer (to a vector type) by vector-size. If requested,
+   i.e. if PTR-INCR is given, then also connect the new increment stmt 
+   to the existing def-use update-chain of the pointer, by modifying
+   the PTR_INCR as illustrated below:
 
    The pointer def-use update-chain before this function:
                         DATAREF_PTR = phi (p_0, p_2)
@@ -511,18 +518,20 @@ vect_create_data_ref_ptr (tree stmt,
    The pointer def-use update-chain after this function:
                         DATAREF_PTR = phi (p_0, p_2)
                         ....
-                        NEW_DATAREF_PTR = DATAREF_PTR + vector_size
+                        NEW_DATAREF_PTR = DATAREF_PTR + BUMP
                         ....
         PTR_INCR:       p_2 = NEW_DATAREF_PTR + step
 
    Input:
    DATAREF_PTR - ssa_name of a pointer (to vector type) that is being updated 
                  in the loop.
-   PTR_INCR - the stmt that updates the pointer in each iteration of the loop.
-              The increment amount across iterations is also expected to be
-              vector_size.      
+   PTR_INCR - optional. The stmt that updates the pointer in each iteration of 
+	      the loop.  The increment amount across iterations is expected
+	      to be vector_size.      
    BSI - location where the new update stmt is to be placed.
    STMT - the original scalar memory-access stmt that is being vectorized.
+   BUMP - optional. The offset by which to bump the pointer. If not given,
+	  the offset is assumed to be vector_size.
 
    Output: Return NEW_DATAREF_PTR as illustrated above.
    
@@ -530,7 +539,7 @@ vect_create_data_ref_ptr (tree stmt,
 
 static tree
 bump_vector_ptr (tree dataref_ptr, tree ptr_incr, block_stmt_iterator *bsi,
-                 tree stmt)
+                 tree stmt, tree bump)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
@@ -543,12 +552,23 @@ bump_vector_ptr (tree dataref_ptr, tree ptr_incr, block_stmt_iterator *bsi,
   use_operand_p use_p;
   tree new_dataref_ptr;
 
+  if (bump)
+    update = bump;
+    
   incr_stmt = build_gimple_modify_stmt (ptr_var,
 					build2 (PLUS_EXPR, vptr_type,
 						dataref_ptr, update));
   new_dataref_ptr = make_ssa_name (ptr_var, incr_stmt);
   GIMPLE_STMT_OPERAND (incr_stmt, 0) = new_dataref_ptr;
   vect_finish_stmt_generation (stmt, incr_stmt, bsi);
+
+  /* Copy the points-to information if it exists. */
+  if (DR_PTR_INFO (dr))
+    duplicate_ssa_name_ptr_info (new_dataref_ptr, DR_PTR_INFO (dr));
+  merge_alias_info (new_dataref_ptr, dataref_ptr);
+
+  if (!ptr_incr)
+    return new_dataref_ptr;
 
   /* Update the vector-pointer's cross-iteration increment.  */
   FOR_EACH_SSA_USE_OPERAND (use_p, ptr_incr, iter, SSA_OP_USE)
@@ -560,11 +580,6 @@ bump_vector_ptr (tree dataref_ptr, tree ptr_incr, block_stmt_iterator *bsi,
       else
         gcc_assert (tree_int_cst_compare (use, update) == 0);
     }
-
-  /* Copy the points-to information if it exists. */
-  if (DR_PTR_INFO (dr))
-    duplicate_ssa_name_ptr_info (new_dataref_ptr, DR_PTR_INFO (dr));
-  merge_alias_info (new_dataref_ptr, dataref_ptr);
 
   return new_dataref_ptr;
 }
@@ -3564,7 +3579,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   enum machine_mode vec_mode;
   tree dummy;
-  enum dr_alignment_support alignment_support_cheme;
+  enum dr_alignment_support alignment_support_scheme;
   ssa_op_iter iter;
   def_operand_p def_p;
   tree def, def_stmt;
@@ -3686,9 +3701,9 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   oprnds = VEC_alloc (tree, heap, group_size);
   scalar_oprnds = VEC_alloc (tree, heap, group_size);
 
-  alignment_support_cheme = vect_supportable_dr_alignment (first_dr);
-  gcc_assert (alignment_support_cheme);
-  gcc_assert (alignment_support_cheme == dr_aligned);  /* FORNOW */
+  alignment_support_scheme = vect_supportable_dr_alignment (first_dr);
+  gcc_assert (alignment_support_scheme);
+  gcc_assert (alignment_support_scheme == dr_aligned);  /* FORNOW */
 
   /* In case the vectorization factor (VF) is bigger than the number
      of elements that we can fit in a vectype (nunits), we have to generate
@@ -3846,7 +3861,8 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 		  VEC_replace(tree, oprnds, i, vec_oprnd);
 		}
 	    }
-	  dataref_ptr = bump_vector_ptr (dataref_ptr, ptr_incr, bsi, stmt);
+	  dataref_ptr = 
+		bump_vector_ptr (dataref_ptr, ptr_incr, bsi, stmt, NULL_TREE);
 	}
 
       if (DR_GROUP_INTERLEAVING (first_stmt_vinfo))
@@ -3928,7 +3944,8 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  if (!next_stmt)
 	    break;
 	  /* Bump the vector pointer.  */
-	  dataref_ptr = bump_vector_ptr (dataref_ptr, ptr_incr, bsi, stmt);
+	  dataref_ptr = 
+		bump_vector_ptr (dataref_ptr, ptr_incr, bsi, stmt, NULL_TREE);
 	}
     }
 
@@ -3939,14 +3956,17 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 /* Function vect_setup_realignment
   
    This function is called when vectorizing an unaligned load using
-   the dr_unaligned_software_pipeline scheme.
+   the dr_explicit_realign[_optimized] scheme.
    This function generates the following code at the loop prolog:
 
       p = initial_addr;
-      msq_init = *(floor(p));   # prolog load
+   x  msq_init = *(floor(p));   # prolog load
       realignment_token = call target_builtin; 
     loop:
-      msq = phi (msq_init, ---)
+   x  msq = phi (msq_init, ---)
+
+   The stmts marked with x are generated only for the case of 
+   dr_explicit_realign_optimized.
 
    The code above sets up a new (vector) pointer, pointing to the first 
    location accessed by STMT, and a "floor-aligned" load using that pointer.
@@ -3955,19 +3975,29 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
    whose arguments are the result of the prolog-load (created by this
    function) and the result of a load that takes place in the loop (to be
    created by the caller to this function).
+
+   For the case of dr_explicit_realign_optimizedr:
    The caller to this function uses the phi-result (msq) to create the 
    realignment code inside the loop, and sets up the missing phi argument,
    as follows:
-
     loop: 
       msq = phi (msq_init, lsq)
       lsq = *(floor(p'));        # load in loop
+      result = realign_load (msq, lsq, realignment_token);
+
+   For the case of dr_explicit_realign:
+    loop:
+      msq = *(floor(p)); 	# load in loop
+      p' = p + (VS-1);
+      lsq = *(floor(p'));	# load in loop
       result = realign_load (msq, lsq, realignment_token);
 
    Input:
    STMT - (scalar) load stmt to be vectorized. This load accesses
           a memory location that may be unaligned.
    BSI - place where new code is to be inserted.
+   ALIGNMENT_SUPPORT_SCHEME - which of the two misalignment handling schemes
+			      is used.	
    
    Output:
    REALIGNMENT_TOKEN - the result of a call to the builtin_mask_for_load
@@ -3976,7 +4006,8 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
 static tree
 vect_setup_realignment (tree stmt, block_stmt_iterator *bsi,
-                        tree *realignment_token)
+                        tree *realignment_token,
+			enum dr_alignment_support alignment_support_scheme)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
@@ -3991,27 +4022,41 @@ vect_setup_realignment (tree stmt, block_stmt_iterator *bsi,
   tree data_ref;
   tree new_stmt;
   basic_block new_bb;
-  tree msq_init;
+  tree msq_init = NULL_TREE;
   tree new_temp;
   tree phi_stmt;
-  tree msq;
+  tree msq = NULL_TREE;
+  tree stmts = NULL_TREE;
   bool inv_p;
 
-  /* 1. Create msq_init = *(floor(p1)) in the loop preheader  */
-  vec_dest = vect_create_destination_var (scalar_dest, vectype);
-  ptr = vect_create_data_ref_ptr (stmt, bsi, NULL_TREE, &init_addr, &inc, true,
-				  NULL_TREE, &inv_p);
-  data_ref = build1 (ALIGN_INDIRECT_REF, vectype, ptr);
-  new_stmt = build_gimple_modify_stmt (vec_dest, data_ref);
-  new_temp = make_ssa_name (vec_dest, new_stmt);
-  GIMPLE_STMT_OPERAND (new_stmt, 0) = new_temp;
-  new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
-  gcc_assert (!new_bb);
-  msq_init = GIMPLE_STMT_OPERAND (new_stmt, 0);
-  copy_virtual_operands (new_stmt, stmt);
-  update_vuses_to_preheader (new_stmt, loop);
+  gcc_assert (alignment_support_scheme == dr_explicit_realign
+	      || alignment_support_scheme == dr_explicit_realign_optimized);	
 
-  /* 2. Create permutation mask, if required, in loop preheader.  */
+  if (alignment_support_scheme == dr_explicit_realign)
+    {
+      init_addr = 
+	vect_create_addr_base_for_vector_ref (stmt, &stmts, NULL_TREE, loop);
+      new_bb = bsi_insert_on_edge_immediate (pe, stmts);
+      gcc_assert (!new_bb);
+    }
+  else
+    {
+      /* Create msq_init = *(floor(p1)) in the loop preheader  */
+      vec_dest = vect_create_destination_var (scalar_dest, vectype);
+      ptr = vect_create_data_ref_ptr (stmt, bsi, NULL_TREE, &init_addr, &inc, true,
+				  NULL_TREE, &inv_p);
+      data_ref = build1 (ALIGN_INDIRECT_REF, vectype, ptr);
+      new_stmt = build_gimple_modify_stmt (vec_dest, data_ref);
+      new_temp = make_ssa_name (vec_dest, new_stmt);
+      GIMPLE_STMT_OPERAND (new_stmt, 0) = new_temp;
+      new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
+      gcc_assert (!new_bb);
+      msq_init = GIMPLE_STMT_OPERAND (new_stmt, 0);
+      copy_virtual_operands (new_stmt, stmt);
+      update_vuses_to_preheader (new_stmt, loop);
+    }
+
+  /* Create permutation mask, if required.  */
   if (targetm.vectorize.builtin_mask_for_load)
     {
       tree builtin_decl;
@@ -4023,8 +4068,14 @@ vect_setup_realignment (tree stmt, block_stmt_iterator *bsi,
       new_stmt = build_gimple_modify_stmt (vec_dest, new_stmt);
       new_temp = make_ssa_name (vec_dest, new_stmt);
       GIMPLE_STMT_OPERAND (new_stmt, 0) = new_temp;
+
+      /* The permutation mask can be created in the loop preheader only if 
+	 the misalignment remains the same throughout the execution of the 
+	 loop. Otherwise it needs to be created inside the loop. Currently
+	 we handle only the case that the alignment remains the same.  */ 
       new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
       gcc_assert (!new_bb);
+
       *realignment_token = GIMPLE_STMT_OPERAND (new_stmt, 0);
 
       /* The result of the CALL_EXPR to this builtin is determined from
@@ -4035,12 +4086,15 @@ vect_setup_realignment (tree stmt, block_stmt_iterator *bsi,
       gcc_assert (TREE_READONLY (builtin_decl));
     }
 
-  /* 3. Create msq = phi <msq_init, lsq> in loop  */
+  if (alignment_support_scheme == dr_explicit_realign)
+    return msq;
+
+  /* Create msq = phi <msq_init, lsq> in loop  */
   vec_dest = vect_create_destination_var (scalar_dest, vectype);
   msq = make_ssa_name (vec_dest, NULL_TREE);
   phi_stmt = create_phi_node (msq, loop->header); 
   SSA_NAME_DEF_STMT (msq) = phi_stmt;
-  add_phi_arg (phi_stmt, msq_init, loop_preheader_edge (loop));
+  add_phi_arg (phi_stmt, msq_init, pe);
 
   return msq;
 }
@@ -4337,7 +4391,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   int mode;
   tree new_stmt = NULL_TREE;
   tree dummy;
-  enum dr_alignment_support alignment_support_cheme;
+  enum dr_alignment_support alignment_support_scheme;
   tree dataref_ptr = NULL_TREE;
   tree ptr_incr;
   int nunits = TYPE_VECTOR_SUBPARTS (vectype);
@@ -4448,10 +4502,13 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       group_size = 1;
     }
 
-  alignment_support_cheme = vect_supportable_dr_alignment (first_dr);
-  gcc_assert (alignment_support_cheme);
-  gcc_assert (alignment_support_cheme == dr_aligned || !nested_in_vect_loop);
-  
+  alignment_support_scheme = vect_supportable_dr_alignment (first_dr);
+  gcc_assert (alignment_support_scheme);
+
+  /* We do not support the optimized explicit-realignment scheme for
+     references in the inner-loop of outer-loop vectorization.  */
+  gcc_assert (alignment_support_scheme != dr_explicit_realign_optimized
+	      || !nested_in_vect_loop);
 
   /* In case the vectorization factor (VF) is bigger than the number
      of elements that we can fit in a vectype (nunits), we have to generate
@@ -4533,7 +4590,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
          }
 
      Otherwise, the data reference is potentially unaligned on a target that
-     does not support unaligned accesses (dr_unaligned_software_pipeline) - 
+     does not support unaligned accesses (dr_explicit_realign_optimized) - 
      then generate the following code, in which the data in each iteration is
      obtained by two vector loads, one from the previous iteration, and one
      from the current iteration:
@@ -4550,11 +4607,16 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
            msq = lsq;
          }   */
 
-  if (alignment_support_cheme == dr_unaligned_software_pipeline)
+  if (alignment_support_scheme == dr_explicit_realign_optimized
+      || alignment_support_scheme == dr_explicit_realign)
     {
-      msq = vect_setup_realignment (first_stmt, bsi, &realignment_token);
-      phi_stmt = SSA_NAME_DEF_STMT (msq);
-      offset = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
+      msq = vect_setup_realignment (first_stmt, bsi, &realignment_token,
+				    alignment_support_scheme);
+      if (alignment_support_scheme == dr_explicit_realign_optimized)
+	{
+	  phi_stmt = SSA_NAME_DEF_STMT (msq);
+	  offset = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
+	}
     }
 
   prev_stmt_info = NULL;
@@ -4565,12 +4627,13 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
         dataref_ptr = vect_create_data_ref_ptr (first_stmt, bsi, offset, &dummy,
 					&ptr_incr, false, NULL_TREE, &inv_p);
       else
-        dataref_ptr = bump_vector_ptr (dataref_ptr, ptr_incr, bsi, stmt);
+        dataref_ptr = 
+		bump_vector_ptr (dataref_ptr, ptr_incr, bsi, stmt, NULL_TREE);
 
       for (i = 0; i < group_size; i++)
 	{
 	  /* 2. Create the vector-load in the loop.  */
-	  switch (alignment_support_cheme)
+	  switch (alignment_support_scheme)
 	    {
 	    case dr_aligned:
 	      gcc_assert (aligned_access_p (first_dr));
@@ -4581,14 +4644,33 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 		int mis = DR_MISALIGNMENT (first_dr);
 		tree tmis = (mis == -1 ? size_zero_node : size_int (mis));
 
-		gcc_assert (!aligned_access_p (first_dr));
 		tmis = size_binop (MULT_EXPR, tmis, size_int(BITS_PER_UNIT));
 		data_ref =
 		  build2 (MISALIGNED_INDIRECT_REF, vectype, dataref_ptr, tmis);
 		break;
 	      }
-	    case dr_unaligned_software_pipeline:
-	      gcc_assert (!aligned_access_p (first_dr));
+	    case dr_explicit_realign:
+	      {
+		tree ptr, bump;
+
+		data_ref = build1 (ALIGN_INDIRECT_REF, vectype, dataref_ptr);
+		vec_dest = vect_create_destination_var (scalar_dest, vectype);
+		new_stmt = build_gimple_modify_stmt (vec_dest, data_ref);
+		new_temp = make_ssa_name (vec_dest, new_stmt);
+		GIMPLE_STMT_OPERAND (new_stmt, 0) = new_temp;
+		vect_finish_stmt_generation (stmt, new_stmt, bsi);
+		copy_virtual_operands (new_stmt, stmt);
+		mark_symbols_for_renaming (new_stmt);
+		msq = new_temp;
+
+		bump = size_binop (MULT_EXPR,
+				   size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1),
+				   TYPE_SIZE_UNIT (scalar_type));
+		ptr = bump_vector_ptr (dataref_ptr, NULL_TREE, bsi, stmt, bump);
+	        data_ref = build1 (ALIGN_INDIRECT_REF, vectype, ptr);
+	        break;
+	      }
+	    case dr_explicit_realign_optimized:
 	      data_ref = build1 (ALIGN_INDIRECT_REF, vectype, dataref_ptr);
 	      break;
 	    default:
@@ -4602,11 +4684,11 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  copy_virtual_operands (new_stmt, stmt);
 	  mark_symbols_for_renaming (new_stmt);
 
-	  /* 3. Handle explicit realignment if necessary/supported.  */
-	  if (alignment_support_cheme == dr_unaligned_software_pipeline)
+	  /* 3. Handle explicit realignment if necessary/supported. Create in
+		loop: vec_dest = realign_load (msq, lsq, realignment_token)  */
+	  if (alignment_support_scheme == dr_explicit_realign_optimized
+	      || alignment_support_scheme == dr_explicit_realign)
 	    {
-	      /* Create in loop: 
-		 <vec_dest = realign_load (msq, lsq, realignment_token)>  */
 	      lsq = GIMPLE_STMT_OPERAND (new_stmt, 0);
 	      if (!realignment_token)
 		realignment_token = dataref_ptr;
@@ -4617,9 +4699,13 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	      new_temp = make_ssa_name (vec_dest, new_stmt);
 	      GIMPLE_STMT_OPERAND (new_stmt, 0) = new_temp;
 	      vect_finish_stmt_generation (stmt, new_stmt, bsi);
-	      if (i == group_size - 1 && j == ncopies - 1)
-		add_phi_arg (phi_stmt, lsq, loop_latch_edge (loop));
-	      msq = lsq;
+
+	      if (alignment_support_scheme == dr_explicit_realign_optimized)
+		{
+		  if (i == group_size - 1 && j == ncopies - 1)
+		    add_phi_arg (phi_stmt, lsq, loop_latch_edge (loop));
+		  msq = lsq;
+		}
 	    }
 
 	  /* 4. Handle invariant-load.  */
@@ -4660,7 +4746,8 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  if (strided_load)
 	    VEC_quick_push (tree, dr_chain, new_temp);
 	  if (i < group_size - 1)
-	    dataref_ptr = bump_vector_ptr (dataref_ptr, ptr_incr, bsi, stmt);	  
+	    dataref_ptr = 
+		bump_vector_ptr (dataref_ptr, ptr_incr, bsi, stmt, NULL_TREE);	  
 	}
 
       if (strided_load)

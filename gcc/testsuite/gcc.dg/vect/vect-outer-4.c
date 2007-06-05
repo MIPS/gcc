@@ -33,7 +33,7 @@ int main (void)
 
   for (i = 0; i < M; i++)
     coeff[i] = i;
-  for (i = 0; i < N; i++)
+  for (i = 0; i < N+M; i++)
     in[i] = i;
 
   foo ();

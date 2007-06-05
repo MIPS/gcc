@@ -1668,19 +1668,21 @@ vect_supportable_dr_alignment (struct data_reference *dr)
     return dr_aligned;
 
   /* Possibly unaligned access.  */
-  /* FORNOW */
-  if (nested_in_vect_loop)
-    return dr_unaligned_unsupported;
-  
   if (DR_IS_READ (dr))
     {
       if (vec_realign_load_optab->handlers[mode].insn_code != CODE_FOR_nothing
 	  && (!targetm.vectorize.builtin_mask_for_load
 	      || targetm.vectorize.builtin_mask_for_load ()))
-	return dr_unaligned_software_pipeline;
-
+	{
+	  /* FORNOW: Ideally we'd get rid of the dr_explicit_realign_optimized
+	     all together, and have a following predictive-commoning pass
+	     do the job.  */
+	  if (!nested_in_vect_loop)
+	    return dr_explicit_realign_optimized;
+	  else
+	    return dr_explicit_realign;
+	}
       if (movmisalign_optab->handlers[mode].insn_code != CODE_FOR_nothing)
-	/* Can't software pipeline the loads, but can at least do them.  */
 	return dr_unaligned_supported;
     }
 

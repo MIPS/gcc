@@ -1,5 +1,28 @@
 2007-06-05  Dorit Nuzman  <dorit@il.ibm.com>
 
+	* tree-vectorizer.c (vect_supportable_dr_alignment): Misaligned
+	accesses now supported for inner-loop references within outer-loop
+	vectorization.
+	* tree-vectorizer.h (dr_alignment_support): Renamed
+	dr_unaligned_software_pipeline to dr_explicit_realign_optimized.
+	Added a new value dr_explicit_realign.
+	* tree-vect-trasnform.c (vect_setup_realignment): Takes additional
+	argument dr_alignment_support.
+	(vect_create_data_ref_ptr): Added comment and an assert.
+	(bump_vector_ptr): Updated to support the new dr_explicit_realign
+	scheme: takes additional argument bump; argument ptr_incr is now
+	optional; updated documentation.
+	(vectorizable_store): Fix typos. Call bump_vector_ptr with additional
+	argument.
+	(vect_setup_realignment): Support the dr_explicit_realign scheme. Takes
+	additional argument alignment_support_scheme. Updated documentation.
+	(vectorizable_load): Fix typos. Support the dr_explicit_realign scheme.
+	Support misaligned inner-loop references within outer-loop
+	vectorization.  Call vect_setup_realignment with additional argument.
+	Call bump_vector_ptr with additional argument.
+
+2007-06-05  Dorit Nuzman  <dorit@il.ibm.com>
+
 	* tree-scalar-evolutions.c (number_of_latch_executions_1): New.
 	Contains code that was factored out from number_of_latch_executions.
 	(number_of_latch_executions): Call number_of_latch_executions_1

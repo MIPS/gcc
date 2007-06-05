@@ -54,7 +54,8 @@ enum operation_type {
 enum dr_alignment_support {
   dr_unaligned_unsupported,
   dr_unaligned_supported,
-  dr_unaligned_software_pipeline,
+  dr_explicit_realign,
+  dr_explicit_realign_optimized,
   dr_aligned
 };
 
