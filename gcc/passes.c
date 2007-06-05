@@ -613,6 +613,7 @@ init_optimization_passes (void)
 	     pass_may_alias.  */
 	  NEXT_PASS (pass_complete_unroll);
 	  NEXT_PASS (pass_loop_prefetch);
+	  NEXT_PASS (pass_may_alias);
 	  NEXT_PASS (pass_iv_optimize);
 	  NEXT_PASS (pass_tree_loop_done);
 	}
@@ -646,6 +647,10 @@ init_optimization_passes (void)
       NEXT_PASS (pass_tail_calls);
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_uncprop);
+      /* ??? We need this additional aliasing pass to be able to provide correct
+         alias information for rtl level, after all tree optimizations have been
+         completed.  We can't do it because aliasing cannot handle TARGET_MEM_REFS.  */
+      /*  NEXT_PASS (pass_may_alias);*/
       NEXT_PASS (pass_del_ssa);
       NEXT_PASS (pass_nrv);
       NEXT_PASS (pass_mark_used_blocks);

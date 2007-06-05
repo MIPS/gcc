@@ -821,8 +821,6 @@ delete_tree_ssa (void)
   size_t i;
   basic_block bb;
   block_stmt_iterator bsi;
-  referenced_var_iterator rvi;
-  tree var;
 
   /* Release any ssa_names still in use.  */
   for (i = 0; i < num_ssa_names; i++)
@@ -851,27 +849,17 @@ delete_tree_ssa (void)
       set_phi_nodes (bb, NULL);
     }
 
-  /* Remove annotations from every referenced variable.  */
-  FOR_EACH_REFERENCED_VAR (var, rvi)
-    {
-      if (var->base.ann)
-        ggc_free (var->base.ann);
-      var->base.ann = NULL;
-    }
-  htab_delete (gimple_referenced_vars (cfun));
-  cfun->gimple_df->referenced_vars = NULL;
-
   fini_ssanames ();
   fini_phinodes ();
   /* we no longer maintain the SSA operand cache at this point.  */
   fini_ssa_operands ();
 
   cfun->gimple_df->global_var = NULL_TREE;
-  
+
+  /* For Tree SSA alias export, we shouldn't remove referenced_vars 
+     and var_anns hastables.  This is done in rest_of_clean_state.  */
   htab_delete (cfun->gimple_df->default_defs);
   cfun->gimple_df->default_defs = NULL;
-  htab_delete (cfun->gimple_df->var_anns);
-  cfun->gimple_df->var_anns = NULL;
   cfun->gimple_df->call_clobbered_vars = NULL;
   cfun->gimple_df->addressable_vars = NULL;
   cfun->gimple_df->modified_noreturn_calls = NULL;
@@ -882,8 +870,6 @@ delete_tree_ssa (void)
     }
   cfun->gimple_df->aliases_computed_p = false;
   delete_mem_ref_stats (cfun);
-
-  cfun->gimple_df = NULL;
 }
 
 

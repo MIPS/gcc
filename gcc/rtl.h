@@ -145,6 +145,7 @@ typedef struct mem_attrs GTY(())
   rtx offset;			/* Offset from start of DECL, as CONST_INT.  */
   rtx size;			/* Size in bytes, as a CONST_INT.  */
   unsigned int align;		/* Alignment of MEM in bits.  */
+  tree orig_expr;		/* Explicit original tree expression.  */
 } mem_attrs;
 
 /* Structure used to describe the attributes of a REG in similar way as
@@ -1173,6 +1174,11 @@ do {						\
 (MEM_ATTRS (RTX) != 0 ? MEM_ATTRS (RTX)->align				\
  : (STRICT_ALIGNMENT && GET_MODE (RTX) != BLKmode			\
     ? GET_MODE_ALIGNMENT (GET_MODE (RTX)) : BITS_PER_UNIT))
+
+/* For a MEM rtx, the decl it is known to refer to, if it is known to
+   refer to part of a DECL.  It may also be a COMPONENT_REF.  */
+#define MEM_ORIG_EXPR(RTX) 						\
+(MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->orig_expr)
 
 /* For a REG rtx, the decl it is known to refer to, if it is known to
    refer to part of a DECL.  */
@@ -2217,6 +2223,10 @@ extern int read_rtx_lineno;
 
 /* In alias.c */
 extern void clear_reg_alias_info (rtx);
+extern void tse_write_stat (const char *);
+extern tree tse_mem_expr (rtx);
+extern tree skip_conversions (tree);
+
 extern rtx canon_rtx (rtx);
 extern int true_dependence (rtx, enum machine_mode, rtx, int (*)(rtx, int));
 extern rtx get_addr (rtx);

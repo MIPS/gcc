@@ -322,6 +322,49 @@ struct subvar GTY(())
   subvar_t next;
 };
 
+/* Structure where points-to set for alias export is saved.  */
+struct tse_pts_entry GTY (())
+{
+  /* Original tree.  */
+  tree ptr;
+
+  /* Pointer's may_aliases - bitmap of trees that can be pointed to by the
+     pointer.  */
+  bitmap may_aliases;
+
+  /* True, if this pointer may point to anything.  In this case points-to 
+     set may not be used for disambiguation, only in weak dependence 
+     heuristics.  */
+  bool pt_anything;
+};
+
+typedef struct tse_pts_entry *pts_entry_ptr;
+
+/* Structure for saving tree-ssa aliasing export information.  */
+struct tse_alias_info_entry GTY(())
+{
+  /* Points-to set.  */
+  pts_entry_ptr points_to;
+  
+  /* Saved stack partition number.  */
+  int stack_part_num;
+};
+
+typedef struct tse_alias_info_entry *tse_alias_info_entry_t;
+
+/* Structure for saving extended alias set partitions.  */
+struct ext_alias_set_partition GTY(())
+{
+  /* Joint may aliases set for all pointers in this partition.  */
+  bitmap may_aliases;
+
+  /* Joint set of stack partitions for all variables that are in the 
+     partition.  */
+  bitmap stack_partitions;
+};
+
+typedef struct ext_alias_set_partition * ext_alias_set_partition_p;
+
 struct var_ann_d GTY(())
 {
   struct tree_ann_common_d common;
@@ -392,6 +435,9 @@ struct var_ann_d GTY(())
   /* Mask of values saying the reasons why this variable has escaped
      the function.  */
   unsigned int escape_mask;
+  
+  /* Alias export information.  */
+  tse_alias_info_entry_t alias_info;  
 };
 
 /* Container for variable annotation used by hashtable for annotations for
@@ -778,6 +824,9 @@ extern void end_recording_case_labels (void);
 extern basic_block move_sese_region_to_fn (struct function *, basic_block,
 				           basic_block);
 void remove_edge_and_dominated_blocks (edge);
+
+/* In tree-outof-ssa.c.  */
+extern tse_alias_info_entry_t tse_create_alias_info_entry (void);
 
 /* In tree-cfgcleanup.c  */
 extern bitmap cfgcleanup_altered_bbs;
@@ -1168,6 +1217,12 @@ void sort_fieldstack (VEC(fieldoff_s,heap) *);
 void init_alias_heapvars (void);
 void delete_alias_heapvars (void);
 unsigned int execute_fixup_cfg (void);
+
+extern pts_entry_ptr tse_get_pts_for_expr (tree expr, bool weak_deps);
+extern int tse_get_stack_var_partition (tree var);
+extern bool tse_different_stack_vars_partitions_p (tree var1, tree var2);
+extern bool tse_var_in_pts_p (tree, pts_entry_ptr);
+extern void tse_add_tree_to_pts(tree, pts_entry_ptr);
 
 #include "tree-flow-inline.h"
 

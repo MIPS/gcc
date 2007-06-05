@@ -76,6 +76,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "cgraph.h"
 #include "coverage.h"
+#include "tree-flow.h"
 #include "vecprim.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
@@ -4074,6 +4075,31 @@ static unsigned int
 rest_of_clean_state (void)
 {
   rtx insn, next;
+
+  referenced_var_iterator rvi;
+  tree var;
+
+  if (cfun->gimple_df)
+    {
+      /* We will be here starting from -O2.  */
+      /* Remove annotations from every referenced variable.  */
+      /* Migrated from tree-ssa.c.  */
+      FOR_EACH_REFERENCED_VAR (var, rvi)
+        {
+          if (var->base.ann)
+            ggc_free (var->base.ann);
+          var->base.ann = NULL;
+        }
+      htab_delete (gimple_referenced_vars (cfun));
+      cfun->gimple_df->referenced_vars = NULL;
+      htab_delete (cfun->gimple_df->var_anns);
+      cfun->gimple_df->var_anns = NULL;
+      
+      cfun->gimple_df = NULL;
+
+      /* Alias export won't work after cfun->gimple_df is set to NULL.  */
+      cfun->tse_export_done = false;
+    }
 
   /* It is very important to decompose the RTL instruction chain here:
      debug information keeps pointing into CODE_LABEL insns inside the function

@@ -14621,6 +14621,19 @@ alias any other storage.
 Each language will automatically use whatever option is required by
 the language standard.  You should not need to use these options yourself.
 
+@item -fpropagate-points-to-sets
+@opindex fpropagate-points-to-sets
+Use points-to information from tree-ssa aliasing during rtl optimization
+passes for memory rtxes disambiguation.  With this flag memory disambiguations
+are made based on the rtx structure and corresponding expr trees for rtxes,
+while with @option{-fpropagate-alias-sets} only alias set numbers are used.
+
+@item -fpropagate-alias-sets
+@opindex fpropagate-alias-sets
+Use extended alias set numbers for memory rtxes disambiguations.  With this flag
+tree-ssa aliasing information is used along with type information to create
+alias set numbers.
+
 @item -fleading-underscore
 @opindex fleading-underscore
 This option and its counterpart, @option{-fno-leading-underscore}, forcibly

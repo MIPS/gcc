@@ -24,6 +24,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include "tree.h"
 #include "hashtab.h"
+#include "varray.h"
 
 struct var_refs_queue GTY(())
 {
@@ -479,6 +480,28 @@ struct function GTY(())
      function has been gimplified, so we can make sure we're not
      creating non GIMPLE tuples after gimplification.  */
   unsigned gimplified : 1;
+
+  /* Receives true value after the points-to sets in the function has been
+     saved in tree-outof-ssa.c.  */
+  unsigned int tse_export_done : 1;
+
+  /* Maps new extended (negative) alias set numbers to original (positive).
+   first element (index 0) of this array corresponds
+   to (EXT_ALIAS_SETS_BASE - 1).  */
+   struct varray_head_tag * GTY (()) ext_alias_set_to_original;
+  
+  /* Alias partition numbers correspond to multiple original
+   alias sets numbers.  Only partitions are used to determine conflicts 
+   between alias sets, and extended alias set numbers themselves we use 
+   just to restore original alias set numbers.
+   ext_alias_set_to_partition array reflects the mapping of extended alias
+   sets to partitions.  */
+   struct varray_head_tag * GTY (()) ext_alias_set_to_partition;
+
+   /* Array of may aliases and stack partitions for each alias set 
+   partiton number.  */
+   struct varray_head_tag * GTY ((param_is (struct ext_alias_set_partition)))
+     ext_alias_set_partitions;
 };
 
 /* If va_list_[gf]pr_size is set to this, it means we don't know how

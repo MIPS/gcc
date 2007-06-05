@@ -34,7 +34,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-ssa-live.h"
 #include "tree-pass.h"
 #include "toplev.h"
-
+#include "rtl.h"
 
 /* Used to hold all the components required to do SSA PHI elimination.
    The node and pred/succ list is a simple linear list of nodes and
@@ -297,6 +297,154 @@ do {									\
     }									\
 } while (0)
 
+/* Creates new points-to entry.  */
+
+static pts_entry_ptr
+tse_create_pts_entry (tree ptr)
+{
+  pts_entry_ptr p = ggc_alloc (sizeof (struct tse_pts_entry));
+
+  p->ptr = ptr;
+  p->pt_anything = false;
+
+  p->may_aliases = BITMAP_GGC_ALLOC ();
+
+  return p;
+}
+
+/* Creates new entry for saving alias information.  */
+
+tse_alias_info_entry_t
+tse_create_alias_info_entry (void)
+{
+  tse_alias_info_entry_t p = ggc_alloc (sizeof (struct tse_alias_info_entry));
+
+  p->points_to = NULL;
+  p->stack_part_num = -1;
+
+  return p;
+}
+
+/* Saves PTR's points-to in its var_ann.  */
+
+static void
+tse_update_var_ann_with_pts_info (tree ptr, struct ptr_info_def *pi)
+{
+  pts_entry_ptr entry;
+  unsigned ix;
+  bitmap_iterator bi;
+  var_ann_t ptr_ann;
+
+  ptr_ann = var_ann (ptr);
+  gcc_assert (ptr_ann);
+
+  if (ptr_ann->alias_info == NULL)
+    ptr_ann->alias_info = tse_create_alias_info_entry ();
+
+  if (ptr_ann->alias_info->points_to == NULL)
+    entry = tse_create_pts_entry (ptr);
+  else
+    entry = ptr_ann->alias_info->points_to;
+
+  gcc_assert (entry);
+
+  /* Set pt_anything for the whole set, if one ssa version var has
+     pt_anything attr set to true.  We can use it for recognizing weak deps.  */
+  if (!pi->pt_vars || bitmap_empty_p (pi->pt_vars) || pi->pt_anything)
+    entry->pt_anything = true;
+
+  if (pi->pt_vars && !bitmap_empty_p (pi->pt_vars))
+    {
+      tse_write_stat ("P");
+
+      EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, ix, bi)
+      {
+	tree t1 = referenced_var (ix);
+
+	/* Don't add duplicate entries.  */
+	if (! tse_var_in_pts_p (t1, entry))
+	  {
+	    gcc_assert (var_ann (t1));
+            if (TREE_CODE (t1) != SYMBOL_MEMORY_TAG)
+              {
+                tse_write_stat ("M");
+                tse_add_tree_to_pts (t1, entry);
+              }
+	    else
+              {
+                tse_write_stat ("S");
+                entry->pt_anything = true;
+              }
+	  }
+      }
+    }
+
+  ptr_ann->alias_info->points_to = entry;
+}
+
+
+/* Save pointer and its points-to information in the variable annotations
+   for future use on the rtl level.  */
+
+static void
+tse_export_one_ptr (var_map map, tree ptr)
+{
+  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
+  if (pi)
+    {
+      tree mapped_ptr = var_to_partition_to_var (map, ptr);
+
+      if (mapped_ptr)
+	tse_update_var_ann_with_pts_info (mapped_ptr, pi);
+    }
+}
+
+/* Save tree-ssa pointer analysis information for the rtl level.  */
+
+static void
+tse_export_alias_info (var_map map)
+{
+  basic_block bb;
+  block_stmt_iterator si;
+  ssa_op_iter iter;
+  tree var;
+  referenced_var_iterator rvi;
+
+  /* First traverse all default definitions of
+     pointer variables.  This is necessary because default definitions are
+     not part of the code.  */
+  FOR_EACH_REFERENCED_VAR (var, rvi)
+  {
+    if (POINTER_TYPE_P (TREE_TYPE (var)))
+      {
+	tree def = gimple_default_def (cfun, var);
+	if (def)
+	  tse_export_one_ptr (map, def);
+      }
+  }
+
+  /* Loop through all pointers defined in the program.  */
+  FOR_EACH_BB (bb)
+  {
+    tree phi;
+
+    for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+      {
+	tree ptr = PHI_RESULT (phi);
+	if (POINTER_TYPE_P (TREE_TYPE (ptr)))
+	  tse_export_one_ptr (map, ptr);
+      }
+
+    for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+      {
+	tree stmt = bsi_stmt (si);
+	tree def;
+	FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF)
+	  if (POINTER_TYPE_P (TREE_TYPE (def)))
+	    tse_export_one_ptr (map, def);
+      }
+  }
+}
 
 /* Add T to elimination graph G.  */
 
@@ -1163,6 +1311,15 @@ remove_ssa_form (bool perform_ter)
     {
       fprintf (dump_file, "After Base variable replacement:\n");
       dump_var_map (dump_file, map);
+    }
+
+  if (flag_propagate_points_to_sets || flag_propagate_alias_sets)
+    {
+      cfun->ext_alias_set_partitions = NULL;
+      cfun->ext_alias_set_to_original = NULL;
+      cfun->ext_alias_set_to_partition = NULL;
+      tse_export_alias_info (map);
+      cfun->tse_export_done = true;
     }
 
   rewrite_trees (map, values);

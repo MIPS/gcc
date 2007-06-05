@@ -683,6 +683,9 @@ decode_options (unsigned int argc, const char **argv)
 	}
     }
 
+  flag_propagate_points_to_sets = 1;
+  flag_propagate_alias_sets = 1;
+
   if (!optimize)
     {
       flag_merge_constants = 0;

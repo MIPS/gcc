@@ -32,6 +32,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "diagnostic.h"
 
 /* These headers all define things which are not available in
    generator programs.  */
@@ -534,7 +535,29 @@ print_rtx (rtx in_rtx)
     {
 #ifndef GENERATOR_FILE
     case MEM:
-      fprintf (outfile, " [" HOST_WIDE_INT_PRINT_DEC, MEM_ALIAS_SET (in_rtx));
+      if (!extended_alias_set_p (MEM_ALIAS_SET (in_rtx)))
+	{
+	  fprintf (outfile, " [" HOST_WIDE_INT_PRINT_DEC, 
+		   MEM_ALIAS_SET (in_rtx));
+	}
+      else
+	{
+	  fprintf (outfile, " [" HOST_WIDE_INT_PRINT_DEC " {part:"	     \
+		   HOST_WIDE_INT_PRINT_DEC " orig: " HOST_WIDE_INT_PRINT_DEC \
+		   "} ", MEM_ALIAS_SET (in_rtx),
+		   get_extended_alias_set_part_num (MEM_ALIAS_SET (in_rtx)),
+		   get_original_alias_set (MEM_ALIAS_SET (in_rtx)));
+	}
+
+      if (flag_propagate_points_to_sets)
+	{
+	  fprintf (outfile, " {orig_expr: ");
+	  if (MEM_ORIG_EXPR (in_rtx))
+	    print_generic_expr (outfile, MEM_ORIG_EXPR (in_rtx), 2);
+	  else
+	    fprintf (outfile, "null");
+	  fprintf (outfile, " } ");
+	}
 
       if (MEM_EXPR (in_rtx))
 	print_mem_expr (outfile, MEM_EXPR (in_rtx));

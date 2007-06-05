@@ -1,3 +1,89 @@
+2007-06-05  Dmitry Melnik  <dm@ispras.ru>
+	    Andrey Belevantsev  <abel@ispras.ru>
+
+	Tree SSA alias information export.
+	* alias.c (tse_get_pts_for_expr, tse_mem_expr,  
+	tse_var_in_pts_p, tse_add_tree_to_pts, tse_pts_overlap_p, 
+	tse_alias_sets_overlap_p, tse_tree_in_pts_for_tree_p, 
+	tse_extract_reg_expr_from_mem, tse_handled_component_p, 
+	skip_conversions, tse_get_dereferenced_ptr, tse_get_inner_decl1, 
+	ref_has_nested_op0, tse_try_struct_aliasing, tse_get_sft_for, 
+	different_struct_fields_p, tse_get_base_var, 
+	tse_try_disambiguate_refs_p, different_base_var_stack_partitions_p, 
+	tse_nonoverlapping_rtxes_p, convert_ext_alias_set_number, 
+	extended_alias_set_p, extended_alias_sets_conflict_p, 
+	valid_ext_alias_set_part_num_p, get_extended_alias_set_part_num, 
+	get_original_alias_set, allocate_extended_alias_set, 
+	merge_ext_alias_set_partitions, record_ext_alias_sets_conflict, 
+	choose_extended_alias_set_num, get_extended_alias_set,
+	tse_get_log_filename, tse_write_stat, mems_htab_hash, mems_htab_eq,
+	print_mem_warning, print_verify_mems_stats, find_verify_mems, 
+	gate_verify_mem_attrs, verify_mem_attrs): New functions.
+	(tsa_dump_file, mems_have_attrs, mems_lost_attrs, verify_dump_file,
+	verify_callid): New static var.
+	(verify_mem_attrs_data_def, mems_htab_entry_def): Declare new structs.
+	(pass_verify_mem_attrs): Declare new pass structure (currently 
+	disabled).  
+	(mems_in_disjoint_alias_sets_p): Fix gcc_assert condition so it won't
+	fail with new fpropagate-alias-sets flag.
+	(alias_sets_conflict_p): Handle new fpropagate-alias-sets flag.
+	(get_alias_set): Likewise.
+	(true_dependence, write_dependence_p): Introduce new disambiguations 
+	enabled by fpropagate-points-to-sets flag.
+	(nonoverlapping_memrefs_p): Make use of features provided by 
+	falias-use-original-trees.
+	* cfgexpand.c (tse_save_stack_var_partition, 
+	tse_get_stack_var_partition, tse_different_stack_vars_partitions_p): 
+	New functions.
+	(expand_used_vars): Add stack partitioning info saving.
+	* common.opt (falias-use-original-trees, fpropagate-points-to-sets,
+	fpropagate-alias-sets): Declare new flags.
+	* emit-rtl.c (get_mem_attrs): Add parameter to prototype.
+	(mem_attrs_htab_eq, mem_attrs_htab_hash): Also consider MEM_ORIG_EXPRs.
+	(get_mem_attrs): Add new parameter orig_expr, and add code to handle it.	
+	(cleanup_tree_from_conversions): New function.
+	(component_ref_for_mem_expr): Preserve TREE_OPERAND (t, 0) for 
+	COMPONENT_REFS.
+	(set_mem_attributes_minus_bitpos): Use get_extended_alias_set instead 
+	of get_alias_set; assign value to MEM_ORIG_EXPR memory attribute.
+	(set_mem_attrs_from_reg): Handle MEM_ORIG_EXPR.
+	(set_mem_alias_set): Likewise.
+	(set_mem_align): Likewise.
+	(set_mem_expr): Likewise.
+	(set_mem_offset): Likewise.
+	(set_mem_size): Likewise.
+	(change_address): Likewise.
+	(adjust_address_1): Likewise.
+	(offset_address): Likewise.
+	(widen_memory_access): Likewise.
+	* emit-rtl.h (set_mem_orig_expr): Declare.
+	* function.c (assign_parms_unsplit_complex): Handle MEM_ORIG_EXPR.
+	* function.h (struct function): Add new struct members.
+	* opts.c (decode_options): Enable by default 
+	flag_propagate_points_to_sets, flag_propagate_alias_sets.
+	* passes.c (init_optimization_passes): Add final pass_may_alias
+	before pass_del_ssa.
+	* print-rtl.c (print_rtx): Print extended alias sets and partitions, 
+	if available.
+	* rtl.h (struct mem_attrs): New field orig_expr.
+	(MEM_ORIG_EXPR): New macro.
+	(tse_mem_expr, skip_conversions, tse_write_stat): Declare functions.
+	* tree-flow.h (struct tse_pts_entry, tse_pts_entry_ptr, 
+	tse_alias_info_entry_t, struct tse_alias_info_entry): 
+	Declare new types.
+	(struct var_ann_d): Add alias_info member.
+	(tse_get_stack_var_partition, tse_different_stack_vars_partitions_p,
+	tse_create_alias_info_entry, tse_get_pts_for_expr): Declare.
+	* tree.h (get_extended_alias_set, debug_tree_brief): Declare.
+	* tree-outof-ssa.c (tse_export_one_ptr, tse_export_alias_info, 
+	tse_create_pts_entry, tse_create_alias_info_entry, 
+	tse_update_var_ann_with_pts_info): New functions.
+	(remove_ssa_form): Add call to tse_export_alias_info.
+	* tree-pass.h (pass_verify_mem_attrs): Declare.
+	* tree-ssa.c (delete_tree_ssa): Move var_ann cleanup ... 
+	* final.c (rest_of_clean_state): ... to here.
+	* doc/invoke.texi: Document new options.
+
 2007-06-01  Uros Bizjak  <ubizjak@gmail.com>
 
 	* expr.c (force_operand) [DIV, MOD, UDIV, UMOD, ASHIFTRT]: Remove

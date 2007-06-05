@@ -785,6 +785,37 @@ calculate_live_ranges (var_map map)
   return live;
 }
 
+#if 0
+/* The same as add_coalesce, but do not try coalescing when T1 and T2 have 
+different points-to sets.  */
+
+void 
+add_coalesce_check_pta (coalesce_list_p cl, tree t1, tree t2, int p1, int p2,
+                        int value)
+{
+  partition_pair_p node;
+  struct ptr_info_def *pi, *qi;
+
+
+  gcc_assert (cl->add_mode);
+
+  if (p1 == p2)
+    return;
+
+  gcc_assert (TREE_CODE (t1) == SSA_NAME && TREE_CODE (t2) == SSA_NAME);
+  pi = SSA_NAME_PTR_INFO (t1);
+  qi = SSA_NAME_PTR_INFO (t2);
+  
+  /* Do not coalesce when pointers have different points-to sets.  */
+  if (pi && qi && pi->pt_vars && qi->pt_vars &&
+      !bitmap_equal_p (pi->pt_vars, qi->pt_vars))
+    return;
+  
+  node = find_partition_pair (cl, p1, p2, true);
+
+  node->cost += value;
+}
+#endif
 
 /* Output partition map MAP to file F.  */
 

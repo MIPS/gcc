@@ -518,6 +518,65 @@ dump_stack_var_partition (void)
     }
 }
 
+/* Save the generated partitions for alias.c, so we can say whether two 
+   vars actually occupy different stack locations.  */
+
+static void
+tse_save_stack_var_partition (void)
+{
+  size_t i;
+
+  /* Save all stack_vars partition info in the annotations.  */
+  for (i = 0; i < stack_vars_num; i++)
+    {
+      var_ann_t ann = get_var_ann (stack_vars[i].decl);
+      gcc_assert (ann);
+      ann->alias_info = tse_create_alias_info_entry ();
+      gcc_assert (ann->alias_info);
+      ann->alias_info->stack_part_num = stack_vars[i].representative;
+    }
+}
+
+
+/* Returns saved stack partition number for a variable.  */
+
+int
+tse_get_stack_var_partition (tree var)
+{
+  var_ann_t ann = var_ann (var);
+
+  if (!ann || !ann->alias_info || ann->alias_info->stack_part_num < 0)
+    return -1;
+
+  return ann->alias_info->stack_part_num;
+}
+
+/* Returns whether variables were given different stack locations during rtl
+   generation, i.e. whether these two locations can be disambiguated using
+   tree-ssa alias analysis information.  */
+
+bool
+tse_different_stack_vars_partitions_p (tree var1, tree var2)
+{
+  var_ann_t ann1, ann2;
+
+  if (var1 == NULL || var2 == NULL || var1 == var2)
+    return false;
+
+  ann1 = var_ann (var1);
+  ann2 = var_ann (var2);
+
+  if (ann1 == NULL || ann2 == NULL || ann1->alias_info == NULL 
+      || ann2->alias_info == NULL)
+    return false;
+
+  if (ann1->alias_info->stack_part_num == -1 
+      || ann2->alias_info->stack_part_num == -1)
+    return false;
+
+  return (ann1->alias_info->stack_part_num != ann2->alias_info->stack_part_num);
+}
+
 /* Assign rtl to DECL at frame offset OFFSET.  */
 
 static void
@@ -1212,6 +1271,9 @@ expand_used_vars (void)
 	}
 
       expand_stack_vars (NULL);
+
+      /* Save stack partitioning info for alias.c  */
+      tse_save_stack_var_partition ();
 
       fini_vars_expansion ();
     }

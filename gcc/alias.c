@@ -44,8 +44,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "cgraph.h"
 #include "varray.h"
+#include "tree-flow.h"
+#include "diagnostic.h"
 #include "tree-pass.h"
 #include "ipa-type-escape.h"
+#include "pwd.h"
+
 
 /* The aliasing API provided here solves related but different problems:
 
@@ -250,6 +254,572 @@ static bool copying_arguments;
 DEF_VEC_P(alias_set_entry);
 DEF_VEC_ALLOC_P(alias_set_entry,gc);
 
+/* Tree-SSA aliasing Export.  */
+
+static FILE *tsa_dump_file = NULL;
+
+static void
+tse_get_log_filename (char *buf)
+{
+  struct passwd *rpw = getpwuid (getuid());
+  char buf2[1024];
+  char *log_file_name = getenv ("TSE_LOGFILE");
+
+  strcpy (buf, rpw->pw_dir);
+  strcat (buf, "/alias-stat");
+  mkdir (buf, 0775);
+
+  if (log_file_name)
+    sprintf (buf2, "/%s", log_file_name);
+  else
+    sprintf (buf2, "/log-%d.txt", (int) time (NULL));
+
+  strcat (buf, buf2);
+}
+
+void
+tse_write_stat (const char *s)
+{
+  static bool tsa_dump_alias_stat = false;
+
+  if (!tsa_dump_alias_stat)
+    return;
+
+  if (!tsa_dump_file)
+    {
+      char log_filename[1024];
+  
+      tse_get_log_filename (log_filename);
+      tsa_dump_file = fopen (log_filename, "at");
+    }
+  if (tsa_dump_file)
+    fprintf (tsa_dump_file, "%s", s);
+  else
+    tsa_dump_alias_stat = false;
+}
+
+/* Returns points-to entry for EXPR.
+  The result is filtered using WEAK_DEPS value:
+  if WEAK_DEPS == false, only entries with pt_anything == false are returned;
+  otherwise every entry found is returned.  */
+
+pts_entry_ptr
+tse_get_pts_for_expr (tree expr, bool weak_deps)
+{
+  pts_entry_ptr entry;
+  var_ann_t ann;
+  ann = var_ann (expr);
+
+  tse_write_stat ("E");
+  if (ann == NULL)
+    return NULL;
+  if (ann->alias_info == NULL)
+    return NULL;
+
+  tse_write_stat ("N");
+  entry = ann->alias_info->points_to;
+
+  if (entry)
+    {
+      /* If looking for weak dependency, return the entry found inspite of
+         pt_anything attribute set.  */
+      if (weak_deps || !entry->pt_anything)
+	return entry;
+      else
+	return NULL;
+    }
+  else
+    return NULL;
+}
+
+/* Returns MEM_ORIG_EXPR corresponding to MEM.  */
+
+tree
+tse_mem_expr (rtx mem)
+{
+  if (MEM_ORIG_EXPR (mem))
+    return MEM_ORIG_EXPR (mem);
+  else
+    return MEM_EXPR (mem);
+}
+
+/* Checks whether VAR is in points-to set TENTRY.  */
+
+bool
+tse_var_in_pts_p (tree var, pts_entry_ptr tentry)
+{
+  return bitmap_bit_p (tentry->may_aliases, DECL_UID (var));
+}
+
+/* Adds VAR in points-to set ENTRY.  */
+
+void
+tse_add_tree_to_pts(tree var, pts_entry_ptr entry)
+{
+  bitmap_set_bit (entry->may_aliases, DECL_UID (var));
+}
+
+static bool ref_has_nested_op0 (tree ref);
+
+/* Checks whether two points-to sets overlap.  */
+
+static bool
+tse_pts_overlap_p (pts_entry_ptr tentry1, pts_entry_ptr tentry2)
+{
+  gcc_assert (tentry1 && tentry2);
+
+  return bitmap_intersect_p (tentry1->may_aliases, tentry2->may_aliases);
+}
+
+/* Returns true if two mems MEM_EXPR1 and MEM_EXPR2, addressed by REG_EXPR1 and
+   REG_EXPR2 may alias.  WEAK_DEPS affects the result, see comment for 
+   tse_get_pts_for_expr().  */
+
+static bool
+tse_alias_sets_overlap_p (tree reg_expr1, tree reg_expr2,
+			       bool weak_deps)
+{
+  pts_entry_ptr entry1, entry2;
+
+  entry1 = tse_get_pts_for_expr (reg_expr1, weak_deps);
+  entry2 = tse_get_pts_for_expr (reg_expr2, weak_deps);
+
+  /* If there's no entry for expression, then it originally had empty
+     points-to set.  Assume pt_anything in this case.  */
+  if (!entry1 || !entry2)
+    return true;
+
+  if (tse_pts_overlap_p (entry1, entry2))
+    return true;
+
+  return false;
+}
+
+/* Returns true if MEM_EXPR is in the points-to set for REG_EXPR.  */
+
+static bool
+tse_tree_in_pts_for_tree_p (tree mem_expr, tree reg_expr, bool weak_deps)
+{
+  pts_entry_ptr entry;
+
+  entry = tse_get_pts_for_expr (reg_expr, weak_deps);
+
+  /* If doesn't have points-to, assume that it may alias.  */
+  if (!entry)
+    return true;
+
+  return tse_var_in_pts_p (mem_expr, entry);
+}
+
+/* Get the REG_EXPR of reg addressing mem
+ i.e. if (mem (pre_inc (reg [orig:REG_EXPR]))) is given, REG_EXPR 
+ will be returned.  Reg should be located inside PRE_INC or POST_INC.  */
+
+static tree
+tse_extract_reg_expr_from_mem (rtx expr, bool weak_deps)
+{
+  pts_entry_ptr entry;
+  tree reg_expr;
+  tree t1, t2;
+
+  switch (GET_CODE (expr))
+    {
+    /* If MEM, continuing search.  */
+    case MEM:
+      return tse_extract_reg_expr_from_mem (XEXP (expr, 0), weak_deps);
+
+    /* If REG, try to get points-to for its REG_EXPR,
+       otherwise the REG_EXPR found is useless.  */
+    case REG:
+      reg_expr = REG_EXPR (expr);
+      if (reg_expr == NULL || ! DECL_P (reg_expr))
+	return NULL;
+      entry = tse_get_pts_for_expr (reg_expr, weak_deps);
+      if (!entry)
+	return NULL;
+      else
+	return REG_EXPR (expr);
+
+      /* Try both arguments.  */
+    case PLUS:
+      t1 = tse_extract_reg_expr_from_mem (XEXP (expr, 0), weak_deps);
+      if (t1)
+	return t1;
+      t2 = tse_extract_reg_expr_from_mem (XEXP (expr, 1), weak_deps);
+      if (t2)
+	return t2;
+      else
+	return NULL;
+
+    /* Search inside PRE_INC and POST_INC.  */
+    case PRE_INC:
+    case POST_INC:
+      return tse_extract_reg_expr_from_mem (XEXP (expr, 0), weak_deps);
+
+    default:
+      return NULL;
+    }
+}
+
+/* Return true if T is an expression that tse_get_inner_decl handles.
+ The difference from handled_component_p is that this version doesn't handle
+ ARRAY_REFs and ARRAY_RANGE_REFs.  */
+
+static bool
+tse_handled_component_p (tree t)
+{
+  switch (TREE_CODE (t))
+    {
+    case BIT_FIELD_REF:
+    case COMPONENT_REF:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      return true;
+
+    default:
+      return false;
+    }
+}
+
+/* If EXPR contains conversions at the root of the tree, all of them 
+   will be removed.  */
+
+tree
+skip_conversions (tree expr)
+{
+  tree inner = expr;
+  /* Remove any conversions: they don't change what the underlying
+     object is.  Likewise for SAVE_EXPR.  */
+  while (TREE_CODE (inner) == NOP_EXPR || TREE_CODE (inner) == CONVERT_EXPR
+        || TREE_CODE (inner) == NON_LVALUE_EXPR
+        || TREE_CODE (inner) == VIEW_CONVERT_EXPR
+        || TREE_CODE (inner) == SAVE_EXPR)
+    inner = TREE_OPERAND (inner, 0);
+  return inner;
+}
+
+/* 'Unwraps' expression from COMPONENT_REFS and others, i.e. for p[i].a.b
+    it will return p[i].  All type conversions are also eliminated.  */
+    
+static tree
+tse_get_inner_decl1 (tree expr)
+{
+  while (expr && tse_handled_component_p (expr))
+    expr = TREE_OPERAND (skip_conversions (expr), 0);
+
+  expr = skip_conversions (expr);
+  return expr;
+}
+
+
+/* Returns inner declaration for EXPR, i.e. for p[i].field it will return p, 
+   so points-to for p should contain memory location occupied by EXPR.
+   Double inderect references are not supported.  */
+
+static tree
+tse_get_dereferenced_ptr (tree expr)
+{
+  expr = tse_get_inner_decl1 (expr);
+
+  if (expr != NULL
+      && (TREE_CODE (expr) == ARRAY_REF || TREE_CODE (expr) == INDIRECT_REF))
+    expr = TREE_OPERAND (expr, 0);
+  expr = skip_conversions (expr);
+
+  if (expr && DECL_P (expr))
+    return expr;
+  else
+    return NULL;
+}
+
+/* Check whether we have TREE_OPERAND (p, 0) for every nesting level,
+ becuase we shouldn't handle references like <variable>.level1.level2,
+ where exact <variable> is unknown.  */
+
+static bool
+ref_has_nested_op0 (tree ref)
+{
+  tree p = TREE_OPERAND (ref, 0);
+
+  while (p && handled_component_p (p))
+    {
+      p = TREE_OPERAND (p, 0);
+    }
+  return p ? true : false;
+}
+
+/* MEM should be a COMPONENT_REF or ARRAY_REF, which may have structure
+   aliasing's subvars.  We will search for the field referenced in subvars,
+   fetch the SFT and check whether it is in the exported alias set for the   
+   reg.  Returns 0 if REG can point to MEM, 1 if location referenced by REG
+   and MEM are non-overlapping and -1 if this routine is not applicable.  */
+
+static int
+tse_try_struct_aliasing (tree mem, tree reg, bool weak_deps)
+{
+  tree ref;
+  HOST_WIDE_INT offset, size, maxsize;
+
+  gcc_assert (TREE_CODE (mem) == COMPONENT_REF 
+	      || TREE_CODE (mem) == ARRAY_REF);
+  gcc_assert (ref_has_nested_op0 (mem));
+
+  
+  ref = get_ref_base_and_extent (mem, &offset, &size, &maxsize);
+
+  if (!INDIRECT_REF_P (ref) && get_subvars_for_var (ref))
+    {
+      subvar_t sv;
+      subvar_t svars;
+      bool has_dependence = false;
+
+      svars = get_subvars_for_var (ref);
+      for (sv = svars; sv; sv = sv->next)
+	{
+	  if (overlap_subvar (offset, size, sv->var, NULL))
+	    if (tse_tree_in_pts_for_tree_p (sv->var, reg, weak_deps))
+	      {
+		has_dependence = true;
+		break;
+	      }
+	}
+      if (!has_dependence)
+	return 1;
+
+      return 0;
+    }
+
+  return -1;
+}
+
+/* Returns true if MEM1 and MEM2 are non-overlapping fields of a structure.  */
+
+static bool
+different_struct_fields_p (tree mem1, tree mem2)
+{
+  tree ref1, ref2;
+  HOST_WIDE_INT offset1, size1, maxsize1;
+  HOST_WIDE_INT offset2, size2, maxsize2;
+
+  if (TREE_CODE (mem1) != COMPONENT_REF || TREE_CODE (mem2) != COMPONENT_REF)
+    return false;
+  if (!ref_has_nested_op0 (mem1) || !ref_has_nested_op0 (mem2))
+    return false;
+
+  ref1 = get_ref_base_and_extent (mem1, &offset1, &size1, &maxsize1);
+  ref2 = get_ref_base_and_extent (mem2, &offset2, &size2, &maxsize2);
+
+  if (!INDIRECT_REF_P (ref1) && !INDIRECT_REF_P (ref2))
+    {
+      subvar_t sv1, sv2;
+      subvar_t svars1, svars2;
+
+      gcc_assert (DECL_P (ref1) && DECL_P (ref2));
+
+      /* If ref1 != ref2 then we need to check whether this different 
+         vars were given different stack locations.  */
+      if (ref1 != ref2 && !tse_different_stack_vars_partitions_p (ref1, ref2))
+	return false;
+
+      svars1 = get_subvars_for_var (ref1);
+      svars2 = get_subvars_for_var (ref2);
+
+      if (svars1 && svars2) 
+        {
+          for (sv1 = svars1; sv1; sv1 = sv1->next)
+            if (overlap_subvar (offset1, size1, sv1->var, NULL))
+              for (sv2 = svars2; sv2; sv2 = sv2->next)
+                {
+                  if (overlap_subvar (offset2, size2, sv2->var, NULL))
+                    {
+                      if (sv1 == sv2)
+                        goto has_dependence;
+                    }
+                }
+          return true;
+        }
+    }
+
+has_dependence:
+  return false;
+}
+
+/* Get base variable distinguishable by stack locations for tree t,
+ i.e. it will be a for a.x, NULL - for p->x (cause .x may be located
+ not on stack).  */
+
+static tree
+tse_get_base_var (tree t)
+{
+  if (t == NULL)
+    return NULL;
+  switch (TREE_CODE (t))
+    {
+    case COMPONENT_REF:
+      return tse_get_base_var (TREE_OPERAND (t, 0));
+    case VAR_DECL:
+    case PARM_DECL:
+      return t;
+    default:
+      return NULL;
+    }
+}
+
+/* Returns true if memory location M is not referenced by R in some way.
+   This is an internal function for different_tree_ssa_alias_sets_p().  */
+
+static bool
+tse_try_disambiguate_refs_p (tree m, tree r, bool weak_deps)
+{
+  int ret;
+
+  if (TREE_CODE (m) == COMPONENT_REF)
+    {
+      tree op0 = TREE_OPERAND (m, 0);
+
+      if (!ref_has_nested_op0 (m))
+	return false;
+
+      ret = tse_try_struct_aliasing (m, r, weak_deps);
+      if (ret >= 0)
+	return ret ? true : false;
+
+      if (TREE_CODE (op0) == INDIRECT_REF)
+	{
+	  tree ptr = TREE_OPERAND (op0, 0);
+
+	  /* No points-to data available for tree, if it is not DECL_P.  */
+	  if (DECL_P (ptr)
+	      && !tse_alias_sets_overlap_p (ptr, r, weak_deps))
+	    return true;
+	}
+      else if (TREE_CODE (op0) == ARRAY_REF)
+	{
+	  tree arr = TREE_OPERAND (op0, 0);
+
+	  if (DECL_P (arr)
+	      && !tse_tree_in_pts_for_tree_p (arr, r, weak_deps))
+	    return true;
+	}
+
+      return false;
+    }
+  else if (TREE_CODE (m) == ARRAY_REF)
+    {
+      tree arr = TREE_OPERAND (m, 0);
+
+      if (var_can_have_subvars (arr) && get_subvars_for_var (arr))
+        {
+          /* Here, we should check subvars.  */
+
+          ret = tse_try_struct_aliasing (m, r, weak_deps);
+          if (ret >= 0)
+	    return ret ? true : false;
+        }
+
+      if (TREE_CODE (arr) != COMPONENT_REF
+	  && tse_get_base_var (arr) != NULL 
+	  && !tse_tree_in_pts_for_tree_p (arr, r, weak_deps))
+	return true;
+    }
+  else if (DECL_P (m))
+    {
+      /* If m can have subvars, we should try look at then first.  */
+
+      if (var_can_have_subvars (m) && get_subvars_for_var (m))
+        {
+          subvar_t sv;
+          subvar_t svars;
+          
+          svars = get_subvars_for_var (m);
+          for (sv = svars; sv; sv = sv->next)
+            {
+              if (tse_tree_in_pts_for_tree_p (sv->var, r, weak_deps))
+                return false;
+            }
+
+	  return true;
+        }
+      else 
+	{
+	  if (!tse_tree_in_pts_for_tree_p (m, r, weak_deps))
+	    return true;
+	}
+    }
+  return false;
+}
+
+/* Returns whether base variables for V1 and V2 occupy different stack 
+   locations.  I.e. given V1 == A.B and V2 == C.D it will compare stack
+   partition numbers for A and C.  */
+
+static bool
+different_base_var_stack_partitions_p (tree v1, tree v2)
+{
+  if (v1 && v2)
+    {
+      tree t1, t2;
+      t1 = tse_get_base_var (v1);
+      t2 = tse_get_base_var (v2);
+      if (tse_different_stack_vars_partitions_p (t1, t2))
+	return true;
+    }
+  return false;
+}
+
+/* Returns true, if it can determine that X and MEM do not alias.  */
+
+static bool
+tse_nonoverlapping_rtxes_p (rtx x, rtx mem, bool weak_deps)
+{
+  tree reg_expr1, reg_expr2;
+  tree mem_expr1, mem_expr2;
+  tree m = NULL, r = NULL;
+
+  if (!flag_propagate_points_to_sets)
+    return false;
+
+  if (x == mem)
+    return false;
+
+  mem_expr1 = tse_mem_expr (x);
+  mem_expr2 = tse_mem_expr (mem);
+
+  reg_expr1 = tse_extract_reg_expr_from_mem (x, weak_deps);
+  reg_expr2 = tse_extract_reg_expr_from_mem (mem, weak_deps);
+
+  /* Try to disambiguate by different memory classes.  */
+  if (mem_expr1 && mem_expr2)
+    {
+      if (different_base_var_stack_partitions_p (mem_expr1, mem_expr2))
+	return true;
+
+      if (different_struct_fields_p (mem_expr1, mem_expr2))
+        return true;
+    }
+  if (reg_expr1 && reg_expr2)
+    if (!tse_alias_sets_overlap_p (reg_expr1, reg_expr2, weak_deps))
+      return true;
+
+  if (mem_expr1 && reg_expr2)
+    {
+      m = mem_expr1;
+      r = reg_expr2;
+
+      if (tse_try_disambiguate_refs_p (m, r, weak_deps))
+        return true;
+    }
+  else if (mem_expr2 && reg_expr1)
+    {
+      m = mem_expr2;
+      r = reg_expr1;
+
+      if (tse_try_disambiguate_refs_p (m, r, weak_deps))
+	return true;
+    }
+  return false;
+}
+
 /* The splay-tree used to store the various alias set entries.  */
 static GTY (()) VEC(alias_set_entry,gc) *alias_sets;
 
@@ -275,7 +845,7 @@ mems_in_disjoint_alias_sets_p (rtx mem1, rtx mem2)
    gen_rtx_MEM, and the MEM_ALIAS_SET is not cleared.  If we begin to
    use alias sets to indicate that spilled registers cannot alias each
    other, we might need to remove this check.  */
-  gcc_assert (flag_strict_aliasing
+  gcc_assert (flag_strict_aliasing || flag_propagate_alias_sets
 	      || (!MEM_ALIAS_SET (mem1) && !MEM_ALIAS_SET (mem2)));
 
   return ! alias_sets_conflict_p (MEM_ALIAS_SET (mem1), MEM_ALIAS_SET (mem2));
@@ -290,6 +860,60 @@ insert_subset_children (splay_tree_node node, void *data)
   splay_tree_insert ((splay_tree) data, node->key, node->value);
 
   return 0;
+}
+
+/* We'll enumerate our extended alias sets downwards starting with
+ EXT_ALIAS_SETS_BASE - 1.  */
+#define EXT_ALIAS_SETS_BASE -3
+static GTY (()) HOST_WIDE_INT last_extended_alias_set = EXT_ALIAS_SETS_BASE;
+
+/* Convert positive index into negative extended alias set number and back.  */
+
+static HOST_WIDE_INT
+convert_ext_alias_set_number (HOST_WIDE_INT i)
+{
+  return -i + EXT_ALIAS_SETS_BASE - 1;
+}
+
+/* Memory disambiguation with -fpropagate-alias-sets.
+   The idea is as follows: we need some mechanism to disambiguate mems not 
+   only based on their type, but also on information obtained during tree-ssa 
+   may_alias pass.  We're trying to minimize the amount of information to be 
+   saved.  So we extend MEM_ALIAS_SET values with negative numbers, and check 
+   whether this negative alias set numbers conflict, when we have them, or 
+   just use ordinary (positive) alias sets numbers, when we don't have more 
+   precise information from the tree-ssa level.  The checking procedure of 
+   whether two mems conflict using MEM_ALIAS_SETs will consist of the 
+   following steps:
+
+      1) if only one of two MEM_ALIAS_SETs is negative, then take saved 
+	 original (positive) alias sets from table and handle them in ordinary 
+	 way;
+      2) if both MEM_ALIAS_SETs are negative, check if they conflict.  If they 
+         don't, return that this two mems do not conflict (cause negative 
+	 MEM_ALIAS_SETs were computed based upon more precise information 
+	 from tree-ssa level);
+      3) if negative MEM_ALIAS_SETs conflict, then retrieve original positive 
+         values, and check them in the ordinary way.  */
+
+/* Returns whether SET is extended alias set (negative).  */
+
+bool
+extended_alias_set_p (HOST_WIDE_INT set)
+{
+  return (set < EXT_ALIAS_SETS_BASE);
+}
+
+/* Returns whether two extended (negative) alias sets conflict.  */
+
+static bool
+extended_alias_sets_conflict_p (HOST_WIDE_INT set1, HOST_WIDE_INT set2)
+{
+  gcc_assert (extended_alias_set_p (set1));
+  gcc_assert (extended_alias_set_p (set2));
+
+  return (get_extended_alias_set_part_num (set1) 
+	  == get_extended_alias_set_part_num (set2));
 }
 
 /* Return true if the first alias set is a subset of the second.  */
@@ -318,6 +942,35 @@ int
 alias_sets_conflict_p (HOST_WIDE_INT set1, HOST_WIDE_INT set2)
 {
   alias_set_entry ase;
+
+  if (flag_propagate_alias_sets)
+    {
+      /* If both alias set numbers are negative, then they both were
+	 introduced by tree-ssa alias sets exporting, so they are comparable 
+	 and we try to disambiguate them.
+	 Otherwise (or if the disambiguation failed because negative numbers
+         turned to be equal) we'll replace negative number by original one.  */
+
+      if (extended_alias_set_p (set1) 
+          && extended_alias_set_p (set2) 
+          && !extended_alias_sets_conflict_p (set1, set2))
+        {
+          /* Indicate that we have disambiguated something.  Also check whether 
+             we could disambiguate this earlier.  */
+          tse_write_stat ("d");
+          set1 = get_original_alias_set (set1);
+          set2 = get_original_alias_set (set2);
+          gcc_assert (!extended_alias_set_p (set1) && !extended_alias_set_p (set2));
+ 	  if (alias_sets_conflict_p (set1, set2))
+            tse_write_stat ("a");          
+          return 0;
+        }
+	
+      if (extended_alias_set_p (set1))
+	set1 = get_original_alias_set (set1);
+      if (extended_alias_set_p (set2))
+	set2 = get_original_alias_set (set2);
+    }
 
   /* If have no alias set information for one of the operands, we have
      to assume it can alias anything.  */
@@ -517,6 +1170,7 @@ get_alias_set (tree t)
 	 something with this tree before we look at it.  */
       STRIP_NOPS (t);
       set = lang_hooks.get_alias_set (t);
+      gcc_assert (!extended_alias_set_p (set));
       if (set != -1)
 	return set;
 
@@ -549,6 +1203,8 @@ get_alias_set (tree t)
 		     decl.  */
 		  HOST_WIDE_INT pointed_to_alias_set
 		    = get_alias_set (pointed_to_type);
+
+		  gcc_assert (!extended_alias_set_p (pointed_to_alias_set));
 
 		  if (pointed_to_alias_set == 0)
 		    /* It's not legal to make a subset of alias set zero.  */
@@ -598,7 +1254,13 @@ get_alias_set (tree t)
 	 variables don't look like union members (boo!).  */
       if (TREE_CODE (t) == VAR_DECL
 	  && DECL_RTL_SET_P (t) && MEM_P (DECL_RTL (t)))
-	return MEM_ALIAS_SET (DECL_RTL (t));
+	{
+	  HOST_WIDE_INT set = MEM_ALIAS_SET (DECL_RTL (t));
+	  if (extended_alias_set_p (set))
+	    set = get_original_alias_set (set);
+	  gcc_assert (!extended_alias_set_p (set));
+	  return set;
+	}
 
       /* Now all we care about is the type.  */
       t = TREE_TYPE (t);
@@ -640,6 +1302,376 @@ get_alias_set (tree t)
     record_component_aliases (t);
 
   return set;
+}
+
+/* True if N can be an alias set partition number.  Used only in asserts.  */
+
+static bool
+valid_ext_alias_set_part_num_p (HOST_WIDE_INT n)
+{
+  return ((n >= 0) 
+	  && (n < (HOST_WIDE_INT) VARRAY_SIZE (cfun->ext_alias_set_partitions)));
+}
+
+/* Returns "partition number" for extended alias set.  */
+
+HOST_WIDE_INT 
+get_extended_alias_set_part_num (HOST_WIDE_INT extended_alias_set)
+{
+  HOST_WIDE_INT part_num;
+  HOST_WIDE_INT index = convert_ext_alias_set_number (extended_alias_set);
+
+  gcc_assert (extended_alias_set_p (extended_alias_set));
+  gcc_assert (cfun);
+  gcc_assert (cfun->ext_alias_set_to_partition);
+
+  part_num = VARRAY_WIDE_INT (cfun->ext_alias_set_to_partition, index);
+
+  gcc_assert (valid_ext_alias_set_part_num_p (part_num));
+
+  return part_num;
+}
+
+/* Returns saved original (positive) alias set number for extended
+   NEW_ALIAS_SET given.  */
+
+HOST_WIDE_INT
+get_original_alias_set (HOST_WIDE_INT new_alias_set)
+{
+  HOST_WIDE_INT index = convert_ext_alias_set_number (new_alias_set);
+  HOST_WIDE_INT original_alias_set;
+
+  gcc_assert (extended_alias_set_p (new_alias_set));
+  gcc_assert (cfun);
+  gcc_assert (cfun->ext_alias_set_to_original);
+
+  original_alias_set = VARRAY_WIDE_INT (cfun->ext_alias_set_to_original, index);
+  gcc_assert (!extended_alias_set_p (original_alias_set));
+  return original_alias_set;
+}
+
+/* Returns new extended negative alias set number, and record that it
+   corresponds to original_alias_set and has partition number part_num.  */
+
+static HOST_WIDE_INT
+allocate_extended_alias_set (HOST_WIDE_INT original_alias_set,
+			   HOST_WIDE_INT part_num)
+{
+  gcc_assert (cfun);
+  gcc_assert (valid_ext_alias_set_part_num_p (part_num));
+
+  /* Initialize varrays.  */
+  if (!cfun->ext_alias_set_to_original)
+    {
+      VARRAY_WIDE_INT_INIT (cfun->ext_alias_set_to_original, 128,
+			    "original alias sets");
+      last_extended_alias_set = EXT_ALIAS_SETS_BASE;
+    }
+
+  if (!cfun->ext_alias_set_to_partition)
+    VARRAY_WIDE_INT_INIT (cfun->ext_alias_set_to_partition, 128,
+			  "alias set partition numbers");
+
+
+  last_extended_alias_set--;
+
+  VARRAY_PUSH_WIDE_INT (cfun->ext_alias_set_to_original, original_alias_set);
+  VARRAY_PUSH_WIDE_INT (cfun->ext_alias_set_to_partition, part_num);
+
+  return last_extended_alias_set;
+}
+
+/* Merges OLD_PART_NUM with NEW_PART_NUM: bitmaps are merged, all extended 
+   alias sets that earlier corresponded to OLD_PART_NUM in 
+   EXT_ALIAS_SET_TO_PARTITION now correspond to NEW_PART_NUM partition.  */
+
+static void
+merge_ext_alias_set_partitions (HOST_WIDE_INT old_part_num,
+			HOST_WIDE_INT new_part_num)
+{
+  size_t i;
+  ext_alias_set_partition_p old_part, new_part;
+
+  gcc_assert (old_part_num != new_part_num);
+  gcc_assert (valid_ext_alias_set_part_num_p (old_part_num) 
+	      && valid_ext_alias_set_part_num_p (new_part_num));
+
+  /* Replace extended alias sets correspondences.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (cfun->ext_alias_set_to_partition); i++)
+    if (VARRAY_WIDE_INT (cfun->ext_alias_set_to_partition, i) == 
+	old_part_num)
+      VARRAY_WIDE_INT (cfun->ext_alias_set_to_partition, i) = new_part_num;
+
+  /* Add all may aliases from old partition to new.  */
+  old_part = VARRAY_GENERIC_PTR (cfun->ext_alias_set_partitions, old_part_num);
+  new_part = VARRAY_GENERIC_PTR (cfun->ext_alias_set_partitions, new_part_num);
+
+  bitmap_ior_into (new_part->may_aliases, old_part->may_aliases);
+  bitmap_ior_into (new_part->stack_partitions, old_part->stack_partitions);
+}
+
+/* Internal helper function for get_extended_alias_set().
+   CONFLICTING_PART_NUM - partition that was found conflicting before, or
+   -1 if none was found so far.  If CONFLICTING_PART_NUM == 0, set 
+   CONFLICTING_PART_NUM to CURRENT_PART_NUM, else merge these two extended
+   alias set partitions.  */
+	    
+static void
+record_ext_alias_sets_conflict (HOST_WIDE_INT * conflicting_part_num,
+			    HOST_WIDE_INT current_part_num)
+{
+  gcc_assert (valid_ext_alias_set_part_num_p (current_part_num));
+  gcc_assert (*conflicting_part_num == -1
+	      || valid_ext_alias_set_part_num_p (*conflicting_part_num));
+
+  /* If there was no any conflicts before, just remember
+     conflicting alias set number.  */
+  if (*conflicting_part_num == -1)
+    *conflicting_part_num = current_part_num;
+  else
+    {
+      if (current_part_num != *conflicting_part_num)
+	merge_ext_alias_set_partitions (current_part_num, 
+					  *conflicting_part_num);
+    }
+}
+
+/* Internal function for get_extended_alias_set().
+   Returns apropriate extended alias set such that it conflicts with
+   CONFLICTING_PARTITION_NUM and has original alias set == 
+   ORIGINAL_ALIAS_SET_NUM, allocating new extended alias set if needed.  */
+
+static HOST_WIDE_INT
+choose_extended_alias_set_num (HOST_WIDE_INT conflicting_partition_num,
+			 HOST_WIDE_INT original_alias_set_num)
+{
+  size_t i;
+
+  gcc_assert (valid_ext_alias_set_part_num_p (conflicting_partition_num));
+
+  /* If the extended alias set with original alias set == original_alias_set_num
+     and partition number == conflicting_partition_num already have been 
+     allocated, then find it.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (cfun->ext_alias_set_to_partition); i++)
+    {
+      HOST_WIDE_INT part_num =
+	VARRAY_WIDE_INT (cfun->ext_alias_set_to_partition, i);
+      if (part_num == conflicting_partition_num)
+	{
+	  HOST_WIDE_INT set_num = convert_ext_alias_set_number (i);
+	  if (get_original_alias_set (set_num) == original_alias_set_num)
+	    return set_num;
+	}
+    }
+
+  /* Otherwise allocate new extended alias set with conflicting_partition_num
+     as its partition number.  */
+  return allocate_extended_alias_set (original_alias_set_num,
+				    conflicting_partition_num);
+}
+
+/* This bitmap holds the set of T's SFTs or points-to set, if T is the 
+   pointer dereference.  */
+static GTY(()) bitmap conflicting_set = NULL;
+
+
+/* Function that may also return extended (negative) alias sets.  
+   We use it when setting mem attributes instead of get_alias_set().  It uses 
+   get_alias_set() routine to save original alias sets.  */
+
+HOST_WIDE_INT
+get_extended_alias_set (tree t)
+{
+  size_t i;
+  HOST_WIDE_INT original_alias_set = get_alias_set (t);
+  HOST_WIDE_INT conflicting_part_num;
+  tree ref;
+  HOST_WIDE_INT offset, size, maxsize;
+  subvar_t svars;
+  int stack_part;
+
+  gcc_assert (!extended_alias_set_p (original_alias_set));
+
+  /* Avoid create extended alias sets for type trees.  */
+  if (TYPE_P (t))
+    return original_alias_set;
+
+  if (!flag_propagate_alias_sets)
+    return original_alias_set;
+
+  /* If it has been called earlier then tree-out-of-ssa pass (i.e. in parser),
+     just returns original alias set, cause we can't use tree-ssa points-to
+     info yet.  */
+  if (!cfun || !cfun->tse_export_done)
+    return original_alias_set;
+
+  if (!conflicting_set)
+    conflicting_set = BITMAP_GGC_ALLOC();
+  bitmap_clear (conflicting_set);
+
+  /* Build the the conflicting set for the T.  This is the set which T may
+     alias with, including structure field tags and points-to set for 
+     pointer dereferences.  */
+
+  /* Get the variable containing subvars for expr.  */
+  if (handled_component_p (t))
+    ref = get_ref_base_and_extent (t, &offset, &size, &maxsize);
+  else
+    {
+      ref = t;
+      offset = -1;
+    }
+
+  if (ref && DECL_P (ref) && var_can_have_subvars (ref)
+      && var_ann (ref) && (svars = get_subvars_for_var (ref)))
+    {
+      /* Handle COMPONENT_REFs, ARRAY_REFs, and DECL_P if they have SFTs.  */
+
+      subvar_t sv;
+
+      /* Avoid update alias set numbers for global vars cause these numbers are
+	 only valid within a function.  */
+      if (is_global_var (ref))
+	return original_alias_set;
+
+      /* Add corresponding SFT for field, or all SFTs for the array or the
+	 structure.  */
+      for (sv = svars; sv; sv = sv->next)
+	if (offset == -1 || overlap_subvar (offset, size, sv->var, NULL))
+	  bitmap_set_bit (conflicting_set, DECL_UID (sv->var));
+
+      /* If corresponding subvar not found in subvars, give up.  */
+      if (bitmap_empty_p (conflicting_set))
+	return original_alias_set;
+
+      /* Do not check whether stack locations overlap for variables 
+	 that have SFTs.  */
+      stack_part = -1;
+    }
+  else
+    {
+      /* Handle other cases.  */
+
+      tree ptr_base = NULL;
+      tree base_stack_var = NULL;
+      pts_entry_ptr ptr_points_to = NULL;
+
+      base_stack_var = tse_get_base_var (t);
+
+      if (base_stack_var)
+	{
+	  /* Avoid update alias set numbers for global vars cause these 
+	     numbers are only valid within a function.  */
+
+	  if (is_global_var (base_stack_var))
+	    return original_alias_set;
+
+	  stack_part = tse_get_stack_var_partition (base_stack_var);
+	  /* We should be able to distinguish the variables on stack.  */
+	  if (stack_part < 0)
+	    return original_alias_set;
+
+	  /* Put the variable itself into conflicting set.  */
+	  bitmap_set_bit (conflicting_set, DECL_UID (base_stack_var));
+	}
+      else
+	{
+	  /* A tree can have points-to iff base_var(tree) == NULL.  */
+
+	  /* Get the pointer that was dereferenced.  */
+	  ptr_base = tse_get_dereferenced_ptr (t);
+	  if (ptr_base)
+	    ptr_points_to = tse_get_pts_for_expr (ptr_base, false);
+
+	  if (!ptr_base || !ptr_points_to)
+	    return original_alias_set;
+
+	  if (ptr_points_to->pt_anything)
+	    return original_alias_set;
+
+	  if (ptr_points_to)
+	    bitmap_ior_into (conflicting_set, ptr_points_to->may_aliases);
+
+	  /* Do not check stack locations overlap for pointer dereferences.  */
+	  stack_part = -1;
+	}     
+    }
+  
+  /* Stack variable should at least alias itself, dereferenced ptr with empty
+     points-to set is also weird.  */
+  gcc_assert (!bitmap_empty_p (conflicting_set));
+
+  if (!cfun->ext_alias_set_partitions)
+    VARRAY_GENERIC_PTR_INIT (cfun->ext_alias_set_partitions, 128, 
+			     "extended alias sets partitions");
+
+  conflicting_part_num = -1;
+
+  /* Loop through other partitions and see whether T conflicts with any
+     variable from previous function calls.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (cfun->ext_alias_set_partitions); i++)
+    {
+      ext_alias_set_partition_p part = (ext_alias_set_partition_p) 
+        VARRAY_GENERIC_PTR (cfun->ext_alias_set_partitions, i);
+
+	if (bitmap_intersect_p (conflicting_set, part->may_aliases)
+	    || (stack_part >= 0 && bitmap_bit_p (part->stack_partitions,
+						  stack_part)))
+	  {	       
+	    /* Add current points-to into partition's may aliases set,
+	       so conflicting arguments arrived later receive the same
+	       alias set partition.  */	 
+
+	    bitmap_ior_into (part->may_aliases, conflicting_set);
+	    if (stack_part >= 0)
+	      {
+		bitmap_set_bit (part->stack_partitions, stack_part);
+	      }
+	    record_ext_alias_sets_conflict (&conflicting_part_num, i);
+	  }
+    }
+
+  if (conflicting_part_num != -1)
+    {
+      /* If conflicting partition was found.  */
+      HOST_WIDE_INT allocated_alias_set_num =
+	choose_extended_alias_set_num (conflicting_part_num, 
+				       original_alias_set);
+
+      gcc_assert (extended_alias_set_p (allocated_alias_set_num));
+
+      return allocated_alias_set_num;
+    }
+  else
+    {
+      /* Allocate new alias set number and record that it corresponds to
+         original_alias_set old number, and has it's own number as
+         partition number.  */
+
+      HOST_WIDE_INT new_alias_set, last_part_num;
+      ext_alias_set_partition_p part = 
+	ggc_alloc (sizeof (struct ext_alias_set_partition));
+
+      part->may_aliases = bitmap_gc_alloc ();
+      part->stack_partitions = bitmap_gc_alloc ();
+
+      bitmap_ior_into (part->may_aliases, conflicting_set);
+      if (stack_part >= 0)
+	{
+	  bitmap_set_bit (part->stack_partitions, stack_part);
+	}
+
+      /* Create new partition.  */
+      VARRAY_PUSH_GENERIC_PTR (cfun->ext_alias_set_partitions, part);
+      last_part_num = VARRAY_ACTIVE_SIZE (cfun->ext_alias_set_partitions) - 1;
+
+      /* Create new extended alias set with new partition number, we've just 
+	 created.  */
+      new_alias_set = 
+	allocate_extended_alias_set (original_alias_set, last_part_num);
+
+      return new_alias_set;
+    }
 }
 
 /* Return a brand-new alias set.  */
@@ -2133,6 +3165,9 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
   rtx x_addr, mem_addr;
   rtx base;
 
+  /* Calculate all calls to true_dependence with this.  */
+  tse_write_stat ("T");
+
   if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))
     return 1;
 
@@ -2146,6 +3181,11 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
       || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
     return 1;
 
+  /* Check that we are able to disambiguate this with Tree SSA alias export 
+     before all other interesting tests.  */
+  if (tse_nonoverlapping_rtxes_p (x, mem, false))
+    tse_write_stat ("X");
+  
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
 
@@ -2180,6 +3220,14 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
 			    SIZE_FOR_MODE (x), x_addr, 0))
     return 0;
 
+  /* Try to disambiguate mems using info exported from tree-ssa may_alias 
+     pass.  */
+  if (tse_nonoverlapping_rtxes_p (x, mem, false))
+    {
+      tse_write_stat ("x");
+      return 0;
+    }
+
   if (aliases_everything_p (x))
     return 1;
 
@@ -2209,6 +3257,9 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
 {
   rtx x_addr;
 
+  /* Calculate all calls to canon_true_dependence with this.  */
+  tse_write_stat ("C");
+
   if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))
     return 1;
 
@@ -2221,6 +3272,11 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
   if (MEM_ALIAS_SET (x) == ALIAS_SET_MEMORY_BARRIER
       || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
     return 1;
+
+  /* Check that we are able to disambiguate this with Tree SSA alias export 
+     before all other interesting tests.  */
+  if (tse_nonoverlapping_rtxes_p (x, mem, false))
+    tse_write_stat ("G");
 
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
@@ -2244,6 +3300,14 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
 			    SIZE_FOR_MODE (x), x_addr, 0))
     return 0;
 
+  /* Try to disambiguate mems using info exported from tree-ssa may_alias 
+     pass.  */
+  if (tse_nonoverlapping_rtxes_p (x, mem, false))
+    {
+      tse_write_stat ("g");
+      return 0;
+    }
+  
   if (aliases_everything_p (x))
     return 1;
 
@@ -2271,6 +3335,9 @@ write_dependence_p (rtx mem, rtx x, int writep)
   rtx fixed_scalar;
   rtx base;
 
+  /* Calculate all calls to write_dependence with this.  */
+  tse_write_stat ("W");
+
   if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))
     return 1;
 
@@ -2283,6 +3350,11 @@ write_dependence_p (rtx mem, rtx x, int writep)
   if (MEM_ALIAS_SET (x) == ALIAS_SET_MEMORY_BARRIER
       || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
     return 1;
+
+  /* Check that we are able to disambiguate this with Tree SSA alias export 
+     before all other interesting tests.  */
+  if (tse_nonoverlapping_rtxes_p (x, mem, false))
+    tse_write_stat ("V");
 
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
@@ -2316,6 +3388,14 @@ write_dependence_p (rtx mem, rtx x, int writep)
   if (!memrefs_conflict_p (SIZE_FOR_MODE (mem), mem_addr,
 			   SIZE_FOR_MODE (x), x_addr, 0))
     return 0;
+
+  /* Try to disambiguate mems using info exported from tree-ssa may_alias 
+     pass.  */
+  if (tse_nonoverlapping_rtxes_p (x, mem, false))
+    {
+      tse_write_stat ("v");
+      return 0;
+    }
 
   fixed_scalar
     = fixed_scalar_and_varying_struct_p (mem, x, mem_addr, x_addr,
@@ -2590,5 +3670,283 @@ end_alias_analysis (void)
   free (reg_known_equiv_p);
   reg_known_equiv_p = 0;
 }
+
+struct verify_mem_attrs_data_def 
+{
+  /* The MEM that failed the check.  */
+  rtx failed;
+  /* Current insn.  */
+  rtx insn;
+  /* Total number of MEMs met.  */
+  int total_mems;
+  /* MEMs that have MEM_ORIG_EXPRs.  */
+  int have_orig_exprs;
+  /* MEMs that have MEM_EXPRs.  */
+  int have_mem_exprs;
+  /* New MEMs that wasn't created before.  */
+  int new_mems;
+  /* Mems that lost their attributes.  */
+  int lost_mems;
+  /* Mems that corrupted their attributes.  */
+  int corrupted_mems;
+};
+
+/* A struct for saving interesting MEMs.  */
+struct mems_htab_entry_def 
+{
+  /* An interesting MEM.  */
+  rtx mem;
+  /* Corresponding INSN.  */
+  rtx insn;
+  /* Trees that we look at.  */
+  tree mem_expr, orig_expr;
+};
+
+typedef struct verify_mem_attrs_data_def verify_mem_attrs_data;
+typedef struct mems_htab_entry_def mems_htab_entry; 
+/* Hashtabs and functions.  */
+static htab_t mems_have_attrs = NULL;
+static htab_t mems_lost_attrs = NULL;
+static FILE* verify_dump_file = NULL;
+static int verify_callid = 0;
+
+static hashval_t
+mems_htab_hash (const PTR k)
+{
+  mems_htab_entry *entry = (mems_htab_entry *) k;
+  return htab_hash_pointer (entry->mem);
+}
+
+static int
+mems_htab_eq (const PTR k1, const PTR k2)
+{
+  mems_htab_entry *e1 = (mems_htab_entry *) k1;
+  mems_htab_entry *e2 = (mems_htab_entry *) k2;
+
+  return e1->mem == e2->mem;
+}
+
+static void
+print_mem_warning (const char *message, rtx mem, rtx insn)
+{
+  FILE* out_file = verify_dump_file;
+
+  if (!out_file)
+    out_file = stderr;
+  fprintf (out_file, "Pass %d:\t%s\t", verify_callid, message);
+  print_rtl_single (out_file, mem);
+  fprintf (out_file, "Pass %d:\toffending insn:\n\t", verify_callid);
+  print_rtl_single (out_file, insn);
+}
+
+static void 
+print_verify_mems_stats (verify_mem_attrs_data vdata)
+{
+  FILE* out_file = verify_dump_file;
+
+  if (!out_file)
+    out_file = stderr;
+  fprintf (out_file, "Pass %d: scanned %d MEMs, %d have MEM_EXPRS, and %d have MEM_ORIG_EXPRS.\n",
+           verify_callid, vdata.total_mems, vdata.have_mem_exprs, vdata.have_orig_exprs);
+  fprintf (out_file, "Pass %d: created %d new MEMs, %d lost their attrs, and %d corrupted theirs.\n",
+           verify_callid, vdata.new_mems, vdata.lost_mems, vdata.corrupted_mems);
+}
+
+/* Called via for_each_rtx.  Check if MEM_EXPR or ORIG_MEM_EXPRs 
+   are still present.  */
+static int
+find_verify_mems (rtx *px, void *data)
+{
+  int has_data = 0;
+  rtx x = *px;
+  verify_mem_attrs_data *pdata = (verify_mem_attrs_data *) data;
+  mems_htab_entry e, *pe;
+  PTR *slot;
+  
+  if (x == NULL_RTX || GET_CODE (x) != MEM)
+    return 0;
+
+  pdata->total_mems++;
+  if (MEM_ORIG_EXPR (x))
+    {
+      has_data = 1;
+      pdata->have_orig_exprs++;
+    }
+  if (MEM_EXPR (x))
+    {
+      has_data = 1;
+      pdata->have_mem_exprs++;
+    }
+
+  e.mem = x;
+  e.insn = pdata->insn;
+  e.mem_expr = MEM_EXPR (x);
+  e.orig_expr = MEM_ORIG_EXPR (x);
+
+  if (verify_callid == 1)
+    {
+      /* That's the first time we were called, just insert stuff.  */
+      htab_t ht = has_data ? mems_have_attrs : mems_lost_attrs;
+
+      slot = htab_find_slot (ht, (PTR) &e, INSERT);
+      if (!*slot)
+        {
+          pe = xmalloc (sizeof (mems_htab_entry));
+          *pe = e;
+          *slot = (void *) pe;
+        }
+    }
+
+  /* If MEM_EXPR is still attached to MEM, do not proceed further.  */
+  if (has_data)
+    {
+      if (verify_callid > 1)
+        {
+          /* Look at the hashtables and issue warnings.  */
+          slot = htab_find_slot (mems_have_attrs, (PTR) &e, NO_INSERT);
+          if (!slot)
+            {
+              slot = htab_find_slot (mems_lost_attrs, (PTR) &e, NO_INSERT);
+
+              /* A mem cannot magically acquire the attributes.  So this 
+                 should be a new mem.  Insert this into a hashtable.  */
+              gcc_assert (!slot);
+              pdata->new_mems++;
+              slot = htab_find_slot (mems_have_attrs, (PTR) &e, INSERT);
+              pe = xmalloc (sizeof (mems_htab_entry));
+              *pe = e;
+              *slot = (void *) pe;
+            }
+          else
+            {
+              /* Look at the found slot and compare orig exprs.  */
+              mems_htab_entry *pe = (mems_htab_entry *) *slot;
+              if (pe->mem_expr != e.mem_expr || pe->orig_expr != e.orig_expr)
+                {
+                  /* A MEM is in place, but its data is corrupted.  */
+                  pdata->corrupted_mems++;
+                  print_mem_warning ("corrupted data found for mem", x, pdata->insn);
+                }
+            }
+        }
+      return -1;
+    }
+  else if (verify_callid > 1) 
+    {
+      /* No data has been found.  Check hashtables.  */
+      slot = htab_find_slot (mems_lost_attrs, (PTR) &e, NO_INSERT);
+
+      if (!slot)
+        {
+          /* Either that was a good MEM, or it is a new MEM.  */
+          slot = htab_find_slot (mems_have_attrs, (PTR) &e, NO_INSERT);
+          
+          if (slot)
+            {
+              /* That was a good MEM.  Move it to another hashtable.  */
+              pdata->lost_mems++;
+              htab_clear_slot (mems_have_attrs, slot);
+            }
+          else
+            {
+              /* Brand new MEM.  */
+              pdata->new_mems++;
+            }
+          slot = htab_find_slot (mems_lost_attrs, (PTR) &e, INSERT);
+          pe = xmalloc (sizeof (mems_htab_entry));
+          *pe = e;
+          *slot = (void *) pe;
+        }
+    }
+
+  /* If this is a function address, return too.  */
+  if (GET_CODE (XEXP (x, 0)) == SYMBOL_REF)
+    return -1;
+
+  /* Return immediately if no ORIG_EXPR is found.  */
+  pdata->failed = x;
+  return 1;
+}
+
+
+/* Mem attributes verifier pass.  */
+static bool
+gate_verify_mem_attrs (void)
+{
+  return 0;
+}
+
+/* Check that all mems have their attributes in place.  */
+static unsigned int
+verify_mem_attrs (void)
+{
+  basic_block bb;
+  rtx insn;
+  verify_mem_attrs_data vdata = {NULL_RTX, NULL_RTX, 0, 0, 0, 0, 0, 0};
+  int err = 0;
+
+  /* Don't bother check anything after reload.  */
+  if (reload_completed)
+    {
+      if (verify_callid)
+        {
+          htab_delete (mems_have_attrs);
+          htab_delete (mems_lost_attrs);
+          mems_have_attrs = mems_lost_attrs = 0;
+        }
+      /* This call was made to zero the call id.  */
+      verify_callid = 0;
+      return 0;
+    }
+
+  if (!verify_callid)
+    {
+      /* Init hashtables.  */
+      gcc_assert (!mems_have_attrs && !mems_lost_attrs);
+      mems_have_attrs = htab_create (27, mems_htab_hash, mems_htab_eq, free);
+      mems_lost_attrs = htab_create (27, mems_htab_hash, mems_htab_eq, free);
+    }
+  
+  verify_callid++;
+
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+      if (INSN_P (insn) && !CALL_P (insn))
+        {
+          vdata.insn = insn;
+          if (for_each_rtx (&PATTERN (insn), find_verify_mems, &vdata))
+            {
+              err = 1;
+              print_mem_warning ("bad mem attrs for MEM:", vdata.failed, insn);
+            }
+        }
+#if 0
+  if (err)
+    {
+
+      internal_error ("verify_mem_attrs failed");
+    }
+#endif
+
+  print_verify_mems_stats (vdata);
+  return 0;
+}
+
+struct tree_opt_pass pass_verify_mem_attrs =
+{
+  "verify_mem_attrs",                   /* name */
+  gate_verify_mem_attrs,                     /* gate */   
+  verify_mem_attrs,			/* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_REST_OF_COMPILATION,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  'Y'                                   /* letter */
+};
 
 #include "gt-alias.h"

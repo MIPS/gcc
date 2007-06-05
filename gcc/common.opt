@@ -426,6 +426,14 @@ fearly-inlining
 Common Report Var(flag_early_inlining) Init(1) Optimization
 Perform early inlining
 
+fpropagate-points-to-sets
+Common Report Var(flag_propagate_points_to_sets)
+Propagate points-to sets from tree-ssa aliasing and use them for mems disambiguation in rtl
+
+fpropagate-alias-sets
+Common Report Var(flag_propagate_alias_sets)
+Propagate tree-ssa aliasing information through alias set numbers
+
 feliminate-dwarf2-dups
 Common Report Var(flag_eliminate_dwarf2_dups)
 Perform DWARF2 duplicate elimination

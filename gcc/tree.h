@@ -4533,6 +4533,11 @@ extern tree strip_float_extensions (tree);
 /* In alias.c */
 extern void record_component_aliases (tree);
 extern HOST_WIDE_INT get_alias_set (tree);
+extern HOST_WIDE_INT get_extended_alias_set (tree);
+extern HOST_WIDE_INT get_original_alias_set (HOST_WIDE_INT);
+extern HOST_WIDE_INT get_extended_alias_set_part_num (HOST_WIDE_INT);
+extern bool extended_alias_set_p (HOST_WIDE_INT set);
+
 extern int alias_sets_conflict_p (HOST_WIDE_INT, HOST_WIDE_INT);
 extern int alias_sets_might_conflict_p (HOST_WIDE_INT, HOST_WIDE_INT);
 extern int objects_must_conflict_p (tree, tree);
