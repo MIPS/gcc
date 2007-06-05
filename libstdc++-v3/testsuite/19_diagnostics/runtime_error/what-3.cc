@@ -26,7 +26,7 @@
 #include <cstring>
 #include <testsuite_hooks.h>
 
-// test copy ctors and assignment operators
+// test copy ctors, assignment operators, and persistence of member string data
 // libstdc++/1972
 // via Greg Bumgardner <bumgard@roguewave.com>
 void allocate_on_stack(void) 
@@ -36,6 +36,7 @@ void allocate_on_stack(void)
   for (size_t i = 0; i < num; i++) 
     array[i]=0;
 }
+
 void test04()
 {
   bool test __attribute__((unused)) = true;

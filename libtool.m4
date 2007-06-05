@@ -1439,29 +1439,35 @@ AC_CACHE_VAL([lt_cv_sys_max_cmd_len], [dnl
     fi
     ;;
   *)
-    # Make teststring a little bigger before we do anything with it.
-    # a 1K string should be a reasonable start.
-    for i in 1 2 3 4 5 6 7 8 ; do
-      teststring=$teststring$teststring
-    done
-    SHELL=${SHELL-${CONFIG_SHELL-/bin/sh}}
-    # If test is not a shell built-in, we'll probably end up computing a
-    # maximum length that is only half of the actual maximum length, but
-    # we can't tell.
-    while { test "X"`$SHELL [$]0 --fallback-echo "X$teststring$teststring" 2>/dev/null` \
-	       = "XX$teststring$teststring"; } >/dev/null 2>&1 &&
-	    test $i != 17 # 1/2 MB should be enough
-    do
-      i=`expr $i + 1`
-      teststring=$teststring$teststring
-    done
-    # Only check the string length outside the loop.
-    lt_cv_sys_max_cmd_len=`expr "X$teststring" : ".*" 2>&1`
-    teststring=
-    # Add a significant safety factor because C++ compilers can tack on massive
-    # amounts of additional arguments before passing them to the linker.
-    # It appears as though 1/2 is a usable value.
-    lt_cv_sys_max_cmd_len=`expr $lt_cv_sys_max_cmd_len \/ 2`
+    lt_cv_sys_max_cmd_len=`getconf ARG_MAX 2> /dev/null`
+    if test -n $lt_cv_sys_max_cmd_len; then
+      lt_cv_sys_max_cmd_len=`expr $lt_cv_sys_max_cmd_len \/ 4`
+      lt_cv_sys_max_cmd_len=`expr $lt_cv_sys_max_cmd_len \* 3`
+    else
+      # Make teststring a little bigger before we do anything with it.
+      # a 1K string should be a reasonable start.
+      for i in 1 2 3 4 5 6 7 8 ; do
+        teststring=$teststring$teststring
+      done
+      SHELL=${SHELL-${CONFIG_SHELL-/bin/sh}}
+      # If test is not a shell built-in, we'll probably end up computing a
+      # maximum length that is only half of the actual maximum length, but
+      # we can't tell.
+      while { test "X"`$SHELL [$]0 --fallback-echo "X$teststring$teststring" 2>/dev/null` \
+	         = "XX$teststring$teststring"; } >/dev/null 2>&1 &&
+	      test $i != 17 # 1/2 MB should be enough
+      do
+        i=`expr $i + 1`
+        teststring=$teststring$teststring
+      done
+      # Only check the string length outside the loop.
+      lt_cv_sys_max_cmd_len=`expr "X$teststring" : ".*" 2>&1`
+      teststring=
+      # Add a significant safety factor because C++ compilers can tack on
+      # massive amounts of additional arguments before passing them to the
+      # linker.  It appears as though 1/2 is a usable value.
+      lt_cv_sys_max_cmd_len=`expr $lt_cv_sys_max_cmd_len \/ 2`
+    fi
     ;;
   esac
 ])
@@ -6757,14 +6763,9 @@ _LT_TAG_COMPILER
 _LT_COMPILER_BOILERPLATE
 _LT_LINKER_BOILERPLATE
 
-# We can't call gcj to test gcj features when building libjava in gcc
-# since gcj may depend on ecj1 which may not be available yet.  We use
-# gcc to test gcj features.
-ac_ext=c
-lt_simple_compile_test_code="int some_variable = 0;"
-lt_simple_link_test_code='int main(){return(0);}'
-
 # Allow CC to be a program name with arguments.
+lt_save_CC="$CC"
+CC=${GCJ-"gcj"}
 compiler=$CC
 _LT_TAGVAR(compiler, $1)=$CC
 _LT_CC_BASENAME([$compiler])
@@ -6791,6 +6792,7 @@ if test -n "$compiler"; then
 fi
 
 AC_LANG_RESTORE
+CC="$lt_save_CC"
 ])# _LT_LANG_GCJ_CONFIG
 
 

@@ -46,6 +46,7 @@ Boston, MA 02110-1301, USA.  */
 #define TARGET_SSE3	OPTION_ISA_SSE3
 #define TARGET_SSSE3	OPTION_ISA_SSSE3
 #define TARGET_SSE4_1	OPTION_ISA_SSE4_1
+#define TARGET_SSE4_2	OPTION_ISA_SSE4_2
 #define TARGET_SSE4A	OPTION_ISA_SSE4A
 
 #include "config/vxworks-dummy.h"
@@ -568,6 +569,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	builtin_define ("__SSSE3__");				\
       if (TARGET_SSE4_1)					\
 	builtin_define ("__SSE4_1__");				\
+      if (TARGET_SSE4_2)					\
+	builtin_define ("__SSE4_2__");				\
       if (TARGET_SSE4A)						\
  	builtin_define ("__SSE4A__");		                \
       if (TARGET_SSE_MATH && TARGET_SSE)			\
@@ -1265,6 +1268,7 @@ enum reg_class
   GENERAL_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp %esp %r8 - %r15*/
   FP_TOP_REG, FP_SECOND_REG,	/* %st(0) %st(1) */
   FLOAT_REGS,
+  SSE_FIRST_REG,
   SSE_REGS,
   MMX_REGS,
   FP_TOP_SSE_REGS,
@@ -1283,7 +1287,7 @@ enum reg_class
 #define FLOAT_CLASS_P(CLASS) \
   reg_class_subset_p ((CLASS), FLOAT_REGS)
 #define SSE_CLASS_P(CLASS) \
-  ((CLASS) == SSE_REGS)
+  reg_class_subset_p ((CLASS), SSE_REGS)
 #define MMX_CLASS_P(CLASS) \
   ((CLASS) == MMX_REGS)
 #define MAYBE_INTEGER_CLASS_P(CLASS) \
@@ -1311,6 +1315,7 @@ enum reg_class
    "GENERAL_REGS",			\
    "FP_TOP_REG", "FP_SECOND_REG",	\
    "FLOAT_REGS",			\
+   "SSE_FIRST_REG",			\
    "SSE_REGS",				\
    "MMX_REGS",				\
    "FP_TOP_SSE_REGS",			\
@@ -1338,6 +1343,7 @@ enum reg_class
   { 0x1100ff,  0x1fe0 },		/* GENERAL_REGS */		\
      { 0x100,     0x0 }, { 0x0200, 0x0 },/* FP_TOP_REG, FP_SECOND_REG */\
     { 0xff00,     0x0 },		/* FLOAT_REGS */		\
+  { 0x200000,     0x0 },		/* SSE_FIRST_REG */		\
 { 0x1fe00000,0x1fe000 },		/* SSE_REGS */			\
 { 0xe0000000,    0x1f },		/* MMX_REGS */			\
 { 0x1fe00100,0x1fe000 },		/* FP_TOP_SSE_REG */		\

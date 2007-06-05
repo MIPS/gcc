@@ -1196,7 +1196,8 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 	      gfc_add_expr_to_block (&body, tmp);
 
 	      *poffset = fold_build2 (PLUS_EXPR, gfc_array_index_type,
-				      *poffset, build_int_cst (NULL_TREE, n));
+				      *poffset,
+				      build_int_cst (gfc_array_index_type, n));
 	    }
 	  if (!INTEGER_CST_P (*poffset))
             {
@@ -1635,8 +1636,18 @@ gfc_trans_array_constructor (gfc_loopinfo * loop, gfc_ss * ss)
       if (!ss->string_length)
 	gfc_todo_error ("complex character array constructors");
 
-      ss->expr->ts.cl->backend_decl = ss->string_length;
+      /* It is surprising but still possible to wind up with expressions that
+	 lack a character length.
+	 TODO Find the offending part of the front end and cure this properly.
+	 Concatenation involving arrays is the main culprit.  */
+      if (!ss->expr->ts.cl)
+	{
+	  ss->expr->ts.cl = gfc_get_charlen ();
+	  ss->expr->ts.cl->next = gfc_current_ns->cl_list;
+	  gfc_current_ns->cl_list = ss->expr->ts.cl->next;
+	}
 
+      ss->expr->ts.cl->backend_decl = ss->string_length;
 
       type = gfc_get_character_type_len (ss->expr->ts.kind, ss->string_length);
       if (const_string)
@@ -4808,7 +4819,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
 {
   tree ptr;
   tree desc;
-  tree tmp;
+  tree tmp = NULL_TREE;
   tree stmt;
   tree parent = DECL_CONTEXT (current_function_decl);
   bool full_array_var, this_array_result;

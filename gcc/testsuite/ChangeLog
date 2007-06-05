@@ -1,3 +1,147 @@
+2007-06-05  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wstrict-overflow-19.c: New test.
+
+2007-06-05  Razya Ladelsky  <razya@il.ibm.com>
+
+	* gcc.dg/matrix/matrix-6.c: Remove conversion.
+
+2007-06-04  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wstrict-overflow-18.c: New test.
+
+2007-06-04  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR testsuite/25241
+	* gcc.dg/cpp/mi1.c: Use dg-message for output that is not an error.
+	* gcc.dg/cpp/mi5.c: Likewise.
+	* gcc.dg/cpp/mi7.c: Likewise.
+
+2007-06-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR c/32191
+	* gcc.dg/pr32191.c: New test.
+
+2007-05-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32124
+	* gfortran.dg/allocate_stat_1.f90: Remove.
+
+2007-06-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/sse4_2-check.h: New.
+	* gcc.target/i386/sse4_2-crc32b.c: Likewise.
+	* gcc.target/i386/sse4_2-crc32.h: Likewise.
+	* gcc.target/i386/sse4_2-crc32l.c: Likewise.
+	* gcc.target/i386/sse4_2-crc32q.c: Likewise.
+	* gcc.target/i386/sse4_2-crc32w.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpestri-1.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpestri-2.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpestrm-1.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpestrm-2.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpgtq.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpistri-1.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpistri-2.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpistrm-1.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpistrm-2.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpstr.h: Likewise.
+	* gcc.target/i386/sse4_2-popcnt.h: Likewise.
+	* gcc.target/i386/sse4_2-popcntl.c: Likewise.
+	* gcc.target/i386/sse4_2-popcntq.c: Likewise.
+
+2007-06-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pie-link.c: New test.
+
+2007-06-01  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wstrict-overflow-17.c: New test.
+
+2007-06-01  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc.dg/builtin-return-1.c (g): New.
+	(main): Allocate at least 64 bytes on the stack.
+
+2007-05-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/cleanup3.C: New test.
+
+2007-05-31  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	* gcc.c-torture/compile/limits-caselabels.c: Fix for targets where
+	int is 16 bits.
+
+007-05-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32156
+	* gfortran.dg/char_array_constructor_3.f90: New test.
+
+2007-05-31  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/32160
+	* gfortran.dg/predcom-1.f: New test.
+
+2007-05-31  Richard Guenther  <rguenther@suse.de>
+
+	* g++.dg/other/str_empty.C: Move...
+	* g++.dg/other/pr30567.C: Move...
+	* g++.dg/tree-ssa/pr27218.C: Move...
+	* g++.dg/torture: ...here and remove dg-options.
+
+2007-05-31  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/32158
+	* g++.dg/ext/is_pod_incomplete.C: New.
+
+2007-05-31  Russell Yanofsky <russ@yanofsky.org>
+            Douglas Gregor <doug.gregor@gmail.com>
+            Pedro Lamarao <pedro.lamarao@mndfck.org>
+            Howard Hinnant <howard.hinnant@gmail.com>
+
+	PR c++/7412
+	PR c++/29939
+        * g++.dg/cpp0x/rv8p.C: New.
+        * g++.dg/cpp0x/temp-constructor-bug.C: New.
+        * g++.dg/cpp0x/cast-bug.C: New.
+        * g++.dg/cpp0x/elision_weak.C: New.
+        * g++.dg/cpp0x/collapse-bug.C: New.
+        * g++.dg/cpp0x/rv3p.C: New.
+        * g++.dg/cpp0x/rv7n.C: New.
+        * g++.dg/cpp0x/overload-conv-1.C: New.
+        * g++.dg/cpp0x/rv2n.C: New.
+        * g++.dg/cpp0x/deduce.C: New.
+        * g++.dg/cpp0x/temp-va-arg-bug.C: New.
+        * g++.dg/cpp0x/rv6p.C: New.
+        * g++.dg/cpp0x/template_deduction.C: New.
+        * g++.dg/cpp0x/implicit-copy.C: New.
+        * g++.dg/cpp0x/rv1p.C: New.
+        * g++.dg/cpp0x/cast.C: New.
+        * g++.dg/cpp0x/rv5n.C: New.
+        * g++.dg/cpp0x/collapse.C: New.
+        * g++.dg/cpp0x/overload-conv-2.C: New.
+        * g++.dg/cpp0x/rv4p.C: New.
+	* g++.dg/cpp0x/rvo.C: New.
+        * g++.dg/cpp0x/iop.C: New.
+        * g++.dg/cpp0x/rv3n.C: New.
+        * g++.dg/cpp0x/rv7p.C: New.
+        * g++.dg/cpp0x/reference_collapsing.C: New.
+        * g++.dg/cpp0x/overload.C: New.
+        * g++.dg/cpp0x/named.C: New.
+        * g++.dg/cpp0x/rv2p.C: New.
+        * g++.dg/cpp0x/rv6n.C: New.
+        * g++.dg/cpp0x/not_special.C: New.
+        * g++.dg/cpp0x/bind.C: New.
+        * g++.dg/cpp0x/rv1n.C: New.
+        * g++.dg/cpp0x/rv5p.C: New.
+        * g++.dg/cpp0x/elision.C: New.
+        * g++.dg/cpp0x/named_refs.C: New.
+        * g++.dg/cpp0x/unnamed_refs.C: New.
+        * g++.dg/cpp0x/rv4n.C: New.
+        * g++.dg/cpp0x/elision_neg.C: New.
+        * g++.dg/init/copy7.C: Run in C++98 mode.
+        * g++.dg/overload/arg1.C: Ditto.
+        * g++.dg/overload/arg4.C: Ditto.
+
 2007-05-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/31809
@@ -40,7 +184,7 @@
 
 2007-05-28  Razya Ladelsky  <razya@il.ibm.com>
 
-        * gcc.dg/matrix: New directory.
+	* gcc.dg/matrix: New directory.
 
 2007-05-28  Tobias Burnus  <burnus@net-b.de>
 

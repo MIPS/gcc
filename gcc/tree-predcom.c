@@ -628,6 +628,13 @@ determine_offset (struct data_reference *a, struct data_reference *b,
 		  double_int *off)
 {
   aff_tree diff, baseb, step;
+  tree typea, typeb;
+
+  /* Check that both the references access the location in the same type.  */
+  typea = TREE_TYPE (DR_REF (a));
+  typeb = TREE_TYPE (DR_REF (b));
+  if (!tree_ssa_useless_type_conversion_1 (typeb, typea))
+    return false;
 
   /* Check whether the base address and the step of both references is the
      same.  */
@@ -1225,7 +1232,7 @@ replace_ref_with (tree stmt, tree new, bool set, bool in_lhs)
       remove_phi_node (stmt, NULL_TREE, false);
 
       /* Turn the phi node into GIMPLE_MODIFY_STMT.  */
-      new_stmt = build_gimple_modify_stmt_stat (val, new);
+      new_stmt = build_gimple_modify_stmt (val, new);
       SSA_NAME_DEF_STMT (val) = new_stmt;
       bsi_insert_before (&bsi, new_stmt, BSI_NEW_STMT);
       return;
@@ -1271,7 +1278,7 @@ replace_ref_with (tree stmt, tree new, bool set, bool in_lhs)
 	 NEW = VAL  */
     }
 
-  new_stmt = build_gimple_modify_stmt_stat (new, unshare_expr (val));
+  new_stmt = build_gimple_modify_stmt (new, unshare_expr (val));
   bsi_insert_after (&bsi, new_stmt, BSI_NEW_STMT);
   SSA_NAME_DEF_STMT (new) = new_stmt;
 }
@@ -1401,6 +1408,26 @@ mark_virtual_ops_for_renaming_list (tree list)
     mark_virtual_ops_for_renaming (tsi_stmt (tsi));
 }
 
+/* Returns a new temporary variable used for the I-th variable carrying
+   value of REF.  The variable's uid is marked in TMP_VARS.  */
+
+static tree
+predcom_tmp_var (tree ref, unsigned i, bitmap tmp_vars)
+{
+  tree type = TREE_TYPE (ref);
+  tree var = create_tmp_var (type, get_lsm_tmp_name (ref, i));
+
+  /* We never access the components of the temporary variable in predictive
+     commoning.  */
+  if (TREE_CODE (type) == COMPLEX_TYPE
+      || TREE_CODE (type) == VECTOR_TYPE)
+    DECL_GIMPLE_REG_P (var) = 1;
+
+  add_referenced_var (var);
+  bitmap_set_bit (tmp_vars, DECL_UID (var));
+  return var;
+}
+
 /* Creates the variables for CHAIN, as well as phi nodes for them and
    initialization on entry to LOOP.  Uids of the newly created
    temporary variables are marked in TMP_VARS.  */
@@ -1429,9 +1456,7 @@ initialize_root_vars (struct loop *loop, chain_p chain, bitmap tmp_vars)
 
   for (i = 0; i < n + (reuse_first ? 0 : 1); i++)
     {
-      var = create_tmp_var (TREE_TYPE (ref), get_lsm_tmp_name (ref, i));
-      add_referenced_var (var);
-      bitmap_set_bit (tmp_vars, DECL_UID (var));
+      var = predcom_tmp_var (ref, i, tmp_vars);
       VEC_quick_push (tree, chain->vars, var);
     }
   if (reuse_first)
@@ -1499,9 +1524,7 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
   init = VEC_index (tree, inits, 0);
 
   *vars = VEC_alloc (tree, heap, written ? 2 : 1);
-  var = create_tmp_var (TREE_TYPE (ref), get_lsm_tmp_name (ref, 0));
-  add_referenced_var (var);
-  bitmap_set_bit (tmp_vars, DECL_UID (var));
+  var = predcom_tmp_var (ref, 0, tmp_vars);
   VEC_quick_push (tree, *vars, var);
   if (written)
     VEC_quick_push (tree, *vars, VEC_index (tree, *vars, 0));
@@ -1528,7 +1551,7 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
     }
   else
     {
-      init = build_gimple_modify_stmt_stat (var, init);
+      init = build_gimple_modify_stmt (var, init);
       SSA_NAME_DEF_STMT (var) = init;
       mark_virtual_ops_for_renaming (init);
       bsi_insert_on_edge_immediate (entry, init);
@@ -2169,14 +2192,14 @@ reassociate_to_the_same_stmt (tree name1, tree name2)
   var = create_tmp_var (type, "predreastmp");
   add_referenced_var (var);
   new_name = make_ssa_name (var, NULL_TREE);
-  new_stmt = build_gimple_modify_stmt_stat (new_name,
+  new_stmt = build_gimple_modify_stmt (new_name,
 			    fold_build2 (code, type, name1, name2));
   SSA_NAME_DEF_STMT (new_name) = new_stmt;
 
   var = create_tmp_var (type, "predreastmp");
   add_referenced_var (var);
   tmp_name = make_ssa_name (var, NULL_TREE);
-  tmp_stmt = build_gimple_modify_stmt_stat (tmp_name,
+  tmp_stmt = build_gimple_modify_stmt (tmp_name,
 					    GIMPLE_STMT_OPERAND (s1, 1));
   SSA_NAME_DEF_STMT (tmp_name) = tmp_stmt;
 

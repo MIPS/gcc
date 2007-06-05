@@ -259,7 +259,7 @@ dump_bb (basic_block bb, FILE *outf, int indent)
   edge_iterator ei;
   char *s_indent;
 
-  s_indent = alloca ((size_t) indent + 1);
+  s_indent = (char *) alloca ((size_t) indent + 1);
   memset (s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
@@ -735,11 +735,11 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
 
   if (dom_info_available_p (CDI_DOMINATORS))
     {
-      basic_block doms_to_fix[2];
-
-      doms_to_fix[0] = dummy;
-      doms_to_fix[1] = bb;
-      iterate_fix_dominators (CDI_DOMINATORS, doms_to_fix, 2);
+      VEC (basic_block, heap) *doms_to_fix = VEC_alloc (basic_block, heap, 2);
+      VEC_quick_push (basic_block, doms_to_fix, dummy);
+      VEC_quick_push (basic_block, doms_to_fix, bb);
+      iterate_fix_dominators (CDI_DOMINATORS, doms_to_fix, false);
+      VEC_free (basic_block, heap, doms_to_fix);
     }
 
   if (current_loops != NULL)
@@ -1043,10 +1043,10 @@ extract_cond_bb_edges (basic_block b, edge *e1, edge *e2)
    new condition basic block that guards the versioned loop.  */
 void
 lv_adjust_loop_header_phi (basic_block first, basic_block second,
-			   basic_block new, edge e)
+			   basic_block new_block, edge e)
 {
   if (cfg_hooks->lv_adjust_loop_header_phi)
-    cfg_hooks->lv_adjust_loop_header_phi (first, second, new, e);
+    cfg_hooks->lv_adjust_loop_header_phi (first, second, new_block, e);
 }
 
 /* Conditions in trees and RTL are different so we need
@@ -1054,8 +1054,8 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
    versioning code.  */
 void
 lv_add_condition_to_bb (basic_block first, basic_block second,
-			basic_block new, void *cond)
+			basic_block new_block, void *cond)
 {
   gcc_assert (cfg_hooks->lv_add_condition_to_bb);
-  cfg_hooks->lv_add_condition_to_bb (first, second, new, cond);
+  cfg_hooks->lv_add_condition_to_bb (first, second, new_block, cond);
 }

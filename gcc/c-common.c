@@ -2357,10 +2357,10 @@ min_precision (tree value, int unsignedp)
 }
 
 /* Print an error message for invalid operands to arith operation
-   CODE.  */
+   CODE with TYPE0 for operand 0, and TYPE1 for operand 1.  */
 
 void
-binary_op_error (enum tree_code code)
+binary_op_error (enum tree_code code, tree type0, tree type1)
 {
   const char *opname;
 
@@ -2411,7 +2411,8 @@ binary_op_error (enum tree_code code)
     default:
       gcc_unreachable ();
     }
-  error ("invalid operands to binary %s", opname);
+  error ("invalid operands to binary %s (have %qT and %qT)", opname,
+	 type0, type1);
 }
 
 /* Subroutine of build_binary_op, used for comparison operations.
@@ -3302,16 +3303,16 @@ c_common_get_alias_set (tree t)
       tree t2;
       /* Find bottom type under any nested POINTERs.  */
       for (t2 = TREE_TYPE (t);
-     TREE_CODE (t2) == POINTER_TYPE;
-     t2 = TREE_TYPE (t2))
-  ;
+	   TREE_CODE (t2) == POINTER_TYPE;
+	   t2 = TREE_TYPE (t2))
+	;
       if (TREE_CODE (t2) != RECORD_TYPE
-    && TREE_CODE (t2) != ENUMERAL_TYPE
-    && TREE_CODE (t2) != QUAL_UNION_TYPE
-    && TREE_CODE (t2) != UNION_TYPE)
-  return -1;
+	  && TREE_CODE (t2) != ENUMERAL_TYPE
+	  && TREE_CODE (t2) != QUAL_UNION_TYPE
+	  && TREE_CODE (t2) != UNION_TYPE)
+	return -1;
       if (TYPE_SIZE (t2) == 0)
-  return -1;
+	return -1;
     }
   /* These are the only cases that need special handling.  */
   if (TREE_CODE (t) != RECORD_TYPE
@@ -3628,9 +3629,10 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 #include "builtins.def"
 #undef DEF_BUILTIN
 
+  targetm.init_builtins ();
+
   build_common_builtin_nodes ();
 
-  targetm.init_builtins ();
   if (flag_mudflap)
     mudflap_init ();
 }

@@ -1,3 +1,403 @@
+2007-06-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/32215
+	* tree-vectorizer.c (supportable_widening_operation): Return false
+	for unsupported FIX_TRUNC_EXPR tree code.
+	(supportable_narrowing_operation): Ditto for FLOAT_EXPR tree code.
+
+2007-06-06  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/rs6000/rs6000.h (FIXED_SCRATCH): Use r0 as a scratch
+	register on SPE targets.  Change documentation to reflect
+	reality.
+	* config/rs6000/rs6000.c (rs6000_conditional_register_usage):
+	Change FIXED_SCRATCH to 14 and document why we're keeping r14
+	out of the register allocation pool.
+	(rs6000_reg_live_or_pic_offset_p): New function.
+	(rs6000_emit_prologue): Move the actual saving of LR up to free
+	r0 for holding r11.  Split saving of SPE 64-bit registers into
+	its own case.  Ensure that offsets will always be in-range for
+	'evstdd' by using r11 as a scratch register to point at the start
+	of the SPE save area.  Save r11 if necessary, as it is the static
+	chain register.
+	(rs6000_emit_epilogue): Split restoring of SPE 64-bit registers
+	into its own case.  Ensure that offsets will always be in-range
+	for 'evldd' by using r11 as a scratch register to point at the
+	start of the SPE save area.  Also adjust r11 when restoring
+	the stack pointer to compensate for pre-loading r11.
+
+2007-06-05  Thomas Neumann  <tneumann@users.sourceforge.net>
+
+	* cfg.c (init_flow): Use type safe memory macros.
+	(alloc_block): Likewise.
+	(unchecked_make_edge): Likewise.
+	(dump_flow_info): Avoid using C++ keywords as variable names.
+	(copy_original_table_clear): Cast according to the coding conventions.
+	(copy_original_table_set): Likewise.
+	* cfgexpand (label_rtx_for_bb): Likewise.
+	(expand_gimple_basic_block): Likewise.
+	* cfghooks.c (dump_bb): Likewise.
+	(lv_adjust_loop_header_phi): Avoid using C++ keywords as variable names.
+	(lv_add_condition_to_bb): Likewise.
+	* cfglayout (relink_block_chain): Cast according to the coding
+	conventions.
+	(fixup_reorder_chain): Likewise.
+	(fixup_fallthru_exit_predecessor): Likewise.
+	* cfgloop.c (glb_enum_p): Likewise.
+	(get_exit_description): Likewise.
+	(dump_recorded_exit): Likewise.
+	* cfgloop.h (enum loop_estimation): Move out of struct scope...
+	(struct loop): ... from here.
+	* cfgloopmanip.c (rpe_enum_p): Cast according to the coding conventions.
+	* cfgrtl.c (rtl_create_basic_block): Likewise.
+	(rtl_split_block): Likewise.
+	(rtl_dump_bb): Likewise.
+	(cfg_layout_split_block): Likewise.
+	(init_rtl_bb_info): Use typesafe memory macros.
+
+	* graphds.h (struct graph_edge): Renamed edge to graph_edge.
+	* graphds.h: Updated all usages of edge to graph_edge.
+	* graphds.c: Likewise.
+	* cfgloopanal.c: Likewise.
+
+2007-06-05  Ian Lance Taylor  <iant@google.com>
+
+	* tree-vrp.c (compare_values_warnv): Check TREE_NO_WARNING on a
+	PLUS_EXPR or MINUS_EXPR node before setting *strict_overflow_p.
+	(extract_range_from_assert): Set TREE_NO_WARNING when creating an
+	expression.
+	(test_for_singularity): Likewise.
+
+2007-06-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/constraints.md ("Y2"): Replaced by ...
+	("Yt"): This.
+	* config/i386/i386.md: Likewise.
+	* config/i386/mmx.md: Likewise.
+	* config/i386/sse.md: Likewise.
+
+2007-06-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/constraints.md ("z"): Replaced by ...
+	("Y0"): This.
+	* config/i386/sse.md (sse4_1_blendvpd): Likewise.
+	(sse4_1_blendvps): Likewise.
+	(sse4_1_pblendvb): Likewise.
+	(sse4_2_pcmpestr): Likewise.
+	(sse4_2_pcmpestrm): Likewise.
+	(sse4_2_pcmpestr_cconly): Likewise.
+	(sse4_2_pcmpistr): Likewise.
+	(sse4_2_pcmpistrm): Likewise.
+	(sse4_2_pcmpistr_cconly): Likewise.
+
+2007-06-05  Razya Ladelsky  <razya@il.ibm.com>
+
+	* matrix-reorg.c (transform_access_sites): Fix computation.
+	(transform_allocation_sites): Same.
+
+2007-06-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (override_options): Use
+	TARGET_SUBTARGET32_ISA_DEFAULT to select default ix86_isa_flags.
+
+2007-06-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/predicates.md (reg_not_xmm0_operand): New predicate.
+	(nonimm_not_xmm0_operand): Ditto.
+	* config/i386/sse.md ("sse4_1_blendvpd"): Use "reg_not_xmm0_operand"
+	as operand[0] and operand[1] predicate.  Use "nonimm_not_xmm0_operand"
+	as operand[2] predicate.  Require "z" class XMM register for
+	operand[3].  Adjust asm template.
+	("sse4_1_blendvpd"): Ditto.
+	("sse4_1_pblendvb"): Ditto.
+ 	* config/i386/i386.c (ix86_expand_sse_4_operands_builtin): Do not
+	force op2 into xmm0 register for variable blend instructions.
+
+2007-06-04  Tom Tromey  <tromey@redhat.com>
+
+	* c-tree.h (start_enum): Update.
+	(build_enumerator): Likewise.
+	* c-decl.c (enum_next_value): Removed.
+	(enum_overflow): Likewise.
+	(start_enum): Add c_enum_contents argument.  Don't use globals.
+	(build_enumerator): Likewise.
+	* c-tree.h (struct c_enum_contents): New struct.
+
+2007-06-04  Tom Tromey  <tromey@redhat.com>
+
+	* c-common.c (c_common_get_alias_set): Fix indentation.
+
+2007-06-04  Ian Lance Taylor  <iant@google.com>
+
+	* tree-vrp.c (adjust_range_with_scev): When loop is not expected
+	to overflow, reduce overflow infinity to regular infinity.
+	(vrp_var_may_overflow): New static function.
+	(vrp_visit_phi_node): Check vrp_var_may_overflow.
+
+2007-06-04  Kazu Hirata  <kazu@codesourcery.com>
+
+	* stor-layout.c (layout_type): Remove duplicate code.
+
+2007-06-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR c/32191
+	* gcc/c-common.c (c_define_builtins): Call targetm.init_builtins ()
+	before build_common_builtin_nodes ().
+
+2007-06-04  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/31733
+	* cfgrtl.c (rtl_verify_flow_info): Skip notes when looking for barrier.
+
+2007-05-31  Jan Hubicka  <jh@suse.cz>
+
+	* tree-predcom.c (replace_ref_with, initialize_root_vars_lm,
+	reassociate_to_the_same_stmt): Call build_gimple_modify_stmt
+	instead of _stat version.
+
+2007-06-03  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/32194
+	* tree-predcom.c (determine_offset): Check that both references have
+	the same type.
+
+2007-06-03  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* cfgloopmanip.c (remove_path, loopify, duplicate_loop_to_header_edge):
+	Change dom_bbs to vector.  Add argument to iterate_fix_dominators call.
+	* loop-unroll.c (unroll_loop_runtime_iterations): Ditto.
+	* tree-cfg.c (tree_duplicate_sese_region): Change doms to vector.
+	Add argument to iterate_fix_dominators call.
+	(remove_edge_and_dominated_blocks): Pass vector to bbs_to_fix_dom.
+	* gcse.c (hoist_code): Change domby to vector.
+	* cfghooks.c (make_forwarder_block): Change doms_to_fix to vector.
+	Add argument to iterate_fix_dominators call.
+	* loop-doloop.c (doloop_modify): Changed recount_dominator to
+	recompute_dominator.
+	* lambda-code.c (perfect_nestify): Ditto.
+	* cfgloopanal.c: Include graphds.h.
+	(struct edge, struct vertex, struct graph, dump_graph, new_graph,
+	add_edge, dfs, for_each_edge, free_graph): Moved to graphds.c.
+	(mark_irreducible_loops): Use graphds_scc.  Remove argument from
+	add_edge call.
+	* graphds.c: New file.
+	* graphds.h: New file.
+	* dominance.c: Include vecprim.h, pointer-set.h and graphds.h.
+	(get_dominated_by, get_dominated_by_region): Change return type to
+	vector.
+	(verify_dominators): Recompute all dominators and compare the results.
+	(recount_dominator): Renamed to ...
+	(recompute_dominator): ... this.  Do not check that the block is
+	dominated by entry.
+	(iterate_fix_dominators): Reimplemented.
+	(prune_bbs_to_update_dominators, root_of_dom_tree,
+	determine_dominators_for_sons): New functions.
+	* et-forest.c (et_root): New function.
+	* et-forest.h (et_root): Declare.
+	* Makefile.in (graphds.o): Add.
+	(cfgloopanal.o): Add graphds.h dependency.
+	(dominance.o): Add graphds.h, vecprim.h and pointer-set.h dependency.
+	* basic-block.h (get_dominated_by, get_dominated_by_region,
+	iterate_fix_dominators): Declaration changed.
+	(recount_dominator): Renamed to ...
+	(recompute_dominator): ... this.
+	* tree-ssa-threadupdate.c (thread_block): Free dominance info.
+	(thread_through_all_blocks): Do not free dominance info.
+
+2007-06-03  Andreas Schwab  <schwab@suse.de>
+
+	* config/m68k/m68k.c (override_options): Don't override
+	REAL_MODE_FORMAT.
+	* config/m68k/m68k-modes.def (SF, DF): Define to use
+	motorola_single_format and motorola_double_format, resp.
+	* real.c (motorola_single_format): Renamed from
+	coldfire_single_format.
+	(motorola_double_format): Renamed from coldfire_double_format.
+	(encode_ieee_extended): Generate a proper canonical NaN image
+	respecting canonical_nan_lsbs_set.
+	(ieee_extended_motorola_format): Set canonical_nan_lsbs_set to
+	true.
+	* real.h: Adjust declarations.
+
+2007-06-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/32163
+	* config/sh/sh.md (symGOT_load): Don't schedule insns when
+	the symbol is generated with the stack protector.
+
+2007-06-03  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/m68k/m68k.c (m68k_attribute_table): Add "interrupt".
+	(m68k_get_function_kind): Return m68k_fk_interrupt_handler on
+	"interrupt".
+	* doc/extend.texi (interrupt): Mention m68k.
+
+2007-06-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_expand_sse_4_operands_builtin): Call
+	safe_vector_operand() if input operand is VECTOR_MODE_P operand.
+	(ix86_expand_sse_pcmpestr): Do not check operands for
+	"register_operand", when insn operand predicate is "register_operand".
+	(ix86_expand_sse_pcmpistr): Ditto.
+
+2007-06-02  H.J. Lu  <hongjiu.lu@intel.com>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (enum reg_class) [SSE_FIRST_REG]: New.
+	(SSE_CLASS_P): Use reg_class_subset_p between SSE_REGS.
+	(REG_CLASS_NAMES): Add "FIRST_SSE_REG" string.
+	(REG_CLASS_CONTENTS): Add members of FIRST_SSE_REG class.
+	* config/i386/constraints.md ("z"): New register constraint
+	for members of SSE_FIRST_REG class.
+	* config/i386/i386-modes.def (CCA, CCC, CCO, CCS): New compare modes.
+	* config/i386/i386.c (regclass_map): Change class of %xmm0 to
+	SSE_FIRST_REG class.
+	(put_condition_code) [EQ, NE]: Output suffixes for new compare modes.
+	(ix86_cc_modes_compatible): Handle CCA, CCC, CCO and CCS modes.
+	(IX86_BUILTIN_PCMPESTRI128): New for SSE4.2.
+	(IX86_BUILTIN_PCMPESTRM128): Likewise.
+	(IX86_BUILTIN_PCMPESTRA128): Likewise.
+	(IX86_BUILTIN_PCMPESTRC128): Likewise.
+	(IX86_BUILTIN_PCMPESTRO128): Likewise.
+	(IX86_BUILTIN_PCMPESTRS128): Likewise.
+	(IX86_BUILTIN_PCMPESTRZ128): Likewise.
+	(IX86_BUILTIN_PCMPISTRI128): Likewise.
+	(IX86_BUILTIN_PCMPISTRM128): Likewise.
+	(IX86_BUILTIN_PCMPISTRA128): Likewise.
+	(IX86_BUILTIN_PCMPISTRC128): Likewise.
+	(IX86_BUILTIN_PCMPISTRO128): Likewise.
+	(IX86_BUILTIN_PCMPISTRS128): Likewise.
+	(IX86_BUILTIN_PCMPISTRZ128): Likewise.
+	(struct builtin_description): Change "flag" field to unsigned.
+	(bdesc_pcmpestr): New builtin description table.
+	(bdesc_pcmpistr): Likewise.
+	(ix86_init_mmx_sse_builtins): Define int_ftype_v16qi_int_v16qi_int_int,
+	v16qi_ftype_v16qi_int_v16qi_int_int and int_ftype_v16qi_v16qi_int.
+	Initialize pcmp[ei]str[im] insns for SSE4.2.
+	(ix86_expand_sse_pcmpestr): New subroutine of ix86_expand_builtin.
+	(ix86_expand_sse_pcmpistr): Likewise.
+	(ix86_expand_builtin): Expand pcmp[ei]str[im] builtins for SSE4.2.
+	* config/i386/i386.md (UNSPEC_PCMPESTR): New for SSE4.2.
+	(UNSPEC_PCMPISTR): Likewise.
+	* config/i386/sse.md (sse4_2_pcmpestr): New insn patern and splitter.
+	(sse4_2_pcmpestri):New isns pattern.
+	(sse4_2_pcmpestrm): Likewise.
+	(sse4_2_pcmpestr_cconly): Likewise.
+	(sse4_2_pcmpistr): New insn patern and splitter.
+	(sse4_2_pcmpistri):New isns pattern.
+	(sse4_2_pcmpistrm): Likewise.
+	(sse4_2_pcmpistr_cconly): Likewise.
+	* config/i386/smmintrin.h: Enable pcmp[ei]str[im] intrinsics
+	in SSE4.2.
+
+2007-06-01  David Daney  <ddaney@avtrex.com>
+
+	* config/mips/mips.c (mips_output_mi_thunk): Only load gp if not
+	LOADGP_ABSOLUTE and not binds_local_p.
+	
+2007-06-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.h (LINK_SPEC): Pass -fpie through to the linker.
+
+2007-06-01  Ian Lance Taylor  <iant@google.com>
+
+	* tree-vrp.c (compare_name_with_value): Always set
+	used_strict_overflow if we get a result from the variable itself.
+
+2007-06-01  Ian Lance Taylor  <iant@google.com>
+
+	PR rtl-optimization/31455
+	* lower-subreg.c (find_decomposable_subregs): Don't decompose
+	subregs which have a cast between modes which are not tieable.
+
+2007-06-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* expr.c (force_operand) [DIV, MOD, UDIV, UMOD, ASHIFTRT]: Remove
+	breaks after return statements.
+
+2007-06-01  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (fpscr_set_from_mem): Call get_free_reg
+	only after no_new_pseudos.
+
+2007-05-31  Eric Christopher  <echristo@apple.com>
+
+	* expr.c (convert_move): Assert that we don't have a BLKmode
+	operand.
+	(store_expr): Handle BLKmode moves by calling emit_block_move.
+
+2007-05-31  Daniel Berlin  <dberlin@dberlin.org>
+
+	* c-typeck.c (build_indirect_ref): Include type in error message.
+	(build_binary_op): Pass types to binary_op_error.
+	* c-common.c (binary_op_error): Take two type arguments, print out
+	types with error.
+	* c-common.h (binary_op_error): Update prototype.
+
+2007-05-31  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c: Correct coments on -mno-sse4.
+
+2007-05-31  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config.gcc (i[34567]86-*-*): Add nmmintrin.h to extra_headers.
+	(x86_64-*-*): Likewise.
+	* config/i386/i386.c (OPTION_MASK_ISA_MMX_UNSET): New.
+	(OPTION_MASK_ISA_3DNOW_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE2_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE3_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSSE3_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4_1_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4_2_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4): Likewise.
+	(OPTION_MASK_ISA_SSE4_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4A_UNSET): Likewise.
+	(ix86_handle_option): Use OPTION_MASK_ISA_*_UNSET.  Handle SSE4.2.
+	(override_options): Support SSE4.2.
+	(ix86_build_const_vector): Support SImode and DImode.
+	(ix86_build_signbit_mask): Likewise.
+	(ix86_expand_int_vcond): Support V2DImode.
+	(IX86_BUILTIN_CRC32QI): New for SSE4.2.
+	(IX86_BUILTIN_CRC32HI): Likewise.
+	(IX86_BUILTIN_CRC32SI): Likewise.
+	(IX86_BUILTIN_CRC32DI): Likewise.
+	(IX86_BUILTIN_PCMPGTQ): Likewise.
+	(bdesc_crc32): Likewise.
+	(bdesc_sse_3arg): Likewise.
+	(ix86_expand_crc32): Likewise.
+	(ix86_init_mmx_sse_builtins): Support SSE4.2.
+	(ix86_expand_builtin): Likewise.
+	* config/i386/i386.h (TARGET_CPU_CPP_BUILTINS): Define
+	__SSE4_2__ for -msse4.2.
+	* config/i386/i386.md (UNSPEC_CRC32): New for SSE4.2.
+	(CRC32MODE): Likewise.
+	(crc32modesuffix): Likewise.
+	(crc32modeconstraint): Likewise.
+	(sse4_2_crc32<mode>): Likewise.
+	(sse4_2_crc32di): Likewise.
+	* config/i386/i386.opt (msse4.2): New for SSE4.2.
+	(msse4): Likewise.
+	* config/i386/nmmintrin.h: New. The dummy SSE4.2 intrinsic header file.
+	* config/i386/smmintrin.h: Add SSE4.2 intrinsics.
+	* config/i386/sse.md (sse4_2_gtv2di3): New pattern for SSE4.2.
+	(vcond<mode>): Use SSEMODEI instead of SSEMODE124.
+	(vcondu<mode>): Likewise.
+	* doc/extend.texi: Document SSE4.2 built-in functions.
+	* doc/invoke.texi: Document -msse4.2/-msse4.
+
+2007-05-31  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/32160
+	* tree-predcom.c (predcom_tmp_var): New function.  Mark created
+	variable as gimple reg.
+	(initialize_root_vars, initialize_root_vars_lm): Use predcom_tmp_var.
+
+2007-05-31  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc.c (main): Don't consider linker options when issuing the
+	warning about a linker input file not being used.
+
 2007-05-30  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* tree-vrp.c (compare_names): Initialize sop.
@@ -7162,7 +7562,7 @@
 
 	* c-common.c (warn_logical_operator): Fix condition.
 
-2007-03-10  Tobias Schlüter  <tobi@gcc.gnu.org>
+2007-03-10  Tobias Schlï¿½ter  <tobi@gcc.gnu.org>
 
 	* config/i386/darwin.h (DARWIN_MINVERSION_SPEC): Add missing
 	quotation mark.
