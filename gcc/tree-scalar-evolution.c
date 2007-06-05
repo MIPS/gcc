@@ -2438,17 +2438,20 @@ resolve_mixers (struct loop *loop, tree chrec)
    the loop body has been executed 6 times.  */
 
 tree 
-number_of_latch_executions (struct loop *loop)
+number_of_latch_executions_1 (struct loop *loop, tree *may_be_zero)
 {
-  tree res, type;
+  tree res;
   edge exit;
   struct tree_niter_desc niter_desc;
+
+  *may_be_zero = NULL_TREE;
 
   /* Determine whether the number_of_iterations_in_loop has already
      been computed.  */
   res = loop->nb_iterations;
   if (res)
     return res;
+
   res = chrec_dont_know;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2461,16 +2464,34 @@ number_of_latch_executions (struct loop *loop)
   if (!number_of_iterations_exit (loop, exit, &niter_desc, false))
     goto end;
 
-  type = TREE_TYPE (niter_desc.niter);
-  if (integer_nonzerop (niter_desc.may_be_zero))
-    res = build_int_cst (type, 0);
-  else if (integer_zerop (niter_desc.may_be_zero))
-    res = niter_desc.niter;
-  else
-    res = chrec_dont_know;
+  *may_be_zero = niter_desc.may_be_zero;
+  res = niter_desc.niter;
 
 end:
   return set_nb_iterations_in_loop (loop, res);
+}
+
+
+tree
+number_of_latch_executions (struct loop *loop)
+{
+  tree res, type;
+  tree may_be_zero;
+
+  res = number_of_latch_executions_1 (loop, &may_be_zero);
+
+  if (may_be_zero)
+    {
+      type = TREE_TYPE (res);
+      if (integer_nonzerop (may_be_zero))
+	res = build_int_cst (type, 0);
+      else if (integer_zerop (may_be_zero))
+	;
+      else
+	res = chrec_dont_know;
+    }
+
+  return res;
 }
 
 /* Returns the number of executions of the exit condition of LOOP,
@@ -2484,9 +2505,9 @@ end:
    the possible overflow.  */
 
 tree 
-number_of_exit_cond_executions (struct loop *loop)
+number_of_exit_cond_executions (struct loop *loop, tree *may_be_zero)
 {
-  tree ret = number_of_latch_executions (loop);
+  tree ret = number_of_latch_executions_1 (loop, may_be_zero);
   tree type = chrec_type (ret);
 
   if (chrec_contains_undetermined (ret))

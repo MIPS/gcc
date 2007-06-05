@@ -5087,8 +5087,6 @@ vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo,
   int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   tree log_vf;
 
-  pe = loop_preheader_edge (loop);
-
   /* Generate temporary variable that contains 
      number of iterations loop executes.  */
 

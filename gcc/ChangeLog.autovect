@@ -1,3 +1,23 @@
+2007-06-05  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-scalar-evolutions.c (number_of_latch_executions_1): New.
+	Contains code that was factored out from number_of_latch_executions.
+	(number_of_latch_executions): Call number_of_latch_executions_1
+	instead of code that was factored out.
+	(number_of_exit_cond_executions): Takes additional argument
+	may_be_zero. Call  number_of_latch_executions_1 instead of
+	number_of_latch_executions.	
+	* tree-scalar-evolutions.h (number_of_latch_executions_1): New.
+	(number_of_exit_cond_executions): Takes additional argument.
+	* tree-vect-analyze.c (vect_analyze_operations): Avoid vectorization
+	in case the loop-bound is a COND_EXPR and peeling needs to be done.
+	(vect_get_loop_niters): Call number_of_exit_cond_executions with
+	additional argument may_be_zero. Use it to build a (potentially)
+	conditional expression for the loop niters.	
+
+	* tree-vect-transform.c (vect_generate_tmps_on_preheader): Remove
+	redundant code.
+
 2007-05-28  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_analyze_data_ref_access): Don't fail on 

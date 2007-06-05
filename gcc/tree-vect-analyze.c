@@ -500,11 +500,20 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
                      "not vectorized: can't create epilog loop 1.");
           return false;
         }
+      if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
+          && LOOP_VINFO_NITERS (loop_vinfo)
+          && TREE_CODE (LOOP_VINFO_NITERS (loop_vinfo)) == COND_EXPR)
+        {
+          if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+            fprintf (vect_dump,
+                    "not vectorized: can't create epilog loop 2.");
+          return false;
+        }
       if (!slpeel_can_duplicate_loop_p (loop, single_exit (loop)))
         {
           if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
             fprintf (vect_dump,
-                     "not vectorized: can't create epilog loop 2.");
+                     "not vectorized: can't create epilog loop 3.");
           return false;
         }
     }
@@ -2843,17 +2852,36 @@ static tree
 vect_get_loop_niters (struct loop *loop, tree *number_of_iterations)
 {
   tree niters;
+  tree may_be_zero;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== get_loop_niters ===");
 
-  niters = number_of_exit_cond_executions (loop);
+  niters = number_of_exit_cond_executions (loop, &may_be_zero);
 
-  if (niters != NULL_TREE
-      && niters != chrec_dont_know)
+  if (niters != NULL_TREE && niters != chrec_dont_know)
     {
-      *number_of_iterations = niters;
+      tree type = TREE_TYPE (niters);
+      tree zero = build_int_cst (type, 0);
 
+      *number_of_iterations = niters;
+      if (may_be_zero)
+	{
+	  if (integer_nonzerop (may_be_zero))
+	    *number_of_iterations = zero;
+	  else if (integer_zerop (may_be_zero))
+	    ;
+	  else
+	    {
+	      /* CHECKME: other things to check? */
+	      if (COMPARISON_CLASS_P (may_be_zero))
+		*number_of_iterations = 
+			build3 (COND_EXPR, type, may_be_zero, zero, niters);
+	      else
+		*number_of_iterations = chrec_dont_know;
+	    }
+	}
+ 
       if (vect_print_dump_info (REPORT_DETAILS))
 	{
 	  fprintf (vect_dump, "==> get_loop_niters:" );
