@@ -1,3 +1,61 @@
+2007-06-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR testsuite/18923
+	* gfortran.dg/invalid_contains_1.f90: New test.
+	* gfortran.dg/invalid_contains_2.f90: New test.
+
+2007-06-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR testsuite/32057
+	* gfortran.dg/secnds.f: Update test to avoid roundoff errors and
+	midnight issues.
+
+2007-06-05  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR testsuite/25241
+	* gcc.dg/invalid-call-1.c: Use dg-warning to match the warning and
+	dg-message to match de note.
+	* gcc.dg/pr26570.c: Use dg-message for a note.
+	* gcc.dg/pr29254.c: Use dg-message for generic output and use
+	dg-error instead of dg-warning because of -Werror.
+	* gcc.dg/glibc-uclibc-1.c: Use dg-message for output that is
+	neither an error, nor a warning.
+	* gcc.dg/glibc-uclibc-2.c: Likewise
+	* gcc.dg/cpp/19940712-1.c: Likewise.
+
+2007-06-05  Joerg Wunsch  <j.gnu@uriah.heep.sax.de>
+
+	PR preprocessor/23479
+	* testsuite/gcc.dg/binary-constants-1.c: Add test suites for
+	the 0b-prefixed binary integer constants.
+	* testsuite/gcc.dg/binary-constants-2.c: Ditto.
+	* testsuite/gcc.dg/binary-constants-3.c: Ditto.
+	* testsuite/gcc.dg/binary-constants-4.c: Ditto.
+	
+2007-06-05  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wstrict-overflow-19.c: New test.
+
+2007-06-05  Razya Ladelsky  <razya@il.ibm.com>
+
+	* gcc.dg/matrix/matrix-6.c: Remove conversion.
+
+2007-06-04  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wstrict-overflow-18.c: New test.
+
+2007-06-04  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR testsuite/25241
+	* gcc.dg/cpp/mi1.c: Use dg-message for output that is not an error.
+	* gcc.dg/cpp/mi5.c: Likewise.
+	* gcc.dg/cpp/mi7.c: Likewise.
+
+2007-06-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR c/32191
+	* gcc.dg/pr32191.c: New test.
+
 2007-05-28  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/32124
