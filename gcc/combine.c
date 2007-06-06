@@ -468,18 +468,18 @@ static rtx gen_lowpart_or_truncate (enum machine_mode, rtx);
 static const struct rtl_hooks combine_rtl_hooks = RTL_HOOKS_INITIALIZER;
 
 
-static rtx *find_single_use_1 (rtx, rtx *);
-/* This is used by find_single_use to locate an rtx that contains exactly one
-   use of DEST, which is typically either a REG or CC0.  It returns a
-   pointer to the innermost rtx expression containing DEST.  Appearances of
-   DEST that are being used to totally replace it are not counted.  */
+/* This is used by find_single_use to locate an rtx in LOC that
+   contains exactly one use of DEST, which is typically either a REG
+   or CC0.  It returns a pointer to the innermost rtx expression
+   containing DEST.  Appearances of DEST that are being used to
+   totally replace it are not counted.  */
 
 static rtx *
 find_single_use_1 (rtx dest, rtx *loc)
 {
   rtx x = *loc;
   enum rtx_code code = GET_CODE (x);
-  rtx *result = 0;
+  rtx *result = NULL;
   rtx *this_result;
   int i;
   const char *fmt;
@@ -536,11 +536,11 @@ find_single_use_1 (rtx dest, rtx *loc)
 	  else
 	    this_result = find_single_use_1 (dest, &XEXP (x, i));
 
-	  if (result == 0)
+	  if (result == NULL)
 	    result = this_result;
 	  else if (this_result)
 	    /* Duplicate usage.  */
-	    return 0;
+	    return NULL;
 	}
       else if (fmt[i] == 'E')
 	{
@@ -556,10 +556,10 @@ find_single_use_1 (rtx dest, rtx *loc)
 	      else
 		this_result = find_single_use_1 (dest, &XVECEXP (x, i, j));
 
-	      if (result == 0)
+	      if (result == NULL)
 		result = this_result;
 	      else if (this_result)
-		return 0;
+		return NULL;
 	    }
 	}
     }
@@ -573,10 +573,6 @@ find_single_use_1 (rtx dest, rtx *loc)
    it is used.
 
    If PLOC is nonzero, *PLOC is set to the insn containing the single use.
-
-   This routine will return usually zero either before flow is called (because
-   there will be no LOG_LINKS notes) or after reload (because the REG_DEAD
-   note can't be trusted).
 
    If DEST is cc0_rtx, we look only at the next insn.  In that case, we don't
    care about REG_DEAD notes or LOG_LINKS.
@@ -851,12 +847,11 @@ combine_validate_cost (rtx i1, rtx i2, rtx i3, rtx newpat, rtx newi2pat)
 
 /* Delete any insns that copy a register to itself.  */
 
-static int
+static void
 delete_noop_moves (void)
 {
   rtx insn, next;
   basic_block bb;
-  int nnoops = 0;
 
   FOR_EACH_BB (bb)
     {
@@ -876,23 +871,19 @@ delete_noop_moves (void)
 		  rtx new_libcall_insn = next_real_insn (insn);
 		  rtx retval_note = find_reg_note (XEXP (note, 0),
 						   REG_RETVAL, NULL_RTX);
-continue;
 		  REG_NOTES (new_libcall_insn)
 		    = gen_rtx_INSN_LIST (REG_LIBCALL, XEXP (note, 0),
 					 REG_NOTES (new_libcall_insn));
 		  XEXP (retval_note, 0) = new_libcall_insn;
 		}
 
+	      if (dump_file)
+		fprintf (dump_file, "deleting noop move %d\n", INSN_UID (insn));
+
 	      delete_insn_and_edges (insn);
-	      nnoops++;
 	    }
 	}
     }
-
-  if (nnoops && dump_file)
-    fprintf (dump_file, "deleted %i noop moves\n", nnoops);
-
-  return nnoops;
 }
 
 

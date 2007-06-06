@@ -1,3 +1,10 @@
+2007-06-06  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* combine.c (find_single_use_1): Fixed comment and changed 0 to NULL.
+	(find_single_use): Removed comment.
+	(delete_noop_move): Removed unnecessary continue and removed
+	nnoops counter.  Function now does not return anything.
+
 2007-05-31  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* bitmap.c (bitmap_elt_copy): Fixed comment.
