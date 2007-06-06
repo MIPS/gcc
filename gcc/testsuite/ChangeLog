@@ -1,3 +1,9 @@
+2007-06-06  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.target/mips/dpaq_sa_l_w.c: Update types because of the change of
+	fixed-point type sizes.
+	* gcc.target/mips/dpsq_sa_l_w.c: Likewise.
+	
 2007-06-05  Ian Lance Taylor  <iant@google.com>
 
 	* gcc.dg/Wstrict-overflow-19.c: New test.
