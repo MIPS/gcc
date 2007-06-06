@@ -1,3 +1,17 @@
+2007-06-06  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* regrename.c (do_replace): Removed ifdefed out code.
+	* fwprop.c: Fixed copyright.
+	* testsuite/Changelog.dataflow: Merged entry into
+	testsuite/Changelog.  Deleted file.
+	* global.c: Fixed comments.
+	* recog.c (confirm_change_group): Fixed comments.
+	(peephole2_optimize): Removed ifdefed out code.
+	* gcse.c (try_replace_reg): Removed redundant changing and
+	rescanning of notes.
+	* rtl.h (SET_REGNO): Replaced brackets.
+	* stack-ptr-mod.c: Changed copyright years.
+
 2007-06-06  Seongbae Park  <seongbae.park@gmail.com>
 
 	* config/ia64/ia64.c (ia64_frame_info): Restored the comment
@@ -10,7 +24,7 @@
 	* config/ia64/ia64-protos.h (ia64_init_expanders): Declaration
 	moved from ia64.h
 
-2007-06-07  Kenneth Zadeck <zadeck@naturalbridge.com>
+2007-06-06  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* doc/rtl.text: Fixed spelling.
 	* dse.c (store_info, read_info, insn_info, bb_info, group_info,

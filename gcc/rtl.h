@@ -955,7 +955,7 @@ enum label_kind
 /* For a REG rtx, REGNO extracts the register number.  REGNO can only
    be used on RHS.  Use SET_REGNO to change the value.  */
 #define REGNO(RTX) (rhs_regno(RTX))
-#define SET_REGNO(RTX,N) {df_ref_change_reg_with_loc (REGNO(RTX), N, RTX); XCUINT (RTX, 0, REG) = N;}
+#define SET_REGNO(RTX,N) (df_ref_change_reg_with_loc (REGNO(RTX), N, RTX), XCUINT (RTX, 0, REG) = N)
 
 /* ORIGINAL_REGNO holds the number the register originally had; for a
    pseudo register turned into a hard reg this will hold the old pseudo
@@ -963,7 +963,7 @@ enum label_kind
 #define ORIGINAL_REGNO(RTX) X0UINT (RTX, 1)
 
 /* Force the REGNO macro to only be used on the lhs.  */
-inline static unsigned int
+static inline unsigned int
 rhs_regno (rtx x)
 {
   return XCUINT (x, 0, REG);

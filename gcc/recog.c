@@ -407,8 +407,8 @@ verify_changes (int num)
 }
 
 /* A group of changes has previously been issued with validate_change
-   and verified with verify_changes.  Call df_set_bb_dirty of the
-   affected blocks, and clear num_changes.  */
+   and verified with verify_changes.  Call df_insn_rescan for each of
+   the insn changed and clear num_changes.  */
 
 void
 confirm_change_group (void)
@@ -2894,9 +2894,6 @@ peephole2_optimize (void)
 {
   rtx insn, prev;
   bitmap live;
-#if 0
-  bitmap livep;
-#endif
   int i;
   basic_block bb;
   bool do_cleanup_cfg = false;
@@ -2909,9 +2906,6 @@ peephole2_optimize (void)
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
     peep2_insn_data[i].live_before = BITMAP_ALLOC (&reg_obstack);
   live = BITMAP_ALLOC (&reg_obstack);
-#if 0
-  livep = BITMAP_ALLOC (&reg_obstack);
-#endif  
 
   FOR_EACH_BB_REVERSE (bb)
     {
@@ -3137,9 +3131,6 @@ peephole2_optimize (void)
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
     BITMAP_FREE (peep2_insn_data[i].live_before);
   BITMAP_FREE (live);
-#if 0
-  BITMAP_FREE (livep);
-#endif
   if (do_rebuild_jump_labels)
     rebuild_jump_labels (get_insns ());
 }

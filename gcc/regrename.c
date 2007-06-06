@@ -382,9 +382,6 @@ do_replace (struct du_chain *chain, int reg)
       if (regno >= FIRST_PSEUDO_REGISTER)
 	ORIGINAL_REGNO (*chain->loc) = regno;
       REG_ATTRS (*chain->loc) = attr;
-#if 0
-      df_insn_rescan (chain->insn);
-#endif
       chain = chain->next_use;
     }
 }

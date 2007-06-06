@@ -153,9 +153,9 @@ static struct allocno *allocno;
 
 static int *allocno_order;
 
-/* Indexed by (pseudo) reg number, gives the number of another
-   lower-numbered pseudo reg which can share a hard reg with this pseudo
-   *even if the two pseudos would otherwise appear to conflict*.  */
+/* Define the number of bits in each element of `conflicts' and what
+   type that element has.  We use the largest integer format on the
+   host machine.  */
 
 #define INT_BITS HOST_BITS_PER_WIDE_INT
 #define INT_TYPE HOST_WIDE_INT
@@ -366,15 +366,13 @@ static void reg_dies (int, enum machine_mode, struct insn_chain *);
 
 
 
-/* Look through the list of eliminable registers.  Add registers
-   clobbered by asm statements to LIVE_REGS.  Set ELIM_SET to the set of
-   registers which may be eliminated.  Set NO_GLOBAL_SET to the set of
-   registers which may not be used across blocks.
+/* Look through the list of eliminable registers.  Set ELIM_SET to the
+   set of registers which may be eliminated.  Set NO_GLOBAL_SET to the
+   set of registers which may not be used across blocks.
 
-   This will normally be called with LIVE_REGS as the global variable
-   regs_ever_live, ELIM_SET as the file static variable
-   eliminable_regset, and NO_GLOBAL_SET as the file static variable
-   NO_GLOBAL_ALLOC_REGS.  */
+   This will normally be called with ELIM_SET as the file static
+   variable eliminable_regset, and NO_GLOBAL_SET as the file static
+   variable NO_GLOBAL_ALLOC_REGS.  */
 
 static void
 compute_regsets (HARD_REG_SET *elim_set, 
