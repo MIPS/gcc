@@ -78,7 +78,7 @@
 
 2007-05-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
-	(forward_propagate_addr_into_variable_array_index):
+	* tree-ssa-forwprop (forward_propagate_addr_into_variable_array_index):
 	Don't expect there to be a cast for the index as that
 	does not exist anymore.
 	(forward_propagate_addr_expr_1): Check for
