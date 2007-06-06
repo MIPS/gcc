@@ -1014,15 +1014,18 @@ follow_ssa_edge_in_rhs (struct loop *loop, tree at_stmt, tree rhs,
   tree rhs0, rhs1;
   tree type_rhs = TREE_TYPE (rhs);
   tree evol;
+  enum tree_code code;
   
   /* The RHS is one of the following cases:
      - an SSA_NAME, 
      - an INTEGER_CST,
      - a PLUS_EXPR, 
+     - a POINTER_PLUS_EXPR, 
      - a MINUS_EXPR,
      - an ASSERT_EXPR,
      - other cases are not yet handled.  */
-  switch (TREE_CODE (rhs))
+  code = TREE_CODE (rhs);
+  switch (code)
     {
     case NOP_EXPR:
       /* This assignment is under the form "a_1 = (cast) rhs.  */
@@ -1044,11 +1047,6 @@ follow_ssa_edge_in_rhs (struct loop *loop, tree at_stmt, tree rhs,
       break;
       
     case POINTER_PLUS_EXPR:
-      /* Step of a pointer induction variable must be integer.  */
-      type_rhs = sizetype;
-
-      /* Fallthru.  */
-
     case PLUS_EXPR:
       /* This case is under the form "rhs0 + rhs1".  */
       rhs0 = TREE_OPERAND (rhs, 0);
@@ -1071,7 +1069,7 @@ follow_ssa_edge_in_rhs (struct loop *loop, tree at_stmt, tree rhs,
 		*evolution_of_loop = add_to_evolution 
 		  (loop->num, 
 		   chrec_convert (type_rhs, evol, at_stmt), 
-		   PLUS_EXPR, rhs1, at_stmt);
+		   code, rhs1, at_stmt);
 	      
 	      else if (res == t_false)
 		{
@@ -1083,7 +1081,7 @@ follow_ssa_edge_in_rhs (struct loop *loop, tree at_stmt, tree rhs,
 		    *evolution_of_loop = add_to_evolution 
 		      (loop->num, 
 		       chrec_convert (type_rhs, *evolution_of_loop, at_stmt), 
-		       PLUS_EXPR, rhs0, at_stmt);
+		       code, rhs0, at_stmt);
 
 		  else if (res == t_dont_know)
 		    *evolution_of_loop = chrec_dont_know;
@@ -1102,9 +1100,9 @@ follow_ssa_edge_in_rhs (struct loop *loop, tree at_stmt, tree rhs,
 		 evolution_of_loop, limit);
 	      if (res == t_true)
 		*evolution_of_loop = add_to_evolution 
-		  (loop->num, chrec_convert (TREE_TYPE (rhs), *evolution_of_loop,
+		  (loop->num, chrec_convert (type_rhs, *evolution_of_loop,
 					     at_stmt),
-		   PLUS_EXPR, rhs1, at_stmt);
+		   code, rhs1, at_stmt);
 
 	      else if (res == t_dont_know)
 		*evolution_of_loop = chrec_dont_know;
@@ -1122,7 +1120,7 @@ follow_ssa_edge_in_rhs (struct loop *loop, tree at_stmt, tree rhs,
 	    *evolution_of_loop = add_to_evolution 
 	      (loop->num, chrec_convert (type_rhs, *evolution_of_loop,
 					 at_stmt),
-	       PLUS_EXPR, rhs0, at_stmt);
+	       code, rhs0, at_stmt);
 
 	  else if (res == t_dont_know)
 	    *evolution_of_loop = chrec_dont_know;

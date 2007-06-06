@@ -1,3 +1,13 @@
+2007-06-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/32225
+	* tree-scalar-evolution.c (follow_ssa_edge_in_rhs <case
+	POINTER_PLUS_EXPR>): Do not change type_rhs.
+	(follow_ssa_edge_in_rhs <case POINTER_PLUS_EXPR, case PLUS_EXPR>):
+	Use the code of the orginal expression instead of just PLUS_EXPR.
+	Also use type_rhs where TREE_TYPE (rhs) was used (reverting back
+	to the trunk).
+
 2007-06-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* tree-predcom.c (ref_at_iteration): If we have a pointer

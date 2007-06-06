@@ -1,3 +1,8 @@
+2007-06-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/32225
+	* gcc.c-torture/compile/20070605-1.c: New test.
+
 2007-06-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* gcc.c-torture/compile/20070603-1.c: New testcase.
