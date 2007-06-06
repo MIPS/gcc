@@ -2237,11 +2237,7 @@ verify_rtx_sharing (rtx orig, rtx insn)
       break;
 
     case CONST:
-      /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
-	 a LABEL_REF, it isn't sharable.  */
-      if (GET_CODE (XEXP (x, 0)) == PLUS
-	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+      if (shared_const_p (orig))
 	return;
       break;
 
@@ -2432,11 +2428,7 @@ repeat:
       break;
 
     case CONST:
-      /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
-	 a LABEL_REF, it isn't sharable.  */
-      if (GET_CODE (XEXP (x, 0)) == PLUS
-	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+      if (shared_const_p (x))
 	return;
       break;
 
@@ -4839,11 +4831,7 @@ copy_insn_1 (rtx orig)
       break;
 
     case CONST:
-      /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
-	 a LABEL_REF, it isn't sharable.  */
-      if (GET_CODE (XEXP (orig, 0)) == PLUS
-	  && GET_CODE (XEXP (XEXP (orig, 0), 0)) == SYMBOL_REF
-	  && GET_CODE (XEXP (XEXP (orig, 0), 1)) == CONST_INT)
+      if (shared_const_p (orig))
 	return orig;
       break;
 

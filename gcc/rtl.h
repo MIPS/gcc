@@ -1463,6 +1463,7 @@ extern rtx rtx_alloc_stat (RTX_CODE MEM_STAT_DECL);
 #define rtx_alloc(c) rtx_alloc_stat (c MEM_STAT_INFO)
 
 extern rtvec rtvec_alloc (int);
+extern bool shared_const_p (rtx);
 extern rtx copy_rtx (rtx);
 extern void dump_rtx_statistics (void);
 

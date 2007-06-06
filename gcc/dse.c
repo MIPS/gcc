@@ -159,7 +159,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    depends on reading tea leaves and chicken entrails left by reload.
    This pass depends on reload creating a singleton alias set for each
    spill slot and telling the next dse pass which of these alias sets
-   are the singletons.  Rather that analyze the addresses of the
+   are the singletons.  Rather than analyze the addresses of the
    spills, dse's spill processing just does analysis of the loads and
    stores that use those alias sets.  There are three cases where this
    falls short:
@@ -198,7 +198,8 @@ static bitmap scratch = NULL;
 struct insn_info;
 
 /* This structure holds information about a candidate store.  */
-struct store_info {
+struct store_info 
+{
 
   /* False means this is a clobber.  */
   bool is_set;
@@ -244,7 +245,8 @@ static alloc_pool rtx_store_info_pool;
 
 /* This structure holds information about a load.  These are only
    built for rtx bases.  */
-struct read_info {
+struct read_info 
+{
   /* The id of the mem group of the base address.  */
   int group_id;
 
@@ -268,7 +270,8 @@ static alloc_pool read_info_pool;
 
 /* One of these records is created for each insn.  */
 
-struct insn_info {
+struct insn_info 
+{
   /* Set true if the insn contains a store but the insn itself cannot
      be deleted.  This is set if the insn is a parallel and there is
      more than one non dead output or if the insn is in some way
@@ -327,7 +330,8 @@ static alloc_pool insn_info_pool;
    basic block.  */   
 static insn_info_t active_local_stores;
 
-struct bb_info {
+struct bb_info 
+{
 
   /* Pointer to the insn info for the last insn in the block.  These
      are linked so this is how all of the insns are reached.  During
@@ -382,7 +386,8 @@ static bb_info_t *bb_table;
    memory.  There are also not many of the rtx bases because they are
    very limited in scope.  */
 
-struct group_info {
+struct group_info 
+{
   /* The actual base of the address.  */
   rtx rtx_base;
 
@@ -452,7 +457,8 @@ static VEC(group_info_t,heap) *rtx_group_vec;
 
 /* This structure holds the set of changes that are being deferred
    when removing read operation.  See replace_read.  */
-struct deferred_change {
+struct deferred_change 
+{
 
   /* The mem that is being replaced.  */
   rtx *loc;
@@ -652,7 +658,7 @@ get_group_info (rtx base)
 /* Initialization of data structures.  */
 
 static void
-step0 (void)
+dse_step0 (void)
 {
   locally_deleted = 0;
   globally_deleted = 0;
@@ -1897,7 +1903,7 @@ remove_useless_values (cselib_val *base)
 /* Do all of step 1.  */
 
 static void
-step1 (void)
+dse_step1 (void)
 {
   basic_block bb;
 
@@ -2015,7 +2021,7 @@ step1 (void)
 ----------------------------------------------------------------------------*/
 
 static void
-step2_init (void)
+dse_step2_init (void)
 {
   unsigned int i;
   group_info_t group;
@@ -2064,7 +2070,7 @@ step2_init (void)
 /* Init the offset tables for the normal case.  */
 
 static bool
-step2_nospill (void)
+dse_step2_nospill (void)
 {
   unsigned int i;
   group_info_t group;
@@ -2104,7 +2110,7 @@ step2_nospill (void)
 /* Init the offset tables for the spill case.  */
 
 static bool
-step2_spill (void)
+dse_step2_spill (void)
 {
   unsigned int j;
   group_info_t group = clear_alias_group;
@@ -2443,7 +2449,7 @@ find_insn_before_first_wild_read (bb_info_t bb_info)
    anything that happens is hidden by the wild read.  */
 
 static void
-step3_scan (bool for_spills, basic_block bb)
+dse_step3_scan (bool for_spills, basic_block bb)
 {
   bb_info_t bb_info = bb_table[bb->index];
   insn_info_t insn_info;
@@ -2495,7 +2501,7 @@ step3_scan (bool for_spills, basic_block bb)
    successors that does not have a wild read.  */
 
 static void
-step3_exit_block_scan (bb_info_t bb_info)
+dse_step3_exit_block_scan (bb_info_t bb_info)
 {
   /* The gen set is all 0's for the exit block except for the
      frame_pointer_group.  */
@@ -2538,7 +2544,7 @@ mark_reachable_blocks (sbitmap unreachable_blocks, basic_block bb)
 /* Build the transfer functions for the function.  */
 
 static void
-step3 (bool for_spills)
+dse_step3 (bool for_spills)
 {
   basic_block bb;
   sbitmap unreachable_blocks = sbitmap_alloc (last_basic_block);
@@ -2559,9 +2565,9 @@ step3 (bool for_spills)
       if (bb->index == ENTRY_BLOCK)
 	;
       else if (bb->index == EXIT_BLOCK)
-	step3_exit_block_scan (bb_info);
+	dse_step3_exit_block_scan (bb_info);
       else
-	step3_scan (for_spills, bb);
+	dse_step3_scan (for_spills, bb);
       if (EDGE_COUNT (bb->succs) == 0)
 	mark_reachable_blocks (unreachable_blocks, bb);
 
@@ -2715,7 +2721,7 @@ dse_transfer_function (int bb_index)
 /* Solve the dataflow equations.  */
 
 static void
-step4 (void)
+dse_step4 (void)
 {
   df_simple_dataflow (DF_BACKWARD, NULL, dse_confluence_0, 
 		      dse_confluence_n, dse_transfer_function, 
@@ -2761,7 +2767,7 @@ step4 (void)
 
 
 static void
-step5_nospill (void)
+dse_step5_nospill (void)
 {
   basic_block bb;
   FOR_EACH_BB (bb)
@@ -2859,7 +2865,7 @@ step5_nospill (void)
 
 
 static void
-step5_spill (void)
+dse_step5_spill (void)
 {
   basic_block bb;
   FOR_EACH_BB (bb)
@@ -2932,7 +2938,7 @@ step5_spill (void)
 ----------------------------------------------------------------------------*/
 
 static void 
-step6 (bool global_done)
+dse_step6 (bool global_done)
 {
   unsigned int i;
   group_info_t group;
@@ -3013,19 +3019,19 @@ rest_of_handle_dse (void)
 
   df_set_flags (DF_DEFER_INSN_RESCAN);
 
-  step0 ();
-  step1 ();
-  step2_init ();
-  if (step2_nospill ())
+  dse_step0 ();
+  dse_step1 ();
+  dse_step2_init ();
+  if (dse_step2_nospill ())
     {
       df_set_flags (DF_LR_RUN_DCE);
       df_analyze ();
       did_global = true;
       if (dump_file)
 	fprintf (dump_file, "doing global processing\n");
-      step3 (false);
-      step4 ();
-      step5_nospill ();
+      dse_step3 (false);
+      dse_step4 ();
+      dse_step5_nospill ();
     }
 
   /* For the instance of dse that runs after reload, we make a special
@@ -3033,7 +3039,7 @@ rest_of_handle_dse (void)
      totally transparent, i.e, there is no aliasing issues that need
      to be considered.  This means that the wild reads that kill
      everything else do not apply here.  */ 
-  if (clear_alias_sets && step2_spill ())
+  if (clear_alias_sets && dse_step2_spill ())
     {
       if (!did_global)
 	{
@@ -3043,12 +3049,12 @@ rest_of_handle_dse (void)
       did_global = true;
       if (dump_file)
 	fprintf (dump_file, "doing global spill processing\n");
-      step3 (true);
-      step4 ();
-      step5_spill ();
+      dse_step3 (true);
+      dse_step4 ();
+      dse_step5_spill ();
     }
   
-  step6 (did_global);
+  dse_step6 (did_global);
 
   if (dump_file)
     fprintf (dump_file, "dse: local deletions = %d, global deletions = %d, spill deletions = %d\n",

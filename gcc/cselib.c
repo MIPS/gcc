@@ -899,7 +899,7 @@ expand_loc (struct elt_loc_list *p, bitmap regs_active, int max_depth)
 }
 
 
-/* Forward substitute and expand an expression out to it's roots.
+/* Forward substitute and expand an expression out to its roots.
    This is the opposite of common subexpression.  Because local value
    numbering is such a weak optimization, the expanded expression is
    pretty much unique (not from a pointer equals point of view but
@@ -947,7 +947,7 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 	      rtx result;
 	      int regno = REGNO (orig);
 	      
-	      /* The several thing that we are not willing to do (this
+	      /* The only thing that we are not willing to do (this
 		 is requirement of dse and if others potiential uses
 		 need this function we should add a parm to control
 		 it) is that we will not substitute the
@@ -961,7 +961,7 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 		 STACK_POINTER_REGNUM substitution, then dse will
 		 think that parameter pushing also goes dead which is
 		 wrong.  If you allow the FRAME_POINTER or the
-		 HARD_FRAME_POINTER then you loose the opportunity to
+		 HARD_FRAME_POINTER then you lose the opportunity to
 		 make the frame assumptions.  */
 	      if (regno == STACK_POINTER_REGNUM
 		  || regno == FRAME_POINTER_REGNUM
@@ -999,11 +999,7 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
       break;
 
     case CONST:
-      /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
-	 a LABEL_REF, it isn't sharable.  */
-      if (GET_CODE (XEXP (orig, 0)) == PLUS
-	  && GET_CODE (XEXP (XEXP (orig, 0), 0)) == SYMBOL_REF
-	  && GET_CODE (XEXP (XEXP (orig, 0), 1)) == CONST_INT)
+      if (shared_const_p (orig))
 	return orig;
       break;
 

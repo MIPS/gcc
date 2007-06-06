@@ -1,3 +1,31 @@
+2007-06-07  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* doc/rtl.text: Fixed spelling.
+	* dse.c (store_info, read_info, insn_info, bb_info, group_info,
+	deferred_change): Fixed formatting.
+	(step0): Renamed to dse_step0.
+	(step1): Renamed to dse_step1.
+	(step2_init): Renamed to dse_step2_init.
+	(step2_nospill): Renamed to dse_step2_nospill.
+	(step2_spill): Renamed to dse_step2_spill.
+	(step3_scan): Renamed to dse_step3_scan.
+	(step3_exit_block_scan): Renamed to dse_step3_exit_block_scan.
+	(step3): Renamed to dse_step3.
+	(step4_nospill): Renamed to dse_step4_nospill.
+	(step4_spill): Renamed to dse_step4_spill.
+	(step4): Renamed to dse_step4.
+	(step5_nospill): Renamed to dse_step5_nospill.
+	(step5_spill): Renamed to dse_step5_spill.
+	(step6): Renamed to dse_step6.
+	(rest_of_handle_dse): Updated names of functions.
+	* emit_rtl.c (verify_rtx_sharing, copy_rtx_if_shared_1,
+	copy_insn_1): Now calls shared_const_p.
+	* cselib.c (expand_loc, cselib_expand_value_rtx): Fixed comments.
+	(cselib_expand_value_rtx): Now calls shared_const_p.
+	* rtl.c (shared_const_p): New function.
+	(copy_rtx): Now calls shared_const_p.
+	* rtl.h (shared_const_p): New function.
+
 2007-06-06  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* combine.c (find_single_use_1): Fixed comment and changed 0 to NULL.
