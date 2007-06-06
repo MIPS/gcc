@@ -1584,50 +1584,50 @@ words.
 
 @defmac SHORT_FRACT_TYPE_SIZE
 A C expression for the size in bits of the type @code{short _Fract} on
-the target machine.  If you don't define this, the default is half a
-word.
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT}.
 @end defmac
 
 @defmac FRACT_TYPE_SIZE
 A C expression for the size in bits of the type @code{_Fract} on
-the target machine.  If you don't define this, the default is one
-word.
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT * 2}.
 @end defmac
 
 @defmac LONG_FRACT_TYPE_SIZE
 A C expression for the size in bits of the type @code{long _Fract} on
-the target machine.  If you don't define this, the default is two
-words.
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT * 4}.
 @end defmac
 
 @defmac LONG_LONG_FRACT_TYPE_SIZE
 A C expression for the size in bits of the type @code{long long _Fract} on
-the target machine.  If you don't define this, the default is four
-words.
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT * 8}.
 @end defmac
 
 @defmac SHORT_ACCUM_TYPE_SIZE
 A C expression for the size in bits of the type @code{short _Accum} on
-the target machine.  If you don't define this, the default is one
-word.
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT * 2}.
 @end defmac
 
 @defmac ACCUM_TYPE_SIZE
 A C expression for the size in bits of the type @code{_Accum} on
-the target machine.  If you don't define this, the default is two
-words.
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT * 4}.
 @end defmac
 
 @defmac LONG_ACCUM_TYPE_SIZE
 A C expression for the size in bits of the type @code{long _Accum} on
-the target machine.  If you don't define this, the default is four
-words.
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT * 8}.
 @end defmac
 
 @defmac LONG_LONG_ACCUM_TYPE_SIZE
 A C expression for the size in bits of the type @code{long long _Accum} on
-the target machine.  If you don't define this, the default is four
-words.
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT * 16}.
 @end defmac
 
 @defmac LIBGCC2_LONG_DOUBLE_TYPE_SIZE
