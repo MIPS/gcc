@@ -1,9 +1,149 @@
+2007-06-06  Eric Christopher  <echristo@apple.com>
+
+	* config/i386/i386.c (override_options): Move handling
+	of TARGET_SUBTARGET* earlier.
+
+2007-06-06  Paolo Bonzini  <bonzini@gnu.org>
+
+	* genmodes.c (tagged_printf, emit_insn_modes_h): Don't
+	use %n on printf.
+
+2007-06-06  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* haifa-sched.c (restore_bb_notes): Clear bb field of the notes
+	emited outside of basic block.
+	* cfgbuild.c (find_bb_boundaries): Clear bb field for insns between
+	the created blocks.
+	* rtl.h (delete_insn_chain): Declaration changed.
+	* cfgrtl.c (delete_insn_chain): Add option to clear bb field for
+	non-removed insns.
+	(rtl_delete_block, rtl_merge_blocks): Pass true to delete_insn_chain.
+	(delete_insn_chain_and_edges, try_redirect_by_replacing_jump,
+	rtl_tidy_fallthru_edge, cfg_layout_merge_blocks): Pass false
+	to delete_insn_chain.
+	(rtl_verify_flow_info_1): Verify that the insns in header and footer
+	do not have bb field set.
+	(rtl_verify_flow_info): Verify that insns between basic blocks do not
+	have bb field set.
+	* recog.c (peephole2_optimize): Add argument to delete_insn_chain call.
+	* cfgcleanup.c (try_optimize_cfg): Ditto.
+
+2007-06-06  Thomas Neumann  <tneumann@users.sourceforge.net>
+
+	* lambda-code.c (struct lambda_lattice_s): Add a name to the struct.
+	(lambda_body_vector_new): Use type safe memory macros.
+	(lambda_linear_expression_new): Likewise.
+	(lambda_loopnest_new): Likewise.
+	(lambda_lattice_new): Likewise.
+	(replace_uses_equiv_to_x_with_y): Cast according to the coding
+	conventions. Use type safe memory macros.
+	* lambda.h (struct lambda_trans_matrix_s): Add a name to the struct.
+	(lambda_body_vector_s): Likewise.
+	* lambda-mat.c (lambda_matrix_new): Use type safe memory macros.
+	* lambda-trans.c (lambda_trans_matrix_new): Likewise.
+
+2007-06-06  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-forwprop.c (forward_propagate_into_cond): Return 2
+	if we need to schedule cfg_cleanup.
+	(tree_ssa_forward_propagate_single_use_vars): Do so.
+
+2007-06-06  Ian Lance Taylor  <iant@google.com>
+
+	* fold-const.c (merge_ranges): If range_successor or
+	range_predecessor fail, just return 0.
+
+2007-06-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/32216
+	* tree-vectorizer.c (supportable_widening_operation): Determine
+	signedness of FIX_TRUNC_EXPR from output operand.
+	(supportable_narrowing_operation): Ditto.
+	* tree-vect-generic.c (expand_vector_operations_1): Determine
+	signedness of VEC_UNPACK_FLOAT_HI_EXPR and VEC_UNPACK_FLOAT_LO_EXPR
+	from input operand.
+
+2007-06-06  Thomas Neumann  <tneumann@users.sourceforge.net>
+
+	* config/i386/i386.c (enum pta_flags): Move out of struct scope...
+	(struct pta): ...from here. Change flags to unsigned to avoid
+	excessive casting (as it is used as a bit mask).
+	(override_options): Add casts according to the coding convenventions.
+	(x86_64_elf_unique_section): Likewise.
+	(examine_argument): Avoid using C++ keywords as variable names.
+	(construct_container): Likewise.
+	(legitimize_pic_address): Likewise.
+	(get_dllimport_decl): Cast according to the coding conventions. Use
+	type safe memory macros.
+	(legitimize_address): Cast according to the coding conventions.
+	(emit_i387_cw_initialization): Corrected the type of slot to enum
+	ix86_stack_slot.
+	(ix86_init_machine_status): Use type safe memory macros.
+	(bdesc_pcmpestr): Use UNKNOWN instead of integer 0.
+	(bdesc_pcmpistr): Likewise.
+	(bdesc_crc32): Likewise.
+	(bdesc_sse_3arg): Likewise.
+	(bdesc_2arg): Likewise.
+	(bdesc_1arg): Likewise.
+	(ix86_expand_sse_pcmpestr): Cast according to the coding conventions.
+	(ix86_expand_sse_pcmpistr): Likewise.
+	(ix86_expand_vec_set_builtin): Use EXPAND_NORMAL instead of integer 0.
+	(ix86_builtin_vectorized_function): Change the type of fn to unsigned
+	int to match the langhook definition.
+	(ix86_builtin_conversion): Change the type of code to unsigned init to
+	match the langhook definition.
+	(ix86_preferred_reload_class): Avoid using C++ keywords as variable
+	names.
+	(ix86_preferred_output_reload_class): Likewise.
+	(ix86_cannot_change_mode_class): Likewise.
+	(ix86_memory_move_cost): Likewise.
+	(ix86_rtx_costs): Cast the outer_code parameter to enum rtx_code to
+	avoid excessive casting later on.
+	(x86_output_mi_thunk): Avoid using C++ keywords as variable names.
+
+2007-06-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (sse4_2_pcmpestr_cconly): Prefer pcmpestrm
+	as flags setting insn.
+	(sse4_2_pcmpistr_cconly): Prefer pcmpistrm as flags setting insn.
+
+2007-06-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (UNSPEC_ROUNDP, UNSPEC_ROUNDS): Remove.
+	(UNSPEC_ROUND): New.
+	("sse4_1_round<mode>2"): New insn pattern.
+	("rint<mode>2"): Expand using "sse4_1_round<mode>2" pattern for
+	SSE4.1 targets.
+	("floor<mode>2"): Rename from floordf2 and floorsf2.  Macroize
+	expander using SSEMODEF mode macro.  Expand using
+	"sse4_1_round<mode>2" pattern for SSE4.1 targets.
+	("ceil<mode>2"): Rename from ceildf2 and ceilsf2.  Macroize
+	expander using SSEMODEF mode macro.  Expand using
+	"sse4_1_round<mode>2" pattern for SSE4.1 targets.
+	("btrunc<mode>2"): Rename from btruncdf2 and btruncsf2.  Macroize
+	expander using SSEMODEF mode macro.  Expand using
+	"sse4_1_round<mode>2" pattern for SSE4.1 targets.
+	* config/i386/sse.md ("sse4_1_roundpd", "sse4_1_roundps"): Use
+	UNSPEC_ROUND instead of UNSPEC_ROUNDP.
+	("sse4_1_roundsd", "sse4_1_roundss"): Use UNSPEC_ROUND instead of
+	UNSPEC_ROUNDS.
+
+2007-06-06  Jan Sjodin  <jan.sjodin@amd.com>
+	    Sebastian Pop  <sebpop@gmail.com>
+
+	* lambda.h (build_linear_expr): New.
+	* lambda-code.c (lbv_to_gcc_expression, lle_to_gcc_expression):
+	Use build_linear_expr, call fold and force_gimple_operand.
+	(lambda_loopnest_to_gcc_loopnest): Check that there is
+	something to insert.
+	* testsuite/gcc.dg/tree-ssa/ltrans-6.c: New.
+
 2007-06-05  Joerg Wunsch  <j.gnu@uriah.heep.sax.de>
 
 	PR preprocessor/23479
 	* doc/extend.texi: Document the 0b-prefixed binary integer
 	constant extension.
-	
+
 2007-06-05  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR tree-optimization/32215
@@ -43,7 +183,8 @@
 	* cfgexpand (label_rtx_for_bb): Likewise.
 	(expand_gimple_basic_block): Likewise.
 	* cfghooks.c (dump_bb): Likewise.
-	(lv_adjust_loop_header_phi): Avoid using C++ keywords as variable names.
+	(lv_adjust_loop_header_phi): Avoid using C++ keywords as
+	variable names.
 	(lv_add_condition_to_bb): Likewise.
 	* cfglayout (relink_block_chain): Cast according to the coding
 	conventions.
@@ -54,7 +195,8 @@
 	(dump_recorded_exit): Likewise.
 	* cfgloop.h (enum loop_estimation): Move out of struct scope...
 	(struct loop): ... from here.
-	* cfgloopmanip.c (rpe_enum_p): Cast according to the coding conventions.
+	* cfgloopmanip.c (rpe_enum_p): Cast according to the coding
+	conventions.
 	* cfgrtl.c (rtl_create_basic_block): Likewise.
 	(rtl_split_block): Likewise.
 	(rtl_dump_bb): Likewise.
@@ -155,7 +297,7 @@
 	PR target/31733
 	* cfgrtl.c (rtl_verify_flow_info): Skip notes when looking for barrier.
 
-2007-05-31  Jan Hubicka  <jh@suse.cz>
+2007-06-04  Jan Hubicka  <jh@suse.cz>
 
 	* tree-predcom.c (replace_ref_with, initialize_root_vars_lm,
 	reassociate_to_the_same_stmt): Call build_gimple_modify_stmt
@@ -300,7 +442,7 @@
 
 	* config/mips/mips.c (mips_output_mi_thunk): Only load gp if not
 	LOADGP_ABSOLUTE and not binds_local_p.
-	
+
 2007-06-01  Geoffrey Keating  <geoffk@apple.com>
 
 	* config/darwin.h (LINK_SPEC): Pass -fpie through to the linker.
