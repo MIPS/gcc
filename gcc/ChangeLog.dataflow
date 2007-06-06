@@ -1,3 +1,15 @@
+2007-06-06  Seongbae Park  <seongbae.park@gmail.com>
+
+	* config/ia64/ia64.c (ia64_frame_info): Restored the comment
+	for the structure above. Removed left-over dead code from debugging.
+	(ia64_compute_frame_size): Comment cleanup.
+	(ia64_expand_prologue): Style fix. Debugging information header.
+	(ia64_init_expanders): Added a comment.
+	* config/ia64/ia64.h (ia64_init_expanders): Declaration moved
+	to ia64-protos.h
+	* config/ia64/ia64-protos.h (ia64_init_expanders): Declaration
+	moved from ia64.h
+
 2007-06-07  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* doc/rtl.text: Fixed spelling.

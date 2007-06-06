@@ -981,7 +981,6 @@ enum reg_class
    in it.  */
 #define ARG_POINTER_REGNUM R_GR(0)
 
-extern void ia64_init_expanders (void);
 /* Due to the way varargs and argument spilling happens, the argument
    pointer is not 16-byte aligned like the stack pointer.  */
 #define INIT_EXPANDERS					\

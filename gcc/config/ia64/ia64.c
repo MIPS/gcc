@@ -124,9 +124,6 @@ unsigned int ia64_section_threshold;
    TRUE if we do insn bundling instead of insn scheduling.  */
 int bundling_p = 0;
 
-/* Structure to be filled in by ia64_compute_frame_size with register
-   save masks and offsets for the current function.  */
-
 enum ia64_frame_regs
 {
    reg_fp,
@@ -139,6 +136,9 @@ enum ia64_frame_regs
    number_of_ia64_frame_regs
 };
 
+/* Structure to be filled in by ia64_compute_frame_size with register
+   save masks and offsets for the current function.  */
+
 struct ia64_frame_info
 {
   HOST_WIDE_INT total_size;	/* size of the stack frame, not including
@@ -150,16 +150,7 @@ struct ia64_frame_info
   unsigned int gr_used_mask;	/* mask of registers in use as gr spill
 				   registers or long-term scratches.  */
   int n_spilled;		/* number of spilled registers.  */
-  int r[number_of_ia64_frame_regs];
-#if 0
-  int reg_fp;			/* register for fp.  */
-  int reg_save_b0;		/* save register for b0.  */
-  int reg_save_pr;		/* save register for prs.  */
-  int reg_save_ar_pfs;		/* save register for ar.pfs.  */
-  int reg_save_ar_unat;		/* save register for ar.unat.  */
-  int reg_save_ar_lc;		/* save register for ar.lc.  */
-  int reg_save_gp;		/* save register for gp.  */
-#endif
+  int r[number_of_ia64_frame_regs];  /* Frame related registers.  */
   int n_input_regs;		/* number of input registers used.  */
   int n_local_regs;		/* number of local registers used.  */
   int n_output_regs;		/* number of output registers used.  */
@@ -2439,7 +2430,6 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
       SET_HARD_REG_BIT (mask, BR_REG (0));
 
       current_frame_info.r[reg_save_b0] = find_gr_spill (reg_save_b0, 1);
-      /* reg_emitted (reg_save_b0); */
       if (current_frame_info.r[reg_save_b0] == 0)
 	{
 	  extra_spill_size += 8;
@@ -2459,7 +2449,6 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
 	 registers are clobbered, so we fall back to the stack.  */
       current_frame_info.r[reg_save_gp]
 	= (current_function_calls_setjmp ? 0 : find_gr_spill (reg_save_gp, 1));
-      /* reg_emitted (reg_save_gp); */
       if (current_frame_info.r[reg_save_gp] == 0)
 	{
 	  SET_HARD_REG_BIT (mask, GR_REG (1));
@@ -2481,7 +2470,6 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
 	  SET_HARD_REG_BIT (mask, AR_PFS_REGNUM);
  	  current_frame_info.r[reg_save_ar_pfs] 
             = find_gr_spill (reg_save_ar_pfs, 1);
-          /* reg_emitted (reg_save_ar_pfs); */
 	  if (current_frame_info.r[reg_save_ar_pfs] == 0)
 	    {
 	      extra_spill_size += 8;
@@ -2519,7 +2507,6 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
     {
       SET_HARD_REG_BIT (mask, PR_REG (0));
       current_frame_info.r[reg_save_pr] = find_gr_spill (reg_save_pr, 1);
-      /* reg_emitted (reg_save_pr); */
       if (current_frame_info.r[reg_save_pr] == 0)
 	{
 	  extra_spill_size += 8;
@@ -2542,7 +2529,6 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
       SET_HARD_REG_BIT (mask, AR_UNAT_REGNUM);
       current_frame_info.r[reg_save_ar_unat] 
         = find_gr_spill (reg_save_ar_unat, spill_size == 0);
-      /* reg_emitted (reg_save_ar_unat); */
       if (current_frame_info.r[reg_save_ar_unat] == 0)
 	{
 	  extra_spill_size += 8;
@@ -2555,7 +2541,6 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
       SET_HARD_REG_BIT (mask, AR_LC_REGNUM);
       current_frame_info.r[reg_save_ar_lc] 
         = find_gr_spill (reg_save_ar_lc, spill_size == 0);
-      /* reg_emitted (reg_save_ar_lc); */
       if (current_frame_info.r[reg_save_ar_lc] == 0)
 	{
 	  extra_spill_size += 8;
@@ -2919,7 +2904,10 @@ ia64_expand_prologue (void)
 
   if (dump_file) 
     {
-#define PRINTREG(a) if (current_frame_info.r[a]) fprintf(dump_file, "%s = %d\n", #a, current_frame_info.r[a])
+      fprintf (dump_file, "ia64 frame related registers "
+               "recorded in current_frame_info.r[]:\n");
+#define PRINTREG(a) if (current_frame_info.r[a]) \
+        fprintf(dump_file, "%s = %d\n", #a, current_frame_info.r[a])
       PRINTREG(reg_fp);
       PRINTREG(reg_save_b0);
       PRINTREG(reg_save_pr);
@@ -5187,6 +5175,8 @@ ia64_override_options (void)
 
   init_machine_status = ia64_init_machine_status;
 }
+
+/* Initialize the record of emitted frame related registers.  */
 
 void ia64_init_expanders (void)
 {
