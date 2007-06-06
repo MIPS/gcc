@@ -85,8 +85,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifdef INSN_SCHEDULING
 
 /* Some accessor macros for h_i_d members only used within this file.  */
-#define FED_BY_SPEC_LOAD(insn)	(h_i_d[INSN_UID (insn)].fed_by_spec_load)
-#define IS_LOAD_INSN(insn)	(h_i_d[INSN_UID (insn)].is_load_insn)
+#define FED_BY_SPEC_LOAD(INSN) (HID (INSN)->fed_by_spec_load)
+#define IS_LOAD_INSN(INSN) (HID (insn)->is_load_insn)
 
 /* nr_inter/spec counts interblock/speculative motion for the function.  */
 static int nr_inter, nr_spec;
@@ -129,8 +129,6 @@ static bool too_large (int, int *, int *);
 /* Blocks of the current region being scheduled.  */
 int current_nr_blocks;
 int current_blocks;
-
-static int rgn_n_insns;
 
 candidate *candidate_table;
 
@@ -451,6 +449,9 @@ find_single_block_region (bool ebbs_p)
         RGN_BLOCKS (nr_regions) = i;
         RGN_DONT_CALC_DEPS (nr_regions) = 0;
         RGN_HAS_REAL_EBB (nr_regions) = 0;
+	RGN_HAS_RENAMING_P (nr_regions) = 0;
+	RGN_WAS_PIPELINED_P (nr_regions) = 0;
+
         for (bb = ebb_start; ; bb = bb->next_bb)
           {
             edge e;
@@ -474,6 +475,12 @@ find_single_block_region (bool ebbs_p)
             if (e->probability <= probability_cutoff)
               break;
           }
+
+	if (RGN_NR_BLOCKS (nr_regions) == 1)
+	  RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
+	else
+	  RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 1;
+
         ebb_start = bb;
         nr_regions++;
       }
@@ -486,6 +493,10 @@ find_single_block_region (bool ebbs_p)
         RGN_BLOCKS (nr_regions) = nr_regions;
         RGN_DONT_CALC_DEPS (nr_regions) = 0;
         RGN_HAS_REAL_EBB (nr_regions) = 0;
+	RGN_HAS_RENAMING_P (nr_regions) = 0;
+	RGN_WAS_PIPELINED_P (nr_regions) = 0;
+	RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
+
         CONTAINING_RGN (bb->index) = nr_regions;
         BLOCK_TO_BB (bb->index) = 0;
         nr_regions++;
@@ -494,7 +505,7 @@ find_single_block_region (bool ebbs_p)
 
 /* Estimate number of the insns in the BB.  */
 static int
-sched_rgn_estimate_number_of_insns (basic_block bb)
+rgn_estimate_number_of_insns (basic_block bb)
 {
   return INSN_LUID (BB_END (bb)) - INSN_LUID (BB_HEAD (bb));
 }
@@ -937,6 +948,12 @@ haifa_find_rgns (void)
 		  RGN_BLOCKS (nr_regions) = idx++;
                   RGN_DONT_CALC_DEPS (nr_regions) = 0;
 		  RGN_HAS_REAL_EBB (nr_regions) = 0;
+		  RGN_HAS_RENAMING_P (nr_regions) = 0;
+		  RGN_WAS_PIPELINED_P (nr_regions) = 0;
+		  if (num_bbs == 1)
+		    RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
+		  else
+		    RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 1;
 		  CONTAINING_RGN (bb->index) = nr_regions;
 		  BLOCK_TO_BB (bb->index) = count = 0;
 
@@ -1008,6 +1025,9 @@ haifa_find_rgns (void)
 	RGN_BLOCKS (nr_regions) = idx++;
         RGN_DONT_CALC_DEPS (nr_regions) = 0;
 	RGN_HAS_REAL_EBB (nr_regions) = 0;
+	RGN_HAS_RENAMING_P (nr_regions) = 0;
+	RGN_WAS_PIPELINED_P (nr_regions) = 0;
+	RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
 	CONTAINING_RGN (bb->index) = nr_regions++;
 	BLOCK_TO_BB (bb->index) = 0;
       }
@@ -1137,7 +1157,8 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
      CFG should be traversed until no further changes are made.  On each 
      iteration the set of the region heads is extended (the set of those 
      blocks that have max_hdr[bbi] == bbi).  This set is upper bounded by the 
-     set of all basic blocks, thus the algorithm is guaranteed to terminate.  */
+     set of all basic blocks, thus the algorithm is guaranteed to
+     terminate.  */
 
   while (rescan && iter < max_iter)
     {
@@ -1254,6 +1275,8 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 	      RGN_BLOCKS (nr_regions) = idx++;
 	      RGN_DONT_CALC_DEPS (nr_regions) = 0;
 	      RGN_HAS_REAL_EBB (nr_regions) = 0;
+	      RGN_HAS_RENAMING_P (nr_regions) = 0;
+	      RGN_WAS_PIPELINED_P (nr_regions) = 0;
 	      CONTAINING_RGN (bbn) = nr_regions;
 	      BLOCK_TO_BB (bbn) = 0;
 
@@ -1280,6 +1303,7 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 		   processed in the below cycle.  */
 		{
 		  RGN_NR_BLOCKS (nr_regions) = 1;
+		  RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
 		  nr_regions++;
 		}          
 
@@ -1309,6 +1333,9 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 			  RGN_NR_BLOCKS (nr_regions) = 1;
 			  RGN_DONT_CALC_DEPS (nr_regions) = 0;
 			  RGN_HAS_REAL_EBB (nr_regions) = 0;
+			  RGN_HAS_RENAMING_P (nr_regions) = 0;
+			  RGN_WAS_PIPELINED_P (nr_regions) = 0;
+			  RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
 			  nr_regions++;
 			}
 
@@ -1323,6 +1350,10 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 	      if (!large)
 		{
 		  RGN_NR_BLOCKS (nr_regions) = num_bbs;
+		  if (num_bbs == 1)
+		    RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
+		  else
+		    RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 1;
 		  nr_regions++;
 		}
 	    }
@@ -2029,13 +2060,13 @@ static int rgn_rank (rtx, rtx);
 static void compute_jump_reg_dependencies (rtx, regset, regset, regset);
 
 /* Functions for speculative scheduling.  */
-static void add_remove_insn (rtx, int);
-static void add_block1 (basic_block, basic_block);
-static void fix_recovery_cfg (int, int, int);
+static void rgn_add_remove_insn (rtx, int);
+static void rgn_add_block (basic_block, basic_block);
+static void rgn_fix_recovery_cfg (int, int, int);
 static basic_block advance_target_bb (basic_block, rtx);
 static void check_dead_notes1 (int, sbitmap);
 #ifdef ENABLE_CHECKING
-static int region_head_or_leaf_p (basic_block, int);
+static int rgn_region_head_or_leaf_p (basic_block, int);
 #endif
 
 /* Return nonzero if there are more insns that should be scheduled.  */
@@ -2264,24 +2295,9 @@ compute_jump_reg_dependencies (rtx insn ATTRIBUTE_UNUSED,
      add_branch_dependences.  */
 }
 
-struct common_sched_info_def rgn_common_sched_info =
-  {
-    fix_recovery_cfg, add_block1,
-    sched_rgn_estimate_number_of_insns,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-#ifdef ENABLE_CHECKING
-    region_head_or_leaf_p,
-#endif
-    1,
-#ifdef ENABLE_CHECKING
-    1,
-#else
-    0,
-#endif
-    SCHED_RGN_PASS
-  };
+static struct common_sched_info_def rgn_common_sched_info;
 
-struct sched_deps_info_def rgn_sched_deps_info =
+static const struct sched_deps_info_def rgn_const_sched_deps_info =
   {
     compute_jump_reg_dependencies,
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
@@ -2289,18 +2305,20 @@ struct sched_deps_info_def rgn_sched_deps_info =
     0, 0, 0
   };
 
-struct sched_deps_info_def rgn_after_reload_sched_deps_info =
+static const struct sched_deps_info_def rgn_const_sel_sched_deps_info =
   {
     compute_jump_reg_dependencies,
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
     NULL,
     0, 0, 0
   };
+
+static struct sched_deps_info_def rgn_sched_deps_info;
 
 /* Used in schedule_insns to initialize current_sched_info for scheduling
    regions (or single basic blocks).  */
 
-static struct haifa_sched_info region_sched_info =
+static const struct haifa_sched_info rgn_const_sched_info =
 {
   init_ready_list,
   can_schedule_ready_p,
@@ -2314,10 +2332,12 @@ static struct haifa_sched_info region_sched_info =
   NULL, NULL,
   0, 0,
 
-  add_remove_insn,
+  rgn_add_remove_insn,
   begin_schedule_ready,
   advance_target_bb
 };
+
+static struct haifa_sched_info rgn_sched_info;
 
 /* Determine if PAT sets a CLASS_LIKELY_SPILLED_P register.  */
 
@@ -2754,7 +2774,7 @@ sched_is_disabled_for_current_region_p (void)
    The Haifa scheduler does this on the fly when scheduling, so this 
    function is supposed to be called from sel-sched only.  */
 void
-free_rgn_deps (bool free_insn_depend)
+free_rgn_deps (void)
 {
   int bb;
 
@@ -2779,21 +2799,14 @@ free_rgn_deps (bool free_insn_depend)
             }
           else
             {
-              if (free_insn_depend)
-                {
-                  gcc_assert (!LOG_LINKS (insn));
-                  if (INSN_DEPEND (insn))
-                    free_INSN_LIST_list (&INSN_DEPEND (insn));
-                }
-              else
-                {
-                  free_INSN_LIST_list (&LOG_LINKS (insn));
-                }
+	      free_INSN_LIST_list (&LOG_LINKS (insn));
+	      free_INSN_LIST_list (&INSN_DEPEND (insn));
             }
         }
     }
 }
 
+static int rgn_n_insns;
 
 /* Compute insn priority for a current region.  */
 void
@@ -2826,13 +2839,17 @@ schedule_region (int rgn)
 
   rgn_n_insns = 0;
 
-  if (sched_rgn_local_init (rgn, true))
+  rgn_setup_region (rgn);
+
+  if (sched_rgn_local_preinit (rgn))
     return;
+
+  sched_rgn_local_init (rgn);
 
   /* Set priorities.  */
   compute_priorities ();
 
-  haifa_local_init (rgn_n_insns);
+  sched_extend_ready_list (rgn_n_insns);
 
   /* Now we can schedule all blocks.  */
   for (bb = 0; bb < current_nr_blocks; bb++)
@@ -2875,6 +2892,8 @@ schedule_region (int rgn)
 
   /* Sanity check: verify that all region insns were scheduled.  */
   gcc_assert (sched_rgn_n_insns == rgn_n_insns);
+
+  sched_finish_ready_list ();
 
   /* Done with this region.  */
   sched_rgn_local_finish ();
@@ -2929,9 +2948,11 @@ sched_rgn_init (bool single_blocks_p, bool ebbs_p)
       if (!SEL_SCHED_P || !flag_sel_sched_pipelining_outer_loops)
 	free_dominance_info (CDI_DOMINATORS);
     }
-  RGN_BLOCKS (nr_regions) = RGN_BLOCKS (nr_regions - 1) +
-    RGN_NR_BLOCKS (nr_regions - 1);
 
+  gcc_assert (0 < nr_regions && nr_regions <= n_basic_blocks);
+
+  RGN_BLOCKS (nr_regions) = (RGN_BLOCKS (nr_regions - 1) +
+			     RGN_NR_BLOCKS (nr_regions - 1));
 
   if (CHECK_DEAD_NOTES)
     {
@@ -2955,6 +2976,7 @@ sched_rgn_finish (void)
   int any_large_regions;
   basic_block bb;
   int rgn;
+  bool check_live_info;
 
   /* Update life analysis for the subroutine.  Do single block regions
      first so that we can verify that live_at_start didn't change.  Then
@@ -2984,12 +3006,24 @@ sched_rgn_finish (void)
   blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (blocks);
 
+  /* We may have problems with conditional sets.  Avoid them.  */
+  check_live_info = (!reload_completed
+		     || (reload_completed && CHECK_DEAD_NOTES));
+
+  if (SEL_SCHED_P)
+    /* During selective scheduling CFG is being modified in various
+       ways and it is really difficult to keep track of liveness info
+       for now.  */
+    check_live_info = false;
+
   /* Update life information.  For regions consisting of multiple blocks
      we've possibly done interblock scheduling that affects global liveness.
      For regions consisting of single blocks we need to do only local
      liveness.  */
   for (rgn = 0; rgn < nr_regions; rgn++)    
-    if (RGN_NR_BLOCKS (rgn) > 1
+    if (!check_live_info
+	|| RGN_NR_BLOCKS (rgn) > 1
+	|| RGN_NEEDS_GLOBAL_LIVE_UPDATE (rgn)
 	/* Or the only block of this region has been split.  */
 	|| RGN_HAS_REAL_EBB (rgn)
 	/* New blocks (e.g. recovery blocks) should be processed
@@ -3007,6 +3041,7 @@ sched_rgn_finish (void)
   update_life_info (blocks, UPDATE_LIFE_LOCAL,
 		    (reload_completed ? PROP_DEATH_NOTES
 		     : (PROP_DEATH_NOTES | PROP_REG_INFO)));
+
   if (any_large_regions)
     {
       update_life_info (large_region_blocks, UPDATE_LIFE_GLOBAL,
@@ -3014,27 +3049,26 @@ sched_rgn_finish (void)
 			 : (PROP_DEATH_NOTES | PROP_REG_INFO)));
 
 #ifdef ENABLE_CHECKING
-      if (/* We may have problems with conditional sets.  Avoid them.  */
-	  !reload_completed
-	  || (reload_completed && CHECK_DEAD_NOTES))
+      if (check_live_info)
 	check_reg_live (true);
 #endif
     }
 
   sbitmap_free (large_region_blocks);
 
-  if (CHECK_DEAD_NOTES)
+  if (CHECK_DEAD_NOTES && !SEL_SCHED_P)
     {
       /* Verify the counts of basic block notes in single basic block
          regions.  */
       for (rgn = 0; rgn < nr_regions; rgn++)
-	if (RGN_NR_BLOCKS (rgn) == 1)
+	if (RGN_NR_BLOCKS (rgn) == 1 && !RGN_NEEDS_GLOBAL_LIVE_UPDATE (rgn))
 	  {
 	    sbitmap_zero (blocks);
 	    SET_BIT (blocks, rgn_bb_table[RGN_BLOCKS (rgn)]);
 
-/*	    gcc_assert (deaths_in_region[rgn]
-			== count_or_remove_death_notes (blocks, 0));  */
+	    gcc_assert (RGN_HAS_RENAMING_P (rgn)
+			|| (deaths_in_region[rgn]
+			    == count_or_remove_death_notes (blocks, 0)));
 	  }
       free (deaths_in_region);
     }
@@ -3048,9 +3082,7 @@ sched_rgn_finish (void)
 
   if (sched_verbose)
     {
-      if ((/* FORCE_REGIONS */
-	   true
-	   || reload_completed == 0)
+      if (reload_completed == 0
 	  && flag_schedule_interblock)
 	{
 	  fprintf (sched_dump,
@@ -3080,10 +3112,10 @@ sched_rgn_finish (void)
   ebb_head = NULL;
 }
 
-/* Ugly hack: do preinit of region structures, equally suitable for 
-   selective and haifa schedulers.  */
-bool 
-sched_rgn_local_preinit (int rgn)
+/* Setup global variables like CURRENT_BLOCKS and CURRENT_NR_BLOCK to
+   point to the region RGN.  */
+void
+rgn_setup_region (int rgn)
 {
   int bb;
 
@@ -3097,37 +3129,24 @@ sched_rgn_local_preinit (int rgn)
   ebb_head = xrealloc (ebb_head, (current_nr_blocks + 1) * sizeof (*ebb_head));
   for (bb = 0; bb <= current_nr_blocks; bb++)
     ebb_head[bb] = current_blocks + bb;
+}
 
+/* Ugly hack: do preinit of region structures, equally suitable for 
+   selective and haifa schedulers.  */
+bool
+sched_rgn_local_preinit (int rgn)
+{
   /* Don't schedule region that is marked by
      NOTE_DISABLE_SCHED_OF_BLOCK.  */
   if (sched_is_disabled_for_current_region_p ())
     return true;
-  return false;
-}
 
-/* Init region data structures.  Returns true if this region should
-   not be scheduled.  */
-bool
-sched_rgn_local_init (int rgn, bool do_preinit_p)
-{
-  int bb;
-
-  if (do_preinit_p && sched_rgn_local_preinit (rgn))
-    return true;
-  
-  if (!RGN_DONT_CALC_DEPS (rgn) /*&& !SEL_SCHED_P*/)
+  if (!RGN_DONT_CALC_DEPS (rgn))
     {
-      struct sched_deps_info_def *old_deps_info = sched_deps_info;
-      
+      int bb;
+
       if (SEL_SCHED_P)
-        {
-          sched_deps_info = &rgn_after_reload_sched_deps_info;
-          sched_emulate_haifa_p = 1;
-#if 0          
-          if (sched_deps_info->use_cselib)
-            cselib_init (true);
-#endif
-        }
+	sched_emulate_haifa_p = 1;
 
       init_deps_global ();
 
@@ -3136,7 +3155,8 @@ sched_rgn_local_init (int rgn, bool do_preinit_p)
       for (bb = 0; bb < current_nr_blocks; bb++)
 	init_deps (bb_deps + bb);
 
-      ref_counts = xcalloc (sched_max_uid, sizeof (*ref_counts));
+      /* Initialize array used in add_branch_dependencies ().  */
+      ref_counts = xcalloc (get_max_uid () + 1, sizeof (*ref_counts));
       
       /* Compute LOG_LINKS.  */
       for (bb = 0; bb < current_nr_blocks; bb++)
@@ -3152,7 +3172,8 @@ sched_rgn_local_init (int rgn, bool do_preinit_p)
           rtx head, tail;
 
 	  gcc_assert (EBB_FIRST_BB (bb) == EBB_LAST_BB (bb));
-          get_ebb_head_tail (EBB_FIRST_BB (bb), EBB_LAST_BB (bb), &head, &tail);
+          get_ebb_head_tail (EBB_FIRST_BB (bb), EBB_LAST_BB (bb), &head,
+			     &tail);
 
           compute_forward_dependences (head, tail);
 
@@ -3162,11 +3183,6 @@ sched_rgn_local_init (int rgn, bool do_preinit_p)
 
       free_pending_lists ();
 
-#if 0
-      if (sched_verbose >= 5 && sched_emulate_haifa_p)
-        debug_dependencies ();
-#endif
-
       finish_deps_global ();
 
       free (bb_deps);
@@ -3175,19 +3191,22 @@ sched_rgn_local_init (int rgn, bool do_preinit_p)
       RGN_DONT_CALC_DEPS (rgn) = 1;
 
       if (SEL_SCHED_P)
-        {
-#if 0
-          if (sched_deps_info->use_cselib)
-            cselib_finish ();
-#endif
-          sched_emulate_haifa_p = 0;
-          sched_deps_info = old_deps_info;
-        }
+	sched_emulate_haifa_p = 0;
     }
   else
     /* (This is a recovery block.  It is always a single block region.)
        OR (We use selective scheduling.)  */
     gcc_assert (current_nr_blocks == 1 || SEL_SCHED_P);
+
+  return false;
+}
+
+/* Init region data structures.  Returns true if this region should
+   not be scheduled.  */
+void
+sched_rgn_local_init (int rgn)
+{
+  int bb;
       
   /* Compute interblock info: probabilities, split-edges, dominators, etc.  */
   if (current_nr_blocks > 1 && !SEL_SCHED_P)
@@ -3242,8 +3261,6 @@ sched_rgn_local_init (int rgn, bool do_preinit_p)
 	    e->aux = NULL;
         }
     }
-
-  return false;
 }
 
 /* Free data computed for the finished region.  */
@@ -3257,19 +3274,56 @@ sched_rgn_local_free (void)
   free (rgn_edges);
 }
 
+/* Free data computed for the finished region.  */
 void
 sched_rgn_local_finish (void)
 {
-  sched_local_finish ();
-
   if (current_nr_blocks > 1 && !SEL_SCHED_P)
     {
       sched_rgn_local_free ();
     }
 }
 
-/* The one entry point in this file.  */
+/* Setup scheduler infos.  */
+void
+rgn_setup_common_sched_info (void)
+{
+  memcpy (&rgn_common_sched_info, &haifa_common_sched_info,
+	  sizeof (rgn_common_sched_info));
 
+  rgn_common_sched_info.fix_recovery_cfg = rgn_fix_recovery_cfg;
+  rgn_common_sched_info.add_block = rgn_add_block;
+  rgn_common_sched_info.estimate_number_of_insns
+    = rgn_estimate_number_of_insns;
+  rgn_common_sched_info.region_head_or_leaf_p = rgn_region_head_or_leaf_p;
+  rgn_common_sched_info.use_glat = 1;
+#ifdef ENABLE_CHECKING
+  rgn_common_sched_info.detach_life_info = 1;
+#else
+  rgn_common_sched_info.detach_life_info = 0;
+#endif
+  rgn_common_sched_info.sched_pass_id = SCHED_RGN_PASS;
+
+  common_sched_info = &rgn_common_sched_info;
+}
+
+void
+rgn_setup_sched_infos (void)
+{
+  if (!SEL_SCHED_P)
+    memcpy (&rgn_sched_deps_info, &rgn_const_sched_deps_info,
+	    sizeof (rgn_sched_deps_info));
+  else
+    memcpy (&rgn_sched_deps_info, &rgn_const_sel_sched_deps_info,
+	    sizeof (rgn_sched_deps_info));
+
+  sched_deps_info = &rgn_sched_deps_info;
+
+  memcpy (&rgn_sched_info, &rgn_const_sched_info, sizeof (rgn_sched_info));
+  current_sched_info = &rgn_sched_info;
+}
+
+/* The one entry point in this file.  */
 void
 schedule_insns (void)
 {
@@ -3280,14 +3334,12 @@ schedule_insns (void)
   if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return;
 
-  common_sched_info = &rgn_common_sched_info;
-  sched_deps_info = &rgn_sched_deps_info;
-  current_sched_info = &region_sched_info;
+  rgn_setup_common_sched_info ();
+  rgn_setup_sched_infos ();
 
   haifa_sched_init ();
 
-  /* FORCE_REGIONS */
-  sched_rgn_init (false /*reload_completed*/, false);
+  sched_rgn_init (reload_completed, false);
 
   /* Schedule every region in the subroutine.  */
   for (rgn = 0; rgn < nr_regions; rgn++)
@@ -3301,7 +3353,7 @@ schedule_insns (void)
 
 /* INSN has been added to/removed from current region.  */
 static void
-add_remove_insn (rtx insn, int remove_p)
+rgn_add_remove_insn (rtx insn, int remove_p)
 {
   if (!remove_p)
     rgn_n_insns++;
@@ -3329,7 +3381,7 @@ extend_regions (void)
 
 /* BB was added to ebb after AFTER.  */
 static void
-add_block1 (basic_block bb, basic_block after)
+rgn_add_block (basic_block bb, basic_block after)
 {
   extend_regions ();
 
@@ -3344,6 +3396,9 @@ add_block1 (basic_block bb, basic_block after)
       RGN_NR_BLOCKS (nr_regions) = 1;
       RGN_DONT_CALC_DEPS (nr_regions) = after == EXIT_BLOCK_PTR;
       RGN_HAS_REAL_EBB (nr_regions) = 0;
+      RGN_HAS_RENAMING_P (nr_regions) = 0;
+      RGN_WAS_PIPELINED_P (nr_regions) = 0;
+      RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
       CONTAINING_RGN (bb->index) = nr_regions;
       BLOCK_TO_BB (bb->index) = 0;
 
@@ -3413,9 +3468,6 @@ add_block1 (basic_block bb, basic_block after)
 
       for (++i; i <= nr_regions; i++)
 	RGN_BLOCKS (i)++;
-
-      /* We don't need to call check_dead_notes1 () because this new block
-	 is just a split of the old.  We don't want to count anything twice.  */
     }
 }
 
@@ -3423,7 +3475,7 @@ add_block1 (basic_block bb, basic_block after)
    For parameter meaning please refer to
    sched-int.h: struct sched_info: fix_recovery_cfg.  */
 static void
-fix_recovery_cfg (int bbi, int check_bbi, int check_bb_nexti)
+rgn_fix_recovery_cfg (int bbi, int check_bbi, int check_bb_nexti)
 {
   int old_pos, new_pos, i;
 
@@ -3484,7 +3536,7 @@ check_dead_notes1 (int rgn, sbitmap blocks)
    current region.  For more information please refer to
    sched-int.h: struct sched_info: region_head_or_leaf_p.  */
 static int
-region_head_or_leaf_p (basic_block bb, int leaf_p)
+rgn_region_head_or_leaf_p (basic_block bb, int leaf_p)
 {
   if (!leaf_p)    
     return bb->index == rgn_bb_table[RGN_BLOCKS (CONTAINING_RGN (bb->index))];
@@ -3495,6 +3547,11 @@ region_head_or_leaf_p (basic_block bb, int leaf_p)
       edge_iterator ei;
       
       i = CONTAINING_RGN (bb->index);
+
+      if (SEL_SCHED_P)
+	/* Pipelining can make a register to become live at the end of the
+	   cycle.  */
+	return 0;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if (e->dest != EXIT_BLOCK_PTR

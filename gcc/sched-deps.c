@@ -48,10 +48,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Holds current parameters for the dependency analyzer.  */
 struct sched_deps_info_def *sched_deps_info;
 
-/* An array indexed by INSN_UID that holds the data related 
-   to insn's dependencies and common to all schedulers.  */
-struct deps_insn_data *d_i_d = NULL;
-
 /* Same as above, but the data is specific to the Haifa scheduler.  */
 struct haifa_deps_insn_data *h_d_i_d = NULL;
 
@@ -735,6 +731,7 @@ static void
 haifa_start_insn (rtx insn)
 {
   gcc_assert (insn && !cur_insn);
+
   cur_insn = insn;
 }
 
@@ -784,12 +781,40 @@ haifa_note_dep (rtx elem, ds_t ds)
                                   NULL);
 }
 
-#define note_reg_use(R) (sched_deps_info->note_reg_use (R))
-#define note_reg_set(R) (sched_deps_info->note_reg_set (R))
-#define note_reg_clobber(R) (sched_deps_info->note_reg_clobber (R))
-#define note_mem_dep(M1, M2, E, DS) \
-(sched_deps_info->note_mem_dep (M1,M2,E,DS))
-#define note_dep(E, DS) (sched_deps_info->note_dep (E, DS))
+static void
+note_reg_use (int r)
+{
+  if (sched_deps_info->note_reg_use)
+    sched_deps_info->note_reg_use (r);
+}
+
+static void
+note_reg_set (int r)
+{
+  if (sched_deps_info->note_reg_set)
+    sched_deps_info->note_reg_set (r);
+}
+
+static void
+note_reg_clobber (int r)
+{
+  if (sched_deps_info->note_reg_clobber)
+    sched_deps_info->note_reg_clobber (r);
+}
+
+static void
+note_mem_dep (rtx m1, rtx m2, rtx e, ds_t ds)
+{
+  if (sched_deps_info->note_mem_dep)
+    sched_deps_info->note_mem_dep (m1,m2,e,ds);
+}
+
+static void
+note_dep (rtx e, ds_t ds)
+{
+  if (sched_deps_info->note_dep)
+    sched_deps_info->note_dep (e, ds);
+}
 
 /* Return corresponding to DS reg_note.  */
 enum reg_note
@@ -1212,8 +1237,23 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 	  }
 
 	for (u = deps->last_pending_memory_flush; u; u = XEXP (u, 1))
-	  if (! JUMP_P (XEXP (u, 0)) || deps_may_trap_p (x))
-	    add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
+	  {
+	    if (! JUMP_P (XEXP (u, 0)))
+	      add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
+	    else if (deps_may_trap_p (x))
+	      {
+		if ((sched_deps_info->generate_spec_deps)
+		    && SEL_SCHED_P && (spec_info->mask & BEGIN_CONTROL))
+		  {
+		    ds_t ds = set_dep_weak (DEP_ANTI, BEGIN_CONTROL,
+					    MAX_DEP_WEAK);
+
+		    note_dep (XEXP (u, 0), ds);
+		  }
+		else
+		  add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
+	      }
+	  }
 
 	/* Always add these dependencies to pending_reads, since
 	   this insn may be followed by a write.  */
@@ -1695,9 +1735,6 @@ deps_analyze_insn (struct deps *deps, rtx insn)
 
   if (NONJUMP_INSN_P (insn) || JUMP_P (insn))
     {
-      /* Clear out the stale LOG_LINKS from flow.  */
-      free_INSN_LIST_list (&LOG_LINKS (insn));
-
       /* Make each JUMP_INSN a scheduling barrier for memory
          references.  */
       if (JUMP_P (insn))
@@ -1717,9 +1754,6 @@ deps_analyze_insn (struct deps *deps, rtx insn)
       int i;
 
       CANT_MOVE (insn) = 1;
-
-      /* Clear out the stale LOG_LINKS from flow.  */
-      free_INSN_LIST_list (&LOG_LINKS (insn));
 
       if (find_reg_note (insn, REG_SETJMP, NULL))
         {
@@ -1879,6 +1913,11 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 
   for (insn = head;; insn = NEXT_INSN (insn))
     {
+
+      if (INSN_P (insn))
+	/* Clear out the stale LOG_LINKS from flow.  */
+	free_INSN_LIST_list (&LOG_LINKS (insn));
+
       deps_analyze_insn (deps, insn);
 
       if (insn == tail)
@@ -2031,18 +2070,31 @@ free_deps (struct deps *deps)
   free (deps->reg_last);
 }
 
+/* An array indexed by INSN_UID that holds the data related 
+   to insn's dependencies and common to all schedulers.  */
+VEC (deps_insn_data_def, heap) *d_i_d = NULL;
+
+void
+deps_extend_d_i_d (void)
+{
+  VEC_safe_grow_cleared (deps_insn_data_def, heap, d_i_d, sched_max_luid);
+}
+
+void
+deps_finish_d_i_d (void)
+{
+  VEC_free (deps_insn_data_def, heap, d_i_d);
+}
+
 /* If it is profitable to use them, initialize or extend (depending on
    CREATE_P) caches for tracking dependency information.  */
 void
 sched_deps_local_init (bool create_caches_p)
 {
-  int i;
+  deps_extend_d_i_d ();
 
-  d_i_d = xrecalloc (d_i_d, max_luid, cur_max_luid, sizeof (*d_i_d));
-  for (i = cur_max_luid; i < max_luid; i++)
-    d_i_d[i].cost = -1;
-
-  h_d_i_d = xrecalloc (h_d_i_d, max_luid, cur_max_luid, sizeof (*h_d_i_d));
+  h_d_i_d = xrecalloc (h_d_i_d, sched_max_luid, cur_max_luid,
+		       sizeof (*h_d_i_d));
 
   /* FIXME: We need another caching mechanism for selective scheduling, so 
      we don't use this one.  */
@@ -2055,28 +2107,30 @@ sched_deps_local_init (bool create_caches_p)
          the comment before the declaration of true_dependency_cache for
          what we consider "very high".  */
       if (true_dependency_cache
-          || (create_caches_p && (max_luid / n_basic_blocks > 100 * 5)))
+          || (create_caches_p && (sched_max_luid / n_basic_blocks > 100 * 5)))
         {
           int i;
         
           true_dependency_cache = XRESIZEVEC (bitmap_head,
-                                              true_dependency_cache, max_luid);
+                                              true_dependency_cache,
+					      sched_max_luid);
           output_dependency_cache = XRESIZEVEC (bitmap_head,
                                                 output_dependency_cache,
-                                                max_luid);
+                                                sched_max_luid);
           anti_dependency_cache = XRESIZEVEC (bitmap_head,
-                                              anti_dependency_cache, max_luid);
+                                              anti_dependency_cache,
+					      sched_max_luid);
 #ifdef ENABLE_CHECKING
           forward_dependency_cache = XRESIZEVEC (bitmap_head,
                                                  forward_dependency_cache,
-                                                 max_luid);
+                                                 sched_max_luid);
 #endif
           if (sched_deps_info->generate_spec_deps)
             spec_dependency_cache = XRESIZEVEC (bitmap_head,
                                                 spec_dependency_cache,
-                                                max_luid);
+                                                sched_max_luid);
 
-          for (i = cur_max_luid; i < max_luid; i++)
+          for (i = cur_max_luid; i < sched_max_luid; i++)
             {
               bitmap_initialize (&true_dependency_cache[i], 0);
               bitmap_initialize (&output_dependency_cache[i], 0);
@@ -2090,7 +2144,7 @@ sched_deps_local_init (bool create_caches_p)
         }
     }
 
-  cur_max_luid = max_luid;
+  cur_max_luid = sched_max_luid;
 }
 
 /* Free the caches allocated in init_dependency_caches.  */
@@ -2130,12 +2184,12 @@ sched_deps_local_finish (void)
 
     }
 
-  free (d_i_d);
-  d_i_d = NULL;
   free (h_d_i_d);
   h_d_i_d = NULL;
 
   cur_max_luid = 0;
+
+  deps_finish_d_i_d ();
 }
 
 /* Initialize some global variables needed by the dependency analysis
@@ -2392,9 +2446,10 @@ delete_back_forw_dep (rtx insn, rtx elem)
 
 /* Return weakness of speculative type TYPE in the dep_status DS.  */
 dw_t
-get_dep_weak (ds_t ds, ds_t type)
+get_dep_weak_1 (ds_t ds, ds_t type)
 {
   ds = ds & type;
+
   switch (type)
     {
     case BEGIN_DATA: ds >>= BEGIN_DATA_BITS_OFFSET; break;
@@ -2404,8 +2459,16 @@ get_dep_weak (ds_t ds, ds_t type)
     default: gcc_unreachable ();
     }
 
-  gcc_assert (MIN_DEP_WEAK <= ds && ds <= MAX_DEP_WEAK);
   return (dw_t) ds;
+}
+
+dw_t
+get_dep_weak (ds_t ds, ds_t type)
+{
+  dw_t dw = get_dep_weak_1 (ds, type);
+
+  gcc_assert (MIN_DEP_WEAK <= dw && dw <= MAX_DEP_WEAK);
+  return dw;
 }
 
 /* Return the dep_status, which has the same parameters as DS, except for
@@ -2427,9 +2490,12 @@ set_dep_weak (ds_t ds, ds_t type, dw_t dw)
   return ds;
 }
 
-/* Return the join of two dep_statuses DS1 and DS2.  */
-ds_t
-ds_merge (ds_t ds1, ds_t ds2)
+/* Return the join of two dep_statuses DS1 and DS2.
+   If MAX_P is true then choose the greater probability,
+   otherwise multiply probabilities.
+   This function assumes that both DS1 and DS2 contain speculative bits.  */
+static ds_t
+ds_merge_1 (ds_t ds1, ds_t ds2, bool max_p)
 {
   ds_t ds, t;
 
@@ -2446,12 +2512,24 @@ ds_merge (ds_t ds1, ds_t ds2)
 	ds |= ds2 & t;
       else if ((ds1 & t) && (ds2 & t))
 	{
+	  dw_t dw1 = get_dep_weak (ds1, t);
+	  dw_t dw2 = get_dep_weak (ds2, t);
 	  ds_t dw;
 
-	  dw = ((ds_t) get_dep_weak (ds1, t)) * ((ds_t) get_dep_weak (ds2, t));
-	  dw /= MAX_DEP_WEAK;
-	  if (dw < MIN_DEP_WEAK)
-	    dw = MIN_DEP_WEAK;
+	  if (!max_p)
+	    {
+	      dw = ((ds_t) dw1) * ((ds_t) dw2);
+	      dw /= MAX_DEP_WEAK;
+	      if (dw < MIN_DEP_WEAK)
+		dw = MIN_DEP_WEAK;
+	    }
+	  else
+	    {
+	      if (dw1 >= dw2)
+		dw = dw1;
+	      else
+		dw = dw2;
+	    }
 
 	  ds = set_dep_weak (ds, t, (dw_t) dw);
 	}
@@ -2461,6 +2539,128 @@ ds_merge (ds_t ds1, ds_t ds2)
       t <<= SPEC_TYPE_SHIFT;
     }
   while (1);
+
+  return ds;
+}
+
+/* Return the join of two dep_statuses DS1 and DS2.
+   This function assumes that both DS1 and DS2 contain speculative bits.  */
+ds_t
+ds_merge (ds_t ds1, ds_t ds2)
+{
+  return ds_merge_1 (ds1, ds2, false);
+}
+
+/* Return the join of two dep_statuses DS1 and DS2.  */
+ds_t
+ds_full_merge (ds_t ds, ds_t ds2, rtx mem1, rtx mem2)
+{
+  ds_t new_status = ds | ds2;
+
+  if (new_status & SPECULATIVE)
+    {
+      if ((ds && !(ds & SPECULATIVE))
+	  || (ds2 && !(ds2 & SPECULATIVE)))
+	/* Then this dep can't be speculative.  */
+	new_status &= ~SPECULATIVE;
+      else
+	{
+	  /* Both are speculative.  Merging probabilities.  */
+	  if (mem1)
+	    {
+	      dw_t dw;
+
+	      dw = estimate_dep_weak (mem1, mem2);
+	      ds = set_dep_weak (ds, BEGIN_DATA, dw);
+	    }
+
+	  if (!ds)
+	    new_status = ds2;
+	  else if (!ds2)
+	    new_status = ds;
+	  else
+	    new_status = ds_merge (ds2, ds);
+	}
+    }
+
+  return new_status;
+}
+
+/* Return the join of DS1 and DS2.  Use maximum instead of multiplying
+   probabilities.  */
+ds_t
+ds_max_merge (ds_t ds1, ds_t ds2)
+{
+  if (ds1 == 0 && ds2 == 0)
+    return 0;
+
+  return ds_merge_1 (ds1, ds2, true);
+}
+
+/* Return the probability of speculation success for the speculation
+   status DS.  */
+dw_t
+ds_weak (ds_t ds)
+{
+  ds_t res = 1, dt;
+  int n = 0;
+
+  dt = FIRST_SPEC_TYPE;
+  do
+    {
+      if (ds & dt)
+	{
+	  res *= (ds_t) get_dep_weak (ds, dt);
+	  n++;
+	}
+
+      if (dt == LAST_SPEC_TYPE)
+	break;
+      dt <<= SPEC_TYPE_SHIFT;
+    }
+  while (1);
+
+  gcc_assert (n);
+  while (--n)
+    res /= MAX_DEP_WEAK;
+
+  if (res < MIN_DEP_WEAK)
+    res = MIN_DEP_WEAK;
+
+  gcc_assert (res <= MAX_DEP_WEAK);
+
+  return (dw_t) res;
+}
+
+/* Return a dep status that contains all speculation types of DS.  */
+ds_t
+ds_get_speculation_types (ds_t ds)
+{
+  if (ds & BEGIN_DATA)
+    ds |= BEGIN_DATA;
+  if (ds & BE_IN_DATA)
+    ds |= BE_IN_DATA;
+  if (ds & BEGIN_CONTROL)
+    ds |= BEGIN_CONTROL;
+  if (ds & BE_IN_CONTROL)
+    ds |= BE_IN_CONTROL;
+
+  return ds & SPECULATIVE;
+}
+
+/* Return a dep status that contains maximal weakness for each speculation
+   type present in DS.  */
+ds_t
+ds_get_max_dep_weak (ds_t ds)
+{
+  if (ds & BEGIN_DATA)
+    ds = set_dep_weak (ds, BEGIN_DATA, MAX_DEP_WEAK);
+  if (ds & BE_IN_DATA)
+    ds = set_dep_weak (ds, BE_IN_DATA, MAX_DEP_WEAK);
+  if (ds & BEGIN_CONTROL)
+    ds = set_dep_weak (ds, BEGIN_CONTROL, MAX_DEP_WEAK);
+  if (ds & BE_IN_CONTROL)
+    ds = set_dep_weak (ds, BE_IN_CONTROL, MAX_DEP_WEAK);
 
   return ds;
 }

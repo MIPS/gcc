@@ -1,3 +1,275 @@
+2007-06-06  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	Update various pieces of infrastructure.
+ 	Implement initial support for ia64 data and control speculation.
+	
+	* sched-ebb.c (n_insns, sched_n_insns): Rename to rgn_n_insns and
+	sched_rgn_n_insns respectfully.  Update all uses.
+	(ebb_common_sched_info): Move initialization to schedule_ebbs ().
+	(add_remove_insn, add_block1, fix_recovery_cfg, ebb_head_or_leaf_p):
+	Rename to ebb_add_remove_insn (), ebb_add_block (),
+	ebb_fix_recovery_cfg (), ebb_region_head_or_leaf_p () respectfully.
+	Update all uses.
+	
+	* target.h (struct gcc_target: needs_block_p): Change signature.
+	Update all uses.
+	(struct gcc_target: gen_check): Rename to gen_spec_check.  Change
+	signature.  Update all uses.
+	(struct gcc_target: get_insn_spec_ds, get_insn_checked_ds):
+	New hooks to query speculation information of instruction.
+	(struct gcc_target: skip_rtx_p): New hook to identify speculative
+	markers of instruction.
+	
+	* rtlanal.c (may_trap_p_1): Skip through UNSPEC on request of target.
+
+	* haifa-sched.c (vecprim.h): New include.
+	(sched_max_uid, sched_last_basic_block, sched_bbs, sched_insns):
+	Remove.
+	(spec_info): Make global.
+	(sched_init, sched_finish, haifa_sched_init, haifa_sched_finish):
+	Restructure initialization.
+	(haifa_speculate_insn): New static function.
+	(try_ready): Use it instead of speculate_insn ().
+	(sched_extend_ready_list, sched_finish_ready_list): New functions.
+	(extend_ready, haifa_local_init, sched_local_init, sched_insns_init):
+	Remove.
+	(sched_insns_finish, extend_all): Ditto.
+	(haifa_insns_init): Rename to haifa_insns_init.  Update all uses.
+	(haifa_luid_for_non_insn): New static function.
+	(dep_weak): Move to sched-deps.c.  Rename to ds_weak ().
+	(init_before_recovery): Use haifa_init_only_bb () instead of
+	add_block ().
+	(create_check_block_twin): Update to use new initialization functions.
+	(change_pattern): Rename to sched_change_pattern ().  Make global.
+	Split haifa-specific functionality into ...
+	(haifa_change_pattern): New static function.
+	(speculate_insn): Rename to sched_speculate_insn ().  Make global.
+	Split haifa-specific functionality into ...
+	(haifa_speculate_insn): New static function.
+	(sched_bbs_init, add_block, glat_init_1, glat_init, sched_bbs_finish):
+	Remove.
+	(debug_spec_status): Use get_dep_weak_1 () instead of get_dep_weak ()
+	to prevent ICEs on malformed input.
+	(extend_bb, init_bb, extend_insn, init_insn, init_insns_in_bb): New
+	static functions for walking through scheduling region.
+	(sched_scan): New function for walking through scheduling region.
+	(sched_extend_bb, sched_init_bb): New static functions.
+	(sched_init_bbs, sched_finish_bbs): New functions to init / finalize
+	basic block information.
+	(attach_life_info1, attach_life_info): Move to the better place.
+	(sched_luids): New vector variable to replace uid_to_luid.
+	(sched_luid_extend): Rename to luids_extend_insn ().  Update to use
+	sched_luids.
+	(sched_max_luid): New variable.
+	(sched_luid_init): Rename to luids_init_insn ().
+	(sched_init_luids, sched_finish_luids): New functions to
+	init / finalize logical uids.
+	(sched_luid_finish): Remove.
+	(sched_insn_extend, sched_insn_init, sched_insn_finish): Remove.
+	(sched_extend_target): New function.
+	(h_i_d): Make it a vector.
+	(extend_h_i_d, init_h_i_d, haifa_init_h_i_d, haifa_finish_h_i_d):
+	New functions to initialize / finalize haifa instruction data.
+	(haifa_init_insn): New static function.
+	(sched_bb_extend, sched_bb_init): Remove.
+	(haifa_init_only_bb): New static function.
+	(sched_data_update, sched_data_finish): Remove.
+
+	* modulo-sched.c (sms_common_sched_info): Move initialization to ...
+	(setup_sched_infos): New static function.
+	(sms_schedule): Move initialization of common_sched_info,
+	sched_deps_info, current_sched_info to setup_sched_infos ().
+
+	* sel-sched.c (reset_sched_cycles_p): New variable.
+	(old_ready_veclen): Rename to max_issue_size.
+	(substitute_rhs): Rename to substitute_reg_in_rhs ().  Update to use
+	vinsns properly.
+	(replace_in_vinsn_using_bitmask): Rename to
+	replace_in_rtx_using_bitmask ().  Update to use	vinsns properly.
+	(un_substitute): Update to use	vinsns properly.
+	(replace_src_with_reg): Rename to create_insn_rtx_with_rhs.  Don't use
+	vinsns.
+	(replace_dest_with_reg_in_vinsn): Rename to create_insn_rtx_with_lhs.
+	Don't use vinsns.
+	(replace_dest_with_reg_in_rhs): Update.
+	(expr_dest_reg): New static function.
+	(rhs_dest_regno): Use expr_dest_reg ().
+	(mark_unavailable_hard_regs): Update.
+	(choose_best_reg): Add assertion.  Move logic to ...
+	(choose_best_reg_1): New static function.
+	(choose_best_pseudo_reg): Add output parameter.
+	(find_best_reg_for_rhs): Change type of return value.  Update.
+	(sel_speculation_p): New static variable.
+	(can_overcome_dep_p, create_speculation_check_insn_rtx): New static
+	functions.
+	(apply_spec_to_expr, speculate_expr, has_spec_dependence_p): Ditto.
+	(un_speculate): Ditto.
+	(moveup_rhs): Add support for data and control speculation.  Update.
+	(moveup_set_rhs, equal_after_moveup_path_p, compute_av_set): Update.
+	(propagate_lv_set, compute_live, update_data_sets): Update.
+	(get_spec_check_type_for_insn): New static function.
+	(find_used_regs_1, find_used_regs, sel_rank_for_schedule): Update to
+	support speculation.
+	(fill_ready_list, find_best_rhs_and_reg_that_fits): Ditto.
+	(gen_insn_from_expr_after): New static function.
+	(generate_bookkeeping_insn, fill_insns): Update
+	(get_dest_reg_from_orig_ops): New static function.
+	(move_op): Update to support speculation.
+	(init_seqno): Add parameter.  Update.
+	(sel_restore_other_notes): Move to sel-sched-ir.c.
+	(is_loop_preheader_p): Move to sel-sched-ir.c.  Rename to
+	sel_is_loop_preheader_p ().
+	(sel_remove_loop_preheader): Move to sel-sched-ir.c.
+	(sel_region_init, sel_region_finish, sel_sched_region_1): Update.
+	(sel_global_init, sel_global_finish): Update.
+	(selective_scheduling_run): Add .dot dumping.
+	(handle_sel_sched): Use debugging parameter to choose scheduler.
+
+	* sel-sched-ir.c (sel_bb_info): Change array to vector.
+	(sel_max_uid, lvs, lvs_size): Remove.
+	(s_i_r_d): New static vector variable.
+	(get_nop_from_pool): Rewrite.
+	(free_nop_pool): Update.
+	(vinsn_equal_insn_p): Remove.
+	(vinsn_separable_p): Rename to lhs_and_rhs_separable_p.  Update.
+	(vinsn_init): Update.
+	(sel_insn_rtx_cost): New static function.
+	(sel_vinsn_cost, sel_gen_insn_from_rtx_after): New functions.
+	sel_gen_insn_from_expr_after): Ditto.
+	(rhs_equal_p): Rename to vinsn_correlate_as_rhses_p ().  Update.
+	(rhs_init): Rename to init_expr ().  Update.
+	(rhs_copy): Rename to copy_expr ().
+	(merge_expr_data): New function.
+	(rhs_merge): Rename to merge_expr ().
+	(rhs_equal_insn_p): Remove.
+	(clear_expr): New function.
+	(av_set_lookup_rhs): Rename to av_set_lookup ().  Update.
+	(av_set_loopup_other_equiv_rhs): Update.
+	(av_set_remove_rhs_with_insn): Remove.
+	(av_set_add_vinsn): Rename to av_set_add ().  Update.
+	(av_set_copy): Update.
+	(av_set_lookup_insn): Remove.
+	(av_set_add_insn): Remove.
+	(deps_init_id_start_insn, deps_init_id_finish_insn): Update.
+	(deps_init_id_start_lhs, deps_init_id_finish_lhs): Ditto.
+	(deps_init_id_start_rhs, deps_init_id_finish_rhs): Ditto.
+	(deps_init_id_reset_deps_to_insn): Rename to
+	deps_init_id_downgrade_to_use ().
+	(deps_init_id_note_reg_set, deps_init_id_note_reg_clobber): Ditto.
+	(deps_init_id_note_reg_use, deps_init_id_note_mem_dep): Ditto.
+	(sel_cfg_note_p): New static function.
+	(init_global_and_expr_for_insn): New static function.
+	(sel_init_global_and_expr): New function.
+	(finish_global_and_expr_insn_1, finish_global_and_expr_insn_1): New
+	static functions.
+	(sel_finish_global_and_expr): New function.
+	(sel_deps_*): Rename functions to has_dependence_*.  Update.
+	(save_deps_info): Remove.
+	(setup_has_dependence_sched_deps_info): New static function.
+	(has_dependence_p): Update.
+	(tick_check_dep_with_dw, tick_check_p): Update.
+	(lhs_equals_reg_p): Rename to lhs_of_insn_equals_to_reg_p ().
+	(get_vinsn_type_for_insn): Remove.
+	(insn_valid_p): Rename to insn_rtx_valid.
+	(sel_insn_deffered_init): Remove.
+	(copy_insn_out_of_stream, copy_insn_and_insert_before): Remove.
+	(set_insn_init): New function.
+	(init_insn, init_simplejump, insn_init_move_lv_set_if_bb_header): New
+	static functions.
+	(sel_init_new_insns, sel_finish_new_insns): New functions.
+	(dfa_cost): Rename to vinsn_dfa_cost ().
+	(bb_header_p): Rename to sel_bb_header_p ().
+	(bb_empty_p): Rename to sel_bb_empty_p ().
+	(sel_insn_has_single_succ_p): New function.
+	(sel_add_or_remove_bb): Update.
+	(sel_create_basic_block_before, sel_merge_blocks): New function.
+	(create_insn_rtx_from_pattern_1): New static function.
+	(create_insn_rtx_from_pattern, create_vinsn_from_insn_rtx): New
+	functions.
+	(create_copy_of_insn_rtx, change_vinsn_in_expr): Ditto.
+
+	* sel-sched-ir.h (struct _rhs): Rename to 'struct _expr'.
+	(struct _expr: sched_times, spec_done_ds, spec_to_check_ds): New
+	fields.
+	(struct vinsn_def: sched_cycle, sched_times, separable): Remove fields.
+	(struct vinsn_def: cost, may_trap_p): New fields.
+	(struct sel_insn_data: sched_cycle): New field.
+	(struct _sel_insn_rtx_data): New type.
+
+	* sel-sched-dump.c (dump_insn_rtx, debug_insn_rtx): New functions.
+	(dump_vinsn, debug_vinsn, dump_expr, debug_expr): Ditto.
+	(dump_insn, debug_insn): Ditto.
+	(sel_dump_cfg_2): Update.
+
+	* sel-sched-dump.h (enum _dump_insn_rtx, enum _dump_idata): New enums.
+	(enum _dump_vinsn, enum _dump_expr, enum _dump_insn): New enums.
+
+	* emit-rtl.c (emit_insn_after_1): Call hook.
+
+	* sched-deps.c (note_reg_use, note_reg_set, note_reg_clobber): Convert
+	macros to functions.
+	(note_mem_dep, note_dep): Ditto.
+	(sched_analyze_2): Generate control speculative dependencies.
+	(deps_analyze_insn): Update.
+	(d_i_d): Convert array to vector.
+	(deps_extend_d_i_d, deps_finish_d_i_d): New functions.
+	(sched_deps_local_init): Update.
+	(get_dep_weak): Move logic to ...
+	(get_dep_weak_1): New function.
+	(ds_merge): Move logic to ...
+	(ds_merge_1): New static function.
+	(ds_full_merge, ds_max_merge, ds_get_speculation_types): New functions.
+	(ds_get_max_dep_weak): New function.
+
+	* sched-deps.h (sched-int.h): New include.
+	(struct deps_insn_data: depend): Move field to
+	'struct haifa_deps_insn_data'.
+
+	* target-def.h (TARGET_SCHED_GEN_CHECK): Rename to
+	TARGET_SCHED_GEN_SPEC_CHECK.
+	(TARGET_SCHED_GET_INSN_SPEC_DS, TARGET_SCHED_GET_INSN_CHECKED_DS):
+	New macros.
+	(TARGET_SCHED_SKIP_RTX_P): New macro.
+
+	* sched-int.h (vecprim.h): New include.
+	(bb_vec_t, insn_vec_t): New typedefs.
+	(struct sched_scan_info_def): New type.
+	(sched_scan_info): Declare variable.
+	(sched_scan, sched_init_bbs, sched_finish_bbs, sched_init_luids):
+	Declare functions.
+	(sched_finish_luids, sched_extend_target, haifa_init_h_i_d): Ditto.
+	(haifa_finish_h_i_d, haifa_init_only_bb): Ditto.
+	(struct common_sched_info_def): Remove fields which_luid, remove_notes,
+	bb_extend, bb_init, bb_finish, insn_extend, insn_init.  Add field
+	luid_for_new_insn.
+	(struct haifa_insn_data): Add fields reg_weight, priority_known.
+
+	* Makefile.in (SCHED_INT_H, SCHED_DEPS_H): Update.
+	(fwprop.o): Fix dependencies.
+	(haifa-sched.o, sched-deps.o, sel-sched.o, sel-sched-ir.o): Update
+	dependencies.
+
+	* sched-rgn.c (find_single_block_region, haifa_find_rgns): Update.
+	(extend_rgns, schedule_region, sched_rgn_finish): Ditto.
+	(sched_rgn_local_preinit, sched_rgn_local_init): Ditto.
+	(rgn_setup_common_sched_info, rgn_setup_sched_infos): New function.
+
+	* sched-vis.c (dump_insn_slim_1): Update.
+
+	* config/ia64/ia64.opt (msched-ldc): Rename to msched-spec-ldc.
+	(msched-control-ldc): Rename to msched-spec-control-ldc.
+	(msel-sched-data-spec, msel-sched-control-spec): New flags.
+	(msel-sched-dont-check-control-spec): New flag.
+
+	* config/ia64/ia64.c: Rewrite speculation hooks.
+
+	* config/ia64/ia64.md (speculable1, speculable2): New attributes.
+
+	* params.def (PARAM_SELSCHED_MAX_SCHED_TIMES): New parameter.
+	(PARAM_ALLOW_START, PARAM_ALLOW_STOP, PARAM_ALLOW_P): Remove.
+	(PARAM_SEL1_START, PARAM_SEL1_STOP, PARAM_SEL1_P): New parameters.
+	(PARAM_SEL2_START, PARAM_SEL2_STOP, PARAM_SEL2_P): Ditto.
+
 2007-05-23  Alexander Monakov  <amonakov@ispras.ru>
 
 	* target.h (struct gcc_target): Add new parameter to adjust_cost_2

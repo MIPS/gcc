@@ -78,10 +78,9 @@ typedef _xlist_t ilist_t;
 
 /* Expression macros -- to be removed.  */
 #define expr_equal_p(A, B) (rtx_equal_p (A, B))
-#define expr_copy(EXPR) (copy_rtx (EXPR))
 
 /* Right hand side information.  */
-struct _rhs
+struct _expr
 {
   /* Insn description.  */
   vinsn_t vinsn;
@@ -95,34 +94,60 @@ struct _rhs
 
   /* A priority of this expression.  */
   int priority;
+
+  /* Number of times the insn was scheduled.  */
+  int sched_times;
+
+  /* Instruction should be of SPEC_DONE_DS type in order to be moved to this
+     point.  */
+  ds_t spec_done_ds;
+
+  /* SPEC_TO_CHECK_DS hold speculation types that should be checked
+     (used only during move_op ()).  */
+  ds_t spec_to_check_ds;
 };
-/* Right hand side.  */
-typedef struct _rhs *rhs_t;
 
+typedef struct _expr expr_def;
+typedef expr_def *expr_t;
+
+/* Obsolete.  */
+typedef expr_t rhs_t;
+
+#define EXPR_VINSN(EXPR) ((EXPR)->vinsn)
+#define EXPR_INSN_RTX(EXPR) (VINSN_INSN_RTX (EXPR_VINSN (EXPR)))
+#define EXPR_PATTERN(EXPR) (VINSN_PATTERN (EXPR_VINSN (EXPR)))
+#define EXPR_LHS(EXPR) (VINSN_LHS (EXPR_VINSN (EXPR)))
+#define EXPR_RHS(EXPR) (VINSN_RHS (EXPR_VINSN (EXPR)))
+#define EXPR_TYPE(EXPR) (VINSN_TYPE (EXPR_VINSN (EXPR)))
+#define EXPR_SEPARABLE_P(EXPR) (VINSN_SEPARABLE_P (EXPR_VINSN (EXPR)))
+
+#define EXPR_SPEC(EXPR) ((EXPR)->spec)
+#define EXPR_PRIORITY(EXPR) ((EXPR)->priority)
+#define EXPR_SCHED_TIMES(EXPR) ((EXPR)->sched_times)
+#define EXPR_SPEC_DONE_DS(EXPR) ((EXPR)->spec_done_ds)
+#define EXPR_SPEC_TO_CHECK_DS(EXPR) ((EXPR)->spec_to_check_ds)
+
+/* Obsolete. */
 #define RHS_VINSN(RHS) ((RHS)->vinsn)
-#define RHS_SPEC(RHS) ((RHS)->spec)
 #define RHS_INSN(RHS) (VINSN_INSN (RHS_VINSN (RHS)))
-#define RHS_PAT(RHS) (PATTERN (RHS_INSN (RHS)))
+#define RHS_PATTERN(RHS) (VINSN_PATTERN (RHS_VINSN (RHS)))
+#define RHS_SPEC(RHS) ((RHS)->spec)
 #define RHS_PRIORITY(RHS) ((RHS)->priority)
-#define RHS_DEST(RHS) (VINSN_LHS (RHS_VINSN (RHS))) 
-
-/* FIXME: rename it!!!  */
-#define RHS_SCHEDULE_AS_RHS(RHS) (VINSN_SEPARABLE (RHS_VINSN (RHS)))
-#define RHS_HAS_RHS(RHS) (VINSN_HAS_RHS (RHS_VINSN (RHS)))
-
+#define RHS_SCHED_TIMES(RHS) ((RHS)->sched_times)
 
 /* Insn definition for list of original insns in find_used_regs.  */
 struct _def
 {
   insn_t orig_insn;
   bool crosses_call;
+  bool needs_spec_check_p;
 };
 typedef struct _def *def_t;
 
 
 /* Availability sets arae sets of expressions we're scheduling.  */
 typedef _list_t av_set_t;
-#define _AV_SET_RHS(L) (&(L)->u.rhs)
+#define _AV_SET_EXPR(L) (&(L)->u.expr)
 #define _AV_SET_NEXT(L) (_LIST_NEXT (L))
 
 
@@ -240,7 +265,7 @@ struct _list_node
   {
     rtx x;
     struct _bnd bnd;
-    struct _rhs rhs;
+    expr_def expr;
     struct _fence fence;
     struct _def def;
     void *data;
@@ -392,7 +417,7 @@ _list_iter_cond_rhs (av_set_t av, rhs_t *rhsp)
 {
   if (av)
     {
-      *rhsp = _AV_SET_RHS (av);
+      *rhsp = _AV_SET_EXPR (av);
       return true;
     }
 
@@ -426,8 +451,16 @@ _list_iter_cond_def (def_list_t def_list, def_t *def)
 /* InstructionData.  Contains information about insn pattern.  */
 struct idata_def
 {
-  /* Type of the insn.  Can be INSN, CALL_INSN, JUMP_INSN, ... something
-     else and SET.  If it is SET, then insn can be cloned.  */
+  /* Type of the insn.
+     o CALL_INSN - Call insn
+     o JUMP_INSN - Jump insn
+     o INSN - INSN that cannot be cloned
+     o USE - INSN that can be cloned
+     o SET - INSN that can be cloned and separable into lhs and rhs
+     o PC - simplejump.  Insns that simply redirect control flow should not
+     have any dependencies.  Sched-deps.c, though, might consider them as
+     producers or consumers of certain registers.  To avoid that we handle
+     dependency for simple jumps ourselves.  */
   int type;
 
   /* If insn is a SET, this is its left hand side.  */
@@ -448,6 +481,9 @@ struct idata_def
   regset reg_sets;
 
   regset reg_uses;
+
+  /* I hope that our renaming infrastructure handles this.  */
+  /* bool has_internal_dep; */
 };
 
 #define IDATA_TYPE(ID) ((ID)->type)
@@ -455,7 +491,6 @@ struct idata_def
 #define IDATA_RHS(ID) ((ID)->rhs)
 #define IDATA_REG_SETS(ID) ((ID)->reg_sets)
 #define IDATA_REG_USES(ID) ((ID)->reg_uses)
-#define IDATA_SIMPLEJUMP_P(ID) ((ID)->simplejump_p)
 
 /* Type to represent all needed info to emit an insn.
    This is a virtual equivalent of the insn.
@@ -470,48 +505,55 @@ struct idata_def
 struct vinsn_def
 {
   /* Associated insn.  */
-  insn_t insn;
+  rtx insn_rtx;
 
   /* Its description.  */
   idata_t id;
 
-  /* Time of schedule.  It is greater than zero if insn was scheduled.  */
-  int sched_cycle;
-
-  /* Number of times the insn was scheduled.  */
-  int sched_times;
-
   /* Smart pointer counter.  */
   int count;
 
-  /* Whether we will separate insn and schedule it as RHS.  */
-  bool separable;
+  /* Cached cost of the vinsn.  To access it please use vinsn_cost ().  */
+  int cost;
+
+  /* Mark insns that may trap so we don't move them through jumps.  */
+  bool may_trap_p;
 };
 
+#define VINSN_INSN_RTX(VI) ((VI)->insn_rtx)
+#define VINSN_PATTERN(VI) (PATTERN (VINSN_INSN_RTX (VI)))
+/* Obsolete.  */
+#define VINSN_INSN(VI) (VINSN_INSN_RTX (VI))
 
 #define VINSN_ID(VI) ((VI)->id)
 #define VINSN_TYPE(VI) (IDATA_TYPE (VINSN_ID (VI)))
-#define VINSN_INSN(VI) ((VI)->insn)
+#define VINSN_SEPARABLE_P(VI) (VINSN_TYPE (VI) == SET)
+#define VINSN_CLONABLE_P(VI) (VINSN_SEPARABLE_P (VI) || VINSN_TYPE (VI) == USE)
+#define VINSN_UNIQUE_P(VI) (!VINSN_CLONABLE_P (VI))
 #define VINSN_LHS(VI) (IDATA_LHS (VINSN_ID (VI)))
 #define VINSN_RHS(VI) (IDATA_RHS (VINSN_ID (VI)))
 #define VINSN_REG_SETS(VI) (IDATA_REG_SETS (VINSN_ID (VI)))
 #define VINSN_REG_USES(VI) (IDATA_REG_USES (VINSN_ID (VI)))
-#define VINSN_SCHED_CYCLE(VI) ((VI)->sched_cycle)
-#define VINSN_SCHED_TIMES(VI) ((VI)->sched_times)
+
 #define VINSN_COUNT(VI) ((VI)->count)
-#define VINSN_HAS_RHS(VI) (!!VINSN_RHS (VI))
-#define VINSN_SEPARABLE(VI) ((VI)->separable)
-#define VINSN_PATTERN(VI) (PATTERN (VINSN_INSN (VI)))
-#define VINSN_UNIQUE_P(VI) (VINSN_TYPE (VI) != SET)
+
+#define VINSN_MAY_TRAP_P(VI) ((VI)->may_trap_p)
+
 
 
-
-/* Indexed by INSN_UID, the collection of all data associated with
-   a single instruction that is in the stream.
-   Though this data is indexed by INSN_UID, it should be indexed by
-   INSN_LUID.  */
-struct sel_insn_data
+/* Indexed by INSN_LUID, the collection of all data associated with
+   a single instruction that is in the stream.  */
+struct _sel_insn_data
 {
+  /* Insn is an ASM.  */
+  bool asm_p;
+
+  /* This field is initialized at the beginning of scheduling and is used
+     to handle sched group instructions.  If it is non-null, then it points
+     to the instruction, which should be forced to schedule next.  Such
+     instructions are unique.  */
+  insn_t sched_next;
+
   /* Every insn in the stream has an associated vinsn.  This is used
      to reduce memory consumption and give use the fact that many insns
      (all of them at the moment) don't change through the scheduler.
@@ -519,81 +561,105 @@ struct sel_insn_data
      Much of the information, that reflect information about the insn itself
      (e.g. not about where it stands in CFG) is contained in the VINSN_ID
      field of this home VI.  */
-  vinsn_t vi;
+  expr_def _expr;
 
-  int seqno;
   int av_level;
-  int ws_level;
   av_set_t av;
 
-  /* This field is initialized at the beginning of scheduling and is used
-     to handle sched group instructions.  If it is non-null, then it points
-     to the instruction, which should be forced to schedule next.  Such
-     instructions are unique (i.e. can't be dublicated) as INSN_ASM_P is
-     forced for them.  */
-  insn_t sched_next;
+  int seqno;
 
-  /* Insns that simply redirect control flow should not have any dependencies.
-     sched-deps.c , though, might consider them as producers or consumers of
-     certain registers.  To avoid that we handle dependency for simple jumps
-     ourselves.  */
-  BOOL_BITFIELD simplejump_p : 1;
-
-  /* ??? This should be called unique_p as it might be set not for asms
-     only.  It simply means that insn can't be cloned.  Such insns always
-     have only one vinsn associated - INSN_VI field above.  */
-  BOOL_BITFIELD asm_p : 1;
-
-  /* True when an insn is scheduled after we've determined that a stall is required.
+  /* True when an insn is scheduled after we've determined that a stall is
+     required.
      This is used when emulating the Haifa scheduler for bundling.  */
   BOOL_BITFIELD after_stall_p : 1;
 
-  /* Cycle at which insn was scheduled.  This is used for bundling.  */
-  int final_sched_cycle;
+  /* Cycle at which insn was scheduled.  It is greater than zero if insn was
+     scheduled.
+     This is used for bundling.  */
+  int sched_cycle;
 };
 
-extern struct sel_insn_data *s_i_d;
+typedef struct _sel_insn_data sel_insn_data_def;
+typedef sel_insn_data_def *sel_insn_data_t;
+
+DEF_VEC_O (sel_insn_data_def);
+DEF_VEC_ALLOC_O (sel_insn_data_def, heap);
+extern VEC (sel_insn_data_def, heap) *s_i_d;
+
+/* Accessor macros for s_s_i_d.  */
+#define SID(INSN) (VEC_index (sel_insn_data_def, s_i_d,	INSN_LUID (INSN)))
+
+#define INSN_ASM_P(INSN) (SID (INSN)->asm_p)
+#define INSN_SCHED_NEXT(INSN) (SID (INSN)->sched_next)
+
+#define INSN_EXPR(INSN) (&SID (INSN)->_expr)
+#define INSN_VINSN(INSN) (RHS_VINSN (INSN_EXPR (INSN)))
+#define INSN_TYPE(INSN) (VINSN_TYPE (INSN_VINSN (INSN)))
+#define INSN_SIMPLEJUMP_P(INSN) (INSN_TYPE (INSN) == PC)
+#define INSN_LHS(INSN) (VINSN_LHS (INSN_VINSN (INSN)))
+#define INSN_RHS(INSN) (VINSN_RHS (INSN_VINSN (INSN)))
+#define INSN_REG_SETS(INSN) (VINSN_REG_SETS (INSN_VINSN (INSN)))
+#define INSN_REG_USES(INSN) (VINSN_REG_USES (INSN_VINSN (INSN)))
+#define INSN_SCHED_TIMES(INSN) (EXPR_SCHED_TIMES (INSN_EXPR (INSN)))
+/* Obsolete.  */
+#define INSN_VI(INSN) (INSN_VINSN (INSN))
+
+#define INSN_AV_LEVEL(INSN) (SID (INSN)->av_level)
+#define INSN_AV_VALID_P(INSN) (INSN_AV_LEVEL (INSN) == global_level)
+/* Obsolete.  */
+#define AV_LEVEL(INSN) (INSN_AV_LEVEL (INSN))
+
+#define INSN_AV(INSN) (SID (INSN)->av)
+/* Obsolete.  */
+#define AV_SET(INSN) (INSN_AV (INSN))
+
+#define INSN_SEQNO(INSN) (SID (INSN)->seqno)
+#define INSN_AFTER_STALL_P(INSN) (SID (INSN)->after_stall_p)
+#define INSN_SCHED_CYCLE(INSN) (SID (INSN)->sched_cycle)
+
 /* A global level shows whether an insn is valid or not.  */
 extern int global_level;
 /* A list of fences currently in the works.  */
 extern flist_t fences;
 
-/* Accessor macros for s_i_d.  */
-#define SID(INSN) (s_i_d[INSN_UID (INSN)])
+/* NB: All the fields, gathered in the s_s_i_d are initialized only for
+   insns that are in the current region and, therefore, can be indexed by
+   LUID.  Except for these.  .  */
+struct _sel_insn_rtx_data
+{
+  /* For each bb header this field contains a set of live registers.
+     For all other insns this field has a NULL.
+     We also need to know LV sets for the instructions, that are immediatly
+     after the border of the region.  */
+  regset lv;
 
-#define INSN_SEQNO(INSN) (SID (INSN).seqno)
-#define AV_LEVEL(INSN)	(SID (INSN).av_level)
-#define AV_SET(INSN)	(SID (INSN).av)
-#define INSN_ASM_P(INSN) (SID (INSN).asm_p)
+  /* Vinsn corresponding to this insn.
+     We need this field to be accessible for every instruction - not only
+     for those that have luids - because when choosing an instruction from
+     ready list there is no other fast way to get corresponding vinsn which
+     holds all the data for any given insn_rtx.  */
+  vinsn_t get_vinsn_by_insn;
+};
 
-#define INSN_VI(INSN) (SID (INSN).vi)
-#define INSN_ID(INSN) (VINSN_ID (INSN_VI (INSN)))
-#define INSN_TYPE(INSN) (IDATA_TYPE (INSN_ID (INSN)))
-#define INSN_LHS(INSN) (IDATA_LHS (INSN_ID (INSN)))
-#define INSN_RHS(INSN) (IDATA_RHS (INSN_ID (INSN)))
-#define INSN_REG_SETS(INSN) (IDATA_REG_SETS (INSN_ID (INSN)))
-#define INSN_REG_USES(INSN) (IDATA_REG_USES (INSN_ID (INSN)))
+typedef struct _sel_insn_rtx_data sel_insn_rtx_data_def;
+typedef sel_insn_rtx_data_def *sel_insn_rtx_data_t;
 
-#define INSN_SCHED_CYCLE(INSN) (VINSN_SCHED_CYCLE (INSN_VI (INSN)))
-#define INSN_FINAL_SCHED_CYCLE(INSN) (SID (INSN).final_sched_cycle)
+DEF_VEC_O (sel_insn_rtx_data_def);
+DEF_VEC_ALLOC_O (sel_insn_rtx_data_def, heap);
 
-#define INSN_SCHED_NEXT(INSN) (SID (INSN).sched_next)
-#define INSN_SIMPLEJUMP_P(INSN) (SID (INSN).simplejump_p)
-#define INSN_AFTER_STALL_P(INSN) (SID (INSN).after_stall_p)
+extern VEC (sel_insn_rtx_data_def, heap) *s_i_r_d;
 
-#define INSN_AV_VALID_P(INSN) (AV_LEVEL (INSN) == global_level)
-#define INSN_UNIQUE_P(INSN) (INSN_TYPE (INSN) != SET)
-
-/* Points to liveness sets.  */
-extern regset * lvs;
+#define SIRD(INSN) \
+(VEC_index (sel_insn_rtx_data_def, s_i_r_d, INSN_UID (INSN)))
 
 /* Access macro.  */
-#define LV_SET(INSN) (lvs[INSN_UID (INSN)])
+#define LV_SET(INSN) (SIRD (INSN)->lv)
 /* !!! Replace all occurencies with (LV_SET (INSN) != NULL).  */
-#define LV_SET_VALID_P(INSN) (lvs[INSN_UID (INSN)] != NULL)
+#define LV_SET_VALID_P(INSN) (LV_SET (INSN) != NULL)
+#define GET_VINSN_BY_INSN(INSN) (SIRD (INSN)->get_vinsn_by_insn)
 
-/* Size of the per insn data structures.  */
-extern int sel_max_uid;
+extern void sel_extend_insn_rtx_data (void);
+extern void sel_finish_insn_rtx_data (void);
 
 /* A NOP pattern used as a placeholder for real insns.  */
 extern rtx nop_pattern;
@@ -635,45 +701,19 @@ extern basic_block (*old_create_basic_block) (void *, void *, basic_block);
 
 /* Types used when initializing insn data.  */
 
-/* !!! Think about this.  It would be better to have separate sets of hooks
-   to initialize insns and vinsns.  */
-enum insn_init_what { INSN_INIT_WHAT_INSN, INSN_INIT_WHAT_VINSN };
+enum insn_init_what { INSN_INIT_WHAT_INSN, INSN_INIT_WHAT_INSN_RTX };
 
-/* !!! Think about this.  It would be better to have separate sets of hooks
-   to initialize (v)insns now or later.  */
-enum insn_init_how { INSN_INIT_HOW_NOW, INSN_INIT_HOW_DEFERRED };
-
-/* Do not initialize anything.  */
-#define INSN_INIT_TODO_NOTHING (0)
 /* Provide a separate luid for the insn.  */
 #define INSN_INIT_TODO_LUID (1)
-/* Initialize LHS.  */
-#define INSN_INIT_TODO_LHS (2)
-/* Initialize RHS.  */
-#define INSN_INIT_TODO_RHS (4)
-/* Initialize INSN_VI () field in s_i_d.  */
-#define INSN_INIT_TODO_VINSN (8)
-/* Initialize LV_SET for insn.  */
-#define INSN_INIT_TODO_LV_SET (16)
-/* Initialize all Insn Data.  */
-#define INSN_INIT_TODO_INIT_ID (INSN_INIT_TODO_LHS | INSN_INIT_TODO_RHS \
-				| INSN_INIT_TODO_VINSN)
-/* Initialize fundamental instruction flags like SCHED_GROUP.  This is being
-   run at the scheduler init.  */
-#define INSN_INIT_TODO_GLOBAL (32)
-/* Prepare for dependence analysis.  */
-#define INSN_INIT_TODO_PREPARE_DEP (64)
-/* Run dependence analysis.  */
-#define INSN_INIT_TODO_HAS_DEP (128)
-/* Provide a seqno for the insn.  */
-#define INSN_INIT_TODO_SEQNO (256)
-/* Init everything in s_i_d.  */
-#define INSN_INIT_TODO_SID (512 | INSN_INIT_TODO_INIT_ID \
-			    | INSN_INIT_TODO_SEQNO)
-/* Init luid and s_i_d.  */
-#define INSN_INIT_TODO_ALL (INSN_INIT_TODO_LUID | INSN_INIT_TODO_SID)
+
+/* Initialize s_s_i_d.  */
+#define INSN_INIT_TODO_SSID (2)
+
+/* Initialize LV_SET and SEQNO for simplejump.  */
+#define INSN_INIT_TODO_SIMPLEJUMP (4)
+
 /* Move LV_SET to the insn if it is being added to the bb header.  */
-#define INSN_INIT_TODO_MOVE_LV_SET_IF_BB_HEADER (1024)
+#define INSN_INIT_TODO_MOVE_LV_SET_IF_BB_HEADER (8)
 
 
 /* A container to hold information about insn initialization.  */
@@ -682,75 +722,43 @@ struct _insn_init
   /* What is being initialized.  */
   enum insn_init_what what;
 
-  /* How this is being initialized.  */
-  enum insn_init_how how;
-
   /* This is a set of INSN_INIT_TODO_* flags.  */
   int todo;
-
-  /* Insn Data of the insn being initialized.
-     !!! Move it somewhere else.  */
-  idata_t id;
-
-  /* Data for global dependency analysis (to initialize CANT_MOVE and
-     SCHED_GROUP_P).  */
-  struct
-  {
-    /* Current insn.  */
-    insn_t insn;
-
-    /* Previous insn.  */
-    insn_t prev_insn;
-
-    /* Deps context.  */
-    struct deps deps;
-  } global;
-
-  /* Data to support deferred instruction initialization.  */
-  struct insn_init_how_deferred_def
-  {
-    /* Array of pending insns.  */
-    insn_t *insns;
-
-    /* Number of elements in the above array.  */
-    int n;
-
-    /* Size of the above array.  */
-    int size;
-  } how_deferred;
 };
 extern struct _insn_init insn_init;
 
 
 /* A variable to track which part of rtx we are scanning in
    sched-deps.c: sched_analyze_insn ().  */
-enum deps_where_t
+enum _deps_where
   {
     DEPS_IN_INSN,
     DEPS_IN_LHS,
     DEPS_IN_RHS,
     DEPS_IN_NOWHERE
   };
-
-/* Is SEL_DEPS_HAS_DEP_P[DEPS_IN_X] is true, then X has a dependence.
-   X is from { INSN, LHS, RHS }.  */
-extern bool sel_deps_has_dep_p[];
+typedef enum _deps_where deps_where_t;
 
 
 /* Per basic block data.  */
-struct sel_bb_info_def
+struct _sel_bb_info
 {
   /* This insn stream is constructed in such a way that it should be
      traversed by PREV_INSN field - (*not* NEXT_INSN).  */
   rtx note_list;
 };
-typedef struct sel_bb_info_def *sel_bb_info_t;
+
+typedef struct _sel_bb_info sel_bb_info_def;
+typedef sel_bb_info_def *sel_bb_info_t;
+
+DEF_VEC_O (sel_bb_info_def);
+DEF_VEC_ALLOC_O (sel_bb_info_def, heap);
 
 /* Per basic block data.  This array is indexed by basic block index.  */
-extern sel_bb_info_t sel_bb_info;
+extern VEC (sel_bb_info_def, heap) *sel_bb_info;
 
 /* Get data for BB.  */
-#define SEL_BB_INFO(BB) (&sel_bb_info[(BB)->index])
+#define SEL_BB_INFO(BB) (VEC_index (sel_bb_info_def, sel_bb_info, (BB)->index))
 
 /* Get BB's note_list.
    A note_list is a list of various notes that was scattered across BB
@@ -773,10 +781,6 @@ extern bool enable_moveup_set_path_p;
 extern bool enable_schedule_as_rhs_p;
 extern bool pipelining_p;
 extern bool bookkeeping_p;
-/* !!! Possibly remove: UNIQUE_RHSES are always used and UNIQUE_VINSNS are
-   never used.
-   Flags to pass to av_set_copy ().  */
-enum { UNIQUE_RHSES = 1, UNIQUE_VINSNS };
 
 /* Functions that are used in sel-sched.c.  */
 
@@ -791,7 +795,7 @@ extern void flist_add (flist_t *, insn_t, state_t, deps_t, void *,
 
 extern fence_t flist_lookup (flist_t, insn_t);
 extern void flist_clear (flist_t *);
-extern void def_list_add (def_list_t *, insn_t, bool);
+extern void def_list_add (def_list_t *, insn_t, bool, bool);
 
 /* Target context functions.  */
 extern tc_t create_target_context (bool);
@@ -816,79 +820,103 @@ extern void free_regset_pool (void);
 
 extern insn_t get_nop_from_pool (insn_t);
 extern void return_nop_to_pool (insn_t);
+extern void free_nop_pool (void);
 
 /* Vinsns functions.  */
 extern bool vinsn_separable_p (vinsn_t);
-extern void vinsn_attach (vinsn_t);
-extern void vinsn_detach (vinsn_t);
 extern bool vinsn_cond_branch_p (vinsn_t);
 extern void recompute_vinsn_lhs_rhs (vinsn_t);
+extern int sel_vinsn_cost (vinsn_t);
+extern insn_t sel_gen_insn_from_rtx_after (rtx, expr_t, int, insn_t);
+extern insn_t sel_gen_insn_from_expr_after (expr_t, int, insn_t);
 
 /* RHS functions.  */
-extern bool rhs_equal_p (rhs_t, rhs_t);
-extern void rhs_init (rhs_t, vinsn_t, int, int);
-extern void rhs_copy (rhs_t, rhs_t);
-extern void rhs_clear (rhs_t);
+extern bool vinsns_correlate_as_rhses_p (vinsn_t, vinsn_t);
+extern void copy_expr (expr_t, expr_t);
+extern void merge_expr_data (expr_t, expr_t);
+extern void merge_expr (expr_t, expr_t);
+extern void clear_expr (expr_t);
 
 /* Av set functions.  */
+extern void av_set_add (av_set_t *, rhs_t);
 extern void av_set_iter_remove (av_set_iterator *);
-extern rhs_t av_set_lookup_rhs (av_set_t, rhs_t);
-extern rhs_t av_set_lookup_other_equiv_rhs (av_set_t, rhs_t);
-extern bool av_set_remove_rhs_with_insn (av_set_t *, insn_t);
-extern bool av_set_is_in_p (av_set_t, rhs_t);
-extern rhs_t av_set_add_vinsn (av_set_t *, vinsn_t, int, int);
-extern av_set_t av_set_copy (av_set_t, int);
+extern rhs_t av_set_lookup (av_set_t, vinsn_t);
+extern rhs_t av_set_lookup_other_equiv_rhs (av_set_t, vinsn_t);
+extern bool av_set_is_in_p (av_set_t, vinsn_t);
+extern av_set_t av_set_copy (av_set_t);
 extern void av_set_union_and_clear (av_set_t *, av_set_t *);
 extern void av_set_clear (av_set_t *);
 extern void av_set_leave_one (av_set_t *);
 extern rhs_t av_set_element (av_set_t, int);
-extern rhs_t av_set_lookup_insn (av_set_t, insn_t);
 extern void av_set_substract_cond_branches (av_set_t *);
 extern void av_set_intersect (av_set_t *, av_set_t);
-extern void av_set_add_insn (av_set_t *, insn_t);
+
+extern void sel_save_haifa_priorities (void);
+
+extern void sel_init_global_and_expr (bb_vec_t);
+extern void sel_finish_global_and_expr (void);
 
 /* Dependence analysis functions.  */
-extern bool has_dependence_p (rhs_t, insn_t);
-extern bool tick_check_p (vinsn_t, deps_t, fence_t);
+extern void sel_clear_has_dependence (void);
+extern ds_t has_dependence_p (rhs_t, insn_t, ds_t **);
+
+extern bool tick_check_p (rhs_t, deps_t, fence_t);
 
 /* Functions to work with insns.  */
-extern bool lhs_equals_reg_p (insn_t, rtx);
-extern bool bb_header_p (insn_t);
-extern bool insn_valid_p (insn_t);
+extern bool lhs_of_insn_equals_to_reg_p (insn_t, rtx);
+extern bool insn_rtx_valid (rtx);
 extern bool insn_eligible_for_subst_p (insn_t);
 extern void get_dest_and_mode (rtx, rtx *, enum machine_mode *);
+
+extern void sel_init_new_insns (void);
+extern void sel_finish_new_insns (void);
+
 extern bool bookkeeping_can_be_created_if_moved_through_p (insn_t);
 extern insn_t copy_insn_out_of_stream (vinsn_t);
 extern insn_t copy_insn_and_insert_before (insn_t, insn_t);
 extern void sched_sel_remove_insn (insn_t);
 extern void transfer_data_sets (insn_t, insn_t);
-extern int dfa_cost (insn_t, fence_t);
-extern void release_lv_set_for_insn (rtx);
+extern int vinsn_dfa_cost (vinsn_t, fence_t);
 extern bool bb_header_p (insn_t);
 
 
 /* Basic block and CFG functions.  */
-extern insn_t bb_head (basic_block);
+
+extern insn_t sel_bb_header (basic_block);
+extern bool sel_bb_header_p (insn_t);
+extern bool sel_bb_empty_p_1 (basic_block, bool);
+extern bool sel_bb_empty_p (basic_block);
+extern insn_t sel_bb_end (basic_block);
+extern bool sel_bb_end_p (insn_t);
+
 extern bool in_current_region_p (basic_block);
-extern bool bb_empty_p (basic_block);
+
+extern void sel_init_bbs (bb_vec_t, basic_block);
+extern void sel_finish_bbs (void);
+
 extern int cfg_succs_n (insn_t, int);
+extern bool sel_insn_has_single_succ_p (insn_t, int);
 extern void cfg_succs_1 (insn_t, int, insn_t **, int *);
 extern void cfg_succs (insn_t, insn_t **, int *);
 extern insn_t cfg_succ_1 (insn_t, int);
 extern insn_t cfg_succ (insn_t);
 extern bool num_preds_gt_1 (insn_t);
+
+extern bool is_ineligible_successor (insn_t, ilist_t);
+
 extern bool bb_ends_ebb_p (basic_block);
 extern bool in_same_ebb_p (insn_t, insn_t);
-extern bool is_ineligible_successor (insn_t, ilist_t);
-extern void sel_add_or_remove_bb_1 (basic_block, bool);
-extern void sel_add_or_remove_bb (basic_block, bool);
-extern void sel_remove_empty_bb (basic_block, bool);
+
+extern basic_block sel_create_basic_block (void *, void *, basic_block);
+
+extern void sel_add_or_remove_bb (basic_block, int);
+extern basic_block sel_create_basic_block_before (basic_block);
+extern void sel_remove_empty_bb (basic_block, bool, bool);
 extern basic_block sel_split_block (basic_block, insn_t);
 extern basic_block sel_split_edge (edge);
+extern void sel_merge_blocks (basic_block, basic_block);
 extern basic_block sel_redirect_edge_force (edge, basic_block);
 extern edge sel_redirect_edge_and_branch (edge, basic_block);
-extern basic_block sel_create_basic_block (void *, void *, basic_block);
-extern basic_block sel_create_basic_block_before (basic_block);
 extern void pipeline_outer_loops (void);
 extern void pipeline_outer_loops_init (void);
 extern void pipeline_outer_loops_finish (void);
@@ -898,15 +926,24 @@ extern loop_p get_loop_nest_for_rgn (unsigned int);
 extern bool considered_for_pipelining_p (struct loop *);
 extern void make_region_from_loop_preheader (VEC(basic_block, heap) **);
 extern void sel_add_loop_preheader (void);
+extern bool sel_is_loop_preheader_p (basic_block);
 extern void clear_outdated_rtx_info (basic_block);
 
+/* Expression transformation routines.  */
+extern rtx create_insn_rtx_from_pattern (rtx);
+extern vinsn_t create_vinsn_from_insn_rtx (rtx);
+extern rtx create_copy_of_insn_rtx (rtx);
+extern void change_vinsn_in_expr (expr_t, vinsn_t);
 
 /* Various initialization functions.  */
 extern void init_lv_sets (void);
 extern void free_lv_sets (void);
 extern void setup_nop_and_exit_insns (void);
-extern void free_exit_insn_data (void);
-extern void setup_sched_and_deps_infos (void);
+extern void free_nop_and_exit_insns (void);
+extern void setup_empty_vinsn (void);
+extern void free_empty_vinsn (void);
+extern void sel_setup_common_sched_info (void);
+extern void sel_setup_sched_infos (void);
 
 
 /* Successor iterator backend.  */
@@ -997,7 +1034,7 @@ get_all_loop_exits (basic_block bb)
 
   /* If bb is empty, and we're skipping to loop exits, then
      consider bb as a possible gate to the inner loop now.  */
-  while (bb_empty_p (bb) 
+  while (sel_bb_empty_p (bb) 
 	 && in_current_region_p (bb))
     bb = single_succ (bb);
 
@@ -1234,7 +1271,7 @@ _eligible_successor_edge_p (edge e1, basic_block real_pred, int flags, edge *e2p
   /* Skip empty blocks, but be careful not to leave the region.  */
   while (1)
     {
-      if (!bb_empty_p (bb))
+      if (!sel_bb_empty_p_1 (bb, false))
         break;
         
       if (!in_current_region_p (bb) 
@@ -1289,6 +1326,8 @@ _eligible_successor_edge_p (edge e1, basic_block real_pred, int flags, edge *e2p
 
 #define FOR_EACH_SUCC(SUCC, ITER, INSN) \
 FOR_EACH_SUCC_1 (SUCC, ITER, INSN, SUCCS_NORMAL)
+
+extern regset sel_all_regs;
 
 /* Return the next block of BB not running into inconsistencies.  */
 static inline basic_block

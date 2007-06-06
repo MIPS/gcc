@@ -22,9 +22,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_SCHED_RGN_H
 #define GCC_SCHED_RGN_H
 
-extern struct common_sched_info_def rgn_common_sched_info;
-extern struct sched_deps_info_def rgn_sched_deps_info;
-
 /* A region is the main entity for interblock scheduling: insns
    are allowed to move between blocks in the same region, along
    control flow graph edges, in the 'up' direction.  */
@@ -39,6 +36,9 @@ typedef struct
   unsigned int dont_calc_deps : 1;
   /* This region has at least one non-trivial ebb.  */
   unsigned int has_real_ebb : 1;
+  unsigned int has_renaming_p : 1;
+  unsigned int was_pipelined_p : 1;
+  unsigned int needs_global_live_update : 1;
 }
 region;
 
@@ -52,6 +52,10 @@ extern int *containing_rgn;
 #define RGN_BLOCKS(rgn) (rgn_table[rgn].rgn_blocks)
 #define RGN_DONT_CALC_DEPS(rgn) (rgn_table[rgn].dont_calc_deps)
 #define RGN_HAS_REAL_EBB(rgn) (rgn_table[rgn].has_real_ebb)
+#define RGN_HAS_RENAMING_P(RGN) (rgn_table[RGN].has_renaming_p)
+#define RGN_WAS_PIPELINED_P(RGN) (rgn_table[RGN].was_pipelined_p)
+#define RGN_NEEDS_GLOBAL_LIVE_UPDATE(RGN)	\
+  (rgn_table[RGN].needs_global_live_update)
 #define BLOCK_TO_BB(block) (block_to_bb[block])
 #define CONTAINING_RGN(block) (containing_rgn[block])
 
@@ -67,8 +71,9 @@ extern int current_blocks;
 
 extern void sched_rgn_init (bool, bool);
 extern void sched_rgn_finish (void);
+extern void rgn_setup_region (int);
 extern bool sched_rgn_local_preinit (int);
-extern bool sched_rgn_local_init (int, bool);
+extern void sched_rgn_local_init (int);
 extern void sched_rgn_local_finish (void);
 extern void sched_rgn_local_free (void);
 extern void extend_regions (void);
@@ -77,6 +82,9 @@ extern void compute_trg_info (int);
 extern void free_trg_info (void);
 extern int check_live (rtx, int);
 extern void update_live (rtx, int);
+
+extern void rgn_setup_common_sched_info (void);
+extern void rgn_setup_sched_infos (void);
 
 extern void debug_regions (void);
 extern void debug_region (int);

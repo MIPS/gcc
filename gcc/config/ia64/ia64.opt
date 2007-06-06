@@ -120,12 +120,12 @@ msched-in-control-spec
 Target Report Var(mflag_sched_in_control_spec) Init(1)
 Use in block control speculation
 
-msched-ldc
-Target Report Var(mflag_sched_ldc) Init(1)
+msched-spec-ldc
+Target Report Var(mflag_sched_spec_ldc) Init(1)
 Use simple data speculation check
 
-msched-control-ldc
-Target Report Var(mflag_control_ldc) Init(0)
+msched-spec-control-ldc
+Target Report Var(mflag_sched_spec_control_ldc) Init(0)
 Use simple data speculation check for control speculation
 
 msched-spec-verbose
@@ -159,5 +159,17 @@ Do register renaming in selective scheduling
 msel-sched-substitution
 Common Report Var(mflag_sel_sched_substitution) Init(1)
 Perform substitution in selective scheduling
+
+msel-sched-data-spec
+Common Report Var(mflag_sel_sched_data_spec) Init(0)
+Perform data speculation in selective scheduling
+
+msel-sched-control-spec
+Common Report Var(mflag_sel_sched_control_spec) Init(1)
+Perform control speculation in selective scheduling
+
+msel-sched-dont-check-control-spec
+Common Report Var(mflag_sel_sched_dont_check_control_spec) Init(0)
+Don't generate checks for control speculation in selective scheduling
 
 ; This comment is to ensure we retain the blank line above.

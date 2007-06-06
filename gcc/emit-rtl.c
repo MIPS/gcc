@@ -3928,6 +3928,10 @@ emit_insn_after_1 (rtx first, rtx after)
 
   if (after == last_insn)
     last_insn = last;
+
+  if (insn_added)
+    insn_added (last);
+
   return last;
 }
 

@@ -552,6 +552,11 @@ DEFPARAM(PARAM_SELSCHED_MAX_LOOKAHEAD,
          "The maximum size of the lookahead window of selective scheduling",
          32, 0, 0)
 
+DEFPARAM(PARAM_SELSCHED_MAX_SCHED_TIMES,
+         "selsched-max-spec-ready",
+         "The maximum spec for an insn to be considered ready",
+         2, 0, 0)
+
 /* Minimal distance (in CPU cycles) between store and load targeting same
    memory locations.  */
 
@@ -560,18 +565,33 @@ DEFPARAM (PARAM_SCHED_MEM_TRUE_DEP_COST,
 	  "Minimal distance between possibly conflicting store and load",
 	  1, 0, 0)
 
-DEFPARAM(PARAM_ALLOW_START,
-         "allow_start",
+DEFPARAM(PARAM_SEL1_START,
+         "sel1-start",
          "Allow something",
          0, 0, 0)
 
-DEFPARAM(PARAM_ALLOW_STOP,
-         "allow_stop",
+DEFPARAM(PARAM_SEL1_STOP,
+         "sel1-stop",
          "Allow something",
          0, 0, 0)
 
-DEFPARAM(PARAM_ALLOW_P,
-         "allow_p",
+DEFPARAM(PARAM_SEL1_P,
+         "sel1-p",
+         "Allow something",
+         0, 0, 0)
+
+DEFPARAM(PARAM_SEL2_START,
+         "sel2-start",
+         "Allow something",
+         0, 0, 0)
+
+DEFPARAM(PARAM_SEL2_STOP,
+         "sel2-stop",
+         "Allow something",
+         0, 0, 0)
+
+DEFPARAM(PARAM_SEL2_P,
+         "sel2-p",
          "Allow something",
          0, 0, 0)
 

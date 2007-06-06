@@ -36,6 +36,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define SEL_DUMP_CFG_INSN_SEQNO (128)
 #define SEL_DUMP_CFG_INSN_FLAGS (0)
 #define SEL_DUMP_CFG_FUNCTION_NAME (256)
+#define SEL_DUMP_CFG_BB_LIVE (512)
 /* The default flags for cfg dumping.  */
 #define SEL_DUMP_CFG_FLAGS (SEL_DUMP_CFG_CURRENT_REGION \
 			    | SEL_DUMP_CFG_BB_NOTES_LIST \
@@ -46,17 +47,90 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
                             | SEL_DUMP_CFG_INSN_SEQNO \
                             | SEL_DUMP_CFG_INSN_FLAGS)
 
+enum _dump_insn_rtx
+  {
+    DUMP_INSN_RTX_UID = 2,
+    DUMP_INSN_RTX_PATTERN = 4,
+    DUMP_INSN_RTX_BBN = 8,
+
+    DUMP_INSN_RTX_ALL = (DUMP_INSN_RTX_UID | DUMP_INSN_RTX_PATTERN
+			 | DUMP_INSN_RTX_BBN)
+  };
+
+extern void dump_insn_rtx_1 (rtx, int);
+extern void dump_insn_rtx (rtx);
+extern void debug_insn_rtx (rtx);
+
+enum _dump_idata
+  {
+    DUMP_IDATA_TYPE = 2,
+    DUMP_IDATA_LHS = 4,
+    DUMP_IDATA_RHS = 8,
+    DUMP_IDATA_REG_SETS = 16,
+    DUMP_IDATA_REG_USES = 32,
+
+    DUMP_IDATA_ALL = (DUMP_IDATA_TYPE | DUMP_IDATA_LHS | DUMP_IDATA_RHS
+		      | DUMP_IDATA_REG_SETS | DUMP_IDATA_REG_USES)
+  };
+
+extern void dump_idata_1 (idata_t id, int);
+extern void dump_idata (idata_t id);
+extern void debug_idata (idata_t id);
+
+enum _dump_vinsn
+  {
+    DUMP_VINSN_INSN_RTX = 2,
+    DUMP_VINSN_TYPE = 4,
+    DUMP_VINSN_COUNT = 8,
+    DUMP_VINSN_COST = 16,
+
+    DUMP_VINSN_ALL = (DUMP_VINSN_INSN_RTX | DUMP_VINSN_TYPE | DUMP_VINSN_COUNT
+		      | DUMP_VINSN_COST)
+  };
+
+extern void dump_vinsn_1 (vinsn_t, int);
+extern void dump_vinsn (vinsn_t);
+extern void debug_vinsn (vinsn_t);
+
+enum _dump_expr
+  {
+    DUMP_EXPR_VINSN = 2,
+    DUMP_EXPR_SPEC = 4,
+    DUMP_EXPR_PRIORITY = 8,
+    DUMP_EXPR_SCHED_TIMES = 16,
+    DUMP_EXPR_SPEC_DONE_DS = 32,
+
+    DUMP_EXPR_ALL = (DUMP_EXPR_VINSN | DUMP_EXPR_SPEC | DUMP_EXPR_PRIORITY
+		     | DUMP_EXPR_SCHED_TIMES | DUMP_EXPR_SPEC_DONE_DS)
+  };
+
+extern void dump_expr_1 (expr_t, int);
+extern void dump_expr (expr_t);
+extern void debug_expr (expr_t);
+
 /* A enumeration for dumping flags of an insn.  */
-enum dump_insn_enum
-{ 
-  DUMP_INSN_UID = 1, 
-  DUMP_INSN_BBN = 2, 
-  DUMP_INSN_SEQNO = 4,
-  DUMP_INSN_PATTERN = 8, 
-  DUMP_INSN_COUNT = 16, 
-  DUMP_INSN_CYCLE = 32 
+enum _dump_insn
+{
+  DUMP_INSN_ASM_P = 2,
+  DUMP_INSN_SCHED_NEXT = 4,
+  DUMP_INSN_EXPR = 8,
+  DUMP_INSN_AV = 16,
+  DUMP_INSN_SEQNO = 32,
+  DUMP_INSN_AFTER_STALL_P = 64,
+  DUMP_INSN_SCHED_CYCLE = 128,
+  DUMP_INSN_UID = 256,
+  DUMP_INSN_BBN = 512,
+  DUMP_INSN_PATTERN = 1024,
+
+  DUMP_INSN_ALL = (DUMP_INSN_ASM_P | DUMP_INSN_SCHED_NEXT | DUMP_INSN_EXPR
+		   | DUMP_INSN_AV | DUMP_INSN_SEQNO | DUMP_INSN_AFTER_STALL_P
+		   | DUMP_INSN_SCHED_CYCLE | DUMP_INSN_UID | DUMP_INSN_BBN
+		   | DUMP_INSN_PATTERN)
 };
 
+extern void dump_insn_1 (insn_t, int);
+extern void dump_insn (insn_t);
+extern void debug_insn (insn_t);
 
 extern void sel_prepare_string_for_dot_label (char *);
 /* When this flag is on, we are dumping to the .dot file.

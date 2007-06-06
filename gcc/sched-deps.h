@@ -22,6 +22,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_SCHED_DEPS_H
 #define GCC_SCHED_DEPS_H
 
+#include "sched-int.h"
+
 struct haifa_deps_insn_data
 {
   /* The number of incoming edges in the forward dependency graph.
@@ -32,44 +34,38 @@ struct haifa_deps_insn_data
   /* Nonzero if instruction has internal dependence
      (e.g. add_dependence was invoked with (insn == elem)).  */
   unsigned int has_internal_dep;
-};
 
-struct deps_insn_data
-{
   /* A list of insns which depend on the instruction.  Unlike LOG_LINKS,
      it represents forward dependencies.  
 
      Note that we want to use this in selective scheduling also, so
      it has moved from h_d_i_d.  */
   rtx depend;
-
-  /* A priority for each insn.  */
-  int priority;
-
-  /* A cost of this instruction.  */
-  short cost;
-
-  /* Nonzero if priority has been computed already.  */
-  unsigned int priority_known : 1;
-
-  /* Some insns (e.g. call) are not allowed to move across blocks.  */
-  unsigned int cant_move : 1;
-
-  /* Mark insns that may trap so we don't move them through jumps.  */
-  unsigned int may_trap : 1;
 };
 
 extern struct haifa_deps_insn_data *h_d_i_d;
-extern struct deps_insn_data *d_i_d;
 
-#define DID(INSN) (d_i_d[INSN_LUID (INSN)])
 #define HDID(INSN) (h_d_i_d[INSN_LUID (INSN)])
-
-#define INSN_DEPEND(INSN)	(DID (INSN).depend)
 #define INSN_DEP_COUNT(INSN)	(HDID (INSN).dep_count)
 #define HAS_INTERNAL_DEP(INSN)  (HDID (INSN).has_internal_dep)
-#define CANT_MOVE(INSN)		(DID (INSN).cant_move)
-#define MAY_TRAP(INSN)          (DID (INSN).may_trap)
+#define INSN_DEPEND(INSN)	(HDID (INSN).depend)
+
+struct _deps_insn_data
+{
+  /* Some insns (e.g. call) are not allowed to move across blocks.  */
+  unsigned int cant_move : 1;
+};
+
+typedef struct _deps_insn_data deps_insn_data_def;
+typedef deps_insn_data_def *deps_insn_data_t;
+
+DEF_VEC_O (deps_insn_data_def);
+DEF_VEC_ALLOC_O (deps_insn_data_def, heap);
+
+extern VEC (deps_insn_data_def, heap) *d_i_d;
+
+#define DID(INSN) (VEC_index (deps_insn_data_def, d_i_d, INSN_LUID (INSN)))
+#define CANT_MOVE(INSN)	(DID (INSN)->cant_move)
 
 struct sched_deps_info_def
 {
@@ -151,10 +147,19 @@ extern enum DEPS_ADJUST_RESULT add_or_update_back_dep (rtx, rtx,
 extern void add_or_update_back_forw_dep (rtx, rtx, enum reg_note, ds_t);
 extern void add_back_forw_dep (rtx, rtx, enum reg_note, ds_t);
 extern void delete_back_forw_dep (rtx, rtx);
+extern dw_t get_dep_weak_1 (ds_t, ds_t);
 extern dw_t get_dep_weak (ds_t, ds_t);
 extern ds_t set_dep_weak (ds_t, ds_t, dw_t);
 extern dw_t estimate_dep_weak (rtx, rtx);
 extern ds_t ds_merge (ds_t, ds_t);
+extern ds_t ds_full_merge (ds_t, ds_t, rtx, rtx);
+extern ds_t ds_max_merge (ds_t, ds_t);
+extern dw_t ds_weak (ds_t);
+extern ds_t ds_get_speculation_types (ds_t);
+extern ds_t ds_get_max_dep_weak (ds_t);
+
+extern void deps_extend_d_i_d (void);
+extern void deps_finish_d_i_d (void);
 
 extern void sched_deps_local_init (bool);
 extern void sched_deps_local_finish (void);

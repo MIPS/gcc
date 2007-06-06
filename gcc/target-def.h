@@ -317,9 +317,12 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_SCHED_FREE_SCHED_CONTEXT 0
 #define TARGET_SCHED_SPECULATE_INSN 0
 #define TARGET_SCHED_NEEDS_BLOCK_P 0
-#define TARGET_SCHED_GEN_CHECK 0
+#define TARGET_SCHED_GEN_SPEC_CHECK 0
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD_SPEC 0
 #define TARGET_SCHED_SET_SCHED_FLAGS 0
+#define TARGET_SCHED_GET_INSN_SPEC_DS 0
+#define TARGET_SCHED_GET_INSN_CHECKED_DS 0
+#define TARGET_SCHED_SKIP_RTX_P 0
 
 
 #define TARGET_SCHED						\
@@ -351,9 +354,12 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
    TARGET_SCHED_FREE_SCHED_CONTEXT,                             \
    TARGET_SCHED_SPECULATE_INSN,                                 \
    TARGET_SCHED_NEEDS_BLOCK_P,                                  \
-   TARGET_SCHED_GEN_CHECK,                                      \
+   TARGET_SCHED_GEN_SPEC_CHECK,				        \
    TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD_SPEC, \
-   TARGET_SCHED_SET_SCHED_FLAGS}
+   TARGET_SCHED_SET_SCHED_FLAGS,                                \
+   TARGET_SCHED_GET_INSN_SPEC_DS,                               \
+   TARGET_SCHED_GET_INSN_CHECKED_DS,                            \
+   TARGET_SCHED_SKIP_RTX_P}
 
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
 #define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION default_builtin_vectorized_function

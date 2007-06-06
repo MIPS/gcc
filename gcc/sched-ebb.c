@@ -44,11 +44,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "output.h"
 
-/* The number of insns scheduled so far.  */
-static int sched_n_insns;
 
 /* The number of insns to be scheduled in total.  */
-static int n_insns;
+static int rgn_n_insns;
+
+/* The number of insns scheduled so far.  */
+static int sched_rgn_n_insns;
 
 /* Set of blocks, that already have their dependencies calculated.  */
 static bitmap_head dont_calc_deps;
@@ -70,13 +71,13 @@ static void add_deps_for_risky_insns (rtx, rtx);
 static basic_block schedule_ebb (rtx, rtx);
 static void debug_ebb_dependencies (rtx, rtx);
 
-static void add_remove_insn (rtx, int);
-static void add_block1 (basic_block, basic_block);
+static void ebb_add_remove_insn (rtx, int);
+static void ebb_add_block (basic_block, basic_block);
 static basic_block advance_target_bb (basic_block, rtx);
-static void fix_recovery_cfg (int, int, int);
+static void ebb_fix_recovery_cfg (int, int, int);
 
 #ifdef ENABLE_CHECKING
-static int ebb_head_or_leaf_p (basic_block, int);
+static int ebb_region_head_or_leaf_p (basic_block, int);
 #endif
 
 /* Return nonzero if there are more insns that should be scheduled.  */
@@ -84,7 +85,7 @@ static int ebb_head_or_leaf_p (basic_block, int);
 static int
 schedule_more_p (void)
 {
-  return sched_n_insns < n_insns;
+  return sched_rgn_n_insns < rgn_n_insns;
 }
 
 /* Debug dependencies between HEAD and TAIL.  
@@ -172,7 +173,7 @@ init_ready_list (void)
   rtx next_tail = current_sched_info->next_tail;
   rtx insn;
 
-  sched_n_insns = 0;
+  sched_rgn_n_insns = 0;
 
 #if 1
   /* Print debugging information.  */
@@ -188,14 +189,14 @@ init_ready_list (void)
       n++;
     }
 
-  gcc_assert (n == n_insns);
+  gcc_assert (n == rgn_n_insns);
 }
 
 /* INSN is being scheduled after LAST.  Update counters.  */
 static void
 begin_schedule_ready (rtx insn, rtx last)
 {
-  sched_n_insns++;
+  sched_rgn_n_insns++;
 
   if (BLOCK_FOR_INSN (insn) == last_bb
       /* INSN is a jump in the last block, ...  */
@@ -251,7 +252,8 @@ begin_schedule_ready (rtx insn, rtx last)
       current_sched_info->next_tail = NEXT_INSN (BB_END (bb));
       gcc_assert (current_sched_info->next_tail);
 
-      add_block (bb, last_bb);
+      /* Append new basic block to the end of the ebb.  */
+      haifa_init_only_bb (bb, last_bb);
       gcc_assert (last_bb == bb);
     }
 }
@@ -333,15 +335,7 @@ ebb_compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
 /* Used in schedule_insns to initialize current_sched_info for scheduling
    regions (or single basic blocks).  */
 
-static struct common_sched_info_def ebb_common_sched_info =
-  {
-    fix_recovery_cfg, add_block1,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-#ifdef ENABLE_CHECKING
-    ebb_head_or_leaf_p,
-#endif
-    1, 1, SCHED_EBB_PASS
-  };
+static struct common_sched_info_def ebb_common_sched_info;
 
 static struct sched_deps_info_def ebb_sched_deps_info =
   {
@@ -365,9 +359,8 @@ static struct haifa_sched_info ebb_sched_info =
   NULL, NULL,
   1, 0,
 
-  add_remove_insn,
+  ebb_add_remove_insn,
   begin_schedule_ready,
-  /*add_block1,*/
   advance_target_bb
 };
 
@@ -563,7 +556,7 @@ schedule_ebb (rtx head, rtx tail)
 
   /* Set priorities.  */
   current_sched_info->sched_max_insns_priority = 0;
-  n_insns = set_priorities (head, tail);
+  rgn_n_insns = set_priorities (head, tail);
   current_sched_info->sched_max_insns_priority++;
 
   current_sched_info->prev_head = PREV_INSN (head);
@@ -575,15 +568,17 @@ schedule_ebb (rtx head, rtx tail)
 
   target_bb = first_bb;
 
-  haifa_local_init (n_insns);
+  /* Make ready list big enough to hold all the instructions from the ebb.  */
+  sched_extend_ready_list (rgn_n_insns);
   schedule_block (&target_bb);
-  sched_local_finish ();
+  /* Free ready list.  */
+  sched_finish_ready_list ();
 
   /* We might pack all instructions into fewer blocks,
      so we may made some of them empty.  Can't assert (b == last_bb).  */
   
   /* Sanity check: verify that all region insns were scheduled.  */
-  gcc_assert (sched_n_insns == n_insns);
+  gcc_assert (sched_rgn_n_insns == rgn_n_insns);
 
   if (EDGE_COUNT (last_bb->preds) == 0)
     /* LAST_BB is unreachable.  */
@@ -619,9 +614,24 @@ schedule_ebbs (void)
   if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return;
 
-  common_sched_info = &ebb_common_sched_info;
-  sched_deps_info = &ebb_sched_deps_info;
-  current_sched_info = &ebb_sched_info;
+  /* Setup infos.  */
+  {
+    memcpy (&ebb_common_sched_info, &haifa_common_sched_info,
+	    sizeof (ebb_common_sched_info));
+
+    ebb_common_sched_info.fix_recovery_cfg = ebb_fix_recovery_cfg;
+    ebb_common_sched_info.add_block = ebb_add_block;
+    ebb_common_sched_info.region_head_or_leaf_p = ebb_region_head_or_leaf_p;
+    ebb_common_sched_info.use_glat = 1;
+    ebb_common_sched_info.detach_life_info = 1;
+    ebb_common_sched_info.sched_pass_id = SCHED_EBB_PASS;
+
+    common_sched_info = &ebb_common_sched_info;
+
+    sched_deps_info = &ebb_sched_deps_info;
+
+    current_sched_info = &ebb_sched_info;
+  }
 
   haifa_sched_init ();
 
@@ -748,17 +758,17 @@ schedule_ebbs (void)
 
 /* INSN has been added to/removed from current ebb.  */
 static void
-add_remove_insn (rtx insn ATTRIBUTE_UNUSED, int remove_p)
+ebb_add_remove_insn (rtx insn ATTRIBUTE_UNUSED, int remove_p)
 {
   if (!remove_p)
-    n_insns++;
+    rgn_n_insns++;
   else
-    n_insns--;
+    rgn_n_insns--;
 }
 
 /* BB was added to ebb after AFTER.  */
 static void
-add_block1 (basic_block bb, basic_block after)
+ebb_add_block (basic_block bb, basic_block after)
 {
   /* Recovery blocks are always bounded by BARRIERS, 
      therefore, they always form single block EBB,
@@ -811,7 +821,8 @@ advance_target_bb (basic_block bb, rtx insn)
    For parameter meaning please refer to
    sched-int.h: struct sched_info: fix_recovery_cfg.  */
 static void
-fix_recovery_cfg (int bbi ATTRIBUTE_UNUSED, int jump_bbi, int jump_bb_nexti)
+ebb_fix_recovery_cfg (int bbi ATTRIBUTE_UNUSED, int jump_bbi,
+		      int jump_bb_nexti)
 {
   gcc_assert (last_bb->index != bbi);
 
@@ -824,7 +835,7 @@ fix_recovery_cfg (int bbi ATTRIBUTE_UNUSED, int jump_bbi, int jump_bb_nexti)
    current ebb.  For more information please refer to
    sched-int.h: struct sched_info: region_head_or_leaf_p.  */
 static int
-ebb_head_or_leaf_p (basic_block bb, int leaf_p)
+ebb_region_head_or_leaf_p (basic_block bb, int leaf_p)
 {
   if (!leaf_p)    
     return bitmap_bit_p (&ebb_head, bb->index);

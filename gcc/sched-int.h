@@ -28,11 +28,56 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* For state_t.  */
 #include "insn-attr.h"
 
+/* For VEC (int, heap).  */
+#include "vecprim.h"
+
 extern int sched_verbose_param;
 
 /* Identificator of a scheduler pass.  */
 enum sched_pass_id_t { SCHED_PASS_UNKNOWN, SCHED_RGN_PASS, SCHED_EBB_PASS,
 		       SCHED_SMS_PASS, SCHED_SEL_PASS };
+
+typedef VEC (basic_block, heap) *bb_vec_t;
+typedef VEC (rtx, heap) *insn_vec_t;
+
+struct sched_scan_info_def
+{
+  /* This hook notifies scheduler frontend to extend its internal per basic
+     block data structures.  This hook should be called once before a series of
+     calls to bb_init ().  */
+  void (*extend_bb) (void);
+
+  /* This hook makes scheduler frontend to initialize its internal data
+     structures for the passed basic block.  */
+  void (*init_bb) (basic_block);
+
+  /* This hook notifies scheduler frontend to extend its internal per insn data
+     structures.  This hook should be called once before a series of calls to
+     insn_init ().  */
+  void (*extend_insn) (void);
+
+  /* This hook makes scheduler frontend to initialize its internal data
+     structures for the passed insn.  */
+  void (*init_insn) (rtx);
+};
+
+extern const struct sched_scan_info_def *sched_scan_info;
+
+extern void sched_scan (const struct sched_scan_info_def *,
+			bb_vec_t, basic_block, insn_vec_t, rtx);
+
+extern void sched_init_bbs (bb_vec_t, basic_block);
+extern void sched_finish_bbs (void);
+
+extern void sched_init_luids (bb_vec_t, basic_block, insn_vec_t, rtx);
+extern void sched_finish_luids (void);
+
+extern void sched_extend_target (void);
+
+extern void haifa_init_h_i_d (bb_vec_t, basic_block, insn_vec_t, rtx);
+extern void haifa_finish_h_i_d (void);
+
+extern void haifa_init_only_bb (basic_block, basic_block);
 
 /* Hooks that are common to all the schedulers.  */
 struct common_sched_info_def
@@ -59,36 +104,7 @@ struct common_sched_info_def
      -1 - if this rtx don't need a luid.
      0 - if it should have the same luid as the previous insn.
      1 - if it needs a separate luid.  */
-  int (*which_luid) (rtx);
-
-  /* Remove unneccesary notes from the given basic block.  */
-  void (*remove_notes) (basic_block);
-
-  /* This hook notifies scheduler frontend to extend its internal per basic
-     block data structures.  This hook should be called once before a series of
-     calls to bb_init ().  */
-  void (*bb_extend) (void);
-
-  /* This hook makes scheduler frontend to initialize its internal data
-     structures for the passed basic block.  */
-  void (*bb_init) (basic_block);
-
-  /* This hook notifies scheduler frontend that it should finalize its internal
-     per basic block data structures.  */
-  void (*bb_finish) (void);
-
-  /* This hook notifies scheduler frontend to extend its internal per insn data
-     structures.  This hook should be called once before a series of calls to
-     insn_init ().  */
-  void (*insn_extend) (void);
-
-  /* This hook makes scheduler frontend to initialize its internal data
-     structures for the passed insn.  */
-  void (*insn_init) (rtx);
-
-  /* This hook notifies scheduler frontend that it should finalize its internal
-     per insn data structures.  */
-  void (*insn_finish) (void);
+  int (*luid_for_non_insn) (rtx);
 
 #ifdef ENABLE_CHECKING
   /* If the second parameter is zero, return nonzero, if block is head of the
@@ -116,10 +132,7 @@ struct common_sched_info_def
 
 extern struct common_sched_info_def *common_sched_info;
 
-/* Return true if INSN should have a separate luid.  */
-#define INSN_NEED_LUID_P(INSN) (INSN_P (INSN) \
-|| ((NOTE_P (INSN) || LABEL_P (INSN)) \
-&& common_sched_info->which_luid (INSN) == 1))
+extern const struct common_sched_info_def haifa_common_sched_info;
 
 /* Return true if selective scheduling pass is working.  */
 #define SEL_SCHED_P (common_sched_info->sched_pass_id == SCHED_SEL_PASS)
@@ -133,26 +146,15 @@ extern int sched_emulate_haifa_p;
    for each basic block.  */
 extern regset *glat_start, *glat_end;
 
-/* The highest INSN_UID scheduler knows of.  All insns with uids greater than
-   this don't have their scheduler data structures initialized.  */
-extern int sched_max_uid;
-
-/* The highest basic block index scheduler knows of.  All basic block with
-   indecies greater than this don't have their scheduler data structures
-   initialized.  */
-extern int sched_last_basic_block;
-
 /* Mapping from INSN_UID to INSN_LUID.  In the end all other per insn data
    structures should be indexed by luid.  */
-extern int *uid_to_luid;
-#define INSN_LUID(INSN) (uid_to_luid[INSN_UID (INSN)])
+extern VEC (int, heap) *sched_luids;
+#define INSN_LUID(INSN) (VEC_index (int, sched_luids, INSN_UID (INSN)))
+#define SET_INSN_LUID(INSN, LUID) \
+(VEC_replace (int, sched_luids, INSN_UID (INSN), (LUID)))
 
 /* The highest INSN_LUID.  */
-extern int max_luid;
-
-/* An array to hold register weights for each insn.  Indexed by luid.  */
-extern short *reg_weights;
-#define INSN_REG_WEIGHT(INSN) (reg_weights[INSN_LUID (INSN)])
+extern int sched_max_luid;
 
 /* Return true if NOTE is a note but not a basic block one.  */
 #define NOTE_NOT_BB_P(NOTE) (NOTE_P (NOTE) && (NOTE_LINE_NUMBER (NOTE)	\
@@ -166,15 +168,7 @@ extern int sched_verbose;
    finished.  */
 extern rtx note_list;
 
-/* A set of basic blocks that are in current scheduling region.  */
-extern sbitmap sched_blocks;
-
-/* A set of instructions that are in current scheduling region.  */
-extern sbitmap sched_insns;
-
 extern void attach_life_info (void);
-extern void sched_bbs_init (sbitmap);
-extern void sched_bbs_finish (void);
 
 extern void remove_notes (rtx, rtx);
 extern rtx restore_other_notes (rtx, basic_block);
@@ -295,11 +289,6 @@ extern char *ready_try;
 extern struct ready_list ready;
 
 extern int max_issue (struct ready_list *, int, state_t, int *);
-
-extern void sched_local_init (int);
-extern void sched_local_finish (void);
-extern void sched_data_update (sbitmap, basic_block, rtx);
-extern void sched_data_finish (void);
 
 extern void ebb_compute_jump_reg_dependencies (rtx, regset, regset, regset);
 
@@ -497,16 +486,21 @@ struct spec_info_def
 };
 typedef struct spec_info_def *spec_info_t;
 
+extern spec_info_t spec_info;
+
 extern struct haifa_sched_info *current_sched_info;
 
 /* Indexed by INSN_UID, the collection of all data associated with
    a single instruction.  */
 
-struct haifa_insn_data
+struct _haifa_insn_data
 {
   /* A list of scheduled producers of the instruction.  Links are being moved
      from LOG_LINKS to RESOLVED_DEPS during scheduling.  */
   rtx resolved_deps;
+
+  /* A priority for each insn.  */
+  int priority;
 
   /* The minimum clock tick at which the insn becomes ready.  This is
      used to note timing constraints for the insns in the pending list.  */
@@ -521,15 +515,24 @@ struct haifa_insn_data
 
   short cost;
 
+  /* This weight is an estimation of the insn's contribution to
+     register pressure.  */
+  short reg_weight;
+
   /* Set if there's DEF-USE dependence between some speculatively
      moved load insn and this one.  */
   unsigned int fed_by_spec_load : 1;
   unsigned int is_load_insn : 1;
 
+  /* Nonzero if priority has been computed already.  */
+  unsigned int priority_known : 1;
+
   /* What speculations are necessary to apply to schedule the instruction.  */
   ds_t todo_spec;
+
   /* What speculations were already applied.  */
   ds_t done_spec; 
+
   /* What speculations are checked by this instruction.  */
   ds_t check_spec;
 
@@ -540,16 +543,28 @@ struct haifa_insn_data
   rtx orig_pat;
 };
 
-extern struct haifa_insn_data *h_i_d;
+typedef struct _haifa_insn_data haifa_insn_data_def;
+typedef haifa_insn_data_def *haifa_insn_data_t;
+
+DEF_VEC_O (haifa_insn_data_def);
+DEF_VEC_ALLOC_O (haifa_insn_data_def, heap);
+
+extern VEC (haifa_insn_data_def, heap) *h_i_d;
+
+#define HID(INSN) (VEC_index (haifa_insn_data_def, h_i_d, INSN_UID (INSN)))
 
 /* Accessor macros for h_i_d.  There are more in haifa-sched.c and
    sched-rgn.c.  */
-#define RESOLVED_DEPS(INSN)     (h_i_d[INSN_UID (INSN)].resolved_deps)
-#define TODO_SPEC(INSN)         (h_i_d[INSN_UID (INSN)].todo_spec)
-#define DONE_SPEC(INSN)         (h_i_d[INSN_UID (INSN)].done_spec)
-#define CHECK_SPEC(INSN)        (h_i_d[INSN_UID (INSN)].check_spec)
-#define RECOVERY_BLOCK(INSN)    (h_i_d[INSN_UID (INSN)].recovery_block)
-#define ORIG_PAT(INSN)          (h_i_d[INSN_UID (INSN)].orig_pat)
+#define RESOLVED_DEPS(INSN) (HID (INSN)->resolved_deps)
+#define INSN_PRIORITY(INSN) (HID (INSN)->priority)
+#define INSN_REG_WEIGHT(INSN) (HID (INSN)->reg_weight)
+#define INSN_PRIORITY_KNOWN(INSN) (HID (INSN)->priority_known)
+#define INSN_COST(INSN) (HID (INSN)->cost)
+#define TODO_SPEC(INSN) (HID (INSN)->todo_spec)
+#define DONE_SPEC(INSN) (HID (INSN)->done_spec)
+#define CHECK_SPEC(INSN) (HID (INSN)->check_spec)
+#define RECOVERY_BLOCK(INSN) (HID (INSN)->recovery_block)
+#define ORIG_PAT(INSN) (HID (INSN)->orig_pat)
 
 /* INSN is either a simple or a branchy speculation check.  */
 #define IS_SPECULATION_CHECK_P(INSN) (RECOVERY_BLOCK (INSN) != NULL)
@@ -566,19 +581,6 @@ extern struct haifa_insn_data *h_i_d;
 #define IS_SPECULATION_BRANCHY_CHECK_P(INSN) \
   (RECOVERY_BLOCK (INSN) != NULL && RECOVERY_BLOCK (INSN) != EXIT_BLOCK_PTR)
 
-#define INSN_PRIORITY(INSN)	(d_i_d[INSN_LUID (INSN)].priority)
-#define INSN_PRIORITY_KNOWN(INSN) (d_i_d[INSN_LUID (INSN)].priority_known)
-
-/* !!! FIXME: Move this logic to haifa-sched.c: insn_cost ().  */
-#define INSN_COST(INSN)         __extension__       \
-(*({ short * _cost;                                 \
-     rtx const _insn = (INSN);                      \
-     if (SEL_SCHED_P)                               \
-       _cost = &(d_i_d[INSN_LUID (_insn)].cost);    \
-     else                                           \
-       _cost = &(h_i_d[INSN_UID (_insn)].cost);     \
-     _cost; }))
-                                 
 /* DEP_STATUS of the link encapsulates information, that is needed for
    speculative scheduling.  Namely, it is 4 integers in the range
    [0, MAX_DEP_WEAK] and 3 bits.
@@ -722,7 +724,8 @@ enum SCHED_FLAGS {
 enum SPEC_SCHED_FLAGS {
   COUNT_SPEC_IN_CRITICAL_PATH = 1,
   PREFER_NON_DATA_SPEC = COUNT_SPEC_IN_CRITICAL_PATH << 1,
-  PREFER_NON_CONTROL_SPEC = PREFER_NON_DATA_SPEC << 1
+  PREFER_NON_CONTROL_SPEC = PREFER_NON_DATA_SPEC << 1,
+  SEL_SCHED_SPEC_DONT_CHECK_CONTROL = PREFER_NON_CONTROL_SPEC << 1
 };
 
 #ifndef __GNUC__
@@ -751,6 +754,10 @@ extern rtx ready_element (struct ready_list *, int);
 extern rtx *ready_lastpos (struct ready_list *);
 
 extern int try_ready (rtx);
+extern void sched_extend_ready_list (int);
+extern void sched_finish_ready_list (void);
+extern void sched_change_pattern (rtx, rtx);
+extern int sched_speculate_insn (rtx, ds_t, rtx *);
 extern void unlink_bb_notes (basic_block, basic_block);
 extern void add_block (basic_block, basic_block);
 extern rtx bb_note (basic_block);
@@ -763,13 +770,13 @@ extern void check_reg_live (bool);
 extern void haifa_sched_init (void);
 extern void haifa_sched_finish (void);
 
-extern void haifa_local_init (int);
+extern dw_t dep_weak (ds_t);
 
 /* Functions in sched-rgn.c.  */
 extern void compute_priorities (void);
 extern void debug_dependencies (void);
 extern int contributes_to_priority (rtx, rtx);
-extern void free_rgn_deps (bool);
+extern void free_rgn_deps (void);
 extern void extend_rgns (int *, int *, sbitmap, int *);
 
 

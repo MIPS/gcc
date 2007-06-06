@@ -70,7 +70,7 @@ static bool sel_dump_cfg_p;
 static bool sel_pipelining_verbose_p;
 
 /* Variables that are used to build the cfg dump file name.  */
-static const char * const sel_debug_cfg_root = "./";
+static const char * const sel_debug_cfg_root = "./dot";
 static const char * const sel_debug_cfg_root_postfix_default = "";
 static const char *sel_debug_cfg_root_postfix = "";
 static int sel_dump_cfg_fileno = -1;
@@ -80,12 +80,6 @@ static int sel_debug_cfg_fileno = -1;
    This is useful to differentiate formatting between log and .dot
    files.  */
 bool sched_dump_to_dot_p = false;
-
-/* Controls how an insn should be dumped.  */
-static int dump_insn_flags = (DUMP_INSN_UID | DUMP_INSN_BBN | DUMP_INSN_COUNT);
-
-/* Controls how an insn from RHS should be dumped.  */
-static int dump_rhs_insn_flags = DUMP_INSN_UID | DUMP_INSN_COUNT;
 
 /* Controls how insns from a fence list should be dumped.  */
 static int dump_flist_insn_flags = (DUMP_INSN_UID | DUMP_INSN_BBN
@@ -225,49 +219,261 @@ sel_print_rtl (rtx x)
     }  
 }
 
+static int dump_all = 0;
+
+void
+dump_insn_rtx_1 (rtx insn, int flags)
+{
+  int all;
+
+  if (!print_block)
+    return;
+
+  all = (flags & 1) | dump_all;
+  if (all)
+    flags |= DUMP_INSN_RTX_ALL;
+
+  line_start ();
+  print ("(");
+
+  if (flags & DUMP_INSN_RTX_UID)
+    print ("%d;", INSN_UID (insn));
+
+  if (flags & DUMP_INSN_RTX_PATTERN)
+    {
+      char buf[2048];
+
+      print_insn (buf, insn, 0);
+      print ("%s;", buf);
+    }
+
+  if (flags & DUMP_INSN_RTX_BBN)
+    {
+      basic_block bb = BLOCK_FOR_INSN (insn);
+
+      print ("bb:%d;", bb != NULL ? bb->index : -1);
+    }
+
+  print (")");
+  line_finish ();
+}
+
+static int dump_insn_rtx_flags = DUMP_INSN_RTX_PATTERN;
+
+void
+dump_insn_rtx (rtx insn)
+{
+  dump_insn_rtx_1 (insn, dump_insn_rtx_flags);
+}
+
+static int debug_insn_rtx_flags = 1;
+
+void
+debug_insn_rtx (rtx insn)
+{
+  switch_dump ();
+  dump_insn_rtx_1 (insn, debug_insn_rtx_flags);
+  switch_dump ();
+}
+
+void
+dump_vinsn_1 (vinsn_t vi, int flags)
+{  
+  int all;
+
+  if (!print_block)
+    return;
+
+  all = (flags & 1) | dump_all;
+  if (all)
+    flags |= DUMP_VINSN_ALL;
+
+  line_start ();
+  print ("(");
+
+  if (flags & DUMP_VINSN_INSN_RTX)
+    dump_insn_rtx_1 (VINSN_INSN_RTX (vi), dump_insn_rtx_flags | all);
+
+  if (flags & DUMP_VINSN_TYPE)
+    print ("type:%s;", GET_RTX_NAME (VINSN_TYPE (vi)));
+
+  if (flags & DUMP_VINSN_COUNT)
+    print ("count:%d;", VINSN_COUNT (vi));
+
+  if (flags & DUMP_VINSN_COST)
+    {
+      int cost = vi->cost;
+
+      if (cost != -1)
+	print ("cost:%d;", cost);
+    }
+
+  print (")");
+  line_finish ();
+}
+
+static int dump_vinsn_flags = DUMP_VINSN_INSN_RTX | DUMP_VINSN_TYPE;
+
+void
+dump_vinsn (vinsn_t vi)
+{
+  dump_vinsn_1 (vi, dump_vinsn_flags);
+}
+
+static int debug_vinsn_flags = 1;
+
+void
+debug_vinsn (vinsn_t vi)
+{
+  switch_dump ();
+  dump_vinsn_1 (vi, debug_vinsn_flags);
+  switch_dump ();
+}
+
+/* Dump RHS.  */
+void
+dump_expr_1 (expr_t expr, int flags)
+{
+  int all;
+
+  if (!print_block)
+    return;
+
+  all = (flags & 1) | dump_all;
+  if (all)
+    flags |= DUMP_EXPR_ALL;
+
+  line_start ();
+  print ("[");
+
+  if (flags & DUMP_EXPR_VINSN)
+    dump_vinsn_1 (EXPR_VINSN (expr), dump_vinsn_flags | all);
+
+  if (flags & DUMP_EXPR_SPEC)
+    {
+      int spec = EXPR_SPEC (expr);
+
+      if (spec != 0)
+	print ("spec:%d;", spec);
+    }
+
+  if (flags & DUMP_EXPR_PRIORITY)
+    print ("prio:%d;", EXPR_PRIORITY (expr));
+
+  if (flags & DUMP_EXPR_SCHED_TIMES)
+    {
+      int times = EXPR_SCHED_TIMES (expr);
+
+      if (times != 0)
+	print ("times:%d;", times);
+    }
+
+  if (flags & DUMP_EXPR_SPEC_DONE_DS)
+    {
+      ds_t spec_done_ds = EXPR_SPEC_DONE_DS (expr);
+
+      if (spec_done_ds != 0)
+	print ("ds:%d;", spec_done_ds);
+    }
+
+  print ("]");
+  line_finish ();
+}
+
+static int dump_expr_flags = DUMP_EXPR_ALL;
+
+void
+dump_expr (expr_t expr)
+{
+  dump_expr_1 (expr, dump_expr_flags);
+}
+
+static int debug_expr_flags = 1;
+
+void
+debug_expr (expr_t expr)
+{
+  switch_dump ();
+  dump_expr_1 (expr, debug_expr_flags);
+  switch_dump ();
+}
+
+/* Obsolete.  */
+void
+dump_rhs (rhs_t rhs)
+{
+  dump_expr (rhs);
+}
+
+/* Obsolete.  */
+void
+debug_rhs (rhs_t rhs)
+{
+  debug_expr (rhs);
+}
+
 /* Dump insn I honoring FLAGS.  */
 void
 dump_insn_1 (insn_t i, int flags)
 {
-  if (print_block)
+  int all;
+
+  if (!print_block)
+    return;
+
+  all = (flags & 1) | dump_all;
+  if (all)
+    flags |= DUMP_INSN_ALL;
+
+  line_start ();
+
+  if (!sched_dump_to_dot_p)
+    print ("(");
+
+  if (flags & DUMP_INSN_ASM_P)
+    flags = flags;
+
+  if (flags & DUMP_INSN_SCHED_NEXT)
+    flags = flags;
+
+  if (flags & DUMP_INSN_EXPR)
     {
-      line_start ();
-
-      if (!sched_dump_to_dot_p)
-	print ("(");
-
-      if (flags & DUMP_INSN_PATTERN)
-	{
-	  char buf[2048];
-
-	  print_insn (buf, i, 0);
-	  print ("pat:%s;", buf);
-	}
-      else if (flags & DUMP_INSN_UID)
-	print ("uid:%d;", INSN_UID (i));
-
-      if (flags & DUMP_INSN_BBN)
-	{
-	  basic_block bb = BLOCK_FOR_INSN (i);
-
-	  print ("bb:%d;", bb ? bb->index : -1);
-	}
-
-      if (flags & DUMP_INSN_SEQNO)
-	print ("seqno:%d;", INSN_SEQNO (i));
-
-      if (flags & DUMP_INSN_COUNT)
-	print ("count:%d;", VINSN_COUNT (INSN_VI (i)));
-
-      if (flags & DUMP_INSN_CYCLE)
-	print ("cycle:%d;", INSN_SCHED_CYCLE (i));
-
-      if (!sched_dump_to_dot_p)
-	print (")");
-
-      line_finish ();
+      dump_expr_1 (INSN_EXPR (i), dump_expr_flags | all);
+      print (";");
     }
+  else if (flags & DUMP_INSN_PATTERN)
+    {
+      dump_insn_rtx_1 (i, DUMP_INSN_RTX_PATTERN | all);
+      print (";");
+    }
+  else if (flags & DUMP_INSN_UID)
+    print ("uid:%d;", INSN_UID (i));
+
+  if (flags & DUMP_INSN_AV)
+    flags = flags;
+
+  if (flags & DUMP_INSN_SEQNO)
+    print ("seqno:%d;", INSN_SEQNO (i));
+
+  if (flags & DUMP_INSN_AFTER_STALL_P)
+    flags = flags;
+ 
+  if (flags & DUMP_INSN_SCHED_CYCLE)
+    {
+      int cycle = INSN_SCHED_CYCLE (i);
+
+      if (cycle != 0)
+	print ("cycle:%d;", cycle);
+    }
+
+  if (!sched_dump_to_dot_p)
+    print (")");
+
+  line_finish ();
 }
+
+/* Controls how an insn should be dumped.  It can be changed from debugger.  */
+static int dump_insn_flags = (DUMP_INSN_EXPR | DUMP_INSN_SCHED_CYCLE);
 
 /* Dump insn I with default flags.  */
 void
@@ -276,21 +482,14 @@ dump_insn (insn_t i)
   dump_insn_1 (i, dump_insn_flags);
 }
 
-/* Dump RHS.  */
+static int debug_insn_flags = 1;
+
 void
-dump_rhs (rhs_t rhs)
+debug_insn (insn_t insn)
 {
-  if (print_block)
-    {
-      insn_t i = RHS_INSN (rhs);
-      
-      line_start ();
-      print ("[");
-      dump_insn_1 (i, dump_rhs_insn_flags | DUMP_INSN_PATTERN);
-      print (";as_rhs:%d", RHS_SCHEDULE_AS_RHS (rhs));
-      print (";spec:%d]", RHS_SPEC (rhs));
-      line_finish ();
-    }
+  switch_dump ();
+  dump_insn_1 (insn, debug_insn_flags);
+  switch_dump ();
 }
 
 /* Dump used regs from USED_REGS bitmap.  */
@@ -474,6 +673,7 @@ dump_hard_reg_set (const char *prefix, HARD_REG_SET set)
     }
 }
 
+#if 0
 /* Pretty print INSN.  This is used as a hook.  */
 const char *
 sel_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
@@ -499,6 +699,7 @@ sel_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
 
   return buf;
 }
+#endif
 
 
 /* Functions for pretty printing of CFG.  */
@@ -565,8 +766,8 @@ sel_dump_cfg_insn (insn_t insn, int flags)
   int insn_flags = DUMP_INSN_UID | DUMP_INSN_PATTERN;
 
   if ((flags & SEL_DUMP_CFG_INSN_SEQNO)
-      && TEST_BIT (sched_insns, INSN_UID (insn)))
-    insn_flags |= DUMP_INSN_SEQNO | DUMP_INSN_CYCLE;
+      && INSN_LUID (insn) > 0)
+    insn_flags |= DUMP_INSN_SEQNO | DUMP_INSN_SCHED_CYCLE | DUMP_INSN_EXPR;
 
   dump_insn_1 (insn, insn_flags);
 }
@@ -661,12 +862,42 @@ sel_dump_cfg_2 (FILE *f, int flags)
 	color = "";
 
       if ((flags & SEL_DUMP_CFG_FENCES)
-	  && in_region_p && !bb_empty_p (bb)
-	  && IN_CURRENT_FENCE_P (NEXT_INSN (bb_note (bb))))
+	  && in_region_p)
 	{
-	  /*style = "style = dotted, ";*/
 	  style = "";
-	  color = "color = red, ";
+
+	  if (!sel_bb_empty_p (bb))
+	    {
+	      bool first_p = true;
+	      insn_t tail = BB_END (bb);
+	      insn_t cur_insn;
+
+	      cur_insn = bb_note (bb);
+
+	      do
+		{
+		  fence_t fence;
+
+		  cur_insn = NEXT_INSN (cur_insn);
+		  fence = flist_lookup (fences, cur_insn);
+
+		  if (fence != NULL)
+		    {
+		      if (!FENCE_SCHEDULED_SOMETHING (fence))
+			{
+			  if (first_p)
+			    color = "color = red, ";
+			  else
+			    color = "color = yellow, ";
+			}
+		      else
+			color = "color = blue, ";
+		    }
+
+		  first_p = false;
+		}
+	      while (cur_insn != tail);
+	    }
 	}
       else if (!full_p)
 	style = "style = dashed, ";
@@ -700,7 +931,7 @@ sel_dump_cfg_2 (FILE *f, int flags)
       if (full_p
 	  && (flags & SEL_DUMP_CFG_AV_SET)
 	  && in_current_region_p (bb)
-	  && !bb_empty_p (bb))
+	  && !sel_bb_empty_p (bb))
 	{
 	  insn_t head = NEXT_INSN (bb_note (bb));
 
@@ -716,7 +947,7 @@ sel_dump_cfg_2 (FILE *f, int flags)
 	}
 
       if ((flags & SEL_DUMP_CFG_LV_SET)
-	  && !bb_empty_p (bb))
+	  && !sel_bb_empty_p (bb))
 	{
 	  insn_t head;
 	  insn_t tail;
@@ -731,6 +962,20 @@ sel_dump_cfg_2 (FILE *f, int flags)
 	    fprintf (f, "!!! Wrong LV_SET");
 	}
 
+      if (flags & SEL_DUMP_CFG_BB_LIVE)
+	{
+	  regset rs;
+
+	  fprintf (f, "|");
+
+	  rs = bb->il.rtl->global_live_at_start;
+
+	  if (rs != NULL)
+	    dump_lv_set (rs);
+	  else
+	    fprintf (f, "!!! Wrong live_at_start");
+	}
+
       if (full_p
 	  && (flags & SEL_DUMP_CFG_BB_INSNS))
 	{
@@ -742,6 +987,20 @@ sel_dump_cfg_2 (FILE *f, int flags)
 
 	      insn = NEXT_INSN (insn);
 	    }
+	}
+
+      if (flags & SEL_DUMP_CFG_BB_LIVE)
+	{
+	  regset rs;
+
+	  fprintf (f, "|");
+
+	  rs = bb->il.rtl->global_live_at_end;
+
+	  if (rs != NULL)
+	    dump_lv_set (rs);
+	  else
+	    fprintf (f, "!!! Wrong live_at_end");
 	}
 
       fprintf (f, "}\"];\n");
@@ -866,14 +1125,6 @@ int
 hard_regno_rename_ok (int i ATTRIBUTE_UNUSED, int j ATTRIBUTE_UNUSED)
 {
   return HARD_REGNO_RENAME_OK (i, j);
-}
-
-void
-debug_rhs (rhs_t r)
-{
-  switch_dump ();
-  dump_rhs (r);
-  switch_dump ();
 }
 
 /* Dumps av_set AV to stderr. */

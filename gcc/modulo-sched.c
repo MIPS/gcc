@@ -248,14 +248,7 @@ compute_jump_reg_dependencies (rtx insn ATTRIBUTE_UNUSED,
 {
 }
 
-static struct common_sched_info_def sms_common_sched_info =
-  {
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-#ifdef ENABLE_CHECKING
-    NULL,
-#endif
-    0, 0, SCHED_SMS_PASS
-  };
+static struct common_sched_info_def sms_common_sched_info;
 
 static struct sched_deps_info_def sms_sched_deps_info =
   {
@@ -882,6 +875,19 @@ canon_loop (struct loop *loop)
     }
 }
 
+/* Setup infos.  */
+static void
+setup_sched_infos (void)
+{
+  memcpy (&sms_common_sched_info, &haifa_common_sched_info,
+	  sizeof (sms_common_sched_info));
+  sms_common_sched_info.sched_pass_id = SCHED_SMS_PASS;
+  common_sched_info = &sms_common_sched_info;
+
+  sched_deps_info = &sms_sched_deps_info;
+  current_sched_info = &sms_sched_info;
+}
+
 /* Probability in % that the sms-ed loop rolls enough so that optimized
    version may be entered.  Just a guess.  */
 #define PROB_SMS_ENOUGH_ITERATIONS 80
@@ -923,9 +929,7 @@ sms_schedule (void)
     issue_rate = 1;
 
   /* Initialize the scheduler.  */
-  common_sched_info = &sms_common_sched_info;
-  sched_deps_info = &sms_sched_deps_info;
-  current_sched_info = &sms_sched_info;
+  setup_sched_infos ();
 
   haifa_sched_init ();
 

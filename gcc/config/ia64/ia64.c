@@ -171,10 +171,12 @@ static void ia64_clear_sched_context (void *);
 static void ia64_free_sched_context (void *);
 static int ia64_mode_to_int (enum machine_mode);
 static void ia64_set_sched_flags (spec_info_t);
+static ds_t ia64_get_insn_spec_ds (rtx);
+static ds_t ia64_get_insn_checked_ds (rtx);
+static bool ia64_skip_rtx_p (rtx);
 static int ia64_speculate_insn (rtx, ds_t, rtx *);
-static rtx ia64_gen_spec_insn (rtx, ds_t, int, bool, bool);
-static bool ia64_needs_block_p (rtx);
-static rtx ia64_gen_check (rtx, rtx, bool);
+static bool ia64_needs_block_p (int);
+static rtx ia64_gen_spec_check (rtx, rtx, ds_t);
 static int ia64_spec_check_p (rtx);
 static int ia64_spec_check_src_p (rtx);
 static rtx gen_tls_get_addr (void);
@@ -391,18 +393,27 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_SCHED_SET_SCHED_FLAGS
 #define TARGET_SCHED_SET_SCHED_FLAGS ia64_set_sched_flags
 
+#undef TARGET_SCHED_GET_INSN_SPEC_DS
+#define TARGET_SCHED_GET_INSN_SPEC_DS ia64_get_insn_spec_ds
+
+#undef TARGET_SCHED_GET_INSN_CHECKED_DS
+#define TARGET_SCHED_GET_INSN_CHECKED_DS ia64_get_insn_checked_ds
+
 #undef TARGET_SCHED_SPECULATE_INSN
 #define TARGET_SCHED_SPECULATE_INSN ia64_speculate_insn
 
 #undef TARGET_SCHED_NEEDS_BLOCK_P
 #define TARGET_SCHED_NEEDS_BLOCK_P ia64_needs_block_p
 
-#undef TARGET_SCHED_GEN_CHECK
-#define TARGET_SCHED_GEN_CHECK ia64_gen_check
+#undef TARGET_SCHED_GEN_SPEC_CHECK
+#define TARGET_SCHED_GEN_SPEC_CHECK ia64_gen_spec_check
 
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD_SPEC
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD_SPEC\
   ia64_first_cycle_multipass_dfa_lookahead_guard_spec
+
+#undef TARGET_SCHED_SKIP_RTX_P
+#define TARGET_SCHED_SKIP_RTX_P ia64_skip_rtx_p
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL ia64_function_ok_for_sibcall
@@ -5808,6 +5819,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	case UNSPEC_FR_SQRT_RECIP_APPROX:
 	case UNSPEC_LDA:
 	case UNSPEC_LDS:
+	case UNSPEC_LDS_A:
 	case UNSPEC_LDSA:
 	case UNSPEC_CHKACLR:
         case UNSPEC_CHKS:
@@ -6211,14 +6223,6 @@ static state_t prev_cycle_state = NULL;
 
 static char *stops_p = NULL;
 
-/* The following array element values are ZERO for non-speculative
-   instructions and hold corresponding speculation check number for
-   speculative instructions.  */
-static int *spec_check_no = NULL;
-
-/* Size of spec_check_no array.  */
-static int max_uid = 0;
-
 /* The following variable is used to set up the mentioned above array.  */
 
 static int stop_before_p = 0;
@@ -6413,7 +6417,7 @@ ia64_sched_init_global (FILE *dump ATTRIBUTE_UNUSED,
                         int sched_verbose ATTRIBUTE_UNUSED,
                         int max_ready ATTRIBUTE_UNUSED)
 {  
-  gcc_assert (!pending_data_specs);
+  gcc_assert (pending_data_specs == 0);
 }
 
 /* Scheduling pass is now finished.  Free/reset static variable.  */
@@ -6421,9 +6425,7 @@ static void
 ia64_sched_finish_global (FILE *dump ATTRIBUTE_UNUSED,
 			  int sched_verbose ATTRIBUTE_UNUSED)
 {
-  free (spec_check_no);
-  spec_check_no = 0;
-  max_uid = 0;
+  gcc_assert (pending_data_specs == 0);
 }
 
 /* We are about to being issuing insns for this clock cycle.
@@ -6548,7 +6550,7 @@ ia64_variable_issue (FILE *dump ATTRIBUTE_UNUSED,
 		     rtx insn ATTRIBUTE_UNUSED,
 		     int can_issue_more ATTRIBUTE_UNUSED)
 {
-  if (sched_deps_info->generate_spec_deps)
+  if (sched_deps_info->generate_spec_deps && !SEL_SCHED_P)
     /* Modulo scheduling does not extend h_i_d when emitting
        new instructions.  Don't use h_i_d, if we don't have to.  */
     {
@@ -6727,15 +6729,6 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
 static void
 ia64_h_i_d_extended (void)
 {
-  if (sched_deps_info->generate_spec_deps)
-    {
-      int new_max_uid = get_max_uid () + 1;
-
-      spec_check_no = xrecalloc (spec_check_no, new_max_uid,
-				 max_uid, sizeof (*spec_check_no));
-      max_uid = new_max_uid;
-    }
-
   if (stops_p != NULL) 
     {
       int new_clocks_length = get_max_uid () + 1;
@@ -6847,6 +6840,176 @@ ia64_free_sched_context (void *_sc)
   free (_sc);
 }
 
+/* Provide information about speculation capabilities.  */
+static void
+ia64_set_sched_flags (spec_info_t spec_info)
+{
+  if (common_sched_info->sched_pass_id == SCHED_RGN_PASS
+      || common_sched_info->sched_pass_id == SCHED_EBB_PASS
+      || SEL_SCHED_P)
+    {
+      int mask = 0;
+
+      if ((!SEL_SCHED_P
+	   && ((mflag_sched_br_data_spec && !reload_completed && optimize > 0)
+	       || (mflag_sched_ar_data_spec && reload_completed)))
+	  || (SEL_SCHED_P && mflag_sel_sched_data_spec))
+	{
+	  mask |= BEGIN_DATA;
+
+	  if (!SEL_SCHED_P
+	      && ((mflag_sched_br_in_data_spec && !reload_completed)
+		  || (mflag_sched_ar_in_data_spec && reload_completed)))
+	    mask |= BE_IN_DATA;
+	}
+      
+      if ((!SEL_SCHED_P && mflag_sched_control_spec)
+	  || (SEL_SCHED_P && mflag_sel_sched_control_spec))
+	{
+	  mask |= BEGIN_CONTROL;
+	  
+	  if (!SEL_SCHED_P && mflag_sched_in_control_spec)
+	    mask |= BE_IN_CONTROL;
+	}
+
+      spec_info->mask = mask;
+
+      if (mask)
+	{
+	  spec_info->flags = 0;
+      
+	  if ((mask & DATA_SPEC) && mflag_sched_prefer_non_data_spec_insns)
+	    spec_info->flags |= PREFER_NON_DATA_SPEC;
+
+	  if (mask & CONTROL_SPEC)
+	    {
+	      if (mflag_sched_prefer_non_control_spec_insns)
+		spec_info->flags |= PREFER_NON_CONTROL_SPEC;
+
+	      if (SEL_SCHED_P && mflag_sel_sched_dont_check_control_spec)
+		spec_info->flags |= SEL_SCHED_SPEC_DONT_CHECK_CONTROL;
+	    }
+
+	  if (mflag_sched_spec_verbose)
+	    {
+	      if (sched_verbose >= 1)
+		spec_info->dump = sched_dump;
+	      else
+		spec_info->dump = stderr;
+	    }
+	  else
+	    spec_info->dump = 0;
+	  
+	  if (mflag_sched_count_spec_in_critical_path)
+	    spec_info->flags |= COUNT_SPEC_IN_CRITICAL_PATH;
+	}
+    }
+}
+
+typedef rtx (* gen_func_t) (rtx, rtx);
+
+/* Return a function that will generate a load of mode MODE_NO
+   with speculation types TS.  */
+static gen_func_t
+get_spec_load_gen_function (ds_t ts, int mode_no)
+{
+  static gen_func_t gen_ld_[] = {
+    gen_movbi,
+    gen_movqi_internal,
+    gen_movhi_internal,
+    gen_movsi_internal,
+    gen_movdi_internal,
+    gen_movsf_internal,
+    gen_movdf_internal,
+    gen_movxf_internal,
+    gen_movti_internal,
+    gen_zero_extendqidi2,
+    gen_zero_extendhidi2,
+    gen_zero_extendsidi2,
+  };
+
+  static gen_func_t gen_ld_a[] = {
+    gen_movbi_advanced,
+    gen_movqi_advanced,
+    gen_movhi_advanced,
+    gen_movsi_advanced,
+    gen_movdi_advanced,
+    gen_movsf_advanced,
+    gen_movdf_advanced,
+    gen_movxf_advanced,
+    gen_movti_advanced,
+    gen_zero_extendqidi2_advanced,
+    gen_zero_extendhidi2_advanced,
+    gen_zero_extendsidi2_advanced,
+  };
+  static gen_func_t gen_ld_s[] = {
+    gen_movbi_speculative,
+    gen_movqi_speculative,
+    gen_movhi_speculative,
+    gen_movsi_speculative,
+    gen_movdi_speculative,
+    gen_movsf_speculative,
+    gen_movdf_speculative,
+    gen_movxf_speculative,
+    gen_movti_speculative,
+    gen_zero_extendqidi2_speculative,
+    gen_zero_extendhidi2_speculative,
+    gen_zero_extendsidi2_speculative,
+  };
+  static gen_func_t gen_ld_sa[] = {
+    gen_movbi_speculative_advanced,
+    gen_movqi_speculative_advanced,
+    gen_movhi_speculative_advanced,
+    gen_movsi_speculative_advanced,
+    gen_movdi_speculative_advanced,
+    gen_movsf_speculative_advanced,
+    gen_movdf_speculative_advanced,
+    gen_movxf_speculative_advanced,
+    gen_movti_speculative_advanced,
+    gen_zero_extendqidi2_speculative_advanced,
+    gen_zero_extendhidi2_speculative_advanced,
+    gen_zero_extendsidi2_speculative_advanced,
+  };
+  static gen_func_t gen_ld_s_a[] = {
+    gen_movbi_speculative_a,
+    gen_movqi_speculative_a,
+    gen_movhi_speculative_a,
+    gen_movsi_speculative_a,
+    gen_movdi_speculative_a,
+    gen_movsf_speculative_a,
+    gen_movdf_speculative_a,
+    gen_movxf_speculative_a,
+    gen_movti_speculative_a,
+    gen_zero_extendqidi2_speculative_a,
+    gen_zero_extendhidi2_speculative_a,
+    gen_zero_extendsidi2_speculative_a,
+  };
+
+  gen_func_t *gen_ld; 
+
+  if (ts & BEGIN_DATA)
+    {
+      if (ts & BEGIN_CONTROL)
+	gen_ld = gen_ld_sa;
+      else
+	gen_ld = gen_ld_a;
+    }
+  else if (ts & BEGIN_CONTROL)
+    {
+      if ((spec_info->flags & SEL_SCHED_SPEC_DONT_CHECK_CONTROL)
+	  || ia64_needs_block_p (ts))
+	gen_ld = gen_ld_s;
+      else
+	gen_ld = gen_ld_s_a;
+    }
+  else if (ts == 0)
+    gen_ld = gen_ld_;
+  else
+    gcc_unreachable ();
+
+  return gen_ld[mode_no];
+}
+
 /* Constants that help mapping 'enum machine_mode' to int.  */
 enum SPEC_MODES
   {
@@ -6855,6 +7018,12 @@ enum SPEC_MODES
     SPEC_MODE_FOR_EXTEND_FIRST = 1,
     SPEC_MODE_FOR_EXTEND_LAST = 3,
     SPEC_MODE_LAST = 8
+  };
+
+enum
+  {
+    /* Offset to reach ZERO_EXTEND patterns.  */
+    SPEC_GEN_EXTEND_OFFSET = SPEC_MODE_LAST - SPEC_MODE_FOR_EXTEND_FIRST + 1
   };
 
 /* Return index of the MODE.  */
@@ -6880,81 +7049,136 @@ ia64_mode_to_int (enum machine_mode mode)
     }
 }
 
-/* Provide information about speculation capabilities.  */
-static void
-ia64_set_sched_flags (spec_info_t spec_info)
+/* If INSN is an appropriate load return its mode.
+   Return -1 otherwise.  */
+static int
+get_mode_no_for_insn (rtx insn)
 {
-  if (common_sched_info->sched_pass_id == SCHED_RGN_PASS
-      || common_sched_info->sched_pass_id == SCHED_EBB_PASS)
+  rtx reg, mem, mode_rtx;
+  int mode_no;
+  bool extend_p;
+
+  extract_insn_cached (insn);
+
+  /* We use WHICH_ALTERNATIVE only after reload.  This will
+     guarantee that reload won't touch a speculative insn.  */
+
+  if (recog_data.n_operands != 2)
+    return -1;
+
+  reg = recog_data.operand[0];
+  mem = recog_data.operand[1];
+
+  /* We should use MEM's mode since REG's mode in presence of
+     ZERO_EXTEND will always be DImode.  */
+  if (get_attr_speculable1 (insn) == SPECULABLE1_YES)
+    /* Process non-speculative ld.  */
     {
-      int mask = 0;
-
-      if ((mflag_sched_br_data_spec && !reload_completed && optimize > 0)
-	  || (mflag_sched_ar_data_spec && reload_completed))
+      if (!reload_completed)
 	{
-	  mask |= BEGIN_DATA;
-	  
-	  if ((mflag_sched_br_in_data_spec && !reload_completed)
-	      || (mflag_sched_ar_in_data_spec && reload_completed))
-	    mask |= BE_IN_DATA;
+	  if (!REG_P (reg))
+	    return -1;
+
+	  if (!MEM_P (mem))
+	    return -1;
+
+	  {
+	    rtx mem_reg = XEXP (mem, 0);
+
+	    if (!REG_P (mem_reg))
+	      return -1;
+	  }
+
+	  mode_rtx = mem;
 	}
-      
-      if (mflag_sched_control_spec)
+      else if (get_attr_speculable2 (insn) == SPECULABLE2_YES)
 	{
-	  mask |= BEGIN_CONTROL;
-	  
-	  if (mflag_sched_in_control_spec)
-	    mask |= BE_IN_CONTROL;
+	  gcc_assert (REG_P (reg) && MEM_P (mem));
+	  mode_rtx = mem;
 	}
-
-      gcc_assert (common_sched_info->use_glat);
-
-      if (mask)
-	{
-	  common_sched_info->detach_life_info = 1;
-	  sched_deps_info->use_deps_list = 1;
-	  sched_deps_info->generate_spec_deps = 1;
-	  
-	  spec_info->mask = mask;
-	  spec_info->flags = 0;
-      
-	  if ((mask & DATA_SPEC) && mflag_sched_prefer_non_data_spec_insns)
-	    spec_info->flags |= PREFER_NON_DATA_SPEC;
-
-	  if ((mask & CONTROL_SPEC)
-	      && mflag_sched_prefer_non_control_spec_insns)
-	    spec_info->flags |= PREFER_NON_CONTROL_SPEC;
-
-	  if (mflag_sched_spec_verbose)
-	    {
-	      if (sched_verbose >= 1)
-		spec_info->dump = sched_dump;
-	      else
-		spec_info->dump = stderr;
-	    }
-	  else
-	    spec_info->dump = 0;
-	  
-	  if (mflag_sched_count_spec_in_critical_path)
-	    spec_info->flags |= COUNT_SPEC_IN_CRITICAL_PATH;
-	}
+      else
+	return -1;
     }
+  else if (get_attr_data_speculative (insn) == DATA_SPECULATIVE_YES
+	   || get_attr_control_speculative (insn) == CONTROL_SPECULATIVE_YES
+	   || get_attr_check_load (insn) == CHECK_LOAD_YES)
+    /* Process speculative ld or ld.c.  */
+    {
+      gcc_assert (REG_P (reg) && MEM_P (mem));
+      mode_rtx = mem;
+    }
+  else
+    {
+      enum attr_itanium_class class = get_attr_itanium_class (insn);
+
+      if (class == ITANIUM_CLASS_CHK_A || class == ITANIUM_CLASS_CHK_S_I
+	  || class == ITANIUM_CLASS_CHK_S_F)
+	/* Process chk.  */
+	mode_rtx = reg;
+      else
+	return -1;
+    }
+
+  mode_no = ia64_mode_to_int (GET_MODE (mode_rtx));
+  
+  if (mode_no == SPEC_MODE_INVALID)
+    return -1;
+
+  extend_p = (GET_MODE (reg) != GET_MODE (mode_rtx));
+
+  if (extend_p)
+    {
+      if (!(SPEC_MODE_FOR_EXTEND_FIRST <= mode_no
+	    && mode_no <= SPEC_MODE_FOR_EXTEND_LAST))
+	return -1;
+
+      mode_no += SPEC_GEN_EXTEND_OFFSET;
+    }
+
+  return mode_no;
 }
 
-/* Implement targetm.sched.speculate_insn hook.
-   Check if the INSN can be TS speculative.
-   If 'no' - return -1.
-   If 'yes' - generate speculative pattern in the NEW_PAT and return 1.
-   If current pattern of the INSN already provides TS speculation, return 0.  */
+/* If X is an unspec part of a speculative load, return its code.
+   Return -1 otherwise.  */
 static int
-ia64_speculate_insn (rtx insn, ds_t ts, rtx *new_pat)
-{  
-  rtx pat, reg, mem, mem_reg;
-  int mode_no, gen_p = 1;
-  bool extend_p;
-  
-  gcc_assert (!(ts & ~BEGIN_SPEC) && ts);
-           
+get_spec_unspec_code (rtx x)
+{
+  if (GET_CODE (x) != UNSPEC)
+    return -1;
+
+  {
+    int code;
+
+    code = XINT (x, 1);
+
+    switch (code)
+      {
+      case UNSPEC_LDA:
+      case UNSPEC_LDS:
+      case UNSPEC_LDS_A:
+      case UNSPEC_LDSA:
+	return code;
+
+      default:
+	return -1;
+      }
+  }
+}
+
+/* Implement skip_rtx_p hook.  */
+static bool
+ia64_skip_rtx_p (rtx x)
+{
+  return get_spec_unspec_code (x) != -1;
+}
+
+/* If INSN is a speculative load, return its UNSPEC code.
+   Return -1 otherwise.  */
+static int
+get_insn_spec_code (rtx insn)
+{
+  rtx pat, reg, mem;
+
   pat = PATTERN (insn);
 
   if (GET_CODE (pat) == COND_EXEC)
@@ -6962,379 +7186,300 @@ ia64_speculate_insn (rtx insn, ds_t ts, rtx *new_pat)
 
   if (GET_CODE (pat) != SET)
     return -1;
+
   reg = SET_DEST (pat);
   if (!REG_P (reg))
     return -1;
 
   mem = SET_SRC (pat);  
   if (GET_CODE (mem) == ZERO_EXTEND)
-    {
-      mem = XEXP (mem, 0);
-      extend_p = true;      
-    }
-  else
-    extend_p = false;
+    mem = XEXP (mem, 0);
 
-  if (GET_CODE (mem) == UNSPEC)
-    {
-      int code;
-      
-      code = XINT (mem, 1);
-      if (code != UNSPEC_LDA && code != UNSPEC_LDS && code != UNSPEC_LDSA)
-	return -1;
-
-      if ((code == UNSPEC_LDA && !(ts & BEGIN_CONTROL))
-	  || (code == UNSPEC_LDS && !(ts & BEGIN_DATA))
-	  || code == UNSPEC_LDSA)
-	gen_p = 0;
-
-      mem = XVECEXP (mem, 0, 0);
-      gcc_assert (MEM_P (mem));
-    }
-  if (!MEM_P (mem))
-    return -1;
-  mem_reg = XEXP (mem, 0);
-  if (!REG_P (mem_reg))
-    return -1;
-     
-  /* We should use MEM's mode since REG's mode in presence of ZERO_EXTEND
-     will always be DImode.  */
-  mode_no = ia64_mode_to_int (GET_MODE (mem));
-  
-  if (mode_no == SPEC_MODE_INVALID
-      || (extend_p
-	  && !(SPEC_MODE_FOR_EXTEND_FIRST <= mode_no
-	       && mode_no <= SPEC_MODE_FOR_EXTEND_LAST)))
-    return -1;
-
-  extract_insn_cached (insn);
-  gcc_assert (reg == recog_data.operand[0] && mem == recog_data.operand[1]);
-  *new_pat = ia64_gen_spec_insn (insn, ts, mode_no, gen_p != 0, extend_p);
-
-  return gen_p;
+  return get_spec_unspec_code (mem);
 }
 
-enum
-  {
-    /* Offset to reach ZERO_EXTEND patterns.  */
-    SPEC_GEN_EXTEND_OFFSET = SPEC_MODE_LAST - SPEC_MODE_FOR_EXTEND_FIRST + 1,
-    /* Number of patterns for each speculation mode.  */
-    SPEC_N = (SPEC_MODE_LAST
-              + SPEC_MODE_FOR_EXTEND_LAST - SPEC_MODE_FOR_EXTEND_FIRST + 2)
-  };
+/* If INSN is a speculative load, return a ds with the speculation types.
+   Otherwise [if INSN is a normal instruction] return 0.  */
+static ds_t
+ia64_get_insn_spec_ds (rtx insn)
+{
+  int code = get_insn_spec_code (insn);
 
-enum SPEC_GEN_LD_MAP
-  {
-    /* Offset to ld.a patterns.  */
-    SPEC_GEN_A = 0 * SPEC_N,
-    /* Offset to ld.s patterns.  */
-    SPEC_GEN_S = 1 * SPEC_N,
-    /* Offset to ld.sa patterns.  */
-    SPEC_GEN_SA = 2 * SPEC_N,
-    /* Offset to ld.sa patterns.  For this patterns corresponding ld.c will
-       mutate to chk.s.  */
-    SPEC_GEN_SA_FOR_S = 3 * SPEC_N
-  };
+  switch (code)
+    {
+    case UNSPEC_LDA:
+      return BEGIN_DATA;
 
-/* These offsets are used to get (4 * SPEC_N).  */
-enum SPEC_GEN_CHECK_OFFSET
-  {
-    SPEC_GEN_CHKA_FOR_A_OFFSET = 4 * SPEC_N - SPEC_GEN_A,
-    SPEC_GEN_CHKA_FOR_SA_OFFSET = 4 * SPEC_N - SPEC_GEN_SA
-  };
+    case UNSPEC_LDS:
+    case UNSPEC_LDS_A:
+      return BEGIN_CONTROL;
+
+    case UNSPEC_LDSA:
+      return BEGIN_DATA | BEGIN_CONTROL;
+
+    default:
+      return 0;
+    }
+}
+
+/* If INSN is a speculative load return a ds with the speculation types that
+   will be checked.
+   Otherwise [if INSN is a normal instruction] return 0.  */
+static ds_t
+ia64_get_insn_checked_ds (rtx insn)
+{
+  int code = get_insn_spec_code (insn);
+
+  switch (code)
+    {
+    case UNSPEC_LDA:
+      return BEGIN_DATA | BEGIN_CONTROL;
+
+    case UNSPEC_LDS:
+      return BEGIN_CONTROL;
+
+    case UNSPEC_LDS_A:
+    case UNSPEC_LDSA:
+      return BEGIN_DATA | BEGIN_CONTROL;
+
+    default:
+      return 0;
+    }
+}
 
 /* If GEN_P is true, calculate the index of needed speculation check and return
    speculative pattern for INSN with speculative mode TS, machine mode
    MODE_NO and with ZERO_EXTEND (if EXTEND_P is true).
    If GEN_P is false, just calculate the index of needed speculation check.  */
 static rtx
-ia64_gen_spec_insn (rtx insn, ds_t ts, int mode_no, bool gen_p, bool extend_p)
+ia64_gen_spec_load (rtx insn, ds_t ts, int mode_no)
 {
   rtx pat, new_pat;
-  int load_no;
-  int shift = 0;
+  gen_func_t gen_load;
 
-  static rtx (* const gen_load[]) (rtx, rtx) = {
-    gen_movbi_advanced,
-    gen_movqi_advanced,
-    gen_movhi_advanced,
-    gen_movsi_advanced,
-    gen_movdi_advanced,
-    gen_movsf_advanced,
-    gen_movdf_advanced,
-    gen_movxf_advanced,
-    gen_movti_advanced,
-    gen_zero_extendqidi2_advanced,
-    gen_zero_extendhidi2_advanced,
-    gen_zero_extendsidi2_advanced,
+  gen_load = get_spec_load_gen_function (ts, mode_no);
 
-    gen_movbi_speculative,
-    gen_movqi_speculative,
-    gen_movhi_speculative,
-    gen_movsi_speculative,
-    gen_movdi_speculative,
-    gen_movsf_speculative,
-    gen_movdf_speculative,
-    gen_movxf_speculative,
-    gen_movti_speculative,
-    gen_zero_extendqidi2_speculative,
-    gen_zero_extendhidi2_speculative,
-    gen_zero_extendsidi2_speculative,
+  new_pat = gen_load (copy_rtx (recog_data.operand[0]),
+		      copy_rtx (recog_data.operand[1]));
 
-    gen_movbi_speculative_advanced,
-    gen_movqi_speculative_advanced,
-    gen_movhi_speculative_advanced,
-    gen_movsi_speculative_advanced,
-    gen_movdi_speculative_advanced,
-    gen_movsf_speculative_advanced,
-    gen_movdf_speculative_advanced,
-    gen_movxf_speculative_advanced,
-    gen_movti_speculative_advanced,
-    gen_zero_extendqidi2_speculative_advanced,
-    gen_zero_extendhidi2_speculative_advanced,
-    gen_zero_extendsidi2_speculative_advanced,
+  pat = PATTERN (insn);
+  if (GET_CODE (pat) == COND_EXEC)
+    new_pat = gen_rtx_COND_EXEC (VOIDmode, copy_rtx (COND_EXEC_TEST (pat)),
+				 new_pat);
 
-    gen_movbi_speculative_advanced,
-    gen_movqi_speculative_advanced,
-    gen_movhi_speculative_advanced,
-    gen_movsi_speculative_advanced,
-    gen_movdi_speculative_advanced,
-    gen_movsf_speculative_advanced,
-    gen_movdf_speculative_advanced,
-    gen_movxf_speculative_advanced,
-    gen_movti_speculative_advanced,
-    gen_zero_extendqidi2_speculative_advanced,
-    gen_zero_extendhidi2_speculative_advanced,
-    gen_zero_extendsidi2_speculative_advanced
+  return new_pat;
+}
+
+/* Implement targetm.sched.speculate_insn hook.
+   Check if the INSN can be TS speculative.
+   If 'no' - return -1.
+   If 'yes' - generate speculative pattern in the NEW_PAT and return 1.
+   If current pattern of the INSN already provides TS speculation,
+   return 0.  */
+static int
+ia64_speculate_insn (rtx insn, ds_t ts, rtx *new_pat)
+{  
+  int mode_no;
+  int res;
+  
+  gcc_assert (!(ts & ~BEGIN_SPEC));
+
+  if (ia64_spec_check_p (insn))
+    return -1;
+
+  mode_no = get_mode_no_for_insn (insn);
+
+  if (mode_no != SPEC_MODE_INVALID)
+    {
+      if (0 && SEL_SCHED_P && (ts & BEGIN_DATA)
+	  && mode_no >= 5 && mode_no <= 7)
+	/* !!! We can't data speculate float point loads because we might
+	   get a trap-looking insn from the trap-free one.  This happens
+	   because of the UNSPEC:?F part in the load, that is a floating
+	   point operation that might trap.  */
+	return -1;
+
+      if (ia64_get_insn_spec_ds (insn) == ts)
+	res = 0;
+      else
+	{
+	  res = 1;
+	  *new_pat = ia64_gen_spec_load (insn, ts, mode_no);
+	}
+    }
+  else
+    res = -1;
+
+  return res;
+}
+
+/* Return a function that will generate a check for speculation TS with mode
+   MODE_NO.
+   If simple check is needed, pass true for SIMPLE_CHECK_P.
+   If clearing check is needed, pass true for CLEARING_CHECK_P.  */
+static gen_func_t
+get_spec_check_gen_function (ds_t ts, int mode_no,
+			     bool simple_check_p, bool clearing_check_p)
+{
+  static gen_func_t gen_ld_c_clr[] = {
+    gen_movbi_clr,
+    gen_movqi_clr,
+    gen_movhi_clr,
+    gen_movsi_clr,
+    gen_movdi_clr,
+    gen_movsf_clr,
+    gen_movdf_clr,
+    gen_movxf_clr,
+    gen_movti_clr,
+    gen_zero_extendqidi2_clr,
+    gen_zero_extendhidi2_clr,
+    gen_zero_extendsidi2_clr,
+  };  
+  static gen_func_t gen_ld_c_nc[] = {
+    gen_movbi_nc,
+    gen_movqi_nc,
+    gen_movhi_nc,
+    gen_movsi_nc,
+    gen_movdi_nc,
+    gen_movsf_nc,
+    gen_movdf_nc,
+    gen_movxf_nc,
+    gen_movti_nc,
+    gen_zero_extendqidi2_nc,
+    gen_zero_extendhidi2_nc,
+    gen_zero_extendsidi2_nc,
+  };  
+  static gen_func_t gen_chk_a_clr[] = {
+    gen_advanced_load_check_clr_bi,
+    gen_advanced_load_check_clr_qi,
+    gen_advanced_load_check_clr_hi,
+    gen_advanced_load_check_clr_si,
+    gen_advanced_load_check_clr_di,
+    gen_advanced_load_check_clr_sf,
+    gen_advanced_load_check_clr_df,
+    gen_advanced_load_check_clr_xf,
+    gen_advanced_load_check_clr_ti,
+    gen_advanced_load_check_clr_di,
+    gen_advanced_load_check_clr_di,
+    gen_advanced_load_check_clr_di,
+  };
+  static gen_func_t gen_chk_a_nc[] = {
+    gen_advanced_load_check_nc_bi,
+    gen_advanced_load_check_nc_qi,
+    gen_advanced_load_check_nc_hi,
+    gen_advanced_load_check_nc_si,
+    gen_advanced_load_check_nc_di,
+    gen_advanced_load_check_nc_sf,
+    gen_advanced_load_check_nc_df,
+    gen_advanced_load_check_nc_xf,
+    gen_advanced_load_check_nc_ti,
+    gen_advanced_load_check_nc_di,
+    gen_advanced_load_check_nc_di,
+    gen_advanced_load_check_nc_di,
+  };
+  static gen_func_t gen_chk_s[] = {
+    gen_speculation_check_bi,
+    gen_speculation_check_qi,
+    gen_speculation_check_hi,
+    gen_speculation_check_si,
+    gen_speculation_check_di,
+    gen_speculation_check_sf,
+    gen_speculation_check_df,
+    gen_speculation_check_xf,
+    gen_speculation_check_ti,
+    gen_speculation_check_di,
+    gen_speculation_check_di,
+    gen_speculation_check_di,
   };
 
-  load_no = extend_p ? mode_no + SPEC_GEN_EXTEND_OFFSET : mode_no;
+  gen_func_t *gen_check;
 
   if (ts & BEGIN_DATA)
     {
       /* We don't need recovery because even if this is ld.sa
-	 ALAT entry will be allocated only if NAT bit is set to zero. 
-	 So it is enough to use ld.c here.  */	  
+	 ALAT entry will be allocated only if NAT bit is set to zero.
+	 So it is enough to use ld.c here.  */
 
-      if (ts & BEGIN_CONTROL)
-	{	      
-	  load_no += SPEC_GEN_SA;
+      if (simple_check_p)
+	{
+	  gcc_assert (mflag_sched_spec_ldc);
 
-	  if (!mflag_sched_ldc)
-	    shift = SPEC_GEN_CHKA_FOR_SA_OFFSET;
+	  if (clearing_check_p)
+	    gen_check = gen_ld_c_clr;
+	  else
+	    gen_check = gen_ld_c_nc;
 	}
       else
 	{
-	  load_no += SPEC_GEN_A;
-
-	  if (!mflag_sched_ldc)		
-	    shift = SPEC_GEN_CHKA_FOR_A_OFFSET;
+	  if (clearing_check_p)
+	    gen_check = gen_chk_a_clr;
+	  else
+	    gen_check = gen_chk_a_nc;
 	}
     }
   else if (ts & BEGIN_CONTROL)
     {
-      /* ld.sa can be used instead of ld.s to avoid basic block splitting.  */
-      if (!mflag_control_ldc)
-	load_no += SPEC_GEN_S;
+      if (simple_check_p)
+	/* We might want to use ld.sa -> ld.c instead of
+	   ld.s -> chk.s.  */
+	{
+	  gcc_assert (!ia64_needs_block_p (ts));
+
+	  if (clearing_check_p)
+	    gen_check = gen_ld_c_clr;
+	  else
+	    gen_check = gen_ld_c_nc;
+	}
       else
 	{
-	  gcc_assert (mflag_sched_ldc);
-	  load_no += SPEC_GEN_SA_FOR_S;
+	  gcc_assert (clearing_check_p);
+
+	  gen_check = gen_chk_s;
 	}
     }
   else
     gcc_unreachable ();
 
-  /* Set the desired check index.  We add '1', because zero element in this
-     array means, that instruction with such uid is non-speculative.  */
-  spec_check_no[INSN_UID (insn)] = load_no + shift + 1;
-
-  if (!gen_p)
-    return 0;
-
-  new_pat = gen_load[load_no] (copy_rtx (recog_data.operand[0]),
-			       copy_rtx (recog_data.operand[1]));
-
-  pat = PATTERN (insn);
-  if (GET_CODE (pat) == COND_EXEC)
-    new_pat = gen_rtx_COND_EXEC (VOIDmode, copy_rtx 
-				 (COND_EXEC_TEST (pat)), new_pat);
-
-  return new_pat;
+  return gen_check[mode_no];
 }
-
-/* Offset to branchy checks.  */
-enum { SPEC_GEN_CHECK_MUTATION_OFFSET = 5 * SPEC_N };
 
 /* Return nonzero, if INSN needs branchy recovery check.  */
 static bool
-ia64_needs_block_p (rtx insn)
+ia64_needs_block_p (ds_t ts)
 {
-  int check_no;
+  if (ts & BEGIN_DATA)
+    return !mflag_sched_spec_ldc;
 
-  check_no = spec_check_no[INSN_UID(insn)] - 1;
-  gcc_assert (0 <= check_no && check_no < SPEC_GEN_CHECK_MUTATION_OFFSET);
+  gcc_assert ((ts & BEGIN_CONTROL) != 0);
 
-  return ((SPEC_GEN_S <= check_no && check_no < SPEC_GEN_S + SPEC_N)
-	  || (4 * SPEC_N <= check_no && check_no < 4 * SPEC_N + SPEC_N));
+  return (!((mflag_sched_spec_control_ldc && mflag_sched_spec_ldc)
+	    || SEL_SCHED_P));
 }
 
 /* Generate (or regenerate, if (MUTATE_P)) recovery check for INSN.
    If (LABEL != 0 || MUTATE_P), generate branchy recovery check.
    Otherwise, generate a simple check.  */
 static rtx
-ia64_gen_check (rtx insn, rtx label, bool mutate_p)
+ia64_gen_spec_check (rtx insn, rtx label, ds_t ds)
 {
   rtx op1, pat, check_pat;
+  gen_func_t gen_check;
+  int mode_no;
 
-  static rtx (* const gen_check[]) (rtx, rtx) = {
-    gen_movbi_clr,
-    gen_movqi_clr,
-    gen_movhi_clr,
-    gen_movsi_clr,
-    gen_movdi_clr,
-    gen_movsf_clr,
-    gen_movdf_clr,
-    gen_movxf_clr,
-    gen_movti_clr,
-    gen_zero_extendqidi2_clr,
-    gen_zero_extendhidi2_clr,
-    gen_zero_extendsidi2_clr,
-
-    gen_speculation_check_bi,
-    gen_speculation_check_qi,
-    gen_speculation_check_hi,
-    gen_speculation_check_si,
-    gen_speculation_check_di,
-    gen_speculation_check_sf,
-    gen_speculation_check_df,
-    gen_speculation_check_xf,
-    gen_speculation_check_ti,
-    gen_speculation_check_di,
-    gen_speculation_check_di,
-    gen_speculation_check_di,
-
-    gen_movbi_clr,
-    gen_movqi_clr,
-    gen_movhi_clr,
-    gen_movsi_clr,
-    gen_movdi_clr,
-    gen_movsf_clr,
-    gen_movdf_clr,
-    gen_movxf_clr,
-    gen_movti_clr,
-    gen_zero_extendqidi2_clr,
-    gen_zero_extendhidi2_clr,
-    gen_zero_extendsidi2_clr,
-
-    gen_movbi_clr,
-    gen_movqi_clr,
-    gen_movhi_clr,
-    gen_movsi_clr,
-    gen_movdi_clr,
-    gen_movsf_clr,
-    gen_movdf_clr,
-    gen_movxf_clr,
-    gen_movti_clr,
-    gen_zero_extendqidi2_clr,
-    gen_zero_extendhidi2_clr,
-    gen_zero_extendsidi2_clr,
-
-    gen_advanced_load_check_clr_bi,
-    gen_advanced_load_check_clr_qi,
-    gen_advanced_load_check_clr_hi,
-    gen_advanced_load_check_clr_si,
-    gen_advanced_load_check_clr_di,
-    gen_advanced_load_check_clr_sf,
-    gen_advanced_load_check_clr_df,
-    gen_advanced_load_check_clr_xf,
-    gen_advanced_load_check_clr_ti,
-    gen_advanced_load_check_clr_di,
-    gen_advanced_load_check_clr_di,
-    gen_advanced_load_check_clr_di,
-
-    /* Following checks are generated during mutation.  */
-    gen_advanced_load_check_clr_bi,
-    gen_advanced_load_check_clr_qi,
-    gen_advanced_load_check_clr_hi,
-    gen_advanced_load_check_clr_si,
-    gen_advanced_load_check_clr_di,
-    gen_advanced_load_check_clr_sf,
-    gen_advanced_load_check_clr_df,
-    gen_advanced_load_check_clr_xf,
-    gen_advanced_load_check_clr_ti,
-    gen_advanced_load_check_clr_di,
-    gen_advanced_load_check_clr_di,
-    gen_advanced_load_check_clr_di,
-
-    0,0,0,0,0,0,0,0,0,0,0,0,
-
-    gen_advanced_load_check_clr_bi,
-    gen_advanced_load_check_clr_qi,
-    gen_advanced_load_check_clr_hi,
-    gen_advanced_load_check_clr_si,
-    gen_advanced_load_check_clr_di,
-    gen_advanced_load_check_clr_sf,
-    gen_advanced_load_check_clr_df,
-    gen_advanced_load_check_clr_xf,
-    gen_advanced_load_check_clr_ti,
-    gen_advanced_load_check_clr_di,
-    gen_advanced_load_check_clr_di,
-    gen_advanced_load_check_clr_di,
-
-    gen_speculation_check_bi,
-    gen_speculation_check_qi,
-    gen_speculation_check_hi,
-    gen_speculation_check_si,
-    gen_speculation_check_di,
-    gen_speculation_check_sf,
-    gen_speculation_check_df,
-    gen_speculation_check_xf,
-    gen_speculation_check_ti,
-    gen_speculation_check_di,
-    gen_speculation_check_di,
-    gen_speculation_check_di
-  };
-
-  extract_insn_cached (insn);
+  mode_no = get_mode_no_for_insn (insn);
 
   if (label)
-    {
-      gcc_assert (mutate_p || ia64_needs_block_p (insn));
-      op1 = label;
-    }
+    op1 = label;
   else
     {
-      gcc_assert (!mutate_p && !ia64_needs_block_p (insn));
+      gcc_assert (!ia64_needs_block_p (ds));
       op1 = copy_rtx (recog_data.operand[1]);
     }
       
-  if (mutate_p)
-    /* INSN is ld.c.
-       Find the speculation check number by searching for original
-       speculative load in the RESOLVED_DEPS list of INSN.
-       As long as patterns are unique for each instruction, this can be
-       accomplished by matching ORIG_PAT fields.  */
-    {
-      rtx link;
-      int check_no = 0;
-      rtx orig_pat = ORIG_PAT (insn);
+  gen_check = get_spec_check_gen_function (ds, mode_no, label == NULL_RTX,
+					   true);
 
-      for (link = RESOLVED_DEPS (insn); link; link = XEXP (link, 1))
-	{
-	  rtx x = XEXP (link, 0);
-
-	  if (ORIG_PAT (x) == orig_pat)
-	    check_no = spec_check_no[INSN_UID (x)];
-	}
-      gcc_assert (check_no);
-
-      spec_check_no[INSN_UID (insn)] = (check_no
-					+ SPEC_GEN_CHECK_MUTATION_OFFSET);
-    }
-
-  check_pat = (gen_check[spec_check_no[INSN_UID (insn)] - 1]
-	       (copy_rtx (recog_data.operand[0]), op1));
+  check_pat = gen_check (copy_rtx (recog_data.operand[0]), op1);
     
   pat = PATTERN (insn);
   if (GET_CODE (pat) == COND_EXEC)
@@ -7375,9 +7520,11 @@ ia64_spec_check_src_p (rtx src)
 	      
 	      code = XINT (t, 1);
 	     
-	      if (code == UNSPEC_CHKACLR
-		  || code == UNSPEC_CHKS
-		  || code == UNSPEC_LDCCLR)
+	      if (code == UNSPEC_LDCCLR
+		  || code == UNSPEC_LDCNC
+		  || code == UNSPEC_CHKACLR
+		  || code == UNSPEC_CHKANC
+		  || code == UNSPEC_CHKS)
 		{
 		  gcc_assert (code != 0);
 		  return code;
@@ -8558,7 +8705,8 @@ ia64_ld_address_bypass_p (rtx producer, rtx consumer)
     {
       int c = XINT (mem, 1);
 
-      gcc_assert (c == UNSPEC_LDA || c == UNSPEC_LDS || c == UNSPEC_LDSA);
+      gcc_assert (c == UNSPEC_LDA || c == UNSPEC_LDS || c == UNSPEC_LDS_A
+		  || c == UNSPEC_LDSA);
       mem = XVECEXP (mem, 0, 0);
     }
 
@@ -8642,6 +8790,8 @@ emit_predicate_relation_info (void)
 	}
     }
 }
+
+static int sel2_run = 0;
 
 /* Perform machine dependent operations on the rtl chain INSNS.  */
 
@@ -8735,10 +8885,28 @@ ia64_reorg (void)
 	  _1mfb_ = get_cpu_unit_code ("1b_1mfb.");
 	  _1mlx_ = get_cpu_unit_code ("1b_1mlx.");
 	}
-      if (flag_selective_scheduling2)
-        selective_scheduling_run ();
-      else
-        schedule_ebbs ();
+      {
+	int now;
+	int start;
+	int stop;
+	bool do_p;
+
+	now = ++sel2_run;
+	start = PARAM_VALUE (PARAM_SEL2_START);
+	stop = PARAM_VALUE (PARAM_SEL2_STOP);
+	do_p = (PARAM_VALUE (PARAM_SEL2_P) == 1);
+
+	if (do_p)
+	  do_p = (start <= now) && (now <= stop);
+	else
+	  do_p = (start > now) || (now > stop);
+
+	if (flag_selective_scheduling2 && do_p)
+	  selective_scheduling_run ();
+	else
+	  schedule_ebbs ();
+      }
+
       finish_bundle_states ();
       if (ia64_tune == PROCESSOR_ITANIUM)
 	{

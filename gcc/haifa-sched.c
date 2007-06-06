@@ -145,6 +145,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "output.h"
 #include "params.h"
+#include "vecprim.h"
 
 #ifdef INSN_SCHEDULING
 
@@ -170,9 +171,6 @@ int sched_verbose = 0;
    either to stderr, or to the dump listing file (-dRS).  */
 FILE *sched_dump = 0;
 
-/* Current highest uid.  */
-int sched_max_uid = 0;
-
 /* fix_sched_param() is called from toplev.c upon detection
    of the -fsched-verbose=N option.  */
 
@@ -185,21 +183,12 @@ fix_sched_param (const char *param, const char *val)
     warning (0, "fix_sched_param: unknown param: %s", param);
 }
 
-struct haifa_insn_data *h_i_d;
-
 /* This is a placeholder for the scheduler parameters common 
    to all schedulers.  */
 struct common_sched_info_def *common_sched_info;
 
-/* Mapping from instruction UID to its Logical UID.  */
-int *uid_to_luid = NULL;
-
-/* This weight is an estimation of the insn's contribution to
-   register pressure.  */
-short *reg_weights = NULL;
-
-#define INSN_TICK(INSN)		(h_i_d[INSN_UID (INSN)].tick)
-#define INTER_TICK(INSN)        (h_i_d[INSN_UID (INSN)].inter_tick)
+#define INSN_TICK(INSN)	(HID (INSN)->tick)
+#define INTER_TICK(INSN) (HID (INSN)->inter_tick)
 
 /* If INSN_TICK of an instruction is equal to INVALID_TICK,
    then it should be recalculated from scratch.  */
@@ -215,16 +204,10 @@ short *reg_weights = NULL;
    last element in the list.  */
 rtx note_list;
 
-/* Blocks in the scheduling region.  */
-sbitmap sched_bbs = NULL;
-
-/* Insns in the scheduling region.  */
-sbitmap sched_insns = NULL;
-
 static struct spec_info_def spec_info_var;
 /* Description of the speculative part of the scheduling.
    If NULL - no speculation.  */
-static spec_info_t spec_info;
+spec_info_t spec_info;
 
 /* True, if recovery block was added during scheduling of current block.
    Used to determine, if we need to fix INSN_TICKs.  */
@@ -233,14 +216,8 @@ static bool added_recovery_block_p;
 /* Counters of different types of speculative instructions.  */
 static int nr_begin_data, nr_be_in_data, nr_begin_control, nr_be_in_control;
 
-/* Pointers to GLAT data.  See glat_init for more information.  */
-regset *glat_start = NULL, *glat_end = NULL;
-
 /* Array used in {unlink, restore}_bb_notes.  */
 static rtx *bb_header = 0;
-
-/* Index of the current last_basic_block.  */
-int sched_last_basic_block = 0;
 
 /* Basic block after which recovery blocks will be created.  */
 static basic_block before_recovery;
@@ -305,7 +282,7 @@ static int q_size = 0;
    QUEUE_READY     - INSN is in ready list.
    N >= 0 - INSN queued for X [where NEXT_Q_AFTER (q_ptr, X) == N] cycles.  */
    
-#define QUEUE_INDEX(INSN) (h_i_d[INSN_UID (INSN)].queue_index)
+#define QUEUE_INDEX(INSN) (HID (INSN)->queue_index)
 
 /* The following variable value refers for all current and future
    reservations of the processor units.  */
@@ -327,9 +304,6 @@ static struct ready_list *readyp = &ready;
 
 /* Scheduling clock.  */
 static int clock_var;
-
-/* Number of instructions in current scheduling region.  */
-static int rgn_n_insns = -1;
 
 static int may_trap_exp (rtx, int);
 
@@ -543,26 +517,20 @@ static void resolve_dep (rtx, rtx);
 /* The following functions are used to implement scheduling of data/control
    speculative instructions.  */
 
-static void extend_ready (int);
-static void haifa_insns_init (rtx);
-static void extend_all (rtx);
 static void generate_recovery_code (rtx);
 static void process_insn_depend_be_in_spec (rtx, rtx, ds_t);
 static void begin_speculative_block (rtx);
 static void add_to_speculative_block (rtx);
-static dw_t dep_weak (ds_t);
 static void init_before_recovery (void);
 static basic_block create_recovery_block (void);
 static void create_check_block_twin (rtx, bool);
 static void fix_recovery_deps (basic_block);
-static void change_pattern (rtx, rtx);
-static int speculate_insn (rtx, ds_t, rtx *);
+static void haifa_change_pattern (rtx, rtx);
 static void dump_new_block_header (int, basic_block, rtx, rtx);
 static void restore_bb_notes (basic_block);
 static void fix_jump_move (rtx);
 static void move_block_after_check (rtx);
 static void move_succs (VEC(edge,gc) **, basic_block);
-static void glat_init (basic_block);
 static void attach_life_info1 (basic_block);
 static void sched_remove_insn (rtx);
 static void clear_priorities (rtx);
@@ -585,9 +553,6 @@ schedule_insns (void)
 {
 }
 #else
-
-/* Working copy of frontend's sched_info variable.  */
-static struct haifa_sched_info current_sched_info_var;
 
 /* Pointer to the last instruction scheduled.  Used by rank_for_schedule,
    so that insns independent of the last scheduled insn will be preferred
@@ -851,13 +816,13 @@ rank_for_schedule (const void *x, const void *y)
 
       ds1 = TODO_SPEC (tmp) & SPECULATIVE;
       if (ds1)
-	dw1 = dep_weak (ds1);
+	dw1 = ds_weak (ds1);
       else
 	dw1 = NO_DEP_WEAK;
       
       ds2 = TODO_SPEC (tmp2) & SPECULATIVE;
       if (ds2)
-	dw2 = dep_weak (ds2);
+	dw2 = ds_weak (ds2);
       else
 	dw2 = NO_DEP_WEAK;
 
@@ -962,7 +927,7 @@ queue_insn (rtx insn, int n_cycles)
 
       fprintf (sched_dump, "queued for %d cycles.\n", n_cycles);
     }
-  
+
   QUEUE_INDEX (insn) = next_q;
 }
 
@@ -2687,9 +2652,6 @@ set_priorities (rtx head, rtx tail)
   return n_insn;
 }
 
-/* Next LUID to assign to an instruction.  */
-int max_luid = 1;
-
 /* Initialize some global state for the scheduler.  This function works 
    with the common data shared between all the schedulers.  It is called
    from the scheduler specific initialization routine.  */
@@ -2716,12 +2678,14 @@ sched_init (void)
     {
       spec_info = &spec_info_var;
       targetm.sched.set_sched_flags (spec_info);
-      if (sched_deps_info->generate_spec_deps)
+
+      if (spec_info->mask != 0)
 	spec_info->weakness_cutoff =
 	  (PARAM_VALUE (PARAM_SCHED_SPEC_PROB_CUTOFF) * MAX_DEP_WEAK) / 100;
       else
 	/* So we won't read anything accidentally.  */
-	spec_info = 0;
+	spec_info = NULL;
+
 #ifdef ENABLE_CHECKING
       check_sched_flags ();
 #endif
@@ -2760,13 +2724,8 @@ sched_init (void)
   init_alias_analysis ();
 
   if (targetm.sched.md_init_global)
-      targetm.sched.md_init_global (sched_dump, sched_verbose, sched_max_uid);
-
-  /* GLAT_{START, END} [Global Live AT {START, END}] should be a region-scope
-     data structure, but we would like to use it for global register check
-     in sched-rgn.c: sched_rgn_global_finish ().  For this cause it is
-     initialized and freed on the most outer level.  */
-  glat_init (NULL);
+    targetm.sched.md_init_global (sched_dump, sched_verbose,
+				  get_max_uid () + 1);
 
   curr_state = xmalloc (dfa_state_size);
 }
@@ -2777,12 +2736,36 @@ haifa_sched_init (void)
 {
   sched_init ();
 
-  /* Switch to working copy of sched_info.  */
-  memcpy (&current_sched_info_var, current_sched_info,
-	  sizeof (current_sched_info_var));
-  current_sched_info = &current_sched_info_var;
-      
-  sched_bbs_init (NULL);
+  if (spec_info != NULL)
+    {
+      gcc_assert (common_sched_info->use_glat);
+
+      common_sched_info->detach_life_info = 1;
+      sched_deps_info->use_deps_list = 1;
+      sched_deps_info->generate_spec_deps = 1;
+    }
+
+  /* Initialize glat, luids, dependency caches, target and h_i_d for the
+     whole function.  */
+  {
+    bb_vec_t bbs = VEC_alloc (basic_block, heap, n_basic_blocks);
+    basic_block bb;
+
+    FOR_ALL_BB (bb)
+      VEC_quick_push (basic_block, bbs, bb);
+
+    sched_init_bbs (bbs, NULL);
+
+    VEC_pop (basic_block, bbs);
+    VEC_ordered_remove (basic_block, bbs, 0);
+
+    sched_init_luids (bbs, NULL, NULL, NULL);
+    sched_deps_local_init (true);
+    sched_extend_target ();
+    haifa_init_h_i_d (bbs, NULL, NULL, NULL);
+
+    VEC_free (basic_block, heap, bbs);
+  }
 
 #ifdef ENABLE_CHECKING
   /* This is used preferably for finding bugs in check_cfg () itself.
@@ -2790,8 +2773,6 @@ haifa_sched_init (void)
      assumes that the last insn in the last bb has a non-null successor.  */
   check_cfg (0, 0);
 #endif
-
-  haifa_insns_init (NULL);
 
   nr_begin_data = nr_begin_control = nr_be_in_data = nr_be_in_control = 0;
   before_recovery = 0;
@@ -2822,11 +2803,14 @@ haifa_sched_finish (void)
                c, nr_be_in_control);
     }
 
-  /* haifa_insns_finish.  */
-  free (h_i_d);
-  h_i_d = NULL;
-  sched_insns_finish ();
-  sched_bbs_finish ();
+  /* Finalize h_i_d, dependency caches, luids and glat for the whole
+     function.  Target will be finalized in md_global_finish ().  */
+  {
+    haifa_finish_h_i_d ();
+    sched_deps_local_finish ();
+    sched_finish_luids ();
+    sched_finish_bbs ();
+  }
 
   current_sched_info = NULL;
 
@@ -2839,41 +2823,14 @@ haifa_sched_finish (void)
 void
 sched_finish (void)
 {
-  if (common_sched_info->use_glat)
-    {
-      /* Free GLAT information that was created by attach_life_info ()
-	 and used by sched-rgn.c: sched_rgn_global_finish ().  */
-#ifdef ENABLE_CHECKING
-      if (common_sched_info->detach_life_info)
-	{
-	  basic_block bb;
-
-	  FOR_ALL_BB (bb)
-	    {
-	      int i = bb->index;
-
-	      if (glat_start[i])
-		FREE_REG_SET (glat_start[i]);
-	      if (glat_end[i])
-		FREE_REG_SET (glat_end[i]);
-	    }
-	}
-#endif
-
-      free (glat_start);
-      glat_start = NULL;
-
-      free (glat_end);
-      glat_end = NULL;
-    }
-
   free (curr_state);
-
-  dfa_finish ();
-  end_alias_analysis ();
 
   if (targetm.sched.md_finish_global)
     targetm.sched.md_finish_global (sched_dump, sched_verbose);
+
+  end_alias_analysis ();
+
+  dfa_finish ();
 
 #ifdef ENABLE_CHECKING
   /* After reload ia64 backend clobbers CFG, so can't check anything.  */
@@ -2950,6 +2907,8 @@ fix_inter_tick (rtx head, rtx tail)
     }
   bitmap_clear (&processed);
 }
+
+static int haifa_speculate_insn (rtx, ds_t, rtx *);
   
 /* Check if NEXT is ready to be added to the ready or queue list.
    If "yes", add it to the proper list.
@@ -2994,7 +2953,7 @@ try_ready (rtx next)
               while ((link = XEXP (link, 1)))
 		*ts = ds_merge (*ts, DEP_STATUS (link) & SPECULATIVE);
 
-	      if (dep_weak (*ts) < spec_info->weakness_cutoff)
+	      if (ds_weak (*ts) < spec_info->weakness_cutoff)
 		/* Too few points.  */
 		*ts = (*ts & ~SPECULATIVE) | HARD_DEP;
 	    }
@@ -3029,7 +2988,7 @@ try_ready (rtx next)
       
       gcc_assert ((*ts & SPECULATIVE) && !(*ts & ~SPECULATIVE));
       
-      res = speculate_insn (next, *ts, &new_pat);
+      res = haifa_speculate_insn (next, *ts, &new_pat);
 	
       switch (res)
 	{
@@ -3053,7 +3012,7 @@ try_ready (rtx next)
 	       save it.  */
 	    ORIG_PAT (next) = PATTERN (next);
 	  
-	  change_pattern (next, new_pat);
+	  haifa_change_pattern (next, new_pat);
 	  break;
 	  
 	default:
@@ -3084,7 +3043,7 @@ try_ready (rtx next)
        ORIG_PAT field.  Except one case - speculation checks have ORIG_PAT
        pat too, so skip them.  */
     {
-      change_pattern (next, ORIG_PAT (next));
+      haifa_change_pattern (next, ORIG_PAT (next));
       ORIG_PAT (next) = 0;
     }
 
@@ -3218,55 +3177,46 @@ resolve_dep (rtx next, rtx insn)
 	      && (LOG_LINKS (next) || INSN_DEP_COUNT (next) == 0));
 }
 
-/* Extend READY, READY_TRY and CHOICE_STACK arrays.
-   N_NEW_INSNS is the number of additional elements to allocate.  */
-static void
-extend_ready (int n_new_insns)
-{
-  if (rgn_n_insns == -1)
-    /* Compensate fake insn.  */
-    n_new_insns++;
-
-  ready.veclen = rgn_n_insns + n_new_insns + issue_rate;
-  ready.vec = XRESIZEVEC (rtx, ready.vec, ready.veclen);
-
-  sched_local_init (rgn_n_insns + n_new_insns);
-}
-
-/* Initialize per region data structures for the haifa scheduler.  */
-void
-haifa_local_init (int n_insns)
-{
-  extend_ready (n_insns);
-}
+static int sched_ready_n_insns = -1;
 
 /* Initialize per region data structures.  */
 void
-sched_local_init (int n_insns)
+sched_extend_ready_list (int new_sched_ready_n_insns)
 {
-  int i = rgn_n_insns + 1;
+  int i;
 
-  /* We initially set RGN_N_INSNS to -1 to avoid memory leak in allocating
-     +1 element for choice_stack[i].state .  */
-  rgn_n_insns = 0;
+  if (sched_ready_n_insns == -1)
+    /* At the first call we need to initialize one more choice_stack
+       entry.  */
+    {
+      i = 0;
+      sched_ready_n_insns = 0;
+    }
+  else
+    i = sched_ready_n_insns + 1;
 
-  gcc_assert (n_insns >= rgn_n_insns);
+  ready.veclen = new_sched_ready_n_insns + issue_rate;
+  ready.vec = XRESIZEVEC (rtx, ready.vec, ready.veclen);
 
-  ready_try = xrecalloc (ready_try, n_insns, rgn_n_insns, sizeof (*ready_try));
+  gcc_assert (new_sched_ready_n_insns >= sched_ready_n_insns);
+
+  ready_try = xrecalloc (ready_try, new_sched_ready_n_insns,
+			 sched_ready_n_insns, sizeof (*ready_try));
 
   /* We allocate +1 element to save initial state in the choice_stack[0]
      entry.  */
-  choice_stack = XRESIZEVEC (struct choice_entry, choice_stack, n_insns + 1);
+  choice_stack = XRESIZEVEC (struct choice_entry, choice_stack,
+			     new_sched_ready_n_insns + 1);
 
-  for (; i <= n_insns; i++)
+  for (; i <= new_sched_ready_n_insns; i++)
     choice_stack[i].state = xmalloc (dfa_state_size);
 
-  rgn_n_insns = n_insns;
+  sched_ready_n_insns = new_sched_ready_n_insns;
 }
 
 /* Free per region data structures.  */
 void
-sched_local_finish (void)
+sched_finish_ready_list (void)
 {
   int i;
 
@@ -3277,156 +3227,35 @@ sched_local_finish (void)
   free (ready_try);
   ready_try = NULL;
 
-  for (i = 0; i <= rgn_n_insns; i++)
+  for (i = 0; i <= sched_ready_n_insns; i++)
     free (choice_stack [i].state);
   free (choice_stack);
   choice_stack = NULL;
 
-  rgn_n_insns = -1;
+  sched_ready_n_insns = -1;
 }
 
-/* Init per-instruction data for INSN.  If INSN is NULL, perform
-   initialization for all insns of the blocks in the sched_bbs bitmap.  */
-void
-sched_insns_init (rtx insn)
+static int
+haifa_luid_for_non_insn (rtx x)
 {
-  int sched_max_uid1 = get_max_uid () + 1;
+  gcc_assert (NOTE_P (x) || LABEL_P (x));
 
-  uid_to_luid = xrealloc (uid_to_luid, sched_max_uid1 * sizeof (*uid_to_luid));
-
-  if (insn)
-    INSN_LUID (insn) = max_luid++;
-  else
-    {
-      unsigned int i;
-      sbitmap_iterator sbi;
-
-      gcc_assert (max_luid == 1);
-
-      uid_to_luid[0] = 0;
-
-      EXECUTE_IF_SET_IN_SBITMAP (sched_bbs, 0, i, sbi)
-	{
-          basic_block bb = BASIC_BLOCK (i);
-          rtx x;
-
-	  for (x = BB_HEAD (bb); ; x = NEXT_INSN (x))
-	    {
-	      INSN_LUID (x) = max_luid;
-
-	      /* Increment the next luid, unless this is a note.  We don't
-		 really need separate IDs for notes and we don't want to
-		 schedule differently depending on whether or not there are
-		 line-number notes, i.e., depending on whether or not we're
-		 generating debugging information.  */
-	      if (!NOTE_P (x))
-		++max_luid;
-
-	      if (x == BB_END (bb))
-		break;
-	    }
-	}
-    }
-
-  sched_deps_local_init (insn == NULL);
-
-  reg_weights = xrealloc (reg_weights, max_luid * sizeof (*reg_weights));
-  if (insn)
-    find_insn_reg_weight (insn);
-  else
-    {
-      unsigned int i;
-      sbitmap_iterator sbi;
-
-      EXECUTE_IF_SET_IN_SBITMAP (sched_bbs, 0, i, sbi)
-	{
-          basic_block bb = BASIC_BLOCK (i);
-	  rtx x = BB_HEAD (bb);
-
-	  do
-	    {
-	      find_insn_reg_weight (x);
-
-	      if (x == BB_END (bb))
-		break;
-
-	      x = NEXT_INSN (x);
-	    }
-	  while (1);
-	}
-    }
-
-  sched_max_uid = sched_max_uid1;
+  return 0;
 }
 
-/* Free all per-instruction data.  */
-void
-sched_insns_finish (void)
-{
-  free (reg_weights);
-  reg_weights = NULL;
-
-  sched_deps_local_finish ();
-
-  free (uid_to_luid);
-  uid_to_luid = NULL;
-
-  max_luid = 1;
-
-  sched_max_uid = 0;
-}
-
-/* Extend global scheduler structures (those, that live across calls to
-   schedule_block) to include information about just emitted INSN.  */
-static void
-haifa_insns_init (rtx insn)
-{
-  int old_sched_max_uid = sched_max_uid;
-
-  sched_insns_init (insn);
-
-  h_i_d = xrecalloc (h_i_d, sched_max_uid, old_sched_max_uid, sizeof (*h_i_d));
-
-  /* Initialize h_i_d entry of the new INSN with default values.
-     Values, that are not explicitly initialized here, hold zero.  */
-  if (insn)
-    {
-      INSN_COST (insn) = -1;
-      TODO_SPEC (insn) = HARD_DEP;
-      QUEUE_INDEX (insn) = QUEUE_NOWHERE;
-      INSN_TICK (insn) = INVALID_TICK;
-      INTER_TICK (insn) = INVALID_TICK;
-    }    
-  else
-    {
-      int i;
-
-      for (i = 0; i < sched_max_uid; i++)
-	{
-	  h_i_d[i].cost = -1;
-	  h_i_d[i].todo_spec = HARD_DEP;
-	  h_i_d[i].queue_index = QUEUE_NOWHERE;
-	  h_i_d[i].tick = INVALID_TICK;
-	  h_i_d[i].inter_tick = INVALID_TICK;
-	}
-    }
-
-  if (targetm.sched.h_i_d_extended)
-    targetm.sched.h_i_d_extended ();
-}
-
-/* Extends global and local scheduler structures to include information
-   about just emitted INSN.  */
-static void
-extend_all (rtx insn)
-{ 
-  haifa_insns_init (insn);
-
-  /* These structures have block scope.  */
-  extend_ready (1);
-  
-  (*current_sched_info->add_remove_insn) (insn, 0);
-}
+const struct common_sched_info_def haifa_common_sched_info = 
+  {
+    NULL, /* fix_recovery_cfg */
+    NULL, /* add_block */
+    NULL, /* estimate_number_of_insns */
+    haifa_luid_for_non_insn, /* luid_for_non_insn */
+#ifdef ENABLE_CHECKING
+    NULL, /* region_head_or_leaf_p */
+#endif
+    0, /* use_glat */
+    0, /* detach_life_info */
+    SCHED_PASS_UNKNOWN /* sched_pass_id */
+  };
 
 /* Generates recovery code for INSN.  */
 static void
@@ -3473,7 +3302,7 @@ process_insn_depend_be_in_spec (rtx link, rtx twin, ds_t fs)
 		     it can be removed from the ready (or queue) list only
 		     due to backend decision.  Hence we can't let the
 		     probability of the speculative dep to decrease.  */
-		  dep_weak (ds) <= dep_weak (fs))
+		  ds_weak (ds) <= ds_weak (fs))
 		/* Transform it to be in speculative.  */
 		ds = (ds & ~BEGIN_SPEC) | fs;
 	    }
@@ -3499,6 +3328,8 @@ begin_speculative_block (rtx insn)
 
   TODO_SPEC (insn) &= ~BEGIN_SPEC;
 }
+
+static void haifa_init_insn (rtx);
 
 /* Generates recovery code for BE_IN speculative INSN.  */
 static void
@@ -3556,7 +3387,7 @@ add_to_speculative_block (rtx insn)
       rec = BLOCK_FOR_INSN (check);
       
       twin = emit_insn_before (copy_rtx (PATTERN (insn)), BB_END (rec));
-      haifa_insns_init (twin);
+      haifa_init_insn (twin);
 
       RESOLVED_DEPS (twin) = copy_DEPS_LIST_list (RESOLVED_DEPS (insn));
 
@@ -3633,41 +3464,6 @@ xrecalloc (void *p, size_t new_nmemb, size_t old_nmemb, size_t size)
   return p;
 }
 
-/* Return the probability of speculation success for the speculation
-   status DS.  */
-static dw_t
-dep_weak (ds_t ds)
-{
-  ds_t res = 1, dt;
-  int n = 0;
-
-  dt = FIRST_SPEC_TYPE;
-  do
-    {
-      if (ds & dt)
-	{
-	  res *= (ds_t) get_dep_weak (ds, dt);
-	  n++;
-	}
-
-      if (dt == LAST_SPEC_TYPE)
-	break;
-      dt <<= SPEC_TYPE_SHIFT;
-    }
-  while (1);
-
-  gcc_assert (n);
-  while (--n)
-    res /= MAX_DEP_WEAK;
-
-  if (res < MIN_DEP_WEAK)
-    res = MIN_DEP_WEAK;
-
-  gcc_assert (res <= MAX_DEP_WEAK);
-
-  return (dw_t) res;
-}
-
 /* Helper function.
    Find fallthru edge from PRED.  */
 edge
@@ -3742,12 +3538,12 @@ init_before_recovery (void)
       x = emit_jump_insn_after (gen_jump (label), BB_END (single));
       JUMP_LABEL (x) = label;
       LABEL_NUSES (label)++;
-      haifa_insns_init (x);
+      haifa_init_insn (x);
           
       emit_barrier_after (x);
 
-      add_block (empty, 0);
-      add_block (single, 0);
+      haifa_init_only_bb (empty, NULL);
+      haifa_init_only_bb (single, NULL);
 
       before_recovery = single;
 
@@ -3803,14 +3599,24 @@ create_check_block_twin (rtx insn, bool mutate_p)
   basic_block rec;
   rtx label, check, twin, link;
   ds_t fs;
+  ds_t todo_spec;
 
-  gcc_assert (ORIG_PAT (insn)
-	      && (!mutate_p 
-		  || (IS_SPECULATION_SIMPLE_CHECK_P (insn)
-		      && !(TODO_SPEC (insn) & SPECULATIVE))));
+  gcc_assert (ORIG_PAT (insn) != NULL_RTX);
+
+  if (!mutate_p)
+    todo_spec= TODO_SPEC (insn);
+  else
+    {
+      gcc_assert (IS_SPECULATION_SIMPLE_CHECK_P (insn)
+		  && (TODO_SPEC (insn) & SPECULATIVE) == 0);
+
+      todo_spec = CHECK_SPEC (insn);
+    }
+
+  todo_spec &= SPECULATIVE;
 
   /* Create recovery block.  */
-  if (mutate_p || targetm.sched.needs_block_p (insn))
+  if (mutate_p || targetm.sched.needs_block_p (todo_spec))
     {
       rec = create_recovery_block ();
       label = BB_HEAD (rec);
@@ -3818,11 +3624,11 @@ create_check_block_twin (rtx insn, bool mutate_p)
   else
     {
       rec = EXIT_BLOCK_PTR;
-      label = 0;
+      label = NULL_RTX;
     }
 
   /* Emit CHECK.  */
-  check = targetm.sched.gen_check (insn, label, mutate_p);
+  check = targetm.sched.gen_spec_check (insn, label, todo_spec);
 
   if (rec != EXIT_BLOCK_PTR)
     {
@@ -3838,7 +3644,15 @@ create_check_block_twin (rtx insn, bool mutate_p)
     check = emit_insn_before (check, insn);
 
   /* Extend data structures.  */
-  extend_all (check);
+  haifa_init_insn (check);
+
+  /* CHECK is being added to current region.  Extend ready list.  */
+  gcc_assert (sched_ready_n_insns != -1);
+  sched_extend_ready_list (sched_ready_n_insns + 1);
+
+  if (current_sched_info->add_remove_insn)
+    current_sched_info->add_remove_insn (insn, 0);
+
   RECOVERY_BLOCK (check) = rec;
 
   if (sched_verbose && spec_info->dump)
@@ -3862,7 +3676,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
 	  }
 
       twin = emit_insn_after (ORIG_PAT (insn), BB_END (rec));
-      haifa_insns_init (twin);
+      haifa_init_insn (twin);
 
       if (sched_verbose && spec_info->dump)
 	/* INSN_BB (insn) isn't determined for twin insns yet.
@@ -3906,14 +3720,14 @@ create_check_block_twin (rtx insn, bool mutate_p)
       
       e = make_edge (first_bb, rec, edge_flags);
 
-      add_block (second_bb, first_bb);
+      haifa_init_only_bb (second_bb, first_bb);
       
       gcc_assert (NOTE_INSN_BASIC_BLOCK_P (BB_HEAD (second_bb)));
       label = block_label (second_bb);
       jump = emit_jump_insn_after (gen_jump (label), BB_END (rec));
       JUMP_LABEL (jump) = label;
       LABEL_NUSES (label)++;
-      haifa_insns_init (jump);
+      haifa_init_insn (jump);
 
       if (BB_PARTITION (second_bb) != BB_PARTITION (rec))
 	/* Partition type is the same, if it is "unpartitioned".  */
@@ -3937,7 +3751,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
       
       make_single_succ_edge (rec, second_bb, edge_flags);  
       
-      add_block (rec, EXIT_BLOCK_PTR);
+      haifa_init_only_bb (rec, EXIT_BLOCK_PTR);
     }
 
   /* Move backward dependences from INSN to CHECK and 
@@ -4123,19 +3937,28 @@ fix_recovery_deps (basic_block rec)
   add_jump_dependencies (insn, jump);
 }
 
-/* Changes pattern of the INSN to NEW_PAT.  */
-static void
-change_pattern (rtx insn, rtx new_pat)
+/* Change pattern of INSN to NEW_PAT.  */
+void
+sched_change_pattern (rtx insn, rtx new_pat)
 {
   int t;
 
   t = validate_change (insn, &PATTERN (insn), new_pat, 0);
   gcc_assert (t);
+  dfa_clear_single_insn_cache (insn);
+}
+
+/* Change pattern of INSN to NEW_PAT.  Invalidate cached haifa
+   instruction data.  */
+static void
+haifa_change_pattern (rtx insn, rtx new_pat)
+{
+  sched_change_pattern (insn, new_pat);
+
   /* Invalidate INSN_COST, so it'll be recalculated.  */
   INSN_COST (insn) = -1;
   /* Invalidate INSN_TICK, so it'll be recalculated.  */
   INSN_TICK (insn) = INVALID_TICK;
-  dfa_clear_single_insn_cache (insn);
 }
 
 
@@ -4143,21 +3966,21 @@ change_pattern (rtx insn, rtx new_pat)
    0 - for speculation with REQUEST mode it is OK to use
    current instruction pattern,
    1 - need to change pattern for *NEW_PAT to be speculative.  */
-static int
-speculate_insn (rtx insn, ds_t request, rtx *new_pat)
+int
+sched_speculate_insn (rtx insn, ds_t request, rtx *new_pat)
 {
-  gcc_assert (sched_deps_info->generate_spec_deps
-              && (request & SPECULATIVE));
+  request = ds_get_speculation_types (request);
 
   if (!NONJUMP_INSN_P (insn)
-      || HAS_INTERNAL_DEP (insn)
-      || SCHED_GROUP_P (insn)
-      || side_effects_p (PATTERN (insn))
-      || (request & spec_info->mask) != request)    
+      || (request & spec_info->mask) != request)
+    return -1;
+
+  if (request != 0
+      && !(request == BEGIN_CONTROL
+	&& (spec_info->flags & SEL_SCHED_SPEC_DONT_CHECK_CONTROL))
+      && side_effects_p (PATTERN (insn)))
     return -1;
   
-  gcc_assert (!IS_SPECULATION_CHECK_P (insn));
-
   if (request & BE_IN_SPEC)
     {            
       if (may_trap_p (PATTERN (insn)))
@@ -4167,7 +3990,22 @@ speculate_insn (rtx insn, ds_t request, rtx *new_pat)
         return 0;
     }
 
-  return targetm.sched.speculate_insn (insn, request & BEGIN_SPEC, new_pat);
+  request &= BEGIN_SPEC;
+
+  return targetm.sched.speculate_insn (insn, request, new_pat);
+}
+
+static int
+haifa_speculate_insn (rtx insn, ds_t request, rtx *new_pat)
+{
+  gcc_assert (sched_deps_info->generate_spec_deps
+	      && !IS_SPECULATION_CHECK_P (insn));
+
+  if (HAS_INTERNAL_DEP (insn)
+      || SCHED_GROUP_P (insn))
+    return -1;
+
+  return sched_speculate_insn (insn, request, new_pat);
 }
 
 /* Print some information about block BB, which starts with HEAD and
@@ -4281,70 +4119,6 @@ restore_bb_notes (basic_block first)
   bb_header = 0;
 }
 
-/* Extend per basic block data structures of the scheduler.
-   If BB is NULL, initialize structures for the whole CFG.
-   Otherwise, initialize them for the just created BB.  */
-void
-sched_bbs_init (sbitmap blocks)
-{
-  rtx insn;
-
-  gcc_assert (!sched_bbs || !blocks
-              || !sbitmap_any_common_bits (sched_bbs, blocks));
-
-  sched_last_basic_block = last_basic_block;
-
-  if (sched_bbs)
-    sched_bbs = sbitmap_resize (sched_bbs, last_basic_block, 0);
-  else
-    {
-      sched_bbs = sbitmap_alloc (last_basic_block);
-      sbitmap_zero (sched_bbs);
-    }
-
-  if (blocks)
-    sbitmap_a_or_b (sched_bbs, sched_bbs, blocks);
-  else
-    {
-      basic_block x;
-
-      FOR_EACH_BB (x)
-        SET_BIT (sched_bbs, x->index);
-    }
-
-  /* The following is done to keep current_sched_info->next_tail non null.  */
-
-  insn = BB_END (EXIT_BLOCK_PTR->prev_bb);
-  if (NEXT_INSN (insn) == 0
-      || (!NOTE_P (insn)
-	  && !LABEL_P (insn)
-	  /* Don't emit a NOTE if it would end up before a BARRIER.  */
-	  && !BARRIER_P (NEXT_INSN (insn))))
-    {
-      emit_note_after (NOTE_INSN_DELETED, insn);
-      /* Make insn to appear outside BB.  */
-      BB_END (EXIT_BLOCK_PTR->prev_bb) = insn;
-    }
-}
-
-/* Add a basic block BB to extended basic block EBB.
-   If EBB is EXIT_BLOCK_PTR, then BB is recovery block.
-   If EBB is NULL, then BB should be a new region.  */
-void
-add_block (basic_block bb, basic_block ebb)
-{
-  gcc_assert (common_sched_info->detach_life_info
-	      && bb->il.rtl->global_live_at_start == 0
-	      && bb->il.rtl->global_live_at_end == 0);
-
-  glat_init (bb);
-  sched_bbs_init (NULL);
-
-  if (common_sched_info->add_block)
-    /* This changes only data structures of the front-end.  */
-    common_sched_info->add_block (bb, ebb);
-}
-
 /* Helper function.
    Fix CFG after both in- and inter-block movement of
    control_flow_insn_p JUMP.  */
@@ -4424,107 +4198,6 @@ move_succs (VEC(edge,gc) **succsp, basic_block to)
     e->src = to;
 
   *succsp = 0;
-}
-
-/* Initialize GLAT (global_live_at_{start, end}) structures.
-   GLAT structures are used to substitute global_live_{start, end}
-   regsets during scheduling.  This is necessary to use such functions as
-   split_block (), as they assume consistency of register live information.  */
-static void
-glat_init_1 (basic_block bb)
-{
-  glat_start[bb->index] = bb->il.rtl->global_live_at_start;
-  glat_end[bb->index] = bb->il.rtl->global_live_at_end;
-  
-  if (common_sched_info->detach_life_info)
-    {
-      bb->il.rtl->global_live_at_start = 0;
-      bb->il.rtl->global_live_at_end = 0;
-    }
-}
-
-/* Initialize either for whole CFG or for just BB.  */
-static void
-glat_init (basic_block bb)
-{
-  if (common_sched_info->use_glat)
-    {
-      glat_start = xrealloc (glat_start,
-			     last_basic_block * sizeof (*glat_start));
-      glat_end = xrealloc (glat_end, last_basic_block * sizeof (*glat_end));
-
-      if (bb)
-	glat_init_1 (bb);
-      else
-	FOR_ALL_BB (bb)
-	  glat_init_1 (bb);
-    }
-}
-
-/* Attach reg_live_info back to basic blocks.
-   Also save regsets, that should not have been changed during scheduling,
-   for checking purposes (see check_reg_live).  */
-void
-attach_life_info (void)
-{
-  basic_block bb;
-
-  FOR_ALL_BB (bb)
-    attach_life_info1 (bb);
-}
-
-/* Helper function for attach_life_info.  */
-static void
-attach_life_info1 (basic_block bb)
-{
-  gcc_assert (bb->il.rtl->global_live_at_start == 0
-	      && bb->il.rtl->global_live_at_end == 0);
-
-  if (glat_start[bb->index])
-    {
-      gcc_assert (glat_end[bb->index]);    
-
-      bb->il.rtl->global_live_at_start = glat_start[bb->index];
-      bb->il.rtl->global_live_at_end = glat_end[bb->index];
-
-      /* Make them NULL, so they won't be freed in free_glat.  */
-      glat_start[bb->index] = 0;
-      glat_end[bb->index] = 0;
-
-#ifdef ENABLE_CHECKING
-      if (bb->index < NUM_FIXED_BLOCKS
-	  || common_sched_info->region_head_or_leaf_p (bb, 0))
-	{
-	  glat_start[bb->index] = ALLOC_REG_SET (&reg_obstack);
-	  COPY_REG_SET (glat_start[bb->index],
-			bb->il.rtl->global_live_at_start);
-	}
-
-      if (bb->index < NUM_FIXED_BLOCKS
-	  || common_sched_info->region_head_or_leaf_p (bb, 1))
-	{       
-	  glat_end[bb->index] = ALLOC_REG_SET (&reg_obstack);
-	  COPY_REG_SET (glat_end[bb->index], bb->il.rtl->global_live_at_end);
-	}
-#endif
-    }
-  else
-    {
-      gcc_assert (!glat_end[bb->index]);
-
-      bb->il.rtl->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
-      bb->il.rtl->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
-    }
-}
-
-/* Free per-basic block data.  */
-void
-sched_bbs_finish (void)
-{
-  sbitmap_free (sched_bbs);
-  sched_bbs = NULL;
-
-  sched_last_basic_block = 0;
 }
 
 /* Remove INSN from the instruction stream.
@@ -4620,13 +4293,13 @@ debug_spec_status (ds_t s)
   FILE *f = stderr;
 
   if (s & BEGIN_DATA)
-    fprintf (f, "BEGIN_DATA: %d; ", get_dep_weak (s, BEGIN_DATA));
+    fprintf (f, "BEGIN_DATA: %d; ", get_dep_weak_1 (s, BEGIN_DATA));
   if (s & BE_IN_DATA)
-    fprintf (f, "BE_IN_DATA: %d; ", get_dep_weak (s, BE_IN_DATA));
+    fprintf (f, "BE_IN_DATA: %d; ", get_dep_weak_1 (s, BE_IN_DATA));
   if (s & BEGIN_CONTROL)
-    fprintf (f, "BEGIN_CONTROL: %d; ", get_dep_weak (s, BEGIN_CONTROL));
+    fprintf (f, "BEGIN_CONTROL: %d; ", get_dep_weak_1 (s, BEGIN_CONTROL));
   if (s & BE_IN_CONTROL)
-    fprintf (f, "BE_IN_CONTROL: %d; ", get_dep_weak (s, BE_IN_CONTROL));
+    fprintf (f, "BE_IN_CONTROL: %d; ", get_dep_weak_1 (s, BE_IN_CONTROL));
 
   if (s & HARD_DEP)
     fprintf (f, "HARD_DEP; ");
@@ -4752,6 +4425,9 @@ check_cfg (rtx head, rtx tail)
 static void
 check_sched_flags (void)
 {
+  if (SEL_SCHED_P)
+    return;
+
   if (flag_sched_stalled_insns)
     gcc_assert (!sched_deps_info->generate_spec_deps);
   if (sched_deps_info->generate_spec_deps)
@@ -4762,6 +4438,274 @@ check_sched_flags (void)
   if (common_sched_info->detach_life_info)
     gcc_assert (common_sched_info->use_glat);
 }
+
+#endif /* ENABLE_CHECKING */
+
+const struct sched_scan_info_def *sched_scan_info;
+
+/* Extend per basic block data structures.  */
+static void
+extend_bb (void)
+{
+  if (sched_scan_info->extend_bb)
+    sched_scan_info->extend_bb ();
+}
+
+/* Init data for BB.  */
+static void
+init_bb (basic_block bb)
+{
+  if (sched_scan_info->init_bb)
+    sched_scan_info->init_bb (bb);
+}
+
+/* Extend per insn data structures.  */
+static void
+extend_insn (void)
+{
+  if (sched_scan_info->extend_insn)
+    sched_scan_info->extend_insn ();
+}
+
+/* Init data structures for INSN.  */
+static void
+init_insn (rtx insn)
+{
+  if (sched_scan_info->init_insn)
+    sched_scan_info->init_insn (insn);
+}
+
+/* Init all insns in BB.  */
+static void
+init_insns_in_bb (basic_block bb)
+{
+  rtx insn;
+
+  FOR_BB_INSNS (bb, insn)
+    init_insn (insn);
+}
+
+/* A driver function to add a set of basic blocks (BBS),
+   a single basic block (BB), a set of insns (INSNS) or a single insn (INSN)
+   to the scheduling region.
+   !!! This driver was only tested with one of the arguments non null.  */
+void
+sched_scan (const struct sched_scan_info_def *ssi,
+	    bb_vec_t bbs, basic_block bb, insn_vec_t insns, rtx insn)
+{
+  sched_scan_info = ssi;
+
+  if (bbs != NULL || bb != NULL)
+    {
+      extend_bb ();
+
+      if (bbs != NULL)
+	{
+	  unsigned i;
+	  basic_block x;
+
+	  for (i = 0; VEC_iterate (basic_block, bbs, i, x); i++)
+	    init_bb (x);
+	}
+
+      if (bb != NULL)
+	init_bb (bb);
+    }
+
+  extend_insn ();
+
+  if (bbs != NULL)
+    {      
+      unsigned i;
+      basic_block x;
+
+      for (i = 0; VEC_iterate (basic_block, bbs, i, x); i++)
+	init_insns_in_bb (x);
+    }
+
+  if (bb != NULL)
+    init_insns_in_bb (bb);
+
+  if (insns != NULL)
+    {
+      unsigned i;
+      rtx x;
+
+      for (i = 0; VEC_iterate (rtx, insns, i, x); i++)
+	init_insn (x);
+    }
+
+  if (insn != NULL)
+    init_insn (insn);
+}
+
+/* Pointers to GLAT data.  See sched_inis_bb () for more information.  */
+regset *glat_start = NULL, *glat_end = NULL;
+
+/* Extend per basic block data structures.  */
+static void
+sched_extend_bb (void)
+{
+  rtx insn;
+
+  if (common_sched_info->use_glat)
+    {
+      glat_start = xrealloc (glat_start,
+			     last_basic_block * sizeof (*glat_start));
+      glat_end = xrealloc (glat_end, last_basic_block * sizeof (*glat_end));
+    }
+
+  /* The following is done to keep current_sched_info->next_tail non null.  */
+  insn = BB_END (EXIT_BLOCK_PTR->prev_bb);
+  if (NEXT_INSN (insn) == 0
+      || (!NOTE_P (insn)
+	  && !LABEL_P (insn)
+	  /* Don't emit a NOTE if it would end up before a BARRIER.  */
+	  && !BARRIER_P (NEXT_INSN (insn))))
+    {
+      emit_note_after (NOTE_INSN_DELETED, insn);
+      /* Make insn to appear outside BB.  */
+      BB_END (EXIT_BLOCK_PTR->prev_bb) = insn;
+    }
+}
+
+/* Init data structures for BB.  */
+static void
+sched_init_bb (basic_block bb)
+{
+  if (common_sched_info->use_glat)
+    {
+      /* Initialize GLAT (global_live_at_{start, end}) structures.
+	 GLAT structures are used to substitute global_live_{start, end}
+	 regsets during scheduling.  This is necessary to use such functions as
+	 split_block (), as they assume consistency of register live
+	 information.  */
+      glat_start[bb->index] = bb->il.rtl->global_live_at_start;
+      glat_end[bb->index] = bb->il.rtl->global_live_at_end;
+  
+      if (common_sched_info->detach_life_info)
+	{
+	  bb->il.rtl->global_live_at_start = NULL;
+	  bb->il.rtl->global_live_at_end = NULL;
+	}
+    }
+}
+
+/* Init per basic block data structures.  */
+void
+sched_init_bbs (bb_vec_t bbs, basic_block bb)
+{
+  const struct sched_scan_info_def ssi =
+    {
+      sched_extend_bb, /* extend_bb */
+      sched_init_bb, /* init_bb */
+      NULL, /* extend_insn */
+      NULL /* init_insn */
+    };
+
+  sched_scan (&ssi, bbs, bb, NULL, NULL);
+}
+
+/* Finish per basic block data structures.  */
+void
+sched_finish_bbs (void)
+{
+  if (common_sched_info->use_glat)
+    {
+      /* Free GLAT information that was created by attach_life_info ()
+	 and used by sched-rgn.c: sched_rgn_global_finish ().  */
+#ifdef ENABLE_CHECKING
+      if (common_sched_info->detach_life_info)
+	{
+	  basic_block bb;
+
+	  FOR_ALL_BB (bb)
+	    {
+	      int i = bb->index;
+
+	      if (glat_start[i])
+		FREE_REG_SET (glat_start[i]);
+	      if (glat_end[i])
+		FREE_REG_SET (glat_end[i]);
+	    }
+	}
+#endif
+
+      free (glat_start);
+      glat_start = NULL;
+
+      free (glat_end);
+      glat_end = NULL;
+    }
+}
+
+/* Helper function for attach_life_info.  */
+static void
+attach_life_info1 (basic_block bb)
+{
+  int i = bb->index;
+
+  gcc_assert (bb->il.rtl->global_live_at_start == NULL
+	      && bb->il.rtl->global_live_at_end == NULL);
+
+  if (glat_start[i] != NULL)
+    {
+      bb->il.rtl->global_live_at_start = glat_start[i];
+
+#ifdef ENABLE_CHECKING
+      if (i < NUM_FIXED_BLOCKS
+	  || common_sched_info->region_head_or_leaf_p (bb, 0))
+	{
+	  glat_start[i] = ALLOC_REG_SET (&reg_obstack);
+	  COPY_REG_SET (glat_start[i],
+			bb->il.rtl->global_live_at_start);
+	}
+      else
+	/* Make it NULL, so it won't be freed in free_glat.  */
+	glat_start[i] = NULL;
+#else
+      /* Make it NULL, so it won't be freed in free_glat.  */
+      glat_start[i] = NULL;
+#endif
+    }
+  else
+    bb->il.rtl->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+
+  if (glat_end[i] != NULL)
+    {
+      bb->il.rtl->global_live_at_end = glat_end[bb->index];
+
+#ifdef ENABLE_CHECKING
+      if (bb->index < NUM_FIXED_BLOCKS
+	  || common_sched_info->region_head_or_leaf_p (bb, 1))
+	{
+	  glat_end[bb->index] = ALLOC_REG_SET (&reg_obstack);
+	  COPY_REG_SET (glat_end[bb->index], bb->il.rtl->global_live_at_end);
+	}
+      else
+	glat_end[i] = NULL;
+#else
+      /* Make it NULL, so it won't be freed in free_glat.  */
+      glat_end[i] = NULL;
+#endif
+    }
+  else
+    bb->il.rtl->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
+}
+
+/* Attach reg_live_info back to basic blocks.
+   Also save regsets, that should not have been changed during scheduling,
+   for checking purposes (see check_reg_live).  */
+void
+attach_life_info (void)
+{
+  basic_block bb;
+
+  FOR_ALL_BB (bb)
+    attach_life_info1 (bb);
+}
+
+#ifdef ENABLE_CHECKING
 
 /* Check global_live_at_{start, end} regsets.
    If FATAL_P is TRUE, then abort execution at the first failure.
@@ -4803,245 +4747,154 @@ check_reg_live (bool fatal_p)
 	}
     }
 }
+
 #endif /* ENABLE_CHECKING */
+
+/* Mapping from instruction UID to its Logical UID.  */
+VEC (int, heap) *sched_luids = NULL;
 
 /* Extend data structures for logical insn UID.  */
 static void
-sched_luid_extend (void)
+luids_extend_insn (void)
 {
-  int sched_max_uid1 = get_max_uid () + 1;
+  int new_luids_max_uid = get_max_uid () + 1;
 
-  if (sched_insns)
-    sched_insns = sbitmap_resize (sched_insns, sched_max_uid1, 0);
-  else
-    {
-      sched_insns = sbitmap_alloc (sched_max_uid1);
-      sbitmap_zero (sched_insns);
-    }
-
-  uid_to_luid = xrealloc (uid_to_luid, sched_max_uid1 * sizeof (*uid_to_luid));
-  uid_to_luid[0] = 0;
-
-  sched_max_uid = sched_max_uid1;
+  VEC_safe_grow_cleared (int, heap, sched_luids, new_luids_max_uid);
 }
+
+/* Next LUID to assign to an instruction.  */
+int sched_max_luid = 1;
 
 /* Initialize LUID for INSN.  */
 static void
-sched_luid_init (rtx insn)
+luids_init_insn (rtx insn)
 {
-  int i = INSN_P (insn) ? 1 : common_sched_info->which_luid (insn);
+  int i = INSN_P (insn) ? 1 : common_sched_info->luid_for_non_insn (insn);
+  int luid;
 
   if (i >= 0)
     {
-      INSN_LUID (insn) = max_luid;
+      luid = sched_max_luid;
 
-      max_luid += i;
+      sched_max_luid += i;
     }
   else
-    INSN_LUID (insn) = -RAND_MAX;
+    luid = -1;
+
+  SET_INSN_LUID (insn, luid);
 }
 
-/* Free LUIDS.  */
-static void
-sched_luid_finish (void)
+/* Initialize luids for BBS, BB, INSNS and INSN.
+   The hook common_sched_info->luid_for_non_insn () is used to determine
+   if notes, labels, etc. need luids.  */
+void
+sched_init_luids (bb_vec_t bbs, basic_block bb, insn_vec_t insns, rtx insn)
 {
-  free (uid_to_luid);
-  uid_to_luid = NULL;
+  const struct sched_scan_info_def ssi =
+    {
+      NULL, /* extend_bb */
+      NULL, /* init_bb */
+      luids_extend_insn, /* extend_insn */
+      luids_init_insn /* init_insn */
+    };
 
-  max_luid = 1;
-
-  sbitmap_free (sched_insns);
-  sched_insns = NULL;
-
-  sched_max_uid = 0;
+  sched_scan (&ssi, bbs, bb, insns, insn);
 }
 
-/* Extend per insn data structures.  */
-static void
-sched_insn_extend (void)
+/* Free LUIDs.  */
+void
+sched_finish_luids (void)
 {
-  sched_deps_local_init (false);
+  VEC_free (int, heap, sched_luids);
 
-  reg_weights = xrealloc (reg_weights, max_luid * sizeof (*reg_weights));
+  sched_max_luid = 1;
+}
 
-  if (common_sched_info->insn_extend)
-    common_sched_info->insn_extend ();
-
+/* Extend per insn data in the target.  */
+void
+sched_extend_target (void)
+{
   if (targetm.sched.h_i_d_extended)
     targetm.sched.h_i_d_extended ();
 }
 
-/* Init data structures for INSN.  */
+/* Haifa Instruction Data.  */
+VEC (haifa_insn_data_def, heap) *h_i_d = NULL;
+
+/* Extend global scheduler structures (those, that live across calls to
+   schedule_block) to include information about just emitted INSN.  */
 static void
-sched_insn_init (rtx insn)
+extend_h_i_d (void)
 {
-  gcc_assert ((!BLOCK_FOR_INSN (insn)
-	       || TEST_BIT (sched_bbs, BLOCK_NUM (insn)))
-	      && !TEST_BIT (sched_insns, INSN_UID (insn)));
+  int new_h_i_d_size = get_max_uid () + 1;
 
-  if (INSN_LUID (insn) <= 0)
-    /* This is not an eligible insn.  */
-    return;
-
-  find_insn_reg_weight (insn);
-
-  SET_BIT (sched_insns, INSN_UID (insn));
-
-  if (common_sched_info->insn_init)
-    common_sched_info->insn_init (insn);
+  VEC_safe_grow_cleared (haifa_insn_data_def, heap, h_i_d, new_h_i_d_size);
 }
 
-/* Free common per-insn data.  */
+/* Initialize h_i_d entry of the INSN with default values.
+   Values, that are not explicitly initialized here, hold zero.  */
 static void
-sched_insn_finish (void)
+init_h_i_d (rtx insn)
 {
-  if (common_sched_info->insn_finish)
-    common_sched_info->insn_finish ();
-  
-  free (reg_weights);
-  reg_weights = NULL;
-
-  sched_deps_local_finish ();
-}
-
-/* Extend per basic block data structures.  */
-static void
-sched_bb_extend (void)
-{
-  rtx insn;
-
-  if (sched_bbs)
-    sched_bbs = sbitmap_resize (sched_bbs, last_basic_block, 0);
-  else
+  if (INSN_LUID (insn) > 0)
     {
-      sched_bbs = sbitmap_alloc (last_basic_block);
-      sbitmap_zero (sched_bbs);
+      INSN_COST (insn) = -1;
+      find_insn_reg_weight (insn);
+      QUEUE_INDEX (insn) = QUEUE_NOWHERE;
+      INSN_TICK (insn) = INVALID_TICK;
+      INTER_TICK (insn) = INVALID_TICK;
+      TODO_SPEC (insn) = HARD_DEP;
     }
-
-  if (common_sched_info->use_glat)
-    {
-      glat_start = xrealloc (glat_start,
-			     last_basic_block * sizeof (*glat_start));
-      glat_end = xrealloc (glat_end, last_basic_block * sizeof (*glat_end));
-    }
-
-  /* The following is done to keep current_sched_info->next_tail non null.  */
-  insn = BB_END (EXIT_BLOCK_PTR->prev_bb);
-  if (NEXT_INSN (insn) == 0
-      || (!NOTE_P (insn)
-	  && !LABEL_P (insn)
-	  /* Don't emit a NOTE if it would end up before a BARRIER.  */
-	  && !BARRIER_P (NEXT_INSN (insn))))
-    {
-      emit_note_after (NOTE_INSN_DELETED, insn);
-      /* Make insn to appear outside BB.  */
-      BB_END (EXIT_BLOCK_PTR->prev_bb) = insn;
-    }
-
-  if (common_sched_info->bb_extend)
-    common_sched_info->bb_extend ();
-
-  /* Now, when sched frontend updated its state, we can finish extension of
-     per bb data structures.  */
-  sched_last_basic_block = last_basic_block;
 }
 
-/* Init data for BB.  */
-static void
-sched_bb_init (basic_block bb)
-{
-  rtx insn;
-
-  gcc_assert (!TEST_BIT (sched_bbs, bb->index));
-
-  glat_init_1 (bb);
-
-  SET_BIT (sched_bbs, bb->index);
-
-  common_sched_info->remove_notes (bb);
-
-  if (common_sched_info->bb_init)
-    common_sched_info->bb_init (bb);
-
-  FOR_BB_INSNS (bb, insn)
-    if (!TEST_BIT (sched_insns, INSN_UID (insn)))
-      sched_insn_init (insn);
-}
-
-/* Free per-bb data.  */
-static void
-sched_bb_finish (void)
-{
-  if (common_sched_info->bb_finish)
-    common_sched_info->bb_finish ();
-
-  /* NB: GLAT is freed in sched_finish ().  */
-
-  sbitmap_free (sched_bbs);
-  sched_bbs = NULL;
-
-  sched_last_basic_block = 0;
-}
-
-/* A driver function to add a set of basic blocks (BBS),
-   a single basic block (BB) or an INSN to the scheduling region.
-   Only one of the arguments can be non null.  */
+/* Initialize haifa_insn_data for BBS, BB, INSNS and INSN.  */
 void
-sched_data_update (sbitmap bbs, basic_block bb, rtx insn)
+haifa_init_h_i_d (bb_vec_t bbs, basic_block bb, insn_vec_t insns, rtx insn)
 {
-  sched_luid_extend ();
-
-  if (insn)
+  const struct sched_scan_info_def ssi =
     {
-      gcc_assert (insn && INSN_NEED_LUID_P (insn));
-      sched_luid_init (insn);
+      NULL, /* extend_bb */
+      NULL, /* init_bb */
+      extend_h_i_d, /* extend_insn */
+      init_h_i_d /* init_insn */
+    };
 
-      sched_insn_extend ();
-      sched_insn_init (insn);
-    }
-  else
-    {
-      sched_bb_extend ();
-
-      if (bb)
-	{
-	  FOR_BB_INSNS (bb, insn)
-	    if (!TEST_BIT (sched_insns, INSN_UID (insn)))
-	      sched_luid_init (insn);
-
-	  sched_insn_extend ();
-
-	  sched_bb_init (bb);
-	}
-      else
-	{
-	  unsigned int i;
-	  sbitmap_iterator sbi;
-
-	  EXECUTE_IF_SET_IN_SBITMAP (bbs, 0, i, sbi)
-	    {
-	      bb = BASIC_BLOCK (i);
-
-	      FOR_BB_INSNS (bb, insn)
-		if (!TEST_BIT (sched_insns, INSN_UID (insn)))
-		  sched_luid_init (insn);
-	    }
-
-	  sched_insn_extend ();
-
-	  EXECUTE_IF_SET_IN_SBITMAP (bbs, 0, i, sbi)
-	    sched_bb_init (BASIC_BLOCK (i));
-	}
-    }
+  sched_scan (&ssi, bbs, bb, insns, insn);
 }
 
-/* Free all common scheduling data.  */
+/* Finalize haifa_insn_data.  */
 void
-sched_data_finish (void)
+haifa_finish_h_i_d (void)
 {
-  sched_insn_finish ();
-  sched_bb_finish ();
-  sched_luid_finish ();
+  VEC_free (haifa_insn_data_def, heap, h_i_d);
+}
+
+/* Init data for the new insn INSN.  */
+static void
+haifa_init_insn (rtx insn)
+{
+  gcc_assert (insn != NULL);
+
+  sched_init_luids (NULL, NULL, NULL, insn);
+  sched_extend_target ();
+  sched_deps_local_init (false);
+  haifa_init_h_i_d (NULL, NULL, NULL, insn);
+}
+
+/* Init data for the new basic block BB which comes after AFTER.  */
+void
+haifa_init_only_bb (basic_block bb, basic_block after)
+{
+  gcc_assert (bb != NULL
+	      && common_sched_info->detach_life_info
+	      && bb->il.rtl->global_live_at_start == NULL
+	      && bb->il.rtl->global_live_at_end == NULL);
+
+  sched_init_bbs (NULL, bb);
+
+  if (common_sched_info->add_block)
+    /* This changes only data structures of the front-end.  */
+    common_sched_info->add_block (bb, after);
 }
 
 #endif /* INSN_SCHEDULING */

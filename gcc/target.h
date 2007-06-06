@@ -375,9 +375,9 @@ struct gcc_target
 
     /* The following member value is a pointer to a function called
        by the insn scheduler.  It should return true if the check instruction
-       corresponding to the instruction passed as the parameter needs a
+       corresponding to speculation type passed as the parameter needs a
        recovery block.  */
-    bool (* needs_block_p) (rtx);
+    bool (* needs_block_p) (int);
 
     /* The following member value is a pointer to a function called
        by the insn scheduler.  It should return a pattern for the check
@@ -387,7 +387,7 @@ struct gcc_target
        simple check).  If the mutation of the check is requested (e.g. from
        ld.c to chk.a), the third parameter is true - in this case the first
        parameter is the previous check.  */
-    rtx (* gen_check) (rtx, rtx, bool);
+    rtx (* gen_spec_check) (rtx, rtx, int);
 
     /* The following member value is a pointer to a function controlling
        what insns from the ready insn queue will be considered for the
@@ -401,6 +401,17 @@ struct gcc_target
        information about the speculation capabilities of the target.
        The parameter is a pointer to spec_info variable.  */
     void (* set_sched_flags) (struct spec_info_def *);
+
+    /* Return speculation types of the instruction passed as the parameter.  */
+    int (* get_insn_spec_ds) (rtx);
+
+    /* Return speculation types that are checked for the instruction passed as
+       the parameter.  */
+    int (* get_insn_checked_ds) (rtx);
+
+    /* Return bool if rtx scanning should just skip current layer and
+       advance to the inner rtxes.  */
+    bool (* skip_rtx_p) (rtx);
   } sched;
 
   /* Functions relating to vectorization.  */
