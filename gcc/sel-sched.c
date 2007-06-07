@@ -4414,12 +4414,12 @@ sel_region_init (int rgn)
   if (sched_rgn_local_preinit (rgn))
     return true;
 
-  if (sched_verbose >= 5)
-    debug_dependencies ();
-
   /* Compute insn priorities in haifa style.  Then free haifa style 
      dependencies that we've calculated for this.  */
   compute_priorities ();
+
+  if (sched_verbose >= 5)
+    debug_dependencies ();
 
   init_deps_global ();
 
