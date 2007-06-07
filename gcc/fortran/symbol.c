@@ -27,7 +27,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "gfortran.h"
 #include "parse.h"
 
-
 /* Strings for all symbol attributes.  We use these for dumping the
    parse tree, in error messages, and also when reading and writing
    modules.  */
@@ -2038,7 +2037,7 @@ gfc_new_symtree (gfc_symtree **root, const char *name)
 
   st = gfc_getmem (sizeof (gfc_symtree));
   st->name = gfc_get_string (name);
-  
+
   gfc_insert_bbt (root, st, compare_symtree);
   return st;
 }

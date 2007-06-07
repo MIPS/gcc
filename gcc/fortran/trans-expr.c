@@ -464,7 +464,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	 separately.  */
       if (sym->ts.type == BT_CHARACTER)
 	{
-          /* Dereference character pointer dummy arguments
+	  /* Dereference character pointer dummy arguments
 	     or results.  */
 	  if ((sym->attr.pointer || sym->attr.allocatable)
 	      && (sym->attr.dummy
@@ -481,7 +481,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
       else if (!sym->attr.value)
 	{
           /* Dereference non-character scalar dummy arguments.  */
-          if (sym->attr.dummy && !sym->attr.dimension)
+	  if (sym->attr.dummy && !sym->attr.dimension)
 	    se->expr = build_fold_indirect_ref (se->expr);
 
           /* Dereference scalar hidden result.  */

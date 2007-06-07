@@ -2272,7 +2272,7 @@ try gfc_resolve_array_constructor (gfc_expr *);
 try gfc_check_constructor_type (gfc_expr *);
 try gfc_check_iter_variable (gfc_expr *);
 try gfc_check_constructor (gfc_expr *, try (*)(gfc_expr *));
-gfc_constructor *gfc_copy_constructor (gfc_constructor * );
+gfc_constructor *gfc_copy_constructor (gfc_constructor *);
 gfc_expr *gfc_get_array_element (gfc_expr *, int);
 try gfc_array_size (gfc_expr *, mpz_t *);
 try gfc_array_dimen_size (gfc_expr *, int, mpz_t *);

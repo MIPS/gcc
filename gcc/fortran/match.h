@@ -200,7 +200,7 @@ match gfc_match_generic_spec (interface_type *, char *, gfc_intrinsic_op *);
 match gfc_match_interface (void);
 match gfc_match_end_interface (void);
 
-/* io.c.   */
+/* io.c.  */
 match gfc_match_format (void);
 match gfc_match_open (void);
 match gfc_match_close (void);

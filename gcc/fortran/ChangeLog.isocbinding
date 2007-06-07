@@ -4,6 +4,14 @@ Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
 
+2007-06-07  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* trans-expr.c: Fix whitespace.
+	* symbol.c: Likewise.
+	* decl.c: Likewise.
+	* gfortran.h: Likewise.
+	* match.h: Likewise.
+
 2007-06-06  Christopher D. Rickett  <crickett@lanl.gov>
 
 	* gfortran.dg/iso_c_binding_only.f03: New test.
