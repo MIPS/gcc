@@ -2634,46 +2634,114 @@ sel_rank_for_schedule (const void *x, const void *y)
    max_issue).  BND and FENCE are current boundary and fence, 
    respectively.  */
 static rhs_t
-fill_ready_list (av_set_t av, bnd_t bnd, fence_t fence)
+fill_ready_list (av_set_t *av_ptr, bnd_t bnd, fence_t fence)
 {
   rhs_t rhs;
   av_set_iterator si;
   int n, i, stalled, sched_next_worked = 0;
   deps_t dc = BND_DC (bnd);
-  bool try_data_p = true;
-  bool try_control_p = true;
 
-  /* Fill the vector with recognizable insns.  */
-  FOR_EACH_RHS (rhs, si, av)
+  /* Don't pipeline already pipelined code as that would increase
+     number of unnecessary register moves.  */  
+  FOR_EACH_RHS_1 (rhs, si, av_ptr)
     {
-      insn_t insn = VINSN_INSN (RHS_VINSN (rhs));
+      if (EXPR_SCHED_TIMES (rhs)
+	  >= PARAM_VALUE (PARAM_SELSCHED_MAX_SCHED_TIMES))
+	av_set_iter_remove (&si);
+    }
 
-      if (/* This will also initialize INSN_CODE for max_issue ().  */
-	  recog_memoized (insn) < 0)
-        {
-          /* Do not pipeline these insns when they were already scheduled;
-             as we emit them unconditionally, it leads to an infinite loop.  */
-          if (EXPR_SCHED_TIMES (rhs) <= 0)
-	    return rhs;
-	  else
-	    gcc_assert (pipelining_p);
-        }
-      else
+  if (spec_info != NULL)
+    {
+      bool try_data_p = true;
+      bool try_control_p = true;
+
+      /* Scan *AV_PTR to find out if we want to consider speculative
+	 instructions for scheduling.  */
+      FOR_EACH_RHS (rhs, si, *av_ptr)
 	{
-	  if (spec_info != NULL)
+	  ds_t ds;
+
+	  ds = EXPR_SPEC_DONE_DS (rhs);
+
+	  if ((spec_info->flags & PREFER_NON_DATA_SPEC)
+	      && !(ds & BEGIN_DATA))
+	    try_data_p = false;
+
+	  if ((spec_info->flags & PREFER_NON_CONTROL_SPEC)
+	      && !(ds & BEGIN_CONTROL))
+	    try_control_p = false;
+	}
+
+      FOR_EACH_RHS_1 (rhs, si, av_ptr)
+	{
+	  ds_t ds;
+
+	  ds = EXPR_SPEC_DONE_DS (rhs);
+
+	  if (ds & SPECULATIVE)
 	    {
-	      ds_t ds = EXPR_SPEC_DONE_DS (rhs);
+	      if ((ds & BEGIN_DATA) && !try_data_p)
+		/* We don't want any data speculative instructions right
+		   now.  */
+		av_set_iter_remove (&si);
 
-	      if ((spec_info->flags & PREFER_NON_DATA_SPEC)
-		  && !(ds & BEGIN_DATA))
-		try_data_p = false;
-
-	      if ((spec_info->flags & PREFER_NON_CONTROL_SPEC)
-		  && !(ds & BEGIN_CONTROL))
-		try_control_p = false;
+	      if ((ds & BEGIN_CONTROL) && !try_control_p)
+		/* We don't want any control speculative instructions right
+		   now.  */
+		av_set_iter_remove (&si);
 	    }
 	}
     }
+
+  /* Process USEs in *AV_PTR.  */
+  {
+    bool uses_present_p = false;
+    bool try_uses_p = true;
+
+    FOR_EACH_RHS (rhs, si, *av_ptr)
+      {
+	if (/* This will also initialize INSN_CODE for max_issue ().  */
+	    recog_memoized (EXPR_INSN_RTX (rhs)) < 0)
+	  {
+	    /* If we have a USE in *AV_PTR that was not scheduled yet,
+	       do so because it will do good only.  */
+	    if (EXPR_SCHED_TIMES (rhs) <= 0)
+	      return rhs;
+	    else
+	      {
+		gcc_assert (pipelining_p);
+
+		uses_present_p = true;
+	      }
+	  }
+	else
+	  try_uses_p = false;
+      }
+
+    if (uses_present_p)
+      {
+	if (!try_uses_p)
+	  /* If we don't want to schedule any USEs right now and we have some
+	     in *AV_PTR, remove them.  */
+	  {
+	    FOR_EACH_RHS_1 (rhs, si, av_ptr)
+	      {
+		if (INSN_CODE (EXPR_INSN_RTX (rhs)) < 0)
+		  av_set_iter_remove (&si);
+	      }
+	  }
+	else
+	  /* If we do want to schedule a USE, return the first one.  */
+	  {
+	    FOR_EACH_RHS (rhs, si, *av_ptr)
+	      {
+		gcc_assert (INSN_CODE (EXPR_INSN_RTX (rhs)) < 0);
+
+		return rhs;
+	      }
+	  }
+      }
+  }
 
   /* Allocate the vector for sorting the av set.  */
   if (!vec_av_set)
@@ -2681,28 +2749,8 @@ fill_ready_list (av_set_t av, bnd_t bnd, fence_t fence)
   else
     gcc_assert (VEC_empty (rhs_t, vec_av_set));
 
-  FOR_EACH_RHS (rhs, si, av)
+  FOR_EACH_RHS (rhs, si, *av_ptr)
     {
-      ds_t ds = EXPR_SPEC_DONE_DS (rhs);
-
-      if (ds & SPECULATIVE)
-	{
-	  if ((ds & BEGIN_DATA) && !try_data_p)
-	    /* We don't want any data speculative instructions right now.  */
-	    continue;
-
-	  if ((ds & BEGIN_CONTROL) && !try_control_p)
-	    /* We don't want any control speculative instructions right
-	       now.  */
-	    continue;
-	}
-
-      if (EXPR_SCHED_TIMES (rhs)
-	  >= PARAM_VALUE (PARAM_SELSCHED_MAX_SCHED_TIMES))
-	/* Don't pipeline already pipelined code as that would increase
-	   number of unnecessary register moves.  */
-	continue;
-
       VEC_safe_push (rhs_t, heap, vec_av_set, rhs);
     }
 
@@ -2887,7 +2935,7 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
   /* We have one boundary per fence.  */
   gcc_assert (BLIST_NEXT (bnds) == NULL);
 
-  res = fill_ready_list (*av_vliw_ptr, BLIST_BND (bnds), fence);
+  res = fill_ready_list (av_vliw_ptr, BLIST_BND (bnds), fence);
 
   if (res == NULL && ready.n_ready > 0)
     {

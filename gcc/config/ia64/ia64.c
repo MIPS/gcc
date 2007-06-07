@@ -6794,36 +6794,19 @@ ia64_init_sched_context (void *_sc, bool clean_p)
     }
 }
 
-/* Resets the global scheduling context.  */
-static void
-ia64_reset_main_sched_context (void)
-{
-  state_reset (prev_cycle_state);
-  last_scheduled_insn = NULL_RTX;
-  memset (rws_sum, 0, sizeof (rws_sum));
-  memset (rws_insn, 0, sizeof (rws_insn));
-  first_instruction = 1;
-}
-
 /* Sets the global scheduling context to the one pointed to by _SC.  */
 static void
 ia64_set_sched_context (void *_sc)
 {
-  if (_sc)
-    {
-      ia64_sched_context_t sc = (ia64_sched_context_t) _sc;
+  ia64_sched_context_t sc = (ia64_sched_context_t) _sc;
 
-      memcpy (prev_cycle_state, sc->prev_cycle_state, dfa_state_size);
-      last_scheduled_insn = sc->last_scheduled_insn;
-      memcpy (rws_sum, sc->rws_sum, sizeof (rws_sum));
-      memcpy (rws_insn, sc->rws_insn, sizeof (rws_insn));
-      first_instruction = sc->first_instruction;
-    }
-  else
-    {
-      gcc_unreachable ();
-      ia64_reset_main_sched_context ();
-    }
+  gcc_assert (sc != NULL);
+
+  memcpy (prev_cycle_state, sc->prev_cycle_state, dfa_state_size);
+  last_scheduled_insn = sc->last_scheduled_insn;
+  memcpy (rws_sum, sc->rws_sum, sizeof (rws_sum));
+  memcpy (rws_insn, sc->rws_insn, sizeof (rws_insn));
+  first_instruction = sc->first_instruction;
 }
 
 /* Clears the data in the _SC scheduling context.  */
@@ -6837,6 +6820,8 @@ ia64_clear_sched_context (void *_sc)
 static void
 ia64_free_sched_context (void *_sc)
 {
+  gcc_assert (_sc != NULL);
+
   free (_sc);
 }
 
