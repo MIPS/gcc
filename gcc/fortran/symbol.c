@@ -3182,7 +3182,9 @@ gen_special_c_interop_ptr (int ptr_id, const char *ptr_name,
       generate_isocbinding_symbol (module_name, ptr_id == ISOCBINDING_NULL_PTR 
                                    ? ISOCBINDING_PTR : ISOCBINDING_FUNPTR,
                                    (char *) (ptr_id == ISOCBINDING_NULL_PTR 
-                                   ? "c_ptr" : "c_funptr"));
+				   ? "_gfortran_iso_c_binding_c_ptr"
+				   : "_gfortran_iso_c_binding_c_funptr"));
+
       tmp_sym->ts.derived =
         get_iso_c_binding_dt (ptr_id == ISOCBINDING_NULL_PTR
                               ? ISOCBINDING_PTR : ISOCBINDING_FUNPTR);
@@ -3290,7 +3292,8 @@ gen_cptr_param (gfc_formal_arglist **head,
          trying to use one of the iso_c_binding functions that need it.  */
       gfc_error_now ("Type 'C_PTR' required for ISO_C_BINDING function at %C");
       generate_isocbinding_symbol (module_name, ISOCBINDING_PTR,
-                                   (char *)"c_ptr");
+                                   (char *) "_gfortran_iso_c_binding_c_ptr");
+
       gfc_get_ha_symbol (c_ptr_type, &(c_ptr_sym));
     }
 
@@ -3721,7 +3724,8 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
                       (mod_name, s == ISOCBINDING_FUNLOC
                        ? ISOCBINDING_FUNPTR : ISOCBINDING_FUNPTR,
                        (char *)(s == ISOCBINDING_FUNLOC 
-                                ? "c_funptr" : "c_ptr"));
+                                ? "_gfortran_iso_c_binding_c_funptr"
+				: "_gfortran_iso_c_binding_c_ptr"));
                     tmp_sym->ts.derived =
                       get_iso_c_binding_dt (s == ISOCBINDING_FUNLOC
                                             ? ISOCBINDING_FUNPTR

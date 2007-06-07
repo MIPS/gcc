@@ -3904,10 +3904,6 @@ gfc_match_function_decl (void)
 	{
 	  result->ts = current_ts;
 	  sym->result = result;
-          /* Set the fields for the typespec in the function symbol too so
-             we can verify the type/kind during resolve_contained_functions()
-             if the function is bind(c).  */
-          sym->ts = current_ts;
 	}
 
       return MATCH_YES;

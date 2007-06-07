@@ -3,6 +3,16 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+
+2007-06-06  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/iso_c_binding_only.f03: New test.
+	* symbol.c (gen_special_c_interop_ptr,gen_cptr_param,
+	generate_isocbinding_symbol): Add _gfortran_iso_c_binding_ to c_ptr
+	and c_funptr
+	* decl.c (gfc_match_function_decl): Remove unnecessary line causing
+	interface_12.f90 and results_in_spec_1.f90 regression.
+
 2007-05-05  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	* trans-array.c:  Whitespace.  Two spaces at end of comments.
