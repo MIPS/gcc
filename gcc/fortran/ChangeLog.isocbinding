@@ -4,7 +4,7 @@ Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
 
-2007-06-06  Steven G. Kargl  <kargl@gcc.gnu.org>
+2007-06-06  Christopher D. Rickett  <crickett@lanl.gov>
 
 	* gfortran.dg/iso_c_binding_only.f03: New test.
 	* symbol.c (gen_special_c_interop_ptr,gen_cptr_param,
