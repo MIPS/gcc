@@ -3,6 +3,13 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-06-07  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* gfortran.dg/bind_c_vars_driver.c: Don't include header,
+	declare fabs manually.
+        * gfortran.dg/bind_c_coms_driver.c: Likewise.
+	* gfortran.dg/bind_c_dts_driver.c: Likewise.
+	* gfortran.dg/c_loc_tests_2_funcs.c: Likewise.
 
 2007-06-07  Brooks Moses  <brooks.moses@codesourcery.com>
 

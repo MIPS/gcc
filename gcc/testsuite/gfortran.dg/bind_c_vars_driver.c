@@ -1,4 +1,5 @@
-#include <math.h>
+double fabs (double);
+
 /* defined in fortran module bind_c_vars */
 void changeF90Globals(void);
 

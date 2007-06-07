@@ -1,4 +1,4 @@
-#include <math.h>
+double fabs (double);
 
 typedef struct ctype
 {

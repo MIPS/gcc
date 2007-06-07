@@ -1,4 +1,4 @@
-#include <math.h>
+double fabs(double);
 
 void test_coms(void);
 

@@ -1,4 +1,4 @@
-#include <math.h>
+double fabs (double);
 
 /* interops with myftype_1 */
 typedef struct {
