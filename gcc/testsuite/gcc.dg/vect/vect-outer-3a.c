@@ -6,8 +6,7 @@
 float image[N][N+1] __attribute__ ((__aligned__(16)));
 float out[N];
 
-/* Outer-loop vectorization.
-   Currently not vectorized because of of misaliged accesses in the inner-loop.  */
+/* Outer-loop vectorization with misaliged accesses in the inner-loop.  */
 
 void
 foo (){
@@ -49,7 +48,6 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 1 "vect" { xfail *-*-* } } } */
-/* FORNOW */
+/* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 1 "vect" { xfail vect_no_align } } } */
 /* { dg-final { scan-tree-dump-times "step doesn't divide the vector-size" 2 "vect" } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */

@@ -53,8 +53,6 @@ static tree vect_create_data_ref_ptr
   (tree, block_stmt_iterator *, tree, tree *, tree *, bool, tree, bool *); 
 static tree vect_create_addr_base_for_vector_ref 
   (tree, tree *, tree, struct loop *);
-static tree vect_setup_realignment 
-  (tree, block_stmt_iterator *, tree *, enum dr_alignment_support);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, tree, tree *);
 static tree vect_init_vector (tree, tree, tree, block_stmt_iterator *);
@@ -329,7 +327,7 @@ vect_create_data_ref_ptr (tree stmt,
   else
     *inv_p = false;
 
-  /* Create an expression for the first addressed accessed by this load
+  /* Create an expression for the first address accessed by this load
      in LOOP.  */ 
   base_name =  build_fold_indirect_ref (unshare_expr (DR_BASE_ADDRESS (dr)));
 
@@ -4007,7 +4005,8 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 static tree
 vect_setup_realignment (tree stmt, block_stmt_iterator *bsi,
                         tree *realignment_token,
-			enum dr_alignment_support alignment_support_scheme)
+			enum dr_alignment_support alignment_support_scheme,
+			tree init_addr)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
@@ -4016,7 +4015,6 @@ vect_setup_realignment (tree stmt, block_stmt_iterator *bsi,
   edge pe = loop_preheader_edge (loop);
   tree scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   tree vec_dest;
-  tree init_addr;
   tree inc;
   tree ptr;
   tree data_ref;
@@ -4028,19 +4026,40 @@ vect_setup_realignment (tree stmt, block_stmt_iterator *bsi,
   tree msq = NULL_TREE;
   tree stmts = NULL_TREE;
   bool inv_p;
+  bool compute_in_loop = false;
 
   gcc_assert (alignment_support_scheme == dr_explicit_realign
 	      || alignment_support_scheme == dr_explicit_realign_optimized);	
 
+  /* If the misalignment remains the same throughout the execution of the 
+     loop, we can create the init_addr and permutation mask at the loop
+     preheader. Otherwise, it needs to be created inside the loop.
+     This can only occur when vectorizing memory accesses in the inner-loop
+     nested within an outer-loop that is being vectorized.  */
+
+  /* If INIT_ADDR is NULL_TREE, this indicates that we are doing the
+     misalignment calculation outside the loop (in the preheader).
+     Otherwise, we are using an INIT_ADDR that had already been computed
+     for us by the caller, inside the loop.  */
+
+  if (init_addr != NULL_TREE)
+    compute_in_loop = true; 
+
+  /* (1) Create the address expression.  */
   if (alignment_support_scheme == dr_explicit_realign)
     {
-      init_addr = 
-	vect_create_addr_base_for_vector_ref (stmt, &stmts, NULL_TREE, loop);
-      new_bb = bsi_insert_on_edge_immediate (pe, stmts);
-      gcc_assert (!new_bb);
+      if (!compute_in_loop)
+	{
+          init_addr = vect_create_addr_base_for_vector_ref (stmt, &stmts, 
+							    NULL_TREE, loop);
+	  new_bb = bsi_insert_on_edge_immediate (pe, stmts);
+	  gcc_assert (!new_bb);
+	}
     }
   else
     {
+      gcc_assert (!compute_in_loop);
+
       /* Create msq_init = *(floor(p1)) in the loop preheader  */
       vec_dest = vect_create_destination_var (scalar_dest, vectype);
       ptr = vect_create_data_ref_ptr (stmt, bsi, NULL_TREE, &init_addr, &inc, true,
@@ -4056,7 +4075,8 @@ vect_setup_realignment (tree stmt, block_stmt_iterator *bsi,
       update_vuses_to_preheader (new_stmt, loop);
     }
 
-  /* Create permutation mask, if required.  */
+
+  /* (2) Create permutation mask, if required.  */
   if (targetm.vectorize.builtin_mask_for_load)
     {
       tree builtin_decl;
@@ -4069,12 +4089,13 @@ vect_setup_realignment (tree stmt, block_stmt_iterator *bsi,
       new_temp = make_ssa_name (vec_dest, new_stmt);
       GIMPLE_STMT_OPERAND (new_stmt, 0) = new_temp;
 
-      /* The permutation mask can be created in the loop preheader only if 
-	 the misalignment remains the same throughout the execution of the 
-	 loop. Otherwise it needs to be created inside the loop. Currently
-	 we handle only the case that the alignment remains the same.  */ 
-      new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
-      gcc_assert (!new_bb);
+      if (compute_in_loop)
+	bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
+      else
+	{
+	  new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
+	  gcc_assert (!new_bb);
+	}
 
       *realignment_token = GIMPLE_STMT_OPERAND (new_stmt, 0);
 
@@ -4089,7 +4110,9 @@ vect_setup_realignment (tree stmt, block_stmt_iterator *bsi,
   if (alignment_support_scheme == dr_explicit_realign)
     return msq;
 
-  /* Create msq = phi <msq_init, lsq> in loop  */
+  gcc_assert (!compute_in_loop);
+
+  /* (3) Create msq = phi <msq_init, lsq> in loop  */
   vec_dest = vect_create_destination_var (scalar_dest, vectype);
   msq = make_ssa_name (vec_dest, NULL_TREE);
   phi_stmt = create_phi_node (msq, loop->header); 
@@ -4406,6 +4429,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   tree first_stmt;
   tree scalar_type;
   bool inv_p;
+  bool compute_in_loop = false;
 
   gcc_assert (ncopies >= 1);
   /* FORNOW. This restriction should be relaxed.  */
@@ -4607,11 +4631,25 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
            msq = lsq;
          }   */
 
-  if (alignment_support_scheme == dr_explicit_realign_optimized
-      || alignment_support_scheme == dr_explicit_realign)
+  /* If the misalignment remains the same throughout the execution of the
+     loop, we can create the init_addr and permutation mask at the loop
+     preheader. Otherwise, it needs to be created inside the loop.
+     This can only occur when vectorizing memory accesses in the inner-loop
+     nested within an outer-loop that is being vectorized.  */
+
+  if (nested_in_vect_loop_p (loop, stmt)
+      && (TREE_INT_CST_LOW (DR_STEP (dr)) % UNITS_PER_SIMD_WORD != 0))
+    {
+      gcc_assert (alignment_support_scheme == dr_explicit_realign);
+      compute_in_loop = true;
+    }
+
+  if ((alignment_support_scheme == dr_explicit_realign_optimized
+       || alignment_support_scheme == dr_explicit_realign)
+      && !compute_in_loop)
     {
       msq = vect_setup_realignment (first_stmt, bsi, &realignment_token,
-				    alignment_support_scheme);
+				    alignment_support_scheme, NULL_TREE);
       if (alignment_support_scheme == dr_explicit_realign_optimized)
 	{
 	  phi_stmt = SSA_NAME_DEF_STMT (msq);
@@ -4652,6 +4690,12 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	    case dr_explicit_realign:
 	      {
 		tree ptr, bump;
+
+		if (compute_in_loop)
+		  msq = vect_setup_realignment (first_stmt, bsi, 
+						&realignment_token,
+						dr_explicit_realign, 
+						dataref_ptr);
 
 		data_ref = build1 (ALIGN_INDIRECT_REF, vectype, dataref_ptr);
 		vec_dest = vect_create_destination_var (scalar_dest, vectype);

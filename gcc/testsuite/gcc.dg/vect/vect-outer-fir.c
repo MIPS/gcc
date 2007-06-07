@@ -10,7 +10,7 @@ float coeff[M];
 float out[N];
 float fir_out[N];
 
-/* Vectorized */
+/* Vectorized. Fixed misaligment in the inner-loop.  */
 void foo (){
  int i,j,k;
  float diff;
@@ -31,7 +31,7 @@ void foo (){
 
 }
 
-/* Not vectorized yet */
+/* Vectorized. Changing misalignment in the inner-loop.  */
 void fir (){
   int i,j,k;
   float diff;
@@ -68,5 +68,5 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 1 "vect" { xfail vect_no_align } } } */
+/* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 2 "vect" { xfail vect_no_align } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */

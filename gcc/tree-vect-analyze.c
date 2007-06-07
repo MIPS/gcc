@@ -1181,16 +1181,20 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       tree step = DR_STEP (dr);
       HOST_WIDE_INT dr_step = TREE_INT_CST_LOW (step);
     
-      if (dr_step % UNITS_PER_SIMD_WORD)
+      if (dr_step % UNITS_PER_SIMD_WORD == 0)
         {
           if (vect_print_dump_info (REPORT_ALIGNMENT))
-            fprintf (vect_dump, "inner step doesn't divide the vector-size.");
-          return false;
+            fprintf (vect_dump, "inner step divides the vector-size.");
+	  misalign = STMT_VINFO_DR_INIT (stmt_info);
+	  aligned_to = STMT_VINFO_DR_ALIGNED_TO (stmt_info);
+	  base_addr = STMT_VINFO_DR_BASE_ADDRESS (stmt_info);
         }
-
-      misalign = STMT_VINFO_DR_INIT (stmt_info);
-      aligned_to = STMT_VINFO_DR_ALIGNED_TO (stmt_info);
-      base_addr = STMT_VINFO_DR_BASE_ADDRESS (stmt_info);
+      else
+	{
+	  if (vect_print_dump_info (REPORT_ALIGNMENT))
+	    fprintf (vect_dump, "inner step doesn't divide the vector-size.");
+	  misalign = NULL_TREE;
+	}
     }
 
   base = build_fold_indirect_ref (base_addr);
@@ -1200,7 +1204,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   if ((aligned_to && tree_int_cst_compare (aligned_to, alignment) < 0)
       || !misalign)
     {
-      if (vect_print_dump_info (REPORT_DETAILS))
+      if (vect_print_dump_info (REPORT_ALIGNMENT))
 	{
 	  fprintf (vect_dump, "Unknown alignment for access: ");
 	  print_generic_expr (vect_dump, base, TDF_SLIM);

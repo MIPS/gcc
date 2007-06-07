@@ -1,3 +1,14 @@
+2007-06-07  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_compute_data_ref_alignment): Don't fail if
+	the inner step doesn't divide the vector-size. Change verbosity level.
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Fix a typo.
+	(vect_setup_realignment): Takes additional argument. Handle the case
+	when the realignment setup needs to take place inside the loop.
+	(vectorizable_load): Call vect_setup_realignment with additional
+	argument. Handle the case when the realignment setup needs to take 
+	place inside the loop.
+
 2007-06-05  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vectorizer.c (vect_supportable_dr_alignment): Misaligned

@@ -1,3 +1,14 @@
+2007-06-06  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-outer-3a.c: Now vectorized on targets that supprt
+	misaligned accesses.
+	* gcc.dg/vect/vect-outer-3b.c: Fix dg-final test.
+	* gcc.dg/vect/vect-outer-1b.c: Doesn't fail vectorization due to
+	misalignment anymore.
+	* gcc.dg/vect/vect-104.c: Fix dg-final test.
+	* gcc.dg/vect/vect-outer-fir.c: Another loop vectorized on targets
+	that support misaligned accesses.
+
 2007-06-05  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* gcc.dg/vect/vect-outer-4.c: Fix loop count.
