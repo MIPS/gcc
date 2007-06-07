@@ -530,10 +530,10 @@ thread_block (basic_block bb, bool noloop_only)
   /* If we thread the latch of the loop to its exit, the loop ceases to
      exist.  Make sure we do not restrict ourselves in order to preserve
      this loop.  */
-  if (current_loops && loop->header == bb)
+  if (loop->header == bb)
     {
       e = loop_latch_edge (loop);
-      e2 = e->aux;
+      e2 = (edge) e->aux;
 
       if (e2 && loop_exit_edge_p (loop, e2))
 	{
@@ -546,13 +546,12 @@ thread_block (basic_block bb, bool noloop_only)
      efficient lookups.  */
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
-      e2 = e->aux;
+      e2 = (edge) e->aux;
 
       if (!e2
 	  /* If NOLOOP_ONLY is true, we only allow threading through the
 	     header of a loop to exit edges.  */
 	  || (noloop_only
-	      && current_loops
 	      && bb == bb->loop_father->header
 	      && !loop_exit_edge_p (bb->loop_father, e2)))
 	{
@@ -561,7 +560,7 @@ thread_block (basic_block bb, bool noloop_only)
 	}
 
       update_bb_profile_for_threading (e->dest, EDGE_FREQUENCY (e),
-				       e->count, e->aux);
+				       e->count, (edge) e->aux);
 
       /* Insert the outgoing edge into the hash table if it is not
 	 already in the hash table.  */
@@ -574,9 +573,12 @@ thread_block (basic_block bb, bool noloop_only)
      DO_NOT_DUPLICATE attribute.  */
   if (all)
     {
-      edge e = EDGE_PRED (bb, 0)->aux;
+      edge e = (edge) EDGE_PRED (bb, 0)->aux;
       lookup_redirection_data (e, NULL, NO_INSERT)->do_not_duplicate = true;
     }
+
+  /* We do not update dominance info.  */
+  free_dominance_info (CDI_DOMINATORS);
 
   /* Now create duplicates of BB.
 
@@ -621,7 +623,7 @@ static basic_block
 thread_single_edge (edge e)
 {
   basic_block bb = e->dest;
-  edge eto = e->aux;
+  edge eto = (edge) e->aux;
   struct redirection_data rd;
   struct local_info local_info;
 
@@ -820,7 +822,7 @@ thread_through_loop_header (struct loop *loop, bool may_peel_loop_headers)
 
   if (latch->aux)
     {
-      tgt_edge = latch->aux;
+      tgt_edge = (edge) latch->aux;
       tgt_bb = tgt_edge->dest;
     }
   else if (!may_peel_loop_headers
@@ -843,7 +845,7 @@ thread_through_loop_header (struct loop *loop, bool may_peel_loop_headers)
 	      goto fail;
 	    }
 
-	  tgt_edge = e->aux;
+	  tgt_edge = (edge) e->aux;
 	  atgt_bb = tgt_edge->dest;
 	  if (!tgt_bb)
 	    tgt_bb = atgt_bb;
@@ -918,10 +920,10 @@ thread_through_loop_header (struct loop *loop, bool may_peel_loop_headers)
 
       /* The duplicate of the header is the new preheader of the loop.  Ensure
 	 that it is placed correctly in the loop hierarchy.  */
-      loop->copy = loop_outer (loop);
+      set_loop_copy (loop, loop_outer (loop));
 
       thread_block (header, false);
-      loop->copy = NULL;
+      set_loop_copy (loop, NULL);
       new_preheader = e->dest;
 
       /* Create the new latch block.  This is always necessary, as the latch
@@ -1023,6 +1025,9 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   struct loop *loop;
   loop_iterator li;
 
+  /* We must know about loops in order to preserve them.  */
+  gcc_assert (current_loops != NULL);
+
   if (threaded_edges == NULL)
     return false;
 
@@ -1031,9 +1036,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
 
   mark_threaded_blocks (threaded_blocks);
 
-  if (current_loops)
-    FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
-      loop->copy = NULL;
+  initialize_original_copy_tables ();
 
   /* First perform the threading requests that do not affect
      loop structure.  */
@@ -1048,24 +1051,20 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   /* Then perform the threading through loop headers.  We start with the
      innermost loop, so that the changes in cfg we perform won't affect
      further threading.  */
-  if (current_loops)
+  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
-      FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
-	{
-	  if (!loop->header
-	      || !bitmap_bit_p (threaded_blocks, loop->header->index))
-	    continue;
+      if (!loop->header
+	  || !bitmap_bit_p (threaded_blocks, loop->header->index))
+	continue;
 
-	  retval |= thread_through_loop_header (loop, may_peel_loop_headers);
-	}
+      retval |= thread_through_loop_header (loop, may_peel_loop_headers);
     }
-
-  if (retval)
-    free_dominance_info (CDI_DOMINATORS);
 
   if (dump_file && (dump_flags & TDF_STATS))
     fprintf (dump_file, "\nJumps threaded: %lu\n",
 	     thread_stats.num_threaded_edges);
+
+  free_original_copy_tables ();
 
   BITMAP_FREE (threaded_blocks);
   threaded_blocks = NULL;

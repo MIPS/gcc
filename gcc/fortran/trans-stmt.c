@@ -818,8 +818,8 @@ gfc_trans_simple_do (gfc_code * code, stmtblock_t *pblock, tree dovar,
        body;
 cycle_label:
        dovar += step
-       countm1--;
        if (countm1 ==0) goto exit_label;
+       countm1--;
      }
 exit_label:
 
@@ -947,6 +947,10 @@ gfc_trans_do (gfc_code * code)
       gfc_add_expr_to_block (&body, tmp);
     }
 
+  /* Increment the loop variable.  */
+  tmp = build2 (PLUS_EXPR, type, dovar, step);
+  gfc_add_modify_expr (&body, dovar, tmp);
+
   /* End with the loop condition.  Loop until countm1 == 0.  */
   cond = fold_build2 (EQ_EXPR, boolean_type_node, countm1,
 		      build_int_cst (utype, 0));
@@ -954,10 +958,6 @@ gfc_trans_do (gfc_code * code)
   tmp = fold_build3 (COND_EXPR, void_type_node,
 		     cond, tmp, build_empty_stmt ());
   gfc_add_expr_to_block (&body, tmp);
-
-  /* Increment the loop variable.  */
-  tmp = build2 (PLUS_EXPR, type, dovar, step);
-  gfc_add_modify_expr (&body, dovar, tmp);
 
   /* Decrement the loop count.  */
   tmp = build2 (MINUS_EXPR, utype, countm1, build_int_cst (utype, 1));
@@ -1139,7 +1139,8 @@ gfc_trans_integer_select (gfc_code * code)
 
 	  if (cp->low)
 	    {
-	      low = gfc_conv_constant_to_tree (cp->low);
+	      low = gfc_conv_mpz_to_tree (cp->low->value.integer,
+					  cp->low->ts.kind);
 
 	      /* If there's only a lower bound, set the high bound to the
 		 maximum value of the case expression.  */
@@ -1169,7 +1170,8 @@ gfc_trans_integer_select (gfc_code * code)
 		  || (cp->low
 		      && mpz_cmp (cp->low->value.integer,
 				  cp->high->value.integer) != 0))
-		high = gfc_conv_constant_to_tree (cp->high);
+		high = gfc_conv_mpz_to_tree (cp->high->value.integer,
+					     cp->high->ts.kind);
 
 	      /* Unbounded case.  */
 	      if (!cp->low)
@@ -2086,7 +2088,7 @@ allocate_temp_for_forall_nest_1 (tree type, tree size, stmtblock_t * block,
   tree unit;
   tree tmp;
 
-  unit = TYPE_SIZE_UNIT (type);
+  unit = fold_convert (gfc_array_index_type, TYPE_SIZE_UNIT (type));
   if (!integer_onep (unit))
     bytesize = fold_build2 (MULT_EXPR, gfc_array_index_type, size, unit);
   else

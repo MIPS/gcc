@@ -556,6 +556,7 @@ static tree handle_cleanup_attribute (tree *, tree, tree, int, bool *);
 static tree handle_warn_unused_result_attribute (tree *, tree, tree, int,
 						 bool *);
 static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
+static tree handle_alloc_size_attribute (tree *, tree, tree, int, bool *);
 
 static void check_function_nonnull (tree, int, tree *);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
@@ -650,6 +651,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_warn_unused_result_attribute },
   { "sentinel",               0, 1, false, true, true,
 			      handle_sentinel_attribute },
+  { "alloc_size",	      1, 2, false, true, true,
+			      handle_alloc_size_attribute },
   { "cold",                   0, 0, true,  false, false,
 			      handle_cold_attribute },
   { "hot",                    0, 0, true,  false, false,
@@ -1204,6 +1207,9 @@ conversion_warning (tree type, tree expr)
 
   unsigned int formal_prec = TYPE_PRECISION (type);
 
+  if (!warn_conversion && !warn_sign_conversion)
+    return;
+
   if (TREE_CODE (expr) == REAL_CST || TREE_CODE (expr) == INTEGER_CST)
     {
       /* Warn for real constant that is not an exact integer converted
@@ -1220,10 +1226,13 @@ conversion_warning (tree type, tree expr)
                && !int_fits_type_p (expr, type))
         {
           if (TYPE_UNSIGNED (type) && !TYPE_UNSIGNED (TREE_TYPE (expr)))
-            warning (OPT_Wconversion,
-                     "negative integer implicitly converted to unsigned type");
-          else
-            give_warning = true;
+	    warning (OPT_Wsign_conversion,
+		     "negative integer implicitly converted to unsigned type");
+          else if (!TYPE_UNSIGNED (type) && TYPE_UNSIGNED (TREE_TYPE (expr)))
+	    warning (OPT_Wsign_conversion,
+		     "conversion of unsigned constant value to negative integer");
+	  else
+	    give_warning = true;
         }
       else if (TREE_CODE (type) == REAL_TYPE)
         {
@@ -1261,16 +1270,20 @@ conversion_warning (tree type, tree expr)
                && TREE_CODE (type) == INTEGER_TYPE)
         {
           /* Warn for integer types converted to smaller integer types.  */
-          if (formal_prec < TYPE_PRECISION (TREE_TYPE (expr))
-              /* When they are the same width but different signedness,
-                 then the value may change.  */
-              || (formal_prec == TYPE_PRECISION (TREE_TYPE (expr))
-                  && TYPE_UNSIGNED (TREE_TYPE (expr)) != TYPE_UNSIGNED (type))
-              /* Even when converted to a bigger type, if the type is
-                 unsigned but expr is signed, then negative values
-                 will be changed.  */
-              || (TYPE_UNSIGNED (type) && !TYPE_UNSIGNED (TREE_TYPE (expr))))
-            give_warning = true;
+          if (formal_prec < TYPE_PRECISION (TREE_TYPE (expr))) 
+	    give_warning = true;
+
+	  /* When they are the same width but different signedness,
+	     then the value may change.  */
+	  else if ((formal_prec == TYPE_PRECISION (TREE_TYPE (expr))
+		    && TYPE_UNSIGNED (TREE_TYPE (expr)) != TYPE_UNSIGNED (type))
+		   /* Even when converted to a bigger type, if the type is
+		      unsigned but expr is signed, then negative values
+		      will be changed.  */
+		   || (TYPE_UNSIGNED (type) && !TYPE_UNSIGNED (TREE_TYPE (expr))))
+	    warning (OPT_Wsign_conversion,
+		     "conversion to %qT from %qT may change the sign of the result",
+		     type, TREE_TYPE (expr));
         }
 
       /* Warn for integer types converted to real types if and only if
@@ -1327,7 +1340,7 @@ warnings_for_convert_and_check (tree type, tree expr, tree result)
           if (!int_fits_type_p (expr, c_common_signed_type (type)))
             warning (OPT_Woverflow,
                      "large integer implicitly truncated to unsigned type");
-          else if (warn_conversion)
+          else
             conversion_warning (type, expr);
         }
       else if (!int_fits_type_p (expr, unsigned_type_for (type))) 
@@ -1341,13 +1354,13 @@ warnings_for_convert_and_check (tree type, tree expr, tree result)
 	warning (OPT_Woverflow,
 		 "overflow in implicit constant conversion");
 
-      else if (warn_conversion)
+      else
 	conversion_warning (type, expr);
     }
   else if (TREE_CODE (result) == INTEGER_CST && TREE_OVERFLOW (result)) 
     warning (OPT_Woverflow,
              "overflow in implicit constant conversion");
-  else if (warn_conversion)
+  else
     conversion_warning (type, expr);
 }
 
@@ -1366,7 +1379,7 @@ convert_and_check (tree type, tree expr)
   
   result = convert (type, expr);
 
-  if (!skip_evaluation && !TREE_OVERFLOW_P (expr))
+  if (!skip_evaluation && !TREE_OVERFLOW_P (expr) && result != error_mark_node)
     warnings_for_convert_and_check (type, expr, result);
 
   return result;
@@ -2066,9 +2079,6 @@ tree
 c_common_signed_or_unsigned_type (int unsignedp, tree type)
 {
   tree type1;
-  if (!INTEGRAL_TYPE_P (type)
-      || TYPE_UNSIGNED (type) == unsignedp)
-    return type;
 
   /* This block of code emulates the behavior of the old
      c_common_unsigned_type. In particular, it returns
@@ -2110,6 +2120,10 @@ c_common_signed_or_unsigned_type (int unsignedp, tree type)
      bit-field types.  C++ does not have these separate bit-field
      types, and producing a signed or unsigned variant of an
      ENUMERAL_TYPE may cause other problems as well.  */
+
+  if (!INTEGRAL_TYPE_P (type)
+      || TYPE_UNSIGNED (type) == unsignedp)
+    return type;
 
 #define TYPE_OK(node)							    \
   (TYPE_MODE (type) == TYPE_MODE (node)					    \
@@ -2219,10 +2233,10 @@ min_precision (tree value, int unsignedp)
 }
 
 /* Print an error message for invalid operands to arith operation
-   CODE.  */
+   CODE with TYPE0 for operand 0, and TYPE1 for operand 1.  */
 
 void
-binary_op_error (enum tree_code code)
+binary_op_error (enum tree_code code, tree type0, tree type1)
 {
   const char *opname;
 
@@ -2273,7 +2287,8 @@ binary_op_error (enum tree_code code)
     default:
       gcc_unreachable ();
     }
-  error ("invalid operands to binary %s", opname);
+  error ("invalid operands to binary %s (have %qT and %qT)", opname,
+	 type0, type1);
 }
 
 /* Subroutine of build_binary_op, used for comparison operations.
@@ -2507,9 +2522,9 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
       if (TREE_CODE (primop0) != INTEGER_CST)
 	{
 	  if (val == truthvalue_false_node)
-	    warning (0, "comparison is always false due to limited range of data type");
+	    warning (OPT_Wtype_limits, "comparison is always false due to limited range of data type");
 	  if (val == truthvalue_true_node)
-	    warning (0, "comparison is always true due to limited range of data type");
+	    warning (OPT_Wtype_limits, "comparison is always true due to limited range of data type");
 	}
 
       if (val != 0)
@@ -2579,24 +2594,26 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 	  switch (code)
 	    {
 	    case GE_EXPR:
-	      /* All unsigned values are >= 0, so we warn if extra warnings
-		 are requested.  However, if OP0 is a constant that is
-		 >= 0, the signedness of the comparison isn't an issue,
-		 so suppress the warning.  */
-	      if (extra_warnings && !in_system_header
+	      /* All unsigned values are >= 0, so we warn.  However,
+		 if OP0 is a constant that is >= 0, the signedness of
+		 the comparison isn't an issue, so suppress the
+		 warning.  */
+	      if (warn_type_limits && !in_system_header
 		  && !(TREE_CODE (primop0) == INTEGER_CST
 		       && !TREE_OVERFLOW (convert (c_common_signed_type (type),
 						   primop0))))
-		warning (0, "comparison of unsigned expression >= 0 is always true");
+		warning (OPT_Wtype_limits, 
+			 "comparison of unsigned expression >= 0 is always true");
 	      value = truthvalue_true_node;
 	      break;
 
 	    case LT_EXPR:
-	      if (extra_warnings && !in_system_header
+	      if (warn_type_limits && !in_system_header
 		  && !(TREE_CODE (primop0) == INTEGER_CST
 		       && !TREE_OVERFLOW (convert (c_common_signed_type (type),
 						   primop0))))
-		warning (0, "comparison of unsigned expression < 0 is always false");
+		warning (OPT_Wtype_limits, 
+			 "comparison of unsigned expression < 0 is always false");
 	      value = truthvalue_false_node;
 	      break;
 
@@ -3148,16 +3165,16 @@ c_common_get_alias_set (tree t)
       tree t2;
       /* Find bottom type under any nested POINTERs.  */
       for (t2 = TREE_TYPE (t);
-     TREE_CODE (t2) == POINTER_TYPE;
-     t2 = TREE_TYPE (t2))
-  ;
+	   TREE_CODE (t2) == POINTER_TYPE;
+	   t2 = TREE_TYPE (t2))
+	;
       if (TREE_CODE (t2) != RECORD_TYPE
-    && TREE_CODE (t2) != ENUMERAL_TYPE
-    && TREE_CODE (t2) != QUAL_UNION_TYPE
-    && TREE_CODE (t2) != UNION_TYPE)
-  return -1;
+	  && TREE_CODE (t2) != ENUMERAL_TYPE
+	  && TREE_CODE (t2) != QUAL_UNION_TYPE
+	  && TREE_CODE (t2) != UNION_TYPE)
+	return -1;
       if (TYPE_SIZE (t2) == 0)
-  return -1;
+	return -1;
     }
   /* These are the only cases that need special handling.  */
   if (TREE_CODE (t) != RECORD_TYPE
@@ -3474,9 +3491,10 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 #include "builtins.def"
 #undef DEF_BUILTIN
 
+  targetm.init_builtins ();
+
   build_common_builtin_nodes ();
 
-  targetm.init_builtins ();
   if (flag_mudflap)
     mudflap_init ();
 }
@@ -5563,6 +5581,37 @@ handle_malloc_attribute (tree *node, tree name, tree ARG_UNUSED (args),
       *no_add_attrs = true;
     }
 
+  return NULL_TREE;
+}
+
+/* Handle a "alloc_size" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_alloc_size_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+			     int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree params = TYPE_ARG_TYPES (*node);
+  unsigned arg_count = 0;
+
+  for (; TREE_CHAIN (params); params = TREE_CHAIN (params))
+    arg_count ++;
+
+  for (; args; args = TREE_CHAIN (args))
+    {
+      tree position = TREE_VALUE (args);
+
+      if (TREE_CODE (position) != INTEGER_CST
+	  || TREE_INT_CST_HIGH (position) 
+	  || TREE_INT_CST_LOW (position) < 1
+	  || TREE_INT_CST_LOW (position) > arg_count )
+	{
+	  warning (OPT_Wattributes, 
+	           "alloc_size parameter outside range");
+	  *no_add_attrs = true;
+	  return NULL_TREE;
+	}
+    }
   return NULL_TREE;
 }
 

@@ -255,6 +255,7 @@ extern struct tree_opt_pass pass_tree_loop;
 extern struct tree_opt_pass pass_tree_loop_init;
 extern struct tree_opt_pass pass_lim;
 extern struct tree_opt_pass pass_tree_unswitch;
+extern struct tree_opt_pass pass_predcom;
 extern struct tree_opt_pass pass_iv_canon;
 extern struct tree_opt_pass pass_scev_cprop;
 extern struct tree_opt_pass pass_empty_loop;
@@ -320,6 +321,7 @@ extern struct tree_opt_pass pass_build_cgraph_edges;
 extern struct tree_opt_pass pass_reset_cc_flags;
 
 /* IPA Passes */
+extern struct tree_opt_pass pass_ipa_matrix_reorg;
 extern struct tree_opt_pass pass_ipa_cp;
 extern struct tree_opt_pass pass_ipa_inline;
 extern struct tree_opt_pass pass_ipa_early_inline;

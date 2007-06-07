@@ -592,6 +592,11 @@ fipa-type-escape
 Common Report Var(flag_ipa_type_escape) Init(0) Optimization
 Type based escape and alias analysis
 
+fipa-matrix-reorg
+Common Report Var(flag_ipa_matrix_reorg)
+Perform matrix layout flattening and transposing based
+on profiling information.
+
 fivopts
 Common Report Var(flag_ivopts) Init(1) Optimization
 Optimize induction variables on trees
@@ -734,6 +739,10 @@ Generate position-independent code if possible (small mode)
 fpie
 Common Report Var(flag_pie,1) VarExists
 Generate position-independent code for executables if possible (small mode)
+
+fpredictive-commoning
+Common Report Var(flag_predictive_commoning)
+Run predictive commoning optimization.
 
 fprefetch-loop-arrays
 Common Report Var(flag_prefetch_loop_arrays) Optimization

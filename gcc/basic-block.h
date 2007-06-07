@@ -870,7 +870,6 @@ extern void find_basic_blocks (rtx);
 /* In cfgcleanup.c.  */
 extern bool cleanup_cfg (int);
 extern bool delete_unreachable_blocks (void);
-extern bool merge_seq_blocks (void);
 
 extern bool mark_dfs_back_edges (void);
 extern void set_edge_can_fallthru_flag (void);
@@ -911,15 +910,17 @@ extern void set_immediate_dominator (enum cdi_direction, basic_block,
 				     basic_block);
 extern basic_block get_immediate_dominator (enum cdi_direction, basic_block);
 extern bool dominated_by_p (enum cdi_direction, basic_block, basic_block);
-extern int get_dominated_by (enum cdi_direction, basic_block, basic_block **);
-extern unsigned get_dominated_by_region (enum cdi_direction, basic_block *,
-					 unsigned, basic_block *);
+extern VEC (basic_block, heap) *get_dominated_by (enum cdi_direction, basic_block);
+extern VEC (basic_block, heap) *get_dominated_by_region (enum cdi_direction,
+							 basic_block *,
+							 unsigned);
 extern void add_to_dominance_info (enum cdi_direction, basic_block);
 extern void delete_from_dominance_info (enum cdi_direction, basic_block);
-basic_block recount_dominator (enum cdi_direction, basic_block);
+basic_block recompute_dominator (enum cdi_direction, basic_block);
 extern void redirect_immediate_dominators (enum cdi_direction, basic_block,
 					   basic_block);
-extern void iterate_fix_dominators (enum cdi_direction, basic_block *, int);
+extern void iterate_fix_dominators (enum cdi_direction,
+				    VEC (basic_block, heap) *, bool);
 extern void verify_dominators (enum cdi_direction);
 extern basic_block first_dom_son (enum cdi_direction, basic_block);
 extern basic_block next_dom_son (enum cdi_direction, basic_block);
@@ -939,6 +940,9 @@ extern void set_bb_original (basic_block, basic_block);
 extern basic_block get_bb_original (basic_block);
 extern void set_bb_copy (basic_block, basic_block);
 extern basic_block get_bb_copy (basic_block);
+void set_loop_copy (struct loop *, struct loop *);
+struct loop *get_loop_copy (struct loop *);
+
 
 extern rtx insert_insn_end_bb_new (rtx, basic_block);
 

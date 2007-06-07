@@ -2644,11 +2644,10 @@ df_ref_record (struct df_collection_rec *collection_rec,
 	{
 	  regno += subreg_regno_offset (regno, GET_MODE (SUBREG_REG (reg)),
 					SUBREG_BYTE (reg), GET_MODE (reg));
-	  endregno = subreg_nregs (reg);
+	  endregno = regno + subreg_nregs (reg);
 	}
       else
-	endregno = hard_regno_nregs[regno][GET_MODE (reg)];
-      endregno += regno;
+	endregno = END_HARD_REGNO (reg);
 
       /*  If this is a multiword hardreg, we create some extra
 	  datastructures that will enable us to easily build REG_DEAD
@@ -3283,7 +3282,7 @@ df_bb_refs_collect (struct df_collection_rec *collection_rec, basic_block bb)
   if (df_has_eh_preds (bb))
     {
       unsigned int i;
-      /* This code is putting in a artificial ref for the use at the
+      /* This code is putting in an artificial ref for the use at the
 	 TOP of the block that receives the exception.  It is too
 	 cumbersome to actually put the ref on the edge.  We could
 	 either model this at the top of the receiver block or the

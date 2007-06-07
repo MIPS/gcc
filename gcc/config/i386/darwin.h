@@ -26,7 +26,7 @@ Boston, MA 02110-1301, USA.  */
 #define TARGET_VERSION fprintf (stderr, " (i686 Darwin)");
 
 #undef  TARGET_64BIT
-#define TARGET_64BIT (target_flags & MASK_64BIT)
+#define TARGET_64BIT OPTION_ISA_64BIT
 
 #ifdef IN_LIBGCC2
 #undef TARGET_64BIT
@@ -128,7 +128,21 @@ extern void darwin_x86_file_end (void);
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    and returns float values in the 387.  */
 
+#undef TARGET_SUBTARGET_DEFAULT
 #define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_128BIT_LONG_DOUBLE)
+
+/* For darwin we want to target specific processor features as a minimum,
+   but these unfortunately don't correspond to a specific processor.  */
+#undef TARGET_SUBTARGET32_ISA_DEFAULT
+#define TARGET_SUBTARGET32_ISA_DEFAULT (OPTION_MASK_ISA_MMX		\
+					| OPTION_MASK_ISA_SSE		\
+					| OPTION_MASK_ISA_SSE2)
+
+#undef TARGET_SUBTARGET64_ISA_DEFAULT
+#define TARGET_SUBTARGET64_ISA_DEFAULT (OPTION_MASK_ISA_MMX		\
+					| OPTION_MASK_ISA_SSE		\
+					| OPTION_MASK_ISA_SSE2		\
+					| OPTION_MASK_ISA_SSE3)
 
 /* For now, disable dynamic-no-pic.  We'll need to go through i386.c
    with a fine-tooth comb looking for refs to flag_pic!  */

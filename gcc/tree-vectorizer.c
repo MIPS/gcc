@@ -1841,14 +1841,27 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
         }
       break;
 
+    case FIX_TRUNC_EXPR:
+      /* ??? Not yet implemented due to missing VEC_UNPACK_FIX_TRUNC_HI_EXPR/
+	 VEC_UNPACK_FIX_TRUNC_LO_EXPR tree codes and optabs used for
+	 computing the operation.  */
+      return false;
+
     default:
       gcc_unreachable ();
     }
 
-  *code1 = c1;
-  *code2 = c2;
-  optab1 = optab_for_tree_code (c1, vectype);
-  optab2 = optab_for_tree_code (c2, vectype);
+  if (code == FIX_TRUNC_EXPR)
+    {
+      /* The signedness is determined from output operand.  */
+      optab1 = optab_for_tree_code (c1, type);
+      optab2 = optab_for_tree_code (c2, type);
+    }
+  else
+    {
+      optab1 = optab_for_tree_code (c1, vectype);
+      optab2 = optab_for_tree_code (c2, vectype);
+    }
 
   if (!optab1 || !optab2)
     return false;
@@ -1861,6 +1874,8 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
       || insn_data[icode2].operand[0].mode != TYPE_MODE (wide_vectype))
     return false;
 
+  *code1 = c1;
+  *code2 = c2;
   return true;
 }
 
@@ -1903,12 +1918,20 @@ supportable_narrowing_operation (enum tree_code code,
       c1 = VEC_PACK_FIX_TRUNC_EXPR;
       break;
 
+    case FLOAT_EXPR:
+      /* ??? Not yet implemented due to missing VEC_PACK_FLOAT_EXPR
+	 tree code and optabs used for computing the operation.  */
+      return false;
+
     default:
       gcc_unreachable ();
     }
 
-  *code1 = c1;
-  optab1 = optab_for_tree_code (c1, vectype);
+  if (code == FIX_TRUNC_EXPR)
+    /* The signedness is determined from output operand.  */
+    optab1 = optab_for_tree_code (c1, type);
+  else
+    optab1 = optab_for_tree_code (c1, vectype);
 
   if (!optab1)
     return false;
@@ -1918,6 +1941,7 @@ supportable_narrowing_operation (enum tree_code code,
       || insn_data[icode1].operand[0].mode != TYPE_MODE (narrow_vectype))
     return false;
 
+  *code1 = c1;
   return true;
 }
 

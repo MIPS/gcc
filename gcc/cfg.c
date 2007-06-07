@@ -67,6 +67,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "hashtab.h"
 #include "alloc-pool.h"
 #include "df.h"
+#include "cfgloop.h"
 
 /* The obstack on which the flow graph components are allocated.  */
 
@@ -83,11 +84,11 @@ void
 init_flow (void)
 {
   if (!cfun->cfg)
-    cfun->cfg = ggc_alloc_cleared (sizeof (struct control_flow_graph));
+    cfun->cfg = GGC_CNEW (struct control_flow_graph);
   n_edges = 0;
-  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
+  ENTRY_BLOCK_PTR = GGC_CNEW (struct basic_block_def);
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
+  EXIT_BLOCK_PTR = GGC_CNEW (struct basic_block_def);
   EXIT_BLOCK_PTR->index = EXIT_BLOCK;
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
@@ -134,7 +135,7 @@ basic_block
 alloc_block (void)
 {
   basic_block bb;
-  bb = ggc_alloc_cleared (sizeof (*bb));
+  bb = GGC_CNEW (struct basic_block_def);
   return bb;
 }
 
@@ -272,7 +273,7 @@ edge
 unchecked_make_edge (basic_block src, basic_block dst, int flags)
 {
   edge e;
-  e = ggc_alloc_cleared (sizeof (*e));
+  e = GGC_CNEW (struct edge_def);
   n_edges++;
 
   e->src = src;
@@ -1090,6 +1091,9 @@ scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num,
    copies.  */
 static htab_t bb_original;
 static htab_t bb_copy;
+
+/* And between loops and copies.  */
+static htab_t loop_copy;
 static alloc_pool original_copy_bb_pool;
 
 struct htab_bb_copy_original_entry
@@ -1131,6 +1135,7 @@ initialize_original_copy_tables (void)
   bb_original = htab_create (10, bb_copy_original_hash,
 			     bb_copy_original_eq, NULL);
   bb_copy = htab_create (10, bb_copy_original_hash, bb_copy_original_eq, NULL);
+  loop_copy = htab_create (10, bb_copy_original_hash, bb_copy_original_eq, NULL);
 }
 
 /* Free the data structures to maintain mapping between blocks and
@@ -1141,10 +1146,57 @@ free_original_copy_tables (void)
   gcc_assert (original_copy_bb_pool);
   htab_delete (bb_copy);
   htab_delete (bb_original);
+  htab_delete (loop_copy);
   free_alloc_pool (original_copy_bb_pool);
   bb_copy = NULL;
   bb_original = NULL;
+  loop_copy = NULL;
   original_copy_bb_pool = NULL;
+}
+
+/* Removes the value associated with OBJ from table TAB.  */
+
+static void
+copy_original_table_clear (htab_t tab, unsigned obj)
+{
+  void **slot;
+  struct htab_bb_copy_original_entry key, *elt;
+
+  if (!original_copy_bb_pool)
+    return;
+
+  key.index1 = obj;
+  slot = htab_find_slot (tab, &key, NO_INSERT);
+  if (!slot)
+    return;
+
+  elt = (struct htab_bb_copy_original_entry *) *slot;
+  htab_clear_slot (tab, slot);
+  pool_free (original_copy_bb_pool, elt);
+}
+
+/* Sets the value associated with OBJ in table TAB to VAL.
+   Do nothing when data structures are not initialized.  */
+
+static void
+copy_original_table_set (htab_t tab, unsigned obj, unsigned val)
+{
+  struct htab_bb_copy_original_entry **slot;
+  struct htab_bb_copy_original_entry key;
+
+  if (!original_copy_bb_pool)
+    return;
+
+  key.index1 = obj;
+  slot = (struct htab_bb_copy_original_entry **)
+		htab_find_slot (tab, &key, INSERT);
+  if (!*slot)
+    {
+      *slot = (struct htab_bb_copy_original_entry *)
+		pool_alloc (original_copy_bb_pool);
+      (*slot)->index1 = obj;
+    }
+  (*slot)->index2 = val;
 }
 
 /* Set original for basic block.  Do nothing when data structures are not
@@ -1152,24 +1204,7 @@ free_original_copy_tables (void)
 void
 set_bb_original (basic_block bb, basic_block original)
 {
-  if (original_copy_bb_pool)
-    {
-      struct htab_bb_copy_original_entry **slot;
-      struct htab_bb_copy_original_entry key;
-
-      key.index1 = bb->index;
-      slot =
-	(struct htab_bb_copy_original_entry **) htab_find_slot (bb_original,
-							       &key, INSERT);
-      if (*slot)
-	(*slot)->index2 = original->index;
-      else
-	{
-	  *slot = pool_alloc (original_copy_bb_pool);
-	  (*slot)->index1 = bb->index;
-	  (*slot)->index2 = original->index;
-	}
-    }
+  copy_original_table_set (bb_original, bb->index, original->index);
 }
 
 /* Get the original basic block.  */
@@ -1194,24 +1229,7 @@ get_bb_original (basic_block bb)
 void
 set_bb_copy (basic_block bb, basic_block copy)
 {
-  if (original_copy_bb_pool)
-    {
-      struct htab_bb_copy_original_entry **slot;
-      struct htab_bb_copy_original_entry key;
-
-      key.index1 = bb->index;
-      slot =
-	(struct htab_bb_copy_original_entry **) htab_find_slot (bb_copy,
-							       &key, INSERT);
-      if (*slot)
-	(*slot)->index2 = copy->index;
-      else
-	{
-	  *slot = pool_alloc (original_copy_bb_pool);
-	  (*slot)->index1 = bb->index;
-	  (*slot)->index2 = copy->index;
-	}
-    }
+  copy_original_table_set (bb_copy, bb->index, copy->index);
 }
 
 /* Get the copy of basic block.  */
@@ -1231,3 +1249,32 @@ get_bb_copy (basic_block bb)
     return NULL;
 }
 
+/* Set copy for LOOP to COPY.  Do nothing when data structures are not
+   initialized so passes not needing this don't need to care.  */
+
+void
+set_loop_copy (struct loop *loop, struct loop *copy)
+{
+  if (!copy)
+    copy_original_table_clear (loop_copy, loop->num);
+  else
+    copy_original_table_set (loop_copy, loop->num, copy->num);
+}
+
+/* Get the copy of LOOP.  */
+
+struct loop *
+get_loop_copy (struct loop *loop)
+{
+  struct htab_bb_copy_original_entry *entry;
+  struct htab_bb_copy_original_entry key;
+
+  gcc_assert (original_copy_bb_pool);
+
+  key.index1 = loop->num;
+  entry = (struct htab_bb_copy_original_entry *) htab_find (loop_copy, &key);
+  if (entry)
+    return get_loop (entry->index2);
+  else
+    return NULL;
+}

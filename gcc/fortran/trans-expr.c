@@ -1149,7 +1149,7 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
 
       lse.expr = gfc_build_compare_string (lse.string_length, lse.expr,
 					   rse.string_length, rse.expr);
-      rse.expr = integer_zero_node;
+      rse.expr = build_int_cst (TREE_TYPE (lse.expr), 0);
       gfc_add_block_to_block (&lse.post, &rse.post);
     }
 
@@ -1653,12 +1653,12 @@ gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
       break;
 
     case EXPR_FUNCTION:
-      if (expr->value.function.actual->expr->expr_type == EXPR_VARIABLE
-	    && gfc_apply_interface_mapping_to_expr (mapping,
-			expr->value.function.actual->expr)
-	    && expr->value.function.esym == NULL
+      if (expr->value.function.esym == NULL
 	    && expr->value.function.isym != NULL
-	    && expr->value.function.isym->generic_id == GFC_ISYM_LEN)
+	    && expr->value.function.isym->id == GFC_ISYM_LEN
+	    && expr->value.function.actual->expr->expr_type == EXPR_VARIABLE
+	    && gfc_apply_interface_mapping_to_expr (mapping,
+			expr->value.function.actual->expr))
 	{
 	  gfc_expr *new_expr;
 	  new_expr = gfc_copy_expr (expr->value.function.actual->expr->ts.cl->length);
@@ -2537,7 +2537,7 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
 
   /* Do nothing if the destination length is zero.  */
   cond = fold_build2 (GT_EXPR, boolean_type_node, dlen,
-		      build_int_cst (gfc_charlen_type_node, 0));
+		      build_int_cst (size_type_node, 0));
 
   /* The following code was previously in _gfortran_copy_string:
 
@@ -3567,8 +3567,9 @@ is_zero_initializer_p (gfc_expr * expr)
 {
   if (expr->expr_type != EXPR_CONSTANT)
     return false;
-  /* We ignore Hollerith constants for the time being.  */
-  if (expr->from_H)
+
+  /* We ignore constants with prescribed memory representations for now.  */
+  if (expr->representation.string)
     return false;
 
   switch (expr->ts.type)
@@ -3619,8 +3620,9 @@ gfc_trans_zero_assign (gfc_expr * expr)
   if (!len || TREE_CODE (len) != INTEGER_CST)
     return NULL_TREE;
 
+  tmp = TYPE_SIZE_UNIT (gfc_get_element_type (type));
   len = fold_build2 (MULT_EXPR, gfc_array_index_type, len,
-                     TYPE_SIZE_UNIT (gfc_get_element_type (type)));
+		     fold_convert (gfc_array_index_type, tmp));
 
   /* Convert arguments to the correct types.  */
   if (!POINTER_TYPE_P (TREE_TYPE (dest)))
@@ -3673,6 +3675,7 @@ gfc_trans_array_copy (gfc_expr * expr1, gfc_expr * expr2)
 {
   tree dst, dlen, dtype;
   tree src, slen, stype;
+  tree tmp;
 
   dst = gfc_get_symbol_decl (expr1->symtree->n.sym);
   src = gfc_get_symbol_decl (expr2->symtree->n.sym);
@@ -3691,14 +3694,16 @@ gfc_trans_array_copy (gfc_expr * expr1, gfc_expr * expr2)
   dlen = GFC_TYPE_ARRAY_SIZE (dtype);
   if (!dlen || TREE_CODE (dlen) != INTEGER_CST)
     return NULL_TREE;
+  tmp = TYPE_SIZE_UNIT (gfc_get_element_type (dtype));
   dlen = fold_build2 (MULT_EXPR, gfc_array_index_type, dlen,
-		      TYPE_SIZE_UNIT (gfc_get_element_type (dtype)));
+		      fold_convert (gfc_array_index_type, tmp));
 
   slen = GFC_TYPE_ARRAY_SIZE (stype);
   if (!slen || TREE_CODE (slen) != INTEGER_CST)
     return NULL_TREE;
+  tmp = TYPE_SIZE_UNIT (gfc_get_element_type (stype));
   slen = fold_build2 (MULT_EXPR, gfc_array_index_type, slen,
-		      TYPE_SIZE_UNIT (gfc_get_element_type (stype)));
+		      fold_convert (gfc_array_index_type, tmp));
 
   /* Sanity check that they are the same.  This should always be
      the case, as we should already have checked for conformance.  */
@@ -3720,6 +3725,7 @@ gfc_trans_array_constructor_copy (gfc_expr * expr1, gfc_expr * expr2)
   tree dst, dtype;
   tree src, stype;
   tree len;
+  tree tmp;
 
   nelem = gfc_constant_array_constructor_p (expr2->value.constructor);
   if (nelem == 0)
@@ -3741,8 +3747,9 @@ gfc_trans_array_constructor_copy (gfc_expr * expr1, gfc_expr * expr2)
   if (compare_tree_int (len, nelem) != 0)
     return NULL_TREE;
 
+  tmp = TYPE_SIZE_UNIT (gfc_get_element_type (dtype));
   len = fold_build2 (MULT_EXPR, gfc_array_index_type, len,
-		     TYPE_SIZE_UNIT (gfc_get_element_type (dtype)));
+		     fold_convert (gfc_array_index_type, tmp));
 
   stype = gfc_typenode_for_spec (&expr2->ts);
   src = gfc_build_constant_array_constructor (expr2, stype);

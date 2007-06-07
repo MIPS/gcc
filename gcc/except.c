@@ -1005,7 +1005,11 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
     for (prev_try = VEC_index (eh_region, cfun->eh->region_array, outer_region);
          prev_try && prev_try->type != ERT_TRY;
 	 prev_try = prev_try->outer)
-      ;
+      if (prev_try->type == ERT_MUST_NOT_THROW)
+	{
+	  prev_try = NULL;
+	  break;
+	}
 
   /* Remap all of the internal catch and cleanup linkages.  Since we 
      duplicate entire subtrees, all of the referenced regions will have
@@ -1898,9 +1902,9 @@ sjlj_emit_function_enter (rtx dispatch_label)
   for (fn_begin = get_insns (); ; fn_begin = NEXT_INSN (fn_begin))
     if (NOTE_P (fn_begin))
       {
-	if (NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_FUNCTION_BEG)
+	if (NOTE_KIND (fn_begin) == NOTE_INSN_FUNCTION_BEG)
 	  break;
-	else if (NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_BASIC_BLOCK)
+	else if (NOTE_INSN_BASIC_BLOCK_P (fn_begin))
 	  fn_begin_outside_block = false;
       }
 
@@ -2859,7 +2863,7 @@ expand_builtin_unwind_init (void)
 {
   /* Set this so all the registers get saved in our frame; we need to be
      able to copy the saved values for any registers from frames we unwind.  */
-  current_function_has_nonlocal_label = 1;
+  current_function_calls_unwind_init = 1;
 
 #ifdef SETUP_FRAME_ADDRESSES
   SETUP_FRAME_ADDRESSES ();

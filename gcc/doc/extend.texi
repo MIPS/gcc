@@ -81,6 +81,7 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Pragmas::             Pragmas accepted by GCC.
 * Unnamed Fields::      Unnamed struct/union fields within structs/unions.
 * Thread-Local::        Per-thread variables.
+* Binary constants::    Binary constants using the @samp{0b} prefix.
 @end menu
 
 @node Statement Exprs
@@ -1572,13 +1573,14 @@ The keyword @code{__attribute__} allows you to specify special
 attributes when making a declaration.  This keyword is followed by an
 attribute specification inside double parentheses.  The following
 attributes are currently defined for functions on all targets:
-@code{noreturn}, @code{returns_twice}, @code{noinline}, @code{always_inline},
-@code{flatten}, @code{pure}, @code{const}, @code{nothrow}, @code{sentinel},
-@code{format}, @code{format_arg}, @code{no_instrument_function},
-@code{section}, @code{constructor}, @code{destructor}, @code{used},
-@code{unused}, @code{deprecated}, @code{weak}, @code{malloc},
-@code{alias}, @code{warn_unused_result}, @code{nonnull},
-@code{gnu_inline} and @code{externally_visible}, @code{hot}, @code{cold}.
+@code{alloc_size}, @code{noreturn}, @code{returns_twice}, @code{noinline},
+@code{always_inline}, @code{flatten}, @code{pure}, @code{const},
+@code{nothrow}, @code{sentinel}, @code{format}, @code{format_arg},
+@code{no_instrument_function}, @code{section}, @code{constructor},
+@code{destructor}, @code{used}, @code{unused}, @code{deprecated},
+@code{weak}, @code{malloc}, @code{alias}, @code{warn_unused_result},
+@code{nonnull}, @code{gnu_inline} and @code{externally_visible},
+@code{hot}, @code{cold}.
 Several other attributes are defined for functions on particular target
 systems.  Other attributes, including @code{section} are supported for
 variables declarations (@pxref{Variable Attributes}) and for types (@pxref{Type
@@ -1610,6 +1612,30 @@ mangled name for the target must be used.  It is an error if @samp{__f}
 is not defined in the same translation unit.
 
 Not all target machines support this attribute.
+
+@item alloc_size
+@cindex @code{alloc_size} attribute
+The @code{alloc_size} attribute is used to tell the compiler that the
+function return value points to memory, where the size is given by
+one or two of the functions parameters.  GCC uses this 
+information to improve the correctness of @code{__builtin_object_size}.
+
+The function parameter(s) denoting the allocated size are specified by
+one or two integer arguments supplied to the attribute.  The allocated size
+is either the value of the single function argument specified or the product
+of the two function arguments specified.  Argument numbering starts at
+one.
+
+For instance, 
+
+@smallexample
+void* my_calloc(size_t, size_t) __attribute__((alloc_size(1,2)))
+void my_realloc(void* size_t) __attribute__((alloc_size(2)))
+@end smallexample
+
+declares that my_calloc will return memory of the size given by
+the product of parameter 1 and 2 and that my_realloc will return memory
+of the size given by parameter 2.
 
 @item always_inline
 @cindex @code{always_inline} function attribute
@@ -2018,12 +2044,13 @@ This attribute is ignored for R8C target.
 
 @item interrupt
 @cindex interrupt handler functions
-Use this attribute on the ARM, AVR, C4x, CRX, M32C, M32R/D, MS1, and Xstormy16
-ports to indicate that the specified function is an interrupt handler.
-The compiler will generate function entry and exit sequences suitable
-for use in an interrupt handler when this attribute is present.
+Use this attribute on the ARM, AVR, C4x, CRX, M32C, M32R/D, m68k, MS1,
+and Xstormy16 ports to indicate that the specified function is an
+interrupt handler.  The compiler will generate function entry and exit
+sequences suitable for use in an interrupt handler when this attribute
+is present.
 
-Note, interrupt handlers for the Blackfin, m68k, H8/300, H8/300H, H8S, and
+Note, interrupt handlers for the Blackfin, H8/300, H8/300H, H8S, and
 SH processors can be specified via the @code{interrupt_handler} attribute.
 
 Note, on the AVR, interrupts will be enabled inside the function.
@@ -2085,13 +2112,16 @@ PowerPC, the @code{#pragma longcall} setting.
 @xref{RS/6000 and PowerPC Options}, for more information on whether long
 calls are necessary.
 
-@item long_call
+@item long_call/near/far
 @cindex indirect calls on MIPS
-This attribute specifies how a particular function is called on MIPS@.
-The attribute overrides the @option{-mlong-calls} (@pxref{MIPS Options})
-command line switch.  This attribute causes the compiler to always call
+These attributes specify how a particular function is called on MIPS@.
+The attributes override the @option{-mlong-calls} (@pxref{MIPS Options})
+command-line switch.  The @code{long_call} and @code{far} attributes are
+synonyms, and cause the compiler to always call
 the function by first loading its address into a register, and then using
-the contents of that register.
+the contents of that register.  The @code{near} attribute has the opposite
+effect; it specifies that non-PIC calls should be made using the more 
+efficient @code{jal} instruction.
 
 @item malloc
 @cindex @code{malloc} attribute
@@ -7396,6 +7426,132 @@ v4si __builtin_ia32_pabsd128 (v4si)
 v8hi __builtin_ia32_pabsw128 (v8hi)
 @end smallexample
 
+The following built-in functions are available when @option{-msse4.1} is
+used.  All of them generate the machine instruction that is part of the
+name.
+
+@smallexample
+v2df __builtin_ia32_blendpd (v2df, v2df, const int)
+v4sf __builtin_ia32_blendps (v4sf, v4sf, const int)
+v2df __builtin_ia32_blendvpd (v2df, v2df, v2df)
+v4sf __builtin_ia32_blendvps (v4sf, v4sf, v4sf)
+v2df __builtin_ia32_dppd (__v2df, __v2df, const int)
+v4sf __builtin_ia32_dpps (v4sf, v4sf, const int)
+v4sf __builtin_ia32_insertps128 (v4sf, v4sf, const int)
+v2di __builtin_ia32_movntdqa (v2di *);
+v16qi __builtin_ia32_mpsadbw128 (v16qi, v16qi, const int)
+v8hi __builtin_ia32_packusdw128 (v4si, v4si)
+v16qi __builtin_ia32_pblendvb128 (v16qi, v16qi, v16qi)
+v8hi __builtin_ia32_pblendw128 (v8hi, v8hi, const int)
+v2di __builtin_ia32_pcmpeqq (v2di, v2di)
+v8hi __builtin_ia32_phminposuw128 (v8hi)
+v16qi __builtin_ia32_pmaxsb128 (v16qi, v16qi)
+v4si __builtin_ia32_pmaxsd128 (v4si, v4si)
+v4si __builtin_ia32_pmaxud128 (v4si, v4si)
+v8hi __builtin_ia32_pmaxuw128 (v8hi, v8hi)
+v16qi __builtin_ia32_pminsb128 (v16qi, v16qi)
+v4si __builtin_ia32_pminsd128 (v4si, v4si)
+v4si __builtin_ia32_pminud128 (v4si, v4si)
+v8hi __builtin_ia32_pminuw128 (v8hi, v8hi)
+v4si __builtin_ia32_pmovsxbd128 (v16qi)
+v2di __builtin_ia32_pmovsxbq128 (v16qi)
+v8hi __builtin_ia32_pmovsxbw128 (v16qi)
+v2di __builtin_ia32_pmovsxdq128 (v4si)
+v4si __builtin_ia32_pmovsxwd128 (v8hi)
+v2di __builtin_ia32_pmovsxwq128 (v8hi)
+v4si __builtin_ia32_pmovzxbd128 (v16qi)
+v2di __builtin_ia32_pmovzxbq128 (v16qi)
+v8hi __builtin_ia32_pmovzxbw128 (v16qi)
+v2di __builtin_ia32_pmovzxdq128 (v4si)
+v4si __builtin_ia32_pmovzxwd128 (v8hi)
+v2di __builtin_ia32_pmovzxwq128 (v8hi)
+v2di __builtin_ia32_pmuldq128 (v4si, v4si)
+v4si __builtin_ia32_pmulld128 (v4si, v4si)
+int __builtin_ia32_ptestc128 (v2di, v2di)
+int __builtin_ia32_ptestnzc128 (v2di, v2di)
+int __builtin_ia32_ptestz128 (v2di, v2di)
+v2df __builtin_ia32_roundpd (v2df, const int)
+v4sf __builtin_ia32_roundps (v4sf, const int)
+v2df __builtin_ia32_roundsd (v2df, v2df, const int)
+v4sf __builtin_ia32_roundss (v4sf, v4sf, const int)
+@end smallexample
+
+The following built-in functions are available when @option{-msse4.1} is
+used.
+
+@table @code
+@item v4sf __builtin_ia32_vec_set_v4sf (v4sf, float, const int)
+Generates the @code{insertps} machine instruction.
+@item int __builtin_ia32_vec_ext_v16qi (v16qi, const int)
+Generates the @code{pextrb} machine instruction.
+@item v16qi __builtin_ia32_vec_set_v16qi (v16qi, int, const int)
+Generates the @code{pinsrb} machine instruction.
+@item v4si __builtin_ia32_vec_set_v4si (v4si, int, const int)
+Generates the @code{pinsrd} machine instruction.
+@item v2di __builtin_ia32_vec_set_v2di (v2di, long long, const int)
+Generates the @code{pinsrq} machine instruction in 64bit mode.
+@end table
+
+The following built-in functions are changed to generate new SSE4.1
+instructions when @option{-msse4.1} is used.
+
+@table @code
+@item float __builtin_ia32_vec_ext_v4sf (v4sf, const int)
+Generates the @code{extractps} machine instruction.
+@item int __builtin_ia32_vec_ext_v4si (v4si, const int)
+Generates the @code{pextrd} machine instruction.
+@item long long __builtin_ia32_vec_ext_v2di (v2di, const int)
+Generates the @code{pextrq} machine instruction in 64bit mode.
+@end table
+
+The following built-in functions are available when @option{-msse4.2} is
+used.  All of them generate the machine instruction that is part of the
+name.
+
+@smallexample
+v16qi __builtin_ia32_pcmpestrm128 (v16qi, int, v16qi, int, const int)
+int __builtin_ia32_pcmpestri128 (v16qi, int, v16qi, int, const int)
+int __builtin_ia32_pcmpestria128 (v16qi, int, v16qi, int, const int)
+int __builtin_ia32_pcmpestric128 (v16qi, int, v16qi, int, const int)
+int __builtin_ia32_pcmpestrio128 (v16qi, int, v16qi, int, const int)
+int __builtin_ia32_pcmpestris128 (v16qi, int, v16qi, int, const int)
+int __builtin_ia32_pcmpestriz128 (v16qi, int, v16qi, int, const int)
+v16qi __builtin_ia32_pcmpistrm128 (v16qi, v16qi, const int)
+int __builtin_ia32_pcmpistri128 (v16qi, v16qi, const int)
+int __builtin_ia32_pcmpistria128 (v16qi, v16qi, const int)
+int __builtin_ia32_pcmpistric128 (v16qi, v16qi, const int)
+int __builtin_ia32_pcmpistrio128 (v16qi, v16qi, const int)
+int __builtin_ia32_pcmpistris128 (v16qi, v16qi, const int)
+int __builtin_ia32_pcmpistriz128 (v16qi, v16qi, const int)
+__v2di __builtin_ia32_pcmpgtq (__v2di, __v2di)
+@end smallexample
+
+The following built-in functions are available when @option{-msse4.2} is
+used.
+
+@table @code
+unsigned int __builtin_ia32_crc32qi (unsigned int, unsigned char)
+Generates the @code{crc32b} machine instruction.
+unsigned int __builtin_ia32_crc32hi (unsigned int, unsigned short)
+Generates the @code{crc32w} machine instruction.
+unsigned int __builtin_ia32_crc32si (unsigned int, unsigned int)
+Generates the @code{crc32l} machine instruction.
+unsigned long long __builtin_ia32_crc32di (unsigned int, unsigned long long)
+@end table
+
+The following built-in functions are changed to generate new SSE4.2
+instructions when @option{-msse4.2} is used.
+
+@table @code
+int __builtin_popcount (unsigned int)
+Generates the @code{popcntl} machine instruction.
+int __builtin_popcountl (unsigned long)
+Generates the @code{popcntl} or @code{popcntq} machine instruction,
+depending on the size of @code{unsigned long}.
+int __builtin_popcountll (unsigned long long)
+Generates the @code{popcntq} machine instruction.
+@end table
+
 The following built-in functions are available when @option{-msse4a} is used.
 
 @smallexample
@@ -10704,6 +10860,28 @@ Add after paragraph 6
 Non-@code{static} members shall not be @code{__thread}.
 @end quotation
 @end itemize
+
+@node Binary constants
+@section Binary constants using the @samp{0b} prefix
+@cindex Binary constants using the @samp{0b} prefix
+
+Integer constants can be written as binary constants, consisting of a
+sequence of @samp{0} and @samp{1} digits, prefixed by @samp{0b} or
+@samp{0B}.  This is particularly useful in environments that operate a
+lot on the bit-level (like microcontrollers).
+
+The following statements are identical:
+
+@smallexample
+i =       42;
+i =     0x2a;
+i =      052;
+i = 0b101010;
+@end smallexample
+
+The type of these constants follows the same rules as for octal or
+hexadecimal integer constants, so suffixes like @samp{L} or @samp{UL}
+can be applied.
 
 @node C++ Extensions
 @chapter Extensions to the C++ Language

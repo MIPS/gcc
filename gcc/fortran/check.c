@@ -1486,19 +1486,17 @@ min_max_args (gfc_actual_arglist *arg)
 
 
 static try
-check_rest (bt type, int kind, gfc_actual_arglist *arg)
+check_rest (bt type, int kind, gfc_actual_arglist *arglist)
 {
-  gfc_expr *x, *first_arg;
-  int n;
-  char buffer[80];
+  gfc_actual_arglist *arg, *tmp;
 
-  if (min_max_args (arg) == FAILURE)
+  gfc_expr *x;
+  int m, n;
+
+  if (min_max_args (arglist) == FAILURE)
     return FAILURE;
 
-  n = 1;
-
-  first_arg = arg->expr;
-  for (; arg; arg = arg->next, n++)
+  for (arg = arglist, n=1; arg; arg = arg->next, n++)
     {
       x = arg->expr;
       if (x->ts.type != type || x->ts.kind != kind)
@@ -1518,11 +1516,14 @@ check_rest (bt type, int kind, gfc_actual_arglist *arg)
 	    }
 	}
 
-      snprintf (buffer, 80, "arguments '%s' and '%s' for intrinsic '%s'",
-		gfc_current_intrinsic_arg[0], gfc_current_intrinsic_arg[n-1],
-		gfc_current_intrinsic);
-      if (gfc_check_conformance (buffer, first_arg, x) == FAILURE)
-        return FAILURE;
+      for (tmp = arglist, m=1; tmp != arg; tmp = tmp->next, m++)
+        {
+	  char buffer[80];
+	  snprintf (buffer, 80, "arguments 'a%d' and 'a%d' for intrinsic '%s'",
+		    m, n, gfc_current_intrinsic);
+	  if (gfc_check_conformance (buffer, tmp->expr, x) == FAILURE)
+	    return FAILURE;
+	}
     }
 
   return SUCCESS;
@@ -2333,6 +2334,13 @@ gfc_check_size (gfc_expr *array, gfc_expr *dim)
 
 
 try
+gfc_check_sizeof (gfc_expr *arg __attribute__((unused)))
+{
+  return SUCCESS;
+}
+
+
+try
 gfc_check_sleep_sub (gfc_expr *seconds)
 {
   if (type_check (seconds, 0, BT_INTEGER) == FAILURE)
@@ -2600,6 +2608,13 @@ try
 gfc_check_transfer (gfc_expr *source ATTRIBUTE_UNUSED,
 		    gfc_expr *mold ATTRIBUTE_UNUSED, gfc_expr *size)
 {
+  if (mold->ts.type == BT_HOLLERITH)
+    {
+      gfc_error ("'MOLD' argument of 'TRANSFER' intrinsic at %L must not be %s",
+		 &mold->where, gfc_basic_typename (BT_HOLLERITH));
+      return FAILURE;
+    }
+
   if (size != NULL)
     {
       if (type_check (size, 2, BT_INTEGER) == FAILURE)
