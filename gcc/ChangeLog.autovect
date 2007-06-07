@@ -1,5 +1,10 @@
 2007-06-07  Dorit Nuzman  <dorit@il.ibm.com>
 
+	* tree-vect-transform.c (vectorizable_load): Fix assert (accidentally
+	left out from previous commit)
+
+2007-06-07  Dorit Nuzman  <dorit@il.ibm.com>
+
 	* tree-vect-analyze.c (vect_compute_data_ref_alignment): Don't fail if
 	the inner step doesn't divide the vector-size. Change verbosity level.
 	* tree-vect-transform.c (vect_create_data_ref_ptr): Fix a typo.
