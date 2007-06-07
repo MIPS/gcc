@@ -499,18 +499,21 @@ forward_propagate_addr_into_variable_array_index (tree offset,
 {
   tree index;
 
-  /* The statement which defines OFFSET before type conversion
-     must be a simple GIMPLE_MODIFY_STMT.  */
-  if (TREE_CODE (offset) != GIMPLE_MODIFY_STMT)
-    return false;
-
   /* Try to find an expression for a proper index.  This is either
      a multiplication expression by the element size or just the
      ssa name we came along in case the element size is one.  */
   if (integer_onep (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (def_rhs)))))
-    index = GIMPLE_STMT_OPERAND (offset, 0);
+    index = offset;
   else
     {
+      /* Get the offset's defining statement.  */
+      offset = SSA_NAME_DEF_STMT (offset);
+
+      /* The statement which defines OFFSET before type conversion
+         must be a simple GIMPLE_MODIFY_STMT.  */
+      if (TREE_CODE (offset) != GIMPLE_MODIFY_STMT)
+	return false;
+
       /* The RHS of the statement which defines OFFSET must be a
 	 multiplication of an object by the size of the array elements. 
 	 This implicitly verifies that the size of the array elements
@@ -665,9 +668,8 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
       && lang_hooks.types_compatible_p (TREE_TYPE (name), TREE_TYPE (rhs)))
     {
       bool res;
-      tree offset_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 1));
       
-      res = forward_propagate_addr_into_variable_array_index (offset_stmt,
+      res = forward_propagate_addr_into_variable_array_index (TREE_OPERAND (rhs, 1),
 							      def_rhs, use_stmt);
       return res;
     }

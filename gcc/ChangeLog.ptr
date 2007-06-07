@@ -1,5 +1,17 @@
 2007-06-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
+	* tree-ssa-forwprop.c
+	(forward_propagate_addr_into_variable_array_index):
+	Don't expect a statement for the size 1 case.
+	Use the offset variable for the size 1 case.
+	Look through use-def chains to find the mutliply
+	for the non size 1 case.
+	(forward_propagate_addr_expr_1): Call
+	forward_propagate_addr_into_variable_array_index with
+	the SSA_NAME instead of the statement.
+
+2007-06-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
 	PR tree-opt/32225
 	* tree-scalar-evolution.c (follow_ssa_edge_in_rhs <case
 	POINTER_PLUS_EXPR>): Do not change type_rhs.
