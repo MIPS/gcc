@@ -1,3 +1,17 @@
+2007-06-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/builtin-copysign.c: New test.
+
+2007-06-07  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/32220
+	* gfortran.dg/predcom-2.f: New testcase.
+
+2007-06-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/32231
+	* gcc.target/i386/vectorize4.c: New test.
+
 2007-06-06  Steve Ellcey  <sje@cup.hp.com>
 
 	* gfortran.dg/integer_exponentiation_3.F90: Use approx. check.
@@ -355,7 +369,7 @@
 	* gcc.target/arm/long-calls-4.c: Likewise.
 
 2007-05-25  Richard Guenther  <rguenther@suse.de>
-	Andrew Pinski  <andrew_pinski@playstation.sony.com>
+	    Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	PR tree-optimization/31982
 	* gcc.dg/tree-ssa/forwprop-2.c: New testcase.
