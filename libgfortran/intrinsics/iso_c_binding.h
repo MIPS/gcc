@@ -38,38 +38,33 @@ Boston, MA 02110-1301, USA.  */
 typedef struct c_ptr
 {
   void *c_address;
-}c_ptr_t;
+}
+c_ptr_t;
 
 typedef struct c_funptr
 {
   void *c_address;
-}c_funptr_t;
+}
+c_funptr_t;
 
 #define ISO_C_BINDING_PREFIX(a) __iso_c_binding_##a
 
-void ISO_C_BINDING_PREFIX(c_f_pointer)(void * c_ptr_in,
-                                       gfc_array_void *f_ptr_out,
-                                       const array_t *shape,
-                                       int type, int elemSize);
+void ISO_C_BINDING_PREFIX(c_f_pointer)(void *, gfc_array_void *,
+				       const array_t *, int, int);
 
 /* The second param here may change, once procedure pointers are
    implemented.  */
-void ISO_C_BINDING_PREFIX(c_f_procpointer)(void * c_ptr_in,
-                                           gfc_array_void *f_ptr_out);
+void ISO_C_BINDING_PREFIX(c_f_procpointer) (void *, gfc_array_void *);
 
-GFC_LOGICAL_4 ISO_C_BINDING_PREFIX(c_associated_1)(void * c_ptr_in_1);
-GFC_LOGICAL_4 ISO_C_BINDING_PREFIX(c_associated_2)(void * c_ptr_in_1,
-                                                   void * c_ptr_in_2);
+GFC_LOGICAL_4 ISO_C_BINDING_PREFIX(c_associated_1) (void *);
+GFC_LOGICAL_4 ISO_C_BINDING_PREFIX(c_associated_2) (void *, void *);
 
-void ISO_C_BINDING_PREFIX(c_f_pointer_u0)(void * c_ptr_in,
-                                          gfc_array_void *f_ptr_out,
-                                          const array_t *shape);
-void ISO_C_BINDING_PREFIX(c_f_pointer_d0)(void * c_ptr_in,
-                                          gfc_array_void *f_ptr_out,
-                                          const array_t *shape);
+void ISO_C_BINDING_PREFIX(c_f_pointer_u0) (void *, gfc_array_void *,
+					   const array_t *);
+void ISO_C_BINDING_PREFIX(c_f_pointer_d0) (void *, gfc_array_void *,
+					   const array_t *);
 
-void * ISO_C_BINDING_PREFIX(c_loc) (void *f90_obj);
-void * ISO_C_BINDING_PREFIX(c_funloc) (void *f90_obj);
-
+void *ISO_C_BINDING_PREFIX(c_loc) (void *);
+void *ISO_C_BINDING_PREFIX(c_funloc) (void *);
 
 #endif

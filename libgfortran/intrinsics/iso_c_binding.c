@@ -29,11 +29,8 @@ write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
 
-/**
- * Implement the functions and subroutines provided by the intrinsic
- * iso_c_binding module.
- * --Rickett, 12.13.05
- */
+/* Implement the functions and subroutines provided by the intrinsic
+   iso_c_binding module.  */
 
 #include <stdlib.h>
 
@@ -58,7 +55,7 @@ Boston, MA 02110-1301, USA.  */
    needs to be the number of bytes for the size of one double).  */
 
 void
-ISO_C_BINDING_PREFIX (c_f_pointer) (void * c_ptr_in,
+ISO_C_BINDING_PREFIX (c_f_pointer) (void *c_ptr_in,
                                     gfc_array_void *f_ptr_out,
                                     const array_t *shape,
                                     int type, int elemSize)
@@ -66,19 +63,19 @@ ISO_C_BINDING_PREFIX (c_f_pointer) (void * c_ptr_in,
   if (shape != NULL)
     {
       f_ptr_out->offset = 0;
+
       /* Set the necessary dtype field for all pointers.  */
       f_ptr_out->dtype = 0;
+
       /* Put in the element size.  */
-      f_ptr_out->dtype = f_ptr_out->dtype |
-        (elemSize << GFC_DTYPE_SIZE_SHIFT);
+      f_ptr_out->dtype = f_ptr_out->dtype | (elemSize << GFC_DTYPE_SIZE_SHIFT);
+
       /* Set the data type (e.g., GFC_DTYPE_INTEGER).  */
       f_ptr_out->dtype = f_ptr_out->dtype | (type << GFC_DTYPE_TYPE_SHIFT);
     }
   
   /* Use the generic version of c_f_pointer to set common fields.  */
   ISO_C_BINDING_PREFIX (c_f_pointer_u0) (c_ptr_in, f_ptr_out, shape);
-  
-  return;
 }
 
 
@@ -92,7 +89,7 @@ ISO_C_BINDING_PREFIX (c_f_pointer) (void * c_ptr_in,
    f_ptr_out points to a scalar, then this parameter will be NULL.  */
 
 void
-ISO_C_BINDING_PREFIX (c_f_pointer_u0) (void * c_ptr_in,
+ISO_C_BINDING_PREFIX (c_f_pointer_u0) (void *c_ptr_in,
                                        gfc_array_void *f_ptr_out,
                                        const array_t *shape)
 {
@@ -112,11 +109,11 @@ ISO_C_BINDING_PREFIX (c_f_pointer_u0) (void * c_ptr_in,
         {
           /* Lower bound is 1, as specified by the draft.  */
           f_ptr_out->dim[i].lbound = 1;
-          f_ptr_out->dim[i].ubound = ((int *)(shape->data))[i];
+          f_ptr_out->dim[i].ubound = ((int *) (shape->data))[i];
         }
 
-      /* Set the offset and strides.  */
-      /* offset is (sum of (dim[i].lbound * dim[i].stride) for all
+      /* Set the offset and strides.
+         offset is (sum of (dim[i].lbound * dim[i].stride) for all
          dims) the -1 means we'll back the data pointer up that much
          perhaps we could just realign the data pointer and not change
          the offset?  */
@@ -124,7 +121,7 @@ ISO_C_BINDING_PREFIX (c_f_pointer_u0) (void * c_ptr_in,
       f_ptr_out->offset = f_ptr_out->dim[0].lbound * f_ptr_out->dim[0].stride;
       for (i = 1; i < shapeSize; i++)
         {
-          f_ptr_out->dim[i].stride = (f_ptr_out->dim[i-1].ubound+1)
+          f_ptr_out->dim[i].stride = (f_ptr_out->dim[i-1].ubound + 1)
             - f_ptr_out->dim[i-1].lbound;
           f_ptr_out->offset += f_ptr_out->dim[i].lbound
             * f_ptr_out->dim[i].stride;
@@ -138,10 +135,8 @@ ISO_C_BINDING_PREFIX (c_f_pointer_u0) (void * c_ptr_in,
          rank.  Then, shift left by the same number to shift in zeros
          and or with the new rank.  */
       f_ptr_out->dtype = ((f_ptr_out->dtype >> GFC_DTYPE_TYPE_SHIFT)
-                          << GFC_DTYPE_TYPE_SHIFT) | shapeSize;
+                           << GFC_DTYPE_TYPE_SHIFT) | shapeSize;
     }
-  
-  return;
 }
 
 
@@ -149,7 +144,7 @@ ISO_C_BINDING_PREFIX (c_f_pointer_u0) (void * c_ptr_in,
    using c_f_pointer_u0 for the majority of the work.  */
 
 void
-ISO_C_BINDING_PREFIX (c_f_pointer_d0) (void * c_ptr_in,
+ISO_C_BINDING_PREFIX (c_f_pointer_d0) (void *c_ptr_in,
                                        gfc_array_void *f_ptr_out,
                                        const array_t *shape)
 {
@@ -160,11 +155,9 @@ ISO_C_BINDING_PREFIX (c_f_pointer_d0) (void * c_ptr_in,
   if (shape != NULL)
     {
       f_ptr_out->dtype = f_ptr_out->dtype & (~GFC_DTYPE_TYPE_MASK);
-      f_ptr_out->dtype = f_ptr_out->dtype |
-        (GFC_DTYPE_DERIVED << GFC_DTYPE_TYPE_SHIFT);
+      f_ptr_out->dtype = f_ptr_out->dtype
+			 | (GFC_DTYPE_DERIVED << GFC_DTYPE_TYPE_SHIFT);
     }
-
-  return;
 }
 
 
@@ -172,12 +165,10 @@ ISO_C_BINDING_PREFIX (c_f_pointer_d0) (void * c_ptr_in,
    procedure pointer.  */
 
 void
-ISO_C_BINDING_PREFIX (c_f_procpointer) (void * c_ptr_in,
+ISO_C_BINDING_PREFIX (c_f_procpointer) (void *c_ptr_in,
                                         gfc_array_void *f_ptr_out)
 {
   GFC_DESCRIPTOR_DATA(f_ptr_out) = c_ptr_in;
-   
-  return;
 }
 
 
@@ -189,13 +180,14 @@ ISO_C_BINDING_PREFIX (c_f_procpointer) (void * c_ptr_in,
    c_ptr is NULL or not.  */
 
 GFC_LOGICAL_4
-ISO_C_BINDING_PREFIX (c_associated_1) (void * c_ptr_in_1)
+ISO_C_BINDING_PREFIX (c_associated_1) (void *c_ptr_in_1)
 {
   if (c_ptr_in_1 != NULL)
     return 1;
   else
     return 0;
 }
+
 
 /* Test if the two c_ptr arguments are associated with one another.
    This version of the c_associated function is called if the user
@@ -207,7 +199,7 @@ ISO_C_BINDING_PREFIX (c_associated_1) (void * c_ptr_in_1)
    with each other then.  */
 
 GFC_LOGICAL_4
-ISO_C_BINDING_PREFIX (c_associated_2) (void * c_ptr_in_1, void * c_ptr_in_2)
+ISO_C_BINDING_PREFIX (c_associated_2) (void *c_ptr_in_1, void *c_ptr_in_2)
 {
   /* Since we have the second arg, if it doesn't equal the first,
      return false; true otherwise.  However, if the first one is null,
@@ -233,7 +225,7 @@ ISO_C_BINDING_PREFIX (c_loc) (void *f90_obj)
       abort ();
     }
    
-  /* the "C" address should be the address of the object in Fortran */
+  /* The "C" address should be the address of the object in Fortran.  */
   return f90_obj;
 }
 
@@ -252,6 +244,6 @@ ISO_C_BINDING_PREFIX (c_funloc) (void *f90_obj)
       abort ();
     }
 
-  /* the "C" address should be the address of the object in Fortran */
+  /* The "C" address should be the address of the object in Fortran.  */
   return f90_obj;
 }

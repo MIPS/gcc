@@ -33,56 +33,51 @@ Boston, MA 02110-1301, USA.  */
 #include "iso_c_binding.h"
 
 
-/**
- * TODO!! This file needs finished so a function is provided for all
- * possible type/kind combinations!!
- * 
- */
+/* TODO: This file needs to be finished so that a function is provided
+   for all possible type/kind combinations!  */
 
 #ifdef HAVE_GFC_INTEGER_1
-void ISO_C_BINDING_PREFIX (c_f_pointer_i1) (void * c_ptr_in,
-                                            gfc_array_void *f_ptr_out,
-                                            const array_t *shape);
+void ISO_C_BINDING_PREFIX (c_f_pointer_i1) (void *, gfc_array_void *,
+					    const array_t *);
 #endif
+
 #ifdef HAVE_GFC_INTEGER_2
-void ISO_C_BINDING_PREFIX (c_f_pointer_i2) (void * c_ptr_in,
-                                            gfc_array_void *f_ptr_out,
-                                            const array_t *shape);
+void ISO_C_BINDING_PREFIX (c_f_pointer_i2) (void *, gfc_array_void *,
+					    const array_t *);
 #endif
+
 #ifdef HAVE_GFC_INTEGER_4
-void ISO_C_BINDING_PREFIX (c_f_pointer_i4) (void * c_ptr_in,
-                                            gfc_array_void *f_ptr_out,
-                                            const array_t *shape);
+void ISO_C_BINDING_PREFIX (c_f_pointer_i4) (void *, gfc_array_void *,
+					    const array_t *);
 #endif
+
 #ifdef HAVE_GFC_INTEGER_8
-void ISO_C_BINDING_PREFIX (c_f_pointer_i8) (void * c_ptr_in,
-                                            gfc_array_void *f_ptr_out,
-                                            const array_t *shape);
+void ISO_C_BINDING_PREFIX (c_f_pointer_i8) (void *, gfc_array_void *,
+					    const array_t *);
 #endif
+
 #ifdef HAVE_GFC_INTEGER_16
-void ISO_C_BINDING_PREFIX (c_f_pointer_i16) (void * c_ptr_in,
-                                             gfc_array_void *f_ptr_out,
-                                             const array_t *shape);
+void ISO_C_BINDING_PREFIX (c_f_pointer_i16) (void *, gfc_array_void *,
+					     const array_t *);
 #endif
+
 #ifdef HAVE_GFC_REAL_4
-void ISO_C_BINDING_PREFIX (c_f_pointer_r4) (void * c_ptr_in,
-                                            gfc_array_void *f_ptr_out,
-                                            const array_t *shape);
+void ISO_C_BINDING_PREFIX (c_f_pointer_r4) (void *, gfc_array_void *,
+					    const array_t *);
 #endif
+
 #ifdef HAVE_GFC_REAL_8
-void ISO_C_BINDING_PREFIX (c_f_pointer_r8) (void * c_ptr_in,
-                                            gfc_array_void *f_ptr_out,
-                                            const array_t *shape);
+void ISO_C_BINDING_PREFIX (c_f_pointer_r8) (void *, gfc_array_void *,
+					    const array_t *);
 #endif
+
 #ifdef HAVE_GFC_REAL_10
-void ISO_C_BINDING_PREFIX (c_f_pointer_r10) (void * c_ptr_in,
-                                             gfc_array_void *f_ptr_out,
-                                             const array_t *shape);
+void ISO_C_BINDING_PREFIX (c_f_pointer_r10) (void *, gfc_array_void *,
+					     const array_t *);
 #endif
 #ifdef HAVE_GFC_REAL_16
-void ISO_C_BINDING_PREFIX (c_f_pointer_r16) (void * c_ptr_in,
-                                             gfc_array_void *f_ptr_out,
-                                             const array_t *shape);
+void ISO_C_BINDING_PREFIX (c_f_pointer_r16) (void *, gfc_array_void *,
+					     const array_t *);
 #endif
 
 
@@ -97,15 +92,14 @@ void ISO_C_BINDING_PREFIX (c_f_pointer_r16) (void * c_ptr_in,
    as NULL.  */
 
 void
-ISO_C_BINDING_PREFIX (c_f_pointer_i1) (void * c_ptr_in,
-                                       gfc_array_void *f_ptr_out,
-                                       const array_t *shape)
+ISO_C_BINDING_PREFIX (c_f_pointer_i1) (void *c_ptr_in,
+				       gfc_array_void *f_ptr_out,
+				       const array_t *shape)
 {
   /* Here we have an integer(kind=1).  */
   ISO_C_BINDING_PREFIX (c_f_pointer) (c_ptr_in, f_ptr_out, shape,
-                                      (int)GFC_DTYPE_INTEGER,
-                                      (int)sizeof(GFC_INTEGER_1));
-  return;
+				      (int) GFC_DTYPE_INTEGER,
+				      (int) sizeof (GFC_INTEGER_1));
 }
 #endif
 
@@ -121,15 +115,14 @@ ISO_C_BINDING_PREFIX (c_f_pointer_i1) (void * c_ptr_in,
    as NULL.  */
 
 void
-ISO_C_BINDING_PREFIX (c_f_pointer_i2) (void * c_ptr_in,
-                                       gfc_array_void *f_ptr_out,
-                                       const array_t *shape)
+ISO_C_BINDING_PREFIX (c_f_pointer_i2) (void *c_ptr_in,
+				       gfc_array_void *f_ptr_out,
+				       const array_t *shape)
 {
   /* Here we have an integer(kind=2).  */
   ISO_C_BINDING_PREFIX (c_f_pointer) (c_ptr_in, f_ptr_out, shape,
-                                      (int)GFC_DTYPE_INTEGER,
-                                      (int)sizeof(GFC_INTEGER_2));
-  return;
+				      (int) GFC_DTYPE_INTEGER,
+				      (int) sizeof (GFC_INTEGER_2));
 }
 #endif
 
@@ -140,15 +133,15 @@ ISO_C_BINDING_PREFIX (c_f_pointer_i2) (void * c_ptr_in,
    kind=4.  The function c_f_pointer is used to set up the pointer
    descriptor.  */
 
-void ISO_C_BINDING_PREFIX (c_f_pointer_i4) (void * c_ptr_in,
-                                            gfc_array_void *f_ptr_out,
-                                            const array_t *shape)
+void
+ISO_C_BINDING_PREFIX (c_f_pointer_i4) (void *c_ptr_in,
+				       gfc_array_void *f_ptr_out,
+				       const array_t *shape)
 {
   /* Here we have an integer(kind=4).  */
   ISO_C_BINDING_PREFIX (c_f_pointer) (c_ptr_in, f_ptr_out, shape,
 				      (int) GFC_DTYPE_INTEGER,
 				      (int) sizeof (GFC_INTEGER_4));
-  return;
 }
 #endif
 
@@ -159,15 +152,15 @@ void ISO_C_BINDING_PREFIX (c_f_pointer_i4) (void * c_ptr_in,
    kind=8.  The function c_f_pointer is used to set up the pointer
    descriptor.  */
 
-void ISO_C_BINDING_PREFIX (c_f_pointer_i8) (void * c_ptr_in,
-                                            gfc_array_void *f_ptr_out,
-                                            const array_t *shape)
+void
+ISO_C_BINDING_PREFIX (c_f_pointer_i8) (void *c_ptr_in,
+				       gfc_array_void *f_ptr_out,
+				       const array_t *shape)
 {
   /* Here we have an integer(kind=8).  */
   ISO_C_BINDING_PREFIX (c_f_pointer) (c_ptr_in, f_ptr_out, shape,
 				      (int) GFC_DTYPE_INTEGER,
 				      (int) sizeof (GFC_INTEGER_8));
-  return;
 }
 #endif
 
@@ -183,15 +176,14 @@ void ISO_C_BINDING_PREFIX (c_f_pointer_i8) (void * c_ptr_in,
    as NULL.  */
 
 void
-ISO_C_BINDING_PREFIX (c_f_pointer_i16) (void * c_ptr_in,
-                                        gfc_array_void *f_ptr_out,
-                                        const array_t *shape)
+ISO_C_BINDING_PREFIX (c_f_pointer_i16) (void *c_ptr_in,
+					gfc_array_void *f_ptr_out,
+					const array_t *shape)
 {
   /* Here we have an integer(kind=16).  */
   ISO_C_BINDING_PREFIX (c_f_pointer) (c_ptr_in, f_ptr_out, shape,
-                                      (int)GFC_DTYPE_INTEGER,
-                                      (int)sizeof(GFC_INTEGER_16));
-  return;
+				      (int) GFC_DTYPE_INTEGER,
+				      (int) sizeof (GFC_INTEGER_16));
 }
 #endif
 
@@ -202,15 +194,15 @@ ISO_C_BINDING_PREFIX (c_f_pointer_i16) (void * c_ptr_in,
    kind=4.  The function c_f_pointer is used to set up the pointer
    descriptor.  */
 
-void ISO_C_BINDING_PREFIX (c_f_pointer_r4) (void * c_ptr_in,
-                                            gfc_array_void *f_ptr_out,
-                                            const array_t *shape)
+void
+ISO_C_BINDING_PREFIX (c_f_pointer_r4) (void *c_ptr_in,
+				       gfc_array_void *f_ptr_out,
+				       const array_t *shape)
 {
   /* Here we have an real(kind=4).  */
   ISO_C_BINDING_PREFIX (c_f_pointer) (c_ptr_in, f_ptr_out, shape,
 				      (int) GFC_DTYPE_REAL,
 				      (int) sizeof (GFC_REAL_4));
-  return;
 }
 #endif
 
@@ -221,15 +213,15 @@ void ISO_C_BINDING_PREFIX (c_f_pointer_r4) (void * c_ptr_in,
    kind=8.  The function c_f_pointer is used to set up the pointer
    descriptor.  */
 
-void ISO_C_BINDING_PREFIX (c_f_pointer_r8) (void * c_ptr_in,
-                                            gfc_array_void *f_ptr_out,
-                                            const array_t *shape)
+void
+ISO_C_BINDING_PREFIX (c_f_pointer_r8) (void *c_ptr_in,
+				       gfc_array_void *f_ptr_out,
+				       const array_t *shape)
 {
   /* Here we have an real(kind=8).  */
   ISO_C_BINDING_PREFIX (c_f_pointer) (c_ptr_in, f_ptr_out, shape,
 				      (int) GFC_DTYPE_REAL,
 				      (int) sizeof (GFC_REAL_8));
-  return;
 }
 #endif
 
@@ -240,15 +232,15 @@ void ISO_C_BINDING_PREFIX (c_f_pointer_r8) (void * c_ptr_in,
    kind=10.  The function c_f_pointer is used to set up the pointer
    descriptor.  */
 
-void ISO_C_BINDING_PREFIX (c_f_pointer_r10) (void * c_ptr_in,
-                                             gfc_array_void *f_ptr_out,
-                                             const array_t *shape)
+void
+ISO_C_BINDING_PREFIX (c_f_pointer_r10) (void *c_ptr_in,
+					gfc_array_void *f_ptr_out,
+					const array_t *shape)
 {
   /* Here we have an real(kind=10).  */
   ISO_C_BINDING_PREFIX (c_f_pointer) (c_ptr_in, f_ptr_out, shape,
-                                      (int) GFC_DTYPE_REAL,
-                                      (int) sizeof(GFC_REAL_10));
-  return;
+				      (int) GFC_DTYPE_REAL,
+				      (int) sizeof (GFC_REAL_10));
 }
 #endif
 
@@ -259,14 +251,14 @@ void ISO_C_BINDING_PREFIX (c_f_pointer_r10) (void * c_ptr_in,
    kind=16.  The function c_f_pointer is used to set up the pointer
    descriptor.  */
 
-void ISO_C_BINDING_PREFIX (c_f_pointer_r16) (void * c_ptr_in,
-                                             gfc_array_void *f_ptr_out,
-                                             const array_t *shape)
+void
+ISO_C_BINDING_PREFIX (c_f_pointer_r16) (void *c_ptr_in,
+					gfc_array_void *f_ptr_out,
+					const array_t *shape)
 {
   /* Here we have an real(kind=16).  */
   ISO_C_BINDING_PREFIX (c_f_pointer) (c_ptr_in, f_ptr_out, shape,
 				      (int) GFC_DTYPE_REAL,
 				      (int) sizeof (GFC_REAL_16));
-  return;
 }
 #endif

@@ -3,6 +3,15 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-06-07  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* libgfortran/intrinsics/iso_c_generated_procs.c: Whitespace.
+	Reformat comments.  Remove "return;" in void functions.  Remove
+	symbols in prototypes.
+	* libgfortran/intrinsics/iso_c_binding.c: Ditto.
+	* libgfortran/intrinsics/iso_c_binding.h: Whitespace.  Remove
+	symbols in prototypes.
+
 2007-06-07  Tobias Schlüter  <tobi@gcc.gnu.org>
 
 	* gfortran.dg/bind_c_vars_driver.c: Don't include header,
