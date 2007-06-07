@@ -1,3 +1,14 @@
+2007-06-07  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/frv/frv.c (frv_expand_builtin_va_start): Use sizetype
+	with make_tree, instead of a pointer type.
+	* config/pa/pa.c (reloc_needed): Handle POINTER_PLUS_EXPR
+	as PLUS_EXPR/MINUS_EXPR.
+	(hppa_gimplify_va_arg_expr): Don't create MINUS_EXPR or
+	PLUS_EXPR for pointers, instead use POINTER_PLUS_EXPR.
+	Don't use BIT_AND_EXPR on a pointer type, convert the
+	expression to sizetype first.
+
 2007-06-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* tree-ssa-forwprop.c
