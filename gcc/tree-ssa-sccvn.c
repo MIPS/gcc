@@ -46,7 +46,8 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-ssa-sccvn.h"
 
 /* This algorithm is based on the SCC algorithm presented by Keith
-   Cooper and L. Taylor Simpson in "SCC-Based Value numbering".  In
+   Cooper and L. Taylor Simpson in "SCC-Based Value numbering"
+   (http://citeseer.ist.psu.edu/41805.html).  In
    straight line code, it is equivalent to a regular hash based value
    numbering that is performed in reverse postorder.
 
@@ -198,7 +199,7 @@ typedef struct vn_reference_s
 
 static vn_tables_t valid_info;
 
-/* Optimistic hashtables storing information we are making assumptions
+/* Optimistic hashtables storing information we are making assumptions about
    during iterations.  */
 
 static vn_tables_t optimistic_info;
@@ -446,7 +447,7 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 
       /* Copy the call_expr opcode, type, function being called, and
 	 arguments.  */
-      memset(&temp, 0, sizeof (temp));
+      memset (&temp, 0, sizeof (temp));
       temp.type = TREE_TYPE (ref);
       temp.opcode = CALL_EXPR;
       VEC_safe_push (vn_reference_op_s, heap, *result, &temp);
@@ -461,7 +462,7 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 
       FOR_EACH_CALL_EXPR_ARG (callarg, iter, ref)
 	{
-	  memset(&temp, 0, sizeof (temp));
+	  memset (&temp, 0, sizeof (temp));
 	  temp.type = TREE_TYPE (callarg);
 	  temp.opcode = TREE_CODE (callarg);
 	  temp.op0 = callarg;
@@ -470,12 +471,12 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
       return;
     }
 
-  /* For non-calls, reference-opize the addressing info.  */
+  /* For non-calls, store the information that makes up the address.  */
 
   while (ref)
     {
       vn_reference_op_s temp;
-      memset(&temp, 0, sizeof (temp));
+      memset (&temp, 0, sizeof (temp));
       temp.type = TREE_TYPE (ref);
       temp.opcode = TREE_CODE (ref);
 
@@ -1379,8 +1380,7 @@ simplify_binary_expression (tree rhs)
   return NULL_TREE;
 }
 
-/* Try to simplify RHS using equivalences, constant folding, and black
-   magic.  */
+/* Try to simplify RHS using equivalences and constant folding.  */
 
 static tree
 try_to_simplify (tree stmt, tree rhs)
@@ -1690,7 +1690,7 @@ process_scc (VEC (tree, heap) *scc)
   if (VEC_length (tree, scc) == 1)
     {
       tree use = VEC_index (tree, scc, 0);
-      //      if (!VN_INFO (use)->use_processed)
+      if (!VN_INFO (use)->use_processed)
 	visit_use (use);
     }
   else
