@@ -1,6 +1,7 @@
 // Wrapper for underlying C-language localization -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,20 +28,24 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file c++locale.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 //
 // ISO C++ 14882: 22.8  Standard locale categories.
 //
 
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
-#ifndef _C_LOCALE_H
-#define _C_LOCALE_H 1
+#ifndef _GLIBCXX_CXX_LOCALE_H
+#define _GLIBCXX_CXX_LOCALE_H 1
 
 #pragma GCC system_header
 
 #include <clocale>
-#include <cstring>   // get std::strlen
-#include <cstdio>    // get std::snprintf or std::sprintf
+#include <cstddef>
 
 #define _GLIBCXX_NUM_CATEGORIES 0
 
@@ -48,39 +53,43 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   typedef int*			__c_locale;
 
-  // Convert numeric value of type _Tv to string and return length of
-  // string.  If snprintf is available use it, otherwise fall back to
-  // the unsafe sprintf which, in general, can be dangerous and should
-  // be avoided.
-  template<typename _Tv>
-    int
-    __convert_from_v(char* __out, 
-		     const int __size __attribute__((__unused__)),
-		     const char* __fmt,
-		     _Tv __v, const __c_locale&, int __prec)
-    {
-      char* __old = std::setlocale(LC_NUMERIC, NULL);
-      char* __sav = NULL;
-      if (std::strcmp(__old, "C"))
-	{
-	  __sav = new char[std::strlen(__old) + 1];
-	  std::strcpy(__sav, __old);
-	  std::setlocale(LC_NUMERIC, "C");
-	}
+  // Convert numeric value of type double and long double to string and
+  // return length of string.  If vsnprintf is available use it, otherwise
+  // fall back to the unsafe vsprintf which, in general, can be dangerous
+  // and should be avoided.
+  inline int
+  __convert_from_v(const __c_locale&, char* __out, 
+		   const int __size __attribute__((__unused__)),
+		   const char* __fmt, ...)
+  {
+    char* __old = std::setlocale(LC_NUMERIC, NULL);
+    char* __sav = NULL;
+    if (__builtin_strcmp(__old, "C"))
+      {
+	const size_t __len = __builtin_strlen(__old) + 1;
+	__sav = new char[__len];
+	__builtin_memcpy(__sav, __old, __len);
+	std::setlocale(LC_NUMERIC, "C");
+      }
+
+    __builtin_va_list __args;
+    __builtin_va_start(__args, __fmt);
 
 #ifdef _GLIBCXX_USE_C99
-      const int __ret = std::snprintf(__out, __size, __fmt, __prec, __v);
+    const int __ret = __builtin_vsnprintf(__out, __size, __fmt, __args);
 #else
-      const int __ret = std::sprintf(__out, __fmt, __prec, __v);
+    const int __ret = __builtin_vsprintf(__out, __fmt, __args);
 #endif
-      
-      if (__sav)
-	{
-	  std::setlocale(LC_NUMERIC, __sav);
-	  delete [] __sav;
-	}
-      return __ret;
-    }
+
+    __builtin_va_end(__args);
+
+    if (__sav)
+      {
+	std::setlocale(LC_NUMERIC, __sav);
+	delete [] __sav;
+      }
+    return __ret;
+  }
 
 _GLIBCXX_END_NAMESPACE
 

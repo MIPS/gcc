@@ -489,11 +489,11 @@ scan_for_static_refs (tree *tp,
       *walk_subtrees = 0;
       break;
 
-    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
       {
 	/* First look on the lhs and see what variable is stored to */
-	tree lhs = TREE_OPERAND (t, 0);
-	tree rhs = TREE_OPERAND (t, 1);
+	tree lhs = GIMPLE_STMT_OPERAND (t, 0);
+	tree rhs = GIMPLE_STMT_OPERAND (t, 1);
 	check_lhs_var (local, lhs);
 
 	/* For the purposes of figuring out what the cast affects */
@@ -502,6 +502,7 @@ scan_for_static_refs (tree *tp,
 	switch (TREE_CODE_CLASS (TREE_CODE (rhs))) 
 	  {
 	  case tcc_binary:	    
+	  case tcc_comparison:	    
  	    {
  	      tree op0 = TREE_OPERAND (rhs, 0);
  	      tree op1 = TREE_OPERAND (rhs, 1);
@@ -622,7 +623,7 @@ propagate_bits (struct cgraph_node *x)
       struct cgraph_node *y = e->callee;
 
       /* Only look at the master nodes and skip external nodes.  */
-      y = cgraph_master_clone (y, true);
+      y = cgraph_master_clone (y);
       if (y)
 	{
 	  if (get_reference_vars_info_from_cgraph (y))
@@ -707,7 +708,7 @@ merge_callee_local_info (struct cgraph_node *target,
 	  ipa_reference_local_vars_info_t y_l;
 	  struct cgraph_node* orig_y = y;
 	 
-	  y = cgraph_master_clone (y, true);
+	  y = cgraph_master_clone (y);
 	  if (y)
 	    {
 	      y_info = get_reference_vars_info_from_cgraph (y);
@@ -772,16 +773,11 @@ ipa_init (void)
    to variables defined within this unit.  */
 
 static void 
-analyze_variable (struct cgraph_varpool_node *vnode)
+analyze_variable (struct varpool_node *vnode)
 {
   tree global = vnode->decl;
-  if (TREE_CODE (global) == VAR_DECL)
-    {
-      if (DECL_INITIAL (global)) 
-	walk_tree (&DECL_INITIAL (global), scan_for_static_refs, 
-		   NULL, visited_nodes);
-    } 
-  else gcc_unreachable ();
+  walk_tree (&DECL_INITIAL (global), scan_for_static_refs, 
+             NULL, visited_nodes);
 }
 
 /* This is the main routine for finding the reference patterns for
@@ -813,6 +809,21 @@ analyze_function (struct cgraph_node *fn)
     FOR_EACH_BB_FN (this_block, this_cfun)
       {
 	block_stmt_iterator bsi;
+	tree phi, op;
+	use_operand_p use;
+	ssa_op_iter iter;
+
+	/* Find the addresses taken in phi node arguments.  */
+	for (phi = phi_nodes (this_block); phi; phi = PHI_CHAIN (phi))
+	  {
+	    FOR_EACH_PHI_ARG (use, phi, iter, SSA_OP_USE)
+	      {
+		op = USE_FROM_PTR (use);
+		if (TREE_CODE (op) == ADDR_EXPR)
+		  check_rhs_var (l, op);
+	      }
+	  }
+
 	for (bsi = bsi_start (this_block); !bsi_end_p (bsi); bsi_next (&bsi))
 	  walk_tree (bsi_stmt_ptr (bsi), scan_for_static_refs, 
 		     fn, visited_nodes);
@@ -894,7 +905,7 @@ static unsigned int
 static_execute (void)
 {
   struct cgraph_node *node;
-  struct cgraph_varpool_node *vnode;
+  struct varpool_node *vnode;
   struct cgraph_node *w;
   struct cgraph_node **order =
     xcalloc (cgraph_n_nodes, sizeof (struct cgraph_node *));
@@ -904,7 +915,7 @@ static_execute (void)
   ipa_init ();
 
   /* Process all of the variables first.  */
-  for (vnode = cgraph_varpool_nodes_queue; vnode; vnode = vnode->next_needed)
+  FOR_EACH_STATIC_INITIALIZER (vnode)
     analyze_variable (vnode);
 
   /* Process all of the functions next. 
@@ -920,7 +931,7 @@ static_execute (void)
   */
   for (node = cgraph_nodes; node; node = node->next)
     if (node->analyzed 
-	&& (cgraph_is_master_clone (node, true)
+	&& (cgraph_is_master_clone (node)
 	    || (cgraph_function_body_availability (node) 
 		== AVAIL_OVERWRITABLE)))
       analyze_function (node);

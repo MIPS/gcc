@@ -1,10 +1,10 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Does gettimeofday take a single argument */
-#undef GETTIMEOFDAY_ONE_ARGUMENT
-
 /* Define to 0 if the target shouldn't use #pragma weak */
 #undef GTHREAD_USE_WEAK
+
+/* Define to 1 if you have the `access' function. */
+#undef HAVE_ACCESS
 
 /* libm includes acos */
 #undef HAVE_ACOS
@@ -81,6 +81,12 @@
 /* Define to 1 if the target supports __attribute__((visibility(...))). */
 #undef HAVE_ATTRIBUTE_VISIBILITY
 
+/* Define to 1 if you have the `backtrace' function. */
+#undef HAVE_BACKTRACE
+
+/* Define to 1 if you have the `backtrace_symbols' function. */
+#undef HAVE_BACKTRACE_SYMBOLS
+
 /* Define if fpclassify is broken. */
 #undef HAVE_BROKEN_FPCLASSIFY
 
@@ -150,6 +156,9 @@
 /* Define to 1 if you have the `chsize' function. */
 #undef HAVE_CHSIZE
 
+/* Define to 1 if you have the `clock' function. */
+#undef HAVE_CLOCK
+
 /* libm includes clog */
 #undef HAVE_CLOG
 
@@ -167,6 +176,9 @@
 
 /* libm includes clogl */
 #undef HAVE_CLOGL
+
+/* Define to 1 if you have the `close' function. */
+#undef HAVE_CLOSE
 
 /* complex.h exists */
 #undef HAVE_COMPLEX_H
@@ -258,6 +270,9 @@
 /* Define to 1 if you have the `ctime' function. */
 #undef HAVE_CTIME
 
+/* Define to 1 if you have the `dup2' function. */
+#undef HAVE_DUP2
+
 /* libm includes erf */
 #undef HAVE_ERF
 
@@ -275,6 +290,15 @@
 
 /* libm includes erfl */
 #undef HAVE_ERFL
+
+/* Define to 1 if you have the <execinfo.h> header file. */
+#undef HAVE_EXECINFO_H
+
+/* Define to 1 if you have the `execl' function. */
+#undef HAVE_EXECL
+
+/* Define to 1 if you have the `execvp' function. */
+#undef HAVE_EXECVP
 
 /* libm includes exp */
 #undef HAVE_EXP
@@ -294,14 +318,14 @@
 /* libm includes fabsl */
 #undef HAVE_FABSL
 
+/* Define to 1 if you have the `fdopen' function. */
+#undef HAVE_FDOPEN
+
 /* libm includes feenableexcept */
 #undef HAVE_FEENABLEEXCEPT
 
 /* Define to 1 if you have the <fenv.h> header file. */
 #undef HAVE_FENV_H
-
-/* libm includes finite */
-#undef HAVE_FINITE
 
 /* Define to 1 if you have the <floatingpoint.h> header file. */
 #undef HAVE_FLOATINGPOINT_H
@@ -317,6 +341,18 @@
 
 /* libm includes floorl */
 #undef HAVE_FLOORL
+
+/* libm includes fmod */
+#undef HAVE_FMOD
+
+/* libm includes fmodf */
+#undef HAVE_FMODF
+
+/* libm includes fmodl */
+#undef HAVE_FMODL
+
+/* Define to 1 if you have the `fork' function. */
+#undef HAVE_FORK
 
 /* Define if you have fpsetmask. */
 #undef HAVE_FPSETMASK
@@ -339,8 +375,14 @@
 /* libm includes frexpl */
 #undef HAVE_FREXPL
 
+/* Define to 1 if you have the `fstat' function. */
+#undef HAVE_FSTAT
+
 /* Define to 1 if you have the `ftruncate' function. */
 #undef HAVE_FTRUNCATE
+
+/* libc includes geteuid */
+#undef HAVE_GETEUID
 
 /* libc includes getgid */
 #undef HAVE_GETGID
@@ -351,11 +393,17 @@
 /* Define to 1 if you have the `getlogin' function. */
 #undef HAVE_GETLOGIN
 
-/* Define to 1 if you have the `getpagesize' function. */
-#undef HAVE_GETPAGESIZE
-
 /* libc includes getpid */
 #undef HAVE_GETPID
+
+/* libc includes getppid */
+#undef HAVE_GETPPID
+
+/* Define to 1 if you have the `getpwuid' function. */
+#undef HAVE_GETPWUID
+
+/* Define to 1 if you have the `getrlimit' function. */
+#undef HAVE_GETRLIMIT
 
 /* Define to 1 if you have the `getrusage' function. */
 #undef HAVE_GETRUSAGE
@@ -380,6 +428,9 @@
 
 /* Define to 1 if you have the <ieeefp.h> header file. */
 #undef HAVE_IEEEFP_H
+
+/* Define to 1 if the system has the type `intptr_t'. */
+#undef HAVE_INTPTR_T
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
@@ -414,6 +465,15 @@
 /* Define to 1 if you have the `kill' function. */
 #undef HAVE_KILL
 
+/* libm includes ldexp */
+#undef HAVE_LDEXP
+
+/* libm includes ldexpf */
+#undef HAVE_LDEXPF
+
+/* libm includes ldexpl */
+#undef HAVE_LDEXPL
+
 /* Define to 1 if you have the `link' function. */
 #undef HAVE_LINK
 
@@ -435,17 +495,14 @@
 /* libm includes logl */
 #undef HAVE_LOGL
 
-/* Define to 1 if you have the <math.h> header file. */
-#undef HAVE_MATH_H
+/* Define to 1 if you have the `lstat' function. */
+#undef HAVE_LSTAT
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
 
 /* Define to 1 if you have the `mkstemp' function. */
 #undef HAVE_MKSTEMP
-
-/* Define to 1 if you have a working `mmap' system call. */
-#undef HAVE_MMAP
 
 /* libm includes nextafter */
 #undef HAVE_NEXTAFTER
@@ -459,6 +516,9 @@
 /* Define to 1 if you have the `perror' function. */
 #undef HAVE_PERROR
 
+/* Define to 1 if you have the `pipe' function. */
+#undef HAVE_PIPE
+
 /* libm includes pow */
 #undef HAVE_POW
 
@@ -467,6 +527,9 @@
 
 /* libm includes powl */
 #undef HAVE_POWL
+
+/* Define to 1 if you have the <pwd.h> header file. */
+#undef HAVE_PWD_H
 
 /* libm includes round */
 #undef HAVE_ROUND
@@ -485,6 +548,9 @@
 
 /* libm includes scalbnl */
 #undef HAVE_SCALBNL
+
+/* Define to 1 if you have the `setmode' function. */
+#undef HAVE_SETMODE
 
 /* Define to 1 if you have the `signal' function. */
 #undef HAVE_SIGNAL
@@ -525,17 +591,17 @@
 /* libm includes sqrtl */
 #undef HAVE_SQRTL
 
-/* Define to 1 if you have the <stddef.h> header file. */
-#undef HAVE_STDDEF_H
+/* Define to 1 if you have the `stat' function. */
+#undef HAVE_STAT
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
 
-/* Define to 1 if you have the <stdio.h> header file. */
-#undef HAVE_STDIO_H
-
 /* Define to 1 if you have the <stdlib.h> header file. */
 #undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the `strcasestr' function. */
+#undef HAVE_STRCASESTR
 
 /* Define to 1 if you have the `strerror' function. */
 #undef HAVE_STRERROR
@@ -567,9 +633,6 @@
 /* Define to 1 if the target supports __sync_fetch_and_add */
 #undef HAVE_SYNC_FETCH_AND_ADD
 
-/* Define to 1 if you have the <sys/params.h> header file. */
-#undef HAVE_SYS_PARAMS_H
-
 /* Define to 1 if you have the <sys/resource.h> header file. */
 #undef HAVE_SYS_RESOURCE_H
 
@@ -584,6 +647,9 @@
 
 /* Define to 1 if you have the <sys/types.h> header file. */
 #undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <sys/wait.h> header file. */
+#undef HAVE_SYS_WAIT_H
 
 /* libm includes tan */
 #undef HAVE_TAN
@@ -609,9 +675,6 @@
 /* Define to 1 if you have the `times' function. */
 #undef HAVE_TIMES
 
-/* Do we have struct timezone */
-#undef HAVE_TIMEZONE
-
 /* Define to 1 if you have the <time.h> header file. */
 #undef HAVE_TIME_H
 
@@ -632,6 +695,9 @@
 
 /* Define if target can unlink open files. */
 #undef HAVE_UNLINK_OPEN_FILE
+
+/* Define to 1 if you have the `wait' function. */
+#undef HAVE_WAIT
 
 /* Define if target has a reliable stat. */
 #undef HAVE_WORKING_STAT

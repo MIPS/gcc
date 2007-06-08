@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2006, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2007, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -62,12 +62,12 @@ with System.Interrupt_Management;
 with System.Soft_Links;
 --  used for Abort_Defer/Undefer
 
---  We use System.Soft_Links instead of System.Tasking.Initialization
---  because the later is a higher level package that we shouldn't depend on.
---  For example when using the restricted run time, it is replaced by
+--  We use System.Soft_Links instead of System.Tasking.Initialization because
+--  the later is a higher level package that we shouldn't depend on. For
+--  example when using the restricted run time, it is replaced by
 --  System.Tasking.Restricted.Stages.
 
-with Unchecked_Deallocation;
+with Ada.Unchecked_Deallocation;
 
 package body System.Task_Primitives.Operations is
 
@@ -106,8 +106,15 @@ package body System.Task_Primitives.Operations is
    Dispatching_Policy : Character;
    pragma Import (C, Dispatching_Policy, "__gl_task_dispatching_policy");
 
+   function Get_Policy (Prio : System.Any_Priority) return Character;
+   pragma Import (C, Get_Policy, "__gnat_get_specific_dispatching");
+   --  Get priority specific dispatching policy
+
    Foreign_Task_Elaborated : aliased Boolean := True;
    --  Used to identified fake tasks (i.e., non-Ada Threads)
+
+   Annex_D : Boolean := False;
+   --  Set to True if running with Annex-D semantics
 
    ------------------------------------
    -- The thread local storage index --
@@ -130,7 +137,7 @@ package body System.Task_Primitives.Operations is
 
       procedure Set (Self_Id : Task_Id);
       pragma Inline (Set);
-      --  Set the self id for the current task.
+      --  Set the self id for the current task
 
    end Specific;
 
@@ -155,7 +162,7 @@ package body System.Task_Primitives.Operations is
    ---------------------------------
 
    function Register_Foreign_Thread (Thread : Thread_Id) return Task_Id;
-   --  Allocate and Initialize a new ATCB for the current Thread.
+   --  Allocate and Initialize a new ATCB for the current Thread
 
    function Register_Foreign_Thread
      (Thread : Thread_Id) return Task_Id is separate;
@@ -164,23 +171,23 @@ package body System.Task_Primitives.Operations is
    -- Condition Variable Functions --
    ----------------------------------
 
-   procedure Initialize_Cond (Cond : access Condition_Variable);
+   procedure Initialize_Cond (Cond : not null access Condition_Variable);
    --  Initialize given condition variable Cond
 
-   procedure Finalize_Cond (Cond : access Condition_Variable);
-   --  Finalize given condition variable Cond.
+   procedure Finalize_Cond (Cond : not null access Condition_Variable);
+   --  Finalize given condition variable Cond
 
-   procedure Cond_Signal (Cond : access Condition_Variable);
+   procedure Cond_Signal (Cond : not null access Condition_Variable);
    --  Signal condition variable Cond
 
    procedure Cond_Wait
-     (Cond : access Condition_Variable;
-      L    : access RTS_Lock);
+     (Cond : not null access Condition_Variable;
+      L    : not null access RTS_Lock);
    --  Wait on conditional variable Cond, using lock L
 
    procedure Cond_Timed_Wait
-     (Cond      : access Condition_Variable;
-      L         : access RTS_Lock;
+     (Cond      : not null access Condition_Variable;
+      L         : not null access RTS_Lock;
       Rel_Time  : Duration;
       Timed_Out : out Boolean;
       Status    : out Integer);
@@ -194,9 +201,8 @@ package body System.Task_Primitives.Operations is
    -- Initialize_Cond --
    ---------------------
 
-   procedure Initialize_Cond (Cond : access Condition_Variable) is
+   procedure Initialize_Cond (Cond : not null access Condition_Variable) is
       hEvent : HANDLE;
-
    begin
       hEvent := CreateEvent (null, True, False, Null_Ptr);
       pragma Assert (hEvent /= 0);
@@ -210,7 +216,7 @@ package body System.Task_Primitives.Operations is
    --  No such problem here, DosCloseEventSem has been derived.
    --  What does such refer to in above comment???
 
-   procedure Finalize_Cond (Cond : access Condition_Variable) is
+   procedure Finalize_Cond (Cond : not null access Condition_Variable) is
       Result : BOOL;
    begin
       Result := CloseHandle (HANDLE (Cond.all));
@@ -221,7 +227,7 @@ package body System.Task_Primitives.Operations is
    -- Cond_Signal --
    -----------------
 
-   procedure Cond_Signal (Cond : access Condition_Variable) is
+   procedure Cond_Signal (Cond : not null access Condition_Variable) is
       Result : BOOL;
    begin
       Result := SetEvent (HANDLE (Cond.all));
@@ -232,25 +238,25 @@ package body System.Task_Primitives.Operations is
    -- Cond_Wait --
    ---------------
 
-   --  Pre-assertion: Cond is posted
+   --  Pre-condition: Cond is posted
    --                 L is locked.
 
-   --  Post-assertion: Cond is posted
+   --  Post-condition: Cond is posted
    --                  L is locked.
 
    procedure Cond_Wait
-     (Cond : access Condition_Variable;
-      L    : access RTS_Lock)
+     (Cond : not null access Condition_Variable;
+      L    : not null access RTS_Lock)
    is
       Result      : DWORD;
       Result_Bool : BOOL;
 
    begin
-      --  Must reset Cond BEFORE L is unlocked.
+      --  Must reset Cond BEFORE L is unlocked
 
       Result_Bool := ResetEvent (HANDLE (Cond.all));
       pragma Assert (Result_Bool = True);
-      Unlock (L);
+      Unlock (L, Global_Lock => True);
 
       --  No problem if we are interrupted here: if the condition is signaled,
       --  WaitForSingleObject will simply not block
@@ -258,40 +264,39 @@ package body System.Task_Primitives.Operations is
       Result := WaitForSingleObject (HANDLE (Cond.all), Wait_Infinite);
       pragma Assert (Result = 0);
 
-      Write_Lock (L);
+      Write_Lock (L, Global_Lock => True);
    end Cond_Wait;
 
    ---------------------
    -- Cond_Timed_Wait --
    ---------------------
 
-   --  Pre-assertion: Cond is posted
+   --  Pre-condition: Cond is posted
    --                 L is locked.
 
-   --  Post-assertion: Cond is posted
+   --  Post-condition: Cond is posted
    --                  L is locked.
 
    procedure Cond_Timed_Wait
-     (Cond      : access Condition_Variable;
-      L         : access RTS_Lock;
+     (Cond      : not null access Condition_Variable;
+      L         : not null access RTS_Lock;
       Rel_Time  : Duration;
       Timed_Out : out Boolean;
       Status    : out Integer)
    is
       Time_Out_Max : constant DWORD := 16#FFFF0000#;
-      --  NT 4 cannot handle timeout values that are too large,
-      --  e.g. DWORD'Last - 1
+      --  NT 4 can't handle excessive timeout values (e.g. DWORD'Last - 1)
 
-      Time_Out     : DWORD;
-      Result       : BOOL;
-      Wait_Result  : DWORD;
+      Time_Out    : DWORD;
+      Result      : BOOL;
+      Wait_Result : DWORD;
 
    begin
-      --  Must reset Cond BEFORE L is unlocked.
+      --  Must reset Cond BEFORE L is unlocked
 
       Result := ResetEvent (HANDLE (Cond.all));
       pragma Assert (Result = True);
-      Unlock (L);
+      Unlock (L, Global_Lock => True);
 
       --  No problem if we are interrupted here: if the condition is signaled,
       --  WaitForSingleObject will simply not block
@@ -317,7 +322,7 @@ package body System.Task_Primitives.Operations is
          end if;
       end if;
 
-      Write_Lock (L);
+      Write_Lock (L, Global_Lock => True);
 
       --  Ensure post-condition
 
@@ -333,14 +338,12 @@ package body System.Task_Primitives.Operations is
    -- Stack_Guard  --
    ------------------
 
-   --  The underlying thread system sets a guard page at the
-   --  bottom of a thread stack, so nothing is needed.
+   --  The underlying thread system sets a guard page at the bottom of a thread
+   --  stack, so nothing is needed.
    --  ??? Check the comment above
 
    procedure Stack_Guard (T : ST.Task_Id; On : Boolean) is
-      pragma Warnings (Off, T);
-      pragma Warnings (Off, On);
-
+      pragma Unreferenced (T, On);
    begin
       null;
    end Stack_Guard;
@@ -372,16 +375,15 @@ package body System.Task_Primitives.Operations is
    -- Initialize_Lock --
    ---------------------
 
-   --  Note: mutexes and cond_variables needed per-task basis are
-   --  initialized in Intialize_TCB and the Storage_Error is handled.
-   --  Other mutexes (such as RTS_Lock, Memory_Lock...) used in
-   --  the RTS is initialized before any status change of RTS.
-   --  Therefore raising Storage_Error in the following routines
-   --  should be able to be handled safely.
+   --  Note: mutexes and cond_variables needed per-task basis are initialized
+   --  in Intialize_TCB and the Storage_Error is handled. Other mutexes (such
+   --  as RTS_Lock, Memory_Lock...) used in the RTS is initialized before any
+   --  status change of RTS. Therefore raising Storage_Error in the following
+   --  routines should be able to be handled safely.
 
    procedure Initialize_Lock
      (Prio : System.Any_Priority;
-      L    : access Lock)
+      L    : not null access Lock)
    is
    begin
       InitializeCriticalSection (L.Mutex'Access);
@@ -389,7 +391,9 @@ package body System.Task_Primitives.Operations is
       L.Priority := Prio;
    end Initialize_Lock;
 
-   procedure Initialize_Lock (L : access RTS_Lock; Level : Lock_Level) is
+   procedure Initialize_Lock
+     (L : not null access RTS_Lock; Level : Lock_Level)
+   is
       pragma Unreferenced (Level);
    begin
       InitializeCriticalSection (CRITICAL_SECTION (L.all)'Unrestricted_Access);
@@ -399,12 +403,12 @@ package body System.Task_Primitives.Operations is
    -- Finalize_Lock --
    -------------------
 
-   procedure Finalize_Lock (L : access Lock) is
+   procedure Finalize_Lock (L : not null access Lock) is
    begin
       DeleteCriticalSection (L.Mutex'Access);
    end Finalize_Lock;
 
-   procedure Finalize_Lock (L : access RTS_Lock) is
+   procedure Finalize_Lock (L : not null access RTS_Lock) is
    begin
       DeleteCriticalSection (CRITICAL_SECTION (L.all)'Unrestricted_Access);
    end Finalize_Lock;
@@ -413,7 +417,8 @@ package body System.Task_Primitives.Operations is
    -- Write_Lock --
    ----------------
 
-   procedure Write_Lock (L : access Lock; Ceiling_Violation : out Boolean) is
+   procedure Write_Lock
+     (L : not null access Lock; Ceiling_Violation : out Boolean) is
    begin
       L.Owner_Priority := Get_Priority (Self);
 
@@ -428,7 +433,7 @@ package body System.Task_Primitives.Operations is
    end Write_Lock;
 
    procedure Write_Lock
-     (L           : access RTS_Lock;
+     (L           : not null access RTS_Lock;
       Global_Lock : Boolean := False)
    is
    begin
@@ -449,7 +454,8 @@ package body System.Task_Primitives.Operations is
    -- Read_Lock --
    ---------------
 
-   procedure Read_Lock (L : access Lock; Ceiling_Violation : out Boolean) is
+   procedure Read_Lock
+     (L : not null access Lock; Ceiling_Violation : out Boolean) is
    begin
       Write_Lock (L, Ceiling_Violation);
    end Read_Lock;
@@ -458,12 +464,13 @@ package body System.Task_Primitives.Operations is
    -- Unlock --
    ------------
 
-   procedure Unlock (L : access Lock) is
+   procedure Unlock (L : not null access Lock) is
    begin
       LeaveCriticalSection (L.Mutex'Access);
    end Unlock;
 
-   procedure Unlock (L : access RTS_Lock; Global_Lock : Boolean := False) is
+   procedure Unlock
+     (L : not null access RTS_Lock; Global_Lock : Boolean := False) is
    begin
       if not Single_Lock or else Global_Lock then
          LeaveCriticalSection (CRITICAL_SECTION (L.all)'Unrestricted_Access);
@@ -477,6 +484,21 @@ package body System.Task_Primitives.Operations is
            (CRITICAL_SECTION (T.Common.LL.L)'Unrestricted_Access);
       end if;
    end Unlock;
+
+   -----------------
+   -- Set_Ceiling --
+   -----------------
+
+   --  Dynamic priority ceilings are not supported by the underlying system
+
+   procedure Set_Ceiling
+     (L    : not null access Lock;
+      Prio : System.Any_Priority)
+   is
+      pragma Unreferenced (L, Prio);
+   begin
+      null;
+   end Set_Ceiling;
 
    -----------
    -- Sleep --
@@ -509,9 +531,8 @@ package body System.Task_Primitives.Operations is
    -- Timed_Sleep --
    -----------------
 
-   --  This is for use within the run-time system, so abort is
-   --  assumed to be already deferred, and the caller should be
-   --  holding its own ATCB lock.
+   --  This is for use within the run-time system, so abort is assumed to be
+   --  already deferred, and the caller should be holding its own ATCB lock.
 
    procedure Timed_Sleep
      (Self_ID  : Task_Id;
@@ -543,15 +564,18 @@ package body System.Task_Primitives.Operations is
 
       if Rel_Time > 0.0 then
          loop
-            exit when Self_ID.Pending_ATC_Level < Self_ID.ATC_Nesting_Level
-              or else Self_ID.Pending_Priority_Change;
+            exit when Self_ID.Pending_ATC_Level < Self_ID.ATC_Nesting_Level;
 
             if Single_Lock then
-               Cond_Timed_Wait (Self_ID.Common.LL.CV'Access,
-                 Single_RTS_Lock'Access, Rel_Time, Local_Timedout, Result);
+               Cond_Timed_Wait
+                 (Self_ID.Common.LL.CV'Access,
+                  Single_RTS_Lock'Access,
+                  Rel_Time, Local_Timedout, Result);
             else
-               Cond_Timed_Wait (Self_ID.Common.LL.CV'Access,
-                 Self_ID.Common.LL.L'Access, Rel_Time, Local_Timedout, Result);
+               Cond_Timed_Wait
+                 (Self_ID.Common.LL.CV'Access,
+                  Self_ID.Common.LL.L'Access,
+                  Rel_Time, Local_Timedout, Result);
             end if;
 
             Check_Time := Monotonic_Clock;
@@ -575,15 +599,17 @@ package body System.Task_Primitives.Operations is
    -----------------
 
    procedure Timed_Delay
-     (Self_ID  : Task_Id;
-      Time     : Duration;
-      Mode     : ST.Delay_Modes)
+     (Self_ID : Task_Id;
+      Time    : Duration;
+      Mode    : ST.Delay_Modes)
    is
       Check_Time : Duration := Monotonic_Clock;
       Rel_Time   : Duration;
       Abs_Time   : Duration;
-      Result     : Integer;
       Timedout   : Boolean;
+
+      Result : Integer;
+      pragma Warnings (Off, Integer);
 
    begin
       if Single_Lock then
@@ -604,20 +630,18 @@ package body System.Task_Primitives.Operations is
          Self_ID.Common.State := Delay_Sleep;
 
          loop
-            if Self_ID.Pending_Priority_Change then
-               Self_ID.Pending_Priority_Change := False;
-               Self_ID.Common.Base_Priority := Self_ID.New_Base_Priority;
-               Set_Priority (Self_ID, Self_ID.Common.Base_Priority);
-            end if;
-
             exit when Self_ID.Pending_ATC_Level < Self_ID.ATC_Nesting_Level;
 
             if Single_Lock then
-               Cond_Timed_Wait (Self_ID.Common.LL.CV'Access,
-                 Single_RTS_Lock'Access, Rel_Time, Timedout, Result);
+               Cond_Timed_Wait
+                 (Self_ID.Common.LL.CV'Access,
+                  Single_RTS_Lock'Access,
+                  Rel_Time, Timedout, Result);
             else
-               Cond_Timed_Wait (Self_ID.Common.LL.CV'Access,
-                 Self_ID.Common.LL.L'Access, Rel_Time, Timedout, Result);
+               Cond_Timed_Wait
+                 (Self_ID.Common.LL.CV'Access,
+                  Self_ID.Common.LL.L'Access,
+                  Rel_Time, Timedout, Result);
             end if;
 
             Check_Time := Monotonic_Clock;
@@ -655,7 +679,17 @@ package body System.Task_Primitives.Operations is
    procedure Yield (Do_Yield : Boolean := True) is
    begin
       if Do_Yield then
-         Sleep (0);
+         SwitchToThread;
+
+      elsif Annex_D then
+         --  If running with Annex-D semantics we need a delay
+         --  above 0 milliseconds here otherwise processes give
+         --  enough time to the other tasks to have a chance to
+         --  run.
+         --
+         --  This makes cxd8002 ACATS pass on Windows.
+
+         Sleep (1);
       end if;
    end Yield;
 
@@ -686,7 +720,7 @@ package body System.Task_Primitives.Operations is
         (T.Common.LL.Thread, Interfaces.C.int (Underlying_Priorities (Prio)));
       pragma Assert (Res = True);
 
-      if Dispatching_Policy = 'F' then
+      if Dispatching_Policy = 'F' or else Get_Policy (Prio) = 'F' then
 
          --  Annex D requirement [RM D.2.2 par. 9]:
          --    If the task drops its priority due to the loss of inherited
@@ -734,20 +768,19 @@ package body System.Task_Primitives.Operations is
    --  There were two paths were we needed to call Enter_Task :
    --  1) from System.Task_Primitives.Operations.Initialize
    --  2) from System.Tasking.Stages.Task_Wrapper
-   --
-   --  The thread initialisation has to be done only for the first case.
-   --
-   --  This is because the GetCurrentThread NT call does not return the
-   --  real thread handler but only a "pseudo" one. It is not possible to
-   --  release the thread handle and free the system ressources from this
-   --  "pseudo" handle. So we really want to keep the real thread handle
-   --  set in System.Task_Primitives.Operations.Create_Task during the
-   --  thread creation.
+
+   --  The thread initialisation has to be done only for the first case
+
+   --  This is because the GetCurrentThread NT call does not return the real
+   --  thread handler but only a "pseudo" one. It is not possible to release
+   --  the thread handle and free the system ressources from this "pseudo"
+   --  handle. So we really want to keep the real thread handle set in
+   --  System.Task_Primitives.Operations.Create_Task during thread creation.
 
    procedure Enter_Task (Self_ID : Task_Id) is
       procedure Init_Float;
       pragma Import (C, Init_Float, "__gnat_init_float");
-      --  Properly initializes the FPU for x86 systems.
+      --  Properly initializes the FPU for x86 systems
 
    begin
       Specific.Set (Self_ID);
@@ -881,8 +914,11 @@ package body System.Task_Primitives.Operations is
 
       Set_Priority (T, Priority);
 
-      if Time_Slice_Val = 0 or else Dispatching_Policy = 'F' then
-         --  Here we need Annex E semantics so we disable the NT priority
+      if Time_Slice_Val = 0
+        or else Dispatching_Policy = 'F'
+        or else Get_Policy (Priority) = 'F'
+      then
+         --  Here we need Annex D semantics so we disable the NT priority
          --  boost. A priority boost is temporarily given by the system to a
          --  thread when it is taken out of a wait state.
 
@@ -908,7 +944,7 @@ package body System.Task_Primitives.Operations is
       Is_Self   : constant Boolean := T = Self;
 
       procedure Free is new
-        Unchecked_Deallocation (Ada_Task_Control_Block, Task_Id);
+        Ada.Unchecked_Deallocation (Ada_Task_Control_Block, Task_Id);
 
    begin
       if not Single_Lock then
@@ -999,24 +1035,18 @@ package body System.Task_Primitives.Operations is
       Interrupt_Management.Initialize;
 
       if Time_Slice_Val = 0 or else Dispatching_Policy = 'F' then
-
          --  Here we need Annex D semantics, switch the current process to the
-         --  High_Priority_Class.
+         --  Realtime_Priority_Class.
 
-         Discard :=
-           OS_Interface.SetPriorityClass
-             (GetCurrentProcess, High_Priority_Class);
+         Discard := OS_Interface.SetPriorityClass
+                      (GetCurrentProcess, Realtime_Priority_Class);
 
-         --  ??? In theory it should be possible to use the priority class
-         --  Realtime_Prioriry_Class but we suspect a bug in the NT scheduler
-         --  which prevents (in some obscure cases) a thread to get on top of
-         --  the running queue by another thread of lower priority. For
-         --  example cxd8002 ACATS test freeze.
+         Annex_D := True;
       end if;
 
       TlsIndex := TlsAlloc;
 
-      --  Initialize the lock used to synchronize chain of all ATCBs.
+      --  Initialize the lock used to synchronize chain of all ATCBs
 
       Initialize_Lock (Single_RTS_Lock'Access, RTS_Lock_Level);
 
@@ -1175,7 +1205,7 @@ package body System.Task_Primitives.Operations is
          else
             S.Waiting := True;
 
-            --  Must reset CV BEFORE L is unlocked.
+            --  Must reset CV BEFORE L is unlocked
 
             Result_Bool := ResetEvent (S.CV);
             pragma Assert (Result_Bool = True);

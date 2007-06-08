@@ -1,5 +1,5 @@
 /* GdkGraphicsEnvironment.java -- information about the graphics environment
-   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,38 +38,81 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
+import gnu.java.awt.ClasspathGraphicsEnvironment;
+
 import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.HeadlessException;
-import java.awt.Toolkit;
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
+import java.awt.image.Raster;
+import java.awt.image.SampleModel;
+import java.awt.image.WritableRaster;
 import java.util.Locale;
 
-public class GdkGraphicsEnvironment extends GraphicsEnvironment
+public class GdkGraphicsEnvironment extends ClasspathGraphicsEnvironment
 {
+  private final int native_state = GtkGenericPeer.getUniqueInteger ();
+  
+  private GdkScreenGraphicsDevice defaultDevice;
+  
+  private GdkScreenGraphicsDevice[] devices;
+  
+  static
+  {
+    System.loadLibrary("gtkpeer");
+
+    initStaticState ();
+  }
+  
+  static native void initStaticState();
+  
   public GdkGraphicsEnvironment ()
   {
+    nativeInitState();
   }
+  
+  native void nativeInitState();
 
   public GraphicsDevice[] getScreenDevices ()
   {
-    // FIXME: Support multiple screens, since GDK can.
-    return new GraphicsDevice[] { new GdkScreenGraphicsDevice (this) };
+    if (devices == null)
+      {
+        devices = nativeGetScreenDevices();
+      }
+    
+    return (GraphicsDevice[]) devices.clone();
   }
+  
+  private native GdkScreenGraphicsDevice[] nativeGetScreenDevices();
 
   public GraphicsDevice getDefaultScreenDevice ()
   {
     if (GraphicsEnvironment.isHeadless ())
       throw new HeadlessException ();
-
-    return new GdkScreenGraphicsDevice (this);
+    
+    synchronized (GdkGraphicsEnvironment.class)
+      {
+        if (defaultDevice == null)
+          {
+            defaultDevice = nativeGetDefaultScreenDevice();
+          }
+      }
+    
+    return defaultDevice;
   }
+  
+  private native GdkScreenGraphicsDevice nativeGetDefaultScreenDevice();
 
   public Graphics2D createGraphics (BufferedImage image)
   {
-    return new GdkGraphics2D (image);
+    Raster raster = image.getRaster();
+    if(raster instanceof CairoSurface)
+      return ((CairoSurface)raster).getGraphics();
+
+    return new BufferedImageGraphics( image );
   }
   
   private native int nativeGetNumFontFamilies();
@@ -80,20 +123,34 @@ public class GdkGraphicsEnvironment extends GraphicsEnvironment
     throw new java.lang.UnsupportedOperationException ();
   }
 
-    public String[] getAvailableFontFamilyNames ()
-    {
-	String[] family_names;
-	int array_size;
+  public String[] getAvailableFontFamilyNames ()
+  {
+    String[] family_names;
+    int array_size;
 
-	array_size = nativeGetNumFontFamilies();
-	family_names = new String[array_size];
+    array_size = nativeGetNumFontFamilies();
+    family_names = new String[array_size];
 
-	nativeGetFontFamilies(family_names);
-	return family_names;
-    }
+    nativeGetFontFamilies(family_names);
+    return family_names;
+  }
 
   public String[] getAvailableFontFamilyNames (Locale l)
   {
     throw new java.lang.UnsupportedOperationException ();
+  }
+
+  /**
+   * Used by GtkMouseInfoPeer.
+   */ 
+  native int[] getMouseCoordinates();
+  
+  public WritableRaster createRaster(ColorModel cm, SampleModel sm)
+  {
+    if (CairoSurface.isCompatibleSampleModel(sm)
+        && CairoSurface.isCompatibleColorModel(cm))
+      return new CairoSurface(sm.getWidth(), sm.getHeight());
+    else
+      return null;
   }
 }

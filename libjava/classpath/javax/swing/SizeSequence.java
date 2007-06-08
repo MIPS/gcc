@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package javax.swing;
 
+import java.util.Arrays;
+
 /**
  * A sequence of values that represent the dimensions (widths or heights) of 
  * some collection of items (for example, the widths of the columns in a table).
@@ -80,8 +82,8 @@ public class SizeSequence
    */
   public SizeSequence(int numEntries, int value)
   {
-    sizes = new int[0];
-    insertEntries(0, numEntries, value);
+    sizes = new int[numEntries];
+    Arrays.fill(sizes, value);
   }
 
   /**
@@ -127,14 +129,18 @@ public class SizeSequence
   }
 
   /**
-   * Returns the size of the specified element.
+   * Returns the size of the specified element, or 0 if the element index is
+   * outside the defined range.
    * 
    * @param index  the element index.
    * 
-   * @return The size of the specified element.
+   * @return The size of the specified element, or 0 if the element index is
+   *     outside the defined range.
    */
   public int getSize(int index)
   {
+    if (index < 0 || index >= sizes.length)
+      return 0;
     return sizes[index];
   }
 

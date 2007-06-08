@@ -1,5 +1,5 @@
 /* SelectorImpl.java -- 
-   Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -54,8 +54,8 @@ import java.util.Set;
 
 public class SelectorImpl extends AbstractSelector
 {
-  private Set keys;
-  private Set selected;
+  private Set<SelectionKey> keys;
+  private Set<SelectionKey> selected;
 
   /**
    * A dummy object whose monitor regulates access to both our
@@ -83,8 +83,8 @@ public class SelectorImpl extends AbstractSelector
   {
     super (provider);
     
-    keys = new HashSet ();
-    selected = new HashSet ();
+    keys = new HashSet<SelectionKey> ();
+    selected = new HashSet<SelectionKey> ();
   }
 
   protected void finalize() throws Throwable
@@ -110,7 +110,7 @@ public class SelectorImpl extends AbstractSelector
       }
   }
 
-  public final Set keys()
+  public final Set<SelectionKey> keys()
   {
     if (!isOpen())
       throw new ClosedSelectorException();
@@ -136,7 +136,7 @@ public class SelectorImpl extends AbstractSelector
   {
     int[] result;
     int counter = 0;
-    Iterator it = keys.iterator ();
+    Iterator<SelectionKey> it = keys.iterator ();
 
     // Count the number of file descriptors needed
     while (it.hasNext ())
@@ -253,7 +253,7 @@ public class SelectorImpl extends AbstractSelector
                 selectThread = null;
               }
 
-            Iterator it = keys.iterator ();
+            Iterator<SelectionKey> it = keys.iterator ();
 
             while (it.hasNext ())
               {
@@ -317,7 +317,7 @@ public class SelectorImpl extends AbstractSelector
         }
   }
     
-  public final Set selectedKeys()
+  public final Set<SelectionKey> selectedKeys()
   {
     if (!isOpen())
       throw new ClosedSelectorException();
@@ -350,10 +350,10 @@ public class SelectorImpl extends AbstractSelector
 
   private final void deregisterCancelledKeys()
   {
-    Set ckeys = cancelledKeys ();
+    Set<SelectionKey> ckeys = cancelledKeys ();
     synchronized (ckeys)
     {
-      Iterator it = ckeys.iterator();
+      Iterator<SelectionKey> it = ckeys.iterator();
 
       while (it.hasNext ())
         {
@@ -379,16 +379,19 @@ public class SelectorImpl extends AbstractSelector
       result = new DatagramChannelSelectionKey (ch, this);
     else if (ch instanceof ServerSocketChannelImpl)
       result = new ServerSocketChannelSelectionKey (ch, this);
+    else if (ch instanceof gnu.java.nio.SocketChannelImpl)
+      result = new gnu.java.nio.SocketChannelSelectionKeyImpl((gnu.java.nio.SocketChannelImpl)ch, this);
     else
       throw new InternalError ("No known channel type");
 
     synchronized (keys)
       {
         keys.add (result);
+
+	result.interestOps (ops);
+	result.attach (att);
       }
 
-    result.interestOps (ops);
-    result.attach (att);
     return result;
   }
 }

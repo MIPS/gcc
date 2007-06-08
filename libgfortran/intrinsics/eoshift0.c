@@ -90,6 +90,8 @@ eoshift0 (gfc_array_char * ret, const gfc_array_char * array,
 
   extent[0] = 1;
   count[0] = 0;
+  sstride[0] = -1;
+  rstride[0] = -1;
   n = 0;
   for (dim = 0; dim < GFC_DESCRIPTOR_RANK (array); dim++)
     {
@@ -189,7 +191,7 @@ eoshift0 (gfc_array_char * ret, const gfc_array_char * array,
              the next dimension.  */
           count[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           rptr -= rstride[n] * extent[n];
           sptr -= sstride[n] * extent[n];
           n++;

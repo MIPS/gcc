@@ -1,4 +1,4 @@
-/* GtkVolatileImage.java -- a hardware-accelerated image buffer
+/* GtkVolatileImage.java -- wraps an X pixmap
    Copyright (C) 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -37,53 +37,122 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
-import java.awt.ImageCapabilities;
+import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GraphicsConfiguration;
+import java.awt.ImageCapabilities;
+import java.awt.Point;
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
+import java.awt.image.DataBuffer;
+import java.awt.image.DirectColorModel;
 import java.awt.image.ImageObserver;
+import java.awt.image.Raster;
+import java.awt.image.SampleModel;
+import java.awt.image.SinglePixelPackedSampleModel;
 import java.awt.image.VolatileImage;
+import java.awt.image.WritableRaster;
 
 public class GtkVolatileImage extends VolatileImage
 {
-  private int width;
-  private int height;
+  int width, height;
   private ImageCapabilities caps;
 
-  public GtkVolatileImage(int width, int height)
+  final GtkComponentPeer component;
+
+  static ColorModel gdkColorModel = new DirectColorModel(32,
+                                                         0x000000FF,
+                                                         0x0000FF00,
+                                                         0x00FF0000,
+                                                         0xFF000000);
+                                                         
+  /**
+   * Don't touch, accessed from native code.
+   */
+  long nativePointer;
+
+  native long init(GtkComponentPeer component, int width, int height);
+
+  native void destroy(long pointer);
+
+  native int[] nativeGetPixels(long pointer);
+  
+  /**
+   * Gets the pixels in the current image from GDK.
+   * 
+   * Note that pixels are in 32-bit RGBA, non-premultiplied, which is different
+   * from Cairo's premultiplied ARGB, which is different from Java's standard
+   * non-premultiplied ARGB.  Caution is advised when using this method, to
+   * ensure that the data format remains consistent with what you expect.
+   *  
+   * @return the current pixels, as reported by GDK.
+   */
+  public int[] getPixels()
   {
-    this(width, height, null);
+    return nativeGetPixels(nativePointer);
   }
 
-  public GtkVolatileImage(int width, int height, ImageCapabilities caps)
+  native void nativeCopyArea(long pointer, int x, int y, int w, int h, int dx,
+                             int dy );
+  public void copyArea(int x, int y, int w, int h, int dx, int dy)
+  {
+    nativeCopyArea(nativePointer, x, y, w, h, dx, dy);
+  }
+
+  native void nativeDrawVolatile(long pointer, long srcPtr, int x, int y,
+                                 int w, int h );
+  public void drawVolatile(long srcPtr, int x, int y, int w, int h )
+  {
+    nativeDrawVolatile(nativePointer, srcPtr, x, y, w, h);
+  }
+
+  public GtkVolatileImage(GtkComponentPeer component, 
+			  int width, int height, ImageCapabilities caps)
   {
     this.width = width;
     this.height = height;
     this.caps = caps;
+    this.component = component;
+    nativePointer = init( component, width, height );
   }
 
-  // FIXME: should return a buffered image snapshot of the accelerated
-  // visual
+  public GtkVolatileImage(int width, int height, ImageCapabilities caps)
+  {
+    this(null, width, height, caps);
+  }
+
+  public GtkVolatileImage(int width, int height)
+  {
+    this(null, width, height, null);
+  }
+
+  public void finalize()
+  {
+    dispose();
+  }
+
+  public void dispose()
+  {
+    destroy(nativePointer);
+  }
+
   public BufferedImage getSnapshot()
   {
-    return null;
+    WritableRaster raster = Raster.createWritableRaster(createGdkSampleModel(width, height),
+                                                        new Point(0, 0));
+    raster.setDataElements(0, 0, getPixels());
+    return new BufferedImage(gdkColorModel, raster,
+                             gdkColorModel.isAlphaPremultiplied(), null);
   }
 
-  public int getWidth()
+  public Graphics getGraphics()
   {
-    return width;
+    return createGraphics();
   }
 
-  public int getHeight()
-  {
-    return height;
-  }
-
-  // FIXME: should return a graphics wrapper around this image's
-  // visual
   public Graphics2D createGraphics()
   {
-    return null;
+    return new VolatileImageGraphics( this );
   }
 
   public int validate(GraphicsConfiguration gc)
@@ -101,18 +170,38 @@ public class GtkVolatileImage extends VolatileImage
     return caps;
   }
 
-  public synchronized Object getProperty (String name, ImageObserver observer)
+  public int getWidth()
   {
-    return null;
+    return width;
   }
 
-  public synchronized int getWidth (ImageObserver observer)
+  public int getHeight()
+  {
+    return height;
+  }
+
+  public int getWidth(java.awt.image.ImageObserver observer)
   {
     return width;
   }
   
-  public synchronized int getHeight (ImageObserver observer)
+  public int getHeight(java.awt.image.ImageObserver observer)
   {
     return height;
+  }
+
+  public Object getProperty(String name, ImageObserver observer)
+  {
+    return null;
+  }
+  
+  /**
+   * Creates a SampleModel that matches GDK's native format
+   */
+  protected static SampleModel createGdkSampleModel(int w, int h)
+  {
+    return new SinglePixelPackedSampleModel(DataBuffer.TYPE_INT, w, h,
+                                            new int[]{0x000000FF, 0x0000FF00,
+                                                      0x00FF0000, 0xFF000000});
   }
 }

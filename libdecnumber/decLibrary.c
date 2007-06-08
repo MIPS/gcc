@@ -8,6 +8,15 @@
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
+   In addition to the permissions in the GNU General Public License,
+   the Free Software Foundation gives you unlimited permission to link
+   the compiled version of this file into combinations with other
+   programs, and to distribute those combinations without any
+   restriction coming from the use of this file.  (The General Public
+   License restrictions do apply in other respects; for example, they
+   cover modification of the file, and distribution when not linked
+   into a combine executable.)
+
    GCC is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
@@ -31,8 +40,7 @@ void __host_to_ieee_128 (_Decimal128, decimal128 *);
 extern int isinfd32 (_Decimal32);
 extern int isinfd64 (_Decimal64);
 extern int isinfd128 (_Decimal128);
-extern void __dfp_enable_traps (void);
-extern void __dfp_raise (int exception __attribute__ ((unused)));
+uint32_t __dec_byte_swap (uint32_t);
 
 int
 isinfd32 (_Decimal32 arg)
@@ -65,20 +73,6 @@ isinfd128 (_Decimal128 arg)
   __host_to_ieee_128 (arg, &d128);
   decimal128ToNumber (&d128, &dn);
   return (decNumberIsInfinite (&dn));
-}
-
-int __dfp_traps;
-
-void
-__dfp_enable_traps (void)
-{
-  __dfp_traps = 1;
-}
-
-void
-__dfp_raise (int exception __attribute__ ((unused)))
-{
-  raise (SIGFPE);
 }
 
 uint32_t

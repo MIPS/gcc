@@ -28,6 +28,9 @@ extern struct line_maps line_table;
 /* The location for declarations in "<built-in>" */
 #define BUILTINS_LOCATION ((source_location) 2)
 
+/* Note: if any of the types defined inside this #ifdef are changed,
+   gengtype.c:define_location_structures must be updated to match.  */
+
 #ifdef USE_MAPPED_LOCATION
 
 typedef struct
@@ -84,6 +87,7 @@ extern void push_srcloc (location_t);
 extern void push_srcloc (const char *name, int line);
 #endif /* ! USE_MAPPED_LOCATION */
 extern void pop_srcloc (void);
+extern void restore_input_file_stack (int);
 
 #define LOCATION_FILE(LOC) ((expand_location (LOC)).file)
 #define LOCATION_LINE(LOC) ((expand_location (LOC)).line)
@@ -97,5 +101,8 @@ extern struct file_stack *input_file_stack;
 
 /* Incremented on each change to input_file_stack.  */
 extern int input_file_stack_tick;
+
+/* The number of bits available for input_file_stack_tick.  */
+#define INPUT_FILE_STACK_BITS	31
 
 #endif

@@ -46,7 +46,6 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
-import java.net.SocketImpl;
 
 import java.nio.channels.IllegalBlockingModeException;
 import java.nio.channels.SocketChannel;
@@ -247,12 +246,13 @@ public final class LocalSocket extends Socket
 
   public void setSoTimeout (int i) throws SocketException
   {
-    throw new SocketException ("local sockets do not support this option");
+    // Ignore.
   }
 
   public int getSoTimeout () throws SocketException
   {
-    throw new SocketException ("local sockets do not support this option");
+    // We don't support timeout, so we return 0.
+    return 0;
   }
 
   public void setSendBufferSize (int i) throws SocketException

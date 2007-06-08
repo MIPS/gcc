@@ -730,8 +730,7 @@ store_child_info (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
   node = *tp;
 
   /* 'node' is the parent of 'TREE_OPERAND (node, *)'.  */
-  /* ??? Should this be EXPR_P instead of EXPRESSION_CLASS_P?  */
-  if (EXPRESSION_CLASS_P (node))
+  if (EXPR_P (node))
     {
       int n = TREE_OPERAND_LENGTH (node);
       int i;
@@ -759,8 +758,7 @@ TB_parent_eq (const void *p1, const void *p2)
   if (p1 == NULL || p2 == NULL)
     return 0;
 
-  /* ??? Should this be EXPR_P instead of EXPRESSION_CLASS_P?  */
-  if (EXPRESSION_CLASS_P (parent))
+  if (EXPR_P (parent))
     {
       int n = TREE_OPERAND_LENGTH (parent);
       int i;

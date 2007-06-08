@@ -1,6 +1,7 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -140,7 +141,7 @@ check_asm_operands (rtx x)
   operands = alloca (noperands * sizeof (rtx));
   constraints = alloca (noperands * sizeof (char *));
 
-  decode_asm_operands (x, operands, NULL, constraints, NULL);
+  decode_asm_operands (x, operands, NULL, constraints, NULL, NULL);
 
   for (i = 0; i < noperands; i++)
     {
@@ -238,6 +239,28 @@ validate_change (rtx object, rtx *loc, rtx new, int in_group)
     return apply_change_group ();
 }
 
+/* Keep X canonicalized if some changes have made it non-canonical; only
+   modifies the operands of X, not (for example) its code.  Simplifications
+   are not the job of this routine.
+
+   Return true if anything was changed.  */
+bool
+canonicalize_change_group (rtx insn, rtx x)
+{
+  if (COMMUTATIVE_P (x)
+      && swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
+    {
+      /* Oops, the caller has made X no longer canonical.
+	 Let's redo the changes in the correct order.  */
+      rtx tem = XEXP (x, 0);
+      validate_change (insn, &XEXP (x, 0), XEXP (x, 1), 1);
+      validate_change (insn, &XEXP (x, 1), tem, 1);
+      return true;
+    }
+  else
+    return false;
+}
+  
 
 /* This subroutine of apply_change_group verifies whether the changes to INSN
    were valid; i.e. whether INSN can still be recognized.  */
@@ -1470,15 +1493,16 @@ asm_noperands (rtx body)
 
 const char *
 decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
-		     const char **constraints, enum machine_mode *modes)
+		     const char **constraints, enum machine_mode *modes,
+		     location_t *loc)
 {
   int i;
   int noperands;
-  const char *template = 0;
+  rtx asmop = 0;
 
   if (GET_CODE (body) == SET && GET_CODE (SET_SRC (body)) == ASM_OPERANDS)
     {
-      rtx asmop = SET_SRC (body);
+      asmop = SET_SRC (body);
       /* Single output operand: BODY is (set OUTPUT (asm_operands ....)).  */
 
       noperands = ASM_OPERANDS_INPUT_LENGTH (asmop) + 1;
@@ -1505,11 +1529,10 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
 	constraints[0] = ASM_OPERANDS_OUTPUT_CONSTRAINT (asmop);
       if (modes)
 	modes[0] = GET_MODE (SET_DEST (body));
-      template = ASM_OPERANDS_TEMPLATE (asmop);
     }
   else if (GET_CODE (body) == ASM_OPERANDS)
     {
-      rtx asmop = body;
+      asmop = body;
       /* No output operands: BODY is (asm_operands ....).  */
 
       noperands = ASM_OPERANDS_INPUT_LENGTH (asmop);
@@ -1527,16 +1550,17 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
 	  if (modes)
 	    modes[i] = ASM_OPERANDS_INPUT_MODE (asmop, i);
 	}
-      template = ASM_OPERANDS_TEMPLATE (asmop);
     }
   else if (GET_CODE (body) == PARALLEL
 	   && GET_CODE (XVECEXP (body, 0, 0)) == SET
 	   && GET_CODE (SET_SRC (XVECEXP (body, 0, 0))) == ASM_OPERANDS)
     {
-      rtx asmop = SET_SRC (XVECEXP (body, 0, 0));
       int nparallel = XVECLEN (body, 0); /* Includes CLOBBERs.  */
-      int nin = ASM_OPERANDS_INPUT_LENGTH (asmop);
+      int nin;
       int nout = 0;		/* Does not include CLOBBERs.  */
+
+      asmop = SET_SRC (XVECEXP (body, 0, 0));
+      nin = ASM_OPERANDS_INPUT_LENGTH (asmop);
 
       /* At least one output, plus some CLOBBERs.  */
 
@@ -1569,16 +1593,16 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
 	  if (modes)
 	    modes[i + nout] = ASM_OPERANDS_INPUT_MODE (asmop, i);
 	}
-
-      template = ASM_OPERANDS_TEMPLATE (asmop);
     }
   else if (GET_CODE (body) == PARALLEL
 	   && GET_CODE (XVECEXP (body, 0, 0)) == ASM_OPERANDS)
     {
       /* No outputs, but some CLOBBERs.  */
 
-      rtx asmop = XVECEXP (body, 0, 0);
-      int nin = ASM_OPERANDS_INPUT_LENGTH (asmop);
+      int nin;
+
+      asmop = XVECEXP (body, 0, 0);
+      nin = ASM_OPERANDS_INPUT_LENGTH (asmop);
 
       for (i = 0; i < nin; i++)
 	{
@@ -1592,10 +1616,19 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
 	    modes[i] = ASM_OPERANDS_INPUT_MODE (asmop, i);
 	}
 
-      template = ASM_OPERANDS_TEMPLATE (asmop);
     }
 
-  return template;
+  if (loc)
+    {
+#ifdef USE_MAPPED_LOCATION
+      *loc = ASM_OPERANDS_SOURCE_LOCATION (asmop);
+#else
+      loc->file = ASM_OPERANDS_SOURCE_FILE (asmop);
+      loc->line = ASM_OPERANDS_SOURCE_LINE (asmop);
+#endif
+    }
+
+  return ASM_OPERANDS_TEMPLATE (asmop);
 }
 
 /* Check if an asm_operand matches its constraints.
@@ -1961,8 +1994,17 @@ offsettable_address_p (int strictp, enum machine_mode mode, rtx y)
    because the amount of the increment depends on the mode.  */
 
 int
-mode_dependent_address_p (rtx addr ATTRIBUTE_UNUSED /* Maybe used in GO_IF_MODE_DEPENDENT_ADDRESS.  */)
+mode_dependent_address_p (rtx addr)
 {
+  /* Auto-increment addressing with anything other than post_modify
+     or pre_modify always introduces a mode dependency.  Catch such
+     cases now instead of deferring to the target.  */
+  if (GET_CODE (addr) == PRE_INC
+      || GET_CODE (addr) == POST_INC
+      || GET_CODE (addr) == PRE_DEC
+      || GET_CODE (addr) == POST_DEC)
+    return 1;
+
   GO_IF_MODE_DEPENDENT_ADDRESS (addr, win);
   return 0;
   /* Label `win' might (not) be used via GO_IF_MODE_DEPENDENT_ADDRESS.  */
@@ -2055,7 +2097,7 @@ extract_insn (rtx insn)
 	  decode_asm_operands (body, recog_data.operand,
 			       recog_data.operand_loc,
 			       recog_data.constraints,
-			       recog_data.operand_mode);
+			       recog_data.operand_mode, NULL);
 	  if (noperands > 0)
 	    {
 	      const char *p =  recog_data.constraints[0];
@@ -2671,21 +2713,9 @@ reg_fits_class_p (rtx operand, enum reg_class cl, int offset,
   if (cl == NO_REGS)
     return 0;
 
-  if (regno < FIRST_PSEUDO_REGISTER
-      && TEST_HARD_REG_BIT (reg_class_contents[(int) cl],
-			    regno + offset))
-    {
-      int sr;
-      regno += offset;
-      for (sr = hard_regno_nregs[regno][mode] - 1;
-	   sr > 0; sr--)
-	if (! TEST_HARD_REG_BIT (reg_class_contents[(int) cl],
-				 regno + sr))
-	  break;
-      return sr == 0;
-    }
-
-  return 0;
+  return (regno < FIRST_PSEUDO_REGISTER
+	  && in_hard_reg_set_p (reg_class_contents[(int) cl],
+				mode, regno + offset));
 }
 
 /* Split single instruction.  Helper function for split_all_insns and
@@ -3012,8 +3042,7 @@ peep2_find_free_register (int from, int to, const char *class_str,
 	}
       if (success)
 	{
-	  for (j = hard_regno_nregs[regno][mode] - 1; j >= 0; j--)
-	    SET_HARD_REG_BIT (*reg_set, regno + j);
+	  add_to_hard_reg_set (reg_set, mode, regno);
 
 	  /* Start the next search with the next register.  */
 	  if (++raw_regno >= FIRST_PSEUDO_REGISTER)
@@ -3185,7 +3214,7 @@ peephole2_optimize (void)
 		  try = emit_insn_after_setloc (try, peep2_insn_data[i].insn,
 					        INSN_LOCATOR (peep2_insn_data[i].insn));
 		  before_try = PREV_INSN (insn);
-		  delete_insn_chain (insn, peep2_insn_data[i].insn);
+		  delete_insn_chain (insn, peep2_insn_data[i].insn, false);
 
 		  /* Re-insert the EH_REGION notes.  */
 		  if (note || (was_call && nonlocal_goto_handler_labels))
@@ -3344,47 +3373,92 @@ peephole2_optimize (void)
 /* Common predicates for use with define_bypass.  */
 
 /* True if the dependency between OUT_INSN and IN_INSN is on the store
-   data not the address operand(s) of the store.  IN_INSN must be
-   single_set.  OUT_INSN must be either a single_set or a PARALLEL with
-   SETs inside.  */
+   data not the address operand(s) of the store.  IN_INSN and OUT_INSN
+   must be either a single_set or a PARALLEL with SETs inside.  */
 
 int
 store_data_bypass_p (rtx out_insn, rtx in_insn)
 {
   rtx out_set, in_set;
+  rtx out_pat, in_pat;
+  rtx out_exp, in_exp;
+  int i, j;
 
   in_set = single_set (in_insn);
-  gcc_assert (in_set);
-
-  if (!MEM_P (SET_DEST (in_set)))
-    return false;
-
-  out_set = single_set (out_insn);
-  if (out_set)
+  if (in_set)
     {
-      if (reg_mentioned_p (SET_DEST (out_set), SET_DEST (in_set)))
+      if (!MEM_P (SET_DEST (in_set)))
 	return false;
+
+      out_set = single_set (out_insn);
+      if (out_set)
+        {
+          if (reg_mentioned_p (SET_DEST (out_set), SET_DEST (in_set)))
+            return false;
+        }
+      else
+        {
+          out_pat = PATTERN (out_insn);
+
+	  if (GET_CODE (out_pat) != PARALLEL)
+	    return false;
+
+          for (i = 0; i < XVECLEN (out_pat, 0); i++)
+          {
+            out_exp = XVECEXP (out_pat, 0, i);
+
+            if (GET_CODE (out_exp) == CLOBBER)
+              continue;
+
+            gcc_assert (GET_CODE (out_exp) == SET);
+
+            if (reg_mentioned_p (SET_DEST (out_exp), SET_DEST (in_set)))
+              return false;
+          }
+      }
     }
   else
     {
-      rtx out_pat;
-      int i;
+      in_pat = PATTERN (in_insn);
+      gcc_assert (GET_CODE (in_pat) == PARALLEL);
 
-      out_pat = PATTERN (out_insn);
-      gcc_assert (GET_CODE (out_pat) == PARALLEL);
-
-      for (i = 0; i < XVECLEN (out_pat, 0); i++)
+      for (i = 0; i < XVECLEN (in_pat, 0); i++)
 	{
-	  rtx exp = XVECEXP (out_pat, 0, i);
+	  in_exp = XVECEXP (in_pat, 0, i);
 
-	  if (GET_CODE (exp) == CLOBBER)
+	  if (GET_CODE (in_exp) == CLOBBER)
 	    continue;
 
-	  gcc_assert (GET_CODE (exp) == SET);
+	  gcc_assert (GET_CODE (in_exp) == SET);
 
-	  if (reg_mentioned_p (SET_DEST (exp), SET_DEST (in_set)))
+	  if (!MEM_P (SET_DEST (in_exp)))
 	    return false;
-	}
+
+          out_set = single_set (out_insn);
+          if (out_set)
+            {
+              if (reg_mentioned_p (SET_DEST (out_set), SET_DEST (in_exp)))
+                return false;
+            }
+          else
+            {
+              out_pat = PATTERN (out_insn);
+              gcc_assert (GET_CODE (out_pat) == PARALLEL);
+
+              for (j = 0; j < XVECLEN (out_pat, 0); j++)
+                {
+                  out_exp = XVECEXP (out_pat, 0, j);
+
+                  if (GET_CODE (out_exp) == CLOBBER)
+                    continue;
+
+                  gcc_assert (GET_CODE (out_exp) == SET);
+
+                  if (reg_mentioned_p (SET_DEST (out_exp), SET_DEST (in_exp)))
+                    return false;
+                }
+            }
+        }
     }
 
   return true;

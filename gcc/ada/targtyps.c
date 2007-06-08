@@ -6,7 +6,7 @@
  *                                                                          *
  *                                  Body                                    *
  *                                                                          *
- *          Copyright (C) 1992-2004 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -89,7 +89,7 @@ get_target_char_size (void)
 Pos
 get_target_wchar_t_size (void)
 {
-  /* We never want wide chacters less than "short" in Ada.  */
+  /* We never want wide characters less than "short" in Ada.  */
   return MAX (SHORT_TYPE_SIZE, WCHAR_TYPE_SIZE);
 }
 

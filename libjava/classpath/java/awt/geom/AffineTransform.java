@@ -414,7 +414,9 @@ public class AffineTransform implements Cloneable, Serializable
   public static AffineTransform getTranslateInstance(double tx, double ty)
   {
     AffineTransform t = new AffineTransform();
-    t.setToTranslation(tx, ty);
+    t.m02 = tx;
+    t.m12 = ty;
+    t.type = (tx == 0 && ty == 0) ? TYPE_UNIFORM_SCALE : TYPE_TRANSLATION;
     return t;
   }
 
@@ -1399,10 +1401,10 @@ public class AffineTransform implements Cloneable, Serializable
    * documented, but appears to be the same as:
    * <pre>
    * long l = Double.doubleToLongBits(getScaleX());
-   * l = l * 31 + Double.doubleToLongBits(getShearY());
    * l = l * 31 + Double.doubleToLongBits(getShearX());
-   * l = l * 31 + Double.doubleToLongBits(getScaleY());
    * l = l * 31 + Double.doubleToLongBits(getTranslateX());
+   * l = l * 31 + Double.doubleToLongBits(getShearY());
+   * l = l * 31 + Double.doubleToLongBits(getScaleY());
    * l = l * 31 + Double.doubleToLongBits(getTranslateY());
    * return (int) ((l >> 32) ^ l);
    * </pre>
@@ -1411,12 +1413,12 @@ public class AffineTransform implements Cloneable, Serializable
    */
   public int hashCode()
   {
-    long l = Double.doubleToLongBits(m00);
-    l = l * 31 + Double.doubleToLongBits(m10);
-    l = l * 31 + Double.doubleToLongBits(m01);
-    l = l * 31 + Double.doubleToLongBits(m11);
-    l = l * 31 + Double.doubleToLongBits(m02);
-    l = l * 31 + Double.doubleToLongBits(m12);
+    long l = Double.doubleToLongBits(m00); 
+    l = l * 31 + Double.doubleToLongBits(m01); 
+    l = l * 31 + Double.doubleToLongBits(m02); 
+    l = l * 31 + Double.doubleToLongBits(m10); 
+    l = l * 31 + Double.doubleToLongBits(m11); 
+    l = l * 31 + Double.doubleToLongBits(m12); 
     return (int) ((l >> 32) ^ l);
   }
 

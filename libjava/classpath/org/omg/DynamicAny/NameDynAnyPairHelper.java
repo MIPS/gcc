@@ -1,5 +1,5 @@
 /* NameDynAnyPairHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -40,6 +40,7 @@ package org.omg.DynamicAny;
 
 import gnu.CORBA.Minor;
 import gnu.CORBA.NameDynAnyPairHolder;
+import gnu.CORBA.OrbRestricted;
 
 import org.omg.CORBA.Any;
 import org.omg.CORBA.BAD_OPERATION;
@@ -63,11 +64,6 @@ import org.omg.CORBA.portable.OutputStream;
  */
 public abstract class NameDynAnyPairHelper
 {
-  /**
-   * The cached typecode value, computed only once.
-   */
-  private static TypeCode typeCode;
-
   /**
    * Extract the NameDynAnyPair from given Any.
    * This method uses the NameDynAnyPairHolder.
@@ -107,25 +103,21 @@ public abstract class NameDynAnyPairHelper
    */
   public static TypeCode type()
   {
-    if (typeCode == null)
-      {
-        ORB orb = ORB.init();
-        StructMember[] members = new StructMember[ 2 ];
-
-        TypeCode field;
-
-        field =
-          orb.create_alias_tc("IDL:omg.org/DynamicAny/FieldName:1.0",
-                              "FieldName",
-                              orb.get_primitive_tc(TCKind.tk_string)
-                             );
-        members [ 0 ] = new StructMember("id", field, null);
-
-        field = DynAnyHelper.type();
-        members [ 1 ] = new StructMember("value", field, null);
-        typeCode = orb.create_struct_tc(id(), "NameDynAnyPair", members);
-      }
-    return typeCode;
+    ORB orb = OrbRestricted.Singleton;
+    StructMember[] members = new StructMember[ 2 ];
+    
+    TypeCode field;
+    
+    field =
+      orb.create_alias_tc("IDL:omg.org/DynamicAny/FieldName:1.0",
+                          "FieldName",
+                          orb.get_primitive_tc(TCKind.tk_string)
+      );
+    members [ 0 ] = new StructMember("id", field, null);
+    
+    field = DynAnyHelper.type();
+    members [ 1 ] = new StructMember("value", field, null);
+    return orb.create_struct_tc(id(), "NameDynAnyPair", members);
   }
 
   /**
@@ -159,7 +151,7 @@ public abstract class NameDynAnyPairHelper
    * The method should write this object to the CDR input stream, but
    * (following the JDK 1.5 API) it does not.
    *
-   * @param input a org.omg.CORBA.portable stream to read from.
+   * @param output a org.omg.CORBA.portable stream to write into.
    *
    * @specenote Sun throws the same exception.
    *

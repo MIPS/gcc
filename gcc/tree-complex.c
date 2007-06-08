@@ -1,5 +1,5 @@
 /* Lower complex number operations to scalar operations.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
    
@@ -165,7 +165,7 @@ init_parameter_lattice_values (void)
   for (parm = DECL_ARGUMENTS (cfun->decl); parm ; parm = TREE_CHAIN (parm))
     if (is_complex_reg (parm) && var_ann (parm) != NULL)
       {
-	tree ssa_name = default_def (parm);
+	tree ssa_name = gimple_default_def (cfun, parm);
 	VEC_replace (complex_lattice_t, complex_lattice_values,
 		     SSA_NAME_VERSION (ssa_name), VARYING);
       }
@@ -206,13 +206,13 @@ init_dont_simulate_again (void)
 		 since it's never used as an input to another computation.  */
 	      dsa = true;
 	      stmt = TREE_OPERAND (stmt, 0);
-	      if (!stmt || TREE_CODE (stmt) != MODIFY_EXPR)
+	      if (!stmt || TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
 		break;
 	      /* FALLTHRU */
 
-	    case MODIFY_EXPR:
-	      dsa = !is_complex_reg (TREE_OPERAND (stmt, 0));
-	      rhs = TREE_OPERAND (stmt, 1);
+	    case GIMPLE_MODIFY_STMT:
+	      dsa = !is_complex_reg (GIMPLE_STMT_OPERAND (stmt, 0));
+	      rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 	      break;
 
 	    case COND_EXPR:
@@ -267,11 +267,11 @@ complex_visit_stmt (tree stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
   unsigned int ver;
   tree lhs, rhs;
 
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return SSA_PROP_VARYING;
 
-  lhs = TREE_OPERAND (stmt, 0);
-  rhs = TREE_OPERAND (stmt, 1);
+  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
   /* These conditions should be satisfied due to the initial filter
      set up in init_dont_simulate_again.  */
@@ -387,7 +387,7 @@ create_one_component_var (tree type, tree orig, const char *prefix,
 			  const char *suffix, enum tree_code code)
 {
   tree r = create_tmp_var (type, prefix);
-  add_referenced_tmp_var (r);
+  add_referenced_var (r);
 
   DECL_SOURCE_LOCATION (r) = DECL_SOURCE_LOCATION (orig);
   DECL_ARTIFICIAL (r) = 1;
@@ -532,7 +532,7 @@ set_component_ssa_name (tree ssa_name, bool imag_p, tree value)
   
   /* Do all the work to assign VALUE to COMP.  */
   value = force_gimple_operand (value, &list, false, NULL);
-  last = build2 (MODIFY_EXPR, TREE_TYPE (comp), comp, value);
+  last = build_gimple_modify_stmt (comp, value);
   append_to_statement_list (last, &list);
 
   gcc_assert (SSA_NAME_DEF_STMT (comp) == NULL);
@@ -588,7 +588,7 @@ extract_component (block_stmt_iterator *bsi, tree t, bool imagpart_p,
 static void
 update_complex_components (block_stmt_iterator *bsi, tree stmt, tree r, tree i)
 {
-  tree lhs = TREE_OPERAND (stmt, 0);
+  tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
   tree list;
 
   list = set_component_ssa_name (lhs, false, r);
@@ -625,11 +625,11 @@ update_complex_assignment (block_stmt_iterator *bsi, tree r, tree i)
   mod = stmt = bsi_stmt (*bsi);
   if (TREE_CODE (stmt) == RETURN_EXPR)
     mod = TREE_OPERAND (mod, 0);
-  else if (in_ssa_p)
+  else if (gimple_in_ssa_p (cfun))
     update_complex_components (bsi, stmt, r, i);
   
-  type = TREE_TYPE (TREE_OPERAND (mod, 1));
-  TREE_OPERAND (mod, 1) = build2 (COMPLEX_EXPR, type, r, i);
+  type = TREE_TYPE (GIMPLE_STMT_OPERAND (mod, 1));
+  GIMPLE_STMT_OPERAND (mod, 1) = build2 (COMPLEX_EXPR, type, r, i);
   update_stmt (stmt);
 }
 
@@ -651,7 +651,7 @@ update_parameter_components (void)
 	continue;
 
       type = TREE_TYPE (type);
-      ssa_name = default_def (parm);
+      ssa_name = gimple_default_def (cfun, parm);
       if (!ssa_name)
 	continue;
 
@@ -773,25 +773,24 @@ expand_complex_move (block_stmt_iterator *bsi, tree stmt, tree type,
       i = extract_component (bsi, rhs, 1, false);
 
       x = build1 (REALPART_EXPR, inner_type, unshare_expr (lhs));
-      x = build2 (MODIFY_EXPR, inner_type, x, r);
+      x = build_gimple_modify_stmt (x, r);
       bsi_insert_before (bsi, x, BSI_SAME_STMT);
 
       if (stmt == bsi_stmt (*bsi))
 	{
 	  x = build1 (IMAGPART_EXPR, inner_type, unshare_expr (lhs));
-	  TREE_OPERAND (stmt, 0) = x;
-	  TREE_OPERAND (stmt, 1) = i;
-	  TREE_TYPE (stmt) = inner_type;
+	  GIMPLE_STMT_OPERAND (stmt, 0) = x;
+	  GIMPLE_STMT_OPERAND (stmt, 1) = i;
 	}
       else
 	{
 	  x = build1 (IMAGPART_EXPR, inner_type, unshare_expr (lhs));
-	  x = build2 (MODIFY_EXPR, inner_type, x, i);
+	  x = build_gimple_modify_stmt (x, i);
 	  bsi_insert_before (bsi, x, BSI_SAME_STMT);
 
 	  stmt = bsi_stmt (*bsi);
 	  gcc_assert (TREE_CODE (stmt) == RETURN_EXPR);
-	  TREE_OPERAND (stmt, 0) = lhs;
+	  GIMPLE_STMT_OPERAND (stmt, 0) = lhs;
 	}
 
       update_all_vops (stmt);
@@ -889,7 +888,7 @@ expand_complex_libcall (block_stmt_iterator *bsi, tree ar, tree ai,
   tree fn, stmt, type;
 
   stmt = bsi_stmt (*bsi);
-  type = TREE_TYPE (TREE_OPERAND (stmt, 1));
+  type = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 1));
 
   mode = TYPE_MODE (type);
   gcc_assert (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT);
@@ -901,12 +900,12 @@ expand_complex_libcall (block_stmt_iterator *bsi, tree ar, tree ai,
     gcc_unreachable ();
   fn = built_in_decls[bcode];
 
-  TREE_OPERAND (stmt, 1) = build_call_expr (fn, 4, ar, ai, br, bi);
+  GIMPLE_STMT_OPERAND (stmt, 1) = build_call_expr (fn, 4, ar, ai, br, bi);
   update_stmt (stmt);
 
-  if (in_ssa_p)
+  if (gimple_in_ssa_p (cfun))
     {
-      tree lhs = TREE_OPERAND (stmt, 0);
+      tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
       type = TREE_TYPE (type);
       update_complex_components (bsi, stmt,
 				 build1 (REALPART_EXPR, type, lhs),
@@ -1061,11 +1060,6 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
       bb_true = create_empty_bb (bb_cond);
       bb_false = create_empty_bb (bb_true);
 
-      t1 = build1 (GOTO_EXPR, void_type_node, tree_block_label (bb_true));
-      t2 = build1 (GOTO_EXPR, void_type_node, tree_block_label (bb_false));
-      COND_EXPR_THEN (cond) = t1;
-      COND_EXPR_ELSE (cond) = t2;
-
       /* Wire the blocks together.  */
       e->flags = EDGE_TRUE_VALUE;
       redirect_edge_succ (e, bb_true);
@@ -1116,9 +1110,9 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
 
      if (bb_true)
        {
-	 t1 = build2 (MODIFY_EXPR, inner_type, rr, tr);
+	 t1 = build_gimple_modify_stmt (rr, tr);
 	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
-	 t1 = build2 (MODIFY_EXPR, inner_type, ri, ti);
+	 t1 = build_gimple_modify_stmt (ri, ti);
 	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
 	 bsi_remove (bsi, true);
        }
@@ -1155,9 +1149,9 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
 
      if (bb_false)
        {
-	 t1 = build2 (MODIFY_EXPR, inner_type, rr, tr);
+	 t1 = build_gimple_modify_stmt (rr, tr);
 	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
-	 t1 = build2 (MODIFY_EXPR, inner_type, ri, ti);
+	 t1 = build_gimple_modify_stmt (ri, ti);
 	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
 	 bsi_remove (bsi, true);
        }
@@ -1301,9 +1295,9 @@ expand_complex_comparison (block_stmt_iterator *bsi, tree ar, tree ai,
     case RETURN_EXPR:
       expr = TREE_OPERAND (stmt, 0);
       /* FALLTHRU */
-    case MODIFY_EXPR:
-      type = TREE_TYPE (TREE_OPERAND (expr, 1));
-      TREE_OPERAND (expr, 1) = fold_convert (type, cc);
+    case GIMPLE_MODIFY_STMT:
+      type = TREE_TYPE (GIMPLE_STMT_OPERAND (expr, 1));
+      GIMPLE_STMT_OPERAND (expr, 1) = fold_convert (type, cc);
       break;
     case COND_EXPR:
       TREE_OPERAND (stmt, 0) = cc;
@@ -1332,12 +1326,12 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
       stmt = TREE_OPERAND (stmt, 0);
       if (!stmt)
 	return;
-      if (TREE_CODE (stmt) != MODIFY_EXPR)
+      if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
 	return;
       /* FALLTHRU */
 
-    case MODIFY_EXPR:
-      rhs = TREE_OPERAND (stmt, 1);
+    case GIMPLE_MODIFY_STMT:
+      rhs = GIMPLE_STMT_OPERAND (stmt, 1);
       break;
 
     case COND_EXPR:
@@ -1378,8 +1372,15 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 
     default:
       {
-	tree lhs = TREE_OPERAND (stmt, 0);
-	tree rhs = TREE_OPERAND (stmt, 1);
+	tree lhs, rhs;
+
+	/* COND_EXPR may also fallthru here, but we do not need to do anything
+	   with it.  */
+	if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+	  return;
+
+	lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+	rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
 	if (TREE_CODE (type) == COMPLEX_TYPE)
 	  expand_complex_move (bsi, stmt, type, lhs, rhs);
@@ -1387,7 +1388,7 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 		  || TREE_CODE (rhs) == IMAGPART_EXPR)
 		 && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME)
 	  {
-	    TREE_OPERAND (stmt, 1)
+	    GENERIC_TREE_OPERAND (stmt, 1)
 	      = extract_component (bsi, TREE_OPERAND (rhs, 0),
 				   TREE_CODE (rhs) == IMAGPART_EXPR, false);
 	    update_stmt (stmt);
@@ -1416,7 +1417,7 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 	}
     }
 
-  if (in_ssa_p)
+  if (gimple_in_ssa_p (cfun))
     {
       al = find_lattice_value (ac);
       if (al == UNINITIALIZED)
@@ -1487,10 +1488,8 @@ tree_lower_complex (void)
     return 0;
 
   complex_lattice_values = VEC_alloc (complex_lattice_t, heap, num_ssa_names);
-  VEC_safe_grow (complex_lattice_t, heap,
-		 complex_lattice_values, num_ssa_names);
-  memset (VEC_address (complex_lattice_t, complex_lattice_values), 0,
-	  num_ssa_names * sizeof(complex_lattice_t));
+  VEC_safe_grow_cleared (complex_lattice_t, heap,
+			 complex_lattice_values, num_ssa_names);
 
   init_parameter_lattice_values ();
   ssa_propagate (complex_visit_stmt, complex_visit_phi);
@@ -1499,9 +1498,8 @@ tree_lower_complex (void)
 					     int_tree_map_eq, free);
 
   complex_ssa_name_components = VEC_alloc (tree, heap, 2*num_ssa_names);
-  VEC_safe_grow (tree, heap, complex_ssa_name_components, 2*num_ssa_names);
-  memset (VEC_address (tree, complex_ssa_name_components), 0,
-	  2 * num_ssa_names * sizeof(tree));
+  VEC_safe_grow_cleared (tree, heap, complex_ssa_name_components,
+			 2 * num_ssa_names);
 
   update_parameter_components ();
 
@@ -1535,9 +1533,10 @@ struct tree_opt_pass pass_lower_complex =
   0,					/* tv_id */
   PROP_ssa,				/* properties_required */
   0,					/* properties_provided */
-  0,					/* properties_destroyed */
+  0,                       		/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect
+  TODO_dump_func
+    | TODO_ggc_collect
     | TODO_update_ssa
     | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */

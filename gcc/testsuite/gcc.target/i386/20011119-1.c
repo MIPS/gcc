@@ -1,7 +1,9 @@
 /* Test for reload failing to eliminate from argp to sp.  */
 /* { dg-do run { target i?86-*-* x86_64-*-* } } */
 /* { dg-require-effective-target ilp32 } */
+/* { dg-require-effective-target fpic } */
 /* { dg-skip-if "" { "*-*-*" } { "-fpic" "-fPIC" } { "" } } */
+/* { dg-skip-if "PIC default" { "*-*-darwin*" } { "*" } { "" } } */
 /* { dg-options "-O2 -fomit-frame-pointer" } */
 
 static int ustrsize (const char *s);
@@ -59,7 +61,7 @@ main()
   ucwidth = ucwidth_;
   ugetxc = ugetxc_;
   usetc = usetc_;
-  
+
   /* ??? It is impossible to explicitly modify the hard frame pointer.
      This will run afoul of code in flow.c that declines to mark regs
      in eliminate_regs in regs_ever_used.  Apparently, we have to wait

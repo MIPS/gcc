@@ -34,9 +34,6 @@ extern int ia64_st_address_bypass_p (rtx, rtx);
 extern int ia64_ld_address_bypass_p (rtx, rtx);
 extern int ia64_produce_address_p (rtx);
 
-extern bool ia64_const_ok_for_letter_p (HOST_WIDE_INT, char);
-extern bool ia64_const_double_ok_for_letter_p (rtx, char);
-extern bool ia64_extra_constraint (rtx, char);
 extern bool ia64_legitimate_constant_p (rtx);
 
 extern rtx ia64_expand_move (rtx, rtx);
@@ -110,3 +107,5 @@ extern enum direction ia64_hpux_function_arg_padding (enum machine_mode, tree);
 extern void ia64_hpux_handle_builtin_pragma (struct cpp_reader *);
 extern void ia64_output_function_profiler (FILE *, int);
 extern void ia64_profile_hook (int);
+
+extern void ia64_optimization_options (int, int);

@@ -56,8 +56,8 @@ static void print_rtx (rtx);
    the assembly output file.  */
 const char *print_rtx_head = "";
 
-/* Nonzero means suppress output of instruction numbers and line number
-   notes in debugging dumps.
+/* Nonzero means suppress output of instruction numbers
+   in debugging dumps.
    This must be defined here so that programs like gencodes can be linked.  */
 int flag_dump_unnumbered = 0;
 
@@ -270,7 +270,7 @@ print_rtx (rtx in_rtx)
 #endif
 	else if (i == 4 && NOTE_P (in_rtx))
 	  {
-	    switch (NOTE_LINE_NUMBER (in_rtx))
+	    switch (NOTE_KIND (in_rtx))
 	      {
 	      case NOTE_INSN_EH_REGION_BEG:
 	      case NOTE_INSN_EH_REGION_END:
@@ -283,12 +283,9 @@ print_rtx (rtx in_rtx)
 
 	      case NOTE_INSN_BLOCK_BEG:
 	      case NOTE_INSN_BLOCK_END:
-		fprintf (outfile, " ");
-		if (flag_dump_unnumbered)
-		  fprintf (outfile, "#");
-		else
-		  fprintf (outfile, "%p",
-			   (char *) NOTE_BLOCK (in_rtx));
+#ifndef GENERATOR_FILE
+		dump_addr (outfile, " ", NOTE_BLOCK (in_rtx));
+#endif
 		sawclose = 1;
 		break;
 
@@ -301,14 +298,6 @@ print_rtx (rtx in_rtx)
 #endif
 		  break;
 	        }
-
-	      case NOTE_INSN_EXPECTED_VALUE:
-		indent += 2;
-		if (!sawclose)
-		  fprintf (outfile, " ");
-		print_rtx (NOTE_EXPECTED_VALUE (in_rtx));
-		indent -= 2;
-		break;
 
 	      case NOTE_INSN_DELETED_LABEL:
 		{
@@ -341,22 +330,7 @@ print_rtx (rtx in_rtx)
 		break;
 
 	      default:
-		{
-		  const char * const str = X0STR (in_rtx, i);
-
-		  if (NOTE_LINE_NUMBER (in_rtx) < 0)
-		    ;
-		  else if (str == 0)
-		    fputs (dump_for_graph ? " \\\"\\\"" : " \"\"", outfile);
-		  else
-		    {
-		      if (dump_for_graph)
-		        fprintf (outfile, " (\\\"%s\\\")", str);
-		      else
-		        fprintf (outfile, " (\"%s\")", str);
-		    }
-		  break;
-		}
+		break;
 	      }
 	  }
 	break;
@@ -423,7 +397,7 @@ print_rtx (rtx in_rtx)
 	  {
 	    /* This field is only used for NOTE_INSN_DELETED_LABEL, and
 	       other times often contains garbage from INSN->NOTE death.  */
-	    if (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_DELETED_LABEL)
+	    if (NOTE_KIND (in_rtx) == NOTE_INSN_DELETED_LABEL)
 	      fprintf (outfile, " %d",  XINT (in_rtx, i));
 	  }
 	else
@@ -487,11 +461,7 @@ print_rtx (rtx in_rtx)
       /* Print NOTE_INSN names rather than integer codes.  */
 
       case 'n':
-	if (XINT (in_rtx, i) >= (int) NOTE_INSN_BIAS
-	    && XINT (in_rtx, i) < (int) NOTE_INSN_MAX)
-	  fprintf (outfile, " %s", GET_NOTE_INSN_NAME (XINT (in_rtx, i)));
-	else
-	  fprintf (outfile, " %d", XINT (in_rtx, i));
+	fprintf (outfile, " %s", GET_NOTE_INSN_NAME (XINT (in_rtx, i)));
 	sawclose = 0;
 	break;
 
@@ -504,7 +474,7 @@ print_rtx (rtx in_rtx)
 	    if (GET_CODE (in_rtx) == LABEL_REF)
 	      {
 		if (subc == NOTE
-		    && NOTE_LINE_NUMBER (sub) == NOTE_INSN_DELETED_LABEL)
+		    && NOTE_KIND (sub) == NOTE_INSN_DELETED_LABEL)
 		  {
 		    if (flag_dump_unnumbered)
 		      fprintf (outfile, " [# deleted]");
@@ -539,7 +509,9 @@ print_rtx (rtx in_rtx)
 	break;
 
       case 't':
-	fprintf (outfile, " %p", (void *) XTREE (in_rtx, i));
+#ifndef GENERATOR_FILE
+	dump_addr (outfile, " ", XTREE (in_rtx, i));
+#endif
 	break;
 
       case '*':
@@ -753,13 +725,11 @@ print_rtl (FILE *outf, rtx rtx_first)
       case CODE_LABEL:
       case BARRIER:
 	for (tmp_rtx = rtx_first; tmp_rtx != 0; tmp_rtx = NEXT_INSN (tmp_rtx))
-	  if (! flag_dump_unnumbered
-	      || !NOTE_P (tmp_rtx) || NOTE_LINE_NUMBER (tmp_rtx) < 0)
-	    {
-	      fputs (print_rtx_head, outfile);
-	      print_rtx (tmp_rtx);
-	      fprintf (outfile, "\n");
-	    }
+	  {
+	    fputs (print_rtx_head, outfile);
+	    print_rtx (tmp_rtx);
+	    fprintf (outfile, "\n");
+	  }
 	break;
 
       default:
@@ -776,8 +746,7 @@ print_rtl_single (FILE *outf, rtx x)
 {
   outfile = outf;
   sawclose = 0;
-  if (! flag_dump_unnumbered
-      || !NOTE_P (x) || NOTE_LINE_NUMBER (x) < 0)
+  if (! flag_dump_unnumbered)
     {
       fputs (print_rtx_head, outfile);
       print_rtx (x);

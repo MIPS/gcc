@@ -1,6 +1,7 @@
 // Prototypes for GLIBC thread locale __-prefixed functions -*- C++ -*-
 
-// Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,10 +28,19 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file c++locale_internal.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 // Written by Jakub Jelinek <jakub@redhat.com>
 
 #include <bits/c++config.h>
 #include <clocale>
+#include <cstdlib>
+#include <cstring>
+#include <cstddef>
+#include <langinfo.h>
 
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
                                                   

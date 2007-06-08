@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -222,9 +222,9 @@ package body Ch10 is
             else
                Item := First (Config_Pragmas);
                Error_Msg_N
-                 ("cannot compile configuration pragmas with gcc", Item);
+                 ("cannot compile configuration pragmas with gcc!", Item);
                Error_Msg_N
-                 ("use gnatchop -c to process configuration pragmas!", Item);
+                 ("\use gnatchop -c to process configuration pragmas!", Item);
                raise Unrecoverable_Error;
             end if;
 
@@ -854,7 +854,7 @@ package body Ch10 is
                return Item_List;
 
             elsif Ada_Version < Ada_05 then
-               Error_Msg_SP ("PRIVATE WITH is an Ada 2005 extension");
+               Error_Msg_SP ("`PRIVATE WITH` is an Ada 2005 extension");
                Error_Msg_SP
                  ("\unit must be compiled with -gnat05 switch");
             end if;
@@ -869,22 +869,17 @@ package body Ch10 is
 
             if Token = Tok_Type then
 
-               --  WITH TYPE is an GNAT specific extension
+               --  WITH TYPE is an obsolete GNAT specific extension
 
-               if not Extensions_Allowed then
-                  Error_Msg_SP ("`WITH TYPE` is a 'G'N'A'T extension");
-                  Error_Msg_SP ("\unit must be compiled with -gnatX switch");
-               end if;
+               Error_Msg_SP
+                 ("`WITH TYPE` is an obsolete 'G'N'A'T extension");
+               Error_Msg_SP ("\use Ada 2005 `LIMITED WITH` clause instead");
 
                Scan;  -- past TYPE
-               With_Node := New_Node (N_With_Type_Clause, Token_Ptr);
-               Append (With_Node, Item_List);
-               Set_Name (With_Node, P_Qualified_Simple_Name);
 
                T_Is;
 
                if Token = Tok_Tagged then
-                  Set_Tagged_Present (With_Node);
                   Scan;
 
                elsif Token = Tok_Access then

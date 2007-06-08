@@ -1,5 +1,5 @@
 /* CodecFactoryHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,11 +38,13 @@ exception statement from your version. */
 
 package org.omg.IOP;
 
+import gnu.CORBA.OrbRestricted;
+
 import org.omg.CORBA.Any;
+import org.omg.CORBA.BAD_OPERATION;
 import org.omg.CORBA.BAD_PARAM;
 import org.omg.CORBA.CompletionStatus;
 import org.omg.CORBA.MARSHAL;
-import org.omg.CORBA.ORB;
 import org.omg.CORBA.TypeCode;
 import org.omg.CORBA.portable.InputStream;
 import org.omg.CORBA.portable.OutputStream;
@@ -56,18 +58,11 @@ import org.omg.CORBA.portable.OutputStream;
 public abstract class CodecFactoryHelper
 {
   /**
-   * The cached {@link CodecFactory} typecode, computed once.
-   */
-  private static TypeCode typeCode;
-
-  /**
    * Get the type code of the {@link CodecFactory}.
    */
   public static TypeCode type()
   {
-    if (typeCode == null)
-      typeCode = ORB.init().create_interface_tc(id(), "CodecFactory");
-    return typeCode;
+    return OrbRestricted.Singleton.create_interface_tc(id(), "CodecFactory");
   }
 
   /**
@@ -125,15 +120,13 @@ public abstract class CodecFactoryHelper
    * Narrow the given object to the CodecFactory. For the objects that are
    * always local, this operation does not differ from the ordinary
    * {@link #narrow} (ClassCastException will be thrown if narrowing something
-   * different).
+   * different). See OMG issue 4158.
    * 
    * @param obj the object to cast.
    * 
    * @return the casted CodecFactory.
    * 
    * @since 1.5 
-   * 
-   * @see OMG issue 4158.
    */
   public static CodecFactory unchecked_narrow(org.omg.CORBA.Object obj)
   {
@@ -146,7 +139,7 @@ public abstract class CodecFactoryHelper
    *
    * @specnote Suns implementation (1.4) throws this exception either.
    *
-   * @throws {@link MARSHAL}, minor code 0 and incomplete, always.
+   * @throws MARSHAL, minor code 0 and incomplete, always.
    */
   public static CodecFactory read(InputStream input)
   {
@@ -159,7 +152,7 @@ public abstract class CodecFactoryHelper
    *
    * @specnote Suns implementation (1.4) throws this exception either.
    *
-   * @throws {@link MARSHAL}, minor code 0 and incomplete, always.
+   * @throws MARSHAL, minor code 0 and incomplete, always.
    */
   public static void write(OutputStream output, CodecFactory value)
   {

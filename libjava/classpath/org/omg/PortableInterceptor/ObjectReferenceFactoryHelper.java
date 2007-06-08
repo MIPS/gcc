@@ -1,5 +1,5 @@
 /* ObjectReferenceFactoryHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -40,10 +40,10 @@ package org.omg.PortableInterceptor;
 
 import gnu.CORBA.CDR.Vio;
 import gnu.CORBA.Minor;
+import gnu.CORBA.OrbRestricted;
 
 import org.omg.CORBA.Any;
 import org.omg.CORBA.BAD_OPERATION;
-import org.omg.CORBA.ORB;
 import org.omg.CORBA.TypeCode;
 import org.omg.CORBA.ValueMember;
 import org.omg.CORBA.portable.InputStream;
@@ -60,24 +60,16 @@ import org.omg.CORBA.VM_ABSTRACT;
 public abstract class ObjectReferenceFactoryHelper
 {
   /**
-   * The cached {@link ObjectReferenceFactory} typecode, computed once.
-   */
-  private static TypeCode typeCode;
-
-  /**
    * Get the type code of the {@link ObjectReferenceFactory}.
-   *
-   * @return value type code with the agreed id, named
-   * "ObjectReferenceFactory", abstract, no members, no base type.
+   * 
+   * @return value type code with the agreed id, named "ObjectReferenceFactory",
+   *         abstract, no members, no base type.
    */
   public static TypeCode type()
   {
-    if (typeCode == null)
-      typeCode =
-        ORB.init().create_value_tc(id(), "ObjectReferenceFactory",
-          VM_ABSTRACT.value, null, new ValueMember[ 0 ]
-        );
-    return typeCode;
+    return OrbRestricted.Singleton.create_value_tc(id(), "ObjectReferenceFactory",
+                                      VM_ABSTRACT.value, null,
+                                      new ValueMember[0]);
   }
 
   /**

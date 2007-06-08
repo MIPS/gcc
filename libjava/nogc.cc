@@ -1,6 +1,7 @@
 // nogc.cc - Implement null garbage collector.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2006, 2007
+   Free Software Foundation
 
    This file is part of libgcj.
 
@@ -69,6 +70,14 @@ _Jv_AllocRawObj (jsize size)
 {
   total += size;
   return calloc (size, 1);
+}
+
+_Jv_ClosureList **
+_Jv_ClosureListFinalizer ()
+{
+  _Jv_ClosureList **clpp;
+  clpp = (_Jv_ClosureList **)_Jv_AllocBytes (sizeof (*clpp));
+  return clpp;
 }
 
 void
@@ -165,3 +174,19 @@ _Jv_AllocTraceTwo (jsize size /* includes vtable slot */)
   return result;
 }
 #endif /* JV_HASH_SYNCHRONIZATION */
+
+void
+_Jv_SuspendThread (_Jv_Thread_t *thread)
+{
+}
+
+void
+_Jv_ResumeThread (_Jv_Thread_t *thread)
+{
+}
+
+int
+_Jv_IsThreadSuspended (_Jv_Thread_t *thread)
+{
+  return 0;
+}

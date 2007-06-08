@@ -239,7 +239,9 @@ df_print_bb_index (basic_block bb, FILE *file)
 }
 
 
-/* Return the set of reference ids in CHAIN, caching the result in *BMAP.  */
+/* Return a bitmap for REGNO from the cache MAPS.  The bitmap is to
+   contain COUNT bits starting at START.  These bitmaps are not to be
+   changed since there is a cache of them.  */
 
 static inline bitmap
 df_ref_bitmap (bitmap *maps, unsigned int regno, int start, int count)
@@ -282,12 +284,41 @@ df_unset_seen (void)
    REACHING USES
 
    Find the locations in the function where each use site for a pseudo
-   can reach backwards.
+   can reach backwards.  In and out bitvectors are built for each basic
+   block.  The id field in the ref is used to index into these sets.
+   See df.h for details.
 
 ----------------------------------------------------------------------------*/
 
+/* This problem plays a large number of games for the sake of
+   efficiency.  
+   
+   1) The order of the bits in the bitvectors.  After the scanning
+   phase, all of the uses are sorted.  All of the uses for the reg 0
+   are first, followed by all uses for reg 1 and so on.
+   
+   2) There are two kill sets, one if the number of uses is less or
+   equal to DF_SPARSE_THRESHOLD and another if it is greater.
+
+   <= : There is a bitmap for each register, uses_sites[N], that is
+   built on demand.  This bitvector contains a 1 for each use or reg
+   N.
+
+   > : One level of indirection is used to keep from generating long
+   strings of 1 bits in the kill sets.  Bitvectors that are indexed
+   by the regnum are used to represent that there is a killing def
+   for the register.  The confluence and transfer functions use
+   these along with the bitmap_clear_range call to remove ranges of
+   bits without actually generating a knockout vector.
+
+   The kill and sparse_kill and the dense_invalidated_by_call and
+   sparse_invalidated_by call both play this game.  */
+
+/* Private data used to compute the solution for this problem.  These
+   data structures are not accessible outside of this module.  */
 struct df_ru_problem_data
 {
+
   bitmap *use_sites;            /* Bitmap of uses for each pseudo.  */
   unsigned int use_sites_size;  /* Size of use_sites.  */
   /* The set of defs to regs invalidated by call.  */
@@ -440,15 +471,15 @@ df_ru_bb_local_compute_process_def (struct dataflow *dflow,
 	  unsigned int n_uses = DF_REG_USE_GET (df, regno)->n_refs;
 	  if (!bitmap_bit_p (seen_in_block, regno))
 	    {
-	      /* The first def for regno, causes the kill info to be
-		 generated and the gen information to cleared.  */
+	      /* The first def for regno in the insn, causes the kill
+		 info to be generated.  Do not modify the gen set
+		 because the only values in it are the uses from here
+		 to the top of the block and this def does not effect
+		 them.  */
 	      if (!bitmap_bit_p (seen_in_insn, regno))
 		{
 		  if (n_uses > DF_SPARSE_THRESHOLD)
-		    {
-		      bitmap_set_bit (bb_info->sparse_kill, regno);
-		      bitmap_clear_range (bb_info->gen, begin, n_uses);
-		    }
+		    bitmap_set_bit (bb_info->sparse_kill, regno);
 		  else
 		    {
 		      struct df_ru_problem_data * problem_data
@@ -457,7 +488,6 @@ df_ru_bb_local_compute_process_def (struct dataflow *dflow,
 			= df_ref_bitmap (problem_data->use_sites, regno, 
 				       begin, n_uses);
 		      bitmap_ior_into (bb_info->kill, uses);
-		      bitmap_and_compl_into (bb_info->gen, uses);
 		    }
 		}
 	      bitmap_set_bit (seen_in_insn, regno);
@@ -520,15 +550,11 @@ df_ru_bb_local_compute (struct dataflow *dflow, unsigned int bb_index)
       if (!INSN_P (insn))
 	continue;
 
-      df_ru_bb_local_compute_process_def (dflow, bb_info, 
-					  DF_INSN_UID_DEFS (df, uid), 0);
-
-      /* The use processing must happen after the defs processing even
-	 though the uses logically happen first since the defs clear
-	 the gen set. Otherwise, a use for regno occuring in the same
-	 instruction as a def for regno would be cleared.  */ 
       df_ru_bb_local_compute_process_use (bb_info, 
 					  DF_INSN_UID_USES (df, uid), 0);
+
+      df_ru_bb_local_compute_process_def (dflow, bb_info, 
+					  DF_INSN_UID_DEFS (df, uid), 0);
 
       bitmap_ior_into (seen_in_block, seen_in_insn);
       bitmap_clear (seen_in_insn);
@@ -560,9 +586,7 @@ df_ru_local_compute (struct dataflow *dflow,
   bitmap dense_invalidated = problem_data->dense_invalidated_by_call;
 
   df_set_seen ();
-
-  if (!df->use_info.refs_organized)
-    df_reorganize_refs (&df->use_info);
+  df_reorganize_refs (&df->use_info);
 
   EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
     {
@@ -661,7 +685,7 @@ df_ru_transfer_function (struct dataflow *dflow, int bb_index)
       struct df *df = dflow->df;
       bool changed = false;
       bitmap tmp = BITMAP_ALLOC (NULL);
-      bitmap_copy (tmp, in);
+      bitmap_copy (tmp, out);
       EXECUTE_IF_SET_IN_BITMAP (sparse_kill, 0, regno, bi)
 	{
 	  bitmap_clear_range (tmp, 
@@ -673,7 +697,7 @@ df_ru_transfer_function (struct dataflow *dflow, int bb_index)
       changed = !bitmap_equal_p (tmp, in);
       if (changed)
 	{
-	  BITMAP_FREE (out);
+	  BITMAP_FREE (in);
 	  bb_info->in = tmp;
 	}
       else 
@@ -765,13 +789,13 @@ df_ru_dump (struct dataflow *dflow, FILE *file)
       if (!bb_info->in)
 	continue;
       
-      fprintf (file, "  in  \t");
+      fprintf (file, "  in  \t(%d)\n", (int) bitmap_count_bits (bb_info->in));
       dump_bitmap (file, bb_info->in);
-      fprintf (file, "  gen \t");
+      fprintf (file, "  gen \t(%d)\n", (int) bitmap_count_bits (bb_info->gen));
       dump_bitmap (file, bb_info->gen);
-      fprintf (file, "  kill\t");
+      fprintf (file, "  kill\t(%d)\n", (int) bitmap_count_bits (bb_info->kill));
       dump_bitmap (file, bb_info->kill);
-      fprintf (file, "  out \t");
+      fprintf (file, "  out \t(%d)\n", (int) bitmap_count_bits (bb_info->out));
       dump_bitmap (file, bb_info->out);
     }
 }
@@ -815,16 +839,29 @@ df_ru_add_problem (struct df *df, int flags)
    REACHING DEFINITIONS
 
    Find the locations in the function where each definition site for a
-   pseudo reaches.
-----------------------------------------------------------------------------*/
+   pseudo reaches.  In and out bitvectors are built for each basic
+   block.  The id field in the ref is used to index into these sets.
+   See df.h for details.
+   ----------------------------------------------------------------------------*/
 
+/* See the comment at the top of the Reaching Uses problem for how the
+   uses are represented in the kill sets. The same games are played
+   here for the defs.  */
+
+/* Private data used to compute the solution for this problem.  These
+   data structures are not accessible outside of this module.  */
 struct df_rd_problem_data
 {
+  /* If the number of defs for regnum N is less than
+     DF_SPARSE_THRESHOLD, uses_sites[N] contains a mask of the all of
+     the defs of reg N indexed by the id in the ref structure.  If
+     there are more than DF_SPARSE_THRESHOLD defs for regnum N a
+     different mechanism is used to mask the def.  */
   bitmap *def_sites;            /* Bitmap of defs for each pseudo.  */
   unsigned int def_sites_size;  /* Size of def_sites.  */
   /* The set of defs to regs invalidated by call.  */
   bitmap sparse_invalidated_by_call;  
-  /* The set of defs to regs invalidate by call for ru.  */  
+  /* The set of defs to regs invalidate by call for rd.  */  
   bitmap dense_invalidated_by_call;   
 };
 
@@ -1070,9 +1107,7 @@ df_rd_local_compute (struct dataflow *dflow,
   bitmap dense_invalidated = problem_data->dense_invalidated_by_call;
 
   df_set_seen ();
-
-  if (!df->def_info.refs_organized)
-    df_reorganize_refs (&df->def_info);
+  df_reorganize_refs (&df->def_info);
 
   EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
     {
@@ -1276,13 +1311,13 @@ df_rd_dump (struct dataflow *dflow, FILE *file)
       if (!bb_info->in)
 	continue;
       
-      fprintf (file, "  in\t(%d)\n", (int) bitmap_count_bits (bb_info->in));
+      fprintf (file, "  in  \t(%d)\n", (int) bitmap_count_bits (bb_info->in));
       dump_bitmap (file, bb_info->in);
       fprintf (file, "  gen \t(%d)\n", (int) bitmap_count_bits (bb_info->gen));
       dump_bitmap (file, bb_info->gen);
       fprintf (file, "  kill\t(%d)\n", (int) bitmap_count_bits (bb_info->kill));
       dump_bitmap (file, bb_info->kill);
-      fprintf (file, "  out\t(%d)\n", (int) bitmap_count_bits (bb_info->out));
+      fprintf (file, "  out \t(%d)\n", (int) bitmap_count_bits (bb_info->out));
       dump_bitmap (file, bb_info->out);
     }
 }
@@ -1326,9 +1361,11 @@ df_rd_add_problem (struct df *df, int flags)
 /*----------------------------------------------------------------------------
    LIVE REGISTERS
 
-   Find the locations in the function where any use of a pseudo can reach
-   in the backwards direction.
-----------------------------------------------------------------------------*/
+   Find the locations in the function where any use of a pseudo can
+   reach in the backwards direction.  In and out bitvectors are built
+   for each basic block.  The regnum is used to index into these sets.
+   See df.h for details.
+   ----------------------------------------------------------------------------*/
 
 /* Get basic block info.  */
 
@@ -1739,7 +1776,9 @@ df_lr_add_problem (struct df *df, int flags)
    UNINITIALIZED REGISTERS
 
    Find the set of uses for registers that are reachable from the entry
-   block without passing thru a definition.
+   block without passing thru a definition.  In and out bitvectors are built
+   for each basic block.  The regnum is used to index into these sets.
+   See df.h for details.
 ----------------------------------------------------------------------------*/
 
 /* Get basic block info.  */
@@ -1925,7 +1964,7 @@ df_ur_init (struct dataflow *dflow, bitmap all_blocks)
 }
 
 
-/* Or in the stack regs, hard regs and early clobber regs into the the
+/* Or in the stack regs, hard regs and early clobber regs into the
    ur_in sets of all of the blocks.  */
 
 static void
@@ -2093,12 +2132,18 @@ df_ur_add_problem (struct df *df, int flags)
    UNINITIALIZED REGISTERS WITH EARLYCLOBBER
 
    Find the set of uses for registers that are reachable from the entry
-   block without passing thru a definition.
+   block without passing thru a definition.  In and out bitvectors are built
+   for each basic block.  The regnum is used to index into these sets.
+   See df.h for details.
 
    This is a variant of the UR problem above that has a lot of special
-   features just for the register allocation phase.
-----------------------------------------------------------------------------*/
+   features just for the register allocation phase.  This problem
+   should go away if someone would fix the interference graph.
 
+   ----------------------------------------------------------------------------*/
+
+/* Private data used to compute the solution for this problem.  These
+   data structures are not accessible outside of this module.  */
 struct df_urec_problem_data
 {
   bool earlyclobbers_found;     /* True if any instruction contains an
@@ -2214,12 +2259,10 @@ df_urec_mark_reg_change (rtx reg, rtx setter, void *data)
   if (!REG_P (reg))
     return;
   
-  
-  endregno = regno = REGNO (reg);
+  regno = REGNO (reg);
   if (regno < FIRST_PSEUDO_REGISTER)
     {
-      endregno +=hard_regno_nregs[regno][GET_MODE (reg)];
-      
+      endregno = END_HARD_REGNO (reg);
       for (i = regno; i < endregno; i++)
 	{
 	  bitmap_set_bit (bb_info->kill, i);
@@ -2442,7 +2485,7 @@ df_urec_local_compute (struct dataflow *dflow,
   bitmap_iterator bi;
 #ifdef STACK_REGS
   int i;
-  HARD_REG_SET zero, stack_hard_regs, used;
+  HARD_REG_SET stack_hard_regs, used;
   struct df_urec_problem_data *problem_data
     = (struct df_urec_problem_data *) dflow->problem_data;
   
@@ -2453,7 +2496,6 @@ df_urec_local_compute (struct dataflow *dflow,
 
      FIXME: This seems like an incredibly poor idea.  */
 
-  CLEAR_HARD_REG_SET (zero);
   CLEAR_HARD_REG_SET (stack_hard_regs);
   for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
     SET_HARD_REG_BIT (stack_hard_regs, i);
@@ -2463,10 +2505,8 @@ df_urec_local_compute (struct dataflow *dflow,
       COPY_HARD_REG_SET (used, reg_class_contents[reg_preferred_class (i)]);
       IOR_HARD_REG_SET (used, reg_class_contents[reg_alternate_class (i)]);
       AND_HARD_REG_SET (used, stack_hard_regs);
-      GO_IF_HARD_REG_EQUAL (used, zero, skip);
-      bitmap_set_bit (problem_data->stack_regs, i);
-    skip:
-      ;
+      if (!hard_reg_set_empty_p (used))
+	bitmap_set_bit (problem_data->stack_regs, i);
     }
 #endif
 
@@ -2501,7 +2541,7 @@ df_urec_init (struct dataflow *dflow, bitmap all_blocks)
 }
 
 
-/* Or in the stack regs, hard regs and early clobber regs into the the
+/* Or in the stack regs, hard regs and early clobber regs into the
    ur_in sets of all of the blocks.  */
 
 static void
@@ -2722,8 +2762,7 @@ df_chain_alloc (struct dataflow *dflow,
 
   if (dflow->flags & DF_DU_CHAIN)
     {
-      if (!df->def_info.refs_organized)
-	df_reorganize_refs (&df->def_info);
+      df_reorganize_refs (&df->def_info);
       
       /* Clear out the pointers from the refs.  */
       for (i = 0; i < DF_DEFS_SIZE (df); i++)
@@ -2735,8 +2774,7 @@ df_chain_alloc (struct dataflow *dflow,
   
   if (dflow->flags & DF_UD_CHAIN)
     {
-      if (!df->use_info.refs_organized)
-	df_reorganize_refs (&df->use_info);
+      df_reorganize_refs (&df->use_info);
       for (i = 0; i < DF_USES_SIZE (df); i++)
 	{
 	  struct df_ref *ref = df->use_info.refs[i];
@@ -3094,8 +3132,13 @@ df_chain_add_problem (struct df *df, int flags)
 /*----------------------------------------------------------------------------
    REGISTER INFORMATION
 
-   Currently this consists of only lifetime information and reg_dead
-   and reg_unused.  
+   This pass properly computes REG_DEAD and REG_UNUSED notes.
+
+   If the DF_RI_LIFE flag is set the following vectors containing
+   information about register usage are properly set: REG_N_REFS,
+   REG_N_DEATHS, REG_N_SETS, REG_LIVE_LENGTH, REG_N_CALLS_CROSSED,
+   REG_N_THROWING_CALLS_CROSSED and REG_BASIC_BLOCK.
+
    ----------------------------------------------------------------------------*/
 
 #ifdef REG_DEAD_DEBUGGING
@@ -3743,7 +3786,7 @@ static struct df_problem problem_RI =
   df_ri_dump,                 /* Debugging.  */
 
   /* Technically this is only dependent on the live registers problem
-     but it will produce infomation if built one of uninitialized
+     but it will produce information if built one of uninitialized
      register problems (UR, UREC) is also run.  */
   df_lr_add_problem,          /* Dependent problem.  */
   0                           /* Changeable flags.  */

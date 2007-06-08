@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---           Copyright (C) 2000-2006, Free Software Foundation, Inc.        --
+--           Copyright (C) 2000-2007, Free Software Foundation, Inc.        --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,8 +24,12 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Lib;   use Lib;
-with Namet; use Namet;
+with Atree;    use Atree;
+with Sinfo;    use Sinfo;
+with Fname.UF; use Fname.UF;
+with Lib;      use Lib;
+with Namet;    use Namet;
+with Uname;    use Uname;
 
 package body Impunit is
 
@@ -141,6 +145,7 @@ package body Impunit is
    -----------------------------------
 
      "a-chlat9",    -- Ada.Characters.Latin_9
+     "a-clrefi",    -- Ada.Command_Line.Response_File
      "a-colien",    -- Ada.Command_Line.Environment
      "a-colire",    -- Ada.Command_Line.Remove
      "a-cwila1",    -- Ada.Characters.Wide_Latin_1
@@ -207,6 +212,7 @@ package body Impunit is
      "g-bubsor",    -- GNAT.Bubble_Sort
      "g-busora",    -- GNAT.Bubble_Sort_A
      "g-busorg",    -- GNAT.Bubble_Sort_G
+     "g-bytswa",    -- Gnat.Byte_Swapping
      "g-calend",    -- GNAT.Calendar
      "g-casuti",    -- GNAT.Case_Util
      "g-catiio",    -- GNAT.Calendar.Time_IO
@@ -246,6 +252,7 @@ package body Impunit is
      "g-regpat",    -- GNAT.Regpat
      "g-semaph",    -- GNAT.Semaphores
      "g-sestin",    -- GNAT.Secondary_Stack_Info
+     "g-sha1  ",    -- GNAT.SHA1
      "g-signal",    -- GNAT.Signals
      "g-socket",    -- GNAT.Sockets
      "g-souinf",    -- GNAT.Source_Info
@@ -282,17 +289,8 @@ package body Impunit is
      "i-cexten",    -- Interfaces.C.Extensions
      "i-cpp   ",    -- Interfaces.CPP
      "i-cstrea",    -- Interfaces.C.Streams
-     "i-jalaob",    -- Interfaces.Java.Lang.Object
-     "i-jalasy",    -- Interfaces.Java.Lang.System
-     "i-jalath",    -- Interfaces.Java.Lang.Thread
      "i-java  ",    -- Interfaces.Java
-     "i-javlan",    -- Interfaces.Java.Lang
-     "i-os2err",    -- Interfaces.Os2lib.Errors
-     "i-os2lib",    -- Interfaces.Os2lib
-     "i-os2syn",    -- Interfaces.Os2lib.Synchronization
-     "i-os2thr",    -- Interfaces.Os2lib.Threads
      "i-pacdec",    -- Interfaces.Packed_Decimal
-     "i-vthrea",    -- Interfaces.Vthreads
      "i-vxwoio",    -- Interfaces.VxWorks.IO
      "i-vxwork",    -- Interfaces.VxWorks
 
@@ -313,6 +311,7 @@ package body Impunit is
      "s-addima",    -- System.Address_Image
      "s-assert",    -- System.Assertions
      "s-memory",    -- System.Memory
+     "s-os_lib",    -- System.Os_Lib
      "s-parint",    -- System.Partition_Interface
      "s-pooglo",    -- System.Pool_Global
      "s-pooloc",    -- System.Pool_Local
@@ -334,8 +333,10 @@ package body Impunit is
    -- Ada Hierarchy Units from Ada 2005 Reference Manual --
    --------------------------------------------------------
 
+     "a-calari",    -- Ada.Calendar.Arithmetic
+     "a-calfor",    -- Ada.Calendar.Formatting
+     "a-catizo",    -- Ada.Calendar.Time_Zones
      "a-cdlili",    -- Ada.Containers.Doubly_Linked_Lists
-     "a-cgaaso",    -- Ada.Containers.Generic_Anonymous_Array_Sort
      "a-cgarso",    -- Ada.Containers.Generic_Array_Sort
      "a-cgcaso",    -- Ada.Containers.Generic_Constrained_Array_Sort
      "a-chacon",    -- Ada.Characters.Conversions
@@ -353,11 +354,16 @@ package body Impunit is
      "a-coorse",    -- Ada.Containers.Ordered_Sets
      "a-coteio",    -- Ada.Complex_Text_IO
      "a-direct",    -- Ada.Directories
+     "a-diroro",    -- Ada.Dispatching.Round_Robin
+     "a-dispat",    -- Ada.Dispatching
      "a-envvar",    -- Ada.Environment_Variables
+     "a-exetim",    -- Ada.Execution_Time
+     "a-extiti",    -- Ada.Execution_Time.Timers
      "a-rttiev",    -- Ada.Real_Time.Timing_Events
-     "a-secain",    -- Ada.Strings.Equal_Case_Insensitive
-     "a-shcain",    -- Ada.Strings.Hash_Case_Insensitive
-     "a-slcain",    -- Ada.Strings.Less_Case_Insensitive
+     "a-ngcoar",    -- Ada.Numerics.Generic_Complex_Arrays
+     "a-ngrear",    -- Ada.Numerics.Generic_Real_Arrays
+     "a-nucoar",    -- Ada.Numerics.Complex_Arrays
+     "a-nurear",    -- Ada.Numerics.Real_Arrays
      "a-stboha",    -- Ada.Strings.Bounded.Hash
      "a-stfiha",    -- Ada.Strings.Fixed.Hash
      "a-strhas",    -- Ada.Strings.Hash
@@ -383,6 +389,8 @@ package body Impunit is
      "a-wwboio",    -- Ada.Wide_Text_IO.Wide_Bounded_IO
      "a-wwunio",    -- Ada.Wide_Text_IO.Wide_Unbounded_IO
      "a-zchara",    -- Ada.Wide_Wide_Characters
+     "a-ztcoio",    -- Ada.Wide_Wide_Text_IO.Complex_IO
+     "a-ztedit",    -- Ada.Wide_Wide_Text_IO.Editing
      "a-zttest",    -- Ada.Wide_Wide_Text_IO.Text_Streams
      "a-ztexio",    -- Ada.Wide_Wide_Text_IO
      "a-zzboio",    -- Ada.Wide_Wide_Text_IO.Wide_Wide_Bounded_IO
@@ -398,6 +406,10 @@ package body Impunit is
      "a-llctio",    -- Ada.Long_Long_Complex_Text_IO
      "a-llfzti",    -- Ada.Long_Long_Float_Wide_Wide_Text_IO
      "a-llizti",    -- Ada.Long_Long_Integer_Wide_Wide_Text_IO
+     "a-nlcoar",    -- Ada.Numerics.Long_Complex_Arrays
+     "a-nllcar",    -- Ada.Numerics.Long_Long_Complex_Arrays
+     "a-nllrar",    -- Ada.Numerics.Long_Long_Real_Arrays
+     "a-nlrear",    -- Ada.Numerics.Long_Real_Arrays
      "a-scteio",    -- Ada.Short_Complex_Text_IO
      "a-sfztio",    -- Ada.Short_Float_Wide_Wide_Text_IO
      "a-siztio",    -- Ada.Short_Integer_Wide_Wide_Text_IO
@@ -408,10 +420,15 @@ package body Impunit is
    -- GNAT Defined Additions to Ada 2005 --
    ----------------------------------------
 
+     "a-cgaaso",    -- Ada.Containers.Generic_Anonymous_Array_Sort
      "a-chzla1",    -- Ada.Characters.Wide_Wide_Latin_1
      "a-chzla9",    -- Ada.Characters.Wide_Wide_Latin_9
      "a-ciormu",    -- Ada.Containers.Indefinite_Ordered_Multisets
      "a-coormu",    -- Ada.Containers.Ordered_Multisets
+     "a-crdlli",    -- Ada.Containers.Restricted_Doubly_Linked_Lists
+     "a-secain",    -- Ada.Strings.Equal_Case_Insensitive
+     "a-shcain",    -- Ada.Strings.Hash_Case_Insensitive
+     "a-slcain",    -- Ada.Strings.Less_Case_Insensitive
      "a-szuzti",    -- Ada.Strings.Wide_Wide_Unbounded.Wide_Wide_Text_IO
      "a-zchuni",    -- Ada.Wide_Wide_Characters.Unicode
 
@@ -527,5 +544,76 @@ package body Impunit is
 
       return Implementation_Unit;
    end Get_Kind_Of_Unit;
+
+   -------------------
+   -- Is_Known_Unit --
+   -------------------
+
+   function Is_Known_Unit (Nam : Node_Id) return Boolean is
+      Unam : Unit_Name_Type;
+      Fnam : File_Name_Type;
+
+   begin
+      --  If selector is not an identifier (e.g. it is a character literal or
+      --  some junk from a previous error), then definitely not a known unit.
+
+      if Nkind (Selector_Name (Nam)) /= N_Identifier then
+         return False;
+      end if;
+
+      --  Otherwise get corresponding file name
+
+      Unam := Get_Unit_Name (Nam);
+      Fnam := Get_File_Name (Unam, Subunit => False);
+      Get_Name_String (Fnam);
+
+      --  Remove extension from file name
+
+      if Name_Buffer (Name_Len - 3 .. Name_Len) = ".adb" then
+         Name_Len := Name_Len - 4;
+      else
+         return False;
+      end if;
+
+      --  Pad name to 8 characters
+
+      while Name_Len < 8 loop
+         Name_Len := Name_Len + 1;
+         Name_Buffer (Name_Len) := ' ';
+      end loop;
+
+      --  If length more than 8, definitely not a match
+
+      if Name_Len /= 8 then
+         return False;
+      end if;
+
+      --  If length is 8, search our tables
+
+      for J in Non_Imp_File_Names_95'Range loop
+         if Name_Buffer (1 .. 8) = Non_Imp_File_Names_95 (J) then
+            return True;
+         end if;
+      end loop;
+
+      for J in Non_Imp_File_Names_05'Range loop
+         if Name_Buffer (1 .. 8) = Non_Imp_File_Names_05 (J) then
+            return True;
+         end if;
+      end loop;
+
+      --  If not found, not known
+
+      return False;
+
+   --  A safety guard, if we get an exception during this processing then it
+   --  is most likely the result of a previous error, or a peculiar case we
+   --  have not thought of. Since this routine is only used for error message
+   --  refinement, we will just return False.
+
+   exception
+      when others =>
+         return False;
+   end Is_Known_Unit;
 
 end Impunit;

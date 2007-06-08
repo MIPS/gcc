@@ -1,5 +1,6 @@
 /* Header for code constant translation functions
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
+   Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -19,11 +20,13 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
-/* Returns an INT_CST.  */
+/* Converts between INT_CST and GMP integer representations.  */
 tree gfc_conv_mpz_to_tree (mpz_t, int);
+void gfc_conv_tree_to_mpz (mpz_t, tree);
 
-/* Returns a REAL_CST.  */
+/* Converts between REAL_CST and MPFR floating-point representations.  */
 tree gfc_conv_mpfr_to_tree (mpfr_t, int);
+void gfc_conv_tree_to_mpfr (mpfr_ptr, tree);
 
 /* Build a tree for a constant.  Must be an EXPR_CONSTANT gfc_expr.
    For CHARACTER literal constants, the caller still has to set the
@@ -48,12 +51,6 @@ void gfc_init_constants (void);
 
 /* Build a constant with given type from an int_cst.  */
 tree gfc_build_const (tree, tree);
-
-/* String constants.  */
-extern GTY(()) tree gfc_strconst_current_filename;
-extern GTY(()) tree gfc_strconst_bounds;
-extern GTY(()) tree gfc_strconst_fault;
-extern GTY(()) tree gfc_strconst_wrong_return;
 
 /* Integer constants 0..GFC_MAX_DIMENSIONS.  */
 extern GTY(()) tree gfc_rank_cst[GFC_MAX_DIMENSIONS + 1];

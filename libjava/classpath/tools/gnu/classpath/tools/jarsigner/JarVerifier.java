@@ -1,5 +1,5 @@
 /* JarVerifier.java -- The verification handler of the gjarsigner tool
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package gnu.classpath.tools.jarsigner;
 
+import gnu.classpath.Configuration;
 import gnu.java.security.OID;
 import gnu.java.security.Registry;
 import gnu.java.security.pkcs.PKCS7SignedData;
@@ -54,13 +55,12 @@ import gnu.java.util.jar.JarUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.PublicKey;
-import java.security.cert.Certificate;
 import java.security.cert.CRLException;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -83,7 +83,7 @@ public class JarVerifier
   /** The JAR file to verify. */
   private JarFile jarFile;
   /** Map of jar entry names to their hash. */
-  private Map entryHashes = new HashMap();
+  private Map<String, String> entryHashes = new HashMap<String, String>();
 
   JarVerifier(Main main)
   {
@@ -94,13 +94,13 @@ public class JarVerifier
 
   void start() throws Exception
   {
-    log.entering(this.getClass().getName(), "start"); //$NON-NLS-1$
-
+    if (Configuration.DEBUG)
+      log.entering(this.getClass().getName(), "start"); //$NON-NLS-1$
     String jarFileName = main.getJarFileName();
     jarFile = new JarFile(jarFileName);
 
     // 1. find all signature (.SF) files
-    List sfFiles = new ArrayList();
+    List<String> sfFiles = new ArrayList<String>();
     for (Enumeration e = jarFile.entries(); e.hasMoreElements(); )
       {
         JarEntry je = (JarEntry) e.nextElement();
@@ -126,13 +126,10 @@ public class JarVerifier
       {
         int limit = sfFiles.size();
         int count = 0;
-        for (Iterator it = sfFiles.iterator(); it.hasNext(); )
-          {
-            String alias = (String) it.next();
-            if (verifySF(alias))
-              if (verifySFEntries(alias))
-                count++;
-          }
+        for (String alias : sfFiles)
+          if (verifySF(alias))
+            if (verifySFEntries(alias))
+              count++;
 
         if (count == 0)
           System.out.println(Messages.getString("JarVerifier.3")); //$NON-NLS-1$
@@ -144,8 +141,8 @@ public class JarVerifier
           System.out.println(Messages.getFormattedString("JarVerifier.7", //$NON-NLS-1$
                                                          Integer.valueOf(limit)));
       }
-
-    log.exiting(this.getClass().getName(), "start"); //$NON-NLS-1$
+    if (Configuration.DEBUG)
+      log.exiting(this.getClass().getName(), "start"); //$NON-NLS-1$
   }
 
   /**
@@ -162,9 +159,11 @@ public class JarVerifier
   private boolean verifySF(String sigFileName) throws CRLException,
       CertificateException, ZipException, IOException
   {
-    log.entering(this.getClass().getName(), "verifySF"); //$NON-NLS-1$
-    log.finest("About to verify signature of " + sigFileName + "..."); //$NON-NLS-1$ //$NON-NLS-2$
-
+    if (Configuration.DEBUG)
+      {
+        log.entering(this.getClass().getName(), "verifySF"); //$NON-NLS-1$
+        log.fine("About to verify signature of " + sigFileName + "..."); //$NON-NLS-1$ //$NON-NLS-2$
+      }
     // 1. find the corresponding .DSA file for this .SF file
     JarEntry dsaEntry = jarFile.getJarEntry(JarUtils.META_INF + sigFileName
                                             + JarUtils.DSA_SUFFIX);
@@ -186,12 +185,14 @@ public class JarVerifier
     if (encryptedDigest == null)
       throw new SecurityException(Messages.getString("JarVerifier.16")); //$NON-NLS-1$
 
-    log.finest("\n" + Util.dumpString(encryptedDigest, "--- signedSFBytes ")); //$NON-NLS-1$ //$NON-NLS-2$
+    if (Configuration.DEBUG)
+      log.fine("\n" + Util.dumpString(encryptedDigest, "--- signedSFBytes ")); //$NON-NLS-1$ //$NON-NLS-2$
 
     // 5. get the signer public key
     Certificate cert = pkcs7SignedData.getCertificates()[0];
     PublicKey verifierKey = cert.getPublicKey();
-    log.finest("--- verifier public key = " + verifierKey); //$NON-NLS-1$
+    if (Configuration.DEBUG)
+      log.fine("--- verifier public key = " + verifierKey); //$NON-NLS-1$
 
     // 6. verify the signature file signature
     OID digestEncryptionAlgorithmOID = signerInfo.getDigestEncryptionAlgorithmId();
@@ -225,10 +226,12 @@ public class JarVerifier
         signatureAlgorithm.update(buffer, 0, n);
 
     boolean result = signatureAlgorithm.verify(herSignature);
-    log.finer("Signature block [" + sigFileName + "] is " //$NON-NLS-1$ //$NON-NLS-2$
-              + (result ? "" : "NOT ") + "OK"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-
-    log.exiting(this.getClass().getName(), "verifySF", Boolean.valueOf(result)); //$NON-NLS-1$
+    if (Configuration.DEBUG)
+      {
+        log.fine("Signature block [" + sigFileName + "] is " //$NON-NLS-1$ //$NON-NLS-2$
+                 + (result ? "" : "NOT ") + "OK"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+        log.exiting(this.getClass().getName(), "verifySF", Boolean.valueOf(result)); //$NON-NLS-1$
+      }
     return result;
   }
 
@@ -250,14 +253,14 @@ public class JarVerifier
    */
   private boolean verifySFEntries(String alias) throws IOException
   {
-    log.entering(this.getClass().getName(), "verifySFEntries"); //$NON-NLS-1$
-
+    if (Configuration.DEBUG)
+      log.entering(this.getClass().getName(), "verifySFEntries"); //$NON-NLS-1$
     // 1. read the signature file
     JarEntry jarEntry = jarFile.getJarEntry(JarUtils.META_INF + alias
                                             + JarUtils.SF_SUFFIX);
     InputStream in = jarFile.getInputStream(jarEntry);
     Attributes attr = new Attributes();
-    Map entries = new HashMap();
+    Map<String, Attributes> entries = new HashMap<String, Attributes>();
     JarUtils.readSFManifest(attr, entries, in);
 
     // 2. The .SF file by default includes a header containing a hash of the
@@ -280,19 +283,19 @@ public class JarVerifier
     // with the digest for this file in the manifest section. The digests
     // should be the same, or verification fails.
     if (! result)
-      for (Iterator it = entries.keySet().iterator(); it.hasNext();)
+      for (Entry<String, Attributes> me : entries.entrySet())
         {
-          Entry me = (Entry) it.next();
-          String name = (String) me.getKey();
-          attr = (Attributes) me.getValue();
+          String name = me.getKey();
+          attr = me.getValue();
           hash = attr.getValue(Main.DIGEST_ATTR);
           result = verifySFEntry(name, hash);
           if (! result)
             break;
         }
 
-    log.exiting(this.getClass().getName(), "verifySFEntries",
-                Boolean.valueOf(result)); //$NON-NLS-1$
+    if (Configuration.DEBUG)
+      log.exiting(this.getClass().getName(), "verifySFEntries", //$NON-NLS-1$
+                  Boolean.valueOf(result));
     return result;
   }
 
@@ -319,7 +322,8 @@ public class JarVerifier
   {
     String expectedValue = getEntryHash(JarFile.MANIFEST_NAME);
     boolean result = expectedValue.equalsIgnoreCase(hash);
-    log.finest("Is " + name + " OK? " + result); //$NON-NLS-1$ //$NON-NLS-2$
+    if (Configuration.DEBUG)
+      log.fine("Is " + name + " OK? " + result); //$NON-NLS-1$ //$NON-NLS-2$
     return result;
   }
 

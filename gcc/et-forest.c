@@ -505,7 +505,18 @@ void
 et_free_tree_force (struct et_node *t)
 {
   pool_free (et_occurrences, t->rightmost_occ);
+  if (t->parent_occ)
+    pool_free (et_occurrences, t->parent_occ);
   pool_free (et_nodes, t);
+}
+
+/* Release the alloc pools, if they are empty.  */
+
+void
+et_free_pools (void)
+{
+  free_alloc_pool_if_empty (&et_occurrences);
+  free_alloc_pool_if_empty (&et_nodes);
 }
 
 /* Sets father of et tree T to FATHER.  */
@@ -735,4 +746,21 @@ et_below (struct et_node *down, struct et_node *up)
     return false;
 
   return !d->next || d->next->min + d->depth >= 0;
+}
+
+/* Returns the root of the tree that contains NODE.  */
+
+struct et_node *
+et_root (struct et_node *node)
+{
+  struct et_occ *occ = node->rightmost_occ, *r;
+
+  /* The root of the tree corresponds to the rightmost occurence in the
+     represented path.  */
+  et_splay (occ);
+  for (r = occ; r->next; r = r->next)
+    continue;
+  et_splay (r);
+
+  return r->of;
 }

@@ -1,5 +1,5 @@
 /* Pattern.java -- Compiled regular expression ready to be applied.
-   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,9 +37,9 @@ exception statement from your version. */
 
 package java.util.regex;
 
-import gnu.regexp.RE;
-import gnu.regexp.REException;
-import gnu.regexp.RESyntax;
+import gnu.java.util.regex.RE;
+import gnu.java.util.regex.REException;
+import gnu.java.util.regex.RESyntax;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -73,12 +73,17 @@ public final class Pattern implements Serializable
     this.regex = regex;
     this.flags = flags;
 
+    RESyntax syntax = RESyntax.RE_SYNTAX_JAVA_1_4;
     int gnuFlags = 0;
     gnuFlags |= RE.REG_ICASE_USASCII;
     if ((flags & CASE_INSENSITIVE) != 0)
       gnuFlags |= RE.REG_ICASE;
     if ((flags & MULTILINE) != 0)
-      gnuFlags |= RE.REG_MULTILINE;
+      {
+        gnuFlags |= RE.REG_MULTILINE;
+        syntax = new RESyntax(syntax);
+        syntax.setLineSeparator(null);
+      }
     if ((flags & DOTALL) != 0)
       gnuFlags |= RE.REG_DOT_NEWLINE;
     if ((flags & UNICODE_CASE) != 0)
@@ -86,7 +91,6 @@ public final class Pattern implements Serializable
     // not yet supported:
     // if ((flags & CANON_EQ) != 0) gnuFlags =
 
-    RESyntax syntax = RESyntax.RE_SYNTAX_JAVA_1_4;
     if ((flags & UNIX_LINES) != 0)
       {
 	// Use a syntax set with \n for linefeeds?
@@ -242,7 +246,7 @@ public final class Pattern implements Serializable
       {
 	String t = input.subSequence(start, input.length()).toString();
 	if ("".equals(t) && limit == 0)
-	  ; // Don't add.
+	  { /* Don't add. */ }
 	else
 	  list.add(t);
       }
@@ -253,6 +257,16 @@ public final class Pattern implements Serializable
   }
   
   public String pattern ()
+  {
+    return regex;
+  }
+
+  /**
+   * Return the regular expression used to construct this object.
+   * @specnote Prior to JDK 1.5 this method had a different behavior
+   * @since 1.5
+   */
+  public String toString()
   {
     return regex;
   }

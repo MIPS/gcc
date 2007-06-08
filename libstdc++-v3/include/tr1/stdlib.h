@@ -1,6 +1,6 @@
 // TR1 stdlib.h -*- C++ -*-
 
-// Copyright (C) 2006 Free Software Foundation, Inc.
+// Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,12 +27,12 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/** @file 
+/** @file tr1/stdlib.h
  *  This is a TR1 C++ Library header. 
  */
 
-#ifndef _TR1_STDLIB_H
-#define _TR1_STDLIB_H 1
+#ifndef _GLIBCXX_TR1_STDLIB_H
+#define _GLIBCXX_TR1_STDLIB_H 1
 
 #include <tr1/cstdlib>
 
@@ -53,4 +53,5 @@ using std::tr1::div;
 
 #endif
 
-#endif
+#endif // _GLIBCXX_TR1_STDLIB_H
+

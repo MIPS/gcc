@@ -183,11 +183,25 @@ gimplify_compound_literal_expr (tree *expr_p, tree *pre_p)
 {
   tree decl_s = COMPOUND_LITERAL_EXPR_DECL_STMT (*expr_p);
   tree decl = DECL_EXPR_DECL (decl_s);
+  /* Mark the decl as addressable if the compound literal
+     expression is addressable now, otherwise it is marked too late
+     after we gimplify the initialization expression.  */
+  if (TREE_ADDRESSABLE (*expr_p))
+    TREE_ADDRESSABLE (decl) = 1;
+
+  /* Preliminarily mark non-addressed complex variables as eligible
+     for promotion to gimple registers.  We'll transform their uses
+     as we find them.  */
+  if ((TREE_CODE (TREE_TYPE (decl)) == COMPLEX_TYPE
+       || TREE_CODE (TREE_TYPE (decl)) == VECTOR_TYPE)
+      && !TREE_THIS_VOLATILE (decl)
+      && !needs_to_live_in_memory (decl))
+    DECL_GIMPLE_REG_P (decl) = 1;
 
   /* This decl isn't mentioned in the enclosing block, so add it to the
      list of temps.  FIXME it seems a bit of a kludge to say that
      anonymous artificial vars aren't pushed, but everything else is.  */
-  if (DECL_NAME (decl) == NULL_TREE)
+  if (DECL_NAME (decl) == NULL_TREE && !DECL_SEEN_IN_BIND_EXPR_P (decl))
     gimple_add_tmp_var (decl);
 
   gimplify_and_add (decl_s, pre_p);

@@ -1,5 +1,5 @@
 /* ConvolveOp.java --
-   Copyright (C) 2004, 2005 Free Software Foundation -- ConvolveOp
+   Copyright (C) 2004, 2005, 2006, Free Software Foundation -- ConvolveOp
 
 This file is part of GNU Classpath.
 
@@ -38,11 +38,9 @@ exception statement from your version. */
 
 package java.awt.image;
 
-import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
-import java.util.Arrays;
 
 /**
  * Convolution filter.
@@ -52,11 +50,13 @@ import java.util.Arrays;
  * with elements in the kernel to compute a new pixel.
  * 
  * Each band in a Raster is convolved and copied to the destination Raster.
+ * For BufferedImages, convolution is applied to all components.  Color 
+ * conversion will be applied if needed.
  * 
- * For BufferedImages, convolution is applied to all components.  If the
- * source is not premultiplied, the data will be premultiplied before
- * convolving.  Premultiplication will be undone if the destination is not
- * premultiplied.  Color conversion will be applied if needed.
+ * Note that this filter ignores whether the source or destination is alpha
+ * premultiplied.  The reference spec states that data will be premultiplied
+ * prior to convolving and divided back out afterwards (if needed), but testing
+ * has shown that this is not the case with their implementation.
  * 
  * @author jlquinn@optonline.net
  */
@@ -105,59 +105,83 @@ public class ConvolveOp implements BufferedImageOp, RasterOp
     hints = null;
   }
 
-  
-  /* (non-Javadoc)
-   * @see java.awt.image.BufferedImageOp#filter(java.awt.image.BufferedImage,
-   * java.awt.image.BufferedImage)
+  /**
+   * Converts the source image using the kernel specified in the
+   * constructor.  The resulting image is stored in the destination image if one
+   * is provided; otherwise a new BufferedImage is created and returned. 
+   * 
+   * The source and destination BufferedImage (if one is supplied) must have
+   * the same dimensions.
+   *
+   * @param src The source image.
+   * @param dst The destination image.
+   * @throws IllegalArgumentException if the rasters and/or color spaces are
+   *            incompatible.
+   * @return The convolved image.
    */
   public final BufferedImage filter(BufferedImage src, BufferedImage dst)
   {
     if (src == dst)
-      throw new IllegalArgumentException();
+      throw new IllegalArgumentException("Source and destination images " +
+            "cannot be the same.");
     
     if (dst == null)
       dst = createCompatibleDestImage(src, src.getColorModel());
     
     // Make sure source image is premultiplied
     BufferedImage src1 = src;
-    if (!src.isPremultiplied)
+    // The spec says we should do this, but mauve testing shows that Sun's
+    // implementation does not check this.
+    /*
+    if (!src.isAlphaPremultiplied())
     {
       src1 = createCompatibleDestImage(src, src.getColorModel());
       src.copyData(src1.getRaster());
       src1.coerceData(true);
     }
+    */
 
     BufferedImage dst1 = dst;
-    if (!src.getColorModel().equals(dst.getColorModel()))
+    if (src1.getColorModel().getColorSpace().getType() != dst.getColorModel().getColorSpace().getType())
       dst1 = createCompatibleDestImage(src, src.getColorModel());
 
     filter(src1.getRaster(), dst1.getRaster());
     
+    // Since we don't coerceData above, we don't need to divide it back out.
+    // This is wrong (one mauve test specifically tests converting a non-
+    // premultiplied image to a premultiplied image, and it shows that Sun
+    // simply ignores the premultipled flag, contrary to the spec), but we
+    // mimic it for compatibility.
+    /*
+	if (! dst.isAlphaPremultiplied())
+	  dst1.coerceData(false);
+    */
+
+    // Convert between color models if needed
     if (dst1 != dst)
-    {
-      // Convert between color models.
-      // TODO Check that premultiplied alpha is handled correctly here.
-      Graphics2D gg = dst.createGraphics();
-      gg.setRenderingHints(hints);
-      gg.drawImage(dst1, 0, 0, null);
-      gg.dispose();
-    }
-    
+      new ColorConvertOp(hints).filter(dst1, dst);
+
     return dst;
   }
 
-  /* (non-Javadoc)
-   * @see
-   * java.awt.image.BufferedImageOp#createCompatibleDestImage(java.awt.image.BufferedImage,
-   * java.awt.image.ColorModel)
+  /**
+   * Creates an empty BufferedImage with the size equal to the source and the
+   * correct number of bands. The new image is created with the specified 
+   * ColorModel, or if no ColorModel is supplied, an appropriate one is chosen.
+   *
+   * @param src The source image.
+   * @param dstCM A color model for the destination image (may be null).
+   * @return The new compatible destination image.
    */
   public BufferedImage createCompatibleDestImage(BufferedImage src,
-						 ColorModel dstCM)
+                                                 ColorModel dstCM)
   {
-    // FIXME: set properties to those in src
-    return new BufferedImage(dstCM,
-			     src.getRaster().createCompatibleWritableRaster(),
-			     src.isPremultiplied, null);
+    if (dstCM != null)
+      return new BufferedImage(dstCM,
+                               src.getRaster().createCompatibleWritableRaster(),
+                               src.isAlphaPremultiplied(), null);
+
+    return new BufferedImage(src.getWidth(), src.getHeight(), src.getType());
   }
 
   /* (non-Javadoc)
@@ -169,6 +193,8 @@ public class ConvolveOp implements BufferedImageOp, RasterOp
   }
   
   /**
+   * Get the edge condition for this Op.
+   * 
    * @return The edge condition.
    */
   public int getEdgeCondition()
@@ -186,116 +212,130 @@ public class ConvolveOp implements BufferedImageOp, RasterOp
     return (Kernel) kernel.clone();
   }
 
-  /* (non-Javadoc)
-   * @see java.awt.image.RasterOp#filter(java.awt.image.Raster,
-   * java.awt.image.WritableRaster)
+  /**
+   * Converts the source raster using the kernel specified in the constructor.  
+   * The resulting raster is stored in the destination raster if one is 
+   * provided; otherwise a new WritableRaster is created and returned.
+   * 
+   * If the convolved value for a sample is outside the range of [0-255], it
+   * will be clipped.
+   * 
+   * The source and destination raster (if one is supplied) cannot be the same,
+   * and must also have the same dimensions.
+   *
+   * @param src The source raster.
+   * @param dest The destination raster.
+   * @throws IllegalArgumentException if the rasters identical.
+   * @throws ImagingOpException if the convolution is not possible.
+   * @return The transformed raster.
    */
-  public final WritableRaster filter(Raster src, WritableRaster dest) {
+  public final WritableRaster filter(Raster src, WritableRaster dest)
+  {
     if (src == dest)
-      throw new IllegalArgumentException();
-    if (src.getWidth() < kernel.getWidth() ||
-        src.getHeight() < kernel.getHeight())
-      throw new ImagingOpException(null);
-    
+      throw new IllegalArgumentException("src == dest is not allowed.");
+    if (kernel.getWidth() > src.getWidth() 
+        || kernel.getHeight() > src.getHeight())
+      throw new ImagingOpException("The kernel is too large.");
     if (dest == null)
       dest = createCompatibleDestRaster(src);
-    else if (src.numBands != dest.numBands)
-      throw new ImagingOpException(null);
+    else if (src.getNumBands() != dest.getNumBands())
+      throw new ImagingOpException("src and dest have different band counts.");
 
-    // Deal with bottom edge
-    if (edge == EDGE_ZERO_FILL)
-    {
-      float[] zeros = new float[src.getNumBands() * src.getWidth()
-				* (kernel.getYOrigin() - 1)];
-      Arrays.fill(zeros, 0);
-      dest.setPixels(src.getMinX(), src.getMinY(), src.getWidth(),
-		     kernel.getYOrigin() - 1, zeros);
-    }
-    else
-    {
-      float[] vals = new float[src.getNumBands() * src.getWidth()
-			       * (kernel.getYOrigin() - 1)];
-      src.getPixels(src.getMinX(), src.getMinY(), src.getWidth(),
-		    kernel.getYOrigin() - 1, vals);
-      dest.setPixels(src.getMinX(), src.getMinY(), src.getWidth(),
-		     kernel.getYOrigin() - 1, vals);
-    }
+    // calculate the borders that the op can't reach...
+    int kWidth = kernel.getWidth();
+    int kHeight = kernel.getHeight();
+    int left = kernel.getXOrigin();
+    int right = Math.max(kWidth - left - 1, 0);
+    int top = kernel.getYOrigin();
+    int bottom = Math.max(kHeight - top - 1, 0);
     
-    // Handle main section
+    // Calculate max sample values for clipping
+    int[] maxValue = src.getSampleModel().getSampleSize();
+    for (int i = 0; i < maxValue.length; i++)
+      maxValue[i] = (int)Math.pow(2, maxValue[i]) - 1;
+    
+    // process the region that is reachable...
+    int regionW = src.width - left - right;
+    int regionH = src.height - top - bottom;
     float[] kvals = kernel.getKernelData(null);
+    float[] tmp = new float[kWidth * kHeight];
 
-    float[] tmp = new float[kernel.getWidth() * kernel.getHeight()];
-    for (int y = src.getMinY() + kernel.getYOrigin();
-    	 y < src.getMinY() + src.getHeight() - kernel.getYOrigin() / 2; y++)
-    {
-      // Handle unfiltered edge pixels at start of line
-      float[] t1 = new float[(kernel.getXOrigin() - 1) * src.getNumBands()];
-      if (edge == EDGE_ZERO_FILL)
-        Arrays.fill(t1, 0);
-      else
-        src.getPixels(src.getMinX(), y, kernel.getXOrigin() - 1, 1, t1);
-      dest.setPixels(src.getMinX(), y, kernel.getXOrigin() - 1, 1, t1);
-      
-      for (int x = src.getMinX(); x < src.getWidth() + src.getMinX(); x++)
+    for (int x = 0; x < regionW; x++)
       {
-        // FIXME: This needs a much more efficient implementation
-        for (int b = 0; b < src.getNumBands(); b++)
-        {
-          float v = 0;
-          src.getSamples(x, y, kernel.getWidth(), kernel.getHeight(), b, tmp);
-          for (int i=0; i < tmp.length; i++)
-            v += tmp[i] * kvals[i];
-          dest.setSample(x, y, b, v);
-        }
-      }
+        for (int y = 0; y < regionH; y++)
+          {
+            // FIXME: This needs a much more efficient implementation
+            for (int b = 0; b < src.getNumBands(); b++)
+            {
+              float v = 0;
+              src.getSamples(x, y, kWidth, kHeight, b, tmp);
+              for (int i = 0; i < tmp.length; i++)
+                v += tmp[tmp.length - i - 1] * kvals[i];
+                // FIXME: in the above line, I've had to reverse the order of 
+                // the samples array to make the tests pass.  I haven't worked 
+                // out why this is necessary.
 
-      // Handle unfiltered edge pixels at end of line
-      float[] t2 = new float[(kernel.getWidth() / 2) * src.getNumBands()];
-      if (edge == EDGE_ZERO_FILL)
-        Arrays.fill(t2, 0);
-      else
-        src.getPixels(src.getMinX() + src.getWidth()
-		      - (kernel.getWidth() / 2),
-		      y, kernel.getWidth() / 2, 1, t2);
-      dest.setPixels(src.getMinX() + src.getWidth() - (kernel.getWidth() / 2),
-		     y, kernel.getWidth() / 2, 1, t2);
-    }
-    for (int y = src.getMinY(); y < src.getHeight() + src.getMinY(); y++)
-      for (int x = src.getMinX(); x< src.getWidth() + src.getMinX(); x++)
-      {
-        
+              // This clipping is is undocumented, but determined by testing.
+              if (v > maxValue[b])
+                v = maxValue[b];
+              else if (v < 0)
+                v = 0;
+
+              dest.setSample(x + kernel.getXOrigin(), y + kernel.getYOrigin(), 
+                             b, v);
+            }
+          }
       }
-    for (int y = src.getMinY(); y < src.getHeight() + src.getMinY(); y++)
-      for (int x = src.getMinX(); x< src.getWidth() + src.getMinX(); x++)
-      {
-        
-      }
-      
-    // Handle top edge
-    if (edge == EDGE_ZERO_FILL)
-    {
-      float[] zeros = new float[src.getNumBands() * src.getWidth() *
-                                (kernel.getHeight() / 2)];
-      Arrays.fill(zeros, 0);
-      dest.setPixels(src.getMinX(),
-          src.getHeight() + src.getMinY() - (kernel.getHeight() / 2),
-          src.getWidth(), kernel.getHeight() / 2, zeros);
-    }
-    else
-    {
-      float[] vals = new float[src.getNumBands() * src.getWidth() *
-                               (kernel.getHeight() / 2)];
-      src.getPixels(src.getMinX(),
-		    src.getHeight() + src.getMinY()
-		    - (kernel.getHeight() / 2),
-		    src.getWidth(), kernel.getHeight() / 2, vals);
-      dest.setPixels(src.getMinX(),
-		     src.getHeight() + src.getMinY()
-		     - (kernel.getHeight() / 2),
-		     src.getWidth(), kernel.getHeight() / 2, vals);
-    }
     
-    return dest;
+    // fill in the top border
+    fillEdge(src, dest, 0, 0, src.width, top, edge);
+    
+    // fill in the bottom border
+    fillEdge(src, dest, 0, src.height - bottom, src.width, bottom, edge);
+    
+    // fill in the left border
+    fillEdge(src, dest, 0, top, left, regionH, edge);
+    
+    // fill in the right border
+    fillEdge(src, dest, src.width - right, top, right, regionH, edge);
+    
+    return dest;  
+  }
+  
+  /**
+   * Fills a range of pixels (typically at the edge of a raster) with either
+   * zero values (if <code>edgeOp</code> is <code>EDGE_ZERO_FILL</code>) or the 
+   * corresponding pixel values from the source raster (if <code>edgeOp</code>
+   * is <code>EDGE_NO_OP</code>).  This utility method is called by the 
+   * {@link #fillEdge(Raster, WritableRaster, int, int, int, int, int)} method.
+   * 
+   * @param src  the source raster.
+   * @param dest  the destination raster.
+   * @param x  the x-coordinate of the top left pixel in the range.
+   * @param y  the y-coordinate of the top left pixel in the range.
+   * @param w  the width of the pixel range.
+   * @param h  the height of the pixel range.
+   * @param edgeOp  indicates how to determine the values for the range
+   *     (either {@link #EDGE_ZERO_FILL} or {@link #EDGE_NO_OP}).
+   */
+  private void fillEdge(Raster src, WritableRaster dest, int x, int y, int w, 
+                        int h, int edgeOp) 
+  {
+    if (w <= 0)
+      return;
+    if (h <= 0)
+      return;
+    if (edgeOp == EDGE_ZERO_FILL)  // fill region with zeroes
+      {
+        float[] zeros = new float[src.getNumBands() * w * h];
+        dest.setPixels(x, y, w, h, zeros); 
+      }
+    else  // copy pixels from source
+      {
+        float[] pixels = new float[src.getNumBands() * w * h];
+        src.getPixels(x, y, w, h, pixels);
+        dest.setPixels(x, y, w, h, pixels);
+      }
   }
 
   /* (non-Javadoc)
@@ -322,13 +362,14 @@ public class ConvolveOp implements BufferedImageOp, RasterOp
     return src.getBounds();
   }
 
-  /** Return corresponding destination point for source point.
+  /**
+   * Returns the corresponding destination point for a source point. Because
+   * this is not a geometric operation, the destination and source points will
+   * be identical.
    * 
-   * ConvolveOp will return the value of src unchanged.
    * @param src The source point.
-   * @param dst The destination point.
-   * @see java.awt.image.RasterOp#getPoint2D(java.awt.geom.Point2D,
-   * java.awt.geom.Point2D)
+   * @param dst The transformed destination point.
+   * @return The transformed destination point.
    */
   public final Point2D getPoint2D(Point2D src, Point2D dst)
   {

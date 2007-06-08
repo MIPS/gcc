@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1998-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1998-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -113,6 +113,10 @@ package Lib.Xref is
    --          functions (points to result type)           LR={}
    --          enumeration literals (points to enum type)  LR={}
    --          objects and components (points to type)     LR={}
+
+   --          For a type that implements multiple interfaces, there is an
+   --          entry of the form  LR=<> for each of the interfaces appearing
+   --          in the type declaration.
 
    --          In the above list LR shows the brackets used in the output,
    --          which has one of the two following forms:
@@ -441,30 +445,32 @@ package Lib.Xref is
       E_Limited_Private_Subtype                    => '+',
 
       E_Incomplete_Type                            => '+',
+      E_Incomplete_Subtype                         => '+',
       E_Task_Type                                  => 'T',
       E_Task_Subtype                               => 'T',
       E_Protected_Type                             => 'W',
-      E_Protected_Subtype                          => 'W',
 
+      E_Protected_Subtype                          => 'W',
       E_Exception_Type                             => ' ',
       E_Subprogram_Type                            => ' ',
       E_Enumeration_Literal                        => 'n',
       E_Function                                   => 'V',
-      E_Operator                                   => 'V',
 
+      E_Operator                                   => 'V',
       E_Procedure                                  => 'U',
       E_Entry                                      => 'Y',
       E_Entry_Family                               => 'Y',
       E_Block                                      => 'q',
-      E_Entry_Index_Parameter                      => '*',
 
+      E_Entry_Index_Parameter                      => '*',
       E_Exception                                  => 'X',
       E_Generic_Function                           => 'v',
       E_Generic_Package                            => 'k',
       E_Generic_Procedure                          => 'u',
-      E_Label                                      => 'L',
 
+      E_Label                                      => 'L',
       E_Loop                                       => 'l',
+      E_Return_Statement                           => ' ',
       E_Package                                    => 'K',
 
       --  The following entities are not ones to which we gather
@@ -491,7 +497,7 @@ package Lib.Xref is
    --    e     non-Boolean enumeration object  non_Boolean enumeration type
    --    f     floating-point object           floating-point type
    --    g     (unused)                        (unused)
-   --    h     (unused)                        Abstract type
+   --    h     Interface (Ada 2005)            Abstract type
    --    i     signed integer object           signed integer type
    --    j     (unused)                        (unused)
    --    k     generic package                 package

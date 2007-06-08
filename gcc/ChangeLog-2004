@@ -4691,7 +4691,7 @@
 2004-11-18  Kazuhiro Inaoka <inaoka.kazuhiro@renesas.comn>
 
 	* config/m32r/linux.h (TARGET_ASM_FILE_END): Set
-	TARGET_ASM_FILE_END to file_end_indicate_exec_stack.3
+	TARGET_ASM_FILE_END to file_end_indicate_exec_stack.
 
 2004-11-18  Andreas Schwab  <schwab@suse.de>
 
@@ -44028,7 +44028,7 @@
 	copy_value, maybe_mode_change, find_oldest_value_reg,
 	copyprop_hardreg_forward_1):
 	* regs.h (hard_regno_nregs): Declare.
-	* realod.c (reload_inner_reg_of_subreg): Use it.
+	* reload.c (reload_inner_reg_of_subreg): Use it.
 	(push_reload, combine_reloads, find_dummy_reload,
 	hard_reg_set_here_p, operands_match_p, decompose, find_reloads,
 	refers_to_regno_for_reload_p, find_equiv_reg, regno_clobbered_p,

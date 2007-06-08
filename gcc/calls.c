@@ -1,6 +1,6 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1222,13 +1222,12 @@ compute_argument_block_size (int reg_parm_stack_space,
 	    = size_binop (MAX_EXPR, args_size->var,
 			  ssize_int (reg_parm_stack_space));
 
-#ifndef OUTGOING_REG_PARM_STACK_SPACE
 	  /* The area corresponding to register parameters is not to count in
 	     the size of the block we need.  So make the adjustment.  */
-	  args_size->var
-	    = size_binop (MINUS_EXPR, args_size->var,
-			  ssize_int (reg_parm_stack_space));
-#endif
+	  if (!OUTGOING_REG_PARM_STACK_SPACE)
+	    args_size->var
+	      = size_binop (MINUS_EXPR, args_size->var,
+			    ssize_int (reg_parm_stack_space));
 	}
     }
   else
@@ -1246,9 +1245,8 @@ compute_argument_block_size (int reg_parm_stack_space,
       args_size->constant = MAX (args_size->constant,
 				 reg_parm_stack_space);
 
-#ifndef OUTGOING_REG_PARM_STACK_SPACE
-      args_size->constant -= reg_parm_stack_space;
-#endif
+      if (!OUTGOING_REG_PARM_STACK_SPACE)
+	args_size->constant -= reg_parm_stack_space;
     }
   return unadjusted_args_size;
 }
@@ -1312,7 +1310,8 @@ precompute_arguments (int flags, int num_actuals, struct arg_data *args)
    compute and return the final value for MUST_PREALLOCATE.  */
 
 static int
-finalize_must_preallocate (int must_preallocate, int num_actuals, struct arg_data *args, struct args_size *args_size)
+finalize_must_preallocate (int must_preallocate, int num_actuals, 
+			   struct arg_data *args, struct args_size *args_size)
 {
   /* See if we have or want to preallocate stack space.
 
@@ -1387,9 +1386,13 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 	  rtx slot_offset = ARGS_SIZE_RTX (args[i].locate.slot_offset);
 	  rtx addr;
 	  unsigned int align, boundary;
+	  unsigned int units_on_stack = 0;
+	  enum machine_mode partial_mode = VOIDmode;
 
 	  /* Skip this parm if it will not be passed on the stack.  */
-	  if (! args[i].pass_on_stack && args[i].reg != 0)
+	  if (! args[i].pass_on_stack
+	      && args[i].reg != 0
+	      && args[i].partial == 0)
 	    continue;
 
 	  if (GET_CODE (offset) == CONST_INT)
@@ -1398,9 +1401,23 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 	    addr = gen_rtx_PLUS (Pmode, arg_reg, offset);
 
 	  addr = plus_constant (addr, arg_offset);
-	  args[i].stack = gen_rtx_MEM (args[i].mode, addr);
-	  set_mem_attributes (args[i].stack,
-			      TREE_TYPE (args[i].tree_value), 1);
+
+	  if (args[i].partial != 0)
+	    {
+	      /* Only part of the parameter is being passed on the stack.
+		 Generate a simple memory reference of the correct size.  */
+	      units_on_stack = args[i].locate.size.constant;
+	      partial_mode = mode_for_size (units_on_stack * BITS_PER_UNIT,
+					    MODE_INT, 1);
+	      args[i].stack = gen_rtx_MEM (partial_mode, addr);
+	      set_mem_size (args[i].stack, GEN_INT (units_on_stack));
+	    }
+	  else
+	    {
+	      args[i].stack = gen_rtx_MEM (args[i].mode, addr);
+	      set_mem_attributes (args[i].stack,
+				  TREE_TYPE (args[i].tree_value), 1);
+	    }
 	  align = BITS_PER_UNIT;
 	  boundary = args[i].locate.boundary;
 	  if (args[i].locate.where_pad != downward)
@@ -1418,9 +1435,21 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 	    addr = gen_rtx_PLUS (Pmode, arg_reg, slot_offset);
 
 	  addr = plus_constant (addr, arg_offset);
-	  args[i].stack_slot = gen_rtx_MEM (args[i].mode, addr);
-	  set_mem_attributes (args[i].stack_slot,
-			      TREE_TYPE (args[i].tree_value), 1);
+
+	  if (args[i].partial != 0)
+	    {
+	      /* Only part of the parameter is being passed on the stack.
+		 Generate a simple memory reference of the correct size.
+	       */
+	      args[i].stack_slot = gen_rtx_MEM (partial_mode, addr);
+	      set_mem_size (args[i].stack_slot, GEN_INT (units_on_stack));
+	    }
+	  else
+	    {
+	      args[i].stack_slot = gen_rtx_MEM (args[i].mode, addr);
+	      set_mem_attributes (args[i].stack_slot,
+				  TREE_TYPE (args[i].tree_value), 1);
+	    }
 	  set_mem_align (args[i].stack_slot, args[i].locate.boundary);
 
 	  /* Function incoming arguments may overlap with sibling call
@@ -1483,10 +1512,14 @@ mem_overlaps_already_clobbered_arg_p (rtx addr, unsigned HOST_WIDE_INT size)
   if (addr == current_function_internal_arg_pointer)
     i = 0;
   else if (GET_CODE (addr) == PLUS
-	   && (XEXP (addr, 0)
-	       == current_function_internal_arg_pointer)
+	   && XEXP (addr, 0) == current_function_internal_arg_pointer
 	   && GET_CODE (XEXP (addr, 1)) == CONST_INT)
     i = INTVAL (XEXP (addr, 1));
+  /* Return true for arg pointer based indexed addressing.  */
+  else if (GET_CODE (addr) == PLUS
+	   && (XEXP (addr, 0) == current_function_internal_arg_pointer
+	       || XEXP (addr, 1) == current_function_internal_arg_pointer))
+    return true;
   else
     return false;
 
@@ -1991,10 +2024,8 @@ expand_call (tree exp, rtx target, int ignore)
   reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
 #endif
 
-#ifndef OUTGOING_REG_PARM_STACK_SPACE
-  if (reg_parm_stack_space > 0 && PUSH_ARGS)
+  if (!OUTGOING_REG_PARM_STACK_SPACE && reg_parm_stack_space > 0 && PUSH_ARGS)
     must_preallocate = 1;
-#endif
 
   /* Set up a place to return a structure.  */
 
@@ -2019,7 +2050,7 @@ expand_call (tree exp, rtx target, int ignore)
 	    /* For variable-sized objects, we must be called with a target
 	       specified.  If we were to allocate space on the stack here,
 	       we would have no way of knowing when to free it.  */
-	    rtx d = assign_temp (TREE_TYPE (exp), 1, 1, 1);
+	    rtx d = assign_temp (TREE_TYPE (exp), 0, 1, 1);
 
 	    mark_temp_addr_taken (d);
 	    structure_value_addr = XEXP (d, 0);
@@ -2097,7 +2128,7 @@ expand_call (tree exp, rtx target, int ignore)
 
   if (type_arg_types != 0)
     n_named_args
-      = (num_parm_types (type_arg_types)
+      = (list_length (type_arg_types)
 	 /* Count the struct value address, if it is passed as a parm.  */
 	 + structure_value_addr_parm);
   else
@@ -2395,12 +2426,11 @@ expand_call (tree exp, rtx target, int ignore)
 		     Another approach might be to try to reorder the argument
 		     evaluations to avoid this conflicting stack usage.  */
 
-#ifndef OUTGOING_REG_PARM_STACK_SPACE
 		  /* Since we will be writing into the entire argument area,
 		     the map must be allocated for its entire size, not just
 		     the part that is the responsibility of the caller.  */
-		  needed += reg_parm_stack_space;
-#endif
+		  if (!OUTGOING_REG_PARM_STACK_SPACE)
+		    needed += reg_parm_stack_space;
 
 #ifdef ARGS_GROW_DOWNWARD
 		  highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
@@ -2496,12 +2526,10 @@ expand_call (tree exp, rtx target, int ignore)
 	     an argument.  */
 	  if (stack_arg_under_construction)
 	    {
-#ifndef OUTGOING_REG_PARM_STACK_SPACE
-	      rtx push_size = GEN_INT (reg_parm_stack_space
-				       + adjusted_args_size.constant);
-#else
-	      rtx push_size = GEN_INT (adjusted_args_size.constant);
-#endif
+	      rtx push_size
+		= GEN_INT (adjusted_args_size.constant
+			   + (OUTGOING_REG_PARM_STACK_SPACE ? 0
+			      : reg_parm_stack_space));
 	      if (old_stack_level == 0)
 		{
 		  emit_stack_save (SAVE_BLOCK, &old_stack_level,
@@ -2519,9 +2547,8 @@ expand_call (tree exp, rtx target, int ignore)
 		  /* Make a new map for the new argument list.  */
 		  if (stack_usage_map_buf)
 		    free (stack_usage_map_buf);
-		  stack_usage_map_buf = XNEWVEC (char, highest_outgoing_arg_in_use);
+		  stack_usage_map_buf = XCNEWVEC (char, highest_outgoing_arg_in_use);
 		  stack_usage_map = stack_usage_map_buf;
-		  memset (stack_usage_map, 0, highest_outgoing_arg_in_use);
 		  highest_outgoing_arg_in_use = 0;
 		}
 	      allocate_dynamic_stack_space (push_size, NULL_RTX,
@@ -2579,6 +2606,19 @@ expand_call (tree exp, rtx target, int ignore)
 	  else
 	    valreg = hard_function_value (TREE_TYPE (exp), fndecl, fntype,
 					  (pass == 0));
+
+	  /* If VALREG is a PARALLEL whose first member has a zero
+	     offset, use that.  This is for targets such as m68k that
+	     return the same value in multiple places.  */
+	  if (GET_CODE (valreg) == PARALLEL)
+	    {
+	      rtx elem = XVECEXP (valreg, 0, 0);
+	      rtx where = XEXP (elem, 0);
+	      rtx offset = XEXP (elem, 1);
+	      if (offset == const0_rtx
+		  && GET_MODE (where) == GET_MODE (valreg))
+		valreg = where;
+	    }
 	}
 
       /* Precompute all register parameters.  It isn't safe to compute anything
@@ -2659,11 +2699,9 @@ expand_call (tree exp, rtx target, int ignore)
       /* If register arguments require space on the stack and stack space
 	 was not preallocated, allocate stack space here for arguments
 	 passed in registers.  */
-#ifdef OUTGOING_REG_PARM_STACK_SPACE
-      if (!ACCUMULATE_OUTGOING_ARGS
+      if (OUTGOING_REG_PARM_STACK_SPACE && !ACCUMULATE_OUTGOING_ARGS
 	  && must_preallocate == 0 && reg_parm_stack_space > 0)
 	anti_adjust_stack (GEN_INT (reg_parm_stack_space));
-#endif
 
       /* Pass the function the address in which to return a
 	 structure value.  */
@@ -3130,24 +3168,19 @@ fixup_tail_calls (void)
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
+      rtx note;
+
       /* There are never REG_EQUIV notes for the incoming arguments
 	 after the NOTE_INSN_FUNCTION_BEG note, so stop if we see it.  */
       if (NOTE_P (insn)
-	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG)
+	  && NOTE_KIND (insn) == NOTE_INSN_FUNCTION_BEG)
 	break;
 
-      while (1)
-	{
-	  rtx note = find_reg_note (insn, REG_EQUIV, 0);
-	  if (note)
-	    {
-	      /* Remove the note and keep looking at the notes for
-		 this insn.  */
-	      remove_note (insn, note);
-	      continue;
-	    }
-	  break;
-	}
+      note = find_reg_note (insn, REG_EQUIV, 0);
+      if (note)
+	remove_note (insn, note);
+      note = find_reg_note (insn, REG_EQUIV, 0);
+      gcc_assert (!note);
     }
 }
 
@@ -3156,41 +3189,45 @@ fixup_tail_calls (void)
 static tree
 split_complex_types (tree types)
 {
-  tree new_types;
-  int num_complex = 0;
-  tree type;
-  int len;
-  int i, j;
+  tree p;
 
-  len = num_parm_types (types);
-  for (i = 0; i < len; i++)
+  /* Before allocating memory, check for the common case of no complex.  */
+  for (p = types; p; p = TREE_CHAIN (p))
     {
-      type = nth_parm_type (types, i);
+      tree type = TREE_VALUE (p);
       if (TREE_CODE (type) == COMPLEX_TYPE
 	  && targetm.calls.split_complex_arg (type))
-	num_complex++;
+	goto found;
     }
+  return types;
 
-  if (num_complex == 0)
-    return types;
+ found:
+  types = copy_list (types);
 
-  new_types = alloc_parm_types (len + num_complex);
-  for (i = j = 0; i < len; i++, j++)
+  for (p = types; p; p = TREE_CHAIN (p))
     {
-      type = nth_parm_type (types, i);
+      tree complex_type = TREE_VALUE (p);
 
-      if (TREE_CODE (type) == COMPLEX_TYPE
-	  && targetm.calls.split_complex_arg (type))
+      if (TREE_CODE (complex_type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (complex_type))
 	{
-	  *(nth_parm_type_ptr (new_types, j)) = TREE_TYPE (type);
-	  j++;
-	  *(nth_parm_type_ptr (new_types, j)) = TREE_TYPE (type);
+	  tree next, imag;
+
+	  /* Rewrite complex type with component type.  */
+	  TREE_VALUE (p) = TREE_TYPE (complex_type);
+	  next = TREE_CHAIN (p);
+
+	  /* Add another component type for the imaginary part.  */
+	  imag = build_tree_list (NULL_TREE, TREE_VALUE (p));
+	  TREE_CHAIN (p) = imag;
+	  TREE_CHAIN (imag) = next;
+
+	  /* Skip the newly created node.  */
+	  p = TREE_CHAIN (p);
 	}
-      else
-	*(nth_parm_type_ptr (new_types, j)) = type;
     }
 
-  return new_types;
+  return types;
 }
 
 /* Output a library call to function FUN (a SYMBOL_REF rtx).
@@ -3486,9 +3523,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   args_size.constant = MAX (args_size.constant,
 			    reg_parm_stack_space);
 
-#ifndef OUTGOING_REG_PARM_STACK_SPACE
-  args_size.constant -= reg_parm_stack_space;
-#endif
+  if (!OUTGOING_REG_PARM_STACK_SPACE)
+    args_size.constant -= reg_parm_stack_space;
 
   if (args_size.constant > current_function_outgoing_args_size)
     current_function_outgoing_args_size = args_size.constant;
@@ -3509,12 +3545,11 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
       needed = args_size.constant;
 
-#ifndef OUTGOING_REG_PARM_STACK_SPACE
       /* Since we will be writing into the entire argument area, the
 	 map must be allocated for its entire size, not just the part that
 	 is the responsibility of the caller.  */
-      needed += reg_parm_stack_space;
-#endif
+      if (!OUTGOING_REG_PARM_STACK_SPACE)
+	needed += reg_parm_stack_space;
 
 #ifdef ARGS_GROW_DOWNWARD
       highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
@@ -3728,7 +3763,18 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       if (reg != 0 && GET_CODE (reg) == PARALLEL)
 	use_group_regs (&call_fusage, reg);
       else if (reg != 0)
-	use_reg (&call_fusage, reg);
+        {
+	  int partial = argvec[count].partial;
+	  if (partial)
+	    {
+	      int nregs;
+              gcc_assert (partial % UNITS_PER_WORD == 0);
+	      nregs = partial / UNITS_PER_WORD;
+	      use_regs (&call_fusage, REGNO (reg), nregs);
+	    }
+	  else
+	    use_reg (&call_fusage, reg);
+	}
     }
 
   /* Pass the function the address in which to return a structure value.  */
@@ -3863,10 +3909,25 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	    value = gen_reg_rtx (outmode);
 	  emit_group_store (value, valreg, NULL_TREE, GET_MODE_SIZE (outmode));
 	}
-      else if (value != 0)
-	emit_move_insn (value, valreg);
       else
-	value = valreg;
+	{
+	  /* Convert to the proper mode if PROMOTE_MODE has been active.  */
+	  if (GET_MODE (valreg) != outmode)
+	    {
+	      int unsignedp = TYPE_UNSIGNED (tfom);
+
+	      gcc_assert (targetm.calls.promote_function_return (tfom));
+	      gcc_assert (promote_mode (tfom, outmode, &unsignedp, 0)
+			  == GET_MODE (valreg));
+
+	      valreg = convert_modes (outmode, GET_MODE (valreg), valreg, 0);
+	    }
+
+	  if (value != 0)
+	    emit_move_insn (value, valreg);
+	  else
+	    value = valreg;
+	}
     }
 
   if (ACCUMULATE_OUTGOING_ARGS)
@@ -4041,7 +4102,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		  arg->save_area = assign_temp (nt, 0, 1, 1);
 		  preserve_temp_slots (arg->save_area);
 		  emit_block_move (validize_mem (arg->save_area), stack_area,
-				   expr_size (arg->tree_value),
+				   GEN_INT (arg->locate.size.constant),
 				   BLOCK_OP_CALL_PARM);
 		}
 	      else
@@ -4133,6 +4194,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
   else if (arg->mode != BLKmode)
     {
       int size;
+      unsigned int parm_align;
 
       /* Argument is a scalar, not entirely passed in registers.
 	 (If part is passed in registers, arg->partial says how much
@@ -4160,10 +4222,22 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		 / (PARM_BOUNDARY / BITS_PER_UNIT))
 		* (PARM_BOUNDARY / BITS_PER_UNIT));
 
+      /* Compute the alignment of the pushed argument.  */
+      parm_align = arg->locate.boundary;
+      if (FUNCTION_ARG_PADDING (arg->mode, TREE_TYPE (pval)) == downward)
+	{
+	  int pad = used - size;
+	  if (pad)
+	    {
+	      unsigned int pad_align = (pad & -pad) * BITS_PER_UNIT;
+	      parm_align = MIN (parm_align, pad_align);
+	    }
+	}
+
       /* This isn't already where we want it on the stack, so put it there.
 	 This can either be done with push or copy insns.  */
       emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), NULL_RTX,
-		      PARM_BOUNDARY, partial, reg, used - size, argblock,
+		      parm_align, partial, reg, used - size, argblock,
 		      ARGS_SIZE_RTX (arg->locate.offset), reg_parm_stack_space,
 		      ARGS_SIZE_RTX (arg->locate.alignment_pad));
 

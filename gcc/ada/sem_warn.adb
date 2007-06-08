@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1999-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,20 +26,26 @@
 
 with Alloc;
 with Atree;    use Atree;
+with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Errout;   use Errout;
+with Exp_Code; use Exp_Code;
 with Fname;    use Fname;
 with Lib;      use Lib;
+with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Opt;      use Opt;
 with Sem;      use Sem;
 with Sem_Ch8;  use Sem_Ch8;
+with Sem_Eval; use Sem_Eval;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
 with Snames;   use Snames;
 with Stand;    use Stand;
+with Stringt;  use Stringt;
 with Table;
+with Uintp;    use Uintp;
 
 package body Sem_Warn is
 
@@ -53,83 +59,6 @@ package body Sem_Warn is
      Table_Initial        => Alloc.Unreferenced_Entities_Initial,
      Table_Increment      => Alloc.Unreferenced_Entities_Increment,
      Table_Name           => "Unreferenced_Entities");
-
-   ------------------------------
-   -- Handling of Conditionals --
-   ------------------------------
-
-   --  Note: this is work in progress, the data structures and general approach
-   --  are defined, but are not in use yet. ???
-
-   --  An entry is made in the following table for each branch of conditional,
-   --  e.g. an if-then-elsif-else-endif structure creates three entries in this
-   --  table.
-
-   type Branch_Entry is record
-      Sloc : Source_Ptr;
-      --  Location for warnings associated with this branch
-
-      Defs : Elist_Id;
-      --  List of entities defined for the first time in this branch. On exit
-      --  from a conditional structure, any entity that is in the list of all
-      --  branches is removed (and the entity flagged as defined by the
-      --  conditional as a whole). Thus after processing a conditional, Defs
-      --  contains a list of entities defined in this branch for the first
-      --  time, but not defined at all in some other branch of the same
-      --  conditional. A value of No_Elist is used to represent the initial
-      --  empty list.
-
-      Next : Nat;
-      --  Index of next branch for this conditional, zero = last branch
-   end record;
-
-   package Branch_Table is new Table.Table (
-     Table_Component_Type => Branch_Entry,
-     Table_Index_Type     => Nat,
-     Table_Low_Bound      => 1,
-     Table_Initial        => Alloc.Branches_Initial,
-     Table_Increment      => Alloc.Branches_Increment,
-     Table_Name           => "Branches");
-
-   --  The following table is used to represent conditionals, there is one
-   --  entry in this table for each conditional structure.
-
-   type Conditional_Entry is record
-      If_Stmt : Boolean;
-      --  True for IF statement, False for CASE statement
-
-      First_Branch : Nat;
-      --  Index in Branch table of first branch, zero = none yet
-
-      Current_Branch : Nat;
-      --  Index in Branch table of current branch, zero = none yet
-   end record;
-
-   package Conditional_Table is new Table.Table (
-     Table_Component_Type => Conditional_Entry,
-     Table_Index_Type     => Nat,
-     Table_Low_Bound      => 1,
-     Table_Initial        => Alloc.Conditionals_Initial,
-     Table_Increment      => Alloc.Conditionals_Increment,
-     Table_Name           => "Conditionals");
-
-   --  The following table is a stack that keeps track of the current
-   --  conditional. The Last entry is the top of the stack. An Empty entry
-   --  represents the start of a compilation unit. Non-zero entries in the
-   --  stack are indexes into the conditional table.
-
-   package Conditional_Stack is new Table.Table (
-     Table_Component_Type => Nat,
-     Table_Index_Type     => Nat,
-     Table_Low_Bound      => 1,
-     Table_Initial        => Alloc.Conditional_Stack_Initial,
-     Table_Increment      => Alloc.Conditional_Stack_Increment,
-     Table_Name           => "Conditional_Stack");
-
-   pragma Warnings (Off, Branch_Table);
-   pragma Warnings (Off, Conditional_Table);
-   pragma Warnings (Off, Conditional_Stack);
-   --  Not yet referenced, see note above ???
 
    -----------------------
    -- Local Subprograms --
@@ -147,6 +76,420 @@ package body Sem_Warn is
    --  and determines if any sub-operand is a reference to an entity for which
    --  the Warnings_Off flag is set. True is returned if such an entity is
    --  encountered, and False otherwise.
+
+   --------------------------
+   -- Check_Code_Statement --
+   --------------------------
+
+   procedure Check_Code_Statement (N : Node_Id) is
+   begin
+      --  If volatile, nothing to worry about
+
+      if Is_Asm_Volatile (N) then
+         return;
+      end if;
+
+      --  Warn if no input or no output
+
+      Setup_Asm_Inputs (N);
+
+      if No (Asm_Input_Value) then
+         Error_Msg_F
+           ("?code statement with no inputs should usually be Volatile", N);
+         return;
+      end if;
+
+      Setup_Asm_Outputs (N);
+
+      if No (Asm_Output_Variable) then
+         Error_Msg_F
+           ("?code statement with no outputs should usually be Volatile", N);
+         return;
+      end if;
+
+      --  Check multiple code statements in a row
+
+      if Is_List_Member (N)
+        and then Present (Prev (N))
+        and then Nkind (Prev (N)) = N_Code_Statement
+      then
+         Error_Msg_F
+           ("?code statements in sequence should usually be Volatile", N);
+         Error_Msg_F
+           ("\?(suggest using template with multiple instructions)", N);
+      end if;
+   end Check_Code_Statement;
+
+   ---------------------------------
+   -- Check_Infinite_Loop_Warning --
+   ---------------------------------
+
+   --  The case we look for is a while loop which tests a local variable, where
+   --  there is no obvious direct or possible indirect update of the variable
+   --  within the body of the loop.
+
+   procedure Check_Infinite_Loop_Warning (Loop_Statement : Node_Id) is
+      Iter : constant Node_Id := Iteration_Scheme (Loop_Statement);
+
+      Ref : Node_Id   := Empty;
+      --  Reference in iteration scheme to variable that may not be modified
+      --  in loop, indicating a possible infinite loop.
+
+      Var : Entity_Id := Empty;
+      --  Corresponding entity (entity of Ref)
+
+      procedure Find_Var (N : Node_Id);
+      --  Inspect condition to see if it depends on a single entity
+      --  reference. If so, Ref is set to point to the reference node,
+      --  and Var is set to the referenced Entity.
+
+      function Has_Indirection (T : Entity_Id) return Boolean;
+      --  If the controlling variable is an access type, or is a record type
+      --  with access components, assume that it is changed indirectly and
+      --  suppress the warning. As a concession to low-level programming, in
+      --  particular within Declib, we also suppress warnings on a record
+      --  type that contains components of type Address or Short_Address.
+
+      function Is_Suspicious_Function_Name (E : Entity_Id) return Boolean;
+      --  Given an entity name, see if the name appears to have something to
+      --  do with I/O or network stuff, and if so, return True. Used to kill
+      --  some false positives on a heuristic basis that such functions will
+      --  likely have some strange side effect dependencies. A rather funny
+      --  kludge, but warning messages are in the heuristics business.
+
+      function Test_Ref (N : Node_Id) return Traverse_Result;
+      --  Test for reference to variable in question. Returns Abandon if
+      --  matching reference found.
+
+      function Find_Ref is new Traverse_Func (Test_Ref);
+      --  Function to traverse body of procedure. Returns Abandon if matching
+      --  reference found.
+
+      --------------
+      -- Find_Var --
+      --------------
+
+      procedure Find_Var (N : Node_Id) is
+      begin
+         --  Condition is a direct variable reference
+
+         if Is_Entity_Name (N) then
+            Ref := N;
+            Var := Entity (Ref);
+
+            --  Case of condition is a comparison with compile time known value
+
+         elsif Nkind (N) in N_Op_Compare then
+            if Compile_Time_Known_Value (Right_Opnd (N)) then
+               Find_Var (Left_Opnd (N));
+
+            elsif Compile_Time_Known_Value (Left_Opnd (N)) then
+               Find_Var (Right_Opnd (N));
+
+            --  Ignore any other comparison
+
+            else
+               return;
+            end if;
+
+            --  If condition is a negation, check its operand
+
+         elsif Nkind (N) = N_Op_Not then
+            Find_Var (Right_Opnd (N));
+
+            --  Case of condition is function call
+
+         elsif Nkind (N) = N_Function_Call then
+
+            --  Forget it if function name is not entity, who knows what
+            --  we might be calling?
+
+            if not Is_Entity_Name (Name (N)) then
+               return;
+
+               --  Forget it if warnings are suppressed on function entity
+
+            elsif Warnings_Off (Entity (Name (N))) then
+               return;
+
+               --  Forget it if function name is suspicious. A strange test
+               --  but warning generation is in the heuristics business!
+
+            elsif Is_Suspicious_Function_Name (Entity (Name (N))) then
+               return;
+            end if;
+
+            --  OK, see if we have one argument
+
+            declare
+               PA : constant List_Id := Parameter_Associations (N);
+
+            begin
+               --  One argument, so check the argument
+
+               if Present (PA)
+                 and then List_Length (PA) = 1
+               then
+                  if Nkind (First (PA)) = N_Parameter_Association then
+                     Find_Var (Explicit_Actual_Parameter (First (PA)));
+                  else
+                     Find_Var (First (PA));
+                  end if;
+
+                  --  Not one argument
+
+               else
+                  return;
+               end if;
+            end;
+
+            --  Any other kind of node is not something we warn for
+
+         else
+            return;
+         end if;
+      end Find_Var;
+
+      ---------------------
+      -- Has_Indirection --
+      ---------------------
+
+      function Has_Indirection (T : Entity_Id) return Boolean is
+         Comp : Entity_Id;
+         Rec  : Entity_Id;
+
+      begin
+         if Is_Access_Type (T) then
+            return True;
+
+         elsif Is_Private_Type (T)
+           and then Present (Full_View (T))
+           and then Is_Access_Type (Full_View (T))
+         then
+            return True;
+
+         elsif Is_Record_Type (T) then
+            Rec := T;
+
+         elsif Is_Private_Type (T)
+           and then Present (Full_View (T))
+           and then Is_Record_Type (Full_View (T))
+         then
+            Rec := Full_View (T);
+         else
+            return False;
+         end if;
+
+         Comp := First_Component (Rec);
+         while Present (Comp) loop
+            if Is_Access_Type (Etype (Comp))
+              or else Is_Descendent_Of_Address (Etype (Comp))
+            then
+               return True;
+            end if;
+
+            Next_Component (Comp);
+         end loop;
+
+         return False;
+      end Has_Indirection;
+
+      ---------------------------------
+      -- Is_Suspicious_Function_Name --
+      ---------------------------------
+
+      function Is_Suspicious_Function_Name (E : Entity_Id) return Boolean is
+         S : Entity_Id;
+
+         function Substring_Present (S : String) return Boolean;
+         --  Returns True if name buffer has given string delimited by non-
+         --  alphabetic characters or by end of string. S is lower case.
+
+         -----------------------
+         -- Substring_Present --
+         -----------------------
+
+         function Substring_Present (S : String) return Boolean is
+            Len : constant Natural := S'Length;
+
+         begin
+            for J in 1 .. Name_Len - (Len - 1) loop
+               if Name_Buffer (J .. J + (Len - 1)) = S
+                 and then
+                   (J = 1
+                     or else Name_Buffer (J - 1) not in 'a' .. 'z')
+                 and then
+                   (J + Len > Name_Len
+                     or else Name_Buffer (J + Len) not in 'a' .. 'z')
+               then
+                  return True;
+               end if;
+            end loop;
+
+            return False;
+         end Substring_Present;
+
+         --  Start of processing for Is_Suspicious_Function_Name
+
+      begin
+         S := E;
+         while Present (S) and then S /= Standard_Standard loop
+            Get_Name_String (Chars (S));
+
+            if Substring_Present ("io")
+              or else Substring_Present ("file")
+              or else Substring_Present ("network")
+            then
+               return True;
+            else
+               S := Scope (S);
+            end if;
+         end loop;
+
+         return False;
+      end Is_Suspicious_Function_Name;
+
+      --------------
+      -- Test_Ref --
+      --------------
+
+      function Test_Ref (N : Node_Id) return Traverse_Result is
+      begin
+         --  Waste of time to look at iteration scheme
+
+         if N = Iter then
+            return Skip;
+
+            --  Direct reference to variable in question
+
+         elsif Is_Entity_Name (N)
+           and then Present (Entity (N))
+           and then Entity (N) = Var
+         then
+            --  If this is an Lvalue, then definitely abandon, since
+            --  this could be a direct modification of the variable.
+
+            if May_Be_Lvalue (N) then
+               return Abandon;
+            end if;
+
+            --  If we appear in the context of a procedure call, then also
+            --  abandon, since there may be issues of non-visible side
+            --  effects going on in the call.
+
+            declare
+               P : Node_Id;
+            begin
+               P := N;
+               loop
+                  P := Parent (P);
+                  exit when P = Loop_Statement;
+
+                  if Nkind (P) = N_Procedure_Call_Statement then
+                     return Abandon;
+                  end if;
+               end loop;
+            end;
+
+            --  Reference to variable renaming variable in question
+
+         elsif Is_Entity_Name (N)
+           and then Present (Entity (N))
+           and then Ekind (Entity (N)) = E_Variable
+           and then Present (Renamed_Object (Entity (N)))
+           and then Is_Entity_Name (Renamed_Object (Entity (N)))
+           and then Entity (Renamed_Object (Entity (N))) = Var
+           and then May_Be_Lvalue (N)
+         then
+            return Abandon;
+
+            --  Call to subprogram
+
+         elsif Nkind (N) = N_Procedure_Call_Statement
+           or else Nkind (N) = N_Function_Call
+         then
+            --  If subprogram is within the scope of the entity we are
+            --  dealing with as the loop variable, then it could modify
+            --  this parameter, so we abandon in this case. In the case
+            --  of a subprogram that is not an entity we also abandon.
+
+            if not Is_Entity_Name (Name (N))
+              or else Scope_Within (Entity (Name (N)), Scope (Var))
+            then
+               return Abandon;
+            end if;
+         end if;
+
+         --  All OK, continue scan
+
+         return OK;
+      end Test_Ref;
+
+   --  Start of processing for Check_Infinite_Loop_Warning
+
+   begin
+      --  We need a while iteration with no condition actions. Conditions
+      --  actions just make things too complicated to get the warning right.
+
+      if No (Iter)
+        or else No (Condition (Iter))
+        or else Present (Condition_Actions (Iter))
+        or else Debug_Flag_Dot_W
+      then
+         return;
+      end if;
+
+      --  Initial conditions met, see if condition is of right form
+
+      Find_Var (Condition (Iter));
+
+      --  Nothing to do if local variable from source not found
+
+      if No (Var)
+        or else Ekind (Var) /= E_Variable
+        or else Is_Library_Level_Entity (Var)
+        or else not Comes_From_Source (Var)
+      then
+         return;
+
+      --  Nothing to do if there is some indirection involved (assume that the
+      --  designated variable might be modified in some way we don't see).
+
+      elsif Has_Indirection (Etype (Var)) then
+         return;
+
+      --  Same sort of thing for volatile variable, might be modified by
+      --  some other task or by the operating system in some way.
+
+      elsif Is_Volatile (Var) then
+         return;
+      end if;
+
+      --  Filter out case of original statement sequence starting with delay.
+      --  We assume this is a multi-tasking program and that the condition
+      --  is affected by other threads (some kind of busy wait).
+
+      declare
+         Fstm : constant Node_Id :=
+                  Original_Node (First (Statements (Loop_Statement)));
+      begin
+         if Nkind (Fstm) = N_Delay_Relative_Statement
+           or else Nkind (Fstm) = N_Delay_Until_Statement
+         then
+            return;
+         end if;
+      end;
+
+      --  We have a variable reference of the right form, now we scan the loop
+      --  body to see if it looks like it might not be modified
+
+      if Find_Ref (Loop_Statement) = OK then
+         Error_Msg_NE
+           ("variable& is not modified in loop body?", Ref, Var);
+         Error_Msg_N
+           ("\possible infinite loop", Ref);
+      end if;
+   end Check_Infinite_Loop_Warning;
 
    ----------------------
    -- Check_References --
@@ -363,10 +706,14 @@ package body Sem_Warn is
       E1 := First_Entity (E);
       while Present (E1) loop
 
-         --  We only look at source entities with warning flag on
+         --  We only look at source entities with warning flag on. We also
+         --  ignore objects whose type or base type has warnings suppressed.
 
-         if Comes_From_Source (E1) and then not Warnings_Off (E1) then
-
+         if Comes_From_Source (E1)
+           and then not Warnings_Off (E1)
+           and then not Warnings_Off (Etype (E1))
+           and then not Warnings_Off (Base_Type (Etype (E1)))
+         then
             --  We are interested in variables and out parameters, but we
             --  exclude protected types, too complicated to worry about.
 
@@ -421,6 +768,7 @@ package body Sem_Warn is
                      --  or if it is a parameter, to the corresponding spec.
 
                      if Has_Pragma_Unreferenced (E1)
+                       or else Has_Pragma_Unreferenced_Objects (Etype (E1))
                        or else (Is_Formal (E1)
                                   and then Present (Spec_Entity (E1))
                                   and then
@@ -431,8 +779,13 @@ package body Sem_Warn is
                      --  Pragma Unreferenced not set, so output message
 
                      else
-                        Output_Reference_Error
-                          ("& is never assigned a value?");
+                        if Referenced (E1) then
+                           Output_Reference_Error
+                             ("variable& is read but never assigned?");
+                        else
+                           Output_Reference_Error
+                             ("variable& is never read and never assigned?");
+                        end if;
 
                         --  Deal with special case where this variable is
                         --  hidden by a loop variable
@@ -652,6 +1005,14 @@ package body Sem_Warn is
                and then (Nkind (Unit (Cunit (Main_Unit))) /= N_Subunit
                            or else
                          Get_Source_Unit (E1) = Main_Unit)
+
+               --  No warning on a return object, because these are often
+               --  created with a single expression and an implicit return.
+               --  If the object is a variable there will be a warning
+               --  indicating that it could be declared constant.
+
+               and then not
+                 (Ekind (E1) = E_Constant and then Is_Return_Object (E1))
             then
                --  Suppress warnings in internal units if not in -gnatg mode
                --  (these would be junk warnings for an applications program,
@@ -893,7 +1254,7 @@ package body Sem_Warn is
                               return;
                            end if;
 
-                           --  We are only interested in deferences
+                           --  We are only interested in dereferences
 
                            if not Is_Dereferenced (N) then
                               return;
@@ -1174,13 +1535,15 @@ package body Sem_Warn is
             then
                Lunit := Entity (Name (Item));
 
-               --  Check if this unit is referenced
+               --  Check if this unit is referenced (skip the check if this
+               --  is explicitly marked by a pragma Unreferenced).
 
-               if not Referenced (Lunit) then
-
+               if not Referenced (Lunit)
+                 and then not Has_Pragma_Unreferenced (Lunit)
+               then
                   --  Suppress warnings in internal units if not in -gnatg mode
                   --  (these would be junk warnings for an application program,
-                  --  since they refer to problems in internal units)
+                  --  since they refer to problems in internal units).
 
                   if GNAT_Mode
                     or else not Is_Internal_File_Name (Unit_File_Name (Unit))
@@ -1202,9 +1565,14 @@ package body Sem_Warn is
 
                --  If main unit is a renaming of this unit, then we consider
                --  the with to be OK (obviously it is needed in this case!)
+               --  This may be transitive: the unit in the with_clause may
+               --  itself be a renaming, in which case both it and the main
+               --  unit rename the same ultimate package.
 
                elsif Present (Renamed_Entity (Munite))
-                  and then Renamed_Entity (Munite) = Lunit
+                  and then
+                    (Renamed_Entity (Munite) = Lunit
+                      or else Renamed_Entity (Munite) = Renamed_Entity (Lunit))
                then
                   null;
 
@@ -1291,7 +1659,7 @@ package body Sem_Warn is
                         then
                            --  This means that the with is indeed fine, in that
                            --  it is definitely needed somewhere, and we can
-                           --  quite worrying about this one.
+                           --  quit worrying about this one.
 
                            --  Except for one little detail, if either of the
                            --  flags was set during spec processing, this is
@@ -1488,6 +1856,149 @@ package body Sem_Warn is
          return False;
    end Operand_Has_Warnings_Suppressed;
 
+   ----------------------------------------
+   -- Output_Obsolescent_Entity_Warnings --
+   ----------------------------------------
+
+   procedure Output_Obsolescent_Entity_Warnings (N : Node_Id; E : Entity_Id) is
+      P : constant Node_Id := Parent (N);
+      S : Entity_Id;
+
+   begin
+      S := Current_Scope;
+
+      --  Do not output message if we are the scope of standard. This means
+      --  we have a reference from a context clause from when it is originally
+      --  processed, and that's too early to tell whether it is an obsolescent
+      --  unit doing the with'ing. In Sem_Ch10.Analyze_Compilation_Unit we make
+      --  sure that we have a later call when the scope is available. This test
+      --  also eliminates all messages for use clauses, which is fine (we do
+      --  not want messages for use clauses, since they are always redundant
+      --  with respect to the associated with clause).
+
+      if S = Standard_Standard then
+         return;
+      end if;
+
+      --  Do not output message if we are in scope of an obsolescent package
+      --  or subprogram.
+
+      loop
+         if Is_Obsolescent (S) then
+            return;
+         end if;
+
+         S := Scope (S);
+         exit when S = Standard_Standard;
+      end loop;
+
+      --  Here we will output the message
+
+      Error_Msg_Sloc := Sloc (E);
+
+      --  Case of with clause
+
+      if Nkind (P) = N_With_Clause then
+         if Ekind (E) = E_Package then
+            Error_Msg_NE
+              ("?with of obsolescent package& declared#", N, E);
+         elsif Ekind (E) = E_Procedure then
+            Error_Msg_NE
+              ("?with of obsolescent procedure& declared#", N, E);
+         else
+            Error_Msg_NE
+              ("?with of obsolescent function& declared#", N, E);
+         end if;
+
+      --  If we do not have a with clause, then ignore any reference to an
+      --  obsolescent package name. We only want to give the one warning of
+      --  withing the package, not one each time it is used to qualify.
+
+      elsif Ekind (E) = E_Package then
+         return;
+
+      --  Procedure call statement
+
+      elsif Nkind (P) = N_Procedure_Call_Statement then
+         Error_Msg_NE
+           ("?call to obsolescent procedure& declared#", N, E);
+
+      --  Function call
+
+      elsif Nkind (P) = N_Function_Call then
+         Error_Msg_NE
+           ("?call to obsolescent function& declared#", N, E);
+
+      --  Reference to obsolescent type
+
+      elsif Is_Type (E) then
+         Error_Msg_NE
+           ("?reference to obsolescent type& declared#", N, E);
+
+      --  Reference to obsolescent component
+
+      elsif Ekind (E) = E_Component
+        or else Ekind (E) = E_Discriminant
+      then
+         Error_Msg_NE
+           ("?reference to obsolescent component& declared#", N, E);
+
+      --  Reference to obsolescent variable
+
+      elsif Ekind (E) = E_Variable then
+         Error_Msg_NE
+           ("?reference to obsolescent variable& declared#", N, E);
+
+      --  Reference to obsolescent constant
+
+      elsif Ekind (E) = E_Constant
+        or else Ekind (E) in Named_Kind
+      then
+         Error_Msg_NE
+           ("?reference to obsolescent constant& declared#", N, E);
+
+      --  Reference to obsolescent enumeration literal
+
+      elsif Ekind (E) = E_Enumeration_Literal then
+         Error_Msg_NE
+           ("?reference to obsolescent enumeration literal& declared#", N, E);
+
+      --  Generic message for any other case we missed
+
+      else
+         Error_Msg_NE
+           ("?reference to obsolescent entity& declared#", N, E);
+      end if;
+
+      --  Output additional warning if present
+
+      declare
+         W : constant Node_Id := Obsolescent_Warning (E);
+
+      begin
+         if Present (W) then
+
+            --  This is a warning continuation to start on a new line
+            Name_Buffer (1) := '\';
+            Name_Buffer (2) := '\';
+            Name_Buffer (3) := '?';
+            Name_Len := 3;
+
+            --  Add characters to message, and output message. Note that
+            --  we quote every character of the message since we don't
+            --  want to process any insertions.
+
+            for J in 1 .. String_Length (Strval (W)) loop
+               Add_Char_To_Name_Buffer (''');
+               Add_Char_To_Name_Buffer
+                 (Get_Character (Get_String_Char (Strval (W), J)));
+            end loop;
+
+            Error_Msg_N (Name_Buffer (1 .. Name_Len), N);
+         end if;
+      end;
+   end Output_Obsolescent_Entity_Warnings;
+
    ----------------------------------
    -- Output_Unreferenced_Messages --
    ----------------------------------
@@ -1515,10 +2026,11 @@ package body Sem_Warn is
                   then
                      if Warn_On_Modified_Unread
                        and then not Is_Imported (E)
+                       and then not Is_Return_Object (E)
 
-                        --  Suppress the message for aliased or renamed
-                        --  variables, since there may be other entities read
-                        --  the same memory location.
+                        --  Suppress message for aliased or renamed variables,
+                        --  since there may be other entities that read the
+                        --  same memory location.
 
                        and then not Is_Aliased (E)
                        and then No (Renamed_Object (E))
@@ -1526,19 +2038,29 @@ package body Sem_Warn is
                      then
                         Error_Msg_N
                           ("variable & is assigned but never read?", E);
+                        Set_Last_Assignment (E, Empty);
                      end if;
 
                   --  Normal case of neither assigned nor read
 
                   else
-                     if Present (Renamed_Object (E))
-                       and then Comes_From_Source (Renamed_Object (E))
-                     then
-                        Error_Msg_N
-                          ("renamed variable & is not referenced?", E);
-                     else
-                        Error_Msg_N
-                          ("variable & is not referenced?", E);
+                     --  We suppress the message for types for which a valid
+                     --  pragma Unreferenced_Objects has been given, otherwise
+                     --  we go ahead and give the message.
+
+                     if not Has_Pragma_Unreferenced_Objects (Etype (E)) then
+
+                        --  Distinguish renamed case in message
+
+                        if Present (Renamed_Object (E))
+                          and then Comes_From_Source (Renamed_Object (E))
+                        then
+                           Error_Msg_N
+                             ("renamed variable & is not referenced?", E);
+                        else
+                           Error_Msg_N
+                             ("variable & is not referenced?", E);
+                        end if;
                      end if;
                   end if;
 
@@ -1596,6 +2118,38 @@ package body Sem_Warn is
       end loop;
    end Output_Unreferenced_Messages;
 
+   ----------------------------
+   -- Set_Dot_Warning_Switch --
+   ----------------------------
+
+   function Set_Dot_Warning_Switch (C : Character) return Boolean is
+   begin
+      case C is
+         when 'c' =>
+            Warn_On_Unrepped_Components         := True;
+
+         when 'C' =>
+            Warn_On_Unrepped_Components         := False;
+
+         when 'r' =>
+            Warn_On_Object_Renames_Function     := True;
+
+         when 'R' =>
+            Warn_On_Object_Renames_Function     := False;
+
+         when 'x' =>
+            Warn_On_Non_Local_Exception         := True;
+
+         when 'X' =>
+            Warn_On_Non_Local_Exception         := False;
+
+         when others =>
+            return False;
+      end case;
+
+      return True;
+   end Set_Dot_Warning_Switch;
+
    ------------------------
    -- Set_Warning_Switch --
    ------------------------
@@ -1604,176 +2158,198 @@ package body Sem_Warn is
    begin
       case C is
          when 'a' =>
-            Check_Unreferenced              := True;
-            Check_Unreferenced_Formals      := True;
-            Check_Withs                     := True;
-            Constant_Condition_Warnings     := True;
-            Implementation_Unit_Warnings    := True;
-            Ineffective_Inline_Warnings     := True;
-            Warn_On_Ada_2005_Compatibility  := True;
-            Warn_On_Bad_Fixed_Value         := True;
-            Warn_On_Constant                := True;
-            Warn_On_Export_Import           := True;
-            Warn_On_Modified_Unread         := True;
-            Warn_On_No_Value_Assigned       := True;
-            Warn_On_Obsolescent_Feature     := True;
-            Warn_On_Redundant_Constructs    := True;
-            Warn_On_Unchecked_Conversion    := True;
-            Warn_On_Unrecognized_Pragma     := True;
+            Check_Unreferenced                  := True;
+            Check_Unreferenced_Formals          := True;
+            Check_Withs                         := True;
+            Constant_Condition_Warnings         := True;
+            Implementation_Unit_Warnings        := True;
+            Ineffective_Inline_Warnings         := True;
+            Warn_On_Ada_2005_Compatibility      := True;
+            Warn_On_Assumed_Low_Bound           := True;
+            Warn_On_Bad_Fixed_Value             := True;
+            Warn_On_Constant                    := True;
+            Warn_On_Export_Import               := True;
+            Warn_On_Modified_Unread             := True;
+            Warn_On_No_Value_Assigned           := True;
+            Warn_On_Non_Local_Exception         := True;
+            Warn_On_Obsolescent_Feature         := True;
+            Warn_On_Questionable_Missing_Parens := True;
+            Warn_On_Redundant_Constructs        := True;
+            Warn_On_Object_Renames_Function     := True;
+            Warn_On_Unchecked_Conversion        := True;
+            Warn_On_Unrecognized_Pragma         := True;
+            Warn_On_Unrepped_Components         := True;
 
          when 'A' =>
-            Check_Unreferenced              := False;
-            Check_Unreferenced_Formals      := False;
-            Check_Withs                     := False;
-            Constant_Condition_Warnings     := False;
-            Elab_Warnings                   := False;
-            Implementation_Unit_Warnings    := False;
-            Ineffective_Inline_Warnings     := False;
-            Warn_On_Ada_2005_Compatibility  := False;
-            Warn_On_Bad_Fixed_Value         := False;
-            Warn_On_Constant                := False;
-            Warn_On_Dereference             := False;
-            Warn_On_Export_Import           := False;
-            Warn_On_Hiding                  := False;
-            Warn_On_Modified_Unread         := False;
-            Warn_On_No_Value_Assigned       := False;
-            Warn_On_Obsolescent_Feature     := False;
-            Warn_On_Redundant_Constructs    := False;
-            Warn_On_Unchecked_Conversion    := False;
-            Warn_On_Unrecognized_Pragma     := False;
+            Check_Unreferenced                  := False;
+            Check_Unreferenced_Formals          := False;
+            Check_Withs                         := False;
+            Constant_Condition_Warnings         := False;
+            Elab_Warnings                       := False;
+            Implementation_Unit_Warnings        := False;
+            Ineffective_Inline_Warnings         := False;
+            Warn_On_Ada_2005_Compatibility      := False;
+            Warn_On_Bad_Fixed_Value             := False;
+            Warn_On_Constant                    := False;
+            Warn_On_Deleted_Code                := False;
+            Warn_On_Dereference                 := False;
+            Warn_On_Export_Import               := False;
+            Warn_On_Hiding                      := False;
+            Warn_On_Modified_Unread             := False;
+            Warn_On_No_Value_Assigned           := False;
+            Warn_On_Non_Local_Exception         := False;
+            Warn_On_Obsolescent_Feature         := False;
+            Warn_On_Questionable_Missing_Parens := False;
+            Warn_On_Redundant_Constructs        := False;
+            Warn_On_Object_Renames_Function     := False;
+            Warn_On_Unchecked_Conversion        := False;
+            Warn_On_Unrecognized_Pragma         := False;
+            Warn_On_Unrepped_Components         := False;
 
          when 'b' =>
-            Warn_On_Bad_Fixed_Value         := True;
+            Warn_On_Bad_Fixed_Value             := True;
 
          when 'B' =>
-            Warn_On_Bad_Fixed_Value         := False;
+            Warn_On_Bad_Fixed_Value             := False;
 
          when 'c' =>
-            Constant_Condition_Warnings     := True;
+            Constant_Condition_Warnings         := True;
 
          when 'C' =>
-            Constant_Condition_Warnings     := False;
+            Constant_Condition_Warnings         := False;
 
          when 'd' =>
-            Warn_On_Dereference             := True;
+            Warn_On_Dereference                 := True;
 
          when 'D' =>
-            Warn_On_Dereference             := False;
+            Warn_On_Dereference                 := False;
 
          when 'e' =>
-            Warning_Mode                    := Treat_As_Error;
+            Warning_Mode                        := Treat_As_Error;
 
          when 'f' =>
-            Check_Unreferenced_Formals      := True;
+            Check_Unreferenced_Formals          := True;
 
          when 'F' =>
-            Check_Unreferenced_Formals      := False;
+            Check_Unreferenced_Formals          := False;
 
          when 'g' =>
-            Warn_On_Unrecognized_Pragma     := True;
+            Warn_On_Unrecognized_Pragma         := True;
 
          when 'G' =>
-            Warn_On_Unrecognized_Pragma     := False;
+            Warn_On_Unrecognized_Pragma         := False;
 
          when 'h' =>
-            Warn_On_Hiding                  := True;
+            Warn_On_Hiding                      := True;
 
          when 'H' =>
-            Warn_On_Hiding                  := False;
+            Warn_On_Hiding                      := False;
 
          when 'i' =>
-            Implementation_Unit_Warnings    := True;
+            Implementation_Unit_Warnings        := True;
 
          when 'I' =>
-            Implementation_Unit_Warnings    := False;
+            Implementation_Unit_Warnings        := False;
 
          when 'j' =>
-            Warn_On_Obsolescent_Feature     := True;
+            Warn_On_Obsolescent_Feature         := True;
 
          when 'J' =>
-            Warn_On_Obsolescent_Feature     := False;
+            Warn_On_Obsolescent_Feature         := False;
 
          when 'k' =>
-            Warn_On_Constant                := True;
+            Warn_On_Constant                    := True;
 
          when 'K' =>
-            Warn_On_Constant                := False;
+            Warn_On_Constant                    := False;
 
          when 'l' =>
-            Elab_Warnings                   := True;
+            Elab_Warnings                       := True;
 
          when 'L' =>
-            Elab_Warnings                   := False;
+            Elab_Warnings                       := False;
 
          when 'm' =>
-            Warn_On_Modified_Unread         := True;
+            Warn_On_Modified_Unread             := True;
 
          when 'M' =>
-            Warn_On_Modified_Unread         := False;
+            Warn_On_Modified_Unread             := False;
 
          when 'n' =>
-            Warning_Mode                    := Normal;
+            Warning_Mode                        := Normal;
 
          when 'o' =>
-            Address_Clause_Overlay_Warnings := True;
+            Address_Clause_Overlay_Warnings     := True;
 
          when 'O' =>
-            Address_Clause_Overlay_Warnings := False;
+            Address_Clause_Overlay_Warnings     := False;
 
          when 'p' =>
-            Ineffective_Inline_Warnings     := True;
+            Ineffective_Inline_Warnings         := True;
 
          when 'P' =>
-            Ineffective_Inline_Warnings     := False;
+            Ineffective_Inline_Warnings         := False;
+
+         when 'q' =>
+            Warn_On_Questionable_Missing_Parens := True;
+
+         when 'Q' =>
+            Warn_On_Questionable_Missing_Parens := False;
 
          when 'r' =>
-            Warn_On_Redundant_Constructs    := True;
+            Warn_On_Redundant_Constructs        := True;
 
          when 'R' =>
-            Warn_On_Redundant_Constructs    := False;
+            Warn_On_Redundant_Constructs        := False;
 
          when 's' =>
-            Warning_Mode                    := Suppress;
+            Warning_Mode                        := Suppress;
+
+         when 't' =>
+            Warn_On_Deleted_Code                := True;
+
+         when 'T' =>
+            Warn_On_Deleted_Code                := False;
 
          when 'u' =>
-            Check_Unreferenced              := True;
-            Check_Withs                     := True;
-            Check_Unreferenced_Formals      := True;
+            Check_Unreferenced                  := True;
+            Check_Withs                         := True;
+            Check_Unreferenced_Formals          := True;
 
          when 'U' =>
-            Check_Unreferenced              := False;
-            Check_Withs                     := False;
-            Check_Unreferenced_Formals      := False;
+            Check_Unreferenced                  := False;
+            Check_Withs                         := False;
+            Check_Unreferenced_Formals          := False;
 
          when 'v' =>
-            Warn_On_No_Value_Assigned       := True;
+            Warn_On_No_Value_Assigned           := True;
 
          when 'V' =>
-            Warn_On_No_Value_Assigned       := False;
-
-         when 'x' =>
-            Warn_On_Export_Import           := True;
-
-         when 'X' =>
-            Warn_On_Export_Import           := False;
-
-         when 'y' =>
-            Warn_On_Ada_2005_Compatibility  := True;
-
-         when 'Y' =>
-            Warn_On_Ada_2005_Compatibility  := False;
-
-         when 'z' =>
-            Warn_On_Unchecked_Conversion    := True;
-
-         when 'Z' =>
-            Warn_On_Unchecked_Conversion    := False;
-
-            --  Allow and ignore 'w' so that the old
-            --  format (e.g. -gnatwuwl) will work.
+            Warn_On_No_Value_Assigned           := False;
 
          when 'w' =>
-            null;
+            Warn_On_Assumed_Low_Bound           := True;
+
+         when 'W' =>
+            Warn_On_Assumed_Low_Bound           := False;
+
+         when 'x' =>
+            Warn_On_Export_Import               := True;
+
+         when 'X' =>
+            Warn_On_Export_Import               := False;
+
+         when 'y' =>
+            Warn_On_Ada_2005_Compatibility      := True;
+
+         when 'Y' =>
+            Warn_On_Ada_2005_Compatibility      := False;
+
+         when 'z' =>
+            Warn_On_Unchecked_Conversion        := True;
+
+         when 'Z' =>
+            Warn_On_Unchecked_Conversion        := False;
 
          when others =>
             return False;
@@ -1788,6 +2364,52 @@ package body Sem_Warn is
 
    procedure Warn_On_Known_Condition (C : Node_Id) is
       P : Node_Id;
+
+      procedure Track (N : Node_Id; Loc : Node_Id);
+      --  Adds continuation warning(s) pointing to reason (assignment or test)
+      --  for the operand of the conditional having a known value (or at least
+      --  enough is known about the value to issue the warning). N is the node
+      --  which is judged to have a known value. Loc is the warning location.
+
+      -----------
+      -- Track --
+      -----------
+
+      procedure Track (N : Node_Id; Loc : Node_Id) is
+         Nod : constant Node_Id := Original_Node (N);
+
+      begin
+         if Nkind (Nod) in N_Op_Compare then
+            Track (Left_Opnd (Nod), Loc);
+            Track (Right_Opnd (Nod), Loc);
+
+         elsif Is_Entity_Name (Nod)
+           and then Is_Object (Entity (Nod))
+         then
+            declare
+               CV : constant Node_Id := Current_Value (Entity (Nod));
+
+            begin
+               if Present (CV) then
+                  Error_Msg_Sloc := Sloc (CV);
+
+                  if Nkind (CV) not in N_Subexpr then
+                     Error_Msg_N ("\\?(see test #)", Loc);
+
+                  elsif Nkind (Parent (CV)) =
+                          N_Case_Statement_Alternative
+                  then
+                     Error_Msg_N ("\\?(see case alternative #)", Loc);
+
+                  else
+                     Error_Msg_N ("\\?(see assignment #)", Loc);
+                  end if;
+               end if;
+            end;
+         end if;
+      end Track;
+
+   --  Start of processing for Warn_On_Known_Condition
 
    begin
       --   Argument replacement in an inlined body can make conditions static.
@@ -1869,16 +2491,442 @@ package body Sem_Warn is
                     and then Nkind (Cond) /= N_Op_Not
                   then
                      Error_Msg_NE
-                      ("object & is always True?", Cond, Original_Node (C));
+                       ("object & is always True?", Cond, Original_Node (C));
+                     Track (Original_Node (C), Cond);
+
                   else
                      Error_Msg_N ("condition is always True?", Cond);
+                     Track (Cond, Cond);
                   end if;
+
                else
                   Error_Msg_N ("condition is always False?", Cond);
+                  Track (Cond, Cond);
                end if;
             end;
          end if;
       end if;
    end Warn_On_Known_Condition;
+
+   ------------------------------
+   -- Warn_On_Suspicious_Index --
+   ------------------------------
+
+   procedure Warn_On_Suspicious_Index (Name : Entity_Id; X : Node_Id) is
+
+      Low_Bound : Uint;
+      --  Set to lower bound for a suspicious type
+
+      Ent : Entity_Id;
+      --  Entity for array reference
+
+      Typ : Entity_Id;
+      --  Array type
+
+      function Is_Suspicious_Type (Typ : Entity_Id) return Boolean;
+      --  Tests to see if Typ is a type for which we may have a suspicious
+      --  index, namely an unconstrained array type, whose lower bound is
+      --  either zero or one. If so, True is returned, and Low_Bound is set
+      --  to this lower bound. If not, False is returned, and Low_Bound is
+      --  undefined on return.
+      --
+      --  For now, we limite this to standard string types, so any other
+      --  unconstrained types return False. We may change our minds on this
+      --  later on, but strings seem the most important case.
+
+      procedure Test_Suspicious_Index;
+      --  Test if index is of suspicious type and if so, generate warning
+
+      ------------------------
+      -- Is_Suspicious_Type --
+      ------------------------
+
+      function Is_Suspicious_Type (Typ : Entity_Id) return Boolean is
+         LB : Node_Id;
+
+      begin
+         if Is_Array_Type (Typ)
+           and then not Is_Constrained (Typ)
+           and then Number_Dimensions (Typ) = 1
+           and then not Warnings_Off (Typ)
+           and then (Root_Type (Typ) = Standard_String
+                       or else
+                     Root_Type (Typ) = Standard_Wide_String
+                       or else
+                     Root_Type (Typ) = Standard_Wide_Wide_String)
+         then
+            LB := Type_Low_Bound (Etype (First_Index (Typ)));
+
+            if Compile_Time_Known_Value (LB) then
+               Low_Bound := Expr_Value (LB);
+               return Low_Bound = Uint_0 or else Low_Bound = Uint_1;
+            end if;
+         end if;
+
+         return False;
+      end Is_Suspicious_Type;
+
+      ---------------------------
+      -- Test_Suspicious_Index --
+      ---------------------------
+
+      procedure Test_Suspicious_Index is
+
+         function Length_Reference (N : Node_Id) return Boolean;
+         --  Check if node N is of the form Name'Length
+
+         procedure Warn1;
+         --  Generate first warning line
+
+         ----------------------
+         -- Length_Reference --
+         ----------------------
+
+         function Length_Reference (N : Node_Id) return Boolean is
+            R : constant Node_Id := Original_Node (N);
+         begin
+            return
+              Nkind (R) = N_Attribute_Reference
+               and then Attribute_Name (R) = Name_Length
+               and then Is_Entity_Name (Prefix (R))
+               and then Entity (Prefix (R)) = Ent;
+         end Length_Reference;
+
+         -----------
+         -- Warn1 --
+         -----------
+
+         procedure Warn1 is
+         begin
+            Error_Msg_Uint_1 := Low_Bound;
+            Error_Msg_FE ("?index for& may assume lower bound of^", X, Ent);
+         end Warn1;
+
+      --  Start of processing for Test_Suspicious_Index
+
+      begin
+         --  Nothing to do if subscript does not come from source (we don't
+         --  want to give garbage warnings on compiler expanded code, e.g. the
+         --  loops generated for slice assignments. Sucb junk warnings would
+         --  be placed on source constructs with no subscript in sight!)
+
+         if not Comes_From_Source (Original_Node (X)) then
+            return;
+         end if;
+
+         --  Case where subscript is a constant integer
+
+         if Nkind (X) = N_Integer_Literal then
+            Warn1;
+
+            --  Case where original form of subscript is an integer literal
+
+            if Nkind (Original_Node (X)) = N_Integer_Literal then
+               if Intval (X) = Low_Bound then
+                  Error_Msg_FE
+                    ("\suggested replacement: `&''First`", X, Ent);
+               else
+                  Error_Msg_Uint_1 := Intval (X) - Low_Bound;
+                  Error_Msg_FE
+                    ("\suggested replacement: `&''First + ^`", X, Ent);
+
+               end if;
+
+            --  Case where original form of subscript is more complex
+
+            else
+               --  Build string X'First - 1 + expression where the expression
+               --  is the original subscript. If the expression starts with "1
+               --  + ", then the "- 1 + 1" is elided.
+
+               Error_Msg_String (1 .. 13) := "'First - 1 + ";
+               Error_Msg_Strlen := 13;
+
+               declare
+                  Sref : Source_Ptr := Sloc (First_Node (Original_Node (X)));
+                  Tref : constant Source_Buffer_Ptr :=
+                           Source_Text (Get_Source_File_Index (Sref));
+                  --  Tref (Sref) is used to scan the subscript
+
+                  Pctr : Natural;
+                  --  Paretheses counter when scanning subscript
+
+               begin
+                  --  Tref (Sref) points to start of subscript
+
+                  --  Elide - 1 if subscript starts with 1 +
+
+                  if Tref (Sref .. Sref + 2) = "1 +" then
+                     Error_Msg_Strlen := Error_Msg_Strlen - 6;
+                     Sref := Sref + 2;
+
+                  elsif Tref (Sref .. Sref + 1) = "1+" then
+                     Error_Msg_Strlen := Error_Msg_Strlen - 6;
+                     Sref := Sref + 1;
+                  end if;
+
+                  --  Now we will copy the subscript to the string buffer
+
+                  Pctr := 0;
+                  loop
+                     --  Count parens, exit if terminating right paren. Note
+                     --  check to ignore paren appearing as character literal.
+
+                     if Tref (Sref + 1) = '''
+                          and then
+                        Tref (Sref - 1) = '''
+                     then
+                        null;
+                     else
+                        if Tref (Sref) = '(' then
+                           Pctr := Pctr + 1;
+                        elsif Tref (Sref) = ')' then
+                           exit when Pctr = 0;
+                           Pctr := Pctr - 1;
+                        end if;
+                     end if;
+
+                     --  Done if terminating double dot (slice case)
+
+                     exit when Pctr = 0
+                       and then (Tref (Sref .. Sref + 1) = ".."
+                                  or else
+                                 Tref (Sref .. Sref + 2) = " ..");
+
+                     --  Quit if we have hit EOF character, something wrong
+
+                     if Tref (Sref) = EOF then
+                        return;
+                     end if;
+
+                     --  String literals are too much of a pain to handle
+
+                     if Tref (Sref) = '"' or else Tref (Sref) = '%' then
+                        return;
+                     end if;
+
+                     --  If we have a 'Range reference, then this is a case
+                     --  where we cannot easily give a replacement. Don't try!
+
+                     if Tref (Sref .. Sref + 4) = "range"
+                       and then Tref (Sref - 1) < 'A'
+                       and then Tref (Sref + 5) < 'A'
+                     then
+                        return;
+                     end if;
+
+                     --  Else store next character
+
+                     Error_Msg_Strlen := Error_Msg_Strlen + 1;
+                     Error_Msg_String (Error_Msg_Strlen) := Tref (Sref);
+                     Sref := Sref + 1;
+
+                     --  If we get more than 40 characters then the expression
+                     --  is too long to copy, or something has gone wrong. In
+                     --  either case, just skip the attempt at a suggested fix.
+
+                     if Error_Msg_Strlen > 40 then
+                        return;
+                     end if;
+                  end loop;
+               end;
+
+               --  Replacement subscript is now in string buffer
+
+               Error_Msg_FE
+                 ("\suggested replacement: `&~`", Original_Node (X), Ent);
+            end if;
+
+         --  Case where subscript is of the form X'Length
+
+         elsif Length_Reference (X) then
+            Warn1;
+            Error_Msg_Node_2 := Ent;
+            Error_Msg_FE
+              ("\suggest replacement of `&''Length` by `&''Last`",
+               X, Ent);
+
+         --  Case where subscript is of the form X'Length - expression
+
+         elsif Nkind (X) = N_Op_Subtract
+           and then Length_Reference (Left_Opnd (X))
+         then
+            Warn1;
+            Error_Msg_Node_2 := Ent;
+            Error_Msg_FE
+              ("\suggest replacement of `&''Length` by `&''Last`",
+               Left_Opnd (X), Ent);
+         end if;
+      end Test_Suspicious_Index;
+
+   --  Start of processing for Warn_On_Suspicious_Index
+
+   begin
+      --  Only process if warnings activated
+
+      if Warn_On_Assumed_Low_Bound then
+
+         --  Test if array is simple entity name
+
+         if Is_Entity_Name (Name) then
+
+            --  Test if array is parameter of unconstrained string type
+
+            Ent := Entity (Name);
+            Typ := Etype (Ent);
+
+            if Is_Formal (Ent)
+              and then Is_Suspicious_Type (Typ)
+              and then not Low_Bound_Known (Ent)
+            then
+               Test_Suspicious_Index;
+            end if;
+         end if;
+      end if;
+   end Warn_On_Suspicious_Index;
+
+   --------------------------------
+   -- Warn_On_Useless_Assignment --
+   --------------------------------
+
+   procedure Warn_On_Useless_Assignment
+     (Ent : Entity_Id;
+      Loc : Source_Ptr := No_Location)
+   is
+      P : Node_Id;
+      X : Node_Id;
+
+      function Check_Ref (N : Node_Id) return Traverse_Result;
+      --  Used to instantiate Traverse_Func. Returns Abandon if
+      --  a reference to the entity in question is found.
+
+      function Test_No_Refs is new Traverse_Func (Check_Ref);
+
+      ---------------
+      -- Check_Ref --
+      ---------------
+
+      function Check_Ref (N : Node_Id) return Traverse_Result is
+      begin
+         --  Check reference to our identifier. We use name equality here
+         --  because the exception handlers have not yet been analyzed. This
+         --  is not quite right, but it really does not matter that we fail
+         --  to output the warning in some obscure cases of name clashes.
+
+         if Nkind (N) = N_Identifier
+           and then Chars (N) = Chars (Ent)
+         then
+            return Abandon;
+         else
+            return OK;
+         end if;
+      end Check_Ref;
+
+   --  Start of processing for Warn_On_Useless_Assignment
+
+   begin
+      --  Check if this is a case we want to warn on, a variable with the
+      --  last assignment field set, with warnings enabled, and which is
+      --  not imported or exported.
+
+      if Ekind (Ent) = E_Variable
+        and then not Is_Return_Object (Ent)
+        and then Present (Last_Assignment (Ent))
+        and then not Warnings_Off (Ent)
+        and then not Has_Pragma_Unreferenced (Ent)
+        and then not Is_Imported (Ent)
+        and then not Is_Exported (Ent)
+      then
+         --  Before we issue the message, check covering exception handlers.
+         --  Search up tree for enclosing statement sequences and handlers
+
+         P := Parent (Last_Assignment (Ent));
+         while Present (P) loop
+
+            --  Something is really wrong if we don't find a handled
+            --  statement sequence, so just suppress the warning.
+
+            if No (P) then
+               Set_Last_Assignment (Ent, Empty);
+               return;
+
+            --  When we hit a package/subprogram body, issue warning and exit
+
+            elsif Nkind (P) = N_Subprogram_Body
+              or else Nkind (P) = N_Package_Body
+            then
+               if Loc = No_Location then
+                  Error_Msg_NE
+                    ("?useless assignment to&, value never referenced",
+                     Last_Assignment (Ent), Ent);
+               else
+                  Error_Msg_Sloc := Loc;
+                  Error_Msg_NE
+                    ("?useless assignment to&, value overwritten #",
+                     Last_Assignment (Ent), Ent);
+               end if;
+
+               Set_Last_Assignment (Ent, Empty);
+               return;
+
+            --  Enclosing handled sequence of statements
+
+            elsif Nkind (P) = N_Handled_Sequence_Of_Statements then
+
+               --  Check exception handlers present
+
+               if Present (Exception_Handlers (P)) then
+
+                  --  If we are not at the top level, we regard an inner
+                  --  exception handler as a decisive indicator that we should
+                  --  not generate the warning, since the variable in question
+                  --  may be acceessed after an exception in the outer block.
+
+                  if Nkind (Parent (P)) /= N_Subprogram_Body
+                    and then Nkind (Parent (P)) /= N_Package_Body
+                  then
+                     Set_Last_Assignment (Ent, Empty);
+                     return;
+
+                     --  Otherwise we are at the outer level. An exception
+                     --  handler is significant only if it references the
+                     --  variable in question.
+
+                  else
+                     X := First (Exception_Handlers (P));
+                     while Present (X) loop
+                        if Test_No_Refs (X) = Abandon then
+                           Set_Last_Assignment (Ent, Empty);
+                           return;
+                        end if;
+
+                        X := Next (X);
+                     end loop;
+                  end if;
+               end if;
+            end if;
+
+            P := Parent (P);
+         end loop;
+      end if;
+   end Warn_On_Useless_Assignment;
+
+   ---------------------------------
+   -- Warn_On_Useless_Assignments --
+   ---------------------------------
+
+   procedure Warn_On_Useless_Assignments (E : Entity_Id) is
+      Ent : Entity_Id;
+   begin
+      if Warn_On_Modified_Unread
+        and then In_Extended_Main_Source_Unit (E)
+      then
+         Ent := First_Entity (E);
+         while Present (Ent) loop
+            Warn_On_Useless_Assignment (Ent);
+            Next_Entity (Ent);
+         end loop;
+      end if;
+   end Warn_On_Useless_Assignments;
 
 end Sem_Warn;

@@ -1,3 +1,49 @@
+2007-05-14  Rafael Avila de Espindola  <espindola@google.com>
+
+	* treetree.c (tree_lang_unsigned_type): Remove.
+	(LANG_HOOKS_UNSIGNED_TYPE): Remove.
+
+2007-03-30  Rafael Avila de Espindola  <espindola@google.com>
+
+	* treetree.c (tree_lang_signed_or_unsigned_type): Remove.
+	(LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE) Remove.
+
+2007-03-01  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Make-lang.in: Add install-pdf target as copied from
+	automake v1.10 rules.
+
+2007-02-26  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* treelang.texi: Standardize title page, remove version number
+	from copyright page.
+
+2006-10-23 Rafael Avila de Espindola  <rafael.espindola@gmail.com>
+
+	* treetree.c (builtin_function): Remove.
+
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* Make-lang.in: Added "treelang.pdf" target support.
+
+2006-07-28  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* Make-lang.in: Use $(HEADER_H) instead of header.h in dependencies.
+
+2006-06-17  Karl Berry  <karl@gnu.org>
+
+	* treelang.texi (@dircategory): Use "Software development"
+	instead of "Programming", following the Free Software Directory.
+
+2006-06-06  Mike Stump  <mrs@apple.com>
+
+	* Make-lang.in: Rename to gcc_htmldir to build_htmldir to avoid
+	installing during build.
+
+2006-05-23  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Make-lang.in: Rename htmldir to gcc_htmldir.
+
 2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR driver/26885

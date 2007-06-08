@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,6 +26,7 @@
 
 --  Type Support Subprogram (TSS) handling
 
+with Namet; use Namet;
 with Types; use Types;
 
 package Exp_Tss is
@@ -172,20 +173,20 @@ package Exp_Tss is
 
    procedure Set_TSS (Typ : Entity_Id; TSS : Entity_Id);
    --  This procedure is used to install a newly created TSS. The second
-   --  argument is the entity for such a new TSS. This entity is placed in
-   --  the TSS list for the type given as the first argument, replacing an
-   --  old entry of the same name if one was present. The tree for the body
-   --  of this TSS, which is not analyzed yet, is placed in the actions field
-   --  of the freeze node for the type. All such bodies are inserted into the
-   --  main tree and analyzed at the point at which the freeze node itself is
-   --  is expanded.
+   --  argument is the entity for such a new TSS. This entity is placed in the
+   --  TSS list for the type given as the first argument, replacing an old
+   --  entry of the same name if one was present. The tree for the body of this
+   --  TSS, which is not analyzed yet, is placed in the actions field of the
+   --  freeze node for the type. All such bodies are inserted into the main
+   --  tree and analyzed at the point at which the freeze node itself is
+   --  expanded.
 
    procedure Copy_TSS (TSS : Entity_Id; Typ : Entity_Id);
    --  Given an existing TSS for another type (which is already installed,
    --  analyzed and expanded), install it as the corresponding TSS for Typ.
-   --  Note that this just copies a reference, not the tree. This can also
-   --  be used to initially install a TSS in the case where the subprogram
-   --  for the TSS has already been created and its declaration processed.
+   --  Note that this just copies a reference, not the tree. This can also be
+   --  used to initially install a TSS in the case where the subprogram for the
+   --  TSS has already been created and its declaration processed.
 
    function Init_Proc (Typ : Entity_Id) return Entity_Id;
    pragma Inline (Init_Proc);
@@ -198,7 +199,7 @@ package Exp_Tss is
    --  the corresponding base type (see Base_Init_Proc function). A special
    --  case arises for concurrent types. Such types do not themselves have an
    --  init proc TSS, but initialization is required. The init proc used is
-   --  the one fot the corresponding record type (see Base_Init_Proc).
+   --  the one for the corresponding record type (see Base_Init_Proc).
 
    function Base_Init_Proc (Typ : Entity_Id) return Entity_Id;
    --  Obtains the _Init TSS entry from the base type of the entity, and also

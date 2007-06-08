@@ -1,6 +1,6 @@
 /* EventRequestCommandSet.java -- class to implement the EventRequest Command
    Set
-   Copyright (C) 2005 Free Software Foundation
+   Copyright (C) 2005, 2007 Free Software Foundation
  
 This file is part of GNU Classpath.
 
@@ -40,6 +40,7 @@ exception statement from your version. */
 package gnu.classpath.jdwp.processor;
 
 import gnu.classpath.jdwp.JdwpConstants;
+import gnu.classpath.jdwp.VMVirtualMachine;
 import gnu.classpath.jdwp.event.EventManager;
 import gnu.classpath.jdwp.event.EventRequest;
 import gnu.classpath.jdwp.event.filters.ClassExcludeFilter;
@@ -113,6 +114,28 @@ public class EventRequestCommandSet
     byte suspendPolicy = bb.get();
     int modifiers = bb.getInt();
 
+    switch (eventKind)
+      {
+	case JdwpConstants.EventKind.FIELD_ACCESS:
+	if (!VMVirtualMachine.canWatchFieldAccess)
+	  {
+	    String msg = "watching field accesses is not supported";
+	    throw new NotImplementedException(msg);
+	  }
+	break;
+
+	case JdwpConstants.EventKind.FIELD_MODIFICATION:
+	if (!VMVirtualMachine.canWatchFieldModification)
+	  {
+	    String msg = "watching field modifications is not supported";
+	    throw new NotImplementedException(msg);
+	  }
+	break;
+
+      default:
+	// okay
+      }
+
     EventRequest eventReq = new EventRequest(eventKind, suspendPolicy);
     IEventFilter filter = null;
     ReferenceTypeId refId;
@@ -147,7 +170,7 @@ public class EventRequestCommandSet
             if (id == 0)
               refId = null;
             else
-              refId = idMan.readReferenceTypeId(bb);
+              refId = idMan.getReferenceType(id);
             boolean caught = (bb.get() == 0) ? false : true;
             boolean unCaught = (bb.get() == 0) ? false : true;
             filter = new ExceptionOnlyFilter(refId, caught, unCaught);

@@ -34,7 +34,6 @@
 
 #include <ios>
 #include <limits>
-#include <bits/atomicity.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -107,7 +106,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     // Implementation note: Initialize top to zero to ensure that
     // initialization occurs before main() is started.
     static _Atomic_word _S_top = 0; 
-    return __gnu_cxx::__exchange_and_add(&_S_top, 1) + 4;
+    return __gnu_cxx::__exchange_and_add_dispatch(&_S_top, 1) + 4;
   }
 
   void 
@@ -128,7 +127,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	    __newsize = __ix + 1;
 	    try
 	      { __words = new _Words[__newsize]; }
-	    catch (...)
+	    catch(...)
 	      {
 		_M_streambuf_state |= badbit;
 		if (_M_streambuf_state & _M_exception)
@@ -173,7 +172,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       {
 	try 
 	  { (*__p->_M_fn) (__e, *this, __p->_M_index); } 
-	catch (...) 
+	catch(...) 
 	  { }
 	__p = __p->_M_next;
       }

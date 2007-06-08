@@ -31,17 +31,11 @@ Boston, MA 02110-1301, USA.  */
 #include "config.h"
 #include "libgfortran.h"
 
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-
 #ifdef HAVE_SIGNAL_H
 #include <signal.h>
 #endif
 
 #include <errno.h>
-
-#include "../io/io.h"
 
 /* SUBROUTINE KILL(PID, SIGNAL, STATUS)
    INTEGER, INTENT(IN) :: PID, SIGNAL

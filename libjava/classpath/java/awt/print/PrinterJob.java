@@ -38,9 +38,13 @@ exception statement from your version. */
 
 package java.awt.print;
 
-import java.awt.HeadlessException;
+import gnu.java.awt.print.JavaPrinterJob;
 
+import java.awt.HeadlessException;
 import javax.print.PrintService;
+import javax.print.PrintServiceLookup;
+import javax.print.DocFlavor;
+import javax.print.StreamPrintServiceFactory;
 import javax.print.attribute.PrintRequestAttributeSet;
 
 /**
@@ -60,8 +64,7 @@ public abstract class PrinterJob
    */
   public static PrinterJob getPrinterJob()
   {
-    // FIXME: Need to fix this to load a default implementation instance.
-    return new NoPrinterJob();
+    return new JavaPrinterJob();
   }
 
   /**
@@ -244,13 +247,11 @@ public abstract class PrinterJob
    */
   public static PrintService[] lookupPrintServices()
   {
-    return new PrintService[0];
-    // FIXME:
-    // Enable this when javax.print has this implemented.
-//    return PrintServiceLookup.lookupPrintServices(
-//          new DocFlavor("application/x-java-jvm-local-objectref",
-//                        "java.awt.print.Pageable"),
-//          null);
+    return PrintServiceLookup.lookupPrintServices
+      (
+       new DocFlavor("application/x-java-jvm-local-objectref",
+		     "java.awt.print.Pageable"),
+       null);
   }
 
   /**
@@ -263,15 +264,12 @@ public abstract class PrinterJob
    * @return Array of stream print services, could be empty.
    * @since 1.4
    */
-  	// FIXME:
-  	// Enable when javax.print has StreamPrintServiceFactory 
-//  public static StreamPrintServiceFactory[] lookupStreamPrintServices(String mimeType)
-//  {
-//    return StreamPrintServiceFactory.lookupStreamServiceFactories(
-//      new DocFlavor("application/x-java-jvm-local-objectref",
-//      "java.awt.print.Pageable"),
-//    	mimeType);
-//  }
+  public static StreamPrintServiceFactory[]
+    lookupStreamPrintServices(String mimeType)
+  {
+    return StreamPrintServiceFactory.lookupStreamPrintServiceFactories(
+      DocFlavor.SERVICE_FORMATTED.PAGEABLE, mimeType);
+  }
 
   /**
    * Return the printer for this job.  If print services aren't supported by
@@ -282,7 +280,7 @@ public abstract class PrinterJob
    */
   public PrintService getPrintService()
   {
-    return null;
+    return printer;
   }
 
   /**
@@ -297,6 +295,6 @@ public abstract class PrinterJob
   public void setPrintService(PrintService service)
     throws PrinterException
   {
-    throw new PrinterException();
+    printer = service;
   }
 }

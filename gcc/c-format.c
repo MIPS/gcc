@@ -40,6 +40,7 @@ set_Wformat (int setting)
   warn_format = setting;
   warn_format_extra_args = setting;
   warn_format_zero_length = setting;
+  warn_format_contains_nul = setting;
   if (setting != 1)
     {
       warn_format_nonliteral = setting;
@@ -125,15 +126,19 @@ static bool
 check_format_string (tree argument, unsigned HOST_WIDE_INT format_num,
 		     int flags, bool *no_add_attrs)
 {
-  tree parm_type = NULL_TREE;
+  unsigned HOST_WIDE_INT i;
 
-  if (format_num - 1
-      < (unsigned HOST_WIDE_INT) num_parm_types (argument))
-    parm_type = nth_parm_type (argument, format_num - 1);
+  for (i = 1; i != format_num; i++)
+    {
+      if (argument == 0)
+	break;
+      argument = TREE_CHAIN (argument);
+    }
 
-  if (!parm_type
-      || TREE_CODE (parm_type) != POINTER_TYPE
-      || TYPE_MAIN_VARIANT (TREE_TYPE (parm_type)) != char_type_node)
+  if (!argument
+      || TREE_CODE (TREE_VALUE (argument)) != POINTER_TYPE
+      || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (argument)))
+	  != char_type_node))
     {
       if (!(flags & (int) ATTR_FLAG_BUILT_IN))
 	error ("format string argument not a string type");
@@ -1478,7 +1483,7 @@ check_format_info_main (format_check_results *res,
       if (*format_chars == 0)
 	{
 	  if (format_chars - orig_format_chars != format_length)
-	    warning (OPT_Wformat, "embedded %<\\0%> in format");
+	    warning (OPT_Wformat_contains_nul, "embedded %<\\0%> in format");
 	  if (info->first_arg_num != 0 && params != 0
 	      && has_operand_number <= 0)
 	    {
@@ -2244,7 +2249,7 @@ check_format_types (format_wanted_type *types, const char *format_start,
 	  && TREE_CODE (cur_type) == INTEGER_TYPE
 	  && (!pedantic || i == 0 || (i == 1 && char_type_flag))
 	  && (TYPE_UNSIGNED (wanted_type)
-	      ? wanted_type == c_common_unsigned_type (cur_type)
+	      ? wanted_type == unsigned_type_for (cur_type)
 	      : wanted_type == c_common_signed_type (cur_type)))
 	continue;
       /* Likewise, "signed char", "unsigned char" and "char" are
@@ -2719,16 +2724,23 @@ handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
       if (!check_format_string (argument, info.format_num, flags,
 				no_add_attrs))
 	return NULL_TREE;
-      
-      /* Verify that first_arg_num points to the last arg, the ...  */
-      if (info.first_arg_num != 0
-	  && (1 + (unsigned HOST_WIDE_INT) num_parm_types (argument)
-	      != info.first_arg_num))
+
+      if (info.first_arg_num != 0)
 	{
-	  if (!(flags & (int) ATTR_FLAG_BUILT_IN))
-	    error ("args to be formatted is not %<...%>");
-	  *no_add_attrs = true;
-	  return NULL_TREE;
+	  unsigned HOST_WIDE_INT arg_num = 1;
+
+	  /* Verify that first_arg_num points to the last arg,
+	     the ...  */
+	  while (argument)
+	    arg_num++, argument = TREE_CHAIN (argument);
+
+	  if (arg_num != info.first_arg_num)
+	    {
+	      if (!(flags & (int) ATTR_FLAG_BUILT_IN))
+		error ("args to be formatted is not %<...%>");
+	      *no_add_attrs = true;
+	      return NULL_TREE;
+	    }
 	}
     }
 

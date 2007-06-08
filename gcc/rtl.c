@@ -1,6 +1,6 @@
 /* RTL utility routines.
    Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -119,15 +119,10 @@ const unsigned char rtx_code_size[NUM_RTX_CODE] = {
 #undef DEF_RTL_EXPR
 };
 
-/* Make sure all NOTE_INSN_* values are negative.  */
-extern char NOTE_INSN_MAX_isnt_negative_adjust_NOTE_INSN_BIAS
-[NOTE_INSN_MAX < 0 ? 1 : -1];
-
 /* Names for kinds of NOTEs and REG_NOTEs.  */
 
-const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS] =
+const char * const note_insn_name[NOTE_INSN_MAX] =
 {
-  "",
 #define DEF_INSN_NOTE(NAME) #NAME,
 #include "insn-notes.def"
 #undef DEF_INSN_NOTE
@@ -441,7 +436,8 @@ rtx_equal_p (rtx x, rtx y)
   return 1;
 }
 
-void dump_rtx_statistics (void)
+void
+dump_rtx_statistics (void)
 {
 #ifdef GATHER_STATISTICS
   int i;

@@ -1,5 +1,5 @@
 /* Toolkit.java -- AWT Toolkit superclass
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -40,7 +40,9 @@ exception statement from your version. */
 package java.awt;
 
 import gnu.classpath.SystemProperties;
+import gnu.java.awt.AWTUtilities;
 import gnu.java.awt.peer.GLightweightPeer;
+import gnu.java.awt.peer.headless.HeadlessToolkit;
 
 import java.awt.datatransfer.Clipboard;
 import java.awt.dnd.DragGestureEvent;
@@ -51,6 +53,7 @@ import java.awt.dnd.peer.DragSourceContextPeer;
 import java.awt.event.AWTEventListener;
 import java.awt.event.AWTEventListenerProxy;
 import java.awt.event.KeyEvent;
+import java.awt.font.TextAttribute;
 import java.awt.im.InputMethodHighlight;
 import java.awt.image.ColorModel;
 import java.awt.image.ImageObserver;
@@ -60,6 +63,7 @@ import java.awt.peer.CanvasPeer;
 import java.awt.peer.CheckboxMenuItemPeer;
 import java.awt.peer.CheckboxPeer;
 import java.awt.peer.ChoicePeer;
+import java.awt.peer.DesktopPeer;
 import java.awt.peer.DialogPeer;
 import java.awt.peer.FileDialogPeer;
 import java.awt.peer.FontPeer;
@@ -70,6 +74,7 @@ import java.awt.peer.ListPeer;
 import java.awt.peer.MenuBarPeer;
 import java.awt.peer.MenuItemPeer;
 import java.awt.peer.MenuPeer;
+import java.awt.peer.MouseInfoPeer;
 import java.awt.peer.PanelPeer;
 import java.awt.peer.PopupMenuPeer;
 import java.awt.peer.ScrollPanePeer;
@@ -85,6 +90,7 @@ import java.net.URL;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.ArrayList;
+import java.util.Hashtable;
 import java.util.Map;
 import java.util.Properties;
 import java.util.StringTokenizer;
@@ -118,7 +124,8 @@ public abstract class Toolkit
   /** The toolkit properties. */
   private static Properties props = new Properties();
 
-  protected final Map desktopProperties = new Properties();
+  protected final Map<String,Object> desktopProperties = 
+    new Hashtable<String,Object>();
 
   protected final PropertyChangeSupport desktopPropsSupport
     = new PropertyChangeSupport(this);
@@ -130,6 +137,11 @@ public abstract class Toolkit
   AWTEventListenerProxy[] awtEventListeners;
 
   /**
+   * The shared peer for all lightweight components.
+   */
+  private GLightweightPeer lightweightPeer;
+
+  /**
    * Default constructor for subclasses.
    */
   public Toolkit()
@@ -137,6 +149,15 @@ public abstract class Toolkit
     awtEventListeners = new AWTEventListenerProxy[0];
   }
 
+  /**
+   * 
+   * @param target
+   * @return
+   * @throws HeadlessException
+   */
+  protected abstract DesktopPeer createDesktopPeer(Desktop target)
+    throws HeadlessException;
+  
   /**
    * Creates a peer object for the specified <code>Button</code>.
    *
@@ -332,6 +353,18 @@ public abstract class Toolkit
   protected abstract MenuItemPeer createMenuItem(MenuItem target);
 
   /**
+   * Returns a MouseInfoPeer. 
+   * The default implementation of this method throws
+   * UnsupportedOperationException.
+   *
+   * Toolkit implementations should overload this if possible, however.
+   */
+  protected MouseInfoPeer getMouseInfoPeer()
+  {
+    throw new UnsupportedOperationException("No mouse info peer.");
+  }
+
+  /**
    * Creates a peer object for the specified <code>FileDialog</code>.
    *
    * @param target The <code>FileDialog</code> to create the peer for.
@@ -366,7 +399,9 @@ public abstract class Toolkit
    */
   protected LightweightPeer createComponent(Component target)
   {
-    return new GLightweightPeer(target);
+    if (lightweightPeer == null)
+      lightweightPeer = new GLightweightPeer();
+    return lightweightPeer;
   }
 
   /**
@@ -527,10 +562,11 @@ public abstract class Toolkit
    *
    * @throws AWTError If the toolkit cannot be loaded.
    */
-  public static Toolkit getDefaultToolkit()
+  public static synchronized Toolkit getDefaultToolkit()
   {
     if (toolkit != null)
       return toolkit;
+
     String toolkit_name = SystemProperties.getProperty("awt.toolkit",
                                                        default_toolkit_name);
     try
@@ -544,7 +580,7 @@ public abstract class Toolkit
                 return ClassLoader.getSystemClassLoader();
               }
           });
-        Class cls = cl.loadClass(toolkit_name);
+        Class cls = Class.forName(toolkit_name, true, cl);
         Object obj = cls.newInstance();
         if (!(obj instanceof Toolkit))
           throw new AWTError(toolkit_name + " is not a subclass of " +
@@ -560,8 +596,18 @@ public abstract class Toolkit
       }
     catch (Throwable t)
       {
-	AWTError e = new AWTError("Cannot load AWT toolkit: " + toolkit_name);
-	throw (AWTError) e.initCause(t);
+        // Check for the headless property.
+        if (GraphicsEnvironment.isHeadless())
+          {
+            toolkit = new HeadlessToolkit();
+            return toolkit;
+          }
+        else
+          {
+            AWTError e = new AWTError("Cannot load AWT toolkit: "
+                                      + toolkit_name);
+            throw (AWTError) e.initCause(t);
+          }
       }
   }
 
@@ -695,6 +741,14 @@ public abstract class Toolkit
   public PrintJob getPrintJob(Frame frame, String title,
                               JobAttributes jobAttr, PageAttributes pageAttr)
   {
+    // FIXME: it is possible this check may be removed
+    // if this method, when written, always delegates to
+    // getPrintJob(Frame, String, Properties).
+    SecurityManager sm;
+    sm = System.getSecurityManager();
+    if (sm != null)
+      sm.checkPrintJobAccess();
+
     return null;
   }
 
@@ -759,12 +813,11 @@ public abstract class Toolkit
    */
   public boolean getLockingKeyState(int keyCode)
   {
-    if (keyCode != KeyEvent.VK_CAPS_LOCK
-        && keyCode != KeyEvent.VK_NUM_LOCK
-        && keyCode != KeyEvent.VK_SCROLL_LOCK)
-      throw new IllegalArgumentException();
-    
-    throw new UnsupportedOperationException();
+    if (AWTUtilities.isValidKey(keyCode))
+      throw new UnsupportedOperationException
+	("cannot get locking state of key code " + keyCode);
+
+    throw new IllegalArgumentException("invalid key code " + keyCode);
   }
 
   /**
@@ -943,8 +996,8 @@ public abstract class Toolkit
   /**
    * @since 1.3
    */
-  public DragGestureRecognizer
-    createDragGestureRecognizer(Class recognizer, DragSource ds,
+  public <T extends DragGestureRecognizer> T
+    createDragGestureRecognizer(Class<T> recognizer, DragSource ds,
                                 Component comp, int actions,
                                 DragGestureListener l)
   {
@@ -1231,7 +1284,8 @@ public abstract class Toolkit
   /**
    * @since 1.3
    */
-  public abstract Map mapInputMethodHighlight(InputMethodHighlight highlight);
+  public abstract Map<TextAttribute,?>
+    mapInputMethodHighlight(InputMethodHighlight highlight);
 
   /**
    * Initializes the accessibility framework. In particular, this loads the

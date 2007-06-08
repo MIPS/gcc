@@ -47,20 +47,27 @@ import java.util.NoSuchElementException;
 import java.util.Vector;
 
 /**
+ * Represents names that may span over several namespaces. For instance,
+ * the composite name http://www.gnu.org/software/classpath/index.html spans
+ * over three namespaces (the protocol http, the web server location
+ * (www.gnu.org) and the index.html location on the server).
+ * 
  * @author Tom Tromey (tromey@redhat.com)
  */
 public class CompositeName implements Name, Cloneable, Serializable
 {
   private static final long serialVersionUID = 1667768148915813118L;
+  
+  private transient Vector<String> elts;  
 
   public CompositeName ()
   {
-    elts = new Vector ();
+    elts = new Vector<String> ();
   }
 
-  protected CompositeName (Enumeration comps)
+  protected CompositeName (Enumeration<String> comps)
   {
-    elts = new Vector ();
+    elts = new Vector<String> ();
     try
       {
 	while (comps.hasMoreElements ())
@@ -73,7 +80,7 @@ public class CompositeName implements Name, Cloneable, Serializable
 
   public CompositeName (String n) throws InvalidNameException
   {
-    elts = new Vector ();
+    elts = new Vector<String> ();
     // Parse the string into its components.
     final char no_quote = 'x';	// Use 'x' to mean no quoting.
     char quote = no_quote;
@@ -144,7 +151,7 @@ public class CompositeName implements Name, Cloneable, Serializable
 
   public Name addAll (int posn, Name n) throws InvalidNameException
   {
-    Enumeration e = n.getAll ();
+    Enumeration<String> e = n.getAll ();
     try
       {
 	while (e.hasMoreElements ())
@@ -161,7 +168,7 @@ public class CompositeName implements Name, Cloneable, Serializable
 
   public Name addAll (Name suffix) throws InvalidNameException
   {
-    Enumeration e = suffix.getAll ();
+    Enumeration<String> e = suffix.getAll ();
     try
       {
 	while (e.hasMoreElements ())
@@ -186,8 +193,8 @@ public class CompositeName implements Name, Cloneable, Serializable
     int last = Math.min (cn.elts.size (), elts.size ());
     for (int i = 0; i < last; ++i)
       {
-	String f = (String) elts.get (i);
-	int comp = f.compareTo ((String) cn.elts.get (i));
+	String f = elts.get (i);
+	int comp = f.compareTo (cn.elts.get (i));
 	if (comp != 0)
 	  return comp;
       }
@@ -220,10 +227,10 @@ public class CompositeName implements Name, Cloneable, Serializable
 
   public String get (int posn)
   {
-    return (String) elts.get (posn);
+    return elts.get (posn);
   }
 
-  public Enumeration getAll ()
+  public Enumeration<String> getAll ()
   {
     return elts.elements ();
   }
@@ -232,7 +239,7 @@ public class CompositeName implements Name, Cloneable, Serializable
   {
     CompositeName cn = new CompositeName ();
     for (int i = 0; i < posn; ++i)
-      cn.elts.add ((String) elts.get (i));
+      cn.elts.add (elts.get (i));
     return cn;
   }
 
@@ -242,7 +249,7 @@ public class CompositeName implements Name, Cloneable, Serializable
       throw new ArrayIndexOutOfBoundsException (posn);
     CompositeName cn = new CompositeName ();
     for (int i = posn; i < elts.size (); ++i)
-      cn.elts.add ((String) elts.get (i));
+      cn.elts.add (elts.get (i));
     return cn;
   }
 
@@ -292,7 +299,7 @@ public class CompositeName implements Name, Cloneable, Serializable
       {
 	// For simplicity we choose to always quote using escapes and
 	// never quotes.
-	String elt = (String) elts.get (i);
+	String elt = elts.get (i);
 	if (i > 0
 	    || (i == elts.size () - 1 && elt.equals ("")))
 	  result.append ('/');
@@ -320,9 +327,9 @@ public class CompositeName implements Name, Cloneable, Serializable
     throws IOException, ClassNotFoundException
   {
     int size = s.readInt();
-    elts = new Vector(size);
+    elts = new Vector<String>(size);
     for (int i = 0; i < size; i++)
-      elts.add(s.readObject());
+      elts.add((String) s.readObject());
   }
 
   private void writeObject(ObjectOutputStream s) throws IOException
@@ -331,6 +338,4 @@ public class CompositeName implements Name, Cloneable, Serializable
     for (int i = 0; i < elts.size(); i++)
       s.writeObject(elts.get(i));
   }
-
-  private transient Vector elts;
 }

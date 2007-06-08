@@ -112,7 +112,8 @@ GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING([no])
 
 # No surprises, no surprises...
 GLIBCXX_ENABLE_THREADS
-if test $atomicity_dir = cpu/generic ; then
+GLIBCXX_ENABLE_ATOMIC_BUILTINS
+if test $atomicity_dir = cpu/generic/atomic_mutex ; then
   AC_MSG_WARN([No native atomic operations are provided for this platform.])
   if test $target_thread_file = single; then
     AC_MSG_WARN([They cannot be faked when thread support is disabled.])
@@ -123,6 +124,7 @@ if test $atomicity_dir = cpu/generic ; then
   fi
 fi
 
+GLIBCXX_CHECK_COMPILER_FEATURES
 
 if $GLIBCXX_IS_NATIVE; then
 
@@ -134,12 +136,10 @@ if $GLIBCXX_IS_NATIVE; then
   machine/param.h sys/machine.h fp.h locale.h float.h inttypes.h gconv.h \
   sys/types.h sys/ipc.h sys/sem.h])
 
-  GLIBCXX_CHECK_COMPILER_FEATURES
   GLIBCXX_CHECK_LINKER_FEATURES
   GLIBCXX_CHECK_MATH_SUPPORT
   GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
   GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-  GLIBCXX_CHECK_ICONV_SUPPORT
   GLIBCXX_CHECK_STDLIB_SUPPORT
 
   # For showmanyc_helper().
@@ -160,8 +160,14 @@ if $GLIBCXX_IS_NATIVE; then
   # For C99 support to TR1.
   GLIBCXX_CHECK_C99_TR1
 
+  # For dev/random and dev/urandom for TR1.
+  GLIBCXX_CHECK_RANDOM_TR1
+
   # For TLS support.
   GCC_CHECK_TLS
+
+  # For _Unwind_GetIPInfo.
+  GCC_CHECK_UNWIND_GETIPINFO
 
   AC_LC_MESSAGES
 
@@ -174,6 +180,9 @@ if $GLIBCXX_IS_NATIVE; then
     [AC_DEFINE(HAVE_SIGSETJMP, 1, [Define if sigsetjmp is available.])])
 
   AC_FUNC_MMAP
+
+  # For iconv support.
+  AM_ICONV
 
 else
 
@@ -203,7 +212,6 @@ else
   fi
 
   # Construct crosses by hand, eliminating bits that need ld...
-  # GLIBCXX_CHECK_COMPILER_FEATURES
   # GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
   # GLIBCXX_CHECK_MATH_SUPPORT
 
@@ -245,6 +253,8 @@ else
 
     AC_DEFINE(HAVE_S_ISREG)
     AC_DEFINE(HAVE_S_IFREG)
+
+    AC_DEFINE(HAVE_ICONV)
   else
     GLIBCXX_CROSSCONFIG
   fi
@@ -279,14 +289,19 @@ else
     AC_DEFINE(HAVE_TANHL)
   fi
 
+  # Assume we have _Unwind_GetIPInfo for cross-compiles.
+  AC_DEFINE(HAVE_GETIPINFO)
+
 fi
 
 # This depends on GLIBCXX CHECK_LINKER_FEATURES, but without it assumes no.
 GLIBCXX_ENABLE_SYMVERS([yes])
+GLIBCXX_ENABLE_VISIBILITY([yes])
 
 ac_ldbl_compat=no
 case "$target" in
-  powerpc*-*-*gnu* | \
+  powerpc*-*-linux* | \
+  powerpc*-*-gnu* | \
   sparc*-*-linux* | \
   s390*-*-linux* | \
   alpha*-*-linux*)
@@ -318,6 +333,7 @@ AC_SUBST(CPU_DEFINES_SRCDIR)
 AC_SUBST(ABI_TWEAKS_SRCDIR)
 AC_SUBST(OS_INC_SRCDIR)
 
+
 # Determine cross-compile flags and AM_CONDITIONALs.
 #AC_SUBST(GLIBCXX_IS_NATIVE)
 #AM_CONDITIONAL(CANADIAN, test $CANADIAN = yes)
@@ -340,10 +356,8 @@ GLIBCXX_EXPORT_INSTALL_INFO
 GLIBCXX_EXPORT_INCLUDES
 GLIBCXX_EXPORT_FLAGS
 
-if ${CONFIG_SHELL-/bin/sh} ./libtool --tag CXX --features |
-   grep "enable shared" > /dev/null;
-then
-  LIBSUPCXX_PICFLAGS=-prefer-pic
+if test "$enable_shared" = yes; then
+  LIBSUPCXX_PICFLAGS="-prefer-pic"
 else
   LIBSUPCXX_PICFLAGS=
 fi

@@ -52,6 +52,7 @@ import java.util.EventListener;
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
+import javax.swing.event.MenuKeyListener;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import javax.swing.plaf.PopupMenuUI;
@@ -119,7 +120,7 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
   private boolean lightWeightPopupEnabled;
 
   /** SelectionModel that keeps track of menu selection. */
-  private SingleSelectionModel selectionModel;
+  protected SingleSelectionModel selectionModel;
 
   /* Popup that is used to display JPopupMenu */
   private transient Popup popup;
@@ -409,6 +410,36 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
     this.insert(new Separator(), -1);
   }
 
+  /**
+   * Adds a MenuKeyListener to the popup.
+   * 
+   * @param l - the listener to add.
+   */
+  public void addMenuKeyListener(MenuKeyListener l)
+  {
+    listenerList.add(MenuKeyListener.class, l);
+  }
+  
+  /**
+   * Removes a MenuKeyListener from the popup.
+   * 
+   * @param l - the listener to remove.
+   */
+  public void removeMenuKeyListener(MenuKeyListener l)
+  {
+    listenerList.remove(MenuKeyListener.class, l);
+  }
+  
+  /**
+   * Returns array of getMenuKeyListeners that are listening to JPopupMenu.
+   * 
+   * @return array of getMenuKeyListeners that are listening to JPopupMenu
+   */
+  public MenuKeyListener[] getMenuKeyListeners()
+  {
+    return ((MenuKeyListener[]) listenerList.getListeners(MenuKeyListener.class));
+  }
+  
   /**
    * Adds popupMenuListener to listen for PopupMenuEvents fired
    * by the JPopupMenu
@@ -789,7 +820,14 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
    */
   public void menuSelectionChanged(boolean changed)
   {
-    if (! changed)
+    if (invoker instanceof JMenu)
+      {
+        // We need to special case this since the JMenu calculates the
+        // position etc of the popup.
+        JMenu menu = (JMenu) invoker;
+        menu.setPopupMenuVisible(changed);
+      }
+    else if (! changed)
       setVisible(false);
   }
 
@@ -862,6 +900,20 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
     {
       return "PopupMenuSeparatorUI";
     }
+  }
+
+  /**
+   * Returns <code>true</code> if the component is guaranteed to be painted
+   * on top of others. This returns false by default and is overridden by
+   * components like JMenuItem, JPopupMenu and JToolTip to return true for
+   * added efficiency.
+   *
+   * @return <code>true</code> if the component is guaranteed to be painted
+   *         on top of others
+   */
+  boolean onTop()
+  {
+    return true;
   }
 
   protected class AccessibleJPopupMenu extends AccessibleJComponent

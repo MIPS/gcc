@@ -44,6 +44,9 @@ Boston, MA 02110-1301, USA.  */
    %{shared:-lc} \
    %{!shared: %{profile:-lc_p}%{!profile:-lc}}"
 
+#undef CPP_SPEC
+#define CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
+
 /* Show that we need a GP when profiling.  */
 #undef TARGET_PROFILING_NEEDS_GP
 #define TARGET_PROFILING_NEEDS_GP 1
@@ -65,6 +68,9 @@ Boston, MA 02110-1301, USA.  */
 /* Determine whether the entire c99 runtime is present in the
    runtime library.  */
 #define TARGET_C99_FUNCTIONS (OPTION_GLIBC)
+
+/* Whether we have sincos that follows the GNU extension.  */
+#define TARGET_HAS_SINCOS (OPTION_GLIBC)
 
 #define TARGET_POSIX_IO
 

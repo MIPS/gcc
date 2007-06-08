@@ -391,10 +391,10 @@ cp_dump_tree (void* dump_info, tree t)
       {
 	int i = 0;
 	tree arg;
-	call_expr_arg_iterator iter;
+	aggr_init_expr_arg_iterator iter;
 	dump_int (di, "ctor", AGGR_INIT_VIA_CTOR_P (t));
-	dump_child ("fn", CALL_EXPR_FN (t));
-	FOR_EACH_CALL_EXPR_ARG (arg, iter, t)
+	dump_child ("fn", AGGR_INIT_EXPR_FN (t));
+	FOR_EACH_AGGR_INIT_EXPR_ARG (arg, iter, t)
 	  {
 	    char buffer[32];
 	    sprintf (buffer, "%u", i);

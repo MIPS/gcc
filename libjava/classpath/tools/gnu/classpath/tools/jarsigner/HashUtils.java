@@ -1,5 +1,5 @@
 /* Utils.java -- Utility methods for JAR file signing/verification
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,8 +38,9 @@ exception statement from your version. */
 
 package gnu.classpath.tools.jarsigner;
 
+import gnu.classpath.Configuration;
 import gnu.java.security.hash.Sha160;
-import gnu.java.security.util.Base64;
+import gnu.java.util.Base64;
 import gnu.java.util.jar.JarUtils;
 
 import java.io.BufferedInputStream;
@@ -76,9 +77,9 @@ class HashUtils
           sha.update(buffer, 0, n);
           count += n;
         }
-
     byte[] hash = sha.digest();
-    log.finest("Hashed " + count + " byte(s)");
+    if (Configuration.DEBUG)
+      log.finest("Hashed " + count + " byte(s)");
     String result = Base64.encode(hash);
     return result;
   }
@@ -92,7 +93,8 @@ class HashUtils
   {
     sha.update(ba);
     byte[] hash = sha.digest();
-    log.finest("Hashed " + ba.length + " byte(s)");
+    if (Configuration.DEBUG)
+      log.finest("Hashed " + ba.length + " byte(s)");
     String result = Base64.encode(hash);
     return result;
   }

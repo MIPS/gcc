@@ -22,12 +22,14 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 
 package gnu.classpath.examples.swing;
 
+import gnu.classpath.examples.java2d.JNIOverhead;
+
 import java.awt.*;
 import java.awt.event.*;
 
 import javax.swing.*;
-import javax.swing.tree.*;
 
+import javax.swing.plaf.basic.BasicLookAndFeel;
 import javax.swing.plaf.metal.DefaultMetalTheme;
 import javax.swing.plaf.metal.MetalLookAndFeel;
 import javax.swing.plaf.metal.MetalTheme;
@@ -64,7 +66,7 @@ public class Demo
     return getIcon("/gnu/classpath/examples/icons/big-" + s + ".png", s);
   }
 
-  private static Icon getIcon(String location, String name)
+  static Icon getIcon(String location, String name)
   {
     URL url = Demo.class.getResource(location);
     if (url == null) System.err.println("WARNING " + location + " not found.");
@@ -156,7 +158,12 @@ public class Demo
 
     examples.add(new JMenuItem(new PopupAction("NavigationFilter",
                                                NavigationFilterDemo.createDemoFactory())));
-    
+    examples.add(new JMenuItem(new PopupAction("JNI Overhead",
+                                               JNIOverhead.createDemoFactory())));
+    examples.add(new JMenuItem(new PopupAction("HTML Demo",
+                                               HtmlDemo.createDemoFactory())));
+
+
     final JMenuItem vmMenu;
     
     help.add(new JMenuItem("just play with the widgets"));
@@ -187,6 +194,10 @@ public class Demo
             }
       });
 
+    // Installs the BasicLookAndFeel.
+    UIManager.installLookAndFeel("(Basic Look And Feel)",
+                                 InstantiableBasicLookAndFeel.class.getName());
+    
     // Create L&F menu.
     JMenu lafMenu = new JMenu("Look and Feel");
     ButtonGroup lafGroup = new ButtonGroup();
@@ -200,6 +211,8 @@ public class Demo
         boolean selected = laf.getClassName().equals(currentLaf);
         lafItem.setSelected(selected);
         lafMenu.add(lafItem);
+        
+        lafGroup.add(lafItem);
       }
 
     // Create themes menu.
@@ -282,21 +295,6 @@ public class Demo
     return bar;
   }
 
-  private static String valign2str(int a)
-  {
-    switch (a)
-      {
-      case SwingConstants.CENTER:
-        return "Center";
-      case SwingConstants.TOP:
-        return "Top";
-      case SwingConstants.BOTTOM:
-        return "Bottom";
-      default:
-        return "Unknown";
-      }
-  }
-
   static String halign2str(int a)
   {
     switch (a)
@@ -342,17 +340,6 @@ public class Demo
     return mkButton(null, i, -1, -1, -1, -1);
   }
 
-
-  private static JScrollPane mkScrollPane(JComponent inner)
-  {
-    JScrollPane jsp;
-    jsp = new JScrollPane(inner,
-			  JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, 
-			  JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-    
-    return jsp;
-  }
-
   public Demo()
   {
     frame = new JFrame("Swing Activity Board");
@@ -364,10 +351,7 @@ public class Demo
     JPanel main = new JPanel();
     main.setLayout(new BoxLayout(main, BoxLayout.Y_AXIS));
     desktop = createDesktop();
-    
-    // Put the desktop in a scrollpane. The scrollbars may show then
-    // up when the them or LaF is changed.
-    main.add(new JScrollPane(desktop));
+    main.add(desktop);
     main.add(mkButtonBar());
     component.add(main, BorderLayout.CENTER);
     frame.pack();
@@ -379,7 +363,7 @@ public class Demo
   {
     public void run()
     {
-      Demo demo = new Demo();      
+      new Demo();      
     }
   }
 
@@ -393,16 +377,6 @@ public class Demo
     JButton b = new JButton(title);
     b.setMargin(new Insets(5,5,5,5));
     return b;
-  }
-
-  private static JPanel mkPanel(JComponent[] inners)
-  {
-    JPanel p = new JPanel();
-    for (int i = 0; i < inners.length; ++i)
-      {
-        p.add(inners[i]);
-      }
-    return p;
   }
 
   static JButton mkDisposerButton(final JFrame c)
@@ -467,52 +441,6 @@ public class Demo
     }
   }
 
-  /**
-   * Create the tree.
-   * 
-   * @return thr scroll pane, containing the tree.
-   */
-  private static JComponent mkTree()
-  {
-    DefaultMutableTreeNode root = new DefaultMutableTreeNode("Root node");
-    
-    addChildren("Node", root, 12);
-
-    JTree tree = new JTree(root);
-    tree.setLargeModel(true);
-    DefaultTreeSelectionModel dtsm = new DefaultTreeSelectionModel();
-    dtsm.setSelectionMode(DefaultTreeSelectionModel.SINGLE_TREE_SELECTION);
-    tree.setSelectionModel(dtsm);
-    
-    // Make it editable.
-    tree.setEditable(true);
-    
-    JComponent t = mkScrollPane(tree);
-    t.setPreferredSize(new Dimension(200,200));
-    return t;
-  }
-  
-  /**
-   * Add the specified number of children to this parent node. For each
-   * child, the method is called recursively adding the nChildren-3 number of 
-   * grandchildren.
-   * 
-   * @param parent the parent node
-   * @param nChildren the number of children
-   */
-  private static void addChildren(String name, DefaultMutableTreeNode parent,
-                                                int nChildren)
-  {
-    for (int i = 0; i < nChildren; i++)
-      {
-        String child_name = parent+"."+i;
-        DefaultMutableTreeNode child = new DefaultMutableTreeNode
-         (child_name);
-        parent.add(child);
-        addChildren(child_name, child, nChildren-3);
-      }
-  }
-  
   private JPanel mkButtonBar()
   {    
     JPanel panel = new JPanel(new GridLayout(3, 1, 5, 5));
@@ -543,7 +471,12 @@ public class Demo
     panel.add(new JButton(new PopupAction("Tree",
                                           TreeDemo.createDemoFactory())));
     panel.add(new JButton(new PopupAction("Theme Editor",
-                                       MetalThemeEditor.createDemoFactory())));
+                                      MetalThemeEditor.createDemoFactory())));
+    panel.add(new JButton(new PopupAction("JNI Overhead",
+                                          JNIOverhead.createDemoFactory())));
+    panel.add(new JButton(new PopupAction("HTML",
+                                          HtmlDemo.createDemoFactory())));
+
     JButton exitDisposer = mkDisposerButton(frame);
     panel.add(exitDisposer);
     
@@ -652,10 +585,45 @@ public class Demo
         {
           ex.printStackTrace();
         }
+      
       SwingUtilities.updateComponentTreeUI(frame);
       themesMenu.setEnabled(laf.getClassName()
                            .equals("javax.swing.plaf.metal.MetalLookAndFeel"));
     }
-    
   }
+    
+  /**
+   * An implementation of BasicLookAndFeel which can be instantiated.
+   * 
+   * @author Robert Schuster (robertschuster@fsfe.org)
+   *
+   */
+  public static class InstantiableBasicLookAndFeel extends BasicLookAndFeel
+  {
+    public String getDescription()
+    {
+      return "An instantiable implementation of BasicLookAndFeel";
+    }
+    
+    public String getID()
+    { 
+      return "instantiableBasicLookAndFeel";
+    }
+
+    public String getName()
+    {
+      return "Instantiable Basic Look And Feel";
+    }
+    
+    public boolean isNativeLookAndFeel()
+    {
+      return false;
+    }
+    
+    public boolean isSupportedLookAndFeel()
+    {
+      return true;
+    }
+  }
+
 }

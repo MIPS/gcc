@@ -93,6 +93,9 @@ package body System.Tasking.Restricted.Stages is
    -- Tasking versions of services needed by non-tasking programs --
    -----------------------------------------------------------------
 
+   function Get_Current_Excep return SSL.EOA;
+   --  Task-safe version of SSL.Get_Current_Excep
+
    procedure Task_Lock;
    --  Locks out other tasks. Preceding a section of code by Task_Lock and
    --  following it by Task_Unlock creates a critical region. This is used
@@ -125,6 +128,15 @@ package body System.Tasking.Restricted.Stages is
    --  It consists of initializing the environment task, global locks, and
    --  installing tasking versions of certain operations used by the compiler.
    --  Init_RTS is called during elaboration.
+
+   -----------------------
+   -- Get_Current_Excep --
+   -----------------------
+
+   function Get_Current_Excep return SSL.EOA is
+   begin
+      return STPO.Self.Common.Compiler_Data.Current_Excep'Access;
+   end Get_Current_Excep;
 
    ---------------
    -- Task_Lock --
@@ -473,6 +485,7 @@ package body System.Tasking.Restricted.Stages is
       Self_ID       : constant Task_Id := STPO.Self;
       Base_Priority : System.Any_Priority;
       Success       : Boolean;
+      Len           : Integer;
 
    begin
       --  Stack is not preallocated on this target, so that Stack_Address must
@@ -515,10 +528,11 @@ package body System.Tasking.Restricted.Stages is
 
       Created_Task.Entry_Calls (1).Self := Created_Task;
 
-      Created_Task.Common.Task_Image_Len :=
+      Len :=
         Integer'Min (Created_Task.Common.Task_Image'Length, Task_Image'Length);
-      Created_Task.Common.Task_Image
-        (1 .. Created_Task.Common.Task_Image_Len) := Task_Image;
+      Created_Task.Common.Task_Image_Len := Len;
+      Created_Task.Common.Task_Image (1 .. Len) :=
+        Task_Image (Task_Image'First .. Task_Image'First + Len - 1);
 
       Unlock (Self_ID);
 
@@ -614,9 +628,10 @@ package body System.Tasking.Restricted.Stages is
       --  Notify that the tasking run time has been elaborated so that
       --  the tasking version of the soft links can be used.
 
-      SSL.Lock_Task   := Task_Lock'Access;
-      SSL.Unlock_Task := Task_Unlock'Access;
-      SSL.Adafinal    := Finalize_Global_Tasks'Access;
+      SSL.Lock_Task         := Task_Lock'Access;
+      SSL.Unlock_Task       := Task_Unlock'Access;
+      SSL.Adafinal          := Finalize_Global_Tasks'Access;
+      SSL.Get_Current_Excep := Get_Current_Excep'Access;
 
       --  Initialize the tasking soft links (if not done yet) that are common
       --  to the full and the restricted run times.

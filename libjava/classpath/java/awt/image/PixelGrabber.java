@@ -55,7 +55,7 @@ public class PixelGrabber implements ImageConsumer
 
   ColorModel model = ColorModel.getRGBdefault();
   int hints;
-  Hashtable props;
+  Hashtable<?,?> props;
 
   int int_pixel_buffer[];
   boolean ints_delivered = false;
@@ -112,7 +112,8 @@ public class PixelGrabber implements ImageConsumer
    * in the grab rectangle will be stored at
    * <code>pix[(n - y) * scansize + (m - x) + off]</code>.
    *
-   * @param ip the ImageProducer from which to grab pixels
+   * @param ip the ImageProducer from which to grab pixels. This can
+   * be null.
    * @param x the x coordinate of the grab rectangle's top-left pixel,
    * specified relative to the top-left corner of the image produced
    * by <code>ip</code>
@@ -131,9 +132,6 @@ public class PixelGrabber implements ImageConsumer
   public PixelGrabber(ImageProducer ip, int x, int y, int w, int h,
 		      int pix[], int off, int scansize)
   {
-    if (ip == null)
-      throw new NullPointerException("The ImageProducer must not be null.");
-
     this.ip = ip;
     this.x = x;
     this.y = y;
@@ -222,7 +220,6 @@ public class PixelGrabber implements ImageConsumer
                 }
               catch (Exception ex)
                 {
-                  ex.printStackTrace();
                   imageComplete(ImageConsumer.IMAGEABORTED);
                 }
 	    }
@@ -445,7 +442,7 @@ public class PixelGrabber implements ImageConsumer
    * @param props a list of properties associated with the image being
    * produced
    */
-  public synchronized void setProperties(Hashtable props)
+  public synchronized void setProperties(Hashtable<?,?> props)
   {
     this.props = props;
   }

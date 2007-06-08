@@ -41,13 +41,21 @@ package java.awt.dnd;
 import java.awt.Component;
 import java.awt.GraphicsEnvironment;
 import java.awt.HeadlessException;
+import java.awt.Insets;
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.datatransfer.FlavorMap;
+import java.awt.datatransfer.SystemFlavorMap;
+import java.awt.dnd.peer.DropTargetPeer;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.peer.ComponentPeer;
+import java.awt.peer.LightweightPeer;
 import java.io.Serializable;
 import java.util.EventListener;
 import java.util.TooManyListenersException;
+
+import javax.swing.Timer;
 
 /**
  * @author Michael Koch
@@ -64,34 +72,97 @@ public class DropTarget
   protected static class DropTargetAutoScroller
     implements ActionListener
   {
+    /**
+     * The threshold that keeps the autoscroller running.
+     */
+    private static final int HYSTERESIS = 10;
+
+    /**
+     * The initial timer delay.
+     */
+    private static final int DELAY = 100;
+
     private Component component;
     private Point point;
-    
+
+    /**
+     * The timer that triggers autoscrolling.
+     */
+    private Timer timer;
+
+    /**
+     * The outer region of the scroller. This is the component's size.
+     */
+    private Rectangle outer;
+
+    /**
+     * The inner region of the scroller. This is the component size without
+     * the autoscroll insets.
+     */
+    private Rectangle inner;
+
     protected DropTargetAutoScroller (Component c, Point p)
     {
       component = c;
       point = p;
+      timer = new Timer(DELAY, this);
+      timer.setCoalesce(true);
+      timer.start();
     }
 
     protected void updateLocation (Point newLocn)
     {
+      Point previous = point;
       point = newLocn;
+      if (Math.abs(point.x - previous.x) > HYSTERESIS
+          || Math.abs(point.y - previous.y) > HYSTERESIS)
+        {
+          if (timer.isRunning())
+            timer.stop();
+        }
+      else
+        {
+          if (! timer.isRunning())
+            timer.start();
+        }
     }
 
     protected void stop ()
     {
+      timer.start();
     }
 
     public void actionPerformed (ActionEvent e)
     {
+      Autoscroll autoScroll = (Autoscroll) component;
+
+      // First synchronize the inner and outer rectangles.
+      Insets i = autoScroll.getAutoscrollInsets();
+      int width = component.getWidth();
+      int height = component.getHeight();
+      if (width != outer.width || height != outer.height)
+        outer.setBounds(0, 0, width, height);
+      if (inner.x != i.left || inner.y != i.top)
+        inner.setLocation(i.left, i.top);
+      int inWidth = width - i.left - i.right;
+      int inHeight = height - i.top - i.bottom;
+      if (inWidth != inner.width || inHeight != inner.height)
+        inner.setSize(inWidth, inHeight);
+
+      // Scroll if the outer rectangle contains the location, but the
+      // inner doesn't.
+      if (outer.contains(point) && ! inner.contains(point))
+        autoScroll.autoscroll(point);
     }
   }
 
   private Component component;
   private FlavorMap flavorMap;
   private int actions;
+  private DropTargetPeer peer;
   private DropTargetContext dropTargetContext;
   private DropTargetListener dropTargetListener;
+  private DropTarget.DropTargetAutoScroller autoscroller;
   private boolean active = true;
     
   /**
@@ -102,7 +173,7 @@ public class DropTarget
    */
   public DropTarget ()
   {
-    this (null, 0, null, true, null);
+    this (null, DnDConstants.ACTION_COPY_OR_MOVE, null, true, null);
   }
   
   /**
@@ -113,7 +184,7 @@ public class DropTarget
    */
   public DropTarget (Component c, DropTargetListener dtl)
   {
-    this (c, 0, dtl, true, null);
+    this (c, DnDConstants.ACTION_COPY_OR_MOVE, dtl, true, null);
   }
   
   /**
@@ -150,12 +221,19 @@ public class DropTarget
     if (GraphicsEnvironment.isHeadless ())
       throw new HeadlessException ();
 
-    component = c;
-    actions = i;
+    setComponent(c);
+    setDefaultActions(i);
     dropTargetListener = dtl;
-    flavorMap = fm;
+    
+    if (fm == null)
+      flavorMap = SystemFlavorMap.getDefaultFlavorMap();
+    else
+      flavorMap = fm;
     
     setActive (b);
+    
+    if (c != null)
+      c.setDropTarget(this);
   }
 
   /**
@@ -163,6 +241,8 @@ public class DropTarget
    */
   public void setComponent (Component c)
   {
+    if (component != null)
+      clearAutoscroll();
     component = c;
   }
 
@@ -193,6 +273,8 @@ public class DropTarget
   public void setActive (boolean active)
   {
     this.active = active;
+    if (! active)
+      clearAutoscroll();
   }
 
   public boolean isActive()
@@ -211,33 +293,69 @@ public class DropTarget
   public void addDropTargetListener (DropTargetListener dtl)
     throws TooManyListenersException
   {
+    if (dtl == null)
+      return;
+    
+    if (dtl.equals(this))
+      throw new IllegalArgumentException();
+    
+    if (dropTargetListener != null)
+      throw new TooManyListenersException();
+    
     dropTargetListener = dtl;
   }
 
   public void removeDropTargetListener(DropTargetListener dtl)
   {
-    // FIXME: Do we need to do something with dtl ?
-    dropTargetListener = null;
+    if (dropTargetListener != null)
+      dropTargetListener = null;
   }
 
   public void dragEnter(DropTargetDragEvent dtde)
   {
+    if (active)
+      {
+        if (dropTargetListener != null)
+          dropTargetListener.dragEnter(dtde);
+        initializeAutoscrolling(dtde.getLocation());
+      }
   }
 
   public void dragOver(DropTargetDragEvent dtde)
   {
+    if (active)
+      {
+        if (dropTargetListener != null)
+          dropTargetListener.dragOver(dtde);
+        updateAutoscroll(dtde.getLocation());
+      }
   }
 
   public void dropActionChanged(DropTargetDragEvent dtde)
   {
+    if (active)
+      {
+        if (dropTargetListener != null)
+          dropTargetListener.dropActionChanged(dtde);
+        updateAutoscroll(dtde.getLocation());
+      }
   }
 
   public void dragExit(DropTargetEvent dte)
   {
+    if (active)
+      {
+        if (dropTargetListener != null)
+          dropTargetListener.dragExit(dte);
+        clearAutoscroll();
+      }
   }
 
   public void drop(DropTargetDropEvent dtde)
   {
+    clearAutoscroll();
+    if (dropTargetListener != null)
+      dropTargetListener.drop(dtde);
   }
 
   public FlavorMap getFlavorMap()
@@ -250,12 +368,29 @@ public class DropTarget
     flavorMap = fm;
   }
 
-  public void addNotify(java.awt.peer.ComponentPeer peer)
+  public void addNotify(ComponentPeer p)
   {
+    Component c = component;
+    while (c != null && p instanceof LightweightPeer)
+      {
+        p = c.getPeer();
+        c = c.getParent();
+      }
+
+    if (p instanceof DropTargetPeer)
+      {
+        peer = ((DropTargetPeer) p);
+        peer.addDropTarget(this);
+      }
+    else
+      peer = null;
   }
 
-  public void removeNotify(java.awt.peer.ComponentPeer peer)
+  public void removeNotify(ComponentPeer p)
   {
+    ((DropTargetPeer) peer).removeDropTarget(this);
+    peer = null;
+    p = null;
   }
 
   public DropTargetContext getDropTargetContext()
@@ -268,7 +403,10 @@ public class DropTarget
 
   protected DropTargetContext createDropTargetContext()
   {
-    return new DropTargetContext (this);
+    if (dropTargetContext == null)
+      dropTargetContext = new DropTargetContext (this);
+    
+    return dropTargetContext;
   }
 
   protected DropTarget.DropTargetAutoScroller createDropTargetAutoScroller
@@ -279,13 +417,22 @@ public class DropTarget
 
   protected void initializeAutoscrolling(Point p)
   {
+    if (component instanceof Autoscroll) // Checks for null too.
+      autoscroller = createDropTargetAutoScroller (component, p);
   }
 
   protected void updateAutoscroll(Point dragCursorLocn)
   {
+    if (autoscroller != null)
+      autoscroller.updateLocation(dragCursorLocn);
   }
 
   protected void clearAutoscroll()
   {
+    if (autoscroller != null)
+      {
+        autoscroller.stop();
+        autoscroller = null;
+      }
   }
 } // class DropTarget

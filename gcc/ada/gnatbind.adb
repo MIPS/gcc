@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,6 +36,7 @@ with Casing;   use Casing;
 with Csets;
 with Debug;    use Debug;
 with Fmap;
+with Fname;    use Fname;
 with Gnatvsn;  use Gnatvsn;
 with Namet;    use Namet;
 with Opt;      use Opt;
@@ -50,6 +51,9 @@ with Targparm; use Targparm;
 with Types;    use Types;
 
 with System.Case_Util; use System.Case_Util;
+with System.OS_Lib;    use System.OS_Lib;
+
+with Ada.Command_Line.Response_File; use Ada.Command_Line;
 
 procedure Gnatbind is
 
@@ -85,7 +89,7 @@ procedure Gnatbind is
    procedure Scan_Bind_Arg (Argv : String);
    --  Scan and process binder specific arguments. Argv is a single argument.
    --  All the one character arguments are still handled by Switch. This
-   --  routine handles -aO -aI and -I-.
+   --  routine handles -aO -aI and -I-. The lower bound of Argv must be 1.
 
    function Is_Cross_Compiler return Boolean;
    --  Returns True iff this is a cross-compiler
@@ -121,12 +125,15 @@ procedure Gnatbind is
 
       --  Define those restrictions that should be output if the gnatbind
       --  -r switch is used. Not all restrictions are output for the reasons
-      --  given above in the list, and this array is used to test whether
+      --  given below in the list, and this array is used to test whether
       --  the corresponding pragma should be listed. True means that it
       --  should not be listed.
 
       No_Restriction_List : constant array (All_Restrictions) of Boolean :=
-        (No_Exceptions            => True,
+        (No_Exception_Propagation => True,
+         --  Modifies code resulting in different exception semantics
+
+         No_Exceptions            => True,
          --  Has unexpected Suppress (All_Checks) effect
 
          No_Implicit_Conditionals => True,
@@ -206,6 +213,8 @@ procedure Gnatbind is
    -------------------
 
    procedure Scan_Bind_Arg (Argv : String) is
+      pragma Assert (Argv'First = 1);
+
    begin
       --  Now scan arguments that are specific to the binder and are not
       --  handled by the common circuitry in Switch.
@@ -266,7 +275,7 @@ procedure Gnatbind is
                   "procedure names missing in -L");
             end if;
 
-         --  -Sin -Slo -Shi -Sxx
+         --  -Sin -Slo -Shi -Sxx -Sev
 
          elsif Argv'Length = 4
            and then Argv (2) = 'S'
@@ -420,11 +429,32 @@ begin
    Scan_Args : while Next_Arg < Arg_Count loop
       declare
          Next_Argv : String (1 .. Len_Arg (Next_Arg));
-
       begin
          Fill_Arg (Next_Argv'Address, Next_Arg);
-         Scan_Bind_Arg (Next_Argv);
+
+         if Next_Argv'Length > 0 then
+            if Next_Argv (1) = '@' then
+               if Next_Argv'Length > 1 then
+                  declare
+                     Arguments : constant Argument_List :=
+                                   Response_File.Arguments_From
+                                     (Response_File_Name        =>
+                                        Next_Argv (2 .. Next_Argv'Last),
+                                      Recursive                 => True,
+                                      Ignore_Non_Existing_Files => True);
+                  begin
+                     for J in Arguments'Range loop
+                        Scan_Bind_Arg (Arguments (J).all);
+                     end loop;
+                  end;
+               end if;
+
+            else
+               Scan_Bind_Arg (Next_Argv);
+            end if;
+         end if;
       end;
+
       Next_Arg := Next_Arg + 1;
    end loop Scan_Args;
 
@@ -449,7 +479,7 @@ begin
    --  Output usage if requested
 
    if Usage_Requested then
-      Bindusg;
+      Bindusg.Display;
    end if;
 
    --  Check that the Ada binder file specified has extension .adb and that
@@ -535,7 +565,7 @@ begin
    --  Output usage information if no files
 
    if not More_Lib_Files then
-      Bindusg;
+      Bindusg.Display;
       Exit_Program (E_Fatal);
    end if;
 
@@ -600,8 +630,8 @@ begin
 
          --  Set standard configuration parameters
 
-         Suppress_Standard_Library_On_Target            := True;
-         Configurable_Run_Time_Mode                     := True;
+         Suppress_Standard_Library_On_Target := True;
+         Configurable_Run_Time_Mode          := True;
       end if;
 
       --  For main ALI files, even if they are interfaces, we get their
@@ -661,7 +691,7 @@ begin
         and then ALIs.Table (ALIs.First).Main_Program = None
         and then not No_Main_Subprogram
       then
-         Error_Msg_Name_1 := Main_Lib_File;
+         Error_Msg_File_1 := Main_Lib_File;
          Error_Msg ("% does not contain a unit that can be a main program");
       end if;
 
@@ -684,25 +714,67 @@ begin
          Find_Elab_Order;
 
          if Errors_Detected = 0 then
+            --  Display elaboration order if -l was specified
+
             if Elab_Order_Output then
-               Write_Eol;
-               Write_Str ("ELABORATION ORDER");
-               Write_Eol;
+               if not Zero_Formatting then
+                  Write_Eol;
+                  Write_Str ("ELABORATION ORDER");
+                  Write_Eol;
+               end if;
 
                for J in Elab_Order.First .. Elab_Order.Last loop
                   if not Units.Table (Elab_Order.Table (J)).SAL_Interface then
-                     Write_Str ("   ");
+                     if not Zero_Formatting then
+                        Write_Str ("   ");
+                     end if;
+
                      Write_Unit_Name
                        (Units.Table (Elab_Order.Table (J)).Uname);
                      Write_Eol;
                   end if;
                end loop;
 
-               Write_Eol;
+               if not Zero_Formatting then
+                  Write_Eol;
+               end if;
             end if;
 
             if not Check_Only then
                Gen_Output_File (Output_File_Name.all);
+            end if;
+
+            --  Display list of sources in the closure (except predefined
+            --  sources) if -R was used.
+
+            if List_Closure then
+               if not Zero_Formatting then
+                  Write_Eol;
+                  Write_Str ("REFERENCED SOURCES");
+                  Write_Eol;
+               end if;
+
+               for J in reverse Elab_Order.First .. Elab_Order.Last loop
+
+                  --  Do not include the sources of the runtime
+
+                  if not Is_Internal_File_Name
+                           (Units.Table (Elab_Order.Table (J)).Sfile)
+                  then
+                     if not Zero_Formatting then
+                        Write_Str ("   ");
+                     end if;
+
+                     Write_Str
+                       (Get_Name_String
+                          (Units.Table (Elab_Order.Table (J)).Sfile));
+                     Write_Eol;
+                  end if;
+               end loop;
+
+               if not Zero_Formatting then
+                  Write_Eol;
+               end if;
             end if;
          end if;
       end if;

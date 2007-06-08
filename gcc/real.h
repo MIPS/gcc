@@ -1,6 +1,6 @@
 /* Definitions of floating-point access for GNU compiler.
    Copyright (C) 1989, 1991, 1994, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -22,6 +22,8 @@
 #ifndef GCC_REAL_H
 #define GCC_REAL_H
 
+#include <gmp.h>
+#include <mpfr.h>
 #include "machmode.h"
 
 /* An expanded form of the represented number.  */
@@ -124,9 +126,6 @@ struct real_format
   /* The radix of the exponent and digits of the significand.  */
   int b;
 
-  /* log2(b).  */
-  int log2_b;
-
   /* Size of the significand in digits of radix B.  */
   int p;
 
@@ -153,6 +152,7 @@ struct real_format
   bool has_denorm;
   bool has_signed_zero;
   bool qnan_msb_set;
+  bool canonical_nan_lsbs_set;
 };
 
 
@@ -221,8 +221,9 @@ extern HOST_WIDE_INT real_to_integer (const REAL_VALUE_TYPE *);
 extern void real_to_integer2 (HOST_WIDE_INT *, HOST_WIDE_INT *,
 			      const REAL_VALUE_TYPE *);
 
-/* Initialize R from a decimal or hexadecimal string.  */
-extern void real_from_string (REAL_VALUE_TYPE *, const char *);
+/* Initialize R from a decimal or hexadecimal string.  Return -1 if
+   the value underflows, +1 if overflows, and 0 otherwise.  */
+extern int real_from_string (REAL_VALUE_TYPE *, const char *);
 /* Wrapper to allow different internal representation for decimal floats. */
 extern void real_from_string3 (REAL_VALUE_TYPE *, const char *, enum machine_mode);
 
@@ -253,8 +254,10 @@ extern unsigned int real_hash (const REAL_VALUE_TYPE *);
 /* Target formats defined in real.c.  */
 extern const struct real_format ieee_single_format;
 extern const struct real_format mips_single_format;
+extern const struct real_format motorola_single_format;
 extern const struct real_format ieee_double_format;
 extern const struct real_format mips_double_format;
+extern const struct real_format motorola_double_format;
 extern const struct real_format ieee_extended_motorola_format;
 extern const struct real_format ieee_extended_intel_96_format;
 extern const struct real_format ieee_extended_intel_96_round_53_format;
@@ -266,8 +269,6 @@ extern const struct real_format mips_quad_format;
 extern const struct real_format vax_f_format;
 extern const struct real_format vax_d_format;
 extern const struct real_format vax_g_format;
-extern const struct real_format i370_single_format;
-extern const struct real_format i370_double_format;
 extern const struct real_format c4x_single_format;
 extern const struct real_format c4x_extended_format;
 extern const struct real_format real_internal_format;
@@ -382,7 +383,7 @@ extern REAL_VALUE_TYPE dconstm1;
 extern REAL_VALUE_TYPE dconstm2;
 extern REAL_VALUE_TYPE dconsthalf;
 extern REAL_VALUE_TYPE dconstthird;
-extern REAL_VALUE_TYPE dconstpi;
+extern REAL_VALUE_TYPE dconstsqrt2;
 extern REAL_VALUE_TYPE dconste;
 
 /* Function to return a real value (not a tree node)
@@ -424,5 +425,14 @@ extern void real_round (REAL_VALUE_TYPE *, enum machine_mode,
 
 /* Set the sign of R to the sign of X.  */
 extern void real_copysign (REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *);
+
+/* Convert between MPFR and REAL_VALUE_TYPE.  The caller is
+   responsible for initializing and clearing the MPFR parameter.  */
+
+extern void real_from_mpfr (REAL_VALUE_TYPE *, mpfr_srcptr, tree, mp_rnd_t);
+extern void mpfr_from_real (mpfr_ptr, const REAL_VALUE_TYPE *, mp_rnd_t);
+
+/* Check whether the real constant value given is an integer.  */
+extern bool real_isinteger (const REAL_VALUE_TYPE *c, enum machine_mode mode);
 
 #endif /* ! GCC_REAL_H */

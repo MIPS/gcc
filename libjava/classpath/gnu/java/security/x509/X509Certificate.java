@@ -1,5 +1,5 @@
 /* X509Certificate.java -- X.509 certificate.
-   Copyright (C) 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -48,6 +48,7 @@ import gnu.java.security.der.DERValue;
 import gnu.java.security.x509.ext.BasicConstraints;
 import gnu.java.security.x509.ext.ExtendedKeyUsage;
 import gnu.java.security.x509.ext.Extension;
+import gnu.java.security.x509.ext.GeneralName;
 import gnu.java.security.x509.ext.IssuerAlternativeNames;
 import gnu.java.security.x509.ext.KeyUsage;
 import gnu.java.security.x509.ext.SubjectAlternativeNames;
@@ -103,6 +104,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
   // Constants and fields.
   // ------------------------------------------------------------------------
 
+  private static final long serialVersionUID = -2491127588187038216L;
   private static final Logger logger = SystemLogger.SYSTEM;
 
   protected static final OID ID_DSA = new OID ("1.2.840.10040.4.1");
@@ -133,7 +135,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
   protected transient PublicKey subjectKey;
   protected transient BitString issuerUniqueId;
   protected transient BitString subjectUniqueId;
-  protected transient Map extensions;
+  protected transient Map<OID, Extension> extensions;
 
   // Signature.
   protected transient OID sigAlgId;
@@ -157,7 +159,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
     throws CertificateException, IOException
   {
     super();
-    extensions = new HashMap();
+    extensions = new HashMap<OID, Extension>();
     try
       {
         parse(encoded);
@@ -178,7 +180,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
 
   protected X509Certificate()
   {
-    extensions = new HashMap();
+    extensions = new HashMap<OID, Extension>();
   }
 
   // X509Certificate methods.
@@ -316,17 +318,15 @@ public class X509Certificate extends java.security.cert.X509Certificate
     return null;
   }
 
-  public List getExtendedKeyUsage() throws CertificateParsingException
+  public List<String> getExtendedKeyUsage() throws CertificateParsingException
   {
     Extension e = getExtension(ExtendedKeyUsage.ID);
     if (e != null)
       {
-        List a = ((ExtendedKeyUsage) e.getValue()).getPurposeIds();
-        List b = new ArrayList(a.size());
-        for (Iterator it = a.iterator(); it.hasNext(); )
-          {
-            b.add(it.next().toString());
-          }
+        List<OID> a = ((ExtendedKeyUsage) e.getValue()).getPurposeIds();
+        List<String> b = new ArrayList<String>(a.size());
+        for (OID oid : a)
+          b.add(oid.toString());
         return Collections.unmodifiableList(b);
       }
     return null;
@@ -342,24 +342,44 @@ public class X509Certificate extends java.security.cert.X509Certificate
     return -1;
   }
 
-  public Collection getSubjectAlternativeNames()
+  public Collection<List<?>> getSubjectAlternativeNames()
     throws CertificateParsingException
   {
     Extension e = getExtension(SubjectAlternativeNames.ID);
     if (e != null)
       {
-        return ((SubjectAlternativeNames) e.getValue()).getNames();
+        List<GeneralName> names
+          = ((SubjectAlternativeNames) e.getValue()).getNames();
+        List<List<?>> list = new ArrayList<List<?>>(names.size());
+        for (GeneralName name : names)
+          {
+            List<Object> n = new ArrayList<Object>(2);
+            n.add(name.kind().tag());
+            n.add(name.name());
+            list.add(n);
+          }
+        return list;
       }
     return null;
   }
 
-  public Collection getIssuerAlternativeNames()
+  public Collection<List<?>> getIssuerAlternativeNames()
     throws CertificateParsingException
   {
     Extension e = getExtension(IssuerAlternativeNames.ID);
     if (e != null)
       {
-        return ((IssuerAlternativeNames) e.getValue()).getNames();
+        List<GeneralName> names
+          = ((IssuerAlternativeNames) e.getValue()).getNames();
+        List<List<?>> list = new ArrayList<List<?>>(names.size());
+        for (GeneralName name : names)
+          {
+            List<Object> n = new ArrayList<Object>(2);
+            n.add(name.kind().tag());
+            n.add(name.name());
+            list.add(n);
+          }
+        return list;
       }
     return null;
   }
@@ -378,24 +398,22 @@ public class X509Certificate extends java.security.cert.X509Certificate
     return false;
   }
 
-  public Set getCriticalExtensionOIDs()
+  public Set<String> getCriticalExtensionOIDs()
   {
-    HashSet s = new HashSet();
-    for (Iterator it = extensions.values().iterator(); it.hasNext(); )
+    HashSet<String> s = new HashSet<String>();
+    for (Extension e : extensions.values())
       {
-        Extension e = (Extension) it.next();
         if (e.isCritical())
           s.add(e.getOid().toString());
       }
     return Collections.unmodifiableSet(s);
   }
 
-  public Set getNonCriticalExtensionOIDs()
+  public Set<String> getNonCriticalExtensionOIDs()
   {
-    HashSet s = new HashSet();
-    for (Iterator it = extensions.values().iterator(); it.hasNext(); )
+    HashSet<String> s = new HashSet<String>();
+    for (Extension e : extensions.values())
       {
-        Extension e = (Extension) it.next();
         if (!e.isCritical())
           s.add(e.getOid().toString());
       }
@@ -552,7 +570,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
     // Certificate ::= SEQUENCE {
     DERValue cert = der.read();
     logger.log (Component.X509, "start Certificate  len == {0}",
-                new Integer (cert.getLength()));
+                Integer.valueOf(cert.getLength()));
 
     this.encoded = cert.getEncoded();
     if (!cert.isConstructed())
@@ -568,7 +586,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
       }
     tbsCertBytes = tbsCert.getEncoded();
     logger.log (Component.X509, "start TBSCertificate  len == {0}",
-                new Integer (tbsCert.getLength()));
+                Integer.valueOf(tbsCert.getLength()));
 
     // Version ::= INTEGER [0] { v1(0), v2(1), v3(2) }
     DERValue val = der.read();
@@ -582,7 +600,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
         version = 1;
       }
     logger.log (Component.X509, "read version == {0}",
-                new Integer (version));
+                Integer.valueOf(version));
 
     // SerialNumber ::= INTEGER
     serialNo = (BigInteger) val.getValue();
@@ -596,7 +614,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
       }
     int certAlgLen = val.getLength();
     logger.log (Component.X509, "start AlgorithmIdentifier  len == {0}",
-                new Integer (certAlgLen));
+                Integer.valueOf(certAlgLen));
     val = der.read();
 
     //   algorithm    OBJECT IDENTIFIER,
@@ -677,20 +695,20 @@ public class X509Certificate extends java.security.cert.X509Certificate
       {
         val = der.read();
         logger.log (Component.X509, "start Extensions  len == {0}",
-                    new Integer (val.getLength()));
+                    Integer.valueOf(val.getLength()));
         int len = 0;
         while (len < val.getLength())
           {
             DERValue ext = der.read();
             logger.log (Component.X509, "start extension  len == {0}",
-                        new Integer (ext.getLength()));
+                        Integer.valueOf(ext.getLength()));
             Extension e = new Extension(ext.getEncoded());
             extensions.put(e.getOid(), e);
             der.skip(ext.getLength());
             len += ext.getEncodedLength();
             logger.log (Component.X509, "read extension {0} == {1}",
                         new Object[] { e.getOid (), e });
-            logger.log (Component.X509, "count == {0}", new Integer (len));
+            logger.log (Component.X509, "count == {0}", Integer.valueOf(len));
           }
 
         val = der.read ();
@@ -703,7 +721,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
       }
     int sigAlgLen = val.getLength();
     logger.log (Component.X509, "start AlgorithmIdentifier  len == {0}",
-                new Integer (sigAlgLen));
+                Integer.valueOf(sigAlgLen));
     val = der.read();
     sigAlgId = (OID) val.getValue();
     logger.log (Component.X509, "read algorithm id == {0}", sigAlgId);

@@ -1,6 +1,6 @@
 /* Define per-register tables for data flow info and register allocation.
    Copyright (C) 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -237,7 +237,94 @@ extern int caller_save_needed;
 /* Allocate reg_n_info tables */
 extern void allocate_reg_info (size_t, int, int);
 
+/* Clear the register information for regno.  */
+extern void clear_reg_info_regno (unsigned int);
+
 /* Specify number of hard registers given machine mode occupy.  */
 extern unsigned char hard_regno_nregs[FIRST_PSEUDO_REGISTER][MAX_MACHINE_MODE];
+
+/* Return an exclusive upper bound on the registers occupied by hard
+   register (reg:MODE REGNO).  */
+
+static inline unsigned int
+end_hard_regno (enum machine_mode mode, unsigned int regno)
+{
+  return regno + hard_regno_nregs[regno][(int) mode];
+}
+
+/* Likewise for hard register X.  */
+
+#define END_HARD_REGNO(X) end_hard_regno (GET_MODE (X), REGNO (X))
+
+/* Likewise for hard or pseudo register X.  */
+
+#define END_REGNO(X) (HARD_REGISTER_P (X) ? END_HARD_REGNO (X) : REGNO (X) + 1)
+
+/* Add to REGS all the registers required to store a value of mode MODE
+   in register REGNO.  */
+
+static inline void
+add_to_hard_reg_set (HARD_REG_SET *regs, enum machine_mode mode,
+		     unsigned int regno)
+{
+  unsigned int end_regno;
+
+  end_regno = end_hard_regno (mode, regno);
+  do
+    SET_HARD_REG_BIT (*regs, regno);
+  while (++regno < end_regno);
+}
+
+/* Likewise, but remove the registers.  */
+
+static inline void
+remove_from_hard_reg_set (HARD_REG_SET *regs, enum machine_mode mode,
+			  unsigned int regno)
+{
+  unsigned int end_regno;
+
+  end_regno = end_hard_regno (mode, regno);
+  do
+    CLEAR_HARD_REG_BIT (*regs, regno);
+  while (++regno < end_regno);
+}
+
+/* Return true if REGS contains the whole of (reg:MODE REGNO).  */
+
+static inline bool
+in_hard_reg_set_p (const HARD_REG_SET regs, enum machine_mode mode,
+		   unsigned int regno)
+{
+  unsigned int end_regno;
+
+  if (!TEST_HARD_REG_BIT (regs, regno))
+    return false;
+
+  end_regno = end_hard_regno (mode, regno);
+  while (++regno < end_regno)
+    if (!TEST_HARD_REG_BIT (regs, regno))
+      return false;
+
+  return true;
+}
+
+/* Return true if (reg:MODE REGNO) includes an element of REGS.  */
+
+static inline bool
+overlaps_hard_reg_set_p (const HARD_REG_SET regs, enum machine_mode mode,
+			 unsigned int regno)
+{
+  unsigned int end_regno;
+
+  if (TEST_HARD_REG_BIT (regs, regno))
+    return true;
+
+  end_regno = end_hard_regno (mode, regno);
+  while (++regno < end_regno)
+    if (TEST_HARD_REG_BIT (regs, regno))
+      return true;
+
+  return false;
+}
 
 #endif /* GCC_REGS_H */

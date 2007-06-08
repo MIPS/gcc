@@ -97,8 +97,8 @@ public interface Configuration
 	  @JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@;
 
   /**
-   * Set to true if Cairo was found and enabled during configure,
-   * false otherwise.
+   * The Eclipse Java Compiler jar file for use by the
+   * com.sun.tools.javac implementation in tools.zip.
    */
-  boolean GTK_CAIRO_ENABLED = @GTK_CAIRO_ENABLED@;
+  String ECJ_JAR = "@ECJ_JAR@";
 }

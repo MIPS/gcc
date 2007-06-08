@@ -52,9 +52,12 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Insets;
 import java.awt.ItemSelectable;
+import java.awt.KeyboardFocusManager;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
@@ -66,13 +69,13 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.PaintEvent;
 import java.awt.event.TextEvent;
-import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
 import java.awt.image.ImageObserver;
 import java.awt.image.ImageProducer;
 import java.awt.image.VolatileImage;
 import java.awt.peer.ComponentPeer;
 import java.awt.peer.ContainerPeer;
+import java.awt.peer.LightweightPeer;
 import java.awt.peer.WindowPeer;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -86,6 +89,11 @@ public class GtkComponentPeer extends GtkGenericPeer
   Component awtComponent;
 
   Insets insets;
+
+  /**
+   * The current repaint area. Use should be guarded by synchronizing on this.
+   */
+  private Rectangle currentPaintArea;
 
   /* this isEnabled differs from Component.isEnabled, in that it
      knows if a parent is disabled.  In that case Component.isEnabled 
@@ -101,7 +109,7 @@ public class GtkComponentPeer extends GtkGenericPeer
   native void gtkWidgetGetLocationOnScreen (int[] point);
   native void gtkWidgetSetCursor (int type, GtkImage image, int x, int y);
   native void gtkWidgetSetCursorUnlocked (int type, GtkImage image,
-					  int x, int y);
+                                          int x, int y);
   native void gtkWidgetSetBackground (int red, int green, int blue);
   native void gtkWidgetSetForeground (int red, int green, int blue);
   native void gtkWidgetSetSensitive (boolean sensitive);
@@ -109,14 +117,10 @@ public class GtkComponentPeer extends GtkGenericPeer
   native void gtkWidgetRequestFocus ();
   native void gtkWidgetDispatchKeyEvent (int id, long when, int mods,
                                          int keyCode, int keyLocation);
+  native boolean gtkWidgetHasFocus();
+  native boolean gtkWidgetCanFocus();
 
-  native boolean isRealized ();
-
-  void realize ()
-  {
-    // Default implementation does nothing
-  }
-
+  native void realize();
   native void setNativeEventMask ();
 
   void create ()
@@ -149,6 +153,9 @@ public class GtkComponentPeer extends GtkGenericPeer
 
     setNativeEventMask ();
 
+    // This peer is guaranteed to have an X window upon construction.
+    // That is, native methods such as those in GdkGraphics can rely
+    // on this component's widget->window field being non-null.
     realize ();
 
     if (awtComponent.isCursorSet())
@@ -199,7 +206,7 @@ public class GtkComponentPeer extends GtkGenericPeer
   }
 
   public int checkImage (Image image, int width, int height, 
-			 ImageObserver observer) 
+                         ImageObserver observer) 
   {
     return getToolkit().checkImage(image, width, height, observer);
   }
@@ -211,16 +218,7 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public Image createImage (int width, int height)
   {
-    Image image;
-    if (GtkToolkit.useGraphics2D ())
-      image = new BufferedImage (width, height, BufferedImage.TYPE_INT_RGB);
-    else
-      image = new GtkImage (width, height);
-
-    Graphics g = image.getGraphics();
-    g.setColor(getBackground());
-    g.fillRect(0, 0, width, height);
-    return image;
+    return CairoSurface.getBufferedImage(width, height);
   }
 
   public void disable () 
@@ -247,10 +245,7 @@ public class GtkComponentPeer extends GtkGenericPeer
   // never return null.
   public Graphics getGraphics ()
   {
-    if (GtkToolkit.useGraphics2D ())
-        return new GdkGraphics2D (this);
-    else
-        return new GdkGraphics (this);
+    return ComponentGraphics.getComponentGraphics(this);
   }
 
   public Point getLocationOnScreen () 
@@ -318,13 +313,30 @@ public class GtkComponentPeer extends GtkGenericPeer
     // seems expensive.  However, the graphics state does not carry
     // over between calls to paint, and resetting the graphics object
     // may even be more costly than simply creating a new one.
-    Graphics g = getGraphics();
 
-    g.setClip(event.getUpdateRect());
+    // Make sure that the paintArea includes the area from the event
+    // in the case when an application sends PaintEvents directly.
+    coalescePaintEvent(event);
+    Rectangle paintArea;
+    synchronized (this)
+      {
+        paintArea = currentPaintArea;
+        currentPaintArea = null;
+      }
 
-    awtComponent.paint(g);
-
-    g.dispose();
+    if (paintArea != null)
+      {
+        Graphics g = getGraphics();
+        try
+          {
+            g.setClip(paintArea);
+            awtComponent.paint(g);
+          }
+        finally
+          {
+            g.dispose();
+          }
+      }
   }
 
   // This method and its overrides are the only methods in the peers
@@ -337,13 +349,29 @@ public class GtkComponentPeer extends GtkGenericPeer
         || (awtComponent.getWidth() < 1 || awtComponent.getHeight() < 1))
       return;
 
-    Graphics g = getGraphics();
+    // Make sure that the paintArea includes the area from the event
+    // in the case when an application sends PaintEvents directly.
+    coalescePaintEvent(event);
+    Rectangle paintArea;
+    synchronized (this)
+      {
+        paintArea = currentPaintArea;
+        currentPaintArea = null;
+      }
 
-    g.setClip(event.getUpdateRect());
-
-    awtComponent.update(g);
-
-    g.dispose();
+    if (paintArea != null)
+    {
+      Graphics g = getGraphics();
+      try
+        {
+          g.setClip(paintArea);
+          awtComponent.update(g);
+        }
+      finally
+        {
+          g.dispose();
+        }
+    }
   }
 
   public boolean isFocusTraversable () 
@@ -374,14 +402,14 @@ public class GtkComponentPeer extends GtkGenericPeer
   }
 
   public boolean prepareImage (Image image, int width, int height,
-			       ImageObserver observer) 
+                               ImageObserver observer) 
   {
     return getToolkit().prepareImage(image, width, height, observer);
   }
 
   public void print (Graphics g) 
   {
-    throw new RuntimeException ();
+    g.drawImage( ComponentGraphics.grab( this ), 0, 0, null );
   }
 
   public void repaint (long tm, int x, int y, int width, int height)
@@ -430,8 +458,7 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public void requestFocus ()
   {
-    gtkWidgetRequestFocus();
-    postFocusEvent(FocusEvent.FOCUS_GAINED, false);
+    assert false: "Call new requestFocus() method instead";
   }
 
   public void reshape (int x, int y, int width, int height) 
@@ -512,20 +539,20 @@ public class GtkComponentPeer extends GtkGenericPeer
     int type = cursor.getType();
     if (cursor instanceof GtkCursor)
       {
-	GtkCursor gtkCursor = (GtkCursor) cursor;
-	image = gtkCursor.getGtkImage();
-	Point hotspot = gtkCursor.getHotspot();
-	x = hotspot.x;
-	y = hotspot.y;
+        GtkCursor gtkCursor = (GtkCursor) cursor;
+        image = gtkCursor.getGtkImage();
+        Point hotspot = gtkCursor.getHotspot();
+        x = hotspot.x;
+        y = hotspot.y;
       }
     else
       {
-	image = null;
-	x = 0;
-	y = 0;
+        image = null;
+        x = 0;
+        y = 0;
       }
 
-    if (Thread.currentThread() == GtkToolkit.mainThread)
+    if (Thread.currentThread() == GtkMainThread.mainThread)
       gtkWidgetSetCursorUnlocked(cursor.getType(), image, x, y);
     else
       gtkWidgetSetCursor(cursor.getType(), image, x, y);
@@ -570,10 +597,10 @@ public class GtkComponentPeer extends GtkGenericPeer
     if (b && ! (awtComponent instanceof Window))
       {
         Rectangle bounds = awtComponent.getBounds();
-	b = (bounds.width > 0) && (bounds.height > 0);
+        b = (bounds.width > 0) && (bounds.height > 0);
       }
 
-    if (Thread.currentThread() == GtkToolkit.mainThread)
+    if (Thread.currentThread() == GtkMainThread.mainThread)
       setVisibleNativeUnlocked (b);
     else
       setVisibleNative (b);
@@ -590,23 +617,23 @@ public class GtkComponentPeer extends GtkGenericPeer
   }
 
   protected void postMouseEvent(int id, long when, int mods, int x, int y, 
-				int clickCount, boolean popupTrigger) 
+                                int clickCount, boolean popupTrigger) 
   {
     q().postEvent(new MouseEvent(awtComponent, id, when, mods, x, y, 
-			       clickCount, popupTrigger));
+                                 clickCount, popupTrigger));
   }
 
   /**
    * Callback for component_scroll_cb.
    */
   protected void postMouseWheelEvent(int id, long when, int mods,
-				     int x, int y, int clickCount,
-				     boolean popupTrigger,
-				     int type, int amount, int rotation) 
+                                     int x, int y, int clickCount,
+                                     boolean popupTrigger,
+                                     int type, int amount, int rotation) 
   {
     q().postEvent(new MouseWheelEvent(awtComponent, id, when, mods,
-				      x, y, clickCount, popupTrigger,
-				      type, amount, rotation));
+                                      x, y, clickCount, popupTrigger,
+                                      type, amount, rotation));
   }
 
   protected void postExposeEvent (int x, int y, int width, int height)
@@ -632,18 +659,24 @@ public class GtkComponentPeer extends GtkGenericPeer
             && keyCode != KeyEvent.VK_ALT))
       {
         synchronized(q)
-	  {
-	    q.postEvent(keyEvent);
-	    keyEvent = new KeyEvent(awtComponent, KeyEvent.KEY_TYPED, when,
-				    mods, KeyEvent.VK_UNDEFINED, keyChar,
-				    keyLocation);
-	    q.postEvent(keyEvent);
+          {
+            q.postEvent(keyEvent);
+            keyEvent = new KeyEvent(awtComponent, KeyEvent.KEY_TYPED, when,
+                                    mods, KeyEvent.VK_UNDEFINED, keyChar,
+                                    keyLocation);
+            q.postEvent(keyEvent);
           }
       }
     else
       q.postEvent(keyEvent);
   }
 
+  /**
+   * Referenced from native code.
+   *
+   * @param id
+   * @param temporary
+   */
   protected void postFocusEvent (int id, boolean temporary)
   {
     q().postEvent (new FocusEvent (awtComponent, id, temporary));
@@ -652,8 +685,8 @@ public class GtkComponentPeer extends GtkGenericPeer
   protected void postItemEvent (Object item, int stateChange)
   {
     q().postEvent (new ItemEvent ((ItemSelectable)awtComponent, 
-				ItemEvent.ITEM_STATE_CHANGED,
-				item, stateChange));
+                                  ItemEvent.ITEM_STATE_CHANGED,
+                                  item, stateChange));
   }
 
   protected void postTextEvent ()
@@ -663,8 +696,10 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public GraphicsConfiguration getGraphicsConfiguration ()
   {
-    // FIXME: just a stub for now.
-    return null;
+    // FIXME: The component might be showing on a non-default screen.
+    GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
+    GraphicsDevice dev = env.getDefaultScreenDevice();
+    return dev.getDefaultConfiguration();
   }
 
   public void setEventMask (long mask)
@@ -677,10 +712,72 @@ public class GtkComponentPeer extends GtkGenericPeer
     return false;
   }
 
-  public boolean requestFocus (Component source, boolean b1, 
-                               boolean b2, long x)
+  public boolean requestFocus (Component request, boolean temporary, 
+                               boolean allowWindowFocus, long time)
   {
-    return false;
+    assert request == awtComponent || isLightweightDescendant(request);
+    boolean retval = false;
+    if (gtkWidgetHasFocus())
+      {
+        KeyboardFocusManager kfm =
+          KeyboardFocusManager.getCurrentKeyboardFocusManager();
+        Component currentFocus = kfm.getFocusOwner();
+        if (currentFocus == request)
+          // Nothing to do in this trivial case.
+          retval = true;
+        else
+          {
+            // Requested component is a lightweight descendant of this one
+            // or the actual heavyweight.
+            // Since this (native) component is already focused, we simply
+            // change the actual focus and be done.
+            postFocusEvent(FocusEvent.FOCUS_GAINED, temporary);
+            retval = true;
+          }
+      }
+    else
+      {
+        if (gtkWidgetCanFocus())
+          {
+            if (allowWindowFocus)
+              {
+                Window window = getWindowFor(request);
+                GtkWindowPeer wPeer = (GtkWindowPeer) window.getPeer();
+                if (! wPeer.gtkWindowHasFocus())
+                  wPeer.requestWindowFocus();
+              }
+            // Store requested focus component so that the corresponding
+            // event is dispatched correctly.
+            gtkWidgetRequestFocus();
+            retval = true;
+          }
+      }
+    return retval;
+  }
+
+  private Window getWindowFor(Component c)
+  {
+    Component comp = c;
+    while (! (comp instanceof Window))
+      comp = comp.getParent();
+    return (Window) comp;
+  }
+
+  /**
+   * Returns <code>true</code> if the component is a direct (== no intermediate
+   * heavyweights) lightweight descendant of this peer's component.
+   *
+   * @param c the component to check
+   *
+   * @return <code>true</code> if the component is a direct (== no intermediate
+   *         heavyweights) lightweight descendant of this peer's component
+   */
+  protected boolean isLightweightDescendant(Component c)
+  {
+    Component comp = c;
+    while (comp.getPeer() instanceof LightweightPeer)
+      comp = comp.getParent();
+    return comp == awtComponent;
   }
 
   public boolean isObscured ()
@@ -695,7 +792,14 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public void coalescePaintEvent (PaintEvent e)
   {
-    
+    synchronized (this)
+    {
+      Rectangle newRect = e.getUpdateRect();
+      if (currentPaintArea == null)
+        currentPaintArea = newRect;
+      else
+        Rectangle.union(currentPaintArea, newRect, currentPaintArea);
+    }
   }
 
   public void updateCursorImmediately ()
@@ -713,7 +817,7 @@ public class GtkComponentPeer extends GtkGenericPeer
   // on which this component is displayed.
   public VolatileImage createVolatileImage (int width, int height)
   {
-    return new GtkVolatileImage (width, height);
+    return new GtkVolatileImage (this, width, height, null);
   }
 
   // Creates buffers used in a buffering strategy.
@@ -723,9 +827,9 @@ public class GtkComponentPeer extends GtkGenericPeer
     // numBuffers == 2 implies double-buffering, meaning one back
     // buffer and one front buffer.
     if (numBuffers == 2)
-      backBuffer = new GtkVolatileImage(awtComponent.getWidth(),
-					awtComponent.getHeight(),
-					caps.getBackBufferCapabilities());
+      backBuffer = new GtkVolatileImage(this, awtComponent.getWidth(),
+                                        awtComponent.getHeight(),
+                                        caps.getBackBufferCapabilities());
     else
       throw new AWTException("GtkComponentPeer.createBuffers:"
 			     + " multi-buffering not supported");
@@ -742,18 +846,18 @@ public class GtkComponentPeer extends GtkGenericPeer
   public void flip (BufferCapabilities.FlipContents contents)
   {
     getGraphics().drawImage(backBuffer,
-			    awtComponent.getWidth(),
-			    awtComponent.getHeight(),
-			    null);
+                            awtComponent.getWidth(),
+                            awtComponent.getHeight(),
+                            null);
 
     // create new back buffer and clear it to the background color.
     if (contents == BufferCapabilities.FlipContents.BACKGROUND)
 	{
 	  backBuffer = createVolatileImage(awtComponent.getWidth(),
-					   awtComponent.getHeight());
+	                                   awtComponent.getHeight());
 	  backBuffer.getGraphics().clearRect(0, 0,
-					     awtComponent.getWidth(),
-					     awtComponent.getHeight());
+	                                     awtComponent.getWidth(),
+	                                     awtComponent.getHeight());
 	}
     // FIXME: support BufferCapabilities.FlipContents.PRIOR
   }

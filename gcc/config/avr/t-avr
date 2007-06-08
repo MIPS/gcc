@@ -37,11 +37,23 @@ fp-bit.c: $(srcdir)/config/fp-bit.c $(srcdir)/config/avr/t-avr
 
 FPBIT = fp-bit.c
 
-MULTILIB_OPTIONS = mmcu=avr2/mmcu=avr3/mmcu=avr4/mmcu=avr5
-MULTILIB_DIRNAMES = avr2 avr3 avr4 avr5
+MULTILIB_OPTIONS = mmcu=avr2/mmcu=avr25/mmcu=avr3/mmcu=avr4/mmcu=avr5
+MULTILIB_DIRNAMES = avr2 avr25 avr3 avr4 avr5
 
 # The many avr2 matches are not listed here - this is the default.
 MULTILIB_MATCHES = \
+	mmcu?avr25=mmcu?attiny13 \
+	mmcu?avr25=mmcu?attiny2313 \
+	mmcu?avr25=mmcu?attiny24 \
+	mmcu?avr25=mmcu?attiny44 \
+	mmcu?avr25=mmcu?attiny84 \
+	mmcu?avr25=mmcu?attiny25 \
+	mmcu?avr25=mmcu?attiny45 \
+	mmcu?avr25=mmcu?attiny85 \
+	mmcu?avr25=mmcu?attiny261 \
+	mmcu?avr25=mmcu?attiny461 \
+	mmcu?avr25=mmcu?attiny861 \
+	mmcu?avr25=mmcu?at86rf401 \
 	mmcu?avr3=mmcu?atmega103 \
 	mmcu?avr3=mmcu?atmega603 \
 	mmcu?avr3=mmcu?at43usb320 \
@@ -52,6 +64,8 @@ MULTILIB_MATCHES = \
 	mmcu?avr4=mmcu?atmega8515 \
 	mmcu?avr4=mmcu?atmega8535 \
 	mmcu?avr4=mmcu?atmega88 \
+	mmcu?avr4=mmcu?atmega8hva \
+	mmcu?avr4=mmcu?at90pwm1 \
 	mmcu?avr4=mmcu?at90pwm2 \
 	mmcu?avr4=mmcu?at90pwm3 \
 	mmcu?avr5=mmcu?atmega16 \
@@ -68,9 +82,13 @@ MULTILIB_MATCHES = \
 	mmcu?avr5=mmcu?atmega323 \
 	mmcu?avr5=mmcu?atmega324p \
 	mmcu?avr5=mmcu?atmega325 \
+	mmcu?avr5=mmcu?atmega325p \
 	mmcu?avr5=mmcu?atmega3250 \
+	mmcu?avr5=mmcu?atmega3250p \
 	mmcu?avr5=mmcu?atmega329 \
+	mmcu?avr5=mmcu?atmega329p \
 	mmcu?avr5=mmcu?atmega3290 \
+	mmcu?avr5=mmcu?atmega3290p \
 	mmcu?avr5=mmcu?atmega406 \
 	mmcu?avr5=mmcu?atmega64  \
 	mmcu?avr5=mmcu?atmega640 \
@@ -83,9 +101,12 @@ MULTILIB_MATCHES = \
 	mmcu?avr5=mmcu?atmega128 \
 	mmcu?avr5=mmcu?atmega1280 \
 	mmcu?avr5=mmcu?atmega1281 \
+	mmcu?avr5=mmcu?atmega16hva \
 	mmcu?avr5=mmcu?at90can32 \
 	mmcu?avr5=mmcu?at90can64 \
 	mmcu?avr5=mmcu?at90can128 \
+	mmcu?avr5=mmcu?at90usb82 \
+	mmcu?avr5=mmcu?at90usb162 \
 	mmcu?avr5=mmcu?at90usb646 \
 	mmcu?avr5=mmcu?at90usb647 \
 	mmcu?avr5=mmcu?at90usb1286 \

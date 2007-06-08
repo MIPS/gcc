@@ -127,9 +127,7 @@ struct language_function GTY(())
 static bool tree_mark_addressable (tree exp);
 static tree tree_lang_type_for_size (unsigned precision, int unsignedp);
 static tree tree_lang_type_for_mode (enum machine_mode mode, int unsignedp);
-static tree tree_lang_unsigned_type (tree type_node);
 static tree tree_lang_signed_type (tree type_node);
-static tree tree_lang_signed_or_unsigned_type (int unsignedp, tree type);
 
 /* Functions to keep track of the current scope.  */
 static void pushlevel (int ignore);
@@ -138,10 +136,6 @@ static tree pushdecl (tree decl);
 static tree* getstmtlist (void);
 
 /* Langhooks.  */
-static tree builtin_function (const char *name, tree type, int function_code,
-			      enum built_in_class class,
-			      const char *library_name,
-			      tree attrs);
 extern const struct attribute_spec treelang_attribute_table[];
 static tree getdecls (void);
 static int global_bindings_p (void);
@@ -158,10 +152,6 @@ static void treelang_expand_function (tree fndecl);
 #define LANG_HOOKS_MARK_ADDRESSABLE tree_mark_addressable
 #undef LANG_HOOKS_SIGNED_TYPE
 #define LANG_HOOKS_SIGNED_TYPE tree_lang_signed_type
-#undef LANG_HOOKS_UNSIGNED_TYPE
-#define LANG_HOOKS_UNSIGNED_TYPE tree_lang_unsigned_type
-#undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
-#define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE tree_lang_signed_or_unsigned_type
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #define LANG_HOOKS_TYPE_FOR_MODE tree_lang_type_for_mode
 #undef LANG_HOOKS_TYPE_FOR_SIZE
@@ -872,14 +862,6 @@ tree_lang_type_for_mode (enum machine_mode mode, int unsignedp)
     return NULL_TREE;
 }
 
-/* Return the unsigned version of a TYPE_NODE, a scalar type.  */
-
-static tree
-tree_lang_unsigned_type (tree type_node)
-{
-  return tree_lang_type_for_size (TYPE_PRECISION (type_node), 1);
-}
-
 /* Return the signed version of a TYPE_NODE, a scalar type.  */
 
 static tree
@@ -888,17 +870,6 @@ tree_lang_signed_type (tree type_node)
   return tree_lang_type_for_size (TYPE_PRECISION (type_node), 0);
 }
 
-/* Return a type the same as TYPE except unsigned or signed according to
-   UNSIGNEDP.  */
-
-static tree
-tree_lang_signed_or_unsigned_type (int unsignedp, tree type)
-{
-  if (! INTEGRAL_TYPE_P (type) || TYPE_UNSIGNED (type) == unsignedp)
-    return type;
-  else
-    return tree_lang_type_for_size (TYPE_PRECISION (type), unsignedp);
-}
 
 /* These functions and variables deal with binding contours.  We only
    need these functions for the list of PARM_DECLs, but we leave the
@@ -1223,41 +1194,6 @@ const struct attribute_spec treelang_attribute_table[] =
   { "nothrow", 0, 0, true, false, false, handle_attribute },
   { NULL, 0, 0, false, false, false, NULL },
 };
-
-/* Return a definition for a builtin function named NAME and whose data type
-   is TYPE.  TYPE should be a function type with argument types.
-   FUNCTION_CODE tells later passes how to compile calls to this function.
-   See tree.h for its possible values.
-
-   If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-   the name to be called if we can't opencode the function.  If
-   ATTRS is nonzero, use that for the function's attribute list.
-
-   copied from gcc/c-decl.c
-*/
-
-static tree
-builtin_function (const char *name, tree type, int function_code,
-		  enum built_in_class class, const char *library_name,
-		  tree attrs)
-{
-  tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
-  DECL_EXTERNAL (decl) = 1;
-  TREE_PUBLIC (decl) = 1;
-  if (library_name)
-    SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
-  pushdecl (decl);
-  DECL_BUILT_IN_CLASS (decl) = class;
-  DECL_FUNCTION_CODE (decl) = function_code;
-
-  /* Possibly apply some default attributes to this built-in function.  */
-  if (attrs)
-    decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
-  else
-    decl_attributes (&decl, NULL_TREE, 0);
-
-  return decl;
-}
 
 /* Treelang expand function langhook.  */
 

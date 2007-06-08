@@ -161,6 +161,7 @@ extern rtx *reg_equiv_invariant;
 extern rtx *reg_equiv_memory_loc;
 extern rtx *reg_equiv_address;
 extern rtx *reg_equiv_mem;
+extern rtx *reg_equiv_alt_mem_list;
 
 /* Element N is the list of insns that initialized reg N from its equivalent
    constant or memory slot.  */
@@ -341,6 +342,7 @@ extern void mark_home_live (int);
 /* Scan X and replace any eliminable registers (such as fp) with a
    replacement (such as sp), plus an offset.  */
 extern rtx eliminate_regs (rtx, enum machine_mode, rtx);
+extern bool elimination_target_reg_p (rtx);
 
 /* Deallocate the reload register used by reload number R.  */
 extern void deallocate_reload_reg (int r);

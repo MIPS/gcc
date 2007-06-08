@@ -1,5 +1,5 @@
 /* DefaultTreeModel.java -- 
-   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005, 2006, Free Software Foundation, Inc.
  
 This file is part of GNU Classpath.
 
@@ -37,8 +37,6 @@ exception statement from your version. */
 
 package javax.swing.tree;
 
-import gnu.classpath.NotImplementedException;
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -62,7 +60,7 @@ public class DefaultTreeModel
   /**
    * root
    */
-  protected TreeNode root = null;
+  protected TreeNode root;
 
   /**
    * listenerList
@@ -212,17 +210,32 @@ public class DefaultTreeModel
   }
 
   /**
-   * isLeaf
+   * Returns if the specified node is a leaf or not. When
+   * {@link #asksAllowsChildren} is true, then this checks if the TreeNode
+   * allows children, otherwise it returns the TreeNode's <code>leaf</code>
+   * property.
    * 
-   * @param node TODO
-   * @return boolean
+   * @param node the node to check
+   *
+   * @return boolean <code>true</code> if the node is a leaf node,
+   *         <code>false</code> otherwise
+   *
+   * @throws ClassCastException if the specified node is not a
+   *         <code>TreeNode</code> instance
+   *
+   * @see TreeNode#getAllowsChildren()
+   * @see TreeNode#isLeaf()
    */
   public boolean isLeaf(Object node)
   {
-    if (node instanceof TreeNode)
-      return ((TreeNode) node).isLeaf();
+    // The RI throws a ClassCastException when node isn't a TreeNode, so do we.
+    TreeNode treeNode = (TreeNode) node;
+    boolean leaf;
+    if (asksAllowsChildren)
+      leaf = ! treeNode.getAllowsChildren();
     else
-      return true;
+      leaf = treeNode.isLeaf();
+    return leaf;
   }
 
   /**
@@ -602,7 +615,7 @@ public class DefaultTreeModel
    *
    * @since 1.3
    */
-  public EventListener[] getListeners(Class listenerType)
+  public <T extends EventListener> T[] getListeners(Class<T> listenerType)
   {
     return listenerList.getListeners(listenerType);
   }

@@ -251,9 +251,7 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
 	{
 	  /* A NULL pointer-to-member is represented by -1, not by
 	     zero.  */
-	  expr = build_int_cst (type, -1);
-	  /* Fix up the representation of -1 if appropriate.  */
-	  expr = force_fit_type (expr, 0, false, false);
+	  expr = build_int_cst_type (type, -1);
 	}
       else
 	expr = build_int_cst (type, 0);
@@ -595,6 +593,29 @@ cp_convert (tree type, tree expr)
   return ocp_convert (type, expr, CONV_OLD_CONVERT, LOOKUP_NORMAL);
 }
 
+/* C++ equivalent of convert_and_check but using cp_convert as the
+   conversion function.
+
+   Convert EXPR to TYPE, warning about conversion problems with constants.
+   Invoke this function on every expression that is converted implicitly,
+   i.e. because of language rules and not because of an explicit cast.  */
+
+tree
+cp_convert_and_check (tree type, tree expr)
+{
+  tree result;
+
+  if (TREE_TYPE (expr) == type)
+    return expr;
+  
+  result = cp_convert (type, expr);
+
+  if (!skip_evaluation && !TREE_OVERFLOW_P (expr) && result != error_mark_node)
+    warnings_for_convert_and_check (type, expr, result);
+
+  return result;
+}
+
 /* Conversion...
 
    FLAGS indicates how we should behave.  */
@@ -864,14 +885,17 @@ convert_to_void (tree expr, const char *implicit)
 	int is_volatile = TYPE_VOLATILE (type);
 	int is_complete = COMPLETE_TYPE_P (complete_type (type));
 
+	/* Can't load the value if we don't know the type.  */
 	if (is_volatile && !is_complete)
 	  warning (0, "object of incomplete type %qT will not be accessed in %s",
 		   type, implicit ? implicit : "void context");
-	else if (is_reference && is_volatile)
+	/* Don't load the value if this is an implicit dereference, or if
+	   the type needs to be handled by ctors/dtors.  */
+	else if (is_volatile && (is_reference || TREE_ADDRESSABLE (type)))
 	  warning (0, "object of type %qT will not be accessed in %s",
 		   TREE_TYPE (TREE_OPERAND (expr, 0)),
 		   implicit ? implicit : "void context");
-	if (is_reference || !is_volatile || !is_complete)
+	if (is_reference || !is_volatile || !is_complete || TREE_ADDRESSABLE (type))
 	  expr = TREE_OPERAND (expr, 0);
 
 	break;
@@ -889,6 +913,27 @@ convert_to_void (tree expr, const char *implicit)
 	break;
       }
 
+    case TARGET_EXPR:
+      /* Don't bother with the temporary object returned from a function if
+	 we don't use it and don't need to destroy it.  We'll still
+	 allocate space for it in expand_call or declare_return_variable,
+	 but we don't need to track it through all the tree phases.  */
+      if (TARGET_EXPR_IMPLICIT_P (expr)
+	  && TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (expr)))
+	{
+	  tree init = TARGET_EXPR_INITIAL (expr);
+	  if (TREE_CODE (init) == AGGR_INIT_EXPR
+	      && !AGGR_INIT_VIA_CTOR_P (init))
+	    {
+	      tree fn = AGGR_INIT_EXPR_FN (init);
+	      expr = build_call_array (TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
+				       fn,
+				       aggr_init_expr_nargs (init),
+				       AGGR_INIT_EXPR_ARGP (init));
+	    }
+	}
+      break;
+
     default:;
     }
   {
@@ -905,9 +950,13 @@ convert_to_void (tree expr, const char *implicit)
 	expr = void_zero_node;
       }
     else if (implicit && probe == expr && is_overloaded_fn (probe))
-      /* Only warn when there is no &.  */
-      warning (0, "%s is a reference, not call, to function %qE",
-		  implicit, expr);
+      {
+	/* Only warn when there is no &.  */
+	warning (OPT_Waddress, "%s is a reference, not call, to function %qE",
+		 implicit, expr);
+	if (TREE_CODE (expr) == COMPONENT_REF)
+	  expr = TREE_OPERAND (expr, 0);
+      }
   }
 
   if (expr != error_mark_node && !VOID_TYPE_P (TREE_TYPE (expr)))
@@ -957,6 +1006,8 @@ convert_to_void (tree expr, const char *implicit)
 	}
       expr = build1 (CONVERT_EXPR, void_type_node, expr);
     }
+  if (! TREE_SIDE_EFFECTS (expr))
+    expr = void_zero_node;
   return expr;
 }
 
@@ -968,7 +1019,7 @@ convert_to_void (tree expr, const char *implicit)
 
    Most of this routine is from build_reinterpret_cast.
 
-   The backend cannot call cp_convert (what was convert) because
+   The back end cannot call cp_convert (what was convert) because
    conversions to/from basetypes may involve memory references
    (vbases) and adding or subtracting small values (multiple
    inheritance), but it calls convert from the constant folding code
@@ -1075,7 +1126,6 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
 	  return expr;
 	/* else fall through...  */
 
-      case VECTOR_TYPE:
       case BOOLEAN_TYPE:
 	return (desires & WANT_INT) ? expr : NULL_TREE;
       case ENUMERAL_TYPE:
@@ -1089,6 +1139,23 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
       case ARRAY_TYPE:
 	return (desires & WANT_POINTER) ? decay_conversion (expr)
 					: NULL_TREE;
+
+      case VECTOR_TYPE:
+	if ((desires & WANT_VECTOR) == 0)
+	  return NULL_TREE;
+	switch (TREE_CODE (TREE_TYPE (basetype)))
+	  {
+	  case INTEGER_TYPE:
+	  case BOOLEAN_TYPE:
+	    return (desires & WANT_INT) ? expr : NULL_TREE;
+	  case ENUMERAL_TYPE:
+	    return (desires & WANT_ENUM) ? expr : NULL_TREE;
+	  case REAL_TYPE:
+	    return (desires & WANT_FLOAT) ? expr : NULL_TREE;
+	  default:
+	    return NULL_TREE;
+	  }
+
       default:
 	return NULL_TREE;
       }
@@ -1122,6 +1189,23 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
 	  win = (desires & WANT_FLOAT); break;
 	case POINTER_TYPE:
 	  win = (desires & WANT_POINTER); break;
+
+	case VECTOR_TYPE:
+	  if ((desires & WANT_VECTOR) == 0)
+	    break;
+	  switch (TREE_CODE (TREE_TYPE (candidate)))
+	    {
+	    case BOOLEAN_TYPE:
+	    case INTEGER_TYPE:
+	      win = (desires & WANT_INT); break;
+	    case ENUMERAL_TYPE:
+	      win = (desires & WANT_ENUM); break;
+	    case REAL_TYPE:
+	      win = (desires & WANT_FLOAT); break;
+	    default:
+	      break;
+	    }
+	  break;
 
 	default:
 	  break;

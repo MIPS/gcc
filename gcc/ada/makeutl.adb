@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2004-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,13 +24,15 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Namet;    use Namet;
+with Ada.Command_Line; use Ada.Command_Line;
+
 with Osint;    use Osint;
 with Prj.Ext;
 with Prj.Util;
 with Snames;   use Snames;
 with Table;
 
+with System.Case_Util; use System.Case_Util;
 with System.HTable;
 
 package body Makeutl is
@@ -117,6 +119,68 @@ package body Makeutl is
       Marks.Reset;
    end Delete_All_Marks;
 
+   ----------------------------
+   -- Executable_Prefix_Path --
+   ----------------------------
+
+   function Executable_Prefix_Path return String is
+      Exec_Name : constant String := Command_Name;
+
+      function Get_Install_Dir (S : String) return String;
+      --  S is the executable name preceeded by the absolute or relative
+      --  path, e.g. "c:\usr\bin\gcc.exe". Returns the absolute directory
+      --  where "bin" lies (in the example "C:\usr").
+      --  If the executable is not in a "bin" directory, return "".
+
+      ---------------------
+      -- Get_Install_Dir --
+      ---------------------
+
+      function Get_Install_Dir (S : String) return String is
+         Exec      : String  := S;
+         Path_Last : Integer := 0;
+
+      begin
+         for J in reverse Exec'Range loop
+            if Exec (J) = Directory_Separator then
+               Path_Last := J - 1;
+               exit;
+            end if;
+         end loop;
+
+         if Path_Last >= Exec'First + 2 then
+            To_Lower (Exec (Path_Last - 2 .. Path_Last));
+         end if;
+
+         if Path_Last < Exec'First + 2
+           or else Exec (Path_Last - 2 .. Path_Last) /= "bin"
+           or else (Path_Last - 3 >= Exec'First
+                     and then Exec (Path_Last - 3) /= Directory_Separator)
+         then
+            return "";
+         end if;
+
+         return Normalize_Pathname (Exec (Exec'First .. Path_Last - 4));
+      end Get_Install_Dir;
+
+   --  Beginning of Executable_Prefix_Path
+
+   begin
+      --  First determine if a path prefix was placed in front of the
+      --  executable name.
+
+      for J in reverse Exec_Name'Range loop
+         if Exec_Name (J) = Directory_Separator then
+            return Get_Install_Dir (Exec_Name);
+         end if;
+      end loop;
+
+      --  If we get here, the user has typed the executable name with no
+      --  directory prefix.
+
+      return Get_Install_Dir (Locate_Exec_On_Path (Exec_Name).all);
+   end Executable_Prefix_Path;
+
    ----------
    -- Hash --
    ----------
@@ -134,6 +198,9 @@ package body Makeutl is
       Start     : Positive := 3;
       Finish    : Natural := Argv'Last;
       Equal_Pos : Natural;
+
+      pragma Assert (Argv'First = 1);
+      pragma Assert (Argv (1 .. 2) = "-X");
 
    begin
       if Argv'Last < 5 then
@@ -155,7 +222,7 @@ package body Makeutl is
       end loop;
 
       if Equal_Pos = Start
-        or else Equal_Pos >= Finish
+        or else Equal_Pos > Finish
       then
          return False;
       else

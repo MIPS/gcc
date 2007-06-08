@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -183,6 +183,9 @@ package body Sem is
 
          when N_Explicit_Dereference =>
             Analyze_Explicit_Dereference (N);
+
+         when N_Extended_Return_Statement =>
+            Analyze_Extended_Return_Statement (N);
 
          when N_Extension_Aggregate =>
             Analyze_Aggregate (N);
@@ -536,9 +539,6 @@ package body Sem is
          when N_With_Clause =>
             Analyze_With_Clause (N);
 
-         when N_With_Type_Clause =>
-            Analyze_With_Type_Clause (N);
-
          --  A call to analyze the Empty node is an error, but most likely
          --  it is an error caused by an attempt to analyze a malformed
          --  piece of tree caused by some other error, so if there have
@@ -553,6 +553,13 @@ package body Sem is
          --  causing cascaded errors (happens of course only in error cases)
 
          when N_Error =>
+            null;
+
+         --  Push/Pop nodes normally don't come through an analyze call. An
+         --  exception is the dummy ones bracketing a subprogram body. In any
+         --  case there is nothing to be done to analyze such nodes.
+
+         when N_Push_Pop_xxx_Label =>
             null;
 
          --  For the remaining node types, we generate compiler abort, because
@@ -623,18 +630,24 @@ package body Sem is
 
       Debug_A_Exit ("analyzing  ", N, "  (done)");
 
-      --  Now that we have analyzed the node, we call the expander to
-      --  perform possible expansion. This is done only for nodes that
-      --  are not subexpressions, because in the case of subexpressions,
-      --  we don't have the type yet, and the expander will need to know
-      --  the type before it can do its job. For subexpression nodes, the
-      --  call to the expander happens in the Sem_Res.Resolve.
+      --  Now that we have analyzed the node, we call the expander to perform
+      --  possible expansion. We skip this for subexpressions, because we don't
+      --  have the type yet, and the expander will need to know the type before
+      --  it can do its job. For subexpression nodes, the call to the expander
+      --  happens in Sem_Res.Resolve. A special exception is Raise_xxx_Error,
+      --  which can appear in a statement context, and needs expanding now in
+      --  the case (distinguished by Etype, as documented in Sinfo).
 
       --  The Analyzed flag is also set at this point for non-subexpression
-      --  nodes (in the case of subexpression nodes, we can't set the flag
-      --  yet, since resolution and expansion have not yet been completed)
+      --  nodes (in the case of subexpression nodes, we can't set the flag yet,
+      --  since resolution and expansion have not yet been completed). Note
+      --  that for N_Raise_xxx_Error we have to distinguish the expression
+      --  case from the statement case.
 
-      if Nkind (N) not in N_Subexpr then
+      if Nkind (N) not in N_Subexpr
+        or else (Nkind (N) in N_Raise_xxx_Error
+                  and then Etype (N) = Standard_Void_Type)
+      then
          Expand (N);
       end if;
    end Analyze;
@@ -1205,6 +1218,7 @@ package body Sem is
       S_Outer_Gen_Scope  : constant Entity_Id        := Outer_Generic_Scope;
       S_Sem_Unit         : constant Unit_Number_Type := Current_Sem_Unit;
       S_GNAT_Mode        : constant Boolean          := GNAT_Mode;
+      S_Discard_Names    : constant Boolean          := Global_Discard_Names;
       Generic_Main       : constant Boolean :=
                              Nkind (Unit (Cunit (Main_Unit)))
                                in N_Generic_Declaration;
@@ -1227,7 +1241,7 @@ package body Sem is
       procedure Do_Analyze is
       begin
          Save_Scope_Stack;
-         New_Scope (Standard_Standard);
+         Push_Scope (Standard_Standard);
          Scope_Suppress := Suppress_Options;
          Scope_Stack.Table
            (Scope_Stack.Last).Component_Alignment_Default := Calign_Default;
@@ -1318,6 +1332,7 @@ package body Sem is
       New_Nodes_OK           := S_New_Nodes_OK;
       Outer_Generic_Scope    := S_Outer_Gen_Scope;
       GNAT_Mode              := S_GNAT_Mode;
+      Global_Discard_Names   := S_Discard_Names;
 
       Restore_Opt_Config_Switches (Save_Config_Switches);
       Expander_Mode_Restore;

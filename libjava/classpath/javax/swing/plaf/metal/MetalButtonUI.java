@@ -39,6 +39,7 @@ exception statement from your version. */
 package javax.swing.plaf.metal;
 
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
@@ -48,11 +49,11 @@ import javax.swing.AbstractButton;
 import javax.swing.ButtonModel;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
 import javax.swing.UIManager;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.UIResource;
-import javax.swing.plaf.basic.BasicButtonListener;
 import javax.swing.plaf.basic.BasicButtonUI;
 
 /**
@@ -64,14 +65,39 @@ public class MetalButtonUI
   extends BasicButtonUI
 {
 
-  /** The color used to draw the focus rectangle around the text and/or icon. */
+  /**
+   * The shared button UI.
+   */
+  private static MetalButtonUI sharedUI;
+
+  /**
+   * The color used to draw the focus rectangle around the text and/or icon.
+   */
   protected Color focusColor;
     
-  /** The background color for the button when it is pressed. */
+  /**
+   * The background color for the button when it is pressed.
+   */
   protected Color selectColor;
 
-  /** The color for disabled button labels. */
+  /**
+   * The color for disabled button labels.
+   */
   protected Color disabledTextColor;
+
+  /**
+   * Returns a UI delegate for the specified component.
+   * 
+   * @param c  the component (should be a subclass of {@link AbstractButton}).
+   * 
+   * @return A new instance of <code>MetalButtonUI</code>.
+   */
+  public static ComponentUI createUI(JComponent c) 
+  {
+    if (sharedUI == null)
+      sharedUI = new MetalButtonUI();
+    return sharedUI;
+  }
 
   /**
    * Creates a new instance.
@@ -79,9 +105,6 @@ public class MetalButtonUI
   public MetalButtonUI()
   {
     super();
-    focusColor = UIManager.getColor(getPropertyPrefix() + "focus");
-    selectColor = UIManager.getColor(getPropertyPrefix() + "select");
-    disabledTextColor = UIManager.getColor(getPropertyPrefix() + "disabledText");
   }
 
   /**
@@ -91,6 +114,7 @@ public class MetalButtonUI
    */
   protected Color getFocusColor()
   {
+    focusColor = UIManager.getColor(getPropertyPrefix() + "focus");
     return focusColor;
   }
 
@@ -101,6 +125,7 @@ public class MetalButtonUI
    */
   protected Color getSelectColor()
   {
+    selectColor = UIManager.getColor(getPropertyPrefix() + "select");
     return selectColor;
   }
 
@@ -111,18 +136,9 @@ public class MetalButtonUI
    */
   protected Color getDisabledTextColor()
   {
+    disabledTextColor = UIManager.getColor(getPropertyPrefix()
+                                           + "disabledText");
     return disabledTextColor;
-  }
-
-  /**
-   * Returns a UI delegate for the specified component.
-   * 
-   * @param c  the component (should be a subclass of {@link AbstractButton}).
-   * 
-   * @return A new instance of <code>MetalButtonUI</code>.
-   */
-  public static ComponentUI createUI(JComponent c) {
-    return new MetalButtonUI();
   }
 
   /**
@@ -134,31 +150,18 @@ public class MetalButtonUI
    */
   public void installDefaults(AbstractButton button)
   {
+    // This is overridden to be public, for whatever reason.
     super.installDefaults(button);
-    button.setRolloverEnabled(UIManager.getBoolean(
-                                            getPropertyPrefix() + "rollover"));
   }
-    
+
   /**
    * Removes the defaults added by {@link #installDefaults(AbstractButton)}.
    */
   public void uninstallDefaults(AbstractButton button) 
   {
+    // This is overridden to be public, for whatever reason.
     super.uninstallDefaults(button);
-    button.setRolloverEnabled(false);
   }
-
-  /**
-   * Returns a button listener for the specified button.
-   * 
-   * @param button  the button.
-   * 
-   * @return A button listener.
-   */
-  protected BasicButtonListener createButtonListener(AbstractButton button) 
-  {
-    return new MetalButtonListener(button);
-  }    
 
   /**
    * Paints the background of the button to indicate that it is in the
@@ -171,9 +174,8 @@ public class MetalButtonUI
   { 
     if (b.isContentAreaFilled())
     {
-      Rectangle area = b.getVisibleRect();
-      g.setColor(selectColor);
-      g.fillRect(area.x, area.y, area.width, area.height);
+      g.setColor(getSelectColor());
+      g.fillRect(0, 0, b.getWidth(), b.getHeight());
     }
   }
     
@@ -187,7 +189,8 @@ public class MetalButtonUI
    * @param iconRect  the icon bounds.
    */
   protected void paintFocus(Graphics g, AbstractButton b, Rectangle viewRect,
-          Rectangle textRect, Rectangle iconRect) {
+          Rectangle textRect, Rectangle iconRect) 
+  {
     if (b.isEnabled() && b.hasFocus() && b.isFocusPainted())
     {
       Color savedColor = g.getColor();
@@ -235,19 +238,61 @@ public class MetalButtonUI
   public void update(Graphics g, JComponent c)
   {
     AbstractButton b = (AbstractButton) c;
-    ButtonModel m = b.getModel();
-    if (b.isContentAreaFilled()
-        && (UIManager.get(getPropertyPrefix() + "gradient") != null)
-        && ! m.isPressed() && ! m.isArmed()
-        && b.isEnabled()
-        && (b.getBackground() instanceof UIResource))
+    if ((b.getBackground() instanceof UIResource)
+        && b.isContentAreaFilled() && b.isEnabled())
       {
-        MetalUtils.paintGradient(g, 0, 0, c.getWidth(), c.getHeight(),
-                                 SwingConstants.VERTICAL,
-                                 getPropertyPrefix() + "gradient");
-        paint(g, c);
+        ButtonModel m = b.getModel();
+        String uiKey = "Button.gradient";
+        if (! isToolbarButton(b))
+          {
+            if (! m.isArmed() && ! m.isPressed() && isDrawingGradient(uiKey))
+              {
+                MetalUtils.paintGradient(g, 0, 0, b.getWidth(), b.getHeight(),
+                                         SwingConstants.VERTICAL,
+                                         uiKey);
+                paint(g, c);
+                return;
+              }
+          }
+        else if (m.isRollover() && isDrawingGradient(uiKey))
+          {
+            MetalUtils.paintGradient(g, 0, 0, b.getWidth(), b.getHeight(),
+                                     SwingConstants.VERTICAL,
+                                     uiKey);
+            paint(g, c);
+            return;
+          }
       }
-    else
-      super.update(g, c);
+    // Fallback if we didn't have any of the two above cases.
+    super.update(g, c);
+  }
+
+  /**
+   * Returns <code>true</code> when the button is a toolbar button,
+   * <code>false</code> otherwise.
+   *
+   * @param b the button component to test
+   *
+   * @return <code>true</code> when the button is a toolbar button,
+   *         <code>false</code> otherwise
+   */
+  private boolean isToolbarButton(Component b)
+  {
+    Component parent = b.getParent();
+    return parent instanceof JToolBar;
+  }
+
+  /**
+   * Returns <code>true</code> if we should draw the button gradient,
+   * <code>false</code> otherwise.
+   *
+   * @param uiKey the UIManager key for the gradient
+   *
+   * @return <code>true</code> if we should draw the button gradient,
+   *         <code>false</code> otherwise
+   */
+  private boolean isDrawingGradient(String uiKey)
+  {
+    return (UIManager.get(uiKey) != null);
   }
 }

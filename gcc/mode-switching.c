@@ -92,7 +92,7 @@ static sbitmap *comp;
 
 static struct seginfo * new_seginfo (int, rtx, int, HARD_REG_SET);
 static void add_seginfo (struct bb_info *, struct seginfo *);
-static void reg_dies (rtx, HARD_REG_SET);
+static void reg_dies (rtx, HARD_REG_SET *);
 static void reg_becomes_live (rtx, rtx, void *);
 static void make_preds_opaque (basic_block, int);
 
@@ -160,18 +160,16 @@ make_preds_opaque (basic_block b, int j)
 /* Record in LIVE that register REG died.  */
 
 static void
-reg_dies (rtx reg, HARD_REG_SET live)
+reg_dies (rtx reg, HARD_REG_SET *live)
 {
-  int regno, nregs;
+  int regno;
 
   if (!REG_P (reg))
     return;
 
   regno = REGNO (reg);
   if (regno < FIRST_PSEUDO_REGISTER)
-    for (nregs = hard_regno_nregs[regno][GET_MODE (reg)] - 1; nregs >= 0;
-	 nregs--)
-      CLEAR_HARD_REG_BIT (live, regno + nregs);
+    remove_from_hard_reg_set (live, GET_MODE (reg), regno);
 }
 
 /* Record in LIVE that register REG became live.
@@ -180,7 +178,7 @@ reg_dies (rtx reg, HARD_REG_SET live)
 static void
 reg_becomes_live (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *live)
 {
-  int regno, nregs;
+  int regno;
 
   if (GET_CODE (reg) == SUBREG)
     reg = SUBREG_REG (reg);
@@ -190,9 +188,7 @@ reg_becomes_live (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *live)
 
   regno = REGNO (reg);
   if (regno < FIRST_PSEUDO_REGISTER)
-    for (nregs = hard_regno_nregs[regno][GET_MODE (reg)] - 1; nregs >= 0;
-	 nregs--)
-      SET_HARD_REG_BIT (* (HARD_REG_SET *) live, regno + nregs);
+    add_to_hard_reg_set ((HARD_REG_SET *) live, GET_MODE (reg), regno);
 }
 
 /* Make sure if MODE_ENTRY is defined the MODE_EXIT is defined
@@ -256,6 +252,12 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 			    (REGNO (XEXP (PATTERN (return_copy), 0)))))
 		      {
 			maybe_builtin_apply = 1;
+			last_insn = return_copy;
+			continue;
+		      }
+		    if (GET_CODE (PATTERN (return_copy)) == ASM_INPUT
+			&& strcmp (XSTR (PATTERN (return_copy), 0), "") == 0)
+		      {
 			last_insn = return_copy;
 			continue;
 		      }
@@ -465,7 +467,11 @@ optimize_mode_switching (void)
 	      if (e->flags & EDGE_COMPLEX)
 		break;
 	    if (e)
-	      RESET_BIT (transp[bb->index], j);
+	      {
+		ptr = new_seginfo (no_mode, BB_HEAD (bb), bb->index, live_now);
+		add_seginfo (info + bb->index, ptr);
+		RESET_BIT (transp[bb->index], j);
+	      }
 	  }
 
 	  for (insn = BB_HEAD (bb);
@@ -490,12 +496,12 @@ optimize_mode_switching (void)
 		  /* Update LIVE_NOW.  */
 		  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
 		    if (REG_NOTE_KIND (link) == REG_DEAD)
-		      reg_dies (XEXP (link, 0), live_now);
+		      reg_dies (XEXP (link, 0), &live_now);
 
 		  note_stores (PATTERN (insn), reg_becomes_live, &live_now);
 		  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
 		    if (REG_NOTE_KIND (link) == REG_UNUSED)
-		      reg_dies (XEXP (link, 0), live_now);
+		      reg_dies (XEXP (link, 0), &live_now);
 		}
 	    }
 
@@ -608,38 +614,11 @@ optimize_mode_switching (void)
 	      if (mode_set == NULL_RTX)
 		continue;
 
-	      /* If this is an abnormal edge, we'll insert at the end
-		 of the previous block.  */
-	      if (eg->flags & EDGE_ABNORMAL)
-		{
-		  emited = true;
-		  if (JUMP_P (BB_END (src_bb)))
-		    emit_insn_before (mode_set, BB_END (src_bb));
-		  else
-		    {
-		      /* It doesn't make sense to switch to normal
-		         mode after a CALL_INSN.  The cases in which a
-		         CALL_INSN may have an abnormal edge are
-		         sibcalls and EH edges.  In the case of
-		         sibcalls, the dest basic-block is the
-		         EXIT_BLOCK, that runs in normal mode; it is
-		         assumed that a sibcall insn requires normal
-		         mode itself, so no mode switch would be
-		         required after the call (it wouldn't make
-		         sense, anyway).  In the case of EH edges, EH
-		         entry points also start in normal mode, so a
-		         similar reasoning applies.  */
-		      gcc_assert (NONJUMP_INSN_P (BB_END (src_bb)));
-		      emit_insn_after (mode_set, BB_END (src_bb));
-		    }
-		  bb_info[j][src_bb->index].computing = mode;
-		  RESET_BIT (transp[src_bb->index], j);
-		}
-	      else
-		{
-		  need_commit = 1;
-		  insert_insn_on_edge (mode_set, eg);
-		}
+	      /* We should not get an abnormal edge here.  */
+	      gcc_assert (! (eg->flags & EDGE_ABNORMAL));
+
+	      need_commit = 1;
+	      insert_insn_on_edge (mode_set, eg);
 	    }
 
 	  FOR_EACH_BB_REVERSE (bb)
@@ -681,9 +660,7 @@ optimize_mode_switching (void)
 		  if (mode_set != NULL_RTX)
 		    {
 		      emited = true;
-		      if (NOTE_P (ptr->insn_ptr)
-			  && (NOTE_LINE_NUMBER (ptr->insn_ptr)
-			      == NOTE_INSN_BASIC_BLOCK))
+		      if (NOTE_INSN_BASIC_BLOCK_P (ptr->insn_ptr))
 			emit_insn_after (mode_set, ptr->insn_ptr);
 		      else
 			emit_insn_before (mode_set, ptr->insn_ptr);

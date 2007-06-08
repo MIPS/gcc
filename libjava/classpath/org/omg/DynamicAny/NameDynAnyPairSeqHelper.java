@@ -1,5 +1,5 @@
 /* NameDynAnyPairSeq.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -40,6 +40,7 @@ package org.omg.DynamicAny;
 
 import gnu.CORBA.Minor;
 import gnu.CORBA.NameDynAnyPairSeqHolder;
+import gnu.CORBA.OrbRestricted;
 
 import org.omg.CORBA.Any;
 import org.omg.CORBA.BAD_OPERATION;
@@ -51,7 +52,7 @@ import org.omg.CORBA.portable.OutputStream;
 
 /**
  * A helper operations for the array of {@link NameDynAnyPair}
- * ({@link NameDynAnyPairSeq}).
+ * (NameDynAnyPair[]).
  *
  * Following the 1.5 JDK specifications, DynAny (and hence the sequence
  * of structures, containing DynAny) is always a local object.
@@ -62,20 +63,11 @@ import org.omg.CORBA.portable.OutputStream;
  */
 public abstract class NameDynAnyPairSeqHelper
 {
-  /**
-   * The cached typecode value, computed only once.
-   */
-  private static TypeCode typeCode;
-
   public static TypeCode type()
   {
-    if (typeCode == null)
-      {
-        ORB orb = ORB.init();
-        TypeCode t = orb.create_sequence_tc(0, NameDynAnyPairHelper.type());
-        typeCode = orb.create_alias_tc(id(), "NameDynAnyPairSeq", t);
-      }
-    return typeCode;
+    ORB orb = OrbRestricted.Singleton;
+    TypeCode t = orb.create_sequence_tc(0, NameDynAnyPairHelper.type());
+    return orb.create_alias_tc(id(), "NameDynAnyPairSeq", t);
   }
 
   /**
@@ -140,7 +132,7 @@ public abstract class NameDynAnyPairSeqHelper
    * The method should write this object to the CDR input stream, but
    * (following the JDK 1.5 API) it does not.
    *
-   * @param input a org.omg.CORBA.portable stream to read from.
+   * @param output a org.omg.CORBA.portable stream to write into.
    *
    * @specenote Sun throws the same exception.
    *

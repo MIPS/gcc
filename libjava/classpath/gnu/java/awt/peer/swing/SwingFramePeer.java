@@ -43,6 +43,7 @@ import java.awt.Insets;
 import java.awt.MenuBar;
 import java.awt.Point;
 import java.awt.event.MouseEvent;
+import java.awt.peer.ComponentPeer;
 import java.awt.peer.FramePeer;
 
 /**
@@ -97,9 +98,9 @@ public abstract class SwingFramePeer
    *
    * @param g the graphics context to use for painting
    */
-  protected void peerPaint(Graphics g)
+  protected void peerPaintComponent(Graphics g)
   {
-    super.peerPaint(g);
+    super.peerPaintComponent(g);
     if (menuBar != null)
       menuBar.peerPaint(g);
   }

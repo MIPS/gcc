@@ -1,5 +1,5 @@
 `/* Helper function for repacking arrays.
-   Copyright 2003 Free Software Foundation, Inc.
+   Copyright 2003, 2006 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -39,8 +39,8 @@ include(iparm.m4)dnl
 
 dnl Only the kind (ie size) is used to name the function for integers,
 dnl reals and logicals.  For complex, it's c4 and c8.
-void
-`internal_unpack_'rtype_ccode (rtype * d, const rtype_name * src)
+`void
+internal_unpack_'rtype_ccode` ('rtype` * d, const 'rtype_name` * src)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
@@ -48,15 +48,12 @@ void
   index_type stride0;
   index_type dim;
   index_type dsize;
-  rtype_name *dest;
+  'rtype_name` *dest;
   int n;
 
   dest = d->data;
   if (src == dest || !src)
     return;
-
-  if (d->dim[0].stride == 0)
-    d->dim[0].stride = 1;
 
   dim = GFC_DESCRIPTOR_RANK (d);
   dsize = 1;
@@ -76,7 +73,7 @@ void
 
   if (dsize != 0)
     {
-      memcpy (dest, src, dsize * sizeof (rtype_name));
+      memcpy (dest, src, dsize * sizeof ('rtype_name`));
       return;
     }
 
@@ -97,7 +94,7 @@ void
              the next dimension.  */
           count[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           dest -= stride[n] * extent[n];
           n++;
           if (n == dim)
@@ -115,3 +112,4 @@ void
 }
 
 #endif
+'

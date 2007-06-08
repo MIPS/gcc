@@ -218,7 +218,7 @@ void __gnat_unsetenv (char *name) {
 #elif defined (__hpux__) || defined (sun) \
      || (defined (__mips) && defined (__sgi)) \
      || (defined (__vxworks) && ! defined (__RTP__)) \
-     || defined (_AIX)
+     || defined (_AIX) || defined (__Lynx__)
 
   /* On Solaris, HP-UX and IRIX there is no function to clear an environment
      variable. So we look for the variable in the environ table and delete it
@@ -227,7 +227,7 @@ void __gnat_unsetenv (char *name) {
      have been allocated using malloc. To avoid this memory leak another
      method can be used. It consists in forcing the reallocation of all the
      strings in the environ table using malloc on the first call on the
-     functions related to environment variable management. The disavantage
+     functions related to environment variable management. The disadvantage
      is that if a program makes a direct call to getenv the return string
      may be deallocated at some point. */
   /* Note that on AIX, unsetenv is not supported on 5.1 but it is on 5.3.

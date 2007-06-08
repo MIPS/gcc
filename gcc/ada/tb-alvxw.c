@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                     Copyright (C) 2000-2005, AdaCore                     *
+ *                     Copyright (C) 2000-2006, AdaCore                     *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -630,7 +630,7 @@ find_proc_desc (CORE_ADDR pc,
 {
   CORE_ADDR startaddr;
 
-  /* If heuristic_fence_post is non-zero, determine the procedure
+  /* If heuristic_fence_post is nonzero, determine the procedure
      start address by examining the instructions.
      This allows us to find the start address of static functions which
      have no symbolic information, as startaddr would have been set to

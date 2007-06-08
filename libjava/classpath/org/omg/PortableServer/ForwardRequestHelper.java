@@ -1,5 +1,5 @@
 /* ForwardRequestHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,6 +39,8 @@ exception statement from your version. */
 package org.omg.PortableServer;
 
 import gnu.CORBA.Minor;
+import gnu.CORBA.ObjectCreator;
+import gnu.CORBA.OrbRestricted;
 import gnu.CORBA.Poa.ForwardRequestHolder;
 
 import org.omg.CORBA.Any;
@@ -61,11 +63,6 @@ import org.omg.CORBA.portable.OutputStream;
  */
 public abstract class ForwardRequestHelper
 {
-  /**
-   * The cached typecode value, computed only once.
-   */
-  private static TypeCode typeCode;
-
   /**
    * Extract the ForwardRequest from given Any.
    * This method uses the ForwardRequestHolder.
@@ -132,18 +129,14 @@ public abstract class ForwardRequestHelper
    */
   public static TypeCode type()
   {
-    if (typeCode == null)
-      {
-        ORB orb = ORB.init();
+        ORB orb = OrbRestricted.Singleton;
         StructMember[] members = new StructMember[ 1 ];
 
         TypeCode field;
 
         field = ObjectHelper.type();
         members [ 0 ] = new StructMember("forward_reference", field, null);
-        typeCode = orb.create_exception_tc(id(), "ForwardRequest", members);
-      }
-    return typeCode;
+        return orb.create_exception_tc(id(), "ForwardRequest", members);
   }
 
   /**

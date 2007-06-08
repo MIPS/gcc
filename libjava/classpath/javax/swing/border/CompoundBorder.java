@@ -115,15 +115,24 @@ public class CompoundBorder extends AbstractBorder
    */
   public boolean isBorderOpaque()
   {
-    // While it would be safe to assume true for the opacity of
-    // a null border, this behavior would not be according to
-    // the API specification. Also, it is pathological to have
-    // null borders anyway.
-    if ((insideBorder == null) || (outsideBorder == null))
-      return false;
+    // Although the API specification states that this method 
+    // returns true if both the inside and outside borders are non-null
+    // and opaque, and false otherwise, a mauve test shows that if both
+    // the inside or outside borders are null, then true is returned.
+    if ((insideBorder == null) && (outsideBorder == null))
+      return true;
 
-    return insideBorder.isBorderOpaque()
-      && outsideBorder.isBorderOpaque();
+    // A mauve test shows that if the inside border has a null value,
+    // then true is returned if the outside border is opaque; if the
+    // outside border has a null value, then true is returned if the
+    // inside border is opaque; else, true is returned if both the
+    // inside and outside borders are opaque.
+    if (insideBorder == null)
+      return outsideBorder.isBorderOpaque();
+    else if (outsideBorder == null)
+      return insideBorder.isBorderOpaque();
+    else
+      return insideBorder.isBorderOpaque() && outsideBorder.isBorderOpaque();
   }
 
   /**
@@ -178,7 +187,7 @@ public class CompoundBorder extends AbstractBorder
     Insets borderInsets;
 
     if (insets == null)
-      insets = new Insets (0,0,0,0);
+      insets = new Insets(0, 0, 0, 0);
     else
       insets.left = insets.right = insets.top = insets.bottom = 0;
 
@@ -217,7 +226,7 @@ public class CompoundBorder extends AbstractBorder
     // the implementation from AbstractBorder. However, we want
     // to be compatible with the API specification, which overrides
     // the getBorderInsets(Component) method.
-    return getBorderInsets (c, null);
+    return getBorderInsets(c, null);
   }
 
   /**
@@ -239,7 +248,7 @@ public class CompoundBorder extends AbstractBorder
    * 
    * @return The inside border (possibly <code>null</code>).
    */
-  public Border getInsideBorder ()
+  public Border getInsideBorder()
   {
     return insideBorder;
   }

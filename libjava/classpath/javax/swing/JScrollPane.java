@@ -161,16 +161,18 @@ public class JScrollPane extends JComponent
   protected int verticalScrollBarPolicy;
 
   protected JViewport viewport;
-  
-  Border viewportBorder;
-  boolean wheelScrollingEnabled;
+
+  private Border viewportBorder;
+
+  private boolean wheelScrollingEnabled;
 
   public JViewport getColumnHeader()
   {
     return columnHeader;
   }
 
-  public Component getCorner(String key) {
+  public Component getCorner(String key) 
+  {
     if (getComponentOrientation() 
         == ComponentOrientation.LEFT_TO_RIGHT)
       {
@@ -247,7 +249,7 @@ public class JScrollPane extends JComponent
     if (viewportBorder == null)
       {
         if (getViewport() == null)
-          return new Rectangle(0,0,0,0);
+          return new Rectangle(0, 0, 0, 0);
         else
           return getViewport().getBounds();
       }
@@ -255,8 +257,7 @@ public class JScrollPane extends JComponent
       {
         Insets i = viewportBorder.getBorderInsets(getViewport());
         if (getViewport() == null)
-          return new Rectangle(0,0,
-                               i.left+i.right, i.top+i.bottom);
+          return new Rectangle(0, 0, i.left + i.right, i.top + i.bottom);
         else
           {
             Rectangle b = getViewport().getBounds();
@@ -595,6 +596,7 @@ public class JScrollPane extends JComponent
    */
   public JScrollPane(Component view, int vsbPolicy, int hsbPolicy) 
   {
+    wheelScrollingEnabled = true;
     setVerticalScrollBarPolicy(vsbPolicy);
     setVerticalScrollBar(createVerticalScrollBar());
     setHorizontalScrollBarPolicy(hsbPolicy);

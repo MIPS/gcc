@@ -1,6 +1,6 @@
 // Debugging support implementation -*- C++ -*-
 
-// Copyright (C) 2003, 2005, 2006
+// Copyright (C) 2003, 2004, 2005, 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -27,6 +27,10 @@
 // the GNU General Public License.  This exception does not however
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
+
+/** @file debug/debug.h
+ *  This file is a GNU debug extension to the Standard C++ Library.
+ */
 
 #ifndef _GLIBCXX_DEBUG_MACRO_SWITCH_H
 #define _GLIBCXX_DEBUG_MACRO_SWITCH_H 1
@@ -60,6 +64,7 @@ namespace __gnu_debug
 
 # define _GLIBCXX_DEBUG_ASSERT(_Condition)
 # define _GLIBCXX_DEBUG_PEDASSERT(_Condition)
+# define _GLIBCXX_DEBUG_ONLY(_Statement) ;
 # define __glibcxx_requires_cond(_Cond,_Msg)
 # define __glibcxx_requires_valid_range(_First,_Last)
 # define __glibcxx_requires_sorted(_First,_Last)
@@ -75,7 +80,6 @@ namespace __gnu_debug
 
 #else
 
-# include <cstdlib>
 # include <cstdio>
 # include <debug/macros.h>
 
@@ -91,7 +95,7 @@ namespace std
     {
       printf("%s:%d: %s: Assertion '%s' failed.\n", __file, __line,
 	     __function, __condition);
-      abort();
+      __builtin_abort();
     }
   } // namespace __debug
 } // namespace std
@@ -109,6 +113,7 @@ namespace std
 #else
 # define _GLIBCXX_DEBUG_PEDASSERT(_Condition)
 #endif
+# define _GLIBCXX_DEBUG_ONLY(_Statement) _Statement
 
 # define __glibcxx_requires_cond(_Cond,_Msg) _GLIBCXX_DEBUG_VERIFY(_Cond,_Msg)
 # define __glibcxx_requires_valid_range(_First,_Last) \

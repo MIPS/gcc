@@ -1,6 +1,7 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -28,21 +29,21 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-//
-// ISO C++ 14882: 21 Strings library
-//
-
 /** @file basic_string.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+//
+// ISO C++ 14882: 21 Strings library
+//
 
 #ifndef _BASIC_STRING_H
 #define _BASIC_STRING_H 1
 
 #pragma GCC system_header
 
-#include <bits/atomicity.h>
+#include <ext/atomicity.h>
 #include <debug/debug.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
@@ -232,7 +233,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 #ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
 	  if (__builtin_expect(this != &_S_empty_rep(), false))
 #endif
-	    if (__gnu_cxx::__exchange_and_add(&this->_M_refcount, -1) <= 0)
+	    if (__gnu_cxx::__exchange_and_add_dispatch(&this->_M_refcount,
+						       -1) <= 0)
 	      _M_destroy(__a);
 	}  // XXX MT
 
@@ -245,7 +247,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 #ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
 	  if (__builtin_expect(this != &_S_empty_rep(), false))
 #endif
-            __gnu_cxx::__atomic_add(&this->_M_refcount, 1);
+            __gnu_cxx::__atomic_add_dispatch(&this->_M_refcount, 1);
 	  return _M_refdata();
 	}  // XXX MT
 
@@ -387,6 +389,19 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       static void
       _S_copy_chars(_CharT* __p, const _CharT* __k1, const _CharT* __k2)
       { _M_copy(__p, __k1, __k2 - __k1); }
+
+      static int
+      _S_compare(size_type __n1, size_type __n2)
+      {
+	const difference_type __d = difference_type(__n1 - __n2);
+
+	if (__d > __gnu_cxx::__numeric_traits<int>::__max)
+	  return __gnu_cxx::__numeric_traits<int>::__max;
+	else if (__d < __gnu_cxx::__numeric_traits<int>::__min)
+	  return __gnu_cxx::__numeric_traits<int>::__min;
+	else
+	  return int(__d);
+      }
 
       void
       _M_mutate(size_type __pos, size_type __len1, size_type __len2);
@@ -1452,12 +1467,13 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
           return _S_construct(__beg, __end, __a, _Tag());
 	}
 
-      template<class _InIterator>
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 438. Ambiguity in the "do the right thing" clause
+      template<class _Integer>
         static _CharT*
-        _S_construct_aux(_InIterator __beg, _InIterator __end,
+        _S_construct_aux(_Integer __beg, _Integer __end,
 			 const _Alloc& __a, __true_type)
-	{ return _S_construct(static_cast<size_type>(__beg),
-			      static_cast<value_type>(__end), __a); }
+        { return _S_construct(static_cast<size_type>(__beg), __end, __a); }
 
       template<class _InIterator>
         static _CharT*
@@ -1626,7 +1642,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       /**
        *  @brief  Find last position of a C string.
        *  @param s  C string to locate.
-       *  @param pos  Index of character to start search at (default 0).
+       *  @param pos  Index of character to start search at (default end).
        *  @return  Index of start of  last occurrence.
        *
        *  Starting from @a pos, searches backward for the value of @a s within
@@ -1643,7 +1659,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       /**
        *  @brief  Find last position of a character.
        *  @param c  Character to locate.
-       *  @param pos  Index of character to search back from (default 0).
+       *  @param pos  Index of character to search back from (default end).
        *  @return  Index of last occurrence.
        *
        *  Starting from @a pos, searches backward for @a c within this string.
@@ -1932,7 +1948,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
 	int __r = traits_type::compare(_M_data(), __str.data(), __len);
 	if (!__r)
-	  __r =  __size - __osize;
+	  __r = _S_compare(__size, __osize);
 	return __r;
       }
 
@@ -2393,9 +2409,14 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  writing a C string.
    */
   template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_ostream<_CharT, _Traits>&
+    inline basic_ostream<_CharT, _Traits>&
     operator<<(basic_ostream<_CharT, _Traits>& __os,
-	       const basic_string<_CharT, _Traits, _Alloc>& __str);
+	       const basic_string<_CharT, _Traits, _Alloc>& __str)
+    {
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 586. string inserter not a formatted function
+      return __ostream_insert(__os, __str.data(), __str.size());
+    }
 
   /**
    *  @brief  Read a line from stream into a string.
@@ -2430,8 +2451,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline basic_istream<_CharT, _Traits>&
     getline(basic_istream<_CharT, _Traits>& __is,
-	    basic_string<_CharT, _Traits, _Alloc>& __str);
-    
+	    basic_string<_CharT, _Traits, _Alloc>& __str)
+    { return getline(__is, __str, __is.widen('\n')); }
+
   template<>
     basic_istream<char>&
     getline(basic_istream<char>& __in, basic_string<char>& __str,

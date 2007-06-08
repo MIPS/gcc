@@ -1,6 +1,6 @@
 // TR1 ctime -*- C++ -*-
 
-// Copyright (C) 2006 Free Software Foundation, Inc.
+// Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,13 +27,13 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/** @file 
+/** @file tr1/ctime
  *  This is a TR1 C++ Library header. 
  */
 
-#ifndef _TR1_CTIME
-#define _TR1_CTIME 1
+#ifndef _GLIBCXX_TR1_CTIME
+#define _GLIBCXX_TR1_CTIME 1
 
 #include <ctime>
 
-#endif
+#endif // _GLIBCXX_TR1_CTIME

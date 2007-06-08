@@ -160,6 +160,8 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
     }
   else if (token == CPP_NUMBER)
     {
+      if (TREE_CODE (x) != INTEGER_CST)
+	GCC_BAD ("invalid constant in %<#pragma pack%> - ignored");
       align = TREE_INT_CST_LOW (x);
       action = set;
       if (pragma_lex (&x) != CPP_CLOSE_PAREN)
@@ -190,6 +192,8 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
 	    }
 	  else if (token == CPP_NUMBER && action == push && align == -1)
 	    {
+	      if (TREE_CODE (x) != INTEGER_CST)
+		GCC_BAD ("invalid constant in %<#pragma pack%> - ignored");
 	      align = TREE_INT_CST_LOW (x);
 	      if (align == -1)
 		action = set;
@@ -241,16 +245,145 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
 }
 #endif  /* HANDLE_PRAGMA_PACK */
 
-typedef struct pending_weak_d GTY(())
+struct def_pragma_macro_value GTY(())
 {
-  tree name;
-  tree value;
-} pending_weak;
+  struct def_pragma_macro_value *prev;
+  cpp_macro *value;
+};
 
-DEF_VEC_O(pending_weak);
-DEF_VEC_ALLOC_O(pending_weak,gc);
+struct def_pragma_macro GTY(())
+{
+  hashval_t hash;
+  const char *name;
+  struct def_pragma_macro_value value;
+};
 
-static GTY(()) VEC(pending_weak,gc) *pending_weaks;
+static GTY((param_is (struct def_pragma_macro))) htab_t pushed_macro_table;
+
+#ifdef HANDLE_PRAGMA_PUSH_POP_MACRO
+/* Hash table control functions for pushed_macro_table.  */
+static hashval_t
+dpm_hash (const void *p)
+{
+  return ((const struct def_pragma_macro *)p)->hash;
+}
+
+static int
+dpm_eq (const void *pa, const void *pb)
+{
+  const struct def_pragma_macro *a = pa, *b = pb;
+  return a->hash == b->hash && strcmp (a->name, b->name) == 0;
+}
+
+/* #pragma push_macro("MACRO_NAME")
+   #pragma pop_macro("MACRO_NAME") */
+
+static void
+handle_pragma_push_macro (cpp_reader *reader)
+{
+  tree x, id = 0;
+  enum cpp_ttype token;
+  struct def_pragma_macro dummy, *c;
+  const char *macroname;
+  void **slot;
+
+  if (pragma_lex (&x) != CPP_OPEN_PAREN)
+    GCC_BAD ("missing %<(%> after %<#pragma push_macro%> - ignored");
+
+  token = pragma_lex (&id);
+
+  /* Silently ignore */
+  if (token == CPP_CLOSE_PAREN)
+    return;
+  if (token != CPP_STRING)
+    GCC_BAD ("invalid constant in %<#pragma push_macro%> - ignored");
+
+  if (pragma_lex (&x) != CPP_CLOSE_PAREN)
+    GCC_BAD ("missing %<)%> after %<#pragma push_macro%> - ignored");
+
+  if (pragma_lex (&x) != CPP_EOF)
+    warning (OPT_Wpragmas, "junk at end of %<#pragma push_macro%>");
+
+  /* Check for empty string, and silently ignore.  */
+  if (TREE_STRING_LENGTH (id) < 1)
+    return;
+  macroname = TREE_STRING_POINTER (id);
+
+  if (pushed_macro_table == NULL)
+    pushed_macro_table = htab_create_ggc (15, dpm_hash, dpm_eq, 0);
+
+  dummy.hash = htab_hash_string (macroname);
+  dummy.name = macroname;
+  slot = htab_find_slot_with_hash (pushed_macro_table, &dummy,
+				   dummy.hash, INSERT);
+  c = *slot;
+  if (c == NULL)
+    {
+      *slot = c = ggc_alloc (sizeof (struct def_pragma_macro));
+      c->hash = dummy.hash;
+      c->name = ggc_alloc_string (macroname, TREE_STRING_LENGTH (id) - 1);
+      c->value.prev = NULL;
+    }
+  else
+    {
+      struct def_pragma_macro_value *v;
+      v = ggc_alloc (sizeof (struct def_pragma_macro_value));
+      *v = c->value;
+      c->value.prev = v;
+    }
+
+  c->value.value = cpp_push_definition (reader, macroname);
+}
+
+static void
+handle_pragma_pop_macro (cpp_reader *reader)
+{
+  tree x, id = 0;
+  enum cpp_ttype token;
+  struct def_pragma_macro dummy, *c;
+  const char *macroname;
+  void **slot;
+
+  if (pragma_lex (&x) != CPP_OPEN_PAREN)
+    GCC_BAD ("missing %<(%> after %<#pragma pop_macro%> - ignored");
+
+  token = pragma_lex (&id);
+
+  /* Silently ignore */
+  if (token == CPP_CLOSE_PAREN)
+    return;
+  if (token != CPP_STRING)
+    GCC_BAD ("invalid constant in %<#pragma pop_macro%> - ignored");
+
+  if (pragma_lex (&x) != CPP_CLOSE_PAREN)
+    GCC_BAD ("missing %<)%> after %<#pragma pop_macro%> - ignored");
+
+  if (pragma_lex (&x) != CPP_EOF)
+    warning (OPT_Wpragmas, "junk at end of %<#pragma pop_macro%>");
+
+  /* Check for empty string, and silently ignore.  */
+  if (TREE_STRING_LENGTH (id) < 1)
+    return;
+  macroname = TREE_STRING_POINTER (id);
+
+  dummy.hash = htab_hash_string (macroname);
+  dummy.name = macroname;
+  slot = htab_find_slot_with_hash (pushed_macro_table, &dummy,
+				   dummy.hash, NO_INSERT);
+  if (slot == NULL)
+    return;
+  c = *slot;
+
+  cpp_pop_definition (reader, c->name, c->value.value);
+
+  if (c->value.prev)
+    c->value = *c->value.prev;
+  else
+    htab_clear_slot (pushed_macro_table, slot);
+}
+#endif /* HANDLE_PRAGMA_PUSH_POP_MACRO */
+
+static GTY(()) tree pending_weaks;
 
 #ifdef HANDLE_PRAGMA_WEAK
 static void apply_pragma_weak (tree, tree);
@@ -280,9 +413,7 @@ apply_pragma_weak (tree decl, tree value)
 void
 maybe_apply_pragma_weak (tree decl)
 {
-  tree id;
-  int i;
-  pending_weak *pe;
+  tree *p, t, id;
 
   /* Avoid asking for DECL_ASSEMBLER_NAME when it's not needed.  */
 
@@ -301,11 +432,11 @@ maybe_apply_pragma_weak (tree decl)
 
   id = DECL_ASSEMBLER_NAME (decl);
 
-  for (i = 0; VEC_iterate (pending_weak, pending_weaks, i, pe); i++)
-    if (id == pe->name)
+  for (p = &pending_weaks; (t = *p) ; p = &TREE_CHAIN (t))
+    if (id == TREE_PURPOSE (t))
       {
-	apply_pragma_weak (decl, pe->value);
-	VEC_unordered_remove (pending_weak, pending_weaks, i);
+	apply_pragma_weak (decl, TREE_VALUE (t));
+	*p = TREE_CHAIN (t);
 	break;
       }
 }
@@ -315,16 +446,15 @@ maybe_apply_pragma_weak (tree decl)
 void
 maybe_apply_pending_pragma_weaks (void)
 {
-  tree alias_id, id, decl;
-  int i;
-  pending_weak *pe;
+  tree *p, t, alias_id, id, decl, *next;
 
-  for (i = 0; VEC_iterate (pending_weak, pending_weaks, i, pe); i++)
+  for (p = &pending_weaks; (t = *p) ; p = next)
     {
-      alias_id = pe->name;
-      id = pe->value;
+      next = &TREE_CHAIN (t);
+      alias_id = TREE_PURPOSE (t);
+      id = TREE_VALUE (t);
 
-      if (id == NULL)
+      if (TREE_VALUE (t) == NULL)
 	continue;
 
       decl = build_decl (FUNCTION_DECL, alias_id, default_function_type);
@@ -367,12 +497,7 @@ handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
 	assemble_alias (decl, value);
     }
   else
-    {
-      pending_weak *pe;
-      pe = VEC_safe_push (pending_weak, gc, pending_weaks, NULL);
-      pe->name = name;
-      pe->value = value;
-    }
+    pending_weaks = tree_cons (name, value, pending_weaks);
 }
 #else
 void
@@ -831,6 +956,10 @@ init_pragma (void)
 #else
   c_register_pragma (0, "pack", handle_pragma_pack);
 #endif
+#endif
+#ifdef HANDLE_PRAGMA_PUSH_POP_MACRO
+  c_register_pragma (0 ,"push_macro", handle_pragma_push_macro);
+  c_register_pragma (0 ,"pop_macro", handle_pragma_pop_macro);
 #endif
 #ifdef HANDLE_PRAGMA_WEAK
   c_register_pragma (0, "weak", handle_pragma_weak);

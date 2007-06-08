@@ -1,5 +1,5 @@
 /* AnySeqHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,7 +38,10 @@ exception statement from your version. */
 
 package org.omg.DynamicAny;
 
+import gnu.CORBA.OrbRestricted;
+
 import org.omg.CORBA.Any;
+import org.omg.CORBA.AnySeqHolder;
 import org.omg.CORBA.ORB;
 import org.omg.CORBA.TCKind;
 import org.omg.CORBA.TypeCode;
@@ -53,11 +56,6 @@ import org.omg.CORBA.portable.OutputStream;
  */
 public abstract class AnySeqHelper
 {
-  /**
-   * The cached typecode value, computed only once.
-   */
-  private static TypeCode typeCode;
-
   /**
    * Delegates call to {@link org.omg.CORBA.AnySeqHelper#extract}.
    */
@@ -102,14 +100,10 @@ public abstract class AnySeqHelper
    */
   public static TypeCode type()
   {
-    if (typeCode == null)
-      {
-        ORB orb = ORB.init();
-        TypeCode t =
-          orb.create_sequence_tc(0, orb.get_primitive_tc(TCKind.tk_any));
-        typeCode = orb.create_alias_tc(id(), "AnySeq", t);
-      }
-    return typeCode;
+    ORB orb = OrbRestricted.Singleton;
+    TypeCode t =
+      orb.create_sequence_tc(0, orb.get_primitive_tc(TCKind.tk_any));
+    return orb.create_alias_tc(id(), "AnySeq", t);
   }
 
   /**

@@ -192,10 +192,13 @@ public class MetalSliderUI extends BasicSliderUI
    */
   public void paintThumb(Graphics g) 
   {
+    Color save = g.getColor();
+    g.setColor(thumbColor);
     if (slider.getOrientation() == JSlider.HORIZONTAL)
       horizThumbIcon.paintIcon(slider, g, thumbRect.x, thumbRect.y);
     else
       vertThumbIcon.paintIcon(slider, g, thumbRect.x, thumbRect.y);
+    g.setColor(save);
   }
   
   /**
@@ -229,9 +232,9 @@ public class MetalSliderUI extends BasicSliderUI
             if (slider.isEnabled())
               {
                 int xPos = xPositionForValue(slider.getValue());
-                int x = (slider.getInverted() ? xPos : trackRect.x);
-                int w = (slider.getInverted() ? trackX + trackW - xPos 
-                                              : xPos - trackRect.x);
+                int x = slider.getInverted() ? xPos : trackRect.x;
+                int w = slider.getInverted() ? trackX + trackW - xPos 
+                                             : xPos - trackRect.x;
                 g.setColor(MetalLookAndFeel.getWhite());
                 g.drawLine(x + 1, trackY + 1, x + w - 3, trackY + 1);
                 g.setColor(UIManager.getColor("Slider.altTrackColor"));
@@ -245,9 +248,9 @@ public class MetalSliderUI extends BasicSliderUI
         else if (filledSlider) 
           {
             int xPos = xPositionForValue(slider.getValue());
-            int x = (slider.getInverted() ? xPos : trackRect.x);
-            int w = (slider.getInverted() ? trackX + trackW - xPos 
-                                          : xPos - trackRect.x);
+            int x = slider.getInverted() ? xPos : trackRect.x;
+            int w = slider.getInverted() ? trackX + trackW - xPos 
+                                         : xPos - trackRect.x;
             g.setColor(MetalLookAndFeel.getControlShadow());
             g.fillRect(x + 1, trackY + 1, w - 3, getTrackWidth() - 3);
             if (slider.isEnabled())
@@ -280,9 +283,9 @@ public class MetalSliderUI extends BasicSliderUI
             if (slider.isEnabled())
               {
                 int yPos = yPositionForValue(slider.getValue());
-                int y = (slider.getInverted() ? trackY : yPos);
-                int h = (slider.getInverted() ? yPos - trackY 
-                        : trackY + trackH - yPos);
+                int y = slider.getInverted() ? trackY : yPos;
+                int h = slider.getInverted() ? yPos - trackY 
+                        : trackY + trackH - yPos;
                 
                 g.setColor(MetalLookAndFeel.getWhite());
                 g.drawLine(trackX + 1, y + 1, trackX + 1, y + h - 3);
@@ -297,9 +300,9 @@ public class MetalSliderUI extends BasicSliderUI
         else if (filledSlider) 
           {
           int yPos = yPositionForValue(slider.getValue());
-          int y = (slider.getInverted() ? trackY : yPos);
-          int h = (slider.getInverted() ? yPos - trackY 
-                  : trackY + trackH - yPos);
+          int y = slider.getInverted() ? trackY : yPos;
+          int h = slider.getInverted() ? yPos - trackY 
+                  : trackY + trackH - yPos;
           g.setColor(MetalLookAndFeel.getControlShadow());
           g.fillRect(trackX + 1, y + 1, getTrackWidth() - 3, h - 3);
           if (slider.isEnabled())
@@ -323,7 +326,8 @@ public class MetalSliderUI extends BasicSliderUI
    */
   public void paintFocus(Graphics g)
   {
-    // do nothing as focus is shown by different color on thumb control
+    thumbColor = getFocusColor();
+    paintThumb(g);
   }
   
   /**
@@ -348,7 +352,10 @@ public class MetalSliderUI extends BasicSliderUI
    */
   public int getTickLength()
   {
-    return tickLength + TICK_BUFFER;
+    int len = tickLength + TICK_BUFFER + 1;
+    if (slider.getOrientation() == JSlider.VERTICAL)
+      len += 2;
+    return len;
   }
   
   /**
@@ -368,8 +375,8 @@ public class MetalSliderUI extends BasicSliderUI
    */
   protected int getTrackLength()
   {
-    return (slider.getOrientation() == JSlider.HORIZONTAL 
-            ? tickRect.width : tickRect.height);
+    return slider.getOrientation() == JSlider.HORIZONTAL 
+           ? tickRect.width : tickRect.height;
   }
   
   /**
@@ -402,9 +409,9 @@ public class MetalSliderUI extends BasicSliderUI
     // Note the incoming 'g' has a translation in place to get us to the 
     // start of the tick rect already...
     if (slider.isEnabled())
-      g.setColor(MetalLookAndFeel.getPrimaryControlShadow());
+      g.setColor(slider.getForeground());
     else
-      g.setColor(MetalLookAndFeel.getControlDisabled());
+      g.setColor(MetalLookAndFeel.getControlShadow());
     g.drawLine(x, TICK_BUFFER, x, TICK_BUFFER + tickLength / 2);
   }
  
@@ -421,10 +428,10 @@ public class MetalSliderUI extends BasicSliderUI
     // Note the incoming 'g' has a translation in place to get us to the 
     // start of the tick rect already...
     if (slider.isEnabled())
-      g.setColor(MetalLookAndFeel.getPrimaryControlShadow());
+      g.setColor(slider.getForeground());
     else
-      g.setColor(MetalLookAndFeel.getControlDisabled());
-    g.drawLine(x, TICK_BUFFER, x, TICK_BUFFER + tickLength);
+      g.setColor(MetalLookAndFeel.getControlShadow());
+    g.drawLine(x, TICK_BUFFER, x, TICK_BUFFER + tickLength - 1);
   }
   
   /**
@@ -440,10 +447,10 @@ public class MetalSliderUI extends BasicSliderUI
     // Note the incoming 'g' has a translation in place to get us to the 
     // start of the tick rect already...
     if (slider.isEnabled())
-      g.setColor(MetalLookAndFeel.getPrimaryControlShadow());
+      g.setColor(slider.getForeground());
     else
-      g.setColor(MetalLookAndFeel.getControlDisabled());
-    g.drawLine(TICK_BUFFER - 1, y, TICK_BUFFER - 1 + tickLength / 2, y);
+      g.setColor(MetalLookAndFeel.getControlShadow());
+    g.drawLine(TICK_BUFFER, y, TICK_BUFFER + tickLength / 2, y);
   }
   
   /**
@@ -459,10 +466,10 @@ public class MetalSliderUI extends BasicSliderUI
     // Note the incoming 'g' has a translation in place to get us to the 
     // start of the tick rect already...
     if (slider.isEnabled())
-      g.setColor(MetalLookAndFeel.getPrimaryControlShadow());
+      g.setColor(slider.getForeground());
     else
-      g.setColor(MetalLookAndFeel.getControlDisabled());
-    g.drawLine(TICK_BUFFER - 1, y, TICK_BUFFER - 1 + tickLength, y);
+      g.setColor(MetalLookAndFeel.getControlShadow());
+    g.drawLine(TICK_BUFFER, y, TICK_BUFFER + tickLength, y);
   }
   
 }

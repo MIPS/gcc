@@ -1,5 +1,5 @@
 /* Decimal floating point support.
-   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -137,12 +137,12 @@ decimal_to_decnumber (const REAL_VALUE_TYPE *r, decNumber *dn)
 
   /* Fix up sign bit.  */
   if (r->sign != decNumberIsNegative (dn))
-    decNumberNegate (dn);
+    dn->bits ^= DECNEG;
 }
 
 /* Encode a real into an IEEE 754R decimal32 type.  */
 
-void 
+void
 encode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		  long *buf, const REAL_VALUE_TYPE *r)
 {
@@ -164,8 +164,9 @@ encode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 
 /* Decode an IEEE 754R decimal32 type into a real.  */
 
-void decode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
-		       REAL_VALUE_TYPE *r, const long *buf)
+void
+decode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
+		  REAL_VALUE_TYPE *r, const long *buf)
 {
   decNumber dn;
   decimal32 d32;
@@ -185,7 +186,7 @@ void decode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 
 /* Encode a real into an IEEE 754R decimal64 type.  */
 
-void 
+void
 encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		  long *buf, const REAL_VALUE_TYPE *r)
 {
@@ -213,7 +214,7 @@ encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 
 /* Decode an IEEE 754R decimal64 type into a real.  */
 
-void 
+void
 decode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		  REAL_VALUE_TYPE *r, const long *buf)
 { 
@@ -241,7 +242,7 @@ decode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 
 /* Encode a real into an IEEE 754R decimal128 type.  */
 
-void 
+void
 encode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		   long *buf, const REAL_VALUE_TYPE *r)
 {
@@ -273,7 +274,7 @@ encode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 
 /* Decode an IEEE 754R decimal128 type into a real.  */
 
-void 
+void
 decode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		   REAL_VALUE_TYPE *r, const long *buf)
 {
@@ -444,10 +445,11 @@ decimal_real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode,
    CROP_TRAILING_ZEROS, strip trailing zeros.  Currently, not honoring
    DIGITS or CROP_TRAILING_ZEROS.  */
 
-void decimal_real_to_decimal (char *str, const REAL_VALUE_TYPE *r_orig,
-			      size_t buf_size,
-			      size_t digits ATTRIBUTE_UNUSED,
-			      int crop_trailing_zeros ATTRIBUTE_UNUSED)
+void
+decimal_real_to_decimal (char *str, const REAL_VALUE_TYPE *r_orig,
+			 size_t buf_size,
+			 size_t digits ATTRIBUTE_UNUSED,
+			 int crop_trailing_zeros ATTRIBUTE_UNUSED)
 {
   decimal128 *d128 = (decimal128*) r_orig->sig;
 
@@ -654,11 +656,9 @@ decimal_real_arithmetic (REAL_VALUE_TYPE *r, enum tree_code code,
 
     case NEGATE_EXPR:
       {
-	decimal128 *d128;
 	*r = *op0;
-	d128 = (decimal128 *) r->sig;
-	/* Flip high bit.  */
-	d128->bytes[0] ^= 1 << 7;
+	/* Flip sign bit.  */
+	decimal128FlipSign ((decimal128 *) r->sig);
 	/* Keep sign field in sync.  */
 	r->sign ^= 1;
       }
@@ -666,11 +666,9 @@ decimal_real_arithmetic (REAL_VALUE_TYPE *r, enum tree_code code,
 
     case ABS_EXPR:
       {
-        decimal128 *d128;
         *r = *op0;
-        d128 = (decimal128 *) r->sig;
-	/* Clear high bit.  */
-        d128->bytes[0] &= 0x7f;
+	/* Clear sign bit.  */
+	decimal128ClearSign ((decimal128 *) r->sig);
 	/* Keep sign field in sync.  */
 	r->sign = 0;
       }
@@ -710,5 +708,5 @@ decimal_real_maxval (REAL_VALUE_TYPE *r, int sign, enum machine_mode mode)
 
   decimal_real_from_string (r, max);
   if (sign)
-    r->sig[0] |= 0x80000000;
+    decimal128SetSign ((decimal128 *) r->sig, 1);
 }

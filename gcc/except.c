@@ -1,6 +1,6 @@
 /* Implements exception handling.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
 This file is part of GCC.
@@ -136,11 +136,12 @@ struct eh_region GTY(())
   enum eh_region_type
   {
     ERT_UNKNOWN = 0,
-    ERT_CLEANUP,             /* eh_region_u_cleanup.  */
-    ERT_TRY,                 /* eh_region_u_try.  */
-    ERT_CATCH,               /* eh_region_u_catch.  */
-    ERT_ALLOWED_EXCEPTIONS,  /* eh_region_u_allowed.  */
-    ERT_MUST_NOT_THROW       /* None.  */
+    ERT_CLEANUP,
+    ERT_TRY,
+    ERT_CATCH,
+    ERT_ALLOWED_EXCEPTIONS,
+    ERT_MUST_NOT_THROW,
+    ERT_THROW
   } type;
 
   /* Holds the action to perform based on the preceding type.  */
@@ -166,6 +167,12 @@ struct eh_region GTY(())
       tree type_list;
       int filter;
     } GTY ((tag ("ERT_ALLOWED_EXCEPTIONS"))) allowed;
+
+    /* The type given by a call to "throw foo();", or discovered
+       for a throw.  */
+    struct eh_region_u_throw {
+      tree type;
+    } GTY ((tag ("ERT_THROW"))) throw;
 
     /* Retain the cleanup expression even after expansion so that
        we can match up fixup regions.  */
@@ -699,6 +706,13 @@ remove_unreachable_regions (rtx insns)
 	  bool kill_it = true;
 	  switch (r->type)
 	    {
+	    case ERT_THROW:
+	      /* Don't remove ERT_THROW regions if their outer region
+		 is reachable.  */
+	      if (r->outer && reachable[r->outer->region_number])
+		kill_it = false;
+	      break;
+
 	    case ERT_MUST_NOT_THROW:
 	      /* MUST_NOT_THROW regions are implementable solely in the
 		 runtime, but their existence continues to affect calls
@@ -835,7 +849,8 @@ current_function_has_exception_handlers (void)
 
       region = VEC_index (eh_region, cfun->eh->region_array, i);
       if (region
-	  && region->region_number == i)
+	  && region->region_number == i
+	  && region->type != ERT_THROW)
 	return true;
     }
 
@@ -878,6 +893,7 @@ duplicate_eh_regions_1 (eh_region old, eh_region outer, int eh_offset)
 
   *n = *old;
   n->outer = outer;
+  n->next_peer = NULL;
   gcc_assert (!old->aka);
 
   n->region_number += eh_offset;
@@ -989,7 +1005,11 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
     for (prev_try = VEC_index (eh_region, cfun->eh->region_array, outer_region);
          prev_try && prev_try->type != ERT_TRY;
 	 prev_try = prev_try->outer)
-      ;
+      if (prev_try->type == ERT_MUST_NOT_THROW)
+	{
+	  prev_try = NULL;
+	  break;
+	}
 
   /* Remap all of the internal catch and cleanup linkages.  Since we 
      duplicate entire subtrees, all of the referenced regions will have
@@ -1491,6 +1511,7 @@ build_post_landing_pads (void)
 	  break;
 
 	case ERT_CATCH:
+	case ERT_THROW:
 	  /* Nothing to do.  */
 	  break;
 
@@ -1584,14 +1605,12 @@ static void
 dw2_build_landing_pads (void)
 {
   int i;
-  unsigned int j;
 
   for (i = cfun->eh->last_region_number; i > 0; --i)
     {
       struct eh_region *region;
       rtx seq;
       basic_block bb;
-      bool clobbers_hard_regs = false;
       edge e;
 
       region = VEC_index (eh_region, cfun->eh->region_array, i);
@@ -1620,30 +1639,6 @@ dw2_build_landing_pads (void)
 	else
 #endif
 	  { /* Nothing */ }
-
-      /* If the eh_return data registers are call-saved, then we
-	 won't have considered them clobbered from the call that
-	 threw.  Kill them now.  */
-      for (j = 0; ; ++j)
-	{
-	  unsigned r = EH_RETURN_DATA_REGNO (j);
-	  if (r == INVALID_REGNUM)
-	    break;
-	  if (! call_used_regs[r])
-	    {
-	      emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, r)));
-	      clobbers_hard_regs = true;
-	    }
-	}
-
-      if (clobbers_hard_regs)
-	{
-	  /* @@@ This is a kludge.  Not all machine descriptions define a
-	     blockage insn, but we must not allow the code we just generated
-	     to be reordered by scheduling.  So emit an ASM_INPUT to act as
-	     blockage insn.  */
-	  emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
-	}
 
       emit_move_insn (cfun->eh->exc_ptr,
 		      gen_rtx_REG (ptr_mode, EH_RETURN_DATA_REGNO (0)));
@@ -1693,6 +1688,12 @@ sjlj_find_directly_reachable_regions (struct sjlj_lp_info *lp_info)
       region = VEC_index (eh_region, cfun->eh->region_array, INTVAL (XEXP (note, 0)));
 
       type_thrown = NULL_TREE;
+      if (region->type == ERT_THROW)
+	{
+	  type_thrown = region->u.throw.type;
+	  region = region->outer;
+	}
+
       /* Find the first containing region that might handle the exception.
 	 That's the landing pad to which we will transfer control.  */
       rc = RNL_NOT_CAUGHT;
@@ -1872,17 +1873,15 @@ sjlj_emit_function_enter (rtx dispatch_label)
 
 #ifdef DONT_USE_BUILTIN_SETJMP
   {
-    rtx x, note;
+    rtx x;
     x = emit_library_call_value (setjmp_libfunc, NULL_RTX, LCT_RETURNS_TWICE,
 				 TYPE_MODE (integer_type_node), 1,
 				 plus_constant (XEXP (fc, 0),
 						sjlj_fc_jbuf_ofs), Pmode);
 
-    note = emit_note (NOTE_INSN_EXPECTED_VALUE);
-    NOTE_EXPECTED_VALUE (note) = gen_rtx_EQ (VOIDmode, x, const0_rtx);
-
     emit_cmp_and_jump_insns (x, const0_rtx, NE, 0,
 			     TYPE_MODE (integer_type_node), 0, dispatch_label);
+    add_reg_br_prob_note (get_insns (), REG_BR_PROB_BASE/100);
   }
 #else
   expand_builtin_setjmp_setup (plus_constant (XEXP (fc, 0), sjlj_fc_jbuf_ofs),
@@ -1903,9 +1902,9 @@ sjlj_emit_function_enter (rtx dispatch_label)
   for (fn_begin = get_insns (); ; fn_begin = NEXT_INSN (fn_begin))
     if (NOTE_P (fn_begin))
       {
-	if (NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_FUNCTION_BEG)
+	if (NOTE_KIND (fn_begin) == NOTE_INSN_FUNCTION_BEG)
 	  break;
-	else if (NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_BASIC_BLOCK)
+	else if (NOTE_INSN_BASIC_BLOCK_P (fn_begin))
 	  fn_begin_outside_block = false;
       }
 
@@ -2081,7 +2080,7 @@ finish_eh_generation (void)
   /* The object here is to provide find_basic_blocks with detailed
      information (via reachable_handlers) on how exception control
      flows within the function.  In this first pass, we can include
-     type information garnered from ERT_ALLOWED_EXCEPTIONS
+     type information garnered from ERT_THROW and ERT_ALLOWED_EXCEPTIONS
      regions, and hope that it will be useful in deleting unreachable
      handlers.  Subsequently, we will generate landing pads which will
      connect many of the handlers, and then type information will not
@@ -2554,6 +2553,7 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
       else
 	return RNL_BLOCKED;
 
+    case ERT_THROW:
     case ERT_UNKNOWN:
       /* Shouldn't see these here.  */
       gcc_unreachable ();
@@ -2587,6 +2587,11 @@ foreach_reachable_handler (int region_number, bool is_resx,
 	 region itself may have been deleted out from under us.  */
       if (region == NULL)
 	return;
+      region = region->outer;
+    }
+  else if (region->type == ERT_THROW)
+    {
+      type_thrown = region->u.throw.type;
       region = region->outer;
     }
 
@@ -2667,6 +2672,11 @@ can_throw_internal_1 (int region_number, bool is_resx)
   type_thrown = NULL_TREE;
   if (is_resx)
     region = region->outer;
+  else if (region->type == ERT_THROW)
+    {
+      type_thrown = region->u.throw.type;
+      region = region->outer;
+    }
 
   /* If this exception is ignored by each and every containing region,
      then control passes straight out.  The runtime may handle some
@@ -2722,6 +2732,11 @@ can_throw_external_1 (int region_number, bool is_resx)
   type_thrown = NULL_TREE;
   if (is_resx)
     region = region->outer;
+  else if (region->type == ERT_THROW)
+    {
+      type_thrown = region->u.throw.type;
+      region = region->outer;
+    }
 
   /* If the exception is caught or blocked by any containing region,
      then it is not seen by any calling function.  */
@@ -2773,6 +2788,12 @@ unsigned int
 set_nothrow_function_flags (void)
 {
   rtx insn;
+
+  /* If we don't know that this implementation of the function will
+     actually be used, then we must not set TREE_NOTHROW, since
+     callers must not assume that this function does not throw.  */
+  if (DECL_REPLACEABLE_P (current_function_decl))
+    return 0;
 
   TREE_NOTHROW (current_function_decl) = 1;
 
@@ -2842,7 +2863,7 @@ expand_builtin_unwind_init (void)
 {
   /* Set this so all the registers get saved in our frame; we need to be
      able to copy the saved values for any registers from frames we unwind.  */
-  current_function_has_nonlocal_label = 1;
+  current_function_calls_unwind_init = 1;
 
 #ifdef SETUP_FRAME_ADDRESSES
   SETUP_FRAME_ADDRESSES ();
@@ -2852,7 +2873,7 @@ expand_builtin_unwind_init (void)
 rtx
 expand_builtin_eh_return_data_regno (tree exp)
 {
-  tree which = CALL_EXPR_ARG0 (exp);
+  tree which = CALL_EXPR_ARG (exp, 0);
   unsigned HOST_WIDE_INT iwhich;
 
   if (TREE_CODE (which) != INTEGER_CST)
@@ -2881,7 +2902,7 @@ expand_builtin_eh_return_data_regno (tree exp)
 rtx
 expand_builtin_extract_return_addr (tree addr_tree)
 {
-  rtx addr = expand_expr (addr_tree, NULL_RTX, Pmode, 0);
+  rtx addr = expand_expr (addr_tree, NULL_RTX, Pmode, EXPAND_NORMAL);
 
   if (GET_MODE (addr) != Pmode
       && GET_MODE (addr) != VOIDmode)
@@ -2913,7 +2934,7 @@ expand_builtin_extract_return_addr (tree addr_tree)
 rtx
 expand_builtin_frob_return_addr (tree addr_tree)
 {
-  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, 0);
+  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, EXPAND_NORMAL);
 
   addr = convert_memory_address (Pmode, addr);
 
@@ -2935,7 +2956,8 @@ expand_builtin_eh_return (tree stackadj_tree ATTRIBUTE_UNUSED,
   rtx tmp;
 
 #ifdef EH_RETURN_STACKADJ_RTX
-  tmp = expand_expr (stackadj_tree, cfun->eh->ehr_stackadj, VOIDmode, 0);
+  tmp = expand_expr (stackadj_tree, cfun->eh->ehr_stackadj,
+		     VOIDmode, EXPAND_NORMAL);
   tmp = convert_memory_address (Pmode, tmp);
   if (!cfun->eh->ehr_stackadj)
     cfun->eh->ehr_stackadj = copy_to_reg (tmp);
@@ -2943,7 +2965,8 @@ expand_builtin_eh_return (tree stackadj_tree ATTRIBUTE_UNUSED,
     emit_move_insn (cfun->eh->ehr_stackadj, tmp);
 #endif
 
-  tmp = expand_expr (handler_tree, cfun->eh->ehr_handler, VOIDmode, 0);
+  tmp = expand_expr (handler_tree, cfun->eh->ehr_handler,
+		     VOIDmode, EXPAND_NORMAL);
   tmp = convert_memory_address (Pmode, tmp);
   if (!cfun->eh->ehr_handler)
     cfun->eh->ehr_handler = copy_to_reg (tmp);
@@ -3001,7 +3024,7 @@ expand_eh_return (void)
 rtx
 expand_builtin_extend_pointer (tree addr_tree)
 {
-  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, 0);
+  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, EXPAND_NORMAL);
   int extend;
 
 #ifdef POINTERS_EXTEND_UNSIGNED
@@ -3180,7 +3203,9 @@ collect_one_action_chain (htab_t ar_hash, struct eh_region *region)
       return -2;
 
     case ERT_CATCH:
-      /* CATCH regions are handled in TRY above.  */
+    case ERT_THROW:
+      /* CATCH regions are handled in TRY above.  THROW regions are
+	 for optimization information only and produce no output.  */
       return collect_one_action_chain (ar_hash, region->outer);
 
     default:
@@ -3502,10 +3527,16 @@ sjlj_output_call_site_table (void)
 /* Switch to the section that should be used for exception tables.  */
 
 static void
-switch_to_exception_section (void)
+switch_to_exception_section (const char * ARG_UNUSED (fnname))
 {
-  if (exception_section == 0)
+  section *s;
+
+  if (exception_section)
+    s = exception_section;
+  else
     {
+      /* Compute the section and cache it into exception_section,
+	 unless it depends on the function name.  */
       if (targetm.have_named_sections)
 	{
 	  int flags;
@@ -3521,18 +3552,32 @@ switch_to_exception_section (void)
 	    }
 	  else
 	    flags = SECTION_WRITE;
-	  exception_section = get_section (".gcc_except_table", flags, NULL);
+
+#ifdef HAVE_LD_EH_GC_SECTIONS
+	  if (flag_function_sections)
+	    {
+	      char *section_name = xmalloc (strlen (fnname) + 32);
+	      sprintf (section_name, ".gcc_except_table.%s", fnname);
+	      s = get_section (section_name, flags, NULL);
+	      free (section_name);
+	    }
+	  else
+#endif
+	    exception_section
+	      = s = get_section (".gcc_except_table", flags, NULL);
 	}
       else
-	exception_section = flag_pic ? data_section : readonly_data_section;
+	exception_section
+	  = s = flag_pic ? data_section : readonly_data_section;
     }
-  switch_to_section (exception_section);
+
+  switch_to_section (s);
 }
 #endif
 
 
 /* Output a reference from an exception table to the type_info object TYPE.
-   TT_FORMAT and TT_FORMAT_SIZE descibe the DWARF encoding method used for
+   TT_FORMAT and TT_FORMAT_SIZE describe the DWARF encoding method used for
    the value.  */
 
 static void
@@ -3545,10 +3590,10 @@ output_ttype (tree type, int tt_format, int tt_format_size)
     value = const0_rtx;
   else
     {
-      struct cgraph_varpool_node *node;
+      struct varpool_node *node;
 
       type = lookup_type_for_runtime (type);
-      value = expand_normal (type);
+      value = expand_expr (type, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
 
       /* Let cgraph know that the rtti decl is used.  Not all of the
 	 paths below go through assemble_integer, which would take
@@ -3559,9 +3604,9 @@ output_ttype (tree type, int tt_format, int tt_format_size)
 	  type = TREE_OPERAND (type, 0);
 	  if (TREE_CODE (type) == VAR_DECL)
 	    {
-	      node = cgraph_varpool_node (type);
+	      node = varpool_node (type);
 	      if (node)
-		cgraph_varpool_mark_needed_node (node);
+		varpool_mark_needed_node (node);
 	      public = TREE_PUBLIC (type);
 	    }
 	}
@@ -3580,87 +3625,8 @@ output_ttype (tree type, int tt_format, int tt_format_size)
     dw2_asm_output_encoded_addr_rtx (tt_format, value, public, NULL);
 }
 
-
-/* This call is for the generation of lto function information.  The
-   five output functions are used as callbacks to output each of the
-   five flavors of eh_region.  */
-
-void 
-output_eh_records (void *ob, struct function * cfun,
-		   output_eh_cleanup_t cleanup, 
-		   output_eh_try_t try,
-		   output_eh_catch_t catch,
-		   output_eh_allowed_t allowed,
-		   output_eh_must_not_throw_t must_not_throw)
-{
-  struct eh_region *i = cfun->eh->region_tree;
-  if (! i)
-    return;
-
-  while (1)
-    {
-      switch (i->type)
-	{
-	case ERT_CLEANUP:
-	  cleanup (ob, i->region_number, 
-		   i->inner != NULL, i->next_peer != NULL, 
-		   i->may_contain_throw, 
-		   i->u.cleanup.prev_try 
-		   ? i->u.cleanup.prev_try->region_number : 0);
-	  break;
-	case ERT_TRY:
-	  try (ob, i->region_number, 
-	       i->inner != NULL, i->next_peer != NULL, 
-	       i->may_contain_throw, i->u.try.catch->region_number, 
-	       i->u.try.last_catch ? 
-	       i->u.try.last_catch->region_number : 0);
-	  break;
-	case ERT_CATCH:
-	  catch (ob, i->region_number, 
-		 i->inner != NULL, i->next_peer != NULL, 
-		 i->may_contain_throw, 
-		 i->u.catch.next_catch 
-		 ? i->u.catch.next_catch->region_number : 0, 
-		 i->u.catch.prev_catch 
-		 ? i->u.catch.prev_catch->region_number : 0,
-		 i->u.catch.type_list);
-	  break;
-	case ERT_ALLOWED_EXCEPTIONS:
-	  allowed (ob, i->region_number, 
-		   i->inner != NULL, i->next_peer != NULL, 
-		   i->may_contain_throw, i->u.allowed.type_list);
-	  break;
-	case ERT_MUST_NOT_THROW:
-	  must_not_throw (ob, i->region_number, 
-			  i->inner != NULL, i->next_peer != NULL, 
-			  i->may_contain_throw);
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-
-      /* If there are sub-regions, process them.  */
-      if (i->inner)
-	i = i->inner;
-      /* If there are peers, process them.  */
-      else if (i->next_peer)
-	i = i->next_peer;
-      /* Otherwise, step back up the tree to the next peer.  */
-      else
-	{
-	  do {
-	    i = i->outer;
-	    if (i == NULL)
-	      return;
-	  } while (i->next_peer == NULL);
-	  i = i->next_peer;
-	}
-    }
-}
-
-
 void
-output_function_exception_table (void)
+output_function_exception_table (const char * ARG_UNUSED (fnname))
 {
   int tt_format, cs_format, lp_format, i, n;
 #ifdef HAVE_AS_LEB128
@@ -3673,12 +3639,12 @@ output_function_exception_table (void)
   int have_tt_data;
   int tt_format_size = 0;
 
-  if (eh_personality_libfunc)
-    assemble_external_libcall (eh_personality_libfunc);
-
   /* Not all functions need anything.  */
   if (! cfun->uses_eh_lsda)
     return;
+
+  if (eh_personality_libfunc)
+    assemble_external_libcall (eh_personality_libfunc);
 
 #ifdef TARGET_UNWIND_INFO
   /* TODO: Move this into target file.  */
@@ -3688,7 +3654,7 @@ output_function_exception_table (void)
   /* Note that varasm still thinks we're in the function's code section.
      The ".endp" directive that will immediately follow will take us back.  */
 #else
-  switch_to_exception_section ();
+  switch_to_exception_section (fnname);
 #endif
 
   /* If the target wants a label to begin the table, emit it here.  */

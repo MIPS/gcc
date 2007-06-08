@@ -54,6 +54,7 @@ import java.awt.peer.FontPeer;
 import java.text.AttributedCharacterIterator;
 import java.text.CharacterIterator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -120,6 +121,23 @@ public abstract class ClasspathFontPeer
    */
   protected AffineTransform transform;
 
+  static class LRUCache<K,V> extends LinkedHashMap<K,V>
+  {
+    int max_entries;
+    public LRUCache(int max)
+    {
+      super(max, 0.75f, true);
+      max_entries = max;
+    }
+    protected boolean removeEldestEntry(Map.Entry eldest)
+    {
+      return size() > max_entries;
+    }
+  }
+
+  private static LRUCache<AffineTransform,TransformAttribute> transCache =
+    new LRUCache<AffineTransform,TransformAttribute>(50);
+
   protected static ClasspathToolkit tk()
   {
     return (ClasspathToolkit)(Toolkit.getDefaultToolkit ());
@@ -145,7 +163,8 @@ public abstract class ClasspathFontPeer
             uname.equals ("SERIF") ||
             uname.equals ("MONOSPACED") ||
             uname.equals ("DIALOG") ||
-            uname.equals ("DIALOGINPUT"));
+            uname.equals ("DIALOGINPUT") ||
+            uname.equals ("DEFAULT"));
   }
 
   protected static String logicalFontNameToFaceName (String name)
@@ -161,6 +180,8 @@ public abstract class ClasspathFontPeer
       return "Helvetica";
     else if (uname.equals ("DIALOGINPUT"))
       return "Helvetica";
+    else if (uname.equals ("DEFAULT"))
+      return "Dialog.plain";
     else
       return "Helvetica";
   }
@@ -197,7 +218,19 @@ public abstract class ClasspathFontPeer
   protected static void copyTransformToAttrs (AffineTransform trans, Map attrs)
   {
     if (trans != null)
-      attrs.put(TextAttribute.TRANSFORM, new TransformAttribute (trans));
+      {
+	TransformAttribute ta;
+        synchronized(transCache)
+          {
+	    ta = transCache.get(trans);
+	    if (ta == null)
+	      {
+		ta = new TransformAttribute(trans);
+		transCache.put(trans, ta);
+	      }
+	  }
+	attrs.put(TextAttribute.TRANSFORM, ta);
+      }
   }
 
 
@@ -233,7 +266,7 @@ public abstract class ClasspathFontPeer
       family = (String) attribs.get (TextAttribute.FAMILY);
 
     if (name == null)
-      name = "SansSerif";
+      name = "Default";
 
     if (attribs.containsKey (TextAttribute.WEIGHT))
       {
@@ -828,19 +861,5 @@ public abstract class ClasspathFontPeer
 
   public abstract Rectangle2D getMaxCharBounds (Font font, 
                                                 FontRenderContext rc);
-
-  /** 
-   * Implementation of {@link Font#getStringBounds(CharacterIterator, int,
-   * int, FontRenderContext)}
-   *
-   * @param font the font this peer is being called from. This may be
-   * useful if you are sharing peers between Font objects. Otherwise it may
-   * be ignored.
-   */
-
-  public abstract Rectangle2D getStringBounds (Font font, 
-                                               CharacterIterator ci, 
-                                               int begin, int limit, 
-                                               FontRenderContext frc);
 
 }

@@ -1,5 +1,5 @@
 /* Messages.java -- I18N related helper class
- Copyright (C) 2006 Free Software Foundation, Inc.
+ Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
  This file is part of GNU Classpath.
 
@@ -38,6 +38,8 @@
 
 package gnu.classpath.tools.jarsigner;
 
+import gnu.classpath.Configuration;
+
 import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.Map;
@@ -54,9 +56,10 @@ import java.util.logging.Logger;
 class Messages
 {
   private static final Logger log = Logger.getLogger(Messages.class.getName());
-  private static final String BUNDLE_NAME = "gnu.classpath.tools.jarsigner.MessageBundle"; //$NON-NLS-1$
+  private static final String BUNDLE_NAME = "gnu.classpath.tools.jarsigner.messages";
   private static final ResourceBundle RESOURCE_BUNDLE = ResourceBundle.getBundle(BUNDLE_NAME);
-  private static final Map CACHED_FORMATS = new HashMap(5);
+  private static final Map<String, MessageFormat> CACHED_FORMATS =
+      new HashMap<String, MessageFormat>(5);
 
   private Messages()
   {
@@ -77,18 +80,18 @@ class Messages
 
   public static String getFormattedString(String key, Object args)
   {
-    MessageFormat mf = (MessageFormat) CACHED_FORMATS.get(key);
+    MessageFormat mf = CACHED_FORMATS.get(key);
     if (mf == null)
       {
         String formatString = getString(key);
         if (formatString.startsWith("!"))
           return constructMessage(key, args);
 
-          mf = new MessageFormat(formatString);
-          CACHED_FORMATS.put(key, mf);
+        mf = new MessageFormat(formatString);
+        CACHED_FORMATS.put(key, mf);
       }
 
-    // if the argument is not an array, then build one consisiting of the
+    // if the argument is not an array, then build one consisting of the
     // sole argument before passing it to the format() method
     try
       {
@@ -99,8 +102,9 @@ class Messages
       }
     catch (IllegalArgumentException x)
       {
-        log.fine("Exception while rendering a message format keyed by ["
-                 + key + "]: " + mf.toPattern());
+        if (Configuration.DEBUG)
+          log.fine("Exception while rendering a message format keyed by ["
+                   + key + "]: " + mf.toPattern());
         return constructMessage(mf.toPattern(), args);
       }
   }

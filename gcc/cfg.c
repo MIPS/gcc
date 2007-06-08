@@ -66,6 +66,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "ggc.h"
 #include "hashtab.h"
 #include "alloc-pool.h"
+#include "cfgloop.h"
 
 /* The obstack on which the flow graph components are allocated.  */
 
@@ -79,21 +80,17 @@ static void free_edge (edge);
 /* Called once at initialization time.  */
 
 void
-init_flow (struct function *the_fun)
+init_flow (void)
 {
-  if (!the_fun->cfg)
-    cfun->cfg = ggc_alloc_cleared (sizeof (struct control_flow_graph));
+  if (!cfun->cfg)
+    cfun->cfg = GGC_CNEW (struct control_flow_graph);
   n_edges = 0;
-  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)
-    = ggc_alloc_cleared (sizeof (struct basic_block_def));
-  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)
-    = ggc_alloc_cleared (sizeof (struct basic_block_def));
-  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)->index = EXIT_BLOCK;
-  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)->next_bb 
-    = EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun);
-  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)->prev_bb 
-    = ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun);
+  ENTRY_BLOCK_PTR = GGC_CNEW (struct basic_block_def);
+  ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
+  EXIT_BLOCK_PTR = GGC_CNEW (struct basic_block_def);
+  EXIT_BLOCK_PTR->index = EXIT_BLOCK;
+  ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
+  EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
 }
 
 /* Helper function for remove_edge and clear_edges.  Frees edge structure
@@ -137,7 +134,7 @@ basic_block
 alloc_block (void)
 {
   basic_block bb;
-  bb = ggc_alloc_cleared (sizeof (*bb));
+  bb = GGC_CNEW (struct basic_block_def);
   return bb;
 }
 
@@ -267,7 +264,7 @@ edge
 unchecked_make_edge (basic_block src, basic_block dst, int flags)
 {
   edge e;
-  e = ggc_alloc_cleared (sizeof (*e));
+  e = GGC_CNEW (struct edge_def);
   n_edges++;
 
   e->src = src;
@@ -545,7 +542,7 @@ dump_flow_info (FILE *file, int flags)
       for (i = FIRST_PSEUDO_REGISTER; i < max; i++)
 	if (REG_N_REFS (i))
 	  {
-	    enum reg_class class, altclass;
+	    enum reg_class prefclass, altclass;
 
 	    fprintf (file, "\nRegister %d used %d times across %d insns",
 		     i, REG_N_REFS (i), REG_LIVE_LENGTH (i));
@@ -566,17 +563,17 @@ dump_flow_info (FILE *file, int flags)
 		&& PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
 	      fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
 
-	    class = reg_preferred_class (i);
+	    prefclass = reg_preferred_class (i);
 	    altclass = reg_alternate_class (i);
-	    if (class != GENERAL_REGS || altclass != ALL_REGS)
+	    if (prefclass != GENERAL_REGS || altclass != ALL_REGS)
 	      {
-		if (altclass == ALL_REGS || class == ALL_REGS)
-		  fprintf (file, "; pref %s", reg_class_names[(int) class]);
+		if (altclass == ALL_REGS || prefclass == ALL_REGS)
+		  fprintf (file, "; pref %s", reg_class_names[(int) prefclass]);
 		else if (altclass == NO_REGS)
-		  fprintf (file, "; %s or none", reg_class_names[(int) class]);
+		  fprintf (file, "; %s or none", reg_class_names[(int) prefclass]);
 		else
 		  fprintf (file, "; pref %s, else %s",
-			   reg_class_names[(int) class],
+			   reg_class_names[(int) prefclass],
 			   reg_class_names[(int) altclass]);
 	      }
 
@@ -953,15 +950,28 @@ scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
   edge e;
   if (num < 0)
     num = 0;
-  if (num > den)
+
+  /* Scale NUM and DEN to avoid overflows.  Frequencies are in order of
+     10^4, if we make DEN <= 10^3, we can afford to upscale by 100
+     and still safely fit in int during calculations.  */
+  if (den > 1000)
+    {
+      if (num > 1000000)
+	return;
+
+      num = RDIV (1000 * num, den);
+      den = 1000;
+    }
+  if (num > 100 * den)
     return;
-  /* Assume that the users are producing the fraction from frequencies
-     that never grow far enough to risk arithmetic overflow.  */
-  gcc_assert (num < 65536);
+
   for (i = 0; i < nbbs; i++)
     {
       edge_iterator ei;
       bbs[i]->frequency = RDIV (bbs[i]->frequency * num, den);
+      /* Make sure the frequencies do not grow over BB_FREQ_MAX.  */
+      if (bbs[i]->frequency > BB_FREQ_MAX)
+	bbs[i]->frequency = BB_FREQ_MAX;
       bbs[i]->count = RDIV (bbs[i]->count * num, den);
       FOR_EACH_EDGE (e, ei, bbs[i]->succs)
 	e->count = RDIV (e->count * num, den);
@@ -1018,6 +1028,9 @@ scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num,
    copies.  */
 static htab_t bb_original;
 static htab_t bb_copy;
+
+/* And between loops and copies.  */
+static htab_t loop_copy;
 static alloc_pool original_copy_bb_pool;
 
 struct htab_bb_copy_original_entry
@@ -1059,6 +1072,7 @@ initialize_original_copy_tables (void)
   bb_original = htab_create (10, bb_copy_original_hash,
 			     bb_copy_original_eq, NULL);
   bb_copy = htab_create (10, bb_copy_original_hash, bb_copy_original_eq, NULL);
+  loop_copy = htab_create (10, bb_copy_original_hash, bb_copy_original_eq, NULL);
 }
 
 /* Free the data structures to maintain mapping between blocks and
@@ -1069,10 +1083,57 @@ free_original_copy_tables (void)
   gcc_assert (original_copy_bb_pool);
   htab_delete (bb_copy);
   htab_delete (bb_original);
+  htab_delete (loop_copy);
   free_alloc_pool (original_copy_bb_pool);
   bb_copy = NULL;
   bb_original = NULL;
+  loop_copy = NULL;
   original_copy_bb_pool = NULL;
+}
+
+/* Removes the value associated with OBJ from table TAB.  */
+
+static void
+copy_original_table_clear (htab_t tab, unsigned obj)
+{
+  void **slot;
+  struct htab_bb_copy_original_entry key, *elt;
+
+  if (!original_copy_bb_pool)
+    return;
+
+  key.index1 = obj;
+  slot = htab_find_slot (tab, &key, NO_INSERT);
+  if (!slot)
+    return;
+
+  elt = (struct htab_bb_copy_original_entry *) *slot;
+  htab_clear_slot (tab, slot);
+  pool_free (original_copy_bb_pool, elt);
+}
+
+/* Sets the value associated with OBJ in table TAB to VAL.
+   Do nothing when data structures are not initialized.  */
+
+static void
+copy_original_table_set (htab_t tab, unsigned obj, unsigned val)
+{
+  struct htab_bb_copy_original_entry **slot;
+  struct htab_bb_copy_original_entry key;
+
+  if (!original_copy_bb_pool)
+    return;
+
+  key.index1 = obj;
+  slot = (struct htab_bb_copy_original_entry **)
+		htab_find_slot (tab, &key, INSERT);
+  if (!*slot)
+    {
+      *slot = (struct htab_bb_copy_original_entry *)
+		pool_alloc (original_copy_bb_pool);
+      (*slot)->index1 = obj;
+    }
+  (*slot)->index2 = val;
 }
 
 /* Set original for basic block.  Do nothing when data structures are not
@@ -1080,24 +1141,7 @@ free_original_copy_tables (void)
 void
 set_bb_original (basic_block bb, basic_block original)
 {
-  if (original_copy_bb_pool)
-    {
-      struct htab_bb_copy_original_entry **slot;
-      struct htab_bb_copy_original_entry key;
-
-      key.index1 = bb->index;
-      slot =
-	(struct htab_bb_copy_original_entry **) htab_find_slot (bb_original,
-							       &key, INSERT);
-      if (*slot)
-	(*slot)->index2 = original->index;
-      else
-	{
-	  *slot = pool_alloc (original_copy_bb_pool);
-	  (*slot)->index1 = bb->index;
-	  (*slot)->index2 = original->index;
-	}
-    }
+  copy_original_table_set (bb_original, bb->index, original->index);
 }
 
 /* Get the original basic block.  */
@@ -1122,24 +1166,7 @@ get_bb_original (basic_block bb)
 void
 set_bb_copy (basic_block bb, basic_block copy)
 {
-  if (original_copy_bb_pool)
-    {
-      struct htab_bb_copy_original_entry **slot;
-      struct htab_bb_copy_original_entry key;
-
-      key.index1 = bb->index;
-      slot =
-	(struct htab_bb_copy_original_entry **) htab_find_slot (bb_copy,
-							       &key, INSERT);
-      if (*slot)
-	(*slot)->index2 = copy->index;
-      else
-	{
-	  *slot = pool_alloc (original_copy_bb_pool);
-	  (*slot)->index1 = bb->index;
-	  (*slot)->index2 = copy->index;
-	}
-    }
+  copy_original_table_set (bb_copy, bb->index, copy->index);
 }
 
 /* Get the copy of basic block.  */
@@ -1155,6 +1182,36 @@ get_bb_copy (basic_block bb)
   entry = (struct htab_bb_copy_original_entry *) htab_find (bb_copy, &key);
   if (entry)
     return BASIC_BLOCK (entry->index2);
+  else
+    return NULL;
+}
+
+/* Set copy for LOOP to COPY.  Do nothing when data structures are not
+   initialized so passes not needing this don't need to care.  */
+
+void
+set_loop_copy (struct loop *loop, struct loop *copy)
+{
+  if (!copy)
+    copy_original_table_clear (loop_copy, loop->num);
+  else
+    copy_original_table_set (loop_copy, loop->num, copy->num);
+}
+
+/* Get the copy of LOOP.  */
+
+struct loop *
+get_loop_copy (struct loop *loop)
+{
+  struct htab_bb_copy_original_entry *entry;
+  struct htab_bb_copy_original_entry key;
+
+  gcc_assert (original_copy_bb_pool);
+
+  key.index1 = loop->num;
+  entry = (struct htab_bb_copy_original_entry *) htab_find (loop_copy, &key);
+  if (entry)
+    return get_loop (entry->index2);
   else
     return NULL;
 }

@@ -67,6 +67,7 @@ public class File implements Serializable, Comparable
   private final static int READ = 0;
   private final static int WRITE = 1;
   private final static int EXISTS = 2;
+  private final static int EXEC = 3;
 
   // QUERY arguments to stat function.
   private final static int DIRECTORY = 0;
@@ -182,6 +183,27 @@ public class File implements Serializable, Comparable
     return _access (WRITE);
   }
   
+  /**
+   * This method tests whether or not the current thread is allowed to
+   * to execute the file pointed to by this object. This will be true if and
+   * and only if 1) the file exists and 2) the <code>SecurityManager</code>
+   * (if any) allows access to the file via it's <code>checkExec</code>
+   * method 3) the file is executable.
+   *
+   * @return <code>true</code> if execution is allowed, 
+   * <code>false</code> otherwise
+   *
+   * @exception SecurityException If the <code>SecurityManager</code> 
+   * does not allow access to the file
+   */
+  public boolean canExecute()
+  {
+    if (!exists())
+      return false;
+    checkExec();
+    return _access (EXEC);
+  }
+
   private native boolean performCreate() throws IOException;
 
   /**
@@ -259,6 +281,15 @@ public class File implements Serializable, Comparable
       return path.equalsIgnoreCase(other.path);
   }
 
+  /*
+   * This method tests whether or not the file represented by the
+   * object actually exists on the filesystem.
+   */
+  private boolean internalExists()
+  {
+    return _access (EXISTS);
+  }
+  
   /**
    * This method tests whether or not the file represented by the object
    * actually exists on the filesystem.
@@ -270,7 +301,7 @@ public class File implements Serializable, Comparable
   public boolean exists()
   {
     checkRead();
-    return _access (EXISTS);
+    return internalExists();
   }
 
   /**
@@ -508,9 +539,9 @@ public class File implements Serializable, Comparable
   /**
    * This method returns a canonical representation of the pathname of
    * this file.  The actual form of the canonical representation is
-   * different.  On the GNU system, the canonical form differs from the
-   * absolute form in that all relative file references to "." and ".."
-   * are resolved and removed.
+   * system-dependent.  On the GNU system, conversion to canonical
+   * form involves the removal of redundant separators, references to
+   * "." and "..", and symbolic links.
    * <p>
    * Note that this method, unlike the other methods which return path
    * names, can throw an IOException.  This is because native method 
@@ -685,6 +716,15 @@ public class File implements Serializable, Comparable
    */
   public native boolean isAbsolute();
 
+  /*
+   * This method tests whether or not the file represented by this
+   * object is a directory.
+   */
+  private boolean internalIsDirectory()
+  {
+    return _stat (DIRECTORY);
+  }
+  
   /**
    * This method tests whether or not the file represented by this object
    * is a directory.  In order for this method to return <code>true</code>,
@@ -698,7 +738,7 @@ public class File implements Serializable, Comparable
   public boolean isDirectory()
   {
     checkRead();
-    return _stat (DIRECTORY);
+    return internalIsDirectory();
   }
 
   /**
@@ -1069,10 +1109,10 @@ public class File implements Serializable, Comparable
           throw new IOException("Cannot determine system temporary directory"); 
 	
         directory = new File(dirname);
-        if (!directory.exists())
+        if (!directory.internalExists())
           throw new IOException("System temporary directory "
                                 + directory.getName() + " does not exist.");
-        if (!directory.isDirectory())
+        if (!directory.internalIsDirectory())
           throw new IOException("System temporary directory "
                                 + directory.getName()
                                 + " is not really a directory.");
@@ -1118,6 +1158,159 @@ public class File implements Serializable, Comparable
       }
 
     throw new IOException ("cannot create temporary file");
+  }
+
+  /*
+   * This native method sets file permissions.
+   */
+  private native boolean setFilePermissions(boolean enable, boolean ownerOnly,
+					    int permissions);
+
+  /**
+   * This method sets the owner's read permission for the File represented by
+   * this object.
+   * 
+   * It is the same as calling <code>setReadable(readable, true)</code>.
+   * 
+   * @param <code>readable</code> <code>true</code> to set read permission,
+   * <code>false</code> to unset the read permission.
+   * @return <code>true</code> if the file permissions are changed,
+   * <code>false</code> otherwise.
+   * @exception SecurityException If write access of the file is not permitted.
+   * @see #setReadable(boolean, boolean)
+   * @since 1.6
+   */
+  public boolean setReadable(boolean readable)
+  {
+    return setReadable(readable, true);
+  }
+  
+  /**
+   * This method sets the read permissions for the File represented by
+   * this object.
+   * 
+   * If <code>ownerOnly</code> is set to <code>true</code> then only the
+   * read permission bit for the owner of the file is changed.
+   * 
+   * If <code>ownerOnly</code> is set to <code>false</code>, the file
+   * permissions are changed so that the file can be read by everyone.
+   * 
+   * On unix like systems this sets the <code>user</code>, <code>group</code>
+   * and <code>other</code> read bits and is equal to call
+   * <code>chmod a+r</code> on the file.
+   * 
+   * @param <code>readable</code> <code>true</code> to set read permission,
+   * <code>false</code> to unset the read permission.
+   * @param <code>ownerOnly</code> <code>true</code> to set read permission
+   * for owner only, <code>false</code> for all.
+   * @return <code>true</code> if the file permissions are changed,
+   * <code>false</code> otherwise.
+   * @exception SecurityException If write access of the file is not permitted.
+   * @see #setReadable(boolean)
+   * @since 1.6
+   */
+  public boolean setReadable(boolean readable, boolean ownerOnly)
+  {
+    checkWrite();
+    return setFilePermissions(readable, ownerOnly, READ);
+  }
+  
+  /**
+   * This method sets the owner's write permission for the File represented by
+   * this object.
+   * 
+   * It is the same as calling <code>setWritable(readable, true)</code>. 
+   * 
+   * @param <code>writable</code> <code>true</code> to set write permission,
+   * <code>false</code> to unset write permission.
+   * @return <code>true</code> if the file permissions are changed,
+   * <code>false</code> otherwise.
+   * @exception SecurityException If write access of the file is not permitted.
+   * @see #setWritable(boolean, boolean)
+   * @since 1.6
+   */
+  public boolean setWritable(boolean writable)
+  {
+    return setWritable(writable, true);
+  }
+  
+  /**
+   * This method sets the write permissions for the File represented by
+   * this object.
+   * 
+   * If <code>ownerOnly</code> is set to <code>true</code> then only the
+   * write permission bit for the owner of the file is changed.
+   * 
+   * If <code>ownerOnly</code> is set to <code>false</code>, the file
+   * permissions are changed so that the file can be written by everyone.
+   * 
+   * On unix like systems this set the <code>user</code>, <code>group</code>
+   * and <code>other</code> write bits and is equal to call
+   * <code>chmod a+w</code> on the file.
+   * 
+   * @param <code>writable</code> <code>true</code> to set write permission,
+   * <code>false</code> to unset write permission.
+   * @param <code>ownerOnly</code> <code>true</code> to set write permission
+   * for owner only, <code>false</code> for all. 
+   * @return <code>true</code> if the file permissions are changed,
+   * <code>false</code> otherwise.
+   * @exception SecurityException If write access of the file is not permitted.
+   * @see #setWritable(boolean)
+   * @since 1.6
+   */
+  public boolean setWritable(boolean writable, boolean ownerOnly)
+  {
+    checkWrite();
+    return setFilePermissions(writable, ownerOnly, WRITE);
+  }
+  
+  /**
+   * This method sets the owner's execute permission for the File represented
+   * by this object.
+   * 
+   * It is the same as calling <code>setExecutable(readable, true)</code>. 
+   * 
+   * @param <code>executable</code> <code>true</code> to set execute permission,
+   * <code>false</code> to unset execute permission.
+   * @return <code>true</code> if the file permissions are changed,
+   * <code>false</code> otherwise.
+   * @exception SecurityException If write access of the file is not permitted.
+   * @see #setExecutable(boolean, boolean)
+   * @since 1.6
+   */
+  public boolean setExecutable(boolean executable) 
+  {
+    return setExecutable(executable, true);
+  }
+  
+  /**
+   * This method sets the execute permissions for the File represented by
+   * this object.
+   * 
+   * If <code>ownerOnly</code> is set to <code>true</code> then only the
+   * execute permission bit for the owner of the file is changed.
+   * 
+   * If <code>ownerOnly</code> is set to <code>false</code>, the file
+   * permissions are changed so that the file can be executed by everyone.
+   * 
+   * On unix like systems this set the <code>user</code>, <code>group</code>
+   * and <code>other</code> write bits and is equal to call
+   * <code>chmod a+x</code> on the file.
+   * 
+   * @param <code>executable</code> <code>true</code> to set write permission,
+   * <code>false</code> to unset write permission.
+   * @param <code>ownerOnly</code> <code>true</code> to set write permission
+   * for owner only, <code>false</code> for all. 
+   * @return <code>true</code> if the file permissions are changed,
+   * <code>false</code> otherwise.
+   * @exception SecurityException If write access of the file is not permitted.
+   * @see #setExecutable(boolean)
+   * @since 1.6
+   */
+  public boolean setExecutable(boolean executable, boolean ownerOnly)
+  {
+    checkWrite();
+    return setFilePermissions(executable, ownerOnly, EXEC);
   }
 
   /*
@@ -1298,12 +1491,10 @@ public class File implements Serializable, Comparable
   public synchronized boolean renameTo(File dest)
   {
     SecurityManager s = System.getSecurityManager();
-    String sname = getName();
-    String dname = dest.getName();
     if (s != null)
       {
-	s.checkWrite (sname);
-	s.checkWrite (dname);
+	s.checkWrite (getPath());
+	s.checkWrite (dest.getPath());
       }
     return performRenameTo (dest);
   }
@@ -1356,6 +1547,15 @@ public class File implements Serializable, Comparable
       s.checkRead(path);
   }
 
+  private void checkExec()
+  {
+    // Check the SecurityManager
+    SecurityManager s = System.getSecurityManager();
+    
+    if (s != null)
+      s.checkExec(path);
+  }
+
   /** 
    * Calling this method requests that the file represented by this object
    * be deleted when the virtual machine exits.  Note that this request cannot
@@ -1372,7 +1572,7 @@ public class File implements Serializable, Comparable
     // Check the SecurityManager
     SecurityManager sm = System.getSecurityManager();
     if (sm != null)
-      sm.checkDelete (getName());
+      sm.checkDelete (getPath());
 
     DeleteFileHelper.add(this);
   }

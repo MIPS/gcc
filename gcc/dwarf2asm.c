@@ -62,7 +62,7 @@ dw2_assemble_integer (int size, rtx x)
 }
 
 
-/* Output an immediate constant in a given SIZE in bytes.  */
+/* Output an immediate constant in a given size.  */
 
 void
 dw2_asm_output_data (int size, unsigned HOST_WIDE_INT value,

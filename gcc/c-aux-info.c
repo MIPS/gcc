@@ -43,6 +43,7 @@ static const char *data_type;
 
 static char *affix_data_type (const char *) ATTRIBUTE_MALLOC;
 static const char *gen_formal_list_for_type (tree, formals_style);
+static int   deserves_ellipsis (tree);
 static const char *gen_formal_list_for_func_def (tree, formals_style);
 static const char *gen_type (const char *, tree, formals_style);
 static const char *gen_decl (tree, int, formals_style);
@@ -111,32 +112,26 @@ static const char *
 gen_formal_list_for_type (tree fntype, formals_style style)
 {
   const char *formal_list = "";
-  tree parm_types;
-  tree formal_type = NULL_TREE;
-  int len;
-  int i;
+  tree formal_type;
 
   if (style != ansi)
     return "()";
 
-  parm_types = TYPE_ARG_TYPES (fntype);
-  len = num_parm_types (parm_types);
-  for (i = 0; i < len; i++)
+  formal_type = TYPE_ARG_TYPES (fntype);
+  while (formal_type && TREE_VALUE (formal_type) != void_type_node)
     {
       const char *this_type;
-
-      formal_type = nth_parm_type (parm_types, i);
-      if (formal_type == void_type_node)
-	break;
 
       if (*formal_list)
 	formal_list = concat (formal_list, ", ", NULL);
 
-      this_type = gen_type ("", formal_type, ansi);
+      this_type = gen_type ("", TREE_VALUE (formal_type), ansi);
       formal_list
 	= ((strlen (this_type))
 	   ? concat (formal_list, affix_data_type (this_type), NULL)
 	   : concat (formal_list, data_type, NULL));
+
+      formal_type = TREE_CHAIN (formal_type);
     }
 
   /* If we got to here, then we are trying to generate an ANSI style formal
@@ -171,8 +166,8 @@ gen_formal_list_for_type (tree fntype, formals_style style)
 
   if (!*formal_list)
     {
-      if (parm_types)
-	/* assert (nth_parm_type (parm_types, 0) == void_type_node);  */
+      if (TYPE_ARG_TYPES (fntype))
+	/* assert (TREE_VALUE (TYPE_ARG_TYPES (fntype)) == void_type_node);  */
 	formal_list = "void";
       else
 	formal_list = "/* ??? */";
@@ -182,11 +177,33 @@ gen_formal_list_for_type (tree fntype, formals_style style)
       /* If there were at least some parameters, and if the formals-types-list
 	 petered out to a NULL (i.e. without being terminated by a
 	 void_type_node) then we need to tack on an ellipsis.  */
-      if (formal_type != void_type_node)
+      if (!formal_type)
 	formal_list = concat (formal_list, ", ...", NULL);
     }
 
   return concat (" (", formal_list, ")", NULL);
+}
+
+/* For the generation of an ANSI prototype for a function definition, we have
+   to look at the formal parameter list of the function's own "type" to
+   determine if the function's formal parameter list should end with an
+   ellipsis.  Given a tree node, the following function will return nonzero
+   if the "function type" parameter list should end with an ellipsis.  */
+
+static int
+deserves_ellipsis (tree fntype)
+{
+  tree formal_type;
+
+  formal_type = TYPE_ARG_TYPES (fntype);
+  while (formal_type && TREE_VALUE (formal_type) != void_type_node)
+    formal_type = TREE_CHAIN (formal_type);
+
+  /* If there were at least some parameters, and if the formals-types-list
+     petered out to a NULL (i.e. without being terminated by a void_type_node)
+     then we need to tack on an ellipsis.  */
+
+  return (!formal_type && TYPE_ARG_TYPES (fntype));
 }
 
 /* Generate a parameter list for a function definition (in some given style).
@@ -232,7 +249,7 @@ gen_formal_list_for_func_def (tree fndecl, formals_style style)
     {
       if (!DECL_ARGUMENTS (fndecl))
 	formal_list = concat (formal_list, "void", NULL);
-      if (stdarg_p (TREE_TYPE (fndecl)))
+      if (deserves_ellipsis (TREE_TYPE (fndecl)))
 	formal_list = concat (formal_list, ", ...", NULL);
     }
   if ((style == ansi) || (style == k_and_r_names))

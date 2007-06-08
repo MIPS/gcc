@@ -1,6 +1,7 @@
 // Position types -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -28,15 +29,15 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-//
-// ISO C++ 14882: 27.4.1 - Types
-// ISO C++ 14882: 27.4.3 - Template class fpos
-//
-
 /** @file postypes.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+//
+// ISO C++ 14882: 27.4.1 - Types
+// ISO C++ 14882: 27.4.3 - Template class fpos
+//
 
 #ifndef _GLIBCXX_POSTYPES_H
 #define _GLIBCXX_POSTYPES_H 1
@@ -77,9 +78,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   /// Integral type for I/O operation counts and buffer sizes.
   typedef ptrdiff_t	streamsize; // Signed integral type
 
-  template<typename _StateT>
-    class fpos;
-
   /**
    *  @brief  Class representing stream positions.
    *
@@ -118,11 +116,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       /// Convert to streamoff.
       operator streamoff() const { return _M_off; }
-
-      // NB: Via conversion to streamoff, two fpos objects can be compared.
-      // The standard only requires that operator== must be an equivalence
-      // relation.  In this implementation two fpos objects belong to the
-      // same equivalence class if the contained offsets compare equal.
 
       /// Remember the value of @a st.
       void
@@ -193,6 +186,21 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       operator-(const fpos& __other) const
       { return _M_off - __other._M_off; }
     };
+
+  // The standard only requires that operator== must be an
+  // equivalence relation. In this implementation two fpos<StateT>
+  // objects belong to the same equivalence class if the contained
+  // offsets compare equal.
+  /// Test if equivalent to another position.
+  template<typename _StateT>
+    inline bool
+    operator==(const fpos<_StateT>& __lhs, const fpos<_StateT>& __rhs)
+    { return streamoff(__lhs) == streamoff(__rhs); }
+
+  template<typename _StateT>
+    inline bool
+    operator!=(const fpos<_StateT>& __lhs, const fpos<_StateT>& __rhs)
+    { return streamoff(__lhs) != streamoff(__rhs); }
 
   // Clauses 21.1.3.1 and 21.1.3.2 describe streampos and wstreampos
   // as implementation defined types, but clause 27.2 requires that

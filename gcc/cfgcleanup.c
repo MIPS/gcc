@@ -1,6 +1,7 @@
 /* Control flow optimization code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -622,7 +623,6 @@ static void
 merge_blocks_move_predecessor_nojumps (basic_block a, basic_block b)
 {
   rtx barrier;
-  bool only_notes;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
@@ -640,16 +640,6 @@ merge_blocks_move_predecessor_nojumps (basic_block a, basic_block b)
   barrier = next_nonnote_insn (BB_END (a));
   gcc_assert (BARRIER_P (barrier));
   delete_insn (barrier);
-
-  /* Move block and loop notes out of the chain so that we do not
-     disturb their order.
-
-     ??? A better solution would be to squeeze out all the non-nested notes
-     and adjust the block trees appropriately.   Even better would be to have
-     a tighter connection between block trees and rtl so that this is not
-     necessary.  */
-  only_notes = squeeze_notes (&BB_HEAD (a), &BB_END (a));
-  gcc_assert (!only_notes);
 
   /* Scramble the insn chain.  */
   if (BB_END (a) != PREV_INSN (BB_HEAD (b)))
@@ -678,7 +668,6 @@ merge_blocks_move_successor_nojumps (basic_block a, basic_block b)
 {
   rtx barrier, real_b_end;
   rtx label, table;
-  bool only_notes;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
@@ -707,16 +696,6 @@ merge_blocks_move_successor_nojumps (basic_block a, basic_block b)
   barrier = NEXT_INSN (BB_END (b));
   if (barrier && BARRIER_P (barrier))
     delete_insn (barrier);
-
-  /* Move block and loop notes out of the chain so that we do not
-     disturb their order.
-
-     ??? A better solution would be to squeeze out all the non-nested notes
-     and adjust the block trees appropriately.   Even better would be to have
-     a tighter connection between block trees and rtl so that this is not
-     necessary.  */
-  only_notes = squeeze_notes (&BB_HEAD (b), &BB_END (b));
-  gcc_assert (!only_notes);
 
 
   /* Scramble the insn chain.  */
@@ -762,8 +741,6 @@ merge_blocks_move (edge e, basic_block b, basic_block c, int mode)
 
   if (BB_PARTITION (b) != BB_PARTITION (c))
     return NULL;
-
-
 
   /* If B has a fallthru edge to C, no need to move anything.  */
   if (e->flags & EDGE_FALLTHRU)
@@ -997,12 +974,8 @@ old_insns_match_p (int mode ATTRIBUTE_UNUSED, rtx i1, rtx i2)
 	if (REG_NOTE_KIND (note) == REG_DEAD && STACK_REG_P (XEXP (note, 0)))
 	  SET_HARD_REG_BIT (i2_regset, REGNO (XEXP (note, 0)));
 
-      GO_IF_HARD_REG_EQUAL (i1_regset, i2_regset, done);
-
-      return false;
-
-    done:
-      ;
+      if (!hard_reg_set_equal_p (i1_regset, i2_regset))
+	return false;
     }
 #endif
 
@@ -1733,7 +1706,7 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
 
   redirect_to->count += src1->count;
   redirect_to->frequency += src1->frequency;
-  /* We may have some registers visible trought the block.  */
+  /* We may have some registers visible through the block.  */
   redirect_to->flags |= BB_DIRTY;
 
   /* Recompute the frequencies and counts of outgoing edges.  */
@@ -1993,7 +1966,7 @@ try_optimize_cfg (int mode)
 	      bool changed_here = false;
 
 	      /* Delete trivially dead basic blocks.  */
-	      while (EDGE_COUNT (b->preds) == 0)
+	      if (EDGE_COUNT (b->preds) == 0)
 		{
 		  c = b->prev_bb;
 		  if (dump_file)
@@ -2003,7 +1976,9 @@ try_optimize_cfg (int mode)
 		  delete_basic_block (b);
 		  if (!(mode & CLEANUP_CFGLAYOUT))
 		    changed = true;
-		  b = c;
+		  /* Avoid trying to remove ENTRY_BLOCK_PTR.  */
+		  b = (c == ENTRY_BLOCK_PTR ? c->next_bb : c);
+		  continue;
 		}
 
 	      /* Remove code labels no longer used.  */
@@ -2024,15 +1999,17 @@ try_optimize_cfg (int mode)
 		{
 		  rtx label = BB_HEAD (b);
 
-		  delete_insn_chain (label, label);
+		  delete_insn_chain (label, label, false);
 		  /* In the case label is undeletable, move it after the
 		     BASIC_BLOCK note.  */
-		  if (NOTE_LINE_NUMBER (BB_HEAD (b)) == NOTE_INSN_DELETED_LABEL)
+		  if (NOTE_KIND (BB_HEAD (b)) == NOTE_INSN_DELETED_LABEL)
 		    {
 		      rtx bb_note = NEXT_INSN (BB_HEAD (b));
 
 		      reorder_insns_nobb (label, label, bb_note);
 		      BB_HEAD (b) = bb_note;
+		      if (BB_END (b) == bb_note)
+			BB_END (b) = label;
 		    }
 		  if (dump_file)
 		    fprintf (dump_file, "Deleted label in block %i.\n",
@@ -2189,31 +2166,6 @@ delete_unreachable_blocks (void)
     tidy_fallthru_edges ();
   return changed;
 }
-
-/* Merges sequential blocks if possible.  */
-
-bool
-merge_seq_blocks (void)
-{
-  basic_block bb;
-  bool changed = false;
-
-  for (bb = ENTRY_BLOCK_PTR->next_bb; bb != EXIT_BLOCK_PTR; )
-    {
-      if (single_succ_p (bb)
-	  && can_merge_blocks_p (bb, single_succ (bb)))
-	{
-	  /* Merge the blocks and retry.  */
-	  merge_blocks (bb, single_succ (bb));
-	  changed = true;
-	  continue;
-	}
-
-      bb = bb->next_bb;
-    }
-
-  return changed;
-}
 
 /* Tidy the CFG by deleting unreachable code and whatnot.  */
 
@@ -2221,6 +2173,12 @@ bool
 cleanup_cfg (int mode)
 {
   bool changed = false;
+
+  /* Set the cfglayout mode flag here.  We could update all the callers
+     but that is just inconvenient, especially given that we eventually
+     want to have cfglayout mode as the default.  */
+  if (current_ir_type () == IR_RTL_CFGLAYOUT)
+    mode |= CLEANUP_CFGLAYOUT;
 
   timevar_push (TV_CLEANUP_CFG);
   if (delete_unreachable_blocks ())
@@ -2230,7 +2188,7 @@ cleanup_cfg (int mode)
 	 now to introduce more opportunities for try_optimize_cfg.  */
       if (!(mode & (CLEANUP_NO_INSN_DEL | CLEANUP_UPDATE_LIFE))
 	  && !reload_completed)
-	delete_trivially_dead_insns (get_insns(), max_reg_num ());
+	delete_trivially_dead_insns (get_insns (), max_reg_num ());
     }
 
   compact_blocks ();
@@ -2255,12 +2213,20 @@ cleanup_cfg (int mode)
 	       && (mode & CLEANUP_EXPENSIVE)
 	       && !reload_completed)
 	{
-	  if (!delete_trivially_dead_insns (get_insns(), max_reg_num ()))
+	  if (!delete_trivially_dead_insns (get_insns (), max_reg_num ()))
 	    break;
 	}
       else
 	break;
-      delete_dead_jumptables ();
+
+      /* Don't call delete_dead_jumptables in cfglayout mode, because
+	 that function assumes that jump tables are in the insns stream.
+	 But we also don't _have_ to delete dead jumptables in cfglayout
+	 mode because we shouldn't even be looking at things that are
+	 not in a basic block.  Dead jumptables are cleaned up when
+	 going out of cfglayout mode.  */
+      if (!(mode & CLEANUP_CFGLAYOUT))
+	delete_dead_jumptables ();
     }
 
   timevar_pop (TV_CLEANUP_CFG);
@@ -2300,29 +2266,12 @@ struct tree_opt_pass pass_jump =
 static unsigned int
 rest_of_handle_jump2 (void)
 {
-  /* Turn NOTE_INSN_EXPECTED_VALUE into REG_BR_PROB.  Do this
-     before jump optimization switches branch directions.  */
-  if (flag_guess_branch_prob)
-    expected_value_to_br_prob ();
-
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
   reg_scan (get_insns (), max_reg_num ());
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
 	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-
-  purge_line_number_notes ();
-
-  if (optimize)
-    cleanup_cfg (CLEANUP_EXPENSIVE);
-
-  /* Jump optimization, and the removal of NULL pointer checks, may
-     have reduced the number of instructions substantially.  CSE, and
-     future passes, allocate arrays whose dimensions involve the
-     maximum instruction UID, so if we can reduce the maximum UID
-     we'll save big on memory.  */
-  renumber_insns ();
   return 0;
 }
 

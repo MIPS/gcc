@@ -1,6 +1,6 @@
 // TR1 wctype.h -*- C++ -*-
 
-// Copyright (C) 2006 Free Software Foundation, Inc.
+// Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,13 +27,13 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/** @file 
+/** @file tr1/wctype.h
  *  This is a TR1 C++ Library header. 
  */
 
-#ifndef _TR1_WCTYPE_H
-#define _TR1_WCTYPE_H 1
+#ifndef _GLIBCXX_TR1_WCTYPE_H
+#define _GLIBCXX_TR1_WCTYPE_H 1
 
 #include <tr1/cwctype>
 
-#endif
+#endif // _GLIBCXX_TR1_WCTYPE_H

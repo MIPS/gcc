@@ -38,8 +38,6 @@ exception statement from your version. */
 
 package javax.swing.plaf.basic;
 
-import gnu.classpath.NotImplementedException;
-
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -273,9 +271,17 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
    */
   public void uninstallingUI()
   {
+    if (propertyChangeListener != null)
+      {
+        comboBox.removePropertyChangeListener(propertyChangeListener);
+      }
+    if (itemListener != null)
+      {
+        comboBox.removeItemListener(itemListener);
+      }
     uninstallComboBoxModelListeners(comboBox.getModel());
-    uninstallListeners();
     uninstallKeyboardActions();
+    uninstallListListeners();
   }
 
   /**
@@ -294,9 +300,8 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
    * This method uninstalls keyboard actions installed by the UI.
    */
   protected void uninstallKeyboardActions()
-    throws NotImplementedException
   {
-    // FIXME: Need to implement
+    // Nothing to do here.
   }
 
   /**
@@ -469,7 +474,6 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
     list.setBorder(null);
     list.setCellRenderer(comboBox.getRenderer());
     list.setFocusable(false);
-    syncListSelection();
     list.setSelectionMode(ListSelectionModel.SINGLE_INTERVAL_SELECTION);
     installListListeners();
   }
@@ -559,12 +563,11 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
   }
 
   /**
-   * DOCUMENT ME!
+   * Installs the keyboard actions.
    */
   protected void installKeyboardActions()
-    throws NotImplementedException
   {
-    // FIXME: Need to implement
+    // Nothing to do here
   }
 
   /**
@@ -681,7 +684,7 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
   {
     Point point = SwingUtilities.convertPoint((Component) e.getSource(),
                                               e.getPoint(), list);
-    MouseEvent newEvent= new MouseEvent((Component) e.getSource(),
+    MouseEvent newEvent = new MouseEvent((Component) e.getSource(),
                                         e.getID(), e.getWhen(),
                                         e.getModifiers(), point.x, point.y,
                                         e.getModifiers(),
@@ -1014,15 +1017,6 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
   // ------ private helper methods --------------------
 
   /**
-   * This method uninstalls listeners installed by the UI
-   */
-  private void uninstallListeners()
-  {
-    uninstallComboBoxListeners();
-    uninstallComboBoxModelListeners(comboBox.getModel());
-  }
-
-  /**
    * This method uninstalls Listeners registered with combo boxes list of
    * items
    */
@@ -1033,19 +1027,6 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
 
     list.removeMouseMotionListener(listMouseMotionListener);
     listMouseMotionListener = null;
-  }
-
-  /**
-   * This method uninstalls listeners listening to combo box  associated with
-   * this popup menu
-   */
-  private void uninstallComboBoxListeners()
-  {
-    comboBox.removeItemListener(itemListener);
-    itemListener = null;
-
-    comboBox.removePropertyChangeListener(propertyChangeListener);
-    propertyChangeListener = null;
   }
 
   void syncListSelection()

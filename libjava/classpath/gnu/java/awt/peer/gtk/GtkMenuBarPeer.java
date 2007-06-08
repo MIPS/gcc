@@ -38,12 +38,9 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
-import java.awt.Font;
 import java.awt.Menu;
 import java.awt.MenuBar;
-import java.awt.MenuComponent;
 import java.awt.peer.MenuBarPeer;
-import java.awt.peer.MenuPeer;
 
 public class GtkMenuBarPeer extends GtkMenuComponentPeer
   implements MenuBarPeer
@@ -79,15 +76,15 @@ public class GtkMenuBarPeer extends GtkMenuComponentPeer
   {
     if (hasHelpMenu)
       {
-	// Remove the (help) menu, which is after all the other items.
-	delMenu(((MenuBar) awtWidget).getMenuCount());
-	hasHelpMenu = false;
+        // Remove the (help) menu, which is after all the other items.
+        delMenu(((MenuBar) awtWidget).getMenuCount());
+        hasHelpMenu = false;
       }
 
     if (menu != null)
       {
-	addMenu(menu);
-	hasHelpMenu = true;
+        addMenu(menu);
+        hasHelpMenu = true;
       }
   }
 
@@ -106,9 +103,9 @@ public class GtkMenuBarPeer extends GtkMenuComponentPeer
     // Make sure the help menu is the last one.
     if (hasHelpMenu)
       {
-	addHelpMenu(null);
-	addMenu((GtkMenuPeer) m.getPeer());
-	addHelpMenu(((MenuBar) awtWidget).getHelpMenu());
+        addHelpMenu(null);
+        addMenu((GtkMenuPeer) m.getPeer());
+        addHelpMenu(((MenuBar) awtWidget).getHelpMenu());
       }
     else
       addMenu((GtkMenuPeer) m.getPeer());

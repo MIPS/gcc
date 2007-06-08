@@ -97,11 +97,21 @@ public abstract class AWTEvent extends EventObject
   protected boolean consumed;
 
   /**
+   * Used for implementing a simple linked list in EventQueue.
+   */
+  transient AWTEvent queueNext;
+
+  /**
    * Who knows? It's in the serial version.
    *
    * @serial No idea what this is for.
    */
   byte[] bdata;
+
+  /**
+   * Indicates if this event is dispatched by the KeyboardFocusManager.
+   */
+  boolean isFocusManagerEvent = false;
 
   /** Mask for selecting component events. */
   public static final long COMPONENT_EVENT_MASK = 0x00001;
@@ -252,9 +262,17 @@ public abstract class AWTEvent extends EventObject
    */
   public String toString ()
   {
+    String src;
+    if (source instanceof Component)
+      src = ((Component) source).getName();
+    else if (source instanceof MenuComponent)
+      src = ((MenuComponent) source).getName();
+    else if (source != null)
+      src = source.toString();
+    else
+      src = "null";
     String string = getClass ().getName () + "[" + paramString () + "] on "
-    + source;
-
+                    + src;
     return string;
   }
 

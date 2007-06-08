@@ -674,6 +674,10 @@ see_get_extension_reg (rtx extension, bool return_dest_reg)
   rtx reg1 = NULL;
   rtx reg2 = NULL;
 
+  /* Parallel pattern for extension not supported for the moment.  */
+  if (GET_CODE (PATTERN (extension)) == PARALLEL)
+    return NULL;
+
   set = single_set (extension);
   if (!set)
     return NULL;
@@ -718,6 +722,10 @@ see_get_extension_data (rtx extension, enum machine_mode *source_mode)
 
   if (!extension || !INSN_P (extension))
     return UNKNOWN;
+
+  /* Parallel pattern for extension not supported for the moment.  */
+  if (GET_CODE (PATTERN (extension)) == PARALLEL)
+    return NOT_RELEVANT;
 
   set = single_set (extension);
   if (!set)
@@ -2604,7 +2612,8 @@ see_merge_one_use_extension (void **slot, void *b)
 	/* Replacement failed.  Remove the note.  */
 	remove_note (ref_copy, note);
       else
-	XEXP (note, 0) = simplified_note;
+	set_unique_reg_note (ref_copy, REG_NOTE_KIND (note),
+			     simplified_note);
     }
 
   if (!see_want_to_be_merged_with_extension (ref, use_se, USE_EXTENSION))
@@ -3161,7 +3170,7 @@ see_store_reference_and_extension (rtx ref_insn, rtx se_insn,
 
    A definition is relevant if its root has
    ((entry_type == SIGN_EXTENDED_DEF) || (entry_type == ZERO_EXTENDED_DEF)) and
-   his source_mode is not narrower then the the roots source_mode.
+   his source_mode is not narrower then the roots source_mode.
 
    Return the number of relevant defs or negative number if something bad had
    happened and the optimization should be aborted.  */
@@ -3462,8 +3471,8 @@ see_analyze_one_def (rtx insn, enum machine_mode *source_mode,
 	 relevant.  Handling this extension as relevant would make things much
 	 more complicated.  */
       next_insn = NEXT_INSN (insn);
-      if (prev_insn
-	  && INSN_P (prev_insn)
+      if (next_insn
+	  && INSN_P (next_insn)
 	  && (see_get_extension_data (next_insn, &next_source_mode) !=
 	      NOT_RELEVANT))
 	{

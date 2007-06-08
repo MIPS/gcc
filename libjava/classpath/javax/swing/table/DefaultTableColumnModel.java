@@ -71,7 +71,7 @@ public class DefaultTableColumnModel
   /**
    * Storage for the table columns.
    */
-  protected Vector tableColumns;
+  protected Vector<TableColumn> tableColumns;
 
   /**
    * A selection model that keeps track of column selections.
@@ -91,10 +91,10 @@ public class DefaultTableColumnModel
   /**
    * A change event used when notifying listeners of a change to the 
    * <code>columnMargin</code> field.  This single event is reused for all
-   * notifications.
+   * notifications (it is lazily instantiated within the 
+   * {@link #fireColumnMarginChanged()} method).
    */
-  // FIXME: use lazy instantiation
-  protected transient ChangeEvent changeEvent = new ChangeEvent(this);
+  protected transient ChangeEvent changeEvent;
 
   /**
    * A flag that indicates whether or not columns can be selected. 
@@ -187,7 +187,7 @@ public class DefaultTableColumnModel
       throw new IllegalArgumentException("Index 'i' out of range.");
     if (j < 0 || j >= columnCount)
       throw new IllegalArgumentException("Index 'j' out of range.");
-    Object column = tableColumns.remove(i);
+    TableColumn column = tableColumns.remove(i);
     tableColumns.add(j, column);
     fireColumnMoved(new TableColumnModelEvent(this, i, j));
   }
@@ -221,7 +221,7 @@ public class DefaultTableColumnModel
    * 
    * @return An enumeration of the columns in the model.
    */
-  public Enumeration getColumns()
+  public Enumeration<TableColumn> getColumns()
   {
     return tableColumns.elements();
   }
@@ -580,7 +580,9 @@ public class DefaultTableColumnModel
    */
   protected void fireColumnMarginChanged()
   {
-    EventListener [] listeners = getListeners(TableColumnModelListener.class);
+    EventListener[] listeners = getListeners(TableColumnModelListener.class);
+    if (changeEvent == null && listeners.length > 0)
+      changeEvent = new ChangeEvent(this);
     for (int i = 0; i < listeners.length; ++i)
       ((TableColumnModelListener) listeners[i]).columnMarginChanged(changeEvent);
   }
@@ -595,7 +597,7 @@ public class DefaultTableColumnModel
    * @return An array containing the listeners (of the specified type) that 
    *     are registered with this model.
    */
-  public EventListener[] getListeners(Class listenerType)
+  public <T extends EventListener> T[] getListeners(Class<T> listenerType)
   {
     return listenerList.getListeners(listenerType);
   }

@@ -22,14 +22,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_TREE_CHREC_H
 #define GCC_TREE_CHREC_H
 
-/* Accessors for the chains of recurrences.  */
-#define CHREC_VAR(NODE)           TREE_OPERAND (NODE, 0)
-#define CHREC_LEFT(NODE)          TREE_OPERAND (NODE, 1)
-#define CHREC_RIGHT(NODE)         TREE_OPERAND (NODE, 2)
-#define CHREC_VARIABLE(NODE)      TREE_INT_CST_LOW (CHREC_VAR (NODE))
-
-
-
 /* The following trees are unique elements.  Thus the comparison of another 
    element to these elements should be done on the pointer to these trees, 
    and not on their value.  */
@@ -44,8 +36,7 @@ extern GTY(()) tree chrec_known;
 static inline bool
 automatically_generated_chrec_p (tree chrec)
 {
-  return (chrec == chrec_not_analyzed_yet 
-	  || chrec == chrec_dont_know
+  return (chrec == chrec_dont_know
 	  || chrec == chrec_known);
 }
 
@@ -88,11 +79,23 @@ extern bool chrec_contains_symbols (tree);
 extern bool chrec_contains_symbols_defined_in_loop (tree, unsigned);
 extern bool chrec_contains_undetermined (tree);
 extern bool tree_contains_chrecs (tree, int *);
-extern bool evolution_function_is_affine_multivariate_p (tree);
+extern bool evolution_function_is_affine_multivariate_p (tree, int);
 extern bool evolution_function_is_univariate_p (tree);
 extern unsigned nb_vars_in_chrec (tree);
 
-
+/* Determines whether CHREC is equal to zero.  */
+
+static inline bool 
+chrec_zerop (tree chrec)
+{
+  if (chrec == NULL_TREE)
+    return false;
+  
+  if (TREE_CODE (chrec) == INTEGER_CST)
+    return integer_zerop (chrec);
+  
+  return false;
+}
 
 /* Build a polynomial chain of recurrence.  */
 
@@ -107,26 +110,11 @@ build_polynomial_chrec (unsigned loop_num,
 
   gcc_assert (TREE_TYPE (left) == TREE_TYPE (right));
 
+  if (chrec_zerop (right))
+    return left;
+
   return build3 (POLYNOMIAL_CHREC, TREE_TYPE (left), 
 		 build_int_cst (NULL_TREE, loop_num), left, right);
-}
-
-
-
-/* Observers.  */
-
-/* Determines whether CHREC is equal to zero.  */
-
-static inline bool 
-chrec_zerop (tree chrec)
-{
-  if (chrec == NULL_TREE)
-    return false;
-  
-  if (TREE_CODE (chrec) == INTEGER_CST)
-    return integer_zerop (chrec);
-  
-  return false;
 }
 
 /* Determines whether the expression CHREC is a constant.  */

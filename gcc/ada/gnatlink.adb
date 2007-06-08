@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1996-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -44,10 +44,12 @@ with Types;
 
 with Ada.Command_Line;     use Ada.Command_Line;
 with Ada.Exceptions;       use Ada.Exceptions;
-with GNAT.OS_Lib;          use GNAT.OS_Lib;
+
+with System.OS_Lib;        use System.OS_Lib;
+with System.CRTL;
+
 with Interfaces.C_Streams; use Interfaces.C_Streams;
 with Interfaces.C.Strings; use Interfaces.C.Strings;
-with System.CRTL;
 
 procedure Gnatlink is
    pragma Ident (Gnatvsn.Gnat_Static_Version_String);
@@ -56,6 +58,11 @@ procedure Gnatlink is
    Shared_Libgcc        : constant String_Access :=
                             new String'(Shared_Libgcc_String);
    --  Used to invoke gcc when the binder is invoked with -shared
+
+   Static_Libgcc_String : constant String := "-static-libgcc";
+   Static_Libgcc        : constant String_Access :=
+                            new String'(Static_Libgcc_String);
+   --  Used to invoke gcc when shared libs are not used
 
    package Gcc_Linker_Options is new Table.Table (
      Table_Component_Type => String_Access,
@@ -71,7 +78,7 @@ procedure Gnatlink is
      Table_Index_Type     => Integer,
      Table_Low_Bound      => 1,
      Table_Initial        => 4096,
-     Table_Increment      => 2,
+     Table_Increment      => 100,
      Table_Name           => "Gnatlink.Libpath");
    --  Comments needed ???
 
@@ -171,6 +178,7 @@ procedure Gnatlink is
    --  the ALI file name (mainprog.ali => mainprog.map).
 
    Object_List_File_Supported : Boolean;
+   for Object_List_File_Supported'Size use Character'Size;
    pragma Import
      (C, Object_List_File_Supported, "__gnat_objlist_file_supported");
    --  Predicate indicating whether the linker has an option whereby the
@@ -411,9 +419,16 @@ procedure Gnatlink is
                         Compile_Bind_File := False;
 
                      when 'o' =>
-                        Linker_Options.Increment_Last;
-                        Linker_Options.Table (Linker_Options.Last) :=
-                         new String'(Arg);
+                        if VM_Target = CLI_Target then
+                           Linker_Options.Increment_Last;
+                           Linker_Options.Table (Linker_Options.Last) :=
+                              new String'("/QUIET");
+
+                        else
+                           Linker_Options.Increment_Last;
+                           Linker_Options.Table (Linker_Options.Last) :=
+                             new String'(Arg);
+                        end if;
 
                         Next_Arg := Next_Arg + 1;
 
@@ -421,7 +436,13 @@ procedure Gnatlink is
                            Exit_With_Error ("Missing argument for -o");
                         end if;
 
-                        Output_File_Name := new String'(Argument (Next_Arg));
+                        if VM_Target = CLI_Target then
+                           Output_File_Name :=
+                             new String'("/OUTPUT=" & Argument (Next_Arg));
+                        else
+                           Output_File_Name :=
+                             new String'(Argument (Next_Arg));
+                        end if;
 
                         Linker_Options.Increment_Last;
                         Linker_Options.Table (Linker_Options.Last) :=
@@ -473,7 +494,7 @@ procedure Gnatlink is
                   end if;
 
                   Linker_Path :=
-                    GNAT.OS_Lib.Locate_Exec_On_Path (Arg (8 .. Arg'Last));
+                    System.OS_Lib.Locate_Exec_On_Path (Arg (8 .. Arg'Last));
 
                   if Linker_Path = null then
                      Exit_With_Error
@@ -661,6 +682,7 @@ procedure Gnatlink is
       --  Last object file index in Linker_Objects table
 
       Status : int;
+      pragma Warnings (Off, Status);
       --  Used for various Interfaces.C_Streams calls
 
       Closing_Status : Boolean;
@@ -718,6 +740,7 @@ procedure Gnatlink is
       --  the response file.
 
       Using_GNU_Linker : Boolean;
+      for Using_GNU_Linker'Size use Character'Size;
       pragma Import (C, Using_GNU_Linker, "__gnat_using_gnu_linker");
       --  Predicate indicating whether this target uses the GNU linker. In
       --  this case we must output a GNU linker compatible response file.
@@ -1409,8 +1432,21 @@ begin
       Exit_Program (E_Fatal);
    end if;
 
-   if Hostparm.Java_VM then
-      Gcc := new String'("jgnat");
+   --  Get target parameters
+
+   Namet.Initialize;
+   Csets.Initialize;
+   Snames.Initialize;
+   Osint.Add_Default_Search_Dirs;
+   Targparm.Get_Target_Parameters;
+
+   if VM_Target /= No_VM then
+      case VM_Target is
+         when JVM_Target => Gcc := new String'("jgnat");
+         when CLI_Target => Gcc := new String'("dotnet-gnatcompile");
+         when No_VM      => raise Program_Error;
+      end case;
+
       Ada_Bind_File := True;
       Begin_Info := "--  BEGIN Object file/option list";
       End_Info   := "--  END Object file/option list   ";
@@ -1448,14 +1484,22 @@ begin
 
    --  Locate all the necessary programs and verify required files are present
 
-   Gcc_Path := GNAT.OS_Lib.Locate_Exec_On_Path (Gcc.all);
+   Gcc_Path := System.OS_Lib.Locate_Exec_On_Path (Gcc.all);
 
    if Gcc_Path = null then
       Exit_With_Error ("Couldn't locate " & Gcc.all);
    end if;
 
    if Linker_Path = null then
-      Linker_Path := Gcc_Path;
+      if VM_Target = CLI_Target then
+         Linker_Path := System.OS_Lib.Locate_Exec_On_Path ("ilasm");
+
+         if Linker_Path = null then
+            Exit_With_Error ("Couldn't locate ilasm");
+         end if;
+      else
+         Linker_Path := Gcc_Path;
+      end if;
    end if;
 
    if Ali_File_Name = null then
@@ -1465,14 +1509,6 @@ begin
    if not Is_Regular_File (Ali_File_Name.all) then
       Exit_With_Error (Ali_File_Name.all & " not found");
    end if;
-
-   --  Get target parameters
-
-   Namet.Initialize;
-   Csets.Initialize;
-   Snames.Initialize;
-   Osint.Add_Default_Search_Dirs;
-   Targparm.Get_Target_Parameters;
 
    --  Read the ALI file of the main subprogram if the binder generated
    --  file needs to be compiled and no --GCC= switch has been specified.
@@ -1542,15 +1578,27 @@ begin
    if Output_File_Name = null then
       Output_File_Name :=
         new String'(Base_Name (Ali_File_Name.all)
-                       & Get_Target_Debuggable_Suffix.all);
+                      & Get_Target_Debuggable_Suffix.all);
 
-      Linker_Options.Increment_Last;
-      Linker_Options.Table (Linker_Options.Last) :=
-        new String'("-o");
+      if VM_Target = CLI_Target then
+         Linker_Options.Increment_Last;
+         Linker_Options.Table (Linker_Options.Last) := new String'("/QUIET");
 
-      Linker_Options.Increment_Last;
-      Linker_Options.Table (Linker_Options.Last) :=
-        new String'(Output_File_Name.all);
+         Linker_Options.Increment_Last;
+         Linker_Options.Table (Linker_Options.Last) := new String'("/DEBUG");
+
+         Linker_Options.Increment_Last;
+         Linker_Options.Table (Linker_Options.Last) :=
+           new String'("/OUTPUT=" & Output_File_Name.all);
+
+      else
+         Linker_Options.Increment_Last;
+         Linker_Options.Table (Linker_Options.Last) := new String'("-o");
+
+         Linker_Options.Increment_Last;
+         Linker_Options.Table (Linker_Options.Last) :=
+           new String'(Output_File_Name.all);
+      end if;
    end if;
 
    --  Warn if main program is called "test", as that may be a built-in command
@@ -1684,7 +1732,7 @@ begin
             Write_Eol;
          end if;
 
-         GNAT.OS_Lib.Spawn (Gcc_Path.all, Args, Success);
+         System.OS_Lib.Spawn (Gcc_Path.all, Args, Success);
 
          if not Success then
             Exit_Program (E_Fatal);
@@ -1694,11 +1742,11 @@ begin
 
    --  Now, actually link the program
 
-   --  Skip this step for now on the JVM since the Java interpreter will do
+   --  Skip this step for now on JVM since the Java interpreter will do
    --  the actual link at run time. We might consider packing all class files
    --  in a .zip file during this step.
 
-   if not Hostparm.Java_VM then
+   if VM_Target /= JVM_Target then
       Link_Step : declare
          Num_Args : Natural :=
                      (Linker_Options.Last - Linker_Options.First + 1) +
@@ -1708,6 +1756,27 @@ begin
          IDENT_Op : Boolean := False;
 
       begin
+         if VM_Target = CLI_Target then
+
+            --  Remove extraneous flags not relevant for CIL. Also remove empty
+            --  arguments, since ilasm chokes on them.
+
+            for J in reverse Linker_Options.First .. Linker_Options.Last loop
+               if Linker_Options.Table (J)'Length = 0
+                 or else Linker_Options.Table (J) (1 .. 2) = "-L"
+                 or else Linker_Options.Table (J) (1 .. 2) = "-l"
+                 or else Linker_Options.Table (J) (1 .. 3) = "-Wl"
+                 or else Linker_Options.Table (J) (1 .. 3) = "-sh"
+                 or else Linker_Options.Table (J) (1 .. 2) = "-g"
+               then
+                  Linker_Options.Table (J .. Linker_Options.Last - 1) :=
+                    Linker_Options.Table (J + 1 .. Linker_Options.Last);
+                  Linker_Options.Decrement_Last;
+                  Num_Args := Num_Args - 1;
+               end if;
+            end loop;
+         end if;
+
          --  Remove duplicate stack size setting from the Linker_Options
          --  table. The stack setting option "-Xlinker --stack=R,C" can be
          --  found in one line when set by a pragma Linker_Options or in two
@@ -1803,6 +1872,20 @@ begin
 
                J := J + 1;
             end loop;
+
+            if Linker_Path = Gcc_Path and then VM_Target = No_VM then
+
+               --  If gcc is not called with -shared-libgcc, call it with
+               --  -static-libgcc, as there are some platforms where one of
+               --  these two switches is compulsory to link.
+
+               if not Shared_Libgcc_Seen then
+                  Linker_Options.Increment_Last;
+                  Linker_Options.Table (Linker_Options.Last) := Static_Libgcc;
+                  Num_Args := Num_Args + 1;
+               end if;
+            end if;
+
          end Clean_Link_Option_Set;
 
          --  Prepare arguments for call to linker
@@ -1868,7 +1951,7 @@ begin
                end if;
             end if;
 
-            GNAT.OS_Lib.Spawn (Linker_Path.all, Args, Success);
+            System.OS_Lib.Spawn (Linker_Path.all, Args, Success);
 
             --  Delete the temporary file used in conjuction with linking if
             --  one was created. See Process_Bind_File for details.
@@ -1878,7 +1961,7 @@ begin
             end if;
 
             if not Success then
-               Error_Msg ("cannot call " & Linker_Path.all);
+               Error_Msg ("error when calling " & Linker_Path.all);
                Exit_Program (E_Fatal);
             end if;
          end Call_Linker;
@@ -1900,7 +1983,7 @@ begin
 
       Delete (Binder_Body_Src_File.all & ASCII.NUL);
 
-      if not Hostparm.Java_VM then
+      if VM_Target = No_VM then
          Delete (Binder_Obj_File.all & ASCII.NUL);
       end if;
    end if;

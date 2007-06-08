@@ -113,7 +113,10 @@ df_set_blocks, these blocks are added to the set of blocks.
 
 DF_ANALYZE causes all of the defined problems to be (re)solved.  It
 does not cause blocks to be (re)scanned at the rtl level unless no
-prior call is made to df_rescan_blocks.
+prior call is made to df_rescan_blocks.  When DF_ANALYZE is completes,
+the IN and OUT sets for each basic block contain the computer
+information.  The DF_*_BB_INFO macros can be used to access these
+bitvectors.
 
 
 DF_DUMP can then be called to dump the information produce to some
@@ -161,7 +164,7 @@ incremental algorithms.
 As for the bit vector problems, there is no interface to give a set of
 blocks over with to resolve the iteration.  In general, restarting a
 dataflow iteration is difficult and expensive.  Again, the best way to
-keep the dataflow infomation up to data (if this is really what is
+keep the dataflow information up to data (if this is really what is
 needed) it to formulate a problem specific solution.
 
 There are fine grained calls for creating and deleting references from

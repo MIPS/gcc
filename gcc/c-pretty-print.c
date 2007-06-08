@@ -457,43 +457,25 @@ void
 pp_c_parameter_type_list (c_pretty_printer *pp, tree t)
 {
   bool want_parm_decl = DECL_P (t) && !(pp->flags & pp_c_flag_abstract);
+  tree parms = want_parm_decl ? DECL_ARGUMENTS (t) :  TYPE_ARG_TYPES (t);
   pp_c_left_paren (pp);
-  if (want_parm_decl)
+  if (parms == void_list_node)
+    pp_c_identifier (pp, "void");
+  else
     {
-      tree parms = DECL_ARGUMENTS (t);
       bool first = true;
-      for ( ; parms; parms = TREE_CHAIN (parms))
+      for ( ; parms && parms != void_list_node; parms = TREE_CHAIN (parms))
 	{
 	  if (!first)
 	    pp_separate_with (pp, ',');
 	  first = false;
-	  pp_declaration_specifiers (pp, parms);
-	  pp_declarator (pp, parms);
+	  pp_declaration_specifiers
+	    (pp, want_parm_decl ? parms : TREE_VALUE (parms));
+	  if (want_parm_decl)
+	    pp_declarator (pp, parms);
+	  else
+	    pp_abstract_declarator (pp, TREE_VALUE (parms));
 	}
-    }
-  else
-    {
-      tree parms = TYPE_ARG_TYPES (t);
-      int len = num_parm_types (parms);
-
-      if (len == 1 && nth_parm_type (parms, 0) == void_type_node)
-	pp_c_identifier (pp, "void");
-      else
-	{
-	  int i;
-
-	  if (len && nth_parm_type (parms, len - 1) == void_type_node)
-	    len--;
-
-	  for (i = 0; i < len; i++)
-	    {
-	      tree type = nth_parm_type (parms, i);
-	      if (i != 0)
-		pp_separate_with (pp, ',');
-	      pp_declaration_specifiers (pp, type);
-	      pp_abstract_declarator (pp, type);
-	    }
-	}   
     }
   pp_c_right_paren (pp);
 }
@@ -828,17 +810,16 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
     pp_wide_integer (pp, TREE_INT_CST_LOW (i));
   else
     {
+      unsigned HOST_WIDE_INT low = TREE_INT_CST_LOW (i);
+      HOST_WIDE_INT high = TREE_INT_CST_HIGH (i);
       if (tree_int_cst_sgn (i) < 0)
 	{
 	  pp_character (pp, '-');
-	  i = build_int_cst_wide (NULL_TREE,
-				  -TREE_INT_CST_LOW (i),
-				  ~TREE_INT_CST_HIGH (i)
-				  + !TREE_INT_CST_LOW (i));
+	  high = ~high + !low;
+	  low = -low;
 	}
       sprintf (pp_buffer (pp)->digit_buffer,
-	       HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-	       TREE_INT_CST_HIGH (i), TREE_INT_CST_LOW (i));
+	       HOST_WIDE_INT_PRINT_DOUBLE_HEX, high, low);
       pp_string (pp, pp_buffer (pp)->digit_buffer);
     }
   if (TYPE_UNSIGNED (type))
@@ -1825,13 +1806,15 @@ pp_c_conditional_expression (c_pretty_printer *pp, tree e)
 static void
 pp_c_assignment_expression (c_pretty_printer *pp, tree e)
 {
-  if (TREE_CODE (e) == MODIFY_EXPR || TREE_CODE (e) == INIT_EXPR)
+  if (TREE_CODE (e) == MODIFY_EXPR 
+      || TREE_CODE (e) == GIMPLE_MODIFY_STMT
+      || TREE_CODE (e) == INIT_EXPR)
     {
-      pp_c_unary_expression (pp, TREE_OPERAND (e, 0));
+      pp_c_unary_expression (pp, GENERIC_TREE_OPERAND (e, 0));
       pp_c_whitespace (pp);
       pp_equal (pp);
       pp_space (pp);
-      pp_c_expression (pp, TREE_OPERAND (e, 1));
+      pp_c_expression (pp, GENERIC_TREE_OPERAND (e, 1));
     }
   else
     pp_c_conditional_expression (pp, e);
@@ -1972,6 +1955,7 @@ pp_c_expression (c_pretty_printer *pp, tree e)
       break;
 
     case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
     case INIT_EXPR:
       pp_assignment_expression (pp, e);
       break;

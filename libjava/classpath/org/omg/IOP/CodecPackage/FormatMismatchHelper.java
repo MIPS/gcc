@@ -1,5 +1,5 @@
 /* FormatMismatchHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -40,12 +40,12 @@ package org.omg.IOP.CodecPackage;
 
 import gnu.CORBA.EmptyExceptionHolder;
 import gnu.CORBA.Minor;
+import gnu.CORBA.OrbRestricted;
 
 import org.omg.CORBA.Any;
 import org.omg.CORBA.BAD_OPERATION;
 import org.omg.CORBA.ORB;
 import org.omg.CORBA.StructMember;
-import org.omg.CORBA.TCKind;
 import org.omg.CORBA.TypeCode;
 import org.omg.CORBA.portable.InputStream;
 import org.omg.CORBA.portable.OutputStream;
@@ -58,23 +58,14 @@ import org.omg.CORBA.portable.OutputStream;
 public abstract class FormatMismatchHelper
 {
   /**
-   * The cached typecode value, computed only once.
-   */
-  private static TypeCode typeCode;
-
-  /**
    * Create the FormatMismatch typecode (structure,
    * named "FormatMismatch").
    */
   public static TypeCode type()
   {
-    if (typeCode == null)
-      {
-        ORB orb = ORB.init();
-        StructMember[] members = new StructMember[ 0 ];
-        typeCode = orb.create_exception_tc(id(), "FormatMismatch", members);
-      }
-    return typeCode;
+    ORB orb = OrbRestricted.Singleton;
+    StructMember[] members = new StructMember[ 0 ];
+    return orb.create_exception_tc(id(), "FormatMismatch", members);
   }
 
   /**

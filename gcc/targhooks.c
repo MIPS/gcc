@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -319,6 +319,25 @@ default_invalid_within_doloop (rtx insn)
   return NULL;
 }
 
+/* Mapping of builtin functions to vectorized variants.  */
+
+tree
+default_builtin_vectorized_function (enum built_in_function fn ATTRIBUTE_UNUSED,
+				     tree type_out ATTRIBUTE_UNUSED,
+				     tree type_in ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+/* Vectorized conversion.  */
+
+tree
+default_builtin_vectorized_conversion (enum tree_code code ATTRIBUTE_UNUSED,
+				       tree type ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
 bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
 	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
@@ -581,18 +600,28 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
   return class;
 }
 
-
-/* If STRICT_ALIGNMENT is true we use the container type for accessing
-   volatile bitfields.  This is generally the preferred behavior for memory
-   mapped peripherals on RISC architectures.
-   If STRICT_ALIGNMENT is false we use the narrowest type possible.  This
-   is typically used to avoid spurious page faults and extra memory accesses
-   due to unaligned accesses on CISC architectures.  */
-
 bool
-default_narrow_bitfield (void)
+default_handle_c_option (size_t code ATTRIBUTE_UNUSED,
+			 const char *arg ATTRIBUTE_UNUSED,
+			 int value ATTRIBUTE_UNUSED)
 {
-  return !STRICT_ALIGNMENT;
+  return false;
+}
+
+/* By default, if flag_pic is true, then neither local nor global relocs
+   should be placed in readonly memory.  */
+
+int
+default_reloc_rw_mask (void)
+{
+  return flag_pic ? 3 : 0;
+}
+
+/* By default, do no modification. */
+tree default_mangle_decl_assembler_name (tree decl ATTRIBUTE_UNUSED,
+					 tree id)
+{
+   return id;
 }
 
 #include "gt-targhooks.h"

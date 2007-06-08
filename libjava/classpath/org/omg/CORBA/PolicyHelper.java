@@ -1,5 +1,5 @@
 /* PolicyHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,12 +39,10 @@ exception statement from your version. */
 package org.omg.CORBA;
 
 import gnu.CORBA.Minor;
+import gnu.CORBA.OrbRestricted;
 
 import org.omg.CORBA.Any;
 import org.omg.CORBA.BAD_OPERATION;
-import org.omg.CORBA.ORB;
-import org.omg.CORBA.StructMember;
-import org.omg.CORBA.TCKind;
 import org.omg.CORBA.TypeCode;
 import org.omg.CORBA.portable.Delegate;
 import org.omg.CORBA.portable.InputStream;
@@ -60,20 +58,13 @@ import org.omg.CORBA.portable.OutputStream;
 public abstract class PolicyHelper
 {
   /**
-   * The cached {@link Policy} typecode, computed once.
-   */
-  private static TypeCode typeCode;
-
-  /**
    * Get the type code of the {@link Policy}.
    *
    * @return interface typecode, named "Policy".
    */
   public static TypeCode type()
   {
-    if (typeCode == null)
-      typeCode = ORB.init().create_interface_tc(id(), "Policy");
-    return typeCode;
+    return OrbRestricted.Singleton.create_interface_tc(id(), "Policy");
   }
 
   /**

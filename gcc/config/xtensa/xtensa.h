@@ -1,5 +1,6 @@
 /* Definitions of Tensilica's Xtensa target machine for GNU compiler.
-   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -43,11 +44,15 @@ extern unsigned xtensa_current_frame_size;
 
 /* Macros used in the machine description to select various Xtensa
    configuration options.  */
+#ifndef XCHAL_HAVE_MUL32_HIGH
+#define XCHAL_HAVE_MUL32_HIGH 0
+#endif
 #define TARGET_BIG_ENDIAN	XCHAL_HAVE_BE
 #define TARGET_DENSITY		XCHAL_HAVE_DENSITY
 #define TARGET_MAC16		XCHAL_HAVE_MAC16
 #define TARGET_MUL16		XCHAL_HAVE_MUL16
 #define TARGET_MUL32		XCHAL_HAVE_MUL32
+#define TARGET_MUL32_HIGH	XCHAL_HAVE_MUL32_HIGH
 #define TARGET_DIV32		XCHAL_HAVE_DIV32
 #define TARGET_NSA		XCHAL_HAVE_NSA
 #define TARGET_MINMAX		XCHAL_HAVE_MINMAX
@@ -484,75 +489,6 @@ extern const enum reg_class xtensa_regno_to_class[FIRST_PSEUDO_REGISTER];
    incoming or outgoing arguments.  */
 #define SMALL_REGISTER_CLASSES 1
 
-
-/* REGISTER AND CONSTANT CLASSES */
-
-/* Get reg_class from a letter such as appears in the machine
-   description.
-
-   Available letters: a-f,h,j-l,q,t-z,A-D,W,Y-Z
-
-   DEFINED REGISTER CLASSES:
-
-   'a'  general-purpose registers except sp
-   'q'  sp (aka a1)
-   'D'	general-purpose registers (only if density option enabled)
-   'd'  general-purpose registers, including sp (only if density enabled)
-   'A'	MAC16 accumulator (only if MAC16 option enabled)
-   'B'	general-purpose registers (only if sext instruction enabled)
-   'C'  general-purpose registers (only if mul16 option enabled)
-   'W'  general-purpose registers (only if const16 option enabled)
-   'b'	coprocessor boolean registers
-   'f'	floating-point registers
-*/
-
-extern enum reg_class xtensa_char_to_class[256];
-
-#define REG_CLASS_FROM_LETTER(C) xtensa_char_to_class[ (int) (C) ]
-
-/* The letters I, J, K, L, M, N, O, and P in a register constraint
-   string can be used to stand for particular ranges of immediate
-   operands.  This macro defines what the ranges are.  C is the
-   letter, and VALUE is a constant value.  Return 1 if VALUE is
-   in the range specified by C.
-
-   For Xtensa:
-
-   I = 12-bit signed immediate for MOVI
-   J = 8-bit signed immediate for ADDI
-   K = 4-bit value in (b4const U {0})
-   L = 4-bit value in b4constu
-   M = 7-bit immediate value for MOVI.N
-   N = 8-bit unsigned immediate shifted left by 8 bits for ADDMI
-   O = 4-bit immediate for ADDI.N
-   P = valid immediate mask value for EXTUI */
-
-#define CONST_OK_FOR_LETTER_P  xtensa_const_ok_for_letter_p
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C) (0)
-
-
-/* Other letters can be defined in a machine-dependent fashion to
-   stand for particular classes of registers or other arbitrary
-   operand types.
-
-   R = memory that can be accessed with a 4-bit unsigned offset
-   T = memory in a constant pool (addressable with a pc-relative load)
-   U = memory *NOT* in a constant pool
-
-   The offset range should not be checked here (except to distinguish
-   denser versions of the instructions for which more general versions
-   are available).  Doing so leads to problems in reloading: an
-   argptr-relative address may become invalid when the phony argptr is
-   eliminated in favor of the stack pointer (the offset becomes too
-   large to fit in the instruction's immediate field); a reload is
-   generated to fix this but the RTL is not immediately updated; in
-   the meantime, the constraints are checked and none match.  The
-   solution seems to be to simply skip the offset check here.  The
-   address will be checked anyway because of the code in
-   GO_IF_LEGITIMATE_ADDRESS.  */
-
-#define EXTRA_CONSTRAINT  xtensa_extra_constraint
-
 #define PREFERRED_RELOAD_CLASS(X, CLASS)				\
   xtensa_preferred_reload_class (X, CLASS, 0)
 
@@ -728,15 +664,7 @@ typedef struct xtensa_args
 #define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&CUM, MODE, TYPE, TRUE)
 
-/* Specify function argument alignment.  */
-#define FUNCTION_ARG_BOUNDARY(MODE, TYPE)				\
-  ((TYPE) != 0								\
-   ? (TYPE_ALIGN (TYPE) <= PARM_BOUNDARY				\
-      ? PARM_BOUNDARY							\
-      : TYPE_ALIGN (TYPE))						\
-   : (GET_MODE_ALIGNMENT (MODE) <= PARM_BOUNDARY			\
-      ? PARM_BOUNDARY							\
-      : GET_MODE_ALIGNMENT (MODE)))
+#define FUNCTION_ARG_BOUNDARY function_arg_boundary
 
 /* Profiling Xtensa code is typically done with the built-in profiling
    feature of Tensilica's instruction set simulator, which does not
@@ -898,39 +826,27 @@ typedef struct xtensa_args
 /* Addressing modes, and classification of registers for them.  */
 
 /* C expressions which are nonzero if register number NUM is suitable
-   for use as a base or index register in operand addresses.  It may
-   be either a suitable hard register or a pseudo register that has
-   been allocated such a hard register. The difference between an
-   index register and a base register is that the index register may
-   be scaled.  */
+   for use as a base or index register in operand addresses.  */
 
+#define REGNO_OK_FOR_INDEX_P(NUM) 0
 #define REGNO_OK_FOR_BASE_P(NUM) \
   (GP_REG_P (NUM) || GP_REG_P ((unsigned) reg_renumber[NUM]))
 
-#define REGNO_OK_FOR_INDEX_P(NUM) 0
-
 /* C expressions that are nonzero if X (assumed to be a `reg' RTX) is
-   valid for use as a base or index register.  For hard registers, it
-   should always accept those which the hardware permits and reject
-   the others.  Whether the macro accepts or rejects pseudo registers
-   must be controlled by `REG_OK_STRICT'.  This usually requires two
-   variant definitions, of which `REG_OK_STRICT' controls the one
-   actually used. The difference between an index register and a base
-   register is that the index register may be scaled.  */
+   valid for use as a base or index register.  */
 
 #ifdef REG_OK_STRICT
+#define REG_OK_STRICT_FLAG 1
+#else
+#define REG_OK_STRICT_FLAG 0
+#endif
+
+#define BASE_REG_P(X, STRICT)						\
+  ((!(STRICT) && REGNO (X) >= FIRST_PSEUDO_REGISTER)			\
+   || REGNO_OK_FOR_BASE_P (REGNO (X)))
 
 #define REG_OK_FOR_INDEX_P(X) 0
-#define REG_OK_FOR_BASE_P(X) \
-  REGNO_OK_FOR_BASE_P (REGNO (X))
-
-#else /* !REG_OK_STRICT */
-
-#define REG_OK_FOR_INDEX_P(X) 0
-#define REG_OK_FOR_BASE_P(X) \
-  ((REGNO (X) >= FIRST_PSEUDO_REGISTER) || (GP_REG_P (REGNO (X))))
-
-#endif /* !REG_OK_STRICT */
+#define REG_OK_FOR_BASE_P(X) BASE_REG_P (X, REG_OK_STRICT_FLAG)
 
 /* Maximum number of registers that can appear in a valid memory address.  */
 #define MAX_REGS_PER_ADDRESS 1
@@ -938,52 +854,8 @@ typedef struct xtensa_args
 /* Identify valid Xtensa addresses.  */
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, ADDR, LABEL)			\
   do {									\
-    rtx xinsn = (ADDR);							\
-									\
-    /* allow constant pool addresses */					\
-    if ((MODE) != BLKmode && GET_MODE_SIZE (MODE) >= UNITS_PER_WORD	\
-	&& !TARGET_CONST16 && constantpool_address_p (xinsn))		\
+    if (xtensa_legitimate_address_p (MODE, ADDR, REG_OK_STRICT_FLAG))	\
       goto LABEL;							\
-									\
-    while (GET_CODE (xinsn) == SUBREG)					\
-      xinsn = SUBREG_REG (xinsn);					\
-									\
-    /* allow base registers */						\
-    if (GET_CODE (xinsn) == REG && REG_OK_FOR_BASE_P (xinsn))		\
-      goto LABEL;							\
-									\
-    /* check for "register + offset" addressing */			\
-    if (GET_CODE (xinsn) == PLUS)					\
-      {									\
-	rtx xplus0 = XEXP (xinsn, 0);					\
-	rtx xplus1 = XEXP (xinsn, 1);					\
-	enum rtx_code code0;						\
-	enum rtx_code code1;						\
-									\
-	while (GET_CODE (xplus0) == SUBREG)				\
-	  xplus0 = SUBREG_REG (xplus0);					\
-	code0 = GET_CODE (xplus0);					\
-									\
-	while (GET_CODE (xplus1) == SUBREG)				\
-	  xplus1 = SUBREG_REG (xplus1);					\
-	code1 = GET_CODE (xplus1);					\
-									\
-	/* swap operands if necessary so the register is first */	\
-	if (code0 != REG && code1 == REG)				\
-	  {								\
-	    xplus0 = XEXP (xinsn, 1);					\
-	    xplus1 = XEXP (xinsn, 0);					\
-	    code0 = GET_CODE (xplus0);					\
-	    code1 = GET_CODE (xplus1);					\
-	  }								\
-									\
-	if (code0 == REG && REG_OK_FOR_BASE_P (xplus0)			\
-	    && code1 == CONST_INT					\
-	    && xtensa_mem_offset (INTVAL (xplus1), (MODE)))		\
-	  {								\
-	    goto LABEL;							\
-	  }								\
-      }									\
   } while (0)
 
 /* A C expression that is 1 if the RTX X is a constant which is a
@@ -1007,36 +879,13 @@ typedef struct xtensa_args
    && GET_CODE (X) != LABEL_REF						\
    && GET_CODE (X) != CONST)
 
-/* Tell GCC how to use ADDMI to generate addresses.  */
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)				\
   do {									\
-    rtx xinsn = (X);							\
-    if (GET_CODE (xinsn) == PLUS)					\
-      { 								\
-	rtx plus0 = XEXP (xinsn, 0);					\
-	rtx plus1 = XEXP (xinsn, 1);					\
-									\
-	if (GET_CODE (plus0) != REG && GET_CODE (plus1) == REG)		\
-	  {								\
-	    plus0 = XEXP (xinsn, 1);					\
-	    plus1 = XEXP (xinsn, 0);					\
-	  }								\
-									\
-	if (GET_CODE (plus0) == REG					\
-	    && GET_CODE (plus1) == CONST_INT				\
-	    && !xtensa_mem_offset (INTVAL (plus1), MODE)		\
-	    && !xtensa_simm8 (INTVAL (plus1))				\
-	    && xtensa_mem_offset (INTVAL (plus1) & 0xff, MODE)		\
-	    && xtensa_simm8x256 (INTVAL (plus1) & ~0xff))		\
-	  {								\
-	    rtx temp = gen_reg_rtx (Pmode);				\
-	    emit_insn (gen_rtx_SET (Pmode, temp,			\
-				gen_rtx_PLUS (Pmode, plus0,		\
-					 GEN_INT (INTVAL (plus1) & ~0xff)))); \
-	    (X) = gen_rtx_PLUS (Pmode, temp,				\
-			   GEN_INT (INTVAL (plus1) & 0xff));		\
-	    goto WIN;							\
-	  }								\
+    rtx new_x = xtensa_legitimize_address (X, OLDX, MODE);		\
+    if (new_x)								\
+      {									\
+	X = new_x;							\
+	goto WIN;							\
       }									\
   } while (0)
 
@@ -1076,6 +925,9 @@ typedef struct xtensa_args
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
+
+#define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  ((VALUE) = 32, 1)
+#define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  ((VALUE) = -1, 1)
 
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
@@ -1136,20 +988,7 @@ typedef struct xtensa_args
    constants.  Used for PIC-specific UNSPECs.  */
 #define OUTPUT_ADDR_CONST_EXTRA(STREAM, X, FAIL)			\
   do {									\
-    if (flag_pic && GET_CODE (X) == UNSPEC && XVECLEN ((X), 0) == 1)	\
-      {									\
-	switch (XINT ((X), 1))						\
-	  {								\
-	  case UNSPEC_PLT:						\
-	    output_addr_const ((STREAM), XVECEXP ((X), 0, 0));		\
-	    fputs ("@PLT", (STREAM));					\
-	    break;							\
-	  default:							\
-	    goto FAIL;							\
-	  }								\
-	break;								\
-      }									\
-    else								\
+    if (xtensa_output_addr_const_extra (STREAM, X) == FALSE)		\
       goto FAIL;							\
   } while (0)
 
@@ -1193,35 +1032,17 @@ typedef struct xtensa_args
 #define BSS_SECTION_ASM_OP	"\t.section\t.bss"
 
 
-/* Define output to appear before the constant pool.  If the function
-   has been assigned to a specific ELF section, or if it goes into a
-   unique section, set the name of that section to be the literal
-   prefix.  */
+/* Define output to appear before the constant pool.  */
 #define ASM_OUTPUT_POOL_PROLOGUE(FILE, FUNNAME, FUNDECL, SIZE)          \
   do {									\
-    tree fnsection;							\
-    resolve_unique_section ((FUNDECL), 0, flag_function_sections);	\
-    fnsection = DECL_SECTION_NAME (FUNDECL);				\
-    if (fnsection != NULL_TREE)						\
-      {									\
-	const char *fnsectname = TREE_STRING_POINTER (fnsection);	\
-	fprintf (FILE, "\t.begin\tliteral_prefix %s\n",			\
-		 strcmp (fnsectname, ".text") ? fnsectname : "");	\
-      }									\
     if ((SIZE) > 0)							\
       {									\
+	resolve_unique_section ((FUNDECL), 0, flag_function_sections);	\
 	switch_to_section (function_section (FUNDECL));			\
 	fprintf (FILE, "\t.literal_position\n");			\
       }									\
   } while (0)
 
-
-/* Define code to write out the ".end literal_prefix" directive for a
-   function in a special section.  This is appended to the standard ELF
-   code for ASM_DECLARE_FUNCTION_SIZE.  */
-#define XTENSA_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)			\
-  if (DECL_SECTION_NAME (DECL) != NULL_TREE)				\
-    fprintf (FILE, "\t.end\tliteral_prefix\n")
 
 /* A C statement (with or without semicolon) to output a constant in
    the constant pool, if it needs special treatment.  */

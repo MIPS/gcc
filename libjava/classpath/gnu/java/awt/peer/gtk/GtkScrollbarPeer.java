@@ -38,8 +38,6 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
-import java.awt.Adjustable;
-import java.awt.EventQueue;
 import java.awt.Scrollbar;
 import java.awt.event.AdjustmentEvent;
 import java.awt.peer.ScrollbarPeer;
@@ -52,14 +50,14 @@ public class GtkScrollbarPeer extends GtkComponentPeer
     Scrollbar sb = (Scrollbar) awtComponent;
 
     create (sb.getOrientation (), sb.getValue (),
-	    sb.getMinimum (), sb.getMaximum (), 
-	    sb.getUnitIncrement (), sb.getBlockIncrement (),
-	    sb.getVisibleAmount ());
+            sb.getMinimum (), sb.getMaximum (), 
+            sb.getUnitIncrement (), sb.getBlockIncrement (),
+            sb.getVisibleAmount ());
   }
 
   native void create (int orientation, int value,
-		      int min, int max, int stepIncr, int pageIncr,
-		      int visibleAmount);
+                      int min, int max, int stepIncr, int pageIncr,
+                      int visibleAmount);
 
   native void connectSignals ();
 
@@ -88,7 +86,7 @@ public class GtkScrollbarPeer extends GtkComponentPeer
   {
     Scrollbar bar = (Scrollbar) awtComponent;
     q().postEvent(new AdjustmentEvent(bar, 
-				      AdjustmentEvent.ADJUSTMENT_VALUE_CHANGED,
-				      type, value, true));
+                                      AdjustmentEvent.ADJUSTMENT_VALUE_CHANGED,
+                                      type, value, true));
   }
 }

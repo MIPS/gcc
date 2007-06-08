@@ -208,6 +208,10 @@ package System.OS_Interface is
    SCHED_RR    : constant := 2;
    SCHED_FIFO  : constant := 4;
 
+   function To_Target_Priority
+     (Prio : System.Any_Priority) return Interfaces.C.int;
+   --  Maps System.Any_Priority to a POSIX priority.
+
    -------------
    -- Process --
    -------------
@@ -250,6 +254,9 @@ package System.OS_Interface is
    type pthread_cond_ptr is access all pthread_cond_t;
 
    PTHREAD_CREATE_DETACHED : constant := 2;
+
+   PTHREAD_SCOPE_PROCESS : constant := 2;
+   PTHREAD_SCOPE_SYSTEM  : constant := 1;
 
    -----------
    -- Stack --

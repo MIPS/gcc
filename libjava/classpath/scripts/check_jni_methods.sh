@@ -2,8 +2,6 @@
 
 # Fail if any command fails
 set -e
-# Don't override existing files
-set -C
 
 TMPFILE=/tmp/check-jni-methods.$$.1
 TMPFILE2=/tmp/check-jni-methods.$$.2
@@ -29,7 +27,7 @@ find native/jni -name \*.cpp | \
 	cut -f4 -d\  | \
         LC_ALL=C sed -e 's,^\JNIEXPORT .* JNICALL \(Java_[a-z_A-Z0-9]*\) *(.*$,\1,' >> $TMPFILE2
 mv $TMPFILE2 $TMPFILE3
-sort $TMPFILE3 > $TMPFILE2
+sort $TMPFILE3 | uniq > $TMPFILE2
 rm $TMPFILE3
 
 # Write temporary ignore file.

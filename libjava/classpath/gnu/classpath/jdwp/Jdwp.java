@@ -1,5 +1,5 @@
 /* Jdwp.java -- Virtual machine to JDWP back-end programming interface
-   Copyright (C) 2005, 2006 Free Software Foundation
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -51,10 +51,14 @@ import gnu.classpath.jdwp.transport.TransportFactory;
 
 import java.io.IOException;
 import java.security.AccessController;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
  * Main interface from the virtual machine to the JDWP back-end.
+ *
+ * The thread created by this class is only used for initialization.
+ * Once it exits, the JDWP backend is fully initialized.
  *
  * @author Keith Seitz (keiths@redhat.com)
  */
@@ -65,7 +69,8 @@ public class Jdwp
   private static Jdwp _instance = null;
 
   /**
-   * Are we debugging?
+   * Are we debugging? Only true if debugging
+   * *and* initialized.
    */
   public static boolean isDebugging = false;
 
@@ -89,13 +94,16 @@ public class Jdwp
   // A thread group for the JDWP threads
   private ThreadGroup _group;
 
+  // Initialization synchronization
+  private Object _initLock = new Object ();
+  private int _initCount = 0;
+
   /**
    * constructor
    */
   public Jdwp ()
   {
     _shutdown = false;
-    isDebugging = true;
     _instance = this;
   }
 
@@ -200,23 +208,21 @@ public class Jdwp
    * The event is filtered through the event manager before being
    * sent.
    *
-   * FIXME: Probably need logic to send multiple events
    * @param event the event to report
    */
-  public static void notify (Event event)
+  public static void notify(Event event)
   {
-    Jdwp jdwp = getDefault ();
+    Jdwp jdwp = getDefault();
     if (jdwp != null)
       {
-	EventManager em = EventManager.getDefault ();
-	EventRequest request = em.getEventRequest (event);
-	if (request != null)
+	EventManager em = EventManager.getDefault();
+	EventRequest[] requests = em.getEventRequests(event);
+	for (int i = 0; i < requests.length; ++i)
 	  {
 	    try
 	      {
-		System.out.println ("Jdwp.notify: sending event " + event);
-		sendEvent (request, event);
-		jdwp._enforceSuspendPolicy (request.getSuspendPolicy ());
+		sendEvent(requests[i], event);
+		jdwp._enforceSuspendPolicy(requests[i].getSuspendPolicy());
 	      }
 	    catch (Exception e)
 	      {
@@ -229,6 +235,62 @@ public class Jdwp
   }
   
   /**
+   * Notify the debugger of "co-located" events. This method should
+   * not be called if debugging is not active (but it would not
+   * cause any harm). Places where event notifications occur
+   * should check isDebugging before doing anything.
+   *
+   * The events are filtered through the event manager before being
+   * sent.
+   *
+   * @param events the events to report
+   */
+  public static void notify(Event[] events)
+  {
+    Jdwp jdwp = getDefault();
+    
+    if (jdwp != null)
+      {
+	byte suspendPolicy = JdwpConstants.SuspendPolicy.NONE;
+	EventManager em = EventManager.getDefault();
+	ArrayList allEvents = new ArrayList ();
+	ArrayList allRequests = new ArrayList ();
+	for (int i = 0; i < events.length; ++i)
+	  {
+	    EventRequest[] r = em.getEventRequests(events[i]);
+	    for (int j = 0; j < r.length; ++j)
+	      {
+		/* This is hacky, but it's not clear whether this
+		   can really happen, and if it does, what should
+		   occur. */
+		allEvents.add (events[i]);
+		allRequests.add (r[j]);
+
+		// Perhaps this is overkill?
+		if (r[j].getSuspendPolicy() > suspendPolicy)
+		  suspendPolicy = r[j].getSuspendPolicy();
+	      }
+	  }
+
+	try
+	  {
+	    Event[] e = new Event[allEvents.size()];
+	    allEvents.toArray(e);
+	    EventRequest[] r = new EventRequest[allRequests.size()];
+	    allRequests.toArray(r);
+	    sendEvents(r, e, suspendPolicy);
+	    jdwp._enforceSuspendPolicy(suspendPolicy);
+	  }
+	catch (Exception e)
+	  {
+	    /* Really not much we can do. For now, just print out
+	       a warning to the user. */
+	    System.out.println ("Jdwp.notify: caught exception: " + e);
+	  }
+      }
+  }
+
+  /**
    * Sends the event to the debugger.
    *
    * This method bypasses the event manager's filtering.
@@ -240,13 +302,30 @@ public class Jdwp
   public static void sendEvent (EventRequest request, Event event)
       throws IOException
   {
-    Jdwp jdwp = getDefault ();
+    sendEvents (new EventRequest[] { request }, new Event[] { event },
+		request.getSuspendPolicy());
+  }
+
+  /**
+   * Sends the events to the debugger.
+   *
+   * This method bypasses the event manager's filtering.
+   *
+   * @param  requests  list of debugger requests for the events
+   * @param  events    the events to send
+   * @param  suspendPolicy the suspendPolicy enforced by the VM
+   * @throws IOException if a communications failure occurs
+   */
+  public static void sendEvents (EventRequest[] requests, Event[] events,
+				 byte suspendPolicy)
+    throws IOException
+  {
+    Jdwp jdwp = getDefault();
     if (jdwp != null)
       {
-	// !! May need to implement send queue?
 	synchronized (jdwp._connection)
 	  {
-	    jdwp._connection.sendEvent (request, event);
+	    jdwp._connection.sendEvents (requests, events, suspendPolicy);
 	  }
       }
   }
@@ -271,17 +350,52 @@ public class Jdwp
       }
   }
 
+  /**
+   * Allows subcomponents to specify that they are
+   * initialized.
+   *
+   * Subcomponents include JdwpConnection and PacketProcessor.
+   */
+  public void subcomponentInitialized ()
+  {
+    synchronized (_initLock)
+      {
+	++_initCount;
+	_initLock.notify ();
+      }
+  }
+
   public void run ()
   {
     try
       {
 	_doInitialization ();
+
+	/* We need a little internal synchronization here, so that
+	   when this thread dies, the back-end will be fully initialized,
+	   ready to start servicing the VM and debugger. */
+	synchronized (_initLock)
+	  {
+	    while (_initCount != 2)
+	      _initLock.wait ();
+	  }
+	_initLock = null;
       }
     catch (Throwable t)
       {
 	System.out.println ("Exception in JDWP back-end: " + t);
 	System.exit (1);
       }
+
+    /* Force creation of the EventManager. If the event manager
+       has not been created when isDebugging is set, it is possible
+       that the VM will call Jdwp.notify (which uses EventManager)
+       while the EventManager is being created (or at least this is
+       a problem with gcj/gij). */
+    EventManager.getDefault();
+
+    // Now we are finally ready and initialized
+    isDebugging = true;
   }
 
   // A helper function to process the configure string "-Xrunjdwp:..."

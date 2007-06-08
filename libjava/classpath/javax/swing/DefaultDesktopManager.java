@@ -293,21 +293,35 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
   public void activateFrame(JInternalFrame frame)
   {
     JDesktopPane p = frame.getDesktopPane();
-
+    JInternalFrame active = null;
     if (p != null)
-      p.setSelectedFrame(frame);
-    else
+      active = p.getSelectedFrame();
+    if (active == null)
       {
-        try
+        if (p != null)
           {
-            frame.setSelected(true);
-          }
-        catch (PropertyVetoException e)
-          {
-            // Do nothing if attempt is vetoed.
+            p.setSelectedFrame(frame);
           }
       }
-
+    else if (active != frame)
+      {
+        if (active.isSelected())
+          {
+            try
+              {
+                active.setSelected(false);
+              }
+            catch (PropertyVetoException ex)
+              {
+                // Not allowed.
+              }
+          }
+        if (p != null)
+          {
+            p.setSelectedFrame(frame);
+          }
+        
+      }
     frame.toFront();
   }
 
@@ -400,8 +414,8 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
                           dragCache.width, dragCache.height);
         pane = null;
         dragCache = null;
+        component.repaint();        
       }
-    component.repaint();
   }
 
   /**
@@ -463,8 +477,8 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
                           dragCache.width, dragCache.height);
         pane = null;
         dragCache = null;
+        component.repaint();        
       }
-    component.repaint();
   }
 
   /**
@@ -481,13 +495,6 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
                                 int newWidth, int newHeight)
   {
     component.setBounds(newX, newY, newWidth, newHeight);
-    component.revalidate();
-
-    // If not null, I'd rather repaint the parent
-    if (component.getParent() != null)
-      component.getParent().repaint();
-    else
-      component.repaint();
   }
 
   /**

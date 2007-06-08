@@ -1,5 +1,5 @@
 /* Common block and equivalence list handling
-   Copyright (C) 2000, 2003, 2004, 2005, 2006
+   Copyright (C) 2000, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Canqun Yang <canqun@nudt.edu.cn>
 
@@ -84,7 +84,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    a diagonal matrix in the matrix formulation.
  
    Each segment is described by a chain of segment_info structures.  Each
-   segment_info structure describes the extents of a single varible within
+   segment_info structure describes the extents of a single variable within
    the segment.  This list is maintained in the order the elements are
    positioned withing the segment.  If two elements have the same starting
    offset the smaller will come first.  If they also have the same size their
@@ -219,7 +219,7 @@ add_segments (segment_info *list, segment_info *v)
 /* Construct mangled common block name from symbol name.  */
 
 static tree
-gfc_sym_mangled_common_id (const char  *name)
+gfc_sym_mangled_common_id (const char *name)
 {
   int has_underscore;
   char mangled_name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
@@ -388,7 +388,7 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
 
       gfc_set_decl_location (decl, &com->where);
 
-      if (com->threadprivate && targetm.have_tls)
+      if (com->threadprivate)
 	DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
 
       /* Place the back end declaration for this common block in
@@ -417,7 +417,7 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
    backend declarations for all of the elements.  */
 
 static void
-create_common (gfc_common_head *com, segment_info * head, bool saw_equiv)
+create_common (gfc_common_head *com, segment_info *head, bool saw_equiv)
 {
   segment_info *s, *next_s;
   tree union_type;
@@ -483,8 +483,10 @@ create_common (gfc_common_head *com, segment_info * head, bool saw_equiv)
                 }
 	      /* Add the initializer for this field.  */
 	      tmp = gfc_conv_initializer (s->sym->value, &s->sym->ts,
-		  TREE_TYPE (s->field), s->sym->attr.dimension,
-		  s->sym->attr.pointer || s->sym->attr.allocatable);
+					  TREE_TYPE (s->field),
+					  s->sym->attr.dimension,
+					  s->sym->attr.pointer
+					  || s->sym->attr.allocatable);
 
 	      CONSTRUCTOR_APPEND_ELT (v, s->field, tmp);
               offset = s->offset + s->length;
@@ -785,7 +787,7 @@ find_equivalence (segment_info *n)
 }
 
 
-  /* Add all symbols equivalenced within a segment.  We need to scan the
+/* Add all symbols equivalenced within a segment.  We need to scan the
    segment list multiple times to include indirect equivalences.  Since
    a new segment_info can inserted at the beginning of the segment list,
    depending on its offset, we have to force a final pass through the
@@ -827,7 +829,7 @@ add_equivalences (bool *saw_equiv)
    Sets *palign to the required alignment.  */
 
 static HOST_WIDE_INT
-align_segment (unsigned HOST_WIDE_INT * palign)
+align_segment (unsigned HOST_WIDE_INT *palign)
 {
   segment_info *s;
   unsigned HOST_WIDE_INT offset;
@@ -848,7 +850,7 @@ align_segment (unsigned HOST_WIDE_INT * palign)
 	    {
 	      /* Aligning this field would misalign a previous field.  */
 	      gfc_error ("The equivalence set for variable '%s' "
-			 "declared at %L violates alignment requirents",
+			 "declared at %L violates alignment requirements",
 			 s->sym->name, &s->sym->declared_at);
 	    }
 	  offset += this_offset;
@@ -864,7 +866,7 @@ align_segment (unsigned HOST_WIDE_INT * palign)
 /* Adjust segment offsets by the given amount.  */
 
 static void
-apply_segment_offset (segment_info * s, HOST_WIDE_INT offset)
+apply_segment_offset (segment_info *s, HOST_WIDE_INT offset)
 {
   for (; s; s = s->next)
     s->offset += offset;
@@ -962,6 +964,13 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
       current_offset += s->length;
     }
 
+  if (common_segment == NULL)
+    {
+      gfc_error ("COMMON '%s' at %L does not exist",
+		 common->name, &common->where);
+      return;
+    }
+
   if (common_segment->offset != 0)
     {
       gfc_warning ("COMMON '%s' at %L requires %d bytes of padding at start",
@@ -992,7 +1001,8 @@ finish_equivalences (gfc_namespace *ns)
         sym = z->expr->symtree->n.sym;
         current_segment = get_segment_info (sym, 0);
 
-        /* All objects directly or indirectly equivalenced with this symbol.  */
+        /* All objects directly or indirectly equivalenced with this
+	   symbol.  */
         add_equivalences (&dummy);
 
 	/* Align the block.  */
@@ -1003,16 +1013,17 @@ finish_equivalences (gfc_namespace *ns)
 
 	apply_segment_offset (current_segment, offset);
 
-	/* Create the decl. If this is a module equivalence, it has a unique
-	   name, pointed to by z->module. This is written to a gfc_common_header
-	   to push create_common into using build_common_decl, so that the
-	   equivalence appears as an external symbol. Otherwise, a local
-	   declaration is built using build_equiv_decl.*/
+	/* Create the decl.  If this is a module equivalence, it has a
+	   unique name, pointed to by z->module.  This is written to a
+	   gfc_common_header to push create_common into using
+	   build_common_decl, so that the equivalence appears as an
+	   external symbol.  Otherwise, a local declaration is built using
+	   build_equiv_decl.  */
 	if (z->module)
 	  {
 	    c = gfc_get_common_head ();
 	    /* We've lost the real location, so use the location of the
-	     enclosing procedure.  */
+	       enclosing procedure.  */
 	    c->where = ns->proc_name->declared_at;
 	    strcpy (c->name, z->module);
 	  }
@@ -1047,13 +1058,18 @@ gfc_trans_common (gfc_namespace *ns)
   if (ns->blank_common.head != NULL)
     {
       c = gfc_get_common_head ();
+
       /* We've lost the real location, so use the location of the
 	 enclosing procedure.  */
-      c->where = ns->proc_name->declared_at;
+      if (ns->proc_name != NULL)
+	c->where = ns->proc_name->declared_at;
+      else
+	c->where = ns->blank_common.head->common_head->where;
+
       strcpy (c->name, BLANK_COMMON_NAME);
       translate_common (c, ns->blank_common.head);
     }
- 
+
   /* Translate all named common blocks.  */
   gfc_traverse_symtree (ns->common_root, named_common);
 

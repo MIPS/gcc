@@ -39,6 +39,7 @@ exception statement from your version. */
 package org.omg.IOP;
 
 import gnu.CORBA.Minor;
+import gnu.CORBA.OrbRestricted;
 
 import org.omg.CORBA.Any;
 import org.omg.CORBA.BAD_OPERATION;
@@ -60,34 +61,25 @@ import java.io.IOException;
 public abstract class TaggedComponentHelper
 {
   /**
-   * The cached typecode value, computed only once.
-   */
-  private static TypeCode typeCode;
-
-  /**
    * Create the TaggedComponent typecode (structure, named "TaggedComponent").
    * The typecode states that the structure contains the following fields: tag,
    * component_data.
    */
   public static TypeCode type()
   {
-    if (typeCode == null)
-      {
-        ORB orb = ORB.init();
-        StructMember[] members = new StructMember[2];
-
-        TypeCode field;
-
-        field = orb.create_alias_tc("IDL:omg.org/IOP/ComponentId:1.0",
-                                    "ComponentId",
-                                    orb.get_primitive_tc(TCKind.tk_ulong));
-        members[0] = new StructMember("tag", field, null);
-
-        field = orb.create_sequence_tc(0, orb.get_primitive_tc(TCKind.tk_octet));
-        members[1] = new StructMember("component_data", field, null);
-        typeCode = orb.create_struct_tc(id(), "TaggedComponent", members);
-      }
-    return typeCode;
+    ORB orb = OrbRestricted.Singleton;
+    StructMember[] members = new StructMember[2];
+    
+    TypeCode field;
+    
+    field = orb.create_alias_tc("IDL:omg.org/IOP/ComponentId:1.0",
+                                "ComponentId",
+                                orb.get_primitive_tc(TCKind.tk_ulong));
+    members[0] = new StructMember("tag", field, null);
+    
+    field = orb.create_sequence_tc(0, orb.get_primitive_tc(TCKind.tk_octet));
+    members[1] = new StructMember("component_data", field, null);
+    return orb.create_struct_tc(id(), "TaggedComponent", members);
   }
 
   /**
@@ -144,18 +136,9 @@ public abstract class TaggedComponentHelper
   {
     TaggedComponent value = new TaggedComponent();
     value.tag = input.read_long();
-    value.component_data = new byte[input.read_long()];
-    try
-      {
-        input.read(value.component_data);
-      }
-    catch (IOException e)
-      {
-        MARSHAL m = new MARSHAL();
-        m.minor = Minor.Encapsulation;
-        m.initCause(e);
-        throw m;
-      }
+    int length = input.read_long();
+    value.component_data = new byte[length];
+    input.read_octet_array(value.component_data, 0, length);
     return value;
   }
 
@@ -171,17 +154,6 @@ public abstract class TaggedComponentHelper
   {
     output.write_long(value.tag);
     output.write_long(value.component_data.length);
-
-    try
-      {
-        output.write(value.component_data);
-      }
-    catch (IOException e)
-      {
-        MARSHAL m = new MARSHAL();
-        m.minor = Minor.Encapsulation;
-        m.initCause(e);
-        throw m;
-      }
+    output.write_octet_array(value.component_data, 0, value.component_data.length);
   }
 }

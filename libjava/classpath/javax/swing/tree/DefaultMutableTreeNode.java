@@ -67,7 +67,7 @@ public class DefaultMutableTreeNode
    * An empty enumeration, returned by {@link #children()} if a node has no
    * children.
    */
-  public static final Enumeration EMPTY_ENUMERATION =
+  public static final Enumeration<TreeNode> EMPTY_ENUMERATION =
     EmptyEnumeration.getInstance();
 
   /**
@@ -78,7 +78,7 @@ public class DefaultMutableTreeNode
   /**
    * The child nodes for this node (may be empty).
    */
-  protected Vector children = new Vector();
+  protected Vector<MutableTreeNode> children = new Vector<MutableTreeNode>();
 
   /**
    * userObject
@@ -480,7 +480,7 @@ public class DefaultMutableTreeNode
   public TreeNode getSharedAncestor(DefaultMutableTreeNode node)
   {
     TreeNode current = this;
-    ArrayList list = new ArrayList();
+    ArrayList<TreeNode> list = new ArrayList<TreeNode>();
 
     while (current != null)
       {
@@ -527,7 +527,7 @@ public class DefaultMutableTreeNode
         || children.size() == 0)
       return 0;
 
-    Stack stack = new Stack();
+    Stack<Integer> stack = new Stack<Integer>();
     stack.push(new Integer(0));
     TreeNode node = getChildAt(0);
     int depth = 0;
@@ -765,7 +765,7 @@ public class DefaultMutableTreeNode
       throw new IllegalArgumentException();
     
     TreeNode parent = this;
-    Vector nodes = new Vector();
+    Vector<TreeNode> nodes = new Vector<TreeNode>();
     nodes.add(this);
 
     while (parent != node && parent != null)
@@ -887,8 +887,7 @@ public class DefaultMutableTreeNode
       return false;
     if (node == this)
       return true;
-    return (node.getParent() == getParent()
-            && getParent() != null);
+    return node.getParent() == getParent() && getParent() != null;
   }
 
   /**
@@ -1070,7 +1069,7 @@ public class DefaultMutableTreeNode
 
       public Object nextElement()
       {
-          if(queue.isEmpty())
+          if (queue.isEmpty())
               throw new NoSuchElementException("No more elements left.");
 
           TreeNode node = (TreeNode) queue.removeFirst();
@@ -1105,7 +1104,7 @@ public class DefaultMutableTreeNode
 
       public Object nextElement()
       {
-          if( next == null )
+          if (next == null)
               throw new NoSuchElementException("No more elements left.");
 
           Object current = next;
@@ -1121,7 +1120,7 @@ public class DefaultMutableTreeNode
       private TreeNode traverse(Enumeration children)
       {
           // If more children are available step down.
-          if( children.hasMoreElements() )
+          if (children.hasMoreElements())
           {
               TreeNode child = (TreeNode) children.nextElement();
               childrenEnums.push(child.children());
@@ -1134,7 +1133,7 @@ public class DefaultMutableTreeNode
 
           // If there are no more levels left, there is no next
           // element to return.
-          if ( childrenEnums.isEmpty() )
+          if (childrenEnums.isEmpty())
               return null;
           else
           {
@@ -1149,7 +1148,7 @@ public class DefaultMutableTreeNode
    static class PostorderEnumeration implements Enumeration
    {
 
-       Stack nodes = new Stack();
+       Stack<TreeNode> nodes = new Stack<TreeNode>();
        Stack childrenEnums = new Stack();
 
        PostorderEnumeration(TreeNode node)
@@ -1165,7 +1164,7 @@ public class DefaultMutableTreeNode
 
        public Object nextElement()
        {
-           if( nodes.isEmpty() )
+           if (nodes.isEmpty())
                throw new NoSuchElementException("No more elements left!");
 
            Enumeration children = (Enumeration) childrenEnums.peek();
@@ -1175,7 +1174,7 @@ public class DefaultMutableTreeNode
 
        private Object traverse(Enumeration children)
        {
-           if ( children.hasMoreElements() )
+           if (children.hasMoreElements())
            {
                TreeNode node = (TreeNode) children.nextElement();
                nodes.push(node);

@@ -2443,11 +2443,7 @@ c4x_reorg (void)
 	     with only the 'deleted' bit set.  Transform it into a note
 	     to avoid confusion of subsequent processing.  */
 	  if (INSN_DELETED_P (old))
-	    {
-	      PUT_CODE (old, NOTE);
-	      NOTE_LINE_NUMBER (old) = NOTE_INSN_DELETED;
-	      NOTE_SOURCE_FILE (old) = 0;
-	    }
+	    SET_INSN_DELETED (old);
 	}
     }
 }
@@ -4339,52 +4335,52 @@ c4x_init_builtins (void)
 {
   tree endlink = void_list_node;
 
-  lang_hooks.builtin_function ("fast_ftoi",
-			       build_function_type 
-			       (integer_type_node,
-				tree_cons (NULL_TREE, double_type_node,
-					   endlink)),
-			       C4X_BUILTIN_FIX, BUILT_IN_MD, NULL, NULL_TREE);
-  lang_hooks.builtin_function ("ansi_ftoi",
-			       build_function_type 
-			       (integer_type_node, 
-				tree_cons (NULL_TREE, double_type_node,
-					   endlink)),
-			       C4X_BUILTIN_FIX_ANSI, BUILT_IN_MD, NULL,
-			       NULL_TREE);
+  add_builtin_function ("fast_ftoi",
+			build_function_type 
+			(integer_type_node,
+			 tree_cons (NULL_TREE, double_type_node,
+				    endlink)),
+			C4X_BUILTIN_FIX, BUILT_IN_MD, NULL, NULL_TREE);
+  add_builtin_function ("ansi_ftoi",
+			build_function_type 
+			(integer_type_node, 
+			 tree_cons (NULL_TREE, double_type_node,
+				    endlink)),
+			C4X_BUILTIN_FIX_ANSI, BUILT_IN_MD, NULL,
+			NULL_TREE);
   if (TARGET_C3X)
-    lang_hooks.builtin_function ("fast_imult",
-				 build_function_type
-				 (integer_type_node, 
-				  tree_cons (NULL_TREE, integer_type_node,
-					     tree_cons (NULL_TREE,
-							integer_type_node,
-							endlink))),
-				 C4X_BUILTIN_MPYI, BUILT_IN_MD, NULL,
-				 NULL_TREE);
+    add_builtin_function ("fast_imult",
+			  build_function_type
+			  (integer_type_node, 
+			   tree_cons (NULL_TREE, integer_type_node,
+				      tree_cons (NULL_TREE,
+						 integer_type_node,
+						 endlink))),
+			  C4X_BUILTIN_MPYI, BUILT_IN_MD, NULL,
+			  NULL_TREE);
   else
     {
-      lang_hooks.builtin_function ("toieee",
-				   build_function_type 
-				   (double_type_node,
-				    tree_cons (NULL_TREE, double_type_node,
-					       endlink)),
-				   C4X_BUILTIN_TOIEEE, BUILT_IN_MD, NULL,
-				   NULL_TREE);
-      lang_hooks.builtin_function ("frieee",
-				   build_function_type
-				   (double_type_node, 
-				    tree_cons (NULL_TREE, double_type_node,
-					       endlink)),
-				   C4X_BUILTIN_FRIEEE, BUILT_IN_MD, NULL,
-				   NULL_TREE);
-      lang_hooks.builtin_function ("fast_invf",
-				   build_function_type 
-				   (double_type_node, 
-				    tree_cons (NULL_TREE, double_type_node,
-					       endlink)),
-				   C4X_BUILTIN_RCPF, BUILT_IN_MD, NULL,
-				   NULL_TREE);
+      add_builtin_function ("toieee",
+			    build_function_type 
+			    (double_type_node,
+			     tree_cons (NULL_TREE, double_type_node,
+					endlink)),
+			    C4X_BUILTIN_TOIEEE, BUILT_IN_MD, NULL,
+			    NULL_TREE);
+      add_builtin_function ("frieee",
+			    build_function_type
+			    (double_type_node, 
+			     tree_cons (NULL_TREE, double_type_node,
+					endlink)),
+			    C4X_BUILTIN_FRIEEE, BUILT_IN_MD, NULL,
+			    NULL_TREE);
+      add_builtin_function ("fast_invf",
+			    build_function_type 
+			    (double_type_node, 
+			     tree_cons (NULL_TREE, double_type_node,
+					endlink)),
+			    C4X_BUILTIN_RCPF, BUILT_IN_MD, NULL,
+			    NULL_TREE);
     }
 }
 
@@ -4403,7 +4399,7 @@ c4x_expand_builtin (tree exp, rtx target,
   switch (fcode)
     {
     case C4X_BUILTIN_FIX:
-      arg0 = CALL_EXPR_ARG0 (exp);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (! target || ! register_operand (target, QImode))
 	target = gen_reg_rtx (QImode);
@@ -4411,7 +4407,7 @@ c4x_expand_builtin (tree exp, rtx target,
       return target;
 
     case C4X_BUILTIN_FIX_ANSI:
-      arg0 = CALL_EXPR_ARG0 (exp);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (! target || ! register_operand (target, QImode))
 	target = gen_reg_rtx (QImode);
@@ -4421,8 +4417,8 @@ c4x_expand_builtin (tree exp, rtx target,
     case C4X_BUILTIN_MPYI:
       if (! TARGET_C3X)
 	break;
-      arg0 = CALL_EXPR_ARG0 (exp);
-      arg1 = CALL_EXPR_ARG1 (exp);
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
       r0 = expand_expr (arg0, NULL_RTX, QImode, 0);
       r1 = expand_expr (arg1, NULL_RTX, QImode, 0);
       if (! target || ! register_operand (target, QImode))
@@ -4433,7 +4429,7 @@ c4x_expand_builtin (tree exp, rtx target,
     case C4X_BUILTIN_TOIEEE:
       if (TARGET_C3X)
 	break;
-      arg0 = CALL_EXPR_ARG0 (exp);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (! target || ! register_operand (target, QFmode))
 	target = gen_reg_rtx (QFmode);
@@ -4443,7 +4439,7 @@ c4x_expand_builtin (tree exp, rtx target,
     case C4X_BUILTIN_FRIEEE:
       if (TARGET_C3X)
 	break;
-      arg0 = CALL_EXPR_ARG0 (exp);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (register_operand (r0, QFmode))
 	{
@@ -4459,7 +4455,7 @@ c4x_expand_builtin (tree exp, rtx target,
     case C4X_BUILTIN_RCPF:
       if (TARGET_C3X)
 	break;
-      arg0 = CALL_EXPR_ARG0 (exp);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (! target || ! register_operand (target, QFmode))
 	target = gen_reg_rtx (QFmode);

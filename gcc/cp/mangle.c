@@ -44,9 +44,7 @@
      mangle_vtbl_for_type:		virtual table data
      mangle_vtt_for_type:		VTT data
      mangle_ctor_vtbl_for_type:		`C-in-B' constructor virtual table data
-     mangle_thunk:			thunk function or entry
-
-*/
+     mangle_thunk:			thunk function or entry  */
 
 #include "config.h"
 #include "system.h"
@@ -163,7 +161,7 @@ integer_type_codes[itk_none] =
   'y'   /* itk_unsigned_long_long */
 };
 
-static int decl_is_template_id (const tree, struct template_info ** const);
+static int decl_is_template_id (const tree, tree* const);
 
 /* Functions for handling substitutions.  */
 
@@ -303,7 +301,7 @@ restore_partially_mangled_name (void)
    Otherwise return zero.  */
 
 static int
-decl_is_template_id (const tree decl, struct template_info ** const template_info)
+decl_is_template_id (const tree decl, tree* const template_info)
 {
   if (TREE_CODE (decl) == TYPE_DECL)
     {
@@ -690,7 +688,8 @@ write_mangled_name (const tree decl, bool top_level)
 	}
     }
   else if (TREE_CODE (decl) == VAR_DECL
-	   /* The names of global variables aren't mangled.  */
+	   /* The names of non-static global variables aren't mangled.  */
+	   && DECL_EXTERNAL_LINKAGE_P (decl)
 	   && (CP_DECL_CONTEXT (decl) == global_namespace
 	       /* And neither are `extern "C"' variables.  */
 	       || DECL_EXTERN_C_P (decl)))
@@ -807,7 +806,7 @@ write_name (tree decl, const int ignore_local_scope)
       || DECL_NAMESPACE_STD_P (context)
       || (ignore_local_scope && TREE_CODE (context) == FUNCTION_DECL))
     {
-      struct template_info *template_info;
+      tree template_info;
       /* Is this a template instance?  */
       if (decl_is_template_id (decl, &template_info))
 	{
@@ -911,7 +910,7 @@ write_unscoped_template_name (const tree decl)
 static void
 write_nested_name (const tree decl)
 {
-  struct template_info *template_info;
+  tree template_info;
 
   MANGLE_TRACE_TREE ("nested-name", decl);
 
@@ -954,7 +953,7 @@ write_prefix (const tree node)
 {
   tree decl;
   /* Non-NULL if NODE represents a template-id.  */
-  struct template_info *template_info = NULL;
+  tree template_info = NULL;
 
   MANGLE_TRACE_TREE ("prefix", node);
 
@@ -1020,7 +1019,7 @@ write_template_prefix (const tree node)
   tree decl = DECL_P (node) ? node : TYPE_NAME (node);
   tree type = DECL_P (node) ? TREE_TYPE (node) : node;
   tree context = CP_DECL_CONTEXT (decl);
-  struct template_info *template_info;
+  tree template_info;
   tree template;
   tree substitution;
 
@@ -1088,7 +1087,10 @@ write_template_prefix (const tree node)
 
     <unqualified-name>  ::= <operator-name>
 			::= <special-name>
-			::= <source-name>  */
+			::= <source-name>
+			::= <local-source-name> 
+
+    <local-source-name>	::= L <source-name> <discriminator> */
 
 static void
 write_unqualified_name (const tree decl)
@@ -1127,6 +1129,16 @@ write_unqualified_name (const tree decl)
 	oni = operator_name_info;
 
       write_string (oni[DECL_OVERLOADED_OPERATOR_P (decl)].mangled_name);
+    }
+  else if (VAR_OR_FUNCTION_DECL_P (decl) && ! TREE_PUBLIC (decl)
+	   && DECL_NAMESPACE_SCOPE_P (decl)
+	   && decl_linkage (decl) == lk_internal)
+    {
+      MANGLE_TRACE_TREE ("local-source-name", decl);
+      write_char ('L');
+      write_source_name (DECL_NAME (decl));
+      /* The default discriminator is 1, and that's all we ever use,
+	 so there's no code to output one here.  */
     }
   else
     write_source_name (DECL_NAME (decl));
@@ -1328,7 +1340,7 @@ write_real_cst (const tree value)
 
       for (; i != limit; i += dir)
 	{
-	  sprintf (buffer, "%08lx", target_real[i]);
+	  sprintf (buffer, "%08lx", (unsigned long) target_real[i]);
 	  write_chars (buffer, 8);
 	}
     }
@@ -1529,6 +1541,10 @@ write_local_name (const tree function, const tree local_entity,
 	    ::= G <type>    # imaginary (C 2000)     [not supported]
 	    ::= U <source-name> <type>   # vendor extended type qualifier
 
+   C++0x extensions
+
+     <type> ::= RR <type>   # rvalue reference-to
+
    TYPE is a type node.  */
 
 static void
@@ -1623,6 +1639,8 @@ write_type (tree type)
 	  break;
 
 	case REFERENCE_TYPE:
+	  if (TYPE_REF_IS_RVALUE (type))
+            write_char('R');
 	  write_char ('R');
 	  write_type (TREE_TYPE (type));
 	  break;
@@ -1646,6 +1664,11 @@ write_type (tree type)
 	  write_string ("U8__vector");
 	  write_type (TREE_TYPE (type));
 	  break;
+
+        case TYPE_PACK_EXPANSION:
+          write_string ("U10__variadic");
+          write_type (PACK_EXPANSION_PATTERN (type));
+          break;
 
 	default:
 	  gcc_unreachable ();
@@ -1734,10 +1757,6 @@ write_builtin_type (tree type)
       break;
 
     case INTEGER_TYPE:
-      /* If this is size_t, get the underlying int type.  */
-      if (TYPE_IS_SIZETYPE (type))
-	type = TYPE_DOMAIN (type);
-
       /* TYPE may still be wchar_t, since that isn't in
 	 integer_type_nodes.  */
       if (type == wchar_type_node)
@@ -1831,7 +1850,7 @@ write_function_type (const tree type)
     {
       /* The first parameter must be a POINTER_TYPE pointing to the
 	 `this' parameter.  */
-      tree this_type = TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (type), 0));
+      tree this_type = TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (type)));
       write_CV_qualifiers_for_type (this_type);
     }
 
@@ -1907,10 +1926,8 @@ write_bare_function_type (const tree type, const int include_return_type_p,
 static void
 write_method_parms (tree parm_types, const int method_p, const tree decl)
 {
+  tree first_parm_type;
   tree parm_decl = decl ? DECL_ARGUMENTS (decl) : NULL_TREE;
-  int len = num_parm_types (parm_types);
-  int skip = 0;
-  int i;
 
   /* Assume this parameter type list is variable-length.  If it ends
      with a void type, then it's not.  */
@@ -1925,31 +1942,33 @@ write_method_parms (tree parm_types, const int method_p, const tree decl)
      the VTT parameters for constructors and destructors.  */
   if (method_p)
     {
-      skip++;
+      parm_types = TREE_CHAIN (parm_types);
       parm_decl = parm_decl ? TREE_CHAIN (parm_decl) : NULL_TREE;
 
       while (parm_decl && DECL_ARTIFICIAL (parm_decl))
 	{
-	  skip++;
+	  parm_types = TREE_CHAIN (parm_types);
 	  parm_decl = TREE_CHAIN (parm_decl);
 	}
     }
 
-  for (i = skip; i < len; i++)
+  for (first_parm_type = parm_types;
+       parm_types;
+       parm_types = TREE_CHAIN (parm_types))
     {
-      tree parm = nth_parm_type (parm_types, i);
+      tree parm = TREE_VALUE (parm_types);
       if (parm == void_type_node)
 	{
 	  /* "Empty parameter lists, whether declared as () or
 	     conventionally as (void), are encoded with a void parameter
 	     (v)."  */
-	  if (i == skip)
+	  if (parm_types == first_parm_type)
 	    write_type (parm);
 	  /* If the parm list is terminated with a void type, it's
 	     fixed-length.  */
 	  varargs_p = 0;
 	  /* A void type better be the last one.  */
-	  gcc_assert (i == len - 1);
+	  gcc_assert (TREE_CHAIN (parm_types) == NULL);
 	}
       else
 	write_type (parm);
@@ -2022,6 +2041,12 @@ write_expression (tree expr)
 	 || TREE_CODE (expr) == NON_LVALUE_EXPR)
     {
       expr = TREE_OPERAND (expr, 0);
+      code = TREE_CODE (expr);
+    }
+
+  if (code == BASELINK)
+    {
+      expr = BASELINK_FUNCTIONS (expr);
       code = TREE_CODE (expr);
     }
 
@@ -2302,7 +2327,15 @@ write_template_arg (tree node)
 	G.need_abi_warning = 1;
     }
 
-  if (TYPE_P (node))
+  if (ARGUMENT_PACK_P (node))
+    {
+      /* Expand the template argument pack. */
+      tree args = ARGUMENT_PACK_ARGS (node);
+      int i, length = TREE_VEC_LENGTH (args);
+      for (i = 0; i < length; ++i)
+        write_template_arg (TREE_VEC_ELT (args, i));
+    }
+  else if (TYPE_P (node))
     write_type (node);
   else if (code == TEMPLATE_DECL)
     /* A template appearing as a template arg is a template template arg.  */
@@ -2594,8 +2627,9 @@ get_identifier_nocopy (const char *name)
 void
 mangle_decl (const tree decl)
 {
-  SET_DECL_ASSEMBLER_NAME (decl,
-			   get_identifier_nocopy (mangle_decl_string (decl)));
+  tree id = get_identifier_nocopy (mangle_decl_string (decl));
+  id = targetm.mangle_decl_assembler_name (decl, id);
+  SET_DECL_ASSEMBLER_NAME (decl, id);
 }
 
 /* Generate the mangled representation of TYPE.  */
@@ -2741,8 +2775,7 @@ mangle_call_offset (const tree fixed_offset, const tree virtual_offset)
 
    <special-name> ::= T <call-offset> <base encoding>
 		  ::= Tc <this_adjust call-offset> <result_adjust call-offset>
-					<base encoding>
-*/
+					<base encoding>  */
 
 tree
 mangle_thunk (tree fn_decl, const int this_adjusting, tree fixed_offset,
@@ -2818,6 +2851,9 @@ mangle_conv_op_name_for_type (const tree type)
 {
   void **slot;
   tree identifier;
+
+  if (type == error_mark_node)
+    return error_mark_node;
 
   if (conv_type_names == NULL)
     conv_type_names = htab_create_ggc (31, &hash_type, &compare_type, NULL);

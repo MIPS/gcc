@@ -38,6 +38,7 @@ exception statement from your version. */
 package gnu.java.awt.peer.swing;
 
 import java.awt.Window;
+import java.awt.peer.ComponentPeer;
 import java.awt.peer.WindowPeer;
 
 /**
@@ -68,5 +69,6 @@ public abstract class SwingWindowPeer
   public SwingWindowPeer(Window window)
   {
     super(window);
+    init(window, null);
   }
 }

@@ -123,9 +123,9 @@ struct edge_def GTY(())
 
   /* Instructions queued on the edge.  */
   union edge_def_insns {
-    rtx GTY ((tag ("0"))) r;
-    tree GTY ((tag ("1"))) t;
-  } GTY ((desc ("ir_type ()"))) insns;
+    tree GTY ((tag ("true"))) t;
+    rtx GTY ((tag ("false"))) r;
+  } GTY ((desc ("current_ir_type () == IR_GIMPLE"))) insns;
 
   /* Auxiliary info specific to a pass.  */
   PTR GTY ((skip (""))) aux;
@@ -146,6 +146,7 @@ struct edge_def GTY(())
 typedef struct edge_def *edge;
 DEF_VEC_P(edge);
 DEF_VEC_ALLOC_P(edge,gc);
+DEF_VEC_ALLOC_P(edge,heap);
 
 #define EDGE_FALLTHRU		1	/* 'Straight line' flow */
 #define EDGE_ABNORMAL		2	/* Strange flow, like computed
@@ -179,7 +180,6 @@ extern const struct gcov_ctr_summary *profile_info;
 
 /* Declared in cfgloop.h.  */
 struct loop;
-struct loops;
 
 /* Declared in tree-flow.h.  */
 struct edge_prediction;
@@ -213,9 +213,6 @@ struct rtl_bb_info;
 /* Basic block information indexed by block number.  */
 struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")))
 {
-  /* Pointers to the first and last trees of the block.  */
-  tree stmt_list;
-
   /* The edges into and out of the block.  */
   VEC(edge,gc) *preds;
   VEC(edge,gc) *succs;
@@ -224,7 +221,7 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   PTR GTY ((skip (""))) aux;
 
   /* Innermost loop containing the block.  */
-  struct loop * GTY ((skip (""))) loop_father;
+  struct loop *loop_father;
 
   /* The dominance and postdominance information node.  */
   struct et_node * GTY ((skip (""))) dom[2];
@@ -234,14 +231,9 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   struct basic_block_def *next_bb;
 
   union basic_block_il_dependent {
+      struct tree_bb_info * GTY ((tag ("0"))) tree;
       struct rtl_bb_info * GTY ((tag ("1"))) rtl;
     } GTY ((desc ("((%1.flags & BB_RTL) != 0)"))) il;
-
-  /* Chain of PHI nodes for this block.  */
-  tree phi_nodes;
-
-  /* A list of predictions.  */
-  struct edge_prediction *predictions;
 
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
@@ -278,6 +270,15 @@ struct rtl_bb_info GTY(())
 
   /* This field is used by the bb-reorder and tracer passes.  */
   int visited;
+};
+
+struct tree_bb_info GTY(())
+{
+  /* Pointers to the first and last trees of the block.  */
+  tree stmt_list;
+
+  /* Chain of PHI nodes for this block.  */
+  tree phi_nodes;
 };
 
 typedef struct basic_block_def *basic_block;
@@ -397,12 +398,9 @@ struct control_flow_graph GTY(())
 #define n_edges_for_function(FN)	     ((FN)->cfg->x_n_edges)
 #define last_basic_block_for_function(FN)    ((FN)->cfg->x_last_basic_block)
 #define label_to_block_map_for_function(FN)  ((FN)->cfg->x_label_to_block_map)
-#define profile_status_for_function(FN)	     ((FN)->cfg->x_profile_status)
 
 #define BASIC_BLOCK_FOR_FUNCTION(FN,N) \
   (VEC_index (basic_block, basic_block_info_for_function(FN), (N)))
-#define SET_BASIC_BLOCK_FOR_FUNCTION(FN,N,BB) \
-  (VEC_replace (basic_block, basic_block_info_for_function(FN), (N), (BB)))
 
 /* Defines for textual backward source compatibility.  */
 #define ENTRY_BLOCK_PTR		(cfun->cfg->x_entry_block_ptr)
@@ -489,9 +487,9 @@ extern void update_bb_for_insn (basic_block);
 extern void free_basic_block_vars (void);
 
 extern void insert_insn_on_edge (rtx, edge);
+basic_block split_edge_and_insert (edge, rtx);
 
 extern void commit_edge_insertions (void);
-extern void commit_edge_insertions_watch_calls (void);
 
 extern void remove_fake_edges (void);
 extern void remove_fake_exit_edges (void);
@@ -872,7 +870,6 @@ extern struct edge_list *pre_edge_rev_lcm (int, sbitmap *,
 extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
 
 /* In predict.c */
-extern void expected_value_to_br_prob (void);
 extern bool maybe_hot_bb_p (basic_block);
 extern bool probably_cold_bb_p (basic_block);
 extern bool probably_never_executed_bb_p (basic_block);
@@ -883,9 +880,11 @@ extern void rtl_predict_edge (edge, enum br_predictor, int);
 extern void predict_edge_def (edge, enum br_predictor, enum prediction);
 extern void guess_outgoing_edge_probabilities (basic_block);
 extern void remove_predictions_associated_with_edge (edge);
+extern bool edge_probability_reliable_p (edge);
+extern bool br_prob_note_reliable_p (rtx);
 
 /* In flow.c */
-extern void init_flow (struct function *);
+extern void init_flow (void);
 extern void debug_bb (basic_block);
 extern basic_block debug_bb_n (int);
 extern void dump_regset (regset, FILE *);
@@ -920,43 +919,24 @@ extern void free_aux_for_edges (void);
 extern void find_basic_blocks (rtx);
 extern bool cleanup_cfg (int);
 extern bool delete_unreachable_blocks (void);
-extern bool merge_seq_blocks (void);
 
-typedef struct conflict_graph_def *conflict_graph;
-
-/* Callback function when enumerating conflicts.  The arguments are
-   the smaller and larger regno in the conflict.  Returns zero if
-   enumeration is to continue, nonzero to halt enumeration.  */
-typedef int (*conflict_graph_enum_fn) (int, int, void *);
-
-
-/* Prototypes of operations on conflict graphs.  */
-
-extern conflict_graph conflict_graph_new
- (int);
-extern void conflict_graph_delete (conflict_graph);
-extern int conflict_graph_add (conflict_graph, int, int);
-extern int conflict_graph_conflict_p (conflict_graph, int, int);
-extern void conflict_graph_enum (conflict_graph, int, conflict_graph_enum_fn,
-				 void *);
-extern void conflict_graph_merge_regs (conflict_graph, int, int);
-extern void conflict_graph_print (conflict_graph, FILE*);
 extern bool mark_dfs_back_edges (void);
 extern void set_edge_can_fallthru_flag (void);
 extern void update_br_prob_note (basic_block);
 extern void fixup_abnormal_edges (void);
 extern bool inside_basic_block_p (rtx);
 extern bool control_flow_insn_p (rtx);
+extern rtx get_last_bb_insn (basic_block);
 
 /* In bb-reorder.c */
-extern void reorder_basic_blocks (unsigned int);
+extern void reorder_basic_blocks (void);
 
 /* In dominance.c */
 
 enum cdi_direction
 {
-  CDI_DOMINATORS,
-  CDI_POST_DOMINATORS
+  CDI_DOMINATORS = 1,
+  CDI_POST_DOMINATORS = 2
 };
 
 enum dom_state
@@ -966,8 +946,8 @@ enum dom_state
   DOM_OK		/* Everything is ok.  */
 };
 
-extern enum dom_state dom_computed[2];
-
+extern enum dom_state dom_info_state (enum cdi_direction);
+extern void set_dom_info_availability (enum cdi_direction, enum dom_state);
 extern bool dom_info_available_p (enum cdi_direction);
 extern void calculate_dominance_info (enum cdi_direction);
 extern void free_dominance_info (enum cdi_direction);
@@ -979,20 +959,26 @@ extern void set_immediate_dominator (enum cdi_direction, basic_block,
 				     basic_block);
 extern basic_block get_immediate_dominator (enum cdi_direction, basic_block);
 extern bool dominated_by_p (enum cdi_direction, basic_block, basic_block);
-extern int get_dominated_by (enum cdi_direction, basic_block, basic_block **);
-extern unsigned get_dominated_by_region (enum cdi_direction, basic_block *,
-					 unsigned, basic_block *);
+extern VEC (basic_block, heap) *get_dominated_by (enum cdi_direction, basic_block);
+extern VEC (basic_block, heap) *get_dominated_by_region (enum cdi_direction,
+							 basic_block *,
+							 unsigned);
 extern void add_to_dominance_info (enum cdi_direction, basic_block);
 extern void delete_from_dominance_info (enum cdi_direction, basic_block);
-basic_block recount_dominator (enum cdi_direction, basic_block);
+basic_block recompute_dominator (enum cdi_direction, basic_block);
 extern void redirect_immediate_dominators (enum cdi_direction, basic_block,
 					   basic_block);
-extern void iterate_fix_dominators (enum cdi_direction, basic_block *, int);
+extern void iterate_fix_dominators (enum cdi_direction,
+				    VEC (basic_block, heap) *, bool);
 extern void verify_dominators (enum cdi_direction);
 extern basic_block first_dom_son (enum cdi_direction, basic_block);
 extern basic_block next_dom_son (enum cdi_direction, basic_block);
+unsigned bb_dom_dfs_in (enum cdi_direction, basic_block);
+unsigned bb_dom_dfs_out (enum cdi_direction, basic_block);
+
 extern edge try_redirect_by_replacing_jump (edge, basic_block, bool);
 extern void break_superblocks (void);
+extern void relink_block_chain (bool);
 extern void check_bb_profile (basic_block, FILE *);
 extern void update_bb_profile_for_threading (basic_block, int, gcov_type, edge);
 extern void init_rtl_bb_info (basic_block);
@@ -1003,6 +989,9 @@ extern void set_bb_original (basic_block, basic_block);
 extern basic_block get_bb_original (basic_block);
 extern void set_bb_copy (basic_block, basic_block);
 extern basic_block get_bb_copy (basic_block);
+void set_loop_copy (struct loop *, struct loop *);
+struct loop *get_loop_copy (struct loop *);
+
 
 extern rtx insert_insn_end_bb_new (rtx, basic_block);
 
@@ -1172,5 +1161,24 @@ extern bool rtx_equiv_p (rtx *, rtx, int, struct equiv_info *);
 
 /* In cfgrtl.c */
 extern bool condjump_equiv_p (struct equiv_info *, bool);
+
+/* Return true when one of the predecessor edges of BB is marked with EDGE_EH.  */
+static inline bool
+bb_has_eh_pred (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      if (e->flags & EDGE_EH)
+	return true;
+    }
+  return false;
+}
+
+/* In cfgloopmanip.c.  */
+extern edge mfb_kj_edge;
+bool mfb_keep_just (edge);
 
 #endif /* GCC_BASIC_BLOCK_H */

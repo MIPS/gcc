@@ -61,9 +61,6 @@ static tree thunk_adjust (tree, bool, HOST_WIDE_INT, tree);
 static void do_build_assign_ref (tree);
 static void do_build_copy_constructor (tree);
 static tree synthesize_exception_spec (tree, tree (*) (tree, void *), void *);
-static tree locate_dtor (tree, void *);
-static tree locate_ctor (tree, void *);
-static tree locate_copy (tree, void *);
 static tree make_alias_for_thunk (tree);
 
 /* Called once to initialize method.c.  */
@@ -161,6 +158,9 @@ make_thunk (tree function, bool this_adjusting,
   DECL_DECLARED_INLINE_P (thunk) = 0;
   /* Nor has it been deferred.  */
   DECL_DEFERRED_FN (thunk) = 0;
+  /* Nor is it a template instantiation.  */
+  DECL_USE_TEMPLATE (thunk) = 0;
+  DECL_TEMPLATE_INFO (thunk) = NULL;
 
   /* Add it to the list of thunks associated with FUNCTION.  */
   TREE_CHAIN (thunk) = DECL_THUNKS (function);
@@ -404,10 +404,6 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 	}
     }
 
-  /* The back-end expects DECL_INITIAL to contain a BLOCK, so we
-     create one.  */
-  DECL_INITIAL (thunk_fndecl) = make_node (BLOCK);
-
   /* Set up cloned argument trees for the thunk.  */
   t = NULL_TREE;
   for (a = DECL_ARGUMENTS (function); a; a = TREE_CHAIN (a))
@@ -416,21 +412,28 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       TREE_CHAIN (x) = t;
       DECL_CONTEXT (x) = thunk_fndecl;
       SET_DECL_RTL (x, NULL_RTX);
+      DECL_HAS_VALUE_EXPR_P (x) = 0;
       t = x;
     }
   a = nreverse (t);
   DECL_ARGUMENTS (thunk_fndecl) = a;
-  BLOCK_VARS (DECL_INITIAL (thunk_fndecl)) = a;
 
   if (this_adjusting
       && targetm.asm_out.can_output_mi_thunk (thunk_fndecl, fixed_offset,
 					      virtual_value, alias))
     {
       const char *fnname;
+      tree fn_block;
+      
       current_function_decl = thunk_fndecl;
       DECL_RESULT (thunk_fndecl)
 	= build_decl (RESULT_DECL, 0, integer_type_node);
       fnname = XSTR (XEXP (DECL_RTL (thunk_fndecl), 0), 0);
+      /* The back end expects DECL_INITIAL to contain a BLOCK, so we
+	 create one.  */
+      fn_block = make_node (BLOCK);
+      BLOCK_VARS (fn_block) = a;
+      DECL_INITIAL (thunk_fndecl) = fn_block;
       init_function_start (thunk_fndecl);
       current_function_is_thunk = 1;
       assemble_start_function (thunk_fndecl, fnname);
@@ -778,13 +781,10 @@ synthesize_method (tree fndecl)
     }
   else if (DECL_CONSTRUCTOR_P (fndecl))
     {
-      tree parm_types = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
-      int len = num_parm_types (parm_types);
-      int skip = num_artificial_parms_for (fndecl);
-      if (skip + 1 != len
-	  || nth_parm_type (parm_types, skip) != void_type_node)
+      tree arg_chain = FUNCTION_FIRST_USER_PARMTYPE (fndecl);
+      if (arg_chain != void_list_node)
 	do_build_copy_constructor (fndecl);
-      else if (TYPE_NEEDS_CONSTRUCTING (current_class_type))
+      else
 	finish_mem_initializers (NULL_TREE);
     }
 
@@ -865,7 +865,7 @@ synthesize_exception_spec (tree type, tree (*extractor) (tree, void*),
 
 /* Locate the dtor of TYPE.  */
 
-static tree
+tree
 locate_dtor (tree type, void *client ATTRIBUTE_UNUSED)
 {
   return CLASSTYPE_DESTRUCTORS (type);
@@ -873,7 +873,7 @@ locate_dtor (tree type, void *client ATTRIBUTE_UNUSED)
 
 /* Locate the default ctor of TYPE.  */
 
-static tree
+tree
 locate_ctor (tree type, void *client ATTRIBUTE_UNUSED)
 {
   tree fns;
@@ -889,7 +889,11 @@ locate_ctor (tree type, void *client ATTRIBUTE_UNUSED)
   for (fns = CLASSTYPE_CONSTRUCTORS (type); fns; fns = OVL_NEXT (fns))
     {
       tree fn = OVL_CURRENT (fns);
-      if (sufficient_parms_p (FUNCTION_FIRST_USER_PARM (fn)))
+      tree parms = TYPE_ARG_TYPES (TREE_TYPE (fn));
+
+      parms = skip_artificial_parms_for (fn, parms);
+
+      if (sufficient_parms_p (parms))
 	return fn;
     }
   gcc_unreachable ();
@@ -905,7 +909,7 @@ struct copy_data
    points to a COPY_DATA holding the name (NULL for the ctor)
    and desired qualifiers of the source operand.  */
 
-static tree
+tree
 locate_copy (tree type, void *client_)
 {
   struct copy_data *client = (struct copy_data *)client_;
@@ -935,22 +939,21 @@ locate_copy (tree type, void *client_)
     {
       tree fn = OVL_CURRENT (fns);
       tree parms = TYPE_ARG_TYPES (TREE_TYPE (fn));
-      int len = num_parm_types (parms);
-      tree decls = DECL_ARGUMENTS (DECL_FUNCTION_TEMPLATE_P (fn)
-				   ? DECL_TEMPLATE_RESULT (fn) : fn);
       tree src_type;
       int excess;
       int quals;
-      int skip = 0;
 
-      skip = num_artificial_parms_for (fn);
-      if (skip >= len)
+      parms = skip_artificial_parms_for (fn, parms);
+      if (!parms)
 	continue;
-      decls = skip_artificial_parms_for (fn, decls);
-      src_type = non_reference (nth_parm_type (parms, skip));
+      src_type = non_reference (TREE_VALUE (parms));
+
+      if (src_type == error_mark_node)
+        return NULL_TREE;
+
       if (!same_type_ignoring_top_level_qualifiers_p (src_type, type))
 	continue;
-      if (!sufficient_parms_p (TREE_CHAIN (decls)))
+      if (!sufficient_parms_p (TREE_CHAIN (parms)))
 	continue;
       quals = cp_type_quals (src_type);
       if (client->quals & ~quals)
@@ -978,7 +981,7 @@ static tree
 implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
 {
   tree fn;
-  tree parameter_types;
+  tree parameter_types = void_list_node;
   tree return_type;
   tree fn_type;
   tree raises = empty_except_spec;
@@ -1050,6 +1053,7 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
       else
 	rhs_parm_type = type;
       rhs_parm_type = build_reference_type (rhs_parm_type);
+      parameter_types = tree_cons (NULL_TREE, rhs_parm_type, parameter_types);
       raises = synthesize_exception_spec (type, &locate_copy, &data);
       break;
     }
@@ -1058,17 +1062,6 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
     }
 
   /* Create the function.  */
-  if (rhs_parm_type)
-    {
-      parameter_types = alloc_parm_types (2);
-      *(nth_parm_type_ptr (parameter_types, 0)) = rhs_parm_type;
-      *(nth_parm_type_ptr (parameter_types, 1)) = void_type_node;
-    }
-  else
-    {
-      parameter_types = alloc_parm_types (1);
-      *(nth_parm_type_ptr (parameter_types, 0)) = void_type_node;
-    }
   fn_type = build_method_type_directly (type, return_type, parameter_types);
   if (raises)
     fn_type = build_exception_variant (fn_type, raises);
@@ -1092,7 +1085,7 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
       DECL_ARGUMENTS (fn) = cp_build_parm_decl (NULL_TREE, rhs_parm_type);
       TREE_READONLY (DECL_ARGUMENTS (fn)) = 1;
     }
-  /* Add the "this" parameter.  */ 
+  /* Add the "this" parameter.  */
   this_parm = build_this_parm (fn_type, TYPE_UNQUALIFIED);
   TREE_CHAIN (this_parm) = DECL_ARGUMENTS (fn);
   DECL_ARGUMENTS (fn) = this_parm;
@@ -1215,5 +1208,6 @@ num_artificial_parms_for (tree fn)
     count++;
   return count;
 }
+
 
 #include "gt-cp-method.h"

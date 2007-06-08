@@ -38,13 +38,10 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
-import gnu.classpath.Configuration;
-
 import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
 import java.awt.image.DirectColorModel;
 import java.awt.image.ImageConsumer;
-import java.awt.image.ImageProducer;
 import java.awt.image.Raster;
 import java.awt.image.RenderedImage;
 import java.io.DataInput;
@@ -75,10 +72,8 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
 {
   static 
   {
-    if (Configuration.INIT_LOAD_LIBRARY)
-      {
-        System.loadLibrary("gtkpeer");
-      }
+    System.loadLibrary("gtkpeer");
+
     initStaticState ();
   }
   
@@ -105,8 +100,15 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
   native void pumpBytes (byte[] bytes, int len) throws IOException;
   native void pumpDone () throws IOException;
   native void finish (boolean needsClose);
-  static native void streamImage(int[] bytes, String format, int width, int height, boolean hasAlpha, DataOutput sink);
-  
+
+  /**
+   * Converts given image to bytes.
+   * Will call the GdkPixbufWriter for each chunk.
+   */
+  static native void streamImage(int[] bytes, String format,
+                                 int width, int height,
+                                 boolean hasAlpha, GdkPixbufWriter writer);
+
   // gdk-pixbuf provids data in RGBA format
   static final ColorModel cm = new DirectColorModel (32, 0xff000000, 
                                                      0x00ff0000, 
@@ -182,22 +184,22 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
     int len = 0;
     synchronized(pixbufLock)
       {
-	initState();
+        initState();
       }
     needsClose = true;
 
     // Note: We don't want the pixbufLock while reading from the InputStream.
     while ((len = is.read (bytes)) != -1)
       {
-	synchronized(pixbufLock)
-	  {
-	    pumpBytes (bytes, len);
-	  }
+        synchronized(pixbufLock)
+          {
+            pumpBytes (bytes, len);
+          }
       }
 
     synchronized(pixbufLock)
       {
-	pumpDone();
+        pumpDone();
       }
 
     needsClose = false;
@@ -215,7 +217,7 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
   {
     synchronized(pixbufLock)
       {
-	finish(needsClose);
+        finish(needsClose);
       }
   }
 
@@ -224,8 +226,8 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
   {
     public String name;
     public boolean writable = false;    
-    public ArrayList mimeTypes = new ArrayList();
-    public ArrayList extensions = new ArrayList();
+    public ArrayList<String> mimeTypes = new ArrayList<String>();
+    public ArrayList<String> extensions = new ArrayList<String>();
 
     public ImageFormatSpec(String name, boolean writable)
     {
@@ -244,7 +246,7 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
     }    
   }
 
-  static ArrayList imageFormatSpecs;
+  static ArrayList<ImageFormatSpec> imageFormatSpecs;
 
   public static ImageFormatSpec registerFormat(String name, boolean writable) 
   {
@@ -252,7 +254,7 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
     synchronized(GdkPixbufDecoder.class)
       {
         if (imageFormatSpecs == null)
-          imageFormatSpecs = new ArrayList();
+          imageFormatSpecs = new ArrayList<ImageFormatSpec>();
         imageFormatSpecs.add(ifs);
       }
     return ifs;
@@ -260,13 +262,13 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
 
   static String[] getFormatNames(boolean writable)
   {
-    ArrayList names = new ArrayList();
+    ArrayList<String> names = new ArrayList<String>();
     synchronized (imageFormatSpecs) 
       {
-        Iterator i = imageFormatSpecs.iterator();
+        Iterator<ImageFormatSpec> i = imageFormatSpecs.iterator();
         while (i.hasNext())
           {
-            ImageFormatSpec ifs = (ImageFormatSpec) i.next();
+            ImageFormatSpec ifs = i.next();
             if (writable && !ifs.writable)
               continue;
             names.add(ifs.name);
@@ -277,62 +279,50 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
              * This generally means "all the extensions people might use". 
              */
 
-            Iterator j = ifs.extensions.iterator();
+            Iterator<String> j = ifs.extensions.iterator();
             while (j.hasNext())
-              names.add((String) j.next());
+              names.add(j.next());
           }
       }
-    Object[] objs = names.toArray();
-    String[] strings = new String[objs.length];
-    for (int i = 0; i < objs.length; ++i)
-      strings[i] = (String) objs[i];
-    return strings;
+    return names.toArray(new String[names.size()]);
   }
 
   static String[] getFormatExtensions(boolean writable)
   {
-    ArrayList extensions = new ArrayList();
+    ArrayList<String> extensions = new ArrayList<String>();
     synchronized (imageFormatSpecs) 
       {
-        Iterator i = imageFormatSpecs.iterator();
+        Iterator<ImageFormatSpec> i = imageFormatSpecs.iterator();
         while (i.hasNext())
           {
-            ImageFormatSpec ifs = (ImageFormatSpec) i.next();
+            ImageFormatSpec ifs = i.next();
             if (writable && !ifs.writable)
               continue;
-            Iterator j = ifs.extensions.iterator();
+            Iterator<String> j = ifs.extensions.iterator();
             while (j.hasNext())
-              extensions.add((String) j.next());
+              extensions.add(j.next());
           }
       }
-    Object[] objs = extensions.toArray();
-    String[] strings = new String[objs.length];
-    for (int i = 0; i < objs.length; ++i)
-      strings[i] = (String) objs[i];
-    return strings;
+    return extensions.toArray(new String[extensions.size()]);
   }
 
   static String[] getFormatMimeTypes(boolean writable)
   {
-    ArrayList mimeTypes = new ArrayList();
+    ArrayList<String> mimeTypes = new ArrayList<String>();
     synchronized (imageFormatSpecs) 
       {
-        Iterator i = imageFormatSpecs.iterator();
+        Iterator<ImageFormatSpec> i = imageFormatSpecs.iterator();
         while (i.hasNext())
           {
-            ImageFormatSpec ifs = (ImageFormatSpec) i.next();
+            ImageFormatSpec ifs = i.next();
             if (writable && !ifs.writable)
               continue;
-            Iterator j = ifs.mimeTypes.iterator();
+            Iterator<String> j = ifs.mimeTypes.iterator();
             while (j.hasNext())
-              mimeTypes.add((String) j.next());
+              mimeTypes.add(j.next());
           }
       }
-    Object[] objs = mimeTypes.toArray();
-    String[] strings = new String[objs.length];
-    for (int i = 0; i < objs.length; ++i)
-      strings[i] = (String) objs[i];
-    return strings;
+    return mimeTypes.toArray(new String[mimeTypes.size()]);
   }
 
   
@@ -346,10 +336,10 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
 
     String str = (String) ext;
 
-    Iterator i = imageFormatSpecs.iterator();
+    Iterator<ImageFormatSpec> i = imageFormatSpecs.iterator();
     while (i.hasNext())
       {
-        ImageFormatSpec ifs = (ImageFormatSpec) i.next();
+        ImageFormatSpec ifs = i.next();
 
         if (needWritable && !ifs.writable)
           continue;
@@ -357,10 +347,10 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
         if (ifs.name.equals(str))
           return str;
 
-        Iterator j = ifs.extensions.iterator(); 
+        Iterator<String> j = ifs.extensions.iterator(); 
         while (j.hasNext())
           {
-            String extension = (String)j.next();
+            String extension = j.next();
             if (extension.equals(str))
               return ifs.name;
           }
@@ -368,7 +358,7 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
         j = ifs.mimeTypes.iterator(); 
         while (j.hasNext())
           {
-            String mimeType = (String)j.next();
+            String mimeType = j.next();
             if (mimeType.equals(str))
               return ifs.name;
           }
@@ -463,7 +453,7 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
   }
 
   private static class GdkPixbufWriter
-    extends ImageWriter
+    extends ImageWriter implements Runnable
   {
     String ext;
     public GdkPixbufWriter(GdkPixbufWriterSpi ownerSpi, Object ext)
@@ -504,31 +494,123 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
       int width = ras.getWidth();
       int height = ras.getHeight();
       ColorModel model = image.getColorModel();
-      int[] pixels = GdkGraphics2D.findSimpleIntegerArray (image.getColorModel(), ras);
+      int[] pixels = CairoGraphics2D.findSimpleIntegerArray (image.getColorModel(), ras);
       
       if (pixels == null)
         {
-          BufferedImage img = new BufferedImage(width, height, 
-                                                (model != null && model.hasAlpha() ? 
-                                                 BufferedImage.TYPE_INT_ARGB
-                                                 : BufferedImage.TYPE_INT_RGB));
+          BufferedImage img;
+          if(model != null && model.hasAlpha())
+            img = CairoSurface.getBufferedImage(width, height);
+          img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
           int[] pix = new int[4];
           for (int y = 0; y < height; ++y)
             for (int x = 0; x < width; ++x)
               img.setRGB(x, y, model.getRGB(ras.getPixel(x, y, pix)));
-          pixels = GdkGraphics2D.findSimpleIntegerArray (img.getColorModel(), 
+          pixels = CairoGraphics2D.findSimpleIntegerArray (img.getColorModel(), 
                                                          img.getRaster());
           model = img.getColorModel();
         }
 
+      Thread workerThread = new Thread(this, "GdkPixbufWriter");
+      workerThread.start();
       processImageStarted(1);
       synchronized(pixbufLock)
-	{
-	  streamImage(pixels, this.ext, width, height, model.hasAlpha(), 
-		      (DataOutput) this.getOutput());
-	}
+        {
+          streamImage(pixels, this.ext, width, height, model.hasAlpha(), 
+                      this);
+        }
+      synchronized(data)
+        {
+          data.add(DATADONE);
+          data.notifyAll();
+        }
+
+      while (workerThread.isAlive())
+        {
+          try
+            {
+              workerThread.join();
+            }
+          catch (InterruptedException ioe)
+            {
+              // Ignored.
+            }
+        }
+
+      if (exception != null)
+        throw exception;
+
       processImageComplete();
     }    
+
+    /**
+     * Object marking end of data from native streamImage code.
+     */
+    private static final Object DATADONE = new Object();
+
+    /**
+     * Holds the data gotten from the native streamImage code.
+     * A worker thread will pull data out.
+     * Needs to be synchronized for access.
+     * The special object DATADONE is added when all data has been delivered.
+     */
+    private ArrayList<Object> data = new ArrayList<Object>();
+
+    /**
+     * Holds any IOException thrown by the run method that needs
+     * to be rethrown by the write method.
+     */
+    private IOException exception;
+
+    /** Callback for streamImage native code. **/
+    private void write(byte[] bs)
+    {
+      synchronized(data)
+        {
+          data.add(bs);
+          data.notifyAll();
+        }
+    }
+
+    public void run()
+    {
+      boolean done = false;
+      while (!done)
+        {
+          synchronized(data)
+            {
+              while (data.isEmpty())
+                {
+                  try
+                    {
+                      data.wait();
+                    }
+                  catch (InterruptedException ie)
+                    {
+                      /* ignore */
+                    }
+                }
+
+              Object o = data.remove(0);
+              if (o == DATADONE)
+                done = true;
+              else
+                {
+                  DataOutput out = (DataOutput) getOutput();
+                  try
+                    {
+                      out.write((byte[]) o);
+                    }
+                  catch (IOException ioe)
+                    {
+                      // We are only interested in the first exception.
+                      if (exception == null)
+                        exception = ioe;
+                    }
+                }
+            }
+        }
+    }
   }
 
   private static class GdkPixbufReader 
@@ -549,7 +631,8 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
       this.ext = findFormatName(ext, false);
     }
 
-    public GdkPixbufReader(GdkPixbufReaderSpi ownerSpi, Object ext, GdkPixbufDecoder d)
+    public GdkPixbufReader(GdkPixbufReaderSpi ownerSpi, Object ext,
+                           GdkPixbufDecoder d)
     {
       this(ownerSpi, ext);
       dec = d;
@@ -586,9 +669,12 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
       
       if (bufferedImage == null)
         {
-          bufferedImage = new BufferedImage (width, height, (model != null && model.hasAlpha() ? 
-                                                             BufferedImage.TYPE_INT_ARGB
-                                                             : BufferedImage.TYPE_INT_RGB));
+          if(model != null && model.hasAlpha())
+            bufferedImage = new BufferedImage (width, height,
+                                               BufferedImage.TYPE_INT_ARGB);
+          else
+            bufferedImage = new BufferedImage (width, height,
+                                               BufferedImage.TYPE_INT_RGB);
         }
 
       int pixels2[];
@@ -640,11 +726,11 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
       return null;
     }
 
-    public Iterator getImageTypes(int imageIndex)
+    public Iterator<ImageTypeSpecifier> getImageTypes(int imageIndex)
       throws IOException
     {
       BufferedImage img = getBufferedImage();
-      Vector vec = new Vector();
+      Vector<ImageTypeSpecifier> vec = new Vector<ImageTypeSpecifier>();
       vec.add(new ImageTypeSpecifier(img));
       return vec.iterator();
     }
@@ -672,8 +758,8 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
       else if (get instanceof DataInput)
         dec = new GdkPixbufDecoder((DataInput) get);
       else
-	throw new IllegalArgumentException("input object not supported: "
-					   + get);
+        throw new IllegalArgumentException("input object not supported: "
+                                           + get);
     }
 
     public BufferedImage read(int imageIndex, ImageReadParam param)
@@ -682,43 +768,4 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
       return getBufferedImage ();
     }
   }
-
-  // remaining helper class and static method is a convenience for the Gtk
-  // peers, for loading a BufferedImage in off a disk file without going
-  // through the whole imageio system. 
-
-  public static BufferedImage createBufferedImage (String filename)
-  {
-    GdkPixbufReader r = new GdkPixbufReader (getReaderSpi(), 
-                                             "png", // reader auto-detects, doesn't matter
-                                             new GdkPixbufDecoder (filename));
-    return r.getBufferedImage ();
-  }
-
-  public static BufferedImage createBufferedImage (URL u)
-  {
-    GdkPixbufReader r = new GdkPixbufReader (getReaderSpi(), 
-                                             "png", // reader auto-detects, doesn't matter
-                                             new GdkPixbufDecoder (u));
-    return r.getBufferedImage ();
-  }
-
-  public static BufferedImage createBufferedImage (byte[] imagedata, int imageoffset,
-                                                   int imagelength)
-  {
-    GdkPixbufReader r = new GdkPixbufReader (getReaderSpi(), 
-                                             "png", // reader auto-detects, doesn't matter
-                                             new GdkPixbufDecoder (imagedata,
-                                                                   imageoffset,
-                                                                   imagelength));
-    return r.getBufferedImage ();
-  }
-  
-  public static BufferedImage createBufferedImage (ImageProducer producer)
-  {
-    GdkPixbufReader r = new GdkPixbufReader (getReaderSpi(), "png" /* ignored */, null);
-    producer.startProduction(r);
-    return r.getBufferedImage ();
-  }
-
 }

@@ -1,5 +1,5 @@
 /* Event.java -- a base class for all event types
-   Copyright (C) 2005 Free Software Foundation
+   Copyright (C) 2005, 2007 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -54,6 +54,41 @@ import java.io.IOException;
  */
 public abstract class Event
 {
+  /**
+   * The class of the object in which the event occurred
+   */
+  public static final int EVENT_CLASS = 1;
+  
+  /**
+   * The thread where the event occurred
+   */
+  public static final int EVENT_THREAD = 2;
+  
+  /**
+   * The location where an event occurred
+   */
+  public static final int EVENT_LOCATION = 3;
+  
+  /**
+   * The instance of the class where the event occurred
+   */
+  public static final int EVENT_INSTANCE = 4;
+  
+  /**
+   * The field acted on by an event
+   */
+  public static final int EVENT_FIELD = 5;
+
+  /**
+   * The class of the exception for ExceptionEvent
+   */
+  public static final int EVENT_EXCEPTION_CLASS = 6;
+
+  /**
+   * Whether this exception was caught (only valid for ExceptionEvents)
+   */
+  public static final int EVENT_EXCEPTION_CAUGHT = 7;
+  
   // The kind of event represented by this event
   private byte _eventKind;
 
@@ -97,28 +132,33 @@ public abstract class Event
    * @returns the parameter (not the ID) or <code>null</code> if none is
    *          is defined for this event
    */
-  public abstract Object getParameter (Class type);
+  public abstract Object getParameter (int type);
 
   /**
-   * Converts this event into to a JDWP packet
+   * Converts the events into to a single JDWP Event.COMPOSITE packet
    *
    * @param dos     the stream to which to write data
-   * @param request the request the wanted this notification
+   * @param events  the events to package into the packet
+   * @param requests the corresponding event requests
+   * @param suspendPolicy the suspend policy enforced by the VM
    * @returns a <code>JdwpPacket</code> of the events
    */
-  public JdwpPacket toPacket (DataOutputStream dos, EventRequest request)
+  public static JdwpPacket toPacket (DataOutputStream dos,
+				     Event[] events,
+				     EventRequest[] requests,
+				     byte suspendPolicy)
   {
     JdwpPacket pkt;
     try
       {
-	dos.writeByte (request.getSuspendPolicy ());
-	dos.writeInt (1);
-	dos.writeByte (_eventKind);
-	dos.writeInt (request.getId ());
-	_writeData (dos);
+	dos.writeByte (suspendPolicy);
+	dos.writeInt (events.length);
+	for (int i = 0; i < events.length; ++i)
+	  _toData (dos, events[i], requests[i]);
 
-	pkt = new JdwpCommandPacket (JdwpConstants.CommandSet.Event.CS_VALUE,
-				     JdwpConstants.CommandSet.Event.COMPOSITE);
+	pkt
+	  = new JdwpCommandPacket (JdwpConstants.CommandSet.Event.CS_VALUE,
+				   JdwpConstants.CommandSet.Event.COMPOSITE);
       }
     catch (IOException ioe)
       {
@@ -126,5 +166,15 @@ public abstract class Event
       }
 
     return pkt;
+  }
+
+  // Helper function for toPacket
+  private static void _toData (DataOutputStream dos, Event event,
+			       EventRequest request)
+    throws IOException
+  {
+    dos.writeByte (event._eventKind);
+    dos.writeInt (request.getId ());
+    event._writeData (dos);
   }
 }

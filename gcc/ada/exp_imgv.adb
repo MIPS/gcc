@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,6 +29,7 @@ with Casing;   use Casing;
 with Checks;   use Checks;
 with Einfo;    use Einfo;
 with Exp_Util; use Exp_Util;
+with Lib;      use Lib;
 with Namet;    use Namet;
 with Nmake;    use Nmake;
 with Nlists;   use Nlists;
@@ -424,7 +425,7 @@ package body Exp_Imgv is
 
    --    btyp (Value_xx (X))
 
-   --  where btyp is he base type of the prefix, and
+   --  where btyp is he base type of the prefix
 
    --    For types whose root type is Character
    --      xx = Character
@@ -452,6 +453,12 @@ package body Exp_Imgv is
 
    --    For floating-point types and ordinary fixed-point types
    --      xx = Real
+
+   --  For Wide_[Wide_]Character types, typ'Value (X) expands into:
+
+   --    btyp (Value_xx (X, EM))
+
+   --  where btyp is the base type of the prefix, and EM is the encoding method
 
    --  For decimal types with size <= Integer'Size, typ'Value (X)
    --  expands into
@@ -498,8 +505,16 @@ package body Exp_Imgv is
       elsif Rtyp = Standard_Wide_Character then
          Vid := RE_Value_Wide_Character;
 
+         Append_To (Args,
+           Make_Integer_Literal (Loc,
+             Intval => Int (Wide_Character_Encoding_Method)));
+
       elsif Rtyp = Standard_Wide_Wide_Character then
          Vid := RE_Value_Wide_Wide_Character;
+
+         Append_To (Args,
+           Make_Integer_Literal (Loc,
+             Intval => Int (Wide_Character_Encoding_Method)));
 
       elsif     Rtyp = Base_Type (Standard_Short_Short_Integer)
         or else Rtyp = Base_Type (Standard_Short_Integer)
@@ -619,11 +634,31 @@ package body Exp_Imgv is
       --  and decimal types, with Vid set to the Id of the entity for the
       --  Value routine and Args set to the list of parameters for the call.
 
-      Rewrite (N,
-        Convert_To (Btyp,
-          Make_Function_Call (Loc,
-            Name => New_Reference_To (RTE (Vid), Loc),
-            Parameter_Associations => Args)));
+      --  Compiling package Ada.Tags under No_Run_Time_Mode we disable the
+      --  expansion of the attribute into the function call statement to avoid
+      --  generating spurious errors caused by the use of Integer_Address'Value
+      --  in our implementation of Ada.Tags.Internal_Tag
+
+      --  Seems like a bit of a kludge, there should be a better way ???
+
+      --  There is a better way, you should also test RTE_Available ???
+
+      if No_Run_Time_Mode
+        and then Rtyp = RTE (RE_Integer_Address)
+        and then RTU_Loaded (Ada_Tags)
+        and then Cunit_Entity (Current_Sem_Unit)
+                   = Body_Entity (RTU_Entity (Ada_Tags))
+      then
+         Rewrite (N,
+           Unchecked_Convert_To (Rtyp,
+             Make_Integer_Literal (Loc, Uint_0)));
+      else
+         Rewrite (N,
+           Convert_To (Btyp,
+             Make_Function_Call (Loc,
+               Name => New_Reference_To (RTE (Vid), Loc),
+               Parameter_Associations => Args)));
+      end if;
 
       Analyze_And_Resolve (N, Btyp);
    end Expand_Value_Attribute;

@@ -1,5 +1,5 @@
 /* Request.java --
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,8 +38,8 @@ exception statement from your version. */
 
 package gnu.java.net.protocol.http;
 
-import gnu.java.net.BASE64;
 import gnu.java.net.LineInputStream;
+import gnu.java.util.Base64;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -96,7 +96,7 @@ public class Request
   /**
    * Map of response header handlers.
    */
-  protected Map responseHeaderHandlers;
+  protected Map<String, ResponseHeaderHandler> responseHeaderHandlers;
 
   /**
    * The authenticator.
@@ -121,7 +121,7 @@ public class Request
     this.method = method;
     this.path = path;
     requestHeaders = new Headers();
-    responseHeaderHandlers = new HashMap();
+    responseHeaderHandlers = new HashMap<String, ResponseHeaderHandler>();
   }
 
   /**
@@ -302,9 +302,8 @@ public class Request
             String line = method + ' ' + requestUri + ' ' + version + CRLF;
             out.write(line.getBytes(US_ASCII));
             // Request headers
-            for (Iterator i = requestHeaders.iterator(); i.hasNext(); )
+            for (Headers.HeaderElement elt : requestHeaders)
               {
-                Headers.HeaderElement elt = (Headers.HeaderElement)i.next();
                 line = elt.name + HEADER_SEP + elt.value + CRLF;
                 out.write(line.getBytes(US_ASCII));
               }
@@ -419,13 +418,16 @@ public class Request
     switch (code)
       {
       case 100:
+        break;
       case 204:
       case 205:
       case 304:
+        body = createResponseBodyStream(responseHeaders, majorVersion,
+                                        minorVersion, in, false);
         break;
       default:
         body = createResponseBodyStream(responseHeaders, majorVersion,
-                                        minorVersion, in);
+                                        minorVersion, in, true);
       }
 
     // Construct response
@@ -436,9 +438,8 @@ public class Request
 
   void notifyHeaderHandlers(Headers headers)
   {
-    for (Iterator i = headers.iterator(); i.hasNext(); )
+    for (Headers.HeaderElement entry : headers)
       {
-        Headers.HeaderElement entry = (Headers.HeaderElement) i.next();
         // Handle Set-Cookie
         if ("Set-Cookie".equalsIgnoreCase(entry.name))
             handleSetCookie(entry.value);
@@ -453,11 +454,11 @@ public class Request
   private InputStream createResponseBodyStream(Headers responseHeaders,
                                                int majorVersion,
                                                int minorVersion,
-                                               InputStream in)
+                                               InputStream in,
+                                               boolean mayHaveBody)
     throws IOException
   {
     long contentLength = -1;
-    Headers trailer = null;
     
     // Persistent connections are the default in HTTP/1.1
     boolean doClose = "close".equalsIgnoreCase(getHeader("Connection")) ||
@@ -466,7 +467,12 @@ public class Request
       (majorVersion == 1 && minorVersion == 0);
 
     String transferCoding = responseHeaders.getValue("Transfer-Encoding");
-    if ("chunked".equalsIgnoreCase(transferCoding))
+    if ("HEAD".equals(method) || !mayHaveBody)
+      {
+        // Special case no body.
+        in = new LimitedLengthInputStream(in, 0, true, connection, doClose);
+      }
+    else if ("chunked".equalsIgnoreCase(transferCoding))
       {
         in = new LimitedLengthInputStream(in, -1, false, connection, doClose);
           
@@ -523,7 +529,7 @@ public class Request
         Credentials creds = authenticator.getCredentials(realm, attempts);
         String userPass = creds.getUsername() + ':' + creds.getPassword();
         byte[] b_userPass = userPass.getBytes("US-ASCII");
-        byte[] b_encoded = BASE64.encode(b_userPass);
+        byte[] b_encoded = Base64.encode(b_userPass).getBytes("US-ASCII");
         String authorization =
           scheme + " " + new String(b_encoded, "US-ASCII");
         setHeader("Authorization", authorization);

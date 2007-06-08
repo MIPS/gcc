@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -39,7 +39,7 @@ static unsigned gomp_threads_size;
 static unsigned gomp_threads_used;
 
 /* This attribute contains PTHREAD_CREATE_DETACHED.  */
-static pthread_attr_t gomp_thread_attr;
+pthread_attr_t gomp_thread_attr;
 
 /* This barrier holds and releases threads waiting in gomp_threads.  */
 static gomp_barrier_t gomp_threads_dock;
@@ -183,6 +183,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
   struct gomp_team *team;
   bool nested;
   unsigned i, n, old_threads_used = 0;
+  pthread_attr_t thread_attr, *attr;
 
   thr = gomp_thread ();
   nested = thr->ts.team != NULL;
@@ -265,6 +266,17 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 	}
     }
 
+  attr = &gomp_thread_attr;
+  if (gomp_cpu_affinity != NULL)
+    {
+      size_t stacksize;
+      pthread_attr_init (&thread_attr);
+      pthread_attr_setdetachstate (&thread_attr, PTHREAD_CREATE_DETACHED);
+      if (! pthread_attr_getstacksize (&gomp_thread_attr, &stacksize))
+	pthread_attr_setstacksize (&thread_attr, stacksize);
+      attr = &thread_attr;
+    }
+
   start_data = gomp_alloca (sizeof (struct gomp_thread_start_data)
 			    * (nthreads-i));
 
@@ -283,11 +295,16 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
       start_data->fn_data = data;
       start_data->nested = nested;
 
-      err = pthread_create (&pt, &gomp_thread_attr,
-			    gomp_thread_start, start_data);
+      if (gomp_cpu_affinity != NULL)
+	gomp_init_thread_affinity (attr);
+
+      err = pthread_create (&pt, attr, gomp_thread_start, start_data);
       if (err != 0)
 	gomp_fatal ("Thread creation failed: %s", strerror (err));
     }
+
+  if (gomp_cpu_affinity != NULL)
+    pthread_attr_destroy (&thread_attr);
 
  do_release:
   gomp_barrier_wait (nested ? &team->barrier : &gomp_threads_dock);
@@ -338,7 +355,4 @@ initialize_team (void)
   thr = &initial_thread_tls_data;
 #endif
   gomp_sem_init (&thr->release, 0);
-
-  pthread_attr_init (&gomp_thread_attr);
-  pthread_attr_setdetachstate (&gomp_thread_attr, PTHREAD_CREATE_DETACHED);
 }

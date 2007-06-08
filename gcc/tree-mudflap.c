@@ -1,5 +1,6 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
 
@@ -327,6 +328,18 @@ mf_make_mf_cache_struct_type (tree field_type)
   return struct_type;
 }
 
+#define build_function_type_0(rtype)            \
+  build_function_type (rtype, void_list_node)
+#define build_function_type_1(rtype, arg1)                 \
+  build_function_type (rtype, tree_cons (0, arg1, void_list_node))
+#define build_function_type_3(rtype, arg1, arg2, arg3)                  \
+  build_function_type (rtype, tree_cons (0, arg1, tree_cons (0, arg2,   \
+                                                             tree_cons (0, arg3, void_list_node))))
+#define build_function_type_4(rtype, arg1, arg2, arg3, arg4)            \
+  build_function_type (rtype, tree_cons (0, arg1, tree_cons (0, arg2,   \
+                                                             tree_cons (0, arg3, tree_cons (0, arg4, \
+                                                                                            void_list_node)))))
+
 /* Initialize the global tree nodes that correspond to mf-runtime.h
    declarations.  */
 void
@@ -354,15 +367,15 @@ mudflap_init (void)
   mf_cache_structptr_type = build_pointer_type (mf_cache_struct_type);
   mf_cache_array_type = build_array_type (mf_cache_struct_type, 0);
   mf_check_register_fntype =
-    build_function_type_list (void_type_node, ptr_type_node, size_type_node,
-			      integer_type_node, mf_const_string_type, 0);
+    build_function_type_4 (void_type_node, ptr_type_node, size_type_node,
+                           integer_type_node, mf_const_string_type);
   mf_unregister_fntype =
-    build_function_type_list (void_type_node, ptr_type_node, size_type_node,
-			      integer_type_node, 0);
+    build_function_type_3 (void_type_node, ptr_type_node, size_type_node,
+                           integer_type_node);
   mf_init_fntype =
-    build_function_type_list (void_type_node, 0);
+    build_function_type_0 (void_type_node);
   mf_set_options_fntype =
-    build_function_type_list (integer_type_node, mf_const_string_type, 0);
+    build_function_type_1 (integer_type_node, mf_const_string_type);
 
   mf_cache_array_decl = mf_make_builtin (VAR_DECL, "__mf_lookup_cache",
                                          mf_cache_array_type);
@@ -386,6 +399,10 @@ mudflap_init (void)
   mf_set_options_fndecl = mf_make_builtin (FUNCTION_DECL, "__mf_set_options",
                                            mf_set_options_fntype);
 }
+#undef build_function_type_4
+#undef build_function_type_3
+#undef build_function_type_1
+#undef build_function_type_0
 
 
 /* ------------------------------------------------------------------------ */
@@ -442,14 +459,12 @@ mf_decl_cache_locals (void)
 
   /* Build initialization nodes for the cache vars.  We just load the
      globals into the cache variables.  */
-  t = build2 (MODIFY_EXPR, TREE_TYPE (mf_cache_shift_decl_l),
-              mf_cache_shift_decl_l, mf_cache_shift_decl);
+  t = build_gimple_modify_stmt (mf_cache_shift_decl_l, mf_cache_shift_decl);
   SET_EXPR_LOCATION (t, DECL_SOURCE_LOCATION (current_function_decl));
   gimplify_to_stmt_list (&t);
   shift_init_stmts = t;
 
-  t = build2 (MODIFY_EXPR, TREE_TYPE (mf_cache_mask_decl_l),
-              mf_cache_mask_decl_l, mf_cache_mask_decl);
+  t = build_gimple_modify_stmt (mf_cache_mask_decl_l, mf_cache_mask_decl);
   SET_EXPR_LOCATION (t, DECL_SOURCE_LOCATION (current_function_decl));
   gimplify_to_stmt_list (&t);
   mask_init_stmts = t;
@@ -537,16 +552,18 @@ mf_build_check_statement_for (tree base, tree limit,
   mf_limit = create_tmp_var (mf_uintptr_type, "__mf_limit");
 
   /* Build: __mf_base = (uintptr_t) <base address expression>.  */
-  t = build2 (MODIFY_EXPR, void_type_node, mf_base,
-              convert (mf_uintptr_type, unshare_expr (base)));
+  t = build_gimple_modify_stmt (mf_base,
+				fold_convert (mf_uintptr_type,
+					      unshare_expr (base)));
   SET_EXPR_LOCUS (t, locus);
   gimplify_to_stmt_list (&t);
   head = tsi_start (t);
   tsi = tsi_last (t);
 
   /* Build: __mf_limit = (uintptr_t) <limit address expression>.  */
-  t = build2 (MODIFY_EXPR, void_type_node, mf_limit,
-              convert (mf_uintptr_type, unshare_expr (limit)));
+  t = build_gimple_modify_stmt (mf_limit,
+				fold_convert (mf_uintptr_type,
+					      unshare_expr (limit)));
   SET_EXPR_LOCUS (t, locus);
   gimplify_to_stmt_list (&t);
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
@@ -561,7 +578,7 @@ mf_build_check_statement_for (tree base, tree limit,
               TREE_TYPE (TREE_TYPE (mf_cache_array_decl)),
               mf_cache_array_decl, t, NULL_TREE, NULL_TREE);
   t = build1 (ADDR_EXPR, mf_cache_structptr_type, t);
-  t = build2 (MODIFY_EXPR, void_type_node, mf_elem, t);
+  t = build_gimple_modify_stmt (mf_elem, t);
   SET_EXPR_LOCUS (t, locus);
   gimplify_to_stmt_list (&t);
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
@@ -607,15 +624,13 @@ mf_build_check_statement_for (tree base, tree limit,
      can use as the condition for the conditional jump.  */
   t = build2 (TRUTH_OR_EXPR, boolean_type_node, t, u);
   cond = create_tmp_var (boolean_type_node, "__mf_unlikely_cond");
-  t = build2 (MODIFY_EXPR, boolean_type_node, cond, t);
+  t = build_gimple_modify_stmt (cond, t);
   gimplify_to_stmt_list (&t);
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
 
   /* Build the conditional jump.  'cond' is just a temporary so we can
      simply build a void COND_EXPR.  We do need labels in both arms though.  */
-  t = build3 (COND_EXPR, void_type_node, cond,
-              build1 (GOTO_EXPR, void_type_node, tree_block_label (then_bb)),
-              build1 (GOTO_EXPR, void_type_node, tree_block_label (join_bb)));
+  t = build3 (COND_EXPR, void_type_node, cond, NULL_TREE, NULL_TREE);
   SET_EXPR_LOCUS (t, locus);
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
 
@@ -653,12 +668,12 @@ mf_build_check_statement_for (tree base, tree limit,
 
   if (! flag_mudflap_threads)
     {
-      t = build2 (MODIFY_EXPR, void_type_node,
-                  mf_cache_shift_decl_l, mf_cache_shift_decl);
+      t = build_gimple_modify_stmt (mf_cache_shift_decl_l,
+				    mf_cache_shift_decl);
       tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
 
-      t = build2 (MODIFY_EXPR, void_type_node,
-                  mf_cache_mask_decl_l, mf_cache_mask_decl);
+      t = build_gimple_modify_stmt (mf_cache_mask_decl_l,
+				    mf_cache_mask_decl);
       tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
     }
 
@@ -668,7 +683,6 @@ mf_build_check_statement_for (tree base, tree limit,
     bsi_insert_after (&bsi, tsi_stmt (tsi), BSI_CONTINUE_LINKING);
 
   *instr_bsi = bsi_start (join_bb);
-  bsi_next (instr_bsi);
 }
 
 
@@ -796,7 +810,7 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
               size = DECL_SIZE_UNIT (field);
             
 	    if (elt)
-	      elt = build1 (ADDR_EXPR, build_pointer_type TREE_TYPE (elt), elt);
+	      elt = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (elt)), elt);
             addr = fold_convert (ptr_type_node, elt ? elt : base);
             addr = fold_build2 (PLUS_EXPR, ptr_type_node,
 				addr, fold_convert (ptr_type_node,
@@ -889,18 +903,19 @@ mf_xform_derefs (void)
           /* Only a few GIMPLE statements can reference memory.  */
           switch (TREE_CODE (s))
             {
-            case MODIFY_EXPR:
-              mf_xform_derefs_1 (&i, &TREE_OPERAND (s, 0), EXPR_LOCUS (s),
-                                 integer_one_node);
-              mf_xform_derefs_1 (&i, &TREE_OPERAND (s, 1), EXPR_LOCUS (s),
-                                 integer_zero_node);
+            case GIMPLE_MODIFY_STMT:
+              mf_xform_derefs_1 (&i, &GIMPLE_STMT_OPERAND (s, 0),
+		  		 EXPR_LOCUS (s), integer_one_node);
+              mf_xform_derefs_1 (&i, &GIMPLE_STMT_OPERAND (s, 1),
+		  		 EXPR_LOCUS (s), integer_zero_node);
               break;
 
             case RETURN_EXPR:
               if (TREE_OPERAND (s, 0) != NULL_TREE)
                 {
-                  if (TREE_CODE (TREE_OPERAND (s, 0)) == MODIFY_EXPR)
-                    mf_xform_derefs_1 (&i, &TREE_OPERAND (TREE_OPERAND (s, 0), 1),
+                  if (TREE_CODE (TREE_OPERAND (s, 0)) == GIMPLE_MODIFY_STMT)
+                    mf_xform_derefs_1 (&i, &GIMPLE_STMT_OPERAND
+					     (TREE_OPERAND (s, 0), 1),
                                        EXPR_LOCUS (s), integer_zero_node);
                   else
                     mf_xform_derefs_1 (&i, &TREE_OPERAND (s, 0), EXPR_LOCUS (s),

@@ -108,7 +108,7 @@ public class JSplitPane extends JComponent implements Accessible
 
     /**
      * Returns an object that provides access to the current, minimum and 
-     * maximum values for the {@link JSlider}.  Since this class implements 
+     * maximum values for the {@link JSplitPane}.  Since this class implements 
      * {@link AccessibleValue}, it returns itself.
      *
      * @return The accessible value.
@@ -136,9 +136,9 @@ public class JSplitPane extends JComponent implements Accessible
      * listeners.  If the supplied value is <code>null</code>, this method 
      * does nothing and returns <code>false</code>.
      *
-     * @param value  the new slider value (<code>null</code> permitted).
+     * @param value  the new divider location (<code>null</code> permitted).
      *
-     * @return <code>true</code> if the slider value is updated, and 
+     * @return <code>true</code> if the divider location value is updated, and 
      *     <code>false</code> otherwise.
      */
     public boolean setCurrentAccessibleValue(Number value)
@@ -247,6 +247,11 @@ public class JSplitPane extends JComponent implements Accessible
   /** The component on the right or bottom. */
   protected Component rightComponent;
 
+  /**
+   * The divider location.
+   */
+  private int dividerLocation;
+
   /** Determines how extra space should be allocated. */
   private transient double resizeWeight;
 
@@ -288,7 +293,7 @@ public class JSplitPane extends JComponent implements Accessible
     continuousLayout = newContinuousLayout;
     setLeftComponent(newLeftComponent);
     setRightComponent(newRightComponent);
-
+    dividerLocation = -1;
     updateUI();
   }
 
@@ -355,10 +360,6 @@ public class JSplitPane extends JComponent implements Accessible
    */
   protected void addImpl(Component comp, Object constraints, int index)
   {
-    int left = 0;
-    int right = 1;
-    int div = 2;
-    int place;
     if (constraints == null)
       {
         if (leftComponent == null)
@@ -431,10 +432,7 @@ public class JSplitPane extends JComponent implements Accessible
    */
   public int getDividerLocation()
   {
-    if (ui != null)
-      return ((SplitPaneUI) ui).getDividerLocation(this);
-    else
-      return -1;
+    return dividerLocation;
   }
 
   /**
@@ -699,7 +697,8 @@ public class JSplitPane extends JComponent implements Accessible
    * @param proportionalLocation A double that describes the location of the
    *        divider.
    *
-   * @throws IllegalArgumentException DOCUMENT ME!
+   * @throws IllegalArgumentException if <code>proportionalLocation</code> is
+   *     not in the range from 0.0 to 1.0 inclusive.
    */
   public void setDividerLocation(double proportionalLocation)
   {
@@ -707,7 +706,8 @@ public class JSplitPane extends JComponent implements Accessible
       throw new IllegalArgumentException
         ("proportion has to be between 0 and 1.");
 
-    int max = (orientation == HORIZONTAL_SPLIT) ? getWidth() : getHeight();
+    int max = ((orientation == HORIZONTAL_SPLIT) ? getWidth() : getHeight())
+              - getDividerSize();
     setDividerLocation((int) (proportionalLocation * max));
   }
 
@@ -720,17 +720,13 @@ public class JSplitPane extends JComponent implements Accessible
    */
   public void setDividerLocation(int location)
   {
-    if (ui != null && location != getDividerLocation())
-      {
-        int oldLocation = getDividerLocation();        
-        if (location < 0)
-          ((SplitPaneUI) ui).resetToPreferredSizes(this);
-        else
-            ((SplitPaneUI) ui).setDividerLocation(this, location);
-        
-        firePropertyChange(DIVIDER_LOCATION_PROPERTY, oldLocation, 
-                           getDividerLocation());
-      }
+    int oldLocation = dividerLocation;
+    dividerLocation = location;
+    SplitPaneUI ui = getUI();
+    if (ui != null)
+      ui.setDividerLocation(this, location);
+    firePropertyChange(DIVIDER_LOCATION_PROPERTY, oldLocation, 
+                       location);
   }
 
   /**
