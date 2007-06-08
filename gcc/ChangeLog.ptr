@@ -1,5 +1,25 @@
 2007-06-07  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
+	* matrix-reorg.c (collect_data_for_malloc_call): Stmt
+	will now only be either INDIRECT_REF and POINTER_PLUS_EXPR.
+	Offset only holds something for PLUS_EXPR.
+	(ssa_accessed_in_tree): Handle POINTER_PLUS_EXPR just as
+	a PLUS_EXPR.
+	(analyze_transpose): POINTER_PLUS_EXPR will only show up now
+	and not PLUS_EXPR.
+	(analyze_accesses_for_modify_stmt): Likewise.
+	Remove comment about the type being integral type as it is
+	wrong now.
+	(analyze_matrix_accesses): Handle POINTER_PLUS_EXPR as
+	PLUS_EXPR.
+	(transform_access_sites): POINTER_PLUS_EXPR will only show up now
+	and not PLUS_EXPR.
+	Correct the type which the artimentic is done in (is now
+	sizetype).
+	Reindent one loop.
+
+2007-06-07  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
 	* config/ia64/ia64.c (ia64_gimplify_va_arg): Use
 	POINTER_PLUS_EXPR for pointers and create the
 	BIT_AND_EXPR in sizetype.
