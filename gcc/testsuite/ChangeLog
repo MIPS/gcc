@@ -1,3 +1,25 @@
+2007-06-07  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.dg/fixed-point/func-scalar.c,
+	* gcc.dg/fixed-point/operator-logical.c,
+	* gcc.dg/fixed-point/func-array.c,
+	* gcc.dg/fixed-point/struct-union.c,
+	* gcc.dg/fixed-point/func-struct.c,
+	* gcc.dg/fixed-point/func-vararg-mixed.c,
+	* gcc.dg/fixed-point/bit-complement.c,
+	* gcc.dg/fixed-point/operator-comma.c,
+	* gcc.dg/fixed-point/union-init.c,
+	* gcc.dg/fixed-point/struct-layout-1.c,
+	* gcc.dg/fixed-point/operator-bitwise.c,
+	* gcc.dg/fixed-point/func-mixed.c,
+	* gcc.dg/fixed-point/func-vararg-size0.c,
+	* gcc.dg/fixed-point/func-vararg.c,
+	* gcc.dg/fixed-point/operator-cond.c,
+	* gcc.dg/fixed-point/loop-index.c,
+	* gcc.dg/fixed-point/Wbad-function-cast-1.c,
+	* gcc.dg/fixed-point/operator-unary.c,
+	* gcc.dg/fixed-point/int-warning.c: New tests.
+
 2007-06-06  Chao-ying Fu  <fu@mips.com>
 
 	* gcc.target/mips/dpaq_sa_l_w.c: Update types because of the change of
