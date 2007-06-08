@@ -14636,7 +14636,7 @@ no_global_regs_above (int first_greg)
 static bool
 rs6000_reg_live_or_pic_offset_p (int reg)
 {
-  return ((df_regs_rever_live_p (reg)
+  return ((df_regs_ever_live_p (reg)
            && (!call_used_regs[reg]
                || (reg == RS6000_PIC_OFFSET_TABLE_REGNUM
                    && TARGET_TOC && TARGET_MINIMAL_TOC)))
@@ -14947,7 +14947,7 @@ rs6000_emit_prologue (void)
        int i;
        rtx spe_save_area_ptr;
        int using_static_chain_p = (cfun->static_chain_decl != NULL_TREE
-                                   && regs_ever_live[STATIC_CHAIN_REGNUM]
+                                   && df_regs_ever_live_p (STATIC_CHAIN_REGNUM)
                                    && !call_used_regs[STATIC_CHAIN_REGNUM]);
  
        /* Determine whether we can address all of the registers that need

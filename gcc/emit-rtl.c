@@ -3523,10 +3523,7 @@ void set_insn_deleted (rtx insn)
 {
   df_insn_delete (BLOCK_FOR_INSN (insn), INSN_UID (insn));
   PUT_CODE (insn, NOTE);
-#ifndef USE_MAPPED_LOCATION
-  NOTE_SOURCE_FILE (insn) = 0;
-#endif
-  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+  NOTE_KIND (insn) = NOTE_INSN_DELETED;
 }
 
 
@@ -4110,9 +4107,8 @@ emit_note_after (enum insn_note subtype, rtx after)
   INSN_UID (note) = cur_insn_uid++;
   NOTE_KIND (note) = subtype;
   BLOCK_FOR_INSN (note) = NULL;
-  add_insn_after (note, after, NULL);
   memset (&NOTE_DATA (note), 0, sizeof (NOTE_DATA (note)));
-  add_insn_after (note, after);
+  add_insn_after (note, after, NULL);
   return note;
 }
 

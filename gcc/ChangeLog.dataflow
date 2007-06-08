@@ -1,3 +1,14 @@
+2007-06-07  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* emit-rtl.c (set_insn_deleted): Changed NOTE_LINE_NUMBER to
+	NOTE_KIND.
+	(emit_note_after): Fixed merge glitch.
+	* combine.c (try_combine):  Changed NOTE_LINE_NUMBER to
+	NOTE_KIND.
+	* reg-stack.c (convert_regs_1): Fixed merge glitch.
+	* config/rs6000/rs6000.c (no_global_regs_above): Fixed merge typo.
+	(rs6000_emit_prologue): Fixed merge glitch.
+
 2007-06-06  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* regrename.c (do_replace): Removed ifdefed out code.

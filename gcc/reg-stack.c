@@ -2977,21 +2977,10 @@ convert_regs_1 (basic_block block)
 
   /* Something failed if the stack lives don't match.  If we had malformed
      asms, we zapped the instruction itself, but that didn't produce the
-     same pattern of register kills as before.  
+     same pattern of register kills as before.  */
      
-     Disable this checking for blocks leading to EXIT block - for undefined
-     return values blocks containing return statement are not declaring return
-     register as live while we have to initialize it (as otherwise the caller's
-     register stack would end up missordered).
-     Alternatively we might update bi->out_reg_set in reg_to_stack for return
-     registers to save this sanity check. */
-  if (!single_succ_p (block)
-      || single_succ_edge (block)->dest != EXIT_BLOCK_PTR)
-    {
-      GO_IF_HARD_REG_EQUAL (regstack.reg_set, bi->out_reg_set, win);
-      gcc_assert (any_malformed_asm);
-    }
- win:
+  gcc_assert (hard_reg_set_equal_p (regstack.reg_set, bi->out_reg_set)
+	      || any_malformed_asm);
   bi->stack_out = regstack;
   bi->done = true;
 }

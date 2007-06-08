@@ -3694,7 +3694,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
       df_insn_rescan (undobuf.other_insn);
     }
 
-  if (i1 && !(NOTE_P(i1) && (NOTE_LINE_NUMBER (i1) == NOTE_INSN_DELETED)))
+  if (i1 && !(NOTE_P(i1) && (NOTE_KIND (i1) == NOTE_INSN_DELETED)))
     {
       if (dump_file)
 	{
@@ -3704,7 +3704,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
       df_insn_rescan (i1);
     }
 
-  if (i2 && !(NOTE_P(i2) && (NOTE_LINE_NUMBER (i2) == NOTE_INSN_DELETED)))
+  if (i2 && !(NOTE_P(i2) && (NOTE_KIND (i2) == NOTE_INSN_DELETED)))
     {
       if (dump_file)
 	{
@@ -3714,7 +3714,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
       df_insn_rescan (i2);
     }
 
-  if (i3 && !(NOTE_P(i3) && (NOTE_LINE_NUMBER (i3) == NOTE_INSN_DELETED)))
+  if (i3 && !(NOTE_P(i3) && (NOTE_KIND (i3) == NOTE_INSN_DELETED)))
     {
       if (dump_file)
 	{

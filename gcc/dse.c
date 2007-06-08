@@ -949,7 +949,7 @@ const_or_frame_p (rtx x)
   switch (GET_CODE (x))
     {
     case MEM:
-      return !MEM_READONLY_P (x);
+      return MEM_READONLY_P (x);
 
     case CONST:
     case CONST_INT:
