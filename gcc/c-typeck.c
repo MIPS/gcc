@@ -8043,9 +8043,11 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
       if ((code0 == INTEGER_TYPE || code0 == POINTER_TYPE
-	   || code0 == REAL_TYPE || code0 == COMPLEX_TYPE)
+	   || code0 == REAL_TYPE || code0 == COMPLEX_TYPE
+	   || code0 == FIXED_POINT_TYPE)
 	  && (code1 == INTEGER_TYPE || code1 == POINTER_TYPE
-	      || code1 == REAL_TYPE || code1 == COMPLEX_TYPE))
+	      || code1 == REAL_TYPE || code1 == COMPLEX_TYPE
+	      || code1 == FIXED_POINT_TYPE))
 	{
 	  /* Result of these operations is always an int,
 	     but that does not mean the operands should be

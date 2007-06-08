@@ -1,3 +1,8 @@
+2007-06-07  Chao-ying Fu  <fu@mips.com>
+
+	* c-typeck.c (build_binary_op): Support fixed-point types for
+	TRUTH_*_EXPR.
+
 2007-06-06  Chao-ying Fu  <fu@mips.com>
 
 	* defaults.h (SHORT_FRACT_TYPE_SIZE): Change to BITS_PER_UNIT.
