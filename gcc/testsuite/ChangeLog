@@ -1,3 +1,150 @@
+2007-06-08  Harsha Jagasia <harsha.jagasia@amd.com>
+
+	* gcc.dg/vect/costmodel: New directory.
+	* gcc.dg/vect/costmodel/i386: New directory.
+	* gcc.dg/vect/costmodel/i386/i386-costmodel-vect.exp: New testsuite.
+	* gcc.dg/vect/costmodel/i386/costmodel-fast-math-vect-pr29925.c:
+	New test.
+	* gcc.dg/vect/costmodel/i386/costmodel-vect-31.c: New test.
+	* gcc.dg/vect/costmodel/i386/costmodel-vect-33.c: New test.
+	* gcc.dg/vect/costmodel/i386/costmodel-vect-68.c: New test.
+	* gcc.dg/vect/costmodel/i386/costmodel-vect-reduc-1char.c: New test.
+	* gcc.dg/vect/costmodel/x86_64: New directory.
+	* gcc.dg/vect/costmodel/x86_64/x86_64-costmodel-vect.exp:
+	New testsuite.	
+	* gcc.dg/vect/costmodel/x86_64/costmodel-fast-math-vect-pr29925.c:
+	New test.
+	* gcc.dg/vect/costmodel/x86_64/costmodel-vect-31.c: New test.
+	* gcc.dg/vect/costmodel/x86_64/costmodel-vect-33.c: New test.
+	* gcc.dg/vect/costmodel/x86_64/costmodel-vect-68.c: New test.
+	* gcc.dg/vect/costmodel/x86_64/costmodel-vect-reduc-1char.c: New test.
+	* gcc.dg/vect/costmodel/x86_64/costmodel-pr30843.c: New test.
+
+2007-06-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/32243
+	* gcc.dg/vect/vect.exp: Add support for -O3 tests.  Reset default
+	flags for -Os tests.
+	* gcc.dg/vect/03-vect-pr32243.c: New test.
+
+2007-06-08  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/32224
+	* gcc.dg/vect/pr32224.c: New test.
+
+2007-06-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/32177
+	* g++.dg/gomp/pr32177.C: New test.
+
+2007-06-07  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR testsuite/25241
+	* gcc.dg/parm-mismatch-1.c: Use dg-message for notes.
+	* gcc.dg/Wfatal.c: Use dg-message for output that is neither a
+	warning nor an error.
+	* gcc.dg/Wfatal-2.c: Likewise.
+	* gcc.dg/Werror-1.c: Likewise.
+	* gcc.dg/Werror-5.c: Likewise.
+	* gcc.dg/Werror-7.c: Likewise.
+	* gcc.dg/Werror-10.c: Likewise.
+	* gcc.dg/Werror-11.c: Likewise.
+	
+2007-06-07  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/30759
+	* g++.dg/init/brace6.C: New test.
+
+2007-06-07  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/ext/cleanup-8.c: Run on i386-darwin9 and later.
+	* g++.dg/ext/cleanup-9.c: Run on i386-darwin9 and later.
+	* g++.dg/ext/cleanup-10.c: Run on i386-darwin9 and later.
+	* g++.dg/ext/cleanup-11.c: Run on i386-darwin9 and later.
+
+	* gcc.dg/attr-weakref-1-darwin.c: Run on all Darwin platforms.
+	* gcc.dg/20050826-1.c: Run on all Darwin platforms.
+	* gcc.dg/darwin-ld-2.c: Run on all Darwin platforms.
+	* gcc.dg/darwin-ld-4.c: Run on all Darwin platforms.
+	* gcc.dg/cleanup-8.c: Run on i386-darwin9 and later.
+	* gcc.dg/cleanup-9.c: Run on i386-darwin9 and later.
+	* gcc.dg/cleanup-10.c: Run on i386-darwin9 and later.
+	* gcc.dg/cleanup-11.c: Run on i386-darwin9 and later.
+
+	* gcc.dg/darwin-minversion-3.c: New.
+
+2007-06-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/builtin-copysign.c: New test.
+
+2007-06-07  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/32220
+	* gfortran.dg/predcom-2.f: New testcase.
+
+2007-06-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/32231
+	* gcc.target/i386/vectorize4.c: New test.
+
+2007-06-06  Steve Ellcey  <sje@cup.hp.com>
+
+	* gfortran.dg/integer_exponentiation_3.F90: Use approx. check.
+
+2007-06-06  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR testsuite/25241
+	* gcc.dg/simd-5.c: Mark output as a note.
+	* gcc.dg/simd-6.c: Mark output as a note. Fix incorrect use of
+	dg-message.
+	* gcc.dg/simd-1.c: Likewise.
+	* gcc.dg/always_inline.c: Mark output as a sorry.
+	* gcc.dg/always_inline2.c: Likewise.
+	* gcc.dg/always_inline3.c: Likewise.
+	
+2007-06-06  Ian Lance Taylor  <iant@google.com>
+
+	* g++.dg/conversion/enum1.C: New test.
+
+2007-06-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/32216
+	* gcc.dg/vect/pr32216.c: New test.
+
+2007-06-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR testsuite/18923
+	* gfortran.dg/invalid_contains_1.f90: New test.
+	* gfortran.dg/invalid_contains_2.f90: New test.
+
+2007-06-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR testsuite/32057
+	* gfortran.dg/secnds.f: Update test to avoid roundoff errors and
+	midnight issues.
+
+2007-06-05  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR testsuite/25241
+	* gcc.dg/invalid-call-1.c: Use dg-warning to match the warning and
+	dg-message to match de note.
+	* gcc.dg/pr26570.c: Use dg-message for a note.
+	* gcc.dg/pr29254.c: Use dg-message for generic output and use
+	dg-error instead of dg-warning because of -Werror.
+	* gcc.dg/glibc-uclibc-1.c: Use dg-message for output that is
+	neither an error, nor a warning.
+	* gcc.dg/glibc-uclibc-2.c: Likewise
+	* gcc.dg/cpp/19940712-1.c: Likewise.
+
+2007-06-05  Joerg Wunsch  <j.gnu@uriah.heep.sax.de>
+
+	PR preprocessor/23479
+	* testsuite/gcc.dg/binary-constants-1.c: Add test suites for
+	the 0b-prefixed binary integer constants.
+	* testsuite/gcc.dg/binary-constants-2.c: Ditto.
+	* testsuite/gcc.dg/binary-constants-3.c: Ditto.
+	* testsuite/gcc.dg/binary-constants-4.c: Ditto.
+	
 2007-06-07  Chao-ying Fu  <fu@mips.com>
 
 	* gcc.dg/fixed-point/func-scalar.c,
@@ -25,7 +172,7 @@
 	* gcc.target/mips/dpaq_sa_l_w.c: Update types because of the change of
 	fixed-point type sizes.
 	* gcc.target/mips/dpsq_sa_l_w.c: Likewise.
-	
+
 2007-06-05  Ian Lance Taylor  <iant@google.com>
 
 	* gcc.dg/Wstrict-overflow-19.c: New test.
@@ -325,7 +472,7 @@
 	* gcc.target/arm/long-calls-4.c: Likewise.
 
 2007-05-25  Richard Guenther  <rguenther@suse.de>
-	Andrew Pinski  <andrew_pinski@playstation.sony.com>
+	    Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	PR tree-optimization/31982
 	* gcc.dg/tree-ssa/forwprop-2.c: New testcase.

@@ -1,3 +1,467 @@
+2007-06-08  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/lib1funcs.asm (__udivsi3): Use hardware divide
+	instructions if they are supported.
+	(__divsi3, __umodsi3, __modsi3): Likewise.
+	(__ashldi3, __ashrdi3, __lshrdi3): New.
+	* config/xtensa/t-xtensa (LIB1ASMFUNCS): Add DImode shift functions.
+	
+2007-06-08  Harsha Jagasia <harsha.jagasia@amd.com>
+	    Tony Linthicum <tony.linthicum@amd.com>
+
+	* doc/extend.texi: Add fvect-cost-model flag.
+	* common.opt (fvect-cost-model): New flag.
+	* tree-vectorizer.c (new_stmt_vec_info): Initialize inside and outside
+	cost fields in stmt_vec_info struct for STMT.
+	* tree-vectorizer.h (stmt_vec_info): Define inside and outside cost
+	fields in stmt_vec_info struct and access functions for the same.
+	(TARG_COND_BRANCH_COST): Define cost of conditional branch.
+	(TARG_VEC_STMT_COST): Define cost of any vector operation, excluding
+	load, store and vector to scalar operation.
+	(TARG_VEC_TO_SCALAR_COST): Define cost of vector to scalar operation.
+	(TARG_VEC_LOAD_COST): Define cost of aligned vector load.
+	(TARG_VEC_UNALIGNED_LOAD_COST): Define cost of misasligned vector load.
+	(TARG_VEC_STORE_COST): Define cost of vector store.
+	(vect_estimate_min_profitable_iters): Define new function.
+	* tree-vect-analyze.c (vect_analyze_operations): Add a compile-time
+	check to evaluate if loop iterations are less than minimum profitable
+	iterations determined by cost model or minimum vect loop bound defined
+	by user, whichever is more conservative.
+	* tree-vect-transform.c (vect_do_peeling_for_loop_bound): Add a
+	run-time check to evaluate if loop iterations are less than minimum
+	profitable iterations determined by cost model or minimum vect loop
+	bound defined by user, whichever is more conservative.
+	(vect_estimate_min_profitable_iterations): New function to estimate
+	mimimimum iterartions required for vector version of loop to be
+	profitable over scalar version.
+        (vect_model_reduction_cost): New function.
+	(vect_model_induction_cost): New function.
+	(vect_model_simple_cost): New function.
+	(vect_cost_strided_group_size): New function.
+	(vect_model_store_cost): New function.
+	(vect_model_load_cost): New function.
+	(vectorizable_reduction): Call vect_model_reduction_cost during
+	analysis phase.
+	(vectorizable_induction): Call vect_model_induction_cost during
+	analysis phase.
+	(vectorizable_load): Call vect_model_load_cost during analysis phase.
+	(vectorizable_store): Call vect_model_store_cost during analysis phase.
+	(vectorizable_call, vectorizable_assignment, vectorizable_operation,
+	vectorizable_promotion, vectorizable_demotion): Call 
+	vect_model_simple_cost during analysis phase.
+
+2007-06-08  Simon Baldwin  <simonb@google.com>
+
+	* reg-stack.c (get_true_reg): Readability change.  Moved default case
+	label into direct switch statement scope.
+
+2007-06-08  Simon Baldwin  <simonb@google.com>
+
+	* tree-flow-inline.h (var_ann): Replaced erroneous '=' assignment
+	in gcc_assert() with '==' comparison.
+
+2007-06-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (override_options): Merge TARGET_SSE4_2 and
+	TARGET_ABM handling of x86_popcnt variable.
+
+2007-06-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* doc/extend.texi (X86 Built-in Functions): Document __builtin_fabsq,
+	__builtin_copysignq and __builtin_infq built-in functions.
+
+2007-06-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* doc/extend.texi (X86 Built-in Functions): Add missing `@item's in
+	SSE4.2 section.  Correct built-in function names in SSE4A section.
+
+2007-06-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/32243
+	* tree-vect-transform.c (vectorizable_type_promotion): Move check
+	for ncopies after ratio check between nunits_out and nunits_in.
+	(vectorizable_type_demotion): Remove single-use variable "scalar_type".
+
+2007-06-08  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/32224
+	* tree-vect-analyze.c (vect_determine_vectorization_factor): Fail
+	vectorization upon a non GIMPLE_MODIFY_STMT.
+
+2007-06-08  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/29953
+	* config/sh/sh.md (doloop_end): New pattern and splitter.
+	* loop-iv.c (simple_rhs_p): Check for hardware registers.
+	
+2007-06-08  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR middle-end/32209
+	* dominance.c (debug_dominance_tree, debug_dominance_tree_1): New
+	functions.
+	(verify_dominators): Do not change dominance tree.
+
+2007-06-08  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/constraints.md: New file.
+	* config/sh/sh.c: Include tm-constrs.h.
+	(reg_class_from_letter): Remove.
+	(prepare_cbranch_operands): Use satisfies_constraint_*
+	function instead of macro.
+	(andcosts, broken_move, sh_secondary_reload): Likewise.
+	* config/sh/predicates.md (trapping_target_operand): Likewise.
+	(and_operand, arith_operand, arith_reg_or_0_operand,
+	cmp_operand, logical_operand, target_operand,
+	ua_address_operand, ua_offset, xor_operand): Likewise.
+	* config/sh/sh.md: Include constraints.md.
+	(*movsicc_t_false): Use satisfies_constraint_* function
+	instead of macro.
+	(*movsicc_t_true, ashlsi3_std, ashlhi3_k, lshrsi3_m,
+	lshrsi3_k, movsi_const_16bit+2, *movhi_media+1,
+	movdi_const_16bit+1, beq, bne, *ptb): Likewise.
+	* config/sh/sh.h (reg_class_from_letter): Remove prototype.
+	(OVERRIDE_OPTIONS): Don't modify reg_class_from_letter.
+	(REG_CLASS_FROM_CONSTRAINT): Remove.
+	(CONSTRAINT_LEN, CONST_OK_FOR_I20, CONST_OK_FOR_I,
+	CONST_OK_FOR_J, CONST_OK_FOR_K16, CONST_OK_FOR_K,
+	CONST_OK_FOR_P27, CONST_OK_FOR_P, CONST_OK_FOR_M,
+	CONST_OK_FOR_N, CONST_OK_FOR_CONSTRAINT_P,
+	CONST_DOUBLE_OK_FOR_LETTER_P): Likewise.
+	(SECONDARY_INOUT_RELOAD_CLASS): Use satisfies_constraint_*
+	function instead of macro.
+	(SECONDARY_INPUT_RELOAD_CLASS): Likewise.
+	(EXTRA_CONSTRAINT_Q, EXTRA_CONSTRAINT_A,
+	EXTRA_CONSTRAINT_Bsc, EXTRA_CONSTRAINT_B,
+	EXTRA_CONSTRAINT_Css, EXTRA_CONSTRAINT_Csu): Remove.
+	(IS_PC_RELATIVE_LOAD_ADDR_P): New macro.
+	(IS_LITERAL_OR_SYMBOLIC_S16_P): Likewise.
+	(IS_LITERAL_OR_SYMBOLIC_U16_P): Likewise.
+	(IS_NON_EXPLICIT_CONSTANT_P): Likewise.
+	(EXTRA_CONSTRAINT_Csy, EXTRA_CONSTRAINT_Z, EXTRA_CONSTRAINT_W,
+	EXTRA_CONSTRAINT_Cpg, EXTRA_CONSTRAINT_C,
+	EXTRA_MEMORY_CONSTRAINT, EXTRA_CONSTRAINT_Sr0,
+	EXTRA_CONSTRAINT_Sua, EXTRA_CONSTRAINT_S,
+	EXTRA_CONSTRAINT_STR): Likewise.
+	(GO_IF_LEGITIMATE_INDEX): Fix indentation.
+
+2007-06-07  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/i386/darwin.h (STACK_BOUNDARY): Define.
+
+2007-06-07  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/30759
+	* c-common.h (flag_cpp0x): Replaced by...
+	(cxx_dialect): ... this new variable specifying the C++ dialect that
+	is used.
+	* c-common.c (flag_cpp0x): Removed.
+	(cxx_dialect): Defined.
+	* c-cppbuiltin.c (c_cpp_builtins): flag_cpp0x rewritten in terms of
+	cxx_dialect.
+	* c-opts.c (c_common_post_options): Likewise.
+	(set_std_cxx98): Set cxx_dialect to cxx98.
+	(set_std_cxx0x): Set cxx_dialect to cxx0x.
+
+2007-06-07  Geoffrey Keating  <geoffk@apple.com>
+	    Hui-May Chang <hm.chang@apple.com>
+
+	* doc/invoke.texi (Darwin Options): Update documentation for
+	-mmacosx-version-min.
+	* config.gcc (*-*-darwin*): Set extra_gcc_objs.
+	* config/darwin-driver.c: New file.
+	* config/darwin.h (GCC_DRIVER_HOST_INITIALIZATION): New.
+	* config/t-darwin (darwin-driver.o): New rule.
+
+	* config/darwin-c.c (version_as_macro): Ignore low digit.
+
+2007-06-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (standard sse constant splitter): Handle TFmode.
+	(negtf2, abstf2, *absnegtf2_sse): New insn patterns.
+	(CSGNMODE): New mode macro.
+	(CSGNVMODE): New mode attribute.
+	(copysign<mode>3): Rename from copysingsf3 and copysigndf3.  Macroize
+	expander using CSGNMODE mode macro.  Handle TFmode.
+	(copysign<mode>3_const): Rename from copysignsf3_const and
+	copysigndf3_const.  Macroize pattern using CSGNMODE mode macro.
+	Handle TFmode.
+	(copysign<mode>3_var): Rename from copysignsf3_var and
+	copysigndf3_var.  Macroize pattern using CSGNMODE mode macro.
+	Handle TFmode.
+	(copysign<mode>3_var splitter): Macroize pattern using CSGNMODE
+	mode macro.  Handle TFmode.
+	* config/i386/sse.md (andtf3, *andtf3, *nandtf3): New insn patterns.
+	(iortf3, *iortf3): Ditto.
+	(xortf3, *xortf3): Ditto.
+	* config/i386/i386.c (ix86_build_signbit_mask): Create scalar
+	TFmode and TImode masks.
+	(ix86_expand_copysign): Expand TFmode copysign insn.
+	(IX86_BUILTIN_INFQ): New.
+	(IX86_BUILTIN_FABSQ): Ditto.
+	(IX86_BUILTIN_COPYSIGNQ): Ditto.
+	(ix86_init_mmx_sse_builtins) [__builtin_infq]: New builtin definition.
+	[__builtin_fabsq]: Ditto.
+	[__builtin_copysignq]: Ditto.
+	(ix86_expand_builtin) [IX86_BUILTIN_INFQ]: Expand builtin.
+	[IX86_BUILTIN_FABSQ]: Expand builtin using ix86_expand_unop_builtin().
+	[IX86_BUILTIN_COPYSIGNQ]: Expand builtin using
+	ix86_expand_binop_builtin().
+
+2007-06-07  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/lib1funcs.asm: Clean up whitespace.
+
+2007-06-07  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/31850
+	* rtl.h (push_to_sequence2): New.
+	* emit-rtl.c (push_to_sequence2): New.
+	* function.c (assign_parm_data_all): Add new fields.
+	(assign_parm_setup_block): Call push_to_sequence2 instead of 
+	push_to_sequence.
+	(assign_parm_setup_reg): Ditto.
+	(assign_parm_setup_stack): Ditto.
+	(assign_parms_unsplit_complex): Ditto.
+	(assign_parms): Change field name.
+
+2007-06-07  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/32220
+	* tree-predcom.c (eliminate_temp_copies): Handle the case that loop
+	phi node is reached before defining statement.
+
+2007-06-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/32231
+	* tree-vect-transform.c (vectorizable_call): Call update_stmt
+	after changing the right hand side of the assignment.
+
+2007-06-06  Eric Christopher  <echristo@apple.com>
+
+	* config.gcc (i?86-*-darwin*): Remove arch parameter.
+	(x86_64-*-darwin*): Ditto.
+	* config/i386/darwin.h (TARGET_SUBTARGET32_ISA_DEFAULT): Define.
+	(TARGET_SUBTARGET64_ISA_DEFAULT): Ditto.
+
+2007-06-06  Thomas Neumann  <tneumann@users.sourceforge.net>
+
+	* tree-ssa-alias-warnings.c (maybe_add_match): Cast according to the
+	coding conventions.
+	(add_key): Likewise.
+	* tree-ssa.c (init_tree_ssa): Use type safe memory macros.
+	* tree-ssa-ccp.c (ccp_fold_builtin): Avoid using C++ keywords as
+	variable names.
+	* tree-ssa-coalesce.c (find_coalesce_pair): Use type safe memory macros.
+	(add_cost_one_coalesce): Likewise.
+	* tree-ssa-copy.c (merge_alias_info): Avoid using C++ keywords as
+	variable names. Rename orig to orig_name for consistency.
+	* tree-ssa-dom.c (dom_thread_across_edge): Cast according to the coding
+	conventions.
+	(cprop_into_successor_phis): Avoid using C++ keywords as variable names.
+	(record_equivalences_from_stmt): Likewise.
+	* tree-ssa-dse.c (dse_initialize_block_local_data): Cast according to
+	the coding conventions.
+	(memory_ssa_name_same): Likewise.
+	(dse_optimize_stmt): Likewise.
+	(dse_record_phis): Likewise.
+	(dse_finalize_block): Likewise.
+	* tree-ssa-loop-im.c (outermost_invariant_loop_expr): Avoid using C++
+	keywords as variable names.
+	(may_move_till): Cast according to the coding conventions.
+	(force_move_till_expr): Avoid using C++ keywords as variable names.
+	(force_move_till): Cast according to the coding conventions.
+	(memref_hash): Likewise.
+	(memref_eq): Likewise.
+	(gather_mem_refs_stmt): Likewise.
+	* tree-ssa-loop-ivopts.c (contains_abnormal_ssa_name_p): Avoid using C++
+	keywords as variable names.
+	(idx_find_step): Cast according to the coding conventions.
+	(idx_record_use): Likewise.
+	(find_depends): Likewise.
+	(prepare_decl_rtl): Likewise.
+	(mbc_entry_hash): Likewise.
+	(mbc_entry_eq): Likewise.
+	* tree-ssa-loop-niter.c (SWAP): Use the correct the type for tmp.
+	(simplify_replace_tree): Avoid using C++ keywords as variable names.
+	(idx_infer_loop_bounds): Cast according to the coding conventions.
+	* tree-ssa-loop-prefetch.c (idx_analyze_ref): Likewise.
+	* tree-ssa-math-opts.c (occ_new ): Likwise.
+	* tree-ssanames.c (duplicate_ssa_name_ptr_info): Use type safe memory
+	macros.
+	* tree-ssa-operands.c (add_def_op): Avoid using C++ keywords as variable
+	names.
+	(add_use_op): Likewise.
+	(add_vop): Likewise.
+	(add_vuse_op): Likewise.
+	(add_vdef_op): Likewise.
+	(get_expr_operands): Likewise.
+	(push_stmt_changes): Use type safe memory macros.
+	* tree-ssa-phiopt.c (replace_phi_edge_with_variable): Avoid using C++
+	keywords as variable names.
+	(conditional_replacement): Likewise.
+	(minmax_replacement): Likewise.
+	(abs_replacement): Likewise.
+	* tree-ssa-pre.c (create_expression_by_pieces): Cast according to the
+	coding conventions.
+	(insert_fake_stores): Avoid using C++ keywords as variable names.
+	* tree-ssa-reassoc.c (add_to_ops_vec): Cast according to the coding
+	conventions.
+	* tree-ssa-structalias.c (heapvar_lookup): Likewise.
+	(heapvar_insert): Use type safe memory macros.
+	(new_var_info): Cast according to the coding conventions.
+	(new_constraint): Likewise.
+	(remove_preds_and_fake_succs): Use type safe memory macros.
+	* tree-ssa-threadupdate.c (thread_block): Cast according to the coding
+	conventions.
+	(thread_single_edge): Likewise.
+	(thread_through_loop_header): Likewise.
+
+2007-06-06  Eric Christopher  <echristo@apple.com>
+
+	* config/i386/i386.c (override_options): Move handling
+	of TARGET_SUBTARGET* earlier.
+
+2007-06-06  Paolo Bonzini  <bonzini@gnu.org>
+
+	* genmodes.c (tagged_printf, emit_insn_modes_h): Don't
+	use %n on printf.
+
+2007-06-06  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* haifa-sched.c (restore_bb_notes): Clear bb field of the notes
+	emited outside of basic block.
+	* cfgbuild.c (find_bb_boundaries): Clear bb field for insns between
+	the created blocks.
+	* rtl.h (delete_insn_chain): Declaration changed.
+	* cfgrtl.c (delete_insn_chain): Add option to clear bb field for
+	non-removed insns.
+	(rtl_delete_block, rtl_merge_blocks): Pass true to delete_insn_chain.
+	(delete_insn_chain_and_edges, try_redirect_by_replacing_jump,
+	rtl_tidy_fallthru_edge, cfg_layout_merge_blocks): Pass false
+	to delete_insn_chain.
+	(rtl_verify_flow_info_1): Verify that the insns in header and footer
+	do not have bb field set.
+	(rtl_verify_flow_info): Verify that insns between basic blocks do not
+	have bb field set.
+	* recog.c (peephole2_optimize): Add argument to delete_insn_chain call.
+	* cfgcleanup.c (try_optimize_cfg): Ditto.
+
+2007-06-06  Thomas Neumann  <tneumann@users.sourceforge.net>
+
+	* lambda-code.c (struct lambda_lattice_s): Add a name to the struct.
+	(lambda_body_vector_new): Use type safe memory macros.
+	(lambda_linear_expression_new): Likewise.
+	(lambda_loopnest_new): Likewise.
+	(lambda_lattice_new): Likewise.
+	(replace_uses_equiv_to_x_with_y): Cast according to the coding
+	conventions. Use type safe memory macros.
+	* lambda.h (struct lambda_trans_matrix_s): Add a name to the struct.
+	(lambda_body_vector_s): Likewise.
+	* lambda-mat.c (lambda_matrix_new): Use type safe memory macros.
+	* lambda-trans.c (lambda_trans_matrix_new): Likewise.
+
+2007-06-06  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-forwprop.c (forward_propagate_into_cond): Return 2
+	if we need to schedule cfg_cleanup.
+	(tree_ssa_forward_propagate_single_use_vars): Do so.
+
+2007-06-06  Ian Lance Taylor  <iant@google.com>
+
+	* fold-const.c (merge_ranges): If range_successor or
+	range_predecessor fail, just return 0.
+
+2007-06-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/32216
+	* tree-vectorizer.c (supportable_widening_operation): Determine
+	signedness of FIX_TRUNC_EXPR from output operand.
+	(supportable_narrowing_operation): Ditto.
+	* tree-vect-generic.c (expand_vector_operations_1): Determine
+	signedness of VEC_UNPACK_FLOAT_HI_EXPR and VEC_UNPACK_FLOAT_LO_EXPR
+	from input operand.
+
+2007-06-06  Thomas Neumann  <tneumann@users.sourceforge.net>
+
+	* config/i386/i386.c (enum pta_flags): Move out of struct scope...
+	(struct pta): ...from here. Change flags to unsigned to avoid
+	excessive casting (as it is used as a bit mask).
+	(override_options): Add casts according to the coding convenventions.
+	(x86_64_elf_unique_section): Likewise.
+	(examine_argument): Avoid using C++ keywords as variable names.
+	(construct_container): Likewise.
+	(legitimize_pic_address): Likewise.
+	(get_dllimport_decl): Cast according to the coding conventions. Use
+	type safe memory macros.
+	(legitimize_address): Cast according to the coding conventions.
+	(emit_i387_cw_initialization): Corrected the type of slot to enum
+	ix86_stack_slot.
+	(ix86_init_machine_status): Use type safe memory macros.
+	(bdesc_pcmpestr): Use UNKNOWN instead of integer 0.
+	(bdesc_pcmpistr): Likewise.
+	(bdesc_crc32): Likewise.
+	(bdesc_sse_3arg): Likewise.
+	(bdesc_2arg): Likewise.
+	(bdesc_1arg): Likewise.
+	(ix86_expand_sse_pcmpestr): Cast according to the coding conventions.
+	(ix86_expand_sse_pcmpistr): Likewise.
+	(ix86_expand_vec_set_builtin): Use EXPAND_NORMAL instead of integer 0.
+	(ix86_builtin_vectorized_function): Change the type of fn to unsigned
+	int to match the langhook definition.
+	(ix86_builtin_conversion): Change the type of code to unsigned init to
+	match the langhook definition.
+	(ix86_preferred_reload_class): Avoid using C++ keywords as variable
+	names.
+	(ix86_preferred_output_reload_class): Likewise.
+	(ix86_cannot_change_mode_class): Likewise.
+	(ix86_memory_move_cost): Likewise.
+	(ix86_rtx_costs): Cast the outer_code parameter to enum rtx_code to
+	avoid excessive casting later on.
+	(x86_output_mi_thunk): Avoid using C++ keywords as variable names.
+
+2007-06-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (sse4_2_pcmpestr_cconly): Prefer pcmpestrm
+	as flags setting insn.
+	(sse4_2_pcmpistr_cconly): Prefer pcmpistrm as flags setting insn.
+
+2007-06-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (UNSPEC_ROUNDP, UNSPEC_ROUNDS): Remove.
+	(UNSPEC_ROUND): New.
+	("sse4_1_round<mode>2"): New insn pattern.
+	("rint<mode>2"): Expand using "sse4_1_round<mode>2" pattern for
+	SSE4.1 targets.
+	("floor<mode>2"): Rename from floordf2 and floorsf2.  Macroize
+	expander using SSEMODEF mode macro.  Expand using
+	"sse4_1_round<mode>2" pattern for SSE4.1 targets.
+	("ceil<mode>2"): Rename from ceildf2 and ceilsf2.  Macroize
+	expander using SSEMODEF mode macro.  Expand using
+	"sse4_1_round<mode>2" pattern for SSE4.1 targets.
+	("btrunc<mode>2"): Rename from btruncdf2 and btruncsf2.  Macroize
+	expander using SSEMODEF mode macro.  Expand using
+	"sse4_1_round<mode>2" pattern for SSE4.1 targets.
+	* config/i386/sse.md ("sse4_1_roundpd", "sse4_1_roundps"): Use
+	UNSPEC_ROUND instead of UNSPEC_ROUNDP.
+	("sse4_1_roundsd", "sse4_1_roundss"): Use UNSPEC_ROUND instead of
+	UNSPEC_ROUNDS.
+
+2007-06-06  Jan Sjodin  <jan.sjodin@amd.com>
+	    Sebastian Pop  <sebpop@gmail.com>
+
+	* lambda.h (build_linear_expr): New.
+	* lambda-code.c (lbv_to_gcc_expression, lle_to_gcc_expression):
+	Use build_linear_expr, call fold and force_gimple_operand.
+	(lambda_loopnest_to_gcc_loopnest): Check that there is
+	something to insert.
+	* testsuite/gcc.dg/tree-ssa/ltrans-6.c: New.
+
+2007-06-05  Joerg Wunsch  <j.gnu@uriah.heep.sax.de>
+
+	PR preprocessor/23479
+	* doc/extend.texi: Document the 0b-prefixed binary integer
+	constant extension.
+
 2007-06-07  Chao-ying Fu  <fu@mips.com>
 
 	* c-typeck.c (build_binary_op): Support fixed-point types for
@@ -60,7 +524,8 @@
 	* cfgexpand (label_rtx_for_bb): Likewise.
 	(expand_gimple_basic_block): Likewise.
 	* cfghooks.c (dump_bb): Likewise.
-	(lv_adjust_loop_header_phi): Avoid using C++ keywords as variable names.
+	(lv_adjust_loop_header_phi): Avoid using C++ keywords as
+	variable names.
 	(lv_add_condition_to_bb): Likewise.
 	* cfglayout (relink_block_chain): Cast according to the coding
 	conventions.
@@ -71,7 +536,8 @@
 	(dump_recorded_exit): Likewise.
 	* cfgloop.h (enum loop_estimation): Move out of struct scope...
 	(struct loop): ... from here.
-	* cfgloopmanip.c (rpe_enum_p): Cast according to the coding conventions.
+	* cfgloopmanip.c (rpe_enum_p): Cast according to the coding
+	conventions.
 	* cfgrtl.c (rtl_create_basic_block): Likewise.
 	(rtl_split_block): Likewise.
 	(rtl_dump_bb): Likewise.
@@ -172,7 +638,7 @@
 	PR target/31733
 	* cfgrtl.c (rtl_verify_flow_info): Skip notes when looking for barrier.
 
-2007-05-31  Jan Hubicka  <jh@suse.cz>
+2007-06-04  Jan Hubicka  <jh@suse.cz>
 
 	* tree-predcom.c (replace_ref_with, initialize_root_vars_lm,
 	reassociate_to_the_same_stmt): Call build_gimple_modify_stmt
@@ -317,7 +783,7 @@
 
 	* config/mips/mips.c (mips_output_mi_thunk): Only load gp if not
 	LOADGP_ABSOLUTE and not binds_local_p.
-	
+
 2007-06-01  Geoffrey Keating  <geoffk@apple.com>
 
 	* config/darwin.h (LINK_SPEC): Pass -fpie through to the linker.
