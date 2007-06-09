@@ -34,7 +34,15 @@
   "
 {
   if (no_new_pseudos)
-    FAIL;
+    {
+      if (REG_P (operands[0]) && REG_P (operands[1]))
+	{
+	  rs6000_emit_move (operands[0], operands[1], SDmode);
+	  DONE;
+	}
+      else
+	FAIL;
+    }
   else if (MEM_P (operands[0]) && REG_P (operands[1]))
     {
       rtx intreg = gen_reg_rtx (SImode);

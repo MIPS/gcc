@@ -1,3 +1,8 @@
+2007-06-08  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/dfp.md (movsd): Handle reg-reg copies during
+	reload.
+
 2007-05-22  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* emit-rtl.c (validate_subreg): Skip DDmode paradoxical subregs
