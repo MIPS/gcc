@@ -1,4 +1,43 @@
 2007-06-12  Ira Rosen  <irar@il.ibm.com>
+ 
+	* tree-vectorizer.h (vect_def_type): Start enumeration from 1.
+	(_slp_tree, _slp_instance): New structs along with macros for fields'
+	access.
+	(_loop_vec_info): Add new fields strided_stores, slp_instances and
+	slp_unrolling_factor with access macros.
+	(enum slp_vect_type): New.
+	(_stmt_vec_info): New field slp_type and macro to access it.
+	* tree-vectorizer.c (new_stmt_vec_info): Initialize the new fields.  
+	(new_loop_vec_info): Likewise.
+	(destroy_loop_vec_info): Free the new fields.
+	* tree-vect-analyze.c (vect_analyze_operations): Call vectorizable_
+	functions with correct arguments. For not pure SLP stmts with strided
+	access check that the group size is power of 2. In case that the loop
+	can be SLPed purely update the vectorization factor.
+	(vect_analyze_data_ref_access): Don't fail for not power of 2 group
+	size. If possible to SLP the group, store it for future analysis.
+	(vect_get_and_check_slp_defs, vect_build_slp_tree, vect_free_slp_tree,
+	vect_print_slp_tree, vect_mark_slp_stmts, vect_analyze_slp_instance,
+	vect_analyze_slp, vect_make_slp_decision, vect_detect_hybrid_slp_stmts,
+	vect_detect_hybrid_slp): New.
+	(vect_analyze_loop): Call vect_analyze_slp, vect_make_slp_decision and
+	vect_detect_hybrid_slp.
+	* tree-vect-transform.c (vect_get_constant_vectors, 
+	vect_get_slp_vect_defs, vect_get_slp_defs): New.
+	(vectorizable_reduction): Fail if SLP.
+	(vectorizable_call, vectorizable_induction, vectorizable_type_demotion,
+	vectorizable_condition): Likewise.
+	(vectorizable_conversion): Handle SLP (call vect_get_slp_defs to get
+	SLPed defs).
+	(vectorizable_assignment, vectorizable_operation, vectorizable_store,
+	vectorizable_load): Likewise.
+	(vect_transform_stmt): Pass SLP arguments if supported and assert no
+	SLP for unsupported cases.
+	(vect_remove_stores, vect_schedule_slp_instance, vect_schedule_slp): 
+	New.
+	(vect_transform_loop): Call vect_schedule_slp.
+
+2007-06-12  Ira Rosen  <irar@il.ibm.com>
 
 	Reverted revisions 122088, 120826, 120824.
 

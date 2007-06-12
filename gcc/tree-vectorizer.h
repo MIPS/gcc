@@ -61,7 +61,7 @@ enum dr_alignment_support {
 
 /* Define type of def-use cross-iteration cycle.  */
 enum vect_def_type {
-  vect_constant_def,
+  vect_constant_def = 1,
   vect_invariant_def,
   vect_loop_def,
   vect_induction_def,
@@ -82,6 +82,54 @@ enum verbosity_levels {
   /* New verbosity levels should be added before this one.  */
   MAX_VERBOSITY_LEVEL
 };
+
+/************************************************************************
+  SLP 
+ ************************************************************************/
+
+/* A computation tree of an SLP instance. Each node corresponds to a group of
+   stmts to be packed in a SIMD stmt.  */
+typedef struct _slp_tree {
+  /* Only binary and unary operations are supported. LEFT child corresponds to 
+     the first operand and RIGHT child to the second if the operation is
+     binary.  */
+  struct _slp_tree *left;
+  struct _slp_tree *right;
+  /* A group of scalar stmts to be vectorized together.  */
+  VEC (tree, heap) *stmts;
+  /* Vectorized stmt/s.  */
+  VEC (tree, heap) *vec_stmts;
+  /* Number of vectorized stmts.  */
+  unsigned int vec_stmts_size;
+} *slp_tree;
+
+
+/* SLP instance is a sequence of stmts in a loop that can be packed into 
+   SIMD stmts.  */
+typedef struct _slp_instance {
+  /* The root of SLP tree.  */
+  slp_tree root;
+
+  /* Size of groups of scalar stmts that will be replaced by SIMD stmt/s.  */
+  unsigned int group_size;  
+
+  /* The unrolling factor required to vectorized this SLP instance.  */
+  unsigned int unrolling_factor;  
+} *slp_instance;
+
+DEF_VEC_P(slp_instance);
+DEF_VEC_ALLOC_P(slp_instance, heap);
+
+/* Access Functions.  */
+#define SLP_INSTANCE_TREE(S)                             (S)->root
+#define SLP_INSTANCE_GROUP_SIZE(S)                       (S)->group_size
+#define SLP_INSTANCE_UNROLLING_FACTOR(S)                 (S)->unrolling_factor
+
+#define SLP_TREE_LEFT(S)                         (S)->left
+#define SLP_TREE_RIGHT(S)                        (S)->right
+#define SLP_TREE_SCALAR_STMTS(S)                 (S)->stmts
+#define SLP_TREE_VEC_STMTS(S)                    (S)->vec_stmts
+#define SLP_TREE_NUMBER_OF_VEC_STMTS(S)          (S)->vec_stmts_size
 
 /*-----------------------------------------------------------------*/
 /* Info on vectorized loops.                                       */
@@ -131,6 +179,16 @@ typedef struct _loop_vec_info {
 
   /* The loop location in the source.  */
   LOC loop_line_number;
+
+  /* All interleaving chains of stores in the loop, represented by the first 
+     stmt in the chain.  */
+  VEC(tree, heap) *strided_stores;
+
+  /* All SLP groups in the loop.  */
+  VEC(slp_instance, heap) *slp_instances;
+
+  /* The unrolling factor needed to SLP the loop.  */
+  unsigned slp_unrolling_factor;
 } *loop_vec_info;
 
 /* Access Functions.  */
@@ -147,6 +205,9 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_UNALIGNED_DR(L)    (L)->unaligned_dr
 #define LOOP_VINFO_MAY_MISALIGN_STMTS(L) (L)->may_misalign_stmts
 #define LOOP_VINFO_LOC(L)             (L)->loop_line_number
+#define LOOP_VINFO_STRIDED_STORES(L)  (L)->strided_stores
+#define LOOP_VINFO_SLP_INSTANCES(L)   (L)->slp_instances
+#define LOOP_VINFO_SLP_UNROLLING_FACTOR(L) (L)->slp_unrolling_factor
 
 #define NITERS_KNOWN_P(n)                     \
 (host_integerp ((n),0)                        \
@@ -202,6 +263,12 @@ enum vect_relevant {
   vect_used_by_reduction,
 
   vect_used_in_loop  
+};
+
+enum slp_vect_type {
+  loop_vect = 0,
+  pure_slp,
+  hybrid
 };
 
 typedef struct data_reference *dr_p;
@@ -271,6 +338,9 @@ typedef struct _stmt_vec_info {
   /* Classify the def of this stmt.  */
   enum vect_def_type def_type;
 
+  /* If this stmt is a part of pure or hybrid SLP.  */
+  enum slp_vect_type slp_type;
+
   /* Interleaving info.  */
   /* First data-ref in the interleaving group.  */
   tree first_dr;
@@ -328,7 +398,12 @@ typedef struct _stmt_vec_info {
 #define DR_GROUP_SAME_DR_STMT(S)           (S)->same_dr_stmt
 #define DR_GROUP_READ_WRITE_DEPENDENCE(S)  (S)->read_write_dep
 
+#define STMT_VINFO_STRIDED_ACCESS(S)      ((S)->first_dr != NULL)
 #define STMT_VINFO_RELEVANT_P(S)          ((S)->relevant != vect_unused_in_loop)
+
+#define STMT_VINFO_HYBRID_SLP(S)           ((S)->slp_type == hybrid)
+#define STMT_VINFO_PURE_SLP(S)             ((S)->slp_type == pure_slp)
+#define STMT_VINFO_SLP_TYPE(S)              (S)->slp_type
 
 static inline void set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info);
 static inline stmt_vec_info vinfo_for_stmt (tree stmt);
@@ -457,20 +532,21 @@ void vect_pattern_recog (loop_vec_info);
 
 
 /** In tree-vect-transform.c  **/
-extern bool vectorizable_load (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_store (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_load (tree, block_stmt_iterator *, tree *, slp_tree);
+extern bool vectorizable_store (tree, block_stmt_iterator *, tree *, slp_tree);
+extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *, slp_tree);
 extern bool vectorizable_type_promotion (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_type_demotion (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_conversion (tree, block_stmt_iterator *, 
-				     tree *);
-extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
+				     tree *, slp_tree);
+extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *, slp_tree);
 extern tree vectorizable_function (tree, tree, tree);
 extern bool vectorizable_call (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_condition (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_live_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_reduction (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_induction (tree, block_stmt_iterator *, tree *);
+extern void vect_free_slp_tree (slp_tree);
 /* Driver for transformation stage.  */
 extern void vect_transform_loop (loop_vec_info);
 
