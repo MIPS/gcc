@@ -641,7 +641,6 @@ typedef struct
      is created from a decl being processed.  */
   unsigned is_c_interop:1;	/* It's c interoperable.  */
   unsigned is_iso_c:1;		/* Symbol is from iso_c_binding.  */
-  unsigned in_proc_decl:1;	/* Symbol is from a proc decl stmt.  */
 
   /* Function/subroutine attributes */
   unsigned sequence:1, elemental:1, pure:1, recursive:1;
@@ -2120,7 +2119,6 @@ try verify_bind_c_derived_type (gfc_symbol *);
 try verify_com_block_vars_c_interop (gfc_common_head *);
 void generate_isocbinding_symbol (const char *, iso_c_binding_symbol, char *);
 gfc_symbol *get_iso_c_sym (gfc_symbol *, char *, char *, int);
-void copy_formal_args (gfc_symbol *, gfc_symbol *);
 int gfc_get_sym_tree (const char *, gfc_namespace *, gfc_symtree **);
 int gfc_get_ha_symbol (const char *, gfc_symbol **);
 int gfc_get_ha_sym_tree (const char *, gfc_symtree **);

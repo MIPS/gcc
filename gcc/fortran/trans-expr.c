@@ -2755,9 +2755,9 @@ gfc_conv_initializer (gfc_expr * expr, gfc_typespec * ts, tree type,
     return NULL_TREE;
 
   if (expr != NULL && expr->ts.type == BT_DERIVED
-      && expr->ts.is_iso_c && expr->ts.derived)
-    if (expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_PTR
-        || expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_FUNPTR)
+      && expr->ts.is_iso_c && expr->ts.derived
+      && (expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_PTR
+	  || expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_FUNPTR))
       expr = gfc_int_expr (0);
   
   if (array)
@@ -3159,8 +3159,8 @@ gfc_conv_expr (gfc_se * se, gfc_expr * expr)
       if (expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_PTR
           || expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_FUNPTR)
         {
-          /* Try simply setting expr_type to EXPR_NULL, which should result
-             in null_pointer_node being used below.  */
+	  /* Set expr_type to EXPR_NULL, which will result in
+	     null_pointer_node being used below.  */
           expr->expr_type = EXPR_NULL;
         }
       else

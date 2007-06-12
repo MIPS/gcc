@@ -173,7 +173,6 @@ try set_verify_bind_c_sym (gfc_symbol *, int);
 try set_verify_bind_c_com_block (gfc_common_head *, int);
 try get_bind_c_idents (void);
 match gfc_match_bind_c_stmt (void);
-match gfc_match_proc_decl_stmt (void);
 match gfc_match_suffix (gfc_symbol *, gfc_symbol **);
 match gfc_match_bind_c (gfc_symbol *);
 match gfc_get_type_attr_spec (symbol_attribute *);

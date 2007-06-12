@@ -3,6 +3,29 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-06-11  Christopher D. Rickett  <crickett@lanl.gov>
+	* symbol.c (check_conflict, gfc_copy_attr): Remove references to
+	in_proc_decl attribute.
+	(copy_formal_args): Removed because no longer necessary without
+	procedure declaration code.
+	* decl.c (verify_proc_decl_attrs, match_proc_decl,
+	gfc_match_proc_decl_stmt): Removed code to match and verify
+	procedure declarations.
+	* gfortran.h: Removed in_proc_decl attribute from
+	symbol_attribute.  Removed prototype for copy_formal_args.
+	* resolve.c (is_scalar_expr_ptr): Fixed bug with strings of length
+	one as arguments to c_loc.
+	* match.h: Removed prototype for gfc_match_proc_decl_stmt.
+	* parse.c (decode_statement): Removed match for
+	gfc_match_proc_decl_stmt.
+	* gfortran.dg/c_loc_tests_6.f03: New test case for c_loc with
+	character argument of length one.
+	* gfortran.dg/c_loc_tests_8.f03: New test case for c_loc with
+	character argument of length greater than one.
+	* gfortran.dg/test_proc_stmt.f90: Remove test case.
+	* gfortran.dg/proc_stmt_main.c: Remove driver for
+	test_proc_stmt.f90.
+
 2007-06-07  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	* libgfortran/intrinsics/iso_c_generated_procs.c: Whitespace.

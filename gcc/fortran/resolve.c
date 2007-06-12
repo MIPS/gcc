@@ -1588,6 +1588,18 @@ is_scalar_expr_ptr (gfc_expr *expr)
                   && ref->u.ar.as->upper[0] != NULL
                   && ref->u.ar.as->upper[0]->expr_type == EXPR_CONSTANT)
                 {
+		  /* If we have a character string, we need to check if
+		     its length is one.	 */
+		  if (expr->ts.type == BT_CHARACTER)
+		    {
+		      if (expr->ts.cl == NULL
+			  || expr->ts.cl->length == NULL
+			  || mpz_cmp_si (expr->ts.cl->length->value.integer, 1)
+			  != 0)
+                        retval = FAILURE;
+		    }
+		  else
+		    {
                   /* We have constant lower and upper bounds.  If the
                      difference between is 1, it can be considered a
                      scalar.  */
@@ -1597,6 +1609,7 @@ is_scalar_expr_ptr (gfc_expr *expr)
                               (ref->u.ar.as->upper[0]->value.integer);
                   if (end - start + 1 != 1)
                     retval = FAILURE;
+                }
                 }
               else
                 retval = FAILURE;

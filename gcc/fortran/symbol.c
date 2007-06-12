@@ -27,6 +27,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "gfortran.h"
 #include "parse.h"
 
+
 /* Strings for all symbol attributes.  We use these for dumping the
    parse tree, in error messages, and also when reading and writing
    modules.  */
@@ -397,8 +398,6 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
   conf (dummy, save);
   conf (dummy, threadprivate);
   conf (pointer, target);
-  if (attr->in_proc_decl != 1)
-    conf (pointer, external);
   conf (pointer, intrinsic);
   conf (pointer, elemental);
   conf (allocatable, elemental);
@@ -1523,8 +1522,6 @@ gfc_copy_attr (symbol_attribute *dest, symbol_attribute *src, locus *where)
     dest->is_c_interop = 1;
   if (src->is_iso_c)
     dest->is_iso_c = 1;
-  if (src->in_proc_decl)
-    dest->in_proc_decl = 1;
   
   return SUCCESS;
 
@@ -3006,6 +3003,11 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
     gfc_internal_error ("verify_bind_c_derived_type(): Given symbol is "
                         "unexpectedly NULL");
 
+  /* If we've already looked at this derived symbol, do not look at it again
+     so we don't repeat warnings/errors.  */
+  if (derived_sym->ts.is_c_interop)
+    return SUCCESS;
+  
   /* The derived type must have the BIND attribute to be interoperable
      J3/04-007, Section 15.2.3.  */
   if (derived_sym->attr.is_bind_c != 1)
@@ -3035,10 +3037,34 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
      each is a C interoperable type.  */
   do
     {
-      /* BIND(C) derived types can't have derived types in them unless
-	 they're c_ptr or c_funptr. J3/04-007, Section 15.2.3, C1502.  */
+      /* The components cannot be pointers (fortran sense).  
+         J3/04-007, Section 15.2.3, C1505.	*/
+      if (curr_comp->pointer != 0)
+        {
+          gfc_error ("Component '%s' at %L cannot have the "
+                     "POINTER attribute because it is a member "
+                     "of the BIND(C) derived type '%s' at %L",
+                     curr_comp->name, &(curr_comp->loc),
+                     derived_sym->name, &(derived_sym->declared_at));
+          retval = FAILURE;
+        }
+
+      /* The components cannot be allocatable.
+         J3/04-007, Section 15.2.3, C1505.	*/
+      if (curr_comp->allocatable != 0)
+        {
+          gfc_error ("Component '%s' at %L cannot have the "
+                     "ALLOCATABLE attribute because it is a member "
+                     "of the BIND(C) derived type '%s' at %L",
+                     curr_comp->name, &(curr_comp->loc),
+                     derived_sym->name, &(derived_sym->declared_at));
+          retval = FAILURE;
+        }
+      
+      /* BIND(C) derived types must have interoperable components.  */
       if (curr_comp->ts.type == BT_DERIVED
-	  && curr_comp->ts.derived->ts.is_iso_c != 1)
+	  && curr_comp->ts.derived->ts.is_iso_c != 1 
+          && curr_comp->ts.derived != derived_sym)
         {
           /* This should be allowed; the draft says a derived-type can not
              have type parameters if it is has the BIND attribute.  Type
@@ -3079,30 +3105,6 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
                              "may not be C interoperable",
                              curr_comp->name, derived_sym->name,
                              &(curr_comp->loc));
-	    }
-	  
-	  /* The components can not be pointers (fortran sense).  
-	     J3/04-007, Section 15.2.3, C1505.	*/
-	  if (curr_comp->pointer != 0)
-	    {
-	      gfc_error ("Component '%s' at %L cannot have the "
-                         "POINTER attribute because it is a member "
-                         "of the BIND(C) derived type '%s' at %L",
-                         curr_comp->name, &(curr_comp->loc),
-                         derived_sym->name, &(derived_sym->declared_at));
-	      retval = FAILURE;
-	    }
-
-	  /* The components can not be allocatable.
-	     J3/04-007, Section 15.2.3, C1505.	*/
-	  if (curr_comp->allocatable != 0)
-	    {
-	      gfc_error ("Component '%s' at %L cannot have the "
-			 "ALLOCATABLE attribute because it is a member "
-			 "of the BIND(C) derived type '%s' at %L",
-			 curr_comp->name, &(curr_comp->loc),
-			 derived_sym->name, &(derived_sym->declared_at));
-	      retval = FAILURE;
 	    }
 	}
       
@@ -3808,72 +3810,3 @@ get_iso_c_sym (gfc_symbol *old_sym, char *new_name,
   return new_symtree->n.sym;
 }
 
-
-/* Copy the formal args from an existing symbol, src, into a new
-   symbol, dest.  New formal args are created, and the description of
-   each arg is set according to the existing ones.  This function is
-   used when creating procedure declaration variables from a procedure
-   declaration statement (see match_proc_decl()) to create the formal
-   args based on the args of a given named interface.  */
-
-void
-copy_formal_args (gfc_symbol *dest, gfc_symbol *src)
-{
-  gfc_formal_arglist *head = NULL;
-  gfc_formal_arglist *tail = NULL;
-  gfc_formal_arglist *formal_arg = NULL;
-  gfc_formal_arglist *curr_arg = NULL;
-  gfc_formal_arglist *formal_prev = NULL;
-  gfc_namespace *parent_ns = NULL;
-
-  /* Save current namespace so we can change it for formal args.  */
-  parent_ns = gfc_current_ns;
-
-  /* Create a new namespace, which will be the formal ns (namespace
-     of the formal args).  */
-  gfc_current_ns = gfc_get_namespace (parent_ns, 0);
-  gfc_current_ns->proc_name = dest;
-   
-  curr_arg = src->formal;
-  formal_prev = NULL;
-  while (curr_arg != NULL)
-    {
-      /* Allocate a new struct for the formal arg.  */
-      formal_arg = gfc_get_formal_arglist ();
-      
-      /* Create symbol for the arg.  */
-      gfc_get_symbol (curr_arg->sym->name, gfc_current_ns, &(formal_arg->sym));
-
-      /* May need to copy more info for the symbol.  */
-      formal_arg->sym->attr = curr_arg->sym->attr;
-      formal_arg->sym->ts = curr_arg->sym->ts;
-
-      /* If this isn't the first arg, set up the next ptr.  For the
-	 last arg built, the formal_arg->next will never get set to
-	 anything other than NULL.  */
-      formal_arg->next = NULL;
-      if (formal_prev != NULL)
-	formal_prev->next = formal_arg;
-      formal_prev = formal_arg;
-      
-      /* Add arg to list of formal args.  */
-      add_formal_arg (&head, &tail, formal_arg, formal_arg->sym);
-      
-      /* Will reuse for any additional arg(s).  */
-      formal_arg = NULL;
-
-      /* Go to the next arg, if any.  */
-      curr_arg = curr_arg->next;
-    }
-
-  /* Add the interface to the symbol.  */
-  add_proc_interface (dest, IFSRC_DECL, head);
-
-  /* Store the formal namespace information.  */
-  if (dest->formal != NULL)
-    /* The current ns should be that for the dest proc.  */
-    dest->formal_ns = gfc_current_ns;
-  
-  /* Restore the current namespace to what it was on entry.  */
-  gfc_current_ns = parent_ns;
-}

@@ -261,7 +261,6 @@ decode_statement (void)
       if (gfc_match_public (&st) == MATCH_YES)
 	return st;
       match ("protected", gfc_match_protected, ST_ATTR_DECL);
-      match (NULL, gfc_match_proc_decl_stmt, ST_ATTR_DECL);
       break;
 
     case 'r':
