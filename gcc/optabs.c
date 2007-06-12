@@ -5060,13 +5060,13 @@ expand_fixed_convert (rtx to, rtx from, int uintp, int satp)
 
   if (uintp)
     {
-      tab = satp ? sat_fixed_uint_optab : fixed_uint_optab;
-      this_code = satp ? SAT_FIXED_UINT : FIXED_UINT;
+      tab = satp ? satfractuns_optab : fractuns_optab;
+      this_code = satp ? UNSIGNED_SAT_FRACT : UNSIGNED_FRACT_CONVERT;
     }
   else
     {
-      tab = satp ? sat_fixed_all_optab : fixed_all_optab;
-      this_code = satp ? SAT_FIXED_ALL : FIXED_ALL;
+      tab = satp ? satfract_optab : fract_optab;
+      this_code = satp ? SAT_FRACT : FRACT_CONVERT;
     }
   code = tab->handlers[to_mode][from_mode].insn_code;
   if (code != CODE_FOR_nothing)
@@ -5730,10 +5730,10 @@ init_optabs (void)
   lfloor_optab = init_convert_optab (UNKNOWN);
   lceil_optab = init_convert_optab (UNKNOWN);
 
-  fixed_all_optab = init_convert_optab (FIXED_ALL);
-  fixed_uint_optab = init_convert_optab (FIXED_UINT);
-  sat_fixed_all_optab = init_convert_optab (SAT_FIXED_ALL);
-  sat_fixed_uint_optab = init_convert_optab (SAT_FIXED_UINT);
+  fract_optab = init_convert_optab (FRACT_CONVERT);
+  fractuns_optab = init_convert_optab (UNSIGNED_FRACT_CONVERT);
+  satfract_optab = init_convert_optab (SAT_FRACT);
+  satfractuns_optab = init_convert_optab (UNSIGNED_SAT_FRACT);
 
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
@@ -5906,39 +5906,36 @@ init_optabs (void)
 	{
 	  if (m1 == m2)
 	    {
-	      init_intraclass_conv_libfuncs (fixed_all_optab, "fixed_all", m1,
+	      init_intraclass_conv_libfuncs (fract_optab, "fract", m1, true);
+	      init_intraclass_conv_libfuncs (fract_optab, "fract", m1, false);
+	      init_intraclass_conv_libfuncs (satfract_optab, "satfract", m1,
 					     true);
-	      init_intraclass_conv_libfuncs (fixed_all_optab, "fixed_all", m1,
+	      init_intraclass_conv_libfuncs (satfract_optab, "satfract", m1,
 					     false);
-	      init_intraclass_conv_libfuncs (sat_fixed_all_optab,
-					     "sat_fixed_all", m1, true);
-	      init_intraclass_conv_libfuncs (sat_fixed_all_optab,
-					     "sat_fixed_all", m1, false);
-	      init_interclass_conv_libfuncs (fixed_all_optab, "fixed_all",
-					     m1, MODE_INT);
-	      init_interclass_conv_libfuncs (fixed_all_optab, "fixed_all",
+	      init_interclass_conv_libfuncs (fract_optab, "fract", m1,
+					     MODE_INT);
+	      init_interclass_conv_libfuncs (fract_optab, "fract", MODE_INT,
+					     m1);
+	      init_interclass_conv_libfuncs (fractuns_optab, "fractuns", m1,
+					     MODE_INT);
+	      init_interclass_conv_libfuncs (fractuns_optab, "fractuns",
 					     MODE_INT, m1);
-	      init_interclass_conv_libfuncs (fixed_uint_optab, "fixed_uint",
-					     m1, MODE_INT);
-	      init_interclass_conv_libfuncs (fixed_uint_optab, "fixed_uint",
+	      init_interclass_conv_libfuncs (fract_optab, "fract", m1,
+					     MODE_FLOAT);
+	      init_interclass_conv_libfuncs (fract_optab, "fract", MODE_FLOAT,
+					     m1);
+	      init_interclass_conv_libfuncs (satfract_optab, "satfract",
 					     MODE_INT, m1);
-	      init_interclass_conv_libfuncs (fixed_all_optab, "fixed_all",
-					     m1, MODE_FLOAT);
-	      init_interclass_conv_libfuncs (fixed_all_optab, "fixed_all",
+	      init_interclass_conv_libfuncs (satfractuns_optab, "satfractuns",
+					     MODE_INT, m1);
+	      init_interclass_conv_libfuncs (satfract_optab, "satfract",
 					     MODE_FLOAT, m1);
-	      init_interclass_conv_libfuncs (sat_fixed_all_optab,
-					     "sat_fixed_all", MODE_INT, m1);
-	      init_interclass_conv_libfuncs (sat_fixed_uint_optab,
-					     "sat_fixed_uint", MODE_INT, m1);
-	      init_interclass_conv_libfuncs (sat_fixed_all_optab,
-					     "sat_fixed_all", MODE_FLOAT, m1);
 	    }
 	  else
 	    {
-	      init_interclass_conv_libfuncs (fixed_all_optab, "fixed_all",
-					     m1, m2);
-	      init_interclass_conv_libfuncs (sat_fixed_all_optab,
-					     "sat_fixed_all", m1, m2);
+	      init_interclass_conv_libfuncs (fract_optab, "fract", m1, m2);
+	      init_interclass_conv_libfuncs (satfract_optab, "satfract", m1,
+					     m2);
 	    }
 	}
     }

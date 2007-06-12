@@ -384,8 +384,8 @@ struct tree_base GTY(())
   unsigned protected_flag : 1;
   unsigned deprecated_flag : 1;
   unsigned invariant_flag : 1;
-  unsigned saturating_flag : 1; /* FIXME.  This new flag increases the size of
-				   tree_common by a full word.  */
+  unsigned saturating_flag : 1;
+
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
   unsigned lang_flag_2 : 1;
@@ -395,7 +395,7 @@ struct tree_base GTY(())
   unsigned lang_flag_6 : 1;
   unsigned visited : 1;
 
-  unsigned spare : 24;
+  unsigned spare : 23;
 
   /* FIXME tuples: Eventually, we need to move this somewhere external to
      the trees.  */

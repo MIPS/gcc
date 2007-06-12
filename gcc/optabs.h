@@ -539,10 +539,10 @@ enum convert_optab_index
   COI_lfloor,
   COI_lceil,
 
-  COI_fixed_all,
-  COI_fixed_uint,
-  COI_sat_fixed_all,
-  COI_sat_fixed_uint,
+  COI_fract,
+  COI_fractuns,
+  COI_satfract,
+  COI_satfractuns,
 
   COI_MAX
 };
@@ -562,10 +562,10 @@ extern GTY(()) convert_optab convert_optab_table[COI_MAX];
 #define lround_optab (convert_optab_table[COI_lround])
 #define lfloor_optab (convert_optab_table[COI_lfloor])
 #define lceil_optab (convert_optab_table[COI_lceil])
-#define fixed_all_optab (convert_optab_table[COI_fixed_all])
-#define fixed_uint_optab (convert_optab_table[COI_fixed_uint])
-#define sat_fixed_all_optab (convert_optab_table[COI_sat_fixed_all])
-#define sat_fixed_uint_optab (convert_optab_table[COI_sat_fixed_uint])
+#define fract_optab (convert_optab_table[COI_fract])
+#define fractuns_optab (convert_optab_table[COI_fractuns])
+#define satfract_optab (convert_optab_table[COI_satfract])
+#define satfractuns_optab (convert_optab_table[COI_satfractuns])
 
 /* These arrays record the insn_code of insns that may be needed to
    perform input and output reloads of special objects.  They provide a

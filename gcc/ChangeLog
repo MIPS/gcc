@@ -1,3 +1,37 @@
+2007-06-12  Chao-ying Fu  <fu@mips.com>
+
+	* optabs.c (expand_fixed_convert): Rename fixed-point conversion optab
+	and RTL code.
+	(init_optabs): Rename fixed-point conversion optab, RTL code, and
+	library functions.
+	* optabs.h (COI_fixed_all, COI_fixed_uint, COI_sat_fixed_all,
+	COI_sat_fixed_uint): Rename to...
+	(COI_fract, COI_fractuns, COI_satfract, COI_satfractuns): ...this.
+	(fixed_all_optab, fixed_uint_optab, sat_fixed_all_optab,
+	sat_fixed_uint_optab): Rename to...
+	(fract_optab, fractuns_optab, satfract_optab, satfractuns_optab):
+	...this.
+	* tree.c (build_common_tree_nodes_2): Use macros to reduce
+	much C code for initializing fixed-point type and mode nodes.
+	Remove the fixed-point target hook to guard this set of code.
+	* tree.h (tree_base): Remove one bit of spare for saturating_flag.
+	Remove the FIXME comment for saturating_flag.
+	* rtl.def (FIXED_ALL, FIXED_UINT, SAT_FIXED_ALL, SAT_FIXED_UINT):
+	Rename to ...
+	(FRACT_CONVERT, UNSIGNED_FRACT_CONVERT, SAT_FRACT, UNSIGNED_SAT_FRACT):
+	...this.
+	* config/fixed-bit.c: Rename FIXED_ALL, FIXED_UINT, SAT_FIXED_ALL,
+	SAT_FIXED_UINT to FRACT_CONVERT, UNSIGNED_FRACT_CONVERT, SAT_FRACT,
+	UNSIGNED_SAT_FRACT.
+	* config/fixed-bit.h: Rename FIXED_ALL, FIXED_UINT, SAT_FIXED_ALL,
+	SAT_FIXED_UINT to FRACT_CONVERT, UNSIGNED_FRACT_CONVERT, SAT_FRACT,
+	UNSIGNED_SAT_FRACT.
+	Rename fixed_all, sat_fixed_all, fixed_uint, sat_fixed_uint to
+	fract, satfract, fractuns, satfractuns.
+	* config/mips/mips-fixed.md (ssmaddsqdq4): Rename sat_fixed_all to
+	sat_fract.
+	(ssmsubsqdq4): Likewise.
+
 2007-06-08  Bob Wilson  <bob.wilson@acm.org>
 
 	* config/xtensa/lib1funcs.asm (__udivsi3): Use hardware divide

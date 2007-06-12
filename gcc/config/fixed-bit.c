@@ -725,9 +725,9 @@ FIXED_CMP (FIXED_C_TYPE a, FIXED_C_TYPE b)
 #endif /* FIXED_CMP */
 
 /* Fixed -> Fixed.  */
-#if defined(FIXED_ALL) && FROM_TYPE == 4 && TO_TYPE == 4
+#if defined(FRACT_CONVERT) && FROM_TYPE == 4 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-FIXED_ALL (FROM_FIXED_C_TYPE a)
+FRACT_CONVERT (FROM_FIXED_C_TYPE a)
 {
   TO_FIXED_C_TYPE c;
   FROM_INT_C_TYPE x;
@@ -751,12 +751,12 @@ FIXED_ALL (FROM_FIXED_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* FIXED_ALL && FROM_TYPE == 4 && TO_TYPE == 4  */
+#endif /* FRACT_CONVERT && FROM_TYPE == 4 && TO_TYPE == 4  */
 
 /* Fixed -> Fixed with saturation.  */
-#if defined(SAT_FIXED_ALL) && FROM_TYPE == 4 && TO_TYPE == 4
+#if defined(SAT_FRACT) && FROM_TYPE == 4 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-SAT_FIXED_ALL (FROM_FIXED_C_TYPE a)
+SAT_FRACT (FROM_FIXED_C_TYPE a)
 {
   TO_FIXED_C_TYPE c;
   TO_INT_C_TYPE z;
@@ -867,12 +867,12 @@ SAT_FIXED_ALL (FROM_FIXED_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* defined(SAT_FIXED_ALL) && FROM_TYPE == 4 && TO_TYPE == 4  */
+#endif /* defined(SAT_FRACT) && FROM_TYPE == 4 && TO_TYPE == 4  */
 
 /* Fixed -> Int.  */
-#if defined(FIXED_ALL) && FROM_TYPE == 4 && TO_TYPE == 1
+#if defined(FRACT_CONVERT) && FROM_TYPE == 4 && TO_TYPE == 1
 TO_INT_C_TYPE
-FIXED_ALL (FROM_FIXED_C_TYPE a)
+FRACT_CONVERT (FROM_FIXED_C_TYPE a)
 {
   FROM_INT_C_TYPE x;
   TO_INT_C_TYPE z;
@@ -901,12 +901,12 @@ FIXED_ALL (FROM_FIXED_C_TYPE a)
   z = (TO_INT_C_TYPE) x;
   return z;
 }
-#endif /* defined(FIXED_ALL) && FROM_TYPE == 4 && TO_TYPE == 1  */
+#endif /* defined(FRACT_CONVERT) && FROM_TYPE == 4 && TO_TYPE == 1  */
 
 /* Fixed -> Unsigned int.  */
-#if defined(FIXED_UINT) && FROM_TYPE == 4 && TO_TYPE == 2
+#if defined(UNSIGNED_FRACT_CONVERT) && FROM_TYPE == 4 && TO_TYPE == 2
 TO_INT_C_TYPE
-FIXED_UINT (FROM_FIXED_C_TYPE a)
+UNSIGNED_FRACT_CONVERT (FROM_FIXED_C_TYPE a)
 {
   FROM_INT_C_TYPE x;
   TO_INT_C_TYPE z;
@@ -935,12 +935,12 @@ FIXED_UINT (FROM_FIXED_C_TYPE a)
   z = (TO_INT_C_TYPE) x;
   return z;
 }
-#endif /* defined(FIXED_UINT) && FROM_TYPE == 4 && TO_TYPE == 2  */
+#endif /* defined(UNSIGNED_FRACT_CONVERT) && FROM_TYPE == 4 && TO_TYPE == 2  */
 
 /* Int -> Fixed.  */
-#if defined(FIXED_ALL) && FROM_TYPE == 1 && TO_TYPE == 4
+#if defined(FRACT_CONVERT) && FROM_TYPE == 1 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-FIXED_ALL (FROM_INT_C_TYPE a)
+FRACT_CONVERT (FROM_INT_C_TYPE a)
 {
   TO_FIXED_C_TYPE c;
   TO_INT_C_TYPE z;
@@ -957,12 +957,12 @@ FIXED_ALL (FROM_INT_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* defined(FIXED_ALL) && FROM_TYPE == 1 && TO_TYPE == 4  */
+#endif /* defined(FRACT_CONVERT) && FROM_TYPE == 1 && TO_TYPE == 4  */
 
 /* Signed int -> Fixed with saturation.  */
-#if defined(SAT_FIXED_ALL) && FROM_TYPE == 1 && TO_TYPE == 4
+#if defined(SAT_FRACT) && FROM_TYPE == 1 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-SAT_FIXED_ALL (FROM_INT_C_TYPE a)
+SAT_FRACT (FROM_INT_C_TYPE a)
 {
   TO_FIXED_C_TYPE c;
   TO_INT_C_TYPE z;
@@ -1045,12 +1045,12 @@ SAT_FIXED_ALL (FROM_INT_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* defined(SAT_FIXED_ALL) && FROM_TYPE == 1 && TO_TYPE == 4  */
+#endif /* defined(SAT_FRACT) && FROM_TYPE == 1 && TO_TYPE == 4  */
 
 /* Unsigned int -> Fixed.  */
-#if defined(FIXED_UINT) && FROM_TYPE == 2 && TO_TYPE == 4
+#if defined(UNSIGNED_FRACT_CONVERT) && FROM_TYPE == 2 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-FIXED_UINT (FROM_INT_C_TYPE a)
+UNSIGNED_FRACT_CONVERT (FROM_INT_C_TYPE a)
 {
   TO_FIXED_C_TYPE c;
   TO_INT_C_TYPE z;
@@ -1067,12 +1067,12 @@ FIXED_UINT (FROM_INT_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* defined(FIXED_UINT) && FROM_TYPE == 2 && TO_TYPE == 4  */
+#endif /* defined(UNSIGNED_FRACT_CONVERT) && FROM_TYPE == 2 && TO_TYPE == 4  */
 
 /* Unsigned int -> Fixed with saturation.  */
-#if defined(SAT_FIXED_UINT) && FROM_TYPE == 2 && TO_TYPE == 4
+#if defined(UNSIGNED_SAT_FRACT) && FROM_TYPE == 2 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-SAT_FIXED_UINT (FROM_INT_C_TYPE a)
+UNSIGNED_SAT_FRACT (FROM_INT_C_TYPE a)
 {
   TO_FIXED_C_TYPE c;
   TO_INT_C_TYPE z;
@@ -1134,12 +1134,12 @@ SAT_FIXED_UINT (FROM_INT_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* defined(SAT_FIXED_UINT) && FROM_TYPE == 2 && TO_TYPE == 4  */
+#endif /* defined(UNSIGNED_SAT_FRACT) && FROM_TYPE == 2 && TO_TYPE == 4  */
 
 /* Fixed -> Float.  */
-#if defined(FIXED_ALL) && FROM_TYPE == 4 && TO_TYPE == 3
+#if defined(FRACT_CONVERT) && FROM_TYPE == 4 && TO_TYPE == 3
 TO_FLOAT_C_TYPE
-FIXED_ALL (FROM_FIXED_C_TYPE a)
+FRACT_CONVERT (FROM_FIXED_C_TYPE a)
 {
   FROM_INT_C_TYPE x;
   TO_FLOAT_C_TYPE z;
@@ -1148,12 +1148,12 @@ FIXED_ALL (FROM_FIXED_C_TYPE a)
   z = z / BASE;
   return z;
 }
-#endif /* defined(FIXED_ALL) && FROM_TYPE == 4 && TO_TYPE == 3  */
+#endif /* defined(FRACT_CONVERT) && FROM_TYPE == 4 && TO_TYPE == 3  */
 
 /* Float -> Fixed.  */
-#if defined(FIXED_ALL) && FROM_TYPE == 3 && TO_TYPE == 4
+#if defined(FRACT_CONVERT) && FROM_TYPE == 3 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-FIXED_ALL (FROM_FLOAT_C_TYPE a)
+FRACT_CONVERT (FROM_FLOAT_C_TYPE a)
 {
   FROM_FLOAT_C_TYPE temp;
   TO_INT_C_TYPE z;
@@ -1168,12 +1168,12 @@ FIXED_ALL (FROM_FLOAT_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* defined(FIXED_ALL) && FROM_TYPE == 3 && TO_TYPE == 4  */
+#endif /* defined(FRACT_CONVERT) && FROM_TYPE == 3 && TO_TYPE == 4  */
 
 /* Float -> Fixed with saturation.  */
-#if defined(SAT_FIXED_ALL) && FROM_TYPE == 3 && TO_TYPE == 4
+#if defined(SAT_FRACT) && FROM_TYPE == 3 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-SAT_FIXED_ALL (FROM_FLOAT_C_TYPE a)
+SAT_FRACT (FROM_FLOAT_C_TYPE a)
 {
   FROM_FLOAT_C_TYPE temp;
   TO_INT_C_TYPE z;
@@ -1209,5 +1209,5 @@ SAT_FIXED_ALL (FROM_FLOAT_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* defined(SAT_FIXED_ALL) && FROM_TYPE == 3 && TO_TYPE == 4  */
+#endif /* defined(SAT_FRACT) && FROM_TYPE == 3 && TO_TYPE == 4  */
 
