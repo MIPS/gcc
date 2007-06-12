@@ -1,3 +1,7 @@
+2007-06-12  Ira Rosen  <irar@il.ibm.com>
+
+	Reverted revisions 122088, 120826, 120824.
+
 2007-06-08  Ira Rosen  <irar@il.ibm.com>
 
 	Backport from mainline:
@@ -365,20 +369,6 @@
 	* Makefile.in (tree-affine.o): Add $(TREE_GIMPLE_H dependency.
 	(tree-ssa-loop-im.o): Add tree-affine.h dependency.
 
-2007-02-18  Ira Rosen  <irar@il.ibm.com>
-
-	* tree-vectorizer.h (enum vect_permutation_type): Define.
-	(struct _stmt_vec_info): Replace interleaving_not_needed field and 
-	its access macros with a new field permutation_type. Add more macros 
-	for access fields related to strided access.
-	* tree-vectorizer.c (new_stmt_vec_info): Initialize the new field.
-	* tree-vect-analyze.c (vect_analyze_data_ref_access): Detect strided 
-	stores of not equal constants.
-	* tree-vect-transform.c (vect_get_vector_for_operands): New function.
-	(vectorizable_store): Use new macros. Minor clean-ups. In case of 
-	strided store of constant values, call vect_get_vector_for_operands
-	to create vectors with the values to store. 
-
 2007-02-06  Victor Kaplansky <victork@il.ibm.com>
 	
 	Merged revisions 121374-121640 via svnmerge from 
@@ -388,25 +378,6 @@
 	
 	Merged revisions 120432-121374 via svnmerge from 
 	svn+ssh://gcc.gnu.org/svn/gcc/trunk
-
-2007-01-16  Ira Rosen  <irar@il.ibm.com>
-
-        * tree-vectorizer.h (struct _stmt_vec_info): Add comment. 
-        * tree-vect-analyze.c (vect_analyze_data_ref_access): Add comment, fix
-	indentation.
-        * tree-vect-transform.c (vectorizable_store): Fix the condition for 
-	strided store support. 
-
-2007-01-16  Ira Rosen  <irar@il.ibm.com>
-
-	* tree-vectorizer.c (new_stmt_vec_info): Initialize the new field.
-	* tree-vectorizer.h (struct _stmt_vec_info): Add new field 
-	interleaving_not_needed and macros to access it.
-	* tree-vect-analyze.c (vect_analyze_data_ref_access): Detect 
-	interleaved stores with equal constant right hand sides and mark that
-        there is no need to do interleaving for them.
-	* tree-vect-transform.c (vectorizable_store): Do not interleave if
-	there is no need in interleaving.
 
 2007-01-04  Victor Kaplansky <victork@il.ibm.com>
 	

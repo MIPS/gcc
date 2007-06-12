@@ -1915,9 +1915,6 @@ vect_analyze_data_ref_access (struct data_reference *dr)
       tree prev_init = DR_INIT (data_ref);
       tree prev = stmt;
       HOST_WIDE_INT diff, count_in_bytes;
-      bool rhs_equal = true;
-      bool rhs_constant = true;
-      tree next_op = NULL_TREE, prev_op = GIMPLE_STMT_OPERAND (stmt, 1);
 
       while (next)
 	{
@@ -1979,22 +1976,6 @@ vect_analyze_data_ref_access (struct data_reference *dr)
              gap in the access, DR_GROUP_GAP is always 1.  */
 	  DR_GROUP_GAP (vinfo_for_stmt (next)) = diff;
 
-	  /* Detect strided stores that store (same) constant and avoid 
-	     unnecessary data interleaving.  */
-	  if (!DR_IS_READ (data_ref))
-	    {
-	      next_op = GIMPLE_STMT_OPERAND (next, 1);
-	      if (TREE_CODE (next_op) != INTEGER_CST 
-		  && TREE_CODE (next_op) != REAL_CST)
-		{
-		  rhs_equal = false;
-		  rhs_constant = false;
-		}
-	      else if (tree_int_cst_compare (next_op, prev_op))
-		rhs_equal = false;
-	    }
-
-	  prev_op = next_op;
 	  prev_init = DR_INIT (data_ref);
 	  next = DR_GROUP_NEXT_DR (vinfo_for_stmt (next));
 	  /* Count the number of data-refs in the chain.  */
@@ -2047,32 +2028,6 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 	  return false;
 	}
       DR_GROUP_SIZE (vinfo_for_stmt (stmt)) = stride;
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "Detected interleaving of size %d", (int)stride);
-
-      /* Set permutation type.  */
-      DR_GROUP_PERMUTATION_TYPE (vinfo_for_stmt (stmt)) = interleaving;
- 
-      /* Check the type of the permutation needed. In case of constant stores,
-         there is no need in data interleaving. The stored vectors are created
-         from the scalars in the correct order.  */
-      if (!DR_IS_READ (dr))
-        {
-          if (rhs_equal)
-            {
-              DR_GROUP_PERMUTATION_TYPE (vinfo_for_stmt (stmt)) =
-                 equal_constants;
-              if (vect_print_dump_info (REPORT_DR_DETAILS))
-                fprintf (vect_dump, "Same constant store in interleaving.");
-            }
-          else if (rhs_constant)
-            {
-              DR_GROUP_PERMUTATION_TYPE (vinfo_for_stmt (stmt)) = 
-                 different_constants; 
-              if (vect_print_dump_info (REPORT_DR_DETAILS))
-                fprintf (vect_dump, "Constant stores in interleaving.");
-            }
-        } 
     }
   return true;
 }
