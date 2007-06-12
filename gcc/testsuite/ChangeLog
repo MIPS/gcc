@@ -1,3 +1,8 @@
+2007-06-12  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.dg/fixed-point/call-by-value.c: Fix postfix for unsigned
+	fixed-point constants.
+
 2007-06-08  Harsha Jagasia <harsha.jagasia@amd.com>
 
 	* gcc.dg/vect/costmodel: New directory.
