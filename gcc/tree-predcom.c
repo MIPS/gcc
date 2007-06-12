@@ -628,6 +628,13 @@ determine_offset (struct data_reference *a, struct data_reference *b,
 		  double_int *off)
 {
   aff_tree diff, baseb, step;
+  tree typea, typeb;
+
+  /* Check that both the references access the location in the same type.  */
+  typea = TREE_TYPE (DR_REF (a));
+  typeb = TREE_TYPE (DR_REF (b));
+  if (!tree_ssa_useless_type_conversion_1 (typeb, typea))
+    return false;
 
   /* Check whether the base address and the step of both references is the
      same.  */
@@ -1225,7 +1232,7 @@ replace_ref_with (tree stmt, tree new, bool set, bool in_lhs)
       remove_phi_node (stmt, NULL_TREE, false);
 
       /* Turn the phi node into GIMPLE_MODIFY_STMT.  */
-      new_stmt = build_gimple_modify_stmt_stat (val, new);
+      new_stmt = build_gimple_modify_stmt (val, new);
       SSA_NAME_DEF_STMT (val) = new_stmt;
       bsi_insert_before (&bsi, new_stmt, BSI_NEW_STMT);
       return;
@@ -1271,7 +1278,7 @@ replace_ref_with (tree stmt, tree new, bool set, bool in_lhs)
 	 NEW = VAL  */
     }
 
-  new_stmt = build_gimple_modify_stmt_stat (new, unshare_expr (val));
+  new_stmt = build_gimple_modify_stmt (new, unshare_expr (val));
   bsi_insert_after (&bsi, new_stmt, BSI_NEW_STMT);
   SSA_NAME_DEF_STMT (new) = new_stmt;
 }
@@ -1380,7 +1387,7 @@ get_init_expr (chain_p chain, unsigned index)
 
 /* Marks all virtual operands of statement STMT for renaming.  */
 
-static void
+void
 mark_virtual_ops_for_renaming (tree stmt)
 {
   ssa_op_iter iter;
@@ -1553,7 +1560,7 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
     }
   else
     {
-      init = build_gimple_modify_stmt_stat (var, init);
+      init = build_gimple_modify_stmt (var, init);
       SSA_NAME_DEF_STMT (var) = init;
       mark_virtual_ops_for_renaming (init);
       bsi_insert_on_edge_immediate (entry, init);
@@ -1934,7 +1941,13 @@ eliminate_temp_copies (struct loop *loop, bitmap tmp_vars)
 
       /* Base all the ssa names in the ud and du chain of NAME on VAR.  */
       stmt = SSA_NAME_DEF_STMT (use);
-      while (TREE_CODE (stmt) == PHI_NODE)
+      while (TREE_CODE (stmt) == PHI_NODE
+	     /* In case we could not unroll the loop enough to eliminate
+		all copies, we may reach the loop header before the defining
+		statement (in that case, some register copies will be present
+		in loop latch in the final code, corresponding to the newly
+		created looparound phi nodes).  */
+	     && bb_for_stmt (stmt) != loop->header)
 	{
 	  gcc_assert (single_pred_p (bb_for_stmt (stmt)));
 	  use = PHI_ARG_DEF (stmt, 0);
@@ -2194,14 +2207,14 @@ reassociate_to_the_same_stmt (tree name1, tree name2)
   var = create_tmp_var (type, "predreastmp");
   add_referenced_var (var);
   new_name = make_ssa_name (var, NULL_TREE);
-  new_stmt = build_gimple_modify_stmt_stat (new_name,
+  new_stmt = build_gimple_modify_stmt (new_name,
 			    fold_build2 (code, type, name1, name2));
   SSA_NAME_DEF_STMT (new_name) = new_stmt;
 
   var = create_tmp_var (type, "predreastmp");
   add_referenced_var (var);
   tmp_name = make_ssa_name (var, NULL_TREE);
-  tmp_stmt = build_gimple_modify_stmt_stat (tmp_name,
+  tmp_stmt = build_gimple_modify_stmt (tmp_name,
 					    GIMPLE_STMT_OPERAND (s1, 1));
   SSA_NAME_DEF_STMT (tmp_name) = tmp_stmt;
 

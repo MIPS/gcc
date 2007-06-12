@@ -634,13 +634,13 @@ bool
 contains_abnormal_ssa_name_p (tree expr)
 {
   enum tree_code code;
-  enum tree_code_class class;
+  enum tree_code_class codeclass;
 
   if (!expr)
     return false;
 
   code = TREE_CODE (expr);
-  class = TREE_CODE_CLASS (code);
+  codeclass = TREE_CODE_CLASS (code);
 
   if (code == SSA_NAME)
     return SSA_NAME_OCCURS_IN_ABNORMAL_PHI (expr) != 0;
@@ -654,7 +654,7 @@ contains_abnormal_ssa_name_p (tree expr)
 			    idx_contains_abnormal_ssa_name_p,
 			    NULL);
 
-  switch (class)
+  switch (codeclass)
     {
     case tcc_binary:
     case tcc_comparison:
@@ -711,7 +711,7 @@ niter_for_exit (struct ivopts_data *data, edge exit)
       *pointer_map_insert (data->niters, exit) = niter;
     }
   else
-    niter = *slot;
+    niter = (tree) *slot;
 
   return niter;
 }
@@ -1288,7 +1288,7 @@ struct ifs_ivopts_data
 static bool
 idx_find_step (tree base, tree *idx, void *data)
 {
-  struct ifs_ivopts_data *dta = data;
+  struct ifs_ivopts_data *dta = (struct ifs_ivopts_data *) data;
   struct iv *iv;
   tree step, iv_base, iv_step, lbound, off;
   struct loop *loop = dta->ivopts_data->current_loop;
@@ -1367,8 +1367,9 @@ idx_find_step (tree base, tree *idx, void *data)
 
 static bool
 idx_record_use (tree base, tree *idx,
-		void *data)
+		void *vdata)
 {
+  struct ivopts_data *data = (struct ivopts_data *) vdata;
   find_interesting_uses_op (data, *idx);
   if (TREE_CODE (base) == ARRAY_REF)
     {
@@ -1898,7 +1899,7 @@ static struct ivopts_data *fd_ivopts_data;
 static tree
 find_depends (tree *expr_p, int *ws ATTRIBUTE_UNUSED, void *data)
 {
-  bitmap *depends_on = data;
+  bitmap *depends_on = (bitmap *) data;
   struct version_info *info;
 
   if (TREE_CODE (*expr_p) != SSA_NAME)
@@ -2395,7 +2396,7 @@ prepare_decl_rtl (tree *expr_p, int *ws, void *data)
 {
   tree obj = NULL_TREE;
   rtx x = NULL_RTX;
-  int *regno = data;
+  int *regno = (int *) data;
 
   switch (TREE_CODE (*expr_p))
     {
@@ -2749,7 +2750,7 @@ struct mbc_entry
 static hashval_t
 mbc_entry_hash (const void *entry)
 {
-  const struct mbc_entry *e = entry;
+  const struct mbc_entry *e = (const struct mbc_entry *) entry;
 
   return 57 * (hashval_t) e->mode + (hashval_t) (e->cst % 877);
 }
@@ -2759,8 +2760,8 @@ mbc_entry_hash (const void *entry)
 static int
 mbc_entry_eq (const void *entry1, const void *entry2)
 {
-  const struct mbc_entry *e1 = entry1;
-  const struct mbc_entry *e2 = entry2;
+  const struct mbc_entry *e1 = (const struct mbc_entry *) entry1;
+  const struct mbc_entry *e2 = (const struct mbc_entry *) entry2;
 
   return (e1->mode == e2->mode
 	  && e1->cst == e2->cst);

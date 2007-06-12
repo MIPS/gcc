@@ -457,6 +457,7 @@
 (include "sh4.md")
 
 (include "predicates.md")
+(include "constraints.md")
 
 ;; Definitions for filling delay slots
 
@@ -1219,7 +1220,7 @@
   "TARGET_PRETEND_CMOVE
    && (arith_reg_operand (operands[1], SImode)
        || (immediate_operand (operands[1], SImode)
-	   && CONST_OK_FOR_I08 (INTVAL (operands[1]))))"
+	   && satisfies_constraint_I08 (operands[1])))"
   "bt 0f\;mov %1,%0\\n0:"
   [(set_attr "type" "mt_group,arith") ;; poor approximation
    (set_attr "length" "4")])
@@ -1232,7 +1233,7 @@
   "TARGET_PRETEND_CMOVE
    && (arith_reg_operand (operands[1], SImode)
        || (immediate_operand (operands[1], SImode)
-	   && CONST_OK_FOR_I08 (INTVAL (operands[1]))))"
+	   && satisfies_constraint_I08 (operands[1])))"
   "bf 0f\;mov %1,%0\\n0:"
   [(set_attr "type" "mt_group,arith") ;; poor approximation
    (set_attr "length" "4")])
@@ -3547,8 +3548,7 @@ label:
 		   (match_operand:SI 2 "nonmemory_operand" "r,M,P27,?ri")))
    (clobber (match_scratch:SI 3 "=X,X,X,&r"))]
   "TARGET_SH3
-   || (TARGET_SH1 && GET_CODE (operands[2]) == CONST_INT
-       && CONST_OK_FOR_P27 (INTVAL (operands[2])))"
+   || (TARGET_SH1 && satisfies_constraint_P27 (operands[2]))"
   "@
    shld	%2,%0
    add	%0,%0
@@ -3557,7 +3557,7 @@ label:
   "TARGET_SH3
    && reload_completed
    && GET_CODE (operands[2]) == CONST_INT
-   && ! CONST_OK_FOR_P27 (INTVAL (operands[2]))"
+   && ! satisfies_constraint_P27 (operands[2])"
   [(set (match_dup 3) (match_dup 2))
    (parallel
     [(set (match_dup 0) (ashift:SI (match_dup 1) (match_dup 3)))
@@ -3570,7 +3570,7 @@ label:
   [(set (match_operand:HI 0 "arith_reg_dest" "=r,r")
 	(ashift:HI (match_operand:HI 1 "arith_reg_operand" "0,0")
 		   (match_operand:HI 2 "const_int_operand" "M,P27")))]
-  "TARGET_SH1 && CONST_OK_FOR_P27 (INTVAL (operands[2]))"
+  "TARGET_SH1 && satisfies_constraint_P27 (operands[2])"
   "@
 	add	%0,%0
 	shll%O2	%0"
@@ -3865,7 +3865,7 @@ label:
 	(lshiftrt:SI (match_operand:SI 1 "arith_reg_operand" "0")
 		     (match_operand:SI 2 "const_int_operand" "M")))
    (clobber (reg:SI T_REG))]
-  "TARGET_SH1 && CONST_OK_FOR_M (INTVAL (operands[2]))"
+  "TARGET_SH1 && satisfies_constraint_M (operands[2])"
   "shlr	%0"
   [(set_attr "type" "arith")])
 
@@ -3873,8 +3873,8 @@ label:
   [(set (match_operand:SI 0 "arith_reg_dest" "=r")
 	(lshiftrt:SI (match_operand:SI 1 "arith_reg_operand" "0")
 		     (match_operand:SI 2 "const_int_operand" "P27")))]
-  "TARGET_SH1 && CONST_OK_FOR_P27 (INTVAL (operands[2]))
-   && ! CONST_OK_FOR_M (INTVAL (operands[2]))"
+  "TARGET_SH1 && satisfies_constraint_P27 (operands[2])
+   && ! satisfies_constraint_M (operands[2])"
   "shlr%O2	%0"
   [(set_attr "type" "arith")])
 
@@ -5154,7 +5154,7 @@ label:
 	(match_operand:SI 1 "immediate_operand" ""))]
   "TARGET_SHMEDIA && reload_completed
    && ((GET_CODE (operands[1]) == CONST_INT
-	&& ! CONST_OK_FOR_I16 (INTVAL (operands[1])))
+	&& ! satisfies_constraint_I16 (operands[1]))
        || GET_CODE (operands[1]) == CONST_DOUBLE)"
   [(set (subreg:DI (match_dup 0) 0) (match_dup 1))])
 
@@ -5366,7 +5366,7 @@ label:
   [(set (match_operand:HI 0 "register_operand" "")
 	(match_operand:HI 1 "immediate_operand" ""))]
   "TARGET_SHMEDIA && reload_completed
-   && ! CONST_OK_FOR_I16 (INTVAL (operands[1]))"
+   && ! satisfies_constraint_I16 (operands[1])"
   [(set (subreg:DI (match_dup 0) 0) (match_dup 1))])
 
 (define_expand "movhi"
@@ -5602,7 +5602,7 @@ label:
 	(match_operand:DI 1 "immediate_operand" ""))]
   "TARGET_SHMEDIA && reload_completed
    && GET_CODE (operands[1]) == CONST_INT
-   && ! CONST_OK_FOR_I16 (INTVAL (operands[1]))"
+   && ! satisfies_constraint_I16 (operands[1])"
   [(set (match_dup 0) (match_dup 2))
    (match_dup 1)]
   "
@@ -6981,8 +6981,7 @@ label:
 
       sh_compare_op0 = force_reg (mode, sh_compare_op0);
       if (CONSTANT_P (sh_compare_op1)
-	  && (GET_CODE (sh_compare_op1) != CONST_INT
-	      || ! CONST_OK_FOR_I06 (INTVAL (sh_compare_op1))))
+	  && (! satisfies_constraint_I06 (sh_compare_op1)))
 	sh_compare_op1 = force_reg (mode, sh_compare_op1);
       emit_jump_insn (gen_beq_media (operands[0],
 				     sh_compare_op0, sh_compare_op1));
@@ -7015,8 +7014,7 @@ label:
 
       sh_compare_op0 = force_reg (mode, sh_compare_op0);
       if (CONSTANT_P (sh_compare_op1)
-	  && (GET_CODE (sh_compare_op1) != CONST_INT
-	      || ! CONST_OK_FOR_I06 (INTVAL (sh_compare_op1))))
+	  && (! satisfies_constraint_I06 (sh_compare_op1)))
 	sh_compare_op1 = force_reg (mode, sh_compare_op1);
       emit_jump_insn (gen_bne_media (operands[0],
 				     sh_compare_op0, sh_compare_op1));
@@ -7325,6 +7323,52 @@ label:
 		 ? gen_rtx_GE (VOIDmode, operands[4], const0_rtx)
 		 : gen_rtx_GT (VOIDmode, const0_rtx, operands[4]));
 }")
+
+; operand 0 is the loop count pseudo register
+; operand 1 is the number of loop iterations or 0 if it is unknown
+; operand 2 is the maximum number of loop iterations
+; operand 3 is the number of levels of enclosed loops
+; operand 4 is the label to jump to at the top of the loop
+
+(define_expand "doloop_end"
+  [(parallel [(set (pc) (if_then_else
+			  (ne:SI (match_operand:SI 0 "" "")
+			      (const_int 1))
+			  (label_ref (match_operand 4 "" ""))
+			  (pc)))
+	      (set (match_dup 0)
+		   (plus:SI (match_dup 0) (const_int -1)))
+	      (clobber (reg:SI T_REG))])]
+  "TARGET_SH2"
+  "
+{
+  if (GET_MODE (operands[0]) != SImode)
+    FAIL;
+}
+")
+
+(define_insn_and_split "doloop_end_split"
+  [(set (pc)
+	(if_then_else (ne:SI (match_operand:SI 0 "arith_reg_dest" "+r")
+			  (const_int 1))
+		      (label_ref (match_operand 1 "" ""))
+		      (pc)))
+   (set (match_dup 0)
+	(plus (match_dup 0) (const_int -1)))
+   (clobber (reg:SI T_REG))]
+  "TARGET_SH2"
+  "#"
+  ""
+  [(parallel [(set (reg:SI T_REG)
+		   (eq:SI (match_operand:SI 0 "arith_reg_dest" "+r")
+			  (const_int 1)))
+	      (set (match_dup 0) (plus:SI (match_dup 0) (const_int -1)))])
+   (set (pc) (if_then_else (eq (reg:SI T_REG) (const_int 0))
+			   (label_ref (match_operand 1 "" ""))
+			   (pc)))]
+""
+   [(set_attr "type" "cbranch")])
+
 
 ;; ------------------------------------------------------------------------
 ;; Jump and linkage insns
@@ -8411,7 +8455,7 @@ label:
 	(const (unspec [(match_operand 1 "" "Csy")]
 			     UNSPEC_DATALABEL)))]
   "TARGET_SHMEDIA && flag_pic
-   && EXTRA_CONSTRAINT_Csy (operands[1])"
+   && satisfies_constraint_Csy (operands[1])"
   "ptb/u	datalabel %1, %0"
   [(set_attr "type" "ptabs_media")
    (set_attr "length" "*")])
@@ -8501,6 +8545,20 @@ label:
   emit_move_insn (operands[3], gen_rtx_PLUS (Pmode,
 					     operands[2],
 					     gen_rtx_REG (Pmode, PIC_REG)));
+
+  /* When stack protector inserts codes after the result is set to
+     R0, @(rX, r12) will cause a spill failure for R0.  Don't schedule
+     insns to avoid combining (set A (plus rX r12)) and (set op0 (mem A))
+     when rX is a GOT address for the guard symbol.  Ugly but doesn't
+     matter because this is a rare situation.  */
+  if (!TARGET_SHMEDIA
+      && flag_stack_protect
+      && GET_CODE (operands[1]) == CONST
+      && GET_CODE (XEXP (operands[1], 0)) == UNSPEC
+      && GET_CODE (XVECEXP (XEXP (operands[1], 0), 0, 0)) == SYMBOL_REF
+      && strcmp (XSTR (XVECEXP (XEXP (operands[1], 0), 0, 0), 0),
+		 \"__stack_chk_guard\") == 0)
+    emit_insn (gen_blockage ());
 
   /* N.B. This is not constant for a GOTPLT relocation.  */
   mem = gen_rtx_MEM (Pmode, operands[3]);

@@ -734,7 +734,7 @@ dr_analyze_alias (struct data_reference *dr)
     }
 
   DR_SYMBOL_TAG (dr) = smt;
-  if (var_can_have_subvars (smt))
+  if (smt && var_can_have_subvars (smt))
     DR_SUBVARS (dr) = get_subvars_for_var (smt);
 
   vops = BITMAP_ALLOC (NULL);
@@ -1181,8 +1181,9 @@ dr_may_alias_p (struct data_reference *a, struct data_reference *b)
 
   if (TYPE_RESTRICT (type_a) && TYPE_RESTRICT (type_b) 
       && (!DR_IS_READ (a) || !DR_IS_READ (b))
-      && decl_a && TREE_CODE (decl_a) == PARM_DECL
-      && decl_b && TREE_CODE (decl_b) == PARM_DECL
+      && decl_a && DECL_P (decl_a)
+      && decl_b && DECL_P (decl_b)
+      && decl_a != decl_b
       && TREE_CODE (DECL_CONTEXT (decl_a)) == FUNCTION_DECL
       && DECL_CONTEXT (decl_a) == DECL_CONTEXT (decl_b))
     return false;

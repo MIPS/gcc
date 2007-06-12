@@ -1,3 +1,30 @@
+2007-06-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/testsuite_performance.h: Add cstring include for
+	memset.
+
+2007-06-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/install.html: Adjust consistently with libstdc++/31717.
+
+2007-06-08  Francesco Palagi  <palagi@arcetri.astro.it>
+
+	* include/std/fstream: Add Table 92 in comment.
+
+2007-06-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/32233
+	* include/bits/stl_vector.h (_M_fill_initialize): Fix return type.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Adjust dg-error line.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+
+2007-06-06  Benjamin Kosnik  <bkoz@redhat.com>
+	    Frank Mori Hess  <frank.hess@nist.gov>
+	
+	* docs/html/debug.html: Correct link.
+
 2007-06-02  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/tr1_impl/type_traits (is_reference, add_reference,

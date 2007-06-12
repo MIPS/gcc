@@ -328,7 +328,8 @@ heapvar_lookup (tree from)
   struct tree_map *h, in;
   in.base.from = from;
 
-  h = htab_find_with_hash (heapvar_for_stmt, &in, htab_hash_pointer (from));
+  h = (struct tree_map *) htab_find_with_hash (heapvar_for_stmt, &in,
+					       htab_hash_pointer (from));
   if (h)
     return h->to;
   return NULL_TREE;
@@ -343,7 +344,7 @@ heapvar_insert (tree from, tree to)
   struct tree_map *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct tree_map));
+  h = GGC_NEW (struct tree_map);
   h->hash = htab_hash_pointer (from);
   h->base.from = from;
   h->to = to;
@@ -357,7 +358,7 @@ heapvar_insert (tree from, tree to)
 static varinfo_t
 new_var_info (tree t, unsigned int id, const char *name)
 {
-  varinfo_t ret = pool_alloc (variable_info_pool);
+  varinfo_t ret = (varinfo_t) pool_alloc (variable_info_pool);
 
   ret->id = id;
   ret->name = name;
@@ -513,7 +514,7 @@ static constraint_t
 new_constraint (const struct constraint_expr lhs,
 		const struct constraint_expr rhs)
 {
-  constraint_t ret = pool_alloc (constraint_pool);
+  constraint_t ret = (constraint_t) pool_alloc (constraint_pool);
   ret->lhs = lhs;
   ret->rhs = rhs;
   return ret;
@@ -4283,10 +4284,12 @@ shared_bitmap_add (bitmap pt_vars)
 /* Set bits in INTO corresponding to the variable uids in solution set
    FROM, which came from variable PTR.
    For variables that are actually dereferenced, we also use type
-   based alias analysis to prune the points-to sets.  */
+   based alias analysis to prune the points-to sets.
+   IS_DEREFED is true if PTR was directly dereferenced, which we use to
+   help determine whether we are we are allowed to prune using TBAA.  */
 
 static void
-set_uids_in_ptset (tree ptr, bitmap into, bitmap from)
+set_uids_in_ptset (tree ptr, bitmap into, bitmap from, bool is_derefed)
 {
   unsigned int i;
   bitmap_iterator bi;
@@ -4322,7 +4325,7 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from)
 	      if (sft)
 		{
 		  var_alias_set = get_alias_set (sft);
-		  if (!vi->directly_dereferenced
+		  if ((!is_derefed && !vi->directly_dereferenced)
 		      || alias_sets_conflict_p (ptr_alias_set, var_alias_set))
 		    bitmap_set_bit (into, DECL_UID (sft));
 		}
@@ -4336,7 +4339,7 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from)
 	      else
 		{
 		  var_alias_set = get_alias_set (vi->decl);
-		  if (!vi->directly_dereferenced
+		  if ((!is_derefed && !vi->directly_dereferenced)
 		      || alias_sets_conflict_p (ptr_alias_set, var_alias_set))
 		    bitmap_set_bit (into, DECL_UID (vi->decl));
 		}
@@ -4532,14 +4535,17 @@ find_what_p_points_to (tree p)
 	  stats.points_to_sets_created++;
 	  
 	  /* Instead of using pt_anything, we instead merge in the SMT
-	     aliases for the underlying SMT.  */
+	     aliases for the underlying SMT.  In addition, if they
+	     could have pointed to anything, they could point to
+	     global memory.  */
 	  if (was_pt_anything)
 	    {
 	      merge_smts_into (p, finished_solution);
 	      pi->pt_global_mem = 1;
 	    }
 	  
-	  set_uids_in_ptset (vi->decl, finished_solution, vi->solution);
+	  set_uids_in_ptset (vi->decl, finished_solution, vi->solution,
+			     vi->directly_dereferenced);
 	  result = shared_bitmap_lookup (finished_solution);
 
 	  if (!result)
@@ -4756,7 +4762,7 @@ remove_preds_and_fake_succs (constraint_graph_t graph)
   /* Now reallocate the size of the successor list as, and blow away
      the predecessor bitmaps.  */
   graph->size = VEC_length (varinfo_t, varmap);
-  graph->succs = xrealloc (graph->succs, graph->size * sizeof (bitmap));
+  graph->succs = XRESIZEVEC (bitmap, graph->succs, graph->size);
 
   free (graph->implicit_preds);
   graph->implicit_preds = NULL;

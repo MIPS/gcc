@@ -81,6 +81,7 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Pragmas::             Pragmas accepted by GCC.
 * Unnamed Fields::      Unnamed struct/union fields within structs/unions.
 * Thread-Local::        Per-thread variables.
+* Binary constants::    Binary constants using the @samp{0b} prefix.
 @end menu
 
 @node Statement Exprs
@@ -2043,12 +2044,13 @@ This attribute is ignored for R8C target.
 
 @item interrupt
 @cindex interrupt handler functions
-Use this attribute on the ARM, AVR, C4x, CRX, M32C, M32R/D, MS1, and Xstormy16
-ports to indicate that the specified function is an interrupt handler.
-The compiler will generate function entry and exit sequences suitable
-for use in an interrupt handler when this attribute is present.
+Use this attribute on the ARM, AVR, C4x, CRX, M32C, M32R/D, m68k, MS1,
+and Xstormy16 ports to indicate that the specified function is an
+interrupt handler.  The compiler will generate function entry and exit
+sequences suitable for use in an interrupt handler when this attribute
+is present.
 
-Note, interrupt handlers for the Blackfin, m68k, H8/300, H8/300H, H8S, and
+Note, interrupt handlers for the Blackfin, H8/300, H8/300H, H8S, and
 SH processors can be specified via the @code{interrupt_handler} attribute.
 
 Note, on the AVR, interrupts will be enabled inside the function.
@@ -7032,6 +7034,26 @@ integers, these use @code{V4SI}.  Finally, some instructions operate on an
 entire vector register, interpreting it as a 128-bit integer, these use mode
 @code{TI}.
 
+In the 64-bit mode, x86-64 family of processors uses additional built-in
+functions for efficient use of @code{TF} (@code{__float128}) 128-bit
+floating point and @code{TC} 128-bit complex floating point values.
+
+The following floating point built-in functions are made available in the
+64-bit mode.  All of them implement the function that is part of the name.
+
+@smallexample
+__float128 __builtin_fabsq (__float128)
+__float128 __builtin_copysignq (__float128, __float128)
+@end smallexample
+
+The following floating point built-in functions are made available in the
+64-bit mode.
+
+@table @code
+@item __float128 __builtin_infq (void)
+Similar to @code{__builtin_inf}, except the return type is @code{__float128}.
+@end table
+
 The following built-in functions are made available by @option{-mmmx}.
 All of them generate the machine instruction that is part of the name.
 
@@ -7433,7 +7455,7 @@ v2df __builtin_ia32_blendpd (v2df, v2df, const int)
 v4sf __builtin_ia32_blendps (v4sf, v4sf, const int)
 v2df __builtin_ia32_blendvpd (v2df, v2df, v2df)
 v4sf __builtin_ia32_blendvps (v4sf, v4sf, v4sf)
-v2df __builtin_ia32_dppd (__v2df, __v2df, const int)
+v2df __builtin_ia32_dppd (v2df, v2df, const int)
 v4sf __builtin_ia32_dpps (v4sf, v4sf, const int)
 v4sf __builtin_ia32_insertps128 (v4sf, v4sf, const int)
 v2di __builtin_ia32_movntdqa (v2di *);
@@ -7521,50 +7543,45 @@ int __builtin_ia32_pcmpistric128 (v16qi, v16qi, const int)
 int __builtin_ia32_pcmpistrio128 (v16qi, v16qi, const int)
 int __builtin_ia32_pcmpistris128 (v16qi, v16qi, const int)
 int __builtin_ia32_pcmpistriz128 (v16qi, v16qi, const int)
-__v2di __builtin_ia32_pcmpgtq (__v2di, __v2di)
+v2di __builtin_ia32_pcmpgtq (v2di, v2di)
 @end smallexample
 
 The following built-in functions are available when @option{-msse4.2} is
 used.
 
 @table @code
-unsigned int __builtin_ia32_crc32qi (unsigned int, unsigned char)
+@item unsigned int __builtin_ia32_crc32qi (unsigned int, unsigned char)
 Generates the @code{crc32b} machine instruction.
-unsigned int __builtin_ia32_crc32hi (unsigned int, unsigned short)
+@item unsigned int __builtin_ia32_crc32hi (unsigned int, unsigned short)
 Generates the @code{crc32w} machine instruction.
-unsigned int __builtin_ia32_crc32si (unsigned int, unsigned int)
+@item unsigned int __builtin_ia32_crc32si (unsigned int, unsigned int)
 Generates the @code{crc32l} machine instruction.
-unsigned long long __builtin_ia32_crc32di (unsigned int, unsigned long long)
+@item unsigned long long __builtin_ia32_crc32di (unsigned int, unsigned long long)
 @end table
 
 The following built-in functions are changed to generate new SSE4.2
 instructions when @option{-msse4.2} is used.
 
 @table @code
-int __builtin_popcount (unsigned int)
+@item int __builtin_popcount (unsigned int)
 Generates the @code{popcntl} machine instruction.
-int __builtin_popcountl (unsigned long)
+@item int __builtin_popcountl (unsigned long)
 Generates the @code{popcntl} or @code{popcntq} machine instruction,
 depending on the size of @code{unsigned long}.
-int __builtin_popcountll (unsigned long long)
+@item int __builtin_popcountll (unsigned long long)
 Generates the @code{popcntq} machine instruction.
 @end table
 
 The following built-in functions are available when @option{-msse4a} is used.
+All of them generate the machine instruction that is part of the name.
 
 @smallexample
-void             _mm_stream_sd (double*,__m128d);
-Generates the @code{movntsd} machine instruction.
-void             _mm_stream_ss (float*,__m128);
-Generates the @code{movntss} machine instruction.
-__m128i          _mm_extract_si64 (__m128i, __m128i);
-Generates the @code{extrq} machine instruction with only SSE register operands.
-__m128i          _mm_extracti_si64 (__m128i, int, int);
-Generates the @code{extrq} machine instruction with SSE register and immediate operands.
-__m128i          _mm_insert_si64 (__m128i, __m128i);
-Generates the @code{insertq} machine instruction with only SSE register operands.
-__m128i          _mm_inserti_si64 (__m128i, __m128i, int, int);
-Generates the @code{insertq} machine instruction with SSE register and immediate operands.
+void __builtin_ia32_movntsd (double *, v2df)
+void __builtin_ia32_movntss (float *, v4sf)
+v2di __builtin_ia32_extrq  (v2di, v16qi)
+v2di __builtin_ia32_extrqi (v2di, const unsigned int, const unsigned int)
+v2di __builtin_ia32_insertq (v2di, v2di)
+v2di __builtin_ia32_insertqi (v2di, v2di, const unsigned int, const unsigned int)
 @end smallexample
 
 The following built-in functions are available when @option{-m3dnow} is used.
@@ -10858,6 +10875,28 @@ Add after paragraph 6
 Non-@code{static} members shall not be @code{__thread}.
 @end quotation
 @end itemize
+
+@node Binary constants
+@section Binary constants using the @samp{0b} prefix
+@cindex Binary constants using the @samp{0b} prefix
+
+Integer constants can be written as binary constants, consisting of a
+sequence of @samp{0} and @samp{1} digits, prefixed by @samp{0b} or
+@samp{0B}.  This is particularly useful in environments that operate a
+lot on the bit-level (like microcontrollers).
+
+The following statements are identical:
+
+@smallexample
+i =       42;
+i =     0x2a;
+i =      052;
+i = 0b101010;
+@end smallexample
+
+The type of these constants follows the same rules as for octal or
+hexadecimal integer constants, so suffixes like @samp{L} or @samp{UL}
+can be applied.
 
 @node C++ Extensions
 @chapter Extensions to the C++ Language

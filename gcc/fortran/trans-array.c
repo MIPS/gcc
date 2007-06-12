@@ -4819,7 +4819,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
 {
   tree ptr;
   tree desc;
-  tree tmp;
+  tree tmp = NULL_TREE;
   tree stmt;
   tree parent = DECL_CONTEXT (current_function_decl);
   bool full_array_var, this_array_result;
@@ -5009,7 +5009,7 @@ gfc_duplicate_allocatable(tree dest, tree src, tree type, int rank)
   tree null_data;
   stmtblock_t block;
 
-  /* If the source is null, set the destination to null. */
+  /* If the source is null, set the destination to null.  */
   gfc_init_block (&block);
   gfc_conv_descriptor_data_set (&block, dest, null_pointer_node);
   null_data = gfc_finish_block (&block);
@@ -5126,7 +5126,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 
       gfc_add_expr_to_block (&loopbody, tmp);
 
-      /* Build the loop and return. */
+      /* Build the loop and return.  */
       gfc_init_loopinfo (&loop);
       loop.dimen = 1;
       loop.from[0] = gfc_index_zero_node;
@@ -5143,7 +5143,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
     }
 
   /* Otherwise, act on the components or recursively call self to
-     act on a chain of components. */
+     act on a chain of components.  */
   for (c = der_type->components; c; c = c->next)
     {
       bool cmp_has_alloc_comps = (c->ts.type == BT_DERIVED)
