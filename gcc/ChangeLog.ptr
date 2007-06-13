@@ -1,5 +1,12 @@
 2007-06-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
+	* config/mips/mips.c (mips_va_start): Use POINTER_PLUS_EXPR
+	for pointers.
+	(mips_gimplify_va_arg_expr): Likewise.
+	Don't create BIT_AND_EXPR in a pointer type.
+
+2007-06-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
 	Merge mainline, revision 125285
 
 2007-06-11  Andrew Pinski  <andrew_pinski@playstation.sony.com>
