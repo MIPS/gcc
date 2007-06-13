@@ -391,10 +391,9 @@ may_trap_exp (rtx x, int is_store)
    PFREE_CANDIDATE, PRISKY_CANDIDATE: load that need to be checked for
    being either PFREE or PRISKY.  */
 
-int
-haifa_classify_insn (rtx insn)
+static int
+haifa_classify_insn_1 (rtx pat)
 {
-  rtx pat = PATTERN (insn);
   int tmp_class = TRAP_FREE;
   int insn_class = TRAP_FREE;
   enum rtx_code code;
@@ -405,31 +404,7 @@ haifa_classify_insn (rtx insn)
 
       for (i = len - 1; i >= 0; i--)
 	{
-	  code = GET_CODE (XVECEXP (pat, 0, i));
-	  switch (code)
-	    {
-	    case CLOBBER:
-	      /* Test if it is a 'store'.  */
-	      tmp_class = may_trap_exp (XEXP (XVECEXP (pat, 0, i), 0), 1);
-	      break;
-	    case SET:
-	      /* Test if it is a store.  */
-	      tmp_class = may_trap_exp (SET_DEST (XVECEXP (pat, 0, i)), 1);
-	      if (tmp_class == TRAP_RISKY)
-		break;
-	      /* Test if it is a load.  */
-	      tmp_class
-		= WORST_CLASS (tmp_class,
-			       may_trap_exp (SET_SRC (XVECEXP (pat, 0, i)),
-					     0));
-	      break;
-	    case COND_EXEC:
-	    case TRAP_IF:
-	      tmp_class = TRAP_RISKY;
-	      break;
-	    default:
-	      ;
-	    }
+	  tmp_class = haifa_classify_insn_1 (XVECEXP (pat, 0, i));
 	  insn_class = WORST_CLASS (insn_class, tmp_class);
 	  if (insn_class == TRAP_RISKY || insn_class == IRISKY)
 	    break;
@@ -455,6 +430,12 @@ haifa_classify_insn (rtx insn)
 			 may_trap_exp (SET_SRC (pat), 0));
 	  break;
 	case COND_EXEC:
+	  tmp_class = haifa_classify_insn_1 (COND_EXEC_CODE (pat));
+	  if (tmp_class == TRAP_RISKY)
+	    break;
+	  tmp_class = WORST_CLASS (tmp_class,
+				   may_trap_exp (COND_EXEC_TEST (pat), 0));
+	  break;
 	case TRAP_IF:
 	  tmp_class = TRAP_RISKY;
 	  break;
@@ -464,6 +445,12 @@ haifa_classify_insn (rtx insn)
     }
 
   return insn_class;
+}
+
+int
+haifa_classify_insn (rtx insn)
+{
+  return haifa_classify_insn_1 (PATTERN (insn));
 }
 
 /* Forward declarations.  */

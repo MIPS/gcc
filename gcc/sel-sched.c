@@ -1583,6 +1583,10 @@ moveup_rhs_inside_insn_group (rhs_t insn_to_move_up, insn_t through_insn)
   return MOVEUP_RHS_NULL;
 }
 
+#define CANT_MOVE_TRAPPING(insn_to_move_up, through_insn) \
+  (VINSN_MAY_TRAP_P (EXPR_VINSN (insn_to_move_up))        \
+   && !sel_insn_has_single_succ_p ((through_insn), SUCCS_ALL))
+
 /* Modifies INSN_TO_MOVE_UP so it can be moved through the THROUGH_INSN,
    performing necessary transformations.  When INSIDE_INSN_GROUP, 
    permit all dependencies except true ones, and try to remove those
@@ -1637,7 +1641,10 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
   full_ds = has_dependence_p (insn_to_move_up, through_insn, &has_dep_p);
 
   if (full_ds == 0)
-    return MOVEUP_RHS_SAME;
+    {
+      if (!CANT_MOVE_TRAPPING (insn_to_move_up, through_insn))
+	return MOVEUP_RHS_SAME;
+    }
   else
     {
       if (VINSN_UNIQUE_P (vi))
@@ -1721,8 +1728,7 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
   /* Don't move trapping insns through jumps.
      This check should be at the end to give a chance to control speculation
      to perform its duties.  */
-  if (VINSN_MAY_TRAP_P (EXPR_VINSN (insn_to_move_up))
-      && !sel_insn_has_single_succ_p (through_insn, SUCCS_ALL))
+  if (CANT_MOVE_TRAPPING (insn_to_move_up, through_insn))
     return MOVEUP_RHS_NULL;
 
   return MOVEUP_RHS_CHANGED;
