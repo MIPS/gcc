@@ -8037,10 +8037,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       return op0;
 
     case POINTER_PLUS_EXPR: 
-    /* FIXME, this can incorrect when
-       the POINTER_TYPE mode is not the same as the size_type's mode. */
-    gcc_assert (TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)))
-		== TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 1))));
+      /* Even though the sizetype mode and the pointer's mode can be different
+         expand is able to handle this correct and get the correct result out 
+         from the PLUS_EXPR code.  */
     case PLUS_EXPR:
 
       /* Check if this is a case for multiplication and addition.  */
