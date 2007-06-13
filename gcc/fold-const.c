@@ -1410,7 +1410,7 @@ fold_negate_expr (tree t)
 		 == TREE_INT_CST_LOW (op1))
 	    {
 	      tree ntype = TYPE_UNSIGNED (type)
-			   ? lang_hooks.types.signed_type (type)
+			   ? signed_type_for (type)
 			   : unsigned_type_for (type);
 	      tree temp = fold_convert (ntype, TREE_OPERAND (t, 0));
 	      temp = fold_build2 (RSHIFT_EXPR, ntype, temp, op1);
@@ -2028,7 +2028,7 @@ size_diffop (tree arg0, tree arg1)
   else if (type == bitsizetype)
     ctype = sbitsizetype;
   else
-    ctype = lang_hooks.types.signed_type (type);
+    ctype = signed_type_for (type);
 
   /* If either operand is not a constant, do the conversions to the signed
      type and subtract.  The hardware will do the right thing with any
@@ -3045,7 +3045,7 @@ operand_equal_for_comparison_p (tree arg0, tree arg1, tree other)
 
       /* Make sure shorter operand is extended the right way
 	 to match the longer operand.  */
-      primarg1 = fold_convert (get_signed_or_unsigned_type
+      primarg1 = fold_convert (signed_or_unsigned_type_for
 			       (unsignedp1, TREE_TYPE (primarg1)), primarg1);
 
       if (operand_equal_p (arg0, fold_convert (type, primarg1), 0))
@@ -3828,7 +3828,7 @@ all_ones_mask_p (tree mask, int size)
   unsigned int precision = TYPE_PRECISION (type);
   tree tmask;
 
-  tmask = build_int_cst_type (lang_hooks.types.signed_type (type), -1);
+  tmask = build_int_cst_type (signed_type_for (type), -1);
 
   return
     tree_int_cst_equal (mask,
@@ -4382,7 +4382,7 @@ build_range_check (tree type, tree exp, int in_p, tree low, tree high)
 	{
 	  if (TYPE_UNSIGNED (etype))
 	    {
-	      etype = lang_hooks.types.signed_type (etype);
+	      etype = signed_type_for (etype);
 	      exp = fold_convert (etype, exp);
 	    }
 	  return fold_build2 (GT_EXPR, type, exp,
@@ -4770,7 +4770,7 @@ fold_cond_expr_with_comparison (tree type, tree arg0, tree arg1, tree arg2)
       case GE_EXPR:
       case GT_EXPR:
 	if (TYPE_UNSIGNED (TREE_TYPE (arg1)))
-	  arg1 = fold_convert (lang_hooks.types.signed_type
+	  arg1 = fold_convert (signed_type_for
 			       (TREE_TYPE (arg1)), arg1);
 	tem = fold_build1 (ABS_EXPR, TREE_TYPE (arg1), arg1);
 	return pedantic_non_lvalue (fold_convert (type, tem));
@@ -4781,7 +4781,7 @@ fold_cond_expr_with_comparison (tree type, tree arg0, tree arg1, tree arg2)
       case LE_EXPR:
       case LT_EXPR:
 	if (TYPE_UNSIGNED (TREE_TYPE (arg1)))
-	  arg1 = fold_convert (lang_hooks.types.signed_type
+	  arg1 = fold_convert (signed_type_for
 			       (TREE_TYPE (arg1)), arg1);
 	tem = fold_build1 (ABS_EXPR, TREE_TYPE (arg1), arg1);
 	return negate_expr (fold_convert (type, tem));
@@ -5089,7 +5089,7 @@ unextend (tree c, int p, int unsignedp, tree mask)
      zero or one, and the conversion to a signed type can never overflow.
      We could get an overflow if this conversion is done anywhere else.  */
   if (TYPE_UNSIGNED (type))
-    temp = fold_convert (lang_hooks.types.signed_type (type), temp);
+    temp = fold_convert (signed_type_for (type), temp);
 
   temp = const_binop (LSHIFT_EXPR, temp, size_int (modesize - 1), 0);
   temp = const_binop (RSHIFT_EXPR, temp, size_int (modesize - p - 1), 0);
@@ -5761,7 +5761,7 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type,
          must avoid building ABS_EXPR itself as unsigned.  */
       if (TYPE_UNSIGNED (ctype) && !TYPE_UNSIGNED (type))
         {
-          tree cstype = (*lang_hooks.types.signed_type) (ctype);
+          tree cstype = (*signed_type_for) (ctype);
           if ((t1 = extract_muldiv (op0, c, code, cstype, strict_overflow_p))
 	      != 0)
             {
@@ -6572,7 +6572,7 @@ fold_single_bit_test_into_sign_test (enum tree_code code, tree arg0, tree arg1,
 	  && TYPE_PRECISION (TREE_TYPE (arg00))
 	     == GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (arg00))))
 	{
-	  tree stype = lang_hooks.types.signed_type (TREE_TYPE (arg00));
+	  tree stype = signed_type_for (TREE_TYPE (arg00));
 	  return fold_build2 (code == EQ_EXPR ? GE_EXPR : LT_EXPR,
 			      result_type, fold_convert (stype, arg00),
 			      build_int_cst (stype, 0));
@@ -9684,7 +9684,10 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	 Also note that operand_equal_p is always false if an operand
 	 is volatile.  */
 
-      if ((! FLOAT_TYPE_P (type) || flag_unsafe_math_optimizations)
+      if ((! FLOAT_TYPE_P (type)
+	   || (flag_unsafe_math_optimizations
+	       && !HONOR_NANS (TYPE_MODE (type))
+	       && !HONOR_INFINITIES (TYPE_MODE (type))))
 	  && operand_equal_p (arg0, arg1, 0))
 	return fold_convert (type, integer_zero_node);
 
@@ -10644,6 +10647,24 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		}
 	    }
 
+	  /* Optimize a/root(b/c) into a*root(c/b).  */
+	  if (BUILTIN_ROOT_P (fcode1))
+	    {
+	      tree rootarg = CALL_EXPR_ARG (arg1, 0);
+
+	      if (TREE_CODE (rootarg) == RDIV_EXPR)
+		{
+		  tree rootfn = TREE_OPERAND (CALL_EXPR_FN (arg1), 0);
+		  tree b = TREE_OPERAND (rootarg, 0);
+		  tree c = TREE_OPERAND (rootarg, 1);
+
+		  tree tmp = fold_build2 (RDIV_EXPR, type, c, b);
+
+		  tmp = build_call_expr (rootfn, 1, tmp);
+		  return fold_build2 (MULT_EXPR, type, arg0, tmp);
+		}
+	    }
+
 	  /* Optimize x/expN(y) into x*expN(-y).  */
 	  if (BUILTIN_EXPONENT_P (fcode1))
 	    {
@@ -11485,7 +11506,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	    {
 	      if (TYPE_UNSIGNED (itype))
 		{
-		  itype = lang_hooks.types.signed_type (itype);
+		  itype = signed_type_for (itype);
 		  arg00 = fold_convert (itype, arg00);
 		}
 	      return fold_build2 (code == EQ_EXPR ? GE_EXPR : LT_EXPR,
@@ -12038,7 +12059,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		if (code == LE_EXPR || code == GT_EXPR)
 		  {
 		    tree st;
-		    st = lang_hooks.types.signed_type (TREE_TYPE (arg1));
+		    st = signed_type_for (TREE_TYPE (arg1));
 		    return fold_build2 (code == LE_EXPR ? GE_EXPR : LT_EXPR,
 					type, fold_convert (st, arg0),
 					build_int_cst (st, 0));
@@ -12428,7 +12449,7 @@ fold_ternary (enum tree_code code, tree type, tree op0, tree op1, tree op2)
 	      if ((TREE_INT_CST_HIGH (arg1) & mask_hi) == mask_hi
 		  && (TREE_INT_CST_LOW (arg1) & mask_lo) == mask_lo)
 		{
-		  tem_type = lang_hooks.types.signed_type (TREE_TYPE (tem));
+		  tem_type = signed_type_for (TREE_TYPE (tem));
 		  tem = fold_convert (tem_type, tem);
 		}
 	      else if ((TREE_INT_CST_HIGH (arg1) & mask_hi) == 0

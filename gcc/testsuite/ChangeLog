@@ -1,3 +1,70 @@
+2007-06-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/31579
+	 * g++.dg/torture/pr31579.C: New testcase.
+
+2007-06-12  Ian Lance Taylor  <iant@google.com>
+
+	PR libstdc++/29286
+	* g++.dg/init/new16.C: New test.
+	* g++.dg/init/new17.C: New test.
+	* g++.dg/init/new18.C: New test.
+	* g++.dg/init/new19.C: New test.
+
+2007-06-12  Olivier Hainque  <hainque@adacore.com>
+
+	* gnat.dg/lhs_view_convert.adb: New test.
+
+2007-06-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/15353
+	PR tree-optimization/31657
+	* gcc.c-torture/execute/20070424-1.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-ifcombine-1.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ifcombine-2.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ifcombine-3.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ifcombine-4.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ifcombine-5.c: Likewise.
+
+2007-06-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/32293
+	* gcc.dg/pr32293.c: New test.
+
+2007-06-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/builtins-11.c: Also check folding of a/cbrt(b/c).
+
+2007-06-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29786
+	* gfortran.dg/equiv_7.f90: New test.
+	* gfortran.dg/equiv_constraint_7.f90: Change error message.
+
+	PR fortran/30875
+	* gfortran.dg/equiv_constraint_5.f90: Correct code and error.
+
+2007-06-11  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* gcc.dg/setjmp-3.c: Rename raise to raise0.
+	* gcc.dg/setjmp-4.c: Likewise.
+	* gcc.target/i386/980211-1.c: Rename __signbitl to __signbitl0.
+
+2007-06-11  Paolo Bonzini  <bonzini@gnu.org>
+
+        PR rtl-optimization/31025
+        * gfortran.dg/pr31025.f90: New.
+
+2007-06-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32280
+	* gcc.target/i386/pr32280.c: New test.
+
+2007-06-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/32279
+	* gcc.dg/builtins-11.c: Also check folding of a/sqrt(b/c).
+
 2007-06-10  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libgfortran/32235

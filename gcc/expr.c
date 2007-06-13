@@ -53,6 +53,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-flow.h"
 #include "target.h"
 #include "timevar.h"
+#include "df.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -283,7 +284,7 @@ init_expr_once (void)
 	    if (! HARD_REGNO_MODE_OK (regno, mode))
 	      continue;
 
-	    REGNO (reg) = regno;
+	    SET_REGNO (reg, regno);
 
 	    SET_SRC (pat) = mem;
 	    SET_DEST (pat) = reg;
@@ -4435,7 +4436,7 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 	      /* Some types, e.g. Fortran's logical*4, won't have a signed
 		 version, so use the mode instead.  */
 	      tree ntype
-		= (get_signed_or_unsigned_type
+		= (signed_or_unsigned_type_for
 		   (SUBREG_PROMOTED_UNSIGNED_P (target), TREE_TYPE (exp)));
 	      if (ntype == NULL)
 		ntype = lang_hooks.types.type_for_mode
@@ -6694,7 +6695,7 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 
       if (modifier != EXPAND_NORMAL)
 	result = force_operand (result, NULL);
-      tmp = expand_expr (offset, NULL, tmode,
+      tmp = expand_expr (offset, NULL_RTX, tmode, 
 			 modifier == EXPAND_INITIALIZER
 			  ? EXPAND_INITIALIZER : EXPAND_NORMAL);
 
@@ -8944,6 +8945,13 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case TRUTH_ORIF_EXPR:
       /* Lowered by gimplify.c.  */
       gcc_unreachable ();
+
+    case CHANGE_DYNAMIC_TYPE_EXPR:
+      /* This is ignored at the RTL level.  The tree level set
+	 DECL_POINTER_ALIAS_SET of any variable to be 0, which is
+	 overkill for the RTL layer but is all that we can
+	 represent.  */
+      return const0_rtx;
 
     case EXC_PTR_EXPR:
       return get_exception_pointer (cfun);

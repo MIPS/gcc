@@ -761,12 +761,10 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
 #endif
       { /* Nothing */ }
 
-  /* @@@ This is a kludge.  Not all machine descriptions define a blockage
-     insn, but we must not allow the code we just generated to be reordered
-     by scheduling.  Specifically, the update of the frame pointer must
-     happen immediately, not later.  So emit an ASM_INPUT to act as blockage
-     insn.  */
-  emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
+  /* We must not allow the code we just generated to be reordered by
+     scheduling.  Specifically, the update of the frame pointer must
+     happen immediately, not later.  */
+  emit_insn (gen_blockage ());
 }
 
 /* __builtin_longjmp is passed a pointer to an array of five words (not
@@ -7776,7 +7774,7 @@ fold_builtin_int_roundingfn (tree fndecl, tree arg)
     {
       const REAL_VALUE_TYPE x = TREE_REAL_CST (arg);
 
-      if (! REAL_VALUE_ISNAN (x) && ! REAL_VALUE_ISINF (x))
+      if (real_isfinite (&x))
 	{
 	  tree itype = TREE_TYPE (TREE_TYPE (fndecl));
 	  tree ftype = TREE_TYPE (arg);
@@ -9336,8 +9334,7 @@ fold_builtin_load_exponent (tree arg0, tree arg1, tree type, bool ldexp)
       /* If arg0 is 0, Inf or NaN, or if arg1 is 0, then return arg0.  */
       if (real_zerop (arg0) || integer_zerop (arg1)
 	  || (TREE_CODE (arg0) == REAL_CST
-	      && (real_isnan (&TREE_REAL_CST (arg0))
-		  || real_isinf (&TREE_REAL_CST (arg0)))))
+	      && !real_isfinite (&TREE_REAL_CST (arg0))))
 	return omit_one_operand (type, arg0, arg1);
       
       /* If both arguments are constant, then try to evaluate it.  */
@@ -9480,8 +9477,7 @@ fold_builtin_classify (tree fndecl, tree arg, int builtin_index)
       if (TREE_CODE (arg) == REAL_CST)
 	{
 	  r = TREE_REAL_CST (arg);
-	  return real_isinf (&r) || real_isnan (&r)
-		 ? integer_zero_node : integer_one_node;
+	  return real_isfinite (&r) ? integer_one_node : integer_zero_node;
 	}
 
       return NULL_TREE;
@@ -12360,7 +12356,7 @@ do_mpfr_ckconv (mpfr_srcptr m, tree type, int inexact)
 	 check for overflow/underflow.  If the REAL_VALUE_TYPE is zero
 	 but the mpft_t is not, then we underflowed in the
 	 conversion.  */
-      if (!real_isnan (&rr) && !real_isinf (&rr)
+      if (real_isfinite (&rr)
 	  && (rr.cl == rvc_zero) == (mpfr_zero_p (m) != 0))
         {
 	  REAL_VALUE_TYPE rmode;
@@ -12399,7 +12395,7 @@ do_mpfr_arg1 (tree arg, tree type, int (*func)(mpfr_ptr, mpfr_srcptr, mp_rnd_t),
     {
       const REAL_VALUE_TYPE *const ra = &TREE_REAL_CST (arg);
 
-      if (!real_isnan (ra) && !real_isinf (ra)
+      if (real_isfinite (ra)
 	  && (!min || real_compare (inclusive ? GE_EXPR: GT_EXPR , ra, min))
 	  && (!max || real_compare (inclusive ? LE_EXPR: LT_EXPR , ra, max)))
         {
@@ -12443,8 +12439,7 @@ do_mpfr_arg2 (tree arg1, tree arg2, tree type,
       const REAL_VALUE_TYPE *const ra1 = &TREE_REAL_CST (arg1);
       const REAL_VALUE_TYPE *const ra2 = &TREE_REAL_CST (arg2);
 
-      if (!real_isnan (ra1) && !real_isinf (ra1)
-	  && !real_isnan (ra2) && !real_isinf (ra2))
+      if (real_isfinite (ra1) && real_isfinite (ra2))
         {
 	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
 	  int inexact;
@@ -12490,9 +12485,7 @@ do_mpfr_arg3 (tree arg1, tree arg2, tree arg3, tree type,
       const REAL_VALUE_TYPE *const ra2 = &TREE_REAL_CST (arg2);
       const REAL_VALUE_TYPE *const ra3 = &TREE_REAL_CST (arg3);
 
-      if (!real_isnan (ra1) && !real_isinf (ra1)
-	  && !real_isnan (ra2) && !real_isinf (ra2)
-	  && !real_isnan (ra3) && !real_isinf (ra3))
+      if (real_isfinite (ra1) && real_isfinite (ra2) && real_isfinite (ra3))
         {
 	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
 	  int inexact;
@@ -12535,7 +12528,7 @@ do_mpfr_sincos (tree arg, tree arg_sinp, tree arg_cosp)
     {
       const REAL_VALUE_TYPE *const ra = &TREE_REAL_CST (arg);
 
-      if (!real_isnan (ra) && !real_isinf (ra))
+      if (real_isfinite (ra))
         {
 	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
 	  tree result_s, result_c;
@@ -12607,7 +12600,7 @@ do_mpfr_bessel_n (tree arg1, tree arg2, tree type,
       const REAL_VALUE_TYPE *const ra = &TREE_REAL_CST (arg2);
 
       if (n == (long)n
-	  && !real_isnan (ra) && !real_isinf (ra)
+	  && real_isfinite (ra)
 	  && (!min || real_compare (inclusive ? GE_EXPR: GT_EXPR , ra, min)))
         {
 	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
@@ -12649,8 +12642,7 @@ do_mpfr_remquo (tree arg0, tree arg1, tree arg_quo)
       const REAL_VALUE_TYPE *const ra0 = TREE_REAL_CST_PTR (arg0);
       const REAL_VALUE_TYPE *const ra1 = TREE_REAL_CST_PTR (arg1);
 
-      if (!real_isnan (ra0) && !real_isinf (ra0)
-	  && !real_isnan (ra1) && !real_isinf (ra1))
+      if (real_isfinite (ra0) && real_isfinite (ra1))
         {
 	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
 	  tree result_rem;
@@ -12725,7 +12717,7 @@ do_mpfr_lgamma_r (tree arg, tree arg_sg, tree type)
 
       /* In addition to NaN and Inf, the argument cannot be zero or a
 	 negative integer.  */
-      if (!real_isnan (ra) && !real_isinf (ra)
+      if (real_isfinite (ra)
 	  && ra->cl != rvc_zero
 	  && !(real_isneg(ra) && real_isinteger(ra, TYPE_MODE (type))))
         {

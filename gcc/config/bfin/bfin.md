@@ -137,7 +137,8 @@
    (UNSPEC_FUNCDESC_GOT17M4 9)
    (UNSPEC_LSETUP_END 10)
    ;; Distinguish a 32-bit version of an insn from a 16-bit version.
-   (UNSPEC_32BIT 11)])
+   (UNSPEC_32BIT 11)
+   (UNSPEC_NOP 12)])
 
 (define_constants
   [(UNSPEC_VOLATILE_EH_RETURN 0)
@@ -424,7 +425,7 @@
 (define_insn_and_split "movdi_insn"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=x,mx,r")
 	(match_operand:DI 1 "general_operand" "iFx,r,mx"))]
-  "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM"
+  "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) == REG"
   "#"
   "reload_completed"
   [(set (match_dup 2) (match_dup 3))
@@ -524,7 +525,7 @@
 (define_insn "*movsi_insn"
   [(set (match_operand:SI 0 "nonimmediate_operand" "=da,x*y,da,x,x,x,da,mr")
 	(match_operand:SI 1 "general_operand" "da,x*y,xKs7,xKsh,xKuh,ix,mr,da"))]
-  "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM"
+  "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) == REG"
  "@
    %0 = %1;
    %0 = %1;
@@ -562,7 +563,7 @@
   [(set (match_operand:V2HI 0 "nonimmediate_operand" "=da,da,d,dm")
         (match_operand:V2HI 1 "general_operand" "i,di,md,d"))]
 
-  "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM"
+  "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) == REG"
   "@
    #
    %0 = %1;
@@ -584,7 +585,7 @@
 (define_insn "*movhi_insn"
   [(set (match_operand:HI 0 "nonimmediate_operand" "=x,da,x,d,mr")
         (match_operand:HI 1 "general_operand" "x,xKs7,xKsh,mr,d"))]
-  "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM"
+  "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) == REG"
 {
   static const char *templates[] = {
     "%0 = %1;",
@@ -608,7 +609,7 @@
 (define_insn "*movqi_insn"
   [(set (match_operand:QI 0 "nonimmediate_operand" "=x,da,x,d,mr")
         (match_operand:QI 1 "general_operand" "x,xKs7,xKsh,mr,d"))]
-  "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM"
+  "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) == REG"
   "@
    %0 = %1;
    %0 = %1 (X);
@@ -621,7 +622,7 @@
 (define_insn "*movsf_insn"
   [(set (match_operand:SF 0 "nonimmediate_operand" "=x,x,da,mr")
         (match_operand:SF 1 "general_operand" "x,Fx,mr,da"))]
-  "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM"
+  "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) == REG"
   "@
    %0 = %1;
    #
@@ -632,7 +633,7 @@
 (define_insn_and_split "movdf_insn"
   [(set (match_operand:DF 0 "nonimmediate_operand" "=x,mx,r")
 	(match_operand:DF 1 "general_operand" "iFx,r,mx"))]
-  "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM"
+  "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) == REG"
   "#"
   "reload_completed"
   [(set (match_dup 2) (match_dup 3))
@@ -2592,6 +2593,12 @@
 
 (define_insn "nop"
   [(const_int 0)]
+  ""
+  "nop;")
+
+;; A nop which stays there when emitted.
+(define_insn "forced_nop"
+  [(unspec [(const_int 0)] UNSPEC_NOP)]
   ""
   "nop;")
 
