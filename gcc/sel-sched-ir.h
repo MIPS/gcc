@@ -36,6 +36,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* For reg_note.  */
 #include "rtl.h"
 #include "ggc.h"
+#include "bitmap.h"
 #include "sched-int.h"
 #include "sched-rgn.h"
 #include "cfgloop.h"
@@ -133,6 +134,7 @@ typedef expr_t rhs_t;
 #define RHS_PATTERN(RHS) (VINSN_PATTERN (RHS_VINSN (RHS)))
 #define RHS_SPEC(RHS) ((RHS)->spec)
 #define RHS_PRIORITY(RHS) ((RHS)->priority)
+#define RHS_DEST(RHS) (VINSN_LHS (RHS_VINSN (RHS))) 
 #define RHS_SCHED_TIMES(RHS) ((RHS)->sched_times)
 
 /* Insn definition for list of original insns in find_used_regs.  */

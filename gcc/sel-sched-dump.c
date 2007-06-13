@@ -673,7 +673,6 @@ dump_hard_reg_set (const char *prefix, HARD_REG_SET set)
     }
 }
 
-#if 0
 /* Pretty print INSN.  This is used as a hook.  */
 const char *
 sel_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
@@ -682,14 +681,14 @@ sel_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
 
   /* '+' before insn means it is a new cycle start and it's not been 
      scheduled yet.  '>' - has been scheduled.  */
-  if (s_i_d && INSN_UID (insn) < sel_max_uid && INSN_VI (insn))
+  if (s_i_d && INSN_LUID (insn) > 0)
     if (GET_MODE (insn) == TImode)
       sprintf (buf, "%s %4d", 
-               (VINSN_SCHED_TIMES (INSN_VI (insn)) > 0) ? "> " : "< ", 
+               INSN_SCHED_TIMES (insn) > 0 ? "> " : "< ", 
                INSN_UID (insn));
     else
       sprintf (buf, "%s %4d", 
-               VINSN_SCHED_TIMES (INSN_VI (insn)) > 0 ? "! " : "  ", 
+               INSN_SCHED_TIMES (insn) > 0 ? "! " : "  ", 
                INSN_UID (insn));
   else
     if (GET_MODE (insn) == TImode)
@@ -699,7 +698,6 @@ sel_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
 
   return buf;
 }
-#endif
 
 
 /* Functions for pretty printing of CFG.  */

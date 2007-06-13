@@ -850,6 +850,10 @@ fsel-sched-substitution
 Common Report Var(flag_sel_sched_substitution) Init(0)
 Perform substitution in selective scheduling
 
+fsel-sched-substitute-inside-insn-group
+Common Report Var(flag_sel_sched_substitute_inside_insn_group) Init(1)
+Perform substitution inside an instruction group
+
 fsel-sched-verbose
 Common Report Var(flag_sel_sched_verbose) Init(0)
 Be verbose when running selective scheduling

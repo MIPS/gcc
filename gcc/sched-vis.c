@@ -694,7 +694,7 @@ dump_insn_slim_1 (FILE *f, rtx x)
 {
   char t[BUF_LEN + 32];
 
-  print_insn (t, x, 0);
+  print_insn (t, x, 1);
   fputs (t, f);
 }
 

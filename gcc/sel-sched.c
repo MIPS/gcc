@@ -1533,15 +1533,73 @@ un_speculate (av_set_t *avp, insn_t insn)
 
 /* Moveup_* helpers for code motion and computing av sets.  */
 
-/* Modifies INSN_TO_MOVE_UP so it can be moved through the THROUGH_INSN,
-   performing necessary transformations.  */
+/* Propagates INSN_TO_MOVE_UP inside an insn group through THROUGH_INSN.
+   The difference from the below function is that only substitution is 
+   performed.  */
 static enum MOVEUP_RHS_CODE
-moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn)
+moveup_rhs_inside_insn_group (rhs_t insn_to_move_up, insn_t through_insn)
 {
   vinsn_t vi = RHS_VINSN (insn_to_move_up);
   insn_t insn = VINSN_INSN (vi);
   ds_t *has_dep_p;
   ds_t full_ds;
+
+  full_ds = has_dependence_p (insn_to_move_up, through_insn, &has_dep_p);
+
+  if (full_ds == 0)
+    return MOVEUP_RHS_SAME;
+
+  /* Substitution is the only cure in this case.  */
+  if (has_dep_p[DEPS_IN_RHS])
+    {
+      /* Can't substitute UNIQUE VINSNs.  */
+      gcc_assert (!VINSN_UNIQUE_P (vi));
+      
+      if (flag_sel_sched_substitution
+          && insn_eligible_for_subst_p (through_insn))
+	{
+	  /* Substitute in vinsn.  */
+	  line_start ();
+	  print ("Substituting in moveup_rhs inside insn group:\nBefore: ");
+	  sel_print_rtl (insn);
+	  print (" Moving through: ");
+	  sel_print_rtl (through_insn);
+	  print (" After: ");
+
+	  if (substitute_reg_in_rhs (insn_to_move_up, through_insn))
+            {
+              sel_print_rtl (insn);
+              line_finish ();
+          
+	      return MOVEUP_RHS_CHANGED;
+            }
+          else
+            print (" Can't move up due to architecture constraints.\n");
+          
+	  line_finish ();
+	}
+    }
+
+  return MOVEUP_RHS_NULL;
+}
+
+/* Modifies INSN_TO_MOVE_UP so it can be moved through the THROUGH_INSN,
+   performing necessary transformations.  When INSIDE_INSN_GROUP, 
+   permit all dependencies except true ones, and try to remove those
+   too via forward substitution.  All cases when a non-eliminable 
+   non-zero cost dependency exists inside an insn group will be fixed 
+   in tick_check_p instead.  */
+static enum MOVEUP_RHS_CODE
+moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
+{
+  vinsn_t vi = RHS_VINSN (insn_to_move_up);
+  insn_t insn = VINSN_INSN (vi);
+  ds_t *has_dep_p;
+  ds_t full_ds;
+
+  /* When inside_insn_group, delegate to the helper.  */
+  if (inside_insn_group)
+    return moveup_rhs_inside_insn_group (insn_to_move_up, through_insn);
 
   if (VINSN_UNIQUE_P (vi))
     {
@@ -1604,17 +1662,6 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn)
 
   if (has_dep_p[DEPS_IN_LHS] && !EXPR_SEPARABLE_P (insn_to_move_up))
     return MOVEUP_RHS_NULL;
-
-  /* If dependency is in lhs, it affects only those insns that are
-     not RHS_SCHEDULE_AS_RHS, so they couldn't be moved. 
-     Rhses can be moved up through the anti or output dependence
-     without any change:
-
-	Ex. 1:			Ex. 2:
-	    y = x;		  y = x;
-	    x = z*2;		  y = z*2;
-	
-     z*2 can be easily lifted above the y=x assignment.  */
 
   /* At this point we have either separable insns, that will be lifted
      up only as RHSes, or non-separable insns with no dependency in lhs.
@@ -1681,10 +1728,11 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn)
   return MOVEUP_RHS_CHANGED;
 }
 
+
 /* Moves an av set AVP up through INSN, performing necessary 
    transformations.  */
 static void
-moveup_set_rhs (av_set_t *avp, insn_t insn)
+moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
 {
   av_set_iterator i;
   rhs_t rhs;
@@ -1697,7 +1745,7 @@ moveup_set_rhs (av_set_t *avp, insn_t insn)
       line_start ();
       dump_rhs (rhs);
 
-      switch (moveup_rhs (rhs, insn))
+      switch (moveup_rhs (rhs, insn, inside_insn_group))
 	{
 	case MOVEUP_RHS_NULL:
 	  av_set_iter_remove (&i);
@@ -1746,7 +1794,7 @@ moveup_set_path_1 (av_set_t *avp, ilist_t path)
   if (ILIST_NEXT (path))
     moveup_set_path_1 (avp, ILIST_NEXT (path));
 
-  moveup_set_rhs (avp, ILIST_INSN (path));
+  moveup_set_rhs (avp, ILIST_INSN (path), true);
 }
 
 /* Moves AVP set along PATH.  */
@@ -1780,7 +1828,7 @@ equal_after_moveup_path_p_1 (rhs_t rhs, ilist_t path)
     res = true;
 
   if (res)
-    res = (moveup_rhs (rhs, ILIST_INSN (path)) != MOVEUP_RHS_NULL);
+    res = (moveup_rhs (rhs, ILIST_INSN (path), true) != MOVEUP_RHS_NULL);
 
   return res;
 }
@@ -1961,7 +2009,6 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
   free (succs);
   ilist_remove (&p);
 
-  /* Debug output.  */
   line_start ();
   print ("av_succs (%d): ", INSN_UID (insn));
   dump_av_set (av1);
@@ -1973,8 +2020,8 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
       expr_t expr;
       vinsn_t vi = INSN_VI (insn);
 
-      moveup_set_rhs (&av1, insn);
-
+      moveup_set_rhs (&av1, insn, false);
+      
       expr = av_set_lookup (av1, vi);
 
       if (expr != NULL)
@@ -2253,6 +2300,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
     }
 
   orig_ops = av_set_copy (orig_ops);
+
   /* If we've found valid av set, then filter the orig_ops set.  */
   if (INSN_AV_VALID_P (insn))
     {
@@ -3252,10 +3300,7 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
 
           /* We do not split header.  */
           gcc_assert (bb != current_loop_nest->header);
-#if 0
-	  /* We do not redirect a latch edge.  */
-          gcc_assert (e1 != loop_latch_edge (current_loop_nest));
-#endif
+
           /* We do not redirect the only edge to the latch block.  */
           gcc_assert (e1->dest != latch
                       || !single_pred_p (latch)
@@ -3498,18 +3543,24 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 		{
 		  gcc_assert (first_p);
 		  first_p = false;
-		  /*av_set_add (&rhs_seq, rhs);*/
+
+                  /* The sequential expression has the right form to pass 
+                     to move_op except when renaming happened.  Put the 
+                     correct register in RHS then.  */
+                  if (EXPR_SEPARABLE_P (rhs) && REG_P (EXPR_LHS (rhs))
+                      && rhs_dest_regno (rhs) != rhs_dest_regno (rhs_vliw))
+                    replace_dest_with_reg_in_rhs (rhs, EXPR_LHS (rhs_vliw));
+
+		  av_set_add (&rhs_seq, rhs);
 		}
             }
-
-	  av_set_add (&rhs_seq, rhs_vliw);
 
           line_start ();
           print ("rhs_seq: ");
           dump_av_set (rhs_seq);
           line_finish ();
 
-	  /* Move choosen insn.  */
+	  /* Move chosen insn.  */
 	  {
 	    insn_t place_to_insert;
 	    insn_t new_bb_head = NULL_RTX;
@@ -3545,6 +3596,12 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	    /* We should be able to find the expression we've chosen for 
 	       scheduling.  */
 	    gcc_assert (b);
+
+            /* We want to use a pattern from rhs_vliw, because it could've 
+               been substituted, and the rest of data from rhs_seq.  */
+            if (! rtx_equal_p (EXPR_PATTERN (rhs_vliw), 
+                               EXPR_PATTERN (c_rhs)))
+              change_vinsn_in_expr (c_rhs, EXPR_VINSN (rhs_vliw));
 
 	    /* Find a place for C_RHS to schedule.
 	       We want to have an invariant that only insns that are
@@ -3634,8 +3691,8 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 		new_bb_head = insn;
 	      }
 
+            /* Initialize LV_SET of the bb header.  */
 	    if (new_bb_head != NULL_RTX)
-	      /* Initialize LV_SET of the bb header.  */
 	      {
 		/* !!! TODO: We should replace all occurencies of
 		   LV_SET_VALID_P () with LV_SET () != NULL.  Overwise it is
@@ -4079,12 +4136,10 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 
           if (b)
 	    {
-	      {
-		enum MOVEUP_RHS_CODE res;
-
-		res = moveup_rhs (x, insn);
-		gcc_assert (res != MOVEUP_RHS_NULL);
-	      }
+              enum MOVEUP_RHS_CODE res;
+              
+              res = moveup_rhs (x, insn, false);
+              gcc_assert (res != MOVEUP_RHS_NULL);
 
 	      if (!c_rhs_inited_p)
 		{
@@ -4428,7 +4483,8 @@ sel_region_init (int rgn)
     /* We don't need the semantics of moveup_set_path, because filtering of 
        dependencies inside a sched group is handled by tick_check_p and 
        the target.  */
-    enable_moveup_set_path_p = 0;
+    enable_moveup_set_path_p 
+      = flag_sel_sched_substitute_inside_insn_group != 0;
 
     /* We need to treat insns as RHSes only when renaming is enabled.  */
     enable_schedule_as_rhs_p = (flag_sel_sched_renaming != 0);
@@ -5170,6 +5226,12 @@ sel_sched_region (int rgn)
 static void
 sel_global_init (void)
 {
+  /* Pipelining outer loops is only possible when general pipelining
+     capabilities are requested.  
+     FIXME: move this in opts.c.  */
+  if (!flag_sel_sched_pipelining)
+    flag_sel_sched_pipelining_outer_loops = 0;
+
   if (flag_sel_sched_pipelining_outer_loops)
     pipeline_outer_loops_init ();
 

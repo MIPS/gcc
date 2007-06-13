@@ -53,6 +53,8 @@
 
 #ifdef INSN_SCHEDULING
 #include "sel-sched-ir.h"
+/* We don't have to use it except for sel_print_insn.  */
+#include "sel-sched-dump.h"
 
 /* A structure used to hold various parameters of insn initialization.  */
 struct _insn_init insn_init;
@@ -3792,7 +3794,7 @@ static struct haifa_sched_info sched_sel_haifa_sched_info =
   NULL, /* schedule_more_p */
   NULL, /* new_ready */
   NULL, /* rgn_rank */
-  NULL, /* rgn_print_insn */
+  sel_print_insn, /* rgn_print_insn */
   contributes_to_priority,
 
   NULL, NULL,
