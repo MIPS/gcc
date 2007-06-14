@@ -1,5 +1,10 @@
 2007-06-14  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
 
+	Initialized merge tracking via "svnmerge" with revisions "1-121416"
+	from svn+ssh://gcc.gnu.org/svn/gcc/trunk.
+
+2007-06-14  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
 	Extend support for ia64 speculation to generate branchy checks.
 	Move data sets to per basic block data structures.
 	
