@@ -247,6 +247,7 @@ basic_block
 create_basic_block_structure (rtx head, rtx end, rtx bb_note, basic_block after)
 {
   basic_block bb;
+  int bb_index;
 
   if (bb_note
       && (bb = NOTE_BASIC_BLOCK (bb_note)) != NULL
@@ -266,6 +267,10 @@ create_basic_block_structure (rtx head, rtx end, rtx bb_note, basic_block after)
 
       if (after != bb_note && NEXT_INSN (after) != bb_note)
 	reorder_insns_nobb (bb_note, bb_note, after);
+
+      /* ??? It would be better to set bb_index to BLOCK_NUM (bb_note),
+	 but that causes add_to_dominance_info () to fail.  */
+      bb_index = last_basic_block++;
     }
   else
     {
@@ -292,6 +297,8 @@ create_basic_block_structure (rtx head, rtx end, rtx bb_note, basic_block after)
 	}
 
       NOTE_BASIC_BLOCK (bb_note) = bb;
+
+      bb_index = last_basic_block++;
     }
 
   /* Always include the bb note in the block.  */
@@ -300,7 +307,7 @@ create_basic_block_structure (rtx head, rtx end, rtx bb_note, basic_block after)
 
   BB_HEAD (bb) = head;
   BB_END (bb) = end;
-  bb->index = last_basic_block++;
+  bb->index = bb_index;
   bb->flags = BB_NEW | BB_RTL;
   link_block (bb, after);
   SET_BASIC_BLOCK (bb->index, bb);

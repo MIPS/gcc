@@ -253,7 +253,7 @@ begin_schedule_ready (rtx insn, rtx last)
       gcc_assert (current_sched_info->next_tail);
 
       /* Append new basic block to the end of the ebb.  */
-      haifa_init_only_bb (bb, last_bb);
+      sched_init_only_bb (bb, last_bb);
       gcc_assert (last_bb == bb);
     }
 }

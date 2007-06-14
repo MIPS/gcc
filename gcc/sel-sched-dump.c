@@ -312,7 +312,8 @@ dump_vinsn_1 (vinsn_t vi, int flags)
   line_finish ();
 }
 
-static int dump_vinsn_flags = DUMP_VINSN_INSN_RTX | DUMP_VINSN_TYPE;
+static int dump_vinsn_flags = (DUMP_VINSN_INSN_RTX | DUMP_VINSN_TYPE
+			       | DUMP_VINSN_COUNT);
 
 void
 dump_vinsn (vinsn_t vi)
@@ -763,9 +764,11 @@ sel_dump_cfg_insn (insn_t insn, int flags)
 {
   int insn_flags = DUMP_INSN_UID | DUMP_INSN_PATTERN;
 
-  if ((flags & SEL_DUMP_CFG_INSN_SEQNO)
-      && INSN_LUID (insn) > 0)
-    insn_flags |= DUMP_INSN_SEQNO | DUMP_INSN_SCHED_CYCLE | DUMP_INSN_EXPR;
+  if (sched_luids != NULL && INSN_LUID (insn) > 0)
+    {
+      if (flags & SEL_DUMP_CFG_INSN_SEQNO)
+	insn_flags |= DUMP_INSN_SEQNO | DUMP_INSN_SCHED_CYCLE | DUMP_INSN_EXPR;
+    }
 
   dump_insn_1 (insn, insn_flags);
 }
@@ -905,6 +908,10 @@ sel_dump_cfg_2 (FILE *f, int flags)
       fprintf (f, "\tbb%d [%s%slabel = \"{Basic block %d", bb->index,
 	       style, color, bb->index);
 
+      if ((flags & SEL_DUMP_CFG_BB_LOOP)
+	  && bb->loop_father != NULL)
+	fprintf (f, ", loop %d", bb->loop_father->num);
+
       if (full_p
 	  && (flags & SEL_DUMP_CFG_BB_NOTES_LIST))
 	{
@@ -931,33 +938,23 @@ sel_dump_cfg_2 (FILE *f, int flags)
 	  && in_current_region_p (bb)
 	  && !sel_bb_empty_p (bb))
 	{
-	  insn_t head = NEXT_INSN (bb_note (bb));
-
 	  fprintf (f, "|");
 
-	  if (INSN_AV_VALID_P (head))
-	    dump_av_set (AV_SET (head));
-	  else
-	    {
-	      fprintf (f, "!!! Wrong AV_SET%s",
-		       (AV_LEVEL (head) == -1) ? ": but ok" : "");
-	    }
+	  if (BB_AV_SET_VALID_P (bb))
+	    dump_av_set (BB_AV_SET (bb));
+	  else if (BB_AV_LEVEL (bb) == -1)
+	    fprintf (f, "AV_SET needs update");
 	}
 
       if ((flags & SEL_DUMP_CFG_LV_SET)
 	  && !sel_bb_empty_p (bb))
-	{
-	  insn_t head;
-	  insn_t tail;
-
-	  get_ebb_head_tail (bb, bb, &head, &tail);
-
+ 	{
 	  fprintf (f, "|");
 
-	  if (INSN_P (head) && LV_SET_VALID_P (head))
-	    dump_lv_set (LV_SET (head));
+	  if (BB_LV_SET_VALID_P (bb))
+	    dump_lv_set (BB_LV_SET (bb));
 	  else
-	    fprintf (f, "!!! Wrong LV_SET");
+	    fprintf (f, "LV_SET needs update");
 	}
 
       if (flags & SEL_DUMP_CFG_BB_LIVE)

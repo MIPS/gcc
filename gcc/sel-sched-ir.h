@@ -77,9 +77,6 @@ typedef _xlist_t ilist_t;
 #define ILIST_INSN(L) (_XLIST_X (L))
 #define ILIST_NEXT(L) (_XLIST_NEXT (L))
 
-/* Expression macros -- to be removed.  */
-#define expr_equal_p(A, B) (rtx_equal_p (A, B))
-
 /* Right hand side information.  */
 struct _expr
 {
@@ -454,7 +451,6 @@ _list_iter_cond_def (def_list_t def_list, def_t *def)
 }
 
 
-
 /* InstructionData.  Contains information about insn pattern.  */
 struct idata_def
 {
@@ -561,8 +557,8 @@ struct _sel_insn_data
      field of this home VI.  */
   expr_def _expr;
 
-  int av_level;
-  av_set_t av;
+  /* If (WS_LEVEL == GLOBAL_LEVEL) then AV is empty.  */
+  int ws_level;
 
   int seqno;
 
@@ -592,6 +588,9 @@ struct _sel_insn_data
      required.
      This is used when emulating the Haifa scheduler for bundling.  */
   BOOL_BITFIELD after_stall_p : 1;
+
+  /* Speculations that are being checked by this insn.  */
+  ds_t spec_checked_ds;
 };
 
 typedef struct _sel_insn_data sel_insn_data_def;
@@ -603,6 +602,8 @@ extern VEC (sel_insn_data_def, heap) *s_i_d;
 
 /* Accessor macros for s_i_d.  */
 #define SID(INSN) (VEC_index (sel_insn_data_def, s_i_d,	INSN_LUID (INSN)))
+
+extern sel_insn_data_def insn_sid (insn_t);
 
 #define INSN_ASM_P(INSN) (SID (INSN)->asm_p)
 #define INSN_SCHED_NEXT(INSN) (SID (INSN)->sched_next)
@@ -618,24 +619,23 @@ extern VEC (sel_insn_data_def, heap) *s_i_d;
 #define INSN_REG_SETS(INSN) (VINSN_REG_SETS (INSN_VINSN (INSN)))
 #define INSN_REG_USES(INSN) (VINSN_REG_USES (INSN_VINSN (INSN)))
 #define INSN_SCHED_TIMES(INSN) (EXPR_SCHED_TIMES (INSN_EXPR (INSN)))
-/* Obsolete.  */
-#define INSN_VI(INSN) (INSN_VINSN (INSN))
-
-#define INSN_AV_LEVEL(INSN) (SID (INSN)->av_level)
-#define INSN_AV_VALID_P(INSN) (INSN_AV_LEVEL (INSN) == global_level)
-/* Obsolete.  */
-#define AV_LEVEL(INSN) (INSN_AV_LEVEL (INSN))
-
-#define INSN_AV(INSN) (SID (INSN)->av)
-/* Obsolete.  */
-#define AV_SET(INSN) (INSN_AV (INSN))
-
 #define INSN_SEQNO(INSN) (SID (INSN)->seqno)
 #define INSN_AFTER_STALL_P(INSN) (SID (INSN)->after_stall_p)
 #define INSN_SCHED_CYCLE(INSN) (SID (INSN)->sched_cycle)
+#define INSN_SPEC_CHECKED_DS(INSN) (SID (INSN)->spec_checked_ds)
 
 /* A global level shows whether an insn is valid or not.  */
 extern int global_level;
+
+#define INSN_WS_LEVEL(INSN) (SID (INSN)->ws_level)
+
+extern av_set_t get_av_set (insn_t);
+extern int get_av_level (insn_t);
+
+#define AV_SET(INSN) (get_av_set (INSN))
+#define AV_LEVEL(INSN) (get_av_level (INSN))
+#define AV_SET_VALID_P(INSN) (AV_LEVEL (INSN) == global_level)
+
 /* A list of fences currently in the works.  */
 extern flist_t fences;
 
@@ -644,12 +644,6 @@ extern flist_t fences;
    LUID.  Except for these.  .  */
 struct _sel_insn_rtx_data
 {
-  /* For each bb header this field contains a set of live registers.
-     For all other insns this field has a NULL.
-     We also need to know LV sets for the instructions, that are immediatly
-     after the border of the region.  */
-  regset lv;
-
   /* Vinsn corresponding to this insn.
      We need this field to be accessible for every instruction - not only
      for those that have luids - because when choosing an instruction from
@@ -669,14 +663,13 @@ extern VEC (sel_insn_rtx_data_def, heap) *s_i_r_d;
 #define SIRD(INSN) \
 (VEC_index (sel_insn_rtx_data_def, s_i_r_d, INSN_UID (INSN)))
 
-/* Access macro.  */
-#define LV_SET(INSN) (SIRD (INSN)->lv)
-/* !!! Replace all occurencies with (LV_SET (INSN) != NULL).  */
-#define LV_SET_VALID_P(INSN) (LV_SET (INSN) != NULL)
 #define GET_VINSN_BY_INSN(INSN) (SIRD (INSN)->get_vinsn_by_insn)
 
 extern void sel_extend_insn_rtx_data (void);
 extern void sel_finish_insn_rtx_data (void);
+
+extern void sel_register_rtl_hooks (void);
+extern void sel_unregister_rtl_hooks (void);
 
 /* A NOP pattern used as a placeholder for real insns.  */
 extern rtx nop_pattern;
@@ -711,8 +704,6 @@ extern rtx exit_insn;
 /* When false, only notes may be added.  */
 extern bool can_add_real_insns_p;
 
-extern const struct rtl_hooks sel_rtl_hooks;
-extern basic_block (*old_create_basic_block) (void *, void *, basic_block);
 
 
 
@@ -726,12 +717,8 @@ enum insn_init_what { INSN_INIT_WHAT_INSN, INSN_INIT_WHAT_INSN_RTX };
 /* Initialize s_s_i_d.  */
 #define INSN_INIT_TODO_SSID (2)
 
-/* Initialize LV_SET and SEQNO for simplejump.  */
+/* Initialize data for simplejump.  */
 #define INSN_INIT_TODO_SIMPLEJUMP (4)
-
-/* Move LV_SET to the insn if it is being added to the bb header.  */
-#define INSN_INIT_TODO_MOVE_LV_SET_IF_BB_HEADER (8)
-
 
 /* A container to hold information about insn initialization.  */
 struct _insn_init
@@ -757,31 +744,78 @@ enum _deps_where
 typedef enum _deps_where deps_where_t;
 
 
-/* Per basic block data.  */
-struct _sel_bb_info
+/* Per basic block data for the whole CFG.  */
+struct _sel_global_bb_info
+{
+  /* For each bb header this field contains a set of live registers.
+     For all other insns this field has a NULL.
+     We also need to know LV sets for the instructions, that are immediatly
+     after the border of the region.  */
+  regset lv_set;
+
+  /* Status of LV_SET.
+     true - block has usable LV_SET.
+     false - block's LV_SET should be recomputed.  */
+  bool lv_set_valid_p;
+};
+
+typedef struct _sel_global_bb_info sel_global_bb_info_def;
+typedef sel_global_bb_info_def *sel_global_bb_info_t;
+
+DEF_VEC_O (sel_global_bb_info_def);
+DEF_VEC_ALLOC_O (sel_global_bb_info_def, heap);
+
+/* Per basic block data.  This array is indexed by basic block index.  */
+extern VEC (sel_global_bb_info_def, heap) *sel_global_bb_info;
+
+extern void sel_extend_global_bb_info (void);
+extern void sel_finish_global_bb_info (void);
+
+/* Get data for BB.  */
+#define SEL_GLOBAL_BB_INFO(BB)					\
+  (VEC_index (sel_global_bb_info_def, sel_global_bb_info, (BB)->index))
+
+/* Access macros.  */
+#define BB_LV_SET(BB) (SEL_GLOBAL_BB_INFO (BB)->lv_set)
+#define BB_LV_SET_VALID_P(BB) (SEL_GLOBAL_BB_INFO (BB)->lv_set_valid_p)
+
+/* Per basic block data for the region.  */
+struct _sel_region_bb_info
 {
   /* This insn stream is constructed in such a way that it should be
      traversed by PREV_INSN field - (*not* NEXT_INSN).  */
   rtx note_list;
+
+  /* Cached availability set at the beginning of a block.
+     See also AV_LEVEL () for conditions when this av_set can be used.  */
+  av_set_t av_set;
+
+  /* If (AV_LEVEL == GLOBAL_LEVEL) then AV is valid.  */
+  int av_level;
 };
 
-typedef struct _sel_bb_info sel_bb_info_def;
-typedef sel_bb_info_def *sel_bb_info_t;
+typedef struct _sel_region_bb_info sel_region_bb_info_def;
+typedef sel_region_bb_info_def *sel_region_bb_info_t;
 
-DEF_VEC_O (sel_bb_info_def);
-DEF_VEC_ALLOC_O (sel_bb_info_def, heap);
+DEF_VEC_O (sel_region_bb_info_def);
+DEF_VEC_ALLOC_O (sel_region_bb_info_def, heap);
 
 /* Per basic block data.  This array is indexed by basic block index.  */
-extern VEC (sel_bb_info_def, heap) *sel_bb_info;
+extern VEC (sel_region_bb_info_def, heap) *sel_region_bb_info;
 
 /* Get data for BB.  */
-#define SEL_BB_INFO(BB) (VEC_index (sel_bb_info_def, sel_bb_info, (BB)->index))
+#define SEL_REGION_BB_INFO(BB) (VEC_index (sel_region_bb_info_def,	\
+					   sel_region_bb_info, (BB)->index))
 
 /* Get BB's note_list.
    A note_list is a list of various notes that was scattered across BB
    before scheduling, and will be appended at the beginning of BB after
    scheduling is finished.  */
-#define BB_NOTE_LIST(BB) (SEL_BB_INFO (BB)->note_list)
+#define BB_NOTE_LIST(BB) (SEL_REGION_BB_INFO (BB)->note_list)
+
+#define BB_AV_SET(BB) (SEL_REGION_BB_INFO (BB)->av_set)
+#define BB_AV_LEVEL(BB) (SEL_REGION_BB_INFO (BB)->av_level)
+#define BB_AV_SET_VALID_P(BB) (BB_AV_LEVEL (BB) == global_level)
 
 /* Used in bb_in_ebb_p.  */
 extern bitmap_head *forced_ebb_heads;
@@ -823,7 +857,7 @@ extern void reset_target_context (tc_t, bool);
 extern void advance_deps_context (deps_t, insn_t);
 
 /* Fences functions.  */
-extern void init_fences (basic_block);
+extern void init_fences (insn_t);
 extern void new_fences_add (flist_tail_t, insn_t, state_t, deps_t, void *, rtx,
                        rtx, int, int, bool, bool);
 extern void new_fences_add_clean (flist_tail_t, insn_t, fence_t);
@@ -845,6 +879,7 @@ extern bool vinsn_cond_branch_p (vinsn_t);
 extern void recompute_vinsn_lhs_rhs (vinsn_t);
 extern int sel_vinsn_cost (vinsn_t);
 extern insn_t sel_gen_insn_from_rtx_after (rtx, expr_t, int, insn_t);
+extern insn_t sel_gen_recovery_insn_from_rtx_after (rtx, expr_t, int, insn_t);
 extern insn_t sel_gen_insn_from_expr_after (expr_t, int, insn_t);
 
 /* RHS functions.  */
@@ -892,20 +927,19 @@ extern void sel_finish_new_insns (void);
 extern bool bookkeeping_can_be_created_if_moved_through_p (insn_t);
 extern insn_t copy_insn_out_of_stream (vinsn_t);
 extern insn_t copy_insn_and_insert_before (insn_t, insn_t);
-extern void sched_sel_remove_insn (insn_t);
-extern void transfer_data_sets (insn_t, insn_t);
+extern void sel_remove_insn (insn_t);
 extern int vinsn_dfa_cost (vinsn_t, fence_t);
 extern bool bb_header_p (insn_t);
-
+extern void sel_init_invalid_data_sets (insn_t);
 
 /* Basic block and CFG functions.  */
 
-extern insn_t sel_bb_header (basic_block);
-extern bool sel_bb_header_p (insn_t);
-extern bool sel_bb_empty_p_1 (basic_block, bool);
-extern bool sel_bb_empty_p (basic_block);
+extern insn_t sel_bb_head (basic_block);
+extern bool sel_bb_head_p (insn_t);
 extern insn_t sel_bb_end (basic_block);
 extern bool sel_bb_end_p (insn_t);
+
+extern bool sel_bb_empty_p (basic_block);
 
 extern bool in_current_region_p (basic_block);
 
@@ -918,23 +952,22 @@ extern void cfg_succs_1 (insn_t, int, insn_t **, int *);
 extern void cfg_succs (insn_t, insn_t **, int *);
 extern insn_t cfg_succ_1 (insn_t, int);
 extern insn_t cfg_succ (insn_t);
-extern bool num_preds_gt_1 (insn_t);
+extern bool sel_num_cfg_preds_gt_1 (insn_t);
 
 extern bool is_ineligible_successor (insn_t, ilist_t);
 
 extern bool bb_ends_ebb_p (basic_block);
 extern bool in_same_ebb_p (insn_t, insn_t);
 
-extern basic_block sel_create_basic_block (void *, void *, basic_block);
+extern void free_bb_note_pool (void);
 
-extern void sel_add_or_remove_bb (basic_block, int);
 extern basic_block sel_create_basic_block_before (basic_block);
 extern void sel_remove_empty_bb (basic_block, bool, bool);
-extern basic_block sel_split_block (basic_block, insn_t);
 extern basic_block sel_split_edge (edge);
+extern basic_block sel_create_recovery_block (insn_t);
 extern void sel_merge_blocks (basic_block, basic_block);
-extern basic_block sel_redirect_edge_force (edge, basic_block);
-extern edge sel_redirect_edge_and_branch (edge, basic_block);
+extern void sel_redirect_edge_and_branch (edge, basic_block);
+extern void sel_redirect_edge_and_branch_force (edge, basic_block);
 extern void pipeline_outer_loops (void);
 extern void pipeline_outer_loops_init (void);
 extern void pipeline_outer_loops_finish (void);
@@ -947,8 +980,11 @@ extern void sel_add_loop_preheader (void);
 extern bool sel_is_loop_preheader_p (basic_block);
 extern void clear_outdated_rtx_info (basic_block);
 
+extern void sel_register_cfg_hooks (void);
+extern void sel_unregister_cfg_hooks (void);
+
 /* Expression transformation routines.  */
-extern rtx create_insn_rtx_from_pattern (rtx);
+extern rtx create_insn_rtx_from_pattern (rtx, rtx);
 extern vinsn_t create_vinsn_from_insn_rtx (rtx);
 extern rtx create_copy_of_insn_rtx (rtx);
 extern void change_vinsn_in_expr (expr_t, vinsn_t);
@@ -958,8 +994,8 @@ extern void init_lv_sets (void);
 extern void free_lv_sets (void);
 extern void setup_nop_and_exit_insns (void);
 extern void free_nop_and_exit_insns (void);
-extern void setup_empty_vinsn (void);
-extern void free_empty_vinsn (void);
+extern void setup_nop_vinsn (void);
+extern void free_nop_vinsn (void);
 extern void sel_setup_common_sched_info (void);
 extern void sel_setup_sched_infos (void);
 
@@ -1059,9 +1095,22 @@ get_all_loop_exits (basic_block bb)
   /* And now check whether we should skip over inner loop.  */
   if (inner_loop_header_p (bb))
     {
-      struct loop *this_loop = bb->loop_father;
+      struct loop *this_loop;
       int i;
       edge e;
+
+      {
+	struct loop *pred_loop = NULL;
+
+	for (this_loop = bb->loop_father;
+	     this_loop && this_loop != current_loop_nest;
+	     this_loop = this_loop->outer)
+	  pred_loop = this_loop;
+
+	this_loop = pred_loop;
+
+	gcc_assert (this_loop != NULL);
+      }
 
       exits = get_loop_exit_edges_unique_dests (this_loop);
 
@@ -1088,6 +1137,10 @@ get_all_loop_exits (basic_block bb)
 		i--;
 		continue;
 	      }
+	  }
+	else
+	  {
+	    gcc_assert (!inner_loop_header_p (e->dest));
 	  }
     }
 
@@ -1222,8 +1275,8 @@ _succ_iter_cond (succ_iterator *ip, rtx *succp, rtx insn,
               ei_next (&(ip->ei));
             }
 
-          /* If loop_exits are non null, we have found an inner loop; do one more iteration 
-             to fetch an edge from these exits.  */
+          /* If loop_exits are non null, we have found an inner loop;
+	     do one more iteration to fetch an edge from these exits.  */
           if (ip->loop_exits)
             continue;
 
@@ -1239,10 +1292,12 @@ _succ_iter_cond (succ_iterator *ip, rtx *succp, rtx insn,
 	    *succp = exit_insn;
 	  else
 	    {
-              *succp = next_nonnote_insn (bb_note (bb));
-              
+              *succp = sel_bb_head (bb);
+
               gcc_assert (ip->flags != SUCCS_NORMAL
                           || *succp == NEXT_INSN (bb_note (bb)));
+
+	      gcc_assert (BLOCK_FOR_INSN (*succp) == bb);
 	    }
 
 	  return true;
@@ -1289,7 +1344,7 @@ _eligible_successor_edge_p (edge e1, basic_block real_pred, int flags, edge *e2p
   /* Skip empty blocks, but be careful not to leave the region.  */
   while (1)
     {
-      if (!sel_bb_empty_p_1 (bb, false))
+      if (!sel_bb_empty_p (bb))
         break;
         
       if (!in_current_region_p (bb) 
@@ -1308,8 +1363,8 @@ _eligible_successor_edge_p (edge e1, basic_block real_pred, int flags, edge *e2p
       /* BLOCK_TO_BB sets topological order of the region here.  
          It is important to use REAL_PRED here as we may well have 
          e1->src outside current region, when skipping to loop exits.  */
-      bool succeeds_in_top_order 
-        = BLOCK_TO_BB (real_pred->index) < BLOCK_TO_BB (bb->index);
+      bool succeeds_in_top_order = (BLOCK_TO_BB (real_pred->index)
+				    < BLOCK_TO_BB (bb->index));
 
       /* We are advancing forward in the region, as usual.  */
       if (succeeds_in_top_order)

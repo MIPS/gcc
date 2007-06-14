@@ -2093,7 +2093,7 @@ may_trap_p_1 (rtx x, unsigned flags)
 
   if (code == UNSPEC
       && (targetm.sched.skip_rtx_p == NULL
-	  || !targetm.sched.skip_rtx_p (x)))
+	  || targetm.sched.skip_rtx_p (x)))
     /* Support ia64 speculation.  */
     return may_trap_p_1 (XVECEXP (x, 0, 0), flags);
 

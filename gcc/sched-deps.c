@@ -2594,6 +2594,12 @@ ds_max_merge (ds_t ds1, ds_t ds2)
   if (ds1 == 0 && ds2 == 0)
     return 0;
 
+  if (ds1 == 0 && ds2 != 0)
+    return ds2;
+
+  if (ds1 != 0 && ds2 == 0)
+    return ds1;
+
   return ds_merge_1 (ds1, ds2, true);
 }
 

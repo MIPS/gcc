@@ -171,18 +171,15 @@ static VEC(rhs_t, heap) *vec_av_set = NULL;
 static int sel_sched_region_run = 0;
 
 
-basic_block (*old_create_basic_block) (void *, void *, basic_block);
-static void (*old_delete_basic_block) (basic_block);
-
 /* Forward declarations of static functions.  */
 static bool rtx_search (rtx, rtx);
 static int sel_rank_for_schedule (const void *, const void *);
 static bool equal_after_moveup_path_p (rhs_t, ilist_t, rhs_t);
 static regset compute_live (insn_t);
-static basic_block generate_bookkeeping_insn (rhs_t, insn_t, edge, edge);
+static void generate_bookkeeping_insn (rhs_t, insn_t, edge, edge);
 static bool find_used_regs (insn_t, av_set_t, regset, HARD_REG_SET *, 
                             def_list_t *);
-static bool move_op (insn_t, av_set_t, ilist_t, edge, edge, rhs_t);
+static bool move_op (insn_t, av_set_t, ilist_t, edge, edge, expr_t);
 static void sel_sched_region_1 (void);
 static void sel_sched_region_2 (sel_sched_region_2_data_t);
 
@@ -530,7 +527,7 @@ create_insn_rtx_with_rhs (vinsn_t vi, rtx rhs_rtx)
   lhs_rtx = copy_rtx (VINSN_LHS (vi));
 
   pattern = gen_rtx_SET (VOIDmode, lhs_rtx, rhs_rtx);
-  insn_rtx = create_insn_rtx_from_pattern (pattern);
+  insn_rtx = create_insn_rtx_from_pattern (pattern, NULL_RTX);
 
   return insn_rtx;
 }
@@ -559,7 +556,7 @@ create_insn_rtx_with_rhs (vinsn_t vi, rtx rhs_rtx)
 static bool
 replace_src_with_reg_ok_p (insn_t insn, rtx new_src_reg)
 {
-  vinsn_t vi = INSN_VI (insn);
+  vinsn_t vi = INSN_VINSN (insn);
   enum machine_mode mode;
   rtx dst_loc;
   bool res;
@@ -585,7 +582,7 @@ replace_src_with_reg_ok_p (insn_t insn, rtx new_src_reg)
 static bool
 replace_dest_with_reg_ok_p (insn_t insn, rtx new_reg)
 {
-  vinsn_t vi = INSN_VI (insn);
+  vinsn_t vi = INSN_VINSN (insn);
   bool res;
 
   /* We should deal here only with separable insns.  */
@@ -611,7 +608,7 @@ create_insn_rtx_with_lhs (vinsn_t vi, rtx lhs_rtx)
   rhs_rtx = copy_rtx (VINSN_RHS (vi));
 
   pattern = gen_rtx_SET (VOIDmode, lhs_rtx, rhs_rtx);
-  insn_rtx = create_insn_rtx_from_pattern (pattern);
+  insn_rtx = create_insn_rtx_from_pattern (pattern, NULL_RTX);
 
   return insn_rtx;
 }
@@ -1309,19 +1306,80 @@ can_overcome_dep_p (ds_t ds)
   return true;
 }
 
-/* Get a speculation check instruction from the target.  SPEC_EXPR is a
-   speculative expression.  */
-static rtx
-create_speculation_check_insn_rtx (rtx spec_insn_rtx, ds_t check_ds)
+static bool speculate_expr (expr_t, ds_t);
+
+/* Get a speculation check instruction.
+   C_RHS is a speculative expression,
+   CHECK_DS describes speculations that should be checked,
+   ORIG_INSN is the original non-speculative insn in the stream.  */
+static insn_t
+create_speculation_check (expr_t c_rhs, ds_t check_ds, insn_t orig_insn)
 {
   rtx check_pattern;
+  rtx insn_rtx;
+  insn_t insn;
+  basic_block recovery_block;
+  rtx label;
 
-  check_pattern = targetm.sched.gen_spec_check (spec_insn_rtx, NULL_RTX,
+  sel_dump_cfg ("before-gen-spec-check");
+
+  /* Create a recovery block if target is going to emit branchy check.  */
+  if (targetm.sched.needs_block_p (check_ds))
+    {
+      recovery_block = sel_create_recovery_block (orig_insn);
+      label = BB_HEAD (recovery_block);
+    }
+  else
+    {
+      recovery_block = NULL;
+      label = NULL_RTX;
+    }
+
+  /* Get pattern of the check.  */
+  check_pattern = targetm.sched.gen_spec_check (EXPR_INSN_RTX (c_rhs), label,
 						check_ds);
 
   gcc_assert (check_pattern != NULL);
 
-  return create_insn_rtx_from_pattern (check_pattern);
+  /* Emit check.  */
+  insn_rtx = create_insn_rtx_from_pattern (check_pattern, label);
+
+  insn = sel_gen_insn_from_rtx_after (insn_rtx, INSN_EXPR (orig_insn),
+				      INSN_SEQNO (orig_insn), orig_insn);
+
+  /* Make check to be non-speculative.  */
+  EXPR_SPEC_DONE_DS (INSN_EXPR (insn)) &= ~check_ds;
+  INSN_SPEC_CHECKED_DS (insn) = check_ds;
+
+  if (recovery_block != NULL)
+    /* Emit copy of original insn (though with replaced target register,
+       if needed) to the recovery block.  */
+    {
+      rtx twin_rtx;
+      insn_t twin;
+
+      twin_rtx = copy_rtx (PATTERN (EXPR_INSN_RTX (c_rhs)));
+      twin_rtx = create_insn_rtx_from_pattern (twin_rtx, NULL_RTX);
+      twin = sel_gen_recovery_insn_from_rtx_after (twin_rtx, INSN_EXPR (insn),
+						   INSN_SEQNO (insn),
+						   bb_note (recovery_block));
+    }
+
+  /* If we've generated a data speculation check, make sure
+     that all the bookkeeping instruction we'll create during
+     this move_op () will allocate an ALAT entry so that the
+     check won't fail.
+     In case of control speculation we must convert C_RHS to control
+     speculative mode, because failing to do so will bring us an exception
+     thrown by the non-control-speculative load.  */
+  {
+    check_ds = ds_get_max_dep_weak (check_ds);
+    speculate_expr (c_rhs, check_ds);
+  }
+
+  sel_dump_cfg ("after-gen-spec-check");
+
+  return insn;
 }
 
 /* Try to transform EXPR to data speculative version.  Return true on
@@ -1346,7 +1404,7 @@ apply_spec_to_expr (expr_t expr, ds_t ds)
 
     case 1:
       {
-	rtx spec_insn_rtx = create_insn_rtx_from_pattern (spec_pat);
+	rtx spec_insn_rtx = create_insn_rtx_from_pattern (spec_pat, NULL_RTX);
 	vinsn_t spec_vinsn = create_vinsn_from_insn_rtx (spec_insn_rtx);
 
 	change_vinsn_in_expr (expr, spec_vinsn);
@@ -1402,10 +1460,10 @@ has_spec_dependence_p (expr_t expr, insn_t insn)
   return 0;
 }
 
-/* Add to AVP those exprs that might have been transformed to their speculative
-   versions when moved through INSN.  */
+/* Record speculations that EXPR should perform in order to be moved through
+   INSN.  */
 static void
-un_speculate (expr_t expr, insn_t insn, av_set_t *new_set_ptr)
+un_speculate (expr_t expr, insn_t insn)
 {
   ds_t expr_spec_done_ds;
   ds_t full_ds;
@@ -1418,30 +1476,12 @@ un_speculate (expr_t expr, insn_t insn, av_set_t *new_set_ptr)
     return;
 
   full_ds = has_spec_dependence_p (expr, insn);
+
   if (full_ds == 0)
     return;
-  
-  {
-    expr_def _new_expr, *new_expr = &_new_expr;
-    
-    copy_expr (new_expr, expr);
-    
-    {
-      bool b;
-      
-      full_ds = ds_get_speculation_types (full_ds);
-      expr_spec_done_ds &= ~full_ds;
-      
-      b = apply_spec_to_expr (new_expr, expr_spec_done_ds);
-      gcc_assert (b);
-      
-      EXPR_SPEC_TO_CHECK_DS (new_expr) |= full_ds;
-    }
-    
-    av_set_add (new_set_ptr, new_expr);
-    
-    clear_expr (new_expr);
-  }
+
+  full_ds = ds_get_speculation_types (full_ds);
+  EXPR_SPEC_TO_CHECK_DS (expr) |= full_ds;
 }
 
 
@@ -1474,7 +1514,7 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
 {
   av_set_iterator av_iter;
   rhs_t rhs;
-  av_set_t new_set = NULL;
+  av_set_t new_set;
 
   /* First, kill any RHS that uses registers set by an insn.  This is 
      required for correctness.  */
@@ -1497,10 +1537,10 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
   FOR_EACH_RHS (rhs, av_iter, *av_ptr)
     {
       if (1 || bitmap_bit_p (EXPR_CHANGED_ON_INSNS (rhs), INSN_LUID (insn)))
-        un_speculate (rhs, insn, &new_set);
+        un_speculate (rhs, insn);
     }
-  
-  av_set_union_and_clear (av_ptr, &new_set);
+
+  new_set = NULL;
 
   FOR_EACH_RHS (rhs, av_iter, *av_ptr)
     {
@@ -1925,29 +1965,34 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
     }
 
   /* If insn already has valid av(insn) computed, just return it.  */ 
-  if (INSN_AV_VALID_P (insn))
+  if (AV_SET_VALID_P (insn))
     {
+      av_set_t av_set;
+
+      if (sel_bb_head_p (insn))
+	av_set = BB_AV_SET (BLOCK_FOR_INSN (insn));
+      else
+	av_set = NULL;
+
       line_start ();
       print ("found valid av (%d): ", INSN_UID (insn));
-      dump_av_set (AV_SET (insn));
+      dump_av_set (av_set);
       line_finish ();
       block_finish ();
 
-      return unique_p ? av_set_copy (AV_SET (insn)) : AV_SET (insn);
+      return unique_p ? av_set_copy (av_set) : av_set;
     }
 
   /* If the window size exceeds at insn during the first computation of 
      av(group), leave a window boundary mark at insn, so further 
      update_data_sets calls do not compute past insn.  */
-  if (ws > MAX_WS)
+  if (ws > MAX_WS && !sel_bb_head_p (insn))
     {
       print ("Max software lookahead window size reached");
       
       /* We can reach max lookahead size at bb_header, so clean av_set 
 	 first.  */
-      av_set_clear (&AV_SET (insn));
-
-      AV_LEVEL (insn) = global_level;
+      INSN_WS_LEVEL (insn) = global_level;
       block_finish ();
       return NULL;
     }
@@ -2041,11 +2086,10 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
   if (!INSN_NOP_P (insn))
     {
       expr_t expr;
-      vinsn_t vi = INSN_VI (insn);
 
       moveup_set_rhs (&av1, insn, false);
       
-      expr = av_set_lookup (av1, vi);
+      expr = av_set_lookup (av1, INSN_VINSN (insn));
 
       if (expr != NULL)
 	/* ??? It is not clear if we should replace or merge exprs in this
@@ -2062,6 +2106,20 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
 	av_set_add (&av1, INSN_EXPR (insn));
     }
 
+  /* If insn is a bb_header, leave a copy of av1 here.  */
+  if (sel_bb_head_p (insn))
+    {
+      basic_block bb = BLOCK_FOR_INSN (insn);
+
+      /* Clear stale bb_av_set.  */
+      av_set_clear (&BB_AV_SET (bb));
+
+      print ("Save av(%d) in bb header", INSN_UID (insn));
+
+      BB_AV_SET (bb) = unique_p ? av_set_copy (av1) : av1;
+      BB_AV_LEVEL (bb) = global_level;
+    }
+
   line_start ();
   print ("insn: ");
   dump_insn_1 (insn, 1);
@@ -2071,18 +2129,6 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
   print ("av (%d): ", INSN_UID (insn));
   dump_av_set (av1);
   line_finish ();
-
-  /* INSN might have been a bb_header, so free its AV_SET in any case.  */
-  av_set_clear (&AV_SET (insn));
-
-  /* If insn is a bb_header, leave a copy of av1 here.  */
-  if (sel_bb_header_p (insn))
-    {
-      print ("Save av(%d) in bb header", INSN_UID (insn));
-
-      AV_SET (insn) = unique_p ? av_set_copy (av1) : av1;
-      AV_LEVEL (insn) = global_level;
-    }
   
   block_finish ();
   return av1;
@@ -2132,22 +2178,33 @@ compute_live_after_bb (basic_block bb)
 static regset
 compute_live (insn_t insn)
 {
-  if (LV_SET_VALID_P (insn) && !ignore_first)
+  if (sel_bb_head_p (insn) && !ignore_first)
     {
-      regset lv = get_regset_from_pool ();
+      basic_block bb = BLOCK_FOR_INSN (insn);
 
-      COPY_REG_SET (lv, LV_SET (insn));
-      return_regset_to_pool (lv);
-      return lv;
+      if (BB_LV_SET_VALID_P (bb))
+	{
+	  regset lv = get_regset_from_pool ();
+
+	  COPY_REG_SET (lv, BB_LV_SET (bb));
+	  return_regset_to_pool (lv);
+	  return lv;
+	}
     }
 
   /* We've skipped the wrong lv_set.  Don't skip the right one.  */
   ignore_first = false;
   
   {
-    basic_block bb = BLOCK_FOR_INSN (insn);
-    insn_t bb_end = BB_END (bb);
-    regset lv = compute_live_after_bb (bb);
+    basic_block bb;
+    insn_t bb_end;
+    regset lv;
+
+    bb = BLOCK_FOR_INSN (insn);
+    gcc_assert (in_current_region_p (bb));
+
+    bb_end = BB_END (bb);
+    lv = compute_live_after_bb (bb);
 
     while (bb_end != insn)
       {
@@ -2160,14 +2217,13 @@ compute_live (insn_t insn)
     /* Compute live set above INSN.  */
     propagate_lv_set (lv, insn);
 
-    if (sel_bb_header_p (insn))
+    if (sel_bb_head_p (insn))
       {
-	gcc_assert (LV_SET (insn) != NULL);
+	basic_block bb = BLOCK_FOR_INSN (insn);
 
-	COPY_REG_SET (LV_SET (insn), lv);
+	COPY_REG_SET (BB_LV_SET (bb), lv);
+	BB_LV_SET_VALID_P (bb) = true;
       }
-    else
-      gcc_assert (LV_SET (insn) == NULL);
 
     /* We return LV to the pool, but will not clear it there.  Thus we can
        legimatelly use LV till the next use of regset_pool_get ().  */
@@ -2193,37 +2249,20 @@ compute_live_below_insn (insn_t insn, regset regs)
 static void
 update_data_sets (rtx insn)
 {
-  gcc_assert (LV_SET (insn) != NULL
-	      && INSN_AV_VALID_P (insn)
-	      && sel_bb_header_p (insn));
-
-  /* Recompute the first LV_SET as it may have got invalid.  */
-  ignore_first = true;
-  compute_live (insn);
+  gcc_assert (sel_bb_head_p (insn) && AV_LEVEL (insn) != 0);
 
   line_start ();
   print ("update_data_sets");
   dump_insn (insn);
   line_finish ();
 
-  block_start ();
+  /* Recompute the INSN's LV_SET as it may have got invalid.  */
+  ignore_first = true;
+  compute_live (insn);
 
-  if (LV_SET_VALID_P (insn))
-    {
-      line_start ();
-      print ("live regs set:");
-      dump_lv_set (LV_SET (insn));
-      line_finish ();
-    }
-
-  block_finish ();
-
-  /* Invalidate AV_SET.  */
-  AV_LEVEL (insn) = 0;
-  if (sel_bb_header_p (insn))
-    compute_av_set (insn, NULL, 0, 0);
-  /* If INSN is not a bb_header any longer, its av_set will be
-     deleted on the next compute_av_set ().  */
+  /* Recompute the INSN's AV_SET as it may have got invalid.  */
+  BB_AV_LEVEL (BLOCK_FOR_INSN (insn)) = -1;
+  compute_av_set (insn, NULL, 0, 0);
 }
 
 
@@ -2295,8 +2334,8 @@ get_spec_check_type_for_insn (insn_t insn, expr_t expr)
 
 static int
 find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path, 
-		regset used_regs, HARD_REG_SET *unavailable_hard_regs,
-		bool crosses_call, def_list_t *original_insns)
+		  regset used_regs, HARD_REG_SET *unavailable_hard_regs,
+		  bool crosses_call, def_list_t *original_insns)
 {
   rhs_t rhs;
   bool is_orig_op = false;
@@ -2325,7 +2364,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
   orig_ops = av_set_copy (orig_ops);
 
   /* If we've found valid av set, then filter the orig_ops set.  */
-  if (INSN_AV_VALID_P (insn))
+  if (AV_SET_VALID_P (insn))
     {
       line_start ();
       print ("av");
@@ -2365,7 +2404,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
      When traversing the DAG below this insn is finished, insert bookkeeping 
      code, if the insn is a joint point, and remove leftovers.  */
 
-  rhs = av_set_lookup (orig_ops, INSN_VI (insn));
+  rhs = av_set_lookup (orig_ops, INSN_VINSN (insn));
   if (rhs)
     {
       /* We have found the original operation. Mark the registers that do not
@@ -2408,7 +2447,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
 	      REG_DEAD: dx    
 	 */
       /* FIXME: see comment above and enable MEM_P in vinsn_separable_p.  */
-      gcc_assert (!VINSN_SEPARABLE_P (INSN_VI (insn))
+      gcc_assert (!VINSN_SEPARABLE_P (INSN_VINSN (insn))
                   || !MEM_P (INSN_LHS (insn)));
     }
   else
@@ -2548,7 +2587,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
 
   av_set_clear (&orig_ops);
 
-  gcc_assert (!sel_bb_header_p (insn) || INSN_AV_VALID_P (insn)
+  gcc_assert (!sel_bb_head_p (insn) || AV_SET_VALID_P (insn)
 	      || AV_LEVEL (insn) == -1);
 
   if (res == -1 && AV_LEVEL (insn) == -1)
@@ -2597,7 +2636,7 @@ find_used_regs (insn_t insn, av_set_t orig_ops, regset used_regs,
      unavailable_hard_regs.  */
   FOR_EACH_DEF (def, i, *original_insns)
     {
-      vinsn_t vinsn = INSN_VI (def->orig_insn);
+      vinsn_t vinsn = INSN_VINSN (def->orig_insn);
 
       if (VINSN_SEPARABLE_P (vinsn))
 	mark_unavailable_hard_regs (def, unavailable_hard_regs, used_regs);
@@ -2859,23 +2898,6 @@ fill_ready_list (av_set_t *av_ptr, bnd_t bnd, fence_t fence)
 
       dump_rhs (rhs);
 
-      /* Don't allow insns from a SCHED_GROUP to be scheduled if their 
-	 ancestors havn't been scheduled.
-	 !!! This should be dealt with in moveup_rhs ().  */
-      if (VINSN_UNIQUE_P (vi) && SCHED_GROUP_P (insn)
-	  && !sel_bb_header_p (insn))
-        {
-          insn_t prev = PREV_INSN (insn);
-          
-          if (SCHED_GROUP_P (prev) 
-              && INSN_SCHED_CYCLE (prev) <= INSN_SCHED_CYCLE (insn))
-	    {
-	      /* Dealt in moveup_rhs ().  */
-	      gcc_unreachable ();
-	      continue;
-	    }
-        }
-      
       /* Don't allow any insns other than from SCHED_GROUP if we have one.  */
       if (FENCE_SCHED_NEXT (fence) && insn != FENCE_SCHED_NEXT (fence))
           continue;
@@ -3204,8 +3226,8 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
          memcpy (FENCE_STATE (fence), curr_state, dfa_state_size);
        }
       else if (GET_CODE (PATTERN (best)) != USE
-              && GET_CODE (PATTERN (best)) != CLOBBER)
-       can_issue_more--;
+	       && GET_CODE (PATTERN (best)) != CLOBBER)
+	can_issue_more--;
     }
 
   *best_rhs_vliw = res;
@@ -3218,19 +3240,13 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
 static insn_t
 gen_insn_from_expr_after (expr_t expr, int seqno, insn_t place_to_insert)
 {
-  {
-    insn_t insn = RHS_INSN (expr);
-
-    /* This assert fails when we have identical instructions
-       one of which dominates the other.  In this case move_op ()
-       finds the first instruction and doesn't search for second one.
-       The solution would be to compute av_set after the first found
-       insn and, if insn present in that set, continue searching.
-       For now we workaround this issue in move_op.  */
-    gcc_assert (!INSN_IN_STREAM_P (insn));
-
-    gcc_assert (!LV_SET_VALID_P (insn));
-  }
+  /* This assert fails when we have identical instructions
+     one of which dominates the other.  In this case move_op ()
+     finds the first instruction and doesn't search for second one.
+     The solution would be to compute av_set after the first found
+     insn and, if insn present in that set, continue searching.
+     For now we workaround this issue in move_op.  */
+  gcc_assert (!INSN_IN_STREAM_P (EXPR_INSN_RTX (expr)));
 
   {
     rtx reg = expr_dest_reg (expr);
@@ -3269,11 +3285,11 @@ gen_insn_from_expr_after (expr_t expr, int seqno, insn_t place_to_insert)
    the upper bb, redirecting all other paths to the lower bb and returns the
    newly created bb, which is the lower bb. 
    All scheduler data is initialized for the newly created insn.  */
-static basic_block
+static void
 generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
 {
   basic_block src, bb = e2->dest;
-  basic_block new_bb, res = NULL;
+  basic_block new_bb;
   insn_t src_end = NULL_RTX;
   insn_t place_to_insert;
   /* Save the original destination of E1.  */
@@ -3282,7 +3298,7 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
   print ("generate_bookkeeping_insn(%d->%d)", e1->src->index, 
 	 e2->dest->index);
 
-  /* sel_split_block () can emit an unnecessary note if the following isn't
+  /* sched_split_block () can emit an unnecessary note if the following isn't
      true.  */
   gcc_assert (bb_note (bb) != BB_END (bb));
 
@@ -3329,7 +3345,7 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
         }
 
       /* Split the head of the BB to insert BOOK_INSN there.  */
-      new_bb = sel_split_block (bb, NULL);
+      new_bb = sched_split_block (bb, NULL);
   
       /* Move note_list from the upper bb.  */
       gcc_assert (BB_NOTE_LIST (new_bb) == NULL_RTX);
@@ -3343,7 +3359,7 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
   
       /* Make a jump skipping bookkeeping copy.  */
       if (e1->flags & EDGE_FALLTHRU)
-        res = sel_redirect_edge_force (e1, new_bb);
+        sel_redirect_edge_and_branch_force (e1, new_bb);
       else
         sel_redirect_edge_and_branch (e1, new_bb);
 
@@ -3387,25 +3403,9 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
     clear_expr (new_expr);
 
     gcc_assert ((src == NULL && BB_END (bb) == new_insn
-		 && sel_bb_header_p (new_insn))
+		 && sel_bb_head_p (new_insn))
 		|| BB_END (src) == new_insn);
-
-    gcc_assert (AV_SET (new_insn) == NULL && AV_LEVEL (new_insn) == 0);
-
-    /* Set AV_LEVEL to special value to bypass assert in move_op ().  */
-    AV_LEVEL (new_insn) = -1;
-
-    gcc_assert (LV_SET (join_point) != NULL);
-
-    if (sel_bb_header_p (new_insn))
-      {
-	LV_SET (new_insn) = get_regset_from_pool ();
-	ignore_first = true;
-	compute_live (new_insn);
-      }
   }
-
-  return res;
 }
 
 static int fill_insns_run = 0;
@@ -3584,7 +3584,6 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	  /* Move chosen insn.  */
 	  {
 	    insn_t place_to_insert;
-	    insn_t new_bb_head = NULL_RTX;
 	    expr_def _c_rhs, *c_rhs = &_c_rhs;
 	    bool b;
 
@@ -3602,27 +3601,6 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	      /* Add it before BND_TO.  The difference is in the
 		 basic block, where INSN will be added.  */
 	      place_to_insert = PREV_INSN (BND_TO (bnd));
-
-	    sel_dump_cfg ("before-move_op");
-
-	    /* Marker is useful to bind .dot dumps and the log.  */
-	    print_marker_to_log ();
-
-	    /* Make a move.  This call will remove the original operation,
-	       insert all necessary bookkeeping instructions and update the
-	       data sets.  After that all we have to do is add the operation
-	       at before BND_TO (BND).  */
-	    b = move_op (BND_TO (bnd), rhs_seq, NULL, NULL, NULL, c_rhs);
-
-	    /* We should be able to find the expression we've chosen for 
-	       scheduling.  */
-	    gcc_assert (b);
-
-            /* We want to use a pattern from rhs_vliw, because it could've 
-               been substituted, and the rest of data from rhs_seq.  */
-            if (! rtx_equal_p (EXPR_PATTERN (rhs_vliw), 
-                               EXPR_PATTERN (c_rhs)))
-              change_vinsn_in_expr (c_rhs, EXPR_VINSN (rhs_vliw));
 
 	    /* Find a place for C_RHS to schedule.
 	       We want to have an invariant that only insns that are
@@ -3649,7 +3627,6 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	      insn_t prev_insn = PREV_INSN (place_to_insert);
 	      basic_block bb = BLOCK_FOR_INSN (place_to_insert);
 	      basic_block prev_bb = bb->prev_bb;
-	      basic_block next_bb;
 
 	      if (!NOTE_INSN_BASIC_BLOCK_P (place_to_insert)
 		  || prev_insn == NULL_RTX
@@ -3660,44 +3637,76 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 		  || !in_current_region_p (prev_bb)
 		  || control_flow_insn_p (prev_insn))
 		{
+		  /* Generate a nop that will help us to avoid removing
+		     data sets we need.  */
+		  place_to_insert = NEXT_INSN (place_to_insert);
+		  gcc_assert (BLOCK_FOR_INSN (place_to_insert) == bb);
+		  place_to_insert = get_nop_from_pool (place_to_insert);
+
 		  prev_bb = bb;
 
-		  /* Save new_bb_head to update lv_set on.  */
-		  if (!NOTE_INSN_BASIC_BLOCK_P (place_to_insert)
-		      && !sel_bb_end_p (place_to_insert))
-		    new_bb_head = NEXT_INSN (place_to_insert);
-
 		  /* Split block to generate a new floating bb header.  */
-		  next_bb = sel_split_block (bb, place_to_insert);
+		  bb = sched_split_block (bb, place_to_insert);
 		}
 	      else
 		{
-		  gcc_assert (single_succ (prev_bb) == bb);
+		  if (NOTE_INSN_BASIC_BLOCK_P (place_to_insert))
+		    {
+		      place_to_insert = NEXT_INSN (place_to_insert);
+		      gcc_assert (BLOCK_FOR_INSN (place_to_insert) == bb);
+		    }
 
-		  place_to_insert = prev_insn;
-		  next_bb = bb;
+		  /* Generate a nop that will help us to avoid removing
+		     data sets we need.  */
+		  place_to_insert = get_nop_from_pool (place_to_insert);
+
+		  /* Move the nop to the previous block.  */
+		  {
+		    insn_t prev_insn = sel_bb_end (prev_bb);
+		    insn_t note = bb_note (bb);
+		    insn_t nop_insn = sel_bb_head (bb);
+		    insn_t next_insn = NEXT_INSN (nop_insn);
+
+		    gcc_assert (prev_insn != NULL_RTX
+				&& nop_insn == place_to_insert
+				&& PREV_INSN (note) == prev_insn);
+
+		    NEXT_INSN (prev_insn) = nop_insn;
+		    PREV_INSN (nop_insn) = prev_insn;
+
+		    PREV_INSN (note) = nop_insn;
+		    NEXT_INSN (note) = next_insn;
+
+		    NEXT_INSN (nop_insn) = note;
+		    PREV_INSN (next_insn) = note;
+
+		    BB_END (prev_bb) = nop_insn;
+		    BLOCK_FOR_INSN (nop_insn) = prev_bb;
+		  }
 		}
 
-	      if (sel_bb_empty_p (next_bb))
-		sel_merge_blocks (prev_bb, next_bb);
+	      gcc_assert (single_succ (prev_bb) == bb);
 
-	      gcc_assert (BLOCK_FOR_INSN (place_to_insert) == prev_bb);
+	      sel_dump_cfg ("before-move_op");
 
-	      /* Now do some cleanup: remove empty basic blocks after
-		 BB.  */
+	      /* Marker is useful to bind .dot dumps and the log.  */
+	      print_marker_to_log ();
 
-	      next_bb = prev_bb->next_bb;
+	      /* Make a move.  This call will remove the original operation,
+		 insert all necessary bookkeeping instructions and update the
+		 data sets.  After that all we have to do is add the operation
+		 at before BND_TO (BND).  */
+	      b = move_op (BND_TO (bnd), rhs_seq, NULL, NULL, NULL, c_rhs);
 
-	      /* !!! Can't use bb_empty_p here because it returns true on
-		 empty blocks with labels.  */
-	      while (BB_HEAD (next_bb) == BB_END (next_bb)
-		     && in_current_region_p (next_bb))
-		{
-		  bb = next_bb->next_bb;
+	      /* We should be able to find the expression we've chosen for 
+		 scheduling.  */
+	      gcc_assert (b);
 
-		  sel_remove_empty_bb (next_bb, true, true);
-		  next_bb = bb;
-		}
+	      /* We want to use a pattern from rhs_vliw, because it could've 
+		 been substituted, and the rest of data from rhs_seq.  */
+	      if (! rtx_equal_p (EXPR_PATTERN (rhs_vliw), 
+				 EXPR_PATTERN (c_rhs)))
+		change_vinsn_in_expr (c_rhs, EXPR_VINSN (rhs_vliw));
 	    }
 
 	    /* Add the instruction.  */
@@ -3706,25 +3715,10 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 
 	    ++INSN_SCHED_TIMES (insn);
 
-	    if (NOTE_INSN_BASIC_BLOCK_P (place_to_insert))
-	      {
-		gcc_assert (new_bb_head == NULL_RTX);
-		new_bb_head = insn;
-	      }
-
-            /* Initialize LV_SET of the bb header.  */
-	    if (new_bb_head != NULL_RTX)
-	      {
-		/* !!! TODO: We should replace all occurencies of
-		   LV_SET_VALID_P () with LV_SET () != NULL.  Overwise it is
-		   not clear what a valid and invalid lv set is.  */
-
-		if (LV_SET (new_bb_head) == NULL)
-		  LV_SET (new_bb_head) = get_clear_regset_from_pool ();
-
-		ignore_first = true;
-		compute_live (new_bb_head);
-	      }
+	    if (INSN_NOP_P (place_to_insert))
+	      /* Return the nop generated for preserving of data sets back
+		 into pool.  */
+	      return_nop_to_pool (place_to_insert);
 	  }
 
 	  av_set_clear (&rhs_seq);
@@ -3919,9 +3913,9 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 	 rhs_t c_rhs)
 {
   rhs_t rhs;
-  basic_block bb;
   bool c_rhs_inited_p;
   rtx reg;
+  bool generated_nop_p = false;
   
   line_start ();
   print ("move_op(");
@@ -3943,7 +3937,7 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
   orig_ops = av_set_copy (orig_ops);
 
   /* If we've found valid av set, then filter the orig_ops set.  */
-  if (INSN_AV_VALID_P (insn))
+  if (AV_SET_VALID_P (insn))
     {
       line_start ();
       print ("av");
@@ -3982,12 +3976,14 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
      When traversing the DAG below this insn is finished, insert bookkeeping 
      code, if the insn is a joint point, and remove leftovers.  */
 
-  rhs = av_set_lookup (orig_ops, INSN_VI (insn));
+  rhs = av_set_lookup (orig_ops, INSN_VINSN (insn));
 
   if (rhs != NULL)
     /* We have found the original operation.  Replace it by REG, if 
        it is scheduled as RHS, or just remove it later, if it's an insn.  */
     {
+      print ("found original operation!");
+
       copy_expr_onside (c_rhs, INSN_EXPR (insn));
       c_rhs_inited_p = true;
 
@@ -4009,53 +4005,15 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 	     always false.  */
 	  gcc_unreachable ();
 
-	  change_vinsn_in_expr (c_rhs, INSN_VI (insn));
+	  change_vinsn_in_expr (c_rhs, INSN_VINSN (insn));
 	}
       
       /* For instructions we must immediately remove insn from the
 	 stream, so subsequent update_data_sets () won't include this
 	 insn into av_set.
 	 For rhs we must make insn look like "INSN_REG (insn) := c_rhs".  */
-
-      print ("found original operation!");
-
       {
-	insn_t finish_insn = insn;
-
-	{
-	  ds_t check_ds = get_spec_check_type_for_insn (insn, rhs);
-
-	  if (check_ds != 0)
-	    /* A speculation check should be inserted.  */
-	    {
-	      rtx x;
-
-	      x = create_speculation_check_insn_rtx (EXPR_INSN_RTX (rhs),
-						     check_ds);
-	      x = sel_gen_insn_from_rtx_after (x,
-					       INSN_EXPR (finish_insn),
-					       INSN_SEQNO (finish_insn),
-					       finish_insn);
-
-	      EXPR_SPEC_DONE_DS (INSN_EXPR (x)) &= ~check_ds;
-
-	      finish_insn = x;
-
-	      /* If we've generated a data speculation check, make sure
-		 that all the bookkeeping instruction we'll create during
-		 this move_op () will allocate an ALAT entry so that the
-		 check won't fail.
-		 ??? We should ask target if somethings needs to be done
-		 here.  */
-	      /* Commented out due to PR23.  */
-	      /*speculate_expr (c_rhs, ds_get_max_dep_weak (check_ds));*/
-	    }
-	  else
-	    EXPR_SPEC_DONE_DS (INSN_EXPR (finish_insn)) = 0;
-
-	  gcc_assert (EXPR_SPEC_DONE_DS (INSN_EXPR (finish_insn)) == 0
-		      && EXPR_SPEC_TO_CHECK_DS (INSN_EXPR (finish_insn)) == 0);
-	}
+	bool recovery_p = false;
 
 	{
 	  rtx cur_reg = expr_dest_reg (c_rhs);
@@ -4067,37 +4025,63 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 	     operation's right hand side with the register chosen.  */
 	  if (reg != NULL_RTX && REGNO (reg) != REGNO (cur_reg))
 	    {
-	      rtx insn_rtx;
-	      insn_t x;
+	      rtx reg_move_insn_rtx;
+	      insn_t reg_move_insn;
+
+	      reg_move_insn_rtx = create_insn_rtx_with_rhs (INSN_VINSN (insn),
+							    reg);
+	      reg_move_insn = sel_gen_insn_from_rtx_after (reg_move_insn_rtx,
+							   INSN_EXPR (insn),
+							   INSN_SEQNO (insn),
+							   insn);
+	      EXPR_SPEC_DONE_DS (INSN_EXPR (reg_move_insn)) = 0;
 
 	      replace_dest_with_reg_in_rhs (c_rhs, reg);
 
-	      insn_rtx = create_insn_rtx_with_rhs (INSN_VI (insn), reg);
-	      x = sel_gen_insn_from_rtx_after (insn_rtx,
-					       INSN_EXPR (finish_insn),
-					       INSN_SEQNO (finish_insn),
-					       finish_insn);
-
-	      finish_insn = x;
+	      recovery_p = true;
 	    }
 	}
 
+	{
+	  insn_t x;
+	  ds_t check_ds = get_spec_check_type_for_insn (insn, rhs);
 
-	if (insn == finish_insn)
+	  if (check_ds != 0)
+	    {
+	      /* A speculation check should be inserted.  */
+	      x = create_speculation_check (c_rhs, check_ds, insn);
+
+	      recovery_p = true;
+	    }
+	  else
+	    {
+	      EXPR_SPEC_DONE_DS (INSN_EXPR (insn)) = 0;
+	      x = insn;
+	    }
+
+	  gcc_assert (EXPR_SPEC_DONE_DS (INSN_EXPR (x)) == 0
+		      && EXPR_SPEC_TO_CHECK_DS (INSN_EXPR (x)) == 0);
+	}
+
+	{
+	  insn_t x;
+
+	  if (!recovery_p)
+	    {
+	      x = get_nop_from_pool (insn);
+
+	      generated_nop_p = true;
+	    }
+	  else
+	    x = NEXT_INSN (insn);
+
 	  /* For the insns that don't have rhs just remove insn from the
 	     stream.  Also remove insn if substituting it's right hand 
 	     side would result in operation like reg:=reg.  This kind of
 	     operation is not only excessive, but it may not be supported 
 	     on certain platforms, e.g. "mov si, si" is invalid on i386.  */
-	  finish_insn = get_nop_from_pool (insn);
-
-	{
-	  insn_t new_start_insn = NEXT_INSN (insn);
-
-	  transfer_data_sets (new_start_insn, insn);
-	  sched_sel_remove_insn (insn);
-
-	  insn = new_start_insn;
+	  sel_remove_insn (insn);
+	  insn = x;
 	}
       }
     }
@@ -4199,85 +4183,22 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 
   /* We should generate bookkeeping code only if we are not at the
      top level of the move_op.  */
-  if (e1 && num_preds_gt_1 (insn))
+  if (e1 && sel_num_cfg_preds_gt_1 (insn))
     {
       /* INSN is a joint point, insert bookkeeping code here.  */
-      bb = generate_bookkeeping_insn (c_rhs, insn, e1, e2);
-      gcc_assert (sel_bb_header_p (insn));
+      generate_bookkeeping_insn (c_rhs, insn, e1, e2);
+      gcc_assert (sel_bb_head_p (insn));
     }
+
+  if (sel_bb_head_p (insn))
+    update_data_sets (insn);
   else
-    bb = NULL;
-
-  if (sel_bb_header_p (insn))
-    {
-      if (AV_LEVEL (insn) == -1)
-	/* This will make assert in update_data_sets () happy.  */
-	AV_LEVEL (insn) = global_level;
-      else
-	gcc_assert (INSN_AV_VALID_P (insn));
-    }
-
-  if (sel_bb_header_p (insn))
-    {
-      update_data_sets (insn);
-
-      if (bb)
-	{
-	  /* Make assertion in update_data_sets () happy.  */
-	  AV_LEVEL (NEXT_INSN (bb_note (bb))) = global_level;
-
-	  /* We created an extra block in generate_bookkeeping_insn ().
-	     Initialize av_set for it.  */
-	  update_data_sets (NEXT_INSN (bb_note (bb)));
-	}
-    }
-  else
-    {
-      gcc_assert (!LV_SET_VALID_P (insn)
-		  && !INSN_AV_VALID_P (insn));
-    }
+    gcc_assert (AV_LEVEL (insn) == INSN_WS_LEVEL (insn));
 
   /* If INSN was previously marked for deletion, it's time to do it.  */
-  if (INSN_NOP_P (insn))
+  if (generated_nop_p)
     {
-      bool transfered_p = false;
-
-      if (insn == BB_END (BLOCK_FOR_INSN (insn)))
-	{
-	  succ_iterator succ_i;
-	  insn_t succ;
-
-	  FOR_EACH_SUCC (succ, succ_i, insn)
-	    /* NB: We can't assert that SUCC has valid AV_SET because SUCC
-	       can be an ineligible successor of INSN.  */
-	    gcc_assert (LV_SET_VALID_P (succ));
-	}
-
-      if (sel_bb_header_p (insn))
-	{
-	  gcc_assert (LV_SET_VALID_P (insn));
-
-	  if (insn == BB_END (BLOCK_FOR_INSN (insn)))
-	    /* We are about to remove the only insn in the block -
-	       delete its LV_SET.  */
-	    {
-	      return_regset_to_pool (LV_SET (insn));
-	      LV_SET (insn) = NULL;
-	    }
-	  else
-	    {
-	      transfer_data_sets (cfg_succ (insn), insn);
-	      transfered_p = true;
-	    }
-	}
-
-      if (!transfered_p)
-	{
-	  av_set_clear (&AV_SET (insn));
-	  AV_LEVEL (insn) = 0;
-
-	  gcc_assert (!LV_SET_VALID_P (insn));
-	}
+      gcc_assert (INSN_NOP_P (insn));
 
       return_nop_to_pool (insn);
     }
@@ -4436,9 +4357,6 @@ split_edges_incoming_to_rgn (void)
   VEC_free (edge, heap, edges_to_split);
 }
 
-/* Save old RTL hooks here.  */
-static struct rtl_hooks old_rtl_hooks;
-
 /* Init scheduling data for RGN.  Returns true when this region should not 
    be scheduled.  */
 static bool
@@ -4527,15 +4445,8 @@ sel_region_init (int rgn)
   VEC_free (basic_block, heap, bbs);
 
   /* Set hooks so that no newly generated insn will go out unnoticed.  */
-  old_rtl_hooks = rtl_hooks;
-  rtl_hooks = sel_rtl_hooks;
-
-  /* Save create_basic_block () to use in sel_create_basic_block ().  */
-  old_create_basic_block = rtl_cfg_hooks.create_basic_block;
-  rtl_cfg_hooks.create_basic_block = sel_create_basic_block;
-
-  old_delete_basic_block = rtl_cfg_hooks.delete_basic_block;
-  rtl_cfg_hooks.delete_basic_block = rtl_delete_block_not_barriers;
+  sel_register_rtl_hooks ();
+  sel_register_cfg_hooks ();
 
   if (pipelining_p)
     {
@@ -4569,7 +4480,7 @@ sel_region_init (int rgn)
   bitmap_initialize (forced_ebb_heads, 0);
   bitmap_clear (forced_ebb_heads);
 
-  setup_empty_vinsn ();
+  setup_nop_vinsn ();
 
   return false;
 }
@@ -4592,6 +4503,30 @@ sel_region_finish (void)
       gcc_assert (VEC_empty (rhs_t, vec_av_set));
       VEC_free (rhs_t, heap, vec_av_set);
     }
+
+  /* If LV_SET of the region head should be updated, do it now because
+     there will be no other chance.  */
+  {
+    insn_t *succs;
+    int succs_num;
+    int i;
+
+    cfg_succs_1 (bb_note (EBB_FIRST_BB (0)),
+		 SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS,
+		 &succs, &succs_num);
+
+    gcc_assert (flag_sel_sched_pipelining_outer_loops
+		|| succs_num == 1);
+
+    for (i = 0; i < succs_num; i++)
+      {
+	insn_t insn = succs[i];
+	basic_block bb = BLOCK_FOR_INSN (insn);
+
+	if (!BB_LV_SET_VALID_P (bb))
+	  compute_live (insn);
+      }
+  }
 
   /* Emulate the Haifa scheduler for bundling.  */
   if (reload_completed && flag_schedule_emulate_haifa)
@@ -4804,8 +4739,7 @@ sel_region_finish (void)
 	      /* Extend luids so that insns generated by the target will
 		 get zero luid.  */
 	      sched_init_luids (NULL, NULL, NULL, NULL);
-
-	      insn_init.todo = INSN_INIT_TODO_MOVE_LV_SET_IF_BB_HEADER;
+	      insn_init.todo = 0;
 	      sel_init_new_insns ();
 	    }
         }
@@ -4818,7 +4752,7 @@ sel_region_finish (void)
 
   bitmap_clear (forced_ebb_heads);
 
-  free_empty_vinsn ();
+  free_nop_vinsn ();
 
   finish_deps_global ();
   sched_deps_local_finish ();
@@ -4826,10 +4760,8 @@ sel_region_finish (void)
 
   sel_finish_bbs ();
 
-  rtl_cfg_hooks.delete_basic_block = old_delete_basic_block;
-  rtl_cfg_hooks.create_basic_block = old_create_basic_block;
-
-  rtl_hooks = old_rtl_hooks;
+  sel_unregister_cfg_hooks ();
+  sel_unregister_rtl_hooks ();
 
   /* Reset MAX_ISSUE_SIZE.  */
   max_issue_size = 0;
@@ -5033,9 +4965,9 @@ sel_sched_region_1 (void)
       /* When pipelining outer loops, create fences on the loop header,
 	 not preheader.  */
       if (current_loop_nest)
-	init_fences (current_loop_nest->header);
+	init_fences (BB_END (EBB_FIRST_BB (0)));
       else
-	init_fences (EBB_FIRST_BB (0));
+	init_fences (bb_note (EBB_FIRST_BB (0)));
     }
 
   global_level = 1;
@@ -5067,7 +4999,7 @@ sel_sched_region_1 (void)
               for (i = 0; i < current_nr_blocks; i++)
                 {
                   bb = EBB_FIRST_BB (i);
-                  head = sel_bb_header (bb);
+                  head = sel_bb_head (bb);
 
                   /* While pipelining outer loops, skip bundling for loop 
                      preheaders.  Those will be rescheduled in the outer
@@ -5092,7 +5024,7 @@ sel_sched_region_1 (void)
   
                       gcc_assert (fences == NULL);
   
-                      init_fences (bb);
+                      init_fences (bb_note (bb));
   
                       sel_sched_region_2 (data);
   
@@ -5109,7 +5041,7 @@ sel_sched_region_1 (void)
           /* Schedule region pre-header first, if not pipelining 
              outer loops.  */
           bb = EBB_FIRST_BB (0);
-          head = sel_bb_header (bb);
+          head = sel_bb_head (bb);
           
           if (sel_is_loop_preheader_p (bb))          
             /* Don't leave old flags on insns in bb.  */
@@ -5128,7 +5060,7 @@ sel_sched_region_1 (void)
 
               gcc_assert (fences == NULL);
 
-              init_fences (bb);
+              init_fences (bb_note (bb));
 
               sel_sched_region_2 (data);
             }
@@ -5136,6 +5068,10 @@ sel_sched_region_1 (void)
           /* Reschedule pipelined code without pipelining.  */
           loop_entry = EBB_FIRST_BB (1);
 
+	  /* Please note that loop_header (not preheader) might not be in
+	     the current region.  Hence it is possible for loop_entry to have
+	     arbitrary number of predecessors.  */
+#if 0
 	  /* ??? Why don't we assert that EBB_FIRST_BB (1) is an
 	     actual loop entry?  There must be something wrong if we
 	     somehow created an extra block before the loop.  */
@@ -5143,6 +5079,7 @@ sel_sched_region_1 (void)
             loop_entry = loop_entry->next_bb;
 
           gcc_assert (loop_entry && EDGE_COUNT (loop_entry->preds) == 2);
+#endif
 
           for (i = BLOCK_TO_BB (loop_entry->index); i < current_nr_blocks; i++)
             {
@@ -5183,7 +5120,7 @@ sel_sched_region_1 (void)
 
           gcc_assert (fences == NULL);
 
-          init_fences (loop_entry);
+          init_fences (BB_END (EBB_FIRST_BB (0)));
 
           sel_sched_region_2 (data);
         }
@@ -5293,10 +5230,11 @@ sel_global_init (void)
       }
   }
 
-  setup_nop_and_exit_insns ();
-
   sel_extend_insn_rtx_data ();
 
+  setup_nop_and_exit_insns ();
+
+  sel_extend_global_bb_info ();
   init_lv_sets ();
 }
 
@@ -5304,13 +5242,16 @@ sel_global_init (void)
 static void
 sel_global_finish (void)
 {
-  free_lv_sets ();
+  free_bb_note_pool ();
 
-  sel_finish_insn_rtx_data ();
+  free_lv_sets ();
+  sel_finish_global_bb_info ();
+
+  free_regset_pool ();
 
   free_nop_and_exit_insns ();
 
-  free_regset_pool ();
+  sel_finish_insn_rtx_data ();
 
   CLEAR_REG_SET (sel_all_regs);
 

@@ -7255,6 +7255,13 @@ ia64_gen_spec_load (rtx insn, ds_t ts, int mode_no)
   return new_pat;
 }
 
+static bool
+insn_can_be_in_speculative_p (rtx insn ATTRIBUTE_UNUSED,
+			      ds_t ds ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
 /* Implement targetm.sched.speculate_insn hook.
    Check if the INSN can be TS speculative.
    If 'no' - return -1.
@@ -7267,9 +7274,13 @@ ia64_speculate_insn (rtx insn, ds_t ts, rtx *new_pat)
   int mode_no;
   int res;
   
-  gcc_assert (!(ts & ~BEGIN_SPEC));
+  gcc_assert (!(ts & ~SPECULATIVE));
 
   if (ia64_spec_check_p (insn))
+    return -1;
+
+  if ((ts & BE_IN_SPEC)
+      && !insn_can_be_in_speculative_p (insn, ts))
     return -1;
 
   mode_no = get_mode_no_for_insn (insn);
@@ -7437,8 +7448,7 @@ ia64_needs_block_p (ds_t ts)
 
   gcc_assert ((ts & BEGIN_CONTROL) != 0);
 
-  return (!((mflag_sched_spec_control_ldc && mflag_sched_spec_ldc)
-	    || SEL_SCHED_P));
+  return !(mflag_sched_spec_control_ldc && mflag_sched_spec_ldc);
 }
 
 /* Generate (or regenerate, if (MUTATE_P)) recovery check for INSN.

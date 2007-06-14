@@ -77,6 +77,7 @@ extern void sched_rgn_local_init (int);
 extern void sched_rgn_local_finish (void);
 extern void sched_rgn_local_free (void);
 extern void extend_regions (void);
+extern void rgn_make_new_region_out_of_new_block (basic_block);
 
 extern void compute_trg_info (int);
 extern void free_trg_info (void);

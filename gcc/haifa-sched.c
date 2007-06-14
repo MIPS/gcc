@@ -509,7 +509,6 @@ static void process_insn_depend_be_in_spec (rtx, rtx, ds_t);
 static void begin_speculative_block (rtx);
 static void add_to_speculative_block (rtx);
 static void init_before_recovery (void);
-static basic_block create_recovery_block (void);
 static void create_check_block_twin (rtx, bool);
 static void fix_recovery_deps (basic_block);
 static void haifa_change_pattern (rtx, rtx);
@@ -1411,13 +1410,17 @@ restore_other_notes (rtx head, basic_block head_bb)
 	  set_block_for_insn (note_head, head_bb);
 	  note_head = PREV_INSN (note_head);
 	}
-      /* In the above cycle we've missed this note:  */
+      /* In the above cycle we've missed this note.  */
       set_block_for_insn (note_head, head_bb);
 
       PREV_INSN (note_head) = PREV_INSN (head);
       NEXT_INSN (PREV_INSN (head)) = note_head;
       PREV_INSN (head) = note_list;
       NEXT_INSN (note_list) = head;
+
+      if (BLOCK_FOR_INSN (head) != head_bb)
+	BB_END (head_bb) = note_list;
+
       head = note_head;
     }
 
@@ -2717,6 +2720,8 @@ sched_init (void)
   curr_state = xmalloc (dfa_state_size);
 }
 
+static void haifa_init_only_bb (basic_block, basic_block);
+
 /* Initialize data structures specific to the Haifa scheduler.  */
 void
 haifa_sched_init (void)
@@ -2754,6 +2759,10 @@ haifa_sched_init (void)
     VEC_free (basic_block, heap, bbs);
   }
 
+  sched_init_only_bb = haifa_init_only_bb;
+  sched_split_block = sched_split_block_1;
+  sched_create_empty_bb = sched_create_empty_bb_1;
+
 #ifdef ENABLE_CHECKING
   /* This is used preferably for finding bugs in check_cfg () itself.
      We must call sched_bbs_init () before check_cfg () because check_cfg ()
@@ -2769,6 +2778,10 @@ haifa_sched_init (void)
 void
 haifa_sched_finish (void)
 {
+  sched_create_empty_bb = NULL;
+  sched_split_block = NULL;
+  sched_init_only_bb = NULL;
+
   if (spec_info && spec_info->dump)
     {
       char c = reload_completed ? 'a' : 'b';
@@ -3506,10 +3519,10 @@ init_before_recovery (void)
       basic_block single, empty;
       rtx x, label;
 
-      single = create_empty_bb (last);
-      empty = create_empty_bb (single);            
+      single = sched_create_empty_bb (last);
+      empty = sched_create_empty_bb (single);
 
-      single->count = last->count;     
+      single->count = last->count;
       empty->count = last->count;
       single->frequency = last->frequency;
       empty->frequency = last->frequency;
@@ -3529,8 +3542,8 @@ init_before_recovery (void)
           
       emit_barrier_after (x);
 
-      haifa_init_only_bb (empty, NULL);
-      haifa_init_only_bb (single, NULL);
+      sched_init_only_bb (empty, NULL);
+      sched_init_only_bb (single, NULL);
 
       before_recovery = single;
 
@@ -3544,8 +3557,8 @@ init_before_recovery (void)
 }
 
 /* Returns new recovery block.  */
-static basic_block
-create_recovery_block (void)
+basic_block
+sched_create_recovery_block (void)
 {
   rtx label;
   rtx barrier;
@@ -3553,8 +3566,7 @@ create_recovery_block (void)
   
   added_recovery_block_p = true;
 
-  if (!before_recovery)
-    init_before_recovery ();
+  init_before_recovery ();
 
   barrier = get_last_bb_insn (before_recovery);
   gcc_assert (BARRIER_P (barrier));
@@ -3576,6 +3588,57 @@ create_recovery_block (void)
   before_recovery = rec;
 
   return rec;
+}
+
+/* Create edges: FIRST_BB -> REC; FIRST_BB -> SECOND_BB; REC -> SECOND_BB
+   and emit necessary jumps.  */
+void
+sched_create_recovery_edges (basic_block first_bb, basic_block rec,
+			     basic_block second_bb)
+{
+  rtx label;
+  rtx jump;
+  edge e;
+  int edge_flags;
+
+  /* This is fixing of incoming edge.  */
+  /* ??? Which other flags should be specified?  */      
+  if (BB_PARTITION (first_bb) != BB_PARTITION (rec))
+    /* Partition type is the same, if it is "unpartitioned".  */
+    edge_flags = EDGE_CROSSING;
+  else
+    edge_flags = 0;
+      
+  e = make_edge (first_bb, rec, edge_flags);
+
+  gcc_assert (NOTE_INSN_BASIC_BLOCK_P (BB_HEAD (second_bb)));
+  label = block_label (second_bb);
+
+  jump = emit_jump_insn_after (gen_jump (label), BB_END (rec));
+  JUMP_LABEL (jump) = label;
+  LABEL_NUSES (label)++;
+
+  if (BB_PARTITION (second_bb) != BB_PARTITION (rec))
+    /* Partition type is the same, if it is "unpartitioned".  */
+    {
+      /* Rewritten from cfgrtl.c.  */
+      if (flag_reorder_blocks_and_partition
+	  && targetm.have_named_sections
+	  /*&& !any_condjump_p (jump)*/)
+	/* any_condjump_p (jump) == false.
+	   We don't need the same note for the check because
+	   any_condjump_p (check) == true.  */
+	{
+	  REG_NOTES (jump) = gen_rtx_EXPR_LIST (REG_CROSSING_JUMP,
+						NULL_RTX,
+						REG_NOTES (jump));
+	}
+      edge_flags = EDGE_CROSSING;
+    }
+  else
+    edge_flags = 0;  
+
+  make_single_succ_edge (rec, second_bb, edge_flags);  
 }
 
 /* This function creates recovery code for INSN.  If MUTATE_P is nonzero,
@@ -3605,7 +3668,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
   /* Create recovery block.  */
   if (mutate_p || targetm.sched.needs_block_p (todo_spec))
     {
-      rec = create_recovery_block ();
+      rec = sched_create_recovery_block ();
       label = BB_HEAD (rec);
     }
   else
@@ -3687,58 +3750,17 @@ create_check_block_twin (rtx insn, bool mutate_p)
     {
       basic_block first_bb, second_bb;
       rtx jump;
-      edge e;
-      int edge_flags;
 
       first_bb = BLOCK_FOR_INSN (check);
-      e = split_block (first_bb, check);
-      /* split_block emits note if *check == BB_END.  Probably it 
-	 is better to rip that note off.  */
-      gcc_assert (e->src == first_bb);
-      second_bb = e->dest;
+      second_bb = sched_split_block (first_bb, check);
 
-      /* This is fixing of incoming edge.  */
-      /* ??? Which other flags should be specified?  */      
-      if (BB_PARTITION (first_bb) != BB_PARTITION (rec))
-	/* Partition type is the same, if it is "unpartitioned".  */
-	edge_flags = EDGE_CROSSING;
-      else
-	edge_flags = 0;
-      
-      e = make_edge (first_bb, rec, edge_flags);
+      sched_create_recovery_edges (first_bb, rec, second_bb);
 
-      haifa_init_only_bb (second_bb, first_bb);
-      
-      gcc_assert (NOTE_INSN_BASIC_BLOCK_P (BB_HEAD (second_bb)));
-      label = block_label (second_bb);
-      jump = emit_jump_insn_after (gen_jump (label), BB_END (rec));
-      JUMP_LABEL (jump) = label;
-      LABEL_NUSES (label)++;
+      sched_init_only_bb (second_bb, first_bb);      
+      sched_init_only_bb (rec, EXIT_BLOCK_PTR);
+
+      jump = BB_END (rec);
       haifa_init_insn (jump);
-
-      if (BB_PARTITION (second_bb) != BB_PARTITION (rec))
-	/* Partition type is the same, if it is "unpartitioned".  */
-	{
-	  /* Rewritten from cfgrtl.c.  */
-	  if (flag_reorder_blocks_and_partition
-	      && targetm.have_named_sections
-	      /*&& !any_condjump_p (jump)*/)
-	    /* any_condjump_p (jump) == false.
-	       We don't need the same note for the check because
-	       any_condjump_p (check) == true.  */
-	    {
-	      REG_NOTES (jump) = gen_rtx_EXPR_LIST (REG_CROSSING_JUMP,
-						    NULL_RTX,
-						    REG_NOTES (jump));
-	    }
-	  edge_flags = EDGE_CROSSING;
-	}
-      else
-	edge_flags = 0;  
-      
-      make_single_succ_edge (rec, second_bb, edge_flags);  
-      
-      haifa_init_only_bb (rec, EXIT_BLOCK_PTR);
     }
 
   /* Move backward dependences from INSN to CHECK and 
@@ -3968,16 +3990,11 @@ sched_speculate_insn (rtx insn, ds_t request, rtx *new_pat)
       && side_effects_p (PATTERN (insn)))
     return -1;
   
-  if (request & BE_IN_SPEC)
-    {            
-      if (may_trap_p (PATTERN (insn)))
-        return -1;
-      
-      if (!(request & BEGIN_SPEC))
-        return 0;
-    }
+  if ((request & BE_IN_SPEC)
+      && may_trap_p (PATTERN (insn)))
+    return -1;
 
-  request &= BEGIN_SPEC;
+  request &= SPECULATIVE;
 
   return targetm.sched.speculate_insn (insn, request, new_pat);
 }
@@ -4565,7 +4582,7 @@ sched_init_bb (basic_block bb)
       /* Initialize GLAT (global_live_at_{start, end}) structures.
 	 GLAT structures are used to substitute global_live_{start, end}
 	 regsets during scheduling.  This is necessary to use such functions as
-	 split_block (), as they assume consistency of register live
+	 sched_split_block (), as they assume consistency of register live
 	 information.  */
       glat_start[bb->index] = bb->il.rtl->global_live_at_start;
       glat_end[bb->index] = bb->il.rtl->global_live_at_end;
@@ -4797,6 +4814,13 @@ sched_finish_luids (void)
   sched_max_luid = 1;
 }
 
+/* Return logical uid of INSN.  Helpful while debugging.  */
+int
+insn_luid (rtx insn)
+{
+  return INSN_LUID (insn);
+}
+
 /* Extend per insn data in the target.  */
 void
 sched_extend_target (void)
@@ -4868,8 +4892,10 @@ haifa_init_insn (rtx insn)
   haifa_init_h_i_d (NULL, NULL, NULL, insn);
 }
 
+void (* sched_init_only_bb) (basic_block, basic_block);
+
 /* Init data for the new basic block BB which comes after AFTER.  */
-void
+static void
 haifa_init_only_bb (basic_block bb, basic_block after)
 {
   gcc_assert (bb != NULL
@@ -4882,6 +4908,35 @@ haifa_init_only_bb (basic_block bb, basic_block after)
   if (common_sched_info->add_block)
     /* This changes only data structures of the front-end.  */
     common_sched_info->add_block (bb, after);
+}
+
+/* Split block function.  Different schedulers might use different functions
+   to handle their internal data consistent.  */
+basic_block (* sched_split_block) (basic_block, rtx);
+
+/* A generic version of sched_split_block ().  */
+basic_block
+sched_split_block_1 (basic_block first_bb, rtx after)
+{
+  edge e;
+
+  e = split_block (first_bb, after);
+  gcc_assert (e->src == first_bb);
+
+  /* sched_split_block emits note if *check == BB_END.  Probably it 
+     is better to rip that note off.  */
+
+  return e->dest;
+}
+
+/* Create empty basic block after the specified block.  */
+basic_block (* sched_create_empty_bb) (basic_block);
+
+/* A generic version of sched_create_empty_bb ().  */
+basic_block
+sched_create_empty_bb_1 (basic_block after)
+{
+  return create_empty_bb (after);
 }
 
 #endif /* INSN_SCHEDULING */

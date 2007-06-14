@@ -3379,6 +3379,40 @@ extend_regions (void)
   containing_rgn = XRESIZEVEC (int, containing_rgn, last_basic_block);
 }
 
+void
+rgn_make_new_region_out_of_new_block (basic_block bb)
+{
+  int i;
+      
+  i = RGN_BLOCKS (nr_regions);
+  /* I - first free position in rgn_bb_table.  */
+
+  rgn_bb_table[i] = bb->index;
+  RGN_NR_BLOCKS (nr_regions) = 1;
+  RGN_HAS_REAL_EBB (nr_regions) = 0;
+  RGN_DONT_CALC_DEPS (nr_regions) = 0;
+  RGN_HAS_RENAMING_P (nr_regions) = 0;
+  RGN_WAS_PIPELINED_P (nr_regions) = 0;
+  RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
+  CONTAINING_RGN (bb->index) = nr_regions;
+  BLOCK_TO_BB (bb->index) = 0;
+
+  nr_regions++;
+      
+  RGN_BLOCKS (nr_regions) = i + 1;
+
+  if (CHECK_DEAD_NOTES)
+    {
+      sbitmap blocks = sbitmap_alloc (last_basic_block);
+      deaths_in_region = xrealloc (deaths_in_region, nr_regions *
+				   sizeof (*deaths_in_region));
+
+      check_dead_notes1 (nr_regions - 1, blocks);
+      
+      sbitmap_free (blocks);
+    }
+}
+
 /* BB was added to ebb after AFTER.  */
 static void
 rgn_add_block (basic_block bb, basic_block after)
@@ -3387,35 +3421,8 @@ rgn_add_block (basic_block bb, basic_block after)
 
   if (after == 0 || after == EXIT_BLOCK_PTR)
     {
-      int i;
-      
-      i = RGN_BLOCKS (nr_regions);
-      /* I - first free position in rgn_bb_table.  */
-
-      rgn_bb_table[i] = bb->index;
-      RGN_NR_BLOCKS (nr_regions) = 1;
-      RGN_DONT_CALC_DEPS (nr_regions) = after == EXIT_BLOCK_PTR;
-      RGN_HAS_REAL_EBB (nr_regions) = 0;
-      RGN_HAS_RENAMING_P (nr_regions) = 0;
-      RGN_WAS_PIPELINED_P (nr_regions) = 0;
-      RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
-      CONTAINING_RGN (bb->index) = nr_regions;
-      BLOCK_TO_BB (bb->index) = 0;
-
-      nr_regions++;
-      
-      RGN_BLOCKS (nr_regions) = i + 1;
-
-      if (CHECK_DEAD_NOTES)
-        {
-          sbitmap blocks = sbitmap_alloc (last_basic_block);
-          deaths_in_region = xrealloc (deaths_in_region, nr_regions *
-				       sizeof (*deaths_in_region));
-
-          check_dead_notes1 (nr_regions - 1, blocks);
-      
-          sbitmap_free (blocks);
-        }
+      rgn_make_new_region_out_of_new_block (bb);
+      RGN_DONT_CALC_DEPS (nr_regions - 1) = (after == EXIT_BLOCK_PTR);
     }
   else
     { 

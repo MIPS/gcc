@@ -77,8 +77,6 @@ extern void sched_extend_target (void);
 extern void haifa_init_h_i_d (bb_vec_t, basic_block, insn_vec_t, rtx);
 extern void haifa_finish_h_i_d (void);
 
-extern void haifa_init_only_bb (basic_block, basic_block);
-
 /* Hooks that are common to all the schedulers.  */
 struct common_sched_info_def
 {
@@ -155,6 +153,8 @@ extern VEC (int, heap) *sched_luids;
 
 /* The highest INSN_LUID.  */
 extern int sched_max_luid;
+
+extern int insn_luid (rtx);
 
 /* Return true if NOTE is a note but not a basic block one.  */
 #define NOTE_NOT_BB_P(NOTE) (NOTE_P (NOTE) && (NOTE_LINE_NUMBER (NOTE)	\
@@ -293,6 +293,17 @@ extern int max_issue (struct ready_list *, int, state_t, int *);
 extern void ebb_compute_jump_reg_dependencies (rtx, regset, regset, regset);
 
 extern edge find_fallthru_edge (basic_block);
+
+extern void (* sched_init_only_bb) (basic_block, basic_block);
+extern basic_block (* sched_split_block) (basic_block, rtx);
+extern basic_block sched_split_block_1 (basic_block, rtx);
+extern basic_block (* sched_create_empty_bb) (basic_block);
+extern basic_block sched_create_empty_bb_1 (basic_block);
+
+extern basic_block sched_create_recovery_block (void);
+extern void sched_create_recovery_edges (basic_block, basic_block,
+					 basic_block);
+
 extern void dump_insn_slim_1 (FILE *, rtx);
 
 /* Pointer to data describing the current DFA state.  */

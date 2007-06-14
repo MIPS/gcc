@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define SEL_DUMP_CFG_INSN_FLAGS (0)
 #define SEL_DUMP_CFG_FUNCTION_NAME (256)
 #define SEL_DUMP_CFG_BB_LIVE (512)
+#define SEL_DUMP_CFG_BB_LOOP (1024)
 /* The default flags for cfg dumping.  */
 #define SEL_DUMP_CFG_FLAGS (SEL_DUMP_CFG_CURRENT_REGION \
 			    | SEL_DUMP_CFG_BB_NOTES_LIST \
@@ -45,7 +46,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 			    | SEL_DUMP_CFG_BB_INSNS \
                             | SEL_DUMP_CFG_FENCES \
                             | SEL_DUMP_CFG_INSN_SEQNO \
-                            | SEL_DUMP_CFG_INSN_FLAGS)
+                            | SEL_DUMP_CFG_INSN_FLAGS \
+			    | SEL_DUMP_CFG_BB_LOOP)
 
 enum _dump_insn_rtx
   {

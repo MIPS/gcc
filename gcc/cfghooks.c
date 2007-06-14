@@ -56,6 +56,18 @@ tree_register_cfg_hooks (void)
   cfg_hooks = &tree_cfg_hooks;
 }
 
+struct cfg_hooks
+get_cfg_hooks (void)
+{
+  return *cfg_hooks;
+}
+
+void
+set_cfg_hooks (struct cfg_hooks new_cfg_hooks)
+{
+  *cfg_hooks = new_cfg_hooks;
+}
+
 /* Returns current ir type.  */
 
 enum ir_type
