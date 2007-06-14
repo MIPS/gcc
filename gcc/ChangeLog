@@ -1,3 +1,13 @@
+2007-06-14  Nigel Stephens  <nigel@mips.com>
+
+	* config/fixed-bit.c: Rename FRACT_CONVERT, UNSIGNED_FRACT_CONVERT,
+	SAT_FRACT, UNSIGNED_SAT_FRACT to FRACT, FRACTUNS, SATFRACT,
+	SATFRACTUNS.
+	Add L_* defines for each function to support fine-grain building.
+	* config/fixed-bit.h: Rename FRACT_CONVERT, UNSIGNED_FRACT_CONVERT,
+	SAT_FRACT, UNSIGNED_SAT_FRACT to FRACT, FRACTUNS, SATFRACT,
+	SATFRACTUNS.
+
 2007-06-13  Chao-ying Fu  <fu@mips.com>
 	    Nigel Stephens  <nigel@mips.com>
 

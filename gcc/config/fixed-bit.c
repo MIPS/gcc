@@ -58,7 +58,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include "config/fixed-bit.h"
 
-#if defined(FIXED_ADD)
+#if defined(FIXED_ADD) && defined(L_add)
 FIXED_C_TYPE
 FIXED_ADD (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
@@ -76,7 +76,7 @@ FIXED_ADD (FIXED_C_TYPE a, FIXED_C_TYPE b)
 }
 #endif /* FIXED_ADD */
 
-#if defined(FIXED_SSADD)
+#if defined(FIXED_SSADD) && defined(L_ssadd)
 FIXED_C_TYPE
 FIXED_SSADD (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
@@ -104,7 +104,7 @@ FIXED_SSADD (FIXED_C_TYPE a, FIXED_C_TYPE b)
 }
 #endif /* FIXED_SSADD */
 
-#if defined(FIXED_USADD)
+#if defined(FIXED_USADD) && defined(L_usadd)
 FIXED_C_TYPE
 FIXED_USADD (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
@@ -130,7 +130,7 @@ FIXED_USADD (FIXED_C_TYPE a, FIXED_C_TYPE b)
 }
 #endif /* FIXED_USADD */
 
-#if defined(FIXED_SUB)
+#if defined(FIXED_SUB) && defined(L_sub)
 FIXED_C_TYPE
 FIXED_SUB (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
@@ -148,7 +148,7 @@ FIXED_SUB (FIXED_C_TYPE a, FIXED_C_TYPE b)
 }
 #endif /* FIXED_SUB */
 
-#if defined(FIXED_SSSUB)
+#if defined(FIXED_SSSUB) && defined(L_sssub)
 FIXED_C_TYPE
 FIXED_SSSUB (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
@@ -176,7 +176,7 @@ FIXED_SSSUB (FIXED_C_TYPE a, FIXED_C_TYPE b)
 }
 #endif /* FIXED_SSSUB */
 
-#if defined(FIXED_USSUB)
+#if defined(FIXED_USSUB) && defined(L_ussub)
 FIXED_C_TYPE
 FIXED_USSUB (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
@@ -196,7 +196,7 @@ FIXED_USSUB (FIXED_C_TYPE a, FIXED_C_TYPE b)
 }
 #endif /* FIXED_USSUB */
 
-#if defined(FIXED_SATURATE1)
+#if defined(FIXED_SATURATE1) && defined(L_saturate1)
 void
 FIXED_SATURATE1 (DINT_C_TYPE *a)
 {
@@ -216,7 +216,7 @@ FIXED_SATURATE1 (DINT_C_TYPE *a)
 }
 #endif /* FIXED_SATURATE1 */
 
-#if defined(FIXED_SATURATE2)
+#if defined(FIXED_SATURATE2) && defined(L_saturate2)
 void
 FIXED_SATURATE2 (INT_C_TYPE *high, INT_C_TYPE *low)
 {
@@ -252,7 +252,7 @@ FIXED_SATURATE2 (INT_C_TYPE *high, INT_C_TYPE *low)
 }
 #endif /* FIXED_SATURATE2 */
 
-#if defined(FIXED_MULHELPER)
+#if defined(FIXED_MULHELPER) && defined(L_mulhelper)
 FIXED_C_TYPE
 FIXED_MULHELPER (FIXED_C_TYPE a, FIXED_C_TYPE b, word_type satp)
 {
@@ -369,7 +369,7 @@ FIXED_MULHELPER (FIXED_C_TYPE a, FIXED_C_TYPE b, word_type satp)
 }
 #endif /* FIXED_MULHELPER */
 
-#if defined(FIXED_MUL)
+#if defined(FIXED_MUL) && defined(L_mul)
 FIXED_C_TYPE
 FIXED_MUL (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
@@ -377,7 +377,7 @@ FIXED_MUL (FIXED_C_TYPE a, FIXED_C_TYPE b)
 }
 #endif /* FIXED_MUL */
 
-#if defined(FIXED_SSMUL)
+#if defined(FIXED_SSMUL) && defined(L_ssmul)
 FIXED_C_TYPE
 FIXED_SSMUL (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
@@ -385,7 +385,7 @@ FIXED_SSMUL (FIXED_C_TYPE a, FIXED_C_TYPE b)
 }
 #endif /* FIXED_SSMUL */
 
-#if defined(FIXED_USMUL)
+#if defined(FIXED_USMUL) && defined(L_usmul)
 FIXED_C_TYPE
 FIXED_USMUL (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
@@ -393,7 +393,7 @@ FIXED_USMUL (FIXED_C_TYPE a, FIXED_C_TYPE b)
 }
 #endif /* FIXED_USMUL */
 
-#if defined(FIXED_DIVHELPER)
+#if defined(FIXED_DIVHELPER) && defined(L_divhelper)
 FIXED_C_TYPE
 FIXED_DIVHELPER (FIXED_C_TYPE a, FIXED_C_TYPE b, word_type satp)
 {
@@ -507,7 +507,7 @@ FIXED_DIVHELPER (FIXED_C_TYPE a, FIXED_C_TYPE b, word_type satp)
 }
 #endif /* FIXED_DIVHELPER */
 
-#if defined(FIXED_DIV)
+#if defined(FIXED_DIV) && defined(L_div)
 FIXED_C_TYPE
 FIXED_DIV (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
@@ -516,7 +516,7 @@ FIXED_DIV (FIXED_C_TYPE a, FIXED_C_TYPE b)
 #endif /* FIXED_DIV */
 
 
-#if defined(FIXED_UDIV)
+#if defined(FIXED_UDIV) && defined(L_udiv)
 FIXED_C_TYPE
 FIXED_UDIV (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
@@ -524,7 +524,7 @@ FIXED_UDIV (FIXED_C_TYPE a, FIXED_C_TYPE b)
 }
 #endif /* FIXED_UDIV */
 
-#if defined(FIXED_SSDIV)
+#if defined(FIXED_SSDIV) && defined(L_ssdiv)
 FIXED_C_TYPE
 FIXED_SSDIV (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
@@ -532,7 +532,7 @@ FIXED_SSDIV (FIXED_C_TYPE a, FIXED_C_TYPE b)
 }
 #endif /* FIXED_SSDIV */
 
-#if defined(FIXED_USDIV)
+#if defined(FIXED_USDIV) && defined(L_usdiv)
 FIXED_C_TYPE
 FIXED_USDIV (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
@@ -540,7 +540,7 @@ FIXED_USDIV (FIXED_C_TYPE a, FIXED_C_TYPE b)
 }
 #endif /* FIXED_USDIV */
 
-#if defined(FIXED_NEG)
+#if defined(FIXED_NEG) && defined(L_neg)
 FIXED_C_TYPE
 FIXED_NEG (FIXED_C_TYPE a)
 {
@@ -557,7 +557,7 @@ FIXED_NEG (FIXED_C_TYPE a)
 }
 #endif /* FIXED_NEG */
 
-#if defined(FIXED_SSNEG)
+#if defined(FIXED_SSNEG) && defined(L_ssneg)
 FIXED_C_TYPE
 FIXED_SSNEG (FIXED_C_TYPE a)
 {
@@ -585,7 +585,7 @@ FIXED_SSNEG (FIXED_C_TYPE a)
 }
 #endif /* FIXED_SSNEG */
 
-#if defined(FIXED_USNEG)
+#if defined(FIXED_USNEG) && defined(L_usneg)
 FIXED_C_TYPE
 FIXED_USNEG (FIXED_C_TYPE a __attribute__ ((__unused__)))
 {
@@ -597,7 +597,7 @@ FIXED_USNEG (FIXED_C_TYPE a __attribute__ ((__unused__)))
 }
 #endif /* FIXED_USNEG */
 
-#if defined(FIXED_ASHLHELPER)
+#if defined(FIXED_ASHLHELPER) && defined(L_ashlhelper)
 FIXED_C_TYPE
 FIXED_ASHLHELPER (FIXED_C_TYPE a, word_type b, word_type satp)
 {
@@ -649,7 +649,7 @@ FIXED_ASHLHELPER (FIXED_C_TYPE a, word_type b, word_type satp)
 }
 #endif /* FIXED_ASHLHELPER */
 
-#if defined(FIXED_ASHL)
+#if defined(FIXED_ASHL) && defined(L_ashl)
 FIXED_C_TYPE
 FIXED_ASHL (FIXED_C_TYPE a, word_type b)
 {
@@ -657,7 +657,7 @@ FIXED_ASHL (FIXED_C_TYPE a, word_type b)
 }
 #endif /* FIXED_ASHL */
 
-#if defined(FIXED_ASHR)
+#if defined(FIXED_ASHR) && defined(L_ashr)
 FIXED_C_TYPE
 FIXED_ASHR (FIXED_C_TYPE a, word_type b)
 {
@@ -674,7 +674,7 @@ FIXED_ASHR (FIXED_C_TYPE a, word_type b)
 }
 #endif /* FIXED_ASHR */
 
-#if defined(FIXED_LSHR)
+#if defined(FIXED_LSHR) && defined(L_lshr)
 FIXED_C_TYPE
 FIXED_LSHR (FIXED_C_TYPE a, word_type b)
 {
@@ -691,7 +691,7 @@ FIXED_LSHR (FIXED_C_TYPE a, word_type b)
 }
 #endif /* FIXED_LSHR */
 
-#if defined(FIXED_SSASHL)
+#if defined(FIXED_SSASHL) && defined(L_ssashl)
 FIXED_C_TYPE
 FIXED_SSASHL (FIXED_C_TYPE a, word_type b)
 {
@@ -699,7 +699,7 @@ FIXED_SSASHL (FIXED_C_TYPE a, word_type b)
 }
 #endif /* FIXED_SSASHL */
 
-#if defined(FIXED_USASHL)
+#if defined(FIXED_USASHL) && defined(L_usashl)
 FIXED_C_TYPE
 FIXED_USASHL (FIXED_C_TYPE a, word_type b)
 {
@@ -707,7 +707,7 @@ FIXED_USASHL (FIXED_C_TYPE a, word_type b)
 }
 #endif /* FIXED_USASHL */
 
-#if defined(FIXED_CMP)
+#if defined(FIXED_CMP) && defined(L_cmp)
 word_type
 FIXED_CMP (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
@@ -725,9 +725,9 @@ FIXED_CMP (FIXED_C_TYPE a, FIXED_C_TYPE b)
 #endif /* FIXED_CMP */
 
 /* Fixed -> Fixed.  */
-#if defined(FRACT_CONVERT) && FROM_TYPE == 4 && TO_TYPE == 4
+#if defined(FRACT) && defined(L_fract) && FROM_TYPE == 4 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-FRACT_CONVERT (FROM_FIXED_C_TYPE a)
+FRACT (FROM_FIXED_C_TYPE a)
 {
   TO_FIXED_C_TYPE c;
   FROM_INT_C_TYPE x;
@@ -751,12 +751,12 @@ FRACT_CONVERT (FROM_FIXED_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* FRACT_CONVERT && FROM_TYPE == 4 && TO_TYPE == 4  */
+#endif /* FRACT && FROM_TYPE == 4 && TO_TYPE == 4  */
 
 /* Fixed -> Fixed with saturation.  */
-#if defined(SAT_FRACT) && FROM_TYPE == 4 && TO_TYPE == 4
+#if defined(SATFRACT) && defined(L_satfract) && FROM_TYPE == 4 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-SAT_FRACT (FROM_FIXED_C_TYPE a)
+SATFRACT (FROM_FIXED_C_TYPE a)
 {
   TO_FIXED_C_TYPE c;
   TO_INT_C_TYPE z;
@@ -867,12 +867,12 @@ SAT_FRACT (FROM_FIXED_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* defined(SAT_FRACT) && FROM_TYPE == 4 && TO_TYPE == 4  */
+#endif /* defined(SATFRACT) && FROM_TYPE == 4 && TO_TYPE == 4  */
 
 /* Fixed -> Int.  */
-#if defined(FRACT_CONVERT) && FROM_TYPE == 4 && TO_TYPE == 1
+#if defined(FRACT) && defined(L_fract) && FROM_TYPE == 4 && TO_TYPE == 1
 TO_INT_C_TYPE
-FRACT_CONVERT (FROM_FIXED_C_TYPE a)
+FRACT (FROM_FIXED_C_TYPE a)
 {
   FROM_INT_C_TYPE x;
   TO_INT_C_TYPE z;
@@ -901,12 +901,12 @@ FRACT_CONVERT (FROM_FIXED_C_TYPE a)
   z = (TO_INT_C_TYPE) x;
   return z;
 }
-#endif /* defined(FRACT_CONVERT) && FROM_TYPE == 4 && TO_TYPE == 1  */
+#endif /* defined(FRACT) && FROM_TYPE == 4 && TO_TYPE == 1  */
 
 /* Fixed -> Unsigned int.  */
-#if defined(UNSIGNED_FRACT_CONVERT) && FROM_TYPE == 4 && TO_TYPE == 2
+#if defined(FRACTUNS) && defined(L_fractuns) && FROM_TYPE == 4 && TO_TYPE == 2
 TO_INT_C_TYPE
-UNSIGNED_FRACT_CONVERT (FROM_FIXED_C_TYPE a)
+FRACTUNS (FROM_FIXED_C_TYPE a)
 {
   FROM_INT_C_TYPE x;
   TO_INT_C_TYPE z;
@@ -935,12 +935,12 @@ UNSIGNED_FRACT_CONVERT (FROM_FIXED_C_TYPE a)
   z = (TO_INT_C_TYPE) x;
   return z;
 }
-#endif /* defined(UNSIGNED_FRACT_CONVERT) && FROM_TYPE == 4 && TO_TYPE == 2  */
+#endif /* defined(FRACTUNS) && FROM_TYPE == 4 && TO_TYPE == 2  */
 
 /* Int -> Fixed.  */
-#if defined(FRACT_CONVERT) && FROM_TYPE == 1 && TO_TYPE == 4
+#if defined(FRACT) && defined(L_fract) && FROM_TYPE == 1 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-FRACT_CONVERT (FROM_INT_C_TYPE a)
+FRACT (FROM_INT_C_TYPE a)
 {
   TO_FIXED_C_TYPE c;
   TO_INT_C_TYPE z;
@@ -957,12 +957,12 @@ FRACT_CONVERT (FROM_INT_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* defined(FRACT_CONVERT) && FROM_TYPE == 1 && TO_TYPE == 4  */
+#endif /* defined(FRACT) && FROM_TYPE == 1 && TO_TYPE == 4  */
 
 /* Signed int -> Fixed with saturation.  */
-#if defined(SAT_FRACT) && FROM_TYPE == 1 && TO_TYPE == 4
+#if defined(SATFRACT) && defined(L_satfract) &&FROM_TYPE == 1 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-SAT_FRACT (FROM_INT_C_TYPE a)
+SATFRACT (FROM_INT_C_TYPE a)
 {
   TO_FIXED_C_TYPE c;
   TO_INT_C_TYPE z;
@@ -1045,12 +1045,12 @@ SAT_FRACT (FROM_INT_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* defined(SAT_FRACT) && FROM_TYPE == 1 && TO_TYPE == 4  */
+#endif /* defined(SATFRACT) && FROM_TYPE == 1 && TO_TYPE == 4  */
 
 /* Unsigned int -> Fixed.  */
-#if defined(UNSIGNED_FRACT_CONVERT) && FROM_TYPE == 2 && TO_TYPE == 4
+#if defined(FRACTUNS) && defined(L_fractuns) &&FROM_TYPE == 2 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-UNSIGNED_FRACT_CONVERT (FROM_INT_C_TYPE a)
+FRACTUNS (FROM_INT_C_TYPE a)
 {
   TO_FIXED_C_TYPE c;
   TO_INT_C_TYPE z;
@@ -1067,12 +1067,12 @@ UNSIGNED_FRACT_CONVERT (FROM_INT_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* defined(UNSIGNED_FRACT_CONVERT) && FROM_TYPE == 2 && TO_TYPE == 4  */
+#endif /* defined(FRACTUNS) && FROM_TYPE == 2 && TO_TYPE == 4  */
 
 /* Unsigned int -> Fixed with saturation.  */
-#if defined(UNSIGNED_SAT_FRACT) && FROM_TYPE == 2 && TO_TYPE == 4
+#if defined(SATFRACTUNS) && defined(L_satfractuns) && FROM_TYPE == 2 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-UNSIGNED_SAT_FRACT (FROM_INT_C_TYPE a)
+SATFRACTUNS (FROM_INT_C_TYPE a)
 {
   TO_FIXED_C_TYPE c;
   TO_INT_C_TYPE z;
@@ -1134,12 +1134,12 @@ UNSIGNED_SAT_FRACT (FROM_INT_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* defined(UNSIGNED_SAT_FRACT) && FROM_TYPE == 2 && TO_TYPE == 4  */
+#endif /* defined(SATFRACTUNS) && FROM_TYPE == 2 && TO_TYPE == 4  */
 
 /* Fixed -> Float.  */
-#if defined(FRACT_CONVERT) && FROM_TYPE == 4 && TO_TYPE == 3
+#if defined(FRACT) && defined(L_fract) && FROM_TYPE == 4 && TO_TYPE == 3
 TO_FLOAT_C_TYPE
-FRACT_CONVERT (FROM_FIXED_C_TYPE a)
+FRACT (FROM_FIXED_C_TYPE a)
 {
   FROM_INT_C_TYPE x;
   TO_FLOAT_C_TYPE z;
@@ -1148,12 +1148,12 @@ FRACT_CONVERT (FROM_FIXED_C_TYPE a)
   z = z / BASE;
   return z;
 }
-#endif /* defined(FRACT_CONVERT) && FROM_TYPE == 4 && TO_TYPE == 3  */
+#endif /* defined(FRACT) && FROM_TYPE == 4 && TO_TYPE == 3  */
 
 /* Float -> Fixed.  */
-#if defined(FRACT_CONVERT) && FROM_TYPE == 3 && TO_TYPE == 4
+#if defined(FRACT) && defined(L_fract) && FROM_TYPE == 3 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-FRACT_CONVERT (FROM_FLOAT_C_TYPE a)
+FRACT (FROM_FLOAT_C_TYPE a)
 {
   FROM_FLOAT_C_TYPE temp;
   TO_INT_C_TYPE z;
@@ -1168,12 +1168,12 @@ FRACT_CONVERT (FROM_FLOAT_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* defined(FRACT_CONVERT) && FROM_TYPE == 3 && TO_TYPE == 4  */
+#endif /* defined(FRACT) && FROM_TYPE == 3 && TO_TYPE == 4  */
 
 /* Float -> Fixed with saturation.  */
-#if defined(SAT_FRACT) && FROM_TYPE == 3 && TO_TYPE == 4
+#if defined(SATFRACT) && defined(L_satfract) && FROM_TYPE == 3 && TO_TYPE == 4
 TO_FIXED_C_TYPE
-SAT_FRACT (FROM_FLOAT_C_TYPE a)
+SATFRACT (FROM_FLOAT_C_TYPE a)
 {
   FROM_FLOAT_C_TYPE temp;
   TO_INT_C_TYPE z;
@@ -1209,5 +1209,5 @@ SAT_FRACT (FROM_FLOAT_C_TYPE a)
   memcpy (&c, &z, TO_FIXED_SIZE);
   return c;
 }
-#endif /* defined(SAT_FRACT) && FROM_TYPE == 3 && TO_TYPE == 4  */
+#endif /* defined(SATFRACT) && FROM_TYPE == 3 && TO_TYPE == 4  */
 
