@@ -1,3 +1,71 @@
+2007-06-14  Andrey Belevantsev  <abel@ispras.ru>
+
+        * sel-sched-ir.h (struct _expr): New field changed_on_insns.
+        (EXPR_CHANGED_ON_INSNS): New macro.
+        (copy_expr_onside): Declare.
+
+        * sel-sched.c: Kill #if 0'd code.
+        (undo_transformations): New function.  
+        (un_substitute): Adapt for undo_transformations.  Add RHS parameter, 
+        rename AV_PTR parameter to NEW_SET_PTR.  Kill #if 0'd code.  Process
+        just one RHS instead of looping through the whole av set.
+        (un_speculate): Likewise. 
+        (moveup_set_rhs): When an expr has been changed, mark this.
+        (equal_after_moveup_path_p): Use copy_expr_onside instead of 
+        copy_expr.
+        (generate_bookkeeping_insns): Likewise.
+        (find_used_regs_1): Use undo_transformations.
+        (move_op): Likewise.  Also use copy_expr_onside.
+
+        * sel-sched-ir.c (init_expr): Add changed_on parameter.  Use it.
+        Update all callers.
+        (copy_expr_onside): New function.
+        (merge_expr_data): Merge cache bitmaps.
+        (clear_expr): Free the cache bitmap.
+        (av_set_union_and_clear): Set *FROMP to NULL to mark that it's empty.
+        
+2007-06-13  Alexander Monakov  <amonakov@ispras.ru>
+
+        * haifa-sched.c (haifa_classify_insn_1): Rename from
+        haifa_classify_insn, add COND_EXEC handling, use recursion to analyze
+        PARALLEL and COND_EXEC.
+        (haifa_classify_insn): New implementation.
+        * sel-sched.c (CANT_MOVE_TRAPPING): New macro.
+        (moveup_rhs): Use it.
+
+2007-06-13  Andrey Belevantsev  <abel@ispras.ru>
+
+        * common.opt (fsel-sched-substitute-inside-insn-group): New flag.
+        * sel-sched.c (moveup_rhs_inside_insn_group): New.
+        (moveup_rhs): Add inside_insn_group parameter.  When it is true,
+        use the above function.  Kill unneeded comment.
+        (moveup_set_rhs): Add inside_insn_group parameter.  Pass it to 
+        moveup_rhs.
+        (equal_after_moveup_path_p_1): Call moveup_rhs with inside_insn_group
+        set to true.
+        (compute_av_set): Call moveup_set_rhs with inside_insn_group == false.
+        (find_used_regs_1): Tidy.
+        (generate_bookkeeping_insn): Kill #if 0'd code.
+        (fill_insns): Add to rhs_seq expressions from boundaries' av sets 
+        instead of rhs_vliw.  Put correct register in them.  Fix comment.
+        Take pattern for the final insn to schedule from rhs_vliw.
+        Move comment before 'if'.  Kill unneeded scope.
+        (sel_region_init): Enable moveup_set_path when the user requested
+        substitution inside insn groups.
+        (sel_global_init): Do not pipeline outer loops when the user doesn't
+        permit any kind of pipelining.
+        * sel-sched-ir.c: Include sel-sched-dump.h.  Use again sel_print_insn
+        as a debug hook. 
+        (RHS_DEST): New macro.
+        * sel-sched-dump.c (sel_print_insn): Resurrect.  Fix it to not 
+        segfault, use new macros.
+        * sched-vis.c (dump_insn_slim_1): Pass 1 instead of 0 to print_insn.
+        * config/ia64/ia64.opt (msched-spec-verbose, msched-prefer-non-data-spec-insns,
+        msched-prefer-non-control-spec-insns, msched-count-spec-in-critical-path,
+        msel-sched-renaming, msel-sched-substitution, msel-sched-data-spec, 
+        msel-sched-control-spec, msel-sched-dont-check-control-spec): Use Target 
+        Report Var instead of Common Report Var.
+
 2007-06-06  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
 
 	Update various pieces of infrastructure.

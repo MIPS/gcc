@@ -106,6 +106,10 @@ struct _expr
   /* SPEC_TO_CHECK_DS hold speculation types that should be checked
      (used only during move_op ()).  */
   ds_t spec_to_check_ds;
+
+  /* Here an INSN_LUID (insn) bit is set when this expr was changed when 
+     moving through insn.  */
+  bitmap changed_on_insns;
 };
 
 typedef struct _expr expr_def;
@@ -127,6 +131,7 @@ typedef expr_t rhs_t;
 #define EXPR_SCHED_TIMES(EXPR) ((EXPR)->sched_times)
 #define EXPR_SPEC_DONE_DS(EXPR) ((EXPR)->spec_done_ds)
 #define EXPR_SPEC_TO_CHECK_DS(EXPR) ((EXPR)->spec_to_check_ds)
+#define EXPR_CHANGED_ON_INSNS(EXPR) ((EXPR)->changed_on_insns)
 
 /* Obsolete. */
 #define RHS_VINSN(RHS) ((RHS)->vinsn)
@@ -835,6 +840,7 @@ extern insn_t sel_gen_insn_from_expr_after (expr_t, int, insn_t);
 /* RHS functions.  */
 extern bool vinsns_correlate_as_rhses_p (vinsn_t, vinsn_t);
 extern void copy_expr (expr_t, expr_t);
+extern void copy_expr_onside (expr_t, expr_t);
 extern void merge_expr_data (expr_t, expr_t);
 extern void merge_expr (expr_t, expr_t);
 extern void clear_expr (expr_t);

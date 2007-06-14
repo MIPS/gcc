@@ -442,153 +442,76 @@ rtx_search (rtx what, rtx where)
   return (count_occurrences_equiv (what, where, 1) > 0);
 }
 
-/* FIXME: see comment in the un_substitute function regarding filtering
-   input av_set.  */
-#if 0
-/* Remove all RHSes which use X from av_set DATA.  Auxiliary function for 
-   un_substitute.  */
-static void
-remove_if_has_source (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
-{
-  rtx_search_arg_p arg = (rtx_search_arg_p) data;
-  rhs_t rhs;
-
-  /* Already removed with another call.  */
-  if (arg->n > 0)
-    return;
-
-  /* Don't count scratches.  */
-  if (GET_CODE (x) == SCRATCH)
-    return;
-
-  arg->n++;
-
-  rhs = _AV_SET_RHS (*arg->iter->lp);
-
-  if (RHS_SCHEDULE_AS_RHS (rhs))
-    {
-      /* Search only in VINSN_RHS.  */
-      if (rtx_search (x, VINSN_RHS (RHS_VINSN (rhs))))
-	av_set_iter_remove (arg->iter);
-    }
-  else
-    {
-      /* Search the whole insn.  Count also set's dest.  */
-      if (rtx_search (x, RHS_PAT (rhs)))
-	av_set_iter_remove (arg->iter);
-    }
-}
-#endif
-
 /* if INSN is a copy x:=y and if there is an rhs r in AV that uses y, 
    it adds all variants of r to AV derived by replacing one or more
    occurrences of y by x.  */
 static void
-un_substitute (av_set_t *av_ptr, rtx insn)
+un_substitute (rhs_t rhs, rtx insn, av_set_t *new_set_ptr)
 {
-  av_set_iterator av_iter;
-  rhs_t rhs;
-  av_set_t new_set;
   rtx pat, src_reg, dst_reg;
-
+  vinsn_t vi;
+  rtx where_count;
+  unsigned n_occur;
+  unsigned long bitmask;
+  
   if (!flag_sel_sched_substitution)
     return;
-
-  new_set = NULL;
-
-  pat = PATTERN (insn);
-
-
-  /* FIXME: Enable *AV_PTR filtering, so un_substitute will remove those
-     elements of AV whose sources (and destinations for !RHS_SCHEDULE_AS_RHS 
-     rhses) are set by INSN.  This filtering used for optimization, and it's
-     presence doesn't affect the correctness.  */
-#if 0
-  /* First remove all elements of SETP whose sources are set by INSN, but
-     it's insn isn't conditionally mutexed by the predicates.  */
-  FOR_EACH_RHS_1 (rhs, av_iter, av_ptr)
-    {
-      struct rtx_search_arg arg;
-
-      arg.iter = &av_iter;
-      /* Only first note_store matters.  */
-      arg.n = 0;
-
-      /* FIXME: this is written with assumption that cond_execs are not yet
-	 schedulable as rhses.  */
-      gcc_assert (rhs == _AV_SET_RHS (*av_iter.lp));
-      if (RHS_SCHEDULE_AS_RHS (rhs) 
-	  || !sched_insns_conditions_mutex_p (insn, RHS_INSN (rhs)))
-	note_stores (pat, remove_if_has_source, (void *) &arg);
-    }
-#endif
 
   /* Catch X := Y insns, where X and Y are regs.  Otherwise return.  */
   if (!insn_eligible_for_subst_p (insn))
     return;
 
+  pat = PATTERN (insn);
   src_reg = SET_SRC (pat);
   dst_reg = SET_DEST (pat);
+  vi = RHS_VINSN (rhs);
 
-  FOR_EACH_RHS (rhs, av_iter, *av_ptr)
+  where_count = (VINSN_SEPARABLE_P (vi) 
+                 ? VINSN_RHS (vi) : VINSN_PATTERN (vi));
+
+  n_occur = count_occurrences_equiv (src_reg, where_count, 0);
+
+  /* Try next rhs, if no occurences.  */
+  if (!n_occur)
+    return;
+  
+  /* Make sure we have enough bits to handle all substitutions.  */
+  gcc_assert (n_occur < sizeof (unsigned long) * 8);
+
+  /* Generate the replacement mask and perform the substitution
+     according to it.  Every "one" with index K in bitmap mask means 
+     we change the K-th occurence of SRC_REG with DST_REG, "0" means we
+     skip it.  We already have the replacement configuration for 
+     bitmask == 0 in the original set.  */	 
+  for (bitmask = 1; bitmask < ((unsigned long)1 << n_occur); bitmask++)
     {
-      vinsn_t vi = RHS_VINSN (rhs);
-      rtx where_count;
-      unsigned n_occur;
-      unsigned long bitmask;
+      expr_def _tmp_rhs, *tmp_rhs = &_tmp_rhs;
+      rtx new_insn;
+      vinsn_t new_vi;
+      rtx *wherep;
 
-      where_count = (VINSN_SEPARABLE_P (vi) ?
-		     VINSN_RHS (vi) : VINSN_PATTERN (vi));
+      new_insn = create_copy_of_insn_rtx (VINSN_INSN (vi));
 
-      n_occur = count_occurrences_equiv (src_reg, where_count, 0);
+      wherep = (VINSN_SEPARABLE_P (vi)
+                ? &SET_SRC (PATTERN (new_insn))
+                : &PATTERN (new_insn));
+      
+      replace_in_rtx_using_bitmask (wherep, src_reg, dst_reg, bitmask);
+      
+      if (!insn_rtx_valid (new_insn))
+        continue;
+      
+      new_vi = create_vinsn_from_insn_rtx (new_insn);
 
-      /* Try next rhs, if no occurences.  */
-      if (!n_occur)
-	continue;
-
-      /* Make sure we have enough bits to handle all substitutions.  */
-      gcc_assert (n_occur < sizeof (unsigned long) * 8);
-
-      /* Generate the replacement mask and perform the substitution
-	 according to it.  Every "one" with index K in bitmap mask means 
-	 we change the K-th occurence of SRC_REG with DST_REG, "0" means we
-	 skip it.  We already have the replacement configuration for 
-	 bitmask == 0 in the original set.  */	 
-      for (bitmask = 1; bitmask < ((unsigned long)1 << n_occur); bitmask++)
-	{
-	  vinsn_t vi = RHS_VINSN (rhs);
-	  expr_def _tmp_rhs, *tmp_rhs = &_tmp_rhs;
-	  rtx new_insn;
-	  rtx *wherep;
-
-  	  new_insn = create_copy_of_insn_rtx (VINSN_INSN (vi));
-
-	  wherep = (VINSN_SEPARABLE_P (vi)
-		    ? &SET_SRC (PATTERN (new_insn))
-		    : &PATTERN (new_insn));
-
-	  replace_in_rtx_using_bitmask (wherep, src_reg, dst_reg, bitmask);
-
-	  if (!insn_rtx_valid (new_insn))
-	    {
-	      /* It would nice to free new_insn or return it to some pool.  */
-	      continue;
-	    }
-
-	  vi = create_vinsn_from_insn_rtx (new_insn);
-
-	  gcc_assert (VINSN_SEPARABLE_P (vi)
-		      == EXPR_SEPARABLE_P (rhs));
-
-	  copy_expr (tmp_rhs, rhs);
-	  change_vinsn_in_expr (tmp_rhs, vi);
-
-	  av_set_add (&new_set, tmp_rhs);
-
-	  clear_expr (tmp_rhs);
-	}
+      gcc_assert (VINSN_SEPARABLE_P (new_vi) == EXPR_SEPARABLE_P (rhs));
+      
+      copy_expr (tmp_rhs, rhs);
+      change_vinsn_in_expr (tmp_rhs, vi);
+      
+      av_set_add (new_set_ptr, tmp_rhs);
+      
+      clear_expr (tmp_rhs);
     }
-  av_set_union_and_clear (av_ptr, &new_set);
 }
 
 
@@ -1481,55 +1404,72 @@ has_spec_dependence_p (expr_t expr, insn_t insn)
 /* Add to AVP those exprs that might have been transformed to their speculative
    versions when moved through INSN.  */
 static void
-un_speculate (av_set_t *avp, insn_t insn)
+un_speculate (expr_t expr, insn_t insn, av_set_t *new_set_ptr)
 {
-  av_set_iterator av_it;
-  expr_t expr;
-  av_set_t new_av;
+  ds_t expr_spec_done_ds;
+  ds_t full_ds;
 
   if (spec_info == NULL || !sel_speculation_p)
     return;
+  
+  expr_spec_done_ds = EXPR_SPEC_DONE_DS (expr);
+  if (expr_spec_done_ds == 0)
+    return;
 
-  new_av = NULL;
-
-  FOR_EACH_RHS (expr, av_it, *avp)
+  full_ds = has_spec_dependence_p (expr, insn);
+  if (full_ds == 0)
+    return;
+  
+  {
+    expr_def _new_expr, *new_expr = &_new_expr;
+    
+    copy_expr (new_expr, expr);
+    
     {
-      ds_t expr_spec_done_ds = EXPR_SPEC_DONE_DS (expr);
-      ds_t full_ds;
-
-      if (expr_spec_done_ds == 0)
-	continue;
-
-      full_ds = has_spec_dependence_p (expr, insn);
-
-      if (full_ds == 0)
-	continue;
-
-      {
-	expr_def _new_expr, *new_expr = &_new_expr;
-
-	copy_expr (new_expr, expr);
-
-	{
-	  bool b;
-
-	  full_ds = ds_get_speculation_types (full_ds);
-	  expr_spec_done_ds &= ~full_ds;
-
-	  b = apply_spec_to_expr (new_expr, expr_spec_done_ds);
-	  gcc_assert (b);
-
-	  EXPR_SPEC_TO_CHECK_DS (new_expr) |= full_ds;
-	}
-
-	av_set_add (&new_av, new_expr);
-
-	clear_expr (new_expr);
-      }
+      bool b;
+      
+      full_ds = ds_get_speculation_types (full_ds);
+      expr_spec_done_ds &= ~full_ds;
+      
+      b = apply_spec_to_expr (new_expr, expr_spec_done_ds);
+      gcc_assert (b);
+      
+      EXPR_SPEC_TO_CHECK_DS (new_expr) |= full_ds;
     }
-
-  av_set_union_and_clear (avp, &new_av);
+    
+    av_set_add (new_set_ptr, new_expr);
+    
+    clear_expr (new_expr);
+  }
 }
+
+
+/* Undo all transformations on *AV_PTR that were done when 
+   moving through INSN.  */
+static void
+undo_transformations (av_set_t *av_ptr, rtx insn)
+{
+  av_set_iterator av_iter;
+  rhs_t rhs;
+  av_set_t new_set = NULL;
+
+  FOR_EACH_RHS (rhs, av_iter, *av_ptr)
+    {
+      if (bitmap_bit_p (EXPR_CHANGED_ON_INSNS (rhs), INSN_LUID (insn)))
+        un_speculate (rhs, insn, &new_set);
+    }
+  
+  av_set_union_and_clear (av_ptr, &new_set);
+
+  FOR_EACH_RHS (rhs, av_iter, *av_ptr)
+    {
+      if (bitmap_bit_p (EXPR_CHANGED_ON_INSNS (rhs), INSN_LUID (insn)))
+        un_substitute (rhs, insn, &new_set);
+    }
+  
+  av_set_union_and_clear (av_ptr, &new_set);
+}
+
 
 /* Moveup_* helpers for code motion and computing av sets.  */
 
@@ -1759,6 +1699,9 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
 	  break;
 	case MOVEUP_RHS_CHANGED:
 	  print (" - changed");
+          
+          /* Mark that this insn changed this expr.  */
+          bitmap_set_bit (EXPR_CHANGED_ON_INSNS (rhs), INSN_LUID (insn));
 
 	  {
 	    rhs_t rhs2 = av_set_lookup_other_equiv_rhs (*avp, RHS_VINSN (rhs));
@@ -1846,7 +1789,7 @@ equal_after_moveup_path_p (rhs_t cur_rhs, ilist_t path, rhs_t rhs_vliw)
   expr_def _tmp, *tmp = &_tmp;
   bool res_p;
 
-  copy_expr (tmp, cur_rhs);
+  copy_expr_onside (tmp, cur_rhs);
 
   if (path)
     {
@@ -2409,9 +2352,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
 	 To find them below it, we have to un-speculate and un-substitute
 	 them.  */
 
-      un_speculate (&orig_ops, insn);
-
-      un_substitute (&orig_ops, insn);
+      undo_transformations (&orig_ops, insn);
 
       /* If all original operands have been filtered on this branch,
 	 return.  */
@@ -3357,7 +3298,7 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
 
     new_insn_rtx = create_copy_of_insn_rtx (EXPR_INSN_RTX (c_rhs));
     new_vinsn = create_vinsn_from_insn_rtx (new_insn_rtx);
-    copy_expr (new_expr, c_rhs);
+    copy_expr_onside (new_expr, c_rhs);
     change_vinsn_in_expr (new_expr, new_vinsn);
 
     if (EXPR_SCHED_TIMES (new_expr)
@@ -3973,7 +3914,7 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
     /* We have found the original operation.  Replace it by REG, if 
        it is scheduled as RHS, or just remove it later, if it's an insn.  */
     {
-      copy_expr (c_rhs, INSN_EXPR (insn));
+      copy_expr_onside (c_rhs, INSN_EXPR (insn));
       c_rhs_inited_p = true;
 
       /* When an insn we found is not equal to the insn from the orig_ops 
@@ -4106,13 +4047,9 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 	   clonable but not separable insns.  */
 	av_set_clear (&orig_ops);
       else
-	{
-	  un_speculate (&orig_ops, insn);
-
-	  /* Av set ops could have been changed when moving through this insn.
-	     To find them below it, we have to un-substitute them.  */
-	  un_substitute (&orig_ops, insn);
-	}
+        /* Av set ops could have been changed when moving through this insn.
+           To find them below it, we have to un-substitute them.  */
+        undo_transformations (&orig_ops, insn);
 
       /* If all original opernads have been filtered on this branch,
 	 return.  */
@@ -4149,7 +4086,7 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 
 	      if (!c_rhs_inited_p)
 		{
-		  copy_expr (c_rhs, x);
+		  copy_expr_onside (c_rhs, x);
 		  c_rhs_inited_p = true;
 		}
 	      else

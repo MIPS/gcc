@@ -1128,7 +1128,7 @@ vinsns_correlate_as_rhses_p (vinsn_t x, vinsn_t y)
 /* Initialize RHS.  */
 static void
 init_expr (expr_t expr, vinsn_t vi, int spec, int priority, int sched_times,
-	   ds_t spec_done_ds, ds_t spec_to_check_ds)
+	   ds_t spec_done_ds, ds_t spec_to_check_ds, bitmap changed_on)
 {
   vinsn_attach (vi);
 
@@ -1138,15 +1138,33 @@ init_expr (expr_t expr, vinsn_t vi, int spec, int priority, int sched_times,
   EXPR_SCHED_TIMES (expr) = sched_times;
   EXPR_SPEC_DONE_DS (expr) = spec_done_ds;
   EXPR_SPEC_TO_CHECK_DS (expr) = spec_to_check_ds;
+
+  if (changed_on)
+    EXPR_CHANGED_ON_INSNS (expr) = changed_on;
+  else
+    EXPR_CHANGED_ON_INSNS (expr) = BITMAP_ALLOC (NULL);
 }
 
 /* Make a copy of the rhs FROM into the rhs TO.  */
 void
 copy_expr (expr_t to, expr_t from)
 {
+  bitmap temp = BITMAP_ALLOC (NULL);
+
+  bitmap_copy (temp, EXPR_CHANGED_ON_INSNS (from));
   init_expr (to, EXPR_VINSN (from), EXPR_SPEC (from), EXPR_PRIORITY (from),
 	     EXPR_SCHED_TIMES (from), EXPR_SPEC_DONE_DS (from),
-	     EXPR_SPEC_TO_CHECK_DS (from));
+	     EXPR_SPEC_TO_CHECK_DS (from), temp);
+}
+
+/* Same, but the final expr will not ever be in av sets, so don't copy 
+   "uninteresting" data such as bitmap cache.  */
+void
+copy_expr_onside (expr_t to, expr_t from)
+{
+  init_expr (to, EXPR_VINSN (from), EXPR_SPEC (from), EXPR_PRIORITY (from),
+	     EXPR_SCHED_TIMES (from), EXPR_SPEC_DONE_DS (from),
+	     EXPR_SPEC_TO_CHECK_DS (from), NULL);
 }
 
 /* Merge bits of FROM rhs to TO rhs.  */
@@ -1168,6 +1186,8 @@ merge_expr_data (expr_t to, expr_t from)
 					  EXPR_SPEC_DONE_DS (from));
 
   EXPR_SPEC_TO_CHECK_DS (to) |= EXPR_SPEC_TO_CHECK_DS (from);
+  bitmap_ior_into (EXPR_CHANGED_ON_INSNS (to),
+                   EXPR_CHANGED_ON_INSNS (from));
 }
 
 /* Merge bits of FROM rhs to TO rhs.  Vinsns in the rhses should correlate.  */
@@ -1189,6 +1209,7 @@ clear_expr (rhs_t rhs)
 {
   vinsn_detach (RHS_VINSN (rhs));
   RHS_VINSN (rhs) = NULL;
+  BITMAP_FREE (EXPR_CHANGED_ON_INSNS (rhs));
 }
 
 
@@ -1297,6 +1318,7 @@ av_set_union_and_clear (av_set_t *top, av_set_t *fromp)
 
   /* Connect FROMP to the end of the TOP.  */
   *i.lp = *fromp;
+  *fromp = NULL;
 }
 
 /* Clear av_set pointed to by SETP.  */
@@ -1653,7 +1675,7 @@ init_global_and_expr_for_insn (insn_t insn)
 
     /* Initialize INSN's expr.  */
     init_expr (INSN_EXPR (insn), vinsn_create (insn, force_unique_p), 0,
-	       INSN_PRIORITY (insn), 0, spec_done_ds, 0);
+	       INSN_PRIORITY (insn), 0, spec_done_ds, 0, NULL);
   }
 }
 
@@ -2502,7 +2524,8 @@ init_simplejump (insn_t insn)
       COPY_REG_SET (LV_SET (insn), LV_SET (succ));
     }
 
-  init_expr (INSN_EXPR (insn), vinsn_create (insn, false), 0, 0, 0, 0, 0);
+  init_expr (INSN_EXPR (insn), vinsn_create (insn, false), 0, 0, 0, 
+             0, 0, NULL);
 
   INSN_SEQNO (insn) = get_seqno_of_a_pred (insn);
 }
