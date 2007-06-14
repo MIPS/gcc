@@ -1688,12 +1688,37 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
 
   FOR_EACH_RHS_1 (rhs, i, avp)    
     { 
+      int rhs_uid = INSN_UID (EXPR_INSN_RTX (rhs));
+      bool unique_p = VINSN_UNIQUE_P (RHS_VINSN (rhs));
+
       line_start ();
       dump_rhs (rhs);
 
+      /* First check whether we've analyzed this situation already.  */
+      if (bitmap_bit_p (INSN_ANALYZED_DEPS (insn), rhs_uid))
+        {
+          if (bitmap_bit_p (INSN_FOUND_DEPS (insn), rhs_uid))
+            {
+              av_set_iter_remove (&i);
+              print (" - removed (cached)");
+            }
+          else
+            print (" - unchanged (cached)");
+
+          line_finish ();
+          continue;
+        }
+      
       switch (moveup_rhs (rhs, insn, inside_insn_group))
 	{
 	case MOVEUP_RHS_NULL:
+          /* Cache that there is a hard dependence.  */
+          if (!unique_p)
+            {
+              bitmap_set_bit (INSN_ANALYZED_DEPS (insn), rhs_uid);
+              bitmap_set_bit (INSN_FOUND_DEPS (insn), rhs_uid);
+            }
+
 	  av_set_iter_remove (&i);
 	  print (" - removed");
 	  break;
@@ -1723,6 +1748,13 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
 	  }
 	  break;
 	case MOVEUP_RHS_SAME:
+          /* Cache that there is a no dependence.  */
+          if (!unique_p)
+            {
+              bitmap_set_bit (INSN_ANALYZED_DEPS (insn), rhs_uid);
+              bitmap_clear_bit (INSN_FOUND_DEPS (insn), rhs_uid);
+            }
+
 	  print (" - unchanged");
 	  break;
 	default:

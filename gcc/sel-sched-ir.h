@@ -552,15 +552,6 @@ struct vinsn_def
    a single instruction that is in the stream.  */
 struct _sel_insn_data
 {
-  /* Insn is an ASM.  */
-  bool asm_p;
-
-  /* This field is initialized at the beginning of scheduling and is used
-     to handle sched group instructions.  If it is non-null, then it points
-     to the instruction, which should be forced to schedule next.  Such
-     instructions are unique.  */
-  insn_t sched_next;
-
   /* Every insn in the stream has an associated vinsn.  This is used
      to reduce memory consumption and give use the fact that many insns
      (all of them at the moment) don't change through the scheduler.
@@ -575,15 +566,32 @@ struct _sel_insn_data
 
   int seqno;
 
-  /* True when an insn is scheduled after we've determined that a stall is
-     required.
-     This is used when emulating the Haifa scheduler for bundling.  */
-  BOOL_BITFIELD after_stall_p : 1;
+  /* An INSN_LUID bit is set when deps analysis result is already known.  */
+  bitmap analyzed_deps;
+
+  /* An INSN_LUID bit is set when a hard dep was found, not set when 
+     no dependence is found.  This is meaningful only when the analyzed_deps
+     bitmap has its bit set.  */
+  bitmap found_deps;
+
+  /* Insn is an ASM.  */
+  bool asm_p;
+
+  /* This field is initialized at the beginning of scheduling and is used
+     to handle sched group instructions.  If it is non-null, then it points
+     to the instruction, which should be forced to schedule next.  Such
+     instructions are unique.  */
+  insn_t sched_next;
 
   /* Cycle at which insn was scheduled.  It is greater than zero if insn was
      scheduled.
      This is used for bundling.  */
   int sched_cycle;
+
+  /* True when an insn is scheduled after we've determined that a stall is
+     required.
+     This is used when emulating the Haifa scheduler for bundling.  */
+  BOOL_BITFIELD after_stall_p : 1;
 };
 
 typedef struct _sel_insn_data sel_insn_data_def;
@@ -593,11 +601,13 @@ DEF_VEC_O (sel_insn_data_def);
 DEF_VEC_ALLOC_O (sel_insn_data_def, heap);
 extern VEC (sel_insn_data_def, heap) *s_i_d;
 
-/* Accessor macros for s_s_i_d.  */
+/* Accessor macros for s_i_d.  */
 #define SID(INSN) (VEC_index (sel_insn_data_def, s_i_d,	INSN_LUID (INSN)))
 
 #define INSN_ASM_P(INSN) (SID (INSN)->asm_p)
 #define INSN_SCHED_NEXT(INSN) (SID (INSN)->sched_next)
+#define INSN_ANALYZED_DEPS(INSN) (SID (INSN)->analyzed_deps)
+#define INSN_FOUND_DEPS(INSN) (SID (INSN)->found_deps) 
 
 #define INSN_EXPR(INSN) (&SID (INSN)->_expr)
 #define INSN_VINSN(INSN) (RHS_VINSN (INSN_EXPR (INSN)))

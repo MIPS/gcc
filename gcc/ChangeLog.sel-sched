@@ -1,5 +1,20 @@
 2007-06-14  Andrey Belevantsev  <abel@ispras.ru>
 
+	* sel-sched.c (moveup_set_rhs): When analyzing an expression,
+	first check the caches.  When a hard dependence/no dependence 
+	is found, record this in the caches.
+
+	* sel-sched-ir.h (struct sel_insn_data): Reorder fields.
+	New fields analyzed_deps, found_deps.
+	(INSN_ANALYZED_DEPS, INSN_FOUND_DEPS): New macros.
+	
+	* sel-sched-ir.c (init_global_and_expr_for_insn, init_insn, 
+	init_simplejump): Initialize INSN_ANALYZED_DEPS and 
+	INSN_FOUND_DEPS caches.
+	(finish_global_and_expr_1): Free them.
+
+2007-06-14  Andrey Belevantsev  <abel@ispras.ru>
+
         * sel-sched-ir.h (struct _expr): New field changed_on_insns.
         (EXPR_CHANGED_ON_INSNS): New macro.
         (copy_expr_onside): Declare.
