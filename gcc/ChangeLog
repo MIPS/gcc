@@ -1,3 +1,15 @@
+2007-06-13  Chao-ying Fu  <fu@mips.com>
+	    Nigel Stephens  <nigel@mips.com>
+
+	* doc/libgcc.texi (Fixed-point fractional library routines): New node.
+	* doc/md.texi (fixed_all, sat_fixed_all, fixed_uint, sat_fixed_uint):
+	Rename to...
+	(fract, satfract, fractuns, satfractuns): ...this.
+	* doc/rtl.texi (fixed_all, sat_fixed_all, fixed_uint, sat_fixed_uint):
+	Rename to...
+	(fract_convert, sat_fract, unsigned_fract_convert,
+	unsigned_sat_fract): ...this.
+
 2007-06-12  Chao-ying Fu  <fu@mips.com>
 
 	* optabs.c (expand_fixed_convert): Rename fixed-point conversion optab

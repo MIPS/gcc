@@ -2559,8 +2559,8 @@ converting floating point value @var{x} (valid for mode @var{m}) to an
 integer, still represented in floating point mode @var{m}, by rounding
 towards zero.
 
-@findex fixed_all
-@item (fixed_all:@var{m} @var{x})
+@findex fract_convert
+@item (fract_convert:@var{m} @var{x})
 Represents the result of converting fixed-point value @var{x} to
 fixed-point mode @var{m}, signed integer value @var{x} to
 fixed-point mode @var{m}, floating-point value @var{x} to
@@ -2568,8 +2568,8 @@ fixed-point mode @var{m}, fixed-point value @var{x} to integer mode @var{m}
 regarded as signed, or fixed-point value @var{x} to floating-point mode @var{m}.
 When overflows or underflows happen, the results are undefined.
 
-@findex sat_fixed_all
-@item (sat_fixed_all:@var{m} @var{x})
+@findex sat_fract
+@item (sat_fract:@var{m} @var{x})
 Represents the result of converting fixed-point value @var{x} to
 fixed-point mode @var{m}, signed integer value @var{x} to
 fixed-point mode @var{m}, or floating-point value @var{x} to
@@ -2577,15 +2577,15 @@ fixed-point mode @var{m}.
 When overflows or underflows happen, the results are saturated to the
 maximum or the minimum.
 
-@findex fixed_uint
-@item (fixed_uint:@var{m} @var{x})
+@findex unsigned_fract_convert
+@item (unsigned_fract_convert:@var{m} @var{x})
 Represents the result of converting fixed-point value @var{x} to
 integer mode @var{m} regarded as unsigned, or unsigned integer value @var{x} to
 fixed-point mode @var{m}.
 When overflows or underflows happen, the results are undefined.
 
-@findex sat_fixed_uint
-@item (sat_fixed_uint:@var{m} @var{x})
+@findex unsigned_sat_fract
+@item (unsigned_sat_fract:@var{m} @var{x})
 Represents the result of converting unsigned integer value @var{x} to
 fixed-point mode @var{m}.
 When overflows or underflows happen, the results are saturated to the
