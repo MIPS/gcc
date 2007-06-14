@@ -1,4 +1,20 @@
 2007-06-14  Andrey Belevantsev  <abel@ispras.ru>
+	    Alexander Monakov  <amonakov@ispras.ru>
+
+	* sel-sched.c (substitue_reg_in_rhs): Fix vertical spacing.
+	(un_substitute): Use correct vinsn when fixing expr.
+	(identical_copy_p): New function.
+	(undo_transformations): Use it when killing from the current av set 
+	all exprs that use registers set by an insn.  Do not use 
+	expression caches for now.
+	(moveup_rhs): Fix spacing.  Add missing line_finish ().
+
+	* sel-sched-ir.c (deps_init_id_finish_insn): When downgrading to USE,
+	leave LHS and RHS fields of an expression intact for future use.
+	(insn_eligible_for_subst_p): Fix thinko.  Do not consider 'reg=const'
+	insns.
+	
+2007-06-14  Andrey Belevantsev  <abel@ispras.ru>
 
 	* sel-sched.c (moveup_set_rhs): When analyzing an expression,
 	first check the caches.  When a hard dependence/no dependence 

@@ -276,6 +276,7 @@ substitute_reg_in_rhs (rhs_t rhs, insn_t insn)
      If the insn is not SET, we may still be able to substitute something
      in it, and if we're here (don't have deps), it doesn't write INSN's 
      dest.  */
+
   where = (VINSN_SEPARABLE_P (*vi)
 	   ? &VINSN_RHS (*vi)
 	   : &PATTERN (VINSN_INSN (*vi)));
@@ -506,7 +507,7 @@ un_substitute (rhs_t rhs, rtx insn, av_set_t *new_set_ptr)
       gcc_assert (VINSN_SEPARABLE_P (new_vi) == EXPR_SEPARABLE_P (rhs));
       
       copy_expr (tmp_rhs, rhs);
-      change_vinsn_in_expr (tmp_rhs, vi);
+      change_vinsn_in_expr (tmp_rhs, new_vi);
       
       av_set_add (new_set_ptr, tmp_rhs);
       
@@ -1444,6 +1445,28 @@ un_speculate (expr_t expr, insn_t insn, av_set_t *new_set_ptr)
 }
 
 
+/* True when INSN is a "regN = regN" copy.  */
+static bool
+identical_copy_p (rtx insn)
+{
+  rtx lhs, rhs, pat;
+
+  pat = PATTERN (insn);
+
+  if (GET_CODE (pat) != SET)
+    return false;
+
+  lhs = SET_DEST (pat);
+  if (!REG_P (lhs))
+    return false;
+
+  rhs = SET_SRC (pat);
+  if (!REG_P (rhs))
+    return false;
+
+  return REGNO (lhs) == REGNO (rhs);
+}
+
 /* Undo all transformations on *AV_PTR that were done when 
    moving through INSN.  */
 static void
@@ -1453,9 +1476,27 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
   rhs_t rhs;
   av_set_t new_set = NULL;
 
+  /* First, kill any RHS that uses registers set by an insn.  This is 
+     required for correctness.  */
+  FOR_EACH_RHS_1 (rhs, av_iter, av_ptr)
+    if (!sched_insns_conditions_mutex_p (insn, RHS_INSN (rhs))
+        && bitmap_intersect_p (INSN_REG_SETS (insn), 
+                               VINSN_REG_USES (EXPR_VINSN (rhs)))
+        /* When an insn looks like 'r1 = r1', we could substitute through
+           it, but the above condition will still hold.  This happend with
+           gcc.c-torture/execute/961125-1.c.  */ 
+        && !identical_copy_p (insn))
+      {
+        dump_rhs (rhs);
+        print ("- removed due to use/set conflict\n");
+        av_set_iter_remove (&av_iter);
+      }
+
+  /* FIXME: don't use the tracking bitmaps until we'll be able to use 
+     vinsn hashes.  */
   FOR_EACH_RHS (rhs, av_iter, *av_ptr)
     {
-      if (bitmap_bit_p (EXPR_CHANGED_ON_INSNS (rhs), INSN_LUID (insn)))
+      if (1 || bitmap_bit_p (EXPR_CHANGED_ON_INSNS (rhs), INSN_LUID (insn)))
         un_speculate (rhs, insn, &new_set);
     }
   
@@ -1463,7 +1504,7 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
 
   FOR_EACH_RHS (rhs, av_iter, *av_ptr)
     {
-      if (bitmap_bit_p (EXPR_CHANGED_ON_INSNS (rhs), INSN_LUID (insn)))
+      if (1 || bitmap_bit_p (EXPR_CHANGED_ON_INSNS (rhs), INSN_LUID (insn)))
         un_substitute (rhs, insn, &new_set);
     }
   
@@ -1635,8 +1676,8 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
       if (can_overcome_dep_p (*rhs_dsp))
 	{
 	  if (speculate_expr (insn_to_move_up, *rhs_dsp))
-	    /* Speculation was successful.  */
-	    *rhs_dsp = 0;
+            /* Speculation was successful.  */
+            *rhs_dsp = 0;
 	  else
 	    return MOVEUP_RHS_NULL;
 	}
@@ -1652,10 +1693,11 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
 	  print ("After: ");
 
 	  if (substitute_reg_in_rhs (insn_to_move_up, through_insn))
-	    sel_print_rtl (insn);
+            sel_print_rtl (insn);
 	  else
 	    {
 	      print ("Can't move up due to architecture constraints.\n");
+	      line_finish ();
 	      return MOVEUP_RHS_NULL;
 	    }
 

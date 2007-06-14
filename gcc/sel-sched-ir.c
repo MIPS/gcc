@@ -1540,8 +1540,16 @@ deps_init_id_finish_insn (void)
       rtx rhs = IDATA_RHS (deps_init_id_data.id);
 
       if (lhs == NULL || rhs == NULL || !lhs_and_rhs_separable_p (lhs, rhs))
-	/* Downgrade to USE.  */
-	deps_init_id_downgrade_to_use ();
+	{
+          /* This should be a USE, as we don't want to schedule its RHS 
+             separately.  However, we still want to have them recorded
+             for the purposes of substitution.  That's why we don't 
+             simply call downgrade_to_use () here.  */
+	  gcc_assert (IDATA_TYPE (deps_init_id_data.id) == SET);
+	  gcc_assert (!lhs == !rhs);
+
+	  IDATA_TYPE (deps_init_id_data.id) = USE;
+	}
     }
 
   deps_init_id_data.where = DEPS_IN_NOWHERE;
@@ -2229,9 +2237,10 @@ insn_eligible_for_subst_p (insn_t insn)
 	  gcc_assert (GET_MODE (INSN_LHS (insn)) 
 		      == GET_MODE (INSN_RHS (insn)));
 	}
-      if ((REG_P (INSN_RHS (insn)) 
-	   && (REG_P (INSN_LHS (insn)) 
-	       || GET_CODE (INSN_RHS (insn)) == CONST_INT)))
+      if ((REG_P (INSN_LHS (insn)) 
+	   && (REG_P (INSN_RHS (insn)) 
+               /* Not supported atm.  
+	       || GET_CODE (INSN_RHS (insn)) == CONST_INT  */)))
 	  return true;             
     }
   return false;
