@@ -528,162 +528,125 @@ endif
 
 # Build fixed-point support.
 ifeq ($(fixed_point),yes)
-FIXED_MODE = QQ UQQ HQ UHQ SQ USQ DQ UDQ TQ UTQ HA UHA SA USA DA UDA TA UTA
-fixed-objects = $(patsubst %,%$(objext),$(FIXED_MODE))
-$(fixed-objects): %$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -D$*_MODE -c $<
-libgcc-objects += $(fixed-objects)
 
-ALL_MODE = QQ UQQ HQ UHQ SQ USQ DQ UDQ TQ UTQ HA UHA SA USA DA UDA TA UTA QI HI SI DI TI UQI UHI USI UDI UTI SF DF
-qq-fixed-objects = $(patsubst %,QQ%$(objext),$(ALL_MODE))
-$(qq-fixed-objects): QQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_QQ -DTO_$* -c $<
-libgcc-objects += $(qq-fixed-objects)
+fixed-sfract-modes =	QQ HQ SQ DQ \
+			HA SA DA TA 
 
-hq-fixed-objects = $(patsubst %,HQ%$(objext),$(ALL_MODE))
-$(hq-fixed-objects): HQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_HQ -DTO_$* -c $<
-libgcc-objects += $(hq-fixed-objects)
+fixed-ufract-modes =	UQQ UHQ USQ UDQ \
+			UHA USA UDA UTA
 
-sq-fixed-objects = $(patsubst %,SQ%$(objext),$(ALL_MODE))
-$(sq-fixed-objects): SQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_SQ -DTO_$* -c $<
-libgcc-objects += $(sq-fixed-objects)
+fixed-fract-modes = 	$(fixed-sfract-modes) $(fixed-ufract-modes)
 
-dq-fixed-objects = $(patsubst %,DQ%$(objext),$(ALL_MODE))
-$(dq-fixed-objects): DQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_DQ -DTO_$* -c $<
-libgcc-objects += $(dq-fixed-objects)
+fixed-func-names =	_add _sub _neg \
+			_mul _mulhelper _divhelper \
+			_ashl _ashlhelper \
+			_cmp _saturate1 _saturate2
 
-tq-fixed-objects = $(patsubst %,TQ%$(objext),$(ALL_MODE))
-$(tq-fixed-objects): TQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_TQ -DTO_$* -c $<
-libgcc-objects += $(tq-fixed-objects)
+fixed-sfunc-names =	_ssadd _sssub _ssneg \
+			_ssmul _ssdiv _div \
+			_ssashl _ashr
 
-uqq-fixed-objects = $(patsubst %,UQQ%$(objext),$(ALL_MODE))
-$(uqq-fixed-objects): UQQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_UQQ -DTO_$* -c $<
-libgcc-objects += $(uqq-fixed-objects)
+fixed-ufunc-names =	_usadd _ussub _usneg \
+			_usmul _usdiv _udiv \
+			_usashl _lshr 
 
-uhq-fixed-objects = $(patsubst %,UHQ%$(objext),$(ALL_MODE))
-$(uhq-fixed-objects): UHQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_UHQ -DTO_$* -c $<
-libgcc-objects += $(uhq-fixed-objects)
+fixed-signed-modes =	QI HI SI DI TI SF DF
 
-usq-fixed-objects = $(patsubst %,USQ%$(objext),$(ALL_MODE))
-$(usq-fixed-objects): USQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_USQ -DTO_$* -c $<
-libgcc-objects += $(usq-fixed-objects)
+fixed-unsigned-modes =	UQI UHI USI UDI UTI
 
-udq-fixed-objects = $(patsubst %,UDQ%$(objext),$(ALL_MODE))
-$(udq-fixed-objects): UDQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_UDQ -DTO_$* -c $<
-libgcc-objects += $(udq-fixed-objects)
+# Add fixed point arithmetic function and mode to list
+# Arguments: BASE-NAME MODE 
+define fixed-arith
+  fixed-labels := $(fixed-labels) $(1)
+  fixed-modes := $(fixed-modes) $(2)
+  fixed-funcs := $(fixed-funcs) $(1)$(2)
+endef
 
-utq-fixed-objects = $(patsubst %,UTQ%$(objext),$(ALL_MODE))
-$(utq-fixed-objects): UTQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_UTQ -DTO_$* -c $<
-libgcc-objects += $(utq-fixed-objects)
+# Generate permutations of generic function name and mode
+$(foreach name,$(fixed-func-names),\
+  $(foreach mode,$(fixed-fract-modes),\
+    $(eval $(call fixed-arith,$(name),$(mode)))))
 
-ha-fixed-objects = $(patsubst %,HA%$(objext),$(ALL_MODE))
-$(ha-fixed-objects): HA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_HA -DTO_$* -c $<
-libgcc-objects += $(ha-fixed-objects)
+# Generate permutations of signed function name and signed mode
+$(foreach name,$(fixed-sfunc-names),\
+  $(foreach mode,$(fixed-sfract-modes),\
+    $(eval $(call fixed-arith,$(name),$(mode)))))
 
-sa-fixed-objects = $(patsubst %,SA%$(objext),$(ALL_MODE))
-$(sa-fixed-objects): SA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_SA -DTO_$* -c $<
-libgcc-objects += $(sa-fixed-objects)
+# Generate permutations of unsigned function name and unsigned mode
+$(foreach name,$(fixed-ufunc-names),\
+  $(foreach mode,$(fixed-ufract-modes),\
+    $(eval $(call fixed-arith,$(name),$(mode)))))
 
-da-fixed-objects = $(patsubst %,DA%$(objext),$(ALL_MODE))
-$(da-fixed-objects): DA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_DA -DTO_$* -c $<
-libgcc-objects += $(da-fixed-objects)
+# Generate the rules for each arithmetic function
+iter-items := $(fixed-funcs)
+iter-labels := $(fixed-labels)
+iter-from := $(fixed-modes)
+iter-to := $(fixed-modes)
+include $(srcdir)/empty.mk $(patsubst %,$(srcdir)/fixed-obj.mk,$(iter-items))
 
-ta-fixed-objects = $(patsubst %,TA%$(objext),$(ALL_MODE))
-$(ta-fixed-objects): TA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_TA -DTO_$* -c $<
-libgcc-objects += $(ta-fixed-objects)
+# Add arithmetic functions to list of objects to be built
+libgcc-objects += $(patsubst %,%$(objext),$(fixed-funcs))
+ifeq ($(enable_shared),yes)
+libgcc-s-objects += $(patsubst %,%_s$(objext),$(fixed-funcs))
+endif
 
-uha-fixed-objects = $(patsubst %,UHA%$(objext),$(ALL_MODE))
-$(uha-fixed-objects): UHA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_UHA -DTO_$* -c $<
-libgcc-objects += $(uha-fixed-objects)
+# Add fixed point convert function and from & to modes to list
+# All conversions must include at least one fixed point type,
+# and exclude no-op conversions.
+# Arguments: BASE-NAME FROM-MODE TO-MODE
+define fixed-convert
+  ifneq (,$(strip $(filter %Q,$(2) $(3))$(filter %A,$(2) $(3))))
+    ifneq ($(2),$(3))
+      fixed-conv-labels := $(fixed-conv-labels) $(1)
+      fixed-conv-from := $(fixed-conv-from) $(2)
+      fixed-conv-to := $(fixed-conv-to) $(3)
+      fixed-conv-funcs := $(fixed-conv-funcs) $(1)$(2)$(3)
+    endif
+  endif
+endef
 
-usa-fixed-objects = $(patsubst %,USA%$(objext),$(ALL_MODE))
-$(usa-fixed-objects): USA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_USA -DTO_$* -c $<
-libgcc-objects += $(usa-fixed-objects)
+# Convert from fractional and signed non-fractionals
+# to fractionals and signed non-fractionals, without saturation
+$(foreach from,$(fixed-fract-modes) $(fixed-signed-modes),\
+  $(foreach to,$(fixed-fract-modes) $(fixed-signed-modes),\
+    $(eval $(call fixed-convert,_fract,$(from),$(to)))))
 
-uda-fixed-objects = $(patsubst %,UDA%$(objext),$(ALL_MODE))
-$(uda-fixed-objects): UDA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_UDA -DTO_$* -c $<
-libgcc-objects += $(uda-fixed-objects)
+# Convert from fractional and signed non-fractionals 
+# to fractionals, with saturation
+$(foreach from,$(fixed-fract-modes) $(fixed-signed-modes),\
+  $(foreach to,$(fixed-fract-modes),\
+    $(eval $(call fixed-convert,_satfract,$(from),$(to)))))
 
-uta-fixed-objects = $(patsubst %,UTA%$(objext),$(ALL_MODE))
-$(uta-fixed-objects): UTA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_UTA -DTO_$* -c $<
-libgcc-objects += $(uta-fixed-objects)
+# Convert from fractionals
+# to unsigned non-fractionals, saturation n/a
+$(foreach from,$(fixed-fract-modes),\
+  $(foreach to,$(fixed-unsigned-modes),\
+    $(eval $(call fixed-convert,_fractuns,$(from),$(to)))))
 
-qi-fixed-objects = $(patsubst %,QI%$(objext),$(FIXED_MODE))
-$(qi-fixed-objects): QI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_QI -DTO_$* -c $<
-libgcc-objects += $(qi-fixed-objects)
+# Convert from unsigned non-fractionals
+# to fractionals, without saturation
+$(foreach from,$(fixed-unsigned-modes),\
+  $(foreach to,$(fixed-fract-modes),\
+    $(eval $(call fixed-convert,_fractuns,$(from),$(to)))))
 
-hi-fixed-objects = $(patsubst %,HI%$(objext),$(FIXED_MODE))
-$(hi-fixed-objects): HI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_HI -DTO_$* -c $<
-libgcc-objects += $(hi-fixed-objects)
+# Convert from unsigned non-fractionals
+# to fractionals, with saturation
+$(foreach from,$(fixed-unsigned-modes),\
+  $(foreach to,$(fixed-fract-modes),\
+    $(eval $(call fixed-convert,_satfractuns,$(from),$(to)))))
 
-si-fixed-objects = $(patsubst %,SI%$(objext),$(FIXED_MODE))
-$(si-fixed-objects): SI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_SI -DTO_$* -c $<
-libgcc-objects += $(si-fixed-objects)
+# Generate the make rules for each conversion function
+iter-items := $(fixed-conv-funcs)
+iter-labels := $(fixed-conv-labels)
+iter-from := $(fixed-conv-from)
+iter-to := $(fixed-conv-to)
+include $(srcdir)/empty.mk $(patsubst %,$(srcdir)/fixed-obj.mk,$(iter-items))
 
-di-fixed-objects = $(patsubst %,DI%$(objext),$(FIXED_MODE))
-$(di-fixed-objects): DI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_DI -DTO_$* -c $<
-libgcc-objects += $(di-fixed-objects)
-
-ti-fixed-objects = $(patsubst %,TI%$(objext),$(FIXED_MODE))
-$(ti-fixed-objects): TI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_TI -DTO_$* -c $<
-libgcc-objects += $(ti-fixed-objects)
-
-uqi-fixed-objects = $(patsubst %,UQI%$(objext),$(FIXED_MODE))
-$(uqi-fixed-objects): UQI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_UQI -DTO_$* -c $<
-libgcc-objects += $(uqi-fixed-objects)
-
-uhi-fixed-objects = $(patsubst %,UHI%$(objext),$(FIXED_MODE))
-$(uhi-fixed-objects): UHI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_UHI -DTO_$* -c $<
-libgcc-objects += $(uhi-fixed-objects)
-
-usi-fixed-objects = $(patsubst %,USI%$(objext),$(FIXED_MODE))
-$(usi-fixed-objects): USI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_USI -DTO_$* -c $<
-libgcc-objects += $(usi-fixed-objects)
-
-udi-fixed-objects = $(patsubst %,UDI%$(objext),$(FIXED_MODE))
-$(udi-fixed-objects): UDI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_UDI -DTO_$* -c $<
-libgcc-objects += $(udi-fixed-objects)
-
-uti-fixed-objects = $(patsubst %,UTI%$(objext),$(FIXED_MODE))
-$(uti-fixed-objects): UTI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_UTI -DTO_$* -c $<
-libgcc-objects += $(uti-fixed-objects)
-
-sf-fixed-objects = $(patsubst %,SF%$(objext),$(FIXED_MODE))
-$(sf-fixed-objects): SF%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_SF -DTO_$* -c $<
-libgcc-objects += $(sf-fixed-objects)
-
-df-fixed-objects = $(patsubst %,DF%$(objext),$(FIXED_MODE))
-$(df-fixed-objects): DF%$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_compile) -DFROM_DF -DTO_$* -c $<
-libgcc-objects += $(df-fixed-objects)
+# Add conversion functions to list of objects to be built
+libgcc-objects += $(patsubst %,%$(objext),$(fixed-conv-funcs))
+ifeq ($(enable_shared),yes)
+libgcc-s-objects += $(patsubst %,%_s$(objext),$(fixed-conv-funcs))
+endif
 
 endif
 
