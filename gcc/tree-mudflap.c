@@ -328,17 +328,23 @@ mf_make_mf_cache_struct_type (tree field_type)
   return struct_type;
 }
 
-#define build_function_type_0(rtype)            \
+#define build_function_type_0(rtype)           				\
   build_function_type (rtype, void_list_node)
-#define build_function_type_1(rtype, arg1)                 \
+#define build_function_type_1(rtype, arg1)                		\
   build_function_type (rtype, tree_cons (0, arg1, void_list_node))
 #define build_function_type_3(rtype, arg1, arg2, arg3)                  \
-  build_function_type (rtype, tree_cons (0, arg1, tree_cons (0, arg2,   \
-                                                             tree_cons (0, arg3, void_list_node))))
+  build_function_type (rtype,						\
+		       tree_cons (0, arg1, 				\
+				  tree_cons (0, arg2,  			\
+                                              tree_cons (0, arg3, 	\
+							 void_list_node))))
 #define build_function_type_4(rtype, arg1, arg2, arg3, arg4)            \
-  build_function_type (rtype, tree_cons (0, arg1, tree_cons (0, arg2,   \
-                                                             tree_cons (0, arg3, tree_cons (0, arg4, \
-                                                                                            void_list_node)))))
+  build_function_type (rtype, 						\
+		       tree_cons (0, arg1,				\
+				  tree_cons (0, arg2,   		\
+                                             tree_cons (0, arg3,	\
+							tree_cons (0, arg4, \
+                                                		   void_list_node)))))
 
 /* Initialize the global tree nodes that correspond to mf-runtime.h
    declarations.  */
@@ -571,9 +577,11 @@ mf_build_check_statement_for (tree base, tree limit,
   /* Build: __mf_elem = &__mf_lookup_cache [(__mf_base >> __mf_shift)
                                             & __mf_mask].  */
   t = build2 (RSHIFT_EXPR, mf_uintptr_type, mf_base,
-              (flag_mudflap_threads ? mf_cache_shift_decl : mf_cache_shift_decl_l));
+              flag_mudflap_threads ? mf_cache_shift_decl
+	       : mf_cache_shift_decl_l);
   t = build2 (BIT_AND_EXPR, mf_uintptr_type, t,
-              (flag_mudflap_threads ? mf_cache_mask_decl : mf_cache_mask_decl_l));
+              flag_mudflap_threads ? mf_cache_mask_decl
+	       : mf_cache_mask_decl_l);
   t = build4 (ARRAY_REF,
               TREE_TYPE (TREE_TYPE (mf_cache_array_decl)),
               mf_cache_array_decl, t, NULL_TREE, NULL_TREE);
@@ -699,8 +707,8 @@ mf_decl_eligible_p (tree decl)
           /* The decl must have its address taken.  In the case of
              arrays, this flag is also set if the indexes are not
              compile-time known valid constants.  */
+	  /* XXX: not sufficient: return-by-value structs! */
           && TREE_ADDRESSABLE (decl)
-		    /* XXX: not sufficient: return-by-value structs! */
           /* The type of the variable must be complete.  */
           && COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (decl))
 	  /* The decl hasn't been decomposed somehow.  */
@@ -759,7 +767,7 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
         while (1)
           {
 	    if (bitfield_ref_p && elt == NULL_TREE
-		&& (TREE_CODE (var) == ARRAY_REF 
+		&& (TREE_CODE (var) == ARRAY_REF
 		    || TREE_CODE (var) == COMPONENT_REF))
 	      elt = var;
 	
@@ -1038,7 +1046,8 @@ mx_register_decls (tree decl, tree *stmt_list)
 		     IDENTIFIER_POINTER (DECL_NAME (decl)));
 	  else
 	    {
-	      tsi_link_before (&initially_stmts, register_fncall, TSI_SAME_STMT);
+	      tsi_link_before (&initially_stmts, register_fncall,
+			       TSI_SAME_STMT);
 
 	      /* Accumulate the FINALLY piece.  */
 	      append_to_statement_list (unregister_fncall, &finally_stmts);
@@ -1124,7 +1133,8 @@ mf_mark (tree t)
   void **slot;
 
   if (marked_trees == NULL)
-    marked_trees = htab_create_ggc (31, htab_hash_pointer, htab_eq_pointer, NULL);
+    marked_trees = htab_create_ggc (31, htab_hash_pointer, htab_eq_pointer,
+				    NULL);
 
   slot = htab_find_slot (marked_trees, t, INSERT);
   *slot = t;

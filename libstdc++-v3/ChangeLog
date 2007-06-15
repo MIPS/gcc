@@ -1,3 +1,20 @@
+2007-06-13  Richard Earnshaw  <rearnsha@arm.com>
+
+	* libsupc++/eh_arm.cc (__cxa_type_match): Handle foreign
+	exceptions.
+	* libsubpc++/eh_personality.cc: Don't try to set up foreign or
+	forced unwind types here when using the ARM EABI unwinder.
+
+2007-06-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/c_global/cmath: Tweak includes.
+	* include/std/memory: Likewise.
+	* include/std/complex: Likewise.
+	* include/tr1/memory: Likewise.
+	* include/tr1/complex: Likewise.
+	* include/tr1/cmath: Likewise; do not wrap special functions
+	in #ifndef __GXX_EXPERIMENTAL_CXX0X__.
+
 2007-06-10  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* testsuite/util/testsuite_performance.h: Add cstring include for

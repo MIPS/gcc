@@ -1,4 +1,164 @@
-2007-06-12 Seongbae Park <seongbae.park@gmail.com>
+2007-06-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* tree-mudflap.c: Fix whitespace issues.
+
+2007-06-15  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/m68k/m68k.c (ASM_DOT, ASM_DOTW, ASM_DOTL): Remove.
+
+2007-06-14  Eric Christopher  <echristo@apple.com>
+
+	* config/i386/sse.md (movdi_to_sse): Rewrite body.
+	(movv4sf): Use gcc_unreachable instead of abort.
+
+2007-06-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32268
+	* config/i386/sfp-machine.c (CMPtype): New define.
+	(mach stubs): Use CMPtype instead of int as a return type.
+
+2007-06-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/soft-fp/eqdf2.c, config/soft-fp/eqsf2.c,
+	config/soft-fp/eqtf2.c, config/soft-fp/gedf2.c,
+	config/soft-fp/gesf2.c, config/soft-fp/getf2.c,
+	config/soft-fp/ledf2.c, config/soft-fp/lesf2.c,
+	config/soft-fp/letf2.c, config/soft-fp/unorddf2.c,
+	config/soft-fp/unordsf2.c, config/soft-fp/unordtf2.c,
+	config/soft-fp/soft-fp.h: Update from glibc CVS.
+
+2007-06-14  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/uclinux.h (MFWRAP_SPEC): New.
+
+2007-06-14  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	PR target/32341
+	* config/v850/v850.c: Include dataflow header file.
+	(substitute_ep_register): Fix typo.
+
+2007-06-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.ac: Fix earlier checkin.
+	* configure: Regenerated.
+
+2007-06-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	* acinclude.m4 (gcc_AC_CHECK_PROG_VER): Remove.
+	* aclocal.m4: Regenerate.
+	* configure.ac: Use ACX_PROG_CC_WARNING_OPTS,
+	ACX_PROG_CC_WARNINGS_ARE_ERRORS,
+	ACX_PROG_CC_WARNING_ALMOST_PEDANTIC, ACX_CHECK_PROG_VER.
+	* configure: Regenerate.
+	* Makefile.in (LOOSE_WARN): Subst loose_warn.
+
+	* Makefile.in (quickstrap): Build libgcc too.
+
+2007-06-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.ac: Add --enable-checking=df.  Explicitly mention that
+	the variables are initialized as for "release".
+	* df-core.c: Use it.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+2007-06-14  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.c (xtensa_expand_nonlocal_goto): Use
+	validate_replace_rtx instead of replace_rtx.
+	(xtensa_expand_prologue): Call df_insn_rescan after replace_rtx.
+
+2007-06-14  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/cygming.h (DWARF_FRAME_REGNUM): Define.
+	(DWARF2_UNWIND_INFO): Override default if configured with
+	SJLJ EH disabled.
+	* config/i386/cygwin.h (STARTFILE_SPEC): Add crtbegin.o.
+	(ENDFILE_SPEC): Add crtend.o.
+	* config/i386/mingw32.h (STARTFILE_SEC): Add crtbegin.o.
+	(ENDFILE_SPEC): Add crtend.o.
+	(TARGET_USE_JCR_SECTION): Define.
+	(MD_UNWIND_SUPPORT): Define for 32-bit target.
+
+	* config/i386/cygming-crtbegin.c: New file.
+	* config/i386/cygming-crtend.c: New file.
+
+2007-06-14  Pascal Obry Pascal Obry  <obry@adacore.com>
+
+	* config/i386/w32-unwind.h: New file.
+
+2007-06-13  Eric Christopher  <echristo@apple.com>
+
+	* config/i386/darwin.h (PREFERRED_STACK_BOUNDARY): Don't let
+	the user set a value below STACK_BOUNDARY.
+
+2007-06-13  Thiemo Seufer  <ths@networkno.de>
+
+	* config/mips/linux.h, config/mips/linux64.h (LIB_SPEC): Always
+	imply -lpthread for -pthread.
+
+2007-06-13  Kazu Hirata  <kazu@codesourcery.com>
+
+	* basic-block.h: Remove the prototype for
+	free_basic_block_vars.
+	* cfglayout.h: Remove the prototype for
+	insn_locators_initialize.
+	* tree.h: Remove the prototype for emit_line_note.
+
+	* tree-ssa-pre.c (mergephitemp): Remove.
+	(init_pre): Don't use mergephitemp.
+
+2007-06-13  Eric Christopher  <echristo@apple.com>
+
+	* config/i386/i386.c (override_options): If we've specified
+	an arch then don't use TARGET_SUBTARGET_ISA_DEFAULTs.
+
+2007-06-13  Bob Wilson  <bob.wilson@acm.org>
+
+	* df-scan.c (df_get_entry_block_def_set): Check if STATIC_CHAIN_REGNUM
+	is defined.
+
+2007-06-13  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.h (EH_RETURN_HANDLER_RTX): Use gen_frame_mem.
+	* config/bfin/bfin.md (UNSPEC_VOLATILE_STORE_EH_HANDLER): New constant.
+	(eh_store_handler): New pattern.
+	(eh_return): Emit it instead of a plain move.
+
+2007-06-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_init_mmx_sse_builtins)
+	[__builtin_infq, __builtin_fabsq]: Define usign def_builtin.
+	[__builtin_ia32_rsqrtps, __builtin_ia32_rsqrtss]: Define using
+	def_builtin_const.
+
+2007-06-13  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.c (gen_one_bundle): Delete unused local variables.
+	(find_next_insn_start, find_load): New functions.
+	(bfin_reorg): Use them to deal with the fact that parallel insns are
+	no longer represented as a SEQUENCE.
+
+2007-06-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sparc.c (sparc_override_options): Initialize
+	fpu mask correctly.
+
+2007-06-13  Dave Korn  <dave.korn@artimi.com>
+
+	* config/i386/i386.c (ix86_eax_live_at_start_p): Use
+	df_get_live_out.
+
+2007-06-13  Kazu Hirata  <kazu@codesourcery.com>
+
+	* auto-inc-dec.c, c-incpath.c, config/c4x/libgcc.S,
+	config/sh/divcost-analysis, dbgcnt.def, df-core.c,
+	df-problems.c, df-scan.c, df.h, dominance.c, dse.c, regstat.c,
+	tree-data-ref.c, tree-ssa-loop-im.c, tree-ssa-loop-prefetch.c,
+	tree-vect-transform.c: Fix comment typos.  Follow spelling
+	conventions.
+
+2007-06-12  Seongbae Park  <seongbae.park@gmail.com>
 
        * df-scan.c (df_get_exit-block_use_set): Always add the stack pointer
        to the exit block use set.
@@ -96,7 +256,7 @@
 	object file.
 	(make_gcov_file_name): Do not generate long names if input_name is
 	NULL.
-	(output_lines): If merging results do not display graph, data and 
+	(output_lines): If merging results do not display graph, data and
 	runs informations.
 	Checking source file modification is done in find_source.
 
@@ -133,11 +293,11 @@
 	Request walking the subtrees only, leaving the current is_lhs/val_only
 	untouched.
 	(convert_non_local_reference): Likewise.
-	
+
 2007-06-12  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/m68k/m68k-devices.def (52221, 52223, 5253): New.
-	
+
 2007-06-12  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/15353
@@ -181,7 +341,7 @@
 	df_process_deferred_rescans, df_notes_rescan): Fixed spelling of
 	word "deferred".
 	* df-core.c: Ditto.
-	
+
 2007-06-11  Daniel Berlin  <dberlin@dberlin.org>
 
 	* Merge dataflow-branch into mainline (see ChangeLog.dataflow)
@@ -369,7 +529,7 @@
 	(__divsi3, __umodsi3, __modsi3): Likewise.
 	(__ashldi3, __ashrdi3, __lshrdi3): New.
 	* config/xtensa/t-xtensa (LIB1ASMFUNCS): Add DImode shift functions.
-	
+
 2007-06-08  Harsha Jagasia <harsha.jagasia@amd.com>
 	    Tony Linthicum <tony.linthicum@amd.com>
 
@@ -411,7 +571,7 @@
 	(vectorizable_load): Call vect_model_load_cost during analysis phase.
 	(vectorizable_store): Call vect_model_store_cost during analysis phase.
 	(vectorizable_call, vectorizable_assignment, vectorizable_operation,
-	vectorizable_promotion, vectorizable_demotion): Call 
+	vectorizable_promotion, vectorizable_demotion): Call
 	vect_model_simple_cost during analysis phase.
 
 2007-06-08  Simon Baldwin  <simonb@google.com>
@@ -457,7 +617,7 @@
 	PR target/29953
 	* config/sh/sh.md (doloop_end): New pattern and splitter.
 	* loop-iv.c (simple_rhs_p): Check for hardware registers.
-	
+
 2007-06-08  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	PR middle-end/32209
@@ -581,7 +741,7 @@
 	* rtl.h (push_to_sequence2): New.
 	* emit-rtl.c (push_to_sequence2): New.
 	* function.c (assign_parm_data_all): Add new fields.
-	(assign_parm_setup_block): Call push_to_sequence2 instead of 
+	(assign_parm_setup_block): Call push_to_sequence2 instead of
 	push_to_sequence.
 	(assign_parm_setup_reg): Ditto.
 	(assign_parm_setup_stack): Ditto.
