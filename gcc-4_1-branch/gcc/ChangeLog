@@ -1,3 +1,78 @@
+2007-06-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sparc.c (sparc_override_options): Initialize
+	fpu mask correctly.
+
+2007-06-08  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/32163
+	Backport from mainline.
+	* config/sh/sh.md (symGOT_load): Don't schedule insns when
+	the symbol is generated with the stack protector.
+
+2007-05-31  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2007-05-05  Aurelien Jarno  <aurelien@aurel32.net>
+
+	* config/pa/pa.md: Split tgd_load, tld_load and tie_load
+	into pic and non-pic versions. Mark r19 as used for 
+	tgd_load_pic, tld_load_pic and tie_load_pic. Mark r27 as used 
+	for tgd_load, tld_load and tie_load .
+	* config/pa/pa.c (legitimize_tls_address): Emit pic or non-pic
+	version of tgd_load, tld_load and tie_load depending on the 
+	value of flag_pic.
+
+2007-05-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/31701
+	Backport from mainline.
+	* config/sh/sh.c (output_stack_adjust): Avoid using the frame
+	register itself to hold the offset constant.  Tell flow the use
+	of r4 and r5 when they are used.
+
+2007-05-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/31480
+	Backport from mainline.
+	* config/sh/sh.md (length): Check if prev_nonnote_insn (insn)
+	is null.
+
+2007-05-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/31022
+	Backport from mainline.
+	* config/sh/sh.c (sh_adjust_cost): Use the result of single_set
+	instead of PATTERN.
+
+2007-05-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/31691
+	* combine.c (simplify_set): Build a new src pattern instead of
+	substituting its operands in the COMPARE case.
+
+2007-05-16  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-06-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/26998
+	* tree-vrp.c (extract_range_from_unary_expr): For NEGATE_EXPR
+	of signed types, only TYPE_MIN_VALUE is special, but for both,
+	minimum and maximum value.  Likewise VR_ANTI_RANGE is special
+	in this case, as is -fwrapv.
+
+2007-05-11  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/31876
+	* config/sh/sh.md (andsi3): Avoid calling gen_lowpart on
+        a SImode SUBREG of a floating point register.
+
+2007-05-08  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* loop.c (move_movables): Remove REG_EQUAL notes for conditional
+	invariants as well.
+
 2007-05-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/31769
