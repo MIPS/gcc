@@ -2959,7 +2959,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	      }
 
 	    inc = c_size_in_bytes (TREE_TYPE (result_type));
-	    inc = convert (sizetype, inc);
+	    inc = fold_convert (sizetype, inc);
 	  }
 	else
 	  {

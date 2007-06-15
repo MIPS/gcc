@@ -790,7 +790,7 @@ determine_base_object (tree expr)
 
     case PLUS_EXPR:
     case MINUS_EXPR:
-      /* Pointer adition is done solely using POINTER_PLUS_EXPR.  */
+      /* Pointer addition is done solely using POINTER_PLUS_EXPR.  */
       gcc_unreachable ();
 
     default:

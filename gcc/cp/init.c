@@ -1925,7 +1925,7 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
       /* Store the number of bytes allocated so that we can know how
 	 many elements to destroy later.  We use the last sizeof
 	 (size_t) bytes to store the number of elements.  */
-      cookie_ptr = build1 (NEGATE_EXPR, sizetype, size_in_bytes (sizetype));
+      cookie_ptr = fold_build1 (NEGATE_EXPR, sizetype, size_in_bytes (sizetype));
       cookie_ptr = build2 (POINTER_PLUS_EXPR, build_pointer_type (sizetype),
 			   data_addr, cookie_ptr);
       cookie = build_indirect_ref (cookie_ptr, NULL);
@@ -2327,7 +2327,7 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
   body = build1 (EXIT_EXPR, void_type_node,
 		 build2 (EQ_EXPR, boolean_type_node, tbase,
 			 fold_convert (ptype, base)));
-  tmp = build1 (NEGATE_EXPR, sizetype, size_exp);
+  tmp = fold_build1 (NEGATE_EXPR, sizetype, size_exp);
   body = build_compound_expr
     (body, build_modify_expr (tbase, NOP_EXPR,
 			      build2 (POINTER_PLUS_EXPR, ptype, tbase, tmp)));

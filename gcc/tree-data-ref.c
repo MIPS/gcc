@@ -511,7 +511,7 @@ split_constant_offset (tree exp, tree *var, tree *off)
 
     case POINTER_PLUS_EXPR:
       code = PLUS_EXPR;
-      /* FALL THROUGH */
+      /* FALLTHROUGH */
     case PLUS_EXPR:
     case MINUS_EXPR:
       split_constant_offset (TREE_OPERAND (exp, 0), &var0, &off0);

@@ -26,7 +26,7 @@ void f(long a, long b)
 
 /* The variable a cannot be a local variable as we get better aliasing
    now and decide that the store to a is dead.  The better aliasing comes
-   from better representation of pointer arthimetic. */
+   from better representation of pointer arithmetic. */
 long a = 10;
 int main(void)
 {

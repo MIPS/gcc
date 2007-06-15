@@ -18,7 +18,7 @@ int main1 () {
   p1 = p; q1 = q;
 
   /* Vectorizable, before pointer plus we would get a redundant cast
-     (caused by ponter arithmetics), alias analysis fails to distinguish
+     (caused by pointer arithmetics), alias analysis fails to distinguish
      between the pointers.  */
   for (i = 0; i < N; i++)
     {

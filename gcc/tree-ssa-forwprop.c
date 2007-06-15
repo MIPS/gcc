@@ -633,7 +633,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
       || !integer_zerop (TREE_OPERAND (array_ref, 1)))
     return false;
 
-  /* If the use of the ADDR_EXPR must be a PLUS_EXPR, or else there
+  /* If the use of the ADDR_EXPR is not a POINTER_PLUS_EXPR, there
      is nothing to do. */
   if (TREE_CODE (rhs) != POINTER_PLUS_EXPR)
     return false;
@@ -1149,7 +1149,7 @@ phiprop_insert_phi (basic_block bb, tree phi, tree use_stmt,
 	}
 
       if (TREE_CODE (old_arg) == SSA_NAME)
-	/* Reuse a formely created dereference.  */
+	/* Reuse a formerly created dereference.  */
 	new_var = phivn[SSA_NAME_VERSION (old_arg)].value;
       else
 	{

@@ -427,8 +427,8 @@ expand_start_catch_block (tree decl)
       exp = build_exc_ptr ();
       exp = build1 (NOP_EXPR, build_pointer_type (type), exp);
       exp = build2 (POINTER_PLUS_EXPR, TREE_TYPE (exp), exp,
-		    build1 (NEGATE_EXPR, sizetype,
-			    TYPE_SIZE_UNIT (TREE_TYPE (exp))));
+		    fold_build1 (NEGATE_EXPR, sizetype,
+			 	 TYPE_SIZE_UNIT (TREE_TYPE (exp))));
       exp = build_indirect_ref (exp, NULL);
       initialize_handler_parm (decl, exp);
       return type;

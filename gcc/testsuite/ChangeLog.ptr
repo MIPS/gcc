@@ -1,3 +1,8 @@
+2007-06-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* gcc.dg/max-1.c: Fix spelling/grammer mistakes.
+	* gcc.dg/vect/vect-106.c: Likewise.
+
 2007-06-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	PR tree-opt/32225

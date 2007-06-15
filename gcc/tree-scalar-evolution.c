@@ -2048,7 +2048,7 @@ instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache
       if (CHREC_LEFT (chrec) != op0
 	  || CHREC_RIGHT (chrec) != op1)
 	{
-	  op1 = chrec_convert_rhs (TREE_TYPE (op0), op1, NULL_TREE);
+	  op1 = chrec_convert_rhs (chrec_type (op0), op1, NULL_TREE);
 	  chrec = build_polynomial_chrec (CHREC_VARIABLE (chrec), op0, op1);
 	}
       return chrec;

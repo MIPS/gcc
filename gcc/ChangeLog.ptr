@@ -1,3 +1,40 @@
+2007-06-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* tree-vrp.c (compare_values_warnv): Fix spelling/grammer
+	mistakes
+	(extract_range_from_binary_expr): Likewise.
+	* doc/c-tree.texi (POINTER_PLUS_EXPR): Likewise.
+	* tree-ssa-loop-niter.c (assert_loop_rolls_lt): Add vertical
+	whitespace.
+	* tree-pretty-print.c (op_symbol_code <case POINTER_PLUS_EXPR>):
+	Change print out to "+".
+	* tree-scalar-evolution.c (instantiate_parameters_1):
+	Use chrec_type instead of TREE_TYPE.
+	* builtins.c (expand_builtin_strcat): Fix vertical whitespace.
+	(std_expand_builtin_va_start): Fix whitespace.
+	(fold_builtin_strstr): Use size_int instead of build_int_cst (sizetype.
+	(fold_builtin_strchr): Likewise.
+	(fold_builtin_strrchr): Likewise.
+	(fold_builtin_strpbrk): Likewise.
+	* fold-const.c (try_move_mult_to_index): Fix spelling/grammer
+	mistakes.
+	(fold_to_nonsharp_ineq_using_bound): Merge the two ifs at the end.
+	(fold_binary): Fix spelling/grammer mistakes.
+	* tree-ssa-ccp.c (maybe_fold_stmt_addition): Assert that only
+	a POINTER_PLUS_EXPR is passed in.
+	* tree-ssa-loop-ivopts.c (determine_base_object):
+	Fix spelling/grammer mistakes.
+	* expr.c (expand_expr_real_1): Likewise.
+	* tree-data-ref.c (split_constant_offset): Likewise.
+	* c-typeck.c (build_unary_op): Use fold_convert instead of convert
+	for converting to sizetype.
+	* tree.def (POINTER_PLUS_EXPR): Fix comment.
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1):
+	Fix spelling/grammer mistakes.
+	(phiprop_insert_phi): Likewise.
+	* c-common.c (pointer_int_sum): Remove FIXME about
+	POINTER_MINUS_EXPR.
+
 2007-06-13  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* expr.c (expand_expr_real_1 <case POINTER_PLUS_EXPR>): Remove assert

@@ -4434,8 +4434,8 @@ expand_builtin_strcat (tree fndecl, tree exp, rtx target, enum machine_mode mode
 	  /* Create strlen (dst).  */
 	  newdst = build_call_expr (strlen_fn, 1, dst);
 	  /* Create (dst p+ strlen (dst)).  */
-	  newdst = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (dst), dst, newdst);
 
+	  newdst = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (dst), dst, newdst);
 	  newdst = builtin_save_expr (newdst);
 
 	  if (!expand_builtin_strcpy_args (fndecl, newdst, newsrc, target, mode))
@@ -4652,7 +4652,7 @@ std_expand_builtin_va_start (tree valist, rtx nextarg)
   t = make_tree (sizetype, nextarg);
   t = fold_convert (ptr_type_node, t);
 
-  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist,t);
+  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
   TREE_SIDE_EFFECTS (t) = 1;
 
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -10609,7 +10609,7 @@ fold_builtin_strstr (tree s1, tree s2, tree type)
 
 	  /* Return an offset into the constant string argument.  */
 	  tem = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (s1),
-			     s1, build_int_cst (sizetype, r - p1));
+			     s1, size_int (r - p1));
 	  return fold_convert (type, tem);
 	}
 
@@ -10679,7 +10679,7 @@ fold_builtin_strchr (tree s1, tree s2, tree type)
 
 	  /* Return an offset into the constant string argument.  */
 	  tem = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (s1),
-			     s1, build_int_cst (sizetype, r - p1));
+			     s1, size_int (r - p1));
 	  return fold_convert (type, tem);
 	}
       return NULL_TREE;
@@ -10735,7 +10735,7 @@ fold_builtin_strrchr (tree s1, tree s2, tree type)
 
 	  /* Return an offset into the constant string argument.  */
 	  tem = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (s1),
-			     s1, build_int_cst (sizetype, r - p1));
+			     s1, size_int (r - p1));
 	  return fold_convert (type, tem);
 	}
 
@@ -10795,7 +10795,7 @@ fold_builtin_strpbrk (tree s1, tree s2, tree type)
 
 	  /* Return an offset into the constant string argument.  */
 	  tem = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (s1),
-			     s1, build_int_cst (sizetype, r - p1));
+			     s1, size_int (r - p1));
 	  return fold_convert (type, tem);
 	}
 

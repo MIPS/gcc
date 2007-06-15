@@ -409,7 +409,7 @@ build_base_path (enum tree_code code,
     {
       offset = fold_convert (sizetype, offset);
       if (code == MINUS_EXPR)
-	offset = build1 (NEGATE_EXPR, sizetype, offset);
+	offset = fold_build1 (NEGATE_EXPR, sizetype, offset);
       expr = build2 (POINTER_PLUS_EXPR, ptr_target_type, expr, offset);
     }
   else

@@ -1,3 +1,8 @@
+2007-06-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* except.c (build_exception_object_ref):
+	Use fold_build1 instead of build1 for NEGATE_EXPR.
+
 2007-05-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* class.c (make_class_data): Build the index in sizetype.

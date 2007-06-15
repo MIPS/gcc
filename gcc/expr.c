@@ -8038,8 +8038,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
     case POINTER_PLUS_EXPR: 
       /* Even though the sizetype mode and the pointer's mode can be different
-         expand is able to handle this correct and get the correct result out 
-         from the PLUS_EXPR code.  */
+         expand is able to handle this correctly and get the correct result out 
+         of the PLUS_EXPR code.  */
     case PLUS_EXPR:
 
       /* Check if this is a case for multiplication and addition.  */

@@ -896,6 +896,7 @@ assert_loop_rolls_lt (tree type, affine_iv *iv0, affine_iv *iv1,
   type1 = type;
   if (POINTER_TYPE_P (type))
     type1 = sizetype;
+
   /* Now the hard part; we must formulate the assumption(s) as expressions, and
      we must be careful not to introduce overflow.  */
 

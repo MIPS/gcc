@@ -2703,7 +2703,6 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
   intop = build_binary_op (MULT_EXPR, intop,
 			   convert (TREE_TYPE (intop), size_exp), 1);
 
-  /* FIXME: maybe add a POINTER_MINUS_EXPR ???  */
   if (resultcode == MINUS_EXPR)
     intop = fold_build1 (NEGATE_EXPR, TREE_TYPE (intop), intop);
 

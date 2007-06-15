@@ -6896,7 +6896,7 @@ try_move_mult_to_index (tree addr, tree op1)
   tree itype;
   bool mdim = false;
 
-  /*  Stip the nops that might be added when converting op1 to sizetype. */
+  /*  Strip the nops that might be added when converting op1 to sizetype. */
   STRIP_NOPS (op1);
 
   /* Canonicalize op1 into a possibly non-constant delta
@@ -7060,15 +7060,12 @@ fold_to_nonsharp_ineq_using_bound (tree ineq, tree bound)
       tree ta = fold_convert (ssizetype, a);
       tree ta1 = fold_convert (ssizetype, a1);
       diff = fold_binary (MINUS_EXPR, ssizetype, ta1, ta);
-      if (!diff || !integer_onep (diff))
-        return NULL_TREE;
     }
   else
-    {
-      diff = fold_binary (MINUS_EXPR, typea, a1, a);
-      if (!diff || !integer_onep (diff))
-        return NULL_TREE;
-    }
+   diff = fold_binary (MINUS_EXPR, typea, a1, a);
+
+  if (!diff || !integer_onep (diff))
+   return NULL_TREE;
 
   return fold_build2 (GE_EXPR, type, a, y);
 }
@@ -9104,7 +9101,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       if (integer_zerop (arg1))
 	return non_lvalue (fold_convert (type, arg0));
 
-      /* INT +p INT -> (PTR)(INT + INT), this happens because of stripping types. */
+      /* INT +p INT -> (PTR)(INT + INT).  Stripping types allows for this. */
       if (INTEGRAL_TYPE_P (TREE_TYPE (arg1))
 	   && INTEGRAL_TYPE_P (TREE_TYPE (arg0)))
         return fold_convert (type, fold_build2 (PLUS_EXPR, sizetype,
@@ -9539,7 +9536,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       return NULL_TREE;
 
     case MINUS_EXPR:
-      /* Pointer simplifications for subtraction, simple reassiocations. */
+      /* Pointer simplifications for subtraction, simple reassociations. */
       if (POINTER_TYPE_P (TREE_TYPE (arg1)) && POINTER_TYPE_P (TREE_TYPE (arg0)))
 	{
 	  /* (PTR0 p+ A) - (PTR1 p+ B) -> (PTR0 - PTR1) + (A - B) */

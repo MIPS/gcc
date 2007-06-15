@@ -1,3 +1,11 @@
+2007-06-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* init.c (build_new_1): Use fold_build1 instead
+	of build1 for NEGATE_EXPR.
+	(build_vec_delete_1): Likewise.
+	* class.c (build_base_path): Likewise.
+	* except.c (expand_start_catch_block): Likewise.
+
 2007-05-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* typeck.c (build_binary_op): Add a comment on why creating

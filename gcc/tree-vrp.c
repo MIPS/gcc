@@ -766,7 +766,7 @@ compare_values_warnv (tree val1, tree val2, bool *strict_overflow_p)
      both integers.  */
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (val1))
 	      == POINTER_TYPE_P (TREE_TYPE (val2)));
-  /* Convert the two values into the same type, this is needed because
+  /* Convert the two values into the same type.  This is needed because
      sizetype causes sign extension even for unsigned types.  */
   val2 = fold_convert (TREE_TYPE (val1), val2);
   STRIP_USELESS_TYPE_CONVERSION (val2);
@@ -1776,8 +1776,8 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
 	{
 	  /* For MIN/MAX expressions with pointers, we only care about
 	     nullness, if both are non null, then the result is nonnull.
-	     If both are null, then the result is null. Other wise they
-	     are varrying.  */
+	     If both are null, then the result is null. Otherwise they
+	     are varying.  */
 	  if (range_is_nonnull (&vr0) && range_is_nonnull (&vr1))
 	    set_value_range_to_nonnull (vr, TREE_TYPE (expr));
 	  else if (range_is_null (&vr0) && range_is_null (&vr1))

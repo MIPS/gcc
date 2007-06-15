@@ -1946,6 +1946,8 @@ maybe_fold_stmt_addition (tree expr)
   tree ptd_type;
   tree t;
 
+  gcc_assert (TREE_CODE (expr) == POINTER_PLUS_EXPR);
+
   /* It had better be a constant.  */
   if (TREE_CODE (op1) != INTEGER_CST)
     return NULL_TREE;

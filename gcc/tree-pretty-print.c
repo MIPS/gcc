@@ -2490,7 +2490,7 @@ op_symbol_code (enum tree_code code)
       return "v>>";
 
     case POINTER_PLUS_EXPR:
-      return "p+";
+      return "+";
  
     case PLUS_EXPR:
       return "+";
