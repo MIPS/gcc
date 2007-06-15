@@ -1,3 +1,8 @@
+2007-06-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* team.c (gomp_team_start): Fix setting up thread_attr
+	stack size.
+
 2007-05-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/linux/proc.c: New file.
