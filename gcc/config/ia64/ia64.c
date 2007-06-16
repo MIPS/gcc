@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
 		  David Mosberger <davidm@hpl.hp.com>.
@@ -56,6 +56,7 @@ Boston, MA 02110-1301, USA.  */
 #include "intl.h"
 #include "debug.h"
 #include "params.h"
+#include "tm-constrs.h"
 #include "sel-sched.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
@@ -253,16 +254,11 @@ static void ia64_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 static void ia64_file_start (void);
 static void ia64_globalize_decl_name (FILE *, tree);
 
+static int ia64_hpux_reloc_rw_mask (void) ATTRIBUTE_UNUSED;
+static int ia64_reloc_rw_mask (void) ATTRIBUTE_UNUSED;
 static section *ia64_select_rtx_section (enum machine_mode, rtx,
 					 unsigned HOST_WIDE_INT);
 static void ia64_output_dwarf_dtprel (FILE *, int, rtx)
-     ATTRIBUTE_UNUSED;
-static section *ia64_rwreloc_select_section (tree, int, unsigned HOST_WIDE_INT)
-     ATTRIBUTE_UNUSED;
-static void ia64_rwreloc_unique_section (tree, int)
-     ATTRIBUTE_UNUSED;
-static section *ia64_rwreloc_select_rtx_section (enum machine_mode, rtx,
-						 unsigned HOST_WIDE_INT)
      ATTRIBUTE_UNUSED;
 static unsigned int ia64_section_type_flags (tree, const char *, int);
 static void ia64_init_libfuncs (void)
@@ -640,102 +636,6 @@ ia64_encode_section_info (tree decl, rtx rtl, int first)
     ia64_encode_addr_area (decl, XEXP (rtl, 0));
 }
 
-/* Implement CONST_OK_FOR_LETTER_P.  */
-
-bool
-ia64_const_ok_for_letter_p (HOST_WIDE_INT value, char c)
-{
-  switch (c)
-    {
-    case 'I':
-      return CONST_OK_FOR_I (value);
-    case 'J':
-      return CONST_OK_FOR_J (value);
-    case 'K':
-      return CONST_OK_FOR_K (value);
-    case 'L':
-      return CONST_OK_FOR_L (value);
-    case 'M':
-      return CONST_OK_FOR_M (value);
-    case 'N':
-      return CONST_OK_FOR_N (value);
-    case 'O':
-      return CONST_OK_FOR_O (value);
-    case 'P':
-      return CONST_OK_FOR_P (value);
-    default:
-      return false;
-    }
-}
-
-/* Implement CONST_DOUBLE_OK_FOR_LETTER_P.  */
-
-bool
-ia64_const_double_ok_for_letter_p (rtx value, char c)
-{
-  switch (c)
-    {
-    case 'G':
-      return CONST_DOUBLE_OK_FOR_G (value);
-    default:
-      return false;
-    }
-}
-
-/* Implement EXTRA_CONSTRAINT.  */
-
-bool
-ia64_extra_constraint (rtx value, char c)
-{
-  switch (c)
-    {
-    case 'Q':
-      /* Non-volatile memory for FP_REG loads/stores.  */
-      return memory_operand(value, VOIDmode) && !MEM_VOLATILE_P (value);
-
-    case 'R':
-      /* 1..4 for shladd arguments.  */
-      return (GET_CODE (value) == CONST_INT
-	      && INTVAL (value) >= 1 && INTVAL (value) <= 4);
-
-    case 'S':
-      /* Non-post-inc memory for asms and other unsavory creatures.  */
-      return (GET_CODE (value) == MEM
-	      && GET_RTX_CLASS (GET_CODE (XEXP (value, 0))) != RTX_AUTOINC
-	      && (reload_in_progress || memory_operand (value, VOIDmode)));
-
-    case 'T':
-      /* Symbol ref to small-address-area.  */
-      return small_addr_symbolic_operand (value, VOIDmode);
-
-    case 'U':
-      /* Vector zero.  */
-      return value == CONST0_RTX (GET_MODE (value));
-
-    case 'W':
-      /* An integer vector, such that conversion to an integer yields a
-	 value appropriate for an integer 'J' constraint.  */
-      if (GET_CODE (value) == CONST_VECTOR
-	  && GET_MODE_CLASS (GET_MODE (value)) == MODE_VECTOR_INT)
-	{
-	  value = simplify_subreg (DImode, value, GET_MODE (value), 0);
-	  return ia64_const_ok_for_letter_p (INTVAL (value), 'J');
-	}
-      return false;
-
-    case 'Y':
-      /* A V2SF vector containing elements that satisfy 'G'.  */
-      return
-	(GET_CODE (value) == CONST_VECTOR
-	 && GET_MODE (value) == V2SFmode
-	 && ia64_const_double_ok_for_letter_p (XVECEXP (value, 0, 0), 'G')
-	 && ia64_const_double_ok_for_letter_p (XVECEXP (value, 0, 1), 'G'));
-
-    default:
-      return false;
-    }
-}
-
 /* Return 1 if the operands of a move are ok.  */
 
 int
@@ -756,7 +656,7 @@ ia64_move_ok (rtx dst, rtx src)
   if (INTEGRAL_MODE_P (GET_MODE (dst)))
     return src == const0_rtx;
   else
-    return GET_CODE (src) == CONST_DOUBLE && CONST_DOUBLE_OK_FOR_G (src);
+    return satisfies_constraint_G (src);
 }
 
 /* Return 1 if the operands are ok for a floating point load pair.  */
@@ -847,7 +747,7 @@ ia64_legitimate_constant_p (rtx x)
     case CONST_DOUBLE:
       if (GET_MODE (x) == VOIDmode)
 	return true;
-      return CONST_DOUBLE_OK_FOR_G (x);
+      return satisfies_constraint_G (x);
 
     case CONST:
     case SYMBOL_REF:
@@ -881,7 +781,7 @@ ia64_legitimate_constant_p (rtx x)
 	enum machine_mode mode = GET_MODE (x);
 
 	if (mode == V2SFmode)
-	  return ia64_extra_constraint (x, 'Y');
+	  return satisfies_constraint_Y (x);
 
 	return (GET_MODE_CLASS (mode) == MODE_VECTOR_INT
 		&& GET_MODE_SIZE (mode) <= 8);
@@ -2015,6 +1915,7 @@ ia64_reload_gp (void)
   else
     {
       HOST_WIDE_INT offset;
+      rtx offset_r;
 
       offset = (current_frame_info.spill_cfa_off
 	        + current_frame_info.spill_size);
@@ -2029,12 +1930,12 @@ ia64_reload_gp (void)
           offset = current_frame_info.total_size - offset;
         }
 
-      if (CONST_OK_FOR_I (offset))
-        emit_insn (gen_adddi3 (pic_offset_table_rtx,
-			       tmp, GEN_INT (offset)));
+      offset_r = GEN_INT (offset);
+      if (satisfies_constraint_I (offset_r))
+        emit_insn (gen_adddi3 (pic_offset_table_rtx, tmp, offset_r));
       else
         {
-          emit_move_insn (pic_offset_table_rtx, GEN_INT (offset));
+          emit_move_insn (pic_offset_table_rtx, offset_r);
           emit_insn (gen_adddi3 (pic_offset_table_rtx,
 			         pic_offset_table_rtx, tmp));
         }
@@ -2771,7 +2672,7 @@ spill_restore_mem (rtx reg, HOST_WIDE_INT cfa_off)
 
   if (spill_fill_data.prev_addr[iter])
     {
-      if (CONST_OK_FOR_N (disp))
+      if (satisfies_constraint_N (disp_rtx))
 	{
 	  *spill_fill_data.prev_addr[iter]
 	    = gen_rtx_POST_MODIFY (DImode, spill_fill_data.iter_reg[iter],
@@ -2785,7 +2686,7 @@ spill_restore_mem (rtx reg, HOST_WIDE_INT cfa_off)
       else
 	{
 	  /* ??? Could use register post_modify for loads.  */
-	  if (! CONST_OK_FOR_I (disp))
+	  if (!satisfies_constraint_I (disp_rtx))
 	    {
 	      rtx tmp = gen_rtx_REG (DImode, next_scratch_gr_reg ());
 	      emit_move_insn (tmp, disp_rtx);
@@ -2818,7 +2719,7 @@ spill_restore_mem (rtx reg, HOST_WIDE_INT cfa_off)
 	{
 	  start_sequence ();
 
-	  if (! CONST_OK_FOR_I (disp))
+	  if (!satisfies_constraint_I (disp_rtx))
 	    {
 	      rtx tmp = gen_rtx_REG (DImode, next_scratch_gr_reg ());
 	      emit_move_insn (tmp, disp_rtx);
@@ -3078,7 +2979,7 @@ ia64_expand_prologue (void)
       rtx frame_size_rtx = GEN_INT (- current_frame_info.total_size);
       rtx offset;
 
-      if (CONST_OK_FOR_I (- current_frame_info.total_size))
+      if (satisfies_constraint_I (frame_size_rtx))
 	offset = frame_size_rtx;
       else
 	{
@@ -3502,7 +3403,7 @@ ia64_expand_epilogue (int sibcall_p)
       rtx offset, frame_size_rtx;
 
       frame_size_rtx = GEN_INT (current_frame_info.total_size);
-      if (CONST_OK_FOR_I (current_frame_info.total_size))
+      if (satisfies_constraint_I (frame_size_rtx))
 	offset = frame_size_rtx;
       else
 	{
@@ -3610,6 +3511,7 @@ ia64_split_return_addr_rtx (rtx dest)
 	{
 	  HOST_WIDE_INT off;
 	  unsigned int regno;
+	  rtx off_r;
 
 	  /* Compute offset from CFA for BR0.  */
 	  /* ??? Must be kept in sync with ia64_expand_prologue.  */
@@ -3629,11 +3531,12 @@ ia64_split_return_addr_rtx (rtx dest)
 	    }
 
 	  /* Load address into scratch register.  */
-	  if (CONST_OK_FOR_I (off))
-	    emit_insn (gen_adddi3 (dest, src, GEN_INT (off)));
+	  off_r = GEN_INT (off);
+	  if (satisfies_constraint_I (off_r))
+	    emit_insn (gen_adddi3 (dest, src, off_r));
 	  else
 	    {
-	      emit_move_insn (dest, GEN_INT (off));
+	      emit_move_insn (dest, off_r);
 	      emit_insn (gen_adddi3 (dest, src, dest));
 	    }
 
@@ -4581,6 +4484,18 @@ ia64_print_operand (FILE * file, rtx x, int code)
 	case ORDERED:
 	  str = "ord";
 	  break;
+	case UNLT:
+	  str = "nge";
+	  break;
+	case UNLE:
+	  str = "ngt";
+	  break;
+	case UNGT:
+	  str = "nle";
+	  break;
+	case UNGE:
+	  str = "nlt";
+	  break;
 	default:
 	  str = GET_RTX_NAME (GET_CODE (x));
 	  break;
@@ -4812,18 +4727,18 @@ ia64_rtx_costs (rtx x, int code, int outer_code, int *total)
       switch (outer_code)
         {
         case SET:
-	  *total = CONST_OK_FOR_J (INTVAL (x)) ? 0 : COSTS_N_INSNS (1);
+	  *total = satisfies_constraint_J (x) ? 0 : COSTS_N_INSNS (1);
 	  return true;
         case PLUS:
-	  if (CONST_OK_FOR_I (INTVAL (x)))
+	  if (satisfies_constraint_I (x))
 	    *total = 0;
-	  else if (CONST_OK_FOR_J (INTVAL (x)))
+	  else if (satisfies_constraint_J (x))
 	    *total = 1;
 	  else
 	    *total = COSTS_N_INSNS (1);
 	  return true;
         default:
-	  if (CONST_OK_FOR_K (INTVAL (x)) || CONST_OK_FOR_L (INTVAL (x)))
+	  if (satisfies_constraint_K (x) || satisfies_constraint_L (x))
 	    *total = 0;
 	  else
 	    *total = COSTS_N_INSNS (1);
@@ -6087,7 +6002,7 @@ emit_insn_group_barriers (FILE *dump)
 	  insns_since_last_label = 0;
 	}
       else if (GET_CODE (insn) == NOTE
-	       && NOTE_LINE_NUMBER (insn) == NOTE_INSN_BASIC_BLOCK)
+	       && NOTE_KIND (insn) == NOTE_INSN_BASIC_BLOCK)
 	{
 	  if (insns_since_last_label)
 	    last_label = insn;
@@ -6298,7 +6213,6 @@ ia64_single_set (rtx insn)
 /* Adjust the cost of a scheduling dependency.
    Return the new cost of a dependency of type DEP_TYPE or INSN on DEP_INSN.
    COST is the current cost, DW is dependency weakness.  */
-
 static int
 ia64_adjust_cost_2 (rtx insn, int dep_type1, rtx dep_insn, int cost, dw_t dw)
 {
@@ -6352,7 +6266,7 @@ ia64_emit_insn_before (rtx insn, rtx before)
 static void
 ia64_dependencies_evaluation_hook (rtx head, rtx tail)
 {
-  rtx insn, link, next, next_tail;
+  rtx insn, next, next_tail;
 
   /* Before reload, which_alternative is not set, which means that
      ia64_safe_itanium_class will produce wrong results for (at least)
@@ -6368,13 +6282,16 @@ ia64_dependencies_evaluation_hook (rtx head, rtx tail)
     if (INSN_P (insn)
 	&& ia64_safe_itanium_class (insn) == ITANIUM_CLASS_IALU)
       {
-	for (link = INSN_DEPEND (insn); link != 0; link = XEXP (link, 1))
+	dep_link_t link;
+
+	FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (insn))
 	  {
 	    enum attr_itanium_class c;
 
-	    if (REG_NOTE_KIND (link) != REG_DEP_TRUE)
+	    if (DEP_LINK_KIND (link) != REG_DEP_TRUE)
 	      continue;
-	    next = XEXP (link, 0);
+
+	    next = DEP_LINK_CON (link);
 	    c = ia64_safe_itanium_class (next);
 	    if ((c == ITANIUM_CLASS_ST
 		 || c == ITANIUM_CLASS_STF)
@@ -6699,14 +6616,14 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
 
       if (c != ITANIUM_CLASS_MMMUL && c != ITANIUM_CLASS_MMSHF)
 	{
-	  rtx link;
+	  dep_link_t link;
 	  int d = -1;
 
-	  for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
-	    if (REG_NOTE_KIND (link) == 0)
+	  FOR_EACH_DEP_LINK (link, INSN_BACK_DEPS (insn))
+	    if (DEP_LINK_KIND (link) == REG_DEP_TRUE)
 	      {
 		enum attr_itanium_class dep_class;
-		rtx dep_insn = XEXP (link, 0);
+		rtx dep_insn = DEP_LINK_PRO (link);
 
 		dep_class = ia64_safe_itanium_class (dep_insn);
 		if ((dep_class == ITANIUM_CLASS_MMMUL
@@ -7061,7 +6978,8 @@ get_mode_no_for_insn (rtx insn)
     {
       if (!reload_completed)
 	{
-	  if (!REG_P (reg))
+	  if (!REG_P (reg)
+	      || !(GR_REGNO_P (REGNO (reg)) || FP_REGNO_P (REGNO (reg))))
 	    return -1;
 
 	  if (!MEM_P (mem))
@@ -8740,8 +8658,7 @@ emit_predicate_relation_info (void)
       /* We only need such notes at code labels.  */
       if (GET_CODE (head) != CODE_LABEL)
 	continue;
-      if (GET_CODE (NEXT_INSN (head)) == NOTE
-	  && NOTE_LINE_NUMBER (NEXT_INSN (head)) == NOTE_INSN_BASIC_BLOCK)
+      if (NOTE_INSN_BASIC_BLOCK_P (NEXT_INSN (head)))
 	head = NEXT_INSN (head);
 
       /* Skip p0, which may be thought to be live due to (reg:DI p0)
@@ -9409,8 +9326,7 @@ process_for_unwind_directive (FILE *asm_out_file, rtx insn)
     {
       rtx pat;
 
-      if (GET_CODE (insn) == NOTE
-	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_BASIC_BLOCK)
+      if (NOTE_INSN_BASIC_BLOCK_P (insn))
 	{
 	  last_block = NOTE_BASIC_BLOCK (insn)->next_bb == EXIT_BLOCK_PTR;
 
@@ -9534,7 +9450,7 @@ ia64_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 		     enum machine_mode mode ATTRIBUTE_UNUSED,
 		     int ignore ATTRIBUTE_UNUSED)
 {
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
 
   switch (fcode)
@@ -9717,6 +9633,24 @@ ia64_sysv4_init_libfuncs (void)
      glibc doesn't have them.  */
 }
 
+/* For HPUX, it is illegal to have relocations in shared segments.  */
+
+static int
+ia64_hpux_reloc_rw_mask (void)
+{
+  return 3;
+}
+
+/* For others, relax this so that relocations to local data goes in
+   read-only segments, but we still cannot allow global relocations
+   in read-only segments.  */
+
+static int
+ia64_reloc_rw_mask (void)
+{
+  return flag_pic ? 3 : 2;
+}
+
 /* Return the section to use for X.  The only special thing we do here
    is to honor small data.  */
 
@@ -9731,37 +9665,6 @@ ia64_select_rtx_section (enum machine_mode mode, rtx x,
   else
     return default_elf_select_rtx_section (mode, x, align);
 }
-
-/* It is illegal to have relocations in shared segments on AIX and HPUX.
-   Pretend flag_pic is always set.  */
-
-static section *
-ia64_rwreloc_select_section (tree exp, int reloc, unsigned HOST_WIDE_INT align)
-{
-  return default_elf_select_section_1 (exp, reloc, align, true);
-}
-
-static void
-ia64_rwreloc_unique_section (tree decl, int reloc)
-{
-  default_unique_section_1 (decl, reloc, true);
-}
-
-static section *
-ia64_rwreloc_select_rtx_section (enum machine_mode mode, rtx x,
-				 unsigned HOST_WIDE_INT align)
-{
-  section *sect;
-  int save_pic = flag_pic;
-  flag_pic = 1;
-  sect = ia64_select_rtx_section (mode, x, align);
-  flag_pic = save_pic;
-  return sect;
-}
-
-#ifndef TARGET_RWRELOC
-#define TARGET_RWRELOC flag_pic
-#endif
 
 static unsigned int
 ia64_section_type_flags (tree decl, const char *name, int reloc)
@@ -9778,7 +9681,7 @@ ia64_section_type_flags (tree decl, const char *name, int reloc)
       || strncmp (name, ".gnu.linkonce.sb.", 17) == 0)
     flags = SECTION_SMALL;
 
-  flags |= default_section_type_flags_1 (decl, name, reloc, TARGET_RWRELOC);
+  flags |= default_section_type_flags (decl, name, reloc);
   return flags;
 }
 
@@ -9818,11 +9721,11 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   rtx this, insn, funexp;
   unsigned int this_parmno;
   unsigned int this_regno;
+  rtx delta_rtx;
 
   reload_completed = 1;
   epilogue_completed = 1;
   no_new_pseudos = 1;
-  reset_block_changes ();
 
   /* Set things up as ia64_expand_prologue might.  */
   last_scratch_gr_reg = 15;
@@ -9846,25 +9749,24 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
     reg_names[this_regno] = ia64_reg_numbers[this_parmno];
 
   this = gen_rtx_REG (Pmode, this_regno);
+
+  /* Apply the constant offset, if required.  */
+  delta_rtx = GEN_INT (delta);
   if (TARGET_ILP32)
     {
       rtx tmp = gen_rtx_REG (ptr_mode, this_regno);
       REG_POINTER (tmp) = 1;
-      if (delta && CONST_OK_FOR_I (delta))
+      if (delta && satisfies_constraint_I (delta_rtx))
 	{
-	  emit_insn (gen_ptr_extend_plus_imm (this, tmp, GEN_INT (delta)));
+	  emit_insn (gen_ptr_extend_plus_imm (this, tmp, delta_rtx));
 	  delta = 0;
 	}
       else
 	emit_insn (gen_ptr_extend (this, tmp));
     }
-
-  /* Apply the constant offset, if required.  */
   if (delta)
     {
-      rtx delta_rtx = GEN_INT (delta);
-
-      if (!CONST_OK_FOR_I (delta))
+      if (!satisfies_constraint_I (delta_rtx))
 	{
 	  rtx tmp = gen_rtx_REG (Pmode, 2);
 	  emit_move_insn (tmp, delta_rtx);
@@ -9884,10 +9786,9 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 	  rtx t = gen_rtx_REG (ptr_mode, 2);
 	  REG_POINTER (t) = 1;
 	  emit_move_insn (t, gen_rtx_MEM (ptr_mode, this));
-	  if (CONST_OK_FOR_I (vcall_offset))
+	  if (satisfies_constraint_I (vcall_offset_rtx))
 	    {
-	      emit_insn (gen_ptr_extend_plus_imm (tmp, t, 
-						  vcall_offset_rtx));
+	      emit_insn (gen_ptr_extend_plus_imm (tmp, t, vcall_offset_rtx));
 	      vcall_offset = 0;
 	    }
 	  else
@@ -9898,7 +9799,7 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 
       if (vcall_offset)
 	{
-	  if (!CONST_OK_FOR_J (vcall_offset))
+	  if (!satisfies_constraint_J (vcall_offset_rtx))
 	    {
 	      rtx tmp2 = gen_rtx_REG (Pmode, next_scratch_gr_reg ());
 	      emit_move_insn (tmp2, vcall_offset_rtx);
@@ -9908,8 +9809,7 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 	}
 
       if (TARGET_ILP32)
-	emit_move_insn (gen_rtx_REG (ptr_mode, 2), 
-			gen_rtx_MEM (ptr_mode, tmp));
+	emit_insn (gen_zero_extendsidi2 (tmp, gen_rtx_MEM (ptr_mode, tmp)));
       else
 	emit_move_insn (tmp, gen_rtx_MEM (Pmode, tmp));
 
@@ -9940,7 +9840,7 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
      instruction scheduling worth while.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
 
-  insn_locators_initialize ();
+  insn_locators_alloc ();
   emit_all_insn_group_barriers (NULL);
   insn = get_insns ();
   shorten_branches (insn);

@@ -465,6 +465,9 @@ extern rtx emit_move_insn (rtx, rtx);
 /* Emit insns to set X from Y, with no frills.  */
 extern rtx emit_move_insn_1 (rtx, rtx);
 
+extern rtx emit_move_complex_push (enum machine_mode, rtx, rtx);
+extern rtx emit_move_complex_parts (rtx, rtx);
+
 /* Push a block of length SIZE (perhaps variable)
    and return an rtx to address the beginning of the block.  */
 extern rtx push_block (rtx, int, int);
@@ -593,9 +596,6 @@ extern rtx label_rtx (tree);
    list of its containing function (i.e. it is treated as reachable even
    if how is not obvious).  */
 extern rtx force_label_rtx (tree);
-
-/* Indicate how an input argument register was promoted.  */
-extern rtx promoted_input_arg (unsigned int, enum machine_mode *, int *);
 
 /* Return an rtx like arg but sans any constant terms.
    Returns the original rtx if it has no constant terms.

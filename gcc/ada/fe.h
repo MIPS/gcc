@@ -36,7 +36,7 @@
 /* comperr:  */
 
 #define Compiler_Abort comperr__compiler_abort
-extern int Compiler_Abort (Fat_Pointer, int) ATTRIBUTE_NORETURN;
+extern int Compiler_Abort (Fat_Pointer, int, Fat_Pointer) ATTRIBUTE_NORETURN;
 
 /* csets: */
 
@@ -99,6 +99,14 @@ extern void Set_Identifier_Casing (Char *, Char *);
 extern Entity_Id             Error_Msg_Node_2;
 extern Uint                  Error_Msg_Uint_1;
 extern Uint                  Error_Msg_Uint_2;
+
+/* exp_ch11:  */
+
+#define Get_Local_Raise_Call_Entity exp_ch11__get_local_raise_call_entity
+#define Get_RT_Exception_Entity exp_ch11__get_rt_exception_entity
+
+extern Entity_Id Get_Local_Raise_Call_Entity (void);
+extern Entity_Id Get_RT_Exception_Entity (int);
 
 /* exp_code:  */
 

@@ -1,5 +1,6 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -38,6 +39,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "opts.h"
 #include "options.h"
 #include "mkdeps.h"
+#include "target.h"
 
 #ifndef DOLLARS_IN_IDENTIFIERS
 # define DOLLARS_IN_IDENTIFIERS true
@@ -71,7 +73,7 @@ static bool deps_seen;
 static bool verbose;
 
 /* If -lang-fortran seen.  */
-static bool lang_fortran = false;
+bool lang_fortran = false;
 
 /* Dependency output file.  */
 static const char *deps_file;
@@ -277,7 +279,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     {
     default:
       if (cl_options[code].flags & (CL_C | CL_CXX | CL_ObjC | CL_ObjCXX))
-	break;
+	{
+	  if ((option->flags & CL_TARGET)
+	      && ! targetcm.handle_c_option (scode, arg, value))
+	    result = 0;
+	  break;
+	}
 #ifdef CL_Fortran
       if (lang_fortran && (cl_options[code].flags & (CL_Fortran)))
 	break;
@@ -393,9 +400,9 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       if (c_dialect_cxx ())
 	warn_sign_compare = value;
       warn_switch = value;
-      warn_strict_aliasing = value;
-      warn_string_literal_comparison = value;
-      warn_always_true = value;
+      set_Wstrict_aliasing (value);
+      warn_address = value;
+      warn_strict_overflow = value;
       warn_array_bounds = value;
 
       /* Only warn about unknown pragmas that are not in system
@@ -449,8 +456,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       global_dc->warning_as_error_requested = value;
       break;
 
-    case OPT_Werror_implicit_function_declaration:
-      mesg_implicit_function_declaration = 2;
+    case OPT_Werror_implicit_function_declaration: 
+      /* For backward compatibility, this is the same as
+	 -Werror=implicit-function-declaration.  */
+      enable_warning_as_error ("implicit-function-declaration", value, CL_C | CL_ObjC); 
       break;
 
     case OPT_Wformat:
@@ -823,6 +832,18 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_gen_declaration = 1;
       break;
 
+    case OPT_femit_struct_debug_baseonly:
+      set_struct_debug_option ("base");
+      break;
+
+    case OPT_femit_struct_debug_reduced:
+      set_struct_debug_option ("dir:ord:sys,dir:gen:any,ind:base");
+      break;
+
+    case OPT_femit_struct_debug_detailed_:
+      set_struct_debug_option (arg);
+      break;
+
     case OPT_idirafter:
       add_path (xstrdup (arg), AFTER, 0, true);
       break;
@@ -1020,6 +1041,13 @@ c_common_post_options (const char **pfilename)
   if (flag_inline_functions)
     flag_inline_trees = 2;
 
+  /* By default we use C99 inline semantics in GNU99 or C99 mode.  C99
+     inline semantics are not supported in GNU89 or C89 mode.  */
+  if (flag_gnu89_inline == -1)
+    flag_gnu89_inline = !flag_isoc99;
+  else if (!flag_gnu89_inline && !flag_isoc99)
+    error ("-fno-gnu89-inline is only supported in GNU99 or C99 mode");
+
   /* If we are given more than one input file, we must use
      unit-at-a-time mode.  */
   if (num_in_fnames > 1)
@@ -1031,10 +1059,13 @@ c_common_post_options (const char **pfilename)
   if (flag_objc_exceptions && !flag_objc_sjlj_exceptions)
     flag_exceptions = 1;
 
-  /* -Wextra implies -Wclobbered, -Wempty-body, -Wsign-compare, 
+  /* -Wextra implies -Wtype-limits, -Wclobbered, 
+     -Wempty-body, -Wsign-compare, 
      -Wmissing-field-initializers, -Wmissing-parameter-type
      -Wold-style-declaration, and -Woverride-init, 
      but not if explicitly overridden.  */
+  if (warn_type_limits == -1)
+    warn_type_limits = extra_warnings;
   if (warn_clobbered == -1)
     warn_clobbered = extra_warnings;
   if (warn_empty_body == -1)
@@ -1061,6 +1092,30 @@ c_common_post_options (const char **pfilename)
   if (warn_overlength_strings == -1 || c_dialect_cxx ())
     warn_overlength_strings = 0;
 
+  /* Adjust various flags for C++ based on command-line settings.  */
+  if (c_dialect_cxx ())
+    {
+      if (!flag_permissive)
+	{
+	  flag_pedantic_errors = 1;
+	  cpp_opts->pedantic_errors = 1;
+	}
+      if (!flag_no_inline)
+	{
+	  flag_inline_trees = 1;
+	  flag_no_inline = 1;
+	}
+      if (flag_inline_functions)
+	flag_inline_trees = 2;
+    } 
+
+  /* In C, -Wconversion enables -Wsign-conversion (unless disabled
+     through -Wno-sign-conversion). While in C++,
+     -Wsign-conversion needs to be requested explicitly.  */
+  if (warn_sign_conversion == -1)
+    warn_sign_conversion =  (c_dialect_cxx ()) ? 0 : warn_conversion;
+
+
   /* Special format checking options don't work without -Wformat; warn if
      they are used.  */
   if (!warn_format)
@@ -1073,14 +1128,25 @@ c_common_post_options (const char **pfilename)
 	       "-Wformat-zero-length ignored without -Wformat");
       warning (OPT_Wformat_nonliteral,
 	       "-Wformat-nonliteral ignored without -Wformat");
+      warning (OPT_Wformat_contains_nul,
+	       "-Wformat-contains-nul ignored without -Wformat");
       warning (OPT_Wformat_security,
 	       "-Wformat-security ignored without -Wformat");
     }
+
+  /* -Wimplicit-function-declaration is enabled by default for C99.  */
+  if (warn_implicit_function_declaration == -1) 
+    warn_implicit_function_declaration = flag_isoc99;
 
   /* C99 requires special handling of complex multiplication and division;
      -ffast-math and -fcx-limited-range are handled in process_options.  */
   if (flag_isoc99)
     flag_complex_method = 2;
+
+  /* If we're allowing C++0x constructs, don't warn about C++0x
+     compatibility problems.  */
+  if (cxx_dialect == cxx0x)
+    warn_cxx0x_compat = 0;
 
   if (flag_preprocess_only)
     {
@@ -1544,6 +1610,7 @@ set_std_cxx98 (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
+  cxx_dialect = cxx98;
 }
 
 /* Set the C++ 0x working draft "standard" (without GNU extensions if ISO).  */
@@ -1554,7 +1621,7 @@ set_std_cxx0x (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
-  flag_cpp0x = 1;
+  cxx_dialect = cxx0x;
 }
 
 /* Handle setting implicit to ON.  */
@@ -1563,13 +1630,7 @@ set_Wimplicit (int on)
 {
   warn_implicit = on;
   warn_implicit_int = on;
-  if (on)
-    {
-      if (mesg_implicit_function_declaration != 2)
-	mesg_implicit_function_declaration = 1;
-    }
-  else
-    mesg_implicit_function_declaration = 0;
+  warn_implicit_function_declaration = on;
 }
 
 /* Args to -d specify what to dump.  Silently ignore

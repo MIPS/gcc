@@ -271,7 +271,7 @@ dump_bb (basic_block bb, FILE *outf, int indent)
   edge_iterator ei;
   char *s_indent;
 
-  s_indent = alloca ((size_t) indent + 1);
+  s_indent = (char *) alloca ((size_t) indent + 1);
   memset (s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
@@ -328,6 +328,48 @@ redirect_edge_and_branch (edge e, basic_block dest)
     rescan_loop_exit (e, false, ret != e);
 
   return ret;
+}
+
+/* Returns true if it is possible to remove the edge E by redirecting it
+   to the destination of the other edge going from its source.  */
+
+bool
+can_remove_branch_p (edge e)
+{
+  if (!cfg_hooks->can_remove_branch_p)
+    internal_error ("%s does not support can_remove_branch_p",
+		    cfg_hooks->name);
+
+  if (EDGE_COUNT (e->src->succs) != 2)
+    return false;
+
+  return cfg_hooks->can_remove_branch_p (e);
+}
+
+/* Removes E, by redirecting it to the destination of the other edge going
+   from its source.  Can_remove_branch_p must be true for E, hence this
+   operation cannot fail.  */
+
+void
+remove_branch (edge e)
+{
+  edge other;
+  basic_block src = e->src;
+  int irr;
+
+  gcc_assert (EDGE_COUNT (e->src->succs) == 2);
+
+  other = EDGE_SUCC (src, EDGE_SUCC (src, 0) == e);
+  irr = other->flags & EDGE_IRREDUCIBLE_LOOP;
+
+  if (current_loops != NULL)
+    rescan_loop_exit (e, false, true);
+
+  e = redirect_edge_and_branch (e, other->dest);
+  gcc_assert (e != NULL);
+
+  e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
+  e->flags |= irr;
 }
 
 /* Redirect the edge E to basic block DEST even if it requires creating
@@ -456,9 +498,9 @@ delete_basic_block (basic_block bb)
   while (EDGE_COUNT (bb->succs) != 0)
     remove_edge (EDGE_SUCC (bb, 0));
 
-  if (dom_computed[CDI_DOMINATORS])
+  if (dom_info_available_p (CDI_DOMINATORS))
     delete_from_dominance_info (CDI_DOMINATORS, bb);
-  if (dom_computed[CDI_POST_DOMINATORS])
+  if (dom_info_available_p (CDI_POST_DOMINATORS))
     delete_from_dominance_info (CDI_POST_DOMINATORS, bb);
 
   /* Remove the basic block from the array.  */
@@ -497,10 +539,10 @@ split_edge (edge e)
       single_succ_edge (ret)->flags |= EDGE_IRREDUCIBLE_LOOP;
     }
 
-  if (dom_computed[CDI_DOMINATORS])
+  if (dom_info_available_p (CDI_DOMINATORS))
     set_immediate_dominator (CDI_DOMINATORS, ret, single_pred (ret));
 
-  if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
+  if (dom_info_state (CDI_DOMINATORS) >= DOM_NO_FAST_QUERY)
     {
       /* There are two cases:
 
@@ -556,9 +598,9 @@ create_basic_block (void *head, void *end, basic_block after)
 
   ret = cfg_hooks->create_basic_block (head, end, after);
 
-  if (dom_computed[CDI_DOMINATORS])
+  if (dom_info_available_p (CDI_DOMINATORS))
     add_to_dominance_info (CDI_DOMINATORS, ret);
-  if (dom_computed[CDI_POST_DOMINATORS])
+  if (dom_info_available_p (CDI_POST_DOMINATORS))
     add_to_dominance_info (CDI_POST_DOMINATORS, ret);
 
   return ret;
@@ -646,12 +688,12 @@ merge_blocks (basic_block a, basic_block b)
   /* B hasn't quite yet ceased to exist.  Attempt to prevent mishap.  */
   b->preds = b->succs = NULL;
 
-  if (dom_computed[CDI_DOMINATORS])
+  if (dom_info_available_p (CDI_DOMINATORS))
     redirect_immediate_dominators (CDI_DOMINATORS, b, a);
 
-  if (dom_computed[CDI_DOMINATORS])
+  if (dom_info_available_p (CDI_DOMINATORS))
     delete_from_dominance_info (CDI_DOMINATORS, b);
-  if (dom_computed[CDI_POST_DOMINATORS])
+  if (dom_info_available_p (CDI_POST_DOMINATORS))
     delete_from_dominance_info (CDI_POST_DOMINATORS, b);
 
   expunge_block (b);
@@ -717,11 +759,11 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
 
   if (dom_info_available_p (CDI_DOMINATORS))
     {
-      basic_block doms_to_fix[2];
-
-      doms_to_fix[0] = dummy;
-      doms_to_fix[1] = bb;
-      iterate_fix_dominators (CDI_DOMINATORS, doms_to_fix, 2);
+      VEC (basic_block, heap) *doms_to_fix = VEC_alloc (basic_block, heap, 2);
+      VEC_quick_push (basic_block, doms_to_fix, dummy);
+      VEC_quick_push (basic_block, doms_to_fix, bb);
+      iterate_fix_dominators (CDI_DOMINATORS, doms_to_fix, false);
+      VEC_free (basic_block, heap, doms_to_fix);
     }
 
   if (current_loops != NULL)
@@ -749,7 +791,7 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
 	}
 
       /* In case we split loop latch, update it.  */
-      for (ploop = loop; ploop; ploop = ploop->outer)
+      for (ploop = loop; ploop; ploop = loop_outer (ploop))
 	if (ploop->latch == dummy)
 	  ploop->latch = bb;
     }
@@ -905,9 +947,14 @@ duplicate_block (basic_block bb, edge e, basic_block after)
   set_bb_original (new_bb, bb);
   set_bb_copy (bb, new_bb);
 
-  /* Add the new block to the prescribed loop.  */
+  /* Add the new block to the copy of the loop of BB, or directly to the loop
+     of BB if the loop is not being copied.  */
   if (current_loops != NULL)
-    add_bb_to_loop (new_bb, bb->loop_father->copy);
+    {
+      struct loop *cloop = bb->loop_father;
+      struct loop *copy = get_loop_copy (cloop);
+      add_bb_to_loop (new_bb, copy ? copy : cloop);
+    }
 
   return new_bb;
 }
@@ -1020,10 +1067,10 @@ extract_cond_bb_edges (basic_block b, edge *e1, edge *e2)
    new condition basic block that guards the versioned loop.  */
 void
 lv_adjust_loop_header_phi (basic_block first, basic_block second,
-			   basic_block new, edge e)
+			   basic_block new_block, edge e)
 {
   if (cfg_hooks->lv_adjust_loop_header_phi)
-    cfg_hooks->lv_adjust_loop_header_phi (first, second, new, e);
+    cfg_hooks->lv_adjust_loop_header_phi (first, second, new_block, e);
 }
 
 /* Conditions in trees and RTL are different so we need
@@ -1031,8 +1078,8 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
    versioning code.  */
 void
 lv_add_condition_to_bb (basic_block first, basic_block second,
-			basic_block new, void *cond)
+			basic_block new_block, void *cond)
 {
   gcc_assert (cfg_hooks->lv_add_condition_to_bb);
-  cfg_hooks->lv_add_condition_to_bb (first, second, new, cond);
+  cfg_hooks->lv_add_condition_to_bb (first, second, new_block, cond);
 }

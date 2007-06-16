@@ -1,5 +1,5 @@
 /* Loop optimizations over tree-ssa.
-   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005, 2006, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -45,9 +45,6 @@ tree_loop_optimizer_init (void)
 {
   loop_optimizer_init (LOOPS_NORMAL
 		       | LOOPS_HAVE_RECORDED_EXITS);
-  if (!current_loops)
-    return;
-
   rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
 }
 
@@ -82,7 +79,7 @@ static unsigned int
 tree_ssa_loop_init (void)
 {
   tree_loop_optimizer_init ();
-  if (!current_loops)
+  if (number_of_loops () <= 1)
     return 0;
 
   scev_initialize ();
@@ -111,7 +108,7 @@ struct tree_opt_pass pass_tree_loop_init =
 static unsigned int
 tree_ssa_loop_im (void)
 {
-  if (!current_loops)
+  if (number_of_loops () <= 1)
     return 0;
 
   tree_ssa_lim ();
@@ -146,7 +143,7 @@ struct tree_opt_pass pass_lim =
 static unsigned int
 tree_ssa_loop_unswitch (void)
 {
-  if (!current_loops)
+  if (number_of_loops () <= 1)
     return 0;
 
   return tree_ssa_unswitch_loops ();
@@ -171,7 +168,44 @@ struct tree_opt_pass pass_tree_unswitch =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
+  TODO_ggc_collect | TODO_dump_func
+    | TODO_verify_loops,		/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Predictive commoning.  */
+
+static unsigned
+run_tree_predictive_commoning (void)
+{
+  if (!current_loops)
+    return 0;
+
+  tree_predictive_commoning ();
+  return 0;
+}
+
+static bool
+gate_tree_predictive_commoning (void)
+{
+  return flag_predictive_commoning != 0;
+}
+
+struct tree_opt_pass pass_predcom = 
+{
+  "pcom",				/* name */
+  gate_tree_predictive_commoning,	/* gate */
+  run_tree_predictive_commoning,	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_PREDCOM,				/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_loops
+    | TODO_update_ssa_only_virtuals,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -186,7 +220,7 @@ tree_vectorize (void)
 static bool
 gate_tree_vectorize (void)
 {
-  return flag_tree_vectorize && current_loops;
+  return flag_tree_vectorize && number_of_loops () > 1;
 }
 
 struct tree_opt_pass pass_vectorize =
@@ -202,7 +236,8 @@ struct tree_opt_pass pass_vectorize =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   TODO_verify_loops,			/* todo_flags_start */
-  TODO_dump_func | TODO_update_ssa,	/* todo_flags_finish */
+  TODO_dump_func | TODO_update_ssa
+    | TODO_ggc_collect,			/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -211,7 +246,7 @@ struct tree_opt_pass pass_vectorize =
 static unsigned int
 tree_linear_transform (void)
 {
-  if (!current_loops)
+  if (number_of_loops () <= 1)
     return 0;
 
   linear_transform_loops ();
@@ -237,7 +272,43 @@ struct tree_opt_pass pass_linear_transform =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_loops
+    | TODO_ggc_collect,			/* todo_flags_finish */
+  0				        /* letter */	
+};
+
+/* Check the correctness of the data dependence analyzers.  */
+
+static unsigned int
+check_data_deps (void)
+{
+  if (number_of_loops () <= 1)
+    return 0;
+
+  tree_check_data_deps ();
+  return 0;
+}
+
+static bool
+gate_check_data_deps (void)
+{
+  return flag_check_data_deps != 0;
+}
+
+struct tree_opt_pass pass_check_data_deps =
+{
+  "ckdd",				/* name */
+  gate_check_data_deps,	        	/* gate */
+  check_data_deps,       		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_CHECK_DATA_DEPS,  	        	/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                	/* todo_flags_finish */
   0				        /* letter */	
 };
 
@@ -246,7 +317,7 @@ struct tree_opt_pass pass_linear_transform =
 static unsigned int
 tree_ssa_loop_ivcanon (void)
 {
-  if (!current_loops)
+  if (number_of_loops () <= 1)
     return 0;
 
   return canonicalize_induction_variables ();
@@ -280,7 +351,7 @@ struct tree_opt_pass pass_iv_canon =
 static bool
 gate_scev_const_prop (void)
 {
-  return true;
+  return flag_tree_scev_cprop;
 }
 
 struct tree_opt_pass pass_scev_cprop =
@@ -307,7 +378,7 @@ struct tree_opt_pass pass_scev_cprop =
 static unsigned int
 tree_ssa_empty_loop (void)
 {
-  if (!current_loops)
+  if (number_of_loops () <= 1)
     return 0;
 
   return remove_empty_loops ();
@@ -326,7 +397,8 @@ struct tree_opt_pass pass_empty_loop =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_loops 
+    | TODO_ggc_collect,			/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -335,7 +407,7 @@ struct tree_opt_pass pass_empty_loop =
 static unsigned int
 tree_ssa_loop_bounds (void)
 {
-  if (!current_loops)
+  if (number_of_loops () <= 1)
     return 0;
 
   estimate_numbers_of_iterations ();
@@ -365,7 +437,7 @@ struct tree_opt_pass pass_record_bounds =
 static unsigned int
 tree_complete_unroll (void)
 {
-  if (!current_loops)
+  if (number_of_loops () <= 1)
     return 0;
 
   return tree_unroll_loops_completely (flag_unroll_loops
@@ -392,7 +464,8 @@ struct tree_opt_pass pass_complete_unroll =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_loops
+    | TODO_ggc_collect,			/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -401,7 +474,7 @@ struct tree_opt_pass pass_complete_unroll =
 static unsigned int
 tree_ssa_loop_prefetch (void)
 {
-  if (!current_loops)
+  if (number_of_loops () <= 1)
     return 0;
 
   return tree_ssa_prefetch_arrays ();
@@ -435,7 +508,7 @@ struct tree_opt_pass pass_loop_prefetch =
 static unsigned int
 tree_ssa_loop_ivopts (void)
 {
-  if (!current_loops)
+  if (number_of_loops () <= 1)
     return 0;
 
   tree_ssa_iv_optimize ();
@@ -461,9 +534,8 @@ struct tree_opt_pass pass_iv_optimize =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func
-  | TODO_verify_loops
-  | TODO_update_ssa,			/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_loops
+  | TODO_update_ssa | TODO_ggc_collect,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -472,9 +544,6 @@ struct tree_opt_pass pass_iv_optimize =
 static unsigned int
 tree_ssa_loop_done (void)
 {
-  if (!current_loops)
-    return 0;
-
   free_numbers_of_iterations_estimates ();
   scev_finalize ();
   loop_optimizer_finalize ();

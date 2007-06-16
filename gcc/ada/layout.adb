@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,6 +31,7 @@ with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Exp_Ch3;  use Exp_Ch3;
 with Exp_Util; use Exp_Util;
+with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
@@ -69,11 +70,6 @@ package body Layout is
    -----------------------
    -- Local Subprograms --
    -----------------------
-
-   procedure Adjust_Esize_Alignment (E : Entity_Id);
-   --  E is the entity for a type or object. This procedure checks that the
-   --  size and alignment are compatible, and if not either gives an error
-   --  message if they cannot be adjusted or else adjusts them appropriately.
 
    function Assoc_Add
      (Loc        : Source_Ptr;
@@ -2252,12 +2248,9 @@ package body Layout is
 
          Prev_Comp := Empty;
 
-         Comp := First_Entity (E);
+         Comp := First_Component_Or_Discriminant (E);
          while Present (Comp) loop
-            if (Ekind (Comp) = E_Component
-                 or else Ekind (Comp) = E_Discriminant)
-              and then Present (Component_Clause (Comp))
-            then
+            if Present (Component_Clause (Comp)) then
                if No (Prev_Comp)
                  or else
                    Component_Bit_Offset (Comp) >
@@ -2267,7 +2260,7 @@ package body Layout is
                end if;
             end if;
 
-            Next_Entity (Comp);
+            Next_Component_Or_Discriminant (Comp);
          end loop;
 
          --  We have two separate circuits, one for non-variant records and
@@ -2336,7 +2329,7 @@ package body Layout is
          --  backend figure out what is needed (it may be some kind
          --  of fat pointer, including the static link for example.
 
-         elsif Ekind (E) = E_Access_Protected_Subprogram_Type then
+         elsif Is_Access_Protected_Subprogram_Type (E) then
             null;
 
          --  For access subtypes, copy the size information from base type
@@ -2489,9 +2482,8 @@ package body Layout is
                declare
                   A : constant Uint   := Alignment_In_Bits (E);
                   S : constant SO_Ref := RM_Size (E);
-
                begin
-                  Set_Esize (E, (S * A + A - 1) / A);
+                  Set_Esize (E, (S + A - 1) / A * A);
                end;
             end if;
 
@@ -2608,7 +2600,7 @@ package body Layout is
             if Has_Object_Size_Clause (E) then
                Error_Msg_Uint_1 := RM_Size (E);
                Error_Msg_F
-                 ("object size is too small, minimum is ^",
+                 ("object size is too small, minimum allowed is ^",
                   Expression (Get_Attribute_Definition_Clause
                                              (E, Attribute_Object_Size)));
             end if;

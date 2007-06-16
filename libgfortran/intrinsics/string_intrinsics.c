@@ -73,9 +73,6 @@ export_proto(string_verify);
 extern void string_trim (GFC_INTEGER_4 *, void **, GFC_INTEGER_4, const char *);
 export_proto(string_trim);
 
-extern void string_repeat (char *, GFC_INTEGER_4, const char *, GFC_INTEGER_4);
-export_proto(string_repeat);
-
 /* Strings of unequal length are extended with pad characters.  */
 
 GFC_INTEGER_4
@@ -174,6 +171,8 @@ string_trim (GFC_INTEGER_4 * len, void ** dest, GFC_INTEGER_4 slen,
       /* copy string if necessary.  */
       memmove (*dest, src, *len);
     }
+  else
+    *dest = NULL;
 }
 
 
@@ -351,27 +350,4 @@ string_verify (GFC_INTEGER_4 slen, const char * str, GFC_INTEGER_4 setlen,
     }
 
   return 0;
-}
-
-
-/* Concatenate several copies of a string.  */
-
-void
-string_repeat (char * dest, GFC_INTEGER_4 slen, 
-               const char * src, GFC_INTEGER_4 ncopies)
-{
-  int i;
-
-  /* See if ncopies is valid.  */
-  if (ncopies < 0)
-    {
-      /* The error is already reported.  */
-      runtime_error ("Augument NCOPIES is negative.");
-    }
-
-  /* Copy characters.  */
-  for (i = 0; i < ncopies; i++) 
-    {
-      memmove (dest + (i * slen), src, slen);
-    }
 }

@@ -1,6 +1,6 @@
 // Short-string-optimized versatile string base -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -106,12 +106,12 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
           _M_construct(__beg, __end, _Tag());
 	}
 
-      template<typename _InIterator>
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 438. Ambiguity in the "do the right thing" clause
+      template<typename _Integer>
         void
-        _M_construct_aux(_InIterator __beg, _InIterator __end, 
-			 std::__true_type)
-	{ _M_construct(static_cast<size_type>(__beg),
-		       static_cast<value_type>(__end)); }
+        _M_construct_aux(_Integer __beg, _Integer __end, std::__true_type)
+	{ _M_construct(static_cast<size_type>(__beg), __end); }
 
       template<typename _InIterator>
         void
@@ -405,7 +405,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 		   std::forward_iterator_tag)
       {
 	// NB: Not required, but considered best practice.
-	if (__builtin_expect(_S_is_null_pointer(__beg) && __beg != __end, 0))
+	if (__builtin_expect(__is_null_pointer(__beg) && __beg != __end, 0))
 	  std::__throw_logic_error(__N("__sso_string_base::"
 				       "_M_construct NULL not valid"));
 

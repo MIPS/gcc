@@ -86,6 +86,18 @@ enum optab_index
   OTI_umul_widen,
   /* Widening multiply of one unsigned and one signed operand.  */
   OTI_usmul_widen,
+  /* Signed multiply and add with the result and addend one machine mode
+     wider than the multiplicand and multiplier.  */
+  OTI_smadd_widen,
+  /* Unsigned multiply and add with the result and addend one machine mode
+     wider than the multiplicand and multiplier.  */
+  OTI_umadd_widen,
+  /* Signed multiply and subtract the result and minuend one machine mode
+     wider than the multiplicand and multiplier.  */
+  OTI_smsub_widen,
+  /* Unsigned multiply and subtract the result and minuend one machine mode
+     wider than the multiplicand and multiplier.  */
+  OTI_umsub_widen,
 
   /* Signed divide */
   OTI_sdiv,
@@ -179,6 +191,8 @@ enum optab_index
   OTI_expm1,
   /* Load exponent of a floating point number */
   OTI_ldexp,
+  /* Multiply floating-point number by integral power of radix */
+  OTI_scalb,
   /* Radix-independent exponent */
   OTI_logb,
   OTI_ilogb,
@@ -203,6 +217,9 @@ enum optab_index
   OTI_atan,
   /* Copy sign */
   OTI_copysign,
+
+  /* Test for infinite value */
+  OTI_isinf,
 
   /* Compare insn; two operands.  */
   OTI_cmp,
@@ -273,16 +290,31 @@ enum optab_index
   OTI_vec_widen_umult_lo,
   OTI_vec_widen_smult_hi,
   OTI_vec_widen_smult_lo,
-  /* Extract and widen the high/low part of a vector of signed/unsigned 
-     elements.  */
+  /* Extract and widen the high/low part of a vector of signed or
+     floating point elements.  */
   OTI_vec_unpacks_hi,
   OTI_vec_unpacks_lo,
+  /* Extract and widen the high/low part of a vector of unsigned
+     elements.  */
   OTI_vec_unpacku_hi,
   OTI_vec_unpacku_lo,
+
+  /* Extract, convert to floating point and widen the high/low part of
+     a vector of signed or unsigned integer elements.  */
+  OTI_vec_unpacks_float_hi,
+  OTI_vec_unpacks_float_lo,
+  OTI_vec_unpacku_float_hi,
+  OTI_vec_unpacku_float_lo,
+
   /* Narrow (demote) and merge the elements of two vectors.  */
-  OTI_vec_pack_mod,
+  OTI_vec_pack_trunc,
   OTI_vec_pack_usat,
   OTI_vec_pack_ssat,
+
+  /* Convert to signed/unsigned integer, narrow and merge elements
+     of two vectors of floating point elements.  */
+  OTI_vec_pack_sfix_trunc,
+  OTI_vec_pack_ufix_trunc,
 
   /* Perform a raise to the power of integer.  */
   OTI_powi,
@@ -302,6 +334,10 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define smul_widen_optab (optab_table[OTI_smul_widen])
 #define umul_widen_optab (optab_table[OTI_umul_widen])
 #define usmul_widen_optab (optab_table[OTI_usmul_widen])
+#define smadd_widen_optab (optab_table[OTI_smadd_widen])
+#define umadd_widen_optab (optab_table[OTI_umadd_widen])
+#define smsub_widen_optab (optab_table[OTI_smsub_widen])
+#define umsub_widen_optab (optab_table[OTI_umsub_widen])
 #define sdiv_optab (optab_table[OTI_sdiv])
 #define smulv_optab (optab_table[OTI_smulv])
 #define sdivv_optab (optab_table[OTI_sdivv])
@@ -354,6 +390,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define exp2_optab (optab_table[OTI_exp2])
 #define expm1_optab (optab_table[OTI_expm1])
 #define ldexp_optab (optab_table[OTI_ldexp])
+#define scalb_optab (optab_table[OTI_scalb])
 #define logb_optab (optab_table[OTI_logb])
 #define ilogb_optab (optab_table[OTI_ilogb])
 #define log_optab (optab_table[OTI_log])
@@ -369,6 +406,8 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define tan_optab (optab_table[OTI_tan])
 #define atan_optab (optab_table[OTI_atan])
 #define copysign_optab (optab_table[OTI_copysign])
+
+#define isinf_optab (optab_table[OTI_isinf])
 
 #define cmp_optab (optab_table[OTI_cmp])
 #define ucmp_optab (optab_table[OTI_ucmp])
@@ -396,7 +435,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define reduc_umin_optab (optab_table[OTI_reduc_umin])
 #define reduc_splus_optab (optab_table[OTI_reduc_splus])
 #define reduc_uplus_optab (optab_table[OTI_reduc_uplus])
-                                                                                
+
 #define ssum_widen_optab (optab_table[OTI_ssum_widen])
 #define usum_widen_optab (optab_table[OTI_usum_widen])
 #define sdot_prod_optab (optab_table[OTI_sdot_prod])
@@ -417,13 +456,19 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_widen_smult_hi_optab (optab_table[OTI_vec_widen_smult_hi])
 #define vec_widen_smult_lo_optab (optab_table[OTI_vec_widen_smult_lo])
 #define vec_unpacks_hi_optab (optab_table[OTI_vec_unpacks_hi])
-#define vec_unpacku_hi_optab (optab_table[OTI_vec_unpacku_hi])
 #define vec_unpacks_lo_optab (optab_table[OTI_vec_unpacks_lo])
+#define vec_unpacku_hi_optab (optab_table[OTI_vec_unpacku_hi])
 #define vec_unpacku_lo_optab (optab_table[OTI_vec_unpacku_lo])
-#define vec_pack_mod_optab (optab_table[OTI_vec_pack_mod])
+#define vec_unpacks_float_hi_optab (optab_table[OTI_vec_unpacks_float_hi])
+#define vec_unpacks_float_lo_optab (optab_table[OTI_vec_unpacks_float_lo])
+#define vec_unpacku_float_hi_optab (optab_table[OTI_vec_unpacku_float_hi])
+#define vec_unpacku_float_lo_optab (optab_table[OTI_vec_unpacku_float_lo])
+#define vec_pack_trunc_optab (optab_table[OTI_vec_pack_trunc])
 #define vec_pack_ssat_optab (optab_table[OTI_vec_pack_ssat])
 #define vec_pack_usat_optab (optab_table[OTI_vec_pack_usat])
-                                                                                
+#define vec_pack_sfix_trunc_optab (optab_table[OTI_vec_pack_sfix_trunc])
+#define vec_pack_ufix_trunc_optab (optab_table[OTI_vec_pack_ufix_trunc])
+
 #define powi_optab (optab_table[OTI_powi])
 
 /* Conversion optabs have their own table and indexes.  */

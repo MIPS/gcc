@@ -156,13 +156,6 @@ extern int sched_max_luid;
 
 extern int insn_luid (rtx);
 
-/* Return true if NOTE is a note but not a basic block one.  */
-#define NOTE_NOT_BB_P(NOTE) (NOTE_P (NOTE) && (NOTE_LINE_NUMBER (NOTE)	\
-					       != NOTE_INSN_BASIC_BLOCK))
-
-extern FILE *sched_dump;
-extern int sched_verbose;
-
 /* This list holds ripped off notes from the current block.  These notes will
    be attached to the beginning of the block when its scheduling is
    finished.  */
@@ -192,76 +185,6 @@ extern int haifa_classify_insn (rtx);
 
 /* Functions in sel-sched-ir.c.  */
 extern void sel_find_rgns (void);
-
-/* Exception Free Loads:
-
-   We define five classes of speculative loads: IFREE, IRISKY,
-   PFREE, PRISKY, and MFREE.
-
-   IFREE loads are loads that are proved to be exception-free, just
-   by examining the load insn.  Examples for such loads are loads
-   from TOC and loads of global data.
-
-   IRISKY loads are loads that are proved to be exception-risky,
-   just by examining the load insn.  Examples for such loads are
-   volatile loads and loads from shared memory.
-
-   PFREE loads are loads for which we can prove, by examining other
-   insns, that they are exception-free.  Currently, this class consists
-   of loads for which we are able to find a "similar load", either in
-   the target block, or, if only one split-block exists, in that split
-   block.  Load2 is similar to load1 if both have same single base
-   register.  We identify only part of the similar loads, by finding
-   an insn upon which both load1 and load2 have a DEF-USE dependence.
-
-   PRISKY loads are loads for which we can prove, by examining other
-   insns, that they are exception-risky.  Currently we have two proofs for
-   such loads.  The first proof detects loads that are probably guarded by a
-   test on the memory address.  This proof is based on the
-   backward and forward data dependence information for the region.
-   Let load-insn be the examined load.
-   Load-insn is PRISKY iff ALL the following hold:
-
-   - insn1 is not in the same block as load-insn
-   - there is a DEF-USE dependence chain (insn1, ..., load-insn)
-   - test-insn is either a compare or a branch, not in the same block
-     as load-insn
-   - load-insn is reachable from test-insn
-   - there is a DEF-USE dependence chain (insn1, ..., test-insn)
-
-   This proof might fail when the compare and the load are fed
-   by an insn not in the region.  To solve this, we will add to this
-   group all loads that have no input DEF-USE dependence.
-
-   The second proof detects loads that are directly or indirectly
-   fed by a speculative load.  This proof is affected by the
-   scheduling process.  We will use the flag  fed_by_spec_load.
-   Initially, all insns have this flag reset.  After a speculative
-   motion of an insn, if insn is either a load, or marked as
-   fed_by_spec_load, we will also mark as fed_by_spec_load every
-   insn1 for which a DEF-USE dependence (insn, insn1) exists.  A
-   load which is fed_by_spec_load is also PRISKY.
-
-   MFREE (maybe-free) loads are all the remaining loads. They may be
-   exception-free, but we cannot prove it.
-
-   Now, all loads in IFREE and PFREE classes are considered
-   exception-free, while all loads in IRISKY and PRISKY classes are
-   considered exception-risky.  As for loads in the MFREE class,
-   these are considered either exception-free or exception-risky,
-   depending on whether we are pessimistic or optimistic.  We have
-   to take the pessimistic approach to assure the safety of
-   speculative scheduling, but we can take the optimistic approach
-   by invoking the -fsched_spec_load_dangerous option.  */
-
-enum INSN_TRAP_CLASS
-{
-  TRAP_FREE = 0, IFREE = 1, PFREE_CANDIDATE = 2,
-  PRISKY_CANDIDATE = 3, IRISKY = 4, TRAP_RISKY = 5
-};
-
-#define WORST_CLASS(class1, class2) \
-((class1 > class2) ? class1 : class2)
 
 extern size_t dfa_state_size;
 
@@ -319,6 +242,220 @@ typedef int ds_t;
 /* Type to represent weakness of speculative dependence.  */
 typedef int dw_t;
 
+extern enum reg_note ds_to_dk (ds_t);
+extern ds_t dk_to_ds (enum reg_note);
+
+/* Information about the dependency.  */
+struct _dep
+{
+  /* Producer.  */
+  rtx pro;
+
+  /* Consumer.  */
+  rtx con;
+
+  /* Dependency kind (aka dependency major type).  This field is superseded
+     by STATUS below.  Though, it is still in place because all the backends
+     use it.  */
+  enum reg_note kind;
+
+  /* Dependency status.  This field holds all dependency types and additional
+     information for speculative dependencies.  */
+  ds_t status;
+};
+
+typedef struct _dep dep_def;
+typedef dep_def *dep_t;
+
+#define DEP_PRO(D) ((D)->pro)
+#define DEP_CON(D) ((D)->con)
+#define DEP_KIND(D) ((D)->kind)
+#define DEP_STATUS(D) ((D)->status)
+
+/* Functions to work with dep.  */
+
+extern void init_dep (dep_t, rtx, rtx, enum reg_note);
+
+/* Definition of this struct resides below.  */
+struct _dep_node;
+
+/* A link in the dependency list.  This is essentially an equivalent of a
+   single {INSN, DEPS}_LIST rtx.  */
+struct _dep_link
+{
+  /* Dep node with all the data.  */
+  struct _dep_node *node;
+
+  /* Next link in the list. For the last one it is NULL.  */
+  struct _dep_link *next;
+
+  /* Pointer to the next field of the previous link in the list.
+     For the first link this points to the deps_list->first.
+
+     With help of this field it is easy to remove and insert links to the
+     list.  */
+  struct _dep_link **prev_nextp;
+};
+typedef struct _dep_link *dep_link_t;
+
+#define DEP_LINK_NODE(N) ((N)->node)
+#define DEP_LINK_NEXT(N) ((N)->next)
+#define DEP_LINK_PREV_NEXTP(N) ((N)->prev_nextp)
+
+/* Macros to work dep_link.  For most usecases only part of the dependency
+   information is need.  These macros conveniently provide that piece of
+   information.  */
+
+#define DEP_LINK_DEP(N) (DEP_NODE_DEP (DEP_LINK_NODE (N)))
+#define DEP_LINK_PRO(N) (DEP_PRO (DEP_LINK_DEP (N)))
+#define DEP_LINK_CON(N) (DEP_CON (DEP_LINK_DEP (N)))
+#define DEP_LINK_KIND(N) (DEP_KIND (DEP_LINK_DEP (N)))
+#define DEP_LINK_STATUS(N) (DEP_STATUS (DEP_LINK_DEP (N)))
+
+void debug_dep_links (dep_link_t);
+
+/* A list of dep_links.  Lists of this type are now used instead of rtx
+   LOG_LINKS and alike lists.  */
+struct _deps_list
+{
+  dep_link_t first;
+};
+typedef struct _deps_list *deps_list_t;
+
+#define DEPS_LIST_FIRST(L) ((L)->first)
+
+/* Macro to walk through deps_list.  */
+#define FOR_EACH_DEP_LINK(LINK, LIST) \
+  for ((LINK) = DEPS_LIST_FIRST (LIST); \
+       (LINK) != NULL; \
+       (LINK) = DEP_LINK_NEXT (LINK))
+
+/* Functions to work with deps_list.  */
+
+deps_list_t create_deps_list (bool);
+void free_deps_list (deps_list_t);
+void delete_deps_list (deps_list_t);
+bool deps_list_empty_p (deps_list_t);
+void debug_deps_list (deps_list_t);
+void add_back_dep_to_deps_list (deps_list_t, dep_t);
+dep_link_t find_link_by_pro_in_deps_list (deps_list_t, rtx);
+dep_link_t find_link_by_con_in_deps_list (deps_list_t, rtx);
+void copy_deps_list_change_con (deps_list_t, deps_list_t, rtx);
+
+void move_dep_link (dep_link_t, deps_list_t);
+
+/* Suppose we have a dependence Y between insn pro1 and con1, where pro1 has
+   additional dependents con0 and con2, and con1 is dependent on additional
+   insns pro0 and pro1:
+
+   .con0      pro0
+   . ^         |
+   . |         |
+   . |         |
+   . X         A
+   . |         |
+   . |         |
+   . |         V
+   .pro1--Y-->con1
+   . |         ^
+   . |         |
+   . |         |
+   . Z         B
+   . |         |
+   . |         |
+   . V         |
+   .con2      pro2
+
+   This is represented using a "dep_node" for each dependence arc, which are
+   connected as follows (diagram is centered around Y which is fully shown;
+   other dep_nodes shown partially):
+
+   .          +------------+    +--------------+    +------------+
+   .          : dep_node X :    |  dep_node Y  |    : dep_node Z :
+   .          :            :    |              |    :            :
+   .          :            :    |              |    :            :
+   .          : forw       :    |  forw        |    : forw       :
+   .          : +--------+ :    |  +--------+  |    : +--------+ :
+   forw_deps  : |dep_link| :    |  |dep_link|  |    : |dep_link| :
+   +-----+    : | +----+ | :    |  | +----+ |  |    : | +----+ | :
+   |first|----->| |next|-+------+->| |next|-+--+----->| |next|-+--->NULL
+   +-----+    : | +----+ | :    |  | +----+ |  |    : | +----+ | :
+   . ^  ^     : |     ^  | :    |  |     ^  |  |    : |        | :
+   . |  |     : |     |  | :    |  |     |  |  |    : |        | :
+   . |  +--<----+--+  +--+---<--+--+--+  +--+--+--<---+--+     | :
+   . |        : |  |     | :    |  |  |     |  |    : |  |     | :
+   . |        : | +----+ | :    |  | +----+ |  |    : | +----+ | :
+   . |        : | |prev| | :    |  | |prev| |  |    : | |prev| | :
+   . |        : | |next| | :    |  | |next| |  |    : | |next| | :
+   . |        : | +----+ | :    |  | +----+ |  |    : | +----+ | :
+   . |        : |        | :<-+ |  |        |  |<-+ : |        | :<-+
+   . |        : | +----+ | :  | |  | +----+ |  |  | : | +----+ | :  |
+   . |        : | |node|-+----+ |  | |node|-+--+--+ : | |node|-+----+
+   . |        : | +----+ | :    |  | +----+ |  |    : | +----+ | :
+   . |        : |        | :    |  |        |  |    : |        | :
+   . |        : +--------+ :    |  +--------+  |    : +--------+ :
+   . |        :            :    |              |    :            :
+   . |        :  SAME pro1 :    |  +--------+  |    :  SAME pro1 :
+   . |        :  DIFF con0 :    |  |dep     |  |    :  DIFF con2 :
+   . |        :            :    |  |        |  |    :            :
+   . |                          |  | +----+ |  |
+   .RTX<------------------------+--+-|pro1| |  |
+   .pro1                        |  | +----+ |  |
+   .                            |  |        |  |
+   .                            |  | +----+ |  |
+   .RTX<------------------------+--+-|con1| |  |
+   .con1                        |  | +----+ |  |
+   . |                          |  |        |  |
+   . |                          |  | +----+ |  |
+   . |                          |  | |kind| |  |
+   . |                          |  | +----+ |  |
+   . |        :            :    |  | |stat| |  |    :            :
+   . |        :  DIFF pro0 :    |  | +----+ |  |    :  DIFF pro2 :
+   . |        :  SAME con1 :    |  |        |  |    :  SAME con1 :
+   . |        :            :    |  +--------+  |    :            :
+   . |        :            :    |              |    :            :
+   . |        : back       :    |  back        |    : back       :
+   . v        : +--------+ :    |  +--------+  |    : +--------+ :
+   back_deps  : |dep_link| :    |  |dep_link|  |    : |dep_link| :
+   +-----+    : | +----+ | :    |  | +----+ |  |    : | +----+ | :
+   |first|----->| |next|-+------+->| |next|-+--+----->| |next|-+--->NULL
+   +-----+    : | +----+ | :    |  | +----+ |  |    : | +----+ | :
+   .    ^     : |     ^  | :    |  |     ^  |  |    : |        | :
+   .    |     : |     |  | :    |  |     |  |  |    : |        | :
+   .    +--<----+--+  +--+---<--+--+--+  +--+--+--<---+--+     | :
+   .          : |  |     | :    |  |  |     |  |    : |  |     | :
+   .          : | +----+ | :    |  | +----+ |  |    : | +----+ | :
+   .          : | |prev| | :    |  | |prev| |  |    : | |prev| | :
+   .          : | |next| | :    |  | |next| |  |    : | |next| | :
+   .          : | +----+ | :    |  | +----+ |  |    : | +----+ | :
+   .          : |        | :<-+ |  |        |  |<-+ : |        | :<-+
+   .          : | +----+ | :  | |  | +----+ |  |  | : | +----+ | :  |
+   .          : | |node|-+----+ |  | |node|-+--+--+ : | |node|-+----+
+   .          : | +----+ | :    |  | +----+ |  |    : | +----+ | :
+   .          : |        | :    |  |        |  |    : |        | :
+   .          : +--------+ :    |  +--------+  |    : +--------+ :
+   .          :            :    |              |    :            :
+   .          : dep_node A :    |  dep_node Y  |    : dep_node B :
+   .          +------------+    +--------------+    +------------+
+*/
+
+struct _dep_node
+{
+  /* Backward link.  */
+  struct _dep_link back;
+
+  /* The dep.  */
+  struct _dep dep;
+
+  /* Forward link.  */
+  struct _dep_link forw;
+};
+typedef struct _dep_node *dep_node_t;
+
+#define DEP_NODE_BACK(N) (&(N)->back)
+#define DEP_NODE_DEP(N) (&(N)->dep)
+#define DEP_NODE_FORW(N) (&(N)->forw)
+
 /* Describe state of dependencies used during sched_analyze phase.  */
 struct deps
 {
@@ -343,11 +480,16 @@ struct deps
   /* An EXPR_LIST containing all MEM rtx's which are pending writes.  */
   rtx pending_write_mems;
 
-  /* Indicates the combined length of the two pending lists.  We must prevent
-     these lists from ever growing too large since the number of dependencies
-     produced is at least O(N*N), and execution time is at least O(4*N*N), as
-     a function of the length of these pending lists.  */
-  int pending_lists_length;
+  /* We must prevent the above lists from ever growing too large since
+     the number of dependencies produced is at least O(N*N),
+     and execution time is at least O(4*N*N), as a function of the
+     length of these pending lists.  */
+
+  /* Indicates the length of the pending_read list.  */
+  int pending_read_list_length;
+
+  /* Indicates the length of the pending_write list.  */
+  int pending_write_list_length;
 
   /* Length of the pending memory flush list. Large functions with no
      calls may build up extremely large lists.  */
@@ -506,10 +648,6 @@ extern struct haifa_sched_info *current_sched_info;
 
 struct _haifa_insn_data
 {
-  /* A list of scheduled producers of the instruction.  Links are being moved
-     from LOG_LINKS to RESOLVED_DEPS during scheduling.  */
-  rtx resolved_deps;
-
   /* A priority for each insn.  */
   int priority;
 
@@ -535,8 +673,10 @@ struct _haifa_insn_data
   unsigned int fed_by_spec_load : 1;
   unsigned int is_load_insn : 1;
 
-  /* Nonzero if priority has been computed already.  */
-  unsigned int priority_known : 1;
+  /* '> 0' if priority is valid,
+     '== 0' if priority was not yet computed,
+     '< 0' if priority in invalid and should be recomputed.  */
+  signed char priority_status;
 
   /* What speculations are necessary to apply to schedule the instruction.  */
   ds_t todo_spec;
@@ -560,17 +700,16 @@ typedef haifa_insn_data_def *haifa_insn_data_t;
 DEF_VEC_O (haifa_insn_data_def);
 DEF_VEC_ALLOC_O (haifa_insn_data_def, heap);
 
-extern VEC (haifa_insn_data_def, heap) *h_i_d;
+extern VEC(haifa_insn_data_def, heap) *h_i_d;
 
 #define HID(INSN) (VEC_index (haifa_insn_data_def, h_i_d, INSN_UID (INSN)))
 
 /* Accessor macros for h_i_d.  There are more in haifa-sched.c and
    sched-rgn.c.  */
-#define RESOLVED_DEPS(INSN) (HID (INSN)->resolved_deps)
 #define INSN_PRIORITY(INSN) (HID (INSN)->priority)
 #define INSN_REG_WEIGHT(INSN) (HID (INSN)->reg_weight)
-#define INSN_PRIORITY_KNOWN(INSN) (HID (INSN)->priority_known)
-#define INSN_COST(INSN) (HID (INSN)->cost)
+#define INSN_PRIORITY_STATUS(INSN) (HID (INSN)->priority_status)
+#define INSN_PRIORITY_KNOWN(INSN) (INSN_PRIORITY_STATUS (INSN) > 0)
 #define TODO_SPEC(INSN) (HID (INSN)->todo_spec)
 #define DONE_SPEC(INSN) (HID (INSN)->done_spec)
 #define CHECK_SPEC(INSN) (HID (INSN)->check_spec)
@@ -592,8 +731,8 @@ extern VEC (haifa_insn_data_def, heap) *h_i_d;
 #define IS_SPECULATION_BRANCHY_CHECK_P(INSN) \
   (RECOVERY_BLOCK (INSN) != NULL && RECOVERY_BLOCK (INSN) != EXIT_BLOCK_PTR)
 
-/* DEP_STATUS of the link encapsulates information, that is needed for
-   speculative scheduling.  Namely, it is 4 integers in the range
+/* Dep status (aka ds_t) of the link encapsulates information, that is needed
+   for speculative scheduling.  Namely, it is 4 integers in the range
    [0, MAX_DEP_WEAK] and 3 bits.
    The integers correspond to the probability of the dependence to *not*
    exist, it is the probability, that overcoming of this dependence will
@@ -608,9 +747,8 @@ extern VEC (haifa_insn_data_def, heap) *h_i_d;
    as only true dependence can be overcome.
    There also is the 4-th bit in the DEP_STATUS (HARD_DEP), that is reserved
    for using to describe instruction's status.  It is set whenever instruction
-   has at least one dependence, that cannot be overcome.
+   has at least one dependence, that cannot be overcame.
    See also: check_dep_status () in sched-deps.c .  */
-#define DEP_STATUS(LINK) XINT (LINK, 2)
 
 /* We exclude sign bit.  */
 #define BITS_PER_DEP_STATUS (HOST_BITS_PER_INT - 1)
@@ -739,6 +877,82 @@ enum SPEC_SCHED_FLAGS {
   SEL_SCHED_SPEC_DONT_CHECK_CONTROL = PREFER_NON_CONTROL_SPEC << 1
 };
 
+#define NOTE_NOT_BB_P(NOTE) (NOTE_P (NOTE) && (NOTE_KIND (NOTE)	\
+					       != NOTE_INSN_BASIC_BLOCK))
+
+extern FILE *sched_dump;
+extern int sched_verbose;
+
+/* Exception Free Loads:
+
+   We define five classes of speculative loads: IFREE, IRISKY,
+   PFREE, PRISKY, and MFREE.
+
+   IFREE loads are loads that are proved to be exception-free, just
+   by examining the load insn.  Examples for such loads are loads
+   from TOC and loads of global data.
+
+   IRISKY loads are loads that are proved to be exception-risky,
+   just by examining the load insn.  Examples for such loads are
+   volatile loads and loads from shared memory.
+
+   PFREE loads are loads for which we can prove, by examining other
+   insns, that they are exception-free.  Currently, this class consists
+   of loads for which we are able to find a "similar load", either in
+   the target block, or, if only one split-block exists, in that split
+   block.  Load2 is similar to load1 if both have same single base
+   register.  We identify only part of the similar loads, by finding
+   an insn upon which both load1 and load2 have a DEF-USE dependence.
+
+   PRISKY loads are loads for which we can prove, by examining other
+   insns, that they are exception-risky.  Currently we have two proofs for
+   such loads.  The first proof detects loads that are probably guarded by a
+   test on the memory address.  This proof is based on the
+   backward and forward data dependence information for the region.
+   Let load-insn be the examined load.
+   Load-insn is PRISKY iff ALL the following hold:
+
+   - insn1 is not in the same block as load-insn
+   - there is a DEF-USE dependence chain (insn1, ..., load-insn)
+   - test-insn is either a compare or a branch, not in the same block
+     as load-insn
+   - load-insn is reachable from test-insn
+   - there is a DEF-USE dependence chain (insn1, ..., test-insn)
+
+   This proof might fail when the compare and the load are fed
+   by an insn not in the region.  To solve this, we will add to this
+   group all loads that have no input DEF-USE dependence.
+
+   The second proof detects loads that are directly or indirectly
+   fed by a speculative load.  This proof is affected by the
+   scheduling process.  We will use the flag  fed_by_spec_load.
+   Initially, all insns have this flag reset.  After a speculative
+   motion of an insn, if insn is either a load, or marked as
+   fed_by_spec_load, we will also mark as fed_by_spec_load every
+   insn1 for which a DEF-USE dependence (insn, insn1) exists.  A
+   load which is fed_by_spec_load is also PRISKY.
+
+   MFREE (maybe-free) loads are all the remaining loads. They may be
+   exception-free, but we cannot prove it.
+
+   Now, all loads in IFREE and PFREE classes are considered
+   exception-free, while all loads in IRISKY and PRISKY classes are
+   considered exception-risky.  As for loads in the MFREE class,
+   these are considered either exception-free or exception-risky,
+   depending on whether we are pessimistic or optimistic.  We have
+   to take the pessimistic approach to assure the safety of
+   speculative scheduling, but we can take the optimistic approach
+   by invoking the -fsched_spec_load_dangerous option.  */
+
+enum INSN_TRAP_CLASS
+{
+  TRAP_FREE = 0, IFREE = 1, PFREE_CANDIDATE = 2,
+  PRISKY_CANDIDATE = 3, IRISKY = 4, TRAP_RISKY = 5
+};
+
+#define WORST_CLASS(class1, class2) \
+((class1 > class2) ? class1 : class2)
+
 #ifndef __GNUC__
 #define __inline
 #endif
@@ -748,10 +962,11 @@ enum SPEC_SCHED_FLAGS {
 #endif
 
 /* Functions in haifa-sched.c.  */
-extern int dep_cost (rtx, enum reg_note, dw_t, rtx);
 extern int no_real_insns_p (rtx, rtx);
 
-extern int insn_cost (rtx, rtx, rtx);
+extern int insn_cost (rtx);
+extern int dep_cost_1 (dep_t, dw_t);
+extern int dep_cost (dep_t);
 extern int set_priorities (rtx, rtx);
 
 extern void schedule_block (basic_block *);
@@ -778,17 +993,16 @@ extern void concat_note_lists (rtx, rtx *);
 extern void check_reg_live (bool);
 #endif
 
+/* Functions in sched-rgn.c.  */
+extern void compute_priorities (void);
+extern void debug_rgn_dependencies (int);
+extern void debug_dependencies (rtx, rtx);
+extern int contributes_to_priority (rtx, rtx);
+extern void extend_rgns (int *, int *, sbitmap, int *);
+
 extern void haifa_sched_init (void);
 extern void haifa_sched_finish (void);
 
 extern dw_t dep_weak (ds_t);
-
-/* Functions in sched-rgn.c.  */
-extern void compute_priorities (void);
-extern void debug_dependencies (void);
-extern int contributes_to_priority (rtx, rtx);
-extern void free_rgn_deps (void);
-extern void extend_rgns (int *, int *, sbitmap, int *);
-
 
 #endif /* GCC_SCHED_INT_H */

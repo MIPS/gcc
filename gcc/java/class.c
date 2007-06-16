@@ -110,6 +110,10 @@ static GTY(()) tree class_roots[4];
 
 static GTY(()) VEC(tree,gc) *registered_class;
 
+/* A tree that returns the address of the class$ of the class
+   currently being compiled.  */
+static GTY(()) tree this_classdollar;
+
 /* Return the node that most closely represents the class whose name
    is IDENT.  Start the search from NODE (followed by its siblings).
    Return NULL if an appropriate node does not exist.  */
@@ -424,8 +428,7 @@ push_class (tree class_type, tree class_name)
   tree decl, signature;
   location_t saved_loc = input_location;
 #ifndef USE_MAPPED_LOCATION
-  tree source_name = identifier_subst (class_name, "", '.', '/', ".java");
-  input_filename = IDENTIFIER_POINTER (source_name);
+  input_filename = "<unknown>";
   input_line = 0;
 #endif
   CLASS_P (class_type) = 1;
@@ -687,6 +690,13 @@ build_java_method_type (tree fntype, tree this_class, int access_flags)
   return fntype;
 }
 
+static void
+hide (tree decl)
+{
+  DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
+  DECL_VISIBILITY_SPECIFIED (decl) = 1;
+}
+
 tree
 add_method_1 (tree this_class, int access_flags, tree name, tree function_type)
 {
@@ -797,6 +807,10 @@ add_field (tree class, tree name, tree field_type, int flags)
       /* Always make field externally visible.  This is required so
 	 that native methods can always access the field.  */
       TREE_PUBLIC (field) = 1;
+      /* Hide everything that shouldn't be visible outside a DSO.  */
+      if (flag_indirect_classes
+	  || (FIELD_PRIVATE (field)))
+	hide (field);
       /* Considered external unless we are compiling it into this
 	 object file.  */
       DECL_EXTERNAL (field) = (is_compiled_class (class) != 2);
@@ -954,7 +968,11 @@ build_static_class_ref (tree type)
       decl = build_decl (VAR_DECL, decl_name, class_type_node);
       TREE_STATIC (decl) = 1;
       if (! flag_indirect_classes)
-	TREE_PUBLIC (decl) = 1;
+	{
+	  TREE_PUBLIC (decl) = 1;
+	  if (CLASS_PRIVATE (TYPE_NAME (type)))
+	    hide (decl);
+	}
       DECL_IGNORED_P (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
       if (is_compiled_class (type) == 1)
@@ -993,6 +1011,7 @@ build_classdollar_field (tree type)
       TREE_CONSTANT (decl) = 1;
       TREE_READONLY (decl) = 1;
       TREE_PUBLIC (decl) = 1;
+      hide (decl);
       DECL_IGNORED_P (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
       MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (decl);
@@ -1002,6 +1021,52 @@ build_classdollar_field (tree type)
     }
 
   return decl;
+}
+
+/* Create a local variable that holds the current class$.  */
+
+void
+cache_this_class_ref (tree fndecl)
+{
+  if (optimize)
+    {
+      tree classdollar_field;
+      if (flag_indirect_classes)
+	classdollar_field = build_classdollar_field (output_class);
+      else
+	classdollar_field = build_static_class_ref (output_class);
+
+      this_classdollar = build_decl (VAR_DECL, NULL_TREE, 
+				     TREE_TYPE (classdollar_field));
+      
+      java_add_local_var (this_classdollar);
+      java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (this_classdollar), 
+			     this_classdollar, classdollar_field));
+    }
+  else
+    this_classdollar = build_classdollar_field (output_class);
+
+  /* Prepend class initialization for static methods reachable from
+     other classes.  */
+  if (METHOD_STATIC (fndecl)
+      && (! METHOD_PRIVATE (fndecl)
+          || INNER_CLASS_P (DECL_CONTEXT (fndecl)))
+      && ! DECL_CLINIT_P (fndecl)
+      && ! CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (fndecl))))
+    {
+      tree init = build_call_expr (soft_initclass_node, 1,
+				   this_classdollar);
+      java_add_stmt (init);
+    }
+}
+
+/* Remove the reference to the local variable that holds the current
+   class$.  */
+
+void
+uncache_this_class_ref (tree fndecl ATTRIBUTE_UNUSED)
+{
+  this_classdollar = build_classdollar_field (output_class);
 }
 
 /* Build a reference to the class TYPE.
@@ -1023,7 +1088,7 @@ build_class_ref (tree type)
 	return build_indirect_class_ref (type);
 
       if (type == output_class && flag_indirect_classes)
-	return build_classdollar_field (type);
+	return this_classdollar;
       
       if (TREE_CODE (type) == RECORD_TYPE)
 	return build_static_class_ref (type);
@@ -1125,20 +1190,16 @@ build_static_field_ref (tree fdecl)
 
       int cpool_index = alloc_constant_fieldref (output_class, fdecl);
       tree cache_entry = build_fieldref_cache_entry (cpool_index, fdecl);
-      tree test 
-	= build3 (CALL_EXPR, boolean_type_node, 
-		  build_address_of (built_in_decls[BUILT_IN_EXPECT]),
-		  tree_cons (NULL_TREE, build2 (EQ_EXPR, boolean_type_node,
-						cache_entry, null_pointer_node),
-			     build_tree_list (NULL_TREE, boolean_false_node)),
-		  NULL_TREE);
+      tree test
+        = build_call_expr (built_in_decls[BUILT_IN_EXPECT], 2,
+			   build2 (EQ_EXPR, boolean_type_node,
+				   cache_entry, null_pointer_node),
+			   boolean_false_node);
       tree cpool_index_cst = build_int_cst (NULL_TREE, cpool_index);
       tree init
-	= build3 (CALL_EXPR, ptr_type_node,
-		  build_address_of (soft_resolvepoolentry_node),
-		  tree_cons (NULL_TREE, build_class_ref (output_class),
-			     build_tree_list (NULL_TREE, cpool_index_cst)),
-		  NULL_TREE);
+	= build_call_expr (soft_resolvepoolentry_node, 2,
+			   build_class_ref (output_class),
+			   cpool_index_cst);
       init = build2 (MODIFY_EXPR, ptr_type_node, cache_entry, init);
       init = build3 (COND_EXPR, ptr_type_node, test, init, cache_entry);
       init = fold_convert (build_pointer_type (TREE_TYPE (fdecl)), init);
@@ -1638,6 +1699,10 @@ make_class_data (tree type)
 
       TREE_PUBLIC (dtable_decl) = 1;
       DECL_INITIAL (dtable_decl) = dtable;
+      /* The only dispatch table exported from a DSO is the dispatch
+	 table for java.lang.Class.  */
+      if (DECL_NAME (type_decl) != id_class)
+	hide (dtable_decl);
       if (! flag_indirect_classes)
 	rest_of_decl_compilation (dtable_decl, 1, 0);
       /* Maybe we're compiling Class as the first class.  If so, set
@@ -2134,10 +2199,6 @@ is_compiled_class (tree class)
     return 1;
   if (TYPE_ARRAY_P (class))
     return 0;
-  /* We have to check this explicitly to avoid trying to load a class
-     that we're currently parsing.  */
-  if (class == current_class)
-    return 2;
 
   seen_in_zip = (TYPE_JCF (class) && JCF_SEEN_IN_ZIP (TYPE_JCF (class)));
   if (CLASS_FROM_CURRENTLY_COMPILED_P (class))
@@ -2147,7 +2208,7 @@ is_compiled_class (tree class)
 	 been loaded already. Load it if necessary. This prevent
 	 build_class_ref () from crashing. */
 
-      if (seen_in_zip && !CLASS_LOADED_P (class))
+      if (seen_in_zip && !CLASS_LOADED_P (class) && (class != current_class))
         load_class (class, 1);
 
       /* We return 2 for class seen in ZIP and class from files
@@ -2161,7 +2222,7 @@ is_compiled_class (tree class)
 	{
 	  if (CLASS_FROM_SOURCE_P (class))
 	    safe_layout_class (class);
-	  else
+	  else if (class != current_class)
 	    load_class (class, 1);
 	}
       return 1;
@@ -2447,7 +2508,7 @@ layout_class_methods (tree this_class)
 
   if (TYPE_NVIRTUALS (this_class))
     return;
-
+  
   super_class = CLASSTYPE_SUPER (this_class);
 
   if (super_class)
@@ -2510,10 +2571,18 @@ layout_class_method (tree this_class, tree super_class,
   tree method_name = DECL_NAME (method_decl);
 
   TREE_PUBLIC (method_decl) = 1;
+
+  if (flag_indirect_classes
+      || (METHOD_PRIVATE (method_decl) && METHOD_STATIC (method_decl)
+	  && ! METHOD_NATIVE (method_decl)
+	  && ! special_method_p (method_decl)))
+    hide (method_decl);
+
   /* Considered external unless it is being compiled into this object
-     file.  */
-  DECL_EXTERNAL (method_decl) = ((is_compiled_class (this_class) != 2)
-				 || METHOD_NATIVE (method_decl));
+     file, or it was already flagged as external.  */
+  if (!DECL_EXTERNAL (method_decl))
+    DECL_EXTERNAL (method_decl) = ((is_compiled_class (this_class) != 2)
+                                   || METHOD_NATIVE (method_decl));
 
   if (ID_INIT_P (method_name))
     {
@@ -2643,8 +2712,7 @@ emit_indirect_register_classes (tree *list_p)
   TREE_PUBLIC (t) = 1;
   DECL_EXTERNAL (t) = 1;
   register_class_fn = t;
-  t = tree_cons (NULL, reg_class_list, NULL);
-  t = build_function_call_expr (register_class_fn, t);
+  t = build_call_expr (register_class_fn, 1, reg_class_list);
   append_to_statement_list (t, list_p);
 }
 
@@ -2709,8 +2777,7 @@ emit_register_classes (tree *list_p)
       for (i = 0; VEC_iterate (tree, registered_class, i, klass); ++i)
 	{
 	  t = build_fold_addr_expr (klass);
-	  t = tree_cons (NULL, t, NULL);
-	  t = build_function_call_expr (register_class_fn, t);
+	  t = build_call_expr (register_class_fn, 1, t);
 	  append_to_statement_list (t, list_p);
 	}
     }

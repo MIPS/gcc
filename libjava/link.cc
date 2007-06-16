@@ -343,14 +343,6 @@ _Jv_Linker::resolve_method_entry (jclass klass, jclass &found_class,
   
 
  end_of_method_search:
-
-  // FIXME: if (cls->loader != klass->loader), then we
-  // must actually check that the types of arguments
-  // correspond.  That is, for each argument type, and
-  // the return type, doing _Jv_FindClassFromSignature
-  // with either loader should produce the same result,
-  // i.e., exactly the same jclass object. JVMS 5.4.3.3    
-    
   if (the_method == 0)
     {
       java::lang::StringBuffer *sb = new java::lang::StringBuffer();
@@ -364,6 +356,40 @@ _Jv_Linker::resolve_method_entry (jclass klass, jclass &found_class,
       throw new java::lang::NoSuchMethodError (sb->toString());
     }
 
+  // if (found_class->loader != klass->loader), then we
+  // must actually check that the types of arguments
+  // correspond.  That is, for each argument type, and
+  // the return type, doing _Jv_FindClassFromSignature
+  // with either loader should produce the same result,
+  // i.e., exactly the same jclass object. JVMS 5.4.3.3
+  if (found_class->loader != klass->loader)
+    {
+      JArray<jclass> *found_args, *klass_args;
+      jclass found_return, klass_return;
+
+      _Jv_GetTypesFromSignature (the_method,
+				 found_class,
+				 &found_args,
+				 &found_return);
+      _Jv_GetTypesFromSignature (the_method,
+				 klass,
+				 &klass_args,
+				 &klass_return);
+
+      jclass *found_arg = elements (found_args);
+      jclass *klass_arg = elements (klass_args);
+
+      for (int i = 0; i < found_args->length; i++)
+	{
+	  if (*(found_arg++) != *(klass_arg++))
+	    throw new java::lang::LinkageError (JvNewStringLatin1 
+	      ("argument type mismatch with different loaders"));
+	}
+      if (found_return != klass_return)
+	throw new java::lang::LinkageError (JvNewStringLatin1
+	  ("return type mismatch with different loaders"));
+    }
+  
   return the_method;
 }
 
@@ -1022,15 +1048,17 @@ struct method_closure
   // be the same as the address of the overall structure.  This is due
   // to disabling interior pointers in the GC.
   ffi_closure closure;
+  _Jv_ClosureList list;
   ffi_cif cif;
   ffi_type *arg_types[1];
 };
 
 void *
-_Jv_Linker::create_error_method (_Jv_Utf8Const *class_name)
+_Jv_Linker::create_error_method (_Jv_Utf8Const *class_name, jclass klass)
 {
+  void *code;
   method_closure *closure
-    = (method_closure *) _Jv_AllocBytes(sizeof (method_closure));
+    = (method_closure *)ffi_closure_alloc (sizeof (method_closure), &code);
 
   closure->arg_types[0] = &ffi_type_void;
 
@@ -1042,13 +1070,18 @@ _Jv_Linker::create_error_method (_Jv_Utf8Const *class_name)
                        1,
                        &ffi_type_void,
 		       closure->arg_types) == FFI_OK
-      && ffi_prep_closure (&closure->closure,
-                           &closure->cif,
-			   _Jv_ThrowNoClassDefFoundErrorTrampoline,
-			   class_name) == FFI_OK)
-    return &closure->closure;
+      && ffi_prep_closure_loc (&closure->closure,
+			       &closure->cif,
+			       _Jv_ThrowNoClassDefFoundErrorTrampoline,
+			       class_name,
+			       code) == FFI_OK)
+    {
+      closure->list.registerClosure (klass, closure);
+      return code;
+    }
   else
     {
+      ffi_closure_free (closure);
       java::lang::StringBuffer *buffer = new java::lang::StringBuffer();
       buffer->append(JvNewStringLatin1("Error setting up FFI closure"
 				       " for static method of"
@@ -1059,7 +1092,7 @@ _Jv_Linker::create_error_method (_Jv_Utf8Const *class_name)
 }
 #else
 void *
-_Jv_Linker::create_error_method (_Jv_Utf8Const *)
+_Jv_Linker::create_error_method (_Jv_Utf8Const *, jclass)
 {
   // Codepath for platforms which do not support (or want) libffi.
   // You have to accept that it is impossible to provide the name
@@ -1089,8 +1122,6 @@ static bool debug_link = false;
 // The offset (in bytes) for each resolved method or field is placed
 // at the corresponding position in the virtual method offset table
 // (klass->otable). 
-
-// The same otable and atable may be shared by many classes.
 
 // This must be called while holding the class lock.
 
@@ -1242,13 +1273,15 @@ _Jv_Linker::link_symbol_table (jclass klass)
       // NullPointerException
       klass->atable->addresses[index] = NULL;
 
+      bool use_error_method = false;
+
       // If the target class is missing we prepare a function call
       // that throws a NoClassDefFoundError and store the address of
       // that newly prepared method in the atable. The user can run
       // code in classes where the missing class is part of the
       // execution environment as long as it is never referenced.
       if (target_class == NULL)
-        klass->atable->addresses[index] = create_error_method(sym.class_name);
+	use_error_method = true;
       // We're looking for a static field or a static method, and we
       // can tell which is needed by looking at the signature.
       else if (signature->first() == '(' && signature->len() >= 2)
@@ -1296,11 +1329,15 @@ _Jv_Linker::link_symbol_table (jclass klass)
 		}
 	    }
 	  else
+	    use_error_method = true;
+
+	  if (use_error_method)
 	    klass->atable->addresses[index]
-              = create_error_method(sym.class_name);
+	      = create_error_method(sym.class_name, klass);
 
 	  continue;
 	}
+
 
       // Try fields only if the target class exists.
       if (target_class != NULL)

@@ -210,7 +210,7 @@ var_ann (tree t)
 	   htab_find_with_hash (gimple_var_anns (cfun), t, DECL_UID (t)));
       if (!sann)
 	return NULL;
-      gcc_assert (sann->ann.common.type = VAR_ANN);
+      gcc_assert (sann->ann.common.type == VAR_ANN);
       return &sann->ann;
     }
   gcc_assert (!t->base.ann
@@ -560,17 +560,6 @@ has_single_use (tree var)
 }
 
 
-/* If VAR has only a single immediate use, return true.  */
-static inline bool
-single_imm_use_p (tree var)
-{
-  ssa_use_operand_t *ptr;
-
-  ptr = &(SSA_NAME_IMM_USE_NODE (var));
-  return (ptr != ptr->next && ptr == ptr->next->next);
-}
-
-
 /* If VAR has only a single immediate use, return true, and set USE_P and STMT
    to the use pointer and stmt of occurrence.  */
 static inline bool
@@ -603,14 +592,6 @@ num_imm_uses (tree var)
      num++;
 
   return num;
-}
-
-/* Return true if VAR has no immediate uses.  */
-static inline bool
-zero_imm_uses_p (tree var)
-{
-  ssa_use_operand_t *ptr = &(SSA_NAME_IMM_USE_NODE (var));
-  return (ptr == ptr->next);
 }
 
 /* Return the tree pointer to by USE.  */ 
@@ -656,7 +637,19 @@ addresses_taken (tree stmt)
 static inline tree
 phi_nodes (basic_block bb)
 {
-  return bb->phi_nodes;
+  gcc_assert (!(bb->flags & BB_RTL));
+  if (!bb->il.tree)
+    return NULL;
+  return bb->il.tree->phi_nodes;
+}
+
+/* Return pointer to the list of PHI nodes for basic block BB.  */
+
+static inline tree *
+phi_nodes_ptr (basic_block bb)
+{
+  gcc_assert (!(bb->flags & BB_RTL));
+  return &bb->il.tree->phi_nodes;
 }
 
 /* Set list of phi nodes of a basic block BB to L.  */
@@ -666,7 +659,8 @@ set_phi_nodes (basic_block bb, tree l)
 {
   tree phi;
 
-  bb->phi_nodes = l;
+  gcc_assert (!(bb->flags & BB_RTL));
+  bb->il.tree->phi_nodes = l;
   for (phi = l; phi; phi = PHI_CHAIN (phi))
     set_bb_for_stmt (phi, bb);
 }
@@ -737,6 +731,17 @@ is_label_stmt (tree t)
   return false;
 }
 
+/* Return true if T (assumed to be a DECL) is a global variable.  */
+
+static inline bool
+is_global_var (tree t)
+{
+  if (MTAG_P (t))
+    return (TREE_STATIC (t) || MTAG_GLOBAL (t));
+  else
+    return (TREE_STATIC (t) || DECL_EXTERNAL (t));
+}
+
 /* PHI nodes should contain only ssa_names and invariants.  A test
    for ssa_name is definitely simpler; don't let invalid contents
    slip in in the meantime.  */
@@ -754,20 +759,37 @@ phi_ssa_name_p (tree t)
 
 /*  -----------------------------------------------------------------------  */
 
+/* Returns the list of statements in BB.  */
+
+static inline tree
+bb_stmt_list (basic_block bb)
+{
+  gcc_assert (!(bb->flags & BB_RTL));
+  return bb->il.tree->stmt_list;
+}
+
+/* Sets the list of statements in BB to LIST.  */
+
+static inline void
+set_bb_stmt_list (basic_block bb, tree list)
+{
+  gcc_assert (!(bb->flags & BB_RTL));
+  bb->il.tree->stmt_list = list;
+}
+
 /* Return a block_stmt_iterator that points to beginning of basic
    block BB.  */
 static inline block_stmt_iterator
 bsi_start (basic_block bb)
 {
   block_stmt_iterator bsi;
-  if (bb->stmt_list)
-    bsi.tsi = tsi_start (bb->stmt_list);
-  else
+  if (bb->index < NUM_FIXED_BLOCKS)
     {
-      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
     }
+  else
+    bsi.tsi = tsi_start (bb_stmt_list (bb));
   bsi.bb = bb;
   return bsi;
 }
@@ -792,14 +814,14 @@ static inline block_stmt_iterator
 bsi_last (basic_block bb)
 {
   block_stmt_iterator bsi;
-  if (bb->stmt_list)
-    bsi.tsi = tsi_last (bb->stmt_list);
-  else
+
+  if (bb->index < NUM_FIXED_BLOCKS)
     {
-      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
     }
+  else
+    bsi.tsi = tsi_last (bb_stmt_list (bb));
   bsi.bb = bb;
   return bsi;
 }
@@ -877,31 +899,6 @@ memory_partition (tree sym)
 #endif
 
   return tag;
-}
-
-
-/* Set MPT to be the memory partition associated with symbol SYM.  */
-
-static inline void
-set_memory_partition (tree sym, tree mpt)
-{
-#if defined ENABLE_CHECKING
-  if (mpt)
-    gcc_assert (TREE_CODE (mpt) == MEMORY_PARTITION_TAG
-	        && !is_gimple_reg (sym));
-#endif
-  var_ann (sym)->mpt = mpt;
-  if (mpt)
-    {
-      bitmap_set_bit (MPT_SYMBOLS (mpt), DECL_UID (sym));
-
-      /* MPT inherits the call-clobbering attributes from SYM.  */
-      if (is_call_clobbered (sym))
-	{
-	  MTAG_GLOBAL (mpt) = 1;
-	  mark_call_clobbered (mpt, ESCAPE_IS_GLOBAL);
-	}
-    }
 }
 
 /* Return true if NAME is a memory factoring SSA name (i.e., an SSA
@@ -1817,5 +1814,12 @@ static inline struct ssa_operands *
 gimple_ssa_operands (struct function *fun)
 {
   return &fun->gimple_df->ssa_operands;
+}
+
+/* Map describing reference statistics for function FN.  */
+static inline struct mem_ref_stats_d *
+gimple_mem_ref_stats (struct function *fn)
+{
+  return &fn->gimple_df->mem_ref_stats;
 }
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -53,6 +53,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.Attribute;
 import javax.management.AttributeList;
@@ -75,6 +76,7 @@ import javax.management.MBeanRegistration;
 import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
 import javax.management.MBeanServerDelegate;
+import javax.management.MBeanServerNotification;
 import javax.management.MBeanTrustPermission;
 import javax.management.NotCompliantMBeanException;
 import javax.management.Notification;
@@ -137,6 +139,15 @@ public class Server
   private Map listeners;
 
   /**
+   * An MBean that emits notifications when an MBean is registered and
+   * unregistered with this server.
+   *
+   */
+  private final MBeanServerDelegate delegate;
+
+  static private final AtomicLong sequenceNumber = new AtomicLong(1);
+
+  /**
    * Initialise the delegate name.
    */
   static
@@ -171,6 +182,7 @@ public class Server
   {
     this.defaultDomain = defaultDomain;
     this.outer = outer;
+    this.delegate = delegate;
     try
       {
 	registerMBean(delegate, DELEGATE_NAME);
@@ -1657,19 +1669,27 @@ public class Server
     MBeanRegistration register = null;
     if (obj instanceof MBeanRegistration)
       register = (MBeanRegistration) obj;
-    if (name == null)
+    if (name == null && register == null)
       {
-	if (register == null)
-	  {
-	    RuntimeException e =
-	      new IllegalArgumentException("The name was null and " +
-					   "the bean does not implement " +
-					   "MBeanRegistration.");
-	    throw new RuntimeOperationsException(e);
-	  }
+	RuntimeException e =
+	  new IllegalArgumentException("The name was null and " +
+				       "the bean does not implement " +
+				       "MBeanRegistration.");
+	throw new RuntimeOperationsException(e);
+      }
+    if (register != null)
+      {
 	try
 	  {
-	    name = register.preRegister(this, null);
+	    name = register.preRegister(this, name);
+	    if (name == null)
+	      {
+		RuntimeException e =
+		  new NullPointerException("The name returned by " +
+					   "MBeanRegistration.preRegister() " +
+					   "was null");
+		throw e;
+	      }
 	    if (sm != null)
 	      sm.checkPermission(new MBeanPermission(className, null, name,
 						     "registerMBean"));
@@ -1695,6 +1715,7 @@ public class Server
     beans.put(name, new ServerInfo(obji, obj));
     if (register != null)
       register.postRegister(Boolean.TRUE);
+    notify(name, MBeanServerNotification.REGISTRATION_NOTIFICATION);
     return obji;
   }
 
@@ -2080,9 +2101,17 @@ public class Server
 	  }
       }
     beans.remove(name);
+    notify(name, MBeanServerNotification.UNREGISTRATION_NOTIFICATION);
     if (register != null)
       register.postDeregister();
   }
+
+   private void notify(ObjectName name, String type)
+   {
+      delegate.sendNotification
+	(new MBeanServerNotification
+	 (type, DELEGATE_NAME, sequenceNumber.getAndIncrement(), name));
+   }
 
   /**
    * Input stream which deserializes using the given classloader.

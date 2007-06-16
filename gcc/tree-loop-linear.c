@@ -95,7 +95,7 @@ gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations,
 			  struct loop *first_loop,
 			  unsigned int *dependence_steps, 
 			  unsigned int *nb_deps_not_carried_by_loop, 
-			  unsigned int *access_strides)
+			  double_int *access_strides)
 {
   unsigned int i, j;
   struct data_dependence_relation *ddr;
@@ -103,7 +103,7 @@ gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations,
 
   *dependence_steps = 0;
   *nb_deps_not_carried_by_loop = 0;
-  *access_strides = 0;
+  *access_strides = double_int_zero;
 
   for (i = 0; VEC_iterate (ddr_p, dependence_relations, i, ddr); i++)
     {
@@ -117,7 +117,7 @@ gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations,
 
       for (j = 0; j < DDR_NUM_DIST_VECTS (ddr); j++)
 	{
-	  int dist = DDR_DIST_VECT (ddr, j)[loop->depth - first_loop->depth];
+	  int dist = DDR_DIST_VECT (ddr, j)[loop_depth (loop) - loop_depth (first_loop)];
 
 	  if (dist == 0)
 	    (*nb_deps_not_carried_by_loop) += 1;
@@ -134,24 +134,32 @@ gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations,
   for (i = 0; VEC_iterate (data_reference_p, datarefs, i, dr); i++)
     {
       unsigned int it;
+      tree ref = DR_REF (dr);
       tree stmt = DR_STMT (dr);
       struct loop *stmt_loop = loop_containing_stmt (stmt);
       struct loop *inner_loop = first_loop->inner;
-      
+
       if (inner_loop != stmt_loop 
 	  && !flow_loop_nested_p (inner_loop, stmt_loop))
 	continue;
-      for (it = 0; it < DR_NUM_DIMENSIONS (dr); it++)
+
+      for (it = 0; it < DR_NUM_DIMENSIONS (dr); 
+	   it++, ref = TREE_OPERAND (ref, 0))
 	{
 	  tree chrec = DR_ACCESS_FN (dr, it);
-	  tree tstride = evolution_part_in_loop_num 
-	    (chrec, loop->num);
-	  
+	  tree tstride = evolution_part_in_loop_num (chrec, loop->num);
+	  tree array_size = TYPE_SIZE (TREE_TYPE (ref));
+	  double_int dstride;
+
 	  if (tstride == NULL_TREE
-	      || TREE_CODE (tstride) != INTEGER_CST)
+	      || array_size == NULL_TREE 
+	      || TREE_CODE (tstride) != INTEGER_CST
+	      || TREE_CODE (array_size) != INTEGER_CST)
 	    continue;
-	  
-	  (*access_strides) += int_cst_value (tstride);
+
+	  dstride = double_int_mul (tree_to_double_int (array_size), 
+				    tree_to_double_int (tstride));
+	  (*access_strides) = double_int_add (*access_strides, dstride);
 	}
     }
 }
@@ -174,7 +182,7 @@ try_interchange_loops (lambda_trans_matrix trans,
   struct loop *loop_i;
   struct loop *loop_j;
   unsigned int dependence_steps_i, dependence_steps_j;
-  unsigned int access_strides_i, access_strides_j;
+  double_int access_strides_i, access_strides_j;
   unsigned int nb_deps_not_carried_by_i, nb_deps_not_carried_by_j;
   struct data_dependence_relation *ddr;
 
@@ -192,7 +200,7 @@ try_interchange_loops (lambda_trans_matrix trans,
        loop_j; 
        loop_j = loop_j->inner)
     for (loop_i = first_loop; 
-	 loop_i->depth < loop_j->depth; 
+	 loop_depth (loop_i) < loop_depth (loop_j); 
 	 loop_i = loop_i->inner)
       {
 	gather_interchange_stats (dependence_relations, datarefs,
@@ -219,17 +227,17 @@ try_interchange_loops (lambda_trans_matrix trans,
 	*/
 	if (dependence_steps_i < dependence_steps_j 
 	    || nb_deps_not_carried_by_i > nb_deps_not_carried_by_j
-	    || access_strides_i < access_strides_j)
+	    || double_int_ucmp (access_strides_i, access_strides_j) < 0)
 	  {
 	    lambda_matrix_row_exchange (LTM_MATRIX (trans),
-					loop_i->depth - first_loop->depth,
-					loop_j->depth - first_loop->depth);
+					loop_depth (loop_i) - loop_depth (first_loop),
+					loop_depth (loop_j) - loop_depth (first_loop));
 	    /* Validate the resulting matrix.  When the transformation
 	       is not valid, reverse to the previous transformation.  */
 	    if (!lambda_transform_legal_p (trans, depth, dependence_relations))
 	      lambda_matrix_row_exchange (LTM_MATRIX (trans), 
-					  loop_i->depth - first_loop->depth, 
-					  loop_j->depth - first_loop->depth);
+					  loop_depth (loop_i) - loop_depth (first_loop), 
+					  loop_depth (loop_j) - loop_depth (first_loop));
 	  }
       }
 

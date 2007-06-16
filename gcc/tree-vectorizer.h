@@ -1,5 +1,5 @@
 /* Loop Vectorization
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -151,9 +151,12 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_MAY_MISALIGN_STMTS(L) (L)->may_misalign_stmts
 #define LOOP_VINFO_LOC(L)             (L)->loop_line_number
 
+#define NITERS_KNOWN_P(n)                     \
+(host_integerp ((n),0)                        \
+&& TREE_INT_CST_LOW ((n)) > 0)
+
 #define LOOP_VINFO_NITERS_KNOWN_P(L)                     \
-(host_integerp ((L)->num_iters,0)                        \
-&& TREE_INT_CST_LOW ((L)->num_iters) > 0)
+NITERS_KNOWN_P((L)->num_iters)
 
 /*-----------------------------------------------------------------*/
 /* Info on vectorized defs.                                        */
@@ -167,14 +170,24 @@ enum stmt_vec_info_type {
   assignment_vec_info_type,
   condition_vec_info_type,
   reduc_vec_info_type,
+  induc_vec_info_type,
   type_promotion_vec_info_type,
-  type_demotion_vec_info_type
+  type_demotion_vec_info_type,
+  type_conversion_vec_info_type
 };
 
 /* Indicates whether/how a variable is used in the loop.  */
 enum vect_relevant {
   vect_unused_in_loop = 0,
+
+  /* defs that feed computations that end up (only) in a reduction. These
+     defs may be used by non-reduction stmts, but eventually, any 
+     computations/values that are affected by these defs are used to compute 
+     a reduction (i.e. don't get stored to memory, for example). We use this 
+     to identify computations that we can change the order in which they are 
+     computed.  */
   vect_used_by_reduction,
+
   vect_used_in_loop  
 };
 
@@ -255,6 +268,13 @@ typedef struct _stmt_vec_info {
   /* For loads only, if there is a store with the same location, this field is
      TRUE.  */
   bool read_write_dep;
+
+  /* Vectorization costs associated with statement.  */
+  struct  
+  {
+    int outside_of_loop;     /* Statements generated outside loop.  */
+    int inside_of_loop;      /* Statements generated inside loop.  */
+  } cost;
 } *stmt_vec_info;
 
 /* Access Functions.  */
@@ -287,6 +307,42 @@ typedef struct _stmt_vec_info {
 #define DR_GROUP_READ_WRITE_DEPENDENCE(S)  (S)->read_write_dep
 
 #define STMT_VINFO_RELEVANT_P(S)          ((S)->relevant != vect_unused_in_loop)
+#define STMT_VINFO_OUTSIDE_OF_LOOP_COST(S) (S)->cost.outside_of_loop
+#define STMT_VINFO_INSIDE_OF_LOOP_COST(S)  (S)->cost.inside_of_loop
+
+/* These are some defines for the initial implementation of the vectorizer's
+   cost model.  These will later be target specific hooks.  */
+
+/* Cost of conditional branch.  */
+#ifndef TARG_COND_BRANCH_COST
+#define TARG_COND_BRANCH_COST        3
+#endif
+
+/* Cost of any vector operation, excluding load, store or vector to scalar
+   operation.  */ 
+#ifndef TARG_VEC_STMT_COST
+#define TARG_VEC_STMT_COST           1
+#endif
+
+/* Cost of vector to scalar operation.  */
+#ifndef TARG_VEC_TO_SCALAR_COST
+#define TARG_VEC_TO_SCALAR_COST      1
+#endif
+
+/* Cost of aligned vector load.  */
+#ifndef TARG_VEC_LOAD_COST
+#define TARG_VEC_LOAD_COST           1
+#endif
+
+/* Cost of misaligned vector load.  */
+#ifndef TARG_VEC_UNALIGNED_LOAD_COST
+#define TARG_VEC_UNALIGNED_LOAD_COST 2
+#endif
+
+/* Cost of vector store.  */
+#ifndef TARG_VEC_STORE_COST
+#define TARG_VEC_STORE_COST          1
+#endif
 
 static inline void set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info);
 static inline stmt_vec_info vinfo_for_stmt (tree stmt);
@@ -326,7 +382,8 @@ is_pattern_stmt_p (stmt_vec_info stmt_info)
 
 /* Reflects actual alignment of first access in the vectorized loop,
    taking into account peeling/versioning if applied.  */
-#define DR_MISALIGNMENT(DR)   (DR)->aux
+#define DR_MISALIGNMENT(DR)   ((int) (size_t) (DR)->aux)
+#define SET_DR_MISALIGNMENT(DR, VAL)   ((DR)->aux = (void *) (size_t) (VAL))
 
 static inline bool
 aligned_access_p (struct data_reference *data_ref_info)
@@ -385,6 +442,9 @@ extern enum dr_alignment_support vect_supportable_dr_alignment
 extern bool reduction_code_for_scalar_code (enum tree_code, enum tree_code *);
 extern bool supportable_widening_operation (enum tree_code, tree, tree,
   tree *, tree *, enum tree_code *, enum tree_code *);
+extern bool supportable_narrowing_operation (enum tree_code, tree, tree,
+					     enum tree_code *);
+
 /* Creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
 extern void destroy_loop_vec_info (loop_vec_info);
@@ -411,12 +471,16 @@ extern bool vectorizable_store (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_type_promotion (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_type_demotion (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_conversion (tree, block_stmt_iterator *, 
+				     tree *);
 extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_function (tree, tree);
+extern tree vectorizable_function (tree, tree, tree);
 extern bool vectorizable_call (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_condition (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_live_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_reduction (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_induction (tree, block_stmt_iterator *, tree *);
+extern int  vect_estimate_min_profitable_iters (loop_vec_info);
 /* Driver for transformation stage.  */
 extern void vect_transform_loop (loop_vec_info);
 

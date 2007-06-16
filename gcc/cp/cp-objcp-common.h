@@ -111,14 +111,9 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #undef LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN
 #define LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN \
   cp_cannot_inline_tree_fn
-#undef LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS
-#define LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS \
-  cp_add_pending_fn_decls
 #undef LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   cp_auto_var_in_fn_p
-#undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
-#define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P cp_var_mod_type_p
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
@@ -141,8 +136,6 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #define LANG_HOOKS_TYPE_FOR_SIZE c_common_type_for_size
 #undef LANG_HOOKS_SIGNED_TYPE
 #define LANG_HOOKS_SIGNED_TYPE c_common_signed_type
-#undef LANG_HOOKS_UNSIGNED_TYPE
-#define LANG_HOOKS_UNSIGNED_TYPE c_common_unsigned_type
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE c_common_signed_or_unsigned_type
 #undef LANG_HOOKS_INCOMPLETE_TYPE_ERROR

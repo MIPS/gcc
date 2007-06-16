@@ -72,6 +72,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "arith.h"
 #include "match.h"
 #include "parse.h" /* FIXME */
+#include "md5.h"
 
 #define MODULE_EXTENSION ".mod"
 
@@ -170,6 +171,9 @@ gfc_use_rename;
 /* The FILE for the module we're reading or writing.  */
 static FILE *module_fp;
 
+/* MD5 context structure.  */
+static struct md5_ctx ctx;
+
 /* The name of the module we're reading (USE'ing) or writing.  */
 static char module_name[GFC_MAX_SYMBOL_LEN + 1];
 
@@ -185,7 +189,7 @@ static gfc_use_rename *gfc_rename_list;
 static pointer_info *pi_root;
 static int symbol_number;	/* Counter for assigning symbol numbers */
 
-/* Tells mio_expr_ref not to load unused equivalence members.  */
+/* Tells mio_expr_ref to make symbols for unused equivalence members.  */
 static bool in_load_equiv;
 
 
@@ -395,6 +399,7 @@ find_pointer2 (void *p)
 
 
 /* Resolve any fixups using a known pointer.  */
+
 static void
 resolve_fixups (fixup_t *f, void *gp)
 {
@@ -488,7 +493,7 @@ gfc_match_use (void)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1], module_nature[GFC_MAX_SYMBOL_LEN + 1];
   gfc_use_rename *tail = NULL, *new;
-  interface_type type;
+  interface_type type, type2;
   gfc_intrinsic_op operator;
   match m;
 
@@ -588,8 +593,15 @@ gfc_match_use (void)
 	  gfc_error ("Missing generic specification in USE statement at %C");
 	  goto cleanup;
 
+	case INTERFACE_USER_OP:
 	case INTERFACE_GENERIC:
 	  m = gfc_match (" =>");
+
+	  if (type == INTERFACE_USER_OP && m == MATCH_YES
+	      && (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Renaming "
+				  "operators in USE statements at %C")
+		 == FAILURE))
+	    goto cleanup;
 
 	  if (only_flag)
 	    {
@@ -598,8 +610,9 @@ gfc_match_use (void)
 	      else
 		{
 		  strcpy (new->local_name, name);
-
-		  m = gfc_match_name (new->use_name);
+		  m = gfc_match_generic_spec (&type2, new->use_name, &operator);
+		  if (type != type2)
+		    goto syntax;
 		  if (m == MATCH_NO)
 		    goto syntax;
 		  if (m == MATCH_ERROR)
@@ -612,18 +625,27 @@ gfc_match_use (void)
 		goto syntax;
 	      strcpy (new->local_name, name);
 
-	      m = gfc_match_name (new->use_name);
+	      m = gfc_match_generic_spec (&type2, new->use_name, &operator);
+	      if (type != type2)
+		goto syntax;
 	      if (m == MATCH_NO)
 		goto syntax;
 	      if (m == MATCH_ERROR)
 		goto cleanup;
 	    }
 
-	  break;
+	  if (strcmp (new->use_name, module_name) == 0
+	      || strcmp (new->local_name, module_name) == 0)
+	    {
+	      gfc_error ("The name '%s' at %C has already been used as "
+			 "an external module name.", module_name);
+	      goto cleanup;
+	    }
 
-	case INTERFACE_USER_OP:
-	  strcpy (new->use_name, name);
-	  /* Fall through */
+	  if (type == INTERFACE_USER_OP)
+	    new->operator = operator;
+
+	  break;
 
 	case INTERFACE_INTRINSIC_OP:
 	  new->operator = operator;
@@ -935,7 +957,7 @@ module_char (void)
 {
   int c;
 
-  c = fgetc (module_fp);
+  c = getc (module_fp);
 
   if (c == EOF)
     bad_module ("Unexpected EOF");
@@ -965,7 +987,7 @@ parse_string (void)
 
   len = 0;
 
-  /* See how long the string is */
+  /* See how long the string is.  */
   for ( ; ; )
     {
       c = module_char ();
@@ -996,11 +1018,11 @@ parse_string (void)
     {
       c = module_char ();
       if (c == '\'')
-	module_char ();		/* Guaranteed to be another \'  */
+	module_char ();		/* Guaranteed to be another \'.  */
       *p++ = c;
     }
 
-  module_char ();		/* Terminating \'  */
+  module_char ();		/* Terminating \'.  */
   *p = '\0';			/* C-style string for debug purposes.  */
 }
 
@@ -1165,7 +1187,7 @@ parse_atom (void)
       bad_module ("Bad name");
     }
 
-  /* Not reached */
+  /* Not reached.  */
 }
 
 
@@ -1244,7 +1266,7 @@ find_enum (const mstring *m)
 
   bad_module ("find_enum(): Enum not found");
 
-  /* Not reached */
+  /* Not reached.  */
 }
 
 
@@ -1255,9 +1277,12 @@ find_enum (const mstring *m)
 static void
 write_char (char out)
 {
-  if (fputc (out, module_fp) == EOF)
+  if (putc (out, module_fp) == EOF)
     gfc_fatal_error ("Error writing modules file: %s", strerror (errno));
 
+  /* Add this to our MD5.  */
+  md5_process_bytes (&out, sizeof (out), &ctx);
+  
   if (out != '\n')
     module_column++;
   else
@@ -1412,8 +1437,7 @@ mio_integer (int *ip)
 }
 
 
-/* Read or write a character pointer that points to a string on the
-   heap.  */
+/* Read or write a character pointer that points to a string on the heap.  */
 
 static const char *
 mio_allocated_string (const char *s)
@@ -1471,7 +1495,6 @@ mio_internal_string (char *string)
       gfc_free (atom_string);
     }
 }
-
 
 
 typedef enum
@@ -1797,7 +1820,14 @@ mio_typespec (gfc_typespec *ts)
   else
     mio_symbol_ref (&ts->derived);
 
-  mio_charlen (&ts->cl);
+  if (ts->type != BT_CHARACTER)
+    {
+      /* ts->cl is only valid for BT_CHARACTER.  */
+      mio_lparen ();
+      mio_rparen ();
+    }
+  else
+    mio_charlen (&ts->cl);
 
   mio_rparen ();
 }
@@ -2140,7 +2170,6 @@ mio_formal_arglist (gfc_symbol *sym)
     {
       for (f = sym->formal; f; f = f->next)
 	mio_symbol_ref (&f->sym);
-
     }
   else
     {
@@ -2203,9 +2232,25 @@ mio_symtree_ref (gfc_symtree **stp)
       require_atom (ATOM_INTEGER);
       p = get_integer (atom_int);
 
-      /* An unused equivalence member; bail out.  */
+      /* An unused equivalence member; make a symbol and a symtree
+	 for it.  */
       if (in_load_equiv && p->u.rsym.symtree == NULL)
-	return;
+	{
+	  /* Since this is not used, it must have a unique name.  */
+	  p->u.rsym.symtree = get_unique_symtree (gfc_current_ns);
+
+	  /* Make the symbol.  */
+	  if (p->u.rsym.sym == NULL)
+	    {
+	      p->u.rsym.sym = gfc_new_symbol (p->u.rsym.true_name,
+					      gfc_current_ns);
+	      p->u.rsym.sym->module = gfc_get_string (p->u.rsym.module);
+	    }
+
+	  p->u.rsym.symtree->n.sym = p->u.rsym.sym;
+	  p->u.rsym.symtree->n.sym->refs++;
+	  p->u.rsym.referenced = 1;
+	}
       
       if (p->type == P_UNKNOWN)
 	p->type = P_SYMBOL;
@@ -2224,7 +2269,7 @@ mio_symtree_ref (gfc_symtree **stp)
 	  f->next = p->u.rsym.stfixup;
 	  p->u.rsym.stfixup = f;
 
-	  f->pointer = (void **)stp;
+	  f->pointer = (void **) stp;
 	}
     }
 }
@@ -2551,7 +2596,7 @@ fix_mio_expr (gfc_expr *e)
 	 namespace, it has a unique name and we should look in the current
 	 namespace to see if the required, non-contained symbol is available
 	 yet. If so, the latter should be written.  */
-      if (e->symtree->n.sym && check_unique_name(e->symtree->name))
+      if (e->symtree->n.sym && check_unique_name (e->symtree->name))
 	ns_st = gfc_find_symtree (gfc_current_ns->sym_root,
 				  e->symtree->n.sym->name);
 
@@ -2754,7 +2799,7 @@ mio_expr (gfc_expr **ep)
 }
 
 
-/* Read and write namelists */
+/* Read and write namelists.  */
 
 static void
 mio_namelist (gfc_symbol *sym)
@@ -2935,7 +2980,7 @@ mio_symbol (gfc_symbol *sym)
 	}
     }
 
-  /* Save/restore common block links */
+  /* Save/restore common block links.  */
   mio_symbol_ref (&sym->common_next);
 
   mio_formal_arglist (sym);
@@ -3086,8 +3131,8 @@ load_generic_interfaces (void)
 	      p = p ? p : name;
 	      st = gfc_find_symtree (gfc_current_ns->sym_root, p);
 	      if (!sym->attr.generic
-		    && sym->module != NULL
-		    && strcmp(module, sym->module) != 0)
+		  && sym->module != NULL
+		  && strcmp(module, sym->module) != 0)
 		st->ambiguous = 1;
 	    }
 	  if (i == 1)
@@ -3140,9 +3185,9 @@ load_commons (void)
 }
 
 
-/* load_equiv()-- Load equivalences. The flag in_load_equiv informs
-   mio_expr_ref of this so that unused variables are not loaded and
-   so that the expression can be safely freed.*/
+/* Load equivalences.  The flag in_load_equiv informs mio_expr_ref of this
+   so that unused variables are not loaded and so that the expression can
+   be safely freed.  */
 
 static void
 load_equiv (void)
@@ -3157,7 +3202,7 @@ load_equiv (void)
   while (end != NULL && end->next != NULL)
     end = end->next;
 
-  while (peek_atom() != ATOM_RPAREN) {
+  while (peek_atom () != ATOM_RPAREN) {
     mio_lparen ();
     head = tail = NULL;
 
@@ -3175,13 +3220,13 @@ load_equiv (void)
 	mio_expr (&tail->expr);
       }
 
-    /* Unused variables have no symtree.  */
-    unused = false;
+    /* Unused equivalence members have a unique name.  */
+    unused = true;
     for (eq = head; eq; eq = eq->eq)
       {
-	if (!eq->expr->symtree)
+	if (!check_unique_name (eq->expr->symtree->name))
 	  {
-	    unused = true;
+	    unused = false;
 	    break;
 	  }
       }
@@ -3210,6 +3255,7 @@ load_equiv (void)
   mio_rparen ();
   in_load_equiv = false;
 }
+
 
 /* Recursive function to traverse the pointer_info tree and load a
    needed symbol.  We return nonzero if we load a symbol and stop the
@@ -3268,8 +3314,7 @@ load_needed (pointer_info *p)
 }
 
 
-/* Recursive function for cleaning up things after a module has been
-   read.  */
+/* Recursive function for cleaning up things after a module has been read.  */
 
 static void
 read_cleanup (pointer_info *p)
@@ -3304,6 +3349,31 @@ read_cleanup (pointer_info *p)
 }
 
 
+/* Given a root symtree node and a symbol, try to find a symtree that
+   references the symbol that is not a unique name.  */
+
+static gfc_symtree *
+find_symtree_for_symbol (gfc_symtree *st, gfc_symbol *sym)
+{
+  gfc_symtree *s = NULL;
+
+  if (st == NULL)
+    return s;
+
+  s = find_symtree_for_symbol (st->right, sym);
+  if (s != NULL)
+    return s;
+  s = find_symtree_for_symbol (st->left, sym);
+  if (s != NULL)
+    return s;
+
+  if (st->n.sym == sym && !check_unique_name (st->name))
+    return st;
+
+  return s;
+}
+
+
 /* Read a module file.  */
 
 static void
@@ -3314,12 +3384,12 @@ read_module (void)
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_intrinsic_op i;
   int ambiguous, j, nuse, symbol;
-  pointer_info *info;
+  pointer_info *info, *q;
   gfc_use_rename *u;
   gfc_symtree *st;
   gfc_symbol *sym;
 
-  get_module_locus (&operator_interfaces);	/* Skip these for now */
+  get_module_locus (&operator_interfaces);	/* Skip these for now.  */
   skip_list ();
 
   get_module_locus (&user_operators);
@@ -3363,8 +3433,27 @@ read_module (void)
 	continue;
 
       info->u.rsym.state = USED;
-      info->u.rsym.referenced = 1;
       info->u.rsym.sym = sym;
+
+      /* Some symbols do not have a namespace (eg. formal arguments),
+	 so the automatic "unique symtree" mechanism must be suppressed
+	 by marking them as referenced.  */
+      q = get_integer (info->u.rsym.ns);
+      if (q->u.pointer == NULL)
+	{
+	  info->u.rsym.referenced = 1;
+	  continue;
+	}
+
+      /* If possible recycle the symtree that references the symbol.
+	 If a symtree is not found and the module does not import one,
+	 a unique-name symtree is found by read_cleanup.  */
+      st = find_symtree_for_symbol (gfc_current_ns->sym_root, sym);
+      if (st != NULL)
+	{
+	  info->u.rsym.symtree = st;
+	  info->u.rsym.referenced = 1;
+	}
     }
 
   mio_rparen ();
@@ -3394,9 +3483,11 @@ read_module (void)
 	  /* Get the jth local name for this symbol.  */
 	  p = find_use_name_n (name, &j);
 
+	  if (p == NULL && strcmp (name, module_name) == 0)
+	    p = name;
+
 	  /* Skip symtree nodes not in an ONLY clause, unless there
-	     is an existing symtree loaded from another USE
-	     statement.  */
+	     is an existing symtree loaded from another USE statement.  */
 	  if (p == NULL)
 	    {
 	      st = gfc_find_symtree (gfc_current_ns->sym_root, name);
@@ -3548,7 +3639,7 @@ gfc_check_access (gfc_access specific_access, gfc_access default_access)
 }
 
 
-/* Write a common block to the module */
+/* Write a common block to the module.  */
 
 static void
 write_common (gfc_symtree *st)
@@ -3700,6 +3791,7 @@ write_symbol0 (gfc_symtree *st)
 static int
 write_symbol1 (pointer_info *p)
 {
+
   if (p == NULL)
     return 0;
 
@@ -3845,6 +3937,50 @@ write_module (void)
 }
 
 
+/* Read a MD5 sum from the header of a module file.  If the file cannot
+   be opened, or we have any other error, we return -1.  */
+
+static int
+read_md5_from_module_file (const char * filename, unsigned char md5[16])
+{
+  FILE *file;
+  char buf[1024];
+  int n;
+
+  /* Open the file.  */
+  if ((file = fopen (filename, "r")) == NULL)
+    return -1;
+
+  /* Read two lines.  */
+  if (fgets (buf, sizeof (buf) - 1, file) == NULL
+      || fgets (buf, sizeof (buf) - 1, file) == NULL)
+    {
+      fclose (file);
+      return -1;
+    }
+
+  /* Close the file.  */
+  fclose (file);
+
+  /* If the header is not what we expect, or is too short, bail out.  */
+  if (strncmp (buf, "MD5:", 4) != 0 || strlen (buf) < 4 + 16)
+    return -1;
+
+  /* Now, we have a real MD5, read it into the array.  */
+  for (n = 0; n < 16; n++)
+    {
+      unsigned int x;
+
+      if (sscanf (&(buf[4+2*n]), "%02x", &x) != 1)
+       return -1;
+
+      md5[n] = x;
+    }
+
+  return 0;
+}
+
+
 /* Given module, dump it to disk.  If there was an error while
    processing the module, dump_flag will be set to zero and we delete
    the module file, even if it was already there.  */
@@ -3853,13 +3989,16 @@ void
 gfc_dump_module (const char *name, int dump_flag)
 {
   int n;
-  char *filename, *p;
+  char *filename, *filename_tmp, *p;
   time_t now;
+  fpos_t md5_pos;
+  unsigned char md5_new[16], md5_old[16];
 
   n = strlen (name) + strlen (MODULE_EXTENSION) + 1;
   if (gfc_option.module_dir != NULL)
     {
-      filename = (char *) alloca (n + strlen (gfc_option.module_dir));
+      n += strlen (gfc_option.module_dir);
+      filename = (char *) alloca (n);
       strcpy (filename, gfc_option.module_dir);
       strcat (filename, name);
     }
@@ -3870,26 +4009,41 @@ gfc_dump_module (const char *name, int dump_flag)
     }
   strcat (filename, MODULE_EXTENSION);
 
+  /* Name of the temporary file used to write the module.  */
+  filename_tmp = (char *) alloca (n + 1);
+  strcpy (filename_tmp, filename);
+  strcat (filename_tmp, "0");
+
+  /* There was an error while processing the module.  We delete the
+     module file, even if it was already there.  */
   if (!dump_flag)
     {
       unlink (filename);
       return;
     }
 
-  module_fp = fopen (filename, "w");
+  /* Write the module to the temporary file.  */
+  module_fp = fopen (filename_tmp, "w");
   if (module_fp == NULL)
     gfc_fatal_error ("Can't open module file '%s' for writing at %C: %s",
-		     filename, strerror (errno));
+		     filename_tmp, strerror (errno));
 
+  /* Write the header, including space reserved for the MD5 sum.  */
   now = time (NULL);
   p = ctime (&now);
 
   *strchr (p, '\n') = '\0';
 
-  fprintf (module_fp, "GFORTRAN module created from %s on %s\n", 
+  fprintf (module_fp, "GFORTRAN module created from %s on %s\nMD5:", 
 	   gfc_source_file, p);
-  fputs ("If you edit this, you'll get what you deserve.\n\n", module_fp);
+  fgetpos (module_fp, &md5_pos);
+  fputs ("00000000000000000000000000000000 -- "
+	"If you edit this, you'll get what you deserve.\n\n", module_fp);
 
+  /* Initialize the MD5 context that will be used for output.  */
+  md5_init_ctx (&ctx);
+
+  /* Write the module itself.  */
   iomode = IO_OUTPUT;
   strcpy (module_name, name);
 
@@ -3902,9 +4056,26 @@ gfc_dump_module (const char *name, int dump_flag)
 
   write_char ('\n');
 
+  /* Write the MD5 sum to the header of the module file.  */
+  md5_finish_ctx (&ctx, md5_new);
+  fsetpos (module_fp, &md5_pos);
+  for (n = 0; n < 16; n++)
+    fprintf (module_fp, "%02x", md5_new[n]);
+
   if (fclose (module_fp))
     gfc_fatal_error ("Error writing module file '%s' for writing: %s",
-		     filename, strerror (errno));
+		     filename_tmp, strerror (errno));
+
+  /* Read the MD5 from the header of the old module file and compare.  */
+  if (read_md5_from_module_file (filename, md5_old) != 0
+      || memcmp (md5_old, md5_new, sizeof (md5_old)) != 0)
+    {
+      /* Module file have changed, replace the old one.  */
+      unlink (filename);
+      rename (filename_tmp, filename);
+    }
+  else
+    unlink (filename_tmp);
 }
 
 

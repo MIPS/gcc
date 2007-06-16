@@ -141,7 +141,7 @@ gfc_free_data (gfc_data *p)
 /* Free all data in a namespace.  */
 
 static void
-gfc_free_data_all (gfc_namespace * ns)
+gfc_free_data_all (gfc_namespace *ns)
 {
   gfc_data *d;
 
@@ -301,6 +301,7 @@ match_data_constant (gfc_expr **result)
   gfc_symbol *sym;
   gfc_expr *expr;
   match m;
+  locus old_loc;
 
   m = gfc_match_literal_constant (&expr, 1);
   if (m == MATCH_YES)
@@ -315,6 +316,23 @@ match_data_constant (gfc_expr **result)
   m = gfc_match_null (result);
   if (m != MATCH_NO)
     return m;
+
+  old_loc = gfc_current_locus;
+
+  /* Should this be a structure component, try to match it
+     before matching a name.  */
+  m = gfc_match_rvalue (result);
+  if (m == MATCH_ERROR)
+    return m;
+
+  if (m == MATCH_YES && (*result)->expr_type == EXPR_STRUCTURE)
+    {
+      if (gfc_simplify_expr (*result, 0) == FAILURE)
+	m = MATCH_ERROR;
+      return m;
+    }
+
+  gfc_current_locus = old_loc;
 
   m = gfc_match_name (name);
   if (m != MATCH_YES)
@@ -426,8 +444,7 @@ match_old_style_init (const char *name)
   newdata->var->expr = gfc_get_variable_expr (st);
   newdata->where = gfc_current_locus;
 
-  /* Match initial value list. This also eats the terminal
-     '/'.  */
+  /* Match initial value list. This also eats the terminal '/'.  */
   m = top_val_list (newdata);
   if (m != MATCH_YES)
     {
@@ -459,7 +476,7 @@ match_old_style_init (const char *name)
 
 /* Match the stuff following a DATA statement. If ERROR_FLAG is set,
    we are matching a DATA statement and are therefore issuing an error
-   if we encounter something unexpected, if not, we're trying to match 
+   if we encounter something unexpected, if not, we're trying to match
    an old-style initialization expression of the form INTEGER I /2/.  */
 
 match
@@ -606,9 +623,9 @@ find_special (const char *name, gfc_symbol **result)
   int i;
 
   i = gfc_get_symbol (name, NULL, result);
-  if (i == 0) 
+  if (i == 0)
     goto end;
-  
+
   if (gfc_current_state () != COMP_SUBROUTINE
       && gfc_current_state () != COMP_FUNCTION)
     goto end;
@@ -620,7 +637,7 @@ find_special (const char *name, gfc_symbol **result)
   if (s->state != COMP_INTERFACE)
     goto end;
   if (s->sym == NULL)
-    goto end;		  /* Nameless interface */
+    goto end;		  /* Nameless interface.  */
 
   if (strcmp (name, s->sym->name) == 0)
     {
@@ -653,7 +670,12 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
      space is set to point to the master function, so that the fake
      result mechanism can work.  */
   if (module_fcn_entry)
-    rc = gfc_get_symbol (name, NULL, result);
+    {
+      /* Present if entry is declared to be a module procedure.  */
+      rc = gfc_find_symbol (name, gfc_current_ns->parent, 0, result);
+      if (*result == NULL)
+	rc = gfc_get_symbol (name, NULL, result);
+    }
   else
     rc = gfc_get_symbol (name, gfc_current_ns->parent, result);
 
@@ -694,20 +716,26 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
   /* Module function entries will already have a symtree in
      the current namespace but will need one at module level.  */
   if (module_fcn_entry)
-    st = gfc_new_symtree (&gfc_current_ns->parent->sym_root, name);
+    {
+      /* Present if entry is declared to be a module procedure.  */
+      rc = gfc_find_sym_tree (name, gfc_current_ns->parent, 0, &st);
+      if (st == NULL)
+	st = gfc_new_symtree (&gfc_current_ns->parent->sym_root, name);
+    }
   else
     st = gfc_new_symtree (&gfc_current_ns->sym_root, name);
 
   st->n.sym = sym;
   sym->refs++;
 
-  /* See if the procedure should be a module procedure */
+  /* See if the procedure should be a module procedure.  */
 
   if (((sym->ns->proc_name != NULL
-	&& sym->ns->proc_name->attr.flavor == FL_MODULE
-	&& sym->attr.proc != PROC_MODULE) || module_fcn_entry)
-       && gfc_add_procedure (&sym->attr, PROC_MODULE,
-			     sym->name, NULL) == FAILURE)
+		&& sym->ns->proc_name->attr.flavor == FL_MODULE
+		&& sym->attr.proc != PROC_MODULE)
+	    || (module_fcn_entry && sym->attr.proc != PROC_MODULE))
+	&& gfc_add_procedure (&sym->attr, PROC_MODULE,
+			      sym->name, NULL) == FAILURE)
     rc = 2;
 
   return rc;
@@ -727,8 +755,7 @@ build_sym (const char *name, gfc_charlen *cl,
   if (gfc_get_symbol (name, NULL, &sym))
     return FAILURE;
 
-  /* Start updating the symbol table.  Add basic type attribute
-     if present.  */
+  /* Start updating the symbol table.  Add basic type attribute if present.  */
   if (current_ts.type != BT_UNKNOWN
       && (sym->attr.implicit_type == 0
 	  || !gfc_compare_types (&sym->ts, &current_ts))
@@ -750,6 +777,8 @@ build_sym (const char *name, gfc_charlen *cl,
 
   if (gfc_copy_attr (&sym->attr, &attr, var_locus) == FAILURE)
     return FAILURE;
+
+  sym->attr.implied_index = 0;
 
   return SUCCESS;
 }
@@ -794,15 +823,15 @@ gfc_set_constant_character_len (int len, gfc_expr *expr, bool array)
 }
 
 
-/* Function to create and update the enumerator history 
+/* Function to create and update the enumerator history
    using the information passed as arguments.
-   Pointer "max_enum" is also updated, to point to 
-   enum history node containing largest initializer.  
+   Pointer "max_enum" is also updated, to point to
+   enum history node containing largest initializer.
 
    SYM points to the symbol node of enumerator.
-   INIT points to its enumerator value.   */
+   INIT points to its enumerator value.  */
 
-static void 
+static void
 create_enum_history (gfc_symbol *sym, gfc_expr *init)
 {
   enumerator_history *new_enum_history;
@@ -824,20 +853,20 @@ create_enum_history (gfc_symbol *sym, gfc_expr *init)
       new_enum_history->next = enum_history;
       enum_history = new_enum_history;
 
-      if (mpz_cmp (max_enum->initializer->value.integer, 
+      if (mpz_cmp (max_enum->initializer->value.integer,
 		   new_enum_history->initializer->value.integer) < 0)
 	max_enum = new_enum_history;
     }
 }
 
 
-/* Function to free enum kind history.  */ 
+/* Function to free enum kind history.  */
 
-void 
+void
 gfc_free_enum_history (void)
 {
-  enumerator_history *current = enum_history;  
-  enumerator_history *next;  
+  enumerator_history *current = enum_history;
+  enumerator_history *next;
 
   while (current != NULL)
     {
@@ -854,8 +883,7 @@ gfc_free_enum_history (void)
    expression to a symbol.  */
 
 static try
-add_init_expr_to_sym (const char *name, gfc_expr **initp,
-		      locus *var_locus)
+add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 {
   symbol_attribute attr;
   gfc_symbol *sym;
@@ -918,9 +946,8 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp,
 	  /* Update symbol character length according initializer.  */
 	  if (sym->ts.cl->length == NULL)
 	    {
-	      /* If there are multiple CHARACTER variables declared on
-		 the same line, we don't want them to share the same
-		length.  */
+	      /* If there are multiple CHARACTER variables declared on the
+		 same line, we don't want them to share the same length.  */
 	      sym->ts.cl = gfc_get_charlen ();
 	      sym->ts.cl->next = gfc_current_ns->cl_list;
 	      gfc_current_ns->cl_list = sym->ts.cl;
@@ -939,8 +966,13 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp,
 		gfc_set_constant_character_len (len, init, false);
 	      else if (init->expr_type == EXPR_ARRAY)
 		{
-		  gfc_free_expr (init->ts.cl->length);
+		  /* Build a new charlen to prevent simplification from
+		     deleting the length before it is resolved.  */
+		  init->ts.cl = gfc_get_charlen ();
+		  init->ts.cl->next = gfc_current_ns->cl_list;
+		  gfc_current_ns->cl_list = sym->ts.cl;
 		  init->ts.cl->length = gfc_copy_expr (sym->ts.cl->length);
+
 		  for (p = init->value.constructor; p; p = p->next)
 		    gfc_set_constant_character_len (len, p->expr, false);
 		}
@@ -949,15 +981,48 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp,
 
       /* Add initializer.  Make sure we keep the ranks sane.  */
       if (sym->attr.dimension && init->rank == 0)
-	init->rank = sym->as->rank;
+	{
+	  mpz_t size;
+	  gfc_expr *array;
+	  gfc_constructor *c;
+	  int n;
+	  if (sym->attr.flavor == FL_PARAMETER
+		&& init->expr_type == EXPR_CONSTANT
+		&& spec_size (sym->as, &size) == SUCCESS
+		&& mpz_cmp_si (size, 0) > 0)
+	    {
+	      array = gfc_start_constructor (init->ts.type, init->ts.kind,
+					     &init->where);
+
+	      array->value.constructor = c = NULL;
+	      for (n = 0; n < (int)mpz_get_si (size); n++)
+		{
+		  if (array->value.constructor == NULL)
+		    {
+		      array->value.constructor = c = gfc_get_constructor ();
+		      c->expr = init;
+		    }
+		  else
+		    {
+		      c->next = gfc_get_constructor ();
+		      c = c->next;
+		      c->expr = gfc_copy_expr (init);
+		    }
+		}
+
+	      array->shape = gfc_get_shape (sym->as->rank);
+	      for (n = 0; n < sym->as->rank; n++)
+		spec_dimen_size (sym->as, n, &array->shape[n]);
+
+	      init = array;
+	      mpz_clear (size);
+	    }
+	  init->rank = sym->as->rank;
+	}
 
       sym->value = init;
       *initp = NULL;
     }
-
-  /* Maintain enumerator history.  */
-  if (gfc_current_state () == COMP_ENUM)
-    create_enum_history (sym, init);
 
   return SUCCESS;
 }
@@ -1132,14 +1197,6 @@ variable_decl (int elem)
 
   if (m == MATCH_NO)
     as = gfc_copy_array_spec (current_as);
-  else if (gfc_current_state () == COMP_ENUM)
-    {
-      gfc_error ("Enumerator cannot be array at %C");
-      gfc_free_enum_history ();
-      m = MATCH_ERROR;
-      goto cleanup;
-    }
-
 
   char_len = NULL;
   cl = NULL;
@@ -1178,7 +1235,7 @@ variable_decl (int elem)
     }
 
   /*  If this symbol has already shown up in a Cray Pointer declaration,
-      then we want to set the type & bail out. */
+      then we want to set the type & bail out.  */
   if (gfc_option.flag_cray_pointer)
     {
       gfc_find_symbol (name, gfc_current_ns, 1, &sym);
@@ -1204,13 +1261,13 @@ variable_decl (int elem)
 		{
 		  if (gfc_set_array_spec (sym, cp_as, &var_locus) == FAILURE)
 		    gfc_internal_error ("Couldn't set pointee array spec.");
-	      
+
 		  /* Fix the array spec.  */
-		  m = gfc_mod_pointee_as (sym->as);  
+		  m = gfc_mod_pointee_as (sym->as);
 		  if (m == MATCH_ERROR)
 		    goto cleanup;
 		}
-	    }     
+	    }
 	  goto cleanup;
 	}
       else
@@ -1218,8 +1275,8 @@ variable_decl (int elem)
 	  gfc_free_array_spec (cp_as);
 	}
     }
-  
-    
+
+
   /* OK, we've successfully matched the declaration.  Now put the
      symbol in the current namespace, because it might be used in the
      optional initialization expression for this symbol, e.g. this is
@@ -1238,10 +1295,11 @@ variable_decl (int elem)
       goto cleanup;
     }
 
-  /* An interface body specifies all of the procedure's characteristics and these
-     shall be consistent with those specified in the procedure definition, except
-     that the interface may specify a procedure that is not pure if the procedure
-     is defined to be pure(12.3.2).  */
+  /* An interface body specifies all of the procedure's
+     characteristics and these shall be consistent with those
+     specified in the procedure definition, except that the interface
+     may specify a procedure that is not pure if the procedure is
+     defined to be pure(12.3.2).  */
   if (current_ts.type == BT_DERIVED
       && gfc_current_ns->proc_name
       && gfc_current_ns->proc_name->attr.if_source == IFSRC_IFBODY
@@ -1282,7 +1340,7 @@ variable_decl (int elem)
       if (gfc_notify_std (GFC_STD_GNU, "Extension: Old-style "
 			  "initialization at %C") == FAILURE)
 	return MATCH_ERROR;
-     
+ 
       return match_old_style_init (name);
     }
 
@@ -1355,30 +1413,6 @@ variable_decl (int elem)
       goto cleanup;
     }
 
-  /* Check if we are parsing an enumeration and if the current enumerator
-     variable has an initializer or not. If it does not have an
-     initializer, the initialization value of the previous enumerator 
-     (stored in last_initializer) is incremented by 1 and is used to
-     initialize the current enumerator.  */
-  if (gfc_current_state () == COMP_ENUM)
-    {
-      if (initializer == NULL)
-	initializer = gfc_enum_initializer (last_initializer, old_locus);
- 
-      if (initializer == NULL || initializer->ts.type != BT_INTEGER)
-	{
-	  gfc_error("ENUMERATOR %L not initialized with integer expression",
-		    &var_locus);
-	  m = MATCH_ERROR; 
-	  gfc_free_enum_history ();
-	  goto cleanup;
-	}
-
-      /* Store this current initializer, for the next enumerator
-	 variable to be parsed.  */
-      last_initializer = initializer;
-    }
-
   /* Add the initializer.  Note that it is fine if initializer is
      NULL here, because we sometimes also need to check if a
      declaration *must* have an initialization expression.  */
@@ -1403,7 +1437,9 @@ cleanup:
 }
 
 
-/* Match an extended-f77 kind specification.  */
+/* Match an extended-f77 "TYPESPEC*bytesize"-style kind specification.
+   This assumes that the byte size is equal to the kind number for
+   non-COMPLEX types, and equal to twice the kind number for COMPLEX.  */
 
 match
 gfc_match_old_kind_spec (gfc_typespec *ts)
@@ -1525,7 +1561,7 @@ no_match:
 static match
 match_char_spec (gfc_typespec *ts)
 {
-  int i, kind, seen_length;
+  int kind, seen_length;
   gfc_charlen *cl;
   gfc_expr *len;
   match m;
@@ -1575,7 +1611,7 @@ match_char_spec (gfc_typespec *ts)
       goto rparen;
     }
 
-  /* Try to match "LEN = <len-param>" or "LEN = <len-param>, KIND = <int>"  */
+  /* Try to match "LEN = <len-param>" or "LEN = <len-param>, KIND = <int>".  */
   if (gfc_match (" len =") == MATCH_YES)
     {
       m = char_len_param_value (&len);
@@ -1602,7 +1638,7 @@ match_char_spec (gfc_typespec *ts)
       goto rparen;
     }
 
-  /* Try to match   ( <len-param> ) or ( <len-param> , [ KIND = ] <int> )  */
+  /* Try to match ( <len-param> ) or ( <len-param> , [ KIND = ] <int> ).  */
   m = char_len_param_value (&len);
   if (m == MATCH_NO)
     goto syntax;
@@ -1634,11 +1670,20 @@ rparen:
 syntax:
   gfc_error ("Syntax error in CHARACTER declaration at %C");
   m = MATCH_ERROR;
+  gfc_free_expr (len);
+  return m;
 
 done:
-  if (m == MATCH_YES && gfc_validate_kind (BT_CHARACTER, kind, true) < 0)
+  if (gfc_validate_kind (BT_CHARACTER, kind, true) < 0)
     {
       gfc_error ("Kind %d is not a CHARACTER kind at %C", kind);
+      m = MATCH_ERROR;
+    }
+
+  if (seen_length == 1 && len != NULL
+      && len->ts.type != BT_INTEGER && len->ts.type != BT_UNKNOWN)
+    {
+      gfc_error ("Expression at %C must be of INTEGER type");
       m = MATCH_ERROR;
     }
 
@@ -1656,15 +1701,7 @@ done:
   if (seen_length == 0)
     cl->length = gfc_int_expr (1);
   else
-    {
-      if (len == NULL || gfc_extract_int (len, &i) != NULL || i >= 0)
-	cl->length = len;
-      else
-	{
-	  gfc_free_expr (len);
-	  cl->length = gfc_int_expr (0);
-	}
-    }
+    cl->length = len;
 
   ts->cl = cl;
   ts->kind = kind;
@@ -1677,7 +1714,7 @@ done:
    to the matched specification.  This is necessary for FUNCTION and
    IMPLICIT statements.
 
-   If implicit_flag is nonzero, then we don't check for the optional 
+   If implicit_flag is nonzero, then we don't check for the optional
    kind specification.  Not doing so is needed for matching an IMPLICIT
    statement correctly.  */
 
@@ -1693,7 +1730,7 @@ match_type_spec (gfc_typespec *ts, int implicit_flag)
 
   if (gfc_match (" byte") == MATCH_YES)
     {
-      if (gfc_notify_std(GFC_STD_GNU, "Extension: BYTE type at %C") 
+      if (gfc_notify_std(GFC_STD_GNU, "Extension: BYTE type at %C")
 	  == FAILURE)
 	return MATCH_ERROR;
 
@@ -1703,7 +1740,7 @@ match_type_spec (gfc_typespec *ts, int implicit_flag)
 		     "is not available on the target machine");
 	  return MATCH_ERROR;
 	}
-      
+
       ts->type = BT_INTEGER;
       ts->kind = 1;
       return MATCH_YES;
@@ -1854,7 +1891,7 @@ match_implicit_range (void)
       switch (c)
 	{
 	case ')':
-	  inner = 0;		/* Fall through */
+	  inner = 0;		/* Fall through.  */
 
 	case ',':
 	  c2 = c1;
@@ -2027,6 +2064,7 @@ error:
   return MATCH_ERROR;
 }
 
+
 match
 gfc_match_import (void)
 {
@@ -2035,8 +2073,8 @@ gfc_match_import (void)
   gfc_symbol *sym;
   gfc_symtree *st;
 
-  if (gfc_current_ns->proc_name == NULL ||
-      gfc_current_ns->proc_name->attr.if_source != IFSRC_IFBODY)
+  if (gfc_current_ns->proc_name == NULL
+      || gfc_current_ns->proc_name->attr.if_source != IFSRC_IFBODY)
     {
       gfc_error ("IMPORT statement at %C only permitted in "
 		 "an INTERFACE body");
@@ -2069,7 +2107,16 @@ gfc_match_import (void)
       switch (m)
 	{
 	case MATCH_YES:
-	  if (gfc_find_symbol (name, gfc_current_ns->parent, 1, &sym))
+	  if (gfc_current_ns->parent !=  NULL
+	      && gfc_find_symbol (name, gfc_current_ns->parent, 1, &sym))
+	    {
+	       gfc_error ("Type name '%s' at %C is ambiguous", name);
+	       return MATCH_ERROR;
+	    }
+	  else if (gfc_current_ns->proc_name->ns->parent !=  NULL
+		   && gfc_find_symbol (name,
+				       gfc_current_ns->proc_name->ns->parent,
+				       1, &sym))
 	    {
 	       gfc_error ("Type name '%s' at %C is ambiguous", name);
 	       return MATCH_ERROR;
@@ -2082,7 +2129,7 @@ gfc_match_import (void)
 	      return MATCH_ERROR;
 	    }
 
-	  if (gfc_find_symtree (gfc_current_ns->sym_root,name)) 
+	  if (gfc_find_symtree (gfc_current_ns->sym_root,name))
 	    {
 	      gfc_warning ("'%s' is already IMPORTed from host scoping unit "
 			   "at %C.", name);
@@ -2116,6 +2163,7 @@ syntax:
   gfc_error ("Syntax error in IMPORT statement at %C");
   return MATCH_ERROR;
 }
+
 
 /* Matches an attribute specification including array specs.  If
    successful, leaves the variables current_attr and current_as
@@ -2189,12 +2237,6 @@ match_attr_spec (void)
       d = (decl_types) gfc_match_strings (decls);
       if (d == DECL_NONE || d == DECL_COLON)
 	break;
-       
-      if (gfc_current_state () == COMP_ENUM)
-	{
-	  gfc_error ("Enumerator cannot have attributes %C");
-	  return MATCH_ERROR;
-	}
 
       seen[d]++;
       seen_at[d] = gfc_current_locus;
@@ -2211,18 +2253,6 @@ match_attr_spec (void)
 
 	  if (m == MATCH_ERROR)
 	    goto cleanup;
-	}
-    }
-
-  /* If we are parsing an enumeration and have ensured that no other
-     attributes are present we can now set the parameter attribute.  */
-  if (gfc_current_state () == COMP_ENUM)
-    {
-      t = gfc_add_flavor (&current_attr, FL_PARAMETER, NULL, NULL);
-      if (t == FAILURE)
-	{
-	  m = MATCH_ERROR;
-	  goto cleanup;
 	}
     }
 
@@ -2293,7 +2323,7 @@ match_attr_spec (void)
 	    attr = "VOLATILE";
 	    break;
 	  default:
-	    attr = NULL;	/* This shouldn't happen */
+	    attr = NULL;	/* This shouldn't happen.  */
 	  }
 
 	gfc_error ("Duplicate %s attribute at %L", attr, &seen_at[d]);
@@ -2310,13 +2340,14 @@ match_attr_spec (void)
 
       if (gfc_current_state () == COMP_DERIVED
 	  && d != DECL_DIMENSION && d != DECL_POINTER
-	  && d != DECL_COLON && d != DECL_NONE)
+	  && d != DECL_COLON     && d != DECL_PRIVATE
+	  && d != DECL_PUBLIC    && d != DECL_NONE)
 	{
 	  if (d == DECL_ALLOCATABLE)
 	    {
 	      if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: ALLOCATABLE "
 				  "attribute at %C in a TYPE definition")
-		  == FAILURE)	 
+		  == FAILURE)
 		{
 		  m = MATCH_ERROR;
 		  goto cleanup;
@@ -2325,7 +2356,7 @@ match_attr_spec (void)
 	  else
 	    {
 	      gfc_error ("Attribute at %L is not allowed in a TYPE definition",
-			  &seen_at[d]);
+			 &seen_at[d]);
 	      m = MATCH_ERROR;
 	      goto cleanup;
 	    }
@@ -2338,11 +2369,26 @@ match_attr_spec (void)
 	    attr = "PRIVATE";
 	  else
 	    attr = "PUBLIC";
-
-	  gfc_error ("%s attribute at %L is not allowed outside of a MODULE",
-		     attr, &seen_at[d]);
-	  m = MATCH_ERROR;
-	  goto cleanup;
+	  if (gfc_current_state () == COMP_DERIVED
+	      && gfc_state_stack->previous
+	      && gfc_state_stack->previous->state == COMP_MODULE)
+	    {
+	      if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Attribute %s "
+				  "at %L in a TYPE definition", attr,
+				  &seen_at[d])
+		  == FAILURE)
+		{
+		  m = MATCH_ERROR;
+		  goto cleanup;
+		}
+	    }
+	  else
+	    {
+	      gfc_error ("%s attribute at %L is not allowed outside of the "
+			 "specification part of a module", attr, &seen_at[d]);
+	      m = MATCH_ERROR;
+	      goto cleanup;
+	    }
 	}
 
       switch (d)
@@ -2728,8 +2774,8 @@ ok:
 	}
     }
 
-  if (gfc_add_explicit_interface (progname, IFSRC_DECL, head, NULL) ==
-      FAILURE)
+  if (gfc_add_explicit_interface (progname, IFSRC_DECL, head, NULL)
+      == FAILURE)
     {
       m = MATCH_ERROR;
       goto cleanup;
@@ -2747,7 +2793,7 @@ cleanup:
    ENTRY statement.  Also matches the end-of-statement.  */
 
 static match
-match_result (gfc_symbol * function, gfc_symbol **result)
+match_result (gfc_symbol *function, gfc_symbol **result)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *r;
@@ -2816,7 +2862,6 @@ gfc_match_function_decl (void)
       gfc_current_locus = old_loc;
       return MATCH_NO;
     }
-
   if (get_proc_name (name, &sym, false))
     return MATCH_ERROR;
   gfc_new_block = sym;
@@ -3076,12 +3121,6 @@ gfc_match_entry (void)
 
 	  entry->result = result;
 	}
-
-      if (proc->attr.recursive && result == NULL)
-	{
-	  gfc_error ("RESULT attribute required in ENTRY statement at %C");
-	  return MATCH_ERROR;
-	}
     }
 
   if (gfc_match_eos () != MATCH_YES)
@@ -3170,7 +3209,7 @@ contained_procedure (void)
   return 0;
 }
 
-/* Set the kind of each enumerator.  The kind is selected such that it is 
+/* Set the kind of each enumerator.  The kind is selected such that it is
    interoperable with the corresponding C enumeration type, making
    sure that -fshort-enums is honored.  */
 
@@ -3185,14 +3224,14 @@ set_enum_kind(void)
     return;
 
   if (!gfc_option.fshort_enums)
-    return; 
-  
+    return;
+
   i = 0;
   do
     {
       kind = gfc_integer_kinds[i++].kind;
     }
-  while (kind < gfc_c_int_kind 
+  while (kind < gfc_c_int_kind
 	 && gfc_check_integer_range (max_enum->initializer->value.integer,
 				     kind) != ARITH_OK);
 
@@ -3328,7 +3367,7 @@ gfc_match_end (gfc_statement *st)
     {
       if (!eos_ok)
 	{
-	  /* We would have required END [something]  */
+	  /* We would have required END [something].  */
 	  gfc_error ("%s statement expected at %L",
 		     gfc_ascii_statement (*st), &old_loc);
 	  goto cleanup;
@@ -3348,7 +3387,8 @@ gfc_match_end (gfc_statement *st)
   if (gfc_match_eos () == MATCH_YES)
     {
 
-      if (*st != ST_ENDDO && *st != ST_ENDIF && *st != ST_END_SELECT)
+      if (*st != ST_ENDDO && *st != ST_ENDIF && *st != ST_END_SELECT
+	  && *st != ST_END_FORALL && *st != ST_END_WHERE)
 	return MATCH_YES;
 
       if (gfc_current_block () == NULL)
@@ -3364,7 +3404,8 @@ gfc_match_end (gfc_statement *st)
   if (*st == ST_END_INTERFACE)
     return gfc_match_end_interface ();
 
-  /* We haven't hit the end of statement, so what is left must be an end-name.  */
+  /* We haven't hit the end of statement, so what is left must be an
+     end-name.  */
   m = gfc_match_space ();
   if (m == MATCH_YES)
     m = gfc_match_name (name);
@@ -3462,7 +3503,7 @@ attr_decl1 (void)
       m = MATCH_ERROR;
       goto cleanup;
     }
-    
+
   if (sym->attr.cray_pointee && sym->as != NULL)
     {
       /* Fix the array spec.  */
@@ -3532,14 +3573,14 @@ attr_decl (void)
 /* This routine matches Cray Pointer declarations of the form:
    pointer ( <pointer>, <pointee> )
    or
-   pointer ( <pointer1>, <pointee1> ), ( <pointer2>, <pointee2> ), ...   
-   The pointer, if already declared, should be an integer.  Otherwise, we 
+   pointer ( <pointer1>, <pointee1> ), ( <pointer2>, <pointee2> ), ...
+   The pointer, if already declared, should be an integer.  Otherwise, we
    set it as BT_INTEGER with kind gfc_index_integer_kind.  The pointee may
    be either a scalar, or an array declaration.  No space is allocated for
-   the pointee.  For the statement 
+   the pointee.  For the statement
    pointer (ipt, ar(10))
    any subsequent uses of ar will be translated (in C-notation) as
-   ar(i) => ((<type> *) ipt)(i)   
+   ar(i) => ((<type> *) ipt)(i)
    After gimplification, pointee variable will disappear in the code.  */
 
 static match
@@ -3557,9 +3598,9 @@ cray_pointer_decl (void)
       if (gfc_match_char ('(') != MATCH_YES)
 	{
 	  gfc_error ("Expected '(' at %C");
-	  return MATCH_ERROR;   
+	  return MATCH_ERROR;
 	}
- 
+
       /* Match pointer.  */
       var_locus = gfc_current_locus;
       gfc_clear_attr (&current_attr);
@@ -3567,22 +3608,22 @@ cray_pointer_decl (void)
       current_ts.type = BT_INTEGER;
       current_ts.kind = gfc_index_integer_kind;
 
-      m = gfc_match_symbol (&cptr, 0);  
+      m = gfc_match_symbol (&cptr, 0);
       if (m != MATCH_YES)
 	{
 	  gfc_error ("Expected variable name at %C");
 	  return m;
 	}
-  
+
       if (gfc_add_cray_pointer (&cptr->attr, &var_locus) == FAILURE)
 	return MATCH_ERROR;
 
-      gfc_set_sym_referenced (cptr);      
+      gfc_set_sym_referenced (cptr);
 
       if (cptr->ts.type == BT_UNKNOWN) /* Override the type, if necessary.  */
 	{
 	  cptr->ts.type = BT_INTEGER;
-	  cptr->ts.kind = gfc_index_integer_kind; 
+	  cptr->ts.kind = gfc_index_integer_kind;
 	}
       else if (cptr->ts.type != BT_INTEGER)
 	{
@@ -3597,10 +3638,10 @@ cray_pointer_decl (void)
       if (gfc_match_char (',') != MATCH_YES)
 	{
 	  gfc_error ("Expected \",\" at %C");
-	  return MATCH_ERROR;    
+	  return MATCH_ERROR;
 	}
 
-      /* Match Pointee.  */  
+      /* Match Pointee.  */
       var_locus = gfc_current_locus;
       gfc_clear_attr (&current_attr);
       gfc_add_cray_pointee (&current_attr, &var_locus);
@@ -3613,7 +3654,7 @@ cray_pointer_decl (void)
 	  gfc_error ("Expected variable name at %C");
 	  return m;
 	}
-       
+
       /* Check for an optional array spec.  */
       m = gfc_match_array_spec (&as);
       if (m == MATCH_ERROR)
@@ -3940,6 +3981,16 @@ gfc_match_private (gfc_statement *st)
   if (gfc_match ("private") != MATCH_YES)
     return MATCH_NO;
 
+  if (gfc_current_state () != COMP_MODULE
+      && (gfc_current_state () != COMP_DERIVED
+          || !gfc_state_stack->previous
+          || gfc_state_stack->previous->state != COMP_MODULE))
+    {
+      gfc_error ("PRIVATE statement at %C is only allowed in the "
+		 "specification part of a module");
+      return MATCH_ERROR;
+    }
+
   if (gfc_current_state () == COMP_DERIVED)
     {
       if (gfc_match_eos () == MATCH_YES)
@@ -3969,6 +4020,13 @@ gfc_match_public (gfc_statement *st)
 
   if (gfc_match ("public") != MATCH_YES)
     return MATCH_NO;
+
+  if (gfc_current_state () != COMP_MODULE)
+    {
+      gfc_error ("PUBLIC statement at %C is only allowed in the "
+		 "specification part of a module");
+      return MATCH_ERROR;
+    }
 
   if (gfc_match_eos () == MATCH_YES)
     {
@@ -4201,6 +4259,7 @@ syntax:
   return MATCH_ERROR;
 }
 
+
 match
 gfc_match_volatile (void)
 {
@@ -4254,7 +4313,6 @@ syntax:
 }
 
 
-
 /* Match a module procedure statement.  Note that we have to modify
    symbols in the parent's namespace because the current one was there
    to receive symbols that are in an interface's formal argument list.  */
@@ -4265,6 +4323,7 @@ gfc_match_modproc (void)
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   match m;
+  gfc_namespace *module_ns;
 
   if (gfc_state_stack->state != COMP_INTERFACE
       || gfc_state_stack->previous == NULL
@@ -4275,6 +4334,14 @@ gfc_match_modproc (void)
       return MATCH_ERROR;
     }
 
+  module_ns = gfc_current_ns->parent;
+  for (; module_ns; module_ns = module_ns->parent)
+    if (module_ns->proc_name->attr.flavor == FL_MODULE)
+      break;
+
+  if (module_ns == NULL)
+    return MATCH_ERROR;
+
   for (;;)
     {
       m = gfc_match_name (name);
@@ -4283,7 +4350,7 @@ gfc_match_modproc (void)
       if (m != MATCH_YES)
 	return MATCH_ERROR;
 
-      if (gfc_get_symbol (name, gfc_current_ns->parent, &sym))
+      if (gfc_get_symbol (name, module_ns, &sym))
 	return MATCH_ERROR;
 
       if (sym->attr.proc != PROC_MODULE
@@ -4330,9 +4397,10 @@ gfc_match_derived_decl (void)
 loop:
   if (gfc_match (" , private") == MATCH_YES)
     {
-      if (gfc_find_state (COMP_MODULE) == FAILURE)
+      if (gfc_current_state () != COMP_MODULE)
 	{
-	  gfc_error ("Derived type at %C can only be PRIVATE within a MODULE");
+	  gfc_error ("Derived type at %C can only be PRIVATE in the "
+		     "specification part of a module");
 	  return MATCH_ERROR;
 	}
 
@@ -4343,9 +4411,10 @@ loop:
 
   if (gfc_match (" , public") == MATCH_YES)
     {
-      if (gfc_find_state (COMP_MODULE) == FAILURE)
+      if (gfc_current_state () != COMP_MODULE)
 	{
-	  gfc_error ("Derived type at %C can only be PUBLIC within a MODULE");
+	  gfc_error ("Derived type at %C can only be PUBLIC in the "
+		     "specification part of a module");
 	  return MATCH_ERROR;
 	}
 
@@ -4365,12 +4434,16 @@ loop:
     return m;
 
   /* Make sure the name isn't the name of an intrinsic type.  The
-     'double precision' type doesn't get past the name matcher.  */
+     'double {precision,complex}' types don't get past the name
+     matcher, unless they're written as a single word or in fixed
+     form.  */
   if (strcmp (name, "integer") == 0
       || strcmp (name, "real") == 0
       || strcmp (name, "character") == 0
       || strcmp (name, "logical") == 0
-      || strcmp (name, "complex") == 0)
+      || strcmp (name, "complex") == 0
+      || strcmp (name, "doubleprecision") == 0
+      || strcmp (name, "doublecomplex") == 0)
     {
       gfc_error ("Type name '%s' at %C cannot be the same as an intrinsic "
 		 "type", name);
@@ -4452,7 +4525,7 @@ gfc_match_enum (void)
   if (m != MATCH_YES)
     return m;
 
-  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: ENUM AND ENUMERATOR at %C")
+  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: ENUM and ENUMERATOR at %C")
       == FAILURE)
     return MATCH_ERROR;
 
@@ -4460,20 +4533,117 @@ gfc_match_enum (void)
 }
 
 
-/* Match the enumerator definition statement. */
+/* Match a variable name with an optional initializer.  When this
+   subroutine is called, a variable is expected to be parsed next.
+   Depending on what is happening at the moment, updates either the
+   symbol table or the current interface.  */
+
+static match
+enumerator_decl (void)
+{
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  gfc_expr *initializer;
+  gfc_array_spec *as = NULL;
+  gfc_symbol *sym;
+  locus var_locus;
+  match m;
+  try t;
+  locus old_locus;
+
+  initializer = NULL;
+  old_locus = gfc_current_locus;
+
+  /* When we get here, we've just matched a list of attributes and
+     maybe a type and a double colon.  The next thing we expect to see
+     is the name of the symbol.  */
+  m = gfc_match_name (name);
+  if (m != MATCH_YES)
+    goto cleanup;
+
+  var_locus = gfc_current_locus;
+
+  /* OK, we've successfully matched the declaration.  Now put the
+     symbol in the current namespace. If we fail to create the symbol,
+     bail out.  */
+  if (build_sym (name, NULL, &as, &var_locus) == FAILURE)
+    {
+      m = MATCH_ERROR;
+      goto cleanup;
+    }
+
+  /* The double colon must be present in order to have initializers.
+     Otherwise the statement is ambiguous with an assignment statement.  */
+  if (colon_seen)
+    {
+      if (gfc_match_char ('=') == MATCH_YES)
+	{
+	  m = gfc_match_init_expr (&initializer);
+	  if (m == MATCH_NO)
+	    {
+	      gfc_error ("Expected an initialization expression at %C");
+	      m = MATCH_ERROR;
+	    }
+
+	  if (m != MATCH_YES)
+	    goto cleanup;
+	}
+    }
+
+  /* If we do not have an initializer, the initialization value of the
+     previous enumerator (stored in last_initializer) is incremented
+     by 1 and is used to initialize the current enumerator.  */
+  if (initializer == NULL)
+    initializer = gfc_enum_initializer (last_initializer, old_locus);
+
+  if (initializer == NULL || initializer->ts.type != BT_INTEGER)
+    {
+      gfc_error("ENUMERATOR %L not initialized with integer expression",
+		&var_locus);
+      m = MATCH_ERROR;
+      gfc_free_enum_history ();
+      goto cleanup;
+    }
+
+  /* Store this current initializer, for the next enumerator variable
+     to be parsed.  add_init_expr_to_sym() zeros initializer, so we
+     use last_initializer below.  */
+  last_initializer = initializer;
+  t = add_init_expr_to_sym (name, &initializer, &var_locus);
+
+  /* Maintain enumerator history.  */
+  gfc_find_symbol (name, NULL, 0, &sym);
+  create_enum_history (sym, last_initializer);
+
+  return (t == SUCCESS) ? MATCH_YES : MATCH_ERROR;
+
+cleanup:
+  /* Free stuff up and return.  */
+  gfc_free_expr (initializer);
+
+  return m;
+}
+
+
+/* Match the enumerator definition statement.  */
 
 match
 gfc_match_enumerator_def (void)
 {
   match m;
-  int elem; 
-  
+  try t;
+
   gfc_clear_ts (&current_ts);
-  
+
   m = gfc_match (" enumerator");
   if (m != MATCH_YES)
     return m;
-  
+
+  m = gfc_match (" :: ");
+  if (m == MATCH_ERROR)
+    return m;
+
+  colon_seen = (m == MATCH_YES);
+
   if (gfc_current_state () != COMP_ENUM)
     {
       gfc_error ("ENUM definition statement expected before %C");
@@ -4483,18 +4653,18 @@ gfc_match_enumerator_def (void)
 
   (&current_ts)->type = BT_INTEGER;
   (&current_ts)->kind = gfc_c_int_kind;
-  
-  m = match_attr_spec ();
-  if (m == MATCH_ERROR)
+
+  gfc_clear_attr (&current_attr);
+  t = gfc_add_flavor (&current_attr, FL_PARAMETER, NULL, NULL);
+  if (t == FAILURE)
     {
-      m = MATCH_NO;
+      m = MATCH_ERROR;
       goto cleanup;
     }
 
-  elem = 1;
   for (;;)
     {
-      m = variable_decl (elem++);
+      m = enumerator_decl ();
       if (m == MATCH_ERROR)
 	goto cleanup;
       if (m == MATCH_NO)

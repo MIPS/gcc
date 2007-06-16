@@ -23,6 +23,7 @@ details.  */
 #include <jvmpi.h>
 #endif
 #include <jvmti.h>
+#include "jvmti-int.h"
 
 #include <java/lang/Class.h>
 #include <java/lang/ClassLoader.h>
@@ -456,6 +457,8 @@ _Jv_JNI_PopSystemFrame (JNIEnv *env)
     {
       jthrowable t = env->ex;
       env->ex = NULL;
+      if (JVMTI_REQUESTED_EVENT (Exception))
+	_Jv_ReportJVMTIExceptionThrow (t);
       throw t;
     }
 }
@@ -751,7 +754,8 @@ _Jv_JNI_GetAnyMethodID (JNIEnv *env, jclass clazz,
 
       java::lang::StringBuffer *name_sig =
         new java::lang::StringBuffer (JvNewStringUTF (name));
-      name_sig->append ((jchar) ' ')->append (JvNewStringUTF (s));
+      name_sig->append ((jchar) ' ');
+      name_sig->append (JvNewStringUTF (s));
       env->ex = new java::lang::NoSuchMethodError (name_sig->toString ());
     }
   catch (jthrowable t)
@@ -1750,6 +1754,10 @@ _Jv_JNI_NewWeakGlobalRef (JNIEnv *env, jobject obj)
 void JNICALL
 _Jv_JNI_DeleteWeakGlobalRef (JNIEnv *, jweak obj)
 {
+  // JDK compatibility.
+  if (obj == NULL)
+    return;
+
   using namespace gnu::gcj::runtime;
   JNIWeakRef *ref = reinterpret_cast<JNIWeakRef *> (obj);
   unmark_for_gc (ref, global_ref_table);

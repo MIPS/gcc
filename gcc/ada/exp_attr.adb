@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,6 +28,7 @@ with Atree;    use Atree;
 with Checks;   use Checks;
 with Einfo;    use Einfo;
 with Elists;   use Elists;
+with Exp_Atag; use Exp_Atag;
 with Exp_Ch2;  use Exp_Ch2;
 with Exp_Ch9;  use Exp_Ch9;
 with Exp_Imgv; use Exp_Imgv;
@@ -37,7 +38,6 @@ with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Exp_VFpt; use Exp_VFpt;
 with Gnatvsn;  use Gnatvsn;
-with Hostparm; use Hostparm;
 with Lib;      use Lib;
 with Namet;    use Namet;
 with Nmake;    use Nmake;
@@ -56,6 +56,7 @@ with Sinfo;    use Sinfo;
 with Snames;   use Snames;
 with Stand;    use Stand;
 with Stringt;  use Stringt;
+with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Ttypes;   use Ttypes;
 with Uintp;    use Uintp;
@@ -160,6 +161,12 @@ package body Exp_Attr is
    --  Utility for array attributes, returns true on packed constrained
    --  arrays, and on access to same.
 
+   function Is_Inline_Floating_Point_Attribute (N : Node_Id) return Boolean;
+   --  Returns true iff the given node refers to an attribute call that
+   --  can be expanded directly by the back end and does not need front end
+   --  expansion. Typically used for rounding and truncation attributes that
+   --  appear directly inside a conversion to integer.
+
    ----------------------------------
    -- Compile_Stream_Body_In_Scope --
    ----------------------------------
@@ -179,7 +186,7 @@ package body Exp_Attr is
         and then not In_Open_Scopes (Scop)
         and then Ekind (Scop) = E_Package
       then
-         New_Scope (Scop);
+         Push_Scope (Scop);
          Install_Visible_Declarations (Scop);
          Install_Private_Declarations (Scop);
          Installed := True;
@@ -189,7 +196,7 @@ package body Exp_Attr is
          --  enclosing stream function) so that itypes all have their proper
          --  scopes.
 
-         New_Scope (Curr);
+         Push_Scope (Curr);
       end if;
 
       if Check then
@@ -497,7 +504,7 @@ package body Exp_Attr is
    -- Expand_Fpt_Attribute_RR --
    -----------------------------
 
-   --  The two arguments is converted to their root types to call the
+   --  The two arguments are converted to their root types to call the
    --  appropriate runtime function, with the actual call being built
    --  by Expand_Fpt_Attribute
 
@@ -665,7 +672,7 @@ package body Exp_Attr is
 
       when Attribute_Access =>
 
-         if Ekind (Btyp) = E_Access_Protected_Subprogram_Type then
+         if Is_Access_Protected_Subprogram_Type (Btyp) then
             Expand_Access_To_Protected_Op (N, Pref, Typ);
 
          elsif Ekind (Btyp) = E_General_Access_Type then
@@ -795,6 +802,25 @@ package body Exp_Attr is
 
                Analyze_And_Resolve (N, Addr);
             end;
+
+         --  Ada 2005 (AI-251): Class-wide interface objects are always
+         --  "displaced" to reference the tag associated with the interface
+         --  type. In order to obtain the real address of such objects we
+         --  generate a call to a run-time subprogram that returns the base
+         --  address of the object.
+
+         elsif Is_Class_Wide_Type (Etype (Pref))
+           and then Is_Interface (Etype (Pref))
+           and then not (Nkind (Pref) in N_Has_Entity
+                          and then Is_Subprogram (Entity (Pref)))
+         then
+            Rewrite (N,
+              Make_Function_Call (Loc,
+                Name => New_Reference_To (RTE (RE_Base_Address), Loc),
+                Parameter_Associations => New_List (
+                  Relocate_Node (N))));
+            Analyze (N);
+            return;
          end if;
 
          --  Deal with packed array reference, other cases are handled by gigi
@@ -829,6 +855,15 @@ package body Exp_Attr is
          --  operation _Alignment applied to X.
 
          elsif Is_Class_Wide_Type (Ptyp) then
+
+            --  No need to do anything else compiling under restriction
+            --  No_Dispatching_Calls. During the semantic analysis we
+            --  already notified such violation.
+
+            if Restriction_Active (No_Dispatching_Calls) then
+               return;
+            end if;
+
             New_Node :=
               Make_Function_Call (Loc,
                 Name => New_Reference_To
@@ -1086,11 +1121,11 @@ package body Exp_Attr is
          --  We have an object of a task interface class-wide type as a prefix
          --  to Callable. Generate:
 
-         --    callable (Pref._disp_get_task_id);
+         --    callable (Task_Id (Pref._disp_get_task_id));
 
          if Ada_Version >= Ada_05
            and then Ekind (Etype (Pref)) = E_Class_Wide_Type
-           and then Is_Interface      (Etype (Pref))
+           and then Is_Interface (Etype (Pref))
            and then Is_Task_Interface (Etype (Pref))
          then
             Rewrite (N,
@@ -1098,11 +1133,16 @@ package body Exp_Attr is
                 Name =>
                   New_Reference_To (RTE (RE_Callable), Loc),
                 Parameter_Associations => New_List (
-                  Make_Selected_Component (Loc,
-                    Prefix =>
-                      New_Copy_Tree (Pref),
-                    Selector_Name =>
-                      Make_Identifier (Loc, Name_uDisp_Get_Task_Id)))));
+                  Make_Unchecked_Type_Conversion (Loc,
+                    Subtype_Mark =>
+                      New_Reference_To (RTE (RO_ST_Task_Id), Loc),
+                    Expression =>
+                      Make_Selected_Component (Loc,
+                        Prefix =>
+                          New_Copy_Tree (Pref),
+                        Selector_Name =>
+                          Make_Identifier (Loc, Name_uDisp_Get_Task_Id))))));
+
          else
             Rewrite (N,
               Build_Call_With_Task (Pref, RTE (RE_Callable)));
@@ -1327,8 +1367,13 @@ package body Exp_Attr is
                --  not accurate (the procedure formal case), has been
                --  handled above.
 
+               --  We use the Underlying_Type here (and below) in case the
+               --  type is private without discriminants, but the full type
+               --  has discriminants. This case is illegal, but we generate it
+               --  internally for passing to the Extra_Constrained parameter.
+
                else
-                  Res := Is_Constrained (Etype (Ent));
+                  Res := Is_Constrained (Underlying_Type (Etype (Ent)));
                end if;
 
                Rewrite (N,
@@ -1350,7 +1395,7 @@ package body Exp_Attr is
                      (Nkind (Pref) = N_Explicit_Dereference
                         and then
                           not Has_Constrained_Partial_View (Base_Type (Typ)))
-                    or else Is_Constrained (Typ)),
+                    or else Is_Constrained (Underlying_Type (Typ))),
                 Loc));
          end if;
 
@@ -1496,12 +1541,15 @@ package body Exp_Attr is
                if Nkind (Nod) = N_Selected_Component then
                   Make_Elab_String (Prefix (Nod));
 
-                  if Java_VM then
-                     Store_String_Char ('$');
-                  else
-                     Store_String_Char ('_');
-                     Store_String_Char ('_');
-                  end if;
+                  case VM_Target is
+                     when JVM_Target =>
+                        Store_String_Char ('$');
+                     when CLI_Target =>
+                        Store_String_Char ('.');
+                     when No_VM =>
+                        Store_String_Char ('_');
+                        Store_String_Char ('_');
+                  end case;
 
                   Get_Name_String (Chars (Selector_Name (Nod)));
 
@@ -1522,12 +1570,12 @@ package body Exp_Attr is
             Start_String;
             Make_Elab_String (Pref);
 
-            if Java_VM then
-               Store_String_Chars ("._elab");
-               Lang := Make_Identifier (Loc, Name_Ada);
-            else
+            if VM_Target = No_VM then
                Store_String_Chars ("___elab");
                Lang := Make_Identifier (Loc, Name_C);
+            else
+               Store_String_Chars ("._elab");
+               Lang := Make_Identifier (Loc, Name_Ada);
             end if;
 
             if Id = Attribute_Elab_Body then
@@ -2013,6 +2061,14 @@ package body Exp_Attr is
 
             elsif Is_Class_Wide_Type (P_Type) then
 
+               --  No need to do anything else compiling under restriction
+               --  No_Dispatching_Calls. During the semantic analysis we
+               --  already notified such violation.
+
+               if Restriction_Active (No_Dispatching_Calls) then
+                  return;
+               end if;
+
                declare
                   Rtyp : constant Entity_Id := Root_Type (P_Type);
                   Dnn  : Entity_Id;
@@ -2430,10 +2486,13 @@ package body Exp_Attr is
 
       --  Transforms 'Machine_Rounding into a call to the floating-point
       --  attribute function Machine_Rounding in Fat_xxx (where xxx is the root
-      --  type).
+      --  type). Expansion is avoided for cases the back end can handle
+      --  directly.
 
       when Attribute_Machine_Rounding =>
-         Expand_Fpt_Attribute_R (N);
+         if not Is_Inline_Floating_Point_Attribute (N) then
+            Expand_Fpt_Attribute_R (N);
+         end if;
 
       ------------------
       -- Machine_Size --
@@ -2668,7 +2727,7 @@ package body Exp_Attr is
                      Make_Function_Call (Loc,
                        Name => New_Occurrence_Of (Wfunc, Loc),
                        Parameter_Associations => New_List (
-                         Convert_To (Etype (First_Formal (Wfunc)),
+                         OK_Convert_To (Etype (First_Formal (Wfunc)),
                            Relocate_Node (Next (First (Exprs)))))))));
 
                Analyze (N);
@@ -2707,44 +2766,55 @@ package body Exp_Attr is
             --  to the appropriate primitive Output function (RM 13.13.2(31)).
 
             elsif Is_Class_Wide_Type (P_Type) then
+
+               --  No need to do anything else compiling under restriction
+               --  No_Dispatching_Calls. During the semantic analysis we
+               --  already notified such violation.
+
+               if Restriction_Active (No_Dispatching_Calls) then
+                  return;
+               end if;
+
                Tag_Write : declare
                   Strm : constant Node_Id := First (Exprs);
                   Item : constant Node_Id := Next (Strm);
 
                begin
-                  --  The code is:
+                  --  Ada 2005 (AI-344): Check that the accessibility level
+                  --  of the type of the output object is not deeper than
+                  --  that of the attribute's prefix type.
+
                   --  if Get_Access_Level (Item'Tag)
                   --       /= Get_Access_Level (P_Type'Tag)
                   --  then
                   --     raise Tag_Error;
                   --  end if;
+
                   --  String'Output (Strm, External_Tag (Item'Tag));
 
-                  --  Ada 2005 (AI-344): Check that the accessibility level
-                  --  of the type of the output object is not deeper than
-                  --  that of the attribute's prefix type.
+                  --  We cannot figure out a practical way to implement this
+                  --  accessibility check on virtual machines, so we omit it.
 
-                  if Ada_Version >= Ada_05 then
+                  if Ada_Version >= Ada_05
+                    and then VM_Target = No_VM
+                  then
                      Insert_Action (N,
                        Make_Implicit_If_Statement (N,
                          Condition =>
                            Make_Op_Ne (Loc,
                              Left_Opnd  =>
-                               Make_Function_Call (Loc,
-                                 Name =>
-                                   New_Reference_To
-                                     (RTE (RE_Get_Access_Level), Loc),
-                                 Parameter_Associations =>
-                                   New_List (Make_Attribute_Reference (Loc,
-                                               Prefix         =>
-                                                 Relocate_Node (
-                                                   Duplicate_Subexpr (Item,
-                                                     Name_Req => True)),
-                                               Attribute_Name =>
-                                                  Name_Tag))),
+                               Build_Get_Access_Level (Loc,
+                                 Make_Attribute_Reference (Loc,
+                                   Prefix         =>
+                                     Relocate_Node (
+                                       Duplicate_Subexpr (Item,
+                                         Name_Req => True)),
+                                   Attribute_Name => Name_Tag)),
+
                              Right_Opnd =>
-                               Make_Integer_Literal
-                                 (Loc, Type_Access_Level (P_Type))),
+                               Make_Integer_Literal (Loc,
+                                 Type_Access_Level (P_Type))),
+
                          Then_Statements =>
                            New_List (Make_Raise_Statement (Loc,
                                        New_Occurrence_Of (
@@ -2775,9 +2845,9 @@ package body Exp_Attr is
             elsif Is_Tagged_Type (U_Type) then
                Pname := Find_Prim_Op (U_Type, TSS_Stream_Output);
 
---              --  All other record type cases, including protected records.
---              --  The latter only arise for expander generated code for
---              --  handling shared passive partition access.
+            --  All other record type cases, including protected records.
+            --  The latter only arise for expander generated code for
+            --  handling shared passive partition access.
 
             else
                pragma Assert
@@ -3177,7 +3247,7 @@ package body Exp_Attr is
                Rfunc := Entity (Expression (Arg2));
                Lhs := Relocate_Node (Next (First (Exprs)));
                Rhs :=
-                 Convert_To (B_Type,
+                 OK_Convert_To (B_Type,
                    Make_Function_Call (Loc,
                      Name => New_Occurrence_Of (Rfunc, Loc),
                      Parameter_Associations => New_List (
@@ -3450,6 +3520,15 @@ package body Exp_Attr is
          --  X'Size into a call to the primitive operation _Size applied to X.
 
          elsif Is_Class_Wide_Type (Ptyp) then
+
+            --  No need to do anything else compiling under restriction
+            --  No_Dispatching_Calls. During the semantic analysis we
+            --  already notified such violation.
+
+            if Restriction_Active (No_Dispatching_Calls) then
+               return;
+            end if;
+
             New_Node :=
               Make_Function_Call (Loc,
                 Name => New_Reference_To
@@ -3468,7 +3547,35 @@ package body Exp_Attr is
 
             Rewrite (N, New_Node);
             Analyze_And_Resolve (N, Typ);
-            return;
+               return;
+
+         --  Case of known RM_Size of a type
+
+         elsif (Id = Attribute_Size or else Id = Attribute_Value_Size)
+           and then Is_Entity_Name (Pref)
+           and then Is_Type (Entity (Pref))
+           and then Known_Static_RM_Size (Entity (Pref))
+         then
+            Siz := RM_Size (Entity (Pref));
+
+         --  Case of known Esize of a type
+
+         elsif Id = Attribute_Object_Size
+           and then Is_Entity_Name (Pref)
+           and then Is_Type (Entity (Pref))
+           and then Known_Static_Esize (Entity (Pref))
+         then
+            Siz := Esize (Entity (Pref));
+
+         --  Case of known size of object
+
+         elsif Id = Attribute_Size
+           and then Is_Entity_Name (Pref)
+           and then Is_Object (Entity (Pref))
+           and then Known_Esize (Entity (Pref))
+           and then Known_Static_Esize (Entity (Pref))
+         then
+            Siz := Esize (Entity (Pref));
 
          --  For an array component, we can do Size in the front end
          --  if the component_size of the array is set.
@@ -3519,10 +3626,9 @@ package body Exp_Attr is
                Analyze_And_Resolve (N, Typ);
             end if;
 
-            --  If Size is applied to a dereference of an access to
-            --  unconstrained packed array, GIGI needs to see its
-            --  unconstrained nominal type, but also a hint to the actual
-            --  constrained type.
+            --  If Size applies to a dereference of an access to unconstrained
+            --  packed array, GIGI needs to see its unconstrained nominal type,
+            --  but also a hint to the actual constrained type.
 
             if Nkind (Pref) = N_Explicit_Dereference
               and then Is_Array_Type (Etype (Pref))
@@ -3538,7 +3644,7 @@ package body Exp_Attr is
 
          --  Common processing for record and array component case
 
-         if Siz /= 0 then
+         if Siz /= No_Uint and then Siz /= 0 then
             Rewrite (N, Make_Integer_Literal (Loc, Siz));
 
             Analyze_And_Resolve (N, Typ);
@@ -3832,16 +3938,39 @@ package body Exp_Attr is
 
          if Prefix_Is_Type then
 
-            --  For JGNAT we leave the type attribute unexpanded because
+            --  For VMs we leave the type attribute unexpanded because
             --  there's not a dispatching table to reference.
 
-            if not Java_VM then
+            if VM_Target = No_VM then
                Rewrite (N,
                  Unchecked_Convert_To (RTE (RE_Tag),
                    New_Reference_To
                      (Node (First_Elmt (Access_Disp_Table (Ttyp))), Loc)));
                Analyze_And_Resolve (N, RTE (RE_Tag));
             end if;
+
+         --  (Ada 2005 (AI-251): The use of 'Tag in the sources always
+         --  references the primary tag of the actual object. If 'Tag is
+         --  applied to class-wide interface objects we generate code that
+         --  displaces "this" to reference the base of the object.
+
+         elsif Comes_From_Source (N)
+            and then Is_Class_Wide_Type (Etype (Prefix (N)))
+            and then Is_Interface (Etype (Prefix (N)))
+         then
+            --  Generate:
+            --    (To_Tag_Ptr (Prefix'Address)).all
+
+            --  Note that Prefix'Address is recursively expanded into a call
+            --  to Base_Address (Obj.Tag)
+
+            Rewrite (N,
+              Make_Explicit_Dereference (Loc,
+                Unchecked_Convert_To (RTE (RE_Tag_Ptr),
+                  Make_Attribute_Reference (Loc,
+                    Prefix => Relocate_Node (Pref),
+                    Attribute_Name => Name_Address))));
+            Analyze_And_Resolve (N, RTE (RE_Tag));
 
          else
             Rewrite (N,
@@ -3864,11 +3993,11 @@ package body Exp_Attr is
          --  The prefix of Terminated is of a task interface class-wide type.
          --  Generate:
 
-         --    terminated (Pref._disp_get_task_id);
+         --    terminated (Task_Id (Pref._disp_get_task_id));
 
          if Ada_Version >= Ada_05
            and then Ekind (Etype (Pref)) = E_Class_Wide_Type
-           and then Is_Interface      (Etype (Pref))
+           and then Is_Interface (Etype (Pref))
            and then Is_Task_Interface (Etype (Pref))
          then
             Rewrite (N,
@@ -3876,11 +4005,15 @@ package body Exp_Attr is
                 Name =>
                   New_Reference_To (RTE (RE_Terminated), Loc),
                 Parameter_Associations => New_List (
-                  Make_Selected_Component (Loc,
-                    Prefix =>
-                      New_Copy_Tree (Pref),
-                    Selector_Name =>
-                      Make_Identifier (Loc, Name_uDisp_Get_Task_Id)))));
+                  Make_Unchecked_Type_Conversion (Loc,
+                    Subtype_Mark =>
+                      New_Reference_To (RTE (RO_ST_Task_Id), Loc),
+                    Expression =>
+                      Make_Selected_Component (Loc,
+                        Prefix =>
+                          New_Copy_Tree (Pref),
+                        Selector_Name =>
+                          Make_Identifier (Loc, Name_uDisp_Get_Task_Id))))));
 
          elsif Restricted_Profile then
             Rewrite (N,
@@ -3912,10 +4045,13 @@ package body Exp_Attr is
       ----------------
 
       --  Transforms 'Truncation into a call to the floating-point attribute
-      --  function Truncation in Fat_xxx (where xxx is the root type)
+      --  function Truncation in Fat_xxx (where xxx is the root type).
+      --  Expansion is avoided for cases the back end can handle directly.
 
       when Attribute_Truncation =>
-         Expand_Fpt_Attribute_R (N);
+         if not Is_Inline_Floating_Point_Attribute (N) then
+            Expand_Fpt_Attribute_R (N);
+         end if;
 
       -----------------------
       -- Unbiased_Rounding --
@@ -3923,10 +4059,13 @@ package body Exp_Attr is
 
       --  Transforms 'Unbiased_Rounding into a call to the floating-point
       --  attribute function Unbiased_Rounding in Fat_xxx (where xxx is the
-      --  root type)
+      --  root type). Expansion is avoided for cases the back end can handle
+      --  directly.
 
       when Attribute_Unbiased_Rounding =>
-         Expand_Fpt_Attribute_R (N);
+         if not Is_Inline_Floating_Point_Attribute (N) then
+            Expand_Fpt_Attribute_R (N);
+         end if;
 
       ----------------------
       -- Unchecked_Access --
@@ -3999,7 +4138,7 @@ package body Exp_Attr is
 
       when Attribute_Unrestricted_Access =>
 
-         if Ekind (Btyp) = E_Access_Protected_Subprogram_Type then
+         if Is_Access_Protected_Subprogram_Type (Btyp) then
             Expand_Access_To_Protected_Op (N, Pref, Typ);
 
          --  Ada 2005 (AI-251): If the designated type is an interface, then
@@ -4184,10 +4323,9 @@ package body Exp_Attr is
                   --  to call the special routine Unaligned_Valid, which makes
                   --  the needed copy, being careful not to load the value into
                   --  any floating-point register. The argument in this case is
-                  --  obj'Address (see Unchecked_Valid routine in Fat_Gen).
+                  --  obj'Address (see Unaligned_Valid routine in Fat_Gen).
 
                   if Is_Possibly_Unaligned_Object (Pref) then
-                     Set_Attribute_Name (N, Name_Unaligned_Valid);
                      Expand_Fpt_Attribute
                        (N, Pkg, Name_Unaligned_Valid,
                         New_List (
@@ -4632,7 +4770,7 @@ package body Exp_Attr is
                      Make_Function_Call (Loc,
                        Name => New_Occurrence_Of (Wfunc, Loc),
                        Parameter_Associations => New_List (
-                         Convert_To (Etype (First_Formal (Wfunc)),
+                         OK_Convert_To (Etype (First_Formal (Wfunc)),
                            Relocate_Node (Next (First (Exprs)))))))));
 
                Analyze (N);
@@ -4667,9 +4805,14 @@ package body Exp_Attr is
 
                --  Ada 2005 (AI-216): Program_Error is raised when executing
                --  the default implementation of the Write attribute of an
-               --  Unchecked_Union type.
+               --  Unchecked_Union type. However, if the 'Write reference is
+               --  within the generated Output stream procedure, Write outputs
+               --  the components, and the default values of the discriminant
+               --  are streamed by the Output procedure itself.
 
-               if Is_Unchecked_Union (Base_Type (U_Type)) then
+               if Is_Unchecked_Union (Base_Type (U_Type))
+                 and not Is_TSS (Current_Scope, TSS_Stream_Output)
+               then
                   Insert_Action (N,
                     Make_Raise_Program_Error (Loc,
                       Reason => PE_Unchecked_Union_Restriction));
@@ -5037,5 +5180,25 @@ package body Exp_Attr is
         and then Is_Constrained (Arr)
         and then Present (Packed_Array_Type (Arr));
    end Is_Constrained_Packed_Array;
+
+   ----------------------------------------
+   -- Is_Inline_Floating_Point_Attribute --
+   ----------------------------------------
+
+   function Is_Inline_Floating_Point_Attribute (N : Node_Id) return Boolean is
+      Id : constant Attribute_Id := Get_Attribute_Id (Attribute_Name (N));
+
+   begin
+      if Nkind (Parent (N)) /= N_Type_Conversion
+        or else not Is_Integer_Type (Etype (Parent (N)))
+      then
+         return False;
+      end if;
+
+      --  Should also support 'Machine_Rounding and 'Unbiased_Rounding, but
+      --  required back end support has not been implemented yet ???
+
+      return Id = Attribute_Truncation;
+   end Is_Inline_Floating_Point_Attribute;
 
 end Exp_Attr;

@@ -430,7 +430,7 @@ package body CStand is
       --    range False .. True
 
       --  where the occurrences of the literals must point to the
-      --  corresponding  definition.
+      --  corresponding definition.
 
       R_Node := New_Node (N_Range, Stloc);
       B_Node := New_Node (N_Identifier, Stloc);
@@ -682,6 +682,15 @@ package body CStand is
       Set_Component_Size (Standard_String, Uint_8);
       Init_Size_Align    (Standard_String);
       Set_Alignment      (Standard_String, Uint_1);
+
+      --  On targets where a storage unit is larger than a byte (such as AAMP),
+      --  pragma Pack has a real effect on the representation of type String,
+      --  and the type must be marked as having a nonstandard representation.
+
+      if System_Storage_Unit > Uint_8 then
+         Set_Has_Non_Standard_Rep (Standard_String);
+         Set_Has_Pragma_Pack      (Standard_String);
+      end if;
 
       --  Set index type of String
 

@@ -63,6 +63,9 @@ extern GTY(()) section *progmem_section;
 #define AVR_HAVE_MOVW (avr_have_movw_lpmx_p)
 #define AVR_HAVE_LPMX (avr_have_movw_lpmx_p)
 
+#define AVR_2_BYTE_PC 1
+#define AVR_3_BYTE_PC 0
+
 #define TARGET_VERSION fprintf (stderr, " (GNU assembler syntax)");
 
 #define OVERRIDE_OPTIONS avr_override_options ()
@@ -338,7 +341,7 @@ extern int avr_reg_order[];
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
-#define EPILOGUE_USES(REGNO) 0
+#define EPILOGUE_USES(REGNO) avr_epilogue_uses(REGNO)
 
 #define HAVE_POST_INCREMENT 1
 #define HAVE_PRE_DECREMENT 1
@@ -624,7 +627,7 @@ sprintf (STRING, "*.%s%lu", PREFIX, (unsigned long)(NUM))
     "r8","r9","r10","r11","r12","r13","r14","r15",	\
     "r16","r17","r18","r19","r20","r21","r22","r23",	\
     "r24","r25","r26","r27","r28","r29","r30","r31",	\
-    "__SPL__","__SPH__","argL","argH"}
+    "__SP_L__","__SP_H__","argL","argH"}
 
 #define FINAL_PRESCAN_INSN(insn, operand, nop) final_prescan_insn (insn, operand,nop)
 
@@ -660,7 +663,11 @@ sprintf (STRING, "*.%s%lu", PREFIX, (unsigned long)(NUM))
 #define ASM_OUTPUT_SKIP(STREAM, N)		\
 fprintf (STREAM, "\t.skip %lu,0\n", (unsigned long)(N))
 
-#define ASM_OUTPUT_ALIGN(STREAM, POWER)
+#define ASM_OUTPUT_ALIGN(STREAM, POWER)			\
+  do {							\
+      if ((POWER) > 1)					\
+          fprintf (STREAM, "\t.p2align\t%d\n", POWER);	\
+  } while (0)
 
 #define CASE_VECTOR_MODE HImode
 
@@ -725,7 +732,7 @@ extern int avr_case_values_threshold;
 #define CC1PLUS_SPEC "%{!frtti:-fno-rtti} \
     %{!fenforce-eh-specs:-fno-enforce-eh-specs} \
     %{!fexceptions:-fno-exceptions}"
-/* A C string constant that tells the GCC drvier program options to
+/* A C string constant that tells the GCC driver program options to
    pass to `cc1plus'.  */
 
 #define ASM_SPEC "%{mmcu=avr25:-mmcu=avr2;\
@@ -757,9 +764,7 @@ mmcu=*:-mmcu=%*}"
   mmcu=at76*:-m avr3}\
 %{mmcu=atmega8*|\
   mmcu=atmega48|\
-  mmcu=at90pwm1|\
-  mmcu=at90pwm2|\
-  mmcu=at90pwm3:-m avr4}\
+  mmcu=at90pwm*:-m avr4}\
 %{mmcu=atmega16*|\
   mmcu=atmega32*|\
   mmcu=atmega406|\
@@ -769,25 +774,23 @@ mmcu=*:-mmcu=%*}"
   mmcu=at90usb*|\
   mmcu=at94k:-m avr5}\
 %{mmcu=atmega324*|\
-  mmcu=atmega325|\
-  mmcu=atmega3250|\
-  mmcu=atmega329|\
-  mmcu=atmega3290|\
+  mmcu=atmega325*|\
+  mmcu=atmega329*|\
   mmcu=atmega406|\
   mmcu=atmega48|\
   mmcu=atmega88|\
   mmcu=atmega64|\
   mmcu=atmega644*|\
-  mmcu=atmega645|\
-  mmcu=atmega6450|\
-  mmcu=atmega649|\
-  mmcu=atmega6490|\
+  mmcu=atmega645*|\
+  mmcu=atmega649*|\
   mmcu=atmega128|\
   mmcu=atmega162|\
   mmcu=atmega164*|\
   mmcu=atmega165*|\
   mmcu=atmega168|\
   mmcu=atmega169*|\
+  mmcu=atmega8hva|\
+  mmcu=atmega16hva|\
   mmcu=at90can*|\
   mmcu=at90pwm*|\
   mmcu=at90usb*: -Tdata 0x800100}\
@@ -865,9 +868,13 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=atmega323:crtm323.o%s} \
 %{mmcu=atmega324p:crtm324p.o%s} \
 %{mmcu=atmega325:crtm325.o%s} \
+%{mmcu=atmega325p:crtm325p.o%s} \
 %{mmcu=atmega3250:crtm3250.o%s} \
+%{mmcu=atmega3250p:crtm3250p.o%s} \
 %{mmcu=atmega329:crtm329.o%s} \
+%{mmcu=atmega329p:crtm329p.o%s} \
 %{mmcu=atmega3290:crtm3290.o%s} \
+%{mmcu=atmega3290p:crtm3290p.o%s} \
 %{mmcu=atmega406:crtm406.o%s} \
 %{mmcu=atmega64:crtm64.o%s} \
 %{mmcu=atmega640:crtm640.o%s} \
@@ -880,9 +887,13 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=atmega128:crtm128.o%s} \
 %{mmcu=atmega1280:crtm1280.o%s} \
 %{mmcu=atmega1281:crtm1281.o%s} \
+%{mmcu=atmega8hva:crtm8hva.o%s} \
+%{mmcu=atmega16hva:crtm16hva.o%s} \
 %{mmcu=at90can32:crtcan32.o%s} \
 %{mmcu=at90can64:crtcan64.o%s} \
 %{mmcu=at90can128:crtcan128.o%s} \
+%{mmcu=at90usb82:crtusb82.o%s} \
+%{mmcu=at90usb162:crtusb162.o%s} \
 %{mmcu=at90usb646:crtusb646.o%s} \
 %{mmcu=at90usb647:crtusb647.o%s} \
 %{mmcu=at90usb1286:crtusb1286.o%s} \
@@ -922,4 +933,25 @@ mmcu=*:-mmcu=%*}"
 
 #define DWARF2_DEBUGGING_INFO 1
 
+#define DWARF2_ADDR_SIZE 4
+
 #define OBJECT_FORMAT_ELF
+
+/* A C structure for machine-specific, per-function data.
+   This is added to the cfun structure.  */
+struct machine_function GTY(())
+{
+  /* 'true' - if current function is a 'main' function.  */
+  int is_main;
+
+  /* 'true' - if current function is a naked function.  */
+  int is_naked;
+
+  /* 'true' - if current function is an interrupt function 
+     as specified by the "interrupt" attribute.  */
+  int is_interrupt;
+
+  /* 'true' - if current function is a signal function 
+     as specified by the "signal" attribute.  */
+  int is_signal;
+};

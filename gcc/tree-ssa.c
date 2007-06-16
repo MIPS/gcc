@@ -375,7 +375,6 @@ static void
 verify_flow_insensitive_alias_info (void)
 {
   tree var;
-  bitmap visited = BITMAP_ALLOC (NULL);
   referenced_var_iterator rvi;
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
@@ -393,7 +392,6 @@ verify_flow_insensitive_alias_info (void)
       EXECUTE_IF_SET_IN_BITMAP (aliases, 0, j, bi)
 	{
 	  alias = referenced_var (j);
-	  bitmap_set_bit (visited, j);
 
 	  if (TREE_CODE (alias) != MEMORY_PARTITION_TAG
 	      && !may_be_aliased (alias))
@@ -405,23 +403,6 @@ verify_flow_insensitive_alias_info (void)
 	}
     }
 
-  FOR_EACH_REFERENCED_VAR (var, rvi)
-    {
-      var_ann_t ann;
-      ann = var_ann (var);
-
-      if (!MTAG_P (var)
-	  && ann->is_aliased
-	  && memory_partition (var) == NULL_TREE
-	  && !bitmap_bit_p (visited, DECL_UID (var)))
-	{
-	  error ("addressable variable that is aliased but is not in any "
-	         "alias set");
-	  goto err;
-	}
-    }
-
-  BITMAP_FREE (visited);
   return;
 
 err:
@@ -557,6 +538,51 @@ verify_call_clobbering (void)
     internal_error ("verify_call_clobbering failed");
 }
 
+
+/* Verify invariants in memory partitions.  */
+
+static void
+verify_memory_partitions (void)
+{
+  unsigned i;
+  tree mpt;
+  VEC(tree,heap) *mpt_table = gimple_ssa_operands (cfun)->mpt_table;
+  struct pointer_set_t *partitioned_syms = pointer_set_create ();
+
+  for (i = 0; VEC_iterate (tree, mpt_table, i, mpt); i++)
+    {
+      unsigned j;
+      bitmap_iterator bj;
+
+      if (MPT_SYMBOLS (mpt) == NULL)
+	{
+	  error ("Memory partitions should have at least one symbol");
+	  debug_variable (mpt);
+	  goto err;
+	}
+
+      EXECUTE_IF_SET_IN_BITMAP (MPT_SYMBOLS (mpt), 0, j, bj)
+	{
+	  tree var = referenced_var (j);
+	  if (pointer_set_insert (partitioned_syms, var))
+	    {
+	      error ("Partitioned symbols should belong to exactly one "
+		     "partition");
+	      debug_variable (var);
+	      goto err;
+	    }
+	}
+    }
+
+  pointer_set_destroy (partitioned_syms);
+
+  return;
+
+err:
+  internal_error ("verify_memory_partitions failed");
+}
+
+
 /* Verify the consistency of aliasing information.  */
 
 static void
@@ -565,6 +591,7 @@ verify_alias_info (void)
   verify_flow_sensitive_alias_info ();
   verify_call_clobbering ();
   verify_flow_insensitive_alias_info ();
+  verify_memory_partitions ();
 }
 
 
@@ -579,7 +606,7 @@ verify_ssa (bool check_modified_stmt)
   basic_block *definition_block = XCNEWVEC (basic_block, num_ssa_names);
   ssa_op_iter iter;
   tree op;
-  enum dom_state orig_dom_state = dom_computed[CDI_DOMINATORS];
+  enum dom_state orig_dom_state = dom_info_state (CDI_DOMINATORS);
   bitmap names_defined_in_bb = BITMAP_ALLOC (NULL);
 
   gcc_assert (!need_ssa_update_p ());
@@ -720,7 +747,7 @@ verify_ssa (bool check_modified_stmt)
   if (orig_dom_state == DOM_NONE)
     free_dominance_info (CDI_DOMINATORS);
   else
-    dom_computed[CDI_DOMINATORS] = orig_dom_state;
+    set_dom_info_availability (CDI_DOMINATORS, orig_dom_state);
   
   BITMAP_FREE (names_defined_in_bb);
   timevar_pop (TV_TREE_SSA_VERIFY);
@@ -772,7 +799,7 @@ var_ann_hash (const void *item)
 void
 init_tree_ssa (void)
 {
-  cfun->gimple_df = ggc_alloc_cleared (sizeof (struct gimple_df));
+  cfun->gimple_df = GGC_CNEW (struct gimple_df);
   cfun->gimple_df->referenced_vars = htab_create_ggc (20, int_tree_map_hash, 
 				     		      int_tree_map_eq, NULL);
   cfun->gimple_df->default_defs = htab_create_ggc (20, int_tree_map_hash, 
@@ -854,6 +881,7 @@ delete_tree_ssa (void)
       gcc_assert (!need_ssa_update_p ());
     }
   cfun->gimple_df->aliases_computed_p = false;
+  delete_mem_ref_stats (cfun);
 
   cfun->gimple_df = NULL;
 }
@@ -954,10 +982,12 @@ tree_ssa_useless_type_conversion (tree expr)
   if (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR
       || TREE_CODE (expr) == VIEW_CONVERT_EXPR
       || TREE_CODE (expr) == NON_LVALUE_EXPR)
-    return tree_ssa_useless_type_conversion_1 (TREE_TYPE (expr),
-					       TREE_TYPE (TREE_OPERAND (expr,
-									0)));
-
+    /* FIXME: Use of GENERIC_TREE_TYPE here is a temporary measure to work
+       around known bugs with GIMPLE_MODIFY_STMTs appearing in places
+       they shouldn't.  See PR 30391.  */
+    return tree_ssa_useless_type_conversion_1
+      (TREE_TYPE (expr),
+       GENERIC_TREE_TYPE (TREE_OPERAND (expr, 0)));
 
   return false;
 }
@@ -1120,7 +1150,7 @@ warn_uninit (tree t, const char *gmsgid, void *data)
   locus = (context != NULL && EXPR_HAS_LOCATION (context)
 	   ? EXPR_LOCUS (context)
 	   : &DECL_SOURCE_LOCATION (var));
-  warning (0, gmsgid, locus, var);
+  warning (OPT_Wuninitialized, gmsgid, locus, var);
   xloc = expand_location (*locus);
   floc = expand_location (DECL_SOURCE_LOCATION (cfun->decl));
   if (xloc.file != floc.file

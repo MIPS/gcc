@@ -105,6 +105,15 @@ class _Jv_InterpClass;
 class _Jv_InterpMethod;
 #endif
 
+class _Jv_ClosureList
+{
+  _Jv_ClosureList *next;
+  void *ptr;
+public:
+  void registerClosure (jclass klass, void *ptr);
+  static void releaseClosures (_Jv_ClosureList **closures);
+};
+
 struct _Jv_Constants
 {
   jint size;
@@ -225,6 +234,9 @@ jboolean _Jv_InterfaceAssignableFrom (jclass, jclass);
 
 _Jv_Method* _Jv_LookupDeclaredMethod (jclass, _Jv_Utf8Const *, 
 				      _Jv_Utf8Const*, jclass * = NULL);
+java::lang::reflect::Method *_Jv_GetReflectedMethod (jclass klass, 
+						    _Jv_Utf8Const *name,
+						    _Jv_Utf8Const *signature);
 jfieldID JvGetFirstInstanceField (jclass);
 jint JvNumInstanceFields (jclass);
 jfieldID JvGetFirstStaticField (jclass);
@@ -255,6 +267,7 @@ _Jv_Utf8Const *_Jv_GetClassNameUtf8 (jclass);
 // Finds a desired interpreter method in the given class or NULL if not found
 class _Jv_MethodBase;
 _Jv_MethodBase *_Jv_FindInterpreterMethod (jclass, jmethodID);
+jstring _Jv_GetInterpClassSourceFile (jclass);
 #endif
 
 jbyte _Jv_GetClassState (jclass);
@@ -529,6 +542,9 @@ private:
 
   friend _Jv_Method* ::_Jv_LookupDeclaredMethod (jclass, _Jv_Utf8Const *, 
 						 _Jv_Utf8Const*, jclass *);
+  friend java::lang::reflect::Method* ::_Jv_GetReflectedMethod (jclass klass, 
+						    _Jv_Utf8Const *name,
+						    _Jv_Utf8Const *signature);
   friend jfieldID (::JvGetFirstInstanceField) (jclass);
   friend jint (::JvNumInstanceFields) (jclass);
   friend jfieldID (::JvGetFirstStaticField) (jclass);
@@ -553,6 +569,7 @@ private:
 #ifdef INTERPRETER
   friend _Jv_MethodBase *(::_Jv_FindInterpreterMethod) (jclass klass,
 							jmethodID desired_method);
+  friend jstring ::_Jv_GetInterpClassSourceFile (jclass);
 #endif
   friend jbyte (::_Jv_GetClassState) (jclass klass);
 
@@ -626,6 +643,7 @@ private:
   friend class ::_Jv_CompiledEngine;
   friend class ::_Jv_IndirectCompiledEngine;
   friend class ::_Jv_InterpreterEngine;
+  friend class ::_Jv_ClosureList;
 
   friend void ::_Jv_sharedlib_register_hook (jclass klass);
 

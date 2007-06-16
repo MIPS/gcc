@@ -89,9 +89,6 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS
 #define LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS \
   c_disregard_inline_limits
-#undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
-#define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P \
-  anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING
 #define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
   c_convert_parm_for_inlining
@@ -107,8 +104,6 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_TYPE_FOR_SIZE c_common_type_for_size
 #undef LANG_HOOKS_SIGNED_TYPE
 #define LANG_HOOKS_SIGNED_TYPE c_common_signed_type
-#undef LANG_HOOKS_UNSIGNED_TYPE
-#define LANG_HOOKS_UNSIGNED_TYPE c_common_unsigned_type
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE c_common_signed_or_unsigned_type
 #undef LANG_HOOKS_INCOMPLETE_TYPE_ERROR

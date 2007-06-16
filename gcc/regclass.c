@@ -1,6 +1,6 @@
 /* Compute register class preferences for pseudo-registers.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996
-   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -338,20 +338,11 @@ init_reg_sets_1 (void)
 	  COPY_HARD_REG_SET (c, reg_class_contents[i]);
 	  IOR_HARD_REG_SET (c, reg_class_contents[j]);
 	  for (k = 0; k < N_REG_CLASSES; k++)
-	    {
-	      GO_IF_HARD_REG_SUBSET (reg_class_contents[k], c,
-				     subclass1);
-	      continue;
-
-	    subclass1:
-	      /* Keep the largest subclass.  */		/* SPEE 900308 */
-	      GO_IF_HARD_REG_SUBSET (reg_class_contents[k],
-				     reg_class_contents[(int) reg_class_subunion[i][j]],
-				     subclass2);
+	    if (hard_reg_set_subset_p (reg_class_contents[k], c)
+		&& !hard_reg_set_subset_p (reg_class_contents[k],
+					  reg_class_contents
+					  [(int) reg_class_subunion[i][j]]))
 	      reg_class_subunion[i][j] = (enum reg_class) k;
-	    subclass2:
-	      ;
-	    }
 	}
     }
 
@@ -369,9 +360,9 @@ init_reg_sets_1 (void)
 	  COPY_HARD_REG_SET (c, reg_class_contents[i]);
 	  IOR_HARD_REG_SET (c, reg_class_contents[j]);
 	  for (k = 0; k < N_REG_CLASSES; k++)
-	    GO_IF_HARD_REG_SUBSET (c, reg_class_contents[k], superclass);
+	    if (hard_reg_set_subset_p (c, reg_class_contents[k]))
+	      break;
 
-	superclass:
 	  reg_class_superunion[i][j] = (enum reg_class) k;
 	}
     }
@@ -394,23 +385,21 @@ init_reg_sets_1 (void)
 	continue;
 
       for (j = i + 1; j < N_REG_CLASSES; j++)
-	{
-	  enum reg_class *p;
+	if (hard_reg_set_subset_p (reg_class_contents[i],
+				  reg_class_contents[j]))
+	  {
+	    /* Reg class I is a subclass of J.
+	       Add J to the table of superclasses of I.  */
+	    enum reg_class *p;
 
-	  GO_IF_HARD_REG_SUBSET (reg_class_contents[i], reg_class_contents[j],
-				 subclass);
-	  continue;
-	subclass:
-	  /* Reg class I is a subclass of J.
-	     Add J to the table of superclasses of I.  */
-	  p = &reg_class_superclasses[i][0];
-	  while (*p != LIM_REG_CLASSES) p++;
-	  *p = (enum reg_class) j;
-	  /* Add I to the table of superclasses of J.  */
-	  p = &reg_class_subclasses[j][0];
-	  while (*p != LIM_REG_CLASSES) p++;
-	  *p = (enum reg_class) i;
-	}
+	    p = &reg_class_superclasses[i][0];
+	    while (*p != LIM_REG_CLASSES) p++;
+	    *p = (enum reg_class) j;
+	    /* Add I to the table of superclasses of J.  */
+	    p = &reg_class_subclasses[j][0];
+	    while (*p != LIM_REG_CLASSES) p++;
+	    *p = (enum reg_class) i;
+	  }
     }
 
   /* Initialize "constant" tables.  */
@@ -859,7 +848,7 @@ static void record_address_regs (enum machine_mode, rtx, int, enum rtx_code,
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 static int auto_inc_dec_reg_p (rtx, enum machine_mode);
 #endif
-static void reg_scan_mark_refs (rtx, rtx, int);
+static void reg_scan_mark_refs (rtx, rtx, int, unsigned int);
 
 /* Wrapper around REGNO_OK_FOR_INDEX_P, to allow pseudo registers.  */
 
@@ -1029,7 +1018,7 @@ record_operand_costs (rtx insn, struct costs *op_costs,
    there.  */
 
 static rtx
-scan_one_insn (rtx insn, int pass)
+scan_one_insn (rtx insn, int pass ATTRIBUTE_UNUSED)
 {
   enum rtx_code pat_code;
   rtx set, note;
@@ -1067,68 +1056,6 @@ scan_one_insn (rtx insn, int pass)
       record_address_regs (GET_MODE (SET_SRC (set)), XEXP (SET_SRC (set), 0),
 			   0, MEM, SCRATCH, frequency * 2);
       return insn;
-    }
-
-  /* Improve handling of two-address insns such as
-     (set X (ashift CONST Y)) where CONST must be made to
-     match X. Change it into two insns: (set X CONST)
-     (set X (ashift X Y)).  If we left this for reloading, it
-     would probably get three insns because X and Y might go
-     in the same place. This prevents X and Y from receiving
-     the same hard reg.
-
-     We can only do this if the modes of operands 0 and 1
-     (which might not be the same) are tieable and we only need
-     do this during our first pass.  */
-
-  if (pass == 0 && optimize
-      && recog_data.n_operands >= 3
-      && recog_data.constraints[1][0] == '0'
-      && recog_data.constraints[1][1] == 0
-      && CONSTANT_P (recog_data.operand[1])
-      && ! rtx_equal_p (recog_data.operand[0], recog_data.operand[1])
-      && ! rtx_equal_p (recog_data.operand[0], recog_data.operand[2])
-      && REG_P (recog_data.operand[0])
-      && MODES_TIEABLE_P (GET_MODE (recog_data.operand[0]),
-			  recog_data.operand_mode[1]))
-    {
-      rtx previnsn = prev_real_insn (insn);
-      rtx dest
-	= gen_lowpart (recog_data.operand_mode[1],
-		       recog_data.operand[0]);
-      rtx newinsn
-	= emit_insn_before (gen_move_insn (dest, recog_data.operand[1]), insn);
-
-      /* If this insn was the start of a basic block,
-	 include the new insn in that block.
-	 We need not check for code_label here;
-	 while a basic block can start with a code_label,
-	 INSN could not be at the beginning of that block.  */
-      if (previnsn == 0 || JUMP_P (previnsn))
-	{
-	  basic_block b;
-	  FOR_EACH_BB (b)
-	    if (insn == BB_HEAD (b))
-	      BB_HEAD (b) = newinsn;
-	}
-
-      /* This makes one more setting of new insns's dest.  */
-      REG_N_SETS (REGNO (recog_data.operand[0]))++;
-      REG_N_REFS (REGNO (recog_data.operand[0]))++;
-      REG_FREQ (REGNO (recog_data.operand[0])) += frequency;
-
-      *recog_data.operand_loc[1] = recog_data.operand[0];
-      REG_N_REFS (REGNO (recog_data.operand[0]))++;
-      REG_FREQ (REGNO (recog_data.operand[0])) += frequency;
-      for (i = recog_data.n_dups - 1; i >= 0; i--)
-	if (recog_data.dup_num[i] == 1)
-	  {
-	    *recog_data.dup_loc[i] = recog_data.operand[0];
-	    REG_N_REFS (REGNO (recog_data.operand[0]))++;
-	    REG_FREQ (REGNO (recog_data.operand[0])) += frequency;
-	  }
-
-      return PREV_INSN (newinsn);
     }
 
   record_operand_costs (insn, op_costs, reg_pref);
@@ -1286,6 +1213,9 @@ regclass (rtx f, int nregs)
 	     to save lots of casts.  */
 	  int class;
 	  struct costs *p = &costs[i];
+
+	  if (regno_reg_rtx[i] == NULL)
+	    continue;
 
 	  /* In non-optimizing compilation REG_N_REFS is not initialized
 	     yet.  */
@@ -1839,7 +1769,6 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 	  unsigned int regno = REGNO (ops[!i]);
 	  enum machine_mode mode = GET_MODE (ops[!i]);
 	  int class;
-	  unsigned int nr;
 
 	  if (regno >= FIRST_PSEUDO_REGISTER && reg_pref != 0
 	      && reg_pref[regno].prefclass != NO_REGS)
@@ -1858,18 +1787,9 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		{
 		  if (reg_class_size[class] == 1)
 		    op_costs[i].cost[class] = -1;
-		  else
-		    {
-		      for (nr = 0; nr < (unsigned) hard_regno_nregs[regno][mode]; nr++)
-			{
-			  if (! TEST_HARD_REG_BIT (reg_class_contents[class],
-						   regno + nr))
-			    break;
-			}
-
-		      if (nr == (unsigned) hard_regno_nregs[regno][mode])
-			op_costs[i].cost[class] = -1;
-		    }
+		  else if (in_hard_reg_set_p (reg_class_contents[class],
+					     mode, regno))
+		    op_costs[i].cost[class] = -1;
 		}
 	}
 }
@@ -2292,6 +2212,14 @@ free_reg_info (void)
   regno_allocated = 0;
   reg_n_max = 0;
 }
+
+/* Clear the information stored for REGNO.  */
+void
+clear_reg_info_regno (unsigned int regno)
+{
+  if (regno < regno_allocated)
+    memset (VEC_index (reg_info_p, reg_n_info, regno), 0, sizeof (reg_info));
+}
 
 /* This is the `regscan' pass of the compiler, run just before cse
    and again just before loop.
@@ -2333,10 +2261,10 @@ reg_scan (rtx f, unsigned int nregs)
 	if (GET_CODE (pat) == PARALLEL
 	    && XVECLEN (pat, 0) > max_parallel)
 	  max_parallel = XVECLEN (pat, 0);
-	reg_scan_mark_refs (pat, insn, 0);
+	reg_scan_mark_refs (pat, insn, 0, 0);
 
 	if (REG_NOTES (insn))
-	  reg_scan_mark_refs (REG_NOTES (insn), insn, 1);
+	  reg_scan_mark_refs (REG_NOTES (insn), insn, 1, 0);
       }
 
   max_parallel += max_set_parallel;
@@ -2344,11 +2272,39 @@ reg_scan (rtx f, unsigned int nregs)
   timevar_pop (TV_REG_SCAN);
 }
 
+/* Update 'regscan' information by looking at the insns
+   from FIRST to LAST.  Some new REGs have been created,
+   and any REG with number greater than OLD_MAX_REGNO is
+   such a REG.  We only update information for those.  */
+
+void
+reg_scan_update (rtx first, rtx last, unsigned int old_max_regno)
+{
+  rtx insn;
+
+  allocate_reg_info (max_reg_num (), FALSE, FALSE);
+
+  for (insn = first; insn != last; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      {
+	rtx pat = PATTERN (insn);
+	if (GET_CODE (pat) == PARALLEL
+	    && XVECLEN (pat, 0) > max_parallel)
+	  max_parallel = XVECLEN (pat, 0);
+	reg_scan_mark_refs (pat, insn, 0, old_max_regno);
+
+	if (REG_NOTES (insn))
+	  reg_scan_mark_refs (REG_NOTES (insn), insn, 1, old_max_regno);
+      }
+}
+
 /* X is the expression to scan.  INSN is the insn it appears in.
-   NOTE_FLAG is nonzero if X is from INSN's notes rather than its body.  */
+   NOTE_FLAG is nonzero if X is from INSN's notes rather than its body.
+   We should only record information for REGs with numbers
+   greater than or equal to MIN_REGNO.  */
 
 static void
-reg_scan_mark_refs (rtx x, rtx insn, int note_flag)
+reg_scan_mark_refs (rtx x, rtx insn, int note_flag, unsigned int min_regno)
 {
   enum rtx_code code;
   rtx dest;
@@ -2375,35 +2331,43 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag)
       {
 	unsigned int regno = REGNO (x);
 
-	if (!note_flag)
-	  REGNO_LAST_UID (regno) = INSN_UID (insn);
-	if (REGNO_FIRST_UID (regno) == 0)
-	  REGNO_FIRST_UID (regno) = INSN_UID (insn);
+	if (regno >= min_regno)
+	  {
+	    if (!note_flag)
+	      REGNO_LAST_UID (regno) = INSN_UID (insn);
+	    if (REGNO_FIRST_UID (regno) == 0)
+	      REGNO_FIRST_UID (regno) = INSN_UID (insn);
+	    /* If we are called by reg_scan_update() (indicated by min_regno
+	       being set), we also need to update the reference count.  */
+	    if (min_regno)
+	      REG_N_REFS (regno)++;
+	  }
       }
       break;
 
     case EXPR_LIST:
       if (XEXP (x, 0))
-	reg_scan_mark_refs (XEXP (x, 0), insn, note_flag);
+	reg_scan_mark_refs (XEXP (x, 0), insn, note_flag, min_regno);
       if (XEXP (x, 1))
-	reg_scan_mark_refs (XEXP (x, 1), insn, note_flag);
+	reg_scan_mark_refs (XEXP (x, 1), insn, note_flag, min_regno);
       break;
 
     case INSN_LIST:
       if (XEXP (x, 1))
-	reg_scan_mark_refs (XEXP (x, 1), insn, note_flag);
+	reg_scan_mark_refs (XEXP (x, 1), insn, note_flag, min_regno);
       break;
 
     case CLOBBER:
       {
 	rtx reg = XEXP (x, 0);
-	if (REG_P (reg))
+	if (REG_P (reg)
+	    && REGNO (reg) >= min_regno)
 	  {
 	    REG_N_SETS (REGNO (reg))++;
 	    REG_N_REFS (REGNO (reg))++;
 	  }
 	else if (MEM_P (reg))
-	  reg_scan_mark_refs (XEXP (reg, 0), insn, note_flag);
+	  reg_scan_mark_refs (XEXP (reg, 0), insn, note_flag, min_regno);
       }
       break;
 
@@ -2420,7 +2384,8 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag)
       if (GET_CODE (dest) == PARALLEL)
 	max_set_parallel = MAX (max_set_parallel, XVECLEN (dest, 0) - 1);
 
-      if (REG_P (dest))
+      if (REG_P (dest)
+	  && REGNO (dest) >= min_regno)
 	{
 	  REG_N_SETS (REGNO (dest))++;
 	  REG_N_REFS (REGNO (dest))++;
@@ -2440,6 +2405,7 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag)
 
       if (REG_P (SET_DEST (x))
 	  && REGNO (SET_DEST (x)) >= FIRST_PSEUDO_REGISTER
+	  && REGNO (SET_DEST (x)) >= min_regno
 	  /* If the destination pseudo is set more than once, then other
 	     sets might not be to a pointer value (consider access to a
 	     union in two threads of control in the presence of global
@@ -2500,12 +2466,12 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag)
 	for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
 	  {
 	    if (fmt[i] == 'e')
-	      reg_scan_mark_refs (XEXP (x, i), insn, note_flag);
+	      reg_scan_mark_refs (XEXP (x, i), insn, note_flag, min_regno);
 	    else if (fmt[i] == 'E' && XVEC (x, i) != 0)
 	      {
 		int j;
 		for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-		  reg_scan_mark_refs (XVECEXP (x, i, j), insn, note_flag);
+		  reg_scan_mark_refs (XVECEXP (x, i, j), insn, note_flag, min_regno);
 	      }
 	  }
       }
@@ -2518,15 +2484,10 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag)
 int
 reg_class_subset_p (enum reg_class c1, enum reg_class c2)
 {
-  if (c1 == c2) return 1;
-
-  if (c2 == ALL_REGS)
-  win:
-    return 1;
-  GO_IF_HARD_REG_SUBSET (reg_class_contents[(int) c1],
-			 reg_class_contents[(int) c2],
-			 win);
-  return 0;
+  return (c1 == c2
+	  || c2 == ALL_REGS
+	  || hard_reg_set_subset_p (reg_class_contents[(int) c1],
+				   reg_class_contents[(int) c2]));
 }
 
 /* Return nonzero if there is a register that is in both C1 and C2.  */
@@ -2534,21 +2495,11 @@ reg_class_subset_p (enum reg_class c1, enum reg_class c2)
 int
 reg_classes_intersect_p (enum reg_class c1, enum reg_class c2)
 {
-  HARD_REG_SET c;
-
-  if (c1 == c2) return 1;
-
-  if (c1 == ALL_REGS || c2 == ALL_REGS)
-    return 1;
-
-  COPY_HARD_REG_SET (c, reg_class_contents[(int) c1]);
-  AND_HARD_REG_SET (c, reg_class_contents[(int) c2]);
-
-  GO_IF_HARD_REG_SUBSET (c, reg_class_contents[(int) NO_REGS], lose);
-  return 1;
-
- lose:
-  return 0;
+  return (c1 == c2
+	  || c1 == ALL_REGS
+	  || c2 == ALL_REGS
+	  || hard_reg_set_intersect_p (reg_class_contents[(int) c1],
+				      reg_class_contents[(int) c2]));
 }
 
 #ifdef CANNOT_CHANGE_MODE_CLASS

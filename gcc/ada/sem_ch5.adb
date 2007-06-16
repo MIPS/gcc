@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,7 +26,6 @@
 
 with Atree;    use Atree;
 with Checks;   use Checks;
-with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Expander; use Expander;
@@ -34,6 +33,7 @@ with Exp_Util; use Exp_Util;
 with Freeze;   use Freeze;
 with Lib;      use Lib;
 with Lib.Xref; use Lib.Xref;
+with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
@@ -60,15 +60,15 @@ package body Sem_Ch5 is
 
    Unblocked_Exit_Count : Nat := 0;
    --  This variable is used when processing if statements, case statements,
-   --  and block statements. It counts the number of exit points that are
-   --  not blocked by unconditional transfer instructions: for IF and CASE,
-   --  these are the branches of the conditional; for a block, they are the
-   --  statement sequence of the block, and the statement sequences of any
-   --  exception handlers that are part of the block. When processing is
-   --  complete, if this count is zero, it means that control cannot fall
-   --  through the IF, CASE or block statement. This is used for the
-   --  generation of warning messages. This variable is recursively saved
-   --  on entry to processing the construct, and restored on exit.
+   --  and block statements. It counts the number of exit points that are not
+   --  blocked by unconditional transfer instructions: for IF and CASE, these
+   --  are the branches of the conditional; for a block, they are the statement
+   --  sequence of the block, and the statement sequences of any exception
+   --  handlers that are part of the block. When processing is complete, if
+   --  this count is zero, it means that control cannot fall through the IF,
+   --  CASE or block statement. This is used for the generation of warning
+   --  messages. This variable is recursively saved on entry to processing the
+   --  construct, and restored on exit.
 
    -----------------------
    -- Local Subprograms --
@@ -111,7 +111,7 @@ package body Sem_Ch5 is
       procedure Diagnose_Non_Variable_Lhs (N : Node_Id) is
       begin
          --  Not worth posting another error if left hand side already
-         --  flagged as being illegal in some respect
+         --  flagged as being illegal in some respect.
 
          if Error_Posted (N) then
             return;
@@ -250,6 +250,7 @@ package body Sem_Ch5 is
    --  Start of processing for Analyze_Assignment
 
    begin
+      Mark_Static_Coextensions (Rhs);
       Analyze (Rhs);
       Analyze (Lhs);
 
@@ -340,7 +341,12 @@ package body Sem_Ch5 is
          end if;
       end if;
 
+      --  The resulting assignment type is T1, so now we will resolve the
+      --  left hand side of the assignment using this determined type.
+
       Resolve (Lhs, T1);
+
+      --  Cases where Lhs is not a variable
 
       if not Is_Variable (Lhs) then
 
@@ -414,9 +420,13 @@ package body Sem_Ch5 is
          Diagnose_Non_Variable_Lhs (Lhs);
          return;
 
+      --  Error of assigning to limited type. We do however allow this in
+      --  certain cases where the front end generates the assignments.
+
       elsif Is_Limited_Type (T1)
         and then not Assignment_OK (Lhs)
         and then not Assignment_OK (Original_Node (Lhs))
+        and then not Is_Value_Type (T1)
       then
          Error_Msg_N
            ("left hand of assignment must not be limited type", Lhs);
@@ -453,9 +463,13 @@ package body Sem_Ch5 is
          return;
       end if;
 
-      Set_Assignment_Type (Lhs, T1);
+      --  Now we can complete the resolution of the right hand side
 
+      Set_Assignment_Type (Lhs, T1);
       Resolve (Rhs, T1);
+
+      --  This is the point at which we check for an unset reference
+
       Check_Unset_Reference (Rhs);
 
       --  Remaining steps are skipped if Rhs was syntactically in error
@@ -501,7 +515,15 @@ package body Sem_Ch5 is
          return;
       end if;
 
-      if (Is_Class_Wide_Type (T2) or else Is_Dynamically_Tagged (Rhs))
+      --  If the rhs is class-wide or dynamically tagged, then require the lhs
+      --  to be class-wide. The case where the rhs is a dynamically tagged call
+      --  to a dispatching operation with a controlling access result is
+      --  excluded from this check, since the target has an access type (and
+      --  no tag propagation occurs in that case).
+
+      if (Is_Class_Wide_Type (T2)
+           or else (Is_Dynamically_Tagged (Rhs)
+                     and then not Is_Access_Type (T1)))
         and then not Is_Class_Wide_Type (T1)
       then
          Error_Msg_N ("dynamically tagged expression not allowed!", Rhs);
@@ -517,10 +539,27 @@ package body Sem_Ch5 is
       --  Propagate the tag from a class-wide target to the rhs when the rhs
       --  is a tag-indeterminate call.
 
-      if Is_Class_Wide_Type (T1)
-        and then Is_Tag_Indeterminate (Rhs)
-      then
-         Propagate_Tag (Lhs, Rhs);
+      if Is_Tag_Indeterminate (Rhs) then
+         if Is_Class_Wide_Type (T1) then
+            Propagate_Tag (Lhs, Rhs);
+
+         elsif Nkind (Rhs) = N_Function_Call
+              and then Is_Entity_Name (Name (Rhs))
+              and then Is_Abstract_Subprogram (Entity (Name (Rhs)))
+         then
+            Error_Msg_N
+              ("call to abstract function must be dispatching", Name (Rhs));
+
+         elsif Nkind (Rhs) = N_Qualified_Expression
+           and then Nkind (Expression (Rhs)) = N_Function_Call
+              and then Is_Entity_Name (Name (Expression (Rhs)))
+              and then
+                Is_Abstract_Subprogram (Entity (Name (Expression (Rhs))))
+         then
+            Error_Msg_N
+              ("call to abstract function must be dispatching",
+                Name (Expression (Rhs)));
+         end if;
       end if;
 
       --  Ada 2005 (AI-230 and AI-385): When the lhs type is an anonymous
@@ -783,7 +822,7 @@ package body Sem_Ch5 is
 
          Set_Etype (Ent, Standard_Void_Type);
          Set_Block_Node (Ent, Identifier (N));
-         New_Scope (Ent);
+         Push_Scope (Ent);
 
          if Present (Decls) then
             Analyze_Declarations (Decls);
@@ -1117,25 +1156,38 @@ package body Sem_Ch5 is
       Label       : constant Node_Id := Name (N);
       Scope_Id    : Entity_Id;
       Label_Scope : Entity_Id;
+      Label_Ent   : Entity_Id;
 
    begin
       Check_Unreachable_Code (N);
 
       Analyze (Label);
+      Label_Ent := Entity (Label);
 
-      if Entity (Label) = Any_Id then
+      --  Ignore previous error
+
+      if Label_Ent = Any_Id then
          return;
 
-      elsif Ekind (Entity (Label)) /= E_Label then
+      --  We just have a label as the target of a goto
+
+      elsif Ekind (Label_Ent) /= E_Label then
          Error_Msg_N ("target of goto statement must be a label", Label);
          return;
 
-      elsif not Reachable (Entity (Label)) then
+      --  Check that the target of the goto is reachable according to Ada
+      --  scoping rules. Note: the special gotos we generate for optimizing
+      --  local handling of exceptions would violate these rules, but we mark
+      --  such gotos as analyzed when built, so this code is never entered.
+
+      elsif not Reachable (Label_Ent) then
          Error_Msg_N ("target of goto statement is not reachable", Label);
          return;
       end if;
 
-      Label_Scope := Enclosing_Scope (Entity (Label));
+      --  Here if goto passes initial validity checks
+
+      Label_Scope := Enclosing_Scope (Label_Ent);
 
       for J in reverse 0 .. Scope_Stack.Last loop
          Scope_Id := Scope_Stack.Table (J).Entity;
@@ -1388,6 +1440,7 @@ package body Sem_Ch5 is
                return Original_Bound;
 
             elsif Nkind (Analyzed_Bound) = N_Integer_Literal
+              or else Nkind (Analyzed_Bound) = N_Character_Literal
               or else Is_Entity_Name (Analyzed_Bound)
             then
                Analyze_And_Resolve (Original_Bound, Typ);
@@ -1804,8 +1857,10 @@ package body Sem_Ch5 is
    ----------------------------
 
    procedure Analyze_Loop_Statement (N : Node_Id) is
-      Id   : constant Node_Id := Identifier (N);
-      Iter : constant Node_Id := Iteration_Scheme (N);
+      Loop_Statement : constant Node_Id := N;
+
+      Id   : constant Node_Id := Identifier (Loop_Statement);
+      Iter : constant Node_Id := Iteration_Scheme (Loop_Statement);
       Ent  : Entity_Id;
 
    begin
@@ -1816,7 +1871,7 @@ package body Sem_Ch5 is
 
          Analyze (Id);
          Ent := Entity (Id);
-         Generate_Reference  (Ent, N, ' ');
+         Generate_Reference  (Ent, Loop_Statement, ' ');
          Generate_Definition (Ent);
 
          --  If we found a label, mark its type. If not, ignore it, since it
@@ -1829,16 +1884,18 @@ package body Sem_Ch5 is
             Set_Ekind (Ent, E_Loop);
 
             if Nkind (Parent (Ent)) = N_Implicit_Label_Declaration then
-               Set_Label_Construct (Parent (Ent), N);
+               Set_Label_Construct (Parent (Ent), Loop_Statement);
             end if;
          end if;
 
       --  Case of no identifier present
 
       else
-         Ent := New_Internal_Entity (E_Loop, Current_Scope, Sloc (N), 'L');
+         Ent :=
+           New_Internal_Entity
+             (E_Loop, Current_Scope, Sloc (Loop_Statement), 'L');
          Set_Etype (Ent,  Standard_Void_Type);
-         Set_Parent (Ent, N);
+         Set_Parent (Ent, Loop_Statement);
       end if;
 
       --  Kill current values on entry to loop, since statements in body
@@ -1847,166 +1904,13 @@ package body Sem_Ch5 is
       --  that the body of the loop was executed.
 
       Kill_Current_Values;
-      New_Scope (Ent);
+      Push_Scope (Ent);
       Analyze_Iteration_Scheme (Iter);
-      Analyze_Statements (Statements (N));
-      Process_End_Label (N, 'e', Ent);
+      Analyze_Statements (Statements (Loop_Statement));
+      Process_End_Label (Loop_Statement, 'e', Ent);
       End_Scope;
       Kill_Current_Values;
-
-      --  Check for possible infinite loop which we can diagnose successfully.
-      --  The case we look for is a while loop which tests a local variable,
-      --  where there is no obvious direct or indirect update of the variable
-      --  within the body of the loop.
-
-      --  Note: we don't try to give a warning if condition actions are
-      --  present, since the loop structure can be very complex in this case.
-
-      if No (Iter)
-        or else No (Condition (Iter))
-        or else Present (Condition_Actions (Iter))
-        or else Debug_Flag_Dot_W
-      then
-         return;
-      end if;
-
-      --  Initial conditions met, see if condition is of right form
-
-      declare
-         Cond : constant Node_Id := Condition (Iter);
-         Var  : Entity_Id;
-         Loc  : Node_Id;
-
-      begin
-         --  Condition is a direct variable reference
-
-         if Is_Entity_Name (Cond)
-           and then not Is_Library_Level_Entity (Entity (Cond))
-         then
-            Loc := Cond;
-
-         --  Case of condition is a comparison with compile time known value
-
-         elsif Nkind (Cond) in N_Op_Compare then
-            if Is_Entity_Name (Left_Opnd (Cond))
-              and then Compile_Time_Known_Value (Right_Opnd (Cond))
-            then
-               Loc := Left_Opnd (Cond);
-
-            elsif Is_Entity_Name (Right_Opnd (Cond))
-              and then Compile_Time_Known_Value (Left_Opnd (Cond))
-            then
-               Loc := Right_Opnd (Cond);
-
-            else
-               return;
-            end if;
-
-         --  Case of condition is function call with one parameter
-
-         elsif Nkind (Cond) = N_Function_Call then
-            declare
-               PA : constant List_Id := Parameter_Associations (Cond);
-            begin
-               if Present (PA)
-                 and then List_Length (PA) = 1
-                 and then Is_Entity_Name (First (PA))
-               then
-                  Loc := First (PA);
-               else
-                  return;
-               end if;
-            end;
-
-         else
-            return;
-         end if;
-
-         --  If we fall through Loc is set to the node that is an entity ref
-
-         Var := Entity (Loc);
-
-         if Present (Var)
-           and then Ekind (Var) = E_Variable
-           and then not Is_Library_Level_Entity (Var)
-           and then Comes_From_Source (Var)
-         then
-            null;
-         else
-            return;
-         end if;
-
-         --  Search for reference to variable in loop
-
-         Ref_Search : declare
-            function Test_Ref (N : Node_Id) return Traverse_Result;
-            --  Test for reference to variable in question. Returns Abandon
-            --  if matching reference found.
-
-            function Find_Ref is new Traverse_Func (Test_Ref);
-            --  Function to traverse body of procedure. Returns Abandon if
-            --  matching reference found.
-
-            --------------
-            -- Test_Ref --
-            --------------
-
-            function Test_Ref (N : Node_Id) return Traverse_Result is
-            begin
-               --  Waste of time to look at iteration scheme
-
-               if N = Iter then
-                  return Skip;
-
-               --  Direct reference to variable in question
-
-               elsif Is_Entity_Name (N)
-                 and then Present (Entity (N))
-                 and then Entity (N) = Var
-                 and then May_Be_Lvalue (N)
-               then
-                  return Abandon;
-
-                  --  Reference to variable renaming variable in question
-
-               elsif Is_Entity_Name (N)
-                 and then Present (Entity (N))
-                 and then Ekind (Entity (N)) = E_Variable
-                 and then Present (Renamed_Object (Entity (N)))
-                 and then Is_Entity_Name (Renamed_Object (Entity (N)))
-                 and then Entity (Renamed_Object (Entity (N))) = Var
-                 and then May_Be_Lvalue (N)
-               then
-                  return Abandon;
-
-               --  Check for call to other than library level subprogram
-
-               elsif Nkind (N) = N_Procedure_Call_Statement
-                 or else Nkind (N) = N_Function_Call
-               then
-                  if not Is_Entity_Name (Name (N))
-                    or else not Is_Library_Level_Entity (Entity (Name (N)))
-                  then
-                     return Abandon;
-                  end if;
-               end if;
-
-               --  All OK, continue scan
-
-               return OK;
-            end Test_Ref;
-
-         --  Start of processing for Ref_Search
-
-         begin
-            if Find_Ref (N) = OK then
-               Error_Msg_NE
-                 ("variable& is not modified in loop body?", Loc, Var);
-               Error_Msg_N
-                 ("\possible infinite loop", Loc);
-            end if;
-         end Ref_Search;
-      end;
+      Check_Infinite_Loop_Warning (N);
    end Analyze_Loop_Statement;
 
    ----------------------------
@@ -2136,7 +2040,7 @@ package body Sem_Ch5 is
                   --  The rather strange shenanigans with the warning message
                   --  here reflects the fact that Kill_Dead_Code is very good
                   --  at removing warnings in deleted code, and this is one
-                  --  warning we would prefer NOT to have removed :-)
+                  --  warning we would prefer NOT to have removed.
 
                   Error_Loc := Sloc (Nxt);
 

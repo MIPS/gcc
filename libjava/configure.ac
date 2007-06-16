@@ -117,6 +117,18 @@ AC_PROG_AWK
 AC_CHECK_PROGS([JAR], [jar fastjar gjar], no)
 AC_PATH_PROG([ZIP], [zip], no)
 AC_PATH_PROG([UNZIP], [unzip], unzip)
+
+# We need a jar that supports -@.  This is a GNU extension.
+if test "$JAR" != no; then
+   rm -f config-test.jar
+   echo $srcdir/configure.ac | $JAR -cf@ config-test.jar
+   if test -f config-test.jar; then
+     rm -f config-test.jar
+   else
+     JAR=no
+   fi
+fi
+
 # Prefer the jar we found, but fall back to our jar script.
 if test "$JAR" = no; then
   if test "$ZIP" = no; then
@@ -283,6 +295,13 @@ if test "$use_x_awt" != yes; then
    echo gnu/java/awt/peer/x >> standard.omit
 fi
 
+# Tools that need to be compiled against classpath's tools classes
+: > vm-tools-packages
+for package in gnu/gcj/tools/gc_analyze ; do
+    echo $package >> standard.omit
+    echo $package >> vm-tools-packages
+done
+
 if test -z "${with_multisubdir}"; then
    builddotdot=.
 else
@@ -346,7 +365,7 @@ case "${which_gcj}" in
       else
          GCJ="${target_noncanonical}-gcj -B`${PWDCMD-pwd}`/"
       fi
-      GCJH="$built_gcc_dir/gcjh"
+      GCJH='$(target_noncanonical)-gcjh'
    ;;
    path)
       GCJ="gcj -B`${PWDCMD-pwd}`/"
@@ -695,10 +714,8 @@ case "$host" in
 esac
 AM_CONDITIONAL(USING_DARWIN_CRT, $DARWIN_CRT)
 
-# These may not be defined in a non-ANS conformant embedded system.
+# This may not be defined in a non-ANS conformant embedded system.
 # FIXME: Should these case a runtime exception in that case?
-AC_EGREP_HEADER(mktime, time.h, AC_DEFINE(HAVE_MKTIME, 1,
-                                  [Define is you have 'mktime' in <time.h>]))
 AC_EGREP_HEADER(localtime, time.h, AC_DEFINE(HAVE_LOCALTIME, 1,
                                   [Define is you have 'localtime' in <time.h>]))
 
@@ -975,22 +992,20 @@ if test "x${with_newlib}" = "xyes"; then
    AC_DEFINE(HAVE_USLEEP_DECL, 1, [Define if usleep is declared in <unistd.h>.])
    # This is only for POSIX threads.
    AC_DEFINE(HAVE_PTHREAD_MUTEXATTR_INIT, 1, [Define if using POSIX threads that have the mutexattr functions.])
-   # We also assume we are using gcc, which provides alloca.
-   AC_DEFINE(HAVE_ALLOCA)
 
    # Assume we do not have getuid and friends.
    AC_DEFINE(NO_GETUID, 1, [Define if getuid() and friends are missing.])
    PLATFORMNET=NoNet
 else
-   AC_CHECK_FUNCS([strerror ioctl select fstat open fsync sleep opendir \
-                   gmtime_r localtime_r readdir_r getpwuid_r getcwd \
+   AC_CHECK_FUNCS([strerror select fstat open fsync sleep opendir \
+                   localtime_r readdir_r getpwuid_r getcwd \
 		   access stat lstat mkdir rename rmdir unlink utime chmod readlink \
 		   nl_langinfo setlocale \
 		   inet_pton uname inet_ntoa \
-		   fork execvp pipe sigaction ftruncate mmap \
+		   getrlimit sigaction ftruncate mmap \
 		   getifaddrs])
    AC_CHECK_FUNCS(inet_aton inet_addr, break)
-   AC_CHECK_HEADERS(execinfo.h unistd.h dlfcn.h)
+   AC_CHECK_HEADERS(unistd.h dlfcn.h sys/resource.h)
    # Do an additional check on dld, HP-UX for example has dladdr in libdld.sl
    AC_CHECK_LIB(dl, dladdr, [
        AC_DEFINE(HAVE_DLADDR, 1, [Define if you have dladdr()])], [
@@ -1000,10 +1015,14 @@ else
    if test x"$cross_compiling" = x"no"; then
      AC_CHECK_FILES(/proc/self/exe, [
        AC_DEFINE(HAVE_PROC_SELF_EXE, 1, [Define if you have /proc/self/exe])])
+     AC_CHECK_FILES(/proc/self/maps, [
+       AC_DEFINE(HAVE_PROC_SELF_MAPS, 1,
+         [Define if you have /proc/self/maps])])
    else
      case $host in
      *-linux*)
        AC_DEFINE(HAVE_PROC_SELF_EXE, 1, [Define if you have /proc/self/exe])
+       AC_DEFINE(HAVE_PROC_SELF_MAPS, 1, [Define if you have /proc/self/maps])
        ;;
      esac
    fi
@@ -1094,9 +1113,6 @@ else
    if test "$THREADS" = posix; then
       save_LIBS="$LIBS"
       LIBS="$LIBS $THREADLIBS"
-      # Some POSIX thread systems don't have pthread_mutexattr_settype.
-      # E.g., Solaris.
-      AC_CHECK_FUNCS(pthread_mutexattr_settype pthread_mutexattr_setkind_np)
 
       # Look for sched_yield.  Up to Solaris 2.6, it is in libposix4, since
       # Solaris 7 the name librt is preferred.
@@ -1262,6 +1278,7 @@ if test ! -f gnu/classpath/Configuration.java; then
       -e "s,@default_toolkit@,$TOOLKIT," \
       -e "s,@JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@,false," \
       -e "s,@GTK_CAIRO_ENABLED@,false," \
+      -e "s,@ECJ_JAR@,," \
 	< $srcdir/classpath/gnu/classpath/Configuration.java.in \
 	> gnu/classpath/Configuration.java
   # We do not want to redirect the output of the grep below to /dev/null,
@@ -1380,9 +1397,13 @@ AC_CHECK_HEADERS(inttypes.h, [
     AC_DEFINE(HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
     AC_DEFINE(JV_HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
 ])
-AC_HEADER_SYS_WAIT
 
 AC_CHECK_TYPE([ssize_t], [int])
+AC_CHECK_TYPE([magic_t], [
+    AC_DEFINE(HAVE_MAGIC_T, 1, [Define if magic.h declares magic_t])], [], [
+#ifdef HAVE_MAGIC_H
+#include <magic.h>
+#endif])
 
 AC_MSG_CHECKING([for in_addr_t])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
@@ -1448,8 +1469,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <time.h>]], [[struct tm tim; tim.t
             [Define if your platform has the global _timezone variable.])
           AC_MSG_RESULT(yes)],
           [AC_MSG_RESULT(no)])])])
-
-AC_FUNC_ALLOCA
 
 AC_CHECK_PROGS(PERL, perl, false)
 
@@ -1535,6 +1554,19 @@ GCC_CHECK_TLS
 
 # For _Unwind_GetIPInfo.
 GCC_CHECK_UNWIND_GETIPINFO
+
+# See if linker supports anonymous version scripts.
+AC_CACHE_CHECK([whether ld supports anonymous version scripts],
+  [libjava_cv_anon_version_script],
+  [save_CFLAGS="$CFLAGS"; save_LDFLAGS="$LDFLAGS"
+   libjava_cv_anon_version_script=no
+   CFLAGS="$CFLAGS -fPIC"; LDFLAGS="$LDFLAGS -shared -Wl,--version-script,conftest.map"
+   echo '{ global: globalsymb*; local: *; };' > conftest.map
+   AC_TRY_LINK(void globalsymbol (void) {} void localsymbol (void) {},,
+	       [libjava_cv_anon_version_script=yes], [])
+   CFLAGS="$save_CFLAGS"; LDFLAGS="$save_LDFLAGS"
+  ])
+AM_CONDITIONAL(ANONVERSCRIPT, test "$libjava_cv_anon_version_script" = yes)
 
 # Check if linker supports static linking on a per library basis
 LD_START_STATIC_SPEC=

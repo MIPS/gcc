@@ -130,6 +130,14 @@ AC_PATH_PROG(PERL, perl, perl-not-found-in-path-error)
 AC_PROG_MAKE_SET
 AC_PROG_INSTALL
 
+# See if makeinfo has been installed and is modern enough
+# that we can use it.
+ACX_CHECK_PROG_VER([MAKEINFO], [makeinfo], [--version],
+                   [GNU texinfo.* \([0-9][0-9.]*\)],
+                   [4.[4-9]*])
+AM_CONDITIONAL(BUILD_INFO, test $gcc_cv_prog_makeinfo_modern = "yes")
+
+
 # Configure libtool
 AM_PROG_LIBTOOL
 AC_SUBST(enable_shared)
@@ -158,20 +166,13 @@ GCC_HEADER_STDINT(gstdint.h)
 # Check to see if -pthread or -lpthread is needed.  Prefer the former.
 # In case the pthread.h system header is not found, this test will fail.
 XPCFLAGS=""
-
-# Darwin doesn't need the -pthread option since threads are in libSystem
+CFLAGS="$CFLAGS -pthread"
 AC_LINK_IFELSE(
  [AC_LANG_PROGRAM(
   [#include <pthread.h>
    void *g(void *d) { return NULL; }],
   [pthread_t t; pthread_create(&t,NULL,g,NULL);])],
- [case $host in
-   *-darwin*)
-     ;;
-   default)
-     XPCFLAGS=" -Wc,-pthread"
-     ;;
-     esac],
+ [XPCFLAGS=" -Wc,-pthread"],
  [CFLAGS="$save_CFLAGS" LIBS="-lpthread $LIBS"
   AC_LINK_IFELSE(
    [AC_LANG_PROGRAM(
@@ -234,6 +235,25 @@ If so, please configure with --disable-linux-futex])
     esac
     ;;
 esac
+
+# Check for pthread_{,attr_}[sg]etaffinity_np.
+AC_LINK_IFELSE(
+ [AC_LANG_PROGRAM(
+  [#define _GNU_SOURCE
+   #include <pthread.h>],
+  [cpu_set_t cpuset;
+   pthread_attr_t attr;
+   pthread_getaffinity_np (pthread_self (), sizeof (cpu_set_t), &cpuset);
+   if (CPU_ISSET (0, &cpuset))
+     CPU_SET (1, &cpuset);
+   else
+     CPU_ZERO (&cpuset);
+   pthread_setaffinity_np (pthread_self (), sizeof (cpu_set_t), &cpuset);
+   pthread_attr_init (&attr);
+   pthread_attr_getaffinity_np (&attr, sizeof (cpu_set_t), &cpuset);
+   pthread_attr_setaffinity_np (&attr, sizeof (cpu_set_t), &cpuset);])],
+  AC_DEFINE(HAVE_PTHREAD_AFFINITY_NP, 1,
+[	Define if pthread_{,attr_}{g,s}etaffinity_np is supported.]))
 
 # At least for glibc, clock_gettime is in librt.  But don't pull that
 # in if it still doesn't give us the function we want.

@@ -62,7 +62,7 @@ GTY(())
 
 union lang_tree_node
 GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
-     chain_next ("(GIMPLE_STMT_P (&%h.generic) ? (union lang_tree_node *) 0 : (union lang_tree_node *)TREE_CHAIN (&%h.generic))")))
+     chain_next ("(union lang_tree_node *)GENERIC_NEXT (&%h.generic)")))
 
 {
   union tree_node GTY((tag ("0"),
@@ -113,9 +113,7 @@ static HOST_WIDE_INT gfc_get_alias_set (tree);
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #undef LANG_HOOKS_TYPE_FOR_SIZE
-#undef LANG_HOOKS_UNSIGNED_TYPE
 #undef LANG_HOOKS_SIGNED_TYPE
-#undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
 #undef LANG_HOOKS_GET_ALIAS_SET
@@ -139,9 +137,7 @@ static HOST_WIDE_INT gfc_get_alias_set (tree);
 #define LANG_HOOKS_MARK_ADDRESSABLE        gfc_mark_addressable
 #define LANG_HOOKS_TYPE_FOR_MODE           gfc_type_for_mode
 #define LANG_HOOKS_TYPE_FOR_SIZE           gfc_type_for_size
-#define LANG_HOOKS_UNSIGNED_TYPE           gfc_unsigned_type
 #define LANG_HOOKS_SIGNED_TYPE             gfc_signed_type
-#define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE gfc_signed_or_unsigned_type
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION gfc_expand_function
 #define LANG_HOOKS_CLEAR_BINDING_STACK     gfc_clear_binding_stack
 #define LANG_HOOKS_GET_ALIAS_SET	   gfc_get_alias_set
@@ -992,6 +988,17 @@ gfc_init_builtin_functions (void)
   gfc_define_builtin ("__builtin_expect", ftype, BUILT_IN_EXPECT,
 		      "__builtin_expect", true);
 
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
+  ftype = build_function_type (void_type_node, tmp);
+  gfc_define_builtin ("__builtin_free", ftype, BUILT_IN_FREE,
+		      "free", false);
+
+  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
+  ftype = build_function_type (pvoid_type_node, tmp);
+  gfc_define_builtin ("__builtin_malloc", ftype, BUILT_IN_MALLOC,
+		      "malloc", false);
+  DECL_IS_MALLOC (built_in_decls[BUILT_IN_MALLOC]) = 1;
+
 #define DEF_PRIMITIVE_TYPE(ENUM, VALUE) \
   builtin_types[(int) ENUM] = VALUE;
 #define DEF_FUNCTION_TYPE_0(ENUM, RETURN)		\
@@ -1135,6 +1142,14 @@ gfc_init_builtin_functions (void)
   gfc_define_builtin ("__builtin_trap", builtin_types[BT_FN_VOID],
 		      BUILT_IN_TRAP, NULL, false);
   TREE_THIS_VOLATILE (built_in_decls[BUILT_IN_TRAP]) = 1;
+
+  gfc_define_builtin ("__emutls_get_address",
+		      builtin_types[BT_FN_PTR_PTR], BUILT_IN_EMUTLS_GET_ADDRESS,
+		      "__emutls_get_address", true);
+  gfc_define_builtin ("__emutls_register_common",
+		      builtin_types[BT_FN_VOID_PTR_WORD_WORD_PTR],
+		      BUILT_IN_EMUTLS_REGISTER_COMMON,
+		      "__emutls_register_common", false);
 
   build_common_builtin_nodes ();
   targetm.init_builtins ();

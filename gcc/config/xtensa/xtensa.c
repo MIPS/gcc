@@ -1,5 +1,6 @@
 /* Subroutines for insn-output.c for Tensilica's Xtensa architecture.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -397,7 +398,7 @@ smalloffset_mem_p (rtx op)
     {
       rtx addr = XEXP (op, 0);
       if (GET_CODE (addr) == REG)
-	return REG_OK_FOR_BASE_P (addr);
+	return BASE_REG_P (addr, 0);
       if (GET_CODE (addr) == PLUS)
 	{
 	  rtx offset = XEXP (addr, 0);
@@ -448,6 +449,8 @@ constantpool_address_p (rtx addr)
 int
 constantpool_mem_p (rtx op)
 {
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
   if (GET_CODE (op) == MEM)
     return constantpool_address_p (XEXP (op, 0));
   return FALSE;
@@ -686,7 +689,8 @@ xtensa_expand_conditional_branch (rtx *operands, enum rtx_code test_code)
 
     case CMP_SF:
       if (!TARGET_HARD_FLOAT)
-	fatal_insn ("bad test", gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1));
+	fatal_insn ("bad test", gen_rtx_fmt_ee (test_code, VOIDmode,
+						cmp0, cmp1));
       invert = FALSE;
       cmp = gen_float_relational (test_code, cmp0, cmp1);
       break;
@@ -1370,6 +1374,92 @@ xtensa_emit_call (int callop, rtx *operands)
 }
 
 
+bool
+xtensa_legitimate_address_p (enum machine_mode mode, rtx addr, bool strict)
+{
+  /* Allow constant pool addresses.  */
+  if (mode != BLKmode && GET_MODE_SIZE (mode) >= UNITS_PER_WORD
+      && ! TARGET_CONST16 && constantpool_address_p (addr))
+    return true;
+
+  while (GET_CODE (addr) == SUBREG)
+    addr = SUBREG_REG (addr);
+
+  /* Allow base registers.  */
+  if (GET_CODE (addr) == REG && BASE_REG_P (addr, strict))
+    return true;
+
+  /* Check for "register + offset" addressing.  */
+  if (GET_CODE (addr) == PLUS)
+    {
+      rtx xplus0 = XEXP (addr, 0);
+      rtx xplus1 = XEXP (addr, 1);
+      enum rtx_code code0;
+      enum rtx_code code1;
+
+      while (GET_CODE (xplus0) == SUBREG)
+	xplus0 = SUBREG_REG (xplus0);
+      code0 = GET_CODE (xplus0);
+
+      while (GET_CODE (xplus1) == SUBREG)
+	xplus1 = SUBREG_REG (xplus1);
+      code1 = GET_CODE (xplus1);
+
+      /* Swap operands if necessary so the register is first.  */
+      if (code0 != REG && code1 == REG)
+	{
+	  xplus0 = XEXP (addr, 1);
+	  xplus1 = XEXP (addr, 0);
+	  code0 = GET_CODE (xplus0);
+	  code1 = GET_CODE (xplus1);
+	}
+
+      if (code0 == REG && BASE_REG_P (xplus0, strict)
+	  && code1 == CONST_INT
+	  && xtensa_mem_offset (INTVAL (xplus1), mode))
+	return true;
+    }
+
+  return false;
+}
+
+
+rtx
+xtensa_legitimize_address (rtx x,
+			   rtx oldx ATTRIBUTE_UNUSED,
+			   enum machine_mode mode)
+{
+  if (GET_CODE (x) == PLUS)
+    {
+      rtx plus0 = XEXP (x, 0);
+      rtx plus1 = XEXP (x, 1);
+
+      if (GET_CODE (plus0) != REG && GET_CODE (plus1) == REG)
+	{
+	  plus0 = XEXP (x, 1);
+	  plus1 = XEXP (x, 0);
+	}
+
+      /* Try to split up the offset to use an ADDMI instruction.  */
+      if (GET_CODE (plus0) == REG
+	  && GET_CODE (plus1) == CONST_INT
+	  && !xtensa_mem_offset (INTVAL (plus1), mode)
+	  && !xtensa_simm8 (INTVAL (plus1))
+	  && xtensa_mem_offset (INTVAL (plus1) & 0xff, mode)
+	  && xtensa_simm8x256 (INTVAL (plus1) & ~0xff))
+	{
+	  rtx temp = gen_reg_rtx (Pmode);
+	  rtx addmi_offset = GEN_INT (INTVAL (plus1) & ~0xff);
+	  emit_insn (gen_rtx_SET (Pmode, temp,
+				  gen_rtx_PLUS (Pmode, plus0, addmi_offset)));
+	  return gen_rtx_PLUS (Pmode, temp, GEN_INT (INTVAL (plus1) & 0xff));
+	}
+    }
+
+  return NULL_RTX;
+}
+
+
 /* Return the debugger register number to use for 'regno'.  */
 
 int
@@ -1820,12 +1910,36 @@ print_operand_address (FILE *file, rtx addr)
 }
 
 
+bool
+xtensa_output_addr_const_extra (FILE *fp, rtx x)
+{
+  if (GET_CODE (x) == UNSPEC && XVECLEN (x, 0) == 1)
+    {
+      switch (XINT (x, 1))
+	{
+	case UNSPEC_PLT:
+	  if (flag_pic)
+	    {
+	      output_addr_const (fp, XVECEXP (x, 0, 0));
+	      fputs ("@PLT", fp);
+	      return true;
+	    }
+	  break;
+	default:
+	  break;
+	}
+    }
+  return false;
+}
+
+
 void
 xtensa_output_literal (FILE *file, rtx x, enum machine_mode mode, int labelno)
 {
   long value_long[2];
   REAL_VALUE_TYPE r;
   int size;
+  rtx first, second;
 
   fprintf (file, "\t.literal .LC%u, ", (unsigned) labelno);
 
@@ -1839,11 +1953,18 @@ xtensa_output_literal (FILE *file, rtx x, enum machine_mode mode, int labelno)
 	{
 	case SFmode:
 	  REAL_VALUE_TO_TARGET_SINGLE (r, value_long[0]);
+	  if (HOST_BITS_PER_LONG > 32)
+	    value_long[0] &= 0xffffffff;
 	  fprintf (file, "0x%08lx\n", value_long[0]);
 	  break;
 
 	case DFmode:
 	  REAL_VALUE_TO_TARGET_DOUBLE (r, value_long);
+	  if (HOST_BITS_PER_LONG > 32)
+	    {
+	      value_long[0] &= 0xffffffff;
+	      value_long[1] &= 0xffffffff;
+	    }
 	  fprintf (file, "0x%08lx, 0x%08lx\n",
 		   value_long[0], value_long[1]);
 	  break;
@@ -1865,9 +1986,10 @@ xtensa_output_literal (FILE *file, rtx x, enum machine_mode mode, int labelno)
 	  break;
 
 	case 8:
-	  output_addr_const (file, operand_subword (x, 0, 0, DImode));
+	  split_double (x, &first, &second);
+	  output_addr_const (file, first);
 	  fputs (", ", file);
-	  output_addr_const (file, operand_subword (x, 1, 0, DImode));
+	  output_addr_const (file, second);
 	  fputs ("\n", file);
 	  break;
 
@@ -2360,7 +2482,7 @@ xtensa_expand_builtin (tree exp, rtx target,
 		       enum machine_mode mode ATTRIBUTE_UNUSED,
 		       int ignore)
 {
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
 
   /* The umulsidi3 builtin is just a mechanism to avoid calling the real

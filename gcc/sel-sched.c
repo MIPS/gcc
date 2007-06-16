@@ -4326,7 +4326,7 @@ split_edges_incoming_to_rgn (void)
       /* Skip header, preheaders, and single pred blocks.  */
       if (bb == current_loop_nest->header)
         continue;
-      if (bb->loop_depth < current_loop_nest->depth)
+      if ((unsigned) bb->loop_depth < loop_depth (current_loop_nest))
         continue;
       if (EDGE_COUNT (bb->preds) < 2)
         continue;
@@ -4409,7 +4409,7 @@ sel_region_init (int rgn)
   compute_priorities ();
 
   if (sched_verbose >= 5)
-    debug_dependencies ();
+    debug_rgn_dependencies (0);
 
   init_deps_global ();
 

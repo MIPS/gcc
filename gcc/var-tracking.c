@@ -1529,7 +1529,8 @@ track_expr_p (tree expr)
   if (MEM_P (decl_rtl))
     {
       /* Do not track structures and arrays.  */
-      if (GET_MODE (decl_rtl) == BLKmode)
+      if (GET_MODE (decl_rtl) == BLKmode
+	  || AGGREGATE_TYPE_P (TREE_TYPE (realdecl)))
 	return 0;
       if (MEM_SIZE (decl_rtl)
 	  && INTVAL (MEM_SIZE (decl_rtl)) > MAX_VAR_PARTS)
@@ -2388,8 +2389,7 @@ emit_note_insn_var_location (void **varp, void *data)
 	  if (REG_P (loc[n_var_parts])
 	      && hard_regno_nregs[REGNO (loc[n_var_parts])][mode] * 2
 		 == hard_regno_nregs[REGNO (loc[n_var_parts])][wider_mode]
-	      && REGNO (loc[n_var_parts])
-		 + hard_regno_nregs[REGNO (loc[n_var_parts])][mode]
+	      && end_hard_regno (mode, REGNO (loc[n_var_parts]))
 		 == REGNO (loc2))
 	    {
 	      if (! WORDS_BIG_ENDIAN && ! BYTES_BIG_ENDIAN)

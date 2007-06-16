@@ -88,78 +88,17 @@ schedule_more_p (void)
   return sched_rgn_n_insns < rgn_n_insns;
 }
 
-/* Debug dependencies between HEAD and TAIL.  
-   FIXME: this should be a common function with debug_dependencies.  */
-
+/* Print dependency information about ebb between HEAD and TAIL.  */
 static void
 debug_ebb_dependencies (rtx head, rtx tail)
 {
-  rtx next_tail;
-  rtx insn;
+  fprintf (sched_dump,
+	   ";;   --------------- forward dependences: ------------ \n");
 
-  fprintf (sched_dump, ";;   --------------- forward dependences: ------------ \n");
+  fprintf (sched_dump, "\n;;   --- EBB Dependences --- from bb%d to bb%d \n",
+	   BLOCK_NUM (head), BLOCK_NUM (tail));
 
-  next_tail = NEXT_INSN (tail);
-
-  fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
-           "insn", "code", "bb", "dep", "prio", "cost",
-           "reservation");
-  fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
-           "----", "----", "--", "---", "----", "----",
-           "-----------");
-
-  for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
-    {
-      rtx link;
-
-      if (! INSN_P (insn))
-        {
-          int n;
-          fprintf (sched_dump, ";;   %6d ", INSN_UID (insn));
-          if (NOTE_P (insn))
-            {
-              n = NOTE_LINE_NUMBER (insn);
-              if (n < 0)
-                fprintf (sched_dump, "%s\n", GET_NOTE_INSN_NAME (n));
-              else
-                {
-                  expanded_location xloc;
-                  NOTE_EXPANDED_LOCATION (xloc, insn);
-                  fprintf (sched_dump, "line %d, file %s\n",
-                           xloc.line, xloc.file);
-                }
-            }
-          else
-            fprintf (sched_dump, " {%s}\n", GET_RTX_NAME (GET_CODE (insn)));
-          continue;
-        }
-
-      fprintf (sched_dump,
-               ";;   %s%5d%6d%6d%6d%6d%6d   ",
-               (SCHED_GROUP_P (insn) ? "+" : " "),
-               INSN_UID (insn),
-               INSN_CODE (insn),
-               BLOCK_NUM (insn),
-#if 0
-               INSN_BB (insn),
-#endif
-               sched_emulate_haifa_p ? -1 : INSN_DEP_COUNT (insn),
-               SEL_SCHED_P ? (sched_emulate_haifa_p ? -1 : INSN_PRIORITY (insn))
-               : INSN_PRIORITY (insn),
-               SEL_SCHED_P ? (sched_emulate_haifa_p ? -1 : insn_cost (insn, 0, 0))
-               : insn_cost (insn, 0, 0));
-
-      if (recog_memoized (insn) < 0)
-        fprintf (sched_dump, "nothing");
-      else
-        print_reservation (sched_dump, insn);
-
-      fprintf (sched_dump, "\t: ");
-      for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
-        fprintf (sched_dump, "%d ", INSN_UID (XEXP (link, 0)));
-      fprintf (sched_dump, "\n");
-    }
-  fprintf (sched_dump, "\n");
+  debug_dependencies (head, tail);
 }
 
 /* Add all insns that are initially ready to the ready list READY.  Called
@@ -175,11 +114,9 @@ init_ready_list (void)
 
   sched_rgn_n_insns = 0;
 
-#if 1
   /* Print debugging information.  */
   if (sched_verbose >= 5)
     debug_ebb_dependencies (NEXT_INSN (prev_head), PREV_INSN (next_tail));
-#endif
 
   /* Initialize ready list with all 'ready' insns in target block.
      Count number of insns in the target block being scheduled.  */
@@ -383,28 +320,24 @@ static struct haifa_sched_info ebb_sched_info =
 static basic_block
 earliest_block_with_similiar_load (basic_block last_block, rtx load_insn)
 {
-  rtx back_link;
+  dep_link_t back_link;
   basic_block bb, earliest_block = NULL;
 
-  for (back_link = LOG_LINKS (load_insn);
-       back_link;
-       back_link = XEXP (back_link, 1))
+  FOR_EACH_DEP_LINK (back_link, INSN_BACK_DEPS (load_insn))
     {
-      rtx insn1 = XEXP (back_link, 0);
+      rtx insn1 = DEP_LINK_PRO (back_link);
 
-      if (GET_MODE (back_link) == VOIDmode)
+      if (DEP_LINK_KIND (back_link) == REG_DEP_TRUE)
 	{
 	  /* Found a DEF-USE dependence (insn1, load_insn).  */
-	  rtx fore_link;
+	  dep_link_t fore_link;
 
-	  for (fore_link = INSN_DEPEND (insn1);
-	       fore_link;
-	       fore_link = XEXP (fore_link, 1))
+	  FOR_EACH_DEP_LINK (fore_link, INSN_FORW_DEPS (insn1))
 	    {
-	      rtx insn2 = XEXP (fore_link, 0);
+	      rtx insn2 = DEP_LINK_CON (fore_link);
 	      basic_block insn2_block = BLOCK_FOR_INSN (insn2);
 
-	      if (GET_MODE (fore_link) == VOIDmode)
+	      if (DEP_LINK_KIND (fore_link) == REG_DEP_TRUE)
 		{
 		  if (earliest_block != NULL
 		      && earliest_block->index < insn2_block->index)
@@ -487,7 +420,7 @@ add_deps_for_risky_insns (rtx head, rtx tail)
 						  REG_DEP_ANTI, DEP_ANTI);
 
 		    if (res == DEP_CREATED)
-		      add_forw_dep (insn, LOG_LINKS (insn));
+		      add_forw_dep (DEPS_LIST_FIRST (INSN_BACK_DEPS (insn)));
 		    else
 		      gcc_assert (res != DEP_CHANGED);
 		  }
@@ -534,12 +467,12 @@ schedule_ebb (rtx head, rtx tail)
     {
       init_deps_global ();
 
-      /* Compute LOG_LINKS.  */
+      /* Compute backward dependencies.  */
       init_deps (&tmp_deps);
       sched_analyze (&tmp_deps, head, tail);
       free_deps (&tmp_deps);
 
-      /* Compute INSN_DEPEND.  */
+      /* Compute forward dependencies.  */
       compute_forward_dependences (head, tail);
 
       add_deps_for_risky_insns (head, tail);

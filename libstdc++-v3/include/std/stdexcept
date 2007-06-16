@@ -1,6 +1,6 @@
 // Standard exception classes  -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2005, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -13,10 +13,10 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// You should have received a copy of the GNU General Public License
+// along with this library; see the file COPYING.  If not, write to
+// the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+// Boston, MA 02110-1301, USA.
 
 // As a special exception, you may use this file as part of a free software
 // library without restriction.  Specifically, if other files instantiate
@@ -57,7 +57,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   public:
     /** Takes a character string describing the error.  */
     explicit 
-    logic_error(const string&  __arg);
+    logic_error(const string& __arg);
 
     virtual 
     ~logic_error() throw();
@@ -73,14 +73,14 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   class domain_error : public logic_error 
   {
   public:
-    explicit domain_error(const string&  __arg);
+    explicit domain_error(const string& __arg);
   };
 
   /** Thrown to report invalid arguments to functions.  */
   class invalid_argument : public logic_error 
   {
   public:
-    explicit invalid_argument(const string&  __arg);
+    explicit invalid_argument(const string& __arg);
   };
 
   /** Thrown when an object is constructed that would exceed its maximum
@@ -88,7 +88,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   class length_error : public logic_error 
   {
   public:
-    explicit length_error(const string&  __arg);
+    explicit length_error(const string& __arg);
   };
 
   /** This represents an argument whose value is not within the expected
@@ -96,7 +96,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   class out_of_range : public logic_error 
   {
   public:
-    explicit out_of_range(const string&  __arg);
+    explicit out_of_range(const string& __arg);
   };
 
   /** Runtime errors represent problems outside the scope of a program;
@@ -111,7 +111,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   public:
     /** Takes a character string describing the error.  */
     explicit 
-    runtime_error(const string&  __arg);
+    runtime_error(const string& __arg);
 
     virtual 
     ~runtime_error() throw();
@@ -126,21 +126,21 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   class range_error : public runtime_error 
   {
   public:
-    explicit range_error(const string&  __arg);
+    explicit range_error(const string& __arg);
   };
 
   /** Thrown to indicate arithmetic overflow.  */
   class overflow_error : public runtime_error 
   {
   public:
-    explicit overflow_error(const string&  __arg);
+    explicit overflow_error(const string& __arg);
   };
 
   /** Thrown to indicate arithmetic underflow.  */
   class underflow_error : public runtime_error 
   {
   public:
-    explicit underflow_error(const string&  __arg);
+    explicit underflow_error(const string& __arg);
   };
 
 _GLIBCXX_END_NAMESPACE

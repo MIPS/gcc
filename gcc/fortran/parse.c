@@ -42,6 +42,7 @@ static void check_statement_label (gfc_statement);
 static void undo_new_statement (void);
 static void reject_statement (void);
 
+
 /* A sort of half-matching function.  We try to match the word on the
    input with the passed string.  If this succeeds, we call the
    keyword-dependent matching function that will match the rest of the
@@ -117,8 +118,8 @@ decode_statement (void)
 	return ST_FUNCTION;
       else if (m == MATCH_ERROR)
 	reject_statement ();
-
-      gfc_undo_symbols ();
+      else 
+	gfc_undo_symbols ();
       gfc_current_locus = old_locus;
     }
 
@@ -485,6 +486,7 @@ next_free (void)
 	    gcc_assert (c == "!$omp"[i]);
 
 	  gcc_assert (c == ' ');
+	  gfc_gobble_whitespace ();
 	  return decode_omp_directive ();
 	}
     }
@@ -652,7 +654,7 @@ next_statement (void)
 
       if (gfc_at_eol ())
 	{
-	  if (gfc_option.warn_line_truncation
+	  if ((gfc_option.warn_line_truncation || gfc_current_form == FORM_FREE)
 	      && gfc_current_locus.lb
 	      && gfc_current_locus.lb->truncated)
 	    gfc_warning_now ("Line truncated at %C");
@@ -739,7 +741,6 @@ push_state (gfc_state_data *p, gfc_compile_state new_state, gfc_symbol *sym)
 
 
 /* Pop the current state.  */
-
 static void
 pop_state (void)
 {
@@ -1781,6 +1782,20 @@ decl:
   /* Read data declaration statements.  */
   st = parse_spec (ST_NONE);
 
+  /* Since the interface block does not permit an IMPLICIT statement,
+     the default type for the function or the result must be taken
+     from the formal namespace.  */
+  if (new_state == COMP_FUNCTION)
+    {
+	if (prog_unit->result == prog_unit
+	      && prog_unit->ts.type == BT_UNKNOWN)
+	  gfc_set_default_type (prog_unit, 1, prog_unit->formal_ns);
+	else if (prog_unit->result != prog_unit
+		   && prog_unit->result->ts.type == BT_UNKNOWN)
+	  gfc_set_default_type (prog_unit->result, 1,
+				prog_unit->formal_ns);
+    }
+
   if (st != ST_END_SUBROUTINE && st != ST_END_FUNCTION)
     {
       gfc_error ("Unexpected %s statement at %C in INTERFACE body",
@@ -2760,12 +2775,13 @@ gfc_fixup_sibling_symbols (gfc_symbol *sym, gfc_namespace *siblings)
 static void
 parse_contained (int module)
 {
-  gfc_namespace *ns, *parent_ns;
+  gfc_namespace *ns, *parent_ns, *tmp;
   gfc_state_data s1, s2;
   gfc_statement st;
   gfc_symbol *sym;
   gfc_entry_list *el;
   int contains_statements = 0;
+  int seen_error = 0;
 
   push_state (&s1, COMP_CONTAINS, NULL);
   parent_ns = gfc_current_ns;
@@ -2777,6 +2793,9 @@ parse_contained (int module)
       gfc_current_ns->sibling = parent_ns->contained;
       parent_ns->contained = gfc_current_ns;
 
+ next:
+      /* Process the next available statement.  We come here if we got an error
+	 and rejected the last statement.  */
       st = next_statement ();
 
       switch (st)
@@ -2852,6 +2871,8 @@ parse_contained (int module)
 	  gfc_error ("Unexpected %s statement in CONTAINS section at %C",
 		     gfc_ascii_statement (st));
 	  reject_statement ();
+	  seen_error = 1;
+	  goto next;
 	  break;
 	}
     }
@@ -2860,8 +2881,10 @@ parse_contained (int module)
 
   /* The first namespace in the list is guaranteed to not have
      anything (worthwhile) in it.  */
-
+  tmp = gfc_current_ns;
   gfc_current_ns = parent_ns;
+  if (seen_error && tmp->refs > 1)
+    gfc_free_namespace (tmp);
 
   ns = gfc_current_ns->contained;
   gfc_current_ns->contained = ns->sibling;
@@ -2899,6 +2922,9 @@ parse_progunit (gfc_statement st)
     default:
       break;
     }
+
+  if (gfc_current_state () == COMP_FUNCTION)
+    gfc_check_function_type (gfc_current_ns);
 
 loop:
   for (;;)

@@ -1029,7 +1029,7 @@ cselib_invalidate_regno (unsigned int regno, enum machine_mode mode)
       else
 	i = regno - max_value_regs;
 
-      endregno = regno + hard_regno_nregs[regno][mode];
+      endregno = end_hard_regno (mode, regno);
     }
   else
     {
@@ -1050,7 +1050,7 @@ cselib_invalidate_regno (unsigned int regno, enum machine_mode mode)
 	  unsigned int this_last = i;
 
 	  if (i < FIRST_PSEUDO_REGISTER && v != NULL)
-	    this_last += hard_regno_nregs[i][GET_MODE (v->val_rtx)] - 1;
+	    this_last = end_hard_regno (GET_MODE (v->val_rtx), i) - 1;
 
 	  if (this_last < regno || v == NULL)
 	    {
@@ -1453,7 +1453,7 @@ cselib_process_insn (rtx insn)
 
   if (n_useless_values > MAX_USELESS_VALUES
       /* remove_useless_values is linear in the hash table size.  Avoid
-         quadratic behaviour for very large hashtables with very few
+         quadratic behavior for very large hashtables with very few
 	 useless elements.  */
       && (unsigned int)n_useless_values > cselib_hash_table->n_elements / 4)
     remove_useless_values ();

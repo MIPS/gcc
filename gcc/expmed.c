@@ -4176,6 +4176,9 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 		HOST_WIDE_INT d = INTVAL (op1);
 		unsigned HOST_WIDE_INT abs_d;
 
+		/* Since d might be INT_MIN, we have to cast to
+		   unsigned HOST_WIDE_INT before negating to avoid
+		   undefined signed overflow.  */
 		abs_d = (d >= 0
 			 ? (unsigned HOST_WIDE_INT) d
 			 : - (unsigned HOST_WIDE_INT) d);
@@ -5041,7 +5044,7 @@ make_tree (tree type, rtx x)
 			  make_tree (type, XEXP (x, 1)));
 
     case LSHIFTRT:
-      t = lang_hooks.types.unsigned_type (type);
+      t = unsigned_type_for (type);
       return fold_convert (type, build2 (RSHIFT_EXPR, t,
 			    		 make_tree (t, XEXP (x, 0)),
 				    	 make_tree (type, XEXP (x, 1))));
@@ -5062,7 +5065,7 @@ make_tree (tree type, rtx x)
 				    	 make_tree (t, XEXP (x, 0)),
 				    	 make_tree (t, XEXP (x, 1))));
     case UDIV:
-      t = lang_hooks.types.unsigned_type (type);
+      t = unsigned_type_for (type);
       return fold_convert (type, build2 (TRUNC_DIV_EXPR, t,
 				    	 make_tree (t, XEXP (x, 0)),
 				    	 make_tree (t, XEXP (x, 1))));

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,7 +28,6 @@ with Types; use Types;
 package Sem_Ch10 is
    procedure Analyze_Compilation_Unit                   (N : Node_Id);
    procedure Analyze_With_Clause                        (N : Node_Id);
-   procedure Analyze_With_Type_Clause                   (N : Node_Id);
    procedure Analyze_Subprogram_Body_Stub               (N : Node_Id);
    procedure Analyze_Package_Body_Stub                  (N : Node_Id);
    procedure Analyze_Task_Body_Stub                     (N : Node_Id);

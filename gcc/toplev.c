@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -82,6 +82,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "value-prof.h"
 #include "alloc-pool.h"
 #include "tree-mudflap.h"
+#include "tree-pass.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -239,7 +240,7 @@ int in_system_header = 0;
 int flag_detailed_statistics = 0;
 
 /* A random sequence of characters, unless overridden by user.  */
-const char *flag_random_seed;
+static const char *flag_random_seed;
 
 /* A local time stamp derived from the time of compilation. It will be
    zero if the system cannot provide a time.  It will be -1u, if the
@@ -332,11 +333,6 @@ int flag_dump_rtl_in_asm = 0;
    At present, the rtx may be either a REG or a SYMBOL_REF, although
    the support provided depends on the backend.  */
 rtx stack_limit_rtx;
-
-/* If one, renumber instruction UIDs to reduce the number of
-   unused UIDs if there are a lot of instructions.  If greater than
-   one, unconditionally renumber instruction UIDs.  */
-int flag_renumber_insns = 1;
 
 /* Nonzero if we should track variables.  When
    flag_var_tracking == AUTODETECT_VALUE it will be set according
@@ -456,23 +452,20 @@ announce_function (tree decl)
     }
 }
 
-/* Set up a default flag_random_seed and local_tick, unless the user
-   already specified one.  */
+/* Initialize local_tick with the time of day, or -1 if
+   flag_random_seed is set.  */
 
 static void
-randomize (void)
+init_local_tick (void)
 {
   if (!flag_random_seed)
     {
-      unsigned HOST_WIDE_INT value;
-      static char random_seed[HOST_BITS_PER_WIDE_INT / 4 + 3];
-
       /* Get some more or less random data.  */
 #ifdef HAVE_GETTIMEOFDAY
       {
- 	struct timeval tv;
+	struct timeval tv;
 
- 	gettimeofday (&tv, NULL);
+	gettimeofday (&tv, NULL);
 	local_tick = tv.tv_sec * 1000 + tv.tv_usec / 1000;
       }
 #else
@@ -483,15 +476,47 @@ randomize (void)
 	  local_tick = (unsigned) now;
       }
 #endif
-      value = local_tick ^ getpid ();
-
-      sprintf (random_seed, HOST_WIDE_INT_PRINT_HEX, value);
-      flag_random_seed = random_seed;
     }
-  else if (!local_tick)
+  else
     local_tick = -1;
 }
 
+/* Set up a default flag_random_seed and local_tick, unless the user
+   already specified one.  Must be called after init_local_tick.  */
+
+static void
+init_random_seed (void)
+{
+  unsigned HOST_WIDE_INT value;
+  static char random_seed[HOST_BITS_PER_WIDE_INT / 4 + 3];
+
+  value = local_tick ^ getpid ();
+
+  sprintf (random_seed, HOST_WIDE_INT_PRINT_HEX, value);
+  flag_random_seed = random_seed;
+}
+
+/* Obtain the random_seed string.  Unless NOINIT, initialize it if
+   it's not provided in the command line.  */
+
+const char *
+get_random_seed (bool noinit)
+{
+  if (!flag_random_seed && !noinit)
+    init_random_seed ();
+  return flag_random_seed;
+}
+
+/* Modify the random_seed string to VAL.  Return its previous
+   value.  */
+
+const char *
+set_random_seed (const char *val)
+{
+  const char *old = flag_random_seed;
+  flag_random_seed = val;
+  return old;
+}
 
 /* Decode the string P as an integral parameter.
    If the string is indeed an integer return its numeric value else
@@ -1053,11 +1078,14 @@ compile_file (void)
   if (flag_mudflap)
     mudflap_finish_file ();
 
+  /* Likewise for emulated thread-local storage.  */
+  if (!targetm.have_tls)
+    emutls_finish ();
+
   output_shared_constant_pool ();
   output_object_blocks ();
 
   /* Write out any pending weak symbol declarations.  */
-
   weak_finish ();
 
   /* Do dbx symbols.  */
@@ -1152,12 +1180,16 @@ print_version (FILE *file, const char *indent)
 {
   static const char fmt1[] =
 #ifdef __GNUC__
-    N_("%s%s%s version %s (%s)\n%s\tcompiled by GNU C version %s.\n")
+    N_("%s%s%s version %s (%s)\n%s\tcompiled by GNU C version %s, ")
 #else
-    N_("%s%s%s version %s (%s) compiled by CC.\n")
+    N_("%s%s%s version %s (%s) compiled by CC, ")
 #endif
     ;
   static const char fmt2[] =
+    N_("GMP version %s, MPFR version %s.\n");
+  static const char fmt3[] =
+    N_("warning: %s header version %s differs from library version %s.\n");
+  static const char fmt4[] =
     N_("%s%sGGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n");
 #ifndef __VERSION__
 #define __VERSION__ "[?]"
@@ -1167,8 +1199,32 @@ print_version (FILE *file, const char *indent)
 	   indent, *indent != 0 ? " " : "",
 	   lang_hooks.name, version_string, TARGET_NAME,
 	   indent, __VERSION__);
+
+  /* We need to stringify the GMP macro values.  Ugh, gmp_version has
+     two string formats, "i.j.k" and "i.j" when k is zero.  */
+#define GCC_GMP_STRINGIFY_VERSION3(X) #X
+#define GCC_GMP_STRINGIFY_VERSION2(X) GCC_GMP_STRINGIFY_VERSION3(X)
+#if __GNU_MP_VERSION_PATCHLEVEL == 0
+#define GCC_GMP_STRINGIFY_VERSION GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION) "." \
+  GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION_MINOR)
+#else
+#define GCC_GMP_STRINGIFY_VERSION GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION) "." \
+  GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION_MINOR) "." \
+  GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION_PATCHLEVEL)
+#endif
   fprintf (file,
 	   file == stderr ? _(fmt2) : fmt2,
+	   GCC_GMP_STRINGIFY_VERSION, MPFR_VERSION_STRING);
+  if (strcmp (GCC_GMP_STRINGIFY_VERSION, gmp_version))
+    fprintf (file,
+	     file == stderr ? _(fmt3) : fmt3,
+	     "GMP", GCC_GMP_STRINGIFY_VERSION, gmp_version);
+  if (strcmp (MPFR_VERSION_STRING, mpfr_get_version ()))
+    fprintf (file,
+	     file == stderr ? _(fmt3) : fmt3,
+	     "MPFR", MPFR_VERSION_STRING, mpfr_get_version ());
+  fprintf (file,
+	   file == stderr ? _(fmt4) : fmt4,
 	   indent, *indent != 0 ? " " : "",
 	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
 }
@@ -1279,7 +1335,8 @@ print_switch_values (print_switch_fn_type print_fn)
 
   /* Fill in the -frandom-seed option, if the user didn't pass it, so
      that it can be printed below.  This helps reproducibility.  */
-  randomize ();
+  if (!flag_random_seed)
+    init_random_seed ();
 
   /* Print the options as passed.  */
   pos = print_single_switch (print_fn, pos,
@@ -1539,7 +1596,7 @@ default_tree_printer (pretty_printer * pp, text_info *text, const char *spec,
       pp_string (pp, n);
     }
   else
-    dump_generic_node (pp, t, 0, 0, 0);
+    dump_generic_node (pp, t, 0, TDF_DIAGNOSTIC, 0);
 
   return true;
 }
@@ -2121,7 +2178,7 @@ toplev_main (unsigned int argc, const char **argv)
      enough to default flags appropriately.  */
   decode_options (argc, argv);
 
-  randomize ();
+  init_local_tick ();
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)

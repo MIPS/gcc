@@ -1,5 +1,5 @@
 /* SSA Dominator optimizations for trees
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -275,26 +275,19 @@ tree_ssa_dominator_optimize (void)
   init_walk_dominator_tree (&walk_data);
 
   calculate_dominance_info (CDI_DOMINATORS);
+  cfg_altered = false;
 
-  /* We need to know which edges exit loops so that we can
-     aggressively thread through loop headers to an exit
-     edge.  */
-  loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
-  if (current_loops)
-    {
-      mark_loop_exit_edges ();
-      loop_optimizer_finalize ();
-    }
-
-  /* Clean up the CFG so that any forwarder blocks created by loop
-     canonicalization are removed.  */
-  cleanup_tree_cfg ();
-  calculate_dominance_info (CDI_DOMINATORS);
+  /* We need to know loop structures in order to avoid destroying them
+     in jump threading.  Note that we still can e.g. thread through loop
+     headers to an exit edge, or through loop header to the loop body, assuming
+     that we update the loop info.  */
+  loop_optimizer_init (LOOPS_HAVE_SIMPLE_LATCHES);
 
   /* We need accurate information regarding back edges in the CFG
-     for jump threading.  */
+     for jump threading; this may include back edes that are not part of
+     a single loop.  */
   mark_dfs_back_edges ();
-
+      
   /* Recursively walk the dominator tree optimizing statements.  */
   walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
 
@@ -318,18 +311,18 @@ tree_ssa_dominator_optimize (void)
   free_all_edge_infos ();
 
   /* Thread jumps, creating duplicate blocks as needed.  */
-  cfg_altered |= thread_through_all_blocks ();
+  cfg_altered |= thread_through_all_blocks (first_pass_instance);
+
+  if (cfg_altered)
+    free_dominance_info (CDI_DOMINATORS);
 
   /* Removal of statements may make some EH edges dead.  Purge
      such edges from the CFG as needed.  */
   if (!bitmap_empty_p (need_eh_cleanup))
     {
-      cfg_altered |= tree_purge_all_dead_eh_edges (need_eh_cleanup);
+      tree_purge_all_dead_eh_edges (need_eh_cleanup);
       bitmap_zero (need_eh_cleanup);
     }
-
-  if (cfg_altered)
-    free_dominance_info (CDI_DOMINATORS);
 
   /* Finally, remove everything except invariants in SSA_NAME_VALUE.
 
@@ -351,6 +344,8 @@ tree_ssa_dominator_optimize (void)
   /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_STATS))
     dump_dominator_optimization_stats (dump_file);
+
+  loop_optimizer_finalize ();
 
   /* Delete our main hashtable.  */
   htab_delete (avail_exprs);
@@ -389,8 +384,7 @@ struct tree_opt_pass pass_dominator =
   TODO_dump_func
     | TODO_update_ssa
     | TODO_cleanup_cfg
-    | TODO_verify_ssa	
-    | TODO_update_smt_usage,		/* todo_flags_finish */
+    | TODO_verify_ssa,			/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -554,7 +548,7 @@ restore_vars_to_original_value (void)
 /* A trivial wrapper so that we can present the generic jump
    threading code with a simple API for simplifying statements.  */
 static tree
-simplify_stmt_for_jump_threading (tree stmt)
+simplify_stmt_for_jump_threading (tree stmt, tree within_stmt ATTRIBUTE_UNUSED)
 {
   return lookup_avail_expr (stmt, false);
 }
@@ -575,7 +569,7 @@ dom_thread_across_edge (struct dom_walk_data *walk_data, edge e)
       walk_data->global_data = dummy_cond;
     }
 
-  thread_across_edge (walk_data->global_data, e, false,
+  thread_across_edge ((tree) walk_data->global_data, e, false,
 		      &const_and_copies_stack,
 		      simplify_stmt_for_jump_threading);
 }
@@ -1245,26 +1239,26 @@ cprop_into_successor_phis (basic_block bb)
       indx = e->dest_idx;
       for ( ; phi; phi = PHI_CHAIN (phi))
 	{
-	  tree new;
+	  tree new_val;
 	  use_operand_p orig_p;
-	  tree orig;
+	  tree orig_val;
 
 	  /* The alternative may be associated with a constant, so verify
 	     it is an SSA_NAME before doing anything with it.  */
 	  orig_p = PHI_ARG_DEF_PTR (phi, indx);
-	  orig = USE_FROM_PTR (orig_p);
-	  if (TREE_CODE (orig) != SSA_NAME)
+	  orig_val = USE_FROM_PTR (orig_p);
+	  if (TREE_CODE (orig_val) != SSA_NAME)
 	    continue;
 
 	  /* If we have *ORIG_P in our constant/copy table, then replace
 	     ORIG_P with its value in our constant/copy table.  */
-	  new = SSA_NAME_VALUE (orig);
-	  if (new
-	      && new != orig
-	      && (TREE_CODE (new) == SSA_NAME
-		  || is_gimple_min_invariant (new))
-	      && may_propagate_copy (orig, new))
-	    propagate_value (orig_p, new);
+	  new_val = SSA_NAME_VALUE (orig_val);
+	  if (new_val
+	      && new_val != orig_val
+	      && (TREE_CODE (new_val) == SSA_NAME
+		  || is_gimple_min_invariant (new_val))
+	      && may_propagate_copy (orig_val, new_val))
+	    propagate_value (orig_p, new_val);
 	}
     }
 }
@@ -1597,7 +1591,7 @@ record_equivalences_from_stmt (tree stmt, int may_optimize_p, stmt_ann_t ann)
       && !is_gimple_reg (lhs))
     {
       tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
-      tree new;
+      tree new_stmt;
 
       /* FIXME: If the LHS of the assignment is a bitfield and the RHS
          is a constant, we need to adjust the constant to fit into the
@@ -1623,13 +1617,13 @@ record_equivalences_from_stmt (tree stmt, int may_optimize_p, stmt_ann_t ann)
       if (rhs)
 	{
 	  /* Build a new statement with the RHS and LHS exchanged.  */
-	  new = build2_gimple (GIMPLE_MODIFY_STMT, rhs, lhs);
+	  new_stmt = build_gimple_modify_stmt (rhs, lhs);
 
-	  create_ssa_artificial_load_stmt (new, stmt);
+	  create_ssa_artificial_load_stmt (new_stmt, stmt);
 
 	  /* Finally enter the statement into the available expression
 	     table.  */
-	  lookup_avail_expr (new, true);
+	  lookup_avail_expr (new_stmt, true);
 	}
     }
 }
@@ -2337,7 +2331,7 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 
 			  te->count += e->count;
 			  remove_edge (e);
-			  cfg_altered = 1;
+			  cfg_altered = true;
 			}
 		      else
 			ei_next (&ei);
@@ -2486,6 +2480,9 @@ eliminate_degenerate_phis (void)
   interesting_names = BITMAP_ALLOC (NULL);
   interesting_names1 = BITMAP_ALLOC (NULL);
 
+  calculate_dominance_info (CDI_DOMINATORS);
+  cfg_altered = false;
+
   /* First phase.  Eliminate degenerate PHIs via a dominator
      walk of the CFG.
 
@@ -2494,7 +2491,6 @@ eliminate_degenerate_phis (void)
      phase in dominator order.  Presumably this is because walking
      in dominator order leaves fewer PHIs for later examination
      by the worklist phase.  */
-  calculate_dominance_info (CDI_DOMINATORS);
   eliminate_degenerate_phis_1 (ENTRY_BLOCK_PTR, interesting_names);
 
   /* Second phase.  Eliminate second order degenerate PHIs as well
@@ -2523,18 +2519,19 @@ eliminate_degenerate_phis (void)
 	}
     }
 
+  if (cfg_altered)
+    free_dominance_info (CDI_DOMINATORS);
+
   /* Propagation of const and copies may make some EH edges dead.  Purge
      such edges from the CFG as needed.  */
   if (!bitmap_empty_p (need_eh_cleanup))
     {
-      cfg_altered |= tree_purge_all_dead_eh_edges (need_eh_cleanup);
+      tree_purge_all_dead_eh_edges (need_eh_cleanup);
       BITMAP_FREE (need_eh_cleanup);
     }
 
   BITMAP_FREE (interesting_names);
   BITMAP_FREE (interesting_names1);
-  if (cfg_altered)
-    free_dominance_info (CDI_DOMINATORS);
   return 0;
 }
 
@@ -2551,9 +2548,11 @@ struct tree_opt_pass pass_phi_only_cprop =
   0,                                    /* properties_provided */
   0,		                        /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_cleanup_cfg | TODO_dump_func 
-    | TODO_ggc_collect | TODO_verify_ssa
-    | TODO_verify_stmts | TODO_update_smt_usage
-    | TODO_update_ssa, /* todo_flags_finish */
+  TODO_cleanup_cfg
+    | TODO_dump_func 
+    | TODO_ggc_collect
+    | TODO_verify_ssa
+    | TODO_verify_stmts
+    | TODO_update_ssa,			/* todo_flags_finish */
   0                                     /* letter */
 };

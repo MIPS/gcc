@@ -1038,7 +1038,7 @@ inner_loop_header_p (basic_block bb)
       && flow_bb_inside_loop_p (current_loop_nest, bb))
     {
       /* Could be '=' here because of wrong loop depths.  */
-      gcc_assert (inner_loop->depth >= current_loop_nest->depth);
+      gcc_assert (loop_depth (inner_loop) >= loop_depth (current_loop_nest));
       return true;
     }
 
@@ -1056,7 +1056,7 @@ get_loop_exit_edges_unique_dests (const struct loop *loop)
   gcc_assert (loop->latch != EXIT_BLOCK_PTR
               && current_loops->state & LOOPS_HAVE_RECORDED_EXITS);
 
-  for (exit = loop->exits.next; exit->e; exit = exit->next)
+  for (exit = loop->exits->next; exit->e; exit = exit->next)
     {
       int i;
       edge e;
@@ -1104,7 +1104,7 @@ get_all_loop_exits (basic_block bb)
 
 	for (this_loop = bb->loop_father;
 	     this_loop && this_loop != current_loop_nest;
-	     this_loop = this_loop->outer)
+	     this_loop = loop_outer (this_loop))
 	  pred_loop = this_loop;
 
 	this_loop = pred_loop;

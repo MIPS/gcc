@@ -1836,12 +1836,12 @@ update_live (rtx insn, int src)
 static void
 set_spec_fed (rtx load_insn)
 {
-  rtx link;
+  dep_link_t link;
 
-  for (link = INSN_DEPEND (load_insn); link; link = XEXP (link, 1))
-    if (GET_MODE (link) == VOIDmode)
-      FED_BY_SPEC_LOAD (XEXP (link, 0)) = 1;
-}				/* set_spec_fed */
+  FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (load_insn))
+    if (DEP_LINK_KIND (link) == REG_DEP_TRUE)
+      FED_BY_SPEC_LOAD (DEP_LINK_CON (link)) = 1;
+}
 
 /* On the path from the insn to load_insn_bb, find a conditional
 branch depending on insn, that guards the speculative load.  */
@@ -1849,17 +1849,18 @@ branch depending on insn, that guards the speculative load.  */
 static int
 find_conditional_protection (rtx insn, int load_insn_bb)
 {
-  rtx link;
+  dep_link_t link;
 
   /* Iterate through DEF-USE forward dependences.  */
-  for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
+  FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (insn))
     {
-      rtx next = XEXP (link, 0);
+      rtx next = DEP_LINK_CON (link);
+
       if ((CONTAINING_RGN (BLOCK_NUM (next)) ==
 	   CONTAINING_RGN (BB_TO_BLOCK (load_insn_bb)))
 	  && IS_REACHABLE (INSN_BB (next), load_insn_bb)
 	  && load_insn_bb != INSN_BB (next)
-	  && GET_MODE (link) == VOIDmode
+	  && DEP_LINK_KIND (link) == REG_DEP_TRUE
 	  && (JUMP_P (next)
 	      || find_conditional_protection (next, load_insn_bb)))
 	return 1;
@@ -1878,20 +1879,20 @@ find_conditional_protection (rtx insn, int load_insn_bb)
    and if insn1 is on the path
    region-entry -> ... -> bb_trg -> ... load_insn.
 
-   Locate insn1 by climbing on LOG_LINKS from load_insn.
-   Locate the branch by following INSN_DEPEND from insn1.  */
+   Locate insn1 by climbing on INSN_BACK_DEPS from load_insn.
+   Locate the branch by following INSN_FORW_DEPS from insn1.  */
 
 static int
 is_conditionally_protected (rtx load_insn, int bb_src, int bb_trg)
 {
-  rtx link;
+  dep_link_t link;
 
-  for (link = LOG_LINKS (load_insn); link; link = XEXP (link, 1))
+  FOR_EACH_DEP_LINK (link, INSN_BACK_DEPS (load_insn))
     {
-      rtx insn1 = XEXP (link, 0);
+      rtx insn1 = DEP_LINK_PRO (link);
 
       /* Must be a DEF-USE dependence upon non-branch.  */
-      if (GET_MODE (link) != VOIDmode
+      if (DEP_LINK_KIND (link) != REG_DEP_TRUE
 	  || JUMP_P (insn1))
 	continue;
 
@@ -1934,28 +1935,27 @@ is_conditionally_protected (rtx load_insn, int bb_src, int bb_trg)
 static int
 is_pfree (rtx load_insn, int bb_src, int bb_trg)
 {
-  rtx back_link;
+  dep_link_t back_link;
   candidate *candp = candidate_table + bb_src;
 
   if (candp->split_bbs.nr_members != 1)
     /* Must have exactly one escape block.  */
     return 0;
 
-  for (back_link = LOG_LINKS (load_insn);
-       back_link; back_link = XEXP (back_link, 1))
+  FOR_EACH_DEP_LINK (back_link, INSN_BACK_DEPS (load_insn))
     {
-      rtx insn1 = XEXP (back_link, 0);
+      rtx insn1 = DEP_LINK_PRO (back_link);
 
-      if (GET_MODE (back_link) == VOIDmode)
+      if (DEP_LINK_KIND (back_link) == REG_DEP_TRUE)
 	{
 	  /* Found a DEF-USE dependence (insn1, load_insn).  */
-	  rtx fore_link;
+	  dep_link_t fore_link;
 
-	  for (fore_link = INSN_DEPEND (insn1);
-	       fore_link; fore_link = XEXP (fore_link, 1))
+	  FOR_EACH_DEP_LINK (fore_link, INSN_FORW_DEPS (insn1))
 	    {
-	      rtx insn2 = XEXP (fore_link, 0);
-	      if (GET_MODE (fore_link) == VOIDmode)
+	      rtx insn2 = DEP_LINK_CON (fore_link);
+
+	      if (DEP_LINK_KIND (fore_link) == REG_DEP_TRUE)
 		{
 		  /* Found a DEF-USE dependence (insn1, insn2).  */
 		  if (haifa_classify_insn (insn2) != PFREE_CANDIDATE)
@@ -1988,7 +1988,7 @@ is_prisky (rtx load_insn, int bb_src, int bb_trg)
   if (FED_BY_SPEC_LOAD (load_insn))
     return 1;
 
-  if (LOG_LINKS (load_insn) == NULL)
+  if (deps_list_empty_p (INSN_BACK_DEPS (load_insn)))
     /* Dependence may 'hide' out of the region.  */
     return 1;
 
@@ -2094,7 +2094,7 @@ init_ready_list (void)
 
   /* Print debugging information.  */
   if (sched_verbose >= 5)
-    debug_dependencies ();
+    debug_rgn_dependencies (target_bb);
 
   /* Prepare current target block info.  */
   if (current_nr_blocks > 1)
@@ -2407,7 +2407,9 @@ add_branch_dependences (rtx head, rtx tail)
     {
       if (!NOTE_P (insn))
 	{
-	  if (last != 0 && !find_insn_list (insn, LOG_LINKS (last)))
+	  if (last != 0
+	      && (find_link_by_pro_in_deps_list (INSN_BACK_DEPS (last), insn)
+		  == NULL))
 	    {
 	      if (! sched_insns_conditions_mutex_p (last, insn))
 		maybe_add_or_update_back_dep (last, insn, REG_DEP_ANTI);
@@ -2567,7 +2569,8 @@ deps_join (struct deps *succ_deps, struct deps *pred_deps)
     = concat_INSN_LIST (pred_deps->last_pending_memory_flush,
                         succ_deps->last_pending_memory_flush);
 
-  succ_deps->pending_lists_length += pred_deps->pending_lists_length;
+  succ_deps->pending_read_list_length += pred_deps->pending_read_list_length;
+  succ_deps->pending_write_list_length += pred_deps->pending_write_list_length;
   succ_deps->pending_flush_length += pred_deps->pending_flush_length;
 
   /* last_function_call is inherited by successor.  */
@@ -2681,78 +2684,87 @@ free_pending_lists (void)
     }
 }
 
-/* Print dependences for debugging, callable from debugger.  */
 
+/* Print dependences for debugging starting from FROM_BB.
+   Callable from debugger.  */
 void
-debug_dependencies (void)
+debug_rgn_dependencies (int from_bb)
 {
   int bb;
 
-  fprintf (sched_dump, ";;   --------------- forward dependences: ------------ \n");
-  for (bb = 0; bb < current_nr_blocks; bb++)
+  fprintf (sched_dump,
+	   ";;   --------------- forward dependences: ------------ \n");
+
+  for (bb = from_bb; bb < current_nr_blocks; bb++)
     {
       rtx head, tail;
-      rtx next_tail;
-      rtx insn;
 
       gcc_assert (EBB_FIRST_BB (bb) == EBB_LAST_BB (bb));
       get_ebb_head_tail (EBB_FIRST_BB (bb), EBB_LAST_BB (bb), &head, &tail);
-      next_tail = NEXT_INSN (tail);
       fprintf (sched_dump, "\n;;   --- Region Dependences --- b %d bb %d \n",
 	       BB_TO_BLOCK (bb), bb);
 
-      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
-	       "insn", "code", "bb", "dep", "prio", "cost",
-	       "reservation");
-      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
-	       "----", "----", "--", "---", "----", "----",
-	       "-----------");
-
-      for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
-	{
-	  rtx link;
-
-	  if (! INSN_P (insn))
-	    {
-	      int n;
-	      fprintf (sched_dump, ";;   %6d ", INSN_UID (insn));
-	      if (NOTE_P (insn))
-		{
-		  n = NOTE_LINE_NUMBER (insn);
-		  if (n < 0)
-		    fprintf (sched_dump, "%s\n", GET_NOTE_INSN_NAME (n));
-		}
-	      else
-		fprintf (sched_dump, " {%s}\n", GET_RTX_NAME (GET_CODE (insn)));
-	      continue;
-	    }
-
-	  fprintf (sched_dump,
-		   ";;   %s%5d%6d%6d%6d%6d%6d   ",
-		   (SCHED_GROUP_P (insn) ? "+" : " "),
-		   INSN_UID (insn),
-		   INSN_CODE (insn),
-#if 0
-		   INSN_BB (insn),
-#endif
-                   BLOCK_NUM (insn),
-		   sched_emulate_haifa_p ? -1 : INSN_DEP_COUNT (insn),
-		   SEL_SCHED_P ? (sched_emulate_haifa_p ? -1 : INSN_PRIORITY (insn))
-                               : INSN_PRIORITY (insn),
-		   SEL_SCHED_P ? (sched_emulate_haifa_p ? -1 : insn_cost (insn, 0, 0))
-                               : insn_cost (insn, 0, 0));
-
-	  if (recog_memoized (insn) < 0)
-	    fprintf (sched_dump, "nothing");
-	  else
-	    print_reservation (sched_dump, insn);
-
-	  fprintf (sched_dump, "\t: ");
-	  for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
-	    fprintf (sched_dump, "%d ", INSN_UID (XEXP (link, 0)));
-	  fprintf (sched_dump, "\n");
-	}
+      debug_dependencies (head, tail);
     }
+}
+
+/* Print dependencies information for instructions between HEAD and TAIL.
+   ??? This function would probably fit best in haifa-sched.c.  */
+void debug_dependencies (rtx head, rtx tail)
+{
+  rtx insn;
+  rtx next_tail = NEXT_INSN (tail);
+
+  fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
+	   "insn", "code", "bb", "dep", "prio", "cost",
+	   "reservation");
+  fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
+	   "----", "----", "--", "---", "----", "----",
+	   "-----------");
+
+  for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
+    {
+      dep_link_t link;
+
+      if (! INSN_P (insn))
+	{
+	  int n;
+	  fprintf (sched_dump, ";;   %6d ", INSN_UID (insn));
+	  if (NOTE_P (insn))
+	    {
+	      n = NOTE_KIND (insn);
+	      fprintf (sched_dump, "%s\n", GET_NOTE_INSN_NAME (n));
+	    }
+	  else
+	    fprintf (sched_dump, " {%s}\n", GET_RTX_NAME (GET_CODE (insn)));
+	  continue;
+	}
+
+      fprintf (sched_dump,
+	       ";;   %s%5d%6d%6d%6d%6d%6d   ",
+	       (SCHED_GROUP_P (insn) ? "+" : " "),
+	       INSN_UID (insn),
+	       INSN_CODE (insn),
+	       BLOCK_NUM (insn),
+	       sched_emulate_haifa_p ? -1 : INSN_DEP_COUNT (insn),
+	       (SEL_SCHED_P ? (sched_emulate_haifa_p ? -1
+			       : INSN_PRIORITY (insn))
+		: INSN_PRIORITY (insn)),
+	       (SEL_SCHED_P ? (sched_emulate_haifa_p ? -1
+			       : insn_cost (insn))
+		: insn_cost (insn)));
+
+      if (recog_memoized (insn) < 0)
+	fprintf (sched_dump, "nothing");
+      else
+	print_reservation (sched_dump, insn);
+
+      fprintf (sched_dump, "\t: ");
+      FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (insn))
+	fprintf (sched_dump, "%d ", INSN_UID (DEP_LINK_CON (link)));
+      fprintf (sched_dump, "\n");
+    }
+
   fprintf (sched_dump, "\n");
 }
 
@@ -2768,42 +2780,6 @@ sched_is_disabled_for_current_region_p (void)
       return false;
 
   return true;
-}
-
-/* Free all region dependencies saved in LOG_LINKS and INSN_DEPENDs.
-   The Haifa scheduler does this on the fly when scheduling, so this 
-   function is supposed to be called from sel-sched only.  */
-void
-free_rgn_deps (void)
-{
-  int bb;
-
-  for (bb = 0; bb < current_nr_blocks; bb++)
-    {
-      rtx head, tail, insn;
-      
-      gcc_assert (EBB_FIRST_BB (bb) == EBB_LAST_BB (bb));
-      get_ebb_head_tail (EBB_FIRST_BB (bb), EBB_LAST_BB (bb), &head, &tail);
-
-      for (insn = head; insn != NEXT_INSN (tail); insn = NEXT_INSN (insn))
-        {
-          /* Some notes may have dependencies here, 
-             but not NOTE_INSN_BASIC_BLOCK.  */
-          if (NOTE_INSN_BASIC_BLOCK_P (insn))
-            continue;
-
-          if (sched_deps_info->use_deps_list)
-            {
-              free_DEPS_LIST_list (&LOG_LINKS (insn));
-              free_DEPS_LIST_list (&INSN_DEPEND (insn));
-            }
-          else
-            {
-	      free_INSN_LIST_list (&LOG_LINKS (insn));
-	      free_INSN_LIST_list (&INSN_DEPEND (insn));
-            }
-        }
-    }
 }
 
 static int rgn_n_insns;
@@ -3158,15 +3134,13 @@ sched_rgn_local_preinit (int rgn)
       /* Initialize array used in add_branch_dependencies ().  */
       ref_counts = xcalloc (get_max_uid () + 1, sizeof (*ref_counts));
       
-      /* Compute LOG_LINKS.  */
+      /* Compute backward dependencies.  */
       for (bb = 0; bb < current_nr_blocks; bb++)
-        {
-          compute_block_backward_dependences (bb);
-        }
+	compute_block_backward_dependences (bb);
       
       free (ref_counts);
 
-      /* Compute INSN_DEPEND.  */
+      /* Compute forward dependencies.  */
       for (bb = current_nr_blocks - 1; bb >= 0; bb--)
         {
           rtx head, tail;

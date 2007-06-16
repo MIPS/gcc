@@ -58,6 +58,18 @@ numeric_check (gfc_expr *e, int n)
   if (gfc_numeric_ts (&e->ts))
     return SUCCESS;
 
+  /* If the expression has not got a type, check if its namespace can
+     offer a default type.  */
+  if ((e->expr_type == EXPR_VARIABLE || e->expr_type == EXPR_VARIABLE)
+	&& e->symtree->n.sym->ts.type == BT_UNKNOWN
+	&& gfc_set_default_type (e->symtree->n.sym, 0,
+				 e->symtree->n.sym->ns) == SUCCESS
+	&& gfc_numeric_ts (&e->symtree->n.sym->ts))
+    {
+      e->ts = e->symtree->n.sym->ts;
+      return SUCCESS;
+    }
+
   gfc_error ("'%s' argument of '%s' intrinsic at %L must be a numeric type",
 	     gfc_current_intrinsic_arg[n], gfc_current_intrinsic, &e->where);
 
@@ -337,7 +349,10 @@ dim_rank_check (gfc_expr *dim, gfc_expr *array, int allow_assumed)
 
   ar = gfc_find_array_ref (array);
   rank = array->rank;
-  if (ar->as->type == AS_ASSUMED_SIZE && !allow_assumed)
+  if (ar->as->type == AS_ASSUMED_SIZE
+      && !allow_assumed
+      && ar->type != AR_ELEMENT
+      && ar->type != AR_SECTION)
     rank--;
 
   if (mpz_cmp_ui (dim->value.integer, 1) < 0
@@ -634,13 +649,7 @@ gfc_check_atan2 (gfc_expr *y, gfc_expr *x)
 try
 gfc_check_besn (gfc_expr *n, gfc_expr *x)
 {
-  if (scalar_check (n, 0) == FAILURE)
-    return FAILURE;
-
   if (type_check (n, 0, BT_INTEGER) == FAILURE)
-    return FAILURE;
-
-  if (scalar_check (x, 1) == FAILURE)
     return FAILURE;
 
   if (type_check (x, 1, BT_REAL) == FAILURE)
@@ -1016,22 +1025,6 @@ gfc_check_fnum (gfc_expr *unit)
     return FAILURE;
 
   if (scalar_check (unit, 0) == FAILURE)
-    return FAILURE;
-
-  return SUCCESS;
-}
-
-
-/* This is used for the g77 one-argument Bessel functions, and the
-   error function.  */
-
-try
-gfc_check_g77_math1 (gfc_expr *x)
-{
-  if (scalar_check (x, 0) == FAILURE)
-    return FAILURE;
-
-  if (type_check (x, 0, BT_REAL) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -1493,17 +1486,17 @@ min_max_args (gfc_actual_arglist *arg)
 
 
 static try
-check_rest (bt type, int kind, gfc_actual_arglist *arg)
+check_rest (bt type, int kind, gfc_actual_arglist *arglist)
 {
-  gfc_expr *x;
-  int n;
+  gfc_actual_arglist *arg, *tmp;
 
-  if (min_max_args (arg) == FAILURE)
+  gfc_expr *x;
+  int m, n;
+
+  if (min_max_args (arglist) == FAILURE)
     return FAILURE;
 
-  n = 1;
-
-  for (; arg; arg = arg->next, n++)
+  for (arg = arglist, n=1; arg; arg = arg->next, n++)
     {
       x = arg->expr;
       if (x->ts.type != type || x->ts.kind != kind)
@@ -1521,6 +1514,15 @@ check_rest (bt type, int kind, gfc_actual_arglist *arg)
 			 gfc_basic_typename (type), kind);
 	      return FAILURE;
 	    }
+	}
+
+      for (tmp = arglist, m=1; tmp != arg; tmp = tmp->next, m++)
+        {
+	  char buffer[80];
+	  snprintf (buffer, 80, "arguments 'a%d' and 'a%d' for intrinsic '%s'",
+		    m, n, gfc_current_intrinsic);
+	  if (gfc_check_conformance (buffer, tmp->expr, x) == FAILURE)
+	    return FAILURE;
 	}
     }
 
@@ -1801,24 +1803,10 @@ gfc_check_product_sum (gfc_actual_arglist *ap)
 try
 gfc_check_merge (gfc_expr *tsource, gfc_expr *fsource, gfc_expr *mask)
 {
-  char buffer[80];
-
   if (same_type_check (tsource, 0, fsource, 1) == FAILURE)
     return FAILURE;
 
   if (type_check (mask, 2, BT_LOGICAL) == FAILURE)
-    return FAILURE;
-
-  snprintf (buffer, 80, "arguments '%s' and '%s' for intrinsic '%s'",
-	    gfc_current_intrinsic_arg[0], gfc_current_intrinsic_arg[1],
-	    gfc_current_intrinsic);
-  if (gfc_check_conformance (buffer, tsource, fsource) == FAILURE)
-    return FAILURE;
-
-  snprintf (buffer, 80, "arguments '%s' and '%s' for intrinsic '%s'",
-	    gfc_current_intrinsic_arg[0], gfc_current_intrinsic_arg[2],
-	    gfc_current_intrinsic);
-  if (gfc_check_conformance (buffer, tsource, mask) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -2346,6 +2334,13 @@ gfc_check_size (gfc_expr *array, gfc_expr *dim)
 
 
 try
+gfc_check_sizeof (gfc_expr *arg __attribute__((unused)))
+{
+  return SUCCESS;
+}
+
+
+try
 gfc_check_sleep_sub (gfc_expr *seconds)
 {
   if (type_check (seconds, 0, BT_INTEGER) == FAILURE)
@@ -2443,6 +2438,44 @@ gfc_check_fgetput (gfc_expr *c)
 {
   return gfc_check_fgetput_sub (c, NULL);
 }
+
+
+try
+gfc_check_fseek_sub (gfc_expr *unit, gfc_expr *offset, gfc_expr *whence, gfc_expr *status)
+{
+  if (type_check (unit, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (unit, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (offset, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (offset, 1) == FAILURE)
+    return FAILURE;
+
+  if (type_check (whence, 2, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (whence, 2) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (type_check (status, 3, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (kind_value_check (status, 3, 4) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (status, 3) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
 
 
 try
@@ -2575,6 +2608,13 @@ try
 gfc_check_transfer (gfc_expr *source ATTRIBUTE_UNUSED,
 		    gfc_expr *mold ATTRIBUTE_UNUSED, gfc_expr *size)
 {
+  if (mold->ts.type == BT_HOLLERITH)
+    {
+      gfc_error ("'MOLD' argument of 'TRANSFER' intrinsic at %L must not be %s",
+		 &mold->where, gfc_basic_typename (BT_HOLLERITH));
+      return FAILURE;
+    }
+
   if (size != NULL)
     {
       if (type_check (size, 2, BT_INTEGER) == FAILURE)
@@ -2994,6 +3034,9 @@ gfc_check_alarm_sub (gfc_expr *seconds, gfc_expr *handler, gfc_expr *status)
     return FAILURE;
 
   if (type_check (status, 2, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (kind_value_check (status, 2, gfc_default_integer_kind) == FAILURE)
     return FAILURE;
 
   return SUCCESS;

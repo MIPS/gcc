@@ -87,7 +87,6 @@
   do								\
     {								\
       ARM_OUTPUT_FN_UNWIND (FILE, FALSE);			\
-      ARM_DECLARE_FUNCTION_SIZE (FILE, FNAME, DECL);		\
       if (!flag_inhibit_size_directive)				\
 	ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);			\
     }								\
@@ -126,6 +125,9 @@
 /* Output an element in the static constructor array.  */
 #undef TARGET_ASM_CONSTRUCTOR
 #define TARGET_ASM_CONSTRUCTOR arm_elf_asm_constructor
+
+#undef TARGET_ASM_DESTRUCTOR
+#define TARGET_ASM_DESTRUCTOR arm_elf_asm_destructor
 
 /* For PIC code we need to explicitly specify (PLT) and (GOT) relocs.  */
 #define NEED_PLT_RELOC	flag_pic

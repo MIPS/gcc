@@ -1532,6 +1532,7 @@ av_set_intersect (av_set_t *avp, av_set_t av)
     if (av_set_lookup (av, RHS_VINSN (rhs)) == NULL)
       av_set_iter_remove (&i);
 }
+
 
 
 /* Dependence hooks to initialize insn data.  */
@@ -1829,7 +1830,9 @@ init_global_and_expr_for_insn (insn_t insn)
 	|| SCHED_GROUP_P (insn)
 	|| prologue_epilogue_contains (insn) 
 	/* Exception handling insns are always unique.  */
-	|| (flag_non_call_exceptions && can_throw_internal (insn)))
+	|| (flag_non_call_exceptions && can_throw_internal (insn))
+	/* TRAP_IF though have an INSN code is control_flow_insn_p ().  */
+	|| control_flow_insn_p (insn))
       force_unique_p = true;
     else
       force_unique_p = false;
@@ -2262,8 +2265,13 @@ tick_check_dep_with_dw (insn_t pro_insn, ds_t ds, dw_t dw)
 
       gcc_assert (INSN_SCHED_CYCLE (pro_insn) > 0);
 
-      tick = (INSN_SCHED_CYCLE (pro_insn)
-	      + dep_cost (pro_insn, dt, dw, con_insn));
+      {
+	dep_def _dep, *dep = &_dep;
+
+	init_dep (dep, pro_insn, con_insn, dt);
+
+	tick = INSN_SCHED_CYCLE (pro_insn) + dep_cost_1 (dep, dw);
+      }
 
       /* When there are several kinds of dependencies between pro and con,
          only REG_DEP_TRUE should be taken into account.  */
@@ -2569,7 +2577,6 @@ sel_extend_insn_rtx_data (void)
 void
 sel_finish_insn_rtx_data (void)
 {
-  sched_deps_local_finish ();
   VEC_free (sel_insn_rtx_data_def, heap, s_i_r_d);
 
   /* Target will finalize its data structures in
@@ -4016,7 +4023,7 @@ change_loops_latches (basic_block from, basic_block to)
     {
       struct loop *loop;
 
-      for (loop = current_loop_nest; loop; loop = loop->outer)
+      for (loop = current_loop_nest; loop; loop = loop_outer (loop))
         if (considered_for_pipelining_p (loop) && loop->latch == from)
           {
             gcc_assert (loop == current_loop_nest);
@@ -4655,7 +4662,7 @@ get_loop_nest_for_rgn (unsigned int rgn)
 bool
 considered_for_pipelining_p (struct loop *loop)
 {
-  if (loop->depth == 0)
+  if (loop_depth (loop) == 0)
     return false;
 
   /* Now, the loop could be too large or irreducible.  Check whether its 
@@ -4859,7 +4866,9 @@ sel_is_loop_preheader_p (basic_block bb)
 
       /* Support the situation when the latch block of outer loop
          could be from here.  */
-      for (outer = current_loop_nest->outer; outer; outer = outer->outer)
+      for (outer = loop_outer (current_loop_nest);
+	   outer;
+	   outer = loop_outer (outer))
         if (considered_for_pipelining_p (outer) && outer->latch == bb)
           gcc_unreachable ();
     }
@@ -4877,7 +4886,7 @@ sel_remove_loop_preheader (void)
   int cur_rgn = CONTAINING_RGN (BB_TO_BLOCK (0));
   basic_block bb;
   VEC(basic_block, heap) *preheader_blocks 
-    = LOOP_PREHEADER_BLOCKS (current_loop_nest->outer);
+    = LOOP_PREHEADER_BLOCKS (loop_outer (current_loop_nest));
 
   gcc_assert (flag_sel_sched_pipelining_outer_loops && current_loop_nest);
   old_len = VEC_length (basic_block, preheader_blocks);
@@ -4903,12 +4912,13 @@ sel_remove_loop_preheader (void)
        sel_add_or_remove_bb (bb, 0);
     }
 
-  if (!considered_for_pipelining_p (current_loop_nest->outer))
+  if (!considered_for_pipelining_p (loop_outer (current_loop_nest)))
     /* Immediately create new region from preheader.  */
     make_region_from_loop_preheader (&preheader_blocks);
   else
     /* Store preheader within the father's loop structure.  */
-    SET_LOOP_PREHEADER_BLOCKS (current_loop_nest->outer, preheader_blocks);
+    SET_LOOP_PREHEADER_BLOCKS (loop_outer (current_loop_nest),
+			       preheader_blocks);
 }
 
 /* Return s_i_d entry of INSN.  Callable from debugger.  */

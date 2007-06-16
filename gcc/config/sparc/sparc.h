@@ -22,6 +22,8 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
+#include "config/vxworks-dummy.h"
+
 /* Note that some other tm.h files include this one and then override
    whatever definitions are necessary.  */
 
@@ -500,7 +502,7 @@ extern enum cmodel sparc_cmodel;
 /* TARGET_HARD_MUL: Use hardware multiply instructions but not %y.
    TARGET_HARD_MUL32: Use hardware multiply instructions with rd %y
    to get high 32 bits.  False in V8+ or V9 because multiply stores
-   a 64 bit result in a register.  */
+   a 64-bit result in a register.  */
 
 #define TARGET_HARD_MUL32				\
   ((TARGET_V8 || TARGET_SPARCLITE			\
@@ -708,7 +710,7 @@ if (TARGET_ARCH64				\
    even those that are not normally considered general registers.
 
    SPARC has 32 integer registers and 32 floating point registers.
-   64 bit SPARC has 32 additional fp regs, but the odd numbered ones are not
+   64-bit SPARC has 32 additional fp regs, but the odd numbered ones are not
    accessible.  We still account for them to simplify register computations
    (e.g.: in CLASS_MAX_NREGS).  There are also 4 fp condition code registers, so
    32+32+32+4 == 100.
@@ -2409,6 +2411,7 @@ extern int sparc_indent_opcode;
 	  else if (GET_CODE (index) == REG)			\
 	    fprintf (FILE, "+%s", reg_names[REGNO (index)]);	\
 	  else if (GET_CODE (index) == SYMBOL_REF		\
+		   || GET_CODE (index) == LABEL_REF		\
 		   || GET_CODE (index) == CONST)		\
 	    fputc ('+', FILE), output_addr_const (FILE, index);	\
 	  else gcc_unreachable ();				\

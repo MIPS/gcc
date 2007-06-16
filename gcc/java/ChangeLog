@@ -1,3 +1,198 @@
+2007-05-18  Geoffrey Keating  <geoffk@apple.com>
+
+	* jcf-dump.c (HANDLE_MAGIC): Use 'unsigned long' for %lx.
+	(print_constant): Likewise.
+
+2007-05-14  Rafael Avila de Espindola  <espindola@google.com>
+
+	* expr.c (build_java_binop): Use unsigned_type_for instead of
+	java_unsigned_type.
+	* java-tree.h (java_unsigned_type): Remove.
+	* lang.c (LANG_HOOKS_UNSIGNED_TYPE): Remove.
+	* typeck.c (java_unsigned_type): Remove.
+
+2007-04-21  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* java-tree.h (lang_tree_node): Use GENERIC_NEXT
+	instead of checking GIMPLE_STMT_P in chain_next.
+
+2007-04-06  Colin Walters  <walters@redhat.com>
+
+	https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=161701
+	* jcf-io.c (open_class): Copy 'filename'.
+
+2007-04-03  Andrew Haley  <aph@redhat.com>
+
+        * jvgenmain.c (main): Change main to use class$, not class$$.
+        (do_mangle_classname): Likewise.
+        * class.c (hide): New function.
+        (add_field): Hide everything that shouldn't be visible outside a
+        DSO.
+        (build_static_class_ref): Likewise.
+        (build_classdollar_field): Likewise.
+        (make_class_data): Likewise.
+        (layout_class_method): Likewise.
+        * expr.c (special_method_p): New function.
+
+	* class.c (push_class): Don't bogusly guess the source filename.
+	* jcf-parse.c (give_name_to_class): Don't set input_location from
+	DECL_ARTIFICIAL decls.
+
+2007-03-30  Rafael Avila de Espindola  <espindola@google.com>
+
+	* typeck.c (java_signed_or_unsigned_type): Removed.
+	(java_signed_type): use get_signed_or_unsigned_type instead of
+	java_signed_or_unsigned_type.
+	(java_unsigned_type): Ditto.
+	* lang.c (LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE): Removed.
+	* java-tree.h (java_signed_or_unsigned_type): Removed.
+
+2007-03-26  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (JAVA_MANFILES): Removed grmiregistry.1.
+	(java.maintainer-clean): Likewise.
+	(java.install-man): Likewise.
+	(.INTERMEDIATE): Removed grmiregistry.pod.
+	(grmiregistry.pod): Removed.
+	* gcj.texi (Invoking gcjh): Removed.
+	(Invoking gjnih): Likewise.
+	(Invoking grmiregistry): Likewise.
+	(direntry): Updated.
+	(Top): Likewise.
+	(which-gcj): Removed.
+
+2007-03-01  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Make-lang.in: Add install-pdf target as copied from
+	automake v1.10 rules.
+
+2007-02-27  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gcj.texi: Standardize title page.
+
+2007-02-18  Kazu Hirata  <kazu@codesourcery.com>
+
+	* class.c: Fix a comment typo.
+
+2007-02-15  Sandra Loosemore  <sandra@codesourcery.com>
+	    Brooks Moses  <brooks.moses@codesourcery.com>
+	    Lee Millward  <lee.millward@codesourcery.com>
+
+	* java-tree.h (BUILD_MONITOR_ENTER): Use build_call_nary instead
+	of build3.
+	(BUILD_MONITOR_EXIT): Likewise.
+
+	* java-gimplify.c (java_gimplify_component_ref): Use build_call_expr.
+	(java_gimplify_modify_expr): Likewise.
+
+	* class.c (cache_this_class_ref): Use build_call_expr.
+	(build_static_field_ref): Likewise.
+	(emit_indirect_register_classes): Likewise.
+	(emit_register_classes): Likewise.
+
+	* resource.c (write_resource_constructor): Use build_call_expr.
+
+	* builtins.c (builtin_creator_function): Change interpretation of
+	the second parameter to be the whole CALL_EXPR instead of the arglist.
+	(max_builtin): Tweak parameter list.  Use new CALL_EXPR accessors.
+	(min_builtin): Likewise.
+	(abs_builtin): Likewise.
+	(java_build_function_call_expr): Likewise.
+	(convert_real): Likewise.
+	(UNMARSHAL3): Likewise.
+	(UNMARSHAL4): Likewise.
+	(UNMARSHAL5): Likewise.
+	(build_arglist_for_builtin): Delete.  Fix callers to use
+	build_call_expr instead.
+	(putObject_builtin): Tweak parameter list.  Use new CALL_EXPR
+	accessors.
+	(compareAndSwapInt_builtin): Likewise.
+	(compareAndSwapLong_builtin): Likewise.
+	(compareAndSwapObject_builtin): Likewise.
+	(putVolatile_builtin): Likewise.
+	(getVolatile_builtin): Likewise.
+	(VMSupportsCS8_builtin): Likewise.
+	(check_for_builtin): Pass entire CALL_EXPR to builtin expander
+	instead of arglist.
+
+	* expr.c (build_java_athrow): Use build_call_nary instead of build3.
+	(build_java_throw_out_of_bounds_exception): Likewise.
+	(java_check_reference): Likewise.
+	(build_java_arraystore_check): Likewise.
+	(build_newarray): Likewise.
+	(build_anewarray): Likewise.
+	(expand_java_multinewarray): Use build_call_list instead of build3.
+	(build_java_monitor): Use build_call_nary instead of build3.
+	(java_create_object): Likewise.
+	(expand_java_NEW): Likewise.
+	(build_instanceof): Likewise.
+	(expand_java_CHECKCAST): Likewise.
+	(build_java_soft_divmod): Likewise.
+	(build_java_binop): Likewise.
+	(build_field_ref): Likewise.
+	(build_class_init): Likewise.
+	(rewrite_arglist_getcaller): Use build_call_expr.
+	(build_invokeinterface):  Use build_call_nary instead of build3.
+	(expand_invoke): Use build_call_list instead of build3.
+	(build_jni_stub): Use build_call_nary, build_call_list, or
+	build_call_expr instead	of build3.
+	(expand_java_field_op): Use build_call_expr instead of build3.
+	(force_evaluation_order): Use new CALL_EXPR accessors.
+
+	* lang.c (java_get_callee_fndecl): Use new CALL_EXPR accessors.
+
+2007-02-15  David Daney  <ddaney@avtrex.com>
+
+	* Make-lang.in (JAVA_MANFILES): Add doc/gc-analyze.1.
+	(java.maintainer-clean):Add gc-analyze.1.
+	(.INTERMEDIATE): Add gc-analyze.pod.
+	(gc-analyze.pod): New rule.
+	(java.install-man): Install gc-analyze.1
+	* gcj.texi: Add new section for the gc-analyze program.
+
+2007-02-07  Andrew Haley  <aph@redhat.com>
+
+	* class.c (uncache_this_class_ref): New.
+	* expr.c (build_jni_stub): Initialize the class.
+	(expand_byte_code): Call uncache_this_class_ref after generating
+	code.
+
+2007-02-06  Tom Tromey  <tromey@redhat.com>
+
+	PR java/30714:
+	* jvspec.c (lang_specific_driver): Check for the '-' in '-I'.
+
+2007-02-03  Kazu Hirata  <kazu@codesourcery.com>
+
+	* java-tree.h, javaop.def, jcf-parse.c: Fix comment typos.
+
+2007-02-02  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (expand_byte_code): Call cache_this_class_ref() and
+	cache_cpool_data_ref().
+	Set TYPE_CPOOL_DATA_REF.
+	(cache_cpool_data_ref): New function.
+	* constants.c (build_ref_from_constant_pool): Remove special-case
+	code for flag_indirect_classes.
+	(build_constant_data_ref): Move special-case code for
+	flag_indirect_classes here from build_ref_from_constant_pool.
+	* decl.c (finish_method): Move class initialization from here to
+	cache_this_class_ref.
+	* class.c (cache_this_class_ref): New function.
+	(build_class_ref): Use this_classdollar for the ouput class.
+
+2007-02-02  David Daney  <ddaney@avtrex.com>
+
+	* class.c (is_compiled_class): Move check to avoid reloading
+	current class.
+	(layout_class_method): Don't calculate DECL_EXTERNAL if it is
+	already set.
+
+2007-02-01  Andrew Haley  <aph@redhat.com>
+
+	PR java/30641
+	* jcf-parse.c (jcf_parse): Clear the field_offsets bitmap.
+
 2007-01-31  Kazu Hirata  <kazu@codesourcery.com>
 
 	* class.c, jcf-parse.c: Fix comment typos.

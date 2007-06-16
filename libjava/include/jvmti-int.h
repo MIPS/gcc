@@ -37,6 +37,10 @@ executable file might be covered by the GNU General Public License. */
    False means no JVMTI environment requested that event type. */
 namespace JVMTI
 {
+  // Is JVMTI enabled? (i.e., any jvmtiEnv created?)
+  extern bool enabled;
+
+  // Event notifications
   extern bool VMInit;
   extern bool VMDeath;
   extern bool ThreadStart;
@@ -85,4 +89,6 @@ extern void _Jv_JVMTI_PostEvent (jvmtiEvent type, jthread event_thread,				 ...)
 // Returns the jvmtiEnv used by the JDWP backend
 extern jvmtiEnv *_Jv_GetJDWP_JVMTIEnv (void);
 
+// Reports JVMTI excpetions
+extern void _Jv_ReportJVMTIExceptionThrow (jthrowable);
 #endif /* __GCJ_JVMTI_INT_H__ */

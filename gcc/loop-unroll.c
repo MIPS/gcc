@@ -98,6 +98,10 @@ struct var_to_expand
                                       the accumulator.  If REUSE_EXPANSION is 0 reuse 
                                       the original accumulator.  Else use 
                                       var_expansions[REUSE_EXPANSION - 1].  */
+  unsigned accum_pos;              /* The position in which the accumulator is placed in
+                                      the insn src.  For example in x = x + something
+                                      accum_pos is 0 while in x = something + x accum_pos
+                                      is 1.  */
 };
 
 /* Information about optimization applied in
@@ -879,7 +883,37 @@ split_edge_and_insert (edge e, rtx insns)
     return NULL;
   bb = split_edge (e); 
   emit_insn_after (insns, BB_END (bb));
-  bb->flags |= BB_SUPERBLOCK;
+
+  /* ??? We used to assume that INSNS can contain control flow insns, and
+     that we had to try to find sub basic blocks in BB to maintain a valid
+     CFG.  For this purpose we used to set the BB_SUPERBLOCK flag on BB
+     and call break_superblocks when going out of cfglayout mode.  But it
+     turns out that this never happens; and that if it does ever happen,
+     the verify_flow_info call in loop_optimizer_finalize would fail.
+
+     There are two reasons why we expected we could have control flow insns
+     in INSNS.  The first is when a comparison has to be done in parts, and
+     the second is when the number of iterations is computed for loops with
+     the number of iterations known at runtime.  In both cases, test cases
+     to get control flow in INSNS appear to be impossible to construct:
+
+      * If do_compare_rtx_and_jump needs several branches to do comparison
+	in a mode that needs comparison by parts, we cannot analyze the
+	number of iterations of the loop, and we never get to unrolling it.
+
+      * The code in expand_divmod that was suspected to cause creation of
+	branching code seems to be only accessed for signed division.  The
+	divisions used by # of iterations analysis are always unsigned.
+	Problems might arise on architectures that emits branching code
+	for some operations that may appear in the unroller (especially
+	for division), but we have no such architectures.
+
+     Considering all this, it was decided that we should for now assume
+     that INSNS can in theory contain control flow insns, but in practice
+     it never does.  So we don't handle the theoretical case, and should
+     a real failure ever show up, we have a pretty good clue for how to
+     fix it.  */
+
   return bb;
 }
 
@@ -919,8 +953,8 @@ unroll_loop_runtime_iterations (struct loop *loop)
 {
   rtx old_niter, niter, init_code, branch_code, tmp;
   unsigned i, j, p;
-  basic_block preheader, *body, *dom_bbs, swtch, ezc_swtch;
-  unsigned n_dom_bbs;
+  basic_block preheader, *body, swtch, ezc_swtch;
+  VEC (basic_block, heap) *dom_bbs;
   sbitmap wont_exit;
   int may_exit_copy;
   unsigned n_peel;
@@ -938,21 +972,20 @@ unroll_loop_runtime_iterations (struct loop *loop)
     opt_info = analyze_insns_in_loop (loop);
   
   /* Remember blocks whose dominators will have to be updated.  */
-  dom_bbs = XCNEWVEC (basic_block, n_basic_blocks);
-  n_dom_bbs = 0;
+  dom_bbs = NULL;
 
   body = get_loop_body (loop);
   for (i = 0; i < loop->num_nodes; i++)
     {
-      unsigned nldom;
-      basic_block *ldom;
+      VEC (basic_block, heap) *ldom;
+      basic_block bb;
 
-      nldom = get_dominated_by (CDI_DOMINATORS, body[i], &ldom);
-      for (j = 0; j < nldom; j++)
-	if (!flow_bb_inside_loop_p (loop, ldom[j]))
-	  dom_bbs[n_dom_bbs++] = ldom[j];
+      ldom = get_dominated_by (CDI_DOMINATORS, body[i]);
+      for (j = 0; VEC_iterate (basic_block, ldom, j, bb); j++)
+	if (!flow_bb_inside_loop_p (loop, bb))
+	  VEC_safe_push (basic_block, heap, dom_bbs, bb);
 
-      free (ldom);
+      VEC_free (basic_block, heap, ldom);
     }
   free (body);
 
@@ -1071,7 +1104,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
     }
 
   /* Recount dominators for outer blocks.  */
-  iterate_fix_dominators (CDI_DOMINATORS, dom_bbs, n_dom_bbs);
+  iterate_fix_dominators (CDI_DOMINATORS, dom_bbs, false);
 
   /* And unroll loop.  */
 
@@ -1143,8 +1176,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
 	     "in runtime, %i insns\n",
 	     max_unroll, num_loop_insns (loop));
 
-  if (dom_bbs)
-    free (dom_bbs);
+  VEC_free (basic_block, heap, dom_bbs);
 }
 
 /* Decide whether to simply peel LOOP and how much.  */
@@ -1535,10 +1567,11 @@ referenced_in_one_insn_in_loop_p (struct loop *loop, rtx reg)
 static struct var_to_expand *
 analyze_insn_to_expand_var (struct loop *loop, rtx insn)
 {
-  rtx set, dest, src, op1;
+  rtx set, dest, src, op1, op2, something;
   struct var_to_expand *ves;
   enum machine_mode mode1, mode2;
-  
+  unsigned accum_pos;
+
   set = single_set (insn);
   if (!set)
     return NULL;
@@ -1563,32 +1596,52 @@ analyze_insn_to_expand_var (struct loop *loop, rtx insn)
   if (!have_insn_for (GET_CODE (src), GET_MODE (src)))
     return NULL;
 
-  if (!XEXP (src, 0))
-    return NULL;
-  
   op1 = XEXP (src, 0);
+  op2 = XEXP (src, 1);
   
   if (!REG_P (dest)
       && !(GET_CODE (dest) == SUBREG
            && REG_P (SUBREG_REG (dest))))
     return NULL;
   
-  if (!rtx_equal_p (dest, op1))
-    return NULL;      
-  
+  if (rtx_equal_p (dest, op1))
+    accum_pos = 0;
+  else if (rtx_equal_p (dest, op2))
+    accum_pos = 1;
+  else
+    return NULL;
+
+  /* The method of expansion that we are using; which includes
+     the initialization of the expansions with zero and the summation of
+     the expansions at the end of the computation will yield wrong results
+     for (x = something - x) thus avoid using it in that case.  */
+  if (accum_pos == 1  
+    && GET_CODE (src) == MINUS)
+   return NULL;
+
+  something = (accum_pos == 0)? op2 : op1;
+
   if (!referenced_in_one_insn_in_loop_p (loop, dest))
     return NULL;
   
-  if (rtx_referenced_p (dest, XEXP (src, 1)))
+  if (rtx_referenced_p (dest, something))
     return NULL;
   
   mode1 = GET_MODE (dest); 
-  mode2 = GET_MODE (XEXP (src, 1));
+  mode2 = GET_MODE (something);
   if ((FLOAT_MODE_P (mode1) 
        || FLOAT_MODE_P (mode2)) 
       && !flag_unsafe_math_optimizations) 
     return NULL;
-  
+
+  if (dump_file)
+  {
+    fprintf (dump_file,
+    "\n;; Expanding Accumulator ");
+    print_rtl (dump_file, dest);
+    fprintf (dump_file, "\n");
+  }
+
   /* Record the accumulator to expand.  */
   ves = XNEW (struct var_to_expand);
   ves->insn = insn;
@@ -1597,6 +1650,7 @@ analyze_insn_to_expand_var (struct loop *loop, rtx insn)
   ves->op = GET_CODE (src);
   ves->expansion_count = 0;
   ves->reuse_expansion = 0;
+  ves->accum_pos = accum_pos;
   return ves; 
 }
 
@@ -1945,7 +1999,7 @@ expand_var_during_unrolling (struct var_to_expand *ve, rtx insn)
     new_reg = get_expansion (ve);
 
   validate_change (insn, &SET_DEST (set), new_reg, 1);
-  validate_change (insn, &XEXP (SET_SRC (set), 0), new_reg, 1);
+  validate_change (insn, &XEXP (SET_SRC (set), ve->accum_pos), new_reg, 1);
   
   if (apply_change_group ())
     if (really_new_expansion)
@@ -1958,7 +2012,30 @@ expand_var_during_unrolling (struct var_to_expand *ve, rtx insn)
 /* Initialize the variable expansions in loop preheader.  
    Callbacks for htab_traverse.  PLACE_P is the loop-preheader 
    basic block where the initialization of the expansions 
-   should take place.  */
+   should take place.  The expansions are initialized with (-0)
+   when the operation is plus or minus to honor sign zero.
+   This way we can prevent cases where the sign of the final result is
+   effected by the sign of the expansion.
+   Here is an example to demonstrate this:
+   
+   for (i = 0 ; i < n; i++)
+     sum += something;
+
+   ==>
+
+   sum += something
+   ....
+   i = i+1;
+   sum1 += something
+   ....
+   i = i+1
+   sum2 += something;
+   ....
+   
+   When SUM is initialized with -zero and SOMETHING is also -zero; the
+   final result of sum should be -zero thus the expansions sum1 and sum2
+   should be initialized with -zero as well (otherwise we will get +zero
+   as the final result).  */
 
 static int
 insert_var_expansion_initialization (void **slot, void *place_p)
@@ -1967,7 +2044,9 @@ insert_var_expansion_initialization (void **slot, void *place_p)
   basic_block place = (basic_block)place_p;
   rtx seq, var, zero_init, insn;
   unsigned i;
-  
+  enum machine_mode mode = GET_MODE (ve->reg);
+  bool honor_signed_zero_p = HONOR_SIGNED_ZEROS (mode);
+
   if (VEC_length (rtx, ve->var_expansions) == 0)
     return 1;
   
@@ -1975,7 +2054,11 @@ insert_var_expansion_initialization (void **slot, void *place_p)
   if (ve->op == PLUS || ve->op == MINUS) 
     for (i = 0; VEC_iterate (rtx, ve->var_expansions, i, var); i++)
       {
-        zero_init =  CONST0_RTX (GET_MODE (var));
+	if (honor_signed_zero_p)
+	  zero_init = simplify_gen_unary (NEG, mode, CONST0_RTX (mode), mode);
+	else
+	  zero_init = CONST0_RTX (mode);
+       	
         emit_move_insn (var, zero_init);
       }
   else if (ve->op == MULT)

@@ -1,3 +1,30 @@
+2007-05-07  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* libiberty.h (writeargv): Declare.
+
+2007-04-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* demangle.h: Change license to LGPL + exception.
+
+2007-03-29  Joel Brobecker  <brobecker@adacore.com>
+
+	* filenames.h (FILENAME_CMP): Adjust define to call filename_cmp
+	regardless of the type of file system.
+
+2007-03-06  Jan Hubicka  <jh@suse.cz>
+	
+	* ansidecl.h (ATTRIBUTE_COLD, ATTRIBUTE_HOT): New.
+
+2007-02-09  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* libiberty.h (pex_write_input): Remove prototype.
+
+2007-01-31  Vladimir Prus  <vladimir@codesourcery.com>
+	
+	* libiberty.h (PEX_STDERR_TO_PIPE): New define.
+	(PEX_BINARY_ERROR): New define.
+	(pex_read_err): New function.
+
 2007-01-29  Simon Baldwin <simonb@google.com>
 
 	* demangle.h: New cplus_demangle_print_callback,

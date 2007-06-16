@@ -27,16 +27,18 @@ details.  */
 
 #include <java/lang/Class.h>
 #include <java/lang/ClassLoader.h>
-#include <java/lang/Object.h>
 #include <java/lang/OutOfMemoryError.h>
 #include <java/lang/Thread.h>
 #include <java/lang/ThreadGroup.h>
+#include <java/lang/Thread$State.h>
 #include <java/lang/Throwable.h>
 #include <java/lang/VMClassLoader.h>
 #include <java/lang/reflect/Field.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/util/Collection.h>
 #include <java/util/HashMap.h>
+#include <java/util/concurrent/locks/Lock.h>
+#include <java/util/concurrent/locks/ReentrantReadWriteLock.h>
 #include <java/net/URL.h>
 
 static void check_enabled_events (void);
@@ -44,6 +46,10 @@ static void check_enabled_event (jvmtiEvent);
 
 namespace JVMTI
 {
+  // Is JVMTI enabled? (i.e., any jvmtiEnv created?)
+  bool enabled;
+
+  // Event notifications
   bool VMInit = false;
   bool VMDeath = false;
   bool ThreadStart = false;
@@ -99,7 +105,8 @@ struct jvmti_env_list
   struct jvmti_env_list *next;
 };
 static struct jvmti_env_list *_jvmtiEnvironments = NULL;
-static java::lang::Object *_envListLock = NULL;
+static java::util::concurrent::locks::
+ReentrantReadWriteLock *_envListLock = NULL;
 #define FOREACH_ENVIRONMENT(Ele) \
   for (Ele = _jvmtiEnvironments; Ele != NULL; Ele = Ele->next)
 
@@ -149,6 +156,18 @@ static java::lang::Object *_envListLock = NULL;
     }						\
   while (0)
 
+#define CHECK_FOR_NATIVE_METHOD(AjmethodID)	\
+  do					\
+    {					\
+      jboolean is_native;		\
+      jvmtiError jerr = env->IsMethodNative (AjmethodID, &is_native);	\
+      if (jerr != JVMTI_ERROR_NONE)					\
+        return jerr;							\
+      if (is_native)							\
+        return JVMTI_ERROR_NATIVE_METHOD;			        \
+    }									\
+  while (0)
+
 static jvmtiError JNICALL
 _Jv_JVMTI_SuspendThread (MAYBE_UNUSED jvmtiEnv *env, jthread thread)
 {
@@ -190,6 +209,253 @@ _Jv_JVMTI_InterruptThread (MAYBE_UNUSED jvmtiEnv *env, jthread thread)
   THREAD_CHECK_VALID (thread);
   THREAD_CHECK_IS_ALIVE (thread);
   thread->interrupt();
+  return JVMTI_ERROR_NONE;
+}
+
+// This method performs the common tasks to get and set variables of all types.
+// It is called by the _Jv_JVMTI_Get/SetLocalInt/Object/.... methods.
+static jvmtiError
+getLocalFrame (jvmtiEnv *env, jthread thread, jint depth, jint slot, char type,
+               _Jv_InterpFrame **iframe)
+{
+  using namespace java::lang;
+   
+  REQUIRE_PHASE (env, JVMTI_PHASE_LIVE);
+   
+  ILLEGAL_ARGUMENT (depth < 0);
+  
+  THREAD_DEFAULT_TO_CURRENT (thread);
+  THREAD_CHECK_VALID (thread);
+  THREAD_CHECK_IS_ALIVE (thread);
+  
+  _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (thread->frame);
+  
+  for (int i = 0; i < depth; i++)
+    {    
+      frame = frame->next;
+    
+      if (frame == NULL)
+        return JVMTI_ERROR_NO_MORE_FRAMES; 
+    }
+  
+  if (frame->frame_type == frame_native)
+    return JVMTI_ERROR_OPAQUE_FRAME;
+  
+  jint max_locals;
+  jvmtiError jerr = env->GetMaxLocals (reinterpret_cast<jmethodID> 
+                                         (frame->self->get_method ()),
+                                       &max_locals);
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr; 
+  
+  _Jv_InterpFrame *tmp_iframe = reinterpret_cast<_Jv_InterpFrame *> (frame);
+  
+  // The second slot taken up by a long type is marked as type 'x' meaning it
+  // is not valid for access since it holds only the 4 low bytes of the value.
+  if (tmp_iframe->locals_type[slot] == 'x')
+    return JVMTI_ERROR_INVALID_SLOT;
+  
+  if (tmp_iframe->locals_type[slot] != type)
+    return JVMTI_ERROR_TYPE_MISMATCH;
+  
+  // Check for invalid slots, if the type is a long type, we must check that
+  // the next slot is valid as well.
+  if (slot < 0 || slot >= max_locals 
+      || ((type == 'l' || type == 'd') && slot + 1 >= max_locals))
+    return JVMTI_ERROR_INVALID_SLOT;
+  
+  *iframe = tmp_iframe;
+  
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_GetLocalObject (jvmtiEnv *env, jthread thread, jint depth, jint slot,
+                          jobject *value)
+{
+  NULL_CHECK (value);
+
+  _Jv_InterpFrame *frame;
+  jvmtiError jerr = getLocalFrame (env, thread, depth, slot, 'o', &frame);
+  
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+  
+  *value = frame->locals[slot].o;
+  
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_SetLocalObject (jvmtiEnv *env, jthread thread, jint depth, jint slot,
+                          jobject value)
+{
+  _Jv_InterpFrame *frame;
+  jvmtiError jerr = getLocalFrame (env, thread, depth, slot, 'o', &frame);
+  
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+  
+  frame->locals[slot].o = value;
+
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_GetLocalInt (jvmtiEnv *env, jthread thread, jint depth, jint slot,
+                       jint *value)
+{
+  NULL_CHECK (value);
+  
+  _Jv_InterpFrame *frame;
+  jvmtiError jerr = getLocalFrame (env, thread, depth, slot, 'i', &frame);
+
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+
+  *value = frame->locals[slot].i;
+
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_SetLocalInt (jvmtiEnv *env, jthread thread, jint depth, jint slot,
+                       jint value)
+{
+  _Jv_InterpFrame *frame;
+  jvmtiError jerr = getLocalFrame (env, thread, depth, slot, 'i', &frame);
+  
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+  
+  frame->locals[slot].i = value;
+
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_GetLocalLong (jvmtiEnv *env, jthread thread, jint depth, jint slot,
+                        jlong *value)
+{
+  NULL_CHECK (value);
+
+  _Jv_InterpFrame *frame;
+  jvmtiError jerr = getLocalFrame (env, thread, depth, slot, 'l', &frame);
+  
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+
+#if SIZEOF_VOID_P==8
+  *value = frame->locals[slot].l;
+#else
+  _Jv_word2 val;
+  val.ia[0] = frame->locals[slot].ia[0];
+  val.ia[1] = frame->locals[slot + 1].ia[0];
+  *value = val.l;
+#endif
+  
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_SetLocalLong (jvmtiEnv *env, jthread thread, jint depth, jint slot,
+                        jlong value)
+{
+  _Jv_InterpFrame *frame;
+  jvmtiError jerr = getLocalFrame (env, thread, depth, slot, 'l', &frame);
+  
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+
+#if SIZEOF_VOID_P==8
+  frame->locals[slot].l = value;
+#else
+  _Jv_word2 val;
+	val.l = value;
+	frame->locals[slot].ia[0] = val.ia[0];
+	frame->locals[slot + 1].ia[0] = val.ia[1];
+#endif
+
+  return JVMTI_ERROR_NONE;
+}
+
+
+static jvmtiError JNICALL
+_Jv_JVMTI_GetLocalFloat (jvmtiEnv *env, jthread thread, jint depth, jint slot,
+                         jfloat *value)
+{
+  NULL_CHECK (value);
+
+  _Jv_InterpFrame *frame;
+  jvmtiError jerr = getLocalFrame (env, thread, depth, slot, 'f', &frame);
+  
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+  
+  *value = frame->locals[slot].f;
+
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_SetLocalFloat (jvmtiEnv *env, jthread thread, jint depth, jint slot,
+                         jfloat value)
+{
+  _Jv_InterpFrame *frame;
+  jvmtiError jerr = getLocalFrame (env, thread, depth, slot, 'f', &frame);
+  
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+  
+  frame->locals[slot].f = value;
+
+  return JVMTI_ERROR_NONE;
+}
+
+
+static jvmtiError JNICALL
+_Jv_JVMTI_GetLocalDouble (jvmtiEnv *env, jthread thread, jint depth, jint slot,
+                          jdouble *value)
+{
+  NULL_CHECK (value);
+
+  _Jv_InterpFrame *frame;
+  jvmtiError jerr = getLocalFrame (env, thread, depth, slot, 'd', &frame);
+  
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+  
+#if SIZEOF_VOID_P==8
+  *value = frame->locals[slot].d;
+#else
+  _Jv_word2 val;
+  val.ia[0] = frame->locals[slot].ia[0];
+  val.ia[1] = frame->locals[slot + 1].ia[0];
+  *value = val.d;
+#endif
+
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_SetLocalDouble (jvmtiEnv *env, jthread thread, jint depth, jint slot,
+                          jdouble value)
+{
+  _Jv_InterpFrame *frame;
+  jvmtiError jerr = getLocalFrame (env, thread, depth, slot, 'd', &frame);
+  
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+    
+#if SIZEOF_VOID_P==8
+  frame->locals[slot].d = value;
+#else
+  _Jv_word2 val;
+  val.d = value;
+  frame->locals[slot].ia[0] = val.ia[0];
+  frame->locals[slot + 1].ia[0] = val.ia[1]; 
+#endif
+
   return JVMTI_ERROR_NONE;
 }
 
@@ -238,7 +504,7 @@ _Jv_JVMTI_GetAllThreads(MAYBE_UNUSED jvmtiEnv *env, jint *thread_cnt,
 
 static jvmtiError JNICALL
 _Jv_JVMTI_GetFrameCount (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
-                         jint* frame_count)
+                         jint *frame_count)
 {
   REQUIRE_PHASE (env, JVMTI_PHASE_LIVE);
   
@@ -247,20 +513,71 @@ _Jv_JVMTI_GetFrameCount (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
   using namespace java::lang;
   
   THREAD_DEFAULT_TO_CURRENT (thread);
-  
-  Thread *thr = reinterpret_cast<Thread *> (thread);
-  THREAD_CHECK_VALID (thr);
-  THREAD_CHECK_IS_ALIVE (thr);
+  THREAD_CHECK_VALID (thread);
+  THREAD_CHECK_IS_ALIVE (thread);
    
-  _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (thr->frame);
-  (*frame_count) = 0;
-  
-  while (frame != NULL)
+  _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (thread->frame);
+  (*frame_count) = frame->depth ();
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_GetThreadState (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
+			  jint *thread_state_ptr)
+{
+  REQUIRE_PHASE (env, JVMTI_PHASE_LIVE);
+
+  THREAD_DEFAULT_TO_CURRENT (thread);
+  THREAD_CHECK_VALID (thread);
+  NULL_CHECK (thread_state_ptr);
+
+  jint state = 0;
+  if (thread->isAlive ())
     {
-      (*frame_count)++;
-      frame = frame->next;
+      state |= JVMTI_THREAD_STATE_ALIVE;
+
+      _Jv_Thread_t *data = _Jv_ThreadGetData (thread);
+      if (_Jv_IsThreadSuspended (data))
+	state |= JVMTI_THREAD_STATE_SUSPENDED;
+
+      if (thread->isInterrupted ())
+	state |= JVMTI_THREAD_STATE_INTERRUPTED;
+
+      _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (thread->frame);
+      if (frame != NULL && frame->frame_type == frame_native)
+	state |= JVMTI_THREAD_STATE_IN_NATIVE;
+
+      using namespace java::lang;
+      Thread$State *ts = thread->getState ();
+      if (ts == Thread$State::RUNNABLE)
+	state |= JVMTI_THREAD_STATE_RUNNABLE;
+      else if (ts == Thread$State::BLOCKED)
+	state |= JVMTI_THREAD_STATE_BLOCKED_ON_MONITOR_ENTER;
+      else if (ts == Thread$State::TIMED_WAITING
+	       || ts == Thread$State::WAITING)
+	{
+	  state |= JVMTI_THREAD_STATE_WAITING;
+	  state |= ((ts == Thread$State::WAITING)
+		    ? JVMTI_THREAD_STATE_WAITING_INDEFINITELY
+		    : JVMTI_THREAD_STATE_WAITING_WITH_TIMEOUT);
+
+	  /* FIXME: We don't have a way to tell
+	     the caller why the thread is suspended,
+	     i.e., JVMTI_THREAD_STATE_SLEEPING,
+	     JVMTI_THREAD_STATE_PARKED, and
+	     JVMTI_THREAD_STATE_IN_OBJECT_WAIT
+	     are never set. */
+	}
     }
-  
+  else
+    {
+      using namespace java::lang;
+      Thread$State *ts = thread->getState ();
+      if (ts == Thread$State::TERMINATED)
+	state |= JVMTI_THREAD_STATE_TERMINATED;
+    }
+
+  *thread_state_ptr = state;
   return JVMTI_ERROR_NONE;
 }
 
@@ -695,6 +1012,88 @@ _Jv_JVMTI_GetLineNumberTable (jvmtiEnv *env, jmethodID method,
 }
 
 static jvmtiError JNICALL
+_Jv_JVMTI_GetLocalVariableTable (MAYBE_UNUSED jvmtiEnv *env, jmethodID method,
+                                 jint *num_locals,
+                                 jvmtiLocalVariableEntry **locals)
+{
+  REQUIRE_PHASE (env, JVMTI_PHASE_LIVE);
+  NULL_CHECK (num_locals);
+  NULL_CHECK (locals);
+  
+  CHECK_FOR_NATIVE_METHOD(method);
+  
+  jclass klass;
+  jvmtiError jerr = env->GetMethodDeclaringClass (method, &klass);
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+
+  _Jv_InterpMethod *imeth = reinterpret_cast<_Jv_InterpMethod *> 
+                              (_Jv_FindInterpreterMethod (klass, method));
+  
+  if (imeth == NULL)
+    return JVMTI_ERROR_INVALID_METHODID;
+  
+  jerr = env->GetMaxLocals (method, num_locals);
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+  
+  jerr = env->Allocate (static_cast<jlong> 
+                          ((*num_locals) * sizeof (jvmtiLocalVariableEntry)),
+                        reinterpret_cast<unsigned char **> (locals));
+  
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+  
+  //the slot in the methods local_var_table to get
+  int table_slot = 0;
+  char *name;
+  char *sig;
+  char *generic_sig;
+  
+  while (table_slot < *num_locals 
+         && imeth->get_local_var_table (&name, &sig, &generic_sig,
+                                 &((((*locals)[table_slot].start_location))),
+                                 &((*locals)[table_slot].length), 
+                                 &((*locals)[table_slot].slot),
+                                 table_slot) 
+            >= 0)
+    {
+      char **str_ptr = &(*locals)[table_slot].name;
+      jerr = env->Allocate (static_cast<jlong> (strlen (name) + 1),
+                             reinterpret_cast<unsigned char **> (str_ptr));
+      if (jerr != JVMTI_ERROR_NONE)
+        return jerr;
+      strcpy ((*locals)[table_slot].name, name);
+      
+      str_ptr = &(*locals)[table_slot].signature;
+      jerr = env->Allocate (static_cast<jlong> (strlen (sig) + 1),
+                               reinterpret_cast<unsigned char **> (str_ptr));
+      if (jerr != JVMTI_ERROR_NONE)
+        return jerr;
+      strcpy ((*locals)[table_slot].signature, sig);
+      
+      str_ptr = &(*locals)[table_slot].generic_signature;
+      jerr = env->Allocate (static_cast<jlong> (strlen (generic_sig) + 1),
+                               reinterpret_cast<unsigned char **> (str_ptr));
+      if (jerr != JVMTI_ERROR_NONE)
+        return jerr;
+      strcpy ((*locals)[table_slot].generic_signature, generic_sig);
+      
+      table_slot++;
+    }
+
+  if (table_slot == 0)
+    return JVMTI_ERROR_ABSENT_INFORMATION;
+  
+  // If there are double or long variables in the table, the the table will be
+  // smaller than the max number of slots, so correct for this here.
+  if ((table_slot) < *num_locals)
+    *num_locals = table_slot;
+  
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
 _Jv_JVMTI_IsMethodNative (MAYBE_UNUSED jvmtiEnv *env, jmethodID method,
 			  jboolean *result)
 {
@@ -720,6 +1119,75 @@ _Jv_JVMTI_IsMethodSynthetic (MAYBE_UNUSED jvmtiEnv *env, jmethodID method,
 
   *result = ((method->accflags & java::lang::reflect::Modifier::SYNTHETIC)
 	     != 0);
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_GetMaxLocals (jvmtiEnv *env, jmethodID method, jint *max_locals)
+{
+  REQUIRE_PHASE (env, JVMTI_PHASE_START | JVMTI_PHASE_LIVE);
+  NULL_CHECK (max_locals);
+  
+  CHECK_FOR_NATIVE_METHOD (method);
+  
+  jclass klass;
+  jvmtiError jerr = env->GetMethodDeclaringClass (method, &klass);
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+
+  _Jv_InterpMethod *imeth = reinterpret_cast<_Jv_InterpMethod *> 
+                              (_Jv_FindInterpreterMethod (klass, method));
+    
+  if (imeth == NULL)
+    return JVMTI_ERROR_INVALID_METHODID;
+  
+  *max_locals = imeth->get_max_locals ();
+  
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_GetArgumentsSize (jvmtiEnv *env, jmethodID method, jint *size)
+{
+  REQUIRE_PHASE (env, JVMTI_PHASE_START | JVMTI_PHASE_LIVE);
+  NULL_CHECK (size);
+  
+  CHECK_FOR_NATIVE_METHOD (method);
+  
+  jvmtiError jerr;
+  char *sig;
+  jint num_slots = 0;
+  
+  jerr = env->GetMethodName (method, NULL, &sig, NULL);
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+  
+  // If the method is non-static add a slot for the "this" pointer.
+  if ((method->accflags & java::lang::reflect::Modifier::STATIC) == 0)
+    num_slots++;
+  
+  for (int i = 0; sig[i] != ')'; i++)
+    {
+      if (sig[i] == 'Z' || sig[i] == 'B' || sig[i] == 'C' || sig[i] == 'S'
+          || sig[i] == 'I' || sig[i] == 'F')
+        num_slots++;
+      else if (sig[i] == 'J' || sig[i] == 'D')
+        {
+          // If this is an array of wide types it uses a single slot
+          if (i > 0 && sig[i - 1] == '[')
+            num_slots++;
+          else
+            num_slots += 2;
+        }
+      else if (sig[i] == 'L')
+        {
+          num_slots++;
+          while (sig[i] != ';')
+            i++;
+        }
+    }
+  
+  *size = num_slots;
   return JVMTI_ERROR_NONE;
 }
 
@@ -790,10 +1258,8 @@ _Jv_JVMTI_GetStackTrace (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
   using namespace java::lang;
   
   THREAD_DEFAULT_TO_CURRENT (thread);
-  
-  Thread *thr = reinterpret_cast<Thread *> (thread);
-  THREAD_CHECK_VALID (thr);
-  THREAD_CHECK_IS_ALIVE (thr);
+  THREAD_CHECK_VALID (thread);
+  THREAD_CHECK_IS_ALIVE (thread);
     
   jvmtiError jerr = env->GetFrameCount (thread, frame_count);
   if (jerr != JVMTI_ERROR_NONE)
@@ -807,7 +1273,7 @@ _Jv_JVMTI_GetStackTrace (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
   ILLEGAL_ARGUMENT (start_depth >= (*frame_count));
   ILLEGAL_ARGUMENT (start_depth < (-(*frame_count)));
   
-  _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (thr->frame);
+  _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (thread->frame);
 
   // If start_depth is negative use this to determine at what depth to start
   // the trace by adding it to the length of the call stack.  This allows the
@@ -840,7 +1306,7 @@ _Jv_JVMTI_GetStackTrace (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
             = static_cast<_Jv_InterpMethod *> (frame->self);
           _Jv_InterpFrame *interp_frame 
             = static_cast<_Jv_InterpFrame *> (frame);
-          frames[i].location = imeth->insn_index (interp_frame->pc);
+          frames[i].location = imeth->insn_index (interp_frame->get_pc ());
         }
       else
         frames[i].location = -1;
@@ -892,7 +1358,7 @@ _Jv_JVMTI_DisposeEnvironment (jvmtiEnv *env)
     return JVMTI_ERROR_INVALID_ENVIRONMENT;
   else
     {
-      JvSynchronize dummy (_envListLock);
+      _envListLock->writeLock ()->lock ();
       if (_jvmtiEnvironments->env == env)
 	{
 	  struct jvmti_env_list *next = _jvmtiEnvironments->next;
@@ -905,12 +1371,16 @@ _Jv_JVMTI_DisposeEnvironment (jvmtiEnv *env)
 	  while (e->next != NULL && e->next->env != env)
 	    e = e->next;
 	  if (e->next == NULL)
-	    return JVMTI_ERROR_INVALID_ENVIRONMENT;
+	    {
+	      _envListLock->writeLock ()->unlock ();
+	      return JVMTI_ERROR_INVALID_ENVIRONMENT;
+	    }
 
 	  struct jvmti_env_list *next = e->next->next;
 	  _Jv_Free (e->next);
 	  e->next = next;
 	}
+      _envListLock->writeLock ()->unlock ();
     }
 
   _Jv_Free (env);
@@ -1211,18 +1681,24 @@ check_enabled_event (jvmtiEvent type)
 
   int index = EVENT_INDEX (type); // safe since caller checks this
 
-  JvSynchronize dummy (_envListLock);
-  struct jvmti_env_list *e;
-  FOREACH_ENVIRONMENT (e)
+  if (_jvmtiEnvironments != NULL)
     {
-      char *addr
-	= reinterpret_cast<char *> (&e->env->callbacks) + offset;
-      void **callback = reinterpret_cast<void **> (addr);
-      if (e->env->enabled[index] && *callback != NULL)
+      _envListLock->readLock ()->lock ();
+      struct jvmti_env_list *e;
+      FOREACH_ENVIRONMENT (e)
 	{
-	  *enabled = true;
-	  return;
+	  char *addr
+	    = reinterpret_cast<char *> (&e->env->callbacks) + offset;
+	  void **callback = reinterpret_cast<void **> (addr);
+	  if (e->env->enabled[index] && *callback != NULL)
+	    {
+	      *enabled = true;
+	      _envListLock->readLock ()->unlock ();
+	      return;
+	    }
 	}
+
+      _envListLock->readLock ()->unlock ();
     }
 
   *enabled = false;
@@ -1589,20 +2065,20 @@ struct _Jv_jvmtiEnv _Jv_JVMTI_Interface =
   UNIMPLEMENTED,		// GetThreadGroupInfo
   UNIMPLEMENTED,		// GetThreadGroupChildren
   _Jv_JVMTI_GetFrameCount,		// GetFrameCount
-  UNIMPLEMENTED,		// GetThreadState
+  _Jv_JVMTI_GetThreadState,	// GetThreadState
   RESERVED,			// reserved18
   UNIMPLEMENTED,		// GetFrameLocation
   UNIMPLEMENTED,		// NotifyPopFrame
-  UNIMPLEMENTED,		// GetLocalObject
-  UNIMPLEMENTED,		// GetLocalInt
-  UNIMPLEMENTED,		// GetLocalLong
-  UNIMPLEMENTED,		// GetLocalFloat
-  UNIMPLEMENTED,		// GetLocalDouble
-  UNIMPLEMENTED,		// SetLocalObject
-  UNIMPLEMENTED,		// SetLocalInt
-  UNIMPLEMENTED,		// SetLocalLong
-  UNIMPLEMENTED,		// SetLocalFloat
-  UNIMPLEMENTED,		// SetLocalDouble
+  _Jv_JVMTI_GetLocalObject,		// GetLocalObject
+  _Jv_JVMTI_GetLocalInt,		// GetLocalInt
+  _Jv_JVMTI_GetLocalLong,		// GetLocalLong
+  _Jv_JVMTI_GetLocalFloat,		// GetLocalFloat
+  _Jv_JVMTI_GetLocalDouble,		// GetLocalDouble
+  _Jv_JVMTI_SetLocalObject,		// SetLocalObject
+  _Jv_JVMTI_SetLocalInt,		// SetLocalInt
+  _Jv_JVMTI_SetLocalLong,		// SetLocalLong
+  _Jv_JVMTI_SetLocalFloat,		// SetLocalFloat
+  _Jv_JVMTI_SetLocalDouble,		// SetLocalDouble
   _Jv_JVMTI_CreateRawMonitor,	// CreateRawMonitor
   _Jv_JVMTI_DestroyRawMonitor,	// DestroyRawMonitor
   _Jv_JVMTI_RawMonitorEnter,	// RawMonitorEnter
@@ -1640,11 +2116,11 @@ struct _Jv_jvmtiEnv _Jv_JVMTI_Interface =
   _Jv_JVMTI_GetMethodDeclaringClass,  // GetMethodDeclaringClass
   _Jv_JVMTI_GetMethodModifiers,	// GetMethodModifers
   RESERVED,			// reserved67
-  UNIMPLEMENTED,		// GetMaxLocals
-  UNIMPLEMENTED,		// GetArgumentsSize
+  _Jv_JVMTI_GetMaxLocals,		// GetMaxLocals
+  _Jv_JVMTI_GetArgumentsSize,		// GetArgumentsSize
   _Jv_JVMTI_GetLineNumberTable,	// GetLineNumberTable
   UNIMPLEMENTED,		// GetMethodLocation
-  UNIMPLEMENTED,		// GetLocalVariableTable
+  _Jv_JVMTI_GetLocalVariableTable,		// GetLocalVariableTable
   RESERVED,			// reserved73
   RESERVED,			// reserved74
   UNIMPLEMENTED,		// GetBytecodes
@@ -1735,25 +2211,27 @@ _Jv_GetJVMTIEnv (void)
   _Jv_JVMTIEnv *env
     = (_Jv_JVMTIEnv *) _Jv_MallocUnchecked (sizeof (_Jv_JVMTIEnv));
   env->p = &_Jv_JVMTI_Interface;
+  struct jvmti_env_list *element
+    = (struct jvmti_env_list *) _Jv_MallocUnchecked (sizeof (struct jvmti_env_list));
+  element->env = env;
+  element->next = NULL;
 
-  {
-    JvSynchronize dummy (_envListLock);
-    struct jvmti_env_list *element
-      = (struct jvmti_env_list *) _Jv_MallocUnchecked (sizeof (struct jvmti_env_list));
-    element->env = env;
-    element->next = NULL;
+  _envListLock->writeLock ()->lock ();
+  if (_jvmtiEnvironments == NULL)
+    _jvmtiEnvironments = element;
+  else
+    {
+      struct jvmti_env_list *e;
+      for (e = _jvmtiEnvironments; e->next != NULL; e = e->next)
+	;
+      e->next = element;
+    }
+  _envListLock->writeLock ()->unlock ();
 
-    if (_jvmtiEnvironments == NULL)
-      _jvmtiEnvironments = element;
-    else
-      {
-	struct jvmti_env_list *e;
-	for (e = _jvmtiEnvironments; e->next != NULL; e = e->next)
-	  ;
-	e->next = element;
-      }
-  }
-
+  /* Mark JVMTI active. This is used to force the interpreter
+     to use either debugging or non-debugging code. Once JVMTI
+     has been enabled, the non-debug interpreter cannot be used. */
+  JVMTI::enabled = true;
   return env;
 }
 
@@ -1761,7 +2239,8 @@ void
 _Jv_JVMTI_Init ()
 {
   _jvmtiEnvironments = NULL;
-  _envListLock = new java::lang::Object ();
+  _envListLock
+    = new java::util::concurrent::locks::ReentrantReadWriteLock ();
 
   // No environments, so this should set all JVMTI:: members to false
   check_enabled_events ();
@@ -2125,7 +2604,7 @@ _Jv_JVMTI_PostEvent (jvmtiEvent type, jthread event_thread, ...)
   va_list args;
   va_start (args, event_thread);
 
-  JvSynchronize dummy (_envListLock);
+  _envListLock->readLock ()->lock ();
   struct jvmti_env_list *e;
   FOREACH_ENVIRONMENT (e)
     {
@@ -2141,6 +2620,6 @@ _Jv_JVMTI_PostEvent (jvmtiEvent type, jthread event_thread, ...)
 	  post_event (e->env, type, event_thread, args);
 	}
     }
-
+  _envListLock->readLock ()->unlock ();
   va_end (args);
 }

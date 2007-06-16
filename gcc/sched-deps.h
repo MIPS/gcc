@@ -24,7 +24,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include "sched-int.h"
 
-struct haifa_deps_insn_data
+struct _haifa_deps_insn_data
 {
   /* The number of incoming edges in the forward dependency graph.
      As scheduling proceeds, counts are decreased.  An insn moves to
@@ -35,20 +35,40 @@ struct haifa_deps_insn_data
      (e.g. add_dependence was invoked with (insn == elem)).  */
   unsigned int has_internal_dep;
 
-  /* A list of insns which depend on the instruction.  Unlike LOG_LINKS,
-     it represents forward dependencies.  
+  /* NB: We can't place 'struct _deps_list' here instead of deps_list_t into
+     h_i_d because when h_i_d extends, addresses of the deps_list->first
+     change without updating deps_list->first->next->prev_nextp.  Thus
+     BACK_DEPS and RESOLVED_BACK_DEPS are allocated on the heap and FORW_DEPS
+     list is allocated on the obstack.  */
 
-     Note that we want to use this in selective scheduling also, so
-     it has moved from h_d_i_d.  */
-  rtx depend;
+  /* A list of backward dependencies.  The insn is a consumer of all the
+     deps mentioned here.  */
+  deps_list_t back_deps;
+
+  /* A list of insns which depend on the instruction.  Unlike 'back_deps',
+     it represents forward dependencies.  */
+  deps_list_t forw_deps;
+
+  /* A list of scheduled producers of the instruction.  Links are being moved
+     from 'back_deps' to 'resolved_back_deps' while scheduling.  */
+  deps_list_t resolved_back_deps;
 };
 
-extern struct haifa_deps_insn_data *h_d_i_d;
+typedef struct _haifa_deps_insn_data haifa_deps_insn_data_def;
+typedef haifa_deps_insn_data_def *haifa_deps_insn_data_t;
 
-#define HDID(INSN) (h_d_i_d[INSN_LUID (INSN)])
-#define INSN_DEP_COUNT(INSN)	(HDID (INSN).dep_count)
-#define HAS_INTERNAL_DEP(INSN)  (HDID (INSN).has_internal_dep)
-#define INSN_DEPEND(INSN)	(HDID (INSN).depend)
+DEF_VEC_O (haifa_deps_insn_data_def);
+DEF_VEC_ALLOC_O (haifa_deps_insn_data_def, heap);
+
+extern VEC(haifa_deps_insn_data_def, heap) *h_d_i_d;
+
+#define HDID(INSN) (VEC_index (haifa_deps_insn_data_def, h_d_i_d,	\
+			       INSN_LUID (INSN)))
+#define INSN_DEP_COUNT(INSN)	(HDID (INSN)->dep_count)
+#define HAS_INTERNAL_DEP(INSN)  (HDID (INSN)->has_internal_dep)
+#define INSN_BACK_DEPS(INSN) (HDID (INSN)->back_deps)
+#define INSN_FORW_DEPS(INSN) (HDID (INSN)->forw_deps)
+#define INSN_RESOLVED_BACK_DEPS(INSN) (HDID (INSN)->resolved_back_deps)
 
 struct _deps_insn_data
 {
@@ -139,14 +159,13 @@ extern void init_deps (struct deps *);
 extern void free_deps (struct deps *);
 extern void init_deps_global (void);
 extern void finish_deps_global (void);
-extern void add_forw_dep (rtx, rtx);
+extern void add_forw_dep (dep_link_t);
 extern void compute_forward_dependences (rtx, rtx);
-extern rtx find_insn_list (rtx, rtx);
 extern enum DEPS_ADJUST_RESULT add_or_update_back_dep (rtx, rtx, 
 						       enum reg_note, ds_t);
 extern void add_or_update_back_forw_dep (rtx, rtx, enum reg_note, ds_t);
 extern void add_back_forw_dep (rtx, rtx, enum reg_note, ds_t);
-extern void delete_back_forw_dep (rtx, rtx);
+extern void delete_back_forw_dep (dep_link_t);
 extern dw_t get_dep_weak_1 (ds_t, ds_t);
 extern dw_t get_dep_weak (ds_t, ds_t);
 extern ds_t set_dep_weak (ds_t, ds_t, dw_t);

@@ -476,33 +476,6 @@ get_unit (st_parameter_dt *dtp, int do_create)
 }
 
 
-/* is_internal_unit()-- Determine if the current unit is internal or not */
-
-int
-is_internal_unit (st_parameter_dt *dtp)
-{
-  return dtp->u.p.unit_is_internal;
-}
-
-
-/* is_array_io ()-- Determine if the I/O is to/from an array */
-
-int
-is_array_io (st_parameter_dt *dtp)
-{
-  return dtp->internal_unit_desc != NULL;
-}
-
-
-/* is_stream_io () -- Determine if I/O is access="stream" mode */
-
-int
-is_stream_io (st_parameter_dt *dtp)
-{
-  return dtp->u.p.current_unit->flags.access == ACCESS_STREAM;
-}
-
-
 /*************************/
 /* Initialize everything */
 
@@ -590,6 +563,30 @@ close_unit_1 (gfc_unit *u, int locked)
 {
   int i, rc;
 
+  /* If there are previously written bytes from a write with ADVANCE="no"
+     Reposition the buffer before closing.  */
+  if (u->saved_pos > 0)
+    {
+      char *p;
+
+      p = salloc_w (u->s, &u->saved_pos);
+
+      if (!(u->unit_number == options.stdout_unit
+	    || u->unit_number == options.stderr_unit))
+	{
+	  size_t len;
+
+	  const char crlf[] = "\r\n";
+#ifdef HAVE_CRLF
+	  len = 2;
+#else
+	  len = 1;
+#endif
+	  if (swrite (u->s, &crlf[2-len], &len) != 0)
+	    os_error ("Close after ADVANCE_NO failed");
+	}
+    }
+
   rc = (u->s == NULL) ? 0 : sclose (u->s) == FAILURE;
 
   u->closed = 1;
@@ -653,4 +650,18 @@ close_units (void)
   while (unit_root != NULL)
     close_unit_1 (unit_root, 1);
   __gthread_mutex_unlock (&unit_lock);
+}
+
+
+/* update_position()-- Update the flags position for later use by inquire.  */
+
+void
+update_position (gfc_unit *u)
+{
+  if (file_position (u->s) == 0)
+    u->flags.position = POSITION_REWIND;
+  else if (file_length (u->s) == file_position (u->s))
+    u->flags.position = POSITION_APPEND;
+  else
+    u->flags.position = POSITION_ASIS;
 }

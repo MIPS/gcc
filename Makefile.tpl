@@ -28,15 +28,15 @@ in
 # -------------------------------
 VPATH=@srcdir@
 
-build_alias=@build_alias@
+build_alias=@build_noncanonical@
 build_vendor=@build_vendor@
 build_os=@build_os@
 build=@build@
-host_alias=@host_alias@
+host_alias=@host_noncanonical@
 host_vendor=@host_vendor@
 host_os=@host_os@
 host=@host@
-target_alias=@target_alias@
+target_alias=@target_noncanonical@
 target_vendor=@target_vendor@
 target_os=@target_os@
 target=@target@
@@ -61,6 +61,7 @@ oldincludedir = @oldincludedir@
 infodir = @infodir@
 datarootdir = @datarootdir@
 docdir = @docdir@
+pdfdir = @pdfdir@
 htmldir = @htmldir@
 mandir = @mandir@
 man1dir = $(mandir)/man1
@@ -190,7 +191,6 @@ POSTSTAGE1_HOST_EXPORTS = \
 	  $$r/$(HOST_SUBDIR)/prev-gcc/xgcc$(exeext) \
 	  -B$$r/$(HOST_SUBDIR)/prev-gcc/ \
 	  -B$(build_tooldir)/bin/"; export CC_FOR_BUILD; \
-	CFLAGS="$(BOOT_CFLAGS)"; export CFLAGS; \
 	LDFLAGS="$(BOOT_LDFLAGS)"; export LDFLAGS;
 
 # Target libraries are put under this directory:
@@ -303,7 +303,7 @@ GNATBIND = @GNATBIND@
 GNATMAKE = @GNATMAKE@
 
 CFLAGS = @CFLAGS@
-LDFLAGS = 
+LDFLAGS = @LDFLAGS@
 LIBCFLAGS = $(CFLAGS)
 CXXFLAGS = @CXXFLAGS@
 LIBCXXFLAGS = $(CXXFLAGS) -fno-implicit-templates
@@ -455,8 +455,6 @@ X11_FLAGS_TO_PASS = \
 POSTSTAGE1_FLAGS_TO_PASS = \
 	CC="$${CC}" CC_FOR_BUILD="$${CC_FOR_BUILD}" \
 	GNATBIND="$$r/$(HOST_SUBDIR)/prev-gcc/gnatbind" \
-	CFLAGS="$(BOOT_CFLAGS)" \
-	LIBCFLAGS="$(BOOT_CFLAGS)" \
 	LDFLAGS="$(BOOT_LDFLAGS)" \
 	"`echo 'ADAFLAGS=$(BOOT_ADAFLAGS)' | sed -e s'/[^=][^=]*=$$/XFOO=/'`"
 
@@ -570,7 +568,8 @@ do-[+make_target+]:
 
 # Here are the targets which correspond to the do-X targets.
 
-.PHONY: info installcheck dvi pdf html install-info install-html
+.PHONY: info installcheck dvi pdf html
+.PHONY: install-info install-pdf install-html
 .PHONY: clean distclean mostlyclean maintainer-clean realclean
 .PHONY: local-clean local-distclean local-maintainer-clean
 info: do-info
@@ -588,6 +587,8 @@ install-info: do-install-info dir.info
 	if [ -f dir.info ] ; then \
 	  $(INSTALL_DATA) dir.info $(DESTDIR)$(infodir)/dir.info ; \
 	else true ; fi
+
+install-pdf: do-install-pdf
 
 install-html: do-install-html
 
@@ -820,6 +821,8 @@ configure-stage[+id+]-[+prefix+][+module+]:
 	[+ ENDIF check_multilibs +]test ! -f [+subdir+]/[+module+]/Makefile || exit 0; \
 	[+exports+][+ IF prev +] \
 	[+poststage1_exports+][+ ENDIF prev +] \
+	CFLAGS="[+stage_cflags+]"; export CFLAGS; \
+	LIBCFLAGS="[+stage_cflags+]"; export LIBCFLAGS; \
 	echo Configuring stage [+id+] in [+subdir+]/[+module+] ; \
 	$(SHELL) $(srcdir)/mkinstalldirs [+subdir+]/[+module+] ; \
 	cd [+subdir+]/[+module+] || exit 1; \
@@ -876,9 +879,10 @@ all-stage[+id+]-[+prefix+][+module+]: configure-stage[+id+]-[+prefix+][+module+]
 	[+exports+][+ IF prev +] \
 	[+poststage1_exports+][+ ENDIF prev +] \
 	cd [+subdir+]/[+module+] && \
-	$(MAKE) [+args+] [+ IF prev
-		+][+poststage1_args+][+ ENDIF prev
-		+] [+stage_make_flags+] [+extra_make_flags+] \
+	$(MAKE) [+args+] \
+		CFLAGS="[+stage_cflags+]" LIBCFLAGS="[+stage_cflags+]" [+
+		IF prev +][+poststage1_args+][+ ENDIF prev
+		+] [+extra_make_flags+] \
 		$(TARGET-stage[+id+]-[+prefix+][+module+])
 
 maybe-clean-stage[+id+]-[+prefix+][+module+]: clean-stage[+id+]-[+prefix+][+module+]
@@ -893,7 +897,7 @@ clean-stage[+id+]-[+prefix+][+module+]:
 	cd [+subdir+]/[+module+] && \
 	$(MAKE) [+args+] [+ IF prev +] \
 		[+poststage1_args+] [+ ENDIF prev +] \
-		[+stage_make_flags+] [+extra_make_flags+] clean
+		[+extra_make_flags+] clean
 @endif [+prefix+][+module+]-bootstrap
 
 [+ ENDFOR bootstrap_stage +]
@@ -1263,7 +1267,7 @@ stage[+id+]-end:: [+ FOR host_modules +][+ IF bootstrap +]
 	fi
 	rm -f stage_current
 
-# Bubble a bugfix through all the stages up to stage [+id+].  They are
+# Bubble a bug fix through all the stages up to stage [+id+].  They are
 # remade, but not reconfigured.  The next stage (if any) will not be
 # reconfigured as well.
 .PHONY: stage[+id+]-bubble
@@ -1588,7 +1592,7 @@ config.status: configure
 
 # Rebuilding configure.
 AUTOCONF = autoconf
-$(srcdir)/configure: @MAINT@ $(srcdir)/configure.in $(srcdir)/config/acx.m4
+$(srcdir)/configure: @MAINT@ $(srcdir)/configure.ac $(srcdir)/config/acx.m4
 	cd $(srcdir) && $(AUTOCONF)
 
 # ------------------------------

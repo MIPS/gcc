@@ -192,18 +192,16 @@ private
    use Ada.Streams;
 
    procedure Write
-     (Stream    : access Root_Stream_Type'Class;
+     (Stream    : not null access Root_Stream_Type'Class;
       Container : Map);
 
    for Map'Write use Write;
 
    procedure Read
-     (Stream    : access Root_Stream_Type'Class;
+     (Stream    : not null access Root_Stream_Type'Class;
       Container : out Map);
 
    for Map'Read use Read;
-
-   Empty_Map : constant Map := (Controlled with HT => (null, 0, 0, 0));
 
    type Map_Access is access constant Map;
    for Map_Access'Storage_Size use 0;
@@ -215,16 +213,18 @@ private
       end record;
 
    procedure Read
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : out Cursor);
 
    for Cursor'Read use Read;
 
    procedure Write
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : Cursor);
 
    for Cursor'Write use Write;
+
+   Empty_Map : constant Map := (Controlled with HT => (null, 0, 0, 0));
 
    No_Element : constant Cursor := (Container => null, Node => null);
 

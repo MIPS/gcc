@@ -58,7 +58,8 @@ hppa_fpstore_bypass_p (rtx out_insn, rtx in_insn)
   rtx set;
 
   if (recog_memoized (in_insn) < 0
-      || get_attr_type (in_insn) != TYPE_FPSTORE
+      || (get_attr_type (in_insn) != TYPE_FPSTORE
+	  && get_attr_type (in_insn) != TYPE_FPSTORE_LOAD)
       || recog_memoized (out_insn) < 0)
     return 0;
 
@@ -557,12 +558,12 @@ symbolic_expression_p (rtx x)
 /* Accept any constant that can be moved in one instruction into a
    general register.  */
 int
-cint_ok_for_move (HOST_WIDE_INT intval)
+cint_ok_for_move (HOST_WIDE_INT ival)
 {
   /* OK if ldo, ldil, or zdepi, can be used.  */
-  return (CONST_OK_FOR_LETTER_P (intval, 'J')
-	  || CONST_OK_FOR_LETTER_P (intval, 'N')
-	  || CONST_OK_FOR_LETTER_P (intval, 'K'));
+  return (VAL_14_BITS_P (ival)
+	  || ldil_cint_p (ival)
+	  || zdepi_cint_p (ival));
 }
 
 /* Return truth value of whether OP can be used as an operand in a
@@ -575,8 +576,38 @@ adddi3_operand (rtx op, enum machine_mode mode)
 	      && (TARGET_64BIT ? INT_14_BITS (op) : INT_11_BITS (op))));
 }
 
+/* True iff the operand OP can be used as the destination operand of
+   an integer store.  This also implies the operand could be used as
+   the source operand of an integer load.  Symbolic, lo_sum and indexed
+   memory operands are not allowed.  We accept reloading pseudos and
+   other memory operands.  */
+int
+integer_store_memory_operand (rtx op, enum machine_mode mode)
+{
+  return ((reload_in_progress
+	   && REG_P (op)
+	   && REGNO (op) >= FIRST_PSEUDO_REGISTER
+	   && reg_renumber [REGNO (op)] < 0)
+	  || (GET_CODE (op) == MEM
+	      && (reload_in_progress || memory_address_p (mode, XEXP (op, 0)))
+	      && !symbolic_memory_operand (op, VOIDmode)
+	      && !IS_LO_SUM_DLT_ADDR_P (XEXP (op, 0))
+	      && !IS_INDEX_ADDR_P (XEXP (op, 0))));
+}
+
+/* True iff ldil can be used to load this CONST_INT.  The least
+   significant 11 bits of the value must be zero and the value must
+   not change sign when extended from 32 to 64 bits.  */
+int
+ldil_cint_p (HOST_WIDE_INT ival)
+{
+  HOST_WIDE_INT x = ival & (((HOST_WIDE_INT) -1 << 31) | 0x7ff);
+
+  return x == 0 || x == ((HOST_WIDE_INT) -1 << 31);
+}
+
 /* True iff zdepi can be used to generate this CONST_INT.
-   zdepi first sign extends a 5 bit signed number to a given field
+   zdepi first sign extends a 5-bit signed number to a given field
    length, then places this field anywhere in a zero.  */
 int
 zdepi_cint_p (unsigned HOST_WIDE_INT x)
@@ -732,7 +763,10 @@ legitimize_tls_address (rtx addr)
     {
       case TLS_MODEL_GLOBAL_DYNAMIC:
 	tmp = gen_reg_rtx (Pmode);
-	emit_insn (gen_tgd_load (tmp, addr));
+	if (flag_pic)
+	  emit_insn (gen_tgd_load_pic (tmp, addr));
+	else
+	  emit_insn (gen_tgd_load (tmp, addr));
 	ret = hppa_tls_call (tmp);
 	break;
 
@@ -740,7 +774,10 @@ legitimize_tls_address (rtx addr)
 	ret = gen_reg_rtx (Pmode);
 	tmp = gen_reg_rtx (Pmode);
 	start_sequence ();
-	emit_insn (gen_tld_load (tmp, addr));
+	if (flag_pic)
+	  emit_insn (gen_tld_load_pic (tmp, addr));
+	else
+	  emit_insn (gen_tld_load (tmp, addr));
 	t1 = hppa_tls_call (tmp);
 	insn = get_insns ();
 	end_sequence ();
@@ -756,7 +793,10 @@ legitimize_tls_address (rtx addr)
 	tmp = gen_reg_rtx (Pmode);
 	ret = gen_reg_rtx (Pmode);
 	emit_insn (gen_tp_load (tp));
-	emit_insn (gen_tie_load (tmp, addr));
+	if (flag_pic)
+	  emit_insn (gen_tie_load_pic (tmp, addr));
+	else
+	  emit_insn (gen_tie_load (tmp, addr));
 	emit_move_insn (ret, gen_rtx_PLUS (Pmode, tp, tmp));
 	break;
 
@@ -4210,7 +4250,7 @@ hppa_profile_hook (int label_no)
 
   emit_move_insn (gen_rtx_REG (word_mode, 26), gen_rtx_REG (word_mode, 2));
 
-  /* The address of the function is loaded into %r25 with a instruction-
+  /* The address of the function is loaded into %r25 with an instruction-
      relative sequence that avoids the use of relocations.  The sequence
      is split so that the load_offset_label_address instruction can
      occupy the delay slot of the call to _mcount.  */
@@ -5335,7 +5375,7 @@ output_deferred_plabels (void)
   /* Now output the deferred plabels.  */
   for (i = 0; i < n_deferred_plabels; i++)
     {
-      (*targetm.asm_out.internal_label) (asm_out_file, "L",
+      targetm.asm_out.internal_label (asm_out_file, "L",
 		 CODE_LABEL_NUMBER (deferred_plabels[i].internal_label));
       assemble_integer (deferred_plabels[i].symbol,
 			TARGET_64BIT ? 8 : 4, TARGET_64BIT ? 64 : 32, 1);
@@ -6191,9 +6231,7 @@ output_lbranch (rtx dest, rtx insn, int xdelay)
 		       optimize, 0, NULL);
 
       /* Now delete the delay insn.  */
-      PUT_CODE (NEXT_INSN (insn), NOTE);
-      NOTE_LINE_NUMBER (NEXT_INSN (insn)) = NOTE_INSN_DELETED;
-      NOTE_SOURCE_FILE (NEXT_INSN (insn)) = 0;
+      SET_INSN_DELETED (NEXT_INSN (insn));
     }
 
   /* Output an insn to save %r1.  The runtime documentation doesn't
@@ -6254,8 +6292,8 @@ output_lbranch (rtx dest, rtx insn, int xdelay)
 	{
 	  xoperands[1] = gen_label_rtx ();
 	  output_asm_insn ("addil L'%l0-%l1,%%r1", xoperands);
-	  (*targetm.asm_out.internal_label) (asm_out_file, "L",
-					     CODE_LABEL_NUMBER (xoperands[1]));
+	  targetm.asm_out.internal_label (asm_out_file, "L",
+					  CODE_LABEL_NUMBER (xoperands[1]));
 	  output_asm_insn ("ldo R'%l0-%l1(%%r1),%%r1", xoperands);
 	}
       else
@@ -7114,7 +7152,7 @@ output_millicode_call (rtx insn, rtx call_dest)
 	    {
 	      xoperands[1] = gen_label_rtx ();
 	      output_asm_insn ("addil L'%0-%l1,%%r1", xoperands);
-	      (*targetm.asm_out.internal_label) (asm_out_file, "L",
+	      targetm.asm_out.internal_label (asm_out_file, "L",
 					 CODE_LABEL_NUMBER (xoperands[1]));
 	      output_asm_insn ("ldo R'%0-%l1(%%r1),%%r1", xoperands);
 	    }
@@ -7158,7 +7196,7 @@ output_millicode_call (rtx insn, rtx call_dest)
 		 millicode symbol but not an arbitrary external
 		 symbol when generating SOM output.  */
 	      xoperands[1] = gen_label_rtx ();
-	      (*targetm.asm_out.internal_label) (asm_out_file, "L",
+	      targetm.asm_out.internal_label (asm_out_file, "L",
 					 CODE_LABEL_NUMBER (xoperands[1]));
 	      output_asm_insn ("addil L'%0-%l1,%%r1", xoperands);
 	      output_asm_insn ("ldo R'%0-%l1(%%r1),%%r1", xoperands);
@@ -7197,8 +7235,8 @@ output_millicode_call (rtx insn, rtx call_dest)
 	{
 	  xoperands[1] = gen_label_rtx ();
 	  output_asm_insn ("ldo %0-%1(%2),%2", xoperands);
-	  (*targetm.asm_out.internal_label) (asm_out_file, "L",
-					     CODE_LABEL_NUMBER (xoperands[1]));
+	  targetm.asm_out.internal_label (asm_out_file, "L",
+					  CODE_LABEL_NUMBER (xoperands[1]));
 	}
       else
 	/* ??? This branch may not reach its target.  */
@@ -7209,9 +7247,7 @@ output_millicode_call (rtx insn, rtx call_dest)
     output_asm_insn ("nop\n\tb,n %0", xoperands);
 
   /* Delete the jump.  */
-  PUT_CODE (NEXT_INSN (insn), NOTE);
-  NOTE_LINE_NUMBER (NEXT_INSN (insn)) = NOTE_INSN_DELETED;
-  NOTE_SOURCE_FILE (NEXT_INSN (insn)) = 0;
+  SET_INSN_DELETED (NEXT_INSN (insn));
 
   return "";
 }
@@ -7256,7 +7292,7 @@ attr_length_call (rtx insn, int sibcall)
     call_dest = XEXP (XEXP (XEXP (XVECEXP (pat, 0, 0), 1), 0), 0);
 
   call_decl = SYMBOL_REF_DECL (call_dest);
-  local_call = call_decl && (*targetm.binds_local_p) (call_decl);
+  local_call = call_decl && targetm.binds_local_p (call_decl);
 
   /* pc-relative branch.  */
   if (!TARGET_LONG_CALLS
@@ -7275,7 +7311,8 @@ attr_length_call (rtx insn, int sibcall)
   /* long pc-relative branch sequence.  */
   else if ((TARGET_SOM && TARGET_LONG_PIC_SDIFF_CALL)
 	   || (TARGET_64BIT && !TARGET_GAS)
-	   || (TARGET_GAS && (TARGET_LONG_PIC_PCREL_CALL || local_call)))
+	   || (TARGET_GAS && !TARGET_SOM
+	       && (TARGET_LONG_PIC_PCREL_CALL || local_call)))
     {
       length += 20;
 
@@ -7319,7 +7356,7 @@ output_call (rtx insn, rtx call_dest, int sibcall)
   int delay_slot_filled = 0;
   int seq_length = dbr_sequence_length ();
   tree call_decl = SYMBOL_REF_DECL (call_dest);
-  int local_call = call_decl && (*targetm.binds_local_p) (call_decl);
+  int local_call = call_decl && targetm.binds_local_p (call_decl);
   rtx xoperands[2];
 
   xoperands[0] = call_dest;
@@ -7353,9 +7390,7 @@ output_call (rtx insn, rtx call_dest, int sibcall)
 			       optimize, 0, NULL);
 
 	      /* Now delete the delay insn.  */
-	      PUT_CODE (NEXT_INSN (insn), NOTE);
-	      NOTE_LINE_NUMBER (NEXT_INSN (insn)) = NOTE_INSN_DELETED;
-	      NOTE_SOURCE_FILE (NEXT_INSN (insn)) = 0;
+	      SET_INSN_DELETED (NEXT_INSN (insn));
 	      delay_insn_deleted = 1;
 	    }
 
@@ -7386,7 +7421,8 @@ output_call (rtx insn, rtx call_dest, int sibcall)
              they don't allow an instruction in the delay slot.  */
 	  if (!((TARGET_LONG_ABS_CALL || local_call) && !flag_pic)
 	      && !(TARGET_SOM && TARGET_LONG_PIC_SDIFF_CALL)
-	      && !(TARGET_GAS && (TARGET_LONG_PIC_PCREL_CALL || local_call))
+	      && !(TARGET_GAS && !TARGET_SOM
+		   && (TARGET_LONG_PIC_PCREL_CALL || local_call))
 	      && !TARGET_64BIT)
 	    indirect_call = 1;
 
@@ -7402,9 +7438,7 @@ output_call (rtx insn, rtx call_dest, int sibcall)
 			       NULL);
 
 	      /* Now delete the delay insn.  */
-	      PUT_CODE (NEXT_INSN (insn), NOTE);
-	      NOTE_LINE_NUMBER (NEXT_INSN (insn)) = NOTE_INSN_DELETED;
-	      NOTE_SOURCE_FILE (NEXT_INSN (insn)) = 0;
+	      SET_INSN_DELETED (NEXT_INSN (insn));
 	      delay_insn_deleted = 1;
 	    }
 
@@ -7442,11 +7476,12 @@ output_call (rtx insn, rtx call_dest, int sibcall)
 		  xoperands[1] = gen_label_rtx ();
 		  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
 		  output_asm_insn ("addil L'%0-%l1,%%r1", xoperands);
-		  (*targetm.asm_out.internal_label) (asm_out_file, "L",
+		  targetm.asm_out.internal_label (asm_out_file, "L",
 					     CODE_LABEL_NUMBER (xoperands[1]));
 		  output_asm_insn ("ldo R'%0-%l1(%%r1),%%r1", xoperands);
 		}
-	      else if (TARGET_GAS && (TARGET_LONG_PIC_PCREL_CALL || local_call))
+	      else if (TARGET_GAS && !TARGET_SOM
+		       && (TARGET_LONG_PIC_PCREL_CALL || local_call))
 		{
 		  /*  GAS currently can't generate the relocations that
 		      are needed for the SOM linker under HP-UX using this
@@ -7578,8 +7613,8 @@ output_call (rtx insn, rtx call_dest, int sibcall)
 	{
 	  xoperands[1] = gen_label_rtx ();
 	  output_asm_insn ("ldo %0-%1(%%r2),%%r2", xoperands);
-	  (*targetm.asm_out.internal_label) (asm_out_file, "L",
-					     CODE_LABEL_NUMBER (xoperands[1]));
+	  targetm.asm_out.internal_label (asm_out_file, "L",
+					  CODE_LABEL_NUMBER (xoperands[1]));
 	}
       else
 	output_asm_insn ("nop\n\tb,n %0", xoperands);
@@ -7588,9 +7623,7 @@ output_call (rtx insn, rtx call_dest, int sibcall)
     output_asm_insn ("b,n %0", xoperands);
 
   /* Delete the jump.  */
-  PUT_CODE (NEXT_INSN (insn), NOTE);
-  NOTE_LINE_NUMBER (NEXT_INSN (insn)) = NOTE_INSN_DELETED;
-  NOTE_SOURCE_FILE (NEXT_INSN (insn)) = 0;
+  SET_INSN_DELETED (NEXT_INSN (insn));
 
   return "";
 }
@@ -7682,8 +7715,8 @@ output_indirect_call (rtx insn, rtx call_dest)
     {
       xoperands[0] = gen_label_rtx ();
       output_asm_insn ("addil L'$$dyncall-%0,%%r1", xoperands);
-      (*targetm.asm_out.internal_label) (asm_out_file, "L",
-					 CODE_LABEL_NUMBER (xoperands[0]));
+      targetm.asm_out.internal_label (asm_out_file, "L",
+				      CODE_LABEL_NUMBER (xoperands[0]));
       output_asm_insn ("ldo R'$$dyncall-%0(%%r1),%%r1", xoperands);
     }
   else
@@ -8841,9 +8874,7 @@ pa_combine_instructions (void)
 					    PATTERN (floater))),
 				anchor);
 
-	      PUT_CODE (anchor, NOTE);
-	      NOTE_LINE_NUMBER (anchor) = NOTE_INSN_DELETED;
-	      NOTE_SOURCE_FILE (anchor) = 0;
+	      SET_INSN_DELETED (anchor);
 
 	      /* Emit a special USE insn for FLOATER, then delete
 		 the floating insn.  */
@@ -8865,9 +8896,7 @@ pa_combine_instructions (void)
 					 anchor);
 
 	      JUMP_LABEL (temp) = JUMP_LABEL (anchor);
-	      PUT_CODE (anchor, NOTE);
-	      NOTE_LINE_NUMBER (anchor) = NOTE_INSN_DELETED;
-	      NOTE_SOURCE_FILE (anchor) = 0;
+	      SET_INSN_DELETED (anchor);
 
 	      /* Emit a special USE insn for FLOATER, then delete
 		 the floating insn.  */
@@ -9275,7 +9304,7 @@ som_output_text_section_asm_op (const void *data ATTRIBUTE_UNUSED)
   gcc_assert (TARGET_SOM);
   if (TARGET_GAS)
     {
-      if (cfun && !cfun->machine->in_nsubspa)
+      if (cfun && cfun->machine && !cfun->machine->in_nsubspa)
 	{
 	  /* We only want to emit a .nsubspa directive once at the
 	     start of the function.  */
@@ -9300,7 +9329,8 @@ som_output_text_section_asm_op (const void *data ATTRIBUTE_UNUSED)
 	     text section to output debugging information.  Thus, we
 	     need to forget that we are in the text section so that
 	     varasm.c will call us when text_section is selected again.  */
-	  gcc_assert (!cfun || cfun->machine->in_nsubspa == 2);
+	  gcc_assert (!cfun || !cfun->machine
+		      || cfun->machine->in_nsubspa == 2);
 	  in_section = NULL;
 	}
       output_section_asm_op ("\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$");

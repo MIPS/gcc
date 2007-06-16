@@ -423,7 +423,7 @@ compare_type_rank (gfc_symbol *s1, gfc_symbol *s2)
   r2 = (s2->as != NULL) ? s2->as->rank : 0;
 
   if (r1 != r2)
-    return 0;			/* Ranks differ */
+    return 0;			/* Ranks differ.  */
 
   return gfc_compare_types (&s1->ts, &s2->ts);
 }
@@ -493,7 +493,7 @@ check_operator_interface (gfc_interface *intr, gfc_intrinsic_op operator)
   sym_intent i1, i2;
   gfc_symbol *sym;
   bt t1, t2;
-  int args;
+  int args, r1, r2, k1, k2;
 
   if (intr == NULL)
     return;
@@ -501,6 +501,8 @@ check_operator_interface (gfc_interface *intr, gfc_intrinsic_op operator)
   args = 0;
   t1 = t2 = BT_UNKNOWN;
   i1 = i2 = INTENT_UNKNOWN;
+  r1 = r2 = -1;
+  k1 = k2 = -1;
 
   for (formal = intr->sym->formal; formal; formal = formal->next)
     {
@@ -515,20 +517,35 @@ check_operator_interface (gfc_interface *intr, gfc_intrinsic_op operator)
 	{
 	  t1 = sym->ts.type;
 	  i1 = sym->attr.intent;
+	  r1 = (sym->as != NULL) ? sym->as->rank : 0;
+	  k1 = sym->ts.kind;
 	}
       if (args == 1)
 	{
 	  t2 = sym->ts.type;
 	  i2 = sym->attr.intent;
+	  r2 = (sym->as != NULL) ? sym->as->rank : 0;
+	  k2 = sym->ts.kind;
 	}
       args++;
     }
 
-  if (args == 0 || args > 2)
-    goto num_args;
-
   sym = intr->sym;
 
+  /* Only +, - and .not. can be unary operators.
+     .not. cannot be a binary operator.  */
+  if (args == 0 || args > 2 || (args == 1 && operator != INTRINSIC_PLUS
+				&& operator != INTRINSIC_MINUS
+				&& operator != INTRINSIC_NOT)
+      || (args == 2 && operator == INTRINSIC_NOT))
+    {
+      gfc_error ("Operator interface at %L has the wrong number of arguments",
+		 &intr->where);
+      return;
+    }
+
+  /* Check that intrinsics are mapped to functions, except
+     INTRINSIC_ASSIGN which should map to a subroutine.  */
   if (operator == INTRINSIC_ASSIGN)
     {
       if (!sym->attr.subroutine)
@@ -564,81 +581,6 @@ check_operator_interface (gfc_interface *intr, gfc_intrinsic_op operator)
 	}
     }
 
-  switch (operator)
-    {
-    case INTRINSIC_PLUS:	/* Numeric unary or binary */
-    case INTRINSIC_MINUS:
-      if ((args == 1)
-	  && (t1 == BT_INTEGER || t1 == BT_REAL || t1 == BT_COMPLEX))
-	goto bad_repl;
-
-      if ((args == 2)
-	  && (t1 == BT_INTEGER || t1 == BT_REAL || t1 == BT_COMPLEX)
-	  && (t2 == BT_INTEGER || t2 == BT_REAL || t2 == BT_COMPLEX))
-	goto bad_repl;
-
-      break;
-
-    case INTRINSIC_POWER:	/* Binary numeric */
-    case INTRINSIC_TIMES:
-    case INTRINSIC_DIVIDE:
-
-    case INTRINSIC_EQ:
-    case INTRINSIC_NE:
-      if (args == 1)
-	goto num_args;
-
-      if ((t1 == BT_INTEGER || t1 == BT_REAL || t1 == BT_COMPLEX)
-	  && (t2 == BT_INTEGER || t2 == BT_REAL || t2 == BT_COMPLEX))
-	goto bad_repl;
-
-      break;
-
-    case INTRINSIC_GE:		/* Binary numeric operators that do not support */
-    case INTRINSIC_LE:		/* complex numbers */
-    case INTRINSIC_LT:
-    case INTRINSIC_GT:
-      if (args == 1)
-	goto num_args;
-
-      if ((t1 == BT_INTEGER || t1 == BT_REAL)
-	  && (t2 == BT_INTEGER || t2 == BT_REAL))
-	goto bad_repl;
-
-      break;
-
-    case INTRINSIC_OR:		/* Binary logical */
-    case INTRINSIC_AND:
-    case INTRINSIC_EQV:
-    case INTRINSIC_NEQV:
-      if (args == 1)
-	goto num_args;
-      if (t1 == BT_LOGICAL && t2 == BT_LOGICAL)
-	goto bad_repl;
-      break;
-
-    case INTRINSIC_NOT:	/* Unary logical */
-      if (args != 1)
-	goto num_args;
-      if (t1 == BT_LOGICAL)
-	goto bad_repl;
-      break;
-
-    case INTRINSIC_CONCAT:	/* Binary string */
-      if (args != 2)
-	goto num_args;
-      if (t1 == BT_CHARACTER && t2 == BT_CHARACTER)
-	goto bad_repl;
-      break;
-
-    case INTRINSIC_ASSIGN:	/* Class by itself */
-      if (args != 2)
-	goto num_args;
-      break;
-    default:
-      gfc_internal_error ("check_operator_interface(): Bad operator");
-    }
-
   /* Check intents on operator interfaces.  */
   if (operator == INTRINSIC_ASSIGN)
     {
@@ -661,15 +603,100 @@ check_operator_interface (gfc_interface *intr, gfc_intrinsic_op operator)
 		   "INTENT(IN)", &intr->where);
     }
 
+  /* From now on, all we have to do is check that the operator definition
+     doesn't conflict with an intrinsic operator. The rules for this
+     game are defined in 7.1.2 and 7.1.3 of both F95 and F2003 standards,
+     as well as 12.3.2.1.1 of Fortran 2003:
+
+     "If the operator is an intrinsic-operator (R310), the number of
+     function arguments shall be consistent with the intrinsic uses of
+     that operator, and the types, kind type parameters, or ranks of the
+     dummy arguments shall differ from those required for the intrinsic
+     operation (7.1.2)."  */
+
+#define IS_NUMERIC_TYPE(t) \
+  ((t) == BT_INTEGER || (t) == BT_REAL || (t) == BT_COMPLEX)
+
+  /* Unary ops are easy, do them first.  */
+  if (operator == INTRINSIC_NOT)
+    {
+      if (t1 == BT_LOGICAL)
+	goto bad_repl;
+      else
+	return;
+    }
+
+  if (args == 1 && (operator == INTRINSIC_PLUS || operator == INTRINSIC_MINUS))
+    {
+      if (IS_NUMERIC_TYPE (t1))
+	goto bad_repl;
+      else
+	return;
+    }
+
+  /* Character intrinsic operators have same character kind, thus
+     operator definitions with operands of different character kinds
+     are always safe.  */
+  if (t1 == BT_CHARACTER && t2 == BT_CHARACTER && k1 != k2)
+    return;
+
+  /* Intrinsic operators always perform on arguments of same rank,
+     so different ranks is also always safe.  (rank == 0) is an exception
+     to that, because all intrinsic operators are elemental.  */
+  if (r1 != r2 && r1 != 0 && r2 != 0)
+    return;
+
+  switch (operator)
+  {
+    case INTRINSIC_EQ:
+    case INTRINSIC_NE:
+      if (t1 == BT_CHARACTER && t2 == BT_CHARACTER)
+	goto bad_repl;
+      /* Fall through.  */
+
+    case INTRINSIC_PLUS:
+    case INTRINSIC_MINUS:
+    case INTRINSIC_TIMES:
+    case INTRINSIC_DIVIDE:
+    case INTRINSIC_POWER:
+      if (IS_NUMERIC_TYPE (t1) && IS_NUMERIC_TYPE (t2))
+	goto bad_repl;
+      break;
+
+    case INTRINSIC_GT:
+    case INTRINSIC_GE:
+    case INTRINSIC_LT:
+    case INTRINSIC_LE:
+      if (t1 == BT_CHARACTER && t2 == BT_CHARACTER)
+	goto bad_repl;
+      if ((t1 == BT_INTEGER || t1 == BT_REAL)
+	  && (t2 == BT_INTEGER || t2 == BT_REAL))
+	goto bad_repl;
+      break;
+
+    case INTRINSIC_CONCAT:
+      if (t1 == BT_CHARACTER && t2 == BT_CHARACTER)
+	goto bad_repl;
+      break;
+
+    case INTRINSIC_AND:
+    case INTRINSIC_OR:
+    case INTRINSIC_EQV:
+    case INTRINSIC_NEQV:
+      if (t1 == BT_LOGICAL && t2 == BT_LOGICAL)
+	goto bad_repl;
+      break;
+
+    default:
+      break;
+  }
+
   return;
+
+#undef IS_NUMERIC_TYPE
 
 bad_repl:
   gfc_error ("Operator interface at %L conflicts with intrinsic interface",
-	     &intr->where);
-  return;
-
-num_args:
-  gfc_error ("Operator interface at %L has the wrong number of arguments",
 	     &intr->where);
   return;
 }
@@ -723,7 +750,7 @@ count_types_test (gfc_formal_arglist *f1, gfc_formal_arglist *f2)
 	continue;
 
       if (arg[i].sym && arg[i].sym->attr.optional)
-	continue;		/* Skip optional arguments */
+	continue;		/* Skip optional arguments.  */
 
       arg[i].flag = k;
 
@@ -872,13 +899,13 @@ compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, int generic_flag)
 
   if (s1->attr.function != s2->attr.function
       && s1->attr.subroutine != s2->attr.subroutine)
-    return 0;			/* disagreement between function/subroutine */
+    return 0;		/* Disagreement between function/subroutine.  */
 
   f1 = s1->formal;
   f2 = s2->formal;
 
   if (f1 == NULL && f2 == NULL)
-    return 1;			/* Special case */
+    return 1;			/* Special case.  */
 
   if (count_types_test (f1, f2))
     return 0;
@@ -938,7 +965,7 @@ check_interface0 (gfc_interface *p, const char *interface_name)
 	    }
 	  else
 	    {
-	      /* Duplicate interface */
+	      /* Duplicate interface.  */
 	      qlast->next = q->next;
 	      gfc_free (q);
 	      q = qlast->next;
@@ -951,8 +978,7 @@ check_interface0 (gfc_interface *p, const char *interface_name)
 
 
 /* Check lists of interfaces to make sure that no two interfaces are
-   ambiguous.  Duplicate interfaces (from the same symbol) are OK
-   here.  */
+   ambiguous.  Duplicate interfaces (from the same symbol) are OK here.  */
 
 static int
 check_interface1 (gfc_interface *p, gfc_interface *q0,
@@ -964,7 +990,7 @@ check_interface1 (gfc_interface *p, gfc_interface *q0,
     for (q = q0; q; q = q->next)
       {
 	if (p->sym == q->sym)
-	  continue;		/* Duplicates OK here */
+	  continue;		/* Duplicates OK here.  */
 
 	if (p->sym->name == q->sym->name && p->sym->module == q->sym->module)
 	  continue;
@@ -1166,7 +1192,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 
       if (formal->attr.if_source == IFSRC_UNKNOWN
 	  || actual->symtree->n.sym->attr.external)
-	return 1;		/* Assume match */
+	return 1;		/* Assume match.  */
 
       return compare_interfaces (formal, actual->symtree->n.sym, 0);
     }
@@ -1199,7 +1225,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
       break;
 
   if (ref == NULL)
-    return 0;			/* Not an array element */
+    return 0;			/* Not an array element.  */
 
   return 1;
 }
@@ -1341,6 +1367,34 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 		       f->sym->name, &a->expr->where);
 	  return 0;
 	}
+
+       if (a->expr->ts.type == BT_CHARACTER
+	   && a->expr->ts.cl && a->expr->ts.cl->length
+	   && a->expr->ts.cl->length->expr_type == EXPR_CONSTANT
+	   && f->sym->ts.cl && f->sym->ts.cl && f->sym->ts.cl->length
+	   && f->sym->ts.cl->length->expr_type == EXPR_CONSTANT)
+	 {
+	   if (mpz_cmp (a->expr->ts.cl->length->value.integer,
+			f->sym->ts.cl->length->value.integer) < 0)
+	     {
+		if (where)
+		  gfc_error ("Character length of actual argument shorter "
+			     "than of dummy argument '%s' at %L",
+			     f->sym->name, &a->expr->where);
+		return 0;
+	     }
+
+	   if ((f->sym->attr.pointer || f->sym->attr.allocatable)
+	       && (mpz_cmp (a->expr->ts.cl->length->value.integer,
+			   f->sym->ts.cl->length->value.integer) != 0))
+	     {
+		if (where)
+		  gfc_error ("Character length mismatch between actual argument "
+			     "and pointer or allocatable dummy argument "
+			     "'%s' at %L", f->sym->name, &a->expr->where);
+		return 0;
+	     }
+	 }
 
       /* Satisfy 12.4.1.2 by ensuring that a procedure actual argument is
 	 provided for a procedure formal argument.  */
@@ -1850,7 +1904,7 @@ find_sym_in_symtree (gfc_symbol *sym)
   if (st && st->n.sym == sym)
     return st;
 
-  /* if it's been renamed, resort to a brute-force search.  */
+  /* If it's been renamed, resort to a brute-force search.  */
   /* TODO: avoid having to do this search.  If the symbol doesn't exist
      in the symtree for the current namespace, it should probably be added.  */
   for (ns = gfc_current_ns; ns; ns = ns->parent)
@@ -1860,7 +1914,7 @@ find_sym_in_symtree (gfc_symbol *sym)
 	return st;
     }
   gfc_internal_error ("Unable to find symbol %s", sym->name);
-  /* Not reached */
+  /* Not reached.  */
 }
 
 
@@ -1919,7 +1973,7 @@ gfc_extend_expr (gfc_expr *e)
 
   if (sym == NULL)
     {
-      /* Don't use gfc_free_actual_arglist() */
+      /* Don't use gfc_free_actual_arglist().  */
       if (actual->next != NULL)
 	gfc_free (actual->next);
       gfc_free (actual);
@@ -2008,7 +2062,7 @@ gfc_extend_assign (gfc_code *c, gfc_namespace *ns)
    procedures can be present without interfaces.  */
 
 static try
-check_new_interface (gfc_interface * base, gfc_symbol * new)
+check_new_interface (gfc_interface *base, gfc_symbol *new)
 {
   gfc_interface *ip;
 

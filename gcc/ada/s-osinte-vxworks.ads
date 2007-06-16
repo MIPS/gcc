@@ -198,7 +198,7 @@ package System.OS_Interface is
    -- Utility Routines --
    ----------------------
 
-   function To_VxWorks_Priority (Priority : in int) return int;
+   function To_VxWorks_Priority (Priority : int) return int;
    pragma Inline (To_VxWorks_Priority);
    --  Convenience routine to convert between VxWorks priority and Ada priority
 
@@ -274,9 +274,6 @@ package System.OS_Interface is
    VX_UNBREAKABLE    : constant := 16#0002#;
    VX_FP_PRIVATE_ENV : constant := 16#0080#;
    VX_NO_STACK_FILL  : constant := 16#0100#;
-
-   function VX_FP_TASK return int;
-   pragma Inline (VX_FP_TASK);
 
    function taskSpawn
      (name          : System.Address;  --  Pointer to task name

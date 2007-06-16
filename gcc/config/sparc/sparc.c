@@ -980,17 +980,27 @@ sparc_expand_move (enum machine_mode mode, rtx *operands)
       if (pic_address_needs_scratch (operands[1]))
 	operands[1] = legitimize_pic_address (operands[1], mode, 0);
 
-      if (GET_CODE (operands[1]) == LABEL_REF && mode == SImode)
+      /* VxWorks does not impose a fixed gap between segments; the run-time
+	 gap can be different from the object-file gap.  We therefore can't
+	 assume X - _GLOBAL_OFFSET_TABLE_ is a link-time constant unless we
+	 are absolutely sure that X is in the same segment as the GOT.
+	 Unfortunately, the flexibility of linker scripts means that we
+	 can't be sure of that in general, so assume that _G_O_T_-relative
+	 accesses are never valid on VxWorks.  */
+      if (GET_CODE (operands[1]) == LABEL_REF && !TARGET_VXWORKS_RTP)
 	{
-	  emit_insn (gen_movsi_pic_label_ref (operands[0], operands[1]));
-	  return true;
-	}
+	  if (mode == SImode)
+	    {
+	      emit_insn (gen_movsi_pic_label_ref (operands[0], operands[1]));
+	      return true;
+	    }
 
-      if (GET_CODE (operands[1]) == LABEL_REF && mode == DImode)
-	{
-	  gcc_assert (TARGET_ARCH64);
-	  emit_insn (gen_movdi_pic_label_ref (operands[0], operands[1]));
-	  return true;
+	  if (mode == DImode)
+	    {
+	      gcc_assert (TARGET_ARCH64);
+	      emit_insn (gen_movdi_pic_label_ref (operands[0], operands[1]));
+	      return true;
+	    }
 	}
 
       if (symbolic_operand (operands[1], mode))
@@ -3212,7 +3222,9 @@ rtx
 legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
 			rtx reg)
 {
-  if (GET_CODE (orig) == SYMBOL_REF)
+  if (GET_CODE (orig) == SYMBOL_REF
+      /* See the comment in sparc_expand_move.  */
+      || (TARGET_VXWORKS_RTP && GET_CODE (orig) == LABEL_REF))
     {
       rtx pic_ref, address;
       rtx insn;
@@ -3377,6 +3389,13 @@ load_pic_register (bool delay_pic_helper)
 {
   int orig_flag_pic = flag_pic;
 
+  if (TARGET_VXWORKS_RTP)
+    {
+      emit_insn (gen_vxworks_load_got ());
+      emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+      return;
+    }
+
   /* If we haven't initialized the special PIC symbols, do so now.  */
   if (!pic_helper_symbol_name[0])
     {
@@ -3404,6 +3423,29 @@ load_pic_register (bool delay_pic_helper)
      ??? In the case where we don't obey regdecls, this is not sufficient
      since we may not fall out the bottom.  */
   emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+}
+
+/* Emit a call instruction with the pattern given by PAT.  ADDR is the
+   address of the call target.  */
+
+void
+sparc_emit_call_insn (rtx pat, rtx addr)
+{
+  rtx insn;
+
+  insn = emit_call_insn (pat);
+
+  /* The PIC register is live on entry to VxWorks PIC PLT entries.  */
+  if (TARGET_VXWORKS_RTP
+      && flag_pic
+      && GET_CODE (addr) == SYMBOL_REF
+      && (SYMBOL_REF_DECL (addr)
+	  ? !targetm.binds_local_p (SYMBOL_REF_DECL (addr))
+	  : !SYMBOL_REF_LOCAL_P (addr)))
+    {
+      use_reg (&CALL_INSN_FUNCTION_USAGE (insn), pic_offset_table_rtx);
+      current_function_uses_pic_offset_table = 1;
+    }
 }
 
 /* Return 1 if RTX is a MEM which is known to be aligned to at
@@ -3493,7 +3535,7 @@ mem_min_alignment (rtx mem, int desired)
    hard register number, and one indexed by mode.  */
 
 /* The purpose of sparc_mode_class is to shrink the range of modes so that
-   they all fit (as bit numbers) in a 32 bit word (again).  Each real mode is
+   they all fit (as bit numbers) in a 32-bit word (again).  Each real mode is
    mapped into one sparc_mode_class mode.  */
 
 enum sparc_mode_class {
@@ -5673,18 +5715,18 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   incr = valist;
   if (align)
     {
-      incr = fold (build2 (PLUS_EXPR, ptr_type_node, incr,
-			   ssize_int (align - 1)));
-      incr = fold (build2 (BIT_AND_EXPR, ptr_type_node, incr,
-			   ssize_int (-align)));
+      incr = fold_build2 (PLUS_EXPR, ptr_type_node, incr,
+			  ssize_int (align - 1));
+      incr = fold_build2 (BIT_AND_EXPR, ptr_type_node, incr,
+			  ssize_int (-align));
     }
 
   gimplify_expr (&incr, pre_p, post_p, is_gimple_val, fb_rvalue);
   addr = incr;
 
   if (BYTES_BIG_ENDIAN && size < rsize)
-    addr = fold (build2 (PLUS_EXPR, ptr_type_node, incr,
-			 ssize_int (rsize - size)));
+    addr = fold_build2 (PLUS_EXPR, ptr_type_node, incr,
+			ssize_int (rsize - size));
 
   if (indirect)
     {
@@ -5701,12 +5743,10 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       tree tmp = create_tmp_var (type, "va_arg_tmp");
       tree dest_addr = build_fold_addr_expr (tmp);
 
-      tree copy = build_function_call_expr
-	(implicit_built_in_decls[BUILT_IN_MEMCPY],
-	 tree_cons (NULL_TREE, dest_addr,
-		    tree_cons (NULL_TREE, addr,
-			       tree_cons (NULL_TREE, size_int (rsize),
-					  NULL_TREE))));
+      tree copy = build_call_expr (implicit_built_in_decls[BUILT_IN_MEMCPY], 3,
+				   dest_addr,
+				   addr,
+				   size_int (rsize));
 
       gimplify_and_add (copy, pre_p);
       addr = dest_addr;
@@ -5714,7 +5754,7 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   else
     addr = fold_convert (ptrtype, addr);
 
-  incr = fold (build2 (PLUS_EXPR, ptr_type_node, incr, ssize_int (rsize)));
+  incr = fold_build2 (PLUS_EXPR, ptr_type_node, incr, ssize_int (rsize));
   incr = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, valist, incr);
   gimplify_and_add (incr, post_p);
 
@@ -7773,13 +7813,19 @@ sparc_elf_asm_named_section (const char *name, unsigned int flags,
    the sibling call right?  Well, in the C++ case we can end up passing
    the pointer to the struct return area to a constructor (which returns
    void) and then nothing else happens.  Such a sibling call would look
-   valid without the added check here.  */
+   valid without the added check here.
+
+   VxWorks PIC PLT entries require the global pointer to be initialized
+   on entry.  We therefore can't emit sibling calls to them.  */
 static bool
 sparc_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
   return (decl
 	  && flag_delayed_branch
-	  && (TARGET_ARCH64 || ! current_function_returns_struct));
+	  && (TARGET_ARCH64 || ! current_function_returns_struct)
+	  && !(TARGET_VXWORKS_RTP
+	       && flag_pic
+	       && !targetm.binds_local_p (decl)));
 }
 
 /* libfunc renaming.  */
@@ -7985,8 +8031,9 @@ static rtx
 sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 		      enum machine_mode tmode, int ignore ATTRIBUTE_UNUSED)
 {
-  tree arglist;
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree arg;
+  call_expr_arg_iterator iter;
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int icode = DECL_FUNCTION_CODE (fndecl);
   rtx pat, op[4];
   enum machine_mode mode[4];
@@ -8001,11 +8048,8 @@ sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   else
     op[arg_count] = target;
 
-  for (arglist = TREE_OPERAND (exp, 1); arglist;
-       arglist = TREE_CHAIN (arglist))
+  FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
     {
-      tree arg = TREE_VALUE (arglist);
-
       arg_count++;
       mode[arg_count] = insn_data[icode].operand[arg_count].mode;
       op[arg_count] = expand_normal (arg);
@@ -8550,7 +8594,6 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   reload_completed = 1;
   epilogue_completed = 1;
   no_new_pseudos = 1;
-  reset_block_changes ();
 
   emit_note (NOTE_INSN_PROLOGUE_END);
 
@@ -8728,7 +8771,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
      instruction scheduling worth while.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
   insn = get_insns ();
-  insn_locators_initialize ();
+  insn_locators_alloc ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
   final (insn, file, 1);

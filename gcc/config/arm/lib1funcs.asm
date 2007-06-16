@@ -54,6 +54,8 @@ Boston, MA 02110-1301, USA.  */
 #ifdef __ELF__
 #ifdef __thumb__
 #define __PLT__  /* Not supported in Thumb assembler (for now).  */
+#elif defined __vxworks && !defined __PIC__
+#define __PLT__ /* Not supported by the kernel loader.  */
 #else
 #define __PLT__ (PLT)
 #endif
@@ -68,6 +70,14 @@ Boston, MA 02110-1301, USA.  */
 #endif
 
 /* Function end macros.  Variants for interworking.  */
+
+#if defined(__ARM_ARCH_2__)
+# define __ARM_ARCH__ 2
+#endif
+
+#if defined(__ARM_ARCH_3__)
+# define __ARM_ARCH__ 3
+#endif
 
 #if defined(__ARM_ARCH_3M__) || defined(__ARM_ARCH_4__) \
 	|| defined(__ARM_ARCH_4T__)
@@ -211,7 +221,7 @@ LSYM(Lend_fde):
 # if defined(__thumb2__)
 	pop\cond	{\regs, pc}
 # else
-	ldm\cond\dirn	sp!, {\regs, lr}
+	ldm\cond\dirn	sp!, {\regs, pc}
 # endif
 	.endif
 #endif
@@ -444,7 +454,7 @@ pc		.req	r15
 
 	@ Initially shift the divisor left 3 bits if possible,
 	@ set curbit accordingly.  This allows for curbit to be located
-	@ at the left end of each 4 bit nibbles in the division loop
+	@ at the left end of each 4-bit nibbles in the division loop
 	@ to save one loop in most cases.
 	tst	\divisor, #0xe0000000
 	moveq	\divisor, \divisor, lsl #3
@@ -1062,10 +1072,9 @@ LSYM(Lover12):
 /* Constant taken from <asm/signal.h>.  */
 #define SIGFPE	8
 
-	.code	32
-	FUNC_START div0
+	ARM_FUNC_START div0
 
-	stmfd	sp!, {r1, lr}
+	do_push	{r1, lr}
 	mov	r0, #SIGFPE
 	bl	SYM(raise) __PLT__
 	RETLDM	r1

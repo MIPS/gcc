@@ -23,6 +23,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_FLAGS_H
 #define GCC_FLAGS_H
 
+#include "coretypes.h"
 #include "options.h"
 
 enum debug_info_type
@@ -53,6 +54,25 @@ enum debug_info_level
 
 /* Specify how much debugging info to generate.  */
 extern enum debug_info_level debug_info_level;
+
+/* A major contribution to object and executable size is debug
+   information size.  A major contribution to debug information
+   size is struct descriptions replicated in several object files.
+   The following function determines whether or not debug information
+   should be generated for a given struct.  The indirect parameter
+   indicates that the struct is being handled indirectly, via
+   a pointer.  See opts.c for the implementation. */
+
+enum debug_info_usage
+{
+  DINFO_USAGE_DFN,	/* A struct definition. */
+  DINFO_USAGE_DIR_USE,	/* A direct use, such as the type of a variable. */
+  DINFO_USAGE_IND_USE,	/* An indirect use, such as through a pointer. */
+  DINFO_USAGE_NUM_ENUMS	/* The number of enumerators. */
+};
+
+extern bool should_emit_struct_debug (tree type_decl, enum debug_info_usage);
+extern void set_struct_debug_option (const char *value);
 
 /* Nonzero means use GNU-only extensions in the generated symbolic
    debugging information.  */
@@ -102,6 +122,15 @@ extern bool extra_warnings;
 
 extern void set_Wunused (int setting);
 
+/* Used to set the level of -Wstrict-aliasing, when no level is specified.  
+   The external way to set the default level is to use
+   -Wstrict-aliasing=level.  
+   ONOFF is assumed to take value 1 when -Wstrict-aliasing is specified,
+   and 0 otherwise.  After calling this function, wstrict_aliasing will be
+   set to the default value of -Wstrict_aliasing=level.  */
+
+extern void set_Wstrict_aliasing (int onoff);
+
 /* Nonzero means warn about any objects definitions whose size is larger
    than N bytes.  Also want about function definitions whose returned
    values are larger than N bytes. The value N is in `larger_than_size'.  */
@@ -113,6 +142,11 @@ extern HOST_WIDE_INT larger_than_size;
    aliasing safe.  */
 
 extern int warn_strict_aliasing;
+
+/* Nonzero means warn about optimizations which rely on undefined
+   signed overflow.  */
+
+extern int warn_strict_overflow;
 
 /* Temporarily suppress certain warnings.
    This is set while reading code from a system header file.  */
@@ -187,11 +221,6 @@ extern int flag_debug_asm;
 extern int flag_next_runtime;
 
 extern int flag_dump_rtl_in_asm;
-
-/* If one, renumber instruction UIDs to reduce the number of
-   unused UIDs if there are a lot of instructions.  If greater than
-   one, unconditionally renumber instruction UIDs.  */
-extern int flag_renumber_insns;
 
 /* Other basic status info about current function.  */
 
@@ -251,11 +280,6 @@ extern int flag_var_tracking;
    warning message in case flag was set by -fprofile-{generate,use}.  */
 extern bool flag_speculative_prefetching_set;
 
-/* A string that's used when a random name is required.  NULL means
-   to make it really random.  */
-
-extern const char *flag_random_seed;
-
 /* Returns TRUE if generated code should match ABI version N or
    greater is in use.  */
 
@@ -294,8 +318,13 @@ extern const char *flag_random_seed;
   (TYPE_UNSIGNED (TYPE) || flag_wrapv)
 
 /* True if overflow is undefined for the given integral type.  We may
-   optimize on the assumption that values in the type never
-   overflow.  */
+   optimize on the assumption that values in the type never overflow.
+
+   IMPORTANT NOTE: Any optimization based on TYPE_OVERFLOW_UNDEFINED
+   must issue a warning based on warn_strict_overflow.  In some cases
+   it will be appropriate to issue the warning immediately, and in
+   other cases it will be appropriate to simply set a flag and let the
+   caller decide whether a warning is appropriate or not.  */
 #define TYPE_OVERFLOW_UNDEFINED(TYPE) \
   (!TYPE_UNSIGNED (TYPE) && !flag_wrapv && !flag_trapv && flag_strict_overflow)
 
@@ -303,5 +332,33 @@ extern const char *flag_random_seed;
    trap.  */
 #define TYPE_OVERFLOW_TRAPS(TYPE) \
   (!TYPE_UNSIGNED (TYPE) && flag_trapv)
+
+/* Names for the different levels of -Wstrict-overflow=N.  The numeric
+   values here correspond to N.  */
+
+enum warn_strict_overflow_code
+{
+  /* Overflow warning that should be issued with -Wall: a questionable
+     construct that is easy to avoid even when using macros.  Example:
+     folding (x + CONSTANT > x) to 1.  */
+  WARN_STRICT_OVERFLOW_ALL = 1,
+  /* Overflow warning about folding a comparison to a constant because
+     of undefined signed overflow, other than cases covered by
+     WARN_STRICT_OVERFLOW_ALL.  Example: folding (abs (x) >= 0) to 1
+     (this is false when x == INT_MIN).  */
+  WARN_STRICT_OVERFLOW_CONDITIONAL = 2,
+  /* Overflow warning about changes to comparisons other than folding
+     them to a constant.  Example: folding (x + 1 > 1) to (x > 0).  */
+  WARN_STRICT_OVERFLOW_COMPARISON = 3,
+  /* Overflow warnings not covered by the above cases.  Example:
+     folding ((x * 10) / 5) to (x * 2).  */
+  WARN_STRICT_OVERFLOW_MISC = 4,
+  /* Overflow warnings about reducing magnitude of constants in
+     comparison.  Example: folding (x + 2 > y) to (x + 1 >= y).  */
+  WARN_STRICT_OVERFLOW_MAGNITUDE = 5
+};
+
+/* Whether to emit an overflow warning whose code is C.  */
+#define issue_strict_overflow_warning(c) (warn_strict_overflow >= (int) (c))
 
 #endif /* ! GCC_FLAGS_H */

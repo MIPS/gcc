@@ -168,6 +168,75 @@ static void cgraph_output_pending_asms (void);
 
 static FILE *cgraph_dump_file;
 
+static GTY (()) tree static_ctors;
+static GTY (()) tree static_dtors;
+
+/* When target does not have ctors and dtors, we call all constructor
+   and destructor by special initialization/destruction function
+   recognized by collect2.  
+   
+   When we are going to build this function, collect all constructors and
+   destructors and turn them into normal functions.  */
+
+static void
+record_cdtor_fn (tree fndecl)
+{
+  if (targetm.have_ctors_dtors)
+    return;
+
+  if (DECL_STATIC_CONSTRUCTOR (fndecl))
+    {
+      static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
+      DECL_STATIC_CONSTRUCTOR (fndecl) = 0;
+      cgraph_mark_reachable_node (cgraph_node (fndecl));
+    }
+  if (DECL_STATIC_DESTRUCTOR (fndecl))
+    {
+      static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
+      DECL_STATIC_DESTRUCTOR (fndecl) = 0;
+      cgraph_mark_reachable_node (cgraph_node (fndecl));
+    }
+}
+
+/* Synthesize a function which calls all the global ctors or global
+   dtors in this file.  This is only used for targets which do not
+   support .ctors/.dtors sections.  */
+static void
+build_cdtor (int method_type, tree cdtors)
+{
+  tree body = 0;
+
+  if (!cdtors)
+    return;
+
+  for (; cdtors; cdtors = TREE_CHAIN (cdtors))
+    append_to_statement_list (build_function_call_expr (TREE_VALUE (cdtors), 0),
+			      &body);
+
+  cgraph_build_static_cdtor (method_type, body, DEFAULT_INIT_PRIORITY);
+}
+
+/* Generate functions to call static constructors and destructors
+   for targets that do not support .ctors/.dtors sections.  These
+   functions have magic names which are detected by collect2.  */
+
+static void
+cgraph_build_cdtor_fns (void)
+{
+  if (!targetm.have_ctors_dtors)
+    {
+      build_cdtor ('I', static_ctors); 
+      static_ctors = NULL_TREE;
+      build_cdtor ('D', static_dtors); 
+      static_dtors = NULL_TREE;
+    }
+  else
+    {
+      gcc_assert (!static_ctors);
+      gcc_assert (!static_dtors);
+    }
+}
+
 /* Determine if function DECL is needed.  That is, visible to something
    either outside this translation unit, something magic in the system
    configury, or (if not doing unit-at-a-time) to something we havn't
@@ -197,6 +266,14 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
   if (DECL_ASSEMBLER_NAME_SET_P (decl)
       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
     return true;
+
+  /* With -fkeep-inline-functions we are keeping all inline functions except
+     for extern inline ones.  */
+  if (flag_keep_inline_functions
+      && DECL_DECLARED_INLINE_P (decl)
+      && !DECL_EXTERNAL (decl)
+      && !lookup_attribute ("always_inline", DECL_ATTRIBUTES (decl)))
+     return true;
 
   /* If we decided it was needed before, but at the time we didn't have
      the body of the function available, then it's still needed.  We have
@@ -450,6 +527,7 @@ cgraph_finalize_function (tree decl, bool nested)
   node->decl = decl;
   node->local.finalized = true;
   node->lowered = DECL_STRUCT_FUNCTION (decl)->cfg != NULL;
+  record_cdtor_fn (node->decl);
   if (node->nested)
     lower_nested_functions (decl);
   gcc_assert (!node->nested);
@@ -517,6 +595,16 @@ verify_cgraph_node (struct cgraph_node *node)
       if (e->count < 0)
 	{
 	  error ("caller edge count is negative");
+	  error_found = true;
+	}
+      if (e->frequency < 0)
+	{
+	  error ("caller edge frequency is negative");
+	  error_found = true;
+	}
+      if (e->frequency > CGRAPH_FREQ_MAX)
+	{
+	  error ("caller edge frequency is too large");
 	  error_found = true;
 	}
       if (!e->inline_failed)
@@ -673,19 +761,6 @@ cgraph_analyze_function (struct cgraph_node *node)
   push_cfun (DECL_STRUCT_FUNCTION (decl));
   cgraph_lower_function (node);
 
-  node->local.estimated_self_stack_size = estimated_stack_frame_size ();
-  node->global.estimated_stack_size = node->local.estimated_self_stack_size;
-  node->global.stack_frame_offset = 0;
-  node->local.inlinable = tree_inlinable_function_p (decl);
-  if (!flag_unit_at_a_time)
-    node->local.self_insns = estimate_num_insns (decl, &eni_inlining_weights);
-  if (node->local.inlinable)
-    node->local.disregard_inline_limits
-      = lang_hooks.tree_inlining.disregard_inline_limits (decl);
-  if (flag_really_no_inline && !node->local.disregard_inline_limits)
-    node->local.inlinable = 0;
-  /* Inlining characteristics are maintained by the cgraph_mark_inline.  */
-  node->global.insns = node->local.self_insns;
   if (!flag_unit_at_a_time)
     {
       bitmap_obstack_initialize (NULL);
@@ -974,6 +1049,8 @@ cgraph_mark_functions_to_output (void)
 static void
 cgraph_expand_function (struct cgraph_node *node)
 {
+  enum debug_info_type save_write_symbols = NO_DEBUG;
+  const struct gcc_debug_hooks *save_debug_hooks = NULL;
   tree decl = node->decl;
 
   /* We ought to not compile any inline clones.  */
@@ -984,12 +1061,26 @@ cgraph_expand_function (struct cgraph_node *node)
 
   gcc_assert (node->lowered);
 
+  if (DECL_IGNORED_P (decl))
+    {
+      save_write_symbols = write_symbols;
+      write_symbols = NO_DEBUG;
+      save_debug_hooks = debug_hooks;
+      debug_hooks = &do_nothing_debug_hooks;
+    }
+
   /* Generate RTL for the body of DECL.  */
   lang_hooks.callgraph.expand_function (decl);
 
   /* Make sure that BE didn't give up on compiling.  */
   /* ??? Can happen with nested function of extern inline.  */
   gcc_assert (TREE_ASM_WRITTEN (node->decl));
+
+  if (DECL_IGNORED_P (decl))
+    {
+      write_symbols = save_write_symbols;
+      debug_hooks = save_debug_hooks;
+    }
 
   current_function_decl = NULL;
   if (!cgraph_preserve_function_body_p (node->decl))
@@ -1188,6 +1279,10 @@ cgraph_optimize (void)
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
+
+  /* Call functions declared with the "constructor" or "destructor"
+     attribute.  */
+  cgraph_build_cdtor_fns ();
   if (!flag_unit_at_a_time)
     {
       cgraph_assemble_pending_functions ();
@@ -1332,9 +1427,11 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
     {
     case 'I':
       DECL_STATIC_CONSTRUCTOR (decl) = 1;
+      decl_init_priority_insert (decl, priority);
       break;
     case 'D':
       DECL_STATIC_DESTRUCTOR (decl) = 1;
+      decl_fini_priority_insert (decl, priority);
       break;
     default:
       gcc_unreachable ();
@@ -1344,17 +1441,6 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
 
   cgraph_add_new_function (decl, false);
   cgraph_mark_needed_node (cgraph_node (decl));
-
-  if (targetm.have_ctors_dtors)
-    {
-      void (*fn) (rtx, int);
-
-      if (which == 'I')
-	fn = targetm.asm_out.constructor;
-      else
-	fn = targetm.asm_out.destructor;
-      fn (XEXP (DECL_RTL (decl), 0), priority);
-    }
 }
 
 void
@@ -1376,7 +1462,7 @@ update_call_expr (struct cgraph_node *new_version)
   for (e = new_version->callers; e; e = e->next_caller)
     /* Update the call expr on the edges
        to call the new version.  */
-    TREE_OPERAND (TREE_OPERAND (get_call_expr_in (e->call_stmt), 0), 0) = new_version->decl;
+    TREE_OPERAND (CALL_EXPR_FN (get_call_expr_in (e->call_stmt)), 0) = new_version->decl;
 }
 
 
@@ -1412,7 +1498,8 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
       also cloned.  */
    for (e = old_version->callees;e; e=e->next_callee)
      {
-       new_e = cgraph_clone_edge (e, new_version, e->call_stmt, 0, e->loop_nest, true);
+       new_e = cgraph_clone_edge (e, new_version, e->call_stmt, 0, e->frequency,
+				  e->loop_nest, true);
        new_e->count = e->count;
      }
    /* Fix recursive calls.
@@ -1511,7 +1598,8 @@ save_inline_function_body (struct cgraph_node *node)
     {
       struct cgraph_edge *e;
 
-      first_clone = cgraph_clone_node (node, node->count, 0, false);
+      first_clone = cgraph_clone_node (node, node->count, 0, CGRAPH_FREQ_BASE,
+				       false);
       first_clone->needed = 0;
       first_clone->reachable = 1;
       /* Recursively clone all bodies.  */
@@ -1545,3 +1633,5 @@ save_inline_function_body (struct cgraph_node *node)
 #endif
   return first_clone;
 }
+
+#include "gt-cgraphunit.h"

@@ -1,3 +1,7 @@
+2007-06-16  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	Merge revisions 121417-125587 from trunk.
+
 2007-06-14  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
 
 	Initialized merge tracking via "svnmerge" with revisions "1-121416"

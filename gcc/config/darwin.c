@@ -1172,6 +1172,12 @@ darwin_mergeable_constant_section (tree exp,
   return readonly_data_section;
 }
 
+int
+machopic_reloc_rw_mask (void)
+{
+  return MACHOPIC_INDIRECT ? 3 : 0;
+}
+
 section *
 machopic_select_section (tree decl,
 			 int reloc,
@@ -1182,10 +1188,9 @@ machopic_select_section (tree decl,
 	       && (lookup_attribute ("weak", DECL_ATTRIBUTES (decl))
 		   || ! lookup_attribute ("weak_import",
 					  DECL_ATTRIBUTES (decl))));
-  int shlib = flag_pic;
   section *base_section;
 
-  switch (categorize_decl_for_section (decl, reloc, shlib))
+  switch (categorize_decl_for_section (decl, reloc))
     {
     case SECCAT_TEXT:
       base_section = darwin_text_section (reloc, weak);
@@ -1410,14 +1415,14 @@ darwin_handle_kext_attribute (tree *node, tree name,
   /* APPLE KEXT stuff -- only applies with pure static C++ code.  */
   if (! TARGET_KEXTABI)
     {
-      warning (0, "%<%s%> 2.95 vtable-compatability attribute applies "
+      warning (0, "%<%s%> 2.95 vtable-compatibility attribute applies "
 	       "only when compiling a kext", IDENTIFIER_POINTER (name));
 
       *no_add_attrs = true;
     }
   else if (TREE_CODE (*node) != RECORD_TYPE)
     {
-      warning (0, "%<%s%> 2.95 vtable-compatability attribute applies "
+      warning (0, "%<%s%> 2.95 vtable-compatibility attribute applies "
 	       "only to C++ classes", IDENTIFIER_POINTER (name));
 
       *no_add_attrs = true;
@@ -1703,11 +1708,6 @@ darwin_kextabi_p (void) {
 void
 darwin_override_options (void)
 {
-  if (flag_apple_kext && strcmp (lang_hooks.name, "GNU C++") != 0)
-    {
-      warning (0, "command line option %<-fapple-kext%> is only valid for C++");
-      flag_apple_kext = 0;
-    }
   if (flag_mkernel || flag_apple_kext)
     {
       /* -mkernel implies -fapple-kext for C++ */

@@ -72,8 +72,8 @@ db_pathtail = gcj-$(gcc_version)/$(db_name)
 ## For now, only on native systems.  FIXME.
 if NATIVE
 bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool \
-	gappletviewer gjarsigner gkeytool gjar gjavah gnative2ascii \
-	gorbd grmid gserialver gtnameserv
+	gappletviewer gjarsigner gkeytool gjar gcjh gjavah gnative2ascii \
+	gorbd grmid gserialver gtnameserv gc-analyze
 
 ## It is convenient to actually build and install the default database
 ## when gcj-dbtool is available.
@@ -100,6 +100,10 @@ endif
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
 
 extra_ldflags_libjava = @extra_ldflags_libjava@
+
+if ANONVERSCRIPT
+extra_ldflags_libjava += -Wl,--version-script=$(srcdir)/libgcj.ver
+endif
 
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) \
           $(LDFLAGS) -o $@
@@ -135,6 +139,7 @@ AM_CXXFLAGS = \
 	-DGCJ_ENDORSED_DIRS="\"$(jardir)/gcj-endorsed\"" \
 	-DGCJ_VERSIONED_LIBDIR="\"$(dbexecdir)\"" \
 	-DPATH_SEPARATOR="\"$(CLASSPATH_SEPARATOR)\"" \
+	-DECJ_JAR_FILE="\"$(ECJ_JAR)\"" \
 	-DLIBGCJ_DEFAULT_DATABASE="\"$(dbexecdir)/$(db_name)\"" \
 	-DLIBGCJ_DEFAULT_DATABASE_PATH_TAIL="\"$(db_pathtail)\""
 
@@ -246,6 +251,9 @@ libgcj_la_DEPENDENCIES = libgcj-$(gcc_version).jar \
 	java/process-$(PLATFORM).lo \
 	$(all_packages_source_files:.list=.lo) \
 	$(LIBLTDL) $(libgcj_la_LIBADD)
+if ANONVERSCRIPT
+libgcj_la_DEPENDENCIES += $(srcdir)/libgcj.ver
+endif
 libgcj_la_LINK = $(LIBLINK)
 
 ## A hack to make sure the various gcj-related macros, like
@@ -333,8 +341,7 @@ libgcj-$(gcc_version).jar: classpath/lib/compile-classes
 ## Note that this now omits the property files.
 ## It doesn't matter since we don't use the jar at runtime.
 	here=`pwd`; cd $(srcdir)/classpath/lib; \
-	find gnu java javax org sun -name '*.class' -print | \
-	fgrep -v .svn | \
+	find gnu java javax org sun -name .svn -prune -o -name '*.class' -print | \
 	$(JAR) -cfM@ $$here/libgcj-$(gcc_version).jar
 
 libgcj-tools-$(gcc_version).jar: classpath/tools/tools.zip
@@ -400,6 +407,7 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/nio/DirectByteBufferImpl$$ReadWrite.h \
 	java/nio/channels/Pipe$$SinkChannel.h \
 	java/nio/channels/Pipe$$SourceChannel.h \
+	java/lang/VMProcess$ImmediateEOFInputStream.h \
 	java/lang/reflect/Proxy$$ProxyData.h \
 	java/lang/reflect/Proxy$$ProxyType.h \
 	gnu/java/net/PlainSocketImpl$$SocketInputStream.h \
@@ -448,12 +456,9 @@ if USE_LIBGCJ_BC
 	rm $(DESTDIR)$(toolexeclibdir)/libgcj_bc.la;
 endif
 if BUILD_ECJ1
-if NATIVE
+## Undo any prepending of the target prefix and transform
+## to the actual host's executable suffix.
 	mv $(DESTDIR)$(libexecsubdir)/`echo ecjx | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` $(DESTDIR)$(libexecsubdir)/ecj1$(host_exeext)
-else !NATIVE
-## Undo the prepending of the target prefix
-	mv $(DESTDIR)$(libexecsubdir)/$(target_noncanonical)-`echo ecjx | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` $(DESTDIR)$(libexecsubdir)/ecj1$(host_exeext)
-endif !NATIVE
 endif BUILD_ECJ1
 
 ## Install the headers.  It is fairly ugly that we have to do this by
@@ -644,11 +649,25 @@ gcj_dbtool_LDADD = gnu/gcj/tools/gcj_dbtool.lo -L$(here)/.libs libgcj.la
 ## linking this program.
 gcj_dbtool_DEPENDENCIES = gnu/gcj/tools/gcj_dbtool.lo libgcj.la libgcj.spec
 
+gc_analyze_SOURCES =
+
+## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
+## need this because we are explicitly using libtool to link using the
+## `.la' file.
+gc_analyze_LDFLAGS = --main=gnu.gcj.tools.gc_analyze.MemoryAnalyze \
+        -rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gc_analyze_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gc_analyze_LDADD = -L$(here)/.libs libgcj-tools.la libgcj.la
+## Depend on the spec file to make sure it is up to date before
+## linking this program.
+gc_analyze_DEPENDENCIES = libgcj-tools.la libgcj.la libgcj.spec
+
 gij_SOURCES = 
 ## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
 ## need this because we are explicitly using libtool to link using the
 ## `.la' file.
-gij_LDFLAGS = -rpath $(libdir)/gcj-$(gcc_version) -rpath $(toolexeclibdir) \
+gij_LDFLAGS = -rpath $(dbexecdir) -rpath $(toolexeclibdir) \
 	-shared-libgcc $(THREADLDFLAGS)
 gij_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
@@ -737,6 +756,15 @@ gjavah_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
 gjavah_LDADD = -L$(here)/.libs libgcj-tools.la
 gjavah_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+gcjh_SOURCES =
+gcjh_LDFLAGS = --main=gnu.classpath.tools.javah.GcjhMain \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gcjh_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gcjh_LDADD = -L$(here)/.libs libgcj-tools.la
+gcjh_DEPENDENCIES = libgcj-tools.la
 
 ## This is a dummy definition.
 gnative2ascii_SOURCES =
@@ -828,6 +856,7 @@ gnu/gcj/runtime/natSharedLibLoader.cc \
 gnu/gcj/runtime/natSystemClassLoader.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/util/natDebug.cc \
+gnu/gcj/util/natGCInfo.cc \
 gnu/java/lang/natMainThread.cc \
 gnu/java/lang/management/natVMClassLoadingMXBeanImpl.cc \
 gnu/java/lang/management/natVMCompilationMXBeanImpl.cc \
@@ -835,6 +864,7 @@ gnu/java/lang/management/natVMGarbageCollectorMXBeanImpl.cc \
 gnu/java/lang/management/natVMMemoryMXBeanImpl.cc \
 gnu/java/lang/management/natVMMemoryManagerMXBeanImpl.cc \
 gnu/java/lang/management/natVMMemoryPoolMXBeanImpl.cc \
+gnu/java/lang/management/natVMOperatingSystemMXBeanImpl.cc \
 gnu/java/lang/management/natVMRuntimeMXBeanImpl.cc \
 gnu/java/lang/management/natVMThreadMXBeanImpl.cc \
 gnu/java/net/natPlainDatagramSocketImpl.cc \
@@ -848,7 +878,6 @@ gnu/java/nio/channels/natFileChannelImpl.cc \
 java/io/natFile.cc \
 java/io/natVMObjectInputStream.cc \
 java/io/natVMObjectStreamClass.cc \
-java/lang/management/natVMManagementFactory.cc \
 java/lang/natCharacter.cc \
 java/lang/natClass.cc \
 java/lang/natClassLoader.cc \
@@ -865,6 +894,7 @@ java/lang/natSystem.cc \
 java/lang/natThread.cc \
 java/lang/natThreadLocal.cc \
 java/lang/natVMClassLoader.cc \
+java/lang/natVMProcess.cc \
 java/lang/natVMThrowable.cc \
 java/lang/ref/natReference.cc \
 java/lang/reflect/natArray.cc \
@@ -1055,6 +1085,7 @@ AM_MAKEFLAGS = \
 	"exec_prefix=$(exec_prefix)" \
 	"infodir=$(infodir)" \
 	"libdir=$(libdir)" \
+	"mandir=$(mandir)" \
 	"prefix=$(prefix)" \
 	"gxx_include_dir=$(gxx_include_dir)" \
 	"AR=$(AR)" \
@@ -1074,9 +1105,10 @@ CONFIG_STATUS_DEPENDENCIES = $(srcdir)/configure.host
 
 MAKEOVERRIDES=
 
-# No install-html support yet.
-.PHONY: install-html
+# No install-html or install-pdf support in automake yet
+.PHONY: install-html install-pdf
 install-html:
+install-pdf:
 
 # Multilib support variables.
 MULTISRCTOP =

@@ -396,7 +396,7 @@ adjustment of team sizes and @code{false} disables it.
 @section @code{omp_set_nested} -- Enable/disable nested parallel regions
 @table @asis
 @item @emph{Description}:
-Enable or disable nested parallel regions, i. e. whether team members
+Enable or disable nested parallel regions, i.e., whether team members
 are allowed to create new teams. The function takes the language-specific 
 equivalent of @code{true} and @code{false}, where @code{true} enables 
 dynamic adjustment of team sizes and @code{false} disables it.
@@ -741,7 +741,7 @@ in the unlocked state and its nesting count must equal zero.
 @section @code{omp_get_wtick} -- Get timer precision
 @table @asis
 @item @emph{Description}:
-Gets the timer precision, i. e. the number of seconds between two 
+Gets the timer precision, i.e., the number of seconds between two 
 successive clock ticks.
 
 @item @emph{C/C++}:
@@ -839,7 +839,7 @@ disabled by default.
 @cindex Implementation specific setting
 @table @asis
 @item @emph{Description}:
-Enable or disable nested parallel regions, i. e. whether team members
+Enable or disable nested parallel regions, i.e., whether team members
 are allowed to create new teams. The value of this environment variable 
 shall be @code{TRUE} or @code{FALSE}. If undefined, nested parallel 
 regions are disabled by default.
@@ -895,14 +895,25 @@ dynamic scheduling and a chunk size of 1 is used.
 @cindex Environment Variable
 @table @asis
 @item @emph{Description}:
-A patch for this extension has been submitted, but was not yet applied at the
-time of writing.
+Binds threads to specific CPUs. The variable should contain a space- or
+comma-separated list of CPUs. This list may contain different kind of 
+entries: either single CPU numbers in any order, a range of CPUs (M-N) 
+or a range with some stride (M-N:S). CPU numbers are zero based. For example,
+@code{GOMP_CPU_AFFINITY="0 3 1-2 4-15:2"} will bind the initial thread
+to CPU 0, the second to CPU 3, the third to CPU 1, the fourth to 
+CPU 2, the fifth to CPU 4, the sixth through tenth to CPUs 6, 8, 10, 12,
+and 14 respectively and then start assigning back from the beginning of
+the list. @code{GOMP_CPU_AFFINITY=0} binds all threads to CPU 0.
 
-@item @emph{Reference}: 
-@uref{http://gcc.gnu.org/ml/gcc-patches/2006-05/msg00982.html, 
-GCC Patches Mailinglist}
-@uref{http://gcc.gnu.org/ml/gcc-patches/2006-05/msg01133.html,
-GCC Patches Mailinglist}
+There is no GNU OpenMP library routine to determine whether a CPU affinity 
+specification is in effect. As a workaround, language-specific library 
+functions, e.g., @code{getenv} in C or @code{GET_ENVIRONMENT_VARIABLE} in 
+Fortran, may be used to query the setting of the @code{GOMP_CPU_AFFINITY} 
+environment variable. A defined CPU affinity on startup cannot be changed 
+or disabled during the runtime of the application.
+
+If this environment variable is omitted, the host system will handle the 
+assignment of threads to CPUs. 
 @end table
 
 
@@ -1139,7 +1150,7 @@ The @var{FN} argument is the subfunction to be run in parallel.
 
 The @var{DATA} argument is a pointer to a structure used to 
 communicate data in and out of the subfunction, as discussed
-above wrt FIRSTPRIVATE et al.
+above with respect to FIRSTPRIVATE et al.
 
 The @var{NUM_THREADS} argument is 1 if an IF clause is present
 and false, or the value of the NUM_THREADS clause, if

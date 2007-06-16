@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -99,7 +99,7 @@ package body Debug is
    --  d.d
    --  d.e
    --  d.f  Inhibit folding of static expressions
-   --  d.g
+   --  d.g  Enable conversion of raise into goto
    --  d.h
    --  d.i
    --  d.j
@@ -326,7 +326,7 @@ package body Debug is
    --       an interepretation is incompatible with the context.
 
    --  dw   Write semantic scope stack messages. Each time a scope is created
-   --       or removed, a message is output (see the Sem_Ch8.New_Scope and
+   --       or removed, a message is output (see the Sem_Ch8.Push_Scope and
    --       Sem_Ch8.Pop_Scope subprograms).
 
    --  dx   Force expansion on, even if no code being generated. Normally the
@@ -474,6 +474,11 @@ package body Debug is
    --       in seriously non-conforming behavior, but is useful sometimes
    --       when tracking down handling of complex expressions.
 
+   --  d.g  Enables conversion of a raise statement into a goto when the
+   --       relevant handler is statically determinable. For now we only try
+   --       this if this debug flag is set. Later we will enable this more
+   --       generally by default.
+
    --  d.l  Use Ada 95 semantics for limited function returns. This may be
    --       used to work around the incompatibility introduced by AI-318-2.
    --       It is useful only in -gnat05 mode.
@@ -598,15 +603,6 @@ package body Debug is
 
    --  dw  Prints the list of units withed by the unit currently explored
    --      during the main loop of Make.Compile_Sources.
-
-   ----------------------
-   -- Get_Debug_Flag_K --
-   ----------------------
-
-   function Get_Debug_Flag_K return Boolean is
-   begin
-      return Debug_Flag_K;
-   end Get_Debug_Flag_K;
 
    --------------------
    -- Set_Debug_Flag --

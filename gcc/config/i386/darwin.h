@@ -26,7 +26,7 @@ Boston, MA 02110-1301, USA.  */
 #define TARGET_VERSION fprintf (stderr, " (i686 Darwin)");
 
 #undef  TARGET_64BIT
-#define TARGET_64BIT (target_flags & MASK_64BIT)
+#define TARGET_64BIT OPTION_ISA_64BIT
 
 #ifdef IN_LIBGCC2
 #undef TARGET_64BIT
@@ -66,11 +66,21 @@ Boston, MA 02110-1301, USA.  */
 #undef FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
 #define FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN (0)
 
+#undef TARGET_KEEPS_VECTOR_ALIGNED_STACK
+#define TARGET_KEEPS_VECTOR_ALIGNED_STACK 1
+
+/* On Darwin, the stack is 128-bit aligned at the point of every call.
+   Failure to ensure this will lead to a crash in the system libraries
+   or dynamic loader.  */
+#undef STACK_BOUNDARY
+#define STACK_BOUNDARY 128
+
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
 
 #undef CC1_SPEC
 #define CC1_SPEC "%{!mkernel:%{!static:%{!mdynamic-no-pic:-fPIC}}} \
+  %{!mmacosx-version-min=*:-mmacosx-version-min=%(darwin_minversion)} \
   %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }}"
 
 #undef ASM_SPEC
@@ -78,6 +88,15 @@ Boston, MA 02110-1301, USA.  */
 
 #define DARWIN_ARCH_SPEC "%{m64:x86_64;:i386}"
 #define DARWIN_SUBARCH_SPEC DARWIN_ARCH_SPEC
+
+/* Determine a minimum version based on compiler options.  */
+#define DARWIN_MINVERSION_SPEC				\
+ "%{!m64|fgnu-runtime:10.4;				\
+    ,objective-c|,objc-cpp-output:10.5;			\
+    ,objective-c-header:10.5;				\
+    ,objective-c++|,objective-c++-cpp-output:10.5;	\
+    ,objective-c++-header|,objc++-cpp-output:10.5;	\
+    :10.4}"
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS                                   \
@@ -115,7 +134,21 @@ extern void darwin_x86_file_end (void);
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    and returns float values in the 387.  */
 
+#undef TARGET_SUBTARGET_DEFAULT
 #define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_128BIT_LONG_DOUBLE)
+
+/* For darwin we want to target specific processor features as a minimum,
+   but these unfortunately don't correspond to a specific processor.  */
+#undef TARGET_SUBTARGET32_ISA_DEFAULT
+#define TARGET_SUBTARGET32_ISA_DEFAULT (OPTION_MASK_ISA_MMX		\
+					| OPTION_MASK_ISA_SSE		\
+					| OPTION_MASK_ISA_SSE2)
+
+#undef TARGET_SUBTARGET64_ISA_DEFAULT
+#define TARGET_SUBTARGET64_ISA_DEFAULT (OPTION_MASK_ISA_MMX		\
+					| OPTION_MASK_ISA_SSE		\
+					| OPTION_MASK_ISA_SSE2		\
+					| OPTION_MASK_ISA_SSE3)
 
 /* For now, disable dynamic-no-pic.  We'll need to go through i386.c
    with a fine-tooth comb looking for refs to flag_pic!  */

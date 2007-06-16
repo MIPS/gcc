@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "real.h"
 #include "regs.h"
 #include "function.h"
+#include "tree.h"
 
 /* Information about a subreg of a hard register.  */
 struct subreg_info
@@ -496,6 +497,61 @@ get_related_value (rtx x)
   return 0;
 }
 
+/* Return true if SYMBOL is a SYMBOL_REF and OFFSET + SYMBOL points
+   to somewhere in the same object or object_block as SYMBOL.  */
+
+bool
+offset_within_block_p (rtx symbol, HOST_WIDE_INT offset)
+{
+  tree decl;
+
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    return false;
+
+  if (offset == 0)
+    return true;
+
+  if (offset > 0)
+    {
+      if (CONSTANT_POOL_ADDRESS_P (symbol)
+	  && offset < (int) GET_MODE_SIZE (get_pool_mode (symbol)))
+	return true;
+
+      decl = SYMBOL_REF_DECL (symbol);
+      if (decl && offset < int_size_in_bytes (TREE_TYPE (decl)))
+	return true;
+    }
+
+  if (SYMBOL_REF_HAS_BLOCK_INFO_P (symbol)
+      && SYMBOL_REF_BLOCK (symbol)
+      && SYMBOL_REF_BLOCK_OFFSET (symbol) >= 0
+      && ((unsigned HOST_WIDE_INT) offset + SYMBOL_REF_BLOCK_OFFSET (symbol)
+	  < (unsigned HOST_WIDE_INT) SYMBOL_REF_BLOCK (symbol)->size))
+    return true;
+
+  return false;
+}
+
+/* Split X into a base and a constant offset, storing them in *BASE_OUT
+   and *OFFSET_OUT respectively.  */
+
+void
+split_const (rtx x, rtx *base_out, rtx *offset_out)
+{
+  if (GET_CODE (x) == CONST)
+    {
+      x = XEXP (x, 0);
+      if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == CONST_INT)
+	{
+	  *base_out = XEXP (x, 0);
+	  *offset_out = XEXP (x, 1);
+	  return;
+	}
+    }
+  *base_out = x;
+  *offset_out = const0_rtx;
+}
+
 /* Return the number of places FIND appears within X.  If COUNT_DEST is
    zero, we do not count occurrences inside the destination of a SET.  */
 
@@ -769,8 +825,8 @@ reg_set_p (rtx reg, rtx insn)
 	  || (CALL_P (insn)
 	      && ((REG_P (reg)
 		   && REGNO (reg) < FIRST_PSEUDO_REGISTER
-		   && TEST_HARD_REG_BIT (regs_invalidated_by_call,
-					 REGNO (reg)))
+		   && overlaps_hard_reg_set_p (regs_invalidated_by_call,
+					       GET_MODE (reg), REGNO (reg)))
 		  || MEM_P (reg)
 		  || find_reg_fusage (insn, CLOBBER, reg)))))
     return 1;
@@ -1177,10 +1233,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, rtx x,
 	  && regno >= FIRST_VIRTUAL_REGISTER && regno <= LAST_VIRTUAL_REGISTER)
 	return 1;
 
-      return (endregno > x_regno
-	      && regno < x_regno + (x_regno < FIRST_PSEUDO_REGISTER
-				    ? hard_regno_nregs[x_regno][GET_MODE (x)]
-			      : 1));
+      return endregno > x_regno && regno < END_REGNO (x);
 
     case SUBREG:
       /* If this is a SUBREG of a hard reg, we can see exactly which
@@ -1287,8 +1340,7 @@ reg_overlap_mentioned_p (rtx x, rtx in)
 
     case REG:
       regno = REGNO (x);
-      endregno = regno + (regno < FIRST_PSEUDO_REGISTER
-			  ? hard_regno_nregs[regno][GET_MODE (x)] : 1);
+      endregno = END_REGNO (x);
     do_reg:
       return refers_to_regno_p (regno, endregno, in, (rtx*) 0);
 
@@ -1495,7 +1547,7 @@ note_uses (rtx *pbody, void (*fun) (rtx *, void *), void *data)
 int
 dead_or_set_p (rtx insn, rtx x)
 {
-  unsigned int regno, last_regno;
+  unsigned int regno, end_regno;
   unsigned int i;
 
   /* Can't use cc0_rtx below since this file is used by genattrtab.c.  */
@@ -1505,10 +1557,8 @@ dead_or_set_p (rtx insn, rtx x)
   gcc_assert (REG_P (x));
 
   regno = REGNO (x);
-  last_regno = (regno >= FIRST_PSEUDO_REGISTER ? regno
-		: regno + hard_regno_nregs[regno][GET_MODE (x)] - 1);
-
-  for (i = regno; i <= last_regno; i++)
+  end_regno = END_REGNO (x);
+  for (i = regno; i < end_regno; i++)
     if (! dead_or_set_regno_p (insn, i))
       return 0;
 
@@ -1535,8 +1585,7 @@ covers_regno_no_parallel_p (rtx dest, unsigned int test_regno)
     return false;
 
   regno = REGNO (dest);
-  endregno = (regno >= FIRST_PSEUDO_REGISTER ? regno + 1
-	      : regno + hard_regno_nregs[regno][GET_MODE (dest)]);
+  endregno = END_REGNO (dest);
   return (test_regno >= regno && test_regno < endregno);
 }
 
@@ -1657,11 +1706,7 @@ find_regno_note (rtx insn, enum reg_note kind, unsigned int regno)
 	   problem here.  */
 	&& REG_P (XEXP (link, 0))
 	&& REGNO (XEXP (link, 0)) <= regno
-	&& ((REGNO (XEXP (link, 0))
-	     + (REGNO (XEXP (link, 0)) >= FIRST_PSEUDO_REGISTER ? 1
-		: hard_regno_nregs[REGNO (XEXP (link, 0))]
-				  [GET_MODE (XEXP (link, 0))]))
-	    > regno))
+	&& END_REGNO (XEXP (link, 0)) > regno)
       return link;
   return 0;
 }
@@ -1676,15 +1721,46 @@ find_reg_equal_equiv_note (rtx insn)
 
   if (!INSN_P (insn))
     return 0;
+
   for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
     if (REG_NOTE_KIND (link) == REG_EQUAL
 	|| REG_NOTE_KIND (link) == REG_EQUIV)
       {
-	if (single_set (insn) == 0)
+	/* FIXME: We should never have REG_EQUAL/REG_EQUIV notes on
+	   insns that have multiple sets.  Checking single_set to
+	   make sure of this is not the proper check, as explained
+	   in the comment in set_unique_reg_note.
+
+	   This should be changed into an assert.  */
+	if (GET_CODE (PATTERN (insn)) == PARALLEL && multiple_sets (insn))
 	  return 0;
 	return link;
       }
   return NULL;
+}
+
+/* Check whether INSN is a single_set whose source is known to be
+   equivalent to a constant.  Return that constant if so, otherwise
+   return null.  */
+
+rtx
+find_constant_src (rtx insn)
+{
+  rtx note, set, x;
+
+  set = single_set (insn);
+  if (set)
+    {
+      x = avoid_constant_pool_reference (SET_SRC (set));
+      if (CONSTANT_P (x))
+	return x;
+    }
+
+  note = find_reg_equal_equiv_note (insn);
+  if (note && CONSTANT_P (XEXP (note, 0)))
+    return XEXP (note, 0);
+
+  return NULL_RTX;
 }
 
 /* Return true if DATUM, or any overlap of DATUM, of kind CODE is found
@@ -1720,8 +1796,7 @@ find_reg_fusage (rtx insn, enum rtx_code code, rtx datum)
 
       if (regno < FIRST_PSEUDO_REGISTER)
 	{
-	  unsigned int end_regno
-	    = regno + hard_regno_nregs[regno][GET_MODE (datum)];
+	  unsigned int end_regno = END_HARD_REGNO (datum);
 	  unsigned int i;
 
 	  for (i = regno; i < end_regno; i++)
@@ -1750,13 +1825,12 @@ find_regno_fusage (rtx insn, enum rtx_code code, unsigned int regno)
 
   for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
     {
-      unsigned int regnote;
       rtx op, reg;
 
       if (GET_CODE (op = XEXP (link, 0)) == code
 	  && REG_P (reg = XEXP (op, 0))
-	  && (regnote = REGNO (reg)) <= regno
-	  && regnote + hard_regno_nregs[regnote][GET_MODE (reg)] > regno)
+	  && REGNO (reg) <= regno
+	  && END_HARD_REGNO (reg) > regno)
 	return 1;
     }
 
@@ -1811,6 +1885,24 @@ remove_note (rtx insn, rtx note)
       }
 
   gcc_unreachable ();
+}
+
+/* Remove REG_EQUAL and/or REG_EQUIV notes if INSN has such notes.  */
+
+void
+remove_reg_equal_equiv_notes (rtx insn)
+{
+  rtx *loc;
+
+  loc = &REG_NOTES (insn);
+  while (*loc)
+    {
+      enum reg_note kind = REG_NOTE_KIND (*loc);
+      if (kind == REG_EQUAL || kind == REG_EQUIV)
+	*loc = XEXP (*loc, 1);
+      else
+	loc = &XEXP (*loc, 1);
+    }
 }
 
 /* Search LISTP (an EXPR_LIST) for an entry whose first operand is NODE and

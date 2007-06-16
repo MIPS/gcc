@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1999-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -77,6 +77,7 @@
 --        only item in this category is whether type Address is private.
 
 with Rident; use Rident;
+with Namet;  use Namet;
 with Types;  use Types;
 
 package Targparm is
@@ -166,11 +167,11 @@ package Targparm is
    --------------------------
 
    Executable_Extension_On_Target : Name_Id := No_Name;
-   --  Executable extension on the target.
-   --  This name is useful for setting the executable extension in a
-   --  dynamic way, e.g. depending on the run-time used, rather than
-   --  using a configure-time macro as done by Get_Target_Executable_Suffix.
-   --  If not set (No_Name), use GNAT.OS_Lib.Get_Target_Executable_Suffix.
+   --  Executable extension on the target. This name is useful for setting
+   --  the executable extension in a dynamic way, e.g. depending on the
+   --  run time used, rather than using a configure-time macro as done by
+   --  Get_Target_Executable_Suffix. If not set (No_Name), instead use
+   --  System.OS_Lib.Get_Target_Executable_Suffix.
 
    -----------------------
    -- Target Parameters --
@@ -187,24 +188,14 @@ package Targparm is
    --  text buffer containing the source of the system package.
 
    --  The default values here are used if no value is found in system.ads.
-   --  This should normally happen only if the special version of system.ads
-   --  used by the compiler itself is in use. The default values are suitable
-   --  for use by the compiler itself in normal environments. This approach
-   --  allows the possibility of new versions of the compiler (possibly with
-   --  new system parameters added) being used to compile older versions of
-   --  the compiler sources. This is not guaranteed to work, but often will
-   --  and by setting appropriate default values, we make it more likely that
-   --  this can succeed.
-
-   Compiler_System_Version : Boolean := True;
-   --  This is set False in all target dependent versions of System. In the
-   --  compiler default version, it is omitted entirely, meaning that the
-   --  above default value of True will be set. If the flag is False, then
-   --  the scanning circuits in the body of this package do an error check to
-   --  ensure that all parameters other than this one are specified and not
-   --  defaulted. If the parameter is set True, then this check is omitted,
-   --  and any parameters not present in system.ads are left set to their
-   --  default value as described above.
+   --  This should normally happen if the special version of system.ads used
+   --  by the compiler itself is in use or if the value is only relevant to
+   --  a particular target (e.g. OpenVMS, AAMP). The default values are
+   --  suitable for use in normal environments. This approach allows the
+   --  possibility of new versions of the compiler (possibly with new system
+   --  parameters added) being used to compile older versions of the compiler
+   --  sources, as well as avoiding duplicating values in all system-*.ads
+   --  files for flags that are used on a few platforms only.
 
    ----------------------------
    -- Special Target Control --
@@ -219,6 +210,10 @@ package Targparm is
 
    OpenVMS_On_Target : Boolean := False;
    --  Set to True if target is OpenVMS
+
+   type Virtual_Machine_Kind is (No_VM, JVM_Target, CLI_Target);
+   VM_Target : Virtual_Machine_Kind := No_VM;
+   --  Kind of virtual machine targetted
 
    -------------------------------
    -- Backend Arithmetic Checks --
@@ -552,46 +547,6 @@ package Targparm is
    --  and division for fixed-point types with a small value equal to
    --  2 ** (-(T'Object_Size - 1)) and whose values have an absolute
    --  value less than 1.0.
-
-   --------------------------------------------------------------
-   -- Handling of Unconstrained Values Returned from Functions --
-   --------------------------------------------------------------
-
-   --  Functions that return variable length objects, notably unconstrained
-   --  arrays are a special case, because there is no simple obvious way of
-   --  implementing this feature. Furthermore, this capability is not present
-   --  in C++ or C, so typically the system ABI does not handle this case.
-
-   --  GNAT uses two different approaches
-
-   --    The Secondary Stack
-
-   --      The secondary stack is a special storage pool that is used for
-   --      this purpose. The called function places the result on the
-   --      secondary stack, and the caller uses or copies the value from
-   --      the secondary stack, and pops the secondary stack after the
-   --      value is consumed. The secondary stack is outside the system
-   --      ABI, and the important point is that although generally it is
-   --      handled in a stack like manner corresponding to the subprogram
-   --      call structure, a return from a function does NOT pop the stack.
-
-   --    DSP (Depressed Stack Pointer)
-
-   --      Some targets permit the implementation of a function call/return
-   --      protocol in which the function does not pop the main stack pointer
-   --      on return, but rather returns with the stack pointer depressed.
-   --      This is not generally permitted by any ABI, but for at least some
-   --      targets, the implementation of alloca provides a model for this
-   --      approach. If return-with-DSP is implemented, then functions that
-   --      return variable length objects do it by returning with the stack
-   --      pointer depressed, and the returned object is a pointer to the
-   --      area within the stack frame of the called procedure that contains
-   --      the returned value. The caller must then pop the main stack when
-   --      this value is consumed.
-
-   Functions_Return_By_DSP_On_Target : Boolean := False;
-   --  Set to True if target permits functions to return with using the
-   --  DSP (depressed stack pointer) approach.
 
    -----------------
    -- Data Layout --

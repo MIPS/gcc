@@ -104,7 +104,6 @@ static void push_minipool_fix (rtx, HOST_WIDE_INT, rtx *, enum machine_mode,
 			       rtx);
 static void arm_reorg (void);
 static bool note_invalid_constants (rtx, HOST_WIDE_INT, int);
-static int current_file_function_operand (rtx);
 static unsigned long arm_compute_save_reg0_reg12_mask (void);
 static unsigned long arm_compute_save_reg_mask (void);
 static unsigned long arm_isr_value (tree);
@@ -149,7 +148,8 @@ static int arm_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, bool);
 
 #ifdef OBJECT_FORMAT_ELF
-static void arm_elf_asm_constructor (rtx, int);
+static void arm_elf_asm_constructor (rtx, int) ATTRIBUTE_UNUSED;
+static void arm_elf_asm_destructor (rtx, int) ATTRIBUTE_UNUSED;
 #endif
 #ifndef ARM_PE
 static void arm_encode_section_info (tree, rtx, int);
@@ -1145,11 +1145,6 @@ arm_override_options (void)
       && (TARGET_DEFAULT & MASK_APCS_FRAME))
     warning (0, "-g with -mno-apcs-frame may not give sensible debugging");
 
-  /* If stack checking is disabled, we can use r10 as the PIC register,
-     which keeps r9 available.  */
-  if (flag_pic && TARGET_SINGLE_PIC_BASE)
-    arm_pic_register = TARGET_APCS_STACK ? 9 : 10;
-
   if (TARGET_APCS_FLOAT)
     warning (0, "passing floating point arguments in fp regs not yet supported");
 
@@ -1343,6 +1338,24 @@ arm_override_options (void)
 		 ARM_DOUBLEWORD_ALIGN ? "8, 32 or 64": "8 or 32");
     }
 
+  if (!TARGET_ARM && TARGET_VXWORKS_RTP && flag_pic)
+    {
+      error ("RTP PIC is incompatible with Thumb");
+      flag_pic = 0;
+    }
+
+  /* If stack checking is disabled, we can use r10 as the PIC register,
+     which keeps r9 available.  The EABI specifies r9 as the PIC register.  */
+  if (flag_pic && TARGET_SINGLE_PIC_BASE)
+    {
+      if (TARGET_VXWORKS_RTP)
+	warning (0, "RTP PIC is incompatible with -msingle-pic-base");
+      arm_pic_register = (TARGET_APCS_STACK || TARGET_AAPCS_BASED) ? 9 : 10;
+    }
+
+  if (flag_pic && TARGET_VXWORKS_RTP)
+    arm_pic_register = 9;
+
   if (arm_pic_register_string != NULL)
     {
       int pic_register = decode_reg_name (arm_pic_register_string);
@@ -1354,7 +1367,9 @@ arm_override_options (void)
       else if (pic_register < 0 || call_used_regs[pic_register]
 	       || pic_register == HARD_FRAME_POINTER_REGNUM
 	       || pic_register == STACK_POINTER_REGNUM
-	       || pic_register >= PC_REGNUM)
+	       || pic_register >= PC_REGNUM
+	       || (TARGET_VXWORKS_RTP
+		   && (unsigned int) pic_register != arm_pic_register))
 	error ("unable to use '%s' for PIC register", arm_pic_register_string);
       else
 	arm_pic_register = pic_register;
@@ -2781,21 +2796,6 @@ arm_init_cumulative_args (CUMULATIVE_ARGS *pcum, tree fntype,
   pcum->iwmmxt_nregs = 0;
   pcum->can_split = true;
 
-  pcum->call_cookie = CALL_NORMAL;
-
-  if (TARGET_LONG_CALLS)
-    pcum->call_cookie = CALL_LONG;
-
-  /* Check for long call/short call attributes.  The attributes
-     override any command line option.  */
-  if (fntype)
-    {
-      if (lookup_attribute ("short_call", TYPE_ATTRIBUTES (fntype)))
-	pcum->call_cookie = CALL_SHORT;
-      else if (lookup_attribute ("long_call", TYPE_ATTRIBUTES (fntype)))
-	pcum->call_cookie = CALL_LONG;
-    }
-
   /* Varargs vectors are treated the same as long long.
      named_count avoids having to change the way arm handles 'named' */
   pcum->named_count = 0;
@@ -2866,8 +2866,8 @@ arm_function_arg (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
     pcum->nregs++;
 
   if (mode == VOIDmode)
-    /* Compute operand 2 of the call insn.  */
-    return GEN_INT (pcum->call_cookie);
+    /* Pick an arbitrary value for operand 2 of the call insn.  */
+    return const0_rtx;
 
   /* Only allow splitting an arg between regs and memory if all preceding
      args were allocated to regs.  For args passed by reference we only count
@@ -3120,27 +3120,6 @@ arm_comp_type_attributes (tree type1, tree type2)
   return 1;
 }
 
-/*  Encode long_call or short_call attribute by prefixing
-    symbol name in DECL with a special character FLAG.  */
-void
-arm_encode_call_attribute (tree decl, int flag)
-{
-  const char * str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
-  int          len = strlen (str);
-  char *       newstr;
-
-  /* Do not allow weak functions to be treated as short call.  */
-  if (DECL_WEAK (decl) && flag == SHORT_CALL_FLAG_CHAR)
-    return;
-
-  newstr = alloca (len + 2);
-  newstr[0] = flag;
-  strcpy (newstr + 1, str);
-
-  newstr = (char *) ggc_alloc_string (newstr, len + 1);
-  XSTR (XEXP (DECL_RTL (decl), 0), 0) = newstr;
-}
-
 /*  Assigns default attributes to newly defined type.  This is used to
     set short_call/long_call attributes for function types of
     functions defined inside corresponding #pragma scopes.  */
@@ -3167,92 +3146,79 @@ arm_set_default_type_attributes (tree type)
     }
 }
 
-/* Return 1 if the operand is a SYMBOL_REF for a function known to be
-   defined within the current compilation unit.  If this cannot be
-   determined, then 0 is returned.  */
-static int
-current_file_function_operand (rtx sym_ref)
+/* Return true if DECL is known to be linked into section SECTION.  */
+
+static bool
+arm_function_in_section_p (tree decl, section *section)
 {
-  /* This is a bit of a fib.  A function will have a short call flag
-     applied to its name if it has the short call attribute, or it has
-     already been defined within the current compilation unit.  */
-  if (ENCODED_SHORT_CALL_ATTR_P (XSTR (sym_ref, 0)))
-    return 1;
+  /* We can only be certain about functions defined in the same
+     compilation unit.  */
+  if (!TREE_STATIC (decl))
+    return false;
 
-  /* The current function is always defined within the current compilation
-     unit.  If it s a weak definition however, then this may not be the real
-     definition of the function, and so we have to say no.  */
-  if (sym_ref == XEXP (DECL_RTL (current_function_decl), 0)
-      && !DECL_WEAK (current_function_decl))
-    return 1;
+  /* Make sure that SYMBOL always binds to the definition in this
+     compilation unit.  */
+  if (!targetm.binds_local_p (decl))
+    return false;
 
-  /* We cannot make the determination - default to returning 0.  */
-  return 0;
+  /* If DECL_SECTION_NAME is set, assume it is trustworthy.  */
+  if (!DECL_SECTION_NAME (decl))
+    {
+      /* Only cater for unit-at-a-time mode, where we know that the user
+	 cannot later specify a section for DECL.  */
+      if (!flag_unit_at_a_time)
+	return false;
+
+      /* Make sure that we will not create a unique section for DECL.  */
+      if (flag_function_sections || DECL_ONE_ONLY (decl))
+	return false;
+    }
+
+  return function_section (decl) == section;
 }
 
-/* Return nonzero if a 32 bit "long_call" should be generated for
-   this call.  We generate a long_call if the function:
+/* Return nonzero if a 32-bit "long_call" should be generated for
+   a call from the current function to DECL.  We generate a long_call
+   if the function:
 
         a.  has an __attribute__((long call))
      or b.  is within the scope of a #pragma long_calls
      or c.  the -mlong-calls command line switch has been specified
-         .  and either:
-                1. -ffunction-sections is in effect
-	     or 2. the current function has __attribute__ ((section))
-	     or 3. the target function has __attribute__ ((section))
 
    However we do not generate a long call if the function:
 
         d.  has an __attribute__ ((short_call))
      or e.  is inside the scope of a #pragma no_long_calls
-     or f.  is defined within the current compilation unit.
+     or f.  is defined in the same section as the current function.  */
 
-   This function will be called by C fragments contained in the machine
-   description file.  SYM_REF and CALL_COOKIE correspond to the matched
-   rtl operands.  CALL_SYMBOL is used to distinguish between
-   two different callers of the function.  It is set to 1 in the
-   "call_symbol" and "call_symbol_value" patterns and to 0 in the "call"
-   and "call_value" patterns.  This is because of the difference in the
-   SYM_REFs passed by these patterns.  */
-int
-arm_is_longcall_p (rtx sym_ref, int call_cookie, int call_symbol)
+bool
+arm_is_long_call_p (tree decl)
 {
-  if (!call_symbol)
-    {
-      if (GET_CODE (sym_ref) != MEM)
-	return 0;
+  tree attrs;
 
-      sym_ref = XEXP (sym_ref, 0);
-    }
+  if (!decl)
+    return TARGET_LONG_CALLS;
 
-  if (GET_CODE (sym_ref) != SYMBOL_REF)
-    return 0;
+  attrs = TYPE_ATTRIBUTES (TREE_TYPE (decl));
+  if (lookup_attribute ("short_call", attrs))
+    return false;
 
-  if (call_cookie & CALL_SHORT)
-    return 0;
+  /* For "f", be conservative, and only cater for cases in which the
+     whole of the current function is placed in the same section.  */
+  if (!flag_reorder_blocks_and_partition
+      && arm_function_in_section_p (decl, current_function_section ()))
+    return false;
 
-  if (TARGET_LONG_CALLS)
-    {
-      if (flag_function_sections
-	  || DECL_SECTION_NAME (current_function_decl))
-	/* c.3 is handled by the definition of the
-	   ARM_DECLARE_FUNCTION_SIZE macro.  */
-	return 1;
-    }
+  if (lookup_attribute ("long_call", attrs))
+    return true;
 
-  if (current_file_function_operand (sym_ref))
-    return 0;
-
-  return (call_cookie & CALL_LONG)
-    || ENCODED_LONG_CALL_ATTR_P (XSTR (sym_ref, 0))
-    || TARGET_LONG_CALLS;
+  return TARGET_LONG_CALLS;
 }
 
 /* Return nonzero if it is ok to make a tail-call to DECL.  */
 static bool
 arm_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
-  int call_type = TARGET_LONG_CALLS ? CALL_LONG : CALL_NORMAL;
   unsigned long func_type;
 
   if (cfun->machine->sibcall_blocked)
@@ -3263,16 +3229,14 @@ arm_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   if (decl == NULL || TARGET_THUMB)
     return false;
 
-  /* Get the calling method.  */
-  if (lookup_attribute ("short_call", TYPE_ATTRIBUTES (TREE_TYPE (decl))))
-    call_type = CALL_SHORT;
-  else if (lookup_attribute ("long_call", TYPE_ATTRIBUTES (TREE_TYPE (decl))))
-    call_type = CALL_LONG;
+  /* The PIC register is live on entry to VxWorks PLT entries, so we
+     must make the call before restoring the PIC register.  */
+  if (TARGET_VXWORKS_RTP && flag_pic && !targetm.binds_local_p (decl))
+    return false;
 
   /* Cannot tail-call to long calls, since these are out of range of
-     a branch instruction.  However, if not compiling PIC, we know
-     we can reach the symbol if it is in this compilation unit.  */
-  if (call_type == CALL_LONG && (flag_pic || !TREE_ASM_WRITTEN (decl)))
+     a branch instruction.  */
+  if (arm_is_long_call_p (decl))
     return false;
 
   /* If we are interworking and the function is not declared static
@@ -3311,6 +3275,54 @@ legitimate_pic_operand_p (rtx x)
   return 1;
 }
 
+/* Record that the current function needs a PIC register.  Initialize
+   cfun->machine->pic_reg if we have not already done so.  */
+
+static void
+require_pic_register (void)
+{
+  /* A lot of the logic here is made obscure by the fact that this
+     routine gets called as part of the rtx cost estimation process.
+     We don't want those calls to affect any assumptions about the real
+     function; and further, we can't call entry_of_function() until we
+     start the real expansion process.  */
+  if (!current_function_uses_pic_offset_table)
+    {
+      gcc_assert (!no_new_pseudos);
+      if (arm_pic_register != INVALID_REGNUM)
+	{
+	  cfun->machine->pic_reg = gen_rtx_REG (Pmode, arm_pic_register);
+
+	  /* Play games to avoid marking the function as needing pic
+	     if we are being called as part of the cost-estimation
+	     process.  */
+	  if (current_ir_type () != IR_GIMPLE)
+	    current_function_uses_pic_offset_table = 1;
+	}
+      else
+	{
+	  rtx seq;
+
+	  cfun->machine->pic_reg = gen_reg_rtx (Pmode);
+
+	  /* Play games to avoid marking the function as needing pic
+	     if we are being called as part of the cost-estimation
+	     process.  */
+	  if (current_ir_type () != IR_GIMPLE)
+	    {
+	      current_function_uses_pic_offset_table = 1;
+	      start_sequence ();
+
+	      arm_load_pic_register (0UL);
+
+	      seq = get_insns ();
+	      end_sequence ();
+	      emit_insn_after (seq, entry_of_function ());
+	    }
+	}
+    }
+}
+
 rtx
 legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 {
@@ -3323,48 +3335,8 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       rtx insn;
       int subregs = 0;
 
-      /* If this function doesn't have a pic register, create one now.
-	 A lot of the logic here is made obscure by the fact that this
-	 routine gets called as part of the rtx cost estimation
-	 process.  We don't want those calls to affect any assumptions
-	 about the real function; and further, we can't call
-	 entry_of_function() until we start the real expansion
-	 process.  */
-      if (!current_function_uses_pic_offset_table)
-	{
-	  gcc_assert (!no_new_pseudos);
-	  if (arm_pic_register != INVALID_REGNUM)
-	    {
-	      cfun->machine->pic_reg = gen_rtx_REG (Pmode, arm_pic_register);
-
-	      /* Play games to avoid marking the function as needing pic
-		 if we are being called as part of the cost-estimation
-		 process.  */
-	      if (current_ir_type () != IR_GIMPLE)
-		current_function_uses_pic_offset_table = 1;
-	    }
-	  else
-	    {
-	      rtx seq;
-
-	      cfun->machine->pic_reg = gen_reg_rtx (Pmode);
-
-	      /* Play games to avoid marking the function as needing pic
-		 if we are being called as part of the cost-estimation
-		 process.  */
-	      if (current_ir_type () != IR_GIMPLE)
-		{
-		  current_function_uses_pic_offset_table = 1;
-		  start_sequence ();
-
-		  arm_load_pic_register (0UL);
-
-		  seq = get_insns ();
-		  end_sequence ();
-		  emit_insn_after (seq, entry_of_function ());
-		}
-	    }
-	}
+      /* If this function doesn't have a pic register, create one now.  */
+      require_pic_register ();
 
       if (reg == 0)
 	{
@@ -3391,10 +3363,17 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       else /* TARGET_THUMB1 */
 	emit_insn (gen_pic_load_addr_thumb1 (address, orig));
 
+      /* VxWorks does not impose a fixed gap between segments; the run-time
+	 gap can be different from the object-file gap.  We therefore can't
+	 use GOTOFF unless we are absolutely sure that the symbol is in the
+	 same segment as the GOT.  Unfortunately, the flexibility of linker
+	 scripts means that we can't be sure of that in general, so assume
+	 that GOTOFF is never valid on VxWorks.  */
       if ((GET_CODE (orig) == LABEL_REF
 	   || (GET_CODE (orig) == SYMBOL_REF &&
 	       SYMBOL_REF_LOCAL_P (orig)))
-	  && NEED_GOT_RELOC)
+	  && NEED_GOT_RELOC
+	  && !TARGET_VXWORKS_RTP)
 	pic_ref = gen_rtx_PLUS (Pmode, cfun->machine->pic_reg, address);
       else
 	{
@@ -3534,7 +3513,7 @@ void
 arm_load_pic_register (unsigned long saved_regs ATTRIBUTE_UNUSED)
 {
 #ifndef AOF_ASSEMBLER
-  rtx l1, labelno, pic_tmp, pic_tmp2, pic_rtx;
+  rtx l1, labelno, pic_tmp, pic_tmp2, pic_rtx, pic_reg;
   rtx global_offset_table;
 
   if (current_function_uses_pic_offset_table == 0 || TARGET_SINGLE_PIC_BASE)
@@ -3542,72 +3521,88 @@ arm_load_pic_register (unsigned long saved_regs ATTRIBUTE_UNUSED)
 
   gcc_assert (flag_pic);
 
-  /* We use an UNSPEC rather than a LABEL_REF because this label never appears
-     in the code stream.  */
+  pic_reg = cfun->machine->pic_reg;
+  if (TARGET_VXWORKS_RTP)
+    {
+      pic_rtx = gen_rtx_SYMBOL_REF (Pmode, VXWORKS_GOTT_BASE);
+      pic_rtx = gen_rtx_CONST (Pmode, pic_rtx);
+      emit_insn (gen_pic_load_addr_arm (pic_reg, pic_rtx));
 
-  labelno = GEN_INT (pic_labelno++);
-  l1 = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, labelno), UNSPEC_PIC_LABEL);
-  l1 = gen_rtx_CONST (VOIDmode, l1);
+      emit_insn (gen_rtx_SET (Pmode, pic_reg, gen_rtx_MEM (Pmode, pic_reg)));
 
-  global_offset_table = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
-  /* On the ARM the PC register contains 'dot + 8' at the time of the
-     addition, on the Thumb it is 'dot + 4'.  */
-  pic_tmp = plus_constant (l1, TARGET_ARM ? 8 : 4);
-  if (GOT_PCREL)
-    pic_tmp2 = gen_rtx_CONST (VOIDmode,
-			    gen_rtx_PLUS (Pmode, global_offset_table, pc_rtx));
+      pic_tmp = gen_rtx_SYMBOL_REF (Pmode, VXWORKS_GOTT_INDEX);
+      emit_insn (gen_pic_offset_arm (pic_reg, pic_reg, pic_tmp));
+    }
   else
-    pic_tmp2 = gen_rtx_CONST (VOIDmode, global_offset_table);
-
-  pic_rtx = gen_rtx_CONST (Pmode, gen_rtx_MINUS (Pmode, pic_tmp2, pic_tmp));
-
-  if (TARGET_ARM)
     {
-      emit_insn (gen_pic_load_addr_arm (cfun->machine->pic_reg, pic_rtx));
-      emit_insn (gen_pic_add_dot_plus_eight (cfun->machine->pic_reg,
-					     cfun->machine->pic_reg, labelno));
-    }
-  else if (TARGET_THUMB2)
-    {
-      /* Thumb-2 only allows very limited access to the PC.  Calculate the
-	 address in a temporary register.  */
-      if (arm_pic_register != INVALID_REGNUM)
+      /* We use an UNSPEC rather than a LABEL_REF because this label
+	 never appears in the code stream.  */
+
+      labelno = GEN_INT (pic_labelno++);
+      l1 = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, labelno), UNSPEC_PIC_LABEL);
+      l1 = gen_rtx_CONST (VOIDmode, l1);
+
+      global_offset_table
+	= gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
+      /* On the ARM the PC register contains 'dot + 8' at the time of the
+	 addition, on the Thumb it is 'dot + 4'.  */
+      pic_tmp = plus_constant (l1, TARGET_ARM ? 8 : 4);
+      if (GOT_PCREL)
 	{
-	  pic_tmp = gen_rtx_REG (SImode,
-				 thumb_find_work_register (saved_regs));
+	  pic_tmp2 = gen_rtx_PLUS (Pmode, global_offset_table, pc_rtx);
+	  pic_tmp2 = gen_rtx_CONST (VOIDmode, pic_tmp2);
 	}
       else
-	{
-	  gcc_assert (!no_new_pseudos);
-	  pic_tmp = gen_reg_rtx (Pmode);
-	}
+	pic_tmp2 = gen_rtx_CONST (VOIDmode, global_offset_table);
 
-      emit_insn (gen_pic_load_addr_thumb2 (cfun->machine->pic_reg, pic_rtx));
-      emit_insn (gen_pic_load_dot_plus_four (pic_tmp, labelno));
-      emit_insn (gen_addsi3(cfun->machine->pic_reg, cfun->machine->pic_reg,
-			    pic_tmp));
-    }
-  else /* TARGET_THUMB1 */
-    {
-      if (arm_pic_register != INVALID_REGNUM
-	  && REGNO (cfun->machine->pic_reg) > LAST_LO_REGNUM)
+      pic_rtx = gen_rtx_MINUS (Pmode, pic_tmp2, pic_tmp);
+      pic_rtx = gen_rtx_CONST (Pmode, pic_rtx);
+
+      if (TARGET_ARM)
 	{
-	  /* We will have pushed the pic register, so we should always be
-	     able to find a work register.  */
-	  pic_tmp = gen_rtx_REG (SImode,
-				 thumb_find_work_register (saved_regs));
-	  emit_insn (gen_pic_load_addr_thumb1 (pic_tmp, pic_rtx));
-	  emit_insn (gen_movsi (pic_offset_table_rtx, pic_tmp));
+	  emit_insn (gen_pic_load_addr_arm (pic_reg, pic_rtx));
+	  emit_insn (gen_pic_add_dot_plus_eight (pic_reg, pic_reg, labelno));
 	}
-      else
-	emit_insn (gen_pic_load_addr_thumb1 (cfun->machine->pic_reg, pic_rtx));
-      emit_insn (gen_pic_add_dot_plus_four (cfun->machine->pic_reg,
-					    cfun->machine->pic_reg, labelno));
+      else if (TARGET_THUMB2)
+	{
+	  /* Thumb-2 only allows very limited access to the PC.  Calculate the
+	     address in a temporary register.  */
+	  if (arm_pic_register != INVALID_REGNUM)
+	    {
+	      pic_tmp = gen_rtx_REG (SImode,
+				     thumb_find_work_register (saved_regs));
+	    }
+	  else
+	    {
+	      gcc_assert (!no_new_pseudos);
+	      pic_tmp = gen_reg_rtx (Pmode);
+	    }
+
+	  emit_insn (gen_pic_load_addr_thumb2 (pic_reg, pic_rtx));
+	  emit_insn (gen_pic_load_dot_plus_four (pic_tmp, labelno));
+	  emit_insn (gen_addsi3 (pic_reg, pic_reg, pic_tmp));
+	}
+      else /* TARGET_THUMB1 */
+	{
+	  if (arm_pic_register != INVALID_REGNUM
+	      && REGNO (pic_reg) > LAST_LO_REGNUM)
+	    {
+	      /* We will have pushed the pic register, so we should always be
+		 able to find a work register.  */
+	      pic_tmp = gen_rtx_REG (SImode,
+				     thumb_find_work_register (saved_regs));
+	      emit_insn (gen_pic_load_addr_thumb1 (pic_tmp, pic_rtx));
+	      emit_insn (gen_movsi (pic_offset_table_rtx, pic_tmp));
+	    }
+	  else
+	    emit_insn (gen_pic_load_addr_thumb1 (pic_reg, pic_rtx));
+	  emit_insn (gen_pic_add_dot_plus_four (pic_reg, pic_reg, labelno));
+	}
     }
 
   /* Need to emit this whether or not we obey regdecls,
      since setjmp/longjmp can cause life info to screw up.  */
-  emit_insn (gen_rtx_USE (VOIDmode, cfun->machine->pic_reg));
+  emit_insn (gen_rtx_USE (VOIDmode, pic_reg));
 #endif /* AOF_ASSEMBLER */
 }
 
@@ -3922,10 +3917,15 @@ thumb2_legitimate_index_p (enum machine_mode mode, rtx index, int strict_p)
 	    && (INTVAL (index) & 3) == 0);
 
   if (TARGET_REALLY_IWMMXT && VALID_IWMMXT_REG_MODE (mode))
-    return (code == CONST_INT
-	    && INTVAL (index) < 1024
-	    && INTVAL (index) > -1024
-	    && (INTVAL (index) & 3) == 0);
+    {
+      /* For DImode assume values will usually live in core regs
+	 and only allow LDRD addressing modes.  */
+      if (!TARGET_LDRD || mode != DImode)
+	return (code == CONST_INT
+		&& INTVAL (index) < 1024
+		&& INTVAL (index) > -1024
+		&& (INTVAL (index) & 3) == 0);
+    }
 
   if (arm_address_register_rtx_p (index, strict_p)
       && (GET_MODE_SIZE (mode) <= 4))
@@ -4076,7 +4076,7 @@ thumb1_legitimate_address_p (enum machine_mode mode, rtx x, int strict_p)
 	       && thumb_legitimate_offset_p (mode, INTVAL (XEXP (x, 1))))
 	return 1;
 
-      /* REG+const has 10 bit offset for SP, but only SImode and
+      /* REG+const has 10-bit offset for SP, but only SImode and
 	 larger is supported.  */
       /* ??? Should probably check for DI/DFmode overflow here
 	 just like GO_IF_LEGITIMATE_OFFSET does.  */
@@ -4385,8 +4385,8 @@ arm_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
       HOST_WIDE_INT mask, base, index;
       rtx base_reg;
 
-      /* ldr and ldrb can use a 12 bit index, ldrsb and the rest can only
-         use a 8 bit index. So let's use a 12 bit index for SImode only and
+      /* ldr and ldrb can use a 12-bit index, ldrsb and the rest can only
+         use a 8-bit index. So let's use a 12-bit index for SImode only and
          hope that arm_gen_constant will enable ldrb to use more bits. */
       bits = (mode == SImode) ? 12 : 8;
       mask = (1 << bits) - 1;
@@ -5764,12 +5764,12 @@ arm_eliminable_register (rtx x)
 }
 
 /* Return GENERAL_REGS if a scratch register required to reload x to/from
-   VFP registers.  Otherwise return NO_REGS.  */
+   coprocessor registers.  Otherwise return NO_REGS.  */
 
 enum reg_class
-vfp_secondary_reload_class (enum machine_mode mode, rtx x)
+coproc_secondary_reload_class (enum machine_mode mode, rtx x, bool wb)
 {
-  if (arm_coproc_mem_operand (x, FALSE) || s_register_operand (x, mode))
+  if (arm_coproc_mem_operand (x, wb) || s_register_operand (x, mode))
     return NO_REGS;
 
   return GENERAL_REGS;
@@ -8913,6 +8913,30 @@ vfp_emit_fstmd (int base_reg, int count)
   return count * 8;
 }
 
+/* Emit a call instruction with pattern PAT.  ADDR is the address of
+   the call target.  */
+
+void
+arm_emit_call_insn (rtx pat, rtx addr)
+{
+  rtx insn;
+
+  insn = emit_call_insn (pat);
+
+  /* The PIC register is live on entry to VxWorks PIC PLT entries.
+     If the call might use such an entry, add a use of the PIC register
+     to the instruction's CALL_INSN_FUNCTION_USAGE.  */
+  if (TARGET_VXWORKS_RTP
+      && flag_pic
+      && GET_CODE (addr) == SYMBOL_REF
+      && (SYMBOL_REF_DECL (addr)
+	  ? !targetm.binds_local_p (SYMBOL_REF_DECL (addr))
+	  : !SYMBOL_REF_LOCAL_P (addr)))
+    {
+      require_pic_register ();
+      use_reg (&CALL_INSN_FUNCTION_USAGE (insn), cfun->machine->pic_reg);
+    }
+}
 
 /* Output a 'call' insn.  */
 const char *
@@ -9146,12 +9170,37 @@ output_move_double (rtx *operands)
 		  output_asm_insn ("ldr%(d%)\t%0, [%1] @split", otherops);
 		}
 	      else
-		output_asm_insn ("ldr%(d%)\t%0, [%1, %2]!", otherops);
+		{
+		  /* IWMMXT allows offsets larger than ldrd can handle,
+		     fix these up with a pair of ldr.  */
+		  if (GET_CODE (otherops[2]) == CONST_INT
+		      && (INTVAL(otherops[2]) <= -256
+			  || INTVAL(otherops[2]) >= 256))
+		    {
+		      output_asm_insn ("ldr%?\t%0, [%1, %2]!", otherops);
+		      otherops[0] = gen_rtx_REG (SImode, 1 + reg0);
+		      output_asm_insn ("ldr%?\t%0, [%1, #4]", otherops);
+		    }
+		  else
+		    output_asm_insn ("ldr%(d%)\t%0, [%1, %2]!", otherops);
+		}
 	    }
 	  else
 	    {
-	      /* We only allow constant increments, so this is safe.  */
-	      output_asm_insn ("ldr%(d%)\t%0, [%1], %2", otherops);
+	      /* IWMMXT allows offsets larger than ldrd can handle,
+		 fix these up with a pair of ldr.  */
+	      if (GET_CODE (otherops[2]) == CONST_INT
+		  && (INTVAL(otherops[2]) <= -256
+		      || INTVAL(otherops[2]) >= 256))
+		{
+		  otherops[0] = gen_rtx_REG (SImode, 1 + reg0);
+		  output_asm_insn ("ldr%?\t%0, [%1, #4]", otherops);
+		  otherops[0] = operands[0];
+		  output_asm_insn ("ldr%?\t%0, [%1], %2", otherops);
+		}
+	      else
+		/* We only allow constant increments, so this is safe.  */
+		output_asm_insn ("ldr%(d%)\t%0, [%1], %2", otherops);
 	    }
 	  break;
 
@@ -9289,7 +9338,29 @@ output_move_double (rtx *operands)
 	  otherops[1] = XEXP (XEXP (XEXP (operands[0], 0), 1), 0);
 	  otherops[2] = XEXP (XEXP (XEXP (operands[0], 0), 1), 1);
 
-	  if (GET_CODE (XEXP (operands[0], 0)) == PRE_MODIFY)
+	  /* IWMMXT allows offsets larger than ldrd can handle,
+	     fix these up with a pair of ldr.  */
+	  if (GET_CODE (otherops[2]) == CONST_INT
+	      && (INTVAL(otherops[2]) <= -256
+		  || INTVAL(otherops[2]) >= 256))
+	    {
+	      rtx reg1;
+	      reg1 = gen_rtx_REG (SImode, 1 + REGNO (operands[1]));
+	      if (GET_CODE (XEXP (operands[0], 0)) == PRE_MODIFY)
+		{
+		  output_asm_insn ("ldr%?\t%0, [%1, %2]!", otherops);
+		  otherops[0] = reg1;
+		  output_asm_insn ("ldr%?\t%0, [%1, #4]", otherops);
+		}
+	      else
+		{
+		  otherops[0] = reg1;
+		  output_asm_insn ("ldr%?\t%0, [%1, #4]", otherops);
+		  otherops[0] = operands[1];
+		  output_asm_insn ("ldr%?\t%0, [%1], %2", otherops);
+		}
+	    }
+	  else if (GET_CODE (XEXP (operands[0], 0)) == PRE_MODIFY)
 	    output_asm_insn ("str%(d%)\t%0, [%1, %2]!", otherops);
 	  else
 	    output_asm_insn ("str%(d%)\t%0, [%1], %2", otherops);
@@ -11782,7 +11853,7 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	 want to do that.  */
       if (x == const_true_rtx)
 	{
-	  output_operand_lossage ("instruction never exectued");
+	  output_operand_lossage ("instruction never executed");
 	  return;
 	}
       if (!COMPARISON_P (x))
@@ -11951,14 +12022,13 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
       if (NEED_GOT_RELOC && flag_pic && making_const_table &&
 	  (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF))
 	{
-	  if (GET_CODE (x) == SYMBOL_REF
-	      && (CONSTANT_POOL_ADDRESS_P (x)
-		  || SYMBOL_REF_LOCAL_P (x)))
-	    fputs ("(GOTOFF)", asm_out_file);
-	  else if (GET_CODE (x) == LABEL_REF)
-	    fputs ("(GOTOFF)", asm_out_file);
-	  else
+	  /* See legitimize_pic_address for an explanation of the
+	     TARGET_VXWORKS_RTP check.  */
+	  if (TARGET_VXWORKS_RTP
+	      || (GET_CODE (x) == SYMBOL_REF && !SYMBOL_REF_LOCAL_P (x)))
 	    fputs ("(GOT)", asm_out_file);
+	  else
+	    fputs ("(GOTOFF)", asm_out_file);
 	}
       fputc ('\n', asm_out_file);
       return true;
@@ -11996,17 +12066,16 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
   return default_assemble_integer (x, size, aligned_p);
 }
 
-
-/* Add a function to the list of static constructors.  */
-
 static void
-arm_elf_asm_constructor (rtx symbol, int priority)
+arm_elf_asm_cdtor (rtx symbol, int priority, bool is_ctor)
 {
   section *s;
 
   if (!TARGET_AAPCS_BASED)
     {
-      default_named_section_asm_out_constructor (symbol, priority);
+      (is_ctor ? 
+       default_named_section_asm_out_constructor 
+       : default_named_section_asm_out_destructor) (symbol, priority);
       return;
     }
 
@@ -12014,17 +12083,37 @@ arm_elf_asm_constructor (rtx symbol, int priority)
   if (priority != DEFAULT_INIT_PRIORITY)
     {
       char buf[18];
-      sprintf (buf, ".init_array.%.5u", priority);
+      sprintf (buf, "%s.%.5u", 
+	       is_ctor ? ".init_array" : ".fini_array",
+	       priority);
       s = get_section (buf, SECTION_WRITE, NULL_TREE);
     }
-  else
+  else if (is_ctor)
     s = ctors_section;
+  else
+    s = dtors_section;
 
   switch_to_section (s);
   assemble_align (POINTER_SIZE);
   fputs ("\t.word\t", asm_out_file);
   output_addr_const (asm_out_file, symbol);
   fputs ("(target1)\n", asm_out_file);
+}
+
+/* Add a function to the list of static constructors.  */
+
+static void
+arm_elf_asm_constructor (rtx symbol, int priority)
+{
+  arm_elf_asm_cdtor (symbol, priority, /*is_ctor=*/true);
+}
+
+/* Add a function to the list of static destructors.  */
+
+static void
+arm_elf_asm_destructor (rtx symbol, int priority)
+{
+  arm_elf_asm_cdtor (symbol, priority, /*is_ctor=*/false);
 }
 #endif
 
@@ -12195,7 +12284,7 @@ get_arm_condition_code (rtx comparison)
     }
 }
 
-/* Tell arm_asm_ouput_opcode to output IT blocks for conditionally executed
+/* Tell arm_asm_output_opcode to output IT blocks for conditionally executed
    instructions.  */
 void
 thumb2_final_prescan_insn (rtx insn)
@@ -12243,10 +12332,7 @@ thumb2_final_prescan_insn (rtx insn)
       /* USE and CLOBBER aren't really insns, so just skip them.  */
       if (GET_CODE (body) == USE
 	  || GET_CODE (body) == CLOBBER)
-	{
-	  arm_condexec_count++;
-	  continue;
-	}
+	continue;
 
       /* ??? Recognize conditional jumps, and combine them with IT blocks.  */
       if (GET_CODE (body) != COND_EXEC)
@@ -13341,11 +13427,11 @@ safe_vector_operand (rtx x, enum machine_mode mode)
 
 static rtx
 arm_expand_binop_builtin (enum insn_code icode,
-			  tree arglist, rtx target)
+			  tree exp, rtx target)
 {
   rtx pat;
-  tree arg0 = TREE_VALUE (arglist);
-  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  tree arg0 = CALL_EXPR_ARG (exp, 0);
+  tree arg1 = CALL_EXPR_ARG (exp, 1);
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
@@ -13380,10 +13466,10 @@ arm_expand_binop_builtin (enum insn_code icode,
 
 static rtx
 arm_expand_unop_builtin (enum insn_code icode,
-			 tree arglist, rtx target, int do_load)
+			 tree exp, rtx target, int do_load)
 {
   rtx pat;
-  tree arg0 = TREE_VALUE (arglist);
+  tree arg0 = CALL_EXPR_ARG (exp, 0);
   rtx op0 = expand_normal (arg0);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
@@ -13425,8 +13511,7 @@ arm_expand_builtin (tree exp,
 {
   const struct builtin_description * d;
   enum insn_code    icode;
-  tree              fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
-  tree              arglist = TREE_OPERAND (exp, 1);
+  tree              fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   tree              arg0;
   tree              arg1;
   tree              arg2;
@@ -13455,8 +13540,8 @@ arm_expand_builtin (tree exp,
 	       : fcode == ARM_BUILTIN_TEXTRMUH ? CODE_FOR_iwmmxt_textrmuh
 	       : CODE_FOR_iwmmxt_textrmw);
 
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
       tmode = insn_data[icode].operand[0].mode;
@@ -13487,9 +13572,9 @@ arm_expand_builtin (tree exp,
       icode = (fcode == ARM_BUILTIN_TINSRB ? CODE_FOR_iwmmxt_tinsrb
 	       : fcode == ARM_BUILTIN_TINSRH ? CODE_FOR_iwmmxt_tinsrh
 	       : CODE_FOR_iwmmxt_tinsrw);
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      arg2 = CALL_EXPR_ARG (exp, 2);
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
       op2 = expand_normal (arg2);
@@ -13519,15 +13604,15 @@ arm_expand_builtin (tree exp,
       return target;
 
     case ARM_BUILTIN_SETWCX:
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
       op0 = force_reg (SImode, expand_normal (arg0));
       op1 = expand_normal (arg1);
       emit_insn (gen_iwmmxt_tmcr (op1, op0));
       return 0;
 
     case ARM_BUILTIN_GETWCX:
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       op0 = expand_normal (arg0);
       target = gen_reg_rtx (SImode);
       emit_insn (gen_iwmmxt_tmrc (target, op0));
@@ -13535,8 +13620,8 @@ arm_expand_builtin (tree exp,
 
     case ARM_BUILTIN_WSHUFH:
       icode = CODE_FOR_iwmmxt_wshufh;
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
       tmode = insn_data[icode].operand[0].mode;
@@ -13562,13 +13647,13 @@ arm_expand_builtin (tree exp,
       return target;
 
     case ARM_BUILTIN_WSADB:
-      return arm_expand_binop_builtin (CODE_FOR_iwmmxt_wsadb, arglist, target);
+      return arm_expand_binop_builtin (CODE_FOR_iwmmxt_wsadb, exp, target);
     case ARM_BUILTIN_WSADH:
-      return arm_expand_binop_builtin (CODE_FOR_iwmmxt_wsadh, arglist, target);
+      return arm_expand_binop_builtin (CODE_FOR_iwmmxt_wsadh, exp, target);
     case ARM_BUILTIN_WSADBZ:
-      return arm_expand_binop_builtin (CODE_FOR_iwmmxt_wsadbz, arglist, target);
+      return arm_expand_binop_builtin (CODE_FOR_iwmmxt_wsadbz, exp, target);
     case ARM_BUILTIN_WSADHZ:
-      return arm_expand_binop_builtin (CODE_FOR_iwmmxt_wsadhz, arglist, target);
+      return arm_expand_binop_builtin (CODE_FOR_iwmmxt_wsadhz, exp, target);
 
       /* Several three-argument builtins.  */
     case ARM_BUILTIN_WMACS:
@@ -13589,9 +13674,9 @@ arm_expand_builtin (tree exp,
 	       : fcode == ARM_BUILTIN_TMIATB ? CODE_FOR_iwmmxt_tmiatb
 	       : fcode == ARM_BUILTIN_TMIATT ? CODE_FOR_iwmmxt_tmiatt
 	       : CODE_FOR_iwmmxt_walign);
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      arg2 = CALL_EXPR_ARG (exp, 2);
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
       op2 = expand_normal (arg2);
@@ -13630,11 +13715,11 @@ arm_expand_builtin (tree exp,
 
   for (i = 0, d = bdesc_2arg; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
     if (d->code == (const enum arm_builtins) fcode)
-      return arm_expand_binop_builtin (d->icode, arglist, target);
+      return arm_expand_binop_builtin (d->icode, exp, target);
 
   for (i = 0, d = bdesc_1arg; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
     if (d->code == (const enum arm_builtins) fcode)
-      return arm_expand_unop_builtin (d->icode, arglist, target, 0);
+      return arm_expand_unop_builtin (d->icode, exp, target, 0);
 
   /* @@@ Should really do something sensible here.  */
   return NULL_RTX;
@@ -15534,17 +15619,6 @@ arm_encode_section_info (tree decl, rtx rtl, int first)
   if (optimize > 0 && TREE_CONSTANT (decl))
     SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
 #endif
-
-  /* If we are referencing a function that is weak then encode a long call
-     flag in the function name, otherwise if the function is static or
-     or known to be defined in this file then encode a short call flag.  */
-  if (first && DECL_P (decl))
-    {
-      if (TREE_CODE (decl) == FUNCTION_DECL && DECL_WEAK (decl))
-        arm_encode_call_attribute (decl, LONG_CALL_FLAG_CHAR);
-      else if (! TREE_PUBLIC (decl))
-        arm_encode_call_attribute (decl, SHORT_CALL_FLAG_CHAR);
-    }
 
   default_encode_section_info (decl, rtl, first);
 }

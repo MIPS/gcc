@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2002-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2002-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -40,10 +40,12 @@ with Stringt;  use Stringt;
 with Types;    use Types;
 
 with Ada.Text_IO;               use Ada.Text_IO;
+
 with GNAT.Case_Util;            use GNAT.Case_Util;
 with GNAT.Command_Line;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
-with GNAT.OS_Lib;               use GNAT.OS_Lib;
+
+with System.OS_Lib;             use System.OS_Lib;
 
 package body GPrep is
 
@@ -506,12 +508,13 @@ package body GPrep is
 
          Scanner.Initialize_Scanner (Infile);
 
-         --  Output the SFN pragma if asked to
+         --  Output the pragma Source_Reference if asked to
 
          if Source_Ref_Pragma then
-            Put_Line (Outfile.all, "pragma Source_Reference (1, """ &
-                      Get_Name_String (Sinput.File_Name (Infile)) &
-                      """);");
+            Put_Line
+              (Outfile.all,
+               "pragma Source_Reference (1, """ &
+                 Get_Name_String (Sinput.Full_File_Name (Infile)) & """);");
          end if;
 
          --  Preprocess the input file

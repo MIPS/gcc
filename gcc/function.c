@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -763,7 +763,8 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
   if (type != 0)
     {
       MEM_VOLATILE_P (slot) = TYPE_VOLATILE (type);
-      MEM_SET_IN_STRUCT_P (slot, AGGREGATE_TYPE_P (type));
+      MEM_SET_IN_STRUCT_P (slot, (AGGREGATE_TYPE_P (type)
+				  || TREE_CODE (type) == COMPLEX_TYPE));
     }
   MEM_NOTRAP_P (slot) = 1;
 
@@ -1210,12 +1211,12 @@ static int cfa_offset;
    `current_function_outgoing_args_size'.  Nevertheless, we must allow
    for it when allocating stack dynamic objects.  */
 
-#if defined(REG_PARM_STACK_SPACE) && ! defined(OUTGOING_REG_PARM_STACK_SPACE)
+#if defined(REG_PARM_STACK_SPACE)
 #define STACK_DYNAMIC_OFFSET(FNDECL)	\
 ((ACCUMULATE_OUTGOING_ARGS						      \
-  ? (current_function_outgoing_args_size + REG_PARM_STACK_SPACE (FNDECL)) : 0)\
- + (STACK_POINTER_OFFSET))						      \
-
+  ? (current_function_outgoing_args_size				      \
+     + (OUTGOING_REG_PARM_STACK_SPACE ? 0 : REG_PARM_STACK_SPACE (FNDECL)))   \
+  : 0) + (STACK_POINTER_OFFSET))
 #else
 #define STACK_DYNAMIC_OFFSET(FNDECL)	\
 ((ACCUMULATE_OUTGOING_ARGS ? current_function_outgoing_args_size : 0)	      \
@@ -1894,7 +1895,8 @@ struct assign_parm_data_all
   struct args_size stack_args_size;
   tree function_result_decl;
   tree orig_fnargs;
-  rtx conversion_insns;
+  rtx first_conversion_insn;
+  rtx last_conversion_insn;
   HOST_WIDE_INT pretend_args_size;
   HOST_WIDE_INT extra_pretend_bytes;
   int reg_parm_stack_space;
@@ -2488,7 +2490,8 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	{
 	  rtx parmreg = gen_reg_rtx (data->nominal_mode);
 
-	  push_to_sequence (all->conversion_insns);
+	  push_to_sequence2 (all->first_conversion_insn,
+			     all->last_conversion_insn);
 
 	  /* For values returned in multiple registers, handle possible
 	     incompatible calls to emit_group_store.
@@ -2513,7 +2516,8 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	    emit_group_store (parmreg, entry_parm, data->nominal_type,
 			      int_size_in_bytes (data->nominal_type));
 
-	  all->conversion_insns = get_insns ();
+	  all->first_conversion_insn = get_insns ();
+	  all->last_conversion_insn = get_last_insn ();
 	  end_sequence ();
 
 	  SET_DECL_RTL (parm, parmreg);
@@ -2560,9 +2564,11 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
       /* Handle values in multiple non-contiguous locations.  */
       if (GET_CODE (entry_parm) == PARALLEL)
 	{
-	  push_to_sequence (all->conversion_insns);
+	  push_to_sequence2 (all->first_conversion_insn,
+			     all->last_conversion_insn);
 	  emit_group_store (mem, entry_parm, data->passed_type, size);
-	  all->conversion_insns = get_insns ();
+	  all->first_conversion_insn = get_insns ();
+	  all->last_conversion_insn = get_last_insn ();
 	  end_sequence ();
 	}
 
@@ -2621,10 +2627,11 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
     }
   else if (data->stack_parm == 0)
     {
-      push_to_sequence (all->conversion_insns);
+      push_to_sequence2 (all->first_conversion_insn, all->last_conversion_insn);
       emit_block_move (stack_parm, data->entry_parm, GEN_INT (size),
 		       BLOCK_OP_NORMAL);
-      all->conversion_insns = get_insns ();
+      all->first_conversion_insn = get_insns ();
+      all->last_conversion_insn = get_last_insn ();
       end_sequence ();
     }
 
@@ -2697,7 +2704,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 
       emit_move_insn (tempreg, validize_mem (data->entry_parm));
 
-      push_to_sequence (all->conversion_insns);
+      push_to_sequence2 (all->first_conversion_insn, all->last_conversion_insn);
       tempreg = convert_to_mode (data->nominal_mode, tempreg, unsignedp);
 
       if (GET_CODE (tempreg) == SUBREG
@@ -2718,7 +2725,8 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
       save_tree_used = TREE_USED (parm);
       expand_assignment (parm, make_tree (data->nominal_type, tempreg));
       TREE_USED (parm) = save_tree_used;
-      all->conversion_insns = get_insns ();
+      all->first_conversion_insn = get_insns ();
+      all->last_conversion_insn = get_last_insn ();
       end_sequence ();
 
       did_conversion = true;
@@ -2744,11 +2752,13 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	  rtx tempreg = gen_reg_rtx (GET_MODE (DECL_RTL (parm)));
 	  int unsigned_p = TYPE_UNSIGNED (TREE_TYPE (parm));
 
-	  push_to_sequence (all->conversion_insns);
+	  push_to_sequence2 (all->first_conversion_insn,
+			     all->last_conversion_insn);
 	  emit_move_insn (tempreg, DECL_RTL (parm));
 	  tempreg = convert_to_mode (GET_MODE (parmreg), tempreg, unsigned_p);
 	  emit_move_insn (parmreg, tempreg);
-	  all->conversion_insns = get_insns ();
+	  all->first_conversion_insn = get_insns ();
+	  all->last_conversion_insn = get_last_insn ();
 	  end_sequence ();
 
 	  did_conversion = true;
@@ -2800,20 +2810,14 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 		continue;
 
 	      if (SET_DEST (set) == regno_reg_rtx [regnoi])
-		REG_NOTES (sinsn)
-		  = gen_rtx_EXPR_LIST (REG_EQUIV, stacki,
-				       REG_NOTES (sinsn));
+		set_unique_reg_note (sinsn, REG_EQUIV, stacki);
 	      else if (SET_DEST (set) == regno_reg_rtx [regnor])
-		REG_NOTES (sinsn)
-		  = gen_rtx_EXPR_LIST (REG_EQUIV, stackr,
-				       REG_NOTES (sinsn));
+		set_unique_reg_note (sinsn, REG_EQUIV, stackr);
 	    }
 	}
       else if ((set = single_set (linsn)) != 0
 	       && SET_DEST (set) == parmreg)
-	REG_NOTES (linsn)
-	  = gen_rtx_EXPR_LIST (REG_EQUIV,
-			       data->stack_parm, REG_NOTES (linsn));
+	set_unique_reg_note (linsn, REG_EQUIV, data->stack_parm);
     }
 
   /* For pointer data type, suggest pointer register.  */
@@ -2840,7 +2844,7 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 
       emit_move_insn (tempreg, validize_mem (data->entry_parm));
 
-      push_to_sequence (all->conversion_insns);
+      push_to_sequence2 (all->first_conversion_insn, all->last_conversion_insn);
       to_conversion = true;
 
       data->entry_parm = convert_to_mode (data->nominal_mode, tempreg,
@@ -2872,7 +2876,8 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 	{
 	  /* Use a block move to handle potentially misaligned entry_parm.  */
 	  if (!to_conversion)
-	    push_to_sequence (all->conversion_insns);
+	    push_to_sequence2 (all->first_conversion_insn,
+			       all->last_conversion_insn);
 	  to_conversion = true;
 
 	  emit_block_move (dest, src,
@@ -2885,7 +2890,8 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 
   if (to_conversion)
     {
-      all->conversion_insns = get_insns ();
+      all->first_conversion_insn = get_insns ();
+      all->last_conversion_insn = get_last_insn ();
       end_sequence ();
     }
 
@@ -2929,10 +2935,12 @@ assign_parms_unsplit_complex (struct assign_parm_data_all *all, tree fnargs)
 	      set_mem_attributes (tmp, parm, 1);
 	      rmem = adjust_address_nv (tmp, inner, 0);
 	      imem = adjust_address_nv (tmp, inner, GET_MODE_SIZE (inner));
-	      push_to_sequence (all->conversion_insns);
+	      push_to_sequence2 (all->first_conversion_insn,
+				 all->last_conversion_insn);
 	      emit_move_insn (rmem, real);
 	      emit_move_insn (imem, imag);
-	      all->conversion_insns = get_insns ();
+	      all->first_conversion_insn = get_insns ();
+	      all->last_conversion_insn = get_last_insn ();
 	      end_sequence ();
 	    }
 	  else
@@ -3030,7 +3038,7 @@ assign_parms (tree fndecl)
 
   /* Output all parameter conversion instructions (possibly including calls)
      now that all parameters have been copied out of hard registers.  */
-  emit_insn (all.conversion_insns);
+  emit_insn (all.first_conversion_insn);
 
   /* If we are receiving a struct value address as the first argument, set up
      the RTL for the function result. As this might require code to convert
@@ -3208,22 +3216,21 @@ gimplify_parameters (void)
 		}
 	      else
 		{
-		  tree ptr_type, addr, args;
+		  tree ptr_type, addr;
 
 		  ptr_type = build_pointer_type (type);
 		  addr = create_tmp_var (ptr_type, get_name (parm));
 		  DECL_IGNORED_P (addr) = 0;
 		  local = build_fold_indirect_ref (addr);
 
-		  args = tree_cons (NULL, DECL_SIZE_UNIT (parm), NULL);
 		  t = built_in_decls[BUILT_IN_ALLOCA];
-		  t = build_function_call_expr (t, args);
+		  t = build_call_expr (t, 1, DECL_SIZE_UNIT (parm));
 		  t = fold_convert (ptr_type, t);
-		  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
+		  t = build_gimple_modify_stmt (addr, t);
 		  gimplify_and_add (t, &stmts);
 		}
 
-	      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, local, parm);
+	      t = build_gimple_modify_stmt (local, parm);
 	      gimplify_and_add (t, &stmts);
 
 	      SET_DECL_VALUE_EXPR (parm, local);
@@ -3234,40 +3241,6 @@ gimplify_parameters (void)
 
   return stmts;
 }
-
-/* Indicate whether REGNO is an incoming argument to the current function
-   that was promoted to a wider mode.  If so, return the RTX for the
-   register (to get its mode).  PMODE and PUNSIGNEDP are set to the mode
-   that REGNO is promoted from and whether the promotion was signed or
-   unsigned.  */
-
-rtx
-promoted_input_arg (unsigned int regno, enum machine_mode *pmode, int *punsignedp)
-{
-  tree arg;
-
-  for (arg = DECL_ARGUMENTS (current_function_decl); arg;
-       arg = TREE_CHAIN (arg))
-    if (REG_P (DECL_INCOMING_RTL (arg))
-	&& REGNO (DECL_INCOMING_RTL (arg)) == regno
-	&& TYPE_MODE (DECL_ARG_TYPE (arg)) == TYPE_MODE (TREE_TYPE (arg)))
-      {
-	enum machine_mode mode = TYPE_MODE (TREE_TYPE (arg));
-	int unsignedp = TYPE_UNSIGNED (TREE_TYPE (arg));
-
-	mode = promote_mode (TREE_TYPE (arg), mode, &unsignedp, 1);
-	if (mode == GET_MODE (DECL_INCOMING_RTL (arg))
-	    && mode != DECL_MODE (arg))
-	  {
-	    *pmode = DECL_MODE (arg);
-	    *punsignedp = unsignedp;
-	    return DECL_INCOMING_RTL (arg);
-	  }
-      }
-
-  return 0;
-}
-
 
 /* Compute the size and offset from the start of the stacked arguments for a
    parm passed in mode PASSED_MODE and with type TYPE.
@@ -3607,7 +3580,7 @@ reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
     {
       if (NOTE_P (insn))
 	{
-	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG)
+	  if (NOTE_KIND (insn) == NOTE_INSN_BLOCK_BEG)
 	    {
 	      tree block = NOTE_BLOCK (insn);
 	      tree origin;
@@ -3648,7 +3621,7 @@ reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
 		}
 	      VEC_safe_push (tree, heap, *p_block_stack, block);
 	    }
-	  else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END)
+	  else if (NOTE_KIND (insn) == NOTE_INSN_BLOCK_END)
 	    {
 	      NOTE_BLOCK (insn) = VEC_pop (tree, *p_block_stack);
 	      BLOCK_SUBBLOCKS (current_block)
@@ -3776,7 +3749,7 @@ debug_find_var_in_block_tree (tree var, tree block)
 
 /* Return value of funcdef and increase it.  */
 int
-get_next_funcdef_no(void) 
+get_next_funcdef_no (void) 
 {
   return funcdef_no++;
 }
@@ -3882,18 +3855,6 @@ void
 init_function_start (tree subr)
 {
   prepare_function_start (subr);
-
-  /* Prevent ever trying to delete the first instruction of a
-     function.  Also tell final how to output a linenum before the
-     function prologue.  Note linenums could be missing, e.g. when
-     compiling a Java .class file.  */
-  if (! DECL_IS_BUILTIN (subr))
-    emit_line_note (DECL_SOURCE_LOCATION (subr));
-
-  /* Make sure first insn is a note even if we don't want linenums.
-     This makes sure the first insn will never be deleted.
-     Also, final expects a note to appear there.  */
-  emit_note (NOTE_INSN_DELETED);
 
   /* Warn if this value is an aggregate type,
      regardless of which calling convention we are using for it.  */
@@ -4345,7 +4306,7 @@ expand_function_end (void)
   /* Output a linenumber for the end of the function.
      SDB depends on this.  */
   force_next_line_note ();
-  emit_line_note (input_location);
+  set_curr_insn_source_location (input_location);
 
   /* Before the return label (if any), clobber the return
      registers so that they are not propagated live to the rest of
@@ -4366,16 +4327,6 @@ expand_function_end (void)
 	 the function context for sjlj exceptions.  */
       if (flag_exceptions)
 	sjlj_emit_function_exit_after (get_last_insn ());
-    }
-  else
-    {
-      /* @@@ This is a kludge.  We want to ensure that instructions that
-	 may trap are not moved into the epilogue by scheduling, because
-	 we don't always emit unwind information for the epilogue.
-	 However, not all machine descriptions define a blockage insn, so
-	 emit an ASM_INPUT to act as one.  */
-      if (flag_non_call_exceptions)
-	emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
     }
 
   /* If this is an implementation of throw, do what's necessary to
@@ -4517,6 +4468,14 @@ expand_function_end (void)
 
   /* Output the label for the naked return from the function.  */
   emit_label (naked_return_label);
+
+  /* @@@ This is a kludge.  We want to ensure that instructions that
+     may trap are not moved into the epilogue by scheduling, because
+     we don't always emit unwind information for the epilogue.
+     However, not all machine descriptions define a blockage insn, so
+     emit an ASM_INPUT to act as one.  */
+  if (! USING_SJLJ_EXCEPTIONS && flag_non_call_exceptions)
+    emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
 
   /* If stack protection is enabled for this function, check the guard.  */
   if (cfun->stack_protect_guard)
@@ -4825,8 +4784,7 @@ keep_stack_depressed (rtx insns)
 		    && !REGNO_REG_SET_P
 		         (EXIT_BLOCK_PTR->il.rtl->global_live_at_start, regno)
 		    && !refers_to_regno_p (regno,
-					   regno + hard_regno_nregs[regno]
-								   [Pmode],
+					   end_hard_regno (Pmode, regno),
 					   info.equiv_reg_src, NULL)
 		    && info.const_equiv[regno] == 0)
 		  break;
@@ -5291,7 +5249,7 @@ epilogue_done:
 	{
 	  next = NEXT_INSN (insn);
 	  if (NOTE_P (insn) 
-	      && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG))
+	      && (NOTE_KIND (insn) == NOTE_INSN_FUNCTION_BEG))
 	    reorder_insns (insn, insn, PREV_INSN (epilogue_end));
 	}
     }
@@ -5319,7 +5277,7 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
 	{
 	  if (NOTE_P (insn))
 	    {
-	      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_PROLOGUE_END)
+	      if (NOTE_KIND (insn) == NOTE_INSN_PROLOGUE_END)
 		note = insn;
 	    }
 	  else if (contains (insn, &prologue))
@@ -5338,7 +5296,7 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
 	    {
 	      for (note = last; (note = NEXT_INSN (note));)
 		if (NOTE_P (note)
-		    && NOTE_LINE_NUMBER (note) == NOTE_INSN_PROLOGUE_END)
+		    && NOTE_KIND (note) == NOTE_INSN_PROLOGUE_END)
 		  break;
 	    }
 
@@ -5360,7 +5318,7 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
 	{
 	  if (NOTE_P (insn))
 	    {
-	      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EPILOGUE_BEG)
+	      if (NOTE_KIND (insn) == NOTE_INSN_EPILOGUE_BEG)
 		note = insn;
 	    }
 	  else if (contains (insn, &epilogue))
@@ -5379,7 +5337,7 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
 	    {
 	      for (note = insn; (note = PREV_INSN (note));)
 		if (NOTE_P (note)
-		    && NOTE_LINE_NUMBER (note) == NOTE_INSN_EPILOGUE_BEG)
+		    && NOTE_KIND (note) == NOTE_INSN_EPILOGUE_BEG)
 		  break;
 	    }
 
@@ -5388,62 +5346,6 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
 	}
     }
 #endif /* HAVE_prologue or HAVE_epilogue */
-}
-
-/* Resets insn_block_boundaries array.  */
-
-void
-reset_block_changes (void)
-{
-  cfun->ib_boundaries_block = VEC_alloc (tree, gc, 100);
-  VEC_quick_push (tree, cfun->ib_boundaries_block, NULL_TREE);
-}
-
-/* Record the boundary for BLOCK.  */
-void
-record_block_change (tree block)
-{
-  int i, n;
-  tree last_block;
-
-  if (!block)
-    return;
-
-  if(!cfun->ib_boundaries_block)
-    return;
-
-  last_block = VEC_pop (tree, cfun->ib_boundaries_block);
-  n = get_max_uid ();
-  for (i = VEC_length (tree, cfun->ib_boundaries_block); i < n; i++)
-    VEC_safe_push (tree, gc, cfun->ib_boundaries_block, last_block);
-
-  VEC_safe_push (tree, gc, cfun->ib_boundaries_block, block);
-}
-
-/* Finishes record of boundaries.  */
-void
-finalize_block_changes (void)
-{
-  record_block_change (DECL_INITIAL (current_function_decl));
-}
-
-/* For INSN return the BLOCK it belongs to.  */ 
-void
-check_block_change (rtx insn, tree *block)
-{
-  unsigned uid = INSN_UID (insn);
-
-  if (uid >= VEC_length (tree, cfun->ib_boundaries_block))
-    return;
-
-  *block = VEC_index (tree, cfun->ib_boundaries_block, uid);
-}
-
-/* Releases the ib_boundaries_block records.  */
-void
-free_block_changes (void)
-{
-  VEC_free (tree, gc, cfun->ib_boundaries_block);
 }
 
 /* Returns the name of the current function.  */

@@ -1,5 +1,6 @@
 /* Default language-specific hooks.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -33,6 +34,7 @@ Boston, MA 02110-1301, USA.  */
 #include "integrate.h"
 #include "flags.h"
 #include "langhooks.h"
+#include "target.h"
 #include "langhooks-def.h"
 #include "ggc.h"
 #include "diagnostic.h"
@@ -116,14 +118,6 @@ lhd_print_tree_nothing (FILE * ARG_UNUSED (file),
 {
 }
 
-/* Called from safe_from_p.  */
-
-int
-lhd_safe_from_p (rtx ARG_UNUSED (x), tree ARG_UNUSED (exp))
-{
-  return 1;
-}
-
 /* Called from staticp.  */
 
 tree
@@ -154,6 +148,8 @@ lhd_warn_unused_global_decl (tree decl)
 void
 lhd_set_decl_assembler_name (tree decl)
 {
+  tree id;
+
   /* The language-independent code should never use the
      DECL_ASSEMBLER_NAME for lots of DECLs.  Only FUNCTION_DECLs and
      VAR_DECLs for variables with static storage duration need a real
@@ -168,21 +164,26 @@ lhd_set_decl_assembler_name (tree decl)
      as that used in the source language.  (That's correct for C, and
      GCC used to set DECL_ASSEMBLER_NAME to the same value as
      DECL_NAME in build_decl, so this choice provides backwards
-     compatibility with existing front-ends.
-      
+     compatibility with existing front-ends.  This assumption is wrapped
+     in a target hook, to allow for target-specific modification of the
+     identifier.
+ 
      Can't use just the variable's own name for a variable whose scope
      is less than the whole compilation.  Concatenate a distinguishing
      number - we use the DECL_UID.  */
+
   if (TREE_PUBLIC (decl) || DECL_CONTEXT (decl) == NULL_TREE)
-    SET_DECL_ASSEMBLER_NAME (decl, DECL_NAME (decl));
+    id = targetm.mangle_decl_assembler_name (decl, DECL_NAME (decl));
   else
     {
       const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
       char *label;
       
       ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
-      SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
+      id = get_identifier (label);
     }
+  SET_DECL_ASSEMBLER_NAME (decl, id);
+
 }
 
 /* Type promotion for variable arguments.  */
@@ -214,15 +215,6 @@ HOST_WIDE_INT
 lhd_get_alias_set (tree ARG_UNUSED (t))
 {
   return -1;
-}
-
-/* Provide a hook routine for alias sets that always returns 0.  This is
-   used by languages that haven't deal with alias sets yet.  */
-
-HOST_WIDE_INT
-hook_get_alias_set_0 (tree ARG_UNUSED (t))
-{
-  return 0;
 }
 
 /* This is the default expand_expr function.  */
@@ -325,19 +317,6 @@ lhd_tree_inlining_disregard_inline_limits (tree fn)
   return 0;
 }
 
-/* lang_hooks.tree_inlining.add_pending_fn_decls is called before
-   starting to inline a function, to push any language-specific
-   functions that should not be inlined into the current function,
-   into VAFNP.  PFN is the top of varray, and should be returned if no
-   functions are pushed into VAFNP.  The top of the varray should be
-   returned.  */
-
-tree
-lhd_tree_inlining_add_pending_fn_decls (void *vafnp ATTRIBUTE_UNUSED, tree pfn)
-{
-  return pfn;
-}
-
 /* lang_hooks.tree_inlining.auto_var_in_fn_p is called to determine
    whether VT is an automatic variable defined in function FT.  */
 
@@ -349,35 +328,6 @@ lhd_tree_inlining_auto_var_in_fn_p (tree var, tree fn)
 	       && ! TREE_STATIC (var))
 	      || TREE_CODE (var) == LABEL_DECL
 	      || TREE_CODE (var) == RESULT_DECL));
-}
-
-/* lang_hooks.tree_inlining.anon_aggr_type_p determines whether T is a
-   type node representing an anonymous aggregate (union, struct, etc),
-   i.e., one whose members are in the same scope as the union itself.  */
-
-int
-lhd_tree_inlining_anon_aggr_type_p (tree t ATTRIBUTE_UNUSED)
-{
-  return 0;
-}
-
-/* lang_hooks.tree_inlining.start_inlining and end_inlining perform any
-   language-specific bookkeeping necessary for processing
-   FN. start_inlining returns nonzero if inlining should proceed, zero if
-   not.
-
-   For instance, the C++ version keeps track of template instantiations to
-   avoid infinite recursion.  */
-
-int
-lhd_tree_inlining_start_inlining (tree fn ATTRIBUTE_UNUSED)
-{
-  return 1;
-}
-
-void
-lhd_tree_inlining_end_inlining (tree fn ATTRIBUTE_UNUSED)
-{
 }
 
 /* lang_hooks.tree_inlining.convert_parm_for_inlining performs any
@@ -570,7 +520,7 @@ lhd_omp_predetermined_sharing (tree decl ATTRIBUTE_UNUSED)
 tree
 lhd_omp_assignment (tree clause ATTRIBUTE_UNUSED, tree dst, tree src)
 {
-  return build2 (GIMPLE_MODIFY_STMT, void_type_node, dst, src);
+  return build_gimple_modify_stmt (dst, src);
 }
 
 /* Register language specific type size variables as potentially OpenMP
@@ -619,4 +569,25 @@ lhd_builtin_function (tree decl)
 {
   lang_hooks.decls.pushdecl (decl);
   return decl;
+}
+
+/* If TYPE is an integral type, return an equivalent type which is
+    unsigned iff UNSIGNEDP is true.  If TYPE is not an integral type,
+    return TYPE itself.  */
+
+tree
+get_signed_or_unsigned_type (int unsignedp, tree type)
+{
+  return lang_hooks.types.signed_or_unsigned_type(unsignedp, type);
+}
+
+/* Default implementation of the signed_or_unsigned_type language hook */
+
+tree
+lhd_signed_or_unsigned_type (int unsignedp, tree type)
+{
+  if (!INTEGRAL_TYPE_P (type) || TYPE_UNSIGNED (type) == unsignedp)
+    return type;
+
+  return lang_hooks.types.type_for_size (TYPE_PRECISION (type), unsignedp);
 }

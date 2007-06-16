@@ -502,18 +502,20 @@ remove_unused_locals (void)
       cell = &TREE_CHAIN (*cell);
     }
 
-  /* Remove unused variables from REFERENCED_VARs.  As an special exception
-     keep the variables that are believed to be aliased.  Those can't be
-     easily removed from the alias sets and and operand caches.
-     They will be removed shortly after next may_alias pass is performed.  */
+  /* Remove unused variables from REFERENCED_VARs.  As a special
+     exception keep the variables that are believed to be aliased.
+     Those can't be easily removed from the alias sets and operand
+     caches.  They will be removed shortly after the next may_alias
+     pass is performed.  */
   FOR_EACH_REFERENCED_VAR (t, rvi)
     if (!is_global_var (t)
 	&& !MTAG_P (t)
 	&& TREE_CODE (t) != PARM_DECL
 	&& TREE_CODE (t) != RESULT_DECL
 	&& !(ann = var_ann (t))->used
-	&& !ann->is_aliased && !is_call_clobbered (t) && !ann->symbol_mem_tag)
-        remove_referenced_var (t);
+	&& !ann->symbol_mem_tag
+	&& !TREE_ADDRESSABLE (t))
+      remove_referenced_var (t);
 }
 
 
@@ -567,7 +569,7 @@ delete_tree_live_info (tree_live_info_p live)
 }
 
 
-/* Visit basic block BB and propogate any required live on entry bits from 
+/* Visit basic block BB and propagate any required live on entry bits from 
    LIVE into the predecessors.  VISITED is the bitmap of visited blocks.  
    TMP is a temporary work bitmap which is passed in to avoid reallocating
    it each time.  */
@@ -623,7 +625,7 @@ live_worklist (tree_live_info_p live)
 
   sbitmap_zero (visited);
 
-  /* Visit all the blocks in reverse order and propogate live on entry values
+  /* Visit all the blocks in reverse order and propagate live on entry values
      into the predecessors blocks.  */
   FOR_EACH_BB_REVERSE (bb)
     loe_visit_block (live, bb, visited, tmp);

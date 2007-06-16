@@ -1,6 +1,7 @@
 /* Register Transfer Language (RTL) definitions for GCC
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -833,19 +834,12 @@ extern const char * const reg_note_name[];
 #define NOTE_DATA(INSN)	        RTL_CHECKC1 (INSN, 4, NOTE)
 #define NOTE_DELETED_LABEL_NAME(INSN) XCSTR (INSN, 4, NOTE)
 #ifdef USE_MAPPED_LOCATION
-#define NOTE_SOURCE_LOCATION(INSN) XCUINT (INSN, 5, NOTE)
-#define NOTE_EXPANDED_LOCATION(XLOC, INSN)	\
-  (XLOC) = expand_location (NOTE_SOURCE_LOCATION (INSN))
 #define SET_INSN_DELETED(INSN) \
-  (PUT_CODE (INSN, NOTE), NOTE_LINE_NUMBER (INSN) = NOTE_INSN_DELETED)
+  (PUT_CODE (INSN, NOTE), NOTE_KIND (INSN) = NOTE_INSN_DELETED)
 #else
-#define NOTE_EXPANDED_LOCATION(XLOC, INSN)	\
-  ((XLOC).file = NOTE_SOURCE_FILE (INSN),	\
-   (XLOC).line = NOTE_LINE_NUMBER (INSN))
-#define NOTE_SOURCE_FILE(INSN)	XCSTR (INSN, 4, NOTE)
 #define SET_INSN_DELETED(INSN) \
-  (PUT_CODE (INSN, NOTE),  NOTE_SOURCE_FILE (INSN) = 0, \
-   NOTE_LINE_NUMBER (INSN) = NOTE_INSN_DELETED)
+  (PUT_CODE (INSN, NOTE), \
+   NOTE_KIND (INSN) = NOTE_INSN_DELETED)
 #endif
 #define NOTE_BLOCK(INSN)	XCTREE (INSN, 4, NOTE)
 #define NOTE_EH_HANDLER(INSN)	XCINT (INSN, 4, NOTE)
@@ -854,12 +848,12 @@ extern const char * const reg_note_name[];
 
 /* In a NOTE that is a line number, this is the line number.
    Other kinds of NOTEs are identified by negative numbers here.  */
-#define NOTE_LINE_NUMBER(INSN) XCINT (INSN, 5, NOTE)
+#define NOTE_KIND(INSN) XCINT (INSN, 5, NOTE)
 
 /* Nonzero if INSN is a note marking the beginning of a basic block.  */
 #define NOTE_INSN_BASIC_BLOCK_P(INSN)			\
   (GET_CODE (INSN) == NOTE				\
-   && NOTE_LINE_NUMBER (INSN) == NOTE_INSN_BASIC_BLOCK)
+   && NOTE_KIND (INSN) == NOTE_INSN_BASIC_BLOCK)
 
 /* Variable declaration and the location of a variable.  */
 #define NOTE_VAR_LOCATION_DECL(INSN)	(XCTREE (XCEXP (INSN, 4, NOTE), \
@@ -867,7 +861,7 @@ extern const char * const reg_note_name[];
 #define NOTE_VAR_LOCATION_LOC(INSN)	(XCEXP (XCEXP (INSN, 4, NOTE),  \
 						1, VAR_LOCATION))
 
-/* Codes that appear in the NOTE_LINE_NUMBER field for kinds of notes
+/* Codes that appear in the NOTE_KIND field for kinds of notes
    that are not line numbers.  These codes are all negative.
    
    Notice that we do not try to use zero here for any of
@@ -878,9 +872,6 @@ extern const char * const reg_note_name[];
 
 enum insn_note
 {
-  /* Keep all of these numbers negative.  Adjust as needed.  */
-  NOTE_INSN_BIAS = -100,
-
 #define DEF_INSN_NOTE(NAME) NAME,
 #include "insn-notes.def"
 #undef DEF_INSN_NOTE
@@ -890,9 +881,9 @@ enum insn_note
 
 /* Names for NOTE insn's other than line numbers.  */
 
-extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
+extern const char * const note_insn_name[NOTE_INSN_MAX];
 #define GET_NOTE_INSN_NAME(NOTE_CODE) \
-  (note_insn_name[(NOTE_CODE) - (int) NOTE_INSN_BIAS])
+  (note_insn_name[(NOTE_CODE)])
 
 /* The name of a label, in case it corresponds to an explicit label
    in the input source code.  */
@@ -1089,9 +1080,12 @@ do {									\
   GET_MODE (XCVECEXP (RTX, 4, N, ASM_OPERANDS))
 #ifdef USE_MAPPED_LOCATION
 #define ASM_OPERANDS_SOURCE_LOCATION(RTX) XCUINT (RTX, 5, ASM_OPERANDS)
+#define ASM_INPUT_SOURCE_LOCATION(RTX) XCUINT (RTX, 1, ASM_INPUT)
 #else
 #define ASM_OPERANDS_SOURCE_FILE(RTX) XCSTR (RTX, 5, ASM_OPERANDS)
 #define ASM_OPERANDS_SOURCE_LINE(RTX) XCINT (RTX, 6, ASM_OPERANDS)
+#define ASM_INPUT_SOURCE_FILE(RTX) XCSTR (RTX, 1, ASM_INPUT)
+#define ASM_INPUT_SOURCE_LINE(RTX) XCINT (RTX, 2, ASM_INPUT)
 #endif
 
 /* 1 if RTX is a mem that is statically allocated in read-only memory.  */
@@ -1471,6 +1465,7 @@ extern int rtx_equal_p (rtx, rtx);
 extern rtvec gen_rtvec_v (int, rtx *);
 extern rtx gen_reg_rtx (enum machine_mode);
 extern rtx gen_rtx_REG_offset (rtx, enum machine_mode, unsigned int, int);
+extern rtx gen_reg_rtx_offset (rtx, enum machine_mode, int);
 extern rtx gen_label_rtx (void);
 extern rtx gen_lowpart_common (enum machine_mode, rtx);
 
@@ -1499,6 +1494,7 @@ extern rtx get_first_nonnote_insn (void);
 extern rtx get_last_nonnote_insn (void);
 extern void start_sequence (void);
 extern void push_to_sequence (rtx);
+extern void push_to_sequence2 (rtx, rtx);
 extern void end_sequence (void);
 extern rtx immed_double_const (HOST_WIDE_INT, HOST_WIDE_INT,
 			       enum machine_mode);
@@ -1537,7 +1533,7 @@ extern rtx emit_call_insn_before_noloc (rtx, rtx);
 extern rtx emit_call_insn_before_setloc (rtx, rtx, int);
 extern rtx emit_barrier_before (rtx);
 extern rtx emit_label_before (rtx, rtx);
-extern rtx emit_note_before (int, rtx);
+extern rtx emit_note_before (enum insn_note, rtx);
 extern rtx emit_insn_after (rtx, rtx);
 extern rtx emit_insn_after_noloc (rtx, rtx);
 extern rtx emit_insn_after_setloc (rtx, rtx, int);
@@ -1549,15 +1545,14 @@ extern rtx emit_call_insn_after_noloc (rtx, rtx);
 extern rtx emit_call_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_barrier_after (rtx);
 extern rtx emit_label_after (rtx, rtx);
-extern rtx emit_note_after (int, rtx);
+extern rtx emit_note_after (enum insn_note, rtx);
 extern rtx emit_insn (rtx);
 extern rtx emit_jump_insn (rtx);
 extern rtx emit_call_insn (rtx);
 extern rtx emit_label (rtx);
 extern rtx emit_barrier (void);
-extern rtx emit_note (int);
+extern rtx emit_note (enum insn_note);
 extern rtx emit_note_copy (rtx);
-extern rtx emit_line_note (location_t);
 extern rtx make_insn_raw (rtx);
 extern rtx make_jump_insn_raw (rtx);
 extern void add_function_usage_to (rtx, rtx);
@@ -1594,12 +1589,7 @@ extern void mark_jump_label (rtx, rtx, int);
 extern unsigned int cleanup_barriers (void);
 
 /* In jump.c */
-extern bool squeeze_notes (rtx *, rtx *);
 extern rtx delete_related_insns (rtx);
-extern void delete_jump (rtx);
-extern rtx get_label_before (rtx);
-extern rtx get_label_after (rtx);
-extern rtx follow_jumps (rtx);
 
 /* In recog.c  */
 extern rtx *find_constant_term_loc (rtx *);
@@ -1640,7 +1630,6 @@ extern rtx simplify_gen_subreg (enum machine_mode, rtx, enum machine_mode,
 extern rtx simplify_replace_rtx (rtx, rtx, rtx);
 extern rtx simplify_rtx (rtx);
 extern rtx avoid_constant_pool_reference (rtx);
-extern bool constant_pool_reference_p (rtx x);
 extern bool mode_signbit_p (enum machine_mode, rtx);
 
 /* In regclass.c  */
@@ -1674,6 +1663,8 @@ extern int rtx_varies_p (rtx, int);
 extern int rtx_addr_varies_p (rtx, int);
 extern HOST_WIDE_INT get_integer_term (rtx);
 extern rtx get_related_value (rtx);
+extern bool offset_within_block_p (rtx, HOST_WIDE_INT);
+extern void split_const (rtx, rtx *, rtx *);
 extern int reg_mentioned_p (rtx, rtx);
 extern int count_occurrences (rtx, rtx, int);
 extern int reg_referenced_p (rtx, rtx);
@@ -1700,10 +1691,12 @@ extern int dead_or_set_regno_p (rtx, unsigned int);
 extern rtx find_reg_note (rtx, enum reg_note, rtx);
 extern rtx find_regno_note (rtx, enum reg_note, unsigned int);
 extern rtx find_reg_equal_equiv_note (rtx);
+extern rtx find_constant_src (rtx);
 extern int find_reg_fusage (rtx, enum rtx_code, rtx);
 extern int find_regno_fusage (rtx, enum rtx_code, unsigned int);
 extern int pure_call_p (rtx);
 extern void remove_note (rtx, rtx);
+extern void remove_reg_equal_equiv_notes (rtx);
 extern int side_effects_p (rtx);
 extern int volatile_refs_p (rtx);
 extern int volatile_insn_p (rtx);
@@ -1749,12 +1742,8 @@ void free_EXPR_LIST_node		(rtx);
 void free_INSN_LIST_node		(rtx);
 rtx alloc_INSN_LIST			(rtx, rtx);
 rtx alloc_EXPR_LIST			(int, rtx, rtx);
-void free_DEPS_LIST_list (rtx *);
-rtx alloc_DEPS_LIST (rtx, rtx, int);
-void remove_free_DEPS_LIST_elem (rtx, rtx *);
 void remove_free_INSN_LIST_elem (rtx, rtx *);
 rtx remove_list_elem (rtx, rtx *);
-rtx copy_DEPS_LIST_list (rtx);
 rtx remove_free_INSN_LIST_node (rtx *);
 
 /* regclass.c */
@@ -1771,7 +1760,7 @@ extern void free_reg_info (void);
 /* recog.c */
 extern int asm_noperands (rtx);
 extern const char *decode_asm_operands (rtx, rtx *, rtx **, const char **,
-					enum machine_mode *);
+					enum machine_mode *, location_t *);
 
 extern enum reg_class reg_preferred_class (int);
 extern enum reg_class reg_alternate_class (int);
@@ -1868,7 +1857,17 @@ extern GTY(()) rtx return_address_pointer_rtx;
 
 #ifndef GENERATOR_FILE
 #include "genrtl.h"
-#ifndef USE_MAPPED_LOCATION
+#undef gen_rtx_ASM_INPUT
+#ifdef USE_MAPPED_LOCATION
+#define gen_rtx_ASM_INPUT(MODE, ARG0)				\
+  gen_rtx_fmt_si (ASM_INPUT, (MODE), (ARG0), 0)
+#define gen_rtx_ASM_INPUT_loc(MODE, ARG0, LOC)			\
+  gen_rtx_fmt_si (ASM_INPUT, (MODE), (ARG0), (LOC))
+#else
+#define gen_rtx_ASM_INPUT(MODE, ARG0)				\
+  gen_rtx_fmt_ssi (ASM_INPUT, (MODE), (ARG0), "", 0)
+#define gen_rtx_ASM_INPUT_loc(MODE, ARG0, LOC)			\
+  gen_rtx_fmt_ssi (ASM_INPUT, (MODE), (ARG0), (LOC).file, (LOC).line)
 #undef gen_rtx_ASM_OPERANDS
 #define gen_rtx_ASM_OPERANDS(MODE, ARG0, ARG1, ARG2, ARG3, ARG4, LOC) \
   gen_rtx_fmt_ssiEEsi (ASM_OPERANDS, (MODE), (ARG0), (ARG1), (ARG2), (ARG3), (ARG4), (LOC).file, (LOC).line)
@@ -2062,11 +2061,10 @@ extern void add_insn_before (rtx, rtx);
 extern void add_insn_after (rtx, rtx);
 extern void remove_insn (rtx);
 extern rtx emit (rtx);
-extern void renumber_insns (void);
 extern rtx delete_insn (rtx);
 extern rtx entry_of_function (void);
 extern void emit_insn_at_entry (rtx);
-extern void delete_insn_chain (rtx, rtx);
+extern void delete_insn_chain (rtx, rtx, bool);
 extern rtx unlink_insn_chain (rtx, rtx);
 extern rtx delete_insn_and_edges (rtx);
 extern void delete_insn_chain_and_edges (rtx, rtx);
@@ -2166,6 +2164,7 @@ extern void init_reg_sets (void);
 extern void regclass_init (void);
 extern void regclass (rtx, int);
 extern void reg_scan (rtx, unsigned int);
+extern void reg_scan_update (rtx, rtx, unsigned int);
 extern void fix_register (const char *, int, int);
 extern void init_subregs_of_mode (void);
 extern void record_subregs_of_mode (rtx);
@@ -2253,7 +2252,7 @@ extern bool expensive_function_p (int);
 /* In cfgexpand.c */
 extern void add_reg_br_prob_note (rtx last, int probability);
 /* In tracer.c */
-extern void tracer (unsigned int);
+extern void tracer (void);
 
 /* In var-tracking.c */
 extern unsigned int variable_tracking_main (void);
@@ -2293,6 +2292,12 @@ extern const struct rtl_hooks general_rtl_hooks;
 
 /* Keep this for the nonce.  */
 #define gen_lowpart rtl_hooks.gen_lowpart
+
+extern void insn_locators_alloc (void);
+extern void insn_locators_finalize (void);
+extern void set_curr_insn_source_location (location_t);
+extern void set_curr_insn_block (tree);
+extern int curr_insn_locator (void);
 
 #define insn_added (rtl_hooks.insn_added)
 

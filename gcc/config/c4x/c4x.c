@@ -2443,11 +2443,7 @@ c4x_reorg (void)
 	     with only the 'deleted' bit set.  Transform it into a note
 	     to avoid confusion of subsequent processing.  */
 	  if (INSN_DELETED_P (old))
-	    {
-	      PUT_CODE (old, NOTE);
-	      NOTE_LINE_NUMBER (old) = NOTE_INSN_DELETED;
-	      NOTE_SOURCE_FILE (old) = 0;
-	    }
+	    SET_INSN_DELETED (old);
 	}
     }
 }
@@ -4395,16 +4391,15 @@ c4x_expand_builtin (tree exp, rtx target,
 		    enum machine_mode mode ATTRIBUTE_UNUSED,
 		    int ignore ATTRIBUTE_UNUSED)
 {
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
-  tree arglist = TREE_OPERAND (exp, 1);
   tree arg0, arg1;
   rtx r0, r1;
 
   switch (fcode)
     {
     case C4X_BUILTIN_FIX:
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (! target || ! register_operand (target, QImode))
 	target = gen_reg_rtx (QImode);
@@ -4412,7 +4407,7 @@ c4x_expand_builtin (tree exp, rtx target,
       return target;
 
     case C4X_BUILTIN_FIX_ANSI:
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (! target || ! register_operand (target, QImode))
 	target = gen_reg_rtx (QImode);
@@ -4422,8 +4417,8 @@ c4x_expand_builtin (tree exp, rtx target,
     case C4X_BUILTIN_MPYI:
       if (! TARGET_C3X)
 	break;
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
       r0 = expand_expr (arg0, NULL_RTX, QImode, 0);
       r1 = expand_expr (arg1, NULL_RTX, QImode, 0);
       if (! target || ! register_operand (target, QImode))
@@ -4434,7 +4429,7 @@ c4x_expand_builtin (tree exp, rtx target,
     case C4X_BUILTIN_TOIEEE:
       if (TARGET_C3X)
 	break;
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (! target || ! register_operand (target, QFmode))
 	target = gen_reg_rtx (QFmode);
@@ -4444,7 +4439,7 @@ c4x_expand_builtin (tree exp, rtx target,
     case C4X_BUILTIN_FRIEEE:
       if (TARGET_C3X)
 	break;
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (register_operand (r0, QFmode))
 	{
@@ -4460,7 +4455,7 @@ c4x_expand_builtin (tree exp, rtx target,
     case C4X_BUILTIN_RCPF:
       if (TARGET_C3X)
 	break;
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (! target || ! register_operand (target, QFmode))
 	target = gen_reg_rtx (QFmode);

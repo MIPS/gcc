@@ -1,6 +1,6 @@
 /* Parser for C and Objective-C.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
    Parser actions based on the old Bison parser; structure somewhat
    influenced by and fragments based on the C++ parser.
@@ -1698,7 +1698,8 @@ c_parser_enum_specifier (c_parser *parser)
   if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
     {
       /* Parse an enum definition.  */
-      tree type = start_enum (ident);
+      struct c_enum_contents the_enum;
+      tree type = start_enum (&the_enum, ident);
       tree postfix_attrs;
       /* We chain the enumerators in reverse order, then put them in
 	 forward order at the end.  */
@@ -1726,7 +1727,7 @@ c_parser_enum_specifier (c_parser *parser)
 	    }
 	  else
 	    enum_value = NULL_TREE;
-	  enum_decl = build_enumerator (enum_id, enum_value);
+	  enum_decl = build_enumerator (&the_enum, enum_id, enum_value);
 	  TREE_CHAIN (enum_decl) = values;
 	  values = enum_decl;
 	  seen_comma = false;
@@ -3844,7 +3845,7 @@ c_parser_if_body (c_parser *parser, bool *if_p)
 	     && c_parser_peek_2nd_token (parser)->type == CPP_COLON))
     c_parser_label (parser);
   *if_p = c_parser_next_token_is_keyword (parser, RID_IF);
-  if (warn_empty_body && c_parser_next_token_is (parser, CPP_SEMICOLON))
+  if (c_parser_next_token_is (parser, CPP_SEMICOLON))
     add_stmt (build_empty_stmt ());
   c_parser_statement_after_labels (parser);
   return c_end_compound_stmt (block, flag_isoc99);
@@ -3953,6 +3954,9 @@ c_parser_do_statement (c_parser *parser)
   location_t loc;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_DO));
   c_parser_consume_token (parser);
+  if (c_parser_next_token_is (parser, CPP_SEMICOLON))
+    warning (OPT_Wempty_body,
+             "suggest braces around empty body in %<do%> statement");
   block = c_begin_compound_stmt (flag_isoc99);
   loc = c_parser_peek_token (parser)->location;
   save_break = c_break_label;
@@ -7782,9 +7786,6 @@ c_parser_omp_threadprivate (c_parser *parser)
 
   c_parser_consume_pragma (parser);
   vars = c_parser_omp_var_list_parens (parser, 0, NULL);
-
-  if (!targetm.have_tls)
-    sorry ("threadprivate variables not supported in this target");
 
   /* Mark every variable in VARS to be assigned thread local storage.  */
   for (t = vars; t; t = TREE_CHAIN (t))

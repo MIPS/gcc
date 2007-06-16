@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -99,6 +99,11 @@ begin
               "project files");
    Write_Eol;
 
+   --  Line for -eS
+
+   Write_Str ("  -eS      Echo commands to stdout instead of stderr");
+   Write_Eol;
+
    --  Line for -f
 
    Write_Str ("  -f       Force recompilations of non predefined units");
@@ -151,6 +156,11 @@ begin
    Write_Str ("  -o name  Choose an alternate executable name");
    Write_Eol;
 
+   --  Line for -p
+
+   Write_Str ("  -p       Create missing obj, lib and exec dirs");
+   Write_Eol;
+
    --  Line for -P
 
    Write_Str ("  -Pproj   Use GNAT Project File proj");
@@ -171,10 +181,6 @@ begin
    Write_Str ("  -s       Recompile if compiler switches have changed");
    Write_Eol;
 
-   --  Line for -S
-
-   Write_Str ("  -S       Echo commands to stdout instead of stderr");
-
    --  Line for -u
 
    Write_Str ("  -u       Unique compilation, only compile the given files");
@@ -193,6 +199,21 @@ begin
    --  Line for -vPx
 
    Write_Str ("  -vPx     Specify verbosity when parsing GNAT Project Files");
+   Write_Eol;
+
+   --  Line for -we
+
+   Write_Str ("  -we      Treat all warnings as errors");
+   Write_Eol;
+
+   --  Line for -wn
+
+   Write_Str ("  -wn      Normal warning mode (cancels -we/-ws)");
+   Write_Eol;
+
+   --  Line for -ws
+
+   Write_Str ("  -ws      Suppress all warnings");
    Write_Eol;
 
    --  Line for -x
@@ -225,7 +246,12 @@ begin
 
    --  Source and Library search path switches
 
-   Write_Str ("Source and Library search path switches:");
+   Write_Str ("Project, Source and Library search path switches:");
+   Write_Eol;
+
+   --  Line for -aP
+
+   Write_Str ("  -aPdir    Add directory dir to project search path");
    Write_Eol;
 
    --  Line for -aL

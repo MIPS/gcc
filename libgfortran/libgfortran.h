@@ -1,5 +1,5 @@
 /* Common declarations for all of libgfortran.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -126,10 +126,10 @@ typedef off_t gfc_offset;
 # define export_proto(x)	sym_rename(x, PREFIX(x))
 # define export_proto_np(x)	extern char swallow_semicolon
 # define iexport_proto(x)	internal_proto(x)
-# define iexport(x)		iexport1(x, __USER_LABEL_PREFIX__, IPREFIX(x))
-# define iexport1(x,p,y)	iexport2(x,p,y)
-# define iexport2(x,p,y) \
-	extern __typeof(x) PREFIX(x) __attribute__((__alias__(#p #y)))
+# define iexport(x)		iexport1(x, IPREFIX(x))
+# define iexport1(x,y)		iexport2(x,y)
+# define iexport2(x,y) \
+	extern __typeof(x) PREFIX(x) __attribute__((__alias__(#y)))
 /* ??? We're not currently building a dll, and it's wrong to add dllexport
    to objects going into a static library archive.  */
 #elif 0 && defined(HAVE_ATTRIBUTE_DLLEXPORT)
@@ -224,6 +224,10 @@ internal_proto(l8_to_l4_offset);
 #define GFOR_POINTER_L8_TO_L4(p8) \
   (l8_to_l4_offset + (GFC_LOGICAL_4 *)(p8))
 
+#define GFC_INTEGER_1_HUGE \
+  (GFC_INTEGER_1)((((GFC_UINTEGER_1)1) << 7) - 1)
+#define GFC_INTEGER_2_HUGE \
+  (GFC_INTEGER_2)((((GFC_UINTEGER_2)1) << 15) - 1)
 #define GFC_INTEGER_4_HUGE \
   (GFC_INTEGER_4)((((GFC_UINTEGER_4)1) << 31) - 1)
 #define GFC_INTEGER_8_HUGE \
@@ -283,6 +287,8 @@ struct {\
 /* Commonly used array descriptor types.  */
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, void) gfc_array_void;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, char) gfc_array_char;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_1) gfc_array_i1;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_2) gfc_array_i2;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_4) gfc_array_i4;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_8) gfc_array_i8;
 #ifdef HAVE_GFC_INTEGER_16
@@ -355,7 +361,7 @@ typedef struct
   int fpu_round, fpu_precision, fpe;
 
   int sighup, sigint;
-  int dump_core;
+  int dump_core, backtrace;
 }
 options_t;
 
@@ -372,6 +378,7 @@ typedef struct
   int pedantic;
   int convert;
   int dump_core;
+  int backtrace;
   size_t record_marker;
   int max_subrecord_length;
 }
@@ -394,7 +401,9 @@ typedef struct
 }
 st_option;
 
-/* Runtime errors.  The EOR and EOF errors are required to be negative.  */
+/* Runtime errors.  The EOR and EOF errors are required to be negative.
+   These codes must be kept sychronized with their equivalents in
+   gcc/fortran/gfortran.h .  */
 
 typedef enum
 {
@@ -527,22 +536,35 @@ st_parameter_common;
 #define IOPARM_OPEN_HAS_PAD             (1 << 16)
 #define IOPARM_OPEN_HAS_CONVERT         (1 << 17)
 
-
-/* main.c */
-
-extern void stupid_function_name_for_static_linking (void);
-internal_proto(stupid_function_name_for_static_linking);
+/* library start function and end macro.  These can be expanded if needed
+   in the future.  cmp is st_parameter_common *cmp  */
 
 extern void library_start (st_parameter_common *);
 internal_proto(library_start);
 
 #define library_end()
 
+/* main.c */
+
+extern void stupid_function_name_for_static_linking (void);
+internal_proto(stupid_function_name_for_static_linking);
+
 extern void set_args (int, char **);
 export_proto(set_args);
 
 extern void get_args (int *, char ***);
 internal_proto(get_args);
+
+extern void store_exe_path (const char *);
+export_proto(store_exe_path);
+
+extern char * full_exe_path (void);
+internal_proto(full_exe_path);
+
+/* backtrace.c */
+
+extern void show_backtrace (void);
+internal_proto(show_backtrace);
 
 /* error.c */
 
@@ -561,13 +583,17 @@ extern const char *xtoa (GFC_UINTEGER_LARGEST, char *, size_t);
 internal_proto(xtoa);
 
 extern void os_error (const char *) __attribute__ ((noreturn));
-internal_proto(os_error);
+iexport_proto(os_error);
 
 extern void show_locus (st_parameter_common *);
 internal_proto(show_locus);
 
 extern void runtime_error (const char *) __attribute__ ((noreturn));
 iexport_proto(runtime_error);
+
+extern void runtime_error_at (const char *, const char *)
+__attribute__ ((noreturn));
+iexport_proto(runtime_error_at);
 
 extern void internal_error (st_parameter_common *, const char *)
   __attribute__ ((noreturn));
@@ -584,7 +610,7 @@ extern const char *translate_error (int);
 internal_proto(translate_error);
 
 extern void generate_error (st_parameter_common *, int, const char *);
-internal_proto(generate_error);
+iexport_proto(generate_error);
 
 extern try notify_std (st_parameter_common *, int, const char *);
 internal_proto(notify_std);
@@ -608,9 +634,6 @@ internal_proto(free_mem);
 extern void *internal_malloc_size (size_t);
 internal_proto(internal_malloc_size);
 
-extern void internal_free (void *);
-iexport_proto(internal_free);
-
 /* environ.c */
 
 extern int check_buffered (int);
@@ -627,18 +650,23 @@ internal_proto(get_unformatted_convert);
 
 /* string.c */
 
-extern int find_option (st_parameter_common *, const char *, int,
+extern int find_option (st_parameter_common *, const char *, gfc_charlen_type,
 			const st_option *, const char *);
 internal_proto(find_option);
 
-extern int fstrlen (const char *, int);
+extern gfc_charlen_type fstrlen (const char *, gfc_charlen_type);
 internal_proto(fstrlen);
 
-extern void fstrcpy (char *, int, const char *, int);
+extern gfc_charlen_type fstrcpy (char *, gfc_charlen_type, const char *, gfc_charlen_type);
 internal_proto(fstrcpy);
 
-extern void cf_strcpy (char *, int, const char *);
+extern gfc_charlen_type cf_strcpy (char *, gfc_charlen_type, const char *);
 internal_proto(cf_strcpy);
+
+/* io/intrinsics.c */
+
+extern void flush_all_units (void);
+internal_proto(flush_all_units);
 
 /* io.c */
 
@@ -657,7 +685,7 @@ internal_proto(st_printf);
 
 /* stop.c */
 
-extern void stop_numeric (GFC_INTEGER_4);
+extern void stop_numeric (GFC_INTEGER_4) __attribute__ ((noreturn));
 iexport_proto(stop_numeric);
 
 /* reshape_packed.c */

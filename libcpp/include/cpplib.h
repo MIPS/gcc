@@ -555,7 +555,8 @@ enum builtin_type
   BT_TIME,			/* `__TIME__' */
   BT_STDC,			/* `__STDC__' */
   BT_PRAGMA,			/* `_Pragma' operator */
-  BT_TIMESTAMP			/* `__TIMESTAMP__' */
+  BT_TIMESTAMP,			/* `__TIMESTAMP__' */
+  BT_COUNTER			/* `__COUNTER__' */
 };
 
 #define CPP_HASHNODE(HNODE)	((cpp_hashnode *) (HNODE))
@@ -704,6 +705,9 @@ extern void cpp_assert (cpp_reader *, const char *);
 extern void cpp_undef (cpp_reader *, const char *);
 extern void cpp_unassert (cpp_reader *, const char *);
 
+extern cpp_macro *cpp_push_definition (cpp_reader *, const char *);
+extern void cpp_pop_definition (cpp_reader *, const char *, cpp_macro *);
+
 /* Undefine all macros and assertions.  */
 extern void cpp_undef_all (cpp_reader *);
 
@@ -744,6 +748,7 @@ struct cpp_num
 #define CPP_N_DECIMAL	0x0100
 #define CPP_N_HEX	0x0200
 #define CPP_N_OCTAL	0x0400
+#define CPP_N_BINARY	0x0800
 
 #define CPP_N_UNSIGNED	0x1000	/* Properties.  */
 #define CPP_N_IMAGINARY	0x2000

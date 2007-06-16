@@ -1,5 +1,5 @@
 /* Class.java -- Representation of a Java class.
-   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation
 
 This file is part of GNU Classpath.
@@ -51,6 +51,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.net.URL;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -60,6 +62,7 @@ import java.util.Collection;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Inherited;
+import java.lang.reflect.AccessibleObject;
 
 /**
  * A Class represents a Java type.  There will never be multiple Class
@@ -1004,7 +1007,9 @@ public final class Class<T>
       {
 	try
 	  {
-	    return (T[]) getMethod("values").invoke(null);
+            Method m = getMethod("values");
+            setAccessible(m);
+	    return (T[]) m.invoke(null);
 	  }
 	catch (NoSuchMethodException exception)
 	  {
@@ -1291,6 +1296,59 @@ public final class Class<T>
   }
 
   /**
+   * <p>
+   * Returns the canonical name of this class, as defined by section
+   * 6.7 of the Java language specification.  Each package, top-level class,
+   * top-level interface and primitive type has a canonical name.  A member
+   * class has a canonical name, if its parent class has one.  Likewise,
+   * an array type has a canonical name, if its component type does.
+   * Local or anonymous classes do not have canonical names.
+   * </p>
+   * <p>
+   * The canonical name for top-level classes, top-level interfaces and
+   * primitive types is always the same as the fully-qualified name.
+   * For array types, the canonical name is the canonical name of its
+   * component type with `[]' appended.  
+   * </p>
+   * <p>
+   * The canonical name of a member class always refers to the place where
+   * the class was defined, and is composed of the canonical name of the
+   * defining class and the simple name of the member class, joined by `.'.
+   *  For example, if a <code>Person</code> class has an inner class,
+   * <code>M</code>, then both its fully-qualified name and canonical name
+   * is <code>Person.M</code>.  A subclass, <code>Staff</code>, of
+   * <code>Person</code> refers to the same inner class by the fully-qualified
+   * name of <code>Staff.M</code>, but its canonical name is still
+   * <code>Person.M</code>.
+   * </p>
+   * <p>
+   * Where no canonical name is present, <code>null</code> is returned.
+   * </p>
+   *
+   * @return the canonical name of the class, or <code>null</code> if the
+   *         class doesn't have a canonical name.
+   * @since 1.5
+   */
+  public String getCanonicalName()
+  {
+    if (isArray())
+      {
+	String componentName = getComponentType().getCanonicalName();
+	if (componentName != null)
+	  return componentName + "[]";
+      }
+    if (isMemberClass())
+      {
+	String memberName = getDeclaringClass().getCanonicalName();
+	if (memberName != null)
+	  return memberName + "." + getSimpleName();
+      }
+    if (isLocalClass() || isAnonymousClass())
+      return null;
+    return getName();
+  }
+
+  /**
    * Returns all annotations directly defined by this class.  If there are
    * no annotations associated with this class, then a zero-length array
    * will be returned.  The returned array may be modified by the client
@@ -1349,4 +1407,19 @@ public final class Class<T>
    * @since 1.5
    */
   public native boolean isMemberClass();
+
+  /**
+   * Utility method for use by classes in this package.
+   */
+  static void setAccessible(final AccessibleObject obj)
+  {
+    AccessController.doPrivileged(new PrivilegedAction()
+      {
+        public Object run()
+          {
+            obj.setAccessible(true);
+            return null;
+          }
+      });
+  }
 }

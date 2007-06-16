@@ -667,7 +667,7 @@ struct lang_identifier GTY(())
 /* The resulting tree type.  */
 union lang_tree_node 
   GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
-       chain_next ("(GIMPLE_STMT_P (&%h.generic) ? (union lang_tree_node *) 0 : (union lang_tree_node *)TREE_CHAIN (&%h.generic))")))
+       chain_next ("(union lang_tree_node *)GENERIC_NEXT (&%h.generic)")))
 
 {
   union tree_node GTY ((tag ("0"), 
@@ -764,7 +764,7 @@ union lang_tree_node
 #define FIELD_LOCAL_ALIAS(DECL) DECL_LANG_FLAG_6 (VAR_OR_FIELD_CHECK (DECL))
 
 /* True when DECL, which aliases an outer context local variable is
-   used by the inner classe */
+   used by the inner classes.  */
 #define FIELD_LOCAL_ALIAS_USED(DECL) DECL_LANG_FLAG_7 (VAR_OR_FIELD_CHECK (DECL))
 
 /* True when DECL is a this$<n> field. Note that
@@ -1099,9 +1099,7 @@ extern void java_parse_file (int);
 extern bool java_mark_addressable (tree);
 extern tree java_type_for_mode (enum machine_mode, int);
 extern tree java_type_for_size (unsigned int, int);
-extern tree java_unsigned_type (tree);
 extern tree java_signed_type (tree);
-extern tree java_signed_or_unsigned_type (int, tree);
 extern tree java_truthvalue_conversion (tree);
 extern void add_assume_compiled (const char *, int);
 extern void add_enable_assert (const char *, int);
@@ -1129,10 +1127,13 @@ extern void layout_class (tree);
 extern int get_interface_method_index (tree, tree);
 extern tree layout_class_method (tree, tree, tree, tree);
 extern void layout_class_methods (tree);
+extern void cache_this_class_ref (tree);
+extern void uncache_this_class_ref (tree);
 extern tree build_class_ref (tree);
 extern tree build_dtable_decl (tree);
 extern tree build_internal_class_name (tree);
 extern tree build_constants_constructor (void);
+extern tree build_constant_data_ref (bool);
 extern tree build_ref_from_constant_pool (int);
 extern tree build_utf8_ref (tree);
 extern tree ident_subst (const char *, int, const char *, int, int,
@@ -1172,6 +1173,7 @@ extern tree check_for_builtin (tree, tree);
 extern void initialize_builtins (void);
 
 extern tree lookup_name (tree);
+extern bool special_method_p (tree);
 extern void maybe_rewrite_invocation (tree *, tree *, tree *, tree *);
 extern tree build_known_method_ref (tree, tree, tree, tree, tree, tree);
 extern tree build_class_init (tree, tree);
@@ -1623,20 +1625,18 @@ extern tree *type_map;
 
 #define BUILD_MONITOR_ENTER(WHERE, ARG)					\
   {									\
-    (WHERE) = build3 (CALL_EXPR, int_type_node,				\
-		      build_address_of (soft_monitorenter_node),	\
-		      build_tree_list (NULL_TREE, (ARG)),	 	\
-		      NULL_TREE);					\
+    (WHERE) = build_call_nary (int_type_node,				\
+			       build_address_of (soft_monitorenter_node), \
+			       1, (ARG));				\
     TREE_SIDE_EFFECTS (WHERE) = 1;					\
   }
 
-#define BUILD_MONITOR_EXIT(WHERE, ARG)				\
-  {								\
-    (WHERE) = build3 (CALL_EXPR, int_type_node,			\
-		      build_address_of (soft_monitorexit_node),	\
-		      build_tree_list (NULL_TREE, (ARG)),	\
-		      NULL_TREE);				\
-    TREE_SIDE_EFFECTS (WHERE) = 1;				\
+#define BUILD_MONITOR_EXIT(WHERE, ARG)					\
+  {									\
+    (WHERE) = build_call_nary (int_type_node,				\
+			       build_address_of (soft_monitorexit_node), \
+			       1, (ARG));				\
+    TREE_SIDE_EFFECTS (WHERE) = 1;					\
   }
 
 /* True when we can perform static class initialization optimization */

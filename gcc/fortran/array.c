@@ -319,6 +319,15 @@ match_array_element_spec (gfc_array_spec *as)
   if (m == MATCH_NO)
     return AS_ASSUMED_SHAPE;
 
+  /* If the size is negative in this dimension, set it to zero.  */
+  if ((*lower)->expr_type == EXPR_CONSTANT
+      && (*upper)->expr_type == EXPR_CONSTANT
+      && mpz_cmp ((*upper)->value.integer, (*lower)->value.integer) < 0)
+    {
+      gfc_free_expr (*upper);
+      *upper = gfc_copy_expr (*lower);
+      mpz_sub_ui ((*upper)->value.integer, (*upper)->value.integer, 1);
+    }
   return AS_EXPLICIT;
 }
 
@@ -1705,7 +1714,7 @@ gfc_get_array_element (gfc_expr *array, int element)
 /* Get the size of single dimension of an array specification.  The
    array is guaranteed to be one dimensional.  */
 
-static try
+try
 spec_dimen_size (gfc_array_spec *as, int dimen, mpz_t *result)
 {
   if (as == NULL)
@@ -1716,7 +1725,9 @@ spec_dimen_size (gfc_array_spec *as, int dimen, mpz_t *result)
 
   if (as->type != AS_EXPLICIT
       || as->lower[dimen]->expr_type != EXPR_CONSTANT
-      || as->upper[dimen]->expr_type != EXPR_CONSTANT)
+      || as->upper[dimen]->expr_type != EXPR_CONSTANT
+      || as->lower[dimen]->ts.type != BT_INTEGER
+      || as->upper[dimen]->ts.type != BT_INTEGER)
     return FAILURE;
 
   mpz_init (*result);

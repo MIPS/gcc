@@ -140,12 +140,7 @@ free_expr0 (gfc_expr *e)
   switch (e->expr_type)
     {
     case EXPR_CONSTANT:
-      if (e->from_H)
-	{
-	  gfc_free (e->value.character.string);
-	  break;
-	}
-
+      /* Free any parts of the value that need freeing.  */
       switch (e->ts.type)
 	{
 	case BT_INTEGER:
@@ -157,7 +152,6 @@ free_expr0 (gfc_expr *e)
 	  break;
 
 	case BT_CHARACTER:
-	case BT_HOLLERITH:
 	  gfc_free (e->value.character.string);
 	  break;
 
@@ -169,6 +163,11 @@ free_expr0 (gfc_expr *e)
 	default:
 	  break;
 	}
+
+      /* Free the representation, except in character constants where it
+	 is the same as value.character.string and thus already freed.  */
+      if (e->representation.string && e->ts.type != BT_CHARACTER)
+	gfc_free (e->representation.string);
 
       break;
 
@@ -353,8 +352,7 @@ gfc_copy_shape (mpz_t *shape, int rank)
       { s1 ... sN-1  sN+1    ...  sR-1}
 
    If anything goes wrong -- N is not a constant, its value is out
-   of range -- or anything else, just returns NULL.
-*/
+   of range -- or anything else, just returns NULL.  */
 
 mpz_t *
 gfc_copy_shape_excluding (mpz_t *shape, int rank, gfc_expr *dim)
@@ -370,7 +368,7 @@ gfc_copy_shape_excluding (mpz_t *shape, int rank, gfc_expr *dim)
     return NULL;
 
   n = mpz_get_si (dim->value.integer);
-  n--; /* Convert to zero based index */
+  n--; /* Convert to zero based index.  */
   if (n < 0 || n >= rank)
     return NULL;
 
@@ -413,14 +411,16 @@ gfc_copy_expr (gfc_expr *p)
       break;
 
     case EXPR_CONSTANT:
-      if (p->from_H)
+      /* Copy target representation, if it exists.  */
+      if (p->representation.string)
 	{
-	  s = gfc_getmem (p->value.character.length + 1);
-	  q->value.character.string = s;
+	  s = gfc_getmem (p->representation.length + 1);
+	  q->representation.string = s;
 
-	  memcpy (s, p->value.character.string, p->value.character.length + 1);
-	  break;
+	  memcpy (s, p->representation.string, p->representation.length + 1);
 	}
+
+      /* Copy the values of any pointer components of p->value.  */
       switch (q->ts.type)
 	{
 	case BT_INTEGER:
@@ -442,13 +442,18 @@ gfc_copy_expr (gfc_expr *p)
 	  break;
 
 	case BT_CHARACTER:
-	case BT_HOLLERITH:
-	  s = gfc_getmem (p->value.character.length + 1);
-	  q->value.character.string = s;
+	  if (p->representation.string)
+	    q->value.character.string = q->representation.string;
+	  else
+	    {
+	      s = gfc_getmem (p->value.character.length + 1);
+	      q->value.character.string = s;
 
-	  memcpy (s, p->value.character.string, p->value.character.length + 1);
+	      memcpy (s, p->value.character.string, p->value.character.length + 1);
+	    }
 	  break;
 
+	case BT_HOLLERITH:
 	case BT_LOGICAL:
 	case BT_DERIVED:
 	  break;		/* Already done */
@@ -465,12 +470,13 @@ gfc_copy_expr (gfc_expr *p)
       switch (q->value.op.operator)
 	{
 	case INTRINSIC_NOT:
+	case INTRINSIC_PARENTHESES:
 	case INTRINSIC_UPLUS:
 	case INTRINSIC_UMINUS:
 	  q->value.op.op1 = gfc_copy_expr (p->value.op.op1);
 	  break;
 
-	default:		/* Binary operators */
+	default:		/* Binary operators.  */
 	  q->value.op.op1 = gfc_copy_expr (p->value.op.op1);
 	  q->value.op.op2 = gfc_copy_expr (p->value.op.op2);
 	  break;
@@ -689,7 +695,6 @@ gfc_is_constant_expr (gfc_expr *e)
       rv = (gfc_is_constant_expr (e->value.op.op1)
 	    && (e->value.op.op2 == NULL
 		|| gfc_is_constant_expr (e->value.op.op2)));
-
       break;
 
     case EXPR_VARIABLE:
@@ -765,14 +770,17 @@ simplify_intrinsic_op (gfc_expr *p, int type)
       || (op2 != NULL && !gfc_is_constant_expr (op2)))
     return SUCCESS;
 
-  /* Rip p apart */
+  /* Rip p apart.  */
   p->value.op.op1 = NULL;
   p->value.op.op2 = NULL;
 
   switch (p->value.op.operator)
     {
-    case INTRINSIC_UPLUS:
     case INTRINSIC_PARENTHESES:
+      result = gfc_parentheses (op1);
+      break;
+
+    case INTRINSIC_UPLUS:
       result = gfc_uplus (op1);
       break;
 
@@ -899,6 +907,8 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
   int i;
   mpz_t delta;
   mpz_t offset;
+  mpz_t span;
+  mpz_t tmp;
   gfc_expr *e;
   try t;
 
@@ -907,6 +917,8 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
 
   mpz_init_set_ui (offset, 0);
   mpz_init (delta);
+  mpz_init (tmp);
+  mpz_init_set_ui (span, 1);
   for (i = 0; i < ar->dimen; i++)
     {
       e = gfc_copy_expr (ar->start[i]);
@@ -930,7 +942,13 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
 	}
 
       mpz_sub (delta, e->value.integer, ar->as->lower[i]->value.integer);
+      mpz_mul (delta, delta, span);
       mpz_add (offset, offset, delta);
+
+      mpz_set_ui (tmp, 1);
+      mpz_add (tmp, tmp, ar->as->upper[i]->value.integer);
+      mpz_sub (tmp, tmp, ar->as->lower[i]->value.integer);
+      mpz_mul (span, span, tmp);
     }
 
   if (cons)
@@ -949,6 +967,8 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
 depart:
   mpz_clear (delta);
   mpz_clear (offset);
+  mpz_clear (span);
+  mpz_clear (tmp);
   if (e)
     gfc_free_expr (e);
   *rval = cons;
@@ -1063,7 +1083,13 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
       if (ref->u.ar.dimen_type[d] == DIMEN_VECTOR)  /* Vector subscript.  */
 	{
 	  gcc_assert (begin);
-	  gcc_assert (begin->expr_type == EXPR_ARRAY); 
+
+	  if (begin->expr_type != EXPR_ARRAY)
+	    {
+	      t = FAILURE;
+	      goto cleanup;
+	    }
+
 	  gcc_assert (begin->rank == 1);
 	  gcc_assert (begin->shape);
 
@@ -1137,8 +1163,7 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
 	    }
 
 	  /* Calculate the number of elements and the shape.  */
-	  mpz_abs (tmp_mpz, stride[d]);
-	  mpz_div (tmp_mpz, stride[d], tmp_mpz);
+	  mpz_set (tmp_mpz, stride[d]);
 	  mpz_add (tmp_mpz, end[d], tmp_mpz);
 	  mpz_sub (tmp_mpz, tmp_mpz, ctr[d]);
 	  mpz_div (tmp_mpz, tmp_mpz, stride[d]);
@@ -1303,7 +1328,7 @@ simplify_const_ref (gfc_expr *p)
 		return FAILURE;
 	      p->ref->u.ar.type = AR_FULL;
 
-	    /* FALLTHROUGH  */
+	    /* Fall through.  */
 
 	    case AR_FULL:
 	      if (p->ref->next != NULL
@@ -1385,6 +1410,7 @@ simplify_ref_chain (gfc_ref *ref, int type)
 
 
 /* Try to substitute the value of a parameter variable.  */
+
 static try
 simplify_parameter_variable (gfc_expr *p, int type)
 {
@@ -1402,8 +1428,7 @@ simplify_parameter_variable (gfc_expr *p, int type)
     e->ref = copy_ref (p->ref);
   t = gfc_simplify_expr (e, type);
 
-  /* Only use the simplification if it eliminated all subobject
-     references.  */
+  /* Only use the simplification if it eliminated all subobject references.  */
   if (t == SUCCESS && !e->ref)
     gfc_replace_expr (p, e);
   else
@@ -1552,6 +1577,128 @@ et0 (gfc_expr *e)
    with some type of expression.  */
 
 static try check_init_expr (gfc_expr *);
+
+
+/* Scalarize an expression for an elemental intrinsic call.  */
+
+static try
+scalarize_intrinsic_call (gfc_expr *e)
+{
+  gfc_actual_arglist *a, *b;
+  gfc_constructor *args[5], *ctor, *new_ctor;
+  gfc_expr *expr, *old;
+  int n, i, rank[5];
+
+  old = gfc_copy_expr (e);
+
+/* Assume that the old expression carries the type information and
+   that the first arg carries all the shape information.  */
+  expr = gfc_copy_expr (old->value.function.actual->expr);
+  gfc_free_constructor (expr->value.constructor);
+  expr->value.constructor = NULL;
+
+  expr->ts = old->ts;
+  expr->expr_type = EXPR_ARRAY;
+
+  /* Copy the array argument constructors into an array, with nulls
+     for the scalars.  */
+  n = 0;
+  a = old->value.function.actual;
+  for (; a; a = a->next)
+    {
+      /* Check that this is OK for an initialization expression.  */
+      if (a->expr && check_init_expr (a->expr) == FAILURE)
+	goto cleanup;
+
+      rank[n] = 0;
+      if (a->expr && a->expr->rank && a->expr->expr_type == EXPR_VARIABLE)
+	{
+	  rank[n] = a->expr->rank;
+	  ctor = a->expr->symtree->n.sym->value->value.constructor;
+	  args[n] = gfc_copy_constructor (ctor);
+	}
+      else if (a->expr && a->expr->expr_type == EXPR_ARRAY)
+	{
+	  if (a->expr->rank)
+	    rank[n] = a->expr->rank;
+	  else
+	    rank[n] = 1;
+	  args[n] = gfc_copy_constructor (a->expr->value.constructor);
+	}
+      else
+	args[n] = NULL;
+      n++;
+    }
+
+  for (i = 1; i < n; i++)
+    if (rank[i] && rank[i] != rank[0])
+      goto compliance;
+
+  /* Using the first argument as the master, step through the array
+     calling the function for each element and advancing the array
+     constructors together.  */
+  ctor = args[0];
+  new_ctor = NULL;
+  for (; ctor; ctor = ctor->next)
+    {
+	  if (expr->value.constructor == NULL)
+	    expr->value.constructor
+		= new_ctor = gfc_get_constructor ();
+	  else
+	    {
+	      new_ctor->next = gfc_get_constructor ();
+	      new_ctor = new_ctor->next;
+	    }
+	  new_ctor->expr = gfc_copy_expr (old);
+	  gfc_free_actual_arglist (new_ctor->expr->value.function.actual);
+	  a = NULL;
+	  b = old->value.function.actual;
+	  for (i = 0; i < n; i++)
+	    {
+	      if (a == NULL)
+		new_ctor->expr->value.function.actual
+			= a = gfc_get_actual_arglist ();
+	      else
+		{
+		  a->next = gfc_get_actual_arglist ();
+		  a = a->next;
+		}
+	      if (args[i])
+		a->expr = gfc_copy_expr (args[i]->expr);
+	      else
+		a->expr = gfc_copy_expr (b->expr);
+
+	      b = b->next;
+	    }
+
+	  /* Simplify the function calls.  */
+	  if (gfc_simplify_expr (new_ctor->expr, 0) == FAILURE)
+	    goto cleanup;
+
+	  for (i = 0; i < n; i++)
+	    if (args[i])
+	      args[i] = args[i]->next;
+
+	  for (i = 1; i < n; i++)
+	    if (rank[i] && ((args[i] != NULL && args[0] == NULL)
+			 || (args[i] == NULL && args[0] != NULL)))
+	      goto compliance;
+    }
+
+  free_expr0 (e);
+  *e = *expr;
+  gfc_free_expr (old);
+  return SUCCESS;
+
+compliance:
+  gfc_error_now ("elemental function arguments at %C are not compliant");
+
+cleanup:
+  gfc_free_expr (expr);
+  gfc_free_expr (old);
+  return FAILURE;
+}
+
 
 static try
 check_intrinsic_op (gfc_expr *e, try (*check_function) (gfc_expr *))
@@ -1754,6 +1901,7 @@ check_init_expr (gfc_expr *e)
   gfc_actual_arglist *ap;
   match m;
   try t;
+  gfc_intrinsic_sym *isym;
 
   if (e == NULL)
     return SUCCESS;
@@ -1779,6 +1927,16 @@ check_init_expr (gfc_expr *e)
 		t = FAILURE;
 		break;
 	      }
+	}
+
+      /* Try to scalarize an elemental intrinsic function that has an
+	 array argument.  */
+      isym = gfc_find_function (e->symtree->n.sym->name);
+      if (isym && isym->elemental
+	    && e->value.function.actual->expr->expr_type == EXPR_ARRAY)
+	{
+	  if (scalarize_intrinsic_call (e) == SUCCESS)
+	    break;
 	}
 
       if (t == SUCCESS)
@@ -2008,7 +2166,6 @@ check_restricted (gfc_expr *e)
     case EXPR_FUNCTION:
       t = e->value.function.esym ? external_spec_function (e)
 				 : restricted_intrinsic (e);
-
       break;
 
     case EXPR_VARIABLE:
@@ -2089,6 +2246,7 @@ check_restricted (gfc_expr *e)
 try
 gfc_specification_expr (gfc_expr *e)
 {
+
   if (e == NULL)
     return SUCCESS;
 
@@ -2192,18 +2350,18 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
       return FAILURE;
     }
 
-/* 12.5.2.2, Note 12.26: The result variable is very similar to any other
-   variable local to a function subprogram.  Its existence begins when
-   execution of the function is initiated and ends when execution of the
-   function is terminated.....
-   Therefore, the left hand side is no longer a varaiable, when it is:  */
+  /* 12.5.2.2, Note 12.26: The result variable is very similar to any other
+     variable local to a function subprogram.  Its existence begins when
+     execution of the function is initiated and ends when execution of the
+     function is terminated...
+     Therefore, the left hand side is no longer a variable, when it is:  */
   if (sym->attr.flavor == FL_PROCEDURE && sym->attr.proc != PROC_ST_FUNCTION
       && !sym->attr.external)
     {
       bool bad_proc;
       bad_proc = false;
 
-      /* (i) Use associated; */
+      /* (i) Use associated;  */
       if (sym->attr.use_assoc)
 	bad_proc = true;
 
@@ -2211,7 +2369,7 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
       if (gfc_current_ns->proc_name->attr.is_main_program)
 	bad_proc = true;
 
-      /* (iii) A module or internal procedure....  */
+      /* (iii) A module or internal procedure...  */
       if ((gfc_current_ns->proc_name->attr.proc == PROC_INTERNAL
 	   || gfc_current_ns->proc_name->attr.proc == PROC_MODULE)
 	  && gfc_current_ns->parent
@@ -2219,11 +2377,11 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
 		|| gfc_current_ns->parent->proc_name->attr.subroutine)
 	      || gfc_current_ns->parent->proc_name->attr.is_main_program))
 	{
-	  /* .... that is not a function.... */ 
+	  /* ... that is not a function...  */ 
 	  if (!gfc_current_ns->proc_name->attr.function)
 	    bad_proc = true;
 
-	  /* .... or is not an entry and has a different name.  */
+	  /* ... or is not an entry and has a different name.  */
 	  if (!sym->attr.entry && sym->name != gfc_current_ns->proc_name->name)
 	    bad_proc = true;
 	}
@@ -2266,7 +2424,7 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
        return FAILURE;
      }
 
-  /* This is possibly a typo: x = f() instead of x => f()  */
+  /* This is possibly a typo: x = f() instead of x => f().  */
   if (gfc_option.warn_surprising 
       && rvalue->expr_type == EXPR_FUNCTION
       && rvalue->symtree->n.sym->attr.pointer)
@@ -2399,6 +2557,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
     return SUCCESS;
 
   if (lvalue->ts.type == BT_CHARACTER
+      && lvalue->ts.cl && rvalue->ts.cl
       && lvalue->ts.cl->length && rvalue->ts.cl->length
       && abs (gfc_dep_compare_expr (lvalue->ts.cl->length,
 				    rvalue->ts.cl->length)) == 1)

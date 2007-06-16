@@ -184,10 +184,6 @@ struct language_function GTY(())
 #define LANG_HOOKS_TYPE_FOR_SIZE java_type_for_size
 #undef LANG_HOOKS_SIGNED_TYPE
 #define LANG_HOOKS_SIGNED_TYPE java_signed_type
-#undef LANG_HOOKS_UNSIGNED_TYPE
-#define LANG_HOOKS_UNSIGNED_TYPE java_unsigned_type
-#undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
-#define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE java_signed_or_unsigned_type
 
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN java_dump_tree
@@ -989,7 +985,7 @@ java_get_callee_fndecl (tree call_expr)
 
   if (TREE_CODE (call_expr) != CALL_EXPR)
     return NULL;
-  method = TREE_OPERAND (call_expr, 0);
+  method = CALL_EXPR_FN (call_expr);
   STRIP_NOPS (method);
   if (TREE_CODE (method) != ARRAY_REF)
     return NULL;
