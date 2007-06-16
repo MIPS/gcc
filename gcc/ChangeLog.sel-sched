@@ -1,5 +1,11 @@
 2007-06-16  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
 
+	* fwprop.c: Fix merge problem.
+	* df-problems.c: Ditto.
+	* df-scan.c: Ditto.
+
+2007-06-16  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
 	Merge revisions 121417-125587 from trunk.
 
 2007-06-14  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
