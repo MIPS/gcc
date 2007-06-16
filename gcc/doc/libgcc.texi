@@ -702,7 +702,7 @@ arithmetic, and is only activated on selected targets.
 
 For ease of comprehension @code{fract} is an alias for the
 @code{_Fract} type, @code{accum} an alias for @code{_Accum}, and
-@code{accumt} an alias for @code{_Sat}.
+@code{sat} an alias for @code{_Sat}.
 
 For illustrative purposes, in this section the fixed-point fractional type
 @code{@w{short fract}} is assumed to correspond to machine mode @code{QQmode};

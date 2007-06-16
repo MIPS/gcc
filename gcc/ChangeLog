@@ -1,3 +1,10 @@
+2007-06-15  Chao-ying Fu  <fu@mips.com>
+
+	* doc/libgcc.texi (Fixed-point fractional library routines): Fix a typo.
+	* fixed-value.c (fixed_from_string): Use a cast for the first
+	parameter when calling real_to_integers.
+	(fixed_convert_from_real): Likewise.
+
 2007-06-14  Nigel Stephens  <nigel@mips.com>
 
 	* config/fixed-bit.c: Rename FRACT_CONVERT, UNSIGNED_FRACT_CONVERT,

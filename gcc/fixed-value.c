@@ -116,7 +116,8 @@ fixed_from_string (FIXED_VALUE_TYPE *f, const char *str, tree type)
 	     "large fixed-point constant implicitly truncated to fixed-point type");
   real_from_string (&base_value, base_string);
   real_arithmetic (&fixed_value, MULT_EXPR, &real_value, &base_value);
-  real_to_integer2 (&f->data.low, &f->data.high,  &fixed_value);
+  real_to_integer2 ((HOST_WIDE_INT *)&f->data.low, &f->data.high,
+		    &fixed_value);
 
   if (temp == 3 && ALL_FRACT_MODE_P (f->mode))
     {
@@ -1070,7 +1071,7 @@ fixed_convert_from_real (FIXED_VALUE_TYPE *f, enum machine_mode mode,
   sprintf (base_string, "0x1.0p%d", fbit);
   real_from_string (&base_value, base_string);
   real_arithmetic (&fixed_value, MULT_EXPR, &real_value, &base_value);
-  real_to_integer2 (&f->data.low, &f->data.high,  &fixed_value);
+  real_to_integer2 ((HOST_WIDE_INT *)&f->data.low, &f->data.high, &fixed_value);
   temp = check_real_for_fixed_mode (&real_value, mode);
   if (temp == 1) /* Minimum.  */
     {
