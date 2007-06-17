@@ -1,3 +1,21 @@
+2006-06-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* lto.h: New file.
+	* lto.c: New file.
+	* lto-elf.c: New file.
+	* lto-lang.c (flags.h): Include it.
+	(lto.h): Likewise.
+	(lto_init): New function.
+	(lto_write_globals): Remove.
+	(LANG_HOOKS_WRITE_GLOBALS): Define to lhd_do_nothing. 
+	(LANG_HOOKS_INIT): Define.
+	(LANG_HOOKS_PARSE_FILE): Likewise.
+	* Make-lang.in (LTO_OBJS): Add lto.o and lto-elf.o.
+	(LTO_EXE): Link with libelf.
+	(lto/lto-lang.o): Update dependencies.
+	(lto/lto.o): New target.
+	(lto/lto-elf.o): Likewise.
+
 2006-06-12  Mark Mitchell  <mark@codesourcery.com>
 
 	* config-lang.in: New file.
