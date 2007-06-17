@@ -24,6 +24,7 @@ Boston, MA 02110-1301, USA.  */
 
 struct lang_identifier GTY(())
 {
+  struct tree_identifier base;
 };
 
 struct lang_decl GTY(())

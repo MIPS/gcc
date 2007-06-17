@@ -1,3 +1,62 @@
+2006-06-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* lto.c (toplev.h): Include it.
+	(dwarf2.h): Likewise.
+	(tree.h): Likewise.
+	(tm.h): Likewise.
+	(cgraph.h): Likewise.
+	(ggc.h): Likewise.
+	(inttypes.h): Likewise.
+	(DWARF2_attr): New type.
+	(DWARF2_abbrev): Likewise.
+	(DWARF2_class): Likewise.
+	(DWARF2_form_data): Likewise.
+	(lto_context): Likewise.
+	(lto_fd_init): New function.
+	(lto_abbrev_fd_init): Likewise.
+	(lto_abbrev_fd_close): Likewise.
+	(lto_file_init): Use them.
+	(lto_file_close): New function.
+	(lto_file_corrupt_error): Likewise.
+	(LTO_CHECK_INT_VAL): New macro.
+	(lto_check_size_t_val): New function.
+	(lto_check_int_val): Likewise.
+	(LTO_READ_TYPE): New macro.
+	(lto_read_ubyte): New function.
+	(lto_read_uhalf): Likewise.
+	(lto_read_uword): Likewise.
+	(lto_read_uleb128): Likewise.
+	(lto_read_initial_length): Likewise.
+	(lto_abbrev_read_attrs): Likewise.
+	(lto_abbrev_read): Likewise.
+	(lto_abbrev_lookup): Likewise.
+	(lto_read_section_offset): Likewise.
+	(lto_read_comp_unit_header): Likewise.
+	(lto_read_form): Likewise.
+	(LTO_BEGIN_READ_ATTRS_UNCHECKED): New macro.
+	(LTO_BEGIN_READ_ATTRS): Likewise.
+	(LTO_END_READ_ATTRS): Likewise.
+	(lto_unsupported_attr_error): New function.
+	(lto_get_identifier): Likewise.
+	(lto_read_referenced_type_DIE): Likewise.
+	(lto_read_compile_unit_DIE): Likewise.
+	(lto_read_variable_formal_parameter_constant_DIE): Likewise.
+	(lto_read_base_type_DIE): Likewise.
+	(lto_read_DIE): Likewise.
+	(lto_read_child_DIEs): Likewise.
+	(lto_file_read): Read DIEs.
+	(lto_main): Ask middle end to emit entities.
+	* lto-tree.h (lang_identifier): Inherit from tree_identifier.
+	* lto-elf.c (lto_elf_file_open): Adjust for interface changes.
+	(lto_elf_file_close): Likewise.
+	* lto.h (lto_file): Declare.
+	(DWARF2_abbrev): Likewise.
+	(lto_fd): New type.
+	(lto_abbrev_fd): Likewise.
+	(lto_file): Use new types.
+	(lto_file_close): Declare.
+	* lto-lang.c (lto_init): Always use unit-at-a-time mode.
+	
 2006-06-18  Mark Mitchell  <mark@codesourcery.com>
 
 	* lto.h: New file.

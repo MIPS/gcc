@@ -22,20 +22,51 @@ Boston, MA 02110-1301, USA.  */
 #ifndef LTO_H
 #define LTO_H
 
+/* Forward Declarations */
+
+typedef struct lto_file lto_file;
+typedef struct DWARF2_abbrev DWARF2_abbrev;
+
+/* Types */
+
+/* A file descriptor for reading from a particular DWARF section.  */
+typedef struct lto_fd
+{
+  /* The name of this section.  */
+  const char *name;
+  /* The first byte of the section.  */ 
+  const char *start;
+  /* The byte just past the end of the section.  */
+  const char *end;
+  /* The next available byte.  */
+  const char *cur;
+  /* The lto_file with which this section is associated.  */
+  lto_file *file;
+  /* True if using 64-bit DWARF.  */
+  bool dwarf64;
+} lto_fd;
+
+/* A file descriptor for reading from a DWARF abbreviation section.  */
+typedef struct lto_abbrev_fd
+{
+  /* The base object.  */
+  lto_fd base;
+  /* The number of abbreviations in this section.  */
+  size_t num_abbrevs;
+  /* The abbreviations themselves.  */
+  DWARF2_abbrev **abbrevs;
+} lto_abbrev_fd;
+
 /* An input file.  */
-typedef struct lto_file
+struct lto_file
 {
   /* The name of the file.  */
   const char *filename;
   /* The contents of the .debug_info section.  */
-  const void *debug_info;
-  /* The number of bytes pointed to by DEBUG_INFO.  */ 
-  size_t debug_info_length;
+  lto_fd debug_info;
   /* The contents of the .debug_abbrev section.  */
-  const void *debug_abbrev;
-  /* The number of bytes pointed to by DEBUG_ABBREV.  */
-  size_t debug_abbrev_length;
-} lto_file;
+  lto_abbrev_fd debug_abbrev;
+};
 
 /* lto.c */
  
@@ -47,6 +78,10 @@ extern void lto_main (int debug_p);
 /* Initialize the newly allocated FILE, which corresponds to
    FILENAME.  */
 extern void lto_file_init (lto_file *file, const char *filename);
+
+/* Free resources associated with FILE.  FILE itself will be
+   deallocated by this function.  */
+extern void lto_file_close (lto_file *file);
 
 /* Generate a TREE representation for all entities in FILE.  If an
    entity in FILE has already been read (from another object file),

@@ -50,8 +50,8 @@ lto_elf_file_open (const char *filename)
   lto_file *result;
 
   /* Set up.  */
-  elf_file = (lto_elf_file *) xmalloc (sizeof (lto_elf_file));
-  result = &elf_file->base;
+  elf_file = XNEW (lto_elf_file);
+  result = (lto_file *)elf_file;
   lto_file_init (result, filename);
   elf_file->fd = -1;
   elf_file->elf = NULL;
@@ -137,7 +137,7 @@ lto_elf_file_open (const char *filename)
   /* Read the string table used for section header names.  */
   if (elf_getshstrndx (elf_file->elf, &string_table_section_index) == -1)
     {
-      error ("could not locate ELF string table", elf_errmsg (0));
+      error ("could not locate ELF string table: %s", elf_errmsg (0));
       goto fail;
     }
   string_table_section = elf_getscn (elf_file->elf, 
@@ -150,8 +150,7 @@ lto_elf_file_open (const char *filename)
     {
       size_t offset;
       const char *name;
-      const void **datap;
-      size_t *lengthp;
+      lto_fd *fd;
       Elf_Data *data;
 
       if (!section)
@@ -197,21 +196,15 @@ lto_elf_file_open (const char *filename)
       
       /* Check to see if this is one of the sections of interest.  */
       if (strcmp (name, ".debug_info") == 0)
-	{
-	  datap = &result->debug_info;
-	  lengthp = &result->debug_info_length;
-	}
+	fd = &result->debug_info;
       else if (strcmp (name, ".debug_abbrev") == 0)
-	{
-	  datap = &result->debug_abbrev;
-	  lengthp = &result->debug_abbrev_length;
-	}
+	fd = (lto_fd *) &result->debug_abbrev;
       else
 	continue;
 
       /* There should not be two debugging sections with the same
 	 name.  */
-      if (*datap)
+      if (fd->start)
 	{
 	  error ("duplicate %qs section", name);
 	  goto fail;
@@ -221,14 +214,15 @@ lto_elf_file_open (const char *filename)
       data = elf_getdata (section, NULL);
       if (!data)
 	{
-	  error ("could not read data", elf_errmsg (0));
+	  error ("could not read data: %s", elf_errmsg (0));
 	  goto fail;
 	}
-      *datap = data->d_buf;
-      *lengthp = data->d_size;
+      fd->start = (const char *) data->d_buf;
+      fd->end = fd->start + data->d_size;
     }
 
-  if (!result->debug_info || !result->debug_abbrev)
+  if (!result->debug_info.start 
+      || !((lto_fd *) (&result->debug_abbrev))->start)
     {
       error ("could not read DWARF debugging information");
       goto fail;
@@ -249,5 +243,5 @@ lto_elf_file_close (lto_file *file)
     elf_end (elf_file->elf);
   if (elf_file->fd != -1)
     close (elf_file->fd);
-  free (file);
+  lto_file_close (file);
 }
