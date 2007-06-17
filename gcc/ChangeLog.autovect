@@ -1,3 +1,93 @@
+2007-06-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-transform.c (vect_estimate_min_profitable_iters): Multiply
+	cost of inner-loop stmts (in outer-loop vectorization) by estimated 
+	inner-loop bound.
+	(vect_model_reduction_cost): Don't add reduction epilogue cost in case
+	this is an inner-loop reduction in outer-loop vectorization.
+	(vect_model_load_cost): Add dr_explicit_realign case. Replace
+	dr_unaligned_software_pipeline case with 
+	dr_explicit_realign_optimized case.
+
+2007-06-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vectorizer.c (new_loop_vec_info): Initialize
+	LOOP_VINFO_COST_MODEL_MIN_ITERS.
+	* tree-vectorizer.h (_loop_vec_info): Added new filed
+	min_profitable_iters.
+	(LOOP_VINFO_COST_MODEL_MIN_ITERS): New access macro ti above new field.
+	(TARG_SCALAR_TO_VEC_COST): Define cost of scalar to vector operation.
+	* tree-vect-analyze.c (vect_analyze_operations): Set
+	LOOP_VINFO_COST_MODEL_MIN_ITERS.
+	* tree-vect-transform.c (vect_estimate_min_profitable_iters): Use
+	VEC_length to determine if there are any LOOP_VINFO_MAY_MISALIGN_STMTS.
+	Fix calculation of peel_iters_prologue. Move consideration of epilogue
+	and prologue cost to after they are computed.
+	(vect_model_induction_cost): Use TARG_SCALAR_TO_VEC_COST instead of
+	TARG_VEC_STMT_COST.
+	(vect_model_simple_cost): Takes additional argument dt. Consider cost
+	of creating vectors from scalars according to dt.
+	(vect_model_store_cost): Likewise.
+	(vectorizable_call): Use dt array instead of scalar dt. Call
+	vect_model_simple_cost with additional argument dt.
+	(vectorizable_assignment): Likewise.
+	(vectorizable_operation): Likewise.
+	(vectorizable_type_demotion): Likewise.
+	(vectorizable_type_promotion): Likewise.
+	(vectorizable_store): Use dt array instead of scalar dt. Call
+	vect_model_store_cost with additional argument dt.
+	(vect_do_peeling_for_loop_bound): Don't call
+	vect_estimate_min_profitable_iters. Instead, lookup
+	LOOP_VINFO_COST_MODEL_MIN_ITERS. Don't always print
+	"may not be profitable".
+
+2007-06-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	Brought over revision 125575 from mainline:
+	2007-06-08  Harsha Jagasia <harsha.jagasia@amd.com>
+		    Tony Linthicum <tony.linthicum@amd.com>
+
+	* doc/extend.texi: Add fvect-cost-model flag.
+	* common.opt (fvect-cost-model): New flag.
+	* tree-vectorizer.c (new_stmt_vec_info): Initialize inside and outside
+	cost fields in stmt_vec_info struct for STMT.
+	* tree-vectorizer.h (stmt_vec_info): Define inside and outside cost
+	fields in stmt_vec_info struct and access functions for the same.
+	(TARG_COND_BRANCH_COST): Define cost of conditional branch.
+	(TARG_VEC_STMT_COST): Define cost of any vector operation, excluding
+	load, store and vector to scalar operation.
+	(TARG_VEC_TO_SCALAR_COST): Define cost of vector to scalar operation.
+	(TARG_VEC_LOAD_COST): Define cost of aligned vector load.
+	(TARG_VEC_UNALIGNED_LOAD_COST): Define cost of misasligned vector load.
+	(TARG_VEC_STORE_COST): Define cost of vector store.
+	(vect_estimate_min_profitable_iters): Define new function.
+	* tree-vect-analyze.c (vect_analyze_operations): Add a compile-time
+	check to evaluate if loop iterations are less than minimum profitable
+	iterations determined by cost model or minimum vect loop bound defined
+	by user, whichever is more conservative.
+	* tree-vect-transform.c (vect_do_peeling_for_loop_bound): Add a
+	run-time check to evaluate if loop iterations are less than minimum
+	profitable iterations determined by cost model or minimum vect loop
+	bound defined by user, whichever is more conservative.
+	(vect_estimate_min_profitable_iterations): New function to estimate
+	mimimimum iterartions required for vector version of loop to be
+	profitable over scalar version.
+	(vect_model_reduction_cost): New function.
+	(vect_model_induction_cost): New function.
+	(vect_model_simple_cost): New function.
+	(vect_cost_strided_group_size): New function.
+	(vect_model_store_cost): New function.
+	(vect_model_load_cost): New function.
+	(vectorizable_reduction): Call vect_model_reduction_cost during
+	analysis phase.
+	(vectorizable_induction): Call vect_model_induction_cost during
+	analysis phase.
+	(vectorizable_load): Call vect_model_load_cost during analysis phase.
+	(vectorizable_store): Call vect_model_store_cost during analysis phase.
+	(vectorizable_call, vectorizable_assignment, vectorizable_operation,
+	vectorizable_promotion, vectorizable_demotion): Call
+	vect_model_simple_cost during analysis phase.
+
 2007-06-12  Ira Rosen  <irar@il.ibm.com>
  
 	* tree-vectorizer.h (vect_def_type): Start enumeration from 1.

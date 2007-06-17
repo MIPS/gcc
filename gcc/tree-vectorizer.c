@@ -1359,6 +1359,8 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
     STMT_VINFO_DEF_TYPE (res) = vect_loop_def;
   STMT_VINFO_SAME_ALIGN_REFS (res) = VEC_alloc (dr_p, heap, 5);
   STMT_VINFO_SLP_TYPE (res) = 0;
+  STMT_VINFO_INSIDE_OF_LOOP_COST (res) = 0;
+  STMT_VINFO_OUTSIDE_OF_LOOP_COST (res) = 0;
   DR_GROUP_FIRST_DR (res) = NULL_TREE;
   DR_GROUP_NEXT_DR (res) = NULL_TREE;
   DR_GROUP_SIZE (res) = 0;
@@ -1467,6 +1469,7 @@ new_loop_vec_info (struct loop *loop)
 
   LOOP_VINFO_BBS (res) = bbs;
   LOOP_VINFO_NITERS (res) = NULL;
+  LOOP_VINFO_COST_MODEL_MIN_ITERS (res) = 0;
   LOOP_VINFO_VECTORIZABLE_P (res) = 0;
   LOOP_PEELING_FOR_ALIGNMENT (res) = 0;
   LOOP_VINFO_VECT_FACTOR (res) = 0;
