@@ -1,0 +1,7 @@
+2006-06-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* config-lang.in: New file.
+	* Make-lang.in: Likewise.
+	* lto-tree.h: Likewise.
+	* lto-lang.c: Likewise.
+
