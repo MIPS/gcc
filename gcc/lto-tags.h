@@ -27,7 +27,7 @@
 #include "sbitmap.h"
 
 #define LTO_major_version 0
-#define LTO_minor_version 1
+#define LTO_minor_version 2
 
 /* This file is one header in a collection of files that write the
    gimple intermediate code for a function into the assembly stream
@@ -36,41 +36,43 @@
    This comment describes, in rough terms the methods used to encode
    that gimple stream.  This does not describe gimple itself.
 
-   The encoding for a function consists of 6 (7 in debugging mode),
+   The encoding for a function consists of 8 (9 in debugging mode),
    sections of information.
 
    1) The header.
-   2) Global decl refs.
-   3) Type refs.
-   4) Gimple for local decls.
-   5) Gimple for the function.
-   6) Strings.
-   7) Redundant information to aid in debugging the stream.
+   2) FIELD_DECLS.
+   3) FUNCTION_DECLS.
+   4) global VAR_DECLS.
+   5) types.
+   6) Gimple for local decls.
+   7) Gimple for the function.
+   8) Strings.
+   9) Redundant information to aid in debugging the stream.
       This is only present if the compiler is built with
       LTO_STREAM_DEBUGGING defined.
 
-   Sections 1-3 are in plain text that can easily be read in the
-   assembly file.  Sections 4-6 will be zlib encoded in the future.
+   Sections 1-5 are in plain text that can easily be read in the
+   assembly file.  Sections 6-8 will be zlib encoded in the future.
 
    1) THE HEADER.
+*/
 
-     4 - 16 bit fields:
-       LTO_major_version.
-       LTO_minor_version.
-       word size with (in bits).
-       reserverd.
+/* The is the first part of the record for a function in the .o file.  */
+struct lto_function_header
+{
+  int16_t major_version;     /* LTO_major_version. */
+  int16_t minor_version;     /* LTO_minor_version. */
+  int32_t num_field_decls;   /* Number of FIELD_DECLS.  */
+  int32_t num_fn_decls;      /* Number of FUNCTION_DECLS.  */
+  int32_t num_var_decls;     /* Number of non local VAR_DECLS.  */
+  int32_t num_types;         /* Number of types.  */
+  int32_t compressed_size;   /* Size compressed or 0 if not compressed.  */
+  int32_t local_decls_size;  /* Size of local par and var decl region. */
+  int32_t main_size;         /* Size of main gimple body of function.  */
+  int32_t string_size;       /* Size of the string table.  */
+}; 
 
-     7 (or 9 if LTO_STREAM_DEBUGGING) word size fields:
-       # of global decl refs.
-       # of type refs.
-       Offset to start of (4).
-       Size of (4)
-       Size of (5)
-       Size of (6)
-       Offset to start of (7) if LTO_STREAM_DEBUGGING
-       Size of (7) if LTO_STREAM_DEBUGGING
-
-   2-3) THE GLOBAL DECLS AND TYPES.
+/* 2-5) THE GLOBAL DECLS AND TYPES.
 
      The global decls and types are encoded in the same way.  For each
      entry, there is a pair of words.  The first is the debugging
@@ -81,7 +83,7 @@
      a label for the debugging section.  This will cause more work for
      the linker but will make ln -r work properly.
 
-   4-5) GIMPLE FOR THE LOCAL DECLS AND THE FUNCTION BODY.
+   6-7) GIMPLE FOR THE LOCAL DECLS AND THE FUNCTION BODY.
 
      The gimple consists of a set of records.
 
@@ -97,7 +99,7 @@
 	 type         - If the tree code has a bit set in
                         lto_types_needed_for, a reference to the type
 			is generated.  This reference is an index into
-                        (3).  The index is encoded in uleb128 form.
+                        (6).  The index is encoded in uleb128 form.
 
 	 flags        - The set of flags defined for this tree code
 		        packed into a word where the low order 2 bits
@@ -138,7 +140,7 @@
 
      THE FUNCTION
 	
-     At the top level of (5) is the function. It consists of five
+     At the top level of (7) is the function. It consists of five
      pieces:
 
      LTO_function     - The tag.
@@ -192,12 +194,12 @@
 			  to terminate the statements and exception
 			  regions within this block.
 
-   6) STRINGS
+   8) STRINGS
 
      String are represented in the table as pairs, a length in ULEB128
      form followed by the data for the string.
 
-   7) STREAM DEBUGGING
+   9) STREAM DEBUGGING
 
      tbd
 */
@@ -395,7 +397,11 @@
    section name for the function.  */
 #define LTO_SECTION_NAME_PREFIX         ".lto_"
 
+/* This bitmap is indexed by gimple type codes and contains a 1 if the 
+   tree type needs to have the type written.  */
 extern sbitmap lto_types_needed_for;
+
+
 
 void lto_static_init (void);
 #endif /* lto-tags.h */

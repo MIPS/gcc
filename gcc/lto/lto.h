@@ -108,7 +108,7 @@ struct lto_file
 typedef struct lto_ref
 {
   /* The DWARF compilation unit containing the entity.  */
-  unsigned section;
+  uint64_t section;
   /* The offset of the DIE corresponding to the entity.  */
   uint64_t offset;
 } lto_ref;
