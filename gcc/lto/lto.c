@@ -85,6 +85,12 @@ typedef enum DWARF2_class
    forms are allowed, so define a shorthand.  */
 #define DW_cl_constant (DW_cl_uconstant | DW_cl_sconstant)
 
+/* A pointer to a DWARF2 DIE, as mapped into memory.  
+
+   The "lto_die" type is intentionally never defined.  This typedef
+   exists purely for type safety.  */
+typedef struct lto_die *lto_die_ptr;
+
 /* The data corresponding to a single attribute form in a DIE.  */
 typedef struct DWARF2_form_data
 {
@@ -112,7 +118,7 @@ typedef struct DWARF2_form_data
     const char *string;
     /* Used when CL is DW_cl_reference.  The value is a pointer into
        the .debug_info section indicating the DIE referenced.  */
-    const char *reference;
+    lto_die_ptr reference;
   } u;
 } DWARF2_form_data;
 
@@ -649,14 +655,14 @@ find_cu_for_offset (const lto_info_fd *fd,
    or to a newly allocated context corresponding to the DIE referred
    to by OFFSET.  If *NEW_CONTEXT != CONTEXT upon return, the caller
    must free *NEW_CONTEXT when it is no longer needed.  */
-static const char *
+static lto_die_ptr
 lto_resolve_reference (lto_info_fd *info_fd,
 		       uint64_t offset,
 		       const lto_context *context,
 		       lto_context **new_context)
 {
   DWARF2_CompUnit *cu;
-  const char *reference;
+  lto_die_ptr reference;
 
   /* Swap context if necessary.  */
   cu = find_cu_for_offset (info_fd, offset);
@@ -668,9 +674,10 @@ lto_resolve_reference (lto_info_fd *info_fd,
       context = *new_context;
     }
   /* Resolve reference.  */
-  reference = (context->cu_start
-	       + lto_check_size_t_val (offset, "offset too large"));
-  if (reference >= context->cu_end)
+  reference = (lto_die_ptr) ((context->cu_start
+			      + lto_check_size_t_val (offset,
+						      "offset too large")));
+  if (reference >= (lto_die_ptr) context->cu_end)
     lto_file_corrupt_error ((lto_fd *)info_fd);
 
   return reference;
@@ -993,9 +1000,10 @@ lto_read_form (lto_info_fd *info_fd,
 	  }
 	out->cl = DW_cl_reference;
 	out->u.reference 
-	  = (context->cu_start 
-	     + lto_check_size_t_val (offset, "offset too large"));
-	if (out->u.reference >= context->cu_end)
+	  = (lto_die_ptr) ((context->cu_start 
+			    + lto_check_size_t_val (offset, 
+						    "offset too large")));
+	if (out->u.reference >= (lto_die_ptr) context->cu_end)
 	  lto_file_corrupt_error (fd);
       }
       break;
@@ -1142,7 +1150,7 @@ attribute_value_as_constant (DWARF2_form_data *attr_data, tree type)
 
 typedef struct lto_die_cache_entry {
   /* The DIE address.  */
-  const char *die;
+  lto_die_ptr die;
   /* The tree corresponding to this DIE.  */
   tree val;
   /* The address of the next sibling after the DIE.  */
@@ -1168,7 +1176,7 @@ lto_cache_eq (const void *data, const void *key)
 /* Record the fact that DIE refers to VAL.  */
 static void
 lto_cache_store_DIE (lto_info_fd *fd,
-		     const char *die,
+		     lto_die_ptr die,
 		     tree val)
 {
   void **slot;
@@ -1194,7 +1202,7 @@ lto_cache_store_DIE (lto_info_fd *fd,
    adjust FD to skip over the DIE and its children and point to its next
    sibling.  */
 static tree
-lto_cache_lookup_DIE (lto_info_fd *fd, const char *die, bool skip)
+lto_cache_lookup_DIE (lto_info_fd *fd, lto_die_ptr die, bool skip)
 {
   lto_die_cache_entry *entry;
 
@@ -1268,6 +1276,7 @@ lto_find_integral_type (tree base_type, int byte_size, bool got_byte_size)
 
       static tree
       lto_read_tag_DIE (lto_info_fd *fd, 
+                        lto_die_ptr die,
                         const DWARF2_abbrev *abbrev,
 		        lto_context *context)
       {
@@ -1400,15 +1409,15 @@ lto_get_identifier (const DWARF2_form_data *data)
 static tree
 lto_read_referenced_type_DIE (lto_info_fd *fd,
 			      lto_context *context,
-			      const char *reference)
+			      lto_die_ptr reference)
 {
   tree type;
 
   /* Check that the reference is in range.  We use an assert, rather
      than calling lto_file_corrupt_error, because REFERENCE should be
      checked for validity when it is read from the file.  */
-  gcc_assert (reference >= context->cu_start
-	      && reference < context->cu_end);
+  gcc_assert (reference >= (lto_die_ptr) context->cu_start
+	      && reference < (lto_die_ptr) context->cu_end);
   type = lto_cache_lookup_DIE (fd, reference, false);
   if (!type)
     {
@@ -1416,7 +1425,7 @@ lto_read_referenced_type_DIE (lto_info_fd *fd,
       tree parentdata = context->parentdata; 
 
       /* Move the file pointer to the referenced location.  */
-      fd->base.cur = reference;
+      fd->base.cur = (const char *) reference;
       /* Reset parent data in context.  */
       context->parentdata = NULL_TREE;
       /* Read the DIE, which we insist must be a type.  */
@@ -1434,6 +1443,7 @@ lto_read_referenced_type_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_compile_unit_DIE (lto_info_fd *fd, 
+			   lto_die_ptr die ATTRIBUTE_UNUSED,
 			   const DWARF2_abbrev *abbrev,
 			   lto_context *context)
 {
@@ -1485,6 +1495,7 @@ lto_read_compile_unit_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_array_type_DIE (lto_info_fd *fd,
+			 lto_die_ptr die ATTRIBUTE_UNUSED,
 			 const DWARF2_abbrev *abbrev,
 			 lto_context *context)
 {
@@ -1570,6 +1581,7 @@ lto_read_array_type_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_structure_union_class_type_DIE (lto_info_fd *fd,
+					 lto_die_ptr die ATTRIBUTE_UNUSED,
 					 const DWARF2_abbrev *abbrev,
 					 lto_context *context)
 {
@@ -1766,6 +1778,7 @@ lto_read_structure_union_class_type_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_enumeration_type_DIE (lto_info_fd *fd,
+			      lto_die_ptr die ATTRIBUTE_UNUSED,
 			       const DWARF2_abbrev *abbrev,
 			       lto_context *context)
 {
@@ -1855,6 +1868,7 @@ lto_read_enumeration_type_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_enumerator_DIE (lto_info_fd *fd,
+			 lto_die_ptr die ATTRIBUTE_UNUSED,
 			 const DWARF2_abbrev *abbrev,
 			 lto_context *context)
 {
@@ -1895,6 +1909,7 @@ lto_read_enumerator_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
+						 lto_die_ptr die ATTRIBUTE_UNUSED,
 						 const DWARF2_abbrev *abbrev,
 						 lto_context *context)
 {
@@ -1993,11 +2008,16 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
   /* If this variable has already been declared, merge the
      declarations.  */
   decl = lto_symtab_merge_var (decl);
-  /* Let the middle end know about the new entity.  */
   if (decl != error_mark_node)
-    rest_of_decl_compilation (decl,
-			      /*top_level=*/1,
-			      /*at_end=*/0);
+    {
+      /* Record this variable in the DIE cache so that it can be
+	 resolved from the bodies of functions.  */
+      lto_cache_store_DIE (fd, die, decl);
+      /* Let the middle end know about the new entity.  */
+      rest_of_decl_compilation (decl,
+				/*top_level=*/1,
+				/*at_end=*/0);
+    }
 
   lto_read_child_DIEs (fd, abbrev, context);
   return decl;
@@ -2006,6 +2026,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_member_DIE (lto_info_fd *fd,
+		     lto_die_ptr die ATTRIBUTE_UNUSED,
 		     const DWARF2_abbrev *abbrev,
 		     lto_context *context)
 {
@@ -2207,6 +2228,7 @@ lto_read_member_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
+					 lto_die_ptr die ATTRIBUTE_UNUSED,
 					 const DWARF2_abbrev *abbrev,
 					 lto_context *context)
 {
@@ -2369,6 +2391,10 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
       result = lto_symtab_merge_fn (result);
       if (result != error_mark_node)
 	{
+	  /* Record this function in the DIE cache so that it can be
+	     resolved from the bodies of functions.  */
+	  lto_cache_store_DIE (fd, die, result);
+	  /* If the function has a body, read it in.  */ 
 	  if (body)
 	    {
 	      DECL_RESULT (result)
@@ -2378,6 +2404,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 	      lto_read_function_body (fd, context, result, body);
 	      file->vtable->unmap_fn_body (file, name_str, body);
 	    }
+	  /* Let the middle end know about the function.  */
 	  rest_of_decl_compilation (result,
 				    /*top_level=*/1,
 				    /*at_end=*/0);
@@ -2391,6 +2418,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_unspecified_parameters_DIE (lto_info_fd *fd,
+				     lto_die_ptr die ATTRIBUTE_UNUSED,
 				     const DWARF2_abbrev *abbrev,
 				     lto_context *context)
 {
@@ -2405,6 +2433,7 @@ lto_read_unspecified_parameters_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_typedef_DIE (lto_info_fd *fd,
+		      lto_die_ptr die ATTRIBUTE_UNUSED,
 		      const DWARF2_abbrev *abbrev,
 		      lto_context *context)
 {
@@ -2457,6 +2486,7 @@ lto_read_typedef_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_pointer_reference_type_DIE (lto_info_fd *fd,
+				     lto_die_ptr die ATTRIBUTE_UNUSED,
 				     const DWARF2_abbrev *abbrev,
 				     lto_context *context)
 {
@@ -2504,6 +2534,7 @@ lto_read_pointer_reference_type_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_subrange_type_DIE (lto_info_fd *fd,
+			    lto_die_ptr die ATTRIBUTE_UNUSED,
 			    const DWARF2_abbrev *abbrev,
 			    lto_context *context)
 {
@@ -2602,6 +2633,7 @@ lto_read_subrange_type_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_base_type_DIE (lto_info_fd *fd, 
+			lto_die_ptr die ATTRIBUTE_UNUSED,
 			const DWARF2_abbrev *abbrev,
 			lto_context *context)
 {
@@ -2743,6 +2775,7 @@ lto_read_base_type_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_const_volatile_restrict_type_DIE (lto_info_fd *fd,
+					   lto_die_ptr die ATTRIBUTE_UNUSED,
 					   const DWARF2_abbrev *abbrev,
 					   lto_context *context)
 {
@@ -2788,6 +2821,7 @@ lto_read_const_volatile_restrict_type_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_unspecified_type_DIE (lto_info_fd *fd,
+			       lto_die_ptr die ATTRIBUTE_UNUSED,
 			       const DWARF2_abbrev *abbrev,
 			       lto_context *context)
 {
@@ -2818,6 +2852,7 @@ static tree
 lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
 {
   typedef tree (*DIE_reader_fnptr)(lto_info_fd * fd,
+				   lto_die_ptr die,
 				   const DWARF2_abbrev *abbrev,
 				   lto_context *context);
   /* Reader functions for the tags defined by DWARF 3.  */
@@ -2893,12 +2928,12 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
   uint64_t index;
   const DWARF2_abbrev *abbrev;
   DIE_reader_fnptr reader;
-  const char *die;
+  lto_die_ptr die;
   tree val;
 
   /* Record the location of the current DIE -- before we change the
      file pointer.  */
-  die = ((lto_fd *)fd)->cur;
+  die = (lto_die_ptr) ((lto_fd *)fd)->cur;
   /* Read the abbreviation index.  */
   index = lto_read_uleb128 ((lto_fd *)fd);
   /* Zero indicates a null entry.  */
@@ -2912,7 +2947,7 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
   abbrev = lto_abbrev_lookup (&fd->base.file->debug_abbrev, index);
   /* Check to see if this DIE has already been processed.  If so, skip
      over it and its children.  */
-  val = lto_cache_lookup_DIE (fd, die, true);
+  val = lto_cache_lookup_DIE (fd, die, /*skip=*/true);
   if (!val)
     {
       /* Determine the DIE reader function.  */
@@ -2922,7 +2957,7 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
       if (reader)
 	{
 	  /* If there is a reader, use it.  */
-	  val = reader (fd, abbrev, context);
+	  val = reader (fd, die, abbrev, context);
 	  /* If this DIE refers to a type, cache the value so that future
 	     references to the type can be processed quickly.  */
 	  if (val && TYPE_P (val))
@@ -3114,17 +3149,19 @@ lto_resolve_type_ref (lto_info_fd *info_fd,
 		      lto_context *context,
 		      const lto_ref *ref)
 {
-  const char *reference;
+  lto_die_ptr die;
   lto_context *new_context = context;
   tree type;
 
   /* At present, we only support a single DWARF section.  */
   if (ref->section != 0)
     lto_abi_mismatch_error ();
-  reference = lto_resolve_reference (info_fd, ref->offset, context,
-				     &new_context);
-  /* Resolve the reference.  */
-  type = lto_read_referenced_type_DIE (info_fd, context, reference);
+  /* Map REF to a DIE.  */
+  die = lto_resolve_reference (info_fd, ref->offset, context, &new_context);
+  /* Map DIE to a type.  */
+  type = lto_read_referenced_type_DIE (info_fd, context, die);
+  if (!type || !TYPE_P (type))
+    lto_file_corrupt_error ((lto_fd *)info_fd);
   /* Clean up.  */
   if (new_context != context)
     XDELETE (new_context);
@@ -3133,19 +3170,53 @@ lto_resolve_type_ref (lto_info_fd *info_fd,
 }
 
 tree 
-lto_resolve_var_ref (lto_info_fd *info_fd ATTRIBUTE_UNUSED,
-		     lto_context *context ATTRIBUTE_UNUSED,
-		     const lto_ref *ref ATTRIBUTE_UNUSED)
+lto_resolve_var_ref (lto_info_fd *info_fd,
+		     lto_context *context,
+		     const lto_ref *ref)
 {
-  abort ();
+  lto_die_ptr die;
+  lto_context *new_context = context;
+  tree var;
+
+  /* At present, we only support a single DWARF section.  */
+  if (ref->section != 0)
+    lto_abi_mismatch_error ();
+  /* Map REF to a DIE.  */
+  die = lto_resolve_reference (info_fd, ref->offset, context, &new_context);
+  /* Map DIE to a variable.  */
+  var = lto_cache_lookup_DIE (info_fd, die, /*skip=*/false);
+  if (!var || TREE_CODE (var) != VAR_DECL)
+    lto_file_corrupt_error ((lto_fd *)info_fd); 
+  /* Clean up.  */
+  if (new_context != context)
+    XDELETE (new_context);
+
+  return var;
 }
 
 tree 
-lto_resolve_fn_ref (lto_info_fd *info_fd ATTRIBUTE_UNUSED,
-		    lto_context *context ATTRIBUTE_UNUSED,
-		    const lto_ref *ref ATTRIBUTE_UNUSED)
+lto_resolve_fn_ref (lto_info_fd *info_fd,
+		    lto_context *context,
+		    const lto_ref *ref)
 {
-  abort ();
+  lto_die_ptr die;
+  lto_context *new_context = context;
+  tree fn;
+
+  /* At present, we only support a single DWARF section.  */
+  if (ref->section != 0)
+    lto_abi_mismatch_error ();
+  /* Map REF to a DIE.  */
+  die = lto_resolve_reference (info_fd, ref->offset, context, &new_context);
+  /* Map DIE to a variable.  */
+  fn = lto_cache_lookup_DIE (info_fd, die, /*skip=*/false);
+  if (!fn || TREE_CODE (fn) != FUNCTION_DECL)
+    lto_file_corrupt_error ((lto_fd *)info_fd); 
+  /* Clean up.  */
+  if (new_context != context)
+    XDELETE (new_context);
+
+  return fn;
 }
 
 void
