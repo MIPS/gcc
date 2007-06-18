@@ -114,10 +114,15 @@ typedef struct DWARF2_form_data
    about the current location in the scope tree.  */
 typedef struct lto_context
 {
-  /* The start of the current compilation unit header.  */
+  /* The start of the current compilation unit info.  This is right
+     *after* the header, at the beginning of the DIE entries, so if
+     you want the start of the header, you need to subtract the
+     header length.  */
   const char *cu_start;
   /* The byte just past the end of the current compilation unit.  */
   const char *cu_end;
+  /* Pointer to the CompUnit structure currently being used.  */
+  const DWARF2_CompUnit *cu;
   /* The scope (a NAMESPACE_DECL, FUNCTION_DECL, RECORD_TYPE, etc.)
      containing the DIE about to be read.  NULL_TREE if at the
      outermost level.  */
@@ -127,17 +132,40 @@ typedef struct lto_context
   tree type;
 } lto_context;
 
+/* We can't use DWARF_Internal_CompUnit because it does not track the
+   offset from the beginning of debug_info, which necessary for
+   lookups of DW_FORM_ref_addr data.  */
+   
+struct DWARF2_CompUnit
+{
+  /* Offset from start of .debug_info for this CU.  */
+  uint64_t cu_start_offset;  
+  /* Length of the CU header.  */
+  uint64_t cu_header_length;
+  /* Length of CU *including* the length field.  */
+  uint64_t cu_length;
+  /* DWARF version number of this CU.  */
+  unsigned short cu_version;
+  /* Offset of abbrevs for this CU from the start of debug_abbrev.  */
+  uint64_t cu_abbrev_offset;
+  /* Pointer size of this CU.  */
+  unsigned char cu_pointer_size;
+};
+
 /* Forward Declarations */
 
 static bool
-lto_read_DIE (lto_fd *fd,
+lto_read_DIE (lto_info_fd *fd,
 	      lto_context *context);
 
 static void
-lto_read_child_DIEs (lto_fd *fd, 
+lto_read_child_DIEs (lto_info_fd *fd, 
 		     const DWARF2_abbrev *abbrev, 
 		     lto_context *context);
 
+static void
+lto_set_cu_context (lto_context *context, lto_info_fd *fd,
+		    DWARF2_CompUnit *unit);
 /* Functions */ 
 
 /* Initialize FD, a newly allocated "file descriptor".  NAME indicates
@@ -155,6 +183,16 @@ lto_fd_init (lto_fd *fd, const char *name, lto_file *file)
 }
 
 /* Initialize FD, a newly allocated file descriptor for a DWARF2
+   info section.  NAME and FILE are as for lto_fd_init.  */
+static void
+lto_info_fd_init (lto_info_fd *fd, const char *name, lto_file *file)
+{
+  lto_fd_init ((lto_fd *) fd, name, file);
+  fd->num_units = 0;
+  fd->units = NULL;
+}
+
+/* Initialize FD, a newly allocated file descriptor for a DWARF2
    abbreviation section.  NAME and FILE are as for lto_fd_init.  */
 static void
 lto_abbrev_fd_init (lto_abbrev_fd *fd, const char *name, lto_file *file)
@@ -162,6 +200,17 @@ lto_abbrev_fd_init (lto_abbrev_fd *fd, const char *name, lto_file *file)
   lto_fd_init ((lto_fd *) fd, name, file);
   fd->num_abbrevs = 0;
   fd->abbrevs = NULL;
+}
+
+/* Close FD.  */
+static void
+lto_info_fd_close (lto_info_fd *fd)
+{
+  size_t i;
+
+  for (i = 0; i < fd->num_units; ++i)
+    XDELETE (fd->units[i]);
+  XDELETEVEC (fd->units);
 }
 
 /* Close FD.  */
@@ -180,7 +229,7 @@ void
 lto_file_init (lto_file *file, const char *filename)
 {
   file->filename = filename;
-  lto_fd_init (&file->debug_info, ".debug_info", file);
+  lto_info_fd_init (&file->debug_info, ".debug_info", file);
   lto_abbrev_fd_init (&file->debug_abbrev, ".debug_abbrev", file);
 }
 
@@ -188,6 +237,7 @@ lto_file_init (lto_file *file, const char *filename)
 void
 lto_file_close (lto_file *file)
 {
+  lto_info_fd_close (&file->debug_info);
   lto_abbrev_fd_close (&file->debug_abbrev);
   free (file);
 }
@@ -195,7 +245,7 @@ lto_file_close (lto_file *file)
 /* Issue an error indicating that the section from which FD is reading
    is corrupt, i.e., fails to conform to the DWARF specification.  */
 static void
-lto_file_corrupt_error (lto_fd *fd)
+lto_file_corrupt_error (const lto_fd *fd)
 {
   fatal_error ("corrupt link-time optimization information in "
 	       "%qs section", fd->name);
@@ -287,9 +337,10 @@ lto_read_uleb128 (lto_fd *fd)
 
 /* Read an initial length field from FD.  The length may be a 32-bit
    or 64-bit quantity, depending on whether 32-bit or 64-bit DWARF is
-   in use, so the value returned is always a 64-bit value.  */
+   in use, so the value returned is always a 64-bit value.  Set
+   FIELD_SIZE to the size (in bytes) of the initial length field.  */
 static uint64_t
-lto_read_initial_length (lto_fd *fd)
+lto_read_initial_length (lto_fd *fd, unsigned int *field_size)
 {
   /* The length of the debugging information section, as indicated in
      the DWARF information itself.  We use a 64-bit value so that we
@@ -301,6 +352,7 @@ lto_read_initial_length (lto_fd *fd)
   length = lto_read_uword (fd);
   if (length == 0xffffffff) 
     {
+      *field_size = sizeof (uint32_t) + sizeof (uint64_t);
       /* 64-bit DWARF.  */
       fd->dwarf64 = true;
       /* The "dwarf2.h" header used by GCC does not declare 64-bit
@@ -311,6 +363,8 @@ lto_read_initial_length (lto_fd *fd)
     /* An extension to DWARF that we do not support.  */
     fatal_error ("link-time optimization does not support DWARF extension "
 		 HOST_WIDEST_INT_PRINT_UNSIGNED, length);
+  else
+    *field_size = sizeof (uint32_t);
   
   return length;
 }
@@ -456,23 +510,72 @@ lto_read_section_offset (lto_fd *fd)
 /* Read the compilation-unit header from FD, placing the resulting
    header in *CU.  */
 static void
-lto_read_comp_unit_header (lto_fd *fd, 
-			   DWARF2_Internal_CompUnit *cu)
+lto_read_comp_unit_header (lto_info_fd *fd, 
+			   DWARF2_CompUnit *cu)
 {
-  cu->cu_length = lto_read_initial_length (fd);
-  cu->cu_version = lto_read_uhalf (fd);
-  cu->cu_abbrev_offset = lto_read_section_offset (fd);
-  cu->cu_pointer_size = lto_read_ubyte (fd);
+  unsigned int length_field_size;
+  lto_fd *basefd = (lto_fd *)fd;
+
+  /* The cu length is the length of the compilation unit, *not*
+     including the length field.  Since the length field can be 4 or
+     12 bytes, and *our* cu_length is specified to *include* the
+     length field, we have to account for this.  */
+  cu->cu_length = lto_read_initial_length (basefd, &length_field_size);
+  cu->cu_length += length_field_size;
+  cu->cu_version = lto_read_uhalf (basefd);
+  cu->cu_abbrev_offset = lto_read_section_offset (basefd);
+  cu->cu_pointer_size = lto_read_ubyte (basefd);
 }
 
-/* Read the value of the attribute ATTR from FD.  CONTEXT is as for
-   the DIE readers.  Upon return, *OUT contains the data read.  */
+/* Find the compilation unit in FD that contains the DWARF2 DIE
+   at OFFSET from the beginning of .debug_info.  */
+static DWARF2_CompUnit *
+find_cu_for_offset (const lto_info_fd *fd,
+		    uint64_t offset)
+{
+  unsigned int len = fd->num_units;
+  unsigned int half, middle;
+  unsigned int first = 0;
+
+  while (len > 0)
+    {
+      DWARF2_CompUnit *middle_elem;
+
+      half = len >> 1;
+      middle = first;
+      middle += half;
+      middle_elem = fd->units[middle];
+      if (middle_elem->cu_start_offset < offset)
+	{
+	  first = middle;
+	  ++first;
+	  len = len - half - 1;
+	}
+      else
+	len = half;
+    }
+
+  /* The above calculation will give us the first place *after* the cu
+     we want.  So just subtract 1.  */
+  
+  if (first <= 0 || first > fd->num_units)
+    lto_file_corrupt_error (&fd->base);
+  
+  return fd->units[first - 1];
+}
+
+/* Read the value of the attribute ATTR from INFO_FD.  CONTEXT is as for
+   the DIE readers.  Upon return, *OUT contains the data read,
+   and FORM_CONTEXT is the context necessary to do something with the
+   form.  */
 static void
-lto_read_form (lto_fd *fd, 
+lto_read_form (lto_info_fd *info_fd, 
 	       const DWARF2_attr *attr, 
-	       const lto_context *context,
+	       lto_context *context,
+	       lto_context **form_context,
 	       DWARF2_form_data *out)
 {
+  lto_fd *fd = (lto_fd *)info_fd;
   /* The Nth element in this array specifies (as a bitmask) the
      permissible classes of data for the attribute with code N.  See
      Figure 20 in DWARF 3 \S 7.5.4.  */
@@ -691,6 +794,43 @@ lto_read_form (lto_fd *fd,
       out->u.flag = (lto_read_ubyte (fd) != 0);
       break;
 
+    case DW_FORM_ref_addr:
+      {
+	uint64_t offset;
+	DWARF2_CompUnit *cu;
+
+	/* The standard says 
+	   "In the 32-bit DWARF format, this offset is a 4-byte unsigned
+	   value; in the 64-bit DWARF format, it is an 8-byte unsigned
+	   value"
+	*/
+	if (!fd->dwarf64)
+	  offset = lto_read_uword (fd);
+	else
+	  offset = lto_read_udword (fd);
+	
+	cu = find_cu_for_offset (info_fd, offset);
+
+	/* Swap context if necessary.  */
+	if (cu != context->cu)
+	  {
+	    lto_context *new_context = XCNEW (lto_context);
+	    
+	    *new_context = *context;
+	    
+	    lto_set_cu_context (new_context, info_fd, cu);
+	    *form_context = new_context;
+	  }
+
+	out->cl = DW_cl_reference;
+	out->u.reference 
+	  = ((*form_context)->cu_start - (*form_context)->cu->cu_header_length
+	     + lto_check_size_t_val (offset, "offset too large"));
+	if (out->u.reference >= (*form_context)->cu_end)
+	  lto_file_corrupt_error (fd);
+      }
+      break;
+
     case DW_FORM_ref1:
     case DW_FORM_ref2:
     case DW_FORM_ref4:
@@ -791,7 +931,7 @@ lto_read_form (lto_fd *fd,
    In general, the form of each DIE reader is:
 
       static void
-      lto_read_tag_DIE (lto_fd *fd, 
+      lto_read_tag_DIE (lto_info_fd *fd, 
                         const DWARF2_abbrev *abbrev,
 		        lto_context *context)
       {
@@ -851,25 +991,39 @@ lto_read_form (lto_fd *fd,
 	 attr != abbrev->attrs + abbrev->num_attrs;	\
 	 ++attr)					\
       {							\
+	lto_context *old_context = context;		\
+	lto_context *new_context = context;		\
 	DWARF2_form_data attr_data;			\
-        lto_read_form (fd, attr, context, &attr_data);	\
+							\
+        lto_read_form (fd, attr, context, &new_context, \
+		       &attr_data);			\
+	if (context != new_context)			\
+	  context = new_context;			\
 	switch (attr->name)				\
 	  {						\
           case DW_AT_sibling:				\
             break; 
 
 /* Like LTO_BEGIN_READ_ATTRS_UNCHECKED, except that unhandled
-   attribute are treated as indicating a corrupt object file.  */
+   attribute are treated as indicating a corrupt object file.  
+
+   NB: The lto_context may change depending on the form, so be careful
+   when falling through to another attr name.  */
 #define LTO_BEGIN_READ_ATTRS()			\
   LTO_BEGIN_READ_ATTRS_UNCHECKED()		\
     default:					\
-      lto_file_corrupt_error (fd);		\
+      lto_file_corrupt_error ((lto_fd *)fd);	\
       break;  
 
 /* Macro to create the end of a loop for reading attributes from a
    DIE.  */
 #define LTO_END_READ_ATTRS()			\
-	  }					\
+         }					\
+  if (context != old_context)			\
+    {						\
+      XDELETE (context);			\
+      context = old_context;			\
+    }						\
       }						\
   } while (false)
 
@@ -900,7 +1054,7 @@ lto_get_identifier (const DWARF2_form_data *data)
    current context within the compilation unit.  Returns the _TYPE
    node corresponding to the DIE.  */
 static tree
-lto_read_referenced_type_DIE (lto_fd *fd,
+lto_read_referenced_type_DIE (lto_info_fd *fd,
 			      lto_context *context,
 			      const char *reference)
 {
@@ -912,21 +1066,21 @@ lto_read_referenced_type_DIE (lto_fd *fd,
   gcc_assert (reference >= context->cu_start
 	      && reference < context->cu_end);
   /* Move the file pointer to the referenced location.  */
-  saved_cur = fd->cur;
-  fd->cur = reference;
+  saved_cur = fd->base.cur;
+  fd->base.cur = reference;
   /* Read the DIE, which we insist must be a type.  */
   lto_read_DIE (fd, context);
   /* The DIE read should have been a type.  */
   if (!context->type)
-    lto_file_corrupt_error (fd);
+    lto_file_corrupt_error ((lto_fd *)fd);
   /* Restore the file pointer.  */
-  fd->cur = saved_cur;
+  fd->base.cur = saved_cur;
 
   return context->type;
 }
 
 static void
-lto_read_compile_unit_DIE (lto_fd *fd, 
+lto_read_compile_unit_DIE (lto_info_fd *fd, 
 			   const DWARF2_abbrev *abbrev,
 			   lto_context *context)
 {
@@ -973,7 +1127,7 @@ lto_read_compile_unit_DIE (lto_fd *fd,
 }
 
 static void
-lto_read_variable_formal_parameter_constant_DIE (lto_fd *fd,
+lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 						 const DWARF2_abbrev *abbrev,
 						 lto_context *context)
 {
@@ -1064,7 +1218,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_fd *fd,
 }
 
 static void
-lto_read_base_type_DIE (lto_fd *fd, 
+lto_read_base_type_DIE (lto_info_fd *fd, 
 			const DWARF2_abbrev *abbrev,
 			lto_context *context)
 {
@@ -1115,7 +1269,7 @@ lto_read_base_type_DIE (lto_fd *fd,
   LTO_END_READ_ATTRS ();
 
   if (!name || !have_encoding || !have_size)
-    lto_file_corrupt_error (fd);
+    lto_file_corrupt_error ((lto_fd *)fd);
 
   lto_read_child_DIEs (fd, abbrev, context);
 
@@ -1155,9 +1309,9 @@ lto_read_base_type_DIE (lto_fd *fd,
    a real DIE present; false if the DIE was a null entry indicating
    the end of a list of sibling DIEs.  */
 static bool
-lto_read_DIE (lto_fd *fd, lto_context *context)
+lto_read_DIE (lto_info_fd *fd, lto_context *context)
 {
-  typedef void (*DIE_reader_fnptr)(lto_fd * fd,
+  typedef void (*DIE_reader_fnptr)(lto_info_fd * fd,
 				   const DWARF2_abbrev *abbrev,
 				   lto_context *context);
   /* Reader functions for the tags defined by DWARF 3.  */
@@ -1237,12 +1391,12 @@ lto_read_DIE (lto_fd *fd, lto_context *context)
   /* This DIE is not yet known to be a type.  */
   context->type = NULL_TREE;
   /* Read the abbreviation index.  */
-  index = lto_read_uleb128 (fd);
+  index = lto_read_uleb128 ((lto_fd *)fd);
   /* Zero indicates a null entry.  */
   if (!index)
     return false; 
   /* Get the actual abbreviation entry.  */
-  abbrev = lto_abbrev_lookup (&fd->file->debug_abbrev, index);
+  abbrev = lto_abbrev_lookup (&fd->base.file->debug_abbrev, index);
   /* Determine the DIE reader function.  */
   reader = NULL;
   if (abbrev->tag < sizeof (readers) / sizeof (DIE_reader_fnptr))
@@ -1276,7 +1430,7 @@ lto_read_DIE (lto_fd *fd, lto_context *context)
    reading anything.  Therefore, it is always safe to call this
    function from a DIE reader, after reading the DIE's attributes.  */
 static void
-lto_read_child_DIEs (lto_fd *fd, 
+lto_read_child_DIEs (lto_info_fd *fd, 
 		     const DWARF2_abbrev *abbrev,
 		     lto_context *context)
 {
@@ -1289,35 +1443,111 @@ lto_read_child_DIEs (lto_fd *fd,
     }
 }
 
+/* Read all the DWARF2 compile units from INFO_FD, placing them in
+   INFO_FD->UNITS.  */
+static void
+lto_info_read (lto_info_fd *info_fd)
+{
+  size_t num_units;
+  lto_fd *fd;
+  unsigned long offset;
+  size_t current_unit;
+
+  /* We should only read the compilation units once.  */
+  gcc_assert (!info_fd->units);
+  fd = (lto_fd *)info_fd;
+
+  /* Start reading from the beginning of the section.  */
+  fd->cur = fd->start;
+
+  num_units = 0;
+
+  /* Get the number of compilation units.  */
+  while (fd->cur < fd->end)
+    {
+      /* The compilation-unit header.  */ 
+      DWARF2_CompUnit cu;
+      const char *before_header = fd->cur;
+      
+      /* Read the compilation unit header.  */
+      lto_read_comp_unit_header (info_fd, &cu);
+
+      fd->cur = before_header + cu.cu_length;
+      num_units++;
+    }
+ 
+  info_fd->num_units = num_units;
+  info_fd->units = XCNEWVEC (DWARF2_CompUnit *, num_units);
+
+  /* Now read the actual compilation units.  */
+  fd->cur = fd->start;
+  offset = 0;
+  current_unit = 0;
+
+  /* Read the compilation units.  */
+  while (fd->cur < fd->end)
+    {
+      const char *before_header = fd->cur;
+      unsigned long header_length;
+      DWARF2_CompUnit *cu;
+
+      cu = XCNEW (DWARF2_CompUnit);
+      info_fd->units[current_unit] = cu;
+
+      /* Read the compilation unit header.  */
+      lto_read_comp_unit_header (info_fd, cu);
+          
+      header_length = fd->cur - before_header;
+      cu->cu_start_offset = offset + header_length;
+      cu->cu_header_length = header_length;
+
+      fd->cur = before_header + cu->cu_length;
+      offset = fd->cur - fd->start;
+      current_unit++;
+    }
+}
+
+/* Setup compile unit fields in CONTEXT from FD and UNIT */
+static void
+lto_set_cu_context (lto_context *context, lto_info_fd *fd,
+		    DWARF2_CompUnit *unit)
+{
+  context->cu_start = fd->base.start + unit->cu_start_offset;
+  context->cu_end = 
+    context->cu_start + unit->cu_length - unit->cu_header_length;
+  context->cu = unit;
+}
+
 bool
 lto_file_read (lto_file *file)
 {
+  size_t i;
   /* The descriptor for the .debug_info section.  */
   lto_fd *fd;
 
   /* Read the abbreviation entries.  */
   lto_abbrev_read (&file->debug_abbrev);
-  
-  /* Start reading from the beginning of the section.  */
-  fd = &file->debug_info;
-  fd->cur = fd->start;
+  /* Read the compilation units.  */
+  lto_info_read (&file->debug_info);
 
-  /* Read compilation units until there are no more.  */
-  while (fd->cur < fd->end)
+  fd = &file->debug_info.base;
+
+  for (i = 0; i < file->debug_info.num_units; i++)
     {
-      /* The compilation-unit header.  */ 
-      DWARF2_Internal_CompUnit cu;
+      /* The current compilation unit.  */
+      DWARF2_CompUnit *unit = file->debug_info.units[i];
       /* The context information for this compilation unit.  */
       lto_context context;
-      /* Read the compilation unit header.  */
-      context.cu_start = fd->cur;
-      lto_read_comp_unit_header (fd, &cu);
-      context.cu_end = context.cu_start + cu.cu_length;
+
+      /* Set up the context.  */
+      lto_set_cu_context (&context, &file->debug_info, unit);
+      fd->cur = context.cu_start;
       context.scope = NULL_TREE;
       context.type = NULL_TREE;
+
       /* Read DIEs.  */
       while (fd->cur < context.cu_end)
-	lto_read_DIE (fd, &context);
+	lto_read_DIE (&file->debug_info, &context);
     }
 
   return true;
@@ -1336,7 +1566,7 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       file = lto_elf_file_open (in_fnames[i]);
       if (!file)
 	break;
-      gcc_assert (file->debug_info.start);
+      gcc_assert (file->debug_info.base.start);
       gcc_assert (file->debug_abbrev.base.start);
       if (!lto_file_read (file))
 	break;

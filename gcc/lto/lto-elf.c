@@ -196,7 +196,7 @@ lto_elf_file_open (const char *filename)
       
       /* Check to see if this is one of the sections of interest.  */
       if (strcmp (name, ".debug_info") == 0)
-	fd = &result->debug_info;
+	fd = (lto_fd *) &result->debug_info;
       else if (strcmp (name, ".debug_abbrev") == 0)
 	fd = (lto_fd *) &result->debug_abbrev;
       else
@@ -221,7 +221,7 @@ lto_elf_file_open (const char *filename)
       fd->end = fd->start + data->d_size;
     }
 
-  if (!result->debug_info.start 
+  if (!((lto_fd *) (&result->debug_info))->start
       || !((lto_fd *) (&result->debug_abbrev))->start)
     {
       error ("could not read DWARF debugging information");

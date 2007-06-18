@@ -1,3 +1,47 @@
+2006-07-02  Daniel Berlin  <dberlin@dberlin.org>
+
+	* lto.c (lto_context): Add current_cu and info_fd members.
+	(DWARF2_CompUnit): New structure.
+	(lto_read_DIE): Take lto_info_fd *.
+	(lto_read_child_DIEs): Ditto.
+	(lto_file_corrupt_error): Constify argument.
+	(lto_set_cu_context): New function
+	(lto_info_fd_init): Ditto.
+	(lto_info_fd_close): Ditto.
+	(lto_file_init): Use lto_info_fd_init.
+	(lto_file_close): Use lto_info_fd_close.
+	(lto_read_initial_length): Pass in pointer to header size.
+	(lto_read_comp_unit_header): Correct cu_length to
+	real length from beginning of header.  Take lto_info_fd * as
+	argument.
+	(find_cu_for_offset): New function.
+	(lto_read_form): Change first argument to lto_info_fd *.
+	Add FORM_CONTEXT argument.
+	Handle DW_FORM_ref_addr.
+	(lto_read_tag_DIE): Change first argument to lto_info_fd *.	
+	(LTO_BEGIN_READ_ATTRS_UNCHECKED): Save old context.
+	Swap contexts if necessary for form.
+	(LTO_BEGIN_READ_ATTRS): Cast fd to right type for
+	lto_file_corrupt_error.
+	(LTO_END_READ_ATTRS): Swap contexts back if it had changed.
+	(lto_read_referenced_type_DIE): Change first argument to
+	lto_info_fd *.  Access lto_fd fields through base pointer.
+	(lto_read_compile_unit_DIE): Change first argument to an
+	lto_info_fd *.
+	(lto_read_variable_formal_parameter_constant_DIE): Ditto.
+	(lto_read_base_type_DIE): Ditto.
+	(lto_read_child_DIEs): Ditto.
+	(lto_read_DIE): Ditto.  Change type of function pointer.
+	(lto_info_read): New function.
+	(lto_set_cu_context): Ditto.
+	(lto_file_read): Use lto_info_read, walk resulting CU's
+	(lto_main): Update for lto_info_fd change.
+	* lto-elf.c (lto_elf_file_open): Cast lto_info_fd to lto_fd where
+	necessary.
+	* lto.h (DWARF2_CompUnit): New structure.
+	(lto_info_fd): Ditto.
+	(lto_file): Change debug_info to be an lto_info_fd.
+	
 2006-06-25  Mark Mitchell  <mark@codesourcery.com>
 
 	* lto.c (toplev.h): Include it.
