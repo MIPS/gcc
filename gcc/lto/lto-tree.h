@@ -67,4 +67,7 @@ union lang_tree_node GTY(
 /* Vector to keep track of external variables we've seen so far.  */
 extern GTY(()) VEC(tree,gc) *lto_global_var_decls;
 
+/* Cookie for DWARF DW_TAG_unspecified_parameters.  */
+extern GTY(()) tree lto_varargs_cookie;
+
 #endif /* GCC_LTO_TREE_H */

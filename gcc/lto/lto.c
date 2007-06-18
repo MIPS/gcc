@@ -161,6 +161,12 @@ struct DWARF2_CompUnit
   unsigned char cu_pointer_size;
 };
 
+/* Variables */
+
+/* Cookie for DWARF DW_TAG_unspecified_parameters.  All we need is a uniquely
+   identifiable object; it doesn't need to carry any information.  */
+tree lto_varargs_cookie;
+
 /* Forward Declarations */
 
 static hashval_t
@@ -1774,8 +1780,10 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
   bool external;
   VEC(tree,heap) *parms;
   unsigned n_parms;
-  unsigned i;
+  unsigned n_children;
+  unsigned i, j;
   bool prototyped;
+  bool varargs_p;
   tree result;
   int inlined = DW_INL_not_inlined;
 
@@ -1857,17 +1865,35 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
     sorry ("support for unprototyped functions not yet implemented");
 
   parms = lto_collect_child_DIEs (fd, abbrev, context);
-  n_parms = VEC_length (tree, parms);
-  arg_types = make_tree_vec (n_parms + (prototyped ? 1 : 0));
-  for (i = 0; i < n_parms; ++i)
+
+  /* Per the DWARF spec, the children can include "other entries used
+     by formal parameter entries, such as types", as well as parameters
+     and a DW_TAG_unspecified_parameters to indicate varargs.  So we need
+     one loop over the children to count the number of actual parameters
+     and another to assemble the parameter type vector.  */
+  n_children = VEC_length (tree, parms);
+  n_parms = 0;
+  varargs_p = !prototyped;
+  for (i = 0; i < n_children; ++i)
     {
       tree parm = VEC_index (tree, parms, i);
-      if (TREE_CODE (parm) != PARM_DECL)
-	lto_file_corrupt_error ((lto_fd *)fd);
-      TREE_VEC_ELT (arg_types, i) = TREE_TYPE (parm);
+      if (parm == lto_varargs_cookie)
+	varargs_p = true;
+      else if (TREE_CODE (parm) == PARM_DECL)
+	n_parms++;
     }
-  if (prototyped)
-    TREE_VEC_ELT (arg_types, n_parms) = void_type_node;
+  arg_types = make_tree_vec (n_parms + (varargs_p ? 0 : 1));
+  for (i = 0, j = 0; i < n_children; ++i)
+    {
+      tree parm = VEC_index (tree, parms, i);
+      if (TREE_CODE (parm) == PARM_DECL)
+	{
+	  TREE_VEC_ELT (arg_types, j) = TREE_TYPE (parm);
+	  j++;
+	}
+    }
+  if (!varargs_p)
+    TREE_VEC_ELT (arg_types, j) = void_type_node;
   VEC_free (tree, heap, parms);
 
   /* Build the function type.  */
@@ -1924,6 +1950,20 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
     }
 
   return result;
+}
+
+static tree
+lto_read_unspecified_parameters_DIE (lto_info_fd *fd,
+				     const DWARF2_abbrev *abbrev,
+				     lto_context *context)
+{
+  gcc_assert (abbrev->tag == DW_TAG_unspecified_parameters);
+  LTO_BEGIN_READ_ATTRS ()
+    {
+    }
+  LTO_END_READ_ATTRS ();
+  lto_read_child_DIEs (fd, abbrev, context);
+  return lto_varargs_cookie;
 }
 
 static tree
@@ -2206,7 +2246,7 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
       lto_read_subroutine_type_subprogram_DIE,
       NULL, /* typedef */
       NULL, /* union_type */
-      NULL, /* unspecified_parameters */
+      lto_read_unspecified_parameters_DIE,
       NULL, /* variant */
       NULL, /* common_block */
       NULL, /* common_inclusion */

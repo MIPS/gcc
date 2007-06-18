@@ -161,6 +161,7 @@ lto_init (void)
 
   /* Initialize LTO-specific data structures.  */
   lto_global_var_decls = VEC_alloc (tree, gc, 256);
+  lto_varargs_cookie = tree_cons (NULL_TREE, NULL_TREE, NULL_TREE);
 
   return true;
 }
