@@ -173,3 +173,10 @@ lto_symtab_merge_var (tree new_var)
 
   return old_var;
 }
+
+tree
+lto_symtab_merge_fn (tree new_fn)
+{
+  /* ??? For now, assume all functions are distinct.  */
+  return new_fn;
+}

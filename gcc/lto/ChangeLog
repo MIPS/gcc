@@ -1,3 +1,27 @@
+2006-09-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* lto.h (lto_file_vtable): New structure.
+	(lto_file): Add vtable pointer.
+	(lto_file_init): Add vtable paramter.
+	(lto_read_function_body): New function.
+	(lto_symtab_merge_fn): New function.
+	* lto.c (lto_file_init): Add vtable parameter.
+	(lto_read_form): Fill in entries for DW_AT_prototyped,
+	DW_AT_frame_base.
+	(lto_read_subroutine_type_subprogram_DIE): New function.
+	(lto_read_DIE): Fill in entries for DW_TAG_subroutine_type and
+	DW_TAG_subprogram.
+	* lto-elf.c (lto_elf_vile_vtable): New variable.
+	(lto_elf_file_open): Pass it to lto_file_init.
+	(lto_elf_map_fn_body): New function.
+	(lto_elf_unmap_fn_body): Likewise.
+	* lto-read.c: New file.
+	* lto-symtab.c (lto_symtab_merge_fn): New function.
+	* lto-lang.c (LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION): Define to
+	tree_rest_of_compilation.
+	* Make-lang.in (LTO_OBJS): Add lto-read.o
+	(lto-read.o): New target.
+
 2006-09-03  Mark Mitchell  <mark@codesourcery.com>
 
 	* lto.c (<inttypes.h>): Don't include it.

@@ -252,8 +252,11 @@ lto_abbrev_fd_close (lto_abbrev_fd *fd)
 
 /* Initialize FILE, an LTO file object for FILENAME.  */
 void
-lto_file_init (lto_file *file, const char *filename)
+lto_file_init (lto_file *file, 
+	       const lto_file_vtable *vtable,
+	       const char *filename)
 {
+  file->vtable = vtable;
   file->filename = filename;
   lto_info_fd_init (&file->debug_info, ".debug_info", file);
   lto_abbrev_fd_init (&file->debug_abbrev, ".debug_abbrev", file);
@@ -719,7 +722,7 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_error, /* padding */
     DW_cl_string, /* producer */
     DW_cl_error, /* padding */
-    DW_cl_error, /* prototyped */
+    DW_cl_flag, /* prototyped */
     DW_cl_error, /* padding */
     DW_cl_error, /* padding */
     DW_cl_error, /* return_addr */
@@ -744,7 +747,7 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_error, /* discr_list */
     DW_cl_constant, /* encoding */
     DW_cl_flag, /* external */
-    DW_cl_error, /* frame_base */
+    DW_cl_block | DW_cl_loclistptr, /* frame_base */
     DW_cl_error, /* friend */
     DW_cl_error, /* identifier_case */
     DW_cl_error, /* macro_info */
@@ -1750,6 +1753,159 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 }
 
 static tree
+lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
+					 const DWARF2_abbrev *abbrev,
+					 lto_context *context)
+{
+  tree ret_type;
+  tree arg_types;
+  tree type;
+  tree name;
+  bool external;
+  VEC(tree,heap) *parms;
+  unsigned n_parms;
+  unsigned i;
+  bool prototyped;
+  tree result;
+
+  gcc_assert (abbrev->tag == DW_TAG_subroutine_type
+	      || abbrev->tag == DW_TAG_subprogram);
+
+  ret_type = NULL_TREE;
+  prototyped = false;
+  name = NULL_TREE;
+  external = false;
+
+  if (abbrev->tag == DW_TAG_subroutine_type)
+    {
+      LTO_BEGIN_READ_ATTRS ()
+	{
+	case DW_AT_type:
+	  ret_type = lto_read_referenced_type_DIE (fd,
+						   context,
+						   attr_data.u.reference);
+	  break;
+
+	case DW_AT_prototyped:
+	  prototyped = attr_data.u.flag;
+	  break;
+	}
+      LTO_END_READ_ATTRS ();
+    }
+  else
+    {
+      LTO_BEGIN_READ_ATTRS ()
+	{
+	case DW_AT_decl_column:
+	case DW_AT_decl_file:
+	case DW_AT_decl_line:
+	  /* Ignore.  */
+	  break;
+
+	case DW_AT_low_pc:
+	case DW_AT_high_pc:
+	case DW_AT_ranges:
+	case DW_AT_frame_base:
+	  /* Ignore.  */
+	  break;
+
+	case DW_AT_name:
+	  name = lto_get_identifier (&attr_data);
+	  break;
+
+	case DW_AT_external:
+	  external = attr_data.u.flag;
+	  break;
+
+	case DW_AT_type:
+	  ret_type = lto_read_referenced_type_DIE (fd,
+						   context,
+						   attr_data.u.reference);
+	  break;
+
+	case DW_AT_prototyped:
+	  prototyped = attr_data.u.flag;
+	  break;
+	}
+      LTO_END_READ_ATTRS ();
+    }
+
+
+  /* The DWARF3 specification says that a return type is only
+     specified for functions that return a value.  Therefore,
+     functions without an explicit return type return "void".  */
+  if (!ret_type)
+    ret_type = void_type_node;
+ 
+  if (!prototyped)
+    sorry ("support for unprototyped functions not yet implemented");
+
+  parms = lto_collect_child_DIEs (fd, abbrev, context);
+  n_parms = VEC_length (tree, parms);
+  arg_types = make_tree_vec (n_parms + prototyped ? 1 : 0);
+  for (i = 0; i < n_parms; ++i)
+    {
+      tree parm = VEC_index (tree, parms, i);
+      if (TREE_CODE (parm) != PARM_DECL)
+	lto_file_corrupt_error ((lto_fd *)fd);
+      TREE_VEC_ELT (arg_types, i) = TREE_TYPE (parm);
+    }
+  if (prototyped)
+    TREE_VEC_ELT (arg_types, n_parms) = void_type_node;
+  VEC_free (tree, heap, parms);
+
+  /* Build the function type.  */
+  type = build_function_type (ret_type, arg_types);
+  if (abbrev->tag == DW_TAG_subroutine_type)
+    result = type;
+  else
+    {
+      void *body;
+      lto_file *file;
+      const char *name_str;
+
+      if (!name)
+	lto_file_corrupt_error ((lto_fd *)fd);
+
+      result = build_decl (FUNCTION_DECL, name, type);
+      TREE_PUBLIC (result) = external;
+      /* Load the body of the function.  */
+      file = fd->base.file;
+      body = file->vtable->map_fn_body (file, name_str);
+      if (body)
+	{
+	  /* This function has a definition.  */
+	  TREE_STATIC (result) = 1;
+	  DECL_EXTERNAL (result) = 0;
+	}
+      else
+	DECL_EXTERNAL (result) = 1;
+      /* If the function has already been declared, merge the
+	 declarations.  */
+      result = lto_symtab_merge_fn (result);
+      if (result != error_mark_node)
+	{
+	  if (body)
+	    {
+	      DECL_RESULT (result)
+		= build_decl (RESULT_DECL, NULL_TREE,
+			      TYPE_MAIN_VARIANT (ret_type));
+	      allocate_struct_function (result);
+	      lto_read_function_body (fd, context, result, body);
+	      file->vtable->unmap_fn_body (file, name_str, body);
+	    }
+	  rest_of_decl_compilation (result,
+				    /*top_level=*/1,
+				    /*at_end=*/0);
+	  if (body)
+	    cgraph_finalize_function (result, /*nested=*/false);
+	}
+    }
+
+  return result;
+}
+
+static tree
 lto_read_pointer_type_DIE (lto_info_fd *fd,
 			   const DWARF2_abbrev *abbrev,
 			   lto_context *context)
@@ -1998,7 +2154,7 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
       NULL, /* string_type */
       NULL, /* structure_type */
       NULL, /* padding */
-      NULL, /* subroutine_type */
+      lto_read_subroutine_type_subprogram_DIE,
       NULL, /* typedef */
       NULL, /* union_type */
       NULL, /* unspecified_parameters */
@@ -2023,7 +2179,7 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
       NULL, /* namelist */
       NULL, /* namelist_item */
       NULL, /* packed_type */
-      NULL, /* subprogram */
+      lto_read_subroutine_type_subprogram_DIE,
       NULL, /* template_type_param */
       NULL, /* template_value_param */
       NULL, /* thrown_type */
