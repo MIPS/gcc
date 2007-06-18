@@ -412,6 +412,8 @@ process_flags (tree expr, unsigned HOST_WIDE_INT flags)
 #define START_EXPR_CASE(code)    case code:
 #define ADD_EXPR_FLAG(flag_name) { expr->common. flag_name = (flags >> CLEAROUT);  flags <<= 1; }
 #define ADD_DECL_FLAG(flag_name) { expr->decl_common. flag_name = flags >> CLEAROUT; flags <<= 1; }
+#define ADD_VIS_FLAG(flag_name)  { expr->decl_with_vis. flag_name = (flags >> CLEAROUT); flags <<= 1; }
+#define ADD_FUNC_FLAG(flag_name) { expr->function_decl. flag_name = (flags >> CLEAROUT); flags <<= 1; }
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                 \
     default:                              \
@@ -430,6 +432,8 @@ process_flags (tree expr, unsigned HOST_WIDE_INT flags)
 #undef START_EXPR_CASE
 #undef ADD_EXPR_FLAG
 #undef ADD_DECL_FLAG
+#undef ADD_VIS_FLAG
+#undef ADD_FUNC_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
 }
@@ -1231,6 +1235,8 @@ lto_static_init_local (void)
 #define START_EXPR_CASE(code)    case code:
 #define ADD_EXPR_FLAG(flag_name)    num_flags_for_code[code]++;
 #define ADD_DECL_FLAG(flag_name)    num_flags_for_code[code]++;
+#define ADD_VIS_FLAG(flag_name)     num_flags_for_code[code]++;
+#define ADD_FUNC_FLAG(flag_name)    num_flags_for_code[code]++;
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                     \
           default:                            \
@@ -1250,6 +1256,8 @@ lto_static_init_local (void)
 #undef START_EXPR_CASE
 #undef ADD_EXPR_FLAG
 #undef ADD_DECL_FLAG
+#undef ADD_VIS_FLAG
+#undef ADD_FUNC_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
 

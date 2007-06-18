@@ -616,6 +616,8 @@ output_tree_flags (struct output_block *ob, tree expr)
 #define START_EXPR_CASE(code)    case code:
 #define ADD_EXPR_FLAG(flag_name) { flags <<= 1; if (expr->common. flag_name ) flags |= 1; }
 #define ADD_DECL_FLAG(flag_name) { flags <<= 1; if (expr->decl_common. flag_name ) flags |= 1; }
+#define ADD_VIS_FLAG(flag_name)  { flags <<= 1; if (expr->decl_with_vis. flag_name ) flags |= 1; }
+#define ADD_FUNC_FLAG(flag_name) { flags <<= 1; if (expr->function_decl. flag_name ) flags |= 1; }
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                 \
     default:                              \
@@ -634,6 +636,8 @@ output_tree_flags (struct output_block *ob, tree expr)
 #undef START_EXPR_CASE
 #undef ADD_EXPR_FLAG
 #undef ADD_DECL_FLAG
+#undef ADD_VIS_FLAG
+#undef ADD_FUNC_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
 
