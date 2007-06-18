@@ -2434,9 +2434,16 @@ lto_read_typedef_DIE (lto_info_fd *fd,
     }
   LTO_END_READ_ATTRS ();
 
-  /* The DW_AT_type and DW_AT_name attributes are required.  */
-  if (!base_type || !name)
+  /* The DW_AT_name attribute is required.  */
+  if (!name)
     lto_file_corrupt_error ((lto_fd *)fd);
+  /* The DW_AT_type attribute is supposed to be required, but since DWARF
+     has no representation for the void type, dwarf2out.c omits the type
+     attribute in that case.  So, in order to allow GCC's output to be
+     read in again, we have to interpret a missing base type attribute as
+     the void type, too.  */
+  if (!base_type)
+    base_type = void_type_node;
   /* Build the typedef.  */
   type = build_variant_type_copy (base_type);
   decl = build_decl (TYPE_DECL, name, type);
