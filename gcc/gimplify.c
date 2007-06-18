@@ -2609,7 +2609,7 @@ gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value,
     {
       /* tmp = memcpy() */
       t = create_tmp_var (TREE_TYPE (to_ptr), NULL);
-      GS_CALL_LHS (gs) = t;
+      gs_call_set_lhs (gs, t);
       gs_add (gs, seq_p);
 
       *expr_p = build1 (INDIRECT_REF, TREE_TYPE (to), t);
@@ -2643,7 +2643,7 @@ gimplify_modify_expr_to_memset (tree *expr_p, tree size, bool want_value,
     {
       /* tmp = memset() */
       t = create_tmp_var (TREE_TYPE (to_ptr), NULL);
-      GS_CALL_LHS (gs) = t;
+      gs_call_set_lhs (gs, t);
       gs_add (gs, seq_p);
 
       *expr_p = build1 (INDIRECT_REF, TREE_TYPE (to), t);

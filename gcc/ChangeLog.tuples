@@ -1,3 +1,62 @@
+2007-06-18  Chris Matthews  <chrismatthews@google.com>
+     
+     * gcc/Makefile.in (GTFILES): Added gimeple-ir.h.
+     
+     * gcc/gimple-ir.c (gs_build_return, gs_build_call, gs_build_assign): 
+     Changed to use new accessors.
+     
+     (gs_build_cond, gs_build_label, gs_build_goto, gs_build_nop, gs_build_bind
+     gs_build_asm, gs_build_catch, gs_build_eh_filter, gs_build_try, 
+     gs_build_phi, gs_build_resx, gs_build_switch, gs_omp_build_critical,
+     gs_omp_build_for, gs_omp_build_parallel, gs_omp_build_section, 
+     gs_omp_build_master, gs_omp_build_ordered, gs_omp_continue, 
+     gs_omp_build_ordered, gs_omp_build_return, gs_omp_build_sections, 
+     gs_omp_build_single): New functions.
+     
+     * gcc/gimple-ir.h (struct gimple_statement_switch): Changed default label
+     to be in labels[0].
+     
+     (struct gimple_statement_asm): Corrected the allocation length.
+     
+     (enum gs_cond): New enum.
+     
+     (gs_assign_set_operand): Changed to work with new accessors.
+     (gs_assign_operand_lhs, gs_assign_operand_rhs, gs_assign_operand_set_lhs, 
+     gs_assign_set_rhs, gs_assign_operand_rhs2, gs_assign_set_rhs2, gs_call_fn, 
+     gs_call_set_fn, gs_call_lhs, gs_call_set_lhs, gs_call_chain, 
+     gs_call_set_chain, gs_call_nargs, gs_call_set_nargs, gs_call_arg,
+     gs_call_set_arg, gs_cond_lhs, gs_cond_set_lhs, gs_cond_rhs, 
+     gs_cond_set_rhs, gs_cond_true_label, gs_cond_set_true_label, 
+     gs_cond_set_false_label, gs_cond_false_label, gs_label_label, 
+     gs_label_set_label, gs_goto_dest, gs_goto_set_dest, gs_bind_vars, 
+     gs_bind_set_vars, gs_bind_body, gs_bind_set_body, gs_asm_ni, gs_asm_set_ni,
+     gs_asm_no, gs_asm_set_no, gs_asm_nc, gs_asm_set_nc, gs_asm_in_op, 
+     gs_asm_set_in_op, gs_asm_out_op, gs_asm_set_out_op, gs_asm_clobber_op,
+     gs_asm_set_clobber_op, gs_asm_string, gs_asm_set_string, gs_catch_types,
+     gs_catch_handler, gs_catch_set_types, gs_catch_set_handler, 
+     gs_eh_filter_types, gs_eh_filter_failure, gs_eh_filter_set_types,
+     gs_eh_filter_set_failure, gs_try_eval, gs_try_cleanup, gs_try_set_eval,
+     gs_try_set_cleanup, gs_phi_capacity, gs_phi_set_capacity, gs_phi_nargs,
+     gs_phi_set_nargs, gs_phi_result, gs_phi_set_result, gs_phi_arg, 
+     gs_phi_set_arg, gs_resx_region, gs_resx_set_region, gs_switch_nlabels,
+     gs_switch_set_nlabels, gs_switch_index, gs_switch_set_index, 
+     gs_switch_default_label, gs_switch_set_default_label, gs_switch_label,
+     gs_switch_set_label, gs_omp_body, gs_omp_set_body, gs_omp_critical_name,
+     gs_omp_critical_set_name, gs_omp_for_clauses, gs_omp_for_set_clauses,
+     gs_omp_for_index, gs_omp_for_set_index, gs_omp_for_initial, 
+     gs_omp_for_set_initial, gs_omp_for_final, gs_omp_for_set_final, 
+     gs_omp_for_incr, gs_omp_for_set_incr, gs_omp_for_pre_body, 
+     gs_omp_for_set_pre_body, gs_omp_parallel_clauses, 
+     gs_omp_parallel_set_clauses, gs_omp_parallel_child_fn, 
+     gs_omp_parallel_set_child_fn, gs_omp_parallel_data_arg,
+     gs_omp_parallel_set_data_arg, gs_omp_single_clauses, 
+     gs_omp_single_set_clauses, gs_omp_sections_clauses, 
+     gs_omp_sections_set_clauses, gs_assign_omp_for_cond, gs_omp_for_cond
+     gs_return_set_retval, gs_add_subcode_flag): New accessor functions.
+     
+     (gs_return_retval): Renamed gs_return_operand_retval to match accessor 
+     conventions.
+
 2007-05-31  Aldy Hernandez  <aldyh@redhat.com>
 
         * gimple-ir.c (gs_build_call): New.

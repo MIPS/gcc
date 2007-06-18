@@ -38,6 +38,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Local functions, macros and variables.  */
 static int op_prio (tree);
 static const char *op_symbol (tree);
+static const char *pred_symbol_code (enum gs_cond);
 static void pretty_print_string (pretty_printer *, const char*);
 static void print_call_name (pretty_printer *, tree);
 static void newline_and_indent (pretty_printer *, int);
@@ -2151,20 +2152,20 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 	switch (gss)
 	  {
 	  case GSS_ASSIGN_BINARY:
-	    dump_generic_node (buffer, GS_ASSIGN_BINARY_RHS1 (gs), spc,
+	    dump_generic_node (buffer, gs_assign_operand_rhs (gs), spc,
 			       flags, false);
 	    pp_space (buffer);
-	    pp_string (buffer, op_symbol_code (GS_SUBCODE_FLAGS (gs)));
+	    pp_string (buffer, pred_symbol_code (GS_SUBCODE_FLAGS (gs)));
 	    pp_space (buffer);
-	    dump_generic_node (buffer, GS_ASSIGN_BINARY_RHS2 (gs), spc,
+	    dump_generic_node (buffer, gs_assign_operand_rhs2 (gs), spc,
 			       flags, false);
 	    break;
 	  case GSS_ASSIGN_UNARY_REG:
-	    dump_generic_node (buffer, GS_ASSIGN_UNARY_REG_RHS (gs), spc,
+	    dump_generic_node (buffer, gs_assign_operand_rhs (gs), spc,
 			       flags, false);
 	    break;
 	  case GSS_ASSIGN_UNARY_MEM:
-	    dump_generic_node (buffer, GS_ASSIGN_UNARY_MEM_RHS (gs), spc,
+	    dump_generic_node (buffer, gs_assign_operand_rhs (gs), spc,
 			       flags, false);
 	    break;
 	  default:
@@ -2175,7 +2176,7 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       }
     case GS_RETURN:
       pp_string (buffer, "return");
-      t = GS_RETURN_OPERAND_RETVAL (gs);
+      t = *gs_return_retval(gs);
       if (t)
 	{
 	  pp_space (buffer);
@@ -3191,4 +3192,28 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
 
   if (flags & TDF_BLOCKS)
     dump_bb_end (buffer, bb, indent, flags);
+}
+/* Get the string representation of a gs_cond P.  */
+
+static const char *
+pred_symbol_code(enum gs_cond p)
+{
+  switch (p)
+    {
+    case COND_LT:
+      return "<";
+    case COND_LE:
+      return "<=";
+    case COND_GE:
+      return ">=";
+    case COND_GT:
+      return ">";
+    case COND_EQ:
+      return "==";
+    case COND_NE:
+      return "!=";
+    default:
+      gcc_unreachable();
+    return NULL;
+    }
 }
