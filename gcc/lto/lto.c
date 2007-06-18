@@ -603,6 +603,8 @@ lto_read_comp_unit_header (lto_info_fd *fd,
   cu->cu_version = lto_read_uhalf (basefd);
   cu->cu_abbrev_offset = lto_read_section_offset (basefd);
   cu->cu_pointer_size = lto_read_ubyte (basefd);
+  if (cu->cu_pointer_size * BITS_PER_UNIT != POINTER_SIZE)
+    lto_abi_mismatch_error ();
 }
 
 /* Find the compilation unit in FD that contains the DWARF2 DIE
@@ -818,8 +820,12 @@ lto_read_form (lto_info_fd *info_fd,
   switch (form)
     {
     case DW_FORM_addr:
+      /* Addresses are not useful without relocation info, so just skip
+	 over the appropriate number of bytes.  */
       out->cl = DW_cl_address;
-      fd->dwarf64 ? lto_read_udword (fd) : lto_read_uword (fd);
+      fd->cur += context->cu->cu_pointer_size;
+      if (fd->cur > context->cu_end)
+	lto_file_corrupt_error (fd);
       break;
 
     case DW_FORM_string:
