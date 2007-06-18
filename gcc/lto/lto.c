@@ -2047,6 +2047,7 @@ lto_read_base_type_DIE (lto_info_fd *fd,
   bool have_size;
   int size;
   tree type;
+  int bits;
 
   name = NULL_TREE;
   have_encoding = false;
@@ -2083,18 +2084,45 @@ lto_read_base_type_DIE (lto_info_fd *fd,
 
   lto_read_child_DIEs (fd, abbrev, context);
 
+  bits = (BITS_PER_UNIT * size);
+
   /* Build the type.  */
   switch (encoding)
     {
-    case DW_ATE_signed:
     case DW_ATE_unsigned:
-      {
-	int bits;
-	bits = (BITS_PER_UNIT * size);
-	type = build_nonstandard_integer_type (bits,
-					       encoding == DW_ATE_unsigned);
-      }
+      type = build_nonstandard_integer_type (bits, 1);
       break;
+
+    case DW_ATE_signed:
+      type = build_nonstandard_integer_type (bits, 0);
+      break;
+      
+    case DW_ATE_unsigned_char:
+      type = build_nonstandard_integer_type (bits, 1);
+      TYPE_STRING_FLAG (type) = 1;
+      break;
+
+    case DW_ATE_signed_char:
+      type = build_nonstandard_integer_type (bits, 0);
+      TYPE_STRING_FLAG (type) = 1;
+      break;
+
+    case DW_ATE_boolean:
+      type = build_nonstandard_integer_type (bits, 1);
+      TREE_SET_CODE (type, BOOLEAN_TYPE);
+      TYPE_MAX_VALUE (type) = build_int_cst (type, 1);
+      TYPE_PRECISION (type) = 1;
+      break;
+
+    case DW_ATE_float:
+      type = make_node (REAL_TYPE);
+      TYPE_PRECISION (type) = bits;
+      layout_type (type);
+      break;
+
+    case DW_ATE_decimal_float:
+    case DW_ATE_complex_float:
+    case DW_ATE_lo_user:  
     default:
       sorry ("unsupported base type encoding");
       break;
