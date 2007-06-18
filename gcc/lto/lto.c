@@ -251,6 +251,15 @@ lto_file_corrupt_error (const lto_fd *fd)
 	       "%qs section", fd->name);
 }
 
+/* Issue an error indicating that the ABI used to compile the object
+   file does not match that currently in use by the LTO front end.  */
+static void
+lto_abi_mismatch_error (void)
+{
+  fatal_error ("ABI for object file does not match current "
+	       "compilation options");
+}
+
 /* Define a function:
 
      static C_TYPE 
@@ -409,7 +418,7 @@ lto_abbrev_read_attrs (lto_abbrev_fd *abbrev_fd, DWARF2_attr *attrs)
 static void
 lto_abbrev_read (lto_abbrev_fd *abbrev_fd)
 {
-  size_t num_abbrevs;
+  size_t num_abbrevs = 0;
   unsigned pass;
   lto_fd *fd;
   
@@ -640,7 +649,7 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_error, /* decl_column */
     DW_cl_constant, /* decl_file */
     DW_cl_constant, /* decl_line */
-    DW_cl_error, /* declaration */
+    DW_cl_flag, /* declaration */
     DW_cl_error, /* discr_list */
     DW_cl_constant, /* encoding */
     DW_cl_flag, /* external */
@@ -824,7 +833,7 @@ lto_read_form (lto_info_fd *info_fd,
 
 	out->cl = DW_cl_reference;
 	out->u.reference 
-	  = ((*form_context)->cu_start - (*form_context)->cu->cu_header_length
+	  = ((*form_context)->cu_start
 	     + lto_check_size_t_val (offset, "offset too large"));
 	if (out->u.reference >= (*form_context)->cu_end)
 	  lto_file_corrupt_error (fd);
@@ -1134,6 +1143,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
   tree name;
   tree type;
   bool external;
+  bool declaration;
   enum tree_code code;
   tree decl;
 
@@ -1144,6 +1154,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
   name = NULL_TREE;
   type = NULL_TREE;
   external = false;
+  declaration = false;
   code = ERROR_MARK;
   decl = NULL_TREE;
 
@@ -1174,6 +1185,9 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
       break;
 
     case DW_AT_declaration:
+      declaration = attr_data.u.flag;
+      break;
+
     case DW_AT_specification:
     case DW_AT_variable_parameter:
     case DW_AT_is_optional:
@@ -1201,6 +1215,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
     }
   decl = build_decl (code, name, type);
   TREE_PUBLIC (decl) = external;
+  DECL_EXTERNAL (decl) = declaration;
   if (!context->scope || TREE_CODE (context->scope) != FUNCTION_DECL)
     TREE_STATIC (decl) = 1;
   else
@@ -1209,12 +1224,50 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
        use the same method for variables outside of function scopes,
        for consistency.  */
     sorry ("cannot determine storage duration of local variables");
+  /* If this variable has already been declared, merge the
+     declarations.  */
+  decl = lto_symtab_merge_var (decl);
   /* Let the middle end know about the new entity.  */
-  rest_of_decl_compilation (decl,
-			    /*top_level=*/1,
-			    /*at_end=*/0);
+  if (decl != error_mark_node)
+    rest_of_decl_compilation (decl,
+			      /*top_level=*/1,
+			      /*at_end=*/0);
 
   lto_read_child_DIEs (fd, abbrev, context);
+}
+
+static void
+lto_read_pointer_type_DIE (lto_info_fd *fd,
+			   const DWARF2_abbrev *abbrev,
+			   lto_context *context)
+{
+  tree pointed_to;
+  tree type;
+
+  LTO_BEGIN_READ_ATTRS ()
+    {
+    case DW_AT_type:
+      pointed_to = lto_read_referenced_type_DIE (fd, 
+						 context, 
+						 attr_data.u.reference);
+      break;
+
+    case DW_AT_byte_size:
+      if (attr_data.cl != DW_cl_constant
+	  || attr_data.u.constant * BITS_PER_UNIT != POINTER_SIZE)
+	lto_abi_mismatch_error ();
+      break;
+    }
+  LTO_END_READ_ATTRS ();
+
+  /* The DW_AT_type attribute is required.  */
+  if (!pointed_to)
+    lto_file_corrupt_error ((lto_fd *)fd);
+  /* Build the pointer type.  */
+  type = build_pointer_type (pointed_to);
+
+  /* Record the type for our caller.  */
+  context->type = type;
 }
 
 static void
@@ -1228,7 +1281,6 @@ lto_read_base_type_DIE (lto_info_fd *fd,
   bool have_size;
   uint64_t size;
   tree type;
-  tree decl;
 
   name = NULL_TREE;
   have_encoding = false;
@@ -1249,10 +1301,10 @@ lto_read_base_type_DIE (lto_info_fd *fd,
       break;
 
     case DW_AT_byte_size:
+      have_size = true;
       switch (attr_data.cl)
 	{
 	case DW_cl_constant:
-	  have_size = true;
 	  size = attr_data.u.constant;
 	  break;
 	default:
@@ -1283,22 +1335,25 @@ lto_read_base_type_DIE (lto_info_fd *fd,
 	bits = (BITS_PER_UNIT 
 		* lto_check_int_val (size,
 				     "size of base type too large"));
-	type = ((encoding == DW_ATE_signed) 
-		? make_signed_type 
-		: make_unsigned_type) (bits);
+	type = build_nonstandard_integer_type (bits,
+					       encoding == DW_ATE_unsigned);
       }
       break;
     default:
       sorry ("unsupported base type encoding");
       break;
     }
-  /* Set the name.  */
-  decl = build_decl (TYPE_DECL, name, type);
-  TYPE_NAME (type) = decl;
-  /* Let the middle end know about the type declaration.  */
-  rest_of_decl_compilation (decl, 
-			    /*top_level=*/1,
-			    /*at_end=*/0);
+  /* If this is a new type, declare it.  */
+  if (!TYPE_NAME (type))
+    {
+      tree decl;
+      decl = build_decl (TYPE_DECL, name, type);
+      TYPE_NAME (type) = decl;
+      /* Let the middle end know about the type declaration.  */
+      rest_of_decl_compilation (decl, 
+				/*top_level=*/1,
+				/*at_end=*/0);
+    }
  
   /* Record the type for our caller.  */
   context->type = type;
@@ -1332,7 +1387,7 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context)
       NULL, /* padding */
       NULL, /* member */
       NULL, /* padding */
-      NULL, /* pointer_type */
+      lto_read_pointer_type_DIE,
       NULL, /* reference_type */
       lto_read_compile_unit_DIE,
       NULL, /* string_type */
@@ -1512,9 +1567,9 @@ static void
 lto_set_cu_context (lto_context *context, lto_info_fd *fd,
 		    DWARF2_CompUnit *unit)
 {
-  context->cu_start = fd->base.start + unit->cu_start_offset;
-  context->cu_end = 
-    context->cu_start + unit->cu_length - unit->cu_header_length;
+  context->cu_start = 
+    fd->base.start + unit->cu_start_offset - unit->cu_header_length;
+  context->cu_end = context->cu_start + unit->cu_length;
   context->cu = unit;
 }
 
@@ -1541,7 +1596,7 @@ lto_file_read (lto_file *file)
 
       /* Set up the context.  */
       lto_set_cu_context (&context, &file->debug_info, unit);
-      fd->cur = context.cu_start;
+      fd->cur = context.cu_start + unit->cu_header_length;
       context.scope = NULL_TREE;
       context.type = NULL_TREE;
 
