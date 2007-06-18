@@ -64,4 +64,7 @@ union lang_tree_node GTY(
 #define LTO_IDENTIFIER_DECL(NODE)		\
   (LANG_IDENTIFIER_CAST (NODE)->decl)
 
+/* Vector to keep track of external variables we've seen so far.  */
+extern GTY(()) VEC(tree,gc) *lto_global_var_decls;
+
 #endif /* GCC_LTO_TREE_H */

@@ -30,6 +30,7 @@ Boston, MA 02110-1301, USA.  */
 #include "debug.h"
 #include "lto-tree.h"
 #include "lto.h"
+#include "toplev.h"
 
 /* Tables of information about tree codes.  */
 
@@ -116,6 +117,15 @@ lto_getdecls (void)
   gcc_unreachable ();
 }
 
+static void
+lto_write_globals (void)
+{
+  tree *vec = VEC_address (tree, lto_global_var_decls);
+  int len = VEC_length (tree, lto_global_var_decls);
+  emit_debug_global_declarations (vec, len);
+  VEC_free (tree, gc, lto_global_var_decls);
+}
+
 static tree
 lto_builtin_function (const char *name ATTRIBUTE_UNUSED,
 		      tree type ATTRIBUTE_UNUSED,
@@ -149,6 +159,9 @@ lto_init (void)
   /* Create other basic types.  */
   build_common_tree_nodes_2 (/*short_double=*/false);
 
+  /* Initialize LTO-specific data structures.  */
+  lto_global_var_decls = VEC_alloc (tree, gc, 256);
+
   return true;
 }
 
@@ -167,7 +180,7 @@ lto_init (void)
 #undef LANG_HOOKS_GETDECLS
 #define LANG_HOOKS_GETDECLS lto_getdecls
 #undef LANG_HOOKS_WRITE_GLOBALS
-#define LANG_HOOKS_WRITE_GLOBALS lhd_do_nothing
+#define LANG_HOOKS_WRITE_GLOBALS lto_write_globals
 #undef LANG_HOOKS_BUILTIN_FUNCTION
 #define LANG_HOOKS_BUILTIN_FUNCTION lto_builtin_function
 #undef LANG_HOOKS_INIT
