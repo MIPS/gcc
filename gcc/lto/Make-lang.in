@@ -85,10 +85,10 @@ lto/lto-elf.o: lto/lto-elf.c $(CONFIG_H) coretypes.h $(SYSTEM_H) \
 	toplev.h $(LTO_H) $(LTO_TAGS_H)
 lto/lto-symtab.o: lto/lto-symtab.c $(CONFIG_H) coretypes.h \
 	$(SYSTEM_H) toplev.h $(TREE_H) $(LTO_H) lto/lto-tree.h
-lto-read.o : lto-read.c $(CONFIG_H) $(SYSTEM_H) \
+lto/lto-read.o: lto/lto-read.c $(CONFIG_H) $(SYSTEM_H) \
 	coretypes.h $(TM_H) toplev.h $(TREE_H) $(EXPR_H) $(FLAGS_H) \
 	$(PARAMS_H) input.h $(VARRAY_H) $(HASHTAB_H) langhooks.h \
 	$(BASIC_BLOCK_H) tree-iterator.h tree-pass.h tree-flow.h \
 	$(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
 	except.h debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-tree-flags.def \
-	lto-tree-tags.def output.h dwarf2asm.h dwarf2out.h 
+	lto-tree-tags.def output.h dwarf2asm.h dwarf2out.h
