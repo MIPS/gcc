@@ -2236,6 +2236,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
   tree arg_types;
   tree type;
   tree name;
+  tree asm_name = NULL_TREE;
   bool external;
   VEC(tree,heap) *parms;
   unsigned n_parms;
@@ -2308,7 +2309,12 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 	case DW_AT_inline:
 	  inlined = attribute_value_as_int (&attr_data);
 	  break;
-	  
+
+        case DW_AT_MIPS_linkage_name:
+          /* Set the DECL_ASSEMBLER_NAME so we don't have to remangle
+             names in LTO.  */
+          asm_name = lto_get_identifier (&attr_data);
+          break;
 	}
       LTO_END_READ_ATTRS ();
     }
@@ -2385,6 +2391,10 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
       if (inlined == DW_INL_declared_inlined
 	  || inlined == DW_INL_declared_not_inlined)
 	DECL_DECLARED_INLINE_P (result) = 1;
+
+      /* Set the DECL_ASSEMBLER_NAME for the function from the
+         information in the DIE.  */
+      SET_DECL_ASSEMBLER_NAME (result, asm_name ? asm_name : name);
 
       /* If the function has already been declared, merge the
 	 declarations.  */
