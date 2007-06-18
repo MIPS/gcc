@@ -2596,15 +2596,23 @@ lto_read_base_type_DIE (lto_info_fd *fd,
   bool have_encoding;
   enum dwarf_type encoding;
   bool have_size;
+  bool have_offset;
+  bool have_bits;
   int size;
   tree type;
   int bits;
+  int offset;
+  int maxbits;
 
   name = NULL_TREE;
   have_encoding = false;
   encoding = DW_ATE_void;
   have_size = false;
   size = 0;
+  have_bits = false;
+  bits = 0;
+  have_offset = false;
+  offset = 0;
   type = NULL_TREE;
 
   LTO_BEGIN_READ_ATTRS ()
@@ -2624,8 +2632,13 @@ lto_read_base_type_DIE (lto_info_fd *fd,
       break;
 
     case DW_AT_bit_size:
+      have_bits = true;
+      bits = attribute_value_as_int (&attr_data);
+      break;
+
     case DW_AT_bit_offset:
-      lto_unsupported_attr_error (abbrev, attr);
+      have_offset = true;
+      offset = attribute_value_as_int (&attr_data);
       break;
     }
   LTO_END_READ_ATTRS ();
@@ -2633,9 +2646,26 @@ lto_read_base_type_DIE (lto_info_fd *fd,
   if (!have_encoding || !have_size)
     lto_file_corrupt_error ((lto_fd *)fd);
 
-  lto_read_child_DIEs (fd, abbrev, context);
+  /* The DWARF spec implies that DW_AT_bit_size and DW_AT_bit_offset go
+     together as a pair.  We only support the case where integral types are
+     aligned in the low order bits of its containing word, which is how
+     dwarf2out.c encodes types with "weird" precisions.  */
+  maxbits = BITS_PER_UNIT * size;
+  if (have_offset && have_bits)
+    {
+      if (bits > maxbits)
+	lto_file_corrupt_error ((lto_fd *)fd);
+      if (encoding != DW_ATE_unsigned && encoding != DW_ATE_signed)
+	sorry ("bit size attribute only supported for signed/unsigned types");
+      if (offset != maxbits - bits)
+	sorry ("unaligned base type not supported");
+    }
+  else if (have_offset || have_bits)
+    lto_file_corrupt_error ((lto_fd *)fd);
+  else
+    bits = maxbits;
 
-  bits = (BITS_PER_UNIT * size);
+  lto_read_child_DIEs (fd, abbrev, context);
 
   /* Build the type.  */
   switch (encoding)
