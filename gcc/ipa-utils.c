@@ -104,7 +104,7 @@ searchc (struct searchc_env* env, struct cgraph_node *v)
       struct cgraph_node *w = edge->callee;
       /* Bypass the clones and only look at the master node.  Skip
 	 external and other bogus nodes.  */
-      w = cgraph_master_clone (w);
+      w = cgraph_master_clone (w, true);
       if (w && w->aux) 
 	{
 	  w_info = w->aux;
@@ -171,7 +171,7 @@ ipa_utils_reduced_inorder (struct cgraph_node **order,
   
   for (node = cgraph_nodes; node; node = node->next) 
     if ((node->analyzed)
-	&& (cgraph_is_master_clone (node) 
+	&& (cgraph_is_master_clone (node, true) 
 	 || (allow_overwritable 
 	     && (cgraph_function_body_availability (node) == 
 		 AVAIL_OVERWRITABLE))))
