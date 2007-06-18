@@ -25,12 +25,14 @@ Boston, MA 02110-1301, USA.  */
 /* Included files.  */
 
 #include "hashtab.h"
+#include <inttypes.h>
 
 /* Forward Declarations */
 
 typedef struct lto_file lto_file;
 typedef struct DWARF2_abbrev DWARF2_abbrev;
 typedef struct DWARF2_CompUnit DWARF2_CompUnit;
+typedef struct lto_context lto_context;
 
 /* Types */
 
@@ -87,6 +89,15 @@ struct lto_file
   lto_abbrev_fd debug_abbrev;
 };
 
+/* A reference to a global entity (type, variable, or function).  */
+typedef struct lto_ref
+{
+  /* The DWARF compilation unit containing the entity.  */
+  unsigned section;
+  /* The offset of the DIE corresponding to the entity.  */
+  uint64_t offset;
+} lto_ref;
+
 /* lto.c */
  
 /* Read all of the input object files, generate a TREE representation
@@ -107,6 +118,21 @@ extern void lto_file_close (lto_file *file);
    merge the two entities.  Returns TRUE iff FILE was successfully
    processed.  */
 extern bool lto_file_read (lto_file *file);
+
+/* Return the TYPE referred to by REF.  */
+extern tree lto_resolve_type_ref (lto_info_fd *info_fd,
+				  lto_context *context,
+				  const lto_ref *ref);
+
+/* Return the VAR_DECL referred to by REF.  */
+extern tree lto_resolve_var_ref (lto_info_fd *info_fd,
+				 lto_context *context,
+				 const lto_ref *ref);
+
+/* Return the FUNCTION_DECL referred to by REF.  */
+extern tree lto_resolve_fn_ref (lto_info_fd *info_fd,
+				lto_context *context,
+				const lto_ref *ref);
 
 /* lto-elf.c */
 

@@ -30,7 +30,6 @@ Boston, MA 02110-1301, USA.  */
 #include "cgraph.h"
 #include "ggc.h"
 #include "lto.h"
-#include <inttypes.h>
 
 /* References 
 
@@ -112,7 +111,7 @@ typedef struct DWARF2_form_data
 
 /* Information passed from parent DIEs to child DIEs to give context
    about the current location in the scope tree.  */
-typedef struct lto_context
+struct lto_context
 {
   /* The start of the current compilation unit info.  This is right
      *after* the header, at the beginning of the DIE entries, so if
@@ -130,7 +129,7 @@ typedef struct lto_context
   /* If the last DIE read (with lto_read_DIE) was a type, then this
      field is the type.  NULL otherwise.  */
   tree type;
-} lto_context;
+};
 
 /* We can't use DWARF_Internal_CompUnit because it does not track the
    offset from the beginning of debug_info, which is necessary for
@@ -584,6 +583,38 @@ find_cu_for_offset (const lto_info_fd *fd,
   return fd->units[first - 1];
 }
 
+/* Resolve a reference to the DIE at offset OFFSET.  Returns a pointer
+   to the DIE, as mapped into memory.  Sets *NEW_CONTEXT to CONTEXT,
+   or to a newly allocated context corresponding to the DIE referred
+   to by OFFSET.  If *NEW_CONTEXT != CONTEXT upon return, the caller
+   must free *NEW_CONTEXT when it is no longer needed.  */
+static const char *
+lto_resolve_reference (lto_info_fd *info_fd,
+		       uint64_t offset,
+		       const lto_context *context,
+		       lto_context **new_context)
+{
+  DWARF2_CompUnit *cu;
+  const char *reference;
+
+  /* Swap context if necessary.  */
+  cu = find_cu_for_offset (info_fd, offset);
+  if (cu != context->cu)
+    {
+      *new_context = XCNEW (lto_context);
+      **new_context = *context;
+      lto_set_cu_context (*new_context, info_fd, cu);
+      context = *new_context;
+    }
+  /* Resolve reference.  */
+  reference = (context->cu_start
+	       + lto_check_size_t_val (offset, "offset too large"));
+  if (reference >= context->cu_end)
+    lto_file_corrupt_error ((lto_fd *)info_fd);
+
+  return reference;
+}
+
 /* Read the value of the attribute ATTR from INFO_FD.  CONTEXT is as for
    the DIE readers.  Upon return, *OUT contains the data read,
    and FORM_CONTEXT is the context necessary to do something with the
@@ -817,7 +848,6 @@ lto_read_form (lto_info_fd *info_fd,
     case DW_FORM_ref_addr:
       {
 	uint64_t offset;
-	DWARF2_CompUnit *cu;
 
 	/* The standard says 
 	   "In the 32-bit DWARF format, this offset is a 4-byte unsigned
@@ -828,26 +858,13 @@ lto_read_form (lto_info_fd *info_fd,
 	  offset = lto_read_uword (fd);
 	else
 	  offset = lto_read_udword (fd);
-	
-	cu = find_cu_for_offset (info_fd, offset);
-
-	/* Swap context if necessary.  */
-	if (cu != context->cu)
-	  {
-	    lto_context *new_context = XCNEW (lto_context);
-	    
-	    *new_context = *context;
-	    
-	    lto_set_cu_context (new_context, info_fd, cu);
-	    *form_context = new_context;
-	  }
 
 	out->cl = DW_cl_reference;
 	out->u.reference 
-	  = ((*form_context)->cu_start
-	     + lto_check_size_t_val (offset, "offset too large"));
-	if (out->u.reference >= (*form_context)->cu_end)
-	  lto_file_corrupt_error (fd);
+	  = lto_resolve_reference (info_fd,
+				   offset,
+				   context,
+				   form_context);
       }
       break;
 
@@ -1721,6 +1738,45 @@ lto_file_read (lto_file *file)
     }
 
   return true;
+}
+
+tree 
+lto_resolve_type_ref (lto_info_fd *info_fd,
+		      lto_context *context,
+		      const lto_ref *ref)
+{
+  const char *reference;
+  lto_context *new_context;
+  tree type;
+
+  /* At present, we only support a single DWARF section.  */
+  if (ref->section != 0)
+    lto_abi_mismatch_error ();
+  reference = lto_resolve_reference (info_fd, ref->offset, context,
+				     &new_context);
+  /* Resolve the reference.  */
+  type = lto_read_referenced_type_DIE (info_fd, context, reference);
+  /* Clean up.  */
+  if (new_context != context)
+    XDELETE (new_context);
+
+  return type;
+}
+
+tree 
+lto_resolve_var_ref (lto_info_fd *info_fd ATTRIBUTE_UNUSED,
+		     lto_context *context ATTRIBUTE_UNUSED,
+		     const lto_ref *ref ATTRIBUTE_UNUSED)
+{
+  abort ();
+}
+
+tree 
+lto_resolve_fn_ref (lto_info_fd *info_fd ATTRIBUTE_UNUSED,
+		    lto_context *context ATTRIBUTE_UNUSED,
+		    const lto_ref *ref ATTRIBUTE_UNUSED)
+{
+  abort ();
 }
 
 void
