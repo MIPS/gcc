@@ -1743,7 +1743,13 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
      declarations.  */
   decl = lto_symtab_merge_var (decl);
   /* Let the middle end know about the new entity.  */
-  if (decl != error_mark_node)
+  if (decl != error_mark_node
+      && TREE_CODE (decl) == VAR_DECL)
+    /* rest_of_decl_compilation won't handle PARM_DECLs or CONST_DECLs.
+       PARM_DECLs ought to be handled with their respective FUNCTION_DECL.
+       GCC never generates DW_TAG_constant, and otherwise uses CONST_DECL
+       only for enumeration constants, which are stored in the DWARF file
+       in a completely different way.  */
     rest_of_decl_compilation (decl,
 			      /*top_level=*/1,
 			      /*at_end=*/0);
@@ -1842,7 +1848,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 
   parms = lto_collect_child_DIEs (fd, abbrev, context);
   n_parms = VEC_length (tree, parms);
-  arg_types = make_tree_vec (n_parms + prototyped ? 1 : 0);
+  arg_types = make_tree_vec (n_parms + (prototyped ? 1 : 0));
   for (i = 0; i < n_parms; ++i)
     {
       tree parm = VEC_index (tree, parms, i);
@@ -1860,7 +1866,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
     result = type;
   else
     {
-      void *body;
+      const void *body;
       lto_file *file;
       const char *name_str;
 
@@ -1871,6 +1877,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
       TREE_PUBLIC (result) = external;
       /* Load the body of the function.  */
       file = fd->base.file;
+      name_str = IDENTIFIER_POINTER (name);
       body = file->vtable->map_fn_body (file, name_str);
       if (body)
 	{

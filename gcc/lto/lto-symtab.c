@@ -56,7 +56,9 @@ lto_symtab_merge_var (tree new_var)
   tree old_var;
   tree name;
 
-  gcc_assert (TREE_CODE (new_var) == VAR_DECL);
+  gcc_assert (TREE_CODE (new_var) == VAR_DECL
+	      || TREE_CODE (new_var) == PARM_DECL
+	      || TREE_CODE (new_var) == CONST_DECL);
   /* Variables with internal linkage do not need to be merged.  */
   if (!TREE_PUBLIC (new_var))
     return new_var;

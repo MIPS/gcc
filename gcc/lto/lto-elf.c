@@ -25,6 +25,7 @@ Boston, MA 02110-1301, USA.  */
 #include "toplev.h"
 #include "lto.h"
 #include "libelf.h"
+#include "lto-tags.h"
 
 /* An ELF input file.  */
 struct lto_elf_file 
@@ -35,16 +36,20 @@ struct lto_elf_file
   int fd;
   /* The libelf descriptor for the file.  */
   Elf *elf;
+  /* 32 or 64 bits? */
+  size_t bits;
+  /* Offset of string table used for section names.  */
+  size_t string_table_section_index;
 };
 typedef struct lto_elf_file lto_elf_file;
 
 /* Forward Declarations */
 
-static void *
+static const void *
 lto_elf_map_fn_body (lto_file *file, const char *fn);
 
 static void
-lto_elf_unmap_fn_body (lto_file *file, const char *fn, void *data);
+lto_elf_unmap_fn_body (lto_file *file, const char *fn, const void *data);
 
 /* The vtable for ELF input files.  */
 static const lto_file_vtable lto_elf_file_vtable = {
@@ -52,16 +57,104 @@ static const lto_file_vtable lto_elf_file_vtable = {
   lto_elf_unmap_fn_body
 };
 
+/* A helper function to find the section named SECTION_NAME in ELF_FILE, and
+   return its data.  Emits an appropriate error message and returns NULL
+   if a unique section with that name is not found.  */
+
+static Elf_Data *
+lto_elf_find_section_data (lto_elf_file *elf_file, const char *section_name)
+{
+  Elf_Scn *section, *result;
+  Elf_Data *data;
+  size_t bits = elf_file->bits;
+
+  result = NULL;
+  for (section = elf_getscn (elf_file->elf, 0);
+       section;
+       section = elf_nextscn (elf_file->elf, section)) 
+    {
+      size_t offset;
+      const char *name;
+
+      if (!section)
+	{
+	  error ("could not read section information: %s", elf_errmsg (0));
+	  return NULL;
+	}
+
+#define ELF_GET_SECTION_HEADER_NAME(N)					 \
+      do {								 \
+	Elf##N##_Shdr *section_header;					 \
+	section_header = elf##N##_getshdr (section);			 \
+	if (!section_header)						 \
+	  {								 \
+	    error ("could not read section header: %s", elf_errmsg (0)); \
+	    return NULL;						 \
+	  }								 \
+	offset = section_header->sh_name;				 \
+      } while (false)
+
+      switch (bits)
+	{
+	case 32:
+	  ELF_GET_SECTION_HEADER_NAME(32); 
+	  break;
+	case 64:
+	  ELF_GET_SECTION_HEADER_NAME(64);
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+
+#undef ELF_GET_SECTION_HEADER_NAME
+
+      /* Get the name of this section.  */
+      name = elf_strptr (elf_file->elf, elf_file->string_table_section_index, 
+			 offset);
+      if (!name)
+	{
+	  error ("could not read section name: %s", elf_errmsg (0));
+	  return NULL;
+	}
+      
+      /* Check to see if this is the section of interest.  */
+      if (strcmp (name, section_name) == 0)
+	{
+	  /* There should not be two debugging sections with the same
+	     name.  */
+	  if (result)
+	    {
+	      error ("duplicate %qs section", section_name);
+	      return NULL;
+	    }
+	  result = section;
+	}
+    }
+  if (! result)
+    {
+      error ("missing %qs section", section_name);
+      return NULL;
+    }
+
+  data = elf_getdata (result, NULL);
+  if (!data)
+    {
+      error ("could not read data: %s", elf_errmsg (0));
+      return NULL;
+    }
+  return data;
+}
+
 lto_file *
 lto_elf_file_open (const char *filename)
 {
   lto_elf_file *elf_file;
   size_t bits;
   const char *elf_ident;
-  size_t string_table_section_index;
   Elf_Scn *string_table_section;
-  Elf_Scn *section;
+  Elf_Data *data;
   lto_file *result;
+  lto_fd *fd;
 
   /* Set up.  */
   elf_file = XNEW (lto_elf_file);
@@ -116,6 +209,7 @@ lto_elf_file_open (const char *filename)
       error ("unsupported ELF file class");
       goto fail;
     }
+  elf_file->bits = bits;
 
   /* Check that the input file is a relocatable object file.  */
 #define ELF_CHECK_FILE_TYPE(N)						\
@@ -149,98 +243,28 @@ lto_elf_file_open (const char *filename)
 #undef ELF_CHECK_FILE_TYPE
 
   /* Read the string table used for section header names.  */
-  if (elf_getshstrndx (elf_file->elf, &string_table_section_index) == -1)
+  if (elf_getshstrndx (elf_file->elf, &elf_file->string_table_section_index) == -1)
     {
       error ("could not locate ELF string table: %s", elf_errmsg (0));
       goto fail;
     }
   string_table_section = elf_getscn (elf_file->elf, 
-				     string_table_section_index);
+				     elf_file->string_table_section_index);
 
   /* Find the .debug_info and .debug_abbrev sections.  */
-  for (section = elf_getscn (elf_file->elf, 0);
-       section;
-       section = elf_nextscn (elf_file->elf, section)) 
-    {
-      size_t offset;
-      const char *name;
-      lto_fd *fd;
-      Elf_Data *data;
+  data = lto_elf_find_section_data (elf_file, ".debug_info");
+  if (!data)
+    goto fail;
+  fd = (lto_fd *) &result->debug_info;
+  fd->start = (const char *) data->d_buf;
+  fd->end = fd->start + data->d_size;
 
-      if (!section)
-	{
-	  error ("could not read section information: %s", elf_errmsg (0));
-	  goto fail;
-	}
-
-#define ELF_GET_SECTION_HEADER_NAME(N)					 \
-      do {								 \
-	Elf##N##_Shdr *section_header;					 \
-	section_header = elf##N##_getshdr (section);			 \
-	if (!section_header)						 \
-	  {								 \
-	    error ("could not read section header: %s", elf_errmsg (0)); \
-	    goto fail;							 \
-	  }								 \
-	offset = section_header->sh_name;				 \
-      } while (false)
-
-      switch (bits)
-	{
-	case 32:
-	  ELF_GET_SECTION_HEADER_NAME(32); 
-	  break;
-	case 64:
-	  ELF_GET_SECTION_HEADER_NAME(64);
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-
-#undef ELF_GET_SECTION_HEADER_NAME
-
-      /* Get the name of this section.  */
-      name = elf_strptr (elf_file->elf, string_table_section_index, 
-			 offset);
-      if (!name)
-	{
-	  error ("could not read section name: %s", elf_errmsg (0));
-	  goto fail;
-	}
-      
-      /* Check to see if this is one of the sections of interest.  */
-      if (strcmp (name, ".debug_info") == 0)
-	fd = (lto_fd *) &result->debug_info;
-      else if (strcmp (name, ".debug_abbrev") == 0)
-	fd = (lto_fd *) &result->debug_abbrev;
-      else
-	continue;
-
-      /* There should not be two debugging sections with the same
-	 name.  */
-      if (fd->start)
-	{
-	  error ("duplicate %qs section", name);
-	  goto fail;
-	}
-
-      /* Read the data from the section.  */
-      data = elf_getdata (section, NULL);
-      if (!data)
-	{
-	  error ("could not read data: %s", elf_errmsg (0));
-	  goto fail;
-	}
-      fd->start = (const char *) data->d_buf;
-      fd->end = fd->start + data->d_size;
-    }
-
-  if (!((lto_fd *) (&result->debug_info))->start
-      || !((lto_fd *) (&result->debug_abbrev))->start)
-    {
-      error ("could not read DWARF debugging information");
-      goto fail;
-    }
+  data = lto_elf_find_section_data (elf_file, ".debug_abbrev");
+  if (!data)
+    goto fail;
+  fd = (lto_fd *) &result->debug_abbrev;
+  fd->start = (const char *) data->d_buf;
+  fd->end = fd->start + data->d_size;
 
   return result;
 
@@ -260,19 +284,27 @@ lto_elf_file_close (lto_file *file)
   lto_file_close (file);
 }
 
-void *
-lto_elf_map_fn_body (lto_file *file ATTRIBUTE_UNUSED, 
-		     const char *fn ATTRIBUTE_UNUSED)
+const void *
+lto_elf_map_fn_body (lto_file *file,
+		     const char *fn)
 {
-  /* ??? Look in the ELF file to find the actual data, which should be
+  /* Look in the ELF file to find the actual data, which should be
      in the section named LTO_SECTION_NAME_PREFIX || "the function name".  */
-  return (void *)0x1;
+  const char *name = concat (LTO_SECTION_NAME_PREFIX, fn, NULL);
+  Elf_Data *data = lto_elf_find_section_data ((lto_elf_file *)file, name);
+
+  free ((void *)name);
+
+  if (! data)
+    return NULL;
+  else
+    return (const void *)(data->d_buf);
 }
 
 void
 lto_elf_unmap_fn_body (lto_file *file ATTRIBUTE_UNUSED, 
 		       const char *fn ATTRIBUTE_UNUSED, 
-		       void *data ATTRIBUTE_UNUSED)
+		       const void *data ATTRIBUTE_UNUSED)
 {
   return;
 }

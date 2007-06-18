@@ -84,11 +84,11 @@ typedef struct lto_file_vtable
 {
   /* Return the address of the function-body data for the function
      named FN, or NULL if the data is not available.  */
-  void *(*map_fn_body)(lto_file *file, const char *fn);
+  const void *(*map_fn_body)(lto_file *file, const char *fn);
   /* DATA is the non-NULL address returned by a previous call to
      MAP_FN_BODY, with the same value of FN.  Release any resources
      allocated by MAP_FN_BODY.  */
-  void (*unmap_fn_body)(lto_file *file, const char *fn, void *data);
+  void (*unmap_fn_body)(lto_file *file, const char *fn, const void *data);
 } lto_file_vtable;
 
 /* An input file.  */
