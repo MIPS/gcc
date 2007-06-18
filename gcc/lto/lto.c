@@ -154,6 +154,12 @@ struct DWARF2_CompUnit
 
 /* Forward Declarations */
 
+static hashval_t
+lto_cache_hash (const void *data);
+
+static int
+lto_cache_eq (const void *data, const void *key);
+
 static bool
 lto_read_DIE (lto_info_fd *fd,
 	      lto_context *context);
@@ -190,6 +196,10 @@ lto_info_fd_init (lto_info_fd *fd, const char *name, lto_file *file)
   lto_fd_init ((lto_fd *) fd, name, file);
   fd->num_units = 0;
   fd->units = NULL;
+  fd->die_cache = htab_create (37,
+			       lto_cache_hash,
+			       lto_cache_eq,
+			       free);
 }
 
 /* Initialize FD, a newly allocated file descriptor for a DWARF2
@@ -208,6 +218,7 @@ lto_info_fd_close (lto_info_fd *fd)
 {
   size_t i;
 
+  htab_delete (fd->die_cache);
   for (i = 0; i < fd->num_units; ++i)
     XDELETE (fd->units[i]);
   XDELETEVEC (fd->units);
@@ -926,6 +937,73 @@ lto_read_form (lto_info_fd *info_fd,
   if (!(out->cl & attr_classes[name]))
     lto_file_corrupt_error (fd);
 }
+
+/* DIE Cache
+
+   Some DIEs (like those for types and declarations) may be referred
+   to explicitly, rather than just included in the DWARF tree.  So as
+   to avoid having to repeatedly process the same subtrees, we cache
+   the trees assocaited with DIEs.  The DIE cache is implemented as a
+   hash table, mapping in-memory DIE addresses to {TYPE,DECL}
+   nodes.  */
+
+typedef struct lto_die_cache_entry {
+  /* The DIE address.  */
+  const char *die;
+  /* The tree corresponding to this DIE.  */
+  tree val;
+} lto_die_cache_entry;
+
+static hashval_t
+lto_cache_hash (const void *data)
+{
+  const lto_die_cache_entry *entry = data;
+
+  return htab_hash_pointer (entry->die);
+}
+
+static int
+lto_cache_eq (const void *data, const void *key)
+{
+  const lto_die_cache_entry *entry = data;
+  
+  return entry->die == key;
+}
+
+/* Record the fact that DIE refers to VAL.  */
+static void
+lto_cache_store_DIE (lto_info_fd *fd,
+		     const char *die,
+		     tree val)
+{
+  void **slot;
+  lto_die_cache_entry *entry;
+
+  gcc_assert (TYPE_P (val) || DECL_P (val));
+  /* Find a place to put the cached value.  */
+  slot = htab_find_slot_with_hash (fd->die_cache, die, 
+				   htab_hash_pointer (die),
+				   INSERT);
+  /* There can only be one entry for a given DIE.  */
+  gcc_assert (!*slot);
+  /* Store the value.  */
+  entry = XNEW (lto_die_cache_entry);
+  entry->die = die;
+  entry->val = val;
+  *slot = entry;
+}
+
+/* If FD points to a DIE that has already been processed, returned the
+   cached value.  */
+static tree
+lto_cache_lookup_DIE (lto_info_fd *fd, const char *die)
+{
+  lto_die_cache_entry *entry;
+
+  entry = htab_find_with_hash (fd->die_cache, die, 
+			       htab_hash_pointer (die));
+  return entry ? entry->val : NULL_TREE;
+}  
    
 /* DIE Readers
  
@@ -1068,24 +1146,33 @@ lto_read_referenced_type_DIE (lto_info_fd *fd,
 			      const char *reference)
 {
   const char *saved_cur;
+  tree type;
 
   /* Check that the reference is in range.  We use an assert, rather
      than calling lto_file_corrupt_error, because REFERENCE should be
      checked for validity when it is read from the file.  */
   gcc_assert (reference >= context->cu_start
 	      && reference < context->cu_end);
-  /* Move the file pointer to the referenced location.  */
-  saved_cur = fd->base.cur;
-  fd->base.cur = reference;
-  /* Read the DIE, which we insist must be a type.  */
-  lto_read_DIE (fd, context);
+  type = lto_cache_lookup_DIE (fd, reference);
+  if (!type)
+    {
+      /* Move the file pointer to the referenced location.  */
+      saved_cur = fd->base.cur;
+      fd->base.cur = reference;
+      /* Read the DIE, which we insist must be a type.  */
+      lto_read_DIE (fd, context);
+      /* Restore the file pointer.  */
+      fd->base.cur = saved_cur;
+      type = context->type;
+      /* Clear CONTEXT->TYPE since we are just reading a reference to
+	 a type, not the DWARF subtree for a type.  */
+      context->type = NULL_TREE;
+    }
   /* The DIE read should have been a type.  */
-  if (!context->type)
+  if (!type || !TYPE_P (type))
     lto_file_corrupt_error ((lto_fd *)fd);
-  /* Restore the file pointer.  */
-  fd->base.cur = saved_cur;
 
-  return context->type;
+  return type;
 }
 
 static void
@@ -1265,9 +1352,10 @@ lto_read_pointer_type_DIE (lto_info_fd *fd,
     lto_file_corrupt_error ((lto_fd *)fd);
   /* Build the pointer type.  */
   type = build_pointer_type (pointed_to);
-
   /* Record the type for our caller.  */
   context->type = type;
+
+  lto_read_child_DIEs (fd, abbrev, context);
 }
 
 static void
@@ -1442,7 +1530,13 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context)
   uint64_t index;
   const DWARF2_abbrev *abbrev;
   DIE_reader_fnptr reader;
+  const char *die;
+  tree val;
+  bool skip;
 
+  /* Record the location of the current DIE -- before we change the
+     file pointer.  */
+  die = ((lto_fd *)fd)->cur;
   /* This DIE is not yet known to be a type.  */
   context->type = NULL_TREE;
   /* Read the abbreviation index.  */
@@ -1452,20 +1546,41 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context)
     return false; 
   /* Get the actual abbreviation entry.  */
   abbrev = lto_abbrev_lookup (&fd->base.file->debug_abbrev, index);
-  /* Determine the DIE reader function.  */
-  reader = NULL;
-  if (abbrev->tag < sizeof (readers) / sizeof (DIE_reader_fnptr))
-    reader = readers[abbrev->tag];
-  if (reader)
-    /* If there is a reader, use it.  */
-    reader (fd, abbrev, context);
+  /* Assume that we will need to skip over this DIE.  */
+  skip = true;
+  /* Check to see if this DIE has already been processed.  */
+  val = lto_cache_lookup_DIE (fd, die);
+  if (val)
+    {
+      if (TYPE_P (val))
+	context->type = val;
+    }
   else
     {
-      /* Aassume that all other tags matter, as we are otherwise at
-	 risk of silently generating wrong code.  If a tag can be
-	 safely ignored, it should be explicitly ignored above.  */
-      error ("DWARF tag " HOST_WIDEST_INT_PRINT_UNSIGNED " not "
-	     "supported by link-time optimization", abbrev->tag);
+      /* Determine the DIE reader function.  */
+      reader = NULL;
+      if (abbrev->tag < sizeof (readers) / sizeof (DIE_reader_fnptr))
+	reader = readers[abbrev->tag];
+      if (reader)
+	{
+	  /* If there is a reader, use it.  */
+	  reader (fd, abbrev, context);
+	  /* If this DIE refers to a type, cache the value so that future
+	     references to the type can be processed quickly.  */
+	  if (context->type)
+	    lto_cache_store_DIE (fd, die, context->type);
+	  skip = false;
+	}
+      else
+	/* Aassume that all other tags matter, as we are otherwise at
+	   risk of silently generating wrong code.  If a tag can be
+	   safely ignored, it should be explicitly ignored above.  */
+	error ("DWARF tag " HOST_WIDEST_INT_PRINT_UNSIGNED " not "
+	       "supported by link-time optimization", abbrev->tag);
+    }
+  /* Skip over this DIE if it has not already been processed.  */
+  if (skip)
+    {
       /* Read and ignore all attributes.  */
       LTO_BEGIN_READ_ATTRS_UNCHECKED ()
 	{

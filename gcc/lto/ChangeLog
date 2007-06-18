@@ -1,3 +1,22 @@
+2006-08-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* lto.c (lto_info_fd_init): Allocate the DIE cache.
+	(lto_info_fd_close): Deallocate it.
+	(lto_die_cache_entry): New structure.
+	(lto_cache_hash): New function.
+	(lto_cache_eq): Likewise.
+	(lto_cache_store_DIE): Likewise.
+	(lto_cache_lookup_DIE): Likewise.
+	(lto_read_referenced_type_DIE): Use the cache.
+	(lto_read_pointer_type_DIE): Robustify.
+	(lto_read_DIE): Use the cache.
+	* lto.h (hashtab.h): Include.
+	(lto_info_fd): Add DIE cache.
+	* Make-lang.in (LTO_H): New variable.
+	(lto/lto-lang.o): Use LTO_H.
+	(lto/lto-elf.o): Likewise.
+	(lto/lto-symtab.o): Likewise.
+
 2006-07-09  Mark Mitchell  <mark@codesourcery.com>
 
 	* lto.c (lto_abi_mismatch_error): New function.
