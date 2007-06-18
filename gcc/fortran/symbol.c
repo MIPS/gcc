@@ -3316,12 +3316,15 @@ static void
 gen_fptr_param (gfc_formal_arglist **head,
                 gfc_formal_arglist **tail,
                 const char *module_name,
-                gfc_namespace *ns)
+                gfc_namespace *ns, const char *f_ptr_name)
 {
   gfc_symbol *param_sym = NULL;
   gfc_symtree *param_symtree = NULL;
   gfc_formal_arglist *formal_arg = NULL;
   const char *f_ptr_out = "gfc_fptr__";
+
+  if (f_ptr_name != NULL)
+    f_ptr_out = f_ptr_name;
 
   gfc_get_sym_tree (f_ptr_out, ns, &param_symtree);
   if (param_symtree != NULL)
@@ -3356,13 +3359,16 @@ static void
 gen_shape_param (gfc_formal_arglist **head,
                  gfc_formal_arglist **tail,
                  const char *module_name,
-                 gfc_namespace *ns)
+                 gfc_namespace *ns, const char *shape_param_name)
 {
   gfc_symbol *param_sym = NULL;
   gfc_symtree *param_symtree = NULL;
   gfc_formal_arglist *formal_arg = NULL;
   const char *shape_param = "gfc_shape_array__";
   int i;
+
+  if (shape_param_name != NULL)
+    shape_param = shape_param_name;
 
   gfc_get_sym_tree (shape_param, ns, &param_symtree);
   if (param_symtree != NULL)
@@ -3449,16 +3455,16 @@ build_formal_args (gfc_symbol *new_proc_sym,
       (old_sym->intmod_sym_id == ISOCBINDING_F_PROCPOINTER))
     {
       gen_cptr_param (&head, &tail, (const char *) new_proc_sym->module,
-		      gfc_current_ns, NULL);
+		      gfc_current_ns, "cptr");
       gen_fptr_param (&head, &tail, (const char *) new_proc_sym->module,
-		      gfc_current_ns);
+		      gfc_current_ns, "fptr");
 
       /* If we're dealing with c_f_pointer, it has an optional third arg.  */
       if (old_sym->intmod_sym_id == ISOCBINDING_F_POINTER)
 	{
 	  gen_shape_param (&head, &tail,
 			   (const char *) new_proc_sym->module,
-			   gfc_current_ns);
+			   gfc_current_ns, "shape");
 	}
     }
   else if (old_sym->intmod_sym_id == ISOCBINDING_ASSOCIATED)

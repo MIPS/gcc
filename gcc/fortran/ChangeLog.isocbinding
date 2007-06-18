@@ -3,7 +3,14 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-06-18  Christopher D. Rickett  <crickett@lanl.gov>
+
+	* symbol.c (gen_fptr_param, gen_shape_param, build_formal_args):
+	Set names for CPTR, FPTR, and SHAPE parameters to
+	c_f_pointer/c_f_procpointer.
+
 2007-06-11  Christopher D. Rickett  <crickett@lanl.gov>
+
 	* symbol.c (check_conflict, gfc_copy_attr): Remove references to
 	in_proc_decl attribute.
 	(copy_formal_args): Removed because no longer necessary without
