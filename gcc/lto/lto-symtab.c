@@ -322,6 +322,8 @@ lto_symtab_merge_decl (tree new_decl)
 	     new_decl);
       return error_mark_node;
     }
+  /* FIXME: DWARF doesn't include a "weak" attribute, so where is that
+     info supposed to come from?  */
   if (!DECL_EXTERNAL (old_decl) && !DECL_EXTERNAL (new_decl)
       && !DECL_WEAK (old_decl) && !DECL_WEAK (new_decl)
       && !(TREE_CODE (new_decl) == FUNCTION_DECL
