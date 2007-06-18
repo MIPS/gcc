@@ -391,6 +391,10 @@
 #define LTO_local_var_decl_body0        0x0B0
 #define LTO_parm_decl_body0             0x0C0
 
+/* The string that is prepended on the DECL_ASSEMBLER_NAME to make the 
+   section name for the function.  */
+#define LTO_SECTION_NAME_PREFIX         ".lto_"
+
 extern sbitmap lto_types_needed_for;
 
 void lto_static_init (void);
