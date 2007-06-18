@@ -835,6 +835,15 @@ lto_read_form (lto_info_fd *info_fd,
 	}
       break;
 
+    case DW_FORM_strp:
+      /* Temporary hack:  we don't need the string data, but we do need
+     it not to crash if it sees one.  So just skip past the offset
+     and return an empty string.  */
+      out->cl = DW_cl_string;
+      fd->dwarf64 ? lto_read_uword (fd) : lto_read_udword (fd);
+      out->u.string = "";
+      break;
+
     case DW_FORM_data1:
     case DW_FORM_data2:
     case DW_FORM_data4:
@@ -2666,7 +2675,7 @@ lto_read_base_type_DIE (lto_info_fd *fd,
     case DW_ATE_complex_float:
     case DW_ATE_lo_user:  
     default:
-      sorry ("unsupported base type encoding");
+      sorry ("unsupported base type encoding - 0x%x", encoding);
       break;
     }
   /* If this is a new type, declare it.
@@ -2734,6 +2743,28 @@ lto_read_const_volatile_restrict_type_DIE (lto_info_fd *fd,
   return type;
 }
 
+static tree
+lto_read_unspecified_type_DIE (lto_info_fd *fd,
+			       const DWARF2_abbrev *abbrev,
+			       lto_context *context)
+{
+  tree type = NULL_TREE;
+
+  LTO_BEGIN_READ_ATTRS ()
+    {
+    case DW_AT_name:
+      gcc_assert (attr_data.cl == DW_cl_string);
+      if (strcmp (attr_data.u.string, "void") == 0)
+	type = void_type_node;
+      break;
+    }
+  LTO_END_READ_ATTRS ();
+
+  if (!type)
+    sorry ("unsupported use of DW_TAG_unspecified_type");
+  lto_read_child_DIEs (fd, abbrev, context);
+  return type;
+}
 
 /* Read the next DIE from FD.  CONTEXT provides information about the
    current state of the compilation unit.  Returns a (possibly null) TREE
@@ -2808,7 +2839,7 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
       NULL, /* interface_type */
       NULL, /* namespace */
       NULL, /* imported_module */
-      NULL, /* unspecified_type */
+      lto_read_unspecified_type_DIE, 
       NULL, /* partial_unit */
       NULL, /* imported_unit */
       NULL, /* padding */
@@ -3041,7 +3072,7 @@ lto_resolve_type_ref (lto_info_fd *info_fd,
 		      const lto_ref *ref)
 {
   const char *reference;
-  lto_context *new_context;
+  lto_context *new_context = context;
   tree type;
 
   /* At present, we only support a single DWARF section.  */

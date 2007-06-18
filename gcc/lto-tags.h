@@ -27,7 +27,7 @@
 #include "sbitmap.h"
 
 #define LTO_major_version 0
-#define LTO_minor_version 2
+#define LTO_minor_version 3
 
 /* This file is one header in a collection of files that write the
    gimple intermediate code for a function into the assembly stream
@@ -44,10 +44,11 @@
    3) FUNCTION_DECLS.
    4) global VAR_DECLS.
    5) types.
-   6) Gimple for local decls.
-   7) Gimple for the function.
-   8) Strings.
-   9) Redundant information to aid in debugging the stream.
+   6) Names for the labels that have names
+   7) Gimple for local decls.
+   8) Gimple for the function.
+   9) Strings.
+   10-12)Redundant information to aid in debugging the stream.
       This is only present if the compiler is built with
       LTO_STREAM_DEBUGGING defined.
 
@@ -60,17 +61,24 @@
 /* The is the first part of the record for a function in the .o file.  */
 struct lto_function_header
 {
-  int16_t major_version;     /* LTO_major_version. */
-  int16_t minor_version;     /* LTO_minor_version. */
-  int32_t num_field_decls;   /* Number of FIELD_DECLS.  */
-  int32_t num_fn_decls;      /* Number of FUNCTION_DECLS.  */
-  int32_t num_var_decls;     /* Number of non local VAR_DECLS.  */
-  int32_t num_types;         /* Number of types.  */
-  int32_t compressed_size;   /* Size compressed or 0 if not compressed.  */
-  int32_t local_decls_size;  /* Size of local par and var decl region. */
-  int32_t main_size;         /* Size of main gimple body of function.  */
-  int32_t string_size;       /* Size of the string table.  */
-}; 
+  int16_t major_version;      /* LTO_major_version. */
+  int16_t minor_version;      /* LTO_minor_version. */
+  int32_t num_field_decls;    /* Number of FIELD_DECLS.  */
+  int32_t num_fn_decls;       /* Number of FUNCTION_DECLS.  */
+  int32_t num_var_decls;      /* Number of non local VAR_DECLS.  */
+  int32_t num_types;          /* Number of types.  */
+  int32_t num_local_decls;    /* Number of local VAR_DECLS and PARM_DECLS.  */
+  int32_t num_named_labels;   /* Number of labels with names.  */
+  int32_t num_unnamed_labels; /* Number of labels without names.  */
+  int32_t compressed_size;    /* Size compressed or 0 if not compressed.  */
+  int32_t named_label_size;   /* Size of names for named labels.  */
+  int32_t local_decls_size;   /* Size of local par and var decl region. */
+  int32_t main_size;          /* Size of main gimple body of function.  */
+  int32_t string_size;        /* Size of the string table.  */
+  int32_t debug_decl_size;   /* Size of local decl debugging information.  */
+  int32_t debug_label_size;   /* Size of label stream debugging information.  */
+  int32_t debug_main_size;    /* Size of main stream debugging information.  */
+};
 
 /* 2-5) THE GLOBAL DECLS AND TYPES.
 
@@ -83,7 +91,16 @@ struct lto_function_header
      a label for the debugging section.  This will cause more work for
      the linker but will make ln -r work properly.
 
-   6-7) GIMPLE FOR THE LOCAL DECLS AND THE FUNCTION BODY.
+   6) THE LABEL NAMES.  
+
+      Since most labels do not have names, this section my be of zero
+      length.  It consists of an array of string table references, one
+      per label.  In the lto code, the labels are given either
+      positive or negative indexes.  the positive ones have names and
+      the negative ones do not.  The positive index can be used to
+      find the name in this array.
+
+   7-8) GIMPLE FOR THE LOCAL DECLS AND THE FUNCTION BODY.
 
      The gimple consists of a set of records.
 
@@ -99,7 +116,7 @@ struct lto_function_header
 	 type         - If the tree code has a bit set in
                         lto_types_needed_for, a reference to the type
 			is generated.  This reference is an index into
-                        (6).  The index is encoded in uleb128 form.
+                        (7).  The index is encoded in uleb128 form.
 
 	 flags        - The set of flags defined for this tree code
 		        packed into a word where the low order 2 bits
@@ -140,7 +157,7 @@ struct lto_function_header
 
      THE FUNCTION
 	
-     At the top level of (7) is the function. It consists of five
+     At the top level of (8) is the function. It consists of five
      pieces:
 
      LTO_function     - The tag.
@@ -194,14 +211,28 @@ struct lto_function_header
 			  to terminate the statements and exception
 			  regions within this block.
 
-   8) STRINGS
+   9) STRINGS
 
      String are represented in the table as pairs, a length in ULEB128
      form followed by the data for the string.
 
-   9) STREAM DEBUGGING
+   10) STREAM DEBUGGING
+     
+     If the preprocessor symbol LTO_STREAM_DEBUGGING is defined, the
+     gimple is encoded into .o file as two streams.  The first stream
+     is the normal data stream that is also created when the symbol is
+     undefined.  The second stream is a human readable character
+     string that describes a trace of the operations used to encode
+     the data stream.  This stream is created by calls in the 
+     code to LTO_DEBUG_* functions.
 
-     tbd
+     The lto reader uses the same set of functions when it reads the
+     data stream.  However, it's version of the lowest level compares
+     the debugging stream character by character with the one produced
+     by the writer.  When the reader sees a character that is not the
+     same one as produced by the writer, it dumps the stream to stderr
+     along with a pointer to the offending character.  At this point
+     it is easy to see if the bug is in the encoding or the decoding.
 */
 
 /* When we get a strongly typed gimple, this flag should be set to 0
@@ -334,17 +365,19 @@ struct lto_function_header
 #define LTO_unle_expr                   0x06B
 #define LTO_unlt_expr                   0x06C
 #define LTO_unordered_expr              0x070
-#define LTO_var_decl                    0x071
-#define LTO_vec_cond_expr               0x072
-#define LTO_vec_lshift_expr             0x073
-#define LTO_vec_rshift_expr             0x074
+/* 1 for static or extern and 0 for local.  */
+#define LTO_var_decl0                   0x071
+#define LTO_var_decl1                   0x072
+#define LTO_vec_cond_expr               0x073
+#define LTO_vec_lshift_expr             0x074
+#define LTO_vec_rshift_expr             0x075
 /* 1 if the elements are reals and 0 if the elements are ints.  */
-#define LTO_vector_cst0                 0x075
-#define LTO_vector_cst1                 0x076
-#define LTO_view_convert_expr           0x079
-#define LTO_widen_mult_expr             0x07A
-#define LTO_widen_sum_expr              0x07B
-#define LTO_with_size_expr              0x07C
+#define LTO_vector_cst0                 0x076
+#define LTO_vector_cst1                 0x077
+#define LTO_view_convert_expr           0x078
+#define LTO_widen_mult_expr             0x079
+#define LTO_widen_sum_expr              0x07A
+#define LTO_with_size_expr              0x07B
 
 
 /* All of the statement types that do not also appear as
@@ -355,8 +388,7 @@ struct lto_function_header
 
 #define LTO_function                    0x083
 #define LTO_attribute_list              0x084
-#define LTO_local_var_decl              0x085
-#define LTO_eh_table                    0x086
+#define LTO_eh_table                    0x085
 
 /* Each of these requires 4 variants.  1 and 3 are have_inner and 2
    and 3 are may_contain_throw.  */
@@ -388,20 +420,77 @@ struct lto_function_header
       variant |= DECL_SIZE_UNIT (decl)  != NULL_TREE ? 0x02 : 0;
       variant |= needs_backing_var                   ? 0x04 : 0;
       variant |= ABSTRACT_ORIGIN (decl) != NULL_TREE ? 0x08 : 0;
+
+   These next two tags must have their last hex digit be 0. 
 */
 
 #define LTO_local_var_decl_body0        0x0B0
 #define LTO_parm_decl_body0             0x0C0
-
+#define LTO_last_tag                    0x0CF
 /* The string that is prepended on the DECL_ASSEMBLER_NAME to make the 
    section name for the function.  */
-#define LTO_SECTION_NAME_PREFIX         ".lto_"
+#define LTO_SECTION_NAME_PREFIX         ".gnu.lto_"
 
 /* This bitmap is indexed by gimple type codes and contains a 1 if the 
    tree type needs to have the type written.  */
 extern sbitmap lto_types_needed_for;
 
-
+/* This bitmap is indexed by gimple type codes and contains a 1 if the 
+   tree type needs to have the flags written.  */
+extern sbitmap lto_flags_needed_for;
 
 void lto_static_init (void);
+
+#define LTO_STREAM_DEBUGGING
+
+#ifdef LTO_STREAM_DEBUGGING
+#define LTO_DEBUG_INDENT(tag) \
+  lto_debug_indent (&lto_debug_context, tag);
+#define LTO_DEBUG_INDENT_TOKEN(value) \
+  lto_debug_indent_token (&lto_debug_context, value);
+#define LTO_DEBUG_INTEGER(tag,high,low) \
+  lto_debug_integer (&lto_debug_context, tag, high, low);
+#define LTO_DEBUG_STRING(value,len) \
+  lto_debug_string (&lto_debug_context, value, len);
+#define LTO_DEBUG_TOKEN(value) \
+  lto_debug_token (&lto_debug_context, value);
+#define LTO_DEBUG_UNDENT() \
+  lto_debug_undent (&lto_debug_context);
+#define LTO_DEBUG_WIDE(tag,value) \
+  lto_debug_wide (&lto_debug_context, tag, value);
+
+struct lto_debug_context;
+
+typedef void (*lto_debug_out) (struct lto_debug_context *context, char c);
+
+struct lto_debug_context
+{
+  lto_debug_out out;
+  int indent;
+  void * current_data;
+  void * decl_data;
+  void * label_data;
+  void * main_data;
+};
+
+extern const char * LTO_tag_names[LTO_last_tag];
+
+extern void lto_debug_indent (struct lto_debug_context *, int);
+extern void lto_debug_indent_token (struct lto_debug_context *, const char *);
+extern void lto_debug_integer (struct lto_debug_context *, const char *, HOST_WIDE_INT, HOST_WIDE_INT);
+extern void lto_debug_string (struct lto_debug_context *, const char *, int);
+extern void lto_debug_token (struct lto_debug_context *, const char *);
+extern void lto_debug_undent (struct lto_debug_context *);
+extern void lto_debug_wide (struct lto_debug_context *, const char *, HOST_WIDE_INT);
+
+#else
+#define LTO_DEBUG_INDENT(tag)
+#define LTO_DEBUG_INDENT_TOKEN(value)
+#define LTO_DEBUG_INTEGER(tag,high,low)
+#define LTO_DEBUG_STRING(value,len)
+#define LTO_DEBUG_TOKEN(value)
+#define LTO_DEBUG_UNDENT()
+#define LTO_DEBUG_WIDE(tag,value)
+#endif
+
 #endif /* lto-tags.h */

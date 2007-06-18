@@ -32,28 +32,34 @@
       are in the block controlled by the preprocessor symbol
       TREE_SINGLE_MECHANICAL_TRUE.
 
-   3) The tree code whose portable form cannot be generated from the 
+   3) The tree codes whose portable form cannot be generated from the 
       tables but still have only a single variation.  These tags are
       in the block controlled by TREE_SINGLE_MECHANICAL_FALSE.
 
-   4) The set of tags where there are multiple lto records for a
+   4) The tree codes where there are multiple lto records for a
       single tree form.  These not only cannot be generated
       mechanically but there is a many to one mapping from the lto
-      record type to the tree code.  
-
-	BIT_FIELD_REF
-	CALL_EXPR
-	CASE_LABEL_EXPR
-	COMPLEX_CST
-	RETURN_EXPR
-	VECTOR_CST
-
+      record type to the tree code.  These tags are
+      in the block controlled by TREE_MULTIPLE.
 
    This file is used to generate case labels for the
    TREE_SINGLE_MECHANICAL_TRUE class and the lto record to tree_code
-   (and the reverse mapping) for TREE_SINGLE_MECHANICAL_TRUE and
+   for TREE_MULTIPLE for TREE_SINGLE_MECHANICAL_TRUE and
    TREE_SINGLE_MECHANICAL_FALSE classes.
-*/
+
+   The tree code to lto record mapping can be generated for
+   TREE_SINGLE_MECHANICAL_TRUE and TREE_SINGLE_MECHANICAL_FALSE
+   classes.  */
+
+#ifdef TREE_MULTIPLE
+  MAP_EXPR_TAGS(BIT_FIELD_REF, LTO_bit_field_ref0, 2)
+  MAP_EXPR_TAGS(CALL_EXPR, LTO_call_expr0, 2)
+  MAP_EXPR_TAGS(CASE_LABEL_EXPR, LTO_case_label_expr0, 4)
+  MAP_EXPR_TAGS(COMPLEX_CST, LTO_complex_cst0, 2)
+  MAP_EXPR_TAGS(RETURN_EXPR, LTO_return_expr0, 3)
+  MAP_EXPR_TAGS(VAR_DECL, LTO_var_decl0, 2)
+  MAP_EXPR_TAGS(VECTOR_CST, LTO_vector_cst0, 2)
+#endif
 
 #ifdef TREE_SINGLE_MECHANICAL_FALSE
   MAP_EXPR_TAG(ARRAY_RANGE_REF, LTO_array_range_ref)
@@ -67,7 +73,6 @@
   MAP_EXPR_TAG(INTEGER_CST, LTO_integer_cst)
   MAP_EXPR_TAG(LABEL_DECL, LTO_label_decl)
   MAP_EXPR_TAG(LABEL_EXPR, LTO_label_expr)
-  MAP_EXPR_TAG(MODIFY_EXPR, LTO_modify_expr)
   MAP_EXPR_TAG(PARM_DECL, LTO_parm_decl)
   MAP_EXPR_TAG(RANGE_EXPR, LTO_range_expr)
   MAP_EXPR_TAG(REAL_CST, LTO_real_cst)
@@ -76,8 +81,6 @@
   MAP_EXPR_TAG(SSA_NAME, LTO_ssa_name)
   MAP_EXPR_TAG(STRING_CST, LTO_string_cst)
   MAP_EXPR_TAG(SWITCH_EXPR, LTO_switch_expr)
-  MAP_EXPR_TAG(VAR_DECL, LTO_var_decl)
-  MAP_EXPR_TAG(WITH_SIZE_EXPR, LTO_with_size_expr)
 #endif /* TREE_SINGLE_MECHANICAL_FALSE */
 
 #ifdef TREE_SINGLE_MECHANICAL_TRUE
@@ -122,6 +125,7 @@
   MAP_EXPR_TAG(MIN_EXPR, LTO_min_expr)
   MAP_EXPR_TAG(MINUS_EXPR, LTO_minus_expr)
   MAP_EXPR_TAG(MISALIGNED_INDIRECT_REF, LTO_misaligned_indirect_ref)
+  MAP_EXPR_TAG(MODIFY_EXPR, LTO_modify_expr)
   MAP_EXPR_TAG(MULT_EXPR, LTO_mult_expr)
   MAP_EXPR_TAG(NE_EXPR, LTO_ne_expr)
   MAP_EXPR_TAG(NEGATE_EXPR, LTO_negate_expr)
@@ -158,5 +162,187 @@
   MAP_EXPR_TAG(VIEW_CONVERT_EXPR, LTO_view_convert_expr)
   MAP_EXPR_TAG(WIDEN_MULT_EXPR, LTO_widen_mult_expr)
   MAP_EXPR_TAG(WIDEN_SUM_EXPR, LTO_widen_sum_expr)
+  MAP_EXPR_TAG(WITH_SIZE_EXPR, LTO_with_size_expr)
 #endif /* TREE_SINGLE_MECHANICAL_TRUE  */
+
+#ifdef LTO_STREAM_DEBUGGING_INIT_NAMES
+  SET_NAME (LTO_bb0, "bb0")
+  SET_NAME (LTO_bb1, "bb1")
+  SET_NAME (LTO_set_eh0, "set_eh0")
+  SET_NAME (LTO_set_eh1, "set_eh1")
+  SET_NAME (LTO_abs_expr, "abs_expr")
+  SET_NAME (LTO_addr_expr, "addr_expr")
+  SET_NAME (LTO_align_indirect_ref, "align_indirect_ref")
+  SET_NAME (LTO_array_range_ref, "array_range_ref")
+  SET_NAME (LTO_array_ref, "array_ref")
+  SET_NAME (LTO_asm_expr, "asm_expr")
+  SET_NAME (LTO_assert_expr, "assert_expr")
+  SET_NAME (LTO_bit_and_expr, "bit_and_expr")
+  SET_NAME (LTO_bit_ior_expr, "bit_ior_expr")
+  SET_NAME (LTO_bit_field_ref0, "bit_field_ref0")
+  SET_NAME (LTO_bit_field_ref1, "bit_field_ref1")
+  SET_NAME (LTO_bit_not_expr, "bit_not_expr")
+  SET_NAME (LTO_bit_xor_expr, "bit_xor_expr")
+  SET_NAME (LTO_call_expr0, "call_expr0")
+  SET_NAME (LTO_call_expr1, "call_expr1")
+  SET_NAME (LTO_case_label_expr0, "case_label_expr0")
+  SET_NAME (LTO_case_label_expr1, "case_label_expr1")
+  SET_NAME (LTO_case_label_expr2, "case_label_expr2")
+  SET_NAME (LTO_case_label_expr3, "case_label_expr3")
+  SET_NAME (LTO_ceil_div_expr, "ceil_div_expr")
+  SET_NAME (LTO_ceil_mod_expr, "ceil_mod_expr")
+  SET_NAME (LTO_complex_cst0, "complex_cst0")
+  SET_NAME (LTO_complex_cst1, "complex_cst1")
+  SET_NAME (LTO_complex_expr, "complex_expr")
+  SET_NAME (LTO_component_ref, "component_ref")
+  SET_NAME (LTO_compound_expr, "compound_expr")
+  SET_NAME (LTO_cond_expr, "cond_expr")
+  SET_NAME (LTO_conj_expr, "conj_expr")
+  SET_NAME (LTO_const_decl, "const_decl")
+  SET_NAME (LTO_constructor, "constructor")
+  SET_NAME (LTO_constructor_range, "constructor_range")
+  SET_NAME (LTO_convert_expr, "convert_expr")
+  SET_NAME (LTO_dot_prod_expr, "dot_prod_expr")
+  SET_NAME (LTO_eq_expr, "eq_expr")
+  SET_NAME (LTO_exact_div_expr, "exact_div_expr")
+  SET_NAME (LTO_exc_ptr_expr, "exc_ptr_expr")
+  SET_NAME (LTO_field_decl, "field_decl")
+  SET_NAME (LTO_filter_expr, "filter_expr")
+  SET_NAME (LTO_fix_ceil_expr, "fix_ceil_expr")
+  SET_NAME (LTO_fix_floor_expr, "fix_floor_expr")
+  SET_NAME (LTO_fix_round_expr, "fix_round_expr")
+  SET_NAME (LTO_fix_trunc_expr, "fix_trunc_expr")
+  SET_NAME (LTO_float_expr, "float_expr")
+  SET_NAME (LTO_floor_div_expr, "floor_div_expr")
+  SET_NAME (LTO_floor_mod_expr, "floor_mod_expr")
+  SET_NAME (LTO_function_decl, "function_decl")
+  SET_NAME (LTO_ge_expr, "ge_expr")
+  SET_NAME (LTO_goto_expr, "goto_expr")
+  SET_NAME (LTO_gt_expr, "gt_expr")
+  SET_NAME (LTO_imagpart_expr, "imagpart_expr")
+  SET_NAME (LTO_indirect_ref, "indirect_ref")
+  SET_NAME (LTO_integer_cst, "integer_cst")
+  SET_NAME (LTO_label_decl, "label_decl")
+  SET_NAME (LTO_label_expr, "label_expr")
+  SET_NAME (LTO_le_expr, "le_expr")
+  SET_NAME (LTO_lrotate_expr, "lrotate_expr")
+  SET_NAME (LTO_lshift_expr, "lshift_expr")
+  SET_NAME (LTO_lt_expr, "lt_expr")
+  SET_NAME (LTO_ltgt_expr, "ltgt_expr")
+  SET_NAME (LTO_max_expr, "max_expr")
+  SET_NAME (LTO_min_expr, "min_expr")
+  SET_NAME (LTO_minus_expr, "minus_expr")
+  SET_NAME (LTO_misaligned_indirect_ref, "misaligned_indirect_ref")
+  SET_NAME (LTO_modify_expr, "modify_expr")
+  SET_NAME (LTO_mult_expr, "mult_expr")
+  SET_NAME (LTO_ne_expr, "ne_expr")
+  SET_NAME (LTO_negate_expr, "negate_expr")
+  SET_NAME (LTO_non_lvalue_expr, "non_lvalue_expr")
+  SET_NAME (LTO_nop_expr, "nop_expr")
+  SET_NAME (LTO_obj_type_ref, "obj_type_ref")
+  SET_NAME (LTO_ordered_expr, "ordered_expr")
+  SET_NAME (LTO_parm_decl, "parm_decl")
+  SET_NAME (LTO_plus_expr, "plus_expr")
+  SET_NAME (LTO_range_expr, "range_expr")
+  SET_NAME (LTO_rdiv_expr, "rdiv_expr")
+  SET_NAME (LTO_real_cst, "real_cst")
+  SET_NAME (LTO_realign_load_expr, "realign_load_expr")
+  SET_NAME (LTO_realpart_expr, "realpart_expr")
+  SET_NAME (LTO_reduc_max_expr, "reduc_max_expr")
+  SET_NAME (LTO_reduc_min_expr, "reduc_min_expr")
+  SET_NAME (LTO_reduc_plus_expr, "reduc_plus_expr")
+  SET_NAME (LTO_result_decl, "result_decl")
+  SET_NAME (LTO_return_expr0, "return_expr0")
+  SET_NAME (LTO_return_expr1, "return_expr1")
+  SET_NAME (LTO_return_expr2, "return_expr2")
+  SET_NAME (LTO_resx_expr, "resx_expr")
+  SET_NAME (LTO_round_div_expr, "round_div_expr")
+  SET_NAME (LTO_round_mod_expr, "round_mod_expr")
+  SET_NAME (LTO_rrotate_expr, "rrotate_expr")
+  SET_NAME (LTO_rshift_expr, "rshift_expr")
+  SET_NAME (LTO_ssa_name, "ssa_name")
+  SET_NAME (LTO_string_cst, "string_cst")
+  SET_NAME (LTO_switch_expr, "switch_expr")
+  SET_NAME (LTO_trunc_div_expr, "trunc_div_expr")
+  SET_NAME (LTO_trunc_mod_expr, "trunc_mod_expr")
+  SET_NAME (LTO_truth_and_expr, "truth_and_expr")
+  SET_NAME (LTO_truth_not_expr, "truth_not_expr")
+  SET_NAME (LTO_truth_or_expr, "truth_or_expr")
+  SET_NAME (LTO_truth_xor_expr, "truth_xor_expr")
+  SET_NAME (LTO_uneq_expr, "uneq_expr")
+  SET_NAME (LTO_unge_expr, "unge_expr")
+  SET_NAME (LTO_ungt_expr, "ungt_expr")
+  SET_NAME (LTO_unle_expr, "unle_expr")
+  SET_NAME (LTO_unlt_expr, "unlt_expr")
+  SET_NAME (LTO_unordered_expr, "unordered_expr")
+  SET_NAME (LTO_var_decl0, "var_decl0")
+  SET_NAME (LTO_var_decl1, "var_decl1")
+  SET_NAME (LTO_vec_cond_expr, "vec_cond_expr")
+  SET_NAME (LTO_vec_lshift_expr, "vec_lshift_expr")
+  SET_NAME (LTO_vec_rshift_expr, "vec_rshift_expr")
+  SET_NAME (LTO_vector_cst0, "vector_cst0")
+  SET_NAME (LTO_vector_cst1, "vector_cst1")
+  SET_NAME (LTO_view_convert_expr, "view_convert_expr")
+  SET_NAME (LTO_widen_mult_expr, "widen_mult_expr")
+  SET_NAME (LTO_widen_sum_expr, "widen_sum_expr")
+  SET_NAME (LTO_with_size_expr, "with_size_expr")
+  SET_NAME (LTO_asm_inputs, "asm_inputs")
+  SET_NAME (LTO_asm_outputs, "asm_outputs")
+  SET_NAME (LTO_asm_clobbers, "asm_clobbers")
+  SET_NAME (LTO_function, "function")
+  SET_NAME (LTO_attribute_list, "attribute_list")
+  SET_NAME (LTO_eh_table, "eh_table")
+  SET_NAME (LTO_eh_table_cleanup0, "eh_table_cleanup0")
+  SET_NAME (LTO_eh_table_cleanup1, "eh_table_cleanup1")
+  SET_NAME (LTO_eh_table_cleanup2, "eh_table_cleanup2")
+  SET_NAME (LTO_eh_table_cleanup3, "eh_table_cleanup3")
+  SET_NAME (LTO_eh_table_try0, "eh_table_try0")
+  SET_NAME (LTO_eh_table_try1, "eh_table_try1")
+  SET_NAME (LTO_eh_table_try2, "eh_table_try2")
+  SET_NAME (LTO_eh_table_try3, "eh_table_try3")
+  SET_NAME (LTO_eh_table_catch0, "eh_table_catch0")
+  SET_NAME (LTO_eh_table_catch1, "eh_table_catch1")
+  SET_NAME (LTO_eh_table_catch2, "eh_table_catch2")
+  SET_NAME (LTO_eh_table_catch3, "eh_table_catch3")
+  SET_NAME (LTO_eh_table_allowed0, "eh_table_allowed0")
+  SET_NAME (LTO_eh_table_allowed1, "eh_table_allowed1")
+  SET_NAME (LTO_eh_table_allowed2, "eh_table_allowed2")
+  SET_NAME (LTO_eh_table_allowed3, "eh_table_allowed3")
+  SET_NAME (LTO_eh_table_must_not_throw0, "eh_table_must_not_throw0")
+  SET_NAME (LTO_eh_table_must_not_throw1, "eh_table_must_not_throw1")
+  SET_NAME (LTO_eh_table_must_not_throw2, "eh_table_must_not_throw2")
+  SET_NAME (LTO_eh_table_must_not_throw3, "eh_table_must_not_throw3")
+  SET_NAME (LTO_local_var_decl_body0+0x0, "local_var_decl_body0")
+  SET_NAME (LTO_local_var_decl_body0+0x1, "local_var_decl_body1")
+  SET_NAME (LTO_local_var_decl_body0+0x2, "local_var_decl_body2")
+  SET_NAME (LTO_local_var_decl_body0+0x3, "local_var_decl_body3")
+  SET_NAME (LTO_local_var_decl_body0+0x4, "local_var_decl_body4")
+  SET_NAME (LTO_local_var_decl_body0+0x5, "local_var_decl_body5")
+  SET_NAME (LTO_local_var_decl_body0+0x6, "local_var_decl_body6")
+  SET_NAME (LTO_local_var_decl_body0+0x7, "local_var_decl_body7")
+  SET_NAME (LTO_local_var_decl_body0+0x8, "local_var_decl_body8")
+  SET_NAME (LTO_local_var_decl_body0+0x9, "local_var_decl_body9")
+  SET_NAME (LTO_local_var_decl_body0+0xa, "local_var_decl_bodya")
+  SET_NAME (LTO_local_var_decl_body0+0xb, "local_var_decl_bodyb")
+  SET_NAME (LTO_local_var_decl_body0+0xc, "local_var_decl_bodyc")
+  SET_NAME (LTO_local_var_decl_body0+0xd, "local_var_decl_bodyd")
+  SET_NAME (LTO_local_var_decl_body0+0xe, "local_var_decl_bodye")
+  SET_NAME (LTO_local_var_decl_body0+0xf, "local_var_decl_bodyf")
+  SET_NAME (LTO_parm_decl_body0+0x0, "parm_decl_body0")
+  SET_NAME (LTO_parm_decl_body0+0x1, "parm_decl_body1")
+  SET_NAME (LTO_parm_decl_body0+0x2, "parm_decl_body2")
+  SET_NAME (LTO_parm_decl_body0+0x3, "parm_decl_body3")
+  SET_NAME (LTO_parm_decl_body0+0x4, "parm_decl_body4")
+  SET_NAME (LTO_parm_decl_body0+0x5, "parm_decl_body5")
+  SET_NAME (LTO_parm_decl_body0+0x6, "parm_decl_body6")
+  SET_NAME (LTO_parm_decl_body0+0x7, "parm_decl_body7")
+  SET_NAME (LTO_parm_decl_body0+0x8, "parm_decl_body8")
+  SET_NAME (LTO_parm_decl_body0+0x9, "parm_decl_body9")
+  SET_NAME (LTO_parm_decl_body0+0xa, "parm_decl_bodya")
+  SET_NAME (LTO_parm_decl_body0+0xb, "parm_decl_bodyb")
+  SET_NAME (LTO_parm_decl_body0+0xc, "parm_decl_bodyc")
+  SET_NAME (LTO_parm_decl_body0+0xd, "parm_decl_bodyd")
+  SET_NAME (LTO_parm_decl_body0+0xe, "parm_decl_bodye")
+  SET_NAME (LTO_parm_decl_body0+0xf, "parm_decl_bodyf")
+#endif
 
