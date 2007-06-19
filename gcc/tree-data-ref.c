@@ -729,7 +729,7 @@ dr_analyze_alias (struct data_reference *dr)
     }
 
   DR_SYMBOL_TAG (dr) = smt;
-  if (var_can_have_subvars (smt))
+  if (smt && var_can_have_subvars (smt))
     DR_SUBVARS (dr) = get_subvars_for_var (smt);
 
   vops = BITMAP_ALLOC (NULL);
@@ -769,7 +769,7 @@ free_data_ref (data_reference_p dr)
 /* Analyzes memory reference MEMREF accessed in STMT.  The reference
    is read if IS_READ is true, write otherwise.  Returns the
    data_reference description of MEMREF.  NEST is the outermost loop of the
-   loop nest in that the reference should be analysed.  */
+   loop nest in that the reference should be analyzed.  */
 
 struct data_reference *
 create_data_ref (struct loop *nest, tree memref, tree stmt, bool is_read)
@@ -1176,8 +1176,9 @@ dr_may_alias_p (struct data_reference *a, struct data_reference *b)
 
   if (TYPE_RESTRICT (type_a) && TYPE_RESTRICT (type_b) 
       && (!DR_IS_READ (a) || !DR_IS_READ (b))
-      && decl_a && TREE_CODE (decl_a) == PARM_DECL
-      && decl_b && TREE_CODE (decl_b) == PARM_DECL
+      && decl_a && DECL_P (decl_a)
+      && decl_b && DECL_P (decl_b)
+      && decl_a != decl_b
       && TREE_CODE (DECL_CONTEXT (decl_a)) == FUNCTION_DECL
       && DECL_CONTEXT (decl_a) == DECL_CONTEXT (decl_b))
     return false;
@@ -1224,7 +1225,7 @@ initialize_data_dependence_relation (struct data_reference *a,
     }
 
   /* If the base of the object is not invariant in the loop nest, we cannot
-     analyse it.  TODO -- in fact, it would suffice to record that there may
+     analyze it.  TODO -- in fact, it would suffice to record that there may
      be arbitrary dependences in the loops where the base object varies.  */
   if (!object_address_invariant_in_loop_p (VEC_index (loop_p, loop_nest, 0),
 					   DR_BASE_OBJECT (a)))
@@ -3941,7 +3942,7 @@ get_references_in_stmt (tree stmt, VEC (data_ref_loc, heap) **references)
 
 /* Stores the data references in STMT to DATAREFS.  If there is an unanalyzable
    reference, returns false, otherwise returns true.  NEST is the outermost
-   loop of the loop nest in that the references should be analysed.  */
+   loop of the loop nest in that the references should be analyzed.  */
 
 static bool
 find_data_references_in_stmt (struct loop *nest, tree stmt,

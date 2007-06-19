@@ -1,3 +1,558 @@
+2007-06-15  Matthew Wilcox <matthew@wil.cx>
+
+	* doc/extend.texi: Document behavior of __attribute__((aligned))
+	on typedefs.
+	
+2007-06-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* rtlanal.c (note_stores): Improve documentation.
+
+2007-06-15  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/elf.h (ASM_GENERATE_INTERNAL_LABEL,
+	LOCAL_LABEL_PREFIX): Delete.
+	* config/bfin/bfin.c (TARGET_ASM_INTERNAL_LABEL): Delete.
+	(bfin_internal_label): Delete.
+
+2007-06-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* libgcc2.c (CEXT): When compiling L_multc3 and L_divtc3,
+	define to "l" if LIBGCC_LONG_DOUBLE_SIZE == 128,
+	otherwise define to LIBGCC2_TF_CEXT.
+	* config/i386/linux64.h (LIBGCC2_HAS_TF_MODE): New define.
+	(LIBGCC_TF_CEXT): Ditto.
+	(TF_SIZE): Ditto.
+
+2007-06-14  Seongbae Park  <seongbae.park@gmail.com>
+
+	PR rtl-optimization/32339
+	* df-scan.c (df_uses_record): Don't modify flags but just add to
+	it for df_ref_record.
+
+2007-06-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* tree-mudflap.c: Fix whitespace issues.
+
+2007-06-15  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/m68k/m68k.c (ASM_DOT, ASM_DOTW, ASM_DOTL): Remove.
+
+2007-06-14  Eric Christopher  <echristo@apple.com>
+
+	* config/i386/sse.md (movdi_to_sse): Rewrite body.
+	(movv4sf): Use gcc_unreachable instead of abort.
+
+2007-06-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32268
+	* config/i386/sfp-machine.h (CMPtype): New define.
+	(mach stubs): Use CMPtype instead of int as a return type.
+
+2007-06-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/soft-fp/eqdf2.c, config/soft-fp/eqsf2.c,
+	config/soft-fp/eqtf2.c, config/soft-fp/gedf2.c,
+	config/soft-fp/gesf2.c, config/soft-fp/getf2.c,
+	config/soft-fp/ledf2.c, config/soft-fp/lesf2.c,
+	config/soft-fp/letf2.c, config/soft-fp/unorddf2.c,
+	config/soft-fp/unordsf2.c, config/soft-fp/unordtf2.c,
+	config/soft-fp/soft-fp.h: Update from glibc CVS.
+
+2007-06-14  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/uclinux.h (MFWRAP_SPEC): New.
+
+2007-06-14  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	PR target/32341
+	* config/v850/v850.c: Include dataflow header file.
+	(substitute_ep_register): Fix typo.
+
+2007-06-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.ac: Fix earlier checkin.
+	* configure: Regenerated.
+
+2007-06-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	* acinclude.m4 (gcc_AC_CHECK_PROG_VER): Remove.
+	* aclocal.m4: Regenerate.
+	* configure.ac: Use ACX_PROG_CC_WARNING_OPTS,
+	ACX_PROG_CC_WARNINGS_ARE_ERRORS,
+	ACX_PROG_CC_WARNING_ALMOST_PEDANTIC, ACX_CHECK_PROG_VER.
+	* configure: Regenerate.
+	* Makefile.in (LOOSE_WARN): Subst loose_warn.
+
+	* Makefile.in (quickstrap): Build libgcc too.
+
+2007-06-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.ac: Add --enable-checking=df.  Explicitly mention that
+	the variables are initialized as for "release".
+	* df-core.c: Use it.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+2007-06-14  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.c (xtensa_expand_nonlocal_goto): Use
+	validate_replace_rtx instead of replace_rtx.
+	(xtensa_expand_prologue): Call df_insn_rescan after replace_rtx.
+
+2007-06-14  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/cygming.h (DWARF_FRAME_REGNUM): Define.
+	(DWARF2_UNWIND_INFO): Override default if configured with
+	SJLJ EH disabled.
+	* config/i386/cygwin.h (STARTFILE_SPEC): Add crtbegin.o.
+	(ENDFILE_SPEC): Add crtend.o.
+	* config/i386/mingw32.h (STARTFILE_SEC): Add crtbegin.o.
+	(ENDFILE_SPEC): Add crtend.o.
+	(TARGET_USE_JCR_SECTION): Define.
+	(MD_UNWIND_SUPPORT): Define for 32-bit target.
+
+	* config/i386/cygming-crtbegin.c: New file.
+	* config/i386/cygming-crtend.c: New file.
+
+2007-06-14  Pascal Obry Pascal Obry  <obry@adacore.com>
+
+	* config/i386/w32-unwind.h: New file.
+
+2007-06-13  Eric Christopher  <echristo@apple.com>
+
+	* config/i386/darwin.h (PREFERRED_STACK_BOUNDARY): Don't let
+	the user set a value below STACK_BOUNDARY.
+
+2007-06-13  Thiemo Seufer  <ths@networkno.de>
+
+	* config/mips/linux.h, config/mips/linux64.h (LIB_SPEC): Always
+	imply -lpthread for -pthread.
+
+2007-06-13  Kazu Hirata  <kazu@codesourcery.com>
+
+	* basic-block.h: Remove the prototype for
+	free_basic_block_vars.
+	* cfglayout.h: Remove the prototype for
+	insn_locators_initialize.
+	* tree.h: Remove the prototype for emit_line_note.
+
+	* tree-ssa-pre.c (mergephitemp): Remove.
+	(init_pre): Don't use mergephitemp.
+
+2007-06-13  Eric Christopher  <echristo@apple.com>
+
+	* config/i386/i386.c (override_options): If we've specified
+	an arch then don't use TARGET_SUBTARGET_ISA_DEFAULTs.
+
+2007-06-13  Bob Wilson  <bob.wilson@acm.org>
+
+	* df-scan.c (df_get_entry_block_def_set): Check if STATIC_CHAIN_REGNUM
+	is defined.
+
+2007-06-13  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.h (EH_RETURN_HANDLER_RTX): Use gen_frame_mem.
+	* config/bfin/bfin.md (UNSPEC_VOLATILE_STORE_EH_HANDLER): New constant.
+	(eh_store_handler): New pattern.
+	(eh_return): Emit it instead of a plain move.
+
+2007-06-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_init_mmx_sse_builtins)
+	[__builtin_infq, __builtin_fabsq]: Define usign def_builtin.
+	[__builtin_ia32_rsqrtps, __builtin_ia32_rsqrtss]: Define using
+	def_builtin_const.
+
+2007-06-13  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.c (gen_one_bundle): Delete unused local variables.
+	(find_next_insn_start, find_load): New functions.
+	(bfin_reorg): Use them to deal with the fact that parallel insns are
+	no longer represented as a SEQUENCE.
+
+2007-06-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sparc.c (sparc_override_options): Initialize
+	fpu mask correctly.
+
+2007-06-13  Dave Korn  <dave.korn@artimi.com>
+
+	* config/i386/i386.c (ix86_eax_live_at_start_p): Use
+	df_get_live_out.
+
+2007-06-13  Kazu Hirata  <kazu@codesourcery.com>
+
+	* auto-inc-dec.c, c-incpath.c, config/c4x/libgcc.S,
+	config/sh/divcost-analysis, dbgcnt.def, df-core.c,
+	df-problems.c, df-scan.c, df.h, dominance.c, dse.c, regstat.c,
+	tree-data-ref.c, tree-ssa-loop-im.c, tree-ssa-loop-prefetch.c,
+	tree-vect-transform.c: Fix comment typos.  Follow spelling
+	conventions.
+
+2007-06-12  Seongbae Park  <seongbae.park@gmail.com>
+
+       * df-scan.c (df_get_exit-block_use_set): Always add the stack pointer
+       to the exit block use set.
+       * gcse.c (cpro_jump): Don't emit barrier in cfglayout mode.
+       * config/sparc/sparc.c (sparc_check_64): Check df != NULL.
+
+2007-06-12  Seongbae Park  <seongbae.park@gmail.com>
+
+	* opts.c (common_handle_option): Handle new option -fdbg-cnt-list.
+	* dbgcnt.c (dbg_cnt_set_limit_by_name): Return value
+	to indicate an error.
+	(dbg_cnt_process_single_pair, dbg_cnt_list_all_counters): New functions
+	(dbg_cnt_process_opt): Print an error on a bad argument.
+	* dbgcnt.h (dbg_cnt_list_all_counters): New function declaration.
+	* common.opt (-fdbg-cnt-list): New.
+	* doc/invoke.texi (-fdbg-cnt-list,-fdbg-cnt=): New.
+
+2007-06-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-alias.c (finalize_ref_all_pointers): Clear pt_anything
+	flag on ref-all pointers.
+
+2007-06-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/31579
+	* expr.c (expand_expr_addr_expr_1): Call expand_expr
+	for the offset with the modifier as EXPAND_INITIALIZER
+	if the modifier is EXPAND_INITIALIZER.
+	(expand_expr_real_1 <case INTEGER_CST>): Don't force to
+	a register if we had an overflow.
+
+2007-06-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* real.c (real_isfinite): New.
+	(real_sqrt): Use it.
+	* real.h (real_isfinite): New.
+	* builtins.c: Use it.
+
+2007-06-12  Ian Lance Taylor  <iant@google.com>
+	    Daniel Berlin  <dberlin@dberlin.org>
+
+	PR libstdc++/29286
+	* tree.def: Add CHANGE_DYNAMIC_TYPE_EXPR.
+	* tree.h (CHANGE_DYNAMIC_TYPE_NEW_TYPE): Define.
+	(CHANGE_DYNAMIC_TYPE_LOCATION): Define.
+	(DECL_NO_TBAA_P): Define.
+	(struct tree_decl_common): Add no_tbaa_flag field.
+	* tree-ssa-structalias.c (struct variable_info): Add
+	no_tbaa_pruning field.
+	(new_var_info): Initialize no_tbaa_pruning field.
+	(unify_nodes): Copy no_tbaa_pruning field.
+	(find_func_aliases): Handle CHANGE_DYNAMIC_TYPE_EXPR.
+	(dump_solution_for_var): Print no_tbaa_pruning flag.
+	(set_uids_in_ptset): Add no_tbaa_pruning parameter.  Change all
+	callers.
+	(compute_tbaa_pruning): New static function.
+	(compute_points_to_sets): Remove CHANGE_DYNAMIC_TYPE_EXPR nodes.
+	Call compute_tbaa_pruning.
+	* tree-ssa-alias.c (may_alias_p): Test no_tbaa_flag for pointers.
+	* gimplify.c (gimplify_expr): Handle CHANGE_DYNAMIC_TYPE_EXPR.
+	* gimple-low.c (lower_stmt): Likewise.
+	* tree-gimple.c (is_gimple_stmt): Likewise.
+	* tree-ssa-operands.c (get_expr_operands): Likewise.
+	* tree-ssa-dce.c (mark_stmt_if_obviously_necessary): Likewise.
+	* tree-inline.c (estimate_num_insns_1): Likewise.
+	(copy_result_decl_to_var): Likewise.
+	* expr.c (expand_expr_real_1): Likewise.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	* tree-inline.c (copy_decl_to_var): Copy DECL_NO_TBAA_P flag.
+	* omp-low.c (omp_copy_decl_2): Likewise.
+	* print-tree.c (print_node): Print DECL_NO_TBAA_P flag.
+	* doc/c-tree.texi (Expression trees): Document
+	CHANGE_DYNAMIC_TYPE_EXPR.
+
+2007-06-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* fold-const.c (fold_binary): Guard (X-X) -> 0 transformation
+	with !HONOR_NANS and !HONOR_INFINITIES.
+	* simplify-rtx.c (simplify_binary_operation_1): Likewise.
+
+2007-06-12  Tristan Gingold  <gingold@adacore.com>
+
+	* gcov.c: Comments updated.
+	(source_info): Add file_time field.
+	(source_index): New variable.
+	(mutiple_files): New variable.
+	(generate_results): New function extracted from process_file.
+	(process_file): Save and restore chain of functions, generate
+	results and free structures only if not merging results.
+	(release_structures): File names are now freed in create_file_names
+	(create_file_names): Free previous file names.
+	(find_source): File date is now read here and modifications in
+	source files is checked here.
+	(read_graph_file): Only reverse order of functions for the current
+	object file.
+	(make_gcov_file_name): Do not generate long names if input_name is
+	NULL.
+	(output_lines): If merging results do not display graph, data and
+	runs informations.
+	Checking source file modification is done in find_source.
+
+	* doc/gcov.texi: Append an s to sourcefile.
+
+2007-06-12  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.md (UNSPEC_NOP): New constant.
+	(forced_nop): New pattern.
+	* config/bfin/bfin.c: Include "df.h".
+	(add_to_reg): Use df_regs_ever_live_p instead of regs_ever_live.
+	(bfin_discover_loop): Use df_get_live_in instead of
+	global_live_at_start.
+	(bfin_reorder_loops): Pass 0 to cfg_layout_initialize.  Call
+	df_analyze when done.
+	(gen_one_bundle): Don't generate SEQUENCE insns, just put modes on
+	the insns.  Use QImode for the final insn in a bundle.  Call
+	df_insn_rescan on generated NOPs; use gen_forced_nop instead of
+	gen_nop.
+	(reorder_var_tracking_notes): New function.
+	(bfin_reorg): Pass no argument to split_all_insns.  Don't call
+	update_life_info.  Call df_analyze after scheduling and bundle
+	generation.  Call reorder_var_tracking_notes if generating these notes.
+	Call df_finish_pass at the end.
+
+2007-06-12  Dirk Mueller  <dmueller@suse.de>
+
+	* optabs.c (debug_optab_libfuncs): fix gcc_assert to
+	a comparison, not an assignment.
+
+2007-06-12  Olivier Hainque  <hainque@adacore.com>
+
+	* tree-nested.c (convert_local_reference): Handle VIEW_CONVERT_EXPR.
+	Request walking the subtrees only, leaving the current is_lhs/val_only
+	untouched.
+	(convert_non_local_reference): Likewise.
+
+2007-06-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/m68k/m68k-devices.def (52221, 52223, 5253): New.
+
+2007-06-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/15353
+	PR tree-optimization/31657
+	* passes.c (init_optimization_passes): Add pass_tree_ifcombine.
+	* timevar.def: Add TV_TREE_IFCOMBINE.
+	* tree-pass.h (pass_tree_ifcombine): Declare.
+	* tree-ssa-ifcombine.c: New file.
+	* tree-ssa-phiopt.c (blocks_in_phiopt_order): Export.
+	* tree-flow.h (blocks_in_phiopt_order): Declare.
+	* Makefile.in (OBJS-common): Add tree-ssa-ifcombine.o.
+	(tree-ssa-ifcombine.o): New dependencies.
+
+2007-06-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/32293
+	* combine.c (simplify_if_then_else): Truncate return from
+	nonzero_bits() to correct mode.
+
+2007-06-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* fold-const (fold_binary) [RDIV_EXPR]: Also optimize a/cbrt(b/c)
+	into a*cbrt(c/b) if flag_unsafe_math_optimizations is set.
+
+2007-06-11  Diego Novillo  <dnovillo@google.com>
+
+	* Makefile.in (reload1.o-warn): Remove.
+
+2007-06-11  Seongbae Park <seongbae.park@gmail.com>
+
+	* combine.c (subst): Use reg_overlap_mentioned_p
+	instead of comparing register numbers directly.
+
+2007-06-11  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* reload1.c (mark_home_live_1): Use the mode parameter.
+
+2007-06-11  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df-scan.c (df_insn_delete, df_insn_rescan, df_insn_rescan_all,
+	df_process_deferred_rescans, df_notes_rescan): Fixed spelling of
+	word "deferred".
+	* df-core.c: Ditto.
+
+2007-06-11  Daniel Berlin  <dberlin@dberlin.org>
+
+	* Merge dataflow-branch into mainline (see ChangeLog.dataflow)
+
+2007-06-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md ("*movtf_internal): Penalize moves to and
+	from integer registers.
+	(FP mode splitters): Handle TFmode.
+
+2007-06-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-structalias.c (find_what_p_points_to): Return false
+	for ref-all pointers that point-to anything.
+
+2007-06-11  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/arm.c (arm_output_dwarf_dtprel,
+	TARGET_ASM_OUTPUT_DWARF_DTPREL): New.
+
+2007-06-11  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.md (movdi_insn, movsi_insn, movv2hi_insn,
+	movhi_insn, movqi_insn, movsf_insn, movdf_insn): Don't allow constant
+	to memory moves.
+
+2007-06-11  Rafael Avila de Espindola  <espindola@google.com>
+
+	* gcc/tree.c (signed_or_unsigned_type_for): New.
+	(unsigned_type_for): Use signed_or_unsigned_type_for.
+	(signed_type_for): Use signed_or_unsigned_type_for.
+	* gcc/tree.h (signed_or_unsigned_type_for): New.
+	(get_signed_or_unsigned_type): Remove.
+	* gcc/fold-const.c (fold_negate_expr): Use signed_type_for instead of
+	lang_hooks.types.signed_type
+	(size_diffop): Likewise.
+	(all_ones_mask_p): Likewise.
+	(build_range_check): Likewise.
+	(fold_cond_expr_with_comparison): Likewise.
+	(fold_cond_expr_with_comparison): Likewise.
+	(unextend): Likewise.
+	(extract_muldiv_1): Likewise.
+	(fold_single_bit_test_into_sign_test): Likewise.
+	(fold_binary): Likewise.
+	(fold_ternary): Likewise.
+	(operand_equal_for_comparison_p): Use signed_or_unsigned_type_for
+	instead of get_signed_or_unsigned_type.
+	* gcc/c-objc-common.h (LANG_HOOKS_SIGNED_TYPE): Remove.
+	(LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE): Remove.
+	* gcc/expr.c (signed_or_unsigned_type_for): Use
+	signed_or_unsigned_type_for instead of get_signed_or_unsigned_type.
+	* gcc/langhooks.c (get_signed_or_unsigned_type): Remove.
+	(lhd_signed_or_unsigned_type): Remove.
+	* gcc/langhooks.h (lang_hooks_for_types): Remove signed_type and
+	signed_or_unsigned_type.
+	(lhd_signed_or_unsigned_type): Remove.
+	* gcc/expmed.c (make_tree): Use signed_type_for instead of
+	lang_hooks.types.signed_type.
+	* gcc/c-common.c (same_scalar_type_ignoring_signedness): Use
+	c_common_signed_type instead of lang_hooks.types.signed_type.
+	(c_common_unsigned_type): New.
+	(c_common_signed_type): Just call c_common_signed_or_unsigned_type.
+	(shorten_compare): Use c_common_unsigned_type instead of
+	c_common_signed_or_unsigned_type.
+	(c_common_nodes_and_builtins): Use c_common_unsigned_type instead of
+	unsigned_type_for.
+	* gcc/convert.c (convert_to_integer): Use signed_type_for instead of
+	lang_hooks.types.signed_type.
+	* gcc/langhooks-def.h (LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE): Remove.
+	(LANG_HOOK_FOR_TYPES_INITIALIZER): Remove LANG_HOOKS_SIGNED_TYPE and
+	LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE.
+	* gcc/c-format.c (check_format_types): Use c_common_unsigned_type
+	instead of unsigned_type_for.
+	* gcc/c-decl.c (groakdeclarator): Likewise.
+	* gcc/c-typeck.c (convert_for_assignment): Likewise.
+	* gcc/c-common.h (c_common_unsigned_type): New.
+
+2007-06-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32280
+	* config/i386/sse.md ("sse2_ashlti", "sse2_lshrti3"): Move ...
+	* config/i386/i386.md ("sse2_ashlti", "sse2_lshrti3"): ... to here.
+
+2007-06-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/32279
+	* fold-const (fold_binary) [RDIV_EXPR]: Optimize a/sqrt(b/c)
+	into a*sqrt(c/b) if flag_unsafe_math_optimizations is set.
+
+2007-06-10  Jan Sjodin  <jan.sjodin@amd.com>
+	    Sebastian Pop  <sebpop@gmail.com>
+
+	* lambda-code.c (remove_iv): New.
+	(lambda_loopnest_to_gcc_loopnest): Use remove_iv.
+
+2007-06-10  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-data-ref.c (dr_analyze_alias): Handle case smt is NULL.
+	* tree-predcom.c (mark_virtual_ops_for_renaming): Exported.
+	* tree-ssa-loop-prefetch.c: Include optabs.h.
+	(FENCE_FOLLOWING_MOVNT): New macro.
+	(struct mem_ref): Add independent_p and storent_p fields.
+	(record_ref): Initalize the new fields.
+	(gather_memory_references_ref): Return true if the reference
+	could be analysed.
+	(gather_memory_references): Check whether all memory accesses
+	in loop were recorded.
+	(should_issue_prefetch_p): Return false for nontemporal stores.
+	(nontemporal_store_p, mark_nontemporal_store, emit_mfence_after_loop,
+	may_use_storent_in_loop_p, mark_nontemporal_stores): New functions.
+	(determine_loop_nest_reuse): Detect independent memory references.
+	(loop_prefetch_arrays): Call mark_nontemporal_stores.
+	* tree-flow.h (mark_virtual_ops_for_renaming): Declare.
+	* Makefile.in (tree-ssa-loop-prefetch.o): Add OPTABS_H dependency.
+	* config/i386/i386.h (x86_mfence): Declare.
+	(FENCE_FOLLOWING_MOVNT): Return x86_mfence.
+	* config/i386/i386.c (x86_mfence): New variable.
+	(ix86_init_mmx_sse_builtins): Initialize x86_mfence.
+
+	* tree-pretty-print.c (dump_generic_node): Mark nontemporal stores.
+	* optabs.c (init_optabs): Initialize storent_optab.
+	* optabs.h (enum optab_index): Add OTI_storent.
+	(storent_optab): Declare.
+	* genopinit.c (optabs): Add initialization for storent_optab.
+	* tree.h (MOVE_NONTEMPORAL): New macro.
+	* expr.c (expand_assignment, store_expr, store_constructor_field,
+	store_constructor, store_field, expand_expr_real_1): Propagate
+	nontemporality of the expanded store.
+	(emit_storent_insn): New function.
+	* expr.h (expand_assignment, store_expr): Declaration changed.
+	* function.c (assign_parm_setup_reg): Pass false as nontemporality
+	to expand_assignment.
+	* stmt.c (expand_asm_expr): Ditto.
+	* calls.c (initialize_argument_information): Pass false as
+	nontemporality to store_expr.
+	* config/i386/sse.md (storentv4sf, storentv2df, storentv2di,
+	storentsi): New.
+
+2007-06-09  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-structalias.c (set_uids_in_ptset): Add is_deref'd
+	parameter, use it.
+	(find_what_p_points_to): Pass new parameter to set_uids_in_ptset.
+
+2007-06-09  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-data-ref.c (dr_may_alias_p): Check that decl_a != decl_b,
+	and allow DECL_P here.
+
+2007-06-09  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-scalar-evolution.c (follow_ssa_edge_in_rhs,
+	follow_ssa_edge_in_condition_phi, follow_ssa_edge): Keep more precise
+	track of the size of the expression.
+	* cfghooks.c (merge_blocks): Remove block from loops structure only
+	after call of the merge_blocks hook.
+
+2007-06-09  Tom Tromey  <tromey@redhat.com>
+
+	* c-decl.c (grokdeclarator): Added 'deprecated_state' argument.
+	(deprecated_state): Removed.
+	(start_decl): Update.
+	(enum deprecated_states): Moved earlier.
+	(groktypename): Update.
+	(push_parm_decl): Likewise.
+	(grokfield): Likewise.
+	(start_function): Likewise.
+
+2007-06-09  Ian Lance Taylor  <iant@google.com>
+
+	PR tree-optimization/32169
+	* tree-vrp.c (extract_range_from_unary_expr): For NOP_EXPR and
+	CONVERT_EXPR, check whether min and max both converted to an
+	overflow infinity representation.
+
+2007-06-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* reload1.c (fixup_abnormal_edges): Clear bb field for insns
+	not inserted on the edge.
+
 2007-06-15  Chao-ying Fu  <fu@mips.com>
 
 	* doc/libgcc.texi (Fixed-point fractional library routines): Fix a typo.
@@ -68,7 +623,7 @@
 	(__divsi3, __umodsi3, __modsi3): Likewise.
 	(__ashldi3, __ashrdi3, __lshrdi3): New.
 	* config/xtensa/t-xtensa (LIB1ASMFUNCS): Add DImode shift functions.
-	
+
 2007-06-08  Harsha Jagasia <harsha.jagasia@amd.com>
 	    Tony Linthicum <tony.linthicum@amd.com>
 
@@ -110,7 +665,7 @@
 	(vectorizable_load): Call vect_model_load_cost during analysis phase.
 	(vectorizable_store): Call vect_model_store_cost during analysis phase.
 	(vectorizable_call, vectorizable_assignment, vectorizable_operation,
-	vectorizable_promotion, vectorizable_demotion): Call 
+	vectorizable_promotion, vectorizable_demotion): Call
 	vect_model_simple_cost during analysis phase.
 
 2007-06-08  Simon Baldwin  <simonb@google.com>
@@ -156,7 +711,7 @@
 	PR target/29953
 	* config/sh/sh.md (doloop_end): New pattern and splitter.
 	* loop-iv.c (simple_rhs_p): Check for hardware registers.
-	
+
 2007-06-08  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	PR middle-end/32209
@@ -280,7 +835,7 @@
 	* rtl.h (push_to_sequence2): New.
 	* emit-rtl.c (push_to_sequence2): New.
 	* function.c (assign_parm_data_all): Add new fields.
-	(assign_parm_setup_block): Call push_to_sequence2 instead of 
+	(assign_parm_setup_block): Call push_to_sequence2 instead of
 	push_to_sequence.
 	(assign_parm_setup_reg): Ditto.
 	(assign_parm_setup_stack): Ditto.

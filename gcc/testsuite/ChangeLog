@@ -1,3 +1,148 @@
+2007-06-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/lookup/anon6.C: New test.
+
+2007-06-14  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/31806
+	* g++.dg/opt/static6.C: New testcase.
+
+2007-06-14  Geoff Keating  <geoffk@apple.com>
+
+	* g++.dg/ext/visibility/overload-1.C: New.
+
+	PR 31093
+	* g++.dg/ext/visibility/anon4.C: New.
+
+2007-06-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32268
+	* gcc.target/i386/pr32268.c: New test.
+
+2007-06-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/dfp/fe-convert-1.c: Expect FE_OVERFLOW when converting
+	from 10.000000e96DD to _Decimal32, from 10.000000e96DL to
+	_Decimal32 and from 10.00000000000000E384DL to _Decimal64.
+
+	*  gcc.dg/dfp/fe-convert-2.c: Expect FE_INEXACT when converting
+	from 1.0e96 and -1.0e96 to _Decimal32. Enable testing for
+	converting from 1.0e-96 and 0.00048828125 to _Decimal32 when
+	BID is used.
+
+2007-06-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32302
+	* gfortran.dg/common_resize_1.f90: New test.
+
+2007-06-14  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR target/32274
+	* gcc.dg/vect/pr32224.c: Fix.	
+	
+2007-06-13  Eric Christopher  <echristo@apple.com>
+
+	* gcc.target/i386/ssefn-1.c: Add -march=i386.
+
+2007-06-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32323
+	* gfortran.dg/actual_array_vect_1.f90: New.
+
+2007-06-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.target/sparc/mfpu.c: New test.
+
+2007-06-12  Geoff Keating  <geoffk@apple.com>
+
+	* g++.dg/warn/weak1.C: Suppress on Darwin.
+	* g++.dg/other/unused1.C: Accept tabs or spaces in assembly.
+
+2007-06-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/31579
+	 * g++.dg/torture/pr31579.C: New testcase.
+
+2007-06-12  Ian Lance Taylor  <iant@google.com>
+
+	PR libstdc++/29286
+	* g++.dg/init/new16.C: New test.
+	* g++.dg/init/new17.C: New test.
+	* g++.dg/init/new18.C: New test.
+	* g++.dg/init/new19.C: New test.
+
+2007-06-12  Olivier Hainque  <hainque@adacore.com>
+
+	* gnat.dg/lhs_view_convert.adb: New test.
+
+2007-06-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/15353
+	PR tree-optimization/31657
+	* gcc.c-torture/execute/20070424-1.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-ifcombine-1.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ifcombine-2.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ifcombine-3.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ifcombine-4.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ifcombine-5.c: Likewise.
+
+2007-06-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/32293
+	* gcc.dg/pr32293.c: New test.
+
+2007-06-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/builtins-11.c: Also check folding of a/cbrt(b/c).
+
+2007-06-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29786
+	* gfortran.dg/equiv_7.f90: New test.
+	* gfortran.dg/equiv_constraint_7.f90: Change error message.
+
+	PR fortran/30875
+	* gfortran.dg/equiv_constraint_5.f90: Correct code and error.
+
+2007-06-11  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* gcc.dg/setjmp-3.c: Rename raise to raise0.
+	* gcc.dg/setjmp-4.c: Likewise.
+	* gcc.target/i386/980211-1.c: Rename __signbitl to __signbitl0.
+
+2007-06-11  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/31025
+	* gfortran.dg/pr31025.f90: New.
+
+2007-06-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32280
+	* gcc.target/i386/pr32280.c: New test.
+
+2007-06-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/32279
+	* gcc.dg/builtins-11.c: Also check folding of a/sqrt(b/c).
+
+2007-06-10  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/32235
+	* gfortran.dg/backspace_9.f: New test.
+
+2007-06-10  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/prefetch-7.c: New test.
+
+2007-06-09  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/loop-28.c: New testcase.
+
+2007-06-09  Ian Lance Taylor  <iant@google.com>
+
+	PR tree-optimization/32169
+	* gcc.c-torture/compile/pr32169.c: New test.
+
 2007-06-12  Chao-ying Fu  <fu@mips.com>
 
 	* gcc.dg/fixed-point/call-by-value.c: Fix postfix for unsigned
@@ -16,7 +161,7 @@
 	* gcc.dg/vect/costmodel/i386/costmodel-vect-reduc-1char.c: New test.
 	* gcc.dg/vect/costmodel/x86_64: New directory.
 	* gcc.dg/vect/costmodel/x86_64/x86_64-costmodel-vect.exp:
-	New testsuite.	
+	New testsuite.
 	* gcc.dg/vect/costmodel/x86_64/costmodel-fast-math-vect-pr29925.c:
 	New test.
 	* gcc.dg/vect/costmodel/x86_64/costmodel-vect-31.c: New test.
@@ -54,7 +199,7 @@
 	* gcc.dg/Werror-7.c: Likewise.
 	* gcc.dg/Werror-10.c: Likewise.
 	* gcc.dg/Werror-11.c: Likewise.
-	
+
 2007-06-07  Simon Martin  <simartin@users.sourceforge.net>
 
 	PR c++/30759
@@ -106,7 +251,7 @@
 	* gcc.dg/always_inline.c: Mark output as a sorry.
 	* gcc.dg/always_inline2.c: Likewise.
 	* gcc.dg/always_inline3.c: Likewise.
-	
+
 2007-06-06  Ian Lance Taylor  <iant@google.com>
 
 	* g++.dg/conversion/enum1.C: New test.
@@ -149,7 +294,7 @@
 	* testsuite/gcc.dg/binary-constants-2.c: Ditto.
 	* testsuite/gcc.dg/binary-constants-3.c: Ditto.
 	* testsuite/gcc.dg/binary-constants-4.c: Ditto.
-	
+
 2007-06-07  Chao-ying Fu  <fu@mips.com>
 
 	* gcc.dg/fixed-point/func-scalar.c,
@@ -274,53 +419,53 @@
 	* g++.dg/ext/is_pod_incomplete.C: New.
 
 2007-05-31  Russell Yanofsky <russ@yanofsky.org>
-            Douglas Gregor <doug.gregor@gmail.com>
-            Pedro Lamarao <pedro.lamarao@mndfck.org>
-            Howard Hinnant <howard.hinnant@gmail.com>
+	    Douglas Gregor <doug.gregor@gmail.com>
+	    Pedro Lamarao <pedro.lamarao@mndfck.org>
+	    Howard Hinnant <howard.hinnant@gmail.com>
 
 	PR c++/7412
 	PR c++/29939
-        * g++.dg/cpp0x/rv8p.C: New.
-        * g++.dg/cpp0x/temp-constructor-bug.C: New.
-        * g++.dg/cpp0x/cast-bug.C: New.
-        * g++.dg/cpp0x/elision_weak.C: New.
-        * g++.dg/cpp0x/collapse-bug.C: New.
-        * g++.dg/cpp0x/rv3p.C: New.
-        * g++.dg/cpp0x/rv7n.C: New.
-        * g++.dg/cpp0x/overload-conv-1.C: New.
-        * g++.dg/cpp0x/rv2n.C: New.
-        * g++.dg/cpp0x/deduce.C: New.
-        * g++.dg/cpp0x/temp-va-arg-bug.C: New.
-        * g++.dg/cpp0x/rv6p.C: New.
-        * g++.dg/cpp0x/template_deduction.C: New.
-        * g++.dg/cpp0x/implicit-copy.C: New.
-        * g++.dg/cpp0x/rv1p.C: New.
-        * g++.dg/cpp0x/cast.C: New.
-        * g++.dg/cpp0x/rv5n.C: New.
-        * g++.dg/cpp0x/collapse.C: New.
-        * g++.dg/cpp0x/overload-conv-2.C: New.
-        * g++.dg/cpp0x/rv4p.C: New.
+	* g++.dg/cpp0x/rv8p.C: New.
+	* g++.dg/cpp0x/temp-constructor-bug.C: New.
+	* g++.dg/cpp0x/cast-bug.C: New.
+	* g++.dg/cpp0x/elision_weak.C: New.
+	* g++.dg/cpp0x/collapse-bug.C: New.
+	* g++.dg/cpp0x/rv3p.C: New.
+	* g++.dg/cpp0x/rv7n.C: New.
+	* g++.dg/cpp0x/overload-conv-1.C: New.
+	* g++.dg/cpp0x/rv2n.C: New.
+	* g++.dg/cpp0x/deduce.C: New.
+	* g++.dg/cpp0x/temp-va-arg-bug.C: New.
+	* g++.dg/cpp0x/rv6p.C: New.
+	* g++.dg/cpp0x/template_deduction.C: New.
+	* g++.dg/cpp0x/implicit-copy.C: New.
+	* g++.dg/cpp0x/rv1p.C: New.
+	* g++.dg/cpp0x/cast.C: New.
+	* g++.dg/cpp0x/rv5n.C: New.
+	* g++.dg/cpp0x/collapse.C: New.
+	* g++.dg/cpp0x/overload-conv-2.C: New.
+	* g++.dg/cpp0x/rv4p.C: New.
 	* g++.dg/cpp0x/rvo.C: New.
-        * g++.dg/cpp0x/iop.C: New.
-        * g++.dg/cpp0x/rv3n.C: New.
-        * g++.dg/cpp0x/rv7p.C: New.
-        * g++.dg/cpp0x/reference_collapsing.C: New.
-        * g++.dg/cpp0x/overload.C: New.
-        * g++.dg/cpp0x/named.C: New.
-        * g++.dg/cpp0x/rv2p.C: New.
-        * g++.dg/cpp0x/rv6n.C: New.
-        * g++.dg/cpp0x/not_special.C: New.
-        * g++.dg/cpp0x/bind.C: New.
-        * g++.dg/cpp0x/rv1n.C: New.
-        * g++.dg/cpp0x/rv5p.C: New.
-        * g++.dg/cpp0x/elision.C: New.
-        * g++.dg/cpp0x/named_refs.C: New.
-        * g++.dg/cpp0x/unnamed_refs.C: New.
-        * g++.dg/cpp0x/rv4n.C: New.
-        * g++.dg/cpp0x/elision_neg.C: New.
-        * g++.dg/init/copy7.C: Run in C++98 mode.
-        * g++.dg/overload/arg1.C: Ditto.
-        * g++.dg/overload/arg4.C: Ditto.
+	* g++.dg/cpp0x/iop.C: New.
+	* g++.dg/cpp0x/rv3n.C: New.
+	* g++.dg/cpp0x/rv7p.C: New.
+	* g++.dg/cpp0x/reference_collapsing.C: New.
+	* g++.dg/cpp0x/overload.C: New.
+	* g++.dg/cpp0x/named.C: New.
+	* g++.dg/cpp0x/rv2p.C: New.
+	* g++.dg/cpp0x/rv6n.C: New.
+	* g++.dg/cpp0x/not_special.C: New.
+	* g++.dg/cpp0x/bind.C: New.
+	* g++.dg/cpp0x/rv1n.C: New.
+	* g++.dg/cpp0x/rv5p.C: New.
+	* g++.dg/cpp0x/elision.C: New.
+	* g++.dg/cpp0x/named_refs.C: New.
+	* g++.dg/cpp0x/unnamed_refs.C: New.
+	* g++.dg/cpp0x/rv4n.C: New.
+	* g++.dg/cpp0x/elision_neg.C: New.
+	* g++.dg/init/copy7.C: Run in C++98 mode.
+	* g++.dg/overload/arg1.C: Ditto.
+	* g++.dg/overload/arg4.C: Ditto.
 
 2007-05-30  Jakub Jelinek  <jakub@redhat.com>
 
@@ -380,7 +525,7 @@
 
 	PR tree-opt/32100
 	* gcc.c-torture/execute/vrp-7.c: New test.
-	 
+
 2007-05-28  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* gfortran.dg/transfer_simplify_4.f90: New test.
@@ -919,7 +1064,7 @@
 	* gcc.dg/20030906-2.c: Likewise.
 	* objc.dg/method-17.m: Add -Wreturn-type.
 	* obj-c++.dg/method-21.mm: Likewise.
-	
+
 2007-05-20  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/31585
@@ -956,7 +1101,7 @@
 	* g++.dg/warn/Wconversion-sign.C: New.
 	* g++.old-deja/g++.other/warn4.C: Update.
 	* g++.dg/warn/Wconversion1.C: Likewise.
-	
+
 2007-05-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* gcc.dg/torture/builtin-math-2.c: Add gamma_r/lgamma_r tests.
@@ -1192,7 +1337,7 @@
 	* g++.dg/warn/Wstrict-aliasing-bogus-signed-unsigned.C: New test.
 	* g++.dg/warn/Wstrict-aliasing-bogus-struct-included.C: New test.
 	* g++.dg/warn/Wstrict-aliasing-bogus-union.C: New test.
-	* g++.dg/warn/Wstrict-aliasing-float-ref-int-obj.C: New test. 
+	* g++.dg/warn/Wstrict-aliasing-float-ref-int-obj.C: New test.
 
 2007-05-11  Paolo Carlini  <pcarlini@suse.de>
 
@@ -1277,7 +1422,7 @@
 
 	PR target/31854
 	* gcc.target/i386/pr31854.c: New test.
-	
+
 2007-05-07  Janis Johnson  <janis187@us.ibm.com>
 
 	* gcc.dg/pch/pch.exp: XFAIL largefile on Solaris 10 x86.

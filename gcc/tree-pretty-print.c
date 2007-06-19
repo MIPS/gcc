@@ -1073,6 +1073,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  		 false);
       pp_space (buffer);
       pp_character (buffer, '=');
+      if (TREE_CODE (node) == GIMPLE_MODIFY_STMT
+	  && MOVE_NONTEMPORAL (node))
+	pp_string (buffer, "{nt}");
       pp_space (buffer);
       dump_generic_node (buffer, GENERIC_TREE_OPERAND (node, 1), spc, flags,
 	  		 false);
@@ -1501,6 +1504,17 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_generic_node (buffer, EH_FILTER_FAILURE (node), spc+4, flags, true);
       newline_and_indent (buffer, spc+2);
       pp_string (buffer, "}");
+      is_expr = false;
+      break;
+
+    case CHANGE_DYNAMIC_TYPE_EXPR:
+      pp_string (buffer, "<<<change_dynamic_type (");
+      dump_generic_node (buffer, CHANGE_DYNAMIC_TYPE_NEW_TYPE (node), spc + 2,
+			 flags, false);
+      pp_string (buffer, ") ");
+      dump_generic_node (buffer, CHANGE_DYNAMIC_TYPE_LOCATION (node), spc + 2,
+			 flags, false);
+      pp_string (buffer, ")>>>");
       is_expr = false;
       break;
 

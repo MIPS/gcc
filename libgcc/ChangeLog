@@ -1,3 +1,9 @@
+2007-06-14  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config.host(*-cygwin* |*-mingw* ): Add crtbegin.o, crtend.o to
+	extra_parts. Add config/i386/t-cygming to tmake_file. 
+	* config/i386/t-cygming: New file with rules for crtbegin.o, crtend.o.
+
 2007-06-14  Nigel Stephens  <nigel@mips.com>
 
 	* Makefile.in: Update to build fine-grain fixed-point functions.

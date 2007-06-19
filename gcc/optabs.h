@@ -1,5 +1,5 @@
 /* Definitions for code generation pass of GNU compiler.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006 
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -181,6 +181,8 @@ enum optab_index
   OTI_movstrict,
   /* Move, with a misaligned memory.  */
   OTI_movmisalign,
+  /* Nontemporal store.  */
+  OTI_storent,
 
   /* Unary operations */
   /* Negation */
@@ -414,6 +416,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define mov_optab (optab_table[OTI_mov])
 #define movstrict_optab (optab_table[OTI_movstrict])
 #define movmisalign_optab (optab_table[OTI_movmisalign])
+#define storent_optab (optab_table[OTI_storent])
 
 #define neg_optab (optab_table[OTI_neg])
 #define negv_optab (optab_table[OTI_negv])
@@ -696,6 +699,10 @@ extern rtx expand_copysign (rtx, rtx, rtx);
 /* Generate an instruction with a given INSN_CODE with an output and
    an input.  */
 extern void emit_unop_insn (int, rtx, rtx, enum rtx_code);
+
+/* Excapsulate the block in REG_LIBCALL, and REG_RETVAL reg notes and add 
+   REG_LIBCALL_ID notes to all insns in block.  */
+extern void maybe_encapsulate_block (rtx, rtx, rtx);
 
 /* Emit code to perform a series of operations on a multi-word quantity, one
    word at a time.  */

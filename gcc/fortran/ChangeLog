@@ -1,3 +1,45 @@
+2007-06-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32302
+	* trans-common.c (build_common_decl): If resizing of common
+	decl is needed, update the TREE_TYPE.
+
+2007-06-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32323
+	* interface.c (has_vector_section): New.
+	(compare_actual_formal): Check for array sections with vector subscript.
+
+2007-06-12  Dirk Mueller  <dmueller@suse.de>
+
+	* trans-stmt.c (gfc_trans_call): fix gcc_assert to
+	a comparison, not an assignment.
+
+2007-06-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	* trans-common.c (create_common): Initialize 'field_init'.
+
+2007-06-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29786
+	PR fortran/30875
+	* trans-common.c (get_init_field): New function.
+	(create_common): Call get_init_field for overlapping
+	initializers in equivalence blocks.
+	* resolve.c (resolve_equivalence_derived, resolve_equivalence):
+	Remove constraints on initializers in equivalence blocks.
+	* target-memory.c (expr_to_char, gfc_merge_initializers):
+	New functions.
+	(encode_derived): Add the bit offset to the byte offset to get
+	the total offset to the field.
+	* target-memory.h : Add prototype for gfc_merge_initializers.
+
+2007-06-11  Rafael Avila de Espindola  <espindola@google.com>
+
+	* trans-types.c (gfc_signed_type): Remove.
+	* trans-types.h (gfc_signed_type): Remove.
+	* f95-lang.c (LANG_HOOKS_SIGNED_TYPE): Remove.
+
 2007-06-08 Francois-Xavier Coudert <fxcoudert@gcc.gnu.org>
 
 	* trans-intrinsic.c: Revert Lee's 2007-06-04 patch.

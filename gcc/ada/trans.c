@@ -1092,7 +1092,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 	      }
 
 	    gnu_compute_type
-	      = get_signed_or_unsigned_type (0,
+	      = signed_or_unsigned_type_for (0,
 					     get_base_type (gnu_result_type));
 
 	    gnu_result
@@ -5199,19 +5199,6 @@ gnat_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p ATTRIBUTE_UNUSED)
 	  TREE_OPERAND (expr, 0) = new_var;
 	  recompute_tree_invariant_for_addr_expr (expr);
 	  return GS_ALL_DONE;
-	}
-
-      return GS_UNHANDLED;
-
-    case COMPONENT_REF:
-      /* We have a kludge here.  If the FIELD_DECL is from a fat pointer and is
-	 from an early dummy type, replace it with the proper FIELD_DECL.  */
-      if (TYPE_FAT_POINTER_P (TREE_TYPE (TREE_OPERAND (*expr_p, 0)))
-	  && DECL_ORIGINAL_FIELD (TREE_OPERAND (*expr_p, 1)))
-	{
-	  TREE_OPERAND (*expr_p, 1)
-	    = DECL_ORIGINAL_FIELD (TREE_OPERAND (*expr_p, 1));
-	  return GS_OK;
 	}
 
       /* ... fall through ... */

@@ -448,6 +448,8 @@ struct gimple_stmt GTY(())
        EH_FILTER_MUST_NOT_THROW in EH_FILTER_EXPR
        TYPE_REF_CAN_ALIAS_ALL in
            POINTER_TYPE, REFERENCE_TYPE
+       MOVE_NONTEMPORAL in
+	   GIMPLE_MODIFY_STMT
        CASE_HIGH_SEEN in CASE_LABEL_EXPR
 
    public_flag:
@@ -1180,6 +1182,10 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 #define TYPE_REF_CAN_ALIAS_ALL(NODE) \
   (PTR_OR_REF_CHECK (NODE)->base.static_flag)
 
+/* In a MODIFY_EXPR, means that the store in the expression is nontemporal.  */
+#define MOVE_NONTEMPORAL(NODE) \
+  (GIMPLE_MODIFY_STMT_CHECK (NODE)->base.static_flag)
+
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
    there was an overflow in folding.  */
 
@@ -1666,6 +1672,12 @@ struct tree_constructor GTY(())
 #define EH_FILTER_TYPES(NODE)	TREE_OPERAND (EH_FILTER_EXPR_CHECK (NODE), 0)
 #define EH_FILTER_FAILURE(NODE)	TREE_OPERAND (EH_FILTER_EXPR_CHECK (NODE), 1)
 #define EH_FILTER_MUST_NOT_THROW(NODE) TREE_STATIC (EH_FILTER_EXPR_CHECK (NODE))
+
+/* CHANGE_DYNAMIC_TYPE_EXPR accessors.  */
+#define CHANGE_DYNAMIC_TYPE_NEW_TYPE(NODE) \
+  TREE_OPERAND (CHANGE_DYNAMIC_TYPE_EXPR_CHECK (NODE), 0)
+#define CHANGE_DYNAMIC_TYPE_LOCATION(NODE) \
+  TREE_OPERAND (CHANGE_DYNAMIC_TYPE_EXPR_CHECK (NODE), 1)
 
 /* OBJ_TYPE_REF accessors.  */
 #define OBJ_TYPE_REF_EXPR(NODE)	  TREE_OPERAND (OBJ_TYPE_REF_CHECK (NODE), 0)
@@ -2703,6 +2715,11 @@ struct tree_memory_partition_tag GTY(())
 #define DECL_GIMPLE_REG_P(DECL) \
   DECL_COMMON_CHECK (DECL)->decl_common.gimple_reg_flag
 
+/* For a DECL with pointer type, this is set if Type Based Alias
+   Analysis should not be applied to this DECL.  */
+#define DECL_NO_TBAA_P(DECL) \
+  DECL_COMMON_CHECK (DECL)->decl_common.no_tbaa_flag
+
 struct tree_decl_common GTY(())
 {
   struct tree_decl_minimal common;
@@ -2743,6 +2760,8 @@ struct tree_decl_common GTY(())
   /* Logically, these two would go in a theoretical base shared by var and
      parm decl. */
   unsigned gimple_reg_flag : 1;
+  /* In a DECL with pointer type, set if no TBAA should be done.  */
+  unsigned no_tbaa_flag : 1;
 
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
@@ -3956,6 +3975,7 @@ extern tree build_call_array (tree, tree, int, tree*);
 
 extern tree make_signed_type (int);
 extern tree make_unsigned_type (int);
+extern tree signed_or_unsigned_type_for (int, tree);
 extern tree signed_type_for (tree);
 extern tree unsigned_type_for (tree);
 extern void initialize_sizetypes (bool);
@@ -4030,8 +4050,6 @@ extern tree make_accum_type (int, int, int);
 		make_or_reuse_accum_type (P, 0, 1)
 #define make_or_reuse_sat_unsigned_accum_type(P) \
 		make_or_reuse_accum_type (P, 1, 1)
-
-extern tree get_signed_or_unsigned_type (int unsignedp, tree type);
 
 /* From expmed.c.  Since rtl.h is included after tree.h, we can't
    put the prototype here.  Rtl.h does declare the prototype if
@@ -4829,8 +4847,7 @@ extern unsigned int init_function_for_compilation (void);
 extern void allocate_struct_function (tree);
 extern void init_function_start (tree);
 extern bool use_register_for_decl (tree);
-extern void setjmp_vars_warning (tree);
-extern void setjmp_args_warning (void);
+extern void generate_setjmp_warnings (void);
 extern void init_temp_slots (void);
 extern void free_temp_slots (void);
 extern void pop_temp_slots (void);
@@ -4863,9 +4880,6 @@ extern bool debug_find_tree (tree, tree);
    data structures from the inliner.  */
 extern tree unsave_expr_now (tree);
 extern tree build_duplicate_type (tree);
-
-/* In emit-rtl.c */
-extern rtx emit_line_note (location_t);
 
 /* In calls.c */
 

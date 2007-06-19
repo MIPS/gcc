@@ -49,6 +49,7 @@ Boston, MA 02110-1301, USA.  */
 #include "cgraph.h"
 #include "tree-gimple.h"
 #include "dwarf2.h"
+#include "df.h"
 #include "tm-constrs.h"
 #include "params.h"
 
@@ -1500,6 +1501,9 @@ int ix86_section_threshold = 65536;
 char internal_label_prefix[16];
 int internal_label_prefix_len;
 
+/* Fence to use after loop using movnt.  */
+tree x86_mfence;
+
 /* Register class used for passing given 64bit part of the argument.
    These represent classes as documented by the PS ABI, with the exception
    of SSESF, SSEDF classes, that are basically SSE class, just gcc will
@@ -1702,6 +1706,7 @@ override_options (void)
 {
   int i;
   int ix86_tune_defaulted = 0;
+  int ix86_arch_specified = 0;
   unsigned int ix86_arch_mask, ix86_tune_mask;
 
   /* Comes from final.c -- no real reason to change it.  */
@@ -1949,6 +1954,9 @@ override_options (void)
 
   if (!ix86_arch_string)
     ix86_arch_string = TARGET_64BIT ? "x86-64" : "i386";
+  else
+    ix86_arch_specified = 1;
+  
   if (!strcmp (ix86_arch_string, "generic"))
     error ("generic CPU can be used only for -mtune= switch");
   if (!strncmp (ix86_arch_string, "generic", 7))
@@ -2226,6 +2234,7 @@ override_options (void)
       /* Enable by default the SSE and MMX builtins.  Do allow the user to
 	 explicitly disable any of these.  In particular, disabling SSE and
 	 MMX for kernel code is extremely useful.  */
+      if (!ix86_arch_specified)
       ix86_isa_flags
 	|= ((OPTION_MASK_ISA_SSE2 | OPTION_MASK_ISA_SSE | OPTION_MASK_ISA_MMX
 	     | TARGET_SUBTARGET64_ISA_DEFAULT) & ~ix86_isa_flags_explicit);
@@ -2237,6 +2246,7 @@ override_options (void)
     {
       target_flags |= TARGET_SUBTARGET32_DEFAULT & ~target_flags_explicit;
 
+      if (!ix86_arch_specified)
       ix86_isa_flags
 	|= TARGET_SUBTARGET32_ISA_DEFAULT & ~ix86_isa_flags_explicit;
 
@@ -3011,7 +3021,7 @@ ix86_eax_live_at_start_p (void)
      to correct at this point.  This gives false positives for broken
      functions that might use uninitialized data that happens to be
      allocated in eax, but who cares?  */
-  return REGNO_REG_SET_P (ENTRY_BLOCK_PTR->il.rtl->global_live_at_end, 0);
+  return REGNO_REG_SET_P (df_get_live_out (ENTRY_BLOCK_PTR), 0);
 }
 
 /* Return true if TYPE has a variable argument list.  */
@@ -5577,7 +5587,7 @@ ix86_select_alt_pic_regnum (void)
     {
       int i;
       for (i = 2; i >= 0; --i)
-        if (!regs_ever_live[i])
+        if (!df_regs_ever_live_p (i))
 	  return i;
     }
 
@@ -5590,7 +5600,7 @@ ix86_save_reg (unsigned int regno, int maybe_eh_return)
 {
   if (pic_offset_table_rtx
       && regno == REAL_PIC_OFFSET_TABLE_REGNUM
-      && (regs_ever_live[REAL_PIC_OFFSET_TABLE_REGNUM]
+      && (df_regs_ever_live_p (REAL_PIC_OFFSET_TABLE_REGNUM)
 	  || current_function_profile
 	  || current_function_calls_eh_return
 	  || current_function_uses_const_pool))
@@ -5617,7 +5627,7 @@ ix86_save_reg (unsigned int regno, int maybe_eh_return)
       && regno == REGNO (cfun->machine->force_align_arg_pointer))
     return 1;
 
-  return (regs_ever_live[regno]
+  return (df_regs_ever_live_p (regno)
 	  && !call_used_regs[regno]
 	  && !fixed_regs[regno]
 	  && (regno != HARD_FRAME_POINTER_REGNUM || !frame_pointer_needed));
@@ -6103,13 +6113,13 @@ ix86_expand_prologue (void)
 
   pic_reg_used = false;
   if (pic_offset_table_rtx
-      && (regs_ever_live[REAL_PIC_OFFSET_TABLE_REGNUM]
+      && (df_regs_ever_live_p (REAL_PIC_OFFSET_TABLE_REGNUM)
 	  || current_function_profile))
     {
       unsigned int alt_pic_reg_used = ix86_select_alt_pic_regnum ();
 
       if (alt_pic_reg_used != INVALID_REGNUM)
-	REGNO (pic_offset_table_rtx) = alt_pic_reg_used;
+	SET_REGNO (pic_offset_table_rtx, alt_pic_reg_used);
 
       pic_reg_used = true;
     }
@@ -6127,9 +6137,7 @@ ix86_expand_prologue (void)
 	      LABEL_PRESERVE_P (label) = 1;
 	      gcc_assert (REGNO (pic_offset_table_rtx) != REGNO (tmp_reg));
 	      insn = emit_insn (gen_set_rip_rex64 (pic_offset_table_rtx, label));
-              REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
 	      insn = emit_insn (gen_set_got_offset_rex64 (tmp_reg, label));
-              REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
 	      insn = emit_insn (gen_adddi3 (pic_offset_table_rtx,
 					    pic_offset_table_rtx, tmp_reg));
 	    }
@@ -6138,20 +6146,16 @@ ix86_expand_prologue (void)
 	}
       else
         insn = emit_insn (gen_set_got (pic_offset_table_rtx));
-
-      /* Even with accurate pre-reload life analysis, we can wind up
-	 deleting all references to the pic register after reload.
-	 Consider if cross-jumping unifies two sides of a branch
-	 controlled by a comparison vs the only read from a global.
-	 In which case, allow the set_got to be deleted, though we're
-	 too late to do anything about the ebx save in the prologue.  */
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
     }
 
   /* Prevent function calls from be scheduled before the call to mcount.
      In the pic_reg_used case, make sure that the got load isn't deleted.  */
   if (current_function_profile)
-    emit_insn (gen_blockage (pic_reg_used ? pic_offset_table_rtx : const0_rtx));
+    {
+      if (pic_reg_used)
+	emit_insn (gen_prologue_use (pic_offset_table_rtx));
+      emit_insn (gen_blockage ());
+    }
 }
 
 /* Emit code to restore saved registers using MOV insns.  First register
@@ -6363,7 +6367,7 @@ ix86_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
 			       HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   if (pic_offset_table_rtx)
-    REGNO (pic_offset_table_rtx) = REAL_PIC_OFFSET_TABLE_REGNUM;
+    SET_REGNO (pic_offset_table_rtx, REAL_PIC_OFFSET_TABLE_REGNUM);
 #if TARGET_MACHO
   /* Mach-O doesn't support labels at the end of objects, so if
      it looks like we might want one, insert a NOP.  */
@@ -7190,7 +7194,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	 base address (@GOTOFF).  */
 
       if (reload_in_progress)
-	regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
+	df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
       if (GET_CODE (addr) == CONST)
 	addr = XEXP (addr, 0);
       if (GET_CODE (addr) == PLUS)
@@ -7222,7 +7226,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	 base address (@GOTOFF).  */
 
       if (reload_in_progress)
-	regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
+	df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
       if (GET_CODE (addr) == CONST)
 	addr = XEXP (addr, 0);
       if (GET_CODE (addr) == PLUS)
@@ -7273,7 +7277,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	     Global Offset Table (@GOT).  */
 
 	  if (reload_in_progress)
-	    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
+	    df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
 	  new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOT);
 	  new_rtx = gen_rtx_CONST (Pmode, new_rtx);
 	  if (TARGET_64BIT)
@@ -7326,7 +7330,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	      if (!TARGET_64BIT)
 		{
 		  if (reload_in_progress)
-		    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
+		    df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
 		  new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op0),
 					    UNSPEC_GOTOFF);
 		  new_rtx = gen_rtx_PLUS (Pmode, new_rtx, op1);
@@ -7486,7 +7490,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
       else if (flag_pic)
 	{
 	  if (reload_in_progress)
-	    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
+	    df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
 	  pic = pic_offset_table_rtx;
 	  type = TARGET_ANY_GNU_TLS ? UNSPEC_GOTNTPOFF : UNSPEC_GOTTPOFF;
 	}
@@ -17765,12 +17769,12 @@ ix86_init_mmx_sse_builtins (void)
       /* TFmode support builtins.  */
       ftype = build_function_type (float128_type_node,
 				   void_list_node);
-      def_builtin_const (OPTION_MASK_ISA_64BIT, "__builtin_infq", ftype, IX86_BUILTIN_INFQ);
+      def_builtin (OPTION_MASK_ISA_64BIT, "__builtin_infq", ftype, IX86_BUILTIN_INFQ);
 
       ftype = build_function_type_list (float128_type_node,
 					float128_type_node,
 					NULL_TREE);
-      def_builtin_const (OPTION_MASK_ISA_64BIT, "__builtin_fabsq", ftype, IX86_BUILTIN_FABSQ);
+      def_builtin (OPTION_MASK_ISA_64BIT, "__builtin_fabsq", ftype, IX86_BUILTIN_FABSQ);
 
       ftype = build_function_type_list (float128_type_node,
 					float128_type_node,
@@ -18031,8 +18035,8 @@ ix86_init_mmx_sse_builtins (void)
 
   def_builtin (OPTION_MASK_ISA_SSE, "__builtin_ia32_rcpps", v4sf_ftype_v4sf, IX86_BUILTIN_RCPPS);
   def_builtin (OPTION_MASK_ISA_SSE, "__builtin_ia32_rcpss", v4sf_ftype_v4sf, IX86_BUILTIN_RCPSS);
-  def_builtin (OPTION_MASK_ISA_SSE, "__builtin_ia32_rsqrtps", v4sf_ftype_v4sf, IX86_BUILTIN_RSQRTPS);
-  def_builtin (OPTION_MASK_ISA_SSE, "__builtin_ia32_rsqrtss", v4sf_ftype_v4sf, IX86_BUILTIN_RSQRTSS);
+  def_builtin_const (OPTION_MASK_ISA_SSE, "__builtin_ia32_rsqrtps", v4sf_ftype_v4sf, IX86_BUILTIN_RSQRTPS);
+  def_builtin_const (OPTION_MASK_ISA_SSE, "__builtin_ia32_rsqrtss", v4sf_ftype_v4sf, IX86_BUILTIN_RSQRTSS);
   def_builtin_const (OPTION_MASK_ISA_SSE, "__builtin_ia32_sqrtps", v4sf_ftype_v4sf, IX86_BUILTIN_SQRTPS);
   def_builtin_const (OPTION_MASK_ISA_SSE, "__builtin_ia32_sqrtss", v4sf_ftype_v4sf, IX86_BUILTIN_SQRTSS);
 
@@ -18120,7 +18124,7 @@ ix86_init_mmx_sse_builtins (void)
 
   def_builtin (OPTION_MASK_ISA_SSE2, "__builtin_ia32_clflush", void_ftype_pcvoid, IX86_BUILTIN_CLFLUSH);
   def_builtin (OPTION_MASK_ISA_SSE2, "__builtin_ia32_lfence", void_ftype_void, IX86_BUILTIN_LFENCE);
-  def_builtin (OPTION_MASK_ISA_SSE2, "__builtin_ia32_mfence", void_ftype_void, IX86_BUILTIN_MFENCE);
+  x86_mfence = def_builtin (OPTION_MASK_ISA_SSE2, "__builtin_ia32_mfence", void_ftype_void, IX86_BUILTIN_MFENCE);
 
   def_builtin (OPTION_MASK_ISA_SSE2, "__builtin_ia32_loaddqu", v16qi_ftype_pcchar, IX86_BUILTIN_LOADDQU);
   def_builtin (OPTION_MASK_ISA_SSE2, "__builtin_ia32_storedqu", void_ftype_pchar_v16qi, IX86_BUILTIN_STOREDQU);

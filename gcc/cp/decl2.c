@@ -1057,6 +1057,7 @@ build_anon_union_vars (tree type, tree object)
 	  tree base;
 
 	  decl = build_decl (VAR_DECL, DECL_NAME (field), TREE_TYPE (field));
+	  DECL_ANON_UNION_VAR_P (decl) = 1;
 
 	  base = get_base_address (object);
 	  TREE_PUBLIC (decl) = TREE_PUBLIC (base);
@@ -1698,10 +1699,6 @@ determine_visibility (tree decl)
      class can influence the visibility of the DECL.  */
   if (DECL_CLASS_SCOPE_P (decl))
     class_type = DECL_CONTEXT (decl);
-  else if (TREE_CODE (decl) == VAR_DECL
-	   && DECL_TINFO_P (decl)
-	   && CLASS_TYPE_P (TREE_TYPE (DECL_NAME (decl))))
-    class_type = TREE_TYPE (DECL_NAME (decl));
   else
     {
       /* Not a class member.  */
@@ -1787,7 +1784,8 @@ determine_visibility (tree decl)
     {
       /* Propagate anonymity from type to decl.  */
       int tvis = type_visibility (TREE_TYPE (decl));
-      if (tvis == VISIBILITY_ANON)
+      if (tvis == VISIBILITY_ANON
+	  || ! DECL_VISIBILITY_SPECIFIED (decl))
 	constrain_visibility (decl, tvis);
     }
 }

@@ -962,6 +962,7 @@ extern tree get_vectype_for_scalar_type (tree);
 
 /* In tree-ssa-phiopt.c */
 bool empty_block_p (basic_block);
+basic_block *blocks_in_phiopt_order (void);
 
 /* In tree-ssa-loop*.c  */
 
@@ -1019,6 +1020,7 @@ void tree_transform_and_unroll_loop (struct loop *, unsigned,
 				     transform_callback, void *);
 bool contains_abnormal_ssa_name_p (tree);
 bool stmt_dominates_stmt_p (tree, tree);
+void mark_virtual_ops_for_renaming (tree);
 
 /* In tree-ssa-threadedge.c */
 extern bool potentially_threadable_block (basic_block);

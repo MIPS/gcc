@@ -386,6 +386,11 @@ extern int ix86_isa_flags;
 #define TARGET_TLS_DIRECT_SEG_REFS_DEFAULT 0
 #endif
 
+/* Fence to use after loop using storent.  */
+
+extern tree x86_mfence;
+#define FENCE_FOLLOWING_MOVNT x86_mfence
+
 /* Once GDB has been enhanced to deal with functions without frame
    pointers, we can change this to allow for elimination of
    the frame pointer in leaf functions.  */
@@ -2426,7 +2431,7 @@ struct machine_function GTY(())
    verify whether there's any such instruction live by testing that
    REG_SP is live.  */
 #define ix86_current_function_calls_tls_descriptor \
-  (ix86_tls_descriptor_calls_expanded_in_cfun && regs_ever_live[SP_REG])
+  (ix86_tls_descriptor_calls_expanded_in_cfun && df_regs_ever_live_p (SP_REG))
 
 /* Control behavior of x86_file_start.  */
 #define X86_FILE_START_VERSION_DIRECTIVE false
