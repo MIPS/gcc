@@ -3065,6 +3065,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	      code = POSTINCREMENT_EXPR;
 
 	    inc = integer_minus_one_node;
+	    inc = convert (argtype, inc);
 	  }
 	else
 	  {

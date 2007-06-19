@@ -1,3 +1,8 @@
+2007-06-19  Chao-ying Fu  <fu@mips.com>
+
+	* c-typeck.c (build_unary_op): For fixed-point pre/post inc/decrement,
+	convert the increment to the fixed-point type.
+
 2007-04-11  Sebastian Pop  <sebpop@gmail.com>
 
 	PR tree-optimization/32367
