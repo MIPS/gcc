@@ -27,5 +27,5 @@ $o$(objext): %$(objext): $(gcc_srcdir)/config/fixed-bit.c
 
 ifeq ($(enable_shared),yes)
 $(o)_s$(objext): %_s$(objext): $(gcc_srcdir)/config/fixed-bit.c
-	$(gcc_s_compile) -DL$($*-label) $($*-opt) -c $(gcc_srcdir)/config/fixed_bit.c
+	$(gcc_s_compile) -DL$($*-label) $($*-opt) -c $(gcc_srcdir)/config/fixed-bit.c
 endif
