@@ -5716,18 +5716,20 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   incr = valist;
   if (align)
     {
-      incr = fold_build2 (PLUS_EXPR, ptr_type_node, incr,
-			  ssize_int (align - 1));
-      incr = fold_build2 (BIT_AND_EXPR, ptr_type_node, incr,
-			  ssize_int (-align));
+      incr = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, incr,
+			  size_int (align - 1));
+      incr = fold_convert (sizetype, incr);
+      incr = fold_build2 (BIT_AND_EXPR, sizetype, incr,
+			  size_int (-align));
+      incr = fold_convert (ptr_type_node, incr);
     }
 
   gimplify_expr (&incr, pre_p, post_p, is_gimple_val, fb_rvalue);
   addr = incr;
 
   if (BYTES_BIG_ENDIAN && size < rsize)
-    addr = fold_build2 (PLUS_EXPR, ptr_type_node, incr,
-			ssize_int (rsize - size));
+    addr = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, incr,
+			size_int (rsize - size));
 
   if (indirect)
     {
@@ -5755,7 +5757,7 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   else
     addr = fold_convert (ptrtype, addr);
 
-  incr = fold_build2 (PLUS_EXPR, ptr_type_node, incr, ssize_int (rsize));
+  incr = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, incr, size_int (rsize));
   incr = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, valist, incr);
   gimplify_and_add (incr, post_p);
 
@@ -8029,8 +8031,10 @@ sparc_vis_init_builtins (void)
    Expand builtin functions for sparc intrinsics.  */
 
 static rtx
-sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
-		      enum machine_mode tmode, int ignore ATTRIBUTE_UNUSED)
+sparc_expand_builtin (tree exp, rtx target,
+		      rtx subtarget ATTRIBUTE_UNUSED,
+		      enum machine_mode tmode ATTRIBUTE_UNUSED,
+		      int ignore ATTRIBUTE_UNUSED)
 {
   tree arg;
   call_expr_arg_iterator iter;
@@ -8040,14 +8044,13 @@ sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   enum machine_mode mode[4];
   int arg_count = 0;
 
-  mode[arg_count] = tmode;
-
-  if (target == 0
-      || GET_MODE (target) != tmode
-      || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-    op[arg_count] = gen_reg_rtx (tmode);
+  mode[0] = insn_data[icode].operand[0].mode;
+  if (!target
+      || GET_MODE (target) != mode[0]
+      || ! (*insn_data[icode].operand[0].predicate) (target, mode[0]))
+    op[0] = gen_reg_rtx (mode[0]);
   else
-    op[arg_count] = target;
+    op[0] = target;
 
   FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
     {
@@ -8160,11 +8163,11 @@ sparc_fold_builtin (tree fndecl, tree arglist, bool ignore)
 {
   tree arg0, arg1, arg2;
   tree rtype = TREE_TYPE (TREE_TYPE (fndecl));
-  
 
-  if (ignore && DECL_FUNCTION_CODE (fndecl) != CODE_FOR_alignaddrsi_vis
+  if (ignore
+      && DECL_FUNCTION_CODE (fndecl) != CODE_FOR_alignaddrsi_vis
       && DECL_FUNCTION_CODE (fndecl) != CODE_FOR_alignaddrdi_vis)
-    return build_int_cst (rtype, 0);
+    return fold_convert (rtype, integer_zero_node);
 
   switch (DECL_FUNCTION_CODE (fndecl))
     {
@@ -8278,6 +8281,7 @@ sparc_fold_builtin (tree fndecl, tree arglist, bool ignore)
     default:
       break;
     }
+
   return NULL_TREE;
 }
 

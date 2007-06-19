@@ -4830,8 +4830,8 @@ ix86_va_start (tree valist, rtx nextarg)
   type = TREE_TYPE (ovf);
   t = make_tree (type, virtual_incoming_args_rtx);
   if (words != 0)
-    t = build2 (PLUS_EXPR, type, t,
-	        build_int_cst (type, words * UNITS_PER_WORD));
+    t = build2 (POINTER_PLUS_EXPR, type, t,
+	        size_int (words * UNITS_PER_WORD));
   t = build2 (GIMPLE_MODIFY_STMT, type, ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -4977,16 +4977,16 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       if (needed_intregs)
 	{
 	  /* int_addr = gpr + sav; */
-	  t = fold_convert (ptr_type_node, fold_convert (size_type_node, gpr));
-	  t = build2 (PLUS_EXPR, ptr_type_node, sav, t);
+	  t = fold_convert (sizetype, gpr);
+	  t = build2 (POINTER_PLUS_EXPR, ptr_type_node, sav, t);
 	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, int_addr, t);
 	  gimplify_and_add (t, pre_p);
 	}
       if (needed_sseregs)
 	{
 	  /* sse_addr = fpr + sav; */
-	  t = fold_convert (ptr_type_node, fold_convert (size_type_node, fpr));
-	  t = build2 (PLUS_EXPR, ptr_type_node, sav, t);
+	  t = fold_convert (sizetype, fpr);
+	  t = build2 (POINTER_PLUS_EXPR, ptr_type_node, sav, t);
 	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, sse_addr, t);
 	  gimplify_and_add (t, pre_p);
 	}
@@ -5022,13 +5022,13 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 		  src_offset = REGNO (reg) * 8;
 		}
 	      src_addr = fold_convert (addr_type, src_addr);
-	      src_addr = fold_build2 (PLUS_EXPR, addr_type, src_addr,
-				      build_int_cst (addr_type, src_offset));
+	      src_addr = fold_build2 (POINTER_PLUS_EXPR, addr_type, src_addr,
+				      size_int (src_offset));
 	      src = build_va_arg_indirect_ref (src_addr);
 
 	      dest_addr = fold_convert (addr_type, addr);
-	      dest_addr = fold_build2 (PLUS_EXPR, addr_type, dest_addr,
-				       build_int_cst (addr_type, INTVAL (XEXP (slot, 1))));
+	      dest_addr = fold_build2 (POINTER_PLUS_EXPR, addr_type, dest_addr,
+				       size_int (INTVAL (XEXP (slot, 1))));
 	      dest = build_va_arg_indirect_ref (dest_addr);
 
 	      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, dest, src);
@@ -5064,21 +5064,23 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   if (FUNCTION_ARG_BOUNDARY (VOIDmode, type) <= 64
       || integer_zerop (TYPE_SIZE (type)))
     t = ovf;
-  else
+ else
     {
       HOST_WIDE_INT align = FUNCTION_ARG_BOUNDARY (VOIDmode, type) / 8;
-      t = build2 (PLUS_EXPR, TREE_TYPE (ovf), ovf,
-		  build_int_cst (TREE_TYPE (ovf), align - 1));
+      t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (ovf), ovf,
+		  size_int (align - 1));
+      t = fold_convert (sizetype, t);
       t = build2 (BIT_AND_EXPR, TREE_TYPE (t), t,
-		  build_int_cst (TREE_TYPE (t), -align));
+		  size_int (-align));
+      t = fold_convert (TREE_TYPE (ovf), t);
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
   t2 = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
   gimplify_and_add (t2, pre_p);
 
-  t = build2 (PLUS_EXPR, TREE_TYPE (t), t,
-	      build_int_cst (TREE_TYPE (t), rsize * UNITS_PER_WORD));
+  t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (t), t,
+	      size_int (rsize * UNITS_PER_WORD));
   t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
   gimplify_and_add (t, pre_p);
 
@@ -15612,6 +15614,9 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
 
   gcc_assert (n < MAX_386_STACK_LOCALS);
 
+  /* Virtual slot is valid only before vregs are instantiated.  */
+  gcc_assert ((n == SLOT_VIRTUAL) == !virtuals_instantiated);
+
   for (s = ix86_stack_locals; s; s = s->next)
     if (s->mode == mode && s->n == n)
       return copy_rtx (s->rtl);
@@ -16448,6 +16453,7 @@ enum ix86_builtins
   IX86_BUILTIN_RCPSS,
   IX86_BUILTIN_RSQRTPS,
   IX86_BUILTIN_RSQRTSS,
+  IX86_BUILTIN_RSQRTF,
   IX86_BUILTIN_SQRTPS,
   IX86_BUILTIN_SQRTSS,
 
@@ -18037,6 +18043,10 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (OPTION_MASK_ISA_SSE, "__builtin_ia32_rcpss", v4sf_ftype_v4sf, IX86_BUILTIN_RCPSS);
   def_builtin_const (OPTION_MASK_ISA_SSE, "__builtin_ia32_rsqrtps", v4sf_ftype_v4sf, IX86_BUILTIN_RSQRTPS);
   def_builtin_const (OPTION_MASK_ISA_SSE, "__builtin_ia32_rsqrtss", v4sf_ftype_v4sf, IX86_BUILTIN_RSQRTSS);
+  ftype = build_function_type_list (float_type_node,
+				    float_type_node,
+				    NULL_TREE);
+  def_builtin_const (OPTION_MASK_ISA_SSE, "__builtin_ia32_rsqrtf", ftype, IX86_BUILTIN_RSQRTF);
   def_builtin_const (OPTION_MASK_ISA_SSE, "__builtin_ia32_sqrtps", v4sf_ftype_v4sf, IX86_BUILTIN_SQRTPS);
   def_builtin_const (OPTION_MASK_ISA_SSE, "__builtin_ia32_sqrtss", v4sf_ftype_v4sf, IX86_BUILTIN_SQRTSS);
 
@@ -19131,6 +19141,9 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       emit_insn (pat);
       return 0;
 
+    case IX86_BUILTIN_RSQRTF:
+      return ix86_expand_unop1_builtin (CODE_FOR_rsqrtsf2, exp, target);
+
     case IX86_BUILTIN_SQRTSS:
       return ix86_expand_unop1_builtin (CODE_FOR_sse_vmsqrtv4sf2, exp, target);
     case IX86_BUILTIN_RSQRTSS:
@@ -19199,13 +19212,13 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case IX86_BUILTIN_LDMXCSR:
       op0 = expand_normal (CALL_EXPR_ARG (exp, 0));
-      target = assign_386_stack_local (SImode, SLOT_TEMP);
+      target = assign_386_stack_local (SImode, SLOT_VIRTUAL);
       emit_move_insn (target, op0);
       emit_insn (gen_sse_ldmxcsr (target));
       return 0;
 
     case IX86_BUILTIN_STMXCSR:
-      target = assign_386_stack_local (SImode, SLOT_TEMP);
+      target = assign_386_stack_local (SImode, SLOT_VIRTUAL);
       emit_insn (gen_sse_stmxcsr (target));
       return copy_to_mode_reg (SImode, target);
 
@@ -19867,7 +19880,7 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
    input vector of type TYPE, or NULL_TREE if it is not available.  */
 
 static tree
-ix86_builtin_conversion (unsigned int code, tree type)
+ix86_vectorize_builtin_conversion (unsigned int code, tree type)
 {
   if (TREE_CODE (type) != VECTOR_TYPE)
     return NULL_TREE;
@@ -19895,6 +19908,42 @@ ix86_builtin_conversion (unsigned int code, tree type)
       return NULL_TREE;
 
     }
+}
+
+/* Returns a code for a target-specific builtin that implements
+   reciprocal of the function, or NULL_TREE if not available.  */
+
+static tree
+ix86_builtin_reciprocal (unsigned int fn, bool md_fn,
+			 bool sqrt ATTRIBUTE_UNUSED)
+{
+  if (! (TARGET_SSE_MATH && TARGET_RECIP && !optimize_size
+	 && flag_finite_math_only && !flag_trapping_math
+	 && flag_unsafe_math_optimizations))
+    return NULL_TREE;
+
+  if (md_fn)
+    /* Machine dependent builtins.  */
+    switch (fn)
+      {
+	/* Vectorized version of sqrt to rsqrt conversion.  */
+      case IX86_BUILTIN_SQRTPS:
+	return ix86_builtins[IX86_BUILTIN_RSQRTPS];
+
+      default:
+	return NULL_TREE;
+      }
+  else
+    /* Normal builtins.  */
+    switch (fn)
+      {
+	/* Sqrt to rsqrt conversion.  */
+      case BUILT_IN_SQRTF:
+	return ix86_builtins[IX86_BUILTIN_RSQRTF];
+
+      default:
+	return NULL_TREE;
+      }
 }
 
 /* Store OPERAND to the memory after reload is completed.  This means
@@ -22499,6 +22548,106 @@ void ix86_emit_i387_log1p (rtx op0, rtx op1)
   emit_label (label2);
 }
 
+/* Output code to perform a Newton-Rhapson approximation of a single precision
+   floating point divide [http://en.wikipedia.org/wiki/N-th_root_algorithm].  */
+
+void ix86_emit_swdivsf (rtx res, rtx a, rtx b, enum machine_mode mode)
+{
+  rtx x0, x1, e0, e1, two;
+
+  x0 = gen_reg_rtx (mode);
+  e0 = gen_reg_rtx (mode);
+  e1 = gen_reg_rtx (mode);
+  x1 = gen_reg_rtx (mode);
+
+  two = CONST_DOUBLE_FROM_REAL_VALUE (dconst2, SFmode);
+
+  if (VECTOR_MODE_P (mode))
+    two = ix86_build_const_vector (SFmode, true, two);
+
+  two = force_reg (mode, two);
+
+  /* a / b = a * rcp(b) * (2.0 - b * rcp(b)) */
+
+  /* x0 = 1./b estimate */
+  emit_insn (gen_rtx_SET (VOIDmode, x0,
+			  gen_rtx_UNSPEC (mode, gen_rtvec (1, b),
+					  UNSPEC_RCP)));
+  /* e0 = x0 * b */
+  emit_insn (gen_rtx_SET (VOIDmode, e0,
+			  gen_rtx_MULT (mode, x0, b)));
+  /* e1 = 2. - e0 */
+  emit_insn (gen_rtx_SET (VOIDmode, e1,
+			  gen_rtx_MINUS (mode, two, e0)));
+  /* x1 = x0 * e1 */
+  emit_insn (gen_rtx_SET (VOIDmode, x1,
+			  gen_rtx_MULT (mode, x0, e1)));
+  /* res = a * x1 */
+  emit_insn (gen_rtx_SET (VOIDmode, res,
+			  gen_rtx_MULT (mode, a, x1)));
+}
+
+/* Output code to perform a Newton-Rhapson approximation of a
+   single precision floating point [reciprocal] square root.  */
+
+void ix86_emit_swsqrtsf (rtx res, rtx a, enum machine_mode mode,
+			 bool recip)
+{
+  rtx x0, e0, e1, e2, e3, three, half, bignum;
+
+  x0 = gen_reg_rtx (mode);
+  e0 = gen_reg_rtx (mode);
+  e1 = gen_reg_rtx (mode);
+  e2 = gen_reg_rtx (mode);
+  e3 = gen_reg_rtx (mode);
+
+  three = CONST_DOUBLE_FROM_REAL_VALUE (dconst3, SFmode);
+  half = CONST_DOUBLE_FROM_REAL_VALUE (dconsthalf, SFmode);
+  bignum = gen_lowpart (SFmode, GEN_INT (0x7f7fffff));
+
+  if (VECTOR_MODE_P (mode))
+    {
+      three = ix86_build_const_vector (SFmode, true, three);
+      half = ix86_build_const_vector (SFmode, true, half);
+      bignum = ix86_build_const_vector (SFmode, true, bignum);
+    }
+
+  three = force_reg (mode, three);
+  half = force_reg (mode, half);
+  bignum = force_reg (mode, bignum);
+
+  /* sqrt(a) = 0.5 * a * rsqrtss(a) * (3.0 - a * rsqrtss(a) * rsqrtss(a))
+     1.0 / sqrt(a) = 0.5 * rsqrtss(a) * (3.0 - a * rsqrtss(a) * rsqrtss(a)) */
+
+  /* x0 = 1./sqrt(a) estimate */
+  emit_insn (gen_rtx_SET (VOIDmode, x0,
+			  gen_rtx_UNSPEC (mode, gen_rtvec (1, a),
+					  UNSPEC_RSQRT)));
+  emit_insn (gen_rtx_SET (VOIDmode, x0,
+			  gen_rtx_SMIN (mode, x0, bignum)));
+ 
+  /* e0 = x0 * a */
+  emit_insn (gen_rtx_SET (VOIDmode, e0,
+			  gen_rtx_MULT (mode, x0, a)));
+  /* e1 = e0 * x0 */
+  emit_insn (gen_rtx_SET (VOIDmode, e1,
+			  gen_rtx_MULT (mode, e0, x0)));
+  /* e2 = 3. - e1 */
+  emit_insn (gen_rtx_SET (VOIDmode, e2,
+			  gen_rtx_MINUS (mode, three, e1)));
+  if (recip)
+    /* e3 = .5 * x0 */
+    emit_insn (gen_rtx_SET (VOIDmode, e3,
+			    gen_rtx_MULT (mode, half, x0)));
+  else
+    /* e3 = .5 * e0 */
+    emit_insn (gen_rtx_SET (VOIDmode, e3,
+			    gen_rtx_MULT (mode, half, e0)));
+  /* ret = e2 * e3 */
+  emit_insn (gen_rtx_SET (VOIDmode, res,
+			  gen_rtx_MULT (mode, e2, e3)));
+}
+
 /* Solaris implementation of TARGET_ASM_NAMED_SECTION.  */
 
 static void ATTRIBUTE_UNUSED
@@ -23203,9 +23352,14 @@ static const struct attribute_spec ix86_attribute_table[] =
 #define TARGET_EXPAND_BUILTIN ix86_expand_builtin
 
 #undef TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION
-#define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION ix86_builtin_vectorized_function
+#define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \
+  ix86_builtin_vectorized_function
+
 #undef TARGET_VECTORIZE_BUILTIN_CONVERSION
-#define TARGET_VECTORIZE_BUILTIN_CONVERSION ix86_builtin_conversion
+#define TARGET_VECTORIZE_BUILTIN_CONVERSION ix86_vectorize_builtin_conversion
+
+#undef TARGET_BUILTIN_RECIPROCAL
+#define TARGET_BUILTIN_RECIPROCAL ix86_builtin_reciprocal
 
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE ix86_output_function_epilogue

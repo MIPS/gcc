@@ -1,3 +1,32 @@
+2007-06-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/20863
+	PR fortran/20882
+	* resolve.c (resolve_code): Use gfc_impure_variable as a
+	condition for rejecting derived types with pointers, in pure
+	procedures.
+	(gfc_impure_variable): Add test for dummy arguments of pure
+	procedures; any for functions and INTENT_IN for subroutines.
+
+	PR fortran/32236
+	* data.c (gfc_assign_data_value): Change the ICE on an array
+	reference initializer not being an array into an error and
+	clear init to prevent a repetition of the error.
+
+2007-06-17  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* gfortran.texi: Add documentation for GFORTRAN_UNBUFFERED_n
+	environment variables. Fix documentation for
+	GFORTRAN_UNBUFFERED_ALL environment variable.
+
+2007-06-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_repeat): Use
+	POINTER_PLUS_EXPR instead of PLUS_EXPR for pointer addition.
+	* trans-expr.c (gfc_trans_string_copy): Create
+	POINTER_PLUS_EXPR instead of a PLUS_EXPR
+	for pointer types.
+
 2007-06-14  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/32302

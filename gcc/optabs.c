@@ -379,6 +379,7 @@ optab_for_tree_code (enum tree_code code, tree type)
   trapv = INTEGRAL_TYPE_P (type) && TYPE_OVERFLOW_TRAPS (type);
   switch (code)
     {
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
       if (TYPE_SATURATING(type))
 	return TYPE_UNSIGNED(type) ? usadd_optab : ssadd_optab;
