@@ -100,6 +100,8 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo)
   int nbbs = loop->num_nodes;
   int byte_misalign;
   int innerloop_iters, factor;
+  VEC (slp_instance, heap) *slp_instances;
+  slp_instance instance;
 
   /* Cost model disabled.  */
   if (!flag_vect_cost_model)
@@ -242,6 +244,14 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo)
   vec_outside_cost += (peel_iters_prologue * scalar_single_iter_cost)
                       + (peel_iters_epilogue * scalar_single_iter_cost);
 
+  /* Add SLP costs.  */
+  slp_instances = LOOP_VINFO_SLP_INSTANCES (loop_vinfo);
+  for (i = 0; VEC_iterate (slp_instance, slp_instances, i, instance); i++)
+    {
+      vec_outside_cost += SLP_INSTANCE_OUTSIDE_OF_LOOP_COST (instance);
+      vec_inside_cost += SLP_INSTANCE_INSIDE_OF_LOOP_COST (instance);
+    }
+  
   /* Calculate number of iterations required to make the vector version 
      profitable, relative to the loop bodies only. The following condition
      must hold true: ((SIC*VF)-VIC)*niters > VOC*VF, where
@@ -404,24 +414,37 @@ vect_model_induction_cost (stmt_vec_info stmt_info, int ncopies)
    single op.  Right now, this does not account for multiple insns that could
    be generated for the single vector op.  We will handle that shortly.  */
 
-static void
-vect_model_simple_cost (stmt_vec_info stmt_info, int ncopies, enum vect_def_type *dt)
+void
+vect_model_simple_cost (stmt_vec_info stmt_info, int ncopies, 
+			enum vect_def_type *dt, slp_tree slp_node)
 {
   int i;
+  int *inside_cost_field, *outside_cost_field;
 
-  STMT_VINFO_INSIDE_OF_LOOP_COST (stmt_info) = ncopies * TARG_VEC_STMT_COST;
+  /* Take addresses of relevant fields to update in the function.  */
+  if (slp_node)
+    {
+      inside_cost_field = &(SLP_TREE_INSIDE_OF_LOOP_COST (slp_node));
+      outside_cost_field = &(SLP_TREE_OUTSIDE_OF_LOOP_COST (slp_node));
+    }
+  else
+    {
+      inside_cost_field = &(STMT_VINFO_INSIDE_OF_LOOP_COST (stmt_info));
+      outside_cost_field = &(STMT_VINFO_OUTSIDE_OF_LOOP_COST (stmt_info));
+    }
+
+  *inside_cost_field = ncopies * TARG_VEC_STMT_COST;
 
   /* FORNOW: Assuming maximum 2 args per stmts.  */
   for (i=0; i<2; i++)
     {
       if (dt[i] == vect_constant_def || dt[i] == vect_invariant_def)
-	STMT_VINFO_OUTSIDE_OF_LOOP_COST (stmt_info) += TARG_SCALAR_TO_VEC_COST; 
+	*outside_cost_field += TARG_SCALAR_TO_VEC_COST;
     }
   
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "vect_model_simple_cost: inside_cost = %d, "
-             "outside_cost = %d .", STMT_VINFO_INSIDE_OF_LOOP_COST (stmt_info),
-             STMT_VINFO_OUTSIDE_OF_LOOP_COST (stmt_info));
+	     "outside_cost = %d .", *inside_cost_field, *outside_cost_field); 
 }
 
 
@@ -448,17 +471,31 @@ vect_cost_strided_group_size (stmt_vec_info stmt_info)
    Models cost for stores.  In the case of strided accesses, one access
    has the overhead of the strided access attributed to it.  */
 
-static void
-vect_model_store_cost (stmt_vec_info stmt_info, int ncopies, enum vect_def_type dt)
+void
+vect_model_store_cost (stmt_vec_info stmt_info, int ncopies, 
+		       enum vect_def_type dt, slp_tree slp_node)
 {
   int cost = 0;
   int group_size;
+  int *inside_cost_field, *outside_cost_field;
+
+  /* Take addresses of relevant fields to update in the function.  */
+  if (slp_node)
+    {
+      inside_cost_field = &(SLP_TREE_INSIDE_OF_LOOP_COST (slp_node));
+      outside_cost_field = &(SLP_TREE_OUTSIDE_OF_LOOP_COST (slp_node));
+    }
+  else
+    {
+      inside_cost_field = &(STMT_VINFO_INSIDE_OF_LOOP_COST (stmt_info));
+      outside_cost_field = &(STMT_VINFO_OUTSIDE_OF_LOOP_COST (stmt_info));
+    }
 
   if (dt == vect_constant_def || dt == vect_invariant_def)
-    STMT_VINFO_OUTSIDE_OF_LOOP_COST (stmt_info) = TARG_SCALAR_TO_VEC_COST;
+    *outside_cost_field = TARG_SCALAR_TO_VEC_COST;
 
   /* Strided access?  */
-  if (DR_GROUP_FIRST_DR (stmt_info)) 
+  if (DR_GROUP_FIRST_DR (stmt_info) && !slp_node) 
     group_size = vect_cost_strided_group_size (stmt_info);
   /* Not a strided access.  */
   else
@@ -480,13 +517,11 @@ vect_model_store_cost (stmt_vec_info stmt_info, int ncopies, enum vect_def_type 
 
   /* Costs of the stores.  */
   cost += ncopies * TARG_VEC_STORE_COST;
-
-  STMT_VINFO_INSIDE_OF_LOOP_COST (stmt_info) = cost;
+  *inside_cost_field = cost;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "vect_model_store_cost: inside_cost = %d, "
-             "outside_cost = %d .", STMT_VINFO_INSIDE_OF_LOOP_COST (stmt_info),
-             STMT_VINFO_OUTSIDE_OF_LOOP_COST (stmt_info));
+	     "outside_cost = %d .", *inside_cost_field, *outside_cost_field);
 }
 
 
@@ -497,8 +532,8 @@ vect_model_store_cost (stmt_vec_info stmt_info, int ncopies, enum vect_def_type 
    accesses are supported for loads, we also account for the costs of the 
    access scheme chosen.  */
 
-static void
-vect_model_load_cost (stmt_vec_info stmt_info, int ncopies)
+void
+vect_model_load_cost (stmt_vec_info stmt_info, int ncopies, slp_tree slp_node)
 		 
 {
   int inner_cost = 0;
@@ -506,10 +541,23 @@ vect_model_load_cost (stmt_vec_info stmt_info, int ncopies)
   int alignment_support_cheme;
   tree first_stmt;
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info), *first_dr;
+  int *inside_cost_field, *outside_cost_field;
+
+  /* Take addresses of relevant fields to update in the function.  */
+  if (slp_node)
+    {
+      inside_cost_field = &(SLP_TREE_INSIDE_OF_LOOP_COST (slp_node));
+      outside_cost_field = &(SLP_TREE_OUTSIDE_OF_LOOP_COST (slp_node));
+    }
+  else
+    {
+      inside_cost_field = &(STMT_VINFO_INSIDE_OF_LOOP_COST (stmt_info));
+      outside_cost_field = &(STMT_VINFO_OUTSIDE_OF_LOOP_COST (stmt_info));
+    }
 
   /* Strided accesses?  */
   first_stmt = DR_GROUP_FIRST_DR (stmt_info);
-  if (first_stmt)
+  if (first_stmt && !slp_node)
     {
       group_size = vect_cost_strided_group_size (stmt_info);
       first_dr = STMT_VINFO_DATA_REF (vinfo_for_stmt (first_stmt));
@@ -587,14 +635,14 @@ vect_model_load_cost (stmt_vec_info stmt_info, int ncopies)
            access in the group. Inside the loop, there is a load op
            and a realignment op.  */
 
-        if ((!DR_GROUP_FIRST_DR (stmt_info)) || group_size > 1)
+        if ((!DR_GROUP_FIRST_DR (stmt_info)) || group_size > 1 || slp_node)
           {
             outer_cost = 2*TARG_VEC_STMT_COST;
             if (targetm.vectorize.builtin_mask_for_load)
               outer_cost += TARG_VEC_STMT_COST;
           }
         
-        STMT_VINFO_OUTSIDE_OF_LOOP_COST (stmt_info) = outer_cost;
+ 	*outside_cost_field = outer_cost;
         inner_cost += ncopies * (TARG_VEC_LOAD_COST + TARG_VEC_STMT_COST);
         break;
       }
@@ -603,13 +651,11 @@ vect_model_load_cost (stmt_vec_info stmt_info, int ncopies)
       gcc_unreachable ();
     }
 
-  STMT_VINFO_INSIDE_OF_LOOP_COST (stmt_info) = inner_cost;
+  *inside_cost_field = inner_cost;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "vect_model_load_cost: inside_cost = %d, "
-             "outside_cost = %d .", STMT_VINFO_INSIDE_OF_LOOP_COST (stmt_info),
-             STMT_VINFO_OUTSIDE_OF_LOOP_COST (stmt_info));
-
+	     "outside_cost = %d .", *inside_cost_field, *outside_cost_field);
 }
 
 
@@ -2922,7 +2968,7 @@ vectorizable_call (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       STMT_VINFO_TYPE (stmt_info) = call_vec_info_type;
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "=== vectorizable_call ===");
-      vect_model_simple_cost (stmt_info, ncopies, dt);
+      vect_model_simple_cost (stmt_info, ncopies, dt, NULL);
       return true;
     }
 
@@ -3254,7 +3300,8 @@ vectorizable_assignment (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
       STMT_VINFO_TYPE (stmt_info) = assignment_vec_info_type;
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "=== vectorizable_assignment ===");
-      vect_model_simple_cost (stmt_info, ncopies, dt);
+      if (!STMT_VINFO_PURE_SLP (stmt_info))
+	vect_model_simple_cost (stmt_info, ncopies, dt, NULL);
       return true;
     }
 
@@ -3554,7 +3601,8 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
       STMT_VINFO_TYPE (stmt_info) = op_vec_info_type;
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "=== vectorizable_operation ===");
-      vect_model_simple_cost (stmt_info, ncopies, dt);
+      if (!STMT_VINFO_PURE_SLP (stmt_info))
+	vect_model_simple_cost (stmt_info, ncopies, dt, NULL);
       return true;
     }
 
@@ -3834,7 +3882,7 @@ vectorizable_type_demotion (tree stmt, block_stmt_iterator *bsi,
       STMT_VINFO_TYPE (stmt_info) = type_demotion_vec_info_type;
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "=== vectorizable_demotion ===");
-      vect_model_simple_cost (stmt_info, ncopies, dt);
+      vect_model_simple_cost (stmt_info, ncopies, dt, NULL);
       return true;
     }
 
@@ -4065,7 +4113,7 @@ vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
       STMT_VINFO_TYPE (stmt_info) = type_promotion_vec_info_type;
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "=== vectorizable_promotion ===");
-      vect_model_simple_cost (stmt_info, 2*ncopies, dt);
+      vect_model_simple_cost (stmt_info, 2*ncopies, dt, NULL);
       return true;
     }
 
@@ -4410,7 +4458,8 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
   if (!vec_stmt) /* transformation not required.  */
     {
       STMT_VINFO_TYPE (stmt_info) = store_vec_info_type;
-      vect_model_store_cost (stmt_info, ncopies, dt);
+      if (!STMT_VINFO_PURE_SLP (stmt_info))
+	vect_model_store_cost (stmt_info, ncopies, dt, NULL);
       return true;
     }
 
@@ -5209,7 +5258,8 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
   if (!vec_stmt) /* transformation not required.  */
     {
       STMT_VINFO_TYPE (stmt_info) = load_vec_info_type;
-      vect_model_load_cost (stmt_info, ncopies);
+      if (!STMT_VINFO_PURE_SLP (stmt_info))
+	vect_model_load_cost (stmt_info, ncopies, NULL);
       return true;
     }
 

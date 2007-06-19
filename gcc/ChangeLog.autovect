@@ -1,3 +1,30 @@
+2007-06-19  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vectorizer.h (_slp_tree): Added new fields for costs and their 
+	access functions.
+	(_slp_instance): Likewise.
+	* tree-vect-analyze.c (vect_analyze_operations): Call
+	vect_update_slp_costs_according_to_vf.
+	(vect_get_and_check_slp_defs): Calculate costs. Added arguments.
+	(vect_build_slp_tree): Likewise. 
+	(vect_analyze_slp_instance): Initialize unrolling factor with 1 and
+	initialize cost fields. Update arguments of vect_build_slp_tree.
+	(vect_update_slp_costs_according_to_vf): New function.
+	* tree-vect-transform.c (vect_estimate_min_profitable_iters): Take SLP
+	costs into account.
+	(vect_model_simple_cost): Make extern, add SLP parameter and handle 
+	SLP.
+	(vect_model_store_cost, vect_model_load_cost): Likewise.
+	(vectorizable_call): Add argument to vect_model_simple_cost.
+	(vectorizable_assignment): Call vect_model_simple_cost only for not
+	pure SLP stmts.
+	(vectorizable_operation): Likewise.
+	(vectorizable_type_demotion): Add argument to vect_model_simple_cost.
+	(vectorizable_type_promotion): Likewise.
+	(vectorizable_store): Call vect_model_simple_cost only for not pure SLP
+	stmts.
+	(vectorizable_load): Likewise. 
+
 2007-06-17  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-transform.c (vect_estimate_min_profitable_iters): Multiply

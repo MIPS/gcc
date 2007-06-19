@@ -62,6 +62,7 @@ static bool vect_compute_data_ref_alignment (struct data_reference *);
 static bool vect_can_advance_ivs_p (loop_vec_info);
 static void vect_update_misalignment_for_peel
   (struct data_reference *, struct data_reference *, int npeel);
+static void vect_update_slp_costs_according_to_vf (loop_vec_info);
 
 /* Function vect_determine_vectorization_factor
 
@@ -504,6 +505,10 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
       if (vect_print_dump_info (REPORT_DETAILS)) 
 	fprintf (vect_dump, "PURE SLP: VF = %d", vectorization_factor);
     }
+
+  /* After VF is set, SLP costs should be updated since the number of created
+     vector stmts depends on VF.  */
+  vect_update_slp_costs_according_to_vf (loop_vinfo);
 
   if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
       && vect_print_dump_info (REPORT_DETAILS))
@@ -2188,19 +2193,22 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo)
    they match the defs of the first stmt of the SLP group.  */
 
 static bool
-vect_get_and_check_slp_defs (loop_vec_info loop_vinfo, tree rhs,
-			     VEC (tree, heap) **def_stmts0,
+vect_get_and_check_slp_defs (loop_vec_info loop_vinfo, slp_tree slp_node,
+			     tree rhs, VEC (tree, heap) **def_stmts0,
 			     VEC (tree, heap) **def_stmts1,
 			     enum vect_def_type *first_stmt_dt0,
 			     enum vect_def_type *first_stmt_dt1,
 			     tree *first_stmt_def0_type, 
-			     tree *first_stmt_def1_type)
+			     tree *first_stmt_def1_type,
+			     int ncopies_for_cost)
 {
   tree oprnd;
   enum operation_type op_type = TREE_OPERAND_LENGTH (rhs);
   unsigned int i, number_of_oprnds = op_type;
   tree def, def_stmt;
-  enum vect_def_type dt;
+  enum vect_def_type dt[2] = {vect_unknown_def_type, vect_unknown_def_type};
+  stmt_vec_info stmt_info = 
+    vinfo_for_stmt (VEC_index (tree, SLP_TREE_SCALAR_STMTS (slp_node), 0));
 
   /* Store.  */
   if (!op_type)
@@ -2215,8 +2223,8 @@ vect_get_and_check_slp_defs (loop_vec_info loop_vinfo, tree rhs,
       else
 	oprnd = rhs;
 
-      if (!vect_is_simple_use (oprnd, loop_vinfo, &def_stmt, &def, &dt)
-	  || (!def_stmt && dt != vect_constant_def))
+      if (!vect_is_simple_use (oprnd, loop_vinfo, &def_stmt, &def, &dt[i])
+	  || (!def_stmt && dt[i] != vect_constant_def))
 	{
 	  if (vect_print_dump_info (REPORT_DETAILS)) 
 	    {
@@ -2230,9 +2238,17 @@ vect_get_and_check_slp_defs (loop_vec_info loop_vinfo, tree rhs,
       if (!*first_stmt_dt0)
 	{
 	  /* op0 of the first stmt of the group - store its info.  */
-	  *first_stmt_dt0 = dt;
+	  *first_stmt_dt0 = dt[i];
 	  if (def)
 	    *first_stmt_def0_type = TREE_TYPE (def);
+
+	  /* Analyze costs (for the first stmt of the group only).  */
+	  if (op_type)
+	    /* Not memory operation (we don't call this functions for loads).  */
+	    vect_model_simple_cost (stmt_info, ncopies_for_cost, dt, slp_node);
+	  else
+	    /* Store.  */
+	    vect_model_store_cost (stmt_info, ncopies_for_cost, dt[0], slp_node);
 	}
       
       else
@@ -2240,7 +2256,7 @@ vect_get_and_check_slp_defs (loop_vec_info loop_vinfo, tree rhs,
 	  if (!*first_stmt_dt1 && i == 1)
 	    {
 	      /* op1 of the first stmt of the group - store its info.  */
-	      *first_stmt_dt1 = dt;
+	      *first_stmt_dt1 = dt[i];
 	      if (def)
 		*first_stmt_def1_type = TREE_TYPE (def);
 	    }
@@ -2249,11 +2265,11 @@ vect_get_and_check_slp_defs (loop_vec_info loop_vinfo, tree rhs,
 	      /* Not first stmt of the group, check that the def-stmt/s match 
 		 the def-stmt/s of the first stmt.  */
 	      if ((i == 0 
-		   && (*first_stmt_dt0 != dt 
+		   && (*first_stmt_dt0 != dt[i]
 		       || (*first_stmt_def0_type && def
 			   && *first_stmt_def0_type != TREE_TYPE (def))))
 		  || (i == 1 
-		      && (*first_stmt_dt1 != dt
+		      && (*first_stmt_dt1 != dt[i]
 			  || (*first_stmt_def1_type && def
 			      && *first_stmt_def1_type != TREE_TYPE (def)))))
 		{ 
@@ -2266,7 +2282,7 @@ vect_get_and_check_slp_defs (loop_vec_info loop_vinfo, tree rhs,
 	}
 
       /* Check the types of the definitions.  */
-      switch (dt)
+      switch (dt[i])
 	{
 	case vect_constant_def:
 	case vect_invariant_def:
@@ -2290,7 +2306,7 @@ vect_get_and_check_slp_defs (loop_vec_info loop_vinfo, tree rhs,
 	  return false;
 	}
     }
-  
+
   return true;
 }
 
@@ -2304,7 +2320,9 @@ vect_get_and_check_slp_defs (loop_vec_info loop_vinfo, tree rhs,
 
 static bool
 vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node, 
-		     unsigned int group_size, bool *slp_impossible)
+		     unsigned int group_size, bool *slp_impossible,
+		     int *inside_cost, int *outside_cost,
+		     int ncopies_for_cost)
 {
   VEC (tree, heap) *def_stmts0 = VEC_alloc (tree, heap, group_size);
   VEC (tree, heap) *def_stmts1 =  VEC_alloc (tree, heap, group_size);
@@ -2378,11 +2396,13 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
 	  if (REFERENCE_CLASS_P (lhs))
 	    {
 	      /* Store.  */
-	      if (!vect_get_and_check_slp_defs (loop_vinfo, rhs, &def_stmts0, 
-						&def_stmts1, &first_stmt_dt0, 
+	      if (!vect_get_and_check_slp_defs (loop_vinfo, *node, rhs, 
+						&def_stmts0, &def_stmts1, 
+						&first_stmt_dt0, 
 						&first_stmt_dt1, 
 						&first_stmt_def0_type, 
-						&first_stmt_def1_type))
+						&first_stmt_def1_type,
+						ncopies_for_cost))
 		return false;
 	    }
 	    else
@@ -2405,6 +2425,10 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
 
 			return false;
 		      }
+		    
+		    /* Analyze costs (for the first stmt in the group).  */
+		    vect_model_load_cost (vinfo_for_stmt (stmt), 
+					  ncopies_for_cost, *node);
 		  }
 		else
 		  {
@@ -2457,14 +2481,19 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
 	    }
 
 	  /* Find the def-stmts.  */ 
-	  if (!vect_get_and_check_slp_defs (loop_vinfo, rhs, &def_stmts0, 
+	  if (!vect_get_and_check_slp_defs (loop_vinfo, *node, rhs, &def_stmts0, 
 					    &def_stmts1, &first_stmt_dt0, 
 					    &first_stmt_dt1, 
 					    &first_stmt_def0_type, 
-					    &first_stmt_def1_type))
+					    &first_stmt_def1_type,
+					    ncopies_for_cost))
 	    return false;
 	}
     }
+
+  /* Add the costs of the node to the overall instance costs.  */
+  *inside_cost += SLP_TREE_INSIDE_OF_LOOP_COST (*node); 
+  *outside_cost += SLP_TREE_OUTSIDE_OF_LOOP_COST (*node);
 
   /* Strided loads were reached - stop the recursion.  */
   if (stop_recursion)
@@ -2478,8 +2507,11 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
       SLP_TREE_VEC_STMTS (left_node) = NULL;
       SLP_TREE_LEFT (left_node) = NULL;
       SLP_TREE_RIGHT (left_node) = NULL;
+      SLP_TREE_OUTSIDE_OF_LOOP_COST (left_node) = 0;
+      SLP_TREE_INSIDE_OF_LOOP_COST (left_node) = 0;
       if (!vect_build_slp_tree (loop_vinfo, &left_node, group_size, 
-				slp_impossible))
+				slp_impossible, inside_cost, outside_cost,
+				ncopies_for_cost))
 	return false;
       
       SLP_TREE_LEFT (*node) = left_node;
@@ -2492,8 +2524,11 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
       SLP_TREE_VEC_STMTS (right_node) = NULL;
       SLP_TREE_LEFT (right_node) = NULL;
       SLP_TREE_RIGHT (right_node) = NULL;
+      SLP_TREE_OUTSIDE_OF_LOOP_COST (right_node) = 0;
+      SLP_TREE_INSIDE_OF_LOOP_COST (right_node) = 0;
       if (!vect_build_slp_tree (loop_vinfo, &right_node, group_size,
-				slp_impossible))
+				slp_impossible, inside_cost, outside_cost,
+				ncopies_for_cost))
 	return false;
       
       SLP_TREE_RIGHT (*node) = right_node;
@@ -2578,16 +2613,18 @@ vect_analyze_slp_instance (loop_vec_info loop_vinfo, tree stmt)
   slp_instance new_instance;
   slp_tree node = XNEW (struct _slp_tree);
   unsigned int group_size = DR_GROUP_SIZE (vinfo_for_stmt (stmt));
-  unsigned int unrolling_factor = 0, nunits;
+  unsigned int unrolling_factor = 1, nunits;
   tree vectype, scalar_type, next;
   unsigned int vectorization_factor = 0, ncopies;
   bool slp_impossible = false; 
+  int inside_cost, outside_cost, ncopies_for_cost;
 
   /* FORNOW: multiple types are not supported.  */
-  vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
-  gcc_assert (LOOP_VINFO_VECT_FACTOR (loop_vinfo));
+  scalar_type = TREE_TYPE (DR_REF (STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt))));
+  vectype = get_vectype_for_scalar_type (scalar_type);
+  nunits = TYPE_VECTOR_SUBPARTS (vectype);
   vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-  ncopies = vectorization_factor / TYPE_VECTOR_SUBPARTS (vectype);
+  ncopies = vectorization_factor / nunits;
   if (ncopies > 1)
     {
       if (vect_print_dump_info (REPORT_DETAILS)) 
@@ -2610,26 +2647,32 @@ vect_analyze_slp_instance (loop_vec_info loop_vinfo, tree stmt)
   SLP_TREE_NUMBER_OF_VEC_STMTS (node) = 0;
   SLP_TREE_LEFT (node) = NULL;
   SLP_TREE_RIGHT (node) = NULL;
+  SLP_TREE_OUTSIDE_OF_LOOP_COST (node) = 0;
+  SLP_TREE_INSIDE_OF_LOOP_COST (node) = 0;
+
+  /* Calculate the unrolling factor.  */
+  if (nunits > group_size)
+    {
+      unrolling_factor = nunits / group_size;
+      gcc_assert (!(nunits % group_size));
+    }
+	
+  /* Calculate the number of vector stmts to create based on the unrolling
+     factor (number of vectors is 1 if NUNITS >= GROUP_SIZE, and is
+     GROUP_SIZE / NUNITS otherwise.  */
+  ncopies_for_cost = unrolling_factor * group_size / nunits;
 
   /* Build the tree for the SLP instance.  */
-  if (vect_build_slp_tree (loop_vinfo, &node, group_size, &slp_impossible))
+  if (vect_build_slp_tree (loop_vinfo, &node, group_size, &slp_impossible,
+			   &inside_cost, &outside_cost, ncopies_for_cost))
     {
-      /* Calculate the unrolling factor.  */
-      scalar_type = TREE_TYPE (DR_REF (STMT_VINFO_DATA_REF (
-						  vinfo_for_stmt (stmt))));
-      vectype = get_vectype_for_scalar_type (scalar_type);
-      nunits = TYPE_VECTOR_SUBPARTS (vectype);
-      if (nunits > group_size)
-	{
-	  unrolling_factor = nunits / group_size;
-	  gcc_assert (!(nunits % group_size));
-	}
-	  
       /* Create a new SLP instance.  */  
       new_instance = XNEW (struct _slp_instance);
       SLP_INSTANCE_TREE (new_instance) = node;
       SLP_INSTANCE_GROUP_SIZE (new_instance) = group_size;
       SLP_INSTANCE_UNROLLING_FACTOR (new_instance) = unrolling_factor;
+      SLP_INSTANCE_OUTSIDE_OF_LOOP_COST (new_instance) = outside_cost;
+      SLP_INSTANCE_INSIDE_OF_LOOP_COST (new_instance) = inside_cost;
       VEC_safe_push (slp_instance, heap, LOOP_VINFO_SLP_INSTANCES (loop_vinfo), 
 		     new_instance);
       if (vect_print_dump_info (REPORT_DETAILS))
@@ -2675,6 +2718,33 @@ vect_analyze_slp (loop_vec_info loop_vinfo)
       }
 
   return true;
+}
+
+
+/* SLP costs are calculated according to SLP instance unrolling factor (i.e., 
+   the number of created vector stmts depends on the unrolling factor). However,
+   the actual number of vector stmts for every SLP node depends on VF which is
+   set later in vect_analyze_operations(). Hence, SLP costs should be updated.
+   In this function we assume that the inside costs calculated in 
+   vect_model_xxx_cost are linear in ncopies.  */
+
+static void
+vect_update_slp_costs_according_to_vf (loop_vec_info loop_vinfo)
+{
+  unsigned int i, vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+  VEC (slp_instance, heap) *slp_instances = LOOP_VINFO_SLP_INSTANCES (loop_vinfo);
+  slp_instance instance;
+
+  if (vect_print_dump_info (REPORT_DETAILS))
+    fprintf (vect_dump, "=== vect_update_slp_costs_according_to_vf ===");
+
+  for (i = 0; VEC_iterate (slp_instance, slp_instances, i, instance); i++)
+    {
+      /* We assume that costs are linear in ncopies.  */
+      if (SLP_INSTANCE_UNROLLING_FACTOR (instance) != vf)
+	SLP_INSTANCE_INSIDE_OF_LOOP_COST (instance) *= vf 
+	  / SLP_INSTANCE_UNROLLING_FACTOR (instance);	  
+    }
 }
 
 

@@ -101,6 +101,12 @@ typedef struct _slp_tree {
   VEC (tree, heap) *vec_stmts;
   /* Number of vectorized stmts.  */
   unsigned int vec_stmts_size;
+  /* Vectorization costs associated with SLP node.  */
+  struct  
+  {
+    int outside_of_loop;     /* Statements generated outside loop.  */
+    int inside_of_loop;      /* Statements generated inside loop.  */
+  } cost;
 } *slp_tree;
 
 
@@ -115,6 +121,13 @@ typedef struct _slp_instance {
 
   /* The unrolling factor required to vectorized this SLP instance.  */
   unsigned int unrolling_factor;  
+
+  /* Vectorization costs associated with SLP instance.  */
+  struct  
+  {
+    int outside_of_loop;     /* Statements generated outside loop.  */
+    int inside_of_loop;      /* Statements generated inside loop.  */
+  } cost;
 } *slp_instance;
 
 DEF_VEC_P(slp_instance);
@@ -124,12 +137,16 @@ DEF_VEC_ALLOC_P(slp_instance, heap);
 #define SLP_INSTANCE_TREE(S)                             (S)->root
 #define SLP_INSTANCE_GROUP_SIZE(S)                       (S)->group_size
 #define SLP_INSTANCE_UNROLLING_FACTOR(S)                 (S)->unrolling_factor
+#define SLP_INSTANCE_OUTSIDE_OF_LOOP_COST(S)             (S)->cost.outside_of_loop
+#define SLP_INSTANCE_INSIDE_OF_LOOP_COST(S)              (S)->cost.inside_of_loop
 
 #define SLP_TREE_LEFT(S)                         (S)->left
 #define SLP_TREE_RIGHT(S)                        (S)->right
 #define SLP_TREE_SCALAR_STMTS(S)                 (S)->stmts
 #define SLP_TREE_VEC_STMTS(S)                    (S)->vec_stmts
 #define SLP_TREE_NUMBER_OF_VEC_STMTS(S)          (S)->vec_stmts_size
+#define SLP_TREE_OUTSIDE_OF_LOOP_COST(S)         (S)->cost.outside_of_loop
+#define SLP_TREE_INSIDE_OF_LOOP_COST(S)          (S)->cost.inside_of_loop
 
 /*-----------------------------------------------------------------*/
 /* Info on vectorized loops.                                       */
@@ -604,6 +621,12 @@ extern bool vectorizable_reduction (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_induction (tree, block_stmt_iterator *, tree *);
 extern void vect_free_slp_tree (slp_tree);
 extern int  vect_estimate_min_profitable_iters (loop_vec_info);
+extern void vect_model_simple_cost (stmt_vec_info, int, enum vect_def_type *, 
+				    slp_tree);
+extern void vect_model_store_cost (stmt_vec_info, int, enum vect_def_type, 
+				   slp_tree);
+extern void vect_model_load_cost (stmt_vec_info, int, slp_tree);
+
 /* Driver for transformation stage.  */
 extern void vect_transform_loop (loop_vec_info);
 
