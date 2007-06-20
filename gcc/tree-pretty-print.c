@@ -2155,7 +2155,7 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 	    dump_generic_node (buffer, gs_assign_operand_rhs (gs), spc,
 			       flags, false);
 	    pp_space (buffer);
-	    pp_string (buffer, pred_symbol_code (GS_SUBCODE_FLAGS (gs)));
+	    pp_string (buffer, op_symbol_code (GS_SUBCODE_FLAGS (gs)));
 	    pp_space (buffer);
 	    dump_generic_node (buffer, gs_assign_operand_rhs2 (gs), spc,
 			       flags, false);

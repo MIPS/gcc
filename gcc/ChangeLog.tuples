@@ -1,3 +1,8 @@
+2007-06-20  Aldy Hernandez  <aldyh@redhat.com>
+
+        * tree-pretty-print.c (dump_gimple_stmt): Change pred_symbol_code
+        to op_symbol_code.
+
 2007-06-19  Aldy Hernandez  <aldyh@redhat.com>
 
         * gimplify.c (gimplify_modify_expr_rhs): Enable.  Adjust for tuples.
