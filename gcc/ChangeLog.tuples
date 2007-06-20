@@ -1,3 +1,11 @@
+2007-06-19  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gimplify.c (gimplify_modify_expr_rhs): Enable.  Adjust for tuples.
+        (gimplify_modify_expr): Call gimplify_modify_expr_rhs.
+        (gimplify_compound_expr): Enable.  Adjust for tuples.  Remove comment
+        that no longer applies.
+        (gimplify_expr): Enable call to gimplify_compound_expr.
+
 2007-06-18  Chris Matthews  <chrismatthews@google.com>
      
      * gcc/Makefile.in (GTFILES): Added gimeple-ir.h.

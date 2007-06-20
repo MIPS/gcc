@@ -113,10 +113,7 @@ typedef struct gimple_temp_hash_elt
 } elt_t;
 
 /* Forward declarations.  */
-#if 0
-/* FIXME tuples */
 static enum gimplify_status gimplify_compound_expr (tree *, gs_seq, bool);
-#endif
 #ifdef ENABLE_CHECKING
 static bool cpt_same_type (tree a, tree b);
 #endif
@@ -3320,8 +3317,6 @@ fold_indirect_ref_rhs (tree t)
 /* Subroutine of gimplify_modify_expr to do simplifications of MODIFY_EXPRs
    based on the code of the RHS.  We loop for as long as something changes.  */
 
-#if 0
-/* FIXME tuples */
 static enum gimplify_status
 gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 			  gs_seq pre_p, gs_seq post_p, bool want_value)
@@ -3380,11 +3375,7 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
       case COMPOUND_EXPR:
 	/* Remove any COMPOUND_EXPR in the RHS so the following cases will be
 	   caught.  */
-#if 0
-/* FIXME tuples */
 	gimplify_compound_expr (from_p, pre_p, true);
-#endif
-	gcc_unreachable();
 	ret = GS_OK;
 	break;
 
@@ -3523,7 +3514,6 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 
   return ret;
 }
-#endif
 
 /* Destructively convert the TREE pointer in TP into a gimple tuple if
    appropriate.  */
@@ -3642,14 +3632,11 @@ gimplify_modify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
       return GS_ALL_DONE;
     }
 
-#if 0
-/* FIXME tuples */
   /* See if any simplifications can be done based on what the RHS is.  */
   ret = gimplify_modify_expr_rhs (expr_p, from_p, to_p, pre_p, post_p,
 				  want_value);
   if (ret != GS_UNHANDLED)
-    return ret;
-#endif
+    return gimplify_modify_expr (expr_p, pre_p, post_p, want_value);
 
   /* If the value being copied is of variable width, compute the length
      of the copy into a WITH_SIZE_EXPR.   Note that we need to do this
@@ -3669,14 +3656,11 @@ gimplify_modify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
   if (ret == GS_ERROR)
     return ret;
 
-#if 0
-/* FIXME tuples */
   /* Now see if the above changed *from_p to something we handle specially.  */
   ret = gimplify_modify_expr_rhs (expr_p, from_p, to_p, pre_p, post_p,
 				  want_value);
   if (ret != GS_UNHANDLED)
-    return ret;
-#endif
+    return gimplify_modify_expr (expr_p, pre_p, post_p, want_value);
 
   /* If we've got a variable sized assignment between two lvalues (i.e. does
      not involve a call), then we can make things a bit more straightforward
@@ -3815,12 +3799,7 @@ gimplify_boolean_expr (tree *expr_p)
        expressions in the sequence will be emitted.
 
    WANT_VALUE is true when the result of the last COMPOUND_EXPR is used.  */
-/* ??? Should rearrange to share the pre-queue with all the indirect
-   invocations of gimplify_expr.  Would probably save on creations
-   of statement_list nodes.  */
 
-#if 0
-/* FIXME tuples */
 static enum gimplify_status
 gimplify_compound_expr (tree *expr_p, gs_seq pre_p, bool want_value)
 {
@@ -3833,8 +3812,7 @@ gimplify_compound_expr (tree *expr_p, gs_seq pre_p, bool want_value)
       if (TREE_CODE (*sub_p) == COMPOUND_EXPR)
 	gimplify_compound_expr (sub_p, pre_p, false);
       else
-	gimplify_stmt (sub_p);
-      append_to_statement_list (*sub_p, pre_p);
+	gimplify_stmt (sub_p, pre_p);
 
       t = TREE_OPERAND (t, 1);
     }
@@ -3845,11 +3823,10 @@ gimplify_compound_expr (tree *expr_p, gs_seq pre_p, bool want_value)
     return GS_OK;
   else
     {
-      gimplify_stmt (expr_p);
+      gimplify_stmt (expr_p, pre_p);
       return GS_ALL_DONE;
     }
 }
-#endif
 
 /* Gimplifies a statement list onto a sequence.  These may be created either
    by an enlightened front-end, or by shortcut_cond_expr.  */
@@ -5633,11 +5610,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	  gcc_unreachable ();
 
 	case COMPOUND_EXPR:
-#if 0
-/* FIXME tuples */
 	  ret = gimplify_compound_expr (expr_p, pre_p, fallback != fb_none);
-#endif
-	  gcc_unreachable();
 	  break;
 
 	case MODIFY_EXPR:
