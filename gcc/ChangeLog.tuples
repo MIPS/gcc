@@ -1,93 +1,105 @@
 2007-06-20  Aldy Hernandez  <aldyh@redhat.com>
 
-        * tree-pretty-print.c (dump_gimple_stmt): Change pred_symbol_code
-        to op_symbol_code.
+	* tree-pretty-print.c (dump_gimple_stmt): Change pred_symbol_code
+	to op_symbol_code.
 
 2007-06-19  Aldy Hernandez  <aldyh@redhat.com>
 
-        * gimplify.c (gimplify_modify_expr_rhs): Enable.  Adjust for tuples.
-        (gimplify_modify_expr): Call gimplify_modify_expr_rhs.
-        (gimplify_compound_expr): Enable.  Adjust for tuples.  Remove comment
-        that no longer applies.
-        (gimplify_expr): Enable call to gimplify_compound_expr.
+	* gimplify.c (gimplify_modify_expr_rhs): Enable.  Adjust for tuples.
+	(gimplify_modify_expr): Call gimplify_modify_expr_rhs.
+	(gimplify_compound_expr): Enable.  Adjust for tuples.  Remove comment
+	that no longer applies.
+	(gimplify_expr): Enable call to gimplify_compound_expr.
 
 2007-06-18  Chris Matthews  <chrismatthews@google.com>
-     
-     * gcc/Makefile.in (GTFILES): Added gimeple-ir.h.
-     
-     * gcc/gimple-ir.c (gs_build_return, gs_build_call, gs_build_assign): 
-     Changed to use new accessors.
-     
-     (gs_build_cond, gs_build_label, gs_build_goto, gs_build_nop, gs_build_bind
-     gs_build_asm, gs_build_catch, gs_build_eh_filter, gs_build_try, 
-     gs_build_phi, gs_build_resx, gs_build_switch, gs_omp_build_critical,
-     gs_omp_build_for, gs_omp_build_parallel, gs_omp_build_section, 
-     gs_omp_build_master, gs_omp_build_ordered, gs_omp_continue, 
-     gs_omp_build_ordered, gs_omp_build_return, gs_omp_build_sections, 
-     gs_omp_build_single): New functions.
-     
-     * gcc/gimple-ir.h (struct gimple_statement_switch): Changed default label
-     to be in labels[0].
-     
-     (struct gimple_statement_asm): Corrected the allocation length.
-     
-     (enum gs_cond): New enum.
-     
-     (gs_assign_set_operand): Changed to work with new accessors.
-     (gs_assign_operand_lhs, gs_assign_operand_rhs, gs_assign_operand_set_lhs, 
-     gs_assign_set_rhs, gs_assign_operand_rhs2, gs_assign_set_rhs2, gs_call_fn, 
-     gs_call_set_fn, gs_call_lhs, gs_call_set_lhs, gs_call_chain, 
-     gs_call_set_chain, gs_call_nargs, gs_call_set_nargs, gs_call_arg,
-     gs_call_set_arg, gs_cond_lhs, gs_cond_set_lhs, gs_cond_rhs, 
-     gs_cond_set_rhs, gs_cond_true_label, gs_cond_set_true_label, 
-     gs_cond_set_false_label, gs_cond_false_label, gs_label_label, 
-     gs_label_set_label, gs_goto_dest, gs_goto_set_dest, gs_bind_vars, 
-     gs_bind_set_vars, gs_bind_body, gs_bind_set_body, gs_asm_ni, gs_asm_set_ni,
-     gs_asm_no, gs_asm_set_no, gs_asm_nc, gs_asm_set_nc, gs_asm_in_op, 
-     gs_asm_set_in_op, gs_asm_out_op, gs_asm_set_out_op, gs_asm_clobber_op,
-     gs_asm_set_clobber_op, gs_asm_string, gs_asm_set_string, gs_catch_types,
-     gs_catch_handler, gs_catch_set_types, gs_catch_set_handler, 
-     gs_eh_filter_types, gs_eh_filter_failure, gs_eh_filter_set_types,
-     gs_eh_filter_set_failure, gs_try_eval, gs_try_cleanup, gs_try_set_eval,
-     gs_try_set_cleanup, gs_phi_capacity, gs_phi_set_capacity, gs_phi_nargs,
-     gs_phi_set_nargs, gs_phi_result, gs_phi_set_result, gs_phi_arg, 
-     gs_phi_set_arg, gs_resx_region, gs_resx_set_region, gs_switch_nlabels,
-     gs_switch_set_nlabels, gs_switch_index, gs_switch_set_index, 
-     gs_switch_default_label, gs_switch_set_default_label, gs_switch_label,
-     gs_switch_set_label, gs_omp_body, gs_omp_set_body, gs_omp_critical_name,
-     gs_omp_critical_set_name, gs_omp_for_clauses, gs_omp_for_set_clauses,
-     gs_omp_for_index, gs_omp_for_set_index, gs_omp_for_initial, 
-     gs_omp_for_set_initial, gs_omp_for_final, gs_omp_for_set_final, 
-     gs_omp_for_incr, gs_omp_for_set_incr, gs_omp_for_pre_body, 
-     gs_omp_for_set_pre_body, gs_omp_parallel_clauses, 
-     gs_omp_parallel_set_clauses, gs_omp_parallel_child_fn, 
-     gs_omp_parallel_set_child_fn, gs_omp_parallel_data_arg,
-     gs_omp_parallel_set_data_arg, gs_omp_single_clauses, 
-     gs_omp_single_set_clauses, gs_omp_sections_clauses, 
-     gs_omp_sections_set_clauses, gs_assign_omp_for_cond, gs_omp_for_cond
-     gs_return_set_retval, gs_add_subcode_flag): New accessor functions.
-     
-     (gs_return_retval): Renamed gs_return_operand_retval to match accessor 
-     conventions.
+
+	* Makefile.in (GTFILES): Added gimeple-ir.h.
+
+	* gimple-ir.c (gs_build_return, gs_build_call, gs_build_assign): 
+	Changed to use new accessors.
+	(gs_build_cond, gs_build_label, gs_build_goto,
+	gs_build_nop, gs_build_bind gs_build_asm, gs_build_catch,
+	gs_build_eh_filter, gs_build_try, gs_build_phi,
+	gs_build_resx, gs_build_switch, gs_omp_build_critical,
+	gs_omp_build_for, gs_omp_build_parallel,
+	gs_omp_build_section, gs_omp_build_master,
+	gs_omp_build_ordered, gs_omp_continue,
+	gs_omp_build_ordered, gs_omp_build_return,
+	gs_omp_build_sections, gs_omp_build_single): New
+	functions.
+
+	* gimple-ir.h (struct gimple_statement_switch): Changed
+	default label to be in labels[0].
+
+	(struct gimple_statement_asm): Corrected the allocation
+	length.
+
+	(enum gs_cond): New enum.
+	(gs_assign_set_operand): Changed to work with new accessors.
+	(gs_assign_operand_lhs, gs_assign_operand_rhs,
+	gs_assign_operand_set_lhs, gs_assign_set_rhs,
+	gs_assign_operand_rhs2, gs_assign_set_rhs2, gs_call_fn,
+	gs_call_set_fn, gs_call_lhs, gs_call_set_lhs,
+	gs_call_chain, gs_call_set_chain, gs_call_nargs,
+	gs_call_set_nargs, gs_call_arg, gs_call_set_arg,
+	gs_cond_lhs, gs_cond_set_lhs, gs_cond_rhs,
+	gs_cond_set_rhs, gs_cond_true_label,
+	gs_cond_set_true_label, gs_cond_set_false_label,
+	gs_cond_false_label, gs_label_label, gs_label_set_label,
+	gs_goto_dest, gs_goto_set_dest, gs_bind_vars,
+	gs_bind_set_vars, gs_bind_body, gs_bind_set_body,
+	gs_asm_ni, gs_asm_set_ni, gs_asm_no, gs_asm_set_no,
+	gs_asm_nc, gs_asm_set_nc, gs_asm_in_op, gs_asm_set_in_op,
+	gs_asm_out_op, gs_asm_set_out_op, gs_asm_clobber_op,
+	gs_asm_set_clobber_op, gs_asm_string, gs_asm_set_string,
+	gs_catch_types, gs_catch_handler, gs_catch_set_types,
+	gs_catch_set_handler, gs_eh_filter_types,
+	gs_eh_filter_failure, gs_eh_filter_set_types,
+	gs_eh_filter_set_failure, gs_try_eval, gs_try_cleanup,
+	gs_try_set_eval, gs_try_set_cleanup, gs_phi_capacity,
+	gs_phi_set_capacity, gs_phi_nargs, gs_phi_set_nargs,
+	gs_phi_result, gs_phi_set_result, gs_phi_arg,
+	gs_phi_set_arg, gs_resx_region, gs_resx_set_region,
+	gs_switch_nlabels, gs_switch_set_nlabels,
+	gs_switch_index, gs_switch_set_index,
+	gs_switch_default_label, gs_switch_set_default_label,
+	gs_switch_label, gs_switch_set_label, gs_omp_body,
+	gs_omp_set_body, gs_omp_critical_name,
+	gs_omp_critical_set_name, gs_omp_for_clauses,
+	gs_omp_for_set_clauses, gs_omp_for_index,
+	gs_omp_for_set_index, gs_omp_for_initial,
+	gs_omp_for_set_initial, gs_omp_for_final,
+	gs_omp_for_set_final, gs_omp_for_incr,
+	gs_omp_for_set_incr, gs_omp_for_pre_body,
+	gs_omp_for_set_pre_body, gs_omp_parallel_clauses,
+	gs_omp_parallel_set_clauses, gs_omp_parallel_child_fn,
+	gs_omp_parallel_set_child_fn, gs_omp_parallel_data_arg,
+	gs_omp_parallel_set_data_arg, gs_omp_single_clauses,
+	gs_omp_single_set_clauses, gs_omp_sections_clauses,
+	gs_omp_sections_set_clauses, gs_assign_omp_for_cond,
+	gs_omp_for_cond gs_return_set_retval,
+	gs_add_subcode_flag): New accessor functions.
+	(gs_return_retval): Renamed gs_return_operand_retval to match accessor 
+	conventions.
 
 2007-05-31  Aldy Hernandez  <aldyh@redhat.com>
 
-        * gimple-ir.c (gs_build_call): New.
-        * gimple-ir.h (GS_CALL_LHS): New.
-        (GS_CALL_FN): New.
-        (GS_CALL_CHAIN): New.
-        (GS_CALL_NARGS): New.
-        (GS_CALL_ARG): New.
-        (gs_call_lhs): New.
-        (gs_call_fn): New.
-        (gs_call_chain): New.
-        (gs_call_nargs): New.
-        (gs_call_arg): New.
-        * gimplify.c (gimplify_modify_expr_to_memcpy): Enable and rewrite for 
-        tuples.
-        (gimplify_modify_expr_to_memset): Same.
+	* gimple-ir.c (gs_build_call): New.
+	* gimple-ir.h (GS_CALL_LHS): New.
+	(GS_CALL_FN): New.
+	(GS_CALL_CHAIN): New.
+	(GS_CALL_NARGS): New.
+	(GS_CALL_ARG): New.
+	(gs_call_lhs): New.
+	(gs_call_fn): New.
+	(gs_call_chain): New.
+	(gs_call_nargs): New.
+	(gs_call_arg): New.
+	* gimplify.c (gimplify_modify_expr_to_memcpy): Enable and rewrite for 
+	tuples.
+	(gimplify_modify_expr_to_memset): Same.
 	(gimplify_statement_list): Same.
-        (gimplify_expr): Enable STATEMENT_LIST case.
+	(gimplify_expr): Enable STATEMENT_LIST case.
 
 2007-05-29  Aldy Hernandez  <aldyh@redhat.com>
 
@@ -95,40 +107,40 @@
 
 2007-05-23  Aldy Hernandez  <aldyh@redhat.com>
 
-        * builtins.c (std_gimplify_va_arg_expr): Add argument to gimplify_expr.
-        Remove seq argument.
-        (gimplify_va_arg_expr): Same.
-        * tree-gimple.h: Same.
-        * langhooks.c (lhd_gimplify_expr): Change pre_p and post_p types to
-        sequences.
-        * langhooks-def.h (lhd_gimplify_expr): Change 
-        * langhooks.h (struct lang_hooks): Remove argument.
-        * gimplify.c (internal_get_tmp_var): Adjust calls to gimplify_expr
-        for new arguments.
-        (gimplify_switch_expr): Same.
-        (gimplify_var_or_parm_decl): Same.
-        (gimplify_compound_lval): Same.
-        (gimplify_self_mod_expr): Same.
-        (gimplify_arg): Same.
-        (gimplify_call_expr): Same.
-        (gimplify_init_ctor_preeval): Same.
-        (gimplify_init_constructor): Same.
-        (gimplify_modify_expr_rhs): Same.
-        (gimplify_modify_expr): Same.
-        (gimplify_save_expr): Same.
-        (gimplify_addr_expr): Same.
-        (gimplify_asm_expr): Same.
-        (gimplify_target_expr): Same.
-        (omp_check_private): Same.
-        (gimplify_scan_omp_clauses): Same.
-        (gimplify_omp_parallel): Same.
-        (gimplify_omp_for): Same.
-        (goa_stabilize_expr): Same.
-        (gimplify_omp_atomic): Same.
-        (gimplify_one_sizepos): Same.
-        (force_gimple_operand): Same.
-        (gimplify_expr): Remove seq_p argument.  Add new is_statement
-        argument.  Adjust accordingly.  Make seq_p required.
+	* builtins.c (std_gimplify_va_arg_expr): Add argument to gimplify_expr.
+	Remove seq argument.
+	(gimplify_va_arg_expr): Same.
+	* tree-gimple.h: Same.
+	* langhooks.c (lhd_gimplify_expr): Change pre_p and post_p types to
+	sequences.
+	* langhooks-def.h (lhd_gimplify_expr): Change 
+	* langhooks.h (struct lang_hooks): Remove argument.
+	* gimplify.c (internal_get_tmp_var): Adjust calls to gimplify_expr
+	for new arguments.
+	(gimplify_switch_expr): Same.
+	(gimplify_var_or_parm_decl): Same.
+	(gimplify_compound_lval): Same.
+	(gimplify_self_mod_expr): Same.
+	(gimplify_arg): Same.
+	(gimplify_call_expr): Same.
+	(gimplify_init_ctor_preeval): Same.
+	(gimplify_init_constructor): Same.
+	(gimplify_modify_expr_rhs): Same.
+	(gimplify_modify_expr): Same.
+	(gimplify_save_expr): Same.
+	(gimplify_addr_expr): Same.
+	(gimplify_asm_expr): Same.
+	(gimplify_target_expr): Same.
+	(omp_check_private): Same.
+	(gimplify_scan_omp_clauses): Same.
+	(gimplify_omp_parallel): Same.
+	(gimplify_omp_for): Same.
+	(goa_stabilize_expr): Same.
+	(gimplify_omp_atomic): Same.
+	(gimplify_one_sizepos): Same.
+	(force_gimple_operand): Same.
+	(gimplify_expr): Remove seq_p argument.  Add new is_statement
+	argument.  Adjust accordingly.  Make seq_p required.
 
 2007-05-07  Aldy Hernandez  <aldyh@redhat.com>
 
@@ -284,16 +296,16 @@
 
 2007-04-26  Aldy Hernandez  <aldyh@redhat.com>
 
-        * tree-gimple.h (annotate_all_with_locus): First argument is now a
-        sequence.
-        * gimple-ir.h (GS_LOCUS): New.
-        (gimple_statement_base): Locus is of type location_t.
-        * gimplify.c (internal_get_tmp_var): Use sequences.
-        (should_carry_locus_p): Adjust for gimple ir.
-        (annotate_one_with_locus): Same.
-        (annotate_all_with_locus): Same.
-        (gimplify_stmt): Adjust for sequences.
-        (gimplify_expr): Same.
+	* tree-gimple.h (annotate_all_with_locus): First argument is now a
+	sequence.
+	* gimple-ir.h (GS_LOCUS): New.
+	(gimple_statement_base): Locus is of type location_t.
+	* gimplify.c (internal_get_tmp_var): Use sequences.
+	(should_carry_locus_p): Adjust for gimple ir.
+	(annotate_one_with_locus): Same.
+	(annotate_all_with_locus): Same.
+	(gimplify_stmt): Adjust for sequences.
+	(gimplify_expr): Same.
 
 2007-04-25  Aldy Hernandez  <aldyh@redhat.com>
 
@@ -307,7 +319,7 @@
 
 2007-04-25  Aldy Hernandez  <aldyh@redhat.com>
 
-        * gimple-iterator.h (gsi_one_before_end_p): Use GS_SEQ_LAST.
+	* gimple-iterator.h (gsi_one_before_end_p): Use GS_SEQ_LAST.
 
 2007-04-25  Aldy Hernandez  <aldyh@redhat.com>
 
