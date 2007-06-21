@@ -283,15 +283,6 @@
     START_EXPR_CASE (FILTER_EXPR)
     END_EXPR_CASE (FILTER_EXPR)
       
-    START_EXPR_CASE (FIX_CEIL_EXPR)
-    END_EXPR_CASE (FIX_CEIL_EXPR)
-      
-    START_EXPR_CASE (FIX_FLOOR_EXPR)
-    END_EXPR_CASE (FIX_FLOOR_EXPR)
-      
-    START_EXPR_CASE (FIX_ROUND_EXPR)
-    END_EXPR_CASE (FIX_ROUND_EXPR)
-      
     START_EXPR_CASE (FIX_TRUNC_EXPR)
     END_EXPR_CASE (FIX_TRUNC_EXPR)
       
@@ -309,7 +300,6 @@
       ADD_EXPR_FLAG (static_flag)
       ADD_EXPR_FLAG (public_flag)
       ADD_EXPR_FLAG (nothrow_flag)
-      ADD_VIS_FLAG (section_name)
       ADD_VIS_FLAG (visibility)
       ADD_VIS_FLAG (one_only)
       ADD_VIS_FLAG (comdat_flag)
@@ -492,7 +482,6 @@
       ADD_DECL_FLAG (decl_flag_2)
       ADD_DECL_FLAG (decl_flag_3)
       ADD_DECL_FLAG (gimple_reg_flag)
-      ADD_DECL_FLAG (call_clobbered_flag)
     END_EXPR_CASE (PARM_DECL)
       
     START_EXPR_CASE (PHI_NODE)
@@ -708,8 +697,6 @@
       ADD_DECL_FLAG (decl_flag_2)
       ADD_DECL_FLAG (decl_flag_3)
       ADD_DECL_FLAG (gimple_reg_flag)
-      ADD_DECL_FLAG (call_clobbered_flag)
-      ADD_VIS_FLAG (section_name)
       ADD_VIS_FLAG (visibility)
       ADD_VIS_FLAG (one_only)
       ADD_VIS_FLAG (comdat_flag)

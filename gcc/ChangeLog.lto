@@ -1,0 +1,17 @@
+2007-06-21  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-tree-flags.def (FIX_CEIL_EXPR, FIX_FLOOR_EXPR,
+	FIX_ROUND_EXPR, section_name, call_clobbered_flag): Removed dead
+	cases.
+	* lto-function-out.c (ADD_CLASS_FLAG, ADD_EXPR_FLAG): Changed
+	expr->common to expr->base.
+	* cfg.c (init_flow): Fixed ggc macro rot.
+	* lto-tree-tags.def (FIX_CEIL_EXPR, FIX_FLOOR_EXPR,
+	FIX_ROUND_EXPR): Removed dead tree types.
+	* lto/lto-tree.h (lang_decl, lang_type, language_function): Added
+	dummy since ggc does not like empty structs.
+	* lto/lto-elf.c (libelf.h): Changed to libelf/libelf.h.
+	* lto/lto-read.c (ADD_CLASS_FLAG, ADD_EXPR_FLAG): Changed
+	expr->common to expr->base.
+	(make_new_block): Moved stmt_list to proper place.
+	

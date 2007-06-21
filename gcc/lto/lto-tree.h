@@ -31,14 +31,17 @@ struct lang_identifier GTY(())
 
 struct lang_decl GTY(())
 {
+  int dummy;  /* Added because ggc does not like empty structs.  */
 };
 
 struct lang_type GTY(())
 {
+  int dummy;  /* Added because ggc does not like empty structs.  */
 };
 
 struct language_function GTY(())
 {
+  int dummy;  /* Added because ggc does not like empty structs.  */
 };
 
 enum lto_tree_node_structure_enum {

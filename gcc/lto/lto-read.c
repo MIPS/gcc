@@ -398,7 +398,7 @@ process_flags (tree expr, unsigned HOST_WIDE_INT flags)
     {
 
 #define START_CLASS_CASE(class)    case class:
-#define ADD_CLASS_FLAG(flag_name) { expr->common. flag_name = flags >> CLEAROUT;  flags <<= 1; }
+#define ADD_CLASS_FLAG(flag_name) { expr->base. flag_name = flags >> CLEAROUT;  flags <<= 1; }
 #define END_CLASS_CASE(class)      break;
 #define END_CLASS_SWITCH()                \
     default:                              \
@@ -410,7 +410,7 @@ process_flags (tree expr, unsigned HOST_WIDE_INT flags)
     switch (code)			  \
     {
 #define START_EXPR_CASE(code)    case code:
-#define ADD_EXPR_FLAG(flag_name) { expr->common. flag_name = (flags >> CLEAROUT);  flags <<= 1; }
+#define ADD_EXPR_FLAG(flag_name) { expr->base. flag_name = (flags >> CLEAROUT);  flags <<= 1; }
 #define ADD_DECL_FLAG(flag_name) { expr->decl_common. flag_name = flags >> CLEAROUT; flags <<= 1; }
 #define ADD_VIS_FLAG(flag_name)  { expr->decl_with_vis. flag_name = (flags >> CLEAROUT); flags <<= 1; }
 #define ADD_FUNC_FLAG(flag_name) { expr->function_decl. flag_name = (flags >> CLEAROUT); flags <<= 1; }
@@ -1077,7 +1077,7 @@ make_new_block (struct function *fn, unsigned int index)
   basic_block bb = alloc_block ();
   bb->index = index;
   SET_BASIC_BLOCK_FOR_FUNCTION (fn, index, bb);
-  bb->stmt_list = alloc_stmt_list ();
+  bb->il.tree = GGC_CNEW (struct tree_bb_info);
   bb->flags = 0;
   return bb;
 }

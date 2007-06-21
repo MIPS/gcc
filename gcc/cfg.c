@@ -83,13 +83,13 @@ void
 init_flow (struct function *the_fun)
 {
   if (!the_fun->cfg)
-    cfun->cfg = GGC_CNEW (struct control_flow_graph);
-  n_edges = 0;
+    the_fun->cfg = GGC_CNEW (struct control_flow_graph);
+  n_edges_for_function (the_fun) = 0;
   ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)
-    = GGC_CNEW (sizeof (struct basic_block_def));
+    = GGC_CNEW (struct basic_block_def);
   ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)->index = ENTRY_BLOCK;
   EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)
-    = GGC_CNEW (sizeof (struct basic_block_def));
+    = GGC_CNEW (struct basic_block_def);
   EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)->index = EXIT_BLOCK;
   ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)->next_bb 
     = EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun);
