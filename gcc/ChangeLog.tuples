@@ -1,3 +1,39 @@
+2007-06-21  Diego Novillo  <dnovillo@google.com>
+
+	* tree-pretty-print.c (pred_symbol_code, do_gs_niy,
+	debug_gimple_stmt, debug_gimple_seq, print_gimple_stmt,
+	dump_gimple_stmt): Move to gimple-pretty-print.c
+	* diagnostic.h: Add comment for functions in gimple-pretty-print.c
+	* gimple-pretty-print.c: New file.
+	* gimple-ir.c (gs_build_return): Fix spacing.
+	(gs_build_assign): Likewise.
+	* gimple-ir.h: Fix spacing.
+	(gs_assign_set_operand): Change OPNO to size_t.
+	Add assertions for OPNO's value.
+	(gs_assign_lhs): Rename from gs_assign_operand_lhs.
+	(gs_assign_binary_rhs1): Rename from gs_assign_operand_rhs.
+	Assert that GS is GSS_ASSIGN_BINARY
+	(gs_assign_binary_set_rhs1): Rename from gs_assign_set_rhs.
+	Assert that GS is GSS_ASSIGN_BINARY.
+	(gs_assign_binary_set_rhs2): Rename from gs_assign_set_rhs2.
+	Assert that GS is GSS_ASSIGN_BINARY.
+	(gs_assign_unary_rhs): New.
+	(gs_assign_unary_set_rhs): New.
+	(gs_call_fn, gs_call_lhs, gs_call_chain, gs_call_arg,
+	gs_cond_lhs, gs_cond_rhs, gs_label_label, gs_goto_dest,
+	gs_bind_vars, gs_asm_in_op, gs_asm_out_op, gs_asm_clobber_op,
+	gs_catch_types, gs_catch_handler, gs_eh_filter_types,
+	gs_eh_filter_failure, gs_try_eval, gs_try_cleanup,
+	gs_phi_result, gs_switch_index, gs_switch_default_label,
+	gs_switch_label,gs_omp_critical_name, gs_omp_for_clauses,
+	gs_omp_for_index, gs_omp_for_initial, gs_omp_for_final,
+	gs_omp_for_incr, gs_omp_parallel_clauses,
+	gs_omp_parallel_child_fn, gs_omp_parallel_data_arg,
+	gs_omp_single_clauses, gs_omp_sections_clauses,
+	gs_return_retval): Change return type to 'tree'.
+	* Makefile.in (OBJS-common): Add gimple-pretty-print.o.
+	(gimple-pretty-print.o): New rule.
+
 2007-06-20  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-pretty-print.c (dump_gimple_stmt): Change pred_symbol_code

@@ -48,7 +48,7 @@ gs_build_return (bool result_decl_p, tree retval)
 
   GS_CODE (p) = GS_RETURN;
   GS_SUBCODE_FLAGS (p) = (int) result_decl_p;
-  gs_return_set_retval(p, retval);
+  gs_return_set_retval (p, retval);
   return p;
 }
 
@@ -81,9 +81,9 @@ gs_build_call (tree func, int nargs, ...)
   return p;
 }
 
-/* Construct a GS_ASSIGN statement.  
+/* Construct a GS_ASSIGN statement.
    LHS of the assignment.
-   RHS of the assignment which can be unary or binary.*/
+   RHS of the assignment which can be unary or binary.  */
 
 gimple
 gs_build_assign (tree lhs, tree rhs)
@@ -99,37 +99,41 @@ gs_build_assign (tree lhs, tree rhs)
       GS_CODE (p) = GS_ASSIGN;
       GS_SUBCODE_FLAGS (p) = TREE_CODE (rhs);
       gs_assign_set_lhs (p, lhs);
-      gs_assign_set_rhs (p, TREE_OPERAND (rhs, 0));
-      gs_assign_set_rhs2 (p, TREE_OPERAND (rhs, 1));
+      gs_assign_binary_set_rhs1 (p, TREE_OPERAND (rhs, 0));
+      gs_assign_binary_set_rhs2 (p, TREE_OPERAND (rhs, 1));
       break;
+
     case GSS_ASSIGN_UNARY_REG:
       p = ggc_alloc_cleared (sizeof (struct gimple_statement_assign_unary_reg));
       GS_CODE (p) = GS_ASSIGN;
+      GS_SUBCODE_FLAGS (p) = TREE_CODE (rhs);
       gs_assign_set_lhs (p, lhs);
       if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (rhs))))
-	gs_assign_set_rhs (p, TREE_OPERAND (rhs, 0));
+	gs_assign_unary_set_rhs (p, TREE_OPERAND (rhs, 0));
       else
-	gs_assign_set_rhs (p, rhs);
-      GS_SUBCODE_FLAGS (p) = TREE_CODE (rhs);
+	gs_assign_unary_set_rhs (p, rhs);
       break;
+
     case GSS_ASSIGN_UNARY_MEM:
       p = ggc_alloc_cleared (sizeof (struct gimple_statement_assign_unary_mem));
       GS_CODE (p) = GS_ASSIGN;
+      GS_SUBCODE_FLAGS (p) = TREE_CODE (rhs);
       gs_assign_set_lhs (p, lhs);
       if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (rhs))))
-        gs_assign_set_rhs (p, TREE_OPERAND (rhs, 0));
+        gs_assign_unary_set_rhs (p, TREE_OPERAND (rhs, 0));
       else
-        gs_assign_set_rhs (p, rhs);
+        gs_assign_unary_set_rhs (p, rhs);
 
-      GS_SUBCODE_FLAGS (p) = TREE_CODE (rhs);
       break;
+
     default:
       gcc_unreachable ();
     }
-  GS_CODE (p) = GS_ASSIGN;
+
   return p;
 }
-
+
+
 /* Given a CODE for the RHS of a GS_ASSIGN, return the GSS enum for it.  */
 
 enum gimple_statement_structure_enum

@@ -1008,6 +1008,7 @@ OBJS-common = \
 	ggc-common.o \
 	gimple-ir.o \
 	gimple-low.o \
+	gimple-pretty-print.o \
 	gimplify.o \
 	global.o \
 	graph.o \
@@ -2207,6 +2208,9 @@ tree-gimple.o : tree-gimple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
    output.h $(TREE_FLOW_H)
 gimple-ir.o : gimple-ir.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
    $(GGC_H) $(TREE_GIMPLE_H) $(GIMPLE_IR_H)
+gimple-pretty-print.o : gimple-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
+   $(TREE_H) $(DIAGNOSTIC_H) $(REAL_H) $(HASHTAB_H) $(TREE_FLOW_H) \
+   $(TM_H) coretypes.h gimple-iterator.h tree-pass.h gimple-ir.h
 tree-mudflap.o : $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TREE_INLINE_H) \
    $(TREE_GIMPLE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) langhooks.h tree-mudflap.h \
    $(TM_H) coretypes.h $(TREE_DUMP_H) tree-pass.h $(CGRAPH_H) $(GGC_H) \
