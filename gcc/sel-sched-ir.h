@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "rtl.h"
 #include "ggc.h"
 #include "bitmap.h"
+#include "vecprim.h"
 #include "sched-int.h"
 #include "sched-rgn.h"
 #include "cfgloop.h"
@@ -104,9 +105,11 @@ struct _expr
      (used only during move_op ()).  */
   ds_t spec_to_check_ds;
 
-  /* Here an INSN_LUID (insn) bit is set when this expr was changed when 
-     moving through insn.  */
-  bitmap changed_on_insns;
+  /* A vector of insn's hashes on which this expr was changed when 
+     moving up.  We can't use bitmap here, because the recorded insn
+     could be scheduled, and its bookkeeping copies should be checked 
+     instead.  */
+  VEC(unsigned, heap) *changed_on_insns;
 };
 
 typedef struct _expr expr_def;
@@ -513,6 +516,10 @@ struct vinsn_def
   /* Its description.  */
   idata_t id;
 
+  /* Hash of vinsn.  It is computed either from pattern or from rhs using
+     hash_rtx.  It is not placed in ID for faster compares.  */
+  unsigned hash;
+
   /* Smart pointer counter.  */
   int count;
 
@@ -529,6 +536,7 @@ struct vinsn_def
 #define VINSN_INSN(VI) (VINSN_INSN_RTX (VI))
 
 #define VINSN_ID(VI) ((VI)->id)
+#define VINSN_HASH(VI) ((VI)->hash)
 #define VINSN_TYPE(VI) (IDATA_TYPE (VINSN_ID (VI)))
 #define VINSN_SEPARABLE_P(VI) (VINSN_TYPE (VI) == SET)
 #define VINSN_CLONABLE_P(VI) (VINSN_SEPARABLE_P (VI) || VINSN_TYPE (VI) == USE)
@@ -889,6 +897,8 @@ extern void copy_expr_onside (expr_t, expr_t);
 extern void merge_expr_data (expr_t, expr_t);
 extern void merge_expr (expr_t, expr_t);
 extern void clear_expr (expr_t);
+extern int find_in_hash_vect (VEC(unsigned, heap) *, unsigned);
+extern void insert_in_hash_vect (VEC(unsigned, heap) **, unsigned);
 
 /* Av set functions.  */
 extern void av_set_add (av_set_t *, rhs_t);

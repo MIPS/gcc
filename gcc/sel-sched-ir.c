@@ -1002,6 +1002,202 @@ sel_rtx_equal_p (rtx x, rtx y)
   return 1;
 }
 
+/* Hash an rtx X.  The difference from hash_rtx is that we try to hash as 
+   much stuff as possible, not skipping volatile mems, calls, etc.  */
+
+static unsigned
+sel_hash_rtx (rtx x, enum machine_mode mode)
+{
+  int i, j;
+  unsigned hash = 0;
+  enum rtx_code code;
+  const char *fmt;
+
+  /* Used to turn recursion into iteration.  */
+ repeat:
+  if (x == 0)
+    return hash;
+
+  code = GET_CODE (x);
+  switch (code)
+    {
+    case REG:
+      {
+	unsigned int regno = REGNO (x);
+
+	hash += ((unsigned int) REG << 7);
+        hash += regno;
+	return hash;
+      }
+
+    case SUBREG:
+      {
+	if (REG_P (SUBREG_REG (x)))
+	  {
+	    hash += (((unsigned int) SUBREG << 7)
+		     + REGNO (SUBREG_REG (x))
+		     + (SUBREG_BYTE (x) / UNITS_PER_WORD));
+	    return hash;
+	  }
+	break;
+      }
+
+    case CONST_INT:
+      hash += (((unsigned int) CONST_INT << 7) + (unsigned int) mode
+               + (unsigned int) INTVAL (x));
+      return hash;
+
+    case CONST_DOUBLE:
+      hash += (unsigned int) code + (unsigned int) GET_MODE (x);
+      if (GET_MODE (x) != VOIDmode)
+	hash += real_hash (CONST_DOUBLE_REAL_VALUE (x));
+      else
+	hash += ((unsigned int) CONST_DOUBLE_LOW (x)
+		 + (unsigned int) CONST_DOUBLE_HIGH (x));
+      return hash;
+
+    case CONST_VECTOR:
+      {
+	int units;
+	rtx elt;
+
+	units = CONST_VECTOR_NUNITS (x);
+
+	for (i = 0; i < units; ++i)
+	  {
+	    elt = CONST_VECTOR_ELT (x, i);
+	    hash += sel_hash_rtx (elt, GET_MODE (elt));
+	  }
+
+	return hash;
+      }
+
+      /* Assume there is only one rtx object for any given label.  */
+    case LABEL_REF:
+      /* We don't hash on the address of the CODE_LABEL to avoid bootstrap
+	 differences and differences between each stage's debugging dumps.  */
+	 hash += (((unsigned int) LABEL_REF << 7)
+		  + CODE_LABEL_NUMBER (XEXP (x, 0)));
+      return hash;
+
+    case SYMBOL_REF:
+      {
+	/* Don't hash on the symbol's address to avoid bootstrap differences.
+	   Different hash values may cause expressions to be recorded in
+	   different orders and thus different registers to be used in the
+	   final assembler.  This also avoids differences in the dump files
+	   between various stages.  */
+	unsigned int h = 0;
+	const unsigned char *p = (const unsigned char *) XSTR (x, 0);
+
+	while (*p)
+	  h += (h << 7) + *p++; /* ??? revisit */
+
+	hash += ((unsigned int) SYMBOL_REF << 7) + h;
+	return hash;
+      }
+
+    case MEM:
+      hash += (unsigned) MEM;
+      x = XEXP (x, 0);
+      goto repeat;
+
+    case USE:
+      if (MEM_P (XEXP (x, 0))
+	  && ! MEM_VOLATILE_P (XEXP (x, 0)))
+	{
+	  hash += (unsigned) USE;
+	  x = XEXP (x, 0);
+
+	  hash += (unsigned) MEM;
+	  x = XEXP (x, 0);
+	  goto repeat;
+	}
+      break;
+
+    case UNSPEC:
+      /* Skip UNSPECs when we are so told.  */
+      if (targetm.sched.skip_rtx_p && targetm.sched.skip_rtx_p (x))
+        {
+          hash += sel_hash_rtx (XVECEXP (x, 0, 0), 0);
+          return hash;
+        }
+      break;
+        
+    case ASM_OPERANDS:
+      /* We don't want to take the filename and line into account.  */
+      hash += (unsigned) code + (unsigned) GET_MODE (x)
+        + hash_rtx_string (ASM_OPERANDS_TEMPLATE (x))
+        + hash_rtx_string (ASM_OPERANDS_OUTPUT_CONSTRAINT (x))
+        + (unsigned) ASM_OPERANDS_OUTPUT_IDX (x);
+
+      if (ASM_OPERANDS_INPUT_LENGTH (x))
+        {
+          for (i = 1; i < ASM_OPERANDS_INPUT_LENGTH (x); i++)
+            {
+              hash += (sel_hash_rtx (ASM_OPERANDS_INPUT (x, i),
+                                 GET_MODE (ASM_OPERANDS_INPUT (x, i)))
+                       + hash_rtx_string
+                       (ASM_OPERANDS_INPUT_CONSTRAINT (x, i)));
+            }
+
+          hash += hash_rtx_string (ASM_OPERANDS_INPUT_CONSTRAINT (x, 0));
+          x = ASM_OPERANDS_INPUT (x, 0);
+          mode = GET_MODE (x);
+          goto repeat;
+        }
+
+      return hash;
+      
+    default:
+      break;
+    }
+
+  i = GET_RTX_LENGTH (code) - 1;
+  hash += (unsigned) code + (unsigned) GET_MODE (x);
+  fmt = GET_RTX_FORMAT (code);
+  for (; i >= 0; i--)
+    {
+      switch (fmt[i])
+	{
+	case 'e':
+	  /* If we are about to do the last recursive call
+	     needed at this level, change it into iteration.
+	     This function  is called enough to be worth it.  */
+	  if (i == 0)
+	    {
+	      x = XEXP (x, i);
+	      goto repeat;
+	    }
+
+	  hash += sel_hash_rtx (XEXP (x, i), 0);
+	  break;
+
+	case 'E':
+	  for (j = 0; j < XVECLEN (x, i); j++)
+	    hash += sel_hash_rtx (XVECEXP (x, i, j), 0);
+	  break;
+
+	case 's':
+	  hash += hash_rtx_string (XSTR (x, i));
+	  break;
+
+	case 'i':
+	  hash += (unsigned int) XINT (x, i);
+	  break;
+
+	case '0': case 't':
+	  /* Unused.  */
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  return hash;
+}
+
 static bool
 vinsn_equal_p (vinsn_t vi1, vinsn_t vi2)
 {
@@ -1061,7 +1257,17 @@ vinsn_init (vinsn_t vi, insn_t insn, bool force_unique_p)
 
   deps_init_id (id, insn, force_unique_p);
   VINSN_ID (vi) = id;
+  
+  /* Hash vinsn depending on whether it is separable or not.  */
+  if (VINSN_SEPARABLE_P (vi))
+    {
+      rtx rhs = VINSN_RHS (vi);
 
+      VINSN_HASH (vi) = sel_hash_rtx (rhs, GET_MODE (rhs));
+    }
+  else
+    VINSN_HASH (vi) = sel_hash_rtx (VINSN_PATTERN (vi), VOIDmode);
+    
   VINSN_COUNT (vi) = 0;
 
   {
@@ -1248,6 +1454,85 @@ sel_gen_insn_from_expr_after (rhs_t expr, int seqno, insn_t after)
 
 /* Functions to work with right-hand sides.  */
 
+/* Search for a hash value HASH in a sorted vector VECT and return true
+   when found.  Write to INDP the index on which the search has stopped,
+   such that inserting HASH at INDP will retain VECT's sort order.  */
+static bool
+find_in_hash_vect_1 (VEC(unsigned, heap) *vect, unsigned hash, int *indp)
+{
+  unsigned *arr;
+  int i, j, len = VEC_length (unsigned, vect);
+
+  if (len == 0)
+    {
+      *indp = 0;
+      return false;
+    }
+
+  arr = VEC_address (unsigned, vect);
+  i = 0, j = len - 1;
+
+  while (i <= j)
+    {
+#if 0
+      int k = (i + j) / 2;
+
+      if (arr[k] == hash)
+        {
+          *indp = k;
+          return true;
+        }
+
+      if (arr[k] < hash)
+        i = k + 1;
+      else
+        j = k - 1;
+#else
+      unsigned ahash = arr[i];
+
+      if (ahash == hash)
+        {
+          *indp = i;
+          return true;
+        }
+      else if (ahash > hash)
+        break;
+      i++;
+#endif
+    }
+
+  *indp = i;
+  return false;
+}
+
+/* Search for a hash value HASH in a sorted vector VECT.  Return 
+   the position found or -1, if no such value is in vector.  */
+int
+find_in_hash_vect (VEC(unsigned, heap) *vect, unsigned hash)
+{
+  int ind;
+
+  if (find_in_hash_vect_1 (vect, hash, &ind))
+    return ind;
+  
+  return -1;
+}
+
+/* Insert HASH in a sorted vector pointed to by PVECT, if HASH is
+   not there already.  */
+void
+insert_in_hash_vect (VEC (unsigned, heap) **pvect, unsigned hash)
+{
+  VEC(unsigned, heap) *vect = *pvect;
+  int ind;
+
+  if (! find_in_hash_vect_1 (vect, hash, &ind))
+    {
+      VEC_safe_insert (unsigned, heap, vect, ind, hash);
+      *pvect = vect;
+    }
+}
+
 /* Compare two vinsns as rhses if possible and as vinsns otherwise.  */
 bool
 vinsns_correlate_as_rhses_p (vinsn_t x, vinsn_t y)
@@ -1256,6 +1541,9 @@ vinsns_correlate_as_rhses_p (vinsn_t x, vinsn_t y)
   gcc_assert (x != y);
 
   if (VINSN_TYPE (x) != VINSN_TYPE (y))
+    return false;
+
+  if (VINSN_HASH (x) != VINSN_HASH (y))
     return false;
 
   if (VINSN_SEPARABLE_P (x)) 
@@ -1274,7 +1562,7 @@ vinsns_correlate_as_rhses_p (vinsn_t x, vinsn_t y)
 /* Initialize RHS.  */
 static void
 init_expr (expr_t expr, vinsn_t vi, int spec, int priority, int sched_times,
-	   ds_t spec_done_ds, ds_t spec_to_check_ds, bitmap changed_on)
+	   ds_t spec_done_ds, ds_t spec_to_check_ds, VEC(unsigned, heap) *changed_on)
 {
   vinsn_attach (vi);
 
@@ -1288,16 +1576,16 @@ init_expr (expr_t expr, vinsn_t vi, int spec, int priority, int sched_times,
   if (changed_on)
     EXPR_CHANGED_ON_INSNS (expr) = changed_on;
   else
-    EXPR_CHANGED_ON_INSNS (expr) = BITMAP_ALLOC (NULL);
+    EXPR_CHANGED_ON_INSNS (expr) = NULL;
 }
 
 /* Make a copy of the rhs FROM into the rhs TO.  */
 void
 copy_expr (expr_t to, expr_t from)
 {
-  bitmap temp = BITMAP_ALLOC (NULL);
+  VEC(unsigned, heap) *temp;
 
-  bitmap_copy (temp, EXPR_CHANGED_ON_INSNS (from));
+  temp = VEC_copy (unsigned, heap, EXPR_CHANGED_ON_INSNS (from));
   init_expr (to, EXPR_VINSN (from), EXPR_SPEC (from), EXPR_PRIORITY (from),
 	     EXPR_SCHED_TIMES (from), EXPR_SPEC_DONE_DS (from),
 	     EXPR_SPEC_TO_CHECK_DS (from), temp);
@@ -1317,6 +1605,9 @@ copy_expr_onside (expr_t to, expr_t from)
 void
 merge_expr_data (expr_t to, expr_t from)
 {
+  int i;
+  unsigned hash;
+
   /* For now, we just set the spec of resulting rhs to be minimum of the specs
      of merged rhses.  */
   if (RHS_SPEC (to) > RHS_SPEC (from))
@@ -1332,8 +1623,13 @@ merge_expr_data (expr_t to, expr_t from)
 					 EXPR_SPEC_DONE_DS (from));
 
   EXPR_SPEC_TO_CHECK_DS (to) |= EXPR_SPEC_TO_CHECK_DS (from);
-  bitmap_ior_into (EXPR_CHANGED_ON_INSNS (to),
-                   EXPR_CHANGED_ON_INSNS (from));
+  
+  /* We keep this vector sorted.  */
+  for (i = 0; 
+       VEC_iterate (unsigned, EXPR_CHANGED_ON_INSNS (from), i, hash);
+       i++)
+    insert_in_hash_vect (&EXPR_CHANGED_ON_INSNS (to), hash);
+
 }
 
 /* Merge bits of FROM rhs to TO rhs.  Vinsns in the rhses should correlate.  */
@@ -1361,7 +1657,7 @@ clear_expr (rhs_t rhs)
 {
   vinsn_detach (RHS_VINSN (rhs));
   RHS_VINSN (rhs) = NULL;
-  BITMAP_FREE (EXPR_CHANGED_ON_INSNS (rhs));
+  VEC_free (unsigned, heap, EXPR_CHANGED_ON_INSNS (rhs));
 }
 
 
@@ -3103,7 +3399,7 @@ sel_bb_head (basic_block bb)
       note = bb_note (bb);
       head = next_nonnote_insn (note);
 
-      if (BLOCK_FOR_INSN (head) != bb)
+      if (head && BLOCK_FOR_INSN (head) != bb)
 	head = NULL_RTX;
     }
 
@@ -3804,7 +4100,7 @@ sel_add_or_remove_bb (basic_block bb, int add)
 
   rgn_setup_region (CONTAINING_RGN (bb->index));
 
-#ifdef ENABLE_CHECKING
+#if defined ENABLE_CHECKING && 0
   /* This check is verifies that all jumps jump where they should.
      This code is adopted from flow.c: init_propagate_block_info ().  */
   {

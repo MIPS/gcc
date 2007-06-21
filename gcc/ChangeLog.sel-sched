@@ -1,3 +1,42 @@
+2007-06-21  Andrey Belevantsev  <abel@ispras.ru>
+	Implement hashing of vinsns.  Precompute some of hard
+	regs info.
+
+	* cse.c (hash_rtx_string): Export.
+	* sel-sched.c (struct hard_regs_data): New struct.
+	(sel_all_regs): Rename to regs_ever_used, change to HARD_REG_SET 
+	and move to the above struct.  Update all uses.
+	(sel_hrd): New global variable.
+	(init_hard_regno_rename, sel_hard_regno_rename_ok,
+	init_regs_for_mode, init_hard_regs_data): New functions.
+	(mark_unavailable_hard_regs): Move some code to the above
+	functions and use them.  Return early when a destination
+	is not a register.  Move code dealing with frame pointers
+	from ...
+	(choose_best_reg_1): ... here.
+	(find_best_reg_for_rhs): Tidy comment.
+	(undo_transformations): Fix comment.  Use hashes instead of bitmaps
+	to determine whether an expr was changed on this insns.
+	(moveup_set_rhs): Likewise.
+	(sel_global_init): Call init_hard_regs_data.
+	* sel-sched-ir.c (sel_hash_rtx): New static function.  Adopt from 
+	hash_rtx, tidy.  Leave only necessary comments.
+	(vinsn_init): Use it.
+	(find_in_hash_vect_1, find_in_hash_vect, insert_in_hash_vect): New
+	functions.
+	(vinsns_correlate_as_rhses_p): Use vinsn hashes.
+	(init_expr, copy_expr, merge_expr_data, clear_expr): Update to use
+	hash vectors instead of bitmaps.
+	(sel_bb_head): Check for head being NULL before using it.
+	(sel_add_or_remove_bb): Disable too expensive check.
+	* sel-sched-ir.h: Include vecprim.h.
+	(struct _expr): Change the type of change_on_insns field to a vector.
+	(struct vinsn_def): New field hash.
+	(VINSN_HASH): New accessor macro.
+	(find_in_hash_vect, insert_in_hash_vect): Declare.
+	* rtl.h (hash_rtx_string): Declare.
+	* vecprim.h: Define a vector type for unsigned values. 
+
 2007-06-16  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
 
 	* fwprop.c: Fix merge problem.

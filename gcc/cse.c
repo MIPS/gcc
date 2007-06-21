@@ -588,7 +588,6 @@ static rtx use_related_value (rtx, struct table_elt *);
 
 static inline unsigned canon_hash (rtx, enum machine_mode);
 static inline unsigned safe_hash (rtx, enum machine_mode);
-static unsigned hash_rtx_string (const char *);
 
 static rtx canon_reg (rtx, rtx);
 static enum rtx_code find_comparison_args (enum rtx_code, rtx *, rtx *,
@@ -2051,8 +2050,9 @@ use_related_value (rtx x, struct table_elt *elt)
   return plus_constant (q->exp, offset);
 }
 
+
 /* Hash a string.  Just add its bytes up.  */
-static inline unsigned
+unsigned
 hash_rtx_string (const char *ps)
 {
   unsigned hash = 0;

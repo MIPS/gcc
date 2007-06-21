@@ -122,6 +122,39 @@ struct sel_sched_region_2_data_def
   int highest_seqno_in_use;
 };
 typedef struct sel_sched_region_2_data_def *sel_sched_region_2_data_t;
+
+/* This struct contains precomputed hard reg sets that are needed when 
+   computing registers available for renaming.  */
+struct hard_regs_data 
+{
+  /* For every mode, this stores registers available for use with 
+     that mode.  */
+  HARD_REG_SET regs_for_mode[NUM_MACHINE_MODES];
+
+  /* True when regs_for_mode[mode] is initialized.  */
+  bool regs_for_mode_ok[NUM_MACHINE_MODES];
+
+  /* For every register, it has regs that are ok to rename into it.
+     The register in question is always set.  If not, this means
+     that the whole set is not computed yet.  */
+  HARD_REG_SET regs_for_rename[FIRST_PSEUDO_REGISTER];
+
+  /* For every mode, this stores registers not available due to 
+     call clobbering.  */
+  HARD_REG_SET regs_for_call_clobbered[NUM_MACHINE_MODES];
+
+  /* All registers that are used or call used.  */
+  HARD_REG_SET regs_ever_used;
+
+#ifdef STACK_REGS
+  /* Stack registers.  */
+  HARD_REG_SET stack_regs;
+#endif
+};
+
+/* A global structure that contains the needed information about harg 
+   regs.  */
+static struct hard_regs_data sel_hrd;
 
 
 /* True if/when we want to emulate Haifa scheduler in the common code.  
@@ -669,6 +702,17 @@ vinsn_writes_one_of_regs_p (vinsn_t vi, regset used_regs,
   return false;
 }
 
+#if 0
+/* True when expressions of MODE are considered for renaming.  */
+static inline bool
+mode_ok_for_rename_p (enum machine_mode mode)
+{
+  enum mode_class class = GET_MODE_CLASS (mode);
+
+  return class == MODE_INT || class == MODE_FLOAT;
+}
+#endif
+
 /* Returns register class of the output register in INSN.  
    Returns NO_REGS for call insns because some targets have constraints on
    destination register of a call insn.
@@ -731,6 +775,121 @@ get_reg_class (rtx insn)
   return NO_REGS;
 }
 
+/* Calculate HARD_REGNO_RENAME_OK data for REGNO.  */
+static void
+init_hard_regno_rename (int regno)
+{
+  int cur_reg;
+
+  SET_HARD_REG_BIT (sel_hrd.regs_for_rename[regno], regno);
+
+  for (cur_reg = 0; cur_reg < FIRST_PSEUDO_REGISTER; cur_reg++)
+    {
+      /* We are not interested in renaming in other regs.  */
+      if (!TEST_HARD_REG_BIT (sel_hrd.regs_ever_used, cur_reg))
+        continue;
+      
+      if (HARD_REGNO_RENAME_OK (regno, cur_reg))
+        SET_HARD_REG_BIT (sel_hrd.regs_for_rename[regno], cur_reg);
+    }
+}
+
+/* A wrapper around HARD_REGNO_RENAME_OK that will look into the hard regs 
+   data first.  */
+static inline bool
+sel_hard_regno_rename_ok (int from, int to)
+{
+#ifdef HARD_REGNO_RENAME_OK
+  /* Check whether this is all calculated.  */
+  if (TEST_HARD_REG_BIT (sel_hrd.regs_for_rename[from], from))
+    return TEST_HARD_REG_BIT (sel_hrd.regs_for_rename[from], to);
+
+  init_hard_regno_rename (from);
+
+  return TEST_HARD_REG_BIT (sel_hrd.regs_for_rename[from], to);
+#else
+  return true;
+#endif
+}
+
+/* Calculate set of registers that are capable of holding MODE.  */
+static void
+init_regs_for_mode (enum machine_mode mode)
+{
+  int cur_reg;
+  
+  CLEAR_HARD_REG_SET (sel_hrd.regs_for_mode[mode]);
+  CLEAR_HARD_REG_SET (sel_hrd.regs_for_call_clobbered[mode]);
+
+  for (cur_reg = 0; cur_reg < FIRST_PSEUDO_REGISTER; cur_reg++)
+    {
+      int nregs = hard_regno_nregs[cur_reg][mode];
+      int i;
+      
+      for (i = nregs - 1; i >= 0; --i)
+        if (fixed_regs[cur_reg + i]
+                || global_regs[cur_reg + i]
+            /* Can't use regs which aren't saved by 
+               the prologue.  */
+            || !TEST_HARD_REG_BIT (sel_hrd.regs_ever_used, cur_reg + i)
+#ifdef LEAF_REGISTERS
+            /* We can't use a non-leaf register if we're in a
+               leaf function.  */
+            || (current_function_is_leaf
+                && !LEAF_REGISTERS[cur_reg + i])
+#endif
+            )
+          break;
+      
+      if (i >= 0) 
+        continue;
+      
+      /* See whether it accepts all modes that occur in
+         original insns.  */
+      if (! HARD_REGNO_MODE_OK (cur_reg, mode))
+        continue;
+      
+      if (HARD_REGNO_CALL_PART_CLOBBERED (cur_reg, mode))
+        SET_HARD_REG_BIT (sel_hrd.regs_for_call_clobbered[mode], 
+                          cur_reg);
+      
+      /* If the CUR_REG passed all the checks above, 
+         then it's ok.  */
+      SET_HARD_REG_BIT (sel_hrd.regs_for_mode[mode], cur_reg);
+    }
+
+  sel_hrd.regs_for_mode_ok[mode] = true;
+}
+
+/* Init all register sets gathered in HRD.  */
+static void
+init_hard_regs_data (void)
+{
+  int cur_reg = 0;
+  enum machine_mode cur_mode = 0;
+
+  CLEAR_HARD_REG_SET (sel_hrd.regs_ever_used);
+  for (cur_reg = 0; cur_reg < FIRST_PSEUDO_REGISTER; cur_reg++)
+    if (regs_ever_live[cur_reg] || call_used_regs[cur_reg])
+      SET_HARD_REG_BIT (sel_hrd.regs_ever_used, cur_reg);
+  
+  /* Initialize registers that are valid based on mode when this is 
+     really needed.  */
+  for (cur_mode = 0; cur_mode < NUM_MACHINE_MODES; cur_mode++)
+    sel_hrd.regs_for_mode_ok[cur_mode] = false;
+  
+  /* Mark that all HARD_REGNO_RENAME_OK is not calculated.  */
+  for (cur_reg = 0; cur_reg < FIRST_PSEUDO_REGISTER; cur_reg++)
+    CLEAR_HARD_REG_SET (sel_hrd.regs_for_rename[cur_reg]);
+
+#ifdef STACK_REGS
+  CLEAR_HARD_REG_SET (sel_hrd.stack_regs);
+
+  for (cur_reg = FIRST_STACK_REG; cur_reg <= LAST_STACK_REG; cur_reg++)
+    SET_HARD_REG_BIT (sel_hrd.stack_regs, cur_reg);
+#endif
+} 
+
 /* Mark hardware regs in UNAVAILABLE_HARD_REGS that are not suitable 
    for renaming rhs in INSN due to hardware restrictions (register class,
    modes compatibility etc).  This doesn't affect original insn's dest reg,
@@ -740,48 +899,68 @@ get_reg_class (rtx insn)
    unavailable_hard_regs as well.  */
 
 static void
-mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs, 
-                            regset used_regs)
+mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs,
+                            regset used_regs ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode;
   enum reg_class cl = NO_REGS;
   rtx orig_dest;
-  int cur_reg;
+  int cur_reg, regno;
   HARD_REG_SET hard_regs_ok;
 
   gcc_assert (GET_CODE (PATTERN (def->orig_insn)) == SET);
   gcc_assert (unavailable_hard_regs);
 
   orig_dest = SET_DEST (PATTERN (def->orig_insn));
+  
+  /* We have decided not to rename 'mem = something;' insns, as 'something'
+     is usually a register.  */
+  if (!REG_P (orig_dest))
+    return;
+
+  regno = REGNO (orig_dest);
 
   /* If before reload, don't try to work with pseudos.  */
-  if (!reload_completed && REGNO (orig_dest) >= FIRST_PSEUDO_REGISTER)
+  if (!reload_completed && !HARD_REGISTER_NUM_P (regno))
     return;
 
   mode = GET_MODE (orig_dest);
-  gcc_assert (orig_dest != pc_rtx);
 
-  /* Can't proceed with renaming if the original register
-     is one of the fixed_regs, global_regs or frame pointer.  */
-  if (REG_P (orig_dest) && (fixed_regs[REGNO (orig_dest)] 
-			  || global_regs[REGNO (orig_dest)]
+  /* Stop when mode is not supported for renaming.  Also Can't proceed 
+     if the original register is one of the fixed_regs, global_regs or 
+     frame pointer.  */
+  if (fixed_regs[regno] 
+      || global_regs[regno]
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-	|| (frame_pointer_needed 
-	    && REGNO (orig_dest) == HARD_FRAME_POINTER_REGNUM)
+	|| (frame_pointer_needed && regno == HARD_FRAME_POINTER_REGNUM)
 #else
-	|| (frame_pointer_needed && REGNO (orig_dest) == 
-	    FRAME_POINTER_REGNUM)
+	|| (frame_pointer_needed && regno == FRAME_POINTER_REGNUM)
 #endif
-      ))
+      )
     {
       SET_HARD_REG_SET (*unavailable_hard_regs);
 
       /* Give a chance for original register, if it isn't in used_regs.  */
-      if (REG_P (orig_dest) && !REGNO_REG_SET_P (used_regs, 
-						 REGNO (orig_dest)))
-	CLEAR_HARD_REG_BIT (*unavailable_hard_regs, REGNO (orig_dest));
+      CLEAR_HARD_REG_BIT (*unavailable_hard_regs, regno);
 
       return;
+    }
+
+  /* If something allocated on stack in this function, mark frame pointer
+     register unavailable, considering also modes.  
+     FIXME: it is enough to do this once per all original defs.  */
+  if (frame_pointer_needed)
+    {
+      int i;
+
+      for (i = hard_regno_nregs[FRAME_POINTER_REGNUM][Pmode]; i--;)
+	SET_HARD_REG_BIT (*unavailable_hard_regs, FRAME_POINTER_REGNUM + i);
+
+#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+      for (i = hard_regno_nregs[HARD_FRAME_POINTER_REGNUM][Pmode]; i--;)
+	SET_HARD_REG_BIT (*unavailable_hard_regs, 
+                          HARD_FRAME_POINTER_REGNUM + i);
+#endif
     }
 
 #ifdef STACK_REGS
@@ -793,10 +972,7 @@ mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs,
      The HARD_REGNO_RENAME_OK covers other cases in condition below.  */
   if (IN_RANGE (REGNO (orig_dest), FIRST_STACK_REG, LAST_STACK_REG)
       && REGNO_REG_SET_P (used_regs, FIRST_STACK_REG)) 
-    {
-      for (cur_reg = FIRST_STACK_REG; cur_reg <= LAST_STACK_REG; cur_reg++)
-	SET_HARD_REG_BIT (*unavailable_hard_regs, cur_reg);
-    }
+    IOR_HARD_REG_SET (*unavailable_hard_regs, sel_hrd.stack_regs);
 #endif    
 
   /* If there's a call on this path, make regs from call_used_reg_set 
@@ -811,91 +987,47 @@ mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs,
 
   /* Leave regs as 'available' only from the current 
      register class.  */
-  if (REG_P (orig_dest))
-    {
-      cl = get_reg_class (def->orig_insn);
-      gcc_assert (cl != NO_REGS);
-      IOR_COMPL_HARD_REG_SET (*unavailable_hard_regs, reg_class_contents[cl]);
-    }
+  cl = get_reg_class (def->orig_insn);
+  gcc_assert (cl != NO_REGS);
+  IOR_COMPL_HARD_REG_SET (*unavailable_hard_regs, reg_class_contents[cl]);
 
+  if (!sel_hrd.regs_for_mode_ok[mode])
+    init_regs_for_mode (mode);
+
+  /* Leave only registers available for this mode.  */
   CLEAR_HARD_REG_SET (hard_regs_ok);
+  IOR_HARD_REG_SET (hard_regs_ok, sel_hrd.regs_for_mode[mode]);
 
-  /* No matter what kind of reg it is if it's original reg and it's available
-     from liveness analysis (not present in used_regs set) - add it to
-     the 'ok' registers so it bypass these restrictions.  
-     But it still may appear in unavailable regs (see above).  */
-  if (REG_P (orig_dest) && !REGNO_REG_SET_P (used_regs, REGNO (orig_dest)))
-    SET_HARD_REG_BIT (hard_regs_ok, REGNO (orig_dest));
+  /* Exclude registers that are partially call clobbered.  */
+  if (def->crosses_call
+      && ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode))
+    AND_COMPL_HARD_REG_SET (hard_regs_ok, 
+                            sel_hrd.regs_for_call_clobbered[mode]);
 
+  /* Leave only those that are ok to rename.  */
   for (cur_reg = 0; cur_reg < FIRST_PSEUDO_REGISTER; cur_reg++)
     {
-      int nregs = hard_regno_nregs[cur_reg][mode];
+      int nregs;
       int i;
 
+      if (!TEST_HARD_REG_BIT (hard_regs_ok, cur_reg))
+        continue;
+      
+      nregs = hard_regno_nregs[cur_reg][mode];
       gcc_assert (nregs > 0);
 
       for (i = nregs - 1; i >= 0; --i)
-	{
-	  if (
-	      /* If this reg is in USED_REGS, set it also in 
-		 UNAVAILABLE_HARD_REGS.  */
-	      REGNO_REG_SET_P (used_regs, cur_reg + i)
-	      || fixed_regs[cur_reg + i]
-	      || global_regs[cur_reg + i]
-	      /* Can't use regs which aren't saved by 
-		 the prologue.  */
-	      /* FIXME: throwing out this condition may reveal more
-		 possibilities for renaming, but in this case we'll
-		 need to set regs_ever_live for that reg and rewrite
-		 the prologue.  Furthermore, when choosing best reg
-		 among available for renaming we'll need to count
-		 whether it adds a new reg to the function.  */
-	      /* FIXME: ? this loop can be optimized 
-		 if traversing union of regs_ever_live 
-		 and call_used_regs?  */
-	      || !REGNO_REG_SET_P (sel_all_regs, (cur_reg + i))
-#ifdef LEAF_REGISTERS
-	      /* We can't use a non-leaf register if we're in a
-		 leaf function.  */
-	      || (current_function_is_leaf
-		  && !LEAF_REGISTERS[cur_reg + i])
-#endif
-#ifdef HARD_REGNO_RENAME_OK
-	      /* Hardware specific registers that 
-		 can't be clobbered.  Counts only if the dest
-		 is a register, cause if it's a MEM, we always
-		 can store it in register as well (with mode
-		 restrictions).  */
-	      || (REG_P (orig_dest)
-		  && !HARD_REGNO_RENAME_OK (
-		    REGNO (orig_dest)+ i, cur_reg + i))
-#endif
-	      )
-	    break;
-	}
+        if (! sel_hard_regno_rename_ok (regno + i, cur_reg + i))
+          break;
+
       if (i >= 0) 
-	continue;
-
-      /* See whether it accepts all modes that occur in
-	 original insns.  */
-      if (! HARD_REGNO_MODE_OK (cur_reg, mode)
-	  || (def->crosses_call
-	      /* We shouldn't care about call clobberedness
-		 unless the DST_LOC is a reg. 
-		 Btw HARD_REGNO_CALL_PART_CLOBBERED defined
-		 to 0 for most platforms including x86 & 
-		 ia64.  */
-	      && (REG_P (orig_dest)
-		  && !(HARD_REGNO_CALL_PART_CLOBBERED
-		     (REGNO (orig_dest), mode)))
-	      && (HARD_REGNO_CALL_PART_CLOBBERED
-		  (cur_reg, mode))))
-	  continue;
-
-      /* If the CUR_REG passed all the checks above, 
-	 then it's ok.  */
-      SET_HARD_REG_BIT (hard_regs_ok, cur_reg);
+        CLEAR_HARD_REG_BIT (hard_regs_ok, cur_reg);
     }
+
+  /* Regno is always ok from the renaming part of view, but it really
+     could be in *unavailable_hard_regs already, so set it here instead
+     of there.  */
+  SET_HARD_REG_BIT (hard_regs_ok, regno);
 
   /* Exclude all hard regs but HARD_REGS_OK.  */
   IOR_COMPL_HARD_REG_SET (*unavailable_hard_regs, hard_regs_ok);
@@ -941,22 +1073,6 @@ choose_best_reg_1 (HARD_REG_SET unavailable, def_list_t original_insns,
   enum machine_mode mode = VOIDmode;
   def_list_iterator i;
   def_t def;
-
-  /* Don't clobber traceback for noreturn functions.  */
-  /* If something allocated on stack in this function, mark frame pointer
-     register unavailable, considering also modes.  */
-  if (frame_pointer_needed)
-    {
-      int i;
-
-      for (i = hard_regno_nregs[FRAME_POINTER_REGNUM][Pmode]; i--;)
-	SET_HARD_REG_BIT (unavailable, FRAME_POINTER_REGNUM + i);
-
-#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-      for (i = hard_regno_nregs[HARD_FRAME_POINTER_REGNUM][Pmode]; i--;)
-	SET_HARD_REG_BIT (unavailable, HARD_FRAME_POINTER_REGNUM + i);
-#endif
-    }
 
   /* If original register is available, return it.  */
   *is_orig_reg_p_ptr = true;
@@ -1008,12 +1124,6 @@ choose_best_reg_1 (HARD_REG_SET unavailable, def_list_t original_insns,
   return NULL_RTX;
 }
 
-/* A regset that includes all registers that present in current region.
-   Used in assertions to check that we don't introduce new registers when
-   should not.  */
-static regset_head _sel_all_regs;
-regset sel_all_regs = &_sel_all_regs;
-
 /* A wrapper around choose_best_reg_1 () to verify that we make correct
    assumptions about available registers in the function.  */
 static rtx
@@ -1024,7 +1134,7 @@ choose_best_reg (HARD_REG_SET unavailable, def_list_t original_insns,
 				    is_orig_reg_p_ptr);
 
   gcc_assert (best_reg == NULL_RTX
-	      || REGNO_REG_SET_P (sel_all_regs, REGNO (best_reg)));
+	      || TEST_HARD_REG_BIT (sel_hrd.regs_ever_used, REGNO (best_reg)));
 
   return best_reg;
 }
@@ -1218,10 +1328,8 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds)
 		      || !replace_dest_with_reg_ok_p (def->orig_insn,
 						      best_reg))
 		    {
-		      /* Insn will be removed from rhs_vliw below.  */
-		      /* FIXME: may be it will work with other regs?
-			 Not with example above, though - we can't figure
-			 that the only option is to generate subreg.  */
+		      /* Insn will be removed from rhs_vliw below.  
+                         FIXME: may be it will work with other regs?  */
 		      reg_ok = false;
 		      break;
 		    }
@@ -1514,7 +1622,8 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
 {
   av_set_iterator av_iter;
   rhs_t rhs;
-  av_set_t new_set;
+  unsigned hash;
+  av_set_t new_set = NULL;
 
   /* First, kill any RHS that uses registers set by an insn.  This is 
      required for correctness.  */
@@ -1523,7 +1632,7 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
         && bitmap_intersect_p (INSN_REG_SETS (insn), 
                                VINSN_REG_USES (EXPR_VINSN (rhs)))
         /* When an insn looks like 'r1 = r1', we could substitute through
-           it, but the above condition will still hold.  This happend with
+           it, but the above condition will still hold.  This happened with
            gcc.c-torture/execute/961125-1.c.  */ 
         && !identical_copy_p (insn))
       {
@@ -1532,11 +1641,12 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
         av_set_iter_remove (&av_iter);
       }
 
-  /* FIXME: don't use the tracking bitmaps until we'll be able to use 
-     vinsn hashes.  */
+  hash = VINSN_HASH (INSN_VINSN (insn));
+  /* FIXME: we need to determine whether RHS was changed on this insn 
+     just once.  */
   FOR_EACH_RHS (rhs, av_iter, *av_ptr)
     {
-      if (1 || bitmap_bit_p (EXPR_CHANGED_ON_INSNS (rhs), INSN_LUID (insn)))
+      if (find_in_hash_vect (EXPR_CHANGED_ON_INSNS (rhs), hash) >= 0)
         un_speculate (rhs, insn);
     }
 
@@ -1544,7 +1654,7 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
 
   FOR_EACH_RHS (rhs, av_iter, *av_ptr)
     {
-      if (1 || bitmap_bit_p (EXPR_CHANGED_ON_INSNS (rhs), INSN_LUID (insn)))
+      if (find_in_hash_vect (EXPR_CHANGED_ON_INSNS (rhs), hash) >= 0)
         un_substitute (rhs, insn, &new_set);
     }
   
@@ -1562,7 +1672,7 @@ moveup_rhs_inside_insn_group (rhs_t insn_to_move_up, insn_t through_insn)
 {
   vinsn_t vi = RHS_VINSN (insn_to_move_up);
   insn_t insn = VINSN_INSN (vi);
-  ds_t *has_dep_p;
+ ds_t *has_dep_p;
   ds_t full_ds;
 
   full_ds = has_dependence_p (insn_to_move_up, through_insn, &has_dep_p);
@@ -1808,7 +1918,8 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
 	  print (" - changed");
           
           /* Mark that this insn changed this expr.  */
-          bitmap_set_bit (EXPR_CHANGED_ON_INSNS (rhs), INSN_LUID (insn));
+          insert_in_hash_vect (&EXPR_CHANGED_ON_INSNS (rhs), 
+                               VINSN_HASH (INSN_VINSN (insn)));
 
 	  {
 	    rhs_t rhs2 = av_set_lookup_other_equiv_rhs (*avp, RHS_VINSN (rhs));
@@ -5216,26 +5327,15 @@ sel_global_init (void)
   sched_rgn_init (flag_sel_sched_single_block_regions != 0,
                   flag_sel_sched_ebb_regions != 0);
 
-  /* Init the set of all registers available in the function.  */
-  INIT_REG_SET (sel_all_regs);
-
-  {
-    int i;
-
-    for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-      {
-	if (regs_ever_live[i]
-	    || call_used_regs[i])
-	  SET_REGNO_REG_SET (sel_all_regs, i);
-      }
-  }
-
   sel_extend_insn_rtx_data ();
-
+  
   setup_nop_and_exit_insns ();
 
   sel_extend_global_bb_info ();
+
   init_lv_sets ();
+
+  init_hard_regs_data ();
 }
 
 /* Free the global data of the scheduler.  */
@@ -5252,8 +5352,6 @@ sel_global_finish (void)
   free_nop_and_exit_insns ();
 
   sel_finish_insn_rtx_data ();
-
-  CLEAR_REG_SET (sel_all_regs);
 
   sched_rgn_finish ();
   sched_finish_bbs ();
