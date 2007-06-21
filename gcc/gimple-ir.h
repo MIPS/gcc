@@ -25,7 +25,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 enum gs_code {
 #define DEFGSCODE(SYM, STRING)	SYM,
-#include "gs.def"
+#include "gimple.def"
 #undef DEFGSCODE
     LAST_AND_UNUSED_GS_CODE
 };

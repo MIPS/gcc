@@ -31,7 +31,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #define DEFGSCODE(SYM, NAME)	NAME,
 const char *const gs_code_name[] = {
-#include "gs.def"
+#include "gimple.def"
 };
 #undef DEFGSCODE
 

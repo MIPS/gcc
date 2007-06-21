@@ -1,5 +1,10 @@
 2007-06-21  Diego Novillo  <dnovillo@google.com>
 
+	* gimple.def: Rename from gs.def.
+	Adjust all users.
+
+2007-06-21  Diego Novillo  <dnovillo@google.com>
+
 	* tree-pretty-print.c (pred_symbol_code, do_gs_niy,
 	debug_gimple_stmt, debug_gimple_seq, print_gimple_stmt,
 	dump_gimple_stmt): Move to gimple-pretty-print.c

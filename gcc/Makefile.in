@@ -735,7 +735,7 @@ BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def
 TREE_H = tree.h tree.def $(MACHMODE_H) tree-check.h $(BUILTINS_DEF) \
           input.h statistics.h vec.h treestruct.def $(HASHTAB_H) \
           double-int.h
-GIMPLE_IR_H = gimple-ir.h gs.def gsstruct.def gimple-iterator.h
+GIMPLE_IR_H = gimple-ir.h gimple.def gsstruct.def gimple-iterator.h
 BASIC_BLOCK_H = basic-block.h bitmap.h sbitmap.h varray.h $(PARTITION_H) \
           hard-reg-set.h cfghooks.h $(OBSTACK_H)
 GCOV_IO_H = gcov-io.h gcov-iov.h auto-host.h
@@ -3070,7 +3070,7 @@ build/genautomata.o : genautomata.c $(RTL_BASE_H) $(OBSTACK_H)		\
   $(BCONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H) errors.h vec.h		\
   $(HASHTAB_H) gensupport.h
 build/gencheck.o : gencheck.c gencheck.h tree.def $(BCONFIG_H) $(GTM_H)	\
-	$(SYSTEM_H) coretypes.h $(lang_tree_files) gs.def
+	$(SYSTEM_H) coretypes.h $(lang_tree_files) gimple.def
 build/genchecksum.o : genchecksum.c $(BCONFIG_H) $(SYSTEM_H) $(MD5_H)
 build/gencodes.o : gencodes.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
   coretypes.h $(GTM_H) errors.h gensupport.h
