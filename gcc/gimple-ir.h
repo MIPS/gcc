@@ -175,8 +175,8 @@ struct gimple_statement_cond GTY(())
 {
   struct gimple_statement_with_ops with_ops;
   tree op[2];
-  struct gimple_statement_label *label_true;
-  struct gimple_statement_label *label_false;
+  tree label_true;
+  tree label_false;
 };
 
 /* GS_GOTO */
@@ -332,13 +332,12 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
 extern gimple gs_build_return (bool, tree);
 extern gimple gs_build_assign (tree, tree);
 extern gimple gs_build_call (tree, int, ...);
-extern gimple gs_build_cond (tree, enum gs_cond, tree, struct gimple_statement_label*, 
-                             struct gimple_statement_label*);
+extern gimple gs_build_cond (enum gs_cond, tree, tree, tree, tree);
 extern gimple gs_build_label (tree label);
 extern gimple gs_build_goto (tree dest);
 extern gimple gs_build_nop (void);
 extern gimple gs_build_bind (tree, gs_seq);
-extern gimple gs_build_asm (const char*, unsigned, unsigned, unsigned, ...);
+extern gimple gs_build_asm (const char *, unsigned, unsigned, unsigned, ...);
 extern gimple gs_build_catch (tree, gimple);
 extern gimple gs_build_eh_filter (tree, gimple);
 extern gimple gs_build_try (gimple, gimple, bool, bool);
@@ -346,8 +345,8 @@ extern gimple gs_build_phi (unsigned, unsigned, tree, ...);
 extern gimple gs_build_resx (int);
 extern gimple gs_build_switch (unsigned int, tree, tree, ...);
 extern gimple gs_omp_build_parallel (struct gs_sequence, tree, tree, tree);
-extern gimple gs_omp_build_for (struct gs_sequence, tree, tree, tree, tree, tree, 
-                          struct gs_sequence, enum gs_cond);
+extern gimple gs_omp_build_for (struct gs_sequence, tree, tree, tree, tree,
+    				tree, struct gs_sequence, enum gs_cond);
 extern gimple gs_omp_build_critical (struct gs_sequence, tree);
 extern gimple gs_omp_build_section (struct gs_sequence);
 extern gimple gs_omp_build_continue (struct gs_sequence);
@@ -454,28 +453,24 @@ gs_assign_set_lhs (gimple gs, tree lhs)
 static inline tree
 gs_assign_binary_rhs1 (gimple gs)
 {
-  gcc_assert (GS_SUBCODE_FLAGS (gs) == GSS_ASSIGN_BINARY);
   return gs_assign_operand (gs, 1);
 }
 
 static inline void
 gs_assign_binary_set_rhs1 (gimple gs, tree rhs)
 {
-  gcc_assert (GS_SUBCODE_FLAGS (gs) == GSS_ASSIGN_BINARY);
   gs_assign_set_operand (gs, 1, rhs);
 }
 
 static inline tree
 gs_assign_binary_rhs2 (gimple gs)
 {
-  gcc_assert (GS_SUBCODE_FLAGS (gs) == GSS_ASSIGN_BINARY);
   return gs_assign_operand (gs, 2);
 }
 
 static inline void
 gs_assign_binary_set_rhs2 (gimple gs, tree rhs)
 {
-  gcc_assert (GS_SUBCODE_FLAGS (gs) == GSS_ASSIGN_BINARY);
   gs_assign_set_operand (gs, 2, rhs);
 }
 
@@ -485,7 +480,6 @@ gs_assign_unary_rhs (gimple gs)
 #if defined ENABLE_CHECKING
   enum gimple_statement_structure_enum gss;
   gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
-  gcc_assert (gss = GSS_ASSIGN_UNARY_REG || gss == GSS_ASSIGN_UNARY_MEM);
 #endif
   return gs_assign_operand (gs, 1);
 }
@@ -493,10 +487,6 @@ gs_assign_unary_rhs (gimple gs)
 static inline void
 gs_assign_unary_set_rhs (gimple gs, tree rhs)
 {
-#if defined ENABLE_CHECKING
-  enum gimple_statement_structure_enum gss = gss_for_assign (TREE_CODE (rhs));
-  gcc_assert (gss = GSS_ASSIGN_UNARY_REG || gss == GSS_ASSIGN_UNARY_MEM);
-#endif
   gs_assign_set_operand (gs, 1, rhs);
 }
 
@@ -604,7 +594,7 @@ gs_cond_set_rhs (gimple gs, tree rhs)
   gs->gs_cond.op[1] = rhs;
 }
 
-static inline struct gimple_statement_label *
+static inline tree
 gs_cond_true_label (gimple gs)
 {
   GS_CHECK (gs, GS_COND);
@@ -612,20 +602,20 @@ gs_cond_true_label (gimple gs)
 }
 
 static inline void
-gs_cond_set_true_label (gimple gs, struct gimple_statement_label * label)
+gs_cond_set_true_label (gimple gs, tree label)
 {
   GS_CHECK (gs, GS_COND);
   gs->gs_cond.label_true = label;
 }
 
 static inline void
-gs_cond_set_false_label (gimple gs, struct gimple_statement_label * label)
+gs_cond_set_false_label (gimple gs, tree label)
 {
   GS_CHECK (gs, GS_COND);
   gs->gs_cond.label_false = label;
 }
 
-static inline struct gimple_statement_label *
+static inline tree
 gs_cond_false_label (gimple gs)
 {
   GS_CHECK (gs, GS_COND);

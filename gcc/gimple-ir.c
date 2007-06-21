@@ -163,8 +163,8 @@ gss_for_assign (enum tree_code code)
    if true goto T_LABEL, else goto F_LABEL.  */
 
 gimple
-gs_build_cond (tree lhs, enum gs_cond pred, tree rhs, struct gimple_statement_label* t_label,
-               struct gimple_statement_label* f_label)
+gs_build_cond (enum gs_cond pred, tree lhs, tree rhs,
+    	       tree t_label, tree f_label)
 {
   gimple p;
 
@@ -244,7 +244,7 @@ gs_build_bind (tree vars, gs_seq body)
    ...s are trees for each input, output and clobber.  */
 
 gimple
-gs_build_asm (const char* string, unsigned ni, unsigned no, unsigned nc,...)
+gs_build_asm (const char *string, unsigned ni, unsigned no, unsigned nc, ...)
 {
   gimple p;
   unsigned i;

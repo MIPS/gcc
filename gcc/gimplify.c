@@ -2810,11 +2810,10 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
   /* Create and initialize the index variable.  */
   var_type = TREE_TYPE (upper);
   var = create_tmp_var (var_type, NULL);
-  gimplify_and_add (build_gimple_modify_stmt (var, lower), pre_p);
+  gs_add (gs_build_assign (var, lower), pre_p);
 
   /* Add the loop entry label.  */
-  gimplify_and_add (build1 (LABEL_EXPR, void_type_node, loop_entry_label),
-			    pre_p);
+  gs_add (gs_build_label (loop_entry_label), pre_p);
 
   /* Build the reference.  */
   cref = build4 (ARRAY_REF, array_elt_type, unshare_expr (object),
@@ -2829,30 +2828,22 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
     gimplify_init_ctor_eval (cref, CONSTRUCTOR_ELTS (value),
 			     pre_p, cleared);
   else
-    gimplify_and_add (build_gimple_modify_stmt (cref, value), pre_p);
+    gs_add (gs_build_assign (cref, value), pre_p);
 
   /* We exit the loop when the index var is equal to the upper bound.  */
-  gimplify_and_add (build3 (COND_EXPR, void_type_node,
-			    build2 (EQ_EXPR, boolean_type_node,
-				    var, upper),
-			    build1 (GOTO_EXPR,
-				    void_type_node,
-				    loop_exit_label),
-			    NULL_TREE),
-		    pre_p);
+  gs_add (gs_build_cond (COND_EQ, var, upper, loop_exit_label, NULL_TREE),
+      	  pre_p);
 
   /* Otherwise, increment the index var...  */
   tmp = build2 (PLUS_EXPR, var_type, var,
 		fold_convert (var_type, integer_one_node));
-  gimplify_and_add (build_gimple_modify_stmt (var, tmp), pre_p);
+  gs_add (gs_build_assign (var, tmp), pre_p);
 
   /* ...and jump back to the loop entry.  */
-  gimplify_and_add (build1 (GOTO_EXPR, void_type_node, loop_entry_label),
-			    pre_p);
+  gs_add (gs_build_goto (loop_entry_label), pre_p);
 
   /* Add the loop exit label.  */
-  gimplify_and_add (build1 (LABEL_EXPR, void_type_node, loop_exit_label),
-			    pre_p);
+  gs_add (gs_build_label (loop_exit_label), pre_p);
 }
 
 /* Return true if FDECL is accessing a field that is zero sized.  */
@@ -2896,7 +2887,7 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 
   FOR_EACH_CONSTRUCTOR_ELT (elts, ix, purpose, value)
     {
-      tree cref, init;
+      tree cref;
 
       /* NULL values are created above for gimplification errors.  */
       if (value == NULL)
@@ -2953,10 +2944,7 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 	gimplify_init_ctor_eval (cref, CONSTRUCTOR_ELTS (value),
 				 pre_p, cleared);
       else
-	{
-	  init = build2 (INIT_EXPR, TREE_TYPE (cref), cref, value);
-	  gimplify_and_add (init, pre_p);
-	}
+	gs_add (gs_build_assign (cref, value), pre_p);
     }
 }
 
@@ -2967,8 +2955,6 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
    initializers, so if not all elements are initialized we keep the
    original MODIFY_EXPR, we just remove all of the constructor elements.  */
 
-#if 0
-/* FIXME tuples */
 static enum gimplify_status
 gimplify_init_constructor (tree *expr_p, gs_seq pre_p,
 			   gs_seq post_p, bool want_value)
@@ -3248,14 +3234,12 @@ gimplify_init_constructor (tree *expr_p, gs_seq pre_p,
     return GS_ERROR;
   else if (want_value)
     {
-      append_to_statement_list (*expr_p, pre_p);
       *expr_p = object;
       return GS_OK;
     }
   else
     return GS_ALL_DONE;
 }
-#endif
 
 /* Given a pointer value OP0, return a simplified version of an
    indirection through OP0, or NULL_TREE if no simplification is
@@ -3382,11 +3366,7 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
       case CONSTRUCTOR:
 	/* If we're initializing from a CONSTRUCTOR, break this into
 	   individual MODIFY_EXPRs.  */
-#if 0
-/* FIXME tuples */
 	return gimplify_init_constructor (expr_p, pre_p, post_p, want_value);
-#endif
-	gcc_unreachable(); return GS_ALL_DONE;
 
       case COND_EXPR:
 	/* If we're assigning to a non-register type, push the assignment

@@ -1,3 +1,27 @@
+2007-06-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple-ir.c (gs_build_cond): Change order of arguments.  Make labels
+	of type tree.
+	(gs_build_asm): Fix formatting.
+	* gimple-ir.h (gimple_statement_cond): Make labels of type tree.
+	(gs_build_cond): Change order and type of arguments.
+	(gs_build_asm): Fix formatting.
+	(gs_omp_build_for): Same.
+	(gs_assign_binary_rhs1): Remove assert.
+	(gs_assign_binary_set_rhs1): Same.
+	(gs_assign_binary_rhs2): Same.
+	(gs_assign_binary_set_rhs2): Same.
+	(gs_assign_unary_rhs): Same.
+	(gs_cond_true_label): Return a tree.
+	(gs_cond_set_true_label): Make label a tree.
+	(gs_cond_set_false_label): Make label a tree.
+	(gs_cond_false_label): Return a tree.
+	* gimplify.c (gimplify_init_ctor_eval_range): Build tuples.
+	(gimplify_init_ctor_eval): Same.
+	(gimplify_init_constructor): Enable.  Adjust for tuples.
+	(gimplify_modify_expr_rhs): Uncomment call to
+	gimplify_init_constructor.
+
 2007-06-21  Diego Novillo  <dnovillo@google.com>
 
 	* gimple.def: Rename from gs.def.
