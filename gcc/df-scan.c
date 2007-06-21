@@ -341,6 +341,7 @@ df_scan_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
   df->insns_to_delete = BITMAP_ALLOC (&problem_data->insn_bitmaps);
   df->insns_to_rescan = BITMAP_ALLOC (&problem_data->insn_bitmaps);
   df->insns_to_notes_rescan = BITMAP_ALLOC (&problem_data->insn_bitmaps);
+  df_scan->optional_p = false;
 }
 
 
@@ -434,7 +435,8 @@ static struct df_problem problem_SCAN =
   NULL,                       /* Incremental solution verify start.  */
   NULL,                       /* Incremental solution verfiy end.  */
   NULL,                       /* Dependent problem.  */
-  TV_DF_SCAN                  /* Timing variable.  */
+  TV_DF_SCAN,                 /* Timing variable.  */
+  false                       /* Reset blocks on dropping out of blocks_to_analyze.  */
 };
 
 
@@ -3079,9 +3081,16 @@ df_get_call_refs (struct df_collection_rec * collection_rec,
 			DF_REF_REG_USE, bb, insn, flags);
       else if (GET_CODE (XEXP (note, 0)) == CLOBBER)
 	{
-	  unsigned int regno = REGNO (XEXP (XEXP (note, 0), 0));
-	  if (!bitmap_bit_p (defs_generated, regno))
-	    df_defs_record (collection_rec, XEXP (note, 0), bb, insn, flags);
+	  if (REG_P (XEXP (XEXP (note, 0), 0)))
+	    {
+	      unsigned int regno = REGNO (XEXP (XEXP (note, 0), 0));
+	      if (!bitmap_bit_p (defs_generated, regno))
+		df_defs_record (collection_rec, XEXP (note, 0), bb,
+				insn, flags);
+	    }
+	  else
+	    df_uses_record (collection_rec, &XEXP (note, 0),
+		            DF_REF_REG_USE, bb, insn, flags);
 	}
     }
 

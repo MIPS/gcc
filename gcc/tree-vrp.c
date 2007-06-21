@@ -1473,10 +1473,13 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 		    }
 		  min = positive_overflow_infinity (TREE_TYPE (var_vr->min));
 		}
-	      else
+	      else if (!POINTER_TYPE_P (TREE_TYPE (var_vr->min)))
 		min = fold_build2 (PLUS_EXPR, TREE_TYPE (var_vr->min),
 				   anti_max,
 				   build_int_cst (TREE_TYPE (var_vr->min), 1));
+	      else
+		min = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (var_vr->min),
+				   anti_max, size_int (1));
 	      max = real_max;
 	      set_value_range (vr_p, VR_RANGE, min, max, vr_p->equiv);
 	    }
@@ -2635,6 +2638,14 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop, tree stmt,
     return;
 
   chrec = instantiate_parameters (loop, analyze_scalar_evolution (loop, var));
+
+  /* Like in PR19590, scev can return a constant function.  */
+  if (is_gimple_min_invariant (chrec))
+    {
+      set_value_range (vr, VR_RANGE, chrec, chrec, vr->equiv);
+      return;
+    }
+
   if (TREE_CODE (chrec) != POLYNOMIAL_CHREC)
     return;
 

@@ -1,9 +1,220 @@
+2007-06-21  Sebastian Pop  <sebpop@gmail.com>
+
+	PR middle-end/20623
+	* tree.h (debug_fold_checksum): Declared.
+	* fold-const.c (build_fold_addr_expr_with_type_1): New.
+	(build_fold_addr_expr_with_type, build_fold_addr_expr): Use 
+	build_fold_addr_expr_with_type_1.
+	(fold_addr_expr, debug_fold_checksum): New.
+	(fold_checksum_tree): Don't fold TREE_CHAIN of an SSA_NAME.
+	(fold_unary, fold_comparison, split_address_to_core_and_offset):
+	Use fold_addr_expr.
+	
+2007-06-21  Sebastian Pop  <sebpop@gmail.com>
+
+	PR tree-optimization/19590
+	* tree-vrp.c (adjust_range_with_scev): Set the range when the result
+	of scev is a constant.
+	* gcc/testsuite/gcc.dg/tree-ssa/pr19590.c: New.
+
+2007-06-21  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+        * df-problems.c (df_note_bb_compute): Made computation of live
+	info consistent with df_lr.
+
+2007-06-21  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/32453
+	* tree-vrp.c (extract_range_from_assert): Build POINTER_PLUS_EXPR
+	for pointer anti-range.
+
+2007-06-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (processor_target_table): Increase maximum
+	skip from 7 byte to 10 byte for Pentium Pro, Core 2 Duo and
+	default 64bit.
+
+	* config/i386/linux.h (ASM_OUTPUT_MAX_SKIP_ALIGN): Ensure 8
+	byte alignment if > 8 byte alignment is preferred.
+	* config/i386/x86-64.h (ASM_OUTPUT_MAX_SKIP_ALIGN): Likewise.
+
+2007-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/31866
+	* tree-ssa-coalesce.c (create_outofssa_var_map): Do nothing
+	if ASM_EXPR's input is not a SSA_NAME.
+
+	PR middle-end/32362
+	* omp-low.c (lookup_decl_in_outer_ctx): Don't ICE if t is NULL,
+	but decl is a global var, instead return decl.
+	* gimplify.c (gimplify_adjust_omp_clauses_1): Add shared clauses
+	even for is_global_var decls, if they are private in some outer
+	context.
+
+2007-06-21  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/32451
+	* tree-ssa-threadupdate.c (thread_single_edge): Fixup edge flags.
+
+2007-06-21  Christian Bruel  <christian.bruel@st.com>
+
+	* config/sh/sh-protos.h (sh_loads_bankedreg_p): Declare.
+	* config/sh/sh.c (sh_loads_bankedreg_p): New function.
+	(push_regs): Changed saving order or banked registers.
+	(sh_expand_epilogue): Likewise.
+	* config/sh/sh.h (BANKED_REGISTER_P): New macro.
+	(FIRST_BANKED_REG): Likewise.
+	(LAST_BANKED_REG): Likewise.
+	* config/sh/sh.md (banked) New attribute.
+	(in_delay_slot): Check banked attribute.
+	
+2007-06-20  Sebastian Pop  <sebpop@gmail.com>
+
+	PR tree-optimization/32075
+	* tree-data-ref.c (subscript_dependence_tester_1, 
+	analyze_miv_subscript, analyze_overlapping_iterations,
+	add_distance_for_zero_overlaps, build_classic_dist_vector,
+	subscript_dependence_tester_1, analyze_overlapping_iterations,
+	subscript_dependence_tester, access_functions_are_affine_or_constant_p,
+	compute_affine_dependence, compute_all_dependences): Pass loop_nest 
+	to evolution_function_is_affine_multivariate_p.
+
+2007-06-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* df-scan.c (df_get_call_refs): Be prepared for MEMs inside CLOBBERs.
+
+2007-06-20  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	PR target/32335
+	* config/m32c/m32c.c (m32c_emit_epilogue): Use new HImode epilogue
+	for TARGET_A16.
+	* config/m32c/prologue.md (epilogue_exitd_16): New.
+	(epilogue_reit_16): New.
+	(epilogue_exitd): Rename to epilogue_exitd_24.
+	(epilogue_reit): Rename to epilogue_reit_24.
+
+2007-06-20  Seongbae Park  <seongbae.park@gmail.com>
+            Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	* dbgcnt.def (global_alloc_at_func, global_alloc_at_reg):
+	New counters.
+	* haifa-sched.c (queue_to_ready): Don't requeue next insn
+	if dbg_cnt (sched_insn) reaches the limit.
+	(choose_ready): New parameter INSN_PTR and new return value.
+	(schedule_block): Handle dbg_cnt (sched_insn). Handle
+	the new return value from choose_ready.
+	* global.c (global_aloc): New dbgcnt global_alloc_at_reg.
+	(rest_of_handle_global_alloc): New global_alloc_at_func.
+
+2007-06-20  Adam Nemet  <anemet@caviumnetworks.com>
+
+	PR tree-optimization/25737
+	* tree.h (struct tree_struct_field_tag): Add new field alias_set.
+	(SFT_NONADDRESSABLE_P, SFT_ALIAS_SET): New macros.
+	* tree-flow.h (struct fieldoff): Add new field alias_set.
+	* tree-ssa-structalias.c (push_fields_onto_fieldstack): Add new
+	argument addressable_type.  Set alias_set of fieldoff.
+	* tree-ssa-alias.c (create_sft): Add new argument alias_set.
+	(create_overlap_variables_for): Pass alias_set from fieldoff to
+	create_sft.
+	* alias.c (get_alias_set): Use alias_set from SFT if set.
+
+2007-06-20  Hui-May Chang  <hm.chang@apple.com>
+
+	* config/i386/darwin.h (ASM_OUTPUT_COMMON): Print the size
+	of a variable as an unsigned HOST_WIDE_INT integer.
+
+2007-06-20  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR rtl-optimization/32405
+	* loop-iv.c (iv_get_reaching_def): Fail for partial defs.
+
+2007-06-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.in (omega.o): Depend on $(DIAGNOSTIC_H).
+
+	PR middle-end/31959
+	* builtins.c: Include diagnostic.h.
+	(expand_builtin_expect): Make gcc_assert more permissive.
+	* Makefile.in (builtins.o): Depend on $(DIAGNOSTIC_H).
+
+	PR inline-asm/32109
+	* gimplify.c (gimplify_asm_expr): Issue error if type is addressable
+	and !allows_mem.
+
+	PR middle-end/32285
+	* calls.c (precompute_arguments): Also precompute CALL_EXPR arguments
+	if ACCUMULATE_OUTGOING_ARGS.
+
+2007-06-19  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	* config/m68hc11/m68hc11.c: Include dataflow header file.
+	(m68hc11_reorg): Port to dataflow.
+
+2007-06-19  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df.h (DF_FIRST_OPTIONAL_PROBLEM): Removed.
+	(struct df_problem.free_blocks_on_set_blocks): New field.
+	(struct dataflow.optional_p): New field.
+	(df_bb_regno_last_use_find, df_insn_regno_def_p): Removed.
+	(df_live_set_all_dirty): New function.
+	* df-scan.c (df_scan_alloc): Initialize optional_p.
+	(problem_SCAN): Initialize free_blocks_on_set_blocks.
+	* df-core.c (df_set_blocks): Removed use of
+	DF_FIRST_OPTIONAL_PROBLEM.  Now uses
+	df_problem.free_blocks_on_set_blocks to determine which blocks are
+	recycled.
+	(df_remove_problem): Removed use of DF_FIRST_OPTIONAL_PROBLEM.
+	(df_finish_pass): Removed use of DF_FIRST_OPTIONAL_PROBLEM.  Now
+	uses dataflow.optional_p to determine if problem should be
+	deleted.
+	(rest_of_handle_df_initialize): Only start live problem if 
+	-02 or above.
+	(df_bb_regno_last_use_find, df_insn_regno_def_p): Removed.
+	* df-problems.c (df_ru_alloc, df_rd_alloc, df_lr_alloc,
+	df_live_alloc, df_urec_alloc, df_note_alloc): set optional_p.
+	(problem_RU, problem_RD, problem_LR, problem_UREC, problem_CHAIN,
+	problem_NOTE):  Initialize free_blocks_on_set_blocks.
+	(df_lr_bb_local_compute): Recompute luids if df_live problem is
+	not active.
+	(df_live_set_all_dirty, df_note_alloc): New function.
+	* regrename.c (merge_overlapping_regs): Change DF_LIVE_* to
+	df_get_live_*.
+	* sched_ebb.c (compute_jump_reg_dependencies): Ditto.
+	* postreload.c (reload_combine): Ditto.
+	* cse.c (cse_extended_basic_block): Ditto.
+	* regmove.c (mark_flags_life_zones): Ditto.
+	* rtlfactoring.c (split_blocks_after_seqs, split_pattern_seq,
+	erase_matching_seqs): Ditto.
+	* bt-load.c (compute_defs_uses_and_gen): Ditto.
+	* integrate (allocate_initial_values): Ditto.
+	* combine.c (reg_dead_at_p): Ditto.
+	* resource.c (mark_target_live_regs): Ditto.
+	* sched-rgn.c (check_live_1, update_live_1): Ditto.
+	* config/sh/sh.c (find_r0_life_regions): Ditto.
+	* global.c (rest_of_handle_global_alloc): Only add back df_live
+	for -O > 1.
+	* local-alloc.c (rest_of_handle_local_alloc): Only remove
+	df_live for -O > 1.
+	* ifcvt.c (dead_or_predicable): Change DF_LIVE_* to
+	df_get_live_*.
+	(if_convert): Make sure df_live is there at -O == 1.
+	(pass_if_after_combine): Cleanup flags.
+	* init-regs.c (initialize_uninitialized_regs): Make sure df_live
+	is there at -O == 1.
+	
+2007-06-19  Seongbae Park  <seongbae.park@gmail.com>
+
+	* config/arm/arm.c (arm_get_frame_offsets): Set
+	offsets->locals_base to avoid negative stack size.
+	(thumb1_expand_prologue): Assert on negative stack size.
+
 2007-06-19  Chao-ying Fu  <fu@mips.com>
 
 	* c-typeck.c (build_unary_op): For fixed-point pre/post inc/decrement,
 	convert the increment to the fixed-point type.
 
-2007-04-11  Sebastian Pop  <sebpop@gmail.com>
+2007-04-19  Sebastian Pop  <sebpop@gmail.com>
 
 	PR tree-optimization/32367
 	* tree-chrec.h (build_polynomial_chrec): Verify that the left hand side 
@@ -50,8 +261,8 @@
 
 2007-06-19  Uros Bizjak  <ubizjak@gmail.com>
 
-	* config/i386/i386.c (ix86_emit_swsqrtsf): Limit the result of
-	rsqrt insn to FLT_MAX to avoid NaN for zero input argument.
+	* config/i386/i386.c (ix86_emit_swsqrtsf): Filter out infinity
+	result of rsqrt insn for zero input argument to avoid NaN.
 
 2007-06-19  Richard Guenther  <rguenther@suse.de>
 
@@ -62,6 +273,11 @@
 
 	PR tree-optimization/32353
 	* tree-ssa-structalias.c (set_uids_in_ptset): Also handle RESULT_DECL.
+
+2007-06-19  Nick Clifton  <nickc@redhat.com>
+
+	* config/m32r/linux.h (LIB_SPEC): Always imply -lpthread for
+	-pthread.
 
 2007-06-18  Uros Bizjak  <ubizjak@gmail.com>
 
@@ -718,6 +934,7 @@
 
        * df-scan.c (df_get_exit-block_use_set): Always add the stack pointer
        to the exit block use set.
+       (df_insn_delete, df_insn_rescan): Fixed spelling of "deferring". 
        * gcse.c (cpro_jump): Don't emit barrier in cfglayout mode.
        * config/sparc/sparc.c (sparc_check_64): Check df != NULL.
 

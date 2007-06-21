@@ -1,3 +1,26 @@
+2007-07-21  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/VMVirtualMachine.h: Regenerate.
+
+2007-07-20  Keith Seitz  <keiths@redhat.com>
+
+	* classpath/lib/gnu/classpath/jdwp/value/StringValue.class:
+	Regenerate.
+
+2007-07-20  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/VMVirtualMachine.java (executeMethod):
+	Update from reference implementation.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (executeMethod):
+	Update parameter list to match new VMVirtualMachine interface.
+	* classpath/lib/gnu/classpath/jdwp/processor/ClassTypeCommandSet.class:
+	Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/processor/
+	ObjectReferenceCommandSet.class: Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/value/ObjectValue.class: Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/VMVirtualMachine.class: Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/util/MethodResult.class: Regenerate.
+
 2007-06-18  Keith Seitz  <keiths@redhat.com>
 
 	* gnu/gcj/jvmti/Breakpoint.java: Make abstract.

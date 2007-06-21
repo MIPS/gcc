@@ -2174,7 +2174,7 @@ tree-browser.o : tree-browser.c tree-browser.def $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(TREE_INLINE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) \
    $(TM_H) coretypes.h
 omega.o : omega.c omega.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-   errors.h $(GGC_H) $(TREE_H) diagnostic.h varray.h tree-pass.h 
+   errors.h $(GGC_H) $(TREE_H) $(DIAGNOSTIC_H) varray.h tree-pass.h 
 tree-chrec.o: tree-chrec.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(GGC_H) $(TREE_H) $(REAL_H) $(SCEV_H) tree-pass.h $(PARAMS_H) \
    $(DIAGNOSTIC_H) $(CFGLOOP_H) $(TREE_FLOW_H)
@@ -2331,7 +2331,7 @@ builtins.o : builtins.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(EXPR_H) $(OPTABS_H) insn-config.h $(RECOG_H) output.h typeclass.h \
    hard-reg-set.h toplev.h hard-reg-set.h except.h $(TM_P_H) $(PREDICT_H) \
    libfuncs.h $(REAL_H) langhooks.h $(BASIC_BLOCK_H) tree-mudflap.h \
-   $(BUILTINS_DEF) $(MACHMODE_H)
+   $(BUILTINS_DEF) $(MACHMODE_H) $(DIAGNOSTIC_H)
 calls.o : calls.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) $(EXPR_H) $(OPTABS_H) langhooks.h $(TARGET_H) \
    libfuncs.h $(REGS_H) toplev.h output.h $(FUNCTION_H) $(TIMEVAR_H) $(TM_P_H) \
