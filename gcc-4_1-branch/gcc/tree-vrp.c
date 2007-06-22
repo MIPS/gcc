@@ -3085,7 +3085,7 @@ remove_range_assertions (void)
 	    replace_uses_by_vrp (lhs, ASSERT_EXPR_VAR (rhs));
 
 	    /* And finally, remove the copy, it is not needed.  */
-	    bsi_remove (&si);
+	    bsi_remove (&si, true);
 	  }
 	else
 	  bsi_next (&si);

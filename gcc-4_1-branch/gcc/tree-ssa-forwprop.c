@@ -433,7 +433,7 @@ forward_propagate_into_cond (tree cond_expr)
 	{
 	  tree def = SSA_NAME_DEF_STMT (test_var);
 	  block_stmt_iterator bsi = bsi_for_stmt (def);
-	  bsi_remove (&bsi);
+	  bsi_remove (&bsi, true);
 	}
     }
 }
@@ -705,7 +705,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
 	      && TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME)
 	    {
 	      if (forward_propagate_addr_expr (stmt))
-		bsi_remove (&bsi);
+		bsi_remove (&bsi, true);
 	      else
 		bsi_next (&bsi);
 	    }

@@ -837,7 +837,7 @@ make_goto_expr_edges (basic_block bb)
 #else
 	  e->goto_locus = EXPR_LOCUS (goto_t);
 #endif
-	  bsi_remove (&last);
+	  bsi_remove (&last, true);
 	  return;
 	}
 
@@ -1060,7 +1060,7 @@ cleanup_dead_labels (void)
 	      || FORCED_LABEL (label))
 	    bsi_next (&i);
 	  else
-	    bsi_remove (&i);
+	    bsi_remove (&i, true);
 	}
     }
 
@@ -1355,7 +1355,7 @@ tree_merge_blocks (basic_block a, basic_block b)
 	{
 	  tree label = bsi_stmt (bsi);
 
-	  bsi_remove (&bsi);
+	  bsi_remove (&bsi, false);
 	  /* Now that we can thread computed gotos, we might have
 	     a situation where we have a forced label in block B
 	     However, the label at the start of block B might still be
@@ -2041,7 +2041,7 @@ remove_bb (basic_block bb)
 	  	  
 	  new_bb = bb->prev_bb;
 	  new_bsi = bsi_start (new_bb);
-	  bsi_remove (&i);
+	  bsi_remove (&i, false);
 	  bsi_insert_before (&new_bsi, stmt, BSI_NEW_STMT);
 	}
       else
@@ -2053,7 +2053,7 @@ remove_bb (basic_block bb)
 	  if (in_ssa_p)
 	    release_defs (stmt);
 
-	  bsi_remove (&i);
+	  bsi_remove (&i, true);
 	}
 
       /* Don't warn for removed gotos.  Gotos are often removed due to
@@ -2601,7 +2601,7 @@ disband_implicit_edges (void)
 	  if (bb->next_bb == EXIT_BLOCK_PTR
 	      && !TREE_OPERAND (stmt, 0))
 	    {
-	      bsi_remove (&last);
+	      bsi_remove (&last, true);
 	      single_succ_edge (bb)->flags |= EDGE_FALLTHRU;
 	    }
 	  continue;
@@ -2806,16 +2806,25 @@ bsi_insert_after (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 
 
 /* Remove the statement pointed to by iterator I.  The iterator is updated
-   to the next statement.  */
+   to the next statement. 
+
+   When REMOVE_EH_INFO is true we remove the statement pointed to by
+   iterator I from the EH tables.  Otherwise we do not modify the EH
+   tables.
+
+   Generally, REMOVE_EH_INFO should be true when the statement is going to
+   be removed from the IL and not reinserted elsewhere.  */
 
 void
-bsi_remove (block_stmt_iterator *i)
+bsi_remove (block_stmt_iterator *i, bool remove_eh_info)
 {
   tree t = bsi_stmt (*i);
   set_bb_for_stmt (t, NULL);
   delink_stmt_imm_use (t);
   tsi_delink (&i->tsi);
   mark_stmt_modified (t);
+  if (remove_eh_info)
+    remove_stmt_from_eh_region (t);
 }
 
 
@@ -2825,7 +2834,7 @@ void
 bsi_move_after (block_stmt_iterator *from, block_stmt_iterator *to)
 {
   tree stmt = bsi_stmt (*from);
-  bsi_remove (from);
+  bsi_remove (from, false);
   bsi_insert_after (to, stmt, BSI_SAME_STMT);
 } 
 
@@ -2836,7 +2845,7 @@ void
 bsi_move_before (block_stmt_iterator *from, block_stmt_iterator *to)
 {
   tree stmt = bsi_stmt (*from);
-  bsi_remove (from);
+  bsi_remove (from, false);
   bsi_insert_before (to, stmt, BSI_SAME_STMT);
 }
 
@@ -2857,11 +2866,12 @@ bsi_move_to_bb_end (block_stmt_iterator *from, basic_block bb)
 
 
 /* Replace the contents of the statement pointed to by iterator BSI
-   with STMT.  If PRESERVE_EH_INFO is true, the exception handling
-   information of the original statement is preserved.  */
+   with STMT.  If UPDATE_EH_INFO is true, the exception handling
+   information of the original statement is moved to the new statement.  */
+  
 
 void
-bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
+bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool update_eh_info)
 {
   int eh_region;
   tree orig_stmt = bsi_stmt (*bsi);
@@ -2871,11 +2881,14 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
 
   /* Preserve EH region information from the original statement, if
      requested by the caller.  */
-  if (preserve_eh_info)
+  if (update_eh_info)
     {
       eh_region = lookup_stmt_eh_region (orig_stmt);
       if (eh_region >= 0)
-	add_stmt_to_eh_region (stmt, eh_region);
+	{
+	  remove_stmt_from_eh_region (orig_stmt);
+	  add_stmt_to_eh_region (stmt, eh_region);
+	}
     }
 
   delink_stmt_imm_use (orig_stmt);
@@ -3985,7 +3998,7 @@ tree_try_redirect_by_replacing_jump (edge e, basic_block target)
   if (TREE_CODE (stmt) == COND_EXPR
       || TREE_CODE (stmt) == SWITCH_EXPR)
     {
-      bsi_remove (&b);
+      bsi_remove (&b, true);
       e = ssa_redirect_edge (e, target);
       e->flags = EDGE_FALLTHRU;
       return e;
@@ -4082,7 +4095,7 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
       }
 
     case RETURN_EXPR:
-      bsi_remove (&bsi);
+      bsi_remove (&bsi, true);
       e->flags |= EDGE_FALLTHRU;
       break;
 
@@ -4158,7 +4171,7 @@ tree_split_block (basic_block bb, void *stmt)
   while (!bsi_end_p (bsi))
     {
       act = bsi_stmt (bsi);
-      bsi_remove (&bsi);
+      bsi_remove (&bsi, false);
       bsi_insert_after (&bsi_tgt, act, BSI_NEW_STMT);
     }
 

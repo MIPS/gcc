@@ -2549,7 +2549,7 @@ remove_dead_inserted_code (void)
 	  else
 	    {
 	      bsi = bsi_for_stmt (t);
-	      bsi_remove (&bsi);
+	      bsi_remove (&bsi, true);
 	    }
 	}
     }
@@ -2899,7 +2899,7 @@ do_eustores (void)
 		  print_generic_stmt (dump_file, stmt, 0);
 		}
 	      mark_sym_for_renaming (TREE_OPERAND (stmt, 0));
-	      bsi_remove (&bsi);
+	      bsi_remove (&bsi, true);
 	    }
 	  else
 	    {
