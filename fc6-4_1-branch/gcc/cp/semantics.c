@@ -1975,6 +1975,13 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
 	  error ("invalid qualifying scope in pseudo-destructor name");
 	  return error_mark_node;
 	}
+      if (scope && TYPE_P (scope) && !check_dtor_name (scope, destructor))
+	{
+	  error ("qualified type %qT does not match destructor name ~%qT",
+		 scope, destructor);
+	  return error_mark_node;
+	}
+
 
       /* [expr.pseudo] says both:
 
@@ -2891,7 +2898,8 @@ finish_offsetof (tree expr)
       || TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE
       || TREE_CODE (TREE_TYPE (expr)) == UNKNOWN_TYPE)
     {
-      if (TREE_CODE (expr) == COMPONENT_REF)
+      if (TREE_CODE (expr) == COMPONENT_REF
+	  || TREE_CODE (expr) == COMPOUND_EXPR)
 	expr = TREE_OPERAND (expr, 1);
       error ("cannot apply %<offsetof%> to member function %qD", expr);
       return error_mark_node;
@@ -3568,7 +3576,8 @@ finish_omp_clauses (tree clauses)
 	 Save the results, because later we won't be in the right context
 	 for making these queries.  */
       if (CLASS_TYPE_P (inner_type)
-	  && (need_default_ctor || need_copy_ctor || need_copy_assignment))
+	  && (need_default_ctor || need_copy_ctor || need_copy_assignment)
+	  && !type_dependent_expression_p (t))
 	{
 	  int save_errorcount = errorcount;
 	  tree info;
@@ -3745,6 +3754,8 @@ tree
 finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 		tree incr, tree body, tree pre_body)
 {
+  tree omp_for;
+
   if (decl == NULL)
     {
       if (init != NULL)
@@ -3822,8 +3833,31 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       add_stmt (pre_body);
       pre_body = NULL;
     }
+
+  init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
   init = build_modify_expr (decl, NOP_EXPR, init);
-  return c_finish_omp_for (locus, decl, init, cond, incr, body, pre_body);
+  if (cond && TREE_SIDE_EFFECTS (cond) && COMPARISON_CLASS_P (cond))
+    {
+      int n = TREE_SIDE_EFFECTS (TREE_OPERAND (cond, 1)) != 0;
+      tree t = TREE_OPERAND (cond, n);
+
+      TREE_OPERAND (cond, n)
+	= fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+    }
+  omp_for = c_finish_omp_for (locus, decl, init, cond, incr, body, pre_body);
+  if (omp_for != NULL
+      && TREE_CODE (OMP_FOR_INCR (omp_for)) == MODIFY_EXPR
+      && TREE_SIDE_EFFECTS (TREE_OPERAND (OMP_FOR_INCR (omp_for), 1))
+      && BINARY_CLASS_P (TREE_OPERAND (OMP_FOR_INCR (omp_for), 1)))
+    {
+      tree t = TREE_OPERAND (OMP_FOR_INCR (omp_for), 1);
+      int n = TREE_SIDE_EFFECTS (TREE_OPERAND (t, 1)) != 0;
+
+      TREE_OPERAND (t, n)
+	= fold_build_cleanup_point_expr (TREE_TYPE (TREE_OPERAND (t, n)),
+					 TREE_OPERAND (t, n));
+    }
+  return omp_for;
 }
 
 void

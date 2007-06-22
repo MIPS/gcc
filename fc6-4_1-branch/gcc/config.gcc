@@ -263,11 +263,13 @@ xscale-*-*)
 	;;
 i[34567]86-*-*)
 	cpu_type=i386
-	extra_headers="mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h pmmintrin.h"
+	extra_headers="mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
+		       pmmintrin.h tmmintrin.h"
 	;;
 x86_64-*-*)
 	cpu_type=i386
-	extra_headers="mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h pmmintrin.h"
+	extra_headers="mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
+		       pmmintrin.h tmmintrin.h"
 	need_64bit_hwint=yes
 	;;
 ia64-*-*)
@@ -2418,6 +2420,9 @@ if test x$with_cpu = x ; then
         nocona-*)
           with_cpu=nocona
           ;;
+	core2-*)
+	  with_cpu=core2
+	  ;;
         pentium_m-*)
           with_cpu=pentium-m
           ;;
@@ -2437,6 +2442,9 @@ if test x$with_cpu = x ; then
         nocona-*)
           with_cpu=nocona
           ;;
+	core2-*)
+	  with_cpu=core2
+	  ;;
         *)
           with_cpu=generic
           ;;
@@ -2660,7 +2668,7 @@ case "${target}" in
 				esac
 				# OK
 				;;
-			"" | k8 | opteron | athlon64 | athlon-fx | nocona | generic)
+			"" | k8 | opteron | athlon64 | athlon-fx | nocona | core2 | generic)
 				# OK
 				;;
 			*)

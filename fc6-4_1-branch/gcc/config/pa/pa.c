@@ -712,7 +712,10 @@ legitimize_tls_address (rtx addr)
     {
       case TLS_MODEL_GLOBAL_DYNAMIC:
 	tmp = gen_reg_rtx (Pmode);
-	emit_insn (gen_tgd_load (tmp, addr));
+	if (flag_pic)
+	  emit_insn (gen_tgd_load_pic (tmp, addr));
+	else
+	  emit_insn (gen_tgd_load (tmp, addr));
 	ret = hppa_tls_call (tmp);
 	break;
 
@@ -720,7 +723,10 @@ legitimize_tls_address (rtx addr)
 	ret = gen_reg_rtx (Pmode);
 	tmp = gen_reg_rtx (Pmode);
 	start_sequence ();
-	emit_insn (gen_tld_load (tmp, addr));
+	if (flag_pic)
+	  emit_insn (gen_tld_load_pic (tmp, addr));
+	else
+	  emit_insn (gen_tld_load (tmp, addr));
 	t1 = hppa_tls_call (tmp);
 	insn = get_insns ();
 	end_sequence ();
@@ -736,7 +742,10 @@ legitimize_tls_address (rtx addr)
 	tmp = gen_reg_rtx (Pmode);
 	ret = gen_reg_rtx (Pmode);
 	emit_insn (gen_tp_load (tp));
-	emit_insn (gen_tie_load (tmp, addr));
+	if (flag_pic)
+	  emit_insn (gen_tie_load_pic (tmp, addr));
+	else
+	  emit_insn (gen_tie_load (tmp, addr));
 	emit_move_insn (ret, gen_rtx_PLUS (Pmode, tp, tmp));
 	break;
 
@@ -7074,7 +7083,8 @@ attr_length_call (rtx insn, int sibcall)
   /* long pc-relative branch sequence.  */
   else if ((TARGET_SOM && TARGET_LONG_PIC_SDIFF_CALL)
 	   || (TARGET_64BIT && !TARGET_GAS)
-	   || (TARGET_GAS && (TARGET_LONG_PIC_PCREL_CALL || local_call)))
+	   || (TARGET_GAS && !TARGET_SOM
+	       && (TARGET_LONG_PIC_PCREL_CALL || local_call)))
     {
       length += 20;
 
@@ -7185,7 +7195,8 @@ output_call (rtx insn, rtx call_dest, int sibcall)
              they don't allow an instruction in the delay slot.  */
 	  if (!((TARGET_LONG_ABS_CALL || local_call) && !flag_pic)
 	      && !(TARGET_SOM && TARGET_LONG_PIC_SDIFF_CALL)
-	      && !(TARGET_GAS && (TARGET_LONG_PIC_PCREL_CALL || local_call))
+	      && !(TARGET_GAS && !TARGET_SOM
+		   && (TARGET_LONG_PIC_PCREL_CALL || local_call))
 	      && !TARGET_64BIT)
 	    indirect_call = 1;
 
@@ -7245,7 +7256,8 @@ output_call (rtx insn, rtx call_dest, int sibcall)
 					     CODE_LABEL_NUMBER (xoperands[1]));
 		  output_asm_insn ("ldo R'%0-%l1(%%r1),%%r1", xoperands);
 		}
-	      else if (TARGET_GAS && (TARGET_LONG_PIC_PCREL_CALL || local_call))
+	      else if (TARGET_GAS && !TARGET_SOM
+		       && (TARGET_LONG_PIC_PCREL_CALL || local_call))
 		{
 		  /*  GAS currently can't generate the relocations that
 		      are needed for the SOM linker under HP-UX using this
