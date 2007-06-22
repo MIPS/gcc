@@ -1,5 +1,19 @@
 2007-06-22  Peter Bergner  <bergner@vnet.ibm.com>
 
+	Backport of submitted mainline indexed load/store patch.
+
+	PR middle-end/PR28690
+	* optabs.c (expand_binop): (emit_cmp_and_jump_insns): Allow EQ compares.
+	* rtlanal.c (commutative_operand_precedence): Prefer both REG_POINTER
+	and MEM_POINTER operands over REG and MEM operands.
+	(swap_commutative_operands_p): Change return value to bool.  In case
+	of a tie, sort on REGNO.
+	* rtl.h: Update the corresponding prototype.
+	* tree-ssa-address.c (gen_addr_rtx): Use simplify_gen_binary
+	instead of gen_rtx_PLUS.
+
+2007-06-22  Peter Bergner  <bergner@vnet.ibm.com>
+
 	Reassociation rewrite backport from mainline.
 
 	2006-03-22  Jeff Law  <law@redhat.com>
