@@ -1,5 +1,15 @@
 2007-06-21  Aldy Hernandez  <aldyh@redhat.com>
 
+	* gimple-ir.h (gs_assign_binary_rhs1): Add assertion for
+	GSS_ASSIGN_BINARY.
+	(gs_assign_binary_set_rhs1): Same.
+	(gs_assign_binary_rhs2): Same.
+	(gs_assign_binary_set_rhs2): Same.
+	(gs_assign_unary_rhs): Same.
+	(gs_assign_unary_set_rhs): Same.
+
+2007-06-21  Aldy Hernandez  <aldyh@redhat.com>
+
 	* gcc.dg/gimple/gimple.exp: New.
 	* gcc.dg/gimple/compound_expr.c: New.
 	* gcc.dg/gimple/with_size_expr.c: New.

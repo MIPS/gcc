@@ -453,24 +453,44 @@ gs_assign_set_lhs (gimple gs, tree lhs)
 static inline tree
 gs_assign_binary_rhs1 (gimple gs)
 {
+#if defined ENABLE_CHECKING
+  enum gimple_statement_structure_enum gss;
+  gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
+  gcc_assert (gss == GSS_ASSIGN_BINARY);
+#endif
   return gs_assign_operand (gs, 1);
 }
 
 static inline void
 gs_assign_binary_set_rhs1 (gimple gs, tree rhs)
 {
+#if defined ENABLE_CHECKING
+  enum gimple_statement_structure_enum gss;
+  gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
+  gcc_assert (gss == GSS_ASSIGN_BINARY);
+#endif
   gs_assign_set_operand (gs, 1, rhs);
 }
 
 static inline tree
 gs_assign_binary_rhs2 (gimple gs)
 {
+#if defined ENABLE_CHECKING
+  enum gimple_statement_structure_enum gss;
+  gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
+  gcc_assert (gss == GSS_ASSIGN_BINARY);
+#endif
   return gs_assign_operand (gs, 2);
 }
 
 static inline void
 gs_assign_binary_set_rhs2 (gimple gs, tree rhs)
 {
+#if defined ENABLE_CHECKING
+  enum gimple_statement_structure_enum gss;
+  gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
+  gcc_assert (gss == GSS_ASSIGN_BINARY);
+#endif
   gs_assign_set_operand (gs, 2, rhs);
 }
 
@@ -480,6 +500,7 @@ gs_assign_unary_rhs (gimple gs)
 #if defined ENABLE_CHECKING
   enum gimple_statement_structure_enum gss;
   gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
+  gcc_assert (gss == GSS_ASSIGN_UNARY_REG || gss == GSS_ASSIGN_UNARY_MEM);
 #endif
   return gs_assign_operand (gs, 1);
 }
@@ -487,6 +508,11 @@ gs_assign_unary_rhs (gimple gs)
 static inline void
 gs_assign_unary_set_rhs (gimple gs, tree rhs)
 {
+#if defined ENABLE_CHECKING
+  enum gimple_statement_structure_enum gss;
+  gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
+  gcc_assert (gss == GSS_ASSIGN_UNARY_REG || gss == GSS_ASSIGN_UNARY_MEM);
+#endif
   gs_assign_set_operand (gs, 1, rhs);
 }
 
