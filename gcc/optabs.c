@@ -5095,7 +5095,7 @@ expand_fixed_convert (rtx to, rtx from, int uintp, int satp)
 				   1, from, from_mode);
   insns = get_insns ();
   end_sequence ();
-  
+
   emit_libcall_block (insns, to, value,
 		      gen_rtx_fmt_e (tab->code, to_mode, from));
 }

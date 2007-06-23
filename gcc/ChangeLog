@@ -1,3 +1,44 @@
+2007-06-22  Chao-ying Fu  <fu@mips.com>
+
+	* doc/c-tree.texi (FIXED_CST): Remove spaces.
+	* c-lex.c (interpret_fixed): Add one empty line after the comment.
+	* optabs.c (expand_fixed_convert): Remove spaces.
+	* tree.c (fixed_zerop): Add parentheses.
+	(make_or_reuse_fract_type, make_or_reuse_accum_type): Add comments.
+	* fold-const.c (fixed-value.h): Add include.
+	* c-cppbuiltin.c (builtin_define_fixed_point_constants): Update
+	comments and remove spaces.
+	(c_cpp_builtins): Remove spaces.
+	* df-scan.c (df_uses_record): Support CONST_FIXED.
+	* double-int.c (double_int_scmp): Use explicit casts of
+	unsigned HOST_WIDE_INT.
+	* rtl.def (FRACT_CONVERT, SAT_FRACT): Remove spaces.
+	* c-tree.h (c_typespec_keyword): Update comments.
+	* machmode.def: Update spaces to tab.
+	* expr.c (convert_move): Remove spaces.
+	* stor-layout.c (make_fract_type, make_accum_type): Update comments.
+	* c-typeck.c (c_common_type): Remove spaces.
+	* genmodes.c (make_fixed_point_mode, emit_mode_ibit, emit_mode_fbit):
+	Add comments.
+	* emit-rtl.c (const_fixed_htab_hash): Add one empty line after comment.
+	(const_fixed_htab_eq): Update comments and remove spaces.
+	(lookup_const_fixed, const_fixed_from_fixed_value): Add one empty
+	line after comments.
+	(init_emit_once): Update comments. Delete the initialization of
+	fconst1 for FRACT and UFRACT.
+	* simplify-rtx.c (simplify_immed_subreg): Remove spaces.
+	* fixed-value.c: Update copyright year.
+	(check_real_for_fixed_mode, do_fixed_neg, fixed_convert): Remove spaces.
+	* fixed-value.h: Update copyright year.  Remove spaces.
+	* c-common.c (fixed-value.h): New include.
+	(overflow_warning, warnings_for_convert_and_check): Remove spaces.
+	* c-parser.c (c_parser_declspecs): Update ref to n1169.pdf.
+	* tree-ssa-reassoc.c (break_up_subtract_bb, reassociate_bb): Update
+	comment.s
+	* config/fixed-bit.c (SATFRACT): Remove spaces.
+	* config/fixed-bit.h: Remove spaces.
+	* convert.c (convert_to_fixed): Remove spaces.
+
 2007-06-21  Adam Nemet  <anemet@caviumnetworks.com>
 
 	* fold-const.c (debug_fold_checksum): Move it under

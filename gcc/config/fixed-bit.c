@@ -800,7 +800,7 @@ SATFRACT (FROM_FIXED_C_TYPE a)
   utemp = utemp >> (BIG_WIDTH - shift_amount);
   high = ((BIG_UINT_C_TYPE)(high << shift_amount)) | utemp;
   low = low << shift_amount;
-#elif TO_FBITS < FROM_FBITS /* Right shift.  */ 
+#elif TO_FBITS < FROM_FBITS /* Right shift.  */
   shift_amount = FROM_FBITS - TO_FBITS;
   low = low >> shift_amount;
 #endif

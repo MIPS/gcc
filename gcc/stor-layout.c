@@ -1929,7 +1929,8 @@ make_unsigned_type (int precision)
   return type;
 }
 
-/* Create and return a type for fract of PRECISION bits.  */
+/* Create and return a type for fract of PRECISION bits, UNSIGNEDP,
+   and SATP.  */
 
 tree
 make_fract_type (int precision, int unsignedp, int satp)
@@ -1954,7 +1955,8 @@ make_fract_type (int precision, int unsignedp, int satp)
   return type;
 }
 
-/* Create and return a type for accum of PRECISION bits.  */
+/* Create and return a type for accum of PRECISION bits, UNSIGNEDP,
+   and SATP.  */
 
 tree
 make_accum_type (int precision, int unsignedp, int satp)

@@ -49,6 +49,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "real.h"
 #include "cgraph.h"
 #include "target-def.h"
+#include "fixed-value.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -963,7 +964,7 @@ overflow_warning (tree value)
     case FIXED_CST:
       warning (OPT_Woverflow, "fixed-point overflow in expression");
       break;
-      
+
     case VECTOR_CST:
       warning (OPT_Woverflow, "vector overflow in expression");
       break;
@@ -1362,7 +1363,7 @@ warnings_for_convert_and_check (tree type, tree expr, tree result)
 	conversion_warning (type, expr);
     }
   else if ((TREE_CODE (result) == INTEGER_CST
-	    || TREE_CODE (result) == FIXED_CST) && TREE_OVERFLOW (result)) 
+	    || TREE_CODE (result) == FIXED_CST) && TREE_OVERFLOW (result))
     warning (OPT_Woverflow,
              "overflow in implicit constant conversion");
   else

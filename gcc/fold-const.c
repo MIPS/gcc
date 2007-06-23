@@ -55,6 +55,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "flags.h"
 #include "tree.h"
 #include "real.h"
+#include "fixed-value.h"
 #include "rtl.h"
 #include "expr.h"
 #include "tm_p.h"

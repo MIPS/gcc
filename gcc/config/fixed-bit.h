@@ -1194,7 +1194,7 @@ extern FIXED_C_TYPE FIXED_USASHL (FIXED_C_TYPE, word_type);
 /* Different modes: don't append '2' to conversion function names */
 #define FRACT		FRACT_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
 #define SATFRACT	SATFRACT_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
-#endif 
+#endif
 
 extern TO_FIXED_C_TYPE FRACT (FROM_FIXED_C_TYPE);
 extern TO_FIXED_C_TYPE SATFRACT (FROM_FIXED_C_TYPE);

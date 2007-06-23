@@ -203,7 +203,7 @@ enum c_storage_class {
 };
 
 /* A type specifier keyword "void", "_Bool", "char", "int", "float",
-   "double", or none of these.  */
+   "double", "_Fract", "_Accum", or none of these.  */
 enum c_typespec_keyword {
   cts_none,
   cts_void,

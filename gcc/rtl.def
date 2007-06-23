@@ -577,10 +577,10 @@ DEF_RTL_EXPR(UNSIGNED_FIX, "unsigned_fix", "e", RTX_UNARY)
 
 /* Conversions involving fractional fixed-point types without saturation,
    including:
-     fractional to fractional (of different precision), 
+     fractional to fractional (of different precision),
      signed integer to fractional,
      fractional to signed integer,
-     floating point to fractional, 
+     floating point to fractional,
      fractional to floating point.
    NOTE: fractional can be either signed or unsigned for conversions.  */
 DEF_RTL_EXPR(FRACT_CONVERT, "fract_convert", "e", RTX_UNARY)
@@ -594,9 +594,9 @@ DEF_RTL_EXPR(UNSIGNED_FRACT_CONVERT, "unsigned_fract_convert", "e", RTX_UNARY)
 
 /* Conversions involving fractional fixed-point types with saturation,
    including:
-     fractional to fractional (of different precision), 
+     fractional to fractional (of different precision),
      signed integer to fractional,
-     floating point to fractional. 
+     floating point to fractional.
    NOTE: fractional can be either signed or unsigned for conversions.  */
 DEF_RTL_EXPR(SAT_FRACT, "sat_fract", "e", RTX_UNARY)
 

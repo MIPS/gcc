@@ -341,10 +341,11 @@ builtin_define_decimal_float_constants (const char *name_prefix,
   builtin_define_with_value (name, buf, 0);
 }
 
-/* Define fixed-point constants for TYPE using NAME_PREFIX and SUFFIX. */
+/* Define fixed-point constants for TYPE using NAME_PREFIX and SUFFIX.  */
+
 static void
-builtin_define_fixed_point_constants (const char *name_prefix, 
-				      const char *suffix, 
+builtin_define_fixed_point_constants (const char *name_prefix,
+				      const char *suffix,
 				      tree type)
 {
   char name[64], buf[256], *new_buf;
@@ -542,7 +543,7 @@ c_cpp_builtins (cpp_reader *pfile)
   builtin_define_decimal_float_constants ("DEC64", "DD", dfloat64_type_node);
   builtin_define_decimal_float_constants ("DEC128", "DL", dfloat128_type_node);
 
-  /* For fixed-point fibt, ibit, max, min, and epsilon.  */ 
+  /* For fixed-point fibt, ibit, max, min, and epsilon.  */
   if (targetm.fixed_point_supported_p ())
     {
       builtin_define_fixed_point_constants ("SFRACT", "HR",

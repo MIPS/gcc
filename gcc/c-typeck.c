@@ -703,7 +703,7 @@ c_common_type (tree t1, tree t2)
 	 fixed-point type.
 	 Otherwise, the result type is signed.  */
       if ((TYPE_UNSIGNED (t1) && TYPE_UNSIGNED (t2)
-	   && code1 == FIXED_POINT_TYPE && code2 == FIXED_POINT_TYPE) 
+	   && code1 == FIXED_POINT_TYPE && code2 == FIXED_POINT_TYPE)
 	  || (code1 == FIXED_POINT_TYPE && code2 != FIXED_POINT_TYPE
 	      && TYPE_UNSIGNED (t1))
 	  || (code1 != FIXED_POINT_TYPE && code2 == FIXED_POINT_TYPE
@@ -737,7 +737,7 @@ c_common_type (tree t1, tree t2)
 		error ("machine mode is wrong");
 	      m2 = mode_for_size (GET_MODE_PRECISION (m2), mclass, 0);
 	    }
-	} 
+	}
 
       if (code1 == FIXED_POINT_TYPE)
 	{
@@ -753,7 +753,7 @@ c_common_type (tree t1, tree t2)
 
       if (code2 == FIXED_POINT_TYPE)
 	{
-	  fbit2 = GET_MODE_FBIT (m2); 
+	  fbit2 = GET_MODE_FBIT (m2);
 	  ibit2 = GET_MODE_IBIT (m2);
 	}
       else

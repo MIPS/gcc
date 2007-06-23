@@ -97,20 +97,20 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 	floating point format FORMAT.
 
      FRACT_MODE (MODE, BYTESIZE, FBIT);
-        declares MODE to be of class FRACT and BYTESIZE bytes wide
+	declares MODE to be of class FRACT and BYTESIZE bytes wide
 	with FBIT fractional bits.  There may be padding bits.
 
      UFRACT_MODE (MODE, BYTESIZE, FBIT);
-        declares MODE to be of class UFRACT and BYTESIZE bytes wide
+	declares MODE to be of class UFRACT and BYTESIZE bytes wide
 	with FBIT fractional bits.  There may be padding bits.
 
      ACCUM_MODE (MODE, BYTESIZE, IBIT, FBIT);
-        declares MODE to be of class ACCUM and BYTESIZE bytes wide
+	declares MODE to be of class ACCUM and BYTESIZE bytes wide
 	with IBIT integral bits and FBIT fractional bits.
 	There may be padding bits.
 
      UACCUM_MODE (MODE, BYTESIZE, FBIT);
-        declares MODE to be of class UACCUM and BYTESIZE bytes wide
+	declares MODE to be of class UACCUM and BYTESIZE bytes wide
 	with IBIT integral bits and FBIT fractional bits.
 	There may be padding bits.
 
@@ -153,7 +153,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
      ADJUST_FLOAT_FORMAT (MODE, EXPR);
      ADJUST_IBIT (MODE, EXPR);
      ADJUST_FBIT (MODE, EXPR);
-        Arrange for the byte size, alignment, floating point format, ibit,
+	Arrange for the byte size, alignment, floating point format, ibit,
 	or fbit of MODE to be adjustable at run time.  EXPR will be executed
 	once after processing all command line options, and should
 	evaluate to the desired byte size, alignment, format, ibit or fbit.

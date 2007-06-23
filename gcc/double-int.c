@@ -363,9 +363,9 @@ double_int_scmp (double_int a, double_int b)
     return -1;
   if (a.high > b.high)
     return 1;
-  if (a.low < b.low)
+  if ((unsigned HOST_WIDE_INT) a.low < (unsigned HOST_WIDE_INT) b.low)
     return -1;
-  if (a.low > b.low)
+  if ((unsigned HOST_WIDE_INT) a.low > (unsigned HOST_WIDE_INT) b.low)
     return 1;
 
   return 0;

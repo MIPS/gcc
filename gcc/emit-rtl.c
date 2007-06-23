@@ -256,6 +256,7 @@ const_double_htab_eq (const void *x, const void *y)
 }
 
 /* Returns a hash code for X (which is really a CONST_FIXED).  */
+
 static hashval_t
 const_fixed_htab_hash (const void *x)
 {
@@ -269,7 +270,8 @@ const_fixed_htab_hash (const void *x)
 }
 
 /* Returns nonzero if the value represented by X (really a ...)
-   is the same as that represented by Y (really a ...) */
+   is the same as that represented by Y (really a ...).  */
+
 static int
 const_fixed_htab_eq (const void *x, const void *y)
 {
@@ -277,8 +279,7 @@ const_fixed_htab_eq (const void *x, const void *y)
 
   if (GET_MODE (a) != GET_MODE (b))
     return 0;
-  return fixed_identical (CONST_FIXED_VALUE (a),
-			 CONST_FIXED_VALUE (b));
+  return fixed_identical (CONST_FIXED_VALUE (a), CONST_FIXED_VALUE (b));
 }
 
 /* Returns a hash code for X (which is a really a mem_attrs *).  */
@@ -489,6 +490,7 @@ const_double_from_real_value (REAL_VALUE_TYPE value, enum machine_mode mode)
 /* Determine whether FIXED, a CONST_FIXED, already exists in the
    hash table.  If so, return its counterpart; otherwise add it
    to the hash table and return it.  */
+
 static rtx
 lookup_const_fixed (rtx fixed)
 {
@@ -499,9 +501,9 @@ lookup_const_fixed (rtx fixed)
   return (rtx) *slot;
 }
 
-
 /* Return a CONST_FIXED rtx for a fixed-point value specified by
    VALUE in mode MODE.  */
+
 rtx
 const_fixed_from_fixed_value (FIXED_VALUE_TYPE value, enum machine_mode mode)
 {
@@ -5144,7 +5146,7 @@ init_emit_once (int line_numbers)
   /* We need reg_raw_mode, so initialize the modes now.  */
   init_reg_modes_once ();
 
-  /* Initialize the CONST_INT, CONST_DOUBLE, CONST_FIXED and memory attribute
+  /* Initialize the CONST_INT, CONST_DOUBLE, CONST_FIXED, and memory attribute
      hash tables.  */
   const_int_htab = htab_create_ggc (37, const_int_htab_hash,
 				    const_int_htab_eq, NULL);
@@ -5312,26 +5314,11 @@ init_emit_once (int line_numbers)
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     {
-      double_int temp;
       fconst0[mode].data.high = 0;
       fconst0[mode].data.low = 0;
       fconst0[mode].mode = mode;
       const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
 				      fconst0[mode], mode);
-      /* We store the maximum value close to the value 1.  */
-      fconst1[mode].data.high = 0;
-      fconst1[mode].data.low = 0;
-      fconst1[mode].mode = mode;
-      lshift_double (1, 0, GET_MODE_FBIT (mode),
-                     2 * HOST_BITS_PER_WIDE_INT,
-                     &fconst1[mode].data.low, &fconst1[mode].data.high,
-                     SIGNED_FIXED_POINT_MODE_P (mode));
-      temp.low = 1;
-      temp.high = 0;
-      fconst1[mode].data = double_int_add (fconst1[mode].data,
-					   double_int_neg (temp));
-      const_tiny_rtx[1][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
-				      fconst1[mode], mode);
     }
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_UFRACT);
@@ -5343,14 +5330,6 @@ init_emit_once (int line_numbers)
       fconst0[mode].mode = mode;
       const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
 				      fconst0[mode], mode);
-      /* We store the maximum value close to the value 1.  */
-      fconst1[mode].mode = mode;
-      fconst1[mode].data.high = -1;
-      fconst1[mode].data.low = -1;
-      fconst1[mode].data = double_int_ext (fconst1[mode].data,
-					   GET_MODE_FBIT (mode), 1);
-      const_tiny_rtx[1][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
-				      fconst1[mode], mode);
     }
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_ACCUM);
@@ -5362,6 +5341,7 @@ init_emit_once (int line_numbers)
       fconst0[mode].mode = mode;
       const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
 				      fconst0[mode], mode);
+
       /* We store the value 1.  */
       fconst1[mode].data.high = 0;
       fconst1[mode].data.low = 0;
@@ -5383,6 +5363,7 @@ init_emit_once (int line_numbers)
       fconst0[mode].mode = mode;
       const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
 				      fconst0[mode], mode);
+
       /* We store the value 1.  */
       fconst1[mode].data.high = 0;
       fconst1[mode].data.low = 0;
@@ -5400,7 +5381,6 @@ init_emit_once (int line_numbers)
        mode = GET_MODE_WIDER_MODE (mode))
     {
       const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
-      const_tiny_rtx[1][(int) mode] = gen_const_vector (mode, 1);
     }
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_UFRACT);
@@ -5408,7 +5388,6 @@ init_emit_once (int line_numbers)
        mode = GET_MODE_WIDER_MODE (mode))
     {
       const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
-      const_tiny_rtx[1][(int) mode] = gen_const_vector (mode, 1);
     }
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_ACCUM);

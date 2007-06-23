@@ -1,5 +1,5 @@
 /* Fixed-point arithmetic support.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -85,12 +85,12 @@ check_real_for_fixed_mode (REAL_VALUE_TYPE *real_value, unsigned int mode)
     real_from_string (&min_value, "0.0");
 
   if (real_compare (LT_EXPR, real_value, &min_value))
-    return 1; 
+    return 1;
   if (real_compare (EQ_EXPR, real_value, &max_value))
-    return 3; 
+    return 3;
   real_arithmetic (&max_value, MINUS_EXPR, &max_value, &epsilon_value);
   if (real_compare (GT_EXPR, real_value, &max_value))
-    return 2; 
+    return 2;
   return 0;
 }
 
@@ -707,7 +707,7 @@ do_fixed_neg (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a, int satp)
     {
       if (!(f->data.high == 0 && f->data.low == 0)
 	  && f->data.high == a->data.high && f->data.low == a->data.low )
-	{ 
+	{
 	  if (satp)
 	    {
 	      /* Saturate to the maximum by subtracting f->data by one.  */
@@ -823,7 +823,7 @@ fixed_convert (FIXED_VALUE_TYPE *f, enum machine_mode mode,
       *f = *a;
       return overflow;
     }
-    
+
   if (GET_MODE_FBIT (mode) > GET_MODE_FBIT (a->mode))
     {
       /* Left shift a to temp_high, temp_low based on a->mode.  */
@@ -865,7 +865,7 @@ fixed_convert (FIXED_VALUE_TYPE *f, enum machine_mode mode,
 		  else
 		    overflow = true;
 		}
-	      else	
+	      else
 		overflow = fixed_saturate2 (f->mode, temp_high, temp_low,
 					    &f->data, satp);
 	    }

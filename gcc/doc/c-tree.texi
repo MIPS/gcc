@@ -2101,7 +2101,7 @@ comparisons, and so forth.
 These nodes represent fixed-point constants.  The type of these constants
 is obtained with @code{TREE_TYPE}.  @code{TREE_FIXED_CST_PTR} points to
 to struct fixed_value;  @code{TREE_FIXED_CST} returns the structure itself.
-Struct fixed_value contains @code{data} with the size of two 
+Struct fixed_value contains @code{data} with the size of two
 HOST_BITS_PER_WIDE_INT and @code{mode} as the associated fixed-point
 machine mode for @code{data}.
 

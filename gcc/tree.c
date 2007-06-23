@@ -1459,8 +1459,8 @@ integer_nonzerop (tree expr)
 int
 fixed_zerop (tree expr)
 {
-  return TREE_CODE (expr) == FIXED_CST
-	 && double_int_zero_p (TREE_FIXED_CST (expr).data);
+  return (TREE_CODE (expr) == FIXED_CST
+	  && double_int_zero_p (TREE_FIXED_CST (expr).data));
 }
 
 /* Return the power of two represented by a tree node known to be a
@@ -6971,6 +6971,8 @@ make_or_reuse_type (unsigned size, int unsignedp)
     return make_signed_type (size);
 }
 
+/* Create or reuse a fract type by SIZE, UNSIGNEDP, and SATP.  */
+
 static tree
 make_or_reuse_fract_type (unsigned size, int unsignedp, int satp)
 {
@@ -7005,6 +7007,8 @@ make_or_reuse_fract_type (unsigned size, int unsignedp, int satp)
 
   return make_fract_type (size, unsignedp, satp);
 }
+
+/* Create or reuse an accum type by SIZE, UNSIGNEDP, and SATP.  */
 
 static tree
 make_or_reuse_accum_type (unsigned size, int unsignedp, int satp)

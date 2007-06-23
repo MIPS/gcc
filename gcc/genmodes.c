@@ -565,6 +565,9 @@ make_int_mode (const char *name,
 #define UACCUM_MODE(N, Y, I, F) \
 	make_fixed_point_mode (MODE_UACCUM, #N, Y, I, F, __FILE__, __LINE__)
 
+/* Create a fixed-point mode by setting CL, NAME, BYTESIZE, IBIT, FBIT,
+   FILE, and LINE.  */
+
 static void
 make_fixed_point_mode (enum mode_class cl,
 		       const char *name,
@@ -1302,6 +1305,8 @@ emit_mode_adjustments (void)
   puts ("}");
 }
 
+/* Emit ibit for all modes.  */
+
 static void
 emit_mode_ibit (void)
 {
@@ -1317,6 +1322,8 @@ emit_mode_ibit (void)
 
   print_closer ();
 }
+
+/* Emit fbit for all modes.  */
 
 static void
 emit_mode_fbit (void)

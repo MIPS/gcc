@@ -1513,7 +1513,7 @@ c_parser_asm_definition (c_parser *parser)
      _Sat
 
   (_Fract, _Accum, and _Sat are new from ISO/IEC DTR 18037:
-   http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1021.pdf)
+   http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1169.pdf)
 
    Objective-C:
 

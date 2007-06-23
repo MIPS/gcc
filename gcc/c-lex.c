@@ -714,6 +714,7 @@ interpret_float (const cpp_token *token, unsigned int flags)
 
 /* Interpret TOKEN, a fixed-point number with FLAGS as classified
    by cpplib.  */
+
 static tree
 interpret_fixed (const cpp_token *token, unsigned int flags)
 {

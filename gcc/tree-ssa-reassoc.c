@@ -1246,8 +1246,8 @@ break_up_subtract_bb (basic_block bb)
 
 	  TREE_VISITED (stmt) = 0;
 	  /* If unsafe math optimizations we can do reassociation for
-	     non-integral types.
-	     We can do reassociation for non-saturating fixed-point types.  */
+	     non-integral types.  Or, we can do reassociation for
+	     non-saturating fixed-point types.  */
 	  if ((!INTEGRAL_TYPE_P (TREE_TYPE (lhs))
 	       || !INTEGRAL_TYPE_P (TREE_TYPE (rhs)))
 	      && (!SCALAR_FLOAT_TYPE_P (TREE_TYPE (rhs))
@@ -1296,8 +1296,8 @@ reassociate_bb (basic_block bb)
 	    continue;
 
 	  /* If unsafe math optimizations we can do reassociation for
-	     non-integral types.
-	     We can do reassociation for non-saturating fixed-point types.  */
+	     non-integral types.  Or, we can do reassociation for
+	     non-saturating fixed-point types.  */
 	  if ((!INTEGRAL_TYPE_P (TREE_TYPE (lhs))
 	       || !INTEGRAL_TYPE_P (TREE_TYPE (rhs)))
 	      && (!SCALAR_FLOAT_TYPE_P (TREE_TYPE (rhs))

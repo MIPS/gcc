@@ -340,7 +340,7 @@ init_expr (void)
 }
 
 /* Copy data from FROM to TO, where the machine modes are not the same.
-   Both modes may be integer, or both may be floating, or both may be 
+   Both modes may be integer, or both may be floating, or both may be
    fixed-point.
    UNSIGNEDP should be nonzero if FROM is an unsigned type.
    This causes zero-extension instead of sign-extension.  */
@@ -497,7 +497,7 @@ convert_move (rtx to, rtx from, int unsignedp)
     }
 
    /* Make sure both are fixed-point modes or both are not.  */
-   gcc_assert (ALL_SCALAR_FIXED_POINT_MODE_P (from_mode) == 
+   gcc_assert (ALL_SCALAR_FIXED_POINT_MODE_P (from_mode) ==
 	       ALL_SCALAR_FIXED_POINT_MODE_P (to_mode));
    if (ALL_SCALAR_FIXED_POINT_MODE_P (from_mode))
     {
