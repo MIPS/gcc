@@ -1,5 +1,16 @@
 2007-06-21  Aldy Hernandez  <aldyh@redhat.com>
 
+	* gcc.dg/gimple/gimple.exp: New.
+	* gcc.dg/gimple/compound_expr.c: New.
+	* gcc.dg/gimple/with_size_expr.c: New.
+	* gcc.dg/gimple/compound_expr.c: New.
+	* gcc.dg/gimple/gs_call.c: New.
+	* gcc.dg/gimple/constructors.c: New.
+	* gcc.dg/gimple/gs_return.c: New.
+	* gcc.dg/gimple/gs_assign.c: New.
+
+2007-06-21  Aldy Hernandez  <aldyh@redhat.com>
+
 	* gimple-ir.c (gs_build_cond): Change order of arguments.  Make labels
 	of type tree.
 	(gs_build_asm): Fix formatting.
