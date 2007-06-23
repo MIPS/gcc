@@ -118,19 +118,7 @@ C front end/ISO C99	Richard Henderson	rth@redhat.com
 Ada front end		Geert Bosch		bosch@gnat.com
 Ada front end		Robert Dewar		dewar@gnat.com
 Ada front end		Arnaud Charlet		charlet@act-europe.fr
-fortran 95		Paul Brook		paul@codesourcery.com
-fortran 95		Thomas Koenig		Thomas.Koenig@online.de
-fortran 95		Toon Moene		toon@moene.indiv.nluug.nl
-fortran 95		Jerry DeLisle		jvdelisle@gcc.gnu.org
-fortran 95		François-Xavier Coudert	fxcoudert@gcc.gnu.org
-fortran 95              Bud Davis               jmdavis@link.com
-fortran 95		Steve Kargl		sgk@troutmask.apl.washington.edu
-fortran 95              Erik Edelmann           erik.edelmann@iki.fi
-fortran 95		Paul Thomas		pault@gcc.gnu.org
-fortran 95		Tobias Schlüter		tobias.schlueter@physik.uni-muenchen.de
-fortran 95		Janne Blomqvist		jb@gcc.gnu.org
-fortran 95		Brooks Moses		brooks.moses@codesourcery.com
-fortran 95		Tobias Burnus		burnus@net-b.de
+Fortran			Paul Brook		paul@codesourcery.com
 c++			Jason Merrill		jason@redhat.com
 c++			Mark Mitchell		mark@codesourcery.com
 c++			Nathan Sidwell		nathan@codesourcery.com
@@ -204,6 +192,7 @@ option handling		Neil Booth		neil@daikokuya.co.uk
 testsuite		Janis Johnson		janis187@us.ibm.com
 middle-end		Roger Sayle		roger@eyesopen.com
 middle-end		Ian Lance Taylor	ian@airs.com
+middle-end		Diego Novillo		dnovillo@google.com
 tree-ssa		Diego Novillo		dnovillo@google.com
 tree-ssa		Andrew MacLeod		amacleod@redhat.com
 PRE			Daniel Berlin		dberlin@dberlin.org
@@ -224,7 +213,7 @@ auto-vectorizer		Richard Guenther	rguenther@suse.de
 auto-vectorizer		Zdenek Dvorak		dvorakz@suse.cz
 auto-vectorizer		Dorit Nuzman		dorit@il.ibm.com
 
-Note individuals who maintain parts of the compiler need approval to check
+Note that individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
 
 			Non-Algorithmic Maintainers
@@ -233,10 +222,37 @@ loop optimizer		Zdenek Dvorak		dvorakz@suse.cz
 loop optimizer		Daniel Berlin		dberlin@dberlin.org
 middle-end		Richard Guenther	rguenther@suse.de
 libcpp			Tom Tromey		tromey@redhat.com
+blanket write		Diego Novillo		dnovillo@google.com
+blanket write		Ian Lance Taylor	ian@airs.com
 
-Note individuals who maintain parts of the compiler as non-algorithmic
-maintainer need approval to check in algorithmic changes or changes
+Note that individuals who maintain parts of the compiler as non-algorithmic
+maintainers need approval to check in algorithmic changes or changes
 outside of the parts of the compiler they maintain.
+
+			Non-Autopoiesis Maintainers
+
+dataflow		Daniel Berlin		dberlin@dberlin.org
+dataflow		Paolo Bonzini		bonzini@gnu.org
+dataflow		Seongbae Park		seongbae.park@gmail.com
+dataflow 		Kenneth Zadeck		zadeck@naturalbridge.com
+Fortran			Janne Blomqvist		jb@gcc.gnu.org
+Fortran			Tobias Burnus		burnus@net-b.de
+Fortran			François-Xavier Coudert	fxcoudert@gcc.gnu.org
+Fortran			Bud Davis		jmdavis@link.com
+Fortran			Jerry DeLisle		jvdelisle@gcc.gnu.org
+Fortran			Erik Edelmann		erik.edelmann@iki.fi
+Fortran			Steve Kargl		sgk@troutmask.apl.washington.edu
+Fortran			Thomas Koenig		Thomas.Koenig@online.de
+Fortran			Toon Moene		toon@moene.indiv.nluug.nl
+Fortran			Brooks Moses		brooks.moses@codesourcery.com
+Fortran			Tobias Schlüter		tobias.schlueter@physik.uni-muenchen.de
+Fortran			Paul Thomas		pault@gcc.gnu.org
+
+
+Note that individuals who maintain parts of the compiler as
+non-autopoiesis maintainers need approval changes outside of the parts
+of the compiler they maintain and also need approval for their own
+patches.
 
 			Write After Approval	(last name alphabetical order)
 
@@ -319,6 +335,7 @@ Maxim Kuvyrkov					mkuvyrkov@ispras.ru
 Scott Robert Ladd				scott.ladd@coyotegulch.com
 Razya Ladelsky					razya@gcc.gnu.org
 Aaron W. LaFramboise				aaronavay62@aaronwl.com
+Rask Ingemann Lambertsen			rask@sygehus.dk
 Asher Langton					langton2@llnl.gov
 Chris Lattner					sabre@nondot.org
 Terry Laurenzo					tlaurenzo@gmail.com
@@ -339,6 +356,7 @@ HJ Lu						hjl@lucon.org
 Ziga Mahkovec					ziga.mahkovec@klika.si
 Simon Martin					simartin@users.sourceforge.net
 Ranjit Mathew					rmathew@hotmail.com
+Chris Matthews					chrismatthews@google.com
 Michael Matz					matz@suse.de
 Greg McGary					gkm@gnu.org
 Adam Megacz					adam@xwt.org
@@ -356,6 +374,7 @@ Carlos O'Donell					carlos@codesourcery.com
 Jeffrey D. Oldham				oldham@codesourcery.com
 Andrea Ornstein					andrea.ornstein@st.com
 Rainer Orth					ro@TechFak.Uni-Bielefeld.DE
+Seonbae Park					seongbae.park@gmail.com
 Devang Patel					dpatel@apple.com
 Alexandre Petit-Bianco				apbianco@redhat.com
 Nicolas Pitre					nico@cam.org

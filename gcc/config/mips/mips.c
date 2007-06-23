@@ -1,6 +1,7 @@
 /* Subroutines used for MIPS code generation.
    Copyright (C) 1989, 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 
+   Free Software Foundation, Inc.
    Contributed by A. Lichnewsky, lich@inria.inria.fr.
    Changes by Michael Meissner, meissner@osf.org.
    64-bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -4365,9 +4366,8 @@ mips_va_start (tree valist, rtx nextarg)
 	 words used by named arguments.  */
       t = make_tree (TREE_TYPE (ovfl), virtual_incoming_args_rtx);
       if (cum->stack_words > 0)
-	t = build2 (PLUS_EXPR, TREE_TYPE (ovfl), t,
-		    build_int_cst (NULL_TREE,
-				   cum->stack_words * UNITS_PER_WORD));
+	t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (ovfl), t,
+		    size_int (cum->stack_words * UNITS_PER_WORD));
       t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovfl), ovfl, t);
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -4383,8 +4383,8 @@ mips_va_start (tree valist, rtx nextarg)
       fpr_offset = gpr_save_area_size + UNITS_PER_FPVALUE - 1;
       fpr_offset &= ~(UNITS_PER_FPVALUE - 1);
       if (fpr_offset)
-	t = build2 (PLUS_EXPR, TREE_TYPE (ftop), t,
-		    build_int_cst (NULL_TREE, -fpr_offset));
+	t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (ftop), t,
+		    size_int (-fpr_offset));
       t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ftop), ftop, t);
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -4534,28 +4534,27 @@ mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
       t = fold_convert (TREE_TYPE (off), build_int_cst (NULL_TREE, rsize));
       t = build2 (POSTDECREMENT_EXPR, TREE_TYPE (off), off, t);
       t = fold_convert (sizetype, t);
-      t = fold_convert (TREE_TYPE (top), t);
+      t = fold_build1 (NEGATE_EXPR, sizetype, t);
 
       /* [4] Emit code for: addr_rtx = top - off.  On big endian machines,
 	 the argument has RSIZE - SIZE bytes of leading padding.  */
-      t = build2 (MINUS_EXPR, TREE_TYPE (top), top, t);
+      t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (top), top, t);
       if (BYTES_BIG_ENDIAN && rsize > size)
 	{
-	  u = fold_convert (TREE_TYPE (t), build_int_cst (NULL_TREE,
-							  rsize - size));
-	  t = build2 (PLUS_EXPR, TREE_TYPE (t), t, u);
+	  u = size_int (rsize - size);
+	  t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (t), t, u);
 	}
       COND_EXPR_THEN (addr) = t;
 
       if (osize > UNITS_PER_WORD)
 	{
 	  /* [9] Emit: ovfl += ((intptr_t) ovfl + osize - 1) & -osize.  */
-	  u = fold_convert (TREE_TYPE (ovfl),
-			    build_int_cst (NULL_TREE, osize - 1));
-	  t = build2 (PLUS_EXPR, TREE_TYPE (ovfl), ovfl, u);
-	  u = fold_convert (TREE_TYPE (ovfl),
-			    build_int_cst (NULL_TREE, -osize));
-	  t = build2 (BIT_AND_EXPR, TREE_TYPE (ovfl), t, u);
+	  u = size_int (osize - 1);
+	  t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (ovfl), ovfl, u);
+	  t = fold_convert (sizetype, t);
+	  u = size_int (-osize);
+	  t = build2 (BIT_AND_EXPR, sizetype, t, u);
+	  t = fold_convert (TREE_TYPE (ovfl), t);
 	  align = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovfl), ovfl, t);
 	}
       else
@@ -4569,9 +4568,8 @@ mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
       t = build2 (POSTINCREMENT_EXPR, TREE_TYPE (ovfl), ovfl, u);
       if (BYTES_BIG_ENDIAN && osize > size)
 	{
-	  u = fold_convert (TREE_TYPE (t),
-			    build_int_cst (NULL_TREE, osize - size));
-	  t = build2 (PLUS_EXPR, TREE_TYPE (t), t, u);
+	  u = size_int (osize - size);
+	  t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (t), t, u);
 	}
 
       /* String [9] and [10,11] together.  */
@@ -6337,7 +6335,7 @@ mips_global_pointer (void)
 
      In cases like these, reload will have added the constant to the pool
      but no instruction will yet refer to it.  */
-  if (!regs_ever_live[GLOBAL_POINTER_REGNUM]
+  if (!df_regs_ever_live_p (GLOBAL_POINTER_REGNUM)
       && !current_function_uses_const_pool
       && !mips_function_has_gp_insn ())
     return 0;
@@ -6346,7 +6344,7 @@ mips_global_pointer (void)
      register instead of $gp.  */
   if (TARGET_CALL_SAVED_GP && current_function_is_leaf)
     for (regno = GP_REG_FIRST; regno <= GP_REG_LAST; regno++)
-      if (!regs_ever_live[regno]
+      if (!df_regs_ever_live_p (regno)
 	  && call_used_regs[regno]
 	  && !fixed_regs[regno]
 	  && regno != PIC_FUNCTION_ADDR_REGNUM)
@@ -6412,15 +6410,15 @@ mips_save_reg_p (unsigned int regno)
     return TARGET_CALL_SAVED_GP && cfun->machine->global_pointer == regno;
 
   /* Check call-saved registers.  */
-  if (regs_ever_live[regno] && !call_used_regs[regno])
+  if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
     return true;
 
  /* Save both registers in an FPR pair if either one is used.  This is
     needed for the case when MIN_FPRS_PER_FMT == 1, which allows the odd
     register to be used without the even register.  */
  if (FP_REG_P (regno)
-     && MAX_FPRS_PER_FMT == 2 
-     && regs_ever_live[regno + 1]
+     && MAX_FPRS_PER_FMT == 2
+     && df_regs_ever_live_p (regno + 1)
      && !call_used_regs[regno + 1])
    return true;
 
@@ -6430,7 +6428,7 @@ mips_save_reg_p (unsigned int regno)
 
   /* We need to save the incoming return address if it is ever clobbered
      within the function.  */
-  if (regno == GP_REG_FIRST + 31 && regs_ever_live[regno])
+  if (regno == GP_REG_FIRST + 31 && df_regs_ever_live_p (regno))
     return true;
 
   if (TARGET_MIPS16)
@@ -6438,7 +6436,7 @@ mips_save_reg_p (unsigned int regno)
       /* $18 is a special case in mips16 code.  It may be used to call
 	 a function which returns a floating point value, but it is
 	 marked in call_used_regs.  */
-      if (regno == GP_REG_FIRST + 18 && regs_ever_live[regno])
+      if (regno == GP_REG_FIRST + 18 && df_regs_ever_live_p (regno))
 	return true;
 
       /* $31 is also a special case.  It will be used to copy a return
@@ -6990,7 +6988,7 @@ mips_expand_prologue (void)
   HOST_WIDE_INT size;
 
   if (cfun->machine->global_pointer > 0)
-    REGNO (pic_offset_table_rtx) = cfun->machine->global_pointer;
+    SET_REGNO (pic_offset_table_rtx, cfun->machine->global_pointer);
 
   size = compute_frame_size (get_frame_size ());
 
@@ -7099,7 +7097,7 @@ mips_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
 			       HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   /* Reinstate the normal $gp.  */
-  REGNO (pic_offset_table_rtx) = GLOBAL_POINTER_REGNUM;
+  SET_REGNO (pic_offset_table_rtx, GLOBAL_POINTER_REGNUM);
   mips_output_cplocal ();
 
   if (cfun->machine->all_noreorder_p)
@@ -7296,7 +7294,7 @@ mips_can_use_return_insn (void)
   if (! reload_completed)
     return 0;
 
-  if (regs_ever_live[31] || current_function_profile)
+  if (df_regs_ever_live_p (31) || current_function_profile)
     return 0;
 
   /* In mips16 mode, a function that returns a floating point value
@@ -7331,9 +7329,13 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   /* Pick a global pointer.  Use a call-clobbered register if
      TARGET_CALL_SAVED_GP, so that we can use a sibcall.  */
   if (TARGET_USE_GOT)
-    cfun->machine->global_pointer
-      = REGNO (pic_offset_table_rtx)
-      = TARGET_CALL_SAVED_GP ? 15 : GLOBAL_POINTER_REGNUM;
+    {
+      cfun->machine->global_pointer =
+	TARGET_CALL_SAVED_GP ? 15 : GLOBAL_POINTER_REGNUM;
+
+      SET_REGNO (pic_offset_table_rtx, cfun->machine->global_pointer);
+
+    }
 
   /* Set up the global pointer for n32 or n64 abicalls.  If
      LOADGP_ABSOLUTE then the thunk does not use the gp and there is
@@ -8387,7 +8389,7 @@ build_mips16_call_stub (rtx retval, rtx fn, rtx arg_size, int fp_code)
 
       /* If we are handling a floating point return value, we need to
          save $18 in the function prologue.  Putting a note on the
-         call will mean that regs_ever_live[$18] will be true if the
+         call will mean that df_regs_ever_live_p ($18) will be true if the
          call is not eliminated, and we can check that in the prologue
          code.  */
       if (fpret)

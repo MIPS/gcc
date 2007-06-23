@@ -1,6 +1,7 @@
 ;;  Mips.md	     Machine Description for MIPS based processors
 ;;  Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;  Free Software Foundation, Inc.
 ;;  Contributed by   A. Lichnewsky, lich@inria.inria.fr
 ;;  Changes by       Michael Meissner, meissner@osf.org
 ;;  64-bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -30,7 +31,7 @@
    (UNSPEC_GET_FNADDR		 3)
    (UNSPEC_BLOCKAGE		 4)
    (UNSPEC_CPRESTORE		 5)
-   (UNSPEC_EH_RECEIVER		 6)
+   (UNSPEC_NONLOCAL_GOTO_RECEIVER 6)
    (UNSPEC_EH_RETURN		 7)
    (UNSPEC_CONSTTABLE_INT	 8)
    (UNSPEC_CONSTTABLE_FLOAT	 9)
@@ -3094,7 +3095,7 @@
 	(high:DI (match_operand:DI 1 "general_symbolic_operand" "")))]
   "TARGET_EXPLICIT_RELOCS && ABI_HAS_64BIT_SYMBOLS"
   "#"
-  "&& flow2_completed"
+  "&& epilogue_completed"
   [(set (match_dup 0) (high:DI (match_dup 2)))
    (set (match_dup 0) (lo_sum:DI (match_dup 0) (match_dup 2)))
    (set (match_dup 0) (ashift:DI (match_dup 0) (const_int 16)))
@@ -4158,7 +4159,8 @@
 ;; instruction.  Note that we continue to use .cprestore for explicit reloc
 ;; code so that jals inside inline asms will work correctly.
 (define_insn "cprestore"
-  [(unspec_volatile [(match_operand 0 "const_int_operand" "I,i")]
+  [(unspec_volatile [(match_operand 0 "const_int_operand" "I,i")
+                     (use (reg:SI 28))]
 		    UNSPEC_CPRESTORE)]
   ""
 {
@@ -5141,9 +5143,9 @@
   DONE;
 })
 
-(define_insn_and_split "exception_receiver"
+(define_insn_and_split "nonlocal_goto_receiver"
   [(set (reg:SI 28)
-	(unspec_volatile:SI [(const_int 0)] UNSPEC_EH_RECEIVER))]
+	(unspec_volatile:SI [(const_int 0)] UNSPEC_NONLOCAL_GOTO_RECEIVER))]
   "TARGET_CALL_CLOBBERED_GP"
   "#"
   "&& reload_completed"

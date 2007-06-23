@@ -117,6 +117,17 @@ static enum gimplify_status gimplify_compound_expr (tree *, tree *, bool);
 static bool cpt_same_type (tree a, tree b);
 #endif
 
+/* Mark X addressable.  Unlike the langhook we expect X to be in gimple
+   form and we don't do any syntax checking.  */
+static void
+mark_addressable (tree x)
+{
+  while (handled_component_p (x))
+    x = TREE_OPERAND (x, 0);
+  if (TREE_CODE (x) != VAR_DECL && TREE_CODE (x) != PARM_DECL)
+    return ;
+  TREE_ADDRESSABLE (x) = 1;
+}
 
 /* Return a hash value for a formal temporary table entry.  */
 
@@ -1960,6 +1971,15 @@ gimplify_self_mod_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	return ret;
     }
 
+  /* For POINTERs increment, use POINTER_PLUS_EXPR.  */
+  if (POINTER_TYPE_P (TREE_TYPE (lhs)))
+    {
+      rhs = fold_convert (sizetype, rhs);
+      if (arith_code == MINUS_EXPR)
+	rhs = fold_build1 (NEGATE_EXPR, TREE_TYPE (rhs), rhs);
+      arith_code = POINTER_PLUS_EXPR;
+    }
+
   t1 = build2 (arith_code, TREE_TYPE (*expr_p), lhs, rhs);
   t1 = build_gimple_modify_stmt (lvalue, t1);
 
@@ -3425,7 +3445,7 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
 	    if (use_target)
 	      {
 		CALL_EXPR_RETURN_SLOT_OPT (*from_p) = 1;
-		lang_hooks.mark_addressable (*to_p);
+		mark_addressable (*to_p);
 	      }
 	  }
 
@@ -3948,6 +3968,8 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	 the address of a call that returns a struct; see
 	 gcc.dg/c99-array-lval-1.c.  The gimplifier will correctly make
 	 the implied temporary explicit.  */
+
+      /* Mark the RHS addressable.  */
       ret = gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, post_p,
 			   is_gimple_addressable, fb_either);
       if (ret != GS_ERROR)
@@ -3963,8 +3985,7 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	     is set properly.  */
 	  recompute_tree_invariant_for_addr_expr (expr);
 
-	  /* Mark the RHS addressable.  */
-	  lang_hooks.mark_addressable (TREE_OPERAND (expr, 0));
+	  mark_addressable (TREE_OPERAND (expr, 0));
 	}
       break;
     }
@@ -4002,7 +4023,7 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
 			       &allows_mem, &allows_reg, &is_inout);
 
       if (!allows_reg && allows_mem)
-	lang_hooks.mark_addressable (TREE_VALUE (link));
+	mark_addressable (TREE_VALUE (link));
 
       tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 			    is_inout ? is_gimple_min_lval : is_gimple_lvalue,
@@ -4113,12 +4134,25 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
       parse_input_constraint (&constraint, 0, 0, noutputs, 0,
 			      oconstraints, &allows_mem, &allows_reg);
 
+      /* If we can't make copies, we can only accept memory.  */
+      if (TREE_ADDRESSABLE (TREE_TYPE (TREE_VALUE (link))))
+	{
+	  if (allows_mem)
+	    allows_reg = 0;
+	  else
+	    {
+	      error ("impossible constraint in %<asm%>");
+	      error ("non-memory input %d must stay in memory", i);
+	      return GS_ERROR;
+	    }
+	}
+
       /* If the operand is a memory input, it should be an lvalue.  */
       if (!allows_reg && allows_mem)
 	{
 	  tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 				is_gimple_lvalue, fb_lvalue | fb_mayfail);
-	  lang_hooks.mark_addressable (TREE_VALUE (link));
+	  mark_addressable (TREE_VALUE (link));
 	  if (tret == GS_ERROR)
 	    {
 	      error ("memory input %d is not directly addressable", i);
@@ -4860,7 +4894,20 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
   else if (flags & GOVD_SHARED)
     {
       if (is_global_var (decl))
-	return 0;
+	{
+	  struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp->outer_context;
+	  while (ctx != NULL)
+	    {
+	      splay_tree_node on
+		= splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
+	      if (on && (on->value & (GOVD_FIRSTPRIVATE | GOVD_LASTPRIVATE
+				      | GOVD_PRIVATE | GOVD_REDUCTION)) != 0)
+		break;
+	      ctx = ctx->outer_context;
+	    }
+	  if (ctx == NULL)
+	    return 0;
+	}
       code = OMP_CLAUSE_SHARED;
     }
   else if (flags & GOVD_PRIVATE)
@@ -5125,6 +5172,7 @@ gimplify_omp_atomic_fetch_op (tree *expr_p, tree addr, tree rhs, int index)
   /* Check for one of the supported fetch-op operations.  */
   switch (TREE_CODE (rhs))
     {
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
       base = BUILT_IN_FETCH_AND_ADD_N;
       optab = sync_add_optab;
@@ -5526,7 +5574,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  if (fallback == fb_lvalue)
 	    {
 	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
-	      lang_hooks.mark_addressable (*expr_p);
+	      mark_addressable (*expr_p);
 	    }
 	  break;
 
@@ -5539,7 +5587,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  if (fallback == fb_lvalue)
 	    {
 	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
-	      lang_hooks.mark_addressable (*expr_p);
+	      mark_addressable (*expr_p);
 	    }
 	  break;
 
@@ -5727,7 +5775,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  else if (fallback == fb_lvalue)
 	    {
 	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
-	      lang_hooks.mark_addressable (*expr_p);
+	      mark_addressable (*expr_p);
 	    }
 	  else
 	    ret = GS_ALL_DONE;
@@ -5789,6 +5837,11 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	case EH_FILTER_EXPR:
 	  gimplify_to_stmt_list (&EH_FILTER_FAILURE (*expr_p));
 	  ret = GS_ALL_DONE;
+	  break;
+
+	case CHANGE_DYNAMIC_TYPE_EXPR:
+	  ret = gimplify_expr (&CHANGE_DYNAMIC_TYPE_LOCATION (*expr_p),
+			       pre_p, post_p, is_gimple_reg, fb_lvalue);
 	  break;
 
 	case OBJ_TYPE_REF:
@@ -5870,12 +5923,11 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  ret = GS_ALL_DONE;
 	  break;
 
-	case PLUS_EXPR:
+	case POINTER_PLUS_EXPR:
           /* Convert ((type *)A)+offset into &A->field_of_type_and_offset.
 	     The second is gimple immediate saving a need for extra statement.
 	   */
-	  if (POINTER_TYPE_P (TREE_TYPE (*expr_p))
-	      && TREE_CODE (TREE_OPERAND (*expr_p, 1)) == INTEGER_CST
+	  if (TREE_CODE (TREE_OPERAND (*expr_p, 1)) == INTEGER_CST
 	      && (tmp = maybe_fold_offset_to_reference
 			 (TREE_OPERAND (*expr_p, 0), TREE_OPERAND (*expr_p, 1),
 		   	  TREE_TYPE (TREE_TYPE (*expr_p)))))
@@ -5885,8 +5937,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	       break;
 	     }
 	  /* Convert (void *)&a + 4 into (void *)&a[1].  */
-	  if (POINTER_TYPE_P (TREE_TYPE (*expr_p))
-	      && TREE_CODE (TREE_OPERAND (*expr_p, 0)) == NOP_EXPR
+	  if (TREE_CODE (TREE_OPERAND (*expr_p, 0)) == NOP_EXPR
 	      && TREE_CODE (TREE_OPERAND (*expr_p, 1)) == INTEGER_CST
 	      && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*expr_p,
 									0),0)))

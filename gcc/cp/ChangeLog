@@ -1,3 +1,115 @@
+2007-06-18  Simon Baldwin <simonb@google.com>
+
+	PR c++/31923
+	* parser.c (cp_parser_single_declaration): Added check for storage
+	class other than sc_none in parsed declaration, and a flag to indicate
+	if the call is part of an explicit template specialization parse.
+	* (cp_parser_explicit_specialization): Specialization check flag added
+	to call to cp_parser_single_declaration(), set true.
+	* (cp_parser_template_declaration_after_export): Specialization check
+	flag added to call to cp_parser_single_declaration(), set false.
+	* pt.c (check_explicit_specialization): Added code to copy visiblity
+	and linkage from the templated function to the explicit specialization.
+
+2007-06-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* typeck.c (build_binary_op): For templates build the
+	expression in pieces to avoid the assert in build2_stat.
+	(get_member_function_from_ptrfunc):
+	Change over to using POINTER_PLUS_EXPR and convert
+	the second operand to sizetype.
+	* typeck2.c (build_m_component_ref):  Likewise.
+	* init.c (expand_virtual_init): Create a POINTER_PLUS_EXPR
+	instead of PLUS_EXPR for pointers.
+	(build_new_1): Likewise.
+	(build_vec_delete_1): Likewise.
+	(build_vec_delete): Likewise.
+	* class.c (build_base_path): Likewise.
+	(build_base_path): Likewise.
+	(convert_to_base_statically): Likewise.
+	(fixed_type_or_null): Handle POINTER_PLUS_EXPR.
+	(get_vtbl_decl_for_binfo): Handle POINTER_PLUS_EXPR
+	instead of PLUS_EXPR.
+	(dfs_accumulate_vtbl_inits): Create a POINTER_PLUS_EXPR
+	instead of PLUS_EXPR for pointers.
+	* call.c (build_special_member_call): Likewise.
+	* rtti.c (build_headof): Likewise.
+	Use sizetype instead of ptrdiff_type_node.
+	(tinfo_base_init): Create a POINTER_PLUS_EXPR
+	instead of PLUS_EXPR for pointers.
+	* except.c (expand_start_catch_block):  Do a
+	NEGATIVE and then a POINTER_PLUS_EXPR instead
+	of a MINUS_EXPR.
+	* cp-gimplify.c (cxx_omp_clause_apply_fn): Convert
+	PLUS_EXPR on pointer types over to use
+	POINTER_PLUS_EXPR and remove the conversion
+	to the pointer types.
+	* method.c (thunk_adjust): Use POINTER_PLUS_EXPR for
+	adding to a pointer type. Use size_int instead of
+	ssize_int. Convert the index to sizetype before
+	adding it to the pointer.
+
+2007-06-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (DECL_VAR_MARKED_P): Remove.
+	(DECL_ANON_UNION_VAR_P): New macro.
+	* class.c (fixed_type_or_null): Tidy.  Use a hash table, rather
+	than DECL_VAR_MARKED_P, to keep track of which variables we have
+	seen.
+	* decl.c (redeclaration_error_message): Complain about redeclaring
+	anonymous union members at namespace scope.
+	* decl2.c (build_anon_union_vars): Set DECL_ANON_UNION_VAR_P.
+
+2007-06-14  Geoff Keating  <geoffk@apple.com>
+
+	* decl2.c (determine_visibility): Ensure that functions with
+	hidden types as parameters are hidden.
+
+	PR 31093
+	* decl2.c (determine_visibility): Remove duplicate code for
+	handling type info.
+
+2007-06-12  Ian Lance Taylor  <iant@google.com>
+
+	PR libstdc++/29286
+	* init.c (avoid_placement_new_aliasing): New static function.
+	(build_new_1): Call it.
+
+2007-06-11  Rafael Avila de Espindola  <espindola@google.com>
+
+	* cp-objcp-common.h (LANG_HOOKS_SIGNED_TYPE): Remove.
+	(LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE): Remove.
+
+2007-06-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/32177
+	* semantics.c (finish_omp_for): Call fold_build_cleanup_point_expr
+	on init, the non-decl cond operand and increment value.
+
+2007-06-07  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/30759
+	* decl.c (check_initializer): Report an error when a brace enclosed
+	initializer is used for a non-aggregate type in C++98.
+	(redeclaration_error_message): Rewrote flag_cpp0x in terms of
+	cxx_dialect.
+	(grokdeclarator): Likewise.
+	(move_fn_p): Likewise.
+	* typeck.c (check_return_expr): Likewise.
+	* call.c (reference_binding): Likewise.
+	* error.c (cp_cpp_error): Likewise.
+	* pt.c (check_default_tmpl_args): Likewise.
+	(tsubst): Likewise.
+	* lex.c (init_reswords): Likewise.
+	* parser.c (p_parser_primary_expression): Likewise.
+	(TOKEN_PRECEDENCE): Likewise.
+	(cp_parser_init_declarator): Likewise.
+	(cp_parser_ptr_operator): Likewise.
+	(cp_parser_parameter_declaration): Likewise.
+	(cp_parser_enclosed_template_argument_list): Likewise.
+	(cp_parser_skip_to_end_of_template_parameter_list): Likewise.
+	(cp_parser_next_token_ends_template_argument_p): Likewise.
+
 2007-06-04  Simon Baldwin  <simonb@google.com>
 
 	* decl.c (grokdeclarator): Readability change.  Moved case labels
@@ -48,7 +160,7 @@
 	(copy_fn_p): Don't consider constructors taking rvalue references
 	to be copy constructors.
 	(move_fn_p): New.
-        * call.c (conversion): New "rvaluedness_matches_p" member.
+	* call.c (conversion): New "rvaluedness_matches_p" member.
 	(convert_class_to_reference): Require reference type as first
 	parameter instead of base type.
 	(reference_binding): Add logic to handle rvalue references.
@@ -100,7 +212,7 @@
 
 2007-05-28  Andrew Pinski  <Andrew_pinski@playstation.sony.com>
 
-        PR c++/31339
+	PR c++/31339
 	* typeck.c (build_unary_op <case PREINCREMENT_EXPR,
 	case POSTINCREMENT_EXPR, case PREDECREMENT_EXPR,
 	case POSTDECREMENT_EXPR>): Return the error_mark_node
@@ -1011,7 +1123,7 @@
 	PR C++/30158
 	* semantics.c (finish_stmt_expr_expr): Set TREE_TYPE of the 
 	statement expression if we had an error mark node.
-	        
+
 2007-02-15  Sandra Loosemore  <sandra@codesourcery.com>
 	    Brooks Moses  <brooks.moses@codesourcery.com>
 	    Lee Millward  <lee.millward@codesourcery.com>

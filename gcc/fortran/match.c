@@ -64,6 +64,56 @@ mstring intrinsic_operators[] = {
 
 /******************** Generic matching subroutines ************************/
 
+/* See if the next character is a special character that has
+   escaped by a \ via the -fbackslash option.  */
+
+match
+gfc_match_special_char (int *c)
+{
+
+  match m;
+
+  m = MATCH_YES;
+
+  switch (gfc_next_char_literal (1))
+    {
+    case 'a':
+      *c = '\a';
+      break;
+    case 'b':
+      *c = '\b';
+      break;
+    case 't':
+      *c = '\t';
+      break;
+    case 'f':
+      *c = '\f';
+      break;
+    case 'n':
+      *c = '\n';
+      break;
+    case 'r':
+      *c = '\r';
+      break;
+    case 'v':
+      *c = '\v';
+      break;
+    case '\\':
+      *c = '\\';
+      break;
+    case '0':
+      *c = '\0';
+      break;
+    default:
+      /* Unknown backslash codes are simply not expanded.  */
+      m = MATCH_NO;
+      break;
+    }
+
+  return m;
+}
+
+
 /* In free form, match at least one space.  Always matches in fixed
    form.  */
 
@@ -1653,7 +1703,8 @@ gfc_match_pause (void)
   m = gfc_match_stopcode (ST_PAUSE);
   if (m == MATCH_YES)
     {
-      if (gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: PAUSE statement at %C")
+      if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: PAUSE statement"
+	  " at %C")
 	  == FAILURE)
 	m = MATCH_ERROR;
     }
@@ -1700,7 +1751,7 @@ gfc_match_assign (void)
 	return MATCH_ERROR;
       if (gfc_match (" to %v%t", &expr) == MATCH_YES)
 	{
-	  if (gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: ASSIGN "
+	  if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: ASSIGN "
 			      "statement at %C")
 	      == FAILURE)
 	    return MATCH_ERROR;
@@ -1746,7 +1797,7 @@ gfc_match_goto (void)
 
   if (gfc_match_variable (&expr, 0) == MATCH_YES)
     {
-      if (gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: Assigned GOTO "
+      if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: Assigned GOTO "
 			  "statement at %C")
 	  == FAILURE)
 	return MATCH_ERROR;
@@ -2520,7 +2571,7 @@ gfc_match_common (void)
 	  if (gfc_add_in_common (&sym->attr, sym->name, NULL) == FAILURE) 
 	    goto cleanup;
 
-	  if (sym->value != NULL
+	  if (sym->value != NULL && sym->value->expr_type != EXPR_NULL
 	      && (name[0] == '\0' || !sym->attr.data))
 	    {
 	      if (name[0] == '\0')

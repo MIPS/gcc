@@ -269,6 +269,7 @@ Objective-C and Objective-C++ Dialects}.
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
 @gccoptlist{-d@var{letters}  -dumpspecs  -dumpmachine  -dumpversion @gol
+-fdbg-cnt-list -fdbg-cnt=@var{counter-value-list} @gol
 -fdump-noaddr -fdump-unnumbered  -fdump-translation-unit@r{[}-@var{n}@r{]} @gol
 -fdump-class-hierarchy@r{[}-@var{n}@r{]} @gol
 -fdump-ipa-all -fdump-ipa-cgraph @gol
@@ -357,7 +358,7 @@ Objective-C and Objective-C++ Dialects}.
 -fcheck-data-deps @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename -ftree-sink @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-fre -ftree-vectorize @gol
--ftree-vect-loop-version -ftree-salias -fipa-pta -fweb @gol
+-ftree-vect-loop-version -fvect-cost-model -ftree-salias -fipa-pta -fweb @gol
 -ftree-copy-prop -ftree-store-ccp -ftree-store-copy-prop -fwhole-program @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
@@ -547,7 +548,7 @@ Objective-C and Objective-C++ Dialects}.
 -masm=@var{dialect}  -mno-fancy-math-387 @gol
 -mno-fp-ret-in-387  -msoft-float @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
--mpreferred-stack-boundary=@var{num} -mcx16 -msahf @gol
+-mpreferred-stack-boundary=@var{num} -mcx16 -msahf -mrecip @gol
 -mmmx  -msse  -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -msse4 @gol
 -msse4a -m3dnow -mpopcnt -mabm @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
@@ -4211,6 +4212,21 @@ above for a description of @var{auxname} and instructions on how to
 generate test coverage data.  Coverage data will match the source files
 more closely, if you do not optimize.
 
+@item -fdbg-cnt-list
+@opindex fdbg-cnt-list
+Print the name and the counter upperbound for all debug counters.
+
+@item -fdbg-cnt=@var{counter-value-list}
+@opindex fdbg-cnt
+Set the internal debug counter upperbound. @var{counter-value-list} 
+is a comma-separated list of @var{name}:@var{value} pairs
+which sets the upperbound of each debug counter @var{name} to @var{value}.
+All debug counters have the initial upperbound of @var{UINT_MAX},
+thus dbg_cnt() returns true always unless the upperbound is set by this option.
+e.g. With -fdbg-cnt=dce:10,tail_call:0
+dbg_cnt(dce) will return true only for first 10 invocations
+and dbg_cnt(tail_call) will return false always.
+
 @item -d@var{letters}
 @item -fdump-rtl-@var{pass}
 @opindex d
@@ -5665,6 +5681,9 @@ be determined at compile time then vectorized and non-vectorized versions of
 the loop are generated along with runtime checks for alignment or dependence
 to control which version is executed.  This option is enabled by default
 except at level @option{-Os} where it is disabled.
+
+@item -fvect-cost-model
+Enable cost model for vectorization.
 
 @item -ftree-vrp
 Perform Value Range Propagation on trees.  This is similar to the
@@ -8763,8 +8782,10 @@ The earliest version of MacOS X that this executable will run on
 is @var{version}.  Typical values of @var{version} include @code{10.1},
 @code{10.2}, and @code{10.3.9}.
 
-The default for this option is to make choices that seem to be most
-useful.
+If the compiler was built to use the system's headers by default,
+then the default for this option is the system version on which the
+compiler is running, otherwise the default is to make choices which
+are compatible with as many systems and code bases as possible.
 
 @item -mkernel
 @opindex mkernel
@@ -10324,6 +10345,13 @@ by AMD64 until introduction of Pentium 4 G1 step in December 2005.  LAHF and
 SAHF are load and store instructions, respectively, for certain status flags.
 In 64-bit mode, SAHF instruction is used to optimize @code{fmod}, @code{drem}
 or @code{remainder} built-in functions: see @ref{Other Builtins} for details.
+
+@item -mrecip
+@opindex mrecip
+This option will enable GCC to use RCPSS and RSQRTSS instructions (and their
+vectorized variants RCPPS and RSQRTPS) instead of DIVSS and SQRTSS (and their
+vectorized variants).  These instructions will be generated only when
+@option{-funsafe-math-optimizatons} is enabled.
 
 @item -mpush-args
 @itemx -mno-push-args

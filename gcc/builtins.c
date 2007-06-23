@@ -50,6 +50,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-mudflap.h"
 #include "tree-flow.h"
 #include "value-prof.h"
+#include "diagnostic.h"
 
 #ifndef PAD_VARARGS_DOWN
 #define PAD_VARARGS_DOWN BYTES_BIG_ENDIAN
@@ -291,7 +292,7 @@ get_pointer_alignment (tree exp, unsigned int max_align)
 	  align = MIN (inner, max_align);
 	  break;
 
-	case PLUS_EXPR:
+	case POINTER_PLUS_EXPR:
 	  /* If sum of pointer + int, restrict our maximum alignment to that
 	     imposed by the integer.  If not, we can't do any better than
 	     ALIGN.  */
@@ -761,12 +762,10 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
 #endif
       { /* Nothing */ }
 
-  /* @@@ This is a kludge.  Not all machine descriptions define a blockage
-     insn, but we must not allow the code we just generated to be reordered
-     by scheduling.  Specifically, the update of the frame pointer must
-     happen immediately, not later.  So emit an ASM_INPUT to act as blockage
-     insn.  */
-  emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
+  /* We must not allow the code we just generated to be reordered by
+     scheduling.  Specifically, the update of the frame pointer must
+     happen immediately, not later.  */
+  emit_insn (gen_blockage ());
 }
 
 /* __builtin_longjmp is passed a pointer to an array of five words (not
@@ -4435,10 +4434,9 @@ expand_builtin_strcat (tree fndecl, tree exp, rtx target, enum machine_mode mode
 
 	  /* Create strlen (dst).  */
 	  newdst = build_call_expr (strlen_fn, 1, dst);
-	  /* Create (dst + (cast) strlen (dst)).  */
-	  newdst = fold_convert (TREE_TYPE (dst), newdst);
-	  newdst = fold_build2 (PLUS_EXPR, TREE_TYPE (dst), dst, newdst);
+	  /* Create (dst p+ strlen (dst)).  */
 
+	  newdst = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (dst), dst, newdst);
 	  newdst = builtin_save_expr (newdst);
 
 	  if (!expand_builtin_strcpy_args (fndecl, newdst, newsrc, target, mode))
@@ -4652,9 +4650,10 @@ void
 std_expand_builtin_va_start (tree valist, rtx nextarg)
 {
   tree t;
+  t = make_tree (sizetype, nextarg);
+  t = fold_convert (ptr_type_node, t);
 
-  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist,
-	      make_tree (ptr_type_node, nextarg));
+  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
   TREE_SIDE_EFFECTS (t) = 1;
 
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -4721,14 +4720,16 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
   if (boundary > align
       && !integer_zerop (TYPE_SIZE (type)))
     {
-      t = fold_convert (TREE_TYPE (valist), size_int (boundary - 1));
       t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
-		  build2 (PLUS_EXPR, TREE_TYPE (valist), valist_tmp, t));
+		  fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (valist),
+			       valist_tmp, size_int (boundary - 1)));
       gimplify_and_add (t, pre_p);
 
-      t = fold_convert (TREE_TYPE (valist), size_int (-boundary));
+      t = fold_convert (sizetype, valist_tmp);
       t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
-		  build2 (BIT_AND_EXPR, TREE_TYPE (valist), valist_tmp, t));
+		  fold_convert (TREE_TYPE (valist),
+				fold_build2 (BIT_AND_EXPR, sizetype, t,
+					     size_int (-boundary))));
       gimplify_and_add (t, pre_p);
     }
   else
@@ -4759,13 +4760,11 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
       t = fold_build2 (GT_EXPR, sizetype, rounded_size, size_int (align));
       t = fold_build3 (COND_EXPR, sizetype, t, size_zero_node,
 		       size_binop (MINUS_EXPR, rounded_size, type_size));
-      t = fold_convert (TREE_TYPE (addr), t);
-      addr = fold_build2 (PLUS_EXPR, TREE_TYPE (addr), addr, t);
+      addr = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (addr), addr, t);
     }
 
   /* Compute new value for AP.  */
-  t = fold_convert (TREE_TYPE (valist), rounded_size);
-  t = build2 (PLUS_EXPR, TREE_TYPE (valist), valist_tmp, t);
+  t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (valist), valist_tmp, rounded_size);
   t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
   gimplify_and_add (t, pre_p);
 
@@ -5123,7 +5122,8 @@ expand_builtin_expect (tree exp, rtx target)
 
   target = expand_expr (arg, target, VOIDmode, EXPAND_NORMAL);
   /* When guessing was done, the hints should be already stripped away.  */
-  gcc_assert (!flag_guess_branch_prob);
+  gcc_assert (!flag_guess_branch_prob
+	      || optimize == 0 || errorcount || sorrycount);
   return target;
 }
 
@@ -7776,7 +7776,7 @@ fold_builtin_int_roundingfn (tree fndecl, tree arg)
     {
       const REAL_VALUE_TYPE x = TREE_REAL_CST (arg);
 
-      if (! REAL_VALUE_ISNAN (x) && ! REAL_VALUE_ISINF (x))
+      if (real_isfinite (&x))
 	{
 	  tree itype = TREE_TYPE (TREE_TYPE (fndecl));
 	  tree ftype = TREE_TYPE (arg);
@@ -8609,8 +8609,7 @@ fold_builtin_memory_op (tree dest, tree src, tree len, tree type, bool ignore, i
     len = fold_build2 (MINUS_EXPR, TREE_TYPE (len), len,
 		       ssize_int (1));
 
-  len = fold_convert (TREE_TYPE (dest), len);
-  dest = fold_build2 (PLUS_EXPR, TREE_TYPE (dest), dest, len);
+  dest = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (dest), dest, len);
   dest = fold_convert (type, dest);
   if (expr)
     dest = omit_one_operand (type, dest, expr);
@@ -8733,8 +8732,8 @@ fold_builtin_memchr (tree arg1, tree arg2, tree len, tree type)
 	  if (r == NULL)
 	    return build_int_cst (TREE_TYPE (arg1), 0);
 
-	  tem = fold_build2 (PLUS_EXPR, TREE_TYPE (arg1), arg1,
-			     build_int_cst (TREE_TYPE (arg1), r - p1));
+	  tem = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (arg1), arg1,
+			     size_int (r - p1));
 	  return fold_convert (type, tem);
 	}
       return NULL_TREE;
@@ -9337,8 +9336,7 @@ fold_builtin_load_exponent (tree arg0, tree arg1, tree type, bool ldexp)
       /* If arg0 is 0, Inf or NaN, or if arg1 is 0, then return arg0.  */
       if (real_zerop (arg0) || integer_zerop (arg1)
 	  || (TREE_CODE (arg0) == REAL_CST
-	      && (real_isnan (&TREE_REAL_CST (arg0))
-		  || real_isinf (&TREE_REAL_CST (arg0)))))
+	      && !real_isfinite (&TREE_REAL_CST (arg0))))
 	return omit_one_operand (type, arg0, arg1);
       
       /* If both arguments are constant, then try to evaluate it.  */
@@ -9481,8 +9479,7 @@ fold_builtin_classify (tree fndecl, tree arg, int builtin_index)
       if (TREE_CODE (arg) == REAL_CST)
 	{
 	  r = TREE_REAL_CST (arg);
-	  return real_isinf (&r) || real_isnan (&r)
-		 ? integer_zero_node : integer_one_node;
+	  return real_isfinite (&r) ? integer_one_node : integer_zero_node;
 	}
 
       return NULL_TREE;
@@ -10613,8 +10610,8 @@ fold_builtin_strstr (tree s1, tree s2, tree type)
 	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
-	  tem = fold_build2 (PLUS_EXPR, TREE_TYPE (s1),
-			     s1, build_int_cst (TREE_TYPE (s1), r - p1));
+	  tem = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (s1),
+			     s1, size_int (r - p1));
 	  return fold_convert (type, tem);
 	}
 
@@ -10683,8 +10680,8 @@ fold_builtin_strchr (tree s1, tree s2, tree type)
 	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
-	  tem = fold_build2 (PLUS_EXPR, TREE_TYPE (s1),
-			     s1, build_int_cst (TREE_TYPE (s1), r - p1));
+	  tem = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (s1),
+			     s1, size_int (r - p1));
 	  return fold_convert (type, tem);
 	}
       return NULL_TREE;
@@ -10739,8 +10736,8 @@ fold_builtin_strrchr (tree s1, tree s2, tree type)
 	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
-	  tem = fold_build2 (PLUS_EXPR, TREE_TYPE (s1),
-			     s1, build_int_cst (TREE_TYPE (s1), r - p1));
+	  tem = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (s1),
+			     s1, size_int (r - p1));
 	  return fold_convert (type, tem);
 	}
 
@@ -10799,8 +10796,8 @@ fold_builtin_strpbrk (tree s1, tree s2, tree type)
 	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
-	  tem = fold_build2 (PLUS_EXPR, TREE_TYPE (s1),
-			     s1, build_int_cst (TREE_TYPE (s1), r - p1));
+	  tem = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (s1),
+			     s1, size_int (r - p1));
 	  return fold_convert (type, tem);
 	}
 
@@ -11386,8 +11383,7 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
 	      return expand_expr (dest, target, mode, EXPAND_NORMAL);
 	    }
 
-	  len = fold_convert (TREE_TYPE (dest), len);
-	  expr = fold_build2 (PLUS_EXPR, TREE_TYPE (dest), dest, len);
+	  expr = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (dest), dest, len);
 	  return expand_expr (expr, target, mode, EXPAND_NORMAL);
 	}
 
@@ -11634,8 +11630,7 @@ fold_builtin_memory_chk (tree fndecl,
 	return omit_one_operand (TREE_TYPE (TREE_TYPE (fndecl)), dest, len);
       else
 	{
-	  tree temp = fold_convert (TREE_TYPE (dest), len);
-	  temp = fold_build2 (PLUS_EXPR, TREE_TYPE (dest), dest, temp);
+	  tree temp = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (dest), dest, len);
 	  return fold_convert (TREE_TYPE (TREE_TYPE (fndecl)), temp);
 	}
     }
@@ -12363,7 +12358,7 @@ do_mpfr_ckconv (mpfr_srcptr m, tree type, int inexact)
 	 check for overflow/underflow.  If the REAL_VALUE_TYPE is zero
 	 but the mpft_t is not, then we underflowed in the
 	 conversion.  */
-      if (!real_isnan (&rr) && !real_isinf (&rr)
+      if (real_isfinite (&rr)
 	  && (rr.cl == rvc_zero) == (mpfr_zero_p (m) != 0))
         {
 	  REAL_VALUE_TYPE rmode;
@@ -12402,7 +12397,7 @@ do_mpfr_arg1 (tree arg, tree type, int (*func)(mpfr_ptr, mpfr_srcptr, mp_rnd_t),
     {
       const REAL_VALUE_TYPE *const ra = &TREE_REAL_CST (arg);
 
-      if (!real_isnan (ra) && !real_isinf (ra)
+      if (real_isfinite (ra)
 	  && (!min || real_compare (inclusive ? GE_EXPR: GT_EXPR , ra, min))
 	  && (!max || real_compare (inclusive ? LE_EXPR: LT_EXPR , ra, max)))
         {
@@ -12446,8 +12441,7 @@ do_mpfr_arg2 (tree arg1, tree arg2, tree type,
       const REAL_VALUE_TYPE *const ra1 = &TREE_REAL_CST (arg1);
       const REAL_VALUE_TYPE *const ra2 = &TREE_REAL_CST (arg2);
 
-      if (!real_isnan (ra1) && !real_isinf (ra1)
-	  && !real_isnan (ra2) && !real_isinf (ra2))
+      if (real_isfinite (ra1) && real_isfinite (ra2))
         {
 	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
 	  int inexact;
@@ -12493,9 +12487,7 @@ do_mpfr_arg3 (tree arg1, tree arg2, tree arg3, tree type,
       const REAL_VALUE_TYPE *const ra2 = &TREE_REAL_CST (arg2);
       const REAL_VALUE_TYPE *const ra3 = &TREE_REAL_CST (arg3);
 
-      if (!real_isnan (ra1) && !real_isinf (ra1)
-	  && !real_isnan (ra2) && !real_isinf (ra2)
-	  && !real_isnan (ra3) && !real_isinf (ra3))
+      if (real_isfinite (ra1) && real_isfinite (ra2) && real_isfinite (ra3))
         {
 	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
 	  int inexact;
@@ -12538,7 +12530,7 @@ do_mpfr_sincos (tree arg, tree arg_sinp, tree arg_cosp)
     {
       const REAL_VALUE_TYPE *const ra = &TREE_REAL_CST (arg);
 
-      if (!real_isnan (ra) && !real_isinf (ra))
+      if (real_isfinite (ra))
         {
 	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
 	  tree result_s, result_c;
@@ -12610,7 +12602,7 @@ do_mpfr_bessel_n (tree arg1, tree arg2, tree type,
       const REAL_VALUE_TYPE *const ra = &TREE_REAL_CST (arg2);
 
       if (n == (long)n
-	  && !real_isnan (ra) && !real_isinf (ra)
+	  && real_isfinite (ra)
 	  && (!min || real_compare (inclusive ? GE_EXPR: GT_EXPR , ra, min)))
         {
 	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
@@ -12652,8 +12644,7 @@ do_mpfr_remquo (tree arg0, tree arg1, tree arg_quo)
       const REAL_VALUE_TYPE *const ra0 = TREE_REAL_CST_PTR (arg0);
       const REAL_VALUE_TYPE *const ra1 = TREE_REAL_CST_PTR (arg1);
 
-      if (!real_isnan (ra0) && !real_isinf (ra0)
-	  && !real_isnan (ra1) && !real_isinf (ra1))
+      if (real_isfinite (ra0) && real_isfinite (ra1))
         {
 	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
 	  tree result_rem;
@@ -12728,7 +12719,7 @@ do_mpfr_lgamma_r (tree arg, tree arg_sg, tree type)
 
       /* In addition to NaN and Inf, the argument cannot be zero or a
 	 negative integer.  */
-      if (!real_isnan (ra) && !real_isinf (ra)
+      if (real_isfinite (ra)
 	  && ra->cl != rvc_zero
 	  && !(real_isneg(ra) && real_isinteger(ra, TYPE_MODE (type))))
         {

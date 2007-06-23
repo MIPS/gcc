@@ -69,6 +69,22 @@ Boston, MA 02110-1301, USA.  */
 #undef TARGET_KEEPS_VECTOR_ALIGNED_STACK
 #define TARGET_KEEPS_VECTOR_ALIGNED_STACK 1
 
+/* On Darwin, the stack is 128-bit aligned at the point of every call.
+   Failure to ensure this will lead to a crash in the system libraries
+   or dynamic loader.  */
+#undef STACK_BOUNDARY
+#define STACK_BOUNDARY 128
+
+/* Since we'll never want a stack boundary less aligned than 128 bits
+   we need the extra work here otherwise bits of gcc get very grumpy
+   when we ask for lower alignment.  We could just reject values less
+   than 128 bits for Darwin, but it's easier to up the alignment if
+   it's below the minimum.  */
+#undef PREFERRED_STACK_BOUNDARY
+#define PREFERRED_STACK_BOUNDARY (ix86_preferred_stack_boundary > 128	\
+				  ? ix86_preferred_stack_boundary	\
+				  : 128)
+
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
 
@@ -91,6 +107,13 @@ Boston, MA 02110-1301, USA.  */
     ,objective-c++|,objective-c++-cpp-output:10.5;	\
     ,objective-c++-header|,objc++-cpp-output:10.5;	\
     :10.4}"
+
+#undef ENDFILE_SPEC
+#define ENDFILE_SPEC \
+  "%{ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
+   %{mpc32:crtprec32.o%s} \
+   %{mpc64:crtprec64.o%s} \
+   %{mpc80:crtprec80.o%s}"
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS                                   \
@@ -187,7 +210,7 @@ extern void darwin_x86_file_end (void);
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs (".comm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%lu\n", (unsigned long)(ROUNDED)))
+  fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n", (ROUNDED)))
 
 /* This says how to output an assembler line
    to define a local common symbol.  */

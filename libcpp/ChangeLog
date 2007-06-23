@@ -1,3 +1,18 @@
+2007-06-17  Danny Smith  <dannysmith@users.sourceforge.net
+
+	* files.c (open_file): Correct typo.
+
+2007-06-16  Vladimir Prus  <vladimir@codesourcery.com>
+
+	* files.c (open_file): Prevent the call
+	for stat from overwriting errno.
+
+2007-06-09  Vladimir Prus  <vladimir@codesourcery.com>
+
+	* files.c (open_file): Account for the
+        fact that on windows, opening a directory gives
+        EACCES.
+
 2007-06-05  Joerg Wunsch  <j.gnu@uriah.heep.sax.de>
 
 	PR preprocessor/23479

@@ -1,3 +1,127 @@
+2007-06-22  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/31473
+	* symbol.c (gfc_copy_attr): Emit errors for duplicate 
+	EXTERNAL/INTRINSIC statements.
+
+2007-06-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/32360
+	* expr.c (gfc_check_assign): If the rvalue expression type is NULL_EXPR,
+	check to see if the lvalue has attribute pointer and data.  
+
+2007-06-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/31162
+	* resolve.c (gfc_resolve_iterator_expr): Add check for REAL using
+	gfc_notify_standard. (gfc_resolve_iterator): Remove check.
+	(resolve_branch): Change "Obsolete" to "Deleted feature".
+	* io.c (resolve_tag): Ditto.
+	* match.c (gfc_match_pause, gfc_match_assign, gfc_match_goto): Ditto.
+
+2007-06-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/32361
+	* match.c (gfc_match_common): If the symbol value expression type is
+	NULL_EXPR, don't error if previously initialized.
+
+2007-06-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25061
+	* decl.c (get_proc_name) Check symbol for generic interface
+	and issue an error.
+
+2007-06-20  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR fortran/32140
+	* trans.c (gfc_build_addr_expr): Use the correct types.
+
+2007-06-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/20863
+	PR fortran/20882
+	* resolve.c (resolve_code): Use gfc_impure_variable as a
+	condition for rejecting derived types with pointers, in pure
+	procedures.
+	(gfc_impure_variable): Add test for dummy arguments of pure
+	procedures; any for functions and INTENT_IN for subroutines.
+
+	PR fortran/32236
+	* data.c (gfc_assign_data_value): Change the ICE on an array
+	reference initializer not being an array into an error and
+	clear init to prevent a repetition of the error.
+
+2007-06-17  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* gfortran.texi: Add documentation for GFORTRAN_UNBUFFERED_n
+	environment variables. Fix documentation for
+	GFORTRAN_UNBUFFERED_ALL environment variable.
+
+2007-06-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_repeat): Use
+	POINTER_PLUS_EXPR instead of PLUS_EXPR for pointer addition.
+	* trans-expr.c (gfc_trans_string_copy): Create
+	POINTER_PLUS_EXPR instead of a PLUS_EXPR
+	for pointer types.
+
+2007-06-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32302
+	* trans-common.c (build_common_decl): If resizing of common
+	decl is needed, update the TREE_TYPE.
+
+2007-06-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32323
+	* interface.c (has_vector_section): New.
+	(compare_actual_formal): Check for array sections with vector subscript.
+
+2007-06-12  Dirk Mueller  <dmueller@suse.de>
+
+	* trans-stmt.c (gfc_trans_call): fix gcc_assert to
+	a comparison, not an assignment.
+
+2007-06-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	* trans-common.c (create_common): Initialize 'field_init'.
+
+2007-06-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29786
+	PR fortran/30875
+	* trans-common.c (get_init_field): New function.
+	(create_common): Call get_init_field for overlapping
+	initializers in equivalence blocks.
+	* resolve.c (resolve_equivalence_derived, resolve_equivalence):
+	Remove constraints on initializers in equivalence blocks.
+	* target-memory.c (expr_to_char, gfc_merge_initializers):
+	New functions.
+	(encode_derived): Add the bit offset to the byte offset to get
+	the total offset to the field.
+	* target-memory.h : Add prototype for gfc_merge_initializers.
+
+2007-06-11  Rafael Avila de Espindola  <espindola@google.com>
+
+	* trans-types.c (gfc_signed_type): Remove.
+	* trans-types.h (gfc_signed_type): Remove.
+	* f95-lang.c (LANG_HOOKS_SIGNED_TYPE): Remove.
+
+2007-06-08 Francois-Xavier Coudert <fxcoudert@gcc.gnu.org>
+
+	* trans-intrinsic.c: Revert Lee's 2007-06-04 patch.
+
+2007-06-07  Steven G. Kargl  <kargl@gcc.gnu.org>
+	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/32223
+	* match.c (gfc_match_special_char): New function.  Match special char.
+	Add handling '\0'.
+	* match.h: Add prototype.
+	* io.c (next_char): Use it.
+	* primary.c (next_string_char): Ditto.
+
 2007-06-06  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	* decl.c: Miscellaneous whitespace fixes.

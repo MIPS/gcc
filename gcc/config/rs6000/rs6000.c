@@ -616,7 +616,6 @@ struct processor_costs power6_cost = {
 static bool rs6000_function_ok_for_sibcall (tree, tree);
 static const char *rs6000_invalid_within_doloop (rtx);
 static rtx rs6000_generate_compare (enum rtx_code);
-static void rs6000_maybe_dead (rtx);
 static void rs6000_emit_stack_tie (void);
 static void rs6000_frame_related (rtx, rtx, HOST_WIDE_INT, rtx, rtx);
 static rtx spe_synthesize_frame_save (rtx);
@@ -631,7 +630,6 @@ static int toc_hash_eq (const void *, const void *);
 static int constant_pool_expr_1 (rtx, int *, int *);
 static bool constant_pool_expr_p (rtx);
 static bool legitimate_small_data_p (enum machine_mode, rtx);
-static bool legitimate_indexed_address_p (rtx, int);
 static bool legitimate_lo_sum_address_p (enum machine_mode, rtx, int);
 static struct machine_function * rs6000_init_machine_status (void);
 static bool rs6000_assemble_integer (rtx, unsigned int, int);
@@ -3098,7 +3096,7 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
   return (offset < 0x10000) && (offset + extra < 0x10000);
 }
 
-static bool
+bool
 legitimate_indexed_address_p (rtx x, int strict)
 {
   rtx op0, op1;
@@ -3459,10 +3457,7 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 		  emit_insn (gen_addsi3 (tmp3, tmp1, tmp2));
 		  last = emit_move_insn (got, tmp3);
 		  set_unique_reg_note (last, REG_EQUAL, gsym);
-		  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last,
-							 REG_NOTES (first));
-		  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first,
-							REG_NOTES (last));
+		  maybe_encapsulate_block (first, last, gsym);
 		}
 	    }
 	}
@@ -3832,6 +3827,24 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
       && (TARGET_POWERPC64 || mode != DImode)
       && legitimate_indexed_address_p (x, reg_ok_strict))
     return 1;
+  if (GET_CODE (x) == PRE_MODIFY
+      && mode != TImode
+      && mode != TFmode
+      && mode != TDmode
+      && ((TARGET_HARD_FLOAT && TARGET_FPRS)
+	  || TARGET_POWERPC64
+	  || ((mode != DFmode || TARGET_E500_DOUBLE) && mode != TFmode))
+      && (TARGET_POWERPC64 || mode != DImode)
+      && !ALTIVEC_VECTOR_MODE (mode)
+      && !SPE_VECTOR_MODE (mode)
+      /* Restrict addressing for DI because of our SUBREG hackery.  */
+      && !(TARGET_E500_DOUBLE && (mode == DFmode || mode == DImode))
+      && TARGET_UPDATE
+      && legitimate_indirect_address_p (XEXP (x, 0), reg_ok_strict)
+      && (rs6000_legitimate_offset_address_p (mode, XEXP (x, 1), reg_ok_strict)
+	  || legitimate_indexed_address_p (XEXP (x, 1), reg_ok_strict))
+      && rtx_equal_p (XEXP (XEXP (x, 1), 0), XEXP (x, 0)))
+    return 1;
   if (legitimate_lo_sum_address_p (mode, x, reg_ok_strict))
     return 1;
   return 0;
@@ -3864,7 +3877,10 @@ rs6000_mode_dependent_address (rtx addr)
     case LO_SUM:
       return true;
 
-    /* Auto-increment cases are now treated generically in recog.c.  */
+    case PRE_INC:
+    case PRE_DEC:
+    case PRE_MODIFY:
+      return TARGET_UPDATE;
 
     default:
       break;
@@ -6194,8 +6210,8 @@ rs6000_va_start (tree valist, rtx nextarg)
   /* Find the overflow area.  */
   t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
   if (words != 0)
-    t = build2 (PLUS_EXPR, TREE_TYPE (ovf), t,
-	        build_int_cst (NULL_TREE, words * UNITS_PER_WORD));
+    t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (ovf), t,
+	        size_int (words * UNITS_PER_WORD));
   t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -6211,8 +6227,8 @@ rs6000_va_start (tree valist, rtx nextarg)
   /* Find the register save area.  */
   t = make_tree (TREE_TYPE (sav), virtual_stack_vars_rtx);
   if (cfun->machine->varargs_save_offset)
-    t = build2 (PLUS_EXPR, TREE_TYPE (sav), t,
-	        build_int_cst (NULL_TREE, cfun->machine->varargs_save_offset));
+    t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (sav), t,
+	        size_int (cfun->machine->varargs_save_offset));
   t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (sav), sav, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -6351,12 +6367,12 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 
       t = sav;
       if (sav_ofs)
-	t = build2 (PLUS_EXPR, ptr_type_node, sav, size_int (sav_ofs));
+	t = build2 (POINTER_PLUS_EXPR, ptr_type_node, sav, size_int (sav_ofs));
 
       u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, size_int (n_reg));
-      u = build1 (CONVERT_EXPR, integer_type_node, u);
-      u = build2 (MULT_EXPR, integer_type_node, u, size_int (sav_scale));
-      t = build2 (PLUS_EXPR, ptr_type_node, t, u);
+      u = fold_convert (sizetype, u);
+      u = build2 (MULT_EXPR, sizetype, u, size_int (sav_scale));
+      t = build2 (POINTER_PLUS_EXPR, ptr_type_node, t, u);
 
       t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
       gimplify_and_add (t, pre_p);
@@ -6382,16 +6398,18 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   t = ovf;
   if (align != 1)
     {
-      t = build2 (PLUS_EXPR, TREE_TYPE (t), t, size_int (align - 1));
+      t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (t), t, size_int (align - 1));
+      t = fold_convert (sizetype, t);
       t = build2 (BIT_AND_EXPR, TREE_TYPE (t), t,
-		  build_int_cst (NULL_TREE, -align));
+		  size_int (-align));
+      t = fold_convert (TREE_TYPE (ovf), t);
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
   u = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
   gimplify_and_add (u, pre_p);
 
-  t = build2 (PLUS_EXPR, TREE_TYPE (t), t, size_int (size));
+  t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (t), t, size_int (size));
   t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
   gimplify_and_add (t, pre_p);
 
@@ -10465,8 +10483,8 @@ rs6000_got_register (rtx value ATTRIBUTE_UNUSED)
   /* The second flow pass currently (June 1999) can't update
      regs_ever_live without disturbing other parts of the compiler, so
      update it here to make the prolog/epilogue code happy.  */
-  if (no_new_pseudos && ! regs_ever_live[RS6000_PIC_OFFSET_TABLE_REGNUM])
-    regs_ever_live[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;
+  if (no_new_pseudos && ! df_regs_ever_live_p (RS6000_PIC_OFFSET_TABLE_REGNUM))
+    df_set_regs_ever_live (RS6000_PIC_OFFSET_TABLE_REGNUM, true);
 
   current_function_uses_pic_offset_table = 1;
 
@@ -10833,6 +10851,9 @@ print_operand (FILE *file, rtx x, int code)
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
 	    output_address (plus_constant (XEXP (XEXP (x, 0), 0),
 					   UNITS_PER_WORD));
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
+	    output_address (plus_constant (XEXP (XEXP (x, 0), 0),
+					   UNITS_PER_WORD));
 	  else
 	    output_address (XEXP (adjust_address_nv (x, SImode,
 						     UNITS_PER_WORD),
@@ -11033,7 +11054,8 @@ print_operand (FILE *file, rtx x, int code)
       /* Print `u' if this has an auto-increment or auto-decrement.  */
       if (GET_CODE (x) == MEM
 	  && (GET_CODE (XEXP (x, 0)) == PRE_INC
-	      || GET_CODE (XEXP (x, 0)) == PRE_DEC))
+	      || GET_CODE (XEXP (x, 0)) == PRE_DEC
+	      || GET_CODE (XEXP (x, 0)) == PRE_MODIFY))
 	putc ('u', file);
       return;
 
@@ -11120,7 +11142,9 @@ print_operand (FILE *file, rtx x, int code)
 
     case 'X':
       if (GET_CODE (x) == MEM
-	  && legitimate_indexed_address_p (XEXP (x, 0), 0))
+	  && (legitimate_indexed_address_p (XEXP (x, 0), 0)
+	      || (GET_CODE (XEXP (x, 0)) == PRE_MODIFY
+		  && legitimate_indexed_address_p (XEXP (XEXP (x, 0), 1), 0))))
 	putc ('x', file);
       return;
 
@@ -11132,6 +11156,8 @@ print_operand (FILE *file, rtx x, int code)
 	{
 	  if (GET_CODE (XEXP (x, 0)) == PRE_INC
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
+	    output_address (plus_constant (XEXP (XEXP (x, 0), 0), 8));
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
 	    output_address (plus_constant (XEXP (XEXP (x, 0), 0), 8));
 	  else
 	    output_address (XEXP (adjust_address_nv (x, SImode, 8), 0));
@@ -11179,6 +11205,8 @@ print_operand (FILE *file, rtx x, int code)
 	{
 	  if (GET_CODE (XEXP (x, 0)) == PRE_INC
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
+	    output_address (plus_constant (XEXP (XEXP (x, 0), 0), 12));
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
 	    output_address (plus_constant (XEXP (XEXP (x, 0), 0), 12));
 	  else
 	    output_address (XEXP (adjust_address_nv (x, SImode, 12), 0));
@@ -11260,6 +11288,8 @@ print_operand (FILE *file, rtx x, int code)
 	  else if (GET_CODE (XEXP (x, 0)) == PRE_DEC)
 	    fprintf (file, "%d(%s)", - GET_MODE_SIZE (GET_MODE (x)),
 		     reg_names[REGNO (XEXP (XEXP (x, 0), 0))]);
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
+	    output_address (XEXP (XEXP (x, 0), 1));
 	  else
 	    output_address (XEXP (x, 0));
 	}
@@ -13120,7 +13150,7 @@ first_reg_to_save (void)
 
   /* Find lowest numbered live register.  */
   for (first_reg = 13; first_reg <= 31; first_reg++)
-    if (regs_ever_live[first_reg]
+    if (df_regs_ever_live_p (first_reg)
 	&& (! call_used_regs[first_reg]
 	    || (first_reg == RS6000_PIC_OFFSET_TABLE_REGNUM
 		&& ((DEFAULT_ABI == ABI_V4 && flag_pic != 0)
@@ -13147,7 +13177,7 @@ first_fp_reg_to_save (void)
 
   /* Find lowest numbered live register.  */
   for (first_reg = 14 + 32; first_reg <= 63; first_reg++)
-    if (regs_ever_live[first_reg])
+    if (df_regs_ever_live_p (first_reg))
       break;
 
   return first_reg;
@@ -13173,7 +13203,7 @@ first_altivec_reg_to_save (void)
 
   /* Find lowest numbered live register.  */
   for (i = FIRST_ALTIVEC_REGNO + 20; i <= LAST_ALTIVEC_REGNO; ++i)
-    if (regs_ever_live[i])
+    if (df_regs_ever_live_p (i))
       break;
 
   return i;
@@ -13197,7 +13227,7 @@ compute_vrsave_mask (void)
 
   /* First, find out if we use _any_ altivec registers.  */
   for (i = FIRST_ALTIVEC_REGNO; i <= LAST_ALTIVEC_REGNO; ++i)
-    if (regs_ever_live[i])
+    if (df_regs_ever_live_p (i))
       mask |= ALTIVEC_REG_BIT (i);
 
   if (mask == 0)
@@ -13458,13 +13488,13 @@ rs6000_stack_info (void)
       || rs6000_ra_ever_killed ())
     {
       info_ptr->lr_save_p = 1;
-      regs_ever_live[LINK_REGISTER_REGNUM] = 1;
+      df_set_regs_ever_live (LINK_REGISTER_REGNUM, true);
     }
 
   /* Determine if we need to save the condition code registers.  */
-  if (regs_ever_live[CR2_REGNO]
-      || regs_ever_live[CR3_REGNO]
-      || regs_ever_live[CR4_REGNO])
+  if (df_regs_ever_live_p (CR2_REGNO)
+      || df_regs_ever_live_p (CR3_REGNO)
+      || df_regs_ever_live_p (CR4_REGNO))
     {
       info_ptr->cr_save_p = 1;
       if (DEFAULT_ABI == ABI_V4)
@@ -13988,15 +14018,6 @@ rs6000_ra_ever_killed (void)
   return 0;
 }
 
-/* Add a REG_MAYBE_DEAD note to the insn.  */
-static void
-rs6000_maybe_dead (rtx insn)
-{
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-					const0_rtx,
-					REG_NOTES (insn));
-}
-
 /* Emit instructions needed to load the TOC register.
    This is only needed when TARGET_TOC, TARGET_MINIMAL_TOC, and there is
    a constant pool; or for SVR4 -fpic.  */
@@ -14004,7 +14025,7 @@ rs6000_maybe_dead (rtx insn)
 void
 rs6000_emit_load_toc_table (int fromprolog)
 {
-  rtx dest, insn;
+  rtx dest;
   dest = gen_rtx_REG (Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
 
   if (TARGET_ELF && TARGET_SECURE_PLT && DEFAULT_ABI != ABI_AIX && flag_pic)
@@ -14024,29 +14045,16 @@ rs6000_emit_load_toc_table (int fromprolog)
 	  tmp1 = gen_reg_rtx (Pmode);
 	  tmp2 = gen_reg_rtx (Pmode);
 	}
-      insn = emit_insn (gen_load_toc_v4_PIC_1 (lab));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_move_insn (tmp1,
+      emit_insn (gen_load_toc_v4_PIC_1 (lab));
+      emit_move_insn (tmp1,
 			     gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_insn (gen_load_toc_v4_PIC_3b (tmp2, tmp1, got, lab));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_insn (gen_load_toc_v4_PIC_3c (dest, tmp2, got, lab));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+      emit_insn (gen_load_toc_v4_PIC_3b (tmp2, tmp1, got, lab));
+      emit_insn (gen_load_toc_v4_PIC_3c (dest, tmp2, got, lab));
     }
   else if (TARGET_ELF && DEFAULT_ABI == ABI_V4 && flag_pic == 1)
     {
-      insn = emit_insn (gen_load_toc_v4_pic_si ());
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_move_insn (dest,
-			     gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+      emit_insn (gen_load_toc_v4_pic_si ());
+      emit_move_insn (dest, gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
     }
   else if (TARGET_ELF && DEFAULT_ABI != ABI_AIX && flag_pic == 2)
     {
@@ -14065,13 +14073,10 @@ rs6000_emit_load_toc_table (int fromprolog)
 	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCL", rs6000_pic_labelno);
 	  symL = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
 
-	  rs6000_maybe_dead (emit_insn (gen_load_toc_v4_PIC_1 (symF)));
-	  rs6000_maybe_dead (emit_move_insn (dest,
-					     gen_rtx_REG (Pmode,
-							  LINK_REGISTER_REGNUM)));
-	  rs6000_maybe_dead (emit_insn (gen_load_toc_v4_PIC_2 (temp0, dest,
-							       symL,
-							       symF)));
+	  emit_insn (gen_load_toc_v4_PIC_1 (symF));
+	  emit_move_insn (dest,
+			  gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
+	  emit_insn (gen_load_toc_v4_PIC_2 (temp0, dest, symL, symF));
 	}
       else
 	{
@@ -14083,9 +14088,7 @@ rs6000_emit_load_toc_table (int fromprolog)
 			  gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
 	  emit_move_insn (temp0, gen_rtx_MEM (Pmode, dest));
 	}
-      insn = emit_insn (gen_addsi3 (dest, temp0, dest));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+      emit_insn (gen_addsi3 (dest, temp0, dest));
     }
   else if (TARGET_ELF && !TARGET_AIX && flag_pic == 0 && TARGET_MINIMAL_TOC)
     {
@@ -14095,23 +14098,17 @@ rs6000_emit_load_toc_table (int fromprolog)
       ASM_GENERATE_INTERNAL_LABEL (buf, "LCTOC", 1);
       realsym = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
 
-      insn = emit_insn (gen_elf_high (dest, realsym));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_insn (gen_elf_low (dest, dest, realsym));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+      emit_insn (gen_elf_high (dest, realsym));
+      emit_insn (gen_elf_low (dest, dest, realsym));
     }
   else
     {
       gcc_assert (DEFAULT_ABI == ABI_AIX);
 
       if (TARGET_32BIT)
-	insn = emit_insn (gen_load_toc_aix_si (dest));
+	emit_insn (gen_load_toc_aix_si (dest));
       else
-	insn = emit_insn (gen_load_toc_aix_di (dest));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+	emit_insn (gen_load_toc_aix_di (dest));
     }
 }
 
@@ -14198,7 +14195,7 @@ rtx
 create_TOC_reference (rtx symbol)
 {
   if (no_new_pseudos)
-    regs_ever_live[TOC_REGISTER] = 1;
+    df_set_regs_ever_live (TOC_REGISTER, true);
   return gen_rtx_PLUS (Pmode,
 	   gen_rtx_REG (Pmode, TOC_REGISTER),
 	     gen_rtx_CONST (Pmode,
@@ -14641,7 +14638,7 @@ no_global_regs_above (int first_greg)
 static bool
 rs6000_reg_live_or_pic_offset_p (int reg)
 {
-  return ((regs_ever_live[reg]
+  return ((df_regs_ever_live_p (reg)
            && (!call_used_regs[reg]
                || (reg == RS6000_PIC_OFFSET_TABLE_REGNUM
                    && TARGET_TOC && TARGET_MINIMAL_TOC)))
@@ -14881,7 +14878,7 @@ rs6000_emit_prologue (void)
     {
       int i;
       for (i = 0; i < 64 - info->first_fp_reg_save; i++)
-	if ((regs_ever_live[info->first_fp_reg_save+i]
+	if ((df_regs_ever_live_p (info->first_fp_reg_save+i)
 	     && ! call_used_regs[info->first_fp_reg_save+i]))
 	  emit_frame_save (frame_reg_rtx, frame_ptr_rtx, DFmode,
 			   info->first_fp_reg_save + i,
@@ -14952,7 +14949,7 @@ rs6000_emit_prologue (void)
        int i;
        rtx spe_save_area_ptr;
        int using_static_chain_p = (cfun->static_chain_decl != NULL_TREE
-                                   && regs_ever_live[STATIC_CHAIN_REGNUM]
+                                   && df_regs_ever_live_p (STATIC_CHAIN_REGNUM)
                                    && !call_used_regs[STATIC_CHAIN_REGNUM]);
  
        /* Determine whether we can address all of the registers that need
@@ -15206,7 +15203,7 @@ rs6000_emit_prologue (void)
   if ((TARGET_TOC && TARGET_MINIMAL_TOC && get_pool_size () != 0)
       || (DEFAULT_ABI == ABI_V4
 	  && (flag_pic == 1 || (flag_pic && TARGET_SECURE_PLT))
-	  && regs_ever_live[RS6000_PIC_OFFSET_TABLE_REGNUM]))
+	  && df_regs_ever_live_p (RS6000_PIC_OFFSET_TABLE_REGNUM)))
     {
       /* If emit_load_toc_table will use the link register, we need to save
 	 it.  We use R12 for this purpose because emit_load_toc_table
@@ -15222,13 +15219,11 @@ rs6000_emit_prologue (void)
 	  rtx lr = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
 
 	  insn = emit_move_insn (frame_ptr_rtx, lr);
-	  rs6000_maybe_dead (insn);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 
 	  rs6000_emit_load_toc_table (TRUE);
 
 	  insn = emit_move_insn (lr, frame_ptr_rtx);
-	  rs6000_maybe_dead (insn);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
       else
@@ -15244,17 +15239,16 @@ rs6000_emit_prologue (void)
 
       /* Save and restore LR locally around this call (in R0).  */
       if (!info->lr_save_p)
-	rs6000_maybe_dead (emit_move_insn (gen_rtx_REG (Pmode, 0), lr));
+	emit_move_insn (gen_rtx_REG (Pmode, 0), lr);
 
-      rs6000_maybe_dead (emit_insn (gen_load_macho_picbase (src)));
+      emit_insn (gen_load_macho_picbase (src));
 
-      insn = emit_move_insn (gen_rtx_REG (Pmode,
-					  RS6000_PIC_OFFSET_TABLE_REGNUM),
-			     lr);
-      rs6000_maybe_dead (insn);
+      emit_move_insn (gen_rtx_REG (Pmode,
+				   RS6000_PIC_OFFSET_TABLE_REGNUM),
+		      lr);
 
       if (!info->lr_save_p)
-	rs6000_maybe_dead (emit_move_insn (lr, gen_rtx_REG (Pmode, 0)));
+	emit_move_insn (lr, gen_rtx_REG (Pmode, 0));
     }
 #endif
 }
@@ -15673,7 +15667,7 @@ rs6000_emit_epilogue (int sibcall)
   /* Restore fpr's if we need to do it without calling a function.  */
   if (restoring_FPRs_inline)
     for (i = 0; i < 64 - info->first_fp_reg_save; i++)
-      if ((regs_ever_live[info->first_fp_reg_save+i]
+      if ((df_regs_ever_live_p (info->first_fp_reg_save+i)
 	   && ! call_used_regs[info->first_fp_reg_save+i]))
 	{
 	  rtx addr, mem;
@@ -15697,7 +15691,7 @@ rs6000_emit_epilogue (int sibcall)
       if (using_mtcr_multiple)
 	{
 	  for (i = 0; i < 8; i++)
-	    if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
+	    if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
 	      count++;
 	  gcc_assert (count);
 	}
@@ -15711,7 +15705,7 @@ rs6000_emit_epilogue (int sibcall)
 
 	  ndx = 0;
 	  for (i = 0; i < 8; i++)
-	    if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
+	    if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
 	      {
 		rtvec r = rtvec_alloc (2);
 		RTVEC_ELT (r, 0) = r12_rtx;
@@ -15726,7 +15720,7 @@ rs6000_emit_epilogue (int sibcall)
 	}
       else
 	for (i = 0; i < 8; i++)
-	  if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
+	  if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
 	    {
 	      emit_insn (gen_movsi_to_cr_one (gen_rtx_REG (CCmode,
 							   CR0_REGNO+i),

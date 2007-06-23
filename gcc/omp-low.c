@@ -516,6 +516,7 @@ omp_copy_decl_2 (tree var, tree name, tree type, omp_context *ctx)
 
   TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (var);
   DECL_GIMPLE_REG_P (copy) = DECL_GIMPLE_REG_P (var);
+  DECL_NO_TBAA_P (copy) = DECL_NO_TBAA_P (var);
   DECL_ARTIFICIAL (copy) = DECL_ARTIFICIAL (var);
   DECL_IGNORED_P (copy) = DECL_IGNORED_P (var);
   TREE_USED (copy) = 1;
@@ -1503,9 +1504,9 @@ lookup_decl_in_outer_ctx (tree decl, omp_context *ctx)
   for (up = ctx->outer, t = NULL; up && t == NULL; up = up->outer)
     t = maybe_lookup_decl (decl, up);
 
-  gcc_assert (t);
+  gcc_assert (t || is_global_var (decl));
 
-  return t;
+  return t ? t : decl;
 }
 
 

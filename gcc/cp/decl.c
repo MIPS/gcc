@@ -2161,7 +2161,7 @@ redeclaration_error_message (tree newdecl, tree olddecl)
            default template-argument, that declaration shall be a
            definition and shall be the only declaration of the
            function template in the translation unit.  */
-      if (flag_cpp0x 
+      if ((cxx_dialect != cxx98) 
           && TREE_CODE (ot) == FUNCTION_DECL && DECL_FRIEND_P (ot)
           && !check_default_tmpl_args (nt, DECL_TEMPLATE_PARMS (newdecl), 
                                        /*is_primary=*/1, /*is_partial=*/0,
@@ -2187,8 +2187,24 @@ redeclaration_error_message (tree newdecl, tree olddecl)
     }
   else if (toplevel_bindings_p () || DECL_NAMESPACE_SCOPE_P (newdecl))
     {
-      /* Objects declared at top level:  */
-      /* If at least one is a reference, it's ok.  */
+      /* The objects have been declared at namespace scope.  If either
+	 is a member of an anonymous union, then this is an invalid
+	 redeclaration.  For example:
+
+	   int i;
+	   union { int i; };
+
+	   is invalid.  */
+      if (DECL_ANON_UNION_VAR_P (newdecl)
+	  || DECL_ANON_UNION_VAR_P (olddecl))
+	return "redeclaration of %q#D";
+      /* If at least one declaration is a reference, there is no
+	 conflict.  For example:
+
+	   int i = 3;
+	   extern int i;
+
+	 is valid.  */
       if (DECL_EXTERNAL (newdecl) || DECL_EXTERNAL (olddecl))
 	return NULL;
       /* Reject two definitions.  */
@@ -4777,14 +4793,29 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
   else
     /* There is no way to make a variable-sized class type in GNU C++.  */
     gcc_assert (TREE_CONSTANT (TYPE_SIZE (type)));
-  
-  if (!CP_AGGREGATE_TYPE_P (type)
-      && init && BRACE_ENCLOSED_INITIALIZER_P (init)
-      && VEC_length (constructor_elt, CONSTRUCTOR_ELTS (init)) != 1)
+
+  if (init && BRACE_ENCLOSED_INITIALIZER_P (init))
     {
-      error ("scalar object %qD requires one element in initializer", decl);
-      TREE_TYPE (decl) = error_mark_node;
-      return NULL_TREE;
+      int init_len = VEC_length (constructor_elt, CONSTRUCTOR_ELTS (init));
+      if (SCALAR_TYPE_P (type))
+	{
+	  if (init_len != 1)
+	    {
+	      error ("scalar object %qD requires one element in initializer",
+		     decl);
+	      TREE_TYPE (decl) = error_mark_node;
+	      return NULL_TREE;
+	    }
+	}
+      else if ((cxx_dialect == cxx98) && !CP_AGGREGATE_TYPE_P (type))
+	{
+	  /* A non-aggregate that is not a scalar cannot be initialized
+	     via an initializer-list in C++98.  */
+	  error ("braces around initializer for non-aggregate type %qT",
+		 type);
+	  TREE_TYPE (decl) = error_mark_node;
+	  return NULL_TREE;
+	}
     }
 
   if (TREE_CODE (decl) == CONST_DECL)
@@ -7871,7 +7902,7 @@ grokdeclarator (const cp_declarator *declarator,
 		 are still forbidden, occurs below. Reasoning behind the change
 		 can be found in DR106, DR540, and the rvalue reference
 		 proposals. */
-	      else if (!flag_cpp0x)
+	      else if (cxx_dialect == cxx98)
 		{
 		  error ("cannot declare reference to %q#T", type);
 		  type = TREE_TYPE (type);
@@ -9217,8 +9248,8 @@ move_fn_p (tree d)
 
   gcc_assert (DECL_FUNCTION_MEMBER_P (d));
 
-  if (!flag_cpp0x)
-    /* There are no move constructors if we aren't in C++0x mode.  */
+  if (cxx_dialect == cxx98)
+    /* There are no move constructors if we are in C++98 mode.  */
     return false;
 
   if (TREE_CODE (d) == TEMPLATE_DECL

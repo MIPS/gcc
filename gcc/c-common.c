@@ -406,10 +406,9 @@ int flag_access_control = 1;
 
 int flag_check_new;
 
-/* Nonzero if we want to allow the use of experimental features that
-   are likely to become part of C++0x. */
+/* The C++ dialect being used. C++98 is the default.  */
 
-int flag_cpp0x = 0;
+enum cxx_dialect cxx_dialect = cxx98;
 
 /* Nonzero if we want the new ISO rules for pushing a new scope for `for'
    initialization variables.
@@ -1343,7 +1342,7 @@ warnings_for_convert_and_check (tree type, tree expr, tree result)
           else
             conversion_warning (type, expr);
         }
-      else if (!int_fits_type_p (expr, unsigned_type_for (type))) 
+      else if (!int_fits_type_p (expr, c_common_unsigned_type (type))) 
 	warning (OPT_Woverflow,
 		 "overflow in implicit constant conversion");
       /* No warning for converting 0x80000000 to int.  */
@@ -2038,37 +2037,17 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
   return 0;
 }
 
+tree
+c_common_unsigned_type (tree type)
+{
+  return c_common_signed_or_unsigned_type (1, type);
+}
+
 /* Return a signed type the same as TYPE in other respects.  */
 
 tree
 c_common_signed_type (tree type)
 {
-  tree type1 = TYPE_MAIN_VARIANT (type);
-  if (type1 == unsigned_char_type_node || type1 == char_type_node)
-    return signed_char_type_node;
-  if (type1 == unsigned_type_node)
-    return integer_type_node;
-  if (type1 == short_unsigned_type_node)
-    return short_integer_type_node;
-  if (type1 == long_unsigned_type_node)
-    return long_integer_type_node;
-  if (type1 == long_long_unsigned_type_node)
-    return long_long_integer_type_node;
-  if (type1 == widest_unsigned_literal_type_node)
-    return widest_integer_literal_type_node;
-#if HOST_BITS_PER_WIDE_INT >= 64
-  if (type1 == unsigned_intTI_type_node)
-    return intTI_type_node;
-#endif
-  if (type1 == unsigned_intDI_type_node)
-    return intDI_type_node;
-  if (type1 == unsigned_intSI_type_node)
-    return intSI_type_node;
-  if (type1 == unsigned_intHI_type_node)
-    return intHI_type_node;
-  if (type1 == unsigned_intQI_type_node)
-    return intQI_type_node;
-
   return c_common_signed_or_unsigned_type (0, type);
 }
 
@@ -2515,8 +2494,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 	      default:
 		break;
 	      }
-	  /* unsigned_type_for doesn't support C bit fields */
-	  type = c_common_signed_or_unsigned_type (1, type);
+	  type = c_common_unsigned_type (type);
 	}
 
       if (TREE_CODE (primop0) != INTEGER_CST)
@@ -2722,12 +2700,16 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
      Do this multiplication as signed, then convert to the appropriate
      pointer type (actually unsigned integral).  */
 
-  intop = convert (result_type,
-		   build_binary_op (MULT_EXPR, intop,
-				    convert (TREE_TYPE (intop), size_exp), 1));
+  intop = build_binary_op (MULT_EXPR, intop,
+			   convert (TREE_TYPE (intop), size_exp), 1);
+
+  if (resultcode == MINUS_EXPR)
+    intop = fold_build1 (NEGATE_EXPR, TREE_TYPE (intop), intop);
+
+  intop = convert (sizetype, intop);
 
   /* Create the sum or difference.  */
-  ret = fold_build2 (resultcode, result_type, ptrop, intop);
+  ret = fold_build2 (POINTER_PLUS_EXPR, result_type, ptrop, intop);
 
   fold_undefer_and_ignore_overflow_warnings ();
 
@@ -3686,7 +3668,7 @@ c_common_nodes_and_builtins (void)
   else
     {
       signed_wchar_type_node = c_common_signed_type (wchar_type_node);
-      unsigned_wchar_type_node = unsigned_type_for (wchar_type_node);
+      unsigned_wchar_type_node = c_common_unsigned_type (wchar_type_node);
     }
 
   /* This is for wide string constants.  */
@@ -3704,7 +3686,7 @@ c_common_nodes_and_builtins (void)
   default_function_type = build_function_type (integer_type_node, NULL_TREE);
   ptrdiff_type_node
     = TREE_TYPE (identifier_global_value (get_identifier (PTRDIFF_TYPE)));
-  unsigned_ptrdiff_type_node = unsigned_type_for (ptrdiff_type_node);
+  unsigned_ptrdiff_type_node = c_common_unsigned_type (ptrdiff_type_node);
 
   lang_hooks.decls.pushdecl
     (build_decl (TYPE_DECL, get_identifier ("__builtin_va_list"),
@@ -6919,8 +6901,8 @@ same_scalar_type_ignoring_signedness (tree t1, tree t2)
 
   /* Equality works here because c_common_signed_type uses
      TYPE_MAIN_VARIANT.  */
-  return lang_hooks.types.signed_type (t1)
-    == lang_hooks.types.signed_type (t2);
+  return c_common_signed_type (t1)
+    == c_common_signed_type (t2);
 }
 
 /* Check for missing format attributes on function pointers.  LTYPE is

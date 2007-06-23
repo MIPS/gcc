@@ -3828,15 +3828,26 @@ gfc_resolve_iterator_expr (gfc_expr *expr, bool real_ok,
       return FAILURE;
     }
 
-  if (!(expr->ts.type == BT_INTEGER
-	|| (expr->ts.type == BT_REAL && real_ok)))
+  if (expr->ts.type != BT_INTEGER)
     {
-      if (real_ok)
-	gfc_error ("%s at %L must be INTEGER or REAL", _(name_msgid),
-		   &expr->where);
+      if (expr->ts.type == BT_REAL)
+	{
+	  if (real_ok)
+	    return gfc_notify_std (GFC_STD_F95_DEL,
+				   "Deleted feature: %s at %L must be integer",
+				   _(name_msgid), &expr->where);
+	  else
+	    {
+	      gfc_error ("%s at %L must be INTEGER", _(name_msgid),
+			 &expr->where);
+	      return FAILURE;
+	    }
+	}
       else
-	gfc_error ("%s at %L must be INTEGER", _(name_msgid), &expr->where);
-      return FAILURE;
+	{
+	  gfc_error ("%s at %L must be INTEGER", _(name_msgid), &expr->where);
+	  return FAILURE;
+	}
     }
   return SUCCESS;
 }
@@ -3848,11 +3859,6 @@ gfc_resolve_iterator_expr (gfc_expr *expr, bool real_ok,
 try
 gfc_resolve_iterator (gfc_iterator *iter, bool real_ok)
 {
-
-  if (iter->var->ts.type == BT_REAL)
-    gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: REAL DO loop iterator at %L",
-		    &iter->var->where);
-
   if (gfc_resolve_iterator_expr (iter->var, real_ok, "Loop variable")
       == FAILURE)
     return FAILURE;
@@ -5027,7 +5033,7 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
 
   if (stack && stack->current->next->op == EXEC_NOP)
     {
-      gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: GOTO at %L jumps to "
+      gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: GOTO at %L jumps to "
 		      "END of construct at %L", &code->loc,
 		      &stack->current->next->loc);
       return;  /* We know this is not an END DO.  */
@@ -5041,7 +5047,7 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
 	 || stack->current->op == EXEC_DO_WHILE)
 	&& stack->tail->here == label && stack->tail->op == EXEC_NOP)
       {
-	gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: GOTO at %L jumps "
+	gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: GOTO at %L jumps "
 			"to END of construct at %L", &code->loc,
 			&stack->tail->loc);
 	return;
@@ -5721,17 +5727,20 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 		  break;
 		}
 
-	      if (code->expr2->ts.type == BT_DERIVED
-		  && derived_pointer (code->expr2->ts.derived))
+	      if (code->expr->ts.type == BT_DERIVED
+		    && code->expr->expr_type == EXPR_VARIABLE
+		    && derived_pointer (code->expr->ts.derived)
+		    && gfc_impure_variable (code->expr2->symtree->n.sym))
 		{
-		  gfc_error ("Right side of assignment at %L is a derived "
-			     "type containing a POINTER in a PURE procedure",
+		  gfc_error ("The impure variable at %L is assigned to "
+			     "a derived type variable with a POINTER "
+			     "component in a PURE procedure (12.6)",
 			     &code->expr2->where);
 		  break;
 		}
 	    }
 
-	  gfc_check_assign (code->expr, code->expr2, 1);
+	    gfc_check_assign (code->expr, code->expr2, 1);
 	  break;
 
 	case EXEC_LABEL_ASSIGN:
@@ -7564,21 +7573,36 @@ resolve_data (gfc_data * d)
 }
 
 
+/* 12.6 Constraint: In a pure subprogram any variable which is in common or
+   accessed by host or use association, is a dummy argument to a pure function,
+   is a dummy argument with INTENT (IN) to a pure subroutine, or an object that
+   is storage associated with any such variable, shall not be used in the
+   following contexts: (clients of this function).  */
+
 /* Determines if a variable is not 'pure', ie not assignable within a pure
    procedure.  Returns zero if assignment is OK, nonzero if there is a
    problem.  */
-
 int
 gfc_impure_variable (gfc_symbol *sym)
 {
+  gfc_symbol *proc;
+
   if (sym->attr.use_assoc || sym->attr.in_common)
     return 1;
 
   if (sym->ns != gfc_current_ns)
     return !sym->attr.function;
 
-  /* TODO: Check storage association through EQUIVALENCE statements */
+  proc = sym->ns->proc_name;
+  if (sym->attr.dummy && gfc_pure (proc)
+	&& ((proc->attr.subroutine && sym->attr.intent == INTENT_IN)
+		||
+	     proc->attr.function))
+    return 1;
 
+  /* TODO: Sort out what can be storage associated, if anything, and include
+     it here.  In principle equivalences should be scanned but it does not
+     seem to be possible to storage associate an impure variable this way.  */
   return 0;
 }
 
@@ -7756,14 +7780,6 @@ resolve_equivalence_derived (gfc_symbol *derived, gfc_symbol *sym, gfc_expr *e)
 		     sym->name, &e->where);
 	  return FAILURE;
 	}
-
-      if (c->initializer)
-	{
-	  gfc_error ("Derived type variable '%s' at %L with default "
-		     "initializer cannot be an EQUIVALENCE object",
-		     sym->name, &e->where);
-	  return FAILURE;
-	}
     }
   return SUCCESS;
 }
@@ -7884,21 +7900,6 @@ resolve_equivalence (gfc_equiv *eq)
 			 "PROTECTED attribute",
 			 &e->where);
 	      break;
-	}
-
-      /* An equivalence statement cannot have more than one initialized
-	 object.  */
-      if (sym->value)
-	{
-	  if (value_name != NULL)
-	    {
-	      gfc_error ("Initialized objects '%s' and '%s' cannot both "
-			 "be in the EQUIVALENCE statement at %L",
-			 value_name, sym->name, &e->where);
-	      continue;
-	    }
-	  else
-	    value_name = sym->name;
 	}
 
       /* Shall not equivalence common block variables in a PURE procedure.  */

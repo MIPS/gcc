@@ -157,8 +157,6 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_TYPE_FOR_MODE	gnat_type_for_mode
 #undef  LANG_HOOKS_TYPE_FOR_SIZE
 #define LANG_HOOKS_TYPE_FOR_SIZE	gnat_type_for_size
-#undef  LANG_HOOKS_SIGNED_TYPE
-#define LANG_HOOKS_SIGNED_TYPE		gnat_signed_type
 #undef  LANG_HOOKS_ATTRIBUTE_TABLE
 #define LANG_HOOKS_ATTRIBUTE_TABLE	gnat_internal_attribute_table
 #undef  LANG_HOOKS_BUILTIN_FUNCTION
@@ -377,11 +375,6 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
     flag_eliminate_unused_debug_types = 1;
   else
     flag_eliminate_unused_debug_types = 0;
-
-  /* The structural alias analysis machinery essentially assumes that
-     everything is addressable (modulo bit-fields) by disregarding
-     the TYPE_NONALIASED_COMPONENT and DECL_NONADDRESSABLE_P macros.  */
-  flag_tree_salias = 0;
 
   return false;
 }
