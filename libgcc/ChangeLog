@@ -1,3 +1,7 @@
+2007-06-22  Chao-ying Fu  <fu@mips.com>
+
+	* Makefile.in: Remove spaces.
+
 2007-06-19  Chao-ying Fu  <fu@mips.com>
 
 	* fixed-obj.mk: Fix a typo.

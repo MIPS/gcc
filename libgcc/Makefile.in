@@ -530,7 +530,7 @@ endif
 ifeq ($(fixed_point),yes)
 
 fixed-sfract-modes =	QQ HQ SQ DQ \
-			HA SA DA TA 
+			HA SA DA TA
 
 fixed-ufract-modes =	UQQ UHQ USQ UDQ \
 			UHA USA UDA UTA
@@ -548,14 +548,14 @@ fixed-sfunc-names =	_ssadd _sssub _ssneg \
 
 fixed-ufunc-names =	_usadd _ussub _usneg \
 			_usmul _usdiv _udiv \
-			_usashl _lshr 
+			_usashl _lshr
 
 fixed-signed-modes =	QI HI SI DI TI SF DF
 
 fixed-unsigned-modes =	UQI UHI USI UDI UTI
 
 # Add fixed point arithmetic function and mode to list
-# Arguments: BASE-NAME MODE 
+# Arguments: BASE-NAME MODE
 define fixed-arith
   fixed-labels := $(fixed-labels) $(1)
   fixed-modes := $(fixed-modes) $(2)
@@ -611,7 +611,7 @@ $(foreach from,$(fixed-fract-modes) $(fixed-signed-modes),\
   $(foreach to,$(fixed-fract-modes) $(fixed-signed-modes),\
     $(eval $(call fixed-convert,_fract,$(from),$(to)))))
 
-# Convert from fractional and signed non-fractionals 
+# Convert from fractional and signed non-fractionals
 # to fractionals, with saturation
 $(foreach from,$(fixed-fract-modes) $(fixed-signed-modes),\
   $(foreach to,$(fixed-fract-modes),\
