@@ -4,7 +4,7 @@
 
 int a, b;
 
-void foo()
+int foo()
 {
     return a + b;
 }
