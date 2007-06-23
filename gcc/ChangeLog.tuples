@@ -1,3 +1,8 @@
+2007-06-22  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimplify.c (gimplify_modify_expr): Return after a successful
+	call to gimplify_modify_expr_rhs.
+
 2007-06-21  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimple-ir.h (gs_assign_binary_rhs1): Add assertion for
