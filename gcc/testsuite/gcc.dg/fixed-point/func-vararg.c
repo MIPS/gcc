@@ -8,7 +8,7 @@
 #include <stdarg.h>
 
 extern void abort (void);
-                                                                                
+
 #define FUNC(TYPE, NAME) \
 static TYPE \
 vararg_ ## NAME (unsigned arg, ...) \

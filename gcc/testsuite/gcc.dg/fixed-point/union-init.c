@@ -30,7 +30,7 @@ int main ()
   long _Fract lf;
   _Fract f;
   double d;
-  
+
   if (u1.lf != 0.1lr)
     abort ();
 
@@ -45,7 +45,7 @@ int main ()
   u4 = (union u) lf;
   if (u4.lf != 0.4lr)
     abort ();
-  
+
   u4 = (union u) d;
   if (u4.d != 3.25)
     abort ();
@@ -53,7 +53,7 @@ int main ()
   n1 = (union n) f;
   if (n1.f != 0.5r)
     abort ();
-  
+
   n1 = (union n)d;
   if (n1.d != 3.25)
     abort ();

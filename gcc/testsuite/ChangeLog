@@ -1,3 +1,13 @@
+2007-06-22  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.dg/fixed-point/struct-union.c: Remove spaces.
+	* gcc.dg/fixed-point/func-vararg-mixed.c: Likewise.
+	* gcc.dg/fixed-point/union-init.c: Likewise.
+	* gcc.dg/fixed-point/fixed-point.exp: Likewise.
+	* gcc.dg/fixed-point/func-vararg.c: Likewise.
+	* gcc.dg/fixed-point/loop-index.c: Likewise.
+	* gcc.dg/fixed-point/composite-type.c: Likewise.
+
 2007-06-21  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/32453

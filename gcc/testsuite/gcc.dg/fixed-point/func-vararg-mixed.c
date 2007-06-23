@@ -44,7 +44,7 @@ vararg_double (unsigned arg, ...)
   result_d = va_arg (ap, double); \
   return result_d;
 }
-                                                                                
+
 #define FUNC(TYPE, NAME) \
 static TYPE \
 vararg_ ## NAME (unsigned arg, ...) \

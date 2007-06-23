@@ -86,6 +86,6 @@ main ()
   Sua ();
   Sula ();
   Sulla ();
-  
+
   return 0;
 }

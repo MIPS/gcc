@@ -31,7 +31,7 @@ do \
  NAME = f2_##NAME(h2_##NAME); \
  NAME = f2_##NAME(h3_##NAME); \
 } while(0)
- 
+
 FIXED_POINT_COMPOSITE_DECL(short _Fract, sf);  /* { dg-error "incompatible types in assignment" } */
 FIXED_POINT_COMPOSITE_DECL(_Fract, f);  /* { dg-error "incompatible types in assignment" } */
 FIXED_POINT_COMPOSITE_DECL(long _Fract, lf);  /* { dg-error "incompatible types in assignment" } */
