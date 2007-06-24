@@ -46,15 +46,16 @@
 #endif
 
 
-/* Define to 1 to enable decimal float extension to C. */
+/* Define to 1 to specify that we are using the BID decimal floating point
+   format instead of DPD */
 #ifndef USED_FOR_TARGET
-#undef ENABLE_DECIMAL_FLOAT
+#undef ENABLE_DECIMAL_BID_FORMAT
 #endif
 
 
-/* Define to 1 to say we are using the BID decimal format */
+/* Define to 1 to enable decimal float extension to C. */
 #ifndef USED_FOR_TARGET
-#undef ENABLE_DECIMAL_BID_FORMAT
+#undef ENABLE_DECIMAL_FLOAT
 #endif
 
 
@@ -979,6 +980,18 @@
 /* Define if your linker supports --sysroot. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_SYSROOT
+#endif
+
+
+/* Define to 1 if you have the <libelf.h> header file. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LIBELF_H
+#endif
+
+
+/* Define to 1 if you have the <libelf/libelf.h> header file. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LIBELF_LIBELF_H
 #endif
 
 

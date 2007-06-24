@@ -1,3 +1,16 @@
+2007-06-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* lto.c (lto_read_variable_formal_parameter_constant_DIE):
+	Handle DW_AT_MIPS_linkage_name.
+	(lto_read_subroutine_type_subprogram): Likewise.  Correct
+	compilation errors.
+	(lto_main): Remove incorrect assertions.
+	* lto-symbtab.c: Build function types out of TREE_LISTs.
+
+	* lto-elf.c (<libelf>): Check for HAVE_LIBELF_H.
+	
+	* Make-lang.in (LTO_OBJS): Depend on attribs.o.
+	
 2007-03-14 Robert Kennedy  <jimbob@google.com>
 
 	Eliminate use of lang_hooks.set_decl_assembler_name from LTO

@@ -426,7 +426,7 @@ struct lto_function_header
 
 #define LTO_local_var_decl_body0        0x0B0
 #define LTO_parm_decl_body0             0x0C0
-#define LTO_last_tag                    0x0CF
+#define LTO_last_tag                    0x0D0
 /* The string that is prepended on the DECL_ASSEMBLER_NAME to make the 
    section name for the function.  */
 #define LTO_SECTION_NAME_PREFIX         ".gnu.lto_"

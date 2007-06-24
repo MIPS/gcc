@@ -1914,6 +1914,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 						 lto_context *context)
 {
   tree name;
+  tree asm_name;
   tree type;
   bool external;
   bool declaration;
@@ -1925,6 +1926,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 	      || abbrev->tag == DW_TAG_constant);
 
   name = NULL_TREE;
+  asm_name = NULL_TREE;
   type = NULL_TREE;
   external = false;
   declaration = false;
@@ -1945,6 +1947,11 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 
     case DW_AT_name:
       name = lto_get_identifier (&attr_data);
+      /* Assume that the assembler name is the same as the source name
+	 -- unless a DW_AT_MIPS_linkage_name attribute is
+	 available.  */
+      if (!asm_name)
+	asm_name = name;
       break;
 
     case DW_AT_external:
@@ -1966,6 +1973,12 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
     case DW_AT_is_optional:
     case DW_AT_const_value:
       lto_unsupported_attr_error (abbrev, attr);
+      break;
+
+    case DW_AT_MIPS_linkage_name:
+      /* Set the DECL_ASSEMBLER_NAME so we don't have to remangle
+	 names in LTO.  */
+      asm_name = lto_get_identifier (&attr_data);
       break;
     }
   LTO_END_READ_ATTRS ();
@@ -1995,6 +2008,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
   if (code == PARM_DECL)
     return decl;
 
+  SET_DECL_ASSEMBLER_NAME (decl, asm_name);
   TREE_PUBLIC (decl) = external;
   DECL_EXTERNAL (decl) = declaration;
   if (!context->scope || TREE_CODE (context->scope) != FUNCTION_DECL)
@@ -2234,6 +2248,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 {
   tree ret_type;
   tree arg_types;
+  tree *last_arg;
   tree type;
   tree name;
   tree asm_name = NULL_TREE;
@@ -2241,7 +2256,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
   VEC(tree,heap) *parms;
   unsigned n_parms;
   unsigned n_children;
-  unsigned i, j;
+  unsigned i;
   bool prototyped;
   bool varargs_p;
   tree result;
@@ -2290,6 +2305,11 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 
 	case DW_AT_name:
 	  name = lto_get_identifier (&attr_data);
+	  /* Assume that the assembler name is the same as the source
+	     name -- unless a DW_AT_MIPS_linkage_name attribute is
+	     available.  */
+	  if (!asm_name)
+	    asm_name = name;
 	  break;
 
 	case DW_AT_external:
@@ -2347,18 +2367,20 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
       else if (TREE_CODE (parm) == PARM_DECL)
 	n_parms++;
     }
-  arg_types = make_tree_vec (n_parms + (varargs_p ? 0 : 1));
-  for (i = 0, j = 0; i < n_children; ++i)
+  arg_types = NULL_TREE;
+  last_arg = &arg_types;
+  for (i = 0; i < n_children; ++i)
     {
       tree parm = VEC_index (tree, parms, i);
       if (TREE_CODE (parm) == PARM_DECL)
 	{
-	  TREE_VEC_ELT (arg_types, j) = TREE_TYPE (parm);
-	  j++;
+	  *last_arg = build_tree_list (NULL_TREE,
+				       TREE_TYPE (parm));
+	  last_arg = &TREE_CHAIN (*last_arg);
 	}
     }
   if (!varargs_p)
-    TREE_VEC_ELT (arg_types, j) = void_type_node;
+    *last_arg = void_list_node;
   VEC_free (tree, heap, parms);
 
   /* Build the function type.  */
@@ -3242,8 +3264,10 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       file = lto_elf_file_open (in_fnames[i]);
       if (!file)
 	break;
+#if 0
       gcc_assert (file->debug_info.base.start);
       gcc_assert (file->debug_abbrev.base.start);
+#endif
       if (!lto_file_read (file))
 	break;
       lto_elf_file_close (file);

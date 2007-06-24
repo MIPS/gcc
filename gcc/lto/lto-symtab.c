@@ -131,15 +131,15 @@ lto_same_type_p (tree type_1, tree type_2)
 	    return true;
 	  else
 	    {
-	      int i;
-	      int n = num_parm_types (parms_1);
-	      if (num_parm_types (parms_2) != n)
-		return false;
-	      for (i = 0; i < n; i++)
-		if (!lto_same_type_p (nth_parm_type (parms_1, i),
-				      nth_parm_type (parms_2, i)))
-		  return false;
-	      return true;
+	      while (parms_1 && parms_2)
+		{
+		  if (!lto_same_type_p (TREE_VALUE (parms_1),
+					TREE_VALUE (parms_2)))
+		    return false;
+		  parms_1 = TREE_CHAIN (parms_1);
+		  parms_2 = TREE_CHAIN (parms_2);
+		}
+	      return !parms_1 && !parms_2;
 	    }
 	}
 

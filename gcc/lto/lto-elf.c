@@ -24,7 +24,15 @@ Boston, MA 02110-1301, USA.  */
 #include "coretypes.h"
 #include "toplev.h"
 #include "lto.h"
-#include "libelf/libelf.h"
+#ifdef HAVE_LIBELF_H
+# include <libelf.h>
+#else
+# if defined(HAVE_LIBELF_LIBELF_H)
+#   include <libelf/libelf.h>
+# else
+#  error "libelf.h not available"
+# endif
+#endif
 #include "lto-tags.h"
 
 /* An ELF input file.  */

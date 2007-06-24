@@ -1,3 +1,11 @@
+2007-06-23  Mark Mitchell  <mark@codesourcery.com>
+	
+	* configure.ac: Use AC_CHECK_HEADERS to find libelf.h.
+	* config.in: Regenerated.
+	* configure: Likewise.
+
+	* lto-tags.h (LTO_last_tag): Update.
+
 2007-06-21  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-tree-flags.def (FIX_CEIL_EXPR, FIX_FLOOR_EXPR,

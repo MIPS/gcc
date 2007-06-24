@@ -27,7 +27,7 @@
 LTO_EXE = lto1$(exeext)
 # The LTO-specific object files inclued in $(LTO_EXE).
 LTO_OBJS = lto/lto-lang.o lto/lto.o lto/lto-elf.o lto/lto-read.o \
-	lto/lto-symtab.o
+	lto/lto-symtab.o attribs.o
 LTO_H = lto/lto.h $(HASHTAB_H) $(TREE_H)
 
 ########################################################################
