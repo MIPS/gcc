@@ -3,12 +3,17 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-06-24  Andreas Schwab  <schwab@suse.de>
+
+	* trans-types.c (gfc_check_any_c_kind): Don't read beyond array
+	bounds.
+	(init_c_interop_kinds): Don't write beyond array bounds.
+
 2007-06-23  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	* proc_stmt_main.c: Delete empty file.
 	* c_ptr_tests.f90: Ditto.
 	* test_proc_stmt.f90: Ditto.
-
 
 2007-06-18  Christopher D. Rickett  <crickett@lanl.gov>
 

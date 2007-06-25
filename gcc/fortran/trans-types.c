@@ -128,7 +128,7 @@ gfc_check_any_c_kind (gfc_typespec *ts)
 {
   int i;
   
-  for (i = ISOCBINDING_INVALID; i < ISOCBINDING_NUMBER; i++)
+  for (i = 0; i < ISOCBINDING_NUMBER; i++)
     {
       /* Check for any C interoperable kind for the given type/kind in ts.
          This can be used after verify_c_interop to make sure that the
@@ -208,7 +208,7 @@ void init_c_interop_kinds (void)
 			   long_long_integer_type_node);
 
   /* init all pointers in the list to NULL */
-  for (i = ISOCBINDING_INVALID; i < ISOCBINDING_NUMBER; i++)
+  for (i = 0; i < ISOCBINDING_NUMBER; i++)
     {
       /* Initialize the name and value fields.  */
       c_interop_kinds_table[i].name[0] = '\0';
