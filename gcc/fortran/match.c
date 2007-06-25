@@ -1578,7 +1578,8 @@ gfc_match_pause (void)
   m = gfc_match_stopcode (ST_PAUSE);
   if (m == MATCH_YES)
     {
-      if (gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: PAUSE statement at %C")
+      if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: PAUSE statement"
+	  " at %C")
 	  == FAILURE)
 	m = MATCH_ERROR;
     }
@@ -1625,7 +1626,7 @@ gfc_match_assign (void)
 	return MATCH_ERROR;
       if (gfc_match (" to %v%t", &expr) == MATCH_YES)
 	{
-	  if (gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: ASSIGN "
+	  if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: ASSIGN "
 			      "statement at %C")
 	      == FAILURE)
 	    return MATCH_ERROR;
@@ -1671,7 +1672,7 @@ gfc_match_goto (void)
 
   if (gfc_match_variable (&expr, 0) == MATCH_YES)
     {
-      if (gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: Assigned GOTO "
+      if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: Assigned GOTO "
 			  "statement at %C")
 	  == FAILURE)
 	return MATCH_ERROR;
@@ -2169,12 +2170,19 @@ gfc_match_call (void)
     return MATCH_ERROR;
 
   sym = st->n.sym;
-  gfc_set_sym_referenced (sym);
 
-  if (!sym->attr.generic
-      && !sym->attr.subroutine
-      && gfc_add_subroutine (&sym->attr, sym->name, NULL) == FAILURE)
+  if (sym->ns != gfc_current_ns
+	&& !sym->attr.generic
+	&& !sym->attr.subroutine
+        && gfc_get_sym_tree (name, NULL, &st) == 1)
     return MATCH_ERROR;
+
+  sym = st->n.sym;
+
+  if (gfc_add_subroutine (&sym->attr, sym->name, NULL) == FAILURE)
+    return MATCH_ERROR;
+
+  gfc_set_sym_referenced (sym);
 
   if (gfc_match_eos () != MATCH_YES)
     {

@@ -1436,14 +1436,11 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
     goto fail;
   if (src->cray_pointee && gfc_add_cray_pointee (dest, where) == FAILURE)
     goto fail;    
-  
-  /* The subroutines that set these bits also cause flavors to be set,
-     and that has already happened in the original, so don't let it
-     happen again.  */
-  if (src->external)
-    dest->external = 1;
-  if (src->intrinsic)
-    dest->intrinsic = 1;
+
+  if (src->external && gfc_add_external (dest, where) == FAILURE)
+    goto fail;
+  if (src->intrinsic && gfc_add_intrinsic (dest, where) == FAILURE)
+    goto fail;
 
   return SUCCESS;
 
@@ -1618,7 +1615,8 @@ gfc_find_component (gfc_symbol *sym, const char *name)
 	       name, sym->name);
   else
     {
-      if (sym->attr.use_assoc && sym->component_access == ACCESS_PRIVATE)
+      if (sym->attr.use_assoc && (sym->component_access == ACCESS_PRIVATE
+				  || p->access == ACCESS_PRIVATE))
 	{
 	  gfc_error ("Component '%s' at %C is a PRIVATE component of '%s'",
 		     name, sym->name);
@@ -1659,6 +1657,7 @@ gfc_set_component_attr (gfc_component *c, symbol_attribute *attr)
   c->dimension = attr->dimension;
   c->pointer = attr->pointer;
   c->allocatable = attr->allocatable;
+  c->access = attr->access;
 }
 
 
@@ -1673,6 +1672,7 @@ gfc_get_component_attr (symbol_attribute *attr, gfc_component *c)
   attr->dimension = c->dimension;
   attr->pointer = c->pointer;
   attr->allocatable = c->allocatable;
+  attr->access = c->access;
 }
 
 

@@ -3224,11 +3224,16 @@ check_host_association (gfc_expr *e)
   locus temp_locus;
   gfc_expr *expr;
   int n;
+  bool retval = e->expr_type == EXPR_FUNCTION;
 
   if (e->symtree == NULL || e->symtree->n.sym == NULL)
-    return e->expr_type == EXPR_FUNCTION;
+    return retval;
 
   old_sym = e->symtree->n.sym;
+
+  if (old_sym->attr.use_assoc)
+    return retval;
+
   if (gfc_current_ns->parent
 	&& gfc_current_ns->parent->parent
 	&& old_sym->ns != gfc_current_ns)
@@ -3244,7 +3249,7 @@ check_host_association (gfc_expr *e)
 	  gfc_free_ref_list (e->ref);
 	  e->ref = NULL;
 
-	  if (e->expr_type == EXPR_FUNCTION)
+	  if (retval)
 	    {
 	      gfc_free_actual_arglist (e->value.function.actual);
 	      e->value.function.actual = NULL;
@@ -3271,7 +3276,7 @@ check_host_association (gfc_expr *e)
 	  gfc_current_locus = temp_locus;
 	}
     }
-
+  /* This might have changed!  */
   return e->expr_type == EXPR_FUNCTION;
 }
 
@@ -3373,15 +3378,26 @@ gfc_resolve_iterator_expr (gfc_expr *expr, bool real_ok,
       return FAILURE;
     }
 
-  if (!(expr->ts.type == BT_INTEGER
-	|| (expr->ts.type == BT_REAL && real_ok)))
+  if (expr->ts.type != BT_INTEGER)
     {
-      if (real_ok)
-	gfc_error ("%s at %L must be INTEGER or REAL", _(name_msgid),
-		   &expr->where);
+      if (expr->ts.type == BT_REAL)
+	{
+	  if (real_ok)
+	    return gfc_notify_std (GFC_STD_F95_DEL,
+				   "Deleted feature: %s at %L must be integer",
+				   _(name_msgid), &expr->where);
+	  else
+	    {
+	      gfc_error ("%s at %L must be INTEGER", _(name_msgid),
+			 &expr->where);
+	      return FAILURE;
+	    }
+	}
       else
-	gfc_error ("%s at %L must be INTEGER", _(name_msgid), &expr->where);
-      return FAILURE;
+	{
+	  gfc_error ("%s at %L must be INTEGER", _(name_msgid), &expr->where);
+	  return FAILURE;
+	}
     }
   return SUCCESS;
 }
@@ -3393,11 +3409,6 @@ gfc_resolve_iterator_expr (gfc_expr *expr, bool real_ok,
 try
 gfc_resolve_iterator (gfc_iterator *iter, bool real_ok)
 {
-
-  if (iter->var->ts.type == BT_REAL)
-    gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: REAL DO loop iterator at %L",
-		    &iter->var->where);
-
   if (gfc_resolve_iterator_expr (iter->var, real_ok, "Loop variable")
       == FAILURE)
     return FAILURE;
@@ -4572,7 +4583,7 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
 
   if (stack && stack->current->next->op == EXEC_NOP)
     {
-      gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: GOTO at %L jumps to "
+      gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: GOTO at %L jumps to "
 		      "END of construct at %L", &code->loc,
 		      &stack->current->next->loc);
       return;  /* We know this is not an END DO.  */
@@ -4586,7 +4597,7 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
 	 || stack->current->op == EXEC_DO_WHILE)
 	&& stack->tail->here == label && stack->tail->op == EXEC_NOP)
       {
-	gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: GOTO at %L jumps "
+	gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: GOTO at %L jumps "
 			"to END of construct at %L", &code->loc,
 			&stack->tail->loc);
 	return;

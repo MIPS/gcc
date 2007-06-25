@@ -117,6 +117,17 @@ static enum gimplify_status gimplify_compound_expr (tree *, tree *, bool);
 static bool cpt_same_type (tree a, tree b);
 #endif
 
+/* Mark X addressable.  Unlike the langhook we expect X to be in gimple
+   form and we don't do any syntax checking.  */
+static void
+mark_addressable (tree x)
+{
+  while (handled_component_p (x))
+    x = TREE_OPERAND (x, 0);
+  if (TREE_CODE (x) != VAR_DECL && TREE_CODE (x) != PARM_DECL)
+    return ;
+  TREE_ADDRESSABLE (x) = 1;
+}
 
 /* Return a hash value for a formal temporary table entry.  */
 
@@ -2047,7 +2058,7 @@ gimplify_arg (tree *expr_p, tree *pre_p)
 static enum gimplify_status
 gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
 {
-  tree decl;
+  tree decl, parms, p;
   enum gimplify_status ret;
   int i, nargs;
 
@@ -2113,6 +2124,48 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
 
   nargs = call_expr_nargs (*expr_p);
 
+  /* Get argument types for verification.  */
+  decl = get_callee_fndecl (*expr_p);
+  parms = NULL_TREE;
+  if (decl)
+    parms = TYPE_ARG_TYPES (TREE_TYPE (decl));
+  else if (POINTER_TYPE_P (TREE_TYPE (CALL_EXPR_FN (*expr_p))))
+    parms = TYPE_ARG_TYPES (TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (*expr_p))));
+
+  /* Verify if the type of the argument matches that of the function
+     declaration.  If we cannot verify this or there is a mismatch,
+     mark the call expression so it doesn't get inlined later.  */
+  if (parms)
+    {
+      for (i = 0, p = parms; i < nargs; i++, p = TREE_CHAIN (p))
+	if (!p
+	    || TREE_VALUE (p) == error_mark_node
+	    || CALL_EXPR_ARG (*expr_p, i) == error_mark_node
+	    || !lang_hooks.types_compatible_p
+		 (TREE_TYPE (CALL_EXPR_ARG (*expr_p, i)), TREE_VALUE (p)))
+	  {
+	    CALL_CANNOT_INLINE_P (*expr_p) = 1;
+	    break;
+	  }
+    }
+  else if (decl && DECL_ARGUMENTS (decl))
+    {
+      for (i = 0, p = DECL_ARGUMENTS (decl); i < nargs;
+	   i++, p = TREE_CHAIN (p))
+	if (!p
+	    || p == error_mark_node
+	    || CALL_EXPR_ARG (*expr_p, i) == error_mark_node
+	    || !lang_hooks.types_compatible_p
+		 (TREE_TYPE (CALL_EXPR_ARG (*expr_p, i)), TREE_TYPE (p)))
+	  {
+	    CALL_CANNOT_INLINE_P (*expr_p) = 1;
+	    break;
+	  }
+    }
+  else if (nargs != 0)
+    CALL_CANNOT_INLINE_P (*expr_p) = 1;
+
+  /* Finally, gimplify the function arguments.  */
   for (i = (PUSH_ARGS_REVERSED ? nargs - 1 : 0);
        PUSH_ARGS_REVERSED ? i >= 0 : i < nargs;
        PUSH_ARGS_REVERSED ? i-- : i++)
@@ -3434,7 +3487,7 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
 	    if (use_target)
 	      {
 		CALL_EXPR_RETURN_SLOT_OPT (*from_p) = 1;
-		lang_hooks.mark_addressable (*to_p);
+		mark_addressable (*to_p);
 	      }
 	  }
 
@@ -3957,6 +4010,8 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	 the address of a call that returns a struct; see
 	 gcc.dg/c99-array-lval-1.c.  The gimplifier will correctly make
 	 the implied temporary explicit.  */
+
+      /* Mark the RHS addressable.  */
       ret = gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, post_p,
 			   is_gimple_addressable, fb_either);
       if (ret != GS_ERROR)
@@ -3972,8 +4027,7 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	     is set properly.  */
 	  recompute_tree_invariant_for_addr_expr (expr);
 
-	  /* Mark the RHS addressable.  */
-	  lang_hooks.mark_addressable (TREE_OPERAND (expr, 0));
+	  mark_addressable (TREE_OPERAND (expr, 0));
 	}
       break;
     }
@@ -4011,7 +4065,7 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
 			       &allows_mem, &allows_reg, &is_inout);
 
       if (!allows_reg && allows_mem)
-	lang_hooks.mark_addressable (TREE_VALUE (link));
+	mark_addressable (TREE_VALUE (link));
 
       tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 			    is_inout ? is_gimple_min_lval : is_gimple_lvalue,
@@ -4140,7 +4194,7 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	{
 	  tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 				is_gimple_lvalue, fb_lvalue | fb_mayfail);
-	  lang_hooks.mark_addressable (TREE_VALUE (link));
+	  mark_addressable (TREE_VALUE (link));
 	  if (tret == GS_ERROR)
 	    {
 	      error ("memory input %d is not directly addressable", i);
@@ -5563,7 +5617,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  if (fallback == fb_lvalue)
 	    {
 	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
-	      lang_hooks.mark_addressable (*expr_p);
+	      mark_addressable (*expr_p);
 	    }
 	  break;
 
@@ -5576,7 +5630,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  if (fallback == fb_lvalue)
 	    {
 	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
-	      lang_hooks.mark_addressable (*expr_p);
+	      mark_addressable (*expr_p);
 	    }
 	  break;
 
@@ -5765,7 +5819,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  else if (fallback == fb_lvalue)
 	    {
 	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
-	      lang_hooks.mark_addressable (*expr_p);
+	      mark_addressable (*expr_p);
 	    }
 	  else
 	    ret = GS_ALL_DONE;

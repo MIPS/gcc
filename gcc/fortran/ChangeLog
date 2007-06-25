@@ -1,3 +1,57 @@
+2007-06-25  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32464
+	* resolve.c (check_host_association): Return if the old symbol
+	is use associated.  Introduce retval to reduce the number of
+	evaluations of the first-order return value.
+
+	PR fortran/31494
+	* match.c (gfc_match_call): If a host associated symbol is not
+	a subroutine, build a new symtree/symbol in the current name
+	space.
+
+2007-06-24  Tobias Burnus  <burnus@net-de>
+
+	PR fortran/32460
+	* interface.c (gfc_compare_derived_types): Add access check.
+	* symbol.c (gfc_find_component): Ditto.
+	(gfc_set_component_attr,gfc_get_component_attr) Copy access state.
+	* dump-parse-tree.c (gfc_show_components): Dump access state.
+	* gfortran.h (struct gfc_component): Add gfc_access.
+	* module.c (mio_component): Add access state.
+	* (gfc_match_structure_constructor): Check for private access state.
+
+2007-06-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32298
+	PR fortran/31726
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmaxloc): Calculate
+	the offset between the loop counter and the position as
+	defined. Add the offset within the loop so that the mask acts
+	correctly.  Do not advance the location on the basis that it
+	is zero.
+
+2007-06-22  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/31473
+	* symbol.c (gfc_copy_attr): Emit errors for duplicate 
+	EXTERNAL/INTRINSIC statements.
+
+2007-06-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/32360
+	* expr.c (gfc_check_assign): If the rvalue expression type is NULL_EXPR,
+	check to see if the lvalue has attribute pointer and data.  
+
+2007-06-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/31162
+	* resolve.c (gfc_resolve_iterator_expr): Add check for REAL using
+	gfc_notify_standard. (gfc_resolve_iterator): Remove check.
+	(resolve_branch): Change "Obsolete" to "Deleted feature".
+	* io.c (resolve_tag): Ditto.
+	* match.c (gfc_match_pause, gfc_match_assign, gfc_match_goto): Ditto.
+
 2007-06-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/32361

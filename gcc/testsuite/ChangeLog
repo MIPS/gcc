@@ -1,3 +1,83 @@
+2007-06-25  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32464
+	* gfortran.dg/host_assoc_function_2.f90: New test.
+
+	PR fortran/31494
+	* gfortran.dg/host_assoc_call_1.f90: New test.
+
+2007-06-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/secnds-1.f: Revise test to reduce random errors.
+	
+2007-06-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/32456
+	* gfortran.dg/error_format.f90: New test.
+
+2007-06-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32136
+	* gfortran.dg/pr32136.f90: New test.
+
+2007-06-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31726
+	* gfortran.dg/minmaxloc_1.f90: New test.
+
+	PR fortran/32298
+	* gfortran.dg/minmaxloc_2.f90: New test.
+
+2007-06-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/visibility-12.c: New test.
+	* gcc.dg/visibility-13.c: Likewise.
+	* g++.dg/ext/visibility-9.C: Likewise.
+	* g++.dg/ext/visibility-10.C: Likewise.
+
+2007-06-23  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/16876
+	PR middle-end/29478
+	* gcc.dg/pr29254.c: The warning is bogus.
+	* gcc.dg/warn-1.c: Likewise.
+	* gcc.dg/assign-warn-3.c: Likewise.
+	* gcc.dg/noncompile/pr16876.c: The testcase is bogus, remove.
+
+2007-06-23  Richard Earnshaw  <rearnsha@arm.com>
+
+	* gcc.c-torture/execute/20070623-1.c: New.
+
+2007-06-22  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/compile/pr31541.c: New.
+
+2007-06-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/large-size-array-3.c: Fix dg-do compile directive.
+	Remove -m64 from dg-options.
+
+2007-06-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/32374
+	* gcc.dg/pr32374.c: New test.
+
+2007-06-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/32360
+	* gfortran.dg/pointer_assign_3.f90: New test.
+
+2007-06-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/31162
+	* gfortran.dg/assign.f90: Update test.
+	* gfortran.dg/real_do_1.f90: Update test.
+	* gfortran.dg/gomp/omp_do1.f90: Update test.
+	* gfortran.dg/warnings_are_errors_1.f: Update test.
+	* gfortran.dg/g77/20010519-1.f: Update test.
+	* gfortran.dg/g77/pr9258.f: Update test.
+	* gfortran.dg/g77/960317-1.f: Update test.
+
 2007-06-22  Chao-ying Fu  <fu@mips.com>
 
 	* gcc.dg/fixed-point/struct-union.c: Remove spaces.
