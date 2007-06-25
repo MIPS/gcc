@@ -1,3 +1,54 @@
+2007-06-25  Chris Matthews  <chrismatthews@google.com>
+
+	* gimplify.c (gimple_current_bind_expr): Changed to work with gs_seq
+	accessors 
+	(gimplify_and_add): Same.
+	(annotate_all_with_locus): Same.
+	(gimplify_self_mod_expr): Same.
+	(gimplify_cleanup_point_expr): Same.
+	(gimplify_expr): Same.
+	(gimplify_body): Same.
+	(force_gimple_operand): Same.
+	(gimplify_init_ctor_eval_range): Added GS_ prefix.
+	* gimple-iterator.h (gsi_last): Changed to gs_seq accessors.  Changed
+	gimple_stmt_iterator to use a gimple instead of gimple *.
+	(gsi_one_before_end_p): Same.
+	(gsi_start): Same.
+	* gimple-ir.h (gs_cond): Prepended GS_ to names.
+	(gs_seq_first): Replaced macro.
+	(gs_seq_last): Same.
+	(gs_seq_set_first): Same.
+	(gs_seq_set_last): Same.
+	(gs_seq_init): Same.
+	(gs_seq_empty_p): Same.
+	(gs_assign_operand) Changed opno to be a size_t to match set.
+	(gs_bind_body): Changed to use gs_seq.
+	(gs_bind_set_body): Changed to use gs_seq, and gs_seq_set_first, and last. 
+	(gs_asm_ninputs): Renamed.
+	(gs_asm_noutputs): Renamed.
+	(gs_asm_nclobbered): Renamed.
+	(gs_asm_set_ninputs): Renamed.
+	(gs_asm_set_noutputs): Renamed.
+	(gs_asm_set_nclobbered): Renamed.
+	(gs_asm_set_input_op): Renamed.
+	(gs_asm_input_op): Renamed.
+	(gs_asm_set_output_op): Renamed.
+	(gs_asm_output_op): Renamed.
+	(gs_omp_body): Changed to use gs_seq.
+	(gs_omp_set_body): Changed to use gs_seq accessors.
+	(gs_omp_for_pre_body): Changed to use gs_seq.
+	(gs_omp_for_set_pre_body): Changed to use gs_seq accessors.
+	(gs_seq_append): Changed to use gs_seq accessors.
+	* gimple-ir.c (gs_add): Same.
+	(gs_build_asm): Changed argument names to match accessors, and changed
+	functions to new accessor names.
+	(gs_build_cond): Reformatted.
+	(gs_build_phi): Same.
+	(gs_build_try): Renamed args to try_p and catch_p.
+	(gs_build_omp_return): Change to correct arguments, and added a subcode 
+	flag.
+	* function.c (gimplify-oaraneters): Changed to gs_seq accessors.
+
 2007-06-22  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimplify.c (gimplify_modify_expr): Return after a successful

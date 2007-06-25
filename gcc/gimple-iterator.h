@@ -25,7 +25,7 @@ Boston, MA 02110-1301, USA.  */
 /* Iterator object for GIMPLE statement sequences.  */
 
 typedef struct {
-    gimple *ptr;
+    gimple stmt;
     gs_seq seq;
 } gimple_stmt_iterator;
 
@@ -36,7 +36,7 @@ gsi_start (gs_seq seq)
 {
   gimple_stmt_iterator i;
 
-  i.ptr = &GS_SEQ_FIRST (seq);
+  i.stmt = gs_seq_first(seq);
   i.seq = seq;
 
   return i;
@@ -49,7 +49,7 @@ gsi_last (gs_seq seq)
 {
   gimple_stmt_iterator i;
 
-  i.ptr = &GS_SEQ_LAST (seq);
+  i.stmt = gs_seq_last(seq);
   i.seq = seq;
 
   return i;
@@ -60,7 +60,7 @@ gsi_last (gs_seq seq)
 static inline bool
 gsi_end_p (gimple_stmt_iterator i)
 {
-  return *i.ptr == NULL;
+  return i.stmt == NULL;
 }
 
 /* Return TRUE if we're one statement before the end of I.  */
@@ -68,7 +68,7 @@ gsi_end_p (gimple_stmt_iterator i)
 static inline bool
 gsi_one_before_end_p (gimple_stmt_iterator i)
 {
-  return i.ptr == &GS_SEQ_LAST (i.seq);
+  return i.stmt == gs_seq_last(i.seq);
 }
 
 /* Return the next gimple statement in I.  */
@@ -76,7 +76,7 @@ gsi_one_before_end_p (gimple_stmt_iterator i)
 static inline void
 gsi_next (gimple_stmt_iterator *i)
 {
-  i->ptr = &GS_NEXT (*i->ptr);
+  i->stmt = GS_NEXT (i->stmt);
 }
 
 /* Return the previous gimple statement in I.  */
@@ -84,17 +84,7 @@ gsi_next (gimple_stmt_iterator *i)
 static inline void
 gsi_prev (gimple_stmt_iterator *i)
 {
-  i->ptr = &GS_PREV (*i->ptr);
-}
-
-/* Return a pointer to the current stmt.  */
-/* FIXME tuples: Probably uneeded.  Let's leave this in for now, until we're
-   sure we don't need it.  */
-
-static inline gimple *
-gsi_stmt_ptr (gimple_stmt_iterator i)
-{
-  return i.ptr;
+  i->stmt = GS_PREV (i->stmt);
 }
 
 /* Return the current stmt.  */
@@ -102,7 +92,7 @@ gsi_stmt_ptr (gimple_stmt_iterator i)
 static inline gimple
 gsi_stmt (gimple_stmt_iterator i)
 {
-  return *i.ptr;
+  return i.stmt;
 }
 
 #endif /* GCC_SEQ_ITERATOR_H */

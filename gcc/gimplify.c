@@ -230,7 +230,7 @@ gimple_push_condition (void)
 {
 #ifdef ENABLE_CHECKING
   if (gimplify_ctxp->conditions == 0)
-    gcc_assert (GS_SEQ_EMPTY_P (&gimplify_ctxp->conditional_cleanups));
+    gcc_assert (gs_seq_empty_p (&gimplify_ctxp->conditional_cleanups));
 #endif
   ++(gimplify_ctxp->conditions);
 }
@@ -247,7 +247,7 @@ gimple_pop_condition (gs_seq pre_p)
   if (conds == 0)
     {
       gs_seq_append (&gimplify_ctxp->conditional_cleanups, pre_p);
-      GS_SEQ_INIT (gimplify_ctxp->conditional_cleanups);
+      gs_seq_init (gimplify_ctxp->conditional_cleanups);
     }
 }
 #endif
@@ -343,7 +343,7 @@ gimplify_and_add (tree t, gs_seq seq)
 {
   struct gs_sequence tseq;
 
-  GS_SEQ_INIT (tseq);
+  gs_seq_init (&tseq);
   gimplify_stmt (&t, &tseq);
   gs_seq_append (&tseq, seq);
 }
@@ -787,7 +787,7 @@ annotate_all_with_locus (gs_seq stmt_p, location_t locus)
 {
   gimple_stmt_iterator i;
 
-  if (GS_SEQ_EMPTY_P (stmt_p))
+  if (gs_seq_empty_p (stmt_p))
     return;
 
   for (i = gsi_start (stmt_p); !gsi_end_p (i); gsi_next (&i))
@@ -1948,7 +1948,7 @@ gimplify_self_mod_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
 
   /* For postfix, make sure the inner expression's post side effects
      are executed after side effects from this expression.  */
-  GS_SEQ_INIT (post);
+  gs_seq_init (&post);
   if (postfix)
     post_p = &post;
 
@@ -2831,7 +2831,7 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
     gs_add (gs_build_assign (cref, value), pre_p);
 
   /* We exit the loop when the index var is equal to the upper bound.  */
-  gs_add (gs_build_cond (COND_EQ, var, upper, loop_exit_label, NULL_TREE),
+  gs_add (gs_build_cond (GS_COND_EQ, var, upper, loop_exit_label, NULL_TREE),
       	  pre_p);
 
   /* Otherwise, increment the index var...  */
@@ -3616,7 +3616,7 @@ gimplify_modify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
   ret = gimplify_modify_expr_rhs (expr_p, from_p, to_p, pre_p, post_p,
 				  want_value);
   if (ret != GS_UNHANDLED)
-    return ret;
+    return gimplify_modify_expr (expr_p, pre_p, post_p, want_value);
 
   /* If the value being copied is of variable width, compute the length
      of the copy into a WITH_SIZE_EXPR.   Note that we need to do this
@@ -3640,7 +3640,7 @@ gimplify_modify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
   ret = gimplify_modify_expr_rhs (expr_p, from_p, to_p, pre_p, post_p,
 				  want_value);
   if (ret != GS_UNHANDLED)
-    return ret;
+    return gimplify_modify_expr (expr_p, pre_p, post_p, want_value);
 
   /* If we've got a variable sized assignment between two lvalues (i.e. does
      not involve a call), then we can make things a bit more straightforward
@@ -4177,7 +4177,7 @@ gimplify_cleanup_point_expr (tree *expr_p, tree *pre_p)
   int old_conds = gimplify_ctxp->conditions;
   struct gs_sequence old_cleanups = gimplify_ctxp->conditional_cleanups;
   gimplify_ctxp->conditions = 0;
-  GS_SEQ_INIT (gimplify_ctxp->conditional_cleanups);
+  gs_seq_init (gimplify_ctxp->conditional_cleanups);
 
   body = TREE_OPERAND (*expr_p, 0);
   gimplify_to_stmt_list (&body);
@@ -5489,7 +5489,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
      whether they are fully simplified.  */
 
   /* Set up our internal queues if needed.  */
-  GS_SEQ_INIT (internal_post);
+  gs_seq_init (&internal_post);
 
   gcc_assert (pre_p != NULL);
   if (post_p == NULL)
@@ -6088,7 +6088,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
      everything together and be done.  */
   if (fallback == fb_none || is_statement)
     {
-      if (!GS_SEQ_EMPTY_P (&internal_post))
+      if (!gs_seq_empty_p(&internal_post))
 	gs_seq_append (&internal_post, pre_p);
 
       /* EXPR_P should be a gimple statement, so the tree is meaningless;
@@ -6136,7 +6136,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
   /* If it's sufficiently simple already, we're done.  Unless we are
      handling some post-effects internally; if that's the case, we need to
      copy into a temp before adding the post-effects to the tree.  */
-  if (GS_SEQ_EMPTY_P (&internal_post) && (*gimple_test_f) (*expr_p))
+  if (gs_seq_empty_p (&internal_post) && (*gimple_test_f) (*expr_p))
     goto out;
 
   /* Otherwise, we need to create a new temporary for the gimplified
@@ -6146,7 +6146,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
      object the lvalue refers to would (probably) be modified by the
      postqueue; we need to copy the value out first, which means an
      rvalue.  */
-  if ((fallback & fb_lvalue) && GS_SEQ_EMPTY_P (&internal_post)
+  if ((fallback & fb_lvalue) && gs_seq_empty_p (&internal_post)
       && is_gimple_addressable (*expr_p))
     {
       /* An lvalue will do.  Take the address of the expression, store it
@@ -6163,7 +6163,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
       /* An rvalue will do.  Assign the gimplified expression into a new
 	 temporary TMP and replace the original expression with TMP.  */
 
-      if (!GS_SEQ_EMPTY_P (&internal_post) || (fallback & fb_lvalue))
+      if (!gs_seq_empty_p (&internal_post) || (fallback & fb_lvalue))
 	/* The postqueue might change the value of the expression between
 	   the initialization and use of the temporary, so we can't use a
 	   formal temp.  FIXME do we care?  */
@@ -6196,7 +6196,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
   /* Make sure the temporary matches our predicate.  */
   gcc_assert ((*gimple_test_f) (*expr_p));
 
-  if (!GS_SEQ_EMPTY_P (&internal_post))
+  if (!gs_seq_empty_p (&internal_post))
     {
       annotate_all_with_locus (&internal_post, input_location);
       gs_seq_append (&internal_post, pre_p);
@@ -6452,7 +6452,7 @@ gimplify_body (tree *body_p, gs_seq seq_p, tree fndecl, bool do_parms)
   if (do_parms)
     parm_stmts = gimplify_parameters ();
   else
-    GS_SEQ_INIT (parm_stmts);
+    gs_seq_init (&parm_stmts);
 
   /* Gimplify the function's body.  */
   gimplify_stmt (body_p, seq_p);
@@ -6537,7 +6537,7 @@ gimplify_function_tree (tree fndecl)
       && !needs_to_live_in_memory (ret))
     DECL_GIMPLE_REG_P (ret) = 1;
 
-  GS_SEQ_INIT (seq);
+  gs_seq_init (&seq);
   gimplify_body (&DECL_SAVED_TREE (fndecl), &seq, fndecl, true);
   debug_gimple_seq (&seq);
   exit (0);
@@ -6586,7 +6586,7 @@ force_gimple_operand (tree expr, gs_seq stmts, bool simple, tree var)
   enum gimplify_status ret;
   gimple_predicate gimple_test_f;
 
-  GS_SEQ_INIT (*stmts);
+  gs_seq_init (stmts);
 
   if (is_gimple_val (expr))
     return expr;

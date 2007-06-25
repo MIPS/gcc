@@ -39,16 +39,49 @@ enum gs_code {
 				 && GS_LOCUS ((G)).line == 0)
 
 /* A sequences of gimple statements.  */
-#define GS_SEQ_FIRST(S)	(S)->first
-#define GS_SEQ_LAST(S)		(S)->last
-#define GS_SEQ_INIT(SEQ)	((SEQ).first = NULL, (SEQ).last = NULL)
-#define GS_SEQ_EMPTY_P(S) (!GS_SEQ_FIRST ((S)))
 
 struct gs_sequence
 {
   gimple first;
   gimple last;
 };
+
+static inline gimple
+gs_seq_first (gs_seq s)
+{
+  return s->first;
+}
+
+static inline gimple
+gs_seq_last (gs_seq s)
+{
+  return s->first;
+}
+
+static inline void
+gs_seq_set_last (gs_seq s, gimple last)
+{
+  s->last = last;
+}
+
+static inline void
+gs_seq_set_first (gs_seq s, gimple first)
+{
+  s->first = first;
+}
+
+static inline void
+gs_seq_init (gs_seq s)
+{
+  s->first = NULL;
+  s->last = NULL;
+}
+
+static inline bool
+gs_seq_empty_p (gs_seq s)
+{
+  return s->first == NULL;
+}
 
 struct gimple_statement_base GTY(())
 {
@@ -148,6 +181,7 @@ struct gimple_statement_try GTY(())
   gimple cleanup;
 };
 
+/* Flags stored in GS_TRY's subcode flags.  */
 #define GS_TRY_CATCH 1 << 0
 #define GS_TRY_FINALLY 1 << 1
 
@@ -254,7 +288,7 @@ struct gimple_statement_omp_for GTY(())
 
 /* Predicate for conds. */
 enum gs_cond {
-  COND_LT, COND_GT, COND_LE, COND_GE, COND_EQ, COND_NE
+  GS_COND_LT, GS_COND_GT, GS_COND_LE, GS_COND_GE, GS_COND_EQ, GS_COND_NE
 };
 
 /* GS_OMP_PARALLEL */
@@ -283,6 +317,10 @@ struct gimple_statement_omp_single GTY(())
   struct gimple_statement_omp omp;
   tree clauses;
 };
+
+/* GS_OMP_RETURN */
+/* Flags stored in GS_OMP_RETURN's subcode flags.*/
+#define OMP_RETURN_NOWAIT_FLAG 1 << 0
 
 enum gimple_statement_structure_enum {
 #define DEFGSSTRUCT(SYM, STRING)	SYM,
@@ -351,7 +389,7 @@ extern gimple gs_omp_build_critical (struct gs_sequence, tree);
 extern gimple gs_omp_build_section (struct gs_sequence);
 extern gimple gs_omp_build_continue (struct gs_sequence);
 extern gimple gs_omp_build_master (struct gs_sequence);
-extern gimple gs_omp_build_return (struct gs_sequence);
+extern gimple gs_omp_build_return (bool);
 extern gimple gs_omp_build_ordered (struct gs_sequence);
 extern gimple gs_omp_build_sections (struct gs_sequence, tree);
 extern gimple gs_omp_build_single (struct gs_sequence, tree);
@@ -390,8 +428,13 @@ extern void gs_check_failed (const gimple, const char *, int, const char *, \
 
 /* GS_ASSIGN accessors.  */
 
+/* Get an operand in a GS_ASSIGN.
+
+   OPNO is the number of the operand to get.
+   GS is a GS_ASSIGN statement.  */
+
 static inline tree
-gs_assign_operand (gimple gs, int opno)
+gs_assign_operand (gimple gs, size_t opno)
 {
   enum gimple_statement_structure_enum gss;
 
@@ -407,6 +450,12 @@ gs_assign_operand (gimple gs, int opno)
 
   gcc_unreachable ();
 }
+
+/* Set an operand in a GS_ASSIGN.
+
+   OPNO is the number of the operand to set.
+   GS is a GS_ASSIGN statement.
+   OP is the tree to set the operand to.  */
 
 static inline void
 gs_assign_set_operand (gimple gs, size_t opno, tree op)
@@ -694,89 +743,89 @@ gs_bind_set_vars (gimple gs, tree vars)
   gs->gs_bind.vars = vars;
 }
 
-static inline struct gs_sequence *
+static inline gs_seq
 gs_bind_body (gimple gs) {
   GS_CHECK (gs, GS_BIND);
   return &(gs->gs_bind.body);
 }
 
 static inline void
-gs_bind_set_body (gimple gs, struct gs_sequence * gss)
+gs_bind_set_body (gimple gs, gs_seq gss)
 {
   GS_CHECK (gs, GS_BIND);
-  gs->gs_bind.body.first = gss->first;
-  gs->gs_bind.body.last = gss->last;
+  gs_seq_set_first (&(gs->gs_bind.body), gs_seq_first (gss)); 
+  gs_seq_set_last (&(gs->gs_bind.body), gs_seq_last (gss)); 
 }
 
 /* GS_ASM accessors. */
 static inline unsigned int
-gs_asm_ni (gimple gs)
+gs_asm_ninputs (gimple gs)
 {
   GS_CHECK (gs, GS_ASM);
   return gs->gs_asm.ni;
 }
 
 static inline void
-gs_asm_set_ni (gimple gs, unsigned ni)
+gs_asm_set_ninputs (gimple gs, unsigned ni)
 {
   GS_CHECK (gs, GS_ASM);
   gs->gs_asm.ni = ni;
 }
 
 static inline unsigned int
-gs_asm_no (gimple gs)
+gs_asm_noutputs (gimple gs)
 {
   GS_CHECK (gs, GS_ASM);
   return gs->gs_asm.no;
 }
 
 static inline void
-gs_asm_set_no (gimple gs, unsigned no)
+gs_asm_set_noutputs (gimple gs, unsigned no)
 {
   GS_CHECK (gs, GS_ASM);
   gs->gs_asm.no = no;
 }
 
 static inline unsigned int
-gs_asm_nc (gimple gs)
+gs_asm_nclobbered (gimple gs)
 {
   GS_CHECK (gs, GS_ASM);
   return gs->gs_asm.nc;
 }
 
 static inline void
-gs_asm_set_nc (gimple gs, unsigned nc)
+gs_asm_set_nclobbered (gimple gs, unsigned nc)
 {
   GS_CHECK (gs, GS_ASM);
   gs->gs_asm.nc = nc;
 }
 
 static inline tree
-gs_asm_in_op (gimple gs, unsigned int index)
+gs_asm_input_op (gimple gs, unsigned int index)
 {
   GS_CHECK (gs, GS_ASM);
-  gcc_assert(index <= gs->gs_asm.ni);
+  gcc_assert (index <= gs->gs_asm.ni);
   return gs->gs_asm.op[index];
 }
 
 static inline void
-gs_asm_set_in_op (gimple gs, unsigned int index, tree in_op)
+gs_asm_set_input_op (gimple gs, unsigned int index, tree in_op)
 {
   GS_CHECK (gs, GS_ASM);
-  gcc_assert(index <= gs->gs_asm.ni);
+  gcc_assert (index <= gs->gs_asm.ni);
   gs->gs_asm.op[index] = in_op;
 }
 
 static inline tree
-gs_asm_out_op (gimple gs, unsigned int index)
+gs_asm_output_op (gimple gs, unsigned int index)
 {
   GS_CHECK (gs, GS_ASM);
-  gcc_assert(index <= gs->gs_asm.no);
+  gcc_assert (index <= gs->gs_asm.no);
   return gs->gs_asm.op[index + gs->gs_asm.ni];
 }
 
 static inline void
-gs_asm_set_out_op (gimple gs, unsigned int index, tree out_op)
+gs_asm_set_output_op (gimple gs, unsigned int index, tree out_op)
 {
   GS_CHECK (gs, GS_ASM);
   gcc_assert (index <= gs->gs_asm.no);
@@ -795,7 +844,7 @@ static inline void
 gs_asm_set_clobber_op (gimple gs, unsigned int index, tree clobber_op)
 {
   GS_CHECK (gs, GS_ASM);
-  gcc_assert(index <= gs->gs_asm.nc);
+  gcc_assert (index <= gs->gs_asm.nc);
   gs->gs_asm.op[index + gs->gs_asm.ni + gs->gs_asm.no] = clobber_op;
 }
 
@@ -961,7 +1010,7 @@ gs_phi_set_arg (gimple gs, unsigned int index, struct phi_arg_d * phiarg)
 {
   GS_CHECK (gs, GS_PHI);
   gcc_assert (index <= gs->gs_phi.nargs);
-  memcpy (gs->gs_phi.args + index, phiarg, sizeof(struct phi_arg_d));
+  memcpy (gs->gs_phi.args + index, phiarg, sizeof (struct phi_arg_d));
 }
 
 /* GS_RESX accessors. */
@@ -1040,9 +1089,9 @@ gs_switch_set_label (gimple gs, int index, tree label)
   gs->gs_switch.labels[index + 1] = label;
 }
 
-/* GS_OMP_CRITICAL accessors. */
+/* GS_OMP_* accessors. */
 
-static inline struct gs_sequence * 
+static inline gs_seq 
 gs_omp_body (gimple gs)
 {
   return &(gs->omp.body);
@@ -1051,9 +1100,11 @@ gs_omp_body (gimple gs)
 static inline void
 gs_omp_set_body (gimple gs, struct gs_sequence body)
 {
-  gs->omp.body.first = body.first;
-  gs->omp.body.last = body.last;
+  gs_seq_set_first (&(gs->omp.body), gs_seq_first (&body));
+  gs_seq_set_last (&(gs->omp.body), gs_seq_last (&body));
 }
+
+/* GS_OMP_CRITICAL accessors. */
 
 static inline tree
 gs_omp_critical_name (gimple gs)
@@ -1141,7 +1192,7 @@ gs_omp_for_set_incr (gimple gs, tree incr)
   gs->gs_omp_for.incr = incr;
 }
 
-static inline struct gs_sequence *
+static inline gs_seq
 gs_omp_for_pre_body (gimple gs)
 {
   GS_CHECK (gs, GS_OMP_FOR);
@@ -1152,8 +1203,8 @@ static inline void
 gs_omp_for_set_pre_body (gimple gs, struct gs_sequence pre_body)
 {
   GS_CHECK (gs, GS_OMP_FOR);
-  gs->gs_omp_for.pre_body.first = pre_body.first;
-  gs->gs_omp_for.pre_body.last = pre_body.last;
+  gs_seq_set_first (&(gs->gs_omp_for.pre_body),  gs_seq_first (&pre_body));
+  gs_seq_set_last (&(gs->gs_omp_for.pre_body),  gs_seq_last (&pre_body));
 }
 
 /* GS_OMP_PARALLEL accessors. */
@@ -1238,15 +1289,15 @@ gs_omp_sections_set_clauses (gimple gs, tree clauses)
 static inline void
 gs_assign_omp_for_cond (gimple gs, enum gs_cond cond)
 {
-  GS_CHECK(gs, GS_OMP_FOR);
-  GS_SUBCODE_FLAGS(gs) =  cond;
+  GS_CHECK (gs, GS_OMP_FOR);
+  GS_SUBCODE_FLAGS (gs) =  cond;
 }
 
 static inline enum gs_cond
 gs_omp_for_cond (gimple gs)
 {
-  GS_CHECK(gs, GS_OMP_FOR);
-  return (enum gs_cond)GS_SUBCODE_FLAGS(gs);
+  GS_CHECK (gs, GS_OMP_FOR);
+  return (enum gs_cond) GS_SUBCODE_FLAGS (gs);
 }
 
 /* GS_RETURN accessors.  */
@@ -1270,15 +1321,14 @@ gs_return_set_retval (gimple gs, tree retval)
 static inline void
 gs_seq_append (gs_seq src, gs_seq dst)
 {
-  if (!GS_SEQ_EMPTY_P (src))
-    gs_add (GS_SEQ_FIRST (src), dst);
+  if (!gs_seq_empty_p (src))
+    gs_add (gs_seq_first (src), dst);
 }
 
 static inline void
-gs_add_subcode_flag(gimple g, unsigned int flag)
+gs_add_subcode_flag (gimple g, unsigned int flag)
 {
-  GS_SUBCODE_FLAGS(g) |= flag;
+  GS_SUBCODE_FLAGS (g) |= flag;
 }
 #include "gimple-iterator.h"
-
 #endif  /* GCC_GIMPLE_IR_H */

@@ -3155,7 +3155,7 @@ gimplify_parameters (void)
   tree fnargs, parm;
   struct gs_sequence stmts;
 
-  GS_SEQ_INIT (stmts);
+  gs_seq_init (&stmts);
 
   assign_parms_initialize_all (&all);
   fnargs = assign_parms_augmented_arg_list (&all);

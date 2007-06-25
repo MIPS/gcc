@@ -38,6 +38,7 @@ const char *const gs_code_name[] = {
 /* Gimple tuple constructors.  */
 
 /* Construct a GS_RETURN statement.
+
    RESULT_DECL_P is non-zero if using RESULT_DECL.
    RETVAL is the return value.  */
 
@@ -82,6 +83,7 @@ gs_build_call (tree func, int nargs, ...)
 }
 
 /* Construct a GS_ASSIGN statement.
+
    LHS of the assignment.
    RHS of the assignment which can be unary or binary.  */
 
@@ -159,8 +161,11 @@ gss_for_assign (enum tree_code code)
   return GSS_ASSIGN_UNARY_MEM;
 }
 
-/* Construct a GS_COND statement.  Compare using PRED the LHS and the RHS,
-   if true goto T_LABEL, else goto F_LABEL.  */
+/* Construct a GS_COND statement.
+
+   PRED is the condition used to compare LHS and the RHS.
+   T_LABEL is the label to jump to if the condition is true.
+   F_LABEL is teh label to jump to otherwise.  */
 
 gimple
 gs_build_cond (enum gs_cond pred, tree lhs, tree rhs,
@@ -170,7 +175,7 @@ gs_build_cond (enum gs_cond pred, tree lhs, tree rhs,
 
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_cond));
   GS_CODE (p) = GS_COND;
-  GS_SUBCODE_FLAGS(p) = pred;
+  GS_SUBCODE_FLAGS (p) = pred;
   gs_cond_set_lhs (p, lhs);
   gs_cond_set_rhs (p, rhs);
   gs_cond_set_true_label (p, t_label);
@@ -220,7 +225,9 @@ gs_build_nop (void)
   return p;
 }
 
-/* Construct a GS_BIND statement, where VARS are the variables, in BODY.  */
+/* Construct a GS_BIND statement.
+
+   VARS are the variables in BODY.  */
 
 gimple
 gs_build_bind (tree vars, gs_seq body)
@@ -238,32 +245,33 @@ gs_build_bind (tree vars, gs_seq body)
 /* Construct a GS_ASM statement.
 
    STRING is the assembly code.
-   NI is the number of register inputs.
-   NO is the number of register outputs.
-   NC is the number of clobbered registers.
-   ...s are trees for each input, output and clobber.  */
+   NINPUT is the number of register inputs.
+   NOUTPUT is the number of register outputs.
+   NCLOBBERED is the number of clobbered registers.
+   ... are trees for each input, output and clobbered register.  */
 
 gimple
-gs_build_asm (const char *string, unsigned ni, unsigned no, unsigned nc, ...)
+gs_build_asm (const char *string, unsigned ninputs, unsigned noutputs, 
+              unsigned nclobbered, ...)
 {
   gimple p;
   unsigned i;
   va_list ap;
 
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_asm)
-                         + sizeof (tree) * (ni + no + nc) - 1);
+                         + sizeof (tree) * (ninputs + noutputs + nclobbered - 1));
   GS_CODE (p) = GS_ASM;
-  gs_asm_set_ni (p, ni);
-  gs_asm_set_no (p, no);
-  gs_asm_set_nc (p, nc);
+  gs_asm_set_ninputs (p, ninputs);
+  gs_asm_set_noutputs (p, noutputs);
+  gs_asm_set_nclobbered (p, nclobbered);
   gs_asm_set_string (p, string);
   
-  va_start (ap, nc);
-  for (i = 0; i < ni; i++)
-    gs_asm_set_in_op (p, i, va_arg (ap, tree));
-  for (i = 0; i < no; i++)
-    gs_asm_set_out_op (p, i, va_arg (ap, tree));
-  for (i = 0; i < nc; i++)
+  va_start (ap, nclobbered);
+  for (i = 0; i < ninputs; i++)
+    gs_asm_set_input_op (p, i, va_arg (ap, tree));
+  for (i = 0; i < noutputs; i++)
+    gs_asm_set_output_op (p, i, va_arg (ap, tree));
+  for (i = 0; i < nclobbered; i++)
     gs_asm_set_clobber_op (p, i, va_arg (ap, tree));
   va_end (ap);
   
@@ -289,9 +297,9 @@ gs_build_catch (tree types, gimple handler)
 }
 
 /* Construct a GS_EH_FILTER statement.
- 
-  TYPES is the filter's types.
-  FAILURE is the filters failure action.  */
+
+   TYPES are the filter's types.
+   FAILURE is the filter's failure action.  */
 
 gimple
 gs_build_eh_filter (tree types, gimple failure)
@@ -307,14 +315,14 @@ gs_build_eh_filter (tree types, gimple failure)
 }
 
 /* Construct a GS_TRY statement.
-   
+
    EVAL is the expression to evaluate.
    CLEANUP is the cleanup expression.
-   CATCH, does this try catch?
-   FINALLY, does this try have a finally?  */
+   CATCH_P is true if this is a try/catch
+   FINALLY_P is true if this is a try/finally.  */
 
 gimple
-gs_build_try (gimple eval, gimple cleanup, bool catch, bool finally)
+gs_build_try (gimple eval, gimple cleanup, bool catch_p, bool finally_p)
 {
   gimple p;
 
@@ -322,16 +330,21 @@ gs_build_try (gimple eval, gimple cleanup, bool catch, bool finally)
   GS_CODE (p) = GS_TRY;
   gs_try_set_eval (p, eval);
   gs_try_set_cleanup (p, cleanup);
-  if(catch)
-    GS_SUBCODE_FLAGS(p) |= GS_TRY_CATCH;
-  if(finally)
-    GS_SUBCODE_FLAGS(p) |= GS_TRY_FINALLY;
+  if (catch_p)
+    GS_SUBCODE_FLAGS (p) |= GS_TRY_CATCH;
+  if (finally_p)
+    GS_SUBCODE_FLAGS (p) |= GS_TRY_FINALLY;
 
   return p;
 }
 
-/* Construct a GS_PHI statement, with a CAPACITY, a RESULT, and NARGS
-   phi_arg_d * arguments from ...  */
+/* Construct a GS_PHI statement.
+
+   CAPACITY is the max number of args this node can have (for later reuse).
+   RESULT the 
+   NARGS is the number of phi_arg_d's in ..., representing the number of
+   incomming edges in this phi node.
+   ... phi_arg_d* for the incomming edges to this node.  */
 
 gimple
 gs_build_phi (unsigned capacity, unsigned nargs, tree result, ...)
@@ -340,7 +353,7 @@ gs_build_phi (unsigned capacity, unsigned nargs, tree result, ...)
   unsigned int i;
   va_list va;
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_phi)
-      + (sizeof(struct phi_arg_d) * (nargs - 1)) );
+      + (sizeof (struct phi_arg_d) * (nargs - 1)) );
   
   GS_CODE (p) = GS_PHI;
   gs_phi_set_capacity (p, capacity);
@@ -350,7 +363,7 @@ gs_build_phi (unsigned capacity, unsigned nargs, tree result, ...)
   va_start (va, result);
   for (i = 0; i < nargs; i++)
     {
-      struct phi_arg_d * phid = va_arg (va, struct phi_arg_d *);
+      struct phi_arg_d* phid = va_arg (va, struct phi_arg_d*);
       gs_phi_set_arg (p, i, phid);
     }
   va_end (va);
@@ -358,7 +371,10 @@ gs_build_phi (unsigned capacity, unsigned nargs, tree result, ...)
   return p;
 }
 
-/* Construct a GS_RESX statement, with a REGION.  */
+/* Construct a GS_RESX statement.
+
+   REGION is the region number from which this resx causes control flow to 
+   leave.  */
 
 gimple
 gs_build_resx (int region)
@@ -371,8 +387,11 @@ gs_build_resx (int region)
   return p;
 }
 
-/* Construct a GS_SWITCH statement: for INDEX with the NLABLES labels 
-   in ..., excluding the DEFAULT_LABEL.  */
+/* Construct a GS_SWITCH statement.
+
+   INDEX is the switch's index.
+   NLABLES is the number of labels in the switch excluding the default. 
+   ... are the labels excluding the default.  */
 
 gimple 
 gs_build_switch (unsigned int nlabels, tree index, tree default_label, ...)
@@ -396,7 +415,10 @@ gs_build_switch (unsigned int nlabels, tree index, tree default_label, ...)
   return p;
 }
 
-/* Construct a GS_OMP_CRITICAL statement at BODY named NAME.  */
+/* Construct a GS_OMP_CRITICAL statement.
+
+   BODY is the sequence of statements for which only one thread can execute.
+   NAME is optional identifier for this critical block.  */
 
 gimple 
 gs_omp_build_critical (struct gs_sequence body, tree name)
@@ -411,9 +433,17 @@ gs_omp_build_critical (struct gs_sequence body, tree name)
   return p;
 }
 
-/* Construct a GS_OMP_FOR statement with a BODY and PRE_BODY, with a predicate
-   OMP_FOR_COND, CLAUSES, index variable INDEX, initial value INITIAL, final 
-   value FINAL, and increment of INCR.   */
+/* Construct a GS_OMP_FOR statement.
+
+   BODY is sequence of statements inside the for loop.
+   CLAUSES, are any of the OMP loop construct's clauses: private, firstprivate, 
+   lastprivate, reductions, ordered, schedule, and nowait.
+   PRE_BODY is the sequence of statements that are loop invariant.
+   INDEX is the index variable.
+   INITIAL is the initial value of INDEX.
+   FINAL is final value of INDEX.
+   OMP_FOR_COND  the predicate used to compare INDEX and FINAL.
+   INCR is the increment expression.  */
 
 gimple 
 gs_omp_build_for (struct gs_sequence body, tree clauses, tree index, 
@@ -437,8 +467,12 @@ gs_omp_build_for (struct gs_sequence body, tree clauses, tree index,
   return p;
 }
 
-/* Construct a GS_OMP_PARRELLE statement for BODY, with CLAUSES, a child 
-   function CHILD_FN, and shared data argument DATA_ARG.  */
+/* Construct a GS_OMP_PARALLEL statement.
+
+   BODY is sequence of statements which are executed in parallel.
+   CLAUSES, are the OMP parallel construct's clauses.
+   CHILD_FN is the function created for the parallel threads to execute.
+   DATA_ARG are the shared data argument(s).  */
 
 gimple 
 gs_omp_build_parallel (struct gs_sequence body, tree clauses, tree child_fn, 
@@ -456,7 +490,9 @@ gs_omp_build_parallel (struct gs_sequence body, tree clauses, tree child_fn,
   return p;
 }
 
-/* Construct a GS_OMP_SECTION statement for BODY.  */
+/* Construct a GS_OMP_SECTION statement for a sections statement.
+
+   BODY is the sequence of statements in the section.  */
 
 gimple 
 gs_omp_build_section (struct gs_sequence body)
@@ -469,7 +505,9 @@ gs_omp_build_section (struct gs_sequence body)
 
   return p;
 }
-/* Construct a GS_OMP_MASTER statement for BODY.  */
+/* Construct a GS_OMP_MASTER statement.
+
+   BODY is the sequence of statements to be executed by just the master.  */
 
 gimple 
 gs_omp_build_master (struct gs_sequence body)
@@ -482,7 +520,8 @@ gs_omp_build_master (struct gs_sequence body)
 
   return p;
 }
-/* Construct a GS_OMP_CONTINUE statement for BODY.  */
+/* Construct a GS_OMP_CONTINUE statement.
+   FIXME tuples: BODY.  */
 
 gimple 
 gs_omp_build_continue (struct gs_sequence body)
@@ -495,7 +534,11 @@ gs_omp_build_continue (struct gs_sequence body)
 
   return p;
 }
-/* Construct a GS_OMP_ORDERED statement for BODY.  */
+
+/* Construct a GS_OMP_ORDERED statement.
+
+   BODY is the sequence of statements inside a loop that will executed in
+   sequence.  */
 
 gimple 
 gs_omp_build_ordered (struct gs_sequence body)
@@ -509,21 +552,27 @@ gs_omp_build_ordered (struct gs_sequence body)
   return p;
 }
 
-/* Construct a GS_OMP_RETURN statement for BODY.  */
+/* Construct a GS_OMP_RETURN statement.
+   WAIT_P is true if this is a non-waiting return.  */
 
 gimple 
-gs_omp_build_return (struct gs_sequence body)
+gs_omp_build_return (bool wait_p)
 {
   gimple p;
 
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_omp));
   GS_CODE (p) = GS_OMP_RETURN;
-  gs_omp_set_body (p, body);
+  if (wait_p)
+    GS_SUBCODE_FLAGS(p) = OMP_RETURN_NOWAIT_FLAG;
 
   return p;
 }
 
-/* Construct a GS_OMP_SECTIONS statement for BODY with CLAUSES.  */
+/* Construct a GS_OMP_SECTIONS statement.
+
+   BODY is a sequence of section statements.
+   CLAUSES are any of the OMP sections contsruct's clauses: private,
+   firstprivate, lastprivate, reduction, and nowait.  */
 
 gimple 
 gs_omp_build_sections (struct gs_sequence body, tree clauses)
@@ -538,7 +587,11 @@ gs_omp_build_sections (struct gs_sequence body, tree clauses)
   return p;
 }
 
-/* Construct a GS_OMP_SINGLE statement for BODY with CLAUSES.  */
+/* Construct a GS_OMP_SINGLE statement.
+
+   BODY is the sequence of statements that will be executed once.
+   CLAUSES are any of the OMP single construct's clauses: private, firstprivate,
+   copyprivate, nowait.  */
 
 gimple 
 gs_omp_build_single (struct gs_sequence body, tree clauses)
@@ -626,15 +679,15 @@ gs_add (gimple gs, gs_seq seq)
   for (last = gs; GS_NEXT (last) != NULL; last = GS_NEXT (last))
     ;
 
-  if (GS_SEQ_FIRST (seq) == NULL)
+  if (gs_seq_first (seq) == NULL)
     {
-      GS_SEQ_FIRST (seq) = gs;
-      GS_SEQ_LAST (seq) = last;
+      gs_seq_set_first (seq, gs);
+      gs_seq_set_last (seq, last);
     }
   else
     {
-      GS_PREV (gs) = GS_SEQ_LAST (seq);
-      GS_NEXT (GS_SEQ_LAST (seq)) = gs;
-      GS_SEQ_LAST (seq) = last;
+      GS_PREV (gs) = gs_seq_last (seq);
+      GS_NEXT (gs_seq_last (seq)) = gs;
+      gs_seq_set_last (seq, last);
     }
 }
