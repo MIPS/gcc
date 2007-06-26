@@ -8077,7 +8077,7 @@ fold_builtin_exponent (tree fndecl, tree arglist,
 static tree
 fold_builtin_memset (tree arglist, tree type, bool ignore)
 {
-  tree dest, c, len, var, ret;
+  tree dest, c, len, var, ret, inner;
   unsigned HOST_WIDE_INT length, cval;
 
   if (!validate_arglist (arglist,
@@ -8109,6 +8109,15 @@ fold_builtin_memset (tree arglist, tree type, bool ignore)
 
   if (!INTEGRAL_TYPE_P (TREE_TYPE (var))
       && !POINTER_TYPE_P (TREE_TYPE (var)))
+    return 0;
+
+  /* If var is a VAR_DECL or a component thereof,
+     we can use its alias set, otherwise we'd need to make
+     sure we go through alias set 0.  */
+  inner = var;
+  while (handled_component_p (inner))
+    inner = TREE_OPERAND (inner, 0);
+  if (! SSA_VAR_P (inner))
     return 0;
 
   length = tree_low_cst (len, 1);
@@ -8181,7 +8190,7 @@ fold_builtin_bzero (tree arglist, bool ignore)
 static tree
 fold_builtin_memory_op (tree arglist, tree type, bool ignore, int endp)
 {
-  tree dest, src, len, destvar, srcvar, expr;
+  tree dest, src, len, destvar, srcvar, expr, inner;
   unsigned HOST_WIDE_INT length;
 
   if (! validate_arglist (arglist,
@@ -8222,6 +8231,15 @@ fold_builtin_memory_op (tree arglist, tree type, bool ignore, int endp)
 	  && !SCALAR_FLOAT_TYPE_P (TREE_TYPE (destvar)))
 	return 0;
 
+      /* If destvar is a VAR_DECL or a component thereof,
+	 we can use its alias set, otherwise we'd need to make
+	 sure we go through alias set 0.  */
+      inner = destvar;
+      while (handled_component_p (inner))
+	inner = TREE_OPERAND (inner, 0);
+      if (! SSA_VAR_P (inner))
+	return 0;
+
       srcvar = src;
       STRIP_NOPS (srcvar);
       if (TREE_CODE (srcvar) != ADDR_EXPR)
@@ -8234,6 +8252,15 @@ fold_builtin_memory_op (tree arglist, tree type, bool ignore, int endp)
       if (!INTEGRAL_TYPE_P (TREE_TYPE (srcvar))
 	  && !POINTER_TYPE_P (TREE_TYPE (srcvar))
 	  && !SCALAR_FLOAT_TYPE_P (TREE_TYPE (srcvar)))
+	return 0;
+
+      /* If srcvar is a VAR_DECL or a component thereof,
+	 we can use its alias set, otherwise we'd need to make
+	 sure we go through alias set 0.  */
+      inner = srcvar;
+      while (handled_component_p (inner))
+	inner = TREE_OPERAND (inner, 0);
+      if (! SSA_VAR_P (inner))
 	return 0;
 
       length = tree_low_cst (len, 1);
