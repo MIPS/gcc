@@ -1,5 +1,9 @@
 2007-06-26  Diego Novillo  <dnovillo@google.com>
 
+	* gimple-ir.c (gs_build_call_1): Fix formatting.
+
+2007-06-26  Diego Novillo  <dnovillo@google.com>
+
 	* gimple-pretty-print.c (dump_gs_assign, dump_gs_return,
 	dump_gs_call): New functions.
 	(dump_gimple_stmt): Call them.

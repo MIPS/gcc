@@ -57,8 +57,8 @@ gs_build_return (bool result_decl_p, tree retval)
    components of a GS_CALL statement to function FN with NARGS
    arguments.  */
 
-static inline
-gimple gs_build_call_1 (tree fn, size_t nargs)
+static inline gimple
+gs_build_call_1 (tree fn, size_t nargs)
 {
   gimple gs = ggc_alloc_cleared (sizeof (struct gimple_statement_call)
                                  + sizeof (tree) * (nargs - 1));
