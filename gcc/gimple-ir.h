@@ -39,7 +39,6 @@ enum gs_code {
 				 && GS_LOCUS ((G)).line == 0)
 
 /* A sequences of gimple statements.  */
-
 struct gs_sequence
 {
   gimple first;
@@ -250,7 +249,7 @@ struct gimple_statement_call GTY(())
   tree lhs;
   tree fn;
   tree chain;
-  unsigned long nargs;
+  size_t nargs;
   tree GTY ((length ("%h.nargs"))) args[1];
 };
 
@@ -369,7 +368,8 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
 
 extern gimple gs_build_return (bool, tree);
 extern gimple gs_build_assign (tree, tree);
-extern gimple gs_build_call (tree, int, ...);
+extern gimple gs_build_call_vec (tree, VEC(tree, gc) *);
+extern gimple gs_build_call (tree, size_t, ...);
 extern gimple gs_build_cond (enum gs_cond, tree, tree, tree, tree);
 extern gimple gs_build_label (tree label);
 extern gimple gs_build_goto (tree dest);
@@ -575,13 +575,6 @@ gs_call_fn (gimple gs)
   return gs->gs_call.fn;
 }
 
-static inline void
-gs_call_set_fn (gimple gs, tree fn)
-{
-  GS_CHECK (gs, GS_CALL);
-  gs->gs_call.fn = fn;
-}
-
 static inline tree
 gs_call_lhs (gimple gs)
 {
@@ -615,13 +608,6 @@ gs_call_nargs (gimple gs)
 {
   GS_CHECK (gs, GS_CALL);
   return gs->gs_call.nargs;
-}
-
-static inline void
-gs_call_set_nargs (gimple gs, unsigned long nargs)
-{
-  GS_CHECK (gs, GS_CALL);
-  gs->gs_call.nargs = nargs;
 }
 
 static inline tree

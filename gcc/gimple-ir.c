@@ -53,33 +53,60 @@ gs_build_return (bool result_decl_p, tree retval)
   return p;
 }
 
-/* Construct a GS_CALL statement.
+/* Helper for gs_build_call and gs_build_call_vec.  Build the basic
+   components of a GS_CALL statement to function FN with NARGS
+   arguments.  */
 
-   FUNC is the function decl.
-   NARGS is the number of arguments.
-   The ... are the arguments.  */
+static inline
+gimple gs_build_call_1 (tree fn, size_t nargs)
+{
+  gimple gs = ggc_alloc_cleared (sizeof (struct gimple_statement_call)
+                                 + sizeof (tree) * (nargs - 1));
+
+  GS_CODE (gs) = GS_CALL;
+  GS_SUBCODE_FLAGS (gs) = 0;
+  gs->gs_call.nargs = nargs;
+  gs->gs_call.fn = fn;
+
+  return gs;
+}
+
+
+/* Build a GS_CALL statement to function FN with the arguments
+   specified in vector ARGS.  */
 
 gimple
-gs_build_call (tree func, int nargs, ...)
+gs_build_call_vec (tree fn, VEC(tree, gc) *args)
+{
+  size_t i;
+  size_t nargs = VEC_length (tree, args);
+  gimple call = gs_build_call_1 (fn, nargs);
+
+  for (i = 0; i < nargs; i++)
+    gs_call_set_arg (call, i, VEC_index (tree, args, i));
+
+  return call;
+}
+
+
+/* Build a GS_CALL statement to function FN.  NARGS is the number of
+   arguments.  The ... are the arguments.  */
+
+gimple
+gs_build_call (tree fn, size_t nargs, ...)
 {
   va_list ap;
-  gimple p;
-  int i;
+  gimple call;
+  size_t i;
 
-  p = ggc_alloc_cleared (sizeof (struct gimple_statement_call)
-                         + sizeof (tree) * (nargs - 1));
-
-  GS_CODE (p) = GS_CALL;
-  GS_SUBCODE_FLAGS (p) = 0;
-  gs_call_set_nargs (p, nargs);
-  gs_call_set_fn (p, func);
+  call = gs_build_call_1 (fn, nargs);
 
   va_start (ap, nargs);
-  for (i = 0; i < nargs; ++i)
-    gs_call_set_arg (p, i, va_arg (ap, tree));
+  for (i = 0; i < nargs; i++)
+    gs_call_set_arg (call, i, va_arg (ap, tree));
   va_end (ap);
 
-  return p;
+  return call;
 }
 
 /* Construct a GS_ASSIGN statement.

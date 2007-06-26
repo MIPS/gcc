@@ -1,0 +1,3 @@
+2007-06-26  Diego Novillo  <dnovillo@google.com>
+
+	* testsuite/gcc.dg/gimple/gimple.exp: Use -O2.

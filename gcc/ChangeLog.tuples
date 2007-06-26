@@ -1,3 +1,24 @@
+2007-06-26  Diego Novillo  <dnovillo@google.com>
+
+	* gimple-pretty-print.c (dump_gs_assign, dump_gs_return,
+	dump_gs_call): New functions.
+	(dump_gimple_stmt): Call them.
+	* gimple-ir.c (gs_build_call_1): Factor out of gs_build_call.
+	(gs_build_call): Call it.
+	(gs_build_call_vec): New function.
+	* gimple-ir.h (struct gimple_statement_call): Change type of
+	field 'nargs' to size_t.  Update all users.
+	(gs_build_call_vec): Declare.
+	(gs_call_set_fn): Remove.
+	(gs_call_set_nargs): Remove.
+	* gimplify.c: Include "vec.h"
+	(gimplify_return_expr): Fix formatting
+	(gimplify_call_expr): Call gs_build_call_vec.
+	(gimplify_expr): Do not try to test if NULL expressions
+	are in GIMPLE form.
+	(gimplify_function_tree): Do not call debug_gimple_seq.
+	* Makefile.in (gimplify.o): Include vec.h
+
 2007-06-25  Chris Matthews  <chrismatthews@google.com>
 
 	* gimplify.c (gimple_current_bind_expr): Changed to work with gs_seq

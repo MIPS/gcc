@@ -51,6 +51,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "pointer-set.h"
 #include "splay-tree.h"
 #include "gimple-ir.h"
+#include "vec.h"
 
 
 enum gimplify_omp_var_data
@@ -1141,7 +1142,8 @@ gimplify_return_expr (tree stmt, gs_seq pre_p)
   tree ret_expr = TREE_OPERAND (stmt, 0);
   tree result_decl, result;
 
-  if (!ret_expr || TREE_CODE (ret_expr) == RESULT_DECL
+  if (!ret_expr
+      || TREE_CODE (ret_expr) == RESULT_DECL
       || ret_expr == error_mark_node)
     {
       gs_add (gs_build_return (TREE_CODE (ret_expr) == RESULT_DECL, ret_expr),
@@ -1206,6 +1208,7 @@ gimplify_return_expr (tree stmt, gs_seq pre_p)
     ret_expr = result;
   else
     ret_expr = build_gimple_modify_stmt (result_decl, result);
+
   gs_add (gs_build_return (result == result_decl, ret_expr), pre_p);
 
   return GS_ALL_DONE;
@@ -2067,6 +2070,7 @@ gimplify_call_expr (tree *expr_p, gs_seq pre_p, bool want_value)
   tree decl;
   enum gimplify_status ret;
   int i, nargs;
+  VEC(tree, gc) *args = NULL;
 
   gcc_assert (TREE_CODE (*expr_p) == CALL_EXPR);
 
@@ -2140,6 +2144,8 @@ gimplify_call_expr (tree *expr_p, gs_seq pre_p, bool want_value)
 
       if (t == GS_ERROR)
 	ret = GS_ERROR;
+
+      VEC_safe_push (tree, gc, args, CALL_EXPR_ARG (*expr_p, i));
     }
 
   /* Try this again in case gimplification exposed something.  */
@@ -2163,6 +2169,9 @@ gimplify_call_expr (tree *expr_p, gs_seq pre_p, bool want_value)
   if (TREE_CODE (*expr_p) == CALL_EXPR
       && (call_expr_flags (*expr_p) & (ECF_CONST | ECF_PURE)))
     TREE_SIDE_EFFECTS (*expr_p) = 0;
+
+  gs_add (gs_build_call_vec (decl, args), pre_p);
+  *expr_p = NULL_TREE;
 
   return ret;
 }
@@ -5575,6 +5584,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 
 	case CALL_EXPR:
 	  ret = gimplify_call_expr (expr_p, pre_p, fallback != fb_none);
+
 	  /* C99 code may assign to an array in a structure returned
 	     from a function, and this has undefined behavior only on
 	     execution, so create a temporary if an lvalue is
@@ -6093,7 +6103,6 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 
       /* EXPR_P should be a gimple statement, so the tree is meaningless;
 	 do nothing with it.  */
-
       annotate_all_with_locus (pre_p, input_location);
       goto out;
     }
@@ -6136,7 +6145,8 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
   /* If it's sufficiently simple already, we're done.  Unless we are
      handling some post-effects internally; if that's the case, we need to
      copy into a temp before adding the post-effects to the tree.  */
-  if (gs_seq_empty_p (&internal_post) && (*gimple_test_f) (*expr_p))
+  if (gs_seq_empty_p (&internal_post)
+      && (*expr_p == NULL_TREE || (*gimple_test_f) (*expr_p)))
     goto out;
 
   /* Otherwise, we need to create a new temporary for the gimplified
@@ -6539,7 +6549,6 @@ gimplify_function_tree (tree fndecl)
 
   gs_seq_init (&seq);
   gimplify_body (&DECL_SAVED_TREE (fndecl), &seq, fndecl, true);
-  debug_gimple_seq (&seq);
   exit (0);
 
   /* If we're instrumenting function entry/exit, then prepend the call to
