@@ -1,3 +1,40 @@
+2007-06-21  Uros Bizjak  <ubizjak@gmail.com>
+ 
+	PR target/32389
+	* gcc.target/i386/pr32389.c New test.
+
+2007-06-20  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/31806
+	PR c++/31809
+	* g++.dg/opt/static5.C: New test.
+	* g++.dg/opt/static6.C: New test.
+
+2007-06-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/32109
+	* g++.dg/ext/asm10.C: New test.
+
+	PR middle-end/32285
+	* gcc.c-torture/execute/20070614-1.c: New test.
+
+2007-06-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/32353
+	* g++.dg/opt/nrv13.C: New test.
+
+2007-06-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.target/sparc/align.c: Use 'unsigned char' as element type.
+	* gcc.target/sparc/combined-2.c: Likewise.
+	* gcc.target/sparc/fexpand.c : Likewise.
+	* gcc.target/sparc/fnot.c: Likewise.  Fix a couple of prototypes.
+	* gcc.target/sparc/fpack16.c : Likewise.
+	* gcc.target/sparc/fpmerge.c : Likewise.
+	* gcc.target/sparc/fpmul.c : Likewise.
+	* gcc.target/sparc/noresult.c : Likewise.
+	* gcc.target/sparc/pdist.c: Likewise.
+
 2007-06-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/32177

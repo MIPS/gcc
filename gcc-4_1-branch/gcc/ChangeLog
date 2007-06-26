@@ -1,3 +1,37 @@
+2007-06-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32389
+	* config/i386/i386.h (enum ix86_stack_slot): Add SLOT_VIRTUAL.
+	* config/i386/i386.c (assign_386_stack_local): Assert that
+	SLOT_VIRTUAL is valid only before virtual regs are instantiated.
+	(ix86_expand_builtin) [IX86_BUILTIN_LDMXCSR, IX86_BUILTIN_STMXCSR]:
+	Use SLOT_VIRTUAL stack slot instead of SLOT_TEMP.
+	* config/i386/i386.md (truncdfsf2, truncxfsf2, truncxfdf2): Ditto.
+
+2007-06-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/32109
+	* gimplify.c (gimplify_asm_expr): Issue error if type is addressable
+	and !allows_mem.
+
+	PR middle-end/32285
+	* calls.c (precompute_arguments): Also precompute CALL_EXPR arguments
+	if ACCUMULATE_OUTGOING_ARGS.
+
+2007-06-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR rtl-optimization/28011
+	Backport from mainline.
+	* reload.c (push_reload): Set dont_share if IN appears in OUT
+	also when IN is a PLUS rtx.
+	(reg_overlap_mentioned_for_reload_p): Return true if X and IN
+	are same PLUS rtx.
+
+2007-06-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/32353
+	* tree-ssa-structalias.c (set_uids_in_ptset): Also handle RESULT_DECL.
+
 2007-05-04  Ulrich Drepper  <drepper@redhat.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 
