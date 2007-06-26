@@ -1,3 +1,8 @@
+2007-06-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* lto.c (lto_read_subroutine_type_subprogram_DIE): Handle
+	unprototyped functions. 
+
 2007-06-23  Mark Mitchell  <mark@codesourcery.com>
 
 	* lto.c (lto_read_variable_formal_parameter_constant_DIE):

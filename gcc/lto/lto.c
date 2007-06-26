@@ -2253,12 +2253,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
   tree name;
   tree asm_name = NULL_TREE;
   bool external;
-  VEC(tree,heap) *parms;
-  unsigned n_parms;
-  unsigned n_children;
-  unsigned i;
   bool prototyped;
-  bool varargs_p;
   tree result;
   int inlined = DW_INL_not_inlined;
 
@@ -2339,49 +2334,47 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
       LTO_END_READ_ATTRS ();
     }
 
-
   /* The DWARF3 specification says that a return type is only
      specified for functions that return a value.  Therefore,
      functions without an explicit return type return "void".  */
   if (!ret_type)
     ret_type = void_type_node;
  
-  if (!prototyped)
-    sorry ("support for unprototyped functions not yet implemented");
-
-  parms = lto_collect_child_DIEs (fd, abbrev, context);
-
-  /* Per the DWARF spec, the children can include "other entries used
-     by formal parameter entries, such as types", as well as parameters
-     and a DW_TAG_unspecified_parameters to indicate varargs.  So we need
-     one loop over the children to count the number of actual parameters
-     and another to assemble the parameter type vector.  */
-  n_children = VEC_length (tree, parms);
-  n_parms = 0;
-  varargs_p = !prototyped;
-  for (i = 0; i < n_children; ++i)
+  if (prototyped)
     {
-      tree parm = VEC_index (tree, parms, i);
-      if (parm == lto_varargs_cookie)
-	varargs_p = true;
-      else if (TREE_CODE (parm) == PARM_DECL)
-	n_parms++;
-    }
-  arg_types = NULL_TREE;
-  last_arg = &arg_types;
-  for (i = 0; i < n_children; ++i)
-    {
-      tree parm = VEC_index (tree, parms, i);
-      if (TREE_CODE (parm) == PARM_DECL)
+      VEC(tree,heap) *parms;
+      unsigned n_children;
+      unsigned i;
+      bool varargs_p;
+      
+      parms = lto_collect_child_DIEs (fd, abbrev, context);
+
+      /* Per the DWARF spec, the children can include "other entries used
+	 by formal parameter entries, such as types", as well as parameters
+	 and a DW_TAG_unspecified_parameters to indicate varargs.  So we need
+	 one loop over the children to count the number of actual parameters
+	 and another to assemble the parameter type vector.  */
+      n_children = VEC_length (tree, parms);
+      arg_types = NULL_TREE;
+      last_arg = &arg_types;
+      for (i = 0; i < n_children; ++i)
 	{
-	  *last_arg = build_tree_list (NULL_TREE,
-				       TREE_TYPE (parm));
-	  last_arg = &TREE_CHAIN (*last_arg);
+	  tree parm = VEC_index (tree, parms, i);
+	  if (TREE_CODE (parm) == PARM_DECL)
+	    {
+	      *last_arg = build_tree_list (NULL_TREE,
+					   TREE_TYPE (parm));
+	      last_arg = &TREE_CHAIN (*last_arg);
+	    }
+	  else if (parm == lto_varargs_cookie)
+	    varargs_p = true;
 	}
+      if (!varargs_p)
+	*last_arg = void_list_node;
+      VEC_free (tree, heap, parms);
     }
-  if (!varargs_p)
-    *last_arg = void_list_node;
-  VEC_free (tree, heap, parms);
+  else
+    arg_types = NULL_TREE;
 
   /* Build the function type.  */
   type = build_function_type (ret_type, arg_types);
