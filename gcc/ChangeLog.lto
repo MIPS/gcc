@@ -1,3 +1,16 @@
+2007-06-26  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-tree-flags.def (tcc_gimple_stmt): New TREE_CLASS.
+	(GIMPLE_MODIFY_STMT, MEMORY_PARTITION_TAG, VEC_WIDEN_MULT_HI_EXPR,
+	VEC_WIDEN_MULT_LO_EXPR, VEC_UNPACK_HI_EXPR,
+	VEC_UNPACK_LO_EXPR, VEC_UNPACK_FLOAT_HI_EXPR,
+	VEC_UNPACK_FLOAT_LO_EXPR, VEC_PACK_TRUNC_EXPR,
+	VEC_PACK_SAT_EXPR, VEC_PACK_FIX_TRUNC_EXPR,
+	VEC_EXTRACT_EVEN_EXPR, VEC_EXTRACT_ODD_EXPR,
+	VEC_INTERLEAVE_HIGH_EXPR, VEC_INTERLEAVE_LOW_EXPR): New
+	TREE_EXPRs.
+
+
 2007-06-23  Mark Mitchell  <mark@codesourcery.com>
 	
 	* configure.ac: Use AC_CHECK_HEADERS to find libelf.h.
@@ -16,10 +29,4 @@
 	* cfg.c (init_flow): Fixed ggc macro rot.
 	* lto-tree-tags.def (FIX_CEIL_EXPR, FIX_FLOOR_EXPR,
 	FIX_ROUND_EXPR): Removed dead tree types.
-	* lto/lto-tree.h (lang_decl, lang_type, language_function): Added
-	dummy since ggc does not like empty structs.
-	* lto/lto-elf.c (libelf.h): Changed to libelf/libelf.h.
-	* lto/lto-read.c (ADD_CLASS_FLAG, ADD_EXPR_FLAG): Changed
-	expr->common to expr->base.
-	(make_new_block): Moved stmt_list to proper place.
 	

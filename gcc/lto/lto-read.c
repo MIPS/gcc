@@ -1079,6 +1079,7 @@ make_new_block (struct function *fn, unsigned int index)
   SET_BASIC_BLOCK_FOR_FUNCTION (fn, index, bb);
   bb->il.tree = GGC_CNEW (struct tree_bb_info);
   bb->flags = 0;
+  set_bb_stmt_list (bb, alloc_stmt_list ());
   return bb;
 }
 
@@ -1225,6 +1226,8 @@ lto_static_init_local (void)
 #define END_CLASS_CASE(class)      break;
 #define END_CLASS_SWITCH()                    \
           default:                            \
+	    fprintf (stderr, "no declaration for TREE CODE CLASS for = %s(%d)\n", \
+                     tree_code_name[code], code);                                 \
             gcc_unreachable ();               \
           }
 
@@ -1240,6 +1243,8 @@ lto_static_init_local (void)
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                     \
           default:                            \
+	    fprintf (stderr, "no declaration for TREE CODE = %s(%d)\n", \
+                     tree_code_name[code], code);		        \
             gcc_unreachable ();               \
           }                                   \
       }					      \

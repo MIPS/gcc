@@ -1,3 +1,8 @@
+2007-06-26  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-read (make_new_block): Initialize the stmt_list.
+	(lto_static_init_local): Add debugging for missing codes.
+	
 2007-06-26  Mark Mitchell  <mark@codesourcery.com>
 
 	* lto.c (lto_read_subroutine_type_subprogram_DIE): Handle
@@ -16,6 +21,16 @@
 	
 	* Make-lang.in (LTO_OBJS): Depend on attribs.o.
 	
+2007-06-21  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto/lto-tree.h (lang_decl, lang_type, language_function): Added
+	dummy since ggc does not like empty structs.
+	* lto/lto-elf.c (libelf.h): Changed to libelf/libelf.h.
+	* lto/lto-read.c (ADD_CLASS_FLAG, ADD_EXPR_FLAG): Changed
+	expr->common to expr->base.
+	(make_new_block): Moved stmt_list to proper place.
+
+
 2007-03-14 Robert Kennedy  <jimbob@google.com>
 
 	Eliminate use of lang_hooks.set_decl_assembler_name from LTO
