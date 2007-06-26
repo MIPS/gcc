@@ -1,3 +1,9 @@
+2006-09-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/29059
+	* tree-ssa-propagate.c (set_rhs): Reject MODIFY_EXPR right
+	away for the expr argument.
+
 2006-10-10  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/29272
