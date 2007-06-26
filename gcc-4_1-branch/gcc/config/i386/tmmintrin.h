@@ -30,7 +30,11 @@
 #ifndef _TMMINTRIN_H_INCLUDED
 #define _TMMINTRIN_H_INCLUDED
 
-#ifdef __SSSE3__
+#ifndef __SSSE3__
+# error "SSSE3 instruction set not enabled"
+#else
+
+/* We need definitions from the SSE3, SSE2 and SSE header files*/
 #include <pmmintrin.h>
 
 static __inline __m128i
