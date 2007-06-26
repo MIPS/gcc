@@ -1,3 +1,8 @@
+2006-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/28709
+	* gcc.dg/cpp/paste14.c: New test.
+
 2006-12-13  Jakub Jelinek  <jakub@redhat.com>
 
 	* objc/compile/20060406-1.m: New test.
