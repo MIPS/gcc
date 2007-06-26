@@ -264,12 +264,12 @@ xscale-*-*)
 i[34567]86-*-*)
 	cpu_type=i386
 	extra_headers="mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
-		       pmmintrin.h tmmintrin.h"
+		       pmmintrin.h tmmintrin.h ammintrin.h"
 	;;
 x86_64-*-*)
 	cpu_type=i386
 	extra_headers="mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
-		       pmmintrin.h tmmintrin.h"
+		       pmmintrin.h tmmintrin.h ammintrin.h"
 	need_64bit_hwint=yes
 	;;
 ia64-*-*)
@@ -2396,6 +2396,9 @@ if test x$with_cpu = x ; then
       ;;
     i686-*-* | i786-*-*)
       case ${target_noncanonical} in
+        amdfam10-*)
+          with_cpu=amdfam10
+          ;;
         k8-*|opteron-*|athlon_64-*)
           with_cpu=k8
           ;;
@@ -2436,6 +2439,9 @@ if test x$with_cpu = x ; then
       ;;
     x86_64-*-*)
       case ${target_noncanonical} in
+        amdfam10-*)
+          with_cpu=amdfam10
+          ;;
         k8-*|opteron-*|athlon_64-*)
           with_cpu=k8
           ;;
@@ -2668,7 +2674,7 @@ case "${target}" in
 				esac
 				# OK
 				;;
-			"" | k8 | opteron | athlon64 | athlon-fx | nocona | core2 | generic)
+			"" | amdfam10 | k8 | opteron | athlon64 | athlon-fx | nocona | core2 | generic)
 				# OK
 				;;
 			*)
