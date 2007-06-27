@@ -27,6 +27,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "langhooks.h"
 #include "tm.h"
 #include "target.h"
 #include "ggc.h"

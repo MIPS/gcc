@@ -104,14 +104,23 @@ NAMED_CHARKNDCST (ISOCBINDING_CHAR, "c_char", gfc_default_character_kind)
 # define NAMED_CHARCST(a,b,c) 
 #endif
 
-NAMED_CHARCST (ISOCBINDING_NULL_CHAR, "c_null_char", '\0')
-NAMED_CHARCST (ISOCBINDING_ALERT, "c_alert", '\a')
-NAMED_CHARCST (ISOCBINDING_BACKSPACE, "c_backspace", '\b')
-NAMED_CHARCST (ISOCBINDING_FORM_FEED, "c_form_feed", '\f')
-NAMED_CHARCST (ISOCBINDING_NEW_LINE, "c_new_line", '\n')
-NAMED_CHARCST (ISOCBINDING_CARRIAGE_RETURN, "c_carriage_return", '\r')
-NAMED_CHARCST (ISOCBINDING_HORIZONTAL_TAB, "c_horizontal_tab", '\t')
-NAMED_CHARCST (ISOCBINDING_VERTICAL_TAB, "c_vertical_tab", '\v')
+/* Use langhooks to deal with host to target translations.  */ 
+NAMED_CHARCST (ISOCBINDING_NULL_CHAR, "c_null_char", \
+	       lang_hooks.to_target_charset ('\0'))
+NAMED_CHARCST (ISOCBINDING_ALERT, "c_alert", \
+	       lang_hooks.to_target_charset ('\a'))
+NAMED_CHARCST (ISOCBINDING_BACKSPACE, "c_backspace", \
+	       lang_hooks.to_target_charset ('\b'))
+NAMED_CHARCST (ISOCBINDING_FORM_FEED, "c_form_feed", \
+	       lang_hooks.to_target_charset ('\f'))
+NAMED_CHARCST (ISOCBINDING_NEW_LINE, "c_new_line", \
+	       lang_hooks.to_target_charset ('\n'))
+NAMED_CHARCST (ISOCBINDING_CARRIAGE_RETURN, "c_carriage_return", \
+	       lang_hooks.to_target_charset ('\r'))
+NAMED_CHARCST (ISOCBINDING_HORIZONTAL_TAB, "c_horizontal_tab", \
+	       lang_hooks.to_target_charset ('\t'))
+NAMED_CHARCST (ISOCBINDING_VERTICAL_TAB, "c_vertical_tab", \
+	       lang_hooks.to_target_charset ('\v'))
 
 #ifndef DERIVED_TYPE
 # define DERIVED_TYPE(a,b,c) 

@@ -3,6 +3,13 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-06-27  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/binding_c_table_15_1.f03: New test.
+	* gcc/fortran/iso-c-binding.def: Use lang_hooks.to_target_charset()
+	for named constants.
+	* gcc/fortran/trans-types.c: Include langhooks.h
+
 2007-06-24  Andreas Schwab  <schwab@suse.de>
 
 	* trans-types.c (gfc_check_any_c_kind): Don't read beyond array
