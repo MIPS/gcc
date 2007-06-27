@@ -2617,7 +2617,7 @@ vect_analyze_slp_instance (loop_vec_info loop_vinfo, tree stmt)
   tree vectype, scalar_type, next;
   unsigned int vectorization_factor = 0, ncopies;
   bool slp_impossible = false; 
-  int inside_cost, outside_cost, ncopies_for_cost;
+  int inside_cost = 0, outside_cost = 0, ncopies_for_cost;
 
   /* FORNOW: multiple types are not supported.  */
   scalar_type = TREE_TYPE (DR_REF (STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt))));
