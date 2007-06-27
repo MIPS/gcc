@@ -43,6 +43,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "toplev.h"
 #include "except.h"
 #include "tree.h"
+#include "target.h"
 
 /* This file contains the reload pass of the compiler, which is
    run after register allocation has been done.  It checks that
@@ -1962,7 +1963,9 @@ alter_reg (int i, int from_reg)
     {
       rtx x;
       unsigned int inherent_size = PSEUDO_REGNO_BYTES (i);
-      unsigned int total_size = MAX (inherent_size, reg_max_ref_width[i]);
+      unsigned int total_size =
+	MAX (targetm.min_stack_slot_size_for_mode (PSEUDO_REGNO_MODE (i)),
+	     reg_max_ref_width[i]);
       int adjust = 0;
 
       /* Each pseudo reg has an inherent size which comes from its own mode,

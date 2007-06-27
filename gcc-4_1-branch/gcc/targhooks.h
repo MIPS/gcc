@@ -71,3 +71,4 @@ extern const char *hook_invalid_arg_for_unprototyped_fn
 extern bool hook_bool_rtx_commutative_p (rtx, int);
 extern rtx default_function_value (tree, tree, bool);
 extern rtx default_internal_arg_pointer (void);
+extern unsigned int default_min_stack_slot_size_for_mode (enum machine_mode);

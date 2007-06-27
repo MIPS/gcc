@@ -6211,13 +6211,10 @@ expand_field_assignment (rtx x)
 	}
 
       /* A SUBREG between two modes that occupy the same numbers of words
-	 can be done by moving the SUBREG to the source.  However, we skip
-	 DDmode paradoxical subregs of SDmode regs.  */
+	 can be done by moving the SUBREG to the source.  */
       else if (GET_CODE (SET_DEST (x)) == SUBREG
 	       /* We need SUBREGs to compute nonzero_bits properly.  */
 	       && nonzero_sign_valid
-	       && GET_MODE (SET_DEST (x)) != DDmode
-	       && GET_MODE (SUBREG_REG (SET_DEST (x))) != SDmode
 	       && (((GET_MODE_SIZE (GET_MODE (SET_DEST (x)))
 		     + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
 		   == ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (SET_DEST (x))))

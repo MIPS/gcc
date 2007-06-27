@@ -1,3 +1,34 @@
+2007-06-26  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport of submitted mainline SDmode in FPRs patch.
+
+	* targhooks.c (default_min_stack_slot_size_for_mode): New default
+	target hook.
+	* targhooks.h (default_min_stack_slot_size_for_mode): Add prototype.
+	* target.h (struct gcc_target): Add min_stack_slot_size_for_mode.
+	* emit-rtl.c (validate_subreg): Revert 2007-05-22 change.
+	* target-def.h (TARGET_MIN_STACK_SLOT_SIZE_FOR_MODE): Define as
+	default_min_stack_slot_size_for_mode.
+	(TARGET_INITIALIZER): Initialize min_stack_slot_size_for_mode with
+	TARGET_MIN_STACK_SLOT_SIZE_FOR_MODE.
+	* combine.c (expand_field_assignment): Revert 2007-05-22 change.
+	* config/rs6000/rs6000.c (rs6000_min_stack_slot_size_for_mode):
+	New function.
+	(TARGET_MIN_STACK_SLOT_SIZE_FOR_MODE): Use it.
+	* config/rs6000/rs6000.h (SECONDARY_MEMORY_NEEDED_RTX): Use the new
+	min_stack_slot_size_for_mode target hook.
+	* config/rs6000/dfp.md (movsd_subreg_store, movsd_subreg_load):
+	Rename to movsd_store and movsd_load repsectively.  Use unspec
+	rather than subreg.
+	(movsd): Use new names.  Revert 2007-06-08 change.
+	(movsd_hardfloat): Remove fpstore and fpload options.
+	* config/rs6000/rs6000.md (UNSPEC_MOVSD_F2M): Delete.
+	(UNSPEC_MOVSD_M2F): Likewise.
+	(UNSPEC_MOVSD_LOAD): New constant.
+	(UNSPEC_MOVSD_STORE): Likewise.
+	* reload1.c (alter_reg): Use new min_stack_slot_size_for_mode target
+	hook.
+
 2007-06-22  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport of submitted mainline indexed load/store patch.

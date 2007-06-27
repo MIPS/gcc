@@ -476,4 +476,13 @@ default_internal_arg_pointer (void)
     return virtual_incoming_args_rtx;
 }
 
+/* By default, the stack slot size used to hold a reg of mode MODE is
+   equal to its mode size.  */
+
+unsigned int
+default_min_stack_slot_size_for_mode (enum machine_mode mode)
+{
+  return GET_MODE_SIZE (mode);
+}
+
 #include "gt-targhooks.h"

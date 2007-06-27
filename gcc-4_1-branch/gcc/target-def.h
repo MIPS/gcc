@@ -488,6 +488,9 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_HANDLE_PRAGMA_EXTERN_PREFIX 0
 #endif
 
+#ifndef TARGET_MIN_STACK_SLOT_SIZE_FOR_MODE
+#define TARGET_MIN_STACK_SLOT_SIZE_FOR_MODE default_min_stack_slot_size_for_mode
+#endif
 
 /* C++ specific.  */
 #ifndef TARGET_CXX_GUARD_TYPE
@@ -619,6 +622,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_INVALID_CONVERSION,			\
   TARGET_INVALID_UNARY_OP,			\
   TARGET_INVALID_BINARY_OP,			\
+  TARGET_MIN_STACK_SLOT_SIZE_FOR_MODE,		\
   TARGET_CXX,					\
   TARGET_UNWIND_TABLES_DEFAULT,			\
   TARGET_HAVE_NAMED_SECTIONS,			\

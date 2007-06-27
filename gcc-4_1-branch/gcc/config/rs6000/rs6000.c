@@ -648,6 +648,7 @@ static void rs6000_elf_encode_section_info (tree, rtx, int)
      ATTRIBUTE_UNUSED;
 static bool rs6000_elf_in_small_data_p (tree);
 #endif
+static unsigned int rs6000_min_stack_slot_size_for_mode (enum machine_mode);
 #if TARGET_XCOFF
 static void rs6000_xcoff_asm_globalize_label (FILE *, const char *);
 static void rs6000_xcoff_asm_named_section (const char *, unsigned int, tree);
@@ -1057,6 +1058,9 @@ static const char alt_reg_names[][8] =
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL rs6000_output_dwarf_dtprel
 #endif
+
+#undef TARGET_MIN_STACK_SLOT_SIZE_FOR_MODE
+#define TARGET_MIN_STACK_SLOT_SIZE_FOR_MODE rs6000_min_stack_slot_size_for_mode
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -18420,6 +18424,18 @@ rs6000_elf_unique_section (tree decl, int reloc)
   default_unique_section_1 (decl, reloc,
 			    flag_pic || DEFAULT_ABI == ABI_AIX);
 }
+
+/* Implement TARGET_MIN_STACK_SLOT_SIZE_FOR_MODE.  */
+
+static unsigned int
+rs6000_min_stack_slot_size_for_mode (enum machine_mode mode)
+{
+  if (mode == SDmode)
+    return GET_MODE_SIZE (DDmode);
+
+  return GET_MODE_SIZE (mode);
+}
+
 
 /* For a SYMBOL_REF, set generic flags and then perform some
    target-specific processing.

@@ -677,13 +677,10 @@ validate_subreg (enum machine_mode omode, enum machine_mode imode,
     ;
   /* Subregs involving floating point modes are not allowed to
      change size.  Therefore (subreg:DI (reg:DF) 0) is fine, but
-     (subreg:SI (reg:DF) 0) isn't.  One exception is a DDmode
-     paradoxical subreg of a SDmode reg which is required for
-     cpus that cannot load/store SDmode values from 64-bit
-     FP registers without doing a full 64-bit load/store.  */
+     (subreg:SI (reg:DF) 0) isn't.  */
   else if (FLOAT_MODE_P (imode) || FLOAT_MODE_P (omode))
     {
-      if (!((imode == SDmode) && (omode == DDmode)) && (isize != osize))
+      if (isize != osize)
 	return false;
     }
 

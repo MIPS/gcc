@@ -1254,10 +1254,8 @@ enum reg_class
    FP registers without using a full 64-bit load/store, we need
    to allocate a full 64-bit stack slot for them.  */
 
-#define SECONDARY_MEMORY_NEEDED_RTX(MODE)			\
- assign_stack_local (MODE, ((MODE) == SDmode) ?			\
-			    GET_MODE_SIZE (DDmode) :		\
-			    GET_MODE_SIZE (MODE), 0)
+#define SECONDARY_MEMORY_NEEDED_RTX(MODE) \
+ assign_stack_local (MODE, targetm.min_stack_slot_size_for_mode (MODE), 0)
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.

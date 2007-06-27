@@ -1,5 +1,5 @@
 ;; Decimal Floating Point (DFP) patterns.
-;; Copyright (C) 2006
+;; Copyright (C) 2007
 ;; Free Software Foundation, Inc.
 ;; Contributed by Ben Elliston (bje@au.ibm.com) and Peter Bergner
 ;; (bergner@vnet.ibm.com).
@@ -21,12 +21,6 @@
 ;; Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
 ;; MA 02110-1301, USA.
 
-;; For decimal floating-point, we normally deal with the floating-point registers
-;; unless -msoft-float is used.  The sole exception is that parameter passing
-;; can produce floating-point values in fixed-point registers.  Unless the
-;; value is a simple constant or already in memory, we deal with this by
-;; allocating memory and copying the value explicitly via that memory location.
-
 (define_expand "movsd"
   [(set (match_operand:SD 0 "nonimmediate_operand" "")
 	(match_operand:SD 1 "any_operand" ""))]
@@ -34,21 +28,13 @@
   "
 {
   if (no_new_pseudos)
-    {
-      if (REG_P (operands[0]) && REG_P (operands[1]))
-	{
-	  rs6000_emit_move (operands[0], operands[1], SDmode);
-	  DONE;
-	}
-      else
-	FAIL;
-    }
+    FAIL;
   else if (MEM_P (operands[0]) && REG_P (operands[1]))
     {
       rtx intreg = gen_reg_rtx (SImode);
       rtx stack = assign_stack_temp (DDmode, GET_MODE_SIZE (DDmode), 0);
       rtx dst = adjust_address (operands[0], SImode, 0);
-      emit_insn (gen_movsd_subreg_store (stack, operands[1]));
+      emit_insn (gen_movsd_store (stack, operands[1]));
       emit_move_insn (intreg, adjust_address (stack, SImode, 4));
       emit_move_insn (dst, intreg);
       DONE;
@@ -60,7 +46,7 @@
       rtx src = adjust_address (operands[1], SImode, 0);
       emit_move_insn (intreg, src);
       emit_move_insn (adjust_address (stack, SImode, 4), intreg);
-      emit_insn (gen_movsd_subreg_load (operands[0], stack));
+      emit_insn (gen_movsd_load (operands[0], stack));
       DONE;
     }
   else if (MEM_P (operands[0]) && MEM_P (operands[1]))
@@ -91,7 +77,7 @@
       else
 	{
 	  rtx stack = assign_stack_temp (DDmode, GET_MODE_SIZE (DDmode), 0);
-	  emit_insn (gen_movsd_subreg_store (stack, operands[1]));
+	  emit_insn (gen_movsd_store (stack, operands[1]));
 	  emit_move_insn (dst, adjust_address (stack, SImode, 4));
 	}
       DONE;
@@ -111,7 +97,7 @@
 	{
 	  rtx stack = assign_stack_temp (DDmode, GET_MODE_SIZE (DDmode), 0);
 	  emit_move_insn (adjust_address (stack, SImode, 4), src);
-	  emit_insn (gen_movsd_subreg_load (operands[0], stack));
+	  emit_insn (gen_movsd_load (operands[0], stack));
 	}
       DONE;
     }
@@ -120,7 +106,7 @@
     {
       rtx subreg = simplify_gen_subreg (SImode, operands[0], SDmode, 0);
       rtx stack = assign_stack_temp (DDmode, GET_MODE_SIZE (DDmode), 0);
-      emit_insn (gen_movsd_subreg_store (stack, operands[1]));
+      emit_insn (gen_movsd_store (stack, operands[1]));
       emit_move_insn (subreg, adjust_address (stack, SImode, 4));
       DONE;
     }
@@ -155,8 +141,8 @@
 }")
 
 (define_insn "movsd_hardfloat"
-  [(set (match_operand:SD 0 "nonimmediate_operand" "=!r,!r,m,f,f,m,*c*l,*q,!r,*h,!r,!r")
-	(match_operand:SD 1 "input_operand" "r,m,r,f,m,f,r,r,h,0,G,Fn"))]
+  [(set (match_operand:SD 0 "nonimmediate_operand" "=!r,!r,m,f,*c*l,*q,!r,*h,!r,!r")
+	(match_operand:SD 1 "input_operand" "r,m,r,f,r,r,h,0,G,Fn"))]
   "(gpc_reg_operand (operands[0], SDmode)
    || gpc_reg_operand (operands[1], SDmode))
    && TARGET_HARD_FLOAT && TARGET_FPRS"
@@ -165,16 +151,14 @@
    {l%U1%X1|lwz%U1%X1} %0,%1
    {st%U0%X0|stw%U0%X0} %1,%0
    fmr %0,%1
-   lfd%U1%X1 %0,%1
-   stfd%U0%X0 %1,%0
    mt%0 %1
    mt%0 %1
    mf%1 %0
    {cror 0,0,0|nop}
    #
    #"
-  [(set_attr "type" "*,load,store,fp,fpload,fpstore,mtjmpr,*,mfjmpr,*,*,*")
-   (set_attr "length" "4,4,4,4,4,4,4,4,4,4,4,8")])
+  [(set_attr "type" "*,load,store,fp,mtjmpr,*,mfjmpr,*,*,*")
+   (set_attr "length" "4,4,4,4,4,4,4,4,4,8")])
 
 (define_insn "movsd_softfloat"
   [(set (match_operand:SD 0 "nonimmediate_operand" "=r,cl,q,r,r,m,r,r,r,r,r,*h")
@@ -198,9 +182,10 @@
   [(set_attr "type" "*,mtjmpr,*,mfjmpr,load,store,*,*,*,*,*,*")
    (set_attr "length" "4,4,4,4,4,4,4,4,4,4,8,4")])
 
-(define_insn "movsd_subreg_store"
+(define_insn "movsd_store"
   [(set (match_operand:DD 0 "nonimmediate_operand" "=m")
-	(subreg:DD (match_operand:SD 1 "input_operand" "f") 0))]
+	(unspec:DD [(match_operand:SD 1 "input_operand" "f")]
+		   UNSPEC_MOVSD_STORE))]
   "(gpc_reg_operand (operands[0], DDmode)
    || gpc_reg_operand (operands[1], SDmode))
    && TARGET_HARD_FLOAT && TARGET_FPRS"
@@ -208,9 +193,10 @@
   [(set_attr "type" "fpstore")
    (set_attr "length" "4")])
 
-(define_insn "movsd_subreg_load"
-  [(set (subreg:DD (match_operand:SD 0 "nonimmediate_operand" "=f") 0)
-	(match_operand:DD 1 "input_operand" "m"))]
+(define_insn "movsd_load"
+  [(set (match_operand:SD 0 "nonimmediate_operand" "=f")
+	(unspec:SD [(match_operand:DD 1 "input_operand" "m")]
+		   UNSPEC_MOVSD_LOAD))]
   "(gpc_reg_operand (operands[0], SDmode)
    || gpc_reg_operand (operands[1], DDmode))
    && TARGET_HARD_FLOAT && TARGET_FPRS"

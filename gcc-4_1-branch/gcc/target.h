@@ -639,6 +639,9 @@ struct gcc_target
      is not permitted on TYPE1 and TYPE2, NULL otherwise.  */
   const char *(*invalid_binary_op) (int op, tree type1, tree type2);
 
+  /* Return the size in bytes required to hold MODE on the stack.  */
+  unsigned int (* min_stack_slot_size_for_mode) (enum machine_mode mode);
+
   /* Functions specific to the C++ frontend.  */
   struct cxx {
     /* Return the integer type used for guard variables.  */
