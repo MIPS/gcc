@@ -1,5 +1,13 @@
 2007-06-27  Aldy Hernandez  <aldyh@redhat.com> 
 
+	* gimple-ir.h (gs_seq_last): Return last statement.
+	* testsuite/gcc.dg/gimple/compound_expr.c: Add checks.
+	* testsuite/gcc.dg/gimple/gs_call.c: Same.
+	* testsuite/gcc.dg/gimple/constructors.c: Same.
+	* testsuite/gcc.dg/gimple/gs_assign.c: Same.
+
+2007-06-27  Aldy Hernandez  <aldyh@redhat.com> 
+
 	Put this patch back in.
 
 	2007-06-22  Aldy Hernandez  <aldyh@redhat.com> 

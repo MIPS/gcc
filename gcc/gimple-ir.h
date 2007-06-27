@@ -54,7 +54,7 @@ gs_seq_first (gs_seq s)
 static inline gimple
 gs_seq_last (gs_seq s)
 {
-  return s->first;
+  return s->last;
 }
 
 static inline void
