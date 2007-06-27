@@ -215,6 +215,7 @@ extern void print_generic_stmt_indented (FILE *, tree, int, int);
 extern void print_gimple_stmt (FILE *, gimple, int);
 extern void print_generic_expr (FILE *, tree, int);
 extern void print_generic_decl (FILE *, tree, int);
+extern void debug_c_tree (tree);
 
 /* In gimple-pretty-print.c  */
 extern void debug_generic_expr (tree);
@@ -222,6 +223,6 @@ extern void debug_generic_stmt (tree);
 extern void debug_tree_chain (tree);
 extern void debug_gimple_stmt (gimple);
 extern void debug_gimple_seq (gs_seq);
-extern void debug_c_tree (tree);
+extern void dump_gimple_seq (FILE *, gs_seq);
 
 #endif /* ! GCC_DIAGNOSTIC_H */

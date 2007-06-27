@@ -4737,7 +4737,7 @@ extern tree tree_overlaps_hard_reg_set (tree, HARD_REG_SET *);
 
 /* In gimplify.c.  */
 extern tree create_artificial_label (void);
-extern void gimplify_function_tree (tree);
+extern struct gs_sequence gimplify_function_tree (tree);
 extern const char *get_name (tree);
 extern tree unshare_expr (tree);
 extern void sort_case_labels (tree);

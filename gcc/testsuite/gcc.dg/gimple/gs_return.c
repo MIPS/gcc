@@ -8,3 +8,5 @@ int foo()
 {
     return a + b;
 }
+
+/* { dg-final { scan-tree-dump-times "gimpleir: return" 1 "gimple"} } */

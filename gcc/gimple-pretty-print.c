@@ -82,6 +82,19 @@ debug_gimple_seq (gs_seq seq)
     }
 }
 
+void
+dump_gimple_seq (FILE *file, gs_seq seq)
+{
+  gimple_stmt_iterator i;
+
+  for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
+    {
+      gimple gs = gsi_stmt (i);
+      fprintf (file, "gimpleir: ");
+      print_gimple_stmt (file, gs, TDF_VOPS|TDF_MEMSYMS);
+    }
+}
+
 /* Same, but for gimple statements.  */
 
 void

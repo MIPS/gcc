@@ -1,3 +1,18 @@
+2007-06-26  Aldy Hernandez  <aldyh@redhat.com>
+
+	* testsuite/gcc.dg/gimple/gimple.exp: Pass -fdump-tree-gimple-details
+	* testsuite/gcc.dg/gimple/compound_expr.c: Add dg-final.
+	* testsuite/gcc.dg/gimple/gs_return.c: Same.
+	* tree.h (gimplify_function_tree): Add return value.
+	* diagnostic.h (debug_c_tree): Move under tree-pretty-print.c section.
+	(dump_gimple_seq): New.
+	to tests.
+	* gimple-pretty-print.c (dump_gimple_seq): New.
+	* gimplify.c (gimplify_function_tree): Add return value.
+	Remove debug call and exit.
+	Comment out non-working code.
+	* c-gimplify.c (c_genericize): Dump gimple IR.  Exit.
+
 2007-06-26  Diego Novillo  <dnovillo@google.com>
 
 	* gimple-ir.c (gs_build_call_1): Fix formatting.

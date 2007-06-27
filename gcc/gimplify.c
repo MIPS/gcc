@@ -6515,9 +6515,11 @@ gimplify_body (tree *body_p, gs_seq seq_p, tree fndecl, bool do_parms)
 }
 
 /* Entry point to the gimplification pass.  FNDECL is the FUNCTION_DECL
-   node for the function we want to gimplify.  */
+   node for the function we want to gimplify.
+   
+   Returns a gimple sequence.  */
 
-void
+struct gs_sequence
 gimplify_function_tree (tree fndecl)
 {
   tree oldfn, parm, ret;
@@ -6549,8 +6551,9 @@ gimplify_function_tree (tree fndecl)
 
   gs_seq_init (&seq);
   gimplify_body (&DECL_SAVED_TREE (fndecl), &seq, fndecl, true);
-  exit (0);
 
+  /* FIXME tuples */
+#if 0
   /* If we're instrumenting function entry/exit, then prepend the call to
      the entry hook and wrap the whole function in a TRY_FINALLY_EXPR to
      catch the exit hook.  */
@@ -6577,10 +6580,12 @@ gimplify_function_tree (tree fndecl)
 
       DECL_SAVED_TREE (fndecl) = bind;
     }
+#endif
 
   cfun->gimplified = true;
   current_function_decl = oldfn;
   cfun = oldfn ? DECL_STRUCT_FUNCTION (oldfn) : NULL;
+  return seq;
 }
 
 /* Expands EXPR to list of gimple statements STMTS.  If SIMPLE is true,
