@@ -3625,7 +3625,7 @@ gimplify_modify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
   ret = gimplify_modify_expr_rhs (expr_p, from_p, to_p, pre_p, post_p,
 				  want_value);
   if (ret != GS_UNHANDLED)
-    return gimplify_modify_expr (expr_p, pre_p, post_p, want_value);
+    return ret;
 
   /* If the value being copied is of variable width, compute the length
      of the copy into a WITH_SIZE_EXPR.   Note that we need to do this
@@ -3649,7 +3649,7 @@ gimplify_modify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
   ret = gimplify_modify_expr_rhs (expr_p, from_p, to_p, pre_p, post_p,
 				  want_value);
   if (ret != GS_UNHANDLED)
-    return gimplify_modify_expr (expr_p, pre_p, post_p, want_value);
+    return ret;
 
   /* If we've got a variable sized assignment between two lvalues (i.e. does
      not involve a call), then we can make things a bit more straightforward

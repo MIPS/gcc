@@ -1,3 +1,12 @@
+2007-06-27  Aldy Hernandez  <aldyh@redhat.com> 
+
+	Put this patch back in.
+
+	2007-06-22  Aldy Hernandez  <aldyh@redhat.com> 
+
+	* gimplify.c (gimplify_modify_expr): Return after a successful
+	call to gimplify_modify_expr_rhs.
+
 2007-06-26  Aldy Hernandez  <aldyh@redhat.com>
 
 	* testsuite/gcc.dg/gimple/gimple.exp: Pass -fdump-tree-gimple-details
