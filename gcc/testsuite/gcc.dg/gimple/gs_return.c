@@ -10,3 +10,4 @@ int foo()
 }
 
 /* { dg-final { scan-tree-dump-times "gimpleir: return" 1 "gimple"} } */
+/* { dg-final { cleanup-tree-dump "gimple" } } */

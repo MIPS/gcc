@@ -10,3 +10,4 @@ void foo()
 }
 
 /* { dg-final { scan-tree-dump-times "gimpleir: a.2 = b.0 \\+ c.1" 1 "gimple"} } */
+/* { dg-final { cleanup-tree-dump "gimple" } } */

@@ -16,3 +16,4 @@ void foo()
 /* { dg-final { scan-tree-dump-times "gimpleir: a.3. = 4" 1 "gimple"} } */
 /* { dg-final { scan-tree-dump-times "gimpleir: a.4. = 5" 1 "gimple"} } */
 /* { dg-final { scan-tree-dump-times "gimpleir: bar \\(&a\\)" 1 "gimple"} } */
+/* { dg-final { cleanup-tree-dump "gimple" } } */
