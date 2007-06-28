@@ -1,3 +1,94 @@
+2007-06-27  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/27492
+	* g++.dg/inherit/covariant15.C: New test.
+
+2007-06-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32389
+	* gcc.target/i386/pr32389.c New test.
+
+2007-06-20  Daniel Franke  <franke.daniel@gmail.com>
+
+	Backport from trunk:
+	PR fortran/32002
+	* gfortran.dg/compliant_elemental_intrinsics_2.f90: New test.
+
+2007-06-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/32109
+	* g++.dg/ext/asm10.C: New test.
+
+	PR middle-end/32285
+	* gcc.c-torture/execute/20070614-1.c: New test.
+
+2007-06-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32302
+	* gfortran.dg/common_resize_1.f90: New test.
+
+2007-06-19  Richard Guenther  <rguenther@suse.de>
+	Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/30252
+	* g++.dg/opt/pr30252.C: New testcase.
+
+2007-06-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/32353
+	* g++.dg/opt/nrv13.C: New test.
+
+2007-06-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/lookup/anon6.C: New test.
+
+2007-06-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.target/sparc/align.c: Use 'unsigned char' as element type.
+	* gcc.target/sparc/combined-2.c: Likewise.
+	* gcc.target/sparc/fexpand.c : Likewise.
+	* gcc.target/sparc/fnot.c: Likewise.  Fix a couple of prototypes.
+	* gcc.target/sparc/fpack16.c : Likewise.
+	* gcc.target/sparc/fpmerge.c : Likewise.
+	* gcc.target/sparc/fpmul.c : Likewise.
+	* gcc.target/sparc/noresult.c : Likewise.
+	* gcc.target/sparc/pdist.c: Likewise.
+
+2007-06-15  Diego Novillo  <dnovillo@google.com>
+
+	PR 32327
+	* g++.dg/tree-ssa/pr32327-1.C: New test.
+	* g++.dg/tree-ssa/pr32327.C: New test.
+
+2007-06-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.target/sparc/mfpu.c: New test.
+
+2007-06-09  Ian Lance Taylor  <iant@google.com>
+
+	PR tree-optimization/32169
+	* gcc.c-torture/compile/pr32169.c: New test.
+
+2007-06-08  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/31809
+	Backport from mainline:
+	2007-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/opt/static5.C: New test.
+
+2007-06-06  Ian Lance Taylor  <iant@google.com>
+
+	* g++.dg/conversion/enum1.C: New test.
+
+2007-06-05  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wstrict-overflow-19.c: New test.
+
+2007-06-04  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wstrict-overflow-18.c: New test.
+
 2007-05-31  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:

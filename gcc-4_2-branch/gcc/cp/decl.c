@@ -1573,6 +1573,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       DECL_STATIC_DESTRUCTOR (newdecl) |= DECL_STATIC_DESTRUCTOR (olddecl);
       DECL_PURE_VIRTUAL_P (newdecl) |= DECL_PURE_VIRTUAL_P (olddecl);
       DECL_VIRTUAL_P (newdecl) |= DECL_VIRTUAL_P (olddecl);
+      DECL_INVALID_OVERRIDER_P (newdecl) |= DECL_INVALID_OVERRIDER_P (olddecl);
       DECL_THIS_STATIC (newdecl) |= DECL_THIS_STATIC (olddecl);
       if (DECL_OVERLOADED_OPERATOR_P (olddecl) != ERROR_MARK)
 	SET_OVERLOADED_OPERATOR_CODE
@@ -2161,8 +2162,24 @@ redeclaration_error_message (tree newdecl, tree olddecl)
     }
   else if (toplevel_bindings_p () || DECL_NAMESPACE_SCOPE_P (newdecl))
     {
-      /* Objects declared at top level:  */
-      /* If at least one is a reference, it's ok.  */
+      /* The objects have been declared at namespace scope.  If either
+	 is a member of an anonymous union, then this is an invalid
+	 redeclaration.  For example:
+
+	   int i;
+	   union { int i; };
+
+	   is invalid.  */
+      if (DECL_ANON_UNION_VAR_P (newdecl)
+	  || DECL_ANON_UNION_VAR_P (olddecl))
+	return "redeclaration of %q#D";
+      /* If at least one declaration is a reference, there is no
+	 conflict.  For example:
+
+	   int i = 3;
+	   extern int i;
+
+	 is valid.  */
       if (DECL_EXTERNAL (newdecl) || DECL_EXTERNAL (olddecl))
 	return NULL;
       /* Reject two definitions.  */
@@ -5368,7 +5385,18 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	     initializer.  It is not legal to redeclare a static data
 	     member, so this issue does not arise in that case.  */
 	  if (var_definition_p && TREE_STATIC (decl))
-	    expand_static_init (decl, init);
+	    {
+              /* If a TREE_READONLY variable needs initialization
+		 at runtime, it is no longer readonly and we need to
+		 avoid MEM_READONLY_P being set on RTL created for it.  */
+	      if (init)
+		{
+		  if (TREE_READONLY (decl))
+		    TREE_READONLY (decl) = 0;
+		  was_readonly = 0;
+		}
+	      expand_static_init (decl, init);
+	    }
 	}
     }
 

@@ -13478,6 +13478,9 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
 
   gcc_assert (n < MAX_386_STACK_LOCALS);
 
+  /* Virtual slot is valid only before vregs are instantiated.  */
+  gcc_assert ((n == SLOT_VIRTUAL) == !virtuals_instantiated);
+
   for (s = ix86_stack_locals; s; s = s->next)
     if (s->mode == mode && s->n == n)
       return s->rtl;
@@ -14567,6 +14570,7 @@ enum ix86_builtins
   IX86_BUILTIN_VEC_EXT_V4SF,
   IX86_BUILTIN_VEC_EXT_V4SI,
   IX86_BUILTIN_VEC_EXT_V8HI,
+  IX86_BUILTIN_VEC_EXT_V16QI,
   IX86_BUILTIN_VEC_EXT_V2SI,
   IX86_BUILTIN_VEC_EXT_V4HI,
   IX86_BUILTIN_VEC_SET_V8HI,
@@ -15573,6 +15577,10 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (MASK_MMX, "__builtin_ia32_vec_ext_v2si",
 	       ftype, IX86_BUILTIN_VEC_EXT_V2SI);
 
+  ftype = build_function_type_list (intQI_type_node, V16QI_type_node,
+				    integer_type_node, NULL_TREE);
+  def_builtin (MASK_SSE2, "__builtin_ia32_vec_ext_v16qi", ftype, IX86_BUILTIN_VEC_EXT_V16QI);
+
   /* Access to the vec_set patterns.  */
   ftype = build_function_type_list (V8HI_type_node, V8HI_type_node,
 				    intHI_type_node,
@@ -16121,13 +16129,13 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case IX86_BUILTIN_LDMXCSR:
       op0 = expand_normal (TREE_VALUE (arglist));
-      target = assign_386_stack_local (SImode, SLOT_TEMP);
+      target = assign_386_stack_local (SImode, SLOT_VIRTUAL);
       emit_move_insn (target, op0);
       emit_insn (gen_sse_ldmxcsr (target));
       return 0;
 
     case IX86_BUILTIN_STMXCSR:
-      target = assign_386_stack_local (SImode, SLOT_TEMP);
+      target = assign_386_stack_local (SImode, SLOT_VIRTUAL);
       emit_insn (gen_sse_stmxcsr (target));
       return copy_to_mode_reg (SImode, target);
 
@@ -16489,6 +16497,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_VEC_EXT_V4SF:
     case IX86_BUILTIN_VEC_EXT_V4SI:
     case IX86_BUILTIN_VEC_EXT_V8HI:
+    case IX86_BUILTIN_VEC_EXT_V16QI:
     case IX86_BUILTIN_VEC_EXT_V2SI:
     case IX86_BUILTIN_VEC_EXT_V4HI:
       return ix86_expand_vec_ext_builtin (arglist, target);

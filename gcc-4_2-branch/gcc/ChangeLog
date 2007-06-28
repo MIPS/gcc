@@ -1,3 +1,124 @@
+2007-06-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_function_ok_for_sibcall): Ensure
+	decl is non-external for AIX ABI.
+
+2007-06-28  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/predicates.md (current_file_function_operand):
+	Ensure the symbol is non-external for AIX ABI.
+
+2007-06-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_builtins): Add IX86_BUILTIN_VEC_EXT_V16QI.
+	(ix86_init_mmx_sse_builtins): Add __builtin_ia32_vec_ext_v16qi.
+	(ix86_expand_builtin): Handle IX86_BUILTIN_VEC_EXT_V16QI.
+
+2007-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/32362
+	* omp-low.c (lookup_decl_in_outer_ctx): Don't ICE if t is NULL,
+	but decl is a global var, instead return decl.
+	* gimplify.c (gimplify_adjust_omp_clauses_1): Add shared clauses
+	even for is_global_var decls, if they are private in some outer
+	context.
+
+2007-06-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32389
+	* config/i386/i386.h (enum ix86_stack_slot): Add SLOT_VIRTUAL.
+	* config/i386/i386.c (assign_386_stack_local): Assert that
+	SLOT_VIRTUAL is valid only before virtual regs are instantiated.
+	(ix86_expand_builtin) [IX86_BUILTIN_LDMXCSR, IX86_BUILTIN_STMXCSR]:
+	Use SLOT_VIRTUAL stack slot instead of SLOT_TEMP.
+	* config/i386/i386.md (truncdfsf2, truncxfsf2, truncxfdf2): Ditto.
+
+2007-06-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/32109
+	* gimplify.c (gimplify_asm_expr): Issue error if type is addressable
+	and !allows_mem.
+
+	PR middle-end/32285
+	* calls.c (precompute_arguments): Also precompute CALL_EXPR arguments
+	if ACCUMULATE_OUTGOING_ARGS.
+
+2007-06-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR rtl-optimization/28011
+	Backport from mainline.
+	* reload.c (push_reload): Set dont_share if IN appears in OUT
+	also when IN is a PLUS rtx.
+	(reg_overlap_mentioned_for_reload_p): Return true if X and IN
+	are same PLUS rtx.
+
+2007-06-19  Richard Guenther  <rguenther@suse.de>
+	Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/30252
+	* tree-ssa-structalias.c (solution_set_add): Make sure to
+	preserve all relevant vars.
+	(handle_ptr_arith): Make sure to only handle positive
+	offsets.
+	(push_fields_onto_fieldstack): Create fields for empty
+	bases.
+
+2007-06-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/32353
+	* tree-ssa-structalias.c (set_uids_in_ptset): Also handle RESULT_DECL.
+
+2007-06-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sparc.c (sparc_vis_init_builtins): Retrieve the
+	return mode from the builtin itself.
+	(sparc_fold_builtin): Fix cast of zero constant.
+
+2007-06-15  Diego Novillo  <dnovillo@google.com>
+
+	PR 32327
+	* tree-ssa-operands.c (build_ssa_operands): Initially assume
+	that the statement does not take any addresses.
+
+2007-06-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sparc.c (sparc_override_options): Initialize
+	fpu mask correctly.
+
+2007-06-09  Ian Lance Taylor  <iant@google.com>
+
+	PR tree-optimization/32169
+	* tree-vrp.c (extract_range_from_unary_expr): For NOP_EXPR and
+	CONVERT_EXPR, check whether min and max both converted to an
+	overflow infinity representation.
+
+2007-06-08  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/32163
+	Backport from mainline.
+	* config/sh/sh.md (symGOT_load): Don't schedule insns when
+	the symbol is generated with the stack protector.
+
+2007-06-06  Ian Lance Taylor  <iant@google.com>
+
+	* fold-const.c (merge_ranges): If range_successor or
+	range_predecessor fail, just return 0.
+
+2007-06-05  Ian Lance Taylor  <iant@google.com>
+
+	* tree-vrp.c (compare_values_warnv): Check TREE_NO_WARNING on a
+	PLUS_EXPR or MINUS_EXPR node before setting *strict_overflow_p.
+	(extract_range_from_assert): Set TREE_NO_WARNING when creating an
+	expression.
+	(test_for_singularity): Likewise.
+
+2007-06-04  Ian Lance Taylor  <iant@google.com>
+
+	* tree-vrp.c (adjust_range_with_scev): When loop is not expected
+	to overflow, reduce overflow infinity to regular infinity.
+	(vrp_var_may_overflow): New static function.
+	(vrp_visit_phi_node): Check vrp_var_may_overflow.
+
 2007-05-31  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
