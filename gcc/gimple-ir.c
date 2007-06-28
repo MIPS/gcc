@@ -211,6 +211,18 @@ gs_build_cond (enum gs_cond pred, tree lhs, tree rhs,
   return p;
 }
 
+/* Invert the condition of a GS_COND by swapping its labels.  */
+
+void
+gs_cond_invert (gimple g)
+{
+  tree tmp;
+
+  tmp = gs_cond_true_label (g);
+  gs_cond_set_true_label (g, gs_cond_false_label (g));
+  gs_cond_set_false_label (g, tmp);
+}
+
 /* Construct a GS_LABEL statement for LABEL.  */
 
 gimple

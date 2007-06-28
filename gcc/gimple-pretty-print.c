@@ -34,6 +34,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "gimple-ir.h"
 
+#define INDENT(SPACE) do { \
+  int i; for (i = 0; i<SPACE; i++) pp_space (buffer); } while (0)
 
 static pretty_printer buffer;
 static bool initialized = false;
@@ -61,6 +63,14 @@ maybe_init_pretty_print (FILE *file)
     }
 
   buffer.buffer->stream = file;
+}
+
+static void
+newline_and_indent (pretty_printer *buffer, int spc)
+{
+  pp_newline (buffer);
+  pp_string (buffer, "gimpleir: ");
+  INDENT (spc);
 }
 
 void
@@ -187,6 +197,57 @@ dump_gs_call (pretty_printer *buffer, gimple gs, int spc, int flags)
 }
 
 
+/* Return the symbol associated with the GS_COND predicate PRED.  */
+
+static const char *
+op_gs_cond (enum gs_cond pred)
+{
+  /* These must be in sync with enum gs_cond.  */
+  static const char *table[] =
+    { "<", ">", "<=", ">=", "==", "!=" };
+
+  return table[(int) pred];
+}
+
+
+/* Dump the gimple conditional GS.  BUFFER, SPC and FLAGS are as in
+   dump_gimple_stmt.  */
+
+static void
+dump_gs_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  /* This stupid line is here so we can scan for it in the testsuite.  */
+  pp_string (buffer, "GS_COND tuple");
+
+  newline_and_indent (buffer, spc);
+  pp_string (buffer, "if (");
+  dump_generic_node (buffer, gs_cond_lhs (gs), spc, flags, false);
+  pp_space (buffer);
+  pp_string (buffer, op_gs_cond (GS_SUBCODE_FLAGS (gs)));
+  pp_space (buffer);
+  dump_generic_node (buffer, gs_cond_rhs (gs), spc, flags, false);
+  pp_character (buffer, ')');
+  newline_and_indent (buffer, spc + 2);
+  pp_character (buffer, '{');
+  newline_and_indent (buffer, spc + 4);
+  pp_string (buffer, "goto ");
+  dump_generic_node (buffer, gs_cond_true_label (gs), spc, flags, false);
+  pp_character (buffer, ';');
+  newline_and_indent (buffer, spc + 2);
+  pp_character (buffer, '}');
+  newline_and_indent (buffer, spc);
+  pp_string (buffer, "else");
+  newline_and_indent (buffer, spc + 2);
+  pp_character (buffer, '{');
+  newline_and_indent (buffer, spc + 4);
+  pp_string (buffer, "goto ");
+  dump_generic_node (buffer, gs_cond_false_label (gs), spc, flags, false);
+  pp_character (buffer, ';');
+  newline_and_indent (buffer, spc + 2);
+  pp_character (buffer, '}');
+}
+
+
 /* Dump the gimple statement GS on the pretty_printer BUFFER, SPC
    spaces of indent.  FLAGS specifies details to show in the dump (see
    TDF_* in tree.h).  */
@@ -209,6 +270,20 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 
     case GS_CALL:
       dump_gs_call (buffer, gs, spc, flags);
+      break;
+
+    case GS_LABEL:
+      dump_generic_node (buffer, gs_label_label (gs), spc, flags, false);
+      pp_character (buffer, ':');
+      break;
+
+    case GS_GOTO:
+      pp_string (buffer, "goto ");
+      dump_generic_node (buffer, gs_goto_dest (gs), spc, flags, false);
+      break;
+
+    case GS_COND:
+      dump_gs_cond (buffer, gs, spc, flags);
       break;
 
     default:

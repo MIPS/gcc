@@ -1,3 +1,21 @@
+2007-06-28  Aldy Hernandez  <aldyh@redhat.com> 
+
+	* testsuite/gcc.dg/gimple/gs_goto.c: New.
+	* testsuite/gcc.dg/gimple/gs_cond.c: New.
+	* tree-gimple.h (gimplify_stmt): Return bool.
+	* gimple-pretty-print.c (INDENT): New.
+	(newline_and_indent): New.
+	(op_gs_cond): New.
+	(dump_gs_cond): New.
+	(dump_gimple_stmt): New.
+	* gimple-ir.c (gs_cond_invert): New.
+	* gimple-ir.h (enum gs_cond): Add comment.
+	(gs_cond_invert): Protoize.
+	* gimplify.c (gimplify_cond_expr): Rewrite for tuples.
+	(gimplify_stmt): Return true if we added a statement to the queue.
+	(gimplify_expr): Enable gimplify_cond_expr.
+	Build tuples for GOTO_EXPRs and LABEL_EXPRs.
+
 2007-06-27  Aldy Hernandez  <aldyh@redhat.com> 
 
 	* gimple-ir.h (gs_seq_last): Return last statement.

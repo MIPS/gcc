@@ -115,7 +115,7 @@ extern enum gimplify_status gimplify_expr (tree *, gs_seq, gs_seq, bool,
 					   bool (*) (tree), fallback_t);
 extern void gimplify_type_sizes (tree, gs_seq);
 extern void gimplify_one_sizepos (tree *, gs_seq);
-extern void gimplify_stmt (tree *, gs_seq);
+extern bool gimplify_stmt (tree *, gs_seq);
 extern void gimplify_to_stmt_list (tree *);
 extern void gimplify_body (tree *, gs_seq, tree, bool);
 extern void push_gimplify_context (void);

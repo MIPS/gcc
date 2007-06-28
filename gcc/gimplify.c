@@ -337,6 +337,7 @@ append_to_statement_list_force (tree t, tree *list_p)
     append_to_statement_list_1 (t, list_p);
 }
 
+/* FIXME tuples: This function is obsolete.  Use gimplify_stmt instead.  */
 /* Both gimplify the statement T and append it to SEQ.  */
 
 void
@@ -2462,19 +2463,18 @@ gimple_boolify (tree expr)
 
     The second form is used when *EXPR_P is of type void.
 
-    TARGET is the tree for T1 above.
-
     PRE_P points to the list where side effects that must happen before
       *EXPR_P should be stored.  */
 
-#if 0
-/* FIXME tuples */
 static enum gimplify_status
 gimplify_cond_expr (tree *expr_p, gs_seq pre_p, fallback_t fallback)
 {
   tree expr = *expr_p;
-  tree tmp, tmp2, type;
+  tree tmp, type;
   enum gimplify_status ret;
+  tree label_true, label_false, label_cont;
+  bool have_then_clause_p, have_else_clause_p;
+  gimple gs_cond;
 
   type = TREE_TYPE (expr);
 
@@ -2485,10 +2485,7 @@ gimplify_cond_expr (tree *expr_p, gs_seq pre_p, fallback_t fallback)
       tree result;
 
       if ((fallback & fb_lvalue) == 0)
-	{
-	  result = tmp2 = tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
-	  ret = GS_ALL_DONE;
-	}
+	result = tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
       else
 	{
 	  tree type = build_pointer_type (TREE_TYPE (expr));
@@ -2501,13 +2498,12 @@ gimplify_cond_expr (tree *expr_p, gs_seq pre_p, fallback_t fallback)
 	    TREE_OPERAND (expr, 2) =
 	      build_fold_addr_expr (TREE_OPERAND (expr, 2));
 	  
-	  tmp2 = tmp = create_tmp_var (type, "iftmp");
+	  tmp = create_tmp_var (type, "iftmp");
 
 	  expr = build3 (COND_EXPR, void_type_node, TREE_OPERAND (expr, 0),
 			 TREE_OPERAND (expr, 1), TREE_OPERAND (expr, 2));
 
 	  result = build_fold_indirect_ref (tmp);
-	  ret = GS_ALL_DONE;
 	}
 
       /* Build the then clause, 't1 = a;'.  But don't build an assignment
@@ -2519,16 +2515,16 @@ gimplify_cond_expr (tree *expr_p, gs_seq pre_p, fallback_t fallback)
       /* Build the else clause, 't1 = b;'.  */
       if (TREE_TYPE (TREE_OPERAND (expr, 2)) != void_type_node)
 	TREE_OPERAND (expr, 2)
-	  = build_gimple_modify_stmt (tmp2, TREE_OPERAND (expr, 2));
+	  = build_gimple_modify_stmt (tmp, TREE_OPERAND (expr, 2));
 
       TREE_TYPE (expr) = void_type_node;
       recalculate_side_effects (expr);
 
       /* Move the COND_EXPR to the prequeue.  */
-      gimplify_and_add (expr, pre_p);
+      gimplify_stmt (expr_p, pre_p);
 
       *expr_p = result;
-      return ret;
+      return GS_ALL_DONE;
     }
 
   /* Make sure the condition has BOOLEAN_TYPE.  */
@@ -2548,49 +2544,68 @@ gimplify_cond_expr (tree *expr_p, gs_seq pre_p, fallback_t fallback)
 	     form properly, as cleanups might cause the target labels to be
 	     wrapped in a TRY_FINALLY_EXPR.  To prevent that, we need to
 	     set up a conditional context.  */
+	  /* FIXME tuples
 	  gimple_push_condition ();
-	  gimplify_stmt (expr_p);
+	  */
+	  gimplify_stmt (expr_p, pre_p);
+	  /* FIXME tuples
 	  gimple_pop_condition (pre_p);
+	  */
 
 	  return GS_ALL_DONE;
 	}
     }
 
   /* Now do the normal gimplification.  */
-  ret = gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, NULL,
+
+  /* Gimplify condition.  */
+  ret = gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, NULL, false,
 		       is_gimple_condexpr, fb_rvalue);
+  gcc_assert (TREE_OPERAND (expr, 0) != NULL_TREE);
 
+  /* FIXME tuples
   gimple_push_condition ();
+  */
 
-  gimplify_to_stmt_list (&TREE_OPERAND (expr, 1));
-  gimplify_to_stmt_list (&TREE_OPERAND (expr, 2));
-  recalculate_side_effects (expr);
+  label_true = create_artificial_label ();
+  label_false = create_artificial_label ();
+  /* FIXME tuples: We should add smarts to use the other GS_COND predicates
+     when appropriate.  */
+  gs_cond = gs_build_cond (GS_COND_NE,
+			   TREE_OPERAND (expr, 0), boolean_false_node,
+			   label_true, label_false);
+  gs_add (gs_cond, pre_p);
+  gs_add (gs_build_label (label_true), pre_p);
+  have_then_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 1), pre_p);
+  label_cont = create_artificial_label ();
+  gs_add (gs_build_goto (label_cont), pre_p);
+  gs_add (gs_build_label (label_false), pre_p);
+  have_else_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 2), pre_p);
+  gs_add (gs_build_label (label_cont), pre_p);
 
+  /* FIXME tuples
   gimple_pop_condition (pre_p);
+  */
 
   if (ret == GS_ERROR)
     ;
-  else if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
+  else if (have_then_clause_p)
     ret = GS_ALL_DONE;
-  else if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 2)))
-    /* Rewrite "if (a); else b" to "if (!a) b"  */
+  else if (have_else_clause_p)
     {
-      TREE_OPERAND (expr, 0) = invert_truthvalue (TREE_OPERAND (expr, 0));
-      ret = gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, NULL,
-			   is_gimple_condexpr, fb_rvalue);
-
-      tmp = TREE_OPERAND (expr, 1);
-      TREE_OPERAND (expr, 1) = TREE_OPERAND (expr, 2);
-      TREE_OPERAND (expr, 2) = tmp;
+      /* Rewrite "if (a); else b" into "if (!a) b"  */
+      gs_cond_invert (gs_cond);
     }
   else
-    /* Both arms are empty; replace the COND_EXPR with its predicate.  */
-    expr = TREE_OPERAND (expr, 0);
+    {
+      /* Both arms are empty; replace the COND_EXPR with its predicate.  */
+      expr = TREE_OPERAND (expr, 0);
+      gimplify_stmt (&expr, pre_p);
+    }
 
-  *expr_p = expr;
+  *expr_p = NULL;
   return ret;
 }
-#endif
 
 /* A subroutine of gimplify_modify_expr.  Replace a MODIFY_EXPR with
    a call to __builtin_memcpy.  */
@@ -4368,12 +4383,17 @@ gimplify_target_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p)
 
 /* Gimplification of expression trees.  */
 
-/* Gimplify an expression which appears at statement context into SEQ_P.  */
+/* Gimplify an expression which appears at statement context into SEQ_P.
+   Return true if we actually added a statement to the queue.  */
 
-void
+bool
 gimplify_stmt (tree *stmt_p, gs_seq seq_p)
 {
+  gimple last;
+
+  last = gs_seq_last (seq_p);
   gimplify_expr (stmt_p, seq_p, NULL, true, is_gimple_stmt, fb_none);
+  return last != gs_seq_last (seq_p);
 }
 
 /* Similarly, but force the result to be a STATEMENT_LIST.  */
@@ -5566,9 +5586,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	  break;
 
 	case COND_EXPR:
-#if 0
-/* FIXME tuples */
-	  ret = gimplify_cond_expr (expr_p, seq_p, pre_p, fallback);
+	  ret = gimplify_cond_expr (expr_p, pre_p, fallback);
 	  /* C99 code may assign to an array in a structure value of a
 	     conditional expression, and this has undefined behavior
 	     only on execution, so create a temporary if an lvalue is
@@ -5578,8 +5596,6 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
 	      lang_hooks.mark_addressable (*expr_p);
 	    }
-#endif
-	  gcc_unreachable();
 	  break;
 
 	case CALL_EXPR:
@@ -5725,12 +5741,14 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	  if (TREE_CODE (GOTO_DESTINATION (*expr_p)) != LABEL_DECL)
 	    ret = gimplify_expr (&GOTO_DESTINATION (*expr_p), pre_p,
 				 NULL, false, is_gimple_val, fb_rvalue);
+	  gs_add (gs_build_goto (GOTO_DESTINATION (*expr_p)), pre_p);
 	  break;
 
 	case LABEL_EXPR:
 	  ret = GS_ALL_DONE;
 	  gcc_assert (decl_function_context (LABEL_EXPR_LABEL (*expr_p))
 		      == current_function_decl);
+	  gs_add (gs_build_label (LABEL_EXPR_LABEL (*expr_p)), pre_p);
 	  break;
 
 	case CASE_LABEL_EXPR:

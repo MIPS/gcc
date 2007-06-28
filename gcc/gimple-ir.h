@@ -287,6 +287,7 @@ struct gimple_statement_omp_for GTY(())
 
 /* Predicate for conds. */
 enum gs_cond {
+  /* These must be in sync with op_gs_cond().  */
   GS_COND_LT, GS_COND_GT, GS_COND_LE, GS_COND_GE, GS_COND_EQ, GS_COND_NE
 };
 
@@ -371,6 +372,7 @@ extern gimple gs_build_assign (tree, tree);
 extern gimple gs_build_call_vec (tree, VEC(tree, gc) *);
 extern gimple gs_build_call (tree, size_t, ...);
 extern gimple gs_build_cond (enum gs_cond, tree, tree, tree, tree);
+extern void gs_cond_invert (gimple);
 extern gimple gs_build_label (tree label);
 extern gimple gs_build_goto (tree dest);
 extern gimple gs_build_nop (void);
