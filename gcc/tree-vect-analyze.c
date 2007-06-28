@@ -2014,7 +2014,7 @@ vect_analyze_data_ref_access (struct data_reference *dr)
                   return false; 
                 }
 
-              /* Check that there is no load-store dependencies for this loads 
+              /* Check that there is no load-store dependencies for these loads 
                  to prevent a case of load-store-load to the same location.  */
               if (DR_GROUP_READ_WRITE_DEPENDENCE (vinfo_for_stmt (next))
                   || DR_GROUP_READ_WRITE_DEPENDENCE (vinfo_for_stmt (prev)))
@@ -2142,17 +2142,10 @@ vect_analyze_data_ref_access (struct data_reference *dr)
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "Detected interleaving of size %d", (int)stride);
 
-      /* Check the type of the permutation needed. In case of constant stores,
-         there is no need in data interleaving. The stored vectors are created
-         from the scalars in the correct order.  */
-      if (!DR_IS_READ (dr))
-        {
-	  /* SLP: create an SLP data structure for every interleaving group of 
-	     stores for further analysis in vect_analyse_slp.  */
-	  if (!slp_impossible)
-	    VEC_safe_push (tree, heap, LOOP_VINFO_STRIDED_STORES (loop_vinfo),
-			   stmt);
-        } 
+      /* SLP: create an SLP data structure for every interleaving group of 
+	 stores for further analysis in vect_analyse_slp.  */
+      if (!DR_IS_READ (dr) && !slp_impossible)
+	VEC_safe_push (tree, heap, LOOP_VINFO_STRIDED_STORES (loop_vinfo), stmt);
     }
   return true;
 }

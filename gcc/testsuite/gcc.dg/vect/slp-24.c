@@ -51,20 +51,8 @@ main1 (unsigned char x, unsigned char max_result, unsigned char min_result, s *a
       abort();
   }
 
-  for (i = 0; i < N; i++) {
-    umax = umax < uc[i] ? uc[i] : umax;
-  }
-
-  for (i = 0; i < N; i++) {
-    umin = umin > uc[i] ? uc[i] : umin;
-  }
-
   /* check results:  */
   if (udiff != DIFF)
-    abort ();
-  if (umax != max_result)
-    abort ();
-  if (umin != min_result)
     abort ();
 }
 
@@ -89,6 +77,6 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" { xfail vect_no_int_max } } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect" { xfail vect_no_int_max } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect" } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */

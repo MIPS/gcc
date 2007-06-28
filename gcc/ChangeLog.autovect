@@ -1,3 +1,10 @@
+2007-06-28  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vectorizer.h: Move declaration of vect_free_slp_tree under the
+	relevant comment.
+	* tree-vect-analyze.c (vect_analyze_data_ref_access): Fix comments 
+	and unify to if-stmts into one.
+
 2007-06-27  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* target.h (builtin_vectorization_cost): Add new target builtin.

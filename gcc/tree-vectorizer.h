@@ -608,6 +608,7 @@ extern stmt_vec_info new_stmt_vec_info (tree stmt, loop_vec_info);
 /** In tree-vect-analyze.c  **/
 /* Driver for analysis stage.  */
 extern loop_vec_info vect_analyze_loop (struct loop *);
+extern void vect_free_slp_tree (slp_tree);
 
 
 /** In tree-vect-patterns.c  **/
@@ -634,7 +635,6 @@ extern bool vectorizable_condition (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_live_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_reduction (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_induction (tree, block_stmt_iterator *, tree *);
-extern void vect_free_slp_tree (slp_tree);
 extern int  vect_estimate_min_profitable_iters (loop_vec_info);
 extern void vect_model_simple_cost (stmt_vec_info, int, enum vect_def_type *, 
 				    slp_tree);

@@ -9,7 +9,7 @@
 int
 main1 ()
 {
-  int i;
+  unsigned short i;
   unsigned short out[N*8], out2[N*8], b0, b1, b2, b3, b4, a0, a1, a2, a3, b5;
   unsigned short in[N*8];
 

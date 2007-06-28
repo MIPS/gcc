@@ -1,3 +1,19 @@
+2007-06-28  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/slp-24.c: Remove irrelevant loops.
+	* gcc.dg/vect/slp-6.c: Fix dg-final check: add parenthesis.
+	* gcc.dg/vect/slp-10.c: Fix dg-final check: one of the loops is
+	vectorizable only on vect_intfloat_cvt targets.
+	* gcc.dg/vect/slp-18.c: Fix dg-final check: works only on vect_strided
+	targets.
+	* gcc.dg/vect/slp-21.c: Change type of i - to remove cast on SPU in the 
+	first loop.
+	* gcc.dg/vect/vect-intfloat-conversion-2.c: Fix dg-final check: use
+	vect_intfloat_cvt.
+	* gcc.dg/vect/slp-12.c: Remove and split into ...
+	* gcc.dg/vect/slp-12a.c, gcc.dg/vect/slp-12b.c: New.
+	* gcc.dg/vect/slp-15.c: Fix dg-final check: add parenthesis.
+
 2007-06-27  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* gcc.dg/vect/no-scevccp-outer-18.c: Fix dg-final check: works only
