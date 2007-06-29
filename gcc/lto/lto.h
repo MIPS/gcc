@@ -89,6 +89,9 @@ typedef struct lto_file_vtable
      MAP_FN_BODY, with the same value of FN.  Release any resources
      allocated by MAP_FN_BODY.  */
   void (*unmap_fn_body)(lto_file *file, const char *fn, const void *data);
+  /* VAR is an initialized variable.  Set DECL_INITIAL for VAR to the
+     appropriate initializer.  */
+  void (*read_var_init)(lto_file *file, tree var);
 } lto_file_vtable;
 
 /* An input file.  */

@@ -2019,6 +2019,12 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
        use the same method for variables outside of function scopes,
        for consistency.  */
     sorry ("cannot determine storage duration of local variables");
+  /* If there is an initializer, read it now.  */
+  if (!declaration)
+    {
+      lto_file *file = fd->base.file;
+      file->vtable->read_var_init (file, decl);
+    }
   /* If this variable has already been declared, merge the
      declarations.  */
   decl = lto_symtab_merge_var (decl);
@@ -3257,10 +3263,6 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       file = lto_elf_file_open (in_fnames[i]);
       if (!file)
 	break;
-#if 0
-      gcc_assert (file->debug_info.base.start);
-      gcc_assert (file->debug_abbrev.base.start);
-#endif
       if (!lto_file_read (file))
 	break;
       lto_elf_file_close (file);

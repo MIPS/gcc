@@ -1,3 +1,25 @@
+2007-06-28  Mark Mitchell  <mark@codesourcery.com>
+
+	* lto.h (lto_file_vtable): Add read_var_init.
+	* lto.c (lto_read_variable_formal_parameter_constant_DIE): Read
+	initializers.
+	(lto_main): Remove bogus asserts.
+	* lto-elf.c (tm.h): Include it.
+	(libiberty.y): Likewise.
+	(lto_elf_file): Add strtab and symtab.  Rename
+	string_table_section_index to sec_strtab.
+	(lto_elf_file_vtable): Add lto_elf_read_var_init.
+	(lto_elf_get_shdr): New function.
+	(lto_elf_free_shdr): Likewise.
+	(lto_elf_find_section_data): Use them.
+	(lto_elf_read_symtab): New function.
+	(lto_elf_lookup_sym): Likewise.
+	(lto_elf_free_sym): Likewise.
+	(lto_elf_file_open): Tidy.  Call lto_elf_read_symtab.
+	(lto_elf_built_init): New function.
+	(lto_elf_read_var_init): Likewise.
+	* Make-lang.in (lto/lto-elf.o): Depend on $(TM_H).
+
 2007-06-26  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-read (make_new_block): Initialize the stmt_list.
