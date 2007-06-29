@@ -224,8 +224,6 @@ gimple_conditional_context (void)
 
 /* Note that we've entered a COND_EXPR.  */
 
-#if 0
-/* FIXME tuples */
 static void
 gimple_push_condition (void)
 {
@@ -248,10 +246,9 @@ gimple_pop_condition (gs_seq pre_p)
   if (conds == 0)
     {
       gs_seq_append (&gimplify_ctxp->conditional_cleanups, pre_p);
-      gs_seq_init (gimplify_ctxp->conditional_cleanups);
+      gs_seq_init (&gimplify_ctxp->conditional_cleanups);
     }
 }
-#endif
 
 /* A stable comparison routine for use with splay trees and DECLs.  */
 
@@ -2470,11 +2467,12 @@ static enum gimplify_status
 gimplify_cond_expr (tree *expr_p, gs_seq pre_p, fallback_t fallback)
 {
   tree expr = *expr_p;
-  tree tmp, type;
+  tree tmp, type, arm1, arm2;
   enum gimplify_status ret;
   tree label_true, label_false, label_cont;
   bool have_then_clause_p, have_else_clause_p;
   gimple gs_cond;
+  enum gs_cond pred;
 
   type = TREE_TYPE (expr);
 
@@ -2544,13 +2542,9 @@ gimplify_cond_expr (tree *expr_p, gs_seq pre_p, fallback_t fallback)
 	     form properly, as cleanups might cause the target labels to be
 	     wrapped in a TRY_FINALLY_EXPR.  To prevent that, we need to
 	     set up a conditional context.  */
-	  /* FIXME tuples
 	  gimple_push_condition ();
-	  */
 	  gimplify_stmt (expr_p, pre_p);
-	  /* FIXME tuples
 	  gimple_pop_condition (pre_p);
-	  */
 
 	  return GS_ALL_DONE;
 	}
@@ -2563,17 +2557,50 @@ gimplify_cond_expr (tree *expr_p, gs_seq pre_p, fallback_t fallback)
 		       is_gimple_condexpr, fb_rvalue);
   gcc_assert (TREE_OPERAND (expr, 0) != NULL_TREE);
 
-  /* FIXME tuples
   gimple_push_condition ();
-  */
 
   label_true = create_artificial_label ();
   label_false = create_artificial_label ();
-  /* FIXME tuples: We should add smarts to use the other GS_COND predicates
-     when appropriate.  */
-  gs_cond = gs_build_cond (GS_COND_NE,
-			   TREE_OPERAND (expr, 0), boolean_false_node,
-			   label_true, label_false);
+
+  arm1 = arm2 = NULL_TREE;
+  switch (TREE_CODE (TREE_OPERAND (expr, 0)))
+    {
+    case LT_EXPR:
+      pred = GS_COND_LT;
+      break;
+    case LE_EXPR:
+      pred = GS_COND_LE;
+      break;
+    case GT_EXPR:
+      pred = GS_COND_GT;
+      break;
+    case GE_EXPR:
+      pred = GS_COND_GE;
+      break;
+    case EQ_EXPR:
+      pred = GS_COND_EQ;
+      break;
+    case NE_EXPR:
+      pred = GS_COND_NE;
+      break;
+    default:
+      pred = GS_COND_NE;
+      arm1 = TREE_OPERAND (expr, 0);
+      arm2 = boolean_false_node;
+      break;
+    }
+  if (arm1 == NULL_TREE)
+    {
+      arm1 = TREE_OPERAND (TREE_OPERAND (expr, 0), 0);
+      arm2 = TREE_OPERAND (TREE_OPERAND (expr, 0), 1);
+      gs_cond = gs_build_cond (pred, arm1, arm2, label_false, label_true);
+    }
+  else
+    {
+      /* Use canonical comparison with false.  */
+      gs_cond = gs_build_cond (pred, arm1, arm2, label_true, label_false);
+    }
+
   gs_add (gs_cond, pre_p);
   gs_add (gs_build_label (label_true), pre_p);
   have_then_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 1), pre_p);
@@ -2583,9 +2610,7 @@ gimplify_cond_expr (tree *expr_p, gs_seq pre_p, fallback_t fallback)
   have_else_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 2), pre_p);
   gs_add (gs_build_label (label_cont), pre_p);
 
-  /* FIXME tuples
   gimple_pop_condition (pre_p);
-  */
 
   if (ret == GS_ERROR)
     ;

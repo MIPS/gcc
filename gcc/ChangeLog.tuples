@@ -1,3 +1,10 @@
+2007-06-29  Aldy Hernandez  <aldyh@redhat.com> 
+
+	* gimplify.c (gimple_push_condition): Enable.  Call gs_seq_init with
+	address.
+	(gimplify_cond_expr): Push and pop conditions.  Use other GS_COND
+	predicates when appropriate
+
 2007-06-28  Aldy Hernandez  <aldyh@redhat.com> 
 
 	* testsuite/gcc.dg/gimple/gs_goto.c: New.
