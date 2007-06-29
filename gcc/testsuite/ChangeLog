@@ -1,3 +1,123 @@
+2006-06-29  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/32493
+	* gcc.dg/inline-23.c: New testcase.
+
+2007-06-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/24659
+	* gcc.target/i386/vectorize2.c: New test.
+	* gcc.target/i386/sse2-lrint-vec.c: New runtime test.
+	* gcc.target/i386/sse2-lrintf-vec.c: Ditto.
+
+2007-06-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/pointer-arith-9.c: New test.
+
+2007-06-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32483
+	* gfortran.dg/fmt_read_2.f90: New.
+
+2007-06-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/open_errors.f90: Check for existance of temptestfile.
+	If it exists, don't try to create it.
+
+2007-06-28  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/ext/visibility/ms-compat-1.C: New.
+
+2007-06-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/32417
+	* gfortran.fortran-torture/compile/pr32417.f90: New test.
+
+2007-06-28  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-iv-4.c: Test now passes on vect_pack_trunc
+	targets.
+
+2007-06-27  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/32467
+	* gfortran.dg/gomp/allocatable_components_1.f90: New test.
+
+2007-06-27  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/32492
+	* gcc.dg/inline-22.c: New testcase.
+
+2007-06-26  Hui-May Chang <hm.chang@apple.com>
+
+	* gcc.target/i386/large-size-array-3.c: Remove the larger size of
+	the scan-assembler constant.
+
+2007-06-25  Geoffrey Keating  <geoffk@apple.com>
+
+	PR 20216
+	* gcc.dg/pr20216.c: New.
+
+2007-06-25  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/32421
+	* gcc.dg/vect/pr32421.c: New test.
+
+2006-06-26  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/32111
+	* g++.dg/other/friend5.C: New test.
+
+2007-06-25  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32464
+	* gfortran.dg/host_assoc_function_2.f90: New test.
+
+	PR fortran/31494
+	* gfortran.dg/host_assoc_call_1.f90: New test.
+
+2007-06-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/secnds-1.f: Revise test to reduce random errors.
+	
+2007-06-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/32456
+	* gfortran.dg/error_format.f90: New test.
+
+2007-06-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32136
+	* gfortran.dg/pr32136.f90: New test.
+
+2007-06-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31726
+	* gfortran.dg/minmaxloc_1.f90: New test.
+
+	PR fortran/32298
+	* gfortran.dg/minmaxloc_2.f90: New test.
+
+2007-06-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/visibility-12.c: New test.
+	* gcc.dg/visibility-13.c: Likewise.
+	* g++.dg/ext/visibility-9.C: Likewise.
+	* g++.dg/ext/visibility-10.C: Likewise.
+
+2007-06-23  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/16876
+	PR middle-end/29478
+	* gcc.dg/pr29254.c: The warning is bogus.
+	* gcc.dg/warn-1.c: Likewise.
+	* gcc.dg/assign-warn-3.c: Likewise.
+	* gcc.dg/noncompile/pr16876.c: The testcase is bogus, remove.
+
+2007-06-23  Richard Earnshaw  <rearnsha@arm.com>
+
+	* gcc.c-torture/execute/20070623-1.c: New.
+
 2007-06-22  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.c-torture/compile/pr31541.c: New.

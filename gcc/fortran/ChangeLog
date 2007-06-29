@@ -1,3 +1,62 @@
+2007-06-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32483
+	* io.c (format_lex): Fix FMT_ZERO.
+	(check_format,check_format_string,gfc_match_format,
+	check_io_constraints) Additional checking for READ.
+
+2007-06-28 Francois-Xavier Coudert <fxcoudert@gcc.gnu.org>
+
+	PR other/31400
+	* lang.opt (static-libgfortran): New option.
+	* gfortranspec.c (ADD_ARG_LIBGFORTRAN): New macro.
+	(Option): Add OPTION_static and OPTION_static_libgfortran.
+	(lookup_option): Handle the new -static-libgfortran option.
+	(lang_specific_driver): Check whether -static is passed.
+	Handle the new -static-libgfortran option.
+	* options.c (gfc_handle_option): If -static-libgfortran is
+	passed and isn't supported on this configuration, error out.
+
+2007-06-27  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/32467
+	* openmp.c (resolve_omp_clauses): Emit error on allocatable
+	components in COPYIN, COPYPRIVATE, FIRSTPRIVATE and LASTPRIVATE
+	clauses.
+
+2007-06-25  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32464
+	* resolve.c (check_host_association): Return if the old symbol
+	is use associated.  Introduce retval to reduce the number of
+	evaluations of the first-order return value.
+
+	PR fortran/31494
+	* match.c (gfc_match_call): If a host associated symbol is not
+	a subroutine, build a new symtree/symbol in the current name
+	space.
+
+2007-06-24  Tobias Burnus  <burnus@net-de>
+
+	PR fortran/32460
+	* interface.c (gfc_compare_derived_types): Add access check.
+	* symbol.c (gfc_find_component): Ditto.
+	(gfc_set_component_attr,gfc_get_component_attr) Copy access state.
+	* dump-parse-tree.c (gfc_show_components): Dump access state.
+	* gfortran.h (struct gfc_component): Add gfc_access.
+	* module.c (mio_component): Add access state.
+	* (gfc_match_structure_constructor): Check for private access state.
+
+2007-06-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32298
+	PR fortran/31726
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmaxloc): Calculate
+	the offset between the loop counter and the position as
+	defined. Add the offset within the loop so that the mask acts
+	correctly.  Do not advance the location on the basis that it
+	is zero.
+
 2007-06-22  Daniel Franke  <franke.daniel@gmail.com>
 
 	PR fortran/31473

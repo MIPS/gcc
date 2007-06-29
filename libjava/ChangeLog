@@ -1,3 +1,20 @@
+2007-06-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* testsuite/libjava.jvmti/jvmti-interp.exp (gij_jvmti_test_one):
+	Fix a typo.
+
+2007-06-28  Jan Nijtmans  <nijtmans@users.sourceforge.net>
+
+	PR libgcj/30999:
+	* jni_md.h: Add the possibility to compile jni code with.
+	-fvisibility=hidden. This causes all symbols to be hidden
+	except the JNI functions which need to be exported.
+
+2007-06-28  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* testsuite/libjava.jvmti/jvmti-interp.exp (gij_jvmti_test_one): Pass
+	the cxxldlibflags to exec_gij to have the right libstdc++ invoked.
+
 2007-07-21  Keith Seitz  <keiths@redhat.com>
 
 	* gnu/classpath/jdwp/VMVirtualMachine.h: Regenerate.

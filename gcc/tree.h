@@ -449,7 +449,10 @@ struct gimple_stmt GTY(())
            POINTER_TYPE, REFERENCE_TYPE
        MOVE_NONTEMPORAL in
 	   GIMPLE_MODIFY_STMT
-       CASE_HIGH_SEEN in CASE_LABEL_EXPR
+       CASE_HIGH_SEEN in
+	   CASE_LABEL_EXPR
+       CALL_CANNOT_INLINE_P in
+	   CALL_EXPR
 
    public_flag:
 
@@ -1143,6 +1146,9 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
    CASE_HIGH operand has been processed.  */
 #define CASE_HIGH_SEEN(NODE) \
   (CASE_LABEL_EXPR_CHECK (NODE)->base.static_flag)
+
+/* Used to mark a CALL_EXPR as not suitable for inlining.  */
+#define CALL_CANNOT_INLINE_P(NODE) ((NODE)->base.static_flag)
 
 /* In an expr node (usually a conversion) this means the node was made
    implicitly and should not lead to any sort of warning.  In a decl node,
@@ -4438,6 +4444,7 @@ extern tree fold_build2_initializer (enum tree_code, tree, tree, tree);
 extern tree fold_build3_initializer (enum tree_code, tree, tree, tree, tree);
 extern tree fold_build_call_array (tree, tree, int, tree *);
 extern tree fold_build_call_array_initializer (tree, tree, int, tree *);
+extern bool fold_convertible_p (tree, tree);
 extern tree fold_convert (tree, tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
 extern tree fold_ignored_result (tree);

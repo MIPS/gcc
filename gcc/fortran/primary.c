@@ -1894,6 +1894,7 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result)
   gfc_expr *e;
   locus where;
   match m;
+  bool private_comp = false;
 
   head = tail = NULL;
 
@@ -1906,6 +1907,11 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result)
 
   for (comp = sym->components; comp; comp = comp->next)
     {
+      if (comp->access == ACCESS_PRIVATE)
+	{
+	  private_comp = true;
+	  break;
+	}
       if (head == NULL)
 	tail = head = gfc_get_constructor ();
       else
@@ -1932,6 +1938,14 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result)
 	}
 
       break;
+    }
+
+  if (sym->attr.use_assoc
+      && (sym->component_access == ACCESS_PRIVATE || private_comp))
+    {
+      gfc_error ("Structure constructor for '%s' at %C has PRIVATE "
+		 "components", sym->name);
+      goto cleanup;
     }
 
   if (gfc_match_char (')') != MATCH_YES)
