@@ -96,7 +96,13 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 	    }
 	}
     }
-
+  if (POINTER_TYPE_P (TREE_TYPE (base)))
+    {
+      step = fold_convert (sizetype, step);
+      if (incr_op == MINUS_EXPR)
+	step = fold_build1 (NEGATE_EXPR, sizetype, step);
+      incr_op = POINTER_PLUS_EXPR;
+    }
   /* Gimplify the step if necessary.  We put the computations in front of the
      loop (i.e. the step should be loop invariant).  */
   step = force_gimple_operand (step, &stmts, true, var);
@@ -244,7 +250,7 @@ find_uses_to_rename_use (basic_block bb, tree use, bitmap *use_blocks,
   def_loop = def_bb->loop_father;
 
   /* If the definition is not inside loop, it is not interesting.  */
-  if (!def_loop->outer)
+  if (!loop_outer (def_loop))
     return;
 
   if (!use_blocks[ver])
@@ -360,7 +366,8 @@ rewrite_into_loop_closed_ssa (bitmap changed_bbs, unsigned update_flag)
   unsigned i, old_num_ssa_names;
   bitmap names_to_rename;
 
-  if (!current_loops)
+  current_loops->state |= LOOP_CLOSED_SSA;
+  if (number_of_loops () <= 1)
     return;
 
   loop_exits = get_loops_exits ();
@@ -389,8 +396,6 @@ rewrite_into_loop_closed_ssa (bitmap changed_bbs, unsigned update_flag)
   /* Fix up all the names found to be used outside their original
      loops.  */
   update_ssa (TODO_update_ssa);
-
-  current_loops->state |= LOOP_CLOSED_SSA;
 }
 
 /* Check invariants of the loop closed ssa form for the USE in BB.  */
@@ -432,7 +437,7 @@ verify_loop_closed_ssa (void)
   tree phi;
   unsigned i;
 
-  if (current_loops == NULL)
+  if (number_of_loops () <= 1)
     return;
 
   verify_ssa (false);

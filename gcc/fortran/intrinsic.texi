@@ -222,6 +222,7 @@ Some basic guidelines for editing this document:
 * @code{SIN}:           SIN,       Sine function
 * @code{SINH}:          SINH,      Hyperbolic sine function
 * @code{SIZE}:          SIZE,      Function to determine the size of an array
+* @code{SIZEOF}:        SIZEOF,    Determine the size in bytes of an expression
 * @code{SLEEP}:         SLEEP,     Sleep for the specified number of seconds
 * @code{SNGL}:          SNGL,      Convert double precision real to default real
 * @code{SPACING}:       SPACING,   Smallest distance between two numbers of a given type
@@ -1575,6 +1576,8 @@ end program test_besj1
 @code{BESJN(N, X)} computes the Bessel function of the first kind of order
 @var{N} of @var{X}.
 
+If both arguments are arrays, their ranks and shapes shall conform.
+
 @item @emph{Standard}:
 GNU extension
 
@@ -1586,8 +1589,8 @@ Elemental function
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
-@item @var{N} @tab The type shall be @code{INTEGER(*)}, and it shall be scalar.
-@item @var{X} @tab The type shall be @code{REAL(*)}, and it shall be scalar.
+@item @var{N} @tab Shall be a scalar or an array of type  @code{INTEGER(*)}.
+@item @var{X} @tab Shall be a scalar or an array of type  @code{REAL(*)}.
 @end multitable
 
 @item @emph{Return value}:
@@ -1712,6 +1715,8 @@ end program test_besy1
 @code{BESYN(N, X)} computes the Bessel function of the second kind of order
 @var{N} of @var{X}.
 
+If both arguments are arrays, their ranks and shapes shall conform.
+
 @item @emph{Standard}:
 GNU extension
 
@@ -1723,8 +1728,8 @@ Elemental function
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
-@item @var{N} @tab The type shall be @code{INTEGER(*)}, and it shall be scalar.
-@item @var{X} @tab The type shall be @code{REAL(*)}, and it shall be scalar.
+@item @var{N} @tab Shall be a scalar or an array of type  @code{INTEGER(*)}.
+@item @var{X} @tab Shall be a scalar or an array of type  @code{REAL(*)}.
 @end multitable
 
 @item @emph{Return value}:
@@ -2487,14 +2492,14 @@ shifted out one end of each rank one section are shifted back in the other end.
 F95 and later
 
 @item @emph{Class}:
-transformational function
+Transformational function
 
 @item @emph{Syntax}:
-@code{RESULT = CSHIFT(A, SHIFT [, DIM])}
+@code{RESULT = CSHIFT(ARRAY, SHIFT [, DIM])}
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
-@item @var{ARRAY}  @tab May be any type, not scaler.
+@item @var{ARRAY}  @tab Shall be an array of any type.
 @item @var{SHIFT}  @tab The type shall be @code{INTEGER}.
 @item @var{DIM}    @tab The type shall be @code{INTEGER}.
 @end multitable
@@ -3120,10 +3125,10 @@ following are copied in depending on the type of @var{ARRAY}.
 F95 and later
 
 @item @emph{Class}:
-transformational function
+Transformational function
 
 @item @emph{Syntax}:
-@code{RESULT = EOSHIFT(A, SHIFT [, BOUNDARY, DIM])}
+@code{RESULT = EOSHIFT(ARRAY, SHIFT [, BOUNDARY, DIM])}
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
@@ -6422,7 +6427,7 @@ To stat an open file: @ref{FSTAT}, to stat a file: @ref{STAT}
 @node LTIME
 @section @code{LTIME} --- Convert time to local time info
 @fnindex LTIME
-@cindex time, converstion to local time info
+@cindex time, conversion to local time info
 
 @table @asis
 @item @emph{Description}:
@@ -7055,7 +7060,7 @@ of one, the result is a scalar.  In all cases, the result is of default
 @node MINVAL
 @section @code{MINVAL} --- Minimum value of an array
 @fnindex MINVAL
-@cindex array, minmum value
+@cindex array, minimum value
 @cindex minimum value
 
 @table @asis
@@ -9008,6 +9013,49 @@ END PROGRAM
 @end table
 
 
+@node SIZEOF
+@section @code{SIZEOF} --- Size in bytes of an expression
+@fnindex SIZEOF
+@cindex expression size
+@cindex size of an expression
+
+@table @asis
+@item @emph{Description}:
+@code{SIZEOF(X)} calculates the number of bytes of storage the
+expression @code{X} occupies.
+
+@item @emph{Standard}:
+GNU extension
+
+@item @emph{Class}:
+Intrinsic function
+
+@item @emph{Syntax}:
+@code{N = SIZEOF(X)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .70
+@item @var{X} @tab The argument shall be of any type, rank or shape.
+@end multitable
+
+@item @emph{Return value}:
+The return value is of type integer.  Its value is the number of bytes
+occupied by the argument.  If the argument has the @code{POINTER}
+attribute, the number of bytes of the storage area pointed to is
+returned.  If the argument is of a derived type with @code{POINTER} or
+@code{ALLOCATABLE} components, the return value doesn't account for
+the sizes of the data pointed to by these components.
+
+@item @emph{Example}:
+@smallexample
+   integer :: i
+   real :: r, s(5)
+   print *, (sizeof(s)/sizeof(r) == 5)
+   end
+@end smallexample
+The example will print @code{.TRUE.} unless you are using a platform
+where default @code{REAL} variables are unusually padded.
+@end table
 
 @node SLEEP
 @section @code{SLEEP} --- Sleep for the specified number of seconds
@@ -9125,7 +9173,7 @@ END PROGRAM
 @section @code{SPREAD} --- Add a dimension to an array
 @fnindex SPREAD
 @cindex array, increase dimension
-@cindex array, duplicate elementes
+@cindex array, duplicate elements
 @cindex array, duplicate dimensions
 
 @table @asis

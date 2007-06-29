@@ -2283,6 +2283,11 @@ finish_member_declaration (tree decl)
   /* Mark the DECL as a member of the current class.  */
   DECL_CONTEXT (decl) = current_class_type;
 
+  /* Check for bare parameter packs in the member variable declaration.  */
+  if (TREE_CODE (decl) == FIELD_DECL
+      && !check_for_bare_parameter_packs (TREE_TYPE (decl)))
+    TREE_TYPE (decl) = error_mark_node;
+
   /* [dcl.link]
 
      A C language linkage is ignored for the names of class members
@@ -3189,10 +3194,6 @@ expand_or_defer_fn (tree fn)
       return;
     }
 
-  /* Keep track of functions declared with the "constructor" and
-     "destructor" attribute.  */
-  c_record_cdtor_fn (fn);
-
   /* We make a decision about linkage for these functions at the end
      of the compilation.  Until that point, we do not want the back
      end to output them -- but we do want it to see the bodies of
@@ -3806,6 +3807,8 @@ tree
 finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 		tree incr, tree body, tree pre_body)
 {
+  tree omp_for;
+
   if (decl == NULL)
     {
       if (init != NULL)
@@ -3883,8 +3886,31 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       add_stmt (pre_body);
       pre_body = NULL;
     }
+
+  init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
   init = build_modify_expr (decl, NOP_EXPR, init);
-  return c_finish_omp_for (locus, decl, init, cond, incr, body, pre_body);
+  if (cond && TREE_SIDE_EFFECTS (cond) && COMPARISON_CLASS_P (cond))
+    {
+      int n = TREE_SIDE_EFFECTS (TREE_OPERAND (cond, 1)) != 0;
+      tree t = TREE_OPERAND (cond, n);
+
+      TREE_OPERAND (cond, n)
+	= fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+    }
+  omp_for = c_finish_omp_for (locus, decl, init, cond, incr, body, pre_body);
+  if (omp_for != NULL
+      && TREE_CODE (OMP_FOR_INCR (omp_for)) == MODIFY_EXPR
+      && TREE_SIDE_EFFECTS (TREE_OPERAND (OMP_FOR_INCR (omp_for), 1))
+      && BINARY_CLASS_P (TREE_OPERAND (OMP_FOR_INCR (omp_for), 1)))
+    {
+      tree t = TREE_OPERAND (OMP_FOR_INCR (omp_for), 1);
+      int n = TREE_SIDE_EFFECTS (TREE_OPERAND (t, 1)) != 0;
+
+      TREE_OPERAND (t, n)
+	= fold_build_cleanup_point_expr (TREE_TYPE (TREE_OPERAND (t, n)),
+					 TREE_OPERAND (t, n));
+    }
+  return omp_for;
 }
 
 void
@@ -4340,11 +4366,15 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
       return trait_expr;
     }
 
+  complete_type (type1);
+  if (type2)
+    complete_type (type2);
+
   /* The only required diagnostic.  */
   if (kind == CPTK_IS_BASE_OF
       && NON_UNION_CLASS_TYPE_P (type1) && NON_UNION_CLASS_TYPE_P (type2)
       && !same_type_ignoring_top_level_qualifiers_p (type1, type2)
-      && !COMPLETE_TYPE_P (complete_type (type2)))
+      && !COMPLETE_TYPE_P (type2))
     {
       error ("incomplete type %qT not allowed", type2);
       return error_mark_node;

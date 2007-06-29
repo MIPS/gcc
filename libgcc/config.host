@@ -367,9 +367,13 @@ i[34567]86-*-sysv4*)		# Intel 80386's running system V.4
 	;;
 i[4567]86-wrs-vxworks|i[4567]86-wrs-vxworksae)
 	;;
-i[34567]86-*-pe | i[34567]86-*-cygwin*)
+i[34567]86-*-pe)
 	;;
-i[34567]86-*-mingw32* | x86_64-*-mingw*)
+i[34567]86-*-cygwin* | i[34567]86-*-mingw*)
+	extra_parts="crtbegin.o crtend.o crtfastmath.o"
+	tmake_file="i386/t-cygming i386/t-crtfm"
+	;;
+x86_64-*-mingw*)
 	;;
 i[34567]86-*-uwin*)
 	;;
@@ -593,6 +597,8 @@ sparc-*-solaris2*)
 sparc-*-sysv4*)
 	;;
 sparc64-*-elf*)
+	;;
+sparc-wrs-vxworks)
 	;;
 sparc64-*-freebsd*|ultrasparc-*-freebsd*)
 	;;

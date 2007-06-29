@@ -2776,7 +2776,9 @@ bsi_move_after (block_stmt_iterator *from, block_stmt_iterator *to)
 {
   tree stmt = bsi_stmt (*from);
   bsi_remove (from, false);
-  bsi_insert_after (to, stmt, BSI_SAME_STMT);
+  /* We must have BSI_NEW_STMT here, as bsi_move_after is sometimes used to
+     move statements to an empty block.  */
+  bsi_insert_after (to, stmt, BSI_NEW_STMT);
 }
 
 
@@ -2787,6 +2789,9 @@ bsi_move_before (block_stmt_iterator *from, block_stmt_iterator *to)
 {
   tree stmt = bsi_stmt (*from);
   bsi_remove (from, false);
+  /* For consistency with bsi_move_after, it might be better to have
+     BSI_NEW_STMT here; however, that breaks several places that expect
+     that TO does not change.  */
   bsi_insert_before (to, stmt, BSI_SAME_STMT);
 }
 
@@ -3260,7 +3265,36 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	}
       *walk_subtrees = 0;
       break;
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+      /* PLUS_EXPR and MINUS_EXPR don't work on pointers, they should be done using
+	 POINTER_PLUS_EXPR. */
+      if (POINTER_TYPE_P (TREE_TYPE (t)))
+	{
+	  error ("invalid operand to plus/minus, type is a pointer");
+	  return t;
+	}
+      CHECK_OP (0, "invalid operand to binary operator");
+      CHECK_OP (1, "invalid operand to binary operator");
+      break;
 
+    case POINTER_PLUS_EXPR:
+      /* Check to make sure the first operand is a pointer or reference type. */
+      if (!POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (t, 0))))
+	{
+	  error ("invalid operand to pointer plus, first operand is not a pointer");
+	  return t;
+	}
+      /* Check to make sure the second operand is an integer with type of
+	 sizetype.  */
+      if (!tree_ssa_useless_type_conversion_1 (sizetype,
+					       TREE_TYPE (TREE_OPERAND (t, 1))))
+	{
+	  error ("invalid operand to pointer plus, second operand is not an "
+		 "integer with type of sizetype.");
+	  return t;
+	}
+      /* FALLTHROUGH */
     case LT_EXPR:
     case LE_EXPR:
     case GT_EXPR:
@@ -3275,8 +3309,6 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case UNGE_EXPR:
     case UNEQ_EXPR:
     case LTGT_EXPR:
-    case PLUS_EXPR:
-    case MINUS_EXPR:
     case MULT_EXPR:
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
@@ -3993,7 +4025,7 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
   basic_block bb = e->src;
   block_stmt_iterator bsi;
   edge ret;
-  tree label, stmt;
+  tree stmt;
 
   if (e->flags & EDGE_ABNORMAL)
     return NULL;
@@ -4004,8 +4036,6 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
 
   if (e->dest == dest)
     return NULL;
-
-  label = tree_block_label (dest);
 
   bsi = bsi_last (bb);
   stmt = bsi_end_p (bsi) ? NULL : bsi_stmt (bsi);
@@ -4024,6 +4054,7 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
     case SWITCH_EXPR:
       {
         tree cases = get_cases_for_edge (e, stmt);
+	tree label = tree_block_label (dest);
 
 	/* If we have a list of cases associated with E, then use it
 	   as it's a lot faster than walking the entire case vector.  */
@@ -4332,11 +4363,11 @@ tree_duplicate_sese_region (edge entry, edge exit,
 			    basic_block *region, unsigned n_region,
 			    basic_block *region_copy)
 {
-  unsigned i, n_doms;
+  unsigned i;
   bool free_region_copy = false, copying_header = false;
   struct loop *loop = entry->dest->loop_father;
   edge exit_copy;
-  basic_block *doms;
+  VEC (basic_block, heap) *doms;
   edge redirected;
   int total_freq = 0, entry_freq = 0;
   gcov_type total_count = 0, entry_count = 0;
@@ -4360,14 +4391,14 @@ tree_duplicate_sese_region (edge entry, edge exit,
 	return false;
     }
 
-  loop->copy = loop;
+  set_loop_copy (loop, loop);
 
   /* In case the function is used for loop header copying (which is the primary
      use), ensure that EXIT and its copy will be new latch and entry edges.  */
   if (loop->header == entry->dest)
     {
       copying_header = true;
-      loop->copy = loop->outer;
+      set_loop_copy (loop, loop_outer (loop));
 
       if (!dominated_by_p (CDI_DOMINATORS, loop->latch, exit->src))
 	return false;
@@ -4388,10 +4419,10 @@ tree_duplicate_sese_region (edge entry, edge exit,
 
   /* Record blocks outside the region that are dominated by something
      inside.  */
-  doms = XNEWVEC (basic_block, n_basic_blocks);
+  doms = NULL;
   initialize_original_copy_tables ();
 
-  n_doms = get_dominated_by_region (CDI_DOMINATORS, region, n_region, doms);
+  doms = get_dominated_by_region (CDI_DOMINATORS, region, n_region);
 
   if (entry->dest->count)
     {
@@ -4447,8 +4478,8 @@ tree_duplicate_sese_region (edge entry, edge exit,
      region, but was dominated by something inside needs recounting as
      well.  */
   set_immediate_dominator (CDI_DOMINATORS, entry->dest, entry->src);
-  doms[n_doms++] = get_bb_original (entry->dest);
-  iterate_fix_dominators (CDI_DOMINATORS, doms, n_doms);
+  VEC_safe_push (basic_block, heap, doms, get_bb_original (entry->dest));
+  iterate_fix_dominators (CDI_DOMINATORS, doms, false);
   free (doms);
 
   /* Add the other PHI node arguments.  */
@@ -5472,9 +5503,7 @@ remove_edge_and_dominated_blocks (edge e)
 	VEC_safe_push (basic_block, heap, bbs_to_fix_dom, dbb);
     }
 
-  iterate_fix_dominators (CDI_DOMINATORS,
-			  VEC_address (basic_block, bbs_to_fix_dom),
-			  VEC_length (basic_block, bbs_to_fix_dom));
+  iterate_fix_dominators (CDI_DOMINATORS, bbs_to_fix_dom, true);
 
   BITMAP_FREE (df);
   BITMAP_FREE (df_idom);

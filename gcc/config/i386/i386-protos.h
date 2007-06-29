@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -112,6 +112,7 @@ extern int ix86_expand_fp_movcc (rtx[]);
 extern bool ix86_expand_fp_vcond (rtx[]);
 extern bool ix86_expand_int_vcond (rtx[]);
 extern void ix86_expand_sse_unpack (rtx[], bool, bool);
+extern void ix86_expand_sse4_unpack (rtx[], bool, bool);
 extern int ix86_expand_int_addcc (rtx[]);
 extern void ix86_expand_call (rtx, rtx, rtx, rtx, rtx, int);
 extern void x86_initialize_trampoline (rtx, rtx, rtx);
@@ -162,6 +163,8 @@ extern void x86_emit_floatuns (rtx [2]);
 extern void ix86_emit_fp_unordered_jump (rtx);
 
 extern void ix86_emit_i387_log1p (rtx, rtx);
+extern void ix86_emit_swdivsf (rtx, rtx, rtx, enum machine_mode);
+extern void ix86_emit_swsqrtsf (rtx, rtx, enum machine_mode, bool);
 
 extern enum rtx_code ix86_reverse_condition (enum rtx_code, enum machine_mode);
 
@@ -220,6 +223,7 @@ extern void i386_pe_asm_output_aligned_decl_common (FILE *, tree,
 						    HOST_WIDE_INT,
 						    HOST_WIDE_INT);
 extern void i386_pe_file_end (void);
+extern tree i386_pe_mangle_decl_assembler_name (tree, tree);
 
 /* In winnt-cxx.c and winnt-stubs.c  */
 extern void i386_pe_adjust_class_at_definition (tree);

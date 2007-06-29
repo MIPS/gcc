@@ -2345,6 +2345,19 @@ build_indirect_ref (tree ptr, const char *errorstring)
 	 types.  */
       tree t = canonical_type_variant (TREE_TYPE (type));
 
+      if (TREE_CODE (ptr) == CONVERT_EXPR
+          || TREE_CODE (ptr) == NOP_EXPR
+          || TREE_CODE (ptr) == VIEW_CONVERT_EXPR)
+	{
+	  /* If a warning is issued, mark it to avoid duplicates from
+	     the backend.  This only needs to be done at
+	     warn_strict_aliasing > 2.  */
+	  if (warn_strict_aliasing > 2)
+	    if (strict_aliasing_warning (TREE_TYPE (TREE_OPERAND (ptr, 0)),
+					 type, TREE_OPERAND (ptr, 0)))
+	      TREE_NO_WARNING (ptr) = 1;
+	}
+
       if (VOID_TYPE_P (t))
 	{
 	  /* A pointer to incomplete type (other than cv void) can be
@@ -2622,8 +2635,8 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	    return error_mark_node;
 	}
       /* ...and then the delta in the PMF.  */
-      instance_ptr = build2 (PLUS_EXPR, TREE_TYPE (instance_ptr),
-			     instance_ptr, delta);
+      instance_ptr = build2 (POINTER_PLUS_EXPR, TREE_TYPE (instance_ptr),
+			     instance_ptr, fold_convert (sizetype, delta));
 
       /* Hand back the adjusted 'this' argument to our caller.  */
       *instance_ptrptr = instance_ptr;
@@ -2634,7 +2647,8 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
       vtbl = build_indirect_ref (vtbl, NULL);
 
       /* Finally, extract the function pointer from the vtable.  */
-      e2 = fold_build2 (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, idx);
+      e2 = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (vtbl), vtbl,
+			fold_convert (sizetype, idx));
       e2 = build_indirect_ref (e2, NULL);
       TREE_CONSTANT (e2) = 1;
       TREE_INVARIANT (e2) = 1;
@@ -3551,7 +3565,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      || !same_scalar_type_ignoring_signedness (TREE_TYPE (type0),
 							TREE_TYPE (type1)))
 	    {
-	      binary_op_error (code);
+	      binary_op_error (code, type0, type1);
 	      return error_mark_node;
 	    }
 	  arithmetic_types_p = 1;
@@ -3573,9 +3587,17 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
   /* If we're in a template, the only thing we need to know is the
      RESULT_TYPE.  */
   if (processing_template_decl)
-    return build2 (resultcode,
-		   build_type ? build_type : result_type,
-		   op0, op1);
+    {
+      /* Since the middle-end checks the type when doing a build2, we
+	 need to build the tree in pieces.  This built tree will never
+	 get out of the front-end as we replace it when instantiating
+	 the template.  */
+      tree tmp = build2 (resultcode,
+			 build_type ? build_type : result_type,
+			 NULL_TREE, op1);
+      TREE_OPERAND (tmp, 0) = op0;
+      return tmp;
+    }
 
   if (arithmetic_types_p)
     {
@@ -4220,8 +4242,11 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  arg = stabilize_reference (arg);
 	  real = build_unary_op (REALPART_EXPR, arg, 1);
 	  imag = build_unary_op (IMAGPART_EXPR, arg, 1);
+	  real = build_unary_op (code, real, 1);
+	  if (real == error_mark_node || imag == error_mark_node)
+	    return error_mark_node;
 	  return build2 (COMPLEX_EXPR, TREE_TYPE (arg),
-			 build_unary_op (code, real, 1), imag);
+			 real, imag);
 	}
 
       /* Report invalid types.  */
@@ -4289,41 +4314,6 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  inc = integer_one_node;
 
 	inc = cp_convert (argtype, inc);
-
-	/* Handle incrementing a cast-expression.  */
-
-	switch (TREE_CODE (arg))
-	  {
-	  case NOP_EXPR:
-	  case CONVERT_EXPR:
-	  case FLOAT_EXPR:
-	  case FIX_TRUNC_EXPR:
-	    {
-	      tree incremented, modify, value, compound;
-	      if (! lvalue_p (arg) && pedantic)
-		pedwarn ("cast to non-reference type used as lvalue");
-	      arg = stabilize_reference (arg);
-	      if (code == PREINCREMENT_EXPR || code == PREDECREMENT_EXPR)
-		value = arg;
-	      else
-		value = save_expr (arg);
-	      incremented = build2 (((code == PREINCREMENT_EXPR
-				      || code == POSTINCREMENT_EXPR)
-				     ? PLUS_EXPR : MINUS_EXPR),
-				    argtype, value, inc);
-
-	      modify = build_modify_expr (arg, NOP_EXPR, incremented);
-	      compound = build2 (COMPOUND_EXPR, TREE_TYPE (arg),
-				 modify, value);
-
-	      /* Eliminate warning about unused result of + or -.  */
-	      TREE_NO_WARNING (compound) = 1;
-	      return compound;
-	    }
-
-	  default:
-	    break;
-	  }
 
 	/* Complain about anything else that is not a true lvalue.  */
 	if (!lvalue_or_else (arg, ((code == PREINCREMENT_EXPR
@@ -5336,7 +5326,8 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       /* We need to strip nops here, because the front end likes to
 	 create (int *)&a for array-to-pointer decay, instead of &a[0].  */
       STRIP_NOPS (sexpr);
-      strict_aliasing_warning (intype, type, sexpr);
+      if (warn_strict_aliasing <= 2)
+	strict_aliasing_warning (intype, type, sexpr);
 
       return fold_if_not_in_template (build_nop (type, expr));
     }
@@ -6759,7 +6750,7 @@ check_return_expr (tree retval, bool *no_warning)
       /* Under C++0x [12.8/16 class.copy], a returned lvalue is sometimes
 	 treated as an rvalue for the purposes of overload resolution to
 	 favor move constructors over copy constructors.  */
-      if (flag_cpp0x 
+      if ((cxx_dialect != cxx98) 
           && named_return_value_okay_p
           /* The variable must not have the `volatile' qualifier.  */
 	  && !(cp_type_quals (TREE_TYPE (retval)) & TYPE_QUAL_VOLATILE)

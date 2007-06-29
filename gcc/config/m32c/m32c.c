@@ -1,5 +1,5 @@
 /* Target Code for R8C/M16C/M32C
-   Copyright (C) 2005
+   Copyright (C) 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Red Hat.
 
@@ -49,6 +49,7 @@
 #include "tm_p.h"
 #include "langhooks.h"
 #include "tree-gimple.h"
+#include "df.h"
 
 /* Prototypes */
 
@@ -1142,7 +1143,7 @@ m32c_eh_return_stackadj_rtx (void)
     {
       rtx sa;
 
-      sa = gen_reg_rtx (Pmode);
+      sa = gen_rtx_REG (Pmode, R0_REGNO);
       cfun->machine->eh_stack_adjust = sa;
     }
   return cfun->machine->eh_stack_adjust;
@@ -1248,7 +1249,7 @@ need_to_save (int regno)
   if (cfun->machine->is_interrupt
       && (!cfun->machine->is_leaf || regno == A0_REGNO))
     return 1;
-  if (regs_ever_live[regno]
+  if (df_regs_ever_live_p (regno)
       && (!call_used_regs[regno] || cfun->machine->is_interrupt))
     return 1;
   return 0;
@@ -3977,8 +3978,8 @@ m32c_emit_prologue (void)
   if (cfun->machine->use_rts == 0)
     F (emit_insn (m32c_all_frame_related
 		  (TARGET_A16
-		   ? gen_prologue_enter_16 (GEN_INT (frame_size))
-		   : gen_prologue_enter_24 (GEN_INT (frame_size)))));
+		   ? gen_prologue_enter_16 (GEN_INT (frame_size + 2))
+		   : gen_prologue_enter_24 (GEN_INT (frame_size + 4)))));
 
   if (extra_frame_size)
     {
@@ -4025,12 +4026,17 @@ m32c_emit_epilogue (void)
       else
 	emit_insn (gen_poppsi (gen_rtx_REG (PSImode, FP_REGNO)));
       emit_insn (gen_popm (GEN_INT (cfun->machine->intr_pushm)));
-      emit_jump_insn (gen_epilogue_reit (GEN_INT (TARGET_A16 ? 4 : 6)));
+      if (TARGET_A16)
+	emit_jump_insn (gen_epilogue_reit_16 ());
+      else
+	emit_jump_insn (gen_epilogue_reit_24 ());
     }
   else if (cfun->machine->use_rts)
     emit_jump_insn (gen_epilogue_rts ());
+  else if (TARGET_A16)
+    emit_jump_insn (gen_epilogue_exitd_16 ());
   else
-    emit_jump_insn (gen_epilogue_exitd (GEN_INT (TARGET_A16 ? 2 : 4)));
+    emit_jump_insn (gen_epilogue_exitd_24 ());
   emit_barrier ();
 }
 

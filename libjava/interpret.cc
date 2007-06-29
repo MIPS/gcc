@@ -180,60 +180,81 @@ convert (FROM val, TO min, TO max)
 # define LOADD(I)  LOADL(I)
 #endif
 
-#define STOREA(I)               \
-  do {                          \
-    DEBUG_LOCALS_INSN (I, 'o'); \
-    locals[I].o = (--sp)->o;    \
+#define STOREA(I)			\
+  do					\
+    {					\
+      jint __idx = (I);			\
+      DEBUG_LOCALS_INSN (__idx, 'o');	\
+      locals[__idx].o = (--sp)->o;	\
+    }					\
+  while (0)
+#define STOREI(I)		       	\
+  do					\
+    {					\
+      jint __idx = (I);			\
+      DEBUG_LOCALS_INSN (__idx, 'i');	\
+      locals[__idx].i = (--sp)->i;	\
   } while (0)
-#define STOREI(I)               \
-  do {                          \
-    DEBUG_LOCALS_INSN (I, 'i'); \
-    locals[I].i = (--sp)->i;    \
-  } while (0)
-#define STOREF(I)               \
-  do {                          \
-    DEBUG_LOCALS_INSN (I, 'f'); \
-    locals[I].f = (--sp)->f;    \
-  } while (0)
+#define STOREF(I)			\
+  do					\
+    {					\
+      jint __idx = (I);			\
+      DEBUG_LOCALS_INSN (__idx, 'f');	\
+      locals[__idx].f = (--sp)->f;	\
+    }					\
+  while (0)
 #if SIZEOF_VOID_P == 8
-# define STOREL(I)                   \
-  do {                               \
-    DEBUG_LOCALS_INSN (I, 'l');      \
-    DEBUG_LOCALS_INSN (I + 1, 'x');  \
-    (sp -= 2, locals[I].l = sp->l);  \
-  } while (0)
-# define STORED(I)                   \
-  do {                               \
-    DEBUG_LOCALS_INSN (I, 'd');      \
-    DEBUG_LOCALS_INSN (I + 1, 'x');  \
-    (sp -= 2, locals[I].d = sp->d);  \
-  } while (0)
+# define STOREL(I) \
+  do						\
+    {						\
+      jint __idx = (I);				\
+      DEBUG_LOCALS_INSN (__idx, 'l');		\
+      DEBUG_LOCALS_INSN (__idx + 1, 'x');	\
+      (sp -= 2, locals[__idx].l = sp->l);	\
+    }						\
+  while (0)
+# define STORED(I)				\
+  do						\
+    {						\
+      jint __idx = (I);				\
+      DEBUG_LOCALS_INSN (__idx, 'd');		\
+      DEBUG_LOCALS_INSN (__idx + 1, 'x');	\
+      (sp -= 2, locals[__idx].d = sp->d);	\
+    }						\
+  while (0)
 
 #else
-# define STOREL(I)                   \
-  do {                               \
-    DEBUG_LOCALS_INSN (I, 'l');      \
-    DEBUG_LOCALS_INSN (I + 1, 'x');  \
-    jint __idx = (I);                \
-    locals[__idx+1].ia[0] = (--sp)->ia[0];  \
-    locals[__idx].ia[0] = (--sp)->ia[0];    \
-  } while (0)
-# define STORED(I)                   \
-  do {                               \
-    DEBUG_LOCALS_INSN (I, 'd');      \
-    DEBUG_LOCALS_INSN (I + 1, 'x');  \
-    jint __idx = (I);                \
-    locals[__idx+1].ia[0] = (--sp)->ia[0];  \
-    locals[__idx].ia[0] = (--sp)->ia[0];    \
+# define STOREL(I)				\
+  do						\
+    {						\
+      jint __idx = (I);				\
+      DEBUG_LOCALS_INSN (__idx, 'l');		\
+      DEBUG_LOCALS_INSN (__idx + 1, 'x');	\
+      locals[__idx + 1].ia[0] = (--sp)->ia[0];	\
+      locals[__idx].ia[0] = (--sp)->ia[0];	\
+    }						\
+  while (0)
+# define STORED(I)				\
+  do {						\
+    jint __idx = (I);				\
+    DEBUG_LOCALS_INSN (__idx, 'd');		\
+    DEBUG_LOCALS_INSN (__idx + 1, 'x');		\
+    locals[__idx + 1].ia[0] = (--sp)->ia[0];	\
+    locals[__idx].ia[0] = (--sp)->ia[0];	\
   } while (0)
 #endif
 
 #define PEEKI(I)  (locals+(I))->i
 #define PEEKA(I)  (locals+(I))->o
 
-#define POKEI(I,V)				\
-  DEBUG_LOCALS_INSN(I,'i');			\
-  ((locals+(I))->i = (V))
+#define POKEI(I,V)			\
+  do					\
+    {					\
+      jint __idx = (I);			\
+      DEBUG_LOCALS_INSN (__idx, 'i');	\
+      ((locals + __idx)->i = (V));	\
+    }					\
+  while (0)
 
 
 #define BINOPI(OP) { \
@@ -926,6 +947,25 @@ _Jv_InterpMethod::compile (const void * const *insn_targets)
 
   prepared = insns;
 
+  // Now remap the variable table for this method.
+  for (int i = 0; i < local_var_table_len; ++i)
+    {
+      int start_byte = local_var_table[i].bytecode_pc;
+      if (start_byte < 0 || start_byte >= code_length)
+	start_byte = 0;
+      jlocation start =  pc_mapping[start_byte];
+
+      int end_byte = start_byte + local_var_table[i].length;
+      if (end_byte < 0)
+	end_byte = 0;
+      jlocation end = ((end_byte >= code_length)
+		       ? number_insn_slots
+		       : pc_mapping[end_byte]);
+
+      local_var_table[i].pc = &insns[start];
+      local_var_table[i].length = end - start + 1;
+    }
+  
   if (breakpoint_insn == NULL)
     {
       bp_insn_slot.insn = const_cast<void *> (insn_targets[op_breakpoint]);
@@ -1505,12 +1545,15 @@ _Jv_InterpMethod::get_local_var_table (char **name, char **sig,
       *sig = local_var_table[table_slot].descriptor;
       *generic_sig = local_var_table[table_slot].descriptor;
 
-      *startloc = static_cast<jlong> 
-                    (local_var_table[table_slot].bytecode_start_pc);
+#ifdef DIRECT_THREADED
+      *startloc = insn_index (local_var_table[table_slot].pc);
+#else
+      *startloc = static_cast<jlong> (local_var_table[table_slot].bytecode_pc);
+#endif
       *length = static_cast<jint> (local_var_table[table_slot].length);
       *slot = static_cast<jint> (local_var_table[table_slot].slot);
     }
-  return local_var_table_len - table_slot -1;
+  return local_var_table_len - table_slot - 1;
 }
 
 pc_t
@@ -1557,6 +1600,23 @@ _Jv_InterpMethod::set_insn (jlong index, pc_t insn)
 #endif // !DIRECT_THREADED
 
   return &code[index];
+}
+
+bool
+_Jv_InterpMethod::breakpoint_at (jlong index)
+{
+  pc_t insn = get_insn (index);
+  if (insn != NULL)
+    {
+#ifdef DIRECT_THREADED
+      return (insn->insn == breakpoint_insn->insn);
+#else
+      pc_t code = reinterpret_cast<pc_t> (bytecode ());
+      return (code[index] == breakpoint_insn);
+#endif
+    }
+
+  return false;
 }
 
 void *

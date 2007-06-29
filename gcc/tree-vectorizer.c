@@ -832,7 +832,7 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, edge e)
     }
 
   /* Generate new loop structure.  */
-  new_loop = duplicate_loop (loop, loop->outer);
+  new_loop = duplicate_loop (loop, loop_outer (loop));
   if (!new_loop)
     {
       free (bbs);
@@ -962,7 +962,7 @@ slpeel_can_duplicate_loop_p (struct loop *loop, edge e)
   if (loop->inner
       /* All loops have an outer scope; the only case loop->outer is NULL is for
          the function itself.  */
-      || !loop->outer
+      || !loop_outer (loop)
       || loop->num_nodes != 2
       || !empty_block_p (loop->latch)
       || !single_exit (loop)
@@ -1351,6 +1351,8 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   else
     STMT_VINFO_DEF_TYPE (res) = vect_loop_def;
   STMT_VINFO_SAME_ALIGN_REFS (res) = VEC_alloc (dr_p, heap, 5);
+  STMT_VINFO_INSIDE_OF_LOOP_COST (res) = 0;
+  STMT_VINFO_OUTSIDE_OF_LOOP_COST (res) = 0;
   DR_GROUP_FIRST_DR (res) = NULL_TREE;
   DR_GROUP_NEXT_DR (res) = NULL_TREE;
   DR_GROUP_SIZE (res) = 0;
@@ -1736,10 +1738,10 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
    widening operation that is supported by the target platform in 
    vector form (i.e., when operating on arguments of type VECTYPE).
     
-   The two kinds of widening operations we currently support are
-   NOP and WIDEN_MULT. This function checks if these operations
-   are supported by the target platform either directly (via vector 
-   tree-codes), or via target builtins.
+   Widening operations we currently support are NOP (CONVERT), FLOAT
+   and WIDEN_MULT.  This function checks if these operations are supported
+   by the target platform either directly (via vector tree-codes), or via
+   target builtins.
 
    Output:
    - CODE1 and CODE2 are codes of vector operations to be used when 
@@ -1815,6 +1817,7 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
       break;
 
     case NOP_EXPR:
+    case CONVERT_EXPR:
       if (BYTES_BIG_ENDIAN)
         {
           c1 = VEC_UNPACK_HI_EXPR;
@@ -1827,14 +1830,40 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
         }
       break;
 
+    case FLOAT_EXPR:
+      if (BYTES_BIG_ENDIAN)
+        {
+          c1 = VEC_UNPACK_FLOAT_HI_EXPR;
+          c2 = VEC_UNPACK_FLOAT_LO_EXPR;
+        }
+      else
+        {
+          c2 = VEC_UNPACK_FLOAT_HI_EXPR;
+          c1 = VEC_UNPACK_FLOAT_LO_EXPR;
+        }
+      break;
+
+    case FIX_TRUNC_EXPR:
+      /* ??? Not yet implemented due to missing VEC_UNPACK_FIX_TRUNC_HI_EXPR/
+	 VEC_UNPACK_FIX_TRUNC_LO_EXPR tree codes and optabs used for
+	 computing the operation.  */
+      return false;
+
     default:
       gcc_unreachable ();
     }
 
-  *code1 = c1;
-  *code2 = c2;
-  optab1 = optab_for_tree_code (c1, vectype);
-  optab2 = optab_for_tree_code (c2, vectype);
+  if (code == FIX_TRUNC_EXPR)
+    {
+      /* The signedness is determined from output operand.  */
+      optab1 = optab_for_tree_code (c1, type);
+      optab2 = optab_for_tree_code (c2, type);
+    }
+  else
+    {
+      optab1 = optab_for_tree_code (c1, vectype);
+      optab2 = optab_for_tree_code (c2, vectype);
+    }
 
   if (!optab1 || !optab2)
     return false;
@@ -1847,6 +1876,74 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
       || insn_data[icode2].operand[0].mode != TYPE_MODE (wide_vectype))
     return false;
 
+  *code1 = c1;
+  *code2 = c2;
+  return true;
+}
+
+
+/* Function supportable_narrowing_operation
+
+   Check whether an operation represented by the code CODE is a 
+   narrowing operation that is supported by the target platform in 
+   vector form (i.e., when operating on arguments of type VECTYPE).
+    
+   Narrowing operations we currently support are NOP (CONVERT) and
+   FIX_TRUNC. This function checks if these operations are supported by
+   the target platform directly via vector tree-codes.
+
+   Output:
+   - CODE1 is the code of a vector operation to be used when 
+   vectorizing the operation, if available.  */
+
+bool
+supportable_narrowing_operation (enum tree_code code,
+				 tree stmt, tree vectype,
+				 enum tree_code *code1)
+{
+  enum machine_mode vec_mode;
+  enum insn_code icode1;
+  optab optab1;
+  tree expr = GIMPLE_STMT_OPERAND (stmt, 1);
+  tree type = TREE_TYPE (expr);
+  tree narrow_vectype = get_vectype_for_scalar_type (type);
+  enum tree_code c1;
+
+  switch (code)
+    {
+    case NOP_EXPR:
+    case CONVERT_EXPR:
+      c1 = VEC_PACK_TRUNC_EXPR;
+      break;
+
+    case FIX_TRUNC_EXPR:
+      c1 = VEC_PACK_FIX_TRUNC_EXPR;
+      break;
+
+    case FLOAT_EXPR:
+      /* ??? Not yet implemented due to missing VEC_PACK_FLOAT_EXPR
+	 tree code and optabs used for computing the operation.  */
+      return false;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  if (code == FIX_TRUNC_EXPR)
+    /* The signedness is determined from output operand.  */
+    optab1 = optab_for_tree_code (c1, type);
+  else
+    optab1 = optab_for_tree_code (c1, vectype);
+
+  if (!optab1)
+    return false;
+
+  vec_mode = TYPE_MODE (vectype);
+  if ((icode1 = optab1->handlers[(int) vec_mode].insn_code) == CODE_FOR_nothing
+      || insn_data[icode1].operand[0].mode != TYPE_MODE (narrow_vectype))
+    return false;
+
+  *code1 = c1;
   return true;
 }
 

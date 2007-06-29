@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
@@ -52,6 +52,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-gimple.h"
 #include "langhooks.h"
 #include "params.h"
+#include "df.h"
 
 /* Processor costs */
 static const
@@ -704,7 +705,7 @@ sparc_override_options (void)
 	error ("-mcmodel= is not supported on 32 bit systems");
     }
 
-  fpu = TARGET_FPU; /* save current -mfpu status */
+  fpu = target_flags & MASK_FPU; /* save current -mfpu status */
 
   /* Set the default CPU.  */
   for (def = &cpu_default[0]; def->name; ++def)
@@ -980,17 +981,27 @@ sparc_expand_move (enum machine_mode mode, rtx *operands)
       if (pic_address_needs_scratch (operands[1]))
 	operands[1] = legitimize_pic_address (operands[1], mode, 0);
 
-      if (GET_CODE (operands[1]) == LABEL_REF && mode == SImode)
+      /* VxWorks does not impose a fixed gap between segments; the run-time
+	 gap can be different from the object-file gap.  We therefore can't
+	 assume X - _GLOBAL_OFFSET_TABLE_ is a link-time constant unless we
+	 are absolutely sure that X is in the same segment as the GOT.
+	 Unfortunately, the flexibility of linker scripts means that we
+	 can't be sure of that in general, so assume that _G_O_T_-relative
+	 accesses are never valid on VxWorks.  */
+      if (GET_CODE (operands[1]) == LABEL_REF && !TARGET_VXWORKS_RTP)
 	{
-	  emit_insn (gen_movsi_pic_label_ref (operands[0], operands[1]));
-	  return true;
-	}
+	  if (mode == SImode)
+	    {
+	      emit_insn (gen_movsi_pic_label_ref (operands[0], operands[1]));
+	      return true;
+	    }
 
-      if (GET_CODE (operands[1]) == LABEL_REF && mode == DImode)
-	{
-	  gcc_assert (TARGET_ARCH64);
-	  emit_insn (gen_movdi_pic_label_ref (operands[0], operands[1]));
-	  return true;
+	  if (mode == DImode)
+	    {
+	      gcc_assert (TARGET_ARCH64);
+	      emit_insn (gen_movdi_pic_label_ref (operands[0], operands[1]));
+	      return true;
+	    }
 	}
 
       if (symbolic_operand (operands[1], mode))
@@ -3212,7 +3223,9 @@ rtx
 legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
 			rtx reg)
 {
-  if (GET_CODE (orig) == SYMBOL_REF)
+  if (GET_CODE (orig) == SYMBOL_REF
+      /* See the comment in sparc_expand_move.  */
+      || (TARGET_VXWORKS_RTP && GET_CODE (orig) == LABEL_REF))
     {
       rtx pic_ref, address;
       rtx insn;
@@ -3377,6 +3390,13 @@ load_pic_register (bool delay_pic_helper)
 {
   int orig_flag_pic = flag_pic;
 
+  if (TARGET_VXWORKS_RTP)
+    {
+      emit_insn (gen_vxworks_load_got ());
+      emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+      return;
+    }
+
   /* If we haven't initialized the special PIC symbols, do so now.  */
   if (!pic_helper_symbol_name[0])
     {
@@ -3404,6 +3424,29 @@ load_pic_register (bool delay_pic_helper)
      ??? In the case where we don't obey regdecls, this is not sufficient
      since we may not fall out the bottom.  */
   emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+}
+
+/* Emit a call instruction with the pattern given by PAT.  ADDR is the
+   address of the call target.  */
+
+void
+sparc_emit_call_insn (rtx pat, rtx addr)
+{
+  rtx insn;
+
+  insn = emit_call_insn (pat);
+
+  /* The PIC register is live on entry to VxWorks PIC PLT entries.  */
+  if (TARGET_VXWORKS_RTP
+      && flag_pic
+      && GET_CODE (addr) == SYMBOL_REF
+      && (SYMBOL_REF_DECL (addr)
+	  ? !targetm.binds_local_p (SYMBOL_REF_DECL (addr))
+	  : !SYMBOL_REF_LOCAL_P (addr)))
+    {
+      use_reg (&CALL_INSN_FUNCTION_USAGE (insn), pic_offset_table_rtx);
+      current_function_uses_pic_offset_table = 1;
+    }
 }
 
 /* Return 1 if RTX is a MEM which is known to be aligned to at
@@ -3700,20 +3743,20 @@ sparc_compute_frame_size (HOST_WIDE_INT size, int leaf_function_p)
   if (TARGET_ARCH64)
     {
       for (i = 0; i < 8; i++)
-	if (regs_ever_live[i] && ! call_used_regs[i])
+	if (df_regs_ever_live_p (i) && ! call_used_regs[i])
 	  n_regs += 2;
     }
   else
     {
       for (i = 0; i < 8; i += 2)
-	if ((regs_ever_live[i] && ! call_used_regs[i])
-	    || (regs_ever_live[i+1] && ! call_used_regs[i+1]))
+	if ((df_regs_ever_live_p (i) && ! call_used_regs[i])
+	    || (df_regs_ever_live_p (i+1) && ! call_used_regs[i+1]))
 	  n_regs += 2;
     }
 
   for (i = 32; i < (TARGET_V9 ? 96 : 64); i += 2)
-    if ((regs_ever_live[i] && ! call_used_regs[i])
-	|| (regs_ever_live[i+1] && ! call_used_regs[i+1]))
+    if ((df_regs_ever_live_p (i) && ! call_used_regs[i])
+	|| (df_regs_ever_live_p (i+1) && ! call_used_regs[i+1]))
       n_regs += 2;
 
   /* Set up values for use in prologue and epilogue.  */
@@ -3756,7 +3799,7 @@ sparc_output_scratch_registers (FILE *file ATTRIBUTE_UNUSED)
      .register being printed for them already.  */
   for (i = 2; i < 8; i++)
     {
-      if (regs_ever_live [i]
+      if (df_regs_ever_live_p (i)
 	  && ! sparc_hard_reg_printed [i])
 	{
 	  sparc_hard_reg_printed [i] = 1;
@@ -3787,7 +3830,7 @@ save_or_restore_regs (int low, int high, rtx base, int offset, int action)
     {
       for (i = low; i < high; i++)
 	{
-	  if (regs_ever_live[i] && ! call_used_regs[i])
+	  if (df_regs_ever_live_p (i) && ! call_used_regs[i])
 	    {
 	      mem = gen_rtx_MEM (DImode, plus_constant (base, offset));
 	      set_mem_alias_set (mem, sparc_sr_alias_set);
@@ -3806,8 +3849,8 @@ save_or_restore_regs (int low, int high, rtx base, int offset, int action)
     {
       for (i = low; i < high; i += 2)
 	{
-	  bool reg0 = regs_ever_live[i] && ! call_used_regs[i];
-	  bool reg1 = regs_ever_live[i+1] && ! call_used_regs[i+1];
+	  bool reg0 = df_regs_ever_live_p (i) && ! call_used_regs[i];
+	  bool reg1 = df_regs_ever_live_p (i+1) && ! call_used_regs[i+1];
 	  enum machine_mode mode;
 	  int regno;
 
@@ -5673,18 +5716,20 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   incr = valist;
   if (align)
     {
-      incr = fold_build2 (PLUS_EXPR, ptr_type_node, incr,
-			  ssize_int (align - 1));
-      incr = fold_build2 (BIT_AND_EXPR, ptr_type_node, incr,
-			  ssize_int (-align));
+      incr = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, incr,
+			  size_int (align - 1));
+      incr = fold_convert (sizetype, incr);
+      incr = fold_build2 (BIT_AND_EXPR, sizetype, incr,
+			  size_int (-align));
+      incr = fold_convert (ptr_type_node, incr);
     }
 
   gimplify_expr (&incr, pre_p, post_p, is_gimple_val, fb_rvalue);
   addr = incr;
 
   if (BYTES_BIG_ENDIAN && size < rsize)
-    addr = fold_build2 (PLUS_EXPR, ptr_type_node, incr,
-			ssize_int (rsize - size));
+    addr = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, incr,
+			size_int (rsize - size));
 
   if (indirect)
     {
@@ -5712,7 +5757,7 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   else
     addr = fold_convert (ptrtype, addr);
 
-  incr = fold_build2 (PLUS_EXPR, ptr_type_node, incr, ssize_int (rsize));
+  incr = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, incr, size_int (rsize));
   incr = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, valist, incr);
   gimplify_and_add (incr, post_p);
 
@@ -6467,7 +6512,7 @@ order_regs_for_local_alloc (void)
 {
   static int last_order_nonleaf = 1;
 
-  if (regs_ever_live[15] != last_order_nonleaf)
+  if (df_regs_ever_live_p (15) != last_order_nonleaf)
     {
       last_order_nonleaf = !last_order_nonleaf;
       memcpy ((char *) reg_alloc_order,
@@ -7631,7 +7676,7 @@ sparc_check_64 (rtx x, rtx insn)
     y = gen_rtx_REG (SImode, REGNO (x) + WORDS_BIG_ENDIAN);
 
   if (flag_expensive_optimizations
-      && REG_N_SETS (REGNO (y)) == 1)
+      && df && DF_REG_DEF_COUNT (REGNO (y)) == 1)
     set_once = 1;
 
   if (insn == 0)
@@ -7771,13 +7816,19 @@ sparc_elf_asm_named_section (const char *name, unsigned int flags,
    the sibling call right?  Well, in the C++ case we can end up passing
    the pointer to the struct return area to a constructor (which returns
    void) and then nothing else happens.  Such a sibling call would look
-   valid without the added check here.  */
+   valid without the added check here.
+
+   VxWorks PIC PLT entries require the global pointer to be initialized
+   on entry.  We therefore can't emit sibling calls to them.  */
 static bool
 sparc_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
   return (decl
 	  && flag_delayed_branch
-	  && (TARGET_ARCH64 || ! current_function_returns_struct));
+	  && (TARGET_ARCH64 || ! current_function_returns_struct)
+	  && !(TARGET_VXWORKS_RTP
+	       && flag_pic
+	       && !targetm.binds_local_p (decl)));
 }
 
 /* libfunc renaming.  */
@@ -7980,8 +8031,10 @@ sparc_vis_init_builtins (void)
    Expand builtin functions for sparc intrinsics.  */
 
 static rtx
-sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
-		      enum machine_mode tmode, int ignore ATTRIBUTE_UNUSED)
+sparc_expand_builtin (tree exp, rtx target,
+		      rtx subtarget ATTRIBUTE_UNUSED,
+		      enum machine_mode tmode ATTRIBUTE_UNUSED,
+		      int ignore ATTRIBUTE_UNUSED)
 {
   tree arg;
   call_expr_arg_iterator iter;
@@ -7991,14 +8044,13 @@ sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   enum machine_mode mode[4];
   int arg_count = 0;
 
-  mode[arg_count] = tmode;
-
-  if (target == 0
-      || GET_MODE (target) != tmode
-      || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-    op[arg_count] = gen_reg_rtx (tmode);
+  mode[0] = insn_data[icode].operand[0].mode;
+  if (!target
+      || GET_MODE (target) != mode[0]
+      || ! (*insn_data[icode].operand[0].predicate) (target, mode[0]))
+    op[0] = gen_reg_rtx (mode[0]);
   else
-    op[arg_count] = target;
+    op[0] = target;
 
   FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
     {
@@ -8111,11 +8163,11 @@ sparc_fold_builtin (tree fndecl, tree arglist, bool ignore)
 {
   tree arg0, arg1, arg2;
   tree rtype = TREE_TYPE (TREE_TYPE (fndecl));
-  
 
-  if (ignore && DECL_FUNCTION_CODE (fndecl) != CODE_FOR_alignaddrsi_vis
+  if (ignore
+      && DECL_FUNCTION_CODE (fndecl) != CODE_FOR_alignaddrsi_vis
       && DECL_FUNCTION_CODE (fndecl) != CODE_FOR_alignaddrdi_vis)
-    return build_int_cst (rtype, 0);
+    return fold_convert (rtype, integer_zero_node);
 
   switch (DECL_FUNCTION_CODE (fndecl))
     {
@@ -8229,6 +8281,7 @@ sparc_fold_builtin (tree fndecl, tree arglist, bool ignore)
     default:
       break;
     }
+
   return NULL_TREE;
 }
 

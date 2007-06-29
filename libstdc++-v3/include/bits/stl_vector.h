@@ -59,8 +59,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _VECTOR_H
-#define _VECTOR_H 1
+#ifndef _STL_VECTOR_H
+#define _STL_VECTOR_H 1
 
 #include <bits/stl_iterator_base_funcs.h>
 #include <bits/functexcept.h>
@@ -210,11 +210,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       vector(size_type __n, const value_type& __value = value_type(),
 	     const allocator_type& __a = allocator_type())
       : _Base(__n, __a)
-      {
-	std::__uninitialized_fill_n_a(this->_M_impl._M_start, __n, __value,
-				      _M_get_Tp_allocator());
-	this->_M_impl._M_finish = this->_M_impl._M_start + __n;
-      }
+      { _M_fill_initialize(__n, __value); }
 
       /**
        *  @brief  %Vector copy constructor.
@@ -788,11 +784,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 	  this->_M_impl._M_start = _M_allocate(static_cast<size_type>(__n));
 	  this->_M_impl._M_end_of_storage =
 	    this->_M_impl._M_start + static_cast<size_type>(__n);
-	  std::__uninitialized_fill_n_a(this->_M_impl._M_start,
-					static_cast<size_type>(__n),
-					__value,
-					_M_get_Tp_allocator());
-	  this->_M_impl._M_finish = this->_M_impl._M_end_of_storage;
+	  _M_fill_initialize(static_cast<size_type>(__n), __value);
 	}
 
       // Called by the range constructor to implement [23.1.1]/9
@@ -830,6 +822,16 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 					this->_M_impl._M_start,
 					_M_get_Tp_allocator());
 	}
+
+      // Called by the first initialize_dispatch above and by the
+      // vector(n,value,a) constructor.
+      void
+      _M_fill_initialize(size_type __n, const value_type& __value)
+      {
+	std::__uninitialized_fill_n_a(this->_M_impl._M_start, __n, __value, 
+				      _M_get_Tp_allocator());
+	this->_M_impl._M_finish = this->_M_impl._M_end_of_storage;
+      }
 
 
       // Internal assign functions follow.  The *_aux functions do the actual
@@ -1006,4 +1008,4 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 
 _GLIBCXX_END_NESTED_NAMESPACE
 
-#endif /* _VECTOR_H */
+#endif /* _STL_VECTOR_H */

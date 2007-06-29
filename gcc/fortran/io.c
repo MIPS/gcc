@@ -141,40 +141,17 @@ next_char (int in_string)
 
   if (gfc_option.flag_backslash && c == '\\')
     {
+      int tmp;
       locus old_locus = gfc_current_locus;
 
-      switch (gfc_next_char_literal (1))
-	{
-	case 'a':
-	  c = '\a';
-	  break;
-	case 'b':
-	  c = '\b';
-	  break;
-	case 't':
-	  c = '\t';
-	  break;
-	case 'f':
-	  c = '\f';
-	  break;
-	case 'n':
-	  c = '\n';
-	  break;
-	case 'r':
-	  c = '\r';
-	  break;
-	case 'v':
-	  c = '\v';
-	  break;
-	case '\\':
-	  c = '\\';
-	  break;
+      /* Use a temp variable to avoid side effects from gfc_match_special_char
+	 since it uses an int * for its argument.  */
+      tmp = (int)c;
 
-	default:
-	  /* Unknown backslash codes are simply not expanded.  */
-	  gfc_current_locus = old_locus;
-	  break;
-	}
+      if (gfc_match_special_char (&tmp) == MATCH_NO)
+	gfc_current_locus = old_locus;
+
+      c = (char)tmp;
 
       if (!(gfc_option.allow_std & GFC_STD_GNU) && !inhibit_warnings)
 	gfc_warning ("Extension: backslash character at %C");
@@ -196,7 +173,7 @@ unget_char (void)
   use_last_char = 1;
 }
 
-/* Eat up the spaces and return a character. */
+/* Eat up the spaces and return a character.  */
 
 static char
 next_char_not_space (void)
@@ -565,8 +542,6 @@ format_item_1:
     case FMT_L:
     case FMT_A:
     case FMT_D:
-      goto data_desc;
-
     case FMT_H:
       goto data_desc;
 
@@ -718,19 +693,23 @@ data_desc:
       break;
 
     case FMT_H:
+      if (!(gfc_option.allow_std & GFC_STD_GNU) && !inhibit_warnings)
+	gfc_warning ("The H format specifier at %C is"
+		     " a Fortran 95 deleted feature");
+
       if(mode == MODE_STRING)
-      {
-	format_string += value;
-	format_length -= value;
-      }
+	{
+	  format_string += value;
+	  format_length -= value;
+	}
       else
-      {
-	while (repeat >0)
-	 {
-	  next_char (1);
-	  repeat -- ;
-	 }
-      }
+	{
+	  while (repeat >0)
+	   {
+	     next_char (1);
+	     repeat -- ;
+	   }
+	}
      break;
 
     case FMT_IBOZ:
@@ -1093,7 +1072,7 @@ resolve_tag (const io_tag *tag, gfc_expr *e)
 	    }
 	  else if (e->ts.type == BT_INTEGER && e->expr_type == EXPR_VARIABLE)
 	    {
-	      if (gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: ASSIGNED "
+	      if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: ASSIGNED "
 				  "variable in FORMAT tag at %L", &e->where)
 		  == FAILURE)
 		return FAILURE;

@@ -1,5 +1,5 @@
 /* Loop optimizer initialization routines and RTL loop optimization passes.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,6 +31,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "timevar.h"
 #include "flags.h"
+#include "df.h"
+#include "ggc.h"
 
 
 /* Initialize loop structures.  This is used by the tree and RTL loop
@@ -43,20 +45,12 @@ loop_optimizer_init (unsigned flags)
   struct loops *loops;
 
   gcc_assert (!current_loops);
-  loops = XCNEW (struct loops);
+  loops = GGC_CNEW (struct loops);
 
   /* Find the loops.  */
 
   flow_loops_find (loops);
   current_loops = loops;
-
-  if (number_of_loops () <= 1)
-    {
-      /* No loops (the 1 returned by number_of_loops corresponds to the fake
-	 loop that we put as a root of the loop tree).  */
-      loop_optimizer_finalize ();
-      return;
-    }
 
   if (flags & LOOPS_MAY_HAVE_MULTIPLE_LATCHES)
     {
@@ -104,8 +98,7 @@ loop_optimizer_finalize (void)
   struct loop *loop;
   basic_block bb;
 
-  if (!current_loops)
-    return;
+  gcc_assert (current_loops != NULL);
 
   FOR_EACH_LOOP (li, loop, 0)
     {
@@ -116,7 +109,7 @@ loop_optimizer_finalize (void)
   if (current_loops->state & LOOPS_HAVE_RECORDED_EXITS)
     release_recorded_exits ();
   flow_loops_free (current_loops);
-  free (current_loops);
+  ggc_free (current_loops);
   current_loops = NULL;
 
   FOR_ALL_BB (bb)
@@ -206,9 +199,7 @@ rtl_loop_done (void)
   loop_optimizer_finalize ();
   free_dominance_info (CDI_DOMINATORS);
 
-  cleanup_cfg (CLEANUP_EXPENSIVE);
-  delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  reg_scan (get_insns (), max_reg_num ());
+  cleanup_cfg (0);
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
 
@@ -243,14 +234,14 @@ gate_rtl_move_loop_invariants (void)
 static unsigned int
 rtl_move_loop_invariants (void)
 {
-  if (current_loops)
+  if (number_of_loops () > 1)
     move_loop_invariants ();
   return 0;
 }
 
 struct tree_opt_pass pass_rtl_move_loop_invariants =
 {
-  "loop2_invariant",                     /* name */
+  "loop2_invariant",                    /* name */
   gate_rtl_move_loop_invariants,        /* gate */
   rtl_move_loop_invariants,             /* execute */
   NULL,                                 /* sub */
@@ -260,7 +251,8 @@ struct tree_opt_pass pass_rtl_move_loop_invariants =
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_start */ 
+  TODO_df_finish |                      /* This is shutting down the instance in loop_invariant.c  */
   TODO_dump_func,                       /* todo_flags_finish */
   'L'                                   /* letter */
 };
@@ -276,7 +268,7 @@ gate_rtl_unswitch (void)
 static unsigned int
 rtl_unswitch (void)
 {
-  if (current_loops)
+  if (number_of_loops () > 1)
     unswitch_loops ();
   return 0;
 }
@@ -309,9 +301,11 @@ gate_rtl_unroll_and_peel_loops (void)
 static unsigned int
 rtl_unroll_and_peel_loops (void)
 {
-  if (current_loops)
+  if (number_of_loops () > 1)
     {
       int flags = 0;
+      if (dump_file)
+	df_dump (dump_file);
 
       if (flag_peel_loops)
 	flags |= UAP_PEEL;
@@ -358,7 +352,7 @@ static unsigned int
 rtl_doloop (void)
 {
 #ifdef HAVE_doloop_end
-  if (current_loops)
+  if (number_of_loops () > 1)
     doloop_optimize_loops ();
 #endif
   return 0;

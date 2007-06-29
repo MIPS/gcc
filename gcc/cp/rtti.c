@@ -180,8 +180,8 @@ build_headof (tree exp)
 
   type = build_qualified_type (ptr_type_node,
 			       cp_type_quals (TREE_TYPE (exp)));
-  return build2 (PLUS_EXPR, type, exp,
-		 convert_to_integer (ptrdiff_type_node, offset));
+  return build2 (POINTER_PLUS_EXPR, type, exp,
+		 convert_to_integer (sizetype, offset));
 }
 
 /* Get a bad_cast node for the program to throw...
@@ -238,7 +238,7 @@ get_tinfo_decl_dynamic (tree exp)
   /* Peel off cv qualifiers.  */
   type = TYPE_MAIN_VARIANT (type);
 
-  if (!VOID_TYPE_P (type))
+  if (CLASS_TYPE_P (type))
     type = complete_type_or_else (type, exp);
 
   if (!type)
@@ -431,7 +431,7 @@ get_typeid (tree type)
      that is the operand of typeid are always ignored.  */
   type = TYPE_MAIN_VARIANT (type);
 
-  if (!VOID_TYPE_P (type))
+  if (CLASS_TYPE_P (type))
     type = complete_type_or_else (type, NULL_TREE);
 
   if (!type)
@@ -856,7 +856,7 @@ tinfo_base_init (tinfo_s *ti, tree target)
 
       /* We need to point into the middle of the vtable.  */
       vtable_ptr = build2
-	(PLUS_EXPR, TREE_TYPE (vtable_ptr), vtable_ptr,
+	(POINTER_PLUS_EXPR, TREE_TYPE (vtable_ptr), vtable_ptr,
 	 size_binop (MULT_EXPR,
 		     size_int (2 * TARGET_VTABLE_DATA_ENTRY_DISTANCE),
 		     TYPE_SIZE_UNIT (vtable_entry_type)));

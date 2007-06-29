@@ -1,3 +1,36 @@
+2007-06-15 Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* class.c (make_class_data): Build the index in sizetype.
+	Use POINTER_PLUS_EXPR instead of PLUS_EXPR when
+	adding to a pointer type.
+	(build_symbol_entry): Likewise.
+	* expr.c (build_java_arrayaccess): Likewise.
+	(build_field_ref): Likewise.
+	(build_known_method_ref): Likewise.
+	(build_invokevirtual): Likewise.
+	* except.c (build_exception_object_ref): Do a
+	NEGATIVE and then a POINTER_PLUS_EXPR instead
+	of a MINUS_EXPR.
+
+2007-06-11  Rafael Avila de Espindola  <espindola@google.com>
+
+	* typeck.c (java_signed_type): Remove.
+	* lang.c (LANG_HOOKS_SIGNED_TYPE): Remove.
+	* java-tree.h (java_signed_type): Remove.
+
+2007-05-18  Geoffrey Keating  <geoffk@apple.com>
+
+	* jcf-dump.c (HANDLE_MAGIC): Use 'unsigned long' for %lx.
+	(print_constant): Likewise.
+
+2007-05-14  Rafael Avila de Espindola  <espindola@google.com>
+
+	* expr.c (build_java_binop): Use unsigned_type_for instead of
+	java_unsigned_type.
+	* java-tree.h (java_unsigned_type): Remove.
+	* lang.c (LANG_HOOKS_UNSIGNED_TYPE): Remove.
+	* typeck.c (java_unsigned_type): Remove.
+
 2007-04-21  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* java-tree.h (lang_tree_node): Use GENERIC_NEXT

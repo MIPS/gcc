@@ -395,6 +395,19 @@ dump_type (tree t, int flags)
       pp_cxx_identifier (cxx_pp, "...");
       break;
 
+    case TYPE_ARGUMENT_PACK:
+      {
+        tree args = ARGUMENT_PACK_ARGS (t);
+        int i;
+        for (i = 0; i < TREE_VEC_LENGTH (args); ++i)
+          {
+            if (i)
+              pp_separate_with_comma (cxx_pp);
+            dump_type (TREE_VEC_ELT (args, i), flags);
+          }
+      }
+      break;
+
     case DECLTYPE_TYPE:
       pp_cxx_identifier (cxx_pp, "decltype");
       pp_cxx_whitespace (cxx_pp);
@@ -2546,7 +2559,7 @@ cp_cpp_error (cpp_reader *pfile ATTRIBUTE_UNUSED, int level,
 void
 maybe_warn_variadic_templates (void)
 {
-  if (!flag_cpp0x && !in_system_header)
+  if ((cxx_dialect == cxx98) && !in_system_header)
     /* We really want to suppress this warning in system headers,
        because libstdc++ uses variadic templates even when we aren't
        in C++0x mode. */

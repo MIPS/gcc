@@ -26,10 +26,6 @@ Boston, MA 02110-1301, USA.  */
 
 struct diagnostic_context;
 
-/* Provide a hook routine for alias sets that always returns 1.  This is
-   used by languages that haven't deal with alias sets yet.  */
-extern HOST_WIDE_INT hook_get_alias_set_0 (tree);
-
 /* Note to creators of new hooks:
 
    The macros in this file should NOT be surrounded by a
@@ -77,7 +73,6 @@ extern tree lhd_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
 extern int lhd_tree_inlining_cannot_inline_tree_fn (tree *);
 extern int lhd_tree_inlining_disregard_inline_limits (tree);
 extern int lhd_tree_inlining_auto_var_in_fn_p (tree, tree);
-extern tree lhd_tree_inlining_convert_parm_for_inlining (tree, tree, tree, int);
 extern void lhd_initialize_diagnostics (struct diagnostic_context *);
 extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 
@@ -124,7 +119,6 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 #define LANG_HOOKS_TREE_SIZE		lhd_tree_size
 #define LANG_HOOKS_TYPES_COMPATIBLE_P	lhd_types_compatible_p
 #define LANG_HOOKS_BUILTIN_FUNCTION	lhd_builtin_function
-#define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE	lhd_signed_or_unsigned_type
 #define LANG_HOOKS_EXPR_TO_DECL		lhd_expr_to_decl
 #define LANG_HOOKS_TO_TARGET_CHARSET	lhd_to_target_charset
 #define LANG_HOOKS_INIT_TS		lhd_do_nothing
@@ -150,8 +144,6 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
   lhd_tree_inlining_auto_var_in_fn_p
 #define LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P \
   hook_bool_tree_tree_false
-#define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
-  lhd_tree_inlining_convert_parm_for_inlining
 
 #define LANG_HOOKS_TREE_INLINING_INITIALIZER { \
   LANG_HOOKS_TREE_INLINING_WALK_SUBTREES, \
@@ -159,7 +151,6 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
   LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS, \
   LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P, \
   LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P, \
-  LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
 }
 
 #define LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR lhd_callgraph_analyze_expr
@@ -211,9 +202,6 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_MAKE_TYPE, \
   LANG_HOOKS_TYPE_FOR_MODE, \
   LANG_HOOKS_TYPE_FOR_SIZE, \
-  LANG_HOOKS_UNSIGNED_TYPE, \
-  LANG_HOOKS_SIGNED_TYPE, \
-  LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE, \
   LANG_HOOKS_GENERIC_TYPE_P, \
   LANG_HOOKS_TYPE_PROMOTES_TO, \
   LANG_HOOKS_REGISTER_BUILTIN_TYPE, \

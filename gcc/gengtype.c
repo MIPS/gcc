@@ -1077,7 +1077,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	    case '0':
 	      if (i == MEM && aindex == 1)
 		t = mem_attrs_tp, subname = "rt_mem";
-	      else if (i == JUMP_INSN && aindex == 9)
+	      else if (i == JUMP_INSN && aindex == 8)
 		t = rtx_tp, subname = "rt_rtx";
 	      else if (i == CODE_LABEL && aindex == 4)
 		t = scalar_tp, subname = "rt_int";
@@ -1088,6 +1088,8 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 		t = rtx_tp, subname = "rt_rtx";
 	      else if (i == NOTE && aindex == 4)
 		t = note_union_tp, subname = "";
+	      else if (i == NOTE && aindex == 5)
+		t = scalar_tp, subname = "rt_int";
 	      else if (i == NOTE && aindex >= 7)
 		t = scalar_tp, subname = "rt_int";
 	      else if (i == ADDR_DIFF_VEC && aindex == 4)
@@ -1167,7 +1169,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	  subfields->opt = nodot;
 	  if (t == note_union_tp)
 	    subfields->opt = create_option (subfields->opt, "desc",
-					    "NOTE_LINE_NUMBER (&%0)");
+					    "NOTE_KIND (&%0)");
 	  if (t == symbol_union_tp)
 	    subfields->opt = create_option (subfields->opt, "desc",
 					    "CONSTANT_POOL_ADDRESS_P (&%0)");
@@ -1535,7 +1537,7 @@ open_base_files (void)
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
       "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
-      "cfglayout.h", "except.h", "output.h", NULL
+      "cfglayout.h", "except.h", "output.h", "cfgloop.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;

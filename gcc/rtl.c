@@ -119,15 +119,10 @@ const unsigned char rtx_code_size[NUM_RTX_CODE] = {
 #undef DEF_RTL_EXPR
 };
 
-/* Make sure all NOTE_INSN_* values are negative.  */
-extern char NOTE_INSN_MAX_isnt_negative_adjust_NOTE_INSN_BIAS
-[NOTE_INSN_MAX < 0 ? 1 : -1];
-
 /* Names for kinds of NOTEs and REG_NOTEs.  */
 
-const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS] =
+const char * const note_insn_name[NOTE_INSN_MAX] =
 {
-  "",
 #define DEF_INSN_NOTE(NAME) #NAME,
 #include "insn-notes.def"
 #undef DEF_INSN_NOTE
@@ -206,6 +201,21 @@ rtx_alloc_stat (RTX_CODE code MEM_STAT_DECL)
 }
 
 
+/* Return true if ORIG is a sharable CONST.  */
+
+bool
+shared_const_p (rtx orig)
+{
+  gcc_assert (GET_CODE (orig) == CONST);
+  
+  /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
+     a LABEL_REF, it isn't sharable.  */
+  return (GET_CODE (XEXP (orig, 0)) == PLUS
+	  && GET_CODE (XEXP (XEXP (orig, 0), 0)) == SYMBOL_REF
+	  && GET_CODE (XEXP (XEXP (orig, 0), 1)) == CONST_INT);
+}
+
+
 /* Create a new copy of an rtx.
    Recursively copies the operands of the rtx,
    except for those few rtx codes that are sharable.  */
@@ -239,11 +249,7 @@ copy_rtx (rtx orig)
       break;
 
     case CONST:
-      /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
-	 a LABEL_REF, it isn't sharable.  */
-      if (GET_CODE (XEXP (orig, 0)) == PLUS
-	  && GET_CODE (XEXP (XEXP (orig, 0), 0)) == SYMBOL_REF
-	  && GET_CODE (XEXP (XEXP (orig, 0), 1)) == CONST_INT)
+      if (shared_const_p (orig))
 	return orig;
       break;
 

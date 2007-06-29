@@ -110,7 +110,7 @@ struct diagnostic_context;
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
    3: DECL_IN_AGGR_P.
    4: DECL_C_BIT_FIELD (in a FIELD_DECL)
-      DECL_VAR_MARKED_P (in a VAR_DECL)
+      DECL_ANON_UNION_VAR_P (in a VAR_DECL)
       DECL_SELF_REFERENCE_P (in a TYPE_DECL)
       DECL_INVALID_OVERRIDER_P (in a FUNCTION_DECL)
    5: DECL_INTERFACE_KNOWN.
@@ -615,6 +615,7 @@ enum cp_tree_index
     CPTI_JCLASS,
     CPTI_TERMINATE,
     CPTI_CALL_UNEXPECTED,
+    CPTI_ATEXIT_FN_PTR_TYPE,
     CPTI_ATEXIT,
     CPTI_DSO_HANDLE,
     CPTI_DCAST,
@@ -703,6 +704,10 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 
 /* The declaration for "__cxa_call_unexpected".  */
 #define call_unexpected_node		cp_global_trees[CPTI_CALL_UNEXPECTED]
+
+/* The type of the function-pointer argument to "__cxa_atexit" (or
+   "std::atexit", if "__cxa_atexit" is not being used).  */
+#define atexit_fn_ptr_type_node         cp_global_trees[CPTI_ATEXIT_FN_PTR_TYPE]
 
 /* A pointer to `std::atexit'.  */
 #define atexit_node			cp_global_trees[CPTI_ATEXIT]
@@ -2203,10 +2208,10 @@ extern void decl_shadowed_for_var_insert (tree, tree);
   (DECL_LANG_SPECIFIC (VAR_TEMPL_TYPE_OR_FUNCTION_DECL_CHECK (NODE)) \
    ->decl_flags.u.template_info)
 
-/* For a VAR_DECL, indicates that the variable has been processed.
-   This flag is set and unset throughout the code; it is always
-   used for a temporary purpose.  */
-#define DECL_VAR_MARKED_P(NODE) \
+/* For a VAR_DECL, indicates that the variable is actually a
+   non-static data member of anonymous union that has been promoted to
+   variable status.  */
+#define DECL_ANON_UNION_VAR_P(NODE) \
   (DECL_LANG_FLAG_4 (VAR_DECL_CHECK (NODE)))
 
 /* Template information for a RECORD_TYPE or UNION_TYPE.  */
@@ -4423,7 +4428,7 @@ extern bool uses_parameter_packs                (tree);
 extern bool template_parameter_pack_p           (tree);
 extern bool template_parms_variadic_p           (tree);
 extern tree make_pack_expansion                 (tree);
-extern void check_for_bare_parameter_packs      (tree);
+extern bool check_for_bare_parameter_packs      (tree);
 extern int template_class_depth			(tree);
 extern int is_specialization_of			(tree, tree);
 extern bool is_specialization_of_friend		(tree, tree);

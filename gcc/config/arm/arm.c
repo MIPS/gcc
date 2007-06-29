@@ -52,6 +52,7 @@
 #include "target-def.h"
 #include "debug.h"
 #include "langhooks.h"
+#include "df.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
@@ -104,7 +105,6 @@ static void push_minipool_fix (rtx, HOST_WIDE_INT, rtx *, enum machine_mode,
 			       rtx);
 static void arm_reorg (void);
 static bool note_invalid_constants (rtx, HOST_WIDE_INT, int);
-static int current_file_function_operand (rtx);
 static unsigned long arm_compute_save_reg0_reg12_mask (void);
 static unsigned long arm_compute_save_reg_mask (void);
 static unsigned long arm_isr_value (tree);
@@ -149,8 +149,8 @@ static int arm_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, bool);
 
 #ifdef OBJECT_FORMAT_ELF
-static void arm_elf_asm_constructor (rtx, int);
-static void arm_elf_asm_destructor (rtx, int);
+static void arm_elf_asm_constructor (rtx, int) ATTRIBUTE_UNUSED;
+static void arm_elf_asm_destructor (rtx, int) ATTRIBUTE_UNUSED;
 #endif
 #ifndef ARM_PE
 static void arm_encode_section_info (tree, rtx, int);
@@ -196,6 +196,7 @@ static bool arm_handle_option (size_t, const char *, int);
 static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 static bool arm_cannot_copy_insn_p (rtx);
 static bool arm_tls_symbol_p (rtx x);
+static void arm_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 
 
 /* Initialize the GCC target structure.  */
@@ -377,6 +378,11 @@ static bool arm_tls_symbol_p (rtx x);
 
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM arm_tls_referenced_p
+
+#ifdef HAVE_AS_TLS
+#undef TARGET_ASM_OUTPUT_DWARF_DTPREL
+#define TARGET_ASM_OUTPUT_DWARF_DTPREL arm_output_dwarf_dtprel
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1339,10 +1345,23 @@ arm_override_options (void)
 		 ARM_DOUBLEWORD_ALIGN ? "8, 32 or 64": "8 or 32");
     }
 
+  if (!TARGET_ARM && TARGET_VXWORKS_RTP && flag_pic)
+    {
+      error ("RTP PIC is incompatible with Thumb");
+      flag_pic = 0;
+    }
+
   /* If stack checking is disabled, we can use r10 as the PIC register,
      which keeps r9 available.  The EABI specifies r9 as the PIC register.  */
   if (flag_pic && TARGET_SINGLE_PIC_BASE)
-    arm_pic_register = (TARGET_APCS_STACK || TARGET_AAPCS_BASED) ? 9 : 10;
+    {
+      if (TARGET_VXWORKS_RTP)
+	warning (0, "RTP PIC is incompatible with -msingle-pic-base");
+      arm_pic_register = (TARGET_APCS_STACK || TARGET_AAPCS_BASED) ? 9 : 10;
+    }
+
+  if (flag_pic && TARGET_VXWORKS_RTP)
+    arm_pic_register = 9;
 
   if (arm_pic_register_string != NULL)
     {
@@ -1355,7 +1374,9 @@ arm_override_options (void)
       else if (pic_register < 0 || call_used_regs[pic_register]
 	       || pic_register == HARD_FRAME_POINTER_REGNUM
 	       || pic_register == STACK_POINTER_REGNUM
-	       || pic_register >= PC_REGNUM)
+	       || pic_register >= PC_REGNUM
+	       || (TARGET_VXWORKS_RTP
+		   && (unsigned int) pic_register != arm_pic_register))
 	error ("unable to use '%s' for PIC register", arm_pic_register_string);
       else
 	arm_pic_register = pic_register;
@@ -1621,7 +1642,7 @@ use_return_insn (int iscond, rtx sibling)
 
       if (flag_pic 
 	  && arm_pic_register != INVALID_REGNUM
-	  && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
+	  && df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM))
 	return 0;
     }
 
@@ -1634,18 +1655,18 @@ use_return_insn (int iscond, rtx sibling)
      since this also requires an insn.  */
   if (TARGET_HARD_FLOAT && TARGET_FPA)
     for (regno = FIRST_FPA_REGNUM; regno <= LAST_FPA_REGNUM; regno++)
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	return 0;
 
   /* Likewise VFP regs.  */
   if (TARGET_HARD_FLOAT && TARGET_VFP)
     for (regno = FIRST_VFP_REGNUM; regno <= LAST_VFP_REGNUM; regno++)
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	return 0;
 
   if (TARGET_REALLY_IWMMXT)
     for (regno = FIRST_IWMMXT_REGNUM; regno <= LAST_IWMMXT_REGNUM; regno++)
-      if (regs_ever_live[regno] && ! call_used_regs [regno])
+      if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
 	return 0;
 
   return 1;
@@ -2782,21 +2803,6 @@ arm_init_cumulative_args (CUMULATIVE_ARGS *pcum, tree fntype,
   pcum->iwmmxt_nregs = 0;
   pcum->can_split = true;
 
-  pcum->call_cookie = CALL_NORMAL;
-
-  if (TARGET_LONG_CALLS)
-    pcum->call_cookie = CALL_LONG;
-
-  /* Check for long call/short call attributes.  The attributes
-     override any command line option.  */
-  if (fntype)
-    {
-      if (lookup_attribute ("short_call", TYPE_ATTRIBUTES (fntype)))
-	pcum->call_cookie = CALL_SHORT;
-      else if (lookup_attribute ("long_call", TYPE_ATTRIBUTES (fntype)))
-	pcum->call_cookie = CALL_LONG;
-    }
-
   /* Varargs vectors are treated the same as long long.
      named_count avoids having to change the way arm handles 'named' */
   pcum->named_count = 0;
@@ -2867,8 +2873,8 @@ arm_function_arg (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
     pcum->nregs++;
 
   if (mode == VOIDmode)
-    /* Compute operand 2 of the call insn.  */
-    return GEN_INT (pcum->call_cookie);
+    /* Pick an arbitrary value for operand 2 of the call insn.  */
+    return const0_rtx;
 
   /* Only allow splitting an arg between regs and memory if all preceding
      args were allocated to regs.  For args passed by reference we only count
@@ -3121,27 +3127,6 @@ arm_comp_type_attributes (tree type1, tree type2)
   return 1;
 }
 
-/*  Encode long_call or short_call attribute by prefixing
-    symbol name in DECL with a special character FLAG.  */
-void
-arm_encode_call_attribute (tree decl, int flag)
-{
-  const char * str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
-  int          len = strlen (str);
-  char *       newstr;
-
-  /* Do not allow weak functions to be treated as short call.  */
-  if (DECL_WEAK (decl) && flag == SHORT_CALL_FLAG_CHAR)
-    return;
-
-  newstr = alloca (len + 2);
-  newstr[0] = flag;
-  strcpy (newstr + 1, str);
-
-  newstr = (char *) ggc_alloc_string (newstr, len + 1);
-  XSTR (XEXP (DECL_RTL (decl), 0), 0) = newstr;
-}
-
 /*  Assigns default attributes to newly defined type.  This is used to
     set short_call/long_call attributes for function types of
     functions defined inside corresponding #pragma scopes.  */
@@ -3168,92 +3153,79 @@ arm_set_default_type_attributes (tree type)
     }
 }
 
-/* Return 1 if the operand is a SYMBOL_REF for a function known to be
-   defined within the current compilation unit.  If this cannot be
-   determined, then 0 is returned.  */
-static int
-current_file_function_operand (rtx sym_ref)
+/* Return true if DECL is known to be linked into section SECTION.  */
+
+static bool
+arm_function_in_section_p (tree decl, section *section)
 {
-  /* This is a bit of a fib.  A function will have a short call flag
-     applied to its name if it has the short call attribute, or it has
-     already been defined within the current compilation unit.  */
-  if (ENCODED_SHORT_CALL_ATTR_P (XSTR (sym_ref, 0)))
-    return 1;
+  /* We can only be certain about functions defined in the same
+     compilation unit.  */
+  if (!TREE_STATIC (decl))
+    return false;
 
-  /* The current function is always defined within the current compilation
-     unit.  If it s a weak definition however, then this may not be the real
-     definition of the function, and so we have to say no.  */
-  if (sym_ref == XEXP (DECL_RTL (current_function_decl), 0)
-      && !DECL_WEAK (current_function_decl))
-    return 1;
+  /* Make sure that SYMBOL always binds to the definition in this
+     compilation unit.  */
+  if (!targetm.binds_local_p (decl))
+    return false;
 
-  /* We cannot make the determination - default to returning 0.  */
-  return 0;
+  /* If DECL_SECTION_NAME is set, assume it is trustworthy.  */
+  if (!DECL_SECTION_NAME (decl))
+    {
+      /* Only cater for unit-at-a-time mode, where we know that the user
+	 cannot later specify a section for DECL.  */
+      if (!flag_unit_at_a_time)
+	return false;
+
+      /* Make sure that we will not create a unique section for DECL.  */
+      if (flag_function_sections || DECL_ONE_ONLY (decl))
+	return false;
+    }
+
+  return function_section (decl) == section;
 }
 
 /* Return nonzero if a 32-bit "long_call" should be generated for
-   this call.  We generate a long_call if the function:
+   a call from the current function to DECL.  We generate a long_call
+   if the function:
 
         a.  has an __attribute__((long call))
      or b.  is within the scope of a #pragma long_calls
      or c.  the -mlong-calls command line switch has been specified
-         .  and either:
-                1. -ffunction-sections is in effect
-	     or 2. the current function has __attribute__ ((section))
-	     or 3. the target function has __attribute__ ((section))
 
    However we do not generate a long call if the function:
 
         d.  has an __attribute__ ((short_call))
      or e.  is inside the scope of a #pragma no_long_calls
-     or f.  is defined within the current compilation unit.
+     or f.  is defined in the same section as the current function.  */
 
-   This function will be called by C fragments contained in the machine
-   description file.  SYM_REF and CALL_COOKIE correspond to the matched
-   rtl operands.  CALL_SYMBOL is used to distinguish between
-   two different callers of the function.  It is set to 1 in the
-   "call_symbol" and "call_symbol_value" patterns and to 0 in the "call"
-   and "call_value" patterns.  This is because of the difference in the
-   SYM_REFs passed by these patterns.  */
-int
-arm_is_longcall_p (rtx sym_ref, int call_cookie, int call_symbol)
+bool
+arm_is_long_call_p (tree decl)
 {
-  if (!call_symbol)
-    {
-      if (GET_CODE (sym_ref) != MEM)
-	return 0;
+  tree attrs;
 
-      sym_ref = XEXP (sym_ref, 0);
-    }
+  if (!decl)
+    return TARGET_LONG_CALLS;
 
-  if (GET_CODE (sym_ref) != SYMBOL_REF)
-    return 0;
+  attrs = TYPE_ATTRIBUTES (TREE_TYPE (decl));
+  if (lookup_attribute ("short_call", attrs))
+    return false;
 
-  if (call_cookie & CALL_SHORT)
-    return 0;
+  /* For "f", be conservative, and only cater for cases in which the
+     whole of the current function is placed in the same section.  */
+  if (!flag_reorder_blocks_and_partition
+      && arm_function_in_section_p (decl, current_function_section ()))
+    return false;
 
-  if (TARGET_LONG_CALLS)
-    {
-      if (flag_function_sections
-	  || DECL_SECTION_NAME (current_function_decl))
-	/* c.3 is handled by the definition of the
-	   ARM_DECLARE_FUNCTION_SIZE macro.  */
-	return 1;
-    }
+  if (lookup_attribute ("long_call", attrs))
+    return true;
 
-  if (current_file_function_operand (sym_ref))
-    return 0;
-
-  return (call_cookie & CALL_LONG)
-    || ENCODED_LONG_CALL_ATTR_P (XSTR (sym_ref, 0))
-    || TARGET_LONG_CALLS;
+  return TARGET_LONG_CALLS;
 }
 
 /* Return nonzero if it is ok to make a tail-call to DECL.  */
 static bool
 arm_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
-  int call_type = TARGET_LONG_CALLS ? CALL_LONG : CALL_NORMAL;
   unsigned long func_type;
 
   if (cfun->machine->sibcall_blocked)
@@ -3264,16 +3236,14 @@ arm_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   if (decl == NULL || TARGET_THUMB)
     return false;
 
-  /* Get the calling method.  */
-  if (lookup_attribute ("short_call", TYPE_ATTRIBUTES (TREE_TYPE (decl))))
-    call_type = CALL_SHORT;
-  else if (lookup_attribute ("long_call", TYPE_ATTRIBUTES (TREE_TYPE (decl))))
-    call_type = CALL_LONG;
+  /* The PIC register is live on entry to VxWorks PLT entries, so we
+     must make the call before restoring the PIC register.  */
+  if (TARGET_VXWORKS_RTP && flag_pic && !targetm.binds_local_p (decl))
+    return false;
 
   /* Cannot tail-call to long calls, since these are out of range of
-     a branch instruction.  However, if not compiling PIC, we know
-     we can reach the symbol if it is in this compilation unit.  */
-  if (call_type == CALL_LONG && (flag_pic || !TREE_ASM_WRITTEN (decl)))
+     a branch instruction.  */
+  if (arm_is_long_call_p (decl))
     return false;
 
   /* If we are interworking and the function is not declared static
@@ -3312,6 +3282,54 @@ legitimate_pic_operand_p (rtx x)
   return 1;
 }
 
+/* Record that the current function needs a PIC register.  Initialize
+   cfun->machine->pic_reg if we have not already done so.  */
+
+static void
+require_pic_register (void)
+{
+  /* A lot of the logic here is made obscure by the fact that this
+     routine gets called as part of the rtx cost estimation process.
+     We don't want those calls to affect any assumptions about the real
+     function; and further, we can't call entry_of_function() until we
+     start the real expansion process.  */
+  if (!current_function_uses_pic_offset_table)
+    {
+      gcc_assert (!no_new_pseudos);
+      if (arm_pic_register != INVALID_REGNUM)
+	{
+	  cfun->machine->pic_reg = gen_rtx_REG (Pmode, arm_pic_register);
+
+	  /* Play games to avoid marking the function as needing pic
+	     if we are being called as part of the cost-estimation
+	     process.  */
+	  if (current_ir_type () != IR_GIMPLE)
+	    current_function_uses_pic_offset_table = 1;
+	}
+      else
+	{
+	  rtx seq;
+
+	  cfun->machine->pic_reg = gen_reg_rtx (Pmode);
+
+	  /* Play games to avoid marking the function as needing pic
+	     if we are being called as part of the cost-estimation
+	     process.  */
+	  if (current_ir_type () != IR_GIMPLE)
+	    {
+	      current_function_uses_pic_offset_table = 1;
+	      start_sequence ();
+
+	      arm_load_pic_register (0UL);
+
+	      seq = get_insns ();
+	      end_sequence ();
+	      emit_insn_after (seq, entry_of_function ());
+	    }
+	}
+    }
+}
+
 rtx
 legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 {
@@ -3324,48 +3342,8 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       rtx insn;
       int subregs = 0;
 
-      /* If this function doesn't have a pic register, create one now.
-	 A lot of the logic here is made obscure by the fact that this
-	 routine gets called as part of the rtx cost estimation
-	 process.  We don't want those calls to affect any assumptions
-	 about the real function; and further, we can't call
-	 entry_of_function() until we start the real expansion
-	 process.  */
-      if (!current_function_uses_pic_offset_table)
-	{
-	  gcc_assert (!no_new_pseudos);
-	  if (arm_pic_register != INVALID_REGNUM)
-	    {
-	      cfun->machine->pic_reg = gen_rtx_REG (Pmode, arm_pic_register);
-
-	      /* Play games to avoid marking the function as needing pic
-		 if we are being called as part of the cost-estimation
-		 process.  */
-	      if (current_ir_type () != IR_GIMPLE)
-		current_function_uses_pic_offset_table = 1;
-	    }
-	  else
-	    {
-	      rtx seq;
-
-	      cfun->machine->pic_reg = gen_reg_rtx (Pmode);
-
-	      /* Play games to avoid marking the function as needing pic
-		 if we are being called as part of the cost-estimation
-		 process.  */
-	      if (current_ir_type () != IR_GIMPLE)
-		{
-		  current_function_uses_pic_offset_table = 1;
-		  start_sequence ();
-
-		  arm_load_pic_register (0UL);
-
-		  seq = get_insns ();
-		  end_sequence ();
-		  emit_insn_after (seq, entry_of_function ());
-		}
-	    }
-	}
+      /* If this function doesn't have a pic register, create one now.  */
+      require_pic_register ();
 
       if (reg == 0)
 	{
@@ -3392,10 +3370,17 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       else /* TARGET_THUMB1 */
 	emit_insn (gen_pic_load_addr_thumb1 (address, orig));
 
+      /* VxWorks does not impose a fixed gap between segments; the run-time
+	 gap can be different from the object-file gap.  We therefore can't
+	 use GOTOFF unless we are absolutely sure that the symbol is in the
+	 same segment as the GOT.  Unfortunately, the flexibility of linker
+	 scripts means that we can't be sure of that in general, so assume
+	 that GOTOFF is never valid on VxWorks.  */
       if ((GET_CODE (orig) == LABEL_REF
 	   || (GET_CODE (orig) == SYMBOL_REF &&
 	       SYMBOL_REF_LOCAL_P (orig)))
-	  && NEED_GOT_RELOC)
+	  && NEED_GOT_RELOC
+	  && !TARGET_VXWORKS_RTP)
 	pic_ref = gen_rtx_PLUS (Pmode, cfun->machine->pic_reg, address);
       else
 	{
@@ -3476,7 +3461,7 @@ thumb_find_work_register (unsigned long pushed_regs_mask)
      register allocation order means that sometimes r3 might be used
      but earlier argument registers might not, so check them all.  */
   for (reg = LAST_ARG_REGNUM; reg >= 0; reg --)
-    if (!regs_ever_live[reg])
+    if (!df_regs_ever_live_p (reg))
       return reg;
 
   /* Before going on to check the call-saved registers we can try a couple
@@ -3535,7 +3520,7 @@ void
 arm_load_pic_register (unsigned long saved_regs ATTRIBUTE_UNUSED)
 {
 #ifndef AOF_ASSEMBLER
-  rtx l1, labelno, pic_tmp, pic_tmp2, pic_rtx;
+  rtx l1, labelno, pic_tmp, pic_tmp2, pic_rtx, pic_reg;
   rtx global_offset_table;
 
   if (current_function_uses_pic_offset_table == 0 || TARGET_SINGLE_PIC_BASE)
@@ -3543,72 +3528,88 @@ arm_load_pic_register (unsigned long saved_regs ATTRIBUTE_UNUSED)
 
   gcc_assert (flag_pic);
 
-  /* We use an UNSPEC rather than a LABEL_REF because this label never appears
-     in the code stream.  */
+  pic_reg = cfun->machine->pic_reg;
+  if (TARGET_VXWORKS_RTP)
+    {
+      pic_rtx = gen_rtx_SYMBOL_REF (Pmode, VXWORKS_GOTT_BASE);
+      pic_rtx = gen_rtx_CONST (Pmode, pic_rtx);
+      emit_insn (gen_pic_load_addr_arm (pic_reg, pic_rtx));
 
-  labelno = GEN_INT (pic_labelno++);
-  l1 = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, labelno), UNSPEC_PIC_LABEL);
-  l1 = gen_rtx_CONST (VOIDmode, l1);
+      emit_insn (gen_rtx_SET (Pmode, pic_reg, gen_rtx_MEM (Pmode, pic_reg)));
 
-  global_offset_table = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
-  /* On the ARM the PC register contains 'dot + 8' at the time of the
-     addition, on the Thumb it is 'dot + 4'.  */
-  pic_tmp = plus_constant (l1, TARGET_ARM ? 8 : 4);
-  if (GOT_PCREL)
-    pic_tmp2 = gen_rtx_CONST (VOIDmode,
-			    gen_rtx_PLUS (Pmode, global_offset_table, pc_rtx));
+      pic_tmp = gen_rtx_SYMBOL_REF (Pmode, VXWORKS_GOTT_INDEX);
+      emit_insn (gen_pic_offset_arm (pic_reg, pic_reg, pic_tmp));
+    }
   else
-    pic_tmp2 = gen_rtx_CONST (VOIDmode, global_offset_table);
-
-  pic_rtx = gen_rtx_CONST (Pmode, gen_rtx_MINUS (Pmode, pic_tmp2, pic_tmp));
-
-  if (TARGET_ARM)
     {
-      emit_insn (gen_pic_load_addr_arm (cfun->machine->pic_reg, pic_rtx));
-      emit_insn (gen_pic_add_dot_plus_eight (cfun->machine->pic_reg,
-					     cfun->machine->pic_reg, labelno));
-    }
-  else if (TARGET_THUMB2)
-    {
-      /* Thumb-2 only allows very limited access to the PC.  Calculate the
-	 address in a temporary register.  */
-      if (arm_pic_register != INVALID_REGNUM)
+      /* We use an UNSPEC rather than a LABEL_REF because this label
+	 never appears in the code stream.  */
+
+      labelno = GEN_INT (pic_labelno++);
+      l1 = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, labelno), UNSPEC_PIC_LABEL);
+      l1 = gen_rtx_CONST (VOIDmode, l1);
+
+      global_offset_table
+	= gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
+      /* On the ARM the PC register contains 'dot + 8' at the time of the
+	 addition, on the Thumb it is 'dot + 4'.  */
+      pic_tmp = plus_constant (l1, TARGET_ARM ? 8 : 4);
+      if (GOT_PCREL)
 	{
-	  pic_tmp = gen_rtx_REG (SImode,
-				 thumb_find_work_register (saved_regs));
+	  pic_tmp2 = gen_rtx_PLUS (Pmode, global_offset_table, pc_rtx);
+	  pic_tmp2 = gen_rtx_CONST (VOIDmode, pic_tmp2);
 	}
       else
-	{
-	  gcc_assert (!no_new_pseudos);
-	  pic_tmp = gen_reg_rtx (Pmode);
-	}
+	pic_tmp2 = gen_rtx_CONST (VOIDmode, global_offset_table);
 
-      emit_insn (gen_pic_load_addr_thumb2 (cfun->machine->pic_reg, pic_rtx));
-      emit_insn (gen_pic_load_dot_plus_four (pic_tmp, labelno));
-      emit_insn (gen_addsi3(cfun->machine->pic_reg, cfun->machine->pic_reg,
-			    pic_tmp));
-    }
-  else /* TARGET_THUMB1 */
-    {
-      if (arm_pic_register != INVALID_REGNUM
-	  && REGNO (cfun->machine->pic_reg) > LAST_LO_REGNUM)
+      pic_rtx = gen_rtx_MINUS (Pmode, pic_tmp2, pic_tmp);
+      pic_rtx = gen_rtx_CONST (Pmode, pic_rtx);
+
+      if (TARGET_ARM)
 	{
-	  /* We will have pushed the pic register, so we should always be
-	     able to find a work register.  */
-	  pic_tmp = gen_rtx_REG (SImode,
-				 thumb_find_work_register (saved_regs));
-	  emit_insn (gen_pic_load_addr_thumb1 (pic_tmp, pic_rtx));
-	  emit_insn (gen_movsi (pic_offset_table_rtx, pic_tmp));
+	  emit_insn (gen_pic_load_addr_arm (pic_reg, pic_rtx));
+	  emit_insn (gen_pic_add_dot_plus_eight (pic_reg, pic_reg, labelno));
 	}
-      else
-	emit_insn (gen_pic_load_addr_thumb1 (cfun->machine->pic_reg, pic_rtx));
-      emit_insn (gen_pic_add_dot_plus_four (cfun->machine->pic_reg,
-					    cfun->machine->pic_reg, labelno));
+      else if (TARGET_THUMB2)
+	{
+	  /* Thumb-2 only allows very limited access to the PC.  Calculate the
+	     address in a temporary register.  */
+	  if (arm_pic_register != INVALID_REGNUM)
+	    {
+	      pic_tmp = gen_rtx_REG (SImode,
+				     thumb_find_work_register (saved_regs));
+	    }
+	  else
+	    {
+	      gcc_assert (!no_new_pseudos);
+	      pic_tmp = gen_reg_rtx (Pmode);
+	    }
+
+	  emit_insn (gen_pic_load_addr_thumb2 (pic_reg, pic_rtx));
+	  emit_insn (gen_pic_load_dot_plus_four (pic_tmp, labelno));
+	  emit_insn (gen_addsi3 (pic_reg, pic_reg, pic_tmp));
+	}
+      else /* TARGET_THUMB1 */
+	{
+	  if (arm_pic_register != INVALID_REGNUM
+	      && REGNO (pic_reg) > LAST_LO_REGNUM)
+	    {
+	      /* We will have pushed the pic register, so we should always be
+		 able to find a work register.  */
+	      pic_tmp = gen_rtx_REG (SImode,
+				     thumb_find_work_register (saved_regs));
+	      emit_insn (gen_pic_load_addr_thumb1 (pic_tmp, pic_rtx));
+	      emit_insn (gen_movsi (pic_offset_table_rtx, pic_tmp));
+	    }
+	  else
+	    emit_insn (gen_pic_load_addr_thumb1 (pic_reg, pic_rtx));
+	  emit_insn (gen_pic_add_dot_plus_four (pic_reg, pic_reg, labelno));
+	}
     }
 
   /* Need to emit this whether or not we obey regdecls,
      since setjmp/longjmp can cause life info to screw up.  */
-  emit_insn (gen_rtx_USE (VOIDmode, cfun->machine->pic_reg));
+  emit_insn (gen_rtx_USE (VOIDmode, pic_reg));
 #endif /* AOF_ASSEMBLER */
 }
 
@@ -8919,6 +8920,30 @@ vfp_emit_fstmd (int base_reg, int count)
   return count * 8;
 }
 
+/* Emit a call instruction with pattern PAT.  ADDR is the address of
+   the call target.  */
+
+void
+arm_emit_call_insn (rtx pat, rtx addr)
+{
+  rtx insn;
+
+  insn = emit_call_insn (pat);
+
+  /* The PIC register is live on entry to VxWorks PIC PLT entries.
+     If the call might use such an entry, add a use of the PIC register
+     to the instruction's CALL_INSN_FUNCTION_USAGE.  */
+  if (TARGET_VXWORKS_RTP
+      && flag_pic
+      && GET_CODE (addr) == SYMBOL_REF
+      && (SYMBOL_REF_DECL (addr)
+	  ? !targetm.binds_local_p (SYMBOL_REF_DECL (addr))
+	  : !SYMBOL_REF_LOCAL_P (addr)))
+    {
+      require_pic_register ();
+      use_reg (&CALL_INSN_FUNCTION_USAGE (insn), cfun->machine->pic_reg);
+    }
+}
 
 /* Output a 'call' insn.  */
 const char *
@@ -9746,8 +9771,8 @@ arm_compute_save_reg0_reg12_mask (void)
 	max_reg = 12;
 
       for (reg = 0; reg <= max_reg; reg++)
-	if (regs_ever_live[reg]
-	    || (! current_function_is_leaf && call_used_regs [reg]))
+	if (df_regs_ever_live_p (reg)
+	    || (! current_function_is_leaf && call_used_regs[reg]))
 	  save_reg_mask |= (1 << reg);
 
       /* Also save the pic base register if necessary.  */
@@ -9765,15 +9790,18 @@ arm_compute_save_reg0_reg12_mask (void)
       /* In the normal case we only need to save those registers
 	 which are call saved and which are used by this function.  */
       for (reg = 0; reg <= last_reg; reg++)
-	if (regs_ever_live[reg] && ! call_used_regs [reg])
+	if (df_regs_ever_live_p (reg) && ! call_used_regs[reg])
 	  save_reg_mask |= (1 << reg);
 
       /* Handle the frame pointer as a special case.  */
-      if (TARGET_THUMB2 && frame_pointer_needed)
+      if (! TARGET_APCS_FRAME
+	  && ! frame_pointer_needed
+	  && df_regs_ever_live_p (HARD_FRAME_POINTER_REGNUM)
+	  && ! call_used_regs[HARD_FRAME_POINTER_REGNUM])
 	save_reg_mask |= 1 << HARD_FRAME_POINTER_REGNUM;
       else if (! TARGET_APCS_FRAME
 	       && ! frame_pointer_needed
-	       && regs_ever_live[HARD_FRAME_POINTER_REGNUM]
+	       && df_regs_ever_live_p (HARD_FRAME_POINTER_REGNUM)
 	       && ! call_used_regs[HARD_FRAME_POINTER_REGNUM])
 	save_reg_mask |= 1 << HARD_FRAME_POINTER_REGNUM;
 
@@ -9782,7 +9810,7 @@ arm_compute_save_reg0_reg12_mask (void)
       if (flag_pic
 	  && !TARGET_SINGLE_PIC_BASE
 	  && arm_pic_register != INVALID_REGNUM
-	  && (regs_ever_live[PIC_OFFSET_TABLE_REGNUM]
+	  && (df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM)
 	      || current_function_uses_pic_offset_table))
 	save_reg_mask |= 1 << PIC_OFFSET_TABLE_REGNUM;
 
@@ -9848,11 +9876,11 @@ arm_compute_save_reg_mask (void)
      now and then popping it back into the PC.  This incurs extra memory
      accesses though, so we only do it when optimizing for size, and only
      if we know that we will not need a fancy return sequence.  */
-  if (regs_ever_live [LR_REGNUM]
-	  || (save_reg_mask
-	      && optimize_size
-	      && ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL
-	      && !current_function_calls_eh_return))
+  if (df_regs_ever_live_p (LR_REGNUM)
+      || (save_reg_mask
+	  && optimize_size
+	  && ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL
+	  && !current_function_calls_eh_return))
     save_reg_mask |= 1 << LR_REGNUM;
 
   if (cfun->machine->lr_save_eliminated)
@@ -9908,7 +9936,7 @@ thumb1_compute_save_reg_mask (void)
 
   mask = 0;
   for (reg = 0; reg < 12; reg ++)
-    if (regs_ever_live[reg] && !call_used_regs[reg])
+    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
       mask |= 1 << reg;
 
   if (flag_pic
@@ -9962,8 +9990,8 @@ arm_get_vfp_saved_size (void)
 	   regno < LAST_VFP_REGNUM;
 	   regno += 2)
 	{
-	  if ((!regs_ever_live[regno] || call_used_regs[regno])
-	      && (!regs_ever_live[regno + 1] || call_used_regs[regno + 1]))
+	  if ((!df_regs_ever_live_p (regno) || call_used_regs[regno])
+	      && (!df_regs_ever_live_p (regno + 1) || call_used_regs[regno + 1]))
 	    {
 	      if (count > 0)
 		{
@@ -10365,7 +10393,7 @@ arm_output_epilogue (rtx sibling)
       if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
 	{
 	  for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
-	    if (regs_ever_live[reg] && !call_used_regs[reg])
+	    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	      {
 		floats_offset += 12;
 		asm_fprintf (f, "\tldfe\t%r, [%r, #-%d]\n",
@@ -10378,7 +10406,7 @@ arm_output_epilogue (rtx sibling)
 
 	  for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
 	    {
-	      if (regs_ever_live[reg] && !call_used_regs[reg])
+	      if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 		{
 		  floats_offset += 12;
 
@@ -10424,8 +10452,8 @@ arm_output_epilogue (rtx sibling)
 	  start_reg = FIRST_VFP_REGNUM;
 	  for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
 	    {
-	      if ((!regs_ever_live[reg] || call_used_regs[reg])
-		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
+	      if ((!df_regs_ever_live_p (reg) || call_used_regs[reg])
+		  && (!df_regs_ever_live_p (reg + 1) || call_used_regs[reg + 1]))
 		{
 		  if (start_reg != reg)
 		    vfp_output_fldmd (f, IP_REGNUM,
@@ -10452,7 +10480,7 @@ arm_output_epilogue (rtx sibling)
 	  lrm_count += (lrm_count % 2 ? 2 : 1);
 
 	  for (reg = LAST_IWMMXT_REGNUM; reg >= FIRST_IWMMXT_REGNUM; reg--)
-	    if (regs_ever_live[reg] && !call_used_regs[reg])
+	    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	      {
 		asm_fprintf (f, "\twldrd\t%r, [%r, #-%d]\n",
 			     reg, FP_REGNUM, lrm_count * 4);
@@ -10533,7 +10561,7 @@ arm_output_epilogue (rtx sibling)
       if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
 	{
 	  for (reg = FIRST_FPA_REGNUM; reg <= LAST_FPA_REGNUM; reg++)
-	    if (regs_ever_live[reg] && !call_used_regs[reg])
+	    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	      asm_fprintf (f, "\tldfe\t%r, [%r], #12\n",
 			   reg, SP_REGNUM);
 	}
@@ -10543,7 +10571,7 @@ arm_output_epilogue (rtx sibling)
 
 	  for (reg = FIRST_FPA_REGNUM; reg <= LAST_FPA_REGNUM; reg++)
 	    {
-	      if (regs_ever_live[reg] && !call_used_regs[reg])
+	      if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 		{
 		  if (reg - start_reg == 3)
 		    {
@@ -10574,8 +10602,8 @@ arm_output_epilogue (rtx sibling)
 	  start_reg = FIRST_VFP_REGNUM;
 	  for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
 	    {
-	      if ((!regs_ever_live[reg] || call_used_regs[reg])
-		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
+	      if ((!df_regs_ever_live_p (reg) || call_used_regs[reg])
+		  && (!df_regs_ever_live_p (reg + 1) || call_used_regs[reg + 1]))
 		{
 		  if (start_reg != reg)
 		    vfp_output_fldmd (f, SP_REGNUM,
@@ -10591,7 +10619,7 @@ arm_output_epilogue (rtx sibling)
 	}
       if (TARGET_IWMMXT)
 	for (reg = FIRST_IWMMXT_REGNUM; reg <= LAST_IWMMXT_REGNUM; reg++)
-	  if (regs_ever_live[reg] && !call_used_regs[reg])
+	  if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	    asm_fprintf (f, "\twldrd\t%r, [%r], #8\n", reg, SP_REGNUM);
 
       /* If we can, restore the LR into the PC.  */
@@ -10933,7 +10961,7 @@ thumb_force_lr_save (void)
   return !cfun->machine->lr_save_eliminated
 	 && (!leaf_function_p ()
 	     || thumb_far_jump_used_p ()
-	     || regs_ever_live [LR_REGNUM]);
+	     || df_regs_ever_live_p (LR_REGNUM));
 }
 
 
@@ -11041,7 +11069,7 @@ arm_get_frame_offsets (void)
 	  for (regno = FIRST_IWMMXT_REGNUM;
 	       regno <= LAST_IWMMXT_REGNUM;
 	       regno++)
-	    if (regs_ever_live [regno] && ! call_used_regs [regno])
+	    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
 	      saved += 8;
 	}
 
@@ -11050,7 +11078,7 @@ arm_get_frame_offsets (void)
 	{
 	  /* Space for saved FPA registers.  */
 	  for (regno = FIRST_FPA_REGNUM; regno <= LAST_FPA_REGNUM; regno++)
-	  if (regs_ever_live[regno] && ! call_used_regs[regno])
+	    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
 	    saved += 12;
 
 	  /* Space for saved VFP registers.  */
@@ -11073,6 +11101,7 @@ arm_get_frame_offsets (void)
   if (leaf && frame_size == 0)
     {
       offsets->outgoing_args = offsets->soft_frame;
+      offsets->locals_base = offsets->soft_frame;
       return offsets;
     }
 
@@ -11189,7 +11218,7 @@ arm_save_coproc_regs(void)
   rtx insn;
 
   for (reg = LAST_IWMMXT_REGNUM; reg >= FIRST_IWMMXT_REGNUM; reg--)
-    if (regs_ever_live[reg] && ! call_used_regs [reg])
+    if (df_regs_ever_live_p (reg) && ! call_used_regs[reg])
       {
 	insn = gen_rtx_PRE_DEC (V2SImode, stack_pointer_rtx);
 	insn = gen_rtx_MEM (V2SImode, insn);
@@ -11203,7 +11232,7 @@ arm_save_coproc_regs(void)
   if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
     {
       for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
-	if (regs_ever_live[reg] && !call_used_regs[reg])
+	if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	  {
 	    insn = gen_rtx_PRE_DEC (XFmode, stack_pointer_rtx);
 	    insn = gen_rtx_MEM (XFmode, insn);
@@ -11218,7 +11247,7 @@ arm_save_coproc_regs(void)
 
       for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
 	{
-	  if (regs_ever_live[reg] && !call_used_regs[reg])
+	  if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	    {
 	      if (start_reg - reg == 3)
 		{
@@ -11253,8 +11282,8 @@ arm_save_coproc_regs(void)
 
       for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
 	{
-	  if ((!regs_ever_live[reg] || call_used_regs[reg])
-	      && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
+	  if ((!df_regs_ever_live_p (reg) || call_used_regs[reg])
+	      && (!df_regs_ever_live_p (reg + 1) || call_used_regs[reg + 1]))
 	    {
 	      if (start_reg != reg)
 		saved_size += vfp_emit_fstmd (start_reg,
@@ -11399,7 +11428,7 @@ arm_expand_prologue (void)
 	     doesn't need to be unwound, as it doesn't contain a value
 	     inherited from the caller.  */
 
-	  if (regs_ever_live[3] == 0)
+	  if (df_regs_ever_live_p (3) == false)
 	    insn = emit_set_insn (gen_rtx_REG (SImode, 3), ip_rtx);
 	  else if (args_to_push == 0)
 	    {
@@ -11493,7 +11522,7 @@ arm_expand_prologue (void)
 	  if (IS_NESTED (func_type))
 	    {
 	      /* Recover the static chain register.  */
-	      if (regs_ever_live [3] == 0
+	      if (!df_regs_ever_live_p (3)
 		  || saved_pretend_args)
 		insn = gen_rtx_REG (SImode, 3);
 	      else /* if (current_function_pretend_args_size == 0) */
@@ -11562,10 +11591,7 @@ arm_expand_prologue (void)
   /* If the link register is being kept alive, with the return address in it,
      then make sure that it does not get reused by the ce2 pass.  */
   if ((live_regs_mask & (1 << LR_REGNUM)) == 0)
-    {
-      emit_insn (gen_prologue_use (gen_rtx_REG (SImode, LR_REGNUM)));
-      cfun->machine->lr_save_eliminated = 1;
-    }
+    cfun->machine->lr_save_eliminated = 1;
 }
 
 /* Print condition code to STREAM.  Helper function for arm_print_operand.  */
@@ -11835,7 +11861,7 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	 want to do that.  */
       if (x == const_true_rtx)
 	{
-	  output_operand_lossage ("instruction never exectued");
+	  output_operand_lossage ("instruction never executed");
 	  return;
 	}
       if (!COMPARISON_P (x))
@@ -12004,14 +12030,13 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
       if (NEED_GOT_RELOC && flag_pic && making_const_table &&
 	  (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF))
 	{
-	  if (GET_CODE (x) == SYMBOL_REF
-	      && (CONSTANT_POOL_ADDRESS_P (x)
-		  || SYMBOL_REF_LOCAL_P (x)))
-	    fputs ("(GOTOFF)", asm_out_file);
-	  else if (GET_CODE (x) == LABEL_REF)
-	    fputs ("(GOTOFF)", asm_out_file);
-	  else
+	  /* See legitimize_pic_address for an explanation of the
+	     TARGET_VXWORKS_RTP check.  */
+	  if (TARGET_VXWORKS_RTP
+	      || (GET_CODE (x) == SYMBOL_REF && !SYMBOL_REF_LOCAL_P (x)))
 	    fputs ("(GOT)", asm_out_file);
+	  else
+	    fputs ("(GOTOFF)", asm_out_file);
 	}
       fputc ('\n', asm_out_file);
       return true;
@@ -13899,7 +13924,7 @@ thumb_exit (FILE *f, int reg_containing_return_addr)
     {
       /* If we can deduce the registers used from the function's
 	 return value.  This is more reliable that examining
-	 regs_ever_live[] because that will be set if the register is
+	 df_regs_ever_live_p () because that will be set if the register is
 	 ever used in the function, not just if the register is used
 	 to hold a return value.  */
 
@@ -14180,7 +14205,7 @@ thumb_far_jump_used_p (void)
 
 	 If we need doubleword stack alignment this could affect the other
 	 elimination offsets so we can't risk getting it wrong.  */
-      if (regs_ever_live [ARG_POINTER_REGNUM])
+      if (df_regs_ever_live_p (ARG_POINTER_REGNUM))
 	cfun->machine->arg_pointer_live = 1;
       else if (!cfun->machine->arg_pointer_live)
 	return 0;
@@ -14244,7 +14269,7 @@ thumb_unexpanded_epilogue (void)
   high_regs_pushed = bit_count (live_regs_mask & 0x0f00);
 
   /* If we can deduce the registers used from the function's return value.
-     This is more reliable that examining regs_ever_live[] because that
+     This is more reliable that examining df_regs_ever_live_p () because that
      will be set if the register is ever used in the function, not just if
      the register is used to hold a return value.  */
   size = arm_size_return_regs ();
@@ -14615,11 +14640,6 @@ thumb1_expand_prologue (void)
   cfun->machine->lr_save_eliminated = !thumb_force_lr_save ();
   if (live_regs_mask & 0xff)
     cfun->machine->lr_save_eliminated = 0;
-
-  /* If the link register is being kept alive, with the return address in it,
-     then make sure that it does not get reused by the ce2 pass.  */
-  if (cfun->machine->lr_save_eliminated)
-    emit_insn (gen_prologue_use (gen_rtx_REG (SImode, LR_REGNUM)));
 }
 
 
@@ -14643,6 +14663,7 @@ thumb1_expand_epilogue (void)
       amount = offsets->locals_base - offsets->saved_regs;
     }
 
+  gcc_assert (amount >= 0);
   if (amount)
     {
       if (amount < 512)
@@ -14668,10 +14689,10 @@ thumb1_expand_epilogue (void)
   /* Emit a clobber for each insn that will be restored in the epilogue,
      so that flow2 will get register lifetimes correct.  */
   for (regno = 0; regno < 13; regno++)
-    if (regs_ever_live[regno] && !call_used_regs[regno])
+    if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
       emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (SImode, regno)));
 
-  if (! regs_ever_live[LR_REGNUM])
+  if (! df_regs_ever_live_p (LR_REGNUM))
     emit_insn (gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode, LR_REGNUM)));
 }
 
@@ -15603,17 +15624,6 @@ arm_encode_section_info (tree decl, rtx rtl, int first)
     SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
 #endif
 
-  /* If we are referencing a function that is weak then encode a long call
-     flag in the function name, otherwise if the function is static or
-     or known to be defined in this file then encode a short call flag.  */
-  if (first && DECL_P (decl))
-    {
-      if (TREE_CODE (decl) == FUNCTION_DECL && DECL_WEAK (decl))
-        arm_encode_call_attribute (decl, LONG_CALL_FLAG_CHAR);
-      else if (! TREE_PUBLIC (decl))
-        arm_encode_call_attribute (decl, SHORT_CALL_FLAG_CHAR);
-    }
-
   default_encode_section_info (decl, rtl, first);
 }
 #endif /* !ARM_PE */
@@ -16524,6 +16534,17 @@ arm_emit_tls_decoration (FILE *fp, rtx x)
     }
 
   return TRUE;
+}
+
+/* ARM implementation of TARGET_ASM_OUTPUT_DWARF_DTPREL.  */
+
+static void
+arm_output_dwarf_dtprel (FILE *file, int size, rtx x)
+{
+  gcc_assert (size == 4);
+  fputs ("\t.word\t", file);
+  output_addr_const (file, x);
+  fputs ("(tlsldo)", file);
 }
 
 bool

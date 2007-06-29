@@ -1915,7 +1915,7 @@ static void cp_parser_template_declaration_after_export
 static void cp_parser_perform_template_parameter_access_checks
   (VEC (deferred_access_check,gc)*);
 static tree cp_parser_single_declaration
-  (cp_parser *, VEC (deferred_access_check,gc)*, bool, bool *);
+  (cp_parser *, VEC (deferred_access_check,gc)*, bool, bool, bool *);
 static tree cp_parser_functional_cast
   (cp_parser *, tree);
 static tree cp_parser_save_member_function_body
@@ -2002,7 +2002,7 @@ static void cp_parser_consume_semicolon_at_end_of_statement
   (cp_parser *);
 static void cp_parser_skip_to_end_of_block_or_statement
   (cp_parser *);
-static void cp_parser_skip_to_closing_brace
+static bool cp_parser_skip_to_closing_brace
   (cp_parser *);
 static void cp_parser_skip_to_end_of_template_parameter_list
   (cp_parser *);
@@ -2604,9 +2604,10 @@ cp_parser_skip_to_end_of_block_or_statement (cp_parser* parser)
 }
 
 /* Skip tokens until a non-nested closing curly brace is the next
-   token.  */
+   token, or there are no more tokens. Return true in the first case,
+   false otherwise.  */
 
-static void
+static bool
 cp_parser_skip_to_closing_brace (cp_parser *parser)
 {
   unsigned nesting_depth = 0;
@@ -2620,13 +2621,13 @@ cp_parser_skip_to_closing_brace (cp_parser *parser)
 	case CPP_EOF:
 	case CPP_PRAGMA_EOL:
 	  /* If we've run out of tokens, stop.  */
-	  return;
+	  return false;
 
 	case CPP_CLOSE_BRACE:
 	  /* If the next token is a non-nested `}', then we have reached
 	     the end of the current block.  */
 	  if (nesting_depth-- == 0)
-	    return;
+	    return true;
 	  break;
 
 	case CPP_OPEN_BRACE:
@@ -3110,7 +3111,7 @@ cp_parser_primary_expression (cp_parser *parser,
 		  /* C++0x only: A ">>" treated like two ">" tokens,
                      in a template-argument-list.  */
 		  && (next_token->type != CPP_RSHIFT
-                      || !flag_cpp0x
+                      || (cxx_dialect == cxx98)
 		      || parser->greater_than_is_operator_p))
 		cast_p = false;
 	    }
@@ -5904,11 +5905,11 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p)
    The binops_by_token map is used to get the tree codes for each <token> type.
    binary-expressions are associated according to a precedence table.  */
 
-#define TOKEN_PRECEDENCE(token)				\
-(((token->type == CPP_GREATER				\
-   || (flag_cpp0x && token->type == CPP_RSHIFT))	\
-  && !parser->greater_than_is_operator_p)		\
- ? PREC_NOT_OPERATOR					\
+#define TOKEN_PRECEDENCE(token)				     \
+(((token->type == CPP_GREATER				     \
+   || ((cxx_dialect != cxx98) && token->type == CPP_RSHIFT)) \
+  && !parser->greater_than_is_operator_p)		     \
+ ? PREC_NOT_OPERATOR					     \
  : binops_by_token[token->type].prec)
 
 static tree
@@ -8739,7 +8740,7 @@ cp_parser_mem_initializer_list (cp_parser* parser)
 	  mem_initializer = error_mark_node;
 	}
       /* Look for a target constructor. */
-      if (flag_cpp0x
+      if ((cxx_dialect != cxx98)
 	  && mem_initializer != error_mark_node
 	  && TYPE_P (TREE_PURPOSE (mem_initializer))
 	  && same_type_p (TREE_PURPOSE (mem_initializer), current_class_type))
@@ -10423,6 +10424,7 @@ cp_parser_explicit_specialization (cp_parser* parser)
     cp_parser_single_declaration (parser,
 				  /*checks=*/NULL,
 				  /*member_p=*/false,
+                                  /*explicit_specialization_p=*/true,
 				  /*friend_p=*/NULL);
   /* We're done with the specialization.  */
   end_specialization ();
@@ -11518,8 +11520,8 @@ cp_parser_namespace_alias_definition (cp_parser* parser)
       error ("%<namespace%> definition is not allowed here");
       /* Skip the definition.  */
       cp_lexer_consume_token (parser->lexer);
-      cp_parser_skip_to_closing_brace (parser);
-      cp_lexer_consume_token (parser->lexer);
+      if (cp_parser_skip_to_closing_brace (parser))
+	cp_lexer_consume_token (parser->lexer);
       return;
     }
   cp_parser_require (parser, CPP_EQ, "`='");
@@ -12187,7 +12189,8 @@ cp_parser_init_declarator (cp_parser* parser,
 		      ((is_parenthesized_init || !is_initialized)
 		     ? 0 : LOOKUP_ONLYCONVERTING));
     }
-  else if (flag_cpp0x && friend_p && decl && TREE_CODE (decl) == FUNCTION_DECL)
+  else if ((cxx_dialect != cxx98) && friend_p
+	   && decl && TREE_CODE (decl) == FUNCTION_DECL)
     /* Core issue #226 (C++0x only): A default template-argument
        shall not be specified in a friend class template
        declaration. */
@@ -12803,7 +12806,8 @@ cp_parser_ptr_operator (cp_parser* parser,
     code = INDIRECT_REF;
   else if (token->type == CPP_AND)
     code = ADDR_EXPR;
-  else if (flag_cpp0x && token->type == CPP_AND_AND) /* C++0x only */
+  else if ((cxx_dialect != cxx98) &&
+	   token->type == CPP_AND_AND) /* C++0x only */
     code = NON_LVALUE_EXPR;
 
   if (code != ERROR_MARK)
@@ -13486,7 +13490,7 @@ cp_parser_parameter_declaration (cp_parser *parser,
 		  break;
 
                 case CPP_RSHIFT:
-                  if (!flag_cpp0x)
+                  if (cxx_dialect == cxx98)
                     break;
                   /* Fall through for C++0x, which treats the `>>'
                      operator like two `>' tokens in certain
@@ -14042,11 +14046,10 @@ cp_parser_class_specifier (cp_parser* parser)
      entire class body.  */
   if (!xref_basetypes (type, bases))
     {
-      cp_parser_skip_to_closing_brace (parser);
-
       /* Consuming the closing brace yields better error messages
          later on.  */
-      cp_lexer_consume_token (parser->lexer);
+      if (cp_parser_skip_to_closing_brace (parser))
+	cp_lexer_consume_token (parser->lexer);
       pop_deferring_access_checks ();
       return error_mark_node;
     }
@@ -16722,6 +16725,7 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
       decl = cp_parser_single_declaration (parser,
 					   checks,
 					   member_p,
+                                           /*explicit_specialization_p=*/false,
 					   &friend_p);
       pop_deferring_access_checks ();
 
@@ -16787,6 +16791,7 @@ static tree
 cp_parser_single_declaration (cp_parser* parser,
 			      VEC (deferred_access_check,gc)* checks,
 			      bool member_p,
+                              bool explicit_specialization_p,
 			      bool* friend_p)
 {
   int declares_class_or_enum;
@@ -16860,13 +16865,27 @@ cp_parser_single_declaration (cp_parser* parser,
   if (!decl
       && (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON)
 	  || decl_specifiers.type != error_mark_node))
-    decl = cp_parser_init_declarator (parser,
-				      &decl_specifiers,
-				      checks,
-				      /*function_definition_allowed_p=*/true,
-				      member_p,
-				      declares_class_or_enum,
-				      &function_definition_p);
+    {
+      decl = cp_parser_init_declarator (parser,
+				        &decl_specifiers,
+				        checks,
+				        /*function_definition_allowed_p=*/true,
+				        member_p,
+				        declares_class_or_enum,
+				        &function_definition_p);
+
+    /* 7.1.1-1 [dcl.stc]
+
+       A storage-class-specifier shall not be specified in an explicit
+       specialization...  */
+    if (decl
+        && explicit_specialization_p
+        && decl_specifiers.storage_class != sc_none)
+      {
+        error ("explicit template specialization cannot have a storage class");
+        decl = error_mark_node;
+      }
+    }
 
   pop_deferring_access_checks ();
 
@@ -17022,7 +17041,7 @@ cp_parser_enclosed_template_argument_list (cp_parser* parser)
      a '>>' instead, it's probably just a typo.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_RSHIFT))
     {
-      if (flag_cpp0x)
+      if (cxx_dialect != cxx98)
         {
           /* In C++0x, a `>>' in a template argument list or cast
              expression is considered to be two separate `>'
@@ -17552,7 +17571,7 @@ cp_parser_skip_to_end_of_template_parameter_list (cp_parser* parser)
 	  break;
 
         case CPP_RSHIFT:
-          if (!flag_cpp0x)
+          if (cxx_dialect == cxx98)
             /* C++0x views the `>>' operator as two `>' tokens, but
                C++98 does not. */
             break;
@@ -17674,7 +17693,7 @@ cp_parser_next_token_ends_template_argument_p (cp_parser *parser)
   return (token->type == CPP_COMMA 
           || token->type == CPP_GREATER
           || token->type == CPP_ELLIPSIS
-	  || (flag_cpp0x && token->type == CPP_RSHIFT));
+	  || ((cxx_dialect != cxx98) && token->type == CPP_RSHIFT));
 }
 
 /* Returns TRUE iff the n-th token is a "<", or the n-th is a "[" and the

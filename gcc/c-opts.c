@@ -400,7 +400,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       if (c_dialect_cxx ())
 	warn_sign_compare = value;
       warn_switch = value;
-      warn_strict_aliasing = value;
+      set_Wstrict_aliasing (value);
       warn_address = value;
       warn_strict_overflow = value;
       warn_array_bounds = value;
@@ -1059,10 +1059,13 @@ c_common_post_options (const char **pfilename)
   if (flag_objc_exceptions && !flag_objc_sjlj_exceptions)
     flag_exceptions = 1;
 
-  /* -Wextra implies -Wclobbered, -Wempty-body, -Wsign-compare, 
+  /* -Wextra implies -Wtype-limits, -Wclobbered, 
+     -Wempty-body, -Wsign-compare, 
      -Wmissing-field-initializers, -Wmissing-parameter-type
      -Wold-style-declaration, and -Woverride-init, 
      but not if explicitly overridden.  */
+  if (warn_type_limits == -1)
+    warn_type_limits = extra_warnings;
   if (warn_clobbered == -1)
     warn_clobbered = extra_warnings;
   if (warn_empty_body == -1)
@@ -1104,7 +1107,14 @@ c_common_post_options (const char **pfilename)
 	}
       if (flag_inline_functions)
 	flag_inline_trees = 2;
-    }
+    } 
+
+  /* In C, -Wconversion enables -Wsign-conversion (unless disabled
+     through -Wno-sign-conversion). While in C++,
+     -Wsign-conversion needs to be requested explicitly.  */
+  if (warn_sign_conversion == -1)
+    warn_sign_conversion =  (c_dialect_cxx ()) ? 0 : warn_conversion;
+
 
   /* Special format checking options don't work without -Wformat; warn if
      they are used.  */
@@ -1135,7 +1145,7 @@ c_common_post_options (const char **pfilename)
 
   /* If we're allowing C++0x constructs, don't warn about C++0x
      compatibility problems.  */
-  if (flag_cpp0x)
+  if (cxx_dialect == cxx0x)
     warn_cxx0x_compat = 0;
 
   if (flag_preprocess_only)
@@ -1600,7 +1610,7 @@ set_std_cxx98 (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
-  flag_cpp0x = 0;
+  cxx_dialect = cxx98;
 }
 
 /* Set the C++ 0x working draft "standard" (without GNU extensions if ISO).  */
@@ -1611,7 +1621,7 @@ set_std_cxx0x (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
-  flag_cpp0x = 1;
+  cxx_dialect = cxx0x;
 }
 
 /* Handle setting implicit to ON.  */

@@ -63,6 +63,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-gimple.h"
 #include "tree-pass.h"
 #include "predict.h"
+#include "df.h"
+#include "timevar.h"
 #include "vecprim.h"
 
 #ifndef LOCAL_ALIGNMENT
@@ -100,7 +102,7 @@ int current_function_is_leaf;
 
 /* Nonzero if function being compiled doesn't modify the stack pointer
    (ignoring the prologue and epilogue).  This is only valid after
-   life_analysis has run.  */
+   pass_stack_ptr_mod has run.  */
 int current_function_sp_is_unchanging;
 
 /* Nonzero if the function being compiled is a leaf function which only
@@ -1895,7 +1897,8 @@ struct assign_parm_data_all
   struct args_size stack_args_size;
   tree function_result_decl;
   tree orig_fnargs;
-  rtx conversion_insns;
+  rtx first_conversion_insn;
+  rtx last_conversion_insn;
   HOST_WIDE_INT pretend_args_size;
   HOST_WIDE_INT extra_pretend_bytes;
   int reg_parm_stack_space;
@@ -2489,7 +2492,8 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	{
 	  rtx parmreg = gen_reg_rtx (data->nominal_mode);
 
-	  push_to_sequence (all->conversion_insns);
+	  push_to_sequence2 (all->first_conversion_insn,
+			     all->last_conversion_insn);
 
 	  /* For values returned in multiple registers, handle possible
 	     incompatible calls to emit_group_store.
@@ -2514,7 +2518,8 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	    emit_group_store (parmreg, entry_parm, data->nominal_type,
 			      int_size_in_bytes (data->nominal_type));
 
-	  all->conversion_insns = get_insns ();
+	  all->first_conversion_insn = get_insns ();
+	  all->last_conversion_insn = get_last_insn ();
 	  end_sequence ();
 
 	  SET_DECL_RTL (parm, parmreg);
@@ -2561,9 +2566,11 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
       /* Handle values in multiple non-contiguous locations.  */
       if (GET_CODE (entry_parm) == PARALLEL)
 	{
-	  push_to_sequence (all->conversion_insns);
+	  push_to_sequence2 (all->first_conversion_insn,
+			     all->last_conversion_insn);
 	  emit_group_store (mem, entry_parm, data->passed_type, size);
-	  all->conversion_insns = get_insns ();
+	  all->first_conversion_insn = get_insns ();
+	  all->last_conversion_insn = get_last_insn ();
 	  end_sequence ();
 	}
 
@@ -2622,10 +2629,11 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
     }
   else if (data->stack_parm == 0)
     {
-      push_to_sequence (all->conversion_insns);
+      push_to_sequence2 (all->first_conversion_insn, all->last_conversion_insn);
       emit_block_move (stack_parm, data->entry_parm, GEN_INT (size),
 		       BLOCK_OP_NORMAL);
-      all->conversion_insns = get_insns ();
+      all->first_conversion_insn = get_insns ();
+      all->last_conversion_insn = get_last_insn ();
       end_sequence ();
     }
 
@@ -2698,7 +2706,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 
       emit_move_insn (tempreg, validize_mem (data->entry_parm));
 
-      push_to_sequence (all->conversion_insns);
+      push_to_sequence2 (all->first_conversion_insn, all->last_conversion_insn);
       tempreg = convert_to_mode (data->nominal_mode, tempreg, unsignedp);
 
       if (GET_CODE (tempreg) == SUBREG
@@ -2717,9 +2725,10 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 
       /* TREE_USED gets set erroneously during expand_assignment.  */
       save_tree_used = TREE_USED (parm);
-      expand_assignment (parm, make_tree (data->nominal_type, tempreg));
+      expand_assignment (parm, make_tree (data->nominal_type, tempreg), false);
       TREE_USED (parm) = save_tree_used;
-      all->conversion_insns = get_insns ();
+      all->first_conversion_insn = get_insns ();
+      all->last_conversion_insn = get_last_insn ();
       end_sequence ();
 
       did_conversion = true;
@@ -2745,11 +2754,13 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	  rtx tempreg = gen_reg_rtx (GET_MODE (DECL_RTL (parm)));
 	  int unsigned_p = TYPE_UNSIGNED (TREE_TYPE (parm));
 
-	  push_to_sequence (all->conversion_insns);
+	  push_to_sequence2 (all->first_conversion_insn,
+			     all->last_conversion_insn);
 	  emit_move_insn (tempreg, DECL_RTL (parm));
 	  tempreg = convert_to_mode (GET_MODE (parmreg), tempreg, unsigned_p);
 	  emit_move_insn (parmreg, tempreg);
-	  all->conversion_insns = get_insns ();
+	  all->first_conversion_insn = get_insns ();
+	  all->last_conversion_insn = get_last_insn ();
 	  end_sequence ();
 
 	  did_conversion = true;
@@ -2835,7 +2846,7 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 
       emit_move_insn (tempreg, validize_mem (data->entry_parm));
 
-      push_to_sequence (all->conversion_insns);
+      push_to_sequence2 (all->first_conversion_insn, all->last_conversion_insn);
       to_conversion = true;
 
       data->entry_parm = convert_to_mode (data->nominal_mode, tempreg,
@@ -2867,7 +2878,8 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 	{
 	  /* Use a block move to handle potentially misaligned entry_parm.  */
 	  if (!to_conversion)
-	    push_to_sequence (all->conversion_insns);
+	    push_to_sequence2 (all->first_conversion_insn,
+			       all->last_conversion_insn);
 	  to_conversion = true;
 
 	  emit_block_move (dest, src,
@@ -2880,7 +2892,8 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 
   if (to_conversion)
     {
-      all->conversion_insns = get_insns ();
+      all->first_conversion_insn = get_insns ();
+      all->last_conversion_insn = get_last_insn ();
       end_sequence ();
     }
 
@@ -2924,10 +2937,12 @@ assign_parms_unsplit_complex (struct assign_parm_data_all *all, tree fnargs)
 	      set_mem_attributes (tmp, parm, 1);
 	      rmem = adjust_address_nv (tmp, inner, 0);
 	      imem = adjust_address_nv (tmp, inner, GET_MODE_SIZE (inner));
-	      push_to_sequence (all->conversion_insns);
+	      push_to_sequence2 (all->first_conversion_insn,
+				 all->last_conversion_insn);
 	      emit_move_insn (rmem, real);
 	      emit_move_insn (imem, imag);
-	      all->conversion_insns = get_insns ();
+	      all->first_conversion_insn = get_insns ();
+	      all->last_conversion_insn = get_last_insn ();
 	      end_sequence ();
 	    }
 	  else
@@ -3025,7 +3040,7 @@ assign_parms (tree fndecl)
 
   /* Output all parameter conversion instructions (possibly including calls)
      now that all parameters have been copied out of hard registers.  */
-  emit_insn (all.conversion_insns);
+  emit_insn (all.first_conversion_insn);
 
   /* If we are receiving a struct value address as the first argument, set up
      the RTL for the function result. As this might require code to convert
@@ -3472,13 +3487,32 @@ pad_below (struct args_size *offset_ptr, enum machine_mode passed_mode, tree siz
     }
 }
 
-/* Walk the tree of blocks describing the binding levels within a function
-   and warn about variables the might be killed by setjmp or vfork.
-   This is done after calling flow_analysis and before global_alloc
-   clobbers the pseudo-regs to hard regs.  */
 
-void
-setjmp_vars_warning (tree block)
+/* True if register REGNO was alive at a place where `setjmp' was
+   called and was set more than once or is an argument.  Such regs may
+   be clobbered by `longjmp'.  */
+
+static bool
+regno_clobbered_at_setjmp (bitmap setjmp_crosses, int regno)
+{
+  /* There appear to be cases where some local vars never reach the
+     backend but have bogus regnos.  */
+  if (regno >= max_reg_num ())
+    return false;
+
+  return ((REG_N_SETS (regno) > 1
+	   || REGNO_REG_SET_P (df_get_live_out (ENTRY_BLOCK_PTR), regno))
+	  && REGNO_REG_SET_P (setjmp_crosses, regno));
+}
+
+/* Walk the tree of blocks describing the binding levels within a
+   function and warn about variables the might be killed by setjmp or
+   vfork.  This is done after calling flow_analysis before register
+   allocation since that will clobber the pseudo-regs to hard
+   regs.  */
+
+static void
+setjmp_vars_warning (bitmap setjmp_crosses, tree block)
 {
   tree decl, sub;
 
@@ -3487,30 +3521,45 @@ setjmp_vars_warning (tree block)
       if (TREE_CODE (decl) == VAR_DECL
 	  && DECL_RTL_SET_P (decl)
 	  && REG_P (DECL_RTL (decl))
-	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
+	  && regno_clobbered_at_setjmp (setjmp_crosses, REGNO (DECL_RTL (decl))))
 	warning (OPT_Wclobbered, "variable %q+D might be clobbered by" 
                  " %<longjmp%> or %<vfork%>", decl);
     }
 
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
-    setjmp_vars_warning (sub);
+    setjmp_vars_warning (setjmp_crosses, sub);
 }
 
 /* Do the appropriate part of setjmp_vars_warning
    but for arguments instead of local variables.  */
 
-void
-setjmp_args_warning (void)
+static void
+setjmp_args_warning (bitmap setjmp_crosses)
 {
   tree decl;
   for (decl = DECL_ARGUMENTS (current_function_decl);
        decl; decl = TREE_CHAIN (decl))
     if (DECL_RTL (decl) != 0
 	&& REG_P (DECL_RTL (decl))
-	&& regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
+	&& regno_clobbered_at_setjmp (setjmp_crosses, REGNO (DECL_RTL (decl))))
       warning (OPT_Wclobbered, 
                "argument %q+D might be clobbered by %<longjmp%> or %<vfork%>",
 	       decl);
+}
+
+/* Generate warning messages for variables live across setjmp.  */
+
+void 
+generate_setjmp_warnings (void)
+{
+  bitmap setjmp_crosses = regstat_get_setjmp_crosses ();
+
+  if (n_basic_blocks == NUM_FIXED_BLOCKS
+      || bitmap_empty_p (setjmp_crosses))
+    return;
+
+  setjmp_vars_warning (setjmp_crosses, DECL_INITIAL (current_function_decl));
+  setjmp_args_warning (setjmp_crosses);
 }
 
 
@@ -3567,7 +3616,7 @@ reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
     {
       if (NOTE_P (insn))
 	{
-	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG)
+	  if (NOTE_KIND (insn) == NOTE_INSN_BLOCK_BEG)
 	    {
 	      tree block = NOTE_BLOCK (insn);
 	      tree origin;
@@ -3608,7 +3657,7 @@ reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
 		}
 	      VEC_safe_push (tree, heap, *p_block_stack, block);
 	    }
-	  else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END)
+	  else if (NOTE_KIND (insn) == NOTE_INSN_BLOCK_END)
 	    {
 	      NOTE_BLOCK (insn) = VEC_pop (tree, *p_block_stack);
 	      BLOCK_SUBBLOCKS (current_block)
@@ -4315,6 +4364,14 @@ expand_function_end (void)
       if (flag_exceptions)
 	sjlj_emit_function_exit_after (get_last_insn ());
     }
+  else
+    {
+      /* We want to ensure that instructions that may trap are not
+	 moved into the epilogue by scheduling, because we don't
+	 always emit unwind information for the epilogue.  */
+      if (flag_non_call_exceptions)
+	emit_insn (gen_blockage ());
+    }
 
   /* If this is an implementation of throw, do what's necessary to
      communicate between __builtin_eh_return and the epilogue.  */
@@ -4769,10 +4826,9 @@ keep_stack_depressed (rtx insns)
 		    && !fixed_regs[regno]
 		    && TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)
 		    && !REGNO_REG_SET_P
-		         (EXIT_BLOCK_PTR->il.rtl->global_live_at_start, regno)
+		    (DF_LR_IN (EXIT_BLOCK_PTR), regno)
 		    && !refers_to_regno_p (regno,
-					   regno + hard_regno_nregs[regno]
-								   [Pmode],
+					   end_hard_regno (Pmode, regno),
 					   info.equiv_reg_src, NULL)
 		    && info.const_equiv[regno] == 0)
 		  break;
@@ -4981,8 +5037,8 @@ emit_equiv_load (struct epi_info *p)
    this into place with notes indicating where the prologue ends and where
    the epilogue begins.  Update the basic block information when possible.  */
 
-void
-thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
+static void
+thread_prologue_and_epilogue_insns (void)
 {
   int inserted = 0;
   edge e;
@@ -5003,6 +5059,11 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
       start_sequence ();
       seq = gen_prologue ();
       emit_insn (seq);
+
+      /* Insert an explicit USE for the frame pointer 
+         if the profiling is on and the frame pointer is required.  */
+      if (current_function_profile && frame_pointer_needed)
+        emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
 
       /* Retain a map of the prologue insns.  */
       record_insns (seq, &prologue);
@@ -5237,18 +5298,23 @@ epilogue_done:
 	{
 	  next = NEXT_INSN (insn);
 	  if (NOTE_P (insn) 
-	      && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG))
+	      && (NOTE_KIND (insn) == NOTE_INSN_FUNCTION_BEG))
 	    reorder_insns (insn, insn, PREV_INSN (epilogue_end));
 	}
     }
 #endif
+
+  /* Threading the prologue and epilogue changes the artificial refs
+     in the entry and exit blocks.  */
+  epilogue_completed = 1;
+  df_update_entry_exit_and_calls ();
 }
 
 /* Reposition the prologue-end and epilogue-begin notes after instruction
    scheduling and delayed branch scheduling.  */
 
 void
-reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
+reposition_prologue_and_epilogue_notes (void)
 {
 #if defined (HAVE_prologue) || defined (HAVE_epilogue)
   rtx insn, last, note;
@@ -5261,11 +5327,11 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
       /* Scan from the beginning until we reach the last prologue insn.
 	 We apparently can't depend on basic_block_{head,end} after
 	 reorg has run.  */
-      for (insn = f; insn; insn = NEXT_INSN (insn))
+      for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	{
 	  if (NOTE_P (insn))
 	    {
-	      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_PROLOGUE_END)
+	      if (NOTE_KIND (insn) == NOTE_INSN_PROLOGUE_END)
 		note = insn;
 	    }
 	  else if (contains (insn, &prologue))
@@ -5284,7 +5350,7 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
 	    {
 	      for (note = last; (note = NEXT_INSN (note));)
 		if (NOTE_P (note)
-		    && NOTE_LINE_NUMBER (note) == NOTE_INSN_PROLOGUE_END)
+		    && NOTE_KIND (note) == NOTE_INSN_PROLOGUE_END)
 		  break;
 	    }
 
@@ -5306,7 +5372,7 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
 	{
 	  if (NOTE_P (insn))
 	    {
-	      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EPILOGUE_BEG)
+	      if (NOTE_KIND (insn) == NOTE_INSN_EPILOGUE_BEG)
 		note = insn;
 	    }
 	  else if (contains (insn, &epilogue))
@@ -5325,7 +5391,7 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
 	    {
 	      for (note = insn; (note = PREV_INSN (note));)
 		if (NOTE_P (note)
-		    && NOTE_LINE_NUMBER (note) == NOTE_INSN_EPILOGUE_BEG)
+		    && NOTE_KIND (note) == NOTE_INSN_EPILOGUE_BEG)
 		  break;
 	    }
 
@@ -5341,6 +5407,13 @@ const char *
 current_function_name (void)
 {
   return lang_hooks.decl_printable_name (cfun->decl, 2);
+}
+
+/* Returns the raw (mangled) name of the current function.  */
+const char *
+current_function_assembler_name (void)
+{
+  return IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (cfun->decl));
 }
 
 
@@ -5397,6 +5470,39 @@ struct tree_opt_pass pass_leaf_regs =
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
   0                                     /* letter */
+};
+
+static unsigned int
+rest_of_handle_thread_prologue_and_epilogue (void)
+{
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE);
+  /* On some machines, the prologue and epilogue code, or parts thereof,
+     can be represented as RTL.  Doing so lets us schedule insns between
+     it and the rest of the code and also allows delayed branch
+     scheduling to operate in the epilogue.  */
+
+  thread_prologue_and_epilogue_insns ();
+  return 0;
+}
+
+struct tree_opt_pass pass_thread_prologue_and_epilogue =
+{
+  "pro_and_epilogue",                   /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_thread_prologue_and_epilogue, /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_THREAD_PROLOGUE_AND_EPILOGUE,      /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  TODO_verify_flow,                     /* todo_flags_start */
+  TODO_dump_func |
+  TODO_df_finish |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'w'                                   /* letter */
 };
 
 

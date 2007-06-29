@@ -154,7 +154,7 @@ create_character_intializer (gfc_expr *init, gfc_typespec *ts,
   int len;
   int start;
   int end;
-  char *dest;
+  char *dest, *rvalue_string;
 	    
   gfc_extract_int (ts->cl->length, &len);
 
@@ -207,7 +207,17 @@ create_character_intializer (gfc_expr *init, gfc_typespec *ts,
     }
 
   /* Copy the initial value.  */
-  len = rvalue->value.character.length;
+  if (rvalue->ts.type == BT_HOLLERITH)
+    {
+      len = rvalue->representation.length;
+      rvalue_string = rvalue->representation.string;
+    }
+  else
+    {
+      len = rvalue->value.character.length;
+      rvalue_string = rvalue->value.character.string;
+    }
+
   if (len > end - start)
     {
       len = end - start;
@@ -215,14 +225,17 @@ create_character_intializer (gfc_expr *init, gfc_typespec *ts,
 		       "at %L", &rvalue->where);
     }
 
-  memcpy (&dest[start], rvalue->value.character.string, len);
+  memcpy (&dest[start], rvalue_string, len);
 
   /* Pad with spaces.  Substrings will already be blanked.  */
   if (len < end - start && ref == NULL)
     memset (&dest[start + len], ' ', end - (start + len));
 
   if (rvalue->ts.type == BT_HOLLERITH)
-    init->from_H = 1;
+    {
+      init->representation.length = init->value.character.length;
+      init->representation.string = init->value.character.string;
+    }
 
   return init;
 }
@@ -275,6 +288,15 @@ gfc_assign_data_value (gfc_expr *lvalue, gfc_expr *rvalue, mpz_t index)
       switch (ref->type)
 	{
 	case REF_ARRAY:
+	  if (init && expr->expr_type != EXPR_ARRAY)
+	    {
+	      gfc_error ("'%s' at %L already is initialized at %L",
+			 lvalue->symtree->n.sym->name, &lvalue->where,
+			 &init->where);
+	      gfc_free_expr (init);
+	      init = NULL;
+	    }
+
 	  if (init == NULL)
 	    {
 	      /* The element typespec will be the same as the array
@@ -284,8 +306,6 @@ gfc_assign_data_value (gfc_expr *lvalue, gfc_expr *rvalue, mpz_t index)
 	      expr->expr_type = EXPR_ARRAY;
 	      expr->rank = ref->u.ar.as->rank;
 	    }
-	  else
-	    gcc_assert (expr->expr_type == EXPR_ARRAY);
 
 	  if (ref->u.ar.type == AR_ELEMENT)
 	    get_array_index (&ref->u.ar, &offset);

@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "real.h"
 #include "regs.h"
 #include "function.h"
+#include "df.h"
 #include "tree.h"
 
 /* Information about a subreg of a hard register.  */
@@ -619,6 +620,7 @@ count_occurrences (rtx x, rtx find, int count_dest)
     }
   return count;
 }
+
 
 /* Nonzero if register REG appears somewhere within IN.
    Also works if REG is not a register; in this case it checks
@@ -825,8 +827,8 @@ reg_set_p (rtx reg, rtx insn)
 	  || (CALL_P (insn)
 	      && ((REG_P (reg)
 		   && REGNO (reg) < FIRST_PSEUDO_REGISTER
-		   && TEST_HARD_REG_BIT (regs_invalidated_by_call,
-					 REGNO (reg)))
+		   && overlaps_hard_reg_set_p (regs_invalidated_by_call,
+					       GET_MODE (reg), REGNO (reg)))
 		  || MEM_P (reg)
 		  || find_reg_fusage (insn, CLOBBER, reg)))))
     return 1;
@@ -1233,10 +1235,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, rtx x,
 	  && regno >= FIRST_VIRTUAL_REGISTER && regno <= LAST_VIRTUAL_REGISTER)
 	return 1;
 
-      return (endregno > x_regno
-	      && regno < x_regno + (x_regno < FIRST_PSEUDO_REGISTER
-				    ? hard_regno_nregs[x_regno][GET_MODE (x)]
-			      : 1));
+      return endregno > x_regno && regno < END_REGNO (x);
 
     case SUBREG:
       /* If this is a SUBREG of a hard reg, we can see exactly which
@@ -1343,8 +1342,7 @@ reg_overlap_mentioned_p (rtx x, rtx in)
 
     case REG:
       regno = REGNO (x);
-      endregno = regno + (regno < FIRST_PSEUDO_REGISTER
-			  ? hard_regno_nregs[regno][GET_MODE (x)] : 1);
+      endregno = END_REGNO (x);
     do_reg:
       return refers_to_regno_p (regno, endregno, in, (rtx*) 0);
 
@@ -1398,10 +1396,13 @@ reg_overlap_mentioned_p (rtx x, rtx in)
 }
 
 /* Call FUN on each register or MEM that is stored into or clobbered by X.
-   (X would be the pattern of an insn).
-   FUN receives two arguments:
-     the REG, MEM, CC0 or PC being stored in or clobbered,
-     the SET or CLOBBER rtx that does the store.
+   (X would be the pattern of an insn).  DATA is an arbitrary pointer,
+   ignored by note_stores, but passed to FUN.
+
+   FUN receives three arguments:
+   1. the REG, MEM, CC0 or PC being stored in or clobbered,
+   2. the SET or CLOBBER rtx that does the store,
+   3. the pointer DATA provided to note_stores.
 
   If the item being stored in or clobbered is a SUBREG of a hard register,
   the SUBREG will be passed.  */
@@ -1542,7 +1543,7 @@ note_uses (rtx *pbody, void (*fun) (rtx *, void *), void *data)
    REG may be a hard or pseudo reg.  Renumbering is not taken into account,
    but for this use that makes no difference, since regs don't overlap
    during their lifetimes.  Therefore, this function may be used
-   at any time after deaths have been computed (in flow.c).
+   at any time after deaths have been computed.
 
    If REG is a hard reg that occupies multiple machine registers, this
    function will only return 1 if each of those registers will be replaced
@@ -1551,7 +1552,7 @@ note_uses (rtx *pbody, void (*fun) (rtx *, void *), void *data)
 int
 dead_or_set_p (rtx insn, rtx x)
 {
-  unsigned int regno, last_regno;
+  unsigned int regno, end_regno;
   unsigned int i;
 
   /* Can't use cc0_rtx below since this file is used by genattrtab.c.  */
@@ -1561,10 +1562,8 @@ dead_or_set_p (rtx insn, rtx x)
   gcc_assert (REG_P (x));
 
   regno = REGNO (x);
-  last_regno = (regno >= FIRST_PSEUDO_REGISTER ? regno
-		: regno + hard_regno_nregs[regno][GET_MODE (x)] - 1);
-
-  for (i = regno; i <= last_regno; i++)
+  end_regno = END_REGNO (x);
+  for (i = regno; i < end_regno; i++)
     if (! dead_or_set_regno_p (insn, i))
       return 0;
 
@@ -1591,8 +1590,7 @@ covers_regno_no_parallel_p (rtx dest, unsigned int test_regno)
     return false;
 
   regno = REGNO (dest);
-  endregno = (regno >= FIRST_PSEUDO_REGISTER ? regno + 1
-	      : regno + hard_regno_nregs[regno][GET_MODE (dest)]);
+  endregno = END_REGNO (dest);
   return (test_regno >= regno && test_regno < endregno);
 }
 
@@ -1623,8 +1621,7 @@ covers_regno_p (rtx dest, unsigned int test_regno)
     return covers_regno_no_parallel_p (dest, test_regno);
 }
 
-/* Utility function for dead_or_set_p to check an individual register.  Also
-   called from flow.c.  */
+/* Utility function for dead_or_set_p to check an individual register. */
 
 int
 dead_or_set_regno_p (rtx insn, unsigned int test_regno)
@@ -1713,11 +1710,7 @@ find_regno_note (rtx insn, enum reg_note kind, unsigned int regno)
 	   problem here.  */
 	&& REG_P (XEXP (link, 0))
 	&& REGNO (XEXP (link, 0)) <= regno
-	&& ((REGNO (XEXP (link, 0))
-	     + (REGNO (XEXP (link, 0)) >= FIRST_PSEUDO_REGISTER ? 1
-		: hard_regno_nregs[REGNO (XEXP (link, 0))]
-				  [GET_MODE (XEXP (link, 0))]))
-	    > regno))
+	&& END_REGNO (XEXP (link, 0)) > regno)
       return link;
   return 0;
 }
@@ -1807,8 +1800,7 @@ find_reg_fusage (rtx insn, enum rtx_code code, rtx datum)
 
       if (regno < FIRST_PSEUDO_REGISTER)
 	{
-	  unsigned int end_regno
-	    = regno + hard_regno_nregs[regno][GET_MODE (datum)];
+	  unsigned int end_regno = END_HARD_REGNO (datum);
 	  unsigned int i;
 
 	  for (i = regno; i < end_regno; i++)
@@ -1837,13 +1829,12 @@ find_regno_fusage (rtx insn, enum rtx_code code, unsigned int regno)
 
   for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
     {
-      unsigned int regnote;
       rtx op, reg;
 
       if (GET_CODE (op = XEXP (link, 0)) == code
 	  && REG_P (reg = XEXP (op, 0))
-	  && (regnote = REGNO (reg)) <= regno
-	  && regnote + hard_regno_nregs[regnote][GET_MODE (reg)] > regno)
+	  && REGNO (reg) <= regno
+	  && END_HARD_REGNO (reg) > regno)
 	return 1;
     }
 
@@ -1885,19 +1876,24 @@ remove_note (rtx insn, rtx note)
     return;
 
   if (REG_NOTES (insn) == note)
+    REG_NOTES (insn) = XEXP (note, 1);
+  else
+    for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+      if (XEXP (link, 1) == note)
+	{
+	  XEXP (link, 1) = XEXP (note, 1);
+	  break;
+	}
+
+  switch (REG_NOTE_KIND (note))
     {
-      REG_NOTES (insn) = XEXP (note, 1);
-      return;
+    case REG_EQUAL:
+    case REG_EQUIV:
+      df_notes_rescan (insn);
+      break;
+    default:
+      break;
     }
-
-  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
-    if (XEXP (link, 1) == note)
-      {
-	XEXP (link, 1) = XEXP (note, 1);
-	return;
-      }
-
-  gcc_unreachable ();
 }
 
 /* Remove REG_EQUAL and/or REG_EQUIV notes if INSN has such notes.  */
@@ -2901,11 +2897,7 @@ commutative_operand_precedence (rtx op)
       if (code == SUBREG && OBJECT_P (SUBREG_REG (op)))
         return -2;
 
-      if (!CONSTANT_P (op))
-        return 0;
-      else
-	/* As for RTX_CONST_OBJ.  */
-	return -3;
+      return 0;
 
     case RTX_OBJ:
       /* Complex expressions should be the first, so decrease priority

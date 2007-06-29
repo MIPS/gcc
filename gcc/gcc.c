@@ -127,7 +127,7 @@ static const char dir_separator_str[] = { DIR_SEPARATOR, 0 };
 /* Flag set by cppspec.c to 1.  */
 int is_cpp_driver;
 
-/* Flag set to non-zero if an @file argument has been supplied to gcc.  */
+/* Flag set to nonzero if an @file argument has been supplied to gcc.  */
 static bool at_file_supplied;
 
 /* Flag saying to pass the greatest exit code returned by a sub-process
@@ -4214,11 +4214,13 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  switches[n_switches].live_cond = SWITCH_OK;
 	  switches[n_switches].validated = 0;
 	  switches[n_switches].ordering = 0;
-	  /* These are always valid, since gcc.c itself understands them.  */
+	  /* These are always valid, since gcc.c itself understands the
+	     first four and gfortranspec.c understands -static-libgfortran.  */
 	  if (!strcmp (p, "save-temps")
 	      || !strcmp (p, "static-libgcc")
 	      || !strcmp (p, "shared-libgcc")
-	      || !strcmp (p, "pipe"))
+	      || !strcmp (p, "pipe")
+	      || !strcmp (p, "static-libgfortran"))
 	    switches[n_switches].validated = 1;
 	  else
 	    {
@@ -6791,7 +6793,8 @@ main (int argc, char **argv)
 
   if (! linker_was_run && error_count == 0)
     for (i = 0; (int) i < n_infiles; i++)
-      if (explicit_link_files[i])
+      if (explicit_link_files[i]
+	  && !(infiles[i].language && infiles[i].language[0] == '*'))
 	error ("%s: linker input file unused because linking not done",
 	       outfiles[i]);
 
@@ -7963,7 +7966,7 @@ static const char *
 print_asm_header_spec_function (int arg ATTRIBUTE_UNUSED,
 				const char **argv ATTRIBUTE_UNUSED)
 {
-  printf (_("Assember options\n================\n\n"));
+  printf (_("Assembler options\n=================\n\n"));
   printf (_("Use \"-Wa,OPTION\" to pass \"OPTION\" to the assembler.\n\n"));
   fflush (stdout);
   return NULL;

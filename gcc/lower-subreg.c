@@ -38,6 +38,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "except.h"
 #include "regs.h"
 #include "tree-pass.h"
+#include "df.h"
 
 #ifdef STACK_GROWS_DOWNWARD
 # undef STACK_GROWS_DOWNWARD
@@ -281,6 +282,18 @@ find_decomposable_subregs (rtx *px, void *data)
 	  bitmap_set_bit (decomposable_context, regno);
 	  return -1;
 	}
+
+      /* If this is a cast from one mode to another, where the modes
+	 have the same size, and they are not tieable, then mark this
+	 register as non-decomposable.  If we decompose it we are
+	 likely to mess up whatever the backend is trying to do.  */
+      if (outer_words > 1
+	  && outer_size == inner_size
+	  && !MODES_TIEABLE_P (GET_MODE (x), GET_MODE (inner)))
+	{
+	  bitmap_set_bit (non_decomposable_context, regno);
+	  return -1;
+	}
     }
   else if (REG_P (x))
     {
@@ -351,7 +364,6 @@ decompose_register (unsigned int regno)
   reg = regno_reg_rtx[regno];
 
   regno_reg_rtx[regno] = NULL_RTX;
-  clear_reg_info_regno (regno);
 
   words = GET_MODE_SIZE (GET_MODE (reg));
   words = (words + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
@@ -612,11 +624,15 @@ resolve_reg_notes (rtx insn)
   note = find_reg_equal_equiv_note (insn);
   if (note)
     {
+      int old_count = num_validated_changes ();
       if (for_each_rtx (&XEXP (note, 0), resolve_subreg_use, NULL))
 	{
 	  remove_note (insn, note);
 	  remove_retval_note (insn);
 	}
+      else
+	if (old_count != num_validated_changes ())
+	  df_notes_rescan (insn);
     }
 
   pnote = &REG_NOTES (insn);
@@ -628,6 +644,8 @@ resolve_reg_notes (rtx insn)
       switch (REG_NOTE_KIND (note))
 	{
 	case REG_NO_CONFLICT:
+	case REG_DEAD:
+	case REG_UNUSED:
 	  if (resolve_reg_p (XEXP (note, 0)))
 	    delete = true;
 	  break;
@@ -897,6 +915,7 @@ resolve_clobber (rtx pat, rtx insn)
 			 simplify_gen_subreg_concatn (word_mode, reg,
 						      orig_mode, 0),
 			 0);
+  df_insn_rescan (insn);
   gcc_assert (ret != 0);
 
   for (i = words - 1; i > 0; --i)
@@ -931,10 +950,13 @@ resolve_use (rtx pat, rtx insn)
    pseudo-registers.  */
 
 static void
-decompose_multiword_subregs (bool update_life)
+decompose_multiword_subregs (void)
 {
   unsigned int max;
   basic_block bb;
+
+  if (df)
+    df_set_flags (DF_DEFER_INSN_RESCAN);
 
   max = max_reg_num ();
 
@@ -1049,8 +1071,6 @@ decompose_multiword_subregs (bool update_life)
   if (!bitmap_empty_p (decomposable_context))
     {
       int hold_no_new_pseudos = no_new_pseudos;
-      int max_regno = max_reg_num ();
-      sbitmap life_blocks;
       sbitmap sub_blocks;
       unsigned int i;
       sbitmap_iterator sbi;
@@ -1060,8 +1080,6 @@ decompose_multiword_subregs (bool update_life)
       propagate_pseudo_copies ();
 
       no_new_pseudos = 0;
-      life_blocks = sbitmap_alloc (last_basic_block);
-      sbitmap_zero (life_blocks);
       sub_blocks = sbitmap_alloc (last_basic_block);
       sbitmap_zero (sub_blocks);
 
@@ -1128,6 +1146,8 @@ decompose_multiword_subregs (bool update_life)
 			{
 			  changed = true;
 
+			  remove_retval_note (insn);
+
 			  recog_memoized (insn);
 			  extract_insn (insn);
 
@@ -1157,23 +1177,15 @@ decompose_multiword_subregs (bool update_life)
 		      i = apply_change_group ();
 		      gcc_assert (i);
 
+		      remove_retval_note (insn);
+
 		      changed = true;
 		    }
-		}
-
-	      if (changed)
-		{
-		  SET_BIT (life_blocks, bb->index);
-		  reg_scan_update (insn, next, max_regno);
 		}
 	    }
 	}
 
       no_new_pseudos = hold_no_new_pseudos;
-
-      if (update_life)
-	update_life_info (life_blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
-			  PROP_DEATH_NOTES);
 
       /* If we had insns to split that caused control flow insns in the middle
 	 of a basic block, split those blocks now.  Note that we only handle
@@ -1205,7 +1217,6 @@ decompose_multiword_subregs (bool update_life)
 	    }
 	}
 
-      sbitmap_free (life_blocks);
       sbitmap_free (sub_blocks);
     }
 
@@ -1237,7 +1248,7 @@ gate_handle_lower_subreg (void)
 static unsigned int
 rest_of_handle_lower_subreg (void)
 {
-  decompose_multiword_subregs (false);
+  decompose_multiword_subregs ();
   return 0;
 }
 
@@ -1246,7 +1257,7 @@ rest_of_handle_lower_subreg (void)
 static unsigned int
 rest_of_handle_lower_subreg2 (void)
 {
-  decompose_multiword_subregs (true);
+  decompose_multiword_subregs ();
   return 0;
 }
 
@@ -1282,6 +1293,7 @@ struct tree_opt_pass pass_lower_subreg2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */

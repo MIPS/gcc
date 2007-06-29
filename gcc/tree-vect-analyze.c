@@ -1,5 +1,5 @@
 /* Analysis Utilities for Loop Vectorization.
-   Copyright (C) 2003,2004,2005,2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -173,9 +173,6 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	      print_generic_expr (vect_dump, stmt, TDF_SLIM);
 	    }
 
-	  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
-	    continue;
-
 	  gcc_assert (stmt_info);
 
 	  /* skip stmts which do not need to be vectorized.  */
@@ -185,6 +182,16 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	      if (vect_print_dump_info (REPORT_DETAILS))
 	        fprintf (vect_dump, "skip.");
 	      continue;
+	    }
+
+	  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+	    {
+	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+		{
+	          fprintf (vect_dump, "not vectorized: irregular stmt.");
+		  print_generic_expr (vect_dump, stmt, TDF_SLIM);
+		}
+	      return false;
 	    }
 
 	  if (!GIMPLE_STMT_P (stmt)
@@ -293,6 +300,9 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
   tree phi;
   stmt_vec_info stmt_info;
   bool need_to_vectorize = false;
+  int min_profitable_iters;
+  int min_scalar_loop_bound;
+  unsigned int th;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_analyze_operations ===");
@@ -436,8 +446,6 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	} /* stmts in bb */
     } /* bbs */
 
-  /* TODO: Analyze cost. Decide if worth while to vectorize.  */
-
   /* All operations in the loop are either irrelevant (deal with loop
      control, or dead), or only used outside the loop and can be moved
      out of the loop (e.g. invariants, inductions).  The loop can be 
@@ -461,15 +469,54 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
         vectorization_factor, LOOP_VINFO_INT_NITERS (loop_vinfo));
 
   if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-      && ((LOOP_VINFO_INT_NITERS (loop_vinfo) < vectorization_factor)
-	  || (LOOP_VINFO_INT_NITERS (loop_vinfo) <=
-		((unsigned) (PARAM_VALUE (PARAM_MIN_VECT_LOOP_BOUND)) 
-					   * vectorization_factor))))
+      && (LOOP_VINFO_INT_NITERS (loop_vinfo) < vectorization_factor))
     {
       if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
-	fprintf (vect_dump, "not vectorized: iteration count too small.");
+        fprintf (vect_dump, "not vectorized: iteration count too small.");
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump,"not vectorized: iteration count smaller than "
+                 "vectorization factor.");
       return false;
     }
+
+  /* Analyze cost. Decide if worth while to vectorize.  */
+
+  min_profitable_iters = vect_estimate_min_profitable_iters (loop_vinfo);
+
+  if (min_profitable_iters < 0)
+    {
+      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+        fprintf (vect_dump, "not vectorized: vectorization not profitable.");
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "not vectorized: vector version will never be "
+                 "profitable.");
+      return false;
+    }
+
+  min_scalar_loop_bound = (PARAM_VALUE (PARAM_MIN_VECT_LOOP_BOUND))
+                          * vectorization_factor;
+
+  /* Use the cost model only if it is more conservative than user specified
+     threshold.  */
+
+  th = (unsigned) min_scalar_loop_bound;
+  if (min_profitable_iters 
+      && (!min_scalar_loop_bound
+          || min_profitable_iters > min_scalar_loop_bound))
+    th = (unsigned) min_profitable_iters;
+
+  if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
+      && LOOP_VINFO_INT_NITERS (loop_vinfo) < th)
+    {
+      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))	      
+        fprintf (vect_dump, "not vectorized: vectorization not "
+                 "profitable.");
+      if (vect_print_dump_info (REPORT_DETAILS))	      
+        fprintf (vect_dump, "not vectorized: iteration count smaller than "
+                 "user specified loop bound parameter or minimum "
+                 "profitable iterations (whichever is more conservative).");
+      return false;
+    }  
 
   if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
       || LOOP_VINFO_INT_NITERS (loop_vinfo) % vectorization_factor != 0
@@ -1128,17 +1175,16 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
     fprintf (vect_dump, "vect_compute_data_ref_alignment:");
 
   /* Initialize misalignment to unknown.  */
-  DR_MISALIGNMENT (dr) = -1;
+  SET_DR_MISALIGNMENT (dr, -1);
 
-  misalign = DR_OFFSET_MISALIGNMENT (dr);
+  misalign = DR_INIT (dr);
   aligned_to = DR_ALIGNED_TO (dr);
   base_addr = DR_BASE_ADDRESS (dr);
   base = build_fold_indirect_ref (base_addr);
   vectype = STMT_VINFO_VECTYPE (stmt_info);
   alignment = ssize_int (TYPE_ALIGN (vectype)/BITS_PER_UNIT);
 
-  if ((aligned_to && tree_int_cst_compare (aligned_to, alignment) < 0)
-      || !misalign)
+  if (tree_int_cst_compare (aligned_to, alignment) < 0)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	{
@@ -1199,7 +1245,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       return false;
     }
 
-  DR_MISALIGNMENT (dr) = TREE_INT_CST_LOW (misalign);
+  SET_DR_MISALIGNMENT (dr, TREE_INT_CST_LOW (misalign));
 
   if (vect_print_dump_info (REPORT_DETAILS))
     {
@@ -1268,21 +1314,23 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
         continue;
       gcc_assert (DR_MISALIGNMENT (dr) / dr_size ==
                   DR_MISALIGNMENT (dr_peel) / dr_peel_size);
-      DR_MISALIGNMENT (dr) = 0;
+      SET_DR_MISALIGNMENT (dr, 0);
       return;
     }
 
   if (known_alignment_for_access_p (dr)
       && known_alignment_for_access_p (dr_peel))
     {
-      DR_MISALIGNMENT (dr) += npeel * dr_size;
-      DR_MISALIGNMENT (dr) %= UNITS_PER_SIMD_WORD;
+      int misal = DR_MISALIGNMENT (dr);
+      misal += npeel * dr_size;
+      misal %= UNITS_PER_SIMD_WORD;
+      SET_DR_MISALIGNMENT (dr, misal);
       return;
     }
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "Setting misalignment to -1.");
-  DR_MISALIGNMENT (dr) = -1;
+  SET_DR_MISALIGNMENT (dr, -1);
 }
 
 
@@ -1578,7 +1626,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 	  save_misalignment = DR_MISALIGNMENT (dr);
 	  vect_update_misalignment_for_peel (dr, dr0, npeel);
 	  supportable_dr_alignment = vect_supportable_dr_alignment (dr);
-	  DR_MISALIGNMENT (dr) = save_misalignment;
+	  SET_DR_MISALIGNMENT (dr, save_misalignment);
 	  
 	  if (!supportable_dr_alignment)
 	    {
@@ -1602,7 +1650,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
           LOOP_VINFO_UNALIGNED_DR (loop_vinfo) = dr0;
           LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo) = DR_MISALIGNMENT (dr0);
-          DR_MISALIGNMENT (dr0) = 0;
+	  SET_DR_MISALIGNMENT (dr0, 0);
 	  if (vect_print_dump_info (REPORT_ALIGNMENT))
             fprintf (vect_dump, "Alignment of access forced using peeling.");
 
@@ -1703,7 +1751,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
         {
           stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
           dr = STMT_VINFO_DATA_REF (stmt_info);
-          DR_MISALIGNMENT (dr) = 0;
+	  SET_DR_MISALIGNMENT (dr, 0);
 	  if (vect_print_dump_info (REPORT_ALIGNMENT))
             fprintf (vect_dump, "Alignment of access forced using versioning.");
         }
@@ -2044,7 +2092,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
             }
           return false;
         }
-      if (!DR_MEMTAG (dr))
+      if (!DR_SYMBOL_TAG (dr))
         {
           if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
             {
@@ -2211,7 +2259,7 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
    - case 2: If STMT is a reduction phi and DEF_STMT is a reduction stmt, we 
    skip DEF_STMT cause it had already been processed.  
 
-   Return true if everyting is as expected. Return false otherwise.  */
+   Return true if everything is as expected. Return false otherwise.  */
 
 static bool
 process_use (tree stmt, tree use, loop_vec_info loop_vinfo, bool live_p, 

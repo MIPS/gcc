@@ -1,6 +1,6 @@
 /* Natural loop functions
-   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005, 2006, 2007Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -39,7 +39,7 @@ enum lpt_dec
   LPT_UNROLL_STUPID
 };
 
-struct lpt_decision
+struct lpt_decision GTY (())
 {
   enum lpt_dec decision;
   unsigned times;
@@ -47,7 +47,7 @@ struct lpt_decision
 
 /* The structure describing a bound on number of iterations of a loop.  */
 
-struct nb_iter_bound
+struct nb_iter_bound GTY ((chain_next ("%h.next")))
 {
   /* The statement STMT is executed at most ...  */
   tree stmt;
@@ -72,10 +72,10 @@ struct nb_iter_bound
 
 /* Description of the loop exit.  */
 
-struct loop_exit
+struct loop_exit GTY (())
 {
   /* The exit edge.  */
-  edge e;
+  struct edge_def *e;
 
   /* Previous and next exit in the list of the exits of the loop.  */
   struct loop_exit *prev;
@@ -85,17 +85,32 @@ struct loop_exit
   struct loop_exit *next_e;
 };
 
+typedef struct loop *loop_p;
+DEF_VEC_P (loop_p);
+DEF_VEC_ALLOC_P (loop_p, heap);
+DEF_VEC_ALLOC_P (loop_p, gc);
+
+/* An integer estimation of the number of iterations.  Estimate_state
+   describes what is the state of the estimation.  */
+enum loop_estimation
+{
+  /* Estimate was not computed yet.  */
+  EST_NOT_COMPUTED,
+  /* Estimate is ready.  */
+  EST_AVAILABLE
+};
+
 /* Structure to hold information for each natural loop.  */
-struct loop
+struct loop GTY ((chain_next ("%h.next")))
 {
   /* Index into loops array.  */
   int num;
 
   /* Basic block of loop header.  */
-  basic_block header;
+  struct basic_block_def *header;
 
   /* Basic block of loop latch.  */
-  basic_block latch;
+  struct basic_block_def *latch;
 
   /* For loop unrolling/peeling decision.  */
   struct lpt_decision lpt_decision;
@@ -109,14 +124,8 @@ struct loop
   /* Number of blocks contained within the loop.  */
   unsigned num_nodes;
 
-  /* The loop nesting depth.  */
-  int depth;
-
-  /* Superloops of the loop.  */
-  struct loop **pred;
-
-  /* The outer (parent) loop or NULL if outermost loop.  */
-  struct loop *outer;
+  /* Superloops of the loop, starting with the outermost loop.  */
+  VEC (loop_p, gc) *superloops;
 
   /* The first inner (child) loop or NULL if innermost loop.  */
   struct loop *inner;
@@ -124,11 +133,8 @@ struct loop
   /* Link to the next (sibling) loop.  */
   struct loop *next;
 
-  /* Loop that is copy of this loop.  */
-  struct loop *copy;
-
   /* Auxiliary info specific to a pass.  */
-  void *aux;
+  PTR GTY ((skip (""))) aux;
 
   /* The number of times the latch of the loop is executed.
      This is an INTEGER_CST or an expression containing symbolic
@@ -139,13 +145,7 @@ struct loop
 
   /* An integer estimation of the number of iterations.  Estimate_state
      describes what is the state of the estimation.  */
-  enum
-    {
-      /* Estimate was not computed yet.  */
-      EST_NOT_COMPUTED,
-      /* Estimate is ready.  */
-      EST_AVAILABLE
-    } estimate_state;
+  enum loop_estimation estimate_state;
 
   /* An integer guaranteed to bound the number of iterations of the loop
      from above.  */
@@ -160,7 +160,7 @@ struct loop
   struct nb_iter_bound *bounds;
 
   /* Head of the cyclic list of the exits of the loop.  */
-  struct loop_exit exits;
+  struct loop_exit *exits;
 };
 
 /* Flags for state of loop structure.  */
@@ -178,23 +178,19 @@ enum
 		      | LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
 #define AVOID_CFG_MODIFICATIONS (LOOPS_MAY_HAVE_MULTIPLE_LATCHES)
 
-typedef struct loop *loop_p;
-DEF_VEC_P (loop_p);
-DEF_VEC_ALLOC_P (loop_p, heap);
-
 /* Structure to hold CFG information about natural loops within a function.  */
-struct loops
+struct loops GTY (())
 {
   /* State of loops.  */
   int state;
 
   /* Array of the loops.  */
-  VEC (loop_p, heap) *larray;
+  VEC (loop_p, gc) *larray;
 
   /* Maps edges to the list of their descriptions as loop exits.  Edges
      whose sources or destinations have loop_father == NULL (which may
      happen during the cfg manipulations) should not appear in EXITS.  */
-  htab_t exits;
+  htab_t GTY((param_is (struct loop_exit))) exits;
 
   /* Pointer to root of loop hierarchy tree.  */
   struct loop *tree_root;
@@ -257,6 +253,7 @@ enum
   CP_SIMPLE_PREHEADERS = 1
 };
 
+basic_block create_preheader (struct loop *, int);
 extern void create_preheaders (int);
 extern void force_single_succ_latches (void);
 
@@ -389,7 +386,6 @@ extern rtx get_iv_value (struct rtx_iv *, rtx);
 extern bool biv_p (rtx, rtx);
 extern void find_simple_exit (struct loop *, struct niter_desc *);
 extern void iv_analysis_done (void);
-extern struct df *iv_current_loop_df (void);
 
 extern struct niter_desc *get_simple_loop_desc (struct loop *loop);
 extern void free_simple_loop_desc (struct loop *loop);
@@ -410,9 +406,31 @@ get_loop (unsigned num)
   return VEC_index (loop_p, current_loops->larray, num);
 }
 
+/* Returns the number of superloops of LOOP.  */
+
+static inline unsigned
+loop_depth (const struct loop *loop)
+{
+  return VEC_length (loop_p, loop->superloops);
+}
+
+/* Returns the immediate superloop of LOOP, or NULL if LOOP is the outermost
+   loop.  */
+
+static inline struct loop *
+loop_outer (const struct loop *loop)
+{
+  unsigned n = VEC_length (loop_p, loop->superloops);
+
+  if (n == 0)
+    return NULL;
+
+  return VEC_index (loop_p, loop->superloops, n - 1);
+}
+
 /* Returns the list of loops in current_loops.  */
 
-static inline VEC (loop_p, heap) *
+static inline VEC (loop_p, gc) *
 get_loops (void)
 {
   if (!current_loops)
@@ -519,10 +537,10 @@ fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
 		   aloop = aloop->inner)
 		continue;
 	    }
-	  else if (!aloop->outer)
+	  else if (!loop_outer (aloop))
 	    break;
 	  else
-	    aloop = aloop->outer;
+	    aloop = loop_outer (aloop);
 	}
     }
   else
@@ -539,7 +557,7 @@ fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
 	  else
 	    {
 	      while (aloop != NULL && aloop->next == NULL)
-		aloop = aloop->outer;
+		aloop = loop_outer (aloop);
 	      if (aloop == NULL)
 		break;
 	      aloop = aloop->next;

@@ -483,6 +483,10 @@ struct gcc_target
   /* Fold a target-specific builtin.  */
   tree (* fold_builtin) (tree fndecl, tree arglist, bool ignore);
 
+  /* Returns a code for a target-specific builtin that implements
+     reciprocal of the function, or NULL_TREE if not available.  */
+  tree (* builtin_reciprocal) (unsigned, bool, bool);
+
   /* For a vendor-specific fundamental TYPE, return a pointer to
      a statically-allocated string containing the C++ mangling for
      TYPE.  In all other cases, return NULL.  */
@@ -543,6 +547,12 @@ struct gcc_target
   /* True if EXP names an object for which name resolution must resolve
      to the current module.  */
   bool (* binds_local_p) (tree);
+
+  /* Modify and return the identifier of a DECL's external name,
+     originally identified by ID, as required by the target,
+    (eg, append @nn to windows32 stdcall function names).
+     The default is to return ID without modification. */
+   tree (* mangle_decl_assembler_name) (tree decl, tree  id);
 
   /* Do something target-specific to record properties of the DECL into
      the associated SYMBOL_REF.  */

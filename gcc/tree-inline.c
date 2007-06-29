@@ -1451,7 +1451,6 @@ initialize_inlined_parameters (copy_body_data *id, tree exp,
   tree a;
   tree p;
   tree vars = NULL_TREE;
-  int argnum = 0;
   call_expr_arg_iterator iter;
   tree static_chain = CALL_EXPR_STATIC_CHAIN (exp);
 
@@ -1462,17 +1461,7 @@ initialize_inlined_parameters (copy_body_data *id, tree exp,
      equivalent VAR_DECL, appropriately initialized.  */
   for (p = parms, a = first_call_expr_arg (exp, &iter); p;
        a = next_call_expr_arg (&iter), p = TREE_CHAIN (p))
-    {
-      tree value;
-
-      ++argnum;
-
-      /* Find the initializer.  */
-      value = lang_hooks.tree_inlining.convert_parm_for_inlining
-	      (p, a, fn, argnum);
-
-      setup_one_parameter (id, p, value, fn, bb, &vars);
-    }
+    setup_one_parameter (id, p, a, fn, bb, &vars);
 
   /* Initialize the static chain.  */
   p = DECL_STRUCT_FUNCTION (fn)->static_chain_decl;
@@ -2030,6 +2019,11 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       *walk_subtrees = 0;
       return NULL;
 
+      /* CHANGE_DYNAMIC_TYPE_EXPR explicitly expands to nothing.  */
+    case CHANGE_DYNAMIC_TYPE_EXPR:
+      *walk_subtrees = 0;
+      return NULL;
+
     /* Try to estimate the cost of assignments.  We have three cases to
        deal with:
 	1) Simple assignments to registers;
@@ -2080,6 +2074,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case VEC_COND_EXPR:
 
     case PLUS_EXPR:
+    case POINTER_PLUS_EXPR:
     case MINUS_EXPR:
     case MULT_EXPR:
 
@@ -2148,8 +2143,11 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case VEC_WIDEN_MULT_LO_EXPR:
     case VEC_UNPACK_HI_EXPR:
     case VEC_UNPACK_LO_EXPR:
+    case VEC_UNPACK_FLOAT_HI_EXPR:
+    case VEC_UNPACK_FLOAT_LO_EXPR:
     case VEC_PACK_TRUNC_EXPR:
     case VEC_PACK_SAT_EXPR:
+    case VEC_PACK_FIX_TRUNC_EXPR:
 
     case WIDEN_MULT_EXPR:
 
@@ -3214,6 +3212,7 @@ copy_decl_to_var (tree decl, copy_body_data *id)
   TREE_READONLY (copy) = TREE_READONLY (decl);
   TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
   DECL_GIMPLE_REG_P (copy) = DECL_GIMPLE_REG_P (decl);
+  DECL_NO_TBAA_P (copy) = DECL_NO_TBAA_P (decl);
 
   return copy_decl_for_dup_finish (id, decl, copy);
 }
@@ -3240,6 +3239,7 @@ copy_result_decl_to_var (tree decl, copy_body_data *id)
     {
       TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
       DECL_GIMPLE_REG_P (copy) = DECL_GIMPLE_REG_P (decl);
+      DECL_NO_TBAA_P (copy) = DECL_NO_TBAA_P (decl);
     }
 
   return copy_decl_for_dup_finish (id, decl, copy);

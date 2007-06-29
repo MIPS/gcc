@@ -1,5 +1,6 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -37,6 +38,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "alloc-pool.h"
 #include "flags.h"
 #include "tree-pass.h"
+#include "df.h"
 #include "vecprim.h"
 
 /* Holds the interesting trailing notes for the function.  */
@@ -98,15 +100,11 @@ skip_insns_after_block (basic_block bb)
 	  continue;
 
 	case NOTE:
-	  switch (NOTE_LINE_NUMBER (insn))
+	  switch (NOTE_KIND (insn))
 	    {
 	    case NOTE_INSN_BLOCK_END:
-	      last_insn = insn;
+	      gcc_unreachable ();
 	      continue;
-	    case NOTE_INSN_DELETED:
-	    case NOTE_INSN_DELETED_LABEL:
-	      continue;
-
 	    default:
 	      continue;
 	      break;
@@ -146,9 +144,11 @@ skip_insns_after_block (basic_block bb)
     {
       prev = PREV_INSN (insn);
       if (NOTE_P (insn))
-	switch (NOTE_LINE_NUMBER (insn))
+	switch (NOTE_KIND (insn))
 	  {
 	  case NOTE_INSN_BLOCK_END:
+	    gcc_unreachable ();
+	    break;
 	  case NOTE_INSN_DELETED:
 	  case NOTE_INSN_DELETED_LABEL:
 	    continue;
@@ -191,7 +191,7 @@ record_effective_endpoints (void)
   for (insn = get_insns ();
        insn
        && NOTE_P (insn)
-       && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK;
+       && NOTE_KIND (insn) != NOTE_INSN_BASIC_BLOCK;
        insn = NEXT_INSN (insn))
     continue;
   /* No basic blocks at all?  */
@@ -239,7 +239,7 @@ int prologue_locator;
 int epilogue_locator;
 
 /* Hold current location information and last location information, so the
-   datastructures are built lazilly only when some instructions in given
+   datastructures are built lazily only when some instructions in given
    place are needed.  */
 location_t curr_location, last_location;
 static tree curr_block, last_block;
@@ -629,7 +629,7 @@ relink_block_chain (bool stay_in_cfglayout_mode)
       fprintf (dump_file, "Reordered sequence:\n");
       for (bb = ENTRY_BLOCK_PTR->next_bb, index = NUM_FIXED_BLOCKS;
 	   bb;
-	   bb = bb->aux, index++)
+	   bb = (basic_block) bb->aux, index++)
 	{
 	  fprintf (dump_file, " %i ", index);
 	  if (get_bb_original (bb))
@@ -647,7 +647,7 @@ relink_block_chain (bool stay_in_cfglayout_mode)
   /* Now reorder the blocks.  */
   prev_bb = ENTRY_BLOCK_PTR;
   bb = ENTRY_BLOCK_PTR->next_bb;
-  for (; bb; prev_bb = bb, bb = bb->aux)
+  for (; bb; prev_bb = bb, bb = (basic_block) bb->aux)
     {
       bb->prev_bb = prev_bb;
       prev_bb->next_bb = bb;
@@ -695,7 +695,7 @@ fixup_reorder_chain (void)
   /* First do the bulk reordering -- rechain the blocks without regard to
      the needed changes to jumps and labels.  */
 
-  for (bb = ENTRY_BLOCK_PTR->next_bb; bb; bb = bb->aux)
+  for (bb = ENTRY_BLOCK_PTR->next_bb; bb; bb = (basic_block) bb->aux)
     {
       if (bb->il.rtl->header)
 	{
@@ -738,7 +738,7 @@ fixup_reorder_chain (void)
   /* Now add jumps and labels as needed to match the blocks new
      outgoing edges.  */
 
-  for (bb = ENTRY_BLOCK_PTR->next_bb; bb ; bb = bb->aux)
+  for (bb = ENTRY_BLOCK_PTR->next_bb; bb ; bb = (basic_block) bb->aux)
     {
       edge e_fall, e_taken, e;
       rtx bb_end_insn;
@@ -885,7 +885,7 @@ fixup_reorder_chain (void)
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
-
+      
       if (e && !can_fallthru (e->src, e->dest))
 	force_nonfallthru (e);
     }
@@ -953,11 +953,11 @@ fixup_fallthru_exit_predecessor (void)
 	}
 
       while (c->aux != bb)
-	c = c->aux;
+	c = (basic_block) c->aux;
 
       c->aux = bb->aux;
       while (c->aux)
-	c = c->aux;
+	c = (basic_block) c->aux;
 
       c->aux = bb;
       bb->aux = NULL;
@@ -1033,7 +1033,7 @@ duplicate_insn_chain (rtx from, rtx to)
 	  break;
 
 	case NOTE:
-	  switch (NOTE_LINE_NUMBER (insn))
+	  switch (NOTE_KIND (insn))
 	    {
 	      /* In case prologue is empty and function contain label
 		 in first BB, we may want to copy the block.  */
@@ -1059,11 +1059,7 @@ duplicate_insn_chain (rtx from, rtx to)
 	    default:
 	      /* All other notes should have already been eliminated.
 	       */
-	      gcc_assert (NOTE_LINE_NUMBER (insn) >= 0);
-
-	      /* It is possible that no_line_number is set and the note
-		 won't be emitted.  */
-	      emit_note_copy (insn);
+	      gcc_unreachable ();
 	    }
 	  break;
 	default:
@@ -1114,34 +1110,33 @@ cfg_layout_duplicate_bb (basic_block bb)
 	new_bb->il.rtl->footer = unlink_insn_chain (insn, get_last_insn ());
     }
 
-  if (bb->il.rtl->global_live_at_start)
-    {
-      new_bb->il.rtl->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
-      new_bb->il.rtl->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
-      COPY_REG_SET (new_bb->il.rtl->global_live_at_start,
-		    bb->il.rtl->global_live_at_start);
-      COPY_REG_SET (new_bb->il.rtl->global_live_at_end,
-		    bb->il.rtl->global_live_at_end);
-    }
-
   return new_bb;
 }
+
 
 /* Main entry point to this module - initialize the datastructures for
    CFG layout changes.  It keeps LOOPS up-to-date if not null.
 
-   FLAGS is a set of additional flags to pass to cleanup_cfg().  It should
-   include CLEANUP_UPDATE_LIFE if liveness information must be kept up
-   to date.  */
+   FLAGS is a set of additional flags to pass to cleanup_cfg().  */
 
 void
 cfg_layout_initialize (unsigned int flags)
 {
+  rtx x;
+  basic_block bb;
+
   initialize_original_copy_tables ();
 
   cfg_layout_rtl_register_cfg_hooks ();
 
   record_effective_endpoints ();
+
+  /* Make sure that the targets of non local gotos are marked.  */
+  for (x = nonlocal_goto_handler_labels; x; x = XEXP (x, 1))
+    {
+      bb = BLOCK_FOR_INSN (XEXP (x, 0));
+      bb->flags |= BB_NON_LOCAL_GOTO_TARGET;
+    }
 
   cleanup_cfg (CLEANUP_CFGLAYOUT | flags);
 }

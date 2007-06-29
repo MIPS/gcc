@@ -1,5 +1,5 @@
 /* CPU mode switching
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -36,6 +36,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "function.h"
 #include "tree-pass.h"
 #include "timevar.h"
+#include "df.h"
 
 /* We want target macros for the mode switching code to be able to refer
    to instruction attribute values.  */
@@ -92,7 +93,7 @@ static sbitmap *comp;
 
 static struct seginfo * new_seginfo (int, rtx, int, HARD_REG_SET);
 static void add_seginfo (struct bb_info *, struct seginfo *);
-static void reg_dies (rtx, HARD_REG_SET);
+static void reg_dies (rtx, HARD_REG_SET *);
 static void reg_becomes_live (rtx, rtx, void *);
 static void make_preds_opaque (basic_block, int);
 
@@ -160,18 +161,16 @@ make_preds_opaque (basic_block b, int j)
 /* Record in LIVE that register REG died.  */
 
 static void
-reg_dies (rtx reg, HARD_REG_SET live)
+reg_dies (rtx reg, HARD_REG_SET *live)
 {
-  int regno, nregs;
+  int regno;
 
   if (!REG_P (reg))
     return;
 
   regno = REGNO (reg);
   if (regno < FIRST_PSEUDO_REGISTER)
-    for (nregs = hard_regno_nregs[regno][GET_MODE (reg)] - 1; nregs >= 0;
-	 nregs--)
-      CLEAR_HARD_REG_BIT (live, regno + nregs);
+    remove_from_hard_reg_set (live, GET_MODE (reg), regno);
 }
 
 /* Record in LIVE that register REG became live.
@@ -180,7 +179,7 @@ reg_dies (rtx reg, HARD_REG_SET live)
 static void
 reg_becomes_live (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *live)
 {
-  int regno, nregs;
+  int regno;
 
   if (GET_CODE (reg) == SUBREG)
     reg = SUBREG_REG (reg);
@@ -190,9 +189,7 @@ reg_becomes_live (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *live)
 
   regno = REGNO (reg);
   if (regno < FIRST_PSEUDO_REGISTER)
-    for (nregs = hard_regno_nregs[regno][GET_MODE (reg)] - 1; nregs >= 0;
-	 nregs--)
-      SET_HARD_REG_BIT (* (HARD_REG_SET *) live, regno + nregs);
+    add_to_hard_reg_set ((HARD_REG_SET *) live, GET_MODE (reg), regno);
 }
 
 /* Make sure if MODE_ENTRY is defined the MODE_EXIT is defined
@@ -221,7 +218,6 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
     if (eg->flags & EDGE_FALLTHRU)
       {
 	basic_block src_bb = eg->src;
-	regset live_at_end = src_bb->il.rtl->global_live_at_end;
 	rtx last_insn, ret_reg;
 
 	gcc_assert (!pre_exit);
@@ -274,6 +270,25 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 			return_copy_pat = PATTERN (return_copy);
 			if (GET_CODE (return_copy_pat) != CLOBBER)
 			  break;
+			else if (!optimize)
+			  {
+			    /* This might be (clobber (reg [<result>]))
+			       when not optimizing.  Then check if
+			       the previous insn is the clobber for
+			       the return register.  */
+			    copy_reg = SET_DEST (return_copy_pat);
+			    if (GET_CODE (copy_reg) == REG
+				&& !HARD_REGISTER_NUM_P (REGNO (copy_reg)))
+			      {
+				if (INSN_P (PREV_INSN (return_copy)))
+				  {
+				    return_copy = PREV_INSN (return_copy);
+				    return_copy_pat = PATTERN (return_copy);
+				    if (GET_CODE (return_copy_pat) != CLOBBER)
+				      break;
+				  }
+			      }
+			  }
 		      }
 		    copy_reg = SET_DEST (return_copy_pat);
 		    if (GET_CODE (copy_reg) == REG)
@@ -376,8 +391,6 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 	else
 	  {
 	    pre_exit = split_edge (eg);
-	    COPY_REG_SET (pre_exit->il.rtl->global_live_at_start, live_at_end);
-	    COPY_REG_SET (pre_exit->il.rtl->global_live_at_end, live_at_end);
 	  }
       }
 
@@ -407,8 +420,6 @@ optimize_mode_switching (void)
   bool emited = false;
   basic_block post_entry ATTRIBUTE_UNUSED, pre_exit ATTRIBUTE_UNUSED;
 
-  clear_bb_flags ();
-
   for (e = N_ENTITIES - 1, n_entities = 0; e >= 0; e--)
     if (OPTIMIZE_MODE_SWITCHING (e))
       {
@@ -437,6 +448,8 @@ optimize_mode_switching (void)
   pre_exit = create_pre_exit (n_entities, entity_map, num_modes);
 #endif
 
+  df_analyze ();
+
   /* Create the bitmap vectors.  */
 
   antic = sbitmap_vector_alloc (last_basic_block, n_entities);
@@ -460,8 +473,7 @@ optimize_mode_switching (void)
 	  int last_mode = no_mode;
 	  HARD_REG_SET live_now;
 
-	  REG_SET_TO_HARD_REG_SET (live_now,
-				   bb->il.rtl->global_live_at_start);
+	  REG_SET_TO_HARD_REG_SET (live_now, df_get_live_in (bb));
 
 	  /* Pretend the mode is clobbered across abnormal edges.  */
 	  {
@@ -500,12 +512,12 @@ optimize_mode_switching (void)
 		  /* Update LIVE_NOW.  */
 		  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
 		    if (REG_NOTE_KIND (link) == REG_DEAD)
-		      reg_dies (XEXP (link, 0), live_now);
+		      reg_dies (XEXP (link, 0), &live_now);
 
 		  note_stores (PATTERN (insn), reg_becomes_live, &live_now);
 		  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
 		    if (REG_NOTE_KIND (link) == REG_UNUSED)
-		      reg_dies (XEXP (link, 0), live_now);
+		      reg_dies (XEXP (link, 0), &live_now);
 		}
 	    }
 
@@ -606,8 +618,7 @@ optimize_mode_switching (void)
 	      mode = current_mode[j];
 	      src_bb = eg->src;
 
-	      REG_SET_TO_HARD_REG_SET (live_at_edge,
-				       src_bb->il.rtl->global_live_at_end);
+	      REG_SET_TO_HARD_REG_SET (live_at_edge, df_get_live_out (src_bb));
 
 	      start_sequence ();
 	      EMIT_MODE_SET (entity_map[j], mode, live_at_edge);
@@ -664,9 +675,7 @@ optimize_mode_switching (void)
 		  if (mode_set != NULL_RTX)
 		    {
 		      emited = true;
-		      if (NOTE_P (ptr->insn_ptr)
-			  && (NOTE_LINE_NUMBER (ptr->insn_ptr)
-			      == NOTE_INSN_BASIC_BLOCK))
+		      if (NOTE_INSN_BASIC_BLOCK_P (ptr->insn_ptr))
 			emit_insn_after (mode_set, ptr->insn_ptr);
 		      else
 			emit_insn_before (mode_set, ptr->insn_ptr);
@@ -681,7 +690,6 @@ optimize_mode_switching (void)
     }
 
   /* Finished. Free up all the things we've allocated.  */
-
   sbitmap_vector_free (kill);
   sbitmap_vector_free (antic);
   sbitmap_vector_free (transp);
@@ -696,12 +704,6 @@ optimize_mode_switching (void)
   if (!need_commit && !emited)
     return 0;
 #endif
-
-  max_regno = max_reg_num ();
-  allocate_reg_info (max_regno, FALSE, FALSE);
-  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-				    (PROP_DEATH_NOTES | PROP_KILL_DEAD_CODE
-				     | PROP_SCAN_DEAD_CODE));
 
   return 1;
 }
@@ -743,6 +745,7 @@ struct tree_opt_pass pass_mode_switching =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };

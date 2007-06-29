@@ -70,5 +70,5 @@ int main()
   h.resize(20); // { dg-error "instantiated from" }
 }
 
-// { dg-error "invalid" "" { target *-*-* } 193 } 
+// { dg-error "" "" { target *-*-* } 193 } 
 // { dg-excess-errors "member function" } 

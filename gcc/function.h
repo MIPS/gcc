@@ -1,6 +1,6 @@
 /* Structure for saving state for a nested function.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,7 +21,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #ifndef GCC_FUNCTION_H
 #define GCC_FUNCTION_H
-
 #include "tree.h"
 #include "hashtab.h"
 
@@ -191,7 +190,7 @@ struct function GTY(())
   struct gimple_df *gimple_df;
 
   /* The loops in this function.  */
-  struct loops * GTY((skip)) x_current_loops;
+  struct loops *x_current_loops;
 
   /* Value histograms attached to particular statements.  */
   htab_t GTY((skip)) value_histograms;
@@ -307,13 +306,6 @@ struct function GTY(())
   /* Function sequence number for profiling, debugging, etc.  */
   int funcdef_no;
 
-  /* For flow.c.  */
-
-  /* Highest loop depth seen so far in loop analysis.  Used in flow.c
-     for the "failure strategy" when doing liveness analysis starting
-     with non-empty initial sets.  */
-  int max_loop_depth;
-
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */
@@ -374,6 +366,19 @@ struct function GTY(())
 
   /* Collected bit flags.  */
 
+  /* Number of units of general registers that need saving in stdarg
+     function.  What unit is depends on the backend, either it is number
+     of bytes, or it can be number of registers.  */
+  unsigned int va_list_gpr_size : 8;
+
+  /* Number of units of floating point registers that need saving in stdarg
+     function.  */
+  unsigned int va_list_fpr_size : 8;
+
+  /* How commonly executed the function is.  Initialized during branch
+     probabilities pass.  */
+  ENUM_BITFIELD (function_frequency) function_frequency : 2;
+
   /* Nonzero if function being compiled needs to be given an address
      where the value should be stored.  */
   unsigned int returns_struct : 1;
@@ -403,6 +408,9 @@ struct function GTY(())
      from nested functions.  */
   unsigned int has_nonlocal_label : 1;
 
+  /* Nonzero if function calls builtin_unwind_init.  */
+  unsigned int calls_unwind_init : 1;
+  
   /* Nonzero if function being compiled has nonlocal gotos to parent
      function.  */
   unsigned int has_nonlocal_goto : 1;
@@ -459,19 +467,6 @@ struct function GTY(())
   /* Set when the tail call has been produced.  */
   unsigned int tail_call_emit : 1;
 
-  /* How commonly executed the function is.  Initialized during branch
-     probabilities pass.  */
-  ENUM_BITFIELD (function_frequency) function_frequency : 2;
-
-  /* Number of units of general registers that need saving in stdarg
-     function.  What unit is depends on the backend, either it is number
-     of bytes, or it can be number of registers.  */
-  unsigned int va_list_gpr_size : 8;
-
-  /* Number of units of floating point registers that need saving in stdarg
-     function.  */
-  unsigned int va_list_fpr_size : 8;
-
   /* FIXME tuples: This bit is temporarily here to mark when a
      function has been gimplified, so we can make sure we're not
      creating non GIMPLE tuples after gimplification.  */
@@ -520,6 +515,7 @@ extern int trampolines_created;
 #define current_function_uses_const_pool (cfun->uses_const_pool)
 #define current_function_epilogue_delay_list (cfun->epilogue_delay_list)
 #define current_function_has_nonlocal_label (cfun->has_nonlocal_label)
+#define current_function_calls_unwind_init (cfun->calls_unwind_init)
 #define current_function_has_nonlocal_goto (cfun->has_nonlocal_goto)
 
 #define return_label (cfun->x_return_label)
@@ -533,6 +529,7 @@ extern int trampolines_created;
 #define avail_temp_slots (cfun->x_avail_temp_slots)
 #define temp_slot_level (cfun->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (cfun->x_nonlocal_goto_handler_labels)
+#define rtl_df (cfun->df)
 #define current_loops (cfun->x_current_loops)
 #define VALUE_HISTOGRAMS(fun) (fun)->value_histograms
 
@@ -579,6 +576,8 @@ extern rtx get_arg_pointer_save_area (struct function *);
 
 /* Returns the name of the current function.  */
 extern const char *current_function_name (void);
+/* Returns the assembler name (raw, mangled) of the current function.  */
+extern const char *current_function_assembler_name (void);
 
 extern void do_warn_unused_parameter (tree);
 

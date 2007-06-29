@@ -1,7 +1,7 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using a Unix style C library and tools.
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004, 2005
+   2004, 2005, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -50,6 +50,14 @@ Boston, MA 02110-1301, USA.  */
   (TARGET_64BIT ? dbx64_register_map[n]			\
    : (write_symbols == DWARF2_DEBUG			\
       ? svr4_dbx_register_map[n] : dbx_register_map[n]))
+
+
+/* Map gcc register number to DWARF 2 CFA column number. For 32 bit
+   target, always use the svr4_dbx_register_map for DWARF .eh_frame
+   even if we don't use DWARF .debug_frame. */
+#undef DWARF_FRAME_REGNUM
+#define DWARF_FRAME_REGNUM(n) TARGET_64BIT \
+	? dbx64_register_map[(n)] : svr4_dbx_register_map[(n)] 
 
 /* Use section relative relocations for debugging offsets.  Unlike
    other targets that fake this by putting the section VMA at 0, PE
@@ -279,11 +287,14 @@ do {							\
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START " #"
 
-/* DWARF2 Unwinding doesn't work with exception handling yet.  To make
-   it work, we need to build a libgcc_s.dll, and dcrt0.o should be
-   changed to call __register_frame_info/__deregister_frame_info.  */
 #ifndef DWARF2_UNWIND_INFO
+/* If configured with --disable-sjlj-exceptions, use DWARF2, else
+   default to SJLJ  */
+#if defined (CONFIG_SJLJ_EXCEPTIONS) && !CONFIG_SJLJ_EXCEPTIONS
+#define DWARF2_UNWIND_INFO 1
+#else
 #define DWARF2_UNWIND_INFO 0
+#endif
 #endif
 
 /* Don't assume anything about the header files.  */
@@ -347,15 +358,11 @@ do {							\
 /* This implements the `alias' attribute, keeping any stdcall or
    fastcall decoration.  */
 #undef	ASM_OUTPUT_DEF_FROM_DECLS
-#define	ASM_OUTPUT_DEF_FROM_DECLS(STREAM, DECL, TARGET) 		\
+#define	ASM_OUTPUT_DEF_FROM_DECLS(STREAM, DECL, TARGET)			\
   do									\
     {									\
-      const char *alias;						\
-      rtx rtlname = XEXP (DECL_RTL (DECL), 0);				\
-      if (GET_CODE (rtlname) == SYMBOL_REF)				\
-	alias = XSTR (rtlname, 0);					\
-      else								\
-	abort ();							\
+      const char *alias							\
+	= IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));		\
       if (TREE_CODE (DECL) == FUNCTION_DECL)				\
 	i386_pe_declare_function_type (STREAM, alias,			\
 				       TREE_PUBLIC (DECL));		\
@@ -394,6 +401,7 @@ do {							\
 
 #define TARGET_VALID_DLLIMPORT_ATTRIBUTE_P i386_pe_valid_dllimport_attribute_p
 #define TARGET_CXX_ADJUST_CLASS_AT_DEFINITION i386_pe_adjust_class_at_definition
+#define TARGET_MANGLE_DECL_ASSEMBLER_NAME i386_pe_mangle_decl_assembler_name
 
 #undef TREE
 

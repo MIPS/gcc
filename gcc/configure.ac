@@ -319,105 +319,18 @@ AC_CHECK_TYPES([__int64], [AC_CHECK_SIZEOF(__int64)])
 # * overlong strings
 # So, we only use -pedantic if we can disable those warnings.
 
-AC_CACHE_CHECK(
-  [whether ${CC} accepts -Wno-long-long],
-  [ac_cv_prog_cc_w_no_long_long],
-  [save_CFLAGS="$CFLAGS"
-  CFLAGS="-Wno-long-long"
-  AC_COMPILE_IFELSE([AC_LANG_SOURCE([[]])],
-                    [ac_cv_prog_cc_w_no_long_long=yes],
-                    [ac_cv_prog_cc_w_no_long_long=no])
-  CFLAGS="$save_CFLAGS"
-  ])
+ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings -Wstrict-prototypes \
+			  -Wmissing-prototypes], [loose_warn])
+ACX_PROG_CC_WARNING_OPTS([-Wc++-compat], [cxx_compat_warn])
+ACX_PROG_CC_WARNING_OPTS([-Wold-style-definition \
+                          -Wmissing-format-attribute], [strict_warn])
+ACX_PROG_CC_WARNING_ALMOST_PEDANTIC([-Wno-long-long -Wno-variadic-macros \
+				     -Wno-overlength-strings], [strict_warn])
+ACX_PROG_CC_WARNINGS_ARE_ERRORS([manual], [strict_warn])
 
-AC_CACHE_CHECK(
-  [whether ${CC} accepts -Wno-variadic-macros],
-  [ac_cv_prog_cc_w_no_variadic_macros],
-  [save_CFLAGS="$CFLAGS"
-  CFLAGS="-Wno-variadic-macros"
-  AC_COMPILE_IFELSE([AC_LANG_SOURCE([[]])],
-                    [ac_cv_prog_cc_w_no_variadic_macros=yes],
-                    [ac_cv_prog_cc_w_no_variadic_macros=no])
-  CFLAGS="$save_CFLAGS"
-  ])
-
-AC_CACHE_CHECK(
-  [whether ${CC} accepts -Wno-overlength-strings],
-  [ac_cv_prog_cc_w_no_overlength_strings],
-  [save_CFLAGS="$CFLAGS"
-  CFLAGS="-Wno-overlength-strings"
-  AC_COMPILE_IFELSE([AC_LANG_SOURCE([[]])],
-                    [ac_cv_prog_cc_w_no_overlength_strings=yes],
-                    [ac_cv_prog_cc_w_no_overlength_strings=no])
-  CFLAGS="$save_CFLAGS"
-  ])
-
-strict_warn=
-if test $ac_cv_prog_cc_w_no_long_long = yes \
-   && test $ac_cv_prog_cc_w_no_variadic_macros = yes \
-   && test $ac_cv_prog_cc_w_no_overlength_strings = yes ; then
-  strict_warn="-pedantic -Wno-long-long -Wno-variadic-macros -Wno-overlength-strings"
-fi
-
-# Add -Wold-style-definition if it's accepted
-AC_CACHE_CHECK(
-  [whether ${CC} accepts -Wold-style-definition],
-  [ac_cv_prog_cc_w_old_style_definition],
-  [save_CFLAGS="$CFLAGS"
-  CFLAGS="-Wold-style-definition"
-  AC_COMPILE_IFELSE([AC_LANG_SOURCE([[]])],
-                    [ac_cv_prog_cc_w_old_style_definition=yes],
-                    [ac_cv_prog_cc_w_old_style_definition=no])
-  CFLAGS="$save_CFLAGS"
-  ])
-if test $ac_cv_prog_cc_w_old_style_definition = yes ; then
-  strict_warn="${strict_warn} -Wold-style-definition"
-fi
-
-# Add -Wmissing-format-attribute if it's accepted
-AC_CACHE_CHECK(
-  [whether ${CC} accepts -Wmissing-format-attribute],
-  [ac_cv_prog_cc_w_missing_format_attribute],
-  [save_CFLAGS="$CFLAGS"
-  CFLAGS="-Wmissing-format-attribute"
-  AC_COMPILE_IFELSE([AC_LANG_SOURCE([[]])],
-                    [ac_cv_prog_cc_w_missing_format_attribute=yes],
-                    [ac_cv_prog_cc_w_missing_format_attribute=no])
-  CFLAGS="$save_CFLAGS"
-  ])
-if test $ac_cv_prog_cc_w_missing_format_attribute = yes ; then
-  strict_warn="${strict_warn} -Wmissing-format-attribute"
-fi
-
-# Enable -Werror, period.
-AC_ARG_ENABLE(werror_always, 
-[  --enable-werror-always         enable -Werror always], [],
-[enable_werror_always=no])
-if test x${enable_werror_always} = xyes ; then
-  strict_warn="${strict_warn} -Werror"
-fi
-AC_SUBST(strict_warn)
-
-# Get C++ compatibility warning flag, if supported.
-AC_CACHE_CHECK(
-  [whether ${CC} accepts -Wc++-compat],
-  [ac_cv_prog_cc_w_cxx_compat],
-  [save_CFLAGS="$CFLAGS"
-  CFLAGS="-Wc++-compat"
-  AC_COMPILE_IFELSE([AC_LANG_SOURCE([[]])],
-                    [ac_cv_prog_cc_w_cxx_compat=yes],
-                    [ac_cv_prog_cc_w_cxx_compat=no])
-  CFLAGS="$save_CFLAGS"
-  ])
-if test x${ac_cv_prog_cc_w_cxx_compat} = xyes; then
-  cxx_compat_warn="-Wc++-compat"
-fi
-AC_SUBST(cxx_compat_warn)
-
-
-# If the native compiler is GCC, we can enable warnings even in stage1.  
-# That's useful for people building cross-compilers, or just running a
-# quick `make'.
+# The above macros do nothing if the compiler is not GCC.  However, the
+# Makefile has more goo to add other flags, so this variabl is used to
+# enables warnings only for GCC.
 warn_cflags=
 if test "x$GCC" = "xyes"; then
   warn_cflags='$(GCC_WARN_CFLAGS)'
@@ -435,7 +348,7 @@ AC_ARG_ENABLE(checking,
 			  enable expensive run-time checks.  With LIST,
 			  enable only specific categories of checks.
 			  Categories are: yes,no,all,none,release.
-			  Flags are: assert,fold,gc,gcac,misc,
+			  Flags are: assert,df,fold,gc,gcac,misc,
 			  rtlflag,rtl,runtime,tree,valgrind.],
 [ac_checking_flags="${enableval}"],[
 # Determine the default checks.
@@ -444,43 +357,34 @@ if test x$is_release = x ; then
 else
   ac_checking_flags=release
 fi])
-ac_assert_checking=1
-ac_checking=
-ac_fold_checking=
-ac_gc_checking=
-ac_gc_always_collect=
-ac_rtl_checking=
-ac_rtlflag_checking=
-ac_runtime_checking=1
-ac_tree_checking=
-ac_valgrind_checking=
 IFS="${IFS= 	}"; ac_save_IFS="$IFS"; IFS="$IFS,"
-for check in $ac_checking_flags
+for check in release $ac_checking_flags
 do
 	case $check in
 	# these set all the flags to specific states
-	yes)		ac_assert_checking=1 ; ac_checking=1 ;
+	yes)		ac_assert_checking=1 ; ac_checking=1 ; ac_df_checking=1 ;
 			ac_fold_checking= ; ac_gc_checking=1 ;
 			ac_gc_always_collect= ; ac_rtl_checking= ;
 			ac_rtlflag_checking=1 ; ac_runtime_checking=1 ;
 			ac_tree_checking=1 ; ac_valgrind_checking= ;;
-	no|none)	ac_assert_checking= ; ac_checking= ;
+	no|none)	ac_assert_checking= ; ac_checking= ; ac_df_checking= ;
 			ac_fold_checking= ; ac_gc_checking= ;
 			ac_gc_always_collect= ; ac_rtl_checking= ;
 			ac_rtlflag_checking= ; ac_runtime_checking= ;
 			ac_tree_checking= ; ac_valgrind_checking= ;;
-	all)		ac_assert_checking=1 ; ac_checking=1 ;
+	all)		ac_assert_checking=1 ; ac_checking=1 ; ac_df_checking=1 ;
 			ac_fold_checking=1 ; ac_gc_checking=1 ;
 			ac_gc_always_collect=1 ; ac_rtl_checking=1 ;
 			ac_rtlflag_checking=1 ; ac_runtime_checking=1 ;
 			ac_tree_checking=1 ; ac_valgrind_checking= ;;
-	release)	ac_assert_checking=1 ; ac_checking= ;
+	release)	ac_assert_checking=1 ; ac_checking= ; ac_df_checking= ;
 			ac_fold_checking= ; ac_gc_checking= ;
 			ac_gc_always_collect= ; ac_rtl_checking= ;
 			ac_rtlflag_checking= ; ac_runtime_checking=1 ;
 			ac_tree_checking= ; ac_valgrind_checking= ;;
 	# these enable particular checks
 	assert) 	ac_assert_checking=1 ;;
+	df)	 	ac_df_checking=1 ;;
 	fold)		ac_fold_checking=1 ;;
 	gc)		ac_gc_checking=1 ;;
 	gcac)		ac_gc_always_collect=1 ;;
@@ -503,6 +407,10 @@ if test x$ac_checking != x ; then
   nocommon_flag=-fno-common
 fi
 AC_SUBST(nocommon_flag)
+if test x$ac_df_checking != x ; then
+  AC_DEFINE(ENABLE_DF_CHECKING, 1,
+[Define if you want more run-time sanity checks for dataflow.])
+fi
 if test x$ac_assert_checking != x ; then
   AC_DEFINE(ENABLE_ASSERT_CHECKING, 1,
 [Define if you want assertions enabled.  This is a cheap check.])
@@ -790,17 +698,20 @@ AC_ARG_WITH(sysroot,
  TARGET_SYSTEM_ROOT_DEFINE='-DTARGET_SYSTEM_ROOT=\"$(TARGET_SYSTEM_ROOT)\"'
  CROSS_SYSTEM_HEADER_DIR='$(TARGET_SYSTEM_ROOT)$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
 	
- if test "x$exec_prefix" = xNONE; then
-  if test "x$prefix" = xNONE; then
-   test_prefix=/usr/local
-  else
-   test_prefix=$prefix
-  fi
+ if test "x$prefix" = xNONE; then
+  test_prefix=/usr/local
  else
-  test_prefix=$exec_prefix
+  test_prefix=$prefix
+ fi
+ if test "x$exec_prefix" = xNONE; then
+  test_exec_prefix=$test_prefix
+ else
+  test_exec_prefix=$exec_prefix
  fi
  case ${TARGET_SYSTEM_ROOT} in
  "${test_prefix}"|"${test_prefix}/"*|\
+ "${test_exec_prefix}"|"${test_exec_prefix}/"*|\
+ '${prefix}'|'${prefix}/'*|\
  '${exec_prefix}'|'${exec_prefix}/'*)
    t="$TARGET_SYSTEM_ROOT_DEFINE -DTARGET_SYSTEM_ROOT_RELOCATABLE"
    TARGET_SYSTEM_ROOT_DEFINE="$t"
@@ -890,15 +801,12 @@ gcc_AC_PROG_CMP_IGNORE_INITIAL
 # See if we have the mktemp command.
 AC_CHECK_PROG(have_mktemp_command, mktemp, yes, no)
 
-MISSING="${CONFIG_SHELL-/bin/sh} $srcdir/../missing"
-
 # See if makeinfo has been installed and is modern enough
 # that we can use it.
-gcc_AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
+ACX_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
   [4.[4-9]*])
 if test $gcc_cv_prog_makeinfo_modern = no; then
-  MAKEINFO="$MISSING makeinfo"
   AC_MSG_WARN([
 *** Makeinfo is missing or too old.
 *** Info documentation will not be built.])
@@ -918,6 +826,8 @@ else
   GENERATED_MANPAGES=
 fi
 AC_SUBST(GENERATED_MANPAGES)
+
+MISSING="${CONFIG_SHELL-/bin/sh} $ac_aux_dir/missing"
 
 # How about lex?
 dnl Don't use AC_PROG_LEX; we insist on flex.

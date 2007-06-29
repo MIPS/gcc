@@ -1,5 +1,5 @@
 /* Definitions for code generation pass of GNU compiler.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006 
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -89,9 +89,15 @@ enum optab_index
   /* Signed multiply and add with the result and addend one machine mode
      wider than the multiplicand and multiplier.  */
   OTI_smadd_widen,
-  /* Unigned multiply and add with the result and addend one machine mode
+  /* Unsigned multiply and add with the result and addend one machine mode
      wider than the multiplicand and multiplier.  */
   OTI_umadd_widen,
+  /* Signed multiply and subtract the result and minuend one machine mode
+     wider than the multiplicand and multiplier.  */
+  OTI_smsub_widen,
+  /* Unsigned multiply and subtract the result and minuend one machine mode
+     wider than the multiplicand and multiplier.  */
+  OTI_umsub_widen,
 
   /* Signed divide */
   OTI_sdiv,
@@ -145,6 +151,8 @@ enum optab_index
   OTI_movstrict,
   /* Move, with a misaligned memory.  */
   OTI_movmisalign,
+  /* Nontemporal store.  */
+  OTI_storent,
 
   /* Unary operations */
   /* Negation */
@@ -292,10 +300,23 @@ enum optab_index
      elements.  */
   OTI_vec_unpacku_hi,
   OTI_vec_unpacku_lo,
+
+  /* Extract, convert to floating point and widen the high/low part of
+     a vector of signed or unsigned integer elements.  */
+  OTI_vec_unpacks_float_hi,
+  OTI_vec_unpacks_float_lo,
+  OTI_vec_unpacku_float_hi,
+  OTI_vec_unpacku_float_lo,
+
   /* Narrow (demote) and merge the elements of two vectors.  */
   OTI_vec_pack_trunc,
   OTI_vec_pack_usat,
   OTI_vec_pack_ssat,
+
+  /* Convert to signed/unsigned integer, narrow and merge elements
+     of two vectors of floating point elements.  */
+  OTI_vec_pack_sfix_trunc,
+  OTI_vec_pack_ufix_trunc,
 
   /* Perform a raise to the power of integer.  */
   OTI_powi,
@@ -317,6 +338,8 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define usmul_widen_optab (optab_table[OTI_usmul_widen])
 #define smadd_widen_optab (optab_table[OTI_smadd_widen])
 #define umadd_widen_optab (optab_table[OTI_umadd_widen])
+#define smsub_widen_optab (optab_table[OTI_smsub_widen])
+#define umsub_widen_optab (optab_table[OTI_umsub_widen])
 #define sdiv_optab (optab_table[OTI_sdiv])
 #define smulv_optab (optab_table[OTI_smulv])
 #define sdivv_optab (optab_table[OTI_sdivv])
@@ -346,6 +369,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define mov_optab (optab_table[OTI_mov])
 #define movstrict_optab (optab_table[OTI_movstrict])
 #define movmisalign_optab (optab_table[OTI_movmisalign])
+#define storent_optab (optab_table[OTI_storent])
 
 #define neg_optab (optab_table[OTI_neg])
 #define negv_optab (optab_table[OTI_negv])
@@ -438,9 +462,15 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_unpacks_lo_optab (optab_table[OTI_vec_unpacks_lo])
 #define vec_unpacku_hi_optab (optab_table[OTI_vec_unpacku_hi])
 #define vec_unpacku_lo_optab (optab_table[OTI_vec_unpacku_lo])
+#define vec_unpacks_float_hi_optab (optab_table[OTI_vec_unpacks_float_hi])
+#define vec_unpacks_float_lo_optab (optab_table[OTI_vec_unpacks_float_lo])
+#define vec_unpacku_float_hi_optab (optab_table[OTI_vec_unpacku_float_hi])
+#define vec_unpacku_float_lo_optab (optab_table[OTI_vec_unpacku_float_lo])
 #define vec_pack_trunc_optab (optab_table[OTI_vec_pack_trunc])
 #define vec_pack_ssat_optab (optab_table[OTI_vec_pack_ssat])
 #define vec_pack_usat_optab (optab_table[OTI_vec_pack_usat])
+#define vec_pack_sfix_trunc_optab (optab_table[OTI_vec_pack_sfix_trunc])
+#define vec_pack_ufix_trunc_optab (optab_table[OTI_vec_pack_ufix_trunc])
 
 #define powi_optab (optab_table[OTI_powi])
 
@@ -613,6 +643,10 @@ extern rtx expand_copysign (rtx, rtx, rtx);
 /* Generate an instruction with a given INSN_CODE with an output and
    an input.  */
 extern void emit_unop_insn (int, rtx, rtx, enum rtx_code);
+
+/* Excapsulate the block in REG_LIBCALL, and REG_RETVAL reg notes and add 
+   REG_LIBCALL_ID notes to all insns in block.  */
+extern void maybe_encapsulate_block (rtx, rtx, rtx);
 
 /* Emit code to perform a series of operations on a multi-word quantity, one
    word at a time.  */

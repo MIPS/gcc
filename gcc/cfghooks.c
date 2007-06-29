@@ -259,7 +259,7 @@ dump_bb (basic_block bb, FILE *outf, int indent)
   edge_iterator ei;
   char *s_indent;
 
-  s_indent = alloca ((size_t) indent + 1);
+  s_indent = (char *) alloca ((size_t) indent + 1);
   memset (s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
@@ -646,10 +646,10 @@ merge_blocks (basic_block a, basic_block b)
   if (!cfg_hooks->merge_blocks)
     internal_error ("%s does not support merge_blocks", cfg_hooks->name);
 
+  cfg_hooks->merge_blocks (a, b);
+
   if (current_loops != NULL)
     remove_bb_from_loops (b);
-
-  cfg_hooks->merge_blocks (a, b);
 
   /* Normally there should only be one successor of A and that is B, but
      partway though the merge of blocks for conditional_execution we'll
@@ -735,11 +735,11 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
 
   if (dom_info_available_p (CDI_DOMINATORS))
     {
-      basic_block doms_to_fix[2];
-
-      doms_to_fix[0] = dummy;
-      doms_to_fix[1] = bb;
-      iterate_fix_dominators (CDI_DOMINATORS, doms_to_fix, 2);
+      VEC (basic_block, heap) *doms_to_fix = VEC_alloc (basic_block, heap, 2);
+      VEC_quick_push (basic_block, doms_to_fix, dummy);
+      VEC_quick_push (basic_block, doms_to_fix, bb);
+      iterate_fix_dominators (CDI_DOMINATORS, doms_to_fix, false);
+      VEC_free (basic_block, heap, doms_to_fix);
     }
 
   if (current_loops != NULL)
@@ -767,7 +767,7 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
 	}
 
       /* In case we split loop latch, update it.  */
-      for (ploop = loop; ploop; ploop = ploop->outer)
+      for (ploop = loop; ploop; ploop = loop_outer (ploop))
 	if (ploop->latch == dummy)
 	  ploop->latch = bb;
     }
@@ -923,9 +923,14 @@ duplicate_block (basic_block bb, edge e, basic_block after)
   set_bb_original (new_bb, bb);
   set_bb_copy (bb, new_bb);
 
-  /* Add the new block to the prescribed loop.  */
+  /* Add the new block to the copy of the loop of BB, or directly to the loop
+     of BB if the loop is not being copied.  */
   if (current_loops != NULL)
-    add_bb_to_loop (new_bb, bb->loop_father->copy);
+    {
+      struct loop *cloop = bb->loop_father;
+      struct loop *copy = get_loop_copy (cloop);
+      add_bb_to_loop (new_bb, copy ? copy : cloop);
+    }
 
   return new_bb;
 }
@@ -1038,10 +1043,10 @@ extract_cond_bb_edges (basic_block b, edge *e1, edge *e2)
    new condition basic block that guards the versioned loop.  */
 void
 lv_adjust_loop_header_phi (basic_block first, basic_block second,
-			   basic_block new, edge e)
+			   basic_block new_block, edge e)
 {
   if (cfg_hooks->lv_adjust_loop_header_phi)
-    cfg_hooks->lv_adjust_loop_header_phi (first, second, new, e);
+    cfg_hooks->lv_adjust_loop_header_phi (first, second, new_block, e);
 }
 
 /* Conditions in trees and RTL are different so we need
@@ -1049,8 +1054,8 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
    versioning code.  */
 void
 lv_add_condition_to_bb (basic_block first, basic_block second,
-			basic_block new, void *cond)
+			basic_block new_block, void *cond)
 {
   gcc_assert (cfg_hooks->lv_add_condition_to_bb);
-  cfg_hooks->lv_add_condition_to_bb (first, second, new, cond);
+  cfg_hooks->lv_add_condition_to_bb (first, second, new_block, cond);
 }

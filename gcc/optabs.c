@@ -126,6 +126,10 @@ static rtx expand_parity (enum machine_mode, rtx, rtx);
 static enum rtx_code get_rtx_code (enum tree_code, bool);
 static rtx vector_compare_rtx (tree, bool, enum insn_code);
 
+/* Current libcall id.  It doesn't matter what these are, as long
+   as they are unique to each libcall that is emitted.  */
+static HOST_WIDE_INT libcall_id = 0;
+
 #ifndef HAVE_conditional_trap
 #define HAVE_conditional_trap 0
 #define gen_conditional_trap(a,b) (gcc_unreachable (), NULL_RTX)
@@ -340,11 +344,26 @@ optab_for_tree_code (enum tree_code code, tree type)
       return TYPE_UNSIGNED (type) ? 
 	vec_unpacku_lo_optab : vec_unpacks_lo_optab;
 
+    case VEC_UNPACK_FLOAT_HI_EXPR:
+      /* The signedness is determined from input operand.  */
+      return TYPE_UNSIGNED (type) ?
+	vec_unpacku_float_hi_optab : vec_unpacks_float_hi_optab;
+
+    case VEC_UNPACK_FLOAT_LO_EXPR:
+      /* The signedness is determined from input operand.  */
+      return TYPE_UNSIGNED (type) ? 
+	vec_unpacku_float_lo_optab : vec_unpacks_float_lo_optab;
+
     case VEC_PACK_TRUNC_EXPR:
       return vec_pack_trunc_optab;
 
     case VEC_PACK_SAT_EXPR:
       return TYPE_UNSIGNED (type) ? vec_pack_usat_optab : vec_pack_ssat_optab;
+
+    case VEC_PACK_FIX_TRUNC_EXPR:
+      /* The signedness is determined from output operand.  */
+      return TYPE_UNSIGNED (type) ?
+	vec_pack_ufix_trunc_optab : vec_pack_sfix_trunc_optab;
 
     default:
       break;
@@ -353,6 +372,7 @@ optab_for_tree_code (enum tree_code code, tree type)
   trapv = INTEGRAL_TYPE_P (type) && TYPE_OVERFLOW_TRAPS (type);
   switch (code)
     {
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
       return trapv ? addv_optab : add_optab;
 
@@ -684,12 +704,12 @@ expand_vec_shift_expr (tree vec_shift_expr, rtx target)
   mode1 = insn_data[icode].operand[1].mode;
   mode2 = insn_data[icode].operand[2].mode;
 
-  rtx_op1 = expand_expr (vec_oprnd, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+  rtx_op1 = expand_normal (vec_oprnd);
   if (!(*insn_data[icode].operand[1].predicate) (rtx_op1, mode1)
       && mode1 != VOIDmode)
     rtx_op1 = force_reg (mode1, rtx_op1);
 
-  rtx_op2 = expand_expr (shift_oprnd, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+  rtx_op2 = expand_normal (shift_oprnd);
   if (!(*insn_data[icode].operand[2].predicate) (rtx_op2, mode2)
       && mode2 != VOIDmode)
     rtx_op2 = force_reg (mode2, rtx_op2);
@@ -1375,7 +1395,9 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 
       if (binoptab == vec_pack_trunc_optab 
 	  || binoptab == vec_pack_usat_optab
-          || binoptab == vec_pack_ssat_optab)
+	  || binoptab == vec_pack_ssat_optab
+	  || binoptab == vec_pack_ufix_trunc_optab
+	  || binoptab == vec_pack_sfix_trunc_optab)
 	{
 	  /* The mode of the result is different then the mode of the
 	     arguments.  */
@@ -3366,7 +3388,7 @@ no_conflict_move_test (rtx dest, rtx set, void *p0)
    logically equivalent to EQUIV, so it gets manipulated as a unit if it
    is possible to do so.  */
 
-static void
+void
 maybe_encapsulate_block (rtx first, rtx last, rtx equiv)
 {
   if (!flag_non_call_exceptions || !may_trap_p (equiv))
@@ -3390,6 +3412,12 @@ maybe_encapsulate_block (rtx first, rtx last, rtx equiv)
 						 REG_NOTES (first));
 	  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first,
 						REG_NOTES (last));
+	  next = NEXT_INSN (last);
+	  for (insn = first; insn != next; insn = NEXT_INSN (insn))
+	    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_LIBCALL_ID,
+	    				          GEN_INT (libcall_id),
+						  REG_NOTES (insn));
+	  libcall_id++;
 	}
     }
 }
@@ -3449,6 +3477,8 @@ emit_no_conflict_block (rtx insns, rtx target, rtx op0, rtx op1, rtx equiv)
       if ((note = find_reg_note (insn, REG_LIBCALL, NULL)) != NULL)
 	remove_note (insn, note);
       if ((note = find_reg_note (insn, REG_RETVAL, NULL)) != NULL)
+	remove_note (insn, note);
+      if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL)) != NULL)
 	remove_note (insn, note);
 
       data.target = target;
@@ -3544,7 +3574,6 @@ emit_no_conflict_block (rtx insns, rtx target, rtx op0, rtx op1, rtx equiv)
 
    Except for the first group of insns (the ones setting pseudos), the
    block is delimited by REG_RETVAL and REG_LIBCALL notes.  */
-
 void
 emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
 {
@@ -3602,6 +3631,8 @@ emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
       if ((note = find_reg_note (insn, REG_LIBCALL, NULL)) != NULL)
 	remove_note (insn, note);
       if ((note = find_reg_note (insn, REG_RETVAL, NULL)) != NULL)
+	remove_note (insn, note);
+      if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL)) != NULL)
 	remove_note (insn, note);
 
       next = NEXT_INSN (insn);
@@ -5442,6 +5473,8 @@ init_optabs (void)
   usmul_widen_optab = init_optab (UNKNOWN);
   smadd_widen_optab = init_optab (UNKNOWN);
   umadd_widen_optab = init_optab (UNKNOWN);
+  smsub_widen_optab = init_optab (UNKNOWN);
+  umsub_widen_optab = init_optab (UNKNOWN);
   sdiv_optab = init_optab (DIV);
   sdivv_optab = init_optabv (DIV);
   sdivmod_optab = init_optab (UNKNOWN);
@@ -5472,6 +5505,8 @@ init_optabs (void)
   mov_optab = init_optab (SET);
   movstrict_optab = init_optab (STRICT_LOW_PART);
   cmp_optab = init_optab (COMPARE);
+
+  storent_optab = init_optab (UNKNOWN);
 
   ucmp_optab = init_optab (UNKNOWN);
   tst_optab = init_optab (UNKNOWN);
@@ -5563,9 +5598,15 @@ init_optabs (void)
   vec_unpacks_lo_optab = init_optab (UNKNOWN);
   vec_unpacku_hi_optab = init_optab (UNKNOWN);
   vec_unpacku_lo_optab = init_optab (UNKNOWN);
+  vec_unpacks_float_hi_optab = init_optab (UNKNOWN);
+  vec_unpacks_float_lo_optab = init_optab (UNKNOWN);
+  vec_unpacku_float_hi_optab = init_optab (UNKNOWN);
+  vec_unpacku_float_lo_optab = init_optab (UNKNOWN);
   vec_pack_trunc_optab = init_optab (UNKNOWN);
   vec_pack_usat_optab = init_optab (UNKNOWN);
   vec_pack_ssat_optab = init_optab (UNKNOWN);
+  vec_pack_ufix_trunc_optab = init_optab (UNKNOWN);
+  vec_pack_sfix_trunc_optab = init_optab (UNKNOWN);
 
   powi_optab = init_optab (UNKNOWN);
 
@@ -5793,7 +5834,7 @@ debug_optab_libfuncs (void)
 	h = &o->handlers[j];
 	if (h->libfunc)
 	  {
-	    gcc_assert (GET_CODE (h->libfunc) = SYMBOL_REF);
+	    gcc_assert (GET_CODE (h->libfunc) == SYMBOL_REF);
 	    fprintf (stderr, "%s\t%s:\t%s\n",
 		     GET_RTX_NAME (o->code),
 		     GET_MODE_NAME (j),
@@ -5813,7 +5854,7 @@ debug_optab_libfuncs (void)
 	  h = &o->handlers[j][k];
 	  if (h->libfunc)
 	    {
-	      gcc_assert (GET_CODE (h->libfunc) = SYMBOL_REF);
+	      gcc_assert (GET_CODE (h->libfunc) == SYMBOL_REF);
 	      fprintf (stderr, "%s\t%s\t%s:\t%s\n",
 		       GET_RTX_NAME (o->code),
 		       GET_MODE_NAME (j),
@@ -5948,8 +5989,10 @@ vector_compare_rtx (tree cond, bool unsignedp, enum insn_code icode)
   t_op1 = TREE_OPERAND (cond, 1);
 
   /* Expand operands.  */
-  rtx_op0 = expand_expr (t_op0, NULL_RTX, TYPE_MODE (TREE_TYPE (t_op0)), 1);
-  rtx_op1 = expand_expr (t_op1, NULL_RTX, TYPE_MODE (TREE_TYPE (t_op1)), 1);
+  rtx_op0 = expand_expr (t_op0, NULL_RTX, TYPE_MODE (TREE_TYPE (t_op0)),
+			 EXPAND_STACK_PARM);
+  rtx_op1 = expand_expr (t_op1, NULL_RTX, TYPE_MODE (TREE_TYPE (t_op1)),
+			 EXPAND_STACK_PARM);
 
   if (!insn_data[icode].operand[4].predicate (rtx_op0, GET_MODE (rtx_op0))
       && GET_MODE (rtx_op0) != VOIDmode)
@@ -6010,14 +6053,12 @@ expand_vec_cond_expr (tree vec_cond_expr, rtx target)
   cc_op0 = XEXP (comparison, 0);
   cc_op1 = XEXP (comparison, 1);
   /* Expand both operands and force them in reg, if required.  */
-  rtx_op1 = expand_expr (TREE_OPERAND (vec_cond_expr, 1),
-			 NULL_RTX, VOIDmode, EXPAND_NORMAL);
+  rtx_op1 = expand_normal (TREE_OPERAND (vec_cond_expr, 1));
   if (!insn_data[icode].operand[1].predicate (rtx_op1, mode)
       && mode != VOIDmode)
     rtx_op1 = force_reg (mode, rtx_op1);
 
-  rtx_op2 = expand_expr (TREE_OPERAND (vec_cond_expr, 2),
-			 NULL_RTX, VOIDmode, EXPAND_NORMAL);
+  rtx_op2 = expand_normal (TREE_OPERAND (vec_cond_expr, 2));
   if (!insn_data[icode].operand[2].predicate (rtx_op2, mode)
       && mode != VOIDmode)
     rtx_op2 = force_reg (mode, rtx_op2);

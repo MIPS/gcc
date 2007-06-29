@@ -40,6 +40,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "insn-attr.h"		/* For INSN_SCHEDULING.  */
 #include "target.h"
 #include "tree-pass.h"
+#include "dbgcnt.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -767,6 +768,7 @@ decode_options (unsigned int argc, const char **argv)
 
   if (optimize >= 3)
     {
+      flag_predictive_commoning = 1;
       flag_inline_functions = 1;
       flag_unswitch_loops = 1;
       flag_gcse_after_reload = 1;
@@ -1352,6 +1354,9 @@ common_handle_option (size_t scode, const char *arg, int value,
       break;
 
     case OPT_Wstrict_aliasing:
+      set_Wstrict_aliasing (value);
+      break;
+
     case OPT_Wstrict_aliasing_:
       warn_strict_aliasing = value;
       break;
@@ -1423,6 +1428,14 @@ common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_fcall_saved_:
       fix_register (arg, 0, 0);
+      break;
+
+    case OPT_fdbg_cnt_:
+      dbg_cnt_process_opt (arg);
+      break;
+
+    case OPT_fdbg_cnt_list:
+      dbg_cnt_list_all_counters ();
       break;
 
     case OPT_fdiagnostics_show_location_:
@@ -1713,6 +1726,20 @@ set_Wunused (int setting)
   warn_unused_parameter = (setting && extra_warnings);
   warn_unused_variable = setting;
   warn_unused_value = setting;
+}
+
+/* Used to set the level of strict aliasing warnings, 
+   when no level is specified (i.e., when -Wstrict-aliasing, and not
+   -Wstrict-aliasing=level was given).
+   ONOFF is assumed to take value 1 when -Wstrict-aliasing is specified,
+   and 0 otherwise.  After calling this function, wstrict_aliasing will be
+   set to the default value of -Wstrict_aliasing=level, currently 3.  */
+void
+set_Wstrict_aliasing (int onoff)
+{
+  gcc_assert (onoff == 0 || onoff == 1);
+  if (onoff != 0)
+    warn_strict_aliasing = 3;
 }
 
 /* The following routines are useful in setting all the flags that

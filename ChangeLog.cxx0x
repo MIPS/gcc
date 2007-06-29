@@ -1,3 +1,7 @@
+2007-06-29  Douglas Gregor  <doug.gregor@gmail.com>
+
+	Merged changes from 124547 to 126081.
+	
 2007-05-30  Douglas Gregor  <doug.gregor@gmail.com>
 
 	* g++.dg/cpp0x/rvo.C: New.

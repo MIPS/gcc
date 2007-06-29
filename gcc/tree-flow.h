@@ -786,6 +786,7 @@ extern bool cleanup_tree_cfg_loop (void);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
+extern const char *op_symbol_code (enum tree_code);
 
 /* In tree-dfa.c  */
 extern var_ann_t create_var_ann (tree);
@@ -833,7 +834,6 @@ extern void debug_points_to_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
-extern bool is_aliased_with (tree, tree);
 extern struct ptr_info_def *get_ptr_info (tree);
 extern void new_type_alias (tree, tree, tree);
 extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *,
@@ -860,6 +860,8 @@ extern void debug_all_mem_sym_stats (void);
    definition, a function with this prototype is called.  */
 typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
+/* In tree-ssa-alias-warnings.c  */
+extern void strict_aliasing_warning_backend (void);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
@@ -960,6 +962,7 @@ extern tree get_vectype_for_scalar_type (tree);
 
 /* In tree-ssa-phiopt.c */
 bool empty_block_p (basic_block);
+basic_block *blocks_in_phiopt_order (void);
 
 /* In tree-ssa-loop*.c  */
 
@@ -970,6 +973,7 @@ unsigned int tree_unroll_loops_completely (bool);
 unsigned int tree_ssa_prefetch_arrays (void);
 unsigned int remove_empty_loops (void);
 void tree_ssa_iv_optimize (void);
+void tree_predictive_commoning (void);
 
 bool number_of_iterations_exit (struct loop *, edge,
 				struct tree_niter_desc *niter, bool);
@@ -1015,6 +1019,8 @@ void tree_transform_and_unroll_loop (struct loop *, unsigned,
 				     edge, struct tree_niter_desc *,
 				     transform_callback, void *);
 bool contains_abnormal_ssa_name_p (tree);
+bool stmt_dominates_stmt_p (tree, tree);
+void mark_virtual_ops_for_renaming (tree);
 
 /* In tree-ssa-threadedge.c */
 extern bool potentially_threadable_block (basic_block);
@@ -1032,6 +1038,7 @@ enum move_pos
     MOVE_POSSIBLE		/* Unlimited movement.  */
   };
 extern enum move_pos movement_possibility (tree);
+char *get_lsm_tmp_name (tree, unsigned);
 
 /* The reasons a variable may escape a function.  */
 enum escape_type 
@@ -1111,7 +1118,7 @@ bool multiplier_allowed_in_address_p (HOST_WIDE_INT, enum machine_mode);
 unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode);
 
 /* In tree-ssa-threadupdate.c.  */
-extern bool thread_through_all_blocks (void);
+extern bool thread_through_all_blocks (bool);
 extern void register_jump_thread (edge, edge);
 
 /* In gimplify.c  */
@@ -1151,13 +1158,14 @@ struct fieldoff
   tree size;
   tree decl;
   HOST_WIDE_INT offset;  
+  HOST_WIDE_INT alias_set;
 };
 typedef struct fieldoff fieldoff_s;
 
 DEF_VEC_O(fieldoff_s);
 DEF_VEC_ALLOC_O(fieldoff_s,heap);
 int push_fields_onto_fieldstack (tree, VEC(fieldoff_s,heap) **,
-				 HOST_WIDE_INT, bool *);
+				 HOST_WIDE_INT, bool *, tree);
 void sort_fieldstack (VEC(fieldoff_s,heap) *);
 
 void init_alias_heapvars (void);

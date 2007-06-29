@@ -248,8 +248,22 @@ st_sprintf (char *buffer, const char *format, ...)
 void
 show_locus (st_parameter_common *cmp)
 {
+  static char *filename;
+
   if (!options.locus || cmp == NULL || cmp->filename == NULL)
     return;
+  
+  if (cmp->unit > 0)
+    {
+      filename = filename_from_unit (cmp->unit);
+      if (filename != NULL)
+	{
+	  st_printf ("At line %d of file %s (unit = %d, file = '%s')\n",
+		   (int) cmp->line, cmp->filename, cmp->unit, filename);
+	  free_mem (filename);
+	}
+      return;
+    }
 
   st_printf ("At line %d of file %s\n", (int) cmp->line, cmp->filename);
 }
@@ -285,6 +299,7 @@ os_error (const char *message)
   st_printf ("Operating system error: %s\n%s\n", get_oserror (), message);
   sys_exit (1);
 }
+iexport(os_error);
 
 
 /* void runtime_error()-- These are errors associated with an

@@ -3069,6 +3069,16 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   gcc_assert (code != GIMPLE_MODIFY_STMT);
 #endif
 
+  if ((code == MINUS_EXPR || code == PLUS_EXPR || code == MULT_EXPR)
+      && arg0 && arg1 && tt && POINTER_TYPE_P (tt))
+    gcc_assert (TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST);
+
+  if (code == POINTER_PLUS_EXPR && arg0 && arg1 && tt)
+    gcc_assert (POINTER_TYPE_P (tt) && POINTER_TYPE_P (TREE_TYPE (arg0))
+		&& TREE_CODE (TREE_TYPE (arg1)) == INTEGER_TYPE
+		&& tree_ssa_useless_type_conversion_1 (sizetype,
+						       TREE_TYPE (arg1)));
+
   t = make_node_stat (code PASS_MEM_STAT);
   TREE_TYPE (t) = tt;
 
@@ -3991,18 +4001,25 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 	  *no_add_attrs = true;
 	  return tree_cons (name, args, NULL_TREE);
 	}
-      if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
+      if (TREE_CODE (node) == RECORD_TYPE
+	  || TREE_CODE (node) == UNION_TYPE)
+	{
+	  node = TYPE_NAME (node);
+	  if (!node)
+	    return NULL_TREE;
+	}
+      else
 	{
 	  warning (OPT_Wattributes, "%qs attribute ignored",
 		   IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
+	  return NULL_TREE;
 	}
-
-      return NULL_TREE;
     }
 
   if (TREE_CODE (node) != FUNCTION_DECL
-      && TREE_CODE (node) != VAR_DECL)
+      && TREE_CODE (node) != VAR_DECL
+      && TREE_CODE (node) != TYPE_DECL)
     {
       *no_add_attrs = true;
       warning (OPT_Wattributes, "%qs attribute ignored",
@@ -4063,6 +4080,22 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
       error ("external linkage required for symbol %q+D because of "
 	     "%qs attribute", node, IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
+    }
+
+  /* A dllexport'd entity must have default visibility so that other
+     program units (shared libraries or the main executable) can see
+     it.  A dllimport'd entity must have default visibility so that
+     the linker knows that undefined references within this program
+     unit can be resolved by the dynamic linker.  */
+  if (!*no_add_attrs)
+    {
+      if (DECL_VISIBILITY_SPECIFIED (node)
+	  && DECL_VISIBILITY (node) != VISIBILITY_DEFAULT)
+	error ("%qs implies default visibility, but %qD has already "
+	       "been declared with a different visibility", 
+	       IDENTIFIER_POINTER (name), node);
+      DECL_VISIBILITY (node) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (node) = 1;
     }
 
   return NULL_TREE;
@@ -7730,15 +7763,29 @@ int_cst_value (tree x)
   return val;
 }
 
+/* If TYPE is an integral type, return an equivalent type which is
+    unsigned iff UNSIGNEDP is true.  If TYPE is not an integral type,
+    return TYPE itself.  */
+
+tree
+signed_or_unsigned_type_for (int unsignedp, tree type)
+{
+  tree t = type;
+  if (POINTER_TYPE_P (type))
+    t = size_type_node;
+
+  if (!INTEGRAL_TYPE_P (t) || TYPE_UNSIGNED (t) == unsignedp)
+    return t;
+  
+  return lang_hooks.types.type_for_size (TYPE_PRECISION (t), unsignedp);
+}
 
 /* Returns unsigned variant of TYPE.  */
 
 tree
 unsigned_type_for (tree type)
 {
-  if (POINTER_TYPE_P (type))
-    return lang_hooks.types.unsigned_type (size_type_node);
-  return lang_hooks.types.unsigned_type (type);
+  return signed_or_unsigned_type_for (1, type);
 }
 
 /* Returns signed variant of TYPE.  */
@@ -7746,9 +7793,7 @@ unsigned_type_for (tree type)
 tree
 signed_type_for (tree type)
 {
-  if (POINTER_TYPE_P (type))
-    return lang_hooks.types.signed_type (size_type_node);
-  return lang_hooks.types.signed_type (type);
+  return signed_or_unsigned_type_for (0, type);
 }
 
 /* Returns the largest value obtainable by casting something in INNER type to

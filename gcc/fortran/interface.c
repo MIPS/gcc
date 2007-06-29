@@ -364,6 +364,9 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
       if (strcmp (dt1->name, dt2->name) != 0)
 	return 0;
 
+      if (dt1->access != dt2->access)
+	return 0;
+
       if (dt1->pointer != dt2->pointer)
 	return 0;
 
@@ -423,7 +426,7 @@ compare_type_rank (gfc_symbol *s1, gfc_symbol *s2)
   r2 = (s2->as != NULL) ? s2->as->rank : 0;
 
   if (r1 != r2)
-    return 0;			/* Ranks differ */
+    return 0;			/* Ranks differ.  */
 
   return gfc_compare_types (&s1->ts, &s2->ts);
 }
@@ -750,7 +753,7 @@ count_types_test (gfc_formal_arglist *f1, gfc_formal_arglist *f2)
 	continue;
 
       if (arg[i].sym && arg[i].sym->attr.optional)
-	continue;		/* Skip optional arguments */
+	continue;		/* Skip optional arguments.  */
 
       arg[i].flag = k;
 
@@ -899,13 +902,13 @@ compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, int generic_flag)
 
   if (s1->attr.function != s2->attr.function
       && s1->attr.subroutine != s2->attr.subroutine)
-    return 0;			/* disagreement between function/subroutine */
+    return 0;		/* Disagreement between function/subroutine.  */
 
   f1 = s1->formal;
   f2 = s2->formal;
 
   if (f1 == NULL && f2 == NULL)
-    return 1;			/* Special case */
+    return 1;			/* Special case.  */
 
   if (count_types_test (f1, f2))
     return 0;
@@ -965,7 +968,7 @@ check_interface0 (gfc_interface *p, const char *interface_name)
 	    }
 	  else
 	    {
-	      /* Duplicate interface */
+	      /* Duplicate interface.  */
 	      qlast->next = q->next;
 	      gfc_free (q);
 	      q = qlast->next;
@@ -978,8 +981,7 @@ check_interface0 (gfc_interface *p, const char *interface_name)
 
 
 /* Check lists of interfaces to make sure that no two interfaces are
-   ambiguous.  Duplicate interfaces (from the same symbol) are OK
-   here.  */
+   ambiguous.  Duplicate interfaces (from the same symbol) are OK here.  */
 
 static int
 check_interface1 (gfc_interface *p, gfc_interface *q0,
@@ -991,7 +993,7 @@ check_interface1 (gfc_interface *p, gfc_interface *q0,
     for (q = q0; q; q = q->next)
       {
 	if (p->sym == q->sym)
-	  continue;		/* Duplicates OK here */
+	  continue;		/* Duplicates OK here.  */
 
 	if (p->sym->name == q->sym->name && p->sym->module == q->sym->module)
 	  continue;
@@ -1193,7 +1195,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 
       if (formal->attr.if_source == IFSRC_UNKNOWN
 	  || actual->symtree->n.sym->attr.external)
-	return 1;		/* Assume match */
+	return 1;		/* Assume match.  */
 
       return compare_interfaces (formal, actual->symtree->n.sym, 0);
     }
@@ -1226,7 +1228,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
       break;
 
   if (ref == NULL)
-    return 0;			/* Not an array element */
+    return 0;			/* Not an array element.  */
 
   return 1;
 }
@@ -1259,6 +1261,29 @@ compare_parameter_protected (gfc_symbol *formal, gfc_expr *actual)
     return 0;
 
   return 1;
+}
+
+
+/* Given an expression, check whether it is an array section
+   which has a vector subscript. If it has, one is returned,
+   otherwise zero.  */
+
+static int
+has_vector_subscript (gfc_expr *e)
+{
+  int i;
+  gfc_ref *ref;
+
+  if (e == NULL || e->rank == 0 || e->expr_type != EXPR_VARIABLE)
+    return 0;
+
+  for (ref = e->ref; ref; ref = ref->next)
+    if (ref->type == REF_ARRAY && ref->u.ar.type == AR_SECTION)
+      for (i = 0; i < ref->u.ar.dimen; i++)
+	if (ref->u.ar.dimen_type[i] == DIMEN_VECTOR)
+	  return 1;
+
+  return 0;
 }
 
 
@@ -1469,6 +1494,19 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 		       "PROTECTED attribute and dummy argument '%s' is "
 		       "INTENT = OUT/INOUT",
 		       &a->expr->where,f->sym->name);
+	  return 0;
+	}
+
+      if ((f->sym->attr.intent == INTENT_OUT
+	   || f->sym->attr.intent == INTENT_INOUT
+	   || f->sym->attr.volatile_)
+          && has_vector_subscript (a->expr))
+	{
+	  if (where)
+	    gfc_error ("Array-section actual argument with vector subscripts "
+		       "at %L is incompatible with INTENT(IN), INTENT(INOUT) "
+		       "or VOLATILE attribute of the dummy argument '%s'",
+		       &a->expr->where, f->sym->name);
 	  return 0;
 	}
 
@@ -1905,7 +1943,7 @@ find_sym_in_symtree (gfc_symbol *sym)
   if (st && st->n.sym == sym)
     return st;
 
-  /* if it's been renamed, resort to a brute-force search.  */
+  /* If it's been renamed, resort to a brute-force search.  */
   /* TODO: avoid having to do this search.  If the symbol doesn't exist
      in the symtree for the current namespace, it should probably be added.  */
   for (ns = gfc_current_ns; ns; ns = ns->parent)
@@ -1915,7 +1953,7 @@ find_sym_in_symtree (gfc_symbol *sym)
 	return st;
     }
   gfc_internal_error ("Unable to find symbol %s", sym->name);
-  /* Not reached */
+  /* Not reached.  */
 }
 
 
@@ -1974,7 +2012,7 @@ gfc_extend_expr (gfc_expr *e)
 
   if (sym == NULL)
     {
-      /* Don't use gfc_free_actual_arglist() */
+      /* Don't use gfc_free_actual_arglist().  */
       if (actual->next != NULL)
 	gfc_free (actual->next);
       gfc_free (actual);
@@ -2063,7 +2101,7 @@ gfc_extend_assign (gfc_code *c, gfc_namespace *ns)
    procedures can be present without interfaces.  */
 
 static try
-check_new_interface (gfc_interface * base, gfc_symbol * new)
+check_new_interface (gfc_interface *base, gfc_symbol *new)
 {
   gfc_interface *ip;
 

@@ -387,7 +387,6 @@ static struct obstack temp_call_expr_obstack;
    match the current variable's type.  */
 static tree pretemp;
 static tree storetemp;
-static tree mergephitemp;
 static tree prephitemp;
 
 /* Set of blocks with statements that have had its EH information
@@ -1075,8 +1074,8 @@ phi_translate (tree expr, bitmap_set_t set1, bitmap_set_t set2,
 		newexpr->base.ann = NULL;
 		vn_lookup_or_add_with_vuses (newexpr, tvuses);
 		expr = newexpr;
-		phi_trans_add (oldexpr, newexpr, pred, tvuses);
 	      }
+	    phi_trans_add (oldexpr, expr, pred, tvuses);
 	  }
       }
       return expr;
@@ -1188,8 +1187,8 @@ phi_translate (tree expr, bitmap_set_t set1, bitmap_set_t set2,
 		vn_lookup_or_add_with_vuses (newexpr, newvuses);
 	      }
 	    expr = newexpr;
-	    phi_trans_add (oldexpr, newexpr, pred, newvuses);
 	  }
+	phi_trans_add (oldexpr, expr, pred, newvuses);
       }
       return expr;
       break;
@@ -1233,8 +1232,8 @@ phi_translate (tree expr, bitmap_set_t set1, bitmap_set_t set2,
 		vn_lookup_or_add (newexpr, NULL);
 	      }
 	    expr = newexpr;
-	    phi_trans_add (oldexpr, newexpr, pred, NULL);
 	  }
+	phi_trans_add (oldexpr, expr, pred, NULL);
       }
       return expr;
 
@@ -1266,8 +1265,8 @@ phi_translate (tree expr, bitmap_set_t set1, bitmap_set_t set2,
 		vn_lookup_or_add (newexpr, NULL);
 	      }
 	    expr = newexpr;
-	    phi_trans_add (oldexpr, newexpr, pred, NULL);
 	  }
+	phi_trans_add (oldexpr, expr, pred, NULL);
       }
       return expr;
 
@@ -2290,7 +2289,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	genfn = find_or_generate_expression (block, fn, stmts);
 
 	nargs = call_expr_nargs (expr);
-	buffer = alloca (nargs * sizeof (tree));
+	buffer = (tree*) alloca (nargs * sizeof (tree));
 
 	for (i = 0; i < nargs; i++)
 	  {
@@ -3196,7 +3195,7 @@ insert_fake_stores (void)
 	      def_operand_p defp;
 	      tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
 	      tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
-	      tree new;
+	      tree new_tree;
 	      bool notokay = false;
 
 	      FOR_EACH_SSA_DEF_OPERAND (defp, stmt, iter, SSA_OP_VIRTUAL_DEFS)
@@ -3220,16 +3219,16 @@ insert_fake_stores (void)
 		  get_var_ann (storetemp);
 		}
 
-	      new = poolify_modify_stmt (storetemp, lhs);
+	      new_tree = poolify_modify_stmt (storetemp, lhs);
 
-	      lhs = make_ssa_name (storetemp, new);
-	      GIMPLE_STMT_OPERAND (new, 0) = lhs;
-	      create_ssa_artificial_load_stmt (new, stmt);
+	      lhs = make_ssa_name (storetemp, new_tree);
+	      GIMPLE_STMT_OPERAND (new_tree, 0) = lhs;
+	      create_ssa_artificial_load_stmt (new_tree, stmt);
 
-	      NECESSARY (new) = 0;
-	      VEC_safe_push (tree, heap, inserted_exprs, new);
-	      VEC_safe_push (tree, heap, need_creation, new);
-	      bsi_insert_after (&bsi, new, BSI_NEW_STMT);
+	      NECESSARY (new_tree) = 0;
+	      VEC_safe_push (tree, heap, inserted_exprs, new_tree);
+	      VEC_safe_push (tree, heap, need_creation, new_tree);
+	      bsi_insert_after (&bsi, new_tree, BSI_NEW_STMT);
 	    }
 	}
     }
@@ -3746,7 +3745,6 @@ init_pre (bool do_fre)
   need_creation = NULL;
   pretemp = NULL_TREE;
   storetemp = NULL_TREE;
-  mergephitemp = NULL_TREE;
   prephitemp = NULL_TREE;
 
   vn_init ();
@@ -3758,7 +3756,7 @@ init_pre (bool do_fre)
 
 
   postorder = XNEWVEC (int, n_basic_blocks - NUM_FIXED_BLOCKS);
-  post_order_compute (postorder, false);
+  post_order_compute (postorder, false, false);
 
   FOR_ALL_BB (bb)
     bb->aux = xcalloc (1, sizeof (struct bb_bitmap_sets));
@@ -3801,7 +3799,7 @@ init_pre (bool do_fre)
 /* Deallocate data structures used by PRE.  */
 
 static void
-fini_pre (bool do_fre)
+fini_pre (void)
 {
   basic_block bb;
   unsigned int i;
@@ -3849,7 +3847,7 @@ fini_pre (bool do_fre)
 	  && TREE_CODE (SSA_NAME_VALUE (name)) == VALUE_HANDLE)
 	SSA_NAME_VALUE (name) = NULL;
     }
-  if (!do_fre && current_loops)
+  if (current_loops != NULL)
     loop_optimizer_finalize ();
 }
 
@@ -3915,7 +3913,7 @@ execute_pre (bool do_fre)
       realify_fake_stores ();
     }
 
-  fini_pre (do_fre);
+  fini_pre ();
 }
 
 /* Gate and execute functions for PRE.  */

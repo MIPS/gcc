@@ -350,8 +350,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
    TARGET_SCHED_SET_SCHED_FLAGS}
 
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
-#define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION default_builtin_vectorized_function
-#define TARGET_VECTORIZE_BUILTIN_CONVERSION default_builtin_vectorized_conversion
+#define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \
+  default_builtin_vectorized_function
+#define TARGET_VECTORIZE_BUILTIN_CONVERSION \
+  default_builtin_vectorized_conversion
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN 0
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD 0
 
@@ -384,6 +386,9 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
 #define TARGET_RESOLVE_OVERLOADED_BUILTIN NULL
 #define TARGET_FOLD_BUILTIN hook_tree_tree_tree_bool_null
+
+/* In tree-ssa-math-opts.c  */
+#define TARGET_BUILTIN_RECIPROCAL default_builtin_reciprocal
 
 /* In varasm.c.  */
 #ifndef TARGET_SECTION_TYPE_FLAGS
@@ -462,6 +467,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #ifndef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P hook_bool_tree_false
+#endif
+
+#ifndef TARGET_MANGLE_DECL_ASSEMBLER_NAME
+#define TARGET_MANGLE_DECL_ASSEMBLER_NAME default_mangle_decl_assembler_name
 #endif
 
 #ifndef TARGET_ENCODE_SECTION_INFO
@@ -664,6 +673,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_EXPAND_BUILTIN,			\
   TARGET_RESOLVE_OVERLOADED_BUILTIN,		\
   TARGET_FOLD_BUILTIN,				\
+  TARGET_BUILTIN_RECIPROCAL,			\
   TARGET_MANGLE_FUNDAMENTAL_TYPE,		\
   TARGET_INIT_LIBFUNCS,				\
   TARGET_SECTION_TYPE_FLAGS,			\
@@ -681,6 +691,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_FUNCTION_OK_FOR_SIBCALL,		\
   TARGET_IN_SMALL_DATA_P,			\
   TARGET_BINDS_LOCAL_P,				\
+  TARGET_MANGLE_DECL_ASSEMBLER_NAME,		\
   TARGET_ENCODE_SECTION_INFO,			\
   TARGET_STRIP_NAME_ENCODING,			\
   TARGET_SHIFT_TRUNCATION_MASK,			\

@@ -543,10 +543,18 @@ extern int flag_access_control;
 
 extern int flag_check_new;
 
-/* Nonzero if we want to allow the use of experimental features that
-   are likely to become part of C++0x. */
+/* The supported C++ dialects.  */
 
-extern int flag_cpp0x;
+enum cxx_dialect {
+  /* C++98  */
+  cxx98,
+  /* Experimental features that are likely to become part of
+     C++0x.  */
+  cxx0x
+};
+
+/* The C++ dialect being used. C++98 is the default.  */
+extern enum cxx_dialect cxx_dialect;
 
 /* Nonzero if we want the new ISO rules for pushing a new scope for `for'
    initialization variables.
@@ -678,11 +686,11 @@ extern tree c_sizeof_or_alignof_type (tree, bool, int);
 extern tree c_alignof_expr (tree);
 /* Print an error message for invalid operands to arith operation CODE.
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
-extern void binary_op_error (enum tree_code);
+extern void binary_op_error (enum tree_code, tree, tree);
 extern tree fix_string_type (tree);
 struct varray_head_tag;
 extern void constant_expression_warning (tree);
-extern void strict_aliasing_warning (tree, tree, tree);
+extern bool strict_aliasing_warning (tree, tree, tree);
 extern void empty_if_body_warning (tree, tree);
 extern void warnings_for_convert_and_check (tree, tree, tree);
 extern tree convert_and_check (tree, tree);
@@ -1004,12 +1012,5 @@ extern tree c_omp_remap_decl (tree, bool);
 #ifndef GCC_DIAG_STYLE
 #define GCC_DIAG_STYLE __gcc_cdiag__
 #endif
-
-/* Functions called automatically at the beginning and end of execution.  */
-extern GTY (()) tree static_ctors;
-extern GTY (()) tree static_dtors;
-
-extern void c_record_cdtor_fn (tree);
-extern void c_build_cdtor_fns (void);
 
 #endif /* ! GCC_C_COMMON_H */

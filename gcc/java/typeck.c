@@ -195,22 +195,6 @@ java_type_for_size (unsigned bits, int unsignedp)
   return 0;
 }
 
-/* Return a signed type the same as TYPE in other respects.  */
-
-tree
-java_signed_type (tree type)
-{
-  return get_signed_or_unsigned_type (0, type);
-}
-
-/* Return an unsigned type the same as TYPE in other respects.  */
-
-tree
-java_unsigned_type (tree type)
-{
-  return get_signed_or_unsigned_type (1, type);
-}
-
 /* Mark EXP saying that we need to be able to take the
    address of it; it should not be allocated in a register.
    Value is true if successful.  */

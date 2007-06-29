@@ -364,7 +364,7 @@ esac
 # Disable libmudflap on some systems.
 if test x$enable_libmudflap = x ; then
     case "${target}" in
-    *-*-linux* | *-*-gnu* | *-*-k*bsd*-gnu)
+    *-*-linux* | *-*-gnu* | *-*-k*bsd*-gnu | bfin*-*-uclinux*)
         # Enable libmudflap by default in GNU and friends.
 	;;
     *-*-freebsd*)
@@ -2566,7 +2566,13 @@ if test "$GCC" = yes; then
   # Pass -fkeep-inline-functions for stage 1 if the GCC version supports it.
   CFLAGS="$CFLAGS -fkeep-inline-functions"
   AC_MSG_CHECKING([whether -fkeep-inline-functions is supported])
-  AC_TRY_COMPILE(,,
+  AC_TRY_COMPILE([
+#if (__GNUC__ < 3) \
+    || (__GNUC__ == 3 && (__GNUC_MINOR__ < 3 \
+			  || (__GNUC_MINOR__ == 3 && __GNUC_PATCHLEVEL__ < 1)))
+#error http://gcc.gnu.org/PR29382
+#endif
+    ],,
     [AC_MSG_RESULT([yes]); stage1_cflags="$stage1_cflags -fkeep-inline-functions"],
     [AC_MSG_RESULT([no])])
 

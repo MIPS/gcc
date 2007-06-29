@@ -1,6 +1,6 @@
 /* Definitions of floating-point access for GNU compiler.
    Copyright (C) 1989, 1991, 1994, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -126,9 +126,6 @@ struct real_format
   /* The radix of the exponent and digits of the significand.  */
   int b;
 
-  /* log2(b).  */
-  int log2_b;
-
   /* Size of the significand in digits of radix B.  */
   int p;
 
@@ -195,6 +192,9 @@ extern bool real_isinf (const REAL_VALUE_TYPE *);
 /* Determine whether a floating-point value X is a NaN.  */
 extern bool real_isnan (const REAL_VALUE_TYPE *);
 
+/* Determine whether a floating-point value X is finite.  */
+extern bool real_isfinite (const REAL_VALUE_TYPE *);
+
 /* Determine whether a floating-point value X is negative.  */
 extern bool real_isneg (const REAL_VALUE_TYPE *);
 
@@ -257,10 +257,10 @@ extern unsigned int real_hash (const REAL_VALUE_TYPE *);
 /* Target formats defined in real.c.  */
 extern const struct real_format ieee_single_format;
 extern const struct real_format mips_single_format;
-extern const struct real_format coldfire_single_format;
+extern const struct real_format motorola_single_format;
 extern const struct real_format ieee_double_format;
 extern const struct real_format mips_double_format;
-extern const struct real_format coldfire_double_format;
+extern const struct real_format motorola_double_format;
 extern const struct real_format ieee_extended_motorola_format;
 extern const struct real_format ieee_extended_intel_96_format;
 extern const struct real_format ieee_extended_intel_96_round_53_format;
@@ -272,8 +272,6 @@ extern const struct real_format mips_quad_format;
 extern const struct real_format vax_f_format;
 extern const struct real_format vax_d_format;
 extern const struct real_format vax_g_format;
-extern const struct real_format i370_single_format;
-extern const struct real_format i370_double_format;
 extern const struct real_format c4x_single_format;
 extern const struct real_format c4x_extended_format;
 extern const struct real_format real_internal_format;

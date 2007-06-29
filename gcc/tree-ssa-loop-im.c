@@ -316,10 +316,10 @@ outermost_invariant_loop (tree def, struct loop *loop)
 
   if (LIM_DATA (def_stmt) && LIM_DATA (def_stmt)->max_loop)
     max_loop = find_common_loop (max_loop,
-				 LIM_DATA (def_stmt)->max_loop->outer);
+				 loop_outer (LIM_DATA (def_stmt)->max_loop));
   if (max_loop == loop)
     return NULL;
-  max_loop = superloop_at_depth (loop, max_loop->depth + 1);
+  max_loop = superloop_at_depth (loop, loop_depth (max_loop) + 1);
 
   return max_loop;
 }
@@ -330,7 +330,7 @@ outermost_invariant_loop (tree def, struct loop *loop)
 static struct loop *
 outermost_invariant_loop_expr (tree expr, struct loop *loop)
 {
-  enum tree_code_class class = TREE_CODE_CLASS (TREE_CODE (expr));
+  enum tree_code_class codeclass = TREE_CODE_CLASS (TREE_CODE (expr));
   unsigned i, nops;
   struct loop *max_loop = superloop_at_depth (loop, 1), *aloop;
 
@@ -339,11 +339,11 @@ outermost_invariant_loop_expr (tree expr, struct loop *loop)
       || is_gimple_min_invariant (expr))
     return outermost_invariant_loop (expr, loop);
 
-  if (class != tcc_unary
-      && class != tcc_binary
-      && class != tcc_expression
-      && class != tcc_vl_exp
-      && class != tcc_comparison)
+  if (codeclass != tcc_unary
+      && codeclass != tcc_binary
+      && codeclass != tcc_expression
+      && codeclass != tcc_vl_exp
+      && codeclass != tcc_comparison)
     return NULL;
 
   nops = TREE_OPERAND_LENGTH (expr);
@@ -525,7 +525,7 @@ set_level (tree stmt, struct loop *orig_loop, struct loop *level)
   stmt_loop = find_common_loop (orig_loop, stmt_loop);
   if (LIM_DATA (stmt) && LIM_DATA (stmt)->tgt_loop)
     stmt_loop = find_common_loop (stmt_loop,
-				  LIM_DATA (stmt)->tgt_loop->outer);
+				  loop_outer (LIM_DATA (stmt)->tgt_loop));
   if (flow_loop_nested_p (stmt_loop, level))
     return;
 
@@ -642,7 +642,7 @@ rewrite_bittest (block_stmt_iterator *bsi)
   if (TREE_CODE (stmt1) != GIMPLE_MODIFY_STMT)
     return stmt;
 
-  /* There is a conversion inbetween possibly inserted by fold.  */
+  /* There is a conversion in between possibly inserted by fold.  */
   t = GIMPLE_STMT_OPERAND (stmt1, 1);
   if (TREE_CODE (t) == NOP_EXPR
       || TREE_CODE (t) == CONVERT_EXPR)
@@ -709,12 +709,12 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
   bool maybe_never = ALWAYS_EXECUTED_IN (bb) == NULL;
   struct loop *outermost = ALWAYS_EXECUTED_IN (bb);
 
-  if (!bb->loop_father->outer)
+  if (!loop_outer (bb->loop_father))
     return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Basic block %d (loop %d -- depth %d):\n\n",
-	     bb->index, bb->loop_father->num, bb->loop_father->depth);
+	     bb->index, bb->loop_father->num, loop_depth (bb->loop_father));
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
@@ -774,7 +774,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	{
 	  print_generic_stmt_indented (dump_file, stmt, 0, 2);
 	  fprintf (dump_file, "  invariant up to level %d, cost %d.\n\n",
-		   LIM_DATA (stmt)->max_loop->depth,
+		   loop_depth (LIM_DATA (stmt)->max_loop),
 		   LIM_DATA (stmt)->cost);
 	}
 
@@ -815,7 +815,7 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
   tree stmt;
   unsigned cost = 0;
 
-  if (!bb->loop_father->outer)
+  if (!loop_outer (bb->loop_father))
     return;
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); )
@@ -883,7 +883,7 @@ move_computations (void)
 static bool
 may_move_till (tree ref, tree *index, void *data)
 {
-  struct loop *loop = data, *max_loop;
+  struct loop *loop = (struct loop*) data, *max_loop;
 
   /* If REF is an array reference, check also that the step and the lower
      bound is invariant in LOOP.  */
@@ -914,7 +914,7 @@ may_move_till (tree ref, tree *index, void *data)
 static void
 force_move_till_expr (tree expr, struct loop *orig_loop, struct loop *loop)
 {
-  enum tree_code_class class = TREE_CODE_CLASS (TREE_CODE (expr));
+  enum tree_code_class codeclass = TREE_CODE_CLASS (TREE_CODE (expr));
   unsigned i, nops;
 
   if (TREE_CODE (expr) == SSA_NAME)
@@ -927,11 +927,11 @@ force_move_till_expr (tree expr, struct loop *orig_loop, struct loop *loop)
       return;
     }
 
-  if (class != tcc_unary
-      && class != tcc_binary
-      && class != tcc_expression
-      && class != tcc_vl_exp
-      && class != tcc_comparison)
+  if (codeclass != tcc_unary
+      && codeclass != tcc_binary
+      && codeclass != tcc_expression
+      && codeclass != tcc_vl_exp
+      && codeclass != tcc_comparison)
     return;
 
   nops = TREE_OPERAND_LENGTH (expr);
@@ -953,7 +953,7 @@ static bool
 force_move_till (tree ref, tree *index, void *data)
 {
   tree stmt;
-  struct fmt_data *fmt_data = data;
+  struct fmt_data *fmt_data = (struct fmt_data *) data;
 
   if (TREE_CODE (ref) == ARRAY_REF)
     {
@@ -1116,14 +1116,23 @@ gen_lsm_tmp_name (tree ref)
 }
 
 /* Determines name for temporary variable that replaces REF.
-   The name is accumulated into the lsm_tmp_name variable.  */
+   The name is accumulated into the lsm_tmp_name variable.
+   N is added to the name of the temporary.  */
 
-static char *
-get_lsm_tmp_name (tree ref)
+char *
+get_lsm_tmp_name (tree ref, unsigned n)
 {
+  char ns[2];
+
   lsm_tmp_name_length = 0;
   gen_lsm_tmp_name (ref);
   lsm_tmp_name_add ("_lsm");
+  if (n < 10)
+    {
+      ns[0] = '0' + n;
+      ns[1] = 0;
+      lsm_tmp_name_add (ns);
+    }
   return lsm_tmp_name;
 }
 
@@ -1153,7 +1162,7 @@ schedule_sm (struct loop *loop, VEC (edge, heap) *exits, tree ref,
     }
 
   tmp_var = make_rename_temp (TREE_TYPE (ref),
-			      get_lsm_tmp_name (ref));
+			      get_lsm_tmp_name (ref, ~0));
 
   fmt_data.loop = loop;
   fmt_data.orig_loop = loop;
@@ -1276,9 +1285,7 @@ loop_suitable_for_sm (struct loop *loop ATTRIBUTE_UNUSED,
 static hashval_t
 memref_hash (const void *obj)
 {
-  const struct mem_ref *mem = obj;
-
-  return mem->hash;
+  return ((const struct mem_ref *) obj)->hash;
 }
 
 /* An equality function for struct mem_ref object OBJ1 with
@@ -1287,7 +1294,7 @@ memref_hash (const void *obj)
 static int
 memref_eq (const void *obj1, const void *obj2)
 {
-  const struct mem_ref *mem1 = obj1;
+  const struct mem_ref *mem1 = (const struct mem_ref *) obj1;
 
   return operand_equal_p (mem1->mem, (tree) obj2, 0);
 }
@@ -1350,7 +1357,7 @@ gather_mem_refs_stmt (struct loop *loop, htab_t mem_refs,
   slot = htab_find_slot_with_hash (mem_refs, *mem, hash, INSERT);
 
   if (*slot)
-    ref = *slot;
+    ref = (struct mem_ref *) *slot;
   else
     {
       ref = XNEW (struct mem_ref);

@@ -1340,9 +1340,6 @@ need to define @code{TARGET_FLOAT_FORMAT} when the format is IEEE@.
 This code indicates the ``F float'' (for @code{float}) and ``D float''
 or ``G float'' formats (for @code{double}) used on the VAX and PDP-11@.
 
-@item IBM_FLOAT_FORMAT
-This code indicates the format used on the IBM System/370.
-
 @item C4X_FLOAT_FORMAT
 This code indicates the format used on the TMS320C3x/C4x.
 @end ftable
@@ -3730,7 +3727,7 @@ which.
 @c something, not sure if it looks good.  --mew 10feb93
 
 @defmac OUTGOING_REG_PARM_STACK_SPACE
-Define this to a non-zero value if it is the responsibility of the caller
+Define this to a nonzero value if it is the responsibility of the caller
 to allocate the area reserved for arguments passed in registers.
 
 If @code{ACCUMULATE_OUTGOING_ARGS} is defined, this macro controls
@@ -5348,6 +5345,16 @@ of @var{x}.
 The default version returns false for all constants.
 @end deftypefn
 
+@deftypefn {Target Hook} tree TARGET_BUILTIN_RECIPROCAL (enum tree_code @var{fn}, bool @var{tm_fn}, bool @var{sqrt})
+This hook should return the DECL of a function that implements reciprocal of
+the builtin function with builtin function code @var{fn}, or
+@code{NULL_TREE} if such a function is not available.  @var{tm_fn} is true
+when @var{fn} is a code of a machine-dependent builtin function.  When
+@var{sqrt} is true, additional optimizations that apply only to the reciprocal
+of a square root function are performed, and only reciprocals of @code{sqrt}
+function are valid.
+@end deftypefn
+
 @deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD (void)
 This hook should return the DECL of a function @var{f} that given an
 address @var{addr} as an argument returns a mask @var{m} that can be
@@ -6463,6 +6470,16 @@ in bits.
 The default version of this function takes care of putting symbolic
 constants in @code{flag_pic} mode in @code{data_section} and everything
 else in @code{readonly_data_section}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_MANGLE_DECL_ASSEMBLER_NAME (tree @var{decl}, tree @var{id})
+Define this hook if you need to postprocess the assembler name generated
+by target-independent code.  The @var{id} provided to this hook will be
+the computed name (e.g., the macro @code{DECL_NAME} of the @var{decl} in C,
+or the mangled name of the @var{decl} in C++).  The return value of the
+hook is an @code{IDENTIFIER_NODE} for the appropriate mangled name on
+your target system.  The default implementation of this hook just
+returns the @var{id} provided.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_ENCODE_SECTION_INFO (tree @var{decl}, rtx @var{rtl}, int @var{new_decl_p})

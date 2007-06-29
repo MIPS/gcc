@@ -1,7 +1,8 @@
 // -*- C++ -*-
 // Testing allocator for the C++ library testsuite.
 //
-// Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -247,7 +248,7 @@ namespace __gnu_test
   // (see N1599).
   struct uneq_allocator_base
   {
-    typedef std::_GLIBCXX_TR1::unordered_map<void*, int>   map_type;
+    typedef std::tr1::unordered_map<void*, int>   map_type;
 
     // Avoid static initialization troubles and/or bad interactions
     // with tests linking testsuite_allocator.o and playing globally
