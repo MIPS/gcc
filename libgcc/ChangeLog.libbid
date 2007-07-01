@@ -1,0 +1,3 @@
+2007-07-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Makefile.in: Use libbid for DFP when BID is enabled.
