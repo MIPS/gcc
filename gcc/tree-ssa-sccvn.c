@@ -524,6 +524,10 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	  temp.op0 = TREE_OPERAND (ref, 1);
 	  temp.op1 = TREE_OPERAND (ref, 3);
 	  break;
+	case STRING_CST:
+	case INTEGER_CST:
+	case COMPLEX_CST:
+	case VECTOR_CST:
 	case VALUE_HANDLE:
 	case VAR_DECL:
 	case PARM_DECL:
@@ -532,12 +536,23 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	case SSA_NAME:
 	  temp.op0 = ref;
 	  break;
-	default:
+	  /* These are only interesting for their operands, their
+	     existence, and their type.  They will never be the last
+	     ref in the chain of references (IE they require an
+	     operand), so we don't have to put anything
+	     for op* as it will be handled by the iteration  */
+	case IMAGPART_EXPR:
+	case REALPART_EXPR:
+	case VIEW_CONVERT_EXPR:
+	case ADDR_EXPR:
 	  break;
+	default:
+	  gcc_unreachable ();
+	  
 	}
       VEC_safe_push (vn_reference_op_s, heap, *result, &temp);
 
-      if (REFERENCE_CLASS_P (ref))
+      if (REFERENCE_CLASS_P (ref) || TREE_CODE (ref) == ADDR_EXPR)
 	ref = TREE_OPERAND (ref, 0);
       else
 	ref = NULL_TREE;
@@ -1530,6 +1545,13 @@ visit_use (tree use)
 
 	  STRIP_USELESS_TYPE_CONVERSION (rhs);
 
+	  /* Shortcut for copies. Simplifying copies is pointless,
+	     since we copy the expression and value they represent.  */
+	  if (TREE_CODE (rhs) == SSA_NAME && TREE_CODE (lhs) == SSA_NAME)
+	    {
+	      changed = visit_copy (lhs, rhs);
+	      goto done;
+	    }
 	  simplified = try_to_simplify (stmt, rhs);
 	  if (simplified && simplified != rhs)
 	    {
@@ -1608,8 +1630,6 @@ visit_use (tree use)
 		  VN_INFO (lhs)->expr = rhs;
 		  changed = set_ssa_val_to (lhs, rhs);
 		}
-	      else if (TREE_CODE (rhs) == SSA_NAME)
-		changed = visit_copy (lhs, rhs);
 	      else
 		{
 		  switch (TREE_CODE_CLASS (TREE_CODE (rhs)))

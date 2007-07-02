@@ -601,8 +601,8 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
       	    && rhs == name)
 	   || ((TREE_CODE (rhs) == NOP_EXPR
 		|| TREE_CODE (rhs) == CONVERT_EXPR)
-	       && tree_ssa_useless_type_conversion_1 (TREE_TYPE (rhs),
-						      TREE_TYPE (def_rhs))))
+	       && useless_type_conversion_p (TREE_TYPE (rhs),
+					    TREE_TYPE (def_rhs))))
     return forward_propagate_addr_expr (lhs, def_rhs);
 
   /* Strip away any outer COMPONENT_REF, ARRAY_REF or ADDR_EXPR
@@ -670,7 +670,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
       && TREE_CODE (TREE_OPERAND (rhs, 1)) == SSA_NAME
       /* Avoid problems with IVopts creating PLUS_EXPRs with a
 	 different type than their operands.  */
-      && lang_hooks.types_compatible_p (TREE_TYPE (name), TREE_TYPE (rhs)))
+      && useless_type_conversion_p (TREE_TYPE (rhs), TREE_TYPE (name)))
     {
       bool res;
       

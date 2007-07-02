@@ -10855,13 +10855,19 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
       if (parser->scope)
 	{
 	  tree decl;
+	  tree ambiguous_decls;
 
 	  decl = cp_parser_lookup_name (parser, identifier,
 					tag_type,
 					/*is_template=*/false,
 					/*is_namespace=*/false,
 					/*check_dependency=*/true,
-					/*ambiguous_decls=*/NULL);
+					&ambiguous_decls);
+
+	  /* If the lookup was ambiguous, an error will already have been
+	     issued.  */
+	  if (ambiguous_decls)
+	    return error_mark_node;
 
 	  /* If we are parsing friend declaration, DECL may be a
 	     TEMPLATE_DECL tree node here.  However, we need to check
@@ -10906,6 +10912,23 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
               if (type == error_mark_node)
                 return error_mark_node;
             }
+
+          /* Forward declarations of nested types, such as
+
+               class C1::C2;
+               class C1::C2::C3;
+
+             are invalid unless all components preceding the final '::'
+             are complete.  If all enclosing types are complete, these
+             declarations become merely pointless.
+
+             Invalid forward declarations of nested types are errors
+             caught elsewhere in parsing.  Those that are pointless arrive
+             here.  */
+
+          if (cp_parser_declares_only_class_p (parser)
+              && !is_friend && !processing_explicit_instantiation)
+            warning (0, "declaration %qD does not declare anything", decl);
 
 	  type = TREE_TYPE (decl);
 	}

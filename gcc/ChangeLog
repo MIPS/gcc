@@ -1,8 +1,223 @@
+2007-07-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin9.h: Add copyright notice.
+	(LINK_COMMAND_SPEC): Add comment.
+	(DARWIN_LIBSYSTEM_HAS_UNWIND): Define.
+	* config/rs6000/darwin.h (MD_UNWIND_SUPPORT): Conditionalise on
+	DARWIN_LIBSYSTEM_HAS_UNWIND.
+
+2007-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/32468
+	* omp-low.c (check_combined_parallel): New function.
+	(lower_omp_parallel): Call it via walk_stmts, set
+	OMP_PARALLEL_COMBINED if appropriate.
+	(determine_parallel_type): If OMP_FOR resp. OMP_SECTIONS
+	isn't the only statement in WS_ENTRY_BB or OMP_RETURN
+	the only one in PAR_EXIT_BB and not OMP_PARALLEL_COMBINED,
+	don't consider it as combined parallel.
+
+2007-07-02  Richard Sandiford  <richard@codesourcery.com>
+
+	* configure.ac (gcc_gxx_include_dir): Use $(libsubdir_to_prefix).
+	(gcc_tooldir): Likewise.
+	* configure: Regenerate.
+	* Makefile.in (libsubdir_to_prefix): New variable, based on the
+	old configure.ac gcc_tooldir setting.
+	(prefix_to_exec_prefix): New variable.
+	(DRIVER_DEFINES): Use $(libsubdir_to_prefix)$(prefix_to_exec_prefix)
+	rather than $(unlibsubdir)/../ to derive TOOLDIR_BASE_PREFIX.
+
+2007-07-02  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/32583
+	Fix PR tree-optimization/32584
+	* tree-ssa-pre.c (phi_translate): Always pass seen bitmap.
+	(phi_translate_set): Use phi_translate directly now.
+	(make_values_for_stmt): Don't value number RHS if we already know
+	it is constant.
+
+2007-07-02  Steve Ellcey  <sje@cup.hp.com>
+	    Jim Wilson <wilson@specifix.com>
+
+	PR target/31684
+	* haifa-sched.c (add_to_speculative_block): Change copy_rtx to
+	copy_insn.
+
+2007-07-02  Sandra Loosemore  <sandra@codesourcery.com>
+	    Richard Sandiford  <richard@codesourcery.com>
+	    Nigel Stephens  <nigel@mips.com>
+
+	* config/mips/mips-protos.h (mips16e_save_restore_info): New struct.
+	(mips16e_output_save_restore): Declare.
+	(mips16e_save_restore_pattern_p): Likewise.
+	* config/mips/mips.h (GENERATE_MIPS16E_SAVE_RESTORE): New macro.
+	* config/mips/mips.c (MIPS_MAX_FIRST_STACK_STEP): Return 0x7f8
+	for GENERATE_MIPS16E_SAVE_RESTORE.  Return 0x400 for TARGET_MIPS16
+	&& !GENERATE_MIPS16E_SAVE_RESTORE && !TARGET_64BIT.
+	(BITSET_P): New global macro, extracted from...
+	(mips_for_each_saved_reg): ...here.
+	(mips16e_save_restore_info): New struct.
+	(mips16e_s2_s8_regs, mips16e_a0_a3_regs): New variables.
+	(mips16e_save_restore_regs): New variable.
+	(mips_split_plus, mips16e_find_first_register): New functions.
+	(mips16e_mask_registers): New function.
+	(compute_frame_size): Expand the commentary before the function.
+	Enforce the MIPS16e save and restore register range restrictions.
+	Pad the general register save area at the low end.
+	(mips16e_save_restore_reg, mips16e_build_save_restore)
+	(mips16e_save_restore_pattern_p, mips16e_add_register_range)
+	(mips16e_output_save_restore, mips16e_collect_propagate_value)
+	(mips16e_collect_argument_save, mips16e_collect_argument_saves):
+	New functions.
+	(mips_expand_prologue, mips_expand_epilogue): Handle
+	GENERATE_MIPS16E_SAVE_RESTORE.
+	* config/mips/mips.md (*mips16e_save_restore): New pattern.
+
+2007-07-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/31966
+	PR tree-optimization/32533
+	* tree-if-conv.c (add_to_dst_predicate_list): Use "edge", not
+	"basic_block" description as its third argument.  Update function
+	calls to get destination bb from "edge" argument.  Save "cond" into
+	aux field of the edge.  Update prototype for changed arguments.
+	(if_convertible_loop_p): Clear aux field of incoming edges if bb
+	contains phi node.
+	(find_phi_replacement_condition): Operate on incoming edges, not
+	on predecessor blocks.  If there is a condition saved in the
+	incoming edge aux field, AND it with incoming bb predicate.
+	Return source bb of the first edge.
+	(clean_predicate_lists): Clean aux field of outgoing node edges.
+	(tree_if_conversion): Do not initialize cond variable. Move
+	variable declaration into the loop.
+	(replace_phi_with_cond_gimple_modify_stmt): Remove unneded
+	initializations of new_stmt, arg0 and arg1 variables.
+
+2007-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-nrv.c (dest_safe_for_nrv_p): Grok any handled_component_p,
+	SSA_NAMEs, RESULT_DECLs and PARM_DECLs.
+
+2007-07-02  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa.c (useless_type_conversion_p): Document
+	future intent as defining the middle-end type system.
+	Re-structure to call langhook last, group by type class,
+	mark questionable parts.
+
+2007-07-02  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow.h (types_compatible_p): Declare.
+	* tree-ssa.c (types_compatible_p): New function.
+	* ipa-type-escape.c (discover_unique_type): Use
+	types_compatible_p instead of lang_hooks.types_compatible_p.
+	* tree-ssa-copyrename.c (copy_rename_partition_coalesce): Likewise.
+	* tree-vn.c (expressions_equal_p): Likewise.
+	* tree.c (fields_compatible_p): Likewise.
+	* tree-ssa-dom.c (avail_expr_eq): Likewise.
+	(cprop_operand): Use useless_type_conversion_p instead of
+	lang_hooks.types_compatible_p.
+	* tree-inline.c (setup_one_parameter): Likewise.
+	(declare_return_variable): Likewise.
+	* tree-nrv.c (tree_nrv): Likewise.
+	* tree-ssa-ccp.c (maybe_fold_offset_to_array_ref): Likewise.
+	(maybe_fold_offset_to_component_ref): Likewise.
+	(maybe_fold_offset_to_reference): Likewise.
+	* tree-ssa-copy.c (may_propagate_copy): Likewise.
+	(merge_alias_info): Likewise.
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Likewise.
+	* tree-ssa-phiopt.c (conditional_replacement): Likewise.
+	* tree-ssa-reassoc.c (optimize_ops_list): Likewise.
+	* tree-tailcall.c (find_tail_calls): Likewise.
+	* tree-vect-generic.c (expand_vector_operations_1): Likewise.
+	* gimplify.c (canonicalize_addr_expr): Likewise.
+	(fold_indirect_ref_rhs): Likewise.
+	(gimplify_addr_expr): Likewise.  Swap parameters to cpt_same_type.
+	(cpt_same_type): Likewise.
+	(check_pointer_types_r): Swap parameters to cpt_same_type
+	where appropriate.
+	* fold-const.c (fold_convert): Revert fix for PR15988.
+	* tree-inline.c (setup_one_parameter): Instead fix it here by
+	using fold_build1 instead of fold_convert and checking for
+	error_mark_node.  Convert only if the conversion is necessary.
+
+2007-07-02  Joseph Myers  <joseph@codesourcery.com>
+
+	* configure.ac: Check for .gnu_attribute on Power.
+	* configure: Regenerate.
+	* config/rs6000/rs6000.c (rs6000_file_start): If supported, output
+	attribute for floating-point ABI.
+
+2007-07-02  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/32230
+	PR tree-optimization/32477
+	* tree-vect-analyze.c (vect_analyze_data_refs): Fail if base 
+	address is a constant.
+
+2007-07-02  Richard Sandiford  <richard@codesourcery.com>
+
+	* config.gcc (mipsisa32-*-elf*, mipsisa32el-*-elf*)
+	(mipsisa32r2-*-elf*, mipsisa32r2el-*-elf*)
+	(mipsisa64-*-elf*, mipsisa64el-*-elf*): Combine top-level
+	stanzas.  Use the first part of the triplet to set MIPS_ISA_DEFAULT.
+	Remove redundant setting of MASK_FLOAT64 and MASK_64BIT for the
+	64-bit targets.  Add support for *-elfoabi*.
+	* config/mips/t-isa3264 (MULTILIB_OPTIONS, MULTILIB_DIRNAMES): Use
+	different settings if $(tm_defines) does not select the EABI.
+	(MULTILIB_EXCLUSIONS): Define in those circumstances.
+	* config/mips/mips.h (MIPS_ISA_LEVEL_OPTION_SPEC): New macro.
+	(MIPS_ARCH_OPTION_SPEC): Likewise.
+	(MIPS_ISA_LEVEL_SPEC): Likewise.
+	(OPTION_DEFAULT_SPECS): Use MIPS_ARCH_OPTION_SPEC.
+	* config/mips/elfoabi.h: New file.
+
+2007-07-02  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow.h (tree_ssa_useless_type_conversion_1): Rename to ...
+	(useless_type_conversion_p): ... this.
+	* tree-ssa.c (tree_ssa_useless_type_conversion_1): Rename to ...
+	(useless_type_conversion_p): ... this.
+	* builtins.c (fold_builtin_memory_op): Rename
+	tree_ssa_useless_type_conversion_1 to useless_type_conversion_p.
+	* tree-cfg.c (verify_expr): Likewise.
+	* tree-ssa-address.c (tree_ssa_useless_type_conversion_1): Likewise.
+	* tree-ssa-ccp.c (ccp_fold): Likewise.
+	* tree-ssa-copy.c (may_propagate_copy): Likewise.
+	* tree-ssa-dom.c (eliminate_redundant_computations): Likewise.
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Likewise.
+	* tree-ssa-loop-niter.c (refine_bounds_using_guard): Likewise.
+	* tree-ssa-pre.c (eliminate): Likewise.
+	* tree-ssa.c (delete_tree_ssa): Likewise.
+	(tree_ssa_useless_type_conversion): Likewise.
+	* tree.c (build2_stat): Likewise.
+
+2007-07-01  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/32571
+	* tree-ssa-sccvn.c (visit_use): Shortcut copies to avoid
+	simplifying them.
+
+2007-07-01  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Handle constants
+	and other expected operations explicitly, change default to
+	gcc_unreachable. 
+
+2007-07-01  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/arm.c (arm_cannot_copy_insn_p): Do not expect a
+	PARALLEL.
+	* config/arm/arm.md (pic_add_dot_plus_four, pic_add_dot_plus_eight)
+	(tls_load_dot_plus_eight): Move the label number into the unspec.
+	* config/arm/thumb2.md (pic_load_dot_plus_four): Likewise.
+
 2007-07-01  Andreas Schwab  <schwab@suse.de>
 
 	* dwarf2out.c (initial_return_save): Define only if used.
 
-2007-07-01  Richard Sandiford  <richard@codesourcery.com>
+2007-07-01  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	Unreverting Richard's Revert of:
 
