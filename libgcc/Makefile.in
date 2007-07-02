@@ -186,7 +186,7 @@ version := $(shell $(CC) -dumpversion)
 
 ifeq ($(decimal_float),yes)
 ifeq ($(enable_decimal_float),bid)
-DECNUMINC = -I$(srcdir)/../libbid -DENABLE_DECIMAL_BID_FORMAT
+DECNUMINC = -I$(srcdir)/config/libbid -DENABLE_DECIMAL_BID_FORMAT
 else
 DECNUMINC = -I$(srcdir)/../libdecnumber/$(enable_decimal_float) \
 	    -I$(srcdir)/../libdecnumber \
@@ -493,7 +493,7 @@ endif
 
 dfp-objects = $(patsubst %,%$(objext),$(dfp-filenames))
 ifeq ($(enable_decimal_float),bid)
-$(dfp-objects): %$(objext): $(srcdir)/../libbid/%.c
+$(dfp-objects): %$(objext): $(srcdir)/config/libbid/%.c
 else
 $(dfp-objects): %$(objext): $(srcdir)/../libdecnumber/%.c
 endif
@@ -517,7 +517,7 @@ endif
 
 decbits-objects = $(patsubst %,%$(objext),$(decbits-filenames))
 ifeq ($(enable_decimal_float),bid)
-$(decbits-objects): %$(objext): $(srcdir)/../libbid/%.c
+$(decbits-objects): %$(objext): $(srcdir)/config/libbid/%.c
 else
 $(decbits-objects): %$(objext): $(srcdir)/../libdecnumber/$(enable_decimal_float)/%.c
 endif
@@ -542,7 +542,7 @@ endif
 ifneq ($(D32PBIT),)
 d32pbit-o = $(patsubst %,%$(objext),$(D32PBIT_FUNCS))
 ifeq ($(enable_decimal_float),bid)
-$(d32pbit-o): %$(objext): $(srcdir)/../libbid/%.c
+$(d32pbit-o): %$(objext): $(srcdir)/config/libbid/%.c
 else
 $(d32pbit-o): %$(objext): $(gcc_srcdir)/config/dfp-bit.c
 endif
@@ -553,7 +553,7 @@ endif
 ifneq ($(D64PBIT),)
 d64pbit-o = $(patsubst %,%$(objext),$(D64PBIT_FUNCS))
 ifeq ($(enable_decimal_float),bid)
-$(d64pbit-o): %$(objext): $(srcdir)/../libbid/%.c
+$(d64pbit-o): %$(objext): $(srcdir)/config/libbid/%.c
 else
 $(d64pbit-o): %$(objext): $(gcc_srcdir)/config/dfp-bit.c
 endif
@@ -564,7 +564,7 @@ endif
 ifneq ($(D128PBIT),)
 d128pbit-o = $(patsubst %,%$(objext),$(D128PBIT_FUNCS))
 ifeq ($(enable_decimal_float),bid)
-$(d128pbit-o): %$(objext): $(srcdir)/../libbid/%.c
+$(d128pbit-o): %$(objext): $(srcdir)/config/libbid/%.c
 else
 $(d128pbit-o): %$(objext): $(gcc_srcdir)/config/dfp-bit.c
 endif
