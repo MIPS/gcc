@@ -1,3 +1,238 @@
+2007-07-03  Geoffrey Keating  <geoffk@apple.com>
+
+	* tree.h (DECL_ALIGN): Back out previous change.
+
+2007-07-03  Joseph Myers  <joseph@codesourcery.com>
+
+	* configure.ac: Test for .dtprelword support on MIPS.
+	* configure, config.in: Regenerate.
+	* config/mips/mips.c (mips_output_dwarf_dtprel): New.
+	(TARGET_ASM_OUTPUT_DWARF_DTPREL): Define.
+
+2007-07-03  Julian Brown  <julian@codesourcery.com>
+
+	* config.gcc (with_fpu): Allow --with-fpu=vfp3.
+	* config/arm/aout.h (REGISTER_NAMES): Add D16-D31.
+	* config/arm/aof.h (REGISTER_NAMES): Add D16-D31.
+	* config/arm/arm.c (FL_VFPV3): New flag for VFPv3 processor
+	capability.
+	(all_fpus): Add FPUTYPE_VFP3.
+	(fp_model_for_fpu): Add VFPv3 field.
+	(arm_rtx_costs_1): Give cost to VFPv3 constants.
+	(vfp3_const_double_index): New function. Return integer index of
+	VFPv3 constant suitable for fconst[sd] insns, or -1 if constant
+	isn't suitable.
+	(vfp3_const_double_rtx): New function. True if VFPv3 is enabled
+	and argument represents a valid RTX for a VFPv3 constant.
+	(vfp_output_fldmd): Split fldmd with > 16 registers in the list into
+	two instructions.
+	(vfp_emit_fstmd): Similar, for fstmd.
+	(arm_print_operand): Implement new code 'G' for VFPv3 floating-point
+	constants, represented as integer indices.
+	(arm_hard_regno_mode_ok): Use VFP_REGNO_OK_FOR_SINGLE,
+	VFP_REGNO_OK_FOR_DOUBLE macros.
+	(arm_regno_class): Handle VFPv3 d0-d7, low, high register split.
+	(arm_file_start): Set float-abi attribute for VFPv3, and output
+	correct ".fpu" assembler directive.
+	(arm_dbx_register_numbering): Add FIXME.
+	* config/arm/arm.h (TARGET_VFP3): New macro. Target supports VFPv3.
+	(fputype): Add FPUTYPE_VFP3.
+	(FIXED_REGISTERS): Add 32 registers for D16-D31.
+	(CALL_USED_REGISTERS): Likewise.
+	(CONDITIONAL_REGISTER_USAGE): Add note about conditional definition
+	of LAST_VFP_REGNUM. Make D16-D31 caller-saved, if present.
+	(LAST_VFP_REGNUM): Extend available VFP registers for VFPv3.
+	(D7_VFP_REGNUM): New.
+	(LAST_LO_VFP_REGNUM, FIRST_HI_VFP_REGNUM, LAST_HI_VFP_REGNUM)
+	(VFP_REGNO_OK_FOR_SINGLE, VFP_REGNO_OK_FOR_SINGLE)
+	(VFP_REGNO_OK_FOR_DOUBLE): Define new macros.
+	(FIRST_PSEUDO_REGISTER): Shift up to 128 to accommodate VFPv3.
+	(REG_ALLOC_ORDER): Adjust for VFPv3.
+	(reg_class): Add VFP_D0_D7_REGS, VFP_LO_REGS, VFP_HI_REGS.
+	(REG_CLASS_NAMES): Add entries corresponding to VFP_D0_D7_REGS,
+	VFP_LO_REGS, VFP_HI_REGS.
+	(REG_CLASS_CONTENTS): Likewise. Extend contents for VFP_REGS.
+	(IS_VFP_CLASS): Define macro.
+	(SECONDARY_OUTPUT_RELOAD_CLASS, SECONDARY_INPUT_RELOAD_CLASS): Use
+	IS_VFP_CLASS.
+	(REGISTER_MOVE_COST): Likewise.
+	* config/arm/arm-protos.h (vfp3_const_double_rtx): Add prototype.
+	* config/arm/vfp.md (VFPCC_REGNUM): Redefine as 127.
+	(*arm_movsi_vfp, *thumb2_movsi_vfp, *movsfcc_vfp)
+	(*thumb2_movsfcc_vfp, *abssf2_vfp, *negsf2_vfp, *addsf3_vfp)
+	(*subsf3_vfp, *divsf_vfp, *mulsf_vfp, *mulsf3negsf_vfp)
+	(*mulsf3addsf_vfp, *mulsf3subsf_vfp, *mulsf3negsfaddsf_vfp)
+	(*extendsfdf2_vfp, *truncdfsf2_vfp, *truncsisf2_vfp)
+	(*truncsidf2_vfp, fixuns_truncsfsi2, fixuns_truncdfsi2)
+	(*floatsisf2_vfp, *floatsidf2_vfp, floatunssisf2)
+	(floatunssidf2, *sqrtsf2_vfp, *cmpsf_split_vfp)
+	(*cmpsf_trap_split_vfp, *cmpsf_vfp, *cmpsf_trap_vfp): Use 't'
+	where appropriate for single-word registers.
+	(*movsf_vfp, *thumb2_movsf_vfp, *movdf_vfp, *thumb2_movdf_vfp):
+	As above. Fix type attributes.
+	* config/arm/constraints.md (register_contraint "t"): Define.
+	(register_constraint "w"): Change to D0-D15, or D0-D31 for
+	VFPv3/NEON.
+	(register_constraint "x"): Define.
+	(constraint "Dv"): Define.
+
+2007-07-03  Geoffrey Keating  <geoffk@apple.com>
+
+	* tree.h (DECL_ALIGN): Prevent use on a FUNCTION_DECL.
+
+2007-07-03  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c (objc_pq_context): Removed.
+	(objc_need_raw_identifier): Likewise.
+	(c_parser) <objc_pq_context>: New field.
+	<objc_need_raw_identifier>: Likewise.
+	(OBJC_NEED_RAW_IDENTIFIER): Removed.
+	(c_lex_one_token): Update.
+	(c_parser_objc_protocol_definition): Update.
+	(c_parser_objc_method_definition): Update.
+	(c_parser_objc_methodproto): Update.
+	(c_parser_declspecs): Update.
+
+2007-07-03  David Ung  <davidu@mips.com>
+
+	* config/mips/mips.c (mips_issue_rate): Return 4 for 74K processors.
+
+2007-07-03  David Ung  <davidu@mips.com>
+	    Richard Sandiford  <richard@codesourcery.com>
+
+	* doc/invoke.texi: Document -march=74kf3_2.
+	* config/mips/mips.h (PROCESSOR_74KF3_2): New processor_type.
+	(TUNE_74K): Check for it.
+	* config/mips/mips.c (mips_cpu_info): Add 74kf3_2.
+	(mips_rtx_cost_data): Add an entry for PROCESSOR_74KF3_2.
+	* config/mips/mips.md (cpu): Add 74kf3_2.
+	* config/mips/74k.md (r74k_int_logical, r74k_int_arith, r74k_int_nop)
+	(r74k_int_cmove, r74k_int_mult, r74k_int_mul3, r74k_int_mfhilo)
+	(r74k_int_mthilo, r74k_int_div, r74k_int_call, r74k_int_jump)
+	(r74k_int_load, r74k_int_store, r74k_unknown, r74k_multi): Add
+	74kf3_2 to the CPU list.
+	(r74kf3_2_fadd, r74kf3_2_fmove, r74kf3_2_fload, r74kf3_2_fstore)
+	(r74kf3_2_fmul_sf, r74kf3_2_fmul_df, r74kf3_2_fdiv_sf)
+	(r74kf3_2_fdiv_df, r74kf3_2_frsqrt_sf, r74kf3_2_frsqrt_df)
+	(r74kf3_2_fcmp, r74kf3_2_fcvt, r74kf3_2_fxfer_to_c1)
+	(r74kf3_2_fxfer_from_c1): New insn reservations.
+
+2007-07-03  Richard Sandiford  <richard@codesourcery.com>
+	    David Ung  <davidu@mips.com>
+
+	* doc/invoke.texi: Replace -march=24kf with -march=24kf2_1 and
+	-march=24kx with -march=24kf1_1.  Likewise 24ke[fx], 34k[fx]
+	and 74k[fx].  Document aliases for the new options.
+	* config/mips/mips.h (PROCESSOR_24KF): Rename to...
+	(PROCESSOR_24KF2_1): ...this.
+	(PROCESSOR_24KX): Rename to...
+	(PROCESSOR_24KF1_1): ...this.
+	(PROCESSOR_74KF): Rename to...
+	(PROCESSOR_74KF2_1): ...this.
+	(PROCESSOR_74KX): Rename to...
+	(PROCESSOR_74KF1_1): ...this.
+	(TUNE_74K): Update PROCESSOR_* names.
+	* config/mips/mips.c (mips_cpu_info): Add 24kf2_1 as a synonym
+	for 24kf.  Add 24kf1_1 and 24kfx as synonyms for 24kx.  Likewise
+	the 24ke*, 34k* and 74k* processors.  Update PROCESSOR_* names.
+	(mips_rtx_cost_data): Update processor names in comments.
+	(mips_issue_rate): Update PROCESSOR_* names.
+	* config/mips/mips.md (cpu): Rename 24kf to 24kf2_1, 24kx to
+	24kf1_1, 74kf to 74kf2_1 and 74kx to 74kf1_1.
+	* config/mips/24k.md: Rename FPU-related r24k_* insn reservations
+	to r24kf2_1_*.  Rename r24kx_* insn reservations to r24kf1_1_*.
+	Update cpu attribute names.
+	(r24k_fpu_iss): Rename this reservation to...
+	(r24kf2_1_fpu_iss): ...this and update all uses.
+	(r24kx_fpu_iss): Rename this reservation to...
+	(r24kf1_1_fpu_iss): ...this and update all uses.
+	* config/mips/74k.md: Rename FPU-related r74kf_* insn reservations
+	to r74kf2_1_*.  Rename r74kx_* insn reservations to r74kf1_1_*.
+	Update cpu attribute names.
+
+2007-07-01  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/m32r/constraints.md: New file.
+	* config/m32r/m32r.c: Include tm-constrs.h.
+	(small_data_operand): Use satisfies_constraint_* instead of macro.
+	(addr24_operand, gen_compare): Likewise.
+	* config/m32r/m32r.h (REG_CLASS_FROM_LETTER): Remove.
+	(INT8_P, UPPER16_P, UINT32_P, UINT5_P, INVERTED_SIGNED_8BIT,
+	CONST_OK_FOR_LETTER_P, CONST_DOUBLE_OK_FOR_LETTER_P,
+	EXTRA_CONSTRAINT): Likewise.
+	* config/m32r/m32r.md: Include constraints.md.
+	(*movsi_insn): Use satisfies_constraint_* instead of macro.
+	(andsi3, iorsi3, xorsi3, seq_insn+1, sne): Likewise.
+	* config/m32r/predicates.md (conditional_move_operand): Likewise.
+	(two_insn_const_operand, int8_operand, uint16_operand,
+	reg_or_int16_operand, reg_or_uint16_operand,
+	reg_or_cmp_int16_operand, cmp_int16_operand,
+	seth_add3_operand): Likewise.
+
+2007-07-03  Eric Christopher  <echristo@gmail.com>
+
+	* libgcc2.h: Conditionally declare __bswapsi2 and
+	__bswapdi2.
+	
+2007-07-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* ddg.c (check_sccs): Define only if ENABLE_CHECKING is
+	defined.
+
+2007-07-03  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR target/28307
+	* gthr-posix.h [SUPPORTS_WEAK && GTHREAD_USE_WEAK]
+	(__gthrw_pragma): Provide default definition.
+	(__gthrw2): Use it.
+	* gthr-posix.c (__gthrw_pragma): Define.
+
+2007-07-03  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-sccvn.c (set_ssa_val_to): Check for operand_equal_p
+	before declaring inequality.
+
+2007-07-03  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	* combine.c (recog_for_combine): Log the success or failure of
+	  matching new insn patterns against the machine description in
+	  detailed dumps.
+
+2007-07-03  Revital Eres  <eres@il.ibm.com>
+
+	* ddg.c (print_sccs): New function.
+	(check_sccs): New function.
+	(create_ddg_all_sccs): Use it.
+	* ddg.h (print_sccs): Declare.
+	* modulo-sched.c (sms_order_nodes): Call print_sccs.
+
+2007-07-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* targhooks.h (default_mode_for_suffix): New function declaration.
+	* targhooks.c (default_mode_for_suffix): New default target hook.
+	* target.h (struct c): New structure in the targetm struct.
+	(mode_for_suffix): New target hook as part of struct c.
+	target-def.h (TARGET_C_MODE_FOR_SUFFIX): Define as
+	default_mode_for_suffix.
+	(TARGET_C): New define.
+	* c-lex.c: Include "target.h".
+	(interpret_float): Use targetm.c.mode_for_suffix to determine
+	the mode for a given non-standard suffix.
+	Makefile.in (c-lex.o): Depend on $(TARGET_H).
+
+	* config/i386/i386.c (ix86_c_mode_for_suffix): New static function.
+	(TARGET_C_MODE_FOR_SUFFIX): Define to ix86_c_mode_for_suffix.
+
+	* doc/extend.texi (Floating Types): New node.  Document __float80 and
+	__float128 types.  Document 'w', 'W', 'q' and 'Q' suffixes.
+
+2007-07-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/32506
+	* config/sh/sh.md (udivsi3_i1_media): Use target_reg_operand
+	predicate instead of target_operand.
+	(divsi3_i1_media, divsi3_media_2): Likewise.
+
 2007-07-02  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* tree.h (alias_sets_might_conflict_p): Rename into

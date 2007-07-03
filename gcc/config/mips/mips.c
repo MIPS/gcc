@@ -428,6 +428,7 @@ static void mips_extra_live_on_entry (bitmap);
 static int mips_comp_type_attributes (tree, tree);
 static int mips_mode_rep_extended (enum machine_mode, enum machine_mode);
 static bool mips_offset_within_alignment_p (rtx, HOST_WIDE_INT);
+static void mips_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 
 /* Structure to be filled in by compute_frame_size with register
    save masks, and offsets for the current function.  */
@@ -771,18 +772,35 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
   { "4kec", PROCESSOR_4KC, 33 },
   { "4kem", PROCESSOR_4KC, 33 },
   { "4kep", PROCESSOR_4KP, 33 },
-  { "24kc", PROCESSOR_24KC, 33 },  /* 24K  no FPU */
-  { "24kf", PROCESSOR_24KF, 33 },  /* 24K 1:2 FPU */
-  { "24kx", PROCESSOR_24KX, 33 },  /* 24K 1:1 FPU */
+
+  { "24kc", PROCESSOR_24KC, 33 },
+  { "24kf2_1", PROCESSOR_24KF2_1, 33 },
+  { "24kf", PROCESSOR_24KF2_1, 33 },
+  { "24kf1_1", PROCESSOR_24KF1_1, 33 },
+  { "24kfx", PROCESSOR_24KF1_1, 33 },
+  { "24kx", PROCESSOR_24KF1_1, 33 },
+
   { "24kec", PROCESSOR_24KC, 33 }, /* 24K with DSP */
-  { "24kef", PROCESSOR_24KF, 33 },
-  { "24kex", PROCESSOR_24KX, 33 },
-  { "34kc", PROCESSOR_24KC, 33 },  /* 34K with MT/DSP */
-  { "34kf", PROCESSOR_24KF, 33 },
-  { "34kx", PROCESSOR_24KX, 33 },
-  { "74kc", PROCESSOR_74KC, 33 },
-  { "74kf", PROCESSOR_74KF, 33 },
-  { "74kx", PROCESSOR_74KX, 33 },
+  { "24kef2_1", PROCESSOR_24KF2_1, 33 },
+  { "24kef", PROCESSOR_24KF2_1, 33 },
+  { "24kef1_1", PROCESSOR_24KF1_1, 33 },
+  { "24kefx", PROCESSOR_24KF1_1, 33 },
+  { "24kex", PROCESSOR_24KF1_1, 33 },
+
+  { "34kc", PROCESSOR_24KC, 33 }, /* 34K with MT/DSP */
+  { "34kf2_1", PROCESSOR_24KF2_1, 33 },
+  { "34kf", PROCESSOR_24KF2_1, 33 },
+  { "34kf1_1", PROCESSOR_24KF1_1, 33 },
+  { "34kfx", PROCESSOR_24KF1_1, 33 },
+  { "34kx", PROCESSOR_24KF1_1, 33 },
+
+  { "74kc", PROCESSOR_74KC, 33 }, /* 74K with DSPr2 */
+  { "74kf2_1", PROCESSOR_74KF2_1, 33 },
+  { "74kf", PROCESSOR_74KF2_1, 33 },
+  { "74kf1_1", PROCESSOR_74KF1_1, 33 },
+  { "74kfx", PROCESSOR_74KF1_1, 33 },
+  { "74kx", PROCESSOR_74KF1_1, 33 },
+  { "74kf3_2", PROCESSOR_74KF3_2, 33 },
 
   /* MIPS64 */
   { "5kc", PROCESSOR_5KC, 64 },
@@ -901,7 +919,7 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
                        1,           /* branch_cost */
                        4            /* memory_latency */
     },
-    { /* 24KF */
+    { /* 24KF2_1 */
       COSTS_N_INSNS (8),            /* fp_add */
       COSTS_N_INSNS (8),            /* fp_mult_sf */
       COSTS_N_INSNS (10),           /* fp_mult_df */
@@ -914,7 +932,7 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
                        1,           /* branch_cost */
                        4            /* memory_latency */
     },
-    { /* 24KX */
+    { /* 24KF1_1 */
       COSTS_N_INSNS (4),            /* fp_add */
       COSTS_N_INSNS (4),            /* fp_mult_sf */
       COSTS_N_INSNS (5),            /* fp_mult_df */
@@ -936,7 +954,7 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
                        1,           /* branch_cost */
                        4            /* memory_latency */
     },
-    { /* 74KF */
+    { /* 74KF2_1 */
       COSTS_N_INSNS (8),            /* fp_add */
       COSTS_N_INSNS (8),            /* fp_mult_sf */
       COSTS_N_INSNS (10),           /* fp_mult_df */
@@ -949,12 +967,25 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
                        1,           /* branch_cost */
                        4            /* memory_latency */
     },
-    { /* 74KX */
+    { /* 74KF1_1 */
       COSTS_N_INSNS (4),            /* fp_add */
       COSTS_N_INSNS (4),            /* fp_mult_sf */
       COSTS_N_INSNS (5),            /* fp_mult_df */
       COSTS_N_INSNS (17),           /* fp_div_sf */
       COSTS_N_INSNS (32),           /* fp_div_df */
+      COSTS_N_INSNS (5),            /* int_mult_si */
+      COSTS_N_INSNS (5),            /* int_mult_di */
+      COSTS_N_INSNS (41),           /* int_div_si */
+      COSTS_N_INSNS (41),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* 74KF3_2 */
+      COSTS_N_INSNS (6),            /* fp_add */
+      COSTS_N_INSNS (6),            /* fp_mult_sf */
+      COSTS_N_INSNS (7),            /* fp_mult_df */
+      COSTS_N_INSNS (25),           /* fp_div_sf */
+      COSTS_N_INSNS (48),           /* fp_div_df */
       COSTS_N_INSNS (5),            /* int_mult_si */
       COSTS_N_INSNS (5),            /* int_mult_di */
       COSTS_N_INSNS (41),           /* int_div_si */
@@ -1295,6 +1326,11 @@ static const unsigned char mips16e_save_restore_regs[] = {
 
 #undef  TARGET_COMP_TYPE_ATTRIBUTES
 #define TARGET_COMP_TYPE_ATTRIBUTES mips_comp_type_attributes
+
+#ifdef HAVE_AS_DTPRELWORD
+#undef TARGET_ASM_OUTPUT_DWARF_DTPREL
+#define TARGET_ASM_OUTPUT_DWARF_DTPREL mips_output_dwarf_dtprel
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -10780,8 +10816,15 @@ mips_issue_rate (void)
   switch (mips_tune)
     {
     case PROCESSOR_74KC:
-    case PROCESSOR_74KF:
-    case PROCESSOR_74KX:
+    case PROCESSOR_74KF2_1:
+    case PROCESSOR_74KF1_1:
+    case PROCESSOR_74KF3_2:
+      /* The 74k is not strictly quad-issue cpu, but can be seen as one
+	 by the scheduler.  It can issue 1 ALU, 1 AGEN and 2 FPU insns,
+	 but in reality only a maximum of 3 insns can be issued as the
+	 floating point load/stores also require a slot in the AGEN pipe.  */
+     return 4;
+
     case PROCESSOR_R4130:
     case PROCESSOR_R5400:
     case PROCESSOR_R5500:
@@ -11780,6 +11823,28 @@ mips_mode_rep_extended (enum machine_mode mode, enum machine_mode mode_rep)
     return SIGN_EXTEND;
 
   return UNKNOWN;
+}
+
+/* MIPS implementation of TARGET_ASM_OUTPUT_DWARF_DTPREL.  */
+
+static void
+mips_output_dwarf_dtprel (FILE *file, int size, rtx x)
+{
+  switch (size)
+    {
+    case 4:
+      fputs ("\t.dtprelword\t", file);
+      break;
+
+    case 8:
+      fputs ("\t.dtpreldword\t", file);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+  output_addr_const (file, x);
+  fputs ("+0x8000", file);
 }
 
 #include "gt-mips.h"
