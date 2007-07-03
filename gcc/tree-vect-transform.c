@@ -1870,7 +1870,8 @@ vect_get_slp_defs (slp_tree slp_node, VEC (tree,heap) **vec_oprnds0,
     vect_get_slp_vect_defs (SLP_TREE_LEFT (slp_node), vec_oprnds0);
   else
     /* Build vectors from scalar defs.  */
-    return vect_get_constant_vectors (slp_node, vec_oprnds0, 0);
+    if (!vect_get_constant_vectors (slp_node, vec_oprnds0, 0))
+      return false;
 
   first_stmt = VEC_index (tree, SLP_TREE_SCALAR_STMTS (slp_node), 0);
   if (STMT_VINFO_DATA_REF (vinfo_for_stmt (first_stmt)))
@@ -3636,7 +3637,7 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
       if (!VECTOR_MODE_P (vec_mode))
 	return false;
 
-      /* FORNOW: SLP not supported.  */
+      /* FORNOW: SLP not supported.  */ 
       if (STMT_VINFO_SLP_TYPE (stmt_info))
 	return false;
 

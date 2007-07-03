@@ -1,3 +1,8 @@
+2007-07-03  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vect-transform.c (vect_get_slp_defs): Don't return after getting
+	left node defs.
+
 2007-06-28  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-vectorizer.h: Move declaration of vect_free_slp_tree under the
