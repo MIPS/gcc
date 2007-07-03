@@ -1,3 +1,8 @@
+2007-07-03  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-transform.c (vect_model_reduction_cost): Fix epilogue 
+	cost computation.
+
 2007-07-03  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-vect-transform.c (vect_get_slp_defs): Don't return after getting

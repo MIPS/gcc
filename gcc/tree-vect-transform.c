@@ -424,8 +424,9 @@ vect_model_reduction_cost (stmt_vec_info stmt_info, enum tree_code reduc_code,
 	  optab = optab_for_tree_code (code, vectype);
 
 	  /* We have a whole vector shift available.  */
-	  if (!VECTOR_MODE_P (mode) 
-	      || optab->handlers[mode].insn_code == CODE_FOR_nothing)
+	  if (VECTOR_MODE_P (mode) 
+	      && optab->handlers[mode].insn_code != CODE_FOR_nothing
+	      && vec_shr_optab->handlers[mode].insn_code != CODE_FOR_nothing)
 	    /* Final reduction via vector shifts and the reduction operator. Also
 	       requires scalar extract.  */
 	    outer_cost += ((exact_log2(nelements) * 2) * TARG_VEC_STMT_COST

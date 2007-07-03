@@ -1,3 +1,8 @@
+2007-07-03  Dorit Nuzman <dorit@il.ibm.com>
+
+	* gcc.dg/vect/costmodel/ppc/costmodel-vect-reduc-1char.c: Loops now
+	get vectorized.
+
 2007-06-28  Ira Rosen  <irar@il.ibm.com>
 
 	* gcc.dg/vect/slp-24.c: Remove irrelevant loops.
