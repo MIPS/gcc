@@ -1,3 +1,22 @@
+2007-07-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/31966
+	PR tree-optimization/32533
+	* gcc.dg/tree-ssa/pr31966.c: New runtime test.
+	* gfortran.dg/pr32533.f90: Ditto.
+
+2007-07-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/c99-math.h: Fix typo.
+
+2007-06-30  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/ext/interface4.C, g++.dg/ext/interface4.h: New.
+
+2007-06-28  Seongbae Park  <seongbae.park@gmail.com>
+
+	* gcc.target/arm/stack-corruption.c: New test.
+
 2006-12-13  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/debug/vartrack1.C: New test.
