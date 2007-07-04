@@ -1,3 +1,7 @@
+2007-01-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* ld-symbolic.m4: New.
+
 2007-06-20  Mike Stump  <mrs@apple.com>
 
 	* acx.m4 (NCN_STRICT_CHECK_TARGET_TOOLS): Fix incremental builds.

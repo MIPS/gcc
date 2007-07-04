@@ -1,5 +1,5 @@
 /* VMManagementFactory.java - VM interface for obtaining system beans.
-   Copyright (C) 2006 Free Software Foundation
+   Copyright (C) 2006, 2007 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -56,7 +56,8 @@ final class VMManagementFactory
    */
   static String[] getMemoryPoolNames()
   {
-    return new String[0];
+    String[] result = {"Heap"};
+    return result;
   }
 
   /**
@@ -68,7 +69,8 @@ final class VMManagementFactory
    */
   static String[] getMemoryManagerNames()
   {
-    return new String[0];
+    String[] result = {};
+    return result;
   }
 
   /**
@@ -79,6 +81,7 @@ final class VMManagementFactory
    */
   static String[] getGarbageCollectorNames()
   {
-    return new String[0];
+    String[] result = {"BoehmGC"};
+    return result;
   }
 }

@@ -69,7 +69,7 @@ public class StandardMBean
   /**
    * The interface for this bean.
    */
-  private Class iface;
+  private Class<?> iface;
 
   /**
    * The implementation of the interface.
@@ -94,7 +94,7 @@ public class StandardMBean
    *                                    in the interface that doesn't comply
    *                                    with the naming conventions.
    */
-  protected StandardMBean(Class iface)
+  protected StandardMBean(Class<?> iface)
     throws NotCompliantMBeanException
   {
     if (iface == null)
@@ -107,8 +107,9 @@ public class StandardMBean
 	catch (ClassNotFoundException e)
 	  {
 	    throw (NotCompliantMBeanException) 
-	      (new NotCompliantMBeanException("An interface for the class " +
-					      className + " was not found.").initCause(e));
+	      (new NotCompliantMBeanException("An interface, " + className +
+					      "MBean, for the class " + className +
+					      " was not found.").initCause(e));
 	  }
       }
     if (!(iface.isInstance(this)))
@@ -132,7 +133,7 @@ public class StandardMBean
    *                                    in the interface that doesn't comply
    *                                    with the naming conventions.
    */
-  public StandardMBean(Object impl, Class iface)
+  public <T> StandardMBean(T impl, Class<T> iface)
     throws NotCompliantMBeanException
   {
     if (impl == null)
@@ -142,20 +143,23 @@ public class StandardMBean
 	String className = impl.getClass().getName();
 	try
 	  {
-	    iface = Class.forName(className + "MBean");
+	    this.iface = Class.forName(className + "MBean", true,
+				       impl.getClass().getClassLoader());
 	  }
 	catch (ClassNotFoundException e)
 	  {
 	    throw (NotCompliantMBeanException) 
-	      (new NotCompliantMBeanException("An interface for the class " +
-					      className + " was not found.").initCause(e));
+	      (new NotCompliantMBeanException("An interface, " + className +
+					      "MBean, for the class " + className +
+					      " was not found.").initCause(e));
 	  }
       }
-    if (!(iface.isInstance(impl)))
+    else
+      this.iface = iface;
+    if (!(this.iface.isInstance(impl)))
       throw new NotCompliantMBeanException("The instance, " + impl + 
 					   ", is not an instance of " + iface);
     this.impl = impl;
-    this.iface = iface;
   }
 
   /**
@@ -205,17 +209,13 @@ public class StandardMBean
     Method getter;
     try 
       {
-	getter = iface.getMethod("get" +
-				 name.substring(0, 1).toUpperCase() +
-				 name.substring(1), null);
+	getter = iface.getMethod("get" + name, null);
       }
     catch (NoSuchMethodException e)
       {
 	try 
 	  {
-	    getter = iface.getMethod("is" +
-				     name.substring(0, 1).toUpperCase() +
-				     name.substring(1), null);
+	    getter = iface.getMethod("is" + name, null);
 	  }
 	catch (NoSuchMethodException ex)
 	  {
@@ -494,7 +494,7 @@ public class StandardMBean
    *
    * @return the implementation class.
    */
-  public Class getImplementationClass()
+  public Class<?> getImplementationClass()
   {
     return impl.getClass();
   }
@@ -564,11 +564,9 @@ public class StandardMBean
 	    Method[] amethods;
 	    String attrib;
 	    if (name.startsWith("is"))
-	      attrib = name.substring(2,3).toLowerCase()
-		+ name.substring(3);
+	      attrib = name.substring(2);
 	    else
-	      attrib = name.substring(3,4).toLowerCase()
-		+ name.substring(4);
+	      attrib = name.substring(3);
 	    if (attributes.containsKey(attrib))
 	      amethods = (Method[]) attributes.get(attrib);
 	    else
@@ -583,8 +581,7 @@ public class StandardMBean
 		 methods[a].getParameterTypes().length == 1)
 	  {
 	    Method[] amethods;
-	    String attrib = name.substring(3,4).toLowerCase()
-	      + name.substring(4);
+	    String attrib = name.substring(3);
 	    if (attributes.containsKey(attrib))
 	      amethods = (Method[]) attributes.get(attrib);
 	    else
@@ -595,7 +592,8 @@ public class StandardMBean
 	    amethods[1] = methods[a];
 	  }
 	else
-	  operations.add(new MBeanOperationInfo("", methods[a]));
+	  operations.add(new MBeanOperationInfo(methods[a].getName(),
+						methods[a]));
       }
     List attribs = new ArrayList(attributes.size());
     Iterator it = attributes.entrySet().iterator();
@@ -605,7 +603,8 @@ public class StandardMBean
 	Method[] amethods = (Method[]) entry.getValue();
 	try
 	  {
-	    attribs.add(new MBeanAttributeInfo((String) entry.getKey(), "",
+	    attribs.add(new MBeanAttributeInfo((String) entry.getKey(),
+					       (String) entry.getKey(),
 					       amethods[0], amethods[1]));
 	  }
 	catch (IntrospectionException e)
@@ -632,7 +631,8 @@ public class StandardMBean
     MBeanConstructorInfo[] cinfo = new MBeanConstructorInfo[cons.length];
     for (int a = 0; a < cinfo.length; ++a)
       {
-	MBeanConstructorInfo oldInfo = new MBeanConstructorInfo("", cons[a]);
+	MBeanConstructorInfo oldInfo = new MBeanConstructorInfo(cons[a].getName(),
+								cons[a]);
 	String desc = getDescription(oldInfo);
 	MBeanParameterInfo[] params = oldInfo.getSignature();
 	MBeanParameterInfo[] pinfo = new MBeanParameterInfo[params.length];
@@ -665,11 +665,14 @@ public class StandardMBean
 	oinfo[a] = new MBeanOperationInfo(oldInfo.getName(), desc, pinfo,
 					  oldInfo.getReturnType(), impact);
       }
-    info = new MBeanInfo(impl.getClass().getName(), "", ainfo, cinfo,
-			 oinfo, null);
+    info = new MBeanInfo(impl.getClass().getName(), impl.getClass().getName(),
+			 ainfo, cinfo, oinfo, null);
     String cname = getClassName(info);
     String desc = getDescription(info);
-    info = new MBeanInfo(cname, desc, ainfo, cinfo, oinfo, null);
+    MBeanNotificationInfo[] ninfo = null;
+    if (impl instanceof NotificationBroadcaster)
+      ninfo = ((NotificationBroadcaster) impl).getNotificationInfo();
+    info = new MBeanInfo(cname, desc, ainfo, cinfo, oinfo, ninfo);
     cacheMBeanInfo(info);
     return info;
   }
@@ -679,7 +682,7 @@ public class StandardMBean
    *
    * @return the management interface.
    */
-  public Class getMBeanInterface()
+  public final Class<?> getMBeanInterface()
   {
     return iface;
   }

@@ -1,6 +1,6 @@
 // jni.cc - JNI implementation, including the jump table.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation
 
    This file is part of libgcj.
@@ -555,6 +555,7 @@ _Jv_JNI_FindClass (JNIEnv *env, const char *name)
 	}
 
       r = loader->loadClass (n);
+      _Jv_InitClass (r);
     }
   catch (jthrowable t)
     {
@@ -750,7 +751,8 @@ _Jv_JNI_GetAnyMethodID (JNIEnv *env, jclass clazz,
 
       java::lang::StringBuffer *name_sig =
         new java::lang::StringBuffer (JvNewStringUTF (name));
-      name_sig->append ((jchar) ' ')->append (JvNewStringUTF (s));
+      name_sig->append ((jchar) ' ');
+      name_sig->append (JvNewStringUTF (s));
       env->ex = new java::lang::NoSuchMethodError (name_sig->toString ());
     }
   catch (jthrowable t)
@@ -1749,6 +1751,10 @@ _Jv_JNI_NewWeakGlobalRef (JNIEnv *env, jobject obj)
 void JNICALL
 _Jv_JNI_DeleteWeakGlobalRef (JNIEnv *, jweak obj)
 {
+  // JDK compatibility.
+  if (obj == NULL)
+    return;
+
   using namespace gnu::gcj::runtime;
   JNIWeakRef *ref = reinterpret_cast<JNIWeakRef *> (obj);
   unmark_for_gc (ref, global_ref_table);
@@ -2338,6 +2344,10 @@ _Jv_JNIMethod::call (ffi_cif *, void *ret, ffi_raw *args, void *__this)
 
   // Copy over passed-in arguments.
   memcpy (&real_args[offset], args, _this->args_raw_size);
+  
+  // Add a frame to the composite (interpreted + JNI) call stack
+  java::lang::Thread *thread = java::lang::Thread::currentThread();
+  _Jv_NativeFrame nat_frame (_this, thread);
 
   // The actual call to the JNI function.
 #if FFI_NATIVE_RAW_API
