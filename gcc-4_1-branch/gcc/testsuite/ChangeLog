@@ -1,3 +1,11 @@
+2007-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/32468
+	* gcc.dg/gomp/pr32468-1.c: New test.
+
+	PR c++/31748
+	* g++.dg/gomp/pr31748.C: New test.
+
 2007-07-04  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR tree-optimization/31966
