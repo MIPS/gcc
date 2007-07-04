@@ -1,6 +1,6 @@
 // natClass.cc - Implementation of java.lang.Class native methods.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation
 
    This file is part of libgcj.
@@ -2079,3 +2079,21 @@ _Jv_GetMethodDeclaringClass (jmethodID method)
   return reinterpret_cast<jclass> (_Jv_StackTrace::ncodeMap->get (obj));
 }
 
+jbyte
+_Jv_GetClassState (jclass klass)
+{
+  return klass->state;
+}
+
+jstring
+_Jv_GetInterpClassSourceFile (jclass klass)
+{
+  if (_Jv_IsInterpretedClass (klass))
+    {
+      _Jv_InterpClass *iclass =
+	reinterpret_cast<_Jv_InterpClass *> (klass->aux_info);
+      return iclass->source_file_name;
+    }
+
+  return NULL;
+}

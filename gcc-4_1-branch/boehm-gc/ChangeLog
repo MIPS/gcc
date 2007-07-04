@@ -24,6 +24,14 @@
 	* pthread_support.c (GC_get_thread_stack_base): Handle
 	pthread_getattr_np failures.
 
+2007-05-18  Keith Seitz  <keiths@redhat.com>
+
+	Merged from trunk:
+
+	2007-04-23  Keith Seitz  <keiths@redhat.com>
+	* include/gc.h (GC_is_thread_suspended): Declare.
+	* pthread_stop_world.c (GC_is_thread_suspended): New function.
+
 2007-04-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* configure.ac (NO_EXECUTE_PERMISSION): Set by default.
