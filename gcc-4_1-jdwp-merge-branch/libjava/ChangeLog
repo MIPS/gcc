@@ -1,3 +1,8 @@
+2007-05-31  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_NewClassFromInitializer): Clear
+	INTERPRETED access modifier.
+
 2007-05-18  Keith Seitz  <keiths@redhat.com>
 
 	Merged from trunk:
@@ -267,7 +272,7 @@
 	(jdwpThreadEndCB): Likewise.
 	(jdwpThreadStartCB): Likewise.
 	(jdwpVMInitCB): Likewise.
- 
+
 	2007-01-27  Keith Seitz  <keiths@redhat.com>
 	* gnu/classpath/jdwp/natVMVirtualMachine.cc
 	(getAllClassMethods): Move error handling to ...

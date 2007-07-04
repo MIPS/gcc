@@ -1,3 +1,22 @@
+2007-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/32362
+	* testsuite/libgomp.c/pr32362-1.c: New test.
+	* testsuite/libgomp.c/pr32362-2.c: New test.
+	* testsuite/libgomp.c/pr32362-3.c: New test.
+
+2007-06-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* team.c (gomp_team_start): Fix setting up thread_attr
+	stack size.
+
+2007-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/linux/proc.c: New file.
+
+	PR libgomp/28482
+	* configure.tgt: Don't link with -Wl,-z,nodlopen even on Linux.
+
 2007-04-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.h (gomp_cpu_affinity, gomp_cpu_affinity_len): New extern
