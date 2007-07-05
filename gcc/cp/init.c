@@ -1705,9 +1705,6 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
 	}
     }
 
-  if (!complete_type_or_else (type, NULL_TREE))
-    return error_mark_node;
-
   /* If our base type is an array, then make sure we know how many elements
      it has.  */
   for (elt_type = type;
@@ -2209,6 +2206,12 @@ build_new (tree placement, tree type, tree nelts, tree init,
       error ("new cannot be applied to a function type");
       return error_mark_node;
     }
+
+  /* The type allocated must be complete.  If the new-type-id was
+     "T[N]" then we are just checking that "T" is complete here, but
+     that is equivalent, since the value of "N" doesn't matter.  */
+  if (!complete_type_or_else (type, NULL_TREE))
+    return error_mark_node;
 
   rval = build_new_1 (placement, type, nelts, init, use_global_new);
   if (rval == error_mark_node)

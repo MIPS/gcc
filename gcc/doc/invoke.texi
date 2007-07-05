@@ -1106,7 +1106,8 @@ have no documentation associated with them will also be displayed.
 @item --target-help
 @opindex target-help
 Print (on the standard output) a description of target-specific command
-line options for each tool.
+line options for each tool.  For some targets extra target-specific
+information may also be printed.
 
 @item --help=@var{class}@r{[},@var{qualifier}@r{]}
 Print (on the standard output) a description of the command line
@@ -4270,7 +4271,9 @@ Says to make debugging dumps during compilation at times specified by
 compiler.  The file names for most of the dumps are made by appending a
 pass number and a word to the @var{dumpname}.  @var{dumpname} is generated
 from the name of the output file, if explicitly specified and it is not
-an executable, otherwise it is the basename of the source file.
+an executable, otherwise it is the basename of the source file. These
+switches may have different effects when @option{-E} is used for
+preprocessing.
 
 Most debug dumps can be enabled either passing a letter to the @option{-d}
 option, or with a long @option{-fdump-rtl} switch; here are the possible
@@ -4407,7 +4410,7 @@ Dump after modulo scheduling, to @file{@var{file}.136r.sms}.
 @opindex dM
 @opindex fdump-rtl-mach
 Dump after performing the machine dependent reorganization pass, to
-@file{@var{file}.155r.mach}.
+@file{@var{file}.155r.mach} if that pass exists.
 
 @item -dn
 @itemx -fdump-rtl-rnreg

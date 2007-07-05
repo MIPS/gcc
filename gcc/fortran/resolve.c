@@ -594,6 +594,56 @@ resolve_entries (gfc_namespace *ns)
 }
 
 
+/* Resolve common blocks.  */
+static void
+resolve_common_blocks (gfc_symtree *common_root)
+{
+   gfc_symtree *symtree;
+   gfc_symbol *sym;
+
+   if (common_root == NULL)
+     return;
+
+   for (symtree = common_root; symtree->left; symtree = symtree->left);
+
+   for (; symtree; symtree = symtree->right)
+     {
+	gfc_find_symbol (symtree->name, gfc_current_ns, 0, &sym);
+	if (sym == NULL)
+	  continue;
+
+	if (sym->attr.flavor == FL_PARAMETER)
+	  {
+	    gfc_error ("COMMON block '%s' at %L is used as PARAMETER at %L",
+		       sym->name, &symtree->n.common->where,
+		       &sym->declared_at);
+	  }
+
+	if (sym->attr.intrinsic)
+	  {
+	    gfc_error ("COMMON block '%s' at %L is also an intrinsic "
+		       "procedure", sym->name,
+		       &symtree->n.common->where);
+	  }
+	else if (sym->attr.result
+		 ||(sym->attr.function && gfc_current_ns->proc_name == sym))
+	  {
+	    gfc_notify_std (GFC_STD_F2003, "Fortran 2003: COMMON block '%s' "
+			    "at %L that is also a function result", sym->name,
+			    &symtree->n.common->where);
+	  }
+	else if (sym->attr.flavor == FL_PROCEDURE
+		&& sym->attr.proc != PROC_INTERNAL
+		&& sym->attr.proc != PROC_ST_FUNCTION)
+	  {
+	    gfc_notify_std (GFC_STD_F2003, "Fortran 2003: COMMON block '%s' "
+			    "at %L that is also a global procedure", sym->name,
+			    &symtree->n.common->where);
+	  }
+     }
+}
+
+
 /* Resolve contained function types.  Because contained functions can call one
    another, they have to be worked out before any of the contained procedures
    can be resolved.
@@ -7422,7 +7472,9 @@ check_data_variable (gfc_data_variable *var, locus *where)
 	  values.left -= 1;
 	  mpz_sub_ui (size, size, 1);
 
-	  gfc_assign_data_value (var->expr, values.vnode->expr, offset);
+	  t = gfc_assign_data_value (var->expr, values.vnode->expr, offset);
+	  if (t == FAILURE)
+	    break;
 
 	  if (mark == AR_FULL)
 	    mpz_add_ui (offset, offset, 1);
@@ -8196,6 +8248,8 @@ resolve_types (gfc_namespace *ns)
   gfc_current_ns = ns;
 
   resolve_entries (ns);
+
+  resolve_common_blocks (ns->common_root);
 
   resolve_contained_functions (ns);
 

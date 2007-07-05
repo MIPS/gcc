@@ -1,3 +1,81 @@
+2007-07-04  Daniel Berlin  <dberlin@dberlin.org>
+
+	* gcc.c-torture/compile/pr32606.c: New.
+	* gfortran.fortran-torture/execute/pr32604.f90: New.
+
+2007-07-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/visibility-12.c: New test.
+	* gcc.dg/visibility-13.c: Likewise.
+	* g++.dg/ext/visibility-9.C: Likewise.
+	* g++.dg/ext/visibility-10.C: Likewise.
+
+2007-07-04  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.dg/sh-relax.c: Skip for VxWorks if non-PIC.
+	* gcc.dg/sh-relax-vxworks.c: New test.
+
+2007-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/32500
+	* gcc.c-torture/execute/pr32500.c: New testcase.
+
+2007-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/32482
+	* gcc.c-torture/compile/pr32482.c: New testcase.
+
+2007-07-04  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.c-torture/execute/ieee/compare-fp-4.x: Add an XFAIL for ARM
+	VxWorks kernels.
+	* gcc.c-torture/execute/ieee/fp-cmp-1.x: Likewise.
+	* gcc.c-torture/execute/ieee/fp-cmp-2.x: Likewise.
+	* gcc.c-torture/execute/ieee/fp-cmp-3.x: Likewise.
+	* gcc.c-torture/execute/ieee/fp-cmp-6.x: Likewise.
+
+2007-07-04  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.dg/cpp/trad/include.c: Skip for VxWorks kernels.
+
+2007-07-04  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.dg/sh4a-fprun.c: Skip for VxWorks kernels.
+
+2007-07-04  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31198
+	* gfortran.dg/min_max_optional_1.f90: New test.
+	* gfortran.dg/min_max_optional_2.f90: New test.
+	* gfortran.dg/min_max_optional_3.f90: New test.
+
+2007-07-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/32545
+	* gfortran.dg/fmt_error.f90: New test.
+
+2007-07-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/32612
+	* gfortran.dg/interface_13.f90: New test.
+
+2007-07-03  Dave Brolley  <brolley@redhat.com>
+
+	PR c++/31743
+	* g++.dg/init/new20.C: New test.
+
+2007-07-03  Christopher D. Rickett  <crickett@lanl.gov>
+
+	PR fortran/32579
+	* gfortran.dg/iso_c_binding_only.f03: Updated test case.
+
+2007-07-03  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/25062
+	* common_7.f90: New.
+	* common_8.f90: New.
+	* common_9.f90: New.
+
 2007-07-03  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/30940
@@ -395,13 +473,6 @@
 
 	PR fortran/32298
 	* gfortran.dg/minmaxloc_2.f90: New test.
-
-2007-06-23  Mark Mitchell  <mark@codesourcery.com>
-
-	* gcc.dg/visibility-12.c: New test.
-	* gcc.dg/visibility-13.c: Likewise.
-	* g++.dg/ext/visibility-9.C: Likewise.
-	* g++.dg/ext/visibility-10.C: Likewise.
 
 2007-06-23  Richard Guenther  <rguenther@suse.de>
 

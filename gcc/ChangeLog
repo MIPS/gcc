@@ -1,3 +1,186 @@
+2007-07-04  Daniel Berlin  <dberlin@dberlin.org>
+
+	PR tree-optimization/32604
+	PR tree-optimization/32606
+	
+	* tree-ssa-pre.c (bb_bitmap_sets): Removed antic_safe_loads.
+	(compute_antic_safe): Removed.
+	(ANTIC_SAFE_LOADS): Ditto.
+	(compute_antic_aux): Don't print ANTIC_SAFE_LOADS.
+	(execute_pre): Don't call compute_antic_safe.
+	(vuse_equiv): New function.
+	(make_values_for_stmt): Use it
+	* tree-ssa-sccvn.c (set_ssa_val_to): Remove assert, since it is
+	not always true.
+
+2007-07-04 Anatoly Sokolov <aesok@post.ru>
+
+	PR target/31331
+	* config/avr/avr.c (avr_naked_function_p): Handle receiving a type
+	rather than a decl. 
+	(avr_attribute_table): Make "naked" attribute apply to function types
+	rather than to decls.
+	(avr_handle_fntype_attribute): New function.
+
+2007-07-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* target-def.h (TARGET_INITIALIZER): Remove trailing whitespace
+	after \.
+
+2007-07-04  David Ung  <davidu@mips.com>
+            Joseph Myers  <joseph@codesourcery.com>
+
+	* config/mips/mips.md (type): Add logical, signext and move.
+	(one_cmpl<mode>2, *and<mode>3, *and<mode>3_mips16, *ior<mode>3,
+	*ior<mode>3_mips16, two unnamed insns after *ior<mode>3_mips16,
+	*nor<mode>3, "Combiner patterns to optimize truncate/zero_extend
+	combinations", *zero_extend<SHORT:mode><GPR:mode>2,
+	*zero_extendqihi2, *extend<SHORT:mode><GPR:mode>2_mips16e,
+	*extend<SHORT:mode><GPR:mode>2_se<SHORT:size>, *movdi_64bit,
+	*movdi_64bit_mips16, *movsi_internal, *movsi_mips16, movcc,
+	*movhi_internal, *movhi_mips16, *movqi_internal, *movqi_mips16,
+	*movsf_hardfloat, *movsf_softfloat, *movsf_mips16,
+	*movdf_hardfloat_64bit, *movdf_hardfloat_32bit,
+	movv2sf_hardfloat_64bit): Use the new types.
+	(*movdi_32bit, *movdi_gp32_fp64, *movdi_32bit_mips16,
+	*movdf_softfloat, *movdf_mips16): Use "multi".
+	(extendqihi2): Replace with a define_expand.
+	(*extendqihi2_mips16e, *extendqihi2, *extendqihi2_seb): New.
+	Based on extend<SHORT:mode><GPR:mode>2 patterns.
+	* config/mips/74k.md (r74k_int_logical): New reservation and
+	bypasses.
+	(r74k_int_arith): Remove "slt".
+	* config/mips/24k.md, config/mips/4130.md, config/mips/4k.md,
+	config/mips/5400.md, config/mips/5500.md, config/mips/5k.md,
+	config/mips/7000.md, config/mips/9000.md, config/mips/generic.md,
+	config/mips/sb1.md, config/mips/sr71k.md: Add new types to
+	reservations for "arith".
+
+2007-07-04  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa.c (useless_type_conversion_p): Add handling for
+	scalar float and vector types.  Only call the types_compatible_p
+	langhook for aggregate types as last resort.  Follow the
+	rules.
+
+2007-07-04  Richard Guenther  <rguenther@suse.de>
+
+	* tree-inline.c (estimate_num_insns_1): Treat CONVERT_EXPR
+	the same as NOP_EXPR.
+
+2007-07-04  Nick Clifton  <nickc@redhat.com>
+
+	* target.h (struct gcc_target): Add target_help field.
+	* target-def.h (TARGET_HELP): New.
+	(TARGET_INITIALIZER): Use TARGET_HELP.
+	* opts.c (command_handle_option): Invoke target_help function, if
+	defined, when the user has specified --target-help on the command
+	line.
+	* doc/invoke.texi: Mention that --target-help might print
+	additional information.
+	* doc/tm.texi: Document TARGET_HELP hook.
+
+	* arm.c (TARGET_HELP): Override default definition.
+	(arm_target_help): New - display a wrapped list of cores and
+	architectures supported.
+
+2007-07-04  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	* config/gcc/v850/v850.c (expand_prologue): Make sure
+	GEN_INT() argument is sign extended rather than zero extended.
+	(expand_epilogue): Likewise.
+	(output_move_double): Delete.
+	* config/gcc/v850/v850-protos.h (output_move_double): Delete.
+	* config/gcc/v850/v850.md (movdi): Delete.
+	(*movdi_internal): Delete.
+	(movdf): Delete.
+	(*movdf_internal): Delete.
+
+2007-07-04  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/sh/vxworks.h (SUBTARGET_OVERRIDE_OPTIONS): Reject -mrelax
+	unless compiling RTP PIC.
+
+2007-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/32482
+	* tree-ssa-ifcombine.c (recognize_single_bit_test): Use the
+	original ssa name if we didn't find a shift expression.
+	Fix shift constant for bit zero test.
+
+2007-07-04  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/sh/lib1funcs.asm (ic_invalidate): Align constant pool.
+
+2007-07-04  Richard Sandiford  <richard@codesourcery.com>
+
+	* config.gcc (arm-wrs-vxworks): Don't include svr4.h.
+	* config/vxworks.h (PTRDIFF_TYPE, SIZE_TYPE, TARGET_POSIX_IO): Define.
+	* config/arm/vxworks.h (ASM_SPEC): Delete.
+	(SUBTARGET_EXTRA_ASM_SPEC): Define.
+
+2007-07-04  Sebastian Pop  <sebpop@gmail.com>
+
+	* tree-data-ref.h (data_dependence_relation): New flag reversed_p.
+	(DDR_REVERSED_P): New.
+	* tree-data-ref.c (initialize_data_dependence_relation,
+	build_classic_dist_vector): Set DDR_REVERSED_P.
+
+2007-07-04  Sebastian Pop  <sebpop@gmail.com>
+
+	PR middle-end/32457
+	* tree-data-ref.c (analyze_siv_subscript_cst_affine,
+	compute_overlap_steps_for_affine_1_2, analyze_subscript_affine_affine,
+	init_omega_for_ddr_1): Use non conservative number of iterations
+	estimations.
+	(analyze_subscript_affine_affine): Use HOST_WIDE_INT instead of int.
+	(analyze_siv_subscript): Remove FIXME and reinitialization of 
+	last_conflicts to chrec_dont_know.
+	* testsuite/gfortran.dg/vect/pr32457.f90: New.
+
+2007-07-04  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* tree.c (maybe_canonicalize_argtypes): Improve description.
+
+2007-07-04  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* tree.c (maybe_canonicalize_argtypes): New.
+	(build_function_type): Set canonical type.
+	(build_method_type_directly): Ditto.
+	(reconstruct_complex_type): Rebuild the METHOD_TYPE node
+	properly.
+
+2007-07-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* tree-ssa-loop-ivopts.c (strip_offset_1): Treat POINTER_PLUS_EXPR
+	like PLUS_EXPR.
+	(rewrite_use_nonlinear_expr): Likewise.
+
+2007-07-03  Seongbae Park  <seongbae.park@gmail.com>
+
+	* rtl.def (UNSPEC, USE, CLOBBER): More comments.
+
+2007-07-04  Ben Elliston  <bje@au.ibm.com>
+
+	* dwarf2out.c: Move DWARF2 abbreviation glossary closer to the top
+	of this file.
+
+	* c-objc-common.c (c_types_compatible_p): Fix indentation.
+
+	* doc/tm.texi (Run-time Target): Capitalise "CPU".
+	(Exception Handling): Likewise.
+
+2007-07-03  Jan Hubicka  <jh@suse.cz>
+
+	* ifcvt.c (find_cond_trap): Avoid invalid RTL sharing.
+
+2007-07-03  Eric Christopher  <echristo@apple.com>
+
+	* doc/cppopts.texi: Add conflicting option note to -dM.
+	* doc/invoke.texi: Add note about possible conflicts with
+	-E for -dCHARS and note that -dM will not produce
+	any results if there is no machine dependent reorg.
+	
 2007-07-03  Geoffrey Keating  <geoffk@apple.com>
 
 	* tree.h (DECL_ALIGN): Back out previous change.

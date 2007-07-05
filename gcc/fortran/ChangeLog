@@ -1,3 +1,44 @@
+2007-07-04  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31198
+	* trans-intrinsic.c (trans-intrinsic.c): Handle optional
+	arguments correctly for MIN and MAX intrinsics.
+
+2007-07-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/32545
+	* io.c (check_format): Always call gfc_error for errors.
+	(check_format_string): Change type of this function to try and
+	return the result of check_format.
+	(check_io_constraints): Return MATCH_ERROR if check_format_string
+	returns FAILURE.
+
+2007-07-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/32612
+	* decl.c (get_proc_name): Include attr->mod_proc in check for error.
+
+2007-07-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/32432
+	* gfortran.h: Change type of gfc_assign_data_value from void to try.
+	* data.c (gfc_assign_data_value): Return FAILURE if error found.
+	* resolve.c (check_data_variable): If gfc_assign_data_value returns
+	failure, break out of loop and return failure.
+
+2007-07-03  Christopher D. Rickett  <crickett@lanl.gov>
+
+	PR fortran/32579
+	* symbol.c (gen_cptr_param): Generate C_PTR and C_FUNPTR if necessary.
+	(build_formal_args): Pass intrinsic module symbol id to
+	gen_cptr_param.
+
+2007-07-03  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/25062
+	* resolve.c (resolve_common_blocks): New check function.
+	(resolve_types): Use it.
+
 2007-07-03  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/30940
