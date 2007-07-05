@@ -208,6 +208,7 @@ extern char *diagnostic_build_prefix (diagnostic_info *);
 extern char *file_name_as_prefix (const char *);
 
 /* In tree-pretty-print.c  */
+extern void print_declaration (pretty_printer *, tree, int, int);
 extern int dump_generic_node (pretty_printer *, tree, int, int, bool);
 extern void dump_gimple_stmt (pretty_printer *, gimple, int, int);
 extern void print_generic_stmt (FILE *, tree, int);

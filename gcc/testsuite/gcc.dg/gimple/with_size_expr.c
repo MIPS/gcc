@@ -12,3 +12,4 @@ void f(int a)
   d = c;
 }
 
+/* { dg-final { cleanup-tree-dump "gimple" } } */

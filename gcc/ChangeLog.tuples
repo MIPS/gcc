@@ -1,3 +1,28 @@
+2007-07-05  Aldy Hernandez  <aldyh@redhat.com> 
+
+	* testsuite/gcc.dg/gimple/with_size_expr.c: Clean up dump.
+	* testsuite/gcc.dg/gimple/gs_bind.c: Clean up dump.
+	* gimplify.c (struct gimplify_ctx): Make current_bind_expr a tuple.
+	(pop_gimplify_context): Accept gimple.
+	Comment out call to declare_vars.
+	(gimple_current_bind_expr): Return gimple.
+	(unshare_all_trees): Remove.
+	(gimplify_self_mod_expr): Remove comment.
+	(gimplify_cleanup_point_expr): Correct typo in call to gs_seq_init.
+	(gimplify_body): Remove body local.  
+	Build GS_BIND tuples when needed.
+	Do not call unshare_all_trees.
+	Call pop_gimplify_context with appropriate argument.
+	Comment out call to walk_tree.
+	* tree-pretty-print.c (print_declaration): Remove static.
+	* diagnostic.h (print_declaration): Prototype.
+	* tree-gimple.h (pop_gimplify_context): Accept gimple tuple.
+	(gimple_current_bind_expr): Return tuple.
+	* gimple-pretty-print.c (dump_gs_seq): New.
+	(dump_gs_bind): New.
+	(dump_gimple_stmt): Add case for GS_BIND.  Print semi-colons after
+	each statement.
+
 2007-06-29  Aldy Hernandez  <aldyh@redhat.com> 
 
 	* gimplify.c (gimple_push_condition): Enable.  Call gs_seq_init with

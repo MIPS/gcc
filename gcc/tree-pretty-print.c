@@ -42,7 +42,6 @@ static void pretty_print_string (pretty_printer *, const char*);
 static void print_call_name (pretty_printer *, tree);
 static void newline_and_indent (pretty_printer *, int);
 static void maybe_init_pretty_print (FILE *);
-static void print_declaration (pretty_printer *, tree, int, int);
 static void print_struct_decl (pretty_printer *, tree, int, int);
 static void do_niy (pretty_printer *, tree);
 static void dump_vops (pretty_printer *, tree, int, int);
@@ -2085,7 +2084,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
 /* Print the declaration of a variable.  */
 
-static void
+void
 print_declaration (pretty_printer *buffer, tree t, int spc, int flags)
 {
   INDENT (spc);

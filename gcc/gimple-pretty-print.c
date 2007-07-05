@@ -92,6 +92,23 @@ debug_gimple_seq (gs_seq seq)
     }
 }
 
+/* Dump a sequence to a BUFFER.  */
+
+static void
+dump_gs_seq (pretty_printer *buffer, gs_seq seq, int spc, int flags)
+{
+  gimple_stmt_iterator i;
+
+  for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
+    {
+      gimple gs = gsi_stmt (i);
+      pp_string (buffer, "gimpleir: ");
+      dump_gimple_stmt (buffer, gs, spc, flags);
+    }
+}
+
+/* Dump a sequence to a FILE *.  */
+
 void
 dump_gimple_seq (FILE *file, gs_seq seq)
 {
@@ -248,6 +265,34 @@ dump_gs_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
 }
 
 
+/* Dump a GS_BIND tuple.  */
+
+static void
+dump_gs_bind (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  pp_string (buffer, "GS_BIND tuple");
+  newline_and_indent (buffer, spc);
+
+  pp_character (buffer, '{');
+  newline_and_indent (buffer, spc + 2);
+  if (!(flags & TDF_SLIM))
+    {
+      tree var;
+
+      for (var = gs_bind_vars (gs); var; var = TREE_CHAIN (var))
+	{
+	  print_declaration (buffer, var, spc, flags);
+	  newline_and_indent (buffer, spc + 2);
+	}
+      newline_and_indent (buffer, spc + 2);
+    }
+
+  dump_gs_seq (buffer, gs_bind_body (gs), spc + 2, flags);
+  newline_and_indent (buffer, spc);
+  pp_character (buffer, '}');
+}
+
+
 /* Dump the gimple statement GS on the pretty_printer BUFFER, SPC
    spaces of indent.  FLAGS specifies details to show in the dump (see
    TDF_* in tree.h).  */
@@ -262,6 +307,10 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
     {
     case GS_ASSIGN:
       dump_gs_assign (buffer, gs, spc, flags);
+      break;
+
+    case GS_BIND:
+      dump_gs_bind (buffer, gs, spc, flags);
       break;
 
     case GS_RETURN:
@@ -290,5 +339,7 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       GS_NIY;
     }
 
+  pp_character (buffer, ';');
+  newline_and_indent (buffer, spc);
   pp_write_text_to_stream (buffer);
 }

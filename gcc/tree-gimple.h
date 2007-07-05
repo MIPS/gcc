@@ -119,12 +119,12 @@ extern bool gimplify_stmt (tree *, gs_seq);
 extern void gimplify_to_stmt_list (tree *);
 extern void gimplify_body (tree *, gs_seq, tree, bool);
 extern void push_gimplify_context (void);
-extern void pop_gimplify_context (tree);
+extern void pop_gimplify_context (gimple);
 extern void gimplify_and_add (tree, gs_seq);
 
 /* Miscellaneous helpers.  */
 extern void gimple_add_tmp_var (tree);
-extern tree gimple_current_bind_expr (void);
+extern gimple gimple_current_bind_expr (void);
 extern tree voidify_wrapper_expr (tree, tree);
 extern tree gimple_build_eh_filter (tree, tree, tree);
 extern tree build_and_jump (tree *);

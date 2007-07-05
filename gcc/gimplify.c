@@ -84,7 +84,7 @@ struct gimplify_ctx
 {
   struct gimplify_ctx *prev_context;
 
-  tree current_bind_expr;
+  gimple current_bind_expr;
   tree temps;
   struct gs_sequence conditional_cleanups;
   tree exit_label;
@@ -172,7 +172,7 @@ push_gimplify_context (void)
    in the unexpanded_var_list.  */
 
 void
-pop_gimplify_context (tree body)
+pop_gimplify_context (gimple body)
 {
   struct gimplify_ctx *c = gimplify_ctxp;
   tree t;
@@ -184,7 +184,11 @@ pop_gimplify_context (tree body)
     DECL_GIMPLE_FORMAL_TEMP_P (t) = 0;
 
   if (body)
+  /* FIXME tuples */
+    ;
+#if 0
     declare_vars (c->temps, body, false);
+#endif
   else
     record_vars (c->temps);
 
@@ -207,7 +211,7 @@ gimple_pop_bind_expr (void)
     = TREE_CHAIN (gimplify_ctxp->current_bind_expr);
 }
 
-tree
+gimple
 gimple_current_bind_expr (void)
 {
   return gimplify_ctxp->current_bind_expr;
@@ -909,18 +913,6 @@ unvisit_body (tree *body_p, tree fndecl)
     for (cgn = cgn->nested; cgn; cgn = cgn->next_nested)
       unvisit_body (&DECL_SAVED_TREE (cgn->decl), cgn->decl);
 }
-
-/* Unshare T and all the trees reached from T via TREE_CHAIN.  */
-
-#if 0
-/* FIXME tuples */
-static void
-unshare_all_trees (tree t)
-{
-  walk_tree (&t, copy_if_shared_r, NULL, NULL);
-  walk_tree (&t, unmark_visited_r, NULL, NULL);
-}
-#endif
 
 /* Unconditionally make an unshared copy of EXPR.  This is used when using
    stored expressions which span multiple functions, such as BINFO_VTABLE,
@@ -1986,12 +1978,6 @@ gimplify_self_mod_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
   if (postfix)
     {
       gimplify_and_add (t1, orig_post_p);
-
-      /* FIXME tuples: Why were we gimplifying here?  Shouldn't this be
-	 gimple already?  We should've append_to_statement_list_force() ??
-
-	 Hmmm... I hope ``post'' didn't contain ungimplified stuff.  */
-      /* gimplify_and_add (post, orig_post_p); */
       gs_seq_append (&post, orig_post_p);
 
       *expr_p = lhs;
@@ -4226,7 +4212,7 @@ gimplify_cleanup_point_expr (tree *expr_p, tree *pre_p)
   int old_conds = gimplify_ctxp->conditions;
   struct gs_sequence old_cleanups = gimplify_ctxp->conditional_cleanups;
   gimplify_ctxp->conditions = 0;
-  gs_seq_init (gimplify_ctxp->conditional_cleanups);
+  gs_seq_init (&gimplify_ctxp->conditional_cleanups);
 
   body = TREE_OPERAND (*expr_p, 0);
   gimplify_to_stmt_list (&body);
@@ -6482,8 +6468,8 @@ void
 gimplify_body (tree *body_p, gs_seq seq_p, tree fndecl, bool do_parms)
 {
   location_t saved_location = input_location;
-  //  tree body;
   struct gs_sequence parm_stmts;
+  gimple outer_bind;
 
   timevar_push (TV_TREE_GIMPLIFY);
 
@@ -6509,49 +6495,36 @@ gimplify_body (tree *body_p, gs_seq seq_p, tree fndecl, bool do_parms)
 
   /* Gimplify the function's body.  */
   gimplify_stmt (body_p, seq_p);
-#if 0
-/* FIXME tuples */
-  body = *body_p;
 
-  if (!body)
-    body = alloc_stmt_list ();
-  else if (TREE_CODE (body) == STATEMENT_LIST)
+  outer_bind = gs_seq_first (seq_p);
+
+  /* If there isn't an outer GS_BIND, add one.  */
+  if (GS_SUBCODE_FLAGS (outer_bind) != GS_BIND)
     {
-      tree t = expr_only (*body_p);
-      if (t)
-	body = t;
+      outer_bind = gs_build_bind (NULL_TREE, seq_p);
+      gs_seq_set_first (seq_p, outer_bind);
+      gs_seq_set_last (seq_p, outer_bind);
     }
 
-  /* If there isn't an outer BIND_EXPR, add one.  */
-  if (TREE_CODE (body) != BIND_EXPR)
-    {
-      tree b = build3 (BIND_EXPR, void_type_node, NULL_TREE,
-		       NULL_TREE, NULL_TREE);
-      TREE_SIDE_EFFECTS (b) = 1;
-      append_to_statement_list_force (body, &BIND_EXPR_BODY (b));
-      body = b;
-    }
+  *body_p = NULL_TREE;
 
   /* If we had callee-copies statements, insert them at the beginning
      of the function.  */
-  if (parm_stmts)
+  if (gs_seq_empty_p (&parm_stmts) != false)
     {
-      append_to_statement_list_force (BIND_EXPR_BODY (body), &parm_stmts);
-      BIND_EXPR_BODY (body) = parm_stmts;
+      gs_seq_append (gs_bind_body (outer_bind), &parm_stmts);
+      gs_bind_set_body (outer_bind, &parm_stmts);
     }
 
-  /* Unshare again, in case gimplification was sloppy.  */
-  unshare_all_trees (body);
-
-  *body_p = body;
-
-  pop_gimplify_context (body);
+  pop_gimplify_context (outer_bind);
   gcc_assert (gimplify_ctxp == NULL);
 
+  /* FIXME tuples */
+#if 0
 #ifdef ENABLE_CHECKING
   walk_tree (body_p, check_pointer_types_r, NULL, NULL);
 #endif
-#endif /* if 0 */
+#endif
 
   timevar_pop (TV_TREE_GIMPLIFY);
   input_location = saved_location;
