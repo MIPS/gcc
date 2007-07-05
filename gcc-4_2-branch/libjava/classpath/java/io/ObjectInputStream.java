@@ -223,6 +223,15 @@ public class ObjectInputStream extends InputStream
        case TC_PROXYCLASSDESC:
  	{
  	  if(dump) dumpElementln("PROXYCLASS");
+
+/* GCJ LOCAL */
+	  // The grammar at this point is
+	  //   TC_PROXYCLASSDESC newHandle proxyClassDescInfo
+	  // i.e. we have to assign the handle immediately after
+	  // reading the marker.
+ 	  int handle = assignNewHandle("Dummy proxy");
+/* END GCJ LOCAL */
+
  	  int n_intf = this.realInputStream.readInt();
  	  String[] intfs = new String[n_intf];
  	  for (int i = 0; i < n_intf; i++)
@@ -250,7 +259,9 @@ public class ObjectInputStream extends InputStream
                     new InternalError("Object ctor missing").initCause(x);
                 }
             }
- 	  assignNewHandle(osc);
+/* GCJ LOCAL */
+	  rememberHandle(osc,handle);
+/* END GCJ LOCAL */
  	  
  	  if (!is_consumed)
  	    {
@@ -307,7 +318,7 @@ public class ObjectInputStream extends InputStream
  	  readArrayElements(array, componentType);
  	  if(dump)
  	    for (int i = 0, len = Array.getLength(array); i < len; i++)
- 	      dumpElementln("  ELEMENT[" + i + "]=" + Array.get(array, i));
+ 	      dumpElementln("  ELEMENT[" + i + "]=", Array.get(array, i));
  	  ret_val = processResolution(null, array, handle);
  	  break;
  	}
@@ -1979,6 +1990,24 @@ public class ObjectInputStream extends InputStream
   private void dumpElementln (String msg)
   {
     System.out.println(msg);
+    for (int i = 0; i < depth; i++)
+      System.out.print (" ");
+    System.out.print (Thread.currentThread() + ": ");
+  }
+
+  private void dumpElementln (String msg, Object obj)
+  {
+    try
+      {
+	System.out.print(msg);
+	if (java.lang.reflect.Proxy.isProxyClass(obj.getClass()))
+	  System.out.println(obj.getClass());
+	else
+	System.out.println(obj);
+      }
+    catch (Exception _)
+      {
+      }
     for (int i = 0; i < depth; i++)
       System.out.print (" ");
     System.out.print (Thread.currentThread() + ": ");
