@@ -1,3 +1,7 @@
+2007-07-05  Matthias Klose  <doko@ubuntu.com>
+
+	* libtool-version: Set branch specific version.
+
 2007-07-03  Andreas Tobler  <a.tobler@schweiz.org>
 
 	* java/lang/Class.h: Remove redundant 'class java::*::* declarations.
