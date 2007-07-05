@@ -1,3 +1,97 @@
+2007-07-03  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* java/lang/Class.h: Remove redundant 'class java::*::* declarations.
+
+2007-07-02  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR libgcj/30513
+	* configure.host (i[3-6]86-*): Undef sun.
+
+2007-06-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* testsuite/libjava.jvmti/jvmti-interp.exp (gij_jvmti_test_one):
+	Fix a typo.
+
+2007-06-28  Jan Nijtmans  <nijtmans@users.sourceforge.net>
+
+	PR libgcj/30999:
+	* jni_md.h: Add the possibility to compile jni code with.
+	-fvisibility=hidden. This causes all symbols to be hidden
+	except the JNI functions which need to be exported.
+
+2007-06-28  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* testsuite/libjava.jvmti/jvmti-interp.exp (gij_jvmti_test_one): Pass
+	the cxxldlibflags to exec_gij to have the right libstdc++ invoked.
+
+2007-07-21  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/VMVirtualMachine.h: Regenerate.
+
+2007-07-20  Keith Seitz  <keiths@redhat.com>
+
+	* classpath/lib/gnu/classpath/jdwp/value/StringValue.class:
+	Regenerate.
+
+2007-07-20  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/VMVirtualMachine.java (executeMethod):
+	Update from reference implementation.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (executeMethod):
+	Update parameter list to match new VMVirtualMachine interface.
+	* classpath/lib/gnu/classpath/jdwp/processor/ClassTypeCommandSet.class:
+	Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/processor/
+	ObjectReferenceCommandSet.class: Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/value/ObjectValue.class: Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/VMVirtualMachine.class: Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/util/MethodResult.class: Regenerate.
+
+2007-06-18  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/gcj/jvmti/Breakpoint.java: Make abstract.
+	(method): Change from private to protected.
+	(location): Likewise.
+	(Breakpoint): Change argument list to take only integer type.
+	Add default constructor.
+	(initialize_native): Renamed to ...
+	(_save_insn): ... this to make function more explicit.
+	(execute): New method.
+	* gnu/gcj/jvmti/Breakpoint.h: Regenerate.
+	* gnu/gcj/jvmti/natBreakpoint.cc (initialize_native): Rename to...
+	(_save_insn): ... this.
+	(install): Save the original instruction.
+	* gnu/gcj/jvmti/NormalBreakpoint.java: New file.
+	* gnu/gcj/jvmti/NormalBreakpoint.h: New file.
+	* gnu/gcj/jvmti/natNormalBreakpoint.cc: New file.
+	* gnu/gcj/jvmti/BreakpointManager.java (newBreakpoint):
+	Instantiate a NormalBreakpoint instead of Breakpoint.
+	* interpret-run.cc (insn_breakpoint): Remove breakpoint actions
+	and call Breakpoint.execute to do them.
+	* classpath/lib/gnu/gcj/jvmti/Breakpoint.class: Regenerate.
+	* classpath/lib/gnu/gcj/jvmti/BreakpointManager.class: Likewise.
+	* classpath/lib/gnu/gcj/jvmti/NormalBreakpoint.class: New file.
+	* sources.am: Regenerate.
+	* Makefile.am (nat_source_files): Add natNormalBreakpoint.cc.
+	* Makefile.in: Regenerated.
+
+2007-06-14  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (_Jv_LocalVarTableEntry): Add union
+	for bytecode_pc and direct-threaded pc.
+	Add field descriptions inline.
+	* defineclass.cc (read_one_code_attribute): Change from
+	bytecode_start_pc to bytecode_pc.
+	Remove unused variable "len".
+	* interpret.cc (compile): Remap the variable table, too.
+	(get_local_var_table) [DIRECT_THREADED]: Use insn_index on the
+	start location to map from pc_t to code index.
+
+2007-06-09  Keith Seitz  <keiths@redhat.com>
+
+	* testsuite/libjava.jvmti/dummyagent.c (Agent_OnLoad):
+	Add missing return value.
+
 2007-06-03  Matthias Klose  <doko@ubuntu.com>
 
 	* java/io/natFileWin32.cc (setFilePermissions): New (stub only).
