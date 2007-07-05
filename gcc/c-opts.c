@@ -561,8 +561,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_ansi:
       if (!c_dialect_cxx ())
 	set_std_c89 (false, true);
-      else
+      else if (cxx_dialect == cxx98)
 	set_std_cxx98 (true);
+      else
+	set_std_cxx0x (true);
       break;
 
     case OPT_d:

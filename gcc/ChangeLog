@@ -1,3 +1,11 @@
+2007-07-05  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* c-common.h (enum rid): Add reserved IDs for concepts keywords.
+	* c-opts.c (c_common_handle_option): Make -ansi obey cxx_dialect.
+	* c-cppbuiltin.c (c_cpp_builtins): Define __GXX_CONCEPTS__ when in
+	C++0x mode.
+	* version.c: Customize for ConceptGCC.
+
 2007-07-04  Daniel Berlin  <dberlin@dberlin.org>
 
 	PR tree-optimization/32604
