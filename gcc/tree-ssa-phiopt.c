@@ -45,7 +45,6 @@ static bool minmax_replacement (basic_block, basic_block,
 static bool abs_replacement (basic_block, basic_block,
 			     edge, edge, tree, tree, tree);
 static void replace_phi_edge_with_variable (basic_block, edge, tree, tree);
-static basic_block *blocks_in_phiopt_order (void);
 
 /* This pass tries to replaces an if-then-else block with an
    assignment.  We have four kinds of transformations.  Some of these
@@ -247,7 +246,7 @@ tree_ssa_phiopt (void)
    that if a block X has just a single predecessor Y, then Y is after X in the
    ordering.  */
 
-static basic_block *
+basic_block *
 blocks_in_phiopt_order (void)
 {
   basic_block x, y;
@@ -402,7 +401,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
   cond = COND_EXPR_COND (last_stmt (cond_bb));
   result = PHI_RESULT (phi);
   if (TREE_CODE (cond) != SSA_NAME
-      && !lang_hooks.types_compatible_p (TREE_TYPE (cond), TREE_TYPE (result)))
+      && !useless_type_conversion_p (TREE_TYPE (result), TREE_TYPE (cond)))
     {
       tree tmp;
 
@@ -419,7 +418,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
   /* If the condition was a naked SSA_NAME and the type is not the
      same as the type of the result, then convert the type of the
      condition.  */
-  if (!lang_hooks.types_compatible_p (TREE_TYPE (cond), TREE_TYPE (result)))
+  if (!useless_type_conversion_p (TREE_TYPE (result), TREE_TYPE (cond)))
     cond = fold_convert (TREE_TYPE (result), cond);
 
   /* We need to know which is the true edge and which is the false

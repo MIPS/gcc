@@ -1,3 +1,163 @@
+2007-07-04  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* decl.c (build_ptrmemfunc_type): Always use structural equality
+	tests when comparing pointer-to-member-function types, because the
+	handling of TYPE_GET_PTRMEMFUNC_TYPE currently defeats canonical
+	types.
+	
+2007-07-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* init.c (build_new): Tweak comment.
+
+2007-06-29  Dave Brolley  <brolley@redhat.com>
+
+	PR c++/31743
+	* parser.c (cp_parser_new_type_id): Don't reduce a named array
+	type to its base type and number of elements here.
+	* init.c (build_new): Call complete_type_or_else to ensure that the
+	type is complete and to issue a diagnostic if it is not.
+	(build_new_1): Don't call complete_type_or_else here.
+
+2007-07-03  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/32609
+	* class.c (fixed_type_or_null): Re-lookup the hashtable slot
+	after recursing.
+
+2007-07-02  Simon Baldwin  <simonb@google.com>
+
+	* parser.c (cp_parser_elaborated_type_specifier): Added a warning
+	for inner-style nested forward declarations that don't declare
+	anything useful.
+
+2007-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/31748
+	* semantics.c (finish_omp_clauses): Use %qD instead of %qE for
+	DECL_P in not a variable and appears more than once error messages.
+
+2007-07-01  Ollie Wild  <aaw@google.com>
+
+	* name-lookup.c (ambiguous_decl): Fix case when new->value is hidden.
+	(select_decl): Remove function.
+	(unqualified_namespace_lookup): Populate binding by calling
+	ambiguous_decl.  Remove select_decl call.
+	(lookup_qualified_name): Remove select_decl call.
+	* decl.c (lookup_and_check_tag): Check for ambiguous references.
+	* parser.c (cp_parser_elaborated_type_specifier): Skip redundant error
+	generation when name lookup is ambiguous.
+
+2007-06-29  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/31724
+	* init.c (build_new_1): Use structural equality on the copy of the
+	array type.
+
+2007-06-28  Geoffrey Keating  <geoffk@apple.com>
+
+	* decl2.c (determine_visibility): Implement
+	flag_visibility_ms_compat effect on type info.
+	* decl.c (cxx_init_decl_processing): Implement
+	global effect of flag_visibility_ms_compat.
+
+2007-06-28  Geoffrey Keating  <geoffk@apple.com>
+
+	* decl2.c (start_objects): Mark constructor-running function
+	as artificial.
+
+2007-06-26  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/32111
+	* decl.c (grokdeclarator): Reset friendp for member functions declared
+	friend of their own class.
+
+2007-06-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl2.c (determine_visibility): Don't look for dllexport here.
+	(determine_visibility_from_class): Tidy.
+
+2007-06-18  Simon Baldwin <simonb@google.com>
+
+	PR c++/31923
+	* parser.c (cp_parser_single_declaration): Added check for storage
+	class other than sc_none in parsed declaration, and a flag to indicate
+	if the call is part of an explicit template specialization parse.
+	* (cp_parser_explicit_specialization): Specialization check flag added
+	to call to cp_parser_single_declaration(), set true.
+	* (cp_parser_template_declaration_after_export): Specialization check
+	flag added to call to cp_parser_single_declaration(), set false.
+	* pt.c (check_explicit_specialization): Added code to copy visiblity
+	and linkage from the templated function to the explicit specialization.
+
+2007-06-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* typeck.c (build_binary_op): For templates build the
+	expression in pieces to avoid the assert in build2_stat.
+	(get_member_function_from_ptrfunc):
+	Change over to using POINTER_PLUS_EXPR and convert
+	the second operand to sizetype.
+	* typeck2.c (build_m_component_ref):  Likewise.
+	* init.c (expand_virtual_init): Create a POINTER_PLUS_EXPR
+	instead of PLUS_EXPR for pointers.
+	(build_new_1): Likewise.
+	(build_vec_delete_1): Likewise.
+	(build_vec_delete): Likewise.
+	* class.c (build_base_path): Likewise.
+	(build_base_path): Likewise.
+	(convert_to_base_statically): Likewise.
+	(fixed_type_or_null): Handle POINTER_PLUS_EXPR.
+	(get_vtbl_decl_for_binfo): Handle POINTER_PLUS_EXPR
+	instead of PLUS_EXPR.
+	(dfs_accumulate_vtbl_inits): Create a POINTER_PLUS_EXPR
+	instead of PLUS_EXPR for pointers.
+	* call.c (build_special_member_call): Likewise.
+	* rtti.c (build_headof): Likewise.
+	Use sizetype instead of ptrdiff_type_node.
+	(tinfo_base_init): Create a POINTER_PLUS_EXPR
+	instead of PLUS_EXPR for pointers.
+	* except.c (expand_start_catch_block):  Do a
+	NEGATIVE and then a POINTER_PLUS_EXPR instead
+	of a MINUS_EXPR.
+	* cp-gimplify.c (cxx_omp_clause_apply_fn): Convert
+	PLUS_EXPR on pointer types over to use
+	POINTER_PLUS_EXPR and remove the conversion
+	to the pointer types.
+	* method.c (thunk_adjust): Use POINTER_PLUS_EXPR for
+	adding to a pointer type. Use size_int instead of
+	ssize_int. Convert the index to sizetype before
+	adding it to the pointer.
+
+2007-06-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (DECL_VAR_MARKED_P): Remove.
+	(DECL_ANON_UNION_VAR_P): New macro.
+	* class.c (fixed_type_or_null): Tidy.  Use a hash table, rather
+	than DECL_VAR_MARKED_P, to keep track of which variables we have
+	seen.
+	* decl.c (redeclaration_error_message): Complain about redeclaring
+	anonymous union members at namespace scope.
+	* decl2.c (build_anon_union_vars): Set DECL_ANON_UNION_VAR_P.
+
+2007-06-14  Geoff Keating  <geoffk@apple.com>
+
+	* decl2.c (determine_visibility): Ensure that functions with
+	hidden types as parameters are hidden.
+
+	PR 31093
+	* decl2.c (determine_visibility): Remove duplicate code for
+	handling type info.
+
+2007-06-12  Ian Lance Taylor  <iant@google.com>
+
+	PR libstdc++/29286
+	* init.c (avoid_placement_new_aliasing): New static function.
+	(build_new_1): Call it.
+
+2007-06-11  Rafael Avila de Espindola  <espindola@google.com>
+
+	* cp-objcp-common.h (LANG_HOOKS_SIGNED_TYPE): Remove.
+	(LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE): Remove.
+
 2007-06-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/32177
@@ -78,7 +238,7 @@
 	(copy_fn_p): Don't consider constructors taking rvalue references
 	to be copy constructors.
 	(move_fn_p): New.
-        * call.c (conversion): New "rvaluedness_matches_p" member.
+	* call.c (conversion): New "rvaluedness_matches_p" member.
 	(convert_class_to_reference): Require reference type as first
 	parameter instead of base type.
 	(reference_binding): Add logic to handle rvalue references.
@@ -130,7 +290,7 @@
 
 2007-05-28  Andrew Pinski  <Andrew_pinski@playstation.sony.com>
 
-        PR c++/31339
+	PR c++/31339
 	* typeck.c (build_unary_op <case PREINCREMENT_EXPR,
 	case POSTINCREMENT_EXPR, case PREDECREMENT_EXPR,
 	case POSTDECREMENT_EXPR>): Return the error_mark_node
@@ -1041,7 +1201,7 @@
 	PR C++/30158
 	* semantics.c (finish_stmt_expr_expr): Set TREE_TYPE of the 
 	statement expression if we had an error mark node.
-	        
+
 2007-02-15  Sandra Loosemore  <sandra@codesourcery.com>
 	    Brooks Moses  <brooks.moses@codesourcery.com>
 	    Lee Millward  <lee.millward@codesourcery.com>

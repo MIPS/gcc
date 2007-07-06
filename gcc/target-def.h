@@ -350,8 +350,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
    TARGET_SCHED_SET_SCHED_FLAGS}
 
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
-#define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION default_builtin_vectorized_function
-#define TARGET_VECTORIZE_BUILTIN_CONVERSION default_builtin_vectorized_conversion
+#define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \
+  default_builtin_vectorized_function
+#define TARGET_VECTORIZE_BUILTIN_CONVERSION \
+  default_builtin_vectorized_conversion
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN 0
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD 0
 
@@ -367,6 +369,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_DEFAULT_TARGET_FLAGS 0
 
 #define TARGET_HANDLE_OPTION hook_bool_size_t_constcharptr_int_true
+#define TARGET_HELP NULL
 
 /* In except.c */
 #define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
@@ -384,6 +387,9 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
 #define TARGET_RESOLVE_OVERLOADED_BUILTIN NULL
 #define TARGET_FOLD_BUILTIN hook_tree_tree_tree_bool_null
+
+/* In tree-ssa-math-opts.c  */
+#define TARGET_BUILTIN_RECIPROCAL default_builtin_reciprocal
 
 /* In varasm.c.  */
 #ifndef TARGET_SECTION_TYPE_FLAGS
@@ -573,6 +579,15 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_SECONDARY_RELOAD default_secondary_reload
 #endif
 
+/* C specific.  */
+#ifndef TARGET_C_MODE_FOR_SUFFIX
+#define TARGET_C_MODE_FOR_SUFFIX default_mode_for_suffix
+#endif
+
+#define TARGET_C				\
+  {						\
+    TARGET_C_MODE_FOR_SUFFIX			\
+  }
 
 /* C++ specific.  */
 #ifndef TARGET_CXX_GUARD_TYPE
@@ -652,6 +667,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_VECTORIZE,				\
   TARGET_DEFAULT_TARGET_FLAGS,			\
   TARGET_HANDLE_OPTION,				\
+  TARGET_HELP,					\
   TARGET_EH_RETURN_FILTER_MODE,			\
   TARGET_MERGE_DECL_ATTRIBUTES,			\
   TARGET_MERGE_TYPE_ATTRIBUTES,			\
@@ -668,6 +684,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_EXPAND_BUILTIN,			\
   TARGET_RESOLVE_OVERLOADED_BUILTIN,		\
   TARGET_FOLD_BUILTIN,				\
+  TARGET_BUILTIN_RECIPROCAL,			\
   TARGET_MANGLE_FUNDAMENTAL_TYPE,		\
   TARGET_INIT_LIBFUNCS,				\
   TARGET_SECTION_TYPE_FLAGS,			\
@@ -723,8 +740,9 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_INVALID_UNARY_OP,			\
   TARGET_INVALID_BINARY_OP,			\
   TARGET_SECONDARY_RELOAD,			\
+  TARGET_C,					\
   TARGET_CXX,					\
-  TARGET_EXTRA_LIVE_ON_ENTRY,                    \
+  TARGET_EXTRA_LIVE_ON_ENTRY,			\
   TARGET_UNWIND_TABLES_DEFAULT,			\
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_SWITCHABLE_BSS_SECTIONS,		\

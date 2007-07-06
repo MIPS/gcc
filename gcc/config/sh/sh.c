@@ -1,6 +1,6 @@
 /* Output routines for GCC for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -47,6 +47,7 @@ Boston, MA 02110-1301, USA.  */
 #include "real.h"
 #include "langhooks.h"
 #include "basic-block.h"
+#include "df.h"
 #include "cfglayout.h"
 #include "intl.h"
 #include "sched-int.h"
@@ -87,6 +88,9 @@ static short *regmode_weight[2];
 
 /* Total SFmode and SImode weights of scheduled insns.  */
 static int curr_regmode_pressure[2];
+
+/* Number of r0 life regions.  */
+static int r0_life_regions;
 
 /* If true, skip cycles for Q -> R movement.  */
 static int skip_cycles = 0;
@@ -195,6 +199,7 @@ static int sh_dfa_new_cycle (FILE *, int, rtx, int, int, int *sort_p);
 static short find_set_regmode_weight (rtx, enum machine_mode);
 static short find_insn_regmode_weight (rtx, enum machine_mode);
 static void find_regmode_weight (basic_block, enum machine_mode);
+static int find_r0_life_regions (basic_block);
 static void  sh_md_init_global (FILE *, int, int);
 static void  sh_md_finish_global (FILE *, int);
 static int rank_for_reorder (const void *, const void *);
@@ -4757,51 +4762,25 @@ sh_reorg (void)
 	  if (GET_CODE (reg) != REG)
 	    continue;
 
-	  /* This is a function call via REG.  If the only uses of REG
-	     between the time that it is set and the time that it dies
-	     are in function calls, then we can associate all the
-	     function calls with the setting of REG.  */
-
-	  for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
+	  /* Try scanning backward to find where the register is set.  */
+	  link = NULL;
+	  for (scan = PREV_INSN (insn);
+	       scan && GET_CODE (scan) != CODE_LABEL;
+	       scan = PREV_INSN (scan))
 	    {
-	      rtx linked_insn;
+	      if (! INSN_P (scan))
+	        continue;
 
-	      if (REG_NOTE_KIND (link) != 0)
-		continue;
-	      linked_insn = XEXP (link, 0);
-	      set = single_set (linked_insn);
-	      if (set
-		  && rtx_equal_p (reg, SET_DEST (set))
-		  && ! INSN_DELETED_P (linked_insn))
+	      if (! reg_mentioned_p (reg, scan))
+	        continue;
+
+	      if (noncall_uses_reg (reg, scan, &set))
+	        break;
+
+	      if (set)
 		{
-		  link = linked_insn;
+		  link = scan;
 		  break;
-		}
-	    }
-
-	  if (! link)
-	    {
-	      /* ??? Sometimes global register allocation will have
-                 deleted the insn pointed to by LOG_LINKS.  Try
-                 scanning backward to find where the register is set.  */
-	      for (scan = PREV_INSN (insn);
-		   scan && GET_CODE (scan) != CODE_LABEL;
-		   scan = PREV_INSN (scan))
-		{
-		  if (! INSN_P (scan))
-		    continue;
-
-		  if (! reg_mentioned_p (reg, scan))
-		    continue;
-
-		  if (noncall_uses_reg (reg, scan, &set))
-		    break;
-
-		  if (set)
-		    {
-		      link = scan;
-		      break;
-		    }
 		}
 	    }
 
@@ -4833,7 +4812,7 @@ sh_reorg (void)
 
 	      /* Don't try to trace forward past a CODE_LABEL if we haven't
 		 seen INSN yet.  Ordinarily, we will only find the setting insn
-		 in LOG_LINKS if it is in the same basic block.  However,
+		 if it is in the same basic block.  However,
 		 cross-jumping can insert code labels in between the load and
 		 the call, and can result in situations where a single call
 		 insn may have two targets depending on where we came from.  */
@@ -4880,11 +4859,8 @@ sh_reorg (void)
 		 later insn.  */
 
 	      /* ??? We shouldn't have to use FOUNDINSN here.
-		 However, the LOG_LINKS fields are apparently not
-		 entirely reliable around libcalls;
-		 newlib/libm/math/e_pow.c is a test case.  Sometimes
-		 an insn will appear in LOG_LINKS even though it is
-		 not the most recent insn which sets the register.  */
+		 This dates back to when we used LOG_LINKS to find 
+		 the most recent insn which sets the register.  */
 
 	      if (foundinsn
 		  && (scanset
@@ -5747,13 +5723,13 @@ pop (int rn)
 static void
 push_regs (HARD_REG_SET *mask, int interrupt_handler)
 {
-  int i;
+  int i = interrupt_handler ? LAST_BANKED_REG + 1 : 0;
   int skip_fpscr = 0;
 
   /* Push PR last; this gives better latencies after the prologue, and
      candidates for the return delay slot when there are no general
      registers pushed.  */
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+  for (; i < FIRST_PSEUDO_REGISTER; i++)
     {
       /* If this is an interrupt handler, and the SZ bit varies,
 	 and we have to push any floating point register, we need
@@ -5773,6 +5749,13 @@ push_regs (HARD_REG_SET *mask, int interrupt_handler)
 	  && TEST_HARD_REG_BIT (*mask, i))
 	push (i);
     }
+
+  /* Push banked registers last to improve delay slot opportunities.  */
+  if (interrupt_handler)
+    for (i = FIRST_BANKED_REG; i <= LAST_BANKED_REG; i++)
+      if (TEST_HARD_REG_BIT (*mask, i))
+	push (i);
+
   if (TEST_HARD_REG_BIT (*mask, PR_REG))
     push (PR_REG);
 }
@@ -5849,12 +5832,12 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 
   CLEAR_HARD_REG_SET (*live_regs_mask);
   if ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && TARGET_FMOVD && interrupt_handler
-      && regs_ever_live[FPSCR_REG])
+      && df_regs_ever_live_p (FPSCR_REG))
     target_flags &= ~MASK_FPU_SINGLE;
   /* If we can save a lot of saves by switching to double mode, do that.  */
   else if ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && TARGET_FMOVD && TARGET_FPU_SINGLE)
     for (count = 0, reg = FIRST_FP_REG; reg <= LAST_FP_REG; reg += 2)
-      if (regs_ever_live[reg] && regs_ever_live[reg+1]
+      if (df_regs_ever_live_p (reg) && df_regs_ever_live_p (reg+1)
 	  && (! call_really_used_regs[reg]
 	      || interrupt_handler)
 	  && ++count > 2)
@@ -5876,11 +5859,11 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
       pr_live = (pr_initial
 		 ? (GET_CODE (pr_initial) != REG
 		    || REGNO (pr_initial) != (PR_REG))
-		 : regs_ever_live[PR_REG]);
+		 : df_regs_ever_live_p (PR_REG));
       /* For Shcompact, if not optimizing, we end up with a memory reference
 	 using the return address pointer for __builtin_return_address even
 	 though there is no actual need to put the PR register on the stack.  */
-      pr_live |= regs_ever_live[RETURN_ADDRESS_POINTER_REGNUM];
+      pr_live |= df_regs_ever_live_p (RETURN_ADDRESS_POINTER_REGNUM);
     }
   /* Force PR to be live if the prologue has to call the SHmedia
      argument decoder or register saver.  */
@@ -5896,7 +5879,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	  ? pr_live
 	  : interrupt_handler
 	  ? (/* Need to save all the regs ever live.  */
-	     (regs_ever_live[reg]
+	     (df_regs_ever_live_p (reg)
 	      || (call_really_used_regs[reg]
 		  && (! fixed_regs[reg] || reg == MACH_REG || reg == MACL_REG
 		      || reg == PIC_OFFSET_TABLE_REGNUM)
@@ -5914,7 +5897,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	      && flag_pic
 	      && current_function_args_info.call_cookie
 	      && reg == PIC_OFFSET_TABLE_REGNUM)
-	     || (regs_ever_live[reg]
+	     || (df_regs_ever_live_p (reg)
 		 && (!call_really_used_regs[reg]
 		     || (trapa_handler && reg == FPSCR_REG && TARGET_FPU_ANY)))
 	     || (current_function_calls_eh_return
@@ -5923,7 +5906,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 		     || reg == EH_RETURN_DATA_REGNO (2)
 		     || reg == EH_RETURN_DATA_REGNO (3)))
 	     || ((reg == MACL_REG || reg == MACH_REG)
-		 && regs_ever_live[reg]
+		 && df_regs_ever_live_p (reg)
 		 && sh_cfun_attr_renesas_p ())
 	     ))
 	{
@@ -5935,7 +5918,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	    {
 	      if (FP_REGISTER_P (reg))
 		{
-		  if (! TARGET_FPU_SINGLE && ! regs_ever_live[reg ^ 1])
+		  if (! TARGET_FPU_SINGLE && ! df_regs_ever_live_p (reg ^ 1))
 		    {
 		      SET_HARD_REG_BIT (*live_regs_mask, (reg ^ 1));
 		      count += GET_MODE_SIZE (REGISTER_NATURAL_MODE (reg ^ 1));
@@ -6012,10 +5995,10 @@ sh_media_register_for_return (void)
   if (sh_cfun_interrupt_handler_p ())
     return -1;
 
-  tr0_used = flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM];
+  tr0_used = flag_pic && df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM);
 
   for (regno = FIRST_TARGET_REG + tr0_used; regno <= LAST_TARGET_REG; regno++)
-    if (call_really_used_regs[regno] && ! regs_ever_live[regno])
+    if (call_really_used_regs[regno] && ! df_regs_ever_live_p (regno))
       return regno;
 
   return -1;
@@ -6174,7 +6157,7 @@ sh_expand_prologue (void)
        incoming-argument decoder and/or of the return trampoline from
        the GOT, so make sure the PIC register is preserved and
        initialized.  */
-    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
+    df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
 
   if (TARGET_SHCOMPACT
       && (current_function_args_info.call_cookie & ~ CALL_COOKIE_RET_TRAMP(1)))
@@ -6207,19 +6190,8 @@ sh_expand_prologue (void)
       int tr = sh_media_register_for_return ();
 
       if (tr >= 0)
-	{
-	  rtx insn = emit_move_insn (gen_rtx_REG (DImode, tr),
-				     gen_rtx_REG (DImode, PR_MEDIA_REG));
-
-	  /* ??? We should suppress saving pr when we don't need it, but this
-	     is tricky because of builtin_return_address.  */
-
-	  /* If this function only exits with sibcalls, this copy
-	     will be flagged as dead.  */
-	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-						const0_rtx,
-						REG_NOTES (insn));
-	}
+	emit_move_insn (gen_rtx_REG (DImode, tr),
+			gen_rtx_REG (DImode, PR_MEDIA_REG));
     }
 
   /* Emit the code for SETUP_VARARGS.  */
@@ -6467,24 +6439,8 @@ sh_expand_prologue (void)
   else
     push_regs (&live_regs_mask, current_function_interrupt);
 
-  if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
-    {
-      rtx insn = get_last_insn ();
-      rtx last = emit_insn (gen_GOTaddr2picreg ());
-
-      /* Mark these insns as possibly dead.  Sometimes, flow2 may
-	 delete all uses of the PIC register.  In this case, let it
-	 delete the initialization too.  */
-      do
-	{
-	  insn = NEXT_INSN (insn);
-
-	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-						const0_rtx,
-						REG_NOTES (insn));
-	}
-      while (insn != last);
-    }
+  if (flag_pic && df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM))
+    emit_insn (gen_GOTaddr2picreg ());
 
   if (SHMEDIA_REGS_STACK_ADJUST ())
     {
@@ -6499,16 +6455,7 @@ sh_expand_prologue (void)
     }
 
   if (target_flags != save_flags && ! current_function_interrupt)
-    {
-      rtx insn = emit_insn (gen_toggle_sz ());
-
-      /* If we're lucky, a mode switch in the function body will
-	 overwrite fpscr, turning this insn dead.  Tell flow this
-	 insn is ok to delete.  */
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-					    const0_rtx,
-					    REG_NOTES (insn));
-    }
+    emit_insn (gen_toggle_sz ());
 
   target_flags = save_flags;
 
@@ -6729,21 +6676,36 @@ sh_expand_epilogue (bool sibcall_p)
 	    }
 
 	  insn = emit_move_insn (reg_rtx, mem_rtx);
-	  if (reg == PR_MEDIA_REG && sh_media_register_for_return () >= 0)
-	    /* This is dead, unless we return with a sibcall.  */
-	    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-						  const0_rtx,
-						  REG_NOTES (insn));
 	}
 
       gcc_assert (entry->offset + offset_base == d + d_rounding);
     }
   else /* ! TARGET_SH5 */
     {
+      int last_reg;
+
       save_size = 0;
       if (TEST_HARD_REG_BIT (live_regs_mask, PR_REG))
-	pop (PR_REG);
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	{
+	  if (!frame_pointer_needed)
+	    emit_insn (gen_blockage ());
+	  pop (PR_REG);
+	}
+
+      /* Banked registers are poped first to avoid being scheduled in the
+	 delay slot. RTE switches banks before the ds instruction.  */
+      if (current_function_interrupt)
+	{
+	  for (i = FIRST_BANKED_REG; i <= LAST_BANKED_REG; i++)
+	    if (TEST_HARD_REG_BIT (live_regs_mask, i)) 
+	      pop (LAST_BANKED_REG - i);
+
+	  last_reg = FIRST_PSEUDO_REGISTER - LAST_BANKED_REG - 1;
+	}
+      else
+	last_reg = FIRST_PSEUDO_REGISTER;
+
+      for (i = 0; i < last_reg; i++)
 	{
 	  int j = (FIRST_PSEUDO_REGISTER - 1) - i;
 
@@ -6753,9 +6715,9 @@ sh_expand_epilogue (bool sibcall_p)
 	    fpscr_deferred = 1;
 	  else if (j != PR_REG && TEST_HARD_REG_BIT (live_regs_mask, j))
 	    pop (j);
+
 	  if (j == FIRST_FP_REG && fpscr_deferred)
 	    pop (FPSCR_REG);
-
 	}
     }
   if (target_flags != save_flags && ! current_function_interrupt)
@@ -7110,7 +7072,8 @@ sh_va_start (tree valist, rtx nextarg)
 		       valist, f_next_stack, NULL_TREE);
 
   /* Call __builtin_saveregs.  */
-  u = make_tree (ptr_type_node, expand_builtin_saveregs ());
+  u = make_tree (sizetype, expand_builtin_saveregs ());
+  u = fold_convert (ptr_type_node, u);
   t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_fp, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -7120,8 +7083,8 @@ sh_va_start (tree valist, rtx nextarg)
     nfp = 8 - nfp;
   else
     nfp = 0;
-  u = fold_build2 (PLUS_EXPR, ptr_type_node, u,
-		   build_int_cst (NULL_TREE, UNITS_PER_WORD * nfp));
+  u = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, u,
+		   size_int (UNITS_PER_WORD * nfp));
   t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_fp_limit, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -7135,8 +7098,8 @@ sh_va_start (tree valist, rtx nextarg)
     nint = 4 - nint;
   else
     nint = 0;
-  u = fold_build2 (PLUS_EXPR, ptr_type_node, u,
-		   build_int_cst (NULL_TREE, UNITS_PER_WORD * nint));
+  u = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, u,
+		   size_int (UNITS_PER_WORD * nint));
   t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_o_limit, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -7269,8 +7232,8 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  gimplify_and_add (tmp, pre_p);
 	  tmp = next_fp_limit;
 	  if (size > 4 && !is_double)
-	    tmp = build2 (PLUS_EXPR, TREE_TYPE (tmp), tmp,
-			  fold_convert (TREE_TYPE (tmp), size_int (4 - size)));
+	    tmp = build2 (POINTER_PLUS_EXPR, TREE_TYPE (tmp), tmp,
+			  size_int (4 - size));
 	  tmp = build2 (GE_EXPR, boolean_type_node, next_fp_tmp, tmp);
 	  cmp = build3 (COND_EXPR, void_type_node, tmp,
 		        build1 (GOTO_EXPR, void_type_node, lab_false),
@@ -7281,9 +7244,11 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  if (TYPE_ALIGN (eff_type) > BITS_PER_WORD
 	      || (is_double || size == 16))
 	    {
-	      tmp = fold_convert (ptr_type_node, size_int (UNITS_PER_WORD));
-	      tmp = build2 (BIT_AND_EXPR, ptr_type_node, next_fp_tmp, tmp);
-	      tmp = build2 (PLUS_EXPR, ptr_type_node, next_fp_tmp, tmp);
+	      tmp = fold_convert (sizetype, next_fp_tmp);
+	      tmp = build2 (BIT_AND_EXPR, sizetype, tmp,
+			    size_int (UNITS_PER_WORD));
+	      tmp = build2 (POINTER_PLUS_EXPR, ptr_type_node,
+			    next_fp_tmp, tmp);
 	      tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node,
 		  	    next_fp_tmp, tmp);
 	      gimplify_and_add (tmp, pre_p);
@@ -7329,8 +7294,8 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	}
       else
 	{
-	  tmp = fold_convert (ptr_type_node, size_int (rsize));
-	  tmp = build2 (PLUS_EXPR, ptr_type_node, next_o, tmp);
+	  tmp = build2 (POINTER_PLUS_EXPR, ptr_type_node, next_o,
+			size_int (rsize));
 	  tmp = build2 (GT_EXPR, boolean_type_node, tmp, next_o_limit);
 	  tmp = build3 (COND_EXPR, void_type_node, tmp,
 		        build1 (GOTO_EXPR, void_type_node, lab_false),
@@ -8799,7 +8764,7 @@ sh_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
      saved by the prologue, even if they would normally be
      call-clobbered.  */
 
-  if (sh_cfun_interrupt_handler_p () && !regs_ever_live[new_reg])
+  if (sh_cfun_interrupt_handler_p () && !df_regs_ever_live_p (new_reg))
     return 0;
 
   return 1;
@@ -9039,7 +9004,7 @@ flow_dependent_p_1 (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
 static int
 sh_pr_n_sets (void)
 {
-  return REG_N_SETS (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
+  return DF_REG_DEF_COUNT (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
 }
 
 /* Return where to allocate pseudo for a given hard register initial
@@ -9206,6 +9171,56 @@ ready_reorder (rtx *ready, int nready)
   SCHED_REORDER (ready, nready);
 }
 
+/* Count life regions of r0 for a block.  */
+static int
+find_r0_life_regions (basic_block b)
+{
+  rtx end, insn;
+  rtx pset;
+  rtx r0_reg;
+  int live;
+  int set;
+  int death = 0;
+
+  if (REGNO_REG_SET_P (df_get_live_in (b), R0_REG))
+    {
+      set = 1;
+      live = 1;
+    }
+  else
+    {
+      set = 0;
+      live = 0;
+    }
+
+  insn = BB_HEAD (b);
+  end = BB_END (b);
+  r0_reg = gen_rtx_REG (SImode, R0_REG);
+  while (1)
+    {
+      if (INSN_P (insn))
+	{
+	  if (find_regno_note (insn, REG_DEAD, R0_REG))
+	    {
+	      death++;
+	      live = 0;
+	    }
+	  if (!live
+	      && (pset = single_set (insn))
+	      && reg_overlap_mentioned_p (r0_reg, SET_DEST (pset))
+	      && !find_regno_note (insn, REG_UNUSED, R0_REG))
+	    {
+	      set++;
+	      live = 1;
+	    }
+	}
+      if (insn == end)
+	break;
+      insn = NEXT_INSN (insn);
+    }
+  return set - death;
+}
+
 /* Calculate regmode weights for all insns of all basic block.  */
 static void
 sh_md_init_global (FILE *dump ATTRIBUTE_UNUSED,
@@ -9216,11 +9231,14 @@ sh_md_init_global (FILE *dump ATTRIBUTE_UNUSED,
 
   regmode_weight[0] = (short *) xcalloc (old_max_uid, sizeof (short));
   regmode_weight[1] = (short *) xcalloc (old_max_uid, sizeof (short));
+  r0_life_regions = 0;
 
   FOR_EACH_BB_REVERSE (b)
   {
     find_regmode_weight (b, SImode);
     find_regmode_weight (b, SFmode);
+    if (!reload_completed)
+      r0_life_regions += find_r0_life_regions (b);
   }
 
   CURR_REGMODE_PRESSURE (SImode) = 0;
@@ -9281,7 +9299,6 @@ sh_md_init (FILE *dump ATTRIBUTE_UNUSED,
 /* Pressure on register r0 can lead to spill failures. so avoid sched1 for
    functions that already have high pressure on r0. */
 #define R0_MAX_LIFE_REGIONS 2
-#define R0_MAX_LIVE_LENGTH 12
 /* Register Pressure thresholds for SImode and SFmode registers.  */
 #define SIMODE_MAX_WEIGHT 5
 #define SFMODE_MAX_WEIGHT 10
@@ -9292,9 +9309,8 @@ high_pressure (enum machine_mode mode)
 {
   /* Pressure on register r0 can lead to spill failures. so avoid sched1 for
      functions that already have high pressure on r0. */
-  if ((REG_N_SETS (0) - REG_N_DEATHS (0)) >= R0_MAX_LIFE_REGIONS
-      && REG_LIVE_LENGTH (0) >= R0_MAX_LIVE_LENGTH)
-    return 1;
+   if (r0_life_regions >= R0_MAX_LIFE_REGIONS)
+     return 1;
 
   if (mode == SFmode)
     return (CURR_REGMODE_PRESSURE (SFmode) > SFMODE_MAX_WEIGHT);
@@ -10275,6 +10291,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   insn_locators_alloc ();
   insns = get_insns ();
 
+#if 0
   if (optimize > 0)
     {
       /* Initialize the bitmap obstacks.  */
@@ -10301,6 +10318,14 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
       else if (flag_pic)
 	split_all_insns_noflow ();
     }
+#else
+  if (optimize > 0)
+    {
+      if (! cfun->cfg)
+	init_flow ();
+      split_all_insns_noflow ();
+    }
+#endif
 
   sh_reorg ();
 
@@ -10312,15 +10337,21 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   final (insns, file, 1);
   final_end_function ();
 
+#if 0
   if (optimize > 0)
     {
-      /* Release all memory allocated by flow.  */
-      free_basic_block_vars ();
+      /* Release all memory allocated by df.  */
+      if (rtl_df)
+	{
+	  df_finish (rtl_df);
+	  rtl_df = NULL;
+	}
 
       /* Release the bitmap obstacks.  */
       bitmap_obstack_release (&reg_obstack);
       bitmap_obstack_release (NULL);
     }
+#endif
 
   reload_completed = 0;
   epilogue_completed = 0;
@@ -10829,6 +10860,20 @@ int
 sh_contains_memref_p (rtx insn)
 {
   return for_each_rtx (&PATTERN (insn), &sh_contains_memref_p_1, NULL);
+}
+
+/* Return nonzero iff INSN loads a banked register.  */
+int
+sh_loads_bankedreg_p (rtx insn)
+{
+  if (GET_CODE (PATTERN (insn)) == SET)
+    {
+      rtx op = SET_DEST (PATTERN(insn));
+      if (REG_P (op) && BANKED_REGISTER_P (REGNO (op)))
+	return 1;
+    }
+
+  return 0;  
 }
 
 /* FNADDR is the MEM expression from a call expander.  Return an address

@@ -219,7 +219,7 @@ discover_unique_type (tree type)
 	  /* Create an alias since this is just the same as
 	     other_type.  */
 	  tree other_type = (tree) result->value;
-	  if (lang_hooks.types_compatible_p (type, other_type) == 1)
+	  if (types_compatible_p (type, other_type))
 	    {
 	      free (brand);
 	      /* Insert this new type as an alias for other_type.  */
@@ -1499,7 +1499,7 @@ okay_pointer_operation (enum tree_code code, tree op0, tree op1)
 static tree
 scan_for_refs (tree *tp, int *walk_subtrees, void *data)
 {
-  struct cgraph_node *fn = data;
+  struct cgraph_node *fn = (struct cgraph_node *) data;
   tree t = *tp;
 
   switch (TREE_CODE (t))  

@@ -1,5 +1,5 @@
 /* Calculate (post)dominators in slightly super-linear time.
-   Copyright (C) 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Michael Matz (matz@ifh.de).
 
    This file is part of GCC.
@@ -152,6 +152,7 @@ static unsigned n_bbs_in_dom_tree[2];
 static void
 init_dom_info (struct dom_info *di, enum cdi_direction dir)
 {
+  /* We need memory for n_basic_blocks nodes.  */
   unsigned int num = n_basic_blocks;
   init_ar (di->dfs_parent, TBB, num, 0);
   init_ar (di->path_min, TBB, num, i);
@@ -1241,9 +1242,9 @@ iterate_fix_dominators (enum cdi_direction dir, VEC (basic_block, heap) *bbs,
 
      Then, we need to establish the dominance relation among the basic blocks
      in BBS.  We split the dominance tree by removing the immediate dominator
-     edges from BBS, creating a forrest F.  We form a graph G whose vertices
+     edges from BBS, creating a forest F.  We form a graph G whose vertices
      are BBS and ENTRY and X -> Y is an edge of G if there exists an edge
-     X' -> Y in CFG such that X' belongs to the tree of the dominance forrest
+     X' -> Y in CFG such that X' belongs to the tree of the dominance forest
      whose root is X.  We then determine dominance tree of G.  Note that
      for X, Y in BBS, X dominates Y in CFG if and only if X dominates Y in G.
      In this step, we can use arbitrary algorithm to determine dominators.

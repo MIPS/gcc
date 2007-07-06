@@ -1381,11 +1381,50 @@ gfc_conv_intrinsic_minmax (gfc_se * se, gfc_expr * expr, int op)
   tree val;
   tree thencase;
   tree elsecase;
-  tree arg;
+  tree arg, arg1, arg2;
   tree type;
+  gfc_actual_arglist *argexpr;
+  unsigned int i;
 
   arg = gfc_conv_intrinsic_function_args (se, expr);
+  arg1 = TREE_VALUE (arg);
+  arg2 = TREE_VALUE (TREE_CHAIN (arg));
   type = gfc_typenode_for_spec (&expr->ts);
+
+  /* The first and second arguments should be present, if they are
+     optional dummy arguments.  */
+  argexpr = expr->value.function.actual;
+  if (argexpr->expr->expr_type == EXPR_VARIABLE
+      && argexpr->expr->symtree->n.sym->attr.optional
+      && TREE_CODE (arg1) == INDIRECT_REF)
+    {
+      /* Check the first argument.  */
+      tree cond;
+      char *msg;
+
+      asprintf (&msg, "First argument of '%s' intrinsic should be present",
+		expr->symtree->n.sym->name);
+      cond = build2 (EQ_EXPR, boolean_type_node, TREE_OPERAND (arg1, 0),
+		     build_int_cst (TREE_TYPE (TREE_OPERAND (arg1, 0)), 0));
+      gfc_trans_runtime_check (cond, msg, &se->pre, &expr->where);
+      gfc_free (msg);
+    }
+
+  if (argexpr->next->expr->expr_type == EXPR_VARIABLE
+      && argexpr->next->expr->symtree->n.sym->attr.optional
+      && TREE_CODE (arg2) == INDIRECT_REF)
+    {
+      /* Check the second argument.  */
+      tree cond;
+      char *msg;
+
+      asprintf (&msg, "Second argument of '%s' intrinsic should be present",
+		expr->symtree->n.sym->name);
+      cond = build2 (EQ_EXPR, boolean_type_node, TREE_OPERAND (arg2, 0),
+		     build_int_cst (TREE_TYPE (TREE_OPERAND (arg2, 0)), 0));
+      gfc_trans_runtime_check (cond, msg, &se->pre, &expr->where);
+      gfc_free (msg);
+    }
 
   limit = TREE_VALUE (arg);
   if (TREE_TYPE (limit) != type)
@@ -1396,23 +1435,40 @@ gfc_conv_intrinsic_minmax (gfc_se * se, gfc_expr * expr, int op)
 
   mvar = gfc_create_var (type, "M");
   elsecase = build2_v (MODIFY_EXPR, mvar, limit);
-  for (arg = TREE_CHAIN (arg); arg != NULL_TREE; arg = TREE_CHAIN (arg))
+  for (arg = TREE_CHAIN (arg), i = 0, argexpr = argexpr->next;
+       arg != NULL_TREE; arg = TREE_CHAIN (arg), i++)
     {
-      val = TREE_VALUE (arg);
-      if (TREE_TYPE (val) != type)
-	val = convert (type, val);
+      tree cond;
 
-      /* Only evaluate the argument once.  */
-      if (TREE_CODE (val) != VAR_DECL && !TREE_CONSTANT (val))
-        val = gfc_evaluate_now (val, &se->pre);
+      val = TREE_VALUE (arg);
+
+      /* Handle absent optional arguments by ignoring the comparison.  */
+      if (i > 0 && argexpr->expr->expr_type == EXPR_VARIABLE
+	  && argexpr->expr->symtree->n.sym->attr.optional
+	  && TREE_CODE (val) == INDIRECT_REF)
+	cond = build2 (NE_EXPR, boolean_type_node, TREE_OPERAND (val, 0),
+		       build_int_cst (TREE_TYPE (TREE_OPERAND (val, 0)), 0));
+      else
+      {
+	cond = NULL_TREE;
+
+	/* Only evaluate the argument once.  */
+	if (TREE_CODE (val) != VAR_DECL && !TREE_CONSTANT (val))
+	  val = gfc_evaluate_now (val, &se->pre);
+      }
 
       thencase = build2_v (MODIFY_EXPR, mvar, convert (type, val));
 
-      tmp = build2 (op, boolean_type_node, val, limit);
+      tmp = build2 (op, boolean_type_node, convert (type, val), limit);
       tmp = build3_v (COND_EXPR, tmp, thencase, elsecase);
+
+      if (cond != NULL_TREE)
+	tmp = build3_v (COND_EXPR, cond, tmp, build_empty_stmt ());
+
       gfc_add_expr_to_block (&se->pre, tmp);
       elsecase = build_empty_stmt ();
       limit = mvar;
+      argexpr = argexpr->next;
     }
   se->expr = mvar;
 }
@@ -1928,6 +1984,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
   tree tmp;
   tree elsetmp;
   tree ifbody;
+  tree offset;
   gfc_loopinfo loop;
   gfc_actual_arglist *actual;
   gfc_ss *arrayss;
@@ -1947,6 +2004,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
 
   /* Initialize the result.  */
   pos = gfc_create_var (gfc_array_index_type, "pos");
+  offset = gfc_create_var (gfc_array_index_type, "offset");
   type = gfc_typenode_for_spec (&expr->ts);
 
   /* Walk the arguments.  */
@@ -2045,15 +2103,28 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
   /* Assign the value to the limit...  */
   gfc_add_modify_expr (&ifblock, limit, arrayse.expr);
 
-  /* Remember where we are.  */
-  gfc_add_modify_expr (&ifblock, pos, loop.loopvar[0]);
+  /* Remember where we are.  An offset must be added to the loop
+     counter to obtain the required position.  */
+  if (loop.temp_dim)
+    tmp = build_int_cst (gfc_array_index_type, 1);
+  else
+    tmp =fold_build2 (MINUS_EXPR, gfc_array_index_type,
+			 gfc_index_one_node, loop.from[0]);
+  gfc_add_modify_expr (&block, offset, tmp);
+
+  tmp = build2 (PLUS_EXPR, TREE_TYPE (pos),
+		loop.loopvar[0], offset);
+  gfc_add_modify_expr (&ifblock, pos, tmp);
 
   ifbody = gfc_finish_block (&ifblock);
 
-  /* If it is a more extreme value or pos is still zero.  */
+  /* If it is a more extreme value or pos is still zero and the value
+     equal to the limit.  */
+  tmp = build2 (TRUTH_AND_EXPR, boolean_type_node,
+		build2 (EQ_EXPR, boolean_type_node, pos, gfc_index_zero_node),
+		build2 (EQ_EXPR, boolean_type_node, arrayse.expr, limit));
   tmp = build2 (TRUTH_OR_EXPR, boolean_type_node,
-		  build2 (op, boolean_type_node, arrayse.expr, limit),
-		  build2 (EQ_EXPR, boolean_type_node, pos, gfc_index_zero_node));
+		build2 (op, boolean_type_node, arrayse.expr, limit), tmp);
   tmp = build3_v (COND_EXPR, tmp, ifbody, build_empty_stmt ());
   gfc_add_expr_to_block (&block, tmp);
 
@@ -2098,12 +2169,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
     }
   gfc_cleanup_loop (&loop);
 
-  /* Return a value in the range 1..SIZE(array).  */
-  tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type, loop.from[0],
-		     gfc_index_one_node);
-  tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type, pos, tmp);
-  /* And convert to the required type.  */
-  se->expr = convert (type, tmp);
+  se->expr = convert (type, pos);
 }
 
 static void
@@ -3530,8 +3596,8 @@ gfc_conv_intrinsic_repeat (gfc_se * se, gfc_expr * expr)
   /* Call memmove (dest + (i*slen), src, slen).  */
   tmp = fold_build2 (MULT_EXPR, gfc_charlen_type_node, slen,
 		     fold_convert (gfc_charlen_type_node, count));
-  tmp = fold_build2 (PLUS_EXPR, pchar_type_node, dest,
-		     fold_convert (pchar_type_node, tmp));
+  tmp = fold_build2 (POINTER_PLUS_EXPR, pchar_type_node, dest,
+		     fold_convert (sizetype, tmp));
   tmp = build_call_expr (built_in_decls[BUILT_IN_MEMMOVE], 3,
 			 tmp, src, slen);
   gfc_add_expr_to_block (&body, tmp);

@@ -700,10 +700,11 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
       /*  (float_truncate (float x)) is (float x)  */
       if (GET_CODE (op) == FLOAT
 	  && (flag_unsafe_math_optimizations
-	      || ((unsigned)significand_size (GET_MODE (op))
-		  >= (GET_MODE_BITSIZE (GET_MODE (XEXP (op, 0)))
-		      - num_sign_bit_copies (XEXP (op, 0),
-					     GET_MODE (XEXP (op, 0)))))))
+	      || (SCALAR_FLOAT_MODE_P (GET_MODE (op))
+		  && ((unsigned)significand_size (GET_MODE (op))
+		      >= (GET_MODE_BITSIZE (GET_MODE (XEXP (op, 0)))
+			  - num_sign_bit_copies (XEXP (op, 0),
+						 GET_MODE (XEXP (op, 0))))))))
 	return simplify_gen_unary (FLOAT, mode,
 				   XEXP (op, 0),
 				   GET_MODE (XEXP (op, 0)));
@@ -736,6 +737,7 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
           */
       if (GET_CODE (op) == FLOAT_EXTEND
 	  || (GET_CODE (op) == FLOAT
+	      && SCALAR_FLOAT_MODE_P (GET_MODE (op))
 	      && ((unsigned)significand_size (GET_MODE (op))
 		  >= (GET_MODE_BITSIZE (GET_MODE (XEXP (op, 0)))
 		      - num_sign_bit_copies (XEXP (op, 0),
@@ -1772,10 +1774,14 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
     case MINUS:
       /* We can't assume x-x is 0 even with non-IEEE floating point,
 	 but since it is zero except in very strange circumstances, we
-	 will treat it as zero with -funsafe-math-optimizations.  */
+	 will treat it as zero with -funsafe-math-optimizations and
+	 -ffinite-math-only.  */
       if (rtx_equal_p (trueop0, trueop1)
 	  && ! side_effects_p (op0)
-	  && (! FLOAT_MODE_P (mode) || flag_unsafe_math_optimizations))
+	  && (! FLOAT_MODE_P (mode)
+	      || (flag_unsafe_math_optimizations
+		  && !HONOR_NANS (mode)
+		  && !HONOR_INFINITIES (mode))))
 	return CONST0_RTX (mode);
 
       /* Change subtraction from zero into negation.  (0 - x) is the

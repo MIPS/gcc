@@ -126,6 +126,10 @@ static rtx expand_parity (enum machine_mode, rtx, rtx);
 static enum rtx_code get_rtx_code (enum tree_code, bool);
 static rtx vector_compare_rtx (tree, bool, enum insn_code);
 
+/* Current libcall id.  It doesn't matter what these are, as long
+   as they are unique to each libcall that is emitted.  */
+static HOST_WIDE_INT libcall_id = 0;
+
 #ifndef HAVE_conditional_trap
 #define HAVE_conditional_trap 0
 #define gen_conditional_trap(a,b) (gcc_unreachable (), NULL_RTX)
@@ -368,6 +372,7 @@ optab_for_tree_code (enum tree_code code, tree type)
   trapv = INTEGRAL_TYPE_P (type) && TYPE_OVERFLOW_TRAPS (type);
   switch (code)
     {
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
       return trapv ? addv_optab : add_optab;
 
@@ -1241,6 +1246,113 @@ swap_commutative_operands_with_target (rtx target, rtx op0, rtx op1)
 }
 
 
+/* Helper function for expand_binop: handle the case where there
+   is an insn that directly implements the indicated operation.
+   Returns null if this is not possible.  */
+static rtx
+expand_binop_directly (enum machine_mode mode, optab binoptab,
+		       rtx op0, rtx op1,
+		       rtx target, int unsignedp, enum optab_methods methods,
+		       int commutative_op, rtx last)
+{
+  int icode = (int) binoptab->handlers[(int) mode].insn_code;
+  enum machine_mode mode0 = insn_data[icode].operand[1].mode;
+  enum machine_mode mode1 = insn_data[icode].operand[2].mode;
+  enum machine_mode tmp_mode;
+  rtx pat;
+  rtx xop0 = op0, xop1 = op1;
+  rtx temp;
+  
+  if (target)
+    temp = target;
+  else
+    temp = gen_reg_rtx (mode);
+  
+  /* If it is a commutative operator and the modes would match
+     if we would swap the operands, we can save the conversions.  */
+  if (commutative_op)
+    {
+      if (GET_MODE (op0) != mode0 && GET_MODE (op1) != mode1
+	  && GET_MODE (op0) == mode1 && GET_MODE (op1) == mode0)
+	{
+	  rtx tmp;
+	  
+	  tmp = op0; op0 = op1; op1 = tmp;
+	  tmp = xop0; xop0 = xop1; xop1 = tmp;
+	}
+    }
+  
+  /* In case the insn wants input operands in modes different from
+     those of the actual operands, convert the operands.  It would
+     seem that we don't need to convert CONST_INTs, but we do, so
+     that they're properly zero-extended, sign-extended or truncated
+     for their mode.  */
+  
+  if (GET_MODE (op0) != mode0 && mode0 != VOIDmode)
+    xop0 = convert_modes (mode0,
+			  GET_MODE (op0) != VOIDmode
+			  ? GET_MODE (op0)
+			  : mode,
+			  xop0, unsignedp);
+  
+  if (GET_MODE (op1) != mode1 && mode1 != VOIDmode)
+    xop1 = convert_modes (mode1,
+			  GET_MODE (op1) != VOIDmode
+			  ? GET_MODE (op1)
+			  : mode,
+			  xop1, unsignedp);
+  
+  /* Now, if insn's predicates don't allow our operands, put them into
+     pseudo regs.  */
+  
+  if (!insn_data[icode].operand[1].predicate (xop0, mode0)
+      && mode0 != VOIDmode)
+    xop0 = copy_to_mode_reg (mode0, xop0);
+  
+  if (!insn_data[icode].operand[2].predicate (xop1, mode1)
+      && mode1 != VOIDmode)
+    xop1 = copy_to_mode_reg (mode1, xop1);
+  
+  if (binoptab == vec_pack_trunc_optab 
+      || binoptab == vec_pack_usat_optab
+      || binoptab == vec_pack_ssat_optab
+      || binoptab == vec_pack_ufix_trunc_optab
+      || binoptab == vec_pack_sfix_trunc_optab)
+    {
+      /* The mode of the result is different then the mode of the
+	 arguments.  */
+      tmp_mode = insn_data[icode].operand[0].mode;
+      if (GET_MODE_NUNITS (tmp_mode) != 2 * GET_MODE_NUNITS (mode))
+	return 0;
+    }
+  else
+    tmp_mode = mode;
+
+  if (!insn_data[icode].operand[0].predicate (temp, tmp_mode))
+    temp = gen_reg_rtx (tmp_mode);
+  
+  pat = GEN_FCN (icode) (temp, xop0, xop1);
+  if (pat)
+    {
+      /* If PAT is composed of more than one insn, try to add an appropriate
+	 REG_EQUAL note to it.  If we can't because TEMP conflicts with an
+	 operand, call expand_binop again, this time without a target.  */
+      if (INSN_P (pat) && NEXT_INSN (pat) != NULL_RTX
+	  && ! add_equal_note (pat, temp, binoptab->code, xop0, xop1))
+	{
+	  delete_insns_since (last);
+	  return expand_binop (mode, binoptab, op0, op1, NULL_RTX,
+			       unsignedp, methods);
+	}
+      
+      emit_insn (pat);
+      return temp;
+    }
+
+  delete_insns_since (last);
+  return NULL_RTX;
+}
+
 /* Generate code to perform an operation specified by BINOPTAB
    on operands OP0 and OP1, with result having machine-mode MODE.
 
@@ -1270,7 +1382,6 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 		  || binoptab->code == ROTATERT);
   rtx entry_last = get_last_insn ();
   rtx last;
-  bool first_pass_p = true;
 
   class = GET_MODE_CLASS (mode);
 
@@ -1324,123 +1435,43 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 	}
     }
 
- retry:
-
   /* If we can do it with a three-operand insn, do so.  */
 
   if (methods != OPTAB_MUST_WIDEN
       && binoptab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
     {
-      int icode = (int) binoptab->handlers[(int) mode].insn_code;
-      enum machine_mode mode0 = insn_data[icode].operand[1].mode;
-      enum machine_mode mode1 = insn_data[icode].operand[2].mode;
-      enum machine_mode tmp_mode;
-      rtx pat;
-      rtx xop0 = op0, xop1 = op1;
-
-      if (target)
-	temp = target;
-      else
-	temp = gen_reg_rtx (mode);
-
-      /* If it is a commutative operator and the modes would match
-	 if we would swap the operands, we can save the conversions.  */
-      if (commutative_op)
-	{
-	  if (GET_MODE (op0) != mode0 && GET_MODE (op1) != mode1
-	      && GET_MODE (op0) == mode1 && GET_MODE (op1) == mode0)
-	    {
-	      rtx tmp;
-
-	      tmp = op0; op0 = op1; op1 = tmp;
-	      tmp = xop0; xop0 = xop1; xop1 = tmp;
-	    }
-	}
-
-      /* In case the insn wants input operands in modes different from
-	 those of the actual operands, convert the operands.  It would
-	 seem that we don't need to convert CONST_INTs, but we do, so
-	 that they're properly zero-extended, sign-extended or truncated
-	 for their mode.  */
-
-      if (GET_MODE (op0) != mode0 && mode0 != VOIDmode)
-	xop0 = convert_modes (mode0,
-			      GET_MODE (op0) != VOIDmode
-			      ? GET_MODE (op0)
-			      : mode,
-			      xop0, unsignedp);
-
-      if (GET_MODE (op1) != mode1 && mode1 != VOIDmode)
-	xop1 = convert_modes (mode1,
-			      GET_MODE (op1) != VOIDmode
-			      ? GET_MODE (op1)
-			      : mode,
-			      xop1, unsignedp);
-
-      /* Now, if insn's predicates don't allow our operands, put them into
-	 pseudo regs.  */
-
-      if (!insn_data[icode].operand[1].predicate (xop0, mode0)
-	  && mode0 != VOIDmode)
-	xop0 = copy_to_mode_reg (mode0, xop0);
-
-      if (!insn_data[icode].operand[2].predicate (xop1, mode1)
-	  && mode1 != VOIDmode)
-	xop1 = copy_to_mode_reg (mode1, xop1);
-
-      if (binoptab == vec_pack_trunc_optab 
-	  || binoptab == vec_pack_usat_optab
-	  || binoptab == vec_pack_ssat_optab
-	  || binoptab == vec_pack_ufix_trunc_optab
-	  || binoptab == vec_pack_sfix_trunc_optab)
-	{
-	  /* The mode of the result is different then the mode of the
-	     arguments.  */
-	  tmp_mode = insn_data[icode].operand[0].mode;
-	  if (GET_MODE_NUNITS (tmp_mode) != 2 * GET_MODE_NUNITS (mode))
-	    return 0;
-	}
-      else
-        tmp_mode = mode;
-
-      if (!insn_data[icode].operand[0].predicate (temp, tmp_mode))
-	temp = gen_reg_rtx (tmp_mode);
-
-      pat = GEN_FCN (icode) (temp, xop0, xop1);
-      if (pat)
-	{
-	  /* If PAT is composed of more than one insn, try to add an appropriate
-	     REG_EQUAL note to it.  If we can't because TEMP conflicts with an
-	     operand, call ourselves again, this time without a target.  */
-	  if (INSN_P (pat) && NEXT_INSN (pat) != NULL_RTX
-	      && ! add_equal_note (pat, temp, binoptab->code, xop0, xop1))
-	    {
-	      delete_insns_since (last);
-	      return expand_binop (mode, binoptab, op0, op1, NULL_RTX,
-				   unsignedp, methods);
-	    }
-
-	  emit_insn (pat);
-	  return temp;
-	}
-      else
-	delete_insns_since (last);
+      temp = expand_binop_directly (mode, binoptab, op0, op1, target,
+				    unsignedp, methods, commutative_op, last);
+      if (temp)
+	return temp;
     }
 
-  /* If we were trying to rotate by a constant value, and that didn't
-     work, try rotating the other direction before falling back to
-     shifts and bitwise-or.  */
-  if (first_pass_p
-      && (binoptab == rotl_optab || binoptab == rotr_optab)
-      && class == MODE_INT
-      && GET_CODE (op1) == CONST_INT
-      && INTVAL (op1) > 0
-      && (unsigned int) INTVAL (op1) < GET_MODE_BITSIZE (mode))
+  /* If we were trying to rotate, and that didn't work, try rotating
+     the other direction before falling back to shifts and bitwise-or.  */
+  if (((binoptab == rotl_optab
+	&& rotr_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
+       || (binoptab == rotr_optab
+	   && rotl_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing))
+      && class == MODE_INT)
     {
-      first_pass_p = false;
-      op1 = GEN_INT (GET_MODE_BITSIZE (mode) - INTVAL (op1));
-      binoptab = binoptab == rotl_optab ? rotr_optab : rotl_optab;
-      goto retry;
+      optab otheroptab = (binoptab == rotl_optab ? rotr_optab : rotl_optab);
+      rtx newop1;
+      unsigned int bits = GET_MODE_BITSIZE (mode);
+
+      if (GET_CODE (op1) == CONST_INT)
+	newop1 = GEN_INT (bits - INTVAL (op1));
+      else if (targetm.shift_truncation_mask (mode) == bits - 1)
+	newop1 = negate_rtx (mode, op1);
+      else
+	newop1 = expand_binop (mode, sub_optab,
+			       GEN_INT (bits), op1,
+			       NULL_RTX, unsignedp, OPTAB_DIRECT);
+				   
+      temp = expand_binop_directly (mode, otheroptab, op0, newop1,
+				    target, unsignedp, methods,
+				    commutative_op, last);
+      if (temp)
+	return temp;
     }
 
   /* If this is a multiply, see if we can do a widening operation that
@@ -3383,7 +3414,7 @@ no_conflict_move_test (rtx dest, rtx set, void *p0)
    logically equivalent to EQUIV, so it gets manipulated as a unit if it
    is possible to do so.  */
 
-static void
+void
 maybe_encapsulate_block (rtx first, rtx last, rtx equiv)
 {
   if (!flag_non_call_exceptions || !may_trap_p (equiv))
@@ -3407,6 +3438,12 @@ maybe_encapsulate_block (rtx first, rtx last, rtx equiv)
 						 REG_NOTES (first));
 	  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first,
 						REG_NOTES (last));
+	  next = NEXT_INSN (last);
+	  for (insn = first; insn != next; insn = NEXT_INSN (insn))
+	    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_LIBCALL_ID,
+	    				          GEN_INT (libcall_id),
+						  REG_NOTES (insn));
+	  libcall_id++;
 	}
     }
 }
@@ -3466,6 +3503,8 @@ emit_no_conflict_block (rtx insns, rtx target, rtx op0, rtx op1, rtx equiv)
       if ((note = find_reg_note (insn, REG_LIBCALL, NULL)) != NULL)
 	remove_note (insn, note);
       if ((note = find_reg_note (insn, REG_RETVAL, NULL)) != NULL)
+	remove_note (insn, note);
+      if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL)) != NULL)
 	remove_note (insn, note);
 
       data.target = target;
@@ -3561,7 +3600,6 @@ emit_no_conflict_block (rtx insns, rtx target, rtx op0, rtx op1, rtx equiv)
 
    Except for the first group of insns (the ones setting pseudos), the
    block is delimited by REG_RETVAL and REG_LIBCALL notes.  */
-
 void
 emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
 {
@@ -3619,6 +3657,8 @@ emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
       if ((note = find_reg_note (insn, REG_LIBCALL, NULL)) != NULL)
 	remove_note (insn, note);
       if ((note = find_reg_note (insn, REG_RETVAL, NULL)) != NULL)
+	remove_note (insn, note);
+      if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL)) != NULL)
 	remove_note (insn, note);
 
       next = NEXT_INSN (insn);
@@ -5496,6 +5536,8 @@ init_optabs (void)
   movstrict_optab = init_optab (STRICT_LOW_PART);
   cmp_optab = init_optab (COMPARE);
 
+  storent_optab = init_optab (UNKNOWN);
+
   ucmp_optab = init_optab (UNKNOWN);
   tst_optab = init_optab (UNKNOWN);
 
@@ -5822,7 +5864,7 @@ debug_optab_libfuncs (void)
 	h = &o->handlers[j];
 	if (h->libfunc)
 	  {
-	    gcc_assert (GET_CODE (h->libfunc) = SYMBOL_REF);
+	    gcc_assert (GET_CODE (h->libfunc) == SYMBOL_REF);
 	    fprintf (stderr, "%s\t%s:\t%s\n",
 		     GET_RTX_NAME (o->code),
 		     GET_MODE_NAME (j),
@@ -5842,7 +5884,7 @@ debug_optab_libfuncs (void)
 	  h = &o->handlers[j][k];
 	  if (h->libfunc)
 	    {
-	      gcc_assert (GET_CODE (h->libfunc) = SYMBOL_REF);
+	      gcc_assert (GET_CODE (h->libfunc) == SYMBOL_REF);
 	      fprintf (stderr, "%s\t%s\t%s:\t%s\n",
 		       GET_RTX_NAME (o->code),
 		       GET_MODE_NAME (j),

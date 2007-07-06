@@ -1,5 +1,5 @@
 /* Definitions of target machine GNU compiler.  IA-64 version.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
    		  David Mosberger <davidm@hpl.hp.com>.
@@ -285,6 +285,9 @@ while (0)
 
 /* We always want the XFmode operations from libgcc2.c.  */
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 80
+
+/* On HP-UX, we use the l suffix for TFmode in libgcc2.c.  */
+#define LIBGCC2_TF_CEXT l
 
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -985,6 +988,7 @@ enum reg_class
    pointer is not 16-byte aligned like the stack pointer.  */
 #define INIT_EXPANDERS					\
   do {							\
+    ia64_init_expanders ();                             \
     if (cfun && cfun->emit->regno_pointer_align)	\
       REGNO_POINTER_ALIGN (ARG_POINTER_REGNUM) = 64;	\
   } while (0)

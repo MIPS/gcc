@@ -2187,8 +2187,24 @@ redeclaration_error_message (tree newdecl, tree olddecl)
     }
   else if (toplevel_bindings_p () || DECL_NAMESPACE_SCOPE_P (newdecl))
     {
-      /* Objects declared at top level:  */
-      /* If at least one is a reference, it's ok.  */
+      /* The objects have been declared at namespace scope.  If either
+	 is a member of an anonymous union, then this is an invalid
+	 redeclaration.  For example:
+
+	   int i;
+	   union { int i; };
+
+	   is invalid.  */
+      if (DECL_ANON_UNION_VAR_P (newdecl)
+	  || DECL_ANON_UNION_VAR_P (olddecl))
+	return "redeclaration of %q#D";
+      /* If at least one declaration is a reference, there is no
+	 conflict.  For example:
+
+	   int i = 3;
+	   extern int i;
+
+	 is valid.  */
       if (DECL_EXTERNAL (newdecl) || DECL_EXTERNAL (olddecl))
 	return NULL;
       /* Reject two definitions.  */
@@ -3162,6 +3178,9 @@ cxx_init_decl_processing (void)
   begin_scope (sk_namespace, global_namespace);
 
   current_lang_name = NULL_TREE;
+
+  if (flag_visibility_ms_compat)
+    default_visibility = VISIBILITY_HIDDEN;
 
   /* Force minimum function alignment if using the least significant
      bit of function pointers to store the virtual bit.  */
@@ -6583,10 +6602,10 @@ build_ptrmemfunc_type (tree type)
      later.  */
   TYPE_SET_PTRMEMFUNC_TYPE (type, t);
 
-  if (TYPE_STRUCTURAL_EQUALITY_P (type))
-    SET_TYPE_STRUCTURAL_EQUALITY (t);
-  else if (TYPE_CANONICAL (type) != type)
-    TYPE_CANONICAL (t) = build_ptrmemfunc_type (TYPE_CANONICAL (type));
+  /* Managing canonical types for the RECORD_TYPE behind a
+     pointer-to-member function is a nightmare, so use structural
+     equality for now.  */
+  SET_TYPE_STRUCTURAL_EQUALITY (t);
 
   return t;
 }
@@ -8041,7 +8060,10 @@ grokdeclarator (const cp_declarator *declarator,
       if (ctype == current_class_type)
 	{
 	  if (friendp)
-	    pedwarn ("member functions are implicitly friends of their class");
+	    {
+	      pedwarn ("member functions are implicitly friends of their class");
+	      friendp = 0;
+	    }
 	  else
 	    pedwarn ("extra qualification %<%T::%> on member %qs",
 		     ctype, name);
@@ -9910,6 +9932,12 @@ lookup_and_check_tag (enum tag_types tag_code, tree name,
 					   template_header_p
 					   | DECL_SELF_REFERENCE_P (decl));
       return t;
+    }
+  else if (decl && TREE_CODE (decl) == TREE_LIST)
+    {
+      error ("reference to %qD is ambiguous", name);
+      print_candidates (decl);
+      return error_mark_node;
     }
   else
     return NULL_TREE;

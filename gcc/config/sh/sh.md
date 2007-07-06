@@ -1,6 +1,6 @@
 ;;- Machine description for Renesas / SuperH SH.
 ;;  Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-;;  2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+;;  2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 ;;  Contributed by Steve Chamberlain (sac@cygnus.com).
 ;;  Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -135,7 +135,6 @@
   (UNSPEC_FSINA		16)
   (UNSPEC_NSB		17)
   (UNSPEC_ALLOCO	18)
-  (UNSPEC_EH_RETURN	19)
   (UNSPEC_TLSGD		20)
   (UNSPEC_TLSLDM	21)
   (UNSPEC_TLSIE		22)
@@ -163,6 +162,7 @@
   (UNSPECV_CONST8	6)
   (UNSPECV_WINDOW_END	10)
   (UNSPECV_CONST_END	11)
+  (UNSPECV_EH_RETURN	12)
 ])
 
 ;; -------------------------------------------------------------------------
@@ -463,6 +463,12 @@
 
 (define_attr "needs_delay_slot" "yes,no" (const_string "no"))
 
+(define_attr "banked" "yes,no" 
+	(cond [(eq (symbol_ref "sh_loads_bankedreg_p (insn)")
+		   (const_int 1))
+	       (const_string "yes")]
+	      (const_string "no")))
+
 ;; ??? This should be (nil) instead of (const_int 0)
 (define_attr "hit_stack" "yes,no"
 	(cond [(eq (symbol_ref "find_regno_note (insn, REG_INC, SP_REG)")
@@ -541,8 +547,9 @@
 		  (eq_attr "type" "!pload,prset"))
 	     (and (eq_attr "interrupt_function" "yes")
 		  (ior
-		   (ne (symbol_ref "TARGET_SH3") (const_int 0))
-		   (eq_attr "hit_stack" "no"))))) (nil) (nil)])
+		   (eq (symbol_ref "TARGET_SH3") (const_int 0))
+		   (eq_attr "hit_stack" "no")
+		   (eq_attr "banked" "no"))))) (nil) (nil)])
 
 ;; Since a call implicitly uses the PR register, we can't allow
 ;; a PR register store in a jsr delay slot.
@@ -1758,7 +1765,7 @@
    (clobber (reg:DI TR0_REG))
    (clobber (reg:DI TR1_REG))
    (clobber (reg:DI TR2_REG))
-   (use (match_operand 1 "target_operand" "b"))]
+   (use (match_operand 1 "target_reg_operand" "b"))]
   "TARGET_SHMEDIA && (! TARGET_SHMEDIA_FPU || ! TARGET_DIVIDE_FP)"
   "blink	%1, r18"
   [(set_attr "type" "sfunc")
@@ -1853,7 +1860,7 @@
   ""
   "
 {
-  rtx first, last;
+  rtx last;
 
   operands[3] = gen_reg_rtx (Pmode);
   /* Emit the move of the address to a pseudo outside of the libcall.  */
@@ -1917,13 +1924,9 @@
       function_symbol (operands[3], \"__udivsi3\", SFUNC_STATIC);
       last = gen_udivsi3_i1 (operands[0], operands[3]);
     }
-  first = emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
+  emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
   emit_move_insn (gen_rtx_REG (SImode, 5), operands[2]);
-  last = emit_insn (last);
-  /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
-     invariant code motion can move it.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last, REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
+  emit_insn (last);
   DONE;
 }")
 
@@ -1959,7 +1962,7 @@
    (clobber (reg:SI R20_REG))
    (clobber (reg:SI R21_REG))
    (clobber (reg:SI TR0_REG))
-   (use (match_operand 1 "target_operand" "b"))]
+   (use (match_operand 1 "target_reg_operand" "b"))]
   "TARGET_SHMEDIA && (! TARGET_SHMEDIA_FPU || ! TARGET_DIVIDE_FP)"
   "blink	%1, r18"
   [(set_attr "type" "sfunc")])
@@ -1973,7 +1976,7 @@
    (clobber (reg:SI R21_REG))
    (clobber (reg:SI TR0_REG))
    (use (reg:SI R20_REG))
-   (use (match_operand 1 "target_operand" "b"))]
+   (use (match_operand 1 "target_reg_operand" "b"))]
   "TARGET_SHMEDIA && (! TARGET_SHMEDIA_FPU || ! TARGET_DIVIDE_FP)"
   "blink	%1, r18"
   [(set_attr "type" "sfunc")])
@@ -2125,7 +2128,7 @@
   ""
   "
 {
-  rtx first, last;
+  rtx last;
 
   operands[3] = gen_reg_rtx (Pmode);
   /* Emit the move of the address to a pseudo outside of the libcall.  */
@@ -2264,13 +2267,9 @@
       function_symbol (operands[3], sh_divsi3_libfunc, SFUNC_GOT);
       last = gen_divsi3_i1 (operands[0], operands[3]);
     }
-  first = emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
+  emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
   emit_move_insn (gen_rtx_REG (SImode, 5), operands[2]);
-  last = emit_insn (last);
-  /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
-     invariant code motion can move it.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last, REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
+  emit_insn (last);
   DONE;
 }")
 
@@ -2739,21 +2738,21 @@ label:
   "TARGET_SH1"
   "
 {
-  rtx first, last;
+  rtx insn, macl;
 
-  first = emit_insn (gen_mulhisi3_i (operands[1], operands[2]));
-  last = emit_move_insn (operands[0], gen_rtx_REG (SImode, MACL_REG));
-  /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
-     invariant code motion can move it.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last, REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
+  macl = gen_rtx_REG (SImode, MACL_REG);
+  start_sequence ();
+  emit_insn (gen_mulhisi3_i (operands[1], operands[2]));
+  insn = get_insns ();  
+  end_sequence ();
   /* expand_binop can't find a suitable code in umul_widen_optab to
      make a REG_EQUAL note from, so make one here.
      See also smulsi3_highpart.
      ??? Alternatively, we could put this at the calling site of expand_binop,
      i.e. expand_expr.  */
-  set_unique_reg_note (last, REG_EQUAL,
-		       copy_rtx (SET_SRC (single_set (first))));
+  /* Use emit_libcall_block for loop invariant code motion and to make
+     a REG_EQUAL note.  */
+  emit_libcall_block (insn, operands[0], macl, SET_SRC (single_set (insn)));
 
   DONE;
 }")
@@ -2769,21 +2768,21 @@ label:
   "TARGET_SH1"
   "
 {
-  rtx first, last;
+  rtx insn, macl;
 
-  first = emit_insn (gen_umulhisi3_i (operands[1], operands[2]));
-  last = emit_move_insn (operands[0], gen_rtx_REG (SImode, MACL_REG));
-  /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
-     invariant code motion can move it.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last, REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
+  macl = gen_rtx_REG (SImode, MACL_REG);
+  start_sequence ();
+  emit_insn (gen_umulhisi3_i (operands[1], operands[2]));
+  insn = get_insns ();  
+  end_sequence ();
   /* expand_binop can't find a suitable code in umul_widen_optab to
      make a REG_EQUAL note from, so make one here.
      See also smulsi3_highpart.
      ??? Alternatively, we could put this at the calling site of expand_binop,
      i.e. expand_expr.  */
-  set_unique_reg_note (last, REG_EQUAL,
-		       copy_rtx (SET_SRC (single_set (first))));
+  /* Use emit_libcall_block for loop invariant code motion and to make
+     a REG_EQUAL note.  */
+  emit_libcall_block (insn, operands[0], macl, SET_SRC (single_set (insn)));
 
   DONE;
 }")
@@ -2847,8 +2846,6 @@ label:
   "TARGET_SH1"
   "
 {
-  rtx first, last;
-
   if (!TARGET_SH2)
     {
       /* The address must be set outside the libcall,
@@ -2857,23 +2854,18 @@ label:
       rtx addr = force_reg (SImode, sym);
       rtx insns = gen_mulsi3_call (operands[0], operands[1],
 				   operands[2], addr);
-      first = insns;
-      last = emit_insn (insns);
+      emit_insn (insns);
     }
   else
     {
       rtx macl = gen_rtx_REG (SImode, MACL_REG);
 
-      first = emit_insn (gen_mul_l (operands[1], operands[2]));
+      emit_insn (gen_mul_l (operands[1], operands[2]));
       /* consec_sets_giv can only recognize the first insn that sets a
 	 giv as the giv insn.  So we must tag this also with a REG_EQUAL
 	 note.  */
-      last = emit_insn (gen_movsi_i ((operands[0]), macl));
+      emit_insn (gen_movsi_i ((operands[0]), macl));
     }
-  /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
-     invariant code motion can move it.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last, REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
   DONE;
 }")
 
@@ -3048,21 +3040,21 @@ label:
   "TARGET_SH2"
   "
 {
-  rtx first, last;
+  rtx insn, mach;
 
-  first = emit_insn (gen_smulsi3_highpart_i (operands[1], operands[2]));
-  last = emit_move_insn (operands[0], gen_rtx_REG (SImode, MACH_REG));
-  /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
-     invariant code motion can move it.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last, REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
+  mach = gen_rtx_REG (SImode, MACH_REG);
+  start_sequence ();
+  emit_insn (gen_smulsi3_highpart_i (operands[1], operands[2]));
+  insn = get_insns ();  
+  end_sequence ();
   /* expand_binop can't find a suitable code in mul_highpart_optab to
      make a REG_EQUAL note from, so make one here.
      See also {,u}mulhisi.
      ??? Alternatively, we could put this at the calling site of expand_binop,
      i.e. expand_mult_highpart.  */
-  set_unique_reg_note (last, REG_EQUAL,
-		       copy_rtx (SET_SRC (single_set (first))));
+  /* Use emit_libcall_block for loop invariant code motion and to make
+     a REG_EQUAL note.  */
+  emit_libcall_block (insn, operands[0], mach, SET_SRC (single_set (insn)));
 
   DONE;
 }")
@@ -3095,14 +3087,17 @@ label:
   "TARGET_SH2"
   "
 {
-  rtx first, last;
+  rtx insn, mach;
 
-  first = emit_insn (gen_umulsi3_highpart_i (operands[1], operands[2]));
-  last = emit_move_insn (operands[0], gen_rtx_REG (SImode, MACH_REG));
-  /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
-     invariant code motion can move it.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last, REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
+  mach = gen_rtx_REG (SImode, MACH_REG);
+  start_sequence ();
+  emit_insn (gen_umulsi3_highpart_i (operands[1], operands[2]));
+  insn = get_insns ();  
+  end_sequence ();
+  /* Use emit_libcall_block for loop invariant code motion and to make
+     a REG_EQUAL note.  */
+  emit_libcall_block (insn, operands[0], mach, SET_SRC (single_set (insn)));
+
   DONE;
 }")
 
@@ -8110,15 +8105,197 @@ label:
   DONE;
 }")
 
-(define_expand "sibcall_value"
-  [(set (match_operand 0 "" "")
-	(call (match_operand 1 "" "")
+(define_insn "sibcall_valuei"
+  [(set (match_operand 0 "" "=rf")
+	(call (mem:SI (match_operand:SI 1 "register_operand" "k"))
 	      (match_operand 2 "" "")))
-   (match_operand 3 "" "")]
+   (use (reg:PSI FPSCR_REG))
+   (return)]
+  "TARGET_SH1"
+  "jmp	@%1%#"
+  [(set_attr "needs_delay_slot" "yes")
+   (set (attr "fp_mode")
+	(if_then_else (eq_attr "fpu_single" "yes")
+		      (const_string "single") (const_string "double")))
+   (set_attr "type" "jump_ind")])
+
+(define_insn "sibcall_valuei_pcrel"
+  [(set (match_operand 0 "" "=rf")
+	(call (mem:SI (match_operand:SI 1 "arith_reg_operand" "k"))
+	      (match_operand 2 "" "")))
+   (use (match_operand 3 "" ""))
+   (use (reg:PSI FPSCR_REG))
+   (return)]
+  "TARGET_SH2"
+  "braf	%1\\n%O3:%#"
+  [(set_attr "needs_delay_slot" "yes")
+   (set (attr "fp_mode")
+	(if_then_else (eq_attr "fpu_single" "yes")
+		      (const_string "single") (const_string "double")))
+   (set_attr "type" "jump_ind")])
+
+(define_insn_and_split "sibcall_value_pcrel"
+  [(set (match_operand 0 "" "=rf")
+	(call (mem:SI (match_operand:SI 1 "symbol_ref_operand" ""))
+	      (match_operand 2 "" "")))
+   (use (reg:PSI FPSCR_REG))
+   (clobber (match_scratch:SI 3 "=k"))
+   (return)]
+  "TARGET_SH2"
+  "#"
+  "reload_completed"
+  [(const_int 0)]
+  "
+{
+  rtx lab = PATTERN (gen_call_site ());
+  rtx call_insn;
+
+  emit_insn (gen_sym_label2reg (operands[3], operands[1], lab));
+  call_insn = emit_call_insn (gen_sibcall_valuei_pcrel (operands[0],
+							operands[3],
+							operands[2],
+							copy_rtx (lab)));
+  SIBLING_CALL_P (call_insn) = 1;
+  DONE;
+}"
+  [(set_attr "needs_delay_slot" "yes")
+   (set (attr "fp_mode")
+	(if_then_else (eq_attr "fpu_single" "yes")
+		      (const_string "single") (const_string "double")))
+   (set_attr "type" "jump_ind")])
+
+(define_insn "sibcall_value_compact"
+  [(set (match_operand 0 "" "=rf,rf")
+	(call (mem:SI (match_operand:SI 1 "register_operand" "k,k"))
+	      (match_operand 2 "" "")))
+   (return)
+   (use (match_operand:SI 3 "register_operand" "z,x"))
+   (use (reg:SI R1_REG))
+   (use (reg:PSI FPSCR_REG))
+   ;; We want to make sure the `x' above will only match MACH_REG
+   ;; because sibcall_epilogue may clobber MACL_REG.
+   (clobber (reg:SI MACL_REG))]
+  "TARGET_SHCOMPACT"
+  "@
+	jmp	@%1%#
+	jmp	@%1\\n	sts	%3, r0"
+  [(set_attr "needs_delay_slot" "yes,no")
+   (set_attr "length" "2,4")
+   (set (attr "fp_mode") (const_string "single"))
+   (set_attr "type" "jump_ind")])
+
+(define_insn "sibcall_value_media"
+  [(set (match_operand 0 "" "=rf")
+	(call (mem:DI (match_operand 1 "target_reg_operand" "k"))
+	      (match_operand 2 "" "")))
+   (use (reg:SI PR_MEDIA_REG))
+   (return)]
+  "TARGET_SHMEDIA"
+  "blink	%1, r63"
+  [(set_attr "type" "jump_media")])
+
+(define_expand "sibcall_value"
+  [(parallel
+    [(set (match_operand 0 "arith_reg_operand" "")
+	  (call (mem:SI (match_operand 1 "arith_reg_operand" ""))
+	  	(match_operand 2 "" "")))
+     (match_operand 3 "" "")
+     (use (reg:PSI FPSCR_REG))
+     (return)])]
   ""
   "
 {
-  emit_call_insn (gen_sibcall (operands[1], operands[2], operands[3]));
+  if (TARGET_SHMEDIA)
+    {
+      operands[1] = shmedia_prepare_call_address (operands[1], 1);
+      emit_call_insn (gen_sibcall_value_media (operands[0], operands[1],
+					       operands[2]));
+      DONE;
+    }
+  else if (TARGET_SHCOMPACT && operands[3]
+	   && (INTVAL (operands[3]) & ~ CALL_COOKIE_RET_TRAMP (1)))
+    {
+      rtx cookie_rtx = operands[3];
+      long cookie = INTVAL (cookie_rtx);
+      rtx func = XEXP (operands[1], 0);
+      rtx mach, r1;
+
+      if (flag_pic)
+	{
+	  if (GET_CODE (func) == SYMBOL_REF && ! SYMBOL_REF_LOCAL_P (func))
+	    {
+	      rtx reg = gen_reg_rtx (Pmode);
+
+	      emit_insn (gen_symGOT2reg (reg, func));
+	      func = reg;
+	    }
+	  else
+	    func = legitimize_pic_address (func, Pmode, 0);
+	}
+
+      /* FIXME: if we could tell whether all argument registers are
+	 already taken, we could decide whether to force the use of
+	 MACH_REG or to stick to R0_REG.  Unfortunately, there's no
+	 simple way to tell.  We could use the CALL_COOKIE, but we
+	 can't currently tell a register used for regular argument
+	 passing from one that is unused.  If we leave it up to reload
+	 to decide which register to use, it seems to always choose
+	 R0_REG, which leaves no available registers in SIBCALL_REGS
+	 to hold the address of the trampoline.  */
+      mach = gen_rtx_REG (SImode, MACH_REG);
+      r1 = gen_rtx_REG (SImode, R1_REG);
+
+      /* Since such a call function may use all call-clobbered
+	 registers, we force a mode switch earlier, so that we don't
+	 run out of registers when adjusting fpscr for the call.  */
+      emit_insn (gen_force_mode_for_call ());
+
+      operands[1]
+	= function_symbol (NULL, \"__GCC_shcompact_call_trampoline\",
+			   SFUNC_GOT);
+      operands[1] = force_reg (SImode, operands[1]);
+
+      /* We don't need a return trampoline, since the callee will
+	 return directly to the upper caller.  */
+      if (cookie & CALL_COOKIE_RET_TRAMP (1))
+	{
+	  cookie &= ~ CALL_COOKIE_RET_TRAMP (1);
+	  cookie_rtx = GEN_INT (cookie);
+	}
+
+      emit_move_insn (mach, func);
+      emit_move_insn (r1, cookie_rtx);
+
+      emit_call_insn (gen_sibcall_value_compact (operands[0], operands[1],
+						 operands[2], mach));
+      DONE;
+    }
+  else if (TARGET_SHCOMPACT && flag_pic
+	   && GET_CODE (XEXP (operands[1], 0)) == SYMBOL_REF
+	   && ! SYMBOL_REF_LOCAL_P (XEXP (operands[1], 0)))
+    {
+      rtx reg = gen_reg_rtx (Pmode);
+
+      emit_insn (gen_symGOT2reg (reg, XEXP (operands[1], 0)));
+      XEXP (operands[1], 0) = reg;
+    }
+  if (flag_pic && TARGET_SH2
+      && GET_CODE (operands[1]) == MEM
+      && GET_CODE (XEXP (operands[1], 0)) == SYMBOL_REF
+      /* The PLT needs the PIC register, but the epilogue would have
+	 to restore it, so we can only use PC-relative PIC calls for
+	 static functions.  */
+      && SYMBOL_REF_LOCAL_P (XEXP (operands[1], 0)))
+    {
+      emit_call_insn (gen_sibcall_value_pcrel (operands[0],
+					       XEXP (operands[1], 0),
+					       operands[2]));
+      DONE;
+    }
+  else
+    operands[1] = force_reg (SImode, XEXP (operands[1], 0));
+
+  emit_call_insn (gen_sibcall_valuei (operands[0], operands[1], operands[2]));
   DONE;
 }")
 
@@ -8239,19 +8416,14 @@ label:
 	  {
 	    rtx r0 = gen_rtx_REG (SImode, R0_REG);
 	    rtx tmp = gen_rtx_REG (SImode, MACL_REG);
-	    rtx i;
 
 	    /* We can't tell at this point whether the sibcall is a
 	       sibcall_compact and, if it is, whether it uses r0 or
 	       mach as operand 2, so let the instructions that
 	       preserve r0 be optimized away if r0 turns out to be
 	       dead.  */
-	    i = emit_insn_before (gen_rtx_SET (SImode, tmp, r0), insn);
-	    REG_NOTES (i) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					       REG_NOTES (i));
-	    i = emit_move_insn (r0, tmp);
-	    REG_NOTES (i) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					       REG_NOTES (i));
+	    emit_insn_before (gen_rtx_SET (SImode, tmp, r0), insn);
+	    emit_move_insn (r0, tmp);
 	    break;
 	  }
     }
@@ -8794,7 +8966,7 @@ mov.l\\t1f,r0\\n\\
 }")
 
 (define_insn "load_gbr"
-  [(set (match_operand:SI 0 "register_operand" "") (reg:SI GBR_REG))
+  [(set (match_operand:SI 0 "register_operand" "=r") (reg:SI GBR_REG))
    (use (reg:SI GBR_REG))]
   ""
   "stc	gbr,%0"
@@ -9226,19 +9398,22 @@ mov.l\\t1f,r0\\n\\
 ;; until we know where it will be put in the stack frame.
 
 (define_insn "eh_set_ra_si"
-  [(unspec [(match_operand:SI 0 "register_operand" "r")] UNSPEC_EH_RETURN)
+  [(unspec_volatile [(match_operand:SI 0 "register_operand" "r")]
+      UNSPECV_EH_RETURN)
    (clobber (match_scratch:SI 1 "=&r"))]
   "! TARGET_SHMEDIA64"
   "#")
 
 (define_insn "eh_set_ra_di"
-  [(unspec [(match_operand:DI 0 "register_operand" "r")] UNSPEC_EH_RETURN)
+  [(unspec_volatile [(match_operand:DI 0 "register_operand" "r")]
+      UNSPECV_EH_RETURN)
    (clobber (match_scratch:DI 1 "=&r"))]
   "TARGET_SHMEDIA64"
   "#")
 
 (define_split
-  [(unspec [(match_operand 0 "register_operand" "")] UNSPEC_EH_RETURN)
+  [(unspec_volatile [(match_operand 0 "register_operand" "")]
+      UNSPECV_EH_RETURN)
    (clobber (match_scratch 1 ""))]
   "reload_completed"
   [(const_int 0)]
@@ -10167,7 +10342,7 @@ mov.l\\t1f,r0\\n\\
   [(set (reg:PSI FPSCR_REG)
 	(mem:PSI (match_operand:SI 0 "register_operand" "")))]
   "(TARGET_SH4 || TARGET_SH2A_DOUBLE)
-   && (flag_peephole2 ? flow2_completed : reload_completed)"
+   && (flag_peephole2 ? epilogue_completed : reload_completed)"
   [(const_int 0)]
 {
   rtx fpscr, mem, new_insn;

@@ -330,18 +330,6 @@ lhd_tree_inlining_auto_var_in_fn_p (tree var, tree fn)
 	      || TREE_CODE (var) == RESULT_DECL));
 }
 
-/* lang_hooks.tree_inlining.convert_parm_for_inlining performs any
-   language-specific conversion before assigning VALUE to PARM.  */
-
-tree
-lhd_tree_inlining_convert_parm_for_inlining (tree parm ATTRIBUTE_UNUSED,
-					     tree value,
-					     tree fndecl ATTRIBUTE_UNUSED,
-					     int argnum ATTRIBUTE_UNUSED)
-{
-  return value;
-}
-
 /* lang_hooks.tree_dump.dump_tree:  Dump language-specific parts of tree
    nodes.  Returns nonzero if it does not want the usual dumping of the
    second argument.  */
@@ -569,25 +557,4 @@ lhd_builtin_function (tree decl)
 {
   lang_hooks.decls.pushdecl (decl);
   return decl;
-}
-
-/* If TYPE is an integral type, return an equivalent type which is
-    unsigned iff UNSIGNEDP is true.  If TYPE is not an integral type,
-    return TYPE itself.  */
-
-tree
-get_signed_or_unsigned_type (int unsignedp, tree type)
-{
-  return lang_hooks.types.signed_or_unsigned_type(unsignedp, type);
-}
-
-/* Default implementation of the signed_or_unsigned_type language hook */
-
-tree
-lhd_signed_or_unsigned_type (int unsignedp, tree type)
-{
-  if (!INTEGRAL_TYPE_P (type) || TYPE_UNSIGNED (type) == unsignedp)
-    return type;
-
-  return lang_hooks.types.type_for_size (TYPE_PRECISION (type), unsignedp);
 }

@@ -41,11 +41,12 @@ enum processor_type {
   PROCESSOR_5KF,
   PROCESSOR_20KC,
   PROCESSOR_24KC,
-  PROCESSOR_24KF,
-  PROCESSOR_24KX,
+  PROCESSOR_24KF2_1,
+  PROCESSOR_24KF1_1,
   PROCESSOR_74KC,
-  PROCESSOR_74KF,
-  PROCESSOR_74KX,
+  PROCESSOR_74KF2_1,
+  PROCESSOR_74KF1_1,
+  PROCESSOR_74KF3_2,
   PROCESSOR_M4K,
   PROCESSOR_R3900,
   PROCESSOR_R6000,
@@ -209,6 +210,8 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define TARGET_MIPS16		((target_flags & MASK_MIPS16) != 0)
 /* Generate mips16e code. Default 16bit ASE for mips32/mips32r2/mips64 */
 #define GENERATE_MIPS16E	(TARGET_MIPS16 && mips_isa >= 32)
+/* Generate mips16e register save/restore sequences.  */
+#define GENERATE_MIPS16E_SAVE_RESTORE (GENERATE_MIPS16E && mips_abi == ABI_32)
 
 /* Generic ISA defines.  */
 #define ISA_MIPS1		    (mips_isa == 1)
@@ -247,8 +250,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define TUNE_SB1                    (mips_tune == PROCESSOR_SB1		\
 				     || mips_tune == PROCESSOR_SB1A)
 #define TUNE_74K                    (mips_tune == PROCESSOR_74KC	\
-				     || mips_tune == PROCESSOR_74KF	\
-				     || mips_tune == PROCESSOR_74KX)
+				     || mips_tune == PROCESSOR_74KF2_1	\
+				     || mips_tune == PROCESSOR_74KF1_1  \
+				     || mips_tune == PROCESSOR_74KF3_2)
 
 /* True if the pre-reload scheduler should try to create chains of
    multiply-add or multiply-subtract instructions.  For example,
@@ -362,6 +366,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
 								\
       if (TARGET_MIPS3D)					\
 	builtin_define ("__mips3d");				\
+                                                                \
+      if (TARGET_SMARTMIPS)					\
+	builtin_define ("__mips_smartmips");			\
 								\
       if (TARGET_DSP)						\
 	builtin_define ("__mips_dsp");				\
@@ -561,6 +568,29 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #endif
 #endif
 
+/* A spec condition that matches all non-mips16 -mips arguments.  */
+
+#define MIPS_ISA_LEVEL_OPTION_SPEC \
+  "mips1|mips2|mips3|mips4|mips32*|mips64*"
+
+/* A spec condition that matches all non-mips16 architecture arguments.  */
+
+#define MIPS_ARCH_OPTION_SPEC \
+  MIPS_ISA_LEVEL_OPTION_SPEC "|march=*"
+
+/* A spec that infers a -mips argument from an -march argument.  */
+
+#define MIPS_ISA_LEVEL_SPEC \
+  "%{" MIPS_ISA_LEVEL_OPTION_SPEC ":;: \
+     %{march=mips1|march=r2000|march=r3000|march=r3900:-mips1} \
+     %{march=mips2|march=r6000:-mips2} \
+     %{march=mips3|march=r4*|march=vr4*|march=orion:-mips3} \
+     %{march=mips4|march=r8000|march=vr5*|march=rm7000|march=rm9000:-mips4} \
+     %{march=mips32|march=4kc|march=4km|march=4kp:-mips32} \
+     %{march=mips32r2|march=m4k|march=4ke*|march=24k* \
+       |march=34k*|march=74k*: -mips32r2} \
+     %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000: -mips64}}"
+
 /* Support for a compile-time default CPU, et cetera.  The rules are:
    --with-arch is ignored if -march is specified or a -mips is specified
      (other than -mips16).
@@ -571,7 +601,7 @@ extern const struct mips_rtx_cost_data *mips_cost;
    --with-divide is ignored if -mdivide-traps or -mdivide-breaks are
      specified. */
 #define OPTION_DEFAULT_SPECS \
-  {"arch", "%{!march=*:%{mips16:-march=%(VALUE)}%{!mips*:-march=%(VALUE)}}" }, \
+  {"arch", "%{" MIPS_ARCH_OPTION_SPEC ":;: -march=%(VALUE)}" }, \
   {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
   {"abi", "%{!mabi=*:-mabi=%(VALUE)}" }, \
   {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }, \
@@ -706,7 +736,8 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define ISA_HAS_ROR		((ISA_MIPS32R2				\
 				  || TARGET_MIPS5400			\
 				  || TARGET_MIPS5500			\
-				  || TARGET_SR71K)			\
+				  || TARGET_SR71K			\
+				  || TARGET_SMARTMIPS)			\
 				 && !TARGET_MIPS16)
 
 /* ISA has data prefetch instructions.  This controls use of 'pref'.  */
@@ -740,6 +771,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
 
 /* ISA has instructions for accessing top part of 64-bit fp regs.  */
 #define ISA_HAS_MXHC1		(TARGET_FLOAT64 && ISA_MIPS32R2)
+
+/* ISA has lwxs instruction (load w/scaled index address.  */
+#define ISA_HAS_LWXS		(TARGET_SMARTMIPS && !TARGET_MIPS16)
 
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
@@ -856,6 +890,7 @@ extern const struct mips_rtx_cost_data *mips_cost;
 %{mdmx} %{mno-mdmx:-no-mdmx} \
 %{mdsp} %{mno-dsp} \
 %{mdspr2} %{mno-dspr2} \
+%{msmartmips} %{mno-smartmips} \
 %{mmt} %{mno-mt} \
 %{mfix-vr4120} %{mfix-vr4130} \
 %(subtarget_asm_optimizing_spec) \

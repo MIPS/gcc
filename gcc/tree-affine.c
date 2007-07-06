@@ -130,6 +130,7 @@ void
 aff_combination_add_elt (aff_tree *comb, tree elt, double_int scale)
 {
   unsigned i;
+  tree type;
 
   scale = double_int_ext_for_comb (scale, comb);
   if (double_int_zero_p (scale))
@@ -169,15 +170,26 @@ aff_combination_add_elt (aff_tree *comb, tree elt, double_int scale)
       return;
     }
 
+  type = comb->type;
+  if (POINTER_TYPE_P (type))
+    type = sizetype;
+
   if (double_int_one_p (scale))
-    elt = fold_convert (comb->type, elt);
+    elt = fold_convert (type, elt);
   else
-    elt = fold_build2 (MULT_EXPR, comb->type,
-		       fold_convert (comb->type, elt),
-		       double_int_to_tree (comb->type, scale)); 
+    elt = fold_build2 (MULT_EXPR, type,
+		       fold_convert (type, elt),
+		       double_int_to_tree (type, scale)); 
 
   if (comb->rest)
-    comb->rest = fold_build2 (PLUS_EXPR, comb->type, comb->rest, elt);
+    {
+      if (POINTER_TYPE_P (comb->type))
+	comb->rest = fold_build2 (POINTER_PLUS_EXPR, comb->type,
+				  comb->rest, elt);
+      else
+	comb->rest = fold_build2 (PLUS_EXPR, comb->type, comb->rest,
+				  elt);
+    }
   else
     comb->rest = elt;
 }
@@ -266,6 +278,13 @@ tree_to_aff_combination (tree expr, tree type, aff_tree *comb)
     {
     case INTEGER_CST:
       aff_combination_const (comb, type, tree_to_double_int (expr));
+      return;
+
+    case POINTER_PLUS_EXPR:
+      tree_to_aff_combination (TREE_OPERAND (expr, 0), type, comb);
+      tree_to_aff_combination (TREE_OPERAND (expr, 1), sizetype, &tmp);
+      aff_combination_convert (&tmp, type);
+      aff_combination_add (comb, &tmp);
       return;
 
     case PLUS_EXPR:

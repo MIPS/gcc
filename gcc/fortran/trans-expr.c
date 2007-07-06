@@ -780,9 +780,9 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
   gfc_add_block_to_block (&se->pre, &rse.pre);
 
   if (expr->value.op.op2->ts.type == BT_INTEGER
-	 && expr->value.op.op2->expr_type == EXPR_CONSTANT)
+      && expr->value.op.op2->expr_type == EXPR_CONSTANT)
     if (gfc_conv_cst_int_power (se, lse.expr, rse.expr))
-      return;        
+      return;
 
   gfc_int4_type_node = gfc_get_int_type (4);
 
@@ -852,7 +852,30 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
 	  break;
 
 	case BT_REAL:
-	  fndecl = gfor_fndecl_math_powi[kind][ikind].real;
+	  /* Use builtins for real ** int4.  */
+	  if (ikind == 0)
+	    {
+	      switch (kind)
+		{
+		case 0:
+		  fndecl = built_in_decls[BUILT_IN_POWIF];
+		  break;
+		
+		case 1:
+		  fndecl = built_in_decls[BUILT_IN_POWI];
+		  break;
+
+		case 2:
+		case 3:
+		  fndecl = built_in_decls[BUILT_IN_POWIL];
+		  break;
+
+		default:
+		  gcc_unreachable ();
+		}
+	    }
+	  else
+	    fndecl = gfor_fndecl_math_powi[kind][ikind].real;
 	  break;
 
 	case BT_COMPLEX:
@@ -2104,8 +2127,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  argss = gfc_walk_expr (e);
 
 	  if (argss == gfc_ss_terminator)
-	    {
-	      parm_kind = SCALAR;
+            {
 	      if (fsym && fsym->attr.value)
 		{
 		  gfc_conv_expr (&parmse, e);
@@ -2571,8 +2593,8 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
   tmp3 = build_call_expr (built_in_decls[BUILT_IN_MEMMOVE],
 			  3, dest, src, slen);
 
-  tmp4 = fold_build2 (PLUS_EXPR, pchar_type_node, dest,
-		      fold_convert (pchar_type_node, slen));
+  tmp4 = fold_build2 (POINTER_PLUS_EXPR, pchar_type_node, dest,
+		      fold_convert (sizetype, slen));
   tmp4 = build_call_expr (built_in_decls[BUILT_IN_MEMSET], 3,
 			  tmp4, 
 			  build_int_cst (gfc_get_int_type (gfc_c_int_kind),
@@ -2755,6 +2777,12 @@ gfc_conv_initializer (gfc_expr * expr, gfc_typespec * ts, tree type,
   if (!(expr || pointer))
     return NULL_TREE;
 
+  if (expr != NULL && expr->ts.type == BT_DERIVED
+      && expr->ts.is_iso_c && expr->ts.derived
+      && (expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_PTR
+	  || expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_FUNPTR))
+      expr = gfc_int_expr (0);
+  
   if (array)
     {
       /* Arrays need special handling.  */
@@ -3143,6 +3171,31 @@ gfc_conv_expr (gfc_se * se, gfc_expr * expr)
       return;
     }
 
+  /* We need to convert the expressions for the iso_c_binding derived types.
+     C_NULL_PTR and C_NULL_FUNPTR will be made EXPR_NULL, which evaluates to
+     null_pointer_node.  C_PTR and C_FUNPTR are converted to match the
+     typespec for the C_PTR and C_FUNPTR symbols, which has already been
+     updated to be an integer with a kind equal to the size of a (void *).  */
+  if (expr->ts.type == BT_DERIVED && expr->ts.derived
+      && expr->ts.derived->attr.is_iso_c)
+    {
+      if (expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_PTR
+          || expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_FUNPTR)
+        {
+	  /* Set expr_type to EXPR_NULL, which will result in
+	     null_pointer_node being used below.  */
+          expr->expr_type = EXPR_NULL;
+        }
+      else
+        {
+          /* Update the type/kind of the expression to be what the new
+             type/kind are for the updated symbols of C_PTR/C_FUNPTR.  */
+          expr->ts.type = expr->ts.derived->ts.type;
+          expr->ts.f90_type = expr->ts.derived->ts.f90_type;
+          expr->ts.kind = expr->ts.derived->ts.kind;
+        }
+    }
+  
   switch (expr->expr_type)
     {
     case EXPR_OP:

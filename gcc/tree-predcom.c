@@ -633,7 +633,7 @@ determine_offset (struct data_reference *a, struct data_reference *b,
   /* Check that both the references access the location in the same type.  */
   typea = TREE_TYPE (DR_REF (a));
   typeb = TREE_TYPE (DR_REF (b));
-  if (!tree_ssa_useless_type_conversion_1 (typeb, typea))
+  if (!useless_type_conversion_p (typeb, typea))
     return false;
 
   /* Check whether the base address and the step of both references is the
@@ -1350,9 +1350,18 @@ ref_at_iteration (struct loop *loop, tree ref, int iter)
   else
     {
       type = TREE_TYPE (iv.base);
-      val = fold_build2 (MULT_EXPR, type, iv.step,
-			 build_int_cst_type (type, iter));
-      val = fold_build2 (PLUS_EXPR, type, iv.base, val);
+      if (POINTER_TYPE_P (type))
+	{
+	  val = fold_build2 (MULT_EXPR, sizetype, iv.step,
+			     size_int (iter));
+	  val = fold_build2 (POINTER_PLUS_EXPR, type, iv.base, val);
+	}
+      else
+	{
+	  val = fold_build2 (MULT_EXPR, type, iv.step,
+			     build_int_cst_type (type, iter));
+	  val = fold_build2 (PLUS_EXPR, type, iv.base, val);
+	}
       *idx_p = unshare_expr (val);
     }
 
@@ -1378,7 +1387,7 @@ get_init_expr (chain_p chain, unsigned index)
 
 /* Marks all virtual operands of statement STMT for renaming.  */
 
-static void
+void
 mark_virtual_ops_for_renaming (tree stmt)
 {
   ssa_op_iter iter;

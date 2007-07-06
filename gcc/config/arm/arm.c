@@ -52,6 +52,7 @@
 #include "target-def.h"
 #include "debug.h"
 #include "langhooks.h"
+#include "df.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
@@ -192,9 +193,11 @@ static bool arm_cxx_class_data_always_comdat (void);
 static bool arm_cxx_use_aeabi_atexit (void);
 static void arm_init_libfuncs (void);
 static bool arm_handle_option (size_t, const char *, int);
+static void arm_target_help (void);
 static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 static bool arm_cannot_copy_insn_p (rtx);
 static bool arm_tls_symbol_p (rtx x);
+static void arm_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 
 
 /* Initialize the GCC target structure.  */
@@ -241,6 +244,8 @@ static bool arm_tls_symbol_p (rtx x);
 #define TARGET_DEFAULT_TARGET_FLAGS (TARGET_DEFAULT | MASK_SCHED_PROLOG)
 #undef  TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION arm_handle_option
+#undef  TARGET_HELP
+#define TARGET_HELP arm_target_help
 
 #undef  TARGET_COMP_TYPE_ATTRIBUTES
 #define TARGET_COMP_TYPE_ATTRIBUTES arm_comp_type_attributes
@@ -377,6 +382,11 @@ static bool arm_tls_symbol_p (rtx x);
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM arm_tls_referenced_p
 
+#ifdef HAVE_AS_TLS
+#undef TARGET_ASM_OUTPUT_DWARF_DTPREL
+#define TARGET_ASM_OUTPUT_DWARF_DTPREL arm_output_dwarf_dtprel
+#endif
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Obstack for minipool constant handling.  */
@@ -450,6 +460,7 @@ static int thumb_call_reg_needed;
 #define FL_NOTM	      (1 << 17)	      /* Instructions not present in the 'M'
 					 profile.  */
 #define FL_DIV	      (1 << 18)	      /* Hardware divide.  */
+#define FL_VFPV3      (1 << 19)       /* Vector Floating Point V3.  */
 
 #define FL_IWMMXT     (1 << 29)	      /* XScale v2 or "Intel Wireless MMX technology".  */
 
@@ -693,7 +704,8 @@ static const struct fpu_desc all_fpus[] =
   {"fpe2",	FPUTYPE_FPA_EMU2},
   {"fpe3",	FPUTYPE_FPA_EMU2},
   {"maverick",	FPUTYPE_MAVERICK},
-  {"vfp",	FPUTYPE_VFP}
+  {"vfp",	FPUTYPE_VFP},
+  {"vfp3",	FPUTYPE_VFP3},
 };
 
 
@@ -708,7 +720,8 @@ static const enum fputype fp_model_for_fpu[] =
   ARM_FP_MODEL_FPA,		/* FPUTYPE_FPA_EMU2  */
   ARM_FP_MODEL_FPA,		/* FPUTYPE_FPA_EMU3  */
   ARM_FP_MODEL_MAVERICK,	/* FPUTYPE_MAVERICK  */
-  ARM_FP_MODEL_VFP		/* FPUTYPE_VFP  */
+  ARM_FP_MODEL_VFP,		/* FPUTYPE_VFP  */
+  ARM_FP_MODEL_VFP		/* FPUTYPE_VFP3  */
 };
 
 
@@ -918,6 +931,92 @@ arm_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
     default:
       return true;
     }
+}
+
+static void
+arm_target_help (void)
+{
+  int i;
+  static int columns = 0;
+  int remaining;
+
+  /* If we have not done so already, obtain the desired maximum width of
+     the output.  Note - this is a duplication of the code at the start of
+     gcc/opts.c:print_specific_help() - the two copies should probably be
+     replaced by a single function.  */
+  if (columns == 0)
+    {
+      const char *p;
+
+      GET_ENVIRONMENT (p, "COLUMNS");
+      if (p != NULL)
+	{
+	  int value = atoi (p);
+
+	  if (value > 0)
+	    columns = value;
+	}
+
+      if (columns == 0)
+	/* Use a reasonable default.  */
+	columns = 80;
+    }
+
+  printf ("  Known ARM CPUs (for use with the -mcpu= and -mtune= options):\n");
+
+  /* The - 2 is because we know that the last entry in the array is NULL.  */
+  i = ARRAY_SIZE (all_cores) - 2;
+  gcc_assert (i > 0);
+  printf ("    %s", all_cores[i].name);
+  remaining = columns - (strlen (all_cores[i].name) + 4);
+  gcc_assert (remaining >= 0);
+
+  while (i--)
+    {
+      int len = strlen (all_cores[i].name);
+
+      if (remaining > len + 2)
+	{
+	  printf (", %s", all_cores[i].name);
+	  remaining -= len + 2;
+	}
+      else
+	{
+	  if (remaining > 0)
+	    printf (",");
+	  printf ("\n    %s", all_cores[i].name);
+	  remaining = columns - (len + 4);
+	}
+    }
+
+  printf ("\n\n  Known ARM architectures (for use with the -march= option):\n");
+
+  i = ARRAY_SIZE (all_architectures) - 2;
+  gcc_assert (i > 0);
+  
+  printf ("    %s", all_architectures[i].name);
+  remaining = columns - (strlen (all_architectures[i].name) + 4);
+  gcc_assert (remaining >= 0);
+
+  while (i--)
+    {
+      int len = strlen (all_architectures[i].name);
+
+      if (remaining > len + 2)
+	{
+	  printf (", %s", all_architectures[i].name);
+	  remaining -= len + 2;
+	}
+      else
+	{
+	  if (remaining > 0)
+	    printf (",");
+	  printf ("\n    %s", all_architectures[i].name);
+	  remaining = columns - (len + 4);
+	}
+    }
+  printf ("\n");
+
 }
 
 /* Fix up any incompatible options that the user has specified.
@@ -1635,7 +1734,7 @@ use_return_insn (int iscond, rtx sibling)
 
       if (flag_pic 
 	  && arm_pic_register != INVALID_REGNUM
-	  && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
+	  && df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM))
 	return 0;
     }
 
@@ -1648,18 +1747,18 @@ use_return_insn (int iscond, rtx sibling)
      since this also requires an insn.  */
   if (TARGET_HARD_FLOAT && TARGET_FPA)
     for (regno = FIRST_FPA_REGNUM; regno <= LAST_FPA_REGNUM; regno++)
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	return 0;
 
   /* Likewise VFP regs.  */
   if (TARGET_HARD_FLOAT && TARGET_VFP)
     for (regno = FIRST_VFP_REGNUM; regno <= LAST_VFP_REGNUM; regno++)
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	return 0;
 
   if (TARGET_REALLY_IWMMXT)
     for (regno = FIRST_IWMMXT_REGNUM; regno <= LAST_IWMMXT_REGNUM; regno++)
-      if (regs_ever_live[regno] && ! call_used_regs [regno])
+      if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
 	return 0;
 
   return 1;
@@ -3454,7 +3553,7 @@ thumb_find_work_register (unsigned long pushed_regs_mask)
      register allocation order means that sometimes r3 might be used
      but earlier argument registers might not, so check them all.  */
   for (reg = LAST_ARG_REGNUM; reg >= 0; reg --)
-    if (!regs_ever_live[reg])
+    if (!df_regs_ever_live_p (reg))
       return reg;
 
   /* Before going on to check the call-saved registers we can try a couple
@@ -4943,7 +5042,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
       return 6;
 
     case CONST_DOUBLE:
-      if (arm_const_double_rtx (x))
+      if (arm_const_double_rtx (x) || vfp3_const_double_rtx (x))
 	return outer == SET ? 2 : -1;
       else if ((outer == COMPARE || outer == PLUS)
 	       && neg_const_double_rtx_ok_for_fpa (x))
@@ -5642,6 +5741,111 @@ neg_const_double_rtx_ok_for_fpa (rtx x)
 
   return 0;
 }
+
+
+/* VFPv3 has a fairly wide range of representable immediates, formed from
+   "quarter-precision" floating-point values. These can be evaluated using this
+   formula (with ^ for exponentiation):
+
+     -1^s * n * 2^-r
+
+   Where 's' is a sign bit (0/1), 'n' and 'r' are integers such that
+   16 <= n <= 31 and 0 <= r <= 7.
+
+   These values are mapped onto an 8-bit integer ABCDEFGH s.t.
+
+     - A (most-significant) is the sign bit.
+     - BCD are the exponent (encoded as r XOR 3).
+     - EFGH are the mantissa (encoded as n - 16).
+*/
+
+/* Return an integer index for a VFPv3 immediate operand X suitable for the
+   fconst[sd] instruction, or -1 if X isn't suitable.  */
+static int
+vfp3_const_double_index (rtx x)
+{
+  REAL_VALUE_TYPE r, m;
+  int sign, exponent;
+  unsigned HOST_WIDE_INT mantissa, mant_hi;
+  unsigned HOST_WIDE_INT mask;
+  HOST_WIDE_INT m1, m2;
+  int point_pos = 2 * HOST_BITS_PER_WIDE_INT - 1;
+
+  if (!TARGET_VFP3 || GET_CODE (x) != CONST_DOUBLE)
+    return -1;
+
+  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+
+  /* We can't represent these things, so detect them first.  */
+  if (REAL_VALUE_ISINF (r) || REAL_VALUE_ISNAN (r) || REAL_VALUE_MINUS_ZERO (r))
+    return -1;
+
+  /* Extract sign, exponent and mantissa.  */
+  sign = REAL_VALUE_NEGATIVE (r) ? 1 : 0;
+  r = REAL_VALUE_ABS (r);
+  exponent = REAL_EXP (&r);
+  /* For the mantissa, we expand into two HOST_WIDE_INTS, apart from the
+     highest (sign) bit, with a fixed binary point at bit point_pos.
+     WARNING: If there's ever a VFP version which uses more than 2 * H_W_I - 1
+     bits for the mantissa, this may fail (low bits would be lost).  */
+  real_ldexp (&m, &r, point_pos - exponent);
+  REAL_VALUE_TO_INT (&m1, &m2, m);
+  mantissa = m1;
+  mant_hi = m2;
+
+  /* If there are bits set in the low part of the mantissa, we can't
+     represent this value.  */
+  if (mantissa != 0)
+    return -1;
+
+  /* Now make it so that mantissa contains the most-significant bits, and move
+     the point_pos to indicate that the least-significant bits have been
+     discarded.  */
+  point_pos -= HOST_BITS_PER_WIDE_INT;
+  mantissa = mant_hi;
+
+  /* We can permit four significant bits of mantissa only, plus a high bit
+     which is always 1.  */
+  mask = ((unsigned HOST_WIDE_INT)1 << (point_pos - 5)) - 1;
+  if ((mantissa & mask) != 0)
+    return -1;
+
+  /* Now we know the mantissa is in range, chop off the unneeded bits.  */
+  mantissa >>= point_pos - 5;
+
+  /* The mantissa may be zero. Disallow that case. (It's possible to load the
+     floating-point immediate zero with Neon using an integer-zero load, but
+     that case is handled elsewhere.)  */
+  if (mantissa == 0)
+    return -1;
+
+  gcc_assert (mantissa >= 16 && mantissa <= 31);
+
+  /* The value of 5 here would be 4 if GCC used IEEE754-like encoding (where
+     normalised significands are in the range [1, 2). (Our mantissa is shifted
+     left 4 places at this point relative to normalised IEEE754 values).  GCC
+     internally uses [0.5, 1) (see real.c), so the exponent returned from
+     REAL_EXP must be altered.  */
+  exponent = 5 - exponent;
+
+  if (exponent < 0 || exponent > 7)
+    return -1;
+
+  /* Sign, mantissa and exponent are now in the correct form to plug into the
+     formulae described in the comment above.  */
+  return (sign << 7) | ((exponent ^ 3) << 4) | (mantissa - 16);
+}
+
+/* Return TRUE if rtx X is a valid immediate VFPv3 constant.  */
+int
+vfp3_const_double_rtx (rtx x)
+{
+  if (!TARGET_VFP3)
+    return 0;
+
+  return vfp3_const_double_index (x) != -1;
+}
+
 
 /* Predicates for `match_operand' and `match_operator'.  */
 
@@ -6051,10 +6255,9 @@ arm_cannot_copy_insn_p (rtx insn)
 {
   rtx pat = PATTERN (insn);
 
-  if (GET_CODE (pat) == PARALLEL
-      && GET_CODE (XVECEXP (pat, 0, 0)) == SET)
+  if (GET_CODE (pat) == SET)
     {
-      rtx rhs = SET_SRC (XVECEXP (pat, 0, 0));
+      rtx rhs = SET_SRC (pat);
 
       if (GET_CODE (rhs) == UNSPEC
 	  && XINT (rhs, 1) == UNSPEC_PIC_BASE)
@@ -8802,6 +9005,15 @@ vfp_output_fldmd (FILE * stream, unsigned int base, int reg, int count)
       count++;
     }
 
+  /* FLDMD may not load more than 16 doubleword registers at a time. Split the
+     load into multiple parts if we have to handle more than 16 registers.  */
+  if (count > 16)
+    {
+      vfp_output_fldmd (stream, base, reg, 16);
+      vfp_output_fldmd (stream, base, reg + 16, count - 16);
+      return;
+    }
+
   fputc ('\t', stream);
   asm_fprintf (stream, "fldmfdd\t%r!, {", base);
 
@@ -8862,6 +9074,19 @@ vfp_emit_fstmd (int base_reg, int count)
       if (base_reg == LAST_VFP_REGNUM - 3)
 	base_reg -= 2;
       count++;
+    }
+
+  /* FSTMD may not store more than 16 doubleword registers at once.  Split
+     larger stores into multiple parts (up to a maximum of two, in
+     practice).  */
+  if (count > 16)
+    {
+      int saved;
+      /* NOTE: base_reg is an internal register number, so each D register
+         counts as 2.  */
+      saved = vfp_emit_fstmd (base_reg + 32, count - 16);
+      saved += vfp_emit_fstmd (base_reg, 16);
+      return saved;
     }
 
   par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
@@ -9764,8 +9989,8 @@ arm_compute_save_reg0_reg12_mask (void)
 	max_reg = 12;
 
       for (reg = 0; reg <= max_reg; reg++)
-	if (regs_ever_live[reg]
-	    || (! current_function_is_leaf && call_used_regs [reg]))
+	if (df_regs_ever_live_p (reg)
+	    || (! current_function_is_leaf && call_used_regs[reg]))
 	  save_reg_mask |= (1 << reg);
 
       /* Also save the pic base register if necessary.  */
@@ -9783,15 +10008,18 @@ arm_compute_save_reg0_reg12_mask (void)
       /* In the normal case we only need to save those registers
 	 which are call saved and which are used by this function.  */
       for (reg = 0; reg <= last_reg; reg++)
-	if (regs_ever_live[reg] && ! call_used_regs [reg])
+	if (df_regs_ever_live_p (reg) && ! call_used_regs[reg])
 	  save_reg_mask |= (1 << reg);
 
       /* Handle the frame pointer as a special case.  */
-      if (TARGET_THUMB2 && frame_pointer_needed)
+      if (! TARGET_APCS_FRAME
+	  && ! frame_pointer_needed
+	  && df_regs_ever_live_p (HARD_FRAME_POINTER_REGNUM)
+	  && ! call_used_regs[HARD_FRAME_POINTER_REGNUM])
 	save_reg_mask |= 1 << HARD_FRAME_POINTER_REGNUM;
       else if (! TARGET_APCS_FRAME
 	       && ! frame_pointer_needed
-	       && regs_ever_live[HARD_FRAME_POINTER_REGNUM]
+	       && df_regs_ever_live_p (HARD_FRAME_POINTER_REGNUM)
 	       && ! call_used_regs[HARD_FRAME_POINTER_REGNUM])
 	save_reg_mask |= 1 << HARD_FRAME_POINTER_REGNUM;
 
@@ -9800,7 +10028,7 @@ arm_compute_save_reg0_reg12_mask (void)
       if (flag_pic
 	  && !TARGET_SINGLE_PIC_BASE
 	  && arm_pic_register != INVALID_REGNUM
-	  && (regs_ever_live[PIC_OFFSET_TABLE_REGNUM]
+	  && (df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM)
 	      || current_function_uses_pic_offset_table))
 	save_reg_mask |= 1 << PIC_OFFSET_TABLE_REGNUM;
 
@@ -9866,11 +10094,11 @@ arm_compute_save_reg_mask (void)
      now and then popping it back into the PC.  This incurs extra memory
      accesses though, so we only do it when optimizing for size, and only
      if we know that we will not need a fancy return sequence.  */
-  if (regs_ever_live [LR_REGNUM]
-	  || (save_reg_mask
-	      && optimize_size
-	      && ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL
-	      && !current_function_calls_eh_return))
+  if (df_regs_ever_live_p (LR_REGNUM)
+      || (save_reg_mask
+	  && optimize_size
+	  && ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL
+	  && !current_function_calls_eh_return))
     save_reg_mask |= 1 << LR_REGNUM;
 
   if (cfun->machine->lr_save_eliminated)
@@ -9926,7 +10154,7 @@ thumb1_compute_save_reg_mask (void)
 
   mask = 0;
   for (reg = 0; reg < 12; reg ++)
-    if (regs_ever_live[reg] && !call_used_regs[reg])
+    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
       mask |= 1 << reg;
 
   if (flag_pic
@@ -9980,8 +10208,8 @@ arm_get_vfp_saved_size (void)
 	   regno < LAST_VFP_REGNUM;
 	   regno += 2)
 	{
-	  if ((!regs_ever_live[regno] || call_used_regs[regno])
-	      && (!regs_ever_live[regno + 1] || call_used_regs[regno + 1]))
+	  if ((!df_regs_ever_live_p (regno) || call_used_regs[regno])
+	      && (!df_regs_ever_live_p (regno + 1) || call_used_regs[regno + 1]))
 	    {
 	      if (count > 0)
 		{
@@ -10383,7 +10611,7 @@ arm_output_epilogue (rtx sibling)
       if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
 	{
 	  for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
-	    if (regs_ever_live[reg] && !call_used_regs[reg])
+	    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	      {
 		floats_offset += 12;
 		asm_fprintf (f, "\tldfe\t%r, [%r, #-%d]\n",
@@ -10396,7 +10624,7 @@ arm_output_epilogue (rtx sibling)
 
 	  for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
 	    {
-	      if (regs_ever_live[reg] && !call_used_regs[reg])
+	      if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 		{
 		  floats_offset += 12;
 
@@ -10442,8 +10670,8 @@ arm_output_epilogue (rtx sibling)
 	  start_reg = FIRST_VFP_REGNUM;
 	  for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
 	    {
-	      if ((!regs_ever_live[reg] || call_used_regs[reg])
-		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
+	      if ((!df_regs_ever_live_p (reg) || call_used_regs[reg])
+		  && (!df_regs_ever_live_p (reg + 1) || call_used_regs[reg + 1]))
 		{
 		  if (start_reg != reg)
 		    vfp_output_fldmd (f, IP_REGNUM,
@@ -10470,7 +10698,7 @@ arm_output_epilogue (rtx sibling)
 	  lrm_count += (lrm_count % 2 ? 2 : 1);
 
 	  for (reg = LAST_IWMMXT_REGNUM; reg >= FIRST_IWMMXT_REGNUM; reg--)
-	    if (regs_ever_live[reg] && !call_used_regs[reg])
+	    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	      {
 		asm_fprintf (f, "\twldrd\t%r, [%r, #-%d]\n",
 			     reg, FP_REGNUM, lrm_count * 4);
@@ -10551,7 +10779,7 @@ arm_output_epilogue (rtx sibling)
       if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
 	{
 	  for (reg = FIRST_FPA_REGNUM; reg <= LAST_FPA_REGNUM; reg++)
-	    if (regs_ever_live[reg] && !call_used_regs[reg])
+	    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	      asm_fprintf (f, "\tldfe\t%r, [%r], #12\n",
 			   reg, SP_REGNUM);
 	}
@@ -10561,7 +10789,7 @@ arm_output_epilogue (rtx sibling)
 
 	  for (reg = FIRST_FPA_REGNUM; reg <= LAST_FPA_REGNUM; reg++)
 	    {
-	      if (regs_ever_live[reg] && !call_used_regs[reg])
+	      if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 		{
 		  if (reg - start_reg == 3)
 		    {
@@ -10592,8 +10820,8 @@ arm_output_epilogue (rtx sibling)
 	  start_reg = FIRST_VFP_REGNUM;
 	  for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
 	    {
-	      if ((!regs_ever_live[reg] || call_used_regs[reg])
-		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
+	      if ((!df_regs_ever_live_p (reg) || call_used_regs[reg])
+		  && (!df_regs_ever_live_p (reg + 1) || call_used_regs[reg + 1]))
 		{
 		  if (start_reg != reg)
 		    vfp_output_fldmd (f, SP_REGNUM,
@@ -10609,7 +10837,7 @@ arm_output_epilogue (rtx sibling)
 	}
       if (TARGET_IWMMXT)
 	for (reg = FIRST_IWMMXT_REGNUM; reg <= LAST_IWMMXT_REGNUM; reg++)
-	  if (regs_ever_live[reg] && !call_used_regs[reg])
+	  if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	    asm_fprintf (f, "\twldrd\t%r, [%r], #8\n", reg, SP_REGNUM);
 
       /* If we can, restore the LR into the PC.  */
@@ -10951,7 +11179,7 @@ thumb_force_lr_save (void)
   return !cfun->machine->lr_save_eliminated
 	 && (!leaf_function_p ()
 	     || thumb_far_jump_used_p ()
-	     || regs_ever_live [LR_REGNUM]);
+	     || df_regs_ever_live_p (LR_REGNUM));
 }
 
 
@@ -11059,7 +11287,7 @@ arm_get_frame_offsets (void)
 	  for (regno = FIRST_IWMMXT_REGNUM;
 	       regno <= LAST_IWMMXT_REGNUM;
 	       regno++)
-	    if (regs_ever_live [regno] && ! call_used_regs [regno])
+	    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
 	      saved += 8;
 	}
 
@@ -11068,7 +11296,7 @@ arm_get_frame_offsets (void)
 	{
 	  /* Space for saved FPA registers.  */
 	  for (regno = FIRST_FPA_REGNUM; regno <= LAST_FPA_REGNUM; regno++)
-	  if (regs_ever_live[regno] && ! call_used_regs[regno])
+	    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
 	    saved += 12;
 
 	  /* Space for saved VFP registers.  */
@@ -11091,6 +11319,7 @@ arm_get_frame_offsets (void)
   if (leaf && frame_size == 0)
     {
       offsets->outgoing_args = offsets->soft_frame;
+      offsets->locals_base = offsets->soft_frame;
       return offsets;
     }
 
@@ -11207,7 +11436,7 @@ arm_save_coproc_regs(void)
   rtx insn;
 
   for (reg = LAST_IWMMXT_REGNUM; reg >= FIRST_IWMMXT_REGNUM; reg--)
-    if (regs_ever_live[reg] && ! call_used_regs [reg])
+    if (df_regs_ever_live_p (reg) && ! call_used_regs[reg])
       {
 	insn = gen_rtx_PRE_DEC (V2SImode, stack_pointer_rtx);
 	insn = gen_rtx_MEM (V2SImode, insn);
@@ -11221,7 +11450,7 @@ arm_save_coproc_regs(void)
   if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
     {
       for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
-	if (regs_ever_live[reg] && !call_used_regs[reg])
+	if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	  {
 	    insn = gen_rtx_PRE_DEC (XFmode, stack_pointer_rtx);
 	    insn = gen_rtx_MEM (XFmode, insn);
@@ -11236,7 +11465,7 @@ arm_save_coproc_regs(void)
 
       for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
 	{
-	  if (regs_ever_live[reg] && !call_used_regs[reg])
+	  if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	    {
 	      if (start_reg - reg == 3)
 		{
@@ -11271,8 +11500,8 @@ arm_save_coproc_regs(void)
 
       for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
 	{
-	  if ((!regs_ever_live[reg] || call_used_regs[reg])
-	      && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
+	  if ((!df_regs_ever_live_p (reg) || call_used_regs[reg])
+	      && (!df_regs_ever_live_p (reg + 1) || call_used_regs[reg + 1]))
 	    {
 	      if (start_reg != reg)
 		saved_size += vfp_emit_fstmd (start_reg,
@@ -11417,7 +11646,7 @@ arm_expand_prologue (void)
 	     doesn't need to be unwound, as it doesn't contain a value
 	     inherited from the caller.  */
 
-	  if (regs_ever_live[3] == 0)
+	  if (df_regs_ever_live_p (3) == false)
 	    insn = emit_set_insn (gen_rtx_REG (SImode, 3), ip_rtx);
 	  else if (args_to_push == 0)
 	    {
@@ -11511,7 +11740,7 @@ arm_expand_prologue (void)
 	  if (IS_NESTED (func_type))
 	    {
 	      /* Recover the static chain register.  */
-	      if (regs_ever_live [3] == 0
+	      if (!df_regs_ever_live_p (3)
 		  || saved_pretend_args)
 		insn = gen_rtx_REG (SImode, 3);
 	      else /* if (current_function_pretend_args_size == 0) */
@@ -11580,10 +11809,7 @@ arm_expand_prologue (void)
   /* If the link register is being kept alive, with the return address in it,
      then make sure that it does not get reused by the ce2 pass.  */
   if ((live_regs_mask & (1 << LR_REGNUM)) == 0)
-    {
-      emit_insn (gen_prologue_use (gen_rtx_REG (SImode, LR_REGNUM)));
-      cfun->machine->lr_save_eliminated = 1;
-    }
+    cfun->machine->lr_save_eliminated = 1;
 }
 
 /* Print condition code to STREAM.  Helper function for arm_print_operand.  */
@@ -11972,6 +12198,16 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	  }
 
 	fprintf (stream, "d%d", num >> 1);
+      }
+      return;
+
+    /* Print a VFPv3 floating-point constant, represented as an integer
+       index.  */
+    case 'G':
+      {
+        int index = vfp3_const_double_index (x);
+	gcc_assert (index != -1);
+	fprintf (stream, "%d", index);
       }
       return;
 
@@ -12754,11 +12990,10 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
       && IS_VFP_REGNUM (regno))
     {
       if (mode == SFmode || mode == SImode)
-	return TRUE;
+	return VFP_REGNO_OK_FOR_SINGLE (regno);
 
-      /* DFmode values are only valid in even register pairs.  */
       if (mode == DFmode)
-	return ((regno - FIRST_VFP_REGNUM) & 1) == 0;
+	return VFP_REGNO_OK_FOR_DOUBLE (regno);
       return FALSE;
     }
 
@@ -12821,7 +13056,14 @@ arm_regno_class (int regno)
     return CIRRUS_REGS;
 
   if (IS_VFP_REGNUM (regno))
-    return VFP_REGS;
+    {
+      if (regno <= D7_VFP_REGNUM)
+	return VFP_D0_D7_REGS;
+      else if (regno <= LAST_LO_VFP_REGNUM)
+        return VFP_LO_REGS;
+      else
+        return VFP_HI_REGS;
+    }
 
   if (IS_IWMMXT_REGNUM (regno))
     return IWMMXT_REGS;
@@ -13916,7 +14158,7 @@ thumb_exit (FILE *f, int reg_containing_return_addr)
     {
       /* If we can deduce the registers used from the function's
 	 return value.  This is more reliable that examining
-	 regs_ever_live[] because that will be set if the register is
+	 df_regs_ever_live_p () because that will be set if the register is
 	 ever used in the function, not just if the register is used
 	 to hold a return value.  */
 
@@ -14197,7 +14439,7 @@ thumb_far_jump_used_p (void)
 
 	 If we need doubleword stack alignment this could affect the other
 	 elimination offsets so we can't risk getting it wrong.  */
-      if (regs_ever_live [ARG_POINTER_REGNUM])
+      if (df_regs_ever_live_p (ARG_POINTER_REGNUM))
 	cfun->machine->arg_pointer_live = 1;
       else if (!cfun->machine->arg_pointer_live)
 	return 0;
@@ -14261,7 +14503,7 @@ thumb_unexpanded_epilogue (void)
   high_regs_pushed = bit_count (live_regs_mask & 0x0f00);
 
   /* If we can deduce the registers used from the function's return value.
-     This is more reliable that examining regs_ever_live[] because that
+     This is more reliable that examining df_regs_ever_live_p () because that
      will be set if the register is ever used in the function, not just if
      the register is used to hold a return value.  */
   size = arm_size_return_regs ();
@@ -14632,11 +14874,6 @@ thumb1_expand_prologue (void)
   cfun->machine->lr_save_eliminated = !thumb_force_lr_save ();
   if (live_regs_mask & 0xff)
     cfun->machine->lr_save_eliminated = 0;
-
-  /* If the link register is being kept alive, with the return address in it,
-     then make sure that it does not get reused by the ce2 pass.  */
-  if (cfun->machine->lr_save_eliminated)
-    emit_insn (gen_prologue_use (gen_rtx_REG (SImode, LR_REGNUM)));
 }
 
 
@@ -14660,6 +14897,7 @@ thumb1_expand_epilogue (void)
       amount = offsets->locals_base - offsets->saved_regs;
     }
 
+  gcc_assert (amount >= 0);
   if (amount)
     {
       if (amount < 512)
@@ -14685,10 +14923,10 @@ thumb1_expand_epilogue (void)
   /* Emit a clobber for each insn that will be restored in the epilogue,
      so that flow2 will get register lifetimes correct.  */
   for (regno = 0; regno < 13; regno++)
-    if (regs_ever_live[regno] && !call_used_regs[regno])
+    if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
       emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (SImode, regno)));
 
-  if (! regs_ever_live[LR_REGNUM])
+  if (! df_regs_ever_live_p (LR_REGNUM))
     emit_insn (gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode, LR_REGNUM)));
 }
 
@@ -15267,6 +15505,7 @@ arm_file_start (void)
 	}
       else
 	{
+	  int set_float_abi_attributes = 0;
 	  switch (arm_fpu_arch)
 	    {
 	    case FPUTYPE_FPA:
@@ -15282,14 +15521,22 @@ arm_file_start (void)
 	      fpu_name = "maverick";
 	      break;
 	    case FPUTYPE_VFP:
+	      fpu_name = "vfp";
+	      set_float_abi_attributes = 1;
+	      break;
+	    case FPUTYPE_VFP3:
+	      fpu_name = "vfp3";
+	      set_float_abi_attributes = 1;
+	      break;
+	    default:
+	      abort();
+	    }
+	  if (set_float_abi_attributes)
+	    {
 	      if (TARGET_HARD_FLOAT)
 		asm_fprintf (asm_out_file, "\t.eabi_attribute 27, 3\n");
 	      if (TARGET_HARD_FLOAT_ABI)
 		asm_fprintf (asm_out_file, "\t.eabi_attribute 28, 1\n");
-	      fpu_name = "vfp";
-	      break;
-	    default:
-	      abort();
 	    }
 	}
       asm_fprintf (asm_out_file, "\t.fpu %s\n", fpu_name);
@@ -16169,6 +16416,7 @@ arm_dbx_register_number (unsigned int regno)
   if (IS_FPA_REGNUM (regno))
     return (TARGET_AAPCS_BASED ? 96 : 16) + regno - FIRST_FPA_REGNUM;
 
+  /* FIXME: VFPv3 register numbering.  */
   if (IS_VFP_REGNUM (regno))
     return 64 + regno - FIRST_VFP_REGNUM;
 
@@ -16530,6 +16778,17 @@ arm_emit_tls_decoration (FILE *fp, rtx x)
     }
 
   return TRUE;
+}
+
+/* ARM implementation of TARGET_ASM_OUTPUT_DWARF_DTPREL.  */
+
+static void
+arm_output_dwarf_dtprel (FILE *file, int size, rtx x)
+{
+  gcc_assert (size == 4);
+  fputs ("\t.word\t", file);
+  output_addr_const (file, x);
+  fputs ("(tlsldo)", file);
 }
 
 bool

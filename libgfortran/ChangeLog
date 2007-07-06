@@ -1,3 +1,123 @@
+2007-07-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* aclocal.m4: Regenerated.
+
+2007-07-04  David Edelsohn  <edelsohn@gnu.org>
+
+	* configure.ac: SUBST CFLAGS.
+	* configure: Regenerate.
+
+2007-07-03  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* libgfortran.h: Mark internal_malloc_size as a malloc function.
+	* runtime/memory.c (internal_realloc_size): Remove.
+	(internal_realloc): Call realloc directly instead of
+	internal_realloc_size.
+	(allocate_size): Remove.
+	(allocate): Call malloc directly instead of allocate_size, mark as
+	malloc function.
+
+2007-07-02  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Restore collateral damage from ISO C Binding merge.
+
+	2007-06-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/32456
+	* io/unit.c (filename_from_unit): Don't use find_unit, instead search
+	for unit directly.
+
+
+2007-07-02  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* Makefile.in:  Regenerated with automake 1.9.6.
+
+2007-07-02  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* Makefile.in:  Remove extraneous kill.lo rule.
+
+2007-07-02  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/32239
+	* generated/pow_r*_i4.c: Removed.
+
+2007-07-01  Christopher D. Rickett  <crickett@lanl.gov>
+
+	* Makefile.in: Add support for iso_c_generated_procs.c and
+	iso_c_binding.c.
+	* Makefile.am: Ditto.
+	* intrinsics/iso_c_generated_procs.c: New file containing helper
+	functions.
+	* intrinsics/iso_c_binding.c: Ditto.
+	* intrinsics/iso_c_binding.h: New file
+	* gfortran.map: Include the __iso_c_binding_c_* functions.
+	* libgfortran.h: define GFC_NUM_RANK_BITS.
+
+2007-07-01  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/32239
+	* Makefile.am: Don't generate real**int4 pow functions.
+	* gfortran.map: Remove real**int4 pow symbols.
+	* Makefile.in: Regenerated.
+
+2007-07-01  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/32554
+	* io/write.c (output_float): Set edigits to a fixed size, avoiding
+	variation in field width calculation and eliminate buffer overrun.
+
+2007-07-01  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* runtime/memory.c (internal_realloc): Use index_type for size
+	argument instead of GFC_INTEGER_4.
+	(allocate_array): Likewise.
+	(allocate): Likewise, add ifdef around unnecessary check.
+	(internal_reallo64): Remove.
+	(allocate_array64): Remove.
+	(allocate64): Remove.
+	* gfortran.map: Remove symbols for 64-bit allocation functions.
+
+2007-06-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/32456
+	* io/unit.c (filename_from_unit): Don't use find_unit, instead search
+	for unit directly.
+
+2007-06-24  Adam Nemet  <anemet@caviumnetworks.com>
+
+	PR libfortran/32495
+	* runtime/backtrace.c (local_strcasestr): Rename from strcasestr.
+	(show_backtrace): Rename strcasestr to local_strcasestr.
+
+2007-06-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/32456
+	* runtime/error.c (show_locus): Update to emit the unit number
+	and file name involved with the error.  Use new function
+	filename_from_unit.
+	* libgfortran.h (filename_from_unit): Declare new function.
+	* io/unit.c (init_units): Set the unit file name for stdin, stdout,
+	and stderr for use later in error reporting.
+	(filename_from_unit): Add this new function.
+
+2007-06-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/32446
+	* io/write.c (output_float): Calculate ndigits correctly for large
+	numbered formats that must pad zeros before the decimal point.
+
+2007-06-15  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR libfortran/32345
+	* runtime/backtrace.c (show_backtrace): Only use snprintf if
+	available.
+
+2007-06-10  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/32235
+	* io/transfer.c (st_read): Remove test for end of file condition.
+	(next_record_r): Add test for end of file condition.
+
 2007-06-02  Paolo Bonzini  <bonzini@gnu.org>
 
 	* configure: Regenerate.

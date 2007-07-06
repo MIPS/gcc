@@ -173,6 +173,13 @@ hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS * a ATTRIBUTE_UNUSED)
   return true;
 }
 
+/* Return machine mode for non-standard suffix
+   or VOIDmode if non-standard suffixes are unsupported.  */
+enum machine_mode
+default_mode_for_suffix (char suffix ATTRIBUTE_UNUSED)
+{
+  return VOIDmode;
+}
 
 /* The generic C++ ABI specifies this is a 64-bit value.  */
 tree
@@ -334,6 +341,16 @@ default_builtin_vectorized_function (enum built_in_function fn ATTRIBUTE_UNUSED,
 tree
 default_builtin_vectorized_conversion (enum tree_code code ATTRIBUTE_UNUSED,
 				       tree type ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+/* Reciprocal.  */
+
+tree
+default_builtin_reciprocal (enum built_in_function fn ATTRIBUTE_UNUSED,
+			    bool md_fn ATTRIBUTE_UNUSED,
+			    bool sqrt ATTRIBUTE_UNUSED)
 {
   return NULL_TREE;
 }

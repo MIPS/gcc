@@ -41,6 +41,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "cgraph.h"
 #include "except.h"
+#include "dbgcnt.h"
 
 /* Like PREFERRED_STACK_BOUNDARY but in units of bytes, not bits.  */
 #define STACK_BYTES (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
@@ -1080,7 +1081,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	      else
 		copy = assign_temp (type, 0, 1, 0);
 
-	      store_expr (args[i].tree_value, copy, 0);
+	      store_expr (args[i].tree_value, copy, 0, false);
 
 	      if (callee_copies)
 		*ecf_flags &= ~(ECF_CONST | ECF_LIBCALL_BLOCK);
@@ -1268,12 +1269,24 @@ precompute_arguments (int flags, int num_actuals, struct arg_data *args)
 
   /* If this is a libcall, then precompute all arguments so that we do not
      get extraneous instructions emitted as part of the libcall sequence.  */
-  if ((flags & ECF_LIBCALL_BLOCK) == 0)
+
+  /* If we preallocated the stack space, and some arguments must be passed
+     on the stack, then we must precompute any parameter which contains a
+     function call which will store arguments on the stack.
+     Otherwise, evaluating the parameter may clobber previous parameters
+     which have already been stored into the stack.  (we have code to avoid
+     such case by saving the outgoing stack arguments, but it results in
+     worse code)  */
+  if ((flags & ECF_LIBCALL_BLOCK) == 0 && !ACCUMULATE_OUTGOING_ARGS)
     return;
 
   for (i = 0; i < num_actuals; i++)
     {
       enum machine_mode mode;
+
+      if ((flags & ECF_LIBCALL_BLOCK) == 0
+	  && TREE_CODE (args[i].tree_value) != CALL_EXPR)
+	continue;
 
       /* If this is an addressable type, we cannot pre-evaluate it.  */
       gcc_assert (!TREE_ADDRESSABLE (TREE_TYPE (args[i].tree_value)));
@@ -1480,7 +1493,7 @@ rtx_for_function_call (tree fndecl, tree addr)
     {
       /* If this is the first use of the function, see if we need to
 	 make an external definition for it.  */
-      if (! TREE_USED (fndecl))
+      if (!TREE_USED (fndecl) && fndecl != current_function_decl)
 	{
 	  assemble_external (fndecl);
 	  TREE_USED (fndecl) = 1;
@@ -2222,7 +2235,8 @@ expand_call (tree exp, rtx target, int ignore)
   if (currently_expanding_call++ != 0
       || !flag_optimize_sibling_calls
       || args_size.var
-      || lookup_stmt_eh_region (exp) >= 0)
+      || lookup_stmt_eh_region (exp) >= 0
+      || dbg_cnt (tail_call) == false)
     try_tail_call = 0;
 
   /*  Rest of purposes for tail call optimizations to fail.  */
@@ -2855,9 +2869,10 @@ expand_call (tree exp, rtx target, int ignore)
 	  valreg = temp;
 	}
 
-      /* For calls to `setjmp', etc., inform flow.c it should complain
-	 if nonvolatile values are live.  For functions that cannot return,
-	 inform flow that control does not fall through.  */
+      /* For calls to `setjmp', etc., inform
+	 function.c:setjmp_warnings that it should complain if
+	 nonvolatile values are live.  For functions that cannot
+	 return, inform flow that control does not fall through.  */
 
       if ((flags & ECF_NORETURN) || pass == 0)
 	{
@@ -3816,9 +3831,10 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	       valreg,
 	       old_inhibit_defer_pop + 1, call_fusage, flags, & args_so_far);
 
-  /* For calls to `setjmp', etc., inform flow.c it should complain
-     if nonvolatile values are live.  For functions that cannot return,
-     inform flow that control does not fall through.  */
+  /* For calls to `setjmp', etc., inform function.c:setjmp_warnings
+     that it should complain if nonvolatile values are live.  For
+     functions that cannot return, inform flow that control does not
+     fall through.  */
 
   if (flags & ECF_NORETURN)
     {

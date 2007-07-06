@@ -941,6 +941,8 @@ got_delim:
   e->ref = NULL;
   e->ts.type = BT_CHARACTER;
   e->ts.kind = kind;
+  e->ts.is_c_interop = 0;
+  e->ts.is_iso_c = 0;
   e->where = start_locus;
 
   e->value.character.string = p = gfc_getmem (length + 1);
@@ -1012,6 +1014,8 @@ match_logical_constant (gfc_expr **result)
   e->value.logical = i;
   e->ts.type = BT_LOGICAL;
   e->ts.kind = kind;
+  e->ts.is_c_interop = 0;
+  e->ts.is_iso_c = 0;
   e->where = gfc_current_locus;
 
   *result = e;
@@ -1196,6 +1200,8 @@ match_complex_constant (gfc_expr **result)
     }
   target.type = BT_REAL;
   target.kind = kind;
+  target.is_c_interop = 0;
+  target.is_iso_c = 0;
 
   if (real->ts.type != BT_REAL || kind != real->ts.kind)
     gfc_convert_type (real, &target, 2);
@@ -1888,6 +1894,7 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result)
   gfc_expr *e;
   locus where;
   match m;
+  bool private_comp = false;
 
   head = tail = NULL;
 
@@ -1900,6 +1907,11 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result)
 
   for (comp = sym->components; comp; comp = comp->next)
     {
+      if (comp->access == ACCESS_PRIVATE)
+	{
+	  private_comp = true;
+	  break;
+	}
       if (head == NULL)
 	tail = head = gfc_get_constructor ();
       else
@@ -1926,6 +1938,14 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result)
 	}
 
       break;
+    }
+
+  if (sym->attr.use_assoc
+      && (sym->component_access == ACCESS_PRIVATE || private_comp))
+    {
+      gfc_error ("Structure constructor for '%s' at %C has PRIVATE "
+		 "components", sym->name);
+      goto cleanup;
     }
 
   if (gfc_match_char (')') != MATCH_YES)
@@ -2175,6 +2195,25 @@ gfc_match_rvalue (gfc_expr **result)
 	  m = MATCH_ERROR;
 	  break;
 	}
+
+      /* Check here for the existence of at least one argument for the
+         iso_c_binding functions C_LOC, C_FUNLOC, and C_ASSOCIATED.  The
+         argument(s) given will be checked in gfc_iso_c_func_interface,
+         during resolution of the function call.  */
+      if (sym->attr.is_iso_c == 1
+	  && (sym->from_intmod == INTMOD_ISO_C_BINDING
+	      && (sym->intmod_sym_id == ISOCBINDING_LOC
+		  || sym->intmod_sym_id == ISOCBINDING_FUNLOC
+		  || sym->intmod_sym_id == ISOCBINDING_ASSOCIATED)))
+        {
+          /* make sure we were given a param */
+          if (actual_arglist == NULL)
+            {
+              gfc_error ("Missing argument to '%s' at %C", sym->name);
+              m = MATCH_ERROR;
+              break;
+            }
+        }
 
       if (sym->result == NULL)
 	sym->result = sym;

@@ -1,3 +1,174 @@
+2007-07-05  Joerg Richter  <joerg.richter@pdv-fs.de>
+
+	PR libstdc++/31957
+	* include/Makefile.am: Work around an AIX sed oddity.
+	* include/Makefile.in: Regenerate.
+	
+2007-07-04  Jim Xochellis  <jimxoch@yahoo.gr>
+
+	* include/bits/stl_algo.h (search(_ForwardIterator1,
+	_ForwardIterator1, _ForwardIterator2, _ForwardIterator2)): Simplify
+	general case loop to a for(;;).
+	(search(_ForwardIterator1, _ForwardIterator1, _ForwardIterator2,
+	_ForwardIterator2, _BinaryPredicate)): Likewise; remove redundant
+	inner loop.
+	
+2007-07-03  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31518
+	* include/debug/formatter.h (_Error_formatter::_M_get_max_length): New.
+	(_Error_formatter::_Error_formatter): Use it.
+	* src/debug.cc: Define.
+	(_Error_formatter::_M_error): Tweak.
+	* configure.ac: Adjust version to 6:10:0.
+	* config/abi/pre/gnu.ver: Export _Error_formatter::_M_get_max_length
+	at GLIBCXX_3.4.10.
+	* testsuite/util/testsuite_abi.cc: Add GLIBCXX_3.4.10.
+	* docs/html/debug.html: Document.
+	* configure: Regenerate.
+
+2007-07-02  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc:
+	Tweak line numbers.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Ditto.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-1.cc:
+	Don't try to create an unsigned wchar_t.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-2.cc:
+	Don't try to create an unsigned wchar_t.
+	* testsuite/util/testsuite_hooks.h: Remove a stray semicolon.
+
+2007-07-01  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* include/std/type_traits (__make_unsigned): Remove invalid
+	wchar_t specialization.
+	(__make_signed): Remove invalid wchar_t specialization.
+	
+2007-06-29  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* testsuite/18_support/headers/cstdbool/std_c++0x_neg.cc: Force
+	C++98 mode.  
+	* testsuite/18_support/headers/cstdint/std_c++0x_neg.cc: Ditto.
+	* testsuite/20_util/headers/type_traits/std_c++0x_neg.cc: Ditto.
+	* testsuite/23_containers/headers/array/std_c++0x_neg.cc: Ditto.
+	* testsuite/23_containers/headers/tuple/std_c++0x_neg.cc: Ditto.
+	* testsuite/23_containers/headers/unordered_map/std_c++0x_neg.cc:
+	Ditto. 
+	* testsuite/23_containers/headers/unordered_set/std_c++0x_neg.cc:
+	Ditto. 
+	* testsuite/26_numerics/headers/ccomplex/std_c++0x_neg.cc: Ditto.
+	* testsuite/26_numerics/headers/cfenv/std_c++0x_neg.cc: Ditto.
+	* testsuite/26_numerics/headers/ctgmath/std_c++0x_neg.cc: Ditto.
+	* testsuite/26_numerics/headers/random/std_c++0x_neg.cc: Ditto.
+	* testsuite/27_io/headers/cinttypes/std_c++0x_neg.cc: Ditto.
+	* testsuite/28_regex/headers/regex/std_c++0x_neg.cc: Ditto.
+
+2007-06-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/32509
+	* acinclude.m4 (GLIBCXX_ENABLE_CLOCALE): Carry out the checks
+	involving the de_DE locale only if an auto locale config is
+	used for a target suitable for the gnu locale model.
+	* docs/html/install.html: Update.
+	* configure: Regenerated.
+
+2007-06-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/testsuite_api.h: New.
+	* testsuite/27_io/ios_base/failure: Add.
+	* testsuite/27_io/ios_base/failure/cons_virtual_derivation.cc: New.
+	* testsuite/27_io/ios_base/failure/what-1.cc: Same.
+	* testsuite/27_io/ios_base/failure/what-2.cc: Same.
+	* testsuite/27_io/ios_base/failure/what-big.cc: Same.
+	* testsuite/27_io/ios_base/failure/what-3.cc: Same.
+	* testsuite/19_diagnostics/logic_error/
+	cons_virtual_derivation.cc: Same.
+	* testsuite/19_diagnostics/runtime_error/
+	cons_virtual_derivation.cc: Same.
+	* testsuite/18_support/bad_alloc/cons_virtual_derivation.cc: Same.
+	* testsuite/18_support/bad_cast/cons_virtual_derivation.cc: Same.
+	* testsuite/18_support/bad_exception/cons_virtual_derivation.cc: Same.
+	* testsuite/18_support/bad_typeid/cons_virtual_derivation.cc: Same.
+	* testsuite/ext/concurrence_lock_error: New.
+	* testsuite/ext/concurrence_lock_error/
+	cons_virtual_derivation.cc: Same.
+	* testsuite/ext/forced_exception_error: New.
+	* testsuite/ext/forced_exception_error/
+	cons_virtual_derivation.cc: Same.
+	* testsuite/ext/concurrence_unlock_error: New.
+	* testsuite/ext/concurrence_unlock_error/
+	cons_virtual_derivation.cc: Same.
+	* testsuite/20_util/function_objects/bad_function_call: New.
+	* testsuite/20_util/function_objects/bad_function_call/
+	cons_virtual_derivation.cc: Same.
+	
+2007-06-26  Benjamin Kosnik  <bkoz@redhat.com>	
+
+	* include/ext/throw_allocator.h: Fixes for -fno-exceptions.
+	* testsuite/util/testsuite_shared.cc: Same.
+	* testsuite/util/io/illegal_input_error.hpp: Same.
+	* testsuite/util/io/verified_cmd_line_input.cc: Same.
+
+	* libsupc++/typeinfo (type_info): Correct comment formatting,
+	clarify member access and public interface.
+	* libsupc++/exception: Less compressed comments.
+	* libsupc++/new: Same.
+	
+2007-06-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_list.h: Rename guard macro consistently with
+	file name.
+	* include/bits/stl_algobase.h: Likewise.
+	* include/bits/stl_map.h: Likewise.
+	* include/bits/stl_queue.h: Likewise.
+	* include/bits/stl_set.h: Likewise.
+	* include/bits/stl_stack.h: Likewise.
+	* include/bits/stl_iterator_base_types.h: Likewise.
+	* include/bits/stl_multimap.h: Likewise.
+	* include/bits/stl_pair.h: Likewise.
+	* include/bits/stl_vector.h: Likewise.
+	* include/bits/stl_deque.h: Likewise.
+	* include/bits/stl_multiset.h: Likewise.
+	* include/bits/stl_iterator_base_funcs.h: Likewise.
+	* include/bits/stl_algo.h: Likewise.
+	* include/bits/stl_iterator.h: Likewise.
+	* include/bits/stl_tempbuf.h: Likewise.
+	* include/bits/stl_bvector.h: Likewise.
+	* include/bits/stl_function.h: Likewise.
+	* include/bits/stl_tree.h: Likewise.
+
+2007-06-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/cpu/m68k/atomicity.h: Use __mcfisaa__, __mcfisaaplus__,
+	__mcfisab__ & __mcfisac__ instead of obsolete cpu #defines.
+
+2007-06-13  Richard Earnshaw  <rearnsha@arm.com>
+
+	* libsupc++/eh_arm.cc (__cxa_type_match): Handle foreign
+	exceptions.
+	* libsubpc++/eh_personality.cc: Don't try to set up foreign or
+	forced unwind types here when using the ARM EABI unwinder.
+
+2007-06-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/c_global/cmath: Tweak includes.
+	* include/std/memory: Likewise.
+	* include/std/complex: Likewise.
+	* include/tr1/memory: Likewise.
+	* include/tr1/complex: Likewise.
+	* include/tr1/cmath: Likewise; do not wrap special functions
+	in #ifndef __GXX_EXPERIMENTAL_CXX0X__.
+
+2007-06-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/testsuite_performance.h: Add cstring include for
+	memset.
+
+2007-06-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/install.html: Adjust consistently with libstdc++/31717.
+
 2007-06-08  Francesco Palagi  <palagi@arcetri.astro.it>
 
 	* include/std/fstream: Add Table 92 in comment.

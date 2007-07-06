@@ -50,6 +50,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target-def.h"
 #include "langhooks.h"
 #include "tree-gimple.h"
+#include "df.h"
 
 
 /* Enumeration for all of the relational tests, so that we can build
@@ -1180,9 +1181,8 @@ xtensa_expand_nonlocal_goto (rtx *operands)
   if (GET_CODE (containing_fp) != REG)
     containing_fp = force_reg (Pmode, containing_fp);
 
-  goto_handler = replace_rtx (copy_rtx (goto_handler),
-			      virtual_stack_vars_rtx,
-			      containing_fp);
+  goto_handler = copy_rtx (goto_handler);
+  validate_replace_rtx (virtual_stack_vars_rtx, containing_fp, goto_handler);
 
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__xtensa_nonlocal_goto"),
 		     0, VOIDmode, 2,
@@ -2078,9 +2078,12 @@ xtensa_expand_prologue (void)
 	       insn = NEXT_INSN (insn))
 	    {
 	      if (INSN_P (insn))
-		PATTERN (insn) = replace_rtx (copy_rtx (PATTERN (insn)),
-					      hard_frame_pointer_rtx,
-					      stack_pointer_rtx);
+		{
+		  PATTERN (insn) = replace_rtx (copy_rtx (PATTERN (insn)),
+						hard_frame_pointer_rtx,
+						stack_pointer_rtx);
+		  df_insn_rescan (insn);
+		}
 	    }
 	}
       else
@@ -2176,7 +2179,7 @@ xtensa_build_builtin_va_list (void)
 static rtx
 xtensa_builtin_saveregs (void)
 {
-  rtx gp_regs, dest;
+  rtx gp_regs;
   int arg_words = current_function_args_info.arg_words;
   int gp_left = MAX_ARGS_IN_REGISTERS - arg_words;
 
@@ -2189,12 +2192,12 @@ xtensa_builtin_saveregs (void)
   set_mem_alias_set (gp_regs, get_varargs_alias_set ());
 
   /* Now store the incoming registers.  */
-  dest = change_address (gp_regs, SImode,
-			 plus_constant (XEXP (gp_regs, 0),
-					arg_words * UNITS_PER_WORD));
   cfun->machine->need_a7_copy = true;
   cfun->machine->vararg_a7 = true;
-  move_block_from_reg (GP_ARG_FIRST + arg_words, dest, gp_left);
+  move_block_from_reg (GP_ARG_FIRST + arg_words,
+		       adjust_address (gp_regs, BLKmode,
+				       arg_words * UNITS_PER_WORD),
+		       gp_left);
 
   return XEXP (gp_regs, 0);
 }
@@ -2223,15 +2226,15 @@ xtensa_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
   ndx = build3 (COMPONENT_REF, TREE_TYPE (f_ndx), valist, f_ndx, NULL_TREE);
 
   /* Call __builtin_saveregs; save the result in __va_reg */
-  u = make_tree (ptr_type_node, expand_builtin_saveregs ());
+  u = make_tree (sizetype, expand_builtin_saveregs ());
+  u = fold_convert (ptr_type_node, u);
   t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, reg, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   /* Set the __va_stk member to ($arg_ptr - 32).  */
   u = make_tree (ptr_type_node, virtual_incoming_args_rtx);
-  u = fold_build2 (PLUS_EXPR, ptr_type_node, u,
-		   build_int_cst (NULL_TREE, -32));
+  u = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, u, size_int (-32));
   t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, stk, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -2241,8 +2244,8 @@ xtensa_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
      alignment offset for __va_stk.  */
   if (arg_words >= MAX_ARGS_IN_REGISTERS)
     arg_words += 2;
-  u = build_int_cst (NULL_TREE, arg_words * UNITS_PER_WORD);
-  t = build2 (GIMPLE_MODIFY_STMT, integer_type_node, ndx, u);
+  t = build2 (GIMPLE_MODIFY_STMT, integer_type_node, ndx,
+	      size_int (arg_words * UNITS_PER_WORD));
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
@@ -2307,10 +2310,8 @@ xtensa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
     {
       int align = MIN (TYPE_ALIGN (type), STACK_BOUNDARY) / BITS_PER_UNIT;
 
-      t = build2 (PLUS_EXPR, integer_type_node, orig_ndx,
-		  build_int_cst (NULL_TREE, align - 1));
-      t = build2 (BIT_AND_EXPR, integer_type_node, t,
-		  build_int_cst (NULL_TREE, -align));
+      t = build2 (PLUS_EXPR, integer_type_node, orig_ndx, size_int (align - 1));
+      t = build2 (BIT_AND_EXPR, integer_type_node, t, size_int (-align));
       t = build2 (GIMPLE_MODIFY_STMT, integer_type_node, orig_ndx, t);
       gimplify_and_add (t, pre_p);
     }
@@ -2340,8 +2341,8 @@ xtensa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
       lab_false = create_artificial_label ();
       lab_over = create_artificial_label ();
 
-      t = build_int_cst (NULL_TREE, MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD);
-      t = build2 (GT_EXPR, boolean_type_node, ndx, t);
+      t = build2 (GT_EXPR, boolean_type_node, ndx,
+		  size_int (MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD));
       t = build3 (COND_EXPR, void_type_node, t,
 		  build1 (GOTO_EXPR, void_type_node, lab_false),
 		  NULL_TREE);
@@ -2370,8 +2371,8 @@ xtensa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 
   lab_false2 = create_artificial_label ();
 
-  t = build_int_cst (NULL_TREE, MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD);
-  t = build2 (GT_EXPR, boolean_type_node, orig_ndx, t);
+  t = build2 (GT_EXPR, boolean_type_node, orig_ndx,
+	      size_int (MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD));
   t = build3 (COND_EXPR, void_type_node, t,
 	      build1 (GOTO_EXPR, void_type_node, lab_false2),
 	      NULL_TREE);
@@ -2408,18 +2409,16 @@ xtensa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 
   if (BYTES_BIG_ENDIAN && TREE_CODE (type_size) == INTEGER_CST)
     {
-      t = size_int (PARM_BOUNDARY / BITS_PER_UNIT);
-      t = fold_build2 (GE_EXPR, boolean_type_node, type_size, t);
+      t = fold_build2 (GE_EXPR, boolean_type_node, type_size,
+		       size_int (PARM_BOUNDARY / BITS_PER_UNIT));
       t = fold_build3 (COND_EXPR, sizetype, t, va_size, type_size);
       size = t;
     }
   else
     size = va_size;
 
-  t = fold_convert (ptr_type_node, ndx);
-  addr = build2 (PLUS_EXPR, ptr_type_node, array, t);
-  t = fold_convert (ptr_type_node, size);
-  addr = build2 (MINUS_EXPR, ptr_type_node, addr, t);
+  t = build2 (MINUS_EXPR, sizetype, ndx, size);
+  addr = build2 (POINTER_PLUS_EXPR, ptr_type_node, array, t);
 
   addr = fold_convert (build_pointer_type (type), addr);
   if (indirect)

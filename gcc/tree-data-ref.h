@@ -252,6 +252,9 @@ struct data_dependence_relation
 
   /* The classic distance vector.  */
   VEC (lambda_vector, heap) *dist_vects;
+
+  /* Is the dependence reversed with respect to the lexicographic order?  */
+  bool reversed_p;
 };
 
 typedef struct data_dependence_relation *ddr_p;
@@ -282,6 +285,7 @@ DEF_VEC_ALLOC_P(ddr_p,heap);
   VEC_index (lambda_vector, DDR_DIR_VECTS (DDR), I)
 #define DDR_DIST_VECT(DDR, I) \
   VEC_index (lambda_vector, DDR_DIST_VECTS (DDR), I)
+#define DDR_REVERSED_P(DDR) DDR->reversed_p
 
 
 

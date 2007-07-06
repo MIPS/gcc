@@ -4859,9 +4859,9 @@
 (define_insn "pic_add_dot_plus_four"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(unspec:SI [(plus:SI (match_operand:SI 1 "register_operand" "0")
-			     (const (plus:SI (pc) (const_int 4))))]
-		   UNSPEC_PIC_BASE))
-   (use (match_operand 2 "" ""))]
+			     (const (plus:SI (pc) (const_int 4))))
+		    (match_operand 2 "" "")]
+		   UNSPEC_PIC_BASE))]
   "TARGET_THUMB1"
   "*
   (*targetm.asm_out.internal_label) (asm_out_file, \"LPIC\",
@@ -4874,9 +4874,9 @@
 (define_insn "pic_add_dot_plus_eight"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(unspec:SI [(plus:SI (match_operand:SI 1 "register_operand" "r")
-			     (const (plus:SI (pc) (const_int 8))))]
-		   UNSPEC_PIC_BASE))
-   (use (match_operand 2 "" ""))]
+			     (const (plus:SI (pc) (const_int 8))))
+		    (match_operand 2 "" "")]
+		   UNSPEC_PIC_BASE))]
   "TARGET_ARM"
   "*
     (*targetm.asm_out.internal_label) (asm_out_file, \"LPIC\",
@@ -4889,9 +4889,9 @@
 (define_insn "tls_load_dot_plus_eight"
   [(set (match_operand:SI 0 "register_operand" "+r")
 	(mem:SI (unspec:SI [(plus:SI (match_operand:SI 1 "register_operand" "r")
-				     (const (plus:SI (pc) (const_int 8))))]
-			   UNSPEC_PIC_BASE)))
-   (use (match_operand 2 "" ""))]
+				     (const (plus:SI (pc) (const_int 8))))
+			    (match_operand 2 "" "")]
+			   UNSPEC_PIC_BASE)))]
   "TARGET_ARM"
   "*
     (*targetm.asm_out.internal_label) (asm_out_file, \"LPIC\",
@@ -9423,14 +9423,11 @@
    (clobber (reg:CC CC_REGNUM))]
   "TARGET_ARM"
   "*
-  if (GET_CODE (operands[3]) == LT && operands[3] == const0_rtx)
+  if (GET_CODE (operands[3]) == LT && operands[2] == const0_rtx)
     return \"mov\\t%0, %1, asr #31\";
 
   if (GET_CODE (operands[3]) == NE)
     return \"subs\\t%0, %1, %2\;mvnne\\t%0, #0\";
-
-  if (GET_CODE (operands[3]) == GT)
-    return \"subs\\t%0, %1, %2\;mvnne\\t%0, %0, asr #31\";
 
   output_asm_insn (\"cmp\\t%1, %2\", operands);
   output_asm_insn (\"mov%D3\\t%0, #0\", operands);

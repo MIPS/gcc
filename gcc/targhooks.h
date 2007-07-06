@@ -40,6 +40,8 @@ extern tree default_stack_protect_guard (void);
 extern tree default_external_stack_protect_fail (void);
 extern tree default_hidden_stack_protect_fail (void);
 
+extern enum machine_mode default_mode_for_suffix (char);
+
 extern tree default_cxx_guard_type (void);
 extern tree default_cxx_get_cookie_size (tree);
 
@@ -55,9 +57,12 @@ extern bool default_decimal_float_supported_p (void);
 
 extern const char * default_invalid_within_doloop (rtx);
 
-extern tree default_builtin_vectorized_function (enum built_in_function, tree, tree);
+extern tree default_builtin_vectorized_function
+  (enum built_in_function, tree, tree);
 
 extern tree default_builtin_vectorized_conversion (enum tree_code, tree);
+
+extern tree default_builtin_reciprocal (enum built_in_function, bool, bool);
 
 /* These are here, and not in hooks.[ch], because not all users of
    hooks.h include tm.h, and thus we don't have CUMULATIVE_ARGS.  */

@@ -755,7 +755,7 @@ static tree
 determine_base_object (tree expr)
 {
   enum tree_code code = TREE_CODE (expr);
-  tree base, obj, op0, op1;
+  tree base, obj;
 
   /* If this is a pointer casted to any type, we need to determine
      the base object for the pointer; so handle conversions before
@@ -785,20 +785,13 @@ determine_base_object (tree expr)
       return fold_convert (ptr_type_node,
 		           build_fold_addr_expr (base));
 
+    case POINTER_PLUS_EXPR:
+      return determine_base_object (TREE_OPERAND (expr, 0));
+
     case PLUS_EXPR:
     case MINUS_EXPR:
-      op0 = determine_base_object (TREE_OPERAND (expr, 0));
-      op1 = determine_base_object (TREE_OPERAND (expr, 1));
-      
-      if (!op1)
-	return op0;
-
-      if (!op0)
-	return (code == PLUS_EXPR
-		? op1
-		: fold_build1 (NEGATE_EXPR, ptr_type_node, op1));
-
-      return fold_build2 (code, ptr_type_node, op0, op1);
+      /* Pointer addition is done solely using POINTER_PLUS_EXPR.  */
+      gcc_unreachable ();
 
     default:
       return fold_convert (ptr_type_node, expr);
@@ -1766,6 +1759,7 @@ strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
       *offset = int_cst_value (expr);
       return build_int_cst (orig_type, 0);
 
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
       op0 = TREE_OPERAND (expr, 0);
@@ -1774,7 +1768,7 @@ strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
       op0 = strip_offset_1 (op0, false, false, &off0);
       op1 = strip_offset_1 (op1, false, false, &off1);
 
-      *offset = (code == PLUS_EXPR ? off0 + off1 : off0 - off1);
+      *offset = (code == MINUS_EXPR ? off0 - off1 : off0 + off1);
       if (op0 == TREE_OPERAND (expr, 0)
 	  && op1 == TREE_OPERAND (expr, 1))
 	return orig_expr;
@@ -1783,10 +1777,10 @@ strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
 	expr = op0;
       else if (integer_zerop (op0))
 	{
-	  if (code == PLUS_EXPR)
-	    expr = op1;
-	  else
+	  if (code == MINUS_EXPR)
 	    expr = fold_build1 (NEGATE_EXPR, type, op1);
+	  else
+	    expr = op1;
 	}
       else
 	expr = fold_build2 (code, type, op0, op1);
@@ -3100,9 +3094,9 @@ force_expr_to_var_cost (tree expr)
       symbol_cost = computation_cost (addr) + 1;
 
       address_cost
-	= computation_cost (build2 (PLUS_EXPR, type,
+	= computation_cost (build2 (POINTER_PLUS_EXPR, type,
 				    addr,
-				    build_int_cst (type, 2000))) + 1;
+				    build_int_cst (sizetype, 2000))) + 1;
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "force_expr_to_var_cost:\n");
@@ -3141,6 +3135,7 @@ force_expr_to_var_cost (tree expr)
 
   switch (TREE_CODE (expr))
     {
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
     case MULT_EXPR:
@@ -3169,6 +3164,7 @@ force_expr_to_var_cost (tree expr)
   mode = TYPE_MODE (TREE_TYPE (expr));
   switch (TREE_CODE (expr))
     {
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
       cost = add_cost (mode);
@@ -4898,11 +4894,12 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 	 thus leading to ICE.  */
       op = GIMPLE_STMT_OPERAND (use->stmt, 1);
       if (TREE_CODE (op) == PLUS_EXPR
-	  || TREE_CODE (op) == MINUS_EXPR)
+	  || TREE_CODE (op) == MINUS_EXPR
+	  || TREE_CODE (op) == POINTER_PLUS_EXPR)
 	{
 	  if (TREE_OPERAND (op, 0) == cand->var_before)
 	    op = TREE_OPERAND (op, 1);
-	  else if (TREE_CODE (op) == PLUS_EXPR
+	  else if (TREE_CODE (op) != MINUS_EXPR
 		   && TREE_OPERAND (op, 1) == cand->var_before)
 	    op = TREE_OPERAND (op, 0);
 	  else

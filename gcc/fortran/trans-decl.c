@@ -75,11 +75,8 @@ tree gfc_static_ctors;
 /* Function declarations for builtin library functions.  */
 
 tree gfor_fndecl_internal_realloc;
-tree gfor_fndecl_internal_realloc64;
 tree gfor_fndecl_allocate;
-tree gfor_fndecl_allocate64;
 tree gfor_fndecl_allocate_array;
-tree gfor_fndecl_allocate64_array;
 tree gfor_fndecl_deallocate;
 tree gfor_fndecl_pause_numeric;
 tree gfor_fndecl_pause_string;
@@ -295,6 +292,12 @@ gfc_sym_mangled_identifier (gfc_symbol * sym)
 {
   char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
 
+  /* Prevent the mangling of identifiers that have an assigned
+     binding label (mainly those that are bind(c)).  */
+  if (sym->attr.is_bind_c == 1
+      && sym->binding_label[0] != '\0')
+    return get_identifier(sym->binding_label);
+  
   if (sym->module == NULL)
     return gfc_sym_identifier (sym);
   else
@@ -312,6 +315,14 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
 {
   int has_underscore;
   char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
+
+  /* It may be possible to simply use the binding label if it's
+     provided, and remove the other checks.  Then we could use it
+     for other things if we wished.  */
+  if ((sym->attr.is_bind_c == 1 || sym->attr.is_iso_c == 1) &&
+      sym->binding_label[0] != '\0')
+    /* use the binding label rather than the mangled name */
+    return get_identifier (sym->binding_label);
 
   if (sym->module == NULL || sym->attr.proc == PROC_EXTERNAL
       || (sym->module != NULL && (sym->attr.external
@@ -476,6 +487,21 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
   if (sym->attr.cray_pointee)
     return;
 
+  if(sym->attr.is_bind_c == 1)
+    {
+      /* We need to put variables that are bind(c) into the common
+	 segment of the object file, because this is what C would do.
+	 gfortran would typically put them in either the BSS or
+	 initialized data segments, and only mark them as common if
+	 they were part of common blocks.  However, if they are not put
+	 into common space, then C cannot initialize global fortran
+	 variables that it interoperates with and the draft says that
+	 either Fortran or C should be able to initialize it (but not
+	 both, of course.) (J3/04-007, section 15.3).  */
+      TREE_PUBLIC(decl) = 1;
+      DECL_COMMON(decl) = 1;
+    }
+  
   /* If a variable is USE associated, it's always external.  */
   if (sym->attr.use_assoc)
     {
@@ -2241,45 +2267,28 @@ gfc_build_builtin_function_decls (void)
 {
   tree gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
   tree gfc_int4_type_node = gfc_get_int_type (4);
-  tree gfc_int8_type_node = gfc_get_int_type (8);
   tree gfc_logical4_type_node = gfc_get_logical_type (4);
   tree gfc_pint4_type_node = build_pointer_type (gfc_int4_type_node);
+  tree gfc_index_int_type_node = gfc_get_int_type (gfc_index_integer_kind);
 
   gfor_fndecl_internal_realloc =
     gfc_build_library_function_decl (get_identifier
 				     (PREFIX("internal_realloc")),
 				     pvoid_type_node, 2, pvoid_type_node,
-				     gfc_int4_type_node);
-
-  gfor_fndecl_internal_realloc64 =
-    gfc_build_library_function_decl (get_identifier
-				     (PREFIX("internal_realloc64")),
-				     pvoid_type_node, 2, pvoid_type_node,
-				     gfc_int8_type_node);
+				     gfc_index_int_type_node);
+  DECL_IS_MALLOC (gfor_fndecl_internal_realloc) = 1;
 
   gfor_fndecl_allocate =
     gfc_build_library_function_decl (get_identifier (PREFIX("allocate")),
 				     pvoid_type_node, 2,
-				     gfc_int4_type_node, gfc_pint4_type_node);
+				     gfc_index_int_type_node, gfc_pint4_type_node);
   DECL_IS_MALLOC (gfor_fndecl_allocate) = 1;
-
-  gfor_fndecl_allocate64 =
-    gfc_build_library_function_decl (get_identifier (PREFIX("allocate64")),
-				     pvoid_type_node, 2,
-				     gfc_int8_type_node, gfc_pint4_type_node);
-  DECL_IS_MALLOC (gfor_fndecl_allocate64) = 1;
 
   gfor_fndecl_allocate_array =
     gfc_build_library_function_decl (get_identifier (PREFIX("allocate_array")),
 				     pvoid_type_node, 3, pvoid_type_node,
-				     gfc_int4_type_node, gfc_pint4_type_node);
+				     gfc_index_int_type_node, gfc_pint4_type_node);
   DECL_IS_MALLOC (gfor_fndecl_allocate_array) = 1;
-
-  gfor_fndecl_allocate64_array =
-    gfc_build_library_function_decl (get_identifier (PREFIX("allocate64_array")),
-				     pvoid_type_node, 3, pvoid_type_node,
-				     gfc_int8_type_node, gfc_pint4_type_node);
-  DECL_IS_MALLOC (gfor_fndecl_allocate64_array) = 1;
 
   gfor_fndecl_deallocate =
     gfc_build_library_function_decl (get_identifier (PREFIX("deallocate")),
@@ -2739,6 +2748,12 @@ gfc_create_module_variable (gfc_symbol * sym)
   if (sym->attr.entry)
     return;
 
+  /* Make sure we convert the types of the derived types from iso_c_binding
+     into (void *).  */
+  if (sym->attr.flavor != FL_PROCEDURE && sym->attr.is_iso_c
+      && sym->ts.type == BT_DERIVED)
+    sym->backend_decl = gfc_typenode_for_spec (&(sym->ts));
+
   /* Only output variables and array valued parameters.  */
   if (sym->attr.flavor != FL_VARIABLE
       && (sym->attr.flavor != FL_PARAMETER || sym->attr.dimension == 0))
@@ -2822,6 +2837,41 @@ gfc_generate_contained_functions (gfc_namespace * parent)
 
       gfc_generate_function_code (ns);
     }
+}
+
+
+/* Set up the tree type for the given symbol to allow the dummy
+   variable (parameter) to be passed by-value.  To do this, the main
+   idea is to simply remove the extra layer added by Fortran
+   automatically (the POINTER_TYPE node).  This pointer type node
+   would normally just contain the real type underneath, but we remove
+   it here and later we change the way the argument is converted for a
+   function call (trans-expr.c:gfc_conv_function_call).  This is the
+   approach the C compiler takes (or it appears to be this way).  When
+   the middle-end is given the typed node rather than the POINTER_TYPE
+   node, it knows to pass the value.  */
+
+static void
+set_tree_decl_type_code (gfc_symbol *sym)
+{
+   /* This should not happen.  during the gfc_sym_type function,
+      when the backend_decl is being built for a dummy arg, if the arg
+      is pass-by-value then no reference type is wrapped around the
+      true type (e.g., REAL_TYPE).  */
+  if (TREE_CODE (TREE_TYPE (sym->backend_decl)) == POINTER_TYPE ||
+      TREE_CODE (TREE_TYPE (sym->backend_decl)) == REFERENCE_TYPE)
+    TREE_TYPE (sym->backend_decl) = gfc_typenode_for_spec (&sym->ts);
+  DECL_BY_REFERENCE (sym->backend_decl) = 0;
+  
+   /* the tree can't be addressable if it's pass-by-value..?  x*/
+/*    TREE_TYPE(sym->backend_decl)->common.addressable_flag = 0; */
+
+   DECL_ARG_TYPE (sym->backend_decl) = TREE_TYPE (sym->backend_decl);
+
+   DECL_MODE (sym->backend_decl) =
+      TYPE_MODE (TREE_TYPE (sym->backend_decl));
+
+   return;
 }
 
 
@@ -2973,6 +3023,21 @@ generate_local_decl (gfc_symbol * sym)
 	  gfc_get_symbol_decl (sym);
 	}
     }
+
+  if (sym->attr.dummy == 1)
+    {
+      /* The sym->backend_decl can be NULL if this is one of the
+	 intrinsic types, such as the symbol of type c_ptr for the
+	 c_f_pointer function, so don't set up the tree code for it.  */
+      if (sym->attr.value == 1 && sym->backend_decl != NULL)
+	set_tree_decl_type_code (sym);
+    }
+
+  /* Make sure we convert the types of the derived types from iso_c_binding
+     into (void *).  */
+  if (sym->attr.flavor != FL_PROCEDURE && sym->attr.is_iso_c
+      && sym->ts.type == BT_DERIVED)
+    sym->backend_decl = gfc_typenode_for_spec (&(sym->ts));
 }
 
 static void

@@ -321,6 +321,9 @@ typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_16) gfc_array_l16;
 #define GFC_DTYPE_TYPE_MASK 0x38
 #define GFC_DTYPE_SIZE_SHIFT 6
 
+/* added for f03.  --Rickett, 02.28.06 */
+#define GFC_NUM_RANK_BITS 3
+
 enum
 {
   GFC_DTYPE_UNKNOWN = 0,
@@ -631,7 +634,7 @@ internal_proto(get_mem);
 extern void free_mem (void *);
 internal_proto(free_mem);
 
-extern void *internal_malloc_size (size_t);
+extern void *internal_malloc_size (size_t) __attribute__ ((malloc));
 internal_proto(internal_malloc_size);
 
 /* environ.c */
@@ -682,6 +685,9 @@ internal_proto(unit_to_fd);
 extern int st_printf (const char *, ...)
   __attribute__ ((format (printf, 1, 2)));
 internal_proto(st_printf);
+
+extern char * filename_from_unit (int);
+internal_proto(filename_from_unit);
 
 /* stop.c */
 

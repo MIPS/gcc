@@ -482,7 +482,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
   /* Analyze cost. Decide if worth while to vectorize.  */
 
   min_profitable_iters = vect_estimate_min_profitable_iters (loop_vinfo);
-
+  LOOP_VINFO_COST_MODEL_MIN_ITERS (loop_vinfo) = min_profitable_iters;
   if (min_profitable_iters < 0)
     {
       if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
@@ -2092,6 +2092,15 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
             }
           return false;
         }
+
+      if (TREE_CODE (DR_BASE_ADDRESS (dr)) == INTEGER_CST)
+        {
+          if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+            fprintf (vect_dump, "not vectorized: base addr of dr is a "
+                     "constant");
+          return false;
+        }
+
       if (!DR_SYMBOL_TAG (dr))
         {
           if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
