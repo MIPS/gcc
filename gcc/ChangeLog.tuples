@@ -1,5 +1,12 @@
 2007-07-05  Aldy Hernandez  <aldyh@redhat.com> 
 
+	* gimple-pretty-print.c (dump_gimple_stmt): Alphabetize cases.
+	Add case for GS_NOP.
+	* gimplify.c (gimplify_body): Handle null bodies.
+	Use GS_CODE instead of GS_SUBCODE_FLAGS.
+
+2007-07-05  Aldy Hernandez  <aldyh@redhat.com> 
+
 	* testsuite/gcc.dg/gimple/with_size_expr.c: Clean up dump.
 	* testsuite/gcc.dg/gimple/gs_bind.c: Clean up dump.
 	* gimplify.c (struct gimplify_ctx): Make current_bind_expr a tuple.

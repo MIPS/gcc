@@ -6497,9 +6497,14 @@ gimplify_body (tree *body_p, gs_seq seq_p, tree fndecl, bool do_parms)
   gimplify_stmt (body_p, seq_p);
 
   outer_bind = gs_seq_first (seq_p);
+  if (!outer_bind)
+    {
+      outer_bind = gs_build_nop ();
+      gs_add (outer_bind, seq_p);
+    }
 
   /* If there isn't an outer GS_BIND, add one.  */
-  if (GS_SUBCODE_FLAGS (outer_bind) != GS_BIND)
+  if (GS_CODE (outer_bind) != GS_BIND)
     {
       outer_bind = gs_build_bind (NULL_TREE, seq_p);
       gs_seq_set_first (seq_p, outer_bind);

@@ -313,12 +313,12 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_gs_bind (buffer, gs, spc, flags);
       break;
 
-    case GS_RETURN:
-      dump_gs_return (buffer, gs, spc, flags);
-      break;
-
     case GS_CALL:
       dump_gs_call (buffer, gs, spc, flags);
+      break;
+
+    case GS_COND:
+      dump_gs_cond (buffer, gs, spc, flags);
       break;
 
     case GS_LABEL:
@@ -331,8 +331,12 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_generic_node (buffer, gs_goto_dest (gs), spc, flags, false);
       break;
 
-    case GS_COND:
-      dump_gs_cond (buffer, gs, spc, flags);
+    case GS_NOP:
+      pp_string (buffer, "GS_NOP tuple");
+      break;
+
+    case GS_RETURN:
+      dump_gs_return (buffer, gs, spc, flags);
       break;
 
     default:
