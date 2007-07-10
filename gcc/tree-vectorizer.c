@@ -1676,24 +1676,113 @@ vect_supportable_dr_alignment (struct data_reference *dr)
   enum machine_mode mode = (int) TYPE_MODE (vectype);
   struct loop *vect_loop = LOOP_VINFO_LOOP (STMT_VINFO_LOOP_VINFO (stmt_info));
   bool nested_in_vect_loop = nested_in_vect_loop_p (vect_loop, stmt);
+  bool invariant_in_outerloop = false;
 
   if (aligned_access_p (dr))
     return dr_aligned;
 
+  if (nested_in_vect_loop)
+    {
+      tree outerloop_step = STMT_VINFO_DR_STEP (stmt_info);
+      invariant_in_outerloop = 
+	(tree_int_cst_compare (outerloop_step, size_zero_node) == 0);
+    }
+
   /* Possibly unaligned access.  */
+
+  /* We can choose between using the implicit realignment scheme (generating
+     a misaligned_move stmt) and the explicit realignment scheme (generating
+     aligned loads with a REALIGN_LOAD). There are two variants to the explicit
+     realignment scheme: optimized, and unoptimized.
+     We can optimize the realignment only if the step between consecutive 
+     vector loads is equal to the vector size.  Since the vector memory 
+     accesses advance in steps of VS (Vector Size) in the vectorized loop, it 
+     is guaranteed that the misalignment amount remains the same throughout the
+     execution of the vectorized loop.  Therefore, we can create the 
+     "realignment token" (the permutation mask that is passed to REALIGN_LOAD) 
+     at the loop preheader.
+
+     However, in the case of outer-loop vectorization, when vectorizing a
+     memory access in the inner-loop nested within the LOOP that is now being
+     vectorized, while it is guaranteed that the misalignment of the
+     vectorized memory access will remain the same in different outer-loop
+     iterations, it is *not* guaranteed that is will remain the same throughout
+     the execution of the inner-loop.  This is because the inner-loop advances
+     with the original scalar step (and not in steps of VS).  If the inner-loop
+     step happens to be a multiple of VS, then the misalignment remaines fixed
+     and we can use the optimized relaignment scheme.  For example:
+
+	for (i=0; i<N; i++)
+	  for (j=0; j<M; j++)
+	    s += a[i+j];
+
+     When vectorizing the i-loop in the above example, the step between 
+     consecutive vector loads is 1, and so the misalignment does not remain 
+     fixed across the execution of the inner-loop, and the realignment cannot 
+     be optimized (as illustrated in the following pseudo vectorized loop):
+
+	for (i=0; i<N; i+=4)
+	  for (j=0; j<M; j++){
+	    vs += vp[i+j]; // misalignment of &vp[i+j] is {0,1,2,3,0,1,2,3,...}
+			   // when j is {0,1,2,3,4,5,6,7,...} respectively. 
+			   // (assuming that we start from an aligned address).
+          }
+
+     We therefore have to use the unoptimized realignment scheme:
+
+	for (i=0; i<N; i+=4)
+	  for (j=0; j<M; j++){
+	    rt = get_realignment_token (&vp[i+j]);
+	    v1 = vp[i+j];
+	    v2 = vp[i+j+VS-1];
+	    va = REALIGN_LOAD <v1,v2,rt>;
+	    vs += va;
+	  }
+
+     On the other hand, when vectorizing the i-loop in the following example 
+     (that implements the same computation as above):
+
+	for (k=0; k<4; k++)
+	  for (i=0; i<N; i++)
+	    for (j=k; j<M; j+=4)
+	      s += a[i+j];
+
+     the step between consecutive vector loads is 4, which (if assuming that 
+     the vector size is also 4) can be optimized:
+
+	for (k=0; k<4; k++)
+	  for (i=0; i<N; i+=4)
+	    for (j=k; j<M; j+=4)
+	      vs += vp[i+j]; // misalignment of &vp[i+j] is always k (assuming 
+			     // that the misalignment of the initial address is
+			     // 0).
+
+     The loop can then be vectorized as follows:
+
+	for (k=0; k<4; k++){
+	  rt = get_realignment_token (&vp[k]);
+	  for (i=0; i<N; i+=4){
+	    v1 = vp[i+k];
+	    for (j=k; j<M; j+=4){
+	      v2 = vp[i+j+VS-1];
+	      va = REALIGN_LOAD <v1,v2,rt>;
+	      vs += va;
+	      v1 = v2;
+	    }
+	  }
+	} */
+
   if (DR_IS_READ (dr))
     {
       if (vec_realign_load_optab->handlers[mode].insn_code != CODE_FOR_nothing
 	  && (!targetm.vectorize.builtin_mask_for_load
 	      || targetm.vectorize.builtin_mask_for_load ()))
 	{
-	  /* FORNOW: Ideally we'd get rid of the dr_explicit_realign_optimized
-	     all together, and have a following predictive-commoning pass
-	     do the job.  */
-	  if (!nested_in_vect_loop)
-	    return dr_explicit_realign_optimized;
-	  else
+          if (nested_in_vect_loop
+	      && TREE_INT_CST_LOW (DR_STEP (dr)) != UNITS_PER_SIMD_WORD)
 	    return dr_explicit_realign;
+	  else
+	    return dr_explicit_realign_optimized;
 	}
       if (movmisalign_optab->handlers[mode].insn_code != CODE_FOR_nothing)
 	return dr_unaligned_supported;
