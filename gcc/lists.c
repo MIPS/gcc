@@ -265,4 +265,5 @@ copy_DEPS_LIST_list (rtx list)
   return res;
 }
 
+#include "ggc-internal.h"
 #include "gt-lists.h"

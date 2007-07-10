@@ -6397,4 +6397,5 @@ warn_array_subscript_with_type_char (tree index)
 }
 
 
+#include "ggc-internal.h"
 #include "gt-c-common.h"

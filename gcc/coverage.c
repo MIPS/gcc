@@ -984,4 +984,5 @@ coverage_finish (void)
     }
 }
 
+#include "ggc-internal.h"
 #include "gt-coverage.h"

@@ -1331,5 +1331,6 @@ struct tree_opt_pass pass_ipa_reference =
   0					/* letter */
 };
 
+#include "ggc-internal.h"
 #include "gt-ipa-reference.h"
 

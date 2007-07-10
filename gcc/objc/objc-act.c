@@ -9507,4 +9507,5 @@ objc_get_callee_fndecl (tree call_expr)
   return 0;
 }
 
+#include "ggc-internal.h"
 #include "gt-objc-objc-act.h"

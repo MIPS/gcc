@@ -832,4 +832,5 @@ init_pragma (void)
 #endif
 }
 
+#include "ggc-internal.h"
 #include "gt-c-pragma.h"

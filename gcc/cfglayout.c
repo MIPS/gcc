@@ -1280,4 +1280,5 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
     bbs[i]->flags &= ~BB_DUPLICATED;
 }
 
+#include "ggc-internal.h"
 #include "gt-cfglayout.h"

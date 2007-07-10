@@ -1047,4 +1047,5 @@ do_compare_and_jump (tree exp, enum rtx_code signed_code,
                            if_false_label, if_true_label);
 }
 
+#include "ggc-internal.h"
 #include "gt-dojump.h"

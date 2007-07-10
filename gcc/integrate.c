@@ -366,4 +366,5 @@ allocate_initial_values (rtx *reg_equiv_memory_loc ATTRIBUTE_UNUSED)
     }
 }
 
+#include "ggc-internal.h"
 #include "gt-integrate.h"

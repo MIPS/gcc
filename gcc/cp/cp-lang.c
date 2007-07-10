@@ -144,4 +144,5 @@ finish_file (void)
   cp_finish_file ();
 }
 
+#include "ggc-internal.h"
 #include "gtype-cp.h"

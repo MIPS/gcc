@@ -304,4 +304,5 @@ struct profile_hooks tree_profile_hooks =
   tree_gen_const_delta_profiler /* gen_const_delta_profiler */
 };
 
+#include "ggc-internal.h"
 #include "gt-tree-profile.h"

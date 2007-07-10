@@ -6276,4 +6276,5 @@ force_gimple_operand_bsi (block_stmt_iterator *bsi, tree expr,
   return expr;
 }
 
+#include "ggc-internal.h"
 #include "gt-gimplify.h"

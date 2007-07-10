@@ -1468,5 +1468,6 @@ require_complete_eh_spec_types (tree fntype, tree decl)
     }
 }
 
-
+
+#include "ggc-internal.h"
 #include "gt-cp-typeck2.h"

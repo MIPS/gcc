@@ -1494,4 +1494,5 @@ emit_tinfo_decl (tree decl)
     return false;
 }
 
+#include "ggc-internal.h"
 #include "gt-cp-rtti.h"

@@ -5636,4 +5636,5 @@ struct tree_opt_pass pass_leaf_regs =
 };
 
 
+#include "ggc-internal.h"
 #include "gt-function.h"

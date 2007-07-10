@@ -353,4 +353,5 @@ repo_export_class_p (tree class_type)
 	  (DECL_ASSEMBLER_NAME (CLASSTYPE_VTABLES (class_type))));
 }
 
+#include "ggc-internal.h"
 #include "gt-cp-repo.h"

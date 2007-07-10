@@ -7837,4 +7837,5 @@ c_parse_file (void)
   the_parser = NULL;
 }
 
+#include "ggc-internal.h"
 #include "gt-c-parser.h"

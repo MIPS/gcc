@@ -1181,4 +1181,5 @@ skip_artificial_parms_for (tree fn, tree list)
   return list;
 }
 
+#include "ggc-internal.h"
 #include "gt-cp-method.h"

@@ -3342,4 +3342,5 @@ mark_used (tree decl)
   processing_template_decl = saved_processing_template_decl;
 }
 
+#include "ggc-internal.h"
 #include "gt-cp-decl2.h"

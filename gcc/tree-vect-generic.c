@@ -523,4 +523,5 @@ struct tree_opt_pass pass_lower_vector_ssa =
   0					/* letter */
 };
 
+#include "ggc-internal.h"
 #include "gt-tree-vect-generic.h"

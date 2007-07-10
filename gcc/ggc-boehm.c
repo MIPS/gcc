@@ -5,6 +5,7 @@
 #include "params.h"
 #include "timevar.h"
 #include "ggc.h"
+#include "ggc-internal.h"
 #include "symtab.h"
 
 /* #define GC_DEBUG */

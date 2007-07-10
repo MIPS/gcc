@@ -595,4 +595,5 @@ default_narrow_bitfield (void)
   return !STRICT_ALIGNMENT;
 }
 
+#include "ggc-internal.h"
 #include "gt-targhooks.h"

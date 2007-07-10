@@ -2898,4 +2898,5 @@ write_java_integer_type_codes (const tree type)
     gcc_unreachable ();
 }
 
+#include "ggc-internal.h"
 #include "gt-cp-mangle.h"

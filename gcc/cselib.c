@@ -1498,4 +1498,5 @@ cselib_finish (void)
   next_unknown_value = 0;
 }
 
+#include "ggc-internal.h"
 #include "gt-cselib.h"

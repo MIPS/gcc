@@ -6259,4 +6259,5 @@ expand_sync_lock_test_and_set (rtx mem, rtx val, rtx target)
   return NULL_RTX;
 }
 
+#include "ggc-internal.h"
 #include "gt-optabs.h"

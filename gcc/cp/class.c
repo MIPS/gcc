@@ -7828,4 +7828,5 @@ cp_fold_obj_type_ref (tree ref, tree known_type)
   return build_address (fndecl);
 }
 
+#include "ggc-internal.h"
 #include "gt-cp-class.h"

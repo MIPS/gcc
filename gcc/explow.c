@@ -1545,4 +1545,5 @@ rtx_to_tree_code (enum rtx_code code)
   return ((int) tcode);
 }
 
+#include "ggc-internal.h"
 #include "gt-explow.h"

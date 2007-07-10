@@ -1116,4 +1116,5 @@ cgraph_add_new_function (tree fndecl)
   cgraph_expand_queue = n;
 }
 
+#include "ggc-internal.h"
 #include "gt-cgraph.h"

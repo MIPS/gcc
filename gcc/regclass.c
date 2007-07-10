@@ -2666,4 +2666,5 @@ invalid_mode_change_p (unsigned int regno, enum reg_class class,
 }
 #endif /* CANNOT_CHANGE_MODE_CLASS */
 
+#include "ggc-internal.h"
 #include "gt-regclass.h"

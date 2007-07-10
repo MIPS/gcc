@@ -34,6 +34,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "varray.h"
 #include "flags.h"
 #include "ggc.h"
+#include "ggc-internal.h"
 #include "timevar.h"
 #include "params.h"
 #include "bitmap.h"

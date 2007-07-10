@@ -1103,7 +1103,7 @@ open_base_files (void)
       "hashtab.h", "splay-tree.h",  "obstack.h", "bitmap.h", "input.h",
       "tree.h", "rtl.h", "function.h", "insn-config.h", "expr.h",
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
-      "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
+      "optabs.h", "libfuncs.h", "debug.h", "ggc-internal.h", "cgraph.h",
       "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
       "except.h", "output.h", NULL
     };

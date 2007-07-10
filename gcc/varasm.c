@@ -6205,4 +6205,5 @@ output_object_blocks (void)
   htab_traverse (object_block_htab, output_object_block_htab, NULL);
 }
 
+#include "ggc-internal.h"
 #include "gt-varasm.h"

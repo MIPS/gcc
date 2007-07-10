@@ -7573,4 +7573,5 @@ empty_body_p (tree stmt)
   return true;
 }
 
+#include "ggc-internal.h"
 #include "gt-tree.h"

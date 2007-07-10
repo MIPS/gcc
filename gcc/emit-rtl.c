@@ -5378,4 +5378,5 @@ gen_hard_reg_clobber (enum machine_mode mode, unsigned int regno)
 	    gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (mode, regno)));
 }
 
+#include "ggc-internal.h"
 #include "gt-emit-rtl.h"

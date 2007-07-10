@@ -5128,4 +5128,5 @@ cp_emit_debug_info_for_using (tree t, tree context)
       (*debug_hooks->imported_module_or_decl) (t, context);
 }
 
+#include "ggc-internal.h"
 #include "gt-cp-name-lookup.h"

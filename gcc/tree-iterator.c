@@ -359,4 +359,5 @@ expr_only (tree expr)
   return expr;
 }
 
+#include "ggc-internal.h"
 #include "gt-tree-iterator.h"

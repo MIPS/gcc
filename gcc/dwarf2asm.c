@@ -884,4 +884,5 @@ dw2_asm_output_encoded_addr_rtx (int encoding, rtx addr, bool public,
   va_end (ap);
 }
 
+#include "ggc-internal.h"
 #include "gt-dwarf2asm.h"

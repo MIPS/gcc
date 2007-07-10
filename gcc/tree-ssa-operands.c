@@ -2561,4 +2561,5 @@ debug_immediate_uses_for (tree var)
   dump_immediate_uses_for (stderr, var);
 }
 
+#include "ggc-internal.h"
 #include "gt-tree-ssa-operands.h"

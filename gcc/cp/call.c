@@ -6687,4 +6687,5 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
   return expr;
 }
 
+#include "ggc-internal.h"
 #include "gt-cp-call.h"

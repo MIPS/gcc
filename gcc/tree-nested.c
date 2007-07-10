@@ -1904,4 +1904,5 @@ lower_nested_functions (tree fndecl)
   root = NULL;
 }
 
+#include "ggc-internal.h"
 #include "gt-tree-nested.h"

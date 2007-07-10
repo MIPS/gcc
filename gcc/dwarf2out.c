@@ -14314,4 +14314,5 @@ const struct gcc_debug_hooks dwarf2_debug_hooks;
 
 #endif /* DWARF2_DEBUGGING_INFO */
 
+#include "ggc-internal.h"
 #include "gt-dwarf2out.h"

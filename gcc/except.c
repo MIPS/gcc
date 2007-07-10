@@ -3999,4 +3999,5 @@ struct tree_opt_pass pass_rtl_eh =
   'h'                                   /* letter */
 };
 
+#include "ggc-internal.h"
 #include "gt-except.h"

@@ -2635,4 +2635,5 @@ end_alias_analysis (void)
   reg_known_equiv_p = 0;
 }
 
+#include "ggc-internal.h"
 #include "gt-alias.h"

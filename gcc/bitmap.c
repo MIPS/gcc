@@ -1520,4 +1520,5 @@ bitmap_print (FILE *file, bitmap head, const char *prefix, const char *suffix)
   fputs (suffix, file);
 }
 
+#include "ggc-internal.h"
 #include "gt-bitmap.h"

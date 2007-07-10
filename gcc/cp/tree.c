@@ -2342,4 +2342,5 @@ lang_check_failed (const char* file, int line, const char* function)
 }
 #endif /* ENABLE_TREE_CHECKING */
 
+#include "ggc-internal.h"
 #include "gt-cp-tree.h"

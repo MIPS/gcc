@@ -90,4 +90,5 @@ finish_file (void)
 {
 }
 
+#include "ggc-internal.h"
 #include "gtype-c.h"

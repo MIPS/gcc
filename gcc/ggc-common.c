@@ -27,6 +27,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "hashtab.h"
 #include "ggc.h"
+#include "ggc-internal.h"
 #include "toplev.h"
 #include "params.h"
 #include "hosthooks.h"

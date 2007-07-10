@@ -19144,4 +19144,5 @@ c_parse_file (void)
 
 int yydebug;
 
+#include "ggc-internal.h"
 #include "gt-cp-parser.h"

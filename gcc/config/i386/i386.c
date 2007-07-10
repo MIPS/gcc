@@ -18885,4 +18885,5 @@ asm_preferred_eh_data_format (int code, int global)
   return DW_EH_PE_absptr;
 }
 
+#include "ggc-internal.h"
 #include "gt-i386.h"

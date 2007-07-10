@@ -4486,4 +4486,5 @@ diagnose_omp_structured_block_errors (tree fndecl)
   current_function_decl = save_current;
 }
 
+#include "ggc-internal.h"
 #include "gt-omp-low.h"

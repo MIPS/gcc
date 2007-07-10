@@ -308,4 +308,5 @@ replace_ssa_name_symbol (tree ssa_name, tree sym)
   TREE_TYPE (ssa_name) = TREE_TYPE (sym);
 }
 
+#include "ggc-internal.h"
 #include "gt-tree-ssanames.h"

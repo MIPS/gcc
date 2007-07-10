@@ -12996,4 +12996,5 @@ build_non_dependent_args (tree args)
   return nreverse (new_args);
 }
 
+#include "ggc-internal.h"
 #include "gt-cp-pt.h"

@@ -130,4 +130,5 @@ finish_file (void)
   objc_finish_file ();
 }
 
+#include "ggc-internal.h"
 #include "gtype-objc.h"

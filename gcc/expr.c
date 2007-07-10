@@ -9437,4 +9437,6 @@ const_vector_from_tree (tree exp)
 
   return gen_rtx_CONST_VECTOR (mode, v);
 }
+
+#include "ggc-internal.h"
 #include "gt-expr.h"

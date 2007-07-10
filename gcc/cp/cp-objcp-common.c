@@ -244,5 +244,5 @@ init_shadowed_var_for_decl (void)
 					   tree_map_eq, 0);
 }
 
-
+#include "ggc-internal.h"
 #include "gt-cp-cp-objcp-common.h"

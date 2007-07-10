@@ -1692,4 +1692,5 @@ const struct gcc_debug_hooks sdb_debug_hooks;
 
 #endif /* SDB_DEBUGGING_INFO */
 
+#include "ggc-internal.h"
 #include "gt-sdbout.h"

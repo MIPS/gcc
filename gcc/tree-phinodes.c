@@ -485,4 +485,5 @@ phi_reverse (tree phi)
   return prev;
 }
 
+#include "ggc-internal.h"
 #include "gt-tree-phinodes.h"

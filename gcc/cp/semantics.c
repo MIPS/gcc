@@ -3914,4 +3914,5 @@ init_cp_semantics (void)
 {
 }
 
+#include "ggc-internal.h"
 #include "gt-cp-semantics.h"

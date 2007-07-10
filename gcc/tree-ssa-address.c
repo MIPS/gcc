@@ -712,4 +712,5 @@ dump_mem_address (FILE *file, struct mem_address *parts)
     }
 }
 
+#include "ggc-internal.h"
 #include "gt-tree-ssa-address.h"

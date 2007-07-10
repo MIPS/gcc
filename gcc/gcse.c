@@ -6721,4 +6721,5 @@ struct tree_opt_pass pass_gcse =
 };
 
 
+#include "ggc-internal.h"
 #include "gt-gcse.h"

@@ -3423,4 +3423,5 @@ dbxout_begin_function (tree decl)
 
 #endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
 
+#include "ggc-internal.h"
 #include "gt-dbxout.h"

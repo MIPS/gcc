@@ -11552,4 +11552,5 @@ cxx_comdat_group (tree decl)
   return IDENTIFIER_POINTER (name);
 }
 
+#include "ggc-internal.h"
 #include "gt-cp-decl.h"

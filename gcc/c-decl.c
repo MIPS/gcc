@@ -7873,4 +7873,5 @@ c_write_global_declarations (void)
   ext_block = NULL;
 }
 
+#include "ggc-internal.h"
 #include "gt-c-decl.h"

@@ -2185,4 +2185,5 @@ get_mode_bounds (enum machine_mode mode, int sign,
   *mmax = gen_int_mode (max_val, target_mode);
 }
 
+#include "ggc-internal.h"
 #include "gt-stor-layout.h"

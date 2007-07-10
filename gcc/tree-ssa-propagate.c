@@ -1196,4 +1196,5 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
     }
 }
 
+#include "ggc-internal.h"
 #include "gt-tree-ssa-propagate.h"

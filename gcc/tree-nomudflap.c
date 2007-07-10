@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-mudflap.h"
 #include "tree-pass.h"
 #include "ggc.h"
+#include "ggc-internal.h"
 #include "toplev.h"
 
 
@@ -100,8 +101,8 @@ struct tree_opt_pass pass_mudflap_1 =
   0,					/* todo_flags_start */
   0,                                    /* todo_flags_finish */
   0				        /* letter */
-};
-
+}
+;
 struct tree_opt_pass pass_mudflap_2 = 
 {
   "mudflap2",				/* name */
@@ -121,7 +122,8 @@ struct tree_opt_pass pass_mudflap_2 =
 
 /* Instead of:
 #include "gt-tree-mudflap.h"
-We prepare a little dummy struct here.
+We prepare a little dummy struct here. TODO: actually use gengtype machinery
+and drop ggc-internal.h dependency.
 */
 
 const struct ggc_root_tab gt_ggc_r_gt_tree_mudflap_h[] = {

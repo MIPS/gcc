@@ -4697,5 +4697,6 @@ delete_alias_heapvars (void)
   htab_delete (heapvar_for_stmt);  
 }
 
-  
+
+#include "ggc-internal.h"
 #include "gt-tree-ssa-structalias.h"

@@ -1342,4 +1342,5 @@ struct tree_opt_pass pass_mudflap_2 =
   0					/* letter */
 };
 
+#include "ggc-internal.h"
 #include "gt-tree-mudflap.h"

@@ -33,6 +33,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "ggc.h"
+#include "ggc-internal.h"
 #include "tree.h"
 #include "symtab.h"
 #include "cpplib.h"
@@ -49,6 +50,7 @@ const char digit_vector[] = {
   '0', 0, '1', 0, '2', 0, '3', 0, '4', 0,
   '5', 0, '6', 0, '7', 0, '8', 0, '9', 0
 };
+#define digit_string(d) (digit_vector + ((d) * 2))
 
 struct ht *ident_hash;
 static struct obstack string_stack;
