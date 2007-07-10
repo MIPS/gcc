@@ -38,27 +38,28 @@ enum hist_type
   ((enum hist_type) ((COUNTER) - GCOV_FIRST_VALUE_COUNTER))
 
 /* The value to measure.  */
-typedef struct histogram_value_t *histogram_value;
-struct histogram_value_t GTY(())
+struct histogram_value_t
 {
-  struct histogram_value_hvalue_t
+  struct
     {
       tree value;		/* The value to profile.  */
       tree stmt;		/* Insn containing the value.  */
       gcov_type *counters;		        /* Pointer to first counter.  */
-      histogram_value GTY((chain_next("%h.next"))) next;		/* Linked list pointer.  */
+      struct histogram_value_t *next;		/* Linked list pointer.  */
     } hvalue;
   enum hist_type type;			/* Type of information to measure.  */
   unsigned n_counters;			/* Number of required counters.  */
-  union histogram_value_hdata_t
+  union
     {
-      struct histogram_value_hdata_intvl_t
+      struct
 	{
 	  int int_start;	/* First value in interval.  */
 	  unsigned int steps;	/* Number of values in it.  */
 	} intvl;	/* Interval histogram data.  */
-  } GTY((default("intvl"))) hdata;		/* Profiled information specific data.  */
+    } hdata;		/* Profiled information specific data.  */
 };
+
+typedef struct histogram_value_t *histogram_value;
 
 DEF_VEC_P(histogram_value);
 DEF_VEC_ALLOC_P(histogram_value,heap);

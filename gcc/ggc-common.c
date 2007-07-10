@@ -26,7 +26,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "hashtab.h"
-#include "splay-tree.h"
 #include "ggc.h"
 #include "toplev.h"
 #include "params.h"
@@ -134,31 +133,26 @@ ggc_mark_roots (void)
 
 /* Allocate a block of memory, then clear it.  */
 void *
-ggc_internal_alloc_cleared_stat (size_t size MEM_STAT_DECL)
+ggc_alloc_cleared_stat (size_t size MEM_STAT_DECL)
 {
-  void *buf = ggc_alloc_cleared_atomic_stat (size);
+  void *buf = ggc_alloc_stat (size PASS_MEM_STAT);
+  memset (buf, 0, size);
   return buf;
 }
 
+/* Like ggc_alloc_cleared, but performs a multiplication.  */
 void *
-ggc_calloc_atomic (size_t s, size_t n)
+ggc_calloc (size_t s1, size_t s2)
 {
-  return ggc_alloc_vec_atomic(s, n);
+  return ggc_alloc_cleared (s1 * s2);
 }
 
 /* These are for splay_tree_new_ggc.  */
 void *
-ggc_splay_alloc_tree (int sz, void *nl)
+ggc_splay_alloc (int sz, void *nl)
 {
   gcc_assert (!nl);
-  return ggc_alloc_atomic(sz);
-}
-
-void *
-ggc_splay_alloc_tree_node (int sz, void *nl)
-{
-  gcc_assert (!nl);
-  return ggc_alloc_atomic(sz);
+  return ggc_alloc (sz);
 }
 
 void

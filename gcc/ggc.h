@@ -23,8 +23,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define GCC_GGC_H
 #include "statistics.h"
 
-#include <gc.h>
-
 /* Symbols are marked with `ggc' for `gcc gc' so as not to interfere with
    an external gc library that might be linked in.  */
 
@@ -96,53 +94,25 @@ struct ggc_cache_tab {
 /* Pointers to arrays of ggc_cache_tab, terminated by NULL.  */
 extern const struct ggc_cache_tab * const gt_ggc_cache_rtab[];
 
-/* Marker routines  */
-
-struct GC_ms_entry;
-extern struct GC_ms_entry * gt_tggc_m_mark_object (GC_word *,
-						   struct GC_ms_entry *,
-						   struct GC_ms_entry *,
-						   GC_word);
-
-/* Tagged GGC marker for an object residing on the free-list.  */
-extern struct GC_ms_entry * gt_tggc_m_free_list_obj (GC_word *,
-						     struct GC_ms_entry *,
-						     struct GC_ms_entry *);
-
-/* Tagged GGC marker for an atomic object.  */
-extern struct GC_ms_entry * gt_tggc_m_atomic_obj (GC_word *,
-						  struct GC_ms_entry *,
-						  struct GC_ms_entry *);
-
-/* Sentinel tagged GGC marker for an object of nonexistent type.  */
-extern struct GC_ms_entry * gt_tggc_m_nonexistent_obj (GC_word *,
-						       struct GC_ms_entry *,
-						       struct GC_ms_entry *);
-
 /* If EXPR is not NULL and previously unmarked, mark it and evaluate
    to true.  Otherwise evaluate to false.  */
-/*#define ggc_test_and_set_mark(EXPR)					\
-  ((EXPR) != NULL && ((void *) (EXPR)) != (void *) 1 && ! ggc_set_mark (EXPR)) */
-#define ggc_test_and_set_mark(EXPR) 0
+#define ggc_test_and_set_mark(EXPR) \
+  ((EXPR) != NULL && ((void *) (EXPR)) != (void *) 1 && ! ggc_set_mark (EXPR))
 
-
-/*#define ggc_mark(EXPR)			\
-  do {					\
+#define ggc_mark(EXPR)				\
+  do {						\
     const void *const a__ = (EXPR);		\
     if (a__ != NULL && a__ != (void *) 1)	\
       ggc_set_mark (a__);			\
-      } while (0) */
-#define ggc_mark(EXPR) abort()
+  } while (0)
 
 /* Actually set the mark on a particular region of memory, but don't
    follow pointers.  This function is called by ggc_mark_*.  It
    returns zero if the object was not previously marked; nonzero if
    the object was already marked, or if, for any other reason,
    pointers in this data structure should not be traversed.  */
-//extern int ggc_set_mark	(const void *);
-#define ggc_set_mark(x) abort()
+extern int ggc_set_mark	(const void *);
 
-extern int ggc_consider_for_marking (const void *);
 /* Return 1 if P has been marked, zero otherwise.
    P must have been allocated by the GC allocator; it mustn't point to
    static objects, stack variables, or memory allocated with malloc.  */
@@ -231,85 +201,52 @@ extern void ggc_pch_read (FILE *, void *);
 /* When set, ggc_collect will do collection.  */
 extern bool ggc_force_collect;
 
-extern void *ggc_alloc_conservative (size_t);
-
 /* The internal primitive.  */
-extern void *ggc_internal_alloc_stat (size_t MEM_STAT_DECL);
-#define ggc_internal_alloc(s) ggc_internal_alloc_stat (s MEM_STAT_INFO)
-
+extern void *ggc_alloc_stat (size_t MEM_STAT_DECL);
+#define ggc_alloc(s) ggc_alloc_stat (s MEM_STAT_INFO)
 /* Allocate an object of the specified type and size.  */
 extern void *ggc_alloc_typed_stat (enum gt_types_enum, size_t MEM_STAT_DECL);
 #define ggc_alloc_typed(s,z) ggc_alloc_typed_stat (s,z MEM_STAT_INFO)
-#define ggc_alloc_vec_typed(s, z) ggc_alloc_typed_stat (s,z MEM_STAT_INFO)
-
-/* Like ggc_alloc, but clears allocated memory.  */
-extern void *ggc_internal_alloc_cleared_stat (size_t MEM_STAT_DECL);
-extern void *ggc_alloc_cleared_typed_stat (enum gt_types_enum,
-					   size_t MEM_STAT_DECL);
-#define ggc_alloc_cleared_typed(s, z)		\
-  ggc_alloc_cleared_typed_stat(s,z MEM_STAT_INFO)
-
-#define ggc_alloc_cleared_vec_typed(s, z)		\
-  ggc_alloc_cleared_typed_stat(s,z MEM_STAT_INFO)
-
-#define ggc_internal_alloc_cleared(s)			\
-  ggc_internal_alloc_cleared_stat (s MEM_STAT_INFO)
-
-extern void *ggc_alloc_atomic_stat (size_t MEM_STAT_DECL);
-#define ggc_alloc_atomic(s) ggc_alloc_atomic_stat (s MEM_STAT_INFO)
-
-extern void *ggc_alloc_cleared_atomic_stat (size_t MEM_STAT_DECL);
-#define ggc_alloc_cleared_atomic(s) ggc_alloc_cleared_atomic_stat (s MEM_STAT_INFO)
-#define ggc_alloc_vec_atomic(s, n) ggc_alloc_atomic((n) * (s))
-#define ggc_alloc_cleared_vec_atomic(s, n) ggc_alloc_cleared_atomic((n) * (s))
-
+/* Like ggc_alloc, but allocates cleared memory.  */
+extern void *ggc_alloc_cleared_stat (size_t MEM_STAT_DECL);
+#define ggc_alloc_cleared(s) ggc_alloc_cleared_stat (s MEM_STAT_INFO)
 /* Resize a block.  */
-extern void *ggc_realloc_atomic_stat (void *, size_t MEM_STAT_DECL);
-#define ggc_realloc_atomic(s,z) ggc_realloc_atomic_stat (s,z MEM_STAT_INFO)
-extern void *ggc_calloc_atomic (size_t, size_t);
+extern void *ggc_realloc_stat (void *, size_t MEM_STAT_DECL);
+#define ggc_realloc(s,z) ggc_realloc_stat (s,z MEM_STAT_INFO)
+/* Like ggc_alloc_cleared, but performs a multiplication.  */
+extern void *ggc_calloc (size_t, size_t);
 /* Free a block.  To be used when known for certain it's not reachable.  */
 extern void ggc_free (void *);
-
+ 
 extern void ggc_record_overhead (size_t, size_t, void * MEM_STAT_DECL);
 extern void ggc_free_overhead (void *);
 extern void ggc_prune_overhead_list (void);
 
 extern void dump_ggc_loc_statistics (void);
 
-/* Type-safe, C++-friendly versions of ggc_alloc() and gcc_calloc() for atomic
-   data structures.  */
-#define GGC_NEW_ATOMIC(T)       ((T *) ggc_alloc_atomic (sizeof (T)))
-#define GGC_CNEW_ATOMIC(T)	((T *) ggc_alloc_cleared_atomic (sizeof (T)))
-#define GGC_NEWVEC_ATOMIC(T, N)	((T *) ggc_alloc_vec_atomic (sizeof(T), (N)))
-#define GGC_CNEWVEC_ATOMIC(T, N) ((T *) ggc_alloc_cleared_vec_atomic (sizeof(T), (N)))
-#define GGC_NEWVAR_ATOMIC(T, S)	 ((T *) ggc_alloc_atomic ((S)))
-#define GGC_CNEWVAR_ATOMIC(T, S) ((T *) ggc_alloc_cleared_atomic ((S)))
-#define GGC_RESIZEVEC_ATOMIC(T, P, N)   ((T *) ggc_realloc_atomic ((P), (N) * sizeof (T)))
+/* Type-safe, C++-friendly versions of ggc_alloc() and gcc_calloc().  */
+#define GGC_NEW(T)		((T *) ggc_alloc (sizeof (T)))
+#define GGC_CNEW(T)		((T *) ggc_alloc_cleared (sizeof (T)))
+#define GGC_NEWVEC(T, N)	((T *) ggc_alloc ((N) * sizeof(T)))
+#define GGC_CNEWVEC(T, N)	((T *) ggc_alloc_cleared ((N) * sizeof(T)))
+#define GGC_NEWVAR(T, S)	((T *) ggc_alloc ((S)))
+#define GGC_CNEWVAR(T, S)	((T *) ggc_alloc_cleared ((S)))
+#define GGC_RESIZEVEC(T, P, N)  ((T *) ggc_realloc ((P), (N) * sizeof (T)))
 
 #define ggc_alloc_rtvec(NELT)						 \
-  ((rtvec) ggc_alloc_rtvec_def (sizeof (struct rtvec_def) + ((NELT) - 1) \
-				* sizeof (rtx))) /* TODO: rtl_zone */
+  ((rtvec) ggc_alloc_zone (sizeof (struct rtvec_def) + ((NELT) - 1)	 \
+			   * sizeof (rtx), &rtl_zone))
 
-#define ggc_alloc_tree(LENGTH) ((tree) ggc_alloc_tree_node (LENGTH)) /* TODO: tree_zone */
+#define ggc_alloc_tree(LENGTH) ((tree) ggc_alloc_zone (LENGTH, &tree_zone))
 
 #define htab_create_ggc(SIZE, HASH, EQ, DEL) \
-  htab_create_alloc (SIZE, HASH, EQ, DEL, ggc_calloc_atomic, NULL)
+  htab_create_alloc (SIZE, HASH, EQ, DEL, ggc_calloc, NULL)
 
-// extern void *ggc_internal_calloc (size_t, size_t);
-
-/* #define htab_create_ggc(SIZE, HASH, EQ, DEL)				\
-   htab_create_alloc (SIZE, HASH, EQ, DEL, ggc_internal_calloc, NULL */
-
-
-#define splay_tree_new_ggc(COMPARE)				       \
-  splay_tree_new_with_allocator (COMPARE, NULL, NULL,		       \
-				 &ggc_splay_alloc_tree,		       \
-				 &ggc_splay_alloc_tree_node,	       \
-				 &ggc_splay_dont_free,		       \
+#define splay_tree_new_ggc(COMPARE)					 \
+  splay_tree_new_with_allocator (COMPARE, NULL, NULL,			 \
+                                 &ggc_splay_alloc, &ggc_splay_dont_free, \
 				 NULL)
-
-extern void *ggc_splay_alloc_tree (int, void *);
-extern void *ggc_splay_alloc_tree_node (int, void *);
+extern void *ggc_splay_alloc (int, void *);
 extern void ggc_splay_dont_free (void *, void *);
 
 /* Allocate a gc-able string, and fill it with LENGTH bytes from CONTENTS.
@@ -326,9 +263,6 @@ extern void ggc_collect	(void);
 
 /* Return the number of bytes allocated at the indicated address.  */
 extern size_t ggc_get_size (const void *);
-
-/* Return the type of the allocated block by its starting address.  */
-extern enum gt_types_enum ggc_get_block_type(const void *);
 
 /* Write out all GCed objects to F.  */
 extern void gt_pch_save (FILE *f);
@@ -370,19 +304,13 @@ extern struct alloc_zone tree_zone;
 extern struct alloc_zone tree_id_zone;
 
 /* Allocate an object into the specified allocation zone.  */
-extern void *ggc_internal_alloc_zone_stat (size_t,
-					   struct alloc_zone * MEM_STAT_DECL);
-# define ggc_internal_alloc_zone(s,z)			\
-  ggc_internal_alloc_zone_stat (s,z MEM_STAT_INFO)
-
-# define ggc_internal_alloc_zone_pass_stat(s,z) \
-  ggc_internal_alloc_zone_stat (s,z PASS_MEM_STAT)
-
+extern void *ggc_alloc_zone_stat (size_t, struct alloc_zone * MEM_STAT_DECL);
+# define ggc_alloc_zone(s,z) ggc_alloc_zone_stat (s,z MEM_STAT_INFO)
+# define ggc_alloc_zone_pass_stat(s,z) ggc_alloc_zone_stat (s,z PASS_MEM_STAT)
 #else
 
-# define ggc_intenal_alloc_zone(s, z) ggc_internal_alloc (s)
-# define ggc_internal_alloc_zone_pass_stat(s, z)	\
-  ggc_internal_alloc_stat (s PASS_MEM_STAT)
+# define ggc_alloc_zone(s, z) ggc_alloc (s)
+# define ggc_alloc_zone_pass_stat(s, z) ggc_alloc_stat (s PASS_MEM_STAT)
 
 #endif
 

@@ -142,7 +142,7 @@ create_var_ann (tree t)
   gcc_assert (DECL_P (t));
   gcc_assert (!t->common.ann || t->common.ann->common.type == VAR_ANN);
 
-  ann = ggc_alloc_atomic (sizeof (struct var_ann_d));
+  ann = GGC_NEW (struct var_ann_d);
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = VAR_ANN;
@@ -163,7 +163,7 @@ create_function_ann (tree t)
   gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
   gcc_assert (!t->common.ann || t->common.ann->common.type == FUNCTION_ANN);
 
-  ann = ggc_alloc_atomic (sizeof (struct function_ann_d));
+  ann = ggc_alloc (sizeof (*ann));
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = FUNCTION_ANN;
@@ -183,7 +183,7 @@ create_stmt_ann (tree t)
   gcc_assert (is_gimple_stmt (t));
   gcc_assert (!t->common.ann || t->common.ann->common.type == STMT_ANN);
 
-  ann = ggc_alloc_atomic (sizeof (struct stmt_ann_d));
+  ann = GGC_NEW (struct stmt_ann_d);
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = STMT_ANN;
@@ -206,7 +206,7 @@ create_tree_ann (tree t)
   gcc_assert (t);
   gcc_assert (!t->common.ann || t->common.ann->common.type == TREE_ANN_COMMON);
 
-  ann = ggc_alloc_tree_ann_d();
+  ann = GGC_NEW (union tree_ann_d);
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = TREE_ANN_COMMON;
@@ -643,7 +643,7 @@ referenced_var_check_and_insert (tree to)
       return false;
     }
 
-  h = ggc_alloc_int_tree_map();
+  h = GGC_NEW (struct int_tree_map);
   h->uid = uid;
   h->to = to;
   loc = htab_find_slot_with_hash (referenced_vars, h, uid, INSERT);
@@ -689,7 +689,7 @@ set_default_def (tree var, tree def)
   /* Default definition might be changed by tail call optimization.  */
   if (!*loc)
     {
-      h = ggc_alloc_int_tree_map();
+      h = GGC_NEW (struct int_tree_map);
       h->uid = DECL_UID (var);
       h->to = def;
       *(struct int_tree_map **)  loc = h;

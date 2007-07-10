@@ -522,11 +522,10 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
   tree_node_sizes[(int) kind] += length;
 #endif
 
-  /* TODO: MEM_STAT broken */
   if (code == IDENTIFIER_NODE)
-    t = ggc_alloc_tree_node (length); /* TODO: tree_id_zone */
+    t = ggc_alloc_zone_pass_stat (length, &tree_id_zone);
   else
-    t = ggc_alloc_tree_node (length); /* TODO: tree_zone */
+    t = ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, length);
 
@@ -614,7 +613,7 @@ copy_node_stat (tree node MEM_STAT_DECL)
   gcc_assert (code != STATEMENT_LIST);
 
   length = tree_size (node);
-  t = ggc_alloc_tree_node (length); /* TODO: MEM_STAT broken, tree_zone */
+  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
   memcpy (t, node, length);
 
   TREE_CHAIN (t) = 0;
@@ -1060,7 +1059,7 @@ build_real (tree type, REAL_VALUE_TYPE d)
      Consider doing it via real_convert now.  */
 
   v = make_node (REAL_CST);
-  dp = ggc_alloc_real_value ();
+  dp = ggc_alloc (sizeof (REAL_VALUE_TYPE));
   memcpy (dp, &d, sizeof (REAL_VALUE_TYPE));
 
   TREE_TYPE (v) = type;
@@ -1166,7 +1165,7 @@ make_tree_binfo_stat (unsigned base_binfos MEM_STAT_DECL)
   tree_node_sizes[(int) binfo_kind] += length;
 #endif
 
-  t = ggc_alloc_tree_node (length); /* TODO: MEM_STAT broken, tree_zone */
+  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, offsetof (struct tree_binfo, base_binfos));
 
@@ -1191,7 +1190,7 @@ make_tree_vec_stat (int len MEM_STAT_DECL)
   tree_node_sizes[(int) vec_kind] += length;
 #endif
 
-  t = ggc_alloc_tree_node (length); /* TODO: MEM_STAT broken, tree_zone */
+  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, length);
 
@@ -1657,8 +1656,7 @@ tree_cons_stat (tree purpose, tree value, tree chain MEM_STAT_DECL)
 {
   tree node;
 
-  /* TODO: MEM_STAT broken, tree_zone */
-  node = ggc_alloc_tree_node (sizeof (struct tree_list));
+  node = ggc_alloc_zone_pass_stat (sizeof (struct tree_list), &tree_zone);
 
   memset (node, 0, sizeof (struct tree_common));
 
@@ -2795,7 +2793,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
 
   gcc_assert (TREE_CODE_LENGTH (code) == 1);
 
-  t = ggc_alloc_tree_node (length); /* TODO: MEM_STAT broken, tree_zone */
+  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, sizeof (struct tree_common));
 
@@ -3190,7 +3188,7 @@ annotate_with_file_line (tree node, const char *file, int line)
       return;
     }
 
-  SET_EXPR_LOCUS (node, ggc_alloc_location_t ());
+  SET_EXPR_LOCUS (node, ggc_alloc (sizeof (location_t)));
   EXPR_LINENO (node) = line;
   EXPR_FILENAME (node) = file;
   last_annotated_node = EXPR_LOCUS (node);
@@ -3854,7 +3852,7 @@ decl_init_priority_insert (tree from, unsigned short to)
   struct tree_int_map *h;
   void **loc;
 
-  h = ggc_alloc_tree_int_map();
+  h = ggc_alloc (sizeof (struct tree_int_map));
   h->from = from;
   h->to = to;
   loc = htab_find_slot_with_hash (init_priority_for_decl, h, 
@@ -3884,7 +3882,7 @@ decl_restrict_base_insert (tree from, tree to)
   struct tree_map *h;
   void **loc;
 
-  h = ggc_alloc_tree_map ();
+  h = ggc_alloc (sizeof (struct tree_map));
   h->hash = htab_hash_pointer (from);
   h->from = from;
   h->to = to;
@@ -3950,7 +3948,7 @@ decl_debug_expr_insert (tree from, tree to)
   struct tree_map *h;
   void **loc;
 
-  h = ggc_alloc_tree_map ();
+  h = ggc_alloc (sizeof (struct tree_map));
   h->hash = htab_hash_pointer (from);
   h->from = from;
   h->to = to;
@@ -3980,7 +3978,7 @@ decl_value_expr_insert (tree from, tree to)
   struct tree_map *h;
   void **loc;
 
-  h = ggc_alloc_tree_map ();
+  h = ggc_alloc (sizeof (struct tree_map));
   h->hash = htab_hash_pointer (from);
   h->from = from;
   h->to = to;
@@ -4139,7 +4137,7 @@ type_hash_add (hashval_t hashcode, tree type)
   struct type_hash *h;
   void **loc;
 
-  h = ggc_alloc_type_hash ();
+  h = ggc_alloc (sizeof (struct type_hash));
   h->hash = hashcode;
   h->type = type;
   loc = htab_find_slot_with_hash (type_hash_table, h, hashcode, INSERT);
@@ -6821,7 +6819,7 @@ build_omp_clause (enum omp_clause_code code)
   length = omp_clause_num_ops[code];
   size = (sizeof (struct tree_omp_clause) + (length - 1) * sizeof (tree));
 
-  t = ggc_alloc_tree_node (size);
+  t = ggc_alloc (size);
   memset (t, 0, size);
   TREE_SET_CODE (t, OMP_CLAUSE);
   OMP_CLAUSE_SET_CODE (t, code);

@@ -422,7 +422,8 @@ static struct machine_function *
 m32c_init_machine_status (void)
 {
   struct machine_function *machine;
-  machine = ggc_alloc_cleared_machine_function ();
+  machine =
+    (machine_function *) ggc_alloc_cleared (sizeof (machine_function));
 
   return machine;
 }

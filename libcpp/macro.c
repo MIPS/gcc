@@ -741,7 +741,6 @@ enter_macro_context (cpp_reader *pfile, cpp_hashnode *node)
   if (! (node->flags & NODE_BUILTIN))
     {
       cpp_macro *macro = node->value.macro;
-      _cpp_valid_token_p (pfile, macro->exp.tokens);
 
       if (macro->fun_like)
 	{
@@ -808,7 +807,6 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro, macro_arg
   for (src = macro->exp.tokens; src < limit; src++)
     if (src->type == CPP_MACRO_ARG)
       {
-	_cpp_valid_token_p (pfile, src);
 	/* Leading and trailing padding tokens.  */
 	total += 2;
 
@@ -962,8 +960,6 @@ push_ptoken_context (cpp_reader *pfile, cpp_hashnode *macro, _cpp_buff *buff,
 {
   cpp_context *context = next_context (pfile);
 
-  _cpp_valid_token_p (pfile, *first);
-
   context->direct_p = false;
   context->macro = macro;
   context->buff = buff;
@@ -977,8 +973,6 @@ _cpp_push_token_context (cpp_reader *pfile, cpp_hashnode *macro,
 			 const cpp_token *first, unsigned int count)
 {
   cpp_context *context = next_context (pfile);
-
-  _cpp_valid_token_p (pfile, first);
 
   context->direct_p = true;
   context->macro = macro;
@@ -1544,7 +1538,6 @@ create_iso_definition (cpp_reader *pfile, cpp_macro *macro)
     }
 
   macro->exp.tokens = (cpp_token *) BUFF_FRONT (pfile->a_buff);
-  _cpp_valid_token_p (pfile, macro->exp.tokens);
   macro->traditional = 0;
 
   /* Don't count the CPP_EOF.  */
@@ -1562,7 +1555,6 @@ create_iso_definition (cpp_reader *pfile, cpp_macro *macro)
                                                           * macro->count);
       memcpy (tokns, macro->exp.tokens, sizeof (cpp_token) * macro->count);
       macro->exp.tokens = tokns;
-      _cpp_valid_token_p (pfile, macro->exp.tokens);
     }
   else
     BUFF_FRONT (pfile->a_buff) = (uchar *) &macro->exp.tokens[macro->count];

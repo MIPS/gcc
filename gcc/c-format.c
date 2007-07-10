@@ -250,7 +250,7 @@ decode_format_attr (tree args, function_format_info *info, int validated_p)
 
 /* Structure describing details of a type expected in format checking,
    and the type to check against it.  */
-typedef struct format_wanted_type GTY(())
+typedef struct format_wanted_type
 {
   /* The type wanted.  */
   tree wanted_type;
@@ -280,8 +280,6 @@ typedef struct format_wanted_type GTY(())
   struct format_wanted_type *next;
 } format_wanted_type;
 
-#define ggc_alloc_format_wanted_type()					\
-  ((struct format_wanted_type *)ggc_alloc_atomic (sizeof (struct format_wanted_type)))
 
 static const format_length_info printf_length_specs[] =
 {
@@ -2079,7 +2077,7 @@ check_format_info_main (format_check_results *res,
 	      fci = fci->chain;
 	      if (fci)
 		{
-		  wanted_type_ptr = ggc_alloc_format_wanted_type();
+		  wanted_type_ptr = GGC_NEW (format_wanted_type);
 		  arg_num++;
 		  wanted_type = *fci->types[length_chars_val].type;
 		  wanted_type_name = fci->types[length_chars_val].name;

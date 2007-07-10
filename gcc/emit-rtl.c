@@ -304,7 +304,7 @@ get_mem_attrs (HOST_WIDE_INT alias, tree expr, rtx offset, rtx size,
   slot = htab_find_slot (mem_attrs_htab, &attrs, INSERT);
   if (*slot == 0)
     {
-      *slot = ggc_alloc_mem_attrs();
+      *slot = ggc_alloc (sizeof (mem_attrs));
       memcpy (*slot, &attrs, sizeof (mem_attrs));
     }
 
@@ -353,7 +353,7 @@ get_reg_attrs (tree decl, int offset)
   slot = htab_find_slot (reg_attrs_htab, &attrs, INSERT);
   if (*slot == 0)
     {
-      *slot = ggc_alloc_reg_attrs();
+      *slot = ggc_alloc (sizeof (reg_attrs));
       memcpy (*slot, &attrs, sizeof (reg_attrs));
     }
 
@@ -796,12 +796,12 @@ gen_reg_rtx (enum machine_mode mode)
       char *new;
       rtx *new1;
 
-      new = ggc_realloc_atomic (f->emit->regno_pointer_align, old_size * 2);
+      new = ggc_realloc (f->emit->regno_pointer_align, old_size * 2);
       memset (new + old_size, 0, old_size);
       f->emit->regno_pointer_align = (unsigned char *) new;
 
-      new1 = ggc_realloc_atomic (f->emit->x_regno_reg_rtx,
-				 old_size * 2 * sizeof (rtx));
+      new1 = ggc_realloc (f->emit->x_regno_reg_rtx,
+			  old_size * 2 * sizeof (rtx));
       memset (new1 + old_size, 0, old_size * sizeof (rtx));
       regno_reg_rtx = new1;
 
@@ -4679,7 +4679,7 @@ start_sequence (void)
       free_sequence_stack = tem->next;
     }
   else
-    tem = ggc_alloc_sequence_stack();
+    tem = ggc_alloc (sizeof (struct sequence_stack));
 
   tem->next = seq_stack;
   tem->first = first_insn;
@@ -4966,7 +4966,7 @@ init_emit (void)
 {
   struct function *f = cfun;
 
-  f->emit = ggc_alloc_emit_status();
+  f->emit = ggc_alloc (sizeof (struct emit_status));
   first_insn = NULL;
   last_insn = NULL;
   cur_insn_uid = 1;
@@ -4980,12 +4980,11 @@ init_emit (void)
   f->emit->regno_pointer_align_length = LAST_VIRTUAL_REGISTER + 101;
 
   f->emit->regno_pointer_align
-    = ggc_alloc_cleared_vec_atomic (f->emit->regno_pointer_align_length,
-				    sizeof (unsigned char));
+    = ggc_alloc_cleared (f->emit->regno_pointer_align_length
+			 * sizeof (unsigned char));
 
-  regno_reg_rtx // TODO !!!
-    // = ggc_alloc_vec_atomic (f->emit->regno_pointer_align_length, sizeof(rtx));
-    = ggc_alloc_conservative (f->emit->regno_pointer_align_length * sizeof(rtx));
+  regno_reg_rtx
+    = ggc_alloc (f->emit->regno_pointer_align_length * sizeof (rtx));
 
   /* Put copies of all the hard registers into regno_reg_rtx.  */
   memcpy (regno_reg_rtx,
