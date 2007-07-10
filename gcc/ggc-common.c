@@ -31,6 +31,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "params.h"
 #include "hosthooks.h"
 #include "hosthooks-def.h"
+#include "valgrind-support.h"
 
 #ifdef HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
@@ -40,25 +41,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 # include <sys/mman.h>
 # ifdef HAVE_MINCORE
 /* This is on Solaris.  */
-#  include <sys/types.h> 
+#  include <sys/types.h>
 # endif
 #endif
 
 #ifndef MAP_FAILED
 # define MAP_FAILED ((void *)-1)
-#endif
-
-#ifdef ENABLE_VALGRIND_CHECKING
-# ifdef HAVE_VALGRIND_MEMCHECK_H
-#  include <valgrind/memcheck.h>
-# elif defined HAVE_MEMCHECK_H
-#  include <memcheck.h>
-# else
-#  include <valgrind.h>
-# endif
-#else
-/* Avoid #ifdef:s when we can help it.  */
-#define VALGRIND_DISCARD(x)
 #endif
 
 /* When set, ggc_collect will do collection.  */
