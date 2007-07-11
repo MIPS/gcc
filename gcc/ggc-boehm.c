@@ -30,11 +30,22 @@ static void unregister_weak_pointers(void);
 
 static size_t last_allocated = 0;
 static size_t type_overhead = 0;
-static ggc_stringpool_roots stringpool_roots;
 
 static GC_warn_proc default_warn_proc;
 
 #define OBJ_OVERHEAD sizeof(enum gt_types_enum)
+
+/* Stringpool root information */
+typedef struct ggc_stringpool_roots {
+  void *start;
+  void *one_after_finish;
+} ggc_stringpool_roots;
+
+static ggc_stringpool_roots stringpool_roots;
+
+static ggc_stringpool_roots ggc_register_stringpool_roots (void);
+static void ggc_unregister_stringpool_roots (ggc_stringpool_roots roots);
+static int ggc_stringpool_moved_p (ggc_stringpool_roots roots);
 
 void
 init_ggc (void)
@@ -84,6 +95,13 @@ ggc_alloc_typed_stat (enum gt_types_enum type, size_t size MEM_STAT_DECL)
   /* Verification */
   gcc_assert (type == get_block_type (result));
 
+  return result;
+}
+
+void *
+ggc_alloc_atomic_stat (size_t size MEM_STAT_DECL)
+{
+  void * result = GC_malloc_atomic (size);
   return result;
 }
 

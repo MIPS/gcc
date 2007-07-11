@@ -82,6 +82,9 @@ struct ggc_cache_tab {
 /* Pointers to arrays of ggc_cache_tab, terminated by NULL.  */
 extern const struct ggc_cache_tab * const gt_ggc_cache_rtab[];
 
+/* When set, ggc_collect will do collection.  */
+extern bool ggc_force_collect;
+
 /* If EXPR is not NULL and previously unmarked, mark it and evaluate
    to true.  Otherwise evaluate to false.  */
 #define ggc_test_and_set_mark(EXPR) \
@@ -189,15 +192,5 @@ extern void ggc_print_common_statistics (FILE *, ggc_statistics *);
 /* Heuristics.  */
 extern int ggc_min_expand_heuristic (void);
 extern int ggc_min_heapsize_heuristic (void);
-
-/* Stringpool root information */
-typedef struct ggc_stringpool_roots {
-  void *start;
-  void *one_after_finish;
-} ggc_stringpool_roots;
-
-extern ggc_stringpool_roots ggc_register_stringpool_roots (void);
-extern void ggc_unregister_stringpool_roots (ggc_stringpool_roots roots);
-extern int ggc_stringpool_moved_p (ggc_stringpool_roots roots);
 
 #endif

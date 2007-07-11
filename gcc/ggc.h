@@ -1,4 +1,4 @@
-/* Garbage collection for the GNU compiler.
+/* Garbage collection for the GNU compiler: external interface
    Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
@@ -57,9 +57,6 @@ extern void init_ggc (void);
 
 /* Allocation.  */
 
-/* When set, ggc_collect will do collection.  */
-extern bool ggc_force_collect;
-
 /* The internal primitive.  */
 extern void *ggc_alloc_stat (size_t MEM_STAT_DECL);
 #define ggc_alloc(s) ggc_alloc_stat (s MEM_STAT_INFO)
@@ -79,8 +76,14 @@ extern void ggc_free (void *);
 
 extern void dump_ggc_loc_statistics (void);
 
+/* Allocators for atomic objects.  Use these when you know that allocated
+   object does not contain pointers to GC-allocated memody.  */
+extern void *ggc_alloc_atomic_stat (size_t MEM_STAT_DECL);
+#define ggc_alloc_atomic(s) ggc_alloc_atomic_stat (s MEM_STAT_INFO)
+
 /* Type-safe, C++-friendly versions of ggc_alloc() and gcc_calloc().  */
 #define GGC_NEW(T)		((T *) ggc_alloc (sizeof (T)))
+#define GGC_NEW_ATOMIC(T)       ((T *) ggc_alloc_atomic (sizeof (T)))
 #define GGC_CNEW(T)		((T *) ggc_alloc_cleared (sizeof (T)))
 #define GGC_NEWVEC(T, N)	((T *) ggc_alloc ((N) * sizeof(T)))
 #define GGC_CNEWVEC(T, N)	((T *) ggc_alloc_cleared ((N) * sizeof(T)))
