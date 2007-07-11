@@ -384,6 +384,7 @@ extern gimple gs_build_try (gimple, gimple, bool, bool);
 extern gimple gs_build_phi (unsigned, unsigned, tree, ...);
 extern gimple gs_build_resx (int);
 extern gimple gs_build_switch (unsigned int, tree, tree, ...);
+extern gimple gs_build_switch_vec (tree, tree, VEC(tree,heap) *);
 extern gimple gs_omp_build_parallel (struct gs_sequence, tree, tree, tree);
 extern gimple gs_omp_build_for (struct gs_sequence, tree, tree, tree, tree,
     				tree, struct gs_sequence, enum gs_cond);
@@ -398,6 +399,7 @@ extern gimple gs_omp_build_single (struct gs_sequence, tree);
 extern enum gimple_statement_structure_enum gimple_statement_structure (gimple);
 extern void gs_add (gimple, gs_seq);
 extern enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
+extern void sort_case_labels (VEC(tree,heap) *);
 
 extern const char *const gs_code_name[];
 

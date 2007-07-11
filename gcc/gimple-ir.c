@@ -426,18 +426,16 @@ gs_build_resx (int region)
   return p;
 }
 
-/* Construct a GS_SWITCH statement.
 
+/*  The helper for constructing a gimple switch statement.
    INDEX is the switch's index.
-   NLABLES is the number of labels in the switch excluding the default. 
-   ... are the labels excluding the default.  */
+   NLABELS is the number of labels in the switch excluding the default.
+   DEFAULT_LABEL is the default label for the switch statement.  */
 
-gimple 
-gs_build_switch (unsigned int nlabels, tree index, tree default_label, ...)
+static inline gimple 
+gs_build_switch_1 (unsigned int nlabels, tree index, tree default_label)
 {
   gimple p;
-  unsigned int i;
-  va_list al;
   
   /* nlables + 1 default - 1 extra from struct */ 
   p = ggc_alloc_cleared ( sizeof (struct gimple_statement_switch)
@@ -447,12 +445,52 @@ gs_build_switch (unsigned int nlabels, tree index, tree default_label, ...)
   gs_switch_set_nlabels (p, nlabels);
   gs_switch_set_index (p, index);
   gs_switch_set_default_label (p, default_label);
+  
+  return p;
+}
+
+
+/* Construct a GS_SWITCH statement.
+
+   INDEX is the switch's index.
+   NLABELS is the number of labels in the switch excluding the DEFAULT_LABEL. 
+   ... are the labels excluding the default.  */
+
+gimple 
+gs_build_switch (unsigned int nlabels, tree index, tree default_label, ...)
+{
+  va_list al;
+  unsigned int i;
+
+  gimple p = gs_build_switch_1 (nlabels, index, default_label);
   va_start (al, default_label);
   for (i = 0; i < nlabels; i++)
     gs_switch_set_label (p, i, va_arg (al, tree));
   va_end (al);
+
   return p;
 }
+
+
+/* Construct a GS_SWITCH statement.
+
+   INDEX is the switch's index.
+   NLABLES is the number of labels in the switch excluding the default. 
+   ARGS is a vector of labels excluding the default.  */
+
+gimple
+gs_build_switch_vec (tree index, tree default_label, VEC(tree, heap) * args)
+{
+  size_t i;
+  size_t nlabels = VEC_length (tree, args);
+  gimple p = gs_build_switch_1 (nlabels, index, default_label);
+
+  for (i = 0; i < nlabels; i++)
+    gs_switch_set_label (p, i, VEC_index (tree, args, i));
+
+  return p;
+}
+
 
 /* Construct a GS_OMP_CRITICAL statement.
 

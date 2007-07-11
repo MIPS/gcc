@@ -1,3 +1,24 @@
+2007-07-11  Chris Matthews  <chrismatthews@google.com> 
+
+	* tree-pretty-print.c (dump_generic_node): Removed space before default
+	label colon.
+	* tree.h (sort_case_labels): Moved to gimple-ir.h.
+	* gimplify.c (sort_case_labels): Changed to a vector instead of tree
+	vector.
+	(gimplify_switch_expr): Initial implementation with tuples.
+	(gimplify_expr): Changed gimplify_case_label_expr parameter.
+	(gimplify_case_label_expr): Added a gs_seq parameter, and put cases in that.
+	(dump_gimple_stmt): Removed semicolon.
+	(dump_gs_label):  Refactored from dump_gimple_expr.
+	(dump_gs_switch): Added.
+	(gs_build_switch_vec): Added.
+	* gimple-ir.c (gs_build_switch_1): Added.
+	(gs_build_switch): Refactored to use gs_build_switch_1.
+	(gs_build_switch_vec): Added.
+	* gs_switch.c: New test case.
+	* gs_switch1.c: New test case.
+	* gs_switch2.c: New test case.
+	
 2007-07-05  Aldy Hernandez  <aldyh@redhat.com> 
 
 	* gimple-pretty-print.c (dump_gimple_stmt): Alphabetize cases.

@@ -1644,7 +1644,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  dump_generic_node (buffer, CASE_LOW (node), spc, flags, false);
 	}
       else
-	pp_string (buffer, "default ");
+	pp_string (buffer, "default");
       pp_character (buffer, ':');
       break;
 

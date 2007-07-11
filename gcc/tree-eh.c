@@ -37,6 +37,7 @@ Boston, MA 02110-1301, USA.  */
 #include "langhooks.h"
 #include "ggc.h"
 #include "toplev.h"
+#include "gimple-ir.h"
 
 
 /* Nonzero if we are using EH to handle cleanups.  */

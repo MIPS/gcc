@@ -4740,7 +4740,6 @@ extern tree create_artificial_label (void);
 extern struct gs_sequence gimplify_function_tree (tree);
 extern const char *get_name (tree);
 extern tree unshare_expr (tree);
-extern void sort_case_labels (tree);
 
 /* Interface of the DWARF2 unwind info support.  */
 

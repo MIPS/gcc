@@ -50,8 +50,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "optabs.h"
 #include "pointer-set.h"
 #include "splay-tree.h"
-#include "gimple-ir.h"
 #include "vec.h"
+#include "gimple-ir.h"
 
 
 enum gimplify_omp_var_data
@@ -68,6 +68,7 @@ enum gimplify_omp_var_data
   GOVD_DATA_SHARE_CLASS = (GOVD_SHARED | GOVD_PRIVATE | GOVD_FIRSTPRIVATE
 			   | GOVD_LASTPRIVATE | GOVD_REDUCTION | GOVD_LOCAL)
 };
+
 
 struct gimplify_omp_ctx
 {
@@ -101,7 +102,6 @@ struct gimplify_ctx
 
 static struct gimplify_ctx *gimplify_ctxp;
 static struct gimplify_omp_ctx *gimplify_omp_ctxp;
-
 
 
 /* Formal (expression) temporary table handling: Multiple occurrences of
@@ -1317,6 +1317,36 @@ gimplify_loop_expr (tree *expr_p, gs_seq pre_p)
   return GS_ALL_DONE;
 }
 
+/* Gimplifies a statement list onto a sequence.  These may be created either
+   by an enlightened front-end, or by shortcut_cond_expr.  */
+
+static enum gimplify_status
+gimplify_statement_list (tree *expr_p, gs_seq pre_p)
+{
+  tree temp = voidify_wrapper_expr (*expr_p, NULL);
+
+  tree_stmt_iterator i = tsi_start (*expr_p);
+
+  while (!tsi_end_p (i))
+    {
+      gimplify_stmt (tsi_stmt_ptr (i), pre_p);
+      /* FIXME tuples: We probably don't need to delink.  GC will take care of
+         this.  */
+      tsi_delink (&i); }
+
+  if (temp)
+    {
+      gimplify_expr (expr_p, pre_p, NULL, false, 
+
+          /* FIXME tuples: I'm not sure of either of these.  */
+          is_gimple_val, fb_rvalue);
+
+      *expr_p = temp;
+    }
+
+  return GS_ALL_DONE;
+}
+
 /* Compare two case labels.  Because the front end should already have
    made sure that case ranges do not overlap, it is enough to only compare
    the CASE_LOW values of each case label.  */
@@ -1333,10 +1363,10 @@ compare_case_labels (const void *p1, const void *p2)
 /* Sort the case labels in LABEL_VEC in place in ascending order.  */
 
 void
-sort_case_labels (tree label_vec)
+sort_case_labels (VEC(tree,heap)* label_vec)
 {
-  size_t len = TREE_VEC_LENGTH (label_vec);
-  tree default_case = TREE_VEC_ELT (label_vec, len - 1);
+  size_t len = VEC_length (tree, label_vec);
+  tree default_case = VEC_index (tree, label_vec, len - 1);
 
   if (CASE_LOW (default_case))
     {
@@ -1345,21 +1375,23 @@ sort_case_labels (tree label_vec)
       /* The last label in the vector should be the default case
          but it is not.  */
       for (i = 0; i < len; ++i)
-	{
-	  tree t = TREE_VEC_ELT (label_vec, i);
-	  if (!CASE_LOW (t))
-	    {
-	      default_case = t;
-	      TREE_VEC_ELT (label_vec, i) = TREE_VEC_ELT (label_vec, len - 1);
-	      TREE_VEC_ELT (label_vec, len - 1) = default_case;
-	      break;
-	    }
-	}
+        {
+          tree t = VEC_index (tree, label_vec, i);
+          if (!CASE_LOW (t))
+            {
+              default_case = t;
+              tree index = VEC_index (tree, label_vec, len - 1);
+              VEC_replace (tree, label_vec, i, index);
+              VEC_replace (tree, label_vec, len - 1, default_case);
+              break;
+            }
+        }
     }
 
-  qsort (&TREE_VEC_ELT (label_vec, 0), len - 1, sizeof (tree),
-	 compare_case_labels);
+  qsort (VEC_address (tree, label_vec), len - 1, sizeof (tree),
+         compare_case_labels);
 }
+
 
 /* Gimplify a SWITCH_EXPR, and collect a TREE_VEC of the labels it can
    branch to.  */
@@ -1367,30 +1399,38 @@ sort_case_labels (tree label_vec)
 static enum gimplify_status
 gimplify_switch_expr (tree *expr_p, gs_seq pre_p)
 {
-  tree switch_expr = *expr_p;
   enum gimplify_status ret;
-
-  ret = gimplify_expr (&SWITCH_COND (switch_expr), pre_p, NULL, false,
-		       is_gimple_val, fb_rvalue);
-
+  gs_seq switch_body_seq;
+  tree switch_expr;
+  switch_expr = *expr_p;
+  struct gs_sequence switch_body_seq_;
+  switch_body_seq = &switch_body_seq_;
+  
+  gs_seq_init (switch_body_seq);
+  gimplify_expr (&SWITCH_COND (switch_expr), pre_p, NULL, false, is_gimple_val,
+                 fb_rvalue);
+  
   if (SWITCH_BODY (switch_expr))
     {
-      VEC(tree,heap) *labels, *saved_labels;
-      tree label_vec, default_case = NULL_TREE;
+      VEC (tree,heap) *labels;
+      VEC (tree,heap) *saved_labels;
+      tree default_case = NULL_TREE;
       size_t i, len;
-
+      gimple gs_switch;
+      
       /* If someone can be bothered to fill in the labels, they can
 	 be bothered to null out the body too.  */
       gcc_assert (!SWITCH_LABELS (switch_expr));
 
+      /* save old labels, get new ones from body, then restore the old 
+         labels.  Save all the things from the switch body to append after.  */
       saved_labels = gimplify_ctxp->case_labels;
       gimplify_ctxp->case_labels = VEC_alloc (tree, heap, 8);
 
-      gimplify_to_stmt_list (&SWITCH_BODY (switch_expr));
-
+      gimplify_statement_list (&SWITCH_BODY (switch_expr), switch_body_seq);
       labels = gimplify_ctxp->case_labels;
       gimplify_ctxp->case_labels = saved_labels;
-
+ 
       i = 0;
       while (i < VEC_length (tree, labels))
 	{
@@ -1420,43 +1460,35 @@ gimplify_switch_expr (tree *expr_p, gs_seq pre_p)
 	}
       len = i;
 
-      label_vec = make_tree_vec (len + 1);
-      SWITCH_LABELS (*expr_p) = label_vec;
-      gimplify_and_add (switch_expr, pre_p);
-
       if (! default_case)
 	{
 	  /* If the switch has no default label, add one, so that we jump
 	     around the switch body.  */
-	  default_case = build3 (CASE_LABEL_EXPR, void_type_node, NULL_TREE,
-				 NULL_TREE, create_artificial_label ());
-	  gimplify_and_add (SWITCH_BODY (switch_expr), pre_p);
-	  *expr_p = build1 (LABEL_EXPR, void_type_node,
-			    CASE_LABEL (default_case));
+	  gimple new_default = gs_build_label (build3 (CASE_LABEL_EXPR,
+	                                               void_type_node,
+	                                               NULL_TREE,
+	                                               NULL_TREE, 
+	                                           create_artificial_label ()));
+	  gs_add (new_default, switch_body_seq);
+	  default_case = gs_label_label (new_default);
 	}
-      else
-	*expr_p = SWITCH_BODY (switch_expr);
 
-      for (i = 0; i < len; ++i)
-	TREE_VEC_ELT (label_vec, i) = VEC_index (tree, labels, i);
-      TREE_VEC_ELT (label_vec, len) = default_case;
-
-      VEC_free (tree, heap, labels);
-
-      sort_case_labels (label_vec);
-
-      SWITCH_BODY (switch_expr) = NULL;
+      sort_case_labels (labels);
+      gs_switch = gs_build_switch_vec (SWITCH_COND (switch_expr), default_case,
+                                       labels);
+      gs_add (gs_switch, pre_p);
+      gs_seq_append (switch_body_seq, pre_p);
+      VEC_free(tree, heap, labels);
     }
   else
     gcc_assert (SWITCH_LABELS (switch_expr));
-
   return ret;
 }
 
+
 static enum gimplify_status
-gimplify_case_label_expr (tree *expr_p)
+gimplify_case_label_expr (tree *expr_p, gs_seq pre_p)
 {
-  tree expr = *expr_p;
   struct gimplify_ctx *ctxp;
 
   /* Invalid OpenMP programs can play Duff's Device type games with
@@ -1466,8 +1498,10 @@ gimplify_case_label_expr (tree *expr_p)
     if (ctxp->case_labels)
       break;
 
-  VEC_safe_push (tree, heap, ctxp->case_labels, expr);
-  *expr_p = build1 (LABEL_EXPR, void_type_node, CASE_LABEL (expr));
+  gimple gs_label = gs_build_label (*expr_p);
+  VEC_safe_push (tree, heap, ctxp->case_labels, gs_label_label(gs_label));
+  gs_add (gs_label, pre_p);
+
   return GS_ALL_DONE;
 }
 
@@ -3843,36 +3877,6 @@ gimplify_compound_expr (tree *expr_p, gs_seq pre_p, bool want_value)
     }
 }
 
-/* Gimplifies a statement list onto a sequence.  These may be created either
-   by an enlightened front-end, or by shortcut_cond_expr.  */
-
-static enum gimplify_status
-gimplify_statement_list (tree *expr_p, gs_seq pre_p)
-{
-  tree temp = voidify_wrapper_expr (*expr_p, NULL);
-
-  tree_stmt_iterator i = tsi_start (*expr_p);
-
-  while (!tsi_end_p (i))
-    {
-      gimplify_stmt (tsi_stmt_ptr (i), pre_p);
-      /* FIXME tuples: We probably don't need to delink.  GC will take care of
-	 this.  */
-      tsi_delink (&i); }
-
-  if (temp)
-    {
-      gimplify_expr (expr_p, pre_p, NULL, false, 
-
-	  /* FIXME tuples: I'm not sure of either of these.  */
-	  is_gimple_val, fb_rvalue);
-
-      *expr_p = temp;
-    }
-
-  return GS_ALL_DONE;
-}
-
 /*  Gimplify a SAVE_EXPR node.  EXPR_P points to the expression to
     gimplify.  After gimplification, EXPR_P will point to a new temporary
     that holds the original value of the SAVE_EXPR node.
@@ -5763,7 +5767,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	  break;
 
 	case CASE_LABEL_EXPR:
-	  ret = gimplify_case_label_expr (expr_p);
+	  ret = gimplify_case_label_expr (expr_p, pre_p);
 	  break;
 
 	case RETURN_EXPR:

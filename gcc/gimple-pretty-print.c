@@ -52,6 +52,7 @@ do_niy (pretty_printer *buffer, gimple gs)
 	     gs_code_name[(int) GS_CODE (gs)]);
 }
 
+
 static void
 maybe_init_pretty_print (FILE *file)
 {
@@ -65,6 +66,7 @@ maybe_init_pretty_print (FILE *file)
   buffer.buffer->stream = file;
 }
 
+
 static void
 newline_and_indent (pretty_printer *buffer, int spc)
 {
@@ -73,12 +75,14 @@ newline_and_indent (pretty_printer *buffer, int spc)
   INDENT (spc);
 }
 
+
 void
 debug_gimple_stmt (gimple gs)
 {
   print_gimple_stmt (stderr, gs, TDF_VOPS|TDF_MEMSYMS);
   fprintf (stderr, "\n");
 }
+
 
 void
 debug_gimple_seq (gs_seq seq)
@@ -91,6 +95,7 @@ debug_gimple_seq (gs_seq seq)
       print_gimple_stmt (stderr, gs, TDF_VOPS|TDF_MEMSYMS);
     }
 }
+
 
 /* Dump a sequence to a BUFFER.  */
 
@@ -107,6 +112,7 @@ dump_gs_seq (pretty_printer *buffer, gs_seq seq, int spc, int flags)
     }
 }
 
+
 /* Dump a sequence to a FILE *.  */
 
 void
@@ -121,6 +127,7 @@ dump_gimple_seq (FILE *file, gs_seq seq)
       print_gimple_stmt (file, gs, TDF_VOPS|TDF_MEMSYMS);
     }
 }
+
 
 /* Same, but for gimple statements.  */
 
@@ -214,6 +221,30 @@ dump_gs_call (pretty_printer *buffer, gimple gs, int spc, int flags)
 }
 
 
+/* Dump the switch statement GS.  BUFFER, SPC and FLAGS are as in
+   dump_gimple_stmt.  */
+
+static void
+dump_gs_switch (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  unsigned int i;
+  GS_CHECK (gs, GS_SWITCH);
+  pp_string (buffer, "switch (");
+  dump_generic_node (buffer, gs_switch_index (gs), spc, flags, true);
+  pp_string (buffer, ") <");
+  for (i = 0; i < gs_switch_nlabels (gs); i++)
+    {
+      dump_generic_node (buffer, gs_switch_label (gs, i), spc, flags, false);
+      if (i < gs_switch_nlabels (gs) - 1)
+        pp_string (buffer, ", ");
+    }
+      dump_generic_node (buffer, gs_switch_default_label (gs), spc, flags,
+                        false);
+
+  pp_string (buffer, ">");
+}
+
+
 /* Return the symbol associated with the GS_COND predicate PRED.  */
 
 static const char *
@@ -265,7 +296,23 @@ dump_gs_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
 }
 
 
-/* Dump a GS_BIND tuple.  */
+/* Dump a GS_LABEL tuple on the pretty_printer BUFFER, SPC
+   spaces of indent.  FLAGS specifies details to show in the dump (see
+   TDF_* in tree.h)*/
+
+static void
+dump_gs_label (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  tree label = gs_label_label (gs);
+  dump_generic_node (buffer, label, spc, flags, false);
+  if (TREE_CODE (label) != CASE_LABEL_EXPR )
+    pp_string (buffer, ":");
+}
+
+
+/* Dump a GS_BIND tuple on the pretty_printer BUFFER, SPC
+   spaces of indent.  FLAGS specifies details to show in the dump (see
+   TDF_* in tree.h)  */
 
 static void
 dump_gs_bind (pretty_printer *buffer, gimple gs, int spc, int flags)
@@ -322,8 +369,7 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GS_LABEL:
-      dump_generic_node (buffer, gs_label_label (gs), spc, flags, false);
-      pp_character (buffer, ':');
+      dump_gs_label (buffer, gs, spc, flags);
       break;
 
     case GS_GOTO:
@@ -339,11 +385,13 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_gs_return (buffer, gs, spc, flags);
       break;
 
+    case GS_SWITCH:
+      dump_gs_switch (buffer, gs, spc, flags);
+      break;
+
     default:
       GS_NIY;
     }
-
-  pp_character (buffer, ';');
   newline_and_indent (buffer, spc);
   pp_write_text_to_stream (buffer);
 }
