@@ -1,3 +1,21 @@
+2007-07-12  Matthias Klose  <doko@ubuntu.com>
+
+	* gnu/classpath/jdwp/util/MethodResult.h,
+	gnu/classpath/jdwp/value/ObjectValue.h: Regenerate.
+
+2007-07-11  Keith Seitz  <keiths@redhat.com>
+
+	* interpret.cc (get_local_var_table) [DIRECT_THREADED]: Make sure the
+	method is compiled.
+	* testsuite/libjava.jvmti/interp/getlocalvartable.out: Revise
+	for compiled methods.
+
+2007-07-10  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR libgcj/32651
+	* configure.host (mips-sgi-irix6*): Set sysdeps_dir.
+	Disable interpreter.
+	
 2007-07-05  Andreas Tobler  <a.tobler@schweiz.org>
 
 	* java/lang/natPosixProcess.cc: Reorder includes to fix compilation
