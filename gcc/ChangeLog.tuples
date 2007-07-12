@@ -1,3 +1,14 @@
+2007-07-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple-ir.c (gs_build_switch_1): Fix spacing.
+	Allocate one more tree.
+	(gs_build_switch): Set labels starting at 1.
+	(walk_tree_seq): New.
+	(walk_tree_tuple): New.
+	* gimple-ir.h: Add prototypes for walk_tree_tuple and walk_tree_seq.
+	* gimplify.c (check_pointer_types_r): Uncomment.
+	(gimplify_body): Walk gimple sequence with check_pointer_types_r.
+
 2007-07-11  Chris Matthews  <chrismatthews@google.com> 
 
 	* tree-pretty-print.c (dump_generic_node): Removed space before default
@@ -7,7 +18,8 @@
 	vector.
 	(gimplify_switch_expr): Initial implementation with tuples.
 	(gimplify_expr): Changed gimplify_case_label_expr parameter.
-	(gimplify_case_label_expr): Added a gs_seq parameter, and put cases in that.
+	(gimplify_case_label_expr): Added a gs_seq parameter, and put cases in
+	that.
 	(dump_gimple_stmt): Removed semicolon.
 	(dump_gs_label):  Refactored from dump_gimple_expr.
 	(dump_gs_switch): Added.

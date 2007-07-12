@@ -6419,8 +6419,6 @@ cpt_same_type (tree a, tree b)
    The type of a dereference should correspond to the pointer type;
    similarly the type of an address should match its object.  */
 
-#if 0
-/* FIXME tuples */
 static tree
 check_pointer_types_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 		       void *data ATTRIBUTE_UNUSED)
@@ -6462,7 +6460,6 @@ check_pointer_types_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 
   return NULL_TREE;
 }
-#endif /* if 0 */
 #endif
 
 /* Gimplify the body of statements pointed to by BODY_P.  FNDECL is the
@@ -6528,11 +6525,8 @@ gimplify_body (tree *body_p, gs_seq seq_p, tree fndecl, bool do_parms)
   pop_gimplify_context (outer_bind);
   gcc_assert (gimplify_ctxp == NULL);
 
-  /* FIXME tuples */
-#if 0
 #ifdef ENABLE_CHECKING
-  walk_tree (body_p, check_pointer_types_r, NULL, NULL);
-#endif
+  walk_tree_seq (seq_p, check_pointer_types_r, NULL, NULL);
 #endif
 
   timevar_pop (TV_TREE_GIMPLIFY);

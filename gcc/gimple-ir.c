@@ -427,7 +427,7 @@ gs_build_resx (int region)
 }
 
 
-/*  The helper for constructing a gimple switch statement.
+/* The helper for constructing a gimple switch statement.
    INDEX is the switch's index.
    NLABELS is the number of labels in the switch excluding the default.
    DEFAULT_LABEL is the default label for the switch statement.  */
@@ -437,9 +437,9 @@ gs_build_switch_1 (unsigned int nlabels, tree index, tree default_label)
 {
   gimple p;
   
-  /* nlables + 1 default - 1 extra from struct */ 
+  /* nlabels + default label.  */
   p = ggc_alloc_cleared ( sizeof (struct gimple_statement_switch)
-                          + (sizeof (tree) * (nlabels) ) );
+                          + (sizeof (tree) * (nlabels + 1)));
   GS_CODE (p) = GS_SWITCH;
 
   gs_switch_set_nlabels (p, nlabels);
@@ -464,7 +464,7 @@ gs_build_switch (unsigned int nlabels, tree index, tree default_label, ...)
 
   gimple p = gs_build_switch_1 (nlabels, index, default_label);
   va_start (al, default_label);
-  for (i = 0; i < nlabels; i++)
+  for (i = 1; i <= nlabels; i++)
     gs_switch_set_label (p, i, va_arg (al, tree));
   va_end (al);
 
@@ -766,5 +766,167 @@ gs_add (gimple gs, gs_seq seq)
       GS_PREV (gs) = gs_seq_last (seq);
       GS_NEXT (gs_seq_last (seq)) = gs;
       gs_seq_set_last (seq, last);
+    }
+}
+
+
+/* Visit all the tuples in sequence SEQ, and apply FUNC to all the tree leaves
+   in the tuples.  The trees in the tuples encountered will be walked with
+   walk_tree().  FUNC, DATA, and PSET are as in walk_tree.
+
+   You cannot use this function to rewrite trees, as the address of
+   thre trees passed to walk_tree are local to this function.
+   Besides, you shouldn't be rewriting trees this late in the
+   game.  */
+
+void
+walk_tree_seq (gs_seq seq, walk_tree_fn func, void *data,
+    		   struct pointer_set_t *pset)
+{
+  gimple_stmt_iterator gsi;
+
+  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (&gsi))
+    walk_tree_tuple (gsi_stmt (gsi), func, data, pset);
+}
+
+
+/* Helper function of walk_tree_seq.  Walks one tuple's trees.  The
+   arguments are as in walk_tree_seq, except GS is the tuple to
+   walk.  */
+#define WALKIT(__this) leaf = (__this), walk_tree (&leaf, func, data, pset)
+void
+walk_tree_tuple (gimple gs, walk_tree_fn func, void *data,
+		 struct pointer_set_t *pset)
+{
+  unsigned int i;
+  tree leaf;
+
+  switch (GS_CODE (gs))
+    {
+    case GS_ASM:
+      for (i = 0; i < gs_asm_ninputs (gs); ++i)
+	WALKIT (gs_asm_input_op (gs, i));
+
+      for (i = 0; i < gs_asm_noutputs (gs); ++i)
+	WALKIT (gs_asm_output_op (gs, i));
+
+      for (i = 0; i < gs_asm_nclobbered (gs); ++i)
+	WALKIT (gs_asm_clobber_op (gs, i));
+      break;
+
+    case GS_ASSIGN:
+      WALKIT (gs_assign_operand (gs, 0));
+      WALKIT (gs_assign_operand (gs, 1));
+
+      if (gss_for_assign (GS_SUBCODE_FLAGS (gs)) == GSS_ASSIGN_BINARY)
+	WALKIT (gs_assign_operand (gs, 2));
+      break;
+
+    case GS_BIND:
+      WALKIT (gs_bind_vars (gs));
+      walk_tree_seq (gs_bind_body (gs), func, data, pset);
+      break;
+
+    case GS_CALL:
+      WALKIT (gs_call_lhs (gs));
+      WALKIT (gs_call_fn (gs));
+      WALKIT (gs_call_chain (gs));
+      for (i = 0; i < gs_call_nargs (gs); ++i)
+        WALKIT (gs_call_arg (gs, i));
+      break;
+
+    case GS_CATCH:
+      WALKIT (gs_catch_types (gs));
+      walk_tree_tuple (gs_catch_handler (gs), func, data, pset);
+      break;
+
+    case GS_COND:
+      WALKIT (gs_cond_lhs (gs));
+      WALKIT (gs_cond_rhs (gs));
+      WALKIT (gs_cond_true_label (gs));
+      WALKIT (gs_cond_false_label (gs));
+      break;
+
+    case GS_EH_FILTER:
+      WALKIT (gs_eh_filter_types (gs));
+      walk_tree_tuple (gs_eh_filter_failure (gs), func, data, pset);
+      break;
+
+    case GS_GOTO:
+      WALKIT (gs_goto_dest (gs));
+      break;
+
+    case GS_LABEL:
+      WALKIT (gs_label_label (gs));
+      break;
+
+    case GS_PHI:
+      WALKIT (gs_phi_result (gs));
+      break;
+
+    case GS_RETURN:
+      WALKIT (gs_return_retval (gs));
+      break;
+
+    case GS_SWITCH:
+      WALKIT (gs_switch_index (gs));
+      for (i = 0; i <= gs_switch_nlabels (gs); ++i)
+	WALKIT (gs_switch_label (gs, i));
+      break;
+
+    case GS_TRY:
+      walk_tree_tuple (gs_try_eval (gs), func, data, pset);
+      walk_tree_tuple (gs_try_cleanup (gs), func, data, pset);
+      break;
+
+    case GS_OMP_CRITICAL:
+      walk_tree_seq (gs_omp_body (gs), func, data, pset);
+      WALKIT (gs_omp_critical_name (gs));
+      break;
+
+      /* Just a body.  */
+    case GS_OMP_CONTINUE:
+    case GS_OMP_MASTER:
+    case GS_OMP_ORDERED:
+    case GS_OMP_SECTION:
+      walk_tree_seq (gs_omp_body (gs), func, data, pset);
+      break;
+
+    case GS_OMP_FOR:
+      walk_tree_seq (gs_omp_body (gs), func, data, pset);
+      WALKIT (gs_omp_for_clauses (gs));
+      WALKIT (gs_omp_for_index (gs));
+      WALKIT (gs_omp_for_initial (gs));
+      WALKIT (gs_omp_for_final (gs));
+      WALKIT (gs_omp_for_incr (gs));
+      walk_tree_seq (gs_omp_for_pre_body (gs), func, data, pset);
+      break;
+
+    case GS_OMP_PARALLEL:
+      walk_tree_seq (gs_omp_body (gs), func, data, pset);
+      WALKIT (gs_omp_parallel_clauses (gs));
+      WALKIT (gs_omp_parallel_child_fn (gs));
+      WALKIT (gs_omp_parallel_data_arg (gs));
+      break;
+
+    case GS_OMP_SECTIONS:
+      walk_tree_seq (gs_omp_body (gs), func, data, pset);
+      WALKIT (gs_omp_sections_clauses (gs));
+      break;
+
+    case GS_OMP_SINGLE:
+      walk_tree_seq (gs_omp_body (gs), func, data, pset);
+      WALKIT (gs_omp_single_clauses (gs));
+      break;
+
+      /* Tuples that do not have trees.  */
+    case GS_NOP:
+    case GS_RESX:
+    case GS_OMP_RETURN:
+      break;
+
+    default:
+      gcc_unreachable ();
+      break;
     }
 }
