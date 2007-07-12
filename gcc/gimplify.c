@@ -596,8 +596,7 @@ internal_get_tmp_var (tree val, gs_seq pre_p, gs_seq post_p, bool is_formal)
 {
   tree t, mod;
 
-  gimplify_expr (&val, pre_p, post_p, false, is_gimple_formal_tmp_rhs,
-      		 fb_rvalue);
+  gimplify_expr (&val, pre_p, post_p, is_gimple_formal_tmp_rhs, fb_rvalue);
 
   t = lookup_tmp_var (val, is_formal);
 
@@ -1330,18 +1329,18 @@ gimplify_statement_list (tree *expr_p, gs_seq pre_p)
   while (!tsi_end_p (i))
     {
       gimplify_stmt (tsi_stmt_ptr (i), pre_p);
-      /* FIXME tuples: We probably don't need to delink.  GC will take care of
-         this.  */
-      tsi_delink (&i); }
+      tsi_delink (&i);
+    }
 
   if (temp)
     {
-      gimplify_expr (expr_p, pre_p, NULL, false, 
-
-          /* FIXME tuples: I'm not sure of either of these.  */
-          is_gimple_val, fb_rvalue);
-
+      /* FIXME tuples.  Not clear how this should be handled.  */
+      gcc_unreachable ();
+#if 0
+      append_to_statement_list (*expr_p, pre_p);
       *expr_p = temp;
+      return GS_OK;
+#endif
     }
 
   return GS_ALL_DONE;
@@ -1407,7 +1406,7 @@ gimplify_switch_expr (tree *expr_p, gs_seq pre_p)
   switch_body_seq = &switch_body_seq_;
   
   gs_seq_init (switch_body_seq);
-  gimplify_expr (&SWITCH_COND (switch_expr), pre_p, NULL, false, is_gimple_val,
+  gimplify_expr (&SWITCH_COND (switch_expr), pre_p, NULL, is_gimple_val,
                  fb_rvalue);
   
   if (SWITCH_BODY (switch_expr))
@@ -1733,7 +1732,7 @@ gimplify_var_or_parm_decl (tree *expr_p)
 
 
 /* Gimplify the COMPONENT_REF, ARRAY_REF, REALPART_EXPR or IMAGPART_EXPR
-   node pointed to by EXPR_P.
+   node *EXPR_P.
 
       compound_lval
 	      : min_lval '[' val ']'
@@ -1811,15 +1810,15 @@ gimplify_compound_lval (tree *expr_p, gs_seq pre_p,
 	  /* Gimplify the low bound and element type size and put them into
 	     the ARRAY_REF.  If these values are set, they have already been
 	     gimplified.  */
-	  if (!TREE_OPERAND (t, 2))
+	  if (TREE_OPERAND (t, 2) == NULL_TREE)
 	    {
 	      tree low = unshare_expr (array_ref_low_bound (t));
 	      if (!is_gimple_min_invariant (low))
 		{
-	          TREE_OPERAND (t, 2) = low;
-		  tret = gimplify_expr (&TREE_OPERAND (t, 2),
-		      			pre_p, post_p, false,
-					is_gimple_formal_tmp_reg, fb_rvalue);
+		  TREE_OPERAND (t, 2) = low;
+		  tret = gimplify_expr (&TREE_OPERAND (t, 2), pre_p,
+					post_p, is_gimple_formal_tmp_reg,
+					fb_rvalue);
 		  ret = MIN (ret, tret);
 		}
 	    }
@@ -1836,10 +1835,10 @@ gimplify_compound_lval (tree *expr_p, gs_seq pre_p,
 
 	      if (!is_gimple_min_invariant (elmt_size))
 		{
-	          TREE_OPERAND (t, 3) = elmt_size;
-		  tret = gimplify_expr (&TREE_OPERAND (t, 3), 
-		      			pre_p, post_p, false,
-					is_gimple_formal_tmp_reg, fb_rvalue);
+		  TREE_OPERAND (t, 3) = elmt_size;
+		  tret = gimplify_expr (&TREE_OPERAND (t, 3), pre_p,
+					post_p, is_gimple_formal_tmp_reg,
+					fb_rvalue);
 		  ret = MIN (ret, tret);
 		}
 	    }
@@ -1859,10 +1858,10 @@ gimplify_compound_lval (tree *expr_p, gs_seq pre_p,
 
 	      if (!is_gimple_min_invariant (offset))
 		{
-	          TREE_OPERAND (t, 2) = offset;
-		  tret = gimplify_expr (&TREE_OPERAND (t, 2), 
-		      			pre_p, post_p, false,
-					is_gimple_formal_tmp_reg, fb_rvalue);
+		  TREE_OPERAND (t, 2) = offset;
+		  tret = gimplify_expr (&TREE_OPERAND (t, 2), pre_p,
+					post_p, is_gimple_formal_tmp_reg,
+					fb_rvalue);
 		  ret = MIN (ret, tret);
 		}
 	    }
@@ -1872,7 +1871,7 @@ gimplify_compound_lval (tree *expr_p, gs_seq pre_p,
   /* Step 2 is to gimplify the base expression.  Make sure lvalue is set
      so as to match the min_lval predicate.  Failure to do so may result
      in the creation of large aggregate temporaries.  */
-  tret = gimplify_expr (p, pre_p, post_p, false, is_gimple_min_lval,
+  tret = gimplify_expr (p, pre_p, post_p, is_gimple_min_lval,
 			fallback | fb_lvalue);
   ret = MIN (ret, tret);
 
@@ -1895,35 +1894,37 @@ gimplify_compound_lval (tree *expr_p, gs_seq pre_p,
 	     branch is merged into mainline (dnovillo 2004-05-03).  */
 	  if (!is_gimple_min_invariant (TREE_OPERAND (t, 1)))
 	    {
-	      tret = gimplify_expr (&TREE_OPERAND (t, 1), 
-		  		    pre_p, post_p, false,
+	      tret = gimplify_expr (&TREE_OPERAND (t, 1), pre_p, post_p,
 				    is_gimple_formal_tmp_reg, fb_rvalue);
 	      ret = MIN (ret, tret);
 	    }
 	}
       else if (TREE_CODE (t) == BIT_FIELD_REF)
 	{
-	  tret = gimplify_expr (&TREE_OPERAND (t, 1), 
-	      			pre_p, post_p, false,
+	  tret = gimplify_expr (&TREE_OPERAND (t, 1), pre_p, post_p,
 				is_gimple_val, fb_rvalue);
 	  ret = MIN (ret, tret);
-	  tret = gimplify_expr (&TREE_OPERAND (t, 2), 
-	      			pre_p, post_p, false,
+	  tret = gimplify_expr (&TREE_OPERAND (t, 2), pre_p, post_p,
 				is_gimple_val, fb_rvalue);
 	  ret = MIN (ret, tret);
 	}
 
       STRIP_USELESS_TYPE_CONVERSION (TREE_OPERAND (t, 0));
 
-      /* The innermost expression P may have originally had TREE_SIDE_EFFECTS
-	 set which would have caused all the outer expressions in EXPR_P
-	 leading to P to also have had TREE_SIDE_EFFECTS set.  */
+      /* The innermost expression P may have originally had
+	 TREE_SIDE_EFFECTS set which would have caused all the outer
+	 expressions in *EXPR_P leading to P to also have had
+	 TREE_SIDE_EFFECTS set.  */
       recalculate_side_effects (t);
     }
 
-  tret = gimplify_expr (p, pre_p, post_p, false, is_gimple_min_lval,
-      			fallback);
+
+  /* FIXME tuples.  Is this needed at all?  We've already gimplified
+     P.  */
+#if 0
+  tret = gimplify_expr (p, pre_p, post_p, is_gimple_min_lval, fallback);
   ret = MIN (ret, tret);
+#endif
 
   /* If the outermost expression is a COMPONENT_REF, canonicalize its type.  */
   if ((fallback & fb_rvalue) && TREE_CODE (*expr_p) == COMPONENT_REF)
@@ -1987,8 +1988,7 @@ gimplify_self_mod_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
 
   /* Gimplify the LHS into a GIMPLE lvalue.  */
   lvalue = TREE_OPERAND (*expr_p, 0);
-  ret = gimplify_expr (&lvalue, pre_p, post_p, false,
-      		       is_gimple_lvalue, fb_lvalue);
+  ret = gimplify_expr (&lvalue, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
   if (ret == GS_ERROR)
     return ret;
 
@@ -2000,8 +2000,7 @@ gimplify_self_mod_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
      that as the result value and in the postqueue operation.  */
   if (postfix)
     {
-      ret = gimplify_expr (&lhs, pre_p, post_p, false,
-	  		   is_gimple_val, fb_rvalue);
+      ret = gimplify_expr (&lhs, pre_p, post_p, is_gimple_val, fb_rvalue);
       if (ret == GS_ERROR)
 	return ret;
     }
@@ -2013,7 +2012,6 @@ gimplify_self_mod_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
     {
       gimplify_and_add (t1, orig_post_p);
       gs_seq_append (&post, orig_post_p);
-
       *expr_p = lhs;
       return GS_ALL_DONE;
     }
@@ -2023,6 +2021,7 @@ gimplify_self_mod_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
       return GS_OK;
     }
 }
+
 
 /* If *EXPR_P has a variable sized type, wrap it in a WITH_SIZE_EXPR.  */
 
@@ -2050,10 +2049,12 @@ maybe_with_size_expr (tree *expr_p)
   *expr_p = build2 (WITH_SIZE_EXPR, type, expr, size);
 }
 
-/* Subroutine of gimplify_call_expr:  Gimplify a single argument.  */
+
+/* Helper for gimplify_call_expr.  Gimplify a single argument *ARG_P
+   Store any side-effects in PRE_P.  */
 
 static enum gimplify_status
-gimplify_arg (tree *expr_p, gs_seq pre_p)
+gimplify_arg (tree *arg_p, gs_seq pre_p)
 {
   bool (*test) (tree);
   fallback_t fb;
@@ -2063,29 +2064,29 @@ gimplify_arg (tree *expr_p, gs_seq pre_p)
      aggregates into temporaries only to copy the temporaries to
      the argument list.  Make optimizers happy by pulling out to
      temporaries those types that fit in registers.  */
-  if (is_gimple_reg_type (TREE_TYPE (*expr_p)))
+  if (is_gimple_reg_type (TREE_TYPE (*arg_p)))
     test = is_gimple_val, fb = fb_rvalue;
   else
     test = is_gimple_lvalue, fb = fb_either;
 
   /* If this is a variable sized type, we must remember the size.  */
-  maybe_with_size_expr (expr_p);
+  maybe_with_size_expr (arg_p);
 
   /* There is a sequence point before a function call.  Side effects in
      the argument list must occur before the actual call. So, when
      gimplifying arguments, force gimplify_expr to use an internal
      post queue which is then appended to the end of PRE_P.  */
-  return gimplify_expr (expr_p, pre_p, NULL, false, test, fb);
+  return gimplify_expr (arg_p, pre_p, NULL, test, fb);
 }
 
-/* Gimplify the CALL_EXPR node pointed to by EXPR_P.  PRE_P points to the
-   list where side effects that must happen before *EXPR_P should be stored.
+
+/* Gimplify the CALL_EXPR node *EXPR_P into the GIMPLE sequence PRE_P.
    WANT_VALUE is true if the result of the call is desired.  */
 
 static enum gimplify_status
 gimplify_call_expr (tree *expr_p, gs_seq pre_p, bool want_value)
 {
-  tree decl;
+  tree fndecl;
   enum gimplify_status ret;
   int i, nargs;
   VEC(tree, gc) *args = NULL;
@@ -2109,8 +2110,8 @@ gimplify_call_expr (tree *expr_p, gs_seq pre_p, bool want_value)
      we gimplify the CALL_EXPR.  At this time we do not manage to
      transform all calls in the same manner as the expanders do, but
      we do transform most of them.  */
-  decl = get_callee_fndecl (*expr_p);
-  if (decl && DECL_BUILT_IN (decl))
+  fndecl = get_callee_fndecl (*expr_p);
+  if (fndecl && DECL_BUILT_IN (fndecl))
     {
       tree new = fold_call_expr (*expr_p, !want_value);
 
@@ -2123,8 +2124,8 @@ gimplify_call_expr (tree *expr_p, gs_seq pre_p, bool want_value)
 	  return GS_OK;
 	}
 
-      if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
-	  && DECL_FUNCTION_CODE (decl) == BUILT_IN_VA_START)
+      if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+	  && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_VA_START)
         {
 	  if (call_expr_nargs (*expr_p) < 2)
 	    {
@@ -2147,7 +2148,7 @@ gimplify_call_expr (tree *expr_p, gs_seq pre_p, bool want_value)
   /* There is a sequence point before the call, so any side effects in
      the calling expression must occur before the actual call.  Force
      gimplify_expr to use an internal post queue.  */
-  ret = gimplify_expr (&CALL_EXPR_FN (*expr_p), pre_p, NULL, false,
+  ret = gimplify_expr (&CALL_EXPR_FN (*expr_p), pre_p, NULL,
 		       is_gimple_call_addr, fb_rvalue);
 
   nargs = call_expr_nargs (*expr_p);
@@ -2181,15 +2182,17 @@ gimplify_call_expr (tree *expr_p, gs_seq pre_p, bool want_value)
 	}
     }
 
-  /* If the function is "const" or "pure", then clear TREE_SIDE_EFFECTS on its
-     decl.  This allows us to eliminate redundant or useless
-     calls to "const" functions.  */
+  /* If the function is "const" or "pure", then clear
+     TREE_SIDE_EFFECTS on its decl.  This allows us to eliminate
+     redundant or useless calls to "const" functions.  */
+  /* FIXME tuples.  Must handle TREE_SIDE_EFFECTS on GS_CALL too.  */
   if (TREE_CODE (*expr_p) == CALL_EXPR
       && (call_expr_flags (*expr_p) & (ECF_CONST | ECF_PURE)))
     TREE_SIDE_EFFECTS (*expr_p) = 0;
 
-  gs_add (gs_build_call_vec (decl, args), pre_p);
-  *expr_p = NULL_TREE;
+  gs_add (gs_build_call_vec (fndecl, args), pre_p);
+  if (!want_value)
+    *expr_p = NULL_TREE;
 
   return ret;
 }
@@ -2279,6 +2282,10 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p)
   return expr;
 }
 
+/* Given a conditional expression EXPR with short-circuit boolean
+   predicates using TRUTH_ANDIF_EXPR or TRUTH_ORIF_EXPR, break the
+   predicate appart into the equivalent sequence of conditionals.  */
+
 static tree
 shortcut_cond_expr (tree expr)
 {
@@ -2305,6 +2312,7 @@ shortcut_cond_expr (tree expr)
 	  expr = build3 (COND_EXPR, void_type_node, pred, then_, NULL_TREE);
 	}
     }
+
   if (!then_se)
     {
       /* If there is no 'then', turn
@@ -2573,8 +2581,8 @@ gimplify_cond_expr (tree *expr_p, gs_seq pre_p, fallback_t fallback)
   /* Now do the normal gimplification.  */
 
   /* Gimplify condition.  */
-  ret = gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, NULL, false,
-		       is_gimple_condexpr, fb_rvalue);
+  ret = gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, NULL, is_gimple_condexpr,
+		       fb_rvalue);
   gcc_assert (TREE_OPERAND (expr, 0) != NULL_TREE);
 
   gimple_push_condition ();
@@ -2774,7 +2782,7 @@ gimplify_init_ctor_preeval_1 (tree *tp, int *walk_subtrees, void *xdata)
   return NULL;
 }
 
-/* A subroutine of gimplify_init_constructor.  Pre-evaluate *EXPR_P,
+/* A subroutine of gimplify_init_constructor.  Pre-evaluate EXPR,
    force values that overlap with the lhs (as described by *DATA)
    into temporaries.  */
 
@@ -2804,6 +2812,7 @@ gimplify_init_ctor_preeval (tree *expr_p, gs_seq pre_p, gs_seq post_p,
 
       for (ix = 0; VEC_iterate (constructor_elt, v, ix, ce); ix++)
 	gimplify_init_ctor_preeval (&ce->value, pre_p, post_p, data);
+
       return;
     }
 
@@ -2816,8 +2825,7 @@ gimplify_init_ctor_preeval (tree *expr_p, gs_seq pre_p, gs_seq post_p,
      gimplification now means that we won't have to deal with complicated
      language-specific trees, nor trees like SAVE_EXPR that can induce
      exponential search behavior.  */
-  one = gimplify_expr (expr_p, pre_p, post_p, false,
-      		       is_gimple_mem_rhs, fb_rvalue);
+  one = gimplify_expr (expr_p, pre_p, post_p, is_gimple_mem_rhs, fb_rvalue);
   if (one == GS_ERROR)
     {
       *expr_p = NULL;
@@ -3025,8 +3033,8 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
    original MODIFY_EXPR, we just remove all of the constructor elements.  */
 
 static enum gimplify_status
-gimplify_init_constructor (tree *expr_p, gs_seq pre_p,
-			   gs_seq post_p, bool want_value)
+gimplify_init_constructor (tree *expr_p, gs_seq pre_p, gs_seq post_p,
+			   bool want_value)
 {
   tree object;
   tree ctor = GENERIC_TREE_OPERAND (*expr_p, 1);
@@ -3038,14 +3046,14 @@ gimplify_init_constructor (tree *expr_p, gs_seq pre_p,
     return GS_UNHANDLED;
 
   ret = gimplify_expr (&GENERIC_TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-		       false, is_gimple_lvalue, fb_lvalue);
+		       is_gimple_lvalue, fb_lvalue);
   if (ret == GS_ERROR)
     return ret;
+
   object = GENERIC_TREE_OPERAND (*expr_p, 0);
-
   elts = CONSTRUCTOR_ELTS (ctor);
-
   ret = GS_ALL_DONE;
+
   switch (TREE_CODE (type))
     {
     case RECORD_TYPE:
@@ -3239,7 +3247,8 @@ gimplify_init_constructor (tree *expr_p, gs_seq pre_p,
 	    ctor = build2 (COMPLEX_EXPR, type, r, i);
 	    TREE_OPERAND (*expr_p, 1) = ctor;
 	    ret = gimplify_expr (&TREE_OPERAND (*expr_p, 1),
-				 pre_p, post_p, false,
+				 pre_p,
+				 post_p,
 				 rhs_predicate_for (TREE_OPERAND (*expr_p, 0)),
 				 fb_rvalue);
 	  }
@@ -3284,8 +3293,8 @@ gimplify_init_constructor (tree *expr_p, gs_seq pre_p,
 	for (ix = 0; VEC_iterate (constructor_elt, elts, ix, ce); ix++)
 	  {
 	    enum gimplify_status tret;
-	    tret = gimplify_expr (&ce->value, pre_p, post_p, false,
-				  is_gimple_val, fb_rvalue);
+	    tret = gimplify_expr (&ce->value, pre_p, post_p, is_gimple_val,
+				  fb_rvalue);
 	    if (tret == GS_ERROR)
 	      ret = GS_ERROR;
 	  }
@@ -3449,8 +3458,8 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 	    tree cond = *from_p;
 	    tree result = *to_p;
 
-	    ret = gimplify_expr (&result, pre_p, post_p, false,
-				 is_gimple_min_lval, fb_lvalue);
+	    ret = gimplify_expr (&result, pre_p, post_p, is_gimple_min_lval,
+				 fb_lvalue);
 	    if (ret != GS_ERROR)
 	      ret = GS_OK;
 
@@ -3538,8 +3547,8 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 	  tree wrap = *from_p;
 	  tree t;
 
-	  ret = gimplify_expr (to_p, pre_p, post_p, false,
-			       is_gimple_min_lval, fb_lvalue);
+	  ret = gimplify_expr (to_p, pre_p, post_p, is_gimple_min_lval,
+			       fb_lvalue);
 	  if (ret != GS_ERROR)
 	    ret = GS_OK;
 
@@ -3695,13 +3704,12 @@ gimplify_modify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
      that is what we must here.  */
   maybe_with_size_expr (from_p);
 
-  ret = gimplify_expr (to_p, pre_p, post_p, false,
-      		       is_gimple_lvalue, fb_lvalue);
+  ret = gimplify_expr (to_p, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
   if (ret == GS_ERROR)
     return ret;
 
-  ret = gimplify_expr (from_p, pre_p, post_p, false,
-		       rhs_predicate_for (*to_p), fb_rvalue);
+  ret = gimplify_expr (from_p, pre_p, post_p, rhs_predicate_for (*to_p),
+		       fb_rvalue);
   if (ret == GS_ERROR)
     return ret;
 
@@ -3877,12 +3885,13 @@ gimplify_compound_expr (tree *expr_p, gs_seq pre_p, bool want_value)
     }
 }
 
-/*  Gimplify a SAVE_EXPR node.  EXPR_P points to the expression to
-    gimplify.  After gimplification, EXPR_P will point to a new temporary
-    that holds the original value of the SAVE_EXPR node.
 
-    PRE_P points to the list where side effects that must happen before
-	*EXPR_P should be stored.  */
+/* Gimplify a SAVE_EXPR node.  EXPR_P points to the expression to
+   gimplify.  After gimplification, EXPR_P will point to a new temporary
+   that holds the original value of the SAVE_EXPR node.
+
+   PRE_P points to the list where side effects that must happen before
+      *EXPR_P should be stored.  */
 
 static enum gimplify_status
 gimplify_save_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p)
@@ -3902,7 +3911,7 @@ gimplify_save_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p)
       if (TREE_TYPE (val) == void_type_node)
 	{
 	  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-			       false, is_gimple_stmt, fb_none);
+			       is_gimple_stmt, fb_none);
 	  val = NULL;
 	}
       else
@@ -3997,7 +4006,7 @@ gimplify_addr_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p)
 	 the address of a call that returns a struct; see
 	 gcc.dg/c99-array-lval-1.c.  The gimplifier will correctly make
 	 the implied temporary explicit.  */
-      ret = gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, post_p, false,
+      ret = gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, post_p,
 			   is_gimple_addressable, fb_either);
       if (ret != GS_ERROR)
 	{
@@ -4053,7 +4062,7 @@ gimplify_asm_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p)
       if (!allows_reg && allows_mem)
 	lang_hooks.mark_addressable (TREE_VALUE (link));
 
-      tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p, false,
+      tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 			    is_inout ? is_gimple_min_lval : is_gimple_lvalue,
 			    fb_lvalue | fb_mayfail);
       if (tret == GS_ERROR)
@@ -4165,7 +4174,7 @@ gimplify_asm_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p)
       /* If the operand is a memory input, it should be an lvalue.  */
       if (!allows_reg && allows_mem)
 	{
-	  tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p, false,
+	  tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 				is_gimple_lvalue, fb_lvalue | fb_mayfail);
 	  lang_hooks.mark_addressable (TREE_VALUE (link));
 	  if (tret == GS_ERROR)
@@ -4176,7 +4185,7 @@ gimplify_asm_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p)
 	}
       else
 	{
-	  tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p, false,
+	  tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 				is_gimple_asm_val, fb_rvalue);
 	  if (tret == GS_ERROR)
 	    ret = tret;
@@ -4358,13 +4367,11 @@ gimplify_target_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p)
       /* If TARGET_EXPR_INITIAL is void, then the mere evaluation of the
 	 expression is supposed to initialize the slot.  */
       if (VOID_TYPE_P (TREE_TYPE (init)))
-	ret = gimplify_expr (&init, pre_p, post_p, false,
-	    		     is_gimple_stmt, fb_none);
+	ret = gimplify_expr (&init, pre_p, post_p, is_gimple_stmt, fb_none);
       else
 	{
 	  init = build2 (INIT_EXPR, void_type_node, temp, init);
-	  ret = gimplify_expr (&init, pre_p, post_p, false,
-	      		       is_gimple_stmt, fb_none);
+	  ret = gimplify_expr (&init, pre_p, post_p, is_gimple_stmt, fb_none);
 	  init = NULL;
 	}
       if (ret == GS_ERROR)
@@ -4407,7 +4414,7 @@ gimplify_stmt (tree *stmt_p, gs_seq seq_p)
   gimple last;
 
   last = gs_seq_last (seq_p);
-  gimplify_expr (stmt_p, seq_p, NULL, true, is_gimple_stmt, fb_none);
+  gimplify_expr (stmt_p, seq_p, NULL, is_gimple_stmt, fb_none);
   return last != gs_seq_last (seq_p);
 }
 
@@ -4779,7 +4786,7 @@ omp_check_private (struct gimplify_omp_ctx *ctx, tree decl)
 
 static void
 gimplify_scan_omp_clauses (tree *list_p, gs_seq pre_p, bool in_parallel,
-    			   bool in_combined_parallel)
+			   bool in_combined_parallel)
 {
   struct gimplify_omp_ctx *ctx, *outer_ctx;
   tree c;
@@ -4872,7 +4879,7 @@ gimplify_scan_omp_clauses (tree *list_p, gs_seq pre_p, bool in_parallel,
 
 	case OMP_CLAUSE_SCHEDULE:
 	case OMP_CLAUSE_NUM_THREADS:
-	  gs = gimplify_expr (&OMP_CLAUSE_OPERAND (c, 0), pre_p, NULL, false,
+	  gs = gimplify_expr (&OMP_CLAUSE_OPERAND (c, 0), pre_p, NULL,
 			      is_gimple_val, fb_rvalue);
 	  if (gs == GS_ERROR)
 	    remove = true;
@@ -5272,11 +5279,11 @@ goa_stabilize_expr (tree *expr_p, gs_seq pre_p, tree lhs_addr, tree lhs_var)
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
     case tcc_binary:
-      saw_lhs |= goa_stabilize_expr (&TREE_OPERAND (expr, 1), pre_p,
-				     lhs_addr, lhs_var);
+      saw_lhs |= goa_stabilize_expr (&TREE_OPERAND (expr, 1), pre_p, lhs_addr,
+				     lhs_var);
     case tcc_unary:
-      saw_lhs |= goa_stabilize_expr (&TREE_OPERAND (expr, 0), pre_p,
-				     lhs_addr, lhs_var);
+      saw_lhs |= goa_stabilize_expr (&TREE_OPERAND (expr, 0), pre_p, lhs_addr,
+				     lhs_var);
       break;
     default:
       break;
@@ -5285,8 +5292,7 @@ goa_stabilize_expr (tree *expr_p, gs_seq pre_p, tree lhs_addr, tree lhs_var)
   if (saw_lhs == 0)
     {
       enum gimplify_status gs;
-      gs = gimplify_expr (expr_p, pre_p, NULL, false,
-	  		  is_gimple_val, fb_rvalue);
+      gs = gimplify_expr (expr_p, pre_p, NULL, is_gimple_val, fb_rvalue);
       if (gs != GS_ALL_DONE)
 	saw_lhs = -1;
     }
@@ -5481,45 +5487,91 @@ gimplify_omp_atomic (tree *expr_p, gs_seq pre_p)
   return gimplify_omp_atomic_mutex (expr_p, pre_p, addr, rhs);
 }
 
-/*  Gimplifies the expression tree pointed to by EXPR_P into SEQ_P.
-    Return 0 if gimplification failed.
 
-    PRE_P is the sequence where side effects that must happen before EXPR
-	should be stored.  This field cannot be null.
+/* Converts the GENERIC expression tree *EXPR_P to GIMPLE.  If the
+   expression produces a value to be used as an operand inside a GIMPLE
+   statement, the value will be stored back in *EXPR_P.  This value will
+   be a tree of class tcc_declaration, tcc_constant, tcc_reference or
+   an SSA_NAME.  The corresponding sequence of GIMPLE statements is
+   emitted in PRE_P and POST_P.
 
-    POST_P is the sequence where side effects that must happen after
-	EXPR should be stored, or NULL if there is no suitable list.  In
-	that case, we copy the result to a temporary, emit the
-	post-effects, and then return the temporary.
+   Additionally, this process may overwrite parts of the input
+   expression during gimplification.  FIXME tuples, it should be
+   possible to do non-destructive gimplification.
 
-    IS_STATEMENT is a boolean value which is true if the tree to gimplify is a
-	toplevel statement.
+   EXPR_P points to the GENERIC expression to convert to GIMPLE.  If
+      the expression needs to evaluate to a value to be used as
+      an operand in a GIMPLE statement, this value will be stored in
+      *EXPR_P on exit.  This happens when the caller specifies one
+      of fb_lvalue or fb_rvalue fallback flags.
 
-    GIMPLE_TEST_F points to a function that takes a tree T and
-	returns nonzero if T is in the GIMPLE form requested by the
-	caller.  The GIMPLE predicates are in tree-gimple.c.
+   PRE_P will contain the sequence of GIMPLE statements corresponding
+       to the evaluation of EXPR and all the side-effects that must
+       be executed before the main expression.
 
-	This test is used twice.  Before gimplification, the test is
-	invoked to determine whether *EXPR_P is already gimple enough.  If
-	that fails, *EXPR_P is gimplified according to its code and
-	GIMPLE_TEST_F is called again.  If the test still fails, then a new
-	temporary variable is created and assigned the value of the
-	gimplified expression.
+   POST_P will contain the sequence of GIMPLE statements corresponding
+       to the evaluation of all the side-effects that must be executed
+       after the main expression.  If this is NULL, the post
+       side-effects are stored at the end of PRE_P.
 
-    FALLBACK tells the function what sort of a temporary we want.  If the 1
-	bit is set, an rvalue is OK.  If the 2 bit is set, an lvalue is OK.
-	If both are set, either is OK, but an lvalue is preferable.
+       The reason why the output is split in two is to handle post
+       side-effects explicitly.  In some cases, an expression may have
+       inner and outer post side-effects which need to be emitted in
+       an order different from the one given by the recursive
+       traversal.  For instance, for the expression (*p--)++ the post
+       side-effects of '--' must actually occur *after* the post
+       side-effects of '++'.  However, gimplification will first visit
+       the inner expression, so if a separate POST sequence was not
+       used, the resulting sequence would be:
 
-    The return value is either GS_ERROR or GS_ALL_DONE, since this function
-    iterates until solution.  */
+       	    1	t.1 = *p
+       	    2	p = p - 1
+       	    3	t.2 = t.1 + 1
+       	    4	*p = t.2
+
+       However, the post-decrement operation in line #2 must not be
+       evaluated until after the store to *p at line #4, so the
+       correct sequence should be:
+
+       	    1	t.1 = *p
+       	    2	t.2 = t.1 + 1
+       	    3	*p = t.2
+       	    4	p = p - 1
+
+       So, by specifying a separate post queue, it is possible
+       to emit the post side-effects in the correct order.
+       If POST_P is NULL, an internal queue will be used.  Before
+       returning to the caller, the sequence POST_P is appended to
+       the main output sequence PRE_P.
+
+   GIMPLE_TEST_F points to a function that takes a tree T and
+       returns nonzero if T is in the GIMPLE form requested by the
+       caller.  The GIMPLE predicates are in tree-gimple.c.
+
+   FALLBACK tells the function what sort of a temporary we want if
+       gimplification cannot produce an expression that complies with
+       GIMPLE_TEST_F.
+
+       fb_none means that no temporary should be generated
+       fb_rvalue means that an rvalue is OK to generate
+       fb_lvalue means that an lvalue is OK to generate
+       fb_either means that either is OK, but an lvalue is preferable.
+       fb_mayfail means that gimplification may fail (in which case
+       GS_ERROR will be returned)
+
+   The return value is either GS_ERROR or GS_ALL_DONE, since this
+   function iterates until EXPR is completely gimplified or an error
+   occurs.  */
 
 enum gimplify_status
-gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
-	       bool (* gimple_test_f) (tree), fallback_t fallback)
+gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
+	       bool (*gimple_test_f) (tree), fallback_t fallback)
 {
   tree tmp;
+  struct gs_sequence internal_pre;
   struct gs_sequence internal_post;
   tree save_expr;
+  bool is_statement;
   location_t saved_location;
   enum gimplify_status ret;
 
@@ -5527,15 +5579,52 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
   if (save_expr == NULL_TREE)
     return GS_ALL_DONE;
 
+  /* If we are gimplifying a top-level statement, PRE_P must be valid.  */
+  is_statement = gimple_test_f == is_gimple_stmt;
+  if (is_statement)
+    gcc_assert (pre_p);
+
+  /* Consistency checks.  FIXME tuples, FALLBACK should not be needed.
+     We can figure it out from GIMPLE_TEST_F.  */
+  if (gimple_test_f == is_gimple_val
+      || gimple_test_f == is_gimple_reg
+      || gimple_test_f == is_gimple_formal_tmp_rhs
+      || gimple_test_f == is_gimple_formal_tmp_reg
+      || gimple_test_f == is_gimple_formal_tmp_var
+      || gimple_test_f == is_gimple_call_addr
+      || gimple_test_f == is_gimple_condexpr
+      || gimple_test_f == is_gimple_mem_rhs
+      || gimple_test_f == is_gimple_reg_rhs
+      || gimple_test_f == is_gimple_asm_val)
+    gcc_assert (fallback & fb_rvalue);
+  else if (gimple_test_f == is_gimple_min_lval
+	   || gimple_test_f == is_gimple_lvalue)
+    gcc_assert (fallback & fb_lvalue);
+  else if (gimple_test_f == is_gimple_addressable)
+    gcc_assert (fallback & fb_either);
+  else if (gimple_test_f == is_gimple_stmt)
+    gcc_assert (fallback == fb_none);
+  else
+    {
+      /* We should have recognized the GIMPLE_TEST_F predicate to
+	 know what kind of fallback to use in case a temporary is
+	 needed to hold the value or address of *EXPR_P.  */
+      gcc_unreachable ();
+    }
+
+
   /* We used to check the predicate here and return immediately if it
      succeeds.  This is wrong; the design is for gimplification to be
      idempotent, and for the predicates to only test for valid forms, not
      whether they are fully simplified.  */
 
   /* Set up our internal queues if needed.  */
+  gs_seq_init (&internal_pre);
   gs_seq_init (&internal_post);
 
-  gcc_assert (pre_p != NULL);
+  if (pre_p == NULL)
+    pre_p = &internal_pre;
+
   if (post_p == NULL)
     post_p = &internal_post;
 
@@ -5587,7 +5676,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	case PREINCREMENT_EXPR:
 	case PREDECREMENT_EXPR:
 	  ret = gimplify_self_mod_expr (expr_p, pre_p, post_p,
-	      				fallback != fb_none);
+					fallback != fb_none);
 	  break;
 
 	case ARRAY_REF:
@@ -5602,6 +5691,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 
 	case COND_EXPR:
 	  ret = gimplify_cond_expr (expr_p, pre_p, fallback);
+
 	  /* C99 code may assign to an array in a structure value of a
 	     conditional expression, and this has undefined behavior
 	     only on execution, so create a temporary if an lvalue is
@@ -5647,10 +5737,9 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	  break;
 
 	case TRUTH_NOT_EXPR:
-	  TREE_OPERAND (*expr_p, 0)
-	    = gimple_boolify (TREE_OPERAND (*expr_p, 0));
+	  TREE_OPERAND (*expr_p, 0) = gimple_boolify (TREE_OPERAND (*expr_p, 0));
 	  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-			       false, is_gimple_val, fb_rvalue);
+			       is_gimple_val, fb_rvalue);
 	  recalculate_side_effects (*expr_p);
 	  break;
 
@@ -5689,7 +5778,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	case FIX_TRUNC_EXPR:
 	  /* unary_expr: ... | '(' cast ')' val | ...  */
 	  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-			       false, is_gimple_val, fb_rvalue);
+			       is_gimple_val, fb_rvalue);
 	  recalculate_side_effects (*expr_p);
 	  break;
 
@@ -5701,7 +5790,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	case ALIGN_INDIRECT_REF:
 	case MISALIGNED_INDIRECT_REF:
 	  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-			       false, is_gimple_reg, fb_rvalue);
+			       is_gimple_reg, fb_rvalue);
 	  recalculate_side_effects (*expr_p);
 	  break;
 
@@ -5755,7 +5844,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	     and the target needs to be gimplified.  */
 	  if (TREE_CODE (GOTO_DESTINATION (*expr_p)) != LABEL_DECL)
 	    ret = gimplify_expr (&GOTO_DESTINATION (*expr_p), pre_p,
-				 NULL, false, is_gimple_val, fb_rvalue);
+				 NULL, is_gimple_val, fb_rvalue);
 	  gs_add (gs_build_goto (GOTO_DESTINATION (*expr_p)), pre_p);
 	  break;
 
@@ -5819,12 +5908,12 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	  {
 	    enum gimplify_status r0, r1, r2;
 
-	    r0 = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-				false, is_gimple_lvalue, fb_either);
-	    r1 = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
-				false, is_gimple_val, fb_rvalue);
-	    r2 = gimplify_expr (&TREE_OPERAND (*expr_p, 2), pre_p, post_p,
-				false, is_gimple_val, fb_rvalue);
+	    r0 = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p,
+				post_p, is_gimple_lvalue, fb_either);
+	    r1 = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p,
+				post_p, is_gimple_val, fb_rvalue);
+	    r2 = gimplify_expr (&TREE_OPERAND (*expr_p, 2), pre_p,
+				post_p, is_gimple_val, fb_rvalue);
 	    recalculate_side_effects (*expr_p);
 
 	    ret = MIN (r0, MIN (r1, r2));
@@ -5871,10 +5960,10 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	case OBJ_TYPE_REF:
 	  {
 	    enum gimplify_status r0, r1;
-	    r0 = gimplify_expr (&OBJ_TYPE_REF_OBJECT (*expr_p), pre_p, post_p,
-				false, is_gimple_val, fb_rvalue);
-	    r1 = gimplify_expr (&OBJ_TYPE_REF_EXPR (*expr_p), pre_p, post_p,
-				false, is_gimple_val, fb_rvalue);
+	    r0 = gimplify_expr (&OBJ_TYPE_REF_OBJECT (*expr_p), pre_p,
+				post_p, is_gimple_val, fb_rvalue);
+	    r1 = gimplify_expr (&OBJ_TYPE_REF_EXPR (*expr_p), pre_p,
+				post_p, is_gimple_val, fb_rvalue);
 	    ret = MIN (r0, r1);
 	  }
 	  break;
@@ -5894,9 +5983,9 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	case WITH_SIZE_EXPR:
 	  {
 	    gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p,
-			   post_p == &internal_post ? NULL : post_p, false,
+			   post_p == &internal_post ? NULL : post_p,
 			   gimple_test_f, fallback);
-	    gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p, false,
+	    gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
 			   is_gimple_val, fb_rvalue);
 	  }
 	  break;
@@ -5961,6 +6050,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 							 TREE_TYPE (*expr_p));
 	       break;
 	     }
+
 	  /* Convert (void *)&a + 4 into (void *)&a[1].  */
 	  if (POINTER_TYPE_P (TREE_TYPE (*expr_p))
 	      && TREE_CODE (TREE_OPERAND (*expr_p, 0)) == NOP_EXPR
@@ -5992,25 +6082,24 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 		 Compare scalar mode aggregates as scalar mode values.  Using
 		 memcmp for them would be very inefficient at best, and is
 		 plain wrong if bitfields are involved.  */
+		{
+		  tree type = TREE_TYPE (TREE_OPERAND (*expr_p, 1));
 
-	      {
-		tree type = TREE_TYPE (TREE_OPERAND (*expr_p, 1));
+		  if (!AGGREGATE_TYPE_P (type))
+		    goto expr_2;
+		  else if (TYPE_MODE (type) != BLKmode)
+		    ret = gimplify_scalar_mode_aggregate_compare (expr_p);
+		  else
+		    ret = gimplify_variable_sized_compare (expr_p);
 
-		if (!AGGREGATE_TYPE_P (type))
-		  goto expr_2;
-		else if (TYPE_MODE (type) != BLKmode)
-		  ret = gimplify_scalar_mode_aggregate_compare (expr_p);
-		else
-		  ret = gimplify_variable_sized_compare (expr_p);
-
-		break;
+		  break;
 		}
 
 	    /* If *EXPR_P does not need to be special-cased, handle it
 	       according to its class.  */
 	    case tcc_unary:
 	      ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p,
-				   post_p, false, is_gimple_val, fb_rvalue);
+				   post_p, is_gimple_val, fb_rvalue);
 	      break;
 
 	    case tcc_binary:
@@ -6018,10 +6107,10 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	      {
 		enum gimplify_status r0, r1;
 
-		r0 = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-		    		    false, is_gimple_val, fb_rvalue);
-		r1 = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
-		    		    false, is_gimple_val, fb_rvalue);
+		r0 = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p,
+		                    post_p, is_gimple_val, fb_rvalue);
+		r1 = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p,
+				    post_p, is_gimple_val, fb_rvalue);
 
 		ret = MIN (r0, r1);
 		break;
@@ -6040,6 +6129,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	    }
 
 	  recalculate_side_effects (*expr_p);
+
 	dont_recalculate:
 	  break;
 	}
@@ -6082,15 +6172,15 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	    case IMAGPART_EXPR:
 	    case VIEW_CONVERT_EXPR:
 	      gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-			     false, gimple_test_f, fallback);
+			     gimple_test_f, fallback);
 	      break;
 
 	    case ARRAY_REF:
 	    case ARRAY_RANGE_REF:
 	      gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-			     false, gimple_test_f, fallback);
+			     gimple_test_f, fallback);
 	      gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
-			     false, gimple_test_f, fallback);
+			     gimple_test_f, fallback);
 	      break;
 
 	    default:
@@ -6107,6 +6197,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	  /* Historically, the compiler has treated a bare reference
 	     to a non-BLKmode volatile lvalue as forcing a load.  */
 	  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (*expr_p));
+
 	  /* Normally, we do not want to create a temporary for a
 	     TREE_ADDRESSABLE type because such a type should not be
 	     copied by bitwise-assignment.  However, we make an
@@ -6128,15 +6219,18 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
     }
 
   /* If we are gimplifying at the statement level, we're done.  Tack
-     everything together and be done.  */
+     everything together and return.  */
   if (fallback == fb_none || is_statement)
     {
-      if (!gs_seq_empty_p(&internal_post))
-	gs_seq_append (&internal_post, pre_p);
+      if (!gs_seq_empty_p (&internal_pre) || !gs_seq_empty_p (&internal_post))
+	{
+	  gs_seq_append (&internal_post, &internal_pre);
+	  gs_seq_append (pre_p, &internal_pre);
+	}
 
-      /* EXPR_P should be a gimple statement, so the tree is meaningless;
-	 do nothing with it.  */
-      annotate_all_with_locus (pre_p, input_location);
+      if (!gs_seq_empty_p (pre_p))
+	annotate_all_with_locus (pre_p, input_location);
+
       goto out;
     }
 
@@ -6148,7 +6242,6 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
       gcc_assert (code != MODIFY_EXPR
 	  	  && code != GIMPLE_MODIFY_STMT
 		  && code != ASM_EXPR
-		  && code != CALL_EXPR
 		  && code != BIND_EXPR
 		  && code != CATCH_EXPR
 		  && code != COND_EXPR
@@ -6178,8 +6271,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
   /* If it's sufficiently simple already, we're done.  Unless we are
      handling some post-effects internally; if that's the case, we need to
      copy into a temp before adding the post-effects to the tree.  */
-  if (gs_seq_empty_p (&internal_post)
-      && (*expr_p == NULL_TREE || (*gimple_test_f) (*expr_p)))
+  if (gs_seq_empty_p (&internal_post) && (*gimple_test_f) (*expr_p))
     goto out;
 
   /* Otherwise, we need to create a new temporary for the gimplified
@@ -6189,14 +6281,15 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
      object the lvalue refers to would (probably) be modified by the
      postqueue; we need to copy the value out first, which means an
      rvalue.  */
-  if ((fallback & fb_lvalue) && gs_seq_empty_p (&internal_post)
+  if ((fallback & fb_lvalue)
+      && gs_seq_empty_p (&internal_post)
       && is_gimple_addressable (*expr_p))
     {
       /* An lvalue will do.  Take the address of the expression, store it
 	 in a temporary, and replace the expression with an INDIRECT_REF of
 	 that temporary.  */
       tmp = build_fold_addr_expr (*expr_p);
-      gimplify_expr (&tmp, pre_p, post_p, false, is_gimple_reg, fb_rvalue);
+      gimplify_expr (&tmp, pre_p, post_p, is_gimple_reg, fb_rvalue);
       *expr_p = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp);
     }
   else if ((fallback & fb_rvalue) && is_gimple_formal_tmp_rhs (*expr_p))
@@ -6229,6 +6322,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p, bool is_statement,
 	}
 #endif
       gcc_assert (fallback & fb_mayfail);
+
       /* If this is an asm statement, and the user asked for the
 	 impossible, don't die.  Fail and let gimplify_asm_expr
 	 issue an error.  */
@@ -6356,7 +6450,7 @@ gimplify_one_sizepos (tree *expr_p, gs_seq stmt_p)
   type = TREE_TYPE (expr);
   *expr_p = unshare_expr (expr);
 
-  gimplify_expr (expr_p, stmt_p, NULL, false, is_gimple_val, fb_rvalue);
+  gimplify_expr (expr_p, NULL, NULL, is_gimple_val, fb_rvalue);
   expr = *expr_p;
 
   /* Verify that we've an exact type match with the original expression.
@@ -6462,8 +6556,9 @@ check_pointer_types_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 }
 #endif
 
-/* Gimplify the body of statements pointed to by BODY_P.  FNDECL is the
-   function decl containing BODY.  */
+/* Gimplify the body of statements pointed to by BODY_P and store the
+   corresponding GIMPLE sequence in SEQ_P.  FNDECL is the function
+   decl containing BODY.  */
 
 void
 gimplify_body (tree *body_p, gs_seq seq_p, tree fndecl, bool do_parms)
@@ -6536,7 +6631,8 @@ gimplify_body (tree *body_p, gs_seq seq_p, tree fndecl, bool do_parms)
 /* Entry point to the gimplification pass.  FNDECL is the FUNCTION_DECL
    node for the function we want to gimplify.
    
-   Returns a gimple sequence.  */
+   Returns the sequence of GIMPLE statements corresponding to the body
+   of FNDECL.  */
 
 struct gs_sequence
 gimplify_function_tree (tree fndecl)
@@ -6632,7 +6728,7 @@ force_gimple_operand (tree expr, gs_seq stmts, bool simple, tree var)
   if (var)
     expr = build_gimple_modify_stmt (var, expr);
 
-  ret = gimplify_expr (&expr, stmts, NULL, false, gimple_test_f, fb_rvalue);
+  ret = gimplify_expr (&expr, stmts, NULL, gimple_test_f, fb_rvalue);
   gcc_assert (ret != GS_ERROR);
 
   if (gimple_referenced_vars (cfun))

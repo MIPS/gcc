@@ -1,3 +1,7 @@
+2007-07-12  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/gimple/call.c: New test.
+
 2007-06-27  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/gimple/compound_expr.c: Cleanup .gimple files on exit.

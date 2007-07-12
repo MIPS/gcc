@@ -4145,22 +4145,27 @@ static void
 lower_regimplify (tree *tp, struct walk_stmt_info *wi)
 {
   enum gimplify_status gs;
-  tree pre = NULL;
+  struct gs_sequence pre;
+
+  gs_seq_init (&pre);
 
   if (wi->is_lhs)
-    gs = gimplify_expr (tp, NULL, &pre, NULL, is_gimple_lvalue, fb_lvalue);
+    gs = gimplify_expr (tp, &pre, NULL, is_gimple_lvalue, fb_lvalue);
   else if (wi->val_only)
-    gs = gimplify_expr (tp, NULL, &pre, NULL, is_gimple_val, fb_rvalue);
+    gs = gimplify_expr (tp, &pre, NULL, is_gimple_val, fb_rvalue);
   else
-    gs = gimplify_expr (tp, NULL, &pre, NULL,
-			is_gimple_formal_tmp_var, fb_rvalue);
+    gs = gimplify_expr (tp, &pre, NULL, is_gimple_formal_tmp_var, fb_rvalue);
   gcc_assert (gs == GS_ALL_DONE);
 
-  if (pre)
+  /* FIXME tuples.  Need a gs_seq_insert_before.  WI->TSI must be a GS_SEQ.  */
+#if 0
+  if (!gs_seq_empty_p (&pre))
     tsi_link_before (&wi->tsi, pre, TSI_SAME_STMT);
+#endif
 }
 
-/* Copy EXP into a temporary.  Insert the initialization statement before TSI.  */
+/* Copy EXP into a temporary.  Insert the initialization statement
+   before TSI.  */
 
 static tree
 init_tmp_var (tree exp, tree_stmt_iterator *tsi)

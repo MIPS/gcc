@@ -223,7 +223,8 @@ gimplify_compound_literal_expr (tree *expr_p, gs_seq pre_p)
   return GS_OK;
 }
 
-/* Do C-specific gimplification.  Args are as for gimplify_expr.  */
+/* Do C-specific gimplification on *EXPR_P.  PRE_P and POST_P are as in
+   gimplify_expr.  */
 
 int
 c_gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p ATTRIBUTE_UNUSED)

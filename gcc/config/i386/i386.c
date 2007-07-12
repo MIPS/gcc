@@ -4974,7 +4974,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gs_seq pre_p, gs_seq post_p)
       t = build2 (BIT_AND_EXPR, TREE_TYPE (t), t,
 		  build_int_cst (TREE_TYPE (t), -align));
     }
-  gimplify_expr (&t, pre_p, NULL, false, is_gimple_val, fb_rvalue);
+  gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
   t2 = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
   gimplify_and_add (t2, pre_p);

@@ -406,8 +406,7 @@ is_gimple_asm_val (tree t)
 bool
 is_gimple_min_lval (tree t)
 {
-  return (is_gimple_id (t)
-	  || TREE_CODE (t) == INDIRECT_REF);
+  return (is_gimple_id (t) || TREE_CODE (t) == INDIRECT_REF);
 }
 
 /* Return true if T is a typecast operation.  */

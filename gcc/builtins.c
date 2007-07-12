@@ -4749,8 +4749,7 @@ std_gimplify_va_arg_expr (tree valist, tree type, gs_seq pre_p, gs_seq post_p)
   rounded_size = round_up (type_size, align);
 
   /* Reduce rounded_size so it's sharable with the postqueue.  */
-  gimplify_expr (&rounded_size, pre_p, post_p, false,
-       		 is_gimple_val, fb_rvalue);
+  gimplify_expr (&rounded_size, pre_p, post_p, is_gimple_val, fb_rvalue);
 
   /* Get AP.  */
   addr = valist_tmp;
@@ -4884,15 +4883,14 @@ gimplify_va_arg_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p)
 	      tree p1 = build_pointer_type (TREE_TYPE (va_list_type_node));
 	      valist = build_fold_addr_expr_with_type (valist, p1);
 	    }
-	  gimplify_expr (&valist, pre_p, post_p, false,
-	      		 is_gimple_val, fb_rvalue);
+
+	  gimplify_expr (&valist, pre_p, post_p, is_gimple_val, fb_rvalue);
 	}
       else
-	gimplify_expr (&valist, pre_p, post_p, false,
-	    	       is_gimple_min_lval, fb_lvalue);
+	gimplify_expr (&valist, pre_p, post_p, is_gimple_min_lval, fb_lvalue);
 
       if (!targetm.gimplify_va_arg_expr)
-	/* FIXME:Once most targets are converted we should merely
+	/* FIXME: Once most targets are converted we should merely
 	   assert this is non-null.  */
 	return GS_ALL_DONE;
 
@@ -11093,6 +11091,7 @@ fold_builtin_fputs (tree arg0, tree arg1, bool ignore, bool unlocked, tree len)
 /* Fold the next_arg or va_start call EXP. Returns true if there was an error
    produced.  False otherwise.  This is done so that we don't output the error
    or warning twice or three times.  */
+
 bool
 fold_builtin_next_arg (tree exp, bool va_start_p)
 {

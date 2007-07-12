@@ -97,10 +97,16 @@ extern void recalculate_side_effects (tree);
 
 /* FIXME we should deduce this from the predicate.  */
 typedef enum fallback_t {
-  fb_none = 0,
-  fb_rvalue = 1,
-  fb_lvalue = 2,
-  fb_mayfail = 4,
+  fb_none = 0,		/* Do not generate a temporary.  */
+
+  fb_rvalue = 1,	/* Generate an rvalue to hold the result of a
+			   gimplified expression.  */
+
+  fb_lvalue = 2,	/* Generate an lvalue to hold the result of a
+			   gimplified expression.  */
+
+  fb_mayfail = 4,	/* Gimplification may fail.  Error issued
+			   afterwards.  */
   fb_either= fb_rvalue | fb_lvalue
 } fallback_t;
 
@@ -111,7 +117,7 @@ enum gimplify_status {
   GS_ALL_DONE	= 1	/* The expression is fully gimplified.  */
 };
 
-extern enum gimplify_status gimplify_expr (tree *, gs_seq, gs_seq, bool,
+extern enum gimplify_status gimplify_expr (tree *, gs_seq, gs_seq,
 					   bool (*) (tree), fallback_t);
 extern void gimplify_type_sizes (tree, gs_seq);
 extern void gimplify_one_sizepos (tree *, gs_seq);

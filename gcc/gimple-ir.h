@@ -38,7 +38,7 @@ enum gs_code {
 #define GS_LOCUS_EMPTY_P(G)	(GS_LOCUS ((G)).file == NULL \
 				 && GS_LOCUS ((G)).line == 0)
 
-/* A sequences of gimple statements.  */
+/* A sequence of gimple statements.  */
 struct gs_sequence
 {
   gimple first;

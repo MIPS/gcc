@@ -1,3 +1,21 @@
+2007-07-12  Diego Novillo  <dnovillo@google.com>
+
+	* omp-low.c (lower_regimplify): Use a local GIMPLE sequence to
+	hold the result from gimplification.
+	* tree-gimple.c (is_gimple_min_val): Reformat.
+	* tree-gimple.h (enum fallback_t): Document values.
+	(gimplify_expr): Remove IS_STATEMENT argument.
+	Update all users.
+	* langhooks.c (lhd_gimplify_expr): Likewise.
+	* gimplify.c (gimplify_statement_list): If a temporary
+	was returned from voidify_wrapper_expr abort to mark the failure.
+	(gimplify_expr): Remove argument IS_STATEMENT.
+	Update all users.
+	Assert that FALLBACK is used with the appropriate GIMPLE_TEST_F
+	Restore logic to use internal queue.
+	Do not abort if on return from gimplify_call_expr, *EXPR_P has
+	a CALL_EXPR.
+
 2007-07-12  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimple-ir.c (gs_build_switch_1): Allocate one less tree.

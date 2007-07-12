@@ -187,6 +187,7 @@ struct function GTY(())
 
   /* The control flow graph for this function.  */
   struct control_flow_graph *cfg;
+
   /* SSA and dataflow information.  */
   struct gimple_df *gimple_df;
 
