@@ -61,7 +61,7 @@ static int mark_ident (struct cpp_reader *, hashnode, const void *);
 static void *
 stringpool_ggc_alloc (size_t x)
 {
-  return ggc_alloc (x); /* TODO: specialized alloc for no pointers inside? */
+  return ggc_alloc (x);
 }
 
 /* Initialize the string pool.  */

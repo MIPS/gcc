@@ -9783,7 +9783,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 	if (SCALAR_FLOAT_MODE_P (mode))
 	  {
 	    unsigned int length = GET_MODE_SIZE (mode);
-	    unsigned char *array = ggc_alloc (length);
+	    unsigned char *array = ggc_alloc_atomic (length);
 
 	    insert_float (rtl, array);
 	    add_AT_vec (die, DW_AT_const_value, length / 4, 4, array);
@@ -9804,7 +9804,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 	enum machine_mode mode = GET_MODE (rtl);
 	unsigned int elt_size = GET_MODE_UNIT_SIZE (mode);
 	unsigned int length = CONST_VECTOR_NUNITS (rtl);
-	unsigned char *array = ggc_alloc (length * elt_size);
+	unsigned char *array = ggc_alloc_atomic (length * elt_size);
 	unsigned int i;
 	unsigned char *p;
 
