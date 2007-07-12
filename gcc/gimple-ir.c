@@ -437,9 +437,9 @@ gs_build_switch_1 (unsigned int nlabels, tree index, tree default_label)
 {
   gimple p;
   
-  /* nlabels + default label.  */
-  p = ggc_alloc_cleared ( sizeof (struct gimple_statement_switch)
-                          + (sizeof (tree) * (nlabels + 1)));
+  /* nlabels + 1 default label - 1 extra from struct.  */
+  p = ggc_alloc_cleared (sizeof (struct gimple_statement_switch)
+                         + sizeof (tree) * nlabels);
   GS_CODE (p) = GS_SWITCH;
 
   gs_switch_set_nlabels (p, nlabels);
@@ -475,7 +475,7 @@ gs_build_switch (unsigned int nlabels, tree index, tree default_label, ...)
 /* Construct a GS_SWITCH statement.
 
    INDEX is the switch's index.
-   NLABLES is the number of labels in the switch excluding the default. 
+   NLABELS is the number of labels in the switch excluding the default. 
    ARGS is a vector of labels excluding the default.  */
 
 gimple
@@ -486,7 +486,7 @@ gs_build_switch_vec (tree index, tree default_label, VEC(tree, heap) * args)
   gimple p = gs_build_switch_1 (nlabels, index, default_label);
 
   for (i = 0; i < nlabels; i++)
-    gs_switch_set_label (p, i, VEC_index (tree, args, i));
+    gs_switch_set_label (p, i + 1, VEC_index (tree, args, i));
 
   return p;
 }

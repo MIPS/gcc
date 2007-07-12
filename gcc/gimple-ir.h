@@ -1067,20 +1067,25 @@ gs_switch_set_default_label (gimple gs, tree label)
   gs->gs_switch.labels[0] = label;
 }
 
+/* Return the label numbered INDEX.  The default label is 0, followed by any
+   labels in a switch statement.  */
+
 static inline tree
 gs_switch_label (gimple gs, int index)
 {
   GS_CHECK (gs, GS_SWITCH);
   gcc_assert ((unsigned)index <= gs->gs_switch.nlabels);
-  return gs->gs_switch.labels[index + 1];
+  return gs->gs_switch.labels[index];
 }
+
+/* Set the label number INDEX to LABEL.  0 is always the default label.  */
 
 static inline void
 gs_switch_set_label (gimple gs, int index, tree label)
 {
   GS_CHECK (gs, GS_SWITCH);
   gcc_assert ((unsigned)index <= gs->gs_switch.nlabels);
-  gs->gs_switch.labels[index + 1] = label;
+  gs->gs_switch.labels[index] = label;
 }
 
 /* GS_OMP_* accessors. */
