@@ -1,5 +1,12 @@
 2007-07-12  Aldy Hernandez  <aldyh@redhat.com>
 
+	* gimple-ir.c (walk_seq_ops): Rename from walk_tree_seq.
+	(walk_tuple_ops): Rename from walk_tree_tuple.
+	* gimple-ir.h, gimplify.c, gimple-ir.c: Rename all calls to
+	walk_tree_seq and walk_tree_tuple accordingly.
+
+2007-07-12  Aldy Hernandez  <aldyh@redhat.com>
+
 	* gimple-ir.c (gs_build_switch_1): Fix spacing.
 	Allocate one more tree.
 	(gs_build_switch): Set labels starting at 1.

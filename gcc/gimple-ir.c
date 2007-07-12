@@ -780,23 +780,23 @@ gs_add (gimple gs, gs_seq seq)
    game.  */
 
 void
-walk_tree_seq (gs_seq seq, walk_tree_fn func, void *data,
-    		   struct pointer_set_t *pset)
+walk_seq_ops (gs_seq seq, walk_tree_fn func, void *data,
+	      struct pointer_set_t *pset)
 {
   gimple_stmt_iterator gsi;
 
   for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (&gsi))
-    walk_tree_tuple (gsi_stmt (gsi), func, data, pset);
+    walk_tuple_ops (gsi_stmt (gsi), func, data, pset);
 }
 
 
-/* Helper function of walk_tree_seq.  Walks one tuple's trees.  The
-   arguments are as in walk_tree_seq, except GS is the tuple to
+/* Helper function of walk_seq_ops.  Walks one tuple's trees.  The
+   arguments are as in walk_seq_ops, except GS is the tuple to
    walk.  */
 #define WALKIT(__this) leaf = (__this), walk_tree (&leaf, func, data, pset)
 void
-walk_tree_tuple (gimple gs, walk_tree_fn func, void *data,
-		 struct pointer_set_t *pset)
+walk_tuple_ops (gimple gs, walk_tree_fn func, void *data,
+		struct pointer_set_t *pset)
 {
   unsigned int i;
   tree leaf;
@@ -824,7 +824,7 @@ walk_tree_tuple (gimple gs, walk_tree_fn func, void *data,
 
     case GS_BIND:
       WALKIT (gs_bind_vars (gs));
-      walk_tree_seq (gs_bind_body (gs), func, data, pset);
+      walk_seq_ops (gs_bind_body (gs), func, data, pset);
       break;
 
     case GS_CALL:
@@ -837,7 +837,7 @@ walk_tree_tuple (gimple gs, walk_tree_fn func, void *data,
 
     case GS_CATCH:
       WALKIT (gs_catch_types (gs));
-      walk_tree_tuple (gs_catch_handler (gs), func, data, pset);
+      walk_tuple_ops (gs_catch_handler (gs), func, data, pset);
       break;
 
     case GS_COND:
@@ -849,7 +849,7 @@ walk_tree_tuple (gimple gs, walk_tree_fn func, void *data,
 
     case GS_EH_FILTER:
       WALKIT (gs_eh_filter_types (gs));
-      walk_tree_tuple (gs_eh_filter_failure (gs), func, data, pset);
+      walk_tuple_ops (gs_eh_filter_failure (gs), func, data, pset);
       break;
 
     case GS_GOTO:
@@ -875,12 +875,12 @@ walk_tree_tuple (gimple gs, walk_tree_fn func, void *data,
       break;
 
     case GS_TRY:
-      walk_tree_tuple (gs_try_eval (gs), func, data, pset);
-      walk_tree_tuple (gs_try_cleanup (gs), func, data, pset);
+      walk_tuple_ops (gs_try_eval (gs), func, data, pset);
+      walk_tuple_ops (gs_try_cleanup (gs), func, data, pset);
       break;
 
     case GS_OMP_CRITICAL:
-      walk_tree_seq (gs_omp_body (gs), func, data, pset);
+      walk_seq_ops (gs_omp_body (gs), func, data, pset);
       WALKIT (gs_omp_critical_name (gs));
       break;
 
@@ -889,33 +889,33 @@ walk_tree_tuple (gimple gs, walk_tree_fn func, void *data,
     case GS_OMP_MASTER:
     case GS_OMP_ORDERED:
     case GS_OMP_SECTION:
-      walk_tree_seq (gs_omp_body (gs), func, data, pset);
+      walk_seq_ops (gs_omp_body (gs), func, data, pset);
       break;
 
     case GS_OMP_FOR:
-      walk_tree_seq (gs_omp_body (gs), func, data, pset);
+      walk_seq_ops (gs_omp_body (gs), func, data, pset);
       WALKIT (gs_omp_for_clauses (gs));
       WALKIT (gs_omp_for_index (gs));
       WALKIT (gs_omp_for_initial (gs));
       WALKIT (gs_omp_for_final (gs));
       WALKIT (gs_omp_for_incr (gs));
-      walk_tree_seq (gs_omp_for_pre_body (gs), func, data, pset);
+      walk_seq_ops (gs_omp_for_pre_body (gs), func, data, pset);
       break;
 
     case GS_OMP_PARALLEL:
-      walk_tree_seq (gs_omp_body (gs), func, data, pset);
+      walk_seq_ops (gs_omp_body (gs), func, data, pset);
       WALKIT (gs_omp_parallel_clauses (gs));
       WALKIT (gs_omp_parallel_child_fn (gs));
       WALKIT (gs_omp_parallel_data_arg (gs));
       break;
 
     case GS_OMP_SECTIONS:
-      walk_tree_seq (gs_omp_body (gs), func, data, pset);
+      walk_seq_ops (gs_omp_body (gs), func, data, pset);
       WALKIT (gs_omp_sections_clauses (gs));
       break;
 
     case GS_OMP_SINGLE:
-      walk_tree_seq (gs_omp_body (gs), func, data, pset);
+      walk_seq_ops (gs_omp_body (gs), func, data, pset);
       WALKIT (gs_omp_single_clauses (gs));
       break;
 

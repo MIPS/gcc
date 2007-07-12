@@ -6526,7 +6526,7 @@ gimplify_body (tree *body_p, gs_seq seq_p, tree fndecl, bool do_parms)
   gcc_assert (gimplify_ctxp == NULL);
 
 #ifdef ENABLE_CHECKING
-  walk_tree_seq (seq_p, check_pointer_types_r, NULL, NULL);
+  walk_seq_ops (seq_p, check_pointer_types_r, NULL, NULL);
 #endif
 
   timevar_pop (TV_TREE_GIMPLIFY);

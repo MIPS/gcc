@@ -400,10 +400,10 @@ extern enum gimple_statement_structure_enum gimple_statement_structure (gimple);
 extern void gs_add (gimple, gs_seq);
 extern enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
 extern void sort_case_labels (VEC(tree,heap) *);
-extern void walk_tree_tuple (gimple, walk_tree_fn, void *,
-    			     struct pointer_set_t *);
-extern void walk_tree_seq (gs_seq, walk_tree_fn, void *,
-    			   struct pointer_set_t *);
+extern void walk_tuple_ops (gimple, walk_tree_fn, void *,
+    			    struct pointer_set_t *);
+extern void walk_seq_ops (gs_seq, walk_tree_fn, void *,
+			  struct pointer_set_t *);
 
 extern const char *const gs_code_name[];
 
