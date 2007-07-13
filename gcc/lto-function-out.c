@@ -216,12 +216,21 @@ struct output_block
   struct output_stream *named_label_stream;
   /* The stream that contains the string table.  */
   struct output_stream *string_stream;
+  /* The stream that contains the ssa_names table.  */
+  struct output_stream *ssa_names_stream;
+  /* The stream that contains the cfg.  */
+  struct output_stream *cfg_stream;
+
 #ifdef LTO_STREAM_DEBUGGING
-  /* The stream that contains the stream debugging information.  */
+  /* The stream that contains the local decls debugging information.  */
   struct output_stream *debug_decl_stream;
-  /* The stream that contains the stream debugging information.  */
+  /* The stream that contains the labels debugging information.  */
   struct output_stream *debug_label_stream;
-  /* The stream that contains the stream debugging information.  */
+  /* The stream that contains the ssa_names debugging information.  */
+  struct output_stream *debug_ssa_names_stream;
+  /* The stream that contains the cfg debugging information.  */
+  struct output_stream *debug_cfg_stream;
+  /* The stream that contains the gimple debugging information.  */
   struct output_stream *debug_main_stream;
 #endif
 
@@ -934,12 +943,12 @@ output_eh_must_not_throw (void *obv,
 /* Output the existing eh_table to OB.  */
 
 static void
-output_eh_regions (struct output_block *ob, struct function *cfun)
+output_eh_regions (struct output_block *ob, struct function *fn)
 {
-  if (0 && cfun->eh)
+  if (0 && fn->eh)
     {
       output_record_start (ob, NULL, NULL, LTO_eh_table);
-      output_eh_records (ob, cfun,
+      output_eh_records (ob, fn,
 			 output_eh_cleanup,
 			 output_eh_try,
 			 output_eh_catch,
@@ -1104,15 +1113,8 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case SSA_NAME:
-      /* FIXME: I am dead sure that this code is wrong for SSA
-	 names. But lto output is currently being done before SSA form
-	 is built so we can just fix it later.  */
       output_record_start (ob, expr, expr, LTO_ssa_name);
-      output_local_decl_ref (ob, SSA_NAME_VAR (expr));
       output_uleb128 (ob, SSA_NAME_VERSION (expr));
-
-      /* Just to make sure that the comment above is headed.  */
-      gcc_unreachable ();
       break;
 
     case CONST_DECL:
@@ -1319,6 +1321,12 @@ output_expr_operand (struct output_block *ob, tree expr)
       }
       break;
 
+    case GIMPLE_MODIFY_STMT:
+      output_record_start (ob, expr, NULL, tag);
+      output_expr_operand (ob, GIMPLE_STMT_OPERAND (expr, 0));
+      output_expr_operand (ob, GIMPLE_STMT_OPERAND (expr, 1));
+      break;
+
     case SWITCH_EXPR:
       {
 	tree label_vec = TREE_OPERAND (expr, 2);
@@ -1391,9 +1399,20 @@ output_local_vars (struct output_block *ob)
 {
   unsigned int index = 0;
 
-#ifdef LTO_STREAM_DEBUGGING
-  lto_debug_context.current_data = ob->debug_decl_stream;
-#endif
+  /* We have found MOST of the local vars by scanning the function.
+     There is always the possibility that there may be some lurking on
+     the fields (such as the two size fields) of the local vars that
+     we must put out.
+
+     The easiest way to get all of this stuff generated is to play
+     pointer games with the streams and reuse the code for putting out
+     the function bodies for putting out the local decls.  It needs to
+     go into a separate stream because the LTO reader will want to
+     process the local variables first, rather than have to back patch
+     them.
+  */
+  struct output_stream *tmp_stream = ob->main_stream;
+  ob->main_stream = ob->local_decl_stream;
 
   while (index < VEC_length (tree, ob->local_decls))
     {
@@ -1457,6 +1476,8 @@ output_local_vars (struct output_block *ob)
 
       LTO_DEBUG_UNDENT()
     }
+
+  ob->main_stream = tmp_stream;
 }
 
 
@@ -1466,10 +1487,6 @@ static void
 output_named_labels (struct output_block *ob)
 {
   unsigned int index = 0;
-
-#ifdef LTO_STREAM_DEBUGGING
-  lto_debug_context.current_data = ob->debug_label_stream;
-#endif
 
   while (index < VEC_length (tree, ob->named_labels))
     {
@@ -1482,37 +1499,116 @@ output_named_labels (struct output_block *ob)
 }
 
 
-/* Output a basic block BB to the main stream in OB for this CFUN.  */
+/* Output all of the active ssa names to the ssa_names stream.  */
 
 static void
-output_bb (struct output_block *ob, basic_block bb, struct function *cfun)
+output_ssa_names (struct output_block *ob, struct function *fn)
 {
-  edge e;
-  edge_iterator ei;
+  /* Switch streams so we can use output_expr_operand to write the
+     SSA_NAME_VAR.  */
+  struct output_stream *tmp_stream = ob->main_stream;
+  unsigned int i;
+  unsigned int len = VEC_length (tree, SSANAMES (fn));
+
+  ob->main_stream = ob->ssa_names_stream;
+
+  output_uleb128 (ob, len);
+
+  for (i = 1; i < len; i++)
+    {
+      tree ptr = VEC_index (tree, SSANAMES (fn), i);
+
+      if (ptr == NULL_TREE || SSA_NAME_IN_FREE_LIST (ptr))
+	continue;
+
+      output_uleb128 (ob, i);
+      output_expr_operand (ob, SSA_NAME_VAR (ptr));
+    }
+
+  output_uleb128 (ob, 0);
+  ob->main_stream = tmp_stream;
+}
+
+
+/* Output the cfg.  */
+
+static void
+output_cfg (struct output_block *ob, struct function *fn)
+{
+  struct output_stream *tmp_stream = ob->main_stream;
+  basic_block bb;
+
+  ob->main_stream = ob->cfg_stream;
+
+  /* Output the number of the highest basic block.  */
+  LTO_DEBUG_TOKEN ("lastbb")
+  output_uleb128 (ob, last_basic_block_for_function(fn));
+
+  FOR_ALL_BB_FN (bb, fn)
+    {
+      edge_iterator ei;
+      edge e;
+
+      LTO_DEBUG_TOKEN ("bbindex")
+      output_sleb128 (ob, bb->index);
+
+      /* Output the successors and the edge flags.  */
+      LTO_DEBUG_TOKEN ("edgecount")
+      output_uleb128 (ob, EDGE_COUNT (bb->succs));
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	{
+	  LTO_DEBUG_TOKEN ("dest")
+	  output_uleb128 (ob, e->dest->index);
+	  LTO_DEBUG_TOKEN ("eflags")
+	  output_uleb128 (ob, e->flags);
+	}
+    }
+
+  LTO_DEBUG_TOKEN ("bbindex")
+  output_sleb128 (ob, -1);
+  ob->main_stream = tmp_stream;
+}
+
+
+/* Output a phi function to the main stream in OB.  */
+
+static void
+output_phi (struct output_block *ob, tree expr)
+{
+  int len = PHI_NUM_ARGS (expr);
+  int i;
+  
+  output_record_start (ob, expr, NULL, LTO_phi_node);
+  output_uleb128 (ob, SSA_NAME_VERSION (PHI_RESULT (expr)));
+  
+  for (i = 0; i < len; i++)
+    {
+      output_uleb128 (ob, SSA_NAME_VERSION (PHI_ARG_DEF (expr, i)));
+      output_uleb128 (ob, PHI_ARG_EDGE (expr, i)->src->index);
+    }
+}
+
+
+/* Output a basic block BB to the main stream in OB for this FN.  */
+
+static void
+output_bb (struct output_block *ob, basic_block bb, struct function *fn)
+{
   block_stmt_iterator bsi = bsi_start (bb);
 
   output_record_start (ob, NULL, NULL,
-		       bsi_end_p (bsi) ? LTO_bb0 : LTO_bb1);
+		       (!bsi_end_p (bsi)) || phi_nodes (bb) ? LTO_bb1 : LTO_bb0);
 
   /* The index of the basic block.  */
   LTO_DEBUG_TOKEN ("bbindex")
   output_uleb128 (ob, bb->index);
 
-  /* Output the successors and the edge flags.  */
-  LTO_DEBUG_TOKEN ("edgecount")
-  output_uleb128 (ob, EDGE_COUNT (bb->succs));
-  FOR_EACH_EDGE (e, ei, bb->succs)
-    {
-      LTO_DEBUG_TOKEN ("dest")
-      output_uleb128 (ob, e->dest->index);
-      LTO_DEBUG_TOKEN ("eflags")
-      output_uleb128 (ob, e->flags);
-    }
-
-  if (!bsi_end_p (bsi))
+  if ((!bsi_end_p (bsi)) || phi_nodes (bb))
     {
       /* Output the statements.  The list of statements is terminated
 	 with a zero.  */
+      tree phi;
+
       for (bsi = bsi_start (bb);
 	   !bsi_end_p (bsi); bsi_next (&bsi))
 	{
@@ -1526,7 +1622,7 @@ output_bb (struct output_block *ob, basic_block bb, struct function *cfun)
 	     last region number we set.  */
 	  if (0 && tree_could_throw_p (stmt))
 	    {
-	      int region = lookup_stmt_eh_region_fn (cfun, stmt);
+	      int region = lookup_stmt_eh_region_fn (fn, stmt);
 	      if (region != last_eh_region_seen)
 		{
 		  output_record_start (ob, NULL, NULL,
@@ -1541,7 +1637,17 @@ output_bb (struct output_block *ob, basic_block bb, struct function *cfun)
 
       LTO_DEBUG_INDENT_TOKEN ("stmt")
       output_zero (ob);
+
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	{
+	  LTO_DEBUG_INDENT_TOKEN ("phi")
+	  output_phi (ob, phi);
+	}
+
+      LTO_DEBUG_INDENT_TOKEN ("phi")
+      output_zero (ob);
     }
+
   LTO_DEBUG_UNDENT()
 }
 
@@ -1577,16 +1683,22 @@ produce_asm (struct output_block *ob, tree function)
 
   function_header.compressed_size = 0;
   function_header.named_label_size = ob->named_label_stream->total_size;
+  function_header.ssa_names_size = ob->ssa_names_stream->total_size;
+  function_header.cfg_size = ob->cfg_stream->total_size;
   function_header.local_decls_size = ob->local_decl_stream->total_size;
   function_header.main_size = ob->main_stream->total_size;
   function_header.string_size = ob->string_stream->total_size;
 #ifdef LTO_STREAM_DEBUGGING
   function_header.debug_decl_size = ob->debug_decl_stream->total_size;
   function_header.debug_label_size = ob->debug_label_stream->total_size;
+  function_header.debug_ssa_names_size = ob->debug_ssa_names_stream->total_size;
+  function_header.debug_cfg_size = ob->debug_cfg_stream->total_size;
   function_header.debug_main_size = ob->debug_main_stream->total_size;
 #else
   function_header.debug_decl_size = -1;
   function_header.debug_label_size = -1;
+  function_header.debug_ssa_names_size = -1;
+  function_header.debug_cfg_size = -1;
   function_header.debug_main_size = -1;
 #endif
 
@@ -1604,8 +1716,7 @@ produce_asm (struct output_block *ob, tree function)
       out_ref.label = "0";
 #endif
       dw2_asm_output_data (8, out_ref.section, " ");
-      dw2_asm_output_delta (8, out_ref.label,
-			    out_ref.base_label, " ");
+      dw2_asm_output_delta (8, out_ref.label, out_ref.base_label, " ");
     }
 
   /* Write the global type references.  */
@@ -1644,12 +1755,16 @@ produce_asm (struct output_block *ob, tree function)
   /* Put all of the gimple and the string table out the asm file as a
      block of text.  */
   write_stream (ob->named_label_stream);
+  write_stream (ob->ssa_names_stream);
+  write_stream (ob->cfg_stream);
   write_stream (ob->local_decl_stream);
   write_stream (ob->main_stream);
   write_stream (ob->string_stream);
 #ifdef LTO_STREAM_DEBUGGING
   write_stream (ob->debug_decl_stream);
   write_stream (ob->debug_label_stream);
+  write_stream (ob->debug_ssa_names_stream);
+  write_stream (ob->debug_cfg_stream);
   write_stream (ob->debug_main_stream);
 #endif
 }
@@ -1685,6 +1800,7 @@ lto_static_init (void)
   sbitmap_ones (lto_types_needed_for);
   RESET_BIT (lto_types_needed_for, ASM_EXPR);
   RESET_BIT (lto_types_needed_for, CASE_LABEL_EXPR);
+  RESET_BIT (lto_types_needed_for, GIMPLE_MODIFY_STMT);
   RESET_BIT (lto_types_needed_for, LABEL_DECL);
   RESET_BIT (lto_types_needed_for, LABEL_EXPR);
   RESET_BIT (lto_types_needed_for, MODIFY_EXPR);
@@ -1746,30 +1862,34 @@ lto_static_init_local (void)
 static int function_num;
 #endif
 
-/* Output CFUN.  */
+#ifdef LTO_STREAM_DEBUGGING
+#define LTO_SET_DEBUGGING_STREAM(STREAM,CONTEXT)	\
+{ \
+  ob-> STREAM = xcalloc (1, sizeof (struct output_stream)); \
+  lto_debug_context. CONTEXT = ob-> STREAM; \
+  lto_debug_context.current_data = ob-> STREAM; \
+}
+#else
+#define LTO_SET_DEBUGGING_STREAM(STREAM,CONTEXT)
+#endif
+
+/* Output FN.  */
 
 static void
 output_function (tree function)
 {
-  struct function *this_cfun = DECL_STRUCT_FUNCTION (function);
+  struct function *fn = DECL_STRUCT_FUNCTION (function);
   basic_block bb;
-  struct output_stream *tmp_stream;
-
   struct output_block *ob = xcalloc (1, sizeof (struct output_block));
+
   ob->main_stream = xcalloc (1, sizeof (struct output_stream));
   ob->string_stream = xcalloc (1, sizeof (struct output_stream));
   ob->local_decl_stream = xcalloc (1, sizeof (struct output_stream));
   ob->named_label_stream = xcalloc (1, sizeof (struct output_stream));
+  ob->ssa_names_stream = xcalloc (1, sizeof (struct output_stream));
+  ob->cfg_stream = xcalloc (1, sizeof (struct output_stream));
 #ifdef LTO_STREAM_DEBUGGING
-  ob->debug_decl_stream = xcalloc (1, sizeof (struct output_stream));
-  ob->debug_label_stream = xcalloc (1, sizeof (struct output_stream));
-  ob->debug_main_stream = xcalloc (1, sizeof (struct output_stream));
-  
-  lto_debug_context.out = &debug_out_fun;
-  lto_debug_context.decl_data = ob->debug_decl_stream;
-  lto_debug_context.label_data = ob->debug_label_stream;
-  lto_debug_context.main_data = ob->debug_main_stream;
-  lto_debug_context.current_data = ob->debug_main_stream;
+  lto_debug_context.out = debug_out_fun;
   lto_debug_context.indent = 0;
 #endif
 
@@ -1797,6 +1917,9 @@ output_function (tree function)
 
   /* The unnamed labels must all be negative.  */
   ob->next_unnamed_label_index = -1;
+
+  LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data)
+
   /* Make string 0 be a NULL string.  */
   output_1_stream (ob->string_stream, 0);
 
@@ -1805,38 +1928,27 @@ output_function (tree function)
   output_record_start (ob, NULL, NULL, LTO_function);
 
   /* Output any exception-handling regions.  */
-  output_eh_regions (ob, this_cfun);
-
-  /* Output the number of the highest basic block.  */
-  output_uleb128 (ob, last_basic_block_for_function(this_cfun));
+  output_eh_regions (ob, fn);
 
   /* Output the code for the function.  */
-  FOR_ALL_BB_FN (bb, this_cfun)
-    output_bb (ob, bb, this_cfun);
+  FOR_ALL_BB_FN (bb, fn)
+    output_bb (ob, bb, fn);
 
   /* The terminator for this function.  */
   output_zero (ob);
   LTO_DEBUG_UNDENT()
 
-  /* We have found MOST of the local vars by scanning the function.
-     There is always the possibility that there may be some lurking on
-     the fields (such as the two size fields) of the local vars that
-     we must put out.
-
-     The easiest way to get all of this stuff generated is to play
-     pointer games with the streams and reuse the code for putting out
-     the function bodies for putting out the local decls.  It needs to
-     go into a separate stream because the LTO reader will want to
-     process the local variables first, rather than have to back patch
-     them.
-  */
-  tmp_stream = ob->main_stream;
-  ob->main_stream = ob->local_decl_stream;
-  output_local_vars (ob);
-  ob->main_stream = tmp_stream;
-
-  /* Output the names in the named labels.  */
+  LTO_SET_DEBUGGING_STREAM (debug_label_stream, label_data)
   output_named_labels (ob);
+
+  LTO_SET_DEBUGGING_STREAM (debug_ssa_names_stream, ssa_names_data)
+  output_ssa_names (ob, fn);
+
+  LTO_SET_DEBUGGING_STREAM (debug_cfg_stream, cfg_data)
+  output_cfg (ob, fn);
+
+  LTO_SET_DEBUGGING_STREAM (debug_decl_stream, decl_data)
+  output_local_vars (ob);
 
   /* Create a file to hold the pickled output of this function.  This
      is a temp standin until we start writing sections.  */

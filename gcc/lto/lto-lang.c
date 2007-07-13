@@ -151,6 +151,7 @@ lto_init (void)
   /* Always operate in unit-at-time mode so that we can defer
      decisions about what to output.  */
   flag_unit_at_a_time = 1;
+  in_lto_p = false;
 
   /* Create the basic integer types.  */
   build_common_tree_nodes (flag_signed_char, 

@@ -25,6 +25,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "cgraph.h"
 #include "tree-pass.h"
 #include "timevar.h"
+#include "flags.h"
 
 /* Fill array order with all nodes with output flag set in the reverse
    topological order.  */
@@ -278,10 +279,17 @@ function_and_variable_visibility (void)
   return 0;
 }
 
+static bool
+gate_ipa_fun_and_var_visibility (void)
+{
+  return !in_lto_p;
+}
+
+
 struct tree_opt_pass pass_ipa_function_and_variable_visibility = 
 {
   "visibility",				/* name */
-  NULL,					/* gate */
+  gate_ipa_fun_and_var_visibility,	/* gate */
   function_and_variable_visibility,	/* execute */
   NULL,					/* sub */
   NULL,					/* next */

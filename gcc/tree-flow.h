@@ -864,7 +864,7 @@ typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 extern void strict_aliasing_warning_backend (void);
 
 /* In tree-ssa.c  */
-extern void init_tree_ssa (void);
+extern void init_tree_ssa (struct function *);
 extern edge ssa_redirect_edge (edge, basic_block);
 extern void flush_pending_stmts (edge);
 extern bool tree_ssa_useless_type_conversion (tree);

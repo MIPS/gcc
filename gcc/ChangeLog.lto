@@ -1,3 +1,49 @@
+2007-07-13  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* flags.h (in_lto_p): New flag.
+	* lto-tree_flags.def (CHANGE_DYNAMIC_TYPE_EXPR, POINTER_PLUS_EXPR): 
+	New tree codes from merge.
+	* tree.h (init_ssanames): Added cfun parameter.
+	* lto-function-out.c: (ssa_names_stream, cfg_stream): New streams.
+	(output_eh_regions): Renamed parameter cfun to fn.
+	(output_expr_operand): Implemented SSA_NAME and GIMPLE_MODIFY_STMT
+	cases.
+	(output_local_vars): Set the local_vars stream locally.
+	(output_ssa_names, output_cfg, output_phi): New function.
+	(output_bb): Changed the cfun parameter to fn.  Do not put out cfg
+	locally.  Output the phi_functions.
+	(produce_asm): Add code to support ssa_names and cfg streams.
+	(lto_static_init): Added GIMPLE_MODIFY_STMT.
+	(LTO_SET_DEBUGGING_STREAM): New macro.
+	(output_function): Add code to support ssa_names and cfg streams.
+	* toplev.c (in_lto_p): Initialize.
+	* ipa-inline.c (cgraph_gate_ipa_early_inlining): Added test for
+	in_lto_p.
+	* lto-tree-tags.def (GIMPLE_MODIFY_STMT, PHI_NODE): New tags.
+	(LTO_change_dynamic_type_expr, LTO_gimple_modify_stmt,
+	LTO_phi_node, LTO_pointer_plus_expr): New names.
+	lto-tags.h (ssa_names_size, cfg_size, debug_ssa_names_size,
+	debug_cfg_size): New fields in lto_function_header.
+	(LTO_change_dynamic_type_expr, LTO_gimple_modify_stmt,
+	LTO_phi_node, LTO_pointer_plus_expr): New fields and renumbered
+	the rest.
+	(ssa_names_data, cfg_data): New fields of lto_debug_context.
+	* ipa.c (flags.h): New include.
+	(gate_ipa_fun_and_var_visibility): New function for
+	pass_ipa_function_and_variable_visibility.
+	* tree-ssa.c (init_tree_ssa): Add fn parameter and replaced refs
+	to cfun.
+	* tree-inline.c (initialize_cfun): Ditto.
+	* tree-optimize.c (gate_all_early_local_passes): Added ref to
+	in_ltp_p.
+	(execute_init_datastructures): Added cfun parameter to
+	init_tree_ssa.
+	* tree-flow.h (init_tree_ssa): Added struct function parameter.
+	* Makefile.in (ipa.o): Added FLAGS_H dependency.
+	* tree-ssanames.c (init_ssanames): Added two parameters.  Now
+	takes struct function and default size.
+
+	
 2007-06-26  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-tree-flags.def (tcc_gimple_stmt): New TREE_CLASS.

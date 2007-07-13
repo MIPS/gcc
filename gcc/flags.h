@@ -111,6 +111,13 @@ extern int optimize;
 
 extern int optimize_size;
 
+/* True if this is the lto front end.  This is used to disable
+   gimple generation and lowering passes that are normally run on the
+   output of a front end.  These passes must be bypassed for lto since
+   they have already been done before the gimple was written.  */ 
+
+extern bool in_lto_p;
+
 /* Do print extra warnings (such as for uninitialized variables).
    -W/-Wextra.  */
 

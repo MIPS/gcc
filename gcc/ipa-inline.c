@@ -1492,6 +1492,7 @@ static bool
 cgraph_gate_ipa_early_inlining (void)
 {
   return (flag_inline_trees && flag_early_inlining
+	  && !in_lto_p
 	  && (flag_branch_probabilities || flag_test_coverage
 	      || profile_arc_flag));
 }

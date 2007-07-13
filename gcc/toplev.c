@@ -222,6 +222,13 @@ int optimize = 0;
 
 int optimize_size = 0;
 
+/* True if this is the lto front end.  This is used to disable
+   gimple generation and lowering passes that are normally run on the
+   output of a front end.  These passes must be bypassed for lto since
+   they have already been done before the gimple was written.  */ 
+
+bool in_lto_p = false;
+
 /* The FUNCTION_DECL for the function currently being compiled,
    or 0 if between functions.  */
 tree current_function_decl;

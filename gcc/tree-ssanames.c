@@ -68,12 +68,15 @@ unsigned int ssa_name_nodes_reused;
 unsigned int ssa_name_nodes_created;
 #endif
 
-/* Initialize management of SSA_NAMEs.  */
+/* Initialize management of SSA_NAMEs to default SIZE.  If SIZE is
+   zero use default.  */
 
 void
-init_ssanames (void)
+init_ssanames (struct function *the_fun, int size)
 {
-  SSANAMES (cfun) = VEC_alloc (tree, gc, 50);
+  if (size < 50)
+    size = 50;
+  SSANAMES (the_fun) = VEC_alloc (tree, gc, size);
 
   /* Version 0 is special, so reserve the first slot in the table.  Though
      currently unused, we may use version 0 in alias analysis as part of
@@ -82,8 +85,8 @@ init_ssanames (void)
 
      We use VEC_quick_push here because we know that SSA_NAMES has at
      least 50 elements reserved in it.  */
-  VEC_quick_push (tree, SSANAMES (cfun), NULL_TREE);
-  FREE_SSANAMES (cfun) = NULL;
+  VEC_quick_push (tree, SSANAMES (the_fun), NULL_TREE);
+  FREE_SSANAMES (the_fun) = NULL;
 }
 
 /* Finalize management of SSA_NAMEs.  */

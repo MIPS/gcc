@@ -45,10 +45,12 @@
    4) global VAR_DECLS.
    5) types.
    6) Names for the labels that have names
-   7) Gimple for local decls.
-   8) Gimple for the function.
-   9) Strings.
-   10-12)Redundant information to aid in debugging the stream.
+   7) The ssa names.
+   8) The control flow graph.
+   9) Gimple for local decls.
+   10)Gimple for the function.
+   11)Strings.
+   12-14)Redundant information to aid in debugging the stream.
       This is only present if the compiler is built with
       LTO_STREAM_DEBUGGING defined.
 
@@ -61,35 +63,39 @@
 /* The is the first part of the record for a function in the .o file.  */
 struct lto_function_header
 {
-  int16_t major_version;      /* LTO_major_version. */
-  int16_t minor_version;      /* LTO_minor_version. */
-  int32_t num_field_decls;    /* Number of FIELD_DECLS.  */
-  int32_t num_fn_decls;       /* Number of FUNCTION_DECLS.  */
-  int32_t num_var_decls;      /* Number of non local VAR_DECLS.  */
-  int32_t num_types;          /* Number of types.  */
-  int32_t num_local_decls;    /* Number of local VAR_DECLS and PARM_DECLS.  */
-  int32_t num_named_labels;   /* Number of labels with names.  */
-  int32_t num_unnamed_labels; /* Number of labels without names.  */
-  int32_t compressed_size;    /* Size compressed or 0 if not compressed.  */
-  int32_t named_label_size;   /* Size of names for named labels.  */
-  int32_t local_decls_size;   /* Size of local par and var decl region. */
-  int32_t main_size;          /* Size of main gimple body of function.  */
-  int32_t string_size;        /* Size of the string table.  */
-  int32_t debug_decl_size;   /* Size of local decl debugging information.  */
-  int32_t debug_label_size;   /* Size of label stream debugging information.  */
-  int32_t debug_main_size;    /* Size of main stream debugging information.  */
+  int16_t major_version;          /* LTO_major_version. */
+  int16_t minor_version;          /* LTO_minor_version. */
+  int32_t num_field_decls;        /* Number of FIELD_DECLS.  */
+  int32_t num_fn_decls;           /* Number of FUNCTION_DECLS.  */
+  int32_t num_var_decls;          /* Number of non local VAR_DECLS.  */
+  int32_t num_types;              /* Number of types.  */
+  int32_t num_local_decls;        /* Number of local VAR_DECLS and PARM_DECLS.  */
+  int32_t num_named_labels;       /* Number of labels with names.  */
+  int32_t num_unnamed_labels;     /* Number of labels without names.  */
+  int32_t compressed_size;        /* Size compressed or 0 if not compressed.  */
+  int32_t named_label_size;       /* Size of names for named labels.  */
+  int32_t ssa_names_size;         /* Size of the SSA_NAMES table.  */
+  int32_t cfg_size;               /* Size of the cfg.  */
+  int32_t local_decls_size;       /* Size of local par and var decl region. */
+  int32_t main_size;              /* Size of main gimple body of function.  */
+  int32_t string_size;            /* Size of the string table.  */
+  int32_t debug_decl_size;        /* Size of local decl debugging information.  */
+  int32_t debug_label_size;       /* Size of label stream debugging information.  */
+  int32_t debug_ssa_names_size;   /* Size of ssa_names stream debugging information.  */
+  int32_t debug_cfg_size;         /* Size of cfg stream debugging information.  */
+  int32_t debug_main_size;        /* Size of main stream debugging information.  */
 };
 
 /* 2-5) THE GLOBAL DECLS AND TYPES.
 
-     The global decls and types are encoded in the same way.  For each
-     entry, there is a pair of words.  The first is the debugging
-     section number and the second is the offset within the section to
-     the entry.
+      The global decls and types are encoded in the same way.  For each
+      entry, there is a pair of words.  The first is the debugging
+      section number and the second is the offset within the section to
+      the entry.
 
-     FIXME: This encoding may change change so that the first word is
-     a label for the debugging section.  This will cause more work for
-     the linker but will make ln -r work properly.
+      FIXME: This encoding may change change so that the first word is
+      a label for the debugging section.  This will cause more work for
+      the linker but will make ln -r work properly.
 
    6) THE LABEL NAMES.  
 
@@ -100,7 +106,14 @@ struct lto_function_header
       the negative ones do not.  The positive index can be used to
       find the name in this array.
 
-   7-8) GIMPLE FOR THE LOCAL DECLS AND THE FUNCTION BODY.
+   7) THE ACTIVE SSA NAMES.  
+
+      The SSA_NAME_VERSION in an SSA_NAME in used as an index into
+      this table.
+
+   8) THE CFG. 
+
+   9-10) GIMPLE FOR THE LOCAL DECLS AND THE FUNCTION BODY.
 
      The gimple consists of a set of records.
 
@@ -211,12 +224,12 @@ struct lto_function_header
 			  to terminate the statements and exception
 			  regions within this block.
 
-   9) STRINGS
+   11) STRINGS
 
      String are represented in the table as pairs, a length in ULEB128
      form followed by the data for the string.
 
-   10) STREAM DEBUGGING
+   12) STREAM DEBUGGING
      
      If the preprocessor symbol LTO_STREAM_DEBUGGING is defined, the
      gimple is encoded into .o file as two streams.  The first stream
@@ -275,143 +288,147 @@ struct lto_function_header
 #define LTO_case_label_expr3            0x017
 #define LTO_ceil_div_expr               0x018
 #define LTO_ceil_mod_expr               0x019
+#define LTO_change_dynamic_type_expr    0x01A
 /* 1 if the elements are reals and 0 if the elements are ints.  */
-#define LTO_complex_cst0                0x01A
-#define LTO_complex_cst1                0x01B
-#define LTO_complex_expr                0x01C
-#define LTO_component_ref               0x01D
-#define LTO_compound_expr               0x01E
-#define LTO_cond_expr                   0x01F
-#define LTO_conj_expr                   0x020
-#define LTO_const_decl                  0x021
+#define LTO_complex_cst0                0x01B
+#define LTO_complex_cst1                0x01C
+#define LTO_complex_expr                0x01D
+#define LTO_component_ref               0x01E
+#define LTO_compound_expr               0x01F
+#define LTO_cond_expr                   0x020
+#define LTO_conj_expr                   0x021
+#define LTO_const_decl                  0x022
 /* This form is terminated by a zero.  */
-#define LTO_constructor                 0x022
-#define LTO_constructor_range           0x023
-#define LTO_convert_expr                0x024
-#define LTO_dot_prod_expr               0x025
-#define LTO_eq_expr                     0x026
-#define LTO_exact_div_expr              0x027
-#define LTO_exc_ptr_expr                0x028
-#define LTO_field_decl                  0x029
-#define LTO_filter_expr                 0x02A
-#define LTO_fix_ceil_expr               0x02B
-#define LTO_fix_floor_expr              0x02C
-#define LTO_fix_round_expr              0x02D
-#define LTO_fix_trunc_expr              0x02E
-#define LTO_float_expr                  0x02F
-#define LTO_floor_div_expr              0x030
-#define LTO_floor_mod_expr              0x031
-#define LTO_function_decl               0x032
-#define LTO_ge_expr                     0x033
-#define LTO_goto_expr                   0x034
-#define LTO_gt_expr                     0x035
-#define LTO_imagpart_expr               0x036
-#define LTO_indirect_ref                0x037
-#define LTO_integer_cst                 0x038
-#define LTO_label_decl                  0x039
-#define LTO_label_expr                  0x03A
-#define LTO_le_expr                     0x03B
-#define LTO_lrotate_expr                0x03C
-#define LTO_lshift_expr                 0x03D
-#define LTO_lt_expr                     0x03E
-#define LTO_ltgt_expr                   0x03F
-#define LTO_max_expr                    0x040
-#define LTO_min_expr                    0x041
-#define LTO_minus_expr                  0x042
-#define LTO_misaligned_indirect_ref     0x043
-#define LTO_modify_expr                 0x044
-#define LTO_mult_expr                   0x045
-#define LTO_ne_expr                     0x046
-#define LTO_negate_expr                 0x047
-#define LTO_non_lvalue_expr             0x048
-#define LTO_nop_expr                    0x049
-#define LTO_obj_type_ref                0x04A
-#define LTO_ordered_expr                0x04B
-#define LTO_parm_decl                   0x04C
-#define LTO_plus_expr                   0x04D
-#define LTO_range_expr                  0x04E
-#define LTO_rdiv_expr                   0x04F
-#define LTO_real_cst                    0x050
-#define LTO_realign_load_expr           0x051
-#define LTO_realpart_expr               0x052
-#define LTO_reduc_max_expr              0x053
-#define LTO_reduc_min_expr              0x054
-#define LTO_reduc_plus_expr             0x055
-#define LTO_result_decl                 0x056
+#define LTO_constructor                 0x023
+#define LTO_constructor_range           0x024
+#define LTO_convert_expr                0x025
+#define LTO_dot_prod_expr               0x026
+#define LTO_eq_expr                     0x027
+#define LTO_exact_div_expr              0x028
+#define LTO_exc_ptr_expr                0x029
+#define LTO_field_decl                  0x02A
+#define LTO_filter_expr                 0x02B
+#define LTO_fix_ceil_expr               0x02C
+#define LTO_fix_floor_expr              0x02D
+#define LTO_fix_round_expr              0x02E
+#define LTO_fix_trunc_expr              0x02F
+#define LTO_float_expr                  0x030
+#define LTO_floor_div_expr              0x031
+#define LTO_floor_mod_expr              0x032
+#define LTO_function_decl               0x033
+#define LTO_ge_expr                     0x034
+#define LTO_gimple_modify_stmt          0x035
+#define LTO_goto_expr                   0x036
+#define LTO_gt_expr                     0x037
+#define LTO_imagpart_expr               0x038
+#define LTO_indirect_ref                0x039
+#define LTO_integer_cst                 0x03A
+#define LTO_label_decl                  0x03B
+#define LTO_label_expr                  0x03C
+#define LTO_le_expr                     0x03D
+#define LTO_lrotate_expr                0x03E
+#define LTO_lshift_expr                 0x03F
+#define LTO_lt_expr                     0x040
+#define LTO_ltgt_expr                   0x041
+#define LTO_max_expr                    0x042
+#define LTO_min_expr                    0x043
+#define LTO_minus_expr                  0x044
+#define LTO_misaligned_indirect_ref     0x045
+#define LTO_modify_expr                 0x046
+#define LTO_mult_expr                   0x047
+#define LTO_ne_expr                     0x048
+#define LTO_negate_expr                 0x049
+#define LTO_non_lvalue_expr             0x04A
+#define LTO_nop_expr                    0x04B
+#define LTO_obj_type_ref                0x04C
+#define LTO_ordered_expr                0x04D
+#define LTO_parm_decl                   0x04E
+#define LTO_phi_node                    0x04F
+#define LTO_pointer_plus_expr           0x050
+#define LTO_plus_expr                   0x051
+#define LTO_range_expr                  0x052
+#define LTO_rdiv_expr                   0x053
+#define LTO_real_cst                    0x054
+#define LTO_realign_load_expr           0x055
+#define LTO_realpart_expr               0x056
+#define LTO_reduc_max_expr              0x057
+#define LTO_reduc_min_expr              0x058
+#define LTO_reduc_plus_expr             0x059
+#define LTO_result_decl                 0x05A
 /* Form "return;"  */
-#define LTO_return_expr0                0x057
+#define LTO_return_expr0                0x05B
 /* Form "return x;"  */
-#define LTO_return_expr1                0x058
+#define LTO_return_expr1                0x05C
 /* Form "return x=y;"  */
-#define LTO_return_expr2                0x059
-#define LTO_resx_expr                   0x05A
-#define LTO_round_div_expr              0x05B
-#define LTO_round_mod_expr              0x05C
-#define LTO_rrotate_expr                0x05D
-#define LTO_rshift_expr                 0x05E
-#define LTO_ssa_name                    0x05F
-#define LTO_string_cst                  0x060
+#define LTO_return_expr2                0x05D
+#define LTO_resx_expr                   0x05E
+#define LTO_round_div_expr              0x05F
+#define LTO_round_mod_expr              0x060
+#define LTO_rrotate_expr                0x061
+#define LTO_rshift_expr                 0x062
+#define LTO_ssa_name                    0x063
+#define LTO_string_cst                  0x064
 /* Cases are terminated a zero.  */
-#define LTO_switch_expr                 0x061
-#define LTO_trunc_div_expr              0x062
-#define LTO_trunc_mod_expr              0x063
-#define LTO_truth_and_expr              0x064
-#define LTO_truth_not_expr              0x065
-#define LTO_truth_or_expr               0x066
-#define LTO_truth_xor_expr              0x067
-#define LTO_uneq_expr                   0x068
-#define LTO_unge_expr                   0x069
-#define LTO_ungt_expr                   0x06A
-#define LTO_unle_expr                   0x06B
-#define LTO_unlt_expr                   0x06C
-#define LTO_unordered_expr              0x070
+#define LTO_switch_expr                 0x065
+#define LTO_trunc_div_expr              0x066
+#define LTO_trunc_mod_expr              0x067
+#define LTO_truth_and_expr              0x068
+#define LTO_truth_not_expr              0x069
+#define LTO_truth_or_expr               0x06A
+#define LTO_truth_xor_expr              0x06B
+#define LTO_uneq_expr                   0x06C
+#define LTO_unge_expr                   0x070
+#define LTO_ungt_expr                   0x071
+#define LTO_unle_expr                   0x072
+#define LTO_unlt_expr                   0x073
+#define LTO_unordered_expr              0x074
 /* 1 for static or extern and 0 for local.  */
-#define LTO_var_decl0                   0x071
-#define LTO_var_decl1                   0x072
-#define LTO_vec_cond_expr               0x073
-#define LTO_vec_lshift_expr             0x074
-#define LTO_vec_rshift_expr             0x075
+#define LTO_var_decl0                   0x075
+#define LTO_var_decl1                   0x076
+#define LTO_vec_cond_expr               0x077
+#define LTO_vec_lshift_expr             0x078
+#define LTO_vec_rshift_expr             0x079
 /* 1 if the elements are reals and 0 if the elements are ints.  */
-#define LTO_vector_cst0                 0x076
-#define LTO_vector_cst1                 0x077
-#define LTO_view_convert_expr           0x078
-#define LTO_widen_mult_expr             0x079
-#define LTO_widen_sum_expr              0x07A
-#define LTO_with_size_expr              0x07B
+#define LTO_vector_cst0                 0x07A
+#define LTO_vector_cst1                 0x07B
+#define LTO_view_convert_expr           0x07C
+#define LTO_widen_mult_expr             0x07D
+#define LTO_widen_sum_expr              0x07E
+#define LTO_with_size_expr              0x080
 
 
 /* All of the statement types that do not also appear as
    expressions.  */
-#define LTO_asm_inputs                  0x080
-#define LTO_asm_outputs                 0x081
-#define LTO_asm_clobbers                0x082
+#define LTO_asm_inputs                  0x090
+#define LTO_asm_outputs                 0x091
+#define LTO_asm_clobbers                0x092
 
-#define LTO_function                    0x083
-#define LTO_attribute_list              0x084
-#define LTO_eh_table                    0x085
+#define LTO_function                    0x093
+#define LTO_attribute_list              0x094
+#define LTO_eh_table                    0x095
 
 /* Each of these requires 4 variants.  1 and 3 are have_inner and 2
    and 3 are may_contain_throw.  */
-#define LTO_eh_table_cleanup0           0x090
-#define LTO_eh_table_cleanup1           0x091
-#define LTO_eh_table_cleanup2           0x092
-#define LTO_eh_table_cleanup3           0x093
-#define LTO_eh_table_try0               0x094
-#define LTO_eh_table_try1               0x095
-#define LTO_eh_table_try2               0x096
-#define LTO_eh_table_try3               0x097
-#define LTO_eh_table_catch0             0x098
-#define LTO_eh_table_catch1             0x099
-#define LTO_eh_table_catch2             0x09A
-#define LTO_eh_table_catch3             0x09B
-#define LTO_eh_table_allowed0           0x09C
-#define LTO_eh_table_allowed1           0x09D
-#define LTO_eh_table_allowed2           0x09E
-#define LTO_eh_table_allowed3           0x09F
-#define LTO_eh_table_must_not_throw0    0x0A0
-#define LTO_eh_table_must_not_throw1    0x0A1
-#define LTO_eh_table_must_not_throw2    0x0A2
-#define LTO_eh_table_must_not_throw3    0x0A3
+#define LTO_eh_table_cleanup0           0x0A0
+#define LTO_eh_table_cleanup1           0x0A1
+#define LTO_eh_table_cleanup2           0x0A2
+#define LTO_eh_table_cleanup3           0x0A3
+#define LTO_eh_table_try0               0x0A4
+#define LTO_eh_table_try1               0x0A5
+#define LTO_eh_table_try2               0x0A6
+#define LTO_eh_table_try3               0x0A7
+#define LTO_eh_table_catch0             0x0A8
+#define LTO_eh_table_catch1             0x0A9
+#define LTO_eh_table_catch2             0x0AA
+#define LTO_eh_table_catch3             0x0AB
+#define LTO_eh_table_allowed0           0x0AC
+#define LTO_eh_table_allowed1           0x0AD
+#define LTO_eh_table_allowed2           0x0AE
+#define LTO_eh_table_allowed3           0x0AF
+#define LTO_eh_table_must_not_throw0    0x0B0
+#define LTO_eh_table_must_not_throw1    0x0B1
+#define LTO_eh_table_must_not_throw2    0x0B2
+#define LTO_eh_table_must_not_throw3    0x0B3
 
 /* There are 16 variants of the following decl bodies depending on the
    subtrees that may or may not be there in the decl_common part of
@@ -424,9 +441,9 @@ struct lto_function_header
    These next two tags must have their last hex digit be 0. 
 */
 
-#define LTO_local_var_decl_body0        0x0B0
-#define LTO_parm_decl_body0             0x0C0
-#define LTO_last_tag                    0x0D0
+#define LTO_local_var_decl_body0        0x0C0
+#define LTO_parm_decl_body0             0x0D0
+#define LTO_last_tag                    0x0E0
 /* The string that is prepended on the DECL_ASSEMBLER_NAME to make the 
    section name for the function.  */
 #define LTO_SECTION_NAME_PREFIX         ".gnu.lto_"
@@ -470,6 +487,8 @@ struct lto_debug_context
   void * current_data;
   void * decl_data;
   void * label_data;
+  void * ssa_names_data;
+  void * cfg_data;
   void * main_data;
 };
 

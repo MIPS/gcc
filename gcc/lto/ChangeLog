@@ -1,3 +1,20 @@
+2007-07-13  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-read.c (input_list, input_expr_operand): Added struct
+	function parameter.
+	(init_cfg, finalize_cfg): Removed function.
+	(input_expr_operand): Added SSA_NAME and GIMPLE_MODIFY_STMT cases.
+	(input_labels, input_local_vars): Now takes input_block parameter rather than
+	synthsyzing it.
+	(input_cfg, input_phi, input_ssa_names): New functions.
+	(input_bb): Now passes in input_blocks.  Does not construct cfg
+	and processes the list of phi functions.
+	(input_function): Now builds both the cfg and ssa_names table.
+	(lto_read_function_body): Processes new header fields to construct
+	streams for the ssa_names and cfg and their debugging.
+	* lto/lto-lang.c (lto_init): Set in_lto_p.
+	
+	
 2007-06-28  Mark Mitchell  <mark@codesourcery.com>
 
 	* lto.h (lto_file_vtable): Add read_var_init.

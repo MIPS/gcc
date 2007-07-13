@@ -85,7 +85,7 @@ static bool
 gate_all_early_local_passes (void)
 {
 	  /* Don't bother doing anything if the program has errors.  */
-  return (!errorcount && !sorrycount);
+  return (!errorcount && !sorrycount && !in_lto_p);
 }
 
 struct tree_opt_pass pass_early_local_passes =
@@ -319,7 +319,7 @@ static unsigned int
 execute_init_datastructures (void)
 {
   /* Allocate hash tables, arrays and other structures.  */
-  init_tree_ssa ();
+  init_tree_ssa (cfun);
   return 0;
 }
 
