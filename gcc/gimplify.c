@@ -249,7 +249,7 @@ gimple_pop_condition (gs_seq pre_p)
   gcc_assert (conds >= 0);
   if (conds == 0)
     {
-      gs_seq_append (&gimplify_ctxp->conditional_cleanups, pre_p);
+      gs_seq_append (pre_p, &gimplify_ctxp->conditional_cleanups);
       gs_seq_init (&gimplify_ctxp->conditional_cleanups);
     }
 }
@@ -348,7 +348,7 @@ gimplify_and_add (tree t, gs_seq seq)
 
   gs_seq_init (&tseq);
   gimplify_stmt (&t, &tseq);
-  gs_seq_append (&tseq, seq);
+  gs_seq_append (seq, &tseq);
 }
 
 /* Strip off a legitimate source ending from the input string NAME of
@@ -1096,8 +1096,8 @@ gimplify_return_expr (tree stmt, gs_seq pre_p)
       || TREE_CODE (ret_expr) == RESULT_DECL
       || ret_expr == error_mark_node)
     {
-      gs_add (gs_build_return (TREE_CODE (ret_expr) == RESULT_DECL, ret_expr),
-	      pre_p);
+      gs_add (pre_p,
+	      gs_build_return (TREE_CODE (ret_expr) == RESULT_DECL, ret_expr));
       return GS_ALL_DONE;
     }
 
@@ -1159,7 +1159,7 @@ gimplify_return_expr (tree stmt, gs_seq pre_p)
   else
     ret_expr = build_gimple_modify_stmt (result_decl, result);
 
-  gs_add (gs_build_return (result == result_decl, ret_expr), pre_p);
+  gs_add (pre_p, gs_build_return (result == result_decl, ret_expr));
 
   return GS_ALL_DONE;
 }
@@ -1429,15 +1429,15 @@ gimplify_switch_expr (tree *expr_p, gs_seq pre_p)
 	                                               NULL_TREE,
 	                                               NULL_TREE, 
 	                                           create_artificial_label ()));
-	  gs_add (new_default, switch_body_seq);
+	  gs_add (switch_body_seq, new_default);
 	  default_case = gs_label_label (new_default);
 	}
 
       sort_case_labels (labels);
       gs_switch = gs_build_switch_vec (SWITCH_COND (switch_expr), default_case,
                                        labels);
-      gs_add (gs_switch, pre_p);
-      gs_seq_append (switch_body_seq, pre_p);
+      gs_add (pre_p, gs_switch);
+      gs_seq_append (pre_p, switch_body_seq);
       VEC_free(tree, heap, labels);
     }
   else
@@ -1460,7 +1460,7 @@ gimplify_case_label_expr (tree *expr_p, gs_seq pre_p)
 
   gimple gs_label = gs_build_label (*expr_p);
   VEC_safe_push (tree, heap, ctxp->case_labels, gs_label_label(gs_label));
-  gs_add (gs_label, pre_p);
+  gs_add (pre_p, gs_label);
 
   return GS_ALL_DONE;
 }
@@ -1972,7 +1972,7 @@ gimplify_self_mod_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
   if (postfix)
     {
       gimplify_and_add (t1, orig_post_p);
-      gs_seq_append (&post, orig_post_p);
+      gs_seq_append (orig_post_p, &post);
       *expr_p = lhs;
       return GS_ALL_DONE;
     }
@@ -2151,7 +2151,7 @@ gimplify_call_expr (tree *expr_p, gs_seq pre_p, bool want_value)
       && (call_expr_flags (*expr_p) & (ECF_CONST | ECF_PURE)))
     TREE_SIDE_EFFECTS (*expr_p) = 0;
 
-  gs_add (gs_build_call_vec (fndecl, args), pre_p);
+  gs_add (pre_p, gs_build_call_vec (fndecl, args));
   if (!want_value)
     *expr_p = NULL_TREE;
 
@@ -2590,14 +2590,14 @@ gimplify_cond_expr (tree *expr_p, gs_seq pre_p, fallback_t fallback)
       gs_cond = gs_build_cond (pred, arm1, arm2, label_true, label_false);
     }
 
-  gs_add (gs_cond, pre_p);
-  gs_add (gs_build_label (label_true), pre_p);
+  gs_add (pre_p, gs_cond);
+  gs_add (pre_p, gs_build_label (label_true));
   have_then_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 1), pre_p);
   label_cont = create_artificial_label ();
-  gs_add (gs_build_goto (label_cont), pre_p);
-  gs_add (gs_build_label (label_false), pre_p);
+  gs_add (pre_p, gs_build_goto (label_cont));
+  gs_add (pre_p, gs_build_label (label_false));
   have_else_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 2), pre_p);
-  gs_add (gs_build_label (label_cont), pre_p);
+  gs_add (pre_p, gs_build_label (label_cont));
 
   gimple_pop_condition (pre_p);
 
@@ -2645,13 +2645,13 @@ gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value,
       /* tmp = memcpy() */
       t = create_tmp_var (TREE_TYPE (to_ptr), NULL);
       gs_call_set_lhs (gs, t);
-      gs_add (gs, seq_p);
+      gs_add (seq_p, gs);
 
       *expr_p = build1 (INDIRECT_REF, TREE_TYPE (to), t);
       return GS_ALL_DONE;
     }
 
-  gs_add (gs, seq_p);
+  gs_add (seq_p, gs);
   *expr_p = NULL;
   return GS_ALL_DONE;
 }
@@ -2679,13 +2679,13 @@ gimplify_modify_expr_to_memset (tree *expr_p, tree size, bool want_value,
       /* tmp = memset() */
       t = create_tmp_var (TREE_TYPE (to_ptr), NULL);
       gs_call_set_lhs (gs, t);
-      gs_add (gs, seq_p);
+      gs_add (seq_p, gs);
 
       *expr_p = build1 (INDIRECT_REF, TREE_TYPE (to), t);
       return GS_ALL_DONE;
     }
 
-  gs_add (gs, seq_p);
+  gs_add (seq_p, gs);
   *expr_p = NULL;
   return GS_ALL_DONE;
 }
@@ -2848,10 +2848,10 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
   /* Create and initialize the index variable.  */
   var_type = TREE_TYPE (upper);
   var = create_tmp_var (var_type, NULL);
-  gs_add (gs_build_assign (var, lower), pre_p);
+  gs_add (pre_p, gs_build_assign (var, lower));
 
   /* Add the loop entry label.  */
-  gs_add (gs_build_label (loop_entry_label), pre_p);
+  gs_add (pre_p, gs_build_label (loop_entry_label));
 
   /* Build the reference.  */
   cref = build4 (ARRAY_REF, array_elt_type, unshare_expr (object),
@@ -2866,22 +2866,22 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
     gimplify_init_ctor_eval (cref, CONSTRUCTOR_ELTS (value),
 			     pre_p, cleared);
   else
-    gs_add (gs_build_assign (cref, value), pre_p);
+    gs_add (pre_p, gs_build_assign (cref, value));
 
   /* We exit the loop when the index var is equal to the upper bound.  */
-  gs_add (gs_build_cond (GS_COND_EQ, var, upper, loop_exit_label, NULL_TREE),
-      	  pre_p);
+  gs_add (pre_p,
+	  gs_build_cond (GS_COND_EQ, var, upper, loop_exit_label, NULL_TREE));
 
   /* Otherwise, increment the index var...  */
   tmp = build2 (PLUS_EXPR, var_type, var,
 		fold_convert (var_type, integer_one_node));
-  gs_add (gs_build_assign (var, tmp), pre_p);
+  gs_add (pre_p, gs_build_assign (var, tmp));
 
   /* ...and jump back to the loop entry.  */
-  gs_add (gs_build_goto (loop_entry_label), pre_p);
+  gs_add (pre_p, gs_build_goto (loop_entry_label));
 
   /* Add the loop exit label.  */
-  gs_add (gs_build_label (loop_exit_label), pre_p);
+  gs_add (pre_p, gs_build_label (loop_exit_label));
 }
 
 /* Return true if FDECL is accessing a field that is zero sized.  */
@@ -2982,7 +2982,7 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 	gimplify_init_ctor_eval (cref, CONSTRUCTOR_ELTS (value),
 				 pre_p, cleared);
       else
-	gs_add (gs_build_assign (cref, value), pre_p);
+	gs_add (pre_p, gs_build_assign (cref, value));
     }
 }
 
@@ -3610,7 +3610,7 @@ gimplify_modify_expr_complex_part (tree *expr_p, gs_seq pre_p, bool want_value)
   if (want_value)
     *expr_p = rhs;
 
-  gs_add (gs_build_assign (lhs, new_rhs), pre_p);
+  gs_add (pre_p, gs_build_assign (lhs, new_rhs));
   return GS_ALL_DONE;
 }
 
@@ -3727,7 +3727,7 @@ gimplify_modify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
       SET_DECL_DEBUG_EXPR (*from_p, *to_p);
     }
 
-  gs_add (gs_build_assign (*to_p, *from_p), pre_p);
+  gs_add (pre_p, gs_build_assign (*to_p, *from_p));
 
   if (want_value)
     {
@@ -4286,9 +4286,9 @@ gimple_push_cleanup (tree var, tree cleanup, bool eh_only, gs_seq pre_p)
       gimple ftrue = gs_build_assign (flag, boolean_true_node);
       cleanup = build3 (COND_EXPR, void_type_node, flag, cleanup, NULL);
       wce = build1 (WITH_CLEANUP_EXPR, void_type_node, cleanup);
-      gs_add (ffalse, &gimplify_ctxp->conditional_cleanups);
-      gs_seq_append (wce, &gimplify_ctxp->conditional_cleanups);
-      gs_add (ftrue, pre_p);
+      gs_add (&gimplify_ctxp->conditional_cleanups, ffalse);
+      gs_seq_append (&gimplify_ctxp->conditional_cleanups, wce);
+      gs_add (pre_p, ftrue);
 #endif
 
       /* Because of this manipulation, and the EH edges that jump
@@ -5806,14 +5806,14 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
 	  if (TREE_CODE (GOTO_DESTINATION (*expr_p)) != LABEL_DECL)
 	    ret = gimplify_expr (&GOTO_DESTINATION (*expr_p), pre_p,
 				 NULL, is_gimple_val, fb_rvalue);
-	  gs_add (gs_build_goto (GOTO_DESTINATION (*expr_p)), pre_p);
+	  gs_add (pre_p, gs_build_goto (GOTO_DESTINATION (*expr_p)));
 	  break;
 
 	case LABEL_EXPR:
 	  ret = GS_ALL_DONE;
 	  gcc_assert (decl_function_context (LABEL_EXPR_LABEL (*expr_p))
 		      == current_function_decl);
-	  gs_add (gs_build_label (LABEL_EXPR_LABEL (*expr_p)), pre_p);
+	  gs_add (pre_p, gs_build_label (LABEL_EXPR_LABEL (*expr_p)));
 	  break;
 
 	case CASE_LABEL_EXPR:
@@ -6185,12 +6185,12 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
     {
       if (!gs_seq_empty_p (&internal_pre) || !gs_seq_empty_p (&internal_post))
 	{
-	  gs_seq_append (&internal_post, &internal_pre);
-	  gs_seq_append (pre_p, &internal_pre);
+	  gs_seq_append (&internal_pre, &internal_post);
+	  gs_seq_append (&internal_pre, pre_p);
 	}
 
-      if (!gs_seq_empty_p (pre_p))
-	annotate_all_with_locus (pre_p, input_location);
+      if (!gs_seq_empty_p (&internal_pre))
+	annotate_all_with_locus (&internal_pre, input_location);
 
       goto out;
     }
@@ -6297,7 +6297,7 @@ gimplify_expr (tree *expr_p, gs_seq pre_p, gs_seq post_p,
   if (!gs_seq_empty_p (&internal_post))
     {
       annotate_all_with_locus (&internal_post, input_location);
-      gs_seq_append (&internal_post, pre_p);
+      gs_seq_append (pre_p, &internal_post);
     }
 
  out:
@@ -6557,7 +6557,7 @@ gimplify_body (tree *body_p, gs_seq seq_p, tree fndecl, bool do_parms)
   if (!outer_bind)
     {
       outer_bind = gs_build_nop ();
-      gs_add (outer_bind, seq_p);
+      gs_add (seq_p, outer_bind);
     }
 
   /* If there isn't an outer GS_BIND, add one.  */
@@ -6574,7 +6574,7 @@ gimplify_body (tree *body_p, gs_seq seq_p, tree fndecl, bool do_parms)
      of the function.  */
   if (gs_seq_empty_p (&parm_stmts) != false)
     {
-      gs_seq_append (gs_bind_body (outer_bind), &parm_stmts);
+      gs_seq_append (&parm_stmts, gs_bind_body (outer_bind));
       gs_bind_set_body (outer_bind, &parm_stmts);
     }
 

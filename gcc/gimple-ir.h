@@ -399,7 +399,7 @@ extern gimple gs_omp_build_ordered (struct gs_sequence);
 extern gimple gs_omp_build_sections (struct gs_sequence, tree);
 extern gimple gs_omp_build_single (struct gs_sequence, tree);
 extern enum gimple_statement_structure_enum gimple_statement_structure (gimple);
-extern void gs_add (gimple, gs_seq);
+extern void gs_add (gs_seq, gimple);
 extern enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
 extern void sort_case_labels (VEC(tree,heap) *);
 extern void walk_tuple_ops (gimple, walk_tree_fn, void *,
@@ -1321,10 +1321,10 @@ gs_return_set_retval (gimple gs, tree retval)
 /* Append sequence SRC to the end of sequence DST.  */
 
 static inline void
-gs_seq_append (gs_seq src, gs_seq dst)
+gs_seq_append (gs_seq dst, gs_seq src)
 {
   if (!gs_seq_empty_p (src))
-    gs_add (gs_seq_first (src), dst);
+    gs_add (dst, gs_seq_first (src));
 }
 
 static inline void

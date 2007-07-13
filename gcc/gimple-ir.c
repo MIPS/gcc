@@ -752,7 +752,7 @@ gs_check_failed (const gimple gs, const char *file, int line,
 /* Link a gimple statement(s) to the end of the sequence SEQ.  */
 
 void
-gs_add (gimple gs, gs_seq seq)
+gs_add (gs_seq seq, gimple gs)
 {
   gimple last;
 

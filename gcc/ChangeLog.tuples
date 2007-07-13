@@ -1,3 +1,9 @@
+2007-07-13  Diego Novillo  <dnovillo@google.com>
+
+	* gimple-ir.c (gs_add): Swap arguments.
+	Update all users.
+	* gimple-ir.h (gs_seq_append): Likewise.
+
 2007-07-12  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c (create_artificial_label): Move from gimplify.c
