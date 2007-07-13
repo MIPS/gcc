@@ -35,6 +35,12 @@ const char *const gs_code_name[] = {
 };
 #undef DEFGSCODE
 
+/* Pointer map to store the sequence of GIMPLE statements
+   corresponding to each function.  For every FUNCTION_DECL FN, the
+   sequence of GIMPLE statements corresponding to FN are stored in
+   gimple_body (FN).  */
+static struct pointer_map_t *gimple_bodies = NULL;
+
 /* Gimple tuple constructors.  */
 
 /* Construct a GS_RETURN statement.
@@ -929,4 +935,33 @@ walk_tuple_ops (gimple gs, walk_tree_fn func, void *data,
       gcc_unreachable ();
       break;
     }
+}
+
+
+/* Set sequence SEQ to be the GIMPLE body for function FN.  */
+
+void
+set_gimple_body (tree fn, gs_seq seq)
+{
+  void **slot;
+
+  if (gimple_bodies == NULL)
+    gimple_bodies = pointer_map_create ();
+
+  slot = pointer_map_insert (gimple_bodies, fn);
+  *slot = (void *) seq;
+}
+  
+
+/* Return the body of GIMPLE statements for function FN.  */
+
+gs_seq
+gimple_body (tree fn)
+{
+  void **slot;
+  
+  if (gimple_bodies && (slot = pointer_map_contains (gimple_bodies, fn)))
+    return (gs_seq) *slot;
+  
+  return NULL;
 }

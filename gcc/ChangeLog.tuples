@@ -1,5 +1,52 @@
 2007-07-12  Diego Novillo  <dnovillo@google.com>
 
+	* tree.c (create_artificial_label): Move from gimplify.c
+	(get_name): Likewise.
+	* tree.h (create_artificial_label, get_name): Move
+	declarations earlier in the file.
+	* diagnostic.h (dump_gimple_stmt, print_gimple_stmt,
+	dump_gimple_seq): Rearrange.
+	* tree-gimple.h (gimplify_function_tree): Move from tree.h.
+	* gimple-pretty-print.c (do_niy): Tidy.
+	(maybe_init_pretty_print): Add comment.
+	(newline_and_indent): Likewise.
+	Remove "gimpleir: " prefix.
+	(debug_gimple_stmt): Add comment.
+	(dump_gs_seq): Remove.
+	(dump_gimple_seq): Add argument SPC.
+	Update all users.
+	If FLAGS contains TDF_DETAILS, emit "gimpleir:" prefix.
+	(dump_gs_cond): If FLAGS contains TDF_DETAILS, emit
+	"gimpleir:" prefix.
+	(dump_gs_bind): Likewise.
+	* function.h (struct function): Remove field 'gimplified'.
+	* gimple-ir.c (gimple_bodies): New private variable.
+	(set_gimple_body): New.
+	(gimple_body): New.
+	* gimple-ir.h: Include pointer-set.h.
+	Add comment before data structure definitons.
+	(set_gimple_body): Declare.
+	(gimple_body): Declare.
+	* gimplify.c (create_artificial_label): Move to tree.c
+	(get_name): Likewise.
+	(gimplify_function_tree): Change return type to void.
+	Call set_gimple_body after gimplification and nullify
+	DECL_SAVED_TREE.
+	Update all callers.
+	* common.opt (fgimple-only): New option.
+	* tree-optimize.c (tree_rest_of_compilation): Do not nullify
+	DECL_SAVED_TREE.
+	* c-gimplify.c (c_genericize): Restore gimplification logic to
+	mainline version.
+	If -fgimple-only was given, exit.
+	* Makefile.in (GIMPLE_IR_H): Add pointer-set.h
+	* tree-cfg.c (execute_build_cfg): Nullify GIMPLE body after
+	building the CFG.
+	(dump_function_to_file): If DECL_SAVED_TREE is NULL dump the
+	GIMPLE body of the function.
+
+2007-07-12  Diego Novillo  <dnovillo@google.com>
+
 	* omp-low.c (lower_regimplify): Use a local GIMPLE sequence to
 	hold the result from gimplification.
 	* tree-gimple.c (is_gimple_min_val): Reformat.

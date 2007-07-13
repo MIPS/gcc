@@ -475,11 +475,6 @@ struct function GTY(())
 
   /* Set when the tail call has been produced.  */
   unsigned int tail_call_emit : 1;
-
-  /* FIXME tuples: This bit is temporarily here to mark when a
-     function has been gimplified, so we can make sure we're not
-     creating non GIMPLE tuples after gimplification.  */
-  unsigned gimplified : 1;
 };
 
 /* If va_list_[gf]pr_size is set to this, it means we don't know how

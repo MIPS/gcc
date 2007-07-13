@@ -209,6 +209,7 @@ static unsigned int
 execute_build_cfg (void)
 {
   build_tree_cfg (&DECL_SAVED_TREE (current_function_decl));
+  set_gimple_body (current_function_decl, NULL);
   return 0;
 }
 
@@ -4990,7 +4991,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
 
   if (cfun && cfun->decl == fn && cfun->cfg && basic_block_info)
     {
-      /* Make a CFG based dump.  */
+      /* If the CFG has been built, emit a CFG-based dump.  */
       check_bb_profile (ENTRY_BLOCK_PTR, file);
       if (!ignore_topmost_bind)
 	fprintf (file, "{\n");
@@ -5003,6 +5004,13 @@ dump_function_to_file (tree fn, FILE *file, int flags)
 
       fprintf (file, "}\n");
       check_bb_profile (EXIT_BLOCK_PTR, file);
+    }
+  else if (DECL_SAVED_TREE (fn) == NULL)
+    {
+      /* The function is now in GIMPLE form but the CFG has not been
+	 built yet.  Emit the single sequence of GIMPLE statements
+	 that make up its body.  */
+      print_gimple_seq (file, gimple_body (fn), 2, flags);
     }
   else
     {

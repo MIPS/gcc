@@ -371,20 +371,6 @@ remove_suffix (char *name, int len)
     }
 }
 
-/* Create a nameless artificial label and put it in the current function
-   context.  Returns the newly created label.  */
-
-tree
-create_artificial_label (void)
-{
-  tree lab = build_decl (LABEL_DECL, NULL_TREE, void_type_node);
-
-  DECL_ARTIFICIAL (lab) = 1;
-  DECL_IGNORED_P (lab) = 1;
-  DECL_CONTEXT (lab) = current_function_decl;
-  return lab;
-}
-
 /* Subroutine for find_single_pointer_decl.  */
 
 static tree
@@ -501,31 +487,6 @@ create_tmp_var (tree type, const char *prefix)
   tmp_var = create_tmp_var_raw (type, prefix);
   gimple_add_tmp_var (tmp_var);
   return tmp_var;
-}
-
-/*  Given a tree, try to return a useful variable name that we can use
-    to prefix a temporary that is being assigned the value of the tree.
-    I.E. given  <temp> = &A, return A.  */
-
-const char *
-get_name (tree t)
-{
-  tree stripped_decl;
-
-  stripped_decl = t;
-  STRIP_NOPS (stripped_decl);
-  if (DECL_P (stripped_decl) && DECL_NAME (stripped_decl))
-    return IDENTIFIER_POINTER (DECL_NAME (stripped_decl));
-  else
-    {
-      switch (TREE_CODE (stripped_decl))
-	{
-	case ADDR_EXPR:
-	  return get_name (TREE_OPERAND (stripped_decl, 0));
-	default:
-	  return NULL;
-	}
-    }
 }
 
 /* Create a temporary with a name derived from VAL.  Subroutine of
@@ -6634,11 +6595,11 @@ gimplify_body (tree *body_p, gs_seq seq_p, tree fndecl, bool do_parms)
    Returns the sequence of GIMPLE statements corresponding to the body
    of FNDECL.  */
 
-struct gs_sequence
+void
 gimplify_function_tree (tree fndecl)
 {
   tree oldfn, parm, ret;
-  struct gs_sequence seq;
+  gs_seq seq;
 
   oldfn = current_function_decl;
   current_function_decl = fndecl;
@@ -6664,8 +6625,8 @@ gimplify_function_tree (tree fndecl)
       && !needs_to_live_in_memory (ret))
     DECL_GIMPLE_REG_P (ret) = 1;
 
-  gs_seq_init (&seq);
-  gimplify_body (&DECL_SAVED_TREE (fndecl), &seq, fndecl, true);
+  seq = (gs_seq) ggc_alloc_cleared (sizeof (*seq));
+  gimplify_body (&DECL_SAVED_TREE (fndecl), seq, fndecl, true);
 
   /* FIXME tuples */
 #if 0
@@ -6697,12 +6658,16 @@ gimplify_function_tree (tree fndecl)
     }
 #endif
 
-  cfun->gimplified = true;
+  /* The tree body of the function is no longer needed, replace it
+     with the new GIMPLE body.  */
+  set_gimple_body (fndecl, seq);
+  DECL_SAVED_TREE (fndecl) = NULL_TREE;
+
   current_function_decl = oldfn;
   cfun = oldfn ? DECL_STRUCT_FUNCTION (oldfn) : NULL;
-  return seq;
 }
-
+
+
 /* Expands EXPR to list of gimple statements STMTS.  If SIMPLE is true,
    force the result to be either ssa_name or an invariant, otherwise
    just force it to be a rhs expression.  If VAR is not NULL, make the

@@ -23,6 +23,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_GIMPLE_IR_H
 #define GCC_GIMPLE_IR_H
 
+#include "pointer-set.h"
+
 enum gs_code {
 #define DEFGSCODE(SYM, STRING)	SYM,
 #include "gimple.def"
@@ -82,6 +84,8 @@ gs_seq_empty_p (gs_seq s)
   return s->first == NULL;
 }
 
+/* Data structure definitions for GIMPLE tuples.  */
+
 struct gimple_statement_base GTY(())
 {
   ENUM_BITFIELD(gs_code) code : 16;
@@ -116,8 +120,6 @@ struct gimple_statement_omp GTY(())
      struct gimple_statement_base base;
      struct gs_sequence body;
 };
-
-/* Gimple tuples.  */
 
 /* GS_BIND */
 struct gimple_statement_bind GTY(())
@@ -402,8 +404,9 @@ extern enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
 extern void sort_case_labels (VEC(tree,heap) *);
 extern void walk_tuple_ops (gimple, walk_tree_fn, void *,
     			    struct pointer_set_t *);
-extern void walk_seq_ops (gs_seq, walk_tree_fn, void *,
-			  struct pointer_set_t *);
+extern void walk_seq_ops (gs_seq, walk_tree_fn, void *, struct pointer_set_t *);
+extern void set_gimple_body (tree, gs_seq);
+extern gs_seq gimple_body (tree);
 
 extern const char *const gs_code_name[];
 
@@ -1329,5 +1332,7 @@ gs_add_subcode_flag (gimple g, unsigned int flag)
 {
   GS_SUBCODE_FLAGS (g) |= flag;
 }
+
 #include "gimple-iterator.h"
+
 #endif  /* GCC_GIMPLE_IR_H */

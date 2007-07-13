@@ -410,7 +410,6 @@ tree_rest_of_compilation (tree fndecl)
   /* Release the default bitmap obstack.  */
   bitmap_obstack_release (NULL);
   
-  DECL_SAVED_TREE (fndecl) = NULL;
   cfun = 0;
 
   /* If requested, warn about function definitions where the function will

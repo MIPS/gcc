@@ -80,7 +80,6 @@ c_genericize (tree fndecl)
   FILE *dump_orig;
   int local_dump_flags;
   struct cgraph_node *cgn;
-  struct gs_sequence seq;
 
   /* Dump the C-specific tree IR.  */
   dump_orig = dump_begin (TDI_original, &local_dump_flags);
@@ -104,23 +103,12 @@ c_genericize (tree fndecl)
     }
 
   /* Go ahead and gimplify for now.  */
-  seq = gimplify_function_tree (fndecl);
+  gimplify_function_tree (fndecl);
 
-  dump_orig = dump_begin (TDI_generic, &local_dump_flags);
-  if (dump_orig)
-    {
-      /* Dump the genericized tree IR.  */
-      dump_function_to_file (fndecl, dump_orig, local_dump_flags);
+  dump_function (TDI_generic, fndecl);
 
-      /* Dump the gimple IR.  */
-      if (dump_orig && (local_dump_flags & TDF_DETAILS))
-	dump_gimple_seq (dump_orig, &seq);
-
-      dump_end (TDI_generic, dump_orig);
-    }
-
-  /* FIXME tuples.  */
-  exit (0);
+  if (flag_gimple_only)
+    exit (0);
 
   /* Genericize all nested functions now.  We do things in this order so
      that items like VLA sizes are expanded properly in the context of

@@ -48,10 +48,12 @@ static bool initialized = false;
 static void
 do_niy (pretty_printer *buffer, gimple gs)
 {
-  pp_printf (buffer, "<<< Unknown gimple statement: %s >>>\n",
+  pp_printf (buffer, "<<< Unknown GIMPLE statement: %s >>>\n",
 	     gs_code_name[(int) GS_CODE (gs)]);
 }
 
+
+/* Initialize the pretty printer on FILE if needed.  */
 
 static void
 maybe_init_pretty_print (FILE *file)
@@ -67,76 +69,74 @@ maybe_init_pretty_print (FILE *file)
 }
 
 
+/* Emit a newline and SPC indentantion spaces to BUFFER.  */
+
 static void
 newline_and_indent (pretty_printer *buffer, int spc)
 {
   pp_newline (buffer);
-  pp_string (buffer, "gimpleir: ");
   INDENT (spc);
 }
 
 
+/* Print the GIMPLE statement GS on stderr.  */
+
 void
 debug_gimple_stmt (gimple gs)
 {
-  print_gimple_stmt (stderr, gs, TDF_VOPS|TDF_MEMSYMS);
+  print_gimple_stmt (stderr, gs, 0, TDF_VOPS|TDF_MEMSYMS);
   fprintf (stderr, "\n");
 }
 
 
-void
-debug_gimple_seq (gs_seq seq)
-{
-  gimple_stmt_iterator i;
+/* Dump GIMPLE statement G to FILE using SPC indentantion spaces and
+   FLAGS as in dump_gimple_stmt.  */
 
-  for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
-    {
-      gimple gs = gsi_stmt (i);
-      print_gimple_stmt (stderr, gs, TDF_VOPS|TDF_MEMSYMS);
-    }
+void
+print_gimple_stmt (FILE *file, gimple g, int spc, int flags)
+{
+  maybe_init_pretty_print (file);
+  dump_gimple_stmt (&buffer, g, spc, flags);
+  pp_flush (&buffer);
 }
 
 
-/* Dump a sequence to a BUFFER.  */
+/* Print the GIMPLE sequence SEQ on BUFFER using SPC indentantion
+   spaces and FLAGS as in dump_gimple_stmt.  */
 
 static void
-dump_gs_seq (pretty_printer *buffer, gs_seq seq, int spc, int flags)
+dump_gimple_seq (pretty_printer *buffer, gs_seq seq, int spc, int flags)
 {
   gimple_stmt_iterator i;
 
   for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
     {
       gimple gs = gsi_stmt (i);
-      pp_string (buffer, "gimpleir: ");
+      if (flags & TDF_DETAILS)
+	pp_string (buffer, "gimpleir: ");
       dump_gimple_stmt (buffer, gs, spc, flags);
     }
 }
 
 
-/* Dump a sequence to a FILE *.  */
+/* Dump GIMPLE sequence SEQ to FILE using SPC indentantion spaces and
+   FLAGS as in dump_gimple_stmt.  */
 
 void
-dump_gimple_seq (FILE *file, gs_seq seq)
+print_gimple_seq (FILE *file, gs_seq seq, int spc, int flags)
 {
-  gimple_stmt_iterator i;
-
-  for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
-    {
-      gimple gs = gsi_stmt (i);
-      fprintf (file, "gimpleir: ");
-      print_gimple_stmt (file, gs, TDF_VOPS|TDF_MEMSYMS);
-    }
+  maybe_init_pretty_print (file);
+  dump_gimple_seq (&buffer, seq, spc, flags);
+  pp_flush (&buffer);
 }
 
 
-/* Same, but for gimple statements.  */
+/* Print the GIMPLE sequence SEQ on stderr.  */
 
 void
-print_gimple_stmt (FILE *file, gimple g, int flags)
+debug_gimple_seq (gs_seq seq)
 {
-  maybe_init_pretty_print (file);
-  dump_gimple_stmt (&buffer, g, 0, flags);
-  pp_flush (&buffer);
+  print_gimple_seq (stderr, seq, 0, TDF_VOPS|TDF_MEMSYMS);
 }
 
 
@@ -264,8 +264,8 @@ op_gs_cond (enum gs_cond pred)
 static void
 dump_gs_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  /* This stupid line is here so we can scan for it in the testsuite.  */
-  pp_string (buffer, "GS_COND tuple");
+  if (flags & TDF_DETAILS)
+    pp_string (buffer, "GS_COND tuple");
 
   newline_and_indent (buffer, spc);
   pp_string (buffer, "if (");
@@ -317,7 +317,9 @@ dump_gs_label (pretty_printer *buffer, gimple gs, int spc, int flags)
 static void
 dump_gs_bind (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  pp_string (buffer, "GS_BIND tuple");
+  if (flags & TDF_DETAILS)
+    pp_string (buffer, "GS_BIND tuple");
+
   newline_and_indent (buffer, spc);
 
   pp_character (buffer, '{');
@@ -334,7 +336,7 @@ dump_gs_bind (pretty_printer *buffer, gimple gs, int spc, int flags)
       newline_and_indent (buffer, spc + 2);
     }
 
-  dump_gs_seq (buffer, gs_bind_body (gs), spc + 2, flags);
+  dump_gimple_seq (buffer, gs_bind_body (gs), spc + 2, flags);
   newline_and_indent (buffer, spc);
   pp_character (buffer, '}');
 }
@@ -378,7 +380,7 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GS_NOP:
-      pp_string (buffer, "GS_NOP tuple");
+      pp_string (buffer, "GS_NOP");
       break;
 
     case GS_RETURN:
@@ -392,6 +394,7 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
     default:
       GS_NIY;
     }
+
   newline_and_indent (buffer, spc);
   pp_write_text_to_stream (buffer);
 }

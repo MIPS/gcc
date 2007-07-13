@@ -4368,6 +4368,11 @@ extern bool empty_body_p (tree);
 extern tree call_expr_arg (tree, int);
 extern tree *call_expr_argp (tree, int);
 extern tree call_expr_arglist (tree);
+extern tree create_artificial_label (void);
+extern const char *get_name (tree);
+
+/* In gimplify.c */
+extern tree unshare_expr (tree);
 
 /* In stmt.c */
 
@@ -4735,11 +4740,6 @@ extern void expand_anon_union_decl (tree, tree, tree);
 extern tree tree_overlaps_hard_reg_set (tree, HARD_REG_SET *);
 #endif
 
-/* In gimplify.c.  */
-extern tree create_artificial_label (void);
-extern struct gs_sequence gimplify_function_tree (tree);
-extern const char *get_name (tree);
-extern tree unshare_expr (tree);
 
 /* Interface of the DWARF2 unwind info support.  */
 

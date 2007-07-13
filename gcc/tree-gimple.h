@@ -150,6 +150,9 @@ extern tree omp_reduction_init (tree, tree);
 extern void lower_nested_functions (tree);
 extern void insert_field_into_struct (tree, tree);
 
+/* In gimplify.c.  */
+extern void gimplify_function_tree (tree);
+
 /* Convenience routines to walk all statements of a gimple function.
    The difference between these walkers and the generic walk_tree is
    that walk_stmt provides context information to the callback
