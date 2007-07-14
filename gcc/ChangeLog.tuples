@@ -1,3 +1,44 @@
+2007-07-14  Aldy Hernandez  <aldyh@redhat.com> 
+
+	* testsuite/gcc.dg/gimple/with_size_expr.c: Check for GS_TRY.
+	* Makefile.in (gimple-ir.o): Add diagnostic.h dependency.
+	* gimple-pretty-print.c (dump_gs_call): Dump LHS if available.
+	(dump_gs_try): New.
+	(dump_gimple_stmt): Add case for GS_TRY.
+	* gimple-ir.c.  Include diagnostic.h.
+	(gs_build_try): Cleanup and eval are sequences.
+	Remove catch_p and finally_p arguments.  Add catch_finally argument.
+	(gs_omp_build_critical): Body is a gs_seq.
+	(gs_omp_build_parallel): Same.
+	(gs_omp_build_section): Same.
+	(gs_omp_build_master): Same.
+	(gs_omp_build_continue): Same.
+	(gs_omp_build_ordered): Same.
+	(gs_omp_build_sections): Same.
+	(gs_omp_build_single): Same.
+	(gs_omp_build_for): Body and pre_body is a gs_seq.
+	(gs_push): New.
+	(gs_pop): New.
+	(walk_tuple_ops): Walk GS_TRY tuples eval and cleanups correctly.
+	Dump tuple before we ICE.
+	* gimple-ir.h (gs_seq_copy): New.
+	(struct gimple_statement_try): Eval and cleanups are gs_seq's.
+	(gs_bind_set_body): Use gs_seq_copy.
+	(gs_try_eval): Return address of eval.
+	(gs_try_cleanup): Return address of cleanup.
+	(gs_try_set_eval): Use gs_seq_copy.
+	(gs_try_set_cleanup): Same.
+	(gs_omp_set_body): Same.
+	(gs_omp_for_set_pre_body): Same.
+	* gimplify.c (struct gimplify_ctx): Rename current_bind_expr to
+	current_bind_expr_seq, and make it a sequence.
+	(pop_gimplify_context): Adjust for current_bind_expr_seq.
+	(gimple_push_bind_expr): Same.
+	(gimple_pop_bind_expr): Same.
+	(gimple_current_bind_expr): Same.
+	(build_stack_save_restore): Generate tuples.
+	(gimplify_bind_expr): Same.
+
 2007-07-13  Diego Novillo  <dnovillo@google.com>
 
 	* gimple-ir.c (gs_add): Swap arguments.

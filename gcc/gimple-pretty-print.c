@@ -206,6 +206,13 @@ static void
 dump_gs_call (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
   size_t i;
+  tree lhs = gs_call_lhs (gs);
+
+  if (lhs)
+    {
+      dump_generic_node (buffer, lhs, spc, flags, false);
+      pp_string (buffer, " = ");
+    }
 
   dump_generic_node (buffer, gs_call_fn (gs), spc, flags, false);
   pp_string (buffer, " (");
@@ -312,7 +319,7 @@ dump_gs_label (pretty_printer *buffer, gimple gs, int spc, int flags)
 
 /* Dump a GS_BIND tuple on the pretty_printer BUFFER, SPC
    spaces of indent.  FLAGS specifies details to show in the dump (see
-   TDF_* in tree.h)  */
+   TDF_* in tree.h).  */
 
 static void
 dump_gs_bind (pretty_printer *buffer, gimple gs, int spc, int flags)
@@ -337,6 +344,32 @@ dump_gs_bind (pretty_printer *buffer, gimple gs, int spc, int flags)
     }
 
   dump_gimple_seq (buffer, gs_bind_body (gs), spc + 2, flags);
+  newline_and_indent (buffer, spc);
+  pp_character (buffer, '}');
+}
+
+
+/* Dump a GS_TRY tuple on the pretty_printer BUFFER, SPC spaces of
+   indent.  FLAGS specifies details to show in the dump (see TDF_* in
+   tree.h).  */
+
+static void
+dump_gs_try (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  if (flags & TDF_DETAILS)
+    pp_string (buffer, "GS_TRY tuple");
+
+  newline_and_indent (buffer, spc);
+  pp_string (buffer, "try {");
+  newline_and_indent (buffer, spc + 2);
+  dump_gimple_seq (buffer, gs_try_eval (gs), spc + 2, flags);
+  newline_and_indent (buffer, spc);
+  if (GS_SUBCODE_FLAGS (gs) == GS_TRY_CATCH)
+    pp_string (buffer, "} catch {");
+  else
+    pp_string (buffer, "} finally {");
+  newline_and_indent (buffer, spc + 2);
+  dump_gimple_seq (buffer, gs_try_cleanup (gs), spc + 2, flags);
   newline_and_indent (buffer, spc);
   pp_character (buffer, '}');
 }
@@ -389,6 +422,10 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 
     case GS_SWITCH:
       dump_gs_switch (buffer, gs, spc, flags);
+      break;
+
+    case GS_TRY:
+      dump_gs_try (buffer, gs, spc, flags);
       break;
 
     default:

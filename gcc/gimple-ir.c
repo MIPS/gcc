@@ -28,6 +28,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "errors.h"
 #include "tree-gimple.h"
 #include "gimple-ir.h"
+#include "diagnostic.h"
 
 #define DEFGSCODE(SYM, NAME)	NAME,
 const char *const gs_code_name[] = {
@@ -363,22 +364,21 @@ gs_build_eh_filter (tree types, gimple failure)
 
    EVAL is the expression to evaluate.
    CLEANUP is the cleanup expression.
-   CATCH_P is true if this is a try/catch
-   FINALLY_P is true if this is a try/finally.  */
+   CATCH_FINALLY is either GS_TRY_CATCH or GS_TRY_FINALLY depending on whether
+   this is a try/catch or a try/finally respectively.  */
 
 gimple
-gs_build_try (gimple eval, gimple cleanup, bool catch_p, bool finally_p)
+gs_build_try (gs_seq eval, gs_seq cleanup, unsigned int catch_finally)
 {
   gimple p;
 
+  gcc_assert (catch_finally == GS_TRY_CATCH
+	      || catch_finally == GS_TRY_FINALLY);
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_try));
   GS_CODE (p) = GS_TRY;
   gs_try_set_eval (p, eval);
   gs_try_set_cleanup (p, cleanup);
-  if (catch_p)
-    GS_SUBCODE_FLAGS (p) |= GS_TRY_CATCH;
-  if (finally_p)
-    GS_SUBCODE_FLAGS (p) |= GS_TRY_FINALLY;
+  GS_SUBCODE_FLAGS (p) = catch_finally;
 
   return p;
 }
@@ -504,7 +504,7 @@ gs_build_switch_vec (tree index, tree default_label, VEC(tree, heap) * args)
    NAME is optional identifier for this critical block.  */
 
 gimple 
-gs_omp_build_critical (struct gs_sequence body, tree name)
+gs_omp_build_critical (gs_seq body, tree name)
 {
   gimple p;
 
@@ -528,11 +528,10 @@ gs_omp_build_critical (struct gs_sequence body, tree name)
    OMP_FOR_COND  the predicate used to compare INDEX and FINAL.
    INCR is the increment expression.  */
 
-gimple 
-gs_omp_build_for (struct gs_sequence body, tree clauses, tree index, 
+gimple
+gs_omp_build_for (gs_seq body, tree clauses, tree index, 
                   tree initial, tree final, tree incr, 
-                  struct gs_sequence pre_body, 
-                  enum gs_cond omp_for_cond)
+                  gs_seq pre_body, enum gs_cond omp_for_cond)
 {
   gimple p;
 
@@ -558,7 +557,7 @@ gs_omp_build_for (struct gs_sequence body, tree clauses, tree index,
    DATA_ARG are the shared data argument(s).  */
 
 gimple 
-gs_omp_build_parallel (struct gs_sequence body, tree clauses, tree child_fn, 
+gs_omp_build_parallel (gs_seq body, tree clauses, tree child_fn, 
                        tree data_arg)
 {
   gimple p;
@@ -577,8 +576,8 @@ gs_omp_build_parallel (struct gs_sequence body, tree clauses, tree child_fn,
 
    BODY is the sequence of statements in the section.  */
 
-gimple 
-gs_omp_build_section (struct gs_sequence body)
+gimple
+gs_omp_build_section (gs_seq body)
 {
   gimple p;
 
@@ -593,7 +592,7 @@ gs_omp_build_section (struct gs_sequence body)
    BODY is the sequence of statements to be executed by just the master.  */
 
 gimple 
-gs_omp_build_master (struct gs_sequence body)
+gs_omp_build_master (gs_seq body)
 {
   gimple p;
 
@@ -607,7 +606,7 @@ gs_omp_build_master (struct gs_sequence body)
    FIXME tuples: BODY.  */
 
 gimple 
-gs_omp_build_continue (struct gs_sequence body)
+gs_omp_build_continue (gs_seq body)
 {
   gimple p;
 
@@ -624,7 +623,7 @@ gs_omp_build_continue (struct gs_sequence body)
    sequence.  */
 
 gimple 
-gs_omp_build_ordered (struct gs_sequence body)
+gs_omp_build_ordered (gs_seq body)
 {
   gimple p;
 
@@ -658,7 +657,7 @@ gs_omp_build_return (bool wait_p)
    firstprivate, lastprivate, reduction, and nowait.  */
 
 gimple 
-gs_omp_build_sections (struct gs_sequence body, tree clauses)
+gs_omp_build_sections (gs_seq body, tree clauses)
 {
   gimple p;
 
@@ -677,7 +676,7 @@ gs_omp_build_sections (struct gs_sequence body, tree clauses)
    copyprivate, nowait.  */
 
 gimple 
-gs_omp_build_single (struct gs_sequence body, tree clauses)
+gs_omp_build_single (gs_seq body, tree clauses)
 {
   gimple p;
 
@@ -748,6 +747,39 @@ gs_check_failed (const gimple gs, const char *file, int line,
 		  function, trim_filename (file), line);
 }
 #endif /* ENABLE_TREE_CHECKING */
+
+
+/* Push gimple statement GS into the front of sequence SEQ.  */
+
+void
+gs_push (gimple gs, gs_seq seq)
+{
+  gimple oldfirst = gs_seq_first (seq);
+
+  GS_NEXT (gs) = oldfirst;
+  if (oldfirst)
+    GS_PREV (oldfirst) = gs;
+  gs_seq_set_first (seq, gs);
+}
+
+
+/* Remove the first gimple statement from sequence SEQ and return it.  */
+
+gimple
+gs_pop (gs_seq seq)
+{
+  gimple first = gs_seq_first (seq);
+  gimple new_first;
+
+  gs_seq_set_first (seq, GS_NEXT (first));
+  new_first = gs_seq_first (seq);
+  if (new_first)
+    GS_PREV (new_first) = NULL;
+  if (first)
+    GS_NEXT (first) = NULL;
+  return first;
+}
+
 
 /* Link a gimple statement(s) to the end of the sequence SEQ.  */
 
@@ -881,8 +913,8 @@ walk_tuple_ops (gimple gs, walk_tree_fn func, void *data,
       break;
 
     case GS_TRY:
-      walk_tuple_ops (gs_try_eval (gs), func, data, pset);
-      walk_tuple_ops (gs_try_cleanup (gs), func, data, pset);
+      walk_seq_ops (gs_try_eval (gs), func, data, pset);
+      walk_seq_ops (gs_try_cleanup (gs), func, data, pset);
       break;
 
     case GS_OMP_CRITICAL:
@@ -932,6 +964,7 @@ walk_tuple_ops (gimple gs, walk_tree_fn func, void *data,
       break;
 
     default:
+      debug_gimple_stmt (gs);
       gcc_unreachable ();
       break;
     }

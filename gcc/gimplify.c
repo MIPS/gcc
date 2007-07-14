@@ -85,7 +85,7 @@ struct gimplify_ctx
 {
   struct gimplify_ctx *prev_context;
 
-  gimple current_bind_expr;
+  struct gs_sequence current_bind_expr_seq;
   tree temps;
   struct gs_sequence conditional_cleanups;
   tree exit_label;
@@ -177,7 +177,7 @@ pop_gimplify_context (gimple body)
   struct gimplify_ctx *c = gimplify_ctxp;
   tree t;
 
-  gcc_assert (c && !c->current_bind_expr);
+  gcc_assert (c && gs_seq_empty_p (&c->current_bind_expr_seq));
   gimplify_ctxp = c->prev_context;
 
   for (t = c->temps; t ; t = TREE_CHAIN (t))
@@ -198,23 +198,21 @@ pop_gimplify_context (gimple body)
 }
 
 static void
-gimple_push_bind_expr (tree bind)
+gimple_push_bind_expr (gimple gs_bind)
 {
-  TREE_CHAIN (bind) = gimplify_ctxp->current_bind_expr;
-  gimplify_ctxp->current_bind_expr = bind;
+  gs_push (gs_bind, &gimplify_ctxp->current_bind_expr_seq);
 }
 
 static void
 gimple_pop_bind_expr (void)
 {
-  gimplify_ctxp->current_bind_expr
-    = TREE_CHAIN (gimplify_ctxp->current_bind_expr);
+  gs_pop (&gimplify_ctxp->current_bind_expr_seq);
 }
 
 gimple
 gimple_current_bind_expr (void)
 {
-  return gimplify_ctxp->current_bind_expr;
+  return gs_seq_first (&gimplify_ctxp->current_bind_expr_seq);
 }
 
 /* Returns true iff there is a COND_EXPR between us and the innermost
@@ -990,18 +988,16 @@ voidify_wrapper_expr (tree wrapper, tree temp)
    a temporary through which they communicate.  */
 
 static void
-build_stack_save_restore (tree *save, tree *restore)
+build_stack_save_restore (gimple *save, gimple *restore)
 {
-  tree save_call, tmp_var;
+  tree tmp_var;
 
-  save_call =
-    build_call_expr (implicit_built_in_decls[BUILT_IN_STACK_SAVE], 0);
+  *save = gs_build_call (implicit_built_in_decls[BUILT_IN_STACK_SAVE], 0);
   tmp_var = create_tmp_var (ptr_type_node, "saved_stack");
+  gs_call_set_lhs (*save, tmp_var);
 
-  *save = build_gimple_modify_stmt (tmp_var, save_call);
-  *restore =
-    build_call_expr (implicit_built_in_decls[BUILT_IN_STACK_RESTORE],
-		     1, tmp_var);
+  *restore = gs_build_call (implicit_built_in_decls[BUILT_IN_STACK_RESTORE],
+			    1, tmp_var);
 }
 
 /* Gimplify a BIND_EXPR.  Just voidify and recurse.  */
@@ -1012,6 +1008,10 @@ gimplify_bind_expr (tree *expr_p, gs_seq pre_p)
   tree bind_expr = *expr_p;
   bool old_save_stack = gimplify_ctxp->save_stack;
   tree t;
+  gimple gs_bind;
+  struct gs_sequence empty_seq;
+
+  gs_seq_init (&empty_seq);
 
   tree temp = voidify_wrapper_expr (bind_expr, NULL);
 
@@ -1043,36 +1043,48 @@ gimplify_bind_expr (tree *expr_p, gs_seq pre_p)
 	DECL_GIMPLE_REG_P (t) = 1;
     }
 
-  gimple_push_bind_expr (bind_expr);
+  gs_bind = gs_build_bind (BIND_EXPR_VARS (bind_expr), &empty_seq);
+  gimple_push_bind_expr (gs_bind);
+
   gimplify_ctxp->save_stack = false;
 
-  gimplify_stmt (&BIND_EXPR_BODY (bind_expr), pre_p);
+  /* Gimplify the body into the GS_BIND tuple's body.  */
+  gimplify_stmt (&BIND_EXPR_BODY (bind_expr), gs_bind_body (gs_bind));
 
   if (gimplify_ctxp->save_stack)
     {
-      tree stack_save, stack_restore;
+      gimple stack_save, stack_restore, gs;
+      struct gs_sequence restore_seq;
 
       /* Save stack on entry and restore it on exit.  Add a try_finally
 	 block to achieve this.  Note that mudflap depends on the
 	 format of the emitted code: see mx_register_decls().  */
       build_stack_save_restore (&stack_save, &stack_restore);
 
-      t = build2 (TRY_FINALLY_EXPR, void_type_node,
-		  BIND_EXPR_BODY (bind_expr), NULL_TREE);
-      append_to_statement_list (stack_restore, &TREE_OPERAND (t, 1));
+      /* FIXME tuples: Creating a one item sequence is really
+	 retarded.  If this happens more often in the gimplifier we
+	 should create a helper function for this.  */
+      gs_seq_init (&restore_seq);
+      gs_add (&restore_seq, stack_restore);
 
-      BIND_EXPR_BODY (bind_expr) = NULL_TREE;
-      append_to_statement_list (stack_save, &BIND_EXPR_BODY (bind_expr));
-      append_to_statement_list (t, &BIND_EXPR_BODY (bind_expr));
+      gs = gs_build_try (gs_bind_body (gs_bind), &restore_seq, GS_TRY_FINALLY);
+
+      gs_bind_set_body (gs_bind, &empty_seq);
+      gs_add (gs_bind_body (gs_bind), stack_save);
+      gs_add (gs_bind_body (gs_bind), gs);
     }
 
   gimplify_ctxp->save_stack = old_save_stack;
+
+  /* Make sure we add the gs_bind into the queue after we pop the
+     current bind_expr, else we risk corrupting the current_bind_expr_seq
+     stack.  */
   gimple_pop_bind_expr ();
+  gs_add (pre_p, gs_bind);
 
   if (temp)
     {
       *expr_p = temp;
-      gimplify_and_add (bind_expr, pre_p);
       return GS_OK;
     }
   else
@@ -5009,7 +5021,7 @@ gimplify_omp_parallel (tree *expr_p, gs_seq pre_p)
   if (TREE_CODE (OMP_PARALLEL_BODY (expr)) == BIND_EXPR)
     pop_gimplify_context (OMP_PARALLEL_BODY (expr));
   else
-    pop_gimplify_context (NULL_TREE);
+    pop_gimplify_context (NULL);
 
   gimplify_adjust_omp_clauses (&OMP_PARALLEL_CLAUSES (expr));
 
@@ -6564,8 +6576,7 @@ gimplify_body (tree *body_p, gs_seq seq_p, tree fndecl, bool do_parms)
   if (GS_CODE (outer_bind) != GS_BIND)
     {
       outer_bind = gs_build_bind (NULL_TREE, seq_p);
-      gs_seq_set_first (seq_p, outer_bind);
-      gs_seq_set_last (seq_p, outer_bind);
+      gs_add (seq_p, outer_bind);
     }
 
   *body_p = NULL_TREE;

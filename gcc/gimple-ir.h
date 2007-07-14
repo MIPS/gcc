@@ -78,6 +78,15 @@ gs_seq_init (gs_seq s)
   s->last = NULL;
 }
 
+/* Copy the sequence SRC into the sequence DEST.  */
+
+static inline void
+gs_seq_copy (gs_seq dest, gs_seq src)
+{
+  gs_seq_set_first (dest, gs_seq_first (src));
+  gs_seq_set_last (dest, gs_seq_last (src));
+}
+
 static inline bool
 gs_seq_empty_p (gs_seq s)
 {
@@ -177,9 +186,9 @@ struct gimple_statement_try GTY(())
 {
   struct gimple_statement_base base;
   /* Expression to evaluate.  */
-  gimple eval;
+  struct gs_sequence eval;
   /* Cleanup expression.  */
-  gimple cleanup;
+  struct gs_sequence cleanup;
 };
 
 /* Flags stored in GS_TRY's subcode flags.  */
@@ -382,24 +391,26 @@ extern gimple gs_build_bind (tree, gs_seq);
 extern gimple gs_build_asm (const char *, unsigned, unsigned, unsigned, ...);
 extern gimple gs_build_catch (tree, gimple);
 extern gimple gs_build_eh_filter (tree, gimple);
-extern gimple gs_build_try (gimple, gimple, bool, bool);
+extern gimple gs_build_try (gs_seq, gs_seq, unsigned int);
 extern gimple gs_build_phi (unsigned, unsigned, tree, ...);
 extern gimple gs_build_resx (int);
 extern gimple gs_build_switch (unsigned int, tree, tree, ...);
 extern gimple gs_build_switch_vec (tree, tree, VEC(tree,heap) *);
-extern gimple gs_omp_build_parallel (struct gs_sequence, tree, tree, tree);
-extern gimple gs_omp_build_for (struct gs_sequence, tree, tree, tree, tree,
-    				tree, struct gs_sequence, enum gs_cond);
-extern gimple gs_omp_build_critical (struct gs_sequence, tree);
-extern gimple gs_omp_build_section (struct gs_sequence);
-extern gimple gs_omp_build_continue (struct gs_sequence);
-extern gimple gs_omp_build_master (struct gs_sequence);
+extern gimple gs_omp_build_parallel (gs_seq, tree, tree, tree);
+extern gimple gs_omp_build_for (gs_seq, tree, tree, tree, tree, tree, gs_seq,
+				enum gs_cond);
+extern gimple gs_omp_build_critical (gs_seq, tree);
+extern gimple gs_omp_build_section (gs_seq);
+extern gimple gs_omp_build_continue (gs_seq);
+extern gimple gs_omp_build_master (gs_seq);
 extern gimple gs_omp_build_return (bool);
-extern gimple gs_omp_build_ordered (struct gs_sequence);
-extern gimple gs_omp_build_sections (struct gs_sequence, tree);
-extern gimple gs_omp_build_single (struct gs_sequence, tree);
+extern gimple gs_omp_build_ordered (gs_seq);
+extern gimple gs_omp_build_sections (gs_seq, tree);
+extern gimple gs_omp_build_single (gs_seq, tree);
 extern enum gimple_statement_structure_enum gimple_statement_structure (gimple);
 extern void gs_add (gs_seq, gimple);
+extern void gs_push (gimple, gs_seq);
+extern gimple gs_pop (gs_seq);
 extern enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
 extern void sort_case_labels (VEC(tree,heap) *);
 extern void walk_tuple_ops (gimple, walk_tree_fn, void *,
@@ -747,11 +758,10 @@ gs_bind_body (gimple gs) {
 }
 
 static inline void
-gs_bind_set_body (gimple gs, gs_seq gss)
+gs_bind_set_body (gimple gs, gs_seq seq)
 {
   GS_CHECK (gs, GS_BIND);
-  gs_seq_set_first (&(gs->gs_bind.body), gs_seq_first (gss)); 
-  gs_seq_set_last (&(gs->gs_bind.body), gs_seq_last (gss)); 
+  gs_seq_copy (&(gs->gs_bind.body), seq);
 }
 
 /* GS_ASM accessors. */
@@ -922,32 +932,32 @@ gs_eh_filter_set_failure (gimple gs, gimple failure)
 
 /* GS_TRY accessors. */
 
-static inline gimple
+static inline gs_seq
 gs_try_eval (gimple gs)
 {
   GS_CHECK (gs, GS_TRY);
-  return gs->gs_try.eval;
+  return &gs->gs_try.eval;
 }
 
-static inline gimple
+static inline gs_seq
 gs_try_cleanup (gimple gs)
 {
   GS_CHECK (gs, GS_TRY);
-  return gs->gs_try.cleanup;
+  return &gs->gs_try.cleanup;
 }
 
 static inline void
-gs_try_set_eval (gimple gs, gimple eval)
+gs_try_set_eval (gimple gs, gs_seq eval)
 {
   GS_CHECK (gs, GS_TRY);
-  gs->gs_try.eval = eval;
+  gs_seq_copy (gs_try_eval (gs), eval);
 }
 
 static inline void
-gs_try_set_cleanup (gimple gs, gimple cleanup)
+gs_try_set_cleanup (gimple gs, gs_seq cleanup)
 {
-    GS_CHECK (gs, GS_TRY);
-    gs->gs_try.cleanup = cleanup;
+  GS_CHECK (gs, GS_TRY);
+  gs_seq_copy (gs_try_cleanup (gs), cleanup);
 }
 
 /* GS_PHI accessors. */
@@ -1100,10 +1110,9 @@ gs_omp_body (gimple gs)
 }
 
 static inline void
-gs_omp_set_body (gimple gs, struct gs_sequence body)
+gs_omp_set_body (gimple gs, gs_seq body)
 {
-  gs_seq_set_first (&(gs->omp.body), gs_seq_first (&body));
-  gs_seq_set_last (&(gs->omp.body), gs_seq_last (&body));
+  gs_seq_copy (&(gs->omp.body), body);
 }
 
 /* GS_OMP_CRITICAL accessors. */
@@ -1202,11 +1211,10 @@ gs_omp_for_pre_body (gimple gs)
 }
 
 static inline void
-gs_omp_for_set_pre_body (gimple gs, struct gs_sequence pre_body)
+gs_omp_for_set_pre_body (gimple gs, gs_seq pre_body)
 {
   GS_CHECK (gs, GS_OMP_FOR);
-  gs_seq_set_first (&(gs->gs_omp_for.pre_body),  gs_seq_first (&pre_body));
-  gs_seq_set_last (&(gs->gs_omp_for.pre_body),  gs_seq_last (&pre_body));
+  gs_seq_copy (&(gs->gs_omp_for.pre_body),  pre_body);
 }
 
 /* GS_OMP_PARALLEL accessors. */

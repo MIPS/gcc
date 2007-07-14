@@ -12,4 +12,6 @@ void f(int a)
   d = c;
 }
 
+/* { dg-final { scan-tree-dump-times "gimpleir: GS_TRY tuple" 1 "gimple" } } */
+/* { dg-final { scan-tree-dump-times "__builtin_stack_save" 1 "gimple" } } */
 /* { dg-final { cleanup-tree-dump "gimple" } } */
