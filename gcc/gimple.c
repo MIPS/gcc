@@ -27,7 +27,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "ggc.h"
 #include "errors.h"
 #include "tree-gimple.h"
-#include "gimple-ir.h"
+#include "gimple.h"
 #include "diagnostic.h"
 
 #define DEFGSCODE(SYM, NAME)	NAME,

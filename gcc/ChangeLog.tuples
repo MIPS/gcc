@@ -1,5 +1,12 @@
 2007-07-15  Diego Novillo  <dnovillo@google.com>
 
+	* gimple.c: Rename from gimple-ir.c.
+	Update all users.
+	* gimple.h: Rename from gimple-ir.h.
+	Update all users.
+
+2007-07-15  Diego Novillo  <dnovillo@google.com>
+
 	* gimple-ir.c (gimple_statement_structure): Remove code
 	after gcc_unreachable call.
 	* gimplify.c (get_tmp_var_for): New.

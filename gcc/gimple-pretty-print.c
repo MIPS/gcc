@@ -32,7 +32,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-flow.h"
 #include "gimple-iterator.h"
 #include "tree-pass.h"
-#include "gimple-ir.h"
+#include "gimple.h"
 
 #define INDENT(SPACE) do { \
   int i; for (i = 0; i<SPACE; i++) pp_space (buffer); } while (0)

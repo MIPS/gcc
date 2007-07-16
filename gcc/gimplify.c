@@ -51,7 +51,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "pointer-set.h"
 #include "splay-tree.h"
 #include "vec.h"
-#include "gimple-ir.h"
+#include "gimple.h"
 
 
 enum gimplify_omp_var_data
