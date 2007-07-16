@@ -1,3 +1,8 @@
+2007-07-16  Aldy Hernandez  <aldyh@redhat.com> 
+
+	* gcc.dg/gimple/with_size_expr.c: Scan for GS_TRY and
+	__builtin_stack_save.
+
 2007-07-15  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/gimple/call.c: Add strings to expect in the .gimple file.
