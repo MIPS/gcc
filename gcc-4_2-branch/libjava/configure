@@ -9505,11 +9505,6 @@ _ACEOF
 
 
 cat >>confdefs.h <<\_ACEOF
-#define HAVE_STRERROR 1
-_ACEOF
-
-
-cat >>confdefs.h <<\_ACEOF
 #define HAVE_TIME 1
 _ACEOF
 
@@ -9574,7 +9569,7 @@ else
 
 
 
-for ac_func in strerror select fstat open fsync sleep opendir \
+for ac_func in strerror_r select fstat open fsync sleep opendir \
                    localtime_r readdir_r getpwuid_r getcwd \
 		   access stat lstat mkdir rename rmdir unlink utime chmod readlink \
 		   nl_langinfo setlocale \
