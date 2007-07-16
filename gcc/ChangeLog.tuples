@@ -1,3 +1,11 @@
+2007-07-16  Chris Matthews  <chrismatthews@google.com>
+
+	* gimple.c (gs_build_switch): Changed nlabels to represent total number of
+	labels including the default.
+	(gs_build_switch_1): Same.
+	(walk_tuple_ops): Same.
+	* gimple-pretty-print.c (dump_gs_switch): Same.
+
 2007-07-16  Aldy Hernandez  <aldyh@redhat.com> 
 
 	* gimplify.c (gimplify_ctx): Rename current_bind_expr_seq to

@@ -245,9 +245,6 @@ dump_gs_switch (pretty_printer *buffer, gimple gs, int spc, int flags)
       if (i < gs_switch_nlabels (gs) - 1)
         pp_string (buffer, ", ");
     }
-      dump_generic_node (buffer, gs_switch_default_label (gs), spc, flags,
-                        false);
-
   pp_string (buffer, ">");
 }
 

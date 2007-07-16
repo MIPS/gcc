@@ -442,13 +442,15 @@ static inline gimple
 gs_build_switch_1 (unsigned int nlabels, tree index, tree default_label)
 {
   gimple p;
-  
-  /* nlabels + 1 default label - 1 extra from struct.  */
+  unsigned int n_all_labels;
+  /*  We count the default in the number of labels.  */
+  n_all_labels = nlabels + 1;
+  /* total labels - 1 extra from struct.  */
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_switch)
-                         + sizeof (tree) * nlabels);
+                         + sizeof (tree) * (n_all_labels - 1));
   GS_CODE (p) = GS_SWITCH;
 
-  gs_switch_set_nlabels (p, nlabels);
+  gs_switch_set_nlabels (p, n_all_labels);
   gs_switch_set_index (p, index);
   gs_switch_set_default_label (p, default_label);
   
@@ -469,6 +471,8 @@ gs_build_switch (unsigned int nlabels, tree index, tree default_label, ...)
   unsigned int i;
 
   gimple p = gs_build_switch_1 (nlabels, index, default_label);
+  /*  Put labels in labels[1 - (nlables + 1)].
+     Default label is in labels[0].  */
   va_start (al, default_label);
   for (i = 1; i <= nlabels; i++)
     gs_switch_set_label (p, i, va_arg (al, tree));
@@ -491,8 +495,10 @@ gs_build_switch_vec (tree index, tree default_label, VEC(tree, heap) * args)
   size_t nlabels = VEC_length (tree, args);
   gimple p = gs_build_switch_1 (nlabels, index, default_label);
 
-  for (i = 0; i < nlabels; i++)
-    gs_switch_set_label (p, i + 1, VEC_index (tree, args, i));
+  /*  Put labels in labels[1 - (nlables + 1)].
+     Default label is in labels[0].  */
+  for (i = 1; i <= nlabels; i++)
+    gs_switch_set_label (p, i, VEC_index (tree, args, i - 1));
 
   return p;
 }
@@ -889,7 +895,7 @@ walk_tuple_ops (gimple gs, walk_tree_fn func, void *data,
 
     case GS_SWITCH:
       WALKIT (gs_switch_index (gs));
-      for (i = 0; i <= gs_switch_nlabels (gs); ++i)
+      for (i = 0; i < gs_switch_nlabels (gs); ++i)
 	WALKIT (gs_switch_label (gs, i));
       break;
 

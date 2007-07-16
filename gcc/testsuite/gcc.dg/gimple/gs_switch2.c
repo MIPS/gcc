@@ -14,5 +14,8 @@ foo2 (int a, int b)
           return 1;
       }
 }
-/* { dg-final { scan-tree-dump-times "gimpleir: switch \\(D.*\\)" 1 "gimple"} } */
+/* { dg-final { scan-tree-dump-times "gimpleir: switch \\(D.*\\) <default:, case 0:, case 1:>" 1 "gimple"} } */
+/* { dg-final { scan-tree-dump-times "gimpleir: case 0:" 1 "gimple"} } */
+/* { dg-final { scan-tree-dump-times "gimpleir: case 1:" 1 "gimple"} } */
+/* { dg-final { scan-tree-dump-times "gimpleir: default:" 1 "gimple"} } */
 /* { dg-final { cleanup-tree-dump "gimple" } } */

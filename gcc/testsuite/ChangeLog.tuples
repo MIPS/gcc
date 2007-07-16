@@ -1,3 +1,10 @@
+2007-07-16  Chris Matthews  <chrismatthews@google.com>
+
+	* gs_switch.c: Improved test case to look at the gs_switch case list instead
+	of just the body.
+	* gs_switch2.c: Same.
+	* gs_switch3.c: Same.
+
 2007-07-16  Aldy Hernandez  <aldyh@redhat.com> 
 
 	* gcc.dg/gimple/with_size_expr.c: Scan for GS_TRY and
