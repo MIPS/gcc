@@ -1,3 +1,7 @@
+2007-07-15  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/gimple/call.c: Add strings to expect in the .gimple file.
+
 2007-07-13  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/gimple/gimple.exp (load_lib): Add -fgimple-only to

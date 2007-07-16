@@ -727,7 +727,6 @@ gimple_statement_structure (gimple gs)
     case GS_OMP_SINGLE:		return GSS_OMP_SINGLE;
     default:
       gcc_unreachable ();
-      return GSS_BASE;
     }
 }
 

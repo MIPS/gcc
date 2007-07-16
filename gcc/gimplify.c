@@ -618,6 +618,30 @@ get_initialized_tmp_var (tree val, gs_seq pre_p, gs_seq post_p)
   return internal_get_tmp_var (val, pre_p, post_p, false);
 }
 
+/* Create a temporary variable to be used as the LHS of the given GIMPLE
+   statement STMT. STMT must be GS_ASSIGN or GS_CALL.  If IS_FORMAL is
+   true, try to return a temporary from the formal temporaries table
+   (which will attempt to return the same temporary created for a
+   previous statement identical to STMT.  */
+
+static tree
+get_tmp_var_for (gimple stmt)
+{
+  tree lhs;
+  enum gs_code code = GS_CODE (stmt);
+
+  /* FIXME tuples, add support for formal temporaries (worth it?)  */
+  if (GS_CODE (stmt) == GS_ASSIGN)
+    return create_tmp_from_val (gs_assign_operand (stmt, 1));
+  else if (GS_CODE (stmt) == GS_CALL)
+    return create_tmp_from_val (gs_call_fn (stmt));
+  else
+    gcc_unreachable ();
+
+  return lhs;
+}
+
+
 /* Declares all the variables in VARS in SCOPE.  If DEBUG_INFO is
    true, generate debug info for them; otherwise don't.  */
 
@@ -2063,6 +2087,7 @@ gimplify_call_expr (tree *expr_p, gs_seq pre_p, bool want_value)
   enum gimplify_status ret;
   int i, nargs;
   VEC(tree, gc) *args = NULL;
+  gimple call;
 
   gcc_assert (TREE_CODE (*expr_p) == CALL_EXPR);
 
@@ -2163,8 +2188,17 @@ gimplify_call_expr (tree *expr_p, gs_seq pre_p, bool want_value)
       && (call_expr_flags (*expr_p) & (ECF_CONST | ECF_PURE)))
     TREE_SIDE_EFFECTS (*expr_p) = 0;
 
-  gs_add (pre_p, gs_build_call_vec (fndecl, args));
-  if (!want_value)
+  /* Now add the GIMPLE call to PRE_P.  If WANT_VALUE is set, we need
+     to create the appropriate temporary for the call's LHS.  */
+  call = gs_build_call_vec (fndecl, args);
+  gs_add (pre_p, call);
+  if (want_value)
+    {
+      tree lhs = get_tmp_var_for (call);
+      gs_call_set_lhs (call, lhs);
+      *expr_p = lhs;
+    }
+  else
     *expr_p = NULL_TREE;
 
   return ret;
