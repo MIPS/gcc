@@ -25,6 +25,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include "pointer-set.h"
 
+DEF_VEC_P(gimple);
+DEF_VEC_ALLOC_P(gimple,heap);
+DEF_VEC_ALLOC_P(gimple,gc);
+
 enum gs_code {
 #define DEFGSCODE(SYM, STRING)	SYM,
 #include "gimple.def"
@@ -410,7 +414,6 @@ extern gimple gs_omp_build_single (gs_seq, tree);
 extern enum gimple_statement_structure_enum gimple_statement_structure (gimple);
 extern void gs_add (gs_seq, gimple);
 extern void gs_push (gimple, gs_seq);
-extern gimple gs_pop (gs_seq);
 extern enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
 extern void sort_case_labels (VEC(tree,heap) *);
 extern void walk_tuple_ops (gimple, walk_tree_fn, void *,

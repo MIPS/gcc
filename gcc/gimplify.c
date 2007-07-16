@@ -85,7 +85,7 @@ struct gimplify_ctx
 {
   struct gimplify_ctx *prev_context;
 
-  struct gs_sequence current_bind_expr_seq;
+  VEC(gimple,heap) *bind_expr_stack;
   tree temps;
   struct gs_sequence conditional_cleanups;
   tree exit_label;
@@ -161,6 +161,7 @@ push_gimplify_context (void)
 
   c = (struct gimplify_ctx *) xcalloc (1, sizeof (struct gimplify_ctx));
   c->prev_context = gimplify_ctxp;
+  c->bind_expr_stack = VEC_alloc (gimple, heap, 8);
   if (optimize)
     c->temp_htab = htab_create (1000, gimple_tree_hash, gimple_tree_eq, free);
 
@@ -177,7 +178,7 @@ pop_gimplify_context (gimple body)
   struct gimplify_ctx *c = gimplify_ctxp;
   tree t;
 
-  gcc_assert (c && gs_seq_empty_p (&c->current_bind_expr_seq));
+  gcc_assert (c && VEC_empty (gimple, c->bind_expr_stack));
   gimplify_ctxp = c->prev_context;
 
   for (t = c->temps; t ; t = TREE_CHAIN (t))
@@ -200,19 +201,19 @@ pop_gimplify_context (gimple body)
 static void
 gimple_push_bind_expr (gimple gs_bind)
 {
-  gs_push (gs_bind, &gimplify_ctxp->current_bind_expr_seq);
+  VEC_safe_push (gimple, heap, gimplify_ctxp->bind_expr_stack, gs_bind);
 }
 
 static void
 gimple_pop_bind_expr (void)
 {
-  gs_pop (&gimplify_ctxp->current_bind_expr_seq);
+  VEC_pop (gimple, gimplify_ctxp->bind_expr_stack);
 }
 
 gimple
 gimple_current_bind_expr (void)
 {
-  return gs_seq_first (&gimplify_ctxp->current_bind_expr_seq);
+  return VEC_last (gimple, gimplify_ctxp->bind_expr_stack);
 }
 
 /* Returns true iff there is a COND_EXPR between us and the innermost
@@ -631,9 +632,9 @@ get_tmp_var_for (gimple stmt)
   enum gs_code code = GS_CODE (stmt);
 
   /* FIXME tuples, add support for formal temporaries (worth it?)  */
-  if (GS_CODE (stmt) == GS_ASSIGN)
+  if (code == GS_ASSIGN)
     return create_tmp_from_val (gs_assign_operand (stmt, 1));
-  else if (GS_CODE (stmt) == GS_CALL)
+  else if (code == GS_CALL)
     return create_tmp_from_val (gs_call_fn (stmt));
   else
     gcc_unreachable ();
@@ -1099,11 +1100,8 @@ gimplify_bind_expr (tree *expr_p, gs_seq pre_p)
     }
 
   gimplify_ctxp->save_stack = old_save_stack;
-
-  /* Make sure we add the gs_bind into the queue after we pop the
-     current bind_expr, else we risk corrupting the current_bind_expr_seq
-     stack.  */
   gimple_pop_bind_expr ();
+
   gs_add (pre_p, gs_bind);
 
   if (temp)
@@ -1495,7 +1493,7 @@ gimplify_case_label_expr (tree *expr_p, gs_seq pre_p)
       break;
 
   gimple gs_label = gs_build_label (*expr_p);
-  VEC_safe_push (tree, heap, ctxp->case_labels, gs_label_label(gs_label));
+  VEC_safe_push (tree, heap, ctxp->case_labels, gs_label_label (gs_label));
   gs_add (pre_p, gs_label);
 
   return GS_ALL_DONE;

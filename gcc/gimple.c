@@ -762,24 +762,6 @@ gs_push (gimple gs, gs_seq seq)
 }
 
 
-/* Remove the first gimple statement from sequence SEQ and return it.  */
-
-gimple
-gs_pop (gs_seq seq)
-{
-  gimple first = gs_seq_first (seq);
-  gimple new_first;
-
-  gs_seq_set_first (seq, GS_NEXT (first));
-  new_first = gs_seq_first (seq);
-  if (new_first)
-    GS_PREV (new_first) = NULL;
-  if (first)
-    GS_NEXT (first) = NULL;
-  return first;
-}
-
-
 /* Link a gimple statement(s) to the end of the sequence SEQ.  */
 
 void

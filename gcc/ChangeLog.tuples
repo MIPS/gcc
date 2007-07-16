@@ -1,3 +1,20 @@
+2007-07-16  Aldy Hernandez  <aldyh@redhat.com> 
+
+	* gimplify.c (gimplify_ctx): Rename current_bind_expr_seq to
+	bind_expr_stack and make it a vector.
+	(push_gimplify_context): Adjust bind_expr_stack for vectors.
+	(pop_gimplify_context): Same.
+	(gimple_push_bind_expr): Same.
+	(gimple_pop_bind_expr): Same.
+	(gimple_current_bind_expr): Same.
+	(get_tmp_var_for): Use ``code''.
+	(gimplify_bind_expr): Remove comment.
+	(gimplify_case_label_expr): Add whitespace.
+	* gimple.c (gs_pop): Remove.
+	* gimple.h: Define vectors of a gimple type.
+	(gs_pop): Remove prototype.
+	* Makefile.in (GIMPLE_H): Add vec.h.
+
 2007-07-15  Diego Novillo  <dnovillo@google.com>
 
 	* gimple.c: Rename from gimple-ir.c.
