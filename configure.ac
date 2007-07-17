@@ -288,6 +288,11 @@ case "${host}" in
     configdirs="$configdirs libtermcap" ;;
 esac
 
+case "$host" in
+  *-*-linux* | *-*-darwin* | *-*-solaris2*)
+    configdirs="$configdirs libltdl" ;;
+esac
+
 # A target can indicate whether a language isn't supported for some reason.
 # Only spaces may be used in this macro; not newlines or tabs.
 unsupported_languages=

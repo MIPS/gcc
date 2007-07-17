@@ -41,6 +41,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "mkdeps.h"
 #include "target.h"
 
+#ifdef ENABLE_PLUGINS
+#include "tree-plugin.h"
+#endif
+
 #ifndef DOLLARS_IN_IDENTIFIERS
 # define DOLLARS_IN_IDENTIFIERS true
 #endif
@@ -1225,6 +1229,10 @@ c_common_init (void)
   /* Has to wait until now so that cpplib has its hash table.  */
   init_pragma ();
 
+#ifdef ENABLE_PLUGINS
+  pre_tu_plugins ();
+#endif
+
   return true;
 }
 
@@ -1288,6 +1296,10 @@ void
 c_common_finish (void)
 {
   FILE *deps_stream = NULL;
+
+#ifdef ENABLE_PLUGINS
+  post_tu_plugins ();
+#endif
 
   if (cpp_opts->deps.style != DEPS_NONE)
     {

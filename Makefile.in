@@ -636,6 +636,7 @@ configure-host:  \
     maybe-configure-libcpp \
     maybe-configure-libdecnumber \
     maybe-configure-libgui \
+    maybe-configure-libltdl \
     maybe-configure-libiberty \
     maybe-configure-libtool \
     maybe-configure-m4 \
@@ -785,6 +786,7 @@ all-host: maybe-all-libgui
 @if libiberty-no-bootstrap
 all-host: maybe-all-libiberty
 @endif libiberty-no-bootstrap
+all-host: maybe-all-libltdl
 all-host: maybe-all-libtool
 all-host: maybe-all-m4
 all-host: maybe-all-make
@@ -1960,6 +1962,7 @@ clean-host: maybe-clean-libcpp
 clean-host: maybe-clean-libdecnumber
 clean-host: maybe-clean-libgui
 clean-host: maybe-clean-libiberty
+clean-host: maybe-clean-libltdl
 clean-host: maybe-clean-libtool
 clean-host: maybe-clean-m4
 clean-host: maybe-clean-make
@@ -2066,6 +2069,7 @@ distclean-host: maybe-distclean-libcpp
 distclean-host: maybe-distclean-libdecnumber
 distclean-host: maybe-distclean-libgui
 distclean-host: maybe-distclean-libiberty
+distclean-host: maybe-distclean-libltdl
 distclean-host: maybe-distclean-libtool
 distclean-host: maybe-distclean-m4
 distclean-host: maybe-distclean-make
@@ -2172,6 +2176,7 @@ maintainer-clean-host: maybe-maintainer-clean-libcpp
 maintainer-clean-host: maybe-maintainer-clean-libdecnumber
 maintainer-clean-host: maybe-maintainer-clean-libgui
 maintainer-clean-host: maybe-maintainer-clean-libiberty
+maintainer-clean-host: maybe-maintainer-clean-libltdl
 maintainer-clean-host: maybe-maintainer-clean-libtool
 maintainer-clean-host: maybe-maintainer-clean-m4
 maintainer-clean-host: maybe-maintainer-clean-make
@@ -23912,6 +23917,550 @@ maintainer-clean-libiberty:
 
 @endif libiberty
 
+
+.PHONY: configure-libltdl maybe-configure-libltdl
+maybe-configure-libltdl:
+@if gcc-bootstrap
+configure-libltdl: stage_current
+@endif gcc-bootstrap
+@if libltdl
+maybe-configure-libltdl: configure-libltdl
+configure-libltdl: 
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/libltdl/Makefile || exit 0; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libltdl ; \
+	$(HOST_EXPORTS) \
+	echo Configuring in $(HOST_SUBDIR)/libltdl; \
+	cd "$(HOST_SUBDIR)/libltdl" || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libltdl/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libltdl"; \
+	libsrcdir="$$s/libltdl"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption}  \
+	  || exit 1
+@endif libltdl
+
+
+
+.PHONY: configure-stage1-libltdl maybe-configure-stage1-libltdl
+maybe-configure-stage1-libltdl:
+@if libltdl-bootstrap
+maybe-configure-stage1-libltdl: configure-stage1-libltdl
+configure-stage1-libltdl:
+	@[ $(current_stage) = stage1 ] || $(MAKE) stage1-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libltdl
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/libltdl/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	echo Configuring stage 1 in $(HOST_SUBDIR)/libltdl ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libltdl ; \
+	cd $(HOST_SUBDIR)/libltdl || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libltdl/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libltdl"; \
+	libsrcdir="$$s/libltdl"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	   \
+	  --disable-intermodule $(STAGE1_CHECKING) 	  --disable-coverage --enable-languages="$(STAGE1_LANGUAGES)" 
+@endif libltdl-bootstrap
+
+.PHONY: configure-stage2-libltdl maybe-configure-stage2-libltdl
+maybe-configure-stage2-libltdl:
+@if libltdl-bootstrap
+maybe-configure-stage2-libltdl: configure-stage2-libltdl
+configure-stage2-libltdl:
+	@[ $(current_stage) = stage2 ] || $(MAKE) stage2-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libltdl
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/libltdl/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	echo Configuring stage 2 in $(HOST_SUBDIR)/libltdl ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libltdl ; \
+	cd $(HOST_SUBDIR)/libltdl || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libltdl/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libltdl"; \
+	libsrcdir="$$s/libltdl"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif libltdl-bootstrap
+
+.PHONY: configure-stage3-libltdl maybe-configure-stage3-libltdl
+maybe-configure-stage3-libltdl:
+@if libltdl-bootstrap
+maybe-configure-stage3-libltdl: configure-stage3-libltdl
+configure-stage3-libltdl:
+	@[ $(current_stage) = stage3 ] || $(MAKE) stage3-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libltdl
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/libltdl/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	echo Configuring stage 3 in $(HOST_SUBDIR)/libltdl ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libltdl ; \
+	cd $(HOST_SUBDIR)/libltdl || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libltdl/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libltdl"; \
+	libsrcdir="$$s/libltdl"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif libltdl-bootstrap
+
+.PHONY: configure-stage4-libltdl maybe-configure-stage4-libltdl
+maybe-configure-stage4-libltdl:
+@if libltdl-bootstrap
+maybe-configure-stage4-libltdl: configure-stage4-libltdl
+configure-stage4-libltdl:
+	@[ $(current_stage) = stage4 ] || $(MAKE) stage4-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libltdl
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/libltdl/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	echo Configuring stage 4 in $(HOST_SUBDIR)/libltdl ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libltdl ; \
+	cd $(HOST_SUBDIR)/libltdl || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libltdl/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libltdl"; \
+	libsrcdir="$$s/libltdl"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif libltdl-bootstrap
+
+.PHONY: configure-stageprofile-libltdl maybe-configure-stageprofile-libltdl
+maybe-configure-stageprofile-libltdl:
+@if libltdl-bootstrap
+maybe-configure-stageprofile-libltdl: configure-stageprofile-libltdl
+configure-stageprofile-libltdl:
+	@[ $(current_stage) = stageprofile ] || $(MAKE) stageprofile-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libltdl
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/libltdl/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	echo Configuring stage profile in $(HOST_SUBDIR)/libltdl ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libltdl ; \
+	cd $(HOST_SUBDIR)/libltdl || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libltdl/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libltdl"; \
+	libsrcdir="$$s/libltdl"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif libltdl-bootstrap
+
+.PHONY: configure-stagefeedback-libltdl maybe-configure-stagefeedback-libltdl
+maybe-configure-stagefeedback-libltdl:
+@if libltdl-bootstrap
+maybe-configure-stagefeedback-libltdl: configure-stagefeedback-libltdl
+configure-stagefeedback-libltdl:
+	@[ $(current_stage) = stagefeedback ] || $(MAKE) stagefeedback-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libltdl
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/libltdl/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	echo Configuring stage feedback in $(HOST_SUBDIR)/libltdl ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libltdl ; \
+	cd $(HOST_SUBDIR)/libltdl || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libltdl/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libltdl"; \
+	libsrcdir="$$s/libltdl"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif libltdl-bootstrap
+
+.PHONY: all-libltdl maybe-all-libltdl
+maybe-all-libltdl:
+@if gcc-bootstrap
+all-libltdl: stage_current
+@endif gcc-bootstrap
+@if libltdl
+TARGET-libltdl=all
+maybe-all-libltdl: all-libltdl
+all-libltdl: configure-libltdl
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	(cd $(HOST_SUBDIR)/libltdl && \
+	  $(MAKE) $(FLAGS_TO_PASS)  $(TARGET-libltdl))
+@endif libltdl
+
+.PHONY: all-stage1-libltdl maybe-all-stage1-libltdl
+.PHONY: clean-stage1-libltdl maybe-clean-stage1-libltdl
+maybe-all-stage1-libltdl:
+maybe-clean-stage1-libltdl:
+@if libltdl-bootstrap
+maybe-all-stage1-libltdl: all-stage1-libltdl
+all-stage1: all-stage1-libltdl
+TARGET-stage1-libltdl = $(TARGET-libltdl)
+all-stage1-libltdl: configure-stage1-libltdl
+	@[ $(current_stage) = stage1 ] || $(MAKE) stage1-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/libltdl && \
+	$(MAKE) $(FLAGS_TO_PASS)  CFLAGS="$(STAGE1_CFLAGS)" LIBCFLAGS="$(STAGE1_CFLAGS)"  \
+		$(TARGET-stage1-libltdl)
+
+maybe-clean-stage1-libltdl: clean-stage1-libltdl
+clean-stage1: clean-stage1-libltdl
+clean-stage1-libltdl:
+	@if [ $(current_stage) = stage1 ]; then \
+	  [ -f $(HOST_SUBDIR)/libltdl/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stage1-libltdl/Makefile ] || exit 0; \
+	  $(MAKE) stage1-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libltdl && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		CFLAGS="$(STAGE1_CFLAGS)" LIBCFLAGS="$(STAGE1_CFLAGS)"  clean
+@endif libltdl-bootstrap
+
+.PHONY: all-stage2-libltdl maybe-all-stage2-libltdl
+.PHONY: clean-stage2-libltdl maybe-clean-stage2-libltdl
+maybe-all-stage2-libltdl:
+maybe-clean-stage2-libltdl:
+@if libltdl-bootstrap
+maybe-all-stage2-libltdl: all-stage2-libltdl
+all-stage2: all-stage2-libltdl
+TARGET-stage2-libltdl = $(TARGET-libltdl)
+all-stage2-libltdl: configure-stage2-libltdl
+	@[ $(current_stage) = stage2 ] || $(MAKE) stage2-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/libltdl && \
+	$(MAKE) $(FLAGS_TO_PASS) $(POSTSTAGE1_FLAGS_TO_PASS)   \
+		$(TARGET-stage2-libltdl)
+
+maybe-clean-stage2-libltdl: clean-stage2-libltdl
+clean-stage2: clean-stage2-libltdl
+clean-stage2-libltdl:
+	@if [ $(current_stage) = stage2 ]; then \
+	  [ -f $(HOST_SUBDIR)/libltdl/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stage2-libltdl/Makefile ] || exit 0; \
+	  $(MAKE) stage2-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libltdl && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		  clean
+@endif libltdl-bootstrap
+
+
+.PHONY: all-stage3-libltdl maybe-all-stage3-libltdl
+.PHONY: clean-stage3-libltdl maybe-clean-stage3-libltdl
+maybe-all-stage3-libltdl:
+maybe-clean-stage3-libltdl:
+@if libltdl-bootstrap
+maybe-all-stage3-libltdl: all-stage3-libltdl
+all-stage3: all-stage3-libltdl
+TARGET-stage3-libltdl = $(TARGET-libltdl)
+all-stage3-libltdl: configure-stage3-libltdl
+	@[ $(current_stage) = stage3 ] || $(MAKE) stage3-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/libltdl && \
+	$(MAKE) $(FLAGS_TO_PASS) $(POSTSTAGE1_FLAGS_TO_PASS)   \
+		$(TARGET-stage3-libltdl)
+
+maybe-clean-stage3-libltdl: clean-stage3-libltdl
+clean-stage3: clean-stage3-libltdl
+clean-stage3-libltdl:
+	@if [ $(current_stage) = stage3 ]; then \
+	  [ -f $(HOST_SUBDIR)/libltdl/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stage3-libltdl/Makefile ] || exit 0; \
+	  $(MAKE) stage3-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libltdl && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		  clean
+@endif libltdl-bootstrap
+
+.PHONY: all-stage4-libltdl maybe-all-stage4-libltdl
+.PHONY: clean-stage4-libltdl maybe-clean-stage4-libltdl
+maybe-all-stage4-libltdl:
+maybe-clean-stage4-libltdl:
+@if libltdl-bootstrap
+maybe-all-stage4-libltdl: all-stage4-libltdl
+all-stage4: all-stage4-libltdl
+TARGET-stage4-libltdl = $(TARGET-libltdl)
+all-stage4-libltdl: configure-stage4-libltdl
+	@[ $(current_stage) = stage4 ] || $(MAKE) stage4-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/libltdl && \
+	$(MAKE) $(FLAGS_TO_PASS) $(POSTSTAGE1_FLAGS_TO_PASS)   \
+		$(TARGET-stage4-libltdl)
+
+maybe-clean-stage4-libltdl: clean-stage4-libltdl
+clean-stage4: clean-stage4-libltdl
+clean-stage4-libltdl:
+	@if [ $(current_stage) = stage4 ]; then \
+	  [ -f $(HOST_SUBDIR)/libltdl/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stage4-libltdl/Makefile ] || exit 0; \
+	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libltdl && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		  clean
+@endif libltdl-bootstrap
+
+
+.PHONY: all-stageprofile-libltdl maybe-all-stageprofile-libltdl
+.PHONY: clean-stageprofile-libltdl maybe-clean-stageprofile-libltdl
+maybe-all-stageprofile-libltdl:
+maybe-clean-stageprofile-libltdl:
+@if libltdl-bootstrap
+maybe-all-stageprofile-libltdl: all-stageprofile-libltdl
+all-stageprofile: all-stageprofile-libltdl
+TARGET-stageprofile-libltdl = $(TARGET-libltdl)
+all-stageprofile-libltdl: configure-stageprofile-libltdl
+	@[ $(current_stage) = stageprofile ] || $(MAKE) stageprofile-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/libltdl && \
+	$(MAKE) $(FLAGS_TO_PASS) $(POSTSTAGE1_FLAGS_TO_PASS) CFLAGS="$(BOOT_CFLAGS) -fprofile-generate"  \
+		$(TARGET-stageprofile-libltdl)
+
+maybe-clean-stageprofile-libltdl: clean-stageprofile-libltdl
+clean-stageprofile: clean-stageprofile-libltdl
+clean-stageprofile-libltdl:
+	@if [ $(current_stage) = stageprofile ]; then \
+	  [ -f $(HOST_SUBDIR)/libltdl/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageprofile-libltdl/Makefile ] || exit 0; \
+	  $(MAKE) stageprofile-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libltdl && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		CFLAGS="$(BOOT_CFLAGS) -fprofile-generate"  clean
+@endif libltdl-bootstrap
+
+
+.PHONY: all-stagefeedback-libltdl maybe-all-stagefeedback-libltdl
+.PHONY: clean-stagefeedback-libltdl maybe-clean-stagefeedback-libltdl
+maybe-all-stagefeedback-libltdl:
+maybe-clean-stagefeedback-libltdl:
+@if libltdl-bootstrap
+maybe-all-stagefeedback-libltdl: all-stagefeedback-libltdl
+all-stagefeedback: all-stagefeedback-libltdl
+TARGET-stagefeedback-libltdl = $(TARGET-libltdl)
+all-stagefeedback-libltdl: configure-stagefeedback-libltdl
+	@[ $(current_stage) = stagefeedback ] || $(MAKE) stagefeedback-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/libltdl && \
+	$(MAKE) $(FLAGS_TO_PASS) $(POSTSTAGE1_FLAGS_TO_PASS) CFLAGS="$(BOOT_CFLAGS) -fprofile-use"  \
+		$(TARGET-stagefeedback-libltdl)
+
+maybe-clean-stagefeedback-libltdl: clean-stagefeedback-libltdl
+clean-stagefeedback: clean-stagefeedback-libltdl
+clean-stagefeedback-libltdl:
+	@if [ $(current_stage) = stagefeedback ]; then \
+	  [ -f $(HOST_SUBDIR)/libltdl/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stagefeedback-libltdl/Makefile ] || exit 0; \
+	  $(MAKE) stagefeedback-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libltdl && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		CFLAGS="$(BOOT_CFLAGS) -fprofile-use"  clean
+@endif libltdl-bootstrap
+
+.PHONY: check-libltdl maybe-check-libltdl
+maybe-check-libltdl:
+@if libltdl
+maybe-check-libltdl: check-libltdl
+
+check-libltdl:
+	@: $(MAKE); $(unstage)
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	(cd $(HOST_SUBDIR)/libltdl && \
+	  $(MAKE) $(FLAGS_TO_PASS)  check)
+
+@endif libltdl
+
+.PHONY: install-libltdl maybe-install-libltdl
+maybe-install-libltdl:
+@if libltdl
+maybe-install-libltdl: install-libltdl
+
+install-libltdl: installdirs
+	@: $(MAKE); $(unstage)
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	(cd $(HOST_SUBDIR)/libltdl && \
+	  $(MAKE) $(FLAGS_TO_PASS)  install)
+
+@endif libltdl
+
+.PHONY: maybe-mostlyclean-libltdl mostlyclean-libltdl
+maybe-mostlyclean-libltdl:
+@if libltdl
+maybe-mostlyclean-libltdl: mostlyclean-libltdl
+
+mostlyclean-libltdl: 
+	@[ -f ./libltdl/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing mostlyclean in libltdl" ; \
+	(cd $(HOST_SUBDIR)/libltdl && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          mostlyclean) \
+	  || exit 1
+
+@endif libltdl
+
+.PHONY: maybe-clean-libltdl clean-libltdl
+maybe-clean-libltdl:
+@if libltdl
+maybe-clean-libltdl: clean-libltdl
+
+clean-libltdl: 
+	@[ -f ./libltdl/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing clean in libltdl" ; \
+	(cd $(HOST_SUBDIR)/libltdl && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          clean) \
+	  || exit 1
+
+@endif libltdl
+
+.PHONY: maybe-distclean-libltdl distclean-libltdl
+maybe-distclean-libltdl:
+@if libltdl
+maybe-distclean-libltdl: distclean-libltdl
+
+distclean-libltdl: 
+	@[ -f ./libltdl/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing distclean in libltdl" ; \
+	(cd $(HOST_SUBDIR)/libltdl && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          distclean) \
+	  || exit 1
+
+@endif libltdl
+
+.PHONY: maybe-maintainer-clean-libltdl maintainer-clean-libltdl
+maybe-maintainer-clean-libltdl:
+@if libltdl
+maybe-maintainer-clean-libltdl: maintainer-clean-libltdl
+
+maintainer-clean-libltdl: 
+	@[ -f ./libltdl/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing maintainer-clean in libltdl" ; \
+	(cd $(HOST_SUBDIR)/libltdl && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          maintainer-clean) \
+	  || exit 1
+
+@endif libltdl
 
 
 .PHONY: configure-libtool maybe-configure-libtool
@@ -48610,6 +49159,12 @@ configure-stage4-gcc: maybe-all-stage4-ld
 configure-stageprofile-gcc: maybe-all-stageprofile-ld
 configure-stagefeedback-gcc: maybe-all-stagefeedback-ld
 all-gcc: all-libiberty
+
+all-stage1-gcc: all-stage1-libltdl
+all-stage2-gcc: all-stage2-libltdl
+all-stage3-gcc: all-stage3-libltdl
+all-stage4-gcc: all-stage4-libltdl
+all-gcc: all-libltdl
 
 all-stage1-gcc: all-stage1-libiberty
 all-stage2-gcc: all-stage2-libiberty

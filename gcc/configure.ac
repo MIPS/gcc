@@ -987,6 +987,22 @@ AC_C_BIGENDIAN
 # UNSORTED
 # --------
 
+# Determine whether to compile plug-in support
+
+ENABLE_PLUGINS="0"
+
+case "$host" in
+  *-*-linux* | *-*-darwin* | *-*-solaris2*)
+  ENABLE_PLUGINS="1"
+  ;;
+esac
+
+AC_SUBST(ENABLE_PLUGINS)
+
+if test $ENABLE_PLUGINS = "1" ; then
+  AC_DEFINE(ENABLE_PLUGINS, 1, 
+    [Define to enable plug-in support.])
+fi
 
 # These libraries may be used by collect2.
 # We may need a special search path to get them linked.

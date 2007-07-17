@@ -83,6 +83,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
+#ifdef ENABLE_PLUGINS
+#include "tree-plugin.h"
+#endif
 #include "predict.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
@@ -514,6 +517,9 @@ init_optimization_passes (void)
      output to the assembler file.  */
   p = &all_passes;
   NEXT_PASS (pass_apply_inline);
+#ifdef ENABLE_PLUGINS
+  NEXT_PASS (pass_plugin);
+#endif
   NEXT_PASS (pass_all_optimizations);
     {
       struct tree_opt_pass **p = &pass_all_optimizations.sub;

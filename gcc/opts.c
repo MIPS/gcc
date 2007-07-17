@@ -41,6 +41,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "tree-pass.h"
 
+#ifdef ENABLE_PLUGINS
+#include "tree-plugin.h"
+#endif
+
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
 bool g_switch_set;
@@ -1581,6 +1585,12 @@ common_handle_option (size_t scode, const char *arg, int value,
     case OPT_ftree_vectorizer_verbose_:
       vect_set_verbosity_level (arg);
       break;
+
+#ifdef ENABLE_PLUGINS
+    case OPT_ftree_plugin_:
+      register_tree_plugin (arg);
+      break;
+#endif
 
     case OPT_ftls_model_:
       if (!strcmp (arg, "global-dynamic"))
