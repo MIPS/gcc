@@ -1,3 +1,9 @@
+2007-07-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* lto.c (lto_read_variable_formal_parameter_constant_DIE): Do not
+	process local variables.
+	(lto_read_subroutine_type_subprogram_DIE): Read child DIEs.
+
 2007-07-13  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-read.c (input_list, input_expr_operand): Added struct

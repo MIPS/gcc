@@ -2002,41 +2002,47 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
       gcc_unreachable ();
       break;
     }
-  decl = build_decl (code, name, type);
 
-  /* Parameter decls never have external linkage, never need merging, etc.  */
-  if (code == PARM_DECL)
-    return decl;
-
-  SET_DECL_ASSEMBLER_NAME (decl, asm_name);
-  TREE_PUBLIC (decl) = external;
-  DECL_EXTERNAL (decl) = declaration;
-  if (!context->scope || TREE_CODE (context->scope) != FUNCTION_DECL)
-    TREE_STATIC (decl) = 1;
+  if (code == VAR_DECL
+      && context->scope
+      && TREE_CODE (context->scope) == FUNCTION_DECL
+      && !declaration)
+    /* We are only interested in variables with static storage
+       duration.  */
+    ;
   else
-    /* ???  We should look at DW_TAG_location to figure out whether a
-       function-scope variable is static or not.  We should presumably
-       use the same method for variables outside of function scopes,
-       for consistency.  */
-    sorry ("cannot determine storage duration of local variables");
-  /* If there is an initializer, read it now.  */
-  if (!declaration)
     {
-      lto_file *file = fd->base.file;
-      file->vtable->read_var_init (file, decl);
-    }
-  /* If this variable has already been declared, merge the
-     declarations.  */
-  decl = lto_symtab_merge_var (decl);
-  if (decl != error_mark_node)
-    {
-      /* Record this variable in the DIE cache so that it can be
-	 resolved from the bodies of functions.  */
-      lto_cache_store_DIE (fd, die, decl);
-      /* Let the middle end know about the new entity.  */
-      rest_of_decl_compilation (decl,
-				/*top_level=*/1,
-				/*at_end=*/0);
+      /* Build the tree node for this entity.  */
+      decl = build_decl (code, name, type);
+
+      /* Parameter decls never have external linkage, never need merging,
+	 etc.  */
+      if (code == VAR_DECL)
+	{
+	  SET_DECL_ASSEMBLER_NAME (decl, asm_name);
+	  TREE_PUBLIC (decl) = external;
+	  DECL_EXTERNAL (decl) = declaration;
+	  TREE_STATIC (decl) = 1;
+	  /* If there is an initializer, read it now.  */
+	  if (!declaration)
+	    {
+	      lto_file *file = fd->base.file;
+	      file->vtable->read_var_init (file, decl);
+	    }
+	  /* If this variable has already been declared, merge the
+	     declarations.  */
+	  decl = lto_symtab_merge_var (decl);
+	  if (decl != error_mark_node)
+	    {
+	      /* Record this variable in the DIE cache so that it can be
+		 resolved from the bodies of functions.  */
+	      lto_cache_store_DIE (fd, die, decl);
+	      /* Let the middle end know about the new entity.  */
+	      rest_of_decl_compilation (decl,
+					/*top_level=*/1,
+					/*at_end=*/0);
+	    }
+	}
     }
 
   lto_read_child_DIEs (fd, abbrev, context);
@@ -2261,6 +2267,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
   bool external;
   bool prototyped;
   tree result;
+  tree saved_scope;
   int inlined = DW_INL_not_inlined;
 
   gcc_assert (abbrev->tag == DW_TAG_subroutine_type
@@ -2443,6 +2450,12 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 	    cgraph_finalize_function (result, /*nested=*/false);
 	}
     }
+
+  /* Read the child DIEs, which are in the scope of RESULT.  */
+  saved_scope = context->scope;
+  context->scope = result;
+  lto_read_child_DIEs (fd, abbrev, context);
+  context->scope = saved_scope;
 
   return result;
 }
