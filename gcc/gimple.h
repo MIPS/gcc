@@ -425,7 +425,6 @@ extern gimple gimple_omp_build_sections (gimple_seq, tree);
 extern gimple gimple_omp_build_single (gimple_seq, tree);
 extern enum gimple_statement_structure_enum gimple_statement_structure (gimple);
 extern void gimple_add (gimple_seq, gimple);
-extern void gimple_push (gimple, gimple_seq);
 extern enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
 extern void sort_case_labels (VEC(tree,heap) *);
 extern void walk_tuple_ops (gimple, walk_tree_fn, void *,

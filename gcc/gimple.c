@@ -44,6 +44,9 @@ static struct pointer_map_t *gimple_bodies = NULL;
 
 /* Gimple tuple constructors.  */
 
+/* Note: Any constructor taking a ``gimple_seq'' as a parameter, can be passed
+   a NULL to start with an empty sequence.  */
+
 /* Construct a GIMPLE_RETURN statement.
 
    RESULT_DECL_P is non-zero if using RESULT_DECL.
@@ -203,7 +206,7 @@ gss_for_assign (enum tree_code code)
 
 gimple
 gimple_build_cond (enum gimple_cond pred, tree lhs, tree rhs,
-    	       tree t_label, tree f_label)
+		   tree t_label, tree f_label)
 {
   gimple p;
 
@@ -283,7 +286,8 @@ gimple_build_bind (tree vars, gimple_seq body)
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_bind));
   GIMPLE_CODE (p) = GIMPLE_BIND;
   gimple_bind_set_vars (p, vars);
-  gimple_bind_set_body (p, body);
+  if (body)
+    gimple_bind_set_body (p, body);
 
   return p;
 }
@@ -364,11 +368,12 @@ gimple_build_eh_filter (tree types, gimple failure)
 
    EVAL is the expression to evaluate.
    CLEANUP is the cleanup expression.
-   CATCH_FINALLY is either GIMPLE_TRY_CATCH or GIMPLE_TRY_FINALLY depending on whether
-   this is a try/catch or a try/finally respectively.  */
+   CATCH_FINALLY is either GIMPLE_TRY_CATCH or GIMPLE_TRY_FINALLY depending on
+   whether this is a try/catch or a try/finally respectively.  */
 
 gimple
-gimple_build_try (gimple_seq eval, gimple_seq cleanup, unsigned int catch_finally)
+gimple_build_try (gimple_seq eval, gimple_seq cleanup,
+    		  unsigned int catch_finally)
 {
   gimple p;
 
@@ -376,8 +381,10 @@ gimple_build_try (gimple_seq eval, gimple_seq cleanup, unsigned int catch_finall
 	      || catch_finally == GIMPLE_TRY_FINALLY);
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_try));
   GIMPLE_CODE (p) = GIMPLE_TRY;
-  gimple_try_set_eval (p, eval);
-  gimple_try_set_cleanup (p, cleanup);
+  if (eval)
+    gimple_try_set_eval (p, eval);
+  if (cleanup)
+    gimple_try_set_cleanup (p, cleanup);
   GIMPLE_SUBCODE_FLAGS (p) = catch_finally;
 
   return p;
@@ -489,7 +496,7 @@ gimple_build_switch (unsigned int nlabels, tree index, tree default_label, ...)
    ARGS is a vector of labels excluding the default.  */
 
 gimple
-gimple_build_switch_vec (tree index, tree default_label, VEC(tree, heap) * args)
+gimple_build_switch_vec (tree index, tree default_label, VEC(tree, heap) *args)
 {
   size_t i;
   size_t nlabels = VEC_length (tree, args);
@@ -517,7 +524,8 @@ gimple_omp_build_critical (gimple_seq body, tree name)
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_omp_critical));
   GIMPLE_CODE (p) = GIMPLE_OMP_CRITICAL;
   gimple_omp_critical_set_name (p, name);
-  gimple_omp_set_body (p, body);
+  if (body)
+    gimple_omp_set_body (p, body);
 
   return p;
 }
@@ -543,13 +551,15 @@ gimple_omp_build_for (gimple_seq body, tree clauses, tree index,
 
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_omp_for));
   GIMPLE_CODE (p) = GIMPLE_OMP_FOR;
-  gimple_omp_set_body (p, body);
+  if (body)
+    gimple_omp_set_body (p, body);
   gimple_omp_for_set_clauses (p, clauses);
   gimple_omp_for_set_index (p, index);
   gimple_omp_for_set_initial (p, initial);
   gimple_omp_for_set_final (p, final);
   gimple_omp_for_set_incr (p, incr);
-  gimple_omp_for_set_pre_body (p, pre_body);
+  if (pre_body)
+    gimple_omp_for_set_pre_body (p, pre_body);
   gimple_assign_omp_for_cond (p, omp_for_cond);
 
   return p;
@@ -570,7 +580,8 @@ gimple_omp_build_parallel (gimple_seq body, tree clauses, tree child_fn,
 
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_omp_parallel));
   GIMPLE_CODE (p) = GIMPLE_OMP_PARALLEL;
-  gimple_omp_set_body (p, body);
+  if (body)
+    gimple_omp_set_body (p, body);
   gimple_omp_parallel_set_clauses (p, clauses);
   gimple_omp_parallel_set_child_fn (p, child_fn);
   gimple_omp_parallel_set_data_arg (p, data_arg);
@@ -589,7 +600,8 @@ gimple_omp_build_section (gimple_seq body)
 
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_omp));
   GIMPLE_CODE (p) = GIMPLE_OMP_SECTION;
-  gimple_omp_set_body (p, body);
+  if (body)
+    gimple_omp_set_body (p, body);
 
   return p;
 }
@@ -604,7 +616,8 @@ gimple_omp_build_master (gimple_seq body)
 
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_omp));
   GIMPLE_CODE (p) = GIMPLE_OMP_MASTER;
-  gimple_omp_set_body (p, body);
+  if (body)
+    gimple_omp_set_body (p, body);
 
   return p;
 }
@@ -618,7 +631,8 @@ gimple_omp_build_continue (gimple_seq body)
 
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_omp));
   GIMPLE_CODE (p) = GIMPLE_OMP_CONTINUE;
-  gimple_omp_set_body (p, body);
+  if (body)
+    gimple_omp_set_body (p, body);
 
   return p;
 }
@@ -635,7 +649,8 @@ gimple_omp_build_ordered (gimple_seq body)
 
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_omp));
   GIMPLE_CODE (p) = GIMPLE_OMP_ORDERED;
-  gimple_omp_set_body (p, body);
+  if (body)
+    gimple_omp_set_body (p, body);
 
   return p;
 }
@@ -669,7 +684,8 @@ gimple_omp_build_sections (gimple_seq body, tree clauses)
 
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_omp_sections));
   GIMPLE_CODE (p) = GIMPLE_OMP_SECTIONS;
-  gimple_omp_set_body (p, body);
+  if (body)
+    gimple_omp_set_body (p, body);
   gimple_omp_sections_set_clauses (p, clauses);
 
   return p;
@@ -688,7 +704,8 @@ gimple_omp_build_single (gimple_seq body, tree clauses)
 
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_omp_single));
   GIMPLE_CODE (p) = GIMPLE_OMP_SINGLE;
-  gimple_omp_set_body (p, body);
+  if (body)
+    gimple_omp_set_body (p, body);
   gimple_omp_single_set_clauses (p, clauses);
 
   return p;
@@ -752,20 +769,6 @@ gimple_check_failed (const gimple gs, const char *file, int line,
 		  function, trim_filename (file), line);
 }
 #endif /* ENABLE_TREE_CHECKING */
-
-
-/* Push gimple statement GS into the front of sequence SEQ.  */
-
-void
-gimple_push (gimple gs, gimple_seq seq)
-{
-  gimple oldfirst = gimple_seq_first (seq);
-
-  GIMPLE_NEXT (gs) = oldfirst;
-  if (oldfirst)
-    GIMPLE_PREV (oldfirst) = gs;
-  gimple_seq_set_first (seq, gs);
-}
 
 
 /* Link a gimple statement(s) to the end of the sequence SEQ.  */

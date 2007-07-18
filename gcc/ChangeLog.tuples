@@ -1,5 +1,17 @@
 2007-07-18  Aldy Hernandez  <aldyh@redhat.com> 
 
+	* gimplify.c (gimplify_and_add): Remove unecessary temporary sequence.
+	Remove fixme.  Add comment.
+	(gimplify_loop_expr): Tuplefy.
+	(gimplify_bind_expr): Streamline GIMPLE_TRY_FINALLY tuple.
+	(gimplify_expr): Tuplefy TRY_*_EXPR cases.
+	* gimple.c: Fix some spacing.
+	(gimple_build_try, gimple_omp_build_*): Handle empty sequences.
+	(gimple_push): Remove.
+	* gimple.h (gimple_push): Remove.
+
+2007-07-18  Aldy Hernandez  <aldyh@redhat.com> 
+
 	* tree-gimple.h (declare_vars): Update arguments.
 	* gimplify.c (pop_gimplify_context): Enable call to declare_vars.
 	(declare_vars): Convert to use tuples.

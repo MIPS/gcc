@@ -333,17 +333,14 @@ append_to_statement_list_force (tree t, tree *list_p)
     append_to_statement_list_1 (t, list_p);
 }
 
-/* FIXME tuples: This function is obsolete.  Use gimplify_stmt instead.  */
 /* Both gimplify the statement T and append it to SEQ.  */
+/* This function behaves exactly as gimplify_stmt, but you don't have to pass
+   T as a reference.  */
 
 void
 gimplify_and_add (tree t, gimple_seq seq)
 {
-  struct gimple_sequence tseq;
-
-  gimple_seq_init (&tseq);
-  gimplify_stmt (&t, &tseq);
-  gimple_seq_append (seq, &tseq);
+  gimplify_stmt (&t, seq);
 }
 
 /* Strip off a legitimate source ending from the input string NAME of
@@ -1039,8 +1036,6 @@ gimplify_bind_expr (tree *expr_p, gimple_seq pre_p)
   gimple gimple_bind;
   struct gimple_sequence empty_seq;
 
-  gimple_seq_init (&empty_seq);
-
   tree temp = voidify_wrapper_expr (bind_expr, NULL);
 
   /* Mark variables seen in this bind expr.  */
@@ -1071,7 +1066,7 @@ gimplify_bind_expr (tree *expr_p, gimple_seq pre_p)
 	DECL_GIMPLE_REG_P (t) = 1;
     }
 
-  gimple_bind = gimple_build_bind (BIND_EXPR_VARS (bind_expr), &empty_seq);
+  gimple_bind = gimple_build_bind (BIND_EXPR_VARS (bind_expr), NULL);
   gimple_push_bind_expr (gimple_bind);
 
   gimplify_ctxp->save_stack = false;
@@ -1082,22 +1077,17 @@ gimplify_bind_expr (tree *expr_p, gimple_seq pre_p)
   if (gimplify_ctxp->save_stack)
     {
       gimple stack_save, stack_restore, gs;
-      struct gimple_sequence restore_seq;
 
       /* Save stack on entry and restore it on exit.  Add a try_finally
 	 block to achieve this.  Note that mudflap depends on the
 	 format of the emitted code: see mx_register_decls().  */
       build_stack_save_restore (&stack_save, &stack_restore);
 
-      /* FIXME tuples: Creating a one item sequence is really
-	 retarded.  If this happens more often in the gimplifier we
-	 should create a helper function for this.  */
-      gimple_seq_init (&restore_seq);
-      gimple_add (&restore_seq, stack_restore);
+      gs = gimple_build_try (gimple_bind_body (gimple_bind), NULL,
+	  		     GIMPLE_TRY_FINALLY);
+      gimple_add (gimple_try_cleanup (gs), stack_restore);
 
-      gs = gimple_build_try (gimple_bind_body (gimple_bind), &restore_seq,
-                             GIMPLE_TRY_FINALLY);
-
+      gimple_seq_init (&empty_seq);
       gimple_bind_set_body (gimple_bind, &empty_seq);
       gimple_add (gimple_bind_body (gimple_bind), stack_save);
       gimple_add (gimple_bind_body (gimple_bind), gs);
@@ -1294,25 +1284,22 @@ static enum gimplify_status
 gimplify_loop_expr (tree *expr_p, gimple_seq pre_p)
 {
   tree saved_label = gimplify_ctxp->exit_label;
-  tree start_label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-  tree jump_stmt = build_and_jump (&LABEL_EXPR_LABEL (start_label));
+  tree start_label = create_artificial_label ();
 
-  gimplify_and_add (start_label, pre_p);
+  gimple_add (pre_p, gimple_build_label (start_label));
 
   gimplify_ctxp->exit_label = NULL_TREE;
 
   gimplify_and_add (LOOP_EXPR_BODY (*expr_p), pre_p);
 
+  gimple_add (pre_p, gimple_build_goto (start_label));
+
   if (gimplify_ctxp->exit_label)
-    {
-      gimplify_and_add (jump_stmt, pre_p);
-      *expr_p = build1 (LABEL_EXPR, void_type_node, gimplify_ctxp->exit_label);
-    }
-  else
-    *expr_p = jump_stmt;
+    gimple_add (pre_p, gimple_build_label (gimplify_ctxp->exit_label));
 
   gimplify_ctxp->exit_label = saved_label;
 
+  *expr_p = NULL;
   return GS_ALL_DONE;
 }
 
@@ -5945,10 +5932,20 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 
 	case TRY_FINALLY_EXPR:
 	case TRY_CATCH_EXPR:
-	  gimplify_to_stmt_list (&TREE_OPERAND (*expr_p, 0));
-	  gimplify_to_stmt_list (&TREE_OPERAND (*expr_p, 1));
-	  ret = GS_ALL_DONE;
-	  break;
+	  {
+	    gimple try
+	      = gimple_build_try (NULL, NULL,
+				  TREE_CODE (*expr_p) == TRY_FINALLY_EXPR ?
+				  GIMPLE_TRY_FINALLY : GIMPLE_TRY_CATCH);
+
+	    gimplify_and_add (TREE_OPERAND (*expr_p, 0), gimple_try_eval (try));
+	    gimplify_and_add (TREE_OPERAND (*expr_p, 1),
+			      gimple_try_cleanup (try));
+	    gimple_add (pre_p, try);
+
+	    ret = GS_ALL_DONE;
+	    break;
+	  }
 
 	case CLEANUP_POINT_EXPR:
 	  gcc_unreachable();
@@ -6264,6 +6261,7 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 		  && code != EH_FILTER_EXPR
 		  && code != GOTO_EXPR
 		  && code != LABEL_EXPR
+		  && code != LOOP_EXPR
 		  && code != PHI_NODE
 		  && code != RESX_EXPR
 		  && code != SWITCH_EXPR
