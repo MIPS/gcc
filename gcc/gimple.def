@@ -1,13 +1,13 @@
 /* This file contains the definitions in the gimple IR tuples used in GCC.
 
-   Copyright (GS_C) 2007 Free Software Foundation, Inc.
+   Copyright (C) 2007 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (GS_at your option) any later
+Software Foundation; either version 2, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -21,38 +21,38 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
 /* The format of this file is
-   DEFGSCODE(GS_symbol, printable name).
+   DEFGSCODE(GIMPLE_symbol, printable name).
 
-   Where symbol is the enumeration name without the ``GS_''.
+   Where symbol is the enumeration name without the ``GIMPLE_''.
    */
 
-DEFGSCODE(GS_BASE, "gs_base")
-DEFGSCODE(GS_WITH_OPS, "gs_with_ops")
-DEFGSCODE(GS_WITH_MEM_OPS, "gs_with_mem_ops")
-DEFGSCODE(GS_OMP, "gs_omp")
+DEFGSCODE(GIMPLE_BASE, "gimple_base")
+DEFGSCODE(GIMPLE_WITH_OPS, "gimple_with_ops")
+DEFGSCODE(GIMPLE_WITH_MEM_OPS, "gimple_with_mem_ops")
+DEFGSCODE(GIMPLE_OMP, "gimple_omp")
 
-DEFGSCODE(GS_BIND, "gs_bind")
-DEFGSCODE(GS_CATCH, "gs_catch")
-DEFGSCODE(GS_EH_FILTER, "gs_eh_filter")
-DEFGSCODE(GS_LABEL, "gs_label")
-DEFGSCODE(GS_PHI, "gs_phi")
-DEFGSCODE(GS_RESX, "gs_resx")
-DEFGSCODE(GS_TRY, "gs_try")
-DEFGSCODE(GS_ASSIGN, "gs_assign")
-DEFGSCODE(GS_COND, "gs_cond")
-DEFGSCODE(GS_GOTO, "gs_goto")
-DEFGSCODE(GS_SWITCH, "gs_switch")
-DEFGSCODE(GS_ASM, "gs_asm")
-DEFGSCODE(GS_CALL, "gs_call")
-DEFGSCODE(GS_NOP, "gs_nop")
-DEFGSCODE(GS_RETURN, "gs_return")
-DEFGSCODE(GS_OMP_CONTINUE, "gs_omp_continue")
-DEFGSCODE(GS_OMP_CRITICAL, "gs_omp_critical")
-DEFGSCODE(GS_OMP_FOR, "gs_omp_for")
-DEFGSCODE(GS_OMP_MASTER, "gs_omp_master")
-DEFGSCODE(GS_OMP_ORDERED, "gs_omp_ordered")
-DEFGSCODE(GS_OMP_PARALLEL, "gs_omp_parallel")
-DEFGSCODE(GS_OMP_RETURN, "gs_omp_return")
-DEFGSCODE(GS_OMP_SECTION, "gs_omp_section")
-DEFGSCODE(GS_OMP_SECTIONS, "gs_omp_sections")
-DEFGSCODE(GS_OMP_SINGLE, "gs_omp_single")
+DEFGSCODE(GIMPLE_BIND, "gimple_bind")
+DEFGSCODE(GIMPLE_CATCH, "gimple_catch")
+DEFGSCODE(GIMPLE_EH_FILTER, "gimple_eh_filter")
+DEFGSCODE(GIMPLE_LABEL, "gimple_label")
+DEFGSCODE(GIMPLE_PHI, "gimple_phi")
+DEFGSCODE(GIMPLE_RESX, "gimple_resx")
+DEFGSCODE(GIMPLE_TRY, "gimple_try")
+DEFGSCODE(GIMPLE_ASSIGN, "gimple_assign")
+DEFGSCODE(GIMPLE_COND, "gimple_cond")
+DEFGSCODE(GIMPLE_GOTO, "gimple_goto")
+DEFGSCODE(GIMPLE_SWITCH, "gimple_switch")
+DEFGSCODE(GIMPLE_ASM, "gimple_asm")
+DEFGSCODE(GIMPLE_CALL, "gimple_call")
+DEFGSCODE(GIMPLE_NOP, "gimple_nop")
+DEFGSCODE(GIMPLE_RETURN, "gimple_return")
+DEFGSCODE(GIMPLE_OMP_CONTINUE, "gimple_omp_continue")
+DEFGSCODE(GIMPLE_OMP_CRITICAL, "gimple_omp_critical")
+DEFGSCODE(GIMPLE_OMP_FOR, "gimple_omp_for")
+DEFGSCODE(GIMPLE_OMP_MASTER, "gimple_omp_master")
+DEFGSCODE(GIMPLE_OMP_ORDERED, "gimple_omp_ordered")
+DEFGSCODE(GIMPLE_OMP_PARALLEL, "gimple_omp_parallel")
+DEFGSCODE(GIMPLE_OMP_RETURN, "gimple_omp_return")
+DEFGSCODE(GIMPLE_OMP_SECTION, "gimple_omp_section")
+DEFGSCODE(GIMPLE_OMP_SECTIONS, "gimple_omp_sections")
+DEFGSCODE(GIMPLE_OMP_SINGLE, "gimple_omp_single")

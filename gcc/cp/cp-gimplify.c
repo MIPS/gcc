@@ -149,7 +149,7 @@ genericize_eh_spec_block (tree *stmt_p)
   tree failure = build_call_n (call_unexpected_node, 1, build_exc_ptr ());
   gimplify_stmt (&body);
 
-  *stmt_p = gimple_build_eh_filter (body, allowed, failure);
+  *stmt_p = gimple_build_eh_filter_tree (body, allowed, failure);
 }
 
 /* Genericize an IF_STMT by turning it into a COND_EXPR.  */
@@ -429,7 +429,7 @@ gimplify_must_not_throw_expr (tree *expr_p, tree *pre_p)
 
   gimplify_stmt (&body);
 
-  stmt = gimple_build_eh_filter (body, NULL_TREE,
+  stmt = gimple_build_eh_filter_tree (body, NULL_TREE,
 				 build_call_n (terminate_node, 0));
 
   if (temp)

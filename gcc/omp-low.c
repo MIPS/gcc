@@ -1426,7 +1426,7 @@ scan_omp (tree *stmt_p, omp_context *ctx)
 /* Build a call to GOMP_barrier.  */
 
 static void
-build_omp_barrier (gs_seq stmt_list)
+build_omp_barrier (gimple_seq stmt_list)
 {
   tree t = build_call_expr (built_in_decls[BUILT_IN_GOMP_BARRIER], 0);
   gimplify_and_add (t, stmt_list);
@@ -4145,9 +4145,9 @@ static void
 lower_regimplify (tree *tp, struct walk_stmt_info *wi)
 {
   enum gimplify_status gs;
-  struct gs_sequence pre;
+  struct gimple_sequence pre;
 
-  gs_seq_init (&pre);
+  gimple_seq_init (&pre);
 
   if (wi->is_lhs)
     gs = gimplify_expr (tp, &pre, NULL, is_gimple_lvalue, fb_lvalue);
@@ -4157,9 +4157,9 @@ lower_regimplify (tree *tp, struct walk_stmt_info *wi)
     gs = gimplify_expr (tp, &pre, NULL, is_gimple_formal_tmp_var, fb_rvalue);
   gcc_assert (gs == GS_ALL_DONE);
 
-  /* FIXME tuples.  Need a gs_seq_insert_before.  WI->TSI must be a GS_SEQ.  */
+  /* FIXME tuples.  Need a gimple_seq_insert_before.  WI->TSI must be a GS_SEQ.  */
 #if 0
-  if (!gs_seq_empty_p (&pre))
+  if (!gimple_seq_empty_p (&pre))
     tsi_link_before (&wi->tsi, pre, TSI_SAME_STMT);
 #endif
 }

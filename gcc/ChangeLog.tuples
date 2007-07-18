@@ -1,3 +1,14 @@
+2007-07-17  Chris Matthews  <chrismatthews@google.com>
+
+	* gimplify.c (gs_build_eh_filter): Renamed to gs_build_eh_filter_tree to
+	avoid name conflict.
+	* gimple-pretty-print.c: Renamed to debug_gs_* to debug_gimple_*. Updated
+	all users.
+	* gimple.h: Renamed all functions with GS and gs prefixes to GIMPLE and
+	gimple, and updated users.
+	Renamed gs_seq_* functions to gimple_seq_*. Updated all users. 
+	* gimple.def: Definitions changed to from GS_* to GIMPLE_*.
+
 2007-07-16  Chris Matthews  <chrismatthews@google.com>
 
 	* gimple.c (gs_build_switch): Changed nlabels to represent total number of

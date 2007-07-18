@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 
-/* Test GS_SWITCH.  */
+/* Test GIMPLE_SWITCH.  */
 
 int
 foo (int a)

@@ -29,54 +29,54 @@ DEF_VEC_P(gimple);
 DEF_VEC_ALLOC_P(gimple,heap);
 DEF_VEC_ALLOC_P(gimple,gc);
 
-enum gs_code {
+enum gimple_code {
 #define DEFGSCODE(SYM, STRING)	SYM,
 #include "gimple.def"
 #undef DEFGSCODE
-    LAST_AND_UNUSED_GS_CODE
+    LAST_AND_UNUSED_GIMPLE_CODE
 };
 
-#define GS_CODE(G) ((G)->base.code)
-#define GS_SUBCODE_FLAGS(G) ((G)->base.subcode_flags)
-#define GS_NEXT(G) ((G)->base.next)
-#define GS_PREV(G) ((G)->base.prev)
-#define GS_LOCUS(G) ((G)->base.locus)
-#define GS_LOCUS_EMPTY_P(G)	(GS_LOCUS ((G)).file == NULL \
-				 && GS_LOCUS ((G)).line == 0)
+#define GIMPLE_CODE(G) ((G)->base.code)
+#define GIMPLE_SUBCODE_FLAGS(G) ((G)->base.subcode_flags)
+#define GIMPLE_NEXT(G) ((G)->base.next)
+#define GIMPLE_PREV(G) ((G)->base.prev)
+#define GIMPLE_LOCUS(G) ((G)->base.locus)
+#define GIMPLE_LOCUS_EMPTY_P(G)	(GIMPLE_LOCUS ((G)).file == NULL \
+				 && GIMPLE_LOCUS ((G)).line == 0)
 
 /* A sequence of gimple statements.  */
-struct gs_sequence
+struct gimple_sequence
 {
   gimple first;
   gimple last;
 };
 
 static inline gimple
-gs_seq_first (gs_seq s)
+gimple_seq_first (gimple_seq s)
 {
   return s->first;
 }
 
 static inline gimple
-gs_seq_last (gs_seq s)
+gimple_seq_last (gimple_seq s)
 {
   return s->last;
 }
 
 static inline void
-gs_seq_set_last (gs_seq s, gimple last)
+gimple_seq_set_last (gimple_seq s, gimple last)
 {
   s->last = last;
 }
 
 static inline void
-gs_seq_set_first (gs_seq s, gimple first)
+gimple_seq_set_first (gimple_seq s, gimple first)
 {
   s->first = first;
 }
 
 static inline void
-gs_seq_init (gs_seq s)
+gimple_seq_init (gimple_seq s)
 {
   s->first = NULL;
   s->last = NULL;
@@ -85,14 +85,14 @@ gs_seq_init (gs_seq s)
 /* Copy the sequence SRC into the sequence DEST.  */
 
 static inline void
-gs_seq_copy (gs_seq dest, gs_seq src)
+gimple_seq_copy (gimple_seq dest, gimple_seq src)
 {
-  gs_seq_set_first (dest, gs_seq_first (src));
-  gs_seq_set_last (dest, gs_seq_last (src));
+  gimple_seq_set_first (dest, gimple_seq_first (src));
+  gimple_seq_set_last (dest, gimple_seq_last (src));
 }
 
 static inline bool
-gs_seq_empty_p (gs_seq s)
+gimple_seq_empty_p (gimple_seq s)
 {
   return s->first == NULL;
 }
@@ -101,7 +101,7 @@ gs_seq_empty_p (gs_seq s)
 
 struct gimple_statement_base GTY(())
 {
-  ENUM_BITFIELD(gs_code) code : 16;
+  ENUM_BITFIELD(gimple_code) code : 16;
   unsigned int subcode_flags : 16;
   gimple next;
   gimple prev;
@@ -131,18 +131,18 @@ struct gimple_statement_with_memory_ops GTY(())
 struct gimple_statement_omp GTY(())
 {
      struct gimple_statement_base base;
-     struct gs_sequence body;
+     struct gimple_sequence body;
 };
 
-/* GS_BIND */
+/* GIMPLE_BIND */
 struct gimple_statement_bind GTY(())
 {
   struct gimple_statement_base base;
   tree vars;
-  struct gs_sequence body;
+  struct gimple_sequence body;
 };
 
-/* GS_CATCH */
+/* GIMPLE_CATCH */
 struct gimple_statement_catch GTY(())
 {
   struct gimple_statement_base base;
@@ -150,7 +150,7 @@ struct gimple_statement_catch GTY(())
   gimple handler;
 };
 
-/* GS_EH_FILTER */
+/* GIMPLE_EH_FILTER */
 struct gimple_statement_eh_filter GTY(())
 {
   struct gimple_statement_base base;
@@ -160,14 +160,14 @@ struct gimple_statement_eh_filter GTY(())
   gimple failure;
 };
 
-/* GS_LABEL */
+/* GIMPLE_LABEL */
 struct gimple_statement_label GTY(())
 {
   struct gimple_statement_base base;
   tree label;
 };
 
-/* GS_PHI */
+/* GIMPLE_PHI */
 struct gimple_statement_phi GTY(())
 {
   struct gimple_statement_base base;
@@ -177,7 +177,7 @@ struct gimple_statement_phi GTY(())
   struct phi_arg_d GTY ((length ("%h.nargs"))) args[1];
 };
 
-/* GS_RESX */
+/* GIMPLE_RESX */
 struct gimple_statement_resx GTY(())
 {
   struct gimple_statement_base base;
@@ -185,21 +185,21 @@ struct gimple_statement_resx GTY(())
   int region;
 };
 
-/* GS_TRY */
+/* GIMPLE_TRY */
 struct gimple_statement_try GTY(())
 {
   struct gimple_statement_base base;
   /* Expression to evaluate.  */
-  struct gs_sequence eval;
+  struct gimple_sequence eval;
   /* Cleanup expression.  */
-  struct gs_sequence cleanup;
+  struct gimple_sequence cleanup;
 };
 
-/* Flags stored in GS_TRY's subcode flags.  */
-#define GS_TRY_CATCH 1 << 0
-#define GS_TRY_FINALLY 1 << 1
+/* Flags stored in GIMPLE_TRY's subcode flags.  */
+#define GIMPLE_TRY_CATCH 1 << 0
+#define GIMPLE_TRY_FINALLY 1 << 1
 
-/* GS_ASSIGN */
+/* GIMPLE_ASSIGN */
 struct gimple_statement_assign_binary GTY(())
 {
   struct gimple_statement_with_ops with_ops;
@@ -218,7 +218,7 @@ struct gimple_statement_assign_unary_mem GTY(())
   tree op[2];
 };
 
-/* GS_COND */
+/* GIMPLE_COND */
 struct gimple_statement_cond GTY(())
 {
   struct gimple_statement_with_ops with_ops;
@@ -227,14 +227,14 @@ struct gimple_statement_cond GTY(())
   tree label_false;
 };
 
-/* GS_GOTO */
+/* GIMPLE_GOTO */
 struct gimple_statement_goto GTY(())
 {
   struct gimple_statement_with_ops with_ops;
   tree dest;
 };
 
-/* GS_SWITCH */
+/* GIMPLE_SWITCH */
 struct gimple_statement_switch GTY(())
 {
   struct gimple_statement_with_ops with_ops;
@@ -243,7 +243,7 @@ struct gimple_statement_switch GTY(())
   tree GTY ((length ("%h.nlabels + 1"))) labels[1];
 };
 
-/* GS_ASM */
+/* GIMPLE_ASM */
 struct gimple_statement_asm GTY(())
 {
   struct gimple_statement_with_memory_ops with_mem_ops;
@@ -257,7 +257,7 @@ struct gimple_statement_asm GTY(())
   tree GTY ((length ("%h.ni+%h.no+%h.nc"))) op[1];
 };
 
-/* GS_CALL */
+/* GIMPLE_CALL */
 struct gimple_statement_call GTY(())
 {
   struct gimple_statement_with_memory_ops with_mem_ops;
@@ -268,14 +268,14 @@ struct gimple_statement_call GTY(())
   tree GTY ((length ("%h.nargs"))) args[1];
 };
 
-/* GS_RETURN */
+/* GIMPLE_RETURN */
 struct gimple_statement_return GTY(())
 {
   struct gimple_statement_with_memory_ops with_mem_ops;
   tree retval;
 };
 
-/* GS_OMP_CRITICAL */
+/* GIMPLE_OMP_CRITICAL */
 struct gimple_statement_omp_critical GTY(())
 {
   struct gimple_statement_omp omp;
@@ -283,7 +283,7 @@ struct gimple_statement_omp_critical GTY(())
   tree name;
 };
 
-/* GS_OMP_FOR */
+/* GIMPLE_OMP_FOR */
 struct gimple_statement_omp_for GTY(())
 {
   struct gimple_statement_omp omp;
@@ -297,16 +297,17 @@ struct gimple_statement_omp_for GTY(())
   /* Increment.  */
   tree incr;
   /* Pre-body evaluated before the loop body begins.  */
-  struct gs_sequence pre_body;
+  struct gimple_sequence pre_body;
 };
 
 /* Predicate for conds. */
-enum gs_cond {
-  /* These must be in sync with op_gs_cond().  */
-  GS_COND_LT, GS_COND_GT, GS_COND_LE, GS_COND_GE, GS_COND_EQ, GS_COND_NE
+enum gimple_cond {
+  /* These must be in sync with op_gimple_cond().  */
+  GIMPLE_COND_LT, GIMPLE_COND_GT, GIMPLE_COND_LE, GIMPLE_COND_GE,
+  GIMPLE_COND_EQ, GIMPLE_COND_NE
 };
 
-/* GS_OMP_PARALLEL */
+/* GIMPLE_OMP_PARALLEL */
 struct gimple_statement_omp_parallel GTY(())
 {
   struct gimple_statement_omp omp;
@@ -316,25 +317,25 @@ struct gimple_statement_omp_parallel GTY(())
   tree data_arg;
 };
 
-/* GS_OMP_SECTION */
+/* GIMPLE_OMP_SECTION */
 /* Uses struct gimple_statement_omp.  */
 
-/* GS_OMP_SECTIONS */
+/* GIMPLE_OMP_SECTIONS */
 struct gimple_statement_omp_sections GTY(())
 {
   struct gimple_statement_omp omp;
   tree clauses;
 };
 
-/* GS_OMP_SINGLE */
+/* GIMPLE_OMP_SINGLE */
 struct gimple_statement_omp_single GTY(())
 {
   struct gimple_statement_omp omp;
   tree clauses;
 };
 
-/* GS_OMP_RETURN */
-/* Flags stored in GS_OMP_RETURN's subcode flags.*/
+/* GIMPLE_OMP_RETURN */
+/* Flags stored in GIMPLE_OMP_RETURN's subcode flags.*/
 #define OMP_RETURN_NOWAIT_FLAG 1 << 0
 
 enum gimple_statement_structure_enum {
@@ -354,158 +355,170 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
      gimple_statement_structure() since they're subsumed by the other
      tuples.  We only include the tags for completeness.  */
   struct gimple_statement_with_ops GTY ((tag ("GSS_WITH_OPS"))) with_ops;
-  struct gimple_statement_with_memory_ops GTY ((tag ("GSS_WITH_MEM_OPS"))) with_mem_ops;
+  struct gimple_statement_with_memory_ops GTY ((tag ("GSS_WITH_MEM_OPS")))
+  with_mem_ops;
   struct gimple_statement_omp GTY ((tag ("GSS_OMP"))) omp;
 
-  struct gimple_statement_bind GTY ((tag ("GSS_BIND"))) gs_bind;
-  struct gimple_statement_catch GTY ((tag ("GSS_CATCH"))) gs_catch;
-  struct gimple_statement_eh_filter GTY ((tag ("GSS_EH_FILTER"))) gs_eh_filter;
-  struct gimple_statement_label GTY ((tag ("GSS_LABEL"))) gs_label;
-  struct gimple_statement_phi GTY ((tag ("GSS_PHI"))) gs_phi;
-  struct gimple_statement_resx GTY ((tag ("GSS_RESX"))) gs_resx;
-  struct gimple_statement_try GTY ((tag ("GSS_TRY"))) gs_try;
-  struct gimple_statement_assign_binary GTY ((tag ("GSS_ASSIGN_BINARY"))) gs_assign_binary;
-  struct gimple_statement_assign_unary_reg GTY ((tag ("GSS_ASSIGN_UNARY_REG"))) gs_assign_unary_reg;
-  struct gimple_statement_assign_unary_mem GTY ((tag ("GSS_ASSIGN_UNARY_MEM"))) gs_assign_unary_mem;
-  struct gimple_statement_cond GTY ((tag ("GSS_COND"))) gs_cond;
-  struct gimple_statement_goto GTY ((tag ("GSS_GOTO"))) gs_goto;
-  struct gimple_statement_switch GTY ((tag ("GSS_SWITCH"))) gs_switch;
-  struct gimple_statement_asm GTY ((tag ("GSS_ASM"))) gs_asm;
-  struct gimple_statement_call GTY ((tag ("GSS_CALL"))) gs_call;
-  struct gimple_statement_return GTY ((tag ("GSS_RETURN"))) gs_return;
-  struct gimple_statement_omp_critical GTY ((tag ("GSS_OMP_CRITICAL"))) gs_omp_critical;
-  struct gimple_statement_omp_for GTY ((tag ("GSS_OMP_FOR"))) gs_omp_for;
-  struct gimple_statement_omp_parallel GTY ((tag ("GSS_OMP_PARALLEL"))) gs_omp_parallel;
-  struct gimple_statement_omp_sections GTY ((tag ("GSS_OMP_SECTIONS"))) gs_omp_sections;
-  struct gimple_statement_omp_single GTY ((tag ("GSS_OMP_SINGLE"))) gs_omp_single;
+  struct gimple_statement_bind GTY ((tag ("GSS_BIND"))) gimple_bind;
+  struct gimple_statement_catch GTY ((tag ("GSS_CATCH"))) gimple_catch;
+  struct gimple_statement_eh_filter GTY ((tag ("GSS_EH_FILTER")))
+  gimple_eh_filter;
+  struct gimple_statement_label GTY ((tag ("GSS_LABEL"))) gimple_label;
+  struct gimple_statement_phi GTY ((tag ("GSS_PHI"))) gimple_phi;
+  struct gimple_statement_resx GTY ((tag ("GSS_RESX"))) gimple_resx;
+  struct gimple_statement_try GTY ((tag ("GSS_TRY"))) gimple_try;
+  struct gimple_statement_assign_binary GTY ((tag ("GSS_ASSIGN_BINARY")))
+  gimple_assign_binary;
+  struct gimple_statement_assign_unary_reg GTY ((tag ("GSS_ASSIGN_UNARY_REG")))
+  gimple_assign_unary_reg;
+  struct gimple_statement_assign_unary_mem GTY ((tag ("GSS_ASSIGN_UNARY_MEM")))
+  gimple_assign_unary_mem;
+  struct gimple_statement_cond GTY ((tag ("GSS_COND"))) gimple_cond;
+  struct gimple_statement_goto GTY ((tag ("GSS_GOTO"))) gimple_goto;
+  struct gimple_statement_switch GTY ((tag ("GSS_SWITCH"))) gimple_switch;
+  struct gimple_statement_asm GTY ((tag ("GSS_ASM"))) gimple_asm;
+  struct gimple_statement_call GTY ((tag ("GSS_CALL"))) gimple_call;
+  struct gimple_statement_return GTY ((tag ("GSS_RETURN"))) gimple_return;
+  struct gimple_statement_omp_critical GTY ((tag ("GSS_OMP_CRITICAL")))
+  gimple_omp_critical;
+  struct gimple_statement_omp_for GTY ((tag ("GSS_OMP_FOR"))) gimple_omp_for;
+  struct gimple_statement_omp_parallel GTY ((tag ("GSS_OMP_PARALLEL")))
+  gimple_omp_parallel;
+  struct gimple_statement_omp_sections GTY ((tag ("GSS_OMP_SECTIONS")))
+  gimple_omp_sections;
+  struct gimple_statement_omp_single GTY ((tag ("GSS_OMP_SINGLE")))
+  gimple_omp_single;
 };
 
 /* Prototypes.  */
 
-extern gimple gs_build_return (bool, tree);
-extern gimple gs_build_assign (tree, tree);
-extern gimple gs_build_call_vec (tree, VEC(tree, gc) *);
-extern gimple gs_build_call (tree, size_t, ...);
-extern gimple gs_build_cond (enum gs_cond, tree, tree, tree, tree);
-extern void gs_cond_invert (gimple);
-extern gimple gs_build_label (tree label);
-extern gimple gs_build_goto (tree dest);
-extern gimple gs_build_nop (void);
-extern gimple gs_build_bind (tree, gs_seq);
-extern gimple gs_build_asm (const char *, unsigned, unsigned, unsigned, ...);
-extern gimple gs_build_catch (tree, gimple);
-extern gimple gs_build_eh_filter (tree, gimple);
-extern gimple gs_build_try (gs_seq, gs_seq, unsigned int);
-extern gimple gs_build_phi (unsigned, unsigned, tree, ...);
-extern gimple gs_build_resx (int);
-extern gimple gs_build_switch (unsigned int, tree, tree, ...);
-extern gimple gs_build_switch_vec (tree, tree, VEC(tree,heap) *);
-extern gimple gs_omp_build_parallel (gs_seq, tree, tree, tree);
-extern gimple gs_omp_build_for (gs_seq, tree, tree, tree, tree, tree, gs_seq,
-				enum gs_cond);
-extern gimple gs_omp_build_critical (gs_seq, tree);
-extern gimple gs_omp_build_section (gs_seq);
-extern gimple gs_omp_build_continue (gs_seq);
-extern gimple gs_omp_build_master (gs_seq);
-extern gimple gs_omp_build_return (bool);
-extern gimple gs_omp_build_ordered (gs_seq);
-extern gimple gs_omp_build_sections (gs_seq, tree);
-extern gimple gs_omp_build_single (gs_seq, tree);
+extern gimple gimple_build_return (bool, tree);
+extern gimple gimple_build_assign (tree, tree);
+extern gimple gimple_build_call_vec (tree, VEC(tree, gc) *);
+extern gimple gimple_build_call (tree, size_t, ...);
+extern gimple gimple_build_cond (enum gimple_cond, tree, tree, tree, tree);
+extern void gimple_cond_invert (gimple);
+extern gimple gimple_build_label (tree label);
+extern gimple gimple_build_goto (tree dest);
+extern gimple gimple_build_nop (void);
+extern gimple gimple_build_bind (tree, gimple_seq);
+extern gimple gimple_build_asm (const char *, unsigned, unsigned, unsigned,
+                                ...);
+extern gimple gimple_build_catch (tree, gimple);
+extern gimple gimple_build_eh_filter (tree, gimple);
+extern gimple gimple_build_try (gimple_seq, gimple_seq, unsigned int);
+extern gimple gimple_build_phi (unsigned, unsigned, tree, ...);
+extern gimple gimple_build_resx (int);
+extern gimple gimple_build_switch (unsigned int, tree, tree, ...);
+extern gimple gimple_build_switch_vec (tree, tree, VEC(tree,heap) *);
+extern gimple gimple_omp_build_parallel (gimple_seq, tree, tree, tree);
+extern gimple gimple_omp_build_for (gimple_seq, tree, tree, tree, tree, tree,
+                                    gimple_seq, enum gimple_cond);
+extern gimple gimple_omp_build_critical (gimple_seq, tree);
+extern gimple gimple_omp_build_section (gimple_seq);
+extern gimple gimple_omp_build_continue (gimple_seq);
+extern gimple gimple_omp_build_master (gimple_seq);
+extern gimple gimple_omp_build_return (bool);
+extern gimple gimple_omp_build_ordered (gimple_seq);
+extern gimple gimple_omp_build_sections (gimple_seq, tree);
+extern gimple gimple_omp_build_single (gimple_seq, tree);
 extern enum gimple_statement_structure_enum gimple_statement_structure (gimple);
-extern void gs_add (gs_seq, gimple);
-extern void gs_push (gimple, gs_seq);
+extern void gimple_add (gimple_seq, gimple);
+extern void gimple_push (gimple, gimple_seq);
 extern enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
 extern void sort_case_labels (VEC(tree,heap) *);
 extern void walk_tuple_ops (gimple, walk_tree_fn, void *,
     			    struct pointer_set_t *);
-extern void walk_seq_ops (gs_seq, walk_tree_fn, void *, struct pointer_set_t *);
-extern void set_gimple_body (tree, gs_seq);
-extern gs_seq gimple_body (tree);
+extern void walk_seq_ops (gimple_seq, walk_tree_fn, void *,
+                          struct pointer_set_t *);
+extern void set_gimple_body (tree, gimple_seq);
+extern gimple_seq gimple_body (tree);
 
-extern const char *const gs_code_name[];
+extern const char *const gimple_code_name[];
 
 /* Error out if a gimple tuple is addressed incorrectly.  */
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
-extern void gs_check_failed (const gimple, const char *, int, const char *, \
-    			     unsigned int, unsigned int) ATTRIBUTE_NORETURN;
+extern void gimple_check_failed (const gimple, const char *, int,          \
+                                 const char *, unsigned int, unsigned int) \
+                                 ATTRIBUTE_NORETURN;                       \
 
-#define GS_CHECK(GS, CODE) __extension__				\
+#define GIMPLE_CHECK(GS, CODE) __extension__				\
   ({  const gimple __gs = (GS);						\
-      if (GS_CODE (__gs) != (CODE))					\
-        gs_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
+      if (GIMPLE_CODE (__gs) != (CODE))					\
+        gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
 	  		 (CODE), 0);					\
       __gs; })
 
-#define GS_CHECK2(GS, CODE1, CODE2) __extension__			\
+#define GIMPLE_CHECK2(GS, CODE1, CODE2) __extension__			\
   ({  const gimple __gs = (GS);						\
-      if (GS_CODE (__gs) != (CODE1)					\
-	  || GS_SUBCODE_FLAGS (__gs) != (CODE2))			\
-        gs_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
+      if (GIMPLE_CODE (__gs) != (CODE1)					\
+	  || GIMPLE_SUBCODE_FLAGS (__gs) != (CODE2))			\
+        gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
 	  		 (CODE1), (CODE2));				\
       __gs; })
 #else  /* not ENABLE_TREE_CHECKING, or not gcc */
-#define GS_CHECK(GS, CODE)	(GS)
-#define GS_CHECK2(GS, C1, C2)	(GS)
+#define GIMPLE_CHECK(GS, CODE)	(GS)
+#define GIMPLE_CHECK2(GS, C1, C2)	(GS)
 #endif
 
 /* GIMPLE IR accessor functions.  */
 
-/* GS_ASSIGN accessors.  */
+/* GIMPLE_ASSIGN accessors.  */
 
-/* Get an operand in a GS_ASSIGN.
+/* Get an operand in a GIMPLE_ASSIGN.
 
    OPNO is the number of the operand to get.
-   GS is a GS_ASSIGN statement.  */
+   GS is a GIMPLE_ASSIGN statement.  */
 
 static inline tree
-gs_assign_operand (gimple gs, size_t opno)
+gimple_assign_operand (gimple gs, size_t opno)
 {
   enum gimple_statement_structure_enum gss;
 
-  GS_CHECK (gs, GS_ASSIGN);
+  GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
 
   gss = gimple_statement_structure (gs);
   if (gss == GSS_ASSIGN_BINARY)
-    return gs->gs_assign_binary.op[opno];
+    return gs->gimple_assign_binary.op[opno];
   else if (gss == GSS_ASSIGN_UNARY_REG)
-    return gs->gs_assign_unary_reg.op[opno];
+    return gs->gimple_assign_unary_reg.op[opno];
   else if (gss == GSS_ASSIGN_UNARY_MEM)
-    return gs->gs_assign_unary_mem.op[opno];
+    return gs->gimple_assign_unary_mem.op[opno];
 
   gcc_unreachable ();
 }
 
-/* Set an operand in a GS_ASSIGN.
+/* Set an operand in a GIMPLE_ASSIGN.
 
    OPNO is the number of the operand to set.
-   GS is a GS_ASSIGN statement.
+   GS is a GIMPLE_ASSIGN statement.
    OP is the tree to set the operand to.  */
 
 static inline void
-gs_assign_set_operand (gimple gs, size_t opno, tree op)
+gimple_assign_set_operand (gimple gs, size_t opno, tree op)
 {
   enum gimple_statement_structure_enum gss;
 
-  GS_CHECK (gs, GS_ASSIGN);
+  GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
 
   gss = gimple_statement_structure (gs);
   if (gss == GSS_ASSIGN_BINARY) 
     {
       gcc_assert (opno <= 2);
-      gs->gs_assign_binary.op[opno] = op;
+      gs->gimple_assign_binary.op[opno] = op;
       return;
     }
   else if (gss == GSS_ASSIGN_UNARY_REG)
     {
       gcc_assert (opno <= 1);
-      gs->gs_assign_unary_reg.op[opno] = op;
+      gs->gimple_assign_unary_reg.op[opno] = op;
       return;
     }
   else if (gss == GSS_ASSIGN_UNARY_MEM)
     {
       gcc_assert (opno <= 1);
-      gs->gs_assign_unary_mem.op[opno] = op;
+      gs->gimple_assign_unary_mem.op[opno] = op;
       return;
     }
 
@@ -513,835 +526,835 @@ gs_assign_set_operand (gimple gs, size_t opno, tree op)
 }
 
 static inline tree
-gs_assign_lhs (gimple gs)
+gimple_assign_lhs (gimple gs)
 {
-  return gs_assign_operand (gs, 0);
+  return gimple_assign_operand (gs, 0);
 }
 
 static inline void
-gs_assign_set_lhs (gimple gs, tree lhs)
+gimple_assign_set_lhs (gimple gs, tree lhs)
 {
-  gs_assign_set_operand (gs, 0, lhs);
+  gimple_assign_set_operand (gs, 0, lhs);
 }
 
 static inline tree
-gs_assign_binary_rhs1 (gimple gs)
+gimple_assign_binary_rhs1 (gimple gs)
 {
 #if defined ENABLE_CHECKING
   enum gimple_statement_structure_enum gss;
-  gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
+  gss = gss_for_assign (GIMPLE_SUBCODE_FLAGS (gs));
   gcc_assert (gss == GSS_ASSIGN_BINARY);
 #endif
-  return gs_assign_operand (gs, 1);
+  return gimple_assign_operand (gs, 1);
 }
 
 static inline void
-gs_assign_binary_set_rhs1 (gimple gs, tree rhs)
+gimple_assign_binary_set_rhs1 (gimple gs, tree rhs)
 {
 #if defined ENABLE_CHECKING
   enum gimple_statement_structure_enum gss;
-  gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
+  gss = gss_for_assign (GIMPLE_SUBCODE_FLAGS (gs));
   gcc_assert (gss == GSS_ASSIGN_BINARY);
 #endif
-  gs_assign_set_operand (gs, 1, rhs);
+  gimple_assign_set_operand (gs, 1, rhs);
 }
 
 static inline tree
-gs_assign_binary_rhs2 (gimple gs)
+gimple_assign_binary_rhs2 (gimple gs)
 {
 #if defined ENABLE_CHECKING
   enum gimple_statement_structure_enum gss;
-  gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
+  gss = gss_for_assign (GIMPLE_SUBCODE_FLAGS (gs));
   gcc_assert (gss == GSS_ASSIGN_BINARY);
 #endif
-  return gs_assign_operand (gs, 2);
+  return gimple_assign_operand (gs, 2);
 }
 
 static inline void
-gs_assign_binary_set_rhs2 (gimple gs, tree rhs)
+gimple_assign_binary_set_rhs2 (gimple gs, tree rhs)
 {
 #if defined ENABLE_CHECKING
   enum gimple_statement_structure_enum gss;
-  gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
+  gss = gss_for_assign (GIMPLE_SUBCODE_FLAGS (gs));
   gcc_assert (gss == GSS_ASSIGN_BINARY);
 #endif
-  gs_assign_set_operand (gs, 2, rhs);
+  gimple_assign_set_operand (gs, 2, rhs);
 }
 
 static inline tree
-gs_assign_unary_rhs (gimple gs)
+gimple_assign_unary_rhs (gimple gs)
 {
 #if defined ENABLE_CHECKING
   enum gimple_statement_structure_enum gss;
-  gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
+  gss = gss_for_assign (GIMPLE_SUBCODE_FLAGS (gs));
   gcc_assert (gss == GSS_ASSIGN_UNARY_REG || gss == GSS_ASSIGN_UNARY_MEM);
 #endif
-  return gs_assign_operand (gs, 1);
+  return gimple_assign_operand (gs, 1);
 }
 
 static inline void
-gs_assign_unary_set_rhs (gimple gs, tree rhs)
+gimple_assign_unary_set_rhs (gimple gs, tree rhs)
 {
 #if defined ENABLE_CHECKING
   enum gimple_statement_structure_enum gss;
-  gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
+  gss = gss_for_assign (GIMPLE_SUBCODE_FLAGS (gs));
   gcc_assert (gss == GSS_ASSIGN_UNARY_REG || gss == GSS_ASSIGN_UNARY_MEM);
 #endif
-  gs_assign_set_operand (gs, 1, rhs);
+  gimple_assign_set_operand (gs, 1, rhs);
 }
 
 
-/* GS_CALL accessors. */
+/* GIMPLE_CALL accessors. */
 
 static inline tree
-gs_call_fn (gimple gs)
+gimple_call_fn (gimple gs)
 {
-  GS_CHECK (gs, GS_CALL);
-  return gs->gs_call.fn;
+  GIMPLE_CHECK (gs, GIMPLE_CALL);
+  return gs->gimple_call.fn;
 }
 
 static inline tree
-gs_call_lhs (gimple gs)
+gimple_call_lhs (gimple gs)
 {
-  GS_CHECK (gs, GS_CALL);
-  return gs->gs_call.lhs;
+  GIMPLE_CHECK (gs, GIMPLE_CALL);
+  return gs->gimple_call.lhs;
 }
 
 static inline void
-gs_call_set_lhs (gimple gs, tree lhs)
+gimple_call_set_lhs (gimple gs, tree lhs)
 {
-  GS_CHECK (gs, GS_CALL);
-  gs->gs_call.lhs = lhs;
+  GIMPLE_CHECK (gs, GIMPLE_CALL);
+  gs->gimple_call.lhs = lhs;
 }
 
 static inline tree
-gs_call_chain (gimple gs)
+gimple_call_chain (gimple gs)
 {
-  GS_CHECK (gs, GS_CALL);
-  return gs->gs_call.chain;
+  GIMPLE_CHECK (gs, GIMPLE_CALL);
+  return gs->gimple_call.chain;
 }
 
 static inline void
-gs_call_set_chain (gimple gs, tree chain)
+gimple_call_set_chain (gimple gs, tree chain)
 {
-  GS_CHECK (gs, GS_CALL);
-  gs->gs_call.chain = chain;
+  GIMPLE_CHECK (gs, GIMPLE_CALL);
+  gs->gimple_call.chain = chain;
 }
 
 static inline unsigned long
-gs_call_nargs (gimple gs)
+gimple_call_nargs (gimple gs)
 {
-  GS_CHECK (gs, GS_CALL);
-  return gs->gs_call.nargs;
+  GIMPLE_CHECK (gs, GIMPLE_CALL);
+  return gs->gimple_call.nargs;
 }
 
 static inline tree
-gs_call_arg (gimple gs, int index)
+gimple_call_arg (gimple gs, int index)
 {
-  GS_CHECK (gs, GS_CALL);
-  return gs->gs_call.args[index];
+  GIMPLE_CHECK (gs, GIMPLE_CALL);
+  return gs->gimple_call.args[index];
 }
 
 static inline void
-gs_call_set_arg (gimple gs, int index, tree arg)
+gimple_call_set_arg (gimple gs, int index, tree arg)
 {
-  GS_CHECK (gs, GS_CALL);
-  gs->gs_call.args[index] = arg;
+  GIMPLE_CHECK (gs, GIMPLE_CALL);
+  gs->gimple_call.args[index] = arg;
 }
 
 
-/* GS_COND accessors. */
+/* GIMPLE_COND accessors. */
 
 static inline tree
-gs_cond_lhs (gimple gs)
+gimple_cond_lhs (gimple gs)
 {
-  GS_CHECK (gs, GS_COND);
-  return gs->gs_cond.op[0];
+  GIMPLE_CHECK (gs, GIMPLE_COND);
+  return gs->gimple_cond.op[0];
 }
 
 static inline void
-gs_cond_set_lhs (gimple gs, tree lhs)
+gimple_cond_set_lhs (gimple gs, tree lhs)
 {
-  GS_CHECK (gs, GS_COND);
-  gs->gs_cond.op[0] = lhs;
+  GIMPLE_CHECK (gs, GIMPLE_COND);
+  gs->gimple_cond.op[0] = lhs;
 }
 
 static inline tree
-gs_cond_rhs (gimple gs)
+gimple_cond_rhs (gimple gs)
 {
-  GS_CHECK (gs, GS_COND);
-  return gs->gs_cond.op[1];
+  GIMPLE_CHECK (gs, GIMPLE_COND);
+  return gs->gimple_cond.op[1];
 }
 
 static inline void
-gs_cond_set_rhs (gimple gs, tree rhs)
+gimple_cond_set_rhs (gimple gs, tree rhs)
 {
-  GS_CHECK (gs, GS_COND);
-  gs->gs_cond.op[1] = rhs;
+  GIMPLE_CHECK (gs, GIMPLE_COND);
+  gs->gimple_cond.op[1] = rhs;
 }
 
 static inline tree
-gs_cond_true_label (gimple gs)
+gimple_cond_true_label (gimple gs)
 {
-  GS_CHECK (gs, GS_COND);
-  return gs->gs_cond.label_true;
+  GIMPLE_CHECK (gs, GIMPLE_COND);
+  return gs->gimple_cond.label_true;
 }
 
 static inline void
-gs_cond_set_true_label (gimple gs, tree label)
+gimple_cond_set_true_label (gimple gs, tree label)
 {
-  GS_CHECK (gs, GS_COND);
-  gs->gs_cond.label_true = label;
+  GIMPLE_CHECK (gs, GIMPLE_COND);
+  gs->gimple_cond.label_true = label;
 }
 
 static inline void
-gs_cond_set_false_label (gimple gs, tree label)
+gimple_cond_set_false_label (gimple gs, tree label)
 {
-  GS_CHECK (gs, GS_COND);
-  gs->gs_cond.label_false = label;
+  GIMPLE_CHECK (gs, GIMPLE_COND);
+  gs->gimple_cond.label_false = label;
 }
 
 static inline tree
-gs_cond_false_label (gimple gs)
+gimple_cond_false_label (gimple gs)
 {
-  GS_CHECK (gs, GS_COND);
-  return gs->gs_cond.label_false;
+  GIMPLE_CHECK (gs, GIMPLE_COND);
+  return gs->gimple_cond.label_false;
 }
 
-/* GS_LABEL accessors. */
+/* GIMPLE_LABEL accessors. */
 
 static inline tree
-gs_label_label (gimple gs)
+gimple_label_label (gimple gs)
 {
-  GS_CHECK (gs, GS_LABEL);
-  return gs->gs_label.label;
+  GIMPLE_CHECK (gs, GIMPLE_LABEL);
+  return gs->gimple_label.label;
 }
 static inline void
-gs_label_set_label (gimple gs, tree label)
+gimple_label_set_label (gimple gs, tree label)
 {
-  GS_CHECK (gs, GS_LABEL);
-  gs->gs_label.label = label;
+  GIMPLE_CHECK (gs, GIMPLE_LABEL);
+  gs->gimple_label.label = label;
 }
 
-/* GS_GOTO accessors. */
+/* GIMPLE_GOTO accessors. */
 
 static inline tree
-gs_goto_dest (gimple gs)
+gimple_goto_dest (gimple gs)
 {
-  GS_CHECK (gs, GS_GOTO);
-  return gs->gs_goto.dest;
+  GIMPLE_CHECK (gs, GIMPLE_GOTO);
+  return gs->gimple_goto.dest;
 }
 static inline void 
-gs_goto_set_dest (gimple gs, tree dest)
+gimple_goto_set_dest (gimple gs, tree dest)
 {
-  GS_CHECK (gs, GS_GOTO);
-  gs->gs_goto.dest =  dest;
+  GIMPLE_CHECK (gs, GIMPLE_GOTO);
+  gs->gimple_goto.dest =  dest;
 }
 
-/* GS_BIND accessors. */
+/* GIMPLE_BIND accessors. */
 
 static inline tree
-gs_bind_vars (gimple gs)
+gimple_bind_vars (gimple gs)
 {
-  GS_CHECK (gs, GS_BIND);
-  return gs->gs_bind.vars;
+  GIMPLE_CHECK (gs, GIMPLE_BIND);
+  return gs->gimple_bind.vars;
 }
 
 static inline void
-gs_bind_set_vars (gimple gs, tree vars)
+gimple_bind_set_vars (gimple gs, tree vars)
 {
-  GS_CHECK (gs, GS_BIND);
-  gs->gs_bind.vars = vars;
+  GIMPLE_CHECK (gs, GIMPLE_BIND);
+  gs->gimple_bind.vars = vars;
 }
 
-static inline gs_seq
-gs_bind_body (gimple gs) {
-  GS_CHECK (gs, GS_BIND);
-  return &(gs->gs_bind.body);
+static inline gimple_seq
+gimple_bind_body (gimple gs) {
+  GIMPLE_CHECK (gs, GIMPLE_BIND);
+  return &(gs->gimple_bind.body);
 }
 
 static inline void
-gs_bind_set_body (gimple gs, gs_seq seq)
+gimple_bind_set_body (gimple gs, gimple_seq seq)
 {
-  GS_CHECK (gs, GS_BIND);
-  gs_seq_copy (&(gs->gs_bind.body), seq);
+  GIMPLE_CHECK (gs, GIMPLE_BIND);
+  gimple_seq_copy (&(gs->gimple_bind.body), seq);
 }
 
-/* GS_ASM accessors. */
+/* GIMPLE_ASM accessors. */
 static inline unsigned int
-gs_asm_ninputs (gimple gs)
+gimple_asm_ninputs (gimple gs)
 {
-  GS_CHECK (gs, GS_ASM);
-  return gs->gs_asm.ni;
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  return gs->gimple_asm.ni;
 }
 
 static inline void
-gs_asm_set_ninputs (gimple gs, unsigned ni)
+gimple_asm_set_ninputs (gimple gs, unsigned ni)
 {
-  GS_CHECK (gs, GS_ASM);
-  gs->gs_asm.ni = ni;
-}
-
-static inline unsigned int
-gs_asm_noutputs (gimple gs)
-{
-  GS_CHECK (gs, GS_ASM);
-  return gs->gs_asm.no;
-}
-
-static inline void
-gs_asm_set_noutputs (gimple gs, unsigned no)
-{
-  GS_CHECK (gs, GS_ASM);
-  gs->gs_asm.no = no;
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  gs->gimple_asm.ni = ni;
 }
 
 static inline unsigned int
-gs_asm_nclobbered (gimple gs)
+gimple_asm_noutputs (gimple gs)
 {
-  GS_CHECK (gs, GS_ASM);
-  return gs->gs_asm.nc;
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  return gs->gimple_asm.no;
 }
 
 static inline void
-gs_asm_set_nclobbered (gimple gs, unsigned nc)
+gimple_asm_set_noutputs (gimple gs, unsigned no)
 {
-  GS_CHECK (gs, GS_ASM);
-  gs->gs_asm.nc = nc;
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  gs->gimple_asm.no = no;
+}
+
+static inline unsigned int
+gimple_asm_nclobbered (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  return gs->gimple_asm.nc;
+}
+
+static inline void
+gimple_asm_set_nclobbered (gimple gs, unsigned nc)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  gs->gimple_asm.nc = nc;
 }
 
 static inline tree
-gs_asm_input_op (gimple gs, unsigned int index)
+gimple_asm_input_op (gimple gs, unsigned int index)
 {
-  GS_CHECK (gs, GS_ASM);
-  gcc_assert (index <= gs->gs_asm.ni);
-  return gs->gs_asm.op[index];
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  gcc_assert (index <= gs->gimple_asm.ni);
+  return gs->gimple_asm.op[index];
 }
 
 static inline void
-gs_asm_set_input_op (gimple gs, unsigned int index, tree in_op)
+gimple_asm_set_input_op (gimple gs, unsigned int index, tree in_op)
 {
-  GS_CHECK (gs, GS_ASM);
-  gcc_assert (index <= gs->gs_asm.ni);
-  gs->gs_asm.op[index] = in_op;
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  gcc_assert (index <= gs->gimple_asm.ni);
+  gs->gimple_asm.op[index] = in_op;
 }
 
 static inline tree
-gs_asm_output_op (gimple gs, unsigned int index)
+gimple_asm_output_op (gimple gs, unsigned int index)
 {
-  GS_CHECK (gs, GS_ASM);
-  gcc_assert (index <= gs->gs_asm.no);
-  return gs->gs_asm.op[index + gs->gs_asm.ni];
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  gcc_assert (index <= gs->gimple_asm.no);
+  return gs->gimple_asm.op[index + gs->gimple_asm.ni];
 }
 
 static inline void
-gs_asm_set_output_op (gimple gs, unsigned int index, tree out_op)
+gimple_asm_set_output_op (gimple gs, unsigned int index, tree out_op)
 {
-  GS_CHECK (gs, GS_ASM);
-  gcc_assert (index <= gs->gs_asm.no);
-  gs->gs_asm.op[index + gs->gs_asm.ni] = out_op;
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  gcc_assert (index <= gs->gimple_asm.no);
+  gs->gimple_asm.op[index + gs->gimple_asm.ni] = out_op;
 }
 
 static inline tree
-gs_asm_clobber_op (gimple gs, unsigned int index)
+gimple_asm_clobber_op (gimple gs, unsigned int index)
 {
-  GS_CHECK (gs, GS_ASM);
-  gcc_assert (index <= gs->gs_asm.nc);
-  return gs->gs_asm.op[index + gs->gs_asm.ni + gs->gs_asm.no];
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  gcc_assert (index <= gs->gimple_asm.nc);
+  return gs->gimple_asm.op[index + gs->gimple_asm.ni + gs->gimple_asm.no];
 }
 
 static inline void
-gs_asm_set_clobber_op (gimple gs, unsigned int index, tree clobber_op)
+gimple_asm_set_clobber_op (gimple gs, unsigned int index, tree clobber_op)
 {
-  GS_CHECK (gs, GS_ASM);
-  gcc_assert (index <= gs->gs_asm.nc);
-  gs->gs_asm.op[index + gs->gs_asm.ni + gs->gs_asm.no] = clobber_op;
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  gcc_assert (index <= gs->gimple_asm.nc);
+  gs->gimple_asm.op[index + gs->gimple_asm.ni + gs->gimple_asm.no] = clobber_op;
 }
 
 static inline const char *
-gs_asm_string (gimple gs)
+gimple_asm_string (gimple gs)
 {
-  GS_CHECK (gs, GS_ASM);
-  return gs->gs_asm.string;
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  return gs->gimple_asm.string;
 }
 
 static inline void
-gs_asm_set_string (gimple gs, const char* string) 
+gimple_asm_set_string (gimple gs, const char* string) 
 {
-  GS_CHECK (gs, GS_ASM);
-  gs->gs_asm.string = string;
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  gs->gimple_asm.string = string;
 }
 
-/* GS_CATCH accessors. */
+/* GIMPLE_CATCH accessors. */
 
 static inline tree
-gs_catch_types (gimple gs)
+gimple_catch_types (gimple gs)
 {
- GS_CHECK (gs, GS_CATCH);
- return gs->gs_catch.types;
+ GIMPLE_CHECK (gs, GIMPLE_CATCH);
+ return gs->gimple_catch.types;
 }
 
 static inline gimple
-gs_catch_handler (gimple gs)
+gimple_catch_handler (gimple gs)
 {
-  GS_CHECK (gs, GS_CATCH);
-  return gs->gs_catch.handler;
+  GIMPLE_CHECK (gs, GIMPLE_CATCH);
+  return gs->gimple_catch.handler;
 }
 
 static inline void
-gs_catch_set_types (gimple gs, tree t)
+gimple_catch_set_types (gimple gs, tree t)
 {
-  GS_CHECK (gs, GS_CATCH);
-  gs->gs_catch.types = t;
+  GIMPLE_CHECK (gs, GIMPLE_CATCH);
+  gs->gimple_catch.types = t;
 }
 
 static inline void
-gs_catch_set_handler (gimple gs, gimple handler)
+gimple_catch_set_handler (gimple gs, gimple handler)
 {
-  GS_CHECK (gs, GS_CATCH);
-  gs->gs_catch.handler = handler;
+  GIMPLE_CHECK (gs, GIMPLE_CATCH);
+  gs->gimple_catch.handler = handler;
 }
 
-/* GS_EH_FILTER accessors. */
+/* GIMPLE_EH_FILTER accessors. */
 
 static inline tree
-gs_eh_filter_types (gimple gs)
+gimple_eh_filter_types (gimple gs)
 {
-  GS_CHECK (gs, GS_EH_FILTER);
-  return gs->gs_eh_filter.types;
+  GIMPLE_CHECK (gs, GIMPLE_EH_FILTER);
+  return gs->gimple_eh_filter.types;
 }
 
 static inline gimple
-gs_eh_filter_failure (gimple gs)
+gimple_eh_filter_failure (gimple gs)
 {
-  GS_CHECK (gs, GS_EH_FILTER);
-  return gs->gs_eh_filter.failure;
+  GIMPLE_CHECK (gs, GIMPLE_EH_FILTER);
+  return gs->gimple_eh_filter.failure;
 }
 
 static inline void
-gs_eh_filter_set_types (gimple gs, tree types)
+gimple_eh_filter_set_types (gimple gs, tree types)
 {
-  GS_CHECK (gs, GS_EH_FILTER);
-  gs->gs_eh_filter.types = types;
+  GIMPLE_CHECK (gs, GIMPLE_EH_FILTER);
+  gs->gimple_eh_filter.types = types;
 }
 
 static inline void
-gs_eh_filter_set_failure (gimple gs, gimple failure)
+gimple_eh_filter_set_failure (gimple gs, gimple failure)
 {
-  GS_CHECK (gs, GS_EH_FILTER);
-  gs->gs_eh_filter.failure = failure;
+  GIMPLE_CHECK (gs, GIMPLE_EH_FILTER);
+  gs->gimple_eh_filter.failure = failure;
 }
 
 
-/* GS_TRY accessors. */
+/* GIMPLE_TRY accessors. */
 
-static inline gs_seq
-gs_try_eval (gimple gs)
+static inline gimple_seq
+gimple_try_eval (gimple gs)
 {
-  GS_CHECK (gs, GS_TRY);
-  return &gs->gs_try.eval;
+  GIMPLE_CHECK (gs, GIMPLE_TRY);
+  return &gs->gimple_try.eval;
 }
 
-static inline gs_seq
-gs_try_cleanup (gimple gs)
+static inline gimple_seq
+gimple_try_cleanup (gimple gs)
 {
-  GS_CHECK (gs, GS_TRY);
-  return &gs->gs_try.cleanup;
-}
-
-static inline void
-gs_try_set_eval (gimple gs, gs_seq eval)
-{
-  GS_CHECK (gs, GS_TRY);
-  gs_seq_copy (gs_try_eval (gs), eval);
+  GIMPLE_CHECK (gs, GIMPLE_TRY);
+  return &gs->gimple_try.cleanup;
 }
 
 static inline void
-gs_try_set_cleanup (gimple gs, gs_seq cleanup)
+gimple_try_set_eval (gimple gs, gimple_seq eval)
 {
-  GS_CHECK (gs, GS_TRY);
-  gs_seq_copy (gs_try_cleanup (gs), cleanup);
+  GIMPLE_CHECK (gs, GIMPLE_TRY);
+  gimple_seq_copy (gimple_try_eval (gs), eval);
 }
 
-/* GS_PHI accessors. */
+static inline void
+gimple_try_set_cleanup (gimple gs, gimple_seq cleanup)
+{
+  GIMPLE_CHECK (gs, GIMPLE_TRY);
+  gimple_seq_copy (gimple_try_cleanup (gs), cleanup);
+}
+
+/* GIMPLE_PHI accessors. */
 
 static inline unsigned int
-gs_phi_capacity (gimple gs)
+gimple_phi_capacity (gimple gs)
 {
-    GS_CHECK (gs, GS_PHI);
-    return gs->gs_phi.capacity;
+    GIMPLE_CHECK (gs, GIMPLE_PHI);
+    return gs->gimple_phi.capacity;
 }
 
 static inline void
-gs_phi_set_capacity (gimple gs, unsigned int capacity)
+gimple_phi_set_capacity (gimple gs, unsigned int capacity)
 {
-  GS_CHECK (gs, GS_PHI);
-  gs->gs_phi.capacity = capacity;
+  GIMPLE_CHECK (gs, GIMPLE_PHI);
+  gs->gimple_phi.capacity = capacity;
 }
 
 static inline unsigned int
-gs_phi_nargs (gimple gs)
+gimple_phi_nargs (gimple gs)
 {
-  GS_CHECK (gs, GS_PHI);
-  return gs->gs_phi.nargs;
+  GIMPLE_CHECK (gs, GIMPLE_PHI);
+  return gs->gimple_phi.nargs;
 }
 
 static inline void
-gs_phi_set_nargs (gimple gs, unsigned int nargs)
+gimple_phi_set_nargs (gimple gs, unsigned int nargs)
 {
-  GS_CHECK (gs, GS_PHI);
-  gs->gs_phi.nargs = nargs;
+  GIMPLE_CHECK (gs, GIMPLE_PHI);
+  gs->gimple_phi.nargs = nargs;
 }
 
 static inline tree
-gs_phi_result (gimple gs)
+gimple_phi_result (gimple gs)
 {
-  GS_CHECK (gs, GS_PHI);
-  return gs->gs_phi.result;
+  GIMPLE_CHECK (gs, GIMPLE_PHI);
+  return gs->gimple_phi.result;
 }
 
 static inline void
-gs_phi_set_result (gimple gs, tree result)
+gimple_phi_set_result (gimple gs, tree result)
 {
-  GS_CHECK (gs, GS_PHI);
-  gs->gs_phi.result = result;
+  GIMPLE_CHECK (gs, GIMPLE_PHI);
+  gs->gimple_phi.result = result;
 }
 
 static inline struct phi_arg_d *
-gs_phi_arg (gimple gs, unsigned int index)
+gimple_phi_arg (gimple gs, unsigned int index)
 {
-  GS_CHECK (gs, GS_PHI);
-  gcc_assert (index <= gs->gs_phi.nargs);
-  return &(gs->gs_phi.args[index]);
+  GIMPLE_CHECK (gs, GIMPLE_PHI);
+  gcc_assert (index <= gs->gimple_phi.nargs);
+  return &(gs->gimple_phi.args[index]);
 }
 
 static inline void
-gs_phi_set_arg (gimple gs, unsigned int index, struct phi_arg_d * phiarg)
+gimple_phi_set_arg (gimple gs, unsigned int index, struct phi_arg_d * phiarg)
 {
-  GS_CHECK (gs, GS_PHI);
-  gcc_assert (index <= gs->gs_phi.nargs);
-  memcpy (gs->gs_phi.args + index, phiarg, sizeof (struct phi_arg_d));
+  GIMPLE_CHECK (gs, GIMPLE_PHI);
+  gcc_assert (index <= gs->gimple_phi.nargs);
+  memcpy (gs->gimple_phi.args + index, phiarg, sizeof (struct phi_arg_d));
 }
 
-/* GS_RESX accessors. */
+/* GIMPLE_RESX accessors. */
 
 static inline int
-gs_resx_region (gimple gs)
+gimple_resx_region (gimple gs)
 {
-  GS_CHECK (gs, GS_RESX);
-  return gs->gs_resx.region;
+  GIMPLE_CHECK (gs, GIMPLE_RESX);
+  return gs->gimple_resx.region;
 }
 
 static inline void
-gs_resx_set_region (gimple gs, int region)
+gimple_resx_set_region (gimple gs, int region)
 {
-  GS_CHECK (gs, GS_RESX);
-  gs->gs_resx.region = region;
+  GIMPLE_CHECK (gs, GIMPLE_RESX);
+  gs->gimple_resx.region = region;
 }
 
-/* GS_SWITCH accessors. */
+/* GIMPLE_SWITCH accessors. */
 
 static inline unsigned int
-gs_switch_nlabels (gimple gs)
+gimple_switch_nlabels (gimple gs)
 {
-  GS_CHECK (gs, GS_SWITCH);
-  return gs->gs_switch.nlabels;
+  GIMPLE_CHECK (gs, GIMPLE_SWITCH);
+  return gs->gimple_switch.nlabels;
 }
 
 static inline void
-gs_switch_set_nlabels (gimple gs, unsigned int nlabels)
+gimple_switch_set_nlabels (gimple gs, unsigned int nlabels)
 {
-  GS_CHECK (gs, GS_SWITCH);
-  gs->gs_switch.nlabels = nlabels;
+  GIMPLE_CHECK (gs, GIMPLE_SWITCH);
+  gs->gimple_switch.nlabels = nlabels;
 }
 
 static inline tree
-gs_switch_index (gimple gs)
+gimple_switch_index (gimple gs)
 {
-  GS_CHECK (gs, GS_SWITCH);
-  return gs->gs_switch.index;
+  GIMPLE_CHECK (gs, GIMPLE_SWITCH);
+  return gs->gimple_switch.index;
 }
 
 static inline void
-gs_switch_set_index (gimple gs, tree index)
+gimple_switch_set_index (gimple gs, tree index)
 {
-  GS_CHECK (gs, GS_SWITCH);
-  gs->gs_switch.index = index;
+  GIMPLE_CHECK (gs, GIMPLE_SWITCH);
+  gs->gimple_switch.index = index;
 }
 
 static inline tree
-gs_switch_default_label (gimple gs)
+gimple_switch_default_label (gimple gs)
 {
-  GS_CHECK (gs, GS_SWITCH);
-  return gs->gs_switch.labels[0];
+  GIMPLE_CHECK (gs, GIMPLE_SWITCH);
+  return gs->gimple_switch.labels[0];
 }
 
 static inline void
-gs_switch_set_default_label (gimple gs, tree label)
+gimple_switch_set_default_label (gimple gs, tree label)
 {
-  GS_CHECK (gs, GS_SWITCH);
-  gs->gs_switch.labels[0] = label;
+  GIMPLE_CHECK (gs, GIMPLE_SWITCH);
+  gs->gimple_switch.labels[0] = label;
 }
 
 /* Return the label numbered INDEX.  The default label is 0, followed by any
    labels in a switch statement.  */
 
 static inline tree
-gs_switch_label (gimple gs, int index)
+gimple_switch_label (gimple gs, int index)
 {
-  GS_CHECK (gs, GS_SWITCH);
-  gcc_assert ((unsigned)index <= gs->gs_switch.nlabels);
-  return gs->gs_switch.labels[index];
+  GIMPLE_CHECK (gs, GIMPLE_SWITCH);
+  gcc_assert ((unsigned)index <= gs->gimple_switch.nlabels);
+  return gs->gimple_switch.labels[index];
 }
 
 /* Set the label number INDEX to LABEL.  0 is always the default label.  */
 
 static inline void
-gs_switch_set_label (gimple gs, int index, tree label)
+gimple_switch_set_label (gimple gs, int index, tree label)
 {
-  GS_CHECK (gs, GS_SWITCH);
-  gcc_assert ((unsigned)index <= gs->gs_switch.nlabels);
-  gs->gs_switch.labels[index] = label;
+  GIMPLE_CHECK (gs, GIMPLE_SWITCH);
+  gcc_assert ((unsigned)index <= gs->gimple_switch.nlabels);
+  gs->gimple_switch.labels[index] = label;
 }
 
-/* GS_OMP_* accessors. */
+/* GIMPLE_OMP_* accessors. */
 
-static inline gs_seq 
-gs_omp_body (gimple gs)
+static inline gimple_seq 
+gimple_omp_body (gimple gs)
 {
   return &(gs->omp.body);
 }
 
 static inline void
-gs_omp_set_body (gimple gs, gs_seq body)
+gimple_omp_set_body (gimple gs, gimple_seq body)
 {
-  gs_seq_copy (&(gs->omp.body), body);
+  gimple_seq_copy (&(gs->omp.body), body);
 }
 
-/* GS_OMP_CRITICAL accessors. */
+/* GIMPLE_OMP_CRITICAL accessors. */
 
 static inline tree
-gs_omp_critical_name (gimple gs)
+gimple_omp_critical_name (gimple gs)
 {
-  GS_CHECK (gs, GS_OMP_CRITICAL);
-  return gs->gs_omp_critical.name;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_CRITICAL);
+  return gs->gimple_omp_critical.name;
 }
 
 static inline void
-gs_omp_critical_set_name (gimple gs, tree name)
+gimple_omp_critical_set_name (gimple gs, tree name)
 {
-  GS_CHECK (gs, GS_OMP_CRITICAL);
-  gs->gs_omp_critical.name = name;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_CRITICAL);
+  gs->gimple_omp_critical.name = name;
 }
 
-/* GS_OMP_FOR accessors. */
+/* GIMPLE_OMP_FOR accessors. */
 
 static inline tree
-gs_omp_for_clauses (gimple gs)
+gimple_omp_for_clauses (gimple gs)
 {
-  GS_CHECK (gs, GS_OMP_FOR);
-  return gs->gs_omp_for.clauses;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  return gs->gimple_omp_for.clauses;
 }
 
 static inline void
-gs_omp_for_set_clauses (gimple gs, tree clauses)
+gimple_omp_for_set_clauses (gimple gs, tree clauses)
 {
-  GS_CHECK (gs, GS_OMP_FOR);
-  gs->gs_omp_for.clauses = clauses;
-}
-
-static inline tree
-gs_omp_for_index (gimple gs)
-{
-  GS_CHECK (gs, GS_OMP_FOR);
-  return gs->gs_omp_for.index;
-}
-
-static inline void
-gs_omp_for_set_index (gimple gs, tree index)
-{
-  GS_CHECK (gs, GS_OMP_FOR);
-  gs->gs_omp_for.index = index;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  gs->gimple_omp_for.clauses = clauses;
 }
 
 static inline tree
-gs_omp_for_initial (gimple gs)
+gimple_omp_for_index (gimple gs)
 {
-  GS_CHECK (gs, GS_OMP_FOR);
-  return gs->gs_omp_for.initial;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  return gs->gimple_omp_for.index;
 }
 
 static inline void
-gs_omp_for_set_initial (gimple gs, tree initial)
+gimple_omp_for_set_index (gimple gs, tree index)
 {
-  GS_CHECK (gs, GS_OMP_FOR);
-  gs->gs_omp_for.initial = initial;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  gs->gimple_omp_for.index = index;
 }
 
 static inline tree
-gs_omp_for_final (gimple gs)
+gimple_omp_for_initial (gimple gs)
 {
-  GS_CHECK (gs, GS_OMP_FOR);
-  return gs->gs_omp_for.final;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  return gs->gimple_omp_for.initial;
 }
 
 static inline void
-gs_omp_for_set_final (gimple gs, tree final)
+gimple_omp_for_set_initial (gimple gs, tree initial)
 {
-  GS_CHECK (gs, GS_OMP_FOR);
-  gs->gs_omp_for.final = final;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  gs->gimple_omp_for.initial = initial;
 }
 
 static inline tree
-gs_omp_for_incr (gimple gs)
+gimple_omp_for_final (gimple gs)
 {
-  GS_CHECK (gs, GS_OMP_FOR);
-  return gs->gs_omp_for.incr;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  return gs->gimple_omp_for.final;
 }
 
 static inline void
-gs_omp_for_set_incr (gimple gs, tree incr)
+gimple_omp_for_set_final (gimple gs, tree final)
 {
-  GS_CHECK (gs, GS_OMP_FOR);
-  gs->gs_omp_for.incr = incr;
-}
-
-static inline gs_seq
-gs_omp_for_pre_body (gimple gs)
-{
-  GS_CHECK (gs, GS_OMP_FOR);
-  return &(gs->gs_omp_for.pre_body);
-}
-
-static inline void
-gs_omp_for_set_pre_body (gimple gs, gs_seq pre_body)
-{
-  GS_CHECK (gs, GS_OMP_FOR);
-  gs_seq_copy (&(gs->gs_omp_for.pre_body),  pre_body);
-}
-
-/* GS_OMP_PARALLEL accessors. */
-
-static inline tree
-gs_omp_parallel_clauses (gimple gs)
-{
-  GS_CHECK (gs, GS_OMP_PARALLEL);
-  return gs->gs_omp_parallel.clauses;
-}
-
-static inline void
-gs_omp_parallel_set_clauses (gimple gs, tree clauses)
-{
-  GS_CHECK (gs, GS_OMP_PARALLEL);
-  gs->gs_omp_parallel.clauses = clauses;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  gs->gimple_omp_for.final = final;
 }
 
 static inline tree
-gs_omp_parallel_child_fn (gimple gs)
+gimple_omp_for_incr (gimple gs)
 {
-  GS_CHECK (gs, GS_OMP_PARALLEL);
-  return gs->gs_omp_parallel.child_fn;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  return gs->gimple_omp_for.incr;
 }
 
 static inline void
-gs_omp_parallel_set_child_fn (gimple gs, tree child_fn)
+gimple_omp_for_set_incr (gimple gs, tree incr)
 {
-  GS_CHECK (gs, GS_OMP_PARALLEL);
-  gs->gs_omp_parallel.child_fn = child_fn;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  gs->gimple_omp_for.incr = incr;
+}
+
+static inline gimple_seq
+gimple_omp_for_pre_body (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  return &(gs->gimple_omp_for.pre_body);
+}
+
+static inline void
+gimple_omp_for_set_pre_body (gimple gs, gimple_seq pre_body)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  gimple_seq_copy (&(gs->gimple_omp_for.pre_body),  pre_body);
+}
+
+/* GIMPLE_OMP_PARALLEL accessors. */
+
+static inline tree
+gimple_omp_parallel_clauses (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_PARALLEL);
+  return gs->gimple_omp_parallel.clauses;
+}
+
+static inline void
+gimple_omp_parallel_set_clauses (gimple gs, tree clauses)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_PARALLEL);
+  gs->gimple_omp_parallel.clauses = clauses;
 }
 
 static inline tree
-gs_omp_parallel_data_arg (gimple gs)
+gimple_omp_parallel_child_fn (gimple gs)
 {
-  GS_CHECK (gs, GS_OMP_PARALLEL);
-  return gs->gs_omp_parallel.data_arg;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_PARALLEL);
+  return gs->gimple_omp_parallel.child_fn;
 }
 
 static inline void
-gs_omp_parallel_set_data_arg (gimple gs, tree data_arg)
+gimple_omp_parallel_set_child_fn (gimple gs, tree child_fn)
 {
-  GS_CHECK (gs, GS_OMP_PARALLEL);
-  gs->gs_omp_parallel.data_arg = data_arg;
-}
-
-/* GS_OMP_SECTION accessors. */
-
-/* GS_OMP_SINGLE accessors. */
-
-static inline tree
-gs_omp_single_clauses (gimple gs)
-{
-  GS_CHECK (gs, GS_OMP_SINGLE);
-  return gs->gs_omp_single.clauses;
-}
-
-static inline void
-gs_omp_single_set_clauses (gimple gs, tree clauses)
-{
-  GS_CHECK (gs, GS_OMP_SINGLE);
-  gs->gs_omp_single.clauses = clauses;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_PARALLEL);
+  gs->gimple_omp_parallel.child_fn = child_fn;
 }
 
 static inline tree
-gs_omp_sections_clauses (gimple gs)
+gimple_omp_parallel_data_arg (gimple gs)
 {
-  GS_CHECK (gs, GS_OMP_SECTIONS);
-  return gs->gs_omp_sections.clauses;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_PARALLEL);
+  return gs->gimple_omp_parallel.data_arg;
 }
 
 static inline void
-gs_omp_sections_set_clauses (gimple gs, tree clauses)
+gimple_omp_parallel_set_data_arg (gimple gs, tree data_arg)
 {
-  GS_CHECK (gs, GS_OMP_SECTIONS);
-  gs->gs_omp_sections.clauses = clauses;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_PARALLEL);
+  gs->gimple_omp_parallel.data_arg = data_arg;
+}
+
+/* GIMPLE_OMP_SECTION accessors. */
+
+/* GIMPLE_OMP_SINGLE accessors. */
+
+static inline tree
+gimple_omp_single_clauses (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_SINGLE);
+  return gs->gimple_omp_single.clauses;
+}
+
+static inline void
+gimple_omp_single_set_clauses (gimple gs, tree clauses)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_SINGLE);
+  gs->gimple_omp_single.clauses = clauses;
+}
+
+static inline tree
+gimple_omp_sections_clauses (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_SECTIONS);
+  return gs->gimple_omp_sections.clauses;
+}
+
+static inline void
+gimple_omp_sections_set_clauses (gimple gs, tree clauses)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_SECTIONS);
+  gs->gimple_omp_sections.clauses = clauses;
 }
 
 
 
 /* get or set the OMP_FOR_COND stored in the subcode flags */
 static inline void
-gs_assign_omp_for_cond (gimple gs, enum gs_cond cond)
+gimple_assign_omp_for_cond (gimple gs, enum gimple_cond cond)
 {
-  GS_CHECK (gs, GS_OMP_FOR);
-  GS_SUBCODE_FLAGS (gs) =  cond;
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  GIMPLE_SUBCODE_FLAGS (gs) =  cond;
 }
 
-static inline enum gs_cond
-gs_omp_for_cond (gimple gs)
+static inline enum gimple_cond
+gimple_omp_for_cond (gimple gs)
 {
-  GS_CHECK (gs, GS_OMP_FOR);
-  return (enum gs_cond) GS_SUBCODE_FLAGS (gs);
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  return (enum gimple_cond) GIMPLE_SUBCODE_FLAGS (gs);
 }
 
-/* GS_RETURN accessors.  */
+/* GIMPLE_RETURN accessors.  */
 
 static inline tree
-gs_return_retval (gimple gs)
+gimple_return_retval (gimple gs)
 {
-  GS_CHECK (gs, GS_RETURN);
-  return gs->gs_return.retval;
+  GIMPLE_CHECK (gs, GIMPLE_RETURN);
+  return gs->gimple_return.retval;
 }
 
 static inline void
-gs_return_set_retval (gimple gs, tree retval)
+gimple_return_set_retval (gimple gs, tree retval)
 {
-  GS_CHECK (gs, GS_RETURN);
-  gs->gs_return.retval = retval;
+  GIMPLE_CHECK (gs, GIMPLE_RETURN);
+  gs->gimple_return.retval = retval;
 }
 
 /* Append sequence SRC to the end of sequence DST.  */
 
 static inline void
-gs_seq_append (gs_seq dst, gs_seq src)
+gimple_seq_append (gimple_seq dst, gimple_seq src)
 {
-  if (!gs_seq_empty_p (src))
-    gs_add (dst, gs_seq_first (src));
+  if (!gimple_seq_empty_p (src))
+    gimple_add (dst, gimple_seq_first (src));
 }
 
 static inline void
-gs_add_subcode_flag (gimple g, unsigned int flag)
+gimple_add_subcode_flag (gimple g, unsigned int flag)
 {
-  GS_SUBCODE_FLAGS (g) |= flag;
+  GIMPLE_SUBCODE_FLAGS (g) |= flag;
 }
 
 #include "gimple-iterator.h"

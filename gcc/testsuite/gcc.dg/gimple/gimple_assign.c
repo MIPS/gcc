@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 
-/* Test GS_ASSIGN.  */
+/* Test GIMPLE_ASSIGN.  */
 
 int a, b, c;
 

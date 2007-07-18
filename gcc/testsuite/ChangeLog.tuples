@@ -1,6 +1,20 @@
 2007-07-16  Chris Matthews  <chrismatthews@google.com>
 
-	* gs_switch.c: Improved test case to look at the gs_switch case list instead
+	* gs_assign.c: Renamed to gimple_assign.c.
+	* gs_bind.c: Renamed to gimple_bind.c.
+	* gs_call.c: Renamed to gimple_call.c.
+	* gs_cond.c: Renamed to gimple_cond.c.
+	* gs_goto.c: Renamed to gimple_goto.c.
+	* gs_return.c: Renamed to gimple_return.c.
+	* gs_switch.c: Renamed to gimple_switch.c.
+	* gs_switch2.c: Renamed to gimple_switch2.c.
+	* gs_switch3.c: Renamed to gimple_switch3.c.
+	* with_size_expr.c: GS_ renamed to GIMPLE_.
+
+2007-07-16  Chris Matthews  <chrismatthews@google.com>
+
+	* gs_switch.c: Improved test case to look at the gs_switch case list
+	instead
 	of just the body.
 	* gs_switch2.c: Same.
 	* gs_switch3.c: Same.

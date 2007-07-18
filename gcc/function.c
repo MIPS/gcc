@@ -3135,7 +3135,7 @@ gimplify_parm_type (tree *tp, int *walk_subtrees, void *data)
       else if (TYPE_SIZE (t) && !TREE_CONSTANT (TYPE_SIZE (t))
 	       && !TYPE_SIZES_GIMPLIFIED (t))
 	{
-	  gimplify_type_sizes (t, (gs_seq) data);
+	  gimplify_type_sizes (t, (gimple_seq) data);
 	  *walk_subtrees = 1;
 	}
     }
@@ -3148,14 +3148,14 @@ gimplify_parm_type (tree *tp, int *walk_subtrees, void *data)
    to implement callee-copies reference parameters.  Returns a sequence of
    statements to add to the beginning of the function.  */
 
-struct gs_sequence
+struct gimple_sequence
 gimplify_parameters (void)
 {
   struct assign_parm_data_all all;
   tree fnargs, parm;
-  struct gs_sequence stmts;
+  struct gimple_sequence stmts;
 
-  gs_seq_init (&stmts);
+  gimple_seq_init (&stmts);
 
   assign_parms_initialize_all (&all);
   fnargs = assign_parms_augmented_arg_list (&all);

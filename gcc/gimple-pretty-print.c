@@ -40,7 +40,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 static pretty_printer buffer;
 static bool initialized = false;
 
-#define GS_NIY do_niy(buffer,gs)
+#define GIMPLE_NIY do_niy(buffer,gs)
 
 /* Try to print on BUFFER a default message for the unrecognized
    gimple statement GS.  */
@@ -49,7 +49,7 @@ static void
 do_niy (pretty_printer *buffer, gimple gs)
 {
   pp_printf (buffer, "<<< Unknown GIMPLE statement: %s >>>\n",
-	     gs_code_name[(int) GS_CODE (gs)]);
+	     gimple_code_name[(int) GIMPLE_CODE (gs)]);
 }
 
 
@@ -105,7 +105,7 @@ print_gimple_stmt (FILE *file, gimple g, int spc, int flags)
    spaces and FLAGS as in dump_gimple_stmt.  */
 
 static void
-dump_gimple_seq (pretty_printer *buffer, gs_seq seq, int spc, int flags)
+dump_gimple_seq (pretty_printer *buffer, gimple_seq seq, int spc, int flags)
 {
   gimple_stmt_iterator i;
 
@@ -123,7 +123,7 @@ dump_gimple_seq (pretty_printer *buffer, gs_seq seq, int spc, int flags)
    FLAGS as in dump_gimple_stmt.  */
 
 void
-print_gimple_seq (FILE *file, gs_seq seq, int spc, int flags)
+print_gimple_seq (FILE *file, gimple_seq seq, int spc, int flags)
 {
   maybe_init_pretty_print (file);
   dump_gimple_seq (&buffer, seq, spc, flags);
@@ -134,7 +134,7 @@ print_gimple_seq (FILE *file, gs_seq seq, int spc, int flags)
 /* Print the GIMPLE sequence SEQ on stderr.  */
 
 void
-debug_gimple_seq (gs_seq seq)
+debug_gimple_seq (gimple_seq seq)
 {
   print_gimple_seq (stderr, seq, 0, TDF_VOPS|TDF_MEMSYMS);
 }
@@ -144,31 +144,31 @@ debug_gimple_seq (gs_seq seq)
    dump_gimple_stmt.  */
 
 static void
-dump_gs_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
   enum gimple_statement_structure_enum gss;
 
-  dump_generic_node (buffer, gs_assign_lhs (gs), spc, flags, false);
+  dump_generic_node (buffer, gimple_assign_lhs (gs), spc, flags, false);
   pp_space (buffer);
   pp_character (buffer, '=');
   pp_space (buffer);
 
-  gss = gss_for_assign (GS_SUBCODE_FLAGS (gs));
+  gss = gss_for_assign (GIMPLE_SUBCODE_FLAGS (gs));
   switch (gss)
     {
       case GSS_ASSIGN_BINARY:
-	dump_generic_node (buffer, gs_assign_binary_rhs1 (gs), spc,
+	dump_generic_node (buffer, gimple_assign_binary_rhs1 (gs), spc,
 			   flags, false);
 	pp_space (buffer);
-	pp_string (buffer, op_symbol_code (GS_SUBCODE_FLAGS (gs)));
+	pp_string (buffer, op_symbol_code (GIMPLE_SUBCODE_FLAGS (gs)));
 	pp_space (buffer);
-	dump_generic_node (buffer, gs_assign_binary_rhs2 (gs), spc,
+	dump_generic_node (buffer, gimple_assign_binary_rhs2 (gs), spc,
 			   flags, false);
 	break;
 
       case GSS_ASSIGN_UNARY_REG:
       case GSS_ASSIGN_UNARY_MEM:
-	dump_generic_node (buffer, gs_assign_unary_rhs (gs), spc, flags, false);
+	dump_generic_node (buffer, gimple_assign_unary_rhs (gs), spc, flags, false);
 	break;
 
       default:
@@ -181,12 +181,12 @@ dump_gs_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
    dump_gimple_stmt.  */
 
 static void
-dump_gs_return (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_return (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
   tree t;
 
   pp_string (buffer, "return");
-  t = gs_return_retval (gs);
+  t = gimple_return_retval (gs);
   if (t)
     {
       pp_space (buffer);
@@ -203,10 +203,10 @@ dump_gs_return (pretty_printer *buffer, gimple gs, int spc, int flags)
    dump_gimple_stmt.  */
 
 static void
-dump_gs_call (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_call (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
   size_t i;
-  tree lhs = gs_call_lhs (gs);
+  tree lhs = gimple_call_lhs (gs);
 
   if (lhs)
     {
@@ -214,13 +214,13 @@ dump_gs_call (pretty_printer *buffer, gimple gs, int spc, int flags)
       pp_string (buffer, " = ");
     }
 
-  dump_generic_node (buffer, gs_call_fn (gs), spc, flags, false);
+  dump_generic_node (buffer, gimple_call_fn (gs), spc, flags, false);
   pp_string (buffer, " (");
 
-  for (i = 0; i < gs_call_nargs (gs); i++)
+  for (i = 0; i < gimple_call_nargs (gs); i++)
     {
-      dump_generic_node (buffer, gs_call_arg (gs, i), 0, flags, false);
-      if (i < gs_call_nargs (gs) - 1)
+      dump_generic_node (buffer, gimple_call_arg (gs, i), 0, flags, false);
+      if (i < gimple_call_nargs (gs) - 1)
 	pp_string (buffer, ", ");
     }
 
@@ -232,29 +232,29 @@ dump_gs_call (pretty_printer *buffer, gimple gs, int spc, int flags)
    dump_gimple_stmt.  */
 
 static void
-dump_gs_switch (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_switch (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
   unsigned int i;
-  GS_CHECK (gs, GS_SWITCH);
+  GIMPLE_CHECK (gs, GIMPLE_SWITCH);
   pp_string (buffer, "switch (");
-  dump_generic_node (buffer, gs_switch_index (gs), spc, flags, true);
+  dump_generic_node (buffer, gimple_switch_index (gs), spc, flags, true);
   pp_string (buffer, ") <");
-  for (i = 0; i < gs_switch_nlabels (gs); i++)
+  for (i = 0; i < gimple_switch_nlabels (gs); i++)
     {
-      dump_generic_node (buffer, gs_switch_label (gs, i), spc, flags, false);
-      if (i < gs_switch_nlabels (gs) - 1)
+      dump_generic_node (buffer, gimple_switch_label (gs, i), spc, flags, false);
+      if (i < gimple_switch_nlabels (gs) - 1)
         pp_string (buffer, ", ");
     }
   pp_string (buffer, ">");
 }
 
 
-/* Return the symbol associated with the GS_COND predicate PRED.  */
+/* Return the symbol associated with the GIMPLE_COND predicate PRED.  */
 
 static const char *
-op_gs_cond (enum gs_cond pred)
+op_gimple_cond (enum gimple_cond pred)
 {
-  /* These must be in sync with enum gs_cond.  */
+  /* These must be in sync with enum gimple_cond.  */
   static const char *table[] =
     { "<", ">", "<=", ">=", "==", "!=" };
 
@@ -266,24 +266,24 @@ op_gs_cond (enum gs_cond pred)
    dump_gimple_stmt.  */
 
 static void
-dump_gs_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
   if (flags & TDF_DETAILS)
-    pp_string (buffer, "GS_COND tuple");
+    pp_string (buffer, "GIMPLE_COND tuple");
 
   newline_and_indent (buffer, spc);
   pp_string (buffer, "if (");
-  dump_generic_node (buffer, gs_cond_lhs (gs), spc, flags, false);
+  dump_generic_node (buffer, gimple_cond_lhs (gs), spc, flags, false);
   pp_space (buffer);
-  pp_string (buffer, op_gs_cond (GS_SUBCODE_FLAGS (gs)));
+  pp_string (buffer, op_gimple_cond (GIMPLE_SUBCODE_FLAGS (gs)));
   pp_space (buffer);
-  dump_generic_node (buffer, gs_cond_rhs (gs), spc, flags, false);
+  dump_generic_node (buffer, gimple_cond_rhs (gs), spc, flags, false);
   pp_character (buffer, ')');
   newline_and_indent (buffer, spc + 2);
   pp_character (buffer, '{');
   newline_and_indent (buffer, spc + 4);
   pp_string (buffer, "goto ");
-  dump_generic_node (buffer, gs_cond_true_label (gs), spc, flags, false);
+  dump_generic_node (buffer, gimple_cond_true_label (gs), spc, flags, false);
   pp_character (buffer, ';');
   newline_and_indent (buffer, spc + 2);
   pp_character (buffer, '}');
@@ -293,36 +293,36 @@ dump_gs_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
   pp_character (buffer, '{');
   newline_and_indent (buffer, spc + 4);
   pp_string (buffer, "goto ");
-  dump_generic_node (buffer, gs_cond_false_label (gs), spc, flags, false);
+  dump_generic_node (buffer, gimple_cond_false_label (gs), spc, flags, false);
   pp_character (buffer, ';');
   newline_and_indent (buffer, spc + 2);
   pp_character (buffer, '}');
 }
 
 
-/* Dump a GS_LABEL tuple on the pretty_printer BUFFER, SPC
+/* Dump a GIMPLE_LABEL tuple on the pretty_printer BUFFER, SPC
    spaces of indent.  FLAGS specifies details to show in the dump (see
    TDF_* in tree.h)*/
 
 static void
-dump_gs_label (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_label (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  tree label = gs_label_label (gs);
+  tree label = gimple_label_label (gs);
   dump_generic_node (buffer, label, spc, flags, false);
   if (TREE_CODE (label) != CASE_LABEL_EXPR )
     pp_string (buffer, ":");
 }
 
 
-/* Dump a GS_BIND tuple on the pretty_printer BUFFER, SPC
+/* Dump a GIMPLE_BIND tuple on the pretty_printer BUFFER, SPC
    spaces of indent.  FLAGS specifies details to show in the dump (see
    TDF_* in tree.h).  */
 
 static void
-dump_gs_bind (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_bind (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
   if (flags & TDF_DETAILS)
-    pp_string (buffer, "GS_BIND tuple");
+    pp_string (buffer, "GIMPLE_BIND tuple");
 
   newline_and_indent (buffer, spc);
 
@@ -332,7 +332,7 @@ dump_gs_bind (pretty_printer *buffer, gimple gs, int spc, int flags)
     {
       tree var;
 
-      for (var = gs_bind_vars (gs); var; var = TREE_CHAIN (var))
+      for (var = gimple_bind_vars (gs); var; var = TREE_CHAIN (var))
 	{
 	  print_declaration (buffer, var, spc, flags);
 	  newline_and_indent (buffer, spc + 2);
@@ -340,33 +340,33 @@ dump_gs_bind (pretty_printer *buffer, gimple gs, int spc, int flags)
       newline_and_indent (buffer, spc + 2);
     }
 
-  dump_gimple_seq (buffer, gs_bind_body (gs), spc + 2, flags);
+  dump_gimple_seq (buffer, gimple_bind_body (gs), spc + 2, flags);
   newline_and_indent (buffer, spc);
   pp_character (buffer, '}');
 }
 
 
-/* Dump a GS_TRY tuple on the pretty_printer BUFFER, SPC spaces of
+/* Dump a GIMPLE_TRY tuple on the pretty_printer BUFFER, SPC spaces of
    indent.  FLAGS specifies details to show in the dump (see TDF_* in
    tree.h).  */
 
 static void
-dump_gs_try (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_try (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
   if (flags & TDF_DETAILS)
-    pp_string (buffer, "GS_TRY tuple");
+    pp_string (buffer, "GIMPLE_TRY tuple");
 
   newline_and_indent (buffer, spc);
   pp_string (buffer, "try {");
   newline_and_indent (buffer, spc + 2);
-  dump_gimple_seq (buffer, gs_try_eval (gs), spc + 2, flags);
+  dump_gimple_seq (buffer, gimple_try_eval (gs), spc + 2, flags);
   newline_and_indent (buffer, spc);
-  if (GS_SUBCODE_FLAGS (gs) == GS_TRY_CATCH)
+  if (GIMPLE_SUBCODE_FLAGS (gs) == GIMPLE_TRY_CATCH)
     pp_string (buffer, "} catch {");
   else
     pp_string (buffer, "} finally {");
   newline_and_indent (buffer, spc + 2);
-  dump_gimple_seq (buffer, gs_try_cleanup (gs), spc + 2, flags);
+  dump_gimple_seq (buffer, gimple_try_cleanup (gs), spc + 2, flags);
   newline_and_indent (buffer, spc);
   pp_character (buffer, '}');
 }
@@ -382,51 +382,51 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
   if (!gs)
     return;
 
-  switch (GS_CODE (gs))
+  switch (GIMPLE_CODE (gs))
     {
-    case GS_ASSIGN:
-      dump_gs_assign (buffer, gs, spc, flags);
+    case GIMPLE_ASSIGN:
+      dump_gimple_assign (buffer, gs, spc, flags);
       break;
 
-    case GS_BIND:
-      dump_gs_bind (buffer, gs, spc, flags);
+    case GIMPLE_BIND:
+      dump_gimple_bind (buffer, gs, spc, flags);
       break;
 
-    case GS_CALL:
-      dump_gs_call (buffer, gs, spc, flags);
+    case GIMPLE_CALL:
+      dump_gimple_call (buffer, gs, spc, flags);
       break;
 
-    case GS_COND:
-      dump_gs_cond (buffer, gs, spc, flags);
+    case GIMPLE_COND:
+      dump_gimple_cond (buffer, gs, spc, flags);
       break;
 
-    case GS_LABEL:
-      dump_gs_label (buffer, gs, spc, flags);
+    case GIMPLE_LABEL:
+      dump_gimple_label (buffer, gs, spc, flags);
       break;
 
-    case GS_GOTO:
+    case GIMPLE_GOTO:
       pp_string (buffer, "goto ");
-      dump_generic_node (buffer, gs_goto_dest (gs), spc, flags, false);
+      dump_generic_node (buffer, gimple_goto_dest (gs), spc, flags, false);
       break;
 
-    case GS_NOP:
-      pp_string (buffer, "GS_NOP");
+    case GIMPLE_NOP:
+      pp_string (buffer, "GIMPLE_NOP");
       break;
 
-    case GS_RETURN:
-      dump_gs_return (buffer, gs, spc, flags);
+    case GIMPLE_RETURN:
+      dump_gimple_return (buffer, gs, spc, flags);
       break;
 
-    case GS_SWITCH:
-      dump_gs_switch (buffer, gs, spc, flags);
+    case GIMPLE_SWITCH:
+      dump_gimple_switch (buffer, gs, spc, flags);
       break;
 
-    case GS_TRY:
-      dump_gs_try (buffer, gs, spc, flags);
+    case GIMPLE_TRY:
+      dump_gimple_try (buffer, gs, spc, flags);
       break;
 
     default:
-      GS_NIY;
+      GIMPLE_NIY;
     }
 
   newline_and_indent (buffer, spc);

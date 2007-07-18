@@ -4753,7 +4753,7 @@ ix86_va_start (tree valist, rtx nextarg)
 /* Implement va_arg.  */
 
 static tree
-ix86_gimplify_va_arg (tree valist, tree type, gs_seq pre_p, gs_seq post_p)
+ix86_gimplify_va_arg (tree valist, tree type, gimple_seq pre_p, gimple_seq post_p)
 {
   static const int intreg[6] = { 0, 1, 2, 3, 4, 5 };
   tree f_gpr, f_fpr, f_ovf, f_sav;

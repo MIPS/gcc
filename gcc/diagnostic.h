@@ -221,8 +221,8 @@ extern void debug_generic_expr (tree);
 extern void debug_generic_stmt (tree);
 extern void debug_tree_chain (tree);
 extern void debug_gimple_stmt (gimple);
-extern void debug_gimple_seq (gs_seq);
-extern void print_gimple_seq (FILE *, gs_seq, int, int);
+extern void debug_gimple_seq (gimple_seq);
+extern void print_gimple_seq (FILE *, gimple_seq, int, int);
 extern void print_gimple_stmt (FILE *, gimple, int, int);
 extern void dump_gimple_stmt (pretty_printer *, gimple, int, int);
 

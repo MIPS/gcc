@@ -26,30 +26,30 @@ Boston, MA 02110-1301, USA.  */
 
 typedef struct {
     gimple stmt;
-    gs_seq seq;
+    gimple_seq seq;
 } gimple_stmt_iterator;
 
-/* Return a new iterator initially pointing to GS_SEQ's first statement.  */
+/* Return a new iterator initially pointing to GIMPLE_SEQ's first statement.  */
 
 static inline gimple_stmt_iterator
-gsi_start (gs_seq seq)
+gsi_start (gimple_seq seq)
 {
   gimple_stmt_iterator i;
 
-  i.stmt = gs_seq_first(seq);
+  i.stmt = gimple_seq_first(seq);
   i.seq = seq;
 
   return i;
 }
 
-/* Return a new iterator initially pointing to GS_SEQ's last statement.  */
+/* Return a new iterator initially pointing to GIMPLE_SEQ's last statement.  */
 
 static inline gimple_stmt_iterator
-gsi_last (gs_seq seq)
+gsi_last (gimple_seq seq)
 {
   gimple_stmt_iterator i;
 
-  i.stmt = gs_seq_last(seq);
+  i.stmt = gimple_seq_last(seq);
   i.seq = seq;
 
   return i;
@@ -68,7 +68,7 @@ gsi_end_p (gimple_stmt_iterator i)
 static inline bool
 gsi_one_before_end_p (gimple_stmt_iterator i)
 {
-  return i.stmt == gs_seq_last(i.seq);
+  return i.stmt == gimple_seq_last(i.seq);
 }
 
 /* Return the next gimple statement in I.  */
@@ -76,7 +76,7 @@ gsi_one_before_end_p (gimple_stmt_iterator i)
 static inline void
 gsi_next (gimple_stmt_iterator *i)
 {
-  i->stmt = GS_NEXT (i->stmt);
+  i->stmt = GIMPLE_NEXT (i->stmt);
 }
 
 /* Return the previous gimple statement in I.  */
@@ -84,7 +84,7 @@ gsi_next (gimple_stmt_iterator *i)
 static inline void
 gsi_prev (gimple_stmt_iterator *i)
 {
-  i->stmt = GS_PREV (i->stmt);
+  i->stmt = GIMPLE_PREV (i->stmt);
 }
 
 /* Return the current stmt.  */

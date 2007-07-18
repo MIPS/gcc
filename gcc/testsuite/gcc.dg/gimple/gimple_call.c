@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 
-/* Test GS_CALL.  */
+/* Test GIMPLE_CALL.  */
 
 void bar();
 void tool();

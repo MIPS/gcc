@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 
-/* Test GS_GOTO.  */
+/* Test GIMPLE_GOTO.  */
 
 void yanory()
 {

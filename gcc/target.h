@@ -645,7 +645,7 @@ struct gcc_target
 
   /* Gimplifies a VA_ARG_EXPR.  */
   tree (* gimplify_va_arg_expr) (tree valist, tree type,
-      				 gs_seq pre_p, gs_seq post_p);
+      				 gimple_seq pre_p, gimple_seq post_p);
 
   /* Validity-checking routines for PCH files, target-specific.
      get_pch_validity returns a pointer to the data to be stored,

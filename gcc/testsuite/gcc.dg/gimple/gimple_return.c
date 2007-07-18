@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 
-/* Test GS_RETURN.  */
+/* Test GIMPLE_RETURN.  */
 
 int a, b;
 

@@ -1120,7 +1120,7 @@ extern bool thread_through_all_blocks (bool);
 extern void register_jump_thread (edge, edge);
 
 /* In gimplify.c  */
-tree force_gimple_operand (tree, gs_seq, bool, tree);
+tree force_gimple_operand (tree, gimple_seq, bool, tree);
 tree force_gimple_operand_bsi (block_stmt_iterator *, tree, bool, tree);
 
 /* In tree-ssa-structalias.c */

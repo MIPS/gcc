@@ -49,8 +49,8 @@ union gimple_statement_d;
 typedef union gimple_statement_d *gimple;
 union section;
 typedef union section section;
-struct gs_sequence;
-typedef struct gs_sequence *gs_seq;
+struct gimple_sequence;
+typedef struct gimple_sequence *gimple_seq;
 
 /* The major intermediate representations of GCC.  */
 enum ir_type {

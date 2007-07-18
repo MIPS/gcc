@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 
-/* Test GS_BIND.  */
+/* Test GIMPLE_BIND.  */
 
 int global;
 
@@ -12,5 +12,5 @@ void foo(int p)
   global = joe;
 }
 
-/* { dg-final { scan-tree-dump-times "gimpleir: GS_BIND tuple" 1 "gimple"} } */
+/* { dg-final { scan-tree-dump-times "gimpleir: GIMPLE_BIND tuple" 1 "gimple"} } */
 /* { dg-final { cleanup-tree-dump "gimple" } } */
