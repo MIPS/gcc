@@ -1,5 +1,13 @@
 2007-07-18  Aldy Hernandez  <aldyh@redhat.com> 
 
+        * gimplify.c (gimple_add_tmp_var): Remove abort.  Add comment.
+	
+2007-07-18  Aldy Hernandez  <aldyh@redhat.com> 
+
+	* gimplify.c (gimple_add_tmp_var): Remove abort.  Add comment.
+
+2007-07-18  Aldy Hernandez  <aldyh@redhat.com> 
+
 	* gimplify.c (gimplify_and_add): Remove unecessary temporary sequence.
 	Remove fixme.  Add comment.
 	(gimplify_loop_expr): Tuplefy.

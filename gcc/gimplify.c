@@ -736,10 +736,8 @@ gimple_add_tmp_var (tree tmp)
     {
       gimple_seq body_seq;
 
-      /* FIXME tuples: In a full bootstrap, I've never triggered
-	 this.  Is this call to declare_vars() really needed?  */
-      gcc_unreachable ();
-
+      /* This case is for nested functions.  We need to expose the locals
+	 they create.  */
       body_seq = gimple_body (current_function_decl);
       declare_vars (tmp, gimple_seq_first (body_seq), false);
     }
