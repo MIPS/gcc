@@ -40,6 +40,7 @@ enum gimple_code {
 #define GIMPLE_SUBCODE_FLAGS(G) ((G)->base.subcode_flags)
 #define GIMPLE_NEXT(G) ((G)->base.next)
 #define GIMPLE_PREV(G) ((G)->base.prev)
+#define GIMPLE_BLOCK(G)	((G)->base.block)
 #define GIMPLE_LOCUS(G) ((G)->base.locus)
 #define GIMPLE_LOCUS_EMPTY_P(G)	(GIMPLE_LOCUS ((G)).file == NULL \
 				 && GIMPLE_LOCUS ((G)).line == 0)

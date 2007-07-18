@@ -185,11 +185,7 @@ pop_gimplify_context (gimple body)
     DECL_GIMPLE_FORMAL_TEMP_P (t) = 0;
 
   if (body)
-  /* FIXME tuples */
-    ;
-#if 0
     declare_vars (c->temps, body, false);
-#endif
   else
     record_vars (c->temps);
 
@@ -648,27 +644,23 @@ get_tmp_var_for (gimple stmt)
    true, generate debug info for them; otherwise don't.  */
 
 void
-declare_vars (tree vars, tree scope, bool debug_info)
+declare_vars (tree vars, gimple scope, bool debug_info)
 {
   tree last = vars;
   if (last)
     {
       tree temps, block;
 
-      /* C99 mode puts the default 'return 0;' for main outside the outer
-	 braces.  So drill down until we find an actual scope.  */
-      while (TREE_CODE (scope) == COMPOUND_EXPR)
-	scope = TREE_OPERAND (scope, 0);
-
-      gcc_assert (TREE_CODE (scope) == BIND_EXPR);
+      gcc_assert (GIMPLE_CODE (scope) == GIMPLE_BIND);
 
       temps = nreverse (last);
 
-      block = BIND_EXPR_BLOCK (scope);
+      block = GIMPLE_BLOCK (scope);
+      gcc_assert (!block || TREE_CODE (block) == BLOCK);
       if (!block || !debug_info)
 	{
-	  TREE_CHAIN (last) = BIND_EXPR_VARS (scope);
-	  BIND_EXPR_VARS (scope) = temps;
+	  TREE_CHAIN (last) = gimple_bind_vars (scope);
+	  gimple_bind_set_vars (scope, temps);
 	}
       else
 	{
@@ -680,7 +672,8 @@ declare_vars (tree vars, tree scope, bool debug_info)
 	    BLOCK_VARS (block) = chainon (BLOCK_VARS (block), temps);
 	  else
 	    {
-	      BIND_EXPR_VARS (scope) = chainon (BIND_EXPR_VARS (scope), temps);
+	      gimple_bind_set_vars (scope,
+	      			    chainon (gimple_bind_vars (scope), temps));
 	      BLOCK_VARS (block) = temps;
 	    }
 	}
@@ -743,7 +736,16 @@ gimple_add_tmp_var (tree tmp)
   else if (cfun)
     record_vars (tmp);
   else
-    declare_vars (tmp, DECL_SAVED_TREE (current_function_decl), false);
+    {
+      gimple_seq body_seq;
+
+      /* FIXME tuples: In a full bootstrap, I've never triggered
+	 this.  Is this call to declare_vars() really needed?  */
+      gcc_unreachable ();
+
+      body_seq = gimple_body (current_function_decl);
+      declare_vars (tmp, gimple_seq_first (body_seq), false);
+    }
 }
 
 /* Determines whether to assign a locus to the statement GS.  */

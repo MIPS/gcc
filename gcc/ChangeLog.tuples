@@ -1,3 +1,11 @@
+2007-07-18  Aldy Hernandez  <aldyh@redhat.com> 
+
+	* tree-gimple.h (declare_vars): Update arguments.
+	* gimplify.c (pop_gimplify_context): Enable call to declare_vars.
+	(declare_vars): Convert to use tuples.
+	(gimple_add_tmp_var): Same.
+	* gimple.h (GIMPLE_BLOCK): New.
+
 2007-07-17  Chris Matthews  <chrismatthews@google.com>
 
 	* gimplify.c (gs_build_eh_filter): Renamed to gs_build_eh_filter_tree to
