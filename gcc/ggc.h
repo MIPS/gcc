@@ -66,6 +66,9 @@ extern void *ggc_alloc_typed_stat (enum gt_types_enum, size_t MEM_STAT_DECL);
 /* Like ggc_alloc, but allocates cleared memory.  */
 extern void *ggc_alloc_cleared_stat (size_t MEM_STAT_DECL);
 #define ggc_alloc_cleared(s) ggc_alloc_cleared_stat (s MEM_STAT_INFO)
+/* Allocate an object of the specifid type and size and clear it.  */
+extern void *ggc_alloc_cleared_typed_stat (enum gt_types_enum, size_t MEM_STAT_DECL);
+#define ggc_alloc_cleared_typed(s,z) ggc_alloc_cleared_typed_stat(s, z MEM_STAT_INFO)
 /* Resize a block.  */
 extern void *ggc_realloc_stat (void *, size_t MEM_STAT_DECL);
 #define ggc_realloc(s,z) ggc_realloc_stat (s,z MEM_STAT_INFO)
@@ -84,7 +87,7 @@ extern void *ggc_alloc_atomic_stat (size_t MEM_STAT_DECL);
 /* Type-safe, C++-friendly versions of ggc_alloc() and gcc_calloc().  */
 #define GGC_NEW(T)		((T *) ggc_alloc (sizeof (T)))
 #define GGC_NEW_ATOMIC(T)       ((T *) ggc_alloc_atomic (sizeof (T)))
-#define GGC_CNEW(T)		((T *) ggc_alloc_cleared (sizeof (T)))
+#define GGC_CNEW(T)             ((T *) ggc_alloc_cleared (sizeof (T)))
 #define GGC_NEWVEC(T, N)	((T *) ggc_alloc ((N) * sizeof(T)))
 #define GGC_CNEWVEC(T, N)	((T *) ggc_alloc_cleared ((N) * sizeof(T)))
 #define GGC_NEWVAR(T, S)	((T *) ggc_alloc ((S)))

@@ -8,8 +8,9 @@
 #include "ggc-internal.h"
 #include "symtab.h"
 
-/* #define GC_DEBUG */
+#define GC_DEBUG
 #include <gc.h>
+#include <gc_mark.h>
 
 extern struct ht *ident_hash;
 
@@ -47,9 +48,18 @@ static ggc_stringpool_roots ggc_register_stringpool_roots (void);
 static void ggc_unregister_stringpool_roots (ggc_stringpool_roots roots);
 static int ggc_stringpool_moved_p (ggc_stringpool_roots roots);
 
+static struct GC_ms_entry *mark_tagged_object(GC_word * addr,
+				       struct GC_ms_entry * mark_stack_ptr,
+				       struct GC_ms_entry * mark_stack_limit,
+				       GC_word env);
+static void **tagged_obj_free_list;
+static int tagged_obj_kind;
+
 void
 init_ggc (void)
 {
+  int proc;
+
   /* Have better idea of roots before initialization, because it performs
      blacklisting according to the current set of roots.  We miss stringpool
      roots here, but we can get information about them only when it's way too
@@ -63,12 +73,25 @@ init_ggc (void)
   stringpool_roots.one_after_finish = NULL;
 
   default_warn_proc = GC_set_warn_proc(gc_warning_filter);
+
+  tagged_obj_free_list = GC_new_free_list();
+  proc = GC_new_proc (mark_tagged_object);
+  tagged_obj_kind = GC_new_kind (tagged_obj_free_list,
+				 GC_MAKE_PROC (proc, 0), 0, 1);
 }
 
 void *
 ggc_alloc_stat (size_t size MEM_STAT_DECL)
 {
-  void * result = GC_MALLOC(size);
+  void * result;
+  const size_t obj_plus_info_size = size + OBJ_OVERHEAD;
+
+  result = GC_MALLOC (obj_plus_info_size);
+
+  *(get_type_offset(result)) = gt_types_enum_last;
+
+  type_overhead += OBJ_OVERHEAD;
+
   return result;
 }
 
@@ -81,16 +104,15 @@ get_type_offset(void * block)
 void *
 ggc_alloc_typed_stat (enum gt_types_enum type, size_t size MEM_STAT_DECL)
 {
-  void * result = NULL;
+  void * result;
 
-  size_t actual_obj_size;
   const size_t obj_plus_info_size = size + OBJ_OVERHEAD;
-  type_overhead += obj_plus_info_size;
 
-  result = GC_malloc (obj_plus_info_size);
-  actual_obj_size = GC_size(result);
+  result = GC_generic_malloc (obj_plus_info_size, tagged_obj_kind);
 
   *(get_type_offset(result)) = type;
+
+  type_overhead += OBJ_OVERHEAD;
 
   /* Verification */
   gcc_assert (type == get_block_type (result));
@@ -101,7 +123,17 @@ ggc_alloc_typed_stat (enum gt_types_enum type, size_t size MEM_STAT_DECL)
 void *
 ggc_alloc_atomic_stat (size_t size MEM_STAT_DECL)
 {
-  void * result = GC_malloc_atomic (size);
+  void * result = ggc_alloc_typed_stat (gt_types_enum_atomic,
+                                        size PASS_MEM_STAT);
+  return result;
+}
+
+void *
+ggc_alloc_cleared_typed_stat (enum gt_types_enum type,
+                              size_t size MEM_STAT_DECL)
+{
+  void * result = ggc_alloc_typed_stat (type, size PASS_MEM_STAT);
+  memset (result, 0, size);
   return result;
 }
 
@@ -114,7 +146,29 @@ get_block_type(void * block)
 void *
 ggc_realloc_stat (void *x, size_t size MEM_STAT_DECL)
 {
-  void * result = GC_REALLOC(x, size);
+  void * result;
+
+  size_t obj_plus_info_size;
+  if (x == NULL)
+    return ggc_alloc_stat (size PASS_MEM_STAT);
+
+  if ((x != NULL) && (size == 0))
+    {
+      GC_FREE (x);
+      return NULL;
+    }
+
+  obj_plus_info_size = size + OBJ_OVERHEAD;
+
+  result = GC_MALLOC (obj_plus_info_size);
+  memcpy (result, x, GC_size (x));
+
+  *(get_type_offset (result)) = *(get_type_offset (x));
+
+  GC_FREE (x);
+
+  type_overhead += OBJ_OVERHEAD;
+
   return result;
 }
 
@@ -241,6 +295,47 @@ ggc_get_size (const void * block)
 						   originally requested */
 }
 
+struct GC_ms_entry *mark_tagged_object(GC_word * addr,
+				       struct GC_ms_entry * mark_stack_ptr,
+				       struct GC_ms_entry * mark_stack_limit ATTRIBUTE_UNUSED,
+				       GC_word env ATTRIBUTE_UNUSED)
+{
+  return (typed_markers[get_block_type(addr)])(addr, mark_stack_ptr,
+					       mark_stack_limit);
+}
+
+struct GC_ms_entry *gt_tggc_m_free_list_obj(GC_word * addr,
+					    struct GC_ms_entry * mark_stack_ptr ATTRIBUTE_UNUSED,
+					    struct GC_ms_entry * mark_stack_limit ATTRIBUTE_UNUSED)
+{
+  if (get_block_type (addr) != gt_types_enum_free_list_obj)
+    {
+      printf ("Free list marker, tag = %d\n", get_block_type (addr));
+      abort();
+    }
+  return mark_stack_ptr;
+}
+
+struct GC_ms_entry *gt_tggc_m_atomic_obj(GC_word * addr,
+					 struct GC_ms_entry * mark_stack_ptr,
+					 struct GC_ms_entry * mark_stack_limit ATTRIBUTE_UNUSED)
+{
+  if (get_block_type (addr) != gt_types_enum_atomic)
+    {
+      printf ("Atomic obj marker, tag = %d\n", get_block_type (addr));
+      abort();
+    }
+  return mark_stack_ptr;
+}
+
+struct GC_ms_entry *gt_tggc_m_nonexistent_obj(GC_word * addr,
+				  struct GC_ms_entry * mark_stack_ptr ATTRIBUTE_UNUSED,
+				  struct GC_ms_entry * mark_stack_limit ATTRIBUTE_UNUSED)
+{
+  printf ("Non-existent type marker, tag = %d\n", get_block_type (addr));
+  gcc_unreachable();
+}
+
 int
 ggc_marked_p (const void * d ATTRIBUTE_UNUSED)
 {
@@ -328,7 +423,7 @@ ggc_print_statistics (void)
 	   "Used bytes in the heap: %lu\n",
 	   (unsigned long)get_used_heap_size());
   fprintf (stderr,
-	   "Local ggc-boehm overhead: %lu\n",
+	   "Total accumulated type information overhead: %lu\n",
 	   (unsigned long)type_overhead);
 }
 

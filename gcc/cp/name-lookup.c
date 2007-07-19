@@ -4983,7 +4983,7 @@ push_to_top_level (void)
   int need_pop;
 
   timevar_push (TV_NAME_LOOKUP);
-  s = GGC_CNEW (struct saved_scope);
+  s = ggc_alloc_cleared_saved_scope();
 
   b = scope_chain ? current_binding_level : 0;
 

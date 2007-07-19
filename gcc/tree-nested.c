@@ -717,7 +717,7 @@ check_for_nested_with_variably_modified (tree fndecl, tree orig_fndecl)
 static struct nesting_info *
 create_nesting_tree (struct cgraph_node *cgn)
 {
-  struct nesting_info *info = GGC_CNEW (struct nesting_info);
+  struct nesting_info *info = ggc_alloc_cleared_nesting_info();
   info->field_map = htab_create_ggc (7, var_map_hash, var_map_eq, ggc_free);
   info->var_map = htab_create_ggc (7, var_map_hash, var_map_eq, ggc_free);
   info->suppress_expansion = BITMAP_GGC_ALLOC ();
@@ -870,7 +870,7 @@ get_nonlocal_debug_decl (struct nesting_info *info, tree decl)
   SET_DECL_VALUE_EXPR (new_decl, x);
   DECL_HAS_VALUE_EXPR_P (new_decl) = 1;
 
-  elt = ggc_alloc (sizeof (*elt));
+  elt = ggc_alloc_var_map_elt();
   elt->old = decl;
   elt->new = new_decl;
   *slot = elt;
@@ -1178,7 +1178,7 @@ get_local_debug_decl (struct nesting_info *info, tree decl, tree field)
   SET_DECL_VALUE_EXPR (new_decl, x);
   DECL_HAS_VALUE_EXPR_P (new_decl) = 1;
 
-  elt = ggc_alloc (sizeof (*elt));
+  elt = ggc_alloc_var_map_elt();
   elt->old = decl;
   elt->new = new_decl;
   *slot = elt;

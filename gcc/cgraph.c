@@ -759,7 +759,7 @@ cgraph_varpool_node (tree decl)
     htab_find_slot (cgraph_varpool_hash, &key, INSERT);
   if (*slot)
     return *slot;
-  node = GGC_CNEW (struct cgraph_varpool_node);
+  node = ggc_alloc_cleared_cgraph_varpool_node();
   node->decl = decl;
   node->order = cgraph_order++;
   node->next = cgraph_varpool_nodes;
@@ -912,7 +912,7 @@ cgraph_add_asm_node (tree asm_str)
 {
   struct cgraph_asm_node *node;
 
-  node = GGC_CNEW (struct cgraph_asm_node);
+  node = ggc_alloc_cleared_cgraph_asm_node ();
   node->asm_str = asm_str;
   node->order = cgraph_order++;
   node->next = NULL;
