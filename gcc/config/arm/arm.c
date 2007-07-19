@@ -380,7 +380,7 @@ static void arm_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 #endif
 
 #undef TARGET_CANNOT_FORCE_CONST_MEM
-#define TARGET_CANNOT_FORCE_CONST_MEM arm_tls_referenced_p
+#define TARGET_CANNOT_FORCE_CONST_MEM arm_cannot_force_const_mem
 
 #ifdef HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
@@ -3387,7 +3387,7 @@ require_pic_register (void)
      start the real expansion process.  */
   if (!current_function_uses_pic_offset_table)
     {
-      gcc_assert (!no_new_pseudos);
+      gcc_assert (can_create_pseudo_p ());
       if (arm_pic_register != INVALID_REGNUM)
 	{
 	  cfun->machine->pic_reg = gen_rtx_REG (Pmode, arm_pic_register);
@@ -3439,7 +3439,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
       if (reg == 0)
 	{
-	  gcc_assert (!no_new_pseudos);
+	  gcc_assert (can_create_pseudo_p ());
 	  reg = gen_reg_rtx (Pmode);
 
 	  subregs = 1;
@@ -3503,7 +3503,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
       if (reg == 0)
 	{
-	  gcc_assert (!no_new_pseudos);
+	  gcc_assert (can_create_pseudo_p ());
 	  reg = gen_reg_rtx (Pmode);
 	}
 
@@ -3519,7 +3519,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	     test the index for the appropriate mode.  */
 	  if (!arm_legitimate_index_p (mode, offset, SET, 0))
 	    {
-	      gcc_assert (!no_new_pseudos);
+	      gcc_assert (can_create_pseudo_p ());
 	      offset = force_reg (Pmode, offset);
 	    }
 
@@ -3673,7 +3673,7 @@ arm_load_pic_register (unsigned long saved_regs ATTRIBUTE_UNUSED)
 	    }
 	  else
 	    {
-	      gcc_assert (!no_new_pseudos);
+	      gcc_assert (can_create_pseudo_p ());
 	      pic_tmp = gen_reg_rtx (Pmode);
 	    }
 
@@ -4671,6 +4671,23 @@ arm_tls_referenced_p (rtx x)
     return false;
 
   return for_each_rtx (&x, arm_tls_operand_p_1, NULL);
+}
+
+/* Implement TARGET_CANNOT_FORCE_CONST_MEM.  */
+
+bool
+arm_cannot_force_const_mem (rtx x)
+{
+  rtx base, offset;
+
+  if (ARM_OFFSETS_MUST_BE_WITHIN_SECTIONS_P)
+    {
+      split_const (x, &base, &offset);
+      if (GET_CODE (base) == SYMBOL_REF
+	  && !offset_within_block_p (base, INTVAL (offset)))
+	return true;
+    }
+  return arm_tls_referenced_p (x);
 }
 
 #define REG_OR_SUBREG_REG(X)						\
@@ -5822,8 +5839,8 @@ vfp3_const_double_index (rtx x)
   gcc_assert (mantissa >= 16 && mantissa <= 31);
 
   /* The value of 5 here would be 4 if GCC used IEEE754-like encoding (where
-     normalised significands are in the range [1, 2). (Our mantissa is shifted
-     left 4 places at this point relative to normalised IEEE754 values).  GCC
+     normalized significands are in the range [1, 2). (Our mantissa is shifted
+     left 4 places at this point relative to normalized IEEE754 values).  GCC
      internally uses [0.5, 1) (see real.c), so the exponent returned from
      REAL_EXP must be altered.  */
   exponent = 5 - exponent;
@@ -10182,6 +10199,10 @@ thumb1_compute_save_reg_mask (void)
 	 have to push it.  Use LAST_LO_REGNUM as our fallback
 	 choice for the register to select.  */
       reg = thumb_find_work_register (1 << LAST_LO_REGNUM);
+      /* Make sure the register returned by thumb_find_work_register is
+	 not part of the return value.  */
+      if (reg * UNITS_PER_WORD <= arm_size_return_regs ())
+	reg = LAST_LO_REGNUM;
 
       if (! call_used_regs[reg])
 	mask |= 1 << reg;

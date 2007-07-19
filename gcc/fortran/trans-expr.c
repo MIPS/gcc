@@ -1102,6 +1102,7 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
       /* EQV and NEQV only work on logicals, but since we represent them
          as integers, we can use EQ_EXPR and NE_EXPR for them in GIMPLE.  */
     case INTRINSIC_EQ:
+    case INTRINSIC_EQ_OS:
     case INTRINSIC_EQV:
       code = EQ_EXPR;
       checkstring = 1;
@@ -1109,6 +1110,7 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
       break;
 
     case INTRINSIC_NE:
+    case INTRINSIC_NE_OS:
     case INTRINSIC_NEQV:
       code = NE_EXPR;
       checkstring = 1;
@@ -1116,24 +1118,28 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
       break;
 
     case INTRINSIC_GT:
+    case INTRINSIC_GT_OS:
       code = GT_EXPR;
       checkstring = 1;
       lop = 1;
       break;
 
     case INTRINSIC_GE:
+    case INTRINSIC_GE_OS:
       code = GE_EXPR;
       checkstring = 1;
       lop = 1;
       break;
 
     case INTRINSIC_LT:
+    case INTRINSIC_LT_OS:
       code = LT_EXPR;
       checkstring = 1;
       lop = 1;
       break;
 
     case INTRINSIC_LE:
+    case INTRINSIC_LE_OS:
       code = LE_EXPR;
       checkstring = 1;
       lop = 1;
@@ -2054,6 +2060,33 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   var = NULL_TREE;
   len = NULL_TREE;
 
+  if (sym->from_intmod == INTMOD_ISO_C_BINDING
+      && sym->intmod_sym_id == ISOCBINDING_LOC)
+    {
+      if (arg->expr->rank == 0)
+	{
+	  gfc_conv_expr_reference (se, arg->expr);
+	}
+      else
+	{
+	  int f;
+	  /* This is really the actual arg because no formal arglist is
+	     created for C_LOC.	 */
+	  fsym = arg->expr->symtree->n.sym;
+
+	  /* We should want it to do g77 calling convention.  */
+	  f = (fsym != NULL)
+	    && !(fsym->attr.pointer || fsym->attr.allocatable)
+	    && fsym->as->type != AS_ASSUMED_SHAPE;
+	  f = f || !sym->attr.always_explicit;
+	  
+	  argss = gfc_walk_expr (arg->expr);
+	  gfc_conv_array_parameter (se, arg->expr, argss, f);
+	}
+
+      return 0;
+    }
+  
   if (se->ss != NULL)
     {
       if (!sym->attr.elemental)
@@ -2967,65 +3000,68 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr)
       if (cm->allocatable && expr->expr_type == EXPR_NULL)
  	gfc_conv_descriptor_data_set (&block, dest, null_pointer_node);
       else if (cm->allocatable)
-        {
-          tree tmp2;
+	{
+	  tree tmp2;
 
           gfc_init_se (&se, NULL);
  
 	  rss = gfc_walk_expr (expr);
-          se.want_pointer = 0;
-          gfc_conv_expr_descriptor (&se, expr, rss);
+	  se.want_pointer = 0;
+	  gfc_conv_expr_descriptor (&se, expr, rss);
 	  gfc_add_block_to_block (&block, &se.pre);
 
 	  tmp = fold_convert (TREE_TYPE (dest), se.expr);
 	  gfc_add_modify_expr (&block, dest, tmp);
 
-          if (cm->ts.type == BT_DERIVED && cm->ts.derived->attr.alloc_comp)
+	  if (cm->ts.type == BT_DERIVED && cm->ts.derived->attr.alloc_comp)
 	    tmp = gfc_copy_alloc_comp (cm->ts.derived, se.expr, dest,
 				       cm->as->rank);
 	  else
-            tmp = gfc_duplicate_allocatable (dest, se.expr,
+	    tmp = gfc_duplicate_allocatable (dest, se.expr,
 					     TREE_TYPE(cm->backend_decl),
 					     cm->as->rank);
 
-          gfc_add_expr_to_block (&block, tmp);
+	  gfc_add_expr_to_block (&block, tmp);
 
-          gfc_add_block_to_block (&block, &se.post);
-          gfc_conv_descriptor_data_set (&block, se.expr, null_pointer_node);
+	  gfc_add_block_to_block (&block, &se.post);
+	  gfc_conv_descriptor_data_set (&block, se.expr, null_pointer_node);
 
-          /* Shift the lbound and ubound of temporaries to being unity, rather
-             than zero, based.  Calculate the offset for all cases.  */
-          offset = gfc_conv_descriptor_offset (dest);
-          gfc_add_modify_expr (&block, offset, gfc_index_zero_node);
-          tmp2 =gfc_create_var (gfc_array_index_type, NULL);
-          for (n = 0; n < expr->rank; n++)
-            {
-              if (expr->expr_type != EXPR_VARIABLE
-                  && expr->expr_type != EXPR_CONSTANT)
-                {
-                  tmp = gfc_conv_descriptor_ubound (dest, gfc_rank_cst[n]);
-                  gfc_add_modify_expr (&block, tmp,
-                                       fold_build2 (PLUS_EXPR,
-				      		    gfc_array_index_type,
-                                                    tmp, gfc_index_one_node));
-                  tmp = gfc_conv_descriptor_lbound (dest, gfc_rank_cst[n]);
-                  gfc_add_modify_expr (&block, tmp, gfc_index_one_node);
-                }
-              tmp = fold_build2 (MULT_EXPR, gfc_array_index_type,
-                                 gfc_conv_descriptor_lbound (dest,
+	  /* Shift the lbound and ubound of temporaries to being unity, rather
+	     than zero, based.  Calculate the offset for all cases.  */
+	  offset = gfc_conv_descriptor_offset (dest);
+	  gfc_add_modify_expr (&block, offset, gfc_index_zero_node);
+	  tmp2 =gfc_create_var (gfc_array_index_type, NULL);
+	  for (n = 0; n < expr->rank; n++)
+	    {
+	      if (expr->expr_type != EXPR_VARIABLE
+		    && expr->expr_type != EXPR_CONSTANT)
+		{
+		  tree span;
+		  tmp = gfc_conv_descriptor_ubound (dest, gfc_rank_cst[n]);
+		  span = fold_build2 (MINUS_EXPR, gfc_array_index_type, tmp,
+			    gfc_conv_descriptor_lbound (dest, gfc_rank_cst[n]));
+		  gfc_add_modify_expr (&block, tmp,
+				       fold_build2 (PLUS_EXPR,
+						    gfc_array_index_type,
+						    span, gfc_index_one_node));
+		  tmp = gfc_conv_descriptor_lbound (dest, gfc_rank_cst[n]);
+		  gfc_add_modify_expr (&block, tmp, gfc_index_one_node);
+		}
+	      tmp = fold_build2 (MULT_EXPR, gfc_array_index_type,
+				 gfc_conv_descriptor_lbound (dest,
 							     gfc_rank_cst[n]),
-                                 gfc_conv_descriptor_stride (dest,
+				 gfc_conv_descriptor_stride (dest,
 							     gfc_rank_cst[n]));
-              gfc_add_modify_expr (&block, tmp2, tmp);
-              tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type, offset, tmp2);
-              gfc_add_modify_expr (&block, offset, tmp);
-            }
-        }
+	      gfc_add_modify_expr (&block, tmp2, tmp);
+	      tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type, offset, tmp2);
+	      gfc_add_modify_expr (&block, offset, tmp);
+	    }
+	}
       else
-        {
+	{
 	  tmp = gfc_trans_subarray_assign (dest, cm, expr);
 	  gfc_add_expr_to_block (&block, tmp);
-        }
+	}
     }
   else if (expr->ts.type == BT_DERIVED)
     {
@@ -3491,9 +3527,17 @@ gfc_trans_scalar_assign (gfc_se * lse, gfc_se * rse, gfc_typespec ts,
 	    tmp = build3_v (COND_EXPR, cond, build_empty_stmt (), tmp);
 	  gfc_add_expr_to_block (&lse->pre, tmp);
 	}
-	
-      gfc_add_block_to_block (&block, &lse->pre);
-      gfc_add_block_to_block (&block, &rse->pre);
+
+      if (r_is_var)
+	{
+	  gfc_add_block_to_block (&block, &lse->pre);
+	  gfc_add_block_to_block (&block, &rse->pre);
+	}
+      else
+	{
+	  gfc_add_block_to_block (&block, &rse->pre);
+	  gfc_add_block_to_block (&block, &lse->pre);
+	}
 
       gfc_add_modify_expr (&block, lse->expr,
 			   fold_convert (TREE_TYPE (lse->expr), rse->expr));

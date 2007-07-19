@@ -2702,6 +2702,9 @@ cp_parser_make_indirect_declarator (enum tree_code code, tree class_type,
 				    cp_cv_quals cv_qualifiers,
 				    cp_declarator *target)
 {
+  if (code == ERROR_MARK)
+    return cp_error_declarator;
+
   if (code == INDIRECT_REF)
     if (class_type == NULL_TREE)
       return make_pointer_declarator (cv_qualifiers, target);
@@ -3368,7 +3371,19 @@ cp_parser_primary_expression (cp_parser *parser,
 	    /* If name lookup gives us a SCOPE_REF, then the
 	       qualifying scope was dependent.  */
 	    if (TREE_CODE (decl) == SCOPE_REF)
-	      return decl;
+	      {
+		/* At this point, we do not know if DECL is a valid
+		   integral constant expression.  We assume that it is
+		   in fact such an expression, so that code like:
+
+		      template <int N> struct A {
+			int a[B<N>::i];
+		      };
+		     
+		   is accepted.  At template-instantiation time, we
+		   will check that B<N>::i is actually a constant.  */
+		return decl;
+	      }
 	    /* Check to see if DECL is a local variable in a context
 	       where that is forbidden.  */
 	    if (parser->local_variables_forbidden_p

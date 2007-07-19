@@ -1,3 +1,77 @@
+2007-07-16  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	PR target/32340
+	* configure.host (arm*-elf | strongarm*-elf | xscale*-elf): Use the
+	new sysdeps/arm directory.
+
+2007-07-15  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/File.java: Implement Comparable<File>.
+	(compareTo): Removed.
+	* java/io/File.h: Rebuilt.
+	* classpath/lib/java/io/File.class: Rebuilt.
+
+2007-07-14  Tom Tromey  <tromey@redhat.com>
+
+	* Rebuilt .class files.
+
+2007-07-15  Andrew Haley  <aph@redhat.com>
+
+	* configure.host: 
+	arm*-linux-gnu -> arm*-linux*.
+
+2007-07-14  Krister Walfridsson  <cato@df.lth.se>
+
+	* gnu/gcj/util/natGCInfo.cc: Use HAVE_STRERROR_R.
+	* configure.ac: Remove check for strerror, add check for strerror_r.
+	* configure: Regenerate.
+	* include/config.h.in: Regenerate.
+
+2007-07-13  Andrew Haley  <aph@redhat.com>
+
+	* libgcj.ver: Add __gcj_personality_sj0.
+
+	* testsuite/libjava.jvmti/jvmti-interp.exp: Likewise.
+	* testsuite/libjava.jni/jni.exp: Use -fdollars-in-identifiers.
+	* testsuite/libjava.jni/cni.exp: Use -fdollars-in-identifiers.
+	* testsuite/libjava.jvmti/jvmti.exp (gcj_jvmti_compile_cxx_to_o): Likewise.
+
+	* gnu/classpath/natVMStackWalker.cc (getCallingClassLoader): Check
+	klass is non-null.
+	* java/lang/reflect/natField.cc (getAddr): Call
+	_Jv_StackTrace::GetCallingClass only if CALLER is non-null.
+	* java/lang/reflect/natVMProxy.cc (run_proxy): Use
+	_Jv_getFieldInternal to get field proxyClass.m.
+	(_Jv_getFieldInternal): New function.
+
+2007-07-11  Andrew Haley  <aph@redhat.com>
+
+	* configure.host (arm*-linux-gnu): New.
+	* sysdep/arm/locks.h: New.
+
+2007-07-13  Roger Sayle  <roger@eyesopen.com>
+
+	* java/lang/natPosixProcess.cc: Include <sys/time.h> before
+	<sys/resource.h> to restore bootstrap on powerpc-apple-darwin7.9.0.
+
+2007-07-12  Matthias Klose  <doko@ubuntu.com>
+
+	* gnu/classpath/jdwp/util/MethodResult.h,
+	gnu/classpath/jdwp/value/ObjectValue.h: Regenerate.
+
+2007-07-11  Keith Seitz  <keiths@redhat.com>
+
+	* interpret.cc (get_local_var_table) [DIRECT_THREADED]: Make sure the
+	method is compiled.
+	* testsuite/libjava.jvmti/interp/getlocalvartable.out: Revise
+	for compiled methods.
+
+2007-07-10  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR libgcj/32651
+	* configure.host (mips-sgi-irix6*): Set sysdeps_dir.
+	Disable interpreter.
+	
 2007-07-05  Andreas Tobler  <a.tobler@schweiz.org>
 
 	* java/lang/natPosixProcess.cc: Reorder includes to fix compilation

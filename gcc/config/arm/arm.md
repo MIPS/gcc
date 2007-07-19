@@ -490,7 +490,7 @@
     {
       arm_split_constant (PLUS, SImode, NULL_RTX,
 	                  INTVAL (operands[2]), operands[0], operands[1],
-			  optimize && !no_new_pseudos);
+			  optimize && can_create_pseudo_p ());
       DONE;
     }
   "
@@ -967,7 +967,7 @@
         {
           arm_split_constant (MINUS, SImode, NULL_RTX,
 	                      INTVAL (operands[1]), operands[0],
-	  		      operands[2], optimize && !no_new_pseudos);
+	  		      operands[2], optimize && can_create_pseudo_p ());
           DONE;
 	}
       else /* TARGET_THUMB1 */
@@ -1737,7 +1737,7 @@
         {
           arm_split_constant (AND, SImode, NULL_RTX,
 	                      INTVAL (operands[2]), operands[0],
-			      operands[1], optimize && !no_new_pseudos);
+			      operands[1], optimize && can_create_pseudo_p ());
 
           DONE;
         }
@@ -2398,7 +2398,7 @@
         {
           arm_split_constant (IOR, SImode, NULL_RTX,
 	                      INTVAL (operands[2]), operands[0], operands[1],
-			      optimize && !no_new_pseudos);
+			      optimize && can_create_pseudo_p ());
           DONE;
 	}
       else /* TARGET_THUMB1 */
@@ -4473,7 +4473,7 @@
 	(match_operand:DI 1 "general_operand" ""))]
   "TARGET_EITHER"
   "
-  if (!no_new_pseudos)
+  if (can_create_pseudo_p ())
     {
       if (GET_CODE (operands[0]) != REG)
 	operands[1] = force_reg (DImode, operands[1]);
@@ -4649,6 +4649,8 @@
         (match_operand:SI 1 "general_operand" ""))]
   "TARGET_EITHER"
   "
+  rtx base, offset, tmp;
+
   if (TARGET_32BIT)
     {
       /* Everything except mem = const or mem = mem can be done easily.  */
@@ -4661,17 +4663,30 @@
         {
            arm_split_constant (SET, SImode, NULL_RTX,
 	                       INTVAL (operands[1]), operands[0], NULL_RTX,
-			       optimize && !no_new_pseudos);
+			       optimize && can_create_pseudo_p ());
           DONE;
         }
     }
   else /* TARGET_THUMB1...  */
     {
-      if (!no_new_pseudos)
+      if (can_create_pseudo_p ())
         {
           if (GET_CODE (operands[0]) != REG)
 	    operands[1] = force_reg (SImode, operands[1]);
         }
+    }
+
+  if (ARM_OFFSETS_MUST_BE_WITHIN_SECTIONS_P)
+    {
+      split_const (operands[1], &base, &offset);
+      if (GET_CODE (base) == SYMBOL_REF
+	  && !offset_within_block_p (base, INTVAL (offset)))
+	{
+	  tmp = no_new_pseudos ? operands[0] : gen_reg_rtx (SImode);
+	  emit_move_insn (tmp, base);
+	  emit_insn (gen_addsi3 (operands[0], tmp, offset));
+	  DONE;
+	}
     }
 
   /* Recognize the case where operand[1] is a reference to thread-local
@@ -4690,7 +4705,8 @@
       gcc_assert (GET_CODE (tmp) == SYMBOL_REF);
       gcc_assert (SYMBOL_REF_TLS_MODEL (tmp) != 0);
 
-      tmp = legitimize_tls_address (tmp, no_new_pseudos ? operands[0] : 0);
+      tmp = legitimize_tls_address (tmp,
+				    !can_create_pseudo_p () ? operands[0] : 0);
       if (addend)
         {
           tmp = gen_rtx_PLUS (SImode, tmp, addend);
@@ -4703,7 +4719,9 @@
 	       || symbol_mentioned_p (operands[1])
 	       || label_mentioned_p (operands[1])))
       operands[1] = legitimize_pic_address (operands[1], SImode,
-					    (no_new_pseudos ? operands[0] : 0));
+					    (!can_create_pseudo_p ()
+					     ? operands[0]
+					     : 0));
   "
 )
 
@@ -5086,7 +5104,7 @@
   "
   if (TARGET_ARM)
     {
-      if (!no_new_pseudos)
+      if (can_create_pseudo_p ())
         {
           if (GET_CODE (operands[0]) == MEM)
 	    {
@@ -5130,7 +5148,7 @@
 	      emit_insn (gen_movsi (reg, GEN_INT (val)));
 	      operands[1] = gen_lowpart (HImode, reg);
 	    }
-	  else if (arm_arch4 && optimize && !no_new_pseudos
+	  else if (arm_arch4 && optimize && can_create_pseudo_p ()
 		   && GET_CODE (operands[1]) == MEM)
 	    {
 	      rtx reg = gen_reg_rtx (SImode);
@@ -5193,7 +5211,7 @@
   else if (TARGET_THUMB2)
     {
       /* Thumb-2 can do everything except mem=mem and mem=const easily.  */
-      if (!no_new_pseudos)
+      if (can_create_pseudo_p ())
 	{
 	  if (GET_CODE (operands[0]) != REG)
 	    operands[1] = force_reg (HImode, operands[1]);
@@ -5210,7 +5228,7 @@
     }
   else /* TARGET_THUMB1 */
     {
-      if (!no_new_pseudos)
+      if (can_create_pseudo_p ())
         {
 	  if (GET_CODE (operands[1]) == CONST_INT)
 	    {
@@ -5440,7 +5458,7 @@
   "
   /* Everything except mem = const or mem = mem can be done easily */
 
-  if (!no_new_pseudos)
+  if (can_create_pseudo_p ())
     {
       if (GET_CODE (operands[1]) == CONST_INT)
 	{
@@ -5548,7 +5566,7 @@
     }
   else /* TARGET_THUMB1 */
     {
-      if (!no_new_pseudos)
+      if (can_create_pseudo_p ())
         {
            if (GET_CODE (operands[0]) != REG)
 	     operands[1] = force_reg (SFmode, operands[1]);
@@ -5624,7 +5642,7 @@
     }
   else /* TARGET_THUMB */
     {
-      if (!no_new_pseudos)
+      if (can_create_pseudo_p ())
         {
           if (GET_CODE (operands[0]) != REG)
 	    operands[1] = force_reg (DFmode, operands[1]);

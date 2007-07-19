@@ -573,24 +573,17 @@ get_rhs (tree stmt)
 }
 
 
-/* Set the main expression of *STMT_P to EXPR.  If EXPR is not a valid
-   GIMPLE expression no changes are done and the function returns
-   false.  */
+/* Return true if EXPR is a valid GIMPLE expression.  */
 
 bool
-set_rhs (tree *stmt_p, tree expr)
+valid_gimple_expression_p (tree expr)
 {
-  tree stmt = *stmt_p, op;
   enum tree_code code = TREE_CODE (expr);
-  stmt_ann_t ann;
-  tree var;
-  ssa_op_iter iter;
 
-  /* Verify the constant folded result is valid gimple.  */
   switch (TREE_CODE_CLASS (code))
     {
     case tcc_declaration:
-      if (!is_gimple_variable(expr))
+      if (!is_gimple_variable (expr))
 	return false;
       break;
 
@@ -613,10 +606,21 @@ set_rhs (tree *stmt_p, tree expr)
       switch (code)
 	{
 	case ADDR_EXPR:
-          if (TREE_CODE (TREE_OPERAND (expr, 0)) == ARRAY_REF
-	      && !is_gimple_val (TREE_OPERAND (TREE_OPERAND (expr, 0), 1)))
-	    return false;
-	  break;
+         {
+           tree t = TREE_OPERAND (expr, 0);
+           while (handled_component_p (t))
+             {
+               /* ??? More checks needed, see the GIMPLE verifier.  */
+               if ((TREE_CODE (t) == ARRAY_REF
+                    || TREE_CODE (t) == ARRAY_RANGE_REF)
+                   && !is_gimple_val (TREE_OPERAND (t, 1)))
+                 return false;
+               t = TREE_OPERAND (t, 0);
+             }
+           if (!is_gimple_addressable (t))
+             return false;
+           break;
+         }
 
 	case TRUTH_NOT_EXPR:
 	  if (!is_gimple_val (TREE_OPERAND (expr, 0)))
@@ -664,6 +668,25 @@ set_rhs (tree *stmt_p, tree expr)
     default:
       return false;
     }
+
+  return true;
+}
+
+
+/* Set the main expression of *STMT_P to EXPR.  If EXPR is not a valid
+   GIMPLE expression no changes are done and the function returns
+   false.  */
+
+bool
+set_rhs (tree *stmt_p, tree expr)
+{
+  tree stmt = *stmt_p, op;
+  stmt_ann_t ann;
+  tree var;
+  ssa_op_iter iter;
+
+  if (!valid_gimple_expression_p (expr))
+    return false;
 
   if (EXPR_HAS_LOCATION (stmt)
       && (EXPR_P (expr)

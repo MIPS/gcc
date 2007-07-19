@@ -847,6 +847,22 @@ extern const char * const reg_note_name[];
 #define NOTE_VAR_LOCATION_LOC(INSN)	(XCEXP (XCEXP (INSN, 4, NOTE),  \
 						1, VAR_LOCATION))
 
+/* Initialization status of the variable in the location.  Status
+   can be unknown, uninitialized or initialized.  See enumeration
+   type below.  */
+#define NOTE_VAR_LOCATION_STATUS(INSN)  (XCINT (XCEXP (INSN, 4, NOTE), \
+						2, VAR_LOCATION))
+
+/* Possible initialization status of a variable.   When requested
+   by the user, this information is tracked and recorded in the DWARF
+   debug information, along with the variable's location.  */
+enum var_init_status
+{
+  VAR_INIT_STATUS_UNKNOWN,
+  VAR_INIT_STATUS_UNINITIALIZED,
+  VAR_INIT_STATUS_INITIALIZED
+};
+
 /* Codes that appear in the NOTE_KIND field for kinds of notes
    that are not line numbers.  These codes are all negative.
    
@@ -1958,6 +1974,11 @@ extern int epilogue_completed;
 
 extern int reload_in_progress;
 
+/* This macro indicates whether you may create a new
+   pseudo-register.  */
+
+#define can_create_pseudo_p() (!reload_in_progress && !reload_completed)
+
 #ifdef STACK_REGS
 /* Nonzero after end of regstack pass.
    Set to 1 or 0 by reg-stack.c.  */
@@ -1971,10 +1992,6 @@ extern int regstack_completed;
    if it is used only once, instruction combination will produce
    the same indirect address eventually.  */
 extern int cse_not_expected;
-
-/* Set to nonzero before life analysis to indicate that it is unsafe to
-   generate any new pseudo registers.  */
-extern int no_new_pseudos;
 
 /* Translates rtx code to tree code, for those codes needed by
    REAL_ARITHMETIC.  The function returns an int because the caller may not
@@ -2054,7 +2071,6 @@ extern void emit_insn_at_entry (rtx);
 extern void delete_insn_chain (rtx, rtx, bool);
 extern rtx unlink_insn_chain (rtx, rtx);
 extern rtx delete_insn_and_edges (rtx);
-extern void delete_insn_chain_and_edges (rtx, rtx);
 extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 extern rtx gen_const_mem (enum machine_mode, rtx);
 extern rtx gen_frame_mem (enum machine_mode, rtx);

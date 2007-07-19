@@ -651,10 +651,6 @@ gfc_match_use (void)
 			 "an external module name.", module_name);
 	      goto cleanup;
 	    }
-
-	  if (type == INTERFACE_USER_OP)
-	    new->operator = operator;
-
 	  break;
 
 	case INTERFACE_INTRINSIC_OP:
@@ -1512,7 +1508,7 @@ mio_internal_string (char *string)
 
 typedef enum
 { AB_ALLOCATABLE, AB_DIMENSION, AB_EXTERNAL, AB_INTRINSIC, AB_OPTIONAL,
-  AB_POINTER, AB_SAVE, AB_TARGET, AB_DUMMY, AB_RESULT, AB_DATA,
+  AB_POINTER, AB_TARGET, AB_DUMMY, AB_RESULT, AB_DATA,
   AB_IN_NAMELIST, AB_IN_COMMON, AB_FUNCTION, AB_SUBROUTINE, AB_SEQUENCE,
   AB_ELEMENTAL, AB_PURE, AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT,
   AB_CRAY_POINTER, AB_CRAY_POINTEE, AB_THREADPRIVATE, AB_ALLOC_COMP,
@@ -1529,7 +1525,6 @@ static const mstring attr_bits[] =
     minit ("INTRINSIC", AB_INTRINSIC),
     minit ("OPTIONAL", AB_OPTIONAL),
     minit ("POINTER", AB_POINTER),
-    minit ("SAVE", AB_SAVE),
     minit ("VOLATILE", AB_VOLATILE),
     minit ("TARGET", AB_TARGET),
     minit ("THREADPRIVATE", AB_THREADPRIVATE),
@@ -1567,6 +1562,7 @@ DECL_MIO_NAME (expr_t)
 DECL_MIO_NAME (gfc_access)
 DECL_MIO_NAME (gfc_intrinsic_op)
 DECL_MIO_NAME (ifsrc)
+DECL_MIO_NAME (save_state)
 DECL_MIO_NAME (procedure_type)
 DECL_MIO_NAME (ref_type)
 DECL_MIO_NAME (sym_flavor)
@@ -1590,6 +1586,7 @@ mio_symbol_attribute (symbol_attribute *attr)
   attr->intent = MIO_NAME (sym_intent) (attr->intent, intents);
   attr->proc = MIO_NAME (procedure_type) (attr->proc, procedures);
   attr->if_source = MIO_NAME (ifsrc) (attr->if_source, ifsrc_types);
+  attr->save = MIO_NAME (save_state) (attr->save, save_status);
 
   if (iomode == IO_OUTPUT)
     {
@@ -1607,8 +1604,6 @@ mio_symbol_attribute (symbol_attribute *attr)
 	MIO_NAME (ab_attribute) (AB_POINTER, attr_bits);
       if (attr->protected)
 	MIO_NAME (ab_attribute) (AB_PROTECTED, attr_bits);
-      if (attr->save)
-	MIO_NAME (ab_attribute) (AB_SAVE, attr_bits);
       if (attr->value)
 	MIO_NAME (ab_attribute) (AB_VALUE, attr_bits);
       if (attr->volatile_)
@@ -1695,9 +1690,6 @@ mio_symbol_attribute (symbol_attribute *attr)
 	      break;
 	    case AB_PROTECTED:
 	      attr->protected = 1;
-	      break;
-	    case AB_SAVE:
-	      attr->save = 1;
 	      break;
 	    case AB_VALUE:
 	      attr->value = 1;
@@ -2614,12 +2606,18 @@ static const mstring intrinsics[] =
     minit ("OR", INTRINSIC_OR),
     minit ("EQV", INTRINSIC_EQV),
     minit ("NEQV", INTRINSIC_NEQV),
-    minit ("EQ", INTRINSIC_EQ),
-    minit ("NE", INTRINSIC_NE),
-    minit ("GT", INTRINSIC_GT),
-    minit ("GE", INTRINSIC_GE),
-    minit ("LT", INTRINSIC_LT),
-    minit ("LE", INTRINSIC_LE),
+    minit ("==", INTRINSIC_EQ),
+    minit ("EQ", INTRINSIC_EQ_OS),
+    minit ("/=", INTRINSIC_NE),
+    minit ("NE", INTRINSIC_NE_OS),
+    minit (">", INTRINSIC_GT),
+    minit ("GT", INTRINSIC_GT_OS),
+    minit (">=", INTRINSIC_GE),
+    minit ("GE", INTRINSIC_GE_OS),
+    minit ("<", INTRINSIC_LT),
+    minit ("LT", INTRINSIC_LT_OS),
+    minit ("<=", INTRINSIC_LE),
+    minit ("LE", INTRINSIC_LE_OS),
     minit ("NOT", INTRINSIC_NOT),
     minit ("PARENTHESES", INTRINSIC_PARENTHESES),
     minit (NULL, -1)
@@ -2738,11 +2736,17 @@ mio_expr (gfc_expr **ep)
 	case INTRINSIC_EQV:
 	case INTRINSIC_NEQV:
 	case INTRINSIC_EQ:
+	case INTRINSIC_EQ_OS:
 	case INTRINSIC_NE:
+	case INTRINSIC_NE_OS:
 	case INTRINSIC_GT:
+	case INTRINSIC_GT_OS:
 	case INTRINSIC_GE:
+	case INTRINSIC_GE_OS:
 	case INTRINSIC_LT:
+	case INTRINSIC_LT_OS:
 	case INTRINSIC_LE:
+	case INTRINSIC_LE_OS:
 	  mio_expr (&e->value.op.op1);
 	  mio_expr (&e->value.op.op2);
 	  break;
@@ -3943,6 +3947,9 @@ write_operator (gfc_user_op *uop)
 static void
 write_generic (gfc_symbol *sym)
 {
+  const char *p;
+  int nuse, j;
+
   if (sym->generic == NULL
       || !gfc_check_access (sym->attr.access, sym->ns->default_access))
     return;
@@ -3950,7 +3957,21 @@ write_generic (gfc_symbol *sym)
   if (sym->module == NULL)
     sym->module = gfc_get_string (module_name);
 
-  mio_symbol_interface (&sym->name, &sym->module, &sym->generic);
+  /* See how many use names there are.  If none, use the symbol name.  */
+  nuse = number_use_names (sym->name);
+  if (nuse == 0)
+    {
+      mio_symbol_interface (&sym->name, &sym->module, &sym->generic);
+      return;
+    }
+
+  for (j = 1; j <= nuse; j++)
+    {
+      /* Get the jth local name for this symbol.  */
+      p = find_use_name_n (sym->name, &j);
+
+      mio_symbol_interface (&p, &sym->module, &sym->generic);
+    }
 }
 
 
@@ -4238,7 +4259,7 @@ sort_iso_c_rename_list (void)
 }
 
 
-/* Import the instrinsic ISO_C_BINDING module, generating symbols in
+/* Import the intrinsic ISO_C_BINDING module, generating symbols in
    the current namespace for all named constants, pointer types, and
    procedures in the module unless the only clause was used or a rename
    list was provided.  */

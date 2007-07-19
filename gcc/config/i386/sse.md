@@ -343,6 +343,20 @@
   "TARGET_SSE2"
   "")
 
+(define_expand "storentdf"
+  [(set (match_operand:DF 0 "memory_operand" "")
+	(unspec:DF [(match_operand:DF 1 "register_operand" "")]
+		   UNSPEC_MOVNT))]
+  "TARGET_SSE4A"
+  "")
+
+(define_expand "storentsf"
+  [(set (match_operand:SF 0 "memory_operand" "")
+	(unspec:SF [(match_operand:SF 1 "register_operand" "")]
+		   UNSPEC_MOVNT))]
+  "TARGET_SSE4A"
+  "")
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Parallel single-precision floating point arithmetic
@@ -4587,12 +4601,17 @@
   "")
 
 (define_insn "*sse2_storeq_rex64"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=mx,r")
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=mx,r,r")
 	(vec_select:DI
-	  (match_operand:V2DI 1 "register_operand" "x,Yi")
+	  (match_operand:V2DI 1 "nonimmediate_operand" "x,Yi,o")
 	  (parallel [(const_int 0)])))]
-  "TARGET_64BIT && TARGET_SSE"
-  "#")
+  "TARGET_64BIT && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   #
+   #
+   mov{q}\t{%1, %0|%0, %1}"
+  [(set_attr "type" "*,*,imov")
+   (set_attr "mode" "*,*,DI")])
 
 (define_insn "*sse2_storeq"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=mx")
@@ -4617,12 +4636,28 @@
   operands[1] = gen_rtx_REG (DImode, REGNO (operands[1]));
 })
 
+(define_insn "*vec_extractv2di_1_rex64"
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=m,x,x,r")
+	(vec_select:DI
+	  (match_operand:V2DI 1 "nonimmediate_operand" "x,0,o,o")
+	  (parallel [(const_int 1)])))]
+  "TARGET_64BIT && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   movhps\t{%1, %0|%0, %1}
+   psrldq\t{$8, %0|%0, 8}
+   movq\t{%H1, %0|%0, %H1}
+   mov{q}\t{%H1, %0|%0, %H1}"
+  [(set_attr "type" "ssemov,sseishft,ssemov,imov")
+   (set_attr "memory" "*,none,*,*")
+   (set_attr "mode" "V2SF,TI,TI,DI")])
+
 (define_insn "*vec_extractv2di_1_sse2"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=m,x,x")
 	(vec_select:DI
 	  (match_operand:V2DI 1 "nonimmediate_operand" "x,0,o")
 	  (parallel [(const_int 1)])))]
-  "TARGET_SSE2 && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "!TARGET_64BIT
+   && TARGET_SSE2 && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
   "@
    movhps\t{%1, %0|%0, %1}
    psrldq\t{$8, %0|%0, 8}
@@ -4717,7 +4752,7 @@
 	(vec_concat:V2DI
 	  (match_operand:DI 1 "nonimmediate_operand" "  m,*y ,0 ,0,0,m")
 	  (match_operand:DI 2 "vector_move_operand"  "  C,  C,Yt,x,m,0")))]
-  "TARGET_SSE"
+  "!TARGET_64BIT && TARGET_SSE"
   "@
    movq\t{%1, %0|%0, %1}
    movq2dq\t{%1, %0|%0, %1}
@@ -4727,6 +4762,23 @@
    movlps\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssemov,ssemov,sselog,ssemov,ssemov,ssemov")
    (set_attr "mode" "TI,TI,TI,V4SF,V2SF,V2SF")])
+
+(define_insn "*vec_concatv2di_rex"
+  [(set (match_operand:V2DI 0 "register_operand"     "=Yt,Yi,!Yt,Yt,x,x,x")
+	(vec_concat:V2DI
+	  (match_operand:DI 1 "nonimmediate_operand" "  m,r ,*y ,0 ,0,0,m")
+	  (match_operand:DI 2 "vector_move_operand"  "  C,C ,C  ,Yt,x,m,0")))]
+  "TARGET_64BIT"
+  "@
+   movq\t{%1, %0|%0, %1}
+   movq\t{%1, %0|%0, %1}
+   movq2dq\t{%1, %0|%0, %1}
+   punpcklqdq\t{%2, %0|%0, %2}
+   movlhps\t{%2, %0|%0, %2}
+   movhps\t{%2, %0|%0, %2}
+   movlps\t{%1, %0|%0, %1}"
+  [(set_attr "type" "ssemov,ssemov,ssemov,sselog,ssemov,ssemov,ssemov")
+   (set_attr "mode" "TI,TI,TI,TI,V4SF,V2SF,V2SF")])
 
 (define_expand "vec_setv2di"
   [(match_operand:V2DI 0 "register_operand" "")

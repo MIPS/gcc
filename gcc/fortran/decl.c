@@ -838,7 +838,24 @@ verify_c_interop_param (gfc_symbol *sym)
 			     sym->name, &(sym->declared_at),
 			     sym->ns->proc_name->name);
 	    }
- 
+
+          /* Character strings are only C interoperable if they have a
+             length of 1.  */
+          if (sym->ts.type == BT_CHARACTER)
+	    {
+	      gfc_charlen *cl = sym->ts.cl;
+	      if (!cl || !cl->length || cl->length->expr_type != EXPR_CONSTANT
+                  || mpz_cmp_si (cl->length->value.integer, 1) != 0)
+		{
+		  gfc_error ("Character argument '%s' at %L "
+			     "must be length 1 because "
+                             "procedure '%s' is BIND(C)",
+			     sym->name, &sym->declared_at,
+                             sym->ns->proc_name->name);
+		  retval = FAILURE;
+		}
+	    }
+
 	  /* We have to make sure that any param to a bind(c) routine does
 	     not have the allocatable, pointer, or optional attributes,
 	     according to J3/04-007, section 5.1.  */
@@ -1232,7 +1249,8 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 	}
 
       sym->value = init;
-      sym->attr.save = SAVE_IMPLICIT;
+      if (sym->attr.save == SAVE_NONE)
+	sym->attr.save = SAVE_IMPLICIT;
       *initp = NULL;
     }
 
@@ -2506,15 +2524,11 @@ match_attr_spec (void)
 	      /* Chomp the comma.  */
 	      peek_char = gfc_next_char ();
 	      /* Try and match the bind(c).  */
-	      if (gfc_match_bind_c (NULL) == MATCH_YES)		 
+	      if (gfc_match_bind_c (NULL) == MATCH_YES)
 		d = DECL_IS_BIND_C;
-	      else
-		{
-		  return MATCH_ERROR;
-		}
 	    }
 	}
-       
+
       if (d == DECL_NONE || d == DECL_COLON)
 	break;
 
@@ -3564,12 +3578,6 @@ gfc_match_suffix (gfc_symbol *sym, gfc_symbol **result)
       break;
     }
 
-  if (is_result == MATCH_ERROR || is_bind_c == MATCH_ERROR)
-    {
-      gfc_error ("Error in function suffix at %C");
-      return MATCH_ERROR;
-    }
-
   if (is_bind_c == MATCH_YES)
     if (gfc_add_is_bind_c (&(sym->attr), sym->name, &gfc_current_locus, 1)
         == FAILURE)
@@ -4016,7 +4024,7 @@ gfc_match_subroutine (void)
 
 /* Match a BIND(C) specifier, with the optional 'name=' specifier if
    given, and set the binding label in either the given symbol (if not
-   NULL), or in the current_ts.  The symbol may be NULL becuase we may
+   NULL), or in the current_ts.  The symbol may be NULL because we may
    encounter the BIND(C) before the declaration itself.  Return
    MATCH_NO if what we're looking at isn't a BIND(C) specifier,
    MATCH_ERROR if it is a BIND(C) clause but an error was encountered,
@@ -4914,7 +4922,7 @@ syntax:
 }
 
 
-/* The PRIVATE statement is a bit weird in that it can be a attribute
+/* The PRIVATE statement is a bit weird in that it can be an attribute
    declaration, but also works as a standlone statement inside of a
    type declaration or a module.  */
 

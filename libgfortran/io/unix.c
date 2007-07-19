@@ -107,7 +107,8 @@ typedef struct
 
   int unbuffered;               /* =1 if the stream is not buffered */
 
-  char buffer[BUFFER_SIZE];
+  char *buffer;
+  char small_buffer[BUFFER_SIZE];
 }
 unix_stream;
 
@@ -437,17 +438,29 @@ static void
 fd_alloc (unix_stream * s, gfc_offset where,
 	  int *len __attribute__ ((unused)))
 {
-  int n;
+  char *new_buffer;
+  int n, read_len;
+
+  if (*len <= BUFFER_SIZE)
+    {
+      new_buffer = s->small_buffer;
+      read_len = BUFFER_SIZE;
+    }
+  else
+    {
+      new_buffer = get_mem (*len);
+      read_len = *len;
+    }
 
   /* Salvage bytes currently within the buffer.  This is important for
    * devices that cannot seek. */
 
-  if (s->buffer_offset <= where &&
+  if (s->buffer != NULL && s->buffer_offset <= where &&
       where <= s->buffer_offset + s->active)
     {
 
       n = s->active - (where - s->buffer_offset);
-      memmove (s->buffer, s->buffer + (where - s->buffer_offset), n);
+      memmove (new_buffer, s->buffer + (where - s->buffer_offset), n);
 
       s->active = n;
     }
@@ -458,7 +471,13 @@ fd_alloc (unix_stream * s, gfc_offset where,
 
   s->buffer_offset = where;
 
-  s->len = BUFFER_SIZE;
+  /* free the old buffer if necessary */
+
+  if (s->buffer != NULL && s->buffer != s->small_buffer)
+    free_mem (s->buffer);
+
+  s->buffer = new_buffer;
+  s->len = read_len;
 }
 
 
@@ -568,7 +587,7 @@ fd_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
         s->ndirty = where + *len - start;  
       else    
         s->ndirty = s->dirty_offset + s->ndirty - start;  
-        s->dirty_offset = start;
+      s->dirty_offset = start;
     }
 
   s->logical_offset = where + *len;
@@ -590,7 +609,8 @@ static try
 fd_sfree (unix_stream * s)
 {
   if (s->ndirty != 0 &&
-      (options.all_unbuffered || s->unbuffered))
+      (s->buffer != s->small_buffer || options.all_unbuffered ||
+       s->unbuffered))
     return fd_flush (s);
 
   return SUCCESS;
@@ -791,6 +811,9 @@ fd_close (unix_stream * s)
   if (fd_flush (s) == FAILURE)
     return FAILURE;
 
+  if (s->buffer != NULL && s->buffer != s->small_buffer)
+    free_mem (s->buffer);
+
   if (s->fd != STDOUT_FILENO && s->fd != STDERR_FILENO)
     {
       if (close (s->fd) < 0)
@@ -819,6 +842,7 @@ fd_open (unix_stream * s)
   s->st.write = (void *) fd_write;
   s->st.set = (void *) fd_sset;
 
+  s->buffer = NULL;
 }
 
 
@@ -1377,6 +1401,7 @@ init_error_stream (unix_stream *error)
   error->st.sfree = (void *) fd_sfree;
 
   error->unbuffered = 1;
+  error->buffer = error->small_buffer;
 
   return (stream *) error;
 }

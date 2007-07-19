@@ -496,8 +496,6 @@ cris_operand_lossage (const char *msgid, rtx op)
 static void
 cris_print_index (rtx index, FILE *file)
 {
-  rtx inner = XEXP (index, 0);
-
   /* Make the index "additive" unless we'll output a negative number, in
      which case the sign character is free (as in free beer).  */
   if (!CONST_INT_P (index) || INTVAL (index) >= 0)
@@ -514,8 +512,9 @@ cris_print_index (rtx index, FILE *file)
 
       putc (INTVAL (XEXP (index, 1)) == 2 ? 'w' : 'd', file);
     }
-  else if (GET_CODE (index) == SIGN_EXTEND && MEM_P (inner))
+  else if (GET_CODE (index) == SIGN_EXTEND && MEM_P (XEXP (index, 0)))
     {
+      rtx inner = XEXP (index, 0);
       rtx inner_inner = XEXP (inner, 0);
 
       if (GET_CODE (inner_inner) == POST_INC)
@@ -533,6 +532,7 @@ cris_print_index (rtx index, FILE *file)
     }
   else if (MEM_P (index))
     {
+      rtx inner = XEXP (index, 0);
       if (GET_CODE (inner) == POST_INC)
 	fprintf (file, "[$%s+].d", reg_names[REGNO (XEXP (inner, 0))]);
       else
@@ -3181,7 +3181,7 @@ cris_expand_pic_call_address (rtx *opp)
     {
       enum cris_pic_symbol_type t = cris_pic_symbol_type_of (op);
 
-      CRIS_ASSERT (!no_new_pseudos);
+      CRIS_ASSERT (can_create_pseudo_p ());
 
       /* For local symbols (non-PLT), just get the plain symbol
 	 reference into a register.  For symbols that can be PLT, make
@@ -3196,7 +3196,7 @@ cris_expand_pic_call_address (rtx *opp)
 		 "move.d (const (unspec [sym] CRIS_UNSPEC_PLT)),rM"
 		 "add.d rPIC,rM,rO", "jsr rO".  */
 	      rtx tem, rm, ro;
-	      gcc_assert (! no_new_pseudos);
+	      gcc_assert (can_create_pseudo_p ());
 	      current_function_uses_pic_offset_table = 1;
 	      tem = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op), CRIS_UNSPEC_PLT);
 	      rm = gen_reg_rtx (Pmode);
@@ -3222,7 +3222,7 @@ cris_expand_pic_call_address (rtx *opp)
 		 access of the PLTGOT isn't constant).  */
 	      rtx tem, mem, rm, ro;
 
-	      gcc_assert (! no_new_pseudos);
+	      gcc_assert (can_create_pseudo_p ());
 	      current_function_uses_pic_offset_table = 1;
 	      tem = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op),
 				    CRIS_UNSPEC_PLTGOTREAD);

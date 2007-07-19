@@ -1,3 +1,81 @@
+2007-07-12  Kazu Hirata  <kazu@codesourcery.com>
+
+	* pt.c (template_parms_variadic_p): Remove.
+	* cp-tree.h: Remove the prototype for template_parms_variadic_p.
+
+2007-07-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/30854
+	* error.c (dump_expr) <case AGGR_INIT_EXPR>: Pass true as last
+	argument to dump_aggr_init_expr_args instead of false.
+
+2007-07-11  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* typeck.c (comptypes): When USE_CANONICAL_TYPES, use the
+	canonical types; otherwise, fall back to structural type
+	comparisons. If ENABLE_CHECKING and USE_CANONICAL_TYPES, give an
+	internal compiler error if the canonical types are wrong.
+	
+2007-07-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/32560
+	* parser.c (cp_parser_make_indirect_declarator): When the
+	the code argument is ERROR_MARK return cp_error_declarator.
+
+2007-07-09  Geoffrey Keating  <geoffk@apple.com>
+
+	PR 32617
+	* decl.c (cxx_init_decl_processing): Don't set
+	force_align_functions_log.
+	(grokfndecl): Honour ptrmemfunc_vbit_in_pfn.
+	* typeck.c (cxx_alignof_expr): When alignof is used on a plain
+	FUNCTION_DECL, return its alignment.
+
+2007-07-09  Richard Guenther  <rguenther@suse.de>
+
+	* decl.c (start_preparsed_function): Do not promote return type.
+
+2007-07-08  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/30535
+	* pt.c (unify): Never pass error_mark_node to template_decl_level.
+
+2007-07-07  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/32232
+	* pt.c (resolve_overloaded_unification): Robustify.  Return a
+	bool, not an int.
+	(type_unification_real): Adjust accordingly.
+
+2007-07-06  Richard Guenther  <rguenther@suse.de>
+
+	* init.c (build_new_1): Use the correct pointer type.
+	* typeck2.c (build_m_component_ref): Likewise.
+
+2007-07-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/32245
+	* init.c (build_zero_init): Always build an initializer for
+	non-static storage.
+	* typeck2.c (build_functional_cast): Use build_zero_init.
+
+	PR c++/32251
+	* init.c (build_new_1): Always pass the allocation function to
+	build_op_delete_call.
+	* call.c (build_op_delete_call): Handle operator delete with a
+	variable-argument list.  Do not issue an error when no matching
+	deallocation function is available for a new operator.
+
+	PR c++/31992
+	* cp-tree.h (any_value_dependent_elements_p): Declare it.
+	* decl.c (value_dependent_init_p): New function.
+	(cp_finish_decl): Use it.
+	* pt.c (value_dependent_expression_p): Use
+	any_value_dependent_elements_p.
+	* parser.c (cp_parser_primary_expression): Add comment about
+	treating dependent qualified names as integral
+	constant-expressions.
+
 2007-07-04  Douglas Gregor  <doug.gregor@gmail.com>
 
 	* decl.c (build_ptrmemfunc_type): Always use structural equality

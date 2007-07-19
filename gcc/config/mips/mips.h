@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler.  MIPS version.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
    64-bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
@@ -249,10 +250,14 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define TUNE_MIPS9000               (mips_tune == PROCESSOR_R9000)
 #define TUNE_SB1                    (mips_tune == PROCESSOR_SB1		\
 				     || mips_tune == PROCESSOR_SB1A)
+#define TUNE_24K		    (mips_tune == PROCESSOR_24KC	\
+				     || mips_tune == PROCESSOR_24KF2_1	\
+				     || mips_tune == PROCESSOR_24KF1_1)
 #define TUNE_74K                    (mips_tune == PROCESSOR_74KC	\
 				     || mips_tune == PROCESSOR_74KF2_1	\
 				     || mips_tune == PROCESSOR_74KF1_1  \
 				     || mips_tune == PROCESSOR_74KF3_2)
+#define TUNE_20KC		    (mips_tune == PROCESSOR_20KC)
 
 /* True if the pre-reload scheduler should try to create chains of
    multiply-add or multiply-subtract instructions.  For example,
@@ -287,7 +292,8 @@ extern const struct mips_rtx_cost_data *mips_cost;
    than others, so this macro is defined on an opt-in basis.  */
 #define TUNE_MACC_CHAINS	    (TUNE_MIPS5500		\
 				     || TUNE_MIPS4120		\
-				     || TUNE_MIPS4130)
+				     || TUNE_MIPS4130		\
+				     || TUNE_24K)
 
 #define TARGET_OLDABI		    (mips_abi == ABI_32 || mips_abi == ABI_O64)
 #define TARGET_NEWABI		    (mips_abi == ABI_N32 || mips_abi == ABI_64)
@@ -586,8 +592,8 @@ extern const struct mips_rtx_cost_data *mips_cost;
      %{march=mips2|march=r6000:-mips2} \
      %{march=mips3|march=r4*|march=vr4*|march=orion:-mips3} \
      %{march=mips4|march=r8000|march=vr5*|march=rm7000|march=rm9000:-mips4} \
-     %{march=mips32|march=4kc|march=4km|march=4kp:-mips32} \
-     %{march=mips32r2|march=m4k|march=4ke*|march=24k* \
+     %{march=mips32|march=4kc|march=4km|march=4kp|march=4ksc:-mips32} \
+     %{march=mips32r2|march=m4k|march=4ke*|march=4ksd|march=24k* \
        |march=34k*|march=74k*: -mips32r2} \
      %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000: -mips64}}"
 
@@ -804,6 +810,10 @@ extern const struct mips_rtx_cost_data *mips_cost;
 				 || ISA_MIPS32R2			\
 				 || ISA_MIPS64				\
 				 || TARGET_MIPS5500)
+
+/* ISA includes synci, jr.hb and jalr.hb.  */
+#define ISA_HAS_SYNCI ISA_MIPS32R2
+
 
 /* Add -G xx support.  */
 
@@ -1003,14 +1013,11 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define DBX_REGISTER_NUMBER(REGNO) mips_dbx_regno[ (REGNO) ]
 
 /* The mapping from gcc register number to DWARF 2 CFA column number.  */
-#define DWARF_FRAME_REGNUM(REG)	(REG)
+#define DWARF_FRAME_REGNUM(REG) \
+  ((REG) == DWARF_ALT_FRAME_RETURN_COLUMN ? INVALID_REGNUM : (REG))
 
 /* The DWARF 2 CFA column which tracks the return address.  */
 #define DWARF_FRAME_RETURN_COLUMN (GP_REG_FIRST + 31)
-
-/* The DWARF 2 CFA column which tracks the return address from a
-   signal handler context.  */
-#define SIGNAL_UNWIND_RETURN_COLUMN (FP_REG_LAST + 1)
 
 /* Before the prologue, RA lives in r31.  */
 #define INCOMING_RETURN_ADDR_RTX  gen_rtx_REG (VOIDmode, GP_REG_FIRST + 31)
@@ -1354,6 +1361,12 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define MD_REG_LAST  65
 #define MD_REG_NUM   (MD_REG_LAST - MD_REG_FIRST + 1)
 #define MD_DBX_FIRST (FP_DBX_FIRST + FP_REG_NUM)
+
+/* The DWARF 2 CFA column which tracks the return address from a
+   signal handler context.  This means that to maintain backwards
+   compatibility, no hard register can be assigned this column if it
+   would need to be handled by the DWARF unwinder.  */
+#define DWARF_ALT_FRAME_RETURN_COLUMN 66
 
 #define ST_REG_FIRST 67
 #define ST_REG_LAST  74
@@ -2151,21 +2164,16 @@ typedef struct mips_args {
 
 #define INITIALIZE_TRAMPOLINE(ADDR, FUNC, CHAIN)			    \
 {									    \
-  rtx func_addr, chain_addr;						    \
+  rtx func_addr, chain_addr, end_addr;                                      \
 									    \
   func_addr = plus_constant (ADDR, 32);					    \
   chain_addr = plus_constant (func_addr, GET_MODE_SIZE (ptr_mode));	    \
   emit_move_insn (gen_rtx_MEM (ptr_mode, func_addr), FUNC);		    \
   emit_move_insn (gen_rtx_MEM (ptr_mode, chain_addr), CHAIN);		    \
-									    \
-  /* Flush both caches.  We need to flush the data cache in case	    \
-     the system has a write-back cache.  */				    \
-  /* ??? Should check the return value for errors.  */			    \
-  if (mips_cache_flush_func && mips_cache_flush_func[0])		    \
-    emit_library_call (gen_rtx_SYMBOL_REF (Pmode, mips_cache_flush_func),   \
-		       0, VOIDmode, 3, ADDR, Pmode,			    \
-		       GEN_INT (TRAMPOLINE_SIZE), TYPE_MODE (integer_type_node),\
-		       GEN_INT (3), TYPE_MODE (integer_type_node));	    \
+  end_addr = gen_reg_rtx (Pmode);					    \
+  emit_insn (gen_add3_insn (end_addr, copy_rtx (ADDR),			    \
+                            GEN_INT (TRAMPOLINE_SIZE)));		    \
+  emit_insn (gen_clear_cache (copy_rtx (ADDR), end_addr));		    \
 }
 
 /* Addressing modes, and classification of registers for them.  */

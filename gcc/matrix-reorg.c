@@ -1481,10 +1481,13 @@ check_allocation_function (void **slot, void *data ATTRIBUTE_UNUSED)
   block_stmt_iterator bsi;
   basic_block bb_level_0;
   struct matrix_info *mi = *slot;
-  sbitmap visited = sbitmap_alloc (num_ssa_names);
+  sbitmap visited;
 
   if (!mi->malloc_for_level)
     return 1;
+
+  visited = sbitmap_alloc (num_ssa_names);
+
   /* Do nothing if the current function is not the allocation
      function of MI.  */
   if (mi->allocation_function_decl != current_function_decl
@@ -1708,7 +1711,6 @@ compute_offset (HOST_WIDE_INT orig, HOST_WIDE_INT new, tree result)
 static int
 transform_access_sites (void **slot, void *data ATTRIBUTE_UNUSED)
 {
-  tree stmts;
   block_stmt_iterator bsi;
   struct matrix_info *mi = *slot;
   int min_escape_l = mi->min_indirect_level_escape;
@@ -1831,19 +1833,10 @@ transform_access_sites (void **slot, void *data ATTRIBUTE_UNUSED)
 		  total_elements = new_offset;
 		  if (new_offset != offset)
 		    {
-		      tmp1 =
-			force_gimple_operand (total_elements, &stmts, true,
-					      NULL);
-		      if (stmts)
-			{
-			  tree_stmt_iterator tsi;
-
-			  for (tsi = tsi_start (stmts); !tsi_end_p (tsi);
-			       tsi_next (&tsi))
-			    mark_symbols_for_renaming (tsi_stmt (tsi));
-			  bsi = bsi_for_stmt (acc_info->stmt);
-			  bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
-			}
+		      bsi = bsi_for_stmt (acc_info->stmt);
+		      tmp1 = force_gimple_operand_bsi (&bsi, total_elements,
+						       true, NULL,
+						       true, BSI_SAME_STMT);
 		    }
 		  else
 		    tmp1 = offset;
@@ -1855,18 +1848,10 @@ transform_access_sites (void **slot, void *data ATTRIBUTE_UNUSED)
 	      num_elements =
 		fold_build2 (MULT_EXPR, sizetype, fold_convert (sizetype, acc_info->index),
 			    fold_convert (sizetype, d_size));
-	      tmp1 = force_gimple_operand (num_elements, &stmts, true, NULL);
 	      add_referenced_var (d_size);
-	      if (stmts)
-		{
-		  tree_stmt_iterator tsi;
-
-		  for (tsi = tsi_start (stmts); !tsi_end_p (tsi);
-		       tsi_next (&tsi))
-		    mark_symbols_for_renaming (tsi_stmt (tsi));
-		  bsi = bsi_for_stmt (acc_info->stmt);
-		  bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
-		}
+	      bsi = bsi_for_stmt (acc_info->stmt);
+	      tmp1 = force_gimple_operand_bsi (&bsi, num_elements, true,
+					       NULL, true, BSI_SAME_STMT);
 	    }
 	  /* Replace the offset if needed.  */
 	  if (tmp1 != offset)
@@ -1942,7 +1927,7 @@ transform_allocation_sites (void **slot, void *data ATTRIBUTE_UNUSED)
 {
   int i;
   struct matrix_info *mi;
-  tree type, call_stmt_0, malloc_stmt, oldfn, stmts, prev_dim_size, use_stmt;
+  tree type, call_stmt_0, malloc_stmt, oldfn, prev_dim_size, use_stmt;
   struct cgraph_node *c_node;
   struct cgraph_edge *e;
   block_stmt_iterator bsi;
@@ -2069,7 +2054,6 @@ transform_allocation_sites (void **slot, void *data ATTRIBUTE_UNUSED)
     {
       tree dim_size, dim_var, tmp;
       tree d_type_size;
-      tree_stmt_iterator tsi;
 
       /* Now put the size expression in a global variable and initialize it to
          the size expression before the malloc of level 0.  */
@@ -2099,20 +2083,13 @@ transform_allocation_sites (void **slot, void *data ATTRIBUTE_UNUSED)
 
 	  dim_size = fold_build2 (MULT_EXPR, type, dim_size, prev_dim_size);
 	}
-      dim_size = force_gimple_operand (dim_size, &stmts, true, NULL);
-      if (stmts)
-	{
-	  for (tsi = tsi_start (stmts); !tsi_end_p (tsi); tsi_next (&tsi))
-	    mark_symbols_for_renaming (tsi_stmt (tsi));
-	  bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
-	  bsi = bsi_for_stmt (call_stmt_0);
-	}
+      dim_size = force_gimple_operand_bsi (&bsi, dim_size, true, NULL,
+					   true, BSI_SAME_STMT);
       /* GLOBAL_HOLDING_THE_SIZE = DIM_SIZE.  */
       tmp = fold_build2 (GIMPLE_MODIFY_STMT, type, dim_var, dim_size);
       GIMPLE_STMT_OPERAND (tmp, 0) = dim_var;
       mark_symbols_for_renaming (tmp);
-      bsi_insert_before (&bsi, tmp, BSI_NEW_STMT);
-      bsi = bsi_for_stmt (call_stmt_0);
+      bsi_insert_before (&bsi, tmp, BSI_SAME_STMT);
 
       prev_dim_size = mi->dimension_size[i] = dim_var;
     }
@@ -2122,17 +2099,8 @@ transform_allocation_sites (void **slot, void *data ATTRIBUTE_UNUSED)
   malloc_stmt = GIMPLE_STMT_OPERAND (call_stmt_0, 1);
   c_node = cgraph_node (mi->allocation_function_decl);
   old_size_0 = CALL_EXPR_ARG (malloc_stmt, 0);
-  bsi = bsi_for_stmt (call_stmt_0);
-  tmp = force_gimple_operand (mi->dimension_size[0], &stmts, true, NULL);
-  if (stmts)
-    {
-      tree_stmt_iterator tsi;
-
-      for (tsi = tsi_start (stmts); !tsi_end_p (tsi); tsi_next (&tsi))
-	mark_symbols_for_renaming (tsi_stmt (tsi));
-      bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
-      bsi = bsi_for_stmt (call_stmt_0);
-    }
+  tmp = force_gimple_operand_bsi (&bsi, mi->dimension_size[0], true,
+				  NULL, true, BSI_SAME_STMT);
   if (TREE_CODE (old_size_0) == SSA_NAME)
     {
       FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, old_size_0)

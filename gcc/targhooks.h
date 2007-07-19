@@ -31,6 +31,8 @@ extern rtx default_builtin_setjmp_frame_value (void);
 extern bool default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *);
 
 extern enum machine_mode default_eh_return_filter_mode (void);
+extern enum machine_mode default_libgcc_cmp_return_mode (void);
+extern enum machine_mode default_libgcc_shift_count_mode (void);
 extern unsigned HOST_WIDE_INT default_shift_truncation_mask
   (enum machine_mode);
 extern unsigned int default_min_divisions_for_recip_mul (enum machine_mode);
@@ -63,6 +65,8 @@ extern tree default_builtin_vectorized_function
 extern tree default_builtin_vectorized_conversion (enum tree_code, tree);
 
 extern tree default_builtin_reciprocal (enum built_in_function, bool, bool);
+
+extern bool default_builtin_vector_alignment_reachable (tree, bool);
 
 /* These are here, and not in hooks.[ch], because not all users of
    hooks.h include tm.h, and thus we don't have CUMULATIVE_ARGS.  */

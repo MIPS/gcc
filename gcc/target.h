@@ -413,6 +413,14 @@ struct gcc_target
        element-by-element products for the odd elements.  */
     tree (* builtin_mul_widen_even) (tree);
     tree (* builtin_mul_widen_odd) (tree);
+
+    /* Returns the cost to be added to the overheads involved with
+       executing the vectorized version of a loop.  */
+    int (*builtin_vectorization_cost) (bool);
+
+    /* Return true if vector alignment is reachable (by peeling N
+       interations) for the given type.  */
+    bool (* vector_alignment_reachable) (tree, bool);
   } vectorize;
 
   /* The initial value of target_flags.  */
@@ -431,6 +439,12 @@ struct gcc_target
 
   /* Return machine mode for filter value.  */
   enum machine_mode (* eh_return_filter_mode) (void);
+
+  /* Return machine mode for libgcc expanded cmp instructions.  */
+  enum machine_mode (* libgcc_cmp_return_mode) (void);
+
+  /* Return machine mode for libgcc expanded shift instructions.  */
+  enum machine_mode (* libgcc_shift_count_mode) (void);
 
   /* Given two decls, merge their attributes and return the result.  */
   tree (* merge_decl_attributes) (tree, tree);

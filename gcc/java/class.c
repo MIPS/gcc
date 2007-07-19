@@ -691,10 +691,12 @@ build_java_method_type (tree fntype, tree this_class, int access_flags)
 }
 
 static void
-hide (tree decl)
+hide (tree decl ATTRIBUTE_UNUSED)
 {
+#ifdef HAVE_GAS_HIDDEN
   DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
   DECL_VISIBILITY_SPECIFIED (decl) = 1;
+#endif
 }
 
 tree
@@ -724,6 +726,14 @@ add_method_1 (tree this_class, int access_flags, tree name, tree function_type)
 
   TREE_CHAIN (fndecl) = TYPE_METHODS (this_class);
   TYPE_METHODS (this_class) = fndecl;
+
+  /* If pointers to member functions use the least significant bit to
+     indicate whether a function is virtual, ensure a pointer
+     to this function will have that bit clear.  */
+  if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
+      && !(access_flags & ACC_STATIC)
+      && DECL_ALIGN (fndecl) < 2 * BITS_PER_UNIT)
+    DECL_ALIGN (fndecl) = 2 * BITS_PER_UNIT;
 
   /* Notice that this is a finalizer and update the class type
      accordingly. This is used to optimize instance allocation. */

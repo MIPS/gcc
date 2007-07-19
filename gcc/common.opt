@@ -1067,6 +1067,10 @@ ftree-pre
 Common Report Var(flag_tree_pre) Optimization
 Enable SSA-PRE optimization on trees
 
+ftree-reassoc
+Common Report Var(flag_tree_reassoc) Init(1) Optimization
+Enable reassociation on tree level
+
 ftree-salias
 Common Report Var(flag_tree_salias) Optimization
 Perform structural alias analysis
@@ -1129,6 +1133,10 @@ Just generate unwind tables for exception handling
 fvar-tracking
 Common Report Var(flag_var_tracking) VarExists Optimization
 Perform variable tracking
+
+fvar-tracking-uninit
+Common Report Var(flag_var_tracking_uninit) Optimization
+Perform variable tracking and also tag variables that are uninitialized
 
 ftree-vectorize
 Common Report Var(flag_tree_vectorize) Optimization

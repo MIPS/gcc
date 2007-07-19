@@ -97,8 +97,8 @@ static GTY(()) VEC(tree,gc) *canonical_template_parms;
 
 static void push_access_scope (tree);
 static void pop_access_scope (tree);
-static int resolve_overloaded_unification (tree, tree, tree, tree,
-					   unification_kind_t, int);
+static bool resolve_overloaded_unification (tree, tree, tree, tree,
+					    unification_kind_t, int);
 static int try_one_overload (tree, tree, tree, tree, tree,
 			     unification_kind_t, int, bool);
 static int unify (tree, tree, tree, tree, int);
@@ -2332,17 +2332,6 @@ template_parameter_pack_p (tree parm)
   return ((TREE_CODE (parm) == TEMPLATE_TYPE_PARM
 	   || TREE_CODE (parm) == TEMPLATE_TEMPLATE_PARM)
 	  && TEMPLATE_TYPE_PARAMETER_PACK (parm));
-}
-
-/* Determine whether PARMS describes a variadic template parameter
-   list, i.e., one that is terminated by a template parameter pack.  */
-bool 
-template_parms_variadic_p (tree parms)
-{
-  int nparms = TREE_VEC_LENGTH (parms);
-  tree last_parm = TREE_VALUE (TREE_VEC_ELT (parms, nparms - 1));
-  
-  return template_parameter_pack_p (last_parm);
 }
 
 /* Determine whether ARGS describes a variadic template args list,
@@ -11471,17 +11460,18 @@ type_unification_real (tree tparms,
 	  gcc_assert (TREE_TYPE (arg) != NULL_TREE);
 	  if (type_unknown_p (arg))
 	    {
-	      /* [temp.deduct.type] A template-argument can be deduced from
-		 a pointer to function or pointer to member function
-		 argument if the set of overloaded functions does not
-		 contain function templates and at most one of a set of
-		 overloaded functions provides a unique match.  */
+	      /* [temp.deduct.type] 
 
+	         A template-argument can be deduced from a pointer to
+		 function or pointer to member function argument if
+		 the set of overloaded functions does not contain
+		 function templates and at most one of a set of
+		 overloaded functions provides a unique match.  */
 	      if (resolve_overloaded_unification
-		  (tparms, targs, parm, arg, strict, sub_strict)
-		  != 0)
-		return 1;
-	      continue;
+		  (tparms, targs, parm, arg, strict, sub_strict))
+		continue;
+
+	      return 1;
 	    }
 	  arg_expr = arg;
 	  arg = unlowered_expr_type (arg);
@@ -11611,12 +11601,13 @@ type_unification_real (tree tparms,
   return 0;
 }
 
-/* Subroutine of type_unification_real.  Args are like the variables at the
-   call site.  ARG is an overloaded function (or template-id); we try
-   deducing template args from each of the overloads, and if only one
-   succeeds, we go with that.  Modifies TARGS and returns 0 on success.  */
+/* Subroutine of type_unification_real.  Args are like the variables
+   at the call site.  ARG is an overloaded function (or template-id);
+   we try deducing template args from each of the overloads, and if
+   only one succeeds, we go with that.  Modifies TARGS and returns
+   true on success.  */
 
-static int
+static bool
 resolve_overloaded_unification (tree tparms,
 				tree targs,
 				tree parm,
@@ -11675,16 +11666,17 @@ resolve_overloaded_unification (tree tparms,
 	    }
 	}
     }
+  else if (TREE_CODE (arg) != OVERLOAD
+	   && TREE_CODE (arg) != FUNCTION_DECL)
+    /* If ARG is, for example, "(0, &f)" then its type will be unknown
+       -- but the deduction does not succeed because the expression is
+       not just the function on its own.  */
+    return false;
   else
-    {
-      gcc_assert (TREE_CODE (arg) == OVERLOAD
-		  || TREE_CODE (arg) == FUNCTION_DECL);
-
-      for (; arg; arg = OVL_NEXT (arg))
-	good += try_one_overload (tparms, targs, tempargs, parm,
-				  TREE_TYPE (OVL_CURRENT (arg)),
-				  strict, sub_strict, addr_p);
-    }
+    for (; arg; arg = OVL_NEXT (arg))
+      good += try_one_overload (tparms, targs, tempargs, parm,
+				TREE_TYPE (OVL_CURRENT (arg)),
+				strict, sub_strict, addr_p);
 
   /* [temp.deduct.type] A template-argument can be deduced from a pointer
      to function or pointer to member function argument if the set of
@@ -11702,9 +11694,9 @@ resolve_overloaded_unification (tree tparms,
 	  TREE_VEC_ELT (targs, i) = TREE_VEC_ELT (tempargs, i);
     }
   if (good)
-    return 0;
+    return true;
 
-  return 1;
+  return false;
 }
 
 /* Subroutine of resolve_overloaded_unification; does deduction for a single
@@ -12295,6 +12287,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
     case TEMPLATE_TEMPLATE_PARM:
     case BOUND_TEMPLATE_TEMPLATE_PARM:
       tparm = TREE_VALUE (TREE_VEC_ELT (tparms, 0));
+      if (tparm == error_mark_node)
+	return 1;
 
       if (TEMPLATE_TYPE_LEVEL (parm)
 	  != template_decl_level (tparm))
@@ -15074,12 +15068,7 @@ value_dependent_expression_p (tree expression)
 	  }
 
 	if (TREE_CODE (expression) == TREE_LIST)
-	  {
-	    for (; expression; expression = TREE_CHAIN (expression))
-	      if (value_dependent_expression_p (TREE_VALUE (expression)))
-		return true;
-	    return false;
-	  }
+	  return any_value_dependent_elements_p (expression);
 
 	return value_dependent_expression_p (expression);
       }
@@ -15305,6 +15294,19 @@ any_type_dependent_arguments_p (tree args)
 	return true;
       args = TREE_CHAIN (args);
     }
+  return false;
+}
+
+/* Returns TRUE if LIST (a TREE_LIST whose TREE_VALUEs are
+   expressions) contains any value-dependent expressions.  */
+
+bool
+any_value_dependent_elements_p (tree list)
+{
+  for (; list; list = TREE_CHAIN (list))
+    if (value_dependent_expression_p (TREE_VALUE (list)))
+      return true;
+
   return false;
 }
 

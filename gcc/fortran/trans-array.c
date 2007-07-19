@@ -1594,7 +1594,7 @@ constant_array_constructor_loop_size (gfc_loopinfo * loop)
 	return NULL_TREE;
       if (!integer_zerop (loop->from[i]))
 	{
-	  /* Only allow non-zero "from" in one-dimensional arrays.  */
+	  /* Only allow nonzero "from" in one-dimensional arrays.  */
 	  if (loop->dimen != 1)
 	    return NULL_TREE;
 	  tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
@@ -1695,6 +1695,7 @@ gfc_trans_array_constructor (gfc_loopinfo * loop, gfc_ss * ss)
   desc = ss->data.info.descriptor;
   offset = gfc_index_zero_node;
   offsetvar = gfc_create_var_np (gfc_array_index_type, "offset");
+  TREE_NO_WARNING (offsetvar) = 1;
   TREE_USED (offsetvar) = 0;
   gfc_trans_array_constructor_value (&loop->pre, type, desc, c,
 				     &offset, &offsetvar, dynamic);
@@ -2276,6 +2277,9 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_symbol * sym,
 	  /* Check array bounds.  */
 	  tree cond;
 	  char *msg;
+
+	  /* Evaluate the indexse.expr only once.  */
+	  indexse.expr = save_expr (indexse.expr);
 
 	  /* Lower bound.  */
 	  tmp = gfc_conv_array_lbound (se->expr, n);
@@ -4923,7 +4927,8 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
          loop cleanup code.  */
       tmp = build_fold_indirect_ref (desc);
       tmp = gfc_conv_array_data (tmp);
-      tmp = build2 (NE_EXPR, boolean_type_node, ptr, tmp);
+      tmp = build2 (NE_EXPR, boolean_type_node,
+		    fold_convert (TREE_TYPE (tmp), ptr), tmp);
       tmp = build3_v (COND_EXPR, tmp, stmt, build_empty_stmt ());
 
       gfc_add_expr_to_block (&block, tmp);

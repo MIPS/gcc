@@ -240,6 +240,11 @@ static tree do_mpfr_remquo (tree, tree, tree);
 static tree do_mpfr_lgamma_r (tree, tree, tree);
 #endif
 
+/* This array records the insn_code of insns to imlement the signbit
+   function.  */
+enum insn_code signbit_optab[NUM_MACHINE_MODES];
+
+
 /* Return true if NODE should be considered for inline expansion regardless
    of the optimization level.  This means whenever a function is invoked with
    its "internal" name, which normally contains the prefix "__builtin".  */
@@ -350,9 +355,7 @@ get_pointer_alignment (tree exp, unsigned int max_align)
 	      else if (offset)
 		inner = MIN (inner, BITS_PER_UNIT);
 	    }
-	  if (TREE_CODE (exp) == FUNCTION_DECL)
-	    align = FUNCTION_BOUNDARY;
-	  else if (DECL_P (exp))
+	  if (DECL_P (exp))
 	    align = MIN (inner, DECL_ALIGN (exp));
 #ifdef CONSTANT_ALIGNMENT
 	  else if (CONSTANT_CLASS_P (exp))
@@ -2208,8 +2211,8 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
 static rtx
 expand_builtin_interclass_mathfn (tree exp, rtx target, rtx subtarget)
 {
-  optab builtin_optab;
-  enum insn_code icode;
+  optab builtin_optab = 0;
+  enum insn_code icode = CODE_FOR_nothing;
   rtx op0;
   tree fndecl = get_callee_fndecl (exp);
   enum machine_mode mode;
@@ -2227,6 +2230,11 @@ expand_builtin_interclass_mathfn (tree exp, rtx target, rtx subtarget)
       errno_set = true; builtin_optab = ilogb_optab; break;
     CASE_FLT_FN (BUILT_IN_ISINF):
       builtin_optab = isinf_optab; break;
+    case BUILT_IN_ISNORMAL:
+    case BUILT_IN_ISFINITE:
+    CASE_FLT_FN (BUILT_IN_FINITE):
+      /* These builtins have no optabs (yet).  */
+      break;
     default:
       gcc_unreachable ();
     }
@@ -2238,7 +2246,8 @@ expand_builtin_interclass_mathfn (tree exp, rtx target, rtx subtarget)
   /* Optab mode depends on the mode of the input argument.  */
   mode = TYPE_MODE (TREE_TYPE (arg));
 
-  icode = builtin_optab->handlers[(int) mode].insn_code;
+  if (builtin_optab)
+    icode = builtin_optab->handlers[(int) mode].insn_code;
  
   /* Before working hard, check whether the instruction is available.  */
   if (icode != CODE_FOR_nothing)
@@ -2270,6 +2279,68 @@ expand_builtin_interclass_mathfn (tree exp, rtx target, rtx subtarget)
 	 Set TARGET to wherever the result comes back.  */
       emit_unop_insn (icode, target, op0, UNKNOWN);
       return target;
+    }
+
+  /* If there is no optab, try generic code.  */
+  switch (DECL_FUNCTION_CODE (fndecl))
+    {
+      tree result;
+
+    CASE_FLT_FN (BUILT_IN_ISINF):
+      {
+	/* isinf(x) -> isgreater(fabs(x),DBL_MAX).  */
+	tree const isgr_fn = built_in_decls[BUILT_IN_ISGREATER];
+	tree const type = TREE_TYPE (arg);
+	REAL_VALUE_TYPE r;
+	char buf[128];
+
+	get_max_float (REAL_MODE_FORMAT (mode), buf, sizeof (buf));
+	real_from_string (&r, buf);
+	result = build_call_expr (isgr_fn, 2,
+				  fold_build1 (ABS_EXPR, type, arg),
+				  build_real (type, r));
+	return expand_expr (result, target, VOIDmode, EXPAND_NORMAL);
+      }
+    CASE_FLT_FN (BUILT_IN_FINITE):
+    case BUILT_IN_ISFINITE:
+      {
+	/* isfinite(x) -> islessequal(fabs(x),DBL_MAX).  */
+	tree const isle_fn = built_in_decls[BUILT_IN_ISLESSEQUAL];
+	tree const type = TREE_TYPE (arg);
+	REAL_VALUE_TYPE r;
+	char buf[128];
+
+	get_max_float (REAL_MODE_FORMAT (mode), buf, sizeof (buf));
+	real_from_string (&r, buf);
+	result = build_call_expr (isle_fn, 2,
+				  fold_build1 (ABS_EXPR, type, arg),
+				  build_real (type, r));
+	return expand_expr (result, target, VOIDmode, EXPAND_NORMAL);
+      }
+    case BUILT_IN_ISNORMAL:
+      {
+	/* isnormal(x) -> isgreaterequal(fabs(x),DBL_MIN) &
+	   islessequal(fabs(x),DBL_MAX).  */
+	tree const isle_fn = built_in_decls[BUILT_IN_ISLESSEQUAL];
+	tree const isge_fn = built_in_decls[BUILT_IN_ISGREATEREQUAL];
+	tree const type = TREE_TYPE (arg);
+	REAL_VALUE_TYPE rmax, rmin;
+	char buf[128];
+
+	get_max_float (REAL_MODE_FORMAT (mode), buf, sizeof (buf));
+	real_from_string (&rmax, buf);
+	sprintf (buf, "0x1p%d", REAL_MODE_FORMAT (mode)->emin - 1);
+	real_from_string (&rmin, buf);
+	arg = builtin_save_expr (fold_build1 (ABS_EXPR, type, arg));
+	result = build_call_expr (isle_fn, 2, arg,
+				  build_real (type, rmax));
+	result = fold_build2 (BIT_AND_EXPR, integer_type_node, result,
+			      build_call_expr (isge_fn, 2, arg,
+					       build_real (type, rmin)));
+	return expand_expr (result, target, VOIDmode, EXPAND_NORMAL);
+      }
+    default:
+      break;
     }
 
   target = expand_call (exp, target, target == const0_rtx);
@@ -4649,14 +4720,8 @@ std_build_builtin_va_list (void)
 void
 std_expand_builtin_va_start (tree valist, rtx nextarg)
 {
-  tree t;
-  t = make_tree (sizetype, nextarg);
-  t = fold_convert (ptr_type_node, t);
-
-  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
-  TREE_SIDE_EFFECTS (t) = 1;
-
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+  rtx va_r = expand_expr (valist, NULL_RTX, VOIDmode, EXPAND_WRITE);
+  convert_move (va_r, nextarg, 0);
 }
 
 /* Expand EXP, a call to __builtin_va_start.  */
@@ -5513,6 +5578,59 @@ expand_builtin_profile_func (bool exitp)
   return const0_rtx;
 }
 
+/* Expand a call to __builtin___clear_cache.  */
+
+static rtx
+expand_builtin___clear_cache (tree exp ATTRIBUTE_UNUSED)
+{
+#ifndef HAVE_clear_cache
+#ifdef CLEAR_INSN_CACHE
+  /* There is no "clear_cache" insn, and __clear_cache() in libgcc
+     does something.  Just do the default expansion to a call to
+     __clear_cache().  */
+  return NULL_RTX;
+#else
+  /* There is no "clear_cache" insn, and __clear_cache() in libgcc
+     does nothing.  There is no need to call it.  Do nothing.  */
+  return const0_rtx;
+#endif /* CLEAR_INSN_CACHE */
+#else
+  /* We have a "clear_cache" insn, and it will handle everything.  */
+  tree begin, end;
+  rtx begin_rtx, end_rtx;
+  enum insn_code icode;
+
+  /* We must not expand to a library call.  If we did, any
+     fallback library function in libgcc that might contain a call to
+     __builtin___clear_cache() would recurse infinitely.  */
+  if (!validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    {
+      error ("both arguments to %<__builtin___clear_cache%> must be pointers");
+      return const0_rtx;
+    }
+
+  if (HAVE_clear_cache)
+    {
+      icode = CODE_FOR_clear_cache;
+
+      begin = CALL_EXPR_ARG (exp, 0);
+      begin_rtx = expand_expr (begin, NULL_RTX, Pmode, EXPAND_NORMAL);
+      begin_rtx = convert_memory_address (Pmode, begin_rtx);
+      if (!insn_data[icode].operand[0].predicate (begin_rtx, Pmode))
+	begin_rtx = copy_to_mode_reg (Pmode, begin_rtx);
+
+      end = CALL_EXPR_ARG (exp, 1);
+      end_rtx = expand_expr (end, NULL_RTX, Pmode, EXPAND_NORMAL);
+      end_rtx = convert_memory_address (Pmode, end_rtx);
+      if (!insn_data[icode].operand[1].predicate (end_rtx, Pmode))
+	end_rtx = copy_to_mode_reg (Pmode, end_rtx);
+
+      emit_insn (gen_clear_cache (begin_rtx, end_rtx));
+    }
+  return const0_rtx;
+#endif /* HAVE_clear_cache */
+}
+
 /* Given a trampoline address, make sure it satisfies TRAMPOLINE_ALIGNMENT.  */
 
 static rtx
@@ -5590,12 +5708,15 @@ expand_builtin_adjust_trampoline (tree exp)
   return tramp;
 }
 
-/* Expand a call to the built-in signbit, signbitf, signbitl, signbitd32,
-   signbitd64, or signbitd128 function.
-   Return NULL_RTX if a normal call should be emitted rather than expanding
-   the function in-line.  EXP is the expression that is a call to the builtin
-   function; if convenient, the result should be placed in TARGET.  */
-
+/* Expand the call EXP to the built-in signbit, signbitf or signbitl
+   function.  The function first checks whether the back end provides
+   an insn to implement signbit for the respective mode.  If not, it
+   checks whether the floating point format of the value is such that
+   the sign bit can be extracted.  If that is not the case, the
+   function returns NULL_RTX to indicate that a normal call should be
+   emitted rather than expanding the function in-line.  EXP is the
+   expression that is a call to the builtin function; if convenient,
+   the result should be placed in TARGET.  */
 static rtx
 expand_builtin_signbit (tree exp, rtx target)
 {
@@ -5604,6 +5725,7 @@ expand_builtin_signbit (tree exp, rtx target)
   HOST_WIDE_INT hi, lo;
   tree arg;
   int word, bitpos;
+  enum insn_code signbit_insn_code;
   rtx temp;
 
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
@@ -5613,6 +5735,21 @@ expand_builtin_signbit (tree exp, rtx target)
   fmode = TYPE_MODE (TREE_TYPE (arg));
   rmode = TYPE_MODE (TREE_TYPE (exp));
   fmt = REAL_MODE_FORMAT (fmode);
+
+  arg = builtin_save_expr (arg);
+
+  /* Expand the argument yielding a RTX expression. */
+  temp = expand_normal (arg);
+
+  /* Check if the back end provides an insn that handles signbit for the
+     argument's mode. */
+  signbit_insn_code = signbit_optab [(int) fmode];
+  if (signbit_insn_code != CODE_FOR_nothing)
+    {
+      target = gen_reg_rtx (TYPE_MODE (TREE_TYPE (exp)));
+      emit_unop_insn (signbit_insn_code, target, temp, UNKNOWN);
+      return target;
+    }
 
   /* For floating point formats without a sign bit, implement signbit
      as "ARG < 0.0".  */
@@ -5628,7 +5765,6 @@ expand_builtin_signbit (tree exp, rtx target)
     return expand_expr (arg, target, VOIDmode, EXPAND_NORMAL);
   }
 
-  temp = expand_normal (arg);
   if (GET_MODE_SIZE (fmode) <= UNITS_PER_WORD)
     {
       imode = int_mode_for_mode (fmode);
@@ -6058,6 +6194,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       if (! flag_unsafe_math_optimizations)
 	break;
     CASE_FLT_FN (BUILT_IN_ISINF):
+    CASE_FLT_FN (BUILT_IN_FINITE):
+    case BUILT_IN_ISFINITE:
+    case BUILT_IN_ISNORMAL:
       target = expand_builtin_interclass_mathfn (exp, target, subtarget);
       if (target)
 	return target;
@@ -6180,6 +6319,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       if (fold_builtin_next_arg (exp, false))
 	return const0_rtx;
       return expand_builtin_next_arg ();
+
+    case BUILT_IN_CLEAR_CACHE:
+      target = expand_builtin___clear_cache (exp);
+      if (target)
+        return target;
+      break;
 
     case BUILT_IN_CLASSIFY_TYPE:
       return expand_builtin_classify_type (exp);
@@ -9471,7 +9616,7 @@ fold_builtin_classify (tree fndecl, tree arg, int builtin_index)
 
       return NULL_TREE;
 
-    case BUILT_IN_FINITE:
+    case BUILT_IN_ISFINITE:
       if (!HONOR_NANS (TYPE_MODE (TREE_TYPE (arg)))
 	  && !HONOR_INFINITIES (TYPE_MODE (TREE_TYPE (arg))))
 	return omit_one_operand (type, integer_one_node, arg);
@@ -9874,7 +10019,8 @@ fold_builtin_1 (tree fndecl, tree arg0, bool ignore)
     case BUILT_IN_FINITED32:
     case BUILT_IN_FINITED64:
     case BUILT_IN_FINITED128:
-      return fold_builtin_classify (fndecl, arg0, BUILT_IN_FINITE);
+    case BUILT_IN_ISFINITE:
+      return fold_builtin_classify (fndecl, arg0, BUILT_IN_ISFINITE);
 
     CASE_FLT_FN (BUILT_IN_ISINF):
     case BUILT_IN_ISINFD32:

@@ -1,3 +1,101 @@
+2007-07-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR bootstrap/3456
+	* testsuite/22_locale/locale/cons/12658_thread-1.cc: Enable on
+	mips-sgi-irix6*.
+	* testsuite/22_locale/locale/cons/12658_thread-2.cc: Likewise.
+	* testsuite/thread/18185.cc: Likewise.
+	* testsuite/thread/pthread1.cc: Likewise.
+	* testsuite/thread/pthread2.cc: Likewise.
+	* testsuite/thread/pthread3.cc: Likewise.
+	* testsuite/thread/pthread4.cc: Likewise.
+	* testsuite/thread/pthread5.cc: Likewise.
+	* testsuite/thread/pthread6.cc: Likewise.
+	* testsuite/thread/pthread7-rope.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/shared_ptr/thread/default_weaktoshared.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/shared_ptr/thread/mutex_weaktoshared.cc: Likewise.
+
+2007-07-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/os/mingw32/ctype_base.h: Use the generic libstdc++ masks
+	rather than MSVCRT defines.
+	* config/os/mingw32/ctype_noninline.h (classic_table): Construct
+	and return a static classic table based on generic libstdc++ masks.
+
+2007-07-12  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* testsuite/tr1/3_function_objects/bind/all_bound.cc: Disambiguate
+	uses of TR1/C++0x facilities.
+	* testsuite/tr1/3_function_objects/bind/nested.cc: Ditto.
+	* testsuite/tr1/3_function_objects/bind/placeholders.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_multimap/requirements/
+	explicit_instantiation.cc: Ditto. 
+	* testsuite/tr1/6_containers/unordered_multimap/swap/1.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_multimap/swap/2.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_set/requirements/
+	explicit_instantiation.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_set/swap/1.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_set/swap/2.cc: Ditto.
+	* testsuite/tr1/6_containers/utility/pair.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_map/requirements/
+	explicit_instantiation.cc: Ditto. 
+	* testsuite/tr1/6_containers/unordered_map/24064.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_map/swap/1.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_map/swap/2.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/cons/big_tuples.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/cons/constructor.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/cons/assignment.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/tuple_element.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/tuple_size.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/comparison_operators/
+	comparisons.cc: Ditto. 
+	* testsuite/tr1/6_containers/tuple/element_access/get.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/creation_functions/23978.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/creation_functions/tie.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/creation_functions/make_tuple.cc:
+	Ditto.
+	* testsuite/tr1/6_containers/unordered_multiset/requirements/
+	explicit_instantiation.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_multiset/swap/1.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_multiset/swap/2.cc: Ditto.
+
+2007-07-10  Bob Wilson  <bob.wilson@acm.org>
+	
+	* configure.ac: Check if $atomicity_dir is cpu/generic/atomicity_mutex
+	instead of the non-existent cpu/generic/atomic_mutex.
+	* configure: Regenerate.
+	
+2007-07-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/utility (identity, move, forward): Add.
+	* testsuite/20_util/move/requirements/explicit_instantiation.cc: New.
+	* testsuite/20_util/move/1.cc: New.
+	* testsuite/20_util/identity/value.cc: New.
+	* testsuite/20_util/identity/requirements/typedefs.cc: New.
+	* testsuite/20_util/identity/requirements/explicit_instantiation.cc:
+	New.
+	* testsuite/20_util/forward/requirements/explicit_instantiation.cc:
+	New.
+	* testsuite/20_util/forward/1.cc: New.
+	* testsuite/20_util/forward/1_neg.cc: New.
+	
+2007-07-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/ios_base/failure/what-1.cc: Include <stdexcept>.
+
+2007-07-09  Jim Xochellis  <jimxoch@yahoo.gr>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (search(_ForwardIterator1,
+	_ForwardIterator1, _ForwardIterator2, _ForwardIterator2)): Tidy.
+	(search(_ForwardIterator1, _ForwardIterator1, _ForwardIterator2,
+	_ForwardIterator2, _BinaryPredicate)): Likewise.
+
+2007-07-06  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/lib/libstdc++.exp (v3-build_support): Use env(AR)
+	and env(RANLIB), not env(AR_FOR_TARGET) and env(RANLIB_FOR_TARGET).
+
 2007-07-05  Joerg Richter  <joerg.richter@pdv-fs.de>
 
 	PR libstdc++/31957

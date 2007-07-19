@@ -723,7 +723,8 @@ const struct attribute_spec mips_attribute_table[] =
    taken as the canonical name for that ISA.
 
    To ease comparison, please keep this table in the same order as
-   gas's mips_cpu_info_table[].  */
+   gas's mips_cpu_info_table[].  Please also make sure that
+   MIPS_ISA_LEVEL_SPEC handles all -march options correctly.  */
 const struct mips_cpu_info mips_cpu_info_table[] = {
   /* Entries for generic ISAs */
   { "mips1", PROCESSOR_R3000, 1 },
@@ -910,7 +911,17 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
                        4            /* memory_latency */
     },
     { /* 20KC */
-      DEFAULT_COSTS
+      COSTS_N_INSNS (4),            /* fp_add */
+      COSTS_N_INSNS (4),            /* fp_mult_sf */
+      COSTS_N_INSNS (5),            /* fp_mult_df */
+      COSTS_N_INSNS (17),           /* fp_div_sf */
+      COSTS_N_INSNS (32),           /* fp_div_df */
+      COSTS_N_INSNS (4),            /* int_mult_si */
+      COSTS_N_INSNS (7),            /* int_mult_di */
+      COSTS_N_INSNS (42),           /* int_div_si */
+      COSTS_N_INSNS (72),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
     },
     { /* 24KC */
       SOFT_FP_COSTS,
@@ -1447,7 +1458,8 @@ mips_classify_symbol (rtx x)
       if (TARGET_MIPS16)
 	return SYMBOL_CONSTANT_POOL;
 
-      if (GET_MODE_SIZE (get_pool_mode (x)) <= mips_section_threshold)
+      if (!TARGET_EMBEDDED_DATA
+	  && GET_MODE_SIZE (get_pool_mode (x)) <= mips_section_threshold)
 	return SYMBOL_SMALL_DATA;
     }
 
@@ -2097,7 +2109,7 @@ mips_legitimate_address_p (enum machine_mode mode, rtx x, int strict)
 static rtx
 mips_force_temporary (rtx dest, rtx value)
 {
-  if (!no_new_pseudos)
+  if (can_create_pseudo_p ())
     return force_reg (Pmode, value);
   else
     {
@@ -2117,7 +2129,7 @@ mips_split_symbol (rtx temp, rtx addr)
 
   if (!TARGET_MIPS16)
     high = mips_force_temporary (temp, gen_rtx_HIGH (Pmode, copy_rtx (addr)));
-  else if (no_new_pseudos)
+  else if (!can_create_pseudo_p ())
     {
       emit_insn (gen_load_const_gp (copy_rtx (temp)));
       high = temp;
@@ -2468,7 +2480,7 @@ mips_move_integer (rtx dest, rtx temp, unsigned HOST_WIDE_INT value)
   x = GEN_INT (codes[0].value);
   for (i = 1; i < cost; i++)
     {
-      if (no_new_pseudos)
+      if (!can_create_pseudo_p ())
 	{
 	  emit_insn (gen_rtx_SET (VOIDmode, temp, x));
 	  x = temp;
@@ -2517,7 +2529,7 @@ mips_legitimize_const_move (enum machine_mode mode, rtx dest, rtx src)
   split_const (src, &base, &offset);
   if (!TARGET_MIPS16
       && offset != const0_rtx
-      && (!no_new_pseudos || SMALL_INT (offset)))
+      && (can_create_pseudo_p () || SMALL_INT (offset)))
     {
       base = mips_force_temporary (dest, base);
       emit_move_insn (dest, mips_add_offset (0, base, INTVAL (offset)));
@@ -3881,6 +3893,33 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length)
   /* Mop up any left-over bytes.  */
   if (leftover)
     mips_block_move_straight (dest, src, leftover);
+}
+
+
+/* Expand a loop of synci insns for the address range [BEGIN, END).  */
+
+void
+mips_expand_synci_loop (rtx begin, rtx end)
+{
+  rtx inc, label, cmp, cmp_result;
+
+  /* Load INC with the cache line size (rdhwr INC,$1). */
+  inc = gen_reg_rtx (SImode);
+  emit_insn (gen_rdhwr (inc, const1_rtx));
+
+  /* Loop back to here.  */
+  label = gen_label_rtx ();
+  emit_label (label);
+
+  emit_insn (gen_synci (begin));
+
+  cmp = gen_reg_rtx (Pmode);
+  mips_emit_binary (GTU, cmp, begin, end);
+
+  mips_emit_binary (PLUS, begin, begin, inc);
+
+  cmp_result = gen_rtx_EQ (VOIDmode, cmp, const0_rtx);
+  emit_jump_insn (gen_condjump (cmp_result, label));
 }
 
 /* Expand a movmemsi instruction.  */
@@ -6781,12 +6820,16 @@ compute_frame_size (HOST_WIDE_INT size)
     {
       HOST_WIDE_INT offset;
 
-      /* MIPS16e SAVE and RESTORE instructions require the GP save area
-	 to be aligned at the high end with any padding at the low end,
-	 so do it that way all the time.  */
-      offset = (total_size
-		- MIPS_STACK_ALIGN (fp_reg_size)
-		- GET_MODE_SIZE (gpr_mode));
+      if (GENERATE_MIPS16E_SAVE_RESTORE)
+	/* MIPS16e SAVE and RESTORE instructions require the GP save area
+	   to be aligned at the high end with any padding at the low end.
+	   It is only safe to use this calculation for o32, where we never
+	   have pretend arguments, and where any varargs will be saved in
+	   the caller-allocated area rather than at the top of the frame.  */
+	offset = (total_size - GET_MODE_SIZE (gpr_mode));
+      else
+	offset = (args_size + cprestore_size + var_size
+		  + gp_reg_size - GET_MODE_SIZE (gpr_mode));
       cfun->machine->frame.gp_sp_offset = offset;
       cfun->machine->frame.gp_save_offset = offset - total_size;
     }
@@ -7334,6 +7377,12 @@ mips16e_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
   if (extra != 0)
     return false;
 
+  /* Make sure that the topmost argument register is not saved twice.
+     The checks above ensure that the same is then true for the other
+     argument registers.  */
+  if (nargs > 0 && BITSET_P (mask, GP_ARG_FIRST + nargs - 1))
+    return false;
+
   /* Pass back information, if requested.  */
   if (info)
     {
@@ -7458,14 +7507,13 @@ mips16e_collect_propagate_value (rtx x, rtx *reg_values)
 }
 
 /* Return true if (set DEST SRC) stores an argument register into its
-   caller-allocated save slot.  If the register is not included in
-   [GP_ARG_FIRST, GP_ARG_LAST + *NARGS_PTR), destructively modify
-   *NARGS_PTR such that this condition holds.  REG_VALUES is as for
+   caller-allocated save slot, storing the number of that argument
+   register in *REGNO_PTR if so.  REG_VALUES is as for
    mips16e_collect_propagate_value.  */
 
 static bool
-mips16e_collect_argument_save (rtx dest, rtx src, rtx *reg_values,
-			       unsigned int *nargs_ptr)
+mips16e_collect_argument_save_p (rtx dest, rtx src, rtx *reg_values,
+				 unsigned int *regno_ptr)
 {
   unsigned int argno, regno;
   HOST_WIDE_INT offset, required_offset;
@@ -7495,10 +7543,7 @@ mips16e_collect_argument_save (rtx dest, rtx src, rtx *reg_values,
   if (offset != required_offset)
     return false;
 
-  /* Make sure that *NARGS_PTR is big enough.  */
-  if (*nargs_ptr <= argno)
-    *nargs_ptr = argno + 1;
-
+  *regno_ptr = regno;
   return true;
 }
 
@@ -7514,7 +7559,7 @@ mips16e_collect_argument_saves (void)
 {
   rtx reg_values[FIRST_PSEUDO_REGISTER];
   rtx insn, next, set, dest, src;
-  unsigned int nargs;
+  unsigned int nargs, regno;
 
   push_topmost_sequence ();
   nargs = 0;
@@ -7534,8 +7579,14 @@ mips16e_collect_argument_saves (void)
 
       dest = SET_DEST (set);
       src = SET_SRC (set);
-      if (mips16e_collect_argument_save (dest, src, reg_values, &nargs))
-	delete_insn (insn);
+      if (mips16e_collect_argument_save_p (dest, src, reg_values, &regno))
+	{
+	  if (!BITSET_P (cfun->machine->frame.mask, regno))
+	    {
+	      delete_insn (insn);
+	      nargs = MAX (nargs, (regno - GP_ARG_FIRST) + 1);
+	    }
+	}
       else if (REG_P (dest) && GET_MODE (dest) == word_mode)
 	reg_values[REGNO (dest)]
 	  = mips16e_collect_propagate_value (src, reg_values);
@@ -7945,7 +7996,6 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   rtx this, temp1, temp2, insn, fnaddr;
 
   /* Pretend to be a post-reload pass while generating rtl.  */
-  no_new_pseudos = 1;
   reload_completed = 1;
 
   /* Mark the end of the (empty) prologue.  */
@@ -8055,7 +8105,6 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   /* Clean up the vars set above.  Note that final_end_function resets
      the global pointer for us.  */
   reload_completed = 0;
-  no_new_pseudos = 0;
 }
 
 /* Returns nonzero if X contains a SYMBOL_REF.  */
@@ -10827,12 +10876,16 @@ mips_variable_issue (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 }
 
 /* Implement TARGET_SCHED_ADJUST_COST.  We assume that anti and output
-   dependencies have no cost.  */
+   dependencies have no cost, except on the 20Kc where output-dependence
+   is treated like input-dependence.  */
 
 static int
 mips_adjust_cost (rtx insn ATTRIBUTE_UNUSED, rtx link,
 		  rtx dep ATTRIBUTE_UNUSED, int cost)
 {
+  if (REG_NOTE_KIND (link) == REG_DEP_OUTPUT
+      && TUNE_20KC)
+    return cost;
   if (REG_NOTE_KIND (link) != 0)
     return 0;
   return cost;
@@ -10855,6 +10908,7 @@ mips_issue_rate (void)
 	 floating point load/stores also require a slot in the AGEN pipe.  */
      return 4;
 
+    case PROCESSOR_20KC:
     case PROCESSOR_R4130:
     case PROCESSOR_R5400:
     case PROCESSOR_R5500:

@@ -1552,6 +1552,22 @@ set_type:
 }
 
 
+/* Return true, if the symbol is an external procedure.  */
+static bool
+is_external_proc (gfc_symbol *sym)
+{
+  if (!sym->attr.dummy && !sym->attr.contained
+	&& !(sym->attr.intrinsic
+	      || gfc_intrinsic_name (sym->name, sym->attr.subroutine))
+	&& sym->attr.proc != PROC_ST_FUNCTION
+	&& !sym->attr.use_assoc
+	&& sym->name)
+    return true;
+  else
+    return false;
+}
+
+
 /* Figure out if a function reference is pure or not.  Also set the name
    of the function for a potential error message.  Return nonzero if the
    function is PURE, zero if not.  */
@@ -1700,6 +1716,15 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args,
   int optional_arg = 0;
   try retval = SUCCESS;
   gfc_symbol *args_sym;
+
+  if (args->expr->expr_type == EXPR_CONSTANT
+      || args->expr->expr_type == EXPR_OP
+      || args->expr->expr_type == EXPR_NULL)
+    {
+      gfc_error ("Argument to '%s' at %L is not a variable",
+		 sym->name, &(args->expr->where));
+      return FAILURE;
+    }
 
   args_sym = args->expr->symtree->n.sym;
    
@@ -1893,12 +1918,8 @@ resolve_function (gfc_expr *expr)
       return FAILURE;
     }
 
-  /* If the procedure is not internal, a statement function or a module
-     procedure,it must be external and should be checked for usage.  */
-  if (sym && !sym->attr.dummy && !sym->attr.contained
-      && sym->attr.proc != PROC_ST_FUNCTION
-      && !sym->attr.use_assoc
-      && sym->name  )
+  /* If the procedure is external, check for usage.  */
+  if (sym && is_external_proc (sym))
     resolve_global_procedure (sym, &expr->where, 0);
 
   /* Switch off assumed size checking and do this again for certain kinds
@@ -2490,12 +2511,8 @@ resolve_call (gfc_code *c)
       return FAILURE;
     }
 
-  /* If the procedure is not internal or module, it must be external and
-     should be checked for usage.  */
-  if (c->symtree && c->symtree->n.sym
-      && !c->symtree->n.sym->attr.dummy
-      && !c->symtree->n.sym->attr.contained
-      && !c->symtree->n.sym->attr.use_assoc)
+  /* If external, check for usage.  */
+  if (c->symtree && is_external_proc (c->symtree->n.sym))
     resolve_global_procedure (c->symtree->n.sym, &c->loc, 1);
 
   /* Subroutines without the RECURSIVE attribution are not allowed to
@@ -2715,14 +2732,18 @@ resolve_operator (gfc_expr *e)
 	  break;
 	}
 
-      sprintf (msg, _("Operand of .NOT. operator at %%L is %s"),
+      sprintf (msg, _("Operand of .not. operator at %%L is %s"),
 	       gfc_typename (&op1->ts));
       goto bad_op;
 
     case INTRINSIC_GT:
+    case INTRINSIC_GT_OS:
     case INTRINSIC_GE:
+    case INTRINSIC_GE_OS:
     case INTRINSIC_LT:
+    case INTRINSIC_LT_OS:
     case INTRINSIC_LE:
+    case INTRINSIC_LE_OS:
       if (op1->ts.type == BT_COMPLEX || op2->ts.type == BT_COMPLEX)
 	{
 	  strcpy (msg, _("COMPLEX quantities cannot be compared at %L"));
@@ -2732,7 +2753,9 @@ resolve_operator (gfc_expr *e)
       /* Fall through...  */
 
     case INTRINSIC_EQ:
+    case INTRINSIC_EQ_OS:
     case INTRINSIC_NE:
+    case INTRINSIC_NE_OS:
       if (op1->ts.type == BT_CHARACTER && op2->ts.type == BT_CHARACTER)
 	{
 	  e->ts.type = BT_LOGICAL;
@@ -2752,7 +2775,7 @@ resolve_operator (gfc_expr *e)
       if (op1->ts.type == BT_LOGICAL && op2->ts.type == BT_LOGICAL)
 	sprintf (msg,
 		 _("Logicals at %%L must be compared with %s instead of %s"),
-		 e->value.op.operator == INTRINSIC_EQ ? ".EQV." : ".NEQV.",
+		 e->value.op.operator == INTRINSIC_EQ ? ".eqv." : ".neqv.",
 		 gfc_op2string (e->value.op.operator));
       else
 	sprintf (msg,
@@ -2799,11 +2822,17 @@ resolve_operator (gfc_expr *e)
     case INTRINSIC_EQV:
     case INTRINSIC_NEQV:
     case INTRINSIC_EQ:
+    case INTRINSIC_EQ_OS:
     case INTRINSIC_NE:
+    case INTRINSIC_NE_OS:
     case INTRINSIC_GT:
+    case INTRINSIC_GT_OS:
     case INTRINSIC_GE:
+    case INTRINSIC_GE_OS:
     case INTRINSIC_LT:
+    case INTRINSIC_LT_OS:
     case INTRINSIC_LE:
+    case INTRINSIC_LE_OS:
 
       if (op1->rank == 0 && op2->rank == 0)
 	e->rank = 0;
@@ -3849,7 +3878,7 @@ gfc_resolve_expr (gfc_expr *e)
 	}
 
       /* This provides the opportunity for the length of constructors with
-	 character valued function elements to propogate the string length
+	 character valued function elements to propagate the string length
 	 to the expression.  */
       if (e->ts.type == BT_CHARACTER)
 	gfc_resolve_character_array_constructor (e);
@@ -6518,7 +6547,7 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
   }
 
   /* Reject illegal initializers.  */
-  if (sym->value && flag)
+  if (!sym->mark && sym->value && flag)
     {
       if (sym->attr.allocatable)
 	gfc_error ("Allocatable '%s' at %L cannot have an initializer",
@@ -6649,6 +6678,8 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 	&& sym->ns->parent->proc_name->attr.flavor == FL_MODULE)
       && gfc_check_access(sym->attr.access, sym->ns->default_access))
     {
+      gfc_interface *iface;
+
       for (arg = sym->formal; arg; arg = arg->next)
 	{
 	  if (arg->sym
@@ -6666,6 +6697,59 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 	      return FAILURE;
 	    }
 	}
+
+      /* PUBLIC interfaces may expose PRIVATE procedures that take types
+	 PRIVATE to the containing module.  */
+      for (iface = sym->generic; iface; iface = iface->next)
+	{
+	  for (arg = iface->sym->formal; arg; arg = arg->next)
+	    {
+	      if (arg->sym
+		  && arg->sym->ts.type == BT_DERIVED
+		  && !arg->sym->ts.derived->attr.use_assoc
+		  && !gfc_check_access (arg->sym->ts.derived->attr.access,
+					arg->sym->ts.derived->ns->default_access))
+		{
+		  gfc_error_now ("Procedure '%s' in PUBLIC interface '%s' at %L takes "
+				 "dummy arguments of '%s' which is PRIVATE",
+				 iface->sym->name, sym->name, &iface->sym->declared_at,
+				 gfc_typename(&arg->sym->ts));
+		  /* Stop this message from recurring.  */
+		  arg->sym->ts.derived->attr.access = ACCESS_PUBLIC;
+		  return FAILURE;
+		}
+	     }
+	}
+
+      /* PUBLIC interfaces may expose PRIVATE procedures that take types
+	 PRIVATE to the containing module.  */
+      for (iface = sym->generic; iface; iface = iface->next)
+	{
+	  for (arg = iface->sym->formal; arg; arg = arg->next)
+	    {
+	      if (arg->sym
+		  && arg->sym->ts.type == BT_DERIVED
+		  && !arg->sym->ts.derived->attr.use_assoc
+		  && !gfc_check_access (arg->sym->ts.derived->attr.access,
+					arg->sym->ts.derived->ns->default_access))
+		{
+		  gfc_error_now ("Procedure '%s' in PUBLIC interface '%s' at %L takes "
+				 "dummy arguments of '%s' which is PRIVATE",
+				 iface->sym->name, sym->name, &iface->sym->declared_at,
+				 gfc_typename(&arg->sym->ts));
+		  /* Stop this message from recurring.  */
+		  arg->sym->ts.derived->attr.access = ACCESS_PUBLIC;
+		  return FAILURE;
+		}
+	     }
+	}
+    }
+
+  if (sym->attr.function && sym->value && sym->attr.proc != PROC_ST_FUNCTION)
+    {
+      gfc_error ("Function '%s' at %L cannot have an initializer",
+		 sym->name, &sym->declared_at);
+      return FAILURE;
     }
 
   /* An external symbol may not have an initializer because it is taken to be
@@ -6730,6 +6814,7 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
   if (sym->attr.is_bind_c && sym->attr.is_c_interop != 1)
     {
       gfc_formal_arglist *curr_arg;
+      int has_non_interop_arg = 0;
 
       if (verify_bind_c_sym (sym, &(sym->ts), sym->attr.in_common,
                              sym->common_block) == FAILURE)
@@ -6751,18 +6836,25 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
       while (curr_arg != NULL)
         {
           /* Skip implicitly typed dummy args here.  */
-          if (curr_arg->sym->attr.implicit_type == 0
-	      && verify_c_interop_param (curr_arg->sym) == FAILURE)
-            {
-              /* If something is found to fail, mark the symbol for the
-                 procedure as not being BIND(C) to try and prevent multiple
-                 errors being reported.  */
-              sym->attr.is_c_interop = 0;
-              sym->ts.is_c_interop = 0;
-              sym->attr.is_bind_c = 0;
-            }
+	  if (curr_arg->sym->attr.implicit_type == 0)
+	    if (verify_c_interop_param (curr_arg->sym) == FAILURE)
+	      /* If something is found to fail, record the fact so we
+		 can mark the symbol for the procedure as not being
+		 BIND(C) to try and prevent multiple errors being
+		 reported.  */
+	      has_non_interop_arg = 1;
+          
           curr_arg = curr_arg->next;
         }
+
+      /* See if any of the arguments were not interoperable and if so, clear
+	 the procedure symbol to prevent duplicate error messages.  */
+      if (has_non_interop_arg != 0)
+	{
+	  sym->attr.is_c_interop = 0;
+	  sym->ts.is_c_interop = 0;
+	  sym->attr.is_bind_c = 0;
+	}
     }
   
   return SUCCESS;
@@ -6877,6 +6969,8 @@ resolve_fl_namelist (gfc_symbol *sym)
 	{
 	  if (!nl->sym->attr.use_assoc
 	      && !(sym->ns->parent == nl->sym->ns)
+	      && !(sym->ns->parent
+		   && sym->ns->parent->parent == nl->sym->ns)
 	      && !gfc_check_access(nl->sym->attr.access,
 				   nl->sym->ns->default_access))
 	    {

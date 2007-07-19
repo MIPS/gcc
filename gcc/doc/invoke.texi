@@ -353,7 +353,7 @@ Objective-C and Objective-C++ Dialects}.
 -fstrict-aliasing  -fstrict-overflow  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -fsplit-ivs-in-unroller -funswitch-loops @gol
--fvariable-expansion-in-unroller @gol
+-fvariable-expansion-in-unroller -ftree-reassoc @gol
 -ftree-pre  -ftree-ccp  -ftree-dce -ftree-loop-optimize @gol
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -fcheck-data-deps @gol
@@ -5584,9 +5584,9 @@ ones to optimal placement using LCM.
 
 @item -freschedule-modulo-scheduled-loops
 @opindex fscheduling-in-modulo-scheduled-loops
-The modulo scheduling comes before the traditional scheduling, if a loop was modulo scheduled
-we may want to prevent the later scheduling passes from changing its schedule, we use this
-option to control that.
+The modulo scheduling comes before the traditional scheduling, if a loop
+was modulo scheduled we may want to prevent the later scheduling passes
+from changing its schedule, we use this option to control that.
 
 @item -fcaller-saves
 @opindex fcaller-saves
@@ -5599,6 +5599,10 @@ This option is always enabled by default on certain machines, usually
 those which have no call-preserved registers to use instead.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+
+@item -ftree-reassoc
+Perform Reassociation on trees  This flag is enabled by default
+at @option{-O} and higher.
 
 @item -ftree-pre
 Perform Partial Redundancy Elimination (PRE) on trees.  This flag is
@@ -6956,12 +6960,12 @@ The size of cache line in L1 cache, in bytes.
 @item l1-cache-size
 The number of cache lines in L1 cache.
 
-@item verify-canonical-types
-Whether the compiler should verify the ``canonical'' types used for
-type equality comparisons within the C++ and Objective-C++ front
-ends. Set to 1 (the default when GCC is configured with
---enable-checking) to enable verification, 0 to disable verification
-(the default when GCC is configured with --disable-checking).
+@item use-canonical-types
+Whether the compiler should use the ``canonical'' type system.  By
+default, this should always be 1, which uses a more efficient internal
+mechanism for comparing types in C++ and Objective-C++.  However, if
+bugs in the canonical type system are causing compilation failures,
+set this value to 0 to disable canonical types.
 
 @end table
 @end table
@@ -9340,7 +9344,7 @@ These @samp{-m} options are defined for the DEC Alpha/VMS implementations:
 @item -mvms-return-codes
 @opindex mvms-return-codes
 Return VMS condition codes from main.  The default is to return POSIX
-style condition (e.g.@ error) codes.
+style condition (e.g.@: error) codes.
 @end table
 
 @node FRV Options
@@ -10390,7 +10394,7 @@ or @code{remainder} built-in functions: see @ref{Other Builtins} for details.
 This option will enable GCC to use RCPSS and RSQRTSS instructions (and their
 vectorized variants RCPPS and RSQRTPS) instead of DIVSS and SQRTSS (and their
 vectorized variants).  These instructions will be generated only when
-@option{-funsafe-math-optimizatons} is enabled.
+@option{-funsafe-math-optimizations} is enabled.
 
 @item -mpush-args
 @itemx -mno-push-args

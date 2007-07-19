@@ -356,6 +356,9 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   default_builtin_vectorized_conversion
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN 0
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD 0
+#define TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST 0
+#define TARGET_VECTOR_ALIGNMENT_REACHABLE \
+  default_builtin_vector_alignment_reachable
 
 #define TARGET_VECTORIZE                                                \
   {									\
@@ -363,7 +366,9 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
     TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION,			\
     TARGET_VECTORIZE_BUILTIN_CONVERSION,				\
     TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN,                            \
-    TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD				\
+    TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD,				\
+    TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST,			\
+    TARGET_VECTOR_ALIGNMENT_REACHABLE					\
   }
 
 #define TARGET_DEFAULT_TARGET_FLAGS 0
@@ -373,6 +378,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 /* In except.c */
 #define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
+
+/* In libgcc2.c */
+#define TARGET_LIBGCC_CMP_RETURN_MODE  default_libgcc_cmp_return_mode
+#define TARGET_LIBGCC_SHIFT_COUNT_MODE default_libgcc_shift_count_mode
 
 /* In tree.c.  */
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_decl_attributes
@@ -669,6 +678,8 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_HANDLE_OPTION,				\
   TARGET_HELP,					\
   TARGET_EH_RETURN_FILTER_MODE,			\
+  TARGET_LIBGCC_CMP_RETURN_MODE,                \
+  TARGET_LIBGCC_SHIFT_COUNT_MODE,               \
   TARGET_MERGE_DECL_ATTRIBUTES,			\
   TARGET_MERGE_TYPE_ATTRIBUTES,			\
   TARGET_ATTRIBUTE_TABLE,			\

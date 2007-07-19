@@ -1648,7 +1648,11 @@ gimplify_conversion (tree *expr_p)
       && (tem = maybe_fold_offset_to_reference
 		  (TREE_OPERAND (*expr_p, 0),
 		   integer_zero_node, TREE_TYPE (TREE_TYPE (*expr_p)))))
-    *expr_p = build_fold_addr_expr_with_type (tem, TREE_TYPE (*expr_p));
+    {
+      tree ptr_type = build_pointer_type (TREE_TYPE (tem));
+      if (useless_type_conversion_p (TREE_TYPE (*expr_p), ptr_type))
+        *expr_p = build_fold_addr_expr_with_type (tem, ptr_type);
+    }
 
   /* If we still have a conversion at the toplevel,
      then canonicalize some constructs.  */
@@ -2135,7 +2139,27 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
   /* Verify if the type of the argument matches that of the function
      declaration.  If we cannot verify this or there is a mismatch,
      mark the call expression so it doesn't get inlined later.  */
-  if (parms)
+  if (decl && DECL_ARGUMENTS (decl))
+    {
+      for (i = 0, p = DECL_ARGUMENTS (decl); i < nargs;
+	   i++, p = TREE_CHAIN (p))
+	{
+	  /* We cannot distinguish a varargs function from the case
+	     of excess parameters, still deferring the inlining decision
+	     to the callee is possible.  */
+	  if (!p)
+	    break;
+	  if (p == error_mark_node
+	      || CALL_EXPR_ARG (*expr_p, i) == error_mark_node
+	      || !fold_convertible_p (DECL_ARG_TYPE (p),
+				      CALL_EXPR_ARG (*expr_p, i)))
+	    {
+	      CALL_CANNOT_INLINE_P (*expr_p) = 1;
+	      break;
+	    }
+	}
+    }
+  else if (parms)
     {
       for (i = 0, p = parms; i < nargs; i++, p = TREE_CHAIN (p))
 	{
@@ -2153,19 +2177,6 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
 	      break;
 	    }
 	}
-    }
-  else if (decl && DECL_ARGUMENTS (decl))
-    {
-      for (i = 0, p = DECL_ARGUMENTS (decl); i < nargs;
-	   i++, p = TREE_CHAIN (p))
-	if (!p
-	    || p == error_mark_node
-	    || CALL_EXPR_ARG (*expr_p, i) == error_mark_node
-	    || !fold_convertible_p (TREE_TYPE (p), CALL_EXPR_ARG (*expr_p, i)))
-	  {
-	    CALL_CANNOT_INLINE_P (*expr_p) = 1;
-	    break;
-	  }
     }
   else if (nargs != 0)
     CALL_CANNOT_INLINE_P (*expr_p) = 1;
@@ -5980,9 +5991,12 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 			 (TREE_OPERAND (*expr_p, 0), TREE_OPERAND (*expr_p, 1),
 		   	  TREE_TYPE (TREE_TYPE (*expr_p)))))
 	     {
-               *expr_p = build_fold_addr_expr_with_type (tmp,
-							 TREE_TYPE (*expr_p));
-	       break;
+	       tree ptr_type = build_pointer_type (TREE_TYPE (tmp));
+	       if (useless_type_conversion_p (TREE_TYPE (*expr_p), ptr_type))
+		 {
+                   *expr_p = build_fold_addr_expr_with_type (tmp, ptr_type);
+		   break;
+		 }
 	     }
 	  /* Convert (void *)&a + 4 into (void *)&a[1].  */
 	  if (TREE_CODE (TREE_OPERAND (*expr_p, 0)) == NOP_EXPR
@@ -6641,17 +6655,34 @@ force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
 }
 
 /* Invokes force_gimple_operand for EXPR with parameters SIMPLE_P and VAR.  If
-   some statements are produced, emits them before BSI.  */
+   some statements are produced, emits them at BSI.  If BEFORE is true.
+   the statements are appended before BSI, otherwise they are appended after
+   it.  M specifies the way BSI moves after insertion (BSI_SAME_STMT or
+   BSI_CONTINUE_LINKING are the usual values).  */
 
 tree
 force_gimple_operand_bsi (block_stmt_iterator *bsi, tree expr,
-			  bool simple_p, tree var)
+			  bool simple_p, tree var, bool before,
+			  enum bsi_iterator_update m)
 {
   tree stmts;
 
   expr = force_gimple_operand (expr, &stmts, simple_p, var);
   if (stmts)
-    bsi_insert_before (bsi, stmts, BSI_SAME_STMT);
+    {
+      if (gimple_in_ssa_p (cfun))
+	{
+	  tree_stmt_iterator tsi;
+
+	  for (tsi = tsi_start (stmts); !tsi_end_p (tsi); tsi_next (&tsi))
+	    mark_symbols_for_renaming (tsi_stmt (tsi));
+	}
+
+      if (before)
+	bsi_insert_before (bsi, stmts, m);
+      else
+	bsi_insert_after (bsi, stmts, m);
+    }
 
   return expr;
 }

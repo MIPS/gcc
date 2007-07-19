@@ -43,6 +43,7 @@ Boston, MA 02110-1301, USA.  */
 #include "bitmap.h"
 #include "langhooks.h"
 #include "cfgloop.h"
+#include "tree-ssa-propagate.h"
 #include "tree-ssa-sccvn.h"
 
 /* This algorithm is based on the SCC algorithm presented by Keith
@@ -528,6 +529,7 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	case INTEGER_CST:
 	case COMPLEX_CST:
 	case VECTOR_CST:
+	case REAL_CST:
 	case VALUE_HANDLE:
 	case VAR_DECL:
 	case PARM_DECL:
@@ -1015,11 +1017,13 @@ static inline bool
 set_ssa_val_to (tree from, tree to)
 {
   tree currval;
-  gcc_assert (to != NULL);
 
-  /* The only thing we allow as value numbers are ssa_names and
-     invariants.  So assert that here.  */
-  gcc_assert (TREE_CODE (to) == SSA_NAME || is_gimple_min_invariant (to));
+  /* The only thing we allow as value numbers are VN_TOP, ssa_names
+     and invariants.  So assert that here.  */
+  gcc_assert (to != NULL_TREE
+	      && (to == VN_TOP
+		  || TREE_CODE (to) == SSA_NAME
+		  || is_gimple_min_invariant (to)));
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1332,6 +1336,7 @@ expr_has_constants (tree expr)
       /* Constants inside reference ops are rarely interesting, but
 	 it can take a lot of looking to find them.  */
     case tcc_reference:
+    case tcc_declaration:
       return false;
     default:
       return is_gimple_min_invariant (expr);
@@ -1386,7 +1391,7 @@ simplify_binary_expression (tree rhs)
       if (VN_INFO (op0)->has_constants)
 	op0 = valueize_expr (VN_INFO (op0)->expr);
       else if (SSA_VAL (op0) != VN_TOP && SSA_VAL (op0) != op0)
-	op0 = VN_INFO (op0)->valnum;      
+	op0 = SSA_VAL (op0);
     }
 
   if (TREE_CODE (op1) == SSA_NAME)
@@ -1394,44 +1399,18 @@ simplify_binary_expression (tree rhs)
       if (VN_INFO (op1)->has_constants)
 	op1 = valueize_expr (VN_INFO (op1)->expr);
       else if (SSA_VAL (op1) != VN_TOP && SSA_VAL (op1) != op1)
-	op1 = VN_INFO (op1)->valnum;
+	op1 = SSA_VAL (op1);
     }
+
   result = fold_binary (TREE_CODE (rhs), TREE_TYPE (rhs), op0, op1);
 
-  /* Make sure result is not a complex expression consiting
+  /* Make sure result is not a complex expression consisting
      of operators of operators (IE (a + b) + (a + c))
      Otherwise, we will end up with unbounded expressions if
      fold does anything at all.  */
-  if (result)
-    {
-      if (is_gimple_min_invariant (result))
-	return result;
-      else if (SSA_VAR_P (result))
-	return result;
-      else if (EXPR_P (result))
-	{
-	  switch (TREE_CODE_CLASS (TREE_CODE (result)))
-	    {
-	    case tcc_unary:
-	      {
-		tree op0 = TREE_OPERAND (result, 0);
-		if (!EXPR_P (op0))
-		  return result;
-	      }
-	      break;
-	    case tcc_binary:
-	      {
-		tree op0 = TREE_OPERAND (result, 0);
-		tree op1 = TREE_OPERAND (result, 1);
-		if (!EXPR_P (op0) && !EXPR_P (op1))
-		  return result;
-	      }
-	      break;
-	    default:
-	      break;
-	    }
-	}
-    }
+  if (result && valid_gimple_expression_p (result))
+    return result;
+
   return NULL_TREE;
 }
 
@@ -1453,7 +1432,15 @@ try_to_simplify (tree stmt, tree rhs)
 	{
 	  /* For references, see if we find a result for the lookup,
 	     and use it if we do.  */
+	case tcc_declaration:
+	  /* Pull out any truly constant values.  */
+	  if (TREE_READONLY (rhs)
+	      && TREE_STATIC (rhs)
+	      && DECL_INITIAL (rhs)
+	      && valid_gimple_expression_p (DECL_INITIAL (rhs)))
+	    return DECL_INITIAL (rhs);
 
+	    /* Fallthrough. */
 	case tcc_reference:
 	  {
 	    tree result = vn_reference_lookup (rhs,
@@ -1613,7 +1600,7 @@ visit_use (tree use)
 	  if (TREE_CODE (lhs) == SSA_NAME
 	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
 	    changed = defs_to_varying (stmt);
-	  else if (REFERENCE_CLASS_P (lhs))
+	  else if (REFERENCE_CLASS_P (lhs) || DECL_P (lhs))
 	    {
 	      changed = visit_reference_op_store (lhs, rhs, stmt);
 	    }

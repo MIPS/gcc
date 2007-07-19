@@ -472,21 +472,27 @@ gfc_show_expr (gfc_expr *p)
 	  gfc_status ("NEQV ");
 	  break;
 	case INTRINSIC_EQ:
+	case INTRINSIC_EQ_OS:
 	  gfc_status ("= ");
 	  break;
 	case INTRINSIC_NE:
-	  gfc_status ("<> ");
+	case INTRINSIC_NE_OS:
+	  gfc_status ("/= ");
 	  break;
 	case INTRINSIC_GT:
+	case INTRINSIC_GT_OS:
 	  gfc_status ("> ");
 	  break;
 	case INTRINSIC_GE:
+	case INTRINSIC_GE_OS:
 	  gfc_status (">= ");
 	  break;
 	case INTRINSIC_LT:
+	case INTRINSIC_LT_OS:
 	  gfc_status ("< ");
 	  break;
 	case INTRINSIC_LE:
+	case INTRINSIC_LE_OS:
 	  gfc_status ("<= ");
 	  break;
 	case INTRINSIC_NOT:
@@ -542,10 +548,11 @@ void
 gfc_show_attr (symbol_attribute *attr)
 {
 
-  gfc_status ("(%s %s %s %s", gfc_code2string (flavors, attr->flavor),
+  gfc_status ("(%s %s %s %s %s", gfc_code2string (flavors, attr->flavor),
 	      gfc_intent_string (attr->intent),
 	      gfc_code2string (access_types, attr->access),
-	      gfc_code2string (procedures, attr->proc));
+	      gfc_code2string (procedures, attr->proc),
+	      gfc_code2string (save_status, attr->save));
 
   if (attr->allocatable)
     gfc_status (" ALLOCATABLE");
@@ -561,8 +568,6 @@ gfc_show_attr (symbol_attribute *attr)
     gfc_status (" POINTER");
   if (attr->protected)
     gfc_status (" PROTECTED");
-  if (attr->save)
-    gfc_status (" SAVE");
   if (attr->value)
     gfc_status (" VALUE");
   if (attr->volatile_)

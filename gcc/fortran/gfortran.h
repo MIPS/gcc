@@ -198,10 +198,14 @@ typedef enum
   INTRINSIC_UMINUS, INTRINSIC_PLUS, INTRINSIC_MINUS, INTRINSIC_TIMES,
   INTRINSIC_DIVIDE, INTRINSIC_POWER, INTRINSIC_CONCAT,
   INTRINSIC_AND, INTRINSIC_OR, INTRINSIC_EQV, INTRINSIC_NEQV,
+  /* ==, /=, >, >=, <, <=  */
   INTRINSIC_EQ, INTRINSIC_NE, INTRINSIC_GT, INTRINSIC_GE,
-  INTRINSIC_LT, INTRINSIC_LE, INTRINSIC_NOT, INTRINSIC_USER,
-  INTRINSIC_ASSIGN, INTRINSIC_PARENTHESES,
-  GFC_INTRINSIC_END /* Sentinel */
+  INTRINSIC_LT, INTRINSIC_LE, 
+  /* .EQ., .NE., .GT., .GE., .LT., .LE. (OS = Old-Style)  */
+  INTRINSIC_EQ_OS, INTRINSIC_NE_OS, INTRINSIC_GT_OS, INTRINSIC_GE_OS,
+  INTRINSIC_LT_OS, INTRINSIC_LE_OS, 
+  INTRINSIC_NOT, INTRINSIC_USER, INTRINSIC_ASSIGN, 
+  INTRINSIC_PARENTHESES, GFC_INTRINSIC_END /* Sentinel */
 }
 gfc_intrinsic_op;
 
@@ -297,7 +301,7 @@ typedef enum ifsrc
 }
 ifsrc;
 
-/* Whether a SAVE attribute was set explicitly or implictly.  */
+/* Whether a SAVE attribute was set explicitly or implicitly.  */
 typedef enum save_state
 { SAVE_NONE = 0, SAVE_EXPLICIT, SAVE_IMPLICIT
 }
@@ -311,6 +315,7 @@ extern const mstring procedures[];
 extern const mstring intents[];
 extern const mstring access_types[];
 extern const mstring ifsrc_types[];
+extern const mstring save_status[];
 
 /* Enumeration of all the generic intrinsic functions.  Used by the
    backend for identification of a function.  */
@@ -1856,6 +1861,7 @@ typedef struct
   int flag_cray_pointer;
   int flag_d_lines;
   int flag_openmp;
+  int flag_sign_zero;
 
   int fpe;
 

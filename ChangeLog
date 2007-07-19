@@ -1,8 +1,28 @@
-2007-07-05  Sebastian Pop  <sebpop@gmail.com>
+2007-07-17  Nick Clifton  <nickc@redhat.com>
 
-	PR bootstrap/32622
-	* config/mh-x86omitfp (BOOT_CFLAGS): Add -fomit-frame-pointer,
-	don't reset its value.
+	* COPYING3: New file.  Contains version 3 of the GNU General
+	Public License.
+	* COPYING3.LIB: New file.  Contains version 3 of the GNU
+	Lesser General Public License.
+
+2007-07-16  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* MAINTAINERS (S/390 port maintainer): Remove my co-maintainer tag.
+
+2007-07-16  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* MAINTAINERS (S/390 co-maintainer): Add myself.
+	(Write After Approval): Remove myself.
+
+2007-07-13  Dan Hipschman  <dsh@google.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2007-07-11  Nick Clifton  <nickc@redhat.com>
+
+	* Makefile.tpl (BUILD_EXPORTS): Escape the newline at the end of the
+	WINDRES export.
+	* Makefile.in: Regenerate.
 
 2007-07-05  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 

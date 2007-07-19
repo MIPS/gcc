@@ -98,6 +98,9 @@
 #  extra_headers	List of used header files from the directory
 #			config/${cpu_type}.
 #
+#  use_gcc_tgmath	If set, add tgmath.h to the list of used header
+#			files.
+#
 #  extra_passes		List of extra executables compiled for this target
 #			machine, used for compiling from source to object.
 #
@@ -156,6 +159,7 @@
 out_file=
 tmake_file=
 extra_headers=
+use_gcc_tgmath=yes
 extra_passes=
 extra_parts=
 extra_programs=
@@ -493,6 +497,7 @@ case ${target} in
   esac
   # Assume that glibc or uClibc are being used and so __cxa_atexit is provided.
   default_use_cxa_atexit=yes
+  use_gcc_tgmath=no
   ;;
 *-*-gnu*)
   # On the Hurd, the setup is just about the same on
@@ -516,6 +521,7 @@ case ${target} in
   esac
   # Assume that glibc is being used and so __cxa_atexit is provided.
   default_use_cxa_atexit=yes
+  use_gcc_tgmath=no
   ;;
 *-*-netbsd*)
   tmake_file="t-slibgcc-elf-ver t-libc-ok t-netbsd t-libgcc-pic"
@@ -1638,9 +1644,9 @@ mips-sgi-irix[56]*)
 	then
 		tm_defines="${tm_defines} IRIX_USING_GNU_LD"
 	fi
-#	if test x$enable_threads = xyes; then
-#		thread_file='irix'
-#	fi
+	case ${enable_threads}:${have_pthread_h} in
+	  "":yes | yes:yes ) thread_file=posix ;;
+	esac
 	use_fixproto=yes
 	;;
 mips*-*-netbsd*)			# NetBSD/mips, either endian.
@@ -3134,6 +3140,23 @@ case "${target}" in
 			exit 1
 			;;
 		esac
+		;;
+
+	spu-*-*)
+		supported_defaults="arch tune"
+
+		for which in arch tune; do
+			eval "val=\$with_$which"
+			case ${val} in
+			"" | cell | celledp)
+				# OK
+				;;
+			*)
+				echo "Unknown cpu used in --with-$which=$val." 1>&2
+				exit 1
+				;;
+			esac
+		done
 		;;
 
 	v850*-*-*)
