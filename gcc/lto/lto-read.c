@@ -1468,6 +1468,9 @@ lto_read_function_body (lto_info_fd *fd,
 #endif
   input_cfg (&ib_cfg, fn);
 
+  DECL_INITIAL (fn_decl) = DECL_SAVED_TREE (fn_decl) = make_node (BLOCK);
+  BLOCK_ABSTRACT_ORIGIN (DECL_SAVED_TREE (fn_decl)) = fn_decl;
+
 #ifdef LTO_STREAM_DEBUGGING
   lto_debug_context.current_data = &debug_main;
 #endif

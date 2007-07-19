@@ -1,3 +1,8 @@
+2007-07-19  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_finalize_function): Set properties of lowered
+	body.
+
 2007-07-13  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* flags.h (in_lto_p): New flag.

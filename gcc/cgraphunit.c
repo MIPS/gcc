@@ -527,6 +527,12 @@ cgraph_finalize_function (tree decl, bool nested)
   node->decl = decl;
   node->local.finalized = true;
   node->lowered = DECL_STRUCT_FUNCTION (decl)->cfg != NULL;
+  if (node->lowered)
+    {
+      DECL_STRUCT_FUNCTION (decl)->curr_properties
+	|= (PROP_gimple_leh | PROP_cfg | PROP_referenced_vars
+	    | PROP_gimple_lomp | PROP_gimple_any | PROP_gimple_lcf);
+    }
   record_cdtor_fn (node->decl);
   if (node->nested)
     lower_nested_functions (decl);
