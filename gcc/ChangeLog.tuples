@@ -1,3 +1,8 @@
+2007-07-20  Aldy Hernandez  <aldyh@redhat.com> 
+
+	* gimplify.c (gimplify_return_expr): Handle an empty ret_expr
+	gracefully.
+
 2007-07-19  Aldy Hernandez  <aldyh@redhat.com> 
 
 	* testsuite/gcc.dg/gimple/instrument.c: New.

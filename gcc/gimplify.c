@@ -1123,7 +1123,8 @@ gimplify_return_expr (tree stmt, gimple_seq pre_p)
       || ret_expr == error_mark_node)
     {
       gimple_add (pre_p,
-	      gimple_build_return (TREE_CODE (ret_expr) == RESULT_DECL,
+	      gimple_build_return (ret_expr
+				   && TREE_CODE (ret_expr) == RESULT_DECL,
 	                           ret_expr));
       return GS_ALL_DONE;
     }
