@@ -1,3 +1,9 @@
+2007-07-19  Aldy Hernandez  <aldyh@redhat.com> 
+
+	* testsuite/gcc.dg/gimple/instrument.c: New.
+	* gimplify.c (gimplify_function_tree): Generate tuples for function
+	instrumentation.
+
 2007-07-18  Aldy Hernandez  <aldyh@redhat.com> 
 
         * gimplify.c (gimple_add_tmp_var): Remove abort.  Add comment.

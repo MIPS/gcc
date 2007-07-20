@@ -6678,8 +6678,6 @@ gimplify_function_tree (tree fndecl)
   seq = (gimple_seq) ggc_alloc_cleared (sizeof (*seq));
   gimplify_body (&DECL_SAVED_TREE (fndecl), seq, fndecl, true);
 
-  /* FIXME tuples */
-#if 0
   /* If we're instrumenting function entry/exit, then prepend the call to
      the entry hook and wrap the whole function in a TRY_FINALLY_EXPR to
      catch the exit hook.  */
@@ -6687,26 +6685,21 @@ gimplify_function_tree (tree fndecl)
   if (flag_instrument_function_entry_exit
       && ! DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (fndecl))
     {
-      tree tf, x, bind;
+      tree x;
+      gimple tf, bind;
 
-      tf = build2 (TRY_FINALLY_EXPR, void_type_node, NULL, NULL);
-      TREE_SIDE_EFFECTS (tf) = 1;
-      x = DECL_SAVED_TREE (fndecl);
-      append_to_statement_list (x, &TREE_OPERAND (tf, 0));
+      tf = gimple_build_try (seq, NULL, GIMPLE_TRY_FINALLY);
       x = implicit_built_in_decls[BUILT_IN_PROFILE_FUNC_EXIT];
-      x = build_call_expr (x, 0);
-      append_to_statement_list (x, &TREE_OPERAND (tf, 1));
+      gimple_add (gimple_try_cleanup (tf), gimple_build_call (x, 0));
 
-      bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, NULL);
-      TREE_SIDE_EFFECTS (bind) = 1;
+      bind = gimple_build_bind (NULL, NULL);
       x = implicit_built_in_decls[BUILT_IN_PROFILE_FUNC_ENTER];
-      x = build_call_expr (x, 0);
-      append_to_statement_list (x, &BIND_EXPR_BODY (bind));
-      append_to_statement_list (tf, &BIND_EXPR_BODY (bind));
+      gimple_add (gimple_bind_body (bind), gimple_build_call (x, 0));
+      gimple_add (gimple_bind_body (bind), tf);
 
-      DECL_SAVED_TREE (fndecl) = bind;
+      gimple_seq_init (seq);
+      gimple_add (seq, bind);
     }
-#endif
 
   /* The tree body of the function is no longer needed, replace it
      with the new GIMPLE body.  */
