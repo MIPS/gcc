@@ -148,7 +148,7 @@ struct lang_type GTY(())
 
 /* Record parser information about an expression that is irrelevant
    for code generation alongside a tree representing its value.  */
-struct c_expr
+struct c_expr GTY(())
 {
   /* The value of the expression.  */
   tree value;

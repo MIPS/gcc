@@ -4322,22 +4322,22 @@ store_init_value (tree decl, tree init)
 /* Implement a spelling stack that allows components of a name to be pushed
    and popped.  Each element on the stack is this structure.  */
 
-struct spelling
+struct spelling GTY(())
 {
   int kind;
-  union
+  union u_u
     {
-      unsigned HOST_WIDE_INT i;
-      const char *s;
-    } u;
+      unsigned HOST_WIDE_INT GTY((tag ("0"))) i;
+      const char * GTY((tag ("1"))) s;
+    } GTY((desc("(%1.kind != SPELLING_BOUNDS)"))) u;
 };
 
 #define SPELLING_STRING 1
 #define SPELLING_MEMBER 2
 #define SPELLING_BOUNDS 3
 
-static struct spelling *spelling;	/* Next stack element (unused).  */
-static struct spelling *spelling_base;	/* Spelling stack base.  */
+static GTY(()) struct spelling *spelling;	/* Next stack element (unused).  */
+static GTY(()) struct spelling *spelling_base;	/* Spelling stack base.  */
 static int spelling_size;		/* Size of the spelling stack.  */
 
 /* Macros to save and restore the spelling stack around push_... functions.
@@ -4803,9 +4803,10 @@ static int constructor_erroneous;
 /* Structure for managing pending initializer elements, organized as an
    AVL tree.  */
 
-struct init_node
+struct init_node GTY(())
 {
-  struct init_node *left, *right;
+  struct init_node *left;
+  struct init_node *right;
   struct init_node *parent;
   int balance;
   tree purpose;
@@ -4817,7 +4818,7 @@ struct init_node
    which belong at places we haven't reached yet in actually
    writing the output.
    Will never hold tree nodes across GC runs.  */
-static struct init_node *constructor_pending_elts;
+static GTY(()) struct init_node *constructor_pending_elts;
 
 /* The SPELLING_DEPTH of this constructor.  */
 static int constructor_depth;
@@ -4846,7 +4847,7 @@ static int designator_erroneous;
 
 struct constructor_range_stack;
 
-struct constructor_stack
+struct constructor_stack GTY((chain_next("%h.next")))
 {
   struct constructor_stack *next;
   tree type;
@@ -4873,14 +4874,15 @@ struct constructor_stack
   char designated;
 };
 
-static struct constructor_stack *constructor_stack;
+static GTY(()) struct constructor_stack *constructor_stack;
 
 /* This stack represents designators from some range designator up to
    the last designator in the list.  */
 
-struct constructor_range_stack
+struct constructor_range_stack GTY((chain_next ("%h.next"), chain_prev ("%h.prev")))
 {
-  struct constructor_range_stack *next, *prev;
+  struct constructor_range_stack *next;
+  struct constructor_range_stack *prev;
   struct constructor_stack *stack;
   tree range_start;
   tree index;
@@ -4888,13 +4890,13 @@ struct constructor_range_stack
   tree fields;
 };
 
-static struct constructor_range_stack *constructor_range_stack;
+static GTY(()) struct constructor_range_stack *constructor_range_stack;
 
 /* This stack records separate initializers that are nested.
    Nested initializers can't happen in ANSI C, but GNU C allows them
    in cases like { ... (struct foo) { ... } ... }.  */
 
-struct initializer_stack
+struct initializer_stack GTY((chain_next ("%h.next")))
 {
   struct initializer_stack *next;
   tree decl;
@@ -4909,7 +4911,7 @@ struct initializer_stack
   char require_constant_elements;
 };
 
-static struct initializer_stack *initializer_stack;
+static GTY(()) struct initializer_stack *initializer_stack;
 
 /* Prepare to parse and output the initializer for variable DECL.  */
 
@@ -5538,7 +5540,7 @@ push_range_stack (tree range_end)
 {
   struct constructor_range_stack *p;
 
-  p = GGC_NEW (struct constructor_range_stack);
+  p = ggc_alloc_constructor_range_stack();
   p->prev = constructor_range_stack;
   p->next = 0;
   p->fields = constructor_fields;
@@ -5703,7 +5705,7 @@ add_pending_init (tree purpose, tree value)
 	}
     }
 
-  r = GGC_NEW (struct init_node);
+  r = ggc_alloc_init_node();
   r->purpose = purpose;
   r->value = value;
 
@@ -8719,3 +8721,6 @@ c_finish_omp_clauses (tree clauses)
   bitmap_obstack_release (NULL);
   return clauses;
 }
+
+#include "ggc-internal.h"
+#include "gt-c-typeck.h"
