@@ -21,6 +21,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_VALUE_PROF_H
 #define GCC_VALUE_PROF_H
 
+#include "obstack.h"
+
 /* Supported histogram types.  */
 enum hist_type
 {
@@ -70,7 +72,7 @@ typedef VEC(histogram_value,heap) *histogram_values;
 extern void tree_register_value_prof_hooks (void);
 
 /* IR-independent entry points.  */
-extern void find_values_to_profile (histogram_values *);
+extern void find_values_to_profile (histogram_values *, struct obstack *);
 extern bool value_profile_transformations (void);
 
 /* External declarations for edge-based profiling.  */

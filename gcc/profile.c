@@ -68,6 +68,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
+#include "obstack.h"
 
 /* Hooks for profiling.  */
 static struct profile_hooks* profile_hooks;
@@ -742,6 +743,7 @@ branch_prob (void)
   unsigned num_instrumented;
   struct edge_list *el;
   histogram_values values = NULL;
+  struct obstack hst_obstack;
 
   total_num_times_called++;
 
@@ -1017,7 +1019,10 @@ branch_prob (void)
 #undef BB_TO_GCOV_INDEX
 
   if (flag_profile_values)
-    find_values_to_profile (&values);
+    {
+      gcc_obstack_init (&hst_obstack);
+      find_values_to_profile (&values, &hst_obstack);
+    }
 
   if (flag_branch_probabilities)
     {
@@ -1046,6 +1051,9 @@ branch_prob (void)
       /* Commit changes done by instrumentation.  */
       bsi_commit_edge_inserts ();
     }
+
+  if (flag_profile_values)
+    obstack_free (&hst_obstack, NULL);
 
   free_aux_for_edges ();
 

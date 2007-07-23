@@ -34,6 +34,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "optabs.h"
 #include "regs.h"
 #include "ggc.h"
+#include "obstack.h"
 #include "tree-flow.h"
 #include "tree-flow-inline.h"
 #include "diagnostic.h"
@@ -694,7 +695,7 @@ tree_mod_subtract_transform (tree stmt)
 
 struct value_prof_hooks {
   /* Find list of values for which we want to measure histograms.  */
-  void (*find_values_to_profile) (histogram_values *);
+  void (*find_values_to_profile) (histogram_values *, struct obstack * );
 
   /* Identify and exploit properties of values that are hard to analyze
      statically.  See value-prof.c for more detail.  */
@@ -704,7 +705,8 @@ struct value_prof_hooks {
 /* Find values inside STMT for that we want to measure histograms for
    division/modulo optimization.  */
 static void
-tree_divmod_values_to_profile (tree stmt, histogram_values *values)
+tree_divmod_values_to_profile (tree stmt, histogram_values *values,
+                               struct obstack * hst_obstack)
 {
   tree assign, lhs, rhs, divisor, op0, type;
   histogram_value hist;
@@ -736,7 +738,7 @@ tree_divmod_values_to_profile (tree stmt, histogram_values *values)
 	{
 	  /* Check for the case where the divisor is the same value most
 	     of the time.  */
-	  hist = ggc_alloc (sizeof (*hist));
+          hist = (histogram_value)obstack_alloc (hst_obstack, sizeof (*hist));
 	  hist->hvalue.value = divisor;
 	  hist->hvalue.stmt = stmt;
 	  hist->type = HIST_TYPE_SINGLE_VALUE;
@@ -749,13 +751,13 @@ tree_divmod_values_to_profile (tree stmt, histogram_values *values)
 	  && TYPE_UNSIGNED (type))
 	{
           /* Check for a special case where the divisor is power of 2.  */
-	  hist = ggc_alloc (sizeof (*hist));
+	  hist = (histogram_value)obstack_alloc (hst_obstack, sizeof (*hist));
 	  hist->hvalue.value = divisor;
 	  hist->hvalue.stmt = stmt;
 	  hist->type = HIST_TYPE_POW2;
 	  VEC_quick_push (histogram_value, *values, hist);
 
-	  hist = ggc_alloc (sizeof (*hist));
+	  hist = (histogram_value)obstack_alloc (hst_obstack, sizeof (*hist));
 	  hist->hvalue.stmt = stmt;
 	  hist->hvalue.value
 		  = build2 (TRUNC_DIV_EXPR, type, op0, divisor);
@@ -775,14 +777,16 @@ tree_divmod_values_to_profile (tree stmt, histogram_values *values)
    them to list VALUES.  */
 
 static void
-tree_values_to_profile (tree stmt, histogram_values *values)
+tree_values_to_profile (tree stmt, histogram_values *values,
+                        struct obstack * hst_obstack)
 {
   if (flag_value_profile_transformations)
-    tree_divmod_values_to_profile (stmt, values);
+    tree_divmod_values_to_profile (stmt, values, hst_obstack);
 }
 
 static void
-tree_find_values_to_profile (histogram_values *values)
+tree_find_values_to_profile (histogram_values *values,
+                             struct obstack * hst_obstack)
 {
   basic_block bb;
   block_stmt_iterator bsi;
@@ -792,7 +796,7 @@ tree_find_values_to_profile (histogram_values *values)
   *values = NULL;
   FOR_EACH_BB (bb)
     for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-      tree_values_to_profile (bsi_stmt (bsi), values);
+      tree_values_to_profile (bsi_stmt (bsi), values, hst_obstack);
   static_values = *values;
   
   for (i = 0; VEC_iterate (histogram_value, *values, i, hist); i++)
@@ -863,9 +867,9 @@ tree_register_value_prof_hooks (void)
 
 /* IR-independent entry points.  */
 void
-find_values_to_profile (histogram_values *values)
+find_values_to_profile (histogram_values *values, struct obstack * hst_obstack)
 {
-  (value_prof_hooks->find_values_to_profile) (values);
+  (value_prof_hooks->find_values_to_profile) (values, hst_obstack);
 }
 
 bool

@@ -810,6 +810,7 @@ TREE_DATA_REF_H = tree-data-ref.h $(LAMBDA_H)
 VARRAY_H = varray.h $(MACHMODE_H) $(SYSTEM_H) coretypes.h $(TM_H)
 TREE_INLINE_H = tree-inline.h varray.h $(SPLAY_TREE_H)
 REAL_H = real.h $(MACHMODE_H)
+VALUE_PROF_H = value-prof.h $(OBSTACK_H)
 
 #
 # Now figure out from those variables how to compile and link.
@@ -2151,7 +2152,7 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(INSN_ATTR_H) output.h $(DIAGNOSTIC_H) debug.h insn-config.h intl.h \
    $(RECOG_H) Makefile toplev.h dwarf2out.h sdbout.h dbxout.h $(EXPR_H) \
    hard-reg-set.h $(BASIC_BLOCK_H) graph.h except.h $(REGS_H) $(TIMEVAR_H) \
-   value-prof.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) \
+   $(VALUE_PROF_H) $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) \
    langhooks.h insn-flags.h $(CFGLAYOUT_H) $(CFGLOOP_H) hosthooks.h \
    $(CGRAPH_H) $(COVERAGE_H) alloc-pool.h $(GGC_H) $(INTEGRATE_H) \
    $(CPPLIB_H) opts.h params.def tree-mudflap.h $(REAL_H)
@@ -2163,7 +2164,7 @@ passes.o : passes.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) $(FUNCTION_H) $(FLAGS_H) xcoffout.h input.h $(INSN_ATTR_H) output.h \
    $(DIAGNOSTIC_H) debug.h insn-config.h intl.h $(RECOG_H) toplev.h \
    dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \
-   graph.h except.h $(REGS_H) $(TIMEVAR_H) value-prof.h \
+   graph.h except.h $(REGS_H) $(TIMEVAR_H) $(VALUE_PROF_H) \
    $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) \
    langhooks.h insn-flags.h $(CFGLAYOUT_H) $(REAL_H) $(CFGLOOP_H) \
    hosthooks.h $(CGRAPH_H) $(COVERAGE_H) tree-pass.h $(TREE_DUMP_H) \
@@ -2400,17 +2401,17 @@ conflict.o : conflict.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(OBSTACK_H)
    $(HASHTAB_H) $(RTL_H) hard-reg-set.h $(BASIC_BLOCK_H)
 profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) $(FUNCTION_H) \
-   toplev.h $(COVERAGE_H) $(TREE_FLOW_H) value-prof.h cfghooks.h \
-   cfgloop.h timevar.h tree-pass.h
+   toplev.h $(COVERAGE_H) $(TREE_FLOW_H) $(VALUE_PROF_H) cfghooks.h \
+   cfgloop.h timevar.h tree-pass.h $(OBSTACK_H)
 tree-profile.o : tree-profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) \
-   $(FUNCTION_H) toplev.h $(COVERAGE_H) $(TREE_H) value-prof.h $(TREE_DUMP_H) \
+   $(FUNCTION_H) toplev.h $(COVERAGE_H) $(TREE_H) $(VALUE_PROF_H) $(TREE_DUMP_H) \
    tree-pass.h $(TREE_FLOW_H) $(TIMEVAR_H) $(GGC_H) gt-tree-profile.h
 value-prof.o : value-prof.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-   $(BASIC_BLOCK_H) hard-reg-set.h value-prof.h $(EXPR_H) output.h $(FLAGS_H) \
+   $(BASIC_BLOCK_H) hard-reg-set.h $(VALUE_PROF_H) $(EXPR_H) output.h $(FLAGS_H) \
    $(RECOG_H) insn-config.h $(OPTABS_H) $(REGS_H) $(GGC_H) $(DIAGNOSTIC_H) \
    $(TREE_H) $(COVERAGE_H) $(RTL_H) $(GCOV_IO_H) $(TREE_FLOW_H) \
-   tree-flow-inline.h timevar.h tree-pass.h
+   tree-flow-inline.h timevar.h tree-pass.h $(OBSTACK_H)
 loop-doloop.o : loop-doloop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) $(FLAGS_H) $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TM_P_H) \
    toplev.h $(CFGLOOP_H) output.h $(PARAMS_H) $(TARGET_H)
