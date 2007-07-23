@@ -61,6 +61,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "except.h"
 #include "langhooks-def.h"
 #include "pointer-set.h"
+#include "gimple.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -6682,9 +6683,13 @@ static void
 c_gimple_diagnostics_recursively (tree fndecl)
 {
   struct cgraph_node *cgn;
+  gimple_seq body = gimple_body (fndecl);
 
   /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
-  c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
+  c_warn_unused_result (body);
+
+  if (flag_gimple_only)
+    exit (0);
 
   /* Notice when OpenMP structured block constraints are violated.  */
   if (flag_openmp)

@@ -858,7 +858,7 @@ extern void dump_time_statistics (void);
 
 extern bool c_dump_tree (void *, tree);
 
-extern void c_warn_unused_result (tree *);
+extern void c_warn_unused_result (gimple_seq);
 
 extern void verify_sequence_points (tree);
 

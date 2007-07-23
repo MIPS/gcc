@@ -107,9 +107,6 @@ c_genericize (tree fndecl)
 
   dump_function (TDI_generic, fndecl);
 
-  if (flag_gimple_only)
-    exit (0);
-
   /* Genericize all nested functions now.  We do things in this order so
      that items like VLA sizes are expanded properly in the context of
      the correct function.  */

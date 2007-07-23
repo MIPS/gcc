@@ -334,14 +334,15 @@ gimple_build_asm (const char *string, unsigned ninputs, unsigned noutputs,
   HANDLER is the exception handler.  */
 
 gimple
-gimple_build_catch (tree types, gimple handler)
+gimple_build_catch (tree types, gimple_seq handler)
 {
   gimple p;
 
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_catch));
   GIMPLE_CODE (p) = GIMPLE_CATCH;
   gimple_catch_set_types (p, types);
-  gimple_catch_set_handler (p, handler);
+  if (handler)
+    gimple_catch_set_handler (p, handler);
 
   return p;
 }
@@ -352,14 +353,15 @@ gimple_build_catch (tree types, gimple handler)
    FAILURE is the filter's failure action.  */
 
 gimple
-gimple_build_eh_filter (tree types, gimple failure)
+gimple_build_eh_filter (tree types, gimple_seq failure)
 {
   gimple p;
 
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_eh_filter));
   GIMPLE_CODE (p) = GIMPLE_EH_FILTER;
   gimple_eh_filter_set_types (p, types);
-  gimple_eh_filter_set_failure (p, failure);
+  if (failure)
+    gimple_eh_filter_set_failure (p, failure);
 
   return p;
 }
@@ -865,7 +867,7 @@ walk_tuple_ops (gimple gs, walk_tree_fn func, void *data,
 
     case GIMPLE_CATCH:
       WALKIT (gimple_catch_types (gs));
-      walk_tuple_ops (gimple_catch_handler (gs), func, data, pset);
+      walk_seq_ops (gimple_catch_handler (gs), func, data, pset);
       break;
 
     case GIMPLE_COND:
@@ -877,7 +879,7 @@ walk_tuple_ops (gimple gs, walk_tree_fn func, void *data,
 
     case GIMPLE_EH_FILTER:
       WALKIT (gimple_eh_filter_types (gs));
-      walk_tuple_ops (gimple_eh_filter_failure (gs), func, data, pset);
+      walk_seq_ops (gimple_eh_filter_failure (gs), func, data, pset);
       break;
 
     case GIMPLE_GOTO:

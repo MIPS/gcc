@@ -1,3 +1,33 @@
+2007-07-23  Aldy Hernandez  <aldyh@redhat.com>
+
+	* testsuite/gcc.dg/gimple/call2.c: New.
+	* c-decl.c: Include gimple.h.
+	(c_gimple_diagnostics_recursively): Call c_warn_unused_result with
+	tuplified body.
+	Exit if -fgimple-only.
+	* gimplify.c (gimplify_call_expr): Call gimple_build_call_vec with
+	the correct callee.
+	* c-gimplify.c (c_genericize): Remove exit.
+	* c-common.c: Include gimple.h.
+	(c_warn_unused_result): Tuplify.
+	* c-common.h (c_warn_unused_result): Protoize.
+	* Makefile.in (c-decl.o): Depend on GIMPLE_H.
+	(c-common.o): Same.
+	* gimple.c (gimple_build_catch): Handler is a sequence.
+	Adjust accordingly.
+	(gimple_build_eh_filter): Failure is a sequence.
+	Adjust accordingly.
+	(walk_tuple_ops): case GIMPLE_CATCH: Walk handler as a sequence.
+	case GIMPLE_EH_FILTER: Walkder failure as a sequence.
+	* gimple.h (gimple_statement_catch): Make handler a sequence.
+	(gimple_statement_eh_filter): Make failure a sequence.
+	(gimple_build_catch): Make second argument a sequence.
+	(gimple_build_eh_filter): Same.
+	(gimple_catch_handler): Return a sequence.
+	(gimple_catch_set_handler): Make second argument a sequence.
+	(gimple_eh_filter_failure): Return a sequence.
+	(gimple_eh_filter_set_failture): Make second argument a sequence.
+
 2007-07-20  Aldy Hernandez  <aldyh@redhat.com> 
 
 	* gimplify.c (gimplify_return_expr): Handle an empty ret_expr

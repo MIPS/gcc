@@ -148,7 +148,7 @@ struct gimple_statement_catch GTY(())
 {
   struct gimple_statement_base base;
   tree types;
-  gimple handler;
+  gimple_seq handler;
 };
 
 /* GIMPLE_EH_FILTER */
@@ -158,7 +158,7 @@ struct gimple_statement_eh_filter GTY(())
   /* Filter types.  */
   tree types;
   /* Failure actions.  */
-  gimple failure;
+  gimple_seq failure;
 };
 
 /* GIMPLE_LABEL */
@@ -405,8 +405,8 @@ extern gimple gimple_build_nop (void);
 extern gimple gimple_build_bind (tree, gimple_seq);
 extern gimple gimple_build_asm (const char *, unsigned, unsigned, unsigned,
                                 ...);
-extern gimple gimple_build_catch (tree, gimple);
-extern gimple gimple_build_eh_filter (tree, gimple);
+extern gimple gimple_build_catch (tree, gimple_seq);
+extern gimple gimple_build_eh_filter (tree, gimple_seq);
 extern gimple gimple_build_try (gimple_seq, gimple_seq, unsigned int);
 extern gimple gimple_build_phi (unsigned, unsigned, tree, ...);
 extern gimple gimple_build_resx (int);
@@ -894,7 +894,7 @@ gimple_catch_types (gimple gs)
  return gs->gimple_catch.types;
 }
 
-static inline gimple
+static inline gimple_seq
 gimple_catch_handler (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_CATCH);
@@ -909,7 +909,7 @@ gimple_catch_set_types (gimple gs, tree t)
 }
 
 static inline void
-gimple_catch_set_handler (gimple gs, gimple handler)
+gimple_catch_set_handler (gimple gs, gimple_seq handler)
 {
   GIMPLE_CHECK (gs, GIMPLE_CATCH);
   gs->gimple_catch.handler = handler;
@@ -924,7 +924,7 @@ gimple_eh_filter_types (gimple gs)
   return gs->gimple_eh_filter.types;
 }
 
-static inline gimple
+static inline gimple_seq
 gimple_eh_filter_failure (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_EH_FILTER);
@@ -939,7 +939,7 @@ gimple_eh_filter_set_types (gimple gs, tree types)
 }
 
 static inline void
-gimple_eh_filter_set_failure (gimple gs, gimple failure)
+gimple_eh_filter_set_failure (gimple gs, gimple_seq failure)
 {
   GIMPLE_CHECK (gs, GIMPLE_EH_FILTER);
   gs->gimple_eh_filter.failure = failure;
