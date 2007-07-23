@@ -31,6 +31,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "diagnostic.h"
 #include "langhooks.h"
 #include "c-format.h"
+#include "obstack.h"
 
 /* Set format warning options according to a -Wformat=n option.  */
 
@@ -811,7 +812,7 @@ static void check_format_arg (void *, tree, unsigned HOST_WIDE_INT);
 static void check_format_info_main (format_check_results *,
 				    function_format_info *,
 				    const char *, int, tree,
-				    unsigned HOST_WIDE_INT);
+                                    unsigned HOST_WIDE_INT, struct obstack *);
 
 static void init_dollar_format_checking (int, tree);
 static int maybe_read_dollar_number (const char **, int,
@@ -1281,6 +1282,8 @@ check_format_arg (void *ctx, tree format_tree,
   tree array_size = 0;
   tree array_init;
 
+  struct obstack fwt_obstack;
+
   if (integer_zerop (format_tree))
     {
       /* Skip to first argument to check, so we can see if this format
@@ -1414,8 +1417,10 @@ check_format_arg (void *ctx, tree format_tree,
      will decrement it if it finds there are extra arguments, but this way
      need not adjust it for every return.  */
   res->number_other++;
+  gcc_obstack_init (&fwt_obstack);
   check_format_info_main (res, info, format_chars, format_length,
-			  params, arg_num);
+                          params, arg_num, &fwt_obstack);
+  obstack_free (&fwt_obstack, NULL);
 }
 
 
@@ -1430,7 +1435,8 @@ static void
 check_format_info_main (format_check_results *res,
 			function_format_info *info, const char *format_chars,
 			int format_length, tree params,
-			unsigned HOST_WIDE_INT arg_num)
+                        unsigned HOST_WIDE_INT arg_num,
+                        struct obstack *fwt_obstack)
 {
   const char *orig_format_chars = format_chars;
   tree first_fillin_param = params;
@@ -2077,7 +2083,7 @@ check_format_info_main (format_check_results *res,
 	      fci = fci->chain;
 	      if (fci)
 		{
-		  wanted_type_ptr = GGC_NEW (format_wanted_type);
+                  wanted_type_ptr = (format_wanted_type *)obstack_alloc (fwt_obstack, sizeof(format_wanted_type));
 		  arg_num++;
 		  wanted_type = *fci->types[length_chars_val].type;
 		  wanted_type_name = fci->types[length_chars_val].name;
