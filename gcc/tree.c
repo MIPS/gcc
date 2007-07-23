@@ -6373,9 +6373,10 @@ decl_type_context (tree decl)
   return NULL_TREE;
 }
 
-/* CALL is a CALL_EXPR.  Return the declaration for the function
-   called, or NULL_TREE if the called function cannot be
-   determined.  */
+/* CALL is either a CALL_EXPR or the function to call (usually the
+   value of CALL_EXPR_FN in the original CALL_EXPR, or the CALL_FN in
+   a GIMPLE_CALL).  Return the declaration for the function called, or
+   NULL_TREE if the called function cannot be determined.  */
 
 tree
 get_callee_fndecl (tree call)
@@ -6385,13 +6386,16 @@ get_callee_fndecl (tree call)
   if (call == error_mark_node)
     return call;
 
-  /* It's invalid to call this function with anything but a
-     CALL_EXPR.  */
-  gcc_assert (TREE_CODE (call) == CALL_EXPR);
-
   /* The first operand to the CALL is the address of the function
      called.  */
-  addr = CALL_EXPR_FN (call);
+  if (TREE_CODE (call) == CALL_EXPR)
+    addr = CALL_EXPR_FN (call);
+  else
+    {
+      /* If we don't have a CALL_EXPR, we must have the function
+	 itself already.  */
+      addr = call;
+    }
 
   STRIP_NOPS (addr);
 

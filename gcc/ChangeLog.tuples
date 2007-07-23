@@ -1,5 +1,11 @@
 2007-07-23  Aldy Hernandez  <aldyh@redhat.com>
 
+	* tree.c (get_callee_fndecl): Work when only the CALL_EXPR_FN has
+	been passed.
+	* c-common.c (c_warn_unused_result): Use get_callee_fndecl.
+	
+2007-07-23  Aldy Hernandez  <aldyh@redhat.com>
+
 	* testsuite/gcc.dg/gimple/call2.c: New.
 	* c-decl.c: Include gimple.h.
 	(c_gimple_diagnostics_recursively): Call c_warn_unused_result with
@@ -881,3 +887,7 @@
 	(gimplify.o): Add GIMPLE_IR_H.
 	(gimple-ir.o): New.
 	(build/gencheck.o): Add gs.def.
+
+Local Variables:
+mode: change-log
+End:
