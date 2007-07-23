@@ -1,3 +1,8 @@
+2006-09-19  Paul Brook  <paul@codesourcery.com>
+
+	PR target/28516
+	* gcc.dg/nested-func-5.c: New test.
+
 2007-07-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* gcc.dg/c99-math-double-1.c: Mark test variables as volatile.

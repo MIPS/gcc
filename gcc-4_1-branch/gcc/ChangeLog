@@ -1,3 +1,8 @@
+2006-09-19  Paul Brook  <paul@codesourcery.com>
+
+	PR target/28516
+	* config/arm/arm.c (arm_unwind_emit_set): Handle reg = sp + const.
+
 2007-07-16  Richard Guenther  <rguenther@suse.de>
 	    Uros Bizjak  <ubizjak@gmail.com>
 
