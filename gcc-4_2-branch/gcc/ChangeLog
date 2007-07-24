@@ -1,3 +1,97 @@
+2007-07-24  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/32723
+	Backport from mainline:
+	2007-03-09  Daniel Berlin  <dberlin@dberlin.org>
+
+        * tree-ssa-structalias.c (shared_bitmap_info_t): New structure.
+        (shared_bitmap_table): New variable.
+        (shared_bitmap_hash): New function.
+        (shared_bitmap_eq): Ditto
+        (shared_bitmap_lookup): Ditto.
+        (shared_bitmap_add): Ditto.
+        (find_what_p_points_to): Rewrite to use shared bitmap hashtable.
+        (init_alias_vars): Init shared bitmap hashtable.
+        (delete_points_to_sets): Delete shared bitmap hashtable.
+
+2007-07-23  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* reload1.c (choose_reload_regs): Set reload_spill_index for regs
+	chosen during find_reloads.
+
+2007-07-19  Release Manager
+
+	* GCC 4.2.1 released.
+
+2007-07-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	Revert:
+
+	2007-07-09  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR middle-end/32004
+	* function.c (rest_of_match_asm_constraints): Pass PROP_REG_INFO.
+
+	2007-07-06  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR middle-end/32004
+	* function.c (match_asm_constraints_1, rest_of_match_asm_constraints,
+	pass_match_asm_constraints): New.
+	* passes.c (init_optimization_passes): Add new pass.
+	* stmt.c (expand_asm_operands): Set cfun->has_asm_statement.
+	* function.h (struct function): Add has_asm_statement bit.
+	(current_function_has_asm_statement): New.
+	* tree-pass.h (pass_match_asm_constraints): New.
+
+2007-07-16  Paul Brook  <paul@codesourcery.com>
+
+	PR target/32753
+	gcc/
+	* config/arm/cirrus.md (cirrus_arm_movsi_insn): Remove dead insn.
+
+2007-07-10  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR target/32538
+	* config/mips/iris6.h (LIBGCC_SPEC): Add libm.
+
+2007-07-09  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR middle-end/32004
+	* function.c (rest_of_match_asm_constraints): Pass PROP_REG_INFO.
+
+2007-07-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/32681
+	* tree-if-conv.c (find_phi_replacement_condition): Use the condition
+	saved in second_edge->aux when first_bb is a loop header.
+
+2007-07-07 Anatoly Sokolov <aesok@post.ru>
+
+	PR target/31331
+	* config/avr/avr.c (avr_naked_function_p): Handle receiving a type
+	rather than a decl. 
+	(avr_attribute_table): Make "naked" attribute apply to function types
+	rather than to decls.
+	(avr_handle_fntype_attribute): New function.
+
+2007-07-06  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR middle-end/32004
+	* function.c (match_asm_constraints_1, rest_of_match_asm_constraints,
+	pass_match_asm_constraints): New.
+	* passes.c (init_optimization_passes): Add new pass.
+	* stmt.c (expand_asm_operands): Set cfun->has_asm_statement.
+	* function.h (struct function): Add has_asm_statement bit.
+	(current_function_has_asm_statement): New.
+	* tree-pass.h (pass_match_asm_constraints): New.
+
+2007-07-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/32450
+	* function.c (thread_prologue_and_epilogue_insns): Emit blockage insn
+	to ensure that instructions are not moved into the prologue when
+	profiling is on.
+
 2007-07-04  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/32500

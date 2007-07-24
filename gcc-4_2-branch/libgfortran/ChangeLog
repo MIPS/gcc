@@ -1,3 +1,23 @@
+2007-07-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/32752
+	PR libgfortran/32678
+	Backport from trunk.
+	* io/transfer.c (formatted_transfer_scalar): If stream I/O, set
+	bytes_used to zero. Fix off by one error in calculation of pos and
+	skips. Don't allow pending_spaces to go negative.
+
+2007-07-19  Release Manager
+
+	* GCC 4.2.1 released.
+
+2007-07-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/32554
+	Backport from trunk.
+	* io/write.c (output_float): Set edigits to a fixed size, avoiding
+	variation in field width calculation and eliminate buffer overrun.
+
 2007-05-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libfortran/31964
