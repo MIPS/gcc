@@ -1,3 +1,12 @@
+2007-07-24  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree.c (get_callee_fndecl): Revert previous change.
+	* gimplify.c (gimplify_call_expr): Use result from
+	get_callee_fndecl if available.
+	* c-common.c (c_warn_unused_result): Do not use
+	get_callee_fndecl.
+	Add assertion.
+
 2007-07-24  Diego Novillo  <dnovillo@google.com>
 
 	Merge with mainline (@126872)

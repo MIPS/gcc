@@ -2258,7 +2258,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq pre_p, bool want_value)
 
   /* Now add the GIMPLE call to PRE_P.  If WANT_VALUE is set, we need
      to create the appropriate temporary for the call's LHS.  */
-  call = gimple_build_call_vec (CALL_EXPR_FN (*expr_p), args);
+  call = gimple_build_call_vec (fndecl ? fndecl : CALL_EXPR_FN (*expr_p), args);
   gimple_add (pre_p, call);
   if (want_value)
     {

@@ -6468,15 +6468,16 @@ c_warn_unused_result (gimple_seq seq)
 	  /* This is a naked call, as opposed to a GIMPLE_CALL with an
 	     LHS.  All calls whose value is ignored should be
 	     represented like this.  Look for the attribute.  */
-	  fdecl = get_callee_fndecl (gimple_call_fn (g));
-	  if (fdecl)
+	  fdecl = gimple_call_fn (g);
+	  if (TREE_CODE (fdecl) == FUNCTION_DECL)
 	    ftype = TREE_TYPE (fdecl);
 	  else
 	    {
-	      ftype = TREE_TYPE (gimple_call_fn (g));
+	      ftype = TREE_TYPE (fdecl);
 	      /* Look past pointer-to-function to the function type itself.  */
 	      ftype = TREE_TYPE (ftype);
 	    }
+	  gcc_assert (TREE_CODE (ftype) == FUNCTION_TYPE);
 
 	  if (lookup_attribute ("warn_unused_result", TYPE_ATTRIBUTES (ftype)))
 	    {
