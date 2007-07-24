@@ -19,7 +19,6 @@
 	
 2007-07-23  Aldy Hernandez  <aldyh@redhat.com>
 
-	* testsuite/gcc.dg/gimple/call2.c: New.
 	* c-decl.c: Include gimple.h.
 	(c_gimple_diagnostics_recursively): Call c_warn_unused_result with
 	tuplified body.
@@ -60,7 +59,7 @@
 
 2007-07-18  Aldy Hernandez  <aldyh@redhat.com> 
 
-        * gimplify.c (gimple_add_tmp_var): Remove abort.  Add comment.
+	* gimplify.c (gimple_add_tmp_var): Remove abort.  Add comment.
 	
 2007-07-18  Aldy Hernandez  <aldyh@redhat.com> 
 

@@ -2,6 +2,10 @@
 
 	* gcc.dg/gimple/constructors.c: Fix expected pattern.
 
+2007-07-23  Aldy Hernandez  <aldyh@redhat.com>
+
+	* testsuite/gcc.dg/gimple/call2.c: New.
+
 2007-07-16  Chris Matthews  <chrismatthews@google.com>
 
 	* gs_assign.c: Renamed to gimple_assign.c.
