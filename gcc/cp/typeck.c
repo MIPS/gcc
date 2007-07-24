@@ -943,20 +943,10 @@ structural_comptypes (tree t1, tree t2, int strict)
   /* TYPENAME_TYPEs should be resolved if the qualifying scope is the
      current instantiation.  */
   if (TREE_CODE (t1) == TYPENAME_TYPE)
-    {
-      tree resolved = resolve_typename_type (t1, /*only_current_p=*/true);
-
-      if (resolved != error_mark_node)
-	t1 = resolved;
-    }
+    t1 = resolve_typename_type (t1, /*only_current_p=*/true);
 
   if (TREE_CODE (t2) == TYPENAME_TYPE)
-    {
-      tree resolved = resolve_typename_type (t2, /*only_current_p=*/true);
-
-      if (resolved != error_mark_node)
-	t2 = resolved;
-    }
+    t2 = resolve_typename_type (t2, /*only_current_p=*/true);
 
   if (TYPE_PTRMEMFUNC_P (t1))
     t1 = TYPE_PTRMEMFUNC_FN_TYPE (t1);
@@ -1026,8 +1016,12 @@ structural_comptypes (tree t1, tree t2, int strict)
 	return false;
       break;
 
-    case POINTER_TYPE:
     case REFERENCE_TYPE:
+      if (TYPE_REF_IS_RVALUE (t1) != TYPE_REF_IS_RVALUE (t2))
+	return false;
+      /* fall through to checks for pointer types */
+
+    case POINTER_TYPE:
       if (TYPE_MODE (t1) != TYPE_MODE (t2)
 	  || TYPE_REF_CAN_ALIAS_ALL (t1) != TYPE_REF_CAN_ALIAS_ALL (t2)
 	  || !same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
@@ -1104,8 +1098,6 @@ comptypes (tree t1, tree t2, int strict)
 {
   if (strict == COMPARE_STRICT)
     {
-      bool result;
-
       if (t1 == t2)
 	return true;
 
@@ -1117,37 +1109,34 @@ comptypes (tree t1, tree t2, int strict)
 	   perform a deep check. */
 	return structural_comptypes (t1, t2, strict);
 
-      if (VERIFY_CANONICAL_TYPES)
+#ifdef ENABLE_CHECKING
+      if (USE_CANONICAL_TYPES)
 	{
-	  result = structural_comptypes (t1, t2, strict);
-
+	  bool result = structural_comptypes (t1, t2, strict);
+	  
 	  if (result && TYPE_CANONICAL (t1) != TYPE_CANONICAL (t2))
-	    {
-	      /* The two types are structurally equivalent, but their
-		 canonical types were different. This is a failure of the
-		 canonical type propagation code.*/
-	      warning(0,
-		      "canonical types differ for identical types %T and %T", 
-		      t1, t2);
-	      debug_tree (t1);
-	      debug_tree (t2);
-	    }
+	    /* The two types are structurally equivalent, but their
+	       canonical types were different. This is a failure of the
+	       canonical type propagation code.*/
+	    internal_error 
+	      ("canonical types differ for identical types %T and %T", 
+	       t1, t2);
 	  else if (!result && TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2))
-	    {
-	      /* Two types are structurally different, but the canonical
-		 types are the same. This means we were over-eager in
-		 assigning canonical types. */
-	      warning (0, 
-		       "same canonical type node for different types %T and %T",
-		       t1, t2);
-	      debug_tree (t1);
-	      debug_tree (t2);
-	    }
+	    /* Two types are structurally different, but the canonical
+	       types are the same. This means we were over-eager in
+	       assigning canonical types. */
+	    internal_error 
+	      ("same canonical type node for different types %T and %T",
+	       t1, t2);
 	  
 	  return result;
 	}
-      else
+#else
+      if (USE_CANONICAL_TYPES)
 	return TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2);
+#endif
+      else
+	return structural_comptypes (t1, t2, strict);
     }
   else if (strict == COMPARE_STRUCTURAL)
     return structural_comptypes (t1, t2, COMPARE_STRICT);
@@ -1357,7 +1346,10 @@ cxx_alignof_expr (tree e)
     {
       pedwarn ("ISO C++ forbids applying %<__alignof%> to an expression of "
 	       "function type");
-      t = size_one_node;
+      if (TREE_CODE (e) == FUNCTION_DECL)
+	t = size_int (DECL_ALIGN_UNIT (e));
+      else
+	t = size_one_node;
     }
   else if (type_unknown_p (e))
     {
@@ -2623,8 +2615,8 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	    return error_mark_node;
 	}
       /* ...and then the delta in the PMF.  */
-      instance_ptr = build2 (PLUS_EXPR, TREE_TYPE (instance_ptr),
-			     instance_ptr, delta);
+      instance_ptr = build2 (POINTER_PLUS_EXPR, TREE_TYPE (instance_ptr),
+			     instance_ptr, fold_convert (sizetype, delta));
 
       /* Hand back the adjusted 'this' argument to our caller.  */
       *instance_ptrptr = instance_ptr;
@@ -2635,7 +2627,8 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
       vtbl = build_indirect_ref (vtbl, NULL);
 
       /* Finally, extract the function pointer from the vtable.  */
-      e2 = fold_build2 (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, idx);
+      e2 = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (vtbl), vtbl,
+			fold_convert (sizetype, idx));
       e2 = build_indirect_ref (e2, NULL);
       TREE_CONSTANT (e2) = 1;
       TREE_INVARIANT (e2) = 1;
@@ -2892,8 +2885,14 @@ convert_arguments (int nargs, tree *argarray,
 
   if (typetail != 0 && typetail != void_list_node)
     {
-      /* See if there are default arguments that can be used.  */
-      if (TREE_PURPOSE (typetail)
+      /* See if there are default arguments that can be used.  Because
+	 we hold default arguments in the FUNCTION_TYPE (which is so
+	 wrong), we can see default parameters here from deduced
+	 contexts (and via typeof) for indirect function calls.
+	 Fortunately we know whether we have a function decl to
+	 provide default arguments in a language conformant
+	 manner.  */
+      if (fndecl && TREE_PURPOSE (typetail)
 	  && TREE_CODE (TREE_PURPOSE (typetail)) != DEFAULT_ARG)
 	{
 	  for (; typetail != void_list_node; ++i)
@@ -3552,7 +3551,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      || !same_scalar_type_ignoring_signedness (TREE_TYPE (type0),
 							TREE_TYPE (type1)))
 	    {
-	      binary_op_error (code);
+	      binary_op_error (code, type0, type1);
 	      return error_mark_node;
 	    }
 	  arithmetic_types_p = 1;
@@ -3574,9 +3573,17 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
   /* If we're in a template, the only thing we need to know is the
      RESULT_TYPE.  */
   if (processing_template_decl)
-    return build2 (resultcode,
-		   build_type ? build_type : result_type,
-		   op0, op1);
+    {
+      /* Since the middle-end checks the type when doing a build2, we
+	 need to build the tree in pieces.  This built tree will never
+	 get out of the front-end as we replace it when instantiating
+	 the template.  */
+      tree tmp = build2 (resultcode,
+			 build_type ? build_type : result_type,
+			 NULL_TREE, op1);
+      TREE_OPERAND (tmp, 0) = op0;
+      return tmp;
+    }
 
   if (arithmetic_types_p)
     {
@@ -6532,6 +6539,7 @@ check_return_expr (tree retval, bool *no_warning)
      promotions.  */
   tree valtype;
   int fn_returns_value_p;
+  bool named_return_value_okay_p;
 
   *no_warning = false;
 
@@ -6680,20 +6688,26 @@ check_return_expr (tree retval, bool *no_warning)
 
      See finish_function and finalize_nrv for the rest of this optimization.  */
 
+  named_return_value_okay_p = 
+    (retval != NULL_TREE
+     /* Must be a local, automatic variable.  */
+     && TREE_CODE (retval) == VAR_DECL
+     && DECL_CONTEXT (retval) == current_function_decl
+     && ! TREE_STATIC (retval)
+     && (DECL_ALIGN (retval)
+         >= DECL_ALIGN (DECL_RESULT (current_function_decl)))
+     /* The cv-unqualified type of the returned value must be the
+        same as the cv-unqualified return type of the
+        function.  */
+     && same_type_p ((TYPE_MAIN_VARIANT (TREE_TYPE (retval))),
+                     (TYPE_MAIN_VARIANT
+                      (TREE_TYPE (TREE_TYPE (current_function_decl))))));
+     
   if (fn_returns_value_p && flag_elide_constructors)
     {
-      if (retval != NULL_TREE
-	  && (current_function_return_value == NULL_TREE
-	      || current_function_return_value == retval)
-	  && TREE_CODE (retval) == VAR_DECL
-	  && DECL_CONTEXT (retval) == current_function_decl
-	  && ! TREE_STATIC (retval)
-	  && (DECL_ALIGN (retval)
-	      >= DECL_ALIGN (DECL_RESULT (current_function_decl)))
-	  && same_type_p ((TYPE_MAIN_VARIANT
-			   (TREE_TYPE (retval))),
-			  (TYPE_MAIN_VARIANT
-			   (TREE_TYPE (TREE_TYPE (current_function_decl))))))
+      if (named_return_value_okay_p
+          && (current_function_return_value == NULL_TREE
+              || current_function_return_value == retval))
 	current_function_return_value = retval;
       else
 	current_function_return_value = error_mark_node;
@@ -6712,18 +6726,29 @@ check_return_expr (tree retval, bool *no_warning)
     {
       /* The type the function is declared to return.  */
       tree functype = TREE_TYPE (TREE_TYPE (current_function_decl));
+      int flags = LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING;
 
       /* The functype's return type will have been set to void, if it
 	 was an incomplete type.  Just treat this as 'return;' */
       if (VOID_TYPE_P (functype))
 	return error_mark_node;
 
+      /* Under C++0x [12.8/16 class.copy], a returned lvalue is sometimes
+	 treated as an rvalue for the purposes of overload resolution to
+	 favor move constructors over copy constructors.  */
+      if ((cxx_dialect != cxx98) 
+          && named_return_value_okay_p
+          /* The variable must not have the `volatile' qualifier.  */
+	  && !(cp_type_quals (TREE_TYPE (retval)) & TYPE_QUAL_VOLATILE)
+	  /* The return type must be a class type.  */
+	  && CLASS_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
+	flags = flags | LOOKUP_PREFER_RVALUE;
+
       /* First convert the value to the function's return type, then
 	 to the type of return value's location to handle the
 	 case that functype is smaller than the valtype.  */
       retval = convert_for_initialization
-	(NULL_TREE, functype, retval, LOOKUP_NORMAL|LOOKUP_ONLYCONVERTING,
-	 "return", NULL_TREE, 0);
+	(NULL_TREE, functype, retval, flags, "return", NULL_TREE, 0);
       retval = convert (valtype, retval);
 
       /* If the conversion failed, treat this just like `return;'.  */

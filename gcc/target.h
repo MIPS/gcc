@@ -413,6 +413,14 @@ struct gcc_target
        element-by-element products for the odd elements.  */
     tree (* builtin_mul_widen_even) (tree);
     tree (* builtin_mul_widen_odd) (tree);
+
+    /* Returns the cost to be added to the overheads involved with
+       executing the vectorized version of a loop.  */
+    int (*builtin_vectorization_cost) (bool);
+
+    /* Return true if vector alignment is reachable (by peeling N
+       interations) for the given type.  */
+    bool (* vector_alignment_reachable) (tree, bool);
   } vectorize;
 
   /* The initial value of target_flags.  */
@@ -425,8 +433,18 @@ struct gcc_target
      form was.  Return true if the switch was valid.  */
   bool (* handle_option) (size_t code, const char *arg, int value);
 
+  /* Display extra, target specific information in response to a
+     --target-help switch.  */
+  void (* target_help) (void);
+
   /* Return machine mode for filter value.  */
   enum machine_mode (* eh_return_filter_mode) (void);
+
+  /* Return machine mode for libgcc expanded cmp instructions.  */
+  enum machine_mode (* libgcc_cmp_return_mode) (void);
+
+  /* Return machine mode for libgcc expanded shift instructions.  */
+  enum machine_mode (* libgcc_shift_count_mode) (void);
 
   /* Given two decls, merge their attributes and return the result.  */
   tree (* merge_decl_attributes) (tree, tree);
@@ -482,6 +500,10 @@ struct gcc_target
 
   /* Fold a target-specific builtin.  */
   tree (* fold_builtin) (tree fndecl, tree arglist, bool ignore);
+
+  /* Returns a code for a target-specific builtin that implements
+     reciprocal of the function, or NULL_TREE if not available.  */
+  tree (* builtin_reciprocal) (unsigned, bool, bool);
 
   /* For a vendor-specific fundamental TYPE, return a pointer to
      a statically-allocated string containing the C++ mangling for
@@ -793,6 +815,13 @@ struct gcc_target
   enum reg_class (*secondary_reload) (bool, rtx, enum reg_class,
 				      enum machine_mode,
 				      struct secondary_reload_info *);
+
+  /* Functions specific to the C family of frontends.  */
+  struct c {
+    /* Return machine mode for non-standard suffix
+       or VOIDmode if non-standard suffixes are unsupported.  */
+    enum machine_mode (*mode_for_suffix) (char);
+  } c;
 
   /* Functions specific to the C++ frontend.  */
   struct cxx {

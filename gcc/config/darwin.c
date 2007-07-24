@@ -1,6 +1,6 @@
 /* Functions for generic Darwin as target machine for GNU C compiler.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
-   2005
+   2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -45,6 +45,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tm_p.h"
 #include "toplev.h"
 #include "hashtab.h"
+#include "df.h"
 
 /* Darwin supports a feature called fix-and-continue, which is used
    for rapid turn around debugging.  When code is compiled with the
@@ -515,7 +516,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 	{
 #if defined (TARGET_TOC)
 	  /* Create a new register for CSE opportunities.  */
-	  rtx hi_reg = (no_new_pseudos ? reg : gen_reg_rtx (Pmode));
+	  rtx hi_reg = (!can_create_pseudo_p () ? reg : gen_reg_rtx (Pmode));
  	  emit_insn (gen_macho_high (hi_reg, orig));
  	  emit_insn (gen_macho_low (reg, hi_reg, orig));
 #else
@@ -532,7 +533,9 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 #endif
 
 #if defined (TARGET_TOC) /* i.e., PowerPC */
-	  rtx hi_sum_reg = (no_new_pseudos ? reg : gen_reg_rtx (Pmode));
+	  rtx hi_sum_reg = (!can_create_pseudo_p ()
+			    ? reg
+			    : gen_reg_rtx (Pmode));
 
 	  gcc_assert (reg);
 
@@ -704,7 +707,9 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		  || GET_CODE (XEXP (orig, 0)) == LABEL_REF))
 	    {
 #if defined (TARGET_TOC)	/* ppc  */
-	      rtx temp_reg = (no_new_pseudos) ? reg : gen_reg_rtx (Pmode);
+	      rtx temp_reg = (!can_create_pseudo_p ()
+			      ? reg :
+			      gen_reg_rtx (Pmode));
 	      rtx asym = XEXP (orig, 0);
 	      rtx mem;
 
@@ -727,7 +732,9 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 #if defined (TARGET_TOC) /* i.e., PowerPC */
 	      /* Generating a new reg may expose opportunities for
 		 common subexpression elimination.  */
-              rtx hi_sum_reg = no_new_pseudos ? reg : gen_reg_rtx (Pmode);
+              rtx hi_sum_reg = (!can_create_pseudo_p ()
+				? reg
+				: gen_reg_rtx (Pmode));
 	      rtx mem;
 	      rtx insn;
 	      rtx sum;
@@ -777,7 +784,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 #endif
 
 	      if (reload_in_progress)
-		regs_ever_live[REGNO (pic)] = 1;
+		df_set_regs_ever_live (REGNO (pic), true);
 	      pic_ref = gen_rtx_PLUS (Pmode, pic,
 				      gen_pic_offset (XEXP (orig, 0),
 						      pic_base));
@@ -848,7 +855,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 					  pic_offset_table_rtx));
 #endif
 		  if (reload_in_progress)
-		    regs_ever_live[REGNO (pic)] = 1;
+		    df_set_regs_ever_live (REGNO (pic), true);
 		  pic_ref = gen_rtx_PLUS (Pmode,
 					  pic,
 					  gen_pic_offset (orig, pic_base));
@@ -1721,6 +1728,9 @@ darwin_override_options (void)
       /* No -fnon-call-exceptions data in kexts.  */
       flag_non_call_exceptions = 0;
     }
+  if (flag_var_tracking
+      && strverscmp (darwin_macosx_version_min, "10.5") >= 0)
+    flag_var_tracking_uninit = 1;
 }
 
 #include "gt-darwin.h"

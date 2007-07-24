@@ -1,6 +1,6 @@
 /* real.c - software floating point emulation.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Stephen L. Moshier (moshier@world.std.com).
    Re-written by Richard Henderson <rth@redhat.com>
 
@@ -1161,6 +1161,14 @@ bool
 real_isnan (const REAL_VALUE_TYPE *r)
 {
   return (r->cl == rvc_nan);
+}
+
+/* Determine whether a floating-point value X is finite.  */
+
+bool
+real_isfinite (const REAL_VALUE_TYPE *r)
+{
+  return (r->cl != rvc_nan) && (r->cl != rvc_inf);
 }
 
 /* Determine whether a floating-point value X is negative.  */
@@ -2774,7 +2782,7 @@ const struct real_format mips_single_format =
     true
   };
 
-const struct real_format coldfire_single_format =
+const struct real_format motorola_single_format =
   {
     encode_ieee_single,
     decode_ieee_single,
@@ -3019,7 +3027,7 @@ const struct real_format mips_double_format =
     true
   };
 
-const struct real_format coldfire_double_format =
+const struct real_format motorola_double_format =
   {
     encode_ieee_double,
     decode_ieee_double,
@@ -3082,7 +3090,15 @@ encode_ieee_extended (const struct real_format *fmt, long *buf,
       if (fmt->has_nans)
 	{
 	  image_hi |= 32767;
-	  if (HOST_BITS_PER_LONG == 32)
+	  if (r->canonical)
+	    {
+	      if (fmt->canonical_nan_lsbs_set)
+		{
+		  sig_hi = (1 << 30) - 1;
+		  sig_lo = 0xffffffff;
+		}
+	    }
+	  else if (HOST_BITS_PER_LONG == 32)
 	    {
 	      sig_hi = r->sig[SIGSZ-1];
 	      sig_lo = r->sig[SIGSZ-2];
@@ -3364,7 +3380,7 @@ const struct real_format ieee_extended_motorola_format =
     true,
     true,
     true,
-    false
+    true
   };
 
 const struct real_format ieee_extended_intel_96_format =
@@ -4563,7 +4579,7 @@ real_sqrt (REAL_VALUE_TYPE *r, enum machine_mode mode,
     }
 
   /* Infinity and NaN return themselves.  */
-  if (real_isinf (x) || real_isnan (x))
+  if (!real_isfinite (x))
     {
       *r = *x;
       return false;
@@ -4818,4 +4834,36 @@ real_isinteger (const REAL_VALUE_TYPE *c, enum machine_mode mode)
 
   real_trunc (&cint, mode, c);
   return real_identical (c, &cint);
+}
+
+/* Write into BUF the maximum representable finite floating-point
+   number, (1 - b**-p) * b**emax for a given FP format FMT as a hex
+   float string.  LEN is the size of BUF, and the buffer must be large
+   enough to contain the resulting string.  */
+
+void
+get_max_float (const struct real_format *fmt, char *buf, size_t len)
+{
+  int i, n;
+  char *p;
+
+  strcpy (buf, "0x0.");
+  n = fmt->p;
+  for (i = 0, p = buf + 4; i + 3 < n; i += 4)
+    *p++ = 'f';
+  if (i < n)
+    *p++ = "08ce"[n - i];
+  sprintf (p, "p%d", fmt->emax);
+  if (fmt->pnan < fmt->p)
+    {
+      /* This is an IBM extended double format made up of two IEEE
+	 doubles.  The value of the long double is the sum of the
+	 values of the two parts.  The most significant part is
+	 required to be the value of the long double rounded to the
+	 nearest double.  Rounding means we need a slightly smaller
+	 value for LDBL_MAX.  */
+      buf[4 + fmt->pnan / 4] = "7bde"[fmt->pnan % 4];
+    }
+
+  gcc_assert (strlen (buf) < len);
 }

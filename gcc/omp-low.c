@@ -385,9 +385,12 @@ determine_parallel_type (struct omp_region *region)
 
   if (single_succ (par_entry_bb) == ws_entry_bb
       && single_succ (ws_exit_bb) == par_exit_bb
-      && workshare_safe_to_combine_p (par_entry_bb, ws_entry_bb))
+      && workshare_safe_to_combine_p (par_entry_bb, ws_entry_bb)
+      && (OMP_PARALLEL_COMBINED (last_stmt (par_entry_bb))
+	  || (last_and_only_stmt (ws_entry_bb)
+	      && last_and_only_stmt (par_exit_bb))))
     {
-      tree ws_stmt = last_stmt (region->inner->entry);
+      tree ws_stmt = last_stmt (ws_entry_bb);
 
       if (region->inner->type == OMP_FOR)
 	{
@@ -516,6 +519,7 @@ omp_copy_decl_2 (tree var, tree name, tree type, omp_context *ctx)
 
   TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (var);
   DECL_GIMPLE_REG_P (copy) = DECL_GIMPLE_REG_P (var);
+  DECL_NO_TBAA_P (copy) = DECL_NO_TBAA_P (var);
   DECL_ARTIFICIAL (copy) = DECL_ARTIFICIAL (var);
   DECL_IGNORED_P (copy) = DECL_IGNORED_P (var);
   TREE_USED (copy) = 1;
@@ -1503,9 +1507,9 @@ lookup_decl_in_outer_ctx (tree decl, omp_context *ctx)
   for (up = ctx->outer, t = NULL; up && t == NULL; up = up->outer)
     t = maybe_lookup_decl (decl, up);
 
-  gcc_assert (t);
+  gcc_assert (t || is_global_var (decl));
 
-  return t;
+  return t ? t : decl;
 }
 
 
@@ -4062,6 +4066,28 @@ lower_omp_for (tree *stmt_p, omp_context *ctx)
   *stmt_p = new_stmt;
 }
 
+/* Callback for walk_stmts.  Check if *TP only contains OMP_FOR
+   or OMP_PARALLEL.  */
+
+static tree
+check_combined_parallel (tree *tp, int *walk_subtrees, void *data)
+{
+  struct walk_stmt_info *wi = data;
+  int *info = wi->info;
+
+  *walk_subtrees = 0;
+  switch (TREE_CODE (*tp))
+    {
+    case OMP_FOR:
+    case OMP_SECTIONS:
+      *info = *info == 0 ? 1 : -1;
+      break;
+    default:
+      *info = -1;
+      break;
+    }
+  return NULL;
+}
 
 /* Lower the OpenMP parallel directive in *STMT_P.  CTX holds context
    information for the directive.  */
@@ -4079,6 +4105,19 @@ lower_omp_parallel (tree *stmt_p, omp_context *ctx)
   par_bind = OMP_PARALLEL_BODY (stmt);
   par_body = BIND_EXPR_BODY (par_bind);
   child_fn = ctx->cb.dst_fn;
+  if (!OMP_PARALLEL_COMBINED (stmt))
+    {
+      struct walk_stmt_info wi;
+      int ws_num = 0;
+
+      memset (&wi, 0, sizeof (wi));
+      wi.callback = check_combined_parallel;
+      wi.info = &ws_num;
+      wi.val_only = true;
+      walk_stmts (&wi, &par_bind);
+      if (ws_num == 1)
+	OMP_PARALLEL_COMBINED (stmt) = 1;
+    }
 
   push_gimplify_context ();
 

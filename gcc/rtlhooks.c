@@ -66,7 +66,7 @@ gen_lowpart_general (enum machine_mode mode, rtx x)
 	  && SCALAR_INT_MODE_P (GET_MODE (x))
 	  && TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
 				    GET_MODE_BITSIZE (GET_MODE (x)))
-	  && ! no_new_pseudos)
+	  && !reload_completed)
 	return gen_lowpart_general (mode, force_reg (GET_MODE (x), x));
 
       if (WORDS_BIG_ENDIAN)
@@ -161,7 +161,9 @@ gen_lowpart_if_possible (enum machine_mode mode, rtx x)
 
       return new;
     }
-  else if (mode != GET_MODE (x) && GET_MODE (x) != VOIDmode)
+  else if (mode != GET_MODE (x) && GET_MODE (x) != VOIDmode
+	   && validate_subreg (mode, GET_MODE (x), x,
+			        subreg_lowpart_offset (mode, GET_MODE (x))))
     return gen_lowpart_SUBREG (mode, x);
   else
     return 0;

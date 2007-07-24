@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "real.h"
 #include "regs.h"
 #include "function.h"
+#include "df.h"
 #include "tree.h"
 
 /* Information about a subreg of a hard register.  */
@@ -619,6 +620,7 @@ count_occurrences (rtx x, rtx find, int count_dest)
     }
   return count;
 }
+
 
 /* Nonzero if register REG appears somewhere within IN.
    Also works if REG is not a register; in this case it checks
@@ -1394,10 +1396,13 @@ reg_overlap_mentioned_p (rtx x, rtx in)
 }
 
 /* Call FUN on each register or MEM that is stored into or clobbered by X.
-   (X would be the pattern of an insn).
-   FUN receives two arguments:
-     the REG, MEM, CC0 or PC being stored in or clobbered,
-     the SET or CLOBBER rtx that does the store.
+   (X would be the pattern of an insn).  DATA is an arbitrary pointer,
+   ignored by note_stores, but passed to FUN.
+
+   FUN receives three arguments:
+   1. the REG, MEM, CC0 or PC being stored in or clobbered,
+   2. the SET or CLOBBER rtx that does the store,
+   3. the pointer DATA provided to note_stores.
 
   If the item being stored in or clobbered is a SUBREG of a hard register,
   the SUBREG will be passed.  */
@@ -1538,7 +1543,7 @@ note_uses (rtx *pbody, void (*fun) (rtx *, void *), void *data)
    REG may be a hard or pseudo reg.  Renumbering is not taken into account,
    but for this use that makes no difference, since regs don't overlap
    during their lifetimes.  Therefore, this function may be used
-   at any time after deaths have been computed (in flow.c).
+   at any time after deaths have been computed.
 
    If REG is a hard reg that occupies multiple machine registers, this
    function will only return 1 if each of those registers will be replaced
@@ -1616,8 +1621,7 @@ covers_regno_p (rtx dest, unsigned int test_regno)
     return covers_regno_no_parallel_p (dest, test_regno);
 }
 
-/* Utility function for dead_or_set_p to check an individual register.  Also
-   called from flow.c.  */
+/* Utility function for dead_or_set_p to check an individual register. */
 
 int
 dead_or_set_regno_p (rtx insn, unsigned int test_regno)
@@ -1872,19 +1876,24 @@ remove_note (rtx insn, rtx note)
     return;
 
   if (REG_NOTES (insn) == note)
+    REG_NOTES (insn) = XEXP (note, 1);
+  else
+    for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+      if (XEXP (link, 1) == note)
+	{
+	  XEXP (link, 1) = XEXP (note, 1);
+	  break;
+	}
+
+  switch (REG_NOTE_KIND (note))
     {
-      REG_NOTES (insn) = XEXP (note, 1);
-      return;
+    case REG_EQUAL:
+    case REG_EQUIV:
+      df_notes_rescan (insn);
+      break;
+    default:
+      break;
     }
-
-  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
-    if (XEXP (link, 1) == note)
-      {
-	XEXP (link, 1) = XEXP (note, 1);
-	return;
-      }
-
-  gcc_unreachable ();
 }
 
 /* Remove REG_EQUAL and/or REG_EQUIV notes if INSN has such notes.  */
@@ -2868,9 +2877,9 @@ commutative_operand_precedence (rtx op)
   
   /* Constants always come the second operand.  Prefer "nice" constants.  */
   if (code == CONST_INT)
-    return -7;
+    return -8;
   if (code == CONST_DOUBLE)
-    return -6;
+    return -7;
   op = avoid_constant_pool_reference (op);
   code = GET_CODE (op);
 
@@ -2878,26 +2887,24 @@ commutative_operand_precedence (rtx op)
     {
     case RTX_CONST_OBJ:
       if (code == CONST_INT)
-        return -5;
+        return -6;
       if (code == CONST_DOUBLE)
-        return -4;
-      return -3;
+        return -5;
+      return -4;
 
     case RTX_EXTRA:
       /* SUBREGs of objects should come second.  */
       if (code == SUBREG && OBJECT_P (SUBREG_REG (op)))
-        return -2;
-
-      if (!CONSTANT_P (op))
-        return 0;
-      else
-	/* As for RTX_CONST_OBJ.  */
-	return -3;
+        return -3;
+      return 0;
 
     case RTX_OBJ:
       /* Complex expressions should be the first, so decrease priority
-         of objects.  */
-      return -1;
+         of objects.  Prefer pointer objects over non pointer objects.  */
+      if ((REG_P (op) && REG_POINTER (op))
+	  || (MEM_P (op) && MEM_POINTER (op)))
+	return -1;
+      return -2;
 
     case RTX_COMM_ARITH:
       /* Prefer operands that are themselves commutative to be first.
@@ -2924,7 +2931,7 @@ commutative_operand_precedence (rtx op)
 /* Return 1 iff it is necessary to swap operands of commutative operation
    in order to canonicalize expression.  */
 
-int
+bool
 swap_commutative_operands_p (rtx x, rtx y)
 {
   return (commutative_operand_precedence (x)
@@ -4285,6 +4292,25 @@ num_sign_bit_copies1 (rtx x, enum machine_mode mode, rtx known_x,
 					 known_x, known_mode, known_ret);
       num1 = cached_num_sign_bit_copies (XEXP (x, 1), mode,
 					 known_x, known_mode, known_ret);
+
+      /* If num1 is clearing some of the top bits then regardless of
+	 the other term, we are guaranteed to have at least that many
+	 high-order zero bits.  */
+      if (code == AND
+	  && num1 > 1
+	  && bitwidth <= HOST_BITS_PER_WIDE_INT
+	  && GET_CODE (XEXP (x, 1)) == CONST_INT
+	  && !(INTVAL (XEXP (x, 1)) & ((HOST_WIDE_INT) 1 << (bitwidth - 1))))
+	return num1;
+
+      /* Similarly for IOR when setting high-order bits.  */
+      if (code == IOR
+	  && num1 > 1
+	  && bitwidth <= HOST_BITS_PER_WIDE_INT
+	  && GET_CODE (XEXP (x, 1)) == CONST_INT
+	  && (INTVAL (XEXP (x, 1)) & ((HOST_WIDE_INT) 1 << (bitwidth - 1))))
+	return num1;
+
       return MIN (num0, num1);
 
     case PLUS:  case MINUS:

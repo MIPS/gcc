@@ -141,40 +141,17 @@ next_char (int in_string)
 
   if (gfc_option.flag_backslash && c == '\\')
     {
+      int tmp;
       locus old_locus = gfc_current_locus;
 
-      switch (gfc_next_char_literal (1))
-	{
-	case 'a':
-	  c = '\a';
-	  break;
-	case 'b':
-	  c = '\b';
-	  break;
-	case 't':
-	  c = '\t';
-	  break;
-	case 'f':
-	  c = '\f';
-	  break;
-	case 'n':
-	  c = '\n';
-	  break;
-	case 'r':
-	  c = '\r';
-	  break;
-	case 'v':
-	  c = '\v';
-	  break;
-	case '\\':
-	  c = '\\';
-	  break;
+      /* Use a temp variable to avoid side effects from gfc_match_special_char
+	 since it uses an int * for its argument.  */
+      tmp = (int)c;
 
-	default:
-	  /* Unknown backslash codes are simply not expanded.  */
-	  gfc_current_locus = old_locus;
-	  break;
-	}
+      if (gfc_match_special_char (&tmp) == MATCH_NO)
+	gfc_current_locus = old_locus;
+
+      c = (char)tmp;
 
       if (!(gfc_option.allow_std & GFC_STD_GNU) && !inhibit_warnings)
 	gfc_warning ("Extension: backslash character at %C");
@@ -196,7 +173,7 @@ unget_char (void)
   use_last_char = 1;
 }
 
-/* Eat up the spaces and return a character. */
+/* Eat up the spaces and return a character.  */
 
 static char
 next_char_not_space (void)
@@ -280,10 +257,12 @@ format_lex (void)
       do
 	{
 	  c = next_char_not_space ();
-	  if (c != '0')
-	    zflag = 0;
 	  if (ISDIGIT (c))
-	    value = 10 * value + c - '0';
+	    {
+	      value = 10 * value + c - '0';
+	      if (c != '0')
+		zflag = 0;
+	    }
 	}
       while (ISDIGIT (c));
 
@@ -452,7 +431,7 @@ format_lex (void)
    means that the warning message is a little less than great.  */
 
 static try
-check_format (void)
+check_format (bool is_input)
 {
   const char *posint_required	  = _("Positive width required");
   const char *nonneg_required	  = _("Nonnegative width required");
@@ -508,6 +487,7 @@ format_item_1:
       goto format_item;
 
     case FMT_SIGNED_INT:
+    case FMT_ZERO:
       /* Signed integer can only precede a P format.  */
       t = format_lex ();
       if (t != FMT_P)
@@ -693,6 +673,11 @@ data_desc:
 	  error = nonneg_required;
 	  goto syntax;
 	}
+      else if (is_input && t == FMT_ZERO)
+	{
+	  error = posint_required;
+	  goto syntax;
+	}
 
       t = format_lex ();
       if (t != FMT_PERIOD)
@@ -740,6 +725,11 @@ data_desc:
       if (t != FMT_ZERO && t != FMT_POSINT)
 	{
 	  error = nonneg_required;
+	  goto syntax;
+	}
+      else if (is_input && t == FMT_ZERO)
+	{
+	  error = posint_required;
 	  goto syntax;
 	}
 
@@ -852,20 +842,10 @@ extension_optional_comma:
   goto format_item;
 
 syntax:
-  /* Something went wrong.  If the format we're checking is a string,
-     generate a warning, since the program is correct.  If the format
-     is in a FORMAT statement, this messes up parsing, which is an
-     error.  */
-  if (mode != MODE_STRING)
-    gfc_error ("%s in format string at %C", error);
-  else
-    {
-      gfc_warning ("%s in format string at %C", error);
+  gfc_error ("%s in format string at %C", error);
 
-      /* TODO: More elaborate measures are needed to show where a problem
-	 is within a format string that has been calculated.  */
-    }
-
+  /* TODO: More elaborate measures are needed to show where a problem
+     is within a format string that has been calculated.  */
   rv = FAILURE;
 
 finished:
@@ -876,12 +856,12 @@ finished:
 /* Given an expression node that is a constant string, see if it looks
    like a format string.  */
 
-static void
-check_format_string (gfc_expr *e)
+static try
+check_format_string (gfc_expr *e, bool is_input)
 {
   mode = MODE_STRING;
   format_string = e->value.character.string;
-  check_format ();
+  return check_format (is_input);
 }
 
 
@@ -916,7 +896,7 @@ gfc_match_format (void)
 
   start = gfc_current_locus;
 
-  if (check_format () == FAILURE)
+  if (check_format (false) == FAILURE)
     return MATCH_ERROR;
 
   if (gfc_match_eos () != MATCH_YES)
@@ -943,7 +923,7 @@ gfc_match_format (void)
   gfc_statement_label->format = e;
 
   mode = MODE_COPY;
-  check_format ();		/* Guaranteed to succeed */
+  check_format (false);		/* Guaranteed to succeed */
   gfc_match_eos ();		/* Guaranteed to succeed */
 
   return MATCH_YES;
@@ -1095,7 +1075,7 @@ resolve_tag (const io_tag *tag, gfc_expr *e)
 	    }
 	  else if (e->ts.type == BT_INTEGER && e->expr_type == EXPR_VARIABLE)
 	    {
-	      if (gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: ASSIGNED "
+	      if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: ASSIGNED "
 				  "variable in FORMAT tag at %L", &e->where)
 		  == FAILURE)
 		return FAILURE;
@@ -2762,8 +2742,9 @@ if (condition) \
     }
 
   expr = dt->format_expr;
-  if (expr != NULL && expr->expr_type == EXPR_CONSTANT)
-    check_format_string (expr);
+  if (expr != NULL && expr->expr_type == EXPR_CONSTANT
+      && check_format_string (expr, k == M_READ) == FAILURE)
+    return MATCH_ERROR;
 
   return m;
 }

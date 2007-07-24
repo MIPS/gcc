@@ -337,7 +337,7 @@ sort_by_operand_rank (const void *pa, const void *pb)
 static void
 add_to_ops_vec (VEC(operand_entry_t, heap) **ops, tree op)
 {
-  operand_entry_t oe = pool_alloc (operand_entry_pool);
+  operand_entry_t oe = (operand_entry_t) pool_alloc (operand_entry_pool);
 
   oe->op = op;
   oe->rank = get_rank (op);
@@ -727,8 +727,8 @@ optimize_ops_list (enum tree_code opcode,
 
       if (oelm1->rank == 0
 	  && is_gimple_min_invariant (oelm1->op)
-	  && lang_hooks.types_compatible_p (TREE_TYPE (oelm1->op),
-					    TREE_TYPE (oelast->op)))
+	  && useless_type_conversion_p (TREE_TYPE (oelm1->op),
+				       TREE_TYPE (oelast->op)))
 	{
 	  tree folded = fold_binary (opcode, TREE_TYPE (oelm1->op),
 				     oelm1->op, oelast->op);
@@ -1026,7 +1026,7 @@ negate_value (tree tonegate, block_stmt_iterator *bsi)
 
   tonegate = fold_build1 (NEGATE_EXPR, TREE_TYPE (tonegate), tonegate);
   resultofnegate = force_gimple_operand_bsi (bsi, tonegate, true,
-					     NULL_TREE);
+					     NULL_TREE, true, BSI_SAME_STMT);
   VEC_safe_push (tree, heap, broken_up_subtracts, resultofnegate);
   return resultofnegate;
 
@@ -1476,15 +1476,21 @@ execute_reassoc (void)
   return 0;
 }
 
+static bool
+gate_tree_ssa_reassoc (void)
+{
+  return flag_tree_reassoc != 0;
+}
+
 struct tree_opt_pass pass_reassoc =
 {
   "reassoc",				/* name */
-  NULL,				/* gate */
-  execute_reassoc,				/* execute */
+  gate_tree_ssa_reassoc,		/* gate */
+  execute_reassoc,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  TV_TREE_REASSOC,				/* tv_id */
+  TV_TREE_REASSOC,			/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

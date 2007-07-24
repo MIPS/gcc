@@ -401,7 +401,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  if (DECL_VIRTUAL_P (node))
 	    fputs (" virtual", file);
 	  if (DECL_PRESERVE_P (node))
-	    fputs (" preserve", file);	  
+	    fputs (" preserve", file);
+	  if (DECL_NO_TBAA_P (node))
+	    fputs (" no-tbaa", file);
 	  if (DECL_LANG_FLAG_0 (node))
 	    fputs (" decl_0", file);
 	  if (DECL_LANG_FLAG_1 (node))
@@ -439,17 +441,15 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	      || DECL_INLINE (node) || DECL_BUILT_IN (node))
 	    indent_to (file, indent + 3);
 	  
-	  if (TREE_CODE (node) != FUNCTION_DECL)
-	    {
-	      if (DECL_USER_ALIGN (node))
-		fprintf (file, " user");
-	      
-	      fprintf (file, " align %d", DECL_ALIGN (node));
-	      if (TREE_CODE (node) == FIELD_DECL)
-		fprintf (file, " offset_align " HOST_WIDE_INT_PRINT_UNSIGNED,
-			 DECL_OFFSET_ALIGN (node));
-	    }
-	  else if (DECL_BUILT_IN (node))
+	  if (DECL_USER_ALIGN (node))
+	    fprintf (file, " user");
+	  
+	  fprintf (file, " align %d", DECL_ALIGN (node));
+	  if (TREE_CODE (node) == FIELD_DECL)
+	    fprintf (file, " offset_align " HOST_WIDE_INT_PRINT_UNSIGNED,
+		     DECL_OFFSET_ALIGN (node));
+
+	  if (TREE_CODE (node) == FUNCTION_DECL && DECL_BUILT_IN (node))
 	    {
 	      if (DECL_BUILT_IN_CLASS (node) == BUILT_IN_MD)
 		fprintf (file, " built-in BUILT_IN_MD %d", DECL_FUNCTION_CODE (node));

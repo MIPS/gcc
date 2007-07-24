@@ -588,9 +588,13 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 	DECL_IN_SYSTEM_HEADER (t) = in_system_header;
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
 	{
-	  if (code != FUNCTION_DECL)
+	  if (code == FUNCTION_DECL)
+	    {
+	      DECL_ALIGN (t) = FUNCTION_BOUNDARY;
+	      DECL_MODE (t) = FUNCTION_MODE;
+	    }
+	  else
 	    DECL_ALIGN (t) = 1;
-	  DECL_USER_ALIGN (t) = 0;	  
 	  /* We have not yet computed the alias set for this declaration.  */
 	  DECL_POINTER_ALIAS_SET (t) = -1;
 	}
@@ -1914,14 +1918,13 @@ expr_align (tree t)
       align1 = expr_align (TREE_OPERAND (t, 2));
       return MIN (align0, align1);
 
+      /* FIXME: LABEL_DECL and CONST_DECL never have DECL_ALIGN set
+	 meaningfully, it's always 1.  */
     case LABEL_DECL:     case CONST_DECL:
     case VAR_DECL:       case PARM_DECL:   case RESULT_DECL:
-      if (DECL_ALIGN (t) != 0)
-	return DECL_ALIGN (t);
-      break;
-
     case FUNCTION_DECL:
-      return FUNCTION_BOUNDARY;
+      gcc_assert (DECL_ALIGN (t) != 0);
+      return DECL_ALIGN (t);
 
     default:
       break;
@@ -3069,6 +3072,15 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   gcc_assert (code != GIMPLE_MODIFY_STMT);
 #endif
 
+  if ((code == MINUS_EXPR || code == PLUS_EXPR || code == MULT_EXPR)
+      && arg0 && arg1 && tt && POINTER_TYPE_P (tt))
+    gcc_assert (TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST);
+
+  if (code == POINTER_PLUS_EXPR && arg0 && arg1 && tt)
+    gcc_assert (POINTER_TYPE_P (tt) && POINTER_TYPE_P (TREE_TYPE (arg0))
+		&& TREE_CODE (TREE_TYPE (arg1)) == INTEGER_TYPE
+		&& useless_type_conversion_p (sizetype, TREE_TYPE (arg1)));
+
   t = make_node_stat (code PASS_MEM_STAT);
   TREE_TYPE (t) = tt;
 
@@ -3302,8 +3314,6 @@ build_decl_stat (enum tree_code code, tree name, tree type MEM_STAT_DECL)
 
   if (code == VAR_DECL || code == PARM_DECL || code == RESULT_DECL)
     layout_decl (t, 0);
-  else if (code == FUNCTION_DECL)
-    DECL_MODE (t) = FUNCTION_MODE;
 
   return t;
 }
@@ -3991,18 +4001,25 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 	  *no_add_attrs = true;
 	  return tree_cons (name, args, NULL_TREE);
 	}
-      if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
+      if (TREE_CODE (node) == RECORD_TYPE
+	  || TREE_CODE (node) == UNION_TYPE)
+	{
+	  node = TYPE_NAME (node);
+	  if (!node)
+	    return NULL_TREE;
+	}
+      else
 	{
 	  warning (OPT_Wattributes, "%qs attribute ignored",
 		   IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
+	  return NULL_TREE;
 	}
-
-      return NULL_TREE;
     }
 
   if (TREE_CODE (node) != FUNCTION_DECL
-      && TREE_CODE (node) != VAR_DECL)
+      && TREE_CODE (node) != VAR_DECL
+      && TREE_CODE (node) != TYPE_DECL)
     {
       *no_add_attrs = true;
       warning (OPT_Wattributes, "%qs attribute ignored",
@@ -4063,6 +4080,22 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
       error ("external linkage required for symbol %q+D because of "
 	     "%qs attribute", node, IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
+    }
+
+  /* A dllexport'd entity must have default visibility so that other
+     program units (shared libraries or the main executable) can see
+     it.  A dllimport'd entity must have default visibility so that
+     the linker knows that undefined references within this program
+     unit can be resolved by the dynamic linker.  */
+  if (!*no_add_attrs)
+    {
+      if (DECL_VISIBILITY_SPECIFIED (node)
+	  && DECL_VISIBILITY (node) != VISIBILITY_DEFAULT)
+	error ("%qs implies default visibility, but %qD has already "
+	       "been declared with a different visibility", 
+	       IDENTIFIER_POINTER (name), node);
+      DECL_VISIBILITY (node) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (node) = 1;
     }
 
   return NULL_TREE;
@@ -5615,6 +5648,78 @@ get_inner_array_type (tree array)
   return type;
 }
 
+/* Computes the canonical argument types from the argument type list
+   ARGTYPES. 
+
+   Upon return, *ANY_STRUCTURAL_P will be true iff either it was true
+   on entry to this function, or if any of the ARGTYPES are
+   structural.
+
+   Upon return, *ANY_NONCANONICAL_P will be true iff either it was
+   true on entry to this function, or if any of the ARGTYPES are
+   non-canonical.
+
+   Returns a canonical argument list, which may be ARGTYPES when the
+   canonical argument list is unneeded (i.e., *ANY_STRUCTURAL_P is
+   true) or would not differ from ARGTYPES.  */
+
+static tree 
+maybe_canonicalize_argtypes(tree argtypes, 
+			    bool *any_structural_p,
+			    bool *any_noncanonical_p)
+{
+  tree arg;
+  bool any_noncanonical_argtypes_p = false;
+  
+  for (arg = argtypes; arg && !(*any_structural_p); arg = TREE_CHAIN (arg))
+    {
+      if (!TREE_VALUE (arg) || TREE_VALUE (arg) == error_mark_node)
+	/* Fail gracefully by stating that the type is structural.  */
+	*any_structural_p = true;
+      else if (TYPE_STRUCTURAL_EQUALITY_P (TREE_VALUE (arg)))
+	*any_structural_p = true;
+      else if (TYPE_CANONICAL (TREE_VALUE (arg)) != TREE_VALUE (arg)
+	       || TREE_PURPOSE (arg))
+	/* If the argument has a default argument, we consider it
+	   non-canonical even though the type itself is canonical.
+	   That way, different variants of function and method types
+	   with default arguments will all point to the variant with
+	   no defaults as their canonical type.  */
+        any_noncanonical_argtypes_p = true;
+    }
+
+  if (*any_structural_p)
+    return argtypes;
+
+  if (any_noncanonical_argtypes_p)
+    {
+      /* Build the canonical list of argument types.  */
+      tree canon_argtypes = NULL_TREE;
+      bool is_void = false;
+
+      for (arg = argtypes; arg; arg = TREE_CHAIN (arg))
+        {
+          if (arg == void_list_node)
+            is_void = true;
+          else
+            canon_argtypes = tree_cons (NULL_TREE,
+                                        TYPE_CANONICAL (TREE_VALUE (arg)),
+                                        canon_argtypes);
+        }
+
+      canon_argtypes = nreverse (canon_argtypes);
+      if (is_void)
+        canon_argtypes = chainon (canon_argtypes, void_list_node);
+
+      /* There is a non-canonical type.  */
+      *any_noncanonical_p = true;
+      return canon_argtypes;
+    }
+
+  /* The canonical argument types are the same as ARGTYPES.  */
+  return argtypes;
+}
+
 /* Construct, lay out and return
    the type of functions returning type VALUE_TYPE
    given arguments of types ARG_TYPES.
@@ -5627,6 +5732,8 @@ build_function_type (tree value_type, tree arg_types)
 {
   tree t;
   hashval_t hashcode = 0;
+  bool any_structural_p, any_noncanonical_p;
+  tree canon_argtypes;
 
   if (TREE_CODE (value_type) == FUNCTION_TYPE)
     {
@@ -5639,14 +5746,23 @@ build_function_type (tree value_type, tree arg_types)
   TREE_TYPE (t) = value_type;
   TYPE_ARG_TYPES (t) = arg_types;
 
-  /* We don't have canonicalization of function types, yet. */
-  SET_TYPE_STRUCTURAL_EQUALITY (t);
-
   /* If we already have such a type, use the old one.  */
   hashcode = iterative_hash_object (TYPE_HASH (value_type), hashcode);
   hashcode = type_hash_list (arg_types, hashcode);
   t = type_hash_canon (hashcode, t);
 
+  /* Set up the canonical type. */
+  any_structural_p   = TYPE_STRUCTURAL_EQUALITY_P (value_type);
+  any_noncanonical_p = TYPE_CANONICAL (value_type) != value_type;
+  canon_argtypes = maybe_canonicalize_argtypes (arg_types, 
+						&any_structural_p,
+						&any_noncanonical_p);
+  if (any_structural_p)
+    SET_TYPE_STRUCTURAL_EQUALITY (t);
+  else if (any_noncanonical_p)
+    TYPE_CANONICAL (t) = build_function_type (TYPE_CANONICAL (value_type),
+					      canon_argtypes);
+      
   if (!COMPLETE_TYPE_P (t))
     layout_type (t);
   return t;
@@ -5696,6 +5812,8 @@ build_method_type_directly (tree basetype,
   tree t;
   tree ptype;
   int hashcode = 0;
+  bool any_structural_p, any_noncanonical_p;
+  tree canon_argtypes;
 
   /* Make a node of the sort we want.  */
   t = make_node (METHOD_TYPE);
@@ -5709,15 +5827,29 @@ build_method_type_directly (tree basetype,
   argtypes = tree_cons (NULL_TREE, ptype, argtypes);
   TYPE_ARG_TYPES (t) = argtypes;
 
-  /* We don't have canonicalization of method types yet. */
-  SET_TYPE_STRUCTURAL_EQUALITY (t);
-
   /* If we already have such a type, use the old one.  */
   hashcode = iterative_hash_object (TYPE_HASH (basetype), hashcode);
   hashcode = iterative_hash_object (TYPE_HASH (rettype), hashcode);
   hashcode = type_hash_list (argtypes, hashcode);
   t = type_hash_canon (hashcode, t);
 
+  /* Set up the canonical type. */
+  any_structural_p
+    = (TYPE_STRUCTURAL_EQUALITY_P (basetype)
+       || TYPE_STRUCTURAL_EQUALITY_P (rettype));
+  any_noncanonical_p
+    = (TYPE_CANONICAL (basetype) != basetype
+       || TYPE_CANONICAL (rettype) != rettype);
+  canon_argtypes = maybe_canonicalize_argtypes (TREE_CHAIN (argtypes),
+						&any_structural_p,
+						&any_noncanonical_p);
+  if (any_structural_p)
+    SET_TYPE_STRUCTURAL_EQUALITY (t);
+  else if (any_noncanonical_p)
+    TYPE_CANONICAL (t) 
+      = build_method_type_directly (TYPE_CANONICAL (basetype),
+				    TYPE_CANONICAL (rettype),
+				    canon_argtypes);
   if (!COMPLETE_TYPE_P (t))
     layout_type (t);
 
@@ -7301,15 +7433,14 @@ reconstruct_complex_type (tree type, tree bottom)
     }
   else if (TREE_CODE (type) == METHOD_TYPE)
     {
-      tree argtypes;
       inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
       /* The build_method_type_directly() routine prepends 'this' to argument list,
          so we must compensate by getting rid of it.  */
-      argtypes = TYPE_ARG_TYPES (type);
-      outer = build_method_type_directly (TYPE_METHOD_BASETYPE (type),
-					  inner,
-					  TYPE_ARG_TYPES (type));
-      TYPE_ARG_TYPES (outer) = argtypes;
+      outer 
+	= build_method_type_directly 
+	    (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (type))),
+	     inner,
+	     TREE_CHAIN (TYPE_ARG_TYPES (type)));
     }
   else
     return bottom;
@@ -7686,7 +7817,7 @@ fields_compatible_p (tree f1, tree f2)
                         DECL_FIELD_OFFSET (f2), OEP_ONLY_CONST))
     return false;
 
-  if (!lang_hooks.types_compatible_p (TREE_TYPE (f1), TREE_TYPE (f2)))
+  if (!types_compatible_p (TREE_TYPE (f1), TREE_TYPE (f2)))
     return false;
 
   return true;
@@ -7734,13 +7865,21 @@ int_cst_value (tree x)
   return val;
 }
 
+/* If TYPE is an integral type, return an equivalent type which is
+    unsigned iff UNSIGNEDP is true.  If TYPE is not an integral type,
+    return TYPE itself.  */
 
-/* Return an unsigned type the same as TYPE in other respects.  */
-
-static tree
-get_unsigned_type (tree type)
+tree
+signed_or_unsigned_type_for (int unsignedp, tree type)
 {
-  return get_signed_or_unsigned_type (1, type);
+  tree t = type;
+  if (POINTER_TYPE_P (type))
+    t = size_type_node;
+
+  if (!INTEGRAL_TYPE_P (t) || TYPE_UNSIGNED (t) == unsignedp)
+    return t;
+  
+  return lang_hooks.types.type_for_size (TYPE_PRECISION (t), unsignedp);
 }
 
 /* Returns unsigned variant of TYPE.  */
@@ -7748,9 +7887,7 @@ get_unsigned_type (tree type)
 tree
 unsigned_type_for (tree type)
 {
-  if (POINTER_TYPE_P (type))
-    return get_unsigned_type (size_type_node);
-  return get_unsigned_type (type);
+  return signed_or_unsigned_type_for (1, type);
 }
 
 /* Returns signed variant of TYPE.  */
@@ -7758,9 +7895,7 @@ unsigned_type_for (tree type)
 tree
 signed_type_for (tree type)
 {
-  if (POINTER_TYPE_P (type))
-    return lang_hooks.types.signed_type (size_type_node);
-  return lang_hooks.types.signed_type (type);
+  return signed_or_unsigned_type_for (0, type);
 }
 
 /* Returns the largest value obtainable by casting something in INNER type to

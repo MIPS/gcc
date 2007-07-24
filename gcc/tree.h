@@ -447,7 +447,12 @@ struct gimple_stmt GTY(())
        EH_FILTER_MUST_NOT_THROW in EH_FILTER_EXPR
        TYPE_REF_CAN_ALIAS_ALL in
            POINTER_TYPE, REFERENCE_TYPE
-       CASE_HIGH_SEEN in CASE_LABEL_EXPR
+       MOVE_NONTEMPORAL in
+	   GIMPLE_MODIFY_STMT
+       CASE_HIGH_SEEN in
+	   CASE_LABEL_EXPR
+       CALL_CANNOT_INLINE_P in
+	   CALL_EXPR
 
    public_flag:
 
@@ -1142,6 +1147,9 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 #define CASE_HIGH_SEEN(NODE) \
   (CASE_LABEL_EXPR_CHECK (NODE)->base.static_flag)
 
+/* Used to mark a CALL_EXPR as not suitable for inlining.  */
+#define CALL_CANNOT_INLINE_P(NODE) ((NODE)->base.static_flag)
+
 /* In an expr node (usually a conversion) this means the node was made
    implicitly and should not lead to any sort of warning.  In a decl node,
    warnings concerning the decl should be suppressed.  This is used at
@@ -1158,6 +1166,10 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
    by this type can alias anything.  */
 #define TYPE_REF_CAN_ALIAS_ALL(NODE) \
   (PTR_OR_REF_CHECK (NODE)->base.static_flag)
+
+/* In a MODIFY_EXPR, means that the store in the expression is nontemporal.  */
+#define MOVE_NONTEMPORAL(NODE) \
+  (GIMPLE_MODIFY_STMT_CHECK (NODE)->base.static_flag)
 
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
    there was an overflow in folding.  */
@@ -1630,6 +1642,12 @@ struct tree_constructor GTY(())
 #define EH_FILTER_TYPES(NODE)	TREE_OPERAND (EH_FILTER_EXPR_CHECK (NODE), 0)
 #define EH_FILTER_FAILURE(NODE)	TREE_OPERAND (EH_FILTER_EXPR_CHECK (NODE), 1)
 #define EH_FILTER_MUST_NOT_THROW(NODE) TREE_STATIC (EH_FILTER_EXPR_CHECK (NODE))
+
+/* CHANGE_DYNAMIC_TYPE_EXPR accessors.  */
+#define CHANGE_DYNAMIC_TYPE_NEW_TYPE(NODE) \
+  TREE_OPERAND (CHANGE_DYNAMIC_TYPE_EXPR_CHECK (NODE), 0)
+#define CHANGE_DYNAMIC_TYPE_LOCATION(NODE) \
+  TREE_OPERAND (CHANGE_DYNAMIC_TYPE_EXPR_CHECK (NODE), 1)
 
 /* OBJ_TYPE_REF accessors.  */
 #define OBJ_TYPE_REF_EXPR(NODE)	  TREE_OPERAND (OBJ_TYPE_REF_CHECK (NODE), 0)
@@ -2504,10 +2522,15 @@ struct tree_struct_field_tag GTY(())
   /* Size of the field.  */
   unsigned HOST_WIDE_INT size;
 
+  /* Alias set for a DECL_NONADDRESSABLE_P field.  Otherwise -1.  */
+  HOST_WIDE_INT alias_set;
 };
 #define SFT_PARENT_VAR(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.parent_var)
 #define SFT_OFFSET(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.offset)
 #define SFT_SIZE(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.size)
+#define SFT_NONADDRESSABLE_P(NODE) \
+  (STRUCT_FIELD_TAG_CHECK (NODE)->sft.alias_set != -1)
+#define SFT_ALIAS_SET(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.alias_set)
 
 /* Memory Partition Tags (MPTs) group memory symbols under one
    common name for the purposes of placing memory PHI nodes.  */
@@ -2563,13 +2586,11 @@ struct tree_memory_partition_tag GTY(())
 /* Likewise for the size in bytes.  */
 #define DECL_SIZE_UNIT(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.size_unit)
 /* Holds the alignment required for the datum, in bits.  */
-#define DECL_ALIGN(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.u1.a.align)
+#define DECL_ALIGN(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.align)
 /* The alignment of NODE, in bytes.  */
 #define DECL_ALIGN_UNIT(NODE) (DECL_ALIGN (NODE) / BITS_PER_UNIT)
-/* For FIELD_DECLs, off_align holds the number of low-order bits of
-   DECL_FIELD_OFFSET which are known to be always zero.
-   DECL_OFFSET_ALIGN thus returns the alignment that DECL_FIELD_OFFSET
-   has.  */
+/* Set if the alignment of this DECL has been set by the user, for
+   example with an 'aligned' attribute.  */
 #define DECL_USER_ALIGN(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.user_align)
 /* Holds the machine mode corresponding to the declaration of a variable or
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
@@ -2580,7 +2601,8 @@ struct tree_memory_partition_tag GTY(())
    operation it is.  Note, however, that this field is overloaded, with
    DECL_BUILT_IN_CLASS as the discriminant, so the latter must always be
    checked before any access to the former.  */
-#define DECL_FUNCTION_CODE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_common.u1.f)
+#define DECL_FUNCTION_CODE(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.function_code)
 #define DECL_DEBUG_EXPR_IS_FROM(NODE) \
   (DECL_COMMON_CHECK (NODE)->decl_common.debug_expr_is_from)
 
@@ -2665,6 +2687,11 @@ struct tree_memory_partition_tag GTY(())
 #define DECL_GIMPLE_REG_P(DECL) \
   DECL_COMMON_CHECK (DECL)->decl_common.gimple_reg_flag
 
+/* For a DECL with pointer type, this is set if Type Based Alias
+   Analysis should not be applied to this DECL.  */
+#define DECL_NO_TBAA_P(DECL) \
+  DECL_COMMON_CHECK (DECL)->decl_common.no_tbaa_flag
+
 struct tree_decl_common GTY(())
 {
   struct tree_decl_minimal common;
@@ -2705,21 +2732,14 @@ struct tree_decl_common GTY(())
   /* Logically, these two would go in a theoretical base shared by var and
      parm decl. */
   unsigned gimple_reg_flag : 1;
+  /* In a DECL with pointer type, set if no TBAA should be done.  */
+  unsigned no_tbaa_flag : 1;
+  /* Padding so that 'align' can be on a 32-bit boundary.  */
+  unsigned decl_common_unused : 2;
 
-  union tree_decl_u1 {
-    /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
-       DECL_FUNCTION_CODE.  */
-    enum built_in_function f;
-    /* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this
-       is used by language-dependent code.  */
-    HOST_WIDE_INT i;
-    /* DECL_ALIGN and DECL_OFFSET_ALIGN.  (These are not used for
-       FUNCTION_DECLs).  */
-    struct tree_decl_u1_a {
-      unsigned int align : 24;
-      unsigned int off_align : 8;
-    } a;
-  } GTY ((skip)) u1;
+  unsigned int align : 24;
+  /* DECL_OFFSET_ALIGN, used only for FIELD_DECLs.  */
+  unsigned int off_align : 8;
 
   tree size_unit;
   tree initial;
@@ -2804,11 +2824,11 @@ struct tree_decl_with_rtl GTY(())
    DECL_OFFSET_ALIGN thus returns the alignment that DECL_FIELD_OFFSET
    has.  */
 #define DECL_OFFSET_ALIGN(NODE) \
-  (((unsigned HOST_WIDE_INT)1) << FIELD_DECL_CHECK (NODE)->decl_common.u1.a.off_align)
+  (((unsigned HOST_WIDE_INT)1) << FIELD_DECL_CHECK (NODE)->decl_common.off_align)
 
 /* Specify that DECL_ALIGN(NODE) is a multiple of X.  */
 #define SET_DECL_OFFSET_ALIGN(NODE, X) \
-  (FIELD_DECL_CHECK (NODE)->decl_common.u1.a.off_align = exact_log2 ((X) & -(X)))
+  (FIELD_DECL_CHECK (NODE)->decl_common.off_align = exact_log2 ((X) & -(X)))
 /* 1 if the alignment for this type was requested by "aligned" attribute,
    0 if it is the default for this type.  */
 
@@ -3247,6 +3267,10 @@ struct tree_function_decl GTY(())
 {
   struct tree_decl_non_common common;
 
+  /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
+     DECL_FUNCTION_CODE.  Otherwise unused.  */
+  enum built_in_function function_code;
+
   unsigned static_ctor_flag : 1;
   unsigned static_dtor_flag : 1;
   unsigned uninlinable : 1;
@@ -3314,9 +3338,6 @@ struct tree_statement_list
 #define VALUE_HANDLE_EXPR_SET(NODE)	\
   (VALUE_HANDLE_CHECK (NODE)->value_handle.expr_set)
 
-#define VALUE_HANDLE_VUSES(NODE)        \
-  (VALUE_HANDLE_CHECK (NODE)->value_handle.vuses)
-
 /* Defined and used in tree-ssa-pre.c.  */
 
 struct tree_value_handle GTY(())
@@ -3330,9 +3351,6 @@ struct tree_value_handle GTY(())
      conveniently dense form starting at 0, so that we can make
      bitmaps of value handles.  */
   unsigned int id;
-
-  /* Set of virtual uses represented by this handle.  */
-  VEC (tree, gc) *vuses;
 };
 
 /* Define the overall contents of a tree node.
@@ -3770,6 +3788,7 @@ extern tree build_call_array (tree, tree, int, tree*);
 
 extern tree make_signed_type (int);
 extern tree make_unsigned_type (int);
+extern tree signed_or_unsigned_type_for (int, tree);
 extern tree signed_type_for (tree);
 extern tree unsigned_type_for (tree);
 extern void initialize_sizetypes (bool);
@@ -3813,8 +3832,6 @@ extern bool tree_expr_nonnegative_p (tree);
 extern bool tree_expr_nonnegative_warnv_p (tree, bool *);
 extern bool may_negate_without_overflow_p (tree);
 extern tree get_inner_array_type (tree);
-
-extern tree get_signed_or_unsigned_type (int unsignedp, tree type);
 
 /* From expmed.c.  Since rtl.h is included after tree.h, we can't
    put the prototype here.  Rtl.h does declare the prototype if
@@ -4298,6 +4315,12 @@ extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
 				 tree *, enum machine_mode *, int *, int *,
 				 bool);
 
+/* Given an expression EXP that may be a COMPONENT_REF or an ARRAY_REF,
+   look for whether EXP or any nested component-refs within EXP is marked
+   as PACKED.  */
+
+extern bool contains_packed_reference (tree exp);
+
 /* Return 1 if T is an expression that get_inner_reference handles.  */
 
 extern int handled_component_p (tree);
@@ -4420,6 +4443,7 @@ extern tree fold_build2_initializer (enum tree_code, tree, tree, tree);
 extern tree fold_build3_initializer (enum tree_code, tree, tree, tree, tree);
 extern tree fold_build_call_array (tree, tree, int, tree *);
 extern tree fold_build_call_array_initializer (tree, tree, int, tree *);
+extern bool fold_convertible_p (tree, tree);
 extern tree fold_convert (tree, tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
 extern tree fold_ignored_result (tree);
@@ -4521,6 +4545,7 @@ extern enum built_in_function builtin_mathfn_code (tree);
 extern tree build_function_call_expr (tree, tree);
 extern tree fold_build_call_expr (tree, tree, tree, tree);
 extern tree fold_builtin_call_array (tree, tree, int, tree *);
+extern void debug_fold_checksum (tree);
 extern tree build_call_expr (tree, int, ...);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
 extern tree strip_float_extensions (tree);
@@ -4539,7 +4564,7 @@ extern tree strip_float_extensions (tree);
 extern void record_component_aliases (tree);
 extern HOST_WIDE_INT get_alias_set (tree);
 extern int alias_sets_conflict_p (HOST_WIDE_INT, HOST_WIDE_INT);
-extern int alias_sets_might_conflict_p (HOST_WIDE_INT, HOST_WIDE_INT);
+extern int alias_sets_must_conflict_p (HOST_WIDE_INT, HOST_WIDE_INT);
 extern int objects_must_conflict_p (tree, tree);
 
 /* In tree.c */
@@ -4612,8 +4637,7 @@ extern unsigned int init_function_for_compilation (void);
 extern void allocate_struct_function (tree);
 extern void init_function_start (tree);
 extern bool use_register_for_decl (tree);
-extern void setjmp_vars_warning (tree);
-extern void setjmp_args_warning (void);
+extern void generate_setjmp_warnings (void);
 extern void init_temp_slots (void);
 extern void free_temp_slots (void);
 extern void pop_temp_slots (void);
@@ -4646,9 +4670,6 @@ extern bool debug_find_tree (tree, tree);
    data structures from the inliner.  */
 extern tree unsave_expr_now (tree);
 extern tree build_duplicate_type (tree);
-
-/* In emit-rtl.c */
-extern rtx emit_line_note (location_t);
 
 /* In calls.c */
 

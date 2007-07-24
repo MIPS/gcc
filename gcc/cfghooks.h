@@ -1,5 +1,5 @@
 /* Hooks for cfg representation specific functions.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -57,7 +57,7 @@ struct cfg_hooks
   /* Creates a new basic block just after basic block B by splitting
      everything after specified instruction I.  */
   basic_block (*split_block) (basic_block b, void * i);
-
+  
   /* Move block B immediately after block A.  */
   bool (*move_block_after) (basic_block b, basic_block a);
 
@@ -144,6 +144,7 @@ extern edge redirect_edge_and_branch (edge, basic_block);
 extern basic_block redirect_edge_and_branch_force (edge, basic_block);
 extern bool can_remove_branch_p (edge);
 extern void remove_branch (edge);
+extern void remove_edge (edge);
 extern edge split_block (basic_block, void *);
 extern edge split_block_after_labels (basic_block);
 extern bool move_block_after (basic_block, basic_block);

@@ -1638,7 +1638,7 @@ assemble_start_function (tree decl, const char *fnname)
   if (flag_reorder_blocks_and_partition)
     {
       switch_to_section (unlikely_text_section ());
-      assemble_align (FUNCTION_BOUNDARY);
+      assemble_align (DECL_ALIGN (decl));
       ASM_OUTPUT_LABEL (asm_out_file, cfun->cold_section_label);
 
       /* When the function starts with a cold section, we need to explicitly
@@ -1648,7 +1648,7 @@ assemble_start_function (tree decl, const char *fnname)
 	  && BB_PARTITION (ENTRY_BLOCK_PTR->next_bb) == BB_COLD_PARTITION)
 	{
 	  switch_to_section (text_section);
-	  assemble_align (FUNCTION_BOUNDARY);
+	  assemble_align (DECL_ALIGN (decl));
 	  ASM_OUTPUT_LABEL (asm_out_file, cfun->hot_section_label);
 	  hot_label_written = true;
 	  first_function_block_is_cold = true;
@@ -1679,18 +1679,17 @@ assemble_start_function (tree decl, const char *fnname)
     ASM_OUTPUT_LABEL (asm_out_file, cfun->hot_section_label);
 
   /* Tell assembler to move to target machine's alignment for functions.  */
-  align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
-  if (align < force_align_functions_log)
-    align = force_align_functions_log;
+  align = floor_log2 (DECL_ALIGN (decl) / BITS_PER_UNIT);
   if (align > 0)
     {
       ASM_OUTPUT_ALIGN (asm_out_file, align);
     }
 
   /* Handle a user-specified function alignment.
-     Note that we still need to align to FUNCTION_BOUNDARY, as above,
+     Note that we still need to align to DECL_ALIGN, as above,
      because ASM_OUTPUT_MAX_SKIP_ALIGN might not do any alignment at all.  */
-  if (align_functions_log > align
+  if (! DECL_USER_ALIGN (decl)
+      && align_functions_log > align
       && cfun->function_frequency != FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
     {
 #ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
@@ -2810,6 +2809,7 @@ const_hash_1 (const tree exp)
       return hi;
 
     case PLUS_EXPR:
+    case POINTER_PLUS_EXPR:
     case MINUS_EXPR:
       return (const_hash_1 (TREE_OPERAND (exp, 0)) * 9
 	      + const_hash_1 (TREE_OPERAND (exp, 1)));
@@ -2956,6 +2956,7 @@ compare_constant (const tree t1, const tree t2)
       }
 
     case PLUS_EXPR:
+    case POINTER_PLUS_EXPR:
     case MINUS_EXPR:
     case RANGE_EXPR:
       return (compare_constant (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0))
@@ -3010,6 +3011,7 @@ copy_constant (tree exp)
 			    copy_constant (TREE_IMAGPART (exp)));
 
     case PLUS_EXPR:
+    case POINTER_PLUS_EXPR:
     case MINUS_EXPR:
       return build2 (TREE_CODE (exp), TREE_TYPE (exp),
 		     copy_constant (TREE_OPERAND (exp, 0)),
@@ -3901,6 +3903,7 @@ compute_reloc_for_constant (tree exp)
       break;
 
     case PLUS_EXPR:
+    case POINTER_PLUS_EXPR:
       reloc = compute_reloc_for_constant (TREE_OPERAND (exp, 0));
       reloc |= compute_reloc_for_constant (TREE_OPERAND (exp, 1));
       break;
@@ -3970,6 +3973,7 @@ output_addressed_constants (tree exp)
       break;
 
     case PLUS_EXPR:
+    case POINTER_PLUS_EXPR:
     case MINUS_EXPR:
       output_addressed_constants (TREE_OPERAND (exp, 1));
       /* Fall through.  */
@@ -4147,6 +4151,7 @@ initializer_constant_valid_p (tree value, tree endtype)
       }
       break;
 
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
       if (! INTEGRAL_TYPE_P (endtype)
 	  || TYPE_PRECISION (endtype) >= POINTER_SIZE)

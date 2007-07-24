@@ -57,6 +57,7 @@ struct diagnostic_context;
       BASELINK_QUALIFIED_P (in BASELINK)
       TARGET_EXPR_IMPLICIT_P (in TARGET_EXPR)
       TEMPLATE_PARM_PARAMETER_PACK (in TEMPLATE_PARM_INDEX)
+      TYPE_REF_IS_RVALUE (in REFERENCE_TYPE)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -70,6 +71,7 @@ struct diagnostic_context;
       ICS_THIS_FLAG (in _CONV)
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (in VAR_DECL)
       STATEMENT_LIST_TRY_BLOCK (in STATEMENT_LIST)
+      TYPENAME_IS_RESOLVING_P (in TYPE_NAME_TYPE)
    3: (TREE_REFERENCE_EXPR) (in NON_LVALUE_EXPR) (commented-out).
       ICS_BAD_FLAG (in _CONV)
       FN_TRY_BLOCK_P (in TRY_BLOCK)
@@ -109,7 +111,7 @@ struct diagnostic_context;
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
    3: DECL_IN_AGGR_P.
    4: DECL_C_BIT_FIELD (in a FIELD_DECL)
-      DECL_VAR_MARKED_P (in a VAR_DECL)
+      DECL_ANON_UNION_VAR_P (in a VAR_DECL)
       DECL_SELF_REFERENCE_P (in a TYPE_DECL)
       DECL_INVALID_OVERRIDER_P (in a FUNCTION_DECL)
    5: DECL_INTERFACE_KNOWN.
@@ -614,6 +616,7 @@ enum cp_tree_index
     CPTI_JCLASS,
     CPTI_TERMINATE,
     CPTI_CALL_UNEXPECTED,
+    CPTI_ATEXIT_FN_PTR_TYPE,
     CPTI_ATEXIT,
     CPTI_DSO_HANDLE,
     CPTI_DCAST,
@@ -702,6 +705,10 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 
 /* The declaration for "__cxa_call_unexpected".  */
 #define call_unexpected_node		cp_global_trees[CPTI_CALL_UNEXPECTED]
+
+/* The type of the function-pointer argument to "__cxa_atexit" (or
+   "std::atexit", if "__cxa_atexit" is not being used).  */
+#define atexit_fn_ptr_type_node         cp_global_trees[CPTI_ATEXIT_FN_PTR_TYPE]
 
 /* A pointer to `std::atexit'.  */
 #define atexit_node			cp_global_trees[CPTI_ATEXIT]
@@ -1759,6 +1766,10 @@ struct lang_decl GTY(())
 #define DECL_COPY_CONSTRUCTOR_P(NODE) \
   (DECL_CONSTRUCTOR_P (NODE) && copy_fn_p (NODE) > 0)
 
+/* Nonzero if NODE (a FUNCTION_DECL) is a move constructor.  */
+#define DECL_MOVE_CONSTRUCTOR_P(NODE) \
+  (DECL_CONSTRUCTOR_P (NODE) && move_fn_p (NODE))
+
 /* Nonzero if NODE is a destructor.  */
 #define DECL_DESTRUCTOR_P(NODE)				\
   (DECL_LANG_SPECIFIC (NODE)->decl_flags.destructor_attr)
@@ -2197,10 +2208,10 @@ extern void decl_shadowed_for_var_insert (tree, tree);
   (DECL_LANG_SPECIFIC (VAR_TEMPL_TYPE_OR_FUNCTION_DECL_CHECK (NODE)) \
    ->decl_flags.u.template_info)
 
-/* For a VAR_DECL, indicates that the variable has been processed.
-   This flag is set and unset throughout the code; it is always
-   used for a temporary purpose.  */
-#define DECL_VAR_MARKED_P(NODE) \
+/* For a VAR_DECL, indicates that the variable is actually a
+   non-static data member of anonymous union that has been promoted to
+   variable status.  */
+#define DECL_ANON_UNION_VAR_P(NODE) \
   (DECL_LANG_FLAG_4 (VAR_DECL_CHECK (NODE)))
 
 /* Template information for a RECORD_TYPE or UNION_TYPE.  */
@@ -2579,6 +2590,10 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define TYPENAME_IS_CLASS_P(NODE) \
   (TREE_LANG_FLAG_1 (TYPENAME_TYPE_CHECK (NODE)))
 
+/* True if a TYPENAME_TYPE is in the process of being resolved.  */
+#define TYPENAME_IS_RESOLVING_P(NODE) \
+  (TREE_LANG_FLAG_2 (TYPENAME_TYPE_CHECK (NODE)))
+
 /* Nonzero in INTEGER_CST means that this int is negative by dint of
    using a twos-complement negated operand.  */
 #define TREE_NEGATED_INT(NODE) TREE_LANG_FLAG_0 (INTEGER_CST_CHECK (NODE))
@@ -2812,6 +2827,10 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    in ascending tree code order.  */
 #define TYPE_REF_OBJ_P(NODE)					\
   (TREE_CODE (NODE) == REFERENCE_TYPE && TYPE_OBJ_P (TREE_TYPE (NODE)))
+
+/* True if reference type NODE is an rvalue reference */
+#define TYPE_REF_IS_RVALUE(NODE) \
+  TREE_LANG_FLAG_0 (REFERENCE_TYPE_CHECK (NODE))
 
 /* Returns true if NODE is a pointer to an object, or a pointer to
    void.  Keep these checks in ascending tree code order.  */
@@ -3687,6 +3706,8 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
    (Normally, these entities are registered in the symbol table, but
    not found by lookup.)  */
 #define LOOKUP_HIDDEN (LOOKUP_CONSTRUCTOR_CALLABLE << 1)
+/* Prefer that the lvalue be treated as an rvalue.  */
+#define LOOKUP_PREFER_RVALUE (LOOKUP_HIDDEN << 1)
 
 #define LOOKUP_NAMESPACES_ONLY(F)  \
   (((F) & LOOKUP_PREFER_NAMESPACES) && !((F) & LOOKUP_PREFER_TYPES))
@@ -4007,13 +4028,21 @@ struct cp_declarator {
       /* The bounds to the array.  */
       tree bounds;
     } array;
-    /* For cdk_pointer, cdk_reference, and cdk_ptrmem.  */
+    /* For cdk_pointer and cdk_ptrmem.  */
     struct {
       /* The cv-qualifiers for the pointer.  */
       cp_cv_quals qualifiers;
       /* For cdk_ptrmem, the class type containing the member.  */
       tree class_type;
     } pointer;
+    /* For cdk_reference */
+    struct {
+      /* The cv-qualifiers for the reference.  These qualifiers are
+         only used to diagnose ill-formed code.  */
+      cp_cv_quals qualifiers;
+      /* Whether this is an rvalue reference */
+      bool rvalue_ref;
+    } reference;
   } u;
 };
 
@@ -4176,6 +4205,7 @@ extern tree build_ptrmem_type			(tree, tree);
 /* the grokdeclarator prototype is in decl.h */
 extern tree build_this_parm			(tree, cp_cv_quals);
 extern int copy_fn_p				(tree);
+extern bool move_fn_p                           (tree);
 extern tree get_scope_of_declarator		(const cp_declarator *);
 extern void grok_special_member_properties	(tree);
 extern int grok_ctor_properties			(tree, tree);
@@ -4391,7 +4421,6 @@ extern tree instantiate_decl			(tree, int, bool);
 extern int comp_template_parms			(tree, tree);
 extern bool uses_parameter_packs                (tree);
 extern bool template_parameter_pack_p           (tree);
-extern bool template_parms_variadic_p           (tree);
 extern tree make_pack_expansion                 (tree);
 extern bool check_for_bare_parameter_packs      (tree);
 extern int template_class_depth			(tree);
@@ -4419,6 +4448,7 @@ extern bool dependent_template_id_p		(tree, tree);
 extern bool type_dependent_expression_p		(tree);
 extern bool any_type_dependent_arguments_p      (tree);
 extern bool value_dependent_expression_p	(tree);
+extern bool any_value_dependent_elements_p      (tree);
 extern tree resolve_typename_type		(tree, bool);
 extern tree template_for_substitution		(tree);
 extern tree build_non_dependent_expr		(tree);
@@ -4684,6 +4714,7 @@ extern int is_dummy_object			(tree);
 extern const struct attribute_spec cxx_attribute_table[];
 extern tree make_ptrmem_cst			(tree, tree);
 extern tree cp_build_type_attribute_variant     (tree, tree);
+extern tree cp_build_reference_type		(tree, bool);
 extern tree cp_build_qualified_type_real	(tree, int, tsubst_flags_t);
 #define cp_build_qualified_type(TYPE, QUALS) \
   cp_build_qualified_type_real ((TYPE), (QUALS), tf_warning_or_error)

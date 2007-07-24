@@ -259,7 +259,7 @@ dump_bb (basic_block bb, FILE *outf, int indent)
   edge_iterator ei;
   char *s_indent;
 
-  s_indent = alloca ((size_t) indent + 1);
+  s_indent = (char *) alloca ((size_t) indent + 1);
   memset (s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
@@ -310,10 +310,10 @@ redirect_edge_and_branch (edge e, basic_block dest)
 
   ret = cfg_hooks->redirect_edge_and_branch (e, dest);
 
-  /* If RET != E, then the edge E was removed since RET already lead to the
-     same destination.  */
-  if (ret != NULL && current_loops != NULL)
-    rescan_loop_exit (e, false, ret != e);
+  /* If RET != E, then either the redirection failed, or the edge E
+     was removed since RET already lead to the same destination.  */
+  if (current_loops != NULL && ret == e)
+    rescan_loop_exit (e, false, false);
 
   return ret;
 }
@@ -350,14 +350,22 @@ remove_branch (edge e)
   other = EDGE_SUCC (src, EDGE_SUCC (src, 0) == e);
   irr = other->flags & EDGE_IRREDUCIBLE_LOOP;
 
-  if (current_loops != NULL)
-    rescan_loop_exit (e, false, true);
-
   e = redirect_edge_and_branch (e, other->dest);
   gcc_assert (e != NULL);
 
   e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
   e->flags |= irr;
+}
+
+/* Removes edge E from cfg.  Unlike remove_branch, it does not update IL.  */
+
+void
+remove_edge (edge e)
+{
+  if (current_loops != NULL)
+    rescan_loop_exit (e, false, true);
+
+  remove_edge_raw (e);
 }
 
 /* Redirect the edge E to basic block DEST even if it requires creating
@@ -646,10 +654,10 @@ merge_blocks (basic_block a, basic_block b)
   if (!cfg_hooks->merge_blocks)
     internal_error ("%s does not support merge_blocks", cfg_hooks->name);
 
+  cfg_hooks->merge_blocks (a, b);
+
   if (current_loops != NULL)
     remove_bb_from_loops (b);
-
-  cfg_hooks->merge_blocks (a, b);
 
   /* Normally there should only be one successor of A and that is B, but
      partway though the merge of blocks for conditional_execution we'll
@@ -657,11 +665,7 @@ merge_blocks (basic_block a, basic_block b)
      whole lot of them and hope the caller knows what they're doing.  */
 
   while (EDGE_COUNT (a->succs) != 0)
-    {
-      if (current_loops != NULL)
-	rescan_loop_exit (EDGE_SUCC (a, 0), false, true);
-      remove_edge (EDGE_SUCC (a, 0));
-    }
+    remove_edge (EDGE_SUCC (a, 0));
 
   /* Adjust the edges out of B for the new owner.  */
   FOR_EACH_EDGE (e, ei, b->succs)
@@ -735,11 +739,11 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
 
   if (dom_info_available_p (CDI_DOMINATORS))
     {
-      basic_block doms_to_fix[2];
-
-      doms_to_fix[0] = dummy;
-      doms_to_fix[1] = bb;
-      iterate_fix_dominators (CDI_DOMINATORS, doms_to_fix, 2);
+      VEC (basic_block, heap) *doms_to_fix = VEC_alloc (basic_block, heap, 2);
+      VEC_quick_push (basic_block, doms_to_fix, dummy);
+      VEC_quick_push (basic_block, doms_to_fix, bb);
+      iterate_fix_dominators (CDI_DOMINATORS, doms_to_fix, false);
+      VEC_free (basic_block, heap, doms_to_fix);
     }
 
   if (current_loops != NULL)
@@ -834,19 +838,11 @@ tidy_fallthru_edges (void)
 bool
 can_duplicate_block_p (basic_block bb)
 {
-  edge e;
-
   if (!cfg_hooks->can_duplicate_block_p)
     internal_error ("%s does not support can_duplicate_block_p",
 		    cfg_hooks->name);
 
   if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR)
-    return false;
-
-  /* Duplicating fallthru block to exit would require adding a jump
-     and splitting the real last BB.  */
-  e = find_edge (bb, EXIT_BLOCK_PTR);
-  if (e && (e->flags & EDGE_FALLTHRU))
     return false;
 
   return cfg_hooks->can_duplicate_block_p (bb);
@@ -1043,10 +1039,10 @@ extract_cond_bb_edges (basic_block b, edge *e1, edge *e2)
    new condition basic block that guards the versioned loop.  */
 void
 lv_adjust_loop_header_phi (basic_block first, basic_block second,
-			   basic_block new, edge e)
+			   basic_block new_block, edge e)
 {
   if (cfg_hooks->lv_adjust_loop_header_phi)
-    cfg_hooks->lv_adjust_loop_header_phi (first, second, new, e);
+    cfg_hooks->lv_adjust_loop_header_phi (first, second, new_block, e);
 }
 
 /* Conditions in trees and RTL are different so we need
@@ -1054,8 +1050,8 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
    versioning code.  */
 void
 lv_add_condition_to_bb (basic_block first, basic_block second,
-			basic_block new, void *cond)
+			basic_block new_block, void *cond)
 {
   gcc_assert (cfg_hooks->lv_add_condition_to_bb);
-  cfg_hooks->lv_add_condition_to_bb (first, second, new, cond);
+  cfg_hooks->lv_add_condition_to_bb (first, second, new_block, cond);
 }

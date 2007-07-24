@@ -465,8 +465,8 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
   int leadzero;
   int nblanks;
   int i;
+  int sign_bit;
   sign_t sign;
-  double abslog;
 
   ft = f->format;
   w = f->u.real.w;
@@ -483,6 +483,7 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
      For an N digit exponent, this gives us (MIN_FIELD_WIDTH-5)-N digits
      after the decimal point, plus another one before the decimal point.  */
   sign = calculate_sign (dtp, value < 0.0);
+  sign_bit = signbit (value);
   if (value < 0)
     value = -value;
 
@@ -495,21 +496,9 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
 	value = value + 0.5;
     }
 
-  /* Printf always prints at least two exponent digits.  */
-  if (value == 0)
-    edigits = 2;
-  else
-    {
-#if defined(HAVE_GFC_REAL_10) || defined(HAVE_GFC_REAL_16)
-      abslog = fabs((double) log10l(value));
-#else
-      abslog = fabs(log10(value));
-#endif
-      if (abslog < 100)
-	edigits = 2;
-      else
-        edigits = 1 + (int) log10(abslog);
-    }
+  /* printf pads blanks for us on the exponent so we just need it big enough
+     to handle the largest number of exponent digits expected.  */
+  edigits=4;
 
   if (ft == FMT_F || ft == FMT_EN
       || ((ft == FMT_D || ft == FMT_E) && dtp->u.p.scale_factor != 0))
@@ -560,9 +549,15 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
   /* Read the exponent back in.  */
   e = atoi (&buffer[ndigits + 3]) + 1;
 
-  /* Make sure zero comes out as 0.0e0.  */
+  /* Make sure zero comes out as 0.0e0.   */
   if (value == 0.0)
-    e = 0;
+    {
+      e = 0;
+      if (compile_options.sign_zero == 1)
+        sign = calculate_sign (dtp, sign_bit);
+      else
+	sign = calculate_sign (dtp, 0);
+    }
 
   /* Normalize the fractional component.  */
   buffer[2] = buffer[1];
@@ -764,7 +759,14 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
 	break;
     }
   if (i == ndigits)
-    sign = calculate_sign (dtp, 0);
+    {
+      /* The output is zero, so set the sign according to the sign bit unless
+	 -fno-sign-zero was specified.  */
+      if (compile_options.sign_zero == 1)
+        sign = calculate_sign (dtp, sign_bit);
+      else
+	sign = calculate_sign (dtp, 0);
+    }
 
   /* Work out how much padding is needed.  */
   nblanks = w - (nbefore + nzero + nafter + edigits + 1);
@@ -789,7 +791,6 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
 
   /* Pad to full field width.  */
 
-
   if ( ( nblanks > 0 ) && !dtp->u.p.no_leading_blank)
     {
       memset (out, ' ', nblanks);
@@ -810,16 +811,21 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
   if (nbefore > 0)
     {
       if (nbefore > ndigits)
-	i = ndigits;
+	{
+	  i = ndigits;
+	  memcpy (out, digits, i);
+	  ndigits = 0;
+	  while (i < nbefore)
+	    out[i++] = '0';
+	}
       else
-	i = nbefore;
-
-      memcpy (out, digits, i);
-      while (i < nbefore)
-	out[i++] = '0';
+	{
+	  i = nbefore;
+	  memcpy (out, digits, i);
+	  ndigits -= i;
+	}
 
       digits += i;
-      ndigits -= i;
       out += nbefore;
     }
   /* Output the decimal point.  */

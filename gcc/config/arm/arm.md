@@ -95,6 +95,8 @@
                          ; instruction stream.
    (UNSPEC_STACK_ALIGN 20) ; Doubleword aligned stack pointer.  Used to
 			   ; generate correct unwind information.
+   (UNSPEC_PIC_OFFSET 22) ; A symbolic 12-bit OFFSET that has been treated
+			  ; correctly for PIC usage.
   ]
 )
 
@@ -488,7 +490,7 @@
     {
       arm_split_constant (PLUS, SImode, NULL_RTX,
 	                  INTVAL (operands[2]), operands[0], operands[1],
-			  optimize && !no_new_pseudos);
+			  optimize && can_create_pseudo_p ());
       DONE;
     }
   "
@@ -965,7 +967,7 @@
         {
           arm_split_constant (MINUS, SImode, NULL_RTX,
 	                      INTVAL (operands[1]), operands[0],
-	  		      operands[2], optimize && !no_new_pseudos);
+	  		      operands[2], optimize && can_create_pseudo_p ());
           DONE;
 	}
       else /* TARGET_THUMB1 */
@@ -1735,7 +1737,7 @@
         {
           arm_split_constant (AND, SImode, NULL_RTX,
 	                      INTVAL (operands[2]), operands[0],
-			      operands[1], optimize && !no_new_pseudos);
+			      operands[1], optimize && can_create_pseudo_p ());
 
           DONE;
         }
@@ -2396,7 +2398,7 @@
         {
           arm_split_constant (IOR, SImode, NULL_RTX,
 	                      INTVAL (operands[2]), operands[0], operands[1],
-			      optimize && !no_new_pseudos);
+			      optimize && can_create_pseudo_p ());
           DONE;
 	}
       else /* TARGET_THUMB1 */
@@ -4471,7 +4473,7 @@
 	(match_operand:DI 1 "general_operand" ""))]
   "TARGET_EITHER"
   "
-  if (!no_new_pseudos)
+  if (can_create_pseudo_p ())
     {
       if (GET_CODE (operands[0]) != REG)
 	operands[1] = force_reg (DImode, operands[1]);
@@ -4647,6 +4649,8 @@
         (match_operand:SI 1 "general_operand" ""))]
   "TARGET_EITHER"
   "
+  rtx base, offset, tmp;
+
   if (TARGET_32BIT)
     {
       /* Everything except mem = const or mem = mem can be done easily.  */
@@ -4659,17 +4663,30 @@
         {
            arm_split_constant (SET, SImode, NULL_RTX,
 	                       INTVAL (operands[1]), operands[0], NULL_RTX,
-			       optimize && !no_new_pseudos);
+			       optimize && can_create_pseudo_p ());
           DONE;
         }
     }
   else /* TARGET_THUMB1...  */
     {
-      if (!no_new_pseudos)
+      if (can_create_pseudo_p ())
         {
           if (GET_CODE (operands[0]) != REG)
 	    operands[1] = force_reg (SImode, operands[1]);
         }
+    }
+
+  if (ARM_OFFSETS_MUST_BE_WITHIN_SECTIONS_P)
+    {
+      split_const (operands[1], &base, &offset);
+      if (GET_CODE (base) == SYMBOL_REF
+	  && !offset_within_block_p (base, INTVAL (offset)))
+	{
+	  tmp = can_create_pseudo_p () ? gen_reg_rtx (SImode) : operands[0];
+	  emit_move_insn (tmp, base);
+	  emit_insn (gen_addsi3 (operands[0], tmp, offset));
+	  DONE;
+	}
     }
 
   /* Recognize the case where operand[1] is a reference to thread-local
@@ -4688,7 +4705,8 @@
       gcc_assert (GET_CODE (tmp) == SYMBOL_REF);
       gcc_assert (SYMBOL_REF_TLS_MODEL (tmp) != 0);
 
-      tmp = legitimize_tls_address (tmp, no_new_pseudos ? operands[0] : 0);
+      tmp = legitimize_tls_address (tmp,
+				    !can_create_pseudo_p () ? operands[0] : 0);
       if (addend)
         {
           tmp = gen_rtx_PLUS (SImode, tmp, addend);
@@ -4701,7 +4719,9 @@
 	       || symbol_mentioned_p (operands[1])
 	       || label_mentioned_p (operands[1])))
       operands[1] = legitimize_pic_address (operands[1], SImode,
-					    (no_new_pseudos ? operands[0] : 0));
+					    (!can_create_pseudo_p ()
+					     ? operands[0]
+					     : 0));
   "
 )
 
@@ -4857,9 +4877,9 @@
 (define_insn "pic_add_dot_plus_four"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(unspec:SI [(plus:SI (match_operand:SI 1 "register_operand" "0")
-			     (const (plus:SI (pc) (const_int 4))))]
-		   UNSPEC_PIC_BASE))
-   (use (match_operand 2 "" ""))]
+			     (const (plus:SI (pc) (const_int 4))))
+		    (match_operand 2 "" "")]
+		   UNSPEC_PIC_BASE))]
   "TARGET_THUMB1"
   "*
   (*targetm.asm_out.internal_label) (asm_out_file, \"LPIC\",
@@ -4872,9 +4892,9 @@
 (define_insn "pic_add_dot_plus_eight"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(unspec:SI [(plus:SI (match_operand:SI 1 "register_operand" "r")
-			     (const (plus:SI (pc) (const_int 8))))]
-		   UNSPEC_PIC_BASE))
-   (use (match_operand 2 "" ""))]
+			     (const (plus:SI (pc) (const_int 8))))
+		    (match_operand 2 "" "")]
+		   UNSPEC_PIC_BASE))]
   "TARGET_ARM"
   "*
     (*targetm.asm_out.internal_label) (asm_out_file, \"LPIC\",
@@ -4887,9 +4907,9 @@
 (define_insn "tls_load_dot_plus_eight"
   [(set (match_operand:SI 0 "register_operand" "+r")
 	(mem:SI (unspec:SI [(plus:SI (match_operand:SI 1 "register_operand" "r")
-				     (const (plus:SI (pc) (const_int 8))))]
-			   UNSPEC_PIC_BASE)))
-   (use (match_operand 2 "" ""))]
+				     (const (plus:SI (pc) (const_int 8))))
+			    (match_operand 2 "" "")]
+			   UNSPEC_PIC_BASE)))]
   "TARGET_ARM"
   "*
     (*targetm.asm_out.internal_label) (asm_out_file, \"LPIC\",
@@ -4917,6 +4937,16 @@
 				      UNSPEC_PIC_BASE)))
    	      (use (label_ref (match_dup 1)))])]
   ""
+)
+
+(define_insn "pic_offset_arm"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "r")
+			 (unspec:SI [(match_operand:SI 2 "" "X")]
+				    UNSPEC_PIC_OFFSET))))]
+  "TARGET_VXWORKS_RTP && TARGET_ARM && flag_pic"
+  "ldr%?\\t%0, [%1,%2]"
+  [(set_attr "type" "load1")]
 )
 
 (define_expand "builtin_setjmp_receiver"
@@ -5074,7 +5104,7 @@
   "
   if (TARGET_ARM)
     {
-      if (!no_new_pseudos)
+      if (can_create_pseudo_p ())
         {
           if (GET_CODE (operands[0]) == MEM)
 	    {
@@ -5118,7 +5148,7 @@
 	      emit_insn (gen_movsi (reg, GEN_INT (val)));
 	      operands[1] = gen_lowpart (HImode, reg);
 	    }
-	  else if (arm_arch4 && optimize && !no_new_pseudos
+	  else if (arm_arch4 && optimize && can_create_pseudo_p ()
 		   && GET_CODE (operands[1]) == MEM)
 	    {
 	      rtx reg = gen_reg_rtx (SImode);
@@ -5181,7 +5211,7 @@
   else if (TARGET_THUMB2)
     {
       /* Thumb-2 can do everything except mem=mem and mem=const easily.  */
-      if (!no_new_pseudos)
+      if (can_create_pseudo_p ())
 	{
 	  if (GET_CODE (operands[0]) != REG)
 	    operands[1] = force_reg (HImode, operands[1]);
@@ -5198,7 +5228,7 @@
     }
   else /* TARGET_THUMB1 */
     {
-      if (!no_new_pseudos)
+      if (can_create_pseudo_p ())
         {
 	  if (GET_CODE (operands[1]) == CONST_INT)
 	    {
@@ -5428,7 +5458,7 @@
   "
   /* Everything except mem = const or mem = mem can be done easily */
 
-  if (!no_new_pseudos)
+  if (can_create_pseudo_p ())
     {
       if (GET_CODE (operands[1]) == CONST_INT)
 	{
@@ -5536,7 +5566,7 @@
     }
   else /* TARGET_THUMB1 */
     {
-      if (!no_new_pseudos)
+      if (can_create_pseudo_p ())
         {
            if (GET_CODE (operands[0]) != REG)
 	     operands[1] = force_reg (SFmode, operands[1]);
@@ -5612,7 +5642,7 @@
     }
   else /* TARGET_THUMB */
     {
-      if (!no_new_pseudos)
+      if (can_create_pseudo_p ())
         {
           if (GET_CODE (operands[0]) != REG)
 	    operands[1] = force_reg (DFmode, operands[1]);
@@ -8145,7 +8175,7 @@
   "TARGET_EITHER"
   "
   {
-    rtx callee;
+    rtx callee, pat;
     
     /* In an untyped call, we can get NULL for operand 2.  */
     if (operands[2] == NULL_RTX)
@@ -8159,8 +8189,18 @@
 	? arm_is_long_call_p (SYMBOL_REF_DECL (callee))
 	: !REG_P (callee))
       XEXP (operands[0], 0) = force_reg (Pmode, callee);
+
+    pat = gen_call_internal (operands[0], operands[1], operands[2]);
+    arm_emit_call_insn (pat, XEXP (operands[0], 0));
+    DONE;
   }"
 )
+
+(define_expand "call_internal"
+  [(parallel [(call (match_operand 0 "memory_operand" "")
+	            (match_operand 1 "general_operand" ""))
+	      (use (match_operand 2 "" ""))
+	      (clobber (reg:SI LR_REGNUM))])])
 
 (define_insn "*call_reg_armv5"
   [(call (mem:SI (match_operand:SI 0 "s_register_operand" "r"))
@@ -8239,7 +8279,7 @@
   "TARGET_EITHER"
   "
   {
-    rtx callee;
+    rtx pat, callee;
     
     /* In an untyped call, we can get NULL for operand 2.  */
     if (operands[3] == 0)
@@ -8253,8 +8293,20 @@
 	? arm_is_long_call_p (SYMBOL_REF_DECL (callee))
 	: !REG_P (callee))
       XEXP (operands[1], 0) = force_reg (Pmode, callee);
+
+    pat = gen_call_value_internal (operands[0], operands[1],
+				   operands[2], operands[3]);
+    arm_emit_call_insn (pat, XEXP (operands[1], 0));
+    DONE;
   }"
 )
+
+(define_expand "call_value_internal"
+  [(parallel [(set (match_operand       0 "" "")
+	           (call (match_operand 1 "memory_operand" "")
+		         (match_operand 2 "general_operand" "")))
+	      (use (match_operand 3 "" ""))
+	      (clobber (reg:SI LR_REGNUM))])])
 
 (define_insn "*call_value_reg_armv5"
   [(set (match_operand 0 "" "")
@@ -9389,14 +9441,11 @@
    (clobber (reg:CC CC_REGNUM))]
   "TARGET_ARM"
   "*
-  if (GET_CODE (operands[3]) == LT && operands[3] == const0_rtx)
+  if (GET_CODE (operands[3]) == LT && operands[2] == const0_rtx)
     return \"mov\\t%0, %1, asr #31\";
 
   if (GET_CODE (operands[3]) == NE)
     return \"subs\\t%0, %1, %2\;mvnne\\t%0, #0\";
-
-  if (GET_CODE (operands[3]) == GT)
-    return \"subs\\t%0, %1, %2\;mvnne\\t%0, %0, asr #31\";
 
   output_asm_insn (\"cmp\\t%1, %2\", operands);
   output_asm_insn (\"mov%D3\\t%0, #0\", operands);

@@ -482,11 +482,8 @@ void gfc_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *, tree);
 
 /* Runtime library function decls.  */
 extern GTY(()) tree gfor_fndecl_internal_realloc;
-extern GTY(()) tree gfor_fndecl_internal_realloc64;
 extern GTY(()) tree gfor_fndecl_allocate;
-extern GTY(()) tree gfor_fndecl_allocate64;
 extern GTY(()) tree gfor_fndecl_allocate_array;
-extern GTY(()) tree gfor_fndecl_allocate64_array;
 extern GTY(()) tree gfor_fndecl_deallocate;
 extern GTY(()) tree gfor_fndecl_pause_numeric;
 extern GTY(()) tree gfor_fndecl_pause_string;
@@ -498,7 +495,7 @@ extern GTY(()) tree gfor_fndecl_runtime_error_at;
 extern GTY(()) tree gfor_fndecl_os_error;
 extern GTY(()) tree gfor_fndecl_generate_error;
 extern GTY(()) tree gfor_fndecl_set_fpe;
-extern GTY(()) tree gfor_fndecl_set_std;
+extern GTY(()) tree gfor_fndecl_set_options;
 extern GTY(()) tree gfor_fndecl_ttynam;
 extern GTY(()) tree gfor_fndecl_ctime;
 extern GTY(()) tree gfor_fndecl_fdate;
@@ -603,6 +600,8 @@ struct lang_decl		GTY(())
 #define GFC_DESCRIPTOR_TYPE_P(node) TYPE_LANG_FLAG_1(node)
 /* An array without a descriptor.  */
 #define GFC_ARRAY_TYPE_P(node) TYPE_LANG_FLAG_2(node)
+/* Fortran POINTER type.  */
+#define GFC_POINTER_TYPE_P(node) TYPE_LANG_FLAG_3(node)
 /* The GFC_TYPE_ARRAY_* members are present in both descriptor and
    descriptorless array types.  */
 #define GFC_TYPE_ARRAY_LBOUND(node, dim) \

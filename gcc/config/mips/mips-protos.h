@@ -1,6 +1,6 @@
 /* Prototypes of target machine for GNU compiler.  MIPS version.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
    64-bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
@@ -136,6 +136,8 @@ enum mips_loadgp_style {
   LOADGP_RTP
 };
 
+struct mips16e_save_restore_info;
+
 extern bool mips_symbolic_constant_p (rtx, enum mips_symbol_type *);
 extern int mips_regno_mode_ok_for_base_p (int, enum machine_mode, int);
 extern bool mips_stack_address_p (rtx, enum machine_mode);
@@ -185,6 +187,7 @@ extern void mips_expand_call (rtx, rtx, rtx, rtx, int);
 extern void mips_emit_fcc_reload (rtx, rtx, rtx);
 extern void mips_set_return_address (rtx, rtx);
 extern bool mips_expand_block_move (rtx, rtx, rtx);
+extern void mips_expand_synci_loop (rtx, rtx);
 
 extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
@@ -260,5 +263,9 @@ extern void irix_asm_output_align (FILE *, unsigned);
 extern const char *current_section_name (void);
 extern unsigned int current_section_flags (void);
 extern bool mips_use_ins_ext_p (rtx, rtx, rtx);
+
+extern const char *mips16e_output_save_restore (rtx, HOST_WIDE_INT);
+extern bool mips16e_save_restore_pattern_p (rtx, HOST_WIDE_INT,
+					    struct mips16e_save_restore_info *);
 
 #endif /* ! GCC_MIPS_PROTOS_H */

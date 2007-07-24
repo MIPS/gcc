@@ -96,7 +96,13 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 	    }
 	}
     }
-
+  if (POINTER_TYPE_P (TREE_TYPE (base)))
+    {
+      step = fold_convert (sizetype, step);
+      if (incr_op == MINUS_EXPR)
+	step = fold_build1 (NEGATE_EXPR, sizetype, step);
+      incr_op = POINTER_PLUS_EXPR;
+    }
   /* Gimplify the step if necessary.  We put the computations in front of the
      loop (i.e. the step should be loop invariant).  */
   step = force_gimple_operand (step, &stmts, true, var);
@@ -664,12 +670,16 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
   tree base = desc->control.base;
   tree step = desc->control.step;
   tree bound = desc->bound;
-  tree type = TREE_TYPE (base);
+  tree type = TREE_TYPE (step);
   tree bigstep, delta;
   tree min = lower_bound_in_type (type, type);
   tree max = upper_bound_in_type (type, type);
   enum tree_code cmp = desc->cmp;
   tree cond = boolean_true_node, assum;
+
+  /* For pointers, do the arithmetics in the type of step (sizetype).  */
+  base = fold_convert (type, base);
+  bound = fold_convert (type, bound);
 
   *enter_cond = boolean_false_node;
   *exit_base = NULL_TREE;

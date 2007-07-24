@@ -1,5 +1,5 @@
 /* Alias analysis for trees.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -2415,8 +2415,14 @@ finalize_ref_all_pointers (struct alias_info *ai)
   for (i = 0; i < ai->num_pointers; i++)
     {
       tree ptr = ai->pointers[i]->var, tag;
+      /* Avoid adding to self and clean up.  */
       if (PTR_IS_REF_ALL (ptr))
-	continue;
+	{
+	  struct ptr_info_def *pi = get_ptr_info (ptr);
+	  if (pi->is_dereferenced)
+	    pi->pt_anything = 0;
+	  continue;
+	}
       tag = symbol_mem_tag (ptr);
       if (is_call_clobbered (tag))
 	add_may_alias (ai->ref_all_symbol_mem_tag, tag);
@@ -2720,68 +2726,71 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
 
   gcc_assert (TREE_CODE (mem) == SYMBOL_MEMORY_TAG);
 
-  alias_stats.tbaa_queries++;
-
-  /* If the alias sets don't conflict then MEM cannot alias VAR.  */
-  if (!alias_sets_conflict_p (mem_alias_set, var_alias_set))
+  if (!DECL_NO_TBAA_P (ptr))
     {
-      alias_stats.alias_noalias++;
-      alias_stats.tbaa_resolved++;
-      return false;
-    }
+      alias_stats.tbaa_queries++;
 
-  /* If VAR is a record or union type, PTR cannot point into VAR
-     unless there is some explicit address operation in the
-     program that can reference a field of the type pointed-to by PTR.
-     This also assumes that the types of both VAR and PTR are
-     contained within the compilation unit, and that there is no fancy
-     addressing arithmetic associated with any of the types
-     involved.  */
-  if (mem_alias_set != 0 && var_alias_set != 0)
-    {
-      tree ptr_type = TREE_TYPE (ptr);
-      tree var_type = TREE_TYPE (var);
-      
-      /* The star count is -1 if the type at the end of the pointer_to 
-	 chain is not a record or union type. */ 
-      if ((!alias_set_only) && 
-	  ipa_type_escape_star_count_of_interesting_type (var_type) >= 0)
+      /* If the alias sets don't conflict then MEM cannot alias VAR.  */
+      if (!alias_sets_conflict_p (mem_alias_set, var_alias_set))
 	{
-	  int ptr_star_count = 0;
-	  
-	  /* ipa_type_escape_star_count_of_interesting_type is a
-	     little too restrictive for the pointer type, need to
-	     allow pointers to primitive types as long as those types
-	     cannot be pointers to everything.  */
-	  while (POINTER_TYPE_P (ptr_type))
+	  alias_stats.alias_noalias++;
+	  alias_stats.tbaa_resolved++;
+	  return false;
+	}
+
+      /* If VAR is a record or union type, PTR cannot point into VAR
+	 unless there is some explicit address operation in the
+	 program that can reference a field of the type pointed-to by
+	 PTR.  This also assumes that the types of both VAR and PTR
+	 are contained within the compilation unit, and that there is
+	 no fancy addressing arithmetic associated with any of the
+	 types involved.  */
+      if (mem_alias_set != 0 && var_alias_set != 0)
+	{
+	  tree ptr_type = TREE_TYPE (ptr);
+	  tree var_type = TREE_TYPE (var);
+      
+	  /* The star count is -1 if the type at the end of the
+	     pointer_to chain is not a record or union type. */ 
+	  if ((!alias_set_only) && 
+	      ipa_type_escape_star_count_of_interesting_type (var_type) >= 0)
 	    {
-	      /* Strip the *s off.  */ 
-	      ptr_type = TREE_TYPE (ptr_type);
-	      ptr_star_count++;
-	    }
+	      int ptr_star_count = 0;
 	  
-	  /* There does not appear to be a better test to see if the 
-	     pointer type was one of the pointer to everything 
-	     types.  */
-	  if (ptr_star_count > 0)
-	    {
-	      alias_stats.structnoaddress_queries++;
-	      if (ipa_type_escape_field_does_not_clobber_p (var_type, 
-							    TREE_TYPE (ptr))) 
+	      /* ipa_type_escape_star_count_of_interesting_type is a
+		 little too restrictive for the pointer type, need to
+		 allow pointers to primitive types as long as those
+		 types cannot be pointers to everything.  */
+	      while (POINTER_TYPE_P (ptr_type))
 		{
+		  /* Strip the *s off.  */ 
+		  ptr_type = TREE_TYPE (ptr_type);
+		  ptr_star_count++;
+		}
+	  
+	      /* There does not appear to be a better test to see if
+		 the pointer type was one of the pointer to everything
+		 types.  */
+	      if (ptr_star_count > 0)
+		{
+		  alias_stats.structnoaddress_queries++;
+		  if (ipa_type_escape_field_does_not_clobber_p (var_type, 
+								TREE_TYPE (ptr)))
+		    {
+		      alias_stats.structnoaddress_resolved++;
+		      alias_stats.alias_noalias++;
+		      return false;
+		    }
+		}
+	      else if (ptr_star_count == 0)
+		{
+		  /* If PTR_TYPE was not really a pointer to type, it cannot 
+		     alias.  */ 
+		  alias_stats.structnoaddress_queries++;
 		  alias_stats.structnoaddress_resolved++;
 		  alias_stats.alias_noalias++;
 		  return false;
 		}
-	    }
-	  else if (ptr_star_count == 0)
-	    {
-	      /* If PTR_TYPE was not really a pointer to type, it cannot 
-		 alias.  */ 
-	      alias_stats.structnoaddress_queries++;
-	      alias_stats.structnoaddress_resolved++;
-	      alias_stats.alias_noalias++;
-	      return false;
 	    }
 	}
     }
@@ -3637,11 +3646,13 @@ get_or_create_used_part_for (size_t uid)
 
 
 /* Create and return a structure sub-variable for field type FIELD at
-   offset OFFSET, with size SIZE, of variable VAR.  */
+   offset OFFSET, with size SIZE, of variable VAR.  If ALIAS_SET not
+   -1 this field is non-addressable and we should use this alias set
+   with this field.  */
 
 static tree
 create_sft (tree var, tree field, unsigned HOST_WIDE_INT offset,
-	    unsigned HOST_WIDE_INT size)
+	    unsigned HOST_WIDE_INT size, HOST_WIDE_INT alias_set)
 {
   tree subvar = create_tag_raw (STRUCT_FIELD_TAG, field, "SFT");
 
@@ -3660,6 +3671,7 @@ create_sft (tree var, tree field, unsigned HOST_WIDE_INT offset,
   SFT_PARENT_VAR (subvar) = var;
   SFT_OFFSET (subvar) = offset;
   SFT_SIZE (subvar) = size;
+  SFT_ALIAS_SET (subvar) = alias_set;
   return subvar;
 }
 
@@ -3679,7 +3691,8 @@ create_overlap_variables_for (tree var)
       || up->write_only)
     return;
 
-  push_fields_onto_fieldstack (TREE_TYPE (var), &fieldstack, 0, NULL);
+  push_fields_onto_fieldstack (TREE_TYPE (var), &fieldstack, 0, NULL,
+			       TREE_TYPE (var));
   if (VEC_length (fieldoff_s, fieldstack) != 0)
     {
       subvar_t *subvars;
@@ -3771,7 +3784,8 @@ create_overlap_variables_for (tree var)
 	    continue;
 	  sv = GGC_NEW (struct subvar);
 	  sv->next = *subvars;
-	  sv->var = create_sft (var, fo->type, fo->offset, fosize);
+	  sv->var =
+	    create_sft (var, fo->type, fo->offset, fosize, fo->alias_set);
 
 	  if (dump_file)
 	    {

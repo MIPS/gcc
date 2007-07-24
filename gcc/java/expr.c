@@ -929,13 +929,12 @@ build_java_arrayaccess (tree array, tree type, tree index)
 
   /* Multiply the index by the size of an element to obtain a byte
      offset.  Convert the result to a pointer to the element type.  */
-  index = fold_convert (TREE_TYPE (node),
-			build2 (MULT_EXPR, sizetype, 
-				fold_convert (sizetype, index), 
-				size_exp));
+  index = build2 (MULT_EXPR, sizetype, 
+		  fold_convert (sizetype, index), 
+		  size_exp);
 
   /* Sum the byte offset and the address of the data field.  */
-  node = fold_build2 (PLUS_EXPR, TREE_TYPE (node), node, index);
+  node = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (node), node, index);
 
   /* Finally, return
 
@@ -1287,7 +1286,7 @@ expand_java_return (tree type)
 	retval = build1(NOP_EXPR, TREE_TYPE(res), retval);
       
       TREE_SIDE_EFFECTS (retval) = 1;
-      java_add_stmt (build1 (RETURN_EXPR, TREE_TYPE (retval), retval));
+      java_add_stmt (build1 (RETURN_EXPR, void_type_node, retval));
     }
 }
 
@@ -1744,9 +1743,11 @@ build_field_ref (tree self_value, tree self_class, tree name)
 	  field_offset = fold (convert (sizetype, field_offset));
 	  self_value = java_check_reference (self_value, check);
 	  address 
-	    = fold_build2 (PLUS_EXPR, 
-			   build_pointer_type (TREE_TYPE (field_decl)),
+	    = fold_build2 (POINTER_PLUS_EXPR, 
+			   TREE_TYPE (self_value),
 			   self_value, field_offset);
+	  address = fold_convert (build_pointer_type (TREE_TYPE (field_decl)),
+				  address);
 	  return fold_build1 (INDIRECT_REF, TREE_TYPE (field_decl), address);
 	}
 
@@ -2228,8 +2229,8 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
 	  method_index++;
 	}
       method_index *= int_size_in_bytes (method_type_node);
-      ref = fold_build2 (PLUS_EXPR, method_ptr_type_node,
-			 ref, build_int_cst (NULL_TREE, method_index));
+      ref = fold_build2 (POINTER_PLUS_EXPR, method_ptr_type_node,
+			 ref, size_int (method_index));
       ref = build1 (INDIRECT_REF, method_type_node, ref);
       func = build3 (COMPONENT_REF, nativecode_ptr_type_node,
 		     ref, lookup_field (&method_type_node, ncode_ident),
@@ -2333,13 +2334,16 @@ build_invokevirtual (tree dtable, tree method, tree special)
 				   size_int (TARGET_VTABLE_USES_DESCRIPTORS));
     }
 
-  func = fold_build2 (PLUS_EXPR, nativecode_ptr_ptr_type_node, dtable,
-		      convert (nativecode_ptr_ptr_type_node, method_index));
+  func = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (dtable), dtable,
+		      convert (sizetype, method_index));
 
   if (TARGET_VTABLE_USES_DESCRIPTORS)
     func = build1 (NOP_EXPR, nativecode_ptr_type_node, func);
   else
-    func = build1 (INDIRECT_REF, nativecode_ptr_type_node, func);
+    {
+      func = fold_convert (nativecode_ptr_ptr_type_node, func);
+      func = build1 (INDIRECT_REF, nativecode_ptr_type_node, func);
+    }
 
   return func;
 }
@@ -2716,7 +2720,9 @@ build_jni_stub (tree method)
   jni_func_type = build_pointer_type (tem);
 
   jnifunc = build3 (COND_EXPR, ptr_type_node,
-		    meth_var, meth_var,
+		    build2 (NE_EXPR, boolean_type_node,
+			    meth_var, build_int_cst (TREE_TYPE (meth_var), 0)),
+		    meth_var,
 		    build2 (MODIFY_EXPR, ptr_type_node, meth_var,
 			    build_call_nary (ptr_type_node,
 					     build_address_of
@@ -2778,7 +2784,7 @@ build_jni_stub (tree method)
     }
 
   body = build2 (COMPOUND_EXPR, void_type_node, body,
-		 build1 (RETURN_EXPR, res_type, res_var));
+		 build1 (RETURN_EXPR, void_type_node, res_var));
   TREE_SIDE_EFFECTS (body) = 1;
   
   /* Prepend class initialization for static methods reachable from

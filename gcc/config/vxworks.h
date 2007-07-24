@@ -92,7 +92,9 @@ extern void vxworks_override_options (void);
 
 /* VxWorks requires special handling of constructors and destructors.
    All VxWorks configurations must use these functions.  */
+#undef TARGET_ASM_CONSTRUCTOR
 #define TARGET_ASM_CONSTRUCTOR vxworks_asm_out_constructor
+#undef TARGET_ASM_DESTRUCTOR
 #define TARGET_ASM_DESTRUCTOR vxworks_asm_out_destructor
 extern void vxworks_asm_out_constructor (rtx symbol, int priority);
 extern void vxworks_asm_out_destructor (rtx symbol, int priority);
@@ -103,6 +105,16 @@ extern void vxworks_asm_out_destructor (rtx symbol, int priority);
 #define VXWORKS_GOTT_BASE "__GOTT_BASE__"
 #undef VXWORKS_GOTT_INDEX
 #define VXWORKS_GOTT_INDEX "__GOTT_INDEX__"
+
+/* As for svr4.h (which not all VxWorks targets include). */
+#undef PTRDIFF_TYPE
+#define PTRDIFF_TYPE "int"
+
+#undef SIZE_TYPE
+#define SIZE_TYPE "unsigned int"
+
+/* Both kernels and RTPs have the facilities required by this macro.  */
+#define TARGET_POSIX_IO
 
 /* A VxWorks implementation of TARGET_OS_CPP_BUILTINS.  */
 #define VXWORKS_OS_CPP_BUILTINS()					\

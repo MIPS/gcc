@@ -1,6 +1,6 @@
 /* Definitions of floating-point access for GNU compiler.
    Copyright (C) 1989, 1991, 1994, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -192,6 +192,9 @@ extern bool real_isinf (const REAL_VALUE_TYPE *);
 /* Determine whether a floating-point value X is a NaN.  */
 extern bool real_isnan (const REAL_VALUE_TYPE *);
 
+/* Determine whether a floating-point value X is finite.  */
+extern bool real_isfinite (const REAL_VALUE_TYPE *);
+
 /* Determine whether a floating-point value X is negative.  */
 extern bool real_isneg (const REAL_VALUE_TYPE *);
 
@@ -254,10 +257,10 @@ extern unsigned int real_hash (const REAL_VALUE_TYPE *);
 /* Target formats defined in real.c.  */
 extern const struct real_format ieee_single_format;
 extern const struct real_format mips_single_format;
-extern const struct real_format coldfire_single_format;
+extern const struct real_format motorola_single_format;
 extern const struct real_format ieee_double_format;
 extern const struct real_format mips_double_format;
-extern const struct real_format coldfire_double_format;
+extern const struct real_format motorola_double_format;
 extern const struct real_format ieee_extended_motorola_format;
 extern const struct real_format ieee_extended_intel_96_format;
 extern const struct real_format ieee_extended_intel_96_round_53_format;
@@ -435,4 +438,8 @@ extern void mpfr_from_real (mpfr_ptr, const REAL_VALUE_TYPE *, mp_rnd_t);
 /* Check whether the real constant value given is an integer.  */
 extern bool real_isinteger (const REAL_VALUE_TYPE *c, enum machine_mode mode);
 
+/* Write into BUF the maximum representable finite floating-point
+   number, (1 - b**-p) * b**emax for a given FP format FMT as a hex
+   float string.  BUF must be large enough to contain the result.  */
+extern void get_max_float (const struct real_format *, char *, size_t);
 #endif /* ! GCC_REAL_H */

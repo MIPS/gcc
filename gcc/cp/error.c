@@ -542,7 +542,15 @@ dump_type_prefix (tree t, int flags)
 	    pp_cxx_whitespace (cxx_pp);
 	    pp_cxx_left_paren (cxx_pp);
 	  }
-	pp_character (cxx_pp, "&*"[TREE_CODE (t) == POINTER_TYPE]);
+	if (TREE_CODE (t) == POINTER_TYPE)
+	  pp_character(cxx_pp, '*');
+	else if (TREE_CODE (t) == REFERENCE_TYPE)
+	{
+	  if (TYPE_REF_IS_RVALUE (t))
+	    pp_string (cxx_pp, "&&");
+	  else
+	    pp_character (cxx_pp, '&');
+	}
 	pp_base (cxx_pp)->padding = pp_before;
 	pp_cxx_cv_qualifier_seq (cxx_pp, t);
       }
@@ -1512,7 +1520,7 @@ dump_expr (tree t, int flags)
 	else
 	  dump_expr (AGGR_INIT_EXPR_FN (t), 0);
       }
-      dump_aggr_init_expr_args (t, flags, false);
+      dump_aggr_init_expr_args (t, flags, true);
       break;
 
     case CALL_EXPR:
@@ -2541,7 +2549,7 @@ cp_cpp_error (cpp_reader *pfile ATTRIBUTE_UNUSED, int level,
 void
 maybe_warn_variadic_templates (void)
 {
-  if (!flag_cpp0x && !in_system_header)
+  if ((cxx_dialect == cxx98) && !in_system_header)
     /* We really want to suppress this warning in system headers,
        because libstdc++ uses variadic templates even when we aren't
        in C++0x mode. */

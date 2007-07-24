@@ -623,7 +623,8 @@ gfc_convert_array_to_string (gfc_se * se, gfc_expr * e)
     }
 
   tmp = TYPE_SIZE_UNIT (gfc_get_element_type (type));
-  size = fold_build2 (MULT_EXPR, gfc_array_index_type, size, tmp);
+  size = fold_build2 (MULT_EXPR, gfc_array_index_type, size,
+		      fold_convert (gfc_array_index_type, tmp));
 
   se->string_length = fold_convert (gfc_charlen_type_node, size);
 }
@@ -1261,7 +1262,7 @@ gfc_new_nml_name_expr (const char * name)
 }
 
 /* nml_full_name builds up the fully qualified name of a
-   derived type component. */
+   derived type component.  */
 
 static char*
 nml_full_name (const char* var_name, const char* cmp_name)
@@ -1281,7 +1282,7 @@ nml_full_name (const char* var_name, const char* cmp_name)
    gfc_symbol or gfc_component backend_decl's. An offset is
    provided so that the address of an element of an array of
    derived types is returned. This is used in the runtime to
-   determine that span of the derived type. */
+   determine that span of the derived type.  */
 
 static tree
 nml_get_addr_expr (gfc_symbol * sym, gfc_component * c,
@@ -1711,7 +1712,7 @@ gfc_trans_dt_end (gfc_code * code)
 }
 
 static void
-transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr);
+transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr, gfc_code * code);
 
 /* Given an array field in a derived type variable, generate the code
    for the loop that iterates over array elements, and the code that
@@ -1779,7 +1780,7 @@ transfer_array_component (tree expr, gfc_component * cm)
   /* Now se.expr contains an element of the array.  Take the address and pass
      it to the IO routines.  */
   tmp = build_fold_addr_expr (se.expr);
-  transfer_expr (&se, &cm->ts, tmp);
+  transfer_expr (&se, &cm->ts, tmp, NULL);
 
   /* We are done now with the loop body.  Wrap up the scalarizer and
      return.  */
@@ -1804,12 +1805,37 @@ transfer_array_component (tree expr, gfc_component * cm)
 /* Generate the call for a scalar transfer node.  */
 
 static void
-transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr)
+transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr, gfc_code * code)
 {
   tree tmp, function, arg2, field, expr;
   gfc_component *c;
   int kind;
 
+  /* It is possible to get a C_NULL_PTR or C_NULL_FUNPTR expression here if
+     the user says something like: print *, 'c_null_ptr: ', c_null_ptr
+     We need to translate the expression to a constant if it's either
+     C_NULL_PTR or C_NULL_FUNPTR.  We could also get a user variable of
+     type C_PTR or C_FUNPTR, in which case the ts->type may no longer be
+     BT_DERIVED (could have been changed by gfc_conv_expr).  */
+  if ((ts->type == BT_DERIVED && ts->is_iso_c == 1 && ts->derived != NULL)
+      || (ts->derived != NULL && ts->derived->ts.is_iso_c == 1))
+    {
+      /* C_PTR and C_FUNPTR have private components which means they can not
+         be printed.  However, if -std=gnu and not -pedantic, allow
+         the component to be printed to help debugging.  */
+      if (gfc_notification_std (GFC_STD_GNU) != SILENT)
+	{
+	  gfc_error_now ("Derived type '%s' at %L has PRIVATE components",
+			 ts->derived->name, code != NULL ? &(code->loc) : 
+			 &gfc_current_locus);
+	  return;
+	}
+
+      ts->type = ts->derived->ts.type;
+      ts->kind = ts->derived->ts.kind;
+      ts->f90_type = ts->derived->ts.f90_type;
+    }
+  
   kind = ts->kind;
   function = NULL;
   arg2 = NULL;
@@ -1871,7 +1897,7 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr)
             {
               if (!c->pointer)
                 tmp = build_fold_addr_expr (tmp);
-              transfer_expr (se, &c->ts, tmp);
+              transfer_expr (se, &c->ts, tmp, code);
             }
 	}
       return;
@@ -1937,7 +1963,7 @@ gfc_trans_transfer (gfc_code * code)
     {
       /* Transfer a scalar value.  */
       gfc_conv_expr_reference (&se, expr);
-      transfer_expr (&se, &expr->ts, se.expr);
+      transfer_expr (&se, &expr->ts, se.expr, code);
     }
   else
     {
@@ -1976,7 +2002,7 @@ gfc_trans_transfer (gfc_code * code)
       se.ss = ss;
 
       gfc_conv_expr_reference (&se, expr);
-      transfer_expr (&se, &expr->ts, se.expr);
+      transfer_expr (&se, &expr->ts, se.expr, code);
     }
 
  finish_block_label:

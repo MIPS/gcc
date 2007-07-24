@@ -1923,7 +1923,7 @@ build_indirect_ref (tree ptr, const char *errorstring)
 	}
     }
   else if (TREE_CODE (pointer) != ERROR_MARK)
-    error ("invalid type argument of %qs", errorstring);
+    error ("invalid type argument of %qs (have %qT)", errorstring, type);
   return error_mark_node;
 }
 
@@ -2090,9 +2090,13 @@ build_external_ref (tree id, int fun, location_t loc)
   if (TREE_DEPRECATED (ref))
     warn_deprecated_use (ref);
 
-  if (!skip_evaluation)
-    assemble_external (ref);
-  TREE_USED (ref) = 1;
+  /* Recursive call does not count as usage.  */
+  if (ref != current_function_decl) 
+    {
+      if (!skip_evaluation)
+	assemble_external (ref);
+      TREE_USED (ref) = 1;
+    }
 
   if (TREE_CODE (ref) == FUNCTION_DECL && !in_alignof)
     {
@@ -2390,6 +2394,8 @@ convert_arguments (int nargs, tree *argarray,
 {
   tree typetail, valtail;
   int parmnum;
+  const bool type_generic = fundecl
+    && lookup_attribute ("type generic", TYPE_ATTRIBUTES(TREE_TYPE (fundecl)));
   tree selector;
 
   /* Change pointer to function to the function itself for
@@ -2581,8 +2587,13 @@ convert_arguments (int nargs, tree *argarray,
 	       && (TYPE_PRECISION (TREE_TYPE (val))
 		   < TYPE_PRECISION (double_type_node))
 	       && !DECIMAL_FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (val))))
-	/* Convert `float' to `double'.  */
-	argarray[parmnum] = convert (double_type_node, val);
+        {
+	  if (type_generic)
+	    argarray[parmnum] = val;
+	  else
+	    /* Convert `float' to `double'.  */
+	    argarray[parmnum] = convert (double_type_node, val);
+	}
       else if ((invalid_func_diag =
 		targetm.calls.invalid_arg_for_unprototyped_fn (typelist, fundecl, val)))
 	{
@@ -2959,11 +2970,13 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	      }
 
 	    inc = c_size_in_bytes (TREE_TYPE (result_type));
+	    inc = fold_convert (sizetype, inc);
 	  }
 	else
-	  inc = integer_one_node;
-
-	inc = convert (argtype, inc);
+	  {
+	    inc = integer_one_node;
+	    inc = convert (argtype, inc);
+	  }
 
 	/* Complain about anything else that is not a true lvalue.  */
 	if (!lvalue_or_else (arg, ((code == PREINCREMENT_EXPR
@@ -3051,10 +3064,10 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
       if (val && TREE_CODE (val) == INDIRECT_REF
           && TREE_CONSTANT (TREE_OPERAND (val, 0)))
 	{
-	  tree op0 = fold_convert (argtype, fold_offsetof (arg, val)), op1;
+	  tree op0 = fold_convert (sizetype, fold_offsetof (arg, val)), op1;
 
 	  op1 = fold_convert (argtype, TREE_OPERAND (val, 0));
-	  return fold_build2 (PLUS_EXPR, argtype, op0, op1);
+	  return fold_build2 (POINTER_PLUS_EXPR, argtype, op1, op0);
 	}
 
       val = build1 (ADDR_EXPR, argtype, arg);
@@ -4244,37 +4257,6 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
     }
 
   return error_mark_node;
-}
-
-/* Convert VALUE for assignment into inlined parameter PARM.  ARGNUM
-   is used for error and warning reporting and indicates which argument
-   is being processed.  */
-
-tree
-c_convert_parm_for_inlining (tree parm, tree value, tree fn, int argnum)
-{
-  tree ret, type;
-
-  /* If FN was prototyped at the call site, the value has been converted
-     already in convert_arguments.
-     However, we might see a prototype now that was not in place when
-     the function call was seen, so check that the VALUE actually matches
-     PARM before taking an early exit.  */
-  if (!value
-      || (TYPE_ARG_TYPES (TREE_TYPE (fn))
-	  && (TYPE_MAIN_VARIANT (TREE_TYPE (parm))
-	      == TYPE_MAIN_VARIANT (TREE_TYPE (value)))))
-    return value;
-
-  type = TREE_TYPE (parm);
-  ret = convert_for_assignment (type, value,
-				ic_argpass_nonproto, fn,
-				fn, argnum);
-  if (targetm.calls.promote_prototypes (TREE_TYPE (fn))
-      && INTEGRAL_TYPE_P (type)
-      && (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)))
-    ret = default_conversion (ret);
-  return ret;
 }
 
 /* If VALUE is a compound expr all of whose expressions are constant, then
@@ -8138,7 +8120,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	  || !same_scalar_type_ignoring_signedness (TREE_TYPE (type0),
 						    TREE_TYPE (type1))))
     {
-      binary_op_error (code);
+      binary_op_error (code, type0, type1);
       return error_mark_node;
     }
 
@@ -8438,7 +8420,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 
   if (!result_type)
     {
-      binary_op_error (code);
+      binary_op_error (code, TREE_TYPE (op0), TREE_TYPE (op1));
       return error_mark_node;
     }
 

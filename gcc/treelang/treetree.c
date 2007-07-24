@@ -5,7 +5,8 @@
    you are in the right place.
 
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
 
    This code is based on toy.c written by Richard Kenner.
 
@@ -23,7 +24,7 @@
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
-   Free Software Foundation; either version 2, or (at your option) any
+   Free Software Foundation; either version 3, or (at your option) any
    later version.
 
    This program is distributed in the hope that it will be useful,
@@ -32,9 +33,8 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+   along with this program; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.
 
    In other words, you are welcome to use, share and improve this program.
    You are forbidden to forbid anyone else to use, share and improve
@@ -127,7 +127,6 @@ struct language_function GTY(())
 static bool tree_mark_addressable (tree exp);
 static tree tree_lang_type_for_size (unsigned precision, int unsignedp);
 static tree tree_lang_type_for_mode (enum machine_mode mode, int unsignedp);
-static tree tree_lang_signed_type (tree type_node);
 
 /* Functions to keep track of the current scope.  */
 static void pushlevel (int ignore);
@@ -150,8 +149,6 @@ static void treelang_expand_function (tree fndecl);
 
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE tree_mark_addressable
-#undef LANG_HOOKS_SIGNED_TYPE
-#define LANG_HOOKS_SIGNED_TYPE tree_lang_signed_type
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #define LANG_HOOKS_TYPE_FOR_MODE tree_lang_type_for_mode
 #undef LANG_HOOKS_TYPE_FOR_SIZE
@@ -860,14 +857,6 @@ tree_lang_type_for_mode (enum machine_mode mode, int unsignedp)
     return tree_lang_type_for_size (GET_MODE_BITSIZE (mode), unsignedp);
   else
     return NULL_TREE;
-}
-
-/* Return the signed version of a TYPE_NODE, a scalar type.  */
-
-static tree
-tree_lang_signed_type (tree type_node)
-{
-  return tree_lang_type_for_size (TYPE_PRECISION (type_node), 0);
 }
 
 

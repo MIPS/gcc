@@ -1,3 +1,578 @@
+2007-07-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR bootstrap/3456
+	* testsuite/22_locale/locale/cons/12658_thread-1.cc: Enable on
+	mips-sgi-irix6*.
+	* testsuite/22_locale/locale/cons/12658_thread-2.cc: Likewise.
+	* testsuite/thread/18185.cc: Likewise.
+	* testsuite/thread/pthread1.cc: Likewise.
+	* testsuite/thread/pthread2.cc: Likewise.
+	* testsuite/thread/pthread3.cc: Likewise.
+	* testsuite/thread/pthread4.cc: Likewise.
+	* testsuite/thread/pthread5.cc: Likewise.
+	* testsuite/thread/pthread6.cc: Likewise.
+	* testsuite/thread/pthread7-rope.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/shared_ptr/thread/default_weaktoshared.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/shared_ptr/thread/mutex_weaktoshared.cc: Likewise.
+
+2007-07-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/os/mingw32/ctype_base.h: Use the generic libstdc++ masks
+	rather than MSVCRT defines.
+	* config/os/mingw32/ctype_noninline.h (classic_table): Construct
+	and return a static classic table based on generic libstdc++ masks.
+
+2007-07-12  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* testsuite/tr1/3_function_objects/bind/all_bound.cc: Disambiguate
+	uses of TR1/C++0x facilities.
+	* testsuite/tr1/3_function_objects/bind/nested.cc: Ditto.
+	* testsuite/tr1/3_function_objects/bind/placeholders.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_multimap/requirements/
+	explicit_instantiation.cc: Ditto. 
+	* testsuite/tr1/6_containers/unordered_multimap/swap/1.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_multimap/swap/2.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_set/requirements/
+	explicit_instantiation.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_set/swap/1.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_set/swap/2.cc: Ditto.
+	* testsuite/tr1/6_containers/utility/pair.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_map/requirements/
+	explicit_instantiation.cc: Ditto. 
+	* testsuite/tr1/6_containers/unordered_map/24064.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_map/swap/1.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_map/swap/2.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/cons/big_tuples.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/cons/constructor.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/cons/assignment.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/tuple_element.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/tuple_size.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/comparison_operators/
+	comparisons.cc: Ditto. 
+	* testsuite/tr1/6_containers/tuple/element_access/get.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/creation_functions/23978.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/creation_functions/tie.cc: Ditto.
+	* testsuite/tr1/6_containers/tuple/creation_functions/make_tuple.cc:
+	Ditto.
+	* testsuite/tr1/6_containers/unordered_multiset/requirements/
+	explicit_instantiation.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_multiset/swap/1.cc: Ditto.
+	* testsuite/tr1/6_containers/unordered_multiset/swap/2.cc: Ditto.
+
+2007-07-10  Bob Wilson  <bob.wilson@acm.org>
+	
+	* configure.ac: Check if $atomicity_dir is cpu/generic/atomicity_mutex
+	instead of the non-existent cpu/generic/atomic_mutex.
+	* configure: Regenerate.
+	
+2007-07-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/utility (identity, move, forward): Add.
+	* testsuite/20_util/move/requirements/explicit_instantiation.cc: New.
+	* testsuite/20_util/move/1.cc: New.
+	* testsuite/20_util/identity/value.cc: New.
+	* testsuite/20_util/identity/requirements/typedefs.cc: New.
+	* testsuite/20_util/identity/requirements/explicit_instantiation.cc:
+	New.
+	* testsuite/20_util/forward/requirements/explicit_instantiation.cc:
+	New.
+	* testsuite/20_util/forward/1.cc: New.
+	* testsuite/20_util/forward/1_neg.cc: New.
+	
+2007-07-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/ios_base/failure/what-1.cc: Include <stdexcept>.
+
+2007-07-09  Jim Xochellis  <jimxoch@yahoo.gr>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (search(_ForwardIterator1,
+	_ForwardIterator1, _ForwardIterator2, _ForwardIterator2)): Tidy.
+	(search(_ForwardIterator1, _ForwardIterator1, _ForwardIterator2,
+	_ForwardIterator2, _BinaryPredicate)): Likewise.
+
+2007-07-06  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/lib/libstdc++.exp (v3-build_support): Use env(AR)
+	and env(RANLIB), not env(AR_FOR_TARGET) and env(RANLIB_FOR_TARGET).
+
+2007-07-05  Joerg Richter  <joerg.richter@pdv-fs.de>
+
+	PR libstdc++/31957
+	* include/Makefile.am: Work around an AIX sed oddity.
+	* include/Makefile.in: Regenerate.
+	
+2007-07-04  Jim Xochellis  <jimxoch@yahoo.gr>
+
+	* include/bits/stl_algo.h (search(_ForwardIterator1,
+	_ForwardIterator1, _ForwardIterator2, _ForwardIterator2)): Simplify
+	general case loop to a for(;;).
+	(search(_ForwardIterator1, _ForwardIterator1, _ForwardIterator2,
+	_ForwardIterator2, _BinaryPredicate)): Likewise; remove redundant
+	inner loop.
+	
+2007-07-03  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31518
+	* include/debug/formatter.h (_Error_formatter::_M_get_max_length): New.
+	(_Error_formatter::_Error_formatter): Use it.
+	* src/debug.cc: Define.
+	(_Error_formatter::_M_error): Tweak.
+	* configure.ac: Adjust version to 6:10:0.
+	* config/abi/pre/gnu.ver: Export _Error_formatter::_M_get_max_length
+	at GLIBCXX_3.4.10.
+	* testsuite/util/testsuite_abi.cc: Add GLIBCXX_3.4.10.
+	* docs/html/debug.html: Document.
+	* configure: Regenerate.
+
+2007-07-02  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc:
+	Tweak line numbers.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Ditto.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-1.cc:
+	Don't try to create an unsigned wchar_t.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-2.cc:
+	Don't try to create an unsigned wchar_t.
+	* testsuite/util/testsuite_hooks.h: Remove a stray semicolon.
+
+2007-07-01  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* include/std/type_traits (__make_unsigned): Remove invalid
+	wchar_t specialization.
+	(__make_signed): Remove invalid wchar_t specialization.
+	
+2007-06-29  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* testsuite/18_support/headers/cstdbool/std_c++0x_neg.cc: Force
+	C++98 mode.  
+	* testsuite/18_support/headers/cstdint/std_c++0x_neg.cc: Ditto.
+	* testsuite/20_util/headers/type_traits/std_c++0x_neg.cc: Ditto.
+	* testsuite/23_containers/headers/array/std_c++0x_neg.cc: Ditto.
+	* testsuite/23_containers/headers/tuple/std_c++0x_neg.cc: Ditto.
+	* testsuite/23_containers/headers/unordered_map/std_c++0x_neg.cc:
+	Ditto. 
+	* testsuite/23_containers/headers/unordered_set/std_c++0x_neg.cc:
+	Ditto. 
+	* testsuite/26_numerics/headers/ccomplex/std_c++0x_neg.cc: Ditto.
+	* testsuite/26_numerics/headers/cfenv/std_c++0x_neg.cc: Ditto.
+	* testsuite/26_numerics/headers/ctgmath/std_c++0x_neg.cc: Ditto.
+	* testsuite/26_numerics/headers/random/std_c++0x_neg.cc: Ditto.
+	* testsuite/27_io/headers/cinttypes/std_c++0x_neg.cc: Ditto.
+	* testsuite/28_regex/headers/regex/std_c++0x_neg.cc: Ditto.
+
+2007-06-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/32509
+	* acinclude.m4 (GLIBCXX_ENABLE_CLOCALE): Carry out the checks
+	involving the de_DE locale only if an auto locale config is
+	used for a target suitable for the gnu locale model.
+	* docs/html/install.html: Update.
+	* configure: Regenerated.
+
+2007-06-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/testsuite_api.h: New.
+	* testsuite/27_io/ios_base/failure: Add.
+	* testsuite/27_io/ios_base/failure/cons_virtual_derivation.cc: New.
+	* testsuite/27_io/ios_base/failure/what-1.cc: Same.
+	* testsuite/27_io/ios_base/failure/what-2.cc: Same.
+	* testsuite/27_io/ios_base/failure/what-big.cc: Same.
+	* testsuite/27_io/ios_base/failure/what-3.cc: Same.
+	* testsuite/19_diagnostics/logic_error/
+	cons_virtual_derivation.cc: Same.
+	* testsuite/19_diagnostics/runtime_error/
+	cons_virtual_derivation.cc: Same.
+	* testsuite/18_support/bad_alloc/cons_virtual_derivation.cc: Same.
+	* testsuite/18_support/bad_cast/cons_virtual_derivation.cc: Same.
+	* testsuite/18_support/bad_exception/cons_virtual_derivation.cc: Same.
+	* testsuite/18_support/bad_typeid/cons_virtual_derivation.cc: Same.
+	* testsuite/ext/concurrence_lock_error: New.
+	* testsuite/ext/concurrence_lock_error/
+	cons_virtual_derivation.cc: Same.
+	* testsuite/ext/forced_exception_error: New.
+	* testsuite/ext/forced_exception_error/
+	cons_virtual_derivation.cc: Same.
+	* testsuite/ext/concurrence_unlock_error: New.
+	* testsuite/ext/concurrence_unlock_error/
+	cons_virtual_derivation.cc: Same.
+	* testsuite/20_util/function_objects/bad_function_call: New.
+	* testsuite/20_util/function_objects/bad_function_call/
+	cons_virtual_derivation.cc: Same.
+	
+2007-06-26  Benjamin Kosnik  <bkoz@redhat.com>	
+
+	* include/ext/throw_allocator.h: Fixes for -fno-exceptions.
+	* testsuite/util/testsuite_shared.cc: Same.
+	* testsuite/util/io/illegal_input_error.hpp: Same.
+	* testsuite/util/io/verified_cmd_line_input.cc: Same.
+
+	* libsupc++/typeinfo (type_info): Correct comment formatting,
+	clarify member access and public interface.
+	* libsupc++/exception: Less compressed comments.
+	* libsupc++/new: Same.
+	
+2007-06-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_list.h: Rename guard macro consistently with
+	file name.
+	* include/bits/stl_algobase.h: Likewise.
+	* include/bits/stl_map.h: Likewise.
+	* include/bits/stl_queue.h: Likewise.
+	* include/bits/stl_set.h: Likewise.
+	* include/bits/stl_stack.h: Likewise.
+	* include/bits/stl_iterator_base_types.h: Likewise.
+	* include/bits/stl_multimap.h: Likewise.
+	* include/bits/stl_pair.h: Likewise.
+	* include/bits/stl_vector.h: Likewise.
+	* include/bits/stl_deque.h: Likewise.
+	* include/bits/stl_multiset.h: Likewise.
+	* include/bits/stl_iterator_base_funcs.h: Likewise.
+	* include/bits/stl_algo.h: Likewise.
+	* include/bits/stl_iterator.h: Likewise.
+	* include/bits/stl_tempbuf.h: Likewise.
+	* include/bits/stl_bvector.h: Likewise.
+	* include/bits/stl_function.h: Likewise.
+	* include/bits/stl_tree.h: Likewise.
+
+2007-06-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/cpu/m68k/atomicity.h: Use __mcfisaa__, __mcfisaaplus__,
+	__mcfisab__ & __mcfisac__ instead of obsolete cpu #defines.
+
+2007-06-13  Richard Earnshaw  <rearnsha@arm.com>
+
+	* libsupc++/eh_arm.cc (__cxa_type_match): Handle foreign
+	exceptions.
+	* libsubpc++/eh_personality.cc: Don't try to set up foreign or
+	forced unwind types here when using the ARM EABI unwinder.
+
+2007-06-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/c_global/cmath: Tweak includes.
+	* include/std/memory: Likewise.
+	* include/std/complex: Likewise.
+	* include/tr1/memory: Likewise.
+	* include/tr1/complex: Likewise.
+	* include/tr1/cmath: Likewise; do not wrap special functions
+	in #ifndef __GXX_EXPERIMENTAL_CXX0X__.
+
+2007-06-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/testsuite_performance.h: Add cstring include for
+	memset.
+
+2007-06-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/install.html: Adjust consistently with libstdc++/31717.
+
+2007-06-08  Francesco Palagi  <palagi@arcetri.astro.it>
+
+	* include/std/fstream: Add Table 92 in comment.
+
+2007-06-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/32233
+	* include/bits/stl_vector.h (_M_fill_initialize): Fix return type.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Adjust dg-error line.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+
+2007-06-06  Benjamin Kosnik  <bkoz@redhat.com>
+	    Frank Mori Hess  <frank.hess@nist.gov>
+	
+	* docs/html/debug.html: Correct link.
+
+2007-06-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1_impl/type_traits (is_reference, add_reference,
+	remove_reference): Remove.
+	* include/tr1/type_traits (is_reference, add_reference,
+	remove_reference): Add.
+	* include/std/type_traits (is_lvalue_reference, is_rvalue_reference,
+	is_reference, remove_reference, add_lvalue_reference,
+	add_rvalue_reference): Add.
+	* include/tr1_impl/boost_shared_ptr.h (operator*): Adjust.
+	* testsuite/20_util/add_lvalue_reference/requirements/
+	explicit_instantiation.cc: New.
+	* testsuite/20_util/add_lvalue_reference/value.cc: Likewise.
+	* testsuite/20_util/add_rvalue_reference/requirements/
+	explicit_instantiation.cc: Likewise.
+	* testsuite/20_util/add_rvalue_reference/value.cc: Likewise.
+	* testsuite/20_util/is_lvalue_reference/requirements/
+	explicit_instantiation.cc: Likewise.
+	* testsuite/20_util/is_lvalue_reference/requirements/
+	typedefs.cc: Likewise.
+	* testsuite/20_util/is_lvalue_reference/value.cc: Likewise.
+	* testsuite/20_util/is_rvalue_reference/requirements/
+	explicit_instantiation.cc: Likewise.
+	* testsuite/20_util/is_rvalue_reference/requirements/
+	typedefs.cc: Likewise.
+	* testsuite/20_util/is_rvalue_reference/value.cc: Likewise.
+	* testsuite/20_util/is_reference/requirements/
+	explicit_instantiation.cc: Likewise.
+	* testsuite/20_util/is_reference/requirements/typedefs.cc: Likewise.
+	* testsuite/20_util/is_reference/value.cc: Likewise.
+	* testsuite/20_util/remove_reference/requirements/
+	explicit_instantiation.cc: New.
+	* testsuite/20_util/remove_reference/value.cc: Likewise.
+
+	* testsuite/tr1/4_metaprogramming/add_const/requirements/
+	typedefs.cc: Move...
+	* testsuite/tr1/4_metaprogramming/add_const/value.cc: ... here.
+	* testsuite/tr1/4_metaprogramming/add_cv/requirements/
+	typedefs.cc: Move...
+	* testsuite/tr1/4_metaprogramming/add_cv/value.cc: ... here.
+	* testsuite/tr1/4_metaprogramming/add_pointer/requirements/
+	typedefs.cc: Move...
+	* testsuite/tr1/4_metaprogramming/add_pointer/value.cc: ... here.
+	* testsuite/tr1/4_metaprogramming/add_reference/requirements/
+	typedefs.cc: Move...
+	* testsuite/tr1/4_metaprogramming/add_reference/value.cc: ... here.
+	* testsuite/tr1/4_metaprogramming/add_volatile/requirements/
+	typedefs.cc: Move...
+	* testsuite/tr1/4_metaprogramming/add_volatile/value.cc: ... here.
+	* testsuite/tr1/4_metaprogramming/aligned_storage/requirements/
+	typedefs.cc: Move...
+	* testsuite/tr1/4_metaprogramming/aligned_storage/value.cc: ... here.
+
+2007-06-02  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure: Regenerate.
+
+2007-06-01  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* testsuite/19_diagnostics/logic_error/what-big.cc: New.
+	* testsuite/19_diagnostics/logic_error/what-3.cc: Same.
+	* testsuite/19_diagnostics/runtime_error/what-big.cc: Same.
+	* testsuite/19_diagnostics/runtime_error/what-3.cc: Same.
+
+	* testsuite/18_support/14493.cc: Break into...
+	* testsuite/18_support/exception/what.cc: ...this.
+	* testsuite/18_support/bad_cast/what.cc: ...this.
+	* testsuite/18_support/bad_alloc/what.cc: ...this.
+	* testsuite/18_support/bad_typeid/what.cc: ...this.
+	* testsuite/18_support/bad_exception/what.cc: ...this.
+
+	* testsuite/19_diagnostics/bad_exception/23591_thread-1.c: Move...
+	* testsuite/18_support/bad_exception/23591_thread-1.c: ...here.
+
+	* testsuite/18_support/14026.cc: Move...
+	* testsuite/18_support/uncaught_exception/14026.cc: ...here.
+
+2007-06-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/throw_allocator.h (__throw_allocator::allocate):
+	Throw bad_alloc for out of memory conditions.	
+	* testsuite/ext/throw_allocator/deallocate_global.cc: New.
+	* testsuite/ext/throw_allocator/check_delete.cc: Same.
+	* testsuite/ext/throw_allocator/check_allocate_max_size.cc: Same.
+	* testsuite/ext/throw_allocator/check_deallocate_null.cc: Same.
+	* testsuite/ext/throw_allocator/explicit_instantiation.cc: Same.
+	* testsuite/ext/throw_allocator/check_new.cc: Same.
+	* testsuite/ext/throw_allocator/deallocate_local.cc: Same.
+
+2007-05-31  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31426
+	* include/bits/c++config: Remove namespace association bits
+	from tr1 to std.
+
+	* include/ext/type_traits.h (__promote, __promote2,
+	__promote3, __promote4): Add.
+
+	* include/bits/hashtable.h: New.
+	* include/bits/functional_hash.h: Likewise.
+	* include/tr1/hashtable.h: Likewise.
+
+	* include/tr1_impl/random: New.
+	* include/tr1_impl/cinttypes: Likewise.
+	* include/tr1_impl/cstdlib: Likewise.
+	* include/tr1_impl/unordered_map: Likewise.
+	* include/tr1_impl/cstdio: Likewise.
+	* include/tr1_impl/boost_shared_ptr.h: Likewise.
+	* include/tr1_impl/cctype: Likewise.
+	* include/tr1_impl/random.tcc: Likewise.
+	* include/tr1_impl/tuple: Likewise.
+	* include/tr1_impl/functional_hash.h: Likewise.
+	* include/tr1_impl/hashtable: Likewise.
+	* include/tr1_impl/cmath: Likewise.
+	* include/tr1_impl/type_traitsfwd.h: Likewise.
+	* include/tr1_impl/hashtable_policy.h: Likewise.
+	* include/tr1_impl/cfenv: Likewise.
+	* include/tr1_impl/unordered_set: Likewise.
+	* include/tr1_impl/functional: Likewise.
+	* include/tr1_impl/utility: Likewise.
+	* include/tr1_impl/complex: Likewise.
+	* include/tr1_impl/type_traits: Likewise.
+	* include/tr1_impl/cwchar: Likewise.
+	* include/tr1_impl/cstdint: Likewise.
+	* include/tr1_impl/regex: Likewise.
+	* include/tr1_impl/array: Likewise.
+	* include/tr1_impl/cwctype: Likewise.
+
+	* include/tr1/type_traitsfwd.h: Remove.
+	* include/tr1/boost_shared_ptr.h: Likewise.
+	* include/tr1/common.h: Likewise.
+	* include/tr1/hashtable: Likewise.
+	* include/tr1/hashtable_policy.h: Likewise.
+	* include/tr1/random.tcc: Likewise.
+
+	* include/c_global/cinttypes: Include tr1_impl/cinttypes.
+	* include/c_global/cstdlib: Likewise for cstdlib.
+	* include/c_global/cstdio: Likewise for cstdio.
+	* include/c_global/cctype: Likewise for cctype.
+	* include/c_global/cmath: Likewise for cmath.
+	* include/c_global/cfenv: Likewise for cfenv.
+	* include/c_global/cwchar: Likewise for cwchar.
+	* include/c_global/cstdint: Likewise for cstdint.
+	* include/c_global/cwctype: Likewise for cwctype.
+	* include/tr1/cinttypes: Likewise for cinttypes.
+	* include/tr1/cstdlib: Likewise for cstdlib.
+	* include/tr1/cstdio: Likewise for cstdio.
+	* include/tr1/cctype: Likewise for cctype.
+	* include/tr1/cmath: Likewise for cmath.
+	* include/tr1/cfenv: Likewise for cfenv.
+	* include/tr1/cwchar: Likewise for cwchar.
+	* include/tr1/cstdint: Likewise for cstdint.
+	* include/tr1/cwctype: Likewise for cwctype.
+	* include/tr1/functional_hash.h: Likewise for functional_hash.
+
+	* include/std/tuple: Include tr1_impl/tuple.
+	* include/std/utility: Likewise for utility.
+	* include/std/type_traits: Likewise for type_traits.
+	(is_pod): Just forward to __is_pod.
+	(has_trivial_default_constructor): Just forward to
+	__has_trivial_constructor.
+	(has_trivial_copy_constructor): Just forward to __has_trivial_copy.
+	(has_trivial_assign): Just forward to __has_trivial_assign.
+	(has_trivial_destructor): Just forward to __has_trivial_destructor.
+	(has_nothrow_default_constructor): Just forward to
+	__has_nothrow_constructor.
+	(has_nothrow_copy_constructor): Just forward to __has_nothrow_copy.
+	(has_nothrow_assign): Just forward to __has_nothrow_assign.
+	(is_base_of): Just forward to __is_base_of.
+	(is_signed, is_unsigned): Implement according to the C++0x
+	specifications.
+	* include/std/memory: Likewise for memory.
+	* include/std/regex: Likewise for regex.
+	* include/std/random: Likewise for random.
+	* include/std/unordered_map: Likewise for unordered_map.
+	* include/std/unordered_set: Likewise for unordered_set.
+	* include/std/functional: Likewise for functional.
+	* include/std/complex: Likewise for complex.
+	* include/std/array: Likewise for array.
+	* include/tr1/tuple: Likewise for tuple.
+	* include/tr1/utility: Likewise for utility.
+	* include/tr1/type_traits: Likewise for type_traits
+	* include/tr1/memory: Likewise for memory.
+	* include/tr1/regex: Likewise for regex.
+	* include/tr1/random: Likewise for random.
+	* include/tr1/unordered_map: Likewise for unordered_map.
+	* include/tr1/unordered_set: Likewise for unordered_set.
+	* include/tr1/functional: Likewise for functional.
+	* include/tr1/complex: Likewise for complex.
+	* include/tr1/array: Likewise for array.
+
+	* include/c_global/ctgmath: Tweak.
+	* include/c_global/cstdarg: Likewise.
+	* include/c_global/ctime: Likewise.
+	* include/c_global/climits: Likewise.
+	* include/c_global/cfloat: Likewise.	
+	* include/c_global/ccomplex: Likewise.
+	* include/c_global/cstdbool: Likewise.
+
+	* include/tr1/poly_laguerre.tcc: Tweak, don't use _GLIBCXX_TR1.
+	* include/tr1/riemann_zeta.tcc: Likewise.
+	* include/tr1/beta_function.tcc: Likewise.
+	* include/tr1/exp_integral.tcc: Likewise.
+	* include/tr1/hypergeometric.tcc: Likewise.
+	* include/tr1/modified_bessel_func.tcc: Likewise.
+	* include/tr1/legendre_function.tcc: Likewise.
+	* include/tr1/special_function_util.h: Likewise.
+	* include/tr1/bessel_function.tcc: Likewise.
+	* include/tr1/poly_hermite.tcc: Likewise.
+	* include/tr1/ell_integral.tcc: Likewise.
+	* include/tr1/gamma.tcc: Likewise.
+	* include/tr1/stdlib.h: Likewise.
+	* include/tr1/math.h: Likewise.
+
+	* include/tr1/complex.h: Minor tweaks.
+	* include/tr1/wctype.h: Likewise.
+	* include/tr1/wchar.h: Likewise.
+	* include/tr1/inttypes.h: Likewise.
+	* include/tr1/tgmath.h: Likewise.
+	* include/tr1/cstdbool: Likewise.
+	* include/tr1/cfloat: Likewise.
+	* include/tr1/ccomplex: Likewise.
+	* include/tr1/ctime: Likewise.
+	* include/tr1/climits: Likewise.
+	* include/tr1/ctgmath: Likewise.
+	* include/tr1/cstdarg: Likewise.
+
+	* testsuite/tr1/headers.cc: Move...
+	* testsuite/tr1/headers/all.cc: ... here.
+	* testsuite/tr1/using_namespace_std_tr1.cc: Move...
+	* testsuite/tr1/headers/c++200x/using_namespace_std_tr1.cc: ... here.
+	* testsuite/tr1/headers/using_namespace_std_tr1.cc ... here.
+	* testsuite/tr1/headers/c++200x/using_namespace_std_tr1.cc: New.
+
+	* testsuite/20_util/tuple/requirements/explicit_instantiation.cc:
+	Adjust namespace.
+	* testsuite/20_util/has_nothrow_copy_constructor/value.cc: Adjust to
+	the C++0x requirements.
+	* testsuite/20_util/has_nothrow_default_constructor/value.cc: Likewise.
+	* testsuite/20_util/has_trivial_copy_constructor/value.cc: Likewise.
+	* testsuite/20_util/has_trivial_default_constructor/value.cc: Likewise.
+
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc: Adjust
+	dg-error lines.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+	* testsuite/20_util/headers/type_traits/types_std_c++0x_neg.cc:
+	Un-xfail.
+
+	* testsuite/20_util/is_signed/value.cc: New.
+	* testsuite/20_util/is_signed/requirements/typedefs.cc: Likewise.
+	* testsuite/20_util/is_signed/requirements/explicit_instantiation.cc:
+	Likewise.
+	* testsuite/20_util/is_unsigned/value.cc: Likewise..
+	* testsuite/20_util/is_unsigned/requirements/typedefs.cc: Likewise.
+	* testsuite/20_util/is_unsigned/requirements/explicit_instantiation.cc:
+	Likewise.
+
+	* include/Makefile.am: Adjust.	
+	* include/Makefile.in: Regenerate.
+
+2007-05-31  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/32158 (libstdc++ bits)
+	* include/bits/stl_uninitialized.h (__uninitialized_copy_aux,
+	__uninitialized_fill_aux, __uninitialized_fill_n_aux):
+	Remove.
+	(struct __uninitialized_copy, struct __uninitialized_fill,
+	struct __uninitialized_fill_n): Add.
+	(uninitialized_copy, uninitialized_fill, uninitialized_fill_n):
+	Adjust.
+	* testsuite/20_util/specialized_algorithms/32158.cc: New.
+
+	* include/bits/stl_uninitialized.h (uninitialized_copy(_InputIterator,
+	_InputIterator, _ForwardIterator)): Robustify vs non-POD input.
+
+	* include/bits/stl_vector.h (_M_fill_initialize): New.
+	(vector(size_type, const value_type&, const allocator_type&),
+	_M_initialize_dispatch(_Integer, _Integer, __true_type)): Use it.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Adjust dg-error line.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+
 2007-05-29  Paolo Carlini  <pcarlini@suse.de>
 
 	* aclocal.m4: Regenerate.

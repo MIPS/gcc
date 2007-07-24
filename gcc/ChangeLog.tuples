@@ -1,3 +1,7 @@
+2007-07-24  Diego Novillo  <dnovillo@google.com>
+
+	Merge with mainline (@126872)
+
 2007-07-23  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree.c (get_callee_fndecl): Work when only the CALL_EXPR_FN has

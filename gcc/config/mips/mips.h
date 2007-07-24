@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler.  MIPS version.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
    64-bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
@@ -41,11 +42,12 @@ enum processor_type {
   PROCESSOR_5KF,
   PROCESSOR_20KC,
   PROCESSOR_24KC,
-  PROCESSOR_24KF,
-  PROCESSOR_24KX,
+  PROCESSOR_24KF2_1,
+  PROCESSOR_24KF1_1,
   PROCESSOR_74KC,
-  PROCESSOR_74KF,
-  PROCESSOR_74KX,
+  PROCESSOR_74KF2_1,
+  PROCESSOR_74KF1_1,
+  PROCESSOR_74KF3_2,
   PROCESSOR_M4K,
   PROCESSOR_R3900,
   PROCESSOR_R6000,
@@ -124,7 +126,8 @@ extern int set_nomacro;			/* # of nested .set nomacro's  */
 extern int set_noat;			/* # of nested .set noat's  */
 extern int set_volatile;		/* # of nested .set volatile's  */
 extern int mips_branch_likely;		/* emit 'l' after br (branch likely) */
-extern int mips_dbx_regno[];		/* Map register # to debug register # */
+extern int mips_dbx_regno[];
+extern int mips_dwarf_regno[];
 extern bool mips_split_p[];
 extern GTY(()) rtx cmp_operands[2];
 extern enum processor_type mips_arch;   /* which cpu to codegen for */
@@ -209,6 +212,8 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define TARGET_MIPS16		((target_flags & MASK_MIPS16) != 0)
 /* Generate mips16e code. Default 16bit ASE for mips32/mips32r2/mips64 */
 #define GENERATE_MIPS16E	(TARGET_MIPS16 && mips_isa >= 32)
+/* Generate mips16e register save/restore sequences.  */
+#define GENERATE_MIPS16E_SAVE_RESTORE (GENERATE_MIPS16E && mips_abi == ABI_32)
 
 /* Generic ISA defines.  */
 #define ISA_MIPS1		    (mips_isa == 1)
@@ -246,9 +251,14 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define TUNE_MIPS9000               (mips_tune == PROCESSOR_R9000)
 #define TUNE_SB1                    (mips_tune == PROCESSOR_SB1		\
 				     || mips_tune == PROCESSOR_SB1A)
+#define TUNE_24K		    (mips_tune == PROCESSOR_24KC	\
+				     || mips_tune == PROCESSOR_24KF2_1	\
+				     || mips_tune == PROCESSOR_24KF1_1)
 #define TUNE_74K                    (mips_tune == PROCESSOR_74KC	\
-				     || mips_tune == PROCESSOR_74KF	\
-				     || mips_tune == PROCESSOR_74KX)
+				     || mips_tune == PROCESSOR_74KF2_1	\
+				     || mips_tune == PROCESSOR_74KF1_1  \
+				     || mips_tune == PROCESSOR_74KF3_2)
+#define TUNE_20KC		    (mips_tune == PROCESSOR_20KC)
 
 /* True if the pre-reload scheduler should try to create chains of
    multiply-add or multiply-subtract instructions.  For example,
@@ -283,7 +293,8 @@ extern const struct mips_rtx_cost_data *mips_cost;
    than others, so this macro is defined on an opt-in basis.  */
 #define TUNE_MACC_CHAINS	    (TUNE_MIPS5500		\
 				     || TUNE_MIPS4120		\
-				     || TUNE_MIPS4130)
+				     || TUNE_MIPS4130		\
+				     || TUNE_24K)
 
 #define TARGET_OLDABI		    (mips_abi == ABI_32 || mips_abi == ABI_O64)
 #define TARGET_NEWABI		    (mips_abi == ABI_N32 || mips_abi == ABI_64)
@@ -362,6 +373,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
 								\
       if (TARGET_MIPS3D)					\
 	builtin_define ("__mips3d");				\
+                                                                \
+      if (TARGET_SMARTMIPS)					\
+	builtin_define ("__mips_smartmips");			\
 								\
       if (TARGET_DSP)						\
 	builtin_define ("__mips_dsp");				\
@@ -561,6 +575,29 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #endif
 #endif
 
+/* A spec condition that matches all non-mips16 -mips arguments.  */
+
+#define MIPS_ISA_LEVEL_OPTION_SPEC \
+  "mips1|mips2|mips3|mips4|mips32*|mips64*"
+
+/* A spec condition that matches all non-mips16 architecture arguments.  */
+
+#define MIPS_ARCH_OPTION_SPEC \
+  MIPS_ISA_LEVEL_OPTION_SPEC "|march=*"
+
+/* A spec that infers a -mips argument from an -march argument.  */
+
+#define MIPS_ISA_LEVEL_SPEC \
+  "%{" MIPS_ISA_LEVEL_OPTION_SPEC ":;: \
+     %{march=mips1|march=r2000|march=r3000|march=r3900:-mips1} \
+     %{march=mips2|march=r6000:-mips2} \
+     %{march=mips3|march=r4*|march=vr4*|march=orion:-mips3} \
+     %{march=mips4|march=r8000|march=vr5*|march=rm7000|march=rm9000:-mips4} \
+     %{march=mips32|march=4kc|march=4km|march=4kp|march=4ksc:-mips32} \
+     %{march=mips32r2|march=m4k|march=4ke*|march=4ksd|march=24k* \
+       |march=34k*|march=74k*: -mips32r2} \
+     %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000: -mips64}}"
+
 /* Support for a compile-time default CPU, et cetera.  The rules are:
    --with-arch is ignored if -march is specified or a -mips is specified
      (other than -mips16).
@@ -571,7 +608,7 @@ extern const struct mips_rtx_cost_data *mips_cost;
    --with-divide is ignored if -mdivide-traps or -mdivide-breaks are
      specified. */
 #define OPTION_DEFAULT_SPECS \
-  {"arch", "%{!march=*:%{mips16:-march=%(VALUE)}%{!mips*:-march=%(VALUE)}}" }, \
+  {"arch", "%{" MIPS_ARCH_OPTION_SPEC ":;: -march=%(VALUE)}" }, \
   {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
   {"abi", "%{!mabi=*:-mabi=%(VALUE)}" }, \
   {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }, \
@@ -706,7 +743,8 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define ISA_HAS_ROR		((ISA_MIPS32R2				\
 				  || TARGET_MIPS5400			\
 				  || TARGET_MIPS5500			\
-				  || TARGET_SR71K)			\
+				  || TARGET_SR71K			\
+				  || TARGET_SMARTMIPS)			\
 				 && !TARGET_MIPS16)
 
 /* ISA has data prefetch instructions.  This controls use of 'pref'.  */
@@ -741,6 +779,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
 /* ISA has instructions for accessing top part of 64-bit fp regs.  */
 #define ISA_HAS_MXHC1		(TARGET_FLOAT64 && ISA_MIPS32R2)
 
+/* ISA has lwxs instruction (load w/scaled index address.  */
+#define ISA_HAS_LWXS		(TARGET_SMARTMIPS && !TARGET_MIPS16)
+
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
    and "addiu $4,$4,1".  */
@@ -770,6 +811,10 @@ extern const struct mips_rtx_cost_data *mips_cost;
 				 || ISA_MIPS32R2			\
 				 || ISA_MIPS64				\
 				 || TARGET_MIPS5500)
+
+/* ISA includes synci, jr.hb and jalr.hb.  */
+#define ISA_HAS_SYNCI ISA_MIPS32R2
+
 
 /* Add -G xx support.  */
 
@@ -856,6 +901,7 @@ extern const struct mips_rtx_cost_data *mips_cost;
 %{mdmx} %{mno-mdmx:-no-mdmx} \
 %{mdsp} %{mno-dsp} \
 %{mdspr2} %{mno-dspr2} \
+%{msmartmips} %{mno-smartmips} \
 %{mmt} %{mno-mt} \
 %{mfix-vr4120} %{mfix-vr4130} \
 %(subtarget_asm_optimizing_spec) \
@@ -965,17 +1011,13 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define DBX_CONTIN_LENGTH 1500
 
 /* How to renumber registers for dbx and gdb.  */
-#define DBX_REGISTER_NUMBER(REGNO) mips_dbx_regno[ (REGNO) ]
+#define DBX_REGISTER_NUMBER(REGNO) mips_dbx_regno[REGNO]
 
 /* The mapping from gcc register number to DWARF 2 CFA column number.  */
-#define DWARF_FRAME_REGNUM(REG)	(REG)
+#define DWARF_FRAME_REGNUM(REGNO) mips_dwarf_regno[REGNO]
 
 /* The DWARF 2 CFA column which tracks the return address.  */
 #define DWARF_FRAME_RETURN_COLUMN (GP_REG_FIRST + 31)
-
-/* The DWARF 2 CFA column which tracks the return address from a
-   signal handler context.  */
-#define SIGNAL_UNWIND_RETURN_COLUMN (FP_REG_LAST + 1)
 
 /* Before the prologue, RA lives in r31.  */
 #define INCOMING_RETURN_ADDR_RTX  gen_rtx_REG (VOIDmode, GP_REG_FIRST + 31)
@@ -1320,6 +1362,12 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define MD_REG_NUM   (MD_REG_LAST - MD_REG_FIRST + 1)
 #define MD_DBX_FIRST (FP_DBX_FIRST + FP_REG_NUM)
 
+/* The DWARF 2 CFA column which tracks the return address from a
+   signal handler context.  This means that to maintain backwards
+   compatibility, no hard register can be assigned this column if it
+   would need to be handled by the DWARF unwinder.  */
+#define DWARF_ALT_FRAME_RETURN_COLUMN 66
+
 #define ST_REG_FIRST 67
 #define ST_REG_LAST  74
 #define ST_REG_NUM   (ST_REG_LAST - ST_REG_FIRST + 1)
@@ -1345,14 +1393,8 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define DSP_ACC_REG_NUM (DSP_ACC_REG_LAST - DSP_ACC_REG_FIRST + 1)
 
 #define AT_REGNUM	(GP_REG_FIRST + 1)
-#define HI_REGNUM	(MD_REG_FIRST + 0)
-#define LO_REGNUM	(MD_REG_FIRST + 1)
-#define AC1HI_REGNUM	(DSP_ACC_REG_FIRST + 0)
-#define AC1LO_REGNUM	(DSP_ACC_REG_FIRST + 1)
-#define AC2HI_REGNUM	(DSP_ACC_REG_FIRST + 2)
-#define AC2LO_REGNUM	(DSP_ACC_REG_FIRST + 3)
-#define AC3HI_REGNUM	(DSP_ACC_REG_FIRST + 4)
-#define AC3LO_REGNUM	(DSP_ACC_REG_FIRST + 5)
+#define HI_REGNUM	(TARGET_BIG_ENDIAN ? MD_REG_FIRST : MD_REG_FIRST + 1)
+#define LO_REGNUM	(TARGET_BIG_ENDIAN ? MD_REG_FIRST + 1 : MD_REG_FIRST)
 
 /* FPSW_REGNUM is the single condition code used if !ISA_HAS_8CC.
    If ISA_HAS_8CC, it should not be used, and an arbitrary ST_REG
@@ -1383,10 +1425,6 @@ extern const struct mips_rtx_cost_data *mips_cost;
 /* Test if REGNO is hi, lo, or one of the 6 new DSP accumulators.  */
 #define ACC_REG_P(REGNO) \
   (MD_REG_P (REGNO) || DSP_ACC_REG_P (REGNO))
-/* Test if REGNO is HI or the first register of 3 new DSP accumulator pairs.  */
-#define ACC_HI_REG_P(REGNO) \
-  ((REGNO) == HI_REGNUM || (REGNO) == AC1HI_REGNUM || (REGNO) == AC2HI_REGNUM \
-   || (REGNO) == AC3HI_REGNUM)
 
 #define FP_REG_RTX_P(X) (REG_P (X) && FP_REG_P (REGNO (X)))
 
@@ -1514,8 +1552,8 @@ enum reg_class
   LEA_REGS,			/* Every GPR except $25 */
   GR_REGS,			/* integer registers */
   FP_REGS,			/* floating point registers */
-  HI_REG,			/* hi register */
-  LO_REG,			/* lo register */
+  MD0_REG,			/* first multiply/divide register */
+  MD1_REG,			/* second multiply/divide register */
   MD_REGS,			/* multiply/divide registers (hi/lo) */
   COP0_REGS,			/* generic coprocessor classes */
   COP2_REGS,
@@ -1555,8 +1593,8 @@ enum reg_class
   "LEA_REGS",								\
   "GR_REGS",								\
   "FP_REGS",								\
-  "HI_REG",								\
-  "LO_REG",								\
+  "MD0_REG",								\
+  "MD1_REG",								\
   "MD_REGS",								\
   /* coprocessor registers */						\
   "COP0_REGS",								\
@@ -1650,17 +1688,6 @@ extern const enum reg_class mips_regno_to_class[];
 
 #define SMALL_REGISTER_CLASSES (TARGET_MIPS16)
 
-/* This macro is used later on in the file.  */
-#define GR_REG_CLASS_P(CLASS)						\
-  ((CLASS) == GR_REGS || (CLASS) == M16_REGS || (CLASS) == T_REG	\
-   || (CLASS) == M16_T_REGS || (CLASS) == M16_NA_REGS			\
-   || (CLASS) == V1_REG							\
-   || (CLASS) == PIC_FN_ADDR_REG || (CLASS) == LEA_REGS)
-
-/* This macro is also used later on in the file.  */
-#define COP_REG_CLASS_P(CLASS)						\
-  ((CLASS)  == COP0_REGS || (CLASS) == COP2_REGS || (CLASS) == COP3_REGS)
-
 /* REG_ALLOC_ORDER is to order in which to allocate registers.  This
    is the default value (allocate the registers in numeric order).  We
    define it just so that we can override it for the mips16 target in
@@ -1730,24 +1757,6 @@ extern const enum reg_class mips_regno_to_class[];
 #define PREFERRED_RELOAD_CLASS(X,CLASS)					\
   mips_preferred_reload_class (X, CLASS)
 
-/* Certain machines have the property that some registers cannot be
-   copied to some other registers without using memory.  Define this
-   macro on those machines to be a C expression that is nonzero if
-   objects of mode MODE in registers of CLASS1 can only be copied to
-   registers of class CLASS2 by storing a register of CLASS1 into
-   memory and loading that memory location into a register of CLASS2.
-
-   Do not define this macro if its value would always be zero.  */
-#if 0
-#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)			\
-  ((!TARGET_DEBUG_H_MODE						\
-    && GET_MODE_CLASS (MODE) == MODE_INT				\
-    && ((CLASS1 == FP_REGS && GR_REG_CLASS_P (CLASS2))			\
-	|| (GR_REG_CLASS_P (CLASS1) && CLASS2 == FP_REGS)))		\
-   || (TARGET_FLOAT64 && !TARGET_64BIT && (MODE) == DFmode		\
-       && ((GR_REG_CLASS_P (CLASS1) && CLASS2 == FP_REGS)		\
-	   || (GR_REG_CLASS_P (CLASS2) && CLASS1 == FP_REGS))))
-#endif
 /* The HI and LO registers can only be reloaded via the general
    registers.  Condition code registers can only be loaded to the
    general registers, and from the floating point registers.  */
@@ -2116,21 +2125,16 @@ typedef struct mips_args {
 
 #define INITIALIZE_TRAMPOLINE(ADDR, FUNC, CHAIN)			    \
 {									    \
-  rtx func_addr, chain_addr;						    \
+  rtx func_addr, chain_addr, end_addr;                                      \
 									    \
   func_addr = plus_constant (ADDR, 32);					    \
   chain_addr = plus_constant (func_addr, GET_MODE_SIZE (ptr_mode));	    \
   emit_move_insn (gen_rtx_MEM (ptr_mode, func_addr), FUNC);		    \
   emit_move_insn (gen_rtx_MEM (ptr_mode, chain_addr), CHAIN);		    \
-									    \
-  /* Flush both caches.  We need to flush the data cache in case	    \
-     the system has a write-back cache.  */				    \
-  /* ??? Should check the return value for errors.  */			    \
-  if (mips_cache_flush_func && mips_cache_flush_func[0])		    \
-    emit_library_call (gen_rtx_SYMBOL_REF (Pmode, mips_cache_flush_func),   \
-		       0, VOIDmode, 3, ADDR, Pmode,			    \
-		       GEN_INT (TRAMPOLINE_SIZE), TYPE_MODE (integer_type_node),\
-		       GEN_INT (3), TYPE_MODE (integer_type_node));	    \
+  end_addr = gen_reg_rtx (Pmode);					    \
+  emit_insn (gen_add3_insn (end_addr, copy_rtx (ADDR),			    \
+                            GEN_INT (TRAMPOLINE_SIZE)));		    \
+  emit_insn (gen_clear_cache (copy_rtx (ADDR), end_addr));		    \
 }
 
 /* Addressing modes, and classification of registers for them.  */
@@ -2322,7 +2326,7 @@ typedef struct mips_args {
 /* A C expression for the cost of a branch instruction.  A value of
    1 is the default; other values are interpreted relative to that.  */
 
-#define BRANCH_COST mips_cost->branch_cost
+#define BRANCH_COST mips_branch_cost
 #define LOGICAL_OP_NON_SHORT_CIRCUIT 0
 
 /* If defined, modifies the length assigned to instruction INSN as a

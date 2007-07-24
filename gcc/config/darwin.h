@@ -307,6 +307,7 @@ extern GTY(()) int darwin_ms_struct;
      %:version-compare(< 10.5 mmacosx-version-min= -multiply_defined) \
      %:version-compare(< 10.5 mmacosx-version-min= suppress)}} \
    %{Zmultiplydefinedunused*:-multiply_defined_unused %*} \
+   %{fpie:-pie} \
    %{prebind} %{noprebind} %{nofixprebinding} %{prebind_all_twolevel_modules} \
    %{read_only_relocs} \
    %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} \
@@ -984,5 +985,11 @@ extern int flag_apple_kext;
 #define TARGET_KEXTABI flag_apple_kext
 
 #define TARGET_HAS_TARGETCM 1
+
+#ifndef CROSS_DIRECTORY_STRUCTURE
+extern void darwin_default_min_version (int * argc, char *** argv);
+#define GCC_DRIVER_HOST_INITIALIZATION \
+  darwin_default_min_version (&argc, &argv)
+#endif /* CROSS_DIRECTORY_STRUCTURE */
 
 #endif /* CONFIG_DARWIN_H */

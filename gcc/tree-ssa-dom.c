@@ -569,7 +569,7 @@ dom_thread_across_edge (struct dom_walk_data *walk_data, edge e)
       walk_data->global_data = dummy_cond;
     }
 
-  thread_across_edge (walk_data->global_data, e, false,
+  thread_across_edge ((tree) walk_data->global_data, e, false,
 		      &const_and_copies_stack,
 		      simplify_stmt_for_jump_threading);
 }
@@ -1239,26 +1239,26 @@ cprop_into_successor_phis (basic_block bb)
       indx = e->dest_idx;
       for ( ; phi; phi = PHI_CHAIN (phi))
 	{
-	  tree new;
+	  tree new_val;
 	  use_operand_p orig_p;
-	  tree orig;
+	  tree orig_val;
 
 	  /* The alternative may be associated with a constant, so verify
 	     it is an SSA_NAME before doing anything with it.  */
 	  orig_p = PHI_ARG_DEF_PTR (phi, indx);
-	  orig = USE_FROM_PTR (orig_p);
-	  if (TREE_CODE (orig) != SSA_NAME)
+	  orig_val = USE_FROM_PTR (orig_p);
+	  if (TREE_CODE (orig_val) != SSA_NAME)
 	    continue;
 
 	  /* If we have *ORIG_P in our constant/copy table, then replace
 	     ORIG_P with its value in our constant/copy table.  */
-	  new = SSA_NAME_VALUE (orig);
-	  if (new
-	      && new != orig
-	      && (TREE_CODE (new) == SSA_NAME
-		  || is_gimple_min_invariant (new))
-	      && may_propagate_copy (orig, new))
-	    propagate_value (orig_p, new);
+	  new_val = SSA_NAME_VALUE (orig_val);
+	  if (new_val
+	      && new_val != orig_val
+	      && (TREE_CODE (new_val) == SSA_NAME
+		  || is_gimple_min_invariant (new_val))
+	      && may_propagate_copy (orig_val, new_val))
+	    propagate_value (orig_p, new_val);
 	}
     }
 }
@@ -1515,8 +1515,8 @@ eliminate_redundant_computations (tree stmt)
   if (cached_lhs
       && ((TREE_CODE (cached_lhs) != SSA_NAME
 	   && (modify_expr_p
-	       || tree_ssa_useless_type_conversion_1 (TREE_TYPE (*expr_p),
-						      TREE_TYPE (cached_lhs))))
+	       || useless_type_conversion_p (TREE_TYPE (*expr_p),
+					    TREE_TYPE (cached_lhs))))
 	  || may_propagate_copy (*expr_p, cached_lhs)))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1541,8 +1541,8 @@ eliminate_redundant_computations (tree stmt)
 	retval = true;
       
       if (modify_expr_p
-	  && !tree_ssa_useless_type_conversion_1 (TREE_TYPE (*expr_p),
-						  TREE_TYPE (cached_lhs)))
+	  && !useless_type_conversion_p (TREE_TYPE (*expr_p),
+				        TREE_TYPE (cached_lhs)))
 	cached_lhs = fold_convert (TREE_TYPE (*expr_p), cached_lhs);
 
       propagate_tree_value (expr_p, cached_lhs);
@@ -1591,7 +1591,7 @@ record_equivalences_from_stmt (tree stmt, int may_optimize_p, stmt_ann_t ann)
       && !is_gimple_reg (lhs))
     {
       tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
-      tree new;
+      tree new_stmt;
 
       /* FIXME: If the LHS of the assignment is a bitfield and the RHS
          is a constant, we need to adjust the constant to fit into the
@@ -1617,13 +1617,13 @@ record_equivalences_from_stmt (tree stmt, int may_optimize_p, stmt_ann_t ann)
       if (rhs)
 	{
 	  /* Build a new statement with the RHS and LHS exchanged.  */
-	  new = build_gimple_modify_stmt (rhs, lhs);
+	  new_stmt = build_gimple_modify_stmt (rhs, lhs);
 
-	  create_ssa_artificial_load_stmt (new, stmt);
+	  create_ssa_artificial_load_stmt (new_stmt, stmt);
 
 	  /* Finally enter the statement into the available expression
 	     table.  */
-	  lookup_avail_expr (new, true);
+	  lookup_avail_expr (new_stmt, true);
 	}
     }
 }
@@ -1680,7 +1680,7 @@ cprop_operand (tree stmt, use_operand_p op_p)
 	 propagation opportunity.  */
       if (TREE_CODE (val) != SSA_NAME)
 	{
-	  if (!lang_hooks.types_compatible_p (op_type, val_type))
+	  if (!useless_type_conversion_p (op_type, val_type))
 	    {
 	      val = fold_convert (TREE_TYPE (op), val);
 	      if (!is_gimple_min_invariant (val))
@@ -2048,8 +2048,7 @@ avail_expr_eq (const void *p1, const void *p2)
 
   /* In case of a collision, both RHS have to be identical and have the
      same VUSE operands.  */
-  if ((TREE_TYPE (rhs1) == TREE_TYPE (rhs2)
-       || lang_hooks.types_compatible_p (TREE_TYPE (rhs1), TREE_TYPE (rhs2)))
+  if (types_compatible_p (TREE_TYPE (rhs1), TREE_TYPE (rhs2))
       && operand_equal_p (rhs1, rhs2, OEP_PURE_SAME))
     {
       bool ret = compare_ssa_operands_equal (stmt1, stmt2, SSA_OP_VUSE);

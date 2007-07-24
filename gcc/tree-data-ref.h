@@ -22,6 +22,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_TREE_DATA_REF_H
 #define GCC_TREE_DATA_REF_H
 
+#include "graphds.h"
 #include "lambda.h"
 #include "omega.h"
 
@@ -104,7 +105,7 @@ struct data_reference
   tree ref;
 
   /* Auxiliary info specific to a pass.  */
-  int aux;
+  void *aux;
 
   /* True when the data reference is in RHS of a stmt.  */
   bool is_read;
@@ -251,6 +252,9 @@ struct data_dependence_relation
 
   /* The classic distance vector.  */
   VEC (lambda_vector, heap) *dist_vects;
+
+  /* Is the dependence reversed with respect to the lexicographic order?  */
+  bool reversed_p;
 };
 
 typedef struct data_dependence_relation *ddr_p;
@@ -281,6 +285,7 @@ DEF_VEC_ALLOC_P(ddr_p,heap);
   VEC_index (lambda_vector, DDR_DIR_VECTS (DDR), I)
 #define DDR_DIST_VECT(DDR, I) \
   VEC_index (lambda_vector, DDR_DIST_VECTS (DDR), I)
+#define DDR_REVERSED_P(DDR) DDR->reversed_p
 
 
 
@@ -320,7 +325,50 @@ extern void dump_data_dependence_direction (FILE *,
 extern void free_dependence_relation (struct data_dependence_relation *);
 extern void free_dependence_relations (VEC (ddr_p, heap) *);
 extern void free_data_refs (VEC (data_reference_p, heap) *);
+struct data_reference *create_data_ref (struct loop *, tree, tree, bool);
+bool find_loop_nest (struct loop *, VEC (loop_p, heap) **);
+void compute_all_dependences (VEC (data_reference_p, heap) *,
+			      VEC (ddr_p, heap) **, VEC (loop_p, heap) *, bool);
 
+
+
+/* A RDG vertex representing a statement.  */
+typedef struct rdg_vertex
+{
+  /* The statement represented by this vertex.  */
+  tree stmt;
+} *rdg_vertex_p;
+
+#define RDGV_STMT(V)       ((struct rdg_vertex *) ((V)->data))->stmt
+
+/* Data dependence type.  */
+
+enum rdg_dep_type 
+{
+  /* Read After Write (RAW).  */
+  flow_dd = 'f',
+  
+  /* Write After Read (WAR).  */
+  anti_dd = 'a',
+  
+  /* Write After Write (WAW).  */
+  output_dd = 'o', 
+  
+  /* Read After Read (RAR).  */
+  input_dd = 'i' 
+};
+
+/* Dependence information attached to an edge of the RDG.  */
+
+typedef struct rdg_edge 
+{
+  /* Type of the dependence.  */
+  enum rdg_dep_type type;
+} *rdg_edge_p;
+
+#define RDGE_TYPE(E)        ((struct rdg_edge *) ((E)->data))->type
+
+struct graph *build_rdg (struct loop *);
 
 /* Return the index of the variable VAR in the LOOP_NEST array.  */
 

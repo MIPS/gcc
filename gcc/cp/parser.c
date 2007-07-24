@@ -858,7 +858,7 @@ static cp_declarator *make_array_declarator
 static cp_declarator *make_pointer_declarator
   (cp_cv_quals, cp_declarator *);
 static cp_declarator *make_reference_declarator
-  (cp_cv_quals, cp_declarator *);
+  (cp_cv_quals, cp_declarator *, bool);
 static cp_parameter_declarator *make_parameter_declarator
   (cp_decl_specifier_seq *, cp_declarator *, tree);
 static cp_declarator *make_ptrmem_declarator
@@ -960,14 +960,15 @@ make_pointer_declarator (cp_cv_quals cv_qualifiers, cp_declarator *target)
 /* Like make_pointer_declarator -- but for references.  */
 
 cp_declarator *
-make_reference_declarator (cp_cv_quals cv_qualifiers, cp_declarator *target)
+make_reference_declarator (cp_cv_quals cv_qualifiers, cp_declarator *target,
+			   bool rvalue_ref)
 {
   cp_declarator *declarator;
 
   declarator = make_declarator (cdk_reference);
   declarator->declarator = target;
-  declarator->u.pointer.qualifiers = cv_qualifiers;
-  declarator->u.pointer.class_type = NULL_TREE;
+  declarator->u.reference.qualifiers = cv_qualifiers;
+  declarator->u.reference.rvalue_ref = rvalue_ref;
   if (target)
     {
       declarator->parameter_pack_p = target->parameter_pack_p;
@@ -1912,7 +1913,7 @@ static void cp_parser_template_declaration_after_export
 static void cp_parser_perform_template_parameter_access_checks
   (VEC (deferred_access_check,gc)*);
 static tree cp_parser_single_declaration
-  (cp_parser *, VEC (deferred_access_check,gc)*, bool, bool *);
+  (cp_parser *, VEC (deferred_access_check,gc)*, bool, bool, bool *);
 static tree cp_parser_functional_cast
   (cp_parser *, tree);
 static tree cp_parser_save_member_function_body
@@ -2015,6 +2016,8 @@ static bool cp_parser_is_keyword
   (cp_token *, enum rid);
 static tree cp_parser_make_typename_type
   (cp_parser *, tree, tree);
+static cp_declarator * cp_parser_make_indirect_declarator
+  (enum tree_code, tree, cp_cv_quals, cp_declarator *);
 
 /* Returns nonzero if we are parsing tentatively.  */
 
@@ -2689,6 +2692,30 @@ cp_parser_make_typename_type (cp_parser *parser, tree scope, tree id)
   return make_typename_type (scope, id, typename_type, tf_error);
 }
 
+/* This is a wrapper around the
+   make_{pointer,ptrmem,reference}_declarator functions that decides
+   which one to call based on the CODE and CLASS_TYPE arguments. The
+   CODE argument should be one of the values returned by
+   cp_parser_ptr_operator. */
+static cp_declarator *
+cp_parser_make_indirect_declarator (enum tree_code code, tree class_type,
+				    cp_cv_quals cv_qualifiers,
+				    cp_declarator *target)
+{
+  if (code == ERROR_MARK)
+    return cp_error_declarator;
+
+  if (code == INDIRECT_REF)
+    if (class_type == NULL_TREE)
+      return make_pointer_declarator (cv_qualifiers, target);
+    else
+      return make_ptrmem_declarator (cv_qualifiers, class_type, target);
+  else if (code == ADDR_EXPR && class_type == NULL_TREE)
+    return make_reference_declarator (cv_qualifiers, target, false);
+  else if (code == NON_LVALUE_EXPR && class_type == NULL_TREE)
+    return make_reference_declarator (cv_qualifiers, target, true);
+  gcc_unreachable ();
+}
 
 /* Create a new C++ parser.  */
 
@@ -3085,7 +3112,7 @@ cp_parser_primary_expression (cp_parser *parser,
 		  /* C++0x only: A ">>" treated like two ">" tokens,
                      in a template-argument-list.  */
 		  && (next_token->type != CPP_RSHIFT
-                      || !flag_cpp0x
+                      || (cxx_dialect == cxx98)
 		      || parser->greater_than_is_operator_p))
 		cast_p = false;
 	    }
@@ -3344,7 +3371,19 @@ cp_parser_primary_expression (cp_parser *parser,
 	    /* If name lookup gives us a SCOPE_REF, then the
 	       qualifying scope was dependent.  */
 	    if (TREE_CODE (decl) == SCOPE_REF)
-	      return decl;
+	      {
+		/* At this point, we do not know if DECL is a valid
+		   integral constant expression.  We assume that it is
+		   in fact such an expression, so that code like:
+
+		      template <int N> struct A {
+			int a[B<N>::i];
+		      };
+		     
+		   is accepted.  At template-instantiation time, we
+		   will check that B<N>::i is actually a constant.  */
+		return decl;
+	      }
 	    /* Check to see if DECL is a local variable in a context
 	       where that is forbidden.  */
 	    if (parser->local_variables_forbidden_p
@@ -3883,7 +3922,7 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 	    {
 	      new_scope = resolve_typename_type (parser->scope,
 						 /*only_current_p=*/false);
-	      if (new_scope != error_mark_node)
+	      if (TREE_CODE (new_scope) != TYPENAME_TYPE)
 		parser->scope = new_scope;
 	    }
 	  success = true;
@@ -5497,11 +5536,6 @@ cp_parser_new_type_id (cp_parser* parser, tree *nelts)
     }
 
   type = groktypename (&type_specifier_seq, new_declarator);
-  if (TREE_CODE (type) == ARRAY_TYPE && *nelts == NULL_TREE)
-    {
-      *nelts = array_type_nelts_top (type);
-      type = TREE_TYPE (type);
-    }
   return type;
 }
 
@@ -5532,15 +5566,8 @@ cp_parser_new_declarator_opt (cp_parser* parser)
       /* Parse another optional declarator.  */
       declarator = cp_parser_new_declarator_opt (parser);
 
-      /* Create the representation of the declarator.  */
-      if (type)
-	declarator = make_ptrmem_declarator (cv_quals, type, declarator);
-      else if (code == INDIRECT_REF)
-	declarator = make_pointer_declarator (cv_quals, declarator);
-      else
-	declarator = make_reference_declarator (cv_quals, declarator);
-
-      return declarator;
+      return cp_parser_make_indirect_declarator
+	(code, type, cv_quals, declarator);
     }
 
   /* If the next token is a `[', there is a direct-new-declarator.  */
@@ -5870,11 +5897,11 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p)
    The binops_by_token map is used to get the tree codes for each <token> type.
    binary-expressions are associated according to a precedence table.  */
 
-#define TOKEN_PRECEDENCE(token)				\
-(((token->type == CPP_GREATER				\
-   || (flag_cpp0x && token->type == CPP_RSHIFT))	\
-  && !parser->greater_than_is_operator_p)		\
- ? PREC_NOT_OPERATOR					\
+#define TOKEN_PRECEDENCE(token)				     \
+(((token->type == CPP_GREATER				     \
+   || ((cxx_dialect != cxx98) && token->type == CPP_RSHIFT)) \
+  && !parser->greater_than_is_operator_p)		     \
+ ? PREC_NOT_OPERATOR					     \
  : binops_by_token[token->type].prec)
 
 static tree
@@ -8460,16 +8487,8 @@ cp_parser_conversion_declarator_opt (cp_parser* parser)
       /* Parse another optional declarator.  */
       declarator = cp_parser_conversion_declarator_opt (parser);
 
-      /* Create the representation of the declarator.  */
-      if (class_type)
-	declarator = make_ptrmem_declarator (cv_quals, class_type,
-					     declarator);
-      else if (code == INDIRECT_REF)
-	declarator = make_pointer_declarator (cv_quals, declarator);
-      else
-	declarator = make_reference_declarator (cv_quals, declarator);
-
-      return declarator;
+      return cp_parser_make_indirect_declarator
+	(code, class_type, cv_quals, declarator);
    }
 
   return NULL;
@@ -10216,6 +10235,7 @@ cp_parser_explicit_specialization (cp_parser* parser)
     cp_parser_single_declaration (parser,
 				  /*checks=*/NULL,
 				  /*member_p=*/false,
+                                  /*explicit_specialization_p=*/true,
 				  /*friend_p=*/NULL);
   /* We're done with the specialization.  */
   end_specialization ();
@@ -10845,13 +10865,19 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
       if (parser->scope)
 	{
 	  tree decl;
+	  tree ambiguous_decls;
 
 	  decl = cp_parser_lookup_name (parser, identifier,
 					tag_type,
 					/*is_template=*/false,
 					/*is_namespace=*/false,
 					/*check_dependency=*/true,
-					/*ambiguous_decls=*/NULL);
+					&ambiguous_decls);
+
+	  /* If the lookup was ambiguous, an error will already have been
+	     issued.  */
+	  if (ambiguous_decls)
+	    return error_mark_node;
 
 	  /* If we are parsing friend declaration, DECL may be a
 	     TEMPLATE_DECL tree node here.  However, we need to check
@@ -10896,6 +10922,23 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
               if (type == error_mark_node)
                 return error_mark_node;
             }
+
+          /* Forward declarations of nested types, such as
+
+               class C1::C2;
+               class C1::C2::C3;
+
+             are invalid unless all components preceding the final '::'
+             are complete.  If all enclosing types are complete, these
+             declarations become merely pointless.
+
+             Invalid forward declarations of nested types are errors
+             caught elsewhere in parsing.  Those that are pointless arrive
+             here.  */
+
+          if (cp_parser_declares_only_class_p (parser)
+              && !is_friend && !processing_explicit_instantiation)
+            warning (0, "declaration %qD does not declare anything", decl);
 
 	  type = TREE_TYPE (decl);
 	}
@@ -11965,7 +12008,8 @@ cp_parser_init_declarator (cp_parser* parser,
 		      ((is_parenthesized_init || !is_initialized)
 		     ? 0 : LOOKUP_ONLYCONVERTING));
     }
-  else if (flag_cpp0x && friend_p && decl && TREE_CODE (decl) == FUNCTION_DECL)
+  else if ((cxx_dialect != cxx98) && friend_p
+	   && decl && TREE_CODE (decl) == FUNCTION_DECL)
     /* Core issue #226 (C++0x only): A default template-argument
        shall not be specified in a friend class template
        declaration. */
@@ -12072,15 +12116,8 @@ cp_parser_declarator (cp_parser* parser,
 	  && !cp_parser_parse_definitely (parser))
 	declarator = NULL;
 
-      /* Build the representation of the ptr-operator.  */
-      if (class_type)
-	declarator = make_ptrmem_declarator (cv_quals,
-					     class_type,
-					     declarator);
-      else if (code == INDIRECT_REF)
-	declarator = make_pointer_declarator (cv_quals, declarator);
-      else
-	declarator = make_reference_declarator (cv_quals, declarator);
+      declarator = cp_parser_make_indirect_declarator
+	(code, class_type, cv_quals, declarator);
     }
   /* Everything else is a direct-declarator.  */
   else
@@ -12427,7 +12464,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 	      type = resolve_typename_type (qualifying_scope,
 					    /*only_current_p=*/false);
 	      /* If that failed, the declarator is invalid.  */
-	      if (type == error_mark_node)
+	      if (TREE_CODE (type) == TYPENAME_TYPE)
 		error ("%<%T::%E%> is not a type",
 		       TYPE_CONTEXT (qualifying_scope),
 		       TYPE_IDENTIFIER (qualifying_scope));
@@ -12558,12 +12595,15 @@ cp_parser_direct_declarator (cp_parser* parser,
      & cv-qualifier-seq [opt]
 
    Returns INDIRECT_REF if a pointer, or pointer-to-member, was used.
-   Returns ADDR_EXPR if a reference was used.  In the case of a
-   pointer-to-member, *TYPE is filled in with the TYPE containing the
-   member.  *CV_QUALS is filled in with the cv-qualifier-seq, or
-   TYPE_UNQUALIFIED, if there are no cv-qualifiers.  Returns
-   ERROR_MARK if an error occurred.  */
-
+   Returns ADDR_EXPR if a reference was used, or NON_LVALUE_EXPR for
+   an rvalue reference. In the case of a pointer-to-member, *TYPE is
+   filled in with the TYPE containing the member.  *CV_QUALS is
+   filled in with the cv-qualifier-seq, or TYPE_UNQUALIFIED, if there
+   are no cv-qualifiers.  Returns ERROR_MARK if an error occurred.
+   Note that the tree codes returned by this function have nothing
+   to do with the types of trees that will be eventually be created
+   to represent the pointer or reference type being parsed. They are
+   just constants with suggestive names. */
 static enum tree_code
 cp_parser_ptr_operator (cp_parser* parser,
 			tree* type,
@@ -12579,13 +12619,19 @@ cp_parser_ptr_operator (cp_parser* parser,
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
-  /* If it's a `*' or `&' we have a pointer or reference.  */
-  if (token->type == CPP_MULT || token->type == CPP_AND)
-    {
-      /* Remember which ptr-operator we were processing.  */
-      code = (token->type == CPP_AND ? ADDR_EXPR : INDIRECT_REF);
 
-      /* Consume the `*' or `&'.  */
+  /* If it's a `*', `&' or `&&' we have a pointer or reference.  */
+  if (token->type == CPP_MULT)
+    code = INDIRECT_REF;
+  else if (token->type == CPP_AND)
+    code = ADDR_EXPR;
+  else if ((cxx_dialect != cxx98) &&
+	   token->type == CPP_AND_AND) /* C++0x only */
+    code = NON_LVALUE_EXPR;
+
+  if (code != ERROR_MARK)
+    {
+      /* Consume the `*', `&' or `&&'.  */
       cp_lexer_consume_token (parser->lexer);
 
       /* A `*' can be followed by a cv-qualifier-seq, and so can a
@@ -13263,7 +13309,7 @@ cp_parser_parameter_declaration (cp_parser *parser,
 		  break;
 
                 case CPP_RSHIFT:
-                  if (!flag_cpp0x)
+                  if (cxx_dialect == cxx98)
                     break;
                   /* Fall through for C++0x, which treats the `>>'
                      operator like two `>' tokens in certain
@@ -14236,7 +14282,7 @@ cp_parser_class_head (cp_parser* parser,
 	{
 	  class_type = resolve_typename_type (TREE_TYPE (type),
 					      /*only_current_p=*/false);
-	  if (class_type != error_mark_node)
+	  if (TREE_CODE (class_type) != TYPENAME_TYPE)
 	    type = TYPE_NAME (class_type);
 	  else
 	    {
@@ -16245,7 +16291,7 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 		{
 		  type = resolve_typename_type (type,
 						/*only_current_p=*/false);
-		  if (type == error_mark_node)
+		  if (TREE_CODE (type) == TYPENAME_TYPE)
 		    {
 		      cp_parser_abort_tentative_parse (parser);
 		      return false;
@@ -16498,6 +16544,7 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
       decl = cp_parser_single_declaration (parser,
 					   checks,
 					   member_p,
+                                           /*explicit_specialization_p=*/false,
 					   &friend_p);
       pop_deferring_access_checks ();
 
@@ -16563,6 +16610,7 @@ static tree
 cp_parser_single_declaration (cp_parser* parser,
 			      VEC (deferred_access_check,gc)* checks,
 			      bool member_p,
+                              bool explicit_specialization_p,
 			      bool* friend_p)
 {
   int declares_class_or_enum;
@@ -16636,13 +16684,27 @@ cp_parser_single_declaration (cp_parser* parser,
   if (!decl
       && (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON)
 	  || decl_specifiers.type != error_mark_node))
-    decl = cp_parser_init_declarator (parser,
-				      &decl_specifiers,
-				      checks,
-				      /*function_definition_allowed_p=*/true,
-				      member_p,
-				      declares_class_or_enum,
-				      &function_definition_p);
+    {
+      decl = cp_parser_init_declarator (parser,
+				        &decl_specifiers,
+				        checks,
+				        /*function_definition_allowed_p=*/true,
+				        member_p,
+				        declares_class_or_enum,
+				        &function_definition_p);
+
+    /* 7.1.1-1 [dcl.stc]
+
+       A storage-class-specifier shall not be specified in an explicit
+       specialization...  */
+    if (decl
+        && explicit_specialization_p
+        && decl_specifiers.storage_class != sc_none)
+      {
+        error ("explicit template specialization cannot have a storage class");
+        decl = error_mark_node;
+      }
+    }
 
   pop_deferring_access_checks ();
 
@@ -16798,7 +16860,7 @@ cp_parser_enclosed_template_argument_list (cp_parser* parser)
      a '>>' instead, it's probably just a typo.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_RSHIFT))
     {
-      if (flag_cpp0x)
+      if (cxx_dialect != cxx98)
         {
           /* In C++0x, a `>>' in a template argument list or cast
              expression is considered to be two separate `>'
@@ -17328,7 +17390,7 @@ cp_parser_skip_to_end_of_template_parameter_list (cp_parser* parser)
 	  break;
 
         case CPP_RSHIFT:
-          if (!flag_cpp0x)
+          if (cxx_dialect == cxx98)
             /* C++0x views the `>>' operator as two `>' tokens, but
                C++98 does not. */
             break;
@@ -17450,7 +17512,7 @@ cp_parser_next_token_ends_template_argument_p (cp_parser *parser)
   return (token->type == CPP_COMMA 
           || token->type == CPP_GREATER
           || token->type == CPP_ELLIPSIS
-	  || (flag_cpp0x && token->type == CPP_RSHIFT));
+	  || ((cxx_dialect != cxx98) && token->type == CPP_RSHIFT));
 }
 
 /* Returns TRUE iff the n-th token is a "<", or the n-th is a "[" and the

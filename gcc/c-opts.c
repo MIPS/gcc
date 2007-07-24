@@ -232,6 +232,9 @@ c_common_init_options (unsigned int argc, const char **argv)
   warn_pointer_arith = c_dialect_cxx ();
   warn_write_strings = c_dialect_cxx();
 
+  /* By default, C99-like requirements for complex multiply and divide.  */
+  flag_complex_method = 2;
+
   deferred_opts = XNEWVEC (struct deferred_opt, argc);
 
   result = lang_flags[c_language];
@@ -1138,14 +1141,9 @@ c_common_post_options (const char **pfilename)
   if (warn_implicit_function_declaration == -1) 
     warn_implicit_function_declaration = flag_isoc99;
 
-  /* C99 requires special handling of complex multiplication and division;
-     -ffast-math and -fcx-limited-range are handled in process_options.  */
-  if (flag_isoc99)
-    flag_complex_method = 2;
-
   /* If we're allowing C++0x constructs, don't warn about C++0x
      compatibility problems.  */
-  if (flag_cpp0x)
+  if (cxx_dialect == cxx0x)
     warn_cxx0x_compat = 0;
 
   if (flag_preprocess_only)
@@ -1610,6 +1608,7 @@ set_std_cxx98 (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
+  cxx_dialect = cxx98;
 }
 
 /* Set the C++ 0x working draft "standard" (without GNU extensions if ISO).  */
@@ -1620,7 +1619,7 @@ set_std_cxx0x (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
-  flag_cpp0x = 1;
+  cxx_dialect = cxx0x;
 }
 
 /* Handle setting implicit to ON.  */

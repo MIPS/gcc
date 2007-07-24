@@ -42,6 +42,7 @@ static void check_statement_label (gfc_statement);
 static void undo_new_statement (void);
 static void reject_statement (void);
 
+
 /* A sort of half-matching function.  We try to match the word on the
    input with the passed string.  If this succeeds, we call the
    keyword-dependent matching function that will match the rest of the
@@ -117,8 +118,8 @@ decode_statement (void)
 	return ST_FUNCTION;
       else if (m == MATCH_ERROR)
 	reject_statement ();
-
-      gfc_undo_symbols ();
+      else 
+	gfc_undo_symbols ();
       gfc_current_locus = old_locus;
     }
 
@@ -180,6 +181,7 @@ decode_statement (void)
     case 'b':
       match ("backspace", gfc_match_backspace, ST_BACKSPACE);
       match ("block data", gfc_match_block_data, ST_BLOCK_DATA);
+      match (NULL, gfc_match_bind_c_stmt, ST_ATTR_DECL);
       break;
 
     case 'c':
@@ -740,7 +742,6 @@ push_state (gfc_state_data *p, gfc_compile_state new_state, gfc_symbol *sym)
 
 
 /* Pop the current state.  */
-
 static void
 pop_state (void)
 {
@@ -1510,6 +1511,7 @@ parse_derived (void)
   int compiling_type, seen_private, seen_sequence, seen_component, error_flag;
   gfc_statement st;
   gfc_state_data s;
+  gfc_symbol *derived_sym = NULL;
   gfc_symbol *sym;
   gfc_component *c;
 
@@ -1607,6 +1609,11 @@ parse_derived (void)
 	  break;
 	}
     }
+
+  /* need to verify that all fields of the derived type are
+   * interoperable with C if the type is declared to be bind(c)
+   */
+  derived_sym = gfc_current_block();
 
   /* Look for allocatable components.  */
   sym = gfc_current_block ();
@@ -1894,6 +1901,13 @@ loop:
 	    ? ACCESS_PUBLIC : ACCESS_PRIVATE;
 
 	  break;
+
+	case ST_STATEMENT_FUNCTION:
+	  if (gfc_current_state () == COMP_MODULE)
+	    {
+	      unexpected_statement (st);
+	      break;
+	    }
 
 	default:
 	  break;
@@ -2755,7 +2769,8 @@ gfc_fixup_sibling_symbols (gfc_symbol *sym, gfc_namespace *siblings)
       if ((old_sym->attr.flavor == FL_PROCEDURE
 	   || old_sym->ts.type == BT_UNKNOWN)
 	  && old_sym->ns == ns
-	  && !old_sym->attr.contained)
+	  && !old_sym->attr.contained
+	  && old_sym->attr.flavor != FL_NAMELIST)
 	{
 	  /* Replace it with the symbol from the parent namespace.  */
 	  st->n.sym = sym;
@@ -2775,12 +2790,13 @@ gfc_fixup_sibling_symbols (gfc_symbol *sym, gfc_namespace *siblings)
 static void
 parse_contained (int module)
 {
-  gfc_namespace *ns, *parent_ns;
+  gfc_namespace *ns, *parent_ns, *tmp;
   gfc_state_data s1, s2;
   gfc_statement st;
   gfc_symbol *sym;
   gfc_entry_list *el;
   int contains_statements = 0;
+  int seen_error = 0;
 
   push_state (&s1, COMP_CONTAINS, NULL);
   parent_ns = gfc_current_ns;
@@ -2792,6 +2808,9 @@ parse_contained (int module)
       gfc_current_ns->sibling = parent_ns->contained;
       parent_ns->contained = gfc_current_ns;
 
+ next:
+      /* Process the next available statement.  We come here if we got an error
+	 and rejected the last statement.  */
       st = next_statement ();
 
       switch (st)
@@ -2867,6 +2886,8 @@ parse_contained (int module)
 	  gfc_error ("Unexpected %s statement in CONTAINS section at %C",
 		     gfc_ascii_statement (st));
 	  reject_statement ();
+	  seen_error = 1;
+	  goto next;
 	  break;
 	}
     }
@@ -2875,8 +2896,10 @@ parse_contained (int module)
 
   /* The first namespace in the list is guaranteed to not have
      anything (worthwhile) in it.  */
-
+  tmp = gfc_current_ns;
   gfc_current_ns = parent_ns;
+  if (seen_error && tmp->refs > 1)
+    gfc_free_namespace (tmp);
 
   ns = gfc_current_ns->contained;
   gfc_current_ns->contained = ns->sibling;

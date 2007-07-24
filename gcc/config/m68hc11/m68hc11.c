@@ -1,5 +1,5 @@
 /* Subroutines for code generation on Motorola 68HC11 and 68HC12.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
@@ -59,6 +59,7 @@ Note:
 #include "reload.h"
 #include "target.h"
 #include "target-def.h"
+#include "df.h"
 
 static void emit_move_after_reload (rtx, rtx, rtx);
 static rtx simplify_logical (enum machine_mode, int, rtx, rtx *);
@@ -1336,7 +1337,7 @@ m68hc11_initial_elimination_offset (int from, int to)
   /* Push any 2 byte pseudo hard registers that we need to save.  */
   for (regno = SOFT_REG_FIRST; regno < SOFT_REG_LAST; regno++)
     {
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	{
 	  size += 2;
 	}
@@ -1550,7 +1551,7 @@ m68hc11_total_frame_size (void)
     size += HARD_REG_SIZE;
 
   for (regno = SOFT_REG_FIRST; regno <= SOFT_REG_LAST; regno++)
-    if (regs_ever_live[regno] && !call_used_regs[regno])
+    if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
       size += HARD_REG_SIZE;
 
   return size;
@@ -1662,7 +1663,7 @@ expand_prologue (void)
   /* Push any 2 byte pseudo hard registers that we need to save.  */
   for (regno = SOFT_REG_FIRST; regno <= SOFT_REG_LAST; regno++)
     {
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	{
 	  emit_move_after_reload (stack_push_word,
 				  gen_rtx_REG (HImode, regno), scratch);
@@ -1700,7 +1701,7 @@ expand_epilogue (void)
   /* Pop any 2 byte pseudo hard registers that we saved.  */
   for (regno = SOFT_REG_LAST; regno >= SOFT_REG_FIRST; regno--)
     {
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	{
 	  emit_move_after_reload (gen_rtx_REG (HImode, regno),
 				  stack_pop_word, scratch);
@@ -5004,7 +5005,7 @@ static void
 m68hc11_reorg (void)
 {
   int split_done = 0;
-  rtx insn, first;
+  rtx first;
 
   z_replacement_completed = 0;
   z_reg = gen_rtx_REG (HImode, HARD_Z_REGNUM);
@@ -5036,29 +5037,9 @@ m68hc11_reorg (void)
      description to use the best assembly directives.  */
   if (optimize)
     {
-      /* Before recomputing the REG_DEAD notes, remove all of them.
-         This is necessary because the reload_cse_regs() pass can
-         have replaced some (MEM) with a register.  In that case,
-         the REG_DEAD that could exist for that register may become
-         wrong.  */
-      for (insn = first; insn; insn = NEXT_INSN (insn))
-        {
-          if (INSN_P (insn))
-            {
-              rtx *pnote;
-
-              pnote = &REG_NOTES (insn);
-              while (*pnote != 0)
-                {
-                  if (REG_NOTE_KIND (*pnote) == REG_DEAD)
-                    *pnote = XEXP (*pnote, 1);
-                  else
-                    pnote = &XEXP (*pnote, 1);
-                }
-            }
-        }
-
-      life_analysis (PROP_REG_INFO | PROP_DEATH_NOTES);
+      df_note_add_problem ();
+      df_analyze ();
+      df_remove_problem (df_note);
     }
 
   z_replacement_completed = 2;

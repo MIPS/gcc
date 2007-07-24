@@ -744,10 +744,15 @@ struct cpp_num
 #define CPP_N_MEDIUM	0x0020	/* long, double.  */
 #define CPP_N_LARGE	0x0040	/* long long, long double.  */
 
+#define CPP_N_WIDTH_MD	0xF0000	/* machine defined.  */
+#define CPP_N_MD_W	0x10000
+#define CPP_N_MD_Q	0x20000
+
 #define CPP_N_RADIX	0x0F00
 #define CPP_N_DECIMAL	0x0100
 #define CPP_N_HEX	0x0200
 #define CPP_N_OCTAL	0x0400
+#define CPP_N_BINARY	0x0800
 
 #define CPP_N_UNSIGNED	0x1000	/* Properties.  */
 #define CPP_N_IMAGINARY	0x2000

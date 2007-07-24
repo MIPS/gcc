@@ -149,9 +149,6 @@ location_t input_location;
 
 struct line_maps line_table;
 
-/* Nonzero if it is unsafe to create any new pseudo registers.  */
-int no_new_pseudos;
-
 /* Stack of currently pending input files.  */
 
 struct file_stack *input_file_stack;
@@ -356,10 +353,6 @@ int align_jumps_max_skip;
 int align_labels_log;
 int align_labels_max_skip;
 int align_functions_log;
-
-/* Like align_functions_log above, but used by front-ends to force the
-   minimum function alignment.  Zero means no alignment is forced.  */
-int force_align_functions_log;
 
 typedef struct
 {
@@ -1881,7 +1874,8 @@ process_options (void)
   if (debug_info_level < DINFO_LEVEL_NORMAL
       || debug_hooks->var_location == do_nothing_debug_hooks.var_location)
     {
-      if (flag_var_tracking == 1)
+      if (flag_var_tracking == 1
+	  || flag_var_tracking_uninit == 1)
         {
 	  if (debug_info_level < DINFO_LEVEL_NORMAL)
 	    warning (0, "variable tracking requested, but useless unless "
@@ -1891,6 +1885,7 @@ process_options (void)
 		     "by this debug format");
 	}
       flag_var_tracking = 0;
+      flag_var_tracking_uninit = 0;
     }
 
   if (flag_rename_registers == AUTODETECT_VALUE)
@@ -1899,6 +1894,12 @@ process_options (void)
 
   if (flag_var_tracking == AUTODETECT_VALUE)
     flag_var_tracking = optimize >= 1;
+
+  /* If the user specifically requested variable tracking with tagging
+     uninitialized variables, we need to turn on variable tracking.
+     (We already determined above that variable tracking is feasible.)  */
+  if (flag_var_tracking_uninit)
+    flag_var_tracking = 1;
 
   /* If auxiliary info generation is desired, open the output file.
      This goes in the same directory as the source file--unlike
@@ -2116,9 +2117,6 @@ finalize (void)
 
   if (mem_report)
     dump_memory_report (true);
-
-  /* Free up memory for the benefit of leak detectors.  */
-  free_reg_info ();
 
   /* Language-specific end of compilation actions.  */
   lang_hooks.finish ();

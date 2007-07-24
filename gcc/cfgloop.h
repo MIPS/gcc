@@ -1,6 +1,6 @@
 /* Natural loop functions
-   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005, 2006, 2007Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -90,6 +90,16 @@ DEF_VEC_P (loop_p);
 DEF_VEC_ALLOC_P (loop_p, heap);
 DEF_VEC_ALLOC_P (loop_p, gc);
 
+/* An integer estimation of the number of iterations.  Estimate_state
+   describes what is the state of the estimation.  */
+enum loop_estimation
+{
+  /* Estimate was not computed yet.  */
+  EST_NOT_COMPUTED,
+  /* Estimate is ready.  */
+  EST_AVAILABLE
+};
+
 /* Structure to hold information for each natural loop.  */
 struct loop GTY ((chain_next ("%h.next")))
 {
@@ -135,13 +145,7 @@ struct loop GTY ((chain_next ("%h.next")))
 
   /* An integer estimation of the number of iterations.  Estimate_state
      describes what is the state of the estimation.  */
-  enum
-    {
-      /* Estimate was not computed yet.  */
-      EST_NOT_COMPUTED,
-      /* Estimate is ready.  */
-      EST_AVAILABLE
-    } estimate_state;
+  enum loop_estimation estimate_state;
 
   /* An integer guaranteed to bound the number of iterations of the loop
      from above.  */
@@ -382,7 +386,6 @@ extern rtx get_iv_value (struct rtx_iv *, rtx);
 extern bool biv_p (rtx, rtx);
 extern void find_simple_exit (struct loop *, struct niter_desc *);
 extern void iv_analysis_done (void);
-extern struct df *iv_current_loop_df (void);
 
 extern struct niter_desc *get_simple_loop_desc (struct loop *loop);
 extern void free_simple_loop_desc (struct loop *loop);

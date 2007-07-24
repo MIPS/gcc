@@ -140,6 +140,18 @@ default_eh_return_filter_mode (void)
   return word_mode;
 }
 
+enum machine_mode
+default_libgcc_cmp_return_mode (void)
+{
+  return word_mode;
+}
+
+enum machine_mode
+default_libgcc_shift_count_mode (void)
+{
+  return word_mode;
+}
+
 /* The default implementation of TARGET_SHIFT_TRUNCATION_MASK.  */
 
 unsigned HOST_WIDE_INT
@@ -173,6 +185,13 @@ hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS * a ATTRIBUTE_UNUSED)
   return true;
 }
 
+/* Return machine mode for non-standard suffix
+   or VOIDmode if non-standard suffixes are unsupported.  */
+enum machine_mode
+default_mode_for_suffix (char suffix ATTRIBUTE_UNUSED)
+{
+  return VOIDmode;
+}
 
 /* The generic C++ ABI specifies this is a 64-bit value.  */
 tree
@@ -334,6 +353,16 @@ default_builtin_vectorized_function (enum built_in_function fn ATTRIBUTE_UNUSED,
 tree
 default_builtin_vectorized_conversion (enum tree_code code ATTRIBUTE_UNUSED,
 				       tree type ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+/* Reciprocal.  */
+
+tree
+default_builtin_reciprocal (enum built_in_function fn ATTRIBUTE_UNUSED,
+			    bool md_fn ATTRIBUTE_UNUSED,
+			    bool sqrt ATTRIBUTE_UNUSED)
 {
   return NULL_TREE;
 }
@@ -622,6 +651,22 @@ tree default_mangle_decl_assembler_name (tree decl ATTRIBUTE_UNUSED,
 					 tree id)
 {
    return id;
+}
+
+bool
+default_builtin_vector_alignment_reachable (tree type, bool is_packed)
+{
+  if (is_packed)
+    return false;
+
+  /* Assuming that types whose size is > pointer-size are not guaranteed to be
+     naturally aligned.  */
+  if (tree_int_cst_compare (TYPE_SIZE (type), bitsize_int (POINTER_SIZE)) > 0)
+    return false;
+
+  /* Assuming that types whose size is <= pointer-size
+     are naturally aligned.  */
+  return true;
 }
 
 #include "gt-targhooks.h"

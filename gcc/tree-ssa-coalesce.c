@@ -1,5 +1,5 @@
 /* Coalesce SSA_NAMES together for the out-of-ssa pass.
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -260,7 +260,7 @@ find_coalesce_pair (coalesce_list_p cl, int p1, int p2, bool create)
   if (create && !pair)
     {
       gcc_assert (cl->sorted == NULL);
-      pair = xmalloc (sizeof (struct coalesce_pair));
+      pair = XNEW (struct coalesce_pair);
       pair->first_element = p.first_element;
       pair->second_element = p.second_element;
       pair->cost = 0;
@@ -276,7 +276,7 @@ add_cost_one_coalesce (coalesce_list_p cl, int p1, int p2)
 {
   cost_one_pair_p pair;
 
-  pair = xmalloc (sizeof (struct cost_one_pair_d));
+  pair = XNEW (struct cost_one_pair_d);
   pair->first_element = p1;
   pair->second_element = p2;
   pair->next = cl->cost_one_list;
@@ -1037,7 +1037,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 		    char *end;
 		    unsigned long match;
 
-		    if (TREE_CODE (input) != SSA_NAME && !DECL_P (input))
+		    if (TREE_CODE (input) != SSA_NAME)
 		      continue;
 
 		    match = strtoul (constraint, &end, 10);

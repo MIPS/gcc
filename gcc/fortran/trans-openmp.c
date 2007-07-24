@@ -50,9 +50,12 @@ gfc_omp_privatize_by_reference (tree decl)
 
   if (TREE_CODE (type) == POINTER_TYPE)
     {
-      /* POINTER/ALLOCATABLE have aggregate types, all user variables
-	 that have POINTER_TYPE type are supposed to be privatized
-	 by reference.  */
+      /* Array POINTER/ALLOCATABLE have aggregate types, all user variables
+	 that have POINTER_TYPE type and don't have GFC_POINTER_TYPE_P
+	 set are supposed to be privatized by reference.  */
+      if (GFC_POINTER_TYPE_P (type))
+	return false;
+
       if (!DECL_ARTIFICIAL (decl))
 	return true;
 
@@ -733,7 +736,7 @@ gfc_trans_omp_atomic (gfc_code *code)
 
   expr2 = code->expr2;
   if (expr2->expr_type == EXPR_FUNCTION
-      && expr2->value.function.isym->generic_id == GFC_ISYM_CONVERSION)
+      && expr2->value.function.isym->id == GFC_ISYM_CONVERSION)
     expr2 = expr2->value.function.actual->expr;
 
   if (expr2->expr_type == EXPR_OP)
@@ -773,7 +776,7 @@ gfc_trans_omp_atomic (gfc_code *code)
 	}
       e = expr2->value.op.op1;
       if (e->expr_type == EXPR_FUNCTION
-	  && e->value.function.isym->generic_id == GFC_ISYM_CONVERSION)
+	  && e->value.function.isym->id == GFC_ISYM_CONVERSION)
 	e = e->value.function.actual->expr;
       if (e->expr_type == EXPR_VARIABLE
 	  && e->symtree != NULL
@@ -786,7 +789,7 @@ gfc_trans_omp_atomic (gfc_code *code)
 	{
 	  e = expr2->value.op.op2;
 	  if (e->expr_type == EXPR_FUNCTION
-	      && e->value.function.isym->generic_id == GFC_ISYM_CONVERSION)
+	      && e->value.function.isym->id == GFC_ISYM_CONVERSION)
 	    e = e->value.function.actual->expr;
 	  gcc_assert (e->expr_type == EXPR_VARIABLE
 		      && e->symtree != NULL
@@ -800,7 +803,7 @@ gfc_trans_omp_atomic (gfc_code *code)
   else
     {
       gcc_assert (expr2->expr_type == EXPR_FUNCTION);
-      switch (expr2->value.function.isym->generic_id)
+      switch (expr2->value.function.isym->id)
 	{
 	case GFC_ISYM_MIN:
 	  op = MIN_EXPR;

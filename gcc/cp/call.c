@@ -97,6 +97,10 @@ struct conversion {
   /* If KIND is ck_ptr or ck_pmem, true to indicate that a conversion
      from a pointer-to-derived to pointer-to-base is being performed.  */
   BOOL_BITFIELD base_p : 1;
+  /* If KIND is ck_ref_bind, true when either an lvalue reference is
+     being bound to an lvalue expression or an rvalue reference is
+     being bound to an rvalue expression. */
+  BOOL_BITFIELD rvaluedness_matches_p: 1;
   /* The type of the expression resulting from the conversion.  */
   tree type;
   union {
@@ -176,7 +180,7 @@ static conversion *standard_conversion (tree, tree, tree, bool, int);
 static conversion *reference_binding (tree, tree, tree, bool, int);
 static conversion *build_conv (conversion_kind, tree, conversion *);
 static bool is_subseq (conversion *, conversion *);
-static tree maybe_handle_ref_bind (conversion **);
+static conversion *maybe_handle_ref_bind (conversion **);
 static void maybe_handle_implicit_object (conversion **);
 static struct z_candidate *add_candidate
 	(struct z_candidate **, tree, tree, size_t,
@@ -918,12 +922,12 @@ reference_compatible_p (tree t1, tree t2)
    converted to T as in [over.match.ref].  */
 
 static conversion *
-convert_class_to_reference (tree t, tree s, tree expr)
+convert_class_to_reference (tree reference_type, tree s, tree expr)
 {
   tree conversions;
   tree arglist;
   conversion *conv;
-  tree reference_type;
+  tree t;
   struct z_candidate *candidates;
   struct z_candidate *cand;
   bool any_viable_p;
@@ -957,7 +961,7 @@ convert_class_to_reference (tree t, tree s, tree expr)
   arglist = build_int_cst (build_pointer_type (s), 0);
   arglist = build_tree_list (NULL_TREE, arglist);
 
-  reference_type = build_reference_type (t);
+  t = TREE_TYPE (reference_type);
 
   while (conversions)
     {
@@ -1020,6 +1024,9 @@ convert_class_to_reference (tree t, tree s, tree expr)
 	      cand->second_conv
 		= (direct_reference_binding
 		   (reference_type, identity_conv));
+	      cand->second_conv->rvaluedness_matches_p
+		= TYPE_REF_IS_RVALUE (TREE_TYPE (TREE_TYPE (cand->fn)))
+		  == TYPE_REF_IS_RVALUE (reference_type);
 	      cand->second_conv->bad_p |= cand->convs[0]->bad_p;
 	    }
 	}
@@ -1146,7 +1153,16 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags)
     to = build_qualified_type (to, cp_type_quals (from));
   compatible_p = reference_compatible_p (to, from);
 
-  if (lvalue_p && compatible_p)
+  /* Directly bind reference when target expression's type is compatible with
+     the reference and expression is an lvalue. In C++0x, the wording in
+     [8.5.3/5 dcl.init.ref] is changed to also allow direct bindings for const
+     and rvalue references to rvalues of compatible class type, as part of
+     DR391. */
+  if (compatible_p
+      && (lvalue_p
+	  || ((cxx_dialect != cxx98)
+	      && (CP_TYPE_CONST_NON_VOLATILE_P(to) || TYPE_REF_IS_RVALUE (rto))
+	      && CLASS_TYPE_P (from))))
     {
       /* [dcl.init.ref]
 
@@ -1159,6 +1175,15 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags)
 	 lvalue.  */
       conv = build_identity_conv (from, expr);
       conv = direct_reference_binding (rto, conv);
+
+      if (flags & LOOKUP_PREFER_RVALUE)
+	/* The top-level caller requested that we pretend that the lvalue
+	   be treated as an rvalue.  */
+	conv->rvaluedness_matches_p = TYPE_REF_IS_RVALUE (rto);
+      else
+	conv->rvaluedness_matches_p 
+          = (TYPE_REF_IS_RVALUE (rto) == !lvalue_p);
+
       if ((lvalue_p & clk_bitfield) != 0
 	  || ((lvalue_p & clk_packed) != 0 && !TYPE_PACKED (to)))
 	/* For the purposes of overload resolution, we ignore the fact
@@ -1191,7 +1216,7 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags)
 
 	the reference is bound to the lvalue result of the conversion
 	in the second case.  */
-      conv = convert_class_to_reference (to, from, expr);
+      conv = convert_class_to_reference (rto, from, expr);
       if (conv)
 	return conv;
     }
@@ -1214,8 +1239,10 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags)
 
   /* [dcl.init.ref]
 
-     Otherwise, the reference shall be to a non-volatile const type.  */
-  if (!CP_TYPE_CONST_NON_VOLATILE_P (to))
+     Otherwise, the reference shall be to a non-volatile const type.
+
+     Under C++0x, [8.5.3/5 dcl.init.ref] it may also be an rvalue reference */
+  if (!CP_TYPE_CONST_NON_VOLATILE_P (to) && !TYPE_REF_IS_RVALUE (rto))
     return NULL;
 
   /* [dcl.init.ref]
@@ -1238,6 +1265,7 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags)
     {
       conv = build_identity_conv (from, expr);
       conv = direct_reference_binding (rto, conv);
+      conv->rvaluedness_matches_p = TYPE_REF_IS_RVALUE (rto);
       if (!(flags & LOOKUP_CONSTRUCTOR_CALLABLE))
 	conv->u.next->check_copy_constructor_p = true;
       return conv;
@@ -1262,6 +1290,7 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags)
   /* This reference binding, unlike those above, requires the
      creation of a temporary.  */
   conv->need_temporary_p = true;
+  conv->rvaluedness_matches_p = TYPE_REF_IS_RVALUE (rto);
 
   return conv;
 }
@@ -1303,7 +1332,7 @@ implicit_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	conv = cand->second_conv;
 
       /* We used to try to bind a reference to a temporary here, but that
-	 is now handled by the recursive call to this function at the end
+	 is now handled after the recursive call to this function at the end
 	 of reference_binding.  */
       return conv;
     }
@@ -4033,8 +4062,12 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
    GLOBAL_P is true if the delete-expression should not consider
    class-specific delete operators.
    PLACEMENT is the corresponding placement new call, or NULL_TREE.
-   If PLACEMENT is non-NULL, then ALLOC_FN is the allocation function
-   called to perform the placement new.  */
+
+   If this call to "operator delete" is being generated as part to
+   deallocate memory allocated via a new-expression (as per [expr.new]
+   which requires that if the initialization throws an exception then
+   we call a deallocation function), then ALLOC_FN is the allocation
+   function.  */
 
 tree
 build_op_delete_call (enum tree_code code, tree addr, tree size,
@@ -4122,9 +4155,13 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	      if (!a && !t)
 		break;
 	    }
-	  /* On the second pass, the second argument must be
-	     "size_t".  */
+	  /* On the second pass, look for a function with exactly two
+	     arguments: "void *" and "size_t".  */
 	  else if (pass == 1
+		   /* For "operator delete(void *, ...)" there will be
+		      no second argument, but we will not get an exact
+		      match above.  */
+		   && t
 		   && same_type_p (TREE_VALUE (t), size_type_node)
 		   && TREE_CHAIN (t) == void_list_node)
 	    break;
@@ -4172,10 +4209,18 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	}
     }
 
-  /* If we are doing placement delete we do nothing if we don't find a
-     matching op delete.  */
-  if (placement)
-    return NULL_TREE;
+  /* [expr.new]
+
+     If no unambiguous matching deallocation function can be found,
+     propagating the exception does not cause the object's memory to
+     be freed.  */
+  if (alloc_fn)
+    {
+      if (!placement)
+	warning (0, "no corresponding deallocation function for `%D'", 
+		 alloc_fn);
+      return NULL_TREE;
+    }
 
   error ("no suitable %<operator %s%> for %qT",
 	 operator_name_info[(int)code].name, type);
@@ -4329,22 +4374,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       {
 	struct z_candidate *cand = convs->cand;
 	tree convfn = cand->fn;
-	tree args;
 
-	if (DECL_CONSTRUCTOR_P (convfn))
-	  {
-	    tree t = build_int_cst (build_pointer_type (DECL_CONTEXT (convfn)),
-				    0);
-
-	    args = build_tree_list (NULL_TREE, expr);
-	    /* We should never try to call the abstract or base constructor
-	       from here.  */
-	    gcc_assert (!DECL_HAS_IN_CHARGE_PARM_P (convfn)
-			&& !DECL_HAS_VTT_PARM_P (convfn));
-	    args = tree_cons (NULL_TREE, t, args);
-	  }
-	else
-	  args = build_this (expr);
 	expr = build_over_call (cand, LOOKUP_NORMAL);
 
 	/* If this is a constructor or a function returning an aggr type,
@@ -4448,13 +4478,22 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       {
 	tree ref_type = totype;
 
-	/* If necessary, create a temporary.  */
-	if (convs->need_temporary_p || !lvalue_p (expr))
+	/* If necessary, create a temporary. 
+
+           VA_ARG_EXPR and CONSTRUCTOR expressions are special cases
+           that need temporaries, even when their types are reference
+           compatible with the type of reference being bound, so the
+           upcoming call to build_unary_op (ADDR_EXPR, expr, ...)
+           doesn't fail.  */
+	if (convs->need_temporary_p
+	    || TREE_CODE (expr) == CONSTRUCTOR
+	    || TREE_CODE (expr) == VA_ARG_EXPR)
 	  {
 	    tree type = convs->u.next->type;
 	    cp_lvalue_kind lvalue = real_lvalue_p (expr);
 
-	    if (!CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (ref_type)))
+	    if (!CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (ref_type))
+		&& !TYPE_REF_IS_RVALUE (ref_type))
 	      {
 		/* If the reference is volatile or non-const, we
 		   cannot create a temporary.  */
@@ -4963,7 +5002,9 @@ build_over_call (struct z_candidate *cand, int flags)
 
   if (! flag_elide_constructors)
     /* Do things the hard way.  */;
-  else if (cand->num_convs == 1 && DECL_COPY_CONSTRUCTOR_P (fn))
+  else if (cand->num_convs == 1 
+           && (DECL_COPY_CONSTRUCTOR_P (fn) 
+               || DECL_MOVE_CONSTRUCTOR_P (fn)))
     {
       tree targ;
       arg = argarray[num_artificial_parms_for (fn)];
@@ -5296,7 +5337,7 @@ build_special_member_call (tree instance, tree name, tree args,
 		    current_vtt_parm,
 		    vtt);
       gcc_assert (BINFO_SUBVTT_INDEX (binfo));
-      sub_vtt = build2 (PLUS_EXPR, TREE_TYPE (vtt), vtt,
+      sub_vtt = build2 (POINTER_PLUS_EXPR, TREE_TYPE (vtt), vtt,
 			BINFO_SUBVTT_INDEX (binfo));
 
       args = tree_cons (NULL_TREE, sub_vtt, args);
@@ -5697,28 +5738,28 @@ maybe_handle_implicit_object (conversion **ics)
 	t = t->u.next;
       t = build_identity_conv (TREE_TYPE (t->type), NULL_TREE);
       t = direct_reference_binding (reference_type, t);
+      t->rvaluedness_matches_p = 1;
       *ics = t;
     }
 }
 
 /* If *ICS is a REF_BIND set *ICS to the remainder of the conversion,
-   and return the type to which the reference refers.  Otherwise,
-   leave *ICS unchanged and return NULL_TREE.  */
+   and return the initial reference binding conversion. Otherwise,
+   leave *ICS unchanged and return NULL.  */
 
-static tree
+static conversion *
 maybe_handle_ref_bind (conversion **ics)
 {
   if ((*ics)->kind == ck_ref_bind)
     {
       conversion *old_ics = *ics;
-      tree type = TREE_TYPE (old_ics->type);
       *ics = old_ics->u.next;
       (*ics)->user_conv_p = old_ics->user_conv_p;
       (*ics)->bad_p = old_ics->bad_p;
-      return type;
+      return old_ics;
     }
 
-  return NULL_TREE;
+  return NULL;
 }
 
 /* Compare two implicit conversion sequences according to the rules set out in
@@ -5742,18 +5783,18 @@ compare_ics (conversion *ics1, conversion *ics2)
   conversion_rank rank1, rank2;
 
   /* REF_BINDING is nonzero if the result of the conversion sequence
-     is a reference type.   In that case TARGET_TYPE is the
-     type referred to by the reference.  */
-  tree target_type1;
-  tree target_type2;
+     is a reference type.   In that case REF_CONV is the reference
+     binding conversion. */
+  conversion *ref_conv1;
+  conversion *ref_conv2;
 
   /* Handle implicit object parameters.  */
   maybe_handle_implicit_object (&ics1);
   maybe_handle_implicit_object (&ics2);
 
   /* Handle reference parameters.  */
-  target_type1 = maybe_handle_ref_bind (&ics1);
-  target_type2 = maybe_handle_ref_bind (&ics2);
+  ref_conv1 = maybe_handle_ref_bind (&ics1);
+  ref_conv2 = maybe_handle_ref_bind (&ics2);
 
   /* [over.ics.rank]
 
@@ -6044,15 +6085,31 @@ compare_ics (conversion *ics1, conversion *ics2)
 
   /* [over.ics.rank]
 
+     --S1 and S2 are reference bindings (_dcl.init.ref_) and neither refers
+     to an implicit object parameter, and either S1 binds an lvalue reference
+     to an lvalue and S2 binds an rvalue reference or S1 binds an rvalue
+     reference to an rvalue and S2 binds an lvalue reference
+     (C++0x draft standard, 13.3.3.2)
+
      --S1 and S2 are reference bindings (_dcl.init.ref_), and the
      types to which the references refer are the same type except for
      top-level cv-qualifiers, and the type to which the reference
      initialized by S2 refers is more cv-qualified than the type to
      which the reference initialized by S1 refers */
 
-  if (target_type1 && target_type2
+  if (ref_conv1 && ref_conv2
       && same_type_ignoring_top_level_qualifiers_p (to_type1, to_type2))
-    return comp_cv_qualification (target_type2, target_type1);
+    {
+      if (ref_conv1->rvaluedness_matches_p
+	  && !ref_conv2->rvaluedness_matches_p)
+	return 1;
+      else if (!ref_conv1->rvaluedness_matches_p
+	  && ref_conv2->rvaluedness_matches_p)
+	return -1;
+
+      return comp_cv_qualification (TREE_TYPE (ref_conv2->type),
+				    TREE_TYPE (ref_conv1->type));
+    }
 
   /* Neither conversion sequence is better than the other.  */
   return 0;

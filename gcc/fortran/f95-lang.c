@@ -113,7 +113,6 @@ static HOST_WIDE_INT gfc_get_alias_set (tree);
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #undef LANG_HOOKS_TYPE_FOR_SIZE
-#undef LANG_HOOKS_SIGNED_TYPE
 #undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
 #undef LANG_HOOKS_GET_ALIAS_SET
@@ -137,7 +136,6 @@ static HOST_WIDE_INT gfc_get_alias_set (tree);
 #define LANG_HOOKS_MARK_ADDRESSABLE        gfc_mark_addressable
 #define LANG_HOOKS_TYPE_FOR_MODE           gfc_type_for_mode
 #define LANG_HOOKS_TYPE_FOR_SIZE           gfc_type_for_size
-#define LANG_HOOKS_SIGNED_TYPE             gfc_signed_type
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION gfc_expand_function
 #define LANG_HOOKS_CLEAR_BINDING_STACK     gfc_clear_binding_stack
 #define LANG_HOOKS_GET_ALIAS_SET	   gfc_get_alias_set
@@ -952,6 +950,13 @@ gfc_init_builtin_functions (void)
 		      BUILT_IN_POW, "pow", true);
   gfc_define_builtin ("__builtin_powf", mfunc_float[1], 
 		      BUILT_IN_POWF, "powf", true);
+  gfc_define_builtin ("__builtin_powil", mfunc_longdouble[2], 
+		      BUILT_IN_POWIL, "powil", true);
+  gfc_define_builtin ("__builtin_powi", mfunc_double[2], 
+		      BUILT_IN_POWI, "powi", true);
+  gfc_define_builtin ("__builtin_powif", mfunc_float[2], 
+		      BUILT_IN_POWIF, "powif", true);
+
 
   if (TARGET_C99_FUNCTIONS)
     {

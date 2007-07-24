@@ -52,7 +52,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 static rtx neg_const_int (enum machine_mode, rtx);
 static bool plus_minus_operand_p (rtx);
-static int simplify_plus_minus_op_data_cmp (const void *, const void *);
+static bool simplify_plus_minus_op_data_cmp (rtx, rtx);
 static rtx simplify_plus_minus (enum rtx_code, enum machine_mode, rtx, rtx);
 static rtx simplify_immed_subreg (enum machine_mode, rtx, enum machine_mode,
 				  unsigned int);
@@ -700,10 +700,11 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
       /*  (float_truncate (float x)) is (float x)  */
       if (GET_CODE (op) == FLOAT
 	  && (flag_unsafe_math_optimizations
-	      || ((unsigned)significand_size (GET_MODE (op))
-		  >= (GET_MODE_BITSIZE (GET_MODE (XEXP (op, 0)))
-		      - num_sign_bit_copies (XEXP (op, 0),
-					     GET_MODE (XEXP (op, 0)))))))
+	      || (SCALAR_FLOAT_MODE_P (GET_MODE (op))
+		  && ((unsigned)significand_size (GET_MODE (op))
+		      >= (GET_MODE_BITSIZE (GET_MODE (XEXP (op, 0)))
+			  - num_sign_bit_copies (XEXP (op, 0),
+						 GET_MODE (XEXP (op, 0))))))))
 	return simplify_gen_unary (FLOAT, mode,
 				   XEXP (op, 0),
 				   GET_MODE (XEXP (op, 0)));
@@ -736,6 +737,7 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
           */
       if (GET_CODE (op) == FLOAT_EXTEND
 	  || (GET_CODE (op) == FLOAT
+	      && SCALAR_FLOAT_MODE_P (GET_MODE (op))
 	      && ((unsigned)significand_size (GET_MODE (op))
 		  >= (GET_MODE_BITSIZE (GET_MODE (XEXP (op, 0)))
 		      - num_sign_bit_copies (XEXP (op, 0),
@@ -1497,16 +1499,12 @@ simplify_associative_operation (enum rtx_code code, enum machine_mode mode,
 	}
 
       /* Attempt to simplify "(a op b) op c" as "a op (b op c)".  */
-      tem = swap_commutative_operands_p (XEXP (op0, 1), op1)
-	    ? simplify_binary_operation (code, mode, op1, XEXP (op0, 1))
-	    : simplify_binary_operation (code, mode, XEXP (op0, 1), op1);
+      tem = simplify_binary_operation (code, mode, XEXP (op0, 1), op1);
       if (tem != 0)
         return simplify_gen_binary (code, mode, XEXP (op0, 0), tem);
 
       /* Attempt to simplify "(a op b) op c" as "(a op c) op b".  */
-      tem = swap_commutative_operands_p (XEXP (op0, 0), op1)
-	    ? simplify_binary_operation (code, mode, op1, XEXP (op0, 0))
-	    : simplify_binary_operation (code, mode, XEXP (op0, 0), op1);
+      tem = simplify_binary_operation (code, mode, XEXP (op0, 0), op1);
       if (tem != 0)
         return simplify_gen_binary (code, mode, tem, XEXP (op0, 1));
     }
@@ -1772,10 +1770,14 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
     case MINUS:
       /* We can't assume x-x is 0 even with non-IEEE floating point,
 	 but since it is zero except in very strange circumstances, we
-	 will treat it as zero with -funsafe-math-optimizations.  */
+	 will treat it as zero with -funsafe-math-optimizations and
+	 -ffinite-math-only.  */
       if (rtx_equal_p (trueop0, trueop1)
 	  && ! side_effects_p (op0)
-	  && (! FLOAT_MODE_P (mode) || flag_unsafe_math_optimizations))
+	  && (! FLOAT_MODE_P (mode)
+	      || (flag_unsafe_math_optimizations
+		  && !HONOR_NANS (mode)
+		  && !HONOR_INFINITIES (mode))))
 	return CONST0_RTX (mode);
 
       /* Change subtraction from zero into negation.  (0 - x) is the
@@ -3307,23 +3309,21 @@ struct simplify_plus_minus_op_data
   short neg;
 };
 
-static int
-simplify_plus_minus_op_data_cmp (const void *p1, const void *p2)
+static bool
+simplify_plus_minus_op_data_cmp (rtx x, rtx y)
 {
-  const struct simplify_plus_minus_op_data *d1 = p1;
-  const struct simplify_plus_minus_op_data *d2 = p2;
   int result;
 
-  result = (commutative_operand_precedence (d2->op)
-	    - commutative_operand_precedence (d1->op));
+  result = (commutative_operand_precedence (y)
+	    - commutative_operand_precedence (x));
   if (result)
-    return result;
+    return result > 0;
 
   /* Group together equal REGs to do more simplification.  */
-  if (REG_P (d1->op) && REG_P (d2->op))
-    return REGNO (d1->op) - REGNO (d2->op);
+  if (REG_P (x) && REG_P (y))
+    return REGNO (x) > REGNO (y);
   else
-    return 0;
+    return false;
 }
 
 static rtx
@@ -3467,14 +3467,14 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
         {
           struct simplify_plus_minus_op_data save;
           j = i - 1;
-          if (simplify_plus_minus_op_data_cmp (&ops[j], &ops[i]) < 0)
+          if (!simplify_plus_minus_op_data_cmp (ops[j].op, ops[i].op))
 	    continue;
 
           canonicalized = 1;
           save = ops[i];
           do
 	    ops[j + 1] = ops[j];
-          while (j-- && simplify_plus_minus_op_data_cmp (&ops[j], &save) > 0);
+          while (j-- && simplify_plus_minus_op_data_cmp (ops[j].op, save.op));
           ops[j + 1] = save;
         }
 

@@ -985,7 +985,6 @@ if test "x${with_newlib}" = "xyes"; then
    # we'll have.
    AC_DEFINE(HAVE_MEMMOVE, 1, [Define if you have memmove.])
    AC_DEFINE(HAVE_MEMCPY, 1, [Define if you have memcpy.])
-   AC_DEFINE(HAVE_STRERROR, 1, [Define if you have strerror.])
    AC_DEFINE(HAVE_TIME, 1, [Define if you have time.])
    AC_DEFINE(HAVE_GMTIME_R, 1, [Define if you have the 'gmtime_r' function])
    AC_DEFINE(HAVE_LOCALTIME_R, 1, [Define if you have the 'localtime_r' function.])
@@ -997,7 +996,7 @@ if test "x${with_newlib}" = "xyes"; then
    AC_DEFINE(NO_GETUID, 1, [Define if getuid() and friends are missing.])
    PLATFORMNET=NoNet
 else
-   AC_CHECK_FUNCS([strerror select fstat open fsync sleep opendir \
+   AC_CHECK_FUNCS([strerror_r select fstat open fsync sleep opendir \
                    localtime_r readdir_r getpwuid_r getcwd \
 		   access stat lstat mkdir rename rmdir unlink utime chmod readlink \
 		   nl_langinfo setlocale \
@@ -1248,7 +1247,16 @@ else
    # On Solaris, and maybe other architectures, the Boehm collector
    # requires -ldl.
    if test "$GC" = boehm; then
-      AC_CHECK_LIB(dl, main, SYSTEMSPEC="$SYSTEMSPEC -ldl")
+      case "${host}" in
+          mips-sgi-irix6*)
+	    # IRIX 6 lacks a N64 libdl.so, but only the N32 (default multilib)
+	    # libgcj.spec is used, so override here
+	    SYSTEMSPEC="$SYSTEMSPEC %{!mabi=64:-ldl}"
+	  ;;
+	  *)
+            AC_CHECK_LIB(dl, main, SYSTEMSPEC="$SYSTEMSPEC -ldl")
+	  ;;
+      esac
    fi
 fi
 

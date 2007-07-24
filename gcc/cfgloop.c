@@ -1,5 +1,6 @@
 /* Natural loop discovery code for GNU compiler.
-   Copyright (C) 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -284,9 +285,6 @@ establish_preds (struct loop *loop, struct loop *father)
   unsigned depth = loop_depth (father) + 1;
   unsigned i;
 
-  /* Remember the current loop depth if it is the largest seen so far.  */
-  cfun->max_loop_depth = MAX (cfun->max_loop_depth, (int) depth);
-
   VEC_truncate (loop_p, loop->superloops, 0);
   VEC_reserve (loop_p, gc, loop->superloops, depth);
   for (i = 0; VEC_iterate (loop_p, father->superloops, i, ploop); i++)
@@ -363,10 +361,6 @@ flow_loops_find (struct loops *loops)
   struct loop *root;
 
   memset (loops, 0, sizeof *loops);
-
-  /* We are going to recount the maximum loop depth,
-     so throw away the last count.  */
-  cfun->max_loop_depth = 0;
 
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
@@ -776,7 +770,7 @@ flow_bb_inside_loop_p (const struct loop *loop, const basic_block bb)
 static bool
 glb_enum_p (basic_block bb, void *glb_loop)
 {
-  struct loop *loop = glb_loop;
+  struct loop *loop = (struct loop *) glb_loop;
   return (bb != loop->header
 	  && dominated_by_p (CDI_DOMINATORS, bb, loop->header));
 }
@@ -974,8 +968,8 @@ loop_exit_free (void *ex)
 static struct loop_exit *
 get_exit_descriptions (edge e)
 {
-  return htab_find_with_hash (current_loops->exits, e,
-			      htab_hash_pointer (e));
+  return (struct loop_exit *) htab_find_with_hash (current_loops->exits, e,
+			                           htab_hash_pointer (e));
 }
 
 /* Updates the lists of loop exits in that E appears.
@@ -1075,14 +1069,14 @@ record_loop_exits (void)
 static int
 dump_recorded_exit (void **slot, void *file)
 {
-  struct loop_exit *exit = *slot;
+  struct loop_exit *exit = (struct loop_exit *) *slot;
   unsigned n = 0;
   edge e = exit->e;
 
   for (; exit != NULL; exit = exit->next_e)
     n++;
 
-  fprintf (file, "Edge %d->%d exits %u loops\n",
+  fprintf ((FILE*) file, "Edge %d->%d exits %u loops\n",
 	   e->src->index, e->dest->index, n);
 
   return 1;
