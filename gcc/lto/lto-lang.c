@@ -64,31 +64,16 @@ static tree
 lto_type_for_mode (enum machine_mode mode ATTRIBUTE_UNUSED, 
 		   int unsigned_p ATTRIBUTE_UNUSED)
 {
-  gcc_unreachable ();
+  /* This hook is called by the middle-end.  For example,
+     assign_stack_local_1 uses this hook to determine whether
+     additional alignment is required for stack variables for which no
+     explicit alignment is provided.  */
+  return NULL_TREE;
 }
 
 static tree
 lto_type_for_size (unsigned precision ATTRIBUTE_UNUSED, 
 		   int unsigned_p ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
-}
-
-static tree
-lto_unsigned_type (tree type ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
-}
-
-static tree
-lto_signed_type (tree type ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
-}
-
-static tree
-lto_signed_or_unsigned_type (int unsigned_p ATTRIBUTE_UNUSED,
-			     tree type ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
@@ -168,7 +153,6 @@ lto_init (void)
 
   /* Initialize LTO-specific data structures.  */
   lto_global_var_decls = VEC_alloc (tree, gc, 256);
-  lto_varargs_cookie = tree_cons (NULL_TREE, NULL_TREE, NULL_TREE);
 
   return true;
 }
@@ -176,9 +160,6 @@ lto_init (void)
 #define LANG_HOOKS_MARK_ADDRESSABLE lto_mark_addressable
 #define LANG_HOOKS_TYPE_FOR_MODE lto_type_for_mode
 #define LANG_HOOKS_TYPE_FOR_SIZE lto_type_for_size
-#define LANG_HOOKS_UNSIGNED_TYPE lto_unsigned_type
-#define LANG_HOOKS_SIGNED_TYPE lto_signed_type
-#define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE lto_signed_or_unsigned_type
 #undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME lto_set_decl_assembler_name
 #undef LANG_HOOKS_GLOBAL_BINDINGS_P

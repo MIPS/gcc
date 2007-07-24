@@ -123,7 +123,10 @@ typedef struct DWARF2_form_data
 } DWARF2_form_data;
 
 /* Information passed from parent DIEs to child DIEs to give context
-   about the current location in the scope tree.  */
+   about the current location in the scope tree.  
+   
+   When adding to this structure, make sure to update the
+   initialization code in lto_file_read.  */
 struct lto_context
 {
   /* The start of the current compilation unit info.  This is right
@@ -145,6 +148,22 @@ struct lto_context
   /* Some DIEs (like enumerated types) need to pass down some information
      to their children as they are parsed.  */
   tree parentdata;
+
+  /* When determining the type of a function, a pointer to the
+     location where the next parameter type should be stored.  */
+  tree *last_parm_type;
+  /* When determining the type of a function, true if the function
+     type has variable arguments.  */
+  bool varargs_p;
+
+  /* True if we should skip all DIEs.  */
+  bool skip_all;
+  /* True if only parameters should be processed (because we are
+     trying to determine the type of a function).  */
+  bool skip_non_parameters;
+  /* True if all parameters should be skipped (because they have
+     already been processed).  */
+  bool skip_parameters;
 };
 
 /* We can't use DWARF_Internal_CompUnit because it does not track the
@@ -166,12 +185,6 @@ struct DWARF2_CompUnit
   /* Pointer size of this CU.  */
   unsigned char cu_pointer_size;
 };
-
-/* Variables */
-
-/* Cookie for DWARF DW_TAG_unspecified_parameters.  All we need is a uniquely
-   identifiable object; it doesn't need to carry any information.  */
-tree lto_varargs_cookie;
 
 /* Forward Declarations */
 
@@ -2043,6 +2056,13 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 					/*at_end=*/0);
 	    }
 	}
+      else if (code == PARM_DECL)
+	{
+	  *context->last_parm_type = build_tree_list (NULL_TREE,
+						      TREE_TYPE (decl));
+	  context->last_parm_type 
+	    = &TREE_CHAIN (*context->last_parm_type);
+	}
     }
 
   lto_read_child_DIEs (fd, abbrev, context);
@@ -2252,6 +2272,23 @@ lto_read_member_DIE (lto_info_fd *fd,
   return decl;
 }
 
+static const DWARF2_abbrev *
+lto_read_abbrev (lto_info_fd *fd)
+{
+  uint64_t index;
+  const DWARF2_abbrev *abbrev;
+
+  /* Read the abbreviation index.  */
+  index = lto_read_uleb128 ((lto_fd *)fd);
+  /* Zero indicates a null entry.  */
+  if (!index)
+    return NULL;
+  /* Get the actual abbreviation entry.  */
+  abbrev = lto_abbrev_lookup (&fd->base.file->debug_abbrev, index);
+
+  return abbrev;
+}
+
 static tree
 lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 					 lto_die_ptr die ATTRIBUTE_UNUSED,
@@ -2260,7 +2297,6 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 {
   tree ret_type;
   tree arg_types;
-  tree *last_arg;
   tree type;
   tree name;
   tree asm_name = NULL_TREE;
@@ -2353,41 +2389,28 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
   if (!ret_type)
     ret_type = void_type_node;
  
+  /* We must merge the FUNCTION_DECL before descending into its body
+     so that the DECL_CONTEXT for any static variables is set
+     correctly.  But, to merge the FUNCTION_DECL, we must determine
+     its type.  Therefore, we have to do two passes over the children
+     of the FUNCTION_DECL: one to compute the type of the parameters
+     and one to process the actual children.  */
+  arg_types = NULL_TREE;
   if (prototyped)
     {
-      VEC(tree,heap) *parms;
-      unsigned n_children;
-      unsigned i;
-      bool varargs_p;
-      
-      parms = lto_collect_child_DIEs (fd, abbrev, context);
+      const char *saved_cur;
+      saved_cur = fd->base.cur;
 
-      /* Per the DWARF spec, the children can include "other entries used
-	 by formal parameter entries, such as types", as well as parameters
-	 and a DW_TAG_unspecified_parameters to indicate varargs.  So we need
-	 one loop over the children to count the number of actual parameters
-	 and another to assemble the parameter type vector.  */
-      n_children = VEC_length (tree, parms);
-      arg_types = NULL_TREE;
-      last_arg = &arg_types;
-      for (i = 0; i < n_children; ++i)
-	{
-	  tree parm = VEC_index (tree, parms, i);
-	  if (TREE_CODE (parm) == PARM_DECL)
-	    {
-	      *last_arg = build_tree_list (NULL_TREE,
-					   TREE_TYPE (parm));
-	      last_arg = &TREE_CHAIN (*last_arg);
-	    }
-	  else if (parm == lto_varargs_cookie)
-	    varargs_p = true;
-	}
-      if (!varargs_p)
-	*last_arg = void_list_node;
-      VEC_free (tree, heap, parms);
+      context->skip_non_parameters = true;
+      context->last_parm_type = &arg_types;
+      context->varargs_p = false;
+      lto_read_child_DIEs (fd, abbrev, context);
+      context->skip_non_parameters = false;
+      fd->base.cur = saved_cur;
+
+      if (!context->varargs_p)
+	*context->last_parm_type = void_list_node;
     }
-  else
-    arg_types = NULL_TREE;
 
   /* Build the function type.  */
   type = build_function_type (ret_type, arg_types);
@@ -2452,10 +2475,16 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
     }
 
   /* Read the child DIEs, which are in the scope of RESULT.  */
-  saved_scope = context->scope;
-  context->scope = result;
+  if (TREE_CODE (result) == FUNCTION_DECL)
+    {
+      saved_scope = context->scope;
+      context->scope = result;
+    }
+  context->skip_parameters = true;
   lto_read_child_DIEs (fd, abbrev, context);
-  context->scope = saved_scope;
+  context->skip_parameters = false;
+  if (TREE_CODE (result) == FUNCTION_DECL)
+    context->scope = saved_scope;
 
   return result;
 }
@@ -2467,12 +2496,15 @@ lto_read_unspecified_parameters_DIE (lto_info_fd *fd,
 				     lto_context *context)
 {
   gcc_assert (abbrev->tag == DW_TAG_unspecified_parameters);
+  context->varargs_p = true;
+
   LTO_BEGIN_READ_ATTRS ()
     {
     }
   LTO_END_READ_ATTRS ();
   lto_read_child_DIEs (fd, abbrev, context);
-  return lto_varargs_cookie;
+
+  return NULL_TREE;
 }
 
 static tree
@@ -2969,7 +3001,6 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
       NULL /* shared_type */
     };
 
-  uint64_t index;
   const DWARF2_abbrev *abbrev;
   DIE_reader_fnptr reader;
   lto_die_ptr die;
@@ -2978,26 +3009,39 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
   /* Record the location of the current DIE -- before we change the
      file pointer.  */
   die = (lto_die_ptr) ((lto_fd *)fd)->cur;
-  /* Read the abbreviation index.  */
-  index = lto_read_uleb128 ((lto_fd *)fd);
-  /* Zero indicates a null entry.  */
-  if (!index)
+  /* Read the abbreviation entry so that we know what kind of DIE this
+     is.  */
+  abbrev = lto_read_abbrev (fd);
+  if (!abbrev)
     {
       if (more)
 	*more = false;
       return NULL_TREE;
     }
-  /* Get the actual abbreviation entry.  */
-  abbrev = lto_abbrev_lookup (&fd->base.file->debug_abbrev, index);
   /* Check to see if this DIE has already been processed.  If so, skip
      over it and its children.  */
   val = lto_cache_lookup_DIE (fd, die, /*skip=*/true);
   if (!val)
     {
+      bool saved_skip_all;
+
+      saved_skip_all = context->skip_all;
       /* Determine the DIE reader function.  */
       reader = NULL;
-      if (abbrev->tag < sizeof (readers) / sizeof (DIE_reader_fnptr))
+
+      if (context->skip_all)
+	;
+      else if (context->skip_non_parameters
+	       && abbrev->tag != DW_TAG_formal_parameter
+	       && abbrev->tag != DW_TAG_unspecified_parameters)
+	context->skip_all = true;
+      else if (context->skip_parameters
+	       && (abbrev->tag == DW_TAG_formal_parameter
+		   || abbrev->tag == DW_TAG_unspecified_parameters))
+	context->skip_all = true;
+      else if (abbrev->tag < sizeof (readers) / sizeof (DIE_reader_fnptr))
 	reader = readers[abbrev->tag];
+
       if (reader)
 	{
 	  /* If there is a reader, use it.  */
@@ -3009,11 +3053,12 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
 	}
       else
 	{
-	  /* Assume that all other tags matter, as we are otherwise at
-	     risk of silently generating wrong code.  If a tag can be
-	     safely ignored, it should be explicitly ignored above.  */
-	  error ("DWARF tag " HOST_WIDEST_INT_PRINT_UNSIGNED " not "
-		 "supported by link-time optimization", abbrev->tag);
+	  if (!context->skip_all)
+	    /* Assume that all other tags matter, as we are otherwise at
+	       risk of silently generating wrong code.  If a tag can be
+	       safely ignored, it should be explicitly ignored above.  */
+	    error ("DWARF tag " HOST_WIDEST_INT_PRINT_UNSIGNED " not "
+		   "supported by link-time optimization", abbrev->tag);
 
 	  /* Skip over this DIE, but attempt to read its children.  */
 	  LTO_BEGIN_READ_ATTRS_UNCHECKED ()
@@ -3023,6 +3068,8 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
 	  /* Read children.  */ 
 	  lto_read_child_DIEs (fd, abbrev, context);
 	}
+
+      context->skip_all = saved_skip_all;
     }
 
   if (more)
@@ -3179,6 +3226,11 @@ lto_file_read (lto_file *file)
       fd->cur = context.cu_start + unit->cu_header_length;
       context.scope = NULL_TREE;
       context.parentdata = NULL_TREE;
+      context.last_parm_type = NULL;
+      context.varargs_p = false;
+      context.skip_all = false;
+      context.skip_non_parameters = false;
+      context.skip_parameters = false;
 
       /* Read DIEs.  */
       while (fd->cur < context.cu_end)

@@ -1,3 +1,26 @@
+2007-07-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* lto-tree.h (lto_varargs_cookie): Remove.
+	* lto.c (lto_context): Add last_parm_type, varargs_p, skip_all,
+	skip_non_parameters, skip_parameters.
+	(lto_varargs_cookie): Remove.
+	(lto_read_variable_formal_parameter_constant_DIE): Keep track of
+	parameter types.
+	(lto_read_abbrev): New function.
+	(lto_read_subroutine_type_subprogram_DIE): Make two passes over
+	child DIEs.
+	(lto_read_unspecified_parameters_DIE): Set context->varargs_p.
+	(lto_read_DIE): Use lto_read_abbrev.  Honor skip_* flags.
+	(lto_file_read): Initialize new context fields.
+	* lto-lang.c (lto_type_for_mode): Return NULL_TREE.
+	(lto_unsigned_type): Remove.
+	(lto_signed_type): Likewise.
+	(lto_signed_or_unsigned_type): Likewise.
+	(lto_init): Do not create lto_varargs_cookie.
+	(LANG_HOOKS_UNSIGNED_TYPE): Do not define.
+	(LANG_HOOKS_SIGNED_TYPE): Likewise.
+	(LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE): Likewise.
+
 2007-07-19  Jan Hubicka  <jh@suse.cz>
 
 	* lto-read.c (lto_read_function_body): Produce empty scope block
