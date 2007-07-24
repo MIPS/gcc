@@ -1,3 +1,63 @@
+2007-07-24  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.def: Re-organize codes that take tree operands so
+	they are consecutive.
+	* gsstruct.def (GSS_LABEL, GSS_ASSIGN_BINARY, GSS_ASSIGN_UNARY_REG,
+	GSS_ASSIGN_UNARY_MEM, GSS_COND, GSS_GOTO, GSS_SWITCH, GSS_CALL,
+	GSS_RETURN): Remove.  Update al users.
+	* gimple.c (gss_for_code): New.
+	(gimple_statement_structure): Call it.
+	(get_num_ops_for): New.
+	(gimple_build_with_ops): New.
+	(gimple_build_return, gimple_build_call_1, gimple_build_assign,
+	gimple_build_cond, gimple_build_label, gimple_build_goto,
+	gimple_build_switch_1, ): Call it.
+	(gss_for_assign): Remove.  Update all users.
+	(gimple_check_failed): Do not assume that subcode is a valid tree
+	code.
+	(gimple_range_check_failed): New.
+	(walk_tuple_ops): Implement in terms of gimple_num_ops and
+	gimple_op when dealing with GSS_WITH_OPS and GSS_WITH_MEM_OPS
+	statements.
+	* gimple.h (struct gimple_statement_with_ops): Add fields 'num_ops'
+	and 'op'.
+	(struct gimple_statement_label, gimple_statement_assign_binary,
+	gimple_statement_assign_unary_reg, gimple_statement_assign_unary_mem,
+	gimple_statement_cond, gimple_statement_goto, gimple_statement_switch,
+	gimple_statement_call, gimple_statement_return): Remove.
+	Update all users.
+	(gimple_range_check_failed): Declare.
+	(GIMPLE_RANGE_CHECK): Define.
+	(gimple_num_ops): New.
+	(gimple_op): New.
+	(gimple_set_op): New.
+	(gimple_assign_rhs1): Rename from gimple_assign_binary_rhs1.
+	(gimple_assign_set_rhs1): Rename from gimple_assign_binary_set_rhs1.
+	(gimple_assign_rhs2): Rename from gimple_assign_binary_rhs2.
+	(gimple_assign_set_rhs2): Rename from gimple_assign_binary_set_rhs2.
+	(gimple_assign_unary_rhs): Remove.  Update all users.
+	(gimple_assign_unary_set_rhs): Likewise.
+	(gimple_switch_num_labels): Rename from gimple_switch_nlabels.
+	(gimple_call_fn, gimple_call_lhs, gimple_call_chain,
+	gimple_call_set_chain, gimple_call_nargs, gimple_call_arg,
+	gimple_call_set_arg, gimple_cond_lhs, gimple_cond_set_lhs,
+	gimple_cond_rhs, gimple_cond_set_rhs, gimple_cond_true_label,
+	gimple_cond_false_label, gimple_cond_set_true_label,
+	gimple_cond_set_false_label, gimple_label_label,
+	gimple_label_set_label, gimple_goto_dest,
+	gimple_goto_set_dest, gimple_asm_input_op,
+	gimple_asm_set_input_op, gimple_asm_output_op,
+	gimple_asm_set_output_op, gimple_asm_clobber_op,
+	gimple_asm_set_clobber_op, gimple_switch_num_labels,
+	gimple_switch_index, gimple_switch_set_index,
+	gimple_switch_default_label, gimple_switch_set_default_label,
+	gimple_switch_label, gimple_switch_set_label,
+	gimple_return_retval, gimple_return_set_retval): Implement
+	using the array of operands in field 'with_ops'.
+	(gimple_asm_set_ninputs, gimple_asm_set_noutputs,
+	gimple_asm_set_nclobbered, gimple_asm_set_string): Remove.
+	Update all users.
+
 2007-07-24  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree.c (get_callee_fndecl): Revert previous change.

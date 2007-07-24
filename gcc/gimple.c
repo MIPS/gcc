@@ -42,10 +42,73 @@ const char *const gimple_code_name[] = {
    gimple_body (FN).  */
 static struct pointer_map_t *gimple_bodies = NULL;
 
-/* Gimple tuple constructors.  */
+/* Gimple tuple constructors.
+   Note: Any constructor taking a ``gimple_seq'' as a parameter, can
+   be passed a NULL to start with an empty sequence.  */
 
-/* Note: Any constructor taking a ``gimple_seq'' as a parameter, can be passed
-   a NULL to start with an empty sequence.  */
+
+/* Return the GSS_* identifier for the given GIMPLE statement CODE.  */
+
+static enum gimple_statement_structure_enum
+gss_for_code (enum gimple_code code)
+{
+  switch (code)
+    {
+    case GIMPLE_ASSIGN:
+    case GIMPLE_CALL:
+    case GIMPLE_RETURN:		return GSS_WITH_MEM_OPS;
+    case GIMPLE_COND:
+    case GIMPLE_GOTO:
+    case GIMPLE_LABEL:
+    case GIMPLE_SWITCH:		return GSS_WITH_OPS;
+    case GIMPLE_ASM:		return GSS_ASM;
+    case GIMPLE_BIND:		return GSS_BIND;
+    case GIMPLE_CATCH:		return GSS_CATCH;
+    case GIMPLE_EH_FILTER:	return GSS_EH_FILTER;
+    case GIMPLE_NOP:		return GSS_BASE;
+    case GIMPLE_PHI:		return GSS_PHI;
+    case GIMPLE_RESX:		return GSS_RESX;
+    case GIMPLE_TRY:		return GSS_TRY;
+    case GIMPLE_OMP_CRITICAL:	return GSS_OMP_CRITICAL;
+    case GIMPLE_OMP_FOR:	return GSS_OMP_FOR;
+    case GIMPLE_OMP_CONTINUE:
+    case GIMPLE_OMP_MASTER:		
+    case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_RETURN:
+    case GIMPLE_OMP_SECTION:	return GSS_OMP;
+    case GIMPLE_OMP_PARALLEL:	return GSS_OMP_PARALLEL;
+    case GIMPLE_OMP_SECTIONS:	return GSS_OMP_SECTIONS;
+    case GIMPLE_OMP_SINGLE:	return GSS_OMP_SINGLE;
+    default:			gcc_unreachable ();
+    }
+}
+
+
+/* Build a tuple with operands.  CODE is the statement to build (which
+   must be one of the GIMPLE_WITH_OPS tuples).  SUBCODE is the sub-code
+   for the new tuple.  NUM_OPS is the number of operands to allocate.  */ 
+
+static gimple
+gimple_build_with_ops (enum gimple_code code, unsigned subcode, size_t num_ops)
+{
+  gimple s;
+  enum gimple_statement_structure_enum gss = gss_for_code (code);
+  
+  if (gss == GSS_WITH_OPS)
+    s = ggc_alloc_cleared (sizeof (struct gimple_statement_with_ops));
+  else if (gss == GSS_WITH_MEM_OPS)
+    s = ggc_alloc_cleared (sizeof (struct gimple_statement_with_memory_ops));
+  else
+    gcc_unreachable ();
+
+  GIMPLE_CODE (s) = code;
+  GIMPLE_SUBCODE_FLAGS (s) = subcode;
+  s->with_ops.num_ops = num_ops;
+  s->with_ops.op = ggc_alloc_cleared (sizeof (tree) * num_ops);
+
+  return s;
+}
+
 
 /* Construct a GIMPLE_RETURN statement.
 
@@ -55,12 +118,9 @@ static struct pointer_map_t *gimple_bodies = NULL;
 gimple
 gimple_build_return (bool result_decl_p, tree retval)
 {
-  gimple p = ggc_alloc_cleared (sizeof (struct gimple_statement_return));
-
-  GIMPLE_CODE (p) = GIMPLE_RETURN;
-  GIMPLE_SUBCODE_FLAGS (p) = (int) result_decl_p;
-  gimple_return_set_retval (p, retval);
-  return p;
+  gimple s = gimple_build_with_ops (GIMPLE_RETURN, (int) result_decl_p, 1);
+  gimple_return_set_retval (s, retval);
+  return s;
 }
 
 /* Helper for gimple_build_call and gimple_build_call_vec.  Build the basic
@@ -70,15 +130,9 @@ gimple_build_return (bool result_decl_p, tree retval)
 static inline gimple
 gimple_build_call_1 (tree fn, size_t nargs)
 {
-  gimple gs = ggc_alloc_cleared (sizeof (struct gimple_statement_call)
-                                 + sizeof (tree) * (nargs - 1));
-
-  GIMPLE_CODE (gs) = GIMPLE_CALL;
-  GIMPLE_SUBCODE_FLAGS (gs) = 0;
-  gs->gimple_call.nargs = nargs;
-  gs->gimple_call.fn = fn;
-
-  return gs;
+  gimple s = gimple_build_with_ops (GIMPLE_CALL, 0, nargs + 3);
+  s->with_ops.op[1] = fn;
+  return s;
 }
 
 
@@ -119,6 +173,17 @@ gimple_build_call (tree fn, size_t nargs, ...)
   return call;
 }
 
+
+/* Given a CODE for the RHS of a GIMPLE_ASSIGN, return the number of operands
+   it needs.  */
+
+static inline size_t
+get_num_ops_for (enum tree_code code)
+{
+  enum tree_code_class class = TREE_CODE_CLASS (code);
+  return (class == tcc_binary || class == tcc_comparison) ? 2 : 1;
+}
+
 /* Construct a GIMPLE_ASSIGN statement.
 
    LHS of the assignment.
@@ -128,75 +193,37 @@ gimple
 gimple_build_assign (tree lhs, tree rhs)
 {
   gimple p;
-  enum gimple_statement_structure_enum gss;
+  size_t num_ops;
+  enum tree_code subcode = TREE_CODE (rhs);
+  enum tree_code_class class = TREE_CODE_CLASS (subcode);
 
-  gss = gss_for_assign (TREE_CODE (rhs));
-  switch (gss)
+  /* Make sure the RHS is a valid GIMPLE RHS.  */
+  gcc_assert (is_gimple_formal_tmp_rhs (rhs));
+
+  /* Need 1 operand for LHS and 1 or 2 for the RHS (depending on the
+     code).  */
+  num_ops = get_num_ops_for (subcode) + 1;
+  
+  p = gimple_build_with_ops (GIMPLE_ASSIGN, subcode, num_ops);
+  gimple_assign_set_lhs (p, lhs);
+
+  if (class == tcc_binary || class == tcc_comparison)
     {
-    case GSS_ASSIGN_BINARY:
-      p = ggc_alloc_cleared (sizeof (struct gimple_statement_assign_binary));
-      GIMPLE_CODE (p) = GIMPLE_ASSIGN;
-      GIMPLE_SUBCODE_FLAGS (p) = TREE_CODE (rhs);
-      gimple_assign_set_lhs (p, lhs);
-      gimple_assign_binary_set_rhs1 (p, TREE_OPERAND (rhs, 0));
-      gimple_assign_binary_set_rhs2 (p, TREE_OPERAND (rhs, 1));
-      break;
-
-    case GSS_ASSIGN_UNARY_REG:
-      p = ggc_alloc_cleared (sizeof (struct gimple_statement_assign_unary_reg));
-      GIMPLE_CODE (p) = GIMPLE_ASSIGN;
-      GIMPLE_SUBCODE_FLAGS (p) = TREE_CODE (rhs);
-      gimple_assign_set_lhs (p, lhs);
-      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (rhs))))
-	gimple_assign_unary_set_rhs (p, TREE_OPERAND (rhs, 0));
-      else
-	gimple_assign_unary_set_rhs (p, rhs);
-      break;
-
-    case GSS_ASSIGN_UNARY_MEM:
-      p = ggc_alloc_cleared (sizeof (struct gimple_statement_assign_unary_mem));
-      GIMPLE_CODE (p) = GIMPLE_ASSIGN;
-      GIMPLE_SUBCODE_FLAGS (p) = TREE_CODE (rhs);
-      gimple_assign_set_lhs (p, lhs);
-      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (rhs))))
-        gimple_assign_unary_set_rhs (p, TREE_OPERAND (rhs, 0));
-      else
-        gimple_assign_unary_set_rhs (p, rhs);
-
-      break;
-
-    default:
-      gcc_unreachable ();
+      gimple_assign_set_rhs1 (p, TREE_OPERAND (rhs, 0));
+      gimple_assign_set_rhs2 (p, TREE_OPERAND (rhs, 1));
     }
+  else if (class == tcc_unary)
+    gimple_assign_set_rhs1 (p, TREE_OPERAND (rhs, 0));
+  else if (class == tcc_constant
+           || class == tcc_declaration
+	   || subcode == SSA_NAME)
+    gimple_assign_set_rhs1 (p, rhs);
+  else
+    gcc_unreachable ();
 
   return p;
 }
 
-
-/* Given a CODE for the RHS of a GIMPLE_ASSIGN, return the GSS enum for it.  */
-
-enum gimple_statement_structure_enum
-gss_for_assign (enum tree_code code)
-{
-  enum tree_code_class class = TREE_CODE_CLASS (code);
-
-  if (class == tcc_binary || class == tcc_comparison)
-    return GSS_ASSIGN_BINARY;
-
-  /* There can be 3 types of unary operations:
-
-     SYM = <constant>		<== GSS_ASSIGN_UNARY_REG
-     SYM = SSA_NAME		<== GSS_ASSIGN_UNARY_REG
-     SYM = SYM2			<== GSS_ASSIGN_UNARY_MEM
-     SYM = UNARY_OP SYM2	<== GSS_ASSIGN_UNARY_MEM
-  */
-
-  if (class == tcc_constant || code == SSA_NAME)
-    return GSS_ASSIGN_UNARY_REG;
-
-  /* Must be class == tcc_unary.  */
-  return GSS_ASSIGN_UNARY_MEM;
-}
 
 /* Construct a GIMPLE_COND statement.
 
@@ -208,16 +235,11 @@ gimple
 gimple_build_cond (enum gimple_cond pred, tree lhs, tree rhs,
 		   tree t_label, tree f_label)
 {
-  gimple p;
-
-  p = ggc_alloc_cleared (sizeof (struct gimple_statement_cond));
-  GIMPLE_CODE (p) = GIMPLE_COND;
-  GIMPLE_SUBCODE_FLAGS (p) = pred;
+  gimple p = gimple_build_with_ops (GIMPLE_COND, pred, 4);
   gimple_cond_set_lhs (p, lhs);
   gimple_cond_set_rhs (p, rhs);
   gimple_cond_set_true_label (p, t_label);
   gimple_cond_set_false_label (p, f_label);
-
   return p;
 }
 
@@ -238,12 +260,8 @@ gimple_cond_invert (gimple g)
 gimple
 gimple_build_label (tree label)
 {
-  gimple p;
-
-  p = ggc_alloc_cleared (sizeof (struct gimple_statement_label));
-  GIMPLE_CODE (p) = GIMPLE_LABEL;
+  gimple p = gimple_build_with_ops (GIMPLE_LABEL, 0, 1);
   gimple_label_set_label (p, label);
-
   return p;
 }
 
@@ -252,12 +270,8 @@ gimple_build_label (tree label)
 gimple
 gimple_build_goto (tree dest)
 {
-  gimple p;
-
-  p = ggc_alloc_cleared (sizeof (struct gimple_statement_goto));
-  GIMPLE_CODE (p) = GIMPLE_GOTO;
+  gimple p = gimple_build_with_ops (GIMPLE_GOTO, 0, 1);
   gimple_goto_set_dest (p, dest);
-
   return p;
 }
 
@@ -266,11 +280,8 @@ gimple_build_goto (tree dest)
 gimple 
 gimple_build_nop (void)
 {
-  gimple p;
-
-  p = ggc_alloc_cleared (sizeof (struct gimple_statement_base));
+  gimple p = ggc_alloc_cleared (sizeof (struct gimple_statement_base));
   GIMPLE_CODE (p) = GIMPLE_NOP;
-
   return p;
 }
 
@@ -281,14 +292,11 @@ gimple_build_nop (void)
 gimple
 gimple_build_bind (tree vars, gimple_seq body)
 {
-  gimple p;
-
-  p = ggc_alloc_cleared (sizeof (struct gimple_statement_bind));
+  gimple p = ggc_alloc_cleared (sizeof (struct gimple_statement_bind));
   GIMPLE_CODE (p) = GIMPLE_BIND;
   gimple_bind_set_vars (p, vars);
   if (body)
     gimple_bind_set_body (p, body);
-
   return p;
 }
 
@@ -297,32 +305,36 @@ gimple_build_bind (tree vars, gimple_seq body)
    STRING is the assembly code.
    NINPUT is the number of register inputs.
    NOUTPUT is the number of register outputs.
-   NCLOBBERED is the number of clobbered registers.
+   NCLOBBERS is the number of clobbered registers.
    ... are trees for each input, output and clobbered register.  */
 
 gimple
 gimple_build_asm (const char *string, unsigned ninputs, unsigned noutputs, 
-              unsigned nclobbered, ...)
+              unsigned nclobbers, ...)
 {
   gimple p;
   unsigned i;
   va_list ap;
 
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_asm)
-                         + sizeof (tree) * (ninputs + noutputs + nclobbered - 1));
+                         + sizeof (tree) * (ninputs + noutputs + nclobbers - 1));
   GIMPLE_CODE (p) = GIMPLE_ASM;
-  gimple_asm_set_ninputs (p, ninputs);
-  gimple_asm_set_noutputs (p, noutputs);
-  gimple_asm_set_nclobbered (p, nclobbered);
-  gimple_asm_set_string (p, string);
+  p->gimple_asm.ni = ninputs;
+  p->gimple_asm.no = noutputs;
+  p->gimple_asm.nc = nclobbers;
+  p->gimple_asm.string = string;
   
-  va_start (ap, nclobbered);
+  va_start (ap, nclobbers);
+
   for (i = 0; i < ninputs; i++)
     gimple_asm_set_input_op (p, i, va_arg (ap, tree));
+
   for (i = 0; i < noutputs; i++)
     gimple_asm_set_output_op (p, i, va_arg (ap, tree));
-  for (i = 0; i < nclobbered; i++)
+
+  for (i = 0; i < nclobbers; i++)
     gimple_asm_set_clobber_op (p, i, va_arg (ap, tree));
+
   va_end (ap);
   
   return p;
@@ -407,7 +419,7 @@ gimple_build_phi (unsigned capacity, unsigned nargs, tree result, ...)
   unsigned int i;
   va_list va;
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_phi)
-      + (sizeof (struct phi_arg_d) * (nargs - 1)) );
+			 + (sizeof (struct phi_arg_d) * (nargs - 1)) );
   
   GIMPLE_CODE (p) = GIMPLE_PHI;
   gimple_phi_set_capacity (p, capacity);
@@ -450,19 +462,10 @@ gimple_build_resx (int region)
 static inline gimple 
 gimple_build_switch_1 (unsigned int nlabels, tree index, tree default_label)
 {
-  gimple p;
-  unsigned int n_all_labels;
-  /*  We count the default in the number of labels.  */
-  n_all_labels = nlabels + 1;
-  /* total labels - 1 extra from struct.  */
-  p = ggc_alloc_cleared (sizeof (struct gimple_statement_switch)
-                         + sizeof (tree) * (n_all_labels - 1));
-  GIMPLE_CODE (p) = GIMPLE_SWITCH;
-
-  gimple_switch_set_nlabels (p, n_all_labels);
+  /* nlabels + 1 default label + 1 index.  */
+  gimple p = gimple_build_with_ops (GIMPLE_SWITCH, 0, nlabels + 1 + 1);
   gimple_switch_set_index (p, index);
   gimple_switch_set_default_label (p, default_label);
-  
   return p;
 }
 
@@ -478,10 +481,11 @@ gimple_build_switch (unsigned int nlabels, tree index, tree default_label, ...)
 {
   va_list al;
   unsigned int i;
+  gimple p;
+  
+  p = gimple_build_switch_1 (nlabels, index, default_label);
 
-  gimple p = gimple_build_switch_1 (nlabels, index, default_label);
-  /*  Put labels in labels[1 - (nlables + 1)].
-     Default label is in labels[0].  */
+  /* Store the rest of the labels.  */
   va_start (al, default_label);
   for (i = 1; i <= nlabels; i++)
     gimple_switch_set_label (p, i, va_arg (al, tree));
@@ -504,7 +508,7 @@ gimple_build_switch_vec (tree index, tree default_label, VEC(tree, heap) *args)
   size_t nlabels = VEC_length (tree, args);
   gimple p = gimple_build_switch_1 (nlabels, index, default_label);
 
-  /*  Put labels in labels[1 - (nlables + 1)].
+  /*  Put labels in labels[1 - (nlabels + 1)].
      Default label is in labels[0].  */
   for (i = 1; i <= nlabels; i++)
     gimple_switch_set_label (p, i, VEC_index (tree, args, i - 1));
@@ -719,40 +723,7 @@ gimple_omp_build_single (gimple_seq body, tree clauses)
 enum gimple_statement_structure_enum
 gimple_statement_structure (gimple gs)
 {
-  unsigned int code = GIMPLE_CODE (gs);
-  unsigned int subcode = GIMPLE_SUBCODE_FLAGS (gs);
-
-  switch (code)
-    {
-    case GIMPLE_ASSIGN:		return gss_for_assign (subcode);
-    case GIMPLE_ASM:		return GSS_ASM;
-    case GIMPLE_BIND:		return GSS_BIND;
-    case GIMPLE_CALL:		return GSS_CALL;
-    case GIMPLE_CATCH:		return GSS_CATCH;
-    case GIMPLE_COND:		return GSS_COND;
-    case GIMPLE_EH_FILTER:		return GSS_EH_FILTER;
-    case GIMPLE_GOTO:		return GSS_GOTO;
-    case GIMPLE_LABEL:		return GSS_LABEL;
-    case GIMPLE_NOP:		return GSS_BASE;
-    case GIMPLE_PHI:		return GSS_PHI;
-    case GIMPLE_RESX:		return GSS_RESX;
-    case GIMPLE_RETURN:		return GSS_RETURN;
-    case GIMPLE_SWITCH:		return GSS_SWITCH;
-    case GIMPLE_TRY:		return GSS_TRY;
-    case GIMPLE_OMP_CRITICAL:	return GSS_OMP_CRITICAL;
-    case GIMPLE_OMP_FOR:		return GSS_OMP_FOR;
-    case GIMPLE_OMP_CONTINUE:
-    case GIMPLE_OMP_MASTER:		
-    case GIMPLE_OMP_ORDERED:
-    case GIMPLE_OMP_RETURN:
-    case GIMPLE_OMP_SECTION:
-				return GSS_OMP;
-    case GIMPLE_OMP_PARALLEL:	return GSS_OMP_PARALLEL;
-    case GIMPLE_OMP_SECTIONS:	return GSS_OMP_SECTIONS;
-    case GIMPLE_OMP_SINGLE:		return GSS_OMP_SINGLE;
-    default:
-      gcc_unreachable ();
-    }
+  return gss_for_code (GIMPLE_CODE (gs));
 }
 
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
@@ -760,14 +731,48 @@ gimple_statement_structure (gimple gs)
 
 void
 gimple_check_failed (const gimple gs, const char *file, int line,
-	         const char *function, unsigned int code,
+	         const char *function, enum gimple_code code,
 		 unsigned int subcode)
 {
-  internal_error ("gimple check: expected %s(%s), have %s(%s) in %s, at %s:%d",
+  internal_error ("gimple check: expected %s(%u), have %s(%u) in %s, at %s:%d",
       		  gimple_code_name[code],
-		  tree_code_name[subcode],
+		  subcode,
 		  gimple_code_name[GIMPLE_CODE (gs)],
-		  tree_code_name[GIMPLE_SUBCODE_FLAGS (gs)],
+		  GIMPLE_SUBCODE_FLAGS (gs),
+		  function, trim_filename (file), line);
+}
+
+/* Similar to gimple_check_failed, except that instead of specifying a
+   dozen codes, use the knowledge that they're all sequential.  */
+
+void
+gimple_range_check_failed (const gimple gs, const char *file, int line,
+		       const char *function, enum gimple_code c1,
+		       enum gimple_code c2)
+{
+  char *buffer;
+  unsigned length = 0;
+  enum gimple_code c;
+
+  for (c = c1; c <= c2; ++c)
+    length += 4 + strlen (gimple_code_name[c]);
+
+  length += strlen ("expected ");
+  buffer = alloca (length);
+  length = 0;
+
+  for (c = c1; c <= c2; ++c)
+    {
+      const char *prefix = length ? " or " : "expected ";
+
+      strcpy (buffer + length, prefix);
+      length += strlen (prefix);
+      strcpy (buffer + length, gimple_code_name[c]);
+      length += strlen (gimple_code_name[c]);
+    }
+
+  internal_error ("gimple check: %s, have %s in %s, at %s:%d",
+		  buffer, gimple_code_name[GIMPLE_CODE (gs)],
 		  function, trim_filename (file), line);
 }
 #endif /* ENABLE_TREE_CHECKING */
@@ -830,136 +835,90 @@ walk_tuple_ops (gimple gs, walk_tree_fn func, void *data,
 {
   unsigned int i;
   tree leaf;
+  enum gimple_statement_structure_enum gss;
 
-  switch (GIMPLE_CODE (gs))
-    {
-    case GIMPLE_ASM:
-      for (i = 0; i < gimple_asm_ninputs (gs); ++i)
-	WALKIT (gimple_asm_input_op (gs, i));
+  gss = gimple_statement_structure (gs);
+  if (gss == GSS_WITH_OPS || gss == GSS_WITH_MEM_OPS)
+    for (i = 0; i < gimple_num_ops (gs); i++)
+      WALKIT (gimple_op (gs, i));
+  else
+    switch (GIMPLE_CODE (gs))
+      {
+      case GIMPLE_BIND:
+	WALKIT (gimple_bind_vars (gs));
+	walk_seq_ops (gimple_bind_body (gs), func, data, pset);
+	break;
 
-      for (i = 0; i < gimple_asm_noutputs (gs); ++i)
-	WALKIT (gimple_asm_output_op (gs, i));
+      case GIMPLE_CATCH:
+	WALKIT (gimple_catch_types (gs));
+	walk_seq_ops (gimple_catch_handler (gs), func, data, pset);
+	break;
 
-      for (i = 0; i < gimple_asm_nclobbered (gs); ++i)
-	WALKIT (gimple_asm_clobber_op (gs, i));
-      break;
+      case GIMPLE_EH_FILTER:
+	WALKIT (gimple_eh_filter_types (gs));
+	walk_seq_ops (gimple_eh_filter_failure (gs), func, data, pset);
+	break;
 
-    case GIMPLE_ASSIGN:
-      WALKIT (gimple_assign_operand (gs, 0));
-      WALKIT (gimple_assign_operand (gs, 1));
+      case GIMPLE_PHI:
+	WALKIT (gimple_phi_result (gs));
+	break;
 
-      if (gss_for_assign (GIMPLE_SUBCODE_FLAGS (gs)) == GSS_ASSIGN_BINARY)
-	WALKIT (gimple_assign_operand (gs, 2));
-      break;
+      case GIMPLE_TRY:
+	walk_seq_ops (gimple_try_eval (gs), func, data, pset);
+	walk_seq_ops (gimple_try_cleanup (gs), func, data, pset);
+	break;
 
-    case GIMPLE_BIND:
-      WALKIT (gimple_bind_vars (gs));
-      walk_seq_ops (gimple_bind_body (gs), func, data, pset);
-      break;
+      case GIMPLE_OMP_CRITICAL:
+	walk_seq_ops (gimple_omp_body (gs), func, data, pset);
+	WALKIT (gimple_omp_critical_name (gs));
+	break;
 
-    case GIMPLE_CALL:
-      WALKIT (gimple_call_lhs (gs));
-      WALKIT (gimple_call_fn (gs));
-      WALKIT (gimple_call_chain (gs));
-      for (i = 0; i < gimple_call_nargs (gs); ++i)
-        WALKIT (gimple_call_arg (gs, i));
-      break;
+	/* Just a body.  */
+      case GIMPLE_OMP_CONTINUE:
+      case GIMPLE_OMP_MASTER:
+      case GIMPLE_OMP_ORDERED:
+      case GIMPLE_OMP_SECTION:
+	walk_seq_ops (gimple_omp_body (gs), func, data, pset);
+	break;
 
-    case GIMPLE_CATCH:
-      WALKIT (gimple_catch_types (gs));
-      walk_seq_ops (gimple_catch_handler (gs), func, data, pset);
-      break;
+      case GIMPLE_OMP_FOR:
+	walk_seq_ops (gimple_omp_body (gs), func, data, pset);
+	WALKIT (gimple_omp_for_clauses (gs));
+	WALKIT (gimple_omp_for_index (gs));
+	WALKIT (gimple_omp_for_initial (gs));
+	WALKIT (gimple_omp_for_final (gs));
+	WALKIT (gimple_omp_for_incr (gs));
+	walk_seq_ops (gimple_omp_for_pre_body (gs), func, data, pset);
+	break;
 
-    case GIMPLE_COND:
-      WALKIT (gimple_cond_lhs (gs));
-      WALKIT (gimple_cond_rhs (gs));
-      WALKIT (gimple_cond_true_label (gs));
-      WALKIT (gimple_cond_false_label (gs));
-      break;
+      case GIMPLE_OMP_PARALLEL:
+	walk_seq_ops (gimple_omp_body (gs), func, data, pset);
+	WALKIT (gimple_omp_parallel_clauses (gs));
+	WALKIT (gimple_omp_parallel_child_fn (gs));
+	WALKIT (gimple_omp_parallel_data_arg (gs));
+	break;
 
-    case GIMPLE_EH_FILTER:
-      WALKIT (gimple_eh_filter_types (gs));
-      walk_seq_ops (gimple_eh_filter_failure (gs), func, data, pset);
-      break;
+      case GIMPLE_OMP_SECTIONS:
+	walk_seq_ops (gimple_omp_body (gs), func, data, pset);
+	WALKIT (gimple_omp_sections_clauses (gs));
+	break;
 
-    case GIMPLE_GOTO:
-      WALKIT (gimple_goto_dest (gs));
-      break;
+      case GIMPLE_OMP_SINGLE:
+	walk_seq_ops (gimple_omp_body (gs), func, data, pset);
+	WALKIT (gimple_omp_single_clauses (gs));
+	break;
 
-    case GIMPLE_LABEL:
-      WALKIT (gimple_label_label (gs));
-      break;
+	/* Tuples that do not have trees.  */
+      case GIMPLE_NOP:
+      case GIMPLE_RESX:
+      case GIMPLE_OMP_RETURN:
+	break;
 
-    case GIMPLE_PHI:
-      WALKIT (gimple_phi_result (gs));
-      break;
-
-    case GIMPLE_RETURN:
-      WALKIT (gimple_return_retval (gs));
-      break;
-
-    case GIMPLE_SWITCH:
-      WALKIT (gimple_switch_index (gs));
-      for (i = 0; i < gimple_switch_nlabels (gs); ++i)
-	WALKIT (gimple_switch_label (gs, i));
-      break;
-
-    case GIMPLE_TRY:
-      walk_seq_ops (gimple_try_eval (gs), func, data, pset);
-      walk_seq_ops (gimple_try_cleanup (gs), func, data, pset);
-      break;
-
-    case GIMPLE_OMP_CRITICAL:
-      walk_seq_ops (gimple_omp_body (gs), func, data, pset);
-      WALKIT (gimple_omp_critical_name (gs));
-      break;
-
-      /* Just a body.  */
-    case GIMPLE_OMP_CONTINUE:
-    case GIMPLE_OMP_MASTER:
-    case GIMPLE_OMP_ORDERED:
-    case GIMPLE_OMP_SECTION:
-      walk_seq_ops (gimple_omp_body (gs), func, data, pset);
-      break;
-
-    case GIMPLE_OMP_FOR:
-      walk_seq_ops (gimple_omp_body (gs), func, data, pset);
-      WALKIT (gimple_omp_for_clauses (gs));
-      WALKIT (gimple_omp_for_index (gs));
-      WALKIT (gimple_omp_for_initial (gs));
-      WALKIT (gimple_omp_for_final (gs));
-      WALKIT (gimple_omp_for_incr (gs));
-      walk_seq_ops (gimple_omp_for_pre_body (gs), func, data, pset);
-      break;
-
-    case GIMPLE_OMP_PARALLEL:
-      walk_seq_ops (gimple_omp_body (gs), func, data, pset);
-      WALKIT (gimple_omp_parallel_clauses (gs));
-      WALKIT (gimple_omp_parallel_child_fn (gs));
-      WALKIT (gimple_omp_parallel_data_arg (gs));
-      break;
-
-    case GIMPLE_OMP_SECTIONS:
-      walk_seq_ops (gimple_omp_body (gs), func, data, pset);
-      WALKIT (gimple_omp_sections_clauses (gs));
-      break;
-
-    case GIMPLE_OMP_SINGLE:
-      walk_seq_ops (gimple_omp_body (gs), func, data, pset);
-      WALKIT (gimple_omp_single_clauses (gs));
-      break;
-
-      /* Tuples that do not have trees.  */
-    case GIMPLE_NOP:
-    case GIMPLE_RESX:
-    case GIMPLE_OMP_RETURN:
-      break;
-
-    default:
-      debug_gimple_stmt (gs);
-      gcc_unreachable ();
-      break;
-    }
+      default:
+	debug_gimple_stmt (gs);
+	gcc_unreachable ();
+	break;
+      }
 }
 
 

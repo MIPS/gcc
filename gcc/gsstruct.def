@@ -24,30 +24,19 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* The format of this file is
    DEFGSSTRUCT(GSS_enumeration value, printable name).
    Each enum value should correspond with a single member of the union
-   gimple_statement_d.
-   */
+   gimple_statement_d.  */
 
 DEFGSSTRUCT(GSS_BASE, "base")
 DEFGSSTRUCT(GSS_WITH_OPS, "with_ops")
 DEFGSSTRUCT(GSS_WITH_MEM_OPS, "with_mem_ops")
 DEFGSSTRUCT(GSS_OMP, "omp")
-
 DEFGSSTRUCT(GSS_BIND, "bind")
 DEFGSSTRUCT(GSS_CATCH, "catch")
 DEFGSSTRUCT(GSS_EH_FILTER, "eh_filter")
-DEFGSSTRUCT(GSS_LABEL, "label")
 DEFGSSTRUCT(GSS_PHI, "phi")
 DEFGSSTRUCT(GSS_RESX, "resx")
 DEFGSSTRUCT(GSS_TRY, "try")
-DEFGSSTRUCT(GSS_ASSIGN_BINARY, "assign_binary")
-DEFGSSTRUCT(GSS_ASSIGN_UNARY_REG, "assign_unary_reg")
-DEFGSSTRUCT(GSS_ASSIGN_UNARY_MEM, "assign_unary_mem")
-DEFGSSTRUCT(GSS_COND, "cond")
-DEFGSSTRUCT(GSS_GOTO, "goto")
-DEFGSSTRUCT(GSS_SWITCH, "switch")
 DEFGSSTRUCT(GSS_ASM, "asm")
-DEFGSSTRUCT(GSS_CALL, "call")
-DEFGSSTRUCT(GSS_RETURN, "return")
 DEFGSSTRUCT(GSS_OMP_CRITICAL, "omp_critical")
 DEFGSSTRUCT(GSS_OMP_FOR, "omp_for")
 DEFGSSTRUCT(GSS_OMP_PARALLEL, "omp_parallel")

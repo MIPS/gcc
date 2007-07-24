@@ -1,4 +1,4 @@
-/* This file contains the definitions in the gimple IR tuples used in GCC.
+/* This file contains the definitions of the GIMPLE IR tuples used in GCC.
 
    Copyright (C) 2007 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
@@ -23,29 +23,36 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* The format of this file is
    DEFGSCODE(GIMPLE_symbol, printable name).
 
-   Where symbol is the enumeration name without the ``GIMPLE_''.
-   */
+   Where symbol is the enumeration name without the ``GIMPLE_''.  */
 
 DEFGSCODE(GIMPLE_BASE, "gimple_base")
 DEFGSCODE(GIMPLE_WITH_OPS, "gimple_with_ops")
-DEFGSCODE(GIMPLE_WITH_MEM_OPS, "gimple_with_mem_ops")
-DEFGSCODE(GIMPLE_OMP, "gimple_omp")
 
-DEFGSCODE(GIMPLE_BIND, "gimple_bind")
-DEFGSCODE(GIMPLE_CATCH, "gimple_catch")
-DEFGSCODE(GIMPLE_EH_FILTER, "gimple_eh_filter")
-DEFGSCODE(GIMPLE_LABEL, "gimple_label")
-DEFGSCODE(GIMPLE_PHI, "gimple_phi")
-DEFGSCODE(GIMPLE_RESX, "gimple_resx")
-DEFGSCODE(GIMPLE_TRY, "gimple_try")
+/* Do not rearrange the codes between GIMPLE_ASSIGN and GIMPLE_RETURN.  It's
+   exposed by GIMPLE_RANGE_CHECK calls.  These are all the GIMPLE
+   statements with register operands.  */
 DEFGSCODE(GIMPLE_ASSIGN, "gimple_assign")
 DEFGSCODE(GIMPLE_COND, "gimple_cond")
 DEFGSCODE(GIMPLE_GOTO, "gimple_goto")
+DEFGSCODE(GIMPLE_LABEL, "gimple_label")
 DEFGSCODE(GIMPLE_SWITCH, "gimple_switch")
+
+/* Do not rearrange the codes between GIMPLE_ASM and GIMPLE_RETURN.  It's
+   exposed by GIMPLE_RANGE_CHECK calls.  These are all the GIMPLE
+   statements with memory and register operands.  */
 DEFGSCODE(GIMPLE_ASM, "gimple_asm")
 DEFGSCODE(GIMPLE_CALL, "gimple_call")
-DEFGSCODE(GIMPLE_NOP, "gimple_nop")
 DEFGSCODE(GIMPLE_RETURN, "gimple_return")
+
+DEFGSCODE(GIMPLE_WITH_MEM_OPS, "gimple_with_mem_ops")
+DEFGSCODE(GIMPLE_OMP, "gimple_omp")
+DEFGSCODE(GIMPLE_BIND, "gimple_bind")
+DEFGSCODE(GIMPLE_CATCH, "gimple_catch")
+DEFGSCODE(GIMPLE_EH_FILTER, "gimple_eh_filter")
+DEFGSCODE(GIMPLE_PHI, "gimple_phi")
+DEFGSCODE(GIMPLE_RESX, "gimple_resx")
+DEFGSCODE(GIMPLE_TRY, "gimple_try")
+DEFGSCODE(GIMPLE_NOP, "gimple_nop")
 DEFGSCODE(GIMPLE_OMP_CONTINUE, "gimple_omp_continue")
 DEFGSCODE(GIMPLE_OMP_CRITICAL, "gimple_omp_critical")
 DEFGSCODE(GIMPLE_OMP_FOR, "gimple_omp_for")

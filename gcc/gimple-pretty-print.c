@@ -146,34 +146,23 @@ debug_gimple_seq (gimple_seq seq)
 static void
 dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  enum gimple_statement_structure_enum gss;
-
   dump_generic_node (buffer, gimple_assign_lhs (gs), spc, flags, false);
   pp_space (buffer);
   pp_character (buffer, '=');
   pp_space (buffer);
 
-  gss = gss_for_assign (GIMPLE_SUBCODE_FLAGS (gs));
-  switch (gss)
+  if (gimple_num_ops (gs) == 2)
+    dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
+  else if (gimple_num_ops (gs) == 3)
     {
-      case GSS_ASSIGN_BINARY:
-	dump_generic_node (buffer, gimple_assign_binary_rhs1 (gs), spc,
-			   flags, false);
-	pp_space (buffer);
-	pp_string (buffer, op_symbol_code (GIMPLE_SUBCODE_FLAGS (gs)));
-	pp_space (buffer);
-	dump_generic_node (buffer, gimple_assign_binary_rhs2 (gs), spc,
-			   flags, false);
-	break;
-
-      case GSS_ASSIGN_UNARY_REG:
-      case GSS_ASSIGN_UNARY_MEM:
-	dump_generic_node (buffer, gimple_assign_unary_rhs (gs), spc, flags, false);
-	break;
-
-      default:
-	gcc_unreachable ();
+      dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
+      pp_space (buffer);
+      pp_string (buffer, op_symbol_code (GIMPLE_SUBCODE_FLAGS (gs)));
+      pp_space (buffer);
+      dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
     }
+  else
+    gcc_unreachable ();
 }
 
 
@@ -239,10 +228,10 @@ dump_gimple_switch (pretty_printer *buffer, gimple gs, int spc, int flags)
   pp_string (buffer, "switch (");
   dump_generic_node (buffer, gimple_switch_index (gs), spc, flags, true);
   pp_string (buffer, ") <");
-  for (i = 0; i < gimple_switch_nlabels (gs); i++)
+  for (i = 0; i < gimple_switch_num_labels (gs); i++)
     {
       dump_generic_node (buffer, gimple_switch_label (gs, i), spc, flags, false);
-      if (i < gimple_switch_nlabels (gs) - 1)
+      if (i < gimple_switch_num_labels (gs) - 1)
         pp_string (buffer, ", ");
     }
   pp_string (buffer, ">");
