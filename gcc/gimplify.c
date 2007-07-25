@@ -115,7 +115,7 @@ typedef struct gimple_temp_hash_elt
 
 /* Forward declarations.  */
 static enum gimplify_status gimplify_compound_expr (tree *, gimple_seq, bool);
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_GIMPLE_CHECKING
 static bool cpt_same_type (tree a, tree b);
 #endif
 
@@ -237,7 +237,7 @@ gimple_conditional_context (void)
 static void
 gimple_push_condition (void)
 {
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_GIMPLE_CHECKING
   if (gimplify_ctxp->conditions == 0)
     gcc_assert (gimple_seq_empty_p (&gimplify_ctxp->conditional_cleanups));
 #endif
@@ -3149,7 +3149,7 @@ gimplify_init_constructor (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 	   with no elements indicates zero-initialization of the whole.  */
 	if (VEC_empty (constructor_elt, elts))
 	  break;
-
+ 
 	/* Fetch information about the constructor to direct later processing.
 	   We might want to make static versions of it in various cases, and
 	   can only do so if it known to be a valid constant initializer.  */
@@ -4046,7 +4046,7 @@ gimplify_addr_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 
         if (!useless_type_conversion_p (t_expr, t_op00))
 	  {
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_GIMPLE_CHECKING
 	    tree t_op0 = TREE_TYPE (op0);
 	    gcc_assert (POINTER_TYPE_P (t_expr)
 			&& (cpt_same_type (TREE_TYPE (t_expr), t_op0)
@@ -6360,7 +6360,7 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
       goto out;
     }
 
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_GIMPLE_CHECKING
   if (*expr_p)
     {
       enum tree_code code = TREE_CODE (*expr_p);
@@ -6439,7 +6439,7 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
     }
   else
     {
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_GIMPLE_CHECKING
       if (!(fallback & fb_mayfail))
 	{
 	  fprintf (stderr, "gimplification failed:\n");
@@ -6604,7 +6604,7 @@ gimplify_one_sizepos (tree *expr_p, gimple_seq stmt_p)
     }
 }
 
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_GIMPLE_CHECKING
 /* Compare types A and B for a "close enough" match.  */
 
 static bool
@@ -6746,7 +6746,7 @@ gimplify_body (tree *body_p, gimple_seq seq_p, tree fndecl, bool do_parms)
   pop_gimplify_context (outer_bind);
   gcc_assert (gimplify_ctxp == NULL);
 
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_GIMPLE_CHECKING
   walk_seq_ops (seq_p, check_pointer_types_r, NULL, NULL);
 #endif
 

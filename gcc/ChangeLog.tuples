@@ -1,3 +1,15 @@
+2007-07-24  Chris Matthews  <chrismatthews@google.com>
+	* configure.ac: Added support for ENABLE_GIMPLE_CHECKING and the
+	--enable-checking=gimple flag.
+	* config.in: Same.
+	* configure: Regenerated.
+	* gimplify.c (cpt_same_type): Same.
+	(gimple_push_condition): Same.
+	(gimplify_addr_expr): Same.
+	(gimplify_expr): Same.
+	(gimplify_body): Same.
+	(check_pointer_types_r): Same.
+
 2007-07-24  Diego Novillo  <dnovillo@google.com>
 
 	* gimple.def: Re-organize codes that take tree operands so
@@ -57,6 +69,7 @@
 	(gimple_asm_set_ninputs, gimple_asm_set_noutputs,
 	gimple_asm_set_nclobbered, gimple_asm_set_string): Remove.
 	Update all users.
+
 
 2007-07-24  Aldy Hernandez  <aldyh@redhat.com>
 
