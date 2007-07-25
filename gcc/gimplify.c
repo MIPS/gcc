@@ -921,7 +921,7 @@ unshare_expr (tree expr)
    specification.  */
 
 tree
-gimple_build_eh_filter_tree (tree body, tree allowed, tree failure)
+build_gimple_eh_filter_tree (tree body, tree allowed, tree failure)
 {
   tree t;
 
@@ -1026,11 +1026,11 @@ build_stack_save_restore (gimple *save, gimple *restore)
 {
   tree tmp_var;
 
-  *save = gimple_build_call (implicit_built_in_decls[BUILT_IN_STACK_SAVE], 0);
+  *save = build_gimple_call (implicit_built_in_decls[BUILT_IN_STACK_SAVE], 0);
   tmp_var = create_tmp_var (ptr_type_node, "saved_stack");
   gimple_call_set_lhs (*save, tmp_var);
 
-  *restore = gimple_build_call (implicit_built_in_decls[BUILT_IN_STACK_RESTORE],
+  *restore = build_gimple_call (implicit_built_in_decls[BUILT_IN_STACK_RESTORE],
 			    1, tmp_var);
 }
 
@@ -1075,7 +1075,7 @@ gimplify_bind_expr (tree *expr_p, gimple_seq pre_p)
 	DECL_GIMPLE_REG_P (t) = 1;
     }
 
-  gimple_bind = gimple_build_bind (BIND_EXPR_VARS (bind_expr), NULL);
+  gimple_bind = build_gimple_bind (BIND_EXPR_VARS (bind_expr), NULL);
   gimple_push_bind_expr (gimple_bind);
 
   gimplify_ctxp->save_stack = false;
@@ -1092,7 +1092,7 @@ gimplify_bind_expr (tree *expr_p, gimple_seq pre_p)
 	 format of the emitted code: see mx_register_decls().  */
       build_stack_save_restore (&stack_save, &stack_restore);
 
-      gs = gimple_build_try (gimple_bind_body (gimple_bind), NULL,
+      gs = build_gimple_try (gimple_bind_body (gimple_bind), NULL,
 	  		     GIMPLE_TRY_FINALLY);
       gimple_add (gimple_try_cleanup (gs), stack_restore);
 
@@ -1134,7 +1134,7 @@ gimplify_return_expr (tree stmt, gimple_seq pre_p)
       || ret_expr == error_mark_node)
     {
       gimple_add (pre_p,
-	      gimple_build_return (ret_expr
+	      build_gimple_return (ret_expr
 				   && TREE_CODE (ret_expr) == RESULT_DECL,
 	                           ret_expr));
       return GS_ALL_DONE;
@@ -1198,7 +1198,7 @@ gimplify_return_expr (tree stmt, gimple_seq pre_p)
   else
     ret_expr = build_gimple_modify_stmt (result_decl, result);
 
-  gimple_add (pre_p, gimple_build_return (result == result_decl, ret_expr));
+  gimple_add (pre_p, build_gimple_return (result == result_decl, ret_expr));
 
   return GS_ALL_DONE;
 }
@@ -1296,16 +1296,16 @@ gimplify_loop_expr (tree *expr_p, gimple_seq pre_p)
   tree saved_label = gimplify_ctxp->exit_label;
   tree start_label = create_artificial_label ();
 
-  gimple_add (pre_p, gimple_build_label (start_label));
+  gimple_add (pre_p, build_gimple_label (start_label));
 
   gimplify_ctxp->exit_label = NULL_TREE;
 
   gimplify_and_add (LOOP_EXPR_BODY (*expr_p), pre_p);
 
-  gimple_add (pre_p, gimple_build_goto (start_label));
+  gimple_add (pre_p, build_gimple_goto (start_label));
 
   if (gimplify_ctxp->exit_label)
-    gimple_add (pre_p, gimple_build_label (gimplify_ctxp->exit_label));
+    gimple_add (pre_p, build_gimple_label (gimplify_ctxp->exit_label));
 
   gimplify_ctxp->exit_label = saved_label;
 
@@ -1460,7 +1460,7 @@ gimplify_switch_expr (tree *expr_p, gimple_seq pre_p)
 	{
 	  /* If the switch has no default label, add one, so that we jump
 	     around the switch body.  */
-	  gimple new_default = gimple_build_label (build3 (CASE_LABEL_EXPR,
+	  gimple new_default = build_gimple_label (build3 (CASE_LABEL_EXPR,
 	                                               void_type_node,
 	                                               NULL_TREE,
 	                                               NULL_TREE, 
@@ -1470,7 +1470,7 @@ gimplify_switch_expr (tree *expr_p, gimple_seq pre_p)
 	}
 
       sort_case_labels (labels);
-      gimple_switch = gimple_build_switch_vec (SWITCH_COND (switch_expr), 
+      gimple_switch = build_gimple_switch_vec (SWITCH_COND (switch_expr), 
                                                default_case, labels);
       gimple_add (pre_p, gimple_switch);
       gimple_seq_append (pre_p, switch_body_seq);
@@ -1494,7 +1494,7 @@ gimplify_case_label_expr (tree *expr_p, gimple_seq pre_p)
     if (ctxp->case_labels)
       break;
 
-  gimple gimple_label = gimple_build_label (*expr_p);
+  gimple gimple_label = build_gimple_label (*expr_p);
   VEC_safe_push (tree, heap, ctxp->case_labels,
                  gimple_label_label (gimple_label));
   gimple_add (pre_p, gimple_label);
@@ -2258,7 +2258,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq pre_p, bool want_value)
 
   /* Now add the GIMPLE call to PRE_P.  If WANT_VALUE is set, we need
      to create the appropriate temporary for the call's LHS.  */
-  call = gimple_build_call_vec (fndecl ? fndecl : CALL_EXPR_FN (*expr_p), args);
+  call = build_gimple_call_vec (fndecl ? fndecl : CALL_EXPR_FN (*expr_p), args);
   gimple_add (pre_p, call);
   if (want_value)
     {
@@ -2696,24 +2696,24 @@ gimplify_cond_expr (tree *expr_p, gimple_seq pre_p, fallback_t fallback)
     {
       arm1 = TREE_OPERAND (TREE_OPERAND (expr, 0), 0);
       arm2 = TREE_OPERAND (TREE_OPERAND (expr, 0), 1);
-      gimple_cond = gimple_build_cond (pred, arm1, arm2, label_false,
+      gimple_cond = build_gimple_cond (pred, arm1, arm2, label_false,
                                        label_true);
     }
   else
     {
       /* Use canonical comparison with false.  */
-      gimple_cond = gimple_build_cond (pred, arm1, arm2, label_true,
+      gimple_cond = build_gimple_cond (pred, arm1, arm2, label_true,
                                        label_false);
     }
 
   gimple_add (pre_p, gimple_cond);
-  gimple_add (pre_p, gimple_build_label (label_true));
+  gimple_add (pre_p, build_gimple_label (label_true));
   have_then_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 1), pre_p);
   label_cont = create_artificial_label ();
-  gimple_add (pre_p, gimple_build_goto (label_cont));
-  gimple_add (pre_p, gimple_build_label (label_false));
+  gimple_add (pre_p, build_gimple_goto (label_cont));
+  gimple_add (pre_p, build_gimple_label (label_false));
   have_else_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 2), pre_p);
-  gimple_add (pre_p, gimple_build_label (label_cont));
+  gimple_add (pre_p, build_gimple_label (label_cont));
 
   gimple_pop_condition (pre_p);
 
@@ -2754,7 +2754,7 @@ gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value,
   to_ptr = build_fold_addr_expr (to);
   t = implicit_built_in_decls[BUILT_IN_MEMCPY];
 
-  gs = gimple_build_call (t, 3, to_ptr, from_ptr, size);
+  gs = build_gimple_call (t, 3, to_ptr, from_ptr, size);
 
   if (want_value)
     {
@@ -2788,7 +2788,7 @@ gimplify_modify_expr_to_memset (tree *expr_p, tree size, bool want_value,
   to_ptr = build_fold_addr_expr (to);
   t = implicit_built_in_decls[BUILT_IN_MEMSET];
 
-  gs = gimple_build_call (t, 3, to_ptr, integer_zero_node, size);
+  gs = build_gimple_call (t, 3, to_ptr, integer_zero_node, size);
 
   if (want_value)
     {
@@ -2964,10 +2964,10 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
   /* Create and initialize the index variable.  */
   var_type = TREE_TYPE (upper);
   var = create_tmp_var (var_type, NULL);
-  gimple_add (pre_p, gimple_build_assign (var, lower));
+  gimple_add (pre_p, build_gimple_assign (var, lower));
 
   /* Add the loop entry label.  */
-  gimple_add (pre_p, gimple_build_label (loop_entry_label));
+  gimple_add (pre_p, build_gimple_label (loop_entry_label));
 
   /* Build the reference.  */
   cref = build4 (ARRAY_REF, array_elt_type, unshare_expr (object),
@@ -2982,23 +2982,23 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
     gimplify_init_ctor_eval (cref, CONSTRUCTOR_ELTS (value),
 			     pre_p, cleared);
   else
-    gimple_add (pre_p, gimple_build_assign (cref, value));
+    gimple_add (pre_p, build_gimple_assign (cref, value));
 
   /* We exit the loop when the index var is equal to the upper bound.  */
   gimple_add (pre_p,
-	  gimple_build_cond (GIMPLE_COND_EQ, var, upper, loop_exit_label,
+	  build_gimple_cond (GIMPLE_COND_EQ, var, upper, loop_exit_label,
 	                     NULL_TREE));
 
   /* Otherwise, increment the index var...  */
   tmp = build2 (PLUS_EXPR, var_type, var,
 		fold_convert (var_type, integer_one_node));
-  gimple_add (pre_p, gimple_build_assign (var, tmp));
+  gimple_add (pre_p, build_gimple_assign (var, tmp));
 
   /* ...and jump back to the loop entry.  */
-  gimple_add (pre_p, gimple_build_goto (loop_entry_label));
+  gimple_add (pre_p, build_gimple_goto (loop_entry_label));
 
   /* Add the loop exit label.  */
-  gimple_add (pre_p, gimple_build_label (loop_exit_label));
+  gimple_add (pre_p, build_gimple_label (loop_exit_label));
 }
 
 /* Return true if FDECL is accessing a field that is zero sized.  */
@@ -3099,7 +3099,7 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 	gimplify_init_ctor_eval (cref, CONSTRUCTOR_ELTS (value),
 				 pre_p, cleared);
       else
-	gimple_add (pre_p, gimple_build_assign (cref, value));
+	gimple_add (pre_p, build_gimple_assign (cref, value));
     }
 }
 
@@ -3728,7 +3728,7 @@ gimplify_modify_expr_complex_part (tree *expr_p, gimple_seq pre_p,
   if (want_value)
     *expr_p = rhs;
 
-  gimple_add (pre_p, gimple_build_assign (lhs, new_rhs));
+  gimple_add (pre_p, build_gimple_assign (lhs, new_rhs));
   return GS_ALL_DONE;
 }
 
@@ -3845,7 +3845,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
       SET_DECL_DEBUG_EXPR (*from_p, *to_p);
     }
 
-  gimple_add (pre_p, gimple_build_assign (*to_p, *from_p));
+  gimple_add (pre_p, build_gimple_assign (*to_p, *from_p));
 
   if (want_value)
     {
@@ -4415,8 +4415,8 @@ gimple_push_cleanup (tree var, tree cleanup, bool eh_only, gimple_seq pre_p)
 #if 0 /* FIXME tuples */
 /* FIXME tuples */
       tree flag = create_tmp_var (boolean_type_node, "cleanup");
-      gimple ffalse = gimple_build_assign (flag, boolean_false_node);
-      gimple ftrue = gimple_build_assign (flag, boolean_true_node);
+      gimple ffalse = build_gimple_assign (flag, boolean_false_node);
+      gimple ftrue = build_gimple_assign (flag, boolean_true_node);
       cleanup = build3 (COND_EXPR, void_type_node, flag, cleanup, NULL);
       wce = build1 (WITH_CLEANUP_EXPR, void_type_node, cleanup);
       gimple_add (&gimplify_ctxp->conditional_cleanups, ffalse);
@@ -5954,14 +5954,14 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 	  if (TREE_CODE (GOTO_DESTINATION (*expr_p)) != LABEL_DECL)
 	    ret = gimplify_expr (&GOTO_DESTINATION (*expr_p), pre_p,
 				 NULL, is_gimple_val, fb_rvalue);
-	  gimple_add (pre_p, gimple_build_goto (GOTO_DESTINATION (*expr_p)));
+	  gimple_add (pre_p, build_gimple_goto (GOTO_DESTINATION (*expr_p)));
 	  break;
 
 	case LABEL_EXPR:
 	  ret = GS_ALL_DONE;
 	  gcc_assert (decl_function_context (LABEL_EXPR_LABEL (*expr_p))
 		      == current_function_decl);
-	  gimple_add (pre_p, gimple_build_label (LABEL_EXPR_LABEL (*expr_p)));
+	  gimple_add (pre_p, build_gimple_label (LABEL_EXPR_LABEL (*expr_p)));
 	  break;
 
 	case CASE_LABEL_EXPR:
@@ -6041,7 +6041,7 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 	case TRY_CATCH_EXPR:
 	  {
 	    gimple try
-	      = gimple_build_try (NULL, NULL,
+	      = build_gimple_try (NULL, NULL,
 				  TREE_CODE (*expr_p) == TRY_FINALLY_EXPR ?
 				  GIMPLE_TRY_FINALLY : GIMPLE_TRY_CATCH);
 
@@ -6722,14 +6722,14 @@ gimplify_body (tree *body_p, gimple_seq seq_p, tree fndecl, bool do_parms)
   outer_bind = gimple_seq_first (seq_p);
   if (!outer_bind)
     {
-      outer_bind = gimple_build_nop ();
+      outer_bind = build_gimple_nop ();
       gimple_add (seq_p, outer_bind);
     }
 
   /* If there isn't an outer GIMPLE_BIND, add one.  */
   if (GIMPLE_CODE (outer_bind) != GIMPLE_BIND)
     {
-      outer_bind = gimple_build_bind (NULL_TREE, seq_p);
+      outer_bind = build_gimple_bind (NULL_TREE, seq_p);
       gimple_add (seq_p, outer_bind);
     }
 
@@ -6803,13 +6803,13 @@ gimplify_function_tree (tree fndecl)
       tree x;
       gimple tf, bind;
 
-      tf = gimple_build_try (seq, NULL, GIMPLE_TRY_FINALLY);
+      tf = build_gimple_try (seq, NULL, GIMPLE_TRY_FINALLY);
       x = implicit_built_in_decls[BUILT_IN_PROFILE_FUNC_EXIT];
-      gimple_add (gimple_try_cleanup (tf), gimple_build_call (x, 0));
+      gimple_add (gimple_try_cleanup (tf), build_gimple_call (x, 0));
 
-      bind = gimple_build_bind (NULL, NULL);
+      bind = build_gimple_bind (NULL, NULL);
       x = implicit_built_in_decls[BUILT_IN_PROFILE_FUNC_ENTER];
-      gimple_add (gimple_bind_body (bind), gimple_build_call (x, 0));
+      gimple_add (gimple_bind_body (bind), build_gimple_call (x, 0));
       gimple_add (gimple_bind_body (bind), tf);
 
       gimple_seq_init (seq);

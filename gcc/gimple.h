@@ -313,36 +313,36 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
 
 
 /* In gimple.c.  */
-extern gimple gimple_build_return (bool, tree);
-extern gimple gimple_build_assign (tree, tree);
-extern gimple gimple_build_call_vec (tree, VEC(tree, gc) *);
-extern gimple gimple_build_call (tree, size_t, ...);
-extern gimple gimple_build_cond (enum gimple_cond, tree, tree, tree, tree);
+extern gimple build_gimple_return (bool, tree);
+extern gimple build_gimple_assign (tree, tree);
+extern gimple build_gimple_call_vec (tree, VEC(tree, gc) *);
+extern gimple build_gimple_call (tree, size_t, ...);
+extern gimple build_gimple_cond (enum gimple_cond, tree, tree, tree, tree);
 extern void gimple_cond_invert (gimple);
-extern gimple gimple_build_label (tree label);
-extern gimple gimple_build_goto (tree dest);
-extern gimple gimple_build_nop (void);
-extern gimple gimple_build_bind (tree, gimple_seq);
-extern gimple gimple_build_asm (const char *, unsigned, unsigned, unsigned,
+extern gimple build_gimple_label (tree label);
+extern gimple build_gimple_goto (tree dest);
+extern gimple build_gimple_nop (void);
+extern gimple build_gimple_bind (tree, gimple_seq);
+extern gimple build_gimple_asm (const char *, unsigned, unsigned, unsigned,
                                 ...);
-extern gimple gimple_build_catch (tree, gimple_seq);
-extern gimple gimple_build_eh_filter (tree, gimple_seq);
-extern gimple gimple_build_try (gimple_seq, gimple_seq, unsigned int);
-extern gimple gimple_build_phi (unsigned, unsigned, tree, ...);
-extern gimple gimple_build_resx (int);
-extern gimple gimple_build_switch (unsigned int, tree, tree, ...);
-extern gimple gimple_build_switch_vec (tree, tree, VEC(tree,heap) *);
-extern gimple gimple_omp_build_parallel (gimple_seq, tree, tree, tree);
-extern gimple gimple_omp_build_for (gimple_seq, tree, tree, tree, tree, tree,
+extern gimple build_gimple_catch (tree, gimple_seq);
+extern gimple build_gimple_eh_filter (tree, gimple_seq);
+extern gimple build_gimple_try (gimple_seq, gimple_seq, unsigned int);
+extern gimple build_gimple_phi (unsigned, unsigned, tree, ...);
+extern gimple build_gimple_resx (int);
+extern gimple build_gimple_switch (unsigned int, tree, tree, ...);
+extern gimple build_gimple_switch_vec (tree, tree, VEC(tree,heap) *);
+extern gimple build_gimple_omp_parallel (gimple_seq, tree, tree, tree);
+extern gimple build_gimple_omp_for (gimple_seq, tree, tree, tree, tree, tree,
                                     gimple_seq, enum gimple_cond);
-extern gimple gimple_omp_build_critical (gimple_seq, tree);
-extern gimple gimple_omp_build_section (gimple_seq);
-extern gimple gimple_omp_build_continue (gimple_seq);
-extern gimple gimple_omp_build_master (gimple_seq);
-extern gimple gimple_omp_build_return (bool);
-extern gimple gimple_omp_build_ordered (gimple_seq);
-extern gimple gimple_omp_build_sections (gimple_seq, tree);
-extern gimple gimple_omp_build_single (gimple_seq, tree);
+extern gimple build_gimple_omp_critical (gimple_seq, tree);
+extern gimple build_gimple_omp_section (gimple_seq);
+extern gimple build_gimple_omp_continue (gimple_seq);
+extern gimple build_gimple_omp_master (gimple_seq);
+extern gimple build_gimple_omp_return (bool);
+extern gimple build_gimple_omp_ordered (gimple_seq);
+extern gimple build_gimple_omp_sections (gimple_seq, tree);
+extern gimple build_gimple_omp_single (gimple_seq, tree);
 extern enum gimple_statement_structure_enum gimple_statement_structure (gimple);
 extern void gimple_add (gimple_seq, gimple);
 extern enum gimple_statement_structure_enum gss_for_assign (enum tree_code);

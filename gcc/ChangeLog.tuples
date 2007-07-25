@@ -1,4 +1,37 @@
+2007-07-25  Diego Novillo  <dnovillo@google.com>
+
+	* tree-gimple.h (build_gimple_eh_filter_tree): Rename from
+	gimple_build_eh_filter_tree.
+	* gimple.h (build_gimple_return): Rename from gimple_build_return.
+	(build_gimple_assign): Rename from gimple_build_assign.
+	(build_gimple_call_vec): Rename from gimple_build_call_vec.
+	(build_gimple_call): Rename from gimple_build_call.
+	(build_gimple_label): Rename from gimple_build_label.
+	(build_gimple_goto): Rename from gimple_build_goto.
+	(build_gimple_nop): Rename from gimple_build_nop.
+	(build_gimple_bind): Rename from gimple_build_bind.
+	(build_gimple_asm): Rename from gimple_build_asm.
+	(build_gimple_catch): Rename from gimple_build_catch.
+	(build_gimple_eh_filter): Rename from gimple_build_eh_filter.
+	(build_gimple_try): Rename from gimple_build_try.
+	(build_gimple_phi): Rename from gimple_build_phi.
+	(build_gimple_resx): Rename from gimple_build_resx.
+	(build_gimple_switch): Rename from gimple_build_switch.
+	(build_gimple_switch_vec): Rename from gimple_build_switch_vec.
+	(build_gimple_omp_parallel): Rename from gimple_build_omp_parallel.
+	(build_gimple_omp_for): Rename from gimple_build_omp_for.
+	(build_gimple_omp_critical): Rename from gimple_build_omp_critical.
+	(build_gimple_omp_section): Rename from gimple_build_omp_section.
+	(build_gimple_omp_continue): Rename from gimple_build_omp_continue.
+	(build_gimple_omp_master): Rename from gimple_build_omp_master.
+	(build_gimple_omp_return): Rename from gimple_build_omp_return.
+	(build_gimple_omp_ordered): Rename from gimple_build_omp_ordered.
+	(build_gimple_omp_sections): Rename from gimple_build_omp_sections.
+	(build_gimple_omp_single): Rename from gimple_build_omp_single.
+	Update all users.
+
 2007-07-24  Chris Matthews  <chrismatthews@google.com>
+
 	* configure.ac: Added support for ENABLE_GIMPLE_CHECKING and the
 	--enable-checking=gimple flag.
 	* config.in: Same.

@@ -89,7 +89,7 @@ gss_for_code (enum gimple_code code)
    for the new tuple.  NUM_OPS is the number of operands to allocate.  */ 
 
 static gimple
-gimple_build_with_ops (enum gimple_code code, unsigned subcode, size_t num_ops)
+build_gimple_with_ops (enum gimple_code code, unsigned subcode, size_t num_ops)
 {
   gimple s;
   enum gimple_statement_structure_enum gss = gss_for_code (code);
@@ -116,21 +116,21 @@ gimple_build_with_ops (enum gimple_code code, unsigned subcode, size_t num_ops)
    RETVAL is the return value.  */
 
 gimple
-gimple_build_return (bool result_decl_p, tree retval)
+build_gimple_return (bool result_decl_p, tree retval)
 {
-  gimple s = gimple_build_with_ops (GIMPLE_RETURN, (int) result_decl_p, 1);
+  gimple s = build_gimple_with_ops (GIMPLE_RETURN, (int) result_decl_p, 1);
   gimple_return_set_retval (s, retval);
   return s;
 }
 
-/* Helper for gimple_build_call and gimple_build_call_vec.  Build the basic
+/* Helper for build_gimple_call and build_gimple_call_vec.  Build the basic
    components of a GIMPLE_CALL statement to function FN with NARGS
    arguments.  */
 
 static inline gimple
-gimple_build_call_1 (tree fn, size_t nargs)
+build_gimple_call_1 (tree fn, size_t nargs)
 {
-  gimple s = gimple_build_with_ops (GIMPLE_CALL, 0, nargs + 3);
+  gimple s = build_gimple_with_ops (GIMPLE_CALL, 0, nargs + 3);
   s->with_ops.op[1] = fn;
   return s;
 }
@@ -140,11 +140,11 @@ gimple_build_call_1 (tree fn, size_t nargs)
    specified in vector ARGS.  */
 
 gimple
-gimple_build_call_vec (tree fn, VEC(tree, gc) *args)
+build_gimple_call_vec (tree fn, VEC(tree, gc) *args)
 {
   size_t i;
   size_t nargs = VEC_length (tree, args);
-  gimple call = gimple_build_call_1 (fn, nargs);
+  gimple call = build_gimple_call_1 (fn, nargs);
 
   for (i = 0; i < nargs; i++)
     gimple_call_set_arg (call, i, VEC_index (tree, args, i));
@@ -157,13 +157,13 @@ gimple_build_call_vec (tree fn, VEC(tree, gc) *args)
    arguments.  The ... are the arguments.  */
 
 gimple
-gimple_build_call (tree fn, size_t nargs, ...)
+build_gimple_call (tree fn, size_t nargs, ...)
 {
   va_list ap;
   gimple call;
   size_t i;
 
-  call = gimple_build_call_1 (fn, nargs);
+  call = build_gimple_call_1 (fn, nargs);
 
   va_start (ap, nargs);
   for (i = 0; i < nargs; i++)
@@ -190,7 +190,7 @@ get_num_ops_for (enum tree_code code)
    RHS of the assignment which can be unary or binary.  */
 
 gimple
-gimple_build_assign (tree lhs, tree rhs)
+build_gimple_assign (tree lhs, tree rhs)
 {
   gimple p;
   size_t num_ops;
@@ -204,7 +204,7 @@ gimple_build_assign (tree lhs, tree rhs)
      code).  */
   num_ops = get_num_ops_for (subcode) + 1;
   
-  p = gimple_build_with_ops (GIMPLE_ASSIGN, subcode, num_ops);
+  p = build_gimple_with_ops (GIMPLE_ASSIGN, subcode, num_ops);
   gimple_assign_set_lhs (p, lhs);
 
   if (class == tcc_binary || class == tcc_comparison)
@@ -232,10 +232,10 @@ gimple_build_assign (tree lhs, tree rhs)
    F_LABEL is teh label to jump to otherwise.  */
 
 gimple
-gimple_build_cond (enum gimple_cond pred, tree lhs, tree rhs,
+build_gimple_cond (enum gimple_cond pred, tree lhs, tree rhs,
 		   tree t_label, tree f_label)
 {
-  gimple p = gimple_build_with_ops (GIMPLE_COND, pred, 4);
+  gimple p = build_gimple_with_ops (GIMPLE_COND, pred, 4);
   gimple_cond_set_lhs (p, lhs);
   gimple_cond_set_rhs (p, rhs);
   gimple_cond_set_true_label (p, t_label);
@@ -258,9 +258,9 @@ gimple_cond_invert (gimple g)
 /* Construct a GIMPLE_LABEL statement for LABEL.  */
 
 gimple
-gimple_build_label (tree label)
+build_gimple_label (tree label)
 {
-  gimple p = gimple_build_with_ops (GIMPLE_LABEL, 0, 1);
+  gimple p = build_gimple_with_ops (GIMPLE_LABEL, 0, 1);
   gimple_label_set_label (p, label);
   return p;
 }
@@ -268,9 +268,9 @@ gimple_build_label (tree label)
 /* Construct a GIMPLE_GOTO statement to DEST.  */
 
 gimple
-gimple_build_goto (tree dest)
+build_gimple_goto (tree dest)
 {
-  gimple p = gimple_build_with_ops (GIMPLE_GOTO, 0, 1);
+  gimple p = build_gimple_with_ops (GIMPLE_GOTO, 0, 1);
   gimple_goto_set_dest (p, dest);
   return p;
 }
@@ -278,7 +278,7 @@ gimple_build_goto (tree dest)
 /* Construct a GIMPLE_NOP statement.  */
 
 gimple 
-gimple_build_nop (void)
+build_gimple_nop (void)
 {
   gimple p = ggc_alloc_cleared (sizeof (struct gimple_statement_base));
   GIMPLE_CODE (p) = GIMPLE_NOP;
@@ -290,7 +290,7 @@ gimple_build_nop (void)
    VARS are the variables in BODY.  */
 
 gimple
-gimple_build_bind (tree vars, gimple_seq body)
+build_gimple_bind (tree vars, gimple_seq body)
 {
   gimple p = ggc_alloc_cleared (sizeof (struct gimple_statement_bind));
   GIMPLE_CODE (p) = GIMPLE_BIND;
@@ -309,7 +309,7 @@ gimple_build_bind (tree vars, gimple_seq body)
    ... are trees for each input, output and clobbered register.  */
 
 gimple
-gimple_build_asm (const char *string, unsigned ninputs, unsigned noutputs, 
+build_gimple_asm (const char *string, unsigned ninputs, unsigned noutputs, 
               unsigned nclobbers, ...)
 {
   gimple p;
@@ -346,7 +346,7 @@ gimple_build_asm (const char *string, unsigned ninputs, unsigned noutputs,
   HANDLER is the exception handler.  */
 
 gimple
-gimple_build_catch (tree types, gimple_seq handler)
+build_gimple_catch (tree types, gimple_seq handler)
 {
   gimple p;
 
@@ -365,7 +365,7 @@ gimple_build_catch (tree types, gimple_seq handler)
    FAILURE is the filter's failure action.  */
 
 gimple
-gimple_build_eh_filter (tree types, gimple_seq failure)
+build_gimple_eh_filter (tree types, gimple_seq failure)
 {
   gimple p;
 
@@ -386,7 +386,7 @@ gimple_build_eh_filter (tree types, gimple_seq failure)
    whether this is a try/catch or a try/finally respectively.  */
 
 gimple
-gimple_build_try (gimple_seq eval, gimple_seq cleanup,
+build_gimple_try (gimple_seq eval, gimple_seq cleanup,
     		  unsigned int catch_finally)
 {
   gimple p;
@@ -413,7 +413,7 @@ gimple_build_try (gimple_seq eval, gimple_seq cleanup,
    ... phi_arg_d* for the incomming edges to this node.  */
 
 gimple
-gimple_build_phi (unsigned capacity, unsigned nargs, tree result, ...)
+build_gimple_phi (unsigned capacity, unsigned nargs, tree result, ...)
 {
   gimple p;
   unsigned int i;
@@ -443,7 +443,7 @@ gimple_build_phi (unsigned capacity, unsigned nargs, tree result, ...)
    leave.  */
 
 gimple
-gimple_build_resx (int region)
+build_gimple_resx (int region)
 {
   gimple p;
 
@@ -460,10 +460,10 @@ gimple_build_resx (int region)
    DEFAULT_LABEL is the default label for the switch statement.  */
 
 static inline gimple 
-gimple_build_switch_1 (unsigned int nlabels, tree index, tree default_label)
+build_gimple_switch_1 (unsigned int nlabels, tree index, tree default_label)
 {
   /* nlabels + 1 default label + 1 index.  */
-  gimple p = gimple_build_with_ops (GIMPLE_SWITCH, 0, nlabels + 1 + 1);
+  gimple p = build_gimple_with_ops (GIMPLE_SWITCH, 0, nlabels + 1 + 1);
   gimple_switch_set_index (p, index);
   gimple_switch_set_default_label (p, default_label);
   return p;
@@ -477,13 +477,13 @@ gimple_build_switch_1 (unsigned int nlabels, tree index, tree default_label)
    ... are the labels excluding the default.  */
 
 gimple 
-gimple_build_switch (unsigned int nlabels, tree index, tree default_label, ...)
+build_gimple_switch (unsigned int nlabels, tree index, tree default_label, ...)
 {
   va_list al;
   unsigned int i;
   gimple p;
   
-  p = gimple_build_switch_1 (nlabels, index, default_label);
+  p = build_gimple_switch_1 (nlabels, index, default_label);
 
   /* Store the rest of the labels.  */
   va_start (al, default_label);
@@ -502,11 +502,11 @@ gimple_build_switch (unsigned int nlabels, tree index, tree default_label, ...)
    ARGS is a vector of labels excluding the default.  */
 
 gimple
-gimple_build_switch_vec (tree index, tree default_label, VEC(tree, heap) *args)
+build_gimple_switch_vec (tree index, tree default_label, VEC(tree, heap) *args)
 {
   size_t i;
   size_t nlabels = VEC_length (tree, args);
-  gimple p = gimple_build_switch_1 (nlabels, index, default_label);
+  gimple p = build_gimple_switch_1 (nlabels, index, default_label);
 
   /*  Put labels in labels[1 - (nlabels + 1)].
      Default label is in labels[0].  */
@@ -523,7 +523,7 @@ gimple_build_switch_vec (tree index, tree default_label, VEC(tree, heap) *args)
    NAME is optional identifier for this critical block.  */
 
 gimple 
-gimple_omp_build_critical (gimple_seq body, tree name)
+build_gimple_omp_critical (gimple_seq body, tree name)
 {
   gimple p;
 
@@ -549,7 +549,7 @@ gimple_omp_build_critical (gimple_seq body, tree name)
    INCR is the increment expression.  */
 
 gimple
-gimple_omp_build_for (gimple_seq body, tree clauses, tree index, 
+build_gimple_omp_for (gimple_seq body, tree clauses, tree index, 
                   tree initial, tree final, tree incr, 
                   gimple_seq pre_body, enum gimple_cond omp_for_cond)
 {
@@ -579,7 +579,7 @@ gimple_omp_build_for (gimple_seq body, tree clauses, tree index,
    DATA_ARG are the shared data argument(s).  */
 
 gimple 
-gimple_omp_build_parallel (gimple_seq body, tree clauses, tree child_fn, 
+build_gimple_omp_parallel (gimple_seq body, tree clauses, tree child_fn, 
                        tree data_arg)
 {
   gimple p;
@@ -600,7 +600,7 @@ gimple_omp_build_parallel (gimple_seq body, tree clauses, tree child_fn,
    BODY is the sequence of statements in the section.  */
 
 gimple
-gimple_omp_build_section (gimple_seq body)
+build_gimple_omp_section (gimple_seq body)
 {
   gimple p;
 
@@ -616,7 +616,7 @@ gimple_omp_build_section (gimple_seq body)
    BODY is the sequence of statements to be executed by just the master.  */
 
 gimple 
-gimple_omp_build_master (gimple_seq body)
+build_gimple_omp_master (gimple_seq body)
 {
   gimple p;
 
@@ -631,7 +631,7 @@ gimple_omp_build_master (gimple_seq body)
    FIXME tuples: BODY.  */
 
 gimple 
-gimple_omp_build_continue (gimple_seq body)
+build_gimple_omp_continue (gimple_seq body)
 {
   gimple p;
 
@@ -649,7 +649,7 @@ gimple_omp_build_continue (gimple_seq body)
    sequence.  */
 
 gimple 
-gimple_omp_build_ordered (gimple_seq body)
+build_gimple_omp_ordered (gimple_seq body)
 {
   gimple p;
 
@@ -665,7 +665,7 @@ gimple_omp_build_ordered (gimple_seq body)
    WAIT_P is true if this is a non-waiting return.  */
 
 gimple 
-gimple_omp_build_return (bool wait_p)
+build_gimple_omp_return (bool wait_p)
 {
   gimple p;
 
@@ -684,7 +684,7 @@ gimple_omp_build_return (bool wait_p)
    firstprivate, lastprivate, reduction, and nowait.  */
 
 gimple 
-gimple_omp_build_sections (gimple_seq body, tree clauses)
+build_gimple_omp_sections (gimple_seq body, tree clauses)
 {
   gimple p;
 
@@ -704,7 +704,7 @@ gimple_omp_build_sections (gimple_seq body, tree clauses)
    copyprivate, nowait.  */
 
 gimple 
-gimple_omp_build_single (gimple_seq body, tree clauses)
+build_gimple_omp_single (gimple_seq body, tree clauses)
 {
   gimple p;
 
