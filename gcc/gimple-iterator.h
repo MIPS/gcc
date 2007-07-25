@@ -76,7 +76,7 @@ gsi_one_before_end_p (gimple_stmt_iterator i)
 static inline void
 gsi_next (gimple_stmt_iterator *i)
 {
-  i->stmt = GIMPLE_NEXT (i->stmt);
+  i->stmt = gimple_next (i->stmt);
 }
 
 /* Return the previous gimple statement in I.  */
@@ -84,7 +84,7 @@ gsi_next (gimple_stmt_iterator *i)
 static inline void
 gsi_prev (gimple_stmt_iterator *i)
 {
-  i->stmt = GIMPLE_PREV (i->stmt);
+  i->stmt = gimple_prev (i->stmt);
 }
 
 /* Return the current stmt.  */

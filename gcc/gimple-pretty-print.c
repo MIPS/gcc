@@ -49,7 +49,7 @@ static void
 do_niy (pretty_printer *buffer, gimple gs)
 {
   pp_printf (buffer, "<<< Unknown GIMPLE statement: %s >>>\n",
-	     gimple_code_name[(int) GIMPLE_CODE (gs)]);
+	     gimple_code_name[(int) gimple_code (gs)]);
 }
 
 
@@ -157,7 +157,7 @@ dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
     {
       dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
       pp_space (buffer);
-      pp_string (buffer, op_symbol_code (GIMPLE_SUBCODE_FLAGS (gs)));
+      pp_string (buffer, op_symbol_code (gimple_flags (gs)));
       pp_space (buffer);
       dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
     }
@@ -264,7 +264,7 @@ dump_gimple_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
   pp_string (buffer, "if (");
   dump_generic_node (buffer, gimple_cond_lhs (gs), spc, flags, false);
   pp_space (buffer);
-  pp_string (buffer, op_gimple_cond (GIMPLE_SUBCODE_FLAGS (gs)));
+  pp_string (buffer, op_gimple_cond (gimple_flags (gs)));
   pp_space (buffer);
   dump_generic_node (buffer, gimple_cond_rhs (gs), spc, flags, false);
   pp_character (buffer, ')');
@@ -350,7 +350,7 @@ dump_gimple_try (pretty_printer *buffer, gimple gs, int spc, int flags)
   newline_and_indent (buffer, spc + 2);
   dump_gimple_seq (buffer, gimple_try_eval (gs), spc + 2, flags);
   newline_and_indent (buffer, spc);
-  if (GIMPLE_SUBCODE_FLAGS (gs) == GIMPLE_TRY_CATCH)
+  if (gimple_flags (gs) == GIMPLE_TRY_CATCH)
     pp_string (buffer, "} catch {");
   else
     pp_string (buffer, "} finally {");
@@ -371,7 +371,7 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
   if (!gs)
     return;
 
-  switch (GIMPLE_CODE (gs))
+  switch (gimple_code (gs))
     {
     case GIMPLE_ASSIGN:
       dump_gimple_assign (buffer, gs, spc, flags);

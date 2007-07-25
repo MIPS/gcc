@@ -36,15 +36,6 @@ enum gimple_code {
     LAST_AND_UNUSED_GIMPLE_CODE
 };
 
-#define GIMPLE_CODE(G) ((G)->base.code)
-#define GIMPLE_SUBCODE_FLAGS(G) ((G)->base.subcode_flags)
-#define GIMPLE_NEXT(G) ((G)->base.next)
-#define GIMPLE_PREV(G) ((G)->base.prev)
-#define GIMPLE_BLOCK(G)	((G)->base.block)
-#define GIMPLE_LOCUS(G) ((G)->base.locus)
-#define GIMPLE_LOCUS_EMPTY_P(G)	(GIMPLE_LOCUS ((G)).file == NULL \
-				 && GIMPLE_LOCUS ((G)).line == 0)
-
 /* A sequence of gimple statements.  */
 struct gimple_sequence
 {
@@ -103,7 +94,7 @@ gimple_seq_empty_p (gimple_seq s)
 struct gimple_statement_base GTY(())
 {
   ENUM_BITFIELD(gimple_code) code : 16;
-  unsigned int subcode_flags : 16;
+  unsigned int flags : 16;
   gimple next;
   gimple prev;
   struct basic_block_def *bb;
@@ -312,6 +303,88 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
 };
 
 
+/* Common accessors for all GIMPLE statements.  */
+
+static inline enum gimple_code
+gimple_code (gimple g)
+{
+  return g->base.code;
+}
+
+static inline unsigned
+gimple_flags (gimple g)
+{
+  return g->base.flags;
+}
+
+static inline void
+set_gimple_flags (gimple g, unsigned int flags)
+{
+  g->base.flags = flags;
+}
+
+static inline void
+add_gimple_flag (gimple g, unsigned int flag)
+{
+  g->base.flags |= flag;
+}
+
+static inline gimple
+gimple_next (gimple g)
+{
+  return g->base.next;
+}
+
+static inline gimple
+gimple_prev (gimple g)
+{
+  return g->base.prev;
+}
+
+static inline struct basic_block_def *
+gimple_bb (gimple g)
+{
+  return g->base.bb;
+}
+
+static inline void
+set_gimple_bb (gimple g, struct basic_block_def * bb)
+{
+  g->base.bb = bb;
+}
+
+static inline tree
+gimple_block (gimple g)
+{
+  return g->base.block;
+}
+
+static inline void
+set_gimple_block (gimple g, tree block)
+{
+  g->base.block = block;
+}
+
+static inline location_t
+gimple_locus (gimple g)
+{
+  return g->base.locus;
+}
+
+static inline void
+set_gimple_locus (gimple g, location_t locus)
+{
+  g->base.locus = locus;
+}
+
+static inline bool
+gimple_locus_empty_p (gimple g)
+{
+  return gimple_locus (g).file == NULL && gimple_locus (g).line == 0;
+}
+
+
+
 /* In gimple.c.  */
 extern gimple build_gimple_return (bool, tree);
 extern gimple build_gimple_assign (tree, tree);
@@ -358,7 +431,7 @@ extern const char *const gimple_code_name[];
 
 
 /* Error out if a gimple tuple is addressed incorrectly.  */
-#if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
+#if defined ENABLE_GIMPLE_CHECKING && (GCC_VERSION >= 2007)
 extern void gimple_check_failed (const gimple, const char *, int,          \
                                  const char *, unsigned int, unsigned int) \
                                  ATTRIBUTE_NORETURN;                       \
@@ -368,25 +441,25 @@ extern void gimple_range_check_failed (const gimple, const char *, int,    \
 
 #define GIMPLE_CHECK(GS, CODE) __extension__				\
   ({  const gimple __gs = (GS);						\
-      if (GIMPLE_CODE (__gs) != (CODE))					\
+      if (gimple_code (__gs) != (CODE))					\
         gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
 	  		 (CODE), 0);					\
       __gs; })
 
 #define GIMPLE_CHECK2(GS, CODE1, CODE2) __extension__			\
   ({  const gimple __gs = (GS);						\
-      if (GIMPLE_CODE (__gs) != (CODE1)					\
-	  || GIMPLE_SUBCODE_FLAGS (__gs) != (CODE2))			\
+      if (gimple_code (__gs) != (CODE1)					\
+	  || gimple_flags (__gs) != (CODE2))				\
         gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
 	  		 (CODE1), (CODE2));				\
       __gs; })
 #define GIMPLE_RANGE_CHECK(GS, CODE1, CODE2) __extension__		\
   ({ const gimple __gs = (GS);						\
-     if (GIMPLE_CODE (__gs) < (CODE1) || GIMPLE_CODE (__gs) > (CODE2))	\
+     if (gimple_code (__gs) < (CODE1) || gimple_code (__gs) > (CODE2))	\
        gimple_range_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
 		        (CODE1), (CODE2));				\
      __gs; })
-#else  /* not ENABLE_TREE_CHECKING, or not gcc */
+#else  /* not ENABLE_GIMPLE_CHECKING, or not gcc */
 #define GIMPLE_CHECK(GS, CODE)			(GS)
 #define GIMPLE_CHECK2(GS, C1, C2)		(GS)
 #define GIMPLE_RANGE_CHECK(GS, CODE1, CODE2)	(GS)
@@ -1187,14 +1260,14 @@ static inline void
 gimple_assign_omp_for_cond (gimple gs, enum gimple_cond cond)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  GIMPLE_SUBCODE_FLAGS (gs) =  cond;
+  set_gimple_flags (gs, cond);
 }
 
 static inline enum gimple_cond
 gimple_omp_for_cond (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  return (enum gimple_cond) GIMPLE_SUBCODE_FLAGS (gs);
+  return (enum gimple_cond) gimple_flags (gs);
 }
 
 /* GIMPLE_RETURN accessors.  */
@@ -1222,12 +1295,6 @@ gimple_seq_append (gimple_seq dst, gimple_seq src)
 {
   if (!gimple_seq_empty_p (src))
     gimple_add (dst, gimple_seq_first (src));
-}
-
-static inline void
-gimple_add_subcode_flag (gimple g, unsigned int flag)
-{
-  GIMPLE_SUBCODE_FLAGS (g) |= flag;
 }
 
 #include "gimple-iterator.h"

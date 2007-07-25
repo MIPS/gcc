@@ -6445,7 +6445,7 @@ c_warn_unused_result (gimple_seq seq)
     {
       gimple g = gsi_stmt (i);
 
-      switch (GIMPLE_CODE (g))
+      switch (gimple_code (g))
 	{
 	case GIMPLE_BIND:
 	  c_warn_unused_result (gimple_bind_body (g));
@@ -6481,14 +6481,16 @@ c_warn_unused_result (gimple_seq seq)
 
 	  if (lookup_attribute ("warn_unused_result", TYPE_ATTRIBUTES (ftype)))
 	    {
+	      location_t loc = gimple_locus (g);
+
 	      if (fdecl)
 		warning (0, "%Hignoring return value of %qD, "
 			 "declared with attribute warn_unused_result",
-			 &GIMPLE_LOCUS (g), fdecl);
+			 &loc, fdecl);
 	      else
 		warning (0, "%Hignoring return value of function "
 			 "declared with attribute warn_unused_result",
-			 &GIMPLE_LOCUS (g));
+			 &loc);
 	    }
 	  break;
 

@@ -634,7 +634,7 @@ static tree
 get_tmp_var_for (gimple stmt)
 {
   tree lhs;
-  enum gimple_code code = GIMPLE_CODE (stmt);
+  enum gimple_code code = gimple_code (stmt);
 
   /* FIXME tuples, add support for formal temporaries (worth it?)  */
   if (code == GIMPLE_ASSIGN)
@@ -659,11 +659,11 @@ declare_vars (tree vars, gimple scope, bool debug_info)
     {
       tree temps, block;
 
-      gcc_assert (GIMPLE_CODE (scope) == GIMPLE_BIND);
+      gcc_assert (gimple_code (scope) == GIMPLE_BIND);
 
       temps = nreverse (last);
 
-      block = GIMPLE_BLOCK (scope);
+      block = gimple_block (scope);
       gcc_assert (!block || TREE_CODE (block) == BLOCK);
       if (!block || !debug_info)
 	{
@@ -762,7 +762,7 @@ should_carry_locus_p (gimple gs)
   /* Don't emit a line note for a label.  We particularly don't want to
      emit one for the break label, since it doesn't actually correspond
      to the beginning of the loop/switch.  */
-  if (GIMPLE_CODE (gs) == GIMPLE_LABEL)
+  if (gimple_code (gs) == GIMPLE_LABEL)
     return false;
 
   return true;
@@ -772,9 +772,8 @@ static void
 annotate_one_with_locus (gimple gs, location_t locus)
 {
   /* All gimple statements have location.  */
-
-  if (GIMPLE_LOCUS_EMPTY_P (gs) && should_carry_locus_p (gs))
-    GIMPLE_LOCUS (gs) = locus;
+  if (gimple_locus_empty_p (gs) && should_carry_locus_p (gs))
+    set_gimple_locus (gs, locus);
 }
 
 void
@@ -1395,7 +1394,6 @@ sort_case_labels (VEC(tree,heap)* label_vec)
 static enum gimplify_status
 gimplify_switch_expr (tree *expr_p, gimple_seq pre_p)
 {
-  enum gimplify_status ret;
   gimple_seq switch_body_seq;
   tree switch_expr;
   switch_expr = *expr_p;
@@ -1478,7 +1476,8 @@ gimplify_switch_expr (tree *expr_p, gimple_seq pre_p)
     }
   else
     gcc_assert (SWITCH_LABELS (switch_expr));
-  return ret;
+
+  return GS_ALL_DONE;
 }
 
 
@@ -6727,7 +6726,7 @@ gimplify_body (tree *body_p, gimple_seq seq_p, tree fndecl, bool do_parms)
     }
 
   /* If there isn't an outer GIMPLE_BIND, add one.  */
-  if (GIMPLE_CODE (outer_bind) != GIMPLE_BIND)
+  if (gimple_code (outer_bind) != GIMPLE_BIND)
     {
       outer_bind = build_gimple_bind (NULL_TREE, seq_p);
       gimple_add (seq_p, outer_bind);
@@ -6873,8 +6872,8 @@ force_gimple_operand (tree expr, gimple_seq stmts, bool simple, tree var)
 
 tree
 force_gimple_operand_bsi (block_stmt_iterator *bsi ATTRIBUTE_UNUSED, tree expr,
-			  bool simple_p, tree var, bool before,
-			  enum bsi_iterator_update m)
+			  bool simple_p, tree var, bool before ATTRIBUTE_UNUSED,
+			  enum bsi_iterator_update m ATTRIBUTE_UNUSED)
 {
   struct gimple_sequence stmts;
 

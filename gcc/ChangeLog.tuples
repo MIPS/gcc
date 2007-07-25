@@ -1,5 +1,30 @@
 2007-07-25  Diego Novillo  <dnovillo@google.com>
 
+	* gimple.c: Use ENABLE_GIMPLE_CHECKING instead of
+	ENABLE_TREE_CHECKING.
+	(set_gimple_code): New.
+	(set_gimple_prev): New.
+	(set_gimple_next): New.
+	* gimple.h: Use ENABLE_GIMPLE_CHECKING instead of
+	ENABLE_TREE_CHECKING.
+	(gimple_code): Inline function replacement for GIMPLE_CODE.
+	(gimple_flags): Inline function replacement for GIMPLE_SUBCODE_FLAGS.
+	(gimple_next): Inline function replacement for GIMPLE_NEXT.
+	(gimple_prev): Inline function replacement for GIMPLE_PREV.
+	(gimple_locus): Inline function replacement for GIMPLE_LOCUS.
+	(gimple_locus_empty_p): Inline function replacement for
+	GIMPLE_LOCUS_EMPTY_P.
+	(struct gimple_statement_base): Rename field 'subcode_flags'
+	to 'flags'.
+	(set_gimple_flags): New.
+	(gimple_bb): New.
+	(set_gimple_bb): New.
+	(set_gimple_block): New.
+	(set_gimple_locus): New.
+	(add_gimple_flag): Rename from gimple_add_subcode_flag.
+
+2007-07-25  Diego Novillo  <dnovillo@google.com>
+
 	* tree-gimple.h (build_gimple_eh_filter_tree): Rename from
 	gimple_build_eh_filter_tree.
 	* gimple.h (build_gimple_return): Rename from gimple_build_return.
