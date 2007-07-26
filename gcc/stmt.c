@@ -43,6 +43,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "recog.h"
 #include "machmode.h"
 #include "toplev.h"
+#include "obstack.h"
 #include "output.h"
 #include "ggc.h"
 #include "langhooks.h"
@@ -80,7 +81,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    For very small, suitable switch statements, we can generate a series
    of simple bit test and branches instead.  */
 
-struct case_node GTY(())
+struct case_node
 {
   struct case_node	*left;	/* Left son in binary tree */
   struct case_node	*right;	/* Right son in binary tree; also node chain */
@@ -122,7 +123,7 @@ static int node_has_high_bound (case_node_ptr, tree);
 static int node_is_bounded (case_node_ptr, tree);
 static void emit_case_nodes (rtx, case_node_ptr, rtx, tree);
 static struct case_node *add_case_node (struct case_node *, tree,
-					tree, tree, tree);
+                                        tree, tree, tree, struct obstack *);
 
 
 /* Return the rtx-label that corresponds to a LABEL_DECL,
@@ -2072,7 +2073,7 @@ expand_anon_union_decl (tree decl, tree cleanup ATTRIBUTE_UNUSED,
 
 static struct case_node *
 add_case_node (struct case_node *head, tree type, tree low, tree high,
-	       tree label)
+               tree label, struct obstack * case_obstack)
 {
   tree min_value, max_value;
   struct case_node *r;
@@ -2124,7 +2125,8 @@ add_case_node (struct case_node *head, tree type, tree low, tree high,
 
 
   /* Add this label to the chain.  Make sure to drop overflow flags.  */
-  r = ggc_alloc (sizeof (struct case_node));
+  r = (struct case_node *)
+      obstack_alloc (case_obstack, sizeof (struct case_node));
   r->low = build_int_cst_wide (TREE_TYPE (low), TREE_INT_CST_LOW (low),
 			       TREE_INT_CST_HIGH (low));
   r->high = build_int_cst_wide (TREE_TYPE (high), TREE_INT_CST_LOW (high),
@@ -2327,6 +2329,9 @@ expand_case (tree exp)
   /* Label to jump to if no case matches.  */
   tree default_label_decl;
 
+  struct obstack case_obstack;
+  gcc_obstack_init (&case_obstack);
+
   /* The switch body is lowered in gimplify.c, we should never have
      switches with a non-NULL SWITCH_BODY here.  */
   gcc_assert (!SWITCH_BODY (exp));
@@ -2364,7 +2369,7 @@ expand_case (tree exp)
 	    continue;
 
 	  case_list = add_case_node (case_list, index_type, low, high,
-				     CASE_LABEL (elt));
+                                     CASE_LABEL (elt), &case_obstack);
 	}
 
 
@@ -2557,6 +2562,7 @@ expand_case (tree exp)
 		labelvec[i]
 		  = gen_rtx_LABEL_REF (Pmode, label_rtx (n->code_label));
 	    }
+          obstack_free (&case_obstack, NULL);
 
 	  /* Fill in the gaps with the default.  */
 	  for (i = 0; i < ncases; i++)
