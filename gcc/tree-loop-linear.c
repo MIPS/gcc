@@ -245,7 +245,9 @@ linear_transform_loops (struct loops *loops)
   unsigned int i;
   VEC(tree,heap) *oldivs = NULL;
   VEC(tree,heap) *invariants = NULL;
-  
+  struct obstack lambda_obstack;
+  gcc_obstack_init (&lambda_obstack);
+
   for (i = 1; i < loops->num; i++)
     {
       unsigned int depth = 0;
@@ -320,7 +322,7 @@ linear_transform_loops (struct loops *loops)
 	}
 
       before = gcc_loopnest_to_lambda_loopnest (loops, loop_nest, &oldivs,
-						&invariants);
+                                                &invariants, &lambda_obstack);
 
       if (!before)
 	continue;
@@ -331,7 +333,7 @@ linear_transform_loops (struct loops *loops)
 	  print_lambda_loopnest (dump_file, before, 'i');
 	}
   
-      after = lambda_loopnest_transform (before, trans);
+      after = lambda_loopnest_transform (before, trans, &lambda_obstack);
 
       if (dump_file)
 	{
@@ -340,7 +342,8 @@ linear_transform_loops (struct loops *loops)
 	}
 
       lambda_loopnest_to_gcc_loopnest (loop_nest, oldivs, invariants,
-				       after, trans);
+                                       after, trans, &lambda_obstack);
+      obstack_free (&lambda_obstack, NULL);
       modified = true;
 
       if (dump_file)
