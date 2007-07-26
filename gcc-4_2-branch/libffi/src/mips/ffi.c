@@ -27,6 +27,7 @@
 #include <ffi_common.h>
 
 #include <stdlib.h>
+#include <sys/cachectl.h>
 
 #if _MIPS_SIM == _ABIN32
 #define FIX_ARGP \
@@ -505,7 +506,6 @@ ffi_prep_closure_loc (ffi_closure *closure,
   unsigned int *tramp = (unsigned int *) &closure->tramp[0];
   unsigned int fn;
   unsigned int ctx = (unsigned int) codeloc;
-  char *clear_location = (char *) codeloc;
 
 #if defined(FFI_MIPS_O32)
   FFI_ASSERT(cif->abi == FFI_O32 || cif->abi == FFI_O32_SOFT_FLOAT);
@@ -525,7 +525,8 @@ ffi_prep_closure_loc (ffi_closure *closure,
   closure->fun = fun;
   closure->user_data = user_data;
 
-  __builtin___clear_cache(clear_location, clear_location + FFI_TRAMPOLINE_SIZE);
+  /* XXX this is available on Linux, but anything else? */
+  cacheflush (codeloc, FFI_TRAMPOLINE_SIZE, ICACHE);
 
   return FFI_OK;
 }
