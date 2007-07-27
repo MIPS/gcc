@@ -1,3 +1,7 @@
+2007-07-27  Andrew Haley  <aph@redhat.com>
+
+	* src/arm/sysv.S (ffi_closure_SYSV): Add soft-float.
+
 2007-07-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* configure.ac (i?86-*-solaris2.1[0-9]): Set TARGET to X86_64.

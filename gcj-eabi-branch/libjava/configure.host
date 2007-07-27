@@ -86,6 +86,7 @@ case "${host}" in
   arm*-linux*)
 	libgcj_interpreter=yes
 	sysdeps_dir=arm
+	fallback_backtrace_h=sysdep/arm/backtrace.h
 	;;
   mips-tx39-*|mipstx39-unknown-*)
 	libgcj_flags="${libgcj_flags} -G 0"

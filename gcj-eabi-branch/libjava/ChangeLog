@@ -1,3 +1,16 @@
+2007-07-27  Andrew Haley  <aph@redhat.com>
+
+	* gnu/classpath/natVMStackWalker.cc (GET_CALLING_CLASS): Stub for
+	ARM EABI.
+	* exception.cc (get_exception_header_from_ue): New.
+	(get_ttype_entry): ARM EABI version.
+	(PERSONALITY_FUNCTION): Add ARM EABI code.
+	* sysdep/arm/backtrace.h: New file.
+	* stacktrace.cc (_URC_NORMAL_STOP): New.
+	* configure.ac (extra_ldflags_libjava): Add libsupc++.la for ARM
+	EABI.
+	* configure.host (BACKTRACESPEC): Add arm/backtrace.h.
+
 2007-07-16  Rask Ingemann Lambertsen  <rask@sygehus.dk>
 
 	PR target/32340

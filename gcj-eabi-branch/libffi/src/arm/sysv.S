@@ -225,12 +225,28 @@ ARM_FUNC_START ffi_closure_SYSV
 	bl	ffi_closure_SYSV_inner
 	cmp	r0, #FFI_TYPE_INT
 	beq	.Lretint
+
 	cmp	r0, #FFI_TYPE_FLOAT
+#ifdef __SOFTFP__
+	beq	.Lretint
+#else
 	beq	.Lretfloat
+#endif
+
 	cmp	r0, #FFI_TYPE_DOUBLE
+#ifdef __SOFTFP__
+	beq	.Lretlonglong
+#else
 	beq	.Lretdouble
+#endif
+
 	cmp	r0, #FFI_TYPE_LONGDOUBLE
+#ifdef __SOFTFP__
+	beq	.Lretlonglong
+#else
 	beq	.Lretlongdouble
+#endif
+
 	cmp	r0, #FFI_TYPE_SINT64
 	beq	.Lretlonglong
 .Lclosure_epilogue:
@@ -243,6 +259,8 @@ ARM_FUNC_START ffi_closure_SYSV
 	ldr	r0, [sp]
 	ldr	r1, [sp, #4]
 	b	.Lclosure_epilogue
+
+#ifndef __SOFTFP__
 .Lretfloat:
 	ldfs	f0, [sp]
 	b	.Lclosure_epilogue
@@ -252,6 +270,8 @@ ARM_FUNC_START ffi_closure_SYSV
 .Lretlongdouble:
 	ldfd	f0, [sp]
 	b	.Lclosure_epilogue
+#endif
+
 .ffi_closure_SYSV_end:
         .size    CNAME(ffi_closure_SYSV),.ffi_closure_SYSV_end-CNAME(ffi_closure_SYSV)
 

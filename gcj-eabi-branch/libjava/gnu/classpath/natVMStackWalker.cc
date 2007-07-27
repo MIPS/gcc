@@ -19,6 +19,7 @@ details.  */
 #include <java/lang/ClassLoader.h>
 #include <java/lang/Class.h>
 
+#ifndef __ARM_EABI_UNWINDER__
 // Return the class of the method that contains PC.
 // This is a macro not a function, since defining it as one would
 // introduce an extra frame on the stack.  */
@@ -44,6 +45,9 @@ details.  */
 									\
   klass;								\
  })
+#else
+#define GET_CALLING_CLASS(PC) NULL
+#endif
 
 JArray<jclass> *
 gnu::classpath::VMStackWalker::getClassContext(void)

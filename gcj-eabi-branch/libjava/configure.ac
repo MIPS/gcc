@@ -787,6 +787,9 @@ case "${host}" in
     # on Darwin -single_module speeds up loading of the dynamic libraries.
     extra_ldflags_libjava=-Wl,-single_module
     ;;
+arm*linux*eabi)
+    extra_ldflags_libjava=../libstdc++-v3/libsupc++/libsupc++.la
+    ;;
 esac
 AC_SUBST(extra_ldflags_libjava)
 
