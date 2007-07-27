@@ -38,19 +38,26 @@ Boston, MA 02110-1301, USA.  */
 
 /* Validation of GIMPLE expressions.  */
 
-/* Return true if T is a GIMPLE RHS for an assignment to a temporary.  */
+/* Determine if expression T is one of the valid expressions that can
+   be used on the RHS of GIMPLE assignments.  */
 
-bool
-is_gimple_formal_tmp_rhs (tree t)
+enum gimple_rhs_class
+get_gimple_rhs_class (tree t)
 {
   enum tree_code code = TREE_CODE (t);
-
-  switch (TREE_CODE_CLASS (code))
+  enum tree_code_class class = TREE_CODE_CLASS (code);
+  
+  switch (class)
     {
     case tcc_unary:
+      return GIMPLE_UNARY_RHS;
+
     case tcc_binary:
     case tcc_comparison:
-      return true;
+      return GIMPLE_BINARY_RHS;
+
+    case tcc_constant:
+      return GIMPLE_SINGLE_RHS;
 
     default:
       break;
@@ -58,28 +65,39 @@ is_gimple_formal_tmp_rhs (tree t)
 
   switch (code)
     {
-    case TRUTH_NOT_EXPR:
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
+      return GIMPLE_BINARY_RHS;
+
+    case TRUTH_NOT_EXPR:
     case ADDR_EXPR:
-    case CALL_EXPR:
+      return GIMPLE_UNARY_RHS;
+
+    /* FIXME tuples.  We are not allowing CALL_EXPR on the RHS
+       anymore.  Watch out for random failures.  */
     case CONSTRUCTOR:
-    case COMPLEX_EXPR:
-    case INTEGER_CST:
-    case REAL_CST:
-    case STRING_CST:
-    case COMPLEX_CST:
-    case VECTOR_CST:
     case OBJ_TYPE_REF:
     case ASSERT_EXPR:
-      return true;
+      return GIMPLE_SINGLE_RHS;
 
     default:
       break;
     }
 
-  return is_gimple_lvalue (t) || is_gimple_val (t);
+  if (is_gimple_lvalue (t) || is_gimple_val (t))
+    return GIMPLE_SINGLE_RHS;
+
+  return GIMPLE_INVALID_RHS;
+}
+
+
+/* Return true if T is a GIMPLE RHS for an assignment to a temporary.  */
+
+bool
+is_gimple_formal_tmp_rhs (tree t)
+{
+  return get_gimple_rhs_class (t) != GIMPLE_INVALID_RHS;
 }
 
 /* Returns true iff T is a valid RHS for an assignment to a renamed

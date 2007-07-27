@@ -200,16 +200,6 @@ build_gimple_call (tree fn, size_t nargs, ...)
 }
 
 
-/* Given a CODE for the RHS of a GIMPLE_ASSIGN, return the number of operands
-   it needs.  */
-
-static inline size_t
-get_num_ops_for (enum tree_code code)
-{
-  enum tree_code_class class = TREE_CODE_CLASS (code);
-  return (class == tcc_binary || class == tcc_comparison) ? 2 : 1;
-}
-
 /* Construct a GIMPLE_ASSIGN statement.
 
    LHS of the assignment.
@@ -221,28 +211,31 @@ build_gimple_assign (tree lhs, tree rhs)
   gimple p;
   size_t num_ops;
   enum tree_code subcode = TREE_CODE (rhs);
-  enum tree_code_class class = TREE_CODE_CLASS (subcode);
+  enum gimple_rhs_class class = get_gimple_rhs_class (rhs);
 
   /* Make sure the RHS is a valid GIMPLE RHS.  */
   gcc_assert (is_gimple_formal_tmp_rhs (rhs));
 
   /* Need 1 operand for LHS and 1 or 2 for the RHS (depending on the
      code).  */
-  num_ops = get_num_ops_for (subcode) + 1;
+  if (class == GIMPLE_UNARY_RHS || class == GIMPLE_SINGLE_RHS)
+    num_ops = 2;
+  else if (class == GIMPLE_BINARY_RHS)
+    num_ops = 3;
+  else
+    gcc_unreachable ();
   
   p = build_gimple_with_ops (GIMPLE_ASSIGN, subcode, num_ops);
   gimple_assign_set_lhs (p, lhs);
 
-  if (class == tcc_binary || class == tcc_comparison)
+  if (class == GIMPLE_BINARY_RHS)
     {
       gimple_assign_set_rhs1 (p, TREE_OPERAND (rhs, 0));
       gimple_assign_set_rhs2 (p, TREE_OPERAND (rhs, 1));
     }
-  else if (class == tcc_unary)
+  else if (class == GIMPLE_UNARY_RHS)
     gimple_assign_set_rhs1 (p, TREE_OPERAND (rhs, 0));
-  else if (class == tcc_constant
-           || class == tcc_declaration
-	   || subcode == SSA_NAME)
+  else if (class == GIMPLE_SINGLE_RHS)
     gimple_assign_set_rhs1 (p, rhs);
   else
     gcc_unreachable ();
@@ -809,24 +802,44 @@ gimple_range_check_failed (const gimple gs, const char *file, int line,
 void
 gimple_add (gimple_seq seq, gimple gs)
 {
-  gimple last;
-
   /* Make sure this stmt is not part of another chain.  */
-  gcc_assert (gimple_prev (gs) == NULL);
-
-  for (last = gs; gimple_next (last) != NULL; last = gimple_next (last))
-    ;
+  gcc_assert (gimple_prev (gs) == NULL && gimple_next (gs) == NULL);
 
   if (gimple_seq_first (seq) == NULL)
     {
+      /* Sequence SEQ is empty.  Make GS its only member.  */
       gimple_seq_set_first (seq, gs);
-      gimple_seq_set_last (seq, last);
+      gimple_seq_set_last (seq, gs);
     }
   else
     {
+      /* Otherwise, link GS to the end of SEQ.  */
       set_gimple_prev (gs, gimple_seq_last (seq));
       set_gimple_next (gimple_seq_last (seq), gs);
-      gimple_seq_set_last (seq, last);
+      gimple_seq_set_last (seq, gs);
+    }
+}
+
+
+/* Append sequence SRC to the end of sequence DST.  */
+
+void
+gimple_seq_append (gimple_seq dst, gimple_seq src)
+{
+  if (gimple_seq_empty_p (src))
+    return;
+
+  /* Make sure SRC is not linked somewhere else.  */
+  gcc_assert (gimple_prev (src->first) == NULL
+              && gimple_next (src->last) == NULL);
+
+  if (gimple_seq_empty_p (dst))
+    gimple_seq_copy (dst, src);
+  else
+    {
+      set_gimple_next (gimple_seq_last (dst), gimple_seq_first (src));
+      set_gimple_prev (gimple_seq_first (src), gimple_seq_last (dst));
+      gimple_seq_set_last (dst, gimple_seq_last (src));
     }
 }
 

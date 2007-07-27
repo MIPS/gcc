@@ -1,3 +1,21 @@
+2007-07-27  Diego Novillo  <dnovillo@google.com>
+
+	* tree-gimple.c (get_gimple_rhs_class): New.
+	(is_gimple_formal_tmp_rhs): Call it.
+	* tree-gimple.h (enum gimple_rhs_class): New.
+	* gimple-iterator.h (gsi_next): Assert that there is nothing
+	beyond the end of the sequence.
+	(gsi_prev): Assert that there is nothing before the start of
+	the sequence.
+	* gimplify.c (gimplify_switch_expr): Tidy creation of default label.
+	(gimplify_expr): Fix concatenation of internal sequences to PRE_P.
+	* gimple.c (get_num_ops_for): Remove.  Update users.
+	(build_gimple_assign): Call get_gimple_rhs_class to determine
+	how many operands to allocate.
+	(gimple_add): Assert that GS does not have previous or next
+	statements.
+	(gimple_seq_append): Move from gimple.h.
+
 2007-07-27  Aldy Hernandez  <aldy@quesejoda.com>
 
 	* cgraph.c: Fix line wrap.

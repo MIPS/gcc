@@ -383,8 +383,6 @@ gimple_locus_empty_p (gimple g)
   return gimple_locus (g).file == NULL && gimple_locus (g).line == 0;
 }
 
-
-
 /* In gimple.c.  */
 extern gimple build_gimple_return (bool, tree);
 extern gimple build_gimple_assign (tree, tree);
@@ -426,6 +424,7 @@ extern void walk_seq_ops (gimple_seq, walk_tree_fn, void *,
                           struct pointer_set_t *);
 extern void set_gimple_body (tree, gimple_seq);
 extern gimple_seq gimple_body (tree);
+extern void gimple_seq_append (gimple_seq, gimple_seq);
 
 extern const char *const gimple_code_name[];
 
@@ -1286,15 +1285,6 @@ gimple_return_set_retval (gimple gs, tree retval)
   GIMPLE_CHECK (gs, GIMPLE_RETURN);
   gcc_assert (gs->with_ops.num_ops == 1);
   gs->with_ops.op[0] = retval;
-}
-
-/* Append sequence SRC to the end of sequence DST.  */
-
-static inline void
-gimple_seq_append (gimple_seq dst, gimple_seq src)
-{
-  if (!gimple_seq_empty_p (src))
-    gimple_add (dst, gimple_seq_first (src));
 }
 
 #include "gimple-iterator.h"

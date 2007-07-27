@@ -36,7 +36,7 @@ gsi_start (gimple_seq seq)
 {
   gimple_stmt_iterator i;
 
-  i.stmt = gimple_seq_first(seq);
+  i.stmt = gimple_seq_first (seq);
   i.seq = seq;
 
   return i;
@@ -49,7 +49,7 @@ gsi_last (gimple_seq seq)
 {
   gimple_stmt_iterator i;
 
-  i.stmt = gimple_seq_last(seq);
+  i.stmt = gimple_seq_last (seq);
   i.seq = seq;
 
   return i;
@@ -68,7 +68,7 @@ gsi_end_p (gimple_stmt_iterator i)
 static inline bool
 gsi_one_before_end_p (gimple_stmt_iterator i)
 {
-  return i.stmt == gimple_seq_last(i.seq);
+  return i.stmt == gimple_seq_last (i.seq);
 }
 
 /* Return the next gimple statement in I.  */
@@ -76,6 +76,13 @@ gsi_one_before_end_p (gimple_stmt_iterator i)
 static inline void
 gsi_next (gimple_stmt_iterator *i)
 {
+#if defined ENABLE_GIMPLE_CHECKING
+  /* The last statement of the sequence should not have anything
+     chained after it.  */
+  gimple next = gimple_next (i->stmt);
+  if (i->stmt == gimple_seq_last (i->seq))
+    gcc_assert (next == NULL);
+#endif
   i->stmt = gimple_next (i->stmt);
 }
 
@@ -84,6 +91,13 @@ gsi_next (gimple_stmt_iterator *i)
 static inline void
 gsi_prev (gimple_stmt_iterator *i)
 {
+#if defined ENABLE_GIMPLE_CHECKING
+  /* The first statement of the sequence should not have anything
+     chained before it.  */
+  gimple prev = gimple_prev (i->stmt);
+  if (i->stmt == gimple_seq_first (i->seq))
+    gcc_assert (prev == NULL);
+#endif
   i->stmt = gimple_prev (i->stmt);
 }
 

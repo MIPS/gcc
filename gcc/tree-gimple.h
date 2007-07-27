@@ -22,18 +22,28 @@ Boston, MA 02110-1301, USA.  */
 #ifndef _TREE_SIMPLE_H
 #define _TREE_SIMPLE_H 1
 
-
 #include "tree-iterator.h"
 #include "gimple.h"
 
+
+/* Class of GIMPLE expressions suitable for the RHS of assignments.  See
+   get_gimple_rhs_class.  */
+enum gimple_rhs_class
+{
+  GIMPLE_INVALID_RHS,	/* The expression cannot be used on the RHS.  */
+  GIMPLE_BINARY_RHS,	/* The expression is a binary operation.  */
+  GIMPLE_UNARY_RHS,	/* The expression is a unary operation.  */
+  GIMPLE_SINGLE_RHS	/* The expression is a single object (an SSA
+			   name, a _DECL, a _REF, etc.  */
+};
+
+/* In gimplify.c  */
 extern tree create_tmp_var_raw (tree, const char *);
 extern tree create_tmp_var_name (const char *);
 extern tree create_tmp_var (tree, const char *);
 extern tree get_initialized_tmp_var (tree, gimple_seq, gimple_seq);
 extern tree get_formal_tmp_var (tree, gimple_seq);
-
 extern void declare_vars (tree, gimple, bool);
-
 extern void annotate_all_with_locus (gimple_seq, location_t);
 
 /* Validation of GIMPLE expressions.  Note that these predicates only check
@@ -94,6 +104,7 @@ extern bool is_gimple_call_addr (tree);
 extern tree get_call_expr_in (tree t);
 
 extern void recalculate_side_effects (tree);
+extern enum gimple_rhs_class get_gimple_rhs_class (tree);
 
 /* FIXME we should deduce this from the predicate.  */
 typedef enum fallback_t {
