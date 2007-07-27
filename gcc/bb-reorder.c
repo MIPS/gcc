@@ -2087,6 +2087,7 @@ struct tree_opt_pass pass_duplicate_computed_gotos =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -2237,6 +2238,7 @@ struct tree_opt_pass pass_reorder_blocks =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   'B'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 static bool
@@ -2275,6 +2277,7 @@ struct tree_opt_pass pass_partition_blocks =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 

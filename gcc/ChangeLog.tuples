@@ -1,3 +1,42 @@
+2007-07-27  Aldy Hernandez  <aldy@quesejoda.com>
+
+	* cgraph.c: Fix line wrap.
+	* cgraph.h: Same.
+	* tree-pass.h (struct tree_opt_pass): Add works_with_tuples_p
+	field.
+	* cgraphunit.c (cgraph_analyze_functions): Remove check for
+	DECL_SAVED_TREE.
+	(cgraph_expand_function): Comment out TREE_ASM_WRITTEN assertion.
+	* tree-optimize.c (tree_lowering_passes): Comment out call to
+	compact_blocks.
+	* passes.c (execute_one_pass): Return if pass has not been
+	converted to tuples.
+	* tree-vrp.c, regrename.c, fwprop.c, tree-into-ssa.c,
+	tree-complex.c, see.c, cgraphbuild.c, tracer.c, cgraph.c,
+	postreload-gcse.c, postreload.c, tree-ssa-loop-ch.c,
+	tree-tailcall.c, tree-pass.h, ipa-cp.c, final.c, omp-low.c,
+	tree-ssa-dse.c, ipa-reference.c, tree-ssa-uncprop.c,
+	auto-inc-dec.c, reorg.c, tree-ssa-copyrename.c, tree-ssa-ccp.c,
+	df-core.c, mode-switching.c, tree-nomudflap.c, modulo-sched.c,
+	ipa-pure-const.c, cse.c, web.c, tree-stdarg.c,
+	tree-ssa-math-opts.c, tree-ssa-dom.c, tree-nrv.c,
+	tree-ssa-alias.c, loop-init.c, gimple-low.c, tree-ssa-sink.c,
+	ipa-inline.c, global.c, jump.c, ifcvt.c, predict.c,
+	tree-ssa-loop.c, recog.c, dse.c, tree-ssa-ifcombine.c,
+	matrix-reorg.c, c-decl.c, tree-eh.c, regmove.c, local-alloc.c,
+	function.c, tree-vectorizer.c, gcse.c, ipa-type-escape.c,
+	tree-if-conv.c, init-regs.c, ipa.c, tree-ssa-phiopt.c,
+	rtl-factoring.c, lower-subreg.c, bt-load.c, tree-dfa.c except.c,
+	emit-rtl.c, cfgexpand.c, tree-cfgcleanup.c, cfgcleanup.c,
+	tree-ssa-pre.c, tree-sra.c, tree-mudflap.c, tree-ssa-copy.c,
+	cfglayout.c, tree-ssa-forwprop.c, tree-ssa-dce.c, tree-ssa.c,
+	regclass.c, integrate.c, tree-optimize.c, tree-object-size.c,
+	combine.c, tree-outof-ssa.c, bb-reorder.c, stack-ptr-mod.c,
+	var-tracking.c, tree-profile.c, tree-vect-generic.c, reg-stack.c,
+	sched-rgn.c, tree-ssa-structalias.c, tree-cfg.c, passes.c,
+	tree-ssa-reassoc.c, combine-stack-adj.c, cfgrtl.c, dce.c,
+	tree-ssanames.c: Set works_with_tuples_p field to 0.
+
 2007-07-25  Diego Novillo  <dnovillo@google.com>
 
 	* gimple.c: Use ENABLE_GIMPLE_CHECKING instead of

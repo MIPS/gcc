@@ -1018,4 +1018,5 @@ struct tree_opt_pass pass_phiopt =
     | TODO_verify_flow
     | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };

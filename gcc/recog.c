@@ -3336,6 +3336,7 @@ struct tree_opt_pass pass_peephole2 =
   TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   'z'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 static unsigned int
@@ -3360,6 +3361,7 @@ struct tree_opt_pass pass_split_all_insns =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 static unsigned int
@@ -3388,6 +3390,7 @@ struct tree_opt_pass pass_split_after_reload =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 static bool
@@ -3430,6 +3433,7 @@ struct tree_opt_pass pass_split_before_regstack =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 static bool
@@ -3467,6 +3471,7 @@ struct tree_opt_pass pass_split_before_sched2 =
   TODO_verify_flow |
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* The placement of the splitting that we do for shorten_branches
@@ -3496,6 +3501,7 @@ struct tree_opt_pass pass_split_for_shorten_branches =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 

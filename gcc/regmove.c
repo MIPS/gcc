@@ -2126,5 +2126,6 @@ struct tree_opt_pass pass_regmove =
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'N'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 

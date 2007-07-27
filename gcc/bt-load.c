@@ -1522,6 +1522,7 @@ struct tree_opt_pass pass_branch_target_load_optimize1 =
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'd'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 static bool
@@ -1569,5 +1570,6 @@ struct tree_opt_pass pass_branch_target_load_optimize2 =
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'd'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 

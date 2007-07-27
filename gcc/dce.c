@@ -502,6 +502,7 @@ struct tree_opt_pass pass_ud_rtl_dce =
   TODO_df_finish |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* -------------------------------------------------------------------------
@@ -809,5 +810,6 @@ struct tree_opt_pass pass_fast_rtl_dce =
   TODO_df_finish |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 

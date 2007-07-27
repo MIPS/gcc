@@ -6669,9 +6669,6 @@ c_gimple_diagnostics_recursively (tree fndecl)
   /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
   c_warn_unused_result (body);
 
-  if (flag_gimple_only)
-    exit (0);
-
   /* Notice when OpenMP structured block constraints are violated.  */
   if (flag_openmp)
     diagnose_omp_structured_block_errors (fndecl);

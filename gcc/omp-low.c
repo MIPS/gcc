@@ -3534,6 +3534,7 @@ struct tree_opt_pass pass_expand_omp =
   0,					/* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* Routines to lower OpenMP directives into OMP-GIMPLE.  */
@@ -4404,6 +4405,7 @@ struct tree_opt_pass pass_lower_omp =
   0,					/* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* The following is a utility to diagnose OpenMP structured block violations.

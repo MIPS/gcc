@@ -130,6 +130,9 @@ struct tree_opt_pass
 
   /* Letter for RTL dumps.  */
   char letter;
+
+  /* Set if this pass has been converted to work with gimple tuples.  */
+  int works_with_tuples_p : 1;
 };
 
 /* Define a tree dump switch.  */

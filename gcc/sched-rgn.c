@@ -3174,6 +3174,7 @@ struct tree_opt_pass pass_sched =
   TODO_verify_flow |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'S'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 struct tree_opt_pass pass_sched2 =
@@ -3194,5 +3195,6 @@ struct tree_opt_pass pass_sched2 =
   TODO_verify_flow |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'R'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 

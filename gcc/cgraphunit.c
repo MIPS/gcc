@@ -892,23 +892,12 @@ cgraph_analyze_functions (void)
   while (cgraph_nodes_queue)
     {
       struct cgraph_edge *edge;
-      tree decl = cgraph_nodes_queue->decl;
 
       node = cgraph_nodes_queue;
       cgraph_nodes_queue = cgraph_nodes_queue->next_needed;
       node->next_needed = NULL;
 
-      /* ??? It is possible to create extern inline function and later using
-	 weak alias attribute to kill its body. See
-	 gcc.c-torture/compile/20011119-1.c  */
-      if (!DECL_SAVED_TREE (decl))
-	{
-	  cgraph_reset_node (node);
-	  continue;
-	}
-
       gcc_assert (!node->analyzed && node->reachable);
-      gcc_assert (DECL_SAVED_TREE (decl));
 
       cgraph_analyze_function (node);
 
@@ -1072,9 +1061,12 @@ cgraph_expand_function (struct cgraph_node *node)
   /* Generate RTL for the body of DECL.  */
   lang_hooks.callgraph.expand_function (decl);
 
+  /* FIXME tuples */
+#if 0
   /* Make sure that BE didn't give up on compiling.  */
   /* ??? Can happen with nested function of extern inline.  */
   gcc_assert (TREE_ASM_WRITTEN (node->decl));
+#endif
 
   if (DECL_IGNORED_P (decl))
     {

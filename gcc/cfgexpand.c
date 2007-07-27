@@ -2007,4 +2007,5 @@ struct tree_opt_pass pass_expand =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   'r'					/* letter */
+  ,0					/* works_with_tuples_p */
 };

@@ -4006,6 +4006,7 @@ struct tree_opt_pass pass_pre =
   TODO_update_ssa_only_virtuals | TODO_dump_func | TODO_ggc_collect
   | TODO_verify_ssa, /* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -4039,4 +4040,5 @@ struct tree_opt_pass pass_fre =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };

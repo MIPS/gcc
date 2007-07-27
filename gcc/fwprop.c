@@ -1003,6 +1003,7 @@ struct tree_opt_pass pass_rtl_fwprop =
   TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 static unsigned int
@@ -1045,4 +1046,5 @@ struct tree_opt_pass pass_rtl_fwprop_addr =
   TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };

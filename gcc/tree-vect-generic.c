@@ -519,6 +519,7 @@ struct tree_opt_pass pass_lower_vector =
   TODO_dump_func | TODO_ggc_collect
     | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 struct tree_opt_pass pass_lower_vector_ssa = 
@@ -538,6 +539,7 @@ struct tree_opt_pass pass_lower_vector_ssa =
     | TODO_verify_ssa
     | TODO_verify_stmts | TODO_verify_flow,
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 #include "gt-tree-vect-generic.h"

@@ -1734,6 +1734,7 @@ struct tree_opt_pass pass_instantiate_virtual_regs =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -3930,6 +3931,7 @@ struct tree_opt_pass pass_init_function =
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -5487,6 +5489,7 @@ struct tree_opt_pass pass_leaf_regs =
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 static unsigned int
@@ -5520,6 +5523,7 @@ struct tree_opt_pass pass_thread_prologue_and_epilogue =
   TODO_df_finish |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -5657,6 +5661,7 @@ struct tree_opt_pass pass_match_asm_constraints =
   0,					/* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 

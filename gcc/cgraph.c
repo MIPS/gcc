@@ -834,8 +834,8 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
    function's profile to reflect the fact that part of execution is handled
    by node.  */
 struct cgraph_node *
-cgraph_clone_node (struct cgraph_node *n, gcov_type count, int freq, int loop_nest,
-		   bool update_original)
+cgraph_clone_node (struct cgraph_node *n, gcov_type count, int freq,
+		   int loop_nest, bool update_original)
 {
   struct cgraph_node *new = cgraph_create_node ();
   struct cgraph_edge *e;

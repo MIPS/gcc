@@ -2315,6 +2315,7 @@ struct tree_opt_pass pass_build_ssa =
     | TODO_verify_ssa
     | TODO_remove_unused_locals,	/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 

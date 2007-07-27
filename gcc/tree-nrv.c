@@ -237,6 +237,7 @@ struct tree_opt_pass pass_nrv =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_ggc_collect,			/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* Determine (pessimistically) whether DEST is available for NRV
@@ -323,4 +324,5 @@ struct tree_opt_pass pass_return_slot =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };

@@ -1147,6 +1147,7 @@ struct tree_opt_pass pass_copy_prop =
     | TODO_verify_ssa
     | TODO_update_ssa,			/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 static bool
@@ -1186,4 +1187,5 @@ struct tree_opt_pass pass_store_copy_prop =
     | TODO_verify_ssa
     | TODO_update_ssa,			/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };

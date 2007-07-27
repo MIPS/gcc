@@ -77,6 +77,7 @@ struct tree_opt_pass pass_all_optimizations =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* Gate: execute, or not, all of the non-trivial optimizations.  */
@@ -103,6 +104,7 @@ struct tree_opt_pass pass_early_local_passes =
   0,					/* todo_flags_start */
   TODO_remove_functions,		/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 static unsigned int
@@ -138,6 +140,7 @@ struct tree_opt_pass pass_all_early_optimizations =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* Pass: cleanup the CFG just before expanding trees to RTL.
@@ -167,6 +170,7 @@ struct tree_opt_pass pass_cleanup_cfg =
   0,					/* todo_flags_start */
   TODO_dump_func,					/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -200,6 +204,7 @@ struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
   0,					/* todo_flags_start */
   TODO_dump_func,					/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* Pass: do the actions required to finish with tree-ssa optimization
@@ -232,6 +237,7 @@ struct tree_opt_pass pass_free_datastructures =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 /* Pass: free cfg annotations.  */
 
@@ -259,6 +265,7 @@ struct tree_opt_pass pass_free_cfg_annotations =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* Pass: fixup_cfg.  IPA passes, compilation of earlier functions or inlining
@@ -346,6 +353,7 @@ struct tree_opt_pass pass_init_datastructures =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 void
@@ -362,7 +370,10 @@ tree_lowering_passes (tree fn)
     execute_pass_list (pass_early_local_passes.sub);
   free_dominance_info (CDI_POST_DOMINATORS);
   free_dominance_info (CDI_DOMINATORS);
+
+  /* FIXME tuples:
   compact_blocks ();
+  */
   current_function_decl = saved_current_function_decl;
   bitmap_obstack_release (NULL);
   pop_cfun ();

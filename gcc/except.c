@@ -2850,6 +2850,7 @@ struct tree_opt_pass pass_set_nothrow_function_flags =
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -3379,6 +3380,7 @@ struct tree_opt_pass pass_convert_to_eh_region_ranges =
   0,                                    /* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -4002,6 +4004,7 @@ struct tree_opt_pass pass_rtl_eh =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   'h'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 #include "gt-except.h"

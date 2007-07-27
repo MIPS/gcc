@@ -1351,6 +1351,7 @@ struct tree_opt_pass pass_early_warn_uninitialized =
   0,					/* todo_flags_start */
   0,                                    /* todo_flags_finish */
   0				        /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 struct tree_opt_pass pass_late_warn_uninitialized =
@@ -1368,4 +1369,5 @@ struct tree_opt_pass pass_late_warn_uninitialized =
   0,					/* todo_flags_start */
   0,                                    /* todo_flags_finish */
   0				        /* letter */
+  ,0					/* works_with_tuples_p */
 };

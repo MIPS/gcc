@@ -228,6 +228,7 @@ struct tree_opt_pass pass_build_cfg =
   0,					/* todo_flags_start */
   TODO_verify_stmts | TODO_cleanup_cfg,	/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* Search the CFG for any computed gotos.  If found, factor them to a
@@ -1926,6 +1927,7 @@ struct tree_opt_pass pass_remove_useless_stmts =
   0,					/* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* Remove PHI nodes associated with basic block BB and all edges out of BB.  */
@@ -5725,6 +5727,7 @@ struct tree_opt_pass pass_split_crit_edges =
   0,                             /* todo_flags_start */
   TODO_dump_func,                /* todo_flags_finish */
   0                              /* letter */
+  ,0				 /* works_with_tuples_p */
 };
 
 
@@ -5920,6 +5923,7 @@ struct tree_opt_pass pass_warn_function_return =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* Emit noreturn warnings.  */
@@ -5952,4 +5956,5 @@ struct tree_opt_pass pass_warn_function_noreturn =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };

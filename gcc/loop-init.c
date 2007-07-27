@@ -157,6 +157,7 @@ struct tree_opt_pass pass_loop2 =
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'L'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -188,6 +189,7 @@ struct tree_opt_pass pass_rtl_loop_init =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   'L'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -221,6 +223,7 @@ struct tree_opt_pass pass_rtl_loop_done =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   'L'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -255,6 +258,7 @@ struct tree_opt_pass pass_rtl_move_loop_invariants =
   TODO_df_finish |                      /* This is shutting down the instance in loop_invariant.c  */
   TODO_dump_func,                       /* todo_flags_finish */
   'L'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -288,6 +292,7 @@ struct tree_opt_pass pass_rtl_unswitch =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   'L'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -334,6 +339,7 @@ struct tree_opt_pass pass_rtl_unroll_and_peel_loops =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   'L'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -373,5 +379,6 @@ struct tree_opt_pass pass_rtl_doloop =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   'L'                                   /* letter */
+  ,0					/* works_with_tuples_p */
 };
 

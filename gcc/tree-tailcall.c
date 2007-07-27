@@ -1032,6 +1032,7 @@ struct tree_opt_pass pass_tail_recursion =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 struct tree_opt_pass pass_tail_calls = 
@@ -1049,4 +1050,5 @@ struct tree_opt_pass pass_tail_calls =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };

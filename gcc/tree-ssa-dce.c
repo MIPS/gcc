@@ -917,6 +917,7 @@ struct tree_opt_pass pass_dce =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 struct tree_opt_pass pass_dce_loop =
@@ -934,6 +935,7 @@ struct tree_opt_pass pass_dce_loop =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 struct tree_opt_pass pass_cd_dce =
@@ -952,4 +954,5 @@ struct tree_opt_pass pass_cd_dce =
   TODO_dump_func | TODO_verify_ssa
   | TODO_verify_flow,			/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };

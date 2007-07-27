@@ -1433,6 +1433,7 @@ struct tree_opt_pass pass_ipa_inline =
   TODO_dump_cgraph | TODO_dump_func
   | TODO_remove_functions,		/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* Because inlining might remove no-longer reachable nodes, we need to
@@ -1485,6 +1486,7 @@ struct tree_opt_pass pass_early_inline =
   0,					/* todo_flags_start */
   TODO_dump_func,    			/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* When inlining shall be performed.  */
@@ -1513,6 +1515,7 @@ struct tree_opt_pass pass_ipa_early_inline =
   0,					/* todo_flags_start */
   TODO_dump_cgraph, 		        /* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* Compute parameters of functions used by inliner.  */
@@ -1560,6 +1563,7 @@ struct tree_opt_pass pass_inline_parameters =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 /* Apply inline plan to the function.  */
@@ -1616,6 +1620,7 @@ struct tree_opt_pass pass_apply_inline =
   TODO_dump_func | TODO_verify_flow
   | TODO_verify_stmts,			/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 #include "gt-ipa-inline.h"

@@ -89,7 +89,7 @@ struct cgraph_local_info GTY(())
 };
 
 /* Information about the function that needs to be computed globally
-   once compilation is finished.  Available only with -funit-at-time.  */
+   once compilation is finished.  Available only with -funit-at-a-time.  */
 
 struct cgraph_global_info GTY(())
 {
@@ -98,7 +98,8 @@ struct cgraph_global_info GTY(())
   /* Expected offset of the stack frame of inlined function.  */
   HOST_WIDE_INT stack_frame_offset;
 
-  /* For inline clones this points to the function they will be inlined into.  */
+  /* For inline clones this points to the function they will be
+     inlined into.  */
   struct cgraph_node *inlined_to;
 
   /* Estimated size of the function after inlining.  */

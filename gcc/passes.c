@@ -300,6 +300,7 @@ struct tree_opt_pass pass_rest_of_compilation =
   0,                                    /* todo_flags_start */
   TODO_ggc_collect,                     /* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 static bool
@@ -323,6 +324,7 @@ struct tree_opt_pass pass_postreload =
   0,                                    /* todo_flags_start */
   TODO_ggc_collect,                     /* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -1070,6 +1072,12 @@ execute_one_pass (struct tree_opt_pass *pass)
   unsigned int todo_after = 0;
 
   current_pass = pass;
+
+  /* Imagine there are no trees... it's easy if you try.  Eventually,
+     everything'll be tuples, and the world will be as one.  */
+  if (!pass->works_with_tuples_p)
+    return false;
+
   /* See if we're supposed to run this pass.  */
   if (pass->gate && !pass->gate ())
     return false;

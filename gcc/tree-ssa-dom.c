@@ -386,6 +386,7 @@ struct tree_opt_pass pass_dominator =
     | TODO_cleanup_cfg
     | TODO_verify_ssa,			/* todo_flags_finish */
   0					/* letter */
+  ,0					/* works_with_tuples_p */
 };
 
 
@@ -2554,4 +2555,5 @@ struct tree_opt_pass pass_phi_only_cprop =
     | TODO_verify_stmts
     | TODO_update_ssa,			/* todo_flags_finish */
   0                                     /* letter */
+  ,0					/* works_with_tuples_p */
 };
