@@ -145,6 +145,7 @@ gimple
 build_gimple_return (bool result_decl_p, tree retval)
 {
   gimple s = build_gimple_with_ops (GIMPLE_RETURN, (int) result_decl_p, 1);
+  gcc_assert (is_gimple_val (retval));
   gimple_return_set_retval (s, retval);
   return s;
 }

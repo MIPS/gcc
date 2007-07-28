@@ -1,3 +1,10 @@
+2007-07-28  Diego Novillo  <dnovillo@google.com>
+
+	* gimplify.c (gimplify_return_expr): Do not create a MODIFY_EXPR
+	as return argument
+	* gimple.c (build_gimple_return): Assert that the returned value
+	is a GIMPLE value.
+
 2007-07-27  Diego Novillo  <dnovillo@google.com>
 
 	* tree-gimple.c (get_gimple_rhs_class): New.

@@ -1132,10 +1132,9 @@ gimplify_return_expr (tree stmt, gimple_seq pre_p)
       || TREE_CODE (ret_expr) == RESULT_DECL
       || ret_expr == error_mark_node)
     {
-      gimple_add (pre_p,
-	      build_gimple_return (ret_expr
-				   && TREE_CODE (ret_expr) == RESULT_DECL,
-	                           ret_expr));
+      bool use_return_decl_p = ret_expr && TREE_CODE (ret_expr) == RESULT_DECL;
+      gimple ret = build_gimple_return (use_return_decl_p, ret_expr);
+      gimple_add (pre_p, ret);
       return GS_ALL_DONE;
     }
 
@@ -1144,8 +1143,9 @@ gimplify_return_expr (tree stmt, gimple_seq pre_p)
   else
     {
       result_decl = GENERIC_TREE_OPERAND (ret_expr, 0);
+
+      /* See through a return by reference.  */
       if (TREE_CODE (result_decl) == INDIRECT_REF)
-	/* See through a return by reference.  */
 	result_decl = TREE_OPERAND (result_decl, 0);
 
       gcc_assert ((TREE_CODE (ret_expr) == MODIFY_EXPR
@@ -1190,14 +1190,7 @@ gimplify_return_expr (tree stmt, gimple_seq pre_p)
 
   gimplify_and_add (TREE_OPERAND (stmt, 0), pre_p);
 
-  /* If we didn't use a temporary, then the result is just the result_decl.
-     Otherwise we need a simple copy.  This should already be gimple.  */
-  if (result == result_decl)
-    ret_expr = result;
-  else
-    ret_expr = build_gimple_modify_stmt (result_decl, result);
-
-  gimple_add (pre_p, build_gimple_return (result == result_decl, ret_expr));
+  gimple_add (pre_p, build_gimple_return (result == result_decl, result));
 
   return GS_ALL_DONE;
 }
