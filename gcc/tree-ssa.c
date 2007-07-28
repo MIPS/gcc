@@ -1,11 +1,11 @@
 /* Miscellaneous SSA utility functions.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -781,7 +780,7 @@ static int
 var_ann_eq (const void *va, const void *vb)
 {
   const struct static_var_ann_d *a = (const struct static_var_ann_d *) va;
-  tree b = (tree) vb;
+  const_tree const b = (const_tree) vb;
   return (a->uid == DECL_UID (b));
 }
 
@@ -940,23 +939,18 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
 	  || TYPE_PRECISION (inner_type) != TYPE_PRECISION (outer_type))
 	return false;
 
-      /* Preserve booleanness.  Some code assumes an invariant that boolean
-	 types stay boolean and do not become 1-bit bit-field types.  */
-      if ((TREE_CODE (inner_type) == BOOLEAN_TYPE)
-	  != (TREE_CODE (outer_type) == BOOLEAN_TYPE))
+      /* Conversions from a non-base to a base type are not useless.
+	 This way we preserve the invariant to do arithmetic in
+	 base types only.  */
+      if (TREE_TYPE (inner_type)
+	  && TREE_TYPE (inner_type) != inner_type
+	  && (TREE_TYPE (outer_type) == outer_type
+	      || TREE_TYPE (outer_type) == NULL_TREE))
 	return false;
 
-      /* Preserve changes in the types minimum or maximum value.
-	 ???  Due to the way we handle sizetype as signed we need
-	 to jump through hoops here to make sizetype and size_type_node
-	 compatible.  */
-      if (!tree_int_cst_equal (fold_convert (outer_type,
-					     TYPE_MIN_VALUE (inner_type)),
-			       TYPE_MIN_VALUE (outer_type))
-	  || !tree_int_cst_equal (fold_convert (outer_type,
-						TYPE_MAX_VALUE (inner_type)),
-				  TYPE_MAX_VALUE (outer_type)))
-	return false;
+      /* We don't need to preserve changes in the types minimum or
+	 maximum value in general as these do not generate code
+	 unless the types precisions are different.  */
 
       return true;
     }

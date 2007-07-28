@@ -46,6 +46,7 @@ Boston, MA 02110-1301, USA.  */
 #include "toplev.h"
 #include "hashtab.h"
 #include "df.h"
+#include "debug.h"
 
 /* Darwin supports a feature called fix-and-continue, which is used
    for rapid turn around debugging.  When code is compiled with the
@@ -1729,7 +1730,9 @@ darwin_override_options (void)
       flag_non_call_exceptions = 0;
     }
   if (flag_var_tracking
-      && strverscmp (darwin_macosx_version_min, "10.5") >= 0)
+      && strverscmp (darwin_macosx_version_min, "10.5") >= 0
+      && debug_info_level >= DINFO_LEVEL_NORMAL
+      && debug_hooks->var_location != do_nothing_debug_hooks.var_location)
     flag_var_tracking_uninit = 1;
 }
 

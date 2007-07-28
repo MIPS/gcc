@@ -477,6 +477,10 @@ struct machine_function GTY(()) {
 
   /* True if the function is known to have an instruction that needs $gp.  */
   bool has_gp_insn_p;
+
+  /* True if we have emitted an instruction to initialize
+     mips16_gp_pseudo_rtx.  */
+  bool initialized_mips16_gp_pseudo_p;
 };
 
 /* Information about a single argument.  */
@@ -639,6 +643,7 @@ char mips_print_operand_punct[256];
 
 /* Map GCC register number to debugger register number.  */
 int mips_dbx_regno[FIRST_PSEUDO_REGISTER];
+int mips_dwarf_regno[FIRST_PSEUDO_REGISTER];
 
 /* A copy of the original flag_delayed_branch: see override_options.  */
 static int mips_flag_delayed_branch;
@@ -676,7 +681,7 @@ const enum reg_class mips_regno_to_class[] =
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
-  HI_REG,	LO_REG,		NO_REGS,	ST_REGS,
+  MD0_REG,	MD1_REG,	NO_REGS,	ST_REGS,
   ST_REGS,	ST_REGS,	ST_REGS,	ST_REGS,
   ST_REGS,	ST_REGS,	ST_REGS,	NO_REGS,
   NO_REGS,	ALL_REGS,	ALL_REGS,	NO_REGS,
@@ -2991,13 +2996,8 @@ mips_subword (rtx op, int high_p)
   else
     byte = 0;
 
-  if (REG_P (op))
-    {
-      if (FP_REG_P (REGNO (op)))
-	return gen_rtx_REG (word_mode, high_p ? REGNO (op) + 1 : REGNO (op));
-      if (ACC_HI_REG_P (REGNO (op)))
-	return gen_rtx_REG (word_mode, high_p ? REGNO (op) : REGNO (op) + 1);
-    }
+  if (FP_REG_RTX_P (op))
+    return gen_rtx_REG (word_mode, high_p ? REGNO (op) + 1 : REGNO (op));
 
   if (MEM_P (op))
     return mips_rewrite_small_data (adjust_address (op, word_mode, byte));
@@ -5051,6 +5051,11 @@ override_options (void)
   else
     mips_cost = &mips_rtx_cost_data[mips_tune];
 
+  /* If the user hasn't specified a branch cost, use the processor's
+     default.  */
+  if (mips_branch_cost == 0)
+    mips_branch_cost = mips_cost->branch_cost;
+
   if ((target_flags_explicit & MASK_64BIT) != 0)
     {
       /* The user specified the size of the integer registers.  Make sure
@@ -5293,7 +5298,13 @@ override_options (void)
      Ignore the special purpose register numbers.  */
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    mips_dbx_regno[i] = -1;
+    {
+      mips_dbx_regno[i] = INVALID_REGNUM;
+      if (GP_REG_P (i) || FP_REG_P (i) || ALL_COP_REG_P (i))
+	mips_dwarf_regno[i] = i;
+      else
+	mips_dwarf_regno[i] = INVALID_REGNUM;
+    }
 
   start = GP_DBX_FIRST - GP_REG_FIRST;
   for (i = GP_REG_FIRST; i <= GP_REG_LAST; i++)
@@ -5303,8 +5314,16 @@ override_options (void)
   for (i = FP_REG_FIRST; i <= FP_REG_LAST; i++)
     mips_dbx_regno[i] = i + start;
 
+  /* HI and LO debug registers use big-endian ordering.  */
   mips_dbx_regno[HI_REGNUM] = MD_DBX_FIRST + 0;
   mips_dbx_regno[LO_REGNUM] = MD_DBX_FIRST + 1;
+  mips_dwarf_regno[HI_REGNUM] = MD_REG_FIRST + 0;
+  mips_dwarf_regno[LO_REGNUM] = MD_REG_FIRST + 1;
+  for (i = DSP_ACC_REG_FIRST; i <= DSP_ACC_REG_LAST; i += 2)
+    {
+      mips_dwarf_regno[i + TARGET_LITTLE_ENDIAN] = i;
+      mips_dwarf_regno[i + TARGET_BIG_ENDIAN] = i + 1;
+    }
 
   /* Set up array giving whether a given register can hold a given mode.  */
 
@@ -5362,9 +5381,11 @@ override_options (void)
 
           else if (ACC_REG_P (regno))
 	    temp = (INTEGRAL_MODE_P (mode)
+		    && size <= UNITS_PER_WORD * 2
 		    && (size <= UNITS_PER_WORD
-			|| (ACC_HI_REG_P (regno)
-			    && size == 2 * UNITS_PER_WORD)));
+			|| regno == MD_REG_FIRST
+			|| (DSP_ACC_REG_P (regno)
+			    && ((regno - DSP_ACC_REG_FIRST) & 1) == 0)));
 
 	  else if (ALL_COP_REG_P (regno))
 	    temp = (class == MODE_INT && size <= UNITS_PER_WORD);
@@ -5509,6 +5530,29 @@ override_options (void)
     target_flags |= MASK_FIX_R4400;
 }
 
+/* Swap the register information for registers I and I + 1, which
+   currently have the wrong endianness.  Note that the registers'
+   fixedness and call-clobberedness might have been set on the
+   command line.  */
+
+static void
+mips_swap_registers (unsigned int i)
+{
+  int tmpi;
+  const char *tmps;
+
+#define SWAP_INT(X, Y) (tmpi = (X), (X) = (Y), (Y) = tmpi)
+#define SWAP_STRING(X, Y) (tmps = (X), (X) = (Y), (Y) = tmps)
+
+  SWAP_INT (fixed_regs[i], fixed_regs[i + 1]);
+  SWAP_INT (call_used_regs[i], call_used_regs[i + 1]);
+  SWAP_INT (call_really_used_regs[i], call_really_used_regs[i + 1]);
+  SWAP_STRING (reg_names[i], reg_names[i + 1]);
+
+#undef SWAP_STRING
+#undef SWAP_INT
+}
+
 /* Implement CONDITIONAL_REGISTER_USAGE.  */
 
 void
@@ -5569,6 +5613,15 @@ mips_conditional_register_usage (void)
       int regno;
       for (regno = FP_REG_FIRST + 21; regno <= FP_REG_FIRST + 31; regno+=2)
 	call_really_used_regs[regno] = call_used_regs[regno] = 1;
+    }
+  /* Make sure that double-register accumulator values are correctly
+     ordered for the current endianness.  */
+  if (TARGET_LITTLE_ENDIAN)
+    {
+      int regno;
+      mips_swap_registers (MD_REG_FIRST);
+      for (regno = DSP_ACC_REG_FIRST; regno <= DSP_ACC_REG_LAST; regno += 2)
+	mips_swap_registers (regno);
     }
 }
 
@@ -8485,17 +8538,6 @@ mips_cannot_change_mode_class (enum machine_mode from,
 	  if (MAX_FPRS_PER_FMT > 1 && reg_classes_intersect_p (FP_REGS, class))
 	    return true;
 	}
-      else
-	{
-	  /* LO_REGNO == HI_REGNO + 1, so if a multi-word value is stored
-	     in LO and HI, the high word always comes first.  We therefore
-	     can't allow values stored in HI to change between single-word
-	     and multi-word modes.
-	     This rule applies to both the original HI/LO pair and the new
-	     DSP accumulators.  */
-	  if (reg_classes_intersect_p (ACC_REGS, class))
-	    return true;
-	}
     }
 
   /* gcc assumes that each word of a multiword register can be accessed
@@ -8736,10 +8778,14 @@ static rtx
 mips16_gp_pseudo_reg (void)
 {
   if (cfun->machine->mips16_gp_pseudo_rtx == NULL_RTX)
+    cfun->machine->mips16_gp_pseudo_rtx = gen_reg_rtx (Pmode);
+
+  /* Don't initialize the pseudo register if we are being called from
+     the tree optimizers' cost-calculation routines.  */
+  if (!cfun->machine->initialized_mips16_gp_pseudo_p
+      && current_ir_type () != IR_GIMPLE)
     {
       rtx insn, scan;
-
-      cfun->machine->mips16_gp_pseudo_rtx = gen_reg_rtx (Pmode);
 
       /* We want to initialize this to a value which gcc will believe
          is constant.  */
@@ -8756,6 +8802,8 @@ mips16_gp_pseudo_reg (void)
 	scan = get_insns ();
       insn = emit_insn_after (insn, scan);
       pop_topmost_sequence ();
+
+      cfun->machine->initialized_mips16_gp_pseudo_p = true;
     }
 
   return cfun->machine->mips16_gp_pseudo_rtx;
@@ -10131,17 +10179,17 @@ int
 mips_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 			 enum reg_class to, enum reg_class from)
 {
-  if (from == M16_REGS && GR_REG_CLASS_P (to))
+  if (from == M16_REGS && reg_class_subset_p (to, GENERAL_REGS))
     return 2;
-  else if (from == M16_NA_REGS && GR_REG_CLASS_P (to))
+  else if (from == M16_NA_REGS && reg_class_subset_p (to, GENERAL_REGS))
     return 2;
-  else if (GR_REG_CLASS_P (from))
+  else if (reg_class_subset_p (from, GENERAL_REGS))
     {
       if (to == M16_REGS)
 	return 2;
       else if (to == M16_NA_REGS)
 	return 2;
-      else if (GR_REG_CLASS_P (to))
+      else if (reg_class_subset_p (to, GENERAL_REGS))
 	{
 	  if (TARGET_MIPS16)
 	    return 4;
@@ -10157,14 +10205,14 @@ mips_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 	  else
 	    return 6;
 	}
-      else if (COP_REG_CLASS_P (to))
+      else if (reg_class_subset_p (to, ALL_COP_REGS))
 	{
 	  return 5;
 	}
     }
   else if (from == FP_REGS)
     {
-      if (GR_REG_CLASS_P (to))
+      if (reg_class_subset_p (to, GENERAL_REGS))
 	return 4;
       else if (to == FP_REGS)
 	return 2;
@@ -10173,7 +10221,7 @@ mips_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
     }
   else if (reg_class_subset_p (from, ACC_REGS))
     {
-      if (GR_REG_CLASS_P (to))
+      if (reg_class_subset_p (to, GENERAL_REGS))
 	{
 	  if (TARGET_MIPS16)
 	    return 12;
@@ -10181,9 +10229,9 @@ mips_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 	    return 6;
 	}
     }
-  else if (from == ST_REGS && GR_REG_CLASS_P (to))
+  else if (from == ST_REGS && reg_class_subset_p (to, GENERAL_REGS))
     return 4;
-  else if (COP_REG_CLASS_P (from))
+  else if (reg_class_subset_p (from, ALL_COP_REGS))
     {
       return 5;
     }

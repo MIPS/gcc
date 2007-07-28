@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -3112,12 +3111,61 @@ expand_copysign_absneg (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 		        int bitpos, bool op0_is_abs)
 {
   enum machine_mode imode;
-  HOST_WIDE_INT hi, lo;
-  int word;
-  rtx label;
+  int icode;
+  rtx sign, label;
 
   if (target == op1)
     target = NULL_RTX;
+
+  /* Check if the back end provides an insn that handles signbit for the
+     argument's mode. */
+  icode = (int) signbit_optab->handlers [(int) mode].insn_code;
+  if (icode != CODE_FOR_nothing)
+    {
+      imode = insn_data[icode].operand[0].mode;
+      sign = gen_reg_rtx (imode);
+      emit_unop_insn (icode, sign, op1, UNKNOWN);
+    }
+  else
+    {
+      HOST_WIDE_INT hi, lo;
+
+      if (GET_MODE_SIZE (mode) <= UNITS_PER_WORD)
+	{
+	  imode = int_mode_for_mode (mode);
+	  if (imode == BLKmode)
+	    return NULL_RTX;
+	  op1 = gen_lowpart (imode, op1);
+	}
+      else
+	{
+	  int word;
+
+	  imode = word_mode;
+	  if (FLOAT_WORDS_BIG_ENDIAN)
+	    word = (GET_MODE_BITSIZE (mode) - bitpos) / BITS_PER_WORD;
+	  else
+	    word = bitpos / BITS_PER_WORD;
+	  bitpos = bitpos % BITS_PER_WORD;
+	  op1 = operand_subword_force (op1, word, mode);
+	}
+
+      if (bitpos < HOST_BITS_PER_WIDE_INT)
+	{
+	  hi = 0;
+	  lo = (HOST_WIDE_INT) 1 << bitpos;
+	}
+      else
+	{
+	  hi = (HOST_WIDE_INT) 1 << (bitpos - HOST_BITS_PER_WIDE_INT);
+	  lo = 0;
+	}
+
+      sign = gen_reg_rtx (imode);
+      sign = expand_binop (imode, and_optab, op1,
+			   immed_double_const (lo, hi, imode),
+			   NULL_RTX, 1, OPTAB_LIB_WIDEN);
+    }
 
   if (!op0_is_abs)
     {
@@ -3134,41 +3182,8 @@ expand_copysign_absneg (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 	emit_move_insn (target, op0);
     }
 
-  if (GET_MODE_SIZE (mode) <= UNITS_PER_WORD)
-    {
-      imode = int_mode_for_mode (mode);
-      if (imode == BLKmode)
-	return NULL_RTX;
-      op1 = gen_lowpart (imode, op1);
-    }
-  else
-    {
-      imode = word_mode;
-      if (FLOAT_WORDS_BIG_ENDIAN)
-	word = (GET_MODE_BITSIZE (mode) - bitpos) / BITS_PER_WORD;
-      else
-	word = bitpos / BITS_PER_WORD;
-      bitpos = bitpos % BITS_PER_WORD;
-      op1 = operand_subword_force (op1, word, mode);
-    }
-
-  if (bitpos < HOST_BITS_PER_WIDE_INT)
-    {
-      hi = 0;
-      lo = (HOST_WIDE_INT) 1 << bitpos;
-    }
-  else
-    {
-      hi = (HOST_WIDE_INT) 1 << (bitpos - HOST_BITS_PER_WIDE_INT);
-      lo = 0;
-    }
-
-  op1 = expand_binop (imode, and_optab, op1,
-		      immed_double_const (lo, hi, imode),
-		      NULL_RTX, 1, OPTAB_LIB_WIDEN);
-
   label = gen_label_rtx ();
-  emit_cmp_and_jump_insns (op1, const0_rtx, EQ, NULL_RTX, imode, 1, label);
+  emit_cmp_and_jump_insns (sign, const0_rtx, EQ, NULL_RTX, imode, 1, label);
 
   if (GET_CODE (op0) == CONST_DOUBLE)
     op0 = simplify_unary_operation (NEG, mode, op0, mode);
@@ -4054,9 +4069,11 @@ emit_cmp_and_jump_insns (rtx x, rtx y, enum rtx_code comparison, rtx size,
   /* Swap operands and condition to ensure canonical RTL.  */
   if (swap_commutative_operands_p (x, y))
     {
-      /* If we're not emitting a branch, this means some caller
-         is out of sync.  */
-      gcc_assert (label);
+      /* If we're not emitting a branch, callers are required to pass
+	 operands in an order conforming to canonical RTL.  We relax this
+	 for commutative comparsions so callers using EQ don't need to do
+	 swapping by hand.  */
+      gcc_assert (label || (comparison == swap_condition (comparison)));
 
       op0 = y, op1 = x;
       comparison = swap_condition (comparison);
@@ -5589,6 +5606,7 @@ init_optabs (void)
   tan_optab = init_optab (UNKNOWN);
   atan_optab = init_optab (UNKNOWN);
   copysign_optab = init_optab (UNKNOWN);
+  signbit_optab = init_optab (UNKNOWN);
 
   isinf_optab = init_optab (UNKNOWN);
 
@@ -5659,7 +5677,6 @@ init_optabs (void)
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
       movmem_optab[i] = CODE_FOR_nothing;
-      signbit_optab[i] = CODE_FOR_nothing;
       cmpstr_optab[i] = CODE_FOR_nothing;
       cmpstrn_optab[i] = CODE_FOR_nothing;
       cmpmem_optab[i] = CODE_FOR_nothing;

@@ -1959,6 +1959,35 @@ done:
 }
 
 
+/*******A helper function for creating new expressions*************/
+
+
+gfc_expr *
+gfc_lval_expr_from_sym (gfc_symbol *sym)
+{
+  gfc_expr *lval;
+  lval = gfc_get_expr ();
+  lval->expr_type = EXPR_VARIABLE;
+  lval->where = sym->declared_at;
+  lval->ts = sym->ts;
+  lval->symtree = gfc_find_symtree (sym->ns->sym_root, sym->name);
+
+  /* It will always be a full array.  */
+  lval->rank = sym->as ? sym->as->rank : 0;
+  if (lval->rank)
+    {
+      lval->ref = gfc_get_ref ();
+      lval->ref->type = REF_ARRAY;
+      lval->ref->u.ar.type = AR_FULL;
+      lval->ref->u.ar.dimen = lval->rank;
+      lval->ref->u.ar.where = sym->declared_at;
+      lval->ref->u.ar.as = sym->as;
+    }
+
+  return lval;
+}
+
+
 /************** Symbol table management subroutines ****************/
 
 /* Basic details: Fortran 95 requires a potentially unlimited number
@@ -3206,7 +3235,7 @@ gen_special_c_interop_ptr (int ptr_id, const char *ptr_name,
          current ns.  */
       generate_isocbinding_symbol (module_name, ptr_id == ISOCBINDING_NULL_PTR 
                                    ? ISOCBINDING_PTR : ISOCBINDING_FUNPTR,
-                                   (char *) (ptr_id == ISOCBINDING_NULL_PTR 
+                                   (const char *) (ptr_id == ISOCBINDING_NULL_PTR 
 				   ? "_gfortran_iso_c_binding_c_ptr"
 				   : "_gfortran_iso_c_binding_c_funptr"));
 
@@ -3327,10 +3356,10 @@ gen_cptr_param (gfc_formal_arglist **head,
          trying to use one of the iso_c_binding functions that need it.  */
       if (iso_c_sym_id == ISOCBINDING_F_PROCPOINTER)
 	generate_isocbinding_symbol (module_name, ISOCBINDING_FUNPTR,
-				     (char *)c_ptr_type);
+				     (const char *)c_ptr_type);
       else
 	generate_isocbinding_symbol (module_name, ISOCBINDING_PTR,
-				     (char *)c_ptr_type);
+				     (const char *)c_ptr_type);
 
       gfc_get_ha_symbol (c_ptr_type, &(c_ptr_sym));
     }
@@ -3419,8 +3448,15 @@ gen_shape_param (gfc_formal_arglist **head,
   param_sym->attr.dummy = 1;
   param_sym->attr.use_assoc = 1;
 
-  /* Integer array, rank 1, describing the shape of the object.  */
-  param_sym->ts.type = BT_INTEGER;
+  /* Integer array, rank 1, describing the shape of the object.  Make it's
+     type BT_VOID initially so we can accept any type/kind combination of
+     integer.  During gfc_iso_c_sub_interface (resolve.c), we'll make it
+     of BT_INTEGER type.  */
+  param_sym->ts.type = BT_VOID;
+
+  /* Initialize the kind to default integer.  However, it will be overriden
+     during resolution to match the kind of the SHAPE parameter given as
+     the actual argument (to allow for any valid integer kind).  */
   param_sym->ts.kind = gfc_default_integer_kind;   
   param_sym->as = gfc_get_array_spec ();
 
@@ -3543,9 +3579,9 @@ build_formal_args (gfc_symbol *new_proc_sym,
 
 void
 generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
-			     char *local_name)
+			     const char *local_name)
 {
-  char *name = (local_name && local_name[0]) ? local_name
+  const char *const name = (local_name && local_name[0]) ? local_name
 					     : c_interop_kinds_table[s].name;
   gfc_symtree *tmp_symtree = NULL;
   gfc_symbol *tmp_sym = NULL;
@@ -3765,11 +3801,9 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
                     /* Create the necessary derived type so we can continue
                        processing the file.  */
                     generate_isocbinding_symbol
-                      (mod_name, s == ISOCBINDING_FUNLOC
-		       || s == ISOCBINDING_F_PROCPOINTER
-		       ? ISOCBINDING_FUNPTR : ISOCBINDING_PTR,
-                       (char *)(s == ISOCBINDING_FUNLOC 
-				|| s == ISOCBINDING_F_PROCPOINTER 
+		      (mod_name, s == ISOCBINDING_FUNLOC
+				 ? ISOCBINDING_FUNPTR : ISOCBINDING_PTR,
+		       (const char *)(s == ISOCBINDING_FUNLOC
                                 ? "_gfortran_iso_c_binding_c_funptr"
 				: "_gfortran_iso_c_binding_c_ptr"));
                     tmp_sym->ts.derived =

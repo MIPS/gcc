@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* This file is part of the C front end.
@@ -1024,9 +1023,10 @@ free_all_tagged_tu_seen_up_to (const struct tagged_tu_seen_cache *tu_til)
   const struct tagged_tu_seen_cache *tu = tagged_tu_seen_base;
   while (tu != tu_til)
     {
-      struct tagged_tu_seen_cache *tu1 = (struct tagged_tu_seen_cache*)tu;
+      const struct tagged_tu_seen_cache *const tu1
+	= (const struct tagged_tu_seen_cache *) tu;
       tu = tu1->next;
-      free (tu1);
+      free ((void *)tu1);
     }
   tagged_tu_seen_base = tu_til;
 }

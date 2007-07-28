@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
--Software Foundation; either version 2, or (at your option) any later
+-Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Problem description:
 --------------------
@@ -933,12 +932,12 @@ hash_del_properties (void *p)
 static int
 eq_descriptor_extension (const void *p1, const void *p2)
 {
-  const rtx insn = (rtx) p1;
-  const rtx element = (rtx) p2;
+  const_rtx const insn = (const_rtx) p1;
+  const_rtx const element = (const_rtx) p2;
   rtx set1 = single_set (insn);
   rtx dest_reg1;
   rtx set2 = NULL;
-  rtx dest_reg2 = NULL;
+  const_rtx dest_reg2 = NULL;
 
   gcc_assert (set1 && element && (REG_P (element) || INSN_P (element)));
 
@@ -962,7 +961,7 @@ eq_descriptor_extension (const void *p1, const void *p2)
 static hashval_t
 hash_descriptor_extension (const void *p)
 {
-  const rtx r = (rtx) p;
+  const_rtx const r = (const_rtx) p;
   rtx set, lhs;
 
   if (r && REG_P (r))

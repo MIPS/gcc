@@ -126,7 +126,8 @@ extern int set_nomacro;			/* # of nested .set nomacro's  */
 extern int set_noat;			/* # of nested .set noat's  */
 extern int set_volatile;		/* # of nested .set volatile's  */
 extern int mips_branch_likely;		/* emit 'l' after br (branch likely) */
-extern int mips_dbx_regno[];		/* Map register # to debug register # */
+extern int mips_dbx_regno[];
+extern int mips_dwarf_regno[];
 extern bool mips_split_p[];
 extern GTY(()) rtx cmp_operands[2];
 extern enum processor_type mips_arch;   /* which cpu to codegen for */
@@ -377,10 +378,16 @@ extern const struct mips_rtx_cost_data *mips_cost;
 	builtin_define ("__mips_smartmips");			\
 								\
       if (TARGET_DSP)						\
-	builtin_define ("__mips_dsp");				\
-								\
-      if (TARGET_DSPR2)						\
-	builtin_define ("__mips_dspr2");			\
+	{							\
+	  builtin_define ("__mips_dsp");			\
+	  if (TARGET_DSPR2)					\
+	    {							\
+	      builtin_define ("__mips_dspr2");			\
+	      builtin_define ("__mips_dsp_rev=2");		\
+	    }							\
+	  else							\
+	    builtin_define ("__mips_dsp_rev=1");		\
+	}							\
 								\
       MIPS_CPP_SET_PROCESSOR ("_MIPS_ARCH", mips_arch_info);	\
       MIPS_CPP_SET_PROCESSOR ("_MIPS_TUNE", mips_tune_info);	\
@@ -1010,11 +1017,10 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define DBX_CONTIN_LENGTH 1500
 
 /* How to renumber registers for dbx and gdb.  */
-#define DBX_REGISTER_NUMBER(REGNO) mips_dbx_regno[ (REGNO) ]
+#define DBX_REGISTER_NUMBER(REGNO) mips_dbx_regno[REGNO]
 
 /* The mapping from gcc register number to DWARF 2 CFA column number.  */
-#define DWARF_FRAME_REGNUM(REG) \
-  ((REG) == DWARF_ALT_FRAME_RETURN_COLUMN ? INVALID_REGNUM : (REG))
+#define DWARF_FRAME_REGNUM(REGNO) mips_dwarf_regno[REGNO]
 
 /* The DWARF 2 CFA column which tracks the return address.  */
 #define DWARF_FRAME_RETURN_COLUMN (GP_REG_FIRST + 31)
@@ -1393,14 +1399,8 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define DSP_ACC_REG_NUM (DSP_ACC_REG_LAST - DSP_ACC_REG_FIRST + 1)
 
 #define AT_REGNUM	(GP_REG_FIRST + 1)
-#define HI_REGNUM	(MD_REG_FIRST + 0)
-#define LO_REGNUM	(MD_REG_FIRST + 1)
-#define AC1HI_REGNUM	(DSP_ACC_REG_FIRST + 0)
-#define AC1LO_REGNUM	(DSP_ACC_REG_FIRST + 1)
-#define AC2HI_REGNUM	(DSP_ACC_REG_FIRST + 2)
-#define AC2LO_REGNUM	(DSP_ACC_REG_FIRST + 3)
-#define AC3HI_REGNUM	(DSP_ACC_REG_FIRST + 4)
-#define AC3LO_REGNUM	(DSP_ACC_REG_FIRST + 5)
+#define HI_REGNUM	(TARGET_BIG_ENDIAN ? MD_REG_FIRST : MD_REG_FIRST + 1)
+#define LO_REGNUM	(TARGET_BIG_ENDIAN ? MD_REG_FIRST + 1 : MD_REG_FIRST)
 
 /* FPSW_REGNUM is the single condition code used if !ISA_HAS_8CC.
    If ISA_HAS_8CC, it should not be used, and an arbitrary ST_REG
@@ -1431,10 +1431,6 @@ extern const struct mips_rtx_cost_data *mips_cost;
 /* Test if REGNO is hi, lo, or one of the 6 new DSP accumulators.  */
 #define ACC_REG_P(REGNO) \
   (MD_REG_P (REGNO) || DSP_ACC_REG_P (REGNO))
-/* Test if REGNO is HI or the first register of 3 new DSP accumulator pairs.  */
-#define ACC_HI_REG_P(REGNO) \
-  ((REGNO) == HI_REGNUM || (REGNO) == AC1HI_REGNUM || (REGNO) == AC2HI_REGNUM \
-   || (REGNO) == AC3HI_REGNUM)
 
 #define FP_REG_RTX_P(X) (REG_P (X) && FP_REG_P (REGNO (X)))
 
@@ -1562,8 +1558,8 @@ enum reg_class
   LEA_REGS,			/* Every GPR except $25 */
   GR_REGS,			/* integer registers */
   FP_REGS,			/* floating point registers */
-  HI_REG,			/* hi register */
-  LO_REG,			/* lo register */
+  MD0_REG,			/* first multiply/divide register */
+  MD1_REG,			/* second multiply/divide register */
   MD_REGS,			/* multiply/divide registers (hi/lo) */
   COP0_REGS,			/* generic coprocessor classes */
   COP2_REGS,
@@ -1603,8 +1599,8 @@ enum reg_class
   "LEA_REGS",								\
   "GR_REGS",								\
   "FP_REGS",								\
-  "HI_REG",								\
-  "LO_REG",								\
+  "MD0_REG",								\
+  "MD1_REG",								\
   "MD_REGS",								\
   /* coprocessor registers */						\
   "COP0_REGS",								\
@@ -1698,17 +1694,6 @@ extern const enum reg_class mips_regno_to_class[];
 
 #define SMALL_REGISTER_CLASSES (TARGET_MIPS16)
 
-/* This macro is used later on in the file.  */
-#define GR_REG_CLASS_P(CLASS)						\
-  ((CLASS) == GR_REGS || (CLASS) == M16_REGS || (CLASS) == T_REG	\
-   || (CLASS) == M16_T_REGS || (CLASS) == M16_NA_REGS			\
-   || (CLASS) == V1_REG							\
-   || (CLASS) == PIC_FN_ADDR_REG || (CLASS) == LEA_REGS)
-
-/* This macro is also used later on in the file.  */
-#define COP_REG_CLASS_P(CLASS)						\
-  ((CLASS)  == COP0_REGS || (CLASS) == COP2_REGS || (CLASS) == COP3_REGS)
-
 /* REG_ALLOC_ORDER is to order in which to allocate registers.  This
    is the default value (allocate the registers in numeric order).  We
    define it just so that we can override it for the mips16 target in
@@ -1778,24 +1763,6 @@ extern const enum reg_class mips_regno_to_class[];
 #define PREFERRED_RELOAD_CLASS(X,CLASS)					\
   mips_preferred_reload_class (X, CLASS)
 
-/* Certain machines have the property that some registers cannot be
-   copied to some other registers without using memory.  Define this
-   macro on those machines to be a C expression that is nonzero if
-   objects of mode MODE in registers of CLASS1 can only be copied to
-   registers of class CLASS2 by storing a register of CLASS1 into
-   memory and loading that memory location into a register of CLASS2.
-
-   Do not define this macro if its value would always be zero.  */
-#if 0
-#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)			\
-  ((!TARGET_DEBUG_H_MODE						\
-    && GET_MODE_CLASS (MODE) == MODE_INT				\
-    && ((CLASS1 == FP_REGS && GR_REG_CLASS_P (CLASS2))			\
-	|| (GR_REG_CLASS_P (CLASS1) && CLASS2 == FP_REGS)))		\
-   || (TARGET_FLOAT64 && !TARGET_64BIT && (MODE) == DFmode		\
-       && ((GR_REG_CLASS_P (CLASS1) && CLASS2 == FP_REGS)		\
-	   || (GR_REG_CLASS_P (CLASS2) && CLASS1 == FP_REGS))))
-#endif
 /* The HI and LO registers can only be reloaded via the general
    registers.  Condition code registers can only be loaded to the
    general registers, and from the floating point registers.  */
@@ -2365,7 +2332,7 @@ typedef struct mips_args {
 /* A C expression for the cost of a branch instruction.  A value of
    1 is the default; other values are interpreted relative to that.  */
 
-#define BRANCH_COST mips_cost->branch_cost
+#define BRANCH_COST mips_branch_cost
 #define LOGICAL_OP_NON_SHORT_CIRCUIT 0
 
 /* If defined, modifies the length assigned to instruction INSN as a

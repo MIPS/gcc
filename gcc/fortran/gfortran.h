@@ -1392,7 +1392,10 @@ typedef struct gfc_intrinsic_sym
   const char *name, *lib_name;
   gfc_intrinsic_arg *formal;
   gfc_typespec ts;
-  int elemental, pure, generic, specific, actual_ok, standard, noreturn;
+  unsigned elemental:1, inquiry:1, transformational:1, pure:1, 
+    generic:1, specific:1, actual_ok:1, noreturn:1, conversion:1;
+
+  int standard;
 
   gfc_simplify_f simplify;
   gfc_check_f check;
@@ -2117,6 +2120,8 @@ void gfc_free_st_label (gfc_st_label *);
 void gfc_define_st_label (gfc_st_label *, gfc_sl_type, locus *);
 try gfc_reference_st_label (gfc_st_label *, gfc_sl_type);
 
+gfc_expr * gfc_lval_expr_from_sym (gfc_symbol *);
+
 gfc_namespace *gfc_get_namespace (gfc_namespace *, int);
 gfc_symtree *gfc_new_symtree (gfc_symtree **, const char *);
 gfc_symtree *gfc_find_symtree (gfc_symtree *, const char *);
@@ -2132,7 +2137,7 @@ try verify_c_interop_param (gfc_symbol *);
 try verify_bind_c_sym (gfc_symbol *, gfc_typespec *, int, gfc_common_head *);
 try verify_bind_c_derived_type (gfc_symbol *);
 try verify_com_block_vars_c_interop (gfc_common_head *);
-void generate_isocbinding_symbol (const char *, iso_c_binding_symbol, char *);
+void generate_isocbinding_symbol (const char *, iso_c_binding_symbol, const char *);
 gfc_symbol *get_iso_c_sym (gfc_symbol *, char *, char *, int);
 int gfc_get_sym_tree (const char *, gfc_namespace *, gfc_symtree **);
 int gfc_get_ha_symbol (const char *, gfc_symbol **);

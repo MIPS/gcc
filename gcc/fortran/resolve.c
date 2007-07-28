@@ -1806,19 +1806,53 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args,
                         }
                     }
                   else
-                    {
+		    {
+		      /* A non-allocatable target variable with C
+			 interoperable type and type parameters must be
+			 interoperable.	 */
+		      if (args_sym && args_sym->attr.dimension)
+			{
+			  if (args_sym->as->type == AS_ASSUMED_SHAPE)
+			    {
+			      gfc_error ("Assumed-shape array '%s' at %L "
+					 "cannot be an argument to the "
+					 "procedure '%s' because "
+					 "it is not C interoperable",
+					 args_sym->name,
+					 &(args->expr->where), sym->name);
+			      retval = FAILURE;
+			    }
+			  else if (args_sym->as->type == AS_DEFERRED)
+			    {
+			      gfc_error ("Deferred-shape array '%s' at %L "
+					 "cannot be an argument to the "
+					 "procedure '%s' because "
+					 "it is not C interoperable",
+					 args_sym->name,
+					 &(args->expr->where), sym->name);
+			      retval = FAILURE;
+			    }
+			}
+                              
                       /* Make sure it's not a character string.  Arrays of
                          any type should be ok if the variable is of a C
                          interoperable type.  */
-                      if (args_sym->ts.type == BT_CHARACTER 
-                          && is_scalar_expr_ptr (args->expr) != SUCCESS)
-                        {
-                          gfc_error_now ("CHARACTER argument '%s' to '%s' at "
-                                         "%L must have a length of 1",
-                                         args_sym->name, sym->name,
-                                         &(args->expr->where));
-                          retval = FAILURE;
-                        }
+		      if (args_sym->ts.type == BT_CHARACTER)
+			if (args_sym->ts.cl != NULL
+			    && (args_sym->ts.cl->length == NULL
+				|| args_sym->ts.cl->length->expr_type
+				   != EXPR_CONSTANT
+				|| mpz_cmp_si
+				    (args_sym->ts.cl->length->value.integer, 1)
+				   != 0)
+			    && is_scalar_expr_ptr (args->expr) != SUCCESS)
+			  {
+			    gfc_error_now ("CHARACTER argument '%s' to '%s' "
+					   "at %L must have a length of 1",
+					   args_sym->name, sym->name,
+					   &(args->expr->where));
+			    retval = FAILURE;
+			  }
                     }
                 }
               else if (args_sym->attr.pointer == 1
@@ -1848,10 +1882,10 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args,
                   retval = FAILURE;
                 }
               else if (args_sym->ts.type == BT_CHARACTER 
-                       && args_sym->ts.cl != NULL)
+                       && is_scalar_expr_ptr (args->expr) != SUCCESS)
                 {
-                  gfc_error_now ("CHARACTER parameter '%s' to '%s' at %L "
-                                 "cannot have a length type parameter",
+                  gfc_error_now ("CHARACTER argument '%s' to '%s' at "
+                                 "%L must have a length of 1",
                                  args_sym->name, sym->name,
                                  &(args->expr->where));
                   retval = FAILURE;
@@ -1870,14 +1904,14 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args,
                              &(args->expr->where));
               retval = FAILURE;
             }
-          else if (args->expr->symtree->n.sym->attr.is_c_interop != 1)
-            {
-              gfc_error_now ("Parameter '%s' to '%s' at %L must be C "
-                             "interoperable",
-                             args->expr->symtree->n.sym->name, sym->name,
-                             &(args->expr->where));
-              retval = FAILURE;
-            }
+	  else if (args->expr->symtree->n.sym->attr.is_bind_c != 1)
+	    {
+	      gfc_error_now ("Parameter '%s' to '%s' at %L must be "
+			     "BIND(C)",
+			     args->expr->symtree->n.sym->name, sym->name,
+			     &(args->expr->where));
+	      retval = FAILURE;
+	    }
         }
       
       /* for c_loc/c_funloc, the new symbol is the same as the old one */
@@ -2248,6 +2282,11 @@ set_name_and_label (gfc_code *c, gfc_symbol *sym,
           type = gfc_type_letter (arg->ts.type);
           kind = arg->ts.kind;
         }
+
+      if (arg->ts.type == BT_CHARACTER)
+	/* Kind info for character strings not needed.	*/
+	kind = 0;
+
       sprintf (name, "%s_%c%d", sym->name, type, kind);
       /* Set up the binding label as the given symbol's label plus
          the type and kind.  */
@@ -2284,7 +2323,15 @@ gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
   char binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
   /* default to success; will override if find error */
   match m = MATCH_YES;
-  gfc_symbol *tmp_sym;
+
+  /* Make sure the actual arguments are in the necessary order (based on the 
+     formal args) before resolving.  */
+  gfc_procedure_use (sym, &c->ext.actual, &(c->loc));
+
+  /* Give the optional SHAPE formal arg a type now that we've done our
+     initial checking against the actual.  */
+  if (sym->intmod_sym_id == ISOCBINDING_F_POINTER)
+    sym->formal->next->next->sym->ts.type = BT_INTEGER;
 
   if ((sym->intmod_sym_id == ISOCBINDING_F_POINTER) ||
       (sym->intmod_sym_id == ISOCBINDING_F_PROCPOINTER))
@@ -2295,25 +2342,29 @@ gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
 	{
 	  if (c->ext.actual != NULL && c->ext.actual->next != NULL)
 	    {
-	      /* Make sure we got a third arg.	The type/rank of it will
-		 be checked later if it's there (gfc_procedure_use()).	*/
-	      if (c->ext.actual->next->expr->rank != 0 &&
-		  c->ext.actual->next->next == NULL)
+	      /* Make sure we got a third arg if the second arg has non-zero
+		 rank.	We must also check that the type and rank are
+		 correct since we short-circuit this check in
+		 gfc_procedure_use() (called above to sort actual args).  */
+	      if (c->ext.actual->next->expr->rank != 0)
 		{
-		  m = MATCH_ERROR;
-		  gfc_error ("Missing SHAPE parameter for call to %s "
-			     "at %L", sym->name, &(c->loc));
+		  if(c->ext.actual->next->next == NULL 
+		     || c->ext.actual->next->next->expr == NULL)
+		    {
+		      m = MATCH_ERROR;
+		      gfc_error ("Missing SHAPE parameter for call to %s "
+				 "at %L", sym->name, &(c->loc));
+		    }
+		  else if (c->ext.actual->next->next->expr->ts.type
+			   != BT_INTEGER
+			   || c->ext.actual->next->next->expr->rank != 1)
+		    {
+		      m = MATCH_ERROR;
+		      gfc_error ("SHAPE parameter for call to %s at %L must "
+				 "be a rank 1 INTEGER array", sym->name,
+				 &(c->loc));
+		    }
 		}
-              /* Make sure the param is a POINTER.  No need to make sure
-                 it does not have INTENT(IN) since it is a POINTER.  */
-              tmp_sym = c->ext.actual->next->expr->symtree->n.sym;
-              if (tmp_sym != NULL && tmp_sym->attr.pointer != 1)
-                {
-                  gfc_error ("Argument '%s' to '%s' at %L "
-                             "must have the POINTER attribute",
-                             tmp_sym->name, sym->name, &(c->loc));
-                  m = MATCH_ERROR;
-                }
 	    }
 	}
       
@@ -2321,6 +2372,13 @@ gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
 	{
 	  /* the 1 means to add the optional arg to formal list */
 	  new_sym = get_iso_c_sym (sym, name, binding_label, 1);
+	 
+	  /* Set the kind for the SHAPE array to that of the actual
+	     (if given).  */
+	  if (c->ext.actual != NULL && c->ext.actual->next != NULL
+	      && c->ext.actual->next->expr->rank != 0)
+	    new_sym->formal->next->next->sym->ts.kind =
+	      c->ext.actual->next->next->expr->ts.kind;
 	 
 	  /* for error reporting, say it's declared where the original was */
 	  new_sym->declared_at = sym->declared_at;
@@ -2359,10 +2417,7 @@ gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
 
   /* set the resolved symbol */
   if (m != MATCH_ERROR)
-    {
-      gfc_procedure_use (new_sym, &c->ext.actual, &c->loc);
-      c->resolved_sym = new_sym;
-    }
+    c->resolved_sym = new_sym;
   else
     c->resolved_sym = sym;
   
@@ -2775,8 +2830,9 @@ resolve_operator (gfc_expr *e)
       if (op1->ts.type == BT_LOGICAL && op2->ts.type == BT_LOGICAL)
 	sprintf (msg,
 		 _("Logicals at %%L must be compared with %s instead of %s"),
-		 e->value.op.operator == INTRINSIC_EQ ? ".eqv." : ".neqv.",
-		 gfc_op2string (e->value.op.operator));
+		 (e->value.op.operator == INTRINSIC_EQ 
+		  || e->value.op.operator == INTRINSIC_EQ_OS)
+		 ? ".eqv." : ".neqv.", gfc_op2string (e->value.op.operator));
       else
 	sprintf (msg,
 		 _("Operands of comparison operator '%s' at %%L are %s/%s"),
@@ -2882,16 +2938,24 @@ resolve_operator (gfc_expr *e)
 
       break;
 
+    case INTRINSIC_PARENTHESES:
+
+      /*  This is always correct and sometimes necessary!  */
+      if (e->ts.type == BT_UNKNOWN)
+	e->ts = op1->ts;
+
+      if (e->ts.type == BT_CHARACTER && !e->ts.cl)
+	e->ts.cl = op1->ts.cl;
+
     case INTRINSIC_NOT:
     case INTRINSIC_UPLUS:
     case INTRINSIC_UMINUS:
-    case INTRINSIC_PARENTHESES:
+      /* Simply copy arrayness attribute */
       e->rank = op1->rank;
 
       if (e->shape == NULL)
 	e->shape = gfc_copy_shape (op1->shape, op1->rank);
 
-      /* Simply copy arrayness attribute */
       break;
 
     default:
@@ -5655,6 +5719,21 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 }
 
 
+static gfc_component *
+has_default_initializer (gfc_symbol *der)
+{
+  gfc_component *c;
+  for (c = der->components; c; c = c->next)
+    if ((c->ts.type != BT_DERIVED && c->initializer)
+        || (c->ts.type == BT_DERIVED
+              && !c->pointer
+              && has_default_initializer (c->ts.derived)))
+      break;
+
+  return c;
+}
+
+
 /* Given a block of code, recursively resolve everything pointed to by this
    code block.  */
 
@@ -5774,6 +5853,9 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 
 	  if (gfc_extend_assign (code, ns) == SUCCESS)
 	    {
+	      gfc_expr *lhs = code->ext.actual->expr;
+	      gfc_expr *rhs = code->ext.actual->next->expr;
+
 	      if (gfc_pure (NULL) && !gfc_pure (code->symtree->n.sym))
 		{
 		  gfc_error ("Subroutine '%s' called instead of assignment at "
@@ -5781,6 +5863,15 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 			     &code->loc);
 		  break;
 		}
+
+	      /* Make a temporary rhs when there is a default initializer
+		 and rhs is the same symbol as the lhs.  */
+	      if (rhs->expr_type == EXPR_VARIABLE
+		    && rhs->symtree->n.sym->ts.type == BT_DERIVED
+		    && has_default_initializer (rhs->symtree->n.sym->ts.derived)
+		    && (lhs->symtree->n.sym == rhs->symtree->n.sym))
+	        code->ext.actual->next->expr = gfc_get_parentheses (rhs);
+
 	      goto call;
 	    }
 
@@ -6358,23 +6449,7 @@ apply_default_init (gfc_symbol *sym)
     }
 
   /* Build an l-value expression for the result.  */
-  lval = gfc_get_expr ();
-  lval->expr_type = EXPR_VARIABLE;
-  lval->where = sym->declared_at;
-  lval->ts = sym->ts;
-  lval->symtree = gfc_find_symtree (sym->ns->sym_root, sym->name);
-
-  /* It will always be a full array.  */
-  lval->rank = sym->as ? sym->as->rank : 0;
-  if (lval->rank)
-    {
-      lval->ref = gfc_get_ref ();
-      lval->ref->type = REF_ARRAY;
-      lval->ref->u.ar.type = AR_FULL;
-      lval->ref->u.ar.dimen = lval->rank;
-      lval->ref->u.ar.where = sym->declared_at;
-      lval->ref->u.ar.as = sym->as;
-    }
+  lval = gfc_lval_expr_from_sym (sym);
 
   /* Add the code at scope entry.  */
   init_st = gfc_get_code ();
@@ -6427,21 +6502,6 @@ resolve_fl_var_and_proc (gfc_symbol *sym, int mp_flag)
 	 }
     }
   return SUCCESS;
-}
-
-
-static gfc_component *
-has_default_initializer (gfc_symbol *der)
-{
-  gfc_component *c;
-  for (c = der->components; c; c = c->next)
-    if ((c->ts.type != BT_DERIVED && c->initializer)
-        || (c->ts.type == BT_DERIVED
-              && !c->pointer
-              && has_default_initializer (c->ts.derived)))
-      break;
-
-  return c;
 }
 
 

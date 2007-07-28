@@ -1,11 +1,11 @@
 /* Variable tracking routines for the GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* This file contains the variable tracking pass.  It computes where
    variables are located (which registers or where in memory) at each position
@@ -258,6 +257,7 @@ typedef struct variable_def
   /* The variable parts.  */
   variable_part var_part[MAX_VAR_PARTS];
 } *variable;
+typedef const struct variable_def *const_variable;
 
 /* Hash function for DECL for VARIABLE_HTAB.  */
 #define VARIABLE_HASH_VAL(decl) (DECL_UID (decl))
@@ -601,7 +601,7 @@ adjust_stack_reference (rtx mem, HOST_WIDE_INT adjustment)
 static hashval_t
 variable_htab_hash (const void *x)
 {
-  const variable v = (const variable) x;
+  const_variable const v = (const_variable) x;
 
   return (VARIABLE_HASH_VAL (v->decl));
 }
@@ -611,8 +611,8 @@ variable_htab_hash (const void *x)
 static int
 variable_htab_eq (const void *x, const void *y)
 {
-  const variable v = (const variable) x;
-  const tree decl = (const tree) y;
+  const_variable const v = (const_variable) x;
+  const_tree const decl = (const_tree) y;
 
   return (VARIABLE_HASH_VAL (v->decl) == VARIABLE_HASH_VAL (decl));
 }

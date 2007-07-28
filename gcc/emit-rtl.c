@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Middle-to-low level generation of rtx code and insns.
@@ -195,7 +194,7 @@ int split_branch_probability = -1;
 static hashval_t
 const_int_htab_hash (const void *x)
 {
-  return (hashval_t) INTVAL ((rtx) x);
+  return (hashval_t) INTVAL ((const_rtx) x);
 }
 
 /* Returns nonzero if the value represented by X (which is really a
@@ -205,14 +204,14 @@ const_int_htab_hash (const void *x)
 static int
 const_int_htab_eq (const void *x, const void *y)
 {
-  return (INTVAL ((rtx) x) == *((const HOST_WIDE_INT *) y));
+  return (INTVAL ((const_rtx) x) == *((const HOST_WIDE_INT *) y));
 }
 
 /* Returns a hash code for X (which is really a CONST_DOUBLE).  */
 static hashval_t
 const_double_htab_hash (const void *x)
 {
-  rtx value = (rtx) x;
+  const_rtx const value = (const_rtx) x;
   hashval_t h;
 
   if (GET_MODE (value) == VOIDmode)
@@ -231,7 +230,7 @@ const_double_htab_hash (const void *x)
 static int
 const_double_htab_eq (const void *x, const void *y)
 {
-  rtx a = (rtx)x, b = (rtx)y;
+  const_rtx const a = (const_rtx)x, b = (const_rtx)y;
 
   if (GET_MODE (a) != GET_MODE (b))
     return 0;
@@ -248,7 +247,7 @@ const_double_htab_eq (const void *x, const void *y)
 static hashval_t
 mem_attrs_htab_hash (const void *x)
 {
-  mem_attrs *p = (mem_attrs *) x;
+  const mem_attrs *const p = (const mem_attrs *) x;
 
   return (p->alias ^ (p->align * 1000)
 	  ^ ((p->offset ? INTVAL (p->offset) : 0) * 50000)
@@ -263,8 +262,8 @@ mem_attrs_htab_hash (const void *x)
 static int
 mem_attrs_htab_eq (const void *x, const void *y)
 {
-  mem_attrs *p = (mem_attrs *) x;
-  mem_attrs *q = (mem_attrs *) y;
+  const mem_attrs *const p = (const mem_attrs *) x;
+  const mem_attrs *const q = (const mem_attrs *) y;
 
   return (p->alias == q->alias && p->offset == q->offset
 	  && p->size == q->size && p->align == q->align
@@ -315,7 +314,7 @@ get_mem_attrs (HOST_WIDE_INT alias, tree expr, rtx offset, rtx size,
 static hashval_t
 reg_attrs_htab_hash (const void *x)
 {
-  reg_attrs *p = (reg_attrs *) x;
+  const reg_attrs *const p = (const reg_attrs *) x;
 
   return ((p->offset * 1000) ^ (long) p->decl);
 }
@@ -327,8 +326,8 @@ reg_attrs_htab_hash (const void *x)
 static int
 reg_attrs_htab_eq (const void *x, const void *y)
 {
-  reg_attrs *p = (reg_attrs *) x;
-  reg_attrs *q = (reg_attrs *) y;
+  const reg_attrs *const p = (const reg_attrs *) x;
+  const reg_attrs *const q = (const reg_attrs *) y;
 
   return (p->decl == q->decl && p->offset == q->offset);
 }

@@ -710,7 +710,7 @@ static tree rs6000_handle_altivec_attribute (tree *, tree, tree, int, bool *);
 static bool rs6000_ms_bitfield_layout_p (tree);
 static tree rs6000_handle_struct_attribute (tree *, tree, tree, int, bool *);
 static void rs6000_eliminate_indexed_memrefs (rtx operands[2]);
-static const char *rs6000_mangle_fundamental_type (tree);
+static const char *rs6000_mangle_type (tree);
 extern const struct attribute_spec rs6000_attribute_table[];
 static void rs6000_set_default_type_attributes (tree);
 static bool rs6000_reg_live_or_pic_offset_p (int);
@@ -1061,8 +1061,8 @@ static const char alt_reg_names[][8] =
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN rs6000_expand_builtin
 
-#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
-#define TARGET_MANGLE_FUNDAMENTAL_TYPE rs6000_mangle_fundamental_type
+#undef TARGET_MANGLE_TYPE
+#define TARGET_MANGLE_TYPE rs6000_mangle_type
 
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS rs6000_init_libfuncs
@@ -6465,7 +6465,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	{
 	  regalign = 1;
 	  u = build2 (BIT_AND_EXPR, TREE_TYPE (reg), reg,
-		     size_int (n_reg - 1));
+		     build_int_cst (TREE_TYPE (reg), n_reg - 1));
 	  u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, u);
 	}
       /* _Decimal128 is passed in even/odd fpr pairs; the stored
@@ -6487,7 +6487,8 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       if (sav_ofs)
 	t = build2 (POINTER_PLUS_EXPR, ptr_type_node, sav, size_int (sav_ofs));
 
-      u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, size_int (n_reg));
+      u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg,
+		  build_int_cst (TREE_TYPE (reg), n_reg));
       u = fold_convert (sizetype, u);
       u = build2 (MULT_EXPR, sizetype, u, size_int (sav_scale));
       t = build2 (POINTER_PLUS_EXPR, ptr_type_node, t, u);
@@ -18959,8 +18960,14 @@ rs6000_handle_altivec_attribute (tree *node,
    elements; we must teach the compiler how to mangle them.  */
 
 static const char *
-rs6000_mangle_fundamental_type (tree type)
+rs6000_mangle_type (tree type)
 {
+  type = TYPE_MAIN_VARIANT (type);
+
+  if (TREE_CODE (type) != VOID_TYPE && TREE_CODE (type) != BOOLEAN_TYPE
+      && TREE_CODE (type) != INTEGER_TYPE && TREE_CODE (type) != REAL_TYPE)
+    return NULL;
+
   if (type == bool_char_type_node) return "U6__boolc";
   if (type == bool_short_type_node) return "U6__bools";
   if (type == pixel_type_node) return "u7__pixel";

@@ -11,7 +11,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -20,9 +20,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_DF_H
 #define GCC_DF_H
@@ -312,9 +311,12 @@ struct dataflow
 struct df_mw_hardreg
 {
   rtx mw_reg;                   /* The multiword hardreg.  */ 
-  rtx *loc;			/* The location of the reg.  */
-  enum df_ref_type type;        /* Used to see if the ref is read or write.  */
-  enum df_ref_flags flags;	/* Various flags.  */
+  /* These two bitfields are intentially oversized, in the hope that
+     accesses to 16-bit fields will usually be quicker.  */
+  ENUM_BITFIELD(df_ref_type) type : 16;
+				/* Used to see if the ref is read or write.  */
+  ENUM_BITFIELD(df_ref_flags) flags : 16;
+				/* Various flags.  */
   unsigned int start_regno;     /* First word of the multi word subreg.  */
   unsigned int end_regno;       /* Last word of the multi word subreg.  */
   unsigned int mw_order;        /* Same as df_ref.ref_order.  */
@@ -343,7 +345,6 @@ struct df_insn_info
 struct df_ref
 {
   rtx reg;			/* The register referenced.  */
-  unsigned int regno;           /* The register number referenced.  */
   basic_block bb;               /* Basic block containing the instruction. */
 
   /* Insn containing ref. This will be null if this is an artificial
@@ -358,8 +359,13 @@ struct df_ref
      used to totally order the refs in an insn.  */
   unsigned int ref_order;
 
-  enum df_ref_type type;	/* Type of ref.  */
-  enum df_ref_flags flags;	/* Various flags.  */
+  unsigned int regno;		/* The register number referenced.  */
+  /* These two bitfields are intentially oversized, in the hope that
+     accesses to 16-bit fields will usually be quicker.  */
+  ENUM_BITFIELD(df_ref_type) type : 16;
+				/* Type of ref.  */
+  ENUM_BITFIELD(df_ref_flags) flags : 16;
+				/* Various flags.  */
 
   /* For each regno, there are three chains of refs, one for the uses,
      the eq_uses and the defs.  These chains go thru the refs

@@ -1,3 +1,59 @@
+2007-07-27  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* io/transfer.c (st_set_nml_var_dim): Use index_type instead of
+	GFC_INTEGER_4 for array descriptor triplets.
+
+2007-07-27  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* io/unix.c (stream_ttyname): Mark argument as potentialy unused.
+
+2007-07-27  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32035
+	* runtime/select.c (select_string): Adjust prototype and function
+	so that the return value is an integer, not a pointer.
+
+2007-07-24  Tobias Burnus  <burnus@net-b.de>
+
+	* libgfortran.h:  Add bounds_check to compile_options_t.
+
+2007-07-24  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/30814
+	* libgfortran.h:  Add bounds_check to compile_options_t.
+	* runtime/compile_options.c (set_options):  Add handling
+	of compile_options.bounds_check.
+	* intrinsics/pack_generic.c (pack_internal):  Also determine
+	the number of elements if compile_options.bounds_check is
+	true.  Raise runtime error if a different array shape is
+	detected.
+
+2007-07-23  Christopher D. Rickett  <crickett@lanl.gov>
+
+	PR fortran/32600
+	* intrinsics/iso_c_binding.c (c_funloc): Remove.
+	* intrinsics/iso_c_binding.h: Remove c_funloc.
+	* gfortran.map: Ditto.
+
+2007-07-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* io/read.c (convert_real): Generate error only on EINVAL.
+
+2007-07-21  Christopher D. Rickett  <crickett@lanl.gov>
+
+	PR fortran/32627
+	* libgfortran/intrinsics/iso_c_generated_procs.c: Add c_f_pointer
+	for character/string arguments.
+	* libgfortran/intrinsic/iso_c_binding.c (c_f_pointer_u0): Allow
+	the optional SHAPE arg to be any valid integer kind.
+	* libgfortran/gfortran.map: Add c_f_pointer_s0.
+	* libgfortran/mk-kinds-h.sh: Save smallest integer kind as default
+	character kind.
+	* libgfortran/intrinsics/iso_c_generated_procs.c: Add versions of
+	c_f_pointer for complex and logical types.
+	* libgfortran/gfortran.map: Add c_f_pointer versions for logical
+	and complex types.
+
 2007-07-19  Christopher D. Rickett  <crickett@lanl.gov>
 
 	PR fortran/32600
@@ -93,12 +149,11 @@
 
 	Restore collateral damage from ISO C Binding merge.
 
-	2007-06-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+2007-06-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libgfortran/32456
 	* io/unit.c (filename_from_unit): Don't use find_unit, instead search
 	for unit directly.
-
 
 2007-07-02  Steven G. Kargl  <kargl@gcc.gnu.org>
 

@@ -943,20 +943,10 @@ structural_comptypes (tree t1, tree t2, int strict)
   /* TYPENAME_TYPEs should be resolved if the qualifying scope is the
      current instantiation.  */
   if (TREE_CODE (t1) == TYPENAME_TYPE)
-    {
-      tree resolved = resolve_typename_type (t1, /*only_current_p=*/true);
-
-      if (resolved != error_mark_node)
-	t1 = resolved;
-    }
+    t1 = resolve_typename_type (t1, /*only_current_p=*/true);
 
   if (TREE_CODE (t2) == TYPENAME_TYPE)
-    {
-      tree resolved = resolve_typename_type (t2, /*only_current_p=*/true);
-
-      if (resolved != error_mark_node)
-	t2 = resolved;
-    }
+    t2 = resolve_typename_type (t2, /*only_current_p=*/true);
 
   if (TYPE_PTRMEMFUNC_P (t1))
     t1 = TYPE_PTRMEMFUNC_FN_TYPE (t1);
@@ -1089,6 +1079,14 @@ structural_comptypes (tree t1, tree t2, int strict)
     case TYPE_PACK_EXPANSION:
       return same_type_p (PACK_EXPANSION_PATTERN (t1), 
                           PACK_EXPANSION_PATTERN (t2));
+
+    case DECLTYPE_TYPE:
+      if (DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (t1)
+          != DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (t2)
+          || !cp_tree_equal (DECLTYPE_TYPE_EXPR (t1), 
+                             DECLTYPE_TYPE_EXPR (t2)))
+        return false;
+      break;
 
     default:
       return false;
@@ -2895,8 +2893,14 @@ convert_arguments (int nargs, tree *argarray,
 
   if (typetail != 0 && typetail != void_list_node)
     {
-      /* See if there are default arguments that can be used.  */
-      if (TREE_PURPOSE (typetail)
+      /* See if there are default arguments that can be used.  Because
+	 we hold default arguments in the FUNCTION_TYPE (which is so
+	 wrong), we can see default parameters here from deduced
+	 contexts (and via typeof) for indirect function calls.
+	 Fortunately we know whether we have a function decl to
+	 provide default arguments in a language conformant
+	 manner.  */
+      if (fndecl && TREE_PURPOSE (typetail)
 	  && TREE_CODE (TREE_PURPOSE (typetail)) != DEFAULT_ARG)
 	{
 	  for (; typetail != void_list_node; ++i)
@@ -6643,7 +6647,7 @@ check_return_expr (tree retval, bool *no_warning)
        || DECL_OVERLOADED_OPERATOR_P (current_function_decl) == VEC_NEW_EXPR)
       && !TYPE_NOTHROW_P (TREE_TYPE (current_function_decl))
       && ! flag_check_new
-      && null_ptr_cst_p (retval))
+      && retval && null_ptr_cst_p (retval))
     warning (0, "%<operator new%> must not return NULL unless it is "
 	     "declared %<throw()%> (or -fcheck-new is in effect)");
 

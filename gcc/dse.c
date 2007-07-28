@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #undef BASELINE
 
@@ -441,6 +440,7 @@ struct group_info
   int offset_map_size_n, offset_map_size_p; 
 };
 typedef struct group_info *group_info_t;
+typedef const struct group_info *const_group_info_t;
 static alloc_pool rtx_group_info_pool;
 
 /* Tables of group_info structures, hashed by base value.  */
@@ -575,8 +575,8 @@ clear_alias_set_lookup (HOST_WIDE_INT alias_set)
 static int
 invariant_group_base_eq (const void *p1, const void *p2)
 {
-  const group_info_t gi1 = (const group_info_t) p1;
-  const group_info_t gi2 = (const group_info_t) p2;
+  const_group_info_t gi1 = (const_group_info_t) p1;
+  const_group_info_t gi2 = (const_group_info_t) p2;
   return rtx_equal_p (gi1->rtx_base, gi2->rtx_base);
 }
 
@@ -584,7 +584,7 @@ invariant_group_base_eq (const void *p1, const void *p2)
 static hashval_t
 invariant_group_base_hash (const void *p)
 {
-  const group_info_t gi = (const group_info_t) p;
+  const_group_info_t gi = (const_group_info_t) p;
   int do_not_record;
   return hash_rtx (gi->rtx_base, Pmode, &do_not_record, NULL, false);
 }

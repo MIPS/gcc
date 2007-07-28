@@ -5,7 +5,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -918,8 +917,9 @@ assert_loop_rolls_lt (tree type, affine_iv *iv0, affine_iv *iv1,
 
       /* And then we can compute iv0->base - diff, and compare it with
 	 iv1->base.  */      
-      mbzl = fold_build2 (MINUS_EXPR, type1, iv0->base, diff);
-      mbzr = iv1->base;
+      mbzl = fold_build2 (MINUS_EXPR, type1, 
+			  fold_convert (type1, iv0->base), diff);
+      mbzr = fold_convert (type1, iv1->base);
     }
   else
     {
@@ -934,8 +934,9 @@ assert_loop_rolls_lt (tree type, affine_iv *iv0, affine_iv *iv1,
 				    iv1->base, bound);
 	}
 
-      mbzl = iv0->base;
-      mbzr = fold_build2 (MINUS_EXPR, type1, iv1->base, diff);
+      mbzl = fold_convert (type1, iv0->base);
+      mbzr = fold_build2 (MINUS_EXPR, type1,
+			  fold_convert (type1, iv1->base), diff);
     }
 
   if (!integer_nonzerop (assumption))

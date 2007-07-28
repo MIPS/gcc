@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_OPTABS_H
 #define GCC_OPTABS_H
@@ -219,7 +218,8 @@ enum optab_index
   OTI_atan,
   /* Copy sign */
   OTI_copysign,
-
+  /* Signbit */
+  OTI_signbit,
   /* Test for infinite value */
   OTI_isinf,
 
@@ -409,7 +409,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define tan_optab (optab_table[OTI_tan])
 #define atan_optab (optab_table[OTI_atan])
 #define copysign_optab (optab_table[OTI_copysign])
-
+#define signbit_optab (optab_table[OTI_signbit])
 #define isinf_optab (optab_table[OTI_isinf])
 
 #define cmp_optab (optab_table[OTI_cmp])
@@ -552,9 +552,6 @@ extern enum insn_code vcondu_gen_code[NUM_MACHINE_MODES];
 
 /* This array records the insn_code of insns to perform block moves.  */
 extern enum insn_code movmem_optab[NUM_MACHINE_MODES];
-
-/* This array records the insn_code of insns to implement the signbit function.  */
-extern enum insn_code signbit_optab[NUM_MACHINE_MODES];
 
 /* This array records the insn_code of insns to perform block sets.  */
 extern enum insn_code setmem_optab[NUM_MACHINE_MODES];
