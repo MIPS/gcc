@@ -1,4 +1,4 @@
-2007-07-28  Matthias Klose  <doko@ubuntu.com>
+2007-07-29  Matthias Klose  <doko@ubuntu.com>
 
 	Import GNU Classpath (libgcj-import-20070727).
 
@@ -29,6 +29,26 @@
 	ignore javax.sound.sampled.spi.MixerProvider, ignore .in files.
 
 	* HACKING: Mention --enable-gstreamer-peer, removal of generated files.
+
+2007-07-29  Matthias Klose  <doko@ubuntu.com>
+
+	* HACKING: Document regenerating configure.
+
+2007-07-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libgcj/32929
+	* aclocal.m4: Regenerated.
+	* configure: Likewise.
+
+2007-07-28  Matthias Klose  <doko@ubuntu.com>
+
+	* configure.ac: Encode the libgcj soversion in dbexecdir,
+	pass --with-native-libdir to classpath configure.
+	* configure: Regenerate.
+
+2007-07-28  Matthias Klose  <doko@ubuntu.com>
+
+	* classpath/jvmti.h: Remove.
 
 2007-07-27  Tom Tromey  <tromey@redhat.com>
 
