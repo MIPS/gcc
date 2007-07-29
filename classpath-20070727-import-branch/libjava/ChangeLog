@@ -1,3 +1,10 @@
+2007-07-28  Matthias Klose  <doko@ubuntu.com>
+
+	Import GNU Classpath (libgcj-import-20070727).
+
+	* Regenerate class and header files.
+	* Regenerate auto* files.
+
 2007-07-27  Tom Tromey  <tromey@redhat.com>
 
 	* Rebuild .class files with new ecj.
