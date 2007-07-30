@@ -640,7 +640,8 @@ get_tmp_var_for (gimple stmt)
   if (code == GIMPLE_ASSIGN)
     return create_tmp_from_val (gimple_assign_operand (stmt, 1));
   else if (code == GIMPLE_CALL)
-    return create_tmp_from_val (gimple_call_fn (stmt));
+    return create_tmp_var (TREE_TYPE (TREE_TYPE (gimple_call_fn (stmt))),
+			   get_name (gimple_call_fn (stmt)));
   else
     gcc_unreachable ();
 

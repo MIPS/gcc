@@ -1,5 +1,13 @@
 2007-07-30  Diego Novillo  <dnovillo@google.com>
 
+	* gimplify.c (get_tmp_var_for): When creating a new temporary
+	for a GIMPLE_CALL, use the type returned by the function call
+	instead of the type of the function decl.
+	* gimple.c (build_gimple_return): Accept NULL and RESULT_DECL
+	return values.
+
+2007-07-30  Diego Novillo  <dnovillo@google.com>
+
 	* gimplify.c (gimplify_init_constructor): If both sides
 	of the constructor are in GIMPLE form but the assignment
 	has not been emitted, emit it.
