@@ -1,3 +1,9 @@
+2007-07-30  Diego Novillo  <dnovillo@google.com>
+
+	* gimplify.c (gimplify_init_constructor): If both sides
+	of the constructor are in GIMPLE form but the assignment
+	has not been emitted, emit it.
+
 2007-07-28  Diego Novillo  <dnovillo@google.com>
 
 	* gimplify.c (gimplify_return_expr): Do not create a MODIFY_EXPR

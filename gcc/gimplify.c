@@ -3384,7 +3384,20 @@ gimplify_init_constructor (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
       return GS_OK;
     }
   else
-    return GS_ALL_DONE;
+    {
+      /* If we have gimplified both sides of the initializer but have
+	 not emitted an assignment, do so now.  */
+      if (*expr_p)
+	{
+	  tree lhs = TREE_OPERAND (*expr_p, 0);
+	  tree rhs = TREE_OPERAND (*expr_p, 1);
+	  gimple init = build_gimple_assign (lhs, rhs);
+	  gimple_add (pre_p, init);
+	  *expr_p = NULL;
+	}
+
+      return GS_ALL_DONE;
+    }
 }
 
 /* Given a pointer value OP0, return a simplified version of an
