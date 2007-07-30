@@ -81,6 +81,19 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 static GTY((param1_is(int), param2_is(tree)))
      splay_tree reference_vars_to_consider;
 
+static void *
+ggc_alloc_ase_splay_tree (int sz, void *nl)
+{
+  return ggc_splay_alloc_tree (gt_e_IP9tree_node12splay_tree_s, sz, nl);
+}
+
+static void *
+ggc_alloc_ase_splay_node (int sz, void *nl)
+{
+  return ggc_splay_alloc_node (gt_e_IP9tree_node17splay_tree_node_s, sz, nl);
+}
+
+
 /* This bitmap is used to knock out the module static variables whose
    addresses have been taken and passed around.  */
 static bitmap module_statics_escape;
@@ -745,7 +758,8 @@ ipa_init (void)
   memory_identifier_string = build_string(7, "memory");
 
   reference_vars_to_consider =
-    splay_tree_new_ggc (splay_tree_compare_ints);
+      splay_tree_new_ggc (splay_tree_compare_ints, ggc_alloc_ase_splay_tree,
+                          ggc_alloc_ase_splay_node);
 
   bitmap_obstack_initialize (&ipa_obstack);
   module_statics_escape = BITMAP_ALLOC (&ipa_obstack);

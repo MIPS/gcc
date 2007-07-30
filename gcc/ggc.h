@@ -103,11 +103,12 @@ extern void *ggc_alloc_atomic_stat (size_t MEM_STAT_DECL);
 #define htab_create_ggc(SIZE, HASH, EQ, DEL) \
   htab_create_alloc (SIZE, HASH, EQ, DEL, ggc_calloc, NULL)
 
-#define splay_tree_new_ggc(COMPARE)					 \
-  splay_tree_new_with_allocator (COMPARE, NULL, NULL,			 \
-                                 &ggc_splay_alloc, &ggc_splay_dont_free, \
-				 NULL)
-extern void *ggc_splay_alloc (int, void *);
+#define splay_tree_new_ggc(COMPARE, ALLOC_TREE, ALLOC_NODE) \
+  splay_tree_new_with_separate_allocators (COMPARE, NULL, NULL, \
+                                           &ALLOC_TREE, &ALLOC_NODE,    \
+                                           &ggc_splay_dont_free, NULL)
+extern void *ggc_splay_alloc_tree (enum gt_types_enum, int, void *);
+extern void *ggc_splay_alloc_node (enum gt_types_enum, int, void *);
 extern void ggc_splay_dont_free (void *, void *);
 
 /* Allocate a gc-able string, and fill it with LENGTH bytes from CONTENTS.

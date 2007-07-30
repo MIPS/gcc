@@ -2638,16 +2638,7 @@ write_typed_alloc_defns (type_p structures)
 	write_typed_struct_alloc_def (s, "cleared_vec_", "gt_ggc_e_",
 				      VECTOR_DEF);
       }
-  /* TODO! Not clear at this stage if this is needed or not.
-  for (s = param_structs; s; s = s->next)
-    if (s->gc_used == GC_POINTED_TO)
-      {
-	write_typed_struct_alloc_def (s, "", "gt_e_", NON_VECTOR_DEF);
-	write_typed_struct_alloc_def (s, "cleared_", "gt_e_", NON_VECTOR_DEF);
-	write_typed_struct_alloc_def (s, "vec_", "gt_e_", VECTOR_DEF);
-	write_typed_struct_alloc_def (s, "cleared_vec_", "gt_e_", VECTOR_DEF);
-      }
-  */
+
   oprintf (header_file, "\n/* Typed allocation for known typedefs.  */\n");
   for (p = typedefs; p != NULL; p = p->next)
     {

@@ -14,7 +14,7 @@ WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 General Public License for more details.
 
-You should have received a copy of the GNU General Public License
+You should have received a copy of the GNU General Public Liecnse
 along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street - Fifth Floor,
 Boston, MA 02110-1301, USA.  */
@@ -107,7 +107,7 @@ struct splay_tree_s GTY(())
   splay_tree_delete_value_fn delete_value;
 
   /* Allocate/free functions, and a data pointer to pass to them.  */
-  splay_tree_allocate_fn allocate;
+  splay_tree_allocate_fn allocate_node;
   splay_tree_deallocate_fn deallocate;
   void * GTY((skip)) allocate_data;
 
@@ -120,6 +120,13 @@ extern splay_tree splay_tree_new        (splay_tree_compare_fn,
 extern splay_tree splay_tree_new_with_allocator (splay_tree_compare_fn,
                                                  splay_tree_delete_key_fn,
 					        splay_tree_delete_value_fn,
+                                                 splay_tree_allocate_fn,
+                                                 splay_tree_deallocate_fn,
+                                                 void *);
+extern splay_tree splay_tree_new_with_separate_allocators (splay_tree_compare_fn,
+                                                 splay_tree_delete_key_fn,
+                                                 splay_tree_delete_value_fn,
+                                                 splay_tree_allocate_fn,
                                                  splay_tree_allocate_fn,
                                                  splay_tree_deallocate_fn,
                                                  void *);

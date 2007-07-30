@@ -28,6 +28,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "hashtab.h"
 #include "ggc.h"
 #include "ggc-internal.h"
+#include "splay-tree.h"
 #include "toplev.h"
 #include "params.h"
 #include "hosthooks.h"
@@ -138,10 +139,19 @@ ggc_calloc (size_t s1, size_t s2)
 
 /* These are for splay_tree_new_ggc.  */
 void *
-ggc_splay_alloc (int sz, void *nl)
+ggc_splay_alloc_tree (enum gt_types_enum obj_type, int sz, void *nl)
 {
   gcc_assert (!nl);
-  return ggc_alloc (sz);
+  gcc_assert (sz == sizeof (struct splay_tree_s));
+  return ggc_alloc_typed (obj_type, sz);
+}
+
+void *
+ggc_splay_alloc_node (enum gt_types_enum obj_type, int sz, void *nl)
+{
+  gcc_assert (!nl);
+  gcc_assert (sz == sizeof (struct splay_tree_node_s));
+  return ggc_alloc_typed (obj_type, sz);
 }
 
 void
