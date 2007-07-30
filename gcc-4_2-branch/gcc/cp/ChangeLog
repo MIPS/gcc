@@ -1,3 +1,16 @@
+2007-07-28  Simon Martin  <simartin@users.sourceforge.net>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/30917
+	* name-lookup.c (lookup_name_real): Non namespace-scope bindings can be
+	hidden due to friend declarations in local classes.
+
+2007-07-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/32346
+	* call.c (convert_for_arg_passing): Only widen bitfields to their
+	declared types if necessary.
+
 2007-07-24  Paolo Carlini  <pcarlini@suse.de>
 
 	PR c++/30535
