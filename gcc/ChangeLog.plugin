@@ -1,0 +1,13 @@
+2007-07-17  Sean Callanan  <spyffe@cs.sunysb.edu>
+
+	* tree-plugin.c: New.
+	* tree-plugin.h: New.
+	* plugin.opt: New.
+	* opts.c (common_handle_option): Add a handler for -ftree-plugin.
+	* timevar.def: Add a timevar for the parameter to -ftree-plugin.
+	* configure.ac: Enable plug-ins on supported platforms.
+	* c-opts.c (c_common_init): Initialize plug-ins before parsing.
+	* c-opts.c (c_common_finish): Cleanup plug-ins after parsing.
+	* Makefile.in: Include plug-in functionality in the build and export
+	symbols from GCC when plug-ins are enabled.
+	* passes.c: Execute all plug-ins as a GIMPLE optimization pass.

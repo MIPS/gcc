@@ -1,0 +1,6 @@
+2007-07-17  Sean Callanan  <spyffe@cs.sunysb.edu>
+
+	* configure.ac: Enable plug-ins on supported platforms.
+	* Makefile.in: Add rules for building libltdl when plug-ins
+	are enabled.
+	* libltdl: New.
