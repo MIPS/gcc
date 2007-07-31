@@ -1892,7 +1892,8 @@ classpath/gnu/java/text/WordBreakIterator.java
 gnu_java_text_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_text_source_files)))
 gnu_java_util_source_files = \
 classpath/gnu/java/util/DoubleEnumeration.java \
-classpath/gnu/java/util/EmptyEnumeration.java
+classpath/gnu/java/util/EmptyEnumeration.java \
+classpath/gnu/java/util/ZoneInfo.java
 
 gnu_java_util_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_util_source_files)))
 gnu_java_util_prefs_source_files = \
