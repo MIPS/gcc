@@ -1736,8 +1736,8 @@ vect_get_constant_vectors (slp_tree slp_node, VEC(tree,heap) **vec_oprnds,
   if (STMT_VINFO_DATA_REF (stmt_vinfo))
     is_store = true;
 
-  /* If group size is less than the number of units in vector, we
-     will put NUNITS / GROUP_SIZE copies of each operand.
+  /* NUMBER_OF_COPIES is the number of times we need to use the same values in
+     created vectors. It is greater than 1 if unrolling is performed. 
 
      For example, we have two scalar operands, s1 and s2 (e.g., group of
      strided accesses of size two), while NUINTS is four (i.e., four scalars
@@ -1745,17 +1745,17 @@ vect_get_constant_vectors (slp_tree slp_node, VEC(tree,heap) **vec_oprnds,
      two copies of each scalar operand: {s1, s2, s1, s2}. (NUMBER_OF_COPIES
      will be 2).
 
-     Otherwise, we create GROUP_SIZE / NUNITS vectors containing the operands.
+     If GROUP_SIZE > NUNITS, the scalars will be split into several vectors 
+     containing the operands.
 
      For example, NUINTS is four as before, and the group size is 8 
      (s1, s2, ..., s8). We will create two vectors {s1, s2, s3, s4} and
      {s5, s6, s7, s8}.  */
-
-  if (group_size < nunits)
-    number_of_copies = nunits / group_size;
+    
+  number_of_copies = least_common_multiple (nunits, group_size) / group_size;
 
   number_of_places_left_in_vector = nunits;
-  for (j = 0; j < number_of_copies; j ++)
+  for (j = 0; j < number_of_copies; j++)
     {
       for (i = group_size - 1; VEC_iterate (tree, stmts, i, stmt); i--)
         {

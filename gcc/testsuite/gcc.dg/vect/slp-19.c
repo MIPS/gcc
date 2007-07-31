@@ -108,21 +108,15 @@ main1 ()
         abort ();
     }
 
-  /* Hybrid SLP.  */
-  for (i = 0; i < N/2; i++)
+  /* Hybrid SLP with unrolling by 2.  */
+  for (i = 0; i < N; i++)
     {
-      out[i*12] = in[i*12];
-      out[i*12 + 1] = in[i*12 + 1];
-      out[i*12 + 2] = in[i*12 + 2];
-      out[i*12 + 3] = in[i*12 + 3];
-      out[i*12 + 4] = in[i*12 + 4];
-      out[i*12 + 5] = in[i*12 + 5];
-      out[i*12 + 6] = in[i*12 + 6];
-      out[i*12 + 7] = in[i*12 + 7];
-      out[i*12 + 8] = in[i*12 + 8];
-      out[i*12 + 9] = in[i*12 + 9];
-      out[i*12 + 10] = in[i*12 + 10];
-      out[i*12 + 11] = in[i*12 + 11];
+      out[i*6] = in[i*6];
+      out[i*6 + 1] = in[i*6 + 1];
+      out[i*6 + 2] = in[i*6 + 2];
+      out[i*6 + 3] = in[i*6 + 3];
+      out[i*6 + 4] = in[i*6 + 4];
+      out[i*6 + 5] = in[i*6 + 5];
     
       ia[i] = i;
     } 
@@ -130,18 +124,12 @@ main1 ()
   /* check results:  */
   for (i = 0; i < N/2; i++)
     {
-      if (out[i*12] !=  in[i*12]
-         || out[i*12 + 1] != in[i*12 + 1]
-         || out[i*12 + 2] != in[i*12 + 2]
-         || out[i*12 + 3] != in[i*12 + 3]
-         || out[i*12 + 4] != in[i*12 + 4]
-         || out[i*12 + 5] != in[i*12 + 5]
-         || out[i*12 + 6] != in[i*12 + 6]
-         || out[i*12 + 7] != in[i*12 + 7]
-         || out[i*12 + 8] != in[i*12 + 8]
-         || out[i*12 + 9] != in[i*12 + 9]
-         || out[i*12 + 10] != in[i*12 + 10]
-         || out[i*12 + 11] != in[i*12 + 11]
+      if (out[i*6] !=  in[i*6]
+         || out[i*6 + 1] != in[i*6 + 1]
+         || out[i*6 + 2] != in[i*6 + 2]
+         || out[i*6 + 3] != in[i*6 + 3]
+         || out[i*6 + 4] != in[i*6 + 4]
+         || out[i*6 + 5] != in[i*6 + 5]
          || ia[i] != i)
         abort ();
     }

@@ -56,7 +56,55 @@ main1 ()
         abort ();
     }
 
+  /* SLP with unrolling by 8.  */
+  for (i = 0; i < N; i++)
+    {
+      out[i*5] = 8;
+      out[i*5 + 1] = 7;
+      out[i*5 + 2] = 81;
+      out[i*5 + 3] = 28;
+      out[i*5 + 4] = 18;
+    }
 
+  /* check results:  */
+  for (i = 0; i < N; i++)
+    {
+      if (out[i*5] != 8
+         || out[i*5 + 1] != 7
+         || out[i*5 + 2] != 81
+         || out[i*5 + 3] != 28
+         || out[i*5 + 4] != 18)
+        abort ();
+    }
+
+  /* SLP with unrolling by 8.  */
+  for (i = 0; i < N/2; i++)
+    {
+      out[i*9] = 8;
+      out[i*9 + 1] = 7;
+      out[i*9 + 2] = 81;
+      out[i*9 + 3] = 28;
+      out[i*9 + 4] = 18;
+      out[i*9 + 5] = 85;
+      out[i*9 + 6] = 5;
+      out[i*9 + 7] = 4;
+      out[i*9 + 8] = 14;
+    }
+
+  /* check results:  */
+  for (i = 0; i < N/2; i++)
+    {
+      if (out[i*9] != 8
+         || out[i*9 + 1] != 7
+         || out[i*9 + 2] != 81
+         || out[i*9 + 3] != 28
+         || out[i*9 + 4] != 18
+         || out[i*9 + 5] != 85
+         || out[i*9 + 6] != 5
+         || out[i*9 + 7] != 4
+         || out[i*9 + 8] != 14)
+        abort ();
+    }
 
   return 0;
 }
@@ -70,7 +118,7 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect"  } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect"  } } */
+/* { dg-final { scan-tree-dump-times "vectorized 4 loops" 1 "vect"  } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 4 "vect"  } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
   

@@ -99,6 +99,35 @@ main1 ()
         abort ();
     }
 
+  /* SLP with unrolling by 8.  */
+  for (i = 0; i < N/2; i++)
+    {
+      out[i*9] = in[i*9];
+      out[i*9 + 1] = in[i*9 + 1];
+      out[i*9 + 2] = in[i*9 + 2];
+      out[i*9 + 3] = in[i*9 + 3];
+      out[i*9 + 4] = in[i*9 + 4];
+      out[i*9 + 5] = in[i*9 + 5];
+      out[i*9 + 6] = in[i*9 + 6];
+      out[i*9 + 7] = in[i*9 + 7];
+      out[i*9 + 8] = in[i*9 + 8];
+    }
+
+  /* check results:  */
+  for (i = 0; i < N/2; i++)
+    {
+      if (out[i*9] !=  in[i*9]
+         || out[i*9 + 1] != in[i*9 + 1]
+         || out[i*9 + 2] != in[i*9 + 2]
+         || out[i*9 + 3] != in[i*9 + 3]
+         || out[i*9 + 4] != in[i*9 + 4]
+         || out[i*9 + 5] != in[i*9 + 5]
+         || out[i*9 + 6] != in[i*9 + 6]
+         || out[i*9 + 7] != in[i*9 + 7]
+         || out[i*9 + 8] != in[i*9 + 8])
+        abort ();
+    }
+
 
   return 0;
 }

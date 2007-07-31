@@ -77,6 +77,55 @@ main1 (unsigned short a0, unsigned short a1, unsigned short a2,
         abort ();
     }
 
+  /* SLP with unrolling by 8.  */
+  for (i = 0; i < N; i++)
+    {
+      out[i*3] = a8;
+      out[i*3 + 1] = a1;
+      out[i*3 + 2] = a2;
+    }
+
+  /* check results:  */
+  for (i = 0; i < N; i++)
+    {
+      if (out[i*3] != a8
+         || out[i*3 + 1] != a1
+         || out[i*3 + 2] != a2)
+        abort ();
+    }
+
+  /* SLP with unrolling by 8.  */
+  for (i = 0; i < N; i++)
+    {
+      out[i*11] = a8;
+      out[i*11 + 1] = a7;
+      out[i*11 + 2] = a1;
+      out[i*11 + 3] = a2;
+      out[i*11 + 4] = a8;
+      out[i*11 + 5] = a5;
+      out[i*11 + 6] = a5;
+      out[i*11 + 7] = a4;
+      out[i*11 + 8] = a12;
+      out[i*11 + 9] = a13;
+      out[i*11 + 10] = a14;
+    }
+
+  /* check results:  */
+  for (i = 0; i < N; i++)
+    {
+      if (out[i*11] != a8
+          || out[i*11 + 1] != a7
+          || out[i*11 + 2] != a1
+          || out[i*11 + 3] != a2
+          || out[i*11 + 4] != a8
+          || out[i*11 + 5] != a5
+          || out[i*11 + 6] != a5
+          || out[i*11 + 7] != a4
+          || out[i*11 + 8] != a12
+          || out[i*11 + 9] != a13
+          || out[i*11 + 10] != a14)
+        abort ();
+    }
 
 
   return 0;
@@ -91,7 +140,7 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect"  } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect"  } } */
+/* { dg-final { scan-tree-dump-times "vectorized 4 loops" 1 "vect"  } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 4 "vect"  } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
   

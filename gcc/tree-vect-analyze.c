@@ -505,6 +505,14 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
       if (vect_print_dump_info (REPORT_DETAILS)) 
 	fprintf (vect_dump, "PURE SLP: VF = %d", vectorization_factor);
     }
+  else
+    {
+      vectorization_factor = least_common_multiple (vectorization_factor,
+                                 LOOP_VINFO_SLP_UNROLLING_FACTOR (loop_vinfo));
+      LOOP_VINFO_VECT_FACTOR (loop_vinfo) = vectorization_factor;
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "VF = %d", vectorization_factor);
+    }
 
   /* After VF is set, SLP costs should be updated since the number of created
      vector stmts depends on VF.  */
@@ -1913,7 +1921,6 @@ vect_analyze_data_ref_access (struct data_reference *dr)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   HOST_WIDE_INT dr_step = TREE_INT_CST_LOW (step);
   HOST_WIDE_INT stride;
-  int nunits = TYPE_VECTOR_SUBPARTS (get_vectype_for_scalar_type (scalar_type));
   bool slp_impossible = false;
 
   /* Don't allow invariant accesses.  */
@@ -2119,24 +2126,6 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 
 	  if (slp_impossible)
 	    return false;
-
-	  if (stride < nunits && (nunits % stride) != 0)
-	    {
-	      /* SLP is possible only with conceptual unrolling by 
-		 nunits/stride, hence nunits/stride must be an integer.  */
-	      if (vect_print_dump_info (REPORT_DETAILS))
-		fprintf (vect_dump, "Possible SLP group of illegal size");	      
-	      return false;
-	    }
-
-	  if (stride > nunits && (stride % nunits) != 0)
-	    {
-	      /* For SLP, the group should be distributed into stride/nunits
-		 vectors, hence stride/nunits should be an integer.  */
-	      if (vect_print_dump_info (REPORT_DETAILS))
-		fprintf (vect_dump, "Possible SLP group of illegal size");
-	      return false;
-	    }
 	}
       DR_GROUP_SIZE (vinfo_for_stmt (stmt)) = stride;
       if (vect_print_dump_info (REPORT_DETAILS))
@@ -2147,6 +2136,7 @@ vect_analyze_data_ref_access (struct data_reference *dr)
       if (!DR_IS_READ (dr) && !slp_impossible)
 	VEC_safe_push (tree, heap, LOOP_VINFO_STRIDED_STORES (loop_vinfo), stmt);
     }
+
   return true;
 }
 
@@ -2644,11 +2634,7 @@ vect_analyze_slp_instance (loop_vec_info loop_vinfo, tree stmt)
   SLP_TREE_INSIDE_OF_LOOP_COST (node) = 0;
 
   /* Calculate the unrolling factor.  */
-  if (nunits > group_size)
-    {
-      unrolling_factor = nunits / group_size;
-      gcc_assert (!(nunits % group_size));
-    }
+  unrolling_factor = least_common_multiple (nunits, group_size) / group_size;
 	
   /* Calculate the number of vector stmts to create based on the unrolling
      factor (number of vectors is 1 if NUNITS >= GROUP_SIZE, and is
