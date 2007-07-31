@@ -1561,7 +1561,7 @@ walk_type (type_p t, struct walk_type_data *d)
       use_param_num = oo->name[9] == '\0' ? 0 : oo->name[9] - '0';
     else if (strcmp (oo->name, "use_params") == 0)
       use_params_p = 1;
-    else if (strcmp (oo->name, "size_not_fixed") == 0)
+    else if (strcmp (oo->name, "variable_size") == 0)
       ;
     else if (strcmp (oo->name, "desc") == 0)
       desc = oo->info;
@@ -2567,7 +2567,7 @@ has_size_p (const type_p s)
 {
   options_p o;
   for (o = s->u.s.opt; o; o = o->next)
-    if (strcmp (o->name, "size_not_fixed") == 0)
+    if (strcmp (o->name, "variable_size") == 0)
       return 1;
   return 0;
 }
