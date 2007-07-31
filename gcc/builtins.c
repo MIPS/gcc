@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -153,7 +152,7 @@ static tree fold_builtin_strlen (tree);
 static tree fold_builtin_inf (tree, int);
 static tree fold_builtin_nan (tree, tree, int);
 static tree rewrite_call_expr (tree, int, tree, int, ...);
-static bool validate_arg (tree, enum tree_code code);
+static bool validate_arg (const_tree, enum tree_code code);
 static bool integer_valued_real_p (tree);
 static tree fold_trunc_transparent_mathfn (tree, tree);
 static bool readonly_data_expr (tree);
@@ -6986,11 +6985,11 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
    Otherwise the return value is END_BUILTINS.  */
 
 enum built_in_function
-builtin_mathfn_code (tree t)
+builtin_mathfn_code (const_tree t)
 {
-  tree fndecl, arg, parmlist;
-  tree argtype, parmtype;
-  call_expr_arg_iterator iter;
+  const_tree fndecl, arg, parmlist;
+  const_tree argtype, parmtype;
+  const_call_expr_arg_iterator iter;
 
   if (TREE_CODE (t) != CALL_EXPR
       || TREE_CODE (CALL_EXPR_FN (t)) != ADDR_EXPR)
@@ -7004,7 +7003,7 @@ builtin_mathfn_code (tree t)
     return END_BUILTINS;
 
   parmlist = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
-  init_call_expr_arg_iterator (t, &iter);
+  init_const_call_expr_arg_iterator (t, &iter);
   for (; parmlist; parmlist = TREE_CHAIN (parmlist))
     {
       /* If a function doesn't take a variable number of arguments,
@@ -7012,15 +7011,15 @@ builtin_mathfn_code (tree t)
       parmtype = TREE_VALUE (parmlist);
       if (VOID_TYPE_P (parmtype))
 	{
-	  if (more_call_expr_args_p (&iter))
+	  if (more_const_call_expr_args_p (&iter))
 	    return END_BUILTINS;
 	  return DECL_FUNCTION_CODE (fndecl);
 	}
 
-      if (! more_call_expr_args_p (&iter))
+      if (! more_const_call_expr_args_p (&iter))
 	return END_BUILTINS;
       
-      arg = next_call_expr_arg (&iter);
+      arg = next_const_call_expr_arg (&iter);
       argtype = TREE_TYPE (arg);
 
       if (SCALAR_FLOAT_TYPE_P (parmtype))
@@ -10611,7 +10610,7 @@ rewrite_call_expr (tree exp, int skip, tree fndecl, int n, ...)
    a type.  */
   
 static bool
-validate_arg (tree arg, enum tree_code code)
+validate_arg (const_tree arg, enum tree_code code)
 {
   if (!arg)
     return false;
@@ -10626,16 +10625,16 @@ validate_arg (tree arg, enum tree_code code)
    VOID_TYPE.  */
 
 bool
-validate_arglist (tree callexpr, ...)
+validate_arglist (const_tree callexpr, ...)
 {
   enum tree_code code;
   bool res = 0;
   va_list ap;
-  call_expr_arg_iterator iter;
-  tree arg;
+  const_call_expr_arg_iterator iter;
+  const_tree arg;
 
   va_start (ap, callexpr);
-  init_call_expr_arg_iterator (callexpr, &iter);
+  init_const_call_expr_arg_iterator (callexpr, &iter);
 
   do
     {
@@ -10649,13 +10648,13 @@ validate_arglist (tree callexpr, ...)
 	case VOID_TYPE:
 	  /* This signifies an endlink, if no arguments remain, return
 	     true, otherwise return false.  */
-	  res = !more_call_expr_args_p (&iter);
+	  res = !more_const_call_expr_args_p (&iter);
 	  goto end;
 	default:
 	  /* If no parameters remain or the parameter's code does not
 	     match the specified code, return false.  Otherwise continue
 	     checking any remaining arguments.  */
-	  arg = next_call_expr_arg (&iter);
+	  arg = next_const_call_expr_arg (&iter);
 	  if (!validate_arg (arg, code))
 	    goto end;
 	  break;

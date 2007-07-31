@@ -1080,6 +1080,14 @@ structural_comptypes (tree t1, tree t2, int strict)
       return same_type_p (PACK_EXPANSION_PATTERN (t1), 
                           PACK_EXPANSION_PATTERN (t2));
 
+    case DECLTYPE_TYPE:
+      if (DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (t1)
+          != DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (t2)
+          || !cp_tree_equal (DECLTYPE_TYPE_EXPR (t1), 
+                             DECLTYPE_TYPE_EXPR (t2)))
+        return false;
+      break;
+
     default:
       return false;
     }
@@ -6639,7 +6647,7 @@ check_return_expr (tree retval, bool *no_warning)
        || DECL_OVERLOADED_OPERATOR_P (current_function_decl) == VEC_NEW_EXPR)
       && !TYPE_NOTHROW_P (TREE_TYPE (current_function_decl))
       && ! flag_check_new
-      && null_ptr_cst_p (retval))
+      && retval && null_ptr_cst_p (retval))
     warning (0, "%<operator new%> must not return NULL unless it is "
 	     "declared %<throw()%> (or -fcheck-new is in effect)");
 

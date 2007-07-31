@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_BASIC_BLOCK_H
 #define GCC_BASIC_BLOCK_H
@@ -349,6 +348,15 @@ enum bb_flags
 #define BB_COPY_PARTITION(dstbb, srcbb) \
   BB_SET_PARTITION (dstbb, BB_PARTITION (srcbb))
 
+/* State of dominance information.  */
+
+enum dom_state
+{
+  DOM_NONE,		/* Not computed at all.  */
+  DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not usable.  */
+  DOM_OK		/* Everything is ok.  */
+};
+
 /* A structure to group all the per-function control flow graph data.
    The x_* prefixing is necessary because otherwise references to the
    fields of this struct are interpreted as the defines for backward
@@ -381,6 +389,12 @@ struct control_flow_graph GTY(())
     PROFILE_GUESSED,
     PROFILE_READ
   } x_profile_status;
+
+  /* Whether the dominators and the postdominators are available.  */
+  enum dom_state x_dom_computed[2];
+
+  /* Number of basic blocks in the dominance tree.  */
+  unsigned x_n_bbs_in_dom_tree[2];
 };
 
 /* Defines for accessing the fields of the CFG structure for function FN.  */
@@ -886,13 +900,6 @@ enum cdi_direction
 {
   CDI_DOMINATORS = 1,
   CDI_POST_DOMINATORS = 2
-};
-
-enum dom_state
-{
-  DOM_NONE,		/* Not computed at all.  */
-  DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not usable.  */
-  DOM_OK		/* Everything is ok.  */
 };
 
 extern enum dom_state dom_info_state (enum cdi_direction);

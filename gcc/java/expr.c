@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -419,8 +418,8 @@ pop_type (tree type)
 static int
 type_assertion_eq (const void * k1_p, const void * k2_p)
 {
-  type_assertion k1 = *(type_assertion *)k1_p;
-  type_assertion k2 = *(type_assertion *)k2_p;
+  const type_assertion k1 = *(const type_assertion *)k1_p;
+  const type_assertion k2 = *(const type_assertion *)k2_p;
   return (k1.assertion_code == k2.assertion_code
           && k1.op1 == k2.op1
 	  && k1.op2 == k2.op2);

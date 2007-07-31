@@ -378,10 +378,16 @@ extern const struct mips_rtx_cost_data *mips_cost;
 	builtin_define ("__mips_smartmips");			\
 								\
       if (TARGET_DSP)						\
-	builtin_define ("__mips_dsp");				\
-								\
-      if (TARGET_DSPR2)						\
-	builtin_define ("__mips_dspr2");			\
+	{							\
+	  builtin_define ("__mips_dsp");			\
+	  if (TARGET_DSPR2)					\
+	    {							\
+	      builtin_define ("__mips_dspr2");			\
+	      builtin_define ("__mips_dsp_rev=2");		\
+	    }							\
+	  else							\
+	    builtin_define ("__mips_dsp_rev=1");		\
+	}							\
 								\
       MIPS_CPP_SET_PROCESSOR ("_MIPS_ARCH", mips_arch_info);	\
       MIPS_CPP_SET_PROCESSOR ("_MIPS_TUNE", mips_tune_info);	\
@@ -813,7 +819,7 @@ extern const struct mips_rtx_cost_data *mips_cost;
 				 || TARGET_MIPS5500)
 
 /* ISA includes synci, jr.hb and jalr.hb.  */
-#define ISA_HAS_SYNCI ISA_MIPS32R2
+#define ISA_HAS_SYNCI (ISA_MIPS32R2 && !TARGET_MIPS16)
 
 
 /* Add -G xx support.  */

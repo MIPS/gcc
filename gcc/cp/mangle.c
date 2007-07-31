@@ -1544,6 +1544,9 @@ write_local_name (const tree function, const tree local_entity,
    C++0x extensions
 
      <type> ::= RR <type>   # rvalue reference-to
+     <type> ::= Dt <expression> # decltype of an id-expression or 
+                                # class member access
+     <type> ::= DT <expression> # decltype of an expression
 
    TYPE is a type node.  */
 
@@ -1575,21 +1578,18 @@ write_type (tree type)
     write_array_type (type);
   else
     {
+      tree type_orig = type;
+
       /* See through any typedefs.  */
       type = TYPE_MAIN_VARIANT (type);
 
       if (TYPE_PTRMEM_P (type))
 	write_pointer_to_member_type (type);
-      else switch (TREE_CODE (type))
-	{
-	case VOID_TYPE:
-	case BOOLEAN_TYPE:
-	case INTEGER_TYPE:  /* Includes wchar_t.  */
-	case REAL_TYPE:
-	{
+      else
+        {
 	  /* Handle any target-specific fundamental types.  */
 	  const char *target_mangling
-	    = targetm.mangle_fundamental_type (type);
+	    = targetm.mangle_type (type_orig);
 
 	  if (target_mangling)
 	    {
@@ -1597,81 +1597,99 @@ write_type (tree type)
 	      return;
 	    }
 
-	  /* If this is a typedef, TYPE may not be one of
-	     the standard builtin type nodes, but an alias of one.  Use
-	     TYPE_MAIN_VARIANT to get to the underlying builtin type.  */
-	  write_builtin_type (TYPE_MAIN_VARIANT (type));
-	  ++is_builtin_type;
-	  break;
-	}
+	  switch (TREE_CODE (type))
+	    {
+	    case VOID_TYPE:
+	    case BOOLEAN_TYPE:
+	    case INTEGER_TYPE:  /* Includes wchar_t.  */
+	    case REAL_TYPE:
+	      {
+		/* If this is a typedef, TYPE may not be one of
+		   the standard builtin type nodes, but an alias of one.  Use
+		   TYPE_MAIN_VARIANT to get to the underlying builtin type.  */
+		write_builtin_type (TYPE_MAIN_VARIANT (type));
+		++is_builtin_type;
+	      }
+	      break;
 
-	case COMPLEX_TYPE:
-	  write_char ('C');
-	  write_type (TREE_TYPE (type));
-	  break;
+	    case COMPLEX_TYPE:
+	      write_char ('C');
+	      write_type (TREE_TYPE (type));
+	      break;
 
-	case FUNCTION_TYPE:
-	case METHOD_TYPE:
-	  write_function_type (type);
-	  break;
+	    case FUNCTION_TYPE:
+	    case METHOD_TYPE:
+	      write_function_type (type);
+	      break;
 
-	case UNION_TYPE:
-	case RECORD_TYPE:
-	case ENUMERAL_TYPE:
-	  /* A pointer-to-member function is represented as a special
-	     RECORD_TYPE, so check for this first.  */
-	  if (TYPE_PTRMEMFUNC_P (type))
-	    write_pointer_to_member_type (type);
-	  else
-	    write_class_enum_type (type);
-	  break;
+	    case UNION_TYPE:
+	    case RECORD_TYPE:
+	    case ENUMERAL_TYPE:
+	      /* A pointer-to-member function is represented as a special
+		 RECORD_TYPE, so check for this first.  */
+	      if (TYPE_PTRMEMFUNC_P (type))
+		write_pointer_to_member_type (type);
+	      else
+		write_class_enum_type (type);
+	      break;
 
-	case TYPENAME_TYPE:
-	case UNBOUND_CLASS_TEMPLATE:
-	  /* We handle TYPENAME_TYPEs and UNBOUND_CLASS_TEMPLATEs like
-	     ordinary nested names.  */
-	  write_nested_name (TYPE_STUB_DECL (type));
-	  break;
+	    case TYPENAME_TYPE:
+	    case UNBOUND_CLASS_TEMPLATE:
+	      /* We handle TYPENAME_TYPEs and UNBOUND_CLASS_TEMPLATEs like
+		 ordinary nested names.  */
+	      write_nested_name (TYPE_STUB_DECL (type));
+	      break;
 
-	case POINTER_TYPE:
-	  write_char ('P');
-	  write_type (TREE_TYPE (type));
-	  break;
+	    case POINTER_TYPE:
+	      write_char ('P');
+	      write_type (TREE_TYPE (type));
+	      break;
 
-	case REFERENCE_TYPE:
-	  if (TYPE_REF_IS_RVALUE (type))
-            write_char('R');
-	  write_char ('R');
-	  write_type (TREE_TYPE (type));
-	  break;
+	    case REFERENCE_TYPE:
+	      if (TYPE_REF_IS_RVALUE (type))
+        	write_char('R');
+	      write_char ('R');
+	      write_type (TREE_TYPE (type));
+	      break;
 
-	case TEMPLATE_TYPE_PARM:
-	case TEMPLATE_PARM_INDEX:
-	  write_template_param (type);
-	  break;
+	    case TEMPLATE_TYPE_PARM:
+	    case TEMPLATE_PARM_INDEX:
+	      write_template_param (type);
+	      break;
 
-	case TEMPLATE_TEMPLATE_PARM:
-	  write_template_template_param (type);
-	  break;
+	    case TEMPLATE_TEMPLATE_PARM:
+	      write_template_template_param (type);
+	      break;
 
-	case BOUND_TEMPLATE_TEMPLATE_PARM:
-	  write_template_template_param (type);
-	  write_template_args
-	    (TI_ARGS (TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (type)));
-	  break;
+	    case BOUND_TEMPLATE_TEMPLATE_PARM:
+	      write_template_template_param (type);
+	      write_template_args
+		(TI_ARGS (TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (type)));
+	      break;
 
-	case VECTOR_TYPE:
-	  write_string ("U8__vector");
-	  write_type (TREE_TYPE (type));
-	  break;
+	    case VECTOR_TYPE:
+	      write_string ("U8__vector");
+	      write_type (TREE_TYPE (type));
+	      break;
 
-        case TYPE_PACK_EXPANSION:
-          write_string ("U10__variadic");
-          write_type (PACK_EXPANSION_PATTERN (type));
-          break;
+            case TYPE_PACK_EXPANSION:
+              write_string ("U10__variadic");
+              write_type (PACK_EXPANSION_PATTERN (type));
+              break;
 
-	default:
-	  gcc_unreachable ();
+            case DECLTYPE_TYPE:
+              write_char ('D');
+              if (DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (type))
+                write_char ('t');
+              else
+                write_char ('T');
+              write_expression (DECLTYPE_TYPE_EXPR (type));
+              write_char ('E');
+              break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
 	}
     }
 
@@ -2831,7 +2849,7 @@ static GTY ((param_is (union tree_node))) htab_t conv_type_names;
 static hashval_t
 hash_type (const void *val)
 {
-  return (hashval_t) TYPE_UID (TREE_TYPE ((tree) val));
+  return (hashval_t) TYPE_UID (TREE_TYPE ((const_tree) val));
 }
 
 /* Compare VAL1 (a node in the table) with VAL2 (a TYPE).  */
@@ -2839,7 +2857,7 @@ hash_type (const void *val)
 static int
 compare_type (const void *val1, const void *val2)
 {
-  return TREE_TYPE ((tree) val1) == (tree) val2;
+  return TREE_TYPE ((const_tree) val1) == (const_tree) val2;
 }
 
 /* Return an identifier for the mangled unqualified name for a

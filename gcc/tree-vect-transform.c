@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -266,7 +265,7 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo)
 
       /* If the number of iterations is unknown, or the
 	 peeling-for-misalignment amount is unknown, we eill have to generate
-	 a runtime test to test the loop count agains the threshold.  */
+	 a runtime test to test the loop count against the threshold.  */
       if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
 	  || (byte_misalign < 0))
 	runtime_test = true;
@@ -712,21 +711,32 @@ vect_create_addr_base_for_vector_ref (tree stmt,
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
-  tree data_ref_base = unshare_expr (DR_BASE_ADDRESS (dr));
-  tree base_name = build_fold_indirect_ref (data_ref_base);
+  tree data_ref_base_expr = unshare_expr (DR_BASE_ADDRESS (dr));
+  tree base_name = build_fold_indirect_ref (data_ref_base_expr);
+  tree data_ref_base_var;
+  tree data_ref_base;
+  tree new_base_stmt;
   tree vec_stmt;
   tree addr_base, addr_expr;
   tree dest, new_stmt;
   tree base_offset = unshare_expr (DR_OFFSET (dr));
   tree init = unshare_expr (DR_INIT (dr));
   tree vect_ptr_type, addr_expr2;
+  
+  
+  /* Create data_ref_base */
+  data_ref_base_var = create_tmp_var (TREE_TYPE (data_ref_base_expr), "batmp");
+  add_referenced_var (data_ref_base_var);
+  data_ref_base = force_gimple_operand (data_ref_base_expr, &new_base_stmt,
+					true, data_ref_base_var);
+  append_to_statement_list_force(new_base_stmt, new_stmt_list);
 
   /* Create base_offset */
   base_offset = size_binop (PLUS_EXPR, base_offset, init);
   base_offset = fold_convert (sizetype, base_offset);
   dest = create_tmp_var (TREE_TYPE (base_offset), "base_off");
   add_referenced_var (dest);
-  base_offset = force_gimple_operand (base_offset, &new_stmt, false, dest);  
+  base_offset = force_gimple_operand (base_offset, &new_stmt, true, dest); 
   append_to_statement_list_force (new_stmt, new_stmt_list);
 
   if (offset)

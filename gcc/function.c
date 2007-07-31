@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This file handles the generation of rtl code from tree structure
    at the level of the function as a whole.
@@ -203,7 +202,7 @@ extern tree debug_find_var_in_block_tree (tree, tree);
 /* We always define `record_insns' even if it's not used so that we
    can always export `prologue_epilogue_contains'.  */
 static void record_insns (rtx, VEC(int,heap) **) ATTRIBUTE_UNUSED;
-static int contains (rtx, VEC(int,heap) **);
+static int contains (const_rtx, VEC(int,heap) **);
 #ifdef HAVE_return
 static void emit_return_into_block (basic_block);
 #endif
@@ -1826,7 +1825,7 @@ aggregate_value_p (tree exp, tree fntype)
    should live on the local stack.  */
 
 bool
-use_register_for_decl (tree decl)
+use_register_for_decl (const_tree decl)
 {
   /* Honor volatile.  */
   if (TREE_SIDE_EFFECTS (decl))
@@ -4606,7 +4605,7 @@ set_insn_locators (rtx insn, int loc)
    be running after reorg, SEQUENCE rtl is possible.  */
 
 static int
-contains (rtx insn, VEC(int,heap) **vec)
+contains (const_rtx insn, VEC(int,heap) **vec)
 {
   int i, j;
 
@@ -4631,7 +4630,7 @@ contains (rtx insn, VEC(int,heap) **vec)
 }
 
 int
-prologue_epilogue_contains (rtx insn)
+prologue_epilogue_contains (const_rtx insn)
 {
   if (contains (insn, &prologue))
     return 1;
@@ -4641,7 +4640,7 @@ prologue_epilogue_contains (rtx insn)
 }
 
 int
-sibcall_epilogue_contains (rtx insn)
+sibcall_epilogue_contains (const_rtx insn)
 {
   if (sibcall_epilogue)
     return contains (insn, &sibcall_epilogue);
@@ -4705,7 +4704,7 @@ struct epi_info
 };
 
 static void handle_epilogue_set (rtx, struct epi_info *);
-static void update_epilogue_consts (rtx, rtx, void *);
+static void update_epilogue_consts (rtx, const_rtx, void *);
 static void emit_equiv_load (struct epi_info *);
 
 /* Modify INSN, a list of one or more insns that is part of the epilogue, to
@@ -4981,7 +4980,7 @@ handle_epilogue_set (rtx set, struct epi_info *p)
 /* Update the tracking information for registers set to constants.  */
 
 static void
-update_epilogue_consts (rtx dest, rtx x, void *data)
+update_epilogue_consts (rtx dest, const_rtx x, void *data)
 {
   struct epi_info *p = (struct epi_info *) data;
   rtx new;

@@ -1302,7 +1302,7 @@ reregister_specialization (tree spec, tree tmpl, tree new_spec)
 static int
 eq_local_specializations (const void *p1, const void *p2)
 {
-  return TREE_VALUE ((tree) p1) == (tree) p2;
+  return TREE_VALUE ((const_tree) p1) == (const_tree) p2;
 }
 
 /* Hash P1, an entry in the local specializations table.  */
@@ -1310,7 +1310,7 @@ eq_local_specializations (const void *p1, const void *p2)
 static hashval_t
 hash_local_specialization (const void* p1)
 {
-  return htab_hash_pointer (TREE_VALUE ((tree) p1));
+  return htab_hash_pointer (TREE_VALUE ((const_tree) p1));
 }
 
 /* Like register_specialization, but for local declarations.  We are
@@ -2213,7 +2213,7 @@ check_explicit_specialization (tree declarator,
               tree tmpl_func = DECL_TEMPLATE_RESULT (gen_tmpl);
               gcc_assert (TREE_CODE (tmpl_func) == FUNCTION_DECL);
 
-              /* This specialization has the same linkage and visiblity as
+              /* This specialization has the same linkage and visibility as
                  the function template it specializes.  */
               TREE_PUBLIC (decl) = TREE_PUBLIC (tmpl_func);
               DECL_THIS_STATIC (decl) = DECL_THIS_STATIC (tmpl_func);
@@ -4637,7 +4637,7 @@ convert_template_argument (tree parm,
   requires_type = (TREE_CODE (parm) == TYPE_DECL
 		   || requires_tmpl_type);
 
-  /* When determining whether a argument pack expansion is a template,
+  /* When determining whether an argument pack expansion is a template,
      look at the pattern.  */
   if (TREE_CODE (check_arg) == TYPE_PACK_EXPANSION)
     check_arg = PACK_EXPANSION_PATTERN (check_arg);
@@ -9058,6 +9058,22 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 					     complain);
       }
 
+    case DECLTYPE_TYPE:
+      {
+	tree type;
+
+	type = 
+          finish_decltype_type (tsubst_expr 
+                                (DECLTYPE_TYPE_EXPR (t), args,
+                                 complain, in_decl,
+                                 /*integral_constant_expression_p=*/false),
+                                DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (t));
+	return cp_build_qualified_type_real (type,
+					     cp_type_quals (t)
+					     | cp_type_quals (type),
+					     complain);
+      }
+
     case TYPE_ARGUMENT_PACK:
     case NONTYPE_ARGUMENT_PACK:
       {
@@ -9621,6 +9637,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case TYPENAME_TYPE:
     case UNBOUND_CLASS_TEMPLATE:
     case TYPEOF_TYPE:
+    case DECLTYPE_TYPE:
     case TYPE_DECL:
       return tsubst (t, args, complain, in_decl);
 
@@ -12824,6 +12841,12 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 
       break;
 
+    case TYPEOF_TYPE:
+    case DECLTYPE_TYPE:
+      /* Cannot deduce anything from TYPEOF_TYPE or DECLTYPE_TYPE
+         nodes.  */
+      return 0;
+
     default:
       gcc_assert (EXPR_P (parm));
 
@@ -14888,10 +14911,11 @@ dependent_type_p_r (tree type)
 	       (INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (type)))))
     return true;
 
-  /* All TYPEOF_TYPEs are dependent; if the argument of the `typeof'
-     expression is not type-dependent, then it should already been
-     have resolved.  */
-  if (TREE_CODE (type) == TYPEOF_TYPE)
+  /* All TYPEOF_TYPEs and DECLTYPE_TYPEs are dependent; if the
+     argument of the `typeof' expression is not type-dependent, then
+     it should already been have resolved.  */
+  if (TREE_CODE (type) == TYPEOF_TYPE
+      || TREE_CODE (type) == DECLTYPE_TYPE)
     return true;
 
   /* A template argument pack is dependent if any of its packed

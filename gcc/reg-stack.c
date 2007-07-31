@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* This pass converts stack-like registers from the "flat register
    file" model that gcc uses, to a stack convention that the 387 uses.
@@ -1356,9 +1355,9 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 	}
       /* Uninitialized USE might happen for functions returning uninitialized
          value.  We will properly initialize the USE on the edge to EXIT_BLOCK,
-	 so it is safe to ignore the use here. This is consistent with behaviour
+	 so it is safe to ignore the use here. This is consistent with behavior
 	 of dataflow analyzer that ignores USE too.  (This also imply that 
-	 forcingly initializing the register to NaN here would lead to ICE later,
+	 forcibly initializing the register to NaN here would lead to ICE later,
 	 since the REG_DEAD notes are not issued.)  */
       break;
 

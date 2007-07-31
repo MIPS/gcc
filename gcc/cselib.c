@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -234,7 +233,7 @@ static int
 entry_and_rtx_equal_p (const void *entry, const void *x_arg)
 {
   struct elt_loc_list *l;
-  const cselib_val *v = (const cselib_val *) entry;
+  const cselib_val *const v = (const cselib_val *) entry;
   rtx x = (rtx) x_arg;
   enum machine_mode mode = GET_MODE (x);
 
@@ -266,7 +265,7 @@ entry_and_rtx_equal_p (const void *entry, const void *x_arg)
 static hashval_t
 get_value_hash (const void *entry)
 {
-  const cselib_val *v = (const cselib_val *) entry;
+  const cselib_val *const v = (const cselib_val *) entry;
   return v->value;
 }
 
@@ -276,9 +275,9 @@ get_value_hash (const void *entry)
    removed.  */
 
 int
-references_value_p (rtx x, int only_useless)
+references_value_p (const_rtx x, int only_useless)
 {
-  enum rtx_code code = GET_CODE (x);
+  const enum rtx_code code = GET_CODE (x);
   const char *fmt = GET_RTX_FORMAT (code);
   int i, j;
 
@@ -385,7 +384,7 @@ remove_useless_values (void)
    VOIDmode.  */
 
 enum machine_mode
-cselib_reg_set_mode (rtx x)
+cselib_reg_set_mode (const_rtx x)
 {
   if (!REG_P (x))
     return GET_MODE (x);
@@ -954,7 +953,7 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 		 STACK_POINTER_REGNUM, FRAME_POINTER or the
 		 HARD_FRAME_POINTER.
 
-		 Thses expansions confuses the code that notices that
+		 These expansions confuses the code that notices that
 		 stores into the frame go dead at the end of the
 		 function and that the frame is not effected by calls
 		 to subroutines.  If you allow the
@@ -1355,8 +1354,8 @@ cselib_invalidate_regno (unsigned int regno, enum machine_mode mode)
    executions of the program.  0 means X can be compared reliably
    against certain constants or near-constants.  */
 
-static int
-cselib_rtx_varies_p (rtx x ATTRIBUTE_UNUSED, int from_alias ATTRIBUTE_UNUSED)
+static bool
+cselib_rtx_varies_p (const_rtx x ATTRIBUTE_UNUSED, bool from_alias ATTRIBUTE_UNUSED)
 {
   /* We actually don't need to verify very hard.  This is because
      if X has actually changed, we invalidate the memory anyway,
@@ -1469,7 +1468,7 @@ cselib_invalidate_rtx (rtx dest)
 /* A wrapper for cselib_invalidate_rtx to be called via note_stores.  */
 
 static void
-cselib_invalidate_rtx_note_stores (rtx dest, rtx ignore ATTRIBUTE_UNUSED,
+cselib_invalidate_rtx_note_stores (rtx dest, const_rtx ignore ATTRIBUTE_UNUSED,
 				   void *data ATTRIBUTE_UNUSED)
 {
   cselib_invalidate_rtx (dest);

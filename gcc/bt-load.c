@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -142,7 +141,7 @@ static void move_btr_def (basic_block, int, btr_def, bitmap, HARD_REG_SET *);
 static int migrate_btr_def (btr_def, int);
 static void migrate_btr_defs (enum reg_class, int);
 static int can_move_up (basic_block, rtx, int);
-static void note_btr_set (rtx, rtx, void *);
+static void note_btr_set (rtx, const_rtx, void *);
 
 /* The following code performs code motion of target load instructions
    (instructions that set branch target registers), to move them
@@ -424,7 +423,7 @@ typedef struct {
    straightforward definitions.  DATA points to information about the
    current basic block that needs updating.  */
 static void
-note_btr_set (rtx dest, rtx set ATTRIBUTE_UNUSED, void *data)
+note_btr_set (rtx dest, const_rtx set ATTRIBUTE_UNUSED, void *data)
 {
   defs_uses_info *info = data;
   int regno, end_regno;

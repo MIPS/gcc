@@ -31,9 +31,11 @@ Boston, MA 02110-1301, USA.  */
 #ifndef LIBGFOR_H
 #define LIBGFOR_H
 
+#include <stdio.h>
 #include <math.h>
 #include <stddef.h>
 #include <float.h>
+#include <stdarg.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846264338327
@@ -385,6 +387,7 @@ typedef struct
   int sign_zero;
   size_t record_marker;
   int max_subrecord_length;
+  int bounds_check;
 }
 compile_options_t;
 
@@ -592,7 +595,8 @@ iexport_proto(os_error);
 extern void show_locus (st_parameter_common *);
 internal_proto(show_locus);
 
-extern void runtime_error (const char *) __attribute__ ((noreturn));
+extern void runtime_error (const char *, ...)
+     __attribute__ ((noreturn, format (printf, 1, 2)));
 iexport_proto(runtime_error);
 
 extern void runtime_error_at (const char *, const char *)
@@ -605,10 +609,6 @@ internal_proto(internal_error);
 
 extern const char *get_oserror (void);
 internal_proto(get_oserror);
-
-extern void st_sprintf (char *, const char *, ...)
-  __attribute__ ((format (printf, 2, 3)));
-internal_proto(st_sprintf);
 
 extern const char *translate_error (int);
 internal_proto(translate_error);
@@ -686,6 +686,9 @@ internal_proto(unit_to_fd);
 extern int st_printf (const char *, ...)
   __attribute__ ((format (printf, 1, 2)));
 internal_proto(st_printf);
+
+extern int st_vprintf (const char *, va_list);
+internal_proto(st_vprintf);
 
 extern char * filename_from_unit (int);
 internal_proto(filename_from_unit);

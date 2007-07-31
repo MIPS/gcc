@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -145,7 +144,7 @@ static void store_constructor (tree, rtx, int, HOST_WIDE_INT);
 static rtx store_field (rtx, HOST_WIDE_INT, HOST_WIDE_INT, enum machine_mode,
 			tree, tree, int, bool);
 
-static unsigned HOST_WIDE_INT highest_pow2_factor_for_target (tree, tree);
+static unsigned HOST_WIDE_INT highest_pow2_factor_for_target (const_tree, const_tree);
 
 static int is_aligning_offset (tree, tree);
 static void expand_operands (tree, tree, rtx, rtx*, rtx*,
@@ -4657,7 +4656,7 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 /* Helper for categorize_ctor_elements.  Identical interface.  */
 
 static bool
-categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
+categorize_ctor_elements_1 (const_tree ctor, HOST_WIDE_INT *p_nz_elts,
 			    HOST_WIDE_INT *p_elt_count,
 			    bool *p_must_clear)
 {
@@ -4803,7 +4802,7 @@ categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
    as "initializer_constant_valid_p (CTOR, TREE_TYPE (CTOR)) != 0".  */
 
 bool
-categorize_ctor_elements (tree ctor, HOST_WIDE_INT *p_nz_elts,
+categorize_ctor_elements (const_tree ctor, HOST_WIDE_INT *p_nz_elts,
 			  HOST_WIDE_INT *p_elt_count,
 			  bool *p_must_clear)
 {
@@ -4820,7 +4819,7 @@ categorize_ctor_elements (tree ctor, HOST_WIDE_INT *p_nz_elts,
    array member at the end of the structure.  */
 
 HOST_WIDE_INT
-count_type_elements (tree type, bool allow_flexarr)
+count_type_elements (const_tree type, bool allow_flexarr)
 {
   const HOST_WIDE_INT max = ~((HOST_WIDE_INT)1 << (HOST_BITS_PER_WIDE_INT-1));
   switch (TREE_CODE (type))
@@ -5929,7 +5928,7 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
    as PACKED.  */
 
 bool
-contains_packed_reference (tree exp)
+contains_packed_reference (const_tree exp)
 {
   bool packed_p = false;
 
@@ -6061,7 +6060,7 @@ component_ref_field_offset (tree exp)
 /* Return 1 if T is an expression that get_inner_reference handles.  */
 
 int
-handled_component_p (tree t)
+handled_component_p (const_tree t)
 {
   switch (TREE_CODE (t))
     {
@@ -6447,7 +6446,7 @@ safe_from_p (rtx x, tree exp, int top_p)
    This is used in updating alignment of MEMs in array references.  */
 
 unsigned HOST_WIDE_INT
-highest_pow2_factor (tree exp)
+highest_pow2_factor (const_tree exp)
 {
   unsigned HOST_WIDE_INT c0, c1;
 
@@ -6518,7 +6517,7 @@ highest_pow2_factor (tree exp)
    the structure gives the alignment.  */
 
 static unsigned HOST_WIDE_INT
-highest_pow2_factor_for_target (tree target, tree exp)
+highest_pow2_factor_for_target (const_tree target, const_tree exp)
 {
   unsigned HOST_WIDE_INT target_align, factor;
 

@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /*
    Matrix flattening optimization tries to replace a N-dimensional 
@@ -390,7 +389,7 @@ static htab_t matrices_to_reorg = NULL;
 static hashval_t
 mtt_info_hash (const void *mtt)
 {
-  return htab_hash_pointer (((struct matrix_info *) mtt)->decl);
+  return htab_hash_pointer (((const struct matrix_info *) mtt)->decl);
 }
 
 /* Return true if MTT1 and MTT2 (which are really both of type
@@ -819,11 +818,15 @@ analyze_matrix_allocation_site (struct matrix_info *mi, tree stmt,
 		  return;
 		}
 	    }
-	  /* This is a call to malloc.  Check to see if this is the first
-	     call in this indirection level; if so, mark it; if not, mark
-	     as escaping.  */
+	  /* This is a call to malloc of level 'level'.  
+	     mi->max_malloced_level-1 == level  means that we've 
+	     seen a malloc statement of level 'level' before.  
+	     If the statement is not the same one that we've 
+	     seen before, then there's another malloc statement 
+	     for the same level, which means that we need to mark 
+	     it escaping.  */
 	  if (mi->malloc_for_level
-	      && mi->malloc_for_level[level]
+	      && mi->max_malloced_level-1 == level
 	      && mi->malloc_for_level[level] != stmt)
 	    {
 	      mark_min_matrix_escape_level (mi, level, stmt);

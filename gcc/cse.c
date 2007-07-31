@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 /* stdio.h must precede rtl.h for FFS.  */
@@ -559,7 +558,7 @@ static struct table_elt *insert (rtx, struct table_elt *, unsigned,
 				 enum machine_mode);
 static void merge_equiv_classes (struct table_elt *, struct table_elt *);
 static void invalidate (rtx, enum machine_mode);
-static int cse_rtx_varies_p (rtx, int);
+static bool cse_rtx_varies_p (const_rtx, bool);
 static void remove_invalid_refs (unsigned int);
 static void remove_invalid_subreg_refs (unsigned int, unsigned int,
 					enum machine_mode);
@@ -2060,7 +2059,7 @@ hash_rtx_string (const char *ps)
    is just (int) MEM plus the hash code of the address.  */
 
 unsigned
-hash_rtx (rtx x, enum machine_mode mode, int *do_not_record_p,
+hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
 	  int *hash_arg_in_memory_p, bool have_reg_qty)
 {
   int i, j;
@@ -2374,7 +2373,7 @@ safe_hash (rtx x, enum machine_mode mode)
    If FOR_GCSE is true, we compare X and Y for equivalence for GCSE.  */
 
 int
-exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
+exp_equiv_p (const_rtx x, const_rtx y, int validate, bool for_gcse)
 {
   int i, j;
   enum rtx_code code;
@@ -2566,8 +2565,8 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
    executions of the program.  0 means X can be compared reliably
    against certain constants or near-constants.  */
 
-static int
-cse_rtx_varies_p (rtx x, int from_alias)
+static bool
+cse_rtx_varies_p (const_rtx x, bool from_alias)
 {
   /* We need not check for X and the equivalence class being of the same
      mode because if X is equivalent to a constant in some mode, it

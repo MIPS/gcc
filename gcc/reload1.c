@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -396,7 +395,7 @@ static void check_eliminable_occurrences (rtx);
 static void elimination_effects (rtx, enum machine_mode);
 static int eliminate_regs_in_insn (rtx, int);
 static void update_eliminable_offsets (void);
-static void mark_not_eliminable (rtx, rtx, void *);
+static void mark_not_eliminable (rtx, const_rtx, void *);
 static void set_initial_elim_offsets (void);
 static bool verify_initial_elim_offsets (void);
 static void set_initial_label_offsets (void);
@@ -409,7 +408,7 @@ static void scan_paradoxical_subregs (rtx);
 static void count_pseudo (int);
 static void order_regs_for_reload (struct insn_chain *);
 static void reload_as_needed (int);
-static void forget_old_reloads_1 (rtx, rtx, void *);
+static void forget_old_reloads_1 (rtx, const_rtx, void *);
 static void forget_marked_reloads (regset);
 static int reload_reg_class_lower (const void *, const void *);
 static void mark_reload_reg_in_use (unsigned int, int, enum reload_type,
@@ -3478,7 +3477,7 @@ update_eliminable_offsets (void)
    the insns of the function.  */
 
 static void
-mark_not_eliminable (rtx dest, rtx x, void *data ATTRIBUTE_UNUSED)
+mark_not_eliminable (rtx dest, const_rtx x, void *data ATTRIBUTE_UNUSED)
 {
   unsigned int i;
 
@@ -4328,7 +4327,7 @@ reload_as_needed (int live_known)
    to be forgotten later.  */
 
 static void
-forget_old_reloads_1 (rtx x, rtx ignored ATTRIBUTE_UNUSED,
+forget_old_reloads_1 (rtx x, const_rtx ignored ATTRIBUTE_UNUSED,
 		      void *data)
 {
   unsigned int regno;
@@ -5324,7 +5323,7 @@ free_for_value_p (int regno, enum machine_mode mode, int opnum,
    memory.  */
 
 int
-function_invariant_p (rtx x)
+function_invariant_p (const_rtx x)
 {
   if (CONSTANT_P (x))
     return 1;

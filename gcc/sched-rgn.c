@@ -9,7 +9,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -18,9 +18,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This pass implements list scheduling within basic blocks.  It is
    run twice: (1) after flow analysis, but before register allocation,
@@ -276,7 +275,7 @@ static int is_prisky (rtx, int, int);
 static int is_exception_free (rtx, int, int);
 
 static bool sets_likely_spilled (rtx);
-static void sets_likely_spilled_1 (rtx, rtx, void *);
+static void sets_likely_spilled_1 (rtx, const_rtx, void *);
 static void add_branch_dependences (rtx, rtx);
 static void compute_block_backward_dependences (int);
 
@@ -2209,7 +2208,7 @@ sets_likely_spilled (rtx pat)
 }
 
 static void
-sets_likely_spilled_1 (rtx x, rtx pat, void *data)
+sets_likely_spilled_1 (rtx x, const_rtx pat, void *data)
 {
   bool *ret = (bool *) data;
 

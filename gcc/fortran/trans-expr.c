@@ -2245,17 +2245,6 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		    && fsym->attr.optional)
 		gfc_conv_missing_dummy (&parmse, e, fsym->ts);
 
-	      /* If an INTENT(OUT) dummy of derived type has a default
-		 initializer, it must be (re)initialized here.  */
-	      if (fsym->attr.intent == INTENT_OUT
-		    && fsym->ts.type == BT_DERIVED
-		    && fsym->value)
-		{
-		  gcc_assert (!fsym->attr.allocatable);
-		  tmp = gfc_trans_assignment (e, fsym->value, false);
-		  gfc_add_expr_to_block (&se->pre, tmp);
-		}
-
 	      /* Obtain the character length of an assumed character
 		 length procedure from the typespec.  */
 	      if (fsym->ts.type == BT_CHARACTER
@@ -3353,6 +3342,19 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
       return;
     }
 
+  if (expr->expr_type == EXPR_FUNCTION
+	&& expr->symtree->n.sym->attr.pointer
+	&& !expr->symtree->n.sym->attr.dimension)
+    {
+      se->want_pointer = 1;
+      gfc_conv_expr (se, expr);
+      var = gfc_create_var (TREE_TYPE (se->expr), NULL);
+      gfc_add_modify_expr (&se->pre, var, se->expr);
+      se->expr = var;
+      return;
+    }
+
+
   gfc_conv_expr (se, expr);
 
   /* Create a temporary var to hold the value.  */
@@ -3523,25 +3525,20 @@ gfc_trans_scalar_assign (gfc_se * lse, gfc_se * rse, gfc_typespec ts,
 	}
 
       /* Deallocate the lhs allocated components as long as it is not
-	 the same as the rhs.  */
+	 the same as the rhs.  This must be done following the assignment
+	 to prevent deallocating data that could be used in the rhs
+	 expression.  */
       if (!l_is_temp)
 	{
-	  tmp = gfc_deallocate_alloc_comp (ts.derived, lse->expr, 0);
+	  tmp = gfc_evaluate_now (lse->expr, &lse->pre);
+	  tmp = gfc_deallocate_alloc_comp (ts.derived, tmp, 0);
 	  if (r_is_var)
 	    tmp = build3_v (COND_EXPR, cond, build_empty_stmt (), tmp);
-	  gfc_add_expr_to_block (&lse->pre, tmp);
+	  gfc_add_expr_to_block (&lse->post, tmp);
 	}
 
-      if (r_is_var)
-	{
-	  gfc_add_block_to_block (&block, &lse->pre);
-	  gfc_add_block_to_block (&block, &rse->pre);
-	}
-      else
-	{
-	  gfc_add_block_to_block (&block, &rse->pre);
-	  gfc_add_block_to_block (&block, &lse->pre);
-	}
+      gfc_add_block_to_block (&block, &rse->pre);
+      gfc_add_block_to_block (&block, &lse->pre);
 
       gfc_add_modify_expr (&block, lse->expr,
 			   fold_convert (TREE_TYPE (lse->expr), rse->expr));

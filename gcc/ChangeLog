@@ -1,3 +1,1260 @@
+2007-07-31  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df.h (DF_RU, DF_RU_BB_INFO, df_ru_bb_info, df_ru,
+	df_ru_add_problem, df_ru_get_bb_info): Removed.
+	(DF_RD, DF_UREC, DF_CHAIN, DF_NOTE): Renumbered.
+	* df-problems.c (df_ru_problem_data, df_ru_set_bb_info,
+	df_ru_free_bb_info, df_ru_alloc,
+	df_ru_bb_local_compute_process_def,
+	df_ru_bb_local_compute_process_use, df_ru_bb_local_compute,
+	df_ru_local_compute, df_ru_init_solution, df_ru_confluence_n,
+	df_ru_transfer_function, df_ru_free, df_ru_start_dump,
+	df_ru_top_dump, df_ru_bottom_dump, df_problem problem_RU,
+	df_ru_add_problem): Removed.
+
+2007-07-31  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/32847
+	* pa.md (casesi32): Use match_scratch.  Revise insn condition.
+	(casesi32p, casesi64p): Likewise.
+	(casesi): Adjust for above.
+
+2007-07-31  Richard Sandiford  <richard@codesourcery.com>
+
+	* mode-switching.c (create_pre_exit): Don't search past calls.
+
+2007-07-31  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config/mips/mips.h (ISA_HAS_SYNCI):  Add !TARGET_MIPS16 test.
+
+2007-07-31  Revital Eres  <eres@il.ibm.com>
+
+	* ddg.c (add_deps_for_def): Rename to...
+	(add_cross_iteration_register_deps): This.  Change implementation
+	to use only reaching def and def-use chains to construct the
+	inter loop dependencies.
+	(add_deps_for_use): Remove function.
+	(build_inter_loop_deps): Call add_cross_iteration_register_deps
+	function to build the inter loop dependencies.
+	* modulo-sched.c (sms_schedule): Build only
+	reaching def and def-use chains for the propose of the ddg
+	construction.
+
+2007-07-31  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/neon.md (vec_set<mode>_internal, vec_setv2di_internal):
+	New define_insns. Use correct RTL.
+	(vec_set<mode>): Write as expander.
+
+2007-07-31  Razya Ladelsky  <razya@il.ibm.com>
+
+	* matrix-reorg.c (analyze_matrix_allocation_site): Avoid referring 
+	to an unallocated space.
+
+2007-07-30  Jan Sjodin  <jan.sjodin@amd.com>
+
+	* tree-data-ref.c
+	(split_constant_offset): Enable split_constant_offset to extract
+	constants from other statements.
+	* tree-vect-transform.c
+	(vect_create_addr_base_for_vector_ref): Generate data_ref_base
+	to a temp var. Force base_offset to be simple.
+
+2007-07-30  Seongbae Park <seongbae.park@gmail.com>
+
+	* df-scan.c (df_scan_verify): Remove artificial limit on
+	the number of blocks for verification.
+	* df-problems.c (df_lr_bb_local_compute, df_simulate_find_defs,
+	df_simulate_defs): Avoid unnecessary insn checking for defs.
+
+2007-07-29  Mark Mitchell  <mark@codesourcery.com>
+
+	gcc/
+	* config/m68k/lb1sf68.asm (FUNC): New macro.
+	(__mulsi3): Use it.
+	(__udivsi3): Likewise.
+	(__divsi3): Likewise.
+	(__umodsi3): Likewise.
+	(__modsi3): Likewise.
+	(__subdf3): Likewise.
+	(__adddf3): Likewise.
+	(__muldf3): Likewise.
+	(__divdf3): Likewise.
+	(__negdf2): Likewise.
+	(__cmpdf2): Likewise.
+	(__subsf3): Likewise.
+	(__addsf3): Likewise.
+	(__mulsf3): Likewise.
+	(__divsf3): Likewise.
+	(__negsf2): Likewise.
+	(__cmpsf2): Likewise.
+	(__eqdf2): Likewise.
+	(__nedf2): Likewise.
+	(__gtdf2): Likewise.
+	(__gedf2): Likewise.
+	(__ltdf2): Likewise.
+	(__ledf2): Likewise.
+	(__eqsf2): Likewise.
+	(__nesf2): Likewise.
+	(__gtsf2): Likewise.
+	(__gesf2): Likewise.
+	(__ltsf2): Likewise.
+	(__lesf2): Likewise.
+
+2007-07-30  Ollie Wild  <aaw@google.com>
+
+	* c-ppoutput.c (print_lines_directives_only): New function.
+	(scan_translation_unit_directives_only): New function.
+	(preprocess_file): Add call to scan_translation_unit_directives_only.
+	* c-opts.c (c_common_handle_option): Add OPT_fdirectives_only.
+	(sanitize_cpp_opts): Add default flag_dump_macros setting for
+	-fdirectives-only.  Add errors for -fdirectives-only conflict with
+	-Wunused-macros and -traditional.
+	(finish_options): Add builtin macro initialization for
+	-fdirectives-only + -fpreprocessed.
+	* c.opt (fdirectives-only): New.
+	* doc/cppopts.texi (fdirectives-only): New.
+
+2007-07-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* alias.c (record_set, memory_modified_1): Constify.
+	* bt-load.c (note_btr_set): Likewise.
+	* caller-save.c (mark_set_regs, add_stored_regs): Likewise.
+	* combine.c (set_nonzero_bits_and_sign_copies,
+	expand_field_assignment, record_dead_and_set_regs_1,
+	use_crosses_set_p, reg_dead_at_p_1, can_combine_p,
+	likely_spilled_retval_1): Likewise.
+	* config/frv/frv.c (frv_registers_update_1, frv_io_check_address,
+	frv_io_handle_set): Likewise.
+	* config/mips/mips.c (mips_sim_record_set,
+	vr4130_true_reg_dependence_p_1): Likewise.
+	* config/mt/mt.c (insn_dependent_p_1): Likewise.
+	* config/s390/s390.c (s390_reg_clobbered_rtx): Likewise.
+	* config/sh/sh.c (flow_dependent_p_1): Likewise.
+	* cselib.c (cselib_invalidate_rtx_note_stores): Likewise.
+	* dce.c (mark_nonreg_stores_1, mark_nonreg_stores_2): Likewise.
+	* ddg.c (mark_mem_store): Likewise.
+	* df-problems.c (df_urec_mark_reg_change): Likewise.
+	* function.c (update_epilogue_consts): Likewise.
+	* gcse.c (record_set_info, record_last_set_info,
+	mems_conflict_for_gcse_p, canon_list_insert, reg_set_info,
+	reg_clear_last_set): Likewise.
+	* global.c (mark_reg_store, mark_reg_clobber, reg_becomes_live):
+	Likewise.
+	* jump.c (reversed_comparison_code_parts): Likewise.
+	* local-alloc.c (validate_equiv_mem_from_store, no_equiv,
+	reg_is_set): Likewise.
+	* loop-iv.c (mark_altered): Likewise.
+	* mode-switching.c (reg_becomes_live): Likewise.
+	* optabs.c (no_conflict_move_test): Likewise.
+	* postreload-gcse.c (record_last_set_info, find_mem_conflicts):
+	Likewise.
+	* postreload.c (reload_combine_note_store, move2add_note_store):
+	Likewise.
+	* regmove.c (flags_set_1): Likewise.
+	* regrename.c (note_sets, kill_clobbered_value, kill_set_value):
+	Likewise.
+	* reload1.c (mark_not_eliminable, forget_old_reloads_1):
+	Likewise. 
+	* resource.c (update_live_status): Likewise.
+	* rtl.h (set_of, note_stores): Likewise.
+	* rtlanal.c (set_of_1, parms_set, struct set_of_data, set_of,
+	note_stores, parms_set): Likewise.
+	* sched-rgn.c (sets_likely_spilled_1): Likewise.
+	* stack-ptr-mod.c (notice_stack_pointer_modification_1):
+	Likewise. 
+	* var-tracking.c (count_stores, add_stores): Likewise.
+
+2007-07-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* alias.c (mems_in_disjoint_alias_sets_p,
+	fixed_scalar_and_varying_struct_p, aliases_everything_p,
+	nonoverlapping_component_refs_p, nonoverlapping_memrefs_p,
+	write_dependence_p, mems_in_disjoint_alias_sets_p,
+	read_dependence, true_dependence, canon_true_dependence,
+	anti_dependence, output_dependence): Constify.
+	* combine.c (extended_count): Likewise.
+	* cse.c (cse_rtx_varies_p, hash_rtx, exp_equiv_p): Likewise.
+	* cselib.c (get_value_hash, references_value_p,
+	cselib_reg_set_mode, cselib_rtx_varies_p): Likewise.
+	* cselib.h (cselib_reg_set_mode, references_value_p): Likewise.
+	* emit-rtl.c (mem_expr_equal_p, active_insn_p): Likewise.
+	* function.c (contains, prologue_epilogue_contains,
+	sibcall_epilogue_contains): Likewise. 
+	* jump.c (simplejump_p, condjump_p, condjump_in_parallel_p,
+	pc_set, any_uncondjump_p, any_condjump_p, onlyjump_p,
+	only_sets_cc0_p, sets_cc0_p, rtx_renumbered_equal_p, true_regnum,
+	reg_or_subregno): Likewise.
+	* recog.c (asm_noperands): Likewise.
+	* reload1.c (function_invariant_p): Likewise.
+	* rtl.h (mem_expr_equal_p, active_insn_p, rtx_varies_p,
+	rtx_addr_varies_p, asm_noperands, exp_equiv_p, hash_rtx,
+	condjump_p, any_condjump_p, any_uncondjump_p, pc_set,
+	simplejump_p, onlyjump_p, only_sets_cc0_p, sets_cc0_p,
+	true_regnum, reg_or_subregno, condjump_in_parallel_p,
+	extended_count, prologue_epilogue_contains,
+	sibcall_epilogue_contains, function_invariant_p, true_dependence,
+	canon_true_dependence, read_dependence, anti_dependence,
+	output_dependence): Likewise.
+	* rtlanal.c (rtx_varies_p, rtx_addr_varies_p): Likewise.
+
+2007-07-30  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/neon.md (V_ext): New mode attribute.
+	(neon_vget_lane<mode>): Replace with define_expand.
+	(neon_vget_lane<mode>_sext_internal)
+	(neon_vget_lane<mode>_zext_internal): New define_insns for double
+	and quad precision vectors.
+	(neon_vget_lanedi): Add bounds check. Remove dead comment.
+	* config/arm/neon.ml (get_lane): Make 32-bit get-lane intrinsics
+	have typeless 32-bit result.
+
+2007-07-30  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/32527
+	* tree-affine.h (aff_tree): The type of rest is sizetype for types
+	of pointers.
+	* tree-affine.c (aff_combination_scale): If type is a pointer type,
+	use sizetype for rest.
+	(aff_combination_add_elt): Likewise. Don't specialize pointer types.
+	(aff_combination_convert): Don't convert rest for pointer types.
+
+2007-07-28  Daniel Berlin  <dberlin@dberlin.org>
+
+	* Makefile.in (tree-ssa-alias.o): Add alloc-pool.h
+
+	* tree-ssa-alias.c: Add alloc-pool.h.
+	(init_alias_info): Free alias_bitmap_obstack.
+	(delete_alias_info): Call delete_mem_ref_stats.
+	(get_mem_sym_stats_for): Use alloc_pool.
+	(init_mem_ref_stats): Do not delete mem_ref_stats here.
+	(delete_mem_sym_stats): Removed.
+	
+2007-07-29  Sebastian Pop  <sebpop@gmail.com>
+
+	* tree-data-ref.c (add_multivariate_self_dist): Parametric access
+	functions cannot be represented as classical distance vectors.
+
+2007-07-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* attribs.c (hash_attr, eq_attr, init_attributes): Constify.
+	* builtins.c (validate_arg, builtin_mathfn_code,
+	validate_arglist): Likewise.
+	* calls.c (call_expr_flags): Likewise.
+	* combine.c (reg_nonzero_bits_for_combine,
+	reg_num_sign_bit_copies_for_combine, get_last_value,
+	reg_truncated_to_mode): Likewise.
+	* emit-rtl.c (subreg_lowpart_p): Likewise.
+	* expr.c (highest_pow2_factor_for_target,
+	categorize_ctor_elements_1, categorize_ctor_elements,
+	count_type_elements, contains_packed_reference,
+	highest_pow2_factor, highest_pow2_factor_for_target): Likewise.
+	* fold-const.c (may_negate_without_overflow_p, int_const_binop,
+	fold_convertible_p, operand_equal_p, tree_swap_operands_p,
+	native_encode_int, native_encode_real, native_encode_complex,
+	native_encode_vector, native_encode_expr, native_interpret_int,
+	native_interpret_real, native_interpret_complex,
+	native_interpret_vector, native_interpret_expr): Likewise.
+	* function.c (use_register_for_decl): Likewise.
+	* gimplify.c (get_name): Likewise.
+	* langhooks-def.h (lhd_return_null_const_tree): New.
+	(LANG_HOOKS_GET_CALLEE_FNDECL): Use it.
+	* langhooks.c (lhd_return_null_const_tree): New.
+	* langhooks.h (lang_get_callee_fndecl): Constify.
+	* output.h (constructor_static_from_elts_p): Likewise.
+	* rtl-factoring.c (gen_symbol_ref_rtx_for_label): Likewise.
+	* rtl.h (nonzero_bits, num_sign_bit_copies, truncated_to_mode,
+	subreg_lowpart_p, noop_move_p, struct rtl_hooks): Likewise.
+	* rtlanal.c (cached_nonzero_bits, nonzero_bits1,
+	cached_num_sign_bit_copies, num_sign_bit_copies1, noop_move_p,
+	nonzero_bits, num_sign_bit_copies, truncated_to_mode): Likewise.
+	* rtlhooks-def.h (reg_nonzero_bits_general,
+	reg_num_sign_bit_copies_general, reg_truncated_to_mode_general):
+	Likewise. 
+	* rtlhooks.c (reg_num_sign_bit_copies_general,
+	reg_nonzero_bits_general, reg_truncated_to_mode_general):
+	Likewise. 
+	* stmt.c (warn_if_unused_value, is_body_block): Likewise.
+	* stor-layout.c (mode_for_size_tree): Likewise.
+	* tree-ssa-loop-im.c (memref_eq): Likewise.
+	* tree-ssa-loop-ivopts.c (tree_int_cst_sign_bit): Likewise.
+	* tree.c (contains_placeholder_p, type_list_equal,
+	simple_cst_equal, get_callee_fndecl, operand_equal_for_phi_arg_p):
+	Likewise. 
+	* tree.h (tree_int_cst_sign_bit, may_negate_without_overflow_p,
+	mode_for_size_tree, categorize_ctor_elements, count_type_elements,
+	contains_placeholder_p, contains_packed_reference,
+	get_callee_fndecl, operand_equal_for_phi_arg_p,
+	warn_if_unused_value, is_body_block, native_encode_expr,
+	native_interpret_expr, fold_convertible_p, operand_equal_p,
+	int_const_binop, tree_swap_operands_p, builtin_mathfn_code,
+	validate_arglist, simple_cst_equal, type_list_equal,
+	use_register_for_decl, call_expr_flags, get_name,
+	highest_pow2_factor): Likewise.
+	(const_call_expr_arg_iterator_d,
+	init_const_call_expr_arg_iterator, next_const_call_expr_arg,
+	first_const_call_expr_arg, more_const_call_expr_args_p,
+	FOR_EACH_CONST_CALL_EXPR_ARG): New.
+	* varasm.c (constructor_static_from_elts_p): Constify.
+
+2007-07-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	* cfglayout.c, config/arm/arm.c, config/arm/cortex-a8.md,
+	config/arm/neon-schedgen.ml, config/arm/neon.ml,
+	config/arm/vec-common.md, config/ia64/div.md, cselib.c,
+	df-core.c, df.h, dominance.c, optabs.c, opts.c, reg-stack.c,
+	regstat.c, target.h, tree-ssa-live.c, tree-ssa-pre.c,
+	tree-vect-transform.c, tree.def: Fix comment typos.  Follow
+	spelling conventions.
+	* doc/invoke.texi: Follow spelling conventions.
+
+2007-07-29  Vladimir Yanovsky  <yanov@il.ibm.com>
+            Revital Eres  <eres@il.ibm.com>
+
+	* modulo-sched.c (sms_schedule): Avoid loops which includes
+	auto-increment instructions.
+
+2007-07-28  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/32920
+	* fold-const.c (fold_cond_expr_with_comparison): Convert
+	operand zero of MIN/MAX_EXPR to correct type.
+
+2007-07-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* calls.c (special_function_p, setjmp_call_p, alloca_call_p,
+	flags_from_decl_or_type): Constify.
+	* gcc.c (do_spec_1): Likewise.
+	* print-tree.c (dump_addr, print_node_brief): Likewise.
+	* tree-cfg.c (stmt_starts_bb_p, is_ctrl_stmt, computed_goto_p,
+	simple_goto_p, tree_can_make_abnormal_goto, stmt_starts_bb_p,
+	tree_purge_all_dead_eh_edges): Likewise.
+	* tree-flow.h (is_ctrl_stmt, computed_goto_p, simple_goto_p,
+	tree_can_make_abnormal_goto, tree_purge_all_dead_eh_edges):
+	Likewise. 
+	* tree.c (expr_location, expr_has_location, expr_locus,
+	expr_filename, expr_lineno, get_inner_array_type,
+	fields_compatible_p): Likewise.
+	* tree.h (get_inner_array_type, fields_compatible_p,
+	expr_location, expr_has_location, expr_locus, expr_filename,
+	expr_lineno, dump_addr, print_node_brief, flags_from_decl_or_type,
+	setjmp_call_p, alloca_call_p): Likewise.
+
+2007-07-28  Daniel Berlin  <dberlin@dberlin.org>
+
+	* timevar.def: Add TV_CALL_CLOBBER, TV_FLOW_SENSITIVE,
+	TV_FLOW_INSENSITIVE.
+
+	* tree-ssa-alias.c (compute_call_clobbered): Push/pop
+	TV_CALL_CLOBBER.
+	(compute_flow_sensitive_aliasing): Ditto for TV_FLOW_SENSITIVE.
+	(compute_flow_insensitive_aliasing): Ditto for
+	TV_FLOW_INSENSITIVE.	
+
+2007-07-27  Jan Hubicka  <jh@suse.cz>
+
+	* config/i386/i386.c (register_move_cost): Remove accidentally comitted
+	#if 0 block.
+
+	* attribs.c: Include hashtab.h
+	(attribute_hash): New.
+	(substring): New structure.
+	(extract_attribute_substring, substring_hash, hash_attr, eq_attr):
+	New function.
+	(init_attributes): Initialize attribute hash.
+	(decl_attributes): Use attribute hash.
+	* Makefile.in (attribs.c): Depend on hashtab.h.
+
+2007-07-27  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/vect.md (vec_initv2si): Remove bad BIG_ENDIAN test.
+
+2007-07-27  Richard Sandiford  <richard@codesourcery.com>
+
+	* doc/invoke.texi (mdsp, mdspr2): Document the __mips_dsp,
+	__mips_dspr2 and __mips_dsp_rev macros.
+	* config/mips/mips.h (TARGET_CPU_CPP_BUILTINS): Define __mips_dsp_rev.
+
+2007-07-27  Douglas Gregor  <doug.gregor@gmail.com>
+	
+       * c-common.h (enum rid): Add RID_DECLTYPE, update RID_LAST_CXX0X.
+
+2007-07-26  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	PR middle-end/32749
+	
+	* df-problems.c (df_create_unused_note): Removed do_not_gen parm
+	and the updating of the live and do_not_gen sets.
+	(df_note_bb_compute): Added updating of live and do_not_gen sets
+	for regular defs so that the case of clobber inside conditional
+	call is processed correctly.
+	
+2007-07-27  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Generate the
+	operands with compatible type.
+
+2007-07-27  Richard Sandiford  <richard@codesourcery.com>
+
+	* expr.h (store_bit_field): Don't return a value.
+	* expmed.c (check_predicate_volatile_ok): New function.
+	(store_bit_field_1): New function, extracted from store_bit_field.
+	Take a fallback_p argument and return true if the operation succeeded.
+	Only use store_fixed_bit_field if fallback_p.  Don't recompute
+	mode_for_extraction; use op_mode instead.  Try forcing memories
+	into registers if the insv expander fails.
+	(store_bit_field): Use store_bit_field_1 with fallback_p true.
+	Don't return a value.
+	(convert_extracted_bit_field): New function, extracted from
+	store_bit_field.
+	(extract_bit_field_1): Likewise.  Take a fallback_p argument
+	and return NULL if the operation succeeded.  Only use
+	extract_fixed_bit_field if fallback_p.  Only calculate one
+	extraction mode.  Combine code for extv and extzv.  Try forcing
+	memories into registers if the ext(z)v expander fails.
+	(extract_bit_field): Use extract_bit_field_1 with fallback_p true.
+
+2007-07-27  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* df.h (df_mw_hardreg): Turn df_ref_type and df_ref_flags
+	into bitfields.
+	(df_ref): Likewise.  Put regno with other integer fields.
+
+2007-07-27  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* df.h (df_mw_hardreg): Remove "loc" field.
+	* df-scan.c (df_ref_record): Don't set it.  Remove redundant
+	local variable.
+	* df-problems.c (df_whole_mw_reg_unused_p): New function,
+	split out from df_set_unused_notes_for_mw.  Return false for
+	partial references.  Assert that mw_reg is a REG when returning true.
+	(df_set_unused_notes_for_mw): Use it.  Use mw_reg instead of *loc.
+	(df_whole_mw_reg_dead_p): New function, split out from
+	df_set_dead_notes_for_mw.  Return false for partial references.
+	Assert that mw_reg is a REG when returning true.
+	(df_set_dead_notes_for_mw): Use it.  Use mw_reg instead of *loc.
+	Remove redundant bitmap check.
+
+2007-07-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/ia64/t-ia64 ($(T)crtbegin.o): Removed.
+	($(T)crtend.o): Likwise.
+	($(T)crtbeginS.o): Likwise.
+	($(T)crtendS.o): Likwise.
+	($(T)crtfastmath.o): Likwise.
+
+2007-07-26  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* dominance.c (dom_computed, n_bbs_in_dom_tree): Removed.
+	* function.h (dom_computed, n_bbs_in_dom_tree): New macros.
+	* basic-block.h (struct control_flow_graph): Added x_dom_computed
+	and x_n_bbs_in_dom_tree fields.
+
+2007-07-26  Steve Ellcey  <sje@cup.hp.com>
+
+	PR tree-optimization/32087
+	* tree-ssa-loop-manip.c (tree_transform_and_unroll_loop):
+	Do not call scale_bbs_frequencies_int with prob of zero.
+
+2007-07-26  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/arm-protos.h (neon_lane_bounds, neon_const_bounds)
+	(neon_element_bits): Add prototypes.
+	* config/arm/arm.c (bounds_check, neon_lane_bounds)
+	(neon_const_bounds, neon_element_bits): New functions.
+	* config/arm/neon.md (neon_vget_lane<mode>, neon_vget_lanedi)
+	(neon_vget_lanev2di, neon_vset_lane<mode>, neon_vset_lanedi)
+	(neon_vset_lanev2di, neon_vdup_lane<mode>, neon_vdup_lanedi)
+	(neon_vdup_lanev2di, neon_vcvt_n<mode>, neon_vmul_lane<mode>)
+	(neon_vmull_lane<mode>, neon_vqdmull_lane<mode>)
+	(neon_vqdmulh_lane<mode>, neon_vmla_lane<mode>)
+	(neon_vmlal_lane<mode>, neon_vqdmlal_lane<mode>)
+	(neon_vmls_lane<mode>, neon_vmlsl_lane<mode>)
+	(neon_vqdmlsl_lane<mode>, neon_vext<mode>, neon_vshr_n<mode>)
+	(neon_vshrn_n<mode>, neon_vqshrn_n<mode>, neon_vqshrun_n<mode>)
+	(neon_vshl_n<mode>, neon_vshl_n<mode>, neon_vqshl_n<mode>)
+	(neon_vqshlu_n<mode>, neon_vshll_n<mode>, neon_vsra_n<mode>)
+	(neon_vsri_n<mode>, neon_vsli_n<mode>): Add bounds checks.
+
+2007-07-26  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/vxworks.h (VXWORKS_LINK_SPEC): Fix typo.
+	(HAVE_AS_GNU_ATTRIBUTE): Undefine.
+
+2007-07-26  Mark Shinwell  <shinwell@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/arm.c (arm_mac_accumulator_is_mul_result): New.
+	* config/arm/arm-protos.h (arm_mac_accumulator_is_mul_result): New.
+	* config/arm/cortex-a8.md: New.
+	* config/arm/cortex-a8-neon.md: New.
+	* config/arm/neon-schedgen.ml: New.
+	* config/arm/neon.md (vqh_mnem): New.
+	(neon_type): New.
+	(Is_float_mode): New.
+	(Scalar_mul_8_16): New.
+	(Is_d_reg): New.
+	(V_mode_nunits): New.
+	(All instruction patterns): Annotate with neon_type attribute
+	values.
+	* config/arm/arm.md: Include cortex-a8.md.
+	(insn): Add smmla, umaal, smlald, smlsld, clz, mrs, msr and xtab
+	values.
+	Annotate instruction patterns accordingly.
+	(generic_sched): Do not use generic scheduling for Cortex-A8.
+	(generic_vfp): Do not use generic VFP scheduling for Cortex-A8.
+
+2007-07-26  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* fold-const.c (fold_read_from_constant_string): Use
+	build_int_cst_type.
+	* tree-ssa-ccp.c (fold_const_aggregate_ref): Likewise.
+
+2007-07-26  Nick Clifton  <nickc@redhat.com>
+
+	* tree-ssa-operands.h: Change copyright header to refer to version
+	3 of the GNU General Public License and to point readers at the
+	COPYING3 file and the FSF's license web page.
+	* tree-vrp.c, regrename.c, attribs.c, loop-unswitch.c,
+	sched-ebb.c, fwprop.c, tree-loop-linear.c, dwarf2asm.c,
+	tree-into-ssa.c, dwarf2asm.h, tree-ssa-loop-im.c, sbitmap.c,
+	targhooks.c, tree-dump.c, tree-complex.c, sbitmap.h, targhooks.h,
+	tree-dump.h, regstat.c, see.c, machmode.h, hooks.c, cgraphbuild.c,
+	hooks.h, genrecog.c, tree-ssa-threadupdate.c, gen-protos.c,
+	flags.h, rtlhooks.c, gencheck.c, tree-ssa-loop-niter.c,
+	opts-common.c, dbgcnt.def, tree-pretty-print.c, tracer.c,
+	gengtype.c, mkconfig.sh, gengtype.h, tree-ssa-loop-unswitch.c,
+	cgraph.c, c-lex.c, cgraph.h, libfuncs.h, cfgloopmanip.c,
+	rtl-error.c, optabs.c, postreload-gcse.c, tree-ssa-loop-manip.c,
+	optabs.h, genmddeps.c, defaults.h, postreload.c, value-prof.c,
+	tree-ssa-loop-ch.c, tree-tailcall.c, gengenrtl.c, value-prof.h,
+	genopinit.c, tree.c, tree.h, reload.c, tree-pass.h, ipa-cp.c,
+	reload.h, bitmap.c, bitmap.h, tree-scalar-evolution.c,
+	c-config-lang.in, tree-scalar-evolution.h, target.h, cppspec.c,
+	rtlanal.c, ddg.c, lambda-mat.c, mips-tdump.c, ddg.h,
+	tree-phinodes.c, mips-tfile.c, pointer-set.c, pointer-set.h,
+	diagnostic.c, final.c, diagnostic.h, builtins.c, genoutput.c,
+	gcc.c, lists.c, tree-ssa-alias-warnings.c, gcc.h, cfghooks.c,
+	input.h, gensupport.c, fold-const.c, cfghooks.h, insn-notes.def,
+	gensupport.h, builtin-attrs.def, sync-builtins.def, params.c,
+	cfgloopanal.c, params.h, graphds.c, omp-low.c, tree-ssa-dse.c,
+	graphds.h, gcov.c, cfg.c, genextract.c, ipa-reference.c,
+	genautomata.c, tree-ssa-uncprop.c, auto-inc-dec.c, toplev.c,
+	tree-gimple.c, ipa-reference.h, vmsdbgout.c, errors.c, toplev.h,
+	reorg.c, tree-gimple.h, tree-chrec.c, pretty-print.c, errors.h,
+	real.c, tree-chrec.h, pretty-print.h, debug.c, real.h, genemit.c,
+	omega.c, c-cppbuiltin.c, genmultilib, debug.h, omega.h,
+	tree-ssa-sccvn.c, genconfig.c, tree-ssa-sccvn.h, cgraphunit.c,
+	regs.h, df-scan.c, vec.c, hosthooks-def.h, vec.h,
+	tree-ssa-copyrename.c, scan.c, builtin-types.def, tree-ssa-ccp.c,
+	scan.h, mode-classes.def, haifa-sched.c, dominance.c, dojump.c,
+	double-int.c, gcov-io.c, dbxout.c, builtins.def, double-int.h,
+	dbxout.h, tree-ssa-loop-ivopts.c, df-core.c, mode-switching.c,
+	gengtype-lex.l, tree-nomudflap.c, modulo-sched.c, c-objc-common.c,
+	hosthooks.h, c-objc-common.h, caller-save.c, graph.c,
+	ipa-pure-const.c, graph.h, c-format.c, cse.c, fix-header.c,
+	c-format.h, web.c, tree-stdarg.c, genpeep.c, tree-stdarg.h,
+	tree-ssa-math-opts.c, xcoffout.c, tree-ssa-dom.c, tree-nrv.c,
+	xcoffout.h, tree-ssa-propagate.c, ipa-utils.c,
+	tree-ssa-propagate.h, tree-ssa-alias.c, loop-init.c, ipa-utils.h,
+	gimple-low.c, rtl.def, c-tree.h, tree-ssa-sink.c, ipa-inline.c,
+	mkmap-symver.awk, machmode.def, c-pch.c, cfganal.c, global.c,
+	alloc-pool.c, c-semantics.c, alloc-pool.h, jump.c, ifcvt.c,
+	dwarf2out.c, expr.c, cfgbuild.c, tree-browser.c, dwarf2out.h,
+	expr.h, longlong.h, opts.c, gcov-iov.c, opts.h, dwarf2.h,
+	genattrtab.c, genconditions.c, genattr.c, optc-gen.awk,
+	timevar.def, tree-ssa-loop-ivcanon.c, hard-reg-set.h, predict.c,
+	tree-ssa-loop.c, host-default.c, predict.h, recog.c, dbgcnt.c,
+	recog.h, dbgcnt.h, c-aux-info.c, tree-ssa-address.c, timevar.c,
+	dse.c, lcm.c, tree-ssa-ifcombine.c, timevar.h, dse.h,
+	matrix-reorg.c, tree-vn.c, treestruct.def, fp-test.c, c-decl.c,
+	tree-eh.c, c-errors.c, c-pretty-print.c, regmove.c,
+	lambda-trans.c, c-pretty-print.h, et-forest.c, et-forest.h,
+	ebitmap.c, configure.ac, local-alloc.c, function.c, langhooks.c,
+	ebitmap.h, cppdefault.c, tree-vectorizer.c, function.h,
+	langhooks.h, print-rtl.c, cppdefault.h, df.h, tree-vectorizer.h,
+	sdbout.c, stor-layout.c, sdbout.h, rtlhooks-def.h, read-rtl.c,
+	gcse.c, ipa-type-escape.c, vmsdbg.h, alias.c, gengtype-parse.c,
+	ipa-type-escape.h, domwalk.c, alias.h, tree-if-conv.c, profile.c,
+	init-regs.c, domwalk.h, ipa.c, gccbug.in, tree-data-ref.c,
+	loop-unroll.c, tree-data-ref.h, tree-flow-inline.h, tree-affine.c,
+	mkmap-flat.awk, tree-affine.h, tree-vect-analyze.c, c.opt, ggc.h,
+	opt-gather.awk, c-typeck.c, gimplify.c, coretypes.h, exec-tool.in,
+	insn-addr.h, tree-ssa-phiopt.c, c-pragma.c, c-pragma.h, calls.c,
+	tree-ssa-coalesce.c, genmodes.c, loop-doloop.c, predict.def,
+	dwarf.h, tree.def, rtl-factoring.c, lower-subreg.c, expmed.c,
+	bt-load.c, ggc-common.c, genflags.c, tree-dfa.c, except.c,
+	coverage.c, except.h, emit-rtl.c, cfgexpand.c, coverage.h,
+	stringpool.c, cselib.c, emit-rtl.h, tree-cfgcleanup.c, c-opts.c,
+	cselib.h, cfgcleanup.c, simplify-rtx.c, tree-ssa-pre.c, explow.c,
+	tree-ssa-live.c, tree-sra.c, tree-ssa-live.h, tree-predcom.c,
+	loop-invariant.c, genpreds.c, protoize.c, opth-gen.awk, c-dump.c,
+	lambda.h, loop-iv.c, tree-mudflap.c, ipa-prop.c, print-tree.c,
+	tree-mudflap.h, tree-ssa-copy.c, ipa-prop.h, cfglayout.c,
+	tree-ssa-forwprop.c, c-convert.c, cfglayout.h, common.opt,
+	ggc-zone.c, ggc-page.c, c-omp.c, tree-ssa-dce.c, gencodes.c,
+	varasm.c, tree-vect-patterns.c, libada-mk.in, tree-ssa-ter.c,
+	sched-deps.c, tree-nested.c, c-ppoutput.c, tree-ssa.c,
+	target-def.h, tree-ssa-loop-prefetch.c, lambda-code.c,
+	omp-builtins.def, rtl.c, regclass.c, stab.def, intl.c, rtl.h,
+	intl.h, tree-inline.c, conditions.h, tree-inline.h, integrate.c,
+	sched-int.h, tree-iterator.c, integrate.h, tree-iterator.h,
+	genchecksum.c, tree-optimize.c, output.h, tree-vect-transform.c,
+	tree-object-size.c, combine.c, tree-outof-ssa.c, addresses.h,
+	bb-reorder.c, stack-ptr-mod.c, resource.c, var-tracking.c,
+	cfgloop.c, system.h, resource.h, ggc-none.c, tree-profile.c,
+	cfgloop.h, c-gimplify.c, c-common.c, opt-functions.awk,
+	tree-vect-generic.c, tree-flow.h, df-problems.c, scan-decls.c,
+	c-common.h, config.gcc, reg-stack.c, tlink.c, main.c, stub-objc.c,
+	fixproto, config.host, Makefile.in, gccspec.c, sched-rgn.c,
+	vecprim.h, basic-block.h, tree-ssa-structalias.c,
+	tree-ssa-structalias.h, c-common.def, sched-vis.c, tree-cfg.c,
+	passes.c, genconstants.c, c-incpath.c, c-incpath.h,
+	struct-equiv.c, c-parser.c, tree-ssa-reassoc.c, varray.c, sreal.c,
+	varray.h, dfp.c, sreal.h, combine-stack-adj.c, dfp.h,
+	reg-notes.def, cfgrtl.c, config.build, varpool.c, gengtype-yacc.y,
+	stmt.c, dce.c, tree-browser.def, prefix.c, statistics.h,
+	params.def, dce.h, c-lang.c, gcov-dump.c, prefix.h,
+	tree-ssanames.c, collect2.c, collect2.h, tree-ssa-threadedge.c,
+	convert.c, convert.h, langhooks-def.h, reload1.c,
+	tree-ssa-operands.c: Likewise.
+
+2007-07-26  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-live.c: Include debug.h and flags.h.
+	(mark_scope_block_unused): New function.
+	(remove_unused_scope_block_p): New function.
+	(remove_unused_locals): Remove unused blocks too.
+
+2007-07-25  Ian Lance Taylor  <iant@google.com>
+
+	* combine.c (combine_max_regno): Remove.  Remove all uses.
+	(struct reg_stat_struct): Rename from struct reg_stat.
+	(reg_stat_type): Define, and declare VECs.
+	(reg_stat): Change from pointer to VEC.  Change all uses.
+	(combine_split_insns): New static function.
+	(try_combine, find_split_point): Call it instead of split_insns.
+
+2007-07-25  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* cfghooks.c (split_block): Fix the information about loop latch.
+
+2007-07-25  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* cfgloopmanip.c (fix_loop_structure): Call force_single_succ_latches.
+
+2007-07-25  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-ssa-threadupdate.c (create_edge_and_update_destination_phis):
+	Scan the new edge for loop exit info.
+
+2007-07-25  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* config/darwin.c: Include debug.h.
+
+2007-07-25  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/32218
+	* tree-vect-patterns.c (vect_pattern_recog_1): Check for valid type.
+
+2007-07-25  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/ia64.h (HARD_REGNO_NREGS): Handle RFmode.
+	(HARD_REGNO_MODE_OK): Ditto.
+	(MODES_TIEABLE_P): Ditto.
+	(HARD_REGNO_CALLER_SAVE_MODE): Ditto.
+	(CLASS_MAX_NREGS): Ditto.
+	* config/ia64/ia64.c (ia64_print_operand_address): Add R format.
+	* config/ia64/ia64.md (divsf3_internal_thr): Removed.
+	(divdf3_internal_thr): Removed.
+	* config/ia64/div.md: New file.
+	* config/ia64/constraints.md: Add H constraint.
+
+2007-07-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* sbitmap.c (sbitmap_verify_popcount, sbitmap_alloc_with_popcount,
+	sbitmap_copy, sbitmap_copy_n, sbitmap_equal, sbitmap_empty_p,
+	sbitmap_union_of_diff_cg, sbitmap_union_of_diff, sbitmap_not,
+	sbitmap_difference, sbitmap_any_common_bits, sbitmap_a_and_b_cg,
+	sbitmap_a_and_b, sbitmap_a_xor_b_cg, sbitmap_a_xor_b,
+	sbitmap_a_or_b_cg, sbitmap_a_or_b, sbitmap_a_subset_b_p,
+	sbitmap_a_or_b_and_c_cg, sbitmap_a_or_b_and_c,
+	sbitmap_a_and_b_or_c_cg, sbitmap_a_and_b_or_c,
+	sbitmap_first_set_bit, sbitmap_last_set_bit, dump_sbitmap,
+	dump_sbitmap_file, debug_sbitmap, popcount_table,
+	sbitmap_popcount): Constify.
+	* sbitmap.h (const_sbitmap, const_sbitmap_ptr): New.
+	(sbitmap_iterator, sbitmap_iter_init, dump_sbitmap,
+	dump_sbitmap_file, sbitmap_copy, sbitmap_copy_n, sbitmap_equal,
+	sbitmap_empty_p, sbitmap_union_of_diff, sbitmap_union_of_diff_cg,
+	sbitmap_difference, sbitmap_not, sbitmap_a_or_b_and_c,
+	sbitmap_a_or_b_and_c_cg, sbitmap_a_and_b_or_c,
+	sbitmap_a_and_b_or_c_cg, sbitmap_any_common_bits, sbitmap_a_and_b,
+	sbitmap_a_and_b_cg, sbitmap_a_or_b, sbitmap_a_or_b_cg,
+	sbitmap_a_xor_b, sbitmap_a_xor_b_cg, sbitmap_a_subset_b_p,
+	sbitmap_first_set_bit, sbitmap_last_set_bit, debug_sbitmap,
+	sbitmap_popcount, sbitmap_verify_popcount): Constify.
+
+2007-07-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* bitmap.c (hash_descriptor, eq_descriptor, bitmap_element_zerop,
+	bitmap_copy, bitmap_clear_bit, popcount_table, bitmap_count_bits,
+	bitmap_first_set_bit, bitmap_and, bitmap_and_into,
+	bitmap_elt_copy, bitmap_and_compl, bitmap_and_compl_into,
+	bitmap_compl_and_into, bitmap_elt_ior, bitmap_ior,
+	bitmap_ior_into, bitmap_xor, bitmap_xor_into, bitmap_equal_p,
+	bitmap_intersect_p, bitmap_intersect_compl_p,
+	bitmap_ior_and_compl, bitmap_ior_and_compl_into,
+	debug_bitmap_file, debug_bitmap, bitmap_print, bitmap_hash):
+	Constify.
+	* bitmap.h (bitmap_copy, bitmap_equal_p, bitmap_intersect_p,
+	bitmap_intersect_compl_p, bitmap_count_bits, bitmap_and,
+	bitmap_and_into, bitmap_and_compl, bitmap_and_compl_into,
+	bitmap_compl_and_into, bitmap_ior, bitmap_ior_into, bitmap_xor,
+	bitmap_xor_into, bitmap_ior_and_compl, bitmap_ior_and_compl_into,
+	debug_bitmap, debug_bitmap_file, bitmap_print,
+	bitmap_first_set_bit, bitmap_hash, bmp_iter_set_init,
+	bmp_iter_and_init, bmp_iter_and_compl_init): Likewise.
+
+2007-07-25  Daniel Berlin  <dberlin@dberlin.org>
+
+	* config/darwin.c (darwin_override_options): Additional fix for
+	debug info formats that don't support var tracking.
+
+2007-07-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* cselib.c (entry_and_rtx_equal_p): Constify.
+	* gengtype.c (output_mangled_typename, write_types, write_local):
+	Likewise.
+	* gengtype.h (const_type_p): New.
+	* see.c (eq_descriptor_extension, hash_descriptor_extension):
+	Constify.
+	* tlink.c (scan_linker_output): De-constify.
+	* tree-ssa-loop-im.c (memref_eq): Constify.
+	* tree-ssa-structalias.c (const_shared_bitmap_info_t): New.
+	(shared_bitmap_hash, shared_bitmap_eq): Constify.
+
+2007-07-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* c-common.c (fname_as_string, c_type_hash): Constify.
+	* c-typeck.c (free_all_tagged_tu_seen_up_to): Likewise.
+	* cgraph.c (edge_hash, edge_eq): Likewise.
+	* dwarf2out.c (decl_die_table_eq, decl_loc_table_eq): Likewise.
+	* emit-rtl.c (mem_attrs_htab_eq, reg_attrs_htab_hash,
+	reg_attrs_htab_eq): Likewise.
+	* except.c (t2r_eq, t2r_hash, ttypes_filter_eq, ehl_hash, ehl_eq):
+	Likewise.
+	* genautomata.c (const_reserv_sets_t, const_unit_decl_t,
+	const_decl_t, const_state_t, const_automata_list_el_t): New.
+	(first_out_arc, DECL_UNIT, DECL_BYPASS, DECL_AUTOMATON, DECL_EXCL,
+	DECL_PRESENCE, DECL_ABSENCE, DECL_RESERV, DECL_INSN_RESERV,
+	automaton_decl_hash, automaton_decl_eq_p, insn_decl_hash,
+	insn_decl_eq_p, decl_hash, decl_eq_p, alt_state_cmp,
+	reserv_sets_cmp, reserv_sets_eq, state_hash, state_eq_p,
+	automata_list_hash, automata_list_eq_p, compare_states_for_equiv,
+	compare_max_occ_cycle_nums, out_state_arcs_num,
+	compare_transition_els_num, units_cmp, state_reservs_cmp):
+	Constify.
+	* genmodes.c (cmp_modes): Likewise.
+	* ggc-common.c (saving_htab_hash, saving_htab_eq): Likewise.
+	* gimplify.c (compare_case_labels): Likewise.
+	* ipa-type-escape.c (get_name_of_type, type_brand_s): Likewise.
+	* loop-unroll.c (si_info_hash, ve_info_hash): Likewise.
+	* matrix-reorg.c (mtt_info_hash): Likewise.
+	* postreload-gcse.c (hash_expr_for_htab, expr_equiv_p): Likewise.
+	* rtl-factoring.c (const_p_hash_bucket, const_p_hash_elem): New.
+	(htab_hash_bucket, htab_hash_elem): Constify.
+	* tree-browser.c (TB_parent_eq): Likewise.
+	* tree-scalar-evolution.c (hash_scev_info): Likewise.
+	* tree-ssa-alias.c (sort_tags_by_id): Likewise.
+	* tree-ssa-coalesce.c (const_coalesce_pair_p): New.
+	(coalesce_pair_map_hash, coalesce_pair_map_eq, compare_pairs):
+	Constify.
+	* tree-ssa-dom.c (avail_expr_hash, avail_expr_eq): Likewise.
+	* tree-ssa-pre.c (const_expr_pred_trans_t): New.
+	(expr_pred_trans_hash, expr_pred_trans_eq): Constify.
+	* tree-ssa-sccvn.c (const_vn_binary_op_t, const_vn_unary_op_t,
+	const_vn_phi_t, const_vn_reference_op_t, const_vn_reference_t):
+	New.
+	(vn_reference_op_eq, vn_reference_hash, vn_reference_eq,
+	vn_unary_op_hash, vn_unary_op_eq, vn_binary_op_hash,
+	vn_binary_op_eq, vn_phi_hash, vn_phi_eq): Constify.
+	* tree-ssa-threadupdate.c (redirection_data_hash,
+	redirection_data_eq): Likewise. 
+	* tree-ssa-uncprop.c (equiv_hash, equiv_eq): Likewise.
+	* tree-ssa.c (var_ann_eq): Likewise.
+	* tree-vrp.c (compare_case_labels): Likewise.
+	* tree.c (int_cst_hash_hash, int_cst_hash_eq,
+	tree_map_base_marked_p, type_hash_marked_p, tree_check_failed,
+	tree_not_check_failed, tree_class_check_failed,
+	tree_range_check_failed, tree_not_class_check_failed,
+	omp_clause_check_failed, omp_clause_range_check_failed,
+	tree_contains_struct_check_failed, tree_operand_check_failed):
+	Likewise. 
+	* tree.h (tree_contains_struct_check_failed, tree_check_failed,
+	tree_not_check_failed, tree_class_check_failed,
+	tree_range_check_failed, tree_not_class_check_failed,
+	tree_operand_check_failed, omp_clause_operand_check_failed,
+	tree_operand_length): Likewise. 
+	* var-tracking.c (const_variable): New.
+	(variable_htab_hash, variable_htab_eq): Constify.
+	* varasm.c (const_desc_hash): Likewise.
+
+2007-07-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* expr.c (handled_component_p): Constify.
+	* fold-const.c (fit_double_type): Likewise.
+	* real.h (real_value_from_int_cst): Likewise.
+	* tree-flow-inline.h (gimple_in_ssa_p,
+	gimple_aliases_computed_p, gimple_addressable_vars,
+	gimple_call_clobbered_vars, gimple_referenced_vars,
+	gimple_global_var, gimple_nonlocal_all, gimple_var_anns,
+	end_htab_p, end_referenced_vars_p, var_ann, function_ann,
+	may_aliases, end_readonly_imm_use_p, has_zero_uses,
+	has_single_use, single_imm_use, num_imm_uses, is_exec_stmt,
+	is_label_stmt, is_global_var, phi_ssa_name_p,
+	factoring_name_p, is_call_clobbered, tree_common_ann,
+	op_iter_done, end_imm_use_stmt_p, end_imm_use_on_stmt_p,
+	unmodifiable_var_p, array_ref_contains_indirect_ref,
+	ref_contains_array_ref, lookup_subvars_for_var,
+	var_can_have_subvars, overlap_subvar, gimple_ssa_operands,
+	gimple_mem_ref_stats): Likewise.
+	* tree-flow.h (tree_common_ann, var_ann, function_ann,
+	may_aliases, is_exec_stmt, is_label_stmt,
+	ref_contains_array_ref, array_ref_contains_indirect_ref,
+	var_can_have_subvars, overlap_subvar, is_call_clobbered,
+	unmodifiable_var_p): Likewise.
+	* tree-gimple.c (is_gimple_min_invariant): Likewise.
+	* tree-gimple.h (is_gimple_min_invariant): Likewise. 
+	* tree.c (type_hash_list, attribute_hash_list, tree_size,
+	cst_and_fits_in_hwi, real_value_from_int_cst,
+	build_real_from_int_cst, integer_zerop, integer_onep,
+	integer_all_onesp, integer_pow2p, integer_nonzerop, tree_log2,
+	tree_floor_log2, real_zerop, real_onep, real_twop,
+	real_minus_onep, really_constant_p, purpose_member, chain_member,
+	list_length, fields_length, int_size_in_bytes, bit_position,
+	int_bit_position, byte_position, int_byte_position, expr_align,
+	array_type_nelts, tree_node_structure,
+	type_contains_placeholder_1, iterative_hash_pointer,
+	is_attribute_with_length_p, is_attribute_p, check_qualified_type,
+	tree_map_base_eq, type_hash_list, type_hash_eq,
+	attribute_hash_list, type_num_arguments, tree_int_cst_equal,
+	tree_int_cst_lt, tree_int_cst_compare, host_integerp,
+	tree_low_cst, tree_int_cst_msb, tree_int_cst_sgn,
+	simple_cst_list_equal, compare_tree_int, iterative_hash_expr,
+	int_fits_type_p, get_containing_scope, decl_function_context,
+	decl_type_context, omp_clause_operand_check_failed,
+	initializer_zerop, int_cst_value, num_ending_zeros): Likewise.
+	* tree.h (omp_clause_operand_check_failed, tree_size,
+	build_real_from_int_cst, array_type_nelts, purpose_member,
+	tree_int_cst_equal, tree_int_cst_lt, tree_int_cst_compare,
+	host_integerp, tree_low_cst, tree_int_cst_msb, tree_int_cst_sgn,
+	is_attribute_p, check_qualified_type, expr_align,
+	int_size_in_bytes, bit_position, int_bit_position, byte_position,
+	int_byte_position, list_length, fields_length, initializer_zerop,
+	integer_zerop, integer_onep, integer_all_onesp, integer_pow2p,
+	integer_nonzerop, cst_and_fits_in_hwi, num_ending_zeros,
+	tree_node_structure, handled_component_p, get_containing_scope,
+	decl_function_context, decl_type_context, real_zerop,
+	type_num_arguments, fit_double_type, really_constant_p,
+	int_fits_type_p, tree_log2, tree_floor_log2, iterative_hash_expr,
+	compare_tree_int, chain_member, simple_cst_list_equal, real_onep,
+	real_twop, real_minus_onep, int_cst_value): Likewise.
+
+2007-07-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* cfglayout.c (insn_scope, insn_line): Constify.
+	* emit-rtl.c (const_int_htab_hash, const_int_htab_eq,
+	const_double_htab_hash, const_double_htab_eq,
+	mem_attrs_htab_hash): Likewise.
+	* loop-iv.c (biv_eq): Likewise.
+	* print-rtl.c (print_rtx, print_decl_name, print_mem_expr,
+	print_inline_rtx, debug_rtx, debug_rtx_list, debug_rtx_range,
+	debug_rtx_find, print_rtl, print_rtl_single, print_simple_rtl):
+	Likewise. 
+	* rtl-error.c (location_for_asm, diagnostic_for_asm,
+	error_for_asm, warning_for_asm, _fatal_insn,
+	_fatal_insn_not_found): Likewise. 
+	* rtl.c (rtx_size, shared_const_p, shallow_copy_rtx_stat,
+	rtx_equal_p, rtl_check_failed_bounds, rtl_check_failed_type1,
+	rtl_check_failed_type2, rtl_check_failed_code1,
+	rtl_check_failed_code2, rtl_check_failed_code_mode,
+	rtvec_check_failed_bounds, rtl_check_failed_flag): Likewise.
+	* rtl.h (rtl_check_failed_bounds, rtl_check_failed_type1,
+	rtl_check_failed_type2, rtl_check_failed_code1,
+	rtl_check_failed_code2, rtl_check_failed_code_mode,
+	rtvec_check_failed_bounds, rtl_check_failed_flag, LABEL_KIND,
+	SET_LABEL_KIND, rhs_regno, subreg_lsb, subreg_regno, subreg_nregs,
+	shared_const_p, rtx_size, shallow_copy_rtx_stat, rtx_equal_p,
+	get_pool_mode, insn_line, insn_file, simplify_replace_rtx,
+	mode_signbit_p, rtx_addr_can_trap_p, nonzero_address_p,
+	rtx_unstable_p, get_integer_term, get_related_value,
+	offset_within_block_p, reg_mentioned_p, count_occurrences,
+	reg_referenced_p, reg_used_between_p, no_labels_between_p,
+	single_set_2, multiple_sets, set_noop_p, refers_to_regno_p,
+	reg_overlap_mentioned_p, dead_or_set_p, dead_or_set_regno_p,
+	find_reg_note, find_regno_note, find_reg_equal_equiv_note,
+	find_constant_src, find_reg_fusage, find_regno_fusage,
+	pure_call_p, remove_note, side_effects_p, volatile_refs_p,
+	volatile_insn_p, may_trap_p, may_trap_after_code_motion_p,
+	may_trap_or_fault_p, inequality_comparisons_p, tablejump_p,
+	computed_jump_p, auto_inc_p, in_expr_list_p,
+	remove_node_from_expr_list, loc_mentioned_in_p,
+	label_is_jump_target_p, reversed_comparison_code_parts,
+	debug_rtx, debug_rtx_list, debug_rtx_range, debug_rtx_find,
+	print_mem_expr, print_rtl, print_simple_rtl, print_rtl_single,
+	print_inline_rtx): Likewise.
+	* rtlanal.c (covers_regno_p, covers_regno_no_parallel_p,
+	computed_jump_p_1, nonzero_bits1, rtx_unstable_p,
+	rtx_addr_can_trap_p_1, rtx_addr_can_trap_p, nonzero_address_p,
+	get_integer_term, get_related_value, offset_within_block_p,
+	count_occurrences, reg_mentioned_p, no_labels_between_p,
+	reg_used_between_p, reg_referenced_p, single_set_2,
+	multiple_sets, set_noop_p, refers_to_regno_p,
+	reg_overlap_mentioned_p, dead_or_set_p,
+	covers_regno_no_parallel_p, covers_regno_p,
+	dead_or_set_regno_p, find_reg_note, find_regno_note,
+	find_reg_equal_equiv_note, find_constant_src, find_reg_fusage,
+	find_regno_fusage, pure_call_p, remove_note, in_expr_list_p,
+	remove_node_from_expr_list, volatile_insn_p, volatile_refs_p,
+	side_effects_p, may_trap_p_1, may_trap_p,
+	may_trap_after_code_motion_p, may_trap_or_fault_p,
+	inequality_comparisons_p, tablejump_p, computed_jump_p_1,
+	computed_jump_p, auto_inc_p, loc_mentioned_in_p, subreg_lsb,
+	subreg_regno, subreg_nregs, label_is_jump_target_p): Likewise.
+	* simplify-rtx.c (neg_const_int, plus_minus_operand_p,
+	mode_signbit_p, simplify_replace_rtx, plus_minus_operand_p):
+	Likewise. 
+	* toplev.h (_fatal_insn_not_found, _fatal_insn, error_for_asm,
+	warning_for_asm): Likewise.
+	* tree.h (print_rtl): Likewise.
+	* varasm.c (get_pool_mode): Likewise.
+
+2007-07-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* c-lex.c (c_lex_with_flags, lex_string): Constify.
+	* c-ppoutput.c (print_line, pp_dir_change): Likewise.
+	* c-typeck.c (free_all_tagged_tu_seen_up_to): Likewise.
+	* cfg.c (bb_copy_original_hash, bb_copy_original_eq): Likewise.
+	* cfgloop.c (loop_exit_hash, loop_exit_eq): Likewise.
+	* ddg.c (compare_sccs): Likewise.
+	* df-scan.c (df_ref_compare, df_mw_compare): Likewise.
+	* dfp.c (decimal_real_from_string, decimal_to_decnumber,
+	decimal_to_binary, decimal_do_compare, decimal_real_to_decimal,
+	decimal_do_fix_trunc, decimal_real_to_integer,
+	decimal_real_to_integer2, decimal_real_maxval): Likewise.
+	* dse.c (const_group_info_t): New.
+	(invariant_group_base_eq, invariant_group_base_hash): Constify.
+	* dwarf2out.c (const_dw_die_ref): New.
+	(decl_die_table_hash, decl_die_table_eq, file_info_cmp): Constify.
+	* tree-browser.c (TB_parent_eq): Likewise.
+	* unwind-dw2-fde.c (__register_frame_info_bases,
+	__deregister_frame_info_bases, fde_unencoded_compare, fde_split,
+	add_fdes, linear_search_fdes, binary_search_unencoded_fdes):
+	Likewise.
+	* unwind-dw2-fde.h (get_cie, next_fde): Likewise.
+	* unwind-dw2.c (uw_frame_state_for): Likewise.
+	* value-prof.c (histogram_hash, histogram_eq): Likewise.
+	* value-prof.h (const_histogram_value): New.
+
+2007-07-25  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/mips/mips.c (machine_function): Add
+	initialized_mips16_gp_pseudo_p.
+	(mips16_gp_pseudo_reg): Do not emit the initialization of
+	mips16_gp_pseudo_rtx when being called from the gimple cost-
+	calculation routines; emit it on the first use outside those
+	routines.
+
+2007-07-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* coretypes.h (const_bitmap, const_rtx, const_rtvec, const_tree):
+	New.
+	
+	* rtl.h (RTL_CHECK1, RTL_CHECK2, RTL_CHECKC1, RTL_CHECKC2,
+	RTVEC_ELT, XWINT, XCWINT, XCMWINT, XCNMPRV, BLOCK_SYMBOL_CHECK,
+	RTL_FLAG_CHECK1, RTL_FLAG_CHECK2, RTL_FLAG_CHECK3,
+	RTL_FLAG_CHECK4, RTL_FLAG_CHECK5, RTL_FLAG_CHECK6,
+	RTL_FLAG_CHECK7, RTL_FLAG_CHECK8, LABEL_KIND, SET_LABEL_KIND):
+	Preserve const-ness of parameters through use of __typeof(),
+	also constify and tidy.
+	
+	* tree.h (TREE_CHECK, TREE_NOT_CHECK, TREE_CHECK2,
+	TREE_NOT_CHECK2, TREE_CHECK3, TREE_NOT_CHECK3, TREE_CHECK4,
+	NON_TREE_CHECK4, TREE_CHECK5, TREE_NOT_CHECK5,
+	CONTAINS_STRUCT_CHECK, TREE_CLASS_CHECK, TREE_RANGE_CHECK,
+	OMP_CLAUSE_SUBCODE_CHECK, OMP_CLAUSE_RANGE_CHECK, EXPR_CHECK,
+	GIMPLE_STMT_CHECK, NON_TYPE_CHECK, TREE_VEC_ELT_CHECK,
+	PHI_NODE_ELT_CHECK, OMP_CLAUSE_ELT_CHECK, TREE_OPERAND_CHECK,
+	TREE_OPERAND_CHECK_CODE, GIMPLE_STMT_OPERAND_CHECK,
+	TREE_RTL_OPERAND_CHECK, TREE_CHAIN, TREE_TYPE): Likewise.
+
+2007-07-25  Julian Brown  <julian@codesourcery.com>
+	    Mark Shinwell  <shinwell@codesourcery.com>
+
+	* config/alpha/alpha.c (alpha_mangle_fundamental_type): Rename to...
+	(alpha_mangle_type): This.
+	(TARGET_MANGLE_FUNDAMENTAL_TYPE): Don't define.
+	(TARGET_MANGLE_TYPE): Define this instead.
+	* config/arm/arm-protos.h (arm_mangle_type): Add prototype.
+	* config/arm/arm.c (TARGET_MANGLE_TYPE): Define target hook.
+	(arm_init_neon_builtins): Fix comment.
+	(arm_mangle_map_entry): New.
+	(arm_mangle_map): New.
+	(arm_mangle_type): New.
+	* config/i386/i386.c (ix86_mangle_fundamental_type): Rename to...
+	(ix86_mangle_type): This. Use TYPE_MAIN_VARIANT and restrict
+	mangled types to VOID_TYPE, BOOLEAN_TYPE, INTEGER_TYPE, REAL_TYPE.
+	(TARGET_MANGLE_FUNDAMENTAL_TYPE): Don't define.
+	(TARGET_MANGLE_TYPE): Define this instead.
+	* config/ia64/ia64.c (ia64_mangle_fundamental_type): Rename to...
+	(ia64_mangle_type): This. Use TYPE_MAIN_VARIANT  and restrict
+	mangled types to VOID_TYPE, BOOLEAN_TYPE, INTEGER_TYPE, REAL_TYPE.
+	(TARGET_MANGLE_FUNDAMENTAL_TYPE): Don't define.
+	(TARGET_MANGLE_TYPE): Define this instead.
+	* config/rs6000/rs6000.c (rs6000_mangle_fundamental_type): Rename
+	to...
+	(rs6000_mangle_type): This. Use TYPE_MAIN_VARIANT.
+	(TARGET_MANGLE_FUNDAMENTAL_TYPE): Don't define.
+	(TARGET_MANGLE_TYPE): Define this instead.
+	* config/s390/s390.c (s390_mangle_fundamental_type): Rename to...
+	(s390_mangle_type): This.
+	(TARGET_MANGLE_FUNDAMENTAL_TYPE): Don't define.
+	(TARGET_MANGLE_TYPE): Define this instead.
+	* config/sparc/sparc.c (sparc_mangle_fundamental_type): Rename to...
+	(sparc_mangle_type): This.
+	(TARGET_MANGLE_FUNDAMENTAL_TYPE): Don't define.
+	(TARGET_MANGLE_TYPE): Define this instead.
+	* cp/mangle.c (write_type): Call mangle_type target hook on all
+	types before mangling.  Use original type, not main variant, as
+	argument.
+	* target-def.h (TARGET_MANGLE_FUNDAMENTAL_TYPE): Rename hook to...
+	(TARGET_MANGLE_TYPE): This.
+	* target.h (gcc_target): Rename mangle_fundamental_type to
+	mangle_type.
+	* doc/tm.texi (TARGET_MANGLE_FUNDAMENTAL_TYPE): Rename section to...
+	(TARGET_MANGLE_TYPE): This. Note slightly different semantics.
+
+2007-07-25  Julian Brown  <julian@codesourcery.com>
+	    Paul Brook  <paul@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Mark Shinwell  <shinwell@codesourcery.com>
+
+	* Makefile.in (TEXI_GCC_FILES): Add arm-neon-intrinsics.texi.
+	* config.gcc (arm*-*-*): Add arm_neon.h to extra headers.
+	(with_fpu): Allow --with-fpu=neon.
+	* config/arm/aof.h (ADDITIONAL_REGISTER_NAMES): Add Q0-Q15.
+	* config/arm/aout.h (ADDITIONAL_REGISTER_NAMES): Add Q0-Q15.
+	* config/arm/arm-modes.def (EI, OI, CI, XI): New modes.
+	* config/arm/arm-protos.h (neon_immediate_valid_for_move)
+	(neon_immediate_valid_for_logic, neon_output_logic_immediate)
+	(neon_pairwise_reduce, neon_expand_vector_init, neon_reinterpret)
+	(neon_emit_pair_result_insn, neon_disambiguate_copy)
+	(neon_vector_mem_operand, neon_struct_mem_operand, output_move_quad)
+	(output_move_neon): Add prototypes.
+	* config/arm/arm.c (FL_NEON): New flag for NEON processor capability.
+	(all_fpus): Add FPUTYPE_NEON.
+	(fp_model_for_fpu): Add NEON field.
+	(arm_return_in_memory): Return vectors <= 16 bytes in ARM registers.
+	(arm_arg_partial_bytes): Allow NEON vectors to be passed partially
+	in registers.
+	(arm_legitimate_address_p): Don't support fancy addressing for NEON
+	structure moves.
+	(thumb2_legitimate_address_p): Likewise.
+	(neon_valid_immediate): Recognize and prepare constants suitable for
+	NEON instructions.
+	(neon_immediate_valid_for_move): New function. Recognize and prepare
+	immediates for NEON move instructions.
+	(neon_immediate_valid_for_logic): New function. Recognize and
+	prepare immediates for NEON logic instructions.
+	(neon_output_logic_immediate): New function. Create asm string
+	suitable for outputting immediate logic instructions.
+	(neon_pairwise_reduce): New function. Implement reduction using
+	pairwise operations.
+	(neon_expand_vector_init): New function. Expand a (possibly
+	non-constant) vector initialization.
+	(neon_vector_mem_operand): New function. Memory operands supported
+	for quad-word loads/stores to/from ARM or NEON registers. Don't
+	allow base+offset addressing for core regs.
+	(neon_struct_mem_operand): New function. Valid mems for NEON
+	structure moves.
+	(coproc_secondary_reload_class): Enable NEON registers to be loaded
+	from neon_vector_mem_operand addresses without a secondary register.
+	(add_minipool_forward_ref): Handle >8-byte minipool entries.
+	(add_minipool_backward_ref): Likewise.
+	(dump_minipool): Likewise.
+	(push_minipool_fix): Likewise.
+	(output_move_quad): New function. Output quad-word moves, loads and
+	stores using ARM registers.
+	(output_move_vfp): Add support for vectors in VFP (NEON) D
+	registers.
+	(output_move_neon): Output a NEON load/store to/from a quadword
+	register.
+	(arm_print_operand): Implement new codes:
+	- 'c' for unadorned integers (without a # sign).
+	- 'J', 'K' for reg+2/reg+3, reg+3/reg+2 in little/big-endian
+	mode.
+	- 'e', 'f' for the low and high D parts of a NEON Q register.
+	- 'q' outputs a NEON Q register.
+	- 'h' outputs ranges of D registers for VLDM/VSTM etc.
+	- 'T' prints NEON opcode features from a coded bitmask.
+	- 'F' is similar to T, but signed/unsigned codes both print as
+	'i'.
+	- 't' is similar to T, but 'u' is printed instead of 'p'.
+	- 'O' prints 'r' if NEON instruction should perform rounding (as
+	specified by bitmask), else prints nothing.
+	- '#' is a punctuation character to stop operand numbers from
+	running together with following digits in the assembler
+	strings for instructions (when using mode attributes).
+	(arm_assemble_integer): Handle extra NEON vector modes. Permute
+	constant vectors in big-endian mode, where necessary.
+	(arm_hard_regno_mode_ok): Allow vectors in VFP/NEON registers.
+	Handle EI, OI, CI, XI modes.
+	(ashlv4hi3, ashlv2si3, lshrv4hi3, lshrv2si3, ashrv4hi3)
+	(ashrv2si3): Rename IWMMXT2_BUILTINs to...
+	(ashlv4hi3_iwmmxt, ashlv2si3_iwmmxt, lshrv4hi3_iwmmxt)
+	(lshrv2si3_iwmmxt, ashrv4hi3_iwmmxt, ashrv2si3_iwmmxt): New names.
+	(neon_builtin_type_bits): Add enumeration, one bit for each vector
+	type.
+	(v8qi_UP, v4hi_UP, v2si_UP, v2sf_UP, di_UP, v16qi_UP, v8hi_UP)
+	(v4si_UP, v4sf_UP, v2di_UP, ti_UP, ei_UP, oi_UP, UP): Define macros
+	to turn v8qi, etc. into bits defined above.
+	(neon_itype): New enumeration. Classifications of NEON builtins.
+	(neon_builtin_datum): Define struct. Contains information about
+	a single builtin (with multiple modes).
+	(CF): Define helper macro for...
+	(VAR1...VAR10): Define builtins with a type, name and 1-10 different
+	modes.
+	(neon_builtin_data): New array. Define information about builtins
+	for use during initialization/expansion.
+	(arm_init_neon_builtins): New function.
+	(arm_init_builtins): Call arm_init_neon_builtins if TARGET_NEON is
+	true.
+	(neon_builtin_compare): New function.
+	(locate_neon_builtin_icode): New function. Find an insn code for a
+	builtin given a function code for that builtin. Also return type of
+	builtin (NEON_BINOP, NEON_UNOP etc.).
+	(builtin_arg): New enumeration. Types of arguments for builtins.
+	(arm_expand_neon_args): New function. Expand a generic NEON builtin.
+	Takes a variable argument list of builtin_arg types, terminated by
+	NEON_ARG_STOP.
+	(arm_expand_neon_builtin): New function. Expand a NEON builtin.
+	(neon_reinterpret): New function. Expand NEON reinterpret intrinsic.
+	(neon_emit_pair_result_insn): New function. Support returning pairs
+	of vectors via a pointer.
+	(neon_disambiguate_copy): New function. Set up operands for a
+	multi-word copy such that registers do not get clobbered.
+	(arm_expand_builtin): Call arm_expand_neon_builtin if fcode >=
+	ARM_BUILTIN_NEON_BASE.
+	(arm_file_start): Set float-abi attribute for NEON.
+	(arm_vector_mode_supported_p): Enable NEON vector modes.
+	(arm_mangle_map_entry): New.
+	(arm_mangle_map): New.
+	(arm_mangle_vector_type): New.
+	* config/arm/arm.h (TARGET_CPU_CPP_BUILTINS): Define __ARM_NEON__
+	when appropriate.
+	(TARGET_NEON): New macro. Target supports NEON.
+	(fputype): Add FPUTYPE_NEON.
+	(UNITS_PER_SIMD_WORD): Define. Allow quad-word registers to be used
+	for vectorization based on command-line arg.
+	(NEON_REGNO_OK_FOR_NREGS): Define.
+	(VALID_NEON_DREG_MODE, VALID_NEON_QREG_MODE)
+	(VALID_NEON_STRUCT_MODE): Define.
+	(PRINT_OPERAND_PUNCT_VALID_P): '#' is valid punctuation.
+	(arm_builtins): Add ARM_BUILTIN_NEON_BASE.
+	* config/arm/arm.md (VUNSPEC_POOL_16): Insert constant for unspec.
+	(consttable_16): Add pattern for outputting 16-byte minipool
+	entries.
+	(movv2si, movv4hi, movv8qi): Remove blank expanders (redefined in
+	vec-common.md).
+	(vec-common.md, neon.md): Include md files.
+	* config/arm/arm.opt (mvectorize-with-neon-quad): Add option.
+	* config/arm/constraints.md (constraint "Dn", "Dl", "DL"): Define.
+	(memory_constraint "Ut", "Un", "Us"): Define.
+	* config/arm/iwmmxt.md (VMMX, VSHFT): New mode macros.
+	(MMX_char): New mode attribute.
+	(addv8qi3, addv4hi3, addv2si3): Remove. Replace with...
+	(*add<mode>3_iwmmxt): New insn pattern.
+	(subv8qi3, subv4hi3, subv2si3): Remove. Replace with...
+	(*sub<mode>3_iwmmxt): New insn pattern.
+	(mulv4hi3): Rename to...
+	(*mulv4hi3_iwmmxt): This.
+	(smaxv8qi3, smaxv4hi3, smaxv2si3, umaxv8qi3, umaxv4hi3)
+	(umaxv2si3, sminv8qi3, sminv4hi3, sminv2si3, uminv8qi3)
+	(uminv4hi3, uminv2si3): Remove. Replace with...
+	(*smax<mode>3_iwmmxt, *umax<mode>3_iwmmxt, *smin<mode>3_iwmmxt)
+	(*umin<mode>3_iwmmxt): These.
+	(ashrv4hi3, ashrv2si3, ashrdi3_iwmmxt): Replace with...
+	(ashr<mode>3_iwmmxt): This new pattern.
+	(lshrv4hi3, lshrv2si3, lshrdi3_iwmmxt): Replace with...
+	(lshr<mode>3_iwmmxt): This new pattern.
+	(ashlv4hi3, ashlv2si3, ashldi3_iwmmxt): Replace with...
+	(ashl<mode>3_iwmmxt): This new pattern.
+	* config/arm/neon-docgen.ml: New file. Generate documentation for
+	intrinsics.
+	* config/arm/neon-gen.ml: New file. Generate arm_neon.h header.
+	* config/arm/arm_neon.h: New (autogenerated).
+	* config/arm/neon-testgen.ml: New file. Generate NEON tests
+	automatically.
+	* config/arm/neon.md: New file. Define NEON instructions.
+	* config/arm/neon.ml: New file. Abstract description of NEON
+	instructions, used to generate arm_neon.h header, documentation and
+	tests.
+	* config/arm/t-arm (MD_INCLUDES): Add vec-common.md, neon.md.
+	* vec-common.md: New file. Shared parts for iWMMXt and NEON vector
+	support.
+	* doc/extend.texi (ARM Built-in Functions): Rename and remove
+	extraneous comma.
+	(ARM NEON Intrinsics): New subsection.
+	* doc/arm-neon-intrinsics.texi: New (autogenerated).
+
+2007-07-25  Danny Smith   <dannysmith@users.sourceforge.net>
+
+	* config/i386/i386-protos.h (i386_pe_asm_file_end): Remove
+	prototype.
+
+2007-07-24  Jan Hubicka  <jh@suse.cz>
+
+	* regclass.c (move_table): New type.
+	(move_cost, may_move_in_cost, may_move_out_cost): Use it.
+	(init_move_cost): Break out from ...
+	(init_reg_sets_1): ... here; simplify computation of
+	have_regs-of_mode and contains_reg_of_mode.
+	(record_reg_classes): Unswitch internal loops.
+	(copy_cost): Trigger lazy initialization of move cost
+	(record_address_regs): Likewise.
+
+2007-07-24  Daniel Berlin  <dberlin@dberlin.org>
+
+	* config/darwin.c (darwin_override_options): Don't force on
+	flag_var_tracking_uninit when no debug info is requested.
+
+2007-07-25  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* cfgloop.c (init_loops_structure): New function.
+	(flow_loops_find): Create root of the loop tree unconditionally.
+
+2007-07-24  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* tree-ssa-ccp.c (fold_const_aggregate_ref): Use fold_convert.
+
+2007-07-24  Jan Hubicka  <jh@suse.cz>
+
+	* caller-save.c: Include ggc.h, gt-caller-save.h
+	(reg_save_code, reg_restore_code): Rename to ...
+	(cached_reg_save_code, cached_reg_restore_code): ... those.
+	(savepat, restpat, test_reg, test_mem, saveinsn, restinsn): New.
+	(reg_save_code, reg_restore_code): New functions.
+	(init_caller_save): Do not intialize
+	reg_save_code/reg_restore_code tables.
+	* Makefile.in: (gt-caller-save.h): New.
+
+2007-07-24  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* tree-ssa-ifcombine.c (ifcombine_ifandif): Use a ONE operand
+	with the mode of the original operand instead of
+	integer_one_node.
+
 2007-07-23  Jan Hubicka  <jH@suse.cz>
 
 	* i386.c (ix86_secondary_memory_needed): Break out to...
@@ -11651,7 +12908,7 @@
 
 	* c-common.c (warn_logical_operator): Fix condition.
 
-2007-03-10  Tobias Schl�ter  <tobi@gcc.gnu.org>
+2007-03-10  Tobias Schlï¿½ter  <tobi@gcc.gnu.org>
 
 	* config/i386/darwin.h (DARWIN_MINVERSION_SPEC): Add missing
 	quotation mark.
@@ -18793,7 +20050,7 @@
 	* langhooks.h (struct lang_hooks): Removed field
 	'can_use_bit_fields_p'.
 
-2007-01-10  Ralf Corsépius <ralf.corsepius@rtems.org>
+2007-01-10  Ralf CorsÃ©pius <ralf.corsepius@rtems.org>
 
 	* config/bfin/t-bfin, config/bfin/t-bfin-elf: Remove GCC_CFLAGS.
 
@@ -19022,7 +20279,7 @@
 	* config/frv/predicates.md (reg_or_0_operand): Accept
 	CONST_DOUBLEs.
 
-2007-01-08  Ralf Corsépius <ralf.corsepius@rtems.org>
+2007-01-08  Ralf CorsÃ©pius <ralf.corsepius@rtems.org>
 
 	* config/bfin/rtems.h, config/bfin/t-rtems: New.
 	* config.gcc: Add bfin*-rtems*.

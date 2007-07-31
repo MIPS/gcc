@@ -789,8 +789,16 @@ generic_sym (gfc_symbol *sym)
     return 0;
 
   gfc_find_symbol (sym->name, sym->ns->parent, 1, &s);
+  
+  if (s != NULL)
+    {
+      if (s == sym)
+	return 0;
+      else
+	return generic_sym (s);
+    }
 
-  return (s == NULL) ? 0 : generic_sym (s);
+  return 0;
 }
 
 
@@ -2386,7 +2394,7 @@ gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
     }
   else if (sym->intmod_sym_id == ISOCBINDING_ASSOCIATED)
     {
-      /* TODO: Figure out if this is even reacable; this part of the
+      /* TODO: Figure out if this is even reachable; this part of the
          conditional may not be necessary.  */
       int num_args = 0;
       if (c->ext.actual->next == NULL)
@@ -2830,8 +2838,9 @@ resolve_operator (gfc_expr *e)
       if (op1->ts.type == BT_LOGICAL && op2->ts.type == BT_LOGICAL)
 	sprintf (msg,
 		 _("Logicals at %%L must be compared with %s instead of %s"),
-		 e->value.op.operator == INTRINSIC_EQ ? ".eqv." : ".neqv.",
-		 gfc_op2string (e->value.op.operator));
+		 (e->value.op.operator == INTRINSIC_EQ 
+		  || e->value.op.operator == INTRINSIC_EQ_OS)
+		 ? ".eqv." : ".neqv.", gfc_op2string (e->value.op.operator));
       else
 	sprintf (msg,
 		 _("Operands of comparison operator '%s' at %%L are %s/%s"),
@@ -2937,16 +2946,24 @@ resolve_operator (gfc_expr *e)
 
       break;
 
+    case INTRINSIC_PARENTHESES:
+
+      /*  This is always correct and sometimes necessary!  */
+      if (e->ts.type == BT_UNKNOWN)
+	e->ts = op1->ts;
+
+      if (e->ts.type == BT_CHARACTER && !e->ts.cl)
+	e->ts.cl = op1->ts.cl;
+
     case INTRINSIC_NOT:
     case INTRINSIC_UPLUS:
     case INTRINSIC_UMINUS:
-    case INTRINSIC_PARENTHESES:
+      /* Simply copy arrayness attribute */
       e->rank = op1->rank;
 
       if (e->shape == NULL)
 	e->shape = gfc_copy_shape (op1->shape, op1->rank);
 
-      /* Simply copy arrayness attribute */
       break;
 
     default:
@@ -5710,6 +5727,21 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 }
 
 
+static gfc_component *
+has_default_initializer (gfc_symbol *der)
+{
+  gfc_component *c;
+  for (c = der->components; c; c = c->next)
+    if ((c->ts.type != BT_DERIVED && c->initializer)
+        || (c->ts.type == BT_DERIVED
+              && !c->pointer
+              && has_default_initializer (c->ts.derived)))
+      break;
+
+  return c;
+}
+
+
 /* Given a block of code, recursively resolve everything pointed to by this
    code block.  */
 
@@ -5829,6 +5861,9 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 
 	  if (gfc_extend_assign (code, ns) == SUCCESS)
 	    {
+	      gfc_expr *lhs = code->ext.actual->expr;
+	      gfc_expr *rhs = code->ext.actual->next->expr;
+
 	      if (gfc_pure (NULL) && !gfc_pure (code->symtree->n.sym))
 		{
 		  gfc_error ("Subroutine '%s' called instead of assignment at "
@@ -5836,6 +5871,15 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 			     &code->loc);
 		  break;
 		}
+
+	      /* Make a temporary rhs when there is a default initializer
+		 and rhs is the same symbol as the lhs.  */
+	      if (rhs->expr_type == EXPR_VARIABLE
+		    && rhs->symtree->n.sym->ts.type == BT_DERIVED
+		    && has_default_initializer (rhs->symtree->n.sym->ts.derived)
+		    && (lhs->symtree->n.sym == rhs->symtree->n.sym))
+	        code->ext.actual->next->expr = gfc_get_parentheses (rhs);
+
 	      goto call;
 	    }
 
@@ -6413,23 +6457,7 @@ apply_default_init (gfc_symbol *sym)
     }
 
   /* Build an l-value expression for the result.  */
-  lval = gfc_get_expr ();
-  lval->expr_type = EXPR_VARIABLE;
-  lval->where = sym->declared_at;
-  lval->ts = sym->ts;
-  lval->symtree = gfc_find_symtree (sym->ns->sym_root, sym->name);
-
-  /* It will always be a full array.  */
-  lval->rank = sym->as ? sym->as->rank : 0;
-  if (lval->rank)
-    {
-      lval->ref = gfc_get_ref ();
-      lval->ref->type = REF_ARRAY;
-      lval->ref->u.ar.type = AR_FULL;
-      lval->ref->u.ar.dimen = lval->rank;
-      lval->ref->u.ar.where = sym->declared_at;
-      lval->ref->u.ar.as = sym->as;
-    }
+  lval = gfc_lval_expr_from_sym (sym);
 
   /* Add the code at scope entry.  */
   init_st = gfc_get_code ();
@@ -6482,21 +6510,6 @@ resolve_fl_var_and_proc (gfc_symbol *sym, int mp_flag)
 	 }
     }
   return SUCCESS;
-}
-
-
-static gfc_component *
-has_default_initializer (gfc_symbol *der)
-{
-  gfc_component *c;
-  for (c = der->components; c; c = c->next)
-    if ((c->ts.type != BT_DERIVED && c->initializer)
-        || (c->ts.type == BT_DERIVED
-              && !c->pointer
-              && has_default_initializer (c->ts.derived)))
-      break;
-
-  return c;
 }
 
 
@@ -7022,44 +7035,74 @@ resolve_fl_namelist (gfc_symbol *sym)
     {
       for (nl = sym->namelist; nl; nl = nl->next)
 	{
-	  if (!nl->sym->attr.use_assoc
-	      && !(sym->ns->parent == nl->sym->ns)
-	      && !(sym->ns->parent
-		   && sym->ns->parent->parent == nl->sym->ns)
-	      && !gfc_check_access(nl->sym->attr.access,
-				   nl->sym->ns->default_access))
+	  if (nl->sym->attr.use_assoc
+	      || (sym->ns->parent == nl->sym->ns)
+	      || (sym->ns->parent
+		  && sym->ns->parent->parent == nl->sym->ns))
+	    continue;
+
+	  if (!gfc_check_access(nl->sym->attr.access,
+				nl->sym->ns->default_access))
 	    {
-	      gfc_error ("PRIVATE symbol '%s' cannot be member of "
-			 "PUBLIC namelist at %L", nl->sym->name,
-			 &sym->declared_at);
+	      gfc_error ("NAMELIST object '%s' was declared PRIVATE and "
+			 "cannot be member of PUBLIC namelist '%s' at %L",
+			 nl->sym->name, sym->name, &sym->declared_at);
+	      return FAILURE;
+	    }
+
+	  if (nl->sym->ts.type == BT_DERIVED
+	      && !gfc_check_access (nl->sym->ts.derived->attr.private_comp
+				    ? ACCESS_PRIVATE : ACCESS_UNKNOWN,
+				    nl->sym->ns->default_access))
+	    {
+	      gfc_error ("NAMELIST object '%s' has PRIVATE components and "
+			 "cannot be a member of PUBLIC namelist '%s' at %L",
+			 nl->sym->name, sym->name, &sym->declared_at);
 	      return FAILURE;
 	    }
 	}
     }
 
-  /* Reject namelist arrays that are not constant shape.  */
   for (nl = sym->namelist; nl; nl = nl->next)
     {
+      /* Reject namelist arrays of assumed shape.  */
+      if (nl->sym->as && nl->sym->as->type == AS_ASSUMED_SHAPE
+	  && gfc_notify_std (GFC_STD_F2003, "NAMELIST array object '%s' "
+			     "must not have assumed shape in namelist "
+			     "'%s' at %L", nl->sym->name, sym->name,
+			     &sym->declared_at) == FAILURE)
+	    return FAILURE;
+
+      /* Reject namelist arrays that are not constant shape.  */
       if (is_non_constant_shape_array (nl->sym))
 	{
-	  gfc_error ("The array '%s' must have constant shape to be "
-		     "a NAMELIST object at %L", nl->sym->name,
-		     &sym->declared_at);
+	  gfc_error ("NAMELIST array object '%s' must have constant "
+		     "shape in namelist '%s' at %L", nl->sym->name,
+		     sym->name, &sym->declared_at);
+	  return FAILURE;
+	}
+
+      /* Namelist objects cannot have allocatable or pointer components.  */
+      if (nl->sym->ts.type != BT_DERIVED)
+	continue;
+
+      if (nl->sym->ts.derived->attr.alloc_comp)
+	{
+	  gfc_error ("NAMELIST object '%s' in namelist '%s' at %L cannot "
+		     "have ALLOCATABLE components",
+		     nl->sym->name, sym->name, &sym->declared_at);
+	  return FAILURE;
+	}
+
+      if (nl->sym->ts.derived->attr.pointer_comp)
+	{
+	  gfc_error ("NAMELIST object '%s' in namelist '%s' at %L cannot "
+		     "have POINTER components", 
+		     nl->sym->name, sym->name, &sym->declared_at);
 	  return FAILURE;
 	}
     }
 
-  /* Namelist objects cannot have allocatable components.  */
-  for (nl = sym->namelist; nl; nl = nl->next)
-    {
-      if (nl->sym->ts.type == BT_DERIVED
-	  && nl->sym->ts.derived->attr.alloc_comp)
-	{
-	  gfc_error ("NAMELIST object '%s' at %L cannot have ALLOCATABLE "
-		     "components", nl->sym->name, &sym->declared_at);
-	  return FAILURE;
-	}
-    }
 
   /* 14.1.2 A module or internal procedure represent local entities
      of the same type as a namelist member and so are not allowed.  */
@@ -7094,10 +7137,12 @@ static try
 resolve_fl_parameter (gfc_symbol *sym)
 {
   /* A parameter array's shape needs to be constant.  */
-  if (sym->as != NULL && !gfc_is_compile_time_shape (sym->as))
+  if (sym->as != NULL 
+      && (sym->as->type == AS_DEFERRED
+          || is_non_constant_shape_array (sym)))
     {
       gfc_error ("Parameter array '%s' at %L cannot be automatic "
-		 "or assumed shape", sym->name, &sym->declared_at);
+		 "or of deferred shape", sym->name, &sym->declared_at);
       return FAILURE;
     }
 

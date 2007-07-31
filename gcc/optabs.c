@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -3396,7 +3395,7 @@ struct no_conflict_data
    in the list of insns that constitute the actual no_conflict block /
    libcall block.  */
 static void
-no_conflict_move_test (rtx dest, rtx set, void *p0)
+no_conflict_move_test (rtx dest, const_rtx set, void *p0)
 {
   struct no_conflict_data *p= p0;
 
@@ -4072,7 +4071,7 @@ emit_cmp_and_jump_insns (rtx x, rtx y, enum rtx_code comparison, rtx size,
     {
       /* If we're not emitting a branch, callers are required to pass
 	 operands in an order conforming to canonical RTL.  We relax this
-	 for commutative comparsions so callers using EQ don't need to do
+	 for commutative comparisons so callers using EQ don't need to do
 	 swapping by hand.  */
       gcc_assert (label || (comparison == swap_condition (comparison)));
 

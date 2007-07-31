@@ -1,3 +1,14 @@
+2007-07-31  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge (@127100).
+	* DEV-PHASE: Updated.
+
+2007-07-31  Diego Novillo  <dnovillo@google.com>
+
+	* dominance.c (free_dominance_info): If there is no CFG,
+	do nothing.
+	* cfg.c (compact_blocks): Likewise.
+
 2007-07-30  Diego Novillo  <dnovillo@google.com>
 
 	* gimplify.c (get_tmp_var_for): When creating a new temporary

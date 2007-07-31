@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This file contains low level functions to manipulate the CFG and
    analyze it.  All other modules should not transform the data structure
@@ -164,6 +163,10 @@ void
 compact_blocks (void)
 {
   int i;
+
+  /* FIXME tuples.  We should assert that the CFG exists.  */
+  if (cfun->cfg == NULL)
+    return;
 
   SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
   SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
@@ -1107,18 +1110,18 @@ struct htab_bb_copy_original_entry
 static hashval_t
 bb_copy_original_hash (const void *p)
 {
-  struct htab_bb_copy_original_entry *data
-    = ((struct htab_bb_copy_original_entry *)p);
+  const struct htab_bb_copy_original_entry *data
+    = ((const struct htab_bb_copy_original_entry *)p);
 
   return data->index1;
 }
 static int
 bb_copy_original_eq (const void *p, const void *q)
 {
-  struct htab_bb_copy_original_entry *data
-    = ((struct htab_bb_copy_original_entry *)p);
-  struct htab_bb_copy_original_entry *data2
-    = ((struct htab_bb_copy_original_entry *)q);
+  const struct htab_bb_copy_original_entry *data
+    = ((const struct htab_bb_copy_original_entry *)p);
+  const struct htab_bb_copy_original_entry *data2
+    = ((const struct htab_bb_copy_original_entry *)q);
 
   return data->index1 == data2->index1;
 }

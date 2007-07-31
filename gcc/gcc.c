@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 This paragraph is here to try to keep Sun CC from dying.
 The number of chars here seems crucial!!!!  */
@@ -4848,12 +4847,14 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 
 		if (save_temps_flag)
 		  {
+		    char *tmp;
+		    
 		    temp_filename_length = basename_length + suffix_length;
-		    temp_filename = alloca (temp_filename_length + 1);
-		    strncpy ((char *) temp_filename, input_basename, basename_length);
-		    strncpy ((char *) temp_filename + basename_length, suffix,
-			     suffix_length);
-		    *((char *) temp_filename + temp_filename_length) = '\0';
+		    tmp = alloca (temp_filename_length + 1);
+		    strncpy (tmp, input_basename, basename_length);
+		    strncpy (tmp + basename_length, suffix, suffix_length);
+		    tmp[temp_filename_length] = '\0';
+		    temp_filename = tmp;
 		    if (strcmp (temp_filename, input_filename) != 0)
 		      {
 #ifndef HOST_LACKS_INODE_NUMBERS

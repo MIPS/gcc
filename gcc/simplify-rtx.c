@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -50,8 +49,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define HWI_SIGN_EXTEND(low) \
  ((((HOST_WIDE_INT) low) < 0) ? ((HOST_WIDE_INT) -1) : ((HOST_WIDE_INT) 0))
 
-static rtx neg_const_int (enum machine_mode, rtx);
-static bool plus_minus_operand_p (rtx);
+static rtx neg_const_int (enum machine_mode, const_rtx);
+static bool plus_minus_operand_p (const_rtx);
 static bool simplify_plus_minus_op_data_cmp (rtx, rtx);
 static rtx simplify_plus_minus (enum rtx_code, enum machine_mode, rtx, rtx);
 static rtx simplify_immed_subreg (enum machine_mode, rtx, enum machine_mode,
@@ -67,7 +66,7 @@ static rtx simplify_binary_operation_1 (enum rtx_code, enum machine_mode,
 /* Negate a CONST_INT rtx, truncating (because a conversion from a
    maximally negative number can overflow).  */
 static rtx
-neg_const_int (enum machine_mode mode, rtx i)
+neg_const_int (enum machine_mode mode, const_rtx i)
 {
   return gen_int_mode (- INTVAL (i), mode);
 }
@@ -76,7 +75,7 @@ neg_const_int (enum machine_mode mode, rtx i)
    the most significant bit of machine mode MODE.  */
 
 bool
-mode_signbit_p (enum machine_mode mode, rtx x)
+mode_signbit_p (enum machine_mode mode, const_rtx x)
 {
   unsigned HOST_WIDE_INT val;
   unsigned int width;
@@ -255,7 +254,7 @@ simplify_gen_relational (enum rtx_code code, enum machine_mode mode,
    resulting RTX.  Return a new RTX which is as simplified as possible.  */
 
 rtx
-simplify_replace_rtx (rtx x, rtx old_rtx, rtx new_rtx)
+simplify_replace_rtx (rtx x, const_rtx old_rtx, rtx new_rtx)
 {
   enum rtx_code code = GET_CODE (x);
   enum machine_mode mode = GET_MODE (x);
@@ -3601,7 +3600,7 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
 
 /* Check whether an operand is suitable for calling simplify_plus_minus.  */
 static bool
-plus_minus_operand_p (rtx x)
+plus_minus_operand_p (const_rtx x)
 {
   return GET_CODE (x) == PLUS
          || GET_CODE (x) == MINUS

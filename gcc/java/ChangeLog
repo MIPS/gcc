@@ -1,3 +1,54 @@
+2007-07-31  Nick Clifton  <nickc@redhat.com>
+
+	* java-gimplify.c: Change copyright header to refer to version 3
+	of the GNU General Public License and to point readers at the
+	COPYING3 file and the FSF's license web page.
+	* typeck.c, lang-specs.h, mangle_name.c, jcf-dump.c, class.c,
+	decl.c, config-lang.in, jcf-parse.c, constants.c, Make-lang.in,
+	resource.c, except.c, builtins.c, jvspec.c, java-tree.def,
+	javaop.def, jcf-path.c, verify-glue.c, jcf-depend.c, lang.opt,
+	jcf-reader.c, mangle.c, zextract.c, jcf-io.c, jcf.h, zipfile.h,
+	verify.h, java-except.h, win32-host.c, expr.c, jvgenmain.c,
+	parse.h, lang.c, java-tree.h, javaop.h, boehm.c: Likewise.
+
+2007-07-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* jcf-io.c (find_class): Fix -Wcast-qual warnings.
+
+2007-07-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* lang.c (java_get_callee_fndecl): Constify.
+
+2007-07-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* mangle.c (set_type_package_list): Constify.
+	* verify-glue.c (vfy_make_string): Delete.
+	* verify.h (vfy_make_string): Likewise.
+
+2007-07-26  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (push_labeled_block, pop_labeled_block): Remove.
+	(LABELED_BLOCK_LABEL, LABELED_BLOCK_BODY,
+	EXIT_BLOCK_LABELED_BLOCK): Likewise.
+	* lang.c (java_tree_inlining_walk_subtrees): Update.
+	(java_dump_tree): Likewise.
+	* java-tree.def (LABELED_BLOCK_EXPR, EXIT_BLOCK_EXPR, TRY_EXPR):
+	Remove.
+	* decl.c (push_labeled_block, pop_labeled_block): Remove.
+	* java-gimplify.c (java_gimplify_labeled_block_expr,
+	java_gimplify_exit_block_expr, java_gimplify_try_expr): Remove.
+	(java_gimplify_expr): Update.
+
+2007-07-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* class.c (java_treetreehash_hash, java_treetreehash_compare):
+	Constify. 
+	* expr.c (type_assertion_eq): Likewise.
+	* jcf-io.c (compare_path): Likewise.
+	* jcf-parse.c (cmpstringp): Likewise.
+	* verify-impl.c (get_one_type, compute_argument_types,
+	compute_return_type): Likewise. 
+
 2007-07-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	PR target/32462

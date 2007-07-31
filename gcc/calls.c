@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -144,7 +143,7 @@ static void load_register_parameters (struct arg_data *, int, rtx *, int,
 				      int, int *);
 static rtx emit_library_call_value_1 (int, rtx, rtx, enum libcall_type,
 				      enum machine_mode, int, va_list);
-static int special_function_p (tree, int);
+static int special_function_p (const_tree, int);
 static int check_sibcall_argument_overlap_1 (rtx);
 static int check_sibcall_argument_overlap (rtx, struct arg_data *, int);
 
@@ -470,7 +469,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
    space from the stack such as alloca.  */
 
 static int
-special_function_p (tree fndecl, int flags)
+special_function_p (const_tree fndecl, int flags)
 {
   if (fndecl && DECL_NAME (fndecl)
       && IDENTIFIER_LENGTH (DECL_NAME (fndecl)) <= 17
@@ -544,14 +543,14 @@ special_function_p (tree fndecl, int flags)
 /* Return nonzero when FNDECL represents a call to setjmp.  */
 
 int
-setjmp_call_p (tree fndecl)
+setjmp_call_p (const_tree fndecl)
 {
   return special_function_p (fndecl, 0) & ECF_RETURNS_TWICE;
 }
 
 /* Return true when exp contains alloca call.  */
 bool
-alloca_call_p (tree exp)
+alloca_call_p (const_tree exp)
 {
   if (TREE_CODE (exp) == CALL_EXPR
       && TREE_CODE (CALL_EXPR_FN (exp)) == ADDR_EXPR
@@ -565,10 +564,10 @@ alloca_call_p (tree exp)
 /* Detect flags (function attributes) from the function decl or type node.  */
 
 int
-flags_from_decl_or_type (tree exp)
+flags_from_decl_or_type (const_tree exp)
 {
   int flags = 0;
-  tree type = exp;
+  const_tree type = exp;
 
   if (DECL_P (exp))
     {
@@ -617,7 +616,7 @@ flags_from_decl_or_type (tree exp)
 /* Detect flags from a CALL_EXPR.  */
 
 int
-call_expr_flags (tree t)
+call_expr_flags (const_tree t)
 {
   int flags;
   tree decl = get_callee_fndecl (t);

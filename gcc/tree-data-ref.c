@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This pass walks a given loop structure searching for array
    references.  The information about the array accesses is recorded
@@ -564,6 +563,27 @@ split_constant_offset (tree exp, tree *var, tree *off)
 	*var = fold_convert (type, base);
 	*off = off0;
 	return;
+      }
+
+    case SSA_NAME:
+      {
+	tree def_stmt = SSA_NAME_DEF_STMT (exp);
+	if (TREE_CODE (def_stmt) == GIMPLE_MODIFY_STMT)
+	  {
+	    tree def_stmt_rhs = GIMPLE_STMT_OPERAND (def_stmt, 1);
+
+	    if (!TREE_SIDE_EFFECTS (def_stmt_rhs) 
+		&& EXPR_P (def_stmt_rhs)
+		&& !REFERENCE_CLASS_P (def_stmt_rhs))
+	      {
+		split_constant_offset (def_stmt_rhs, &var0, &off0);
+		var0 = fold_convert (type, var0);
+		*var = var0;
+		*off = off0;
+		return;
+	      }
+	  }
+	break;
       }
 
     default:
@@ -2810,10 +2830,14 @@ add_multivariate_self_dist (struct data_dependence_relation *ddr, tree c_2)
   lambda_vector dist_v;
   int v1, v2, cd;
 
-  /* Polynomials with more than 2 variables are not handled yet.  */
-  if (TREE_CODE (c_0) != INTEGER_CST)
+  /* Polynomials with more than 2 variables are not handled yet.  When
+     the evolution steps are parameters, it is not possible to
+     represent the dependence using classical distance vectors.  */
+  if (TREE_CODE (c_0) != INTEGER_CST
+      || TREE_CODE (CHREC_RIGHT (c_1)) != INTEGER_CST
+      || TREE_CODE (CHREC_RIGHT (c_2)) != INTEGER_CST)
     {
-      DDR_ARE_DEPENDENT (ddr) = chrec_dont_know;
+      DDR_AFFINE_P (ddr) = false;
       return;
     }
 

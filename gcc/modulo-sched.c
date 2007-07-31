@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -914,9 +913,8 @@ sms_schedule (void)
   /* Init Data Flow analysis, to be used in interloop dep calculation.  */
   df_set_flags (DF_LR_RUN_DCE);
   df_rd_add_problem ();
-  df_ru_add_problem ();
   df_note_add_problem ();
-  df_chain_add_problem (DF_DU_CHAIN + DF_UD_CHAIN);
+  df_chain_add_problem (DF_DU_CHAIN);
   df_analyze ();
   regstat_compute_calls_crossed ();
   sched_init ();
@@ -988,12 +986,16 @@ sms_schedule (void)
       if ( !(count_reg = doloop_register_get (tail)))
 	continue;
 
-      /* Don't handle BBs with calls or barriers, or !single_set insns.  */
+      /* Don't handle BBs with calls or barriers, or !single_set insns,
+         or auto-increment insns (to avoid creating invalid reg-moves
+         for the auto-increment insns).  
+         ??? Should handle auto-increment insns.  */
       for (insn = head; insn != NEXT_INSN (tail); insn = NEXT_INSN (insn))
 	if (CALL_P (insn)
 	    || BARRIER_P (insn)
 	    || (INSN_P (insn) && !JUMP_P (insn)
-		&& !single_set (insn) && GET_CODE (PATTERN (insn)) != USE))
+		&& !single_set (insn) && GET_CODE (PATTERN (insn)) != USE)
+            || (FIND_REG_INC_NOTE (insn, NULL_RTX) != 0))
 	  break;
 
       if (insn != NEXT_INSN (tail))
@@ -1004,6 +1006,8 @@ sms_schedule (void)
 		fprintf (dump_file, "SMS loop-with-call\n");
 	      else if (BARRIER_P (insn))
 		fprintf (dump_file, "SMS loop-with-barrier\n");
+              else if (FIND_REG_INC_NOTE (insn, NULL_RTX) != 0)
+                fprintf (dump_file, "SMS reg inc\n");
 	      else
 		fprintf (dump_file, "SMS loop-with-not-single-set\n");
 	      print_rtl_single (dump_file, insn);

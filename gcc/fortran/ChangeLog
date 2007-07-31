@@ -1,13 +1,176 @@
+2007-07-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* invoke.texi: Document -fsign-zero flag.
+
+2007-07-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31211
+	* trans-expr.c (gfc_conv_expr_reference): Add block for case of
+	scalar pointer functions so that NULL result is correctly
+	handled.
+
+	PR fortran/32682
+	*trans-array.c (gfc_trans_array_constructor): On detecting a
+	multi-dimensional parameter array, set the loop limits.
+
+2007-07-29  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/32906
+	* resolve.c (resolve_fl_parameter): Check for constant shape arrays,
+	adjusted error message.
+
+2007-07-29  Daniel Franke  <franke.daniel@gmail.com>
+
+	* invoke.texi: Removed -w from option summary.
+
+2007-07-29  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/32879
+	* intrinsic.texi (IRAND, RAND, RANDOM_NUMBER): Document algorithm
+	used for random number generator.
+
+2007-07-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gfortran.h, interface.c, resolve.c, symbol.c: Fix comment
+	typos.
+	* intrinsic.texi, invoke.texi: Fix typos.
+
+2007-07-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/31609
+	* resolve.c (generic_sym): Check for a same symbol and if so, return to
+	avoid infinite recursion.
+
+2007-07-28  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/31818
+	PR fortran/32876
+	PR fortran/32905
+	* gfortran.h (symbol_attribute): Added bits for pointer_comp, 
+	private_comp.
+	* parse.c (parse_derived): Set pointer_comp/private_comp bits if 
+	the derived type ultimately contains pointer components or private 
+	components.
+	* module.c (ab_attribute): New values AB_POINTER_COMP, AB_PRIVATE_COMP.
+	(attr_bits): Added names for new ab_attributes.
+	(mio_symbol_attribute): Save/restore new attribute bits in modules.
+	* match.c (gfc_match_namelist): Removed check for namelist objects
+	of assumed shape.
+	* resolve.c (resolve_fl_namelist): Added check for pointer or
+	private components in nested types. Added check for namelist objects
+	of assumed shape.
+
+2007-07-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32880
+	* trans-expr.c (gfc_trans_scalar_assign): Revert to fixed order
+	for lse and rse pre expressions, for derived types with
+	allocatable components.  Instead, assign the lhs to a temporary
+	and deallocate after the assignment.
+
+2007-07-28  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/32909
+	* trans-stmt.c (gfc_trans_character_select): Replace occurrences
+	of gfc_c_int_type_node with integer_type_node.
+	* trans-decl.c (gfc_build_intrinsic_function_decls): Likewise.
+	(gfc_build_builtin_function_decls): Likewise.
+	(gfc_generate_function_code): Likewise.
+	* trans-io.c (gfc_build_io_library_fndecls): Likewise.
+
+2007-07-27  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* trans-decl.c (gfc_build_builtin_function_decls): Use existing
+	gfc_array_index_type rather than creating another typenode for
+	gfc_index_integer_kind.
+
+2007-07-27  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* trans-io.c (gfc_build_io_library_fndecls): Change to use
+	gfc_array_index_type for array descriptor triplets instead of
+	gfc_int4_type_node.
+
+2007-07-26  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/32899
+	* resolve.c (resolve_operator): Add INTRINSIC_EQ_OS comparison.
+
+2007-07-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/32760
+	* primary.c (match_variable): Do not call gfc_add_flavor if symbol has
+	attribute of ACCESS_PUBLIC or ACCESS_PRIVATE already marked.
+
+2007-07-27  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32035
+	* trans-stmt.c (gfc_trans_character_select): Replace the
+	mechanism with labels by a SWITCH_EXPR.
+	* trans-decl.c (gfc_build_builtin_function_decls): Change
+	return type for select_string.
+
+2007-07-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32903
+	* trans-decl.c (gfc_trans_deferred_vars): Set intent(out)
+	derived types as referenced, if they have the the default
+	initializer set.
+
+2007-07-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gfortran.h (generate_isocbinding_symbol): Constify.
+	* symbol.c (gen_special_c_interop_ptr, gen_cptr_param,
+	generate_isocbinding_symbol): Likewise.
+
+2007-07-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31205
+	PR fortran/32842
+	* trans-expr.c (gfc_conv_function_call): Remove the default
+	initialization of intent(out) derived types.
+	* symbol.c (gfc_lval_expr_from_sym): New function.
+	* matchexp.c (gfc_get_parentheses): Return argument, if it is
+	character and posseses a ref.
+	* gfortran.h : Add prototype for gfc_lval_expr_from_sym.
+	* resolve.c (has_default_initializer): Move higher up in file.
+	(resolve_code): On detecting an interface assignment, check
+	if the rhs and the lhs are the same symbol.  If this is so,
+	enclose the rhs in parenetheses to generate a temporary and
+	prevent any possible aliasing.
+	(apply_default_init): Remove code making the lval and call
+	gfc_lval_expr_from_sym instead.
+	(resolve_operator): Give a parentheses expression a type-
+	spec if it has no type.
+	* trans-decl.c (gfc_trans_deferred_vars): Apply the a default
+	initializer, if any, to an intent(out) derived type, using
+	gfc_lval_expr_from_sym and gfc_trans_assignment.  Check if
+	the dummy is present.
+
+2007-07-24  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/32867
+	* expr.c (check_init_expr): Simplify matched functions.
+
+2007-07-24  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/32778
+	* intrinsic.c (add_sym): Do not exclude any symbols, even if not part
+	of the selected standard.
+	(make generic): Likewise.
+	(make alias): Likewise, set standard the alias belongs to.
+	(add_subroutines): Call make_noreturn unconditionally.
+	(check_intrinsic_standard): Change return value to try.
+	(gfc_intrinsic_func_interface): Check return value of above function.
+	(gfc_intrinsic_sub_interface): Likewise.
+
 2007-07-24  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	PR fortran/30814
-	* libgfortran.h:  Add bounds_check to compile_options_t.
-	* runtime/compile_options.c (set_options):  Add handling
-	of compile_options.bounds_check.
-	* intrinsics/pack_generic.c (pack_internal):  Also determine
-	the number of elements if compile_options.bounds_check is
-	true.  Raise runtime error if a different array shape is
-	detected.
+	* trans-decl.c (generate_function_code):  Add argument
+	for flag_bounds_check to the array for set_options.
+	* invoke.texi (-fbounds-check): Document new libarary run-time
+	behaviour.
 
 2007-07-23  Daniel Franke  <franke.daniel@gmail.com>
 

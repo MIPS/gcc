@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -445,13 +444,14 @@ typedef struct expr_pred_trans_d
      speed reasons.  */
   hashval_t hashcode;
 } *expr_pred_trans_t;
+typedef const struct expr_pred_trans_d *const_expr_pred_trans_t;
 
 /* Return the hash value for a phi translation table entry.  */
 
 static hashval_t
 expr_pred_trans_hash (const void *p)
 {
-  const expr_pred_trans_t ve = (expr_pred_trans_t) p;
+  const_expr_pred_trans_t const ve = (const_expr_pred_trans_t) p;
   return ve->hashcode;
 }
 
@@ -461,8 +461,8 @@ expr_pred_trans_hash (const void *p)
 static int
 expr_pred_trans_eq (const void *p1, const void *p2)
 {
-  const expr_pred_trans_t ve1 = (expr_pred_trans_t) p1;
-  const expr_pred_trans_t ve2 = (expr_pred_trans_t) p2;
+  const_expr_pred_trans_t const ve1 = (const_expr_pred_trans_t) p1;
+  const_expr_pred_trans_t const ve2 = (const_expr_pred_trans_t) p2;
   basic_block b1 = ve1->pred;
   basic_block b2 = ve2->pred;
   int i;
@@ -1431,7 +1431,7 @@ bitmap_find_leader (bitmap_set_t set, tree val)
   return NULL;
 }
 
-/* Determine if EXPR, a memory expressionn, is ANTIC_IN at the top of
+/* Determine if EXPR, a memory expression, is ANTIC_IN at the top of
    BLOCK by seeing if it is not killed in the block.  Note that we are
    only determining whether there is a store that kills it.  Because
    of the order in which clean iterates over values, we are guaranteed

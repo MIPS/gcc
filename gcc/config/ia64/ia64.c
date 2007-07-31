@@ -279,7 +279,7 @@ static tree ia64_gimplify_va_arg (tree, tree, tree *, tree *);
 static bool ia64_scalar_mode_supported_p (enum machine_mode mode);
 static bool ia64_vector_mode_supported_p (enum machine_mode mode);
 static bool ia64_cannot_force_const_mem (rtx);
-static const char *ia64_mangle_fundamental_type (tree);
+static const char *ia64_mangle_type (tree);
 static const char *ia64_invalid_conversion (tree, tree);
 static const char *ia64_invalid_unary_op (int, tree);
 static const char *ia64_invalid_binary_op (int, tree, tree);
@@ -476,8 +476,8 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM ia64_cannot_force_const_mem
 
-#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
-#define TARGET_MANGLE_FUNDAMENTAL_TYPE ia64_mangle_fundamental_type
+#undef TARGET_MANGLE_TYPE
+#define TARGET_MANGLE_TYPE ia64_mangle_type
 
 #undef TARGET_INVALID_CONVERSION
 #define TARGET_INVALID_CONVERSION ia64_invalid_conversion
@@ -4496,6 +4496,7 @@ ia64_print_operand_address (FILE * stream ATTRIBUTE_UNUSED,
    O	Append .acq for volatile load.
    P	Postincrement of a MEM.
    Q	Append .rel for volatile store.
+   R	Print .s .d or nothing for a single, double or no truncation.
    S	Shift amount for shladd instruction.
    T	Print an 8-bit sign extended number (K) as a 32-bit unsigned number
 	for Intel assembler.
@@ -4634,6 +4635,17 @@ ia64_print_operand (FILE * file, rtx x, int code)
     case 'Q':
       if (MEM_VOLATILE_P (x))
 	fputs(".rel", file);
+      return;
+
+    case 'R':
+      if (x == CONST0_RTX (GET_MODE (x)))
+	fputs(".s", file);
+      else if (x == CONST1_RTX (GET_MODE (x)))
+	fputs(".d", file);
+      else if (x == CONST2_RTX (GET_MODE (x)))
+	;
+      else
+	output_operand_lossage ("invalid %%R value");
       return;
 
     case 'S':
@@ -9739,8 +9751,14 @@ ia64_profile_hook (int labelno)
 /* Return the mangling of TYPE if it is an extended fundamental type.  */
 
 static const char *
-ia64_mangle_fundamental_type (tree type)
+ia64_mangle_type (tree type)
 {
+  type = TYPE_MAIN_VARIANT (type);
+
+  if (TREE_CODE (type) != VOID_TYPE && TREE_CODE (type) != BOOLEAN_TYPE
+      && TREE_CODE (type) != INTEGER_TYPE && TREE_CODE (type) != REAL_TYPE)
+    return NULL;
+
   /* On HP-UX, "long double" is mangled as "e" so __float128 is
      mangled as "e".  */
   if (!TARGET_HPUX && TYPE_MODE (type) == TFmode)
