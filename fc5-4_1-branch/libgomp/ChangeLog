@@ -1,3 +1,51 @@
+2007-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/32362
+	* testsuite/libgomp.c/pr32362-1.c: New test.
+	* testsuite/libgomp.c/pr32362-2.c: New test.
+	* testsuite/libgomp.c/pr32362-3.c: New test.
+
+2007-06-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* team.c (gomp_team_start): Fix setting up thread_attr
+	stack size.
+
+2007-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/linux/proc.c: New file.
+
+	PR libgomp/28482
+	* configure.tgt: Don't link with -Wl,-z,nodlopen even on Linux.
+
+2007-04-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (gomp_cpu_affinity, gomp_cpu_affinity_len): New extern
+	decls.
+	(gomp_init_affinity, gomp_init_thread_affinity): New prototypes.
+	* env.c (gomp_cpu_affinity, gomp_cpu_affinity_len): New variables.
+	(parse_affinity): New function.
+	(initialize_env): Call it and gomp_init_affinity.
+	* team.c (gomp_team_start): If gomp_cpu_affinity != NULL,
+	create new pthread_attr_t and call gomp_init_thread_affinity
+	on it for each thread before passing the attribute to pthread_create.
+	* config/linux/affinity.c: New file.
+	* config/posix/affinity.c: New file.
+	* configure.ac (HAVE_PTHREAD_AFFINITY_NP): New test.
+	* configure: Rebuilt.
+	* config.h.in: Rebuilt.
+	* Makefile.am (libgomp_la_SOURCES): Add affinity.c.
+	* Makefile.in: Rebuilt.
+
+2007-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/30703
+	* testsuite/libgomp.c++/pr30703.C: New test.
+
+2007-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/30494
+	* testsuite/libgomp.c/pr30494.c: New test.
+
 2006-02-08  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* testsuite/lib/libgomp-dg.exp: Load scanrtl.exp library.

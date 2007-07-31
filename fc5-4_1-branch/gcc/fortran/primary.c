@@ -778,6 +778,9 @@ next_string_char (char delimiter)
 	  gfc_current_locus = old_locus;
 	  break;
 	}
+
+      if (!(gfc_option.allow_std & GFC_STD_GNU) && !inhibit_warnings)
+	gfc_warning ("Extension: backslash character at %C");
     }
 
   if (c != delimiter)
@@ -1036,7 +1039,10 @@ match_logical_constant (gfc_expr ** result)
     kind = gfc_default_logical_kind;
 
   if (gfc_validate_kind (BT_LOGICAL, kind, true) < 0)
-    gfc_error ("Bad kind for logical constant at %C");
+    {
+      gfc_error ("Bad kind for logical constant at %C");
+      return MATCH_ERROR;
+    }
 
   e = gfc_get_expr ();
 

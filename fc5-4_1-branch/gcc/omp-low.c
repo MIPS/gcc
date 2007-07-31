@@ -1505,9 +1505,9 @@ lookup_decl_in_outer_ctx (tree decl, omp_context *ctx)
   for (up = ctx->outer, t = NULL; up && t == NULL; up = up->outer)
     t = maybe_lookup_decl (decl, up);
 
-  gcc_assert (t);
+  gcc_assert (t || is_global_var (decl));
 
-  return t;
+  return t ? t : decl;
 }
 
 
@@ -1601,7 +1601,7 @@ omp_reduction_init (tree clause, tree type)
 
 static void
 lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
-			  omp_context *ctx)
+			 omp_context *ctx)
 {
   tree_stmt_iterator diter;
   tree c, dtor, copyin_seq, x, args, ptr;
@@ -2421,6 +2421,7 @@ expand_omp_parallel (struct omp_region *region)
   block_stmt_iterator si;
   tree entry_stmt;
   edge e;
+  bool do_cleanup_cfg = false;
 
   entry_stmt = last_stmt (region->entry);
   child_fn = OMP_PARALLEL_FN (entry_stmt);
@@ -2456,6 +2457,7 @@ expand_omp_parallel (struct omp_region *region)
 	  exit_succ_e = single_succ_edge (exit_bb);
 	  make_edge (new_bb, exit_succ_e->dest, EDGE_FALLTHRU);
 	}
+      do_cleanup_cfg = true;
     }
   else
     {
@@ -2546,6 +2548,14 @@ expand_omp_parallel (struct omp_region *region)
 
   /* Emit a library call to launch the children threads.  */
   expand_parallel_call (region, new_bb, entry_stmt, ws_args);
+
+  if (do_cleanup_cfg)
+    {
+      /* Clean up the unreachable sub-graph we created above.  */
+      free_dominance_info (CDI_DOMINATORS);
+      free_dominance_info (CDI_POST_DOMINATORS);
+      cleanup_tree_cfg ();
+    }
 }
 
 
@@ -3981,13 +3991,14 @@ lower_omp_critical (tree *stmt_p, omp_context *ctx)
 /* A subroutine of lower_omp_for.  Generate code to emit the predicate
    for a lastprivate clause.  Given a loop control predicate of (V
    cond N2), we gate the clause on (!(V cond N2)).  The lowered form
-   is appended to *BODY_P.  */
+   is appended to *DLIST, iterator initialization is appended to
+   *BODY_P.  */
 
 static void
 lower_omp_for_lastprivate (struct omp_for_data *fd, tree *body_p,
-			   struct omp_context *ctx)
+			   tree *dlist, struct omp_context *ctx)
 {
-  tree clauses, cond;
+  tree clauses, cond, stmts, vinit, t;
   enum tree_code cond_code;
   
   cond_code = fd->cond_code;
@@ -4005,7 +4016,24 @@ lower_omp_for_lastprivate (struct omp_for_data *fd, tree *body_p,
   cond = build2 (cond_code, boolean_type_node, fd->v, fd->n2);
 
   clauses = OMP_FOR_CLAUSES (fd->for_stmt);
-  lower_lastprivate_clauses (clauses, cond, body_p, ctx);
+  stmts = NULL;
+  lower_lastprivate_clauses (clauses, cond, &stmts, ctx);
+  if (stmts != NULL)
+    {
+      append_to_statement_list (stmts, dlist);
+
+      /* Optimize: v = 0; is usually cheaper than v = some_other_constant.  */
+      vinit = fd->n1;
+      if (cond_code == EQ_EXPR
+	  && host_integerp (fd->n2, 0)
+	  && ! integer_zerop (fd->n2))
+	vinit = build_int_cst (TREE_TYPE (fd->v), 0);
+
+      /* Initialize the iterator variable, so that threads that don't execute
+	 any iterations don't execute the lastprivate clauses by accident.  */
+      t = build2 (MODIFY_EXPR, void_type_node, fd->v, vinit);
+      gimplify_and_add (t, body_p);
+    }
 }
 
 
@@ -4061,6 +4089,8 @@ lower_omp_for (tree *stmt_p, omp_context *ctx)
   /* Once lowered, extract the bounds and clauses.  */
   extract_omp_for_data (stmt, &fd);
 
+  lower_omp_for_lastprivate (&fd, body_p, &dlist, ctx);
+
   append_to_statement_list (stmt, body_p);
 
   append_to_statement_list (OMP_FOR_BODY (stmt), body_p);
@@ -4069,7 +4099,6 @@ lower_omp_for (tree *stmt_p, omp_context *ctx)
   append_to_statement_list (t, body_p);
 
   /* After the loop, add exit clauses.  */
-  lower_omp_for_lastprivate (&fd, &dlist, ctx);
   lower_reduction_clauses (OMP_FOR_CLAUSES (stmt), body_p, ctx);
   append_to_statement_list (dlist, body_p);
 
@@ -4185,6 +4214,40 @@ lower_regimplify (tree *tp, struct walk_stmt_info *wi)
     tsi_link_before (&wi->tsi, pre, TSI_SAME_STMT);
 }
 
+/* Copy EXP into a temporary.  Insert the initialization statement before TSI.  */
+
+static tree
+init_tmp_var (tree exp, tree_stmt_iterator *tsi)
+{
+  tree t, stmt;
+
+  t = create_tmp_var (TREE_TYPE (exp), NULL);
+  if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE)
+    DECL_COMPLEX_GIMPLE_REG_P (t) = 1;
+  stmt = build2 (MODIFY_EXPR, TREE_TYPE (t), t, exp);
+  SET_EXPR_LOCUS (stmt, EXPR_LOCUS (tsi_stmt (*tsi)));
+  tsi_link_before (tsi, stmt, TSI_SAME_STMT);
+
+  return t;
+}
+
+/* Similarly, but copy from the temporary and insert the statement
+   after the iterator.  */
+
+static tree
+save_tmp_var (tree exp, tree_stmt_iterator *tsi)
+{
+  tree t, stmt;
+
+  t = create_tmp_var (TREE_TYPE (exp), NULL);
+  if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE)
+    DECL_COMPLEX_GIMPLE_REG_P (t) = 1;
+  stmt = build2 (MODIFY_EXPR, TREE_TYPE (t), exp, t);
+  SET_EXPR_LOCUS (stmt, EXPR_LOCUS (tsi_stmt (*tsi)));
+  tsi_link_after (tsi, stmt, TSI_SAME_STMT);
+
+  return t;
+}
 
 /* Callback for walk_stmts.  Lower the OpenMP directive pointed by TP.  */
 
@@ -4250,7 +4313,17 @@ lower_omp_1 (tree *tp, int *walk_subtrees, void *data)
 
     case VAR_DECL:
       if (ctx && DECL_HAS_VALUE_EXPR_P (t))
-	lower_regimplify (tp, wi);
+	{
+	  lower_regimplify (&t, wi);
+	  if (wi->val_only)
+	    {
+	      if (wi->is_lhs)
+		t = save_tmp_var (t, &wi->tsi);
+	      else
+		t = init_tmp_var (t, &wi->tsi);
+	    }
+	  *tp = t;
+	}
       break;
 
     case ADDR_EXPR:

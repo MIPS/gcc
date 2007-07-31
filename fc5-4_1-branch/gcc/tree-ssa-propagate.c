@@ -581,7 +581,8 @@ set_rhs (tree *stmt_p, tree expr)
 	  && !is_gimple_val (TREE_OPERAND (TREE_OPERAND (expr, 0), 1)))
 	return false;
     }
-  else if (code == COMPOUND_EXPR)
+  else if (code == COMPOUND_EXPR
+	   || code == MODIFY_EXPR)
     return false;
 
   if (EXPR_HAS_LOCATION (stmt)

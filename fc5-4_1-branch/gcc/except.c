@@ -1006,7 +1006,11 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
     for (prev_try = VEC_index (eh_region, cfun->eh->region_array, outer_region);
          prev_try && prev_try->type != ERT_TRY;
 	 prev_try = prev_try->outer)
-      ;
+      if (prev_try->type == ERT_MUST_NOT_THROW)
+	{
+	  prev_try = NULL;
+	  break;
+	}
 
   /* Remap all of the internal catch and cleanup linkages.  Since we 
      duplicate entire subtrees, all of the referenced regions will have
@@ -2815,7 +2819,10 @@ set_nothrow_function_flags (void)
 {
   rtx insn;
 
-  if (!targetm.binds_local_p (current_function_decl))
+  /* If we don't know that this implementation of the function will
+     actually be used, then we must not set TREE_NOTHROW, since
+     callers must not assume that this function does not throw.  */
+  if (DECL_REPLACEABLE_P (current_function_decl))
     return;
 
   TREE_NOTHROW (current_function_decl) = 1;
