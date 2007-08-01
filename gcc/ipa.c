@@ -281,7 +281,7 @@ function_and_variable_visibility (void)
 static bool
 gate_ipa_fun_and_var_visibility (void)
 {
-  return !in_lto_p;
+  return true;
 }
 
 

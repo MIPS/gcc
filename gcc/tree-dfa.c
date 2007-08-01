@@ -85,20 +85,26 @@ find_referenced_vars (void)
 {
   basic_block bb;
   block_stmt_iterator si;
+  tree phi;
 
   FOR_EACH_BB (bb)
-    for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-      {
-	tree *stmt_p = bsi_stmt_ptr (si);
-	walk_tree (stmt_p, find_vars_r, NULL, NULL);
-      }
+    {
+      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	{
+	  tree *stmt_p = bsi_stmt_ptr (si);
+	  walk_tree (stmt_p, find_vars_r, NULL, NULL);
+	}
+
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	walk_tree (&phi, find_vars_r, NULL, NULL);
+    }
 
   return 0;
 }
 
 struct tree_opt_pass pass_referenced_vars =
 {
-  NULL,					/* name */
+  "referenced-vars",			/* name */
   NULL,					/* gate */
   find_referenced_vars,			/* execute */
   NULL,					/* sub */
@@ -109,7 +115,7 @@ struct tree_opt_pass pass_referenced_vars =
   PROP_referenced_vars,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,                                    /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
   0				        /* letter */
 };
 
@@ -616,9 +622,14 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 static tree
 find_vars_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
+  /* If we are reading the lto info back in, we need to rescan the
+     referenced vars.  */
+  if (TREE_CODE (*tp) == SSA_NAME)
+    add_referenced_var (SSA_NAME_VAR (*tp));
+
   /* If T is a regular variable that the optimizers are interested
      in, add it to the list of variables.  */
-  if (SSA_VAR_P (*tp))
+  else if (SSA_VAR_P (*tp))
     add_referenced_var (*tp);
 
   /* Type, _DECL and constant nodes have no interesting children.

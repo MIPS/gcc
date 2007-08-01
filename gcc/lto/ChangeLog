@@ -1,3 +1,14 @@
+2007-07-31  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-read.c (input_expr_operand): Fixed code for COND_EXEC,
+	RETURN_EXPR, MODIFY_EXPR and processing of flags.
+	(input_phi): Made work with operands other than SSA_NAMES and
+	fixed processing of flags.
+	(input_ssa_names): Initialize SSA_NAME_DEF_STMT to empty stmt.
+	(input_flags): New function.
+	* lto-lang.c (lto_init): Changed state of in_lto_p.
+	
+	
 2007-07-24  Mark Mitchell  <mark@codesourcery.com>
 
 	* lto-tree.h (lto_varargs_cookie): Remove.

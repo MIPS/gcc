@@ -66,6 +66,7 @@
       ADD_CLASS_FLAG (constant_flag)
       ADD_CLASS_FLAG (unsigned_flag)
       ADD_CLASS_FLAG (deprecated_flag)
+      ADD_CLASS_FLAG (used_flag)
     END_CLASS_CASE (tcc_declaration)
 
     START_CLASS_CASE (tcc_exceptional)
@@ -608,6 +609,8 @@
       
     START_EXPR_CASE (SSA_NAME)
       ADD_EXPR_FLAG (asm_written_flag)
+      ADD_EXPR_FLAG (nothrow_flag)
+      ADD_EXPR_FLAG (volatile_flag)
     END_EXPR_CASE (SSA_NAME)
       
     START_EXPR_CASE (STATEMENT_LIST)

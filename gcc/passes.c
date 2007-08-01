@@ -533,6 +533,12 @@ init_optimization_passes (void)
       NEXT_PASS (pass_rebuild_cgraph_edges);
       NEXT_PASS (pass_inline_parameters);
     }
+  NEXT_PASS (pass_early_lto_passes);
+    {
+      struct tree_opt_pass **p = &pass_early_lto_passes.sub;
+      NEXT_PASS (pass_referenced_vars);
+      NEXT_PASS (pass_rebuild_ssa_for_lto);
+    }
   NEXT_PASS (pass_ipa_lto_out);
   NEXT_PASS (pass_ipa_increase_alignment);
   NEXT_PASS (pass_ipa_matrix_reorg);
@@ -1199,5 +1205,40 @@ execute_ipa_pass_list (struct tree_opt_pass *pass)
       pass = pass->next;
     }
   while (pass);
+}
+
+extern void debug_properties (unsigned int);
+extern void dump_properties (FILE *, unsigned int);
+void
+dump_properties (FILE *dump, unsigned int props)
+{
+  fprintf (dump, "Properties:\n");
+  if (props & PROP_gimple_any)
+    fprintf (dump, "PROP_gimple_any\n");
+  if (props & PROP_gimple_lcf)
+    fprintf (dump, "PROP_gimple_lcf\n");
+  if (props & PROP_gimple_leh)
+    fprintf (dump, "PROP_gimple_leh\n");
+  if (props & PROP_cfg)
+    fprintf (dump, "PROP_cfg\n");
+  if (props & PROP_referenced_vars)
+    fprintf (dump, "PROP_referenced_vars\n");
+  if (props & PROP_pta)
+    fprintf (dump, "PROP_pta\n");
+  if (props & PROP_ssa)
+    fprintf (dump, "PROP_ssa\n");
+  if (props & PROP_no_crit_edges)
+    fprintf (dump, "PROP_no_crit_edges\n");
+  if (props & PROP_rtl)
+    fprintf (dump, "PROP_rtl\n");
+  if (props & PROP_alias)
+    fprintf (dump, "PROP_alias\n");
+  if (props & PROP_gimple_lomp)
+    fprintf (dump, "PROP_gimple_lomp\n");
+}
+  void
+debug_properties (unsigned int props)
+{
+    dump_properties (stderr, props);
 }
 #include "gt-passes.h"

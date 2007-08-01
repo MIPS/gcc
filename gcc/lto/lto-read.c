@@ -384,6 +384,24 @@ process_flags (tree expr, unsigned HOST_WIDE_INT flags)
 }
 
 
+/* Read the flags for CODE from IB.  */
+
+static unsigned int 
+input_flags (struct input_block *ib, enum tree_code code)
+{
+  unsigned int flags;
+
+  if (TEST_BIT (lto_flags_needed_for, code))
+    {
+      LTO_DEBUG_TOKEN ("flags")
+      flags = input_uleb128 (ib);
+    }
+  else
+    flags = 0;
+  return flags;
+}
+
+
 /* Read a node in the gimple tree from IB.  The TAG has already been
    read.  */
 
@@ -402,13 +420,7 @@ input_expr_operand (struct input_block *ib, struct fun_in *fun_in,
   if (TEST_BIT (lto_types_needed_for, code))
     type = get_type_ref (fun_in, ib);
 
-  if (TEST_BIT (lto_flags_needed_for, code))
-    {
-      LTO_DEBUG_TOKEN ("flags")
-      flags = input_uleb128 (ib);
-    }
-  else
-    flags = 0;
+  flags = input_flags (ib, code);
 
   /* FIXME! need to figure out how to set the file and line number.  */
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
@@ -606,8 +618,32 @@ input_expr_operand (struct input_block *ib, struct fun_in *fun_in,
       result = build1 (code, void_type_node, get_label_decl (fun_in, ib));
       break;
 
+    case COND_EXPR:
+      if (tag == LTO_cond_expr0)
+	{
+	  tree op0;
+	  tree op1;
+	  tree op2;
+	  op0 = input_expr_operand (ib, fun_in, fn, 
+				    input_record_start (ib));
+	  op1 = input_expr_operand (ib, fun_in, fn, 
+				    input_record_start (ib));
+	  op2 = input_expr_operand (ib, fun_in, fn, 
+				    input_record_start (ib));
+	  result = build3 (code, type, op0, op1, op2);
+	}
+      else
+	{
+	  tree op0;
+	  op0 = input_expr_operand (ib, fun_in, fn, 
+				    input_record_start (ib));
+	  result = build3 (code, type, op0, NULL, NULL);
+	}
+      break;
+      
+
     case RESULT_DECL:
-      result = build0 (code, NULL_TREE);
+      result = build0 (code, type);
       break;
 
     case COMPONENT_REF:
@@ -711,11 +747,11 @@ input_expr_operand (struct input_block *ib, struct fun_in *fun_in,
       switch (tag) 
 	{
 	case LTO_return_expr0:
-	  result = build1 (code, NULL_TREE, NULL_TREE);
+	  result = build1 (code, type, NULL_TREE);
 	  break;
 	  
 	case LTO_return_expr1:
-	  result = build1 (code, NULL_TREE, 
+	  result = build1 (code, type, 
 			   input_expr_operand (ib, fun_in, fn, 
 					       input_record_start (ib)));
 	  break;
@@ -726,7 +762,7 @@ input_expr_operand (struct input_block *ib, struct fun_in *fun_in,
 					   input_record_start (ib));
 	    tree op1 = input_expr_operand (ib, fun_in, fn,
 					   input_record_start (ib));
-	    result = build1 (code, NULL_TREE, 
+	    result = build1 (code, type, 
 			     build2 (MODIFY_EXPR, NULL_TREE, op0, op1));
 	  }
 	  break;
@@ -838,7 +874,8 @@ input_expr_operand (struct input_block *ib, struct fun_in *fun_in,
     }
 
   LTO_DEBUG_UNDENT()
-  process_flags (result, flags);
+  if (flags)
+    process_flags (result, flags);
   return result;
 }
 
@@ -1136,8 +1173,11 @@ input_cfg (struct input_block *ib, struct function *fn)
 /* Input the next phi function for BB.  */
 
 static tree
-input_phi (struct input_block *ib, basic_block bb, struct function *fn)
+input_phi (struct input_block *ib, basic_block bb, 
+	   struct fun_in *fun_in, struct function *fn)
 {
+  unsigned int flags = input_flags (ib, PHI_NODE);
+
   tree phi_result = VEC_index (tree, SSANAMES (fn), input_uleb128 (ib));
   int len = EDGE_COUNT (bb->preds);
   int i;
@@ -1147,7 +1187,7 @@ input_phi (struct input_block *ib, basic_block bb, struct function *fn)
 
   for (i = 0; i < len; i++)
     {
-      tree def = VEC_index (tree, SSANAMES (fn), input_uleb128 (ib));
+      tree def = input_expr_operand (ib, fun_in, fn, input_record_start (ib));
       int src_index = input_uleb128 (ib);
       basic_block sbb = BASIC_BLOCK_FOR_FUNCTION (fn, src_index);
       
@@ -1163,6 +1203,12 @@ input_phi (struct input_block *ib, basic_block bb, struct function *fn)
 
       add_phi_arg (result, def, e); 
     }
+
+  if (flags)
+    process_flags (result, flags);
+
+  LTO_DEBUG_UNDENT()
+
   return result;
 }
 
@@ -1181,11 +1227,20 @@ input_ssa_names (struct fun_in *fun_in, struct input_block *ib, struct function 
   
   while (i)
     {
+      tree ssa_name;
+      tree name;
+      unsigned int flags;
+
       /* Skip over the elements that had been freed.  */
       while (VEC_length (tree, SSANAMES (fn)) < i)
 	VEC_quick_push (tree, SSANAMES (fn), NULL_TREE);
 
-      make_ssa_name (input_expr_operand (ib, fun_in, fn, input_record_start (ib)), NULL);
+      name = input_expr_operand (ib, fun_in, fn, input_record_start (ib));
+      ssa_name = make_ssa_name (name, build_empty_stmt ());
+
+      LTO_DEBUG_TOKEN ("flags")
+      flags = input_uleb128 (ib);
+      process_flags (ssa_name, flags);
 
       i = input_uleb128 (ib);
     } 
@@ -1196,7 +1251,7 @@ input_ssa_names (struct fun_in *fun_in, struct input_block *ib, struct function 
 
 static void
 input_bb (struct input_block *ib, unsigned int tag, 
-	  struct function *fn, struct fun_in *fun_in)
+	  struct fun_in *fun_in, struct function *fn)
 {
   unsigned int index;
   basic_block bb;
@@ -1229,7 +1284,7 @@ input_bb (struct input_block *ib, unsigned int tag,
   tag = input_record_start (ib);
   while (tag)
     {
-      input_phi (ib, bb, fn);
+      input_phi (ib, bb, fun_in, fn);
       LTO_DEBUG_INDENT_TOKEN ("phi")
       tag = input_record_start (ib);
     }
@@ -1255,7 +1310,7 @@ input_function (tree fn_decl, struct fun_in *fun_in,
   tag = input_record_start (ib);
   while (tag)
     {
-      input_bb (ib, tag, fn, fun_in);
+      input_bb (ib, tag, fun_in, fn);
       tag = input_record_start (ib);
     }
 

@@ -1,3 +1,46 @@
+2007-07-31  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* tree-into-ssa.c (rebuild_ssa_for_lto): New function.
+	(pass_rebuild_ssa_for_lto): New pass.
+	* cgraph_build.c (tree_opt_pass pass_rebuild_cgraph): Added some dumping.
+	* lto-tree-flags.def (tcc_declaration): Added used_flag to serialized list.
+	(SSA_NAME): Added nothrow_flag and volatile_flag to serialized list.
+	* tree-pass.h (pass_early_lto_passes, pass_rebuild_ssa_for_lto): New passes.
+	* lto-function-out.c (output_tree_flags): Added code to properly
+	control writing of flags. Also added new parameter to pass in the
+	tree code.
+	(output_record_start, output_local_vars): Added param to
+	output_tree_flags.
+	(output_tree_list, output_eh_cleanup, output_eh_try,
+	output_eh_catch, output_eh_allowed, output_eh_must_not_throw,
+	output_eh_regions): Added missing debugging undent.
+	(output_expr_operand): Added assert that there was no rtl and code
+	to properly handle COND_EXPR.  Fixed the outputing of types and
+	flags for many tree codes.
+	(output_phi): Fixed the outputing of types and flags.  Generalized
+	to handle parameters to phi that are not SSA_NAMES.
+	(output_bb, LTO_SET_DEBUGGING_STREAM): Added assert to check for
+	proper debug stream usage.
+	(lto_static_init): Changed the outputting of flags and types for
+	various tree codes.
+	(pass_ipa_lto_out): Added dumping.
+	* ipa-inline.c (pass_inline_parameters): Added dumping.
+	* lto-tree-tags.def (COND_EXPR): Changed processing options.
+	* lto-tags.h: Changed define into enum.
+	* ipa.c (gate_ipa_fun_and_var_visibility): Always execute this
+	pass.
+	* tree.def (COND_EXEC): Properly documented this code.
+	* tree-dfa.c (find_referenced_vars): Added code to walk phi
+	functions.
+	(pass_referenced_vars): Added name and dump flag.
+	(find_vars_r): Now handles SSA_NAMES.
+	* tree-optimize.c (gate_early_lto_passes): New function.
+	(pass_early_lto_passes): New pass.
+	* passes.c (pass_early_lto_passes): New pass.
+	(dump_properties, debug_properties): New debugging function.
+	* tree-ssanames.c (pass_release_ssa_names): Added dumping.
+	
+	
 2007-07-19  Jan Hubicka  <jh@suse.cz>
 
 	* cgraphunit.c (cgraph_finalize_function): Set properties of lowered
