@@ -1,5 +1,12 @@
 2007-08-01  Diego Novillo  <dnovillo@google.com>
 
+	* gimplify.c (gimplify_switch_expr): Do not call sort_case_labels
+	if there are no labels other than 'default'.
+	* gimple.h (gimple_num_ops, gimple_op, gimple_set_op): Use
+	result of GIMPLE_RANGE_CHECK call.
+
+2007-08-01  Diego Novillo  <dnovillo@google.com>
+
 	* DEV-PHASE: Revert to mainline version.
 	* version.c (VERSUFFIX): Add branch name and revision number
 	of latest mainline merge.

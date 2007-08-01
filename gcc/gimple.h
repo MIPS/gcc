@@ -472,24 +472,24 @@ extern void gimple_range_check_failed (const gimple, const char *, int,    \
 static inline size_t
 gimple_num_ops (gimple gs)
 {
-  GIMPLE_RANGE_CHECK (gs, GIMPLE_ASSIGN, GIMPLE_RETURN);
-  return gs->with_ops.num_ops;
+  gimple g = GIMPLE_RANGE_CHECK (gs, GIMPLE_ASSIGN, GIMPLE_RETURN);
+  return g->with_ops.num_ops;
 }
 
 static inline tree
 gimple_op (gimple gs, size_t i)
 {
-  GIMPLE_RANGE_CHECK (gs, GIMPLE_ASSIGN, GIMPLE_RETURN);
-  gcc_assert (i < gs->with_ops.num_ops);
-  return gs->with_ops.op[i];
+  gimple g = GIMPLE_RANGE_CHECK (gs, GIMPLE_ASSIGN, GIMPLE_RETURN);
+  gcc_assert (i < g->with_ops.num_ops);
+  return g->with_ops.op[i];
 }
 
 static inline void
 gimple_set_op (gimple gs, size_t i, tree op)
 {
-  GIMPLE_RANGE_CHECK (gs, GIMPLE_ASSIGN, GIMPLE_RETURN);
-  gcc_assert (i < gs->with_ops.num_ops);
-  gs->with_ops.op[i] = op;
+  gimple g = GIMPLE_RANGE_CHECK (gs, GIMPLE_ASSIGN, GIMPLE_RETURN);
+  gcc_assert (i < g->with_ops.num_ops);
+  g->with_ops.op[i] = op;
 }
 
 

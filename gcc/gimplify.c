@@ -1455,7 +1455,9 @@ gimplify_switch_expr (tree *expr_p, gimple_seq pre_p)
 	  default_case = gimple_label_label (new_default);
 	}
 
-      sort_case_labels (labels);
+      if (!VEC_empty (tree, labels))
+	sort_case_labels (labels);
+
       gimple_switch = build_gimple_switch_vec (SWITCH_COND (switch_expr), 
                                                default_case, labels);
       gimple_add (pre_p, gimple_switch);
