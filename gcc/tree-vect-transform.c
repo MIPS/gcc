@@ -1956,7 +1956,6 @@ vect_get_vec_def_for_stmt_copy (enum vect_def_type dt, tree vec_oprnd)
   vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
   gcc_assert (vec_stmt_for_operand);
   vec_oprnd = GIMPLE_STMT_OPERAND (vec_stmt_for_operand, 0);
-
   return vec_oprnd;
 }
 
@@ -2499,6 +2498,7 @@ vect_finalize_reduction:
     }
   /* We expect to have found an exit_phi because of loop-closed-ssa form.  */
   gcc_assert (exit_phi);
+
   if (nested_in_vect_loop)
     {
       stmt_vec_info stmt_vinfo = vinfo_for_stmt (exit_phi);
@@ -2510,6 +2510,9 @@ vect_finalize_reduction:
 
       epilog_stmt = adjustment_def ? epilog_stmt :  new_phi;
       STMT_VINFO_VEC_STMT (stmt_vinfo) = epilog_stmt;
+      set_stmt_info (get_stmt_ann (epilog_stmt),
+                     new_stmt_vec_info (epilog_stmt, loop_vinfo));
+
       if (vect_print_dump_info (REPORT_DETAILS))
         {
           fprintf (vect_dump, "vector of partial results after inner-loop:");

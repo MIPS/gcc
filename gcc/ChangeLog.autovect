@@ -1,3 +1,11 @@
+2007-07-31  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_mark_relevant): Don't mark widening
+	reduction patterns as relevant if they are used in the outer-loop
+	(we want to vectorize the original sequence instead).
+	(vect_mark_stmts_to_be_vectorized): Add an assert.
+	* tree-vect-transform.c (vect_finalize_reduction): Set a stmt_info.
+
 2007-07-31  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_analyze_operations): Set vectorization

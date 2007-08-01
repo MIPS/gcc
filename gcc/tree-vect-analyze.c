@@ -588,14 +588,14 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
           return false;
         }
       if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-          && LOOP_VINFO_NITERS (loop_vinfo)
-          && TREE_CODE (LOOP_VINFO_NITERS (loop_vinfo)) == COND_EXPR)
-        {
-          if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
-            fprintf (vect_dump,
-                    "not vectorized: can't create epilog loop 2.");
-          return false;
-        }
+	  && LOOP_VINFO_NITERS (loop_vinfo)
+	  && TREE_CODE (LOOP_VINFO_NITERS (loop_vinfo)) == COND_EXPR)
+	{
+	  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+	    fprintf (vect_dump,
+		     "not vectorized: can't create epilog loop 2.");
+	    return false;
+	}
       if (!slpeel_can_duplicate_loop_p (loop, single_exit (loop)))
         {
           if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
@@ -3039,16 +3039,43 @@ vect_mark_relevant (VEC(tree,heap) **worklist, tree stmt,
 
       /* This is the last stmt in a sequence that was detected as a 
          pattern that can potentially be vectorized.  Don't mark the stmt
-         as relevant/live because it's not going to vectorized.
+         as relevant/live because it's not going to be vectorized.
          Instead mark the pattern-stmt that replaces it.  */
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "last stmt in pattern. don't mark relevant/live.");
+
       pattern_stmt = STMT_VINFO_RELATED_STMT (stmt_info);
-      stmt_info = vinfo_for_stmt (pattern_stmt);
-      gcc_assert (STMT_VINFO_RELATED_STMT (stmt_info) == stmt);
-      save_relevant = STMT_VINFO_RELEVANT (stmt_info);
-      save_live_p = STMT_VINFO_LIVE_P (stmt_info);
-      stmt = pattern_stmt;
+
+      /* One exception to the above is when the pattern-stmt is an
+	 "unordered reduction" operation, whose results are used in the
+	 outer-loop, in which case the order of the generated 
+	 results is important, and therefore we can't vectorize the pattern. 
+
+	 An "unordered reduction" is a reduction that is vectorized without 
+	 preserving all the intermediate results, like widen_sum and dot_prod, 
+	 that produce only N/2 results (by summing up pairs of intermediate 
+	 results). If these results are actually used (e.g., stored, in an 
+	 outer-loop), we need to have all N results (and in the right order). 
+	 Therefore, in such a case, we cannot vectorize the reduction pattern,
+	 and need to resort to vectorizing the original stmts.  */
+      if ((TREE_CODE (GIMPLE_STMT_OPERAND (pattern_stmt, 1)) == WIDEN_SUM_EXPR
+	   || TREE_CODE (GIMPLE_STMT_OPERAND (pattern_stmt,1)) == DOT_PROD_EXPR)
+	  && (relevant == vect_used_in_outer 
+	      || relevant == vect_used_in_outer_by_reduction))
+        {
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "skip unordered reduction pattern.");
+	  STMT_VINFO_RELATED_STMT (stmt_info) = NULL_TREE;
+	  STMT_VINFO_IN_PATTERN_P (stmt_info) = false;
+	}
+      else
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "last stmt in pattern. don't mark relevant/live.");
+	  stmt_info = vinfo_for_stmt (pattern_stmt);
+	  gcc_assert (STMT_VINFO_RELATED_STMT (stmt_info) == stmt);
+	  save_relevant = STMT_VINFO_RELEVANT (stmt_info);
+	  save_live_p = STMT_VINFO_LIVE_P (stmt_info);
+	  stmt = pattern_stmt;
+	}
     }
 
   STMT_VINFO_LIVE_P (stmt_info) |= live_p;
@@ -3391,12 +3418,11 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	 Reduction phis are expected to be used by a reduction stmt, or by
 	 in an outer loop;  Other reduction stmts are expected to be
 	 in the loop, and possibly used by a stmt in an outer loop. 
-	are the expected values of "relevant" for reduction phis/stmts in
-	op:
+	 Here are the expected values of "relevant" for reduction phis/stmts:
 
 	 relevance:				phi	stmt
 	 vect_unused_in_loop				ok
-	 vect_used_in_outer_by_reductio		ok	ok
+	 vect_used_in_outer_by_reduction	ok	ok
 	 vect_used_in_outer			ok	ok
 	 vect_used_by_reduction			ok
 	 vect_used_in_loop 						  */
@@ -3413,6 +3439,8 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
 	    case vect_used_in_outer_by_reduction:
 	    case vect_used_in_outer:
+	      gcc_assert (TREE_CODE (stmt) != WIDEN_SUM_EXPR
+			  && TREE_CODE (stmt) != DOT_PROD_EXPR);
 	      break;
 
 	    case vect_used_by_reduction:
