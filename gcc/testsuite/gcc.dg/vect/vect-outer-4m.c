@@ -30,7 +30,7 @@ int main (void)
 {
   int i, j;
   unsigned int diff;
-  unsigned int s,sum=0;
+  unsigned int s=0,sum=0;
 
   check_vect ();
 
