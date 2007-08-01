@@ -1,3 +1,9 @@
+2007-08-01  Diego Novillo  <dnovillo@google.com>
+
+	* DEV-PHASE: Revert to mainline version.
+	* version.c (VERSUFFIX): Add branch name and revision number
+	of latest mainline merge.
+
 2007-07-31  Diego Novillo  <dnovillo@google.com>
 
 	Mainline merge (@127100).
