@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "cgraph.h"
 #include "toplev.h"
+#include "gimple.h"
 
 /* Internal function decls */
 
@@ -450,8 +451,7 @@ execute_mudflap_function_ops (void)
 static void
 mf_decl_cache_locals (void)
 {
-  tree t, shift_init_stmts, mask_init_stmts;
-  tree_stmt_iterator tsi;
+  gimple g;
 
   /* Build the cache vars.  */
   mf_cache_shift_decl_l
@@ -464,27 +464,14 @@ mf_decl_cache_locals (void)
 
   /* Build initialization nodes for the cache vars.  We just load the
      globals into the cache variables.  */
-  t = build_gimple_modify_stmt (mf_cache_shift_decl_l, mf_cache_shift_decl);
-  SET_EXPR_LOCATION (t, DECL_SOURCE_LOCATION (current_function_decl));
-  gimplify_to_stmt_list (&t);
-  shift_init_stmts = t;
+  g = build_gimple_assign (mf_cache_shift_decl_l, mf_cache_shift_decl);
+  set_gimple_locus (g, DECL_SOURCE_LOCATION (current_function_decl));
+  insert_edge_copies (g, ENTRY_BLOCK_PTR);
 
-  t = build_gimple_modify_stmt (mf_cache_mask_decl_l, mf_cache_mask_decl);
-  SET_EXPR_LOCATION (t, DECL_SOURCE_LOCATION (current_function_decl));
-  gimplify_to_stmt_list (&t);
-  mask_init_stmts = t;
+  g = build_gimple_assign (mf_cache_mask_decl_l, mf_cache_mask_decl);
+  set_gimple_locus (g, DECL_SOURCE_LOCATION (current_function_decl));
+  insert_edge_copies (g, ENTRY_BLOCK_PTR);
 
-  /* Anticipating multiple entry points, we insert the cache vars
-     initializers in each successor of the ENTRY_BLOCK_PTR.  */
-  for (tsi = tsi_start (shift_init_stmts);
-       ! tsi_end_p (tsi);
-       tsi_next (&tsi))
-    insert_edge_copies (tsi_stmt (tsi), ENTRY_BLOCK_PTR);
-
-  for (tsi = tsi_start (mask_init_stmts);
-       ! tsi_end_p (tsi);
-       tsi_next (&tsi))
-    insert_edge_copies (tsi_stmt (tsi), ENTRY_BLOCK_PTR);
   bsi_commit_edge_inserts ();
 }
 
@@ -561,7 +548,12 @@ mf_build_check_statement_for (tree base, tree limit,
 				fold_convert (mf_uintptr_type,
 					      unshare_expr (base)));
   SET_EXPR_LOCUS (t, locus);
+#if 0
+  /* FIXME tuples.  This whole function needs to be converted.  */
   gimplify_to_stmt_list (&t);
+#else
+  gcc_unreachable ();
+#endif
   head = tsi_start (t);
   tsi = tsi_last (t);
 
@@ -570,7 +562,12 @@ mf_build_check_statement_for (tree base, tree limit,
 				fold_convert (mf_uintptr_type,
 					      unshare_expr (limit)));
   SET_EXPR_LOCUS (t, locus);
+#if 0
+  /* FIXME tuples.  This whole function needs to be converted.  */
   gimplify_to_stmt_list (&t);
+#else
+  gcc_unreachable ();
+#endif
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
 
   /* Build: __mf_elem = &__mf_lookup_cache [(__mf_base >> __mf_shift)
@@ -587,7 +584,12 @@ mf_build_check_statement_for (tree base, tree limit,
   t = build1 (ADDR_EXPR, mf_cache_structptr_type, t);
   t = build_gimple_modify_stmt (mf_elem, t);
   SET_EXPR_LOCUS (t, locus);
+#if 0
+  /* FIXME tuples.  This whole function needs to be converted.  */
   gimplify_to_stmt_list (&t);
+#else
+  gcc_unreachable ();
+#endif
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
 
   /* Quick validity check.
@@ -632,7 +634,12 @@ mf_build_check_statement_for (tree base, tree limit,
   t = build2 (TRUTH_OR_EXPR, boolean_type_node, t, u);
   cond = create_tmp_var (boolean_type_node, "__mf_unlikely_cond");
   t = build_gimple_modify_stmt (cond, t);
+#if 0
+  /* FIXME tuples.  This whole function needs to be converted.  */
   gimplify_to_stmt_list (&t);
+#else
+  gcc_unreachable ();
+#endif
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
 
   /* Build the conditional jump.  'cond' is just a temporary so we can
@@ -669,7 +676,12 @@ mf_build_check_statement_for (tree base, tree limit,
 		   fold_build2 (MINUS_EXPR, mf_uintptr_type, mf_limit, mf_base),
 		   integer_one_node);
   t = build_call_expr (mf_check_fndecl, 4, mf_base, v, dirflag, u);
+#if 0
+  /* FIXME tuples.  This whole function needs to be converted.  */
   gimplify_to_stmt_list (&t);
+#else
+  gcc_unreachable ();
+#endif
   head = tsi_start (t);
   tsi = tsi_last (t);
 

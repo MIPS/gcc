@@ -784,7 +784,6 @@ annotate_all_with_locus (gimple_seq stmt_p, location_t locus)
   for (i = gsi_start (stmt_p); !gsi_end_p (i); gsi_next (&i))
     {
       gimple gs = gsi_stmt (i);
-
       annotate_one_with_locus (gs, locus);
     }
 }
@@ -1384,13 +1383,11 @@ sort_case_labels (VEC(tree,heap)* label_vec)
 static enum gimplify_status
 gimplify_switch_expr (tree *expr_p, gimple_seq pre_p)
 {
-  gimple_seq switch_body_seq;
   tree switch_expr;
   switch_expr = *expr_p;
-  struct gimple_sequence switch_body_seq_;
-  switch_body_seq = &switch_body_seq_;
+  struct gimple_sequence switch_body_seq;
   
-  gimple_seq_init (switch_body_seq);
+  gimple_seq_init (&switch_body_seq);
   gimplify_expr (&SWITCH_COND (switch_expr), pre_p, NULL, is_gimple_val,
                  fb_rvalue);
   
@@ -1411,7 +1408,7 @@ gimplify_switch_expr (tree *expr_p, gimple_seq pre_p)
       saved_labels = gimplify_ctxp->case_labels;
       gimplify_ctxp->case_labels = VEC_alloc (tree, heap, 8);
 
-      gimplify_statement_list (&SWITCH_BODY (switch_expr), switch_body_seq);
+      gimplify_stmt (&SWITCH_BODY (switch_expr), &switch_body_seq);
       labels = gimplify_ctxp->case_labels;
       gimplify_ctxp->case_labels = saved_labels;
  
@@ -1451,7 +1448,7 @@ gimplify_switch_expr (tree *expr_p, gimple_seq pre_p)
 	  tree def_lab = build3 (CASE_LABEL_EXPR, void_type_node, NULL_TREE,
 	                         NULL_TREE, create_artificial_label ());
 	  gimple new_default = build_gimple_label (def_lab);
-	  gimple_add (switch_body_seq, new_default);
+	  gimple_add (&switch_body_seq, new_default);
 	  default_case = gimple_label_label (new_default);
 	}
 
@@ -1461,7 +1458,7 @@ gimplify_switch_expr (tree *expr_p, gimple_seq pre_p)
       gimple_switch = build_gimple_switch_vec (SWITCH_COND (switch_expr), 
                                                default_case, labels);
       gimple_add (pre_p, gimple_switch);
-      gimple_seq_append (pre_p, switch_body_seq);
+      gimple_seq_append (pre_p, &switch_body_seq);
       VEC_free(tree, heap, labels);
     }
   else
@@ -4312,7 +4309,7 @@ gimplify_cleanup_point_expr (tree *expr_p, tree *pre_p)
   gimple_seq_init (&gimplify_ctxp->conditional_cleanups);
 
   body = TREE_OPERAND (*expr_p, 0);
-  gimplify_to_stmt_list (&body);
+  gimplify_stmt (&body, pre_p);
 
   gimplify_ctxp->conditions = old_conds;
   gimplify_ctxp->conditional_cleanups = old_cleanups;
@@ -4489,7 +4486,11 @@ gimplify_target_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 
 /* Gimplification of expression trees.  */
 
-/* Gimplify an expression which appears at statement context into SEQ_P.
+/* Gimplify an expression which appears at statement context.  The
+   corresponding GIMPLE statements are added to SEQ_P.  Note that the
+   sequence is not initialized.  It is the caller's responsibility to
+   initialize it, if required. 
+
    Return true if we actually added a statement to the queue.  */
 
 bool
@@ -4500,27 +4501,6 @@ gimplify_stmt (tree *stmt_p, gimple_seq seq_p)
   last = gimple_seq_last (seq_p);
   gimplify_expr (stmt_p, seq_p, NULL, is_gimple_stmt, fb_none);
   return last != gimple_seq_last (seq_p);
-}
-
-/* Similarly, but force the result to be a STATEMENT_LIST.  */
-
-void
-gimplify_to_stmt_list (tree *stmt_p)
-{
-  /* FIXME tuples: This should be obsoleted in favor of putting everything
-     in a sequence.  */
-#if 0
-/* FIXME tuples */
-  gimplify_stmt (stmt_p);
-#endif
-  if (!*stmt_p)
-    *stmt_p = alloc_stmt_list ();
-  else if (TREE_CODE (*stmt_p) != STATEMENT_LIST)
-    {
-      tree t = *stmt_p;
-      *stmt_p = alloc_stmt_list ();
-      append_to_statement_list (t, stmt_p);
-    }
 }
 
 
@@ -5249,7 +5229,11 @@ gimplify_omp_for (tree *expr_p, gimple_seq pre_p)
       gcc_unreachable ();
     }
 
+#if 0
+  /* FIXME tuples.  Need to gimplify into a sequence using
+     gimplify_stmt and create the GIMPLE OMP_FOR with that sequence.  */
   gimplify_to_stmt_list (&OMP_FOR_BODY (for_stmt));
+#endif
   gimplify_adjust_omp_clauses (&OMP_FOR_CLAUSES (for_stmt));
 
   return ret == GS_ALL_DONE ? GS_ALL_DONE : GS_ERROR;
@@ -5264,7 +5248,11 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq pre_p)
   tree stmt = *expr_p;
 
   gimplify_scan_omp_clauses (&OMP_CLAUSES (stmt), pre_p, false, false);
+#if 0
+  /* FIXME tuples.  Need to gimplify into a sequence using
+     gimplify_stmt and create the GIMPLE OMP_FOR with that sequence.  */
   gimplify_to_stmt_list (&OMP_BODY (stmt));
+#endif
   gimplify_adjust_omp_clauses (&OMP_CLAUSES (stmt));
 
   return GS_ALL_DONE;
@@ -6057,12 +6045,12 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 	  break;
 
 	case CATCH_EXPR:
-	  gimplify_to_stmt_list (&CATCH_BODY (*expr_p));
+	  gimplify_stmt (&CATCH_BODY (*expr_p), pre_p);
 	  ret = GS_ALL_DONE;
 	  break;
 
 	case EH_FILTER_EXPR:
-	  gimplify_to_stmt_list (&EH_FILTER_FAILURE (*expr_p));
+	  gimplify_stmt (&EH_FILTER_FAILURE (*expr_p), pre_p);
 	  ret = GS_ALL_DONE;
 	  break;
 
@@ -6138,7 +6126,7 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 	case OMP_MASTER:
 	case OMP_ORDERED:
 	case OMP_CRITICAL:
-	  gimplify_to_stmt_list (&OMP_BODY (*expr_p));
+	  gimplify_stmt (&OMP_BODY (*expr_p), pre_p);
 	  break;
 
 	case OMP_ATOMIC:

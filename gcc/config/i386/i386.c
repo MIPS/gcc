@@ -4851,7 +4851,8 @@ ix86_va_start (tree valist, rtx nextarg)
 /* Implement va_arg.  */
 
 static tree
-ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
+ix86_gimplify_va_arg (tree valist, tree type, gimple_seq pre_p,
+		      gimple_seq post_p)
 {
   static const int intreg[6] = { 0, 1, 2, 3, 4, 5 };
   tree f_gpr, f_fpr, f_ovf, f_sav;
@@ -5043,6 +5044,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (gpr), gpr, t);
 	  gimplify_and_add (t, pre_p);
 	}
+
       if (needed_sseregs)
 	{
 	  t = build2 (PLUS_EXPR, TREE_TYPE (fpr), fpr,
@@ -5051,11 +5053,9 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	  gimplify_and_add (t, pre_p);
 	}
 
-      t = build1 (GOTO_EXPR, void_type_node, lab_over);
-      gimplify_and_add (t, pre_p);
+      gimple_add (pre_p, build_gimple_goto (lab_over));
 
-      t = build1 (LABEL_EXPR, void_type_node, lab_false);
-      append_to_statement_list (t, pre_p);
+      gimple_add (pre_p, build_gimple_label (lab_false));
     }
 
   /* ... otherwise out of the overflow area.  */
@@ -5085,10 +5085,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   gimplify_and_add (t, pre_p);
 
   if (container)
-    {
-      t = build1 (LABEL_EXPR, void_type_node, lab_over);
-      append_to_statement_list (t, pre_p);
-    }
+    gimple_add (pre_p, build_gimple_label (lab_over));
 
   ptrtype = build_pointer_type (type);
   addr = fold_convert (ptrtype, addr);

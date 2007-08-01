@@ -1,5 +1,21 @@
 2007-08-01  Diego Novillo  <dnovillo@google.com>
 
+	* gimplify.c (gimplify_switch_expr): Remove switch_body_seq_.
+	Change switch_body_seq to struct gimple_sequence.
+	Adjust all uses.
+	Call gimplify_stmt instead of gimplify_statement_list
+	(gimplify_to_stmt_list): Remove.
+	Update all users.
+	* tree-mudflap.c: Include gimple.h
+	(mf_decl_cache_locals): Convert to emit GIMPLE.
+	(mf_build_check_statement_for): Add FIXME and unreachable
+	markers to convert to GIMPLE.
+	* Makefile.in (tree-mudflap.o): Depend on $(GIMPLE_H).
+	* config/i386/i386.c (ix86_gimplify_va_arg): Adapt to emit
+	GIMPLE.
+
+2007-08-01  Diego Novillo  <dnovillo@google.com>
+
 	* gimplify.c (gimplify_switch_expr): Do not call sort_case_labels
 	if there are no labels other than 'default'.
 	* gimple.h (gimple_num_ops, gimple_op, gimple_set_op): Use

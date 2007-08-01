@@ -2267,7 +2267,7 @@ tree-mudflap.o : $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TREE_INLINE_H) \
    $(TREE_GIMPLE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) langhooks.h tree-mudflap.h \
    $(TM_H) coretypes.h $(TREE_DUMP_H) tree-pass.h $(CGRAPH_H) $(GGC_H) \
    gt-tree-mudflap.h $(BASIC_BLOCK_H) $(FLAGS_H) $(FUNCTION_H) hard-reg-set.h \
-   $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) toplev.h
+   $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) toplev.h $(GIMPLE_H)
 tree-nomudflap.o : $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TREE_INLINE_H) \
    $(C_TREE_H) $(C_COMMON_H) $(TREE_GIMPLE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) \
    output.h $(VARRAY_H) langhooks.h tree-mudflap.h $(TM_H) coretypes.h \
