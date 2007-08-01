@@ -1773,12 +1773,6 @@ produce_asm (struct output_block *ob, tree function)
   /* Write the global type references.  */
   for (index = 0; VEC_iterate(tree, ob->types, index, type); index++)
     {
-      fprintf (stderr, "type %d = ", index);
-      print_generic_expr (stderr, type, TDF_VOPS|TDF_UID);
-      fprintf (stderr, "\n");
-      print_node (stderr, "", type, 0);
-      fprintf (stderr, "\n\n");
-
       lto_type_ref (type, &out_ref);
       dw2_asm_output_data (8, out_ref.section, " ");
       dw2_asm_output_delta (8, out_ref.label,
@@ -1965,6 +1959,13 @@ output_function (tree function)
   /* Output any exception-handling regions.  */
   output_eh_regions (ob, fn);
 
+  /* Output the argument array.  */
+  LTO_DEBUG_INDENT_TOKEN ("decl_arguments")
+  if (DECL_ARGUMENTS (function))
+    output_expr_operand (ob, DECL_ARGUMENTS (function));
+  else
+    output_zero (ob);
+    
   /* Output the code for the function.  */
   FOR_ALL_BB_FN (bb, fn)
     output_bb (ob, bb, fn);

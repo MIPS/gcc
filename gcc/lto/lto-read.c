@@ -919,16 +919,7 @@ input_globals (struct lto_function_header * header,
 	= lto_resolve_var_ref (fd, context, &in_var_decls[i]);
 
   for (i=0; i<header->num_types; i++)
-    {
-      fun_in->types[i]
-	= lto_resolve_type_ref (fd, context, &in_types[i]);
-      
-      fprintf (stderr, "type %d = ", i);
-      print_generic_expr (stderr, fun_in->types[i], TDF_VOPS|TDF_UID);
-      fprintf (stderr, "\n");
-      print_node (stderr, "", fun_in->types[i], 0);
-      fprintf (stderr, "\n\n");
-    }
+    fun_in->types[i] = lto_resolve_type_ref (fd, context, &in_types[i]);
 }
 
 
@@ -1306,6 +1297,13 @@ input_function (tree fn_decl, struct fun_in *fun_in,
   gcc_assert (tag == LTO_function);
 
   input_eh_regions (ib, fn, fun_in);
+
+  LTO_DEBUG_INDENT_TOKEN ("decl_arguments")
+  tag = input_record_start (ib);
+  if (tag)
+    DECL_ARGUMENTS (fn_decl) = input_expr_operand (ib, fun_in, fn, tag);
+  else
+    DECL_ARGUMENTS (fn_decl) = NULL;
 
   tag = input_record_start (ib);
   while (tag)

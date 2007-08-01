@@ -1,5 +1,10 @@
 2007-07-31  Kenneth Zadeck <zadeck@naturalbridge.com>
 
+	* lto-function-out.c (produce_asm): Remove old debugging code.
+	(output_function): Serialize DECL_ARGUMENTS.
+
+2007-07-31  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* tree-into-ssa.c (rebuild_ssa_for_lto): New function.
 	(pass_rebuild_ssa_for_lto): New pass.
 	* cgraph_build.c (tree_opt_pass pass_rebuild_cgraph): Added some dumping.

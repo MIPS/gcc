@@ -1,5 +1,11 @@
 2007-07-31  Kenneth Zadeck <zadeck@naturalbridge.com>
 
+	* lto-read.c (input_globals): Remove debugging.
+	(input_function): Set DECL_ARGUMENTS.
+
+	
+2007-07-31  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* lto-read.c (input_expr_operand): Fixed code for COND_EXEC,
 	RETURN_EXPR, MODIFY_EXPR and processing of flags.
 	(input_phi): Made work with operands other than SSA_NAMES and
