@@ -520,18 +520,13 @@ extern void lto_debug_undent (struct lto_debug_context *);
 extern void lto_debug_wide (struct lto_debug_context *, const char *, HOST_WIDE_INT);
 
 #else
-#define LTO_DEBUG_INDENT(tag) useless_function ()
-#define LTO_DEBUG_INDENT_TOKEN(value) useless_function ()
-#define LTO_DEBUG_INTEGER(tag,high,low) useless_function ()
-#define LTO_DEBUG_STRING(value,len) useless_function ()
-#define LTO_DEBUG_TOKEN(value) useless_function ()
-#define LTO_DEBUG_UNDENT() useless_function ()
-#define LTO_DEBUG_WIDE(tag,value) useless_function ()
+#define LTO_DEBUG_INDENT(tag) (void)0
+#define LTO_DEBUG_INDENT_TOKEN(value) (void)0
+#define LTO_DEBUG_INTEGER(tag,high,low) (void)0
+#define LTO_DEBUG_STRING(value,len) (void)0
+#define LTO_DEBUG_TOKEN(value) (void)0
+#define LTO_DEBUG_UNDENT() (void)0
+#define LTO_DEBUG_WIDE(tag,value) (void)0
 #endif
-
-static inline void
-useless_function (void)
-{
-}
 
 #endif /* lto-tags.h */

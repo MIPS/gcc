@@ -1,4 +1,12 @@
-2007-07-31  Kenneth Zadeck <zadeck@naturalbridge.com>
+2007-08-02  Kenneth Zadeck <zadeck@naturalbridge.com>
+        * lto-tags.h (LTO_DEBUG_INDENT, LTO_DEBUG_INDENT_TOKEN,
+	LTO_DEBUG_INTEGER, LTO_DEBUG_STRING, LTO_DEBUG_TOKEN,
+	LTO_DEBUG_UNDENT, LTO_DEBUG_WIDE): Change "useless_function ()" to
+	"(void)0"
+	(useless_function): Removed.
+
+	
+2007-08-01  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-function-out.c (output_1_stream, output_zero,
 	output_sleb128_stream, output_string, output_real, output_integer,

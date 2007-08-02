@@ -1433,6 +1433,8 @@ lto_read_function_body (lto_info_fd *fd,
   struct lto_function_header * header 
     = (struct lto_function_header *) data;
   struct fun_in fun_in;
+  struct function *fn = DECL_STRUCT_FUNCTION (fn_decl);
+
   int32_t fields_offset = sizeof (struct lto_function_header); 
   int32_t fns_offset 
     = fields_offset + (header->num_field_decls * sizeof (lto_ref));
@@ -1467,8 +1469,6 @@ lto_read_function_body (lto_info_fd *fd,
     = {data + debug_cfg_offset, 0, header->debug_cfg_size};
   struct input_block debug_main 
     = {data + debug_main_offset, 0, header->debug_main_size};
-
-  struct function *fn = DECL_STRUCT_FUNCTION (fn_decl);
 
   lto_debug_context.out = debug_out_fun;
   lto_debug_context.indent = 0;

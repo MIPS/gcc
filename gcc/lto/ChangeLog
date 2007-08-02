@@ -1,4 +1,9 @@
-2007-07-31  Kenneth Zadeck <zadeck@naturalbridge.com>
+2007-08-02  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-read.c (lto_read_function_body): Moved declaration of fn
+	outside of ifdef.
+	
+2007-08-01  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-read.c (input_uleb128, input_string_internal, input_real,
 	input_integer, input_record_start, input_list, get_type_ref,
