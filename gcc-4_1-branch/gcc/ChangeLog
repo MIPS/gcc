@@ -1,3 +1,17 @@
+2007-07-31  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline.
+
+	2006-02-24  Roger Sayle  <roger@eyesopen.com>
+	PR middle-end/24952
+	* combine.c (try_combine): Explicitly check whether GET_CODE is
+	a SET or a CLOBBER, instead on checking that it isn't a USE.
+
+	2006-11-22  Peter Bergner  <bergner@vnet.ibm.com>
+	* config/rs6000/rs6000.c (get_store_dest): New.
+	(adjacent_mem_locations): Use get_store_dest() to get
+	the rtl of the store destination.
+
 2007-06-26  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport of submitted mainline SDmode in FPRs patch.
