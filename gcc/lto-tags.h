@@ -479,19 +479,19 @@ void lto_static_init (void);
 
 #ifdef LTO_STREAM_DEBUGGING
 #define LTO_DEBUG_INDENT(tag) \
-  lto_debug_indent (&lto_debug_context, tag);
+  lto_debug_indent (&lto_debug_context, tag)
 #define LTO_DEBUG_INDENT_TOKEN(value) \
-  lto_debug_indent_token (&lto_debug_context, value);
+  lto_debug_indent_token (&lto_debug_context, value)
 #define LTO_DEBUG_INTEGER(tag,high,low) \
-  lto_debug_integer (&lto_debug_context, tag, high, low);
+  lto_debug_integer (&lto_debug_context, tag, high, low)
 #define LTO_DEBUG_STRING(value,len) \
-  lto_debug_string (&lto_debug_context, value, len);
+  lto_debug_string (&lto_debug_context, value, len)
 #define LTO_DEBUG_TOKEN(value) \
-  lto_debug_token (&lto_debug_context, value);
+  lto_debug_token (&lto_debug_context, value)
 #define LTO_DEBUG_UNDENT() \
-  lto_debug_undent (&lto_debug_context);
+  lto_debug_undent (&lto_debug_context)
 #define LTO_DEBUG_WIDE(tag,value) \
-  lto_debug_wide (&lto_debug_context, tag, value);
+  lto_debug_wide (&lto_debug_context, tag, value)
 
 struct lto_debug_context;
 
@@ -520,13 +520,18 @@ extern void lto_debug_undent (struct lto_debug_context *);
 extern void lto_debug_wide (struct lto_debug_context *, const char *, HOST_WIDE_INT);
 
 #else
-#define LTO_DEBUG_INDENT(tag)
-#define LTO_DEBUG_INDENT_TOKEN(value)
-#define LTO_DEBUG_INTEGER(tag,high,low)
-#define LTO_DEBUG_STRING(value,len)
-#define LTO_DEBUG_TOKEN(value)
-#define LTO_DEBUG_UNDENT()
-#define LTO_DEBUG_WIDE(tag,value)
+#define LTO_DEBUG_INDENT(tag) useless_function ()
+#define LTO_DEBUG_INDENT_TOKEN(value) useless_function ()
+#define LTO_DEBUG_INTEGER(tag,high,low) useless_function ()
+#define LTO_DEBUG_STRING(value,len) useless_function ()
+#define LTO_DEBUG_TOKEN(value) useless_function ()
+#define LTO_DEBUG_UNDENT() useless_function ()
+#define LTO_DEBUG_WIDE(tag,value) useless_function ()
 #endif
+
+static inline void
+useless_function (void)
+{
+}
 
 #endif /* lto-tags.h */

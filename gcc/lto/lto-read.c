@@ -119,7 +119,7 @@ input_uleb128 (struct input_block *ib)
       shift += 7;
       if ((byte & 0x80) == 0)
 	{
-	  LTO_DEBUG_WIDE ("U", result)
+	  LTO_DEBUG_WIDE ("U", result);
 	  return result;
 	}
     }
@@ -145,7 +145,7 @@ input_sleb128 (struct input_block *ib)
 	  if ((shift < HOST_BITS_PER_INT) && (byte & 0x40))
 	    result |= - (1 << shift);
 
-	  LTO_DEBUG_WIDE ("S", result)
+	  LTO_DEBUG_WIDE ("S", result);
 	  return result;
 	}
     }
@@ -167,7 +167,7 @@ input_string_internal (struct fun_in *fun_in, unsigned int loc,
   gcc_assert (str_tab.p + len <= fun_in->strings_len);
 
   result = (const char *)(fun_in->strings + str_tab.p);
-  LTO_DEBUG_STRING (result, len)
+  LTO_DEBUG_STRING (result, len);
   return result;
 }
 
@@ -192,7 +192,7 @@ input_real (struct fun_in *fun_in, unsigned int loc, tree type)
   const char * str = input_string_internal (fun_in, loc, &len); 
   REAL_VALUE_TYPE value;
 
-  LTO_DEBUG_TOKEN ("real")
+  LTO_DEBUG_TOKEN ("real");
 
   real_from_string (&value, str);
   return build_real (type, value);
@@ -244,9 +244,9 @@ input_integer (struct input_block *ib, tree type)
 	  /* Have to match the quick out in the lto writer.  */
 	  if (((high == -1) && (low < 0))
 	      || ((high == 0) && (low >= 0)))
-	    LTO_DEBUG_WIDE ("S", low)
+	    LTO_DEBUG_WIDE ("S", low);
 	  else 
-	    LTO_DEBUG_INTEGER ("SS", high, low)
+	    LTO_DEBUG_INTEGER ("SS", high, low);
 #endif	  
 	  return build_int_cst_wide (type, low, high);
 	}
@@ -263,9 +263,9 @@ input_record_start (struct input_block *ib)
 
 #ifdef LTO_STREAM_DEBUGGING
   if (tag)
-    LTO_DEBUG_INDENT (tag)
+    LTO_DEBUG_INDENT (tag);
   else
-    LTO_DEBUG_WIDE ("U", 0)
+    LTO_DEBUG_WIDE ("U", 0);
 #endif    
   return tag;
 } 
@@ -292,7 +292,7 @@ input_list (struct input_block *ib, struct fun_in *fun_in, struct function *fn)
 	}
     }
 
-  LTO_DEBUG_UNDENT()
+  LTO_DEBUG_UNDENT();
   return first;
 }
 
@@ -317,7 +317,7 @@ get_type_ref (struct fun_in *fun_in, struct input_block *ib)
 {
   int index;
 
-  LTO_DEBUG_TOKEN ("type")
+  LTO_DEBUG_TOKEN ("type");
   index = input_uleb128 (ib);
   return fun_in->types[index];
 }
@@ -393,7 +393,7 @@ input_flags (struct input_block *ib, enum tree_code code)
 
   if (TEST_BIT (lto_flags_needed_for, code))
     {
-      LTO_DEBUG_TOKEN ("flags")
+      LTO_DEBUG_TOKEN ("flags");
       flags = input_uleb128 (ib);
     }
   else
@@ -428,12 +428,12 @@ input_expr_operand (struct input_block *ib, struct fun_in *fun_in,
       if (flags & 0x2)
 	{
 	  unsigned int len;
-	  LTO_DEBUG_TOKEN ("file")
+	  LTO_DEBUG_TOKEN ("file");
 	  new_file = input_string_internal (fun_in, input_uleb128 (ib), &len);
 	}
       if (flags & 0x1)
 	{
-	  LTO_DEBUG_TOKEN ("line")
+	  LTO_DEBUG_TOKEN ("line");
 	  new_line = input_uleb128 (ib);
 	}
     }
@@ -561,7 +561,7 @@ input_expr_operand (struct input_block *ib, struct fun_in *fun_in,
 		    purpose = NULL_TREE;
 		    i++;
 		  }
-		LTO_DEBUG_UNDENT()
+		LTO_DEBUG_UNDENT();
 	      }
 	  }
 	result = build_constructor (type, vec);
@@ -873,7 +873,7 @@ input_expr_operand (struct input_block *ib, struct fun_in *fun_in,
       gcc_unreachable ();
     }
 
-  LTO_DEBUG_UNDENT()
+  LTO_DEBUG_UNDENT();
   if (flags)
     process_flags (result, flags);
   return result;
@@ -1003,31 +1003,31 @@ input_local_vars (struct fun_in *fun_in, struct input_block *ib,
       if (!is_var)
 	DECL_ARG_TYPE (result) = get_type_ref (fun_in, ib);
 
-      LTO_DEBUG_TOKEN ("flags")
+      LTO_DEBUG_TOKEN ("flags");
       flags = input_uleb128 (ib);
 
       /* FIXME: Need to figure out how to set the line number.  */
       if (flags & 0x2)
 	{
 	  unsigned int len;
-	  LTO_DEBUG_TOKEN ("file")
+	  LTO_DEBUG_TOKEN ("file");
 	  new_file = input_string_internal (fun_in, input_uleb128 (ib), &len);
 	}
       if (flags & 0x1)
 	{
-	  LTO_DEBUG_TOKEN ("line")
+	  LTO_DEBUG_TOKEN ("line");
 	  new_line = input_uleb128 (ib);
 	}
 
-      LTO_DEBUG_TOKEN ("align")
+      LTO_DEBUG_TOKEN ("align");
       DECL_ALIGN (result) = input_uleb128 (ib);
-      LTO_DEBUG_TOKEN ("size")
+      LTO_DEBUG_TOKEN ("size");
       DECL_SIZE (result) 
 	= input_expr_operand (ib, fun_in, fn, input_record_start (ib));
 
       if (variant & 0x1)
 	{
-	  LTO_DEBUG_TOKEN ("attributes")
+	  LTO_DEBUG_TOKEN ("attributes");
           DECL_ATTRIBUTES (result) 
 	    = input_expr_operand (ib, fun_in, fn, input_record_start (ib));
 	}
@@ -1043,7 +1043,7 @@ input_local_vars (struct fun_in *fun_in, struct input_block *ib,
 	  = input_expr_operand (ib, fun_in, fn, input_record_start (ib));
 
       process_flags (result, flags);
-      LTO_DEBUG_UNDENT()
+      LTO_DEBUG_UNDENT();
     }
 }
 
@@ -1087,7 +1087,7 @@ input_cfg (struct input_block *ib, struct function *fn)
 
   init_flow (fn);
 
-  LTO_DEBUG_TOKEN ("lastbb")
+  LTO_DEBUG_TOKEN ("lastbb");
   bb_count = input_uleb128 (ib);
 
   profile_status_for_function (fn) = PROFILE_ABSENT;
@@ -1114,7 +1114,7 @@ input_cfg (struct input_block *ib, struct function *fn)
   SET_BASIC_BLOCK_FOR_FUNCTION (fn, EXIT_BLOCK, 
 		   EXIT_BLOCK_PTR_FOR_FUNCTION (fn));
 
-  LTO_DEBUG_TOKEN ("bbindex")
+  LTO_DEBUG_TOKEN ("bbindex");
   index = input_sleb128 (ib);
   while (index != -1)
     {
@@ -1124,23 +1124,28 @@ input_cfg (struct input_block *ib, struct function *fn)
       if (bb == NULL)
 	bb = make_new_block (fn, index);
 
-      LTO_DEBUG_TOKEN ("edgecount")
+      LTO_DEBUG_TOKEN ("edgecount");
       edge_count = input_uleb128 (ib);
 
       /* Connect up the cfg.  */
       for (i = 0; i < edge_count; i++)
 	{
-	  LTO_DEBUG_TOKEN ("dest")
-	    unsigned int dest_index = input_uleb128 (ib);
-	  LTO_DEBUG_TOKEN ("eflags")
-	    unsigned int edge_flags = input_uleb128 (ib);
-	  basic_block dest = BASIC_BLOCK_FOR_FUNCTION (fn, dest_index);
+	  unsigned int dest_index;
+	  unsigned int edge_flags;
+	  basic_block dest;
+
+	  LTO_DEBUG_TOKEN ("dest");
+	  dest_index = input_uleb128 (ib);
+	  LTO_DEBUG_TOKEN ("eflags");
+	  edge_flags = input_uleb128 (ib);
+	  dest = BASIC_BLOCK_FOR_FUNCTION (fn, dest_index);
+
 	  if (dest == NULL) 
 	    dest = make_new_block (fn, dest_index);
 	  make_edge (bb, dest, edge_flags);
 	}
 
-      LTO_DEBUG_TOKEN ("bbindex")
+      LTO_DEBUG_TOKEN ("bbindex");
       index = input_sleb128 (ib);
     }
 
@@ -1198,7 +1203,7 @@ input_phi (struct input_block *ib, basic_block bb,
   if (flags)
     process_flags (result, flags);
 
-  LTO_DEBUG_UNDENT()
+  LTO_DEBUG_UNDENT();
 
   return result;
 }
@@ -1229,7 +1234,7 @@ input_ssa_names (struct fun_in *fun_in, struct input_block *ib, struct function 
       name = input_expr_operand (ib, fun_in, fn, input_record_start (ib));
       ssa_name = make_ssa_name (name, build_empty_stmt ());
 
-      LTO_DEBUG_TOKEN ("flags")
+      LTO_DEBUG_TOKEN ("flags");
       flags = input_uleb128 (ib);
       process_flags (ssa_name, flags);
 
@@ -1248,39 +1253,39 @@ input_bb (struct input_block *ib, unsigned int tag,
   basic_block bb;
   block_stmt_iterator bsi;
 
-  LTO_DEBUG_TOKEN ("bbindex")
+  LTO_DEBUG_TOKEN ("bbindex");
   index = input_uleb128 (ib);
   bb = BASIC_BLOCK_FOR_FUNCTION (fn, index);
 
   /* LTO_bb1 has stmts, LTO_bb0 does not.  */
   if (tag == LTO_bb0)
     {
-      LTO_DEBUG_UNDENT()
+      LTO_DEBUG_UNDENT();
       return;
     }
 
   bsi = bsi_start (bb);
-  LTO_DEBUG_INDENT_TOKEN ("stmt")
+  LTO_DEBUG_INDENT_TOKEN ("stmt");
   tag = input_record_start (ib);
   while (tag)
     {
       tree stmt = input_expr_operand (ib, fun_in, fn, tag);
       bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
-      LTO_DEBUG_INDENT_TOKEN ("stmt")
+      LTO_DEBUG_INDENT_TOKEN ("stmt");
       tag = input_record_start (ib);
       /* FIXME, add code to handle the exception.  */
     }
 
-  LTO_DEBUG_INDENT_TOKEN ("phi")
+  LTO_DEBUG_INDENT_TOKEN ("phi");
   tag = input_record_start (ib);
   while (tag)
     {
       input_phi (ib, bb, fun_in, fn);
-      LTO_DEBUG_INDENT_TOKEN ("phi")
+      LTO_DEBUG_INDENT_TOKEN ("phi");
       tag = input_record_start (ib);
     }
 
-  LTO_DEBUG_UNDENT()
+  LTO_DEBUG_UNDENT();
 }
 
 
@@ -1298,7 +1303,7 @@ input_function (tree fn_decl, struct fun_in *fun_in,
 
   input_eh_regions (ib, fn, fun_in);
 
-  LTO_DEBUG_INDENT_TOKEN ("decl_arguments")
+  LTO_DEBUG_INDENT_TOKEN ("decl_arguments");
   tag = input_record_start (ib);
   if (tag)
     DECL_ARGUMENTS (fn_decl) = input_expr_operand (ib, fun_in, fn, tag);
@@ -1312,7 +1317,7 @@ input_function (tree fn_decl, struct fun_in *fun_in,
       tag = input_record_start (ib);
     }
 
-  LTO_DEBUG_UNDENT()
+  LTO_DEBUG_UNDENT();
 }
 
 

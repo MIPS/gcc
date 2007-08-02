@@ -376,7 +376,7 @@ output_1_stream (struct output_stream *obs, char c)
 static void
 output_zero (struct output_block *ob)
 {
-  LTO_DEBUG_WIDE ("U", 0)
+  LTO_DEBUG_WIDE ("U", 0);
   output_1_stream (ob->main_stream, 0);
 }
 
@@ -386,7 +386,7 @@ output_zero (struct output_block *ob)
 static void
 output_uleb128_stream (struct output_stream *obs, unsigned HOST_WIDE_INT work)
 {
-  LTO_DEBUG_WIDE ("U", work)
+  LTO_DEBUG_WIDE ("U", work);
   do
     {
       unsigned int byte = (work & 0x7f);
@@ -417,7 +417,7 @@ static void
 output_sleb128_stream (struct output_stream *obs, HOST_WIDE_INT work)
 {
   int more, byte;
-  LTO_DEBUG_WIDE ("S", work)
+  LTO_DEBUG_WIDE ("S", work);
   do
     {
       byte = (work & 0x7f);
@@ -484,9 +484,9 @@ output_string (struct output_block *ob,
 	 occurence of this string or not.  Thus, we simulate the same
 	 debugging info as would be output as if this was a new
 	 string.  */
-      LTO_DEBUG_WIDE ("U", old_slot->slot_num)
+      LTO_DEBUG_WIDE ("U", old_slot->slot_num);
     }
-  LTO_DEBUG_STRING (string, len)
+  LTO_DEBUG_STRING (string, len);
 }
 
 
@@ -498,7 +498,7 @@ output_real (struct output_block *ob, tree t)
   static char real_buffer[1000];
   const REAL_VALUE_TYPE *r = &TREE_REAL_CST (t);
 
-  LTO_DEBUG_TOKEN ("real")
+  LTO_DEBUG_TOKEN ("real");
   real_to_hexadecimal (real_buffer, r, 1000, 0, 1);
   output_string (ob, ob->main_stream, real_buffer, strlen (real_buffer));
 }
@@ -526,7 +526,7 @@ output_integer (struct output_block *ob, tree t)
       return;
     }
 
-  LTO_DEBUG_INTEGER ("SS", high, low)
+  LTO_DEBUG_INTEGER ("SS", high, low);
 
   /* This is just a copy of the output_sleb128 code with extra
      operations to transfer the low 7 bits of the high value to the
@@ -603,7 +603,7 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr)
 
   if (code == 0 || TEST_BIT (lto_flags_needed_for, code))
     {
-      LTO_DEBUG_TOKEN ("flags")
+      LTO_DEBUG_TOKEN ("flags");
 
 #define START_CLASS_SWITCH()              \
   {                                       \
@@ -681,14 +681,14 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr)
       output_uleb128 (ob, flags);
       if (file_to_write)
 	{
-	  LTO_DEBUG_TOKEN ("file")
-	    output_string (ob, ob->main_stream, 
-			   file_to_write, strlen (file_to_write));
+	  LTO_DEBUG_TOKEN ("file");
+	  output_string (ob, ob->main_stream, 
+			 file_to_write, strlen (file_to_write));
 	}
       if (line_to_write != -1)
 	{
-	  LTO_DEBUG_TOKEN ("line")
-	    output_uleb128 (ob, line_to_write);
+	  LTO_DEBUG_TOKEN ("line");
+	  output_uleb128 (ob, line_to_write);
 	}
     }
 }
@@ -703,7 +703,7 @@ output_type_ref (struct output_block *ob, tree node)
 {
   bool new;
 
-  LTO_DEBUG_TOKEN ("type")
+  LTO_DEBUG_TOKEN ("type");
   new = output_decl_index (ob->main_stream, ob->type_hash_table,
 			   &ob->next_type_index, node);
 
@@ -770,7 +770,7 @@ output_record_start (struct output_block *ob, tree expr,
 		     tree value, unsigned int tag)
 {
   output_1_stream (ob->main_stream, tag);
-  LTO_DEBUG_INDENT (tag)
+  LTO_DEBUG_INDENT (tag);
   if (expr)
     {
       enum tree_code code = TREE_CODE (expr);
@@ -824,7 +824,7 @@ output_tree_list (struct output_block *ob, tree list, unsigned int tag)
       for (tl = list; tl; tl = TREE_CHAIN (tl))
 	if (TREE_VALUE (tl) != NULL_TREE)
 	  output_expr_operand (ob, TREE_VALUE (tl));
-      LTO_DEBUG_UNDENT ()
+      LTO_DEBUG_UNDENT ();
     }
   else
     output_zero (ob);
@@ -850,7 +850,7 @@ output_eh_cleanup (void *obv,
   output_sleb128 (ob, prev_try);
   if (!has_peer)
     output_zero (ob);
-  LTO_DEBUG_UNDENT ()
+  LTO_DEBUG_UNDENT ();
 }
 
 
@@ -875,7 +875,7 @@ output_eh_try (void *obv,
   output_sleb128 (ob, last_catch);
   if (!has_peer)
     output_zero (ob);
-  LTO_DEBUG_UNDENT ()
+  LTO_DEBUG_UNDENT ();
 }
 
 
@@ -901,7 +901,7 @@ output_eh_catch (void *obv,
   output_type_list (ob, type_list);
   if (!has_peer)
     output_zero (ob);
-  LTO_DEBUG_UNDENT ()
+  LTO_DEBUG_UNDENT ();
 }
 
 /* Output an eh_allowed_exceptions region with REGION_NUMBER.
@@ -923,7 +923,7 @@ output_eh_allowed (void *obv,
   output_type_list (ob, type_list);
   if (!has_peer)
     output_zero (ob);
-  LTO_DEBUG_UNDENT ()
+  LTO_DEBUG_UNDENT ();
 }
 
 
@@ -945,7 +945,7 @@ output_eh_must_not_throw (void *obv,
   output_sleb128 (ob, region_number);
   if (!has_peer)
     output_zero (ob);
-  LTO_DEBUG_UNDENT ()
+  LTO_DEBUG_UNDENT ();
 }
 
 
@@ -963,7 +963,7 @@ output_eh_regions (struct output_block *ob, struct function *fn)
 			 output_eh_catch,
 			 output_eh_allowed,
 			 output_eh_must_not_throw);
-      LTO_DEBUG_UNDENT ()
+      LTO_DEBUG_UNDENT ();
     }
   /* The 0 either terminates the record or indicates that there are no
      eh_records at all.  */
@@ -993,14 +993,14 @@ output_constructor (struct output_block *ob, tree ctor)
 	  output_integer (ob, TREE_OPERAND (purpose, 0));
 	  output_type_ref (ob, TREE_OPERAND (purpose, 1));
 	  output_integer (ob, TREE_OPERAND (purpose, 1));
-	  LTO_DEBUG_UNDENT ()
+	  LTO_DEBUG_UNDENT ();
 	}
 
       switch (TREE_CODE (value))
 	{
 	case CONSTRUCTOR:
 	  output_constructor (ob, value);
-	  LTO_DEBUG_UNDENT ()
+	  LTO_DEBUG_UNDENT ();
 	  break;
 	case INTEGER_CST:
 	case REAL_CST:
@@ -1290,7 +1290,7 @@ output_expr_operand (struct output_block *ob, tree expr)
 	    for (tl = ASM_INPUTS (expr); tl; tl = TREE_CHAIN (tl))
 	      output_expr_operand (ob, TREE_VALUE (tl));
 	    output_zero (ob);
-	    LTO_DEBUG_UNDENT ()
+	    LTO_DEBUG_UNDENT ();
 	  }
 	if (ASM_OUTPUTS (expr) != NULL_TREE)
 	  {
@@ -1300,7 +1300,7 @@ output_expr_operand (struct output_block *ob, tree expr)
 	    for (tl = ASM_OUTPUTS (expr); tl; tl = TREE_CHAIN (tl))
 	      output_expr_operand (ob, TREE_VALUE (tl));
 	    output_zero (ob);
-	    LTO_DEBUG_UNDENT ()
+	    LTO_DEBUG_UNDENT ();
 	  }
 	if (ASM_CLOBBERS (expr) != NULL_TREE)
 	  {
@@ -1310,7 +1310,7 @@ output_expr_operand (struct output_block *ob, tree expr)
 	    for (tl = ASM_CLOBBERS (expr); tl; tl = TREE_CHAIN (tl))
 	      output_expr_operand (ob, TREE_VALUE (tl));
 	    output_zero (ob);
-	    LTO_DEBUG_UNDENT ()
+	    LTO_DEBUG_UNDENT ();
 	  }
       }
       break;
@@ -1414,7 +1414,7 @@ output_expr_operand (struct output_block *ob, tree expr)
       gcc_unreachable ();
     }
 
-  LTO_DEBUG_UNDENT ()
+  LTO_DEBUG_UNDENT ();
 }
 
 
@@ -1481,15 +1481,15 @@ output_local_vars (struct output_block *ob)
 	output_type_ref (ob, DECL_ARG_TYPE (decl));
       
       output_tree_flags (ob, 0, decl);
-      LTO_DEBUG_TOKEN ("align")
+      LTO_DEBUG_TOKEN ("align");
       output_uleb128 (ob, DECL_ALIGN (decl));
 
       /* Put out the subtrees.  */
-      LTO_DEBUG_TOKEN ("size")
+      LTO_DEBUG_TOKEN ("size");
       output_expr_operand (ob, DECL_SIZE (decl));
       if (DECL_ATTRIBUTES (decl)!= NULL_TREE)
 	{
-	  LTO_DEBUG_TOKEN ("attributes")
+	  LTO_DEBUG_TOKEN ("attributes");
 	  output_tree_list (ob, DECL_ATTRIBUTES (decl),
 			    LTO_attribute_list);
 	}
@@ -1500,7 +1500,7 @@ output_local_vars (struct output_block *ob)
       if (DECL_ABSTRACT_ORIGIN (decl) != NULL_TREE)
 	output_expr_operand (ob, DECL_ABSTRACT_ORIGIN (decl));
 
-      LTO_DEBUG_UNDENT()
+      LTO_DEBUG_UNDENT();
     }
 
   ob->main_stream = tmp_stream;
@@ -1569,7 +1569,7 @@ output_cfg (struct output_block *ob, struct function *fn)
   ob->main_stream = ob->cfg_stream;
 
   /* Output the number of the highest basic block.  */
-  LTO_DEBUG_TOKEN ("lastbb")
+  LTO_DEBUG_TOKEN ("lastbb");
   output_uleb128 (ob, last_basic_block_for_function(fn));
 
   FOR_ALL_BB_FN (bb, fn)
@@ -1577,22 +1577,22 @@ output_cfg (struct output_block *ob, struct function *fn)
       edge_iterator ei;
       edge e;
 
-      LTO_DEBUG_TOKEN ("bbindex")
+      LTO_DEBUG_TOKEN ("bbindex");
       output_sleb128 (ob, bb->index);
 
       /* Output the successors and the edge flags.  */
-      LTO_DEBUG_TOKEN ("edgecount")
+      LTO_DEBUG_TOKEN ("edgecount");
       output_uleb128 (ob, EDGE_COUNT (bb->succs));
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
-	  LTO_DEBUG_TOKEN ("dest")
+	  LTO_DEBUG_TOKEN ("dest");
 	  output_uleb128 (ob, e->dest->index);
-	  LTO_DEBUG_TOKEN ("eflags")
+	  LTO_DEBUG_TOKEN ("eflags");
 	  output_uleb128 (ob, e->flags);
 	}
     }
 
-  LTO_DEBUG_TOKEN ("bbindex")
+  LTO_DEBUG_TOKEN ("bbindex");
   output_sleb128 (ob, -1);
   ob->main_stream = tmp_stream;
 }
@@ -1614,7 +1614,7 @@ output_phi (struct output_block *ob, tree expr)
       output_expr_operand (ob, PHI_ARG_DEF (expr, i));
       output_uleb128 (ob, PHI_ARG_EDGE (expr, i)->src->index);
     }
-  LTO_DEBUG_UNDENT ()
+  LTO_DEBUG_UNDENT ();
 }
 
 
@@ -1629,7 +1629,7 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 		       (!bsi_end_p (bsi)) || phi_nodes (bb) ? LTO_bb1 : LTO_bb0);
 
   /* The index of the basic block.  */
-  LTO_DEBUG_TOKEN ("bbindex")
+  LTO_DEBUG_TOKEN ("bbindex");
   output_uleb128 (ob, bb->index);
 
   if ((!bsi_end_p (bsi)) || phi_nodes (bb))
@@ -1643,7 +1643,7 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 	{
 	  tree stmt = bsi_stmt (bsi);
 	
-	  LTO_DEBUG_INDENT_TOKEN ("stmt")
+	  LTO_DEBUG_INDENT_TOKEN ("stmt");
 	  output_expr_operand (ob, stmt);
 	
 	  /* We only need to set the region number of the tree that
@@ -1664,20 +1664,20 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 	    }
 	}
 
-      LTO_DEBUG_INDENT_TOKEN ("stmt")
+      LTO_DEBUG_INDENT_TOKEN ("stmt");
       output_zero (ob);
 
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
-	  LTO_DEBUG_INDENT_TOKEN ("phi")
+	  LTO_DEBUG_INDENT_TOKEN ("phi");
 	  output_phi (ob, phi);
 	}
 
-      LTO_DEBUG_INDENT_TOKEN ("phi")
+      LTO_DEBUG_INDENT_TOKEN ("phi");
       output_zero (ob);
     }
 
-  LTO_DEBUG_UNDENT()
+  LTO_DEBUG_UNDENT();
 
 #ifdef LTO_STREAM_DEBUGGING
   gcc_assert (lto_debug_context.indent == 1);
@@ -1960,7 +1960,7 @@ output_function (tree function)
   output_eh_regions (ob, fn);
 
   /* Output the argument array.  */
-  LTO_DEBUG_INDENT_TOKEN ("decl_arguments")
+  LTO_DEBUG_INDENT_TOKEN ("decl_arguments");
   if (DECL_ARGUMENTS (function))
     output_expr_operand (ob, DECL_ARGUMENTS (function));
   else
@@ -1972,7 +1972,7 @@ output_function (tree function)
 
   /* The terminator for this function.  */
   output_zero (ob);
-  LTO_DEBUG_UNDENT()
+  LTO_DEBUG_UNDENT();
 
   LTO_SET_DEBUGGING_STREAM (debug_label_stream, label_data)
   output_named_labels (ob);
