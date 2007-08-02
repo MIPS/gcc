@@ -3626,10 +3626,6 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
       if (!VECTOR_MODE_P (vec_mode))
 	return false;
 
-      /* FORNOW: SLP not supported.  */
-      if (STMT_VINFO_SLP_TYPE (stmt_info))
-	return false;
-
       /* Invariant argument is needed for a vector shift
 	 by a scalar shift operand.  */
       optab_op2_mode = insn_data[icode].operand[2].mode;

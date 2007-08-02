@@ -1,3 +1,7 @@
+2007-08-02  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/slp-36.c: New.
+
 2007-08-01  Dorit Nuzman  <dorit@il.ibm.com>
 	    Ira Rosen  <irar@il.ibm.com>
 

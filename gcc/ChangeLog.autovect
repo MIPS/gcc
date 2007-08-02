@@ -1,3 +1,12 @@
+2007-08-02  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vect-analyze.c: Include recog.h.
+	(vect_build_slp_tree): Check that the shift values are equal 
+	for vector shift with scalar shift argument. Fix typo in error message.
+	* tree-vect-transform.c (vectorizable_operation): Don't fail in case of
+	shift in SLP.
+	* Makefile.in (tree-vect-analyze.o): Depend on recog.h.
+
 2007-07-31  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_mark_relevant): Don't mark widening

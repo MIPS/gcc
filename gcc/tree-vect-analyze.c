@@ -39,6 +39,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-scalar-evolution.h"
 #include "tree-vectorizer.h"
 #include "toplev.h"
+#include "recog.h"
 
 /* Main analysis functions.  */
 static loop_vec_info vect_analyze_loop_form (struct loop *);
@@ -2316,9 +2317,13 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
   enum tree_code first_stmt_code = 0;
   tree first_stmt_def1_type = NULL_TREE, first_stmt_def0_type = NULL_TREE;
   tree lhs, rhs, prev_stmt = NULL_TREE;
-  bool stop_recursion = false;
-  tree vectype, scalar_type;
+  bool stop_recursion = false, need_same_oprnds = false;
+  tree vectype, scalar_type, first_op1 = NULL_TREE;
   unsigned int vectorization_factor = 0, ncopies;
+  optab optab;
+  int icode;
+  enum machine_mode optab_op2_mode;
+  enum machine_mode vec_mode;
 
   /* For every stmt in NODE find its def stmt/s.  */
   for (i = 0; VEC_iterate (tree, stmts, i, stmt); i++)
@@ -2359,19 +2364,57 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
 
       /* Check the operation.  */
       if (i == 0)
-	first_stmt_code = TREE_CODE (rhs);
-      else
-	if (first_stmt_code != TREE_CODE (rhs))
-	  {
-	    if (vect_print_dump_info (REPORT_DETAILS)) 
-	      {
-		fprintf (vect_dump, 
-			 "Build SLP failed: different operation in stmt ");
-		print_generic_expr (vect_dump, stmt, TDF_SLIM);
-	      }
+	{
+	  first_stmt_code = TREE_CODE (rhs);
 
-	    return false;
-	  }
+	  /* Shift arguments should be equal in all the packed stmts for a 
+	     vector shift with scalar shift operand.  */
+	  if (TREE_CODE (rhs) == LSHIFT_EXPR || TREE_CODE (rhs) == RSHIFT_EXPR)
+	    {
+	      vec_mode = TYPE_MODE (vectype);
+	      optab = optab_for_tree_code (TREE_CODE (rhs), vectype);
+	      if (!optab)
+		{
+		  if (vect_print_dump_info (REPORT_DETAILS))
+		    fprintf (vect_dump, "Build SLP failed: no optab.");
+		  return false;
+		}
+	      icode = (int) optab->handlers[(int) vec_mode].insn_code;
+	      optab_op2_mode = insn_data[icode].operand[2].mode;
+	      if (!VECTOR_MODE_P (optab_op2_mode))
+		{
+		  need_same_oprnds = true;
+		  first_op1 = TREE_OPERAND (rhs, 1);
+		}
+	    }
+	}
+      else
+	{
+	  if (first_stmt_code != TREE_CODE (rhs))
+	    {
+	      if (vect_print_dump_info (REPORT_DETAILS)) 
+		{
+		  fprintf (vect_dump, 
+			   "Build SLP failed: different operation in stmt ");
+		  print_generic_expr (vect_dump, stmt, TDF_SLIM);
+		}
+	      
+	      return false;
+	    }
+	  
+	  if (need_same_oprnds 
+	      && !operand_equal_p (first_op1, TREE_OPERAND (rhs, 1), 0))
+	    {
+	      if (vect_print_dump_info (REPORT_DETAILS)) 
+		{
+		  fprintf (vect_dump, 
+			   "Build SLP failed: different shift arguments in ");
+		  print_generic_expr (vect_dump, stmt, TDF_SLIM);
+		}
+	      
+	      return false;
+	    }
+	}
 
       /* Strided store or load.  */
       if (DR_GROUP_FIRST_DR (vinfo_for_stmt (stmt)))
@@ -2455,7 +2498,7 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
 	    {
 	      if (vect_print_dump_info (REPORT_DETAILS)) 
 		{
-		  fprintf (vect_dump, "Build SLP failed: operation not");
+		  fprintf (vect_dump, "Build SLP failed: operation");
 		  fprintf (vect_dump, " unsupported ");
 		  print_generic_expr (vect_dump, stmt, TDF_SLIM);
 		}
