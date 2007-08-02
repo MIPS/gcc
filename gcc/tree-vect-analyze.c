@@ -1905,13 +1905,13 @@ vect_analyze_data_refs_alignment (loop_vec_info loop_vinfo)
 }
 
 
-/* Function vect_analyze_data_ref_access.
-
-   Analyze the access pattern of the data-reference DR. 
-   Analyze groups of strided accesses.  */
+/* Analyze groups of strided accesses: check that DR belongs to a group of 
+   strided accesses of legal size, step, etc. Detect gaps, single element
+   interleaving, and other special cases. Set strided access info.
+   Collect groups of strided stores for further use in SLP analysis.  */
 
 static bool
-vect_analyze_data_ref_access (struct data_reference *dr) 
+vect_analyze_group_access (struct data_reference *dr)
 {
   tree step = DR_STEP (dr);
   tree scalar_type = TREE_TYPE (DR_REF (dr));
@@ -1924,38 +1924,6 @@ vect_analyze_data_ref_access (struct data_reference *dr)
   HOST_WIDE_INT stride;
   bool slp_impossible = false;
 
-  /* Don't allow invariant accesses.  */
-  if (dr_step == 0)
-    return false; 
-
-  if (nested_in_vect_loop_p (loop, stmt))
-    {
-      /* For the rest of the analysis we use the outer-loop step.  */
-      step = STMT_VINFO_DR_STEP (stmt_info);
-      dr_step = TREE_INT_CST_LOW (step);
-      
-      if (dr_step == 0)
-	{
-	  if (vect_print_dump_info (REPORT_ALIGNMENT))
-	    fprintf (vect_dump, "zero step in outer loop.");
-	  if (DR_IS_READ (dr))
-  	    return true; 
-	  else
-	    return false;
-	}
-    }
-    
-  /* For interleaving, STRIDE is STEP counted in elements, i.e., the size of the 
-     interleaving group (including gaps).  */
-  stride = dr_step / type_size; 
-
-  /* Consecutive?  */
-  if (!tree_int_cst_compare (step, TYPE_SIZE_UNIT (scalar_type)))
-    {
-      /* Mark that it is not interleaving.  */
-      DR_GROUP_FIRST_DR (vinfo_for_stmt (stmt)) = NULL_TREE;
-      return true;
-    }
 
   if (nested_in_vect_loop_p (loop, stmt))
     {
@@ -1963,6 +1931,10 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 	fprintf (vect_dump, "strided access in outer loop.");
       return false;
     }
+
+  /* For interleaving, STRIDE is STEP counted in elements, i.e., the size of the 
+     interleaving group (including gaps).  */
+  stride = dr_step / type_size; 
 
   /* Not consecutive access is possible only if it is a part of interleaving.  */
   if (!DR_GROUP_FIRST_DR (vinfo_for_stmt (stmt)))
@@ -2139,6 +2111,55 @@ vect_analyze_data_ref_access (struct data_reference *dr)
     }
 
   return true;
+}
+
+
+/* Analyze the access pattern of the data-reference DR. 
+   In case of non-consecutive accesse call vect_analyze_group_access() to
+   analyze groups of strided accesses.  */
+
+static bool
+vect_analyze_data_ref_access (struct data_reference *dr) 
+{
+  tree step = DR_STEP (dr);
+  tree scalar_type = TREE_TYPE (DR_REF (dr));
+  tree stmt = DR_STMT (dr);
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  HOST_WIDE_INT dr_step = TREE_INT_CST_LOW (step);
+
+  /* Don't allow invariant accesses.  */
+  if (dr_step == 0)
+    return false; 
+
+  if (nested_in_vect_loop_p (loop, stmt))
+    {
+      /* For the rest of the analysis we use the outer-loop step.  */
+      step = STMT_VINFO_DR_STEP (stmt_info);
+      dr_step = TREE_INT_CST_LOW (step);
+      
+      if (dr_step == 0)
+	{
+	  if (vect_print_dump_info (REPORT_ALIGNMENT))
+	    fprintf (vect_dump, "zero step in outer loop.");
+	  if (DR_IS_READ (dr))
+  	    return true; 
+	  else
+	    return false;
+	}
+    }
+    
+  /* Consecutive?  */
+  if (!tree_int_cst_compare (step, TYPE_SIZE_UNIT (scalar_type)))
+    {
+      /* Mark that it is not interleaving.  */
+      DR_GROUP_FIRST_DR (vinfo_for_stmt (stmt)) = NULL_TREE;
+      return true;
+    }
+
+  /* Not consecutive access - check if it's a part of interleaving group.  */
+  return vect_analyze_group_access (dr);
 }
 
 
