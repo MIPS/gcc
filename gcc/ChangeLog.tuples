@@ -1,3 +1,13 @@
+2007-08-03  Diego Novillo  <dnovillo@google.com>
+
+	* gimple-pretty-print.c (INDENT): Tidy.
+	(dump_binary_rhs): New.
+	(dump_gimple_assign): Call it.
+	* gimplify.c (gimplify_modify_expr_complex_part): If the value
+	is not interesting, nullify *EXPR_P.
+	(gimplify_body): Do not add the sequence to the GIMPLE_BIND more
+	than once.
+
 2007-08-01  Diego Novillo  <dnovillo@google.com>
 
 	* gimplify.c (gimplify_switch_expr): Remove switch_body_seq_.

@@ -3724,10 +3724,9 @@ gimplify_modify_expr_complex_part (tree *expr_p, gimple_seq pre_p,
   else
     new_rhs = build2 (COMPLEX_EXPR, TREE_TYPE (lhs), realpart, imagpart);
 
-  if (want_value)
-    *expr_p = rhs;
-
   gimple_add (pre_p, build_gimple_assign (lhs, new_rhs));
+  *expr_p = (want_value) ? rhs : NULL_TREE;
+
   return GS_ALL_DONE;
 }
 
@@ -6628,10 +6627,7 @@ gimplify_body (tree *body_p, gimple_seq seq_p, tree fndecl, bool do_parms)
 
   /* If there isn't an outer GIMPLE_BIND, add one.  */
   if (gimple_code (outer_bind) != GIMPLE_BIND)
-    {
-      outer_bind = build_gimple_bind (NULL_TREE, seq_p);
-      gimple_add (seq_p, outer_bind);
-    }
+    outer_bind = build_gimple_bind (NULL_TREE, seq_p);
 
   *body_p = NULL_TREE;
 

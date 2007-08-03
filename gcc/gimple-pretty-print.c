@@ -34,8 +34,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "gimple.h"
 
-#define INDENT(SPACE) do { \
-  int i; for (i = 0; i<SPACE; i++) pp_space (buffer); } while (0)
+#define INDENT(SPACE)							\
+  do { int i; for (i = 0; i < SPACE; i++) pp_space (buffer); } while (0)
 
 static pretty_printer buffer;
 static bool initialized = false;
@@ -140,6 +140,32 @@ debug_gimple_seq (gimple_seq seq)
 }
 
 
+/* Helper for dump_gimple_assign.  Print the binary RHS of the
+   assignment GS.  BUFFER, SPC and FLAGS are as in dump_gimple_stmt.  */
+
+static void
+dump_binary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  switch (gimple_flags (gs))
+    {
+    case COMPLEX_EXPR:
+      pp_string (buffer, "COMPLEX_EXPR <");
+      dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
+      pp_string (buffer, ">");
+      break;
+
+    default:
+      dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
+      pp_space (buffer);
+      pp_string (buffer, op_symbol_code (gimple_flags (gs)));
+      pp_space (buffer);
+      dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
+    }
+}
+
+
 /* Dump the gimple assignment GS.  BUFFER, SPC and FLAGS are as in
    dump_gimple_stmt.  */
 
@@ -154,13 +180,7 @@ dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
   if (gimple_num_ops (gs) == 2)
     dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
   else if (gimple_num_ops (gs) == 3)
-    {
-      dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
-      pp_space (buffer);
-      pp_string (buffer, op_symbol_code (gimple_flags (gs)));
-      pp_space (buffer);
-      dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
-    }
+    dump_binary_rhs (buffer, gs, spc, flags);
   else
     gcc_unreachable ();
 }
