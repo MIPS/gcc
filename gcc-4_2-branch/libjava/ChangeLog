@@ -1,5 +1,9 @@
 2007-08-04  Matthias Klose  <doko@ubuntu.com>
 
+	* libtool-version: Bump version.
+
+2007-08-04  Matthias Klose  <doko@ubuntu.com>
+
 	Import GNU Classpath (libgcj-import-20070727).
 
 	* Regenerate class and header files.
