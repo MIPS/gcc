@@ -33,9 +33,6 @@
 /* Define to 1 if you have the <crt_externs.h> header file. */
 #undef HAVE_CRT_EXTERNS_H
 
-/* Define to 1 if you have the <dlfcn.h> header file. */
-#undef HAVE_DLFCN_H
-
 /* Define to 1 if you have the <dssi.h> header file. */
 #undef HAVE_DSSI_H
 
@@ -183,6 +180,9 @@
 /* Define this symbol if you have MSG_NOSIGNAL */
 #undef HAVE_MSG_NOSIGNAL
 
+/* Define this symbol if you have MSG_WAITALL */
+#undef HAVE_MSG_WAITALL
+
 /* Define to 1 if you have the `msync' function. */
 #undef HAVE_MSYNC
 
@@ -329,10 +329,6 @@
 
 /* Define as const if the declaration of iconv() needs const. */
 #undef ICONV_CONST
-
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
-#undef LT_OBJDIR
 
 /* Define to 1 if your C compiler doesn't accept -c and -o together. */
 #undef NO_MINUS_C_MINUS_O

@@ -46,12 +46,8 @@ am__aclocal_m4_deps = $(top_srcdir)/../../config/depstand.m4 \
 	$(top_srcdir)/../../config/lead-dot.m4 \
 	$(top_srcdir)/../../config/multi.m4 \
 	$(top_srcdir)/../../config/no-executables.m4 \
-	$(top_srcdir)/../../libtool.m4 \
-	$(top_srcdir)/../../ltoptions.m4 \
-	$(top_srcdir)/../../ltsugar.m4 \
-	$(top_srcdir)/../../ltversion.m4 \
-	$(top_srcdir)/m4/acattribute.m4 $(top_srcdir)/m4/accross.m4 \
-	$(top_srcdir)/m4/acinclude.m4 \
+	$(top_srcdir)/../../libtool.m4 $(top_srcdir)/m4/acattribute.m4 \
+	$(top_srcdir)/m4/accross.m4 $(top_srcdir)/m4/acinclude.m4 \
 	$(top_srcdir)/m4/ax_create_stdint_h.m4 \
 	$(top_srcdir)/m4/ax_func_which_gethostbyname_r.m4 \
 	$(top_srcdir)/m4/gcc_attribute.m4 $(top_srcdir)/m4/iconv.m4 \
@@ -60,7 +56,7 @@ am__aclocal_m4_deps = $(top_srcdir)/../../config/depstand.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-mkinstalldirs = $(SHELL) $(top_srcdir)/../../mkinstalldirs
+mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/include/config.h
 CONFIG_CLEAN_FILES = mkcollections.pl gen-classlist.sh \
 	copy-vmresources.sh
@@ -72,7 +68,6 @@ ACLOCAL = @ACLOCAL@
 AMDEP_FALSE = @AMDEP_FALSE@
 AMDEP_TRUE = @AMDEP_TRUE@
 AMTAR = @AMTAR@
-AR = @AR@
 AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
@@ -103,6 +98,8 @@ CREATE_DSSI_LIBRARIES_FALSE = @CREATE_DSSI_LIBRARIES_FALSE@
 CREATE_DSSI_LIBRARIES_TRUE = @CREATE_DSSI_LIBRARIES_TRUE@
 CREATE_GCONF_PEER_LIBRARIES_FALSE = @CREATE_GCONF_PEER_LIBRARIES_FALSE@
 CREATE_GCONF_PEER_LIBRARIES_TRUE = @CREATE_GCONF_PEER_LIBRARIES_TRUE@
+CREATE_GSTREAMER_PEER_LIBRARIES_FALSE = @CREATE_GSTREAMER_PEER_LIBRARIES_FALSE@
+CREATE_GSTREAMER_PEER_LIBRARIES_TRUE = @CREATE_GSTREAMER_PEER_LIBRARIES_TRUE@
 CREATE_GTK_PEER_LIBRARIES_FALSE = @CREATE_GTK_PEER_LIBRARIES_FALSE@
 CREATE_GTK_PEER_LIBRARIES_TRUE = @CREATE_GTK_PEER_LIBRARIES_TRUE@
 CREATE_JNI_HEADERS_FALSE = @CREATE_JNI_HEADERS_FALSE@
@@ -126,7 +123,6 @@ DATE = @DATE@
 DEFAULT_PREFS_PEER = @DEFAULT_PREFS_PEER@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
-DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
@@ -139,10 +135,7 @@ ERROR_CFLAGS = @ERROR_CFLAGS@
 EXAMPLESDIR = @EXAMPLESDIR@
 EXEEXT = @EXEEXT@
 FASTJAR = @FASTJAR@
-FGREP = @FGREP@
 FIND = @FIND@
-FOUND_CACAO_FALSE = @FOUND_CACAO_FALSE@
-FOUND_CACAO_TRUE = @FOUND_CACAO_TRUE@
 FOUND_ECJ_FALSE = @FOUND_ECJ_FALSE@
 FOUND_ECJ_TRUE = @FOUND_ECJ_TRUE@
 FOUND_GCJ_FALSE = @FOUND_GCJ_FALSE@
@@ -165,7 +158,15 @@ GENINSRC_TRUE = @GENINSRC_TRUE@
 GJDOC = @GJDOC@
 GLIB_CFLAGS = @GLIB_CFLAGS@
 GLIB_LIBS = @GLIB_LIBS@
-GREP = @GREP@
+GSTREAMER_BASE_CFLAGS = @GSTREAMER_BASE_CFLAGS@
+GSTREAMER_BASE_LIBS = @GSTREAMER_BASE_LIBS@
+GSTREAMER_CFLAGS = @GSTREAMER_CFLAGS@
+GSTREAMER_FILE_READER = @GSTREAMER_FILE_READER@
+GSTREAMER_LIBS = @GSTREAMER_LIBS@
+GSTREAMER_MIXER_PROVIDER = @GSTREAMER_MIXER_PROVIDER@
+GSTREAMER_PLUGINS_BASE_CFLAGS = @GSTREAMER_PLUGINS_BASE_CFLAGS@
+GSTREAMER_PLUGINS_BASE_LIBS = @GSTREAMER_PLUGINS_BASE_LIBS@
+GST_PLUGIN_LDFLAGS = @GST_PLUGIN_LDFLAGS@
 GTK_CFLAGS = @GTK_CFLAGS@
 GTK_LIBS = @GTK_LIBS@
 INIT_LOAD_LIBRARY = @INIT_LOAD_LIBRARY@
@@ -187,7 +188,6 @@ JIKES = @JIKES@
 JIKESENCODING = @JIKESENCODING@
 JIKESWARNINGS = @JIKESWARNINGS@
 KJC = @KJC@
-LD = @LD@
 LDFLAGS = @LDFLAGS@
 LIBDEBUG = @LIBDEBUG@
 LIBICONV = @LIBICONV@
@@ -207,7 +207,6 @@ MKDIR = @MKDIR@
 MOC = @MOC@
 MOZILLA_CFLAGS = @MOZILLA_CFLAGS@
 MOZILLA_LIBS = @MOZILLA_LIBS@
-NM = @NM@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
@@ -229,7 +228,6 @@ RANLIB = @RANLIB@
 REGEN_PARSERS_FALSE = @REGEN_PARSERS_FALSE@
 REGEN_PARSERS_TRUE = @REGEN_PARSERS_TRUE@
 REMOVE = @REMOVE@
-SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRICT_WARNING_CFLAGS = @STRICT_WARNING_CFLAGS@
@@ -238,8 +236,6 @@ USER_CLASSLIB = @USER_CLASSLIB@
 USER_JAVAH = @USER_JAVAH@
 USER_SPECIFIED_CLASSLIB_FALSE = @USER_SPECIFIED_CLASSLIB_FALSE@
 USER_SPECIFIED_CLASSLIB_TRUE = @USER_SPECIFIED_CLASSLIB_TRUE@
-USER_SPECIFIED_JAVAH_FALSE = @USER_SPECIFIED_JAVAH_FALSE@
-USER_SPECIFIED_JAVAH_TRUE = @USER_SPECIFIED_JAVAH_TRUE@
 USE_ESCHER_FALSE = @USE_ESCHER_FALSE@
 USE_ESCHER_TRUE = @USE_ESCHER_TRUE@
 USE_PREBUILT_GLIBJ_ZIP_FALSE = @USE_PREBUILT_GLIBJ_ZIP_FALSE@
@@ -257,10 +253,8 @@ X_EXTRA_LIBS = @X_EXTRA_LIBS@
 X_LIBS = @X_LIBS@
 X_PRE_LIBS = @X_PRE_LIBS@
 ZIP = @ZIP@
-ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
-ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
 ac_ct_RANLIB = @ac_ct_RANLIB@
 ac_ct_STRIP = @ac_ct_STRIP@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
@@ -293,7 +287,6 @@ install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
 localstatedir = @localstatedir@
-lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 multi_basedir = @multi_basedir@
@@ -312,10 +305,6 @@ target_vendor = @target_vendor@
 toolexeclibdir = @toolexeclibdir@
 vm_classes = @vm_classes@
 JAVA_DEPEND = java.dep
-propertyfiles := $(shell cd $(top_srcdir)/resource && $(FIND) gnu java javax org -name \*\.properties -print)
-cssfiles := $(shell cd $(top_srcdir) && $(FIND) gnu java javax org -name \*\.css -print)
-metafiles := $(shell cd $(top_srcdir)/resource && $(FIND) META-INF -name CVS -prune -o -name \*\.in -prune -o -type f -print | fgrep -v .svn)
-iconfiles := $(shell cd $(top_srcdir) && $(FIND) gnu/javax/swing/plaf/gtk/icons -name *.png -type f -print)
 compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:$(top_srcdir)/external/relaxngDatatype:$(top_srcdir)/external/jsr166:.:$(USER_CLASSLIB):$(PATH_TO_ESCHER)
 @FOUND_ECJ_TRUE@@FOUND_GCJ_FALSE@@FOUND_JIKES_FALSE@@FOUND_KJC_FALSE@JCOMPILER = $(ECJ) -source 1.4 -encoding UTF-8 -warn:-deprecation,serial,unused -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
 @FOUND_GCJ_FALSE@@FOUND_JIKES_FALSE@@FOUND_KJC_TRUE@JCOMPILER = $(KJC) -classpath .:$(USER_CLASSLIB) -d . @classes
@@ -323,7 +312,6 @@ compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$
 
 # handling source to bytecode compiler programs like gcj, jikes  and kjc
 @FOUND_GCJ_TRUE@JCOMPILER = $(GCJ) -C -g -w --encoding=UTF-8 -bootclasspath '' --classpath $(compile_classpath) -d $(srcdir) @classes
-JAVAH = $(USER_JAVAH) -jni -classpath .:$(USER_CLASSLIB)
 @CREATE_COLLECTIONS_TRUE@COLLECTIONS = collections.jar
 @BUILD_CLASS_FILES_TRUE@noinst_DATA = genclasses compile-classes resources
 # endif
@@ -548,23 +536,18 @@ sinclude $(JAVA_DEPEND)
 @USE_PREBUILT_GLIBJ_ZIP_FALSE@	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf glibj.zip gnu java javax org sun META-INF; fi
 
 resources: copy-vmresources.sh
-	@list='$(propertyfiles)'; for p in $$list; do \
+	@list=`cd $(top_srcdir)/resource && $(FIND) gnu java javax org -name \*\.properties -print -o -name \*\.css -print`; for p in $$list; do \
           dirname=`dirname $$p`; \
           if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
 	  cp $(top_srcdir)/resource/$$p $$p; \
 	done
-	@list='$(cssfiles)'; for p in $$list; do \
-          dirname=`dirname $$p`; \
-          if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
-	  cp $(top_srcdir)/$$p $$p; \
-	done
-	@list='$(metafiles)'; for p in $$list; do \
+	@list=`cd $(top_srcdir)/resource && $(FIND) META-INF -name CVS -prune -o -name \*\.in -prune -o -type f -print`; for p in $$list; do \
           dirname=`dirname $$p`; \
           if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
 	  cp $(top_srcdir)/resource/$$p $$p; \
 	done
 	@$(SHELL) ./copy-vmresources.sh
-	@list='$(iconfiles)'; for p in $$list; do \
+	@list=`cd $(top_srcdir) && $(FIND) gnu/javax/swing/plaf/gtk/icons -name *.png -type f -print`; for p in $$list; do \
           dirname=`dirname $$p`; \
           if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
 	  cp $(top_srcdir)/$$p $$p; \
