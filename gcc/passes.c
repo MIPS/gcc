@@ -504,6 +504,9 @@ init_optimization_passes (void)
       NEXT_PASS (pass_rebuild_cgraph_edges);
       NEXT_PASS (pass_inline_parameters);
     }
+#ifdef ENABLE_PLUGINS
+  NEXT_PASS (pass_plugin_ipa);
+#endif
   NEXT_PASS (pass_ipa_increase_alignment);
   NEXT_PASS (pass_ipa_cp);
   NEXT_PASS (pass_ipa_inline);
@@ -518,7 +521,7 @@ init_optimization_passes (void)
   p = &all_passes;
   NEXT_PASS (pass_apply_inline);
 #ifdef ENABLE_PLUGINS
-  NEXT_PASS (pass_plugin);
+  NEXT_PASS (pass_plugin_gimple);
 #endif
   NEXT_PASS (pass_all_optimizations);
     {
@@ -655,6 +658,9 @@ init_optimization_passes (void)
   NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_free_cfg_annotations);
   NEXT_PASS (pass_expand);
+#ifdef ENABLE_PLUGINS
+  NEXT_PASS (pass_plugin_rtl);
+#endif
   NEXT_PASS (pass_rest_of_compilation);
     {
       struct tree_opt_pass **p = &pass_rest_of_compilation.sub;

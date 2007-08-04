@@ -10,4 +10,21 @@
 	* c-opts.c (c_common_finish): Cleanup plug-ins after parsing.
 	* Makefile.in: Include plug-in functionality in the build and export
 	symbols from GCC when plug-ins are enabled.
-	* passes.c: Execute all plug-ins as a GIMPLE optimization pass.
+	* passes.c (init_optimization_passes): Execute all plug-ins as a
+	GIMPLE optimization pass.
+
+2007-07-31  Sean Callanan  <spyffe@cs.sunysb.edu>
+
+	* tree-plugin.c: Add pass structures for RTL and cgraph passes.
+	* tree-plugin.c: Make the plugin array into a VEC.
+	* tree-plugin.c: Make plug-in arguments be passed to the individual
+	exported functions.
+	* tree-plugin.h: Add function prototypes for the new passes.
+	* toplev.c (process_options): Enable flag_unit_at_a_time if a 
+	plug-in needs the call graph.
+	* c-opts.c (c_common_init, c_common_finish): Call the renamed pre-
+	and post-translation-unit hooks.
+	* c-gimplify.c (c_genericize): Add a hook for C front-end tree 
+	transformations.
+	* passes.c (init_optimization_passes): Add optimization passes for
+	IPA and RTL.

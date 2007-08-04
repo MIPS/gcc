@@ -55,16 +55,14 @@ Boston, MA 02111-1307, USA.  */
 #include <inttypes.h>
 #include <ltdl.h>
 
-unsigned int run_all_plugins(void);
-
-struct tree_opt_pass pass_plugin =
+struct tree_opt_pass pass_plugin_gimple =
 {
   /* const char*		name				*/
   "plugin",
   /* bool			(*gate)			(void)	*/
   NULL,
-  /* int			(*execute)		(void)	*/
-  run_all_plugins,
+  /* unsigned int		(*execute)		(void)	*/
+  plugins_transform_gimple,
   /* struct tree_opt_pass*	sub				*/
   NULL,
   /* struct tree_opt_pass*	next				*/
@@ -87,54 +85,190 @@ struct tree_opt_pass pass_plugin =
   '\0'
 };
 
-#define MAX_PLUGINS 32
-
-struct plugin_handle {
-	void (*pre_translation_unit)(void);
-	void (*run)(void);
-	void (*post_translation_unit)(void);
-
-	char* spec;
-	char* path;
-
-	int argc;
-	struct plugin_argument*	argv;
+struct tree_opt_pass pass_plugin_ipa =
+{
+  /* const char*		name				*/
+  "plugin",
+  /* bool			(*gate)			(void)	*/
+  NULL,
+  /* unsigned int		(*execute)		(void)	*/
+  plugins_transform_cgraph,
+  /* struct tree_opt_pass*	sub				*/
+  NULL,
+  /* struct tree_opt_pass*	next				*/
+  NULL,
+  /* int			static_pass_number		*/
+  0,
+  /* unsigned int		tv_id				*/
+  TV_TREE_PLUGIN,
+  /* unsigned int		properties_required		*/
+  PROP_gimple_any,
+  /* unsigned int		properties_provided		*/
+  0,
+  /* unsigned int		properties_destroyed		*/
+  0,
+  /* unsigned int		todo_flags_start		*/
+  0,
+  /* unsigned int		todo_flags_finish		*/
+  TODO_cleanup_cfg | TODO_update_ssa,
+  /* char			letter				*/
+  '\0'
 };
 
-static struct plugin_handle plugins[MAX_PLUGINS];
-static int num_plugins = 0;
-static int plugin_index;
+struct tree_opt_pass pass_plugin_rtl =
+{
+  /* const char*		name				*/
+  "plugin",
+  /* bool			(*gate)			(void)	*/
+  NULL,
+  /* unsigned int		(*execute)		(void)	*/
+  plugins_transform_rtl,
+  /* struct tree_opt_pass*	sub				*/
+  NULL,
+  /* struct tree_opt_pass*	next				*/
+  NULL,
+  /* int			static_pass_number		*/
+  0,
+  /* unsigned int		tv_id				*/
+  TV_TREE_PLUGIN,
+  /* unsigned int		properties_required		*/
+  PROP_rtl,
+  /* unsigned int		properties_provided		*/
+  0,
+  /* unsigned int		properties_destroyed		*/
+  0,
+  /* unsigned int		todo_flags_start		*/
+  0,
+  /* unsigned int		todo_flags_finish		*/
+  0,
+  /* char			letter				*/
+  '\0'
 
-#define RUN_ALL_FUNCS(function_name)					\
-  do									\
-    {									\
-      for(plugin_index = 0; plugin_index < num_plugins; plugin_index++)	\
-        {								\
-          if(plugins[plugin_index].function_name)			\
-            {								\
-              plugins[plugin_index].function_name();			\
-            }								\
-        }								\
-    }									\
+};
+#define MAX_PLUGINS 32
+
+typedef struct plugin_handle GTY(())
+  {
+    void (*pre_translation_unit)	(int argc, struct plugin_argument* argv);
+    void (*transform_ctrees)		(int argc, struct plugin_argument* argv, tree fndecl);
+    void (*transform_gimple)		(int argc, struct plugin_argument* argv);
+    void (*transform_cgraph)		(int argc, struct plugin_argument* argv);
+    void (*transform_rtl)		(int argc, struct plugin_argument* argv);
+    void (*post_translation_unit)	(int argc, struct plugin_argument* argv);
+
+    char* spec;
+    char* path;
+
+    int argc;
+    struct plugin_argument* argv;
+  } handle;
+
+DEF_VEC_O(handle);
+DEF_VEC_ALLOC_O(handle, heap);
+
+VEC(handle, heap)* handles = NULL;
+
+#define RUN_ALL_FUNCS(function_name)						\
+  do										\
+    {										\
+      if(handles)								\
+        {									\
+          unsigned int handle_index;						\
+          handle* handle_pointer;						\
+										\
+          for(handle_index = 0;							\
+              VEC_iterate(handle, handles, handle_index, handle_pointer);	\
+              handle_index++)							\
+            {									\
+              if(handle_pointer->function_name)					\
+                {								\
+                  handle_pointer->function_name(handle_pointer->argc,		\
+                                                handle_pointer->argv);		\
+                }								\
+            }									\
+        }									\
+    }										\
   while(0)
 
-void pre_tu_plugins(void)
+#define RUN_ALL_FUNCS_PARAMS(function_name, ...)				\
+  do										\
+    {										\
+      if(handles)								\
+        {									\
+          unsigned int handle_index;						\
+          handle* handle_pointer;						\
+										\
+          for(handle_index = 0;							\
+              VEC_iterate(handle, handles, handle_index, handle_pointer);	\
+              handle_index++)							\
+            {									\
+              if(handle_pointer->function_name)					\
+                {								\
+                  handle_pointer->function_name(handle_pointer->argc,		\
+                                                handle_pointer->argv,		\
+                                                __VA_ARGS__);			\
+                }								\
+            }									\
+        }									\
+    }										\
+  while(0)
+
+void plugins_pre_translation_unit(void)
 {
   RUN_ALL_FUNCS(pre_translation_unit);
 }
 
-unsigned int run_all_plugins(void)
+void plugins_transform_ctrees(tree fndecl)
 {
-  RUN_ALL_FUNCS(run);
+  RUN_ALL_FUNCS_PARAMS(transform_ctrees, fndecl);
+}
+
+unsigned int plugins_transform_gimple(void)
+{
+  RUN_ALL_FUNCS(transform_gimple);
   return 0;
 }
 
-void post_tu_plugins(void)
+unsigned int plugins_transform_cgraph(void)
+{
+  RUN_ALL_FUNCS(transform_cgraph);
+  return 0;
+}
+
+unsigned int plugins_transform_rtl(void)
+{
+  RUN_ALL_FUNCS(transform_rtl);
+  return 0;
+}
+
+void plugins_post_translation_unit(void)
 {
   RUN_ALL_FUNCS(post_translation_unit);
 }
 
 #undef RUN_ALL_FUNCS
+#undef RUN_ALL_FUNCS_PARAMS
+
+unsigned int plugins_require_ipa(void)
+{
+  if(handles)
+    {
+      unsigned int handle_index;
+      handle* handle_pointer;
+
+      for(handle_index = 0;
+          VEC_iterate(handle, handles, handle_index, handle_pointer);
+          handle_index++)
+        {
+          if(handle_pointer->transform_cgraph)
+            {
+              return 1;
+            }
+        }
+    }
+
+  return 0;
+}
 
 static void extract_path_and_args(struct plugin_handle* const handle)
 {
@@ -324,57 +458,48 @@ static void load_config_files(struct plugin_handle* const handle)
   handle->argv = new_argv;
 }
 
+#define EXTRACT_SYMBOL(sym)				\
+  do							\
+    {							\
+      void* code;					\
+      code = lt_dlsym(object_handle, #sym);		\
+      memcpy(&new_handle.sym, &code, sizeof(void*));	\
+    }							\
+  while(0);
+
 void register_tree_plugin(const char* spec)
 {
-  lt_dlhandle handle;
-  void* pre_translation_unit_object;
-  void* run_object;
-  void* post_translation_unit_object;
+  lt_dlhandle object_handle;
+  handle new_handle;
 
-  if(num_plugins == MAX_PLUGINS)
+  if(!handles)
     {
-      /* An error I'd love to get. */
-
-      warning(0, "Too many plugins. Increase MAX_PLUGINS");
-      return;
+      handles = VEC_alloc(handle, heap, MAX_PLUGINS);
     }
 
-  plugins[num_plugins].spec = xstrdup(spec);
+  new_handle.spec = xstrdup(spec);
 
-  extract_path_and_args(&plugins[num_plugins]);
-  load_config_files(&plugins[num_plugins]);
+  extract_path_and_args(&new_handle);
+  load_config_files(&new_handle);
 
   lt_dlinit();
 
-  handle = lt_dlopen(plugins[num_plugins].path);
+  object_handle = lt_dlopen(new_handle.path);
 
-  if(!handle) 
+  if(!object_handle) 
     {
-      warning(0, "Loading plugin %s failed: %s\n", plugins[num_plugins].path, lt_dlerror());
+      warning(0, "Loading plugin %s failed: %s\n", new_handle.path, lt_dlerror());
       return;
     }
-  
-  pre_translation_unit_object = lt_dlsym(handle, "pre_translation_unit");
-  run_object = lt_dlsym(handle, "run");
-  post_translation_unit_object = lt_dlsym(handle, "post_translation_unit");
 
-  memcpy(&(plugins[num_plugins].pre_translation_unit), &pre_translation_unit_object, sizeof(void*));
-  memcpy(&(plugins[num_plugins].run), &run_object, sizeof(void*));
-  memcpy(&(plugins[num_plugins].post_translation_unit), &post_translation_unit_object, sizeof(void*));
+  EXTRACT_SYMBOL(pre_translation_unit);
+  EXTRACT_SYMBOL(transform_ctrees);
+  EXTRACT_SYMBOL(transform_gimple);
+  EXTRACT_SYMBOL(transform_cgraph);
+  EXTRACT_SYMBOL(transform_rtl);
+  EXTRACT_SYMBOL(post_translation_unit);
 
-  num_plugins++;
+  VEC_safe_push(handle, heap, handles, &new_handle);
 }
 
-int get_plugin_arguments(int* argc_ptr, struct plugin_argument** argv_ptr)
-{
-  if(plugin_index < num_plugins)
-    {
-      *argv_ptr = plugins[plugin_index].argv;
-      *argc_ptr = plugins[plugin_index].argc;
-      return 0;
-    }
-  else 
-    {
-      return -1;
-    }
-}
+#undef EXTRACT_SYMBOL

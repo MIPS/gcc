@@ -24,22 +24,28 @@ Boston, MA 02111-1307, USA.  */
 
 /* Pass declaration. */
 
-extern struct tree_opt_pass pass_plugin;
+extern struct tree_opt_pass pass_plugin_gimple;
+extern struct tree_opt_pass pass_plugin_ipa;
+extern struct tree_opt_pass pass_plugin_rtl;
 
 /* Function prototypes.  */
 
 void register_tree_plugin(const char* path);
 
-void pre_tu_plugins(void);
-void post_tu_plugins(void);
+void plugins_pre_translation_unit(void);
+void plugins_transform_ctrees(tree fndecl);
+unsigned int plugins_transform_gimple(void);
+unsigned int plugins_transform_cgraph(void);
+unsigned int plugins_transform_rtl(void);
+void plugins_post_translation_unit(void);
 
-/* Interface to retrieve plugin arguments. */
+unsigned int plugins_require_ipa(void);
+
+/* Interface to retrieve plug-in arguments. */
 
 struct plugin_argument {
   char* key;
   char* value;
 };
-
-int get_plugin_arguments(int*, struct plugin_argument**);
 
 #endif /* GCC_TREE_PLUGIN_H */

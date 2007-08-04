@@ -100,6 +100,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
+#ifdef ENABLE_PLUGINS
+#include "tree-plugin.h"
+#endif
+
 static void general_init (const char *);
 static void do_compile (void);
 static void process_options (void);
@@ -1737,6 +1741,13 @@ process_options (void)
     flag_asynchronous_unwind_tables = 1;
   if (flag_asynchronous_unwind_tables)
     flag_unwind_tables = 1;
+
+#ifdef ENABLE_PLUGINS
+  if (plugins_require_ipa())
+    {
+      flag_unit_at_a_time = 1;
+    }
+#endif
 
   /* Disable unit-at-a-time mode for frontends not supporting callgraph
      interface.  */

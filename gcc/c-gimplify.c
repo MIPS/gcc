@@ -47,6 +47,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "c-pretty-print.h"
 #include "cgraph.h"
 
+#ifdef ENABLE_PLUGINS
+#include "tree-plugin.h"
+#endif
+
 
 /*  The gimplification pass converts the language-dependent trees
     (ld-trees) emitted by the parser into language-independent trees
@@ -101,6 +105,12 @@ c_genericize (tree fndecl)
 
       dump_end (TDI_original, dump_orig);
     }
+
+  /* Run plugins on the C trees */
+
+#ifdef ENABLE_PLUGINS
+  plugins_transform_ctrees(fndecl);
+#endif
 
   /* Go ahead and gimplify for now.  */
   gimplify_function_tree (fndecl);

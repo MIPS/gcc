@@ -1230,7 +1230,7 @@ c_common_init (void)
   init_pragma ();
 
 #ifdef ENABLE_PLUGINS
-  pre_tu_plugins ();
+  plugins_pre_translation_unit ();
 #endif
 
   return true;
@@ -1298,7 +1298,7 @@ c_common_finish (void)
   FILE *deps_stream = NULL;
 
 #ifdef ENABLE_PLUGINS
-  post_tu_plugins ();
+  plugins_post_translation_unit ();
 #endif
 
   if (cpp_opts->deps.style != DEPS_NONE)
