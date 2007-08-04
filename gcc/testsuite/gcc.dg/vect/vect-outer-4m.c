@@ -34,6 +34,10 @@ int main (void)
 
   check_vect ();
 
+  for (i = 0; i < N+M; i++) {
+    in[i] = i;
+  }
+
   sum=foo ();
 
   for (i = 0; i < N; i++) {
@@ -41,7 +45,7 @@ int main (void)
     for (j = 0; j < M; j+=8) {
       diff += in[j+i];
     }
-    s += (diff>>3);
+    s += ((unsigned short)diff>>3);
   }
 
   if (s != sum)

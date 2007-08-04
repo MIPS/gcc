@@ -31,6 +31,10 @@ int main (void)
 
   check_vect ();
 
+  for (i = 0; i < N+M; i++) {
+    in[i] = i;
+  }
+
   foo ();
 
   for (i = 0; i < N; i++) {
