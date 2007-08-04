@@ -1,3 +1,14 @@
+2007-08-04  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_mark_relevant): Revert last change.
+	* tree-vectorize.c (supportable_widening_operation): Don't allow
+	unrodered vectorization in the inner-loop when doing outer-loop
+	vectorization.
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): Don't allow
+	in the inner-loop when doing outer-loop vectorization. Add
+	documentation and printout.
+	(vect_recog_widen_sum_pattern): Likewise.
+
 2007-08-02  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_analyze_data_ref_access): New.

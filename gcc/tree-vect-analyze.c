@@ -3108,38 +3108,13 @@ vect_mark_relevant (VEC(tree,heap) **worklist, tree stmt,
 
       pattern_stmt = STMT_VINFO_RELATED_STMT (stmt_info);
 
-      /* One exception to the above is when the pattern-stmt is an
-	 "unordered reduction" operation, whose results are used in the
-	 outer-loop, in which case the order of the generated 
-	 results is important, and therefore we can't vectorize the pattern. 
-
-	 An "unordered reduction" is a reduction that is vectorized without 
-	 preserving all the intermediate results, like widen_sum and dot_prod, 
-	 that produce only N/2 results (by summing up pairs of intermediate 
-	 results). If these results are actually used (e.g., stored, in an 
-	 outer-loop), we need to have all N results (and in the right order). 
-	 Therefore, in such a case, we cannot vectorize the reduction pattern,
-	 and need to resort to vectorizing the original stmts.  */
-      if ((TREE_CODE (GIMPLE_STMT_OPERAND (pattern_stmt, 1)) == WIDEN_SUM_EXPR
-	   || TREE_CODE (GIMPLE_STMT_OPERAND (pattern_stmt,1)) == DOT_PROD_EXPR)
-	  && (relevant == vect_used_in_outer 
-	      || relevant == vect_used_in_outer_by_reduction))
-        {
-	  if (vect_print_dump_info (REPORT_DETAILS))
-	    fprintf (vect_dump, "skip unordered reduction pattern.");
-	  STMT_VINFO_RELATED_STMT (stmt_info) = NULL_TREE;
-	  STMT_VINFO_IN_PATTERN_P (stmt_info) = false;
-	}
-      else
-	{
-	  if (vect_print_dump_info (REPORT_DETAILS))
-	    fprintf (vect_dump, "last stmt in pattern. don't mark relevant/live.");
-	  stmt_info = vinfo_for_stmt (pattern_stmt);
-	  gcc_assert (STMT_VINFO_RELATED_STMT (stmt_info) == stmt);
-	  save_relevant = STMT_VINFO_RELEVANT (stmt_info);
-	  save_live_p = STMT_VINFO_LIVE_P (stmt_info);
-	  stmt = pattern_stmt;
-	}
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "last stmt in pattern. don't mark relevant/live.");
+      stmt_info = vinfo_for_stmt (pattern_stmt);
+      gcc_assert (STMT_VINFO_RELATED_STMT (stmt_info) == stmt);
+      save_relevant = STMT_VINFO_RELEVANT (stmt_info);
+      save_live_p = STMT_VINFO_LIVE_P (stmt_info);
+      stmt = pattern_stmt;
     }
 
   STMT_VINFO_LIVE_P (stmt_info) |= live_p;

@@ -28,6 +28,16 @@ foo (){
   return s;
 }
 
+unsigned int
+bar (int i, unsigned int diff, unsigned short *in)
+{
+    int j;
+    for (j = 0; j < M; j+=8) {
+      diff += in[j+i];
+    }
+    return diff;
+}
+
 int main (void)
 {
   int i, j;
@@ -45,9 +55,7 @@ int main (void)
   for (i = 0; i < N; i++) {
     arr[i] = 3;
     diff = 0;
-    for (j = 0; j < M; j+=8) {
-      diff += in[j+i];
-    }
+    diff = bar (i, diff, in);
     s += diff;
   }
 
@@ -58,4 +66,5 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 1 "vect" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vect_recog_widen_sum_pattern: not allowed" 1 "vect" } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */

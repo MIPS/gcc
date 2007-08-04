@@ -1936,6 +1936,8 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
                                 enum tree_code *code1, enum tree_code *code2)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  loop_vec_info loop_info = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *vect_loop = LOOP_VINFO_LOOP (loop_info);
   bool ordered_p;
   enum machine_mode vec_mode;
   enum insn_code icode1, icode2;
@@ -1958,10 +1960,15 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
      Some targets can take advantage of this and generate more efficient code.
      For example, targets like Altivec, that support widen_mult using a sequence
      of {mult_even,mult_odd} generate the following vectors:
-        vect1: [res1,res3,res5,res7], vect2: [res2,res4,res6,res8].  */
+        vect1: [res1,res3,res5,res7], vect2: [res2,res4,res6,res8].
+
+     When vectorizaing outer-loops, we execute the inner-loop sequentially
+     (each vectorized inner-loop iteration contributes to VF outer-loop 
+     iterations in parallel). We therefore don't allow to change the order 
+     of the computation in the inner-loop during outer-loop vectorization.  */
 
    if (STMT_VINFO_RELEVANT (stmt_info) == vect_used_by_reduction
-       || STMT_VINFO_RELEVANT (stmt_info) == vect_used_in_outer_by_reduction)
+       && !nested_in_vect_loop_p (vect_loop, stmt))
      ordered_p = false;
    else
      ordered_p = true;
