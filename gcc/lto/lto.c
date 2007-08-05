@@ -744,7 +744,7 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_error, /* containing_type */
     DW_cl_error, /* default_value */
     DW_cl_error, /* padding */
-    DW_cl_error, /* inline */
+    DW_cl_constant, /* inline */
     DW_cl_error, /* is_optional */
     DW_cl_block | DW_cl_constant | DW_cl_reference, /* lower_bound */
     DW_cl_error, /* padding */
