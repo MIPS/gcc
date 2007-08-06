@@ -2667,10 +2667,14 @@ struct tree_memory_partition_tag GTY(())
 #define DECL_POINTER_ALIAS_SET_KNOWN_P(NODE) \
   (DECL_POINTER_ALIAS_SET (NODE) != - 1)
 
+/* Nonzero for a scope (e.g., the value of either DECL_CONTEXT or
+   TYPE_CONTEXT) which is the file scope.  */
+#define FILE_SCOPE_P(SCOPE) \
+  (!(SCOPE) || TREE_CODE (SCOPE) == TRANSLATION_UNIT_DECL)
+
 /* Nonzero for a decl which is at file scope.  */
-#define DECL_FILE_SCOPE_P(EXP) 					\
-  (! DECL_CONTEXT (EXP)						\
-   || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
+#define DECL_FILE_SCOPE_P(EXP) \
+  FILE_SCOPE_P (DECL_CONTEXT (EXP))					
 
 /* Nonzero for a decl that is decorated using attribute used.
    This indicates compiler tools that this decl needs to be preserved.  */

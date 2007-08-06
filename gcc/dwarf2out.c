@@ -14929,7 +14929,7 @@ lto_type_ref (tree type, lto_out_ref *ref)
   gcc_assert (TYPE_P (type));
 
   scope = TYPE_CONTEXT (type);
-  if (scope)
+  if (!FILE_SCOPE_P (scope))
     {
       /* We do not yet support lexically scoped types.  */
       sorry ("nested types are not supported by LTO");

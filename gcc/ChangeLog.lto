@@ -1,3 +1,10 @@
+2007-08-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* tree.h (FILE_SCOPE_P): New macro.
+	(DECL_FILE_SCOPE_P): Use it.
+	* dwarf2out.c (lto_type_ref): Use FILE_SCOPE_P to test whether
+	an entity is at file scope.
+
 2007-08-02  Kenneth Zadeck <zadeck@naturalbridge.com>
         * lto-tags.h (LTO_DEBUG_INDENT, LTO_DEBUG_INDENT_TOKEN,
 	LTO_DEBUG_INTEGER, LTO_DEBUG_STRING, LTO_DEBUG_TOKEN,
