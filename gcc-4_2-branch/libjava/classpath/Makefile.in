@@ -36,16 +36,25 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in $(top_srcdir)/configure \
+DIST_COMMON = README $(am__configure_deps) \
+	$(srcdir)/../../config.guess $(srcdir)/../../config.sub \
+	$(srcdir)/../../install-sh $(srcdir)/../../ltmain.sh \
+	$(srcdir)/../../missing $(srcdir)/../../mkinstalldirs \
+	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
+	$(top_srcdir)/configure \
 	$(top_srcdir)/gnu/classpath/Configuration.java.in \
 	$(top_srcdir)/gnu/java/security/Configuration.java.in \
 	$(top_srcdir)/resource/META-INF/services/java.util.prefs.PreferencesFactory.in \
 	$(top_srcdir)/resource/META-INF/services/javax.sound.sampled.spi.AudioFileReader.in \
 	$(top_srcdir)/resource/META-INF/services/javax.sound.sampled.spi.MixerProvider.in \
-	AUTHORS COPYING ChangeLog INSTALL NEWS TODO compile \
-	config.guess config.sub depcomp install-sh ltcf-c.sh \
-	ltcf-cxx.sh ltcf-gcj.sh ltconfig ltmain.sh missing \
+	../../ABOUT-NLS ../../COPYING ../../COPYING.LIB \
+	../../ChangeLog ../../README ../../compile ../../config.guess \
+	../../config.rpath ../../config.sub ../../depcomp \
+	../../install-sh ../../ltcf-c.sh ../../ltcf-cxx.sh \
+	../../ltcf-gcj.sh ../../ltconfig ../../ltmain.sh ../../missing \
+	../../mkinstalldirs ../../ylwrap AUTHORS COPYING ChangeLog \
+	INSTALL NEWS TODO config.guess config.sub depcomp install-sh \
+	ltcf-c.sh ltcf-cxx.sh ltcf-gcj.sh ltconfig ltmain.sh missing \
 	mkinstalldirs
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -65,7 +74,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno configure.status.lineno
-mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+mkinstalldirs = $(SHELL) $(top_srcdir)/../../mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/include/config.h
 CONFIG_CLEAN_FILES = gnu/classpath/Configuration.java \
 	gnu/java/security/Configuration.java \
