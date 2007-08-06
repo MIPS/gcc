@@ -2039,8 +2039,15 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 	  /* If there is an initializer, read it now.  */
 	  if (!declaration)
 	    {
-	      lto_file *file = fd->base.file;
-	      file->vtable->read_var_init (file, decl);
+	      const void *init;
+	      lto_file *file;
+	      const char *name_str;
+
+	      name_str = IDENTIFIER_POINTER (asm_name);
+	      file = fd->base.file;
+	      init = file->vtable->map_var_init (file, name_str);
+	      lto_read_var_init (fd, context, decl, init);
+	      file->vtable->unmap_var_init (file, name_str, init);
 	    }
 	  /* If this variable has already been declared, merge the
 	     declarations.  */

@@ -1536,6 +1536,13 @@ lto_read_function_body (lto_info_fd *fd,
   input_function (fn_decl, &fun_in, &ib_main);
 }
 
+void 
+lto_read_var_init (lto_info_fd *fd,
+		   lto_context *context,
+		   tree var_decl,
+		   const void *data)
+{
+}
 
 /* Dump the debug STREAM, and two characters B and C.  */
 

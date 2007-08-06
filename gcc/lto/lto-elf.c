@@ -65,14 +65,12 @@ lto_elf_map_fn_body (lto_file *file, const char *fn);
 static void
 lto_elf_unmap_fn_body (lto_file *file, const char *fn, const void *data);
 
-static void
-lto_elf_read_var_init (lto_file *file, tree var);
-
 /* The vtable for ELF input files.  */
 static const lto_file_vtable lto_elf_file_vtable = {
   lto_elf_map_fn_body,
   lto_elf_unmap_fn_body,
-  lto_elf_read_var_init
+  lto_elf_map_fn_body,
+  lto_elf_unmap_fn_body
 };
 
 /* Return the section header for SECTION.  The return value is never
@@ -502,7 +500,12 @@ lto_elf_build_init (lto_elf_file *elf_file ATTRIBUTE_UNUSED,
   return init;
 }
 
-void
+/* Read the initializer for VAR from FILE, reconsitituing it from the
+   initializer and relocation information in the object file.  This
+   function is not presently used; instead we are reading in
+   serialized trees.  If this function remains unused, it should be
+   removed before mering LTO into mainline.  */
+static void
 lto_elf_read_var_init (lto_file *file,
 		       tree var)
 {

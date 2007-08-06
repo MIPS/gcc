@@ -1,5 +1,15 @@
 2007-08-05  Mark Mitchell  <mark@codesourcery.com>
 
+	* lto.h (lto_file_vtable): Remove read_var_init.  Add map_var_init
+	and unmap_var_init.
+	(lto_read_var_init): Declare.
+	* lto.c (lto_read_variable_formal_parameter_constant_DIE): Use new
+	interface for reading variable initializers.
+	* lto-elf.c (lto_elf_read_var_init): Remove.
+	(lto_elf_file_vtable): Update initializer.
+	(lto_elf_read_var_init): Add comment about unused-ness.
+	* lto-read.c (lto_read_var_init): New.
+
 	* lto.c (lto_read_form): Add entry for DW_AT_inline.
 
 2007-08-02  Kenneth Zadeck <zadeck@naturalbridge.com>
