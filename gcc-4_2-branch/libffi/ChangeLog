@@ -1,25 +1,7 @@
-2007-08-06  Andrew Haley  <aph@redhat.com>
-
-	PR testsuite/32843
-	* src/x86/sysv.S (ffi_closure_raw_SYSV): Handle FFI_TYPE_UINT8,
-	FFI_TYPE_SINT8, FFI_TYPE_UINT16, FFI_TYPE_SINT16, FFI_TYPE_UINT32,
-	FFI_TYPE_SINT32.
-
 2007-08-02  David Daney  <ddaney@avtrex.com>
 
 	* testsuite/libffi.call/return_ul.c (main): Define return type as
 	ffi_arg.  Use proper printf conversion specifier.
-	
-2007-07-30  Andrew Haley  <aph@redhat.com>
-
-	PR testsuite/32843
-	* src/x86/ffi.c (ffi_prep_cif_machdep): in x86 case, add code for
-	signed/unsigned int8/16.
-	* src/x86/sysv.S (ffi_call_SYSV): Rewrite to:
-	Use a jump table.
-	Remove code to pop args from the stack after call.
-	Special-case signed/unsigned int8/16.
-	* testsuite/libffi.call/return_sc.c (main): Revert.
 
 2007-07-26  Richard Guenther  <rguenther@suse.de>
 
