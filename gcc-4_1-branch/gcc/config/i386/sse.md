@@ -2723,7 +2723,7 @@
   [(set (match_operand:SSEMODE24 0 "register_operand" "=x")
 	(ashiftrt:SSEMODE24
 	  (match_operand:SSEMODE24 1 "register_operand" "0")
-	  (match_operand:SI 2 "nonmemory_operand" "xi")))]
+	  (match_operand:TI 2 "nonmemory_operand" "xn")))]
   "TARGET_SSE2"
   "psra<ssevecsize>\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseishft")
@@ -2733,7 +2733,7 @@
   [(set (match_operand:SSEMODE248 0 "register_operand" "=x")
 	(lshiftrt:SSEMODE248
 	  (match_operand:SSEMODE248 1 "register_operand" "0")
-	  (match_operand:SI 2 "nonmemory_operand" "xi")))]
+	  (match_operand:TI 2 "nonmemory_operand" "xn")))]
   "TARGET_SSE2"
   "psrl<ssevecsize>\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseishft")
@@ -2743,7 +2743,7 @@
   [(set (match_operand:SSEMODE248 0 "register_operand" "=x")
 	(ashift:SSEMODE248
 	  (match_operand:SSEMODE248 1 "register_operand" "0")
-	  (match_operand:SI 2 "nonmemory_operand" "xi")))]
+	  (match_operand:TI 2 "nonmemory_operand" "xn")))]
   "TARGET_SSE2"
   "psll<ssevecsize>\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseishft")
@@ -2887,7 +2887,7 @@
 	(umin:V16QI (match_operand:V16QI 1 "nonimmediate_operand" "")
 		    (match_operand:V16QI 2 "nonimmediate_operand" "")))]
   "TARGET_SSE2"
-  "ix86_fixup_binary_operands_no_copy (UMAX, V16QImode, operands);")
+  "ix86_fixup_binary_operands_no_copy (UMIN, V16QImode, operands);")
 
 (define_insn "*uminv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "=x")
@@ -3482,6 +3482,35 @@
 {
   operands[1] = gen_rtx_REG (DImode, REGNO (operands[1]));
 })
+
+(define_insn "*vec_extractv2di_1_sse2"
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=m,x,x")
+	(vec_select:DI
+	  (match_operand:V2DI 1 "nonimmediate_operand" "x,0,o")
+	  (parallel [(const_int 1)])))]
+  "TARGET_SSE2 && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   movhps\t{%1, %0|%0, %1}
+   psrldq\t{$8, %0|%0, 8}
+   movq\t{%H1, %0|%0, %H1}"
+  [(set_attr "type" "ssemov,sseishft,ssemov")
+   (set_attr "memory" "*,none,*")
+   (set_attr "mode" "V2SF,TI,TI")])
+
+;; Not sure this is ever used, but it doesn't hurt to have it. -aoliva
+(define_insn "*vec_extractv2di_1_sse"
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=m,x,x")
+	(vec_select:DI
+	  (match_operand:V2DI 1 "nonimmediate_operand" "x,x,o")
+	  (parallel [(const_int 1)])))]
+  "!TARGET_SSE2 && TARGET_SSE
+   && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   movhps\t{%1, %0|%0, %1}
+   movhlps\t{%1, %0|%0, %1}
+   movlps\t{%H1, %0|%0, %H1}"
+  [(set_attr "type" "ssemov")
+   (set_attr "mode" "V2SF,V4SF,V2SF")])
 
 (define_insn "*vec_dupv4si"
   [(set (match_operand:V4SI 0 "register_operand" "=Y,x")

@@ -412,10 +412,12 @@
 	 (eq_attr "type" "jump")
 	 (cond [(eq_attr "med_branch_p" "yes")
 		(const_int 2)
-		(and (eq (symbol_ref "GET_CODE (prev_nonnote_insn (insn))")
-                         (symbol_ref "INSN"))
-                     (eq (symbol_ref "INSN_CODE (prev_nonnote_insn (insn))")
-                         (symbol_ref "code_for_indirect_jump_scratch")))
+		(and (ne (symbol_ref "prev_nonnote_insn (insn)")
+			 (const_int 0))
+		     (and (eq (symbol_ref "GET_CODE (prev_nonnote_insn (insn))")
+			      (symbol_ref "INSN"))
+			  (eq (symbol_ref "INSN_CODE (prev_nonnote_insn (insn))")
+			      (symbol_ref "code_for_indirect_jump_scratch"))))
                 (cond [(eq_attr "braf_branch_p" "yes")
                        (const_int 6)
                        (eq (symbol_ref "flag_pic") (const_int 0))
@@ -1675,7 +1677,7 @@
    (clobber (reg:DI TR0_REG))
    (clobber (reg:DI TR1_REG))
    (clobber (reg:DI TR2_REG))
-   (use (match_operand 1 "target_operand" "b"))]
+   (use (match_operand 1 "target_reg_operand" "b"))]
   "TARGET_SHMEDIA && (! TARGET_SHMEDIA_FPU || ! TARGET_DIVIDE_FP)"
   "blink	%1, r18"
   [(set_attr "type" "sfunc")
@@ -1841,7 +1843,7 @@
    (clobber (reg:SI R20_REG))
    (clobber (reg:SI R21_REG))
    (clobber (reg:SI TR0_REG))
-   (use (match_operand 1 "target_operand" "b"))]
+   (use (match_operand 1 "target_reg_operand" "b"))]
   "TARGET_SHMEDIA && (! TARGET_SHMEDIA_FPU || ! TARGET_DIVIDE_FP)"
   "blink	%1, r18"
   [(set_attr "type" "sfunc")])
@@ -1855,7 +1857,7 @@
    (clobber (reg:SI R21_REG))
    (clobber (reg:SI TR0_REG))
    (use (reg:SI R20_REG))
-   (use (match_operand 1 "target_operand" "b"))]
+   (use (match_operand 1 "target_reg_operand" "b"))]
   "TARGET_SHMEDIA && (! TARGET_SHMEDIA_FPU || ! TARGET_DIVIDE_FP)"
   "blink	%1, r18"
   [(set_attr "type" "sfunc")])
@@ -3018,7 +3020,9 @@ label:
   "
 {
   if (TARGET_SH1
-      && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) == 255)
+      && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) == 255
+      && (GET_CODE (operands[1]) != SUBREG
+	  || SCALAR_INT_MODE_P (GET_MODE (XEXP (operands[1], 0)))))
     {
       emit_insn (gen_zero_extendqisi2 (operands[0],
 				       gen_lowpart (QImode, operands[1])));
@@ -8282,6 +8286,20 @@ label:
   emit_move_insn (operands[3], gen_rtx_PLUS (Pmode,
 					     operands[2],
 					     gen_rtx_REG (Pmode, PIC_REG)));
+
+  /* When stack protector inserts codes after the result is set to
+     R0, @(rX, r12) will cause a spill failure for R0.  Don't schedule
+     insns to avoid combining (set A (plus rX r12)) and (set op0 (mem A))
+     when rX is a GOT address for the guard symbol.  Ugly but doesn't
+     matter because this is a rare situation.  */
+  if (!TARGET_SHMEDIA
+      && flag_stack_protect
+      && GET_CODE (operands[1]) == CONST
+      && GET_CODE (XEXP (operands[1], 0)) == UNSPEC
+      && GET_CODE (XVECEXP (XEXP (operands[1], 0), 0, 0)) == SYMBOL_REF
+      && strcmp (XSTR (XVECEXP (XEXP (operands[1], 0), 0, 0), 0),
+		 \"__stack_chk_guard\") == 0)
+    emit_insn (gen_blockage ());
 
   /* N.B. This is not constant for a GOTPLT relocation.  */
   mem = gen_rtx_MEM (Pmode, operands[3]);

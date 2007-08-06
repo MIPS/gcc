@@ -1,3 +1,78 @@
+2007-03-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/31184
+	* invoke.texi: Fix typo.
+
+2007-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* module.c (mio_typespec): Don't look at ts->cl if not BT_CHARACTER.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR 31050
+	* gfortranspec.c (lang_specific_driver): Update program
+	name and copyright date.
+
+2007-03-01  Tobias Schlueter  <tobi@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/29441
+	* intrinsic.c (gfc_intrinsic_func_interface): Always check if
+	intrinsic is allowed in initialization expression.
+
+2006-02-27  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/25392
+	* trans-stmt.c (gfc_trans_return): Fix comment formatting.
+	* trans-types.c (gfc_sym_type): Don't return early for functions.
+	Remove special handling for -ff2c.
+	(gfc_get_function_type): Add special handling for -ff2c.
+	* trans-decl.c (gfc_create_function_decl): Fix comment formatting.
+	(gfc_get_fake_result_decl): Make sure we get the right type for
+	functions.
+	(gfc_generate_function_code): Convert type of result variable to
+	type of function.
+
+2007-02-25  Roger Sayle  <roger@eyesopen.com>
+	    Paul Thomas <pault@gcc.gnu.org>
+
+        PR fortran/30400
+        * match.c (match_forall_iterator): Use gfc_match_expr instead
+	of gfc_match_variable to match the iterator variable.  Return
+	MATCH_NO if not a variable.  Remove the reset of the symbol's
+	flavor in cleanup.
+
+2007-02-15  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/30799
+	* primary.c (match_logical_constant): Return MATCH_ERROR on invalid
+	kind.
+
+2007-02-15  Tobias Schlueter  <tobi@gcc.gnu.org>
+
+	PR fortran/30478
+	* decl.c (create_enum_history, gfc_free_enum_history): Formatting
+	fixes.
+	(add_init_expr_to_sym): Remove ENUM-specific code-path.
+	(variable_decl): Likewise.  Formatting fix.
+	(match_attr_spec): Remove ENUM-specific codepath.
+	(gfc_match_enum): Fix typo in error message.
+	(enumerator_decl): New.
+	(gfc_match_enumerator_def): Strip down to code necessary for
+	ENUMs, use enumerator_decl.
+
+2007-02-13  Release Manager
+
+	* GCC 4.1.2 released.
+
+2007-02-10  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/24783
+	* resolve.c (resolve_variable): Get the implicit type from the
+	symbols namespace rather than the default namespace. Fix whitespace.
+	(resolve_formal_arglist, resolve_equivalence): Fix typo.
+
 2007-01-27  Steven Bosscher  <stevenb.gcc@gmail.com>
             Steven G. Kargl <kargl@gcc.gnu.org>
 
