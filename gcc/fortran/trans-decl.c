@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* trans-decl.c -- Handling of backend function and variable decls, etc */
 
@@ -126,6 +125,7 @@ tree gfor_fndecl_string_index;
 tree gfor_fndecl_string_scan;
 tree gfor_fndecl_string_verify;
 tree gfor_fndecl_string_trim;
+tree gfor_fndecl_string_minmax;
 tree gfor_fndecl_adjustl;
 tree gfor_fndecl_adjustr;
 
@@ -2048,6 +2048,13 @@ gfc_build_intrinsic_function_decls (void)
                                      gfc_charlen_type_node,
                                      pchar_type_node);
 
+  gfor_fndecl_string_minmax = 
+    gfc_build_library_function_decl (get_identifier (PREFIX("string_minmax")),
+                                     void_type_node, -4,
+                                     build_pointer_type (gfc_charlen_type_node),
+                                     ppvoid_type_node, integer_type_node,
+                                     integer_type_node);
+
   gfor_fndecl_ttynam =
     gfc_build_library_function_decl (get_identifier (PREFIX("ttynam")),
                                      void_type_node,
@@ -2998,17 +3005,17 @@ generate_local_decl (gfc_symbol * sym)
       else if (warn_unused_variable
 	       && sym->attr.dummy
 	       && sym->attr.intent == INTENT_OUT)
-	gfc_warning ("dummy argument '%s' at %L was declared INTENT(OUT) but was not set",
+	gfc_warning ("Dummy argument '%s' at %L was declared INTENT(OUT) but was not set",
 		     sym->name, &sym->declared_at);
       /* Specific warning for unused dummy arguments. */
       else if (warn_unused_variable && sym->attr.dummy)
-	gfc_warning ("unused dummy argument '%s' at %L", sym->name,
+	gfc_warning ("Unused dummy argument '%s' at %L", sym->name,
 		     &sym->declared_at);
       /* Warn for unused variables, but not if they're inside a common
 	 block or are use-associated.  */
       else if (warn_unused_variable
 	       && !(sym->attr.in_common || sym->attr.use_assoc))
-	gfc_warning ("unused variable '%s' declared at %L", sym->name,
+	gfc_warning ("Unused variable '%s' declared at %L", sym->name,
 		     &sym->declared_at);
       /* For variable length CHARACTER parameters, the PARM_DECL already
 	 references the length variable, so force gfc_get_symbol_decl
@@ -3031,10 +3038,10 @@ generate_local_decl (gfc_symbol * sym)
     }
   else if (sym->attr.flavor == FL_PARAMETER)
     {
-      if (warn_unused_variable 
+      if (warn_unused_parameter
            && !sym->attr.referenced
            && !sym->attr.use_assoc)
-	gfc_warning ("unused parameter '%s' declared at %L", sym->name,
+	gfc_warning ("Unused parameter '%s' declared at %L", sym->name,
 		     &sym->declared_at);
     }
 
@@ -3048,7 +3055,7 @@ generate_local_decl (gfc_symbol * sym)
       if (sym->attr.value == 1 && sym->backend_decl != NULL
 	  && sym->ts.type == BT_CHARACTER && sym->ts.is_c_interop
 	  && sym->ns->proc_name != NULL && sym->ns->proc_name->attr.is_bind_c)
-	TREE_TYPE (sym->backend_decl) = unsigned_char_type_node;
+	gfc_conv_scalar_char_value (sym, NULL, NULL);
     }
 
   /* Make sure we convert the types of the derived types from iso_c_binding

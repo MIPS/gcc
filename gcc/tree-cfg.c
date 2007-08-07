@@ -521,6 +521,10 @@ make_edges (void)
 
 	    case OMP_SECTIONS:
 	      cur_region = new_omp_region (bb, code, cur_region);
+	      fallthru = true;
+	      break;
+
+	    case OMP_SECTIONS_SWITCH:
 	      fallthru = false;
 	      break;
 #endif
@@ -538,31 +542,42 @@ make_edges (void)
 	      switch (cur_region->type)
 		{
 		case OMP_FOR:
-		  /* ??? Technically there should be a some sort of loopback
-		     edge here, but it goes to a block that doesn't exist yet,
-		     and without it, updating the ssa form would be a real
-		     bear.  Fortunately, we don't yet do ssa before expanding
-		     these nodes.  */
+		  /* Make the loopback edge.  */
+		  make_edge (bb, single_succ (cur_region->entry), 0);
+	      
+		  /* Create an edge from OMP_FOR to exit, which corresponds to
+		     the case that the body of the loop is not executed at
+		     all.  */
+		  make_edge (cur_region->entry, bb->next_bb, 0);
+		  fallthru = true;
 		  break;
 
 		case OMP_SECTIONS:
 		  /* Wire up the edges into and out of the nested sections.  */
-		  /* ??? Similarly wrt loopback.  */
 		  {
+		    basic_block switch_bb = single_succ (cur_region->entry);
+
 		    struct omp_region *i;
 		    for (i = cur_region->inner; i ; i = i->next)
 		      {
 			gcc_assert (i->type == OMP_SECTION);
-			make_edge (cur_region->entry, i->entry, 0);
+			make_edge (switch_bb, i->entry, 0);
 			make_edge (i->exit, bb, EDGE_FALLTHRU);
 		      }
+
+		    /* Make the loopback edge to the block with
+		       OMP_SECTIONS_SWITCH.  */
+		    make_edge (bb, switch_bb, 0);
+
+		    /* Make the edge from the switch to exit.  */
+		    make_edge (switch_bb, bb->next_bb, 0);
+		    fallthru = false;
 		  }
 		  break;
 
 		default:
 		  gcc_unreachable ();
 		}
-	      fallthru = true;
 	      break;
 
 	    default:
@@ -1282,9 +1297,10 @@ tree_merge_blocks (basic_block a, basic_block b)
       tree copy;
       bool may_replace_uses = may_propagate_copy (def, use);
 
-      /* In case we have loops to care about, do not propagate arguments of
-	 loop closed ssa phi nodes.  */
+      /* In case we maintain loop closed ssa form, do not propagate arguments
+	 of loop exit phi nodes.  */
       if (current_loops
+	  && loops_state_satisfies_p (LOOP_CLOSED_SSA)
 	  && is_gimple_reg (def)
 	  && TREE_CODE (use) == SSA_NAME
 	  && a->loop_father != b->loop_father)
@@ -4813,6 +4829,13 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
     case RETURN_EXPR:
       bsi_remove (&bsi, true);
       e->flags |= EDGE_FALLTHRU;
+      break;
+
+    case OMP_RETURN:
+    case OMP_CONTINUE:
+    case OMP_SECTIONS_SWITCH:
+    case OMP_FOR:
+      /* The edges from OMP constructs can be simply redirected.  */
       break;
 
     default:

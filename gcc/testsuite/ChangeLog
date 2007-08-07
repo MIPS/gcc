@@ -1,3 +1,318 @@
+2007-08-07  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-28.c: Fix test to not expect peeling on 
+	!vector_alignment_reachable targets.
+	* gcc.dg/vect/vect-33.c: Likewise.
+	* gcc.dg/vect/vect-42.c: Likewise.
+	* gcc.dg/vect/vect-44.c: Likewise.
+	* gcc.dg/vect/vect-50.c: Likewise.
+	* gcc.dg/vect/vect-70.c: Likewise.
+	* gcc.dg/vect/vect-71.c: Likewise.
+	* gcc.dg/vect/vect-87.c: Likewise.
+	* gcc.dg/vect/vect-88.c: Likewise.
+	* gcc.dg/vect/vect-91.c: Likewise.
+	* gcc.dg/vect/vect-93.c: Likewise.
+	* gcc.dg/vect/vect-96.c: Likewise.
+	* gcc.dg/vect/no-section-anchors-69.c: Likewise.
+	* gcc.dg/vect/section-anchors-69.c: Likewise.
+	* gcc.dg/vect/pr25413.c: Likewise.
+	* gcc.dg/vect/costmodel/ppc/costmodel-33.c: Likewise.
+	* gcc.dg/vect/costmodel/ppc/costmodel-76b.c: Likewise.
+	* gfortran.dg/vect-2.f90: Likewise.
+	* gfortran.dg/vect-3.f90: Likewise.
+	* gfortran.dg/vect-4.f90: Likewise.
+	* gfortran.dg/vect-5.f90: Likewise.
+	* lib/target-supports.exp (check_effective_target_natural_alignment): 
+	Return false for darwin. 
+	(check_effective_target_vector_alignment_reachable_for_double): New.	
+
+2007-08-07  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/multiword-1.c: New testcase.
+
+2007-08-07  Daniel Franke  <franke.daniel@gmail.com>
+
+	* gfortran.dg/namelist_33.f90: Improved tests, adjusted error
+	messages.
+	* gfortran.dg/namelist_36.f90: New test.
+
+2007-08-07  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	* gcc.c-torture/execute/simd-4.c (__ev_convert_s64)(main): Use
+	  int32_t for 32-bit integer. Use int64_t for 64-bit integer.
+
+2007-08-07  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* g++.dg/torture/type-generic-1.C: Add -mieee for sh.
+	* gcc.dg/torture/type-generic-1.c: Likewise.
+
+2007-08-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* gcc.c-torture/20070522-1.c: Move to ...
+	* gcc.c-torture/compile/20070522-1.c: Here.
+
+2007-08-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/29828
+	* gfortran.dg/minmax_char_1.f90: New test.
+	* gfortran.dg/minmax_char_2.f90: New test.
+	* gfortran.dg/min_max_optional_4.f90: New test.
+
+2007-08-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/nan_1.f90: Rename module into aux2 to avoid cygwin
+	hanging on the testcase.
+
+2007-08-05  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/32988
+	* gcc.c-torture/compile/pr32988.c: New test.
+
+2007-08-05  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* gcc.dg/sms-antideps.c: Add a "return 0" to the end of main.
+
+2007-08-05  Volker Reichelt  <v.reichelt@netcologne.de>
+
+	* g++.dg/warn/pedantic2.C: Fix error marker.  Add more tests.
+
+	Revert:
+	2007-03-22  Dirk Mueller  <dmueller@suse.de>
+
+	* g++.old-deja/g++.brendan/warnings2.C: Don't use -pedantic.
+
+2007-08-05  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32979
+	* gfortran.dg/isnan_1.f90: New test.
+
+2007-08-05  Vladimir Yanovsky  <yanov@il.ibm.com>
+            Revital Eres <eres@il.ibm.com>
+
+	* gcc.dg/sms-antideps.c: New test.
+
+2007-08-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31214
+	* gfortran.dg/entry_13.f90: New test.
+
+	* gfortran.dg/entry_12.f90: Clean up .mod file.
+
+2007-08-04  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/32770
+	* gfortran.dg/direct_io_2.f90:  Implicitly declare integer
+	variables as kind=4 so they don't overflow the record length.
+
+2007-08-04  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/32968
+	* gfortran.dg/selected_kind_1.f90: New test.
+
+2007-08-04  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/32780
+	* gcc.c-torture/compile/pr32780.c: New test.
+
+2007-08-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	RP middle-end/32399
+	* gcc.c-torture/compile/pr32399.c: New testcase.
+
+2007-08-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/32304
+	* g++.dg/torture/pr32304.C: New testcase.
+
+2007-08-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/32935
+	* gfortran.fortran-torture/compile/complex_1.f90: New test.
+
+2007-08-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32955
+	* gfortran.dg/value_4.f90: Make integer constant of kind=4.
+
+2007-08-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31202
+	* gfortran.dg/nint_2.f90: New test.
+
+2007-08-03  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* gcc.dg/tree-ssa/loop-1.c: Skip on powerpc targets if -mlongcall.
+	* gcc.dg/weak/typeof-2.c: Likewise.
+
+2007-08-03  Diego Novillo  <dnovillo@google.com>
+
+	PR 31521
+	* gcc.dg/tree-ssa/pr31521.c: New test.
+
+2007-08-03  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/32770
+	* gfortran.dg/unf_read_corrupted_1.f90:  Integer variable in
+	iostat must be default kind.
+
+2007-08-02  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/opem_errors.f90: Revise test to pass when run under sudo.
+
+2007-08-02  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/32770
+	* gfortran.dg/unf_read_corrupted_1.f90:  Make all kinds
+	explicit so test passes with -fdefault-integer-8.
+	* gfortran.dg/unformatted_recl_1.f90:  Likewise.
+	* gfortran.dg/unformatted_subrecord_1.f90:  Likewise.
+
+2007-08-02  Lee Millward  <lee.millward@gmail.com>
+
+	PR c++/30849
+	* g++.dg/parse/asm1.C: New test.
+
+	PR c++/30850
+	* g++.dg/parse/asm2.C: Likewise.
+
+	PR c++/30851
+	* g++.dg/parse/asm3.C: Likewise.
+	
+2007-08-02  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	* gcc.dg/tree-ssa/gen-vect-2.c: Use "char" for vector elements if
+	  "int" is only 16 bit bits wide.
+	* gcc.dg/tree-ssa/gen-vect-11a.c: Likewise.
+
+2007-08-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/torture/type-generic-1.C: New.
+	* gcc.dg/pr28796-2.c: Move tests ...
+	* gcc.dg/tg-tests.h: ... here.
+	* gcc.dg/torture/type-generic-1.c: New.
+
+2007-08-01  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/32954
+	* minmaxloc_3.f90:  New test case.
+
+2007-08-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32936
+	* gfortran.dg/allocate_stat.f90: New.
+
+2007-08-01  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* gcc.target/i386/pr23098.c: XFAIL on vxworks targets.
+
+2007-08-01  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	PR tree-optimization/32919
+	* gcc.c-torture/compile/pr32919.c: New.
+
+2007-08-01  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.c-torture/execute/execute.exp: Change copyright header to
+	refer to version 3 of the GNU General Public License and to point
+	readers at the COPYING3 file and the FSF's license web page.
+	* gcc.c-torture/execute/ieee/ieee.exp,
+	gcc.c-torture/unsorted/unsorted.exp,
+	gcc.c-torture/compile/compile.exp,
+	gcc.c-torture/compile/structs.c, gcc.target/powerpc/powerpc.exp,
+	gcc.target/arm/neon/neon.exp, gcc.target/arm/arm.exp,
+	gcc.target/cris/torture/cris-torture.exp,
+	gcc.target/cris/cris.exp, gcc.target/ia64/ia64.exp,
+	gcc.target/alpha/alpha.exp, gcc.target/m68k/m68k.exp,
+	gcc.target/spu/spu.exp, gcc.target/mips/mips.exp,
+	gcc.target/sparc/sparc.exp, gcc.target/i386/i386.exp,
+	gcc.target/x86_64/abi/abi-x86_64.exp, gnat.dg/specs/specs.exp,
+	gnat.dg/dg.exp, gnat.dg/style/style.exp,
+	gcc.dg/special/mips-abi.exp, gcc.dg/special/special.exp,
+	gcc.dg/pch/pch.exp, gcc.dg/vxworks/vxworks.exp, gcc.dg/dg.exp,
+	gcc.dg/charset/charset.exp, gcc.dg/weak/weak.exp,
+	gcc.dg/tree-ssa/tree-ssa.exp, gcc.dg/tls/tls.exp,
+	gcc.dg/cpp/cpp.exp, gcc.dg/cpp/trad/trad.exp,
+	gcc.dg/matrix/matrix.exp, gcc.dg/vmx/vmx.exp,
+	gcc.dg/compat/struct-layout-1.exp, gcc.dg/compat/compat.exp,
+	gcc.dg/compat/struct-layout-1_generate.c, gcc.dg/debug/debug.exp,
+	gcc.dg/debug/dwarf2/dwarf2.exp, gcc.dg/tree-prof/tree-prof.exp,
+	gcc.dg/ipa/ipa.exp, gcc.dg/dfp/dfp.exp,
+	gcc.dg/noncompile/noncompile.exp,
+	gcc.dg/vect/costmodel/ppc/ppc-costmodel-vect.exp,
+	gcc.dg/vect/costmodel/spu/spu-costmodel-vect.exp,
+	gcc.dg/vect/costmodel/i386/i386-costmodel-vect.exp,
+	gcc.dg/vect/costmodel/x86_64/x86_64-costmodel-vect.exp,
+	gcc.dg/vect/vect.exp, gcc.dg/format/format.exp,
+	gcc.misc-tests/i386-prefetch.exp, gcc.misc-tests/sort2.exp,
+	gcc.misc-tests/matrix1.exp, gcc.misc-tests/dectest.exp,
+	gcc.misc-tests/options.exp, gcc.misc-tests/gcov.exp,
+	gcc.misc-tests/mg-2.exp, gcc.misc-tests/mg.exp,
+	gcc.misc-tests/bprob.exp, gcc.misc-tests/acker1.exp,
+	gcc.misc-tests/dhry.exp, gcc.misc-tests/linkage.exp,
+	gcc.misc-tests/arm-isr.exp, gcc.misc-tests/sieve.exp,
+	g++.old-deja/g++.niklas/README, g++.old-deja/g++.gb/README,
+	g++.old-deja/old-deja.exp,
+	gfortran.fortran-torture/execute/execute.exp,
+	gfortran.fortran-torture/compile/compile.exp,
+	treelang/output/output-1.c, treelang/output/output-1.tree,
+	treelang/execute/execute.exp, treelang/Makefile.in,
+	treelang/compile/compile.exp, g++.dg/dg.exp,
+	g++.dg/debug/debug.exp, g++.dg/debug/dwarf2/dwarf2.exp,
+	g++.dg/charset/charset.exp, g++.dg/vect/vect.exp,
+	g++.dg/tls/tls.exp, g++.dg/tree-prof/tree-prof.exp,
+	g++.dg/pch/pch.exp, g++.dg/special/ecos.exp,
+	g++.dg/compat/struct-layout-1.exp,
+	g++.dg/compat/struct-layout-1_generate.c,
+	g++.dg/compat/compat.exp, g++.dg/gcov/gcov.exp,
+	g++.dg/bprob/bprob.exp, config/default.exp,
+	gcc.test-framework/test-framework.awk,
+	gcc.test-framework/gen_directive_tests,
+	gcc.test-framework/test-framework.exp,
+	objc.dg/special/special.exp,
+	objc.dg/gnu-encoding/gnu-encoding.exp,
+	objc.dg/gnu-encoding/struct-layout-encoding-1_generate.c,
+	objc.dg/pch/pch.exp, objc.dg/dg.exp, lib/copy-file.exp,
+	lib/profopt.exp, lib/gcc.exp, lib/mike-g++.exp, lib/c-compat.exp,
+	lib/scanrtl.exp, lib/gfortran-dg.exp, lib/g++.exp,
+	lib/obj-c++.exp, lib/wrapper.exp, lib/gnat-dg.exp, lib/compat.exp,
+	lib/c-torture.exp, lib/gcc-dg.exp, lib/scanasm.exp, lib/gnat.exp,
+	lib/treelang-dg.exp, lib/prune.exp, lib/gcov.exp,
+	lib/treelang.exp, lib/dg-pch.exp, lib/scantree.exp,
+	lib/g++-dg.exp, lib/objc-dg.exp, lib/file-format.exp,
+	lib/target-libpath.exp, lib/obj-c++-dg.exp, lib/scandump.exp,
+	lib/target-supports-dg.exp, lib/gcc-defs.exp,
+	lib/fortran-torture.exp, lib/objc.exp, lib/scanipa.exp,
+	lib/mike-gcc.exp, lib/objc-torture.exp, lib/gfortran.exp,
+	lib/target-supports.exp, obj-c++.dg/dg.exp, gfortran.dg/dg.exp,
+	gfortran.dg/vect/vect.exp, objc/execute/execute.exp,
+	objc/execute/exceptions/exceptions.exp, objc/compile/compile.exp:
+	Likewise.
+
+2007-08-01  Daniel Franke  <franke.daniel@gmail.com>
+
+	* gfortran.dg/parameter_unused.f90: Adjusted dg-options and
+	error message text.
+
+2007-08-01  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/32945
+	* gfortran.dg/initialization_12.f90: New test.
+
+2007-08-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31609
+	* gfortran.dg/entry_12.f90: New test.
+
+2007-07-31  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32938
+	* gfortran.dg/altreturn_6.f90: New test.
+
+2007-07-31  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/32942
+	* gfortran.dg/exponent_2.f90: New test.
+
 2007-07-30  Jan Sjodin  <jan.sjodin@amd.com>
 
 	* gcc.dg/vect/vect-117.c: New test.

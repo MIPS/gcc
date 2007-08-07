@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -2362,7 +2361,6 @@ simplify_min_max (gfc_expr *expr, int sign)
 	  if (mpz_cmp (arg->expr->value.integer,
 		       extremum->expr->value.integer) * sign > 0)
 	    mpz_set (extremum->expr->value.integer, arg->expr->value.integer);
-
 	  break;
 
 	case BT_REAL:
@@ -2370,11 +2368,40 @@ simplify_min_max (gfc_expr *expr, int sign)
 	      * sign > 0)
 	    mpfr_set (extremum->expr->value.real, arg->expr->value.real,
 		      GFC_RND_MODE);
-
 	  break;
 
+	case BT_CHARACTER:
+#define LENGTH(x) ((x)->expr->value.character.length)
+#define STRING(x) ((x)->expr->value.character.string)
+	  if (LENGTH(extremum) < LENGTH(arg))
+	    {
+	      char * tmp = STRING(extremum);
+
+	      STRING(extremum) = gfc_getmem (LENGTH(arg) + 1);
+	      memcpy (STRING(extremum), tmp, LENGTH(extremum));
+	      memset (&STRING(extremum)[LENGTH(extremum)], ' ',
+		      LENGTH(arg) - LENGTH(extremum));
+	      STRING(extremum)[LENGTH(arg)] = '\0';  /* For debugger  */
+	      LENGTH(extremum) = LENGTH(arg);
+	      gfc_free (tmp);
+	    }
+
+	  if (gfc_compare_string (arg->expr, extremum->expr) * sign > 0)
+	    {
+	      gfc_free (STRING(extremum));
+	      STRING(extremum) = gfc_getmem (LENGTH(extremum) + 1);
+	      memcpy (STRING(extremum), STRING(arg), LENGTH(arg));
+	      memset (&STRING(extremum)[LENGTH(arg)], ' ',
+		      LENGTH(extremum) - LENGTH(arg));
+	      STRING(extremum)[LENGTH(extremum)] = '\0';  /* For debugger  */
+	    }
+#undef LENGTH
+#undef STRING
+	  break;
+	      
+
 	default:
-	  gfc_internal_error ("gfc_simplify_max(): Bad type in arglist");
+	  gfc_internal_error ("simplify_min_max(): Bad type in arglist");
 	}
 
       /* Delete the extra constant argument.  */

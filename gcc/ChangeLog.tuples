@@ -1,5 +1,11 @@
 2007-08-07  Diego Novillo  <dnovillo@google.com>
 
+	Merge with mainline @127277.
+
+	* version.c (VERSUFFIX): Update.
+
+2007-08-07  Diego Novillo  <dnovillo@google.com>
+
 	* gimple.h (gimple_call_return): New.
 	* gimplify.c (get_tmp_var_for): Call it.
 

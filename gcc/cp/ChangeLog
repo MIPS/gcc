@@ -1,3 +1,57 @@
+2007-08-06  Dan Hipschman  <dsh@google.com>
+
+	* method.c (use_thunk): Use DECL_NAME instead of DECL_RTL to
+	access function name.
+
+2007-08-04  Alfred Minarik  <a.minarik@aon.at>
+
+	PR pch/13676
+	* lang-specs.h: Add .hp, .hxx, .hpp, .h, .HPP, .tcc as c++ header.
+	* g++spec.c (lang_specific_driver): Check them.
+
+2007-08-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/19532
+	* pt.c (template_class_depth): Fix comment; change return type
+	to bool.
+
+2007-08-05  Volker Reichelt  <v.reichelt@netcologne.de>
+
+	Revert:
+	2007-03-26  Dirk Mueller  <dmueller@suse.de>
+
+	* parser.c (cp_parser_member_declaration): Pedwarn
+	about stray semicolons after member declarations.
+
+2007-08-02  Lee Millward  <lee.millward@gmail.com>
+
+	PR c++/30849
+	PR c++/30850
+	PR c++/30851
+	* parser.c (cp_parser_asm_definition): Detect and discard asm
+	statements with invalid inputs or outputs.
+        (cp_parser_asm_operand_list): Return error mark node if any
+        of the operands are invalid. Adjust documentation.
+	
+2007-08-02  Nick Clifton  <nickc@redhat.com>
+
+	* typeck.c: Change copyright header to refer to version 3 of the
+	GNU General Public License and to point readers at the COPYING3
+	file and the FSF's license web page.
+	* optimize.c, lang-specs.h, init.c, class.c, repo.c, decl.c,
+	config-lang.in, cp-tree.def, call.c, decl.h, ptree.c,
+	Make-lang.in, method.c, rtti.c, cp-objcp-common.c, g++spec.c,
+	cp-objcp-common.h, except.c, error.c, operators.def, cvt.c,
+	tree.c, mangle.c, cp-tree.h, dump.c, search.c, friend.c, expr.c,
+	cp-gimplify.c, cxx-pretty-print.c, cp-lang.c, typeck2.c, pt.c,
+	cxx-pretty-print.h, semantics.c, name-lookup.c, lex.c, decl2.c,
+	name-lookup.h, parser.c: Likewise.
+
+2007-08-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR middle-end/32668
+	* call.c (magic_varargs_p): Honor the "type generic" attribute.
+
 2007-07-30  Paolo Carlini  <pcarlini@suse.de>
 
 	PR c++/32108

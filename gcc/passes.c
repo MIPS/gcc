@@ -893,12 +893,7 @@ execute_function_todo (void *data)
   /* Always cleanup the CFG before trying to update SSA.  */
   if (flags & TODO_cleanup_cfg)
     {
-      bool cleanup;
-
-      if (current_loops)
-	cleanup = cleanup_tree_cfg_loop ();
-      else
-	cleanup = cleanup_tree_cfg ();
+      bool cleanup = cleanup_tree_cfg ();
 
       if (cleanup && (cfun->curr_properties & PROP_ssa))
 	flags |= TODO_remove_unused_locals;
@@ -1020,7 +1015,7 @@ execute_todo (unsigned int flags)
   /* Now that the dumping has been done, we can get rid of the optional 
      df problems.  */
   if (flags & TODO_df_finish)
-    df_finish_pass ();
+    df_finish_pass ((flags & TODO_df_verify) != 0);
 }
 
 /* Verify invariants that should hold between passes.  This is a place

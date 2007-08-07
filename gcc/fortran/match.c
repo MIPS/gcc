@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -2001,6 +2000,8 @@ gfc_match_allocate (void)
 
   if (stat != NULL)
     {
+      bool is_variable;
+
       if (stat->symtree->n.sym->attr.intent == INTENT_IN)
 	{
 	  gfc_error ("STAT variable '%s' of ALLOCATE statement at %C cannot "
@@ -2015,7 +2016,38 @@ gfc_match_allocate (void)
 	  goto cleanup;
 	}
 
-      if (stat->symtree->n.sym->attr.flavor != FL_VARIABLE)
+      is_variable = false;
+      if (stat->symtree->n.sym->attr.flavor == FL_VARIABLE)
+	is_variable = true;
+      else if (stat->symtree->n.sym->attr.function
+	  && stat->symtree->n.sym->result == stat->symtree->n.sym
+	  && (gfc_current_ns->proc_name == stat->symtree->n.sym
+	      || (gfc_current_ns->parent
+		  && gfc_current_ns->parent->proc_name
+		     == stat->symtree->n.sym)))
+	is_variable = true;
+      else if (gfc_current_ns->entries
+	       && stat->symtree->n.sym->result == stat->symtree->n.sym)
+	{
+	  gfc_entry_list *el;
+	  for (el = gfc_current_ns->entries; el; el = el->next)
+	    if (el->sym == stat->symtree->n.sym)
+	      {
+		is_variable = true;
+	      }
+	}
+      else if (gfc_current_ns->parent && gfc_current_ns->parent->entries
+	       && stat->symtree->n.sym->result == stat->symtree->n.sym)
+	{
+	  gfc_entry_list *el;
+	  for (el = gfc_current_ns->parent->entries; el; el = el->next)
+	    if (el->sym == stat->symtree->n.sym)
+	      {
+		is_variable = true;
+	      }
+	}
+
+      if (!is_variable)
 	{
 	  gfc_error ("STAT expression at %C must be a variable");
 	  goto cleanup;

@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* The syntax of gfortran modules resembles that of lisp lists, ie a
    sequence of atoms, which can be left or right parenthesis, names,
@@ -1823,20 +1822,6 @@ mio_charlen (gfc_charlen **clp)
 }
 
 
-/* Return a symtree node with a name that is guaranteed to be unique
-   within the namespace and corresponds to an illegal fortran name.  */
-
-static gfc_symtree *
-get_unique_symtree (gfc_namespace *ns)
-{
-  char name[GFC_MAX_SYMBOL_LEN + 1];
-  static int serial = 0;
-
-  sprintf (name, "@%d", serial++);
-  return gfc_new_symtree (&ns->sym_root, name);
-}
-
-
 /* See if a name is a generated name.  */
 
 static int
@@ -2288,7 +2273,7 @@ mio_symtree_ref (gfc_symtree **stp)
       if (in_load_equiv && p->u.rsym.symtree == NULL)
 	{
 	  /* Since this is not used, it must have a unique name.  */
-	  p->u.rsym.symtree = get_unique_symtree (gfc_current_ns);
+	  p->u.rsym.symtree = gfc_get_unique_symtree (gfc_current_ns);
 
 	  /* Make the symbol.  */
 	  if (p->u.rsym.sym == NULL)
@@ -3419,7 +3404,7 @@ read_cleanup (pointer_info *p)
     {
       /* Add hidden symbols to the symtree.  */
       q = get_integer (p->u.rsym.ns);
-      st = get_unique_symtree ((gfc_namespace *) q->u.pointer);
+      st = gfc_get_unique_symtree ((gfc_namespace *) q->u.pointer);
 
       st->n.sym = p->u.rsym.sym;
       st->n.sym->refs++;
@@ -3599,7 +3584,7 @@ read_module (void)
 	      /* Create a symtree node in the current namespace for this
 		 symbol.  */
 	      st = check_unique_name (p)
-		   ? get_unique_symtree (gfc_current_ns)
+		   ? gfc_get_unique_symtree (gfc_current_ns)
 		   : gfc_new_symtree (&gfc_current_ns->sym_root, p);
 
 	      st->ambiguous = ambiguous;

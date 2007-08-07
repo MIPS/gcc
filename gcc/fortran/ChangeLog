@@ -1,3 +1,175 @@
+2007-08-06  Christopher D. Rickett  <crickett@lanl.gov>
+
+	PR fortran/32732
+	* trans-expr.c (gfc_conv_scalar_char_value): Convert the tree and
+	actual arg expressions for scalar characters passed by-value to
+	bind(c) routines.
+	(gfc_conv_function_call): Call gfc_conv_scalar_char_value.
+	* trans.h: Add prototype for gfc_conv_scalar_char_value.
+	* trans-decl.c (generate_local_decl): Convert by-value character
+	dummy args of bind(c) procedures using
+	gfc_conv_scalar_char_value.
+
+2007-08-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30947
+	* iresolve.c (gfc_resolve_alarm_sub): Suffix the subroutine name
+	with the kind of the STATUS argument.
+
+2007-08-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30948
+	* intrinsic.c (add_functions): Fix name of argument to CHDIR.
+
+2007-08-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30933
+	* iresolve.c (gfc_resolve_exit): Convert argument to default
+	integer kind.
+
+2007-08-06  Daniel Franke  <franke.daniel@gmail.com>
+
+	* resolve.c (derived_pointer): Removed, replaced callers by access 
+	to appropiate attribute bit.
+	(derived_inaccessable): Shortcut recursion depth.
+	(resolve_fl_namelist): Fixed checks for private components in namelists.
+
+2007-08-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/29828
+	* trans.h (gfor_fndecl_string_minmax): New prototype.
+	* trans-decl.c (gfor_fndecl_string_minmax): New variable.
+	(gfc_build_intrinsic_function_decls): Create gfor_fndecl_string_minmax.
+	* check.c (gfc_check_min_max): Allow for character arguments.
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmax_char): New function.
+	(gfc_conv_intrinsic_function): Add special case for MIN and MAX
+	intrinsics with character arguments.
+	* simplify.c (simplify_min_max): Add simplification for character
+	arguments.
+
+2007-08-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31612
+	* invoke.texi: Adjust documentation for option -fsyntax-only.
+
+2007-08-05  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+	    Tobias Burnus  <burnus@gcc.gnu.org>
+
+	PR fortran/32979
+	* intrinsic.h (gfc_check_isnan): Add prototype.
+	* gfortran.h (gfc_isym_id): Add GFC_ISYM_ISNAN.
+	* intrinsic.c (add_functions): Add ISNAN intrinsic.
+	* check.c (gfc_check_isnan): New function.
+	* trans-intrinsic.c (gfc_conv_intrinsic_isnan): New function.
+	(gfc_conv_intrinsic_function): Call gfc_conv_intrinsic_isnan
+	to translate ISNAN.
+	* intrinsic.texi: Document ISNAN.
+
+2007-08-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31214
+	* symbol.c (get_unique_symtree): Moved from module.c.
+	* module.c (get_unique_symtree): Moved to symbol.c.
+	* decl.c (get_proc_name): Transfer the typespec from the local
+	symbol to the module symbol, in the case that an entry is also
+	a module procedure.  Ensure the local symbol is cleaned up by
+	pointing to it with a unique symtree.
+
+	* dump_parse_tree (gfc_show_code_node): Add EXEC_ASSIGN_CALL.
+
+2008-08-04  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/32969
+	* iresolve.c (gfc_resolve_rrspacing): Convert argument(s) to
+	expected KIND.
+	(gfc_resolve_scale): Ditto.
+	(gfc_resolve_set_exponent): Ditto.
+	(gfc_resolve_spacing): Ditto.
+ 
+	PR fortran/32968
+	* trans-intrinsic.c (gfc_conv_intrinsic_si_kind,
+	gfc_conv_intrinsic_sr_kind): Convert the argument(s) to the
+	expected KIND, and fold the result to the expected KIND.
+
+2007-08-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31202
+	* f95-lang.c (gfc_init_builtin_functions): Defin builtins for 
+	lround{f,,l} and llround{f,,l}.
+	* trans-intrinsic.c (build_fix_expr): Generate calls to the
+	{l,}round{f,,l} functions.
+
+2007-08-01  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/32954
+	* intrinsic.c (resolve_mask_arg):  New function.
+	(gfc_resolve_maxloc):  Use resolve_mask_arg for mask resolution.
+	(gfc_resolve_maxval):  Likewise.
+	(gfc_resolve_minloc):  Likewise.
+	(gfc_resolve_minval):  Likewise.
+	(gfc_resolve_pack):  Likewise.
+	(gfc_resolve_product):  Likewise.
+	(gfc_resolve_sum):  Likewise.
+	(gfc_resolve_unpack):  Likewise.
+
+2007-08-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32936
+	* match.c (gfc_match_allocate): Better check that STAT is
+	a variable.
+
+	* check.c (gfc_check_allocated): Reorder checks to improve
+	error message.
+
+2007-08-01  Nick Clifton  <nickc@redhat.com>
+
+	* arith.c: Change copyright header to refer to version 3 of the
+	GNU General Public License and to point readers at the COPYING3
+	file and the FSF's license web page.
+	* openmp.c, interface.c, intrinsic.c, trans-array.c, trans-expr.c,
+	symbol.c, iso-fortran-env.def, intrinsic.h, decl.c, trans-array.h,
+	matchexp.c, dump-parse-tree.c, trans-common.c, array.c,
+	Make-lang.in, trans-openmp.c, gfortran.h, error.c,
+	iso-c-binding.def, lang.opt, data.c, trans-const.c, trans-stmt.c,
+	expr.c, trans-const.h, trans-stmt.h, module.c, trans.c, scanner.c,
+	trans-types.c, trans.h, gfortranspec.c, trans-types.h,
+	lang-specs.h, io.c, bbt.c, resolve.c, f95-lang.c, st.c,
+	iresolve.c, match.c, trans-decl.c, trans-io.c, target-memory.c,
+	match.h, target-memory.h, parse.c, arith.h, check.c, dependency.c,
+	parse.h, types.def, convert.c, dependency.h, primary.c,
+	trans-intrinsic.c, options.c, misc.c, simplify.c: Likewise.
+
+2007-08-01  Daniel Franke  <franke.daniel@gmail.com>
+
+	* trans-decl.c (generate_local_decl): Emit warning on unused parameter
+	on "-Wall -Wextra" or "-Wunused-parameter" but not on "-Wall", changed
+	messages that start with lower case to upper case.
+	* invoke.texi (-Wparameter-unused): Document differences between gcc
+	and gfortran regarding this option.
+
+2007-08-01  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/32945
+	* expr.c (check_specification_function): Skip check if no symtree 
+	is available.
+
+2007-08-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31609
+	* resolve.c (resolve_entries): Entries declared to be module
+	procedures must point to the function namespace.
+
+2007-07-31  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32938
+	* trans-stmt.c (gfc_trans_return): Convert to correct type.
+
+2007-07-31  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/32942
+	* trans-intrinsic.c (gfc_conv_intrinsic_exponent): Convert to correct
+	type.
+
 2007-07-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	* invoke.texi: Document -fsign-zero flag.
@@ -10,7 +182,7 @@
 	handled.
 
 	PR fortran/32682
-	*trans-array.c (gfc_trans_array_constructor): On detecting a
+	* trans-array.c (gfc_trans_array_constructor): On detecting a
 	multi-dimensional parameter array, set the loop limits.
 
 2007-07-29  Daniel Franke  <franke.daniel@gmail.com>
@@ -845,14 +1017,14 @@
 
 2007-07-01  Janne Blomqvist  <jb@gcc.gnu.org>
 
-        * trans.h: Remove decls for 64-bit allocation functions.
-        * trans-array.c (gfc_grow_array): Always pick the standard realloc
-        function decl.
-        (gfc_array_allocate): Likewise.
-        * trans-decl.c: Remove trees for 64-bit allocation functions.
-        (gfc_build_builtin_function_decls): Don't build fndecls for 64-bit
-        allocations functions, use index_int_type for normal allocation
-        functions.
+	* trans.h: Remove decls for 64-bit allocation functions.
+	* trans-array.c (gfc_grow_array): Always pick the standard realloc
+	function decl.
+	(gfc_array_allocate): Likewise.
+	* trans-decl.c: Remove trees for 64-bit allocation functions.
+	(gfc_build_builtin_function_decls): Don't build fndecls for 64-bit
+	allocations functions, use index_int_type for normal allocation
+	functions.
 
 2007-06-30  Daniel Franke  <franke.daniel@gmail.com>
 

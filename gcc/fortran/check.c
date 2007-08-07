@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* These functions check to see if an argument list is compatible with
@@ -489,9 +488,6 @@ gfc_check_allocated (gfc_expr *array)
   if (variable_check (array, 0) == FAILURE)
     return FAILURE;
 
-  if (array_check (array, 0) == FAILURE)
-    return FAILURE;
-
   attr = gfc_variable_attr (array, NULL);
   if (!attr.allocatable)
     {
@@ -500,6 +496,9 @@ gfc_check_allocated (gfc_expr *array)
 		 &array->where);
       return FAILURE;
     }
+
+  if (array_check (array, 0) == FAILURE)
+    return FAILURE;
 
   return SUCCESS;
 }
@@ -1513,10 +1512,17 @@ gfc_check_min_max (gfc_actual_arglist *arg)
 
   x = arg->expr;
 
-  if (x->ts.type != BT_INTEGER && x->ts.type != BT_REAL)
+  if (x->ts.type == BT_CHARACTER)
     {
-      gfc_error ("'a1' argument of '%s' intrinsic at %L must be INTEGER "
-		 "or REAL", gfc_current_intrinsic, &x->where);
+      if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: '%s' intrinsic "
+			  "with CHARACTER argument at %L",
+			  gfc_current_intrinsic, &x->where) == FAILURE)
+	return FAILURE;
+    }
+  else if (x->ts.type != BT_INTEGER && x->ts.type != BT_REAL)
+    {
+      gfc_error ("'a1' argument of '%s' intrinsic at %L must be INTEGER, "
+		 "REAL or CHARACTER", gfc_current_intrinsic, &x->where);
       return FAILURE;
     }
 
@@ -3298,6 +3304,16 @@ gfc_check_isatty (gfc_expr *unit)
     return FAILURE;
 
   if (scalar_check (unit, 0) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_isnan (gfc_expr *x)
+{
+  if (type_check (x, 0, BT_REAL) == FAILURE)
     return FAILURE;
 
   return SUCCESS;

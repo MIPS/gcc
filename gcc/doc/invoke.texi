@@ -328,7 +328,7 @@ Objective-C and Objective-C++ Dialects}.
 -finline-functions  -finline-functions-called-once @gol
 -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
--fmodulo-sched -fno-branch-count-reg @gol
+-fmodulo-sched -fmodulo-sched-allow-regmoves -fno-branch-count-reg @gol
 -fno-default-inline  -fno-defer-pop -fmove-loop-invariants @gol
 -fno-function-cse  -fno-guess-branch-probability @gol
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
@@ -913,6 +913,12 @@ Objective-C++ source code which should not be preprocessed.
 
 @item @var{file}.hh
 @itemx @var{file}.H
+@itemx @var{file}.hp
+@itemx @var{file}.hxx
+@itemx @var{file}.hpp
+@itemx @var{file}.HPP
+@itemx @var{file}.h++
+@itemx @var{file}.tcc
 C++ header file to be turned into a precompiled header.
 
 @item @var{file}.f
@@ -1240,7 +1246,8 @@ Display the version number and copyrights of the invoked GCC@.
 @cindex C++ source file suffixes
 C++ source files conventionally use one of the suffixes @samp{.C},
 @samp{.cc}, @samp{.cpp}, @samp{.CPP}, @samp{.c++}, @samp{.cp}, or
-@samp{.cxx}; C++ header files often use @samp{.hh} or @samp{.H}; and
+@samp{.cxx}; C++ header files often use @samp{.hh}, @samp{.hpp},
+@samp{.H}, or (for shared template code) @samp{.tcc}; and
 preprocessed C++ files use the suffix @samp{.ii}.  GCC recognizes
 files with these names and compiles them as C++ programs even if you
 call the compiler the same way as for compiling C programs (usually
@@ -5265,6 +5272,13 @@ Perform swing modulo scheduling immediately before the first scheduling
 pass.  This pass looks at innermost loops and reorders their
 instructions by overlapping different iterations.
 
+@item -fmodulo-sched-allow-regmoves
+@opindex fmodulo-sched-allow-regmoves
+Perform more aggressive SMS based modulo scheduling with register moves
+allowed.  By setting this flag certain anti-dependences edges will be
+deleted which will trigger the generation of reg-moves based on the
+life-range analysis.
+
 @item -fno-branch-count-reg
 @opindex fno-branch-count-reg
 Do not use ``decrement and branch'' instructions on a count register,
@@ -6958,7 +6972,10 @@ Maximum number of prefetches that can run at the same time.
 The size of cache line in L1 cache, in bytes.
 
 @item l1-cache-size
-The number of cache lines in L1 cache.
+The size of L1 cache, in kilobytes.
+
+@item l2-cache-size
+The size of L2 cache, in kilobytes.
 
 @item use-canonical-types
 Whether the compiler should use the ``canonical'' type system.  By

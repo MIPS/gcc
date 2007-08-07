@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -1177,9 +1176,9 @@ add_functions (void)
 
   make_generic ("char", GFC_ISYM_CHAR, GFC_STD_F77);
 
-  add_sym_1 ("chdir", GFC_ISYM_CHDIR, NO_CLASS, ACTUAL_NO, BT_INTEGER, di, GFC_STD_GNU,
-	     gfc_check_chdir, NULL, gfc_resolve_chdir,
-	     a, BT_CHARACTER, dc, REQUIRED);
+  add_sym_1 ("chdir", GFC_ISYM_CHDIR, NO_CLASS, ACTUAL_NO, BT_INTEGER, di,
+	     GFC_STD_GNU, gfc_check_chdir, NULL, gfc_resolve_chdir,
+	     nm, BT_CHARACTER, dc, REQUIRED);
 
   make_generic ("chdir", GFC_ISYM_CHDIR, GFC_STD_GNU);
 
@@ -1617,6 +1616,12 @@ add_functions (void)
 	     ut, BT_INTEGER, di, REQUIRED);
 
   make_generic ("isatty", GFC_ISYM_ISATTY, GFC_STD_GNU);
+
+  add_sym_1 ("isnan", GFC_ISYM_ISNAN, CLASS_ELEMENTAL, ACTUAL_NO, BT_LOGICAL,
+	     dl, GFC_STD_GNU, gfc_check_isnan, NULL, NULL,
+	     x, BT_REAL, 0, REQUIRED);
+
+  make_generic ("isnan", GFC_ISYM_ISNAN, GFC_STD_GNU);
 
   add_sym_2 ("rshift", GFC_ISYM_RSHIFT, CLASS_ELEMENTAL, ACTUAL_NO, BT_INTEGER, di, GFC_STD_GNU,
 	     gfc_check_ishft, NULL, gfc_resolve_rshift,

@@ -1,3 +1,46 @@
+2007-08-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30947
+	* intrinsics/signal.c: Create specific versions of alarm_sub and
+	alarm_sub_int according to the integer kind of the last argument.
+	* gfortran.map (GFORTRAN_1.0): Remove _gfortran_alarm_sub and
+	_gfortran_alarm_sub_int, add _gfortran_alarm_sub_i4,
+	_gfortran_alarm_sub_i8, _gfortran_alarm_sub_int_i4 and
+	_gfortran_alarm_sub_int_i8.
+
+2007-08-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/29828
+	* intrinsics/string_intrinsics.c (string_minmax): New function
+	and prototype.
+	* gfortran.map (GFORTRAN_1.0): Add _gfortran_string_minmax
+
+2007-08-05  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31202
+	* intrinsics/c99_functions.c (roundl): Provide fallback
+	implementation for systems without ceill.
+	* c99_protos.h (roundl): Define prototype in all cases.
+
+2007-08-03  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/32977
+	* io/unix.c:  If there is no vsnprintf, use vsprintf and issue
+	a fatal error when a buffer overrun occurs.
+
+2007-08-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31202
+	* intrinsics/c99_functions.c (roundl,lroundf,lround,lroundl,
+	llroundf,llround,llroundl): New functions.
+	* c99_protos.h (roundl,lroundf,lround,lroundl,llroundf,llround,
+	llroundl): New prototypes.
+	* configure.ac: Check for lroundf, lround, lroundl, llroundf,
+	llround and llroundl.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* config.h.in: Regenerate.
+
 2007-07-30  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	* libgfortran.h: Include <stdarg.h>.
