@@ -1,3 +1,8 @@
+2007-08-07  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.h (gimple_call_return): New.
+	* gimplify.c (get_tmp_var_for): Call it.
+
 2007-08-02  Chris Matthews  <chrismatthews@google.com>
 
 	* gimplify.c (gimplify_asm_expr): Created new gimple tuple.
@@ -6,8 +11,8 @@
 	(dump_gimple_stmt): Updated to use the dump_gimple_asm function.
 	* gimple.c (gss_for_code): Made asm statements return as with_mem_ops.
 	(build_gimple_with_ops): Asm statements are added as a specal case for
-	allocation because they have extra fields that are not allocated correctly
-	in the current generic op allocator.
+	allocation because they have extra fields that are not
+	allocated correctly in the current generic op allocator.
 	(build_gimple_asm_1): Added a helper function to setup the basics of a
 	GIMPLE_ASM tuple.
 	(build_gimple_asm_vec): Create a GIMPLE_ASM tuple from vector arguments.

@@ -574,6 +574,23 @@ gimple_call_fn (gimple gs)
 }
 
 static inline tree
+gimple_call_return_type (gimple gs)
+{
+  tree fn = gimple_call_fn (gs);
+  tree type = TREE_TYPE (fn);
+
+  /* See through pointer to functions.  */
+  if (TREE_CODE (type) == POINTER_TYPE)
+    type = TREE_TYPE (type);
+
+  gcc_assert (TREE_CODE (type) == FUNCTION_TYPE);
+
+  /* The type returned by a FUNCTION_DECL is the type of its
+     function type.  */
+  return TREE_TYPE (type);
+}
+
+static inline tree
 gimple_call_chain (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_CALL);

@@ -634,9 +634,9 @@ get_tmp_var_for (gimple stmt)
 
   /* FIXME tuples, add support for formal temporaries (worth it?)  */
   if (code == GIMPLE_ASSIGN)
-    return create_tmp_from_val (gimple_assign_operand (stmt, 1));
+    lhs = create_tmp_from_val (gimple_assign_operand (stmt, 1));
   else if (code == GIMPLE_CALL)
-    return create_tmp_var (TREE_TYPE (TREE_TYPE (gimple_call_fn (stmt))),
+    lhs = create_tmp_var (gimple_call_return_type (stmt),
 			   get_name (gimple_call_fn (stmt)));
   else
     gcc_unreachable ();
