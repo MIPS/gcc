@@ -776,12 +776,12 @@ annotate_one_with_locus (gimple gs, location_t locus)
 void
 annotate_all_with_locus (gimple_seq stmt_p, location_t locus)
 {
-  gimple_stmt_iterator i;
+  gimple_stmt_iterator *i;
 
   if (gimple_seq_empty_p (stmt_p))
     return;
 
-  for (i = gsi_start (stmt_p); !gsi_end_p (i); gsi_next (&i))
+  for (i = gsi_start (stmt_p); !gsi_end_p (i); gsi_next (i))
     {
       gimple gs = gsi_stmt (i);
       annotate_one_with_locus (gs, locus);

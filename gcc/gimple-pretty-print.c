@@ -107,9 +107,9 @@ print_gimple_stmt (FILE *file, gimple g, int spc, int flags)
 static void
 dump_gimple_seq (pretty_printer *buffer, gimple_seq seq, int spc, int flags)
 {
-  gimple_stmt_iterator i;
+  gimple_stmt_iterator *i;
 
-  for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
+  for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (i))
     {
       gimple gs = gsi_stmt (i);
       if (flags & TDF_DETAILS)

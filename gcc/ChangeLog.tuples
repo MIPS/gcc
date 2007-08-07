@@ -1,3 +1,15 @@
+2007-08-07  Chris Matthews  <chrismatthews@google.com>
+
+	* gimple_iterator.h (gsi_start): Changed to produce a pointer instead of
+	struct.  Updated clients.
+	(gsi_last): Same.
+	(gsi_end_p): Changed to operate on a pointer instead of struct.  Updated
+	clients.
+	(gsi_one_before_end_p): Same.
+	(gsi_next): Same.
+	(gsi_prev): Same.
+	(gsi_stmt): Same.
+	
 2007-08-07  Diego Novillo  <dnovillo@google.com>
 
 	Merge with mainline @127277.

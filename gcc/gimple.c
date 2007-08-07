@@ -909,9 +909,9 @@ void
 walk_seq_ops (gimple_seq seq, walk_tree_fn func, void *data,
 	      struct pointer_set_t *pset)
 {
-  gimple_stmt_iterator gsi;
+  gimple_stmt_iterator *gsi;
 
-  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (gsi))
     walk_tuple_ops (gsi_stmt (gsi), func, data, pset);
 }
 

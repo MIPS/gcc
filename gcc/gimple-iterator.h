@@ -21,7 +21,7 @@ Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_SEQ_ITERATOR_H
 #define GCC_SEQ_ITERATOR_H
-
+#include "ggc.h"
 /* Iterator object for GIMPLE statement sequences.  */
 
 typedef struct {
@@ -31,26 +31,26 @@ typedef struct {
 
 /* Return a new iterator initially pointing to GIMPLE_SEQ's first statement.  */
 
-static inline gimple_stmt_iterator
+static inline gimple_stmt_iterator *
 gsi_start (gimple_seq seq)
 {
-  gimple_stmt_iterator i;
+  gimple_stmt_iterator *i = ggc_alloc_cleared (sizeof (gimple_stmt_iterator));
 
-  i.stmt = gimple_seq_first (seq);
-  i.seq = seq;
+  i->stmt = gimple_seq_first (seq);
+  i->seq = seq;
 
   return i;
 }
 
 /* Return a new iterator initially pointing to GIMPLE_SEQ's last statement.  */
 
-static inline gimple_stmt_iterator
+static inline gimple_stmt_iterator *
 gsi_last (gimple_seq seq)
 {
-  gimple_stmt_iterator i;
+  gimple_stmt_iterator *i = ggc_alloc_cleared (sizeof (gimple_stmt_iterator));
 
-  i.stmt = gimple_seq_last (seq);
-  i.seq = seq;
+  i->stmt = gimple_seq_last (seq);
+  i->seq = seq;
 
   return i;
 }
@@ -58,17 +58,17 @@ gsi_last (gimple_seq seq)
 /* Return TRUE if at the end of I.  */
 
 static inline bool
-gsi_end_p (gimple_stmt_iterator i)
+gsi_end_p (gimple_stmt_iterator *i)
 {
-  return i.stmt == NULL;
+  return i->stmt == NULL;
 }
 
 /* Return TRUE if we're one statement before the end of I.  */
 
 static inline bool
-gsi_one_before_end_p (gimple_stmt_iterator i)
+gsi_one_before_end_p (gimple_stmt_iterator *i)
 {
-  return i.stmt == gimple_seq_last (i.seq);
+  return i->stmt == gimple_seq_last (i->seq);
 }
 
 /* Return the next gimple statement in I.  */
@@ -104,9 +104,9 @@ gsi_prev (gimple_stmt_iterator *i)
 /* Return the current stmt.  */
 
 static inline gimple
-gsi_stmt (gimple_stmt_iterator i)
+gsi_stmt (gimple_stmt_iterator *i)
 {
-  return i.stmt;
+  return i->stmt;
 }
 
 #endif /* GCC_SEQ_ITERATOR_H */
