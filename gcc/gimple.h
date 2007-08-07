@@ -396,6 +396,8 @@ extern gimple build_gimple_nop (void);
 extern gimple build_gimple_bind (tree, gimple_seq);
 extern gimple build_gimple_asm (const char *, unsigned, unsigned, unsigned,
                                 ...);
+extern gimple build_gimple_asm_vec (const char *, VEC(tree,gc) * , 
+                                    VEC(tree,gc) *, VEC(tree,gc) *);
 extern gimple build_gimple_catch (tree, gimple_seq);
 extern gimple build_gimple_eh_filter (tree, gimple_seq);
 extern gimple build_gimple_try (gimple_seq, gimple_seq, unsigned int);

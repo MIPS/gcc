@@ -82,12 +82,12 @@ gss_for_code (enum gimple_code code)
     {
     case GIMPLE_ASSIGN:
     case GIMPLE_CALL:
+    case GIMPLE_ASM:
     case GIMPLE_RETURN:		return GSS_WITH_MEM_OPS;
     case GIMPLE_COND:
     case GIMPLE_GOTO:
     case GIMPLE_LABEL:
     case GIMPLE_SWITCH:		return GSS_WITH_OPS;
-    case GIMPLE_ASM:		return GSS_ASM;
     case GIMPLE_BIND:		return GSS_BIND;
     case GIMPLE_CATCH:		return GSS_CATCH;
     case GIMPLE_EH_FILTER:	return GSS_EH_FILTER;
@@ -120,7 +120,9 @@ build_gimple_with_ops (enum gimple_code code, unsigned subcode, size_t num_ops)
   gimple s;
   enum gimple_statement_structure_enum gss = gss_for_code (code);
   
-  if (gss == GSS_WITH_OPS)
+  if (code == GIMPLE_ASM)
+    s = ggc_alloc_cleared (sizeof (struct gimple_statement_asm));
+    else if (gss == GSS_WITH_OPS)
     s = ggc_alloc_cleared (sizeof (struct gimple_statement_with_ops));
   else if (gss == GSS_WITH_MEM_OPS)
     s = ggc_alloc_cleared (sizeof (struct gimple_statement_with_memory_ops));
@@ -322,6 +324,59 @@ build_gimple_bind (tree vars, gimple_seq body)
   return p;
 }
 
+/* Helper function to set the simple fields of a asm stmt.
+
+   STRING is a pointer to a string that is the asm blocks assembly code.
+   NINPUT is the number of register inputs.
+   NOUTPUT is the number of register outputs.
+   NCLOBBERS is the number of clobbered registers.
+   */
+
+static inline gimple
+build_gimple_asm_1 (const char *string, unsigned ninputs, unsigned noutputs, 
+                    unsigned nclobbers)
+{
+  gimple p;
+  p = build_gimple_with_ops (GIMPLE_ASM, 0, ninputs + noutputs + nclobbers);
+
+  p->gimple_asm.ni = ninputs;
+  p->gimple_asm.no = noutputs;
+  p->gimple_asm.nc = nclobbers;
+  p->gimple_asm.string = string;
+  
+  return p;
+}
+
+/* Construct a GIMPLE_ASM statement.
+
+   STRING is the assembly code.
+   NINPUT is the number of register inputs.
+   NOUTPUT is the number of register outputs.
+   NCLOBBERS is the number of clobbered registers.
+   INPUTS is a vector of the input register parameters.
+   OUTPUTS is a vector of the output register parameters.
+   CLOBBERS is a vector of the clobbered register parameters.  */
+
+gimple
+build_gimple_asm_vec (const char *string, VEC(tree,gc)* inputs, 
+                      VEC(tree,gc)* outputs, VEC(tree,gc)* clobbers)
+{
+  gimple p;
+  unsigned int i;
+  p = build_gimple_asm_1 (string, VEC_length (tree, inputs),
+                         VEC_length (tree, outputs), 
+                         VEC_length (tree, clobbers));
+  
+  for (i = 0; i < VEC_length (tree, inputs); i++)
+    gimple_asm_set_input_op (p, i, VEC_index (tree, inputs, i));
+  for (i = 0; i < VEC_length (tree, outputs); i++)
+    gimple_asm_set_output_op (p, i, VEC_index (tree, outputs, i));
+  for (i = 0; i < VEC_length (tree, clobbers); i++)
+    gimple_asm_set_clobber_op (p, i, VEC_index (tree, clobbers, i));
+  
+  return p;
+}
+
 /* Construct a GIMPLE_ASM statement.
 
    STRING is the assembly code.
@@ -337,14 +392,8 @@ build_gimple_asm (const char *string, unsigned ninputs, unsigned noutputs,
   gimple p;
   unsigned i;
   va_list ap;
-
-  p = ggc_alloc_cleared (sizeof (struct gimple_statement_asm)
-                         + sizeof (tree) * (ninputs + noutputs + nclobbers - 1));
-  set_gimple_code (p, GIMPLE_ASM);
-  p->gimple_asm.ni = ninputs;
-  p->gimple_asm.no = noutputs;
-  p->gimple_asm.nc = nclobbers;
-  p->gimple_asm.string = string;
+  
+  p = build_gimple_asm_1(string, ninputs, noutputs, nclobbers);
   
   va_start (ap, nclobbers);
 

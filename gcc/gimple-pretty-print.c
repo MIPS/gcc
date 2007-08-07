@@ -250,7 +250,8 @@ dump_gimple_switch (pretty_printer *buffer, gimple gs, int spc, int flags)
   pp_string (buffer, ") <");
   for (i = 0; i < gimple_switch_num_labels (gs); i++)
     {
-      dump_generic_node (buffer, gimple_switch_label (gs, i), spc, flags, false);
+      dump_generic_node (buffer, gimple_switch_label (gs, i), spc, flags,
+                         false);
       if (i < gimple_switch_num_labels (gs) - 1)
         pp_string (buffer, ", ");
     }
@@ -380,6 +381,52 @@ dump_gimple_try (pretty_printer *buffer, gimple gs, int spc, int flags)
   pp_character (buffer, '}');
 }
 
+/* Dump a GIMPLE_ASM tuple on the pretty_printer BUFFER, SPC spaces of
+   indent.  FLAGS specifies details to show in the dump (see TDF_* in
+   tree.h).  */
+
+static void
+dump_gimple_asm (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  unsigned int i;
+  newline_and_indent (buffer, spc);
+  pp_string (buffer, "__asm__ (");
+
+  pp_string (buffer, gimple_asm_string (gs));
+
+  if (gimple_asm_ninputs (gs)
+     || gimple_asm_noutputs (gs) 
+     || gimple_asm_nclobbered (gs))
+    {
+      pp_character (buffer, ' ');
+      for (i = 0; i < gimple_asm_ninputs (gs); i++)
+        {
+          dump_generic_node (buffer, gimple_asm_input_op (gs,i),spc, flags,
+                             false);
+          if (i < gimple_asm_ninputs (gs) -1)
+            pp_string (buffer, ": ");
+        }
+      pp_string (buffer, ": ");
+      for (i = 0; i < gimple_asm_noutputs (gs); i++)
+        {
+          dump_generic_node (buffer, gimple_asm_output_op (gs,i),spc, flags,
+                             false);
+          if ( i < gimple_asm_noutputs (gs) -1)
+            pp_string (buffer, ", ");
+        }
+      pp_string (buffer, ": ");
+      
+      for (i = 0; i < gimple_asm_nclobbered (gs); i++)
+        {
+          dump_generic_node (buffer, gimple_asm_clobber_op (gs,i),spc, flags,
+                             false);
+          if ( i < gimple_asm_nclobbered (gs) -1)
+            pp_string (buffer, ", ");
+        }
+    }
+  pp_character (buffer, ')');
+}
+
 
 /* Dump the gimple statement GS on the pretty_printer BUFFER, SPC
    spaces of indent.  FLAGS specifies details to show in the dump (see
@@ -393,6 +440,11 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 
   switch (gimple_code (gs))
     {
+      
+    case GIMPLE_ASM:
+      dump_gimple_asm (buffer, gs, spc, flags);
+      break;
+
     case GIMPLE_ASSIGN:
       dump_gimple_assign (buffer, gs, spc, flags);
       break;

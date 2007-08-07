@@ -4112,7 +4112,17 @@ gimplify_asm_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
   const char *constraint;
   bool allows_mem, allows_reg, is_inout;
   enum gimplify_status ret, tret;
-
+  
+  gimple stmt;
+  
+  VEC(tree, gc) *inputs;
+  VEC(tree, gc) *outputs;
+  VEC(tree, gc) *clobbers;
+  
+  inputs = VEC_alloc (tree, gc, 5);
+  outputs = VEC_alloc (tree, gc, 5);
+  clobbers = VEC_alloc (tree, gc, 5);
+  
   ret = GS_ALL_DONE;
   for (i = 0, link = ASM_OUTPUTS (expr); link; ++i, link = TREE_CHAIN (link))
     {
@@ -4137,6 +4147,8 @@ gimplify_asm_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 	  error ("invalid lvalue in asm output %d", i);
 	  ret = tret;
 	}
+
+      VEC_safe_push (tree, gc, outputs, TREE_VALUE (link));
 
       if (is_inout)
 	{
@@ -4270,8 +4282,15 @@ gimplify_asm_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 	  if (tret == GS_ERROR)
 	    ret = tret;
 	}
+      VEC_safe_push (tree, gc, inputs, TREE_VALUE (link));
     }
-
+  
+  for (link = ASM_CLOBBERS (expr); link; ++i, link = TREE_CHAIN (link))
+      VEC_safe_push (tree, gc, clobbers, TREE_VALUE (link));
+    
+    stmt = build_gimple_asm_vec (TREE_STRING_POINTER (ASM_STRING(expr)),
+                           inputs, outputs, clobbers);
+  gimple_add (pre_p, stmt);
   return ret;
 }
 
