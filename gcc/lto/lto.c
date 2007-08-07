@@ -97,9 +97,10 @@ typedef struct DWARF2_form_data
   /* The class of data.  */
   DWARF2_class cl;
   union {
-    /* If CL is DW_address, DW_lineptr, DW_loclistptr, DW_macptr, 
-       or DW_rangelistptr, there is no additional data.  These forms
-       are not of interest to us for link-time optimization.  */
+    /* If CL is DW_cl_address, DW_cl_lineptr, DW_cl_loclistptr,
+       DW_cl_macptr, or DW_cl_rangelistptr, there is no additional
+       data.  These forms are not of interest to us for link-time
+       optimization.  */
     /* Used when CL is DW_cl_uconstant.  */
     uint64_t uconstant;
     /* Used when CL is DW_cl_sconstant.  */
@@ -713,8 +714,8 @@ lto_read_form (lto_info_fd *info_fd,
      Figure 20 in DWARF 3 \S 7.5.4.  */
   static const DWARF2_class attr_classes[DW_AT_recursive + 1] = {
     DW_cl_error,
-    DW_cl_reference, /* sibling */
-    DW_cl_block | DW_cl_loclistptr, /* location */
+    DW_cl_reference,                /* sibling */
+    DW_cl_block | DW_cl_loclistptr, /* location */                         
     DW_cl_string, /* name */
     DW_cl_error, /* padding */
     DW_cl_error, /* padding */
@@ -724,8 +725,8 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_constant, /* ordering */
     DW_cl_error, /* subscr_data */
     DW_cl_block | DW_cl_constant | DW_cl_reference, /* byte_size */
-    DW_cl_constant, /* bit_offset */
-    DW_cl_constant, /* bit_size */
+    DW_cl_block | DW_cl_constant | DW_cl_reference, /* bit_offset */
+    DW_cl_block | DW_cl_constant | DW_cl_reference, /* bit_size */
     DW_cl_error, /* padding */
     DW_cl_error, /* element_list */
     DW_cl_lineptr, /* stmt_list */
@@ -733,19 +734,19 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_address, /* high_pc */
     DW_cl_constant, /* language */
     DW_cl_error, /* member */
-    DW_cl_error, /* discr */
-    DW_cl_error, /* discr_value */
-    DW_cl_error, /* visibility */
-    DW_cl_error, /* import */
-    DW_cl_error, /* string_length */
-    DW_cl_error, /* common_reference */
+    DW_cl_reference, /* discr */
+    DW_cl_constant, /* discr_value */
+    DW_cl_constant, /* visibility */
+    DW_cl_reference, /* import */
+    DW_cl_block | DW_cl_loclistptr, /* string_length */
+    DW_cl_reference, /* common_reference */
     DW_cl_string, /* comp_dir */
     DW_cl_block | DW_cl_constant | DW_cl_string, /* const_value */
-    DW_cl_error, /* containing_type */
-    DW_cl_error, /* default_value */
+    DW_cl_reference, /* containing_type */
+    DW_cl_reference, /* default_value */
     DW_cl_error, /* padding */
     DW_cl_constant, /* inline */
-    DW_cl_error, /* is_optional */
+    DW_cl_flag, /* is_optional */
     DW_cl_block | DW_cl_constant | DW_cl_reference, /* lower_bound */
     DW_cl_error, /* padding */
     DW_cl_error, /* padding */
@@ -754,69 +755,69 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_flag, /* prototyped */
     DW_cl_error, /* padding */
     DW_cl_error, /* padding */
-    DW_cl_error, /* return_addr */
+    DW_cl_block | DW_cl_loclistptr, /* return_addr */
     DW_cl_error, /* padding */
-    DW_cl_error, /* start_scope */
+    DW_cl_constant | DW_cl_rangelistptr, /* start_scope */
     DW_cl_error, /* padding */
-    DW_cl_error, /* stride_size */
+    DW_cl_constant, /* stride_size */
     DW_cl_block | DW_cl_constant | DW_cl_reference, /* upper_bound */
     DW_cl_error, /* padding */
-    DW_cl_error, /* abstract_origin */
-    DW_cl_error, /* accessibility */
-    DW_cl_error, /* address_class */
-    DW_cl_error, /* artificial */
-    DW_cl_error, /* base_types */
-    DW_cl_error, /* calling_convention */
+    DW_cl_reference, /* abstract_origin */
+    DW_cl_constant, /* accessibility */
+    DW_cl_constant, /* address_class */
+    DW_cl_flag, /* artificial */
+    DW_cl_reference, /* base_types */
+    DW_cl_constant, /* calling_convention */
     DW_cl_block | DW_cl_constant | DW_cl_reference, /* count */
-    DW_cl_block | DW_cl_constant, /* data_member_location */
-    DW_cl_error, /* decl_column */
+    DW_cl_block | DW_cl_constant | DW_cl_loclistptr, /* data_member_location */
+    DW_cl_constant, /* decl_column */
     DW_cl_constant, /* decl_file */
     DW_cl_constant, /* decl_line */
     DW_cl_flag, /* declaration */
-    DW_cl_error, /* discr_list */
+    DW_cl_block, /* discr_list */
     DW_cl_constant, /* encoding */
     DW_cl_flag, /* external */
     DW_cl_block | DW_cl_loclistptr, /* frame_base */
-    DW_cl_error, /* friend */
-    DW_cl_error, /* identifier_case */
-    DW_cl_error, /* macro_info */
-    DW_cl_error, /* namelist_items */
-    DW_cl_error, /* priority */
-    DW_cl_error, /* segment */
+    DW_cl_reference, /* friend */
+    DW_cl_constant, /* identifier_case */
+    DW_cl_macptr, /* macro_info */
+    DW_cl_block, /* namelist_items */
+    DW_cl_reference, /* priority */
+    DW_cl_block | DW_cl_loclistptr, /* segment */
     DW_cl_reference, /* specification */
-    DW_cl_error, /* static_link */
+    DW_cl_block | DW_cl_loclistptr, /* static_link */
     DW_cl_reference, /* type */
-    DW_cl_error, /* use_location */
-    DW_cl_error, /* variable_parameter */
-    DW_cl_error, /* virtuality */
-    DW_cl_error, /* vtable_elem_location */
-    DW_cl_error, /* allocated */
-    DW_cl_error, /* associated */
-    DW_cl_error, /* data_location */
-    DW_cl_error, /* stride */
-    DW_cl_error, /* entry_pc */
-    DW_cl_error, /* use_UTF8 */
-    DW_cl_error, /* extension */
-    DW_cl_error, /* ranges */
-    DW_cl_error, /* trampoline */
-    DW_cl_error, /* call_column */
-    DW_cl_error, /* call_file */
-    DW_cl_error, /* call_line */
-    DW_cl_error, /* description */
-    DW_cl_error, /* binary_scale */
-    DW_cl_error, /* decimal_scale */
-    DW_cl_error, /* small */
-    DW_cl_error, /* decimal_sign */
-    DW_cl_error, /* digit_count */
-    DW_cl_error, /* picture_string */
-    DW_cl_error, /* mutable */
-    DW_cl_error, /* threads_scaled */
-    DW_cl_error, /* explicit */
-    DW_cl_error, /* object_pointer */
-    DW_cl_error, /* endianity */
-    DW_cl_error, /* elemental */
-    DW_cl_error, /* pure */
-    DW_cl_error /* recursive */
+    DW_cl_block | DW_cl_loclistptr, /* use_location */
+    DW_cl_flag, /* variable_parameter */
+    DW_cl_constant, /* virtuality */
+    DW_cl_block | DW_cl_loclistptr, /* vtable_elem_location */
+    DW_cl_block | DW_cl_constant | DW_cl_reference, /* allocated */
+    DW_cl_block | DW_cl_constant | DW_cl_reference, /* associated */
+    DW_cl_block, /* data_location */
+    DW_cl_block | DW_cl_constant | DW_cl_reference, /* stride */
+    DW_cl_address, /* entry_pc */
+    DW_cl_flag, /* use_UTF8 */
+    DW_cl_reference, /* extension */
+    DW_cl_rangelistptr, /* ranges */
+    DW_cl_address | DW_cl_flag | DW_cl_reference | DW_cl_string,/* trampoline */
+    DW_cl_constant, /* call_column */
+    DW_cl_constant, /* call_file */
+    DW_cl_constant, /* call_line */
+    DW_cl_string, /* description */
+    DW_cl_constant, /* binary_scale */
+    DW_cl_constant, /* decimal_scale */
+    DW_cl_reference, /* small */
+    DW_cl_constant, /* decimal_sign */
+    DW_cl_constant, /* digit_count */
+    DW_cl_string, /* picture_string */
+    DW_cl_flag, /* mutable */
+    DW_cl_flag, /* threads_scaled */
+    DW_cl_flag, /* explicit */
+    DW_cl_reference, /* object_pointer */
+    DW_cl_constant, /* endianity */
+    DW_cl_flag, /* elemental */
+    DW_cl_flag, /* pure */
+    DW_cl_flag /* recursive */
   };
 
   /* The name (DW_AT_...) of this attribute.  */
