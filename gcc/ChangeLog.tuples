@@ -1,3 +1,9 @@
+2007-08-08  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.h (GIMPLE_CHECK, GIMPLE_CHECK2, GIMPLE_RANGE_CHECK):
+	Do not return the checked statement.  Update all users.
+	Enable on compilers other than GCC.
+
 2007-08-07  Chris Matthews  <chrismatthews@google.com>
 
 	* gimple_iterator.h (gsi_start): Changed to produce a pointer instead of

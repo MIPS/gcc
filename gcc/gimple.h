@@ -432,7 +432,7 @@ extern const char *const gimple_code_name[];
 
 
 /* Error out if a gimple tuple is addressed incorrectly.  */
-#if defined ENABLE_GIMPLE_CHECKING && (GCC_VERSION >= 2007)
+#if defined ENABLE_GIMPLE_CHECKING
 extern void gimple_check_failed (const gimple, const char *, int,          \
                                  const char *, unsigned int, unsigned int) \
                                  ATTRIBUTE_NORETURN;                       \
@@ -440,30 +440,34 @@ extern void gimple_range_check_failed (const gimple, const char *, int,    \
                                        const char *, unsigned int,         \
 				       unsigned int) ATTRIBUTE_NORETURN;
 
-#define GIMPLE_CHECK(GS, CODE) __extension__				\
-  ({  const gimple __gs = (GS);						\
-      if (gimple_code (__gs) != (CODE))					\
-        gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
-	  		 (CODE), 0);					\
-      __gs; })
+#define GIMPLE_CHECK(GS, CODE)						\
+  do {									\
+    const gimple __gs = (GS);						\
+    if (gimple_code (__gs) != (CODE))					\
+      gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
+	  		   (CODE), 0);					\
+  } while (0)
 
-#define GIMPLE_CHECK2(GS, CODE1, CODE2) __extension__			\
-  ({  const gimple __gs = (GS);						\
-      if (gimple_code (__gs) != (CODE1)					\
-	  || gimple_flags (__gs) != (CODE2))				\
-        gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
-	  		 (CODE1), (CODE2));				\
-      __gs; })
-#define GIMPLE_RANGE_CHECK(GS, CODE1, CODE2) __extension__		\
-  ({ const gimple __gs = (GS);						\
-     if (gimple_code (__gs) < (CODE1) || gimple_code (__gs) > (CODE2))	\
-       gimple_range_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
-		        (CODE1), (CODE2));				\
-     __gs; })
-#else  /* not ENABLE_GIMPLE_CHECKING, or not gcc */
-#define GIMPLE_CHECK(GS, CODE)			(GS)
-#define GIMPLE_CHECK2(GS, C1, C2)		(GS)
-#define GIMPLE_RANGE_CHECK(GS, CODE1, CODE2)	(GS)
+#define GIMPLE_CHECK2(GS, CODE1, CODE2)					\
+  do {									\
+    const gimple __gs = (GS);						\
+    if (gimple_code (__gs) != (CODE1)					\
+	|| gimple_flags (__gs) != (CODE2))				\
+      gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
+	  		   (CODE1), (CODE2));				\
+  } while (0)
+
+#define GIMPLE_RANGE_CHECK(GS, CODE1, CODE2)				\
+  do {									\
+    const gimple __gs = (GS);						\
+    if (gimple_code (__gs) < (CODE1) || gimple_code (__gs) > (CODE2))	\
+      gimple_range_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,\
+		                 (CODE1), (CODE2));			\
+  } while (0)
+#else  /* not ENABLE_GIMPLE_CHECKING  */
+#define GIMPLE_CHECK(GS, CODE)			(void)0
+#define GIMPLE_CHECK2(GS, C1, C2)		(void)0
+#define GIMPLE_RANGE_CHECK(GS, CODE1, CODE2)	(void)0
 #endif
 
 
@@ -474,24 +478,24 @@ extern void gimple_range_check_failed (const gimple, const char *, int,    \
 static inline size_t
 gimple_num_ops (gimple gs)
 {
-  gimple g = GIMPLE_RANGE_CHECK (gs, GIMPLE_ASSIGN, GIMPLE_RETURN);
-  return g->with_ops.num_ops;
+  GIMPLE_RANGE_CHECK (gs, GIMPLE_ASSIGN, GIMPLE_RETURN);
+  return gs->with_ops.num_ops;
 }
 
 static inline tree
 gimple_op (gimple gs, size_t i)
 {
-  gimple g = GIMPLE_RANGE_CHECK (gs, GIMPLE_ASSIGN, GIMPLE_RETURN);
-  gcc_assert (i < g->with_ops.num_ops);
-  return g->with_ops.op[i];
+  GIMPLE_RANGE_CHECK (gs, GIMPLE_ASSIGN, GIMPLE_RETURN);
+  gcc_assert (i < gs->with_ops.num_ops);
+  return gs->with_ops.op[i];
 }
 
 static inline void
 gimple_set_op (gimple gs, size_t i, tree op)
 {
-  gimple g = GIMPLE_RANGE_CHECK (gs, GIMPLE_ASSIGN, GIMPLE_RETURN);
-  gcc_assert (i < g->with_ops.num_ops);
-  g->with_ops.op[i] = op;
+  GIMPLE_RANGE_CHECK (gs, GIMPLE_ASSIGN, GIMPLE_RETURN);
+  gcc_assert (i < gs->with_ops.num_ops);
+  gs->with_ops.op[i] = op;
 }
 
 
@@ -851,8 +855,8 @@ gimple_asm_string (gimple gs)
 static inline tree
 gimple_catch_types (gimple gs)
 {
- GIMPLE_CHECK (gs, GIMPLE_CATCH);
- return gs->gimple_catch.types;
+  GIMPLE_CHECK (gs, GIMPLE_CATCH);
+  return gs->gimple_catch.types;
 }
 
 static inline gimple_seq
@@ -944,8 +948,8 @@ gimple_try_set_cleanup (gimple gs, gimple_seq cleanup)
 static inline unsigned int
 gimple_phi_capacity (gimple gs)
 {
-    GIMPLE_CHECK (gs, GIMPLE_PHI);
-    return gs->gimple_phi.capacity;
+  GIMPLE_CHECK (gs, GIMPLE_PHI);
+  return gs->gimple_phi.capacity;
 }
 
 static inline void

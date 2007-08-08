@@ -244,6 +244,7 @@ static void
 dump_gimple_switch (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
   unsigned int i;
+
   GIMPLE_CHECK (gs, GIMPLE_SWITCH);
   pp_string (buffer, "switch (");
   dump_generic_node (buffer, gimple_switch_index (gs), spc, flags, true);

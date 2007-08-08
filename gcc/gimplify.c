@@ -4514,9 +4514,7 @@ gimplify_target_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 bool
 gimplify_stmt (tree *stmt_p, gimple_seq seq_p)
 {
-  gimple last;
-
-  last = gimple_seq_last (seq_p);
+  gimple last = gimple_seq_last (seq_p);
   gimplify_expr (stmt_p, seq_p, NULL, is_gimple_stmt, fb_none);
   return last != gimple_seq_last (seq_p);
 }
