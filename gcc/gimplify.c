@@ -6659,9 +6659,12 @@ gimplify_body (tree *body_p, gimple_seq seq_p, tree fndecl, bool do_parms)
   pop_gimplify_context (outer_bind);
   gcc_assert (gimplify_ctxp == NULL);
 
+  /* FIXME tuples: We need a version of this for tuples.  */
+#if 0
 #ifdef ENABLE_TYPES_CHECKING
   if (!errorcount && !sorrycount)
     verify_gimple_1 (BIND_EXPR_BODY (*body_p));
+#endif
 #endif
 
   timevar_pop (TV_TREE_GIMPLIFY);

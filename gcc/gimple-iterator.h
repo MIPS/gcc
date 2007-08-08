@@ -22,6 +22,8 @@ Boston, MA 02110-1301, USA.  */
 #ifndef GCC_SEQ_ITERATOR_H
 #define GCC_SEQ_ITERATOR_H
 #include "ggc.h"
+#include "gimple.h"
+
 /* Iterator object for GIMPLE statement sequences.  */
 
 typedef struct {
@@ -108,5 +110,25 @@ gsi_stmt (gimple_stmt_iterator *i)
 {
   return i->stmt;
 }
+
+
+enum gsi_iterator_update
+{
+  GSI_NEW_STMT,		/* Only valid when single statement is added, move
+			   iterator to it.  */
+  GSI_SAME_STMT,	/* Leave the iterator at the same statement.  */
+  GSI_CONTINUE_LINKING	/* Move iterator to whatever position is suitable
+			   for linking other statements in the same
+			   direction.  */
+};
+
+void gsi_link_seq_before (gimple_stmt_iterator *, gimple_seq,
+			  enum gsi_iterator_update);
+void gsi_link_before (gimple_stmt_iterator *, gimple,
+    		      enum gsi_iterator_update);
+void gsi_link_seq_after (gimple_stmt_iterator *, gimple_seq,
+			 enum gsi_iterator_update);
+void gsi_link_after (gimple_stmt_iterator *, gimple, enum gsi_iterator_update);
+void gsi_delink (gimple_stmt_iterator *);
 
 #endif /* GCC_SEQ_ITERATOR_H */

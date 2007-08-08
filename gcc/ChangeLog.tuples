@@ -1,3 +1,46 @@
+2007-08-08  Aldy Hernandez  <aldy@quesejoda.com>
+
+	* gimple-low.c (struct return_statements_t): Declare.
+	(struct lower_data): Make return_statements a vector.
+	(lower_function_body): Adjust for tuples.
+	(pass_lower_cf): Add PROP_gimple_any to properties_required.
+	(lower_sequence): Rename from lower_stmt_body.
+	Adjust for tuples.
+	(lower_omp_directive): Adjust for tuples.
+	(lower_stmt): Same.
+	(lower_gimple_bind): Rename from lower_bind_expr.
+	Adjust for tuples.
+	(gimple_try_catch_may_fallthru): New.
+	(gimple_seq_may_fallthru): New.
+	(lower_gimple_return): Rename from lower_return_expr and adjust
+	for tuples.
+	(lower_builtin_setjmp): Adjust for tuples.
+	* gimple-iterator.c: New.
+	* gimple-iterator.h: Include gimple.h.
+	(enum gsi_iterator_update): Declare.
+	(gsi_link_seq_before): New prototype.
+	(gsi_link_before): Same.
+	(gsi_link_seq_after): Same.
+	(gsi_link_after): Same.
+	(gsi_delink): Same.
+	* gimplify.c (gimplify_body): Comment out verify_gimple_1 call.
+	* tree-flow.h (gimple_seq_may_fallthru): New prototype.
+	* Makefile.in (OBJS-common): Add gimple-iterator.o.
+	(gimple-iterator.o): New.
+	(gimple-pretty-print.o): Do not depend on gimple-iterator.h.
+	* gimple.c (set_gimple_prev): Move to gimple.h.
+	(set_gimple_next): Same.
+	(gimple_call_flags): New.
+	* gimple.h (struct gimple_sequence): Add GTY marker.
+	(struct gimple_statement_bind): Add block field.
+	(set_gimple_prev): New.
+	(set_gimple_next): New.
+	(gimple_call_flags): Protoize.
+	(gimple_call_fndecl): New.
+	(gimple_bind_block): New.
+	(gimple_bind_set_block): New.
+
+
 2007-08-08  Diego Novillo  <dnovillo@google.com>
 
 	* gimple.h (GIMPLE_CHECK, GIMPLE_CHECK2, GIMPLE_RANGE_CHECK):

@@ -55,24 +55,6 @@ set_gimple_code (gimple g, enum gimple_code code)
 }
 
 
-/* Set PREV to be the previous statement to G.  */
-
-static inline void
-set_gimple_prev (gimple g, gimple prev)
-{
-  g->base.prev = prev;
-}
-
-
-/* Set NEXT to be the next statement to G.  */
-
-static inline void
-set_gimple_next (gimple g, gimple next)
-{
-  g->base.next = next;
-}
-
-
 /* Return the GSS_* identifier for the given GIMPLE statement CODE.  */
 
 static enum gimple_statement_structure_enum
@@ -289,7 +271,7 @@ build_gimple_label (tree label)
   return p;
 }
 
-/* Construct a GIMPLE_GOTO statement to DEST.  */
+/* Construct a GIMPLE_GOTO statement to label DEST.  */
 
 gimple
 build_gimple_goto (tree dest)
@@ -1039,4 +1021,30 @@ gimple_body (tree fn)
     return (gimple_seq) *slot;
   
   return NULL;
+}
+
+
+/* Detect flags from a GIMPLE_CALL.  This is just like
+   call_expr_flags, but for gimple tuples.  How sad that we have to
+   duplicate code.  */
+
+int
+gimple_call_flags (gimple stmt)
+{
+  int flags;
+  tree decl = gimple_call_fndecl (stmt);
+  tree t;
+
+  if (decl)
+    flags = flags_from_decl_or_type (decl);
+  else
+    {
+      t = TREE_TYPE (gimple_call_fn (stmt));
+      if (t && TREE_CODE (t) == POINTER_TYPE)
+	flags = flags_from_decl_or_type (TREE_TYPE (t));
+      else
+	flags = 0;
+    }
+
+  return flags;
 }

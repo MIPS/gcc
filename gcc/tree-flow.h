@@ -823,6 +823,7 @@ extern tree phi_reverse (tree);
 extern void record_vars_into (tree, tree);
 extern void record_vars (tree);
 extern bool block_may_fallthru (tree);
+extern bool gimple_seq_may_fallthru (gimple_seq);
 
 /* In tree-ssa-alias.c  */
 extern void dump_may_aliases_for (FILE *, tree);

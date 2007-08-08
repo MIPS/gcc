@@ -36,8 +36,9 @@ enum gimple_code {
     LAST_AND_UNUSED_GIMPLE_CODE
 };
 
+
 /* A sequence of gimple statements.  */
-struct gimple_sequence
+struct gimple_sequence GTY(())
 {
   gimple first;
   gimple last;
@@ -139,6 +140,12 @@ struct gimple_statement_bind GTY(())
 {
   struct gimple_statement_base base;
   tree vars;
+
+  /* This is different than the ``block'' in gimple_statement_base, which
+     is analogous to TREE_BLOCK.  This block is the equivalent of
+     BIND_EXPR_BLOCK in tree land.  See gimple-low.c.  */
+  tree block;
+
   struct gimple_sequence body;
 };
 
@@ -303,6 +310,24 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
 };
 
 
+/* Set PREV to be the previous statement to G.  */
+
+static inline void
+set_gimple_prev (gimple g, gimple prev)
+{
+  g->base.prev = prev;
+}
+
+
+/* Set NEXT to be the next statement to G.  */
+
+static inline void
+set_gimple_next (gimple g, gimple next)
+{
+  g->base.next = next;
+}
+
+
 /* Common accessors for all GIMPLE statements.  */
 
 static inline enum gimple_code
@@ -383,7 +408,7 @@ gimple_locus_empty_p (gimple g)
   return gimple_locus (g).file == NULL && gimple_locus (g).line == 0;
 }
 
-/* In gimple.c.  */
+/* Prototypes in gimple.c.  */
 extern gimple build_gimple_return (bool, tree);
 extern gimple build_gimple_assign (tree, tree);
 extern gimple build_gimple_call_vec (tree, VEC(tree, gc) *);
@@ -427,6 +452,7 @@ extern void walk_seq_ops (gimple_seq, walk_tree_fn, void *,
 extern void set_gimple_body (tree, gimple_seq);
 extern gimple_seq gimple_body (tree);
 extern void gimple_seq_append (gimple_seq, gimple_seq);
+extern int gimple_call_flags (gimple);
 
 extern const char *const gimple_code_name[];
 
@@ -575,6 +601,24 @@ gimple_call_fn (gimple gs)
   GIMPLE_CHECK (gs, GIMPLE_CALL);
   gcc_assert (gs->with_ops.num_ops > 1);
   return gs->with_ops.op[1];
+}
+
+/* If a given GIMPLE_CALL's callee is a FUNCTION_DECL, return it.
+   Otherwise return NULL.  This function is analogous to
+   get_callee_fndecl in tree land.  */
+
+static inline tree
+gimple_call_fndecl (gimple gs)
+{
+  tree decl;
+
+  GIMPLE_CHECK (gs, GIMPLE_CALL);
+  gcc_assert (gs->with_ops.num_ops > 1);
+  decl = gs->with_ops.op[1];
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    return decl;
+  else
+    return NULL;
 }
 
 static inline tree
@@ -768,6 +812,20 @@ gimple_bind_set_body (gimple gs, gimple_seq seq)
 {
   GIMPLE_CHECK (gs, GIMPLE_BIND);
   gimple_seq_copy (&(gs->gimple_bind.body), seq);
+}
+
+static inline tree
+gimple_bind_block (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_BIND);
+  return gs->gimple_bind.block;
+}
+
+static inline void
+gimple_bind_set_block (gimple gs, tree block)
+{
+  GIMPLE_CHECK (gs, GIMPLE_BIND);
+  gs->gimple_bind.block = block;
 }
 
 
