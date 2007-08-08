@@ -950,6 +950,50 @@ _Unwind_DeleteException (_Unwind_Exception * exc)
 }
 
 
+/* Perform stack backtrace through unwind data.  */
+_Unwind_Reason_Code
+__gnu_Unwind_Backtrace(_Unwind_Trace_Fn trace, void * trace_argument,
+		       phase2_vrs * entry_vrs);
+_Unwind_Reason_Code
+__gnu_Unwind_Backtrace(_Unwind_Trace_Fn trace, void * trace_argument,
+		       phase2_vrs * entry_vrs)
+{
+  phase1_vrs saved_vrs;
+  _Unwind_Reason_Code code;
+
+  _Unwind_Control_Block ucb;
+  _Unwind_Control_Block *ucbp = &ucb;
+
+  /* Set the pc to the call site.  */
+  entry_vrs->core.r[R_PC] = entry_vrs->core.r[R_LR];
+
+  /* Save the core registers.  */
+  saved_vrs.core = entry_vrs->core;
+  /* Set demand-save flags.  */
+  saved_vrs.demand_save_flags = ~(_uw) 0;
+  
+  do
+    {
+      /* Find the entry for this routine.  */
+      if (get_eit_entry (ucbp, saved_vrs.core.r[R_PC]) != _URC_OK)
+	return _URC_FAILURE;
+
+      /* Call trace function.  */
+      if ((*trace) ((_Unwind_Context *) &saved_vrs, trace_argument) 
+	  != _URC_NO_REASON)
+	return _URC_FAILURE;
+
+      /* Call the pr to decide what to do.  */
+      code = ((personality_routine) UCB_PR_ADDR (ucbp))
+	(_US_VIRTUAL_UNWIND_FRAME | _US_FORCE_UNWIND, 
+	 ucbp, (void *) &saved_vrs);
+    }
+  while (code != _URC_END_OF_STACK);
+
+  return code;
+}
+
+
 /* Common implementation for ARM ABI defined personality routines.
    ID is the index of the personality routine, other arguments are as defined
    by __aeabi_unwind_cpp_pr{0,1,2}.  */
