@@ -1,3 +1,8 @@
+2007-08-05  Steven Newbury  <s_j_newbury@yahoo.co.uk>
+
+	* src/arm/ffi.c (FFI_INIT_TRAMPOLINE): Use __clear_cache instead of 
+	directly using the sys_cacheflush syscall.
+
 2007-07-27  Andrew Haley  <aph@redhat.com>
 
 	* src/arm/sysv.S (ffi_closure_SYSV): Add soft-float.
