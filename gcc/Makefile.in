@@ -2263,7 +2263,7 @@ tree-gimple.o : tree-gimple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
    $(RTL_H) $(TREE_GIMPLE_H) $(TM_H) coretypes.h bitmap.h $(GGC_H) \
    output.h $(TREE_FLOW_H)
 gimple.o : gimple.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
-   $(GGC_H) $(TREE_GIMPLE_H) $(GIMPLE_H) $(DIAGNOSTIC_H)
+   $(GGC_H) $(TREE_GIMPLE_H) $(GIMPLE_H) $(DIAGNOSTIC_H) gt-gimple.h
 gimple-pretty-print.o : gimple-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(DIAGNOSTIC_H) $(REAL_H) $(HASHTAB_H) $(TREE_FLOW_H) \
    $(TM_H) coretypes.h tree-pass.h $(GIMPLE_H)
@@ -3080,7 +3080,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-ssa-structalias.c \
   $(srcdir)/omp-low.c $(srcdir)/varpool.c \
   $(srcdir)/targhooks.c $(out_file) $(srcdir)/passes.c $(srcdir)/cgraphunit.c \
-  $(srcdir)/gimple.h \
+  $(srcdir)/gimple.h $(srcdir)/gimple.c \
   @all_gtfiles@
 
 GTFILES_H = $(subst /,-, $(subst $(srcdir)/,gt-, $(subst .c,.h, \

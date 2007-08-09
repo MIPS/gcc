@@ -1,4 +1,4 @@
-/* Tree lowering pass.  Lowers GIMPLE into unstructured form.
+/* GIMPLE lowering pass.  Converts High GIMPLE into Low GIMPLE.
 
    Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
@@ -40,16 +40,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "tree-pass.h"
 
-/* FIXME tuples: vec.h says:
+/* The differences between High GIMPLE and Low GIMPLE are the
+   following:
 
-   Due to the way GTY works, you must annotate
-   any structures you wish to insert or reference from a vector with a
-   GTY(()) tag.  You need to do this even if you never declare the GC
-   allocated variants.
+   1- Lexical scopes are removed (i.e., GIMPLE_BIND disappears).
 
-   Does this mean we need to GTY mark both struct return_statements_t
-   and struct lower_data.
-   ?? */
+   2- GIMPLE_TRY and GIMPLE_CATCH are converted to abnormal control
+      flow and exception regions are built as an on-the-side region
+      hierarchy (See tree-eh.c:lower_eh_constructs).
+
+   3- Multiple identical return statements are grouped into a single
+      return and gotos to the unique return site.  */
+
+/* Match a return statement with a label.  During lowering, we identify
+   identical return statements and replace duplicates with a jump to
+   the corresponding label.  */
 struct return_statements_t
 {
   tree label;
@@ -78,7 +83,9 @@ static void lower_gimple_bind (gimple_stmt_iterator *, struct lower_data *);
 static void lower_gimple_return (gimple_stmt_iterator *, struct lower_data *);
 static void lower_builtin_setjmp (gimple_stmt_iterator *);
 
-/* Lower the body of current_function_decl.  */
+
+/* Lower the body of current_function_decl from High GIMPLE into Low
+   GIMPLE.  */
 
 static unsigned int
 lower_function_body (void)

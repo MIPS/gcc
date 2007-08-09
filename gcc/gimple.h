@@ -29,6 +29,10 @@ DEF_VEC_P(gimple);
 DEF_VEC_ALLOC_P(gimple,heap);
 DEF_VEC_ALLOC_P(gimple,gc);
 
+DEF_VEC_P(gimple_seq);
+DEF_VEC_ALLOC_P(gimple_seq,gc);
+DEF_VEC_ALLOC_P(gimple_seq,heap);
+
 enum gimple_code {
 #define DEFGSCODE(SYM, STRING)	SYM,
 #include "gimple.def"

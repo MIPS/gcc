@@ -36,11 +36,11 @@ const char *const gimple_code_name[] = {
 };
 #undef DEFGSCODE
 
-/* Pointer map to store the sequence of GIMPLE statements
-   corresponding to each function.  For every FUNCTION_DECL FN, the
-   sequence of GIMPLE statements corresponding to FN are stored in
-   gimple_body (FN).  */
-static struct pointer_map_t *gimple_bodies = NULL;
+/* Keep function bodies in the array GIMPLE_BODIES_VEC and use the
+   pointer map GIMPLE_BODIES_MAP to quickly map a given FUNCTION_DECL
+   to its corresponding position in the array of GIMPLE bodies.  */
+static GTY(()) VEC(gimple_seq,gc) *gimple_bodies_vec;
+static struct pointer_map_t *gimple_bodies_map;
 
 /* Gimple tuple constructors.
    Note: Any constructor taking a ``gimple_seq'' as a parameter, can
@@ -64,12 +64,12 @@ gss_for_code (enum gimple_code code)
     {
     case GIMPLE_ASSIGN:
     case GIMPLE_CALL:
-    case GIMPLE_ASM:
     case GIMPLE_RETURN:		return GSS_WITH_MEM_OPS;
     case GIMPLE_COND:
     case GIMPLE_GOTO:
     case GIMPLE_LABEL:
     case GIMPLE_SWITCH:		return GSS_WITH_OPS;
+    case GIMPLE_ASM:		return GSS_ASM;
     case GIMPLE_BIND:		return GSS_BIND;
     case GIMPLE_CATCH:		return GSS_CATCH;
     case GIMPLE_EH_FILTER:	return GSS_EH_FILTER;
@@ -911,7 +911,7 @@ walk_tuple_ops (gimple gs, walk_tree_fn func, void *data,
   enum gimple_statement_structure_enum gss;
 
   gss = gimple_statement_structure (gs);
-  if (gss == GSS_WITH_OPS || gss == GSS_WITH_MEM_OPS)
+  if (gss == GSS_WITH_OPS || gss == GSS_WITH_MEM_OPS || gss == GSS_ASM)
     for (i = 0; i < gimple_num_ops (gs); i++)
       WALKIT (gimple_op (gs, i));
   else
@@ -1001,12 +1001,23 @@ void
 set_gimple_body (tree fn, gimple_seq seq)
 {
   void **slot;
+  size_t index;
 
-  if (gimple_bodies == NULL)
-    gimple_bodies = pointer_map_create ();
+  if (gimple_bodies_map == NULL)
+    gimple_bodies_map = pointer_map_create ();
 
-  slot = pointer_map_insert (gimple_bodies, fn);
-  *slot = (void *) seq;
+  slot = pointer_map_insert (gimple_bodies_map, fn);
+  if (*slot == NULL)
+    {
+      VEC_safe_push (gimple, gc, gimple_bodies_vec, seq);
+      index = VEC_length (gimple, gimple_bodies_vec) - 1;
+      *slot = (void *) index;
+    }
+  else
+    {
+      index = (size_t) *slot;
+      VEC_replace (gimple, gimple_bodies_vec, index, seq);
+    }
 }
   
 
@@ -1016,9 +1027,13 @@ gimple_seq
 gimple_body (tree fn)
 {
   void **slot;
-  
-  if (gimple_bodies && (slot = pointer_map_contains (gimple_bodies, fn)))
-    return (gimple_seq) *slot;
+
+  if (gimple_bodies_map
+      && (slot = pointer_map_contains (gimple_bodies_map, fn)))
+    {
+      size_t ix = (size_t) *slot;
+      return VEC_index (gimple, gimple_bodies_vec, ix);
+    }
   
   return NULL;
 }
@@ -1048,3 +1063,5 @@ gimple_call_flags (gimple stmt)
 
   return flags;
 }
+
+#include "gt-gimple.h"
