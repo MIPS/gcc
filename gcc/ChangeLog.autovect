@@ -1,3 +1,9 @@
+2007-08-12  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_analyze_loop_form): Check that the 
+	inner-loop bound is invariant in the outer-loop (for outer-loop
+	vectorization).
+
 2007-08-12  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_get_and_check_slp_defs): Add new argument. 

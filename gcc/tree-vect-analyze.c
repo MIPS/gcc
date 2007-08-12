@@ -3785,6 +3785,16 @@ vect_analyze_loop_form (struct loop *loop)
 	  return NULL;
 	}
 
+      if (!expr_invariant_in_loop_p (loop, 
+					LOOP_VINFO_NITERS (inner_loop_vinfo)))
+	{
+	  if (vect_print_dump_info (REPORT_BAD_FORM_LOOPS))
+	    fprintf (vect_dump, 
+		     "not vectorized: inner-loop count not invariant.");
+	  destroy_loop_vec_info (inner_loop_vinfo, true);
+	  return NULL;
+	}
+
       if (loop->num_nodes != 5) 
         {
 	  if (vect_print_dump_info (REPORT_BAD_FORM_LOOPS))
