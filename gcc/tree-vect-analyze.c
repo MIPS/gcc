@@ -2205,6 +2205,7 @@ vect_get_and_check_slp_defs (loop_vec_info loop_vinfo, slp_tree slp_node,
 			     enum vect_def_type *first_stmt_dt1,
 			     tree *first_stmt_def0_type, 
 			     tree *first_stmt_def1_type,
+			     tree *first_stmt_const_oprnd,
 			     int ncopies_for_cost)
 {
   tree oprnd;
@@ -2246,6 +2247,8 @@ vect_get_and_check_slp_defs (loop_vec_info loop_vinfo, slp_tree slp_node,
 	  *first_stmt_dt0 = dt[i];
 	  if (def)
 	    *first_stmt_def0_type = TREE_TYPE (def);
+	  else
+	    *first_stmt_const_oprnd = oprnd;
 
 	  /* Analyze costs (for the first stmt of the group only).  */
 	  if (op_type)
@@ -2264,6 +2267,10 @@ vect_get_and_check_slp_defs (loop_vec_info loop_vinfo, slp_tree slp_node,
 	      *first_stmt_dt1 = dt[i];
 	      if (def)
 		*first_stmt_def1_type = TREE_TYPE (def);
+	      else
+		/* We assume that the stmt constains only one constant 
+		   operand.  */
+		*first_stmt_const_oprnd = oprnd;
 	    }
 	  else
 	    {
@@ -2276,7 +2283,10 @@ vect_get_and_check_slp_defs (loop_vec_info loop_vinfo, slp_tree slp_node,
 		  || (i == 1 
 		      && (*first_stmt_dt1 != dt[i]
 			  || (*first_stmt_def1_type && def
-			      && *first_stmt_def1_type != TREE_TYPE (def)))))
+			      && *first_stmt_def1_type != TREE_TYPE (def))))
+		  || (!def 
+		      && TREE_TYPE (*first_stmt_const_oprnd) 
+		      != TREE_TYPE (oprnd)))		
 		{ 
 		  if (vect_print_dump_info (REPORT_DETAILS)) 
 		    fprintf (vect_dump, "Build SLP failed: different types ");
@@ -2345,6 +2355,7 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
   int icode;
   enum machine_mode optab_op2_mode;
   enum machine_mode vec_mode;
+  tree first_stmt_const_oprnd = NULL_TREE;
 
   /* For every stmt in NODE find its def stmt/s.  */
   for (i = 0; VEC_iterate (tree, stmts, i, stmt); i++)
@@ -2449,6 +2460,7 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
 						&first_stmt_dt1, 
 						&first_stmt_def0_type, 
 						&first_stmt_def1_type,
+						&first_stmt_const_oprnd,
 						ncopies_for_cost))
 		return false;
 	    }
@@ -2533,6 +2545,7 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
 					    &first_stmt_dt1, 
 					    &first_stmt_def0_type, 
 					    &first_stmt_def1_type,
+					    &first_stmt_const_oprnd,
 					    ncopies_for_cost))
 	    return false;
 	}
