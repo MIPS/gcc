@@ -978,6 +978,13 @@ __gnu_Unwind_Backtrace(_Unwind_Trace_Fn trace, void * trace_argument,
       if (get_eit_entry (ucbp, saved_vrs.core.r[R_PC]) != _URC_OK)
 	return _URC_FAILURE;
 
+      /* The dwarf unwinder assumes the context structure holds things
+	 like the function and LSDA pointers.  The ARM implementation
+	 caches these in the exception header (UCB).  To avoid
+	 rewriting everything we make the virtual IP register point at
+	 the UCB.  */
+      _Unwind_SetGR((_Unwind_Context *)&saved_vrs, 12, (_Unwind_Ptr) ucbp);
+
       /* Call trace function.  */
       if ((*trace) ((_Unwind_Context *) &saved_vrs, trace_argument) 
 	  != _URC_NO_REASON)
