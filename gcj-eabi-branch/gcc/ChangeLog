@@ -1,9 +1,9 @@
-2007-08-14  Andrew Haley  <aph@ALL6500>
+2007-08-14  Andrew Haley  <aph@redhat.com>
 
 	* config/arm/unwind-arm.c (__gnu_Unwind_Backtrace): Set virtual IP
 	register to point at the UCB.
 
-2007-08-08  Andrew Haley  <aph@ALL6500>
+2007-08-08  Andrew Haley  <aph@redhat.com>
 
 	* config/arm/libunwind.S (UNWIND_WRAPPER _Unwind_Backtrace): New.
 	* config/arm/unwind-arm.h (__gnu_Unwind_Backtrace): New.
