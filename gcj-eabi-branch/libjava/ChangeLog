@@ -1,3 +1,8 @@
+2007-08-14  Andrew Haley  <aph@redhat.com>
+
+	* sysdep/arm/backtrace.h: Remove stubs for _Unwind_GetIPInfo,
+	_Unwind_GetRegionStart, and _Unwind_Backtrace.
+
 2007-07-27  Andrew Haley  <aph@redhat.com>
 
 	* gnu/classpath/natVMStackWalker.cc (GET_CALLING_CLASS): Stub for

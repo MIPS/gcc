@@ -18,17 +18,6 @@ extern "C"
 /* Unwind through the call stack calling TRACE_FN with STATE for every stack
    frame.  Returns the reason why the unwinding was stopped.  */
 #ifdef __ARM_EABI_UNWINDER__
-#undef _Unwind_GetIPInfo
-#define _Unwind_GetIPInfo(ctx,ip_before_insn) \
-  (*(ip_before_insn) = 1, (ctx)->ret_addr)
-
-#undef _Unwind_GetRegionStart
-#define _Unwind_GetRegionStart(ctx) \
-  0
-
-#undef _Unwind_Backtrace
-#define _Unwind_Backtrace(trace_fn,state_ptr) \
-  (fallback_backtrace (trace_fn, state_ptr))
 
 #define _Unwind_FindEnclosingFunction(PC) \
   (PC)
