@@ -1,3 +1,7 @@
+2007-08-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple.c (gimple_call_flags): Make sure this is a GIMPLE_CALL.
+	
 2007-08-14  Diego Novillo  <dnovillo@google.com>
 
 	Merge with mainline @127480.

@@ -1047,9 +1047,11 @@ int
 gimple_call_flags (gimple stmt)
 {
   int flags;
-  tree decl = gimple_call_fndecl (stmt);
-  tree t;
+  tree decl, t;
 
+  gcc_assert (gimple_code (stmt) == GIMPLE_CALL);
+
+  decl = gimple_call_fndecl (stmt);
   if (decl)
     flags = flags_from_decl_or_type (decl);
   else
