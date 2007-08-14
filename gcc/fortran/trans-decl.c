@@ -1109,9 +1109,14 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
 	    isym->resolve.f2 (&e, &argexpr, NULL);
 	  else
 	    {
-	      /* All specific intrinsics take less than 4 arguments.  */
-	      gcc_assert (isym->formal->next->next->next == NULL);
-	      isym->resolve.f3 (&e, &argexpr, NULL, NULL);
+	      if (isym->formal->next->next->next == NULL)
+		isym->resolve.f3 (&e, &argexpr, NULL, NULL);
+	      else
+		{
+		  /* All specific intrinsics take less than 5 arguments.  */
+		  gcc_assert (isym->formal->next->next->next->next == NULL);
+		  isym->resolve.f4 (&e, &argexpr, NULL, NULL, NULL);
+		}
 	    }
 	}
 
@@ -1999,8 +2004,7 @@ gfc_build_intrinsic_function_decls (void)
   /* String functions.  */
   gfor_fndecl_compare_string =
     gfc_build_library_function_decl (get_identifier (PREFIX("compare_string")),
-				     gfc_int4_type_node,
-				     4,
+				     integer_type_node, 4,
 				     gfc_charlen_type_node, pchar_type_node,
 				     gfc_charlen_type_node, pchar_type_node);
 
@@ -2286,7 +2290,6 @@ void
 gfc_build_builtin_function_decls (void)
 {
   tree gfc_int4_type_node = gfc_get_int_type (4);
-  tree gfc_logical4_type_node = gfc_get_logical_type (4);
   tree gfc_pint4_type_node = build_pointer_type (gfc_int4_type_node);
 
   gfor_fndecl_internal_realloc =
@@ -2341,13 +2344,13 @@ gfc_build_builtin_function_decls (void)
 
   gfor_fndecl_runtime_error =
     gfc_build_library_function_decl (get_identifier (PREFIX("runtime_error")),
-				     void_type_node, 1, pchar_type_node);
+				     void_type_node, -1, pchar_type_node);
   /* The runtime_error function does not return.  */
   TREE_THIS_VOLATILE (gfor_fndecl_runtime_error) = 1;
 
   gfor_fndecl_runtime_error_at =
     gfc_build_library_function_decl (get_identifier (PREFIX("runtime_error_at")),
-				     void_type_node, 2, pchar_type_node,
+				     void_type_node, -2, pchar_type_node,
 				     pchar_type_node);
   /* The runtime_error_at function does not return.  */
   TREE_THIS_VOLATILE (gfor_fndecl_runtime_error_at) = 1;
@@ -2396,9 +2399,7 @@ gfc_build_builtin_function_decls (void)
   gfor_fndecl_associated =
     gfc_build_library_function_decl (
                                      get_identifier (PREFIX("associated")),
-                                     gfc_logical4_type_node,
-                                     2,
-                                     ppvoid_type_node,
+                                     integer_type_node, 2, ppvoid_type_node,
                                      ppvoid_type_node);
 
   gfc_build_intrinsic_function_decls ();

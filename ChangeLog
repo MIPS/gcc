@@ -1,3 +1,20 @@
+2007-08-14  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* MAINTAINERS (Write After Approval): Change my email address.
+
+2007-08-13  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+	    Ben Elliston  <bje@au.ibm.com>
+
+	* configure.ac (TOPLEVEL_CONFIGURE_ARGUMENTS, baseargs): Pass
+	--silent if $silent.
+	* configure: Regenerate.
+
+2003-08-12  Zdenek Dvorak  <ook@ucw.cz>
+
+	* MAINTAINERS (Various Maintainers): Add myself as
+	loop infrastructure maintainer.  Update my e-mail
+	address.
+
 2007-07-31  Diego Novillo  <dnovillo@google.com>
 
 	* MAINTAINERS (Reviewers): Rename from Non-Autopoiesis.

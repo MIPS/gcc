@@ -1,3 +1,151 @@
+2007-08-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32594
+	* gfortran.dg/substr_5.f90: New test.
+
+2007-08-14  Andrew Pinski  <pinskia@gmail.com>
+
+	PR c/30428
+	* gcc.dg/vector-2.c: New test.
+
+	PR c++/30428
+	* g++.dg/ext/vector8.C: New test.
+
+2007-08-13  Dan Hipschman  <dsh@google.com>
+
+	PR c/32953
+	* gcc.dg/format/array-1.c: Add an additional test for
+	unterminated format strings of length 1.
+
+2007-08-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32926
+	* gfortran.dg/external_procedures_3.f90: New test.
+
+2007-08-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32827
+	* gfortran.dg/import6.f90: New test.
+
+2007-08-13  Andrew Pinski  <pinskia@gmail.com>
+
+	PR C/30427
+	*  gcc.dg/vector-1.c: New test.
+
+2007-08-13  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.dg/pr21255-4.c: Skip for PIC.
+	* gcc.dg/tree-ssa/loop-1.c: Allow bsrf as well as jsr for SH targets.
+
+2007-08-13  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.dg/attr-isr.c: Skip for PIC.
+	* gcc.dg/attr-isr-nosave_low_regs.c: Likewise.
+	* gcc.dg/attr-isr-trapa.c: Likewise.
+	* gcc.dg/pragma-isr-nosave_low_regs.c: Likewise.
+	* gcc.dg/pragma-isr-trapa.c: Likewise.
+	* gcc.dg/pragma-isr-trapa2.c: Likewise.
+
+2007-08-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32962
+	* gfortran.dg/transpose_1.f90: New test.
+
+2007-08-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/29600
+	* gfortran.dg/intrinsics_kind_argument_1.f90: Add test for ACHAR
+	intrinsic.
+
+2007-08-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30964
+	PR fortran/33054
+	* gfortran.dg/random_4.f90: New test.
+	* gfortran.dg/random_5.f90: New test.
+	* gfortran.dg/random_6.f90: New test.
+	* gfortran.dg/random_7.f90: New test.
+
+2007-08-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32860
+	* gcc.dg/format/gcc_gfc-1.c: Updated with new formats.
+
+2007-08-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31629
+	* gcc/testsuite/gfortran.dg/module_private_1.f90: New test.
+
+2007-08-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/29600
+	* gfortran.dg/intrinsics_kind_argument_1.f90: New test.
+	* gfortran.dg/pure_dummy_length_1.f90: Adapt to new error wording.
+
+2007-08-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32937
+	* gfortran.dg/char_length_6.f90: New test.
+
+2007-08-10  Ollie Wild  <aaw@google.com>
+
+	* g++.dg/lookup/using18.C: New test.
+
+2007-08-10  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/17763
+	* g++.dg/other/error16.C: New.
+
+2007-08-10  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/33039
+	* gfortran.dg/namelist_37.f90: New test.
+
+2007-08-10  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/22256
+	* g++.dg/conversion/op3.C: New.
+
+2007-08-09  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32987
+	* gfortran.dg/fmt_tab_1.f90: New.
+	* gfortran.dg/fmt_tab_2.f90: New.
+
+2007-08-09  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR c/32796
+	* gcc.c-torture/compile/pr32796.c: New test.
+
+2007-08-09  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/32813
+	* gfortran.fortran-torture/compile/emptyif-1.f90: New test.
+	* lib/fortran-torture.exp (fortran-torture): Use TORTURE_OPTIONS instead
+	of just -O.
+
+2007-08-08  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.target/mips/code-readable-1.c: New test.
+	* gcc.target/mips/code-readable-2.c: Likewise.
+	* gcc.target/mips/code-readable-3.c: Likewise.
+
+2007-08-08  Vladimir Yanovsky  <yanov@il.ibm.com>
+	    Revital Eres  <eres@il.ibm.com>
+
+	* gfortran.dg/sms-1.f90: Add comment.
+	* gfortran.dg/sms-2.f90: New.
+
+2007-08-07  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/instrument-1.c: New test.
+	* gcc.dg/instrument-2.c: New test.
+	* gcc.dg/instrument-3.c: New test.
+
+2007-08-07  Steve Ellcey  <sje@cup.hp.com>
+
+	* gfortran.dg/c_kind_params.f90: Check for stdint.h.
+
 2007-08-07  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* gcc.dg/vect/vect-28.c: Fix test to not expect peeling on 

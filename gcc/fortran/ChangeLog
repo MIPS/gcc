@@ -1,3 +1,219 @@
+2007-08-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32594
+	* trans-expr.c (gfc_conv_substring_expr): Only call
+	gfc_conv_substring if expr->ref is not NULL.
+	* expr.c (gfc_is_constant_expr): If e->ref is NULL, the substring
+	expression might be a constant.
+	(gfc_simplify_expr): Handle missing start and end, as well as
+	missing ref.
+
+2007-08-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32926
+	* match.c (gfc_match_call): Do not create a new symtree in the
+	case where the existing symbol is external and not referenced.
+
+2007-08-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32827
+	* decl.c (variable_decl): Check for an imported symbol
+	by looking for its symtree and testing for the imported
+	attribute.
+	(gfc_match_import): Remove change of symbol's namespace
+	and set the attribute imported instead.
+	* symbol.c (gfc_get_sym_tree): It is not an error if a
+	symbol is imported.
+	* gfortran.h : Add the 'imported' to symbol_attribute.
+
+2007-08-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32962
+	* trans-array.c (gfc_conv_array_transpose): Set the offset
+	of the destination to zero if the loop is zero based.
+
+2007-08-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/29600
+	* intrinsic.c (add_functions): Add optional KIND argument to ACHAR.
+	* iresolve.c (gfc_resolve_achar): Handle the KIND argument.
+	* check.c (gfc_check_achar): Check for the optional KIND argument.
+	* simplify.c (gfc_simplify_achar): Use KIND argument.
+	* intrinsic.h (gfc_check_achar, gfc_simplify_achar,
+	gfc_resolve_achar): Adjust prototypes.
+
+2007-08-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30964
+	PR fortran/33054
+	* trans-expr.c (gfc_conv_function_call): When no formal argument
+	list is available, we still substitute missing optional arguments.
+	* check.c (gfc_check_random_seed): Correct the check on the
+	number of arguments to RANDOM_SEED.
+	* intrinsic.c (add_subroutines): Add a resolution function to
+	RANDOM_SEED.
+	* iresolve.c (gfc_resolve_random_seed): New function.
+	* intrinsic.h (gfc_resolve_random_seed): New prototype.
+
+2007-08-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32860
+	* error.c (error_uinteger): New function.
+	(error_integer): Call error_uinteger.
+	(error_print): Handle %u, %lu, %li and %ld format specifiers.
+	* interface.c (compare_actual_formal): Use the new %lu specifier.
+
+2007-08-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31629
+	* lang.opt (-fmodule-private): New option.
+	* gfortran.h (gfc_option_t): Add flag_module_private member.
+	* invoke.texi (-fmodule-private): Document the new option.
+	* module.c (gfc_check_access): Allow the -fmodule-private option
+	to modify the default behaviour.
+	* options.c (gfc_init_options): Initialize flag_module_private.
+	(gfc_handle_option): Handle -fmodule-private.
+
+2007-08-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/29600
+	* intrinsic.c (add_functions): Add KIND arguments to COUNT,
+	IACHAR, ICHAR, INDEX, LBOUND, LEN, LEN_TRIM, SCAN, SIZE, UBOUND
+	and VERIFY.
+	* iresolve.c (gfc_resolve_count): Add kind argument.
+	(gfc_resolve_iachar): New function.
+	(gfc_resolve_ichar): Add kind argument.
+	(gfc_resolve_index_func): Likewise.
+	(gfc_resolve_lbound): Likewise.
+	(gfc_resolve_len): Likewise.
+	(gfc_resolve_len_trim): Likewise.
+	(gfc_resolve_scan): Likewise.
+	(gfc_resolve_size): New function.
+	(gfc_resolve_ubound): Add kind argument.
+	(gfc_resolve_verify): Likewise.
+	* trans-decl.c (gfc_get_extern_function_decl): Allow specific
+	intrinsics to have 4 arguments.
+	* check.c (gfc_check_count): Add kind argument.
+	(gfc_check_ichar_iachar): Likewise.
+	(gfc_check_index): Likewise.
+	(gfc_check_lbound): Likewise.
+	(gfc_check_len_lentrim): New function.
+	(gfc_check_scan): Add kind argument.
+	(gfc_check_size): Likewise.
+	(gfc_check_ubound): Likewise.
+	(gfc_check_verify): Likewise.
+	* intrinsic.texi: Update documentation for COUNT, IACHAR, ICHAR,
+	INDEX, LBOUND, LEN, LEN_TRIM, SCAN, SIZE, UBOUND and VERIFY.
+	* simplify.c (get_kind): Whitespace fix.
+	(int_expr_with_kind): New function.
+	(gfc_simplify_iachar): Add kind argument.
+	(gfc_simplify_iachar): Likewise.
+	(gfc_simplify_ichar): Likewise.
+	(gfc_simplify_index): Likewise.
+	(simplify_bound_dim): Likewise.
+	(simplify_bound): Likewise.
+	(gfc_simplify_lbound): Likewise.
+	(gfc_simplify_len): Likewise.
+	(gfc_simplify_len_trim): Likewise.
+	(gfc_simplify_scan): Likewise.
+	(gfc_simplify_shape): Pass NULL as kind argument to gfc_simplify_size.
+	(gfc_simplify_size): Add kind argument.
+	(gfc_simplify_ubound): Likewise.
+	(gfc_simplify_verify): Likewise.
+	* intrinsic.h: Update prototypes and add new ones.
+	* trans-intrinsic.c (gfc_conv_intrinsic_index): Rename into
+	gfc_conv_intrinsic_index_scan_verify.
+	(gfc_conv_intrinsic_scan, gfc_conv_intrinsic_verify): Remove.
+	(gfc_conv_intrinsic_function): Call
+	gfc_conv_intrinsic_index_scan_verify to translate the INDEX,
+	SCAN and VERIFY intrinsics.
+
+2007-08-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31189
+	* invoke.texi (-fbacktrace): Document the new behaviour.
+
+2007-08-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32937
+	* trans-array.c (gfc_conv_expr_descriptor): Use
+	gfc_conv_const_charlen to generate backend_decl of right type.
+	* trans-expr.c (gfc_conv_expr_op): Use correct return type.
+	(gfc_build_compare_string): Use int type instead of default
+	integer kind for single character comparison.
+	(gfc_conv_aliased_arg): Give backend_decl the right type.
+	* trans-decl.c (gfc_build_intrinsic_function_decls): Make
+	compare_string return an int.
+
+2007-08-11  Ian Lance Taylor  <iant@google.com>
+
+	* f95-lang.c (gfc_get_alias_set): Change return type to
+	alias_set_type.
+
+2007-08-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31270
+	* trans.c (gfc_trans_runtime_check): Reorder arguments and
+	add extra variable arguments. Hand them to the library function.
+	* trans.h (gfc_trans_runtime_check): Update prototype.
+	* trans-array.c (gfc_trans_array_bound_check): Issue more
+	detailled error messages.
+	(gfc_conv_array_ref): Likewise.
+	(gfc_conv_ss_startstride): Likewise.
+	(gfc_trans_dummy_array_bias): Reorder arguments to
+	gfc_trans_runtime_check.
+	* trans-expr.c (gfc_conv_substring): Issue more detailled
+	error messages.
+	(gfc_conv_function_call): Reorder arguments to gfc_trans_runtime_check.
+	* trans-stmt.c (gfc_trans_goto): Likewise.
+	* trans-io.c (set_string): Reorder arguments to
+	gfc_trans_runtime_check and issue a more detailled error message.
+	* trans-decl.c (gfc_build_builtin_function_decls): Make
+	runtime_error and runtime_error_at handle a variable number of
+	arguments.
+	* trans-intrinsic.c (gfc_conv_intrinsic_bound): Reorder arguments
+	to gfc_trans_runtime_check.
+	(gfc_conv_intrinsic_minmax): Likewise.
+	(gfc_conv_intrinsic_repeat): Issue more detailled error messages.
+
+2007-08-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gfortranspec.c (lang_specific_driver): Use CONST_CAST.
+	* options.c (gfc_post_options): Likewise.
+	* parse.c (parse_omp_structured_block): Likewise.
+	* st.c (gfc_free_statement): Likewise.
+
+2007-08-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32933
+	* trans-decl.c (gfc_build_builtin_function_decls): Change
+	prototype for associated.
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmax): Convert the
+	result of __builtin_isnan into a boolean.
+	(gfc_conv_intrinsic_strcmp): Cleanup.
+	(gfc_conv_associated): Convert the result of the associated
+	function into a boolean.
+
+2007-08-09  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32987
+	* io.c (format_token): Add FMT_ERROR.
+	(next_char_not_space): Print error/warning when
+	'\t' are used in format specifications.
+	(format_lex): Propagate error.
+	(check_format): Ditto.
+
+2007-08-09  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33001
+	* arith.c (arith_error): Point in the error message
+	to -fno-range-check.
+
+2007-08-09  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32902
+	* intrinsic.texi (SIZEOF): Add mention to C_SIZE_T.
+
 2007-08-06  Christopher D. Rickett  <crickett@lanl.gov>
 
 	PR fortran/32732

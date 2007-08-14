@@ -296,12 +296,14 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind,
       fault = fold_build2 (TRUTH_ANDIF_EXPR, boolean_type_node,
 			   nonempty, fault);
       if (name)
-	asprintf (&msg, "Substring out of bounds: lower bound of '%s' "
+	asprintf (&msg, "Substring out of bounds: lower bound (%%ld) of '%s' "
 		  "is less than one", name);
       else
-	asprintf (&msg, "Substring out of bounds: lower bound "
+	asprintf (&msg, "Substring out of bounds: lower bound (%%ld)"
 		  "is less than one");
-      gfc_trans_runtime_check (fault, msg, &se->pre, where);
+      gfc_trans_runtime_check (fault, &se->pre, where, msg,
+			       fold_convert (long_integer_type_node,
+					     start.expr));
       gfc_free (msg);
 
       /* Check upper bound.  */
@@ -310,12 +312,15 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind,
       fault = fold_build2 (TRUTH_ANDIF_EXPR, boolean_type_node,
 			   nonempty, fault);
       if (name)
-	asprintf (&msg, "Substring out of bounds: upper bound of '%s' "
-		  "exceeds string length", name);
+	asprintf (&msg, "Substring out of bounds: upper bound (%%ld) of '%s' "
+		  "exceeds string length (%%ld)", name);
       else
-	asprintf (&msg, "Substring out of bounds: upper bound "
-		  "exceeds string length");
-      gfc_trans_runtime_check (fault, msg, &se->pre, where);
+	asprintf (&msg, "Substring out of bounds: upper bound (%%ld) "
+		  "exceeds string length (%%ld)");
+      gfc_trans_runtime_check (fault, &se->pre, where, msg,
+			       fold_convert (long_integer_type_node, end.expr),
+			       fold_convert (long_integer_type_node,
+					     se->string_length));
       gfc_free (msg);
     }
 
@@ -1031,8 +1036,7 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
   enum tree_code code;
   gfc_se lse;
   gfc_se rse;
-  tree type;
-  tree tmp;
+  tree tmp, type;
   int lop;
   int checkstring;
 
@@ -1181,7 +1185,7 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
   if (lop)
     {
       /* The result of logical ops is always boolean_type_node.  */
-      tmp = fold_build2 (code, type, lse.expr, rse.expr);
+      tmp = fold_build2 (code, boolean_type_node, lse.expr, rse.expr);
       se->expr = convert (type, tmp);
     }
   else
@@ -1275,13 +1279,10 @@ gfc_build_compare_string (tree len1, tree str1, tree len2, tree str2)
 {
   tree sc1;
   tree sc2;
-  tree type;
   tree tmp;
 
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (str1)));
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (str2)));
-
-  type = gfc_get_int_type (gfc_default_integer_kind);
 
   sc1 = gfc_to_single_character (len1, str1);
   sc2 = gfc_to_single_character (len2, str2);
@@ -1289,9 +1290,9 @@ gfc_build_compare_string (tree len1, tree str1, tree len2, tree str2)
   /* Deal with single character specially.  */
   if (sc1 != NULL_TREE && sc2 != NULL_TREE)
     {
-      sc1 = fold_convert (type, sc1);
-      sc2 = fold_convert (type, sc2);
-      tmp = fold_build2 (MINUS_EXPR, type, sc1, sc2);
+      sc1 = fold_convert (integer_type_node, sc1);
+      sc2 = fold_convert (integer_type_node, sc2);
+      tmp = fold_build2 (MINUS_EXPR, integer_type_node, sc1, sc2);
     }
    else
      /* Build a call for the comparison.  */
@@ -1855,6 +1856,7 @@ gfc_conv_aliased_arg (gfc_se * parmse, gfc_expr * expr,
 				gfc_array_index_type);
 	    tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
 			       tmp, tmp_se.expr);
+	    tmp = fold_convert (gfc_charlen_type_node, tmp);
 	    expr->ts.cl->backend_decl = tmp;
 
 	    break;
@@ -2301,35 +2303,37 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	    } 
 	}
 
-      if (fsym)
+      /* The case with fsym->attr.optional is that of a user subroutine
+	 with an interface indicating an optional argument.  When we call
+	 an intrinsic subroutine, however, fsym is NULL, but we might still
+	 have an optional argument, so we proceed to the substitution
+	 just in case.  */
+      if (e && (fsym == NULL || fsym->attr.optional))
 	{
-	  if (e)
-	    {
-	      /* If an optional argument is itself an optional dummy
-		 argument, check its presence and substitute a null
-		 if absent.  */
-	      if (e->expr_type == EXPR_VARIABLE
-		    && e->symtree->n.sym->attr.optional
-		    && fsym->attr.optional)
-		gfc_conv_missing_dummy (&parmse, e, fsym->ts);
-
-	      /* Obtain the character length of an assumed character
-		 length procedure from the typespec.  */
-	      if (fsym->ts.type == BT_CHARACTER
-		    && parmse.string_length == NULL_TREE
-		    && e->ts.type == BT_PROCEDURE
-		    && e->symtree->n.sym->ts.type == BT_CHARACTER
-		    && e->symtree->n.sym->ts.cl->length != NULL)
-		{
-		  gfc_conv_const_charlen (e->symtree->n.sym->ts.cl);
-		  parmse.string_length
-			= e->symtree->n.sym->ts.cl->backend_decl;
-		}
-	    }
-
-	  if (need_interface_mapping)
-	    gfc_add_interface_mapping (&mapping, fsym, &parmse);
+	  /* If an optional argument is itself an optional dummy argument,
+	     check its presence and substitute a null if absent.  */
+	  if (e->expr_type == EXPR_VARIABLE
+	      && e->symtree->n.sym->attr.optional)
+	    gfc_conv_missing_dummy (&parmse, e, fsym ? fsym->ts : e->ts);
 	}
+
+      if (fsym && e)
+	{
+	  /* Obtain the character length of an assumed character length
+	     length procedure from the typespec.  */
+	  if (fsym->ts.type == BT_CHARACTER
+	      && parmse.string_length == NULL_TREE
+	      && e->ts.type == BT_PROCEDURE
+	      && e->symtree->n.sym->ts.type == BT_CHARACTER
+	      && e->symtree->n.sym->ts.cl->length != NULL)
+	    {
+	      gfc_conv_const_charlen (e->symtree->n.sym->ts.cl);
+	      parmse.string_length = e->symtree->n.sym->ts.cl->backend_decl;
+	    }
+	}
+
+      if (fsym && need_interface_mapping)
+	gfc_add_interface_mapping (&mapping, fsym, &parmse);
 
       gfc_add_block_to_block (&se->pre, &parmse.pre);
       gfc_add_block_to_block (&post, &parmse.post);
@@ -2589,7 +2593,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		  tmp = gfc_conv_descriptor_data_get (info->descriptor);
 		  tmp = fold_build2 (NE_EXPR, boolean_type_node,
 				     tmp, info->data);
-		  gfc_trans_runtime_check (tmp, gfc_msg_fault, &se->pre, NULL);
+		  gfc_trans_runtime_check (tmp, &se->pre, NULL, gfc_msg_fault);
 		}
 	      se->expr = info->descriptor;
 	      /* Bundle in the string length.  */
@@ -3239,14 +3243,15 @@ gfc_conv_substring_expr (gfc_se * se, gfc_expr * expr)
 
   ref = expr->ref;
 
-  gcc_assert (ref->type == REF_SUBSTRING);
+  gcc_assert (ref == NULL || ref->type == REF_SUBSTRING);
 
-  se->expr = gfc_build_string_const(expr->value.character.length,
-                                    expr->value.character.string);
+  se->expr = gfc_build_string_const (expr->value.character.length,
+				     expr->value.character.string);
   se->string_length = TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (se->expr)));
-  TYPE_STRING_FLAG (TREE_TYPE (se->expr))=1;
+  TYPE_STRING_FLAG (TREE_TYPE (se->expr)) = 1;
 
-  gfc_conv_substring(se,ref,expr->ts.kind,NULL,&expr->where);
+  if (ref)
+    gfc_conv_substring (se, ref, expr->ts.kind, NULL, &expr->where);
 }
 
 

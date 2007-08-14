@@ -2076,7 +2076,7 @@ alter_reg (int i, int from_reg)
 	 inherent space, and no less total space, then the previous slot.  */
       if (from_reg == -1)
 	{
-	  HOST_WIDE_INT alias_set = new_alias_set ();
+	  alias_set_type alias_set = new_alias_set ();
 
 	  /* No known place to spill from => no slot to reuse.  */
 	  x = assign_stack_local (mode, total_size,
@@ -2128,14 +2128,14 @@ alter_reg (int i, int from_reg)
 	  /* All pseudos mapped to this slot can alias each other.  */
 	  if (spill_stack_slot[from_reg])
 	    {
-	      HOST_WIDE_INT alias_set 
+	      alias_set_type alias_set 
 		= MEM_ALIAS_SET (spill_stack_slot[from_reg]);
 	      set_mem_alias_set (x, alias_set);
 	      dse_invalidate_singleton_alias_set (alias_set);
 	    }
 	  else
 	    {
-	      HOST_WIDE_INT alias_set = new_alias_set ();
+	      alias_set_type alias_set = new_alias_set ();
 	      set_mem_alias_set (x, alias_set);
 	      dse_record_singleton_alias_set (alias_set, mode);
 	    }
@@ -7940,7 +7940,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 	 DEFINE_PEEPHOLE should be specified that recognizes the sequence
 	 we emit below.  */
 
-      code = (int) add_optab->handlers[(int) GET_MODE (out)].insn_code;
+      code = (int) optab_handler (add_optab, GET_MODE (out))->insn_code;
 
       if (CONSTANT_P (op1) || MEM_P (op1) || GET_CODE (op1) == SUBREG
 	  || (REG_P (op1)

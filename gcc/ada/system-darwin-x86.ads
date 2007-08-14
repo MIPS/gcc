@@ -5,7 +5,7 @@
 --                               S Y S T E M                                --
 --                                                                          --
 --                                 S p e c                                  --
---                        (OpenNT/Interix Version)                          --
+--                          (Darwin/x86 Version)                            --
 --                                                                          --
 --          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -51,7 +51,7 @@ package System is
    Max_Int               : constant := Long_Long_Integer'Last;
 
    Max_Binary_Modulus    : constant := 2 ** Long_Long_Integer'Size;
-   Max_Nonbinary_Modulus : constant := 2 ** Integer'Size - 1;
+   Max_Nonbinary_Modulus : constant := Integer'Last;
 
    Max_Base_Digits       : constant := Long_Long_Float'Digits;
    Max_Digits            : constant := Long_Long_Float'Digits;
@@ -93,14 +93,40 @@ package System is
 
    --  Priority-related Declarations (RM D.1)
 
-   Max_Priority           : constant Positive := 30;
-   Max_Interrupt_Priority : constant Positive := 31;
+   --  The values defined here are derived from the following Darwin
+   --  sources:
+   --
+   --  Libc/pthreads/pthread.c
+   --    pthread_init calls host_info to retrieve the HOST_PRIORITY_INFO.
+   --    This file includes "pthread_internals".
+   --  Libc/pthreads/pthread_internals.h
+   --    This file includes <mach/mach.h>.
+   --  xnu/osfmk/mach/mach.h
+   --    This file includes <mach/mach_types.h>.
+   --  xnu/osfmk/mach/mach_types.h
+   --    This file includes <mach/host_info.h>.
+   --  xnu/osfmk/mach/host_info.h
+   --    This file contains the definition of the host_info_t data structure
+   --    and the function prototype for host_info.
+   --  xnu/osfmk/kern/host.c
+   --    This file defines the function host_info which sets the
+   --    priority_info field of struct host_info_t. This file includes
+   --    <kern/processor.h>.
+   --  xnu/osfmk/kern/processor.h
+   --    This file includes <kern/sched.h>.
+   --  xnu/osfmk/kern/sched.h
+   --    This file defines the values for each level of priority.
 
-   subtype Any_Priority       is Integer      range  0 .. 31;
-   subtype Priority           is Any_Priority range  0 .. 30;
-   subtype Interrupt_Priority is Any_Priority range 31 .. 31;
+   Max_Interrupt_Priority : constant Positive := 63;
+   Max_Priority           : constant Positive := Max_Interrupt_Priority - 1;
 
-   Default_Priority : constant Priority := 15;
+   subtype Any_Priority is Integer range 0 .. Max_Interrupt_Priority;
+   subtype Priority is Any_Priority range 0 .. Max_Priority;
+   subtype Interrupt_Priority is Any_Priority
+     range Priority'Last + 1 .. Max_Interrupt_Priority;
+
+   Default_Priority : constant Priority :=
+     (Priority'Last - Priority'First) / 2;
 
 private
 
@@ -139,7 +165,7 @@ private
    Support_Long_Shifts       : constant Boolean := True;
    Suppress_Standard_Library : constant Boolean := False;
    Use_Ada_Main_Program_Name : constant Boolean := False;
-   ZCX_By_Default            : constant Boolean := False;
-   GCC_ZCX_Support           : constant Boolean := False;
+   ZCX_By_Default            : constant Boolean := True;
+   GCC_ZCX_Support           : constant Boolean := True;
 
 end System;

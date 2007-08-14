@@ -6092,7 +6092,8 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   CUMULATIVE_ARGS next_cum;
   int reg_size = TARGET_32BIT ? 4 : 8;
   rtx save_area = NULL_RTX, mem;
-  int first_reg_offset, set;
+  int first_reg_offset;
+  alias_set_type set;
 
   /* Skip the last named argument.  */
   next_cum = *cum;
@@ -12277,7 +12278,7 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 	    eq_rtx = rs6000_emit_vector_compare (rev_code, op0, op1,
 						 dest_mode);
 
-	    nor_code = one_cmpl_optab->handlers[(int)dest_mode].insn_code;
+	    nor_code = optab_handler (one_cmpl_optab, (int)dest_mode)->insn_code;
 	    gcc_assert (nor_code != CODE_FOR_nothing);
 	    emit_insn (GEN_FCN (nor_code) (mask, eq_rtx));
 
@@ -12327,7 +12328,7 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 	    eq_rtx = rs6000_emit_vector_compare (EQ, op0, op1,
 						 dest_mode);
 
-	    ior_code = ior_optab->handlers[(int)dest_mode].insn_code;
+	    ior_code = optab_handler (ior_optab, (int)dest_mode)->insn_code;
 	    gcc_assert (ior_code != CODE_FOR_nothing);
 	    emit_insn (GEN_FCN (ior_code) (mask, c_rtx, eq_rtx));
 	    if (dmode != dest_mode)
@@ -14293,9 +14294,9 @@ rs6000_emit_eh_reg_restore (rtx source, rtx scratch)
     emit_move_insn (gen_rtx_REG (Pmode, LR_REGNO), operands[0]);
 }
 
-static GTY(()) int set = -1;
+static GTY(()) alias_set_type set = -1;
 
-int
+alias_set_type
 get_TOC_alias_set (void)
 {
   if (set == -1)
@@ -17950,7 +17951,7 @@ rs6000_is_costly_dependence (dep_t dep, int cost, int distance)
   if (rs6000_sched_costly_dep == true_store_to_load_dep_costly
       && is_load_insn (next)
       && is_store_insn (insn)
-      && DEP_KIND (dep) == REG_DEP_TRUE)
+      && DEP_TYPE (dep) == REG_DEP_TRUE)
      /* Prevent load after store in the same group if it is a true
 	dependence.  */
      return true;
@@ -18426,15 +18427,15 @@ is_costly_group (rtx *group_insns, rtx next_insn)
 
   for (i = 0; i < issue_rate; i++)
     {
-      dep_link_t link;
+      sd_iterator_def sd_it;
+      dep_t dep;
       rtx insn = group_insns[i];
 
       if (!insn)
 	continue;
 
-      FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (insn))
+      FOR_EACH_DEP (insn, SD_LIST_FORW, sd_it, dep)
 	{
-	  dep_t dep = DEP_LINK_DEP (link);
 	  rtx next = DEP_CON (dep);
 
 	  if (next == next_insn

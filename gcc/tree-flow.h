@@ -535,9 +535,6 @@ static inline void update_stmt (tree);
 static inline bool stmt_modified_p (tree);
 static inline bitmap may_aliases (const_tree);
 static inline int get_lineno (tree);
-static inline const char *get_filename (tree);
-static inline bool is_exec_stmt (const_tree);
-static inline bool is_label_stmt (const_tree);
 static inline bitmap addresses_taken (tree);
 
 /*---------------------------------------------------------------------------
@@ -988,7 +985,7 @@ bool convert_affine_scev (struct loop *, tree, tree *, tree *, tree, bool);
 
 bool nowrap_type_p (tree);
 enum ev_direction {EV_DIR_GROWS, EV_DIR_DECREASES, EV_DIR_UNKNOWN};
-enum ev_direction scev_direction (tree);
+enum ev_direction scev_direction (const_tree);
 
 void free_numbers_of_iterations_estimates (void);
 void free_numbers_of_iterations_estimates_loop (struct loop *);
@@ -1163,7 +1160,7 @@ struct fieldoff
   tree size;
   tree decl;
   HOST_WIDE_INT offset;  
-  HOST_WIDE_INT alias_set;
+  alias_set_type alias_set;
 };
 typedef struct fieldoff fieldoff_s;
 

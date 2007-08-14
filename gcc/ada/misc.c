@@ -90,7 +90,7 @@ static void gnat_finish_incomplete_decl	(tree);
 static unsigned int gnat_init_options	(unsigned int, const char **);
 static int gnat_handle_option		(size_t, const char *, int);
 static bool gnat_post_options		(const char **);
-static HOST_WIDE_INT gnat_get_alias_set	(tree);
+static alias_set_type gnat_get_alias_set (tree);
 static void gnat_print_decl		(FILE *, tree, int);
 static void gnat_print_type		(FILE *, tree, int);
 static const char *gnat_printable_name	(tree, int);
@@ -480,7 +480,7 @@ gnat_compute_largest_alignment (void)
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if (mov_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
+    if (optab_handler (mov_optab, mode)->insn_code != CODE_FOR_nothing)
       largest_move_alignment = MIN (BIGGEST_ALIGNMENT,
 				    MAX (largest_move_alignment,
 					 GET_MODE_ALIGNMENT (mode)));
@@ -511,7 +511,9 @@ gnat_init_gcc_eh (void)
      right exception regions.  */
   using_eh_for_cleanups ();
 
-  eh_personality_libfunc = init_one_libfunc ("__gnat_eh_personality");
+  eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
+					     ? "__gnat_eh_personality_sj"
+					     : "__gnat_eh_personality");
   lang_eh_type_covers = gnat_eh_type_covers;
   lang_eh_runtime_type = gnat_eh_runtime_type;
   default_init_unwind_resume_libfunc ();
@@ -739,7 +741,7 @@ gnat_eh_type_covers (tree a, tree b)
 
 /* Get the alias set corresponding to a type or expression.  */
 
-static HOST_WIDE_INT
+static alias_set_type
 gnat_get_alias_set (tree type)
 {
   /* If this is a padding type, use the type of the first field.  */
@@ -900,7 +902,7 @@ enumerate_modes (void (*f) (int, int, int, int, int, int, unsigned int))
 	 any wider mode), meaning it is not supported by the hardware.  If
 	 this a complex or vector mode, we care about the inner mode.  */
       for (j = inner_mode; j != VOIDmode; j = GET_MODE_WIDER_MODE (j))
-	if (add_optab->handlers[j].insn_code != CODE_FOR_nothing)
+	if (optab_handler (add_optab, j)->insn_code != CODE_FOR_nothing)
 	  break;
 
       if (float_p)

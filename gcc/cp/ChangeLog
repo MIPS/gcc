@@ -1,3 +1,48 @@
+2007-08-14  Andrew Pinski  <pinskia@gmail.com>
+
+	PR c++/30428
+	* typeck.c (build_binary_op): Disallow vector float types with
+	BIT_IOR_EXPR, BIT_AND_EXPR, and BIT_XOR_EXPR.
+
+2007-08-11  Ian Lance Taylor  <iant@google.com>
+
+	* cp-objcp-common.c (cxx_get_alias_set): Change return type to
+	alias_set_type.
+	* cp/cp-tree.h (cxx_get_alias_set): Update declaration.
+
+2007-08-10  Ollie Wild  <aaw@google.com>
+
+	* name-lookup.c (do_nonmember_using_decl): Print an error for ambiguous
+	type lookups.
+	(ambiguous_decl): Construct tree of ambiguous types.  Remove extaneous
+	function parameter.
+	(unqualified_namespace_lookup): Fix ambiguous_decl call.
+	(lookup_using_namespace): Fix ambiguous_decl call.
+	(qualified_lookup_using_namespace): Fix ambiguous_decl call.
+
+2007-08-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* call.c (name_as_c_string): Use CONST_CAST.
+	* decl.c (build_decl): Likewise.
+	* parser.c (cp_parser_string_literal): Likewise.
+
+2007-08-10  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/17763
+	* error.c (dump_expr): Consistently use the *_cxx_*
+	variants of the pretty-print functions.
+
+2007-08-10  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/22256
+	* decl.c (check_special_function_return_type): Just error
+	on return type specified for conversion operator.
+
+2007-08-09  Daniel Berlin  <dberlin@dberlin.org>
+
+	* typeck2.c (readonly_error): Handle general expressions.
+	* error.c (dump_expr): Handle POINTER_PLUS_EXPR
+
 2007-08-06  Dan Hipschman  <dsh@google.com>
 
 	* method.c (use_thunk): Use DECL_NAME instead of DECL_RTL to

@@ -1026,7 +1026,7 @@ free_all_tagged_tu_seen_up_to (const struct tagged_tu_seen_cache *tu_til)
       const struct tagged_tu_seen_cache *const tu1
 	= (const struct tagged_tu_seen_cache *) tu;
       tu = tu1->next;
-      free ((void *)tu1);
+      free (CONST_CAST (tu1));
     }
   tagged_tu_seen_base = tu_til;
 }
@@ -2832,7 +2832,10 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
       break;
 
     case BIT_NOT_EXPR:
-      if (typecode == INTEGER_TYPE || typecode == VECTOR_TYPE)
+      /* ~ works on integer types and non float vectors. */
+      if (typecode == INTEGER_TYPE
+	  || (typecode == VECTOR_TYPE
+	      && !VECTOR_FLOAT_TYPE_P (TREE_TYPE (arg))))
 	{
 	  if (!noconvert)
 	    arg = default_conversion (arg);
@@ -3152,10 +3155,11 @@ readonly_error (tree arg, enum lvalue_use use)
 			 G_("read-only variable %qD used as %<asm%> output")),
 	   arg);
   else
-    error (READONLY_MSG (G_("assignment of read-only location"),
-			 G_("increment of read-only location"),
-			 G_("decrement of read-only location"),
-			 G_("read-only location used as %<asm%> output")));
+    error (READONLY_MSG (G_("assignment of read-only location %qE"),
+			 G_("increment of read-only location %qE"),
+			 G_("decrement of read-only location %qE"),
+			 G_("read-only location %qE used as %<asm%> output")),
+	   arg);
 }
 
 
@@ -3556,12 +3560,12 @@ build_c_cast (tree type, tree expr)
 		 && TREE_CODE (in_otype) == POINTER_TYPE);
 
 	  if (added)
-	    warning (0, "cast adds new qualifiers to function type");
+	    warning (OPT_Wcast_qual, "cast adds new qualifiers to function type");
 
 	  if (discarded)
 	    /* There are qualifiers present in IN_OTYPE that are not
 	       present in IN_TYPE.  */
-	    warning (0, "cast discards qualifiers from pointer target type");
+	    warning (OPT_Wcast_qual, "cast discards qualifiers from pointer target type");
 	}
 
       /* Warn about possible alignment problems.  */
@@ -7888,7 +7892,11 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case BIT_XOR_EXPR:
       if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	shorten = -1;
-      else if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE)
+      /* Allow vector types which are not floating point types.   */
+      else if (code0 == VECTOR_TYPE
+	       && code1 == VECTOR_TYPE
+	       && !VECTOR_FLOAT_TYPE_P (type0)
+	       && !VECTOR_FLOAT_TYPE_P (type1))
 	common = 1;
       break;
 
@@ -8225,8 +8233,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		       < TYPE_PRECISION (result_type))
 		   && (type
 		       = c_common_signed_or_unsigned_type (unsigned1,
-							   TREE_TYPE (arg1)),
-		       int_fits_type_p (arg0, type)))
+							   TREE_TYPE (arg1)))
+		   && !POINTER_TYPE_P (type)
+		   && int_fits_type_p (arg0, type))
 	    result_type = type;
 	  else if (TREE_CODE (arg1) == INTEGER_CST
 		   && (unsigned0 || !uns)
@@ -8234,8 +8243,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		       < TYPE_PRECISION (result_type))
 		   && (type
 		       = c_common_signed_or_unsigned_type (unsigned0,
-							   TREE_TYPE (arg0)),
-		       int_fits_type_p (arg1, type)))
+							   TREE_TYPE (arg0)))
+		   && !POINTER_TYPE_P (type)
+		   && int_fits_type_p (arg1, type))
 	    result_type = type;
 	}
 

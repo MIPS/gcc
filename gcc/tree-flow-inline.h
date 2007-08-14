@@ -327,24 +327,6 @@ get_lineno (tree expr)
   return EXPR_LINENO (expr);
 }
 
-/* Return the file name for EXPR, or return "???" if we have no
-   filename information.  */
-static inline const char *
-get_filename (tree expr)
-{
-  const char *filename;
-  if (expr == NULL_TREE)
-    return "???";
-
-  if (TREE_CODE (expr) == COMPOUND_EXPR)
-    expr = TREE_OPERAND (expr, 0);
-
-  if (EXPR_HAS_LOCATION (expr) && (filename = EXPR_FILENAME (expr)))
-    return filename;
-  else
-    return "???";
-}
-
 /* Return true if T is a noreturn call.  */
 static inline bool
 noreturn_call_p (tree t)
@@ -699,31 +681,6 @@ set_is_used (tree var)
   ann->used = 1;
 }
 
-/* Return true if T is an executable statement.  */
-static inline bool
-is_exec_stmt (const_tree t)
-{
-  return (t && !IS_EMPTY_STMT (t) && t != error_mark_node);
-}
-
-
-/* Return true if this stmt can be the target of a control transfer stmt such
-   as a goto.  */
-static inline bool
-is_label_stmt (const_tree t)
-{
-  if (t)
-    switch (TREE_CODE (t))
-      {
-	case LABEL_DECL:
-	case LABEL_EXPR:
-	case CASE_LABEL_EXPR:
-	  return true;
-	default:
-	  return false;
-      }
-  return false;
-}
 
 /* Return true if T (assumed to be a DECL) is a global variable.  */
 

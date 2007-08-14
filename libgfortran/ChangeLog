@@ -1,3 +1,60 @@
+2007-08-13  Danny Smith  <dannysmit@users.sourceforge.net>
+
+	* acinclude.m4 (GTHREAD_USE_WEAK) Define to 0 for mingw32.
+	* configure: Regenerate.
+
+2007-08-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30964
+	PR fortran/33054
+	* intrinsics/random.c (random_seed): Rename into random_seed_i4.
+	(random_seed_i8): New function.
+	* gfortran.map (GFORTRAN_1.0): Remove _gfortran_random_seed,
+	add _gfortran_random_seed_i4 and _gfortran_random_seed_i8.
+	* libgfortran.h (iexport_proto): Replace random_seed by
+	random_seed_i4 and random_seed_i8.
+	* runtime/main.c (init): Call the new random_seed_i4.
+
+2007-08-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+	    Tobias Burnus  <burnus@gcc.gnu.org>
+
+	PR fortran/31189
+	* runtime/backtrace.c (show_backtrace): Skip _gfortrani_handler
+	when displaying backtrace.
+	* runtime/compile_options.c: Include <signal.h>.
+	(handler): New function.
+	(set_options): Set signal handlers for backtrace.
+	* libgfortran.h (handler): Add prototype.
+
+2007-08-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* intrinsics/string_intrinsics.c (compare_string): Return an int.
+	* libgfortran.h (compare_string): Likewise.
+
+2007-08-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31270
+	* runtime/error.c (runtime_error_at): Add a variable number of
+	arguments.
+	* libgfortran.h (runtime_error_at): Update prototype.
+
+2007-08-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32933
+	* intrinsics/associated.c: Change return type of associated into
+	a C int.
+
+2007-08-10  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/33039
+	* io/list_read.c (find_nml_name): Check for a space after a namelist
+	name match.
+
+2007-08-09  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32987
+	* io/format.c (next_char): Treat '\t' as ' ' in format specification.
+
 2007-08-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR fortran/30947

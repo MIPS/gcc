@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                         GNAT COMPILER COMPONENTS                         --
+--                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
---    G N A T . S O C K E T S . T H I N . T A S K _ S A F E _ N E T D B     --
+--                           A D A . A S S E R T                            --
 --                                                                          --
---                                 S p e c                                  --
+--                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2007, AdaCore                          --
+--            Copyright (C) 2007, Free Software Foundation, Inc.            --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,42 +31,24 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This version is used on VxWorks
+package body Ada.Assertions is
 
-package GNAT.Sockets.Thin.Task_Safe_NetDB is
+   ------------
+   -- Assert --
+   ------------
 
-   ----------------------------------------
-   -- Reentrant network databases access --
-   ----------------------------------------
+   procedure Assert (Check : Boolean) is
+   begin
+      if Check = False then
+         raise Ada.Assertions.Assertion_Error;
+      end if;
+   end Assert;
 
-   function Safe_Gethostbyname
-     (Name     : C.char_array;
-      Ret      : not null access Hostent;
-      Buf      : System.Address;
-      Buflen   : C.int;
-      H_Errnop : not null access C.int) return C.int;
+   procedure Assert (Check : Boolean; Message : String) is
+   begin
+      if Check = False then
+         raise Ada.Assertions.Assertion_Error with Message;
+      end if;
+   end Assert;
 
-   function Safe_Gethostbyaddr
-     (Addr      : System.Address;
-      Addr_Len  : C.int;
-      Addr_Type : C.int;
-      Ret       : not null access Hostent;
-      Buf       : System.Address;
-      Buflen    : C.int;
-      H_Errnop  : not null access C.int) return C.int;
-
-   function Safe_Getservbyname
-     (Name     : C.char_array;
-      Proto    : C.char_array;
-      Ret      : not null access Servent;
-      Buf      : System.Address;
-      Buflen   : C.int) return C.int;
-
-   function Safe_Getservbyport
-     (Port     : C.int;
-      Proto    : C.char_array;
-      Ret      : not null access Servent;
-      Buf      : System.Address;
-      Buflen   : C.int) return C.int;
-
-end GNAT.Sockets.Thin.Task_Safe_NetDB;
+end Ada.Assertions;

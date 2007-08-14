@@ -373,6 +373,9 @@ options_t;
 extern options_t options;
 internal_proto(options);
 
+extern void handler (int);
+internal_proto(handler);
+
 
 /* Compile-time options that will influence the library.  */
 
@@ -599,8 +602,8 @@ extern void runtime_error (const char *, ...)
      __attribute__ ((noreturn, format (printf, 1, 2)));
 iexport_proto(runtime_error);
 
-extern void runtime_error_at (const char *, const char *)
-__attribute__ ((noreturn));
+extern void runtime_error_at (const char *, const char *, ...)
+     __attribute__ ((noreturn, format (printf, 2, 3)));
 iexport_proto(runtime_error_at);
 
 extern void internal_error (st_parameter_common *, const char *)
@@ -759,15 +762,18 @@ internal_proto(internal_unpack_c16);
 
 /* string_intrinsics.c */
 
-extern GFC_INTEGER_4 compare_string (GFC_INTEGER_4, const char *,
-				     GFC_INTEGER_4, const char *);
+extern int compare_string (GFC_INTEGER_4, const char *,
+			   GFC_INTEGER_4, const char *);
 iexport_proto(compare_string);
 
 /* random.c */
 
-extern void random_seed (GFC_INTEGER_4 * size, gfc_array_i4 * put,
-			 gfc_array_i4 * get);
-iexport_proto(random_seed);
+extern void random_seed_i4 (GFC_INTEGER_4 * size, gfc_array_i4 * put,
+			    gfc_array_i4 * get);
+iexport_proto(random_seed_i4);
+extern void random_seed_i8 (GFC_INTEGER_8 * size, gfc_array_i8 * put,
+			    gfc_array_i8 * get);
+iexport_proto(random_seed_i8);
 
 /* size.c */
 

@@ -114,6 +114,13 @@ struct mips_cpu_info {
   int isa;
 };
 
+/* Enumerates the setting of the -mcode-readable option.  */
+enum mips_code_readable_setting {
+  CODE_READABLE_NO,
+  CODE_READABLE_PCREL,
+  CODE_READABLE_YES
+};
+
 #ifndef USED_FOR_TARGET
 extern char mips_print_operand_punct[256]; /* print_operand punctuation chars */
 extern const char *current_function_file; /* filename current function is in */
@@ -133,11 +140,11 @@ extern enum processor_type mips_arch;   /* which cpu to codegen for */
 extern enum processor_type mips_tune;   /* which cpu to schedule for */
 extern int mips_isa;			/* architectural level */
 extern int mips_abi;			/* which ABI to use */
-extern int mips16_hard_float;		/* mips16 without -msoft-float */
 extern const struct mips_cpu_info mips_cpu_info_table[];
 extern const struct mips_cpu_info *mips_arch_info;
 extern const struct mips_cpu_info *mips_tune_info;
 extern const struct mips_rtx_cost_data *mips_cost;
+extern enum mips_code_readable_setting mips_code_readable;
 #endif
 
 /* Macros to silence warnings about numbers being signed in traditional
@@ -213,6 +220,16 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define GENERATE_MIPS16E	(TARGET_MIPS16 && mips_isa >= 32)
 /* Generate mips16e register save/restore sequences.  */
 #define GENERATE_MIPS16E_SAVE_RESTORE (GENERATE_MIPS16E && mips_abi == ABI_32)
+
+/* True if we're generating a form of MIPS16 code in which general
+   text loads are allowed.  */
+#define TARGET_MIPS16_TEXT_LOADS \
+  (TARGET_MIPS16 && mips_code_readable == CODE_READABLE_YES)
+
+/* True if we're generating a form of MIPS16 code in which PC-relative
+   loads are allowed.  */
+#define TARGET_MIPS16_PCREL_LOADS \
+  (TARGET_MIPS16 && mips_code_readable >= CODE_READABLE_PCREL)
 
 /* Generic ISA defines.  */
 #define ISA_MIPS1		    (mips_isa == 1)
@@ -298,11 +315,13 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define TARGET_OLDABI		    (mips_abi == ABI_32 || mips_abi == ABI_O64)
 #define TARGET_NEWABI		    (mips_abi == ABI_N32 || mips_abi == ABI_64)
 
-/* Similar to TARGET_HARD_FLOAT and TARGET_SOFT_FLOAT, but reflect the ABI
-   in use rather than whether the FPU is directly accessible.  */
-#define TARGET_HARD_FLOAT_ABI (TARGET_HARD_FLOAT || mips16_hard_float)
-#define TARGET_SOFT_FLOAT_ABI (!TARGET_HARD_FLOAT_ABI)
-
+/* TARGET_HARD_FLOAT and TARGET_SOFT_FLOAT reflect whether the FPU is
+   directly accessible, while the command-line options select
+   TARGET_HARD_FLOAT_ABI and TARGET_SOFT_FLOAT_ABI to reflect the ABI
+   in use.  */
+#define TARGET_HARD_FLOAT (TARGET_HARD_FLOAT_ABI && !TARGET_MIPS16)
+#define TARGET_SOFT_FLOAT (TARGET_SOFT_FLOAT_ABI || TARGET_MIPS16)
+  
 /* IRIX specific stuff.  */
 #define TARGET_IRIX	   0
 #define TARGET_IRIX6	   0
@@ -338,9 +357,14 @@ extern const struct mips_rtx_cost_data *mips_cost;
       builtin_define ("__mips__");     					\
       builtin_define ("_mips");						\
 									\
-      /* We do this here because __mips is defined below		\
-	 and so we can't use builtin_define_std.  */			\
-      if (!flag_iso)							\
+      /* We do this here because __mips is defined below and so we	\
+	 can't use builtin_define_std.  We don't ever want to define	\
+	 "mips" for VxWorks because some of the VxWorks headers		\
+	 construct include filenames from a root directory macro,	\
+	 an architecture macro and a filename, where the architecture	\
+	 macro expands to 'mips'.  If we define 'mips' to 1, the	\
+	 architecture macro expands to 1 as well.  */			\
+      if (!flag_iso && !TARGET_VXWORKS)					\
 	builtin_define ("mips");					\
 									\
       if (TARGET_64BIT)							\
@@ -1277,7 +1301,7 @@ extern const struct mips_rtx_cost_data *mips_cost;
 /* The [d]clz instructions have the natural values at 0.  */
 
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
-  ((VALUE) = GET_MODE_BITSIZE (MODE), true)
+  ((VALUE) = GET_MODE_BITSIZE (MODE), 2)
 
 /* Standard register usage.  */
 
@@ -2171,8 +2195,8 @@ typedef struct mips_args {
 									    \
   func_addr = plus_constant (ADDR, 32);					    \
   chain_addr = plus_constant (func_addr, GET_MODE_SIZE (ptr_mode));	    \
-  emit_move_insn (gen_rtx_MEM (ptr_mode, func_addr), FUNC);		    \
-  emit_move_insn (gen_rtx_MEM (ptr_mode, chain_addr), CHAIN);		    \
+  mips_emit_move (gen_rtx_MEM (ptr_mode, func_addr), FUNC);		    \
+  mips_emit_move (gen_rtx_MEM (ptr_mode, chain_addr), CHAIN);		    \
   end_addr = gen_reg_rtx (Pmode);					    \
   emit_insn (gen_add3_insn (end_addr, copy_rtx (ADDR),			    \
                             GEN_INT (TRAMPOLINE_SIZE)));		    \
@@ -2270,17 +2294,18 @@ typedef struct mips_args {
 #define SYMBOL_REF_LONG_CALL_P(X)					\
   ((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_LONG_CALL) != 0)
 
-/* Specify the machine mode that this machine uses
-   for the index in the tablejump instruction.
-   ??? Using HImode in mips16 mode can cause overflow.  */
-#define CASE_VECTOR_MODE \
-  (TARGET_MIPS16 ? HImode : ptr_mode)
+/* True if we're generating a form of MIPS16 code in which jump tables
+   are stored in the text section and encoded as 16-bit PC-relative
+   offsets.  This is only possible when general text loads are allowed,
+   since the table access itself will be an "lh" instruction.  */
+/* ??? 16-bit offsets can overflow in large functions.  */
+#define TARGET_MIPS16_SHORT_JUMP_TABLES TARGET_MIPS16_TEXT_LOADS
 
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-#define CASE_VECTOR_PC_RELATIVE (TARGET_MIPS16)
+#define JUMP_TABLES_IN_TEXT_SECTION TARGET_MIPS16_SHORT_JUMP_TABLES
+
+#define CASE_VECTOR_MODE (TARGET_MIPS16_SHORT_JUMP_TABLES ? HImode : ptr_mode)
+
+#define CASE_VECTOR_PC_RELATIVE TARGET_MIPS16_SHORT_JUMP_TABLES
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #ifndef DEFAULT_SIGNED_CHAR
@@ -2650,7 +2675,7 @@ while (0)
 
 #define ASM_OUTPUT_ADDR_DIFF_ELT(STREAM, BODY, VALUE, REL)		\
 do {									\
-  if (TARGET_MIPS16)							\
+  if (TARGET_MIPS16_SHORT_JUMP_TABLES)					\
     fprintf (STREAM, "\t.half\t%sL%d-%sL%d\n",				\
 	     LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
   else if (TARGET_GPWORD)						\
@@ -2672,10 +2697,6 @@ do {									\
 	     ptr_mode == DImode ? ".dword" : ".word",			\
 	     LOCAL_LABEL_PREFIX, VALUE);				\
 } while (0)
-
-/* When generating MIPS16 code, we want the jump table to be in the text
-   section so that we can load its address using a PC-relative addition.  */
-#define JUMP_TABLES_IN_TEXT_SECTION TARGET_MIPS16
 
 /* This is how to output an assembler line
    that says to advance the location counter
