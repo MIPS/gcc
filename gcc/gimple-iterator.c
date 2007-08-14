@@ -202,3 +202,61 @@ gsi_delink (gimple_stmt_iterator *i)
 
   i->stmt = next;
 }
+
+
+/* Move all statements in the sequence after I to a new sequence.  I
+   itself is unchanged.  */
+
+gimple_seq
+gsi_split_seq_after (const gimple_stmt_iterator *i)
+{
+  gimple cur, next;
+  gimple_seq old_seq, new_seq;
+
+  cur = i->stmt;
+  /* How can we possibly split after the end, or before the beginning?  */
+  gcc_assert (cur);
+  next = gimple_next (cur);
+
+  old_seq = i->seq;
+  new_seq = (gimple_seq) ggc_alloc_cleared (sizeof (*new_seq));
+
+  gimple_seq_set_first (new_seq, next);
+  gimple_seq_set_last (new_seq, gimple_seq_last (old_seq));
+  gimple_seq_set_last (old_seq, cur);
+  set_gimple_next (cur, NULL);
+  set_gimple_prev (next, NULL);
+
+  return new_seq;
+}
+
+
+/* Move all statements in the sequence before I to a new sequence.  I
+   is set to the head of the new list.  */
+
+gimple_seq
+gsi_split_seq_before (gimple_stmt_iterator *i)
+{
+  gimple cur, prev;
+  gimple_seq old_seq, new_seq;
+
+  cur = i->stmt;
+  /* How can we possibly split after the end, or before the beginning?  */
+  gcc_assert (cur);
+  prev = gimple_prev (cur);
+
+  old_seq = i->seq;
+  new_seq = (gimple_seq) ggc_alloc_cleared (sizeof (*new_seq));
+  i->seq = new_seq;
+
+  gimple_seq_set_first (new_seq, cur);
+  gimple_seq_set_last (new_seq, gimple_seq_last (old_seq));
+  gimple_seq_set_last (old_seq, prev);
+  set_gimple_prev (cur, NULL);
+  if (prev)
+    set_gimple_next (prev, NULL);
+  else
+    gimple_seq_set_first (old_seq, NULL);
+
+  return new_seq;
+}

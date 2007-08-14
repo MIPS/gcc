@@ -1,5 +1,11 @@
 2007-08-14  Aldy Hernandez  <aldyh@redhat.com>
 
+	* gimple-iterator.c (gsi_split_seq_after): New.
+	(gsi_split_seq_before): New.
+	* gimple-iterator.h: Prototype above two functions.
+	
+2007-08-14  Aldy Hernandez  <aldyh@redhat.com>
+
 	* gimple.h (gimple_has_ops): New.
 	(gimple_modified): New.
 	(set_gimple_modified): New.

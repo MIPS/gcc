@@ -130,5 +130,7 @@ void gsi_link_seq_after (gimple_stmt_iterator *, gimple_seq,
 			 enum gsi_iterator_update);
 void gsi_link_after (gimple_stmt_iterator *, gimple, enum gsi_iterator_update);
 void gsi_delink (gimple_stmt_iterator *);
+gimple_seq gsi_split_seq_after (const gimple_stmt_iterator *);
+gimple_seq gsi_split_seq_before (gimple_stmt_iterator *);
 
 #endif /* GCC_SEQ_ITERATOR_H */
