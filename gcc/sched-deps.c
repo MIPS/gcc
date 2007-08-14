@@ -2460,20 +2460,10 @@ free_deps (struct deps *deps)
    to insn's dependencies and common to all schedulers.  */
 VEC (deps_insn_data_def, heap) *d_i_d = NULL;
 
-void
+static void
 deps_extend_d_i_d (void)
 {
   VEC_safe_grow_cleared (deps_insn_data_def, heap, d_i_d, sched_max_luid);
-
-  /* Lifetime of this obstack is whole function scheduling (not single region
-     scheduling) because some dependencies can be manually generated for
-     outside regions.  See dont_calc_deps in sched-{rgn, ebb}.c .
-
-     Possible solution would be to have two obstacks:
-     * the big one for regular dependencies with region scheduling lifetime,
-     * and the small one for manually generated dependencies with function
-     scheduling lifetime.  */
-  gcc_obstack_init (&deps_obstack);
 }
 
 void
@@ -2483,16 +2473,26 @@ deps_finish_d_i_d (void)
 }
 
 /* If it is profitable to use them, initialize or extend (depending on
-   CREATE_P) caches for tracking dependency information.  */
+   GLOBAL_P) dependency data.  */
 void
-sched_deps_local_init (bool create_caches_p)
+sched_deps_init (bool global_p)
 {
   int new_max_uid;
 
+  /* Lifetime of this obstack is whole function scheduling (not single region
+     scheduling) because some dependencies can be manually generated for
+     outside regions.  See dont_calc_deps in sched-{rgn, ebb}.c .
+
+     Possible solution would be to have two obstacks:
+     * the big one for regular dependencies with region scheduling lifetime,
+     * and the small one for manually generated dependencies with function
+     scheduling lifetime.  */
+  if (global_p)
+    gcc_obstack_init (&deps_obstack);
+  
   deps_extend_d_i_d ();
 
   new_max_uid = get_max_uid () + 1;
-
   VEC_safe_grow_cleared (haifa_deps_insn_data_def, heap, h_d_i_d,
 			 new_max_uid);
 
@@ -2507,7 +2507,7 @@ sched_deps_local_init (bool create_caches_p)
          the comment before the declaration of true_dependency_cache for
          what we consider "very high".  */
       if (true_dependency_cache
-          || (create_caches_p && (sched_max_luid / n_basic_blocks > 100 * 5)))
+          || (global_p && (sched_max_luid / n_basic_blocks > 100 * 5)))
         {
           int i;
         
@@ -2547,9 +2547,18 @@ sched_deps_local_init (bool create_caches_p)
   cur_max_luid = sched_max_luid;
 }
 
-/* Free the caches allocated in init_dependency_caches.  */
+/* Finalize dependency information for the region.  */
 void
 sched_deps_local_finish (void)
+{
+  VEC_free (haifa_deps_insn_data_def, heap, h_d_i_d);
+  cur_max_luid = 0;
+  deps_finish_d_i_d ();
+}
+
+/* Finalize dependency information for the whole function.  */
+void
+sched_deps_finish (void)
 {
   obstack_free (&deps_obstack, NULL);
 
@@ -2585,12 +2594,6 @@ sched_deps_local_finish (void)
         }
 
     }
-
-  VEC_free (haifa_deps_insn_data_def, heap, h_d_i_d);
-
-  cur_max_luid = 0;
-
-  deps_finish_d_i_d ();
 }
 
 /* Initialize some global variables needed by the dependency analysis

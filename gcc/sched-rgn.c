@@ -2782,6 +2782,35 @@ sched_is_disabled_for_current_region_p (void)
   return true;
 }
 
+/* Free all region dependencies saved in INSN_BACK_DEPS and 
+   INSN_RESOLVED_BACK_DEPS.  The Haifa scheduler does this on the fly
+   when scheduling, so this function is supposed to be called from 
+   the selective scheduling only.  */
+void
+free_rgn_deps (void)
+{
+  int bb;
+
+  for (bb = 0; bb < current_nr_blocks; bb++)
+    {
+      rtx head, tail, insn;
+      
+      gcc_assert (EBB_FIRST_BB (bb) == EBB_LAST_BB (bb));
+      get_ebb_head_tail (EBB_FIRST_BB (bb), EBB_LAST_BB (bb), &head, &tail);
+
+      for (insn = head; insn != NEXT_INSN (tail); insn = NEXT_INSN (insn))
+        {
+          /* Some notes may have dependencies here, 
+             but not NOTE_INSN_BASIC_BLOCK.  */
+          if (NOTE_INSN_BASIC_BLOCK_P (insn))
+            continue;
+
+          delete_deps_list (INSN_BACK_DEPS (insn));
+          delete_deps_list (INSN_RESOLVED_BACK_DEPS (insn));
+        }
+    }
+}
+
 static int rgn_n_insns;
 
 /* Compute insn priority for a current region.  */
@@ -3269,10 +3298,10 @@ rgn_setup_common_sched_info (void)
   rgn_common_sched_info.add_block = rgn_add_block;
   rgn_common_sched_info.estimate_number_of_insns
     = rgn_estimate_number_of_insns;
-  rgn_common_sched_info.region_head_or_leaf_p = rgn_region_head_or_leaf_p;
   rgn_common_sched_info.use_glat = 1;
 #ifdef ENABLE_CHECKING
   rgn_common_sched_info.detach_life_info = 1;
+  rgn_common_sched_info.region_head_or_leaf_p = rgn_region_head_or_leaf_p;
 #else
   rgn_common_sched_info.detach_life_info = 0;
 #endif

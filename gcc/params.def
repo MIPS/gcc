@@ -594,8 +594,8 @@ DEFPARAM(PARAM_SELSCHED_MAX_LOOKAHEAD,
          32, 0, 0)
 
 DEFPARAM(PARAM_SELSCHED_MAX_SCHED_TIMES,
-         "selsched-max-spec-ready",
-         "The maximum spec for an insn to be considered ready",
+         "selsched-max-sched-times",
+         "Maximum number of times that an insn could be scheduled",
          2, 0, 0)
 
 /* Minimal distance (in CPU cycles) between store and load targeting same

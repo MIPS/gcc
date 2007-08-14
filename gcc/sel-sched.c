@@ -1227,6 +1227,10 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds)
   bool reg_ok = true;
   bool is_orig_reg_p = false;
 
+  /* Don't bother to do anything if this insn doesn't set any registers.  */
+  if (bitmap_empty_p (VINSN_REG_SETS (EXPR_VINSN (rhs))))
+    return true;
+
   used_regs = get_clear_regset_from_pool ();
   CLEAR_HARD_REG_SET (unavailable_hard_regs);
 
@@ -1699,7 +1703,7 @@ moveup_rhs_inside_insn_group (rhs_t insn_to_move_up, insn_t through_insn)
 
 	  if (substitute_reg_in_rhs (insn_to_move_up, through_insn))
             {
-              sel_print_rtl (insn);
+              sel_print_rtl (EXPR_INSN_RTX (insn_to_move_up));
               line_finish ();
           
 	      return MOVEUP_RHS_CHANGED;
@@ -1843,7 +1847,7 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
 	  print ("After: ");
 
 	  if (substitute_reg_in_rhs (insn_to_move_up, through_insn))
-            sel_print_rtl (insn);
+            sel_print_rtl (EXPR_INSN_RTX (insn_to_move_up));
 	  else
 	    {
 	      print ("Can't move up due to architecture constraints.\n");
@@ -2710,7 +2714,6 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
   return res;
 }
 
-
 /* Find the set of registers that are unavailable for storing rhses 
    while moving ORIG_OPS up on the path starting from INSN due to
    liveness (USED_REGS) or hardware restrictions (UNAVAILABLE_HARD_REGS).
@@ -2848,17 +2851,12 @@ sel_rank_for_schedule (const void *x, const void *y)
   return INSN_UID (tmp_insn) - INSN_UID (tmp2_insn);
 }
 
-/* Initialize ready list from the AV for the max_issue () call.
-   If any unrecognizable insn found in the AV, return it (and skip
-   max_issue).  BND and FENCE are current boundary and fence, 
-   respectively.  */
-static rhs_t
-fill_ready_list (av_set_t *av_ptr, bnd_t bnd, fence_t fence)
+/* Filter out expressions that are pipelined too much.  */
+static void
+process_pipelined_exprs (av_set_t *av_ptr)
 {
   rhs_t rhs;
   av_set_iterator si;
-  int n, i, stalled, sched_next_worked = 0;
-  deps_t dc = BND_DC (bnd);
 
   /* Don't pipeline already pipelined code as that would increase
      number of unnecessary register moves.  */  
@@ -2868,190 +2866,220 @@ fill_ready_list (av_set_t *av_ptr, bnd_t bnd, fence_t fence)
 	  >= PARAM_VALUE (PARAM_SELSCHED_MAX_SCHED_TIMES))
 	av_set_iter_remove (&si);
     }
+}
 
-  if (spec_info != NULL)
+/* Filter speculative insns from AV_PTR if we don't want them.  */
+static void
+process_spec_exprs (av_set_t *av_ptr)
+{
+  bool try_data_p = true;
+  bool try_control_p = true;
+  rhs_t rhs;
+  av_set_iterator si;
+
+  if (spec_info == NULL)
+    return;
+
+  /* Scan *AV_PTR to find out if we want to consider speculative
+     instructions for scheduling.  */
+  FOR_EACH_RHS_1 (rhs, si, av_ptr)
     {
-      bool try_data_p = true;
-      bool try_control_p = true;
+      ds_t ds;
 
-      /* Scan *AV_PTR to find out if we want to consider speculative
-	 instructions for scheduling.  */
-      FOR_EACH_RHS (rhs, si, *av_ptr)
-	{
-	  ds_t ds;
+      ds = EXPR_SPEC_DONE_DS (rhs);
 
-	  ds = EXPR_SPEC_DONE_DS (rhs);
+      /* The probability of a success is too low - don't speculate.  */
+      if ((ds & SPECULATIVE)
+          && ds_weak (ds) < spec_info->weakness_cutoff)
+        {
+          av_set_iter_remove (&si);
+          continue;
+        }
 
-	  if ((spec_info->flags & PREFER_NON_DATA_SPEC)
-	      && !(ds & BEGIN_DATA))
-	    try_data_p = false;
+      if ((spec_info->flags & PREFER_NON_DATA_SPEC)
+          && !(ds & BEGIN_DATA))
+        try_data_p = false;
 
-	  if ((spec_info->flags & PREFER_NON_CONTROL_SPEC)
-	      && !(ds & BEGIN_CONTROL))
-	    try_control_p = false;
-	}
-
-      FOR_EACH_RHS_1 (rhs, si, av_ptr)
-	{
-	  ds_t ds;
-
-	  ds = EXPR_SPEC_DONE_DS (rhs);
-
-	  if (ds & SPECULATIVE)
-	    {
-	      if ((ds & BEGIN_DATA) && !try_data_p)
-		/* We don't want any data speculative instructions right
-		   now.  */
-		av_set_iter_remove (&si);
-
-	      if ((ds & BEGIN_CONTROL) && !try_control_p)
-		/* We don't want any control speculative instructions right
-		   now.  */
-		av_set_iter_remove (&si);
-	    }
-	}
+      if ((spec_info->flags & PREFER_NON_CONTROL_SPEC)
+          && !(ds & BEGIN_CONTROL))
+        try_control_p = false;
     }
 
-  /* Process USEs in *AV_PTR.  */
-  {
-    bool uses_present_p = false;
-    bool try_uses_p = true;
-
-    FOR_EACH_RHS (rhs, si, *av_ptr)
-      {
-	if (/* This will also initialize INSN_CODE for max_issue ().  */
-	    recog_memoized (EXPR_INSN_RTX (rhs)) < 0)
-	  {
-	    /* If we have a USE in *AV_PTR that was not scheduled yet,
-	       do so because it will do good only.  */
-	    if (EXPR_SCHED_TIMES (rhs) <= 0)
-	      return rhs;
-	    else
-	      {
-		gcc_assert (pipelining_p);
-
-		uses_present_p = true;
-	      }
-	  }
-	else
-	  try_uses_p = false;
-      }
-
-    if (uses_present_p)
-      {
-	if (!try_uses_p)
-	  /* If we don't want to schedule any USEs right now and we have some
-	     in *AV_PTR, remove them.  */
-	  {
-	    FOR_EACH_RHS_1 (rhs, si, av_ptr)
-	      {
-		if (INSN_CODE (EXPR_INSN_RTX (rhs)) < 0)
-		  av_set_iter_remove (&si);
-	      }
-	  }
-	else
-	  /* If we do want to schedule a USE, return the first one.  */
-	  {
-	    FOR_EACH_RHS (rhs, si, *av_ptr)
-	      {
-		gcc_assert (INSN_CODE (EXPR_INSN_RTX (rhs)) < 0);
-
-		return rhs;
-	      }
-	  }
-      }
-  }
-
-  /* Allocate the vector for sorting the av set.  */
-  if (!vec_av_set)
-    vec_av_set = VEC_alloc (rhs_t, heap, 5);
-  else
-    gcc_assert (VEC_empty (rhs_t, vec_av_set));
-
-  FOR_EACH_RHS (rhs, si, *av_ptr)
+  FOR_EACH_RHS_1 (rhs, si, av_ptr)
     {
-      VEC_safe_push (rhs_t, heap, vec_av_set, rhs);
+      ds_t ds;
+
+      ds = EXPR_SPEC_DONE_DS (rhs);
+
+      if (ds & SPECULATIVE)
+        {
+          if ((ds & BEGIN_DATA) && !try_data_p)
+            /* We don't want any data speculative instructions right
+               now.  */
+            av_set_iter_remove (&si);
+
+          if ((ds & BEGIN_CONTROL) && !try_control_p)
+            /* We don't want any control speculative instructions right
+               now.  */
+            av_set_iter_remove (&si);
+        }
     }
+}
+
+/* Search for any use-like insns in AV_PTR and decide on scheduling 
+   them.  Return one when found, and NULL otherwise.  
+   Note that we check here whether a USE could be scheduled to avoid
+   an infinite loop later.  */
+static rhs_t
+process_use_exprs (av_set_t *av_ptr, blist_t bnds)
+{
+  rhs_t rhs;
+  av_set_iterator si;
+  bool uses_present_p = false;
+  bool try_uses_p = true;
+
+  FOR_EACH_RHS_1 (rhs, si, av_ptr)
+    {
+      /* This will also initialize INSN_CODE for later use.  */
+      if (recog_memoized (EXPR_INSN_RTX (rhs)) < 0)
+        {
+          /* If we have a USE in *AV_PTR that was not scheduled yet,
+             do so because it will do good only.  */
+          if (EXPR_SCHED_TIMES (rhs) <= 0)
+            {
+              if (find_best_reg_for_rhs (rhs, bnds))
+                return rhs;
+
+              av_set_iter_remove (&si);
+            }
+          else
+            {
+              gcc_assert (pipelining_p);
+
+              uses_present_p = true;
+            }
+        }
+      else
+        try_uses_p = false;
+    }
+
+  if (uses_present_p)
+    {
+      /* If we don't want to schedule any USEs right now and we have some
+           in *AV_PTR, remove them, else just return the first one found.  */
+      if (!try_uses_p)
+        {
+          FOR_EACH_RHS_1 (rhs, si, av_ptr)
+            if (INSN_CODE (EXPR_INSN_RTX (rhs)) < 0)
+              av_set_iter_remove (&si);
+        }
+      else
+        {
+          FOR_EACH_RHS_1 (rhs, si, av_ptr)
+            {
+              gcc_assert (INSN_CODE (EXPR_INSN_RTX (rhs)) < 0);
+
+              if (find_best_reg_for_rhs (rhs, bnds))
+                return rhs;
+
+              av_set_iter_remove (&si);
+            }
+        }
+    }
+
+  return NULL;
+}
+
+/* Turn AV into a vector, filter inappropriate insns and sort it.  Return 
+   true if there is something to schedule.  */
+static bool
+fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
+{
+  av_set_iterator si;
+  rhs_t rhs;
+  int sched_next_worked = 0, stalled, n;
+  deps_t dc = BND_DC (BLIST_BND (bnds));
 
   /* Bail out early when the ready list contained only USEs/CLOBBERs that are
      already scheduled.  */
-  if (VEC_length (rhs_t, vec_av_set) == 0)
+  if (av == NULL)
+    return false;
+
+  /* Empty vector from the previous stuff.  */
+  if (VEC_length (rhs_t, vec_av_set) > 0)
+    VEC_block_remove (rhs_t, vec_av_set, 0, VEC_length (rhs_t, vec_av_set));
+
+  /* Turn the set into a vector for sorting.  */
+  gcc_assert (VEC_empty (rhs_t, vec_av_set));
+  FOR_EACH_RHS (rhs, si, av)
+    VEC_safe_push (rhs_t, heap, vec_av_set, rhs);
+
+  /* Filter out inappropriate expressions.  */
+  for (n = 0, stalled = 0; VEC_iterate (rhs_t, vec_av_set, n, rhs); )
     {
-      ready.n_ready = 0;
-      return NULL;
-    }
-
-  /* Sort the vector.  */
-  qsort (VEC_address (rhs_t, vec_av_set), VEC_length (rhs_t, vec_av_set),
-         sizeof (rhs_t), sel_rank_for_schedule);
-
-  /* Allocate and fill the ready list from the sorted vector.  */
-  ready.n_ready = VEC_length (rhs_t, vec_av_set);
-  if (ready.n_ready > ready.veclen)
-    {
-      ready.veclen = ready.n_ready;
-      ready.vec = xrealloc (ready.vec, ready.veclen * sizeof (*ready.vec));
-    }
-
-  if (ready.veclen > max_issue_size)
-    {
-      max_issue_size = ready.veclen;
-      sched_extend_ready_list (ready.veclen);
-    }
-
-  line_start ();
-  print ("Sorted av set: ");
-
-  for (i = 0, n = 0, stalled = 0; VEC_iterate (rhs_t, vec_av_set, i, rhs); i++)
-    {
-      vinsn_t vi = EXPR_VINSN (rhs);
-      insn_t insn = VINSN_INSN_RTX (vi);
-
-      dump_rhs (rhs);
+      insn_t insn = EXPR_INSN_RTX (rhs);
 
       /* Don't allow any insns other than from SCHED_GROUP if we have one.  */
       if (FENCE_SCHED_NEXT (fence) && insn != FENCE_SCHED_NEXT (fence))
+        {
+          VEC_unordered_remove (rhs_t, vec_av_set, n);
           continue;
+        }
 
       /* Set number of sched_next insns (just in case there 
          could be several).  */
       if (FENCE_SCHED_NEXT (fence))
         sched_next_worked++;
 
+      /* Check all liveness requirements and try renaming.  
+         FIXME: try to minimize calls to this.  */
+      if (! find_best_reg_for_rhs (rhs, bnds))
+        {
+          VEC_unordered_remove (rhs_t, vec_av_set, n);
+          continue;
+        }
+
       /* Don't allow any insns whose data is not yet ready.  */
-      if (!tick_check_p (rhs, dc, fence))
+      if (! tick_check_p (rhs, dc, fence))
 	{
           /* We need to know whether we do need to stall for any insns.  */
           stalled++;
+          VEC_unordered_remove (rhs_t, vec_av_set, n);
 	  continue;
 	}
 
-      ready_try[n] = 0;
-      ready.vec[n] = insn;
       n++;
-
-      GET_VINSN_BY_INSN (insn) = RHS_VINSN (rhs);
     }
 
-  line_finish ();
-
-  ready.n_ready = n;
-  ready.first = n - 1;
-
-  print ("\nreally_ready: %d stalled: %d \n", n, stalled);
-  if (!n)
+  if (VEC_empty (rhs_t, vec_av_set))
     {
+      /* It seems possible that when no insns are ready, this could be
+         due to liveness restrictions.  However, we should always be able
+         to schedule the next instruction.  So when the list is empty, then
+         all insns must require a stall to be scheduled.  */
       if (!enable_moveup_set_path_p)
-        /* It seems possible that when no insns are ready, this could be
-           due to liveness restrictions.  However, we should always be able
-           to schedule the next instruction.  So when the list is empty, then
-           all insns must require a stall to be scheduled.  */
         gcc_assert (stalled);
 
       /* We need to set need_stall to 1 here, because later we skip this code
          when ready list is empty.  */
       need_stall = stalled;
+      
+      return false;
     }
+
+  /* Sort the vector.  */
+  qsort (VEC_address (rhs_t, vec_av_set), VEC_length (rhs_t, vec_av_set),
+         sizeof (rhs_t), sel_rank_for_schedule);
+
+  line_start ();
+  print ("Sorted av set (%d): ", VEC_length (rhs_t, vec_av_set));
+
+  for (n = 0; VEC_iterate (rhs_t, vec_av_set, n, rhs); n++)
+    dump_rhs (rhs);
+  line_finish ();
+
+  print ("\nreally_ready: %d stalled: %d \n", 
+         VEC_length (rhs_t, vec_av_set), stalled);
 
   /* Clear SCHED_NEXT.  */
   if (FENCE_SCHED_NEXT (fence))
@@ -3060,8 +3088,70 @@ fill_ready_list (av_set_t *av_ptr, bnd_t bnd, fence_t fence)
       FENCE_SCHED_NEXT (fence) = NULL_RTX;
     }
 
-  /* Clear the vector for future use.  */
-  VEC_block_remove (rhs_t, vec_av_set, 0, VEC_length (rhs_t, vec_av_set));
+  return true;
+}
+
+/* Convert a vectored and sorted av set to the ready list that
+   the rest of the backend wants to see.  */
+static void
+convert_vec_av_set_to_ready (void)
+{
+  int n;
+  rhs_t rhs;
+
+  /* Allocate and fill the ready list from the sorted vector.  */
+  ready.n_ready = VEC_length (rhs_t, vec_av_set);
+  ready.first = ready.n_ready - 1;
+  
+  gcc_assert (ready.n_ready > 0);
+
+  if (ready.n_ready > max_issue_size)
+    {
+      max_issue_size = ready.n_ready;
+      sched_extend_ready_list (ready.n_ready);
+    }
+  
+  for (n = 0; VEC_iterate (rhs_t, vec_av_set, n, rhs); n++)
+    {
+      vinsn_t vi = EXPR_VINSN (rhs);
+      insn_t insn = VINSN_INSN_RTX (vi);
+
+      ready_try[n] = 0;
+      ready.vec[n] = insn;
+    }
+}
+
+/* Initialize ready list from the AV for the max_issue () call.
+   If any unrecognizable insn found in the AV, return it (and skip
+   max_issue).  BND and FENCE are current boundary and fence, 
+   respectively.  */
+static rhs_t
+fill_ready_list (av_set_t *av_ptr, blist_t bnds, fence_t fence)
+{
+  rhs_t rhs;
+
+  /* We do not support multiple boundaries per fence.  */
+  gcc_assert (BLIST_NEXT (bnds) == NULL);
+
+  /* Process expressions required special handling, i.e.  pipelined, 
+     speculative and recog() < 0 expressions first.  */
+  process_pipelined_exprs (av_ptr);
+  process_spec_exprs (av_ptr);
+
+  /* A USE could be scheduled immediately.  */
+  rhs = process_use_exprs (av_ptr, bnds);
+  if (rhs)
+    return rhs;
+
+  /* Turn the av set to a vector for sorting.  */
+  if (! fill_vec_av_set (*av_ptr, bnds, fence))
+    {
+      ready.n_ready = 0;
+      return NULL;
+    }
+  
+  /* Build the final ready list.  */
+  convert_vec_av_set_to_ready ();
 
   return NULL;
 }
@@ -3094,256 +3184,300 @@ sel_dfa_new_cycle (insn_t insn, fence_t fence)
   return res;
 }
 
-/* Choose the best rhs (BEST_RHS_VLIW) from *AV_VLIW_PTR and a suitable
-   register for it (BEST_REGNOP).  BNDS and FENCE are current boundaries
-   and scheduling fence respectively.  */ 
-static void
-find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
-				 fence_t fence, rhs_t *best_rhs_vliw)
+/* Invoke reorder* target hooks on the ready list.  Return the number of insns
+   we can issue.  */
+static int
+invoke_reorder_hooks (fence_t fence)
 {
-  rhs_t res = NULL;
-  insn_t best = NULL_RTX;
-  rhs_t r;
-  av_set_iterator av_it;
+  int issue_more;
+  bool ran_hook = false;
 
-  /* First we need to choose destination registers for each rhs.  
-     Multiple rhses can be given the same register, because the choice 
-     is local and there's only one register from av_vliw that will be
-     scheduled on this cycle.  */
-  FOR_EACH_RHS_1 (r, av_it, av_vliw_ptr)
+  /* Call the reorder hook at the beginning of the cycle, and call
+     the reorder2 hook in the middle of the cycle.  */
+  if (FENCE_ISSUED_INSNS (fence) == 0)
     {
-      {
-	ds_t ds = EXPR_SPEC_DONE_DS (r);
+      if (targetm.sched.reorder
+          && !SCHED_GROUP_P (ready_element (&ready, 0))
+          && ready.n_ready > 1)
+        {
+          /* Don't give reorder the most prioritized insn as it can break
+             pipelining.  */
+          if (pipelining_p)
+            --ready.n_ready;
 
-	if ((ds & SPECULATIVE)
-	    && ds_weak (ds) < spec_info->weakness_cutoff)
-	  /* The probability of a success is too low - don't speculate.  */
-	  {
-	    av_set_iter_remove (&av_it);
-	    continue;
-	  }
-      }
+          issue_more
+            = targetm.sched.reorder (sched_dump, sched_verbose,
+                                     ready_lastpos (&ready),
+                                     &ready.n_ready, FENCE_CYCLE (fence));
 
-      if (!find_best_reg_for_rhs (r, bnds))
-	/* If can't choose a register for the rhs (liveness or 
-	   architectural restrictions for for the insn don't allow that),
-	   expr should be removed from AV_VLIW.  */
-	{
-	  av_set_iter_remove (&av_it);
-	  continue;
-	}
+          if (pipelining_p)
+            ++ready.n_ready;
+
+          ran_hook = true;
+        }
+      else
+        /* Initialize can_issue_more for variable_issue.  */
+        issue_more = issue_rate;
+    }
+  else if (targetm.sched.reorder2
+           && !SCHED_GROUP_P (ready_element (&ready, 0)))
+    {
+      if (ready.n_ready == 1)
+        issue_more = 
+          targetm.sched.reorder2 (sched_dump, sched_verbose,
+                                  ready_lastpos (&ready),
+                                  &ready.n_ready, FENCE_CYCLE (fence));
+      else
+        {
+          if (pipelining_p)
+            --ready.n_ready;
+
+          issue_more =
+            targetm.sched.reorder2 (sched_dump, sched_verbose,
+                                    ready.n_ready
+                                    ? ready_lastpos (&ready) : NULL,
+                                    &ready.n_ready, FENCE_CYCLE (fence));
+
+          if (pipelining_p)
+            ++ready.n_ready;
+        }
+
+      ran_hook = true;
+    }
+  else 
+    issue_more = issue_rate;
+
+  /* Ensure that ready list and vec_av_set are in line with each other,
+     i.e. vec_av_set[i] == ready_element (&ready, i).  */
+  if (issue_more && ran_hook)
+    {
+      int i, j, n;
+      rtx *arr = ready.vec;
+      rhs_t *vec = VEC_address (rhs_t, vec_av_set);
+
+      for (i = 0, n = ready.n_ready; i < n; i++)
+        if (EXPR_INSN_RTX (vec[i]) != arr[i])
+          {
+            rhs_t tmp;
+
+            for (j = i; j < n; j++)
+              if (EXPR_INSN_RTX (vec[j]) == arr[i])
+                break;
+            gcc_assert (j < n);
+
+            tmp = vec[i]; 
+            vec[i] = vec[j];
+            vec[j] = tmp;
+          }
     }
 
-  /* We have one boundary per fence.  */
-  gcc_assert (BLIST_NEXT (bnds) == NULL);
+  return issue_more;
+}
 
-  res = fill_ready_list (av_vliw_ptr, BLIST_BND (bnds), fence);
+/* Return an RHS correponding to INDEX element of ready list, if 
+   FOLLOW_READY_ELEMENT is true (i.e., an rhs of 
+   ready_element (&ready, INDEX) will be returned), and to INDEX element of 
+   ready.vec otherwise.  */
+static inline rhs_t
+find_expr_for_ready (int index, bool follow_ready_element)
+{
+  rhs_t rhs;
+  int real_index;
 
-  if (res == NULL && ready.n_ready > 0)
+  real_index = follow_ready_element ? ready.first - index : index;
+
+  rhs = VEC_index (rhs_t, vec_av_set, real_index);
+  gcc_assert (ready.vec[real_index] == EXPR_INSN_RTX (rhs));
+
+  return rhs;
+}
+
+/* Calculate insns worth trying via lookahead_guard hook.  Return a number
+   of such insns found.  */
+static int
+invoke_dfa_lookahead_guard (void)
+{
+  int i, n;
+  bool have_hook 
+    = targetm.sched.first_cycle_multipass_dfa_lookahead_guard != NULL;
+
+  line_start ();
+  print ("ready after reorder: ");
+
+  for (i = 0, n = 0; i < ready.n_ready; i++)
     {
-      /* Choose the best insn for scheduling via:
-         1) sorting the ready list based on priority;
-         2) calling the reorder hook;
-         3) calling max_issue.  */
+      rhs_t rhs;
+      insn_t insn;
+      int r;
 
-      rhs_t min_spec_rhs;
-      insn_t min_spec_insn;
-      vinsn_t min_spec_vinsn;
-      int i, can_issue, privileged_n;
-      int index;
-
-      /* Call the reorder hook at the beginning of the cycle, and call
-         the reorder2 hook in the middle of the cycle.  */
-      if (FENCE_ISSUED_INSNS (fence) == 0)
-        {
-          if (targetm.sched.reorder
-              && !SCHED_GROUP_P (ready_element (&ready, 0))
-              && ready.n_ready > 1)
-            {
-              /* Don't give reorder the most prioritized insn as it can break
-                 pipelining.  */
-              if (pipelining_p)
-                --ready.n_ready;
-
-              can_issue_more
-                = targetm.sched.reorder (sched_dump, sched_verbose,
-                                         ready_lastpos (&ready),
-                                         &ready.n_ready, FENCE_CYCLE (fence));
-
-              if (pipelining_p)
-                ++ready.n_ready;
-            }
-          else
-            /* Initialize can_issue_more for variable_issue.  */
-            can_issue_more = issue_rate;
-        }
-      else if (targetm.sched.reorder2
-               && !SCHED_GROUP_P (ready_element (&ready, 0)))
-        {
-          if (ready.n_ready == 1)
-            can_issue_more = 
-              targetm.sched.reorder2 (sched_dump, sched_verbose,
-                                      ready_lastpos (&ready),
-                                      &ready.n_ready, FENCE_CYCLE (fence));
-          else
-            {
-              if (pipelining_p)
-                --ready.n_ready;
-
-              can_issue_more =
-                targetm.sched.reorder2 (sched_dump, sched_verbose,
-                                        ready.n_ready
-                                        ? ready_lastpos (&ready) : NULL,
-                                        &ready.n_ready, FENCE_CYCLE (fence));
-
-              if (pipelining_p)
-                ++ready.n_ready;
-            }
-        }
-      else 
-        can_issue_more = issue_rate;
+      /* In this loop insn is Ith element of the ready list given by 
+         ready_element, not Ith element of ready.vec.  */
+      insn = ready_element (&ready, i);
       
-      if (can_issue_more == 0)
-        {
-          *best_rhs_vliw = NULL;
-          return;
-        }
-
-      min_spec_insn = ready_element (&ready, 0);
-      min_spec_vinsn = GET_VINSN_BY_INSN (min_spec_insn);
-      min_spec_rhs = av_set_lookup (*av_vliw_ptr, min_spec_vinsn);
-      gcc_assert (min_spec_rhs != NULL
-		  && RHS_VINSN (min_spec_rhs) == min_spec_vinsn);
-
-      line_start ();
-      print ("ready after reorder: ");
-
-      ready_try [0] = 0;
-
-      dump_vinsn (min_spec_vinsn);
-      print (":0; ");
-
-      if (targetm.sched.first_cycle_multipass_dfa_lookahead_guard)
-        for (i = 1; i < ready.n_ready; i++)
-	  {
-	    insn_t insn = ready_element (&ready, i);
-            int r = 
-              !targetm.sched.first_cycle_multipass_dfa_lookahead_guard (insn);
-
-	    gcc_assert (INSN_CODE (insn) >= 0);
-
-            /* Only insns with ready_try = 0 can get here 
-               from fill_ready_list.  */
-            gcc_assert (ready_try [i] == 0);
-	    ready_try[i] = r;
-	      
-            dump_vinsn (GET_VINSN_BY_INSN (insn));
-            print (":%d; ", ready_try[i]);
-	  }
-
-      line_finish ();
-
-      privileged_n = 0;
-
-      /* FIXME: when can_issue_more is 0, we may as well finish the game for
-         now.  */
-      for (i = 0; i < ready.n_ready; i++)
-        {
-          rhs_t cur_rhs;
-	  insn_t cur_insn;
-	  vinsn_t cur_vinsn;
-
-	  if (ready_try[i])
-	    continue;
-
-	  cur_insn = ready_element (&ready, i);
-
-	  cur_vinsn = GET_VINSN_BY_INSN (cur_insn);
-
-	  cur_rhs = av_set_lookup (*av_vliw_ptr, cur_vinsn);
-          gcc_assert (cur_rhs != NULL
-		      && RHS_VINSN (cur_rhs) == cur_vinsn);
-
-          if (RHS_SPEC (cur_rhs) > RHS_SPEC (min_spec_rhs))
-            break;
-
-	  ++privileged_n;
-        }
-
-      if (i == ready.n_ready)
-        privileged_n = 0;
-
-      print ("privileged_n: %d insns with SPEC %d; ",
-             privileged_n, RHS_SPEC (min_spec_rhs));
-
-      cycle_issued_insns = FENCE_ISSUED_INSNS (fence);
-
-      if (dfa_lookahead > 0)
-        {
-          can_issue = max_issue (&ready, privileged_n,
-                                 FENCE_STATE (fence), &index);
-
-          print ("max_issue: we can issue %d insns, already did %d insns",
-                 can_issue, FENCE_ISSUED_INSNS (fence));
-        }
+      if (! have_hook || i == 0)
+        r = 0;
       else
-        {
-          /* We can't use max_issue; just return the first element.  */
-	  insn_t insn = ready_element (&ready, 0);
-	  vinsn_t vinsn = GET_VINSN_BY_INSN (insn);
+        r = !targetm.sched.first_cycle_multipass_dfa_lookahead_guard (insn);
+      
+      gcc_assert (INSN_CODE (insn) >= 0);
+        
+      /* Only insns with ready_try = 0 can get here 
+         from fill_ready_list.  */
+      gcc_assert (ready_try [i] == 0);
+      ready_try[i] = r;
+      if (!r)
+        n++;
 
-	  if (vinsn_dfa_cost (vinsn, fence) >= 1)
-	    {
-	      can_issue = 0;
-	      index = -1;
-	    }
-	  else
-	    {
-	      can_issue = 1;
-	      index = 0;
-	      print ("using first insn from the ready list");
-	    }
-        }
+      rhs = find_expr_for_ready (i, true);
+      dump_vinsn (EXPR_VINSN (rhs));
 
-      if (can_issue)
-        {
-          best = ready_element (&ready, index);
-          res = av_set_lookup (*av_vliw_ptr, GET_VINSN_BY_INSN (best));
-          gcc_assert (res);
-        }
-      else
-        {
-          best = NULL;
-          need_stall = 1;
-        }
+      print (":%d; ", ready_try[i]);
     }
-  else if (res != NULL)
-    /* Asm insn won't go in the upper case, but we need to call dfa_new_cycle
-       anyway.  */
-    best = RHS_INSN (res);
+  
+  line_finish ();
 
-  if (best != NULL_RTX)
+  return n;
+}
+
+/* Calculate the number of privileged insns and return it.  */
+static int
+calculate_privileged_insns (void)
+{
+  rhs_t cur_rhs, min_spec_rhs = NULL;
+  insn_t cur_insn, min_spec_insn;
+  int privileged_n = 0, i;
+
+  for (i = 0; i < ready.n_ready; i++)
     {
-      gcc_assert (INSN_P (best));
-      sel_dfa_new_cycle (best, fence);
+      if (ready_try[i])
+        continue;
 
-      if (targetm.sched.variable_issue)
-       {
-         memcpy (curr_state, FENCE_STATE (fence), dfa_state_size);
-         can_issue_more = targetm.sched.variable_issue (sched_dump,
-                                                        sched_verbose,
-                                                        best,
-                                                        can_issue_more);
-         memcpy (FENCE_STATE (fence), curr_state, dfa_state_size);
-       }
-      else if (GET_CODE (PATTERN (best)) != USE
-	       && GET_CODE (PATTERN (best)) != CLOBBER)
-	can_issue_more--;
+      if (! min_spec_rhs)
+        {
+          min_spec_insn = ready_element (&ready, i);
+          min_spec_rhs = find_expr_for_ready (i, true);
+        }
+      
+      cur_insn = ready_element (&ready, i);
+      cur_rhs = find_expr_for_ready (i, true);
+
+      if (RHS_SPEC (cur_rhs) > RHS_SPEC (min_spec_rhs))
+        break;
+
+      ++privileged_n;
     }
 
-  *best_rhs_vliw = res;
+  if (i == ready.n_ready)
+    privileged_n = 0;
 
-  return;
+  print ("privileged_n: %d insns with SPEC %d; ",
+         privileged_n, privileged_n ? RHS_SPEC (min_spec_rhs) : -1);
+
+  return privileged_n;
+}
+
+/* Call the rest of the hooks after the choice was made.  Return 
+   the number of insns that still can be issued.  */
+static int
+invoke_aftermath_hooks (fence_t fence, rtx best_insn, int issue_more)
+{
+  gcc_assert (INSN_P (best_insn));
+
+  /* First, call dfa_new_cycle, and then variable_issue, if available.  */
+  sel_dfa_new_cycle (best_insn, fence);
+  
+  if (targetm.sched.variable_issue)
+    {
+      memcpy (curr_state, FENCE_STATE (fence), dfa_state_size);
+      issue_more = 
+        targetm.sched.variable_issue (sched_dump, sched_verbose, best_insn,
+                                      issue_more);
+      memcpy (FENCE_STATE (fence), curr_state, dfa_state_size);
+    }
+  else if (GET_CODE (PATTERN (best_insn)) != USE
+           && GET_CODE (PATTERN (best_insn)) != CLOBBER)
+    issue_more--;
+
+  return issue_more;
+}
+
+/* Find the best insn for scheduling, either via max_issue or just take 
+   the most prioritized available.  */
+static int
+choose_best_insn (fence_t fence, int privileged_n, int *index)
+{
+  int can_issue = 0;
+
+  if (dfa_lookahead > 0)
+    {
+      cycle_issued_insns = FENCE_ISSUED_INSNS (fence);
+      can_issue = max_issue (&ready, privileged_n,
+                             FENCE_STATE (fence), index);
+
+      print ("max_issue: we can issue %d insns, already did %d insns",
+             can_issue, FENCE_ISSUED_INSNS (fence));
+    }
+  else
+    {
+      /* We can't use max_issue; just return the first element.  */
+      rhs_t rhs = find_expr_for_ready (0, true);
+
+      if (vinsn_dfa_cost (EXPR_VINSN (rhs), fence) >= 1)
+        {
+          can_issue = 0;
+          *index = -1;
+        }
+      else
+        {
+          can_issue = 1;
+          *index = 0;
+          print ("using first insn from the ready list");
+        }
+    }
+
+  return can_issue;
+}
+
+/* Choose the best expr from *AV_VLIW_PTR and a suitable register for it.  
+   BNDS and FENCE are current boundaries and scheduling fence respectively.  
+   Return the expr found and NULL if nothing can be issued atm.  */ 
+static expr_t
+find_best_expr (av_set_t *av_vliw_ptr, blist_t bnds, fence_t fence)
+{
+  expr_t best;
+  
+  /* Choose the best insn for scheduling via:
+     1) sorting the ready list based on priority;
+     2) calling the reorder hook;
+     3) calling max_issue.  */
+  best = fill_ready_list (av_vliw_ptr, bnds, fence);
+
+  if (best == NULL && ready.n_ready > 0)
+    {
+      int can_issue, privileged_n, index, avail_n;
+
+      can_issue_more = invoke_reorder_hooks (fence);
+      if (can_issue_more == 0)
+        return NULL;
+
+      /* Try choosing the best insn until we find one that is could be 
+         scheduled due to liveness restrictions on its destination register.
+         In the future, we'd like to choose once and then just probe insns
+         in the order of their priority.  */
+      avail_n = invoke_dfa_lookahead_guard ();
+      privileged_n = calculate_privileged_insns ();
+      can_issue = choose_best_insn (fence, privileged_n, &index);
+      if (can_issue)
+        best = find_expr_for_ready (index, true);
+      else
+        need_stall = 1;
+    }
+
+  if (best != NULL)
+    can_issue_more = invoke_aftermath_hooks (fence, EXPR_INSN_RTX (best), 
+                                             can_issue_more);
+
+  return best;
 }
 
 
@@ -3624,7 +3758,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 
       /* Choose the best expression and, if needed, destination register
 	 for it.  */
-      find_best_rhs_and_reg_that_fits (&av_vliw, bnds, fence, &rhs_vliw);
+      rhs_vliw = find_best_expr (&av_vliw, bnds, fence);
 
       if (!rhs_vliw)
         {
@@ -3644,6 +3778,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
       line_start ();
       print ("rhs_vliw: ");
       dump_rhs (rhs_vliw);
+      print ("; cycle %d;", FENCE_CYCLE (fence));
       line_finish ();
 
       bndsp = &bnds;
@@ -3987,32 +4122,32 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
   block_finish ();
 }
 
-/* All exprs in ORIG_OPS must have the same destination register.
-   Return that register.  */
+/* All exprs in ORIG_OPS must have the same destination register or memory.
+   Return that destination.  */
 static rtx
-get_dest_reg_from_orig_ops (av_set_t orig_ops)
+get_dest_from_orig_ops (av_set_t orig_ops)
 {
-  rtx reg = NULL_RTX;
+  rtx dest = NULL_RTX;
   av_set_iterator av_it;
   expr_t expr;
   bool first_p = true;
 
   FOR_EACH_RHS (expr, av_it, orig_ops)
     {
-      rtx x = expr_dest_reg (expr);
+      rtx x = EXPR_LHS (expr);
 
       if (first_p)
 	{
 	  first_p = false;
-	  reg = x;
+	  dest = x;
 	}
       else
-	gcc_assert (reg == x
-		    || (reg != NULL_RTX && x != NULL_RTX
-			&& REGNO (reg) == REGNO (x)));
+	gcc_assert (dest == x
+		    || (dest != NULL_RTX && x != NULL_RTX
+			&& rtx_equal_p (dest, x)));
     }
 
-  return reg;
+  return dest;
 }
 
 /* Move up the operations from ORIG_OPS set traversing 
@@ -4025,7 +4160,7 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 {
   rhs_t rhs;
   bool c_rhs_inited_p;
-  rtx reg;
+  rtx dest;
   bool generated_nop_p = false;
   
   line_start ();
@@ -4072,7 +4207,7 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
       /*av_set_leave_one (&orig_ops);*/
     }
 
-  reg = get_dest_reg_from_orig_ops (orig_ops);
+  dest = get_dest_from_orig_ops (orig_ops);
 
   /* Look at the insn and decide if it could be an ancestor of currently 
      scheduling operation.  If it is so, then the insn "dest = op" could 
@@ -4129,25 +4264,25 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 	{
 	  rtx cur_reg = expr_dest_reg (c_rhs);
 
-	  gcc_assert ((reg == NULL_RTX) == (cur_reg == NULL_RTX));
+	  gcc_assert (!cur_reg || (dest && REG_P (dest)));
 
 	  /* If original operation has rhs and the register chosen for
 	     that rhs is not original operation's dest reg, substitute
 	     operation's right hand side with the register chosen.  */
-	  if (reg != NULL_RTX && REGNO (reg) != REGNO (cur_reg))
+	  if (cur_reg != NULL_RTX && REGNO (dest) != REGNO (cur_reg))
 	    {
 	      rtx reg_move_insn_rtx;
 	      insn_t reg_move_insn;
 
 	      reg_move_insn_rtx = create_insn_rtx_with_rhs (INSN_VINSN (insn),
-							    reg);
+							    dest);
 	      reg_move_insn = sel_gen_insn_from_rtx_after (reg_move_insn_rtx,
 							   INSN_EXPR (insn),
 							   INSN_SEQNO (insn),
 							   insn);
 	      EXPR_SPEC_DONE_DS (INSN_EXPR (reg_move_insn)) = 0;
 
-	      replace_dest_with_reg_in_rhs (c_rhs, reg);
+	      replace_dest_with_reg_in_rhs (c_rhs, dest);
 
 	      recovery_p = true;
 	    }
@@ -4203,17 +4338,10 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 
       c_rhs_inited_p = false;
 
-      if (reg != NULL_RTX && lhs_of_insn_equals_to_reg_p (insn, reg))
 	/* If we're scheduling separate rhs, in order to generate correct code
 	   we need to stop the search at bookkeeping code generated with the 
-	   same destination register. This clearing of orig_ops makes 
-	   scheduler to choose another destination register for the rhs.  
-	   Instructions that are moved as the whole not affected with this
-	   issue because the different insns could be never given the same
-	   register, as it can happen when dealing with separate rhses.
-	   .
-	   !!! Change the detection of bookkeeping insns to support
-	   clonable but not separable insns.  */
+	   same destination register or memory.  */
+      if (lhs_of_insn_equals_to_dest_p (insn, dest))
 	av_set_clear (&orig_ops);
       else
         /* Av set ops could have been changed when moving through this insn.
@@ -4250,6 +4378,11 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 	    {
               enum MOVEUP_RHS_CODE res;
               
+	      line_start ();
+	      print ("Checking for %d ", INSN_UID (insn));
+	      dump_rhs (x);
+	      line_finish ();
+
               res = moveup_rhs (x, insn, false);
               gcc_assert (res != MOVEUP_RHS_NULL);
 
@@ -4265,7 +4398,7 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 		   speculation success probability and only then with the
 		   good probability.  As a result the insn will get epsilon
 		   probability and will never be scheduled because of
-		   weakness_cutoff in find_best_rhs_and_reg_that_fits ().
+		   weakness_cutoff in find_best_expr.
 
 		   We also workaround this in can_overcome_dep_p ()
 		   that consider low probability speculation success
@@ -4504,7 +4637,7 @@ sel_region_init (int rgn)
   /* Initialize luids and dependence analysis which both sel-sched and haifa
      need.  */
   sched_init_luids (bbs, NULL, NULL, NULL);
-  sched_deps_local_init (false);
+  sched_deps_init (false);
 
   /* Initialize haifa data.  */
   {
@@ -4522,6 +4655,7 @@ sel_region_init (int rgn)
   if (sched_verbose >= 5)
     debug_rgn_dependencies (0);
 
+  free_rgn_deps ();
   init_deps_global ();
 
   /* Setup flags that might affect initialization.  */
@@ -4549,9 +4683,7 @@ sel_region_init (int rgn)
   sel_init_global_and_expr (bbs);
 
   /* Finalize haifa-specific data.  */
-  {
-    haifa_finish_h_i_d ();
-  }
+  haifa_finish_h_i_d ();
 
   VEC_free (basic_block, heap, bbs);
 
@@ -4610,10 +4742,7 @@ sel_region_finish (void)
 
   /* Free the sort vector.  */
   if (vec_av_set)
-    {
-      gcc_assert (VEC_empty (rhs_t, vec_av_set));
-      VEC_free (rhs_t, heap, vec_av_set);
-    }
+    VEC_free (rhs_t, heap, vec_av_set);
 
   /* If LV_SET of the region head should be updated, do it now because
      there will be no other chance.  */
@@ -4637,6 +4766,8 @@ sel_region_finish (void)
 	if (!BB_LV_SET_VALID_P (bb))
 	  compute_live (insn);
       }
+
+    free (succs);
   }
 
   /* Emulate the Haifa scheduler for bundling.  */
@@ -5327,8 +5458,9 @@ sel_global_init (void)
   sched_rgn_init (flag_sel_sched_single_block_regions != 0,
                   flag_sel_sched_ebb_regions != 0);
 
-  sel_extend_insn_rtx_data ();
-  
+  sched_extend_target ();
+  sched_deps_init (true);
+
   setup_nop_and_exit_insns ();
 
   sel_extend_global_bb_info ();
@@ -5351,9 +5483,8 @@ sel_global_finish (void)
 
   free_nop_and_exit_insns ();
 
-  sel_finish_insn_rtx_data ();
-
   sched_rgn_finish ();
+  sched_deps_finish ();
   sched_finish_bbs ();
   sched_finish ();
 

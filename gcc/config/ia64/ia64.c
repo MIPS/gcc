@@ -6498,7 +6498,7 @@ ia64_variable_issue (FILE *dump ATTRIBUTE_UNUSED,
 static int
 ia64_first_cycle_multipass_dfa_lookahead_guard (rtx insn)
 {
-  gcc_assert (insn  && INSN_P (insn));
+  gcc_assert (insn && INSN_P (insn));
   return ((!reload_completed
 	   || !safe_group_barrier_needed (insn))
 	  && ia64_first_cycle_multipass_dfa_lookahead_guard_spec (insn));

@@ -647,35 +647,6 @@ extern int get_av_level (insn_t);
 /* A list of fences currently in the works.  */
 extern flist_t fences;
 
-/* NB: All the fields, gathered in the s_s_i_d are initialized only for
-   insns that are in the current region and, therefore, can be indexed by
-   LUID.  Except for these.  .  */
-struct _sel_insn_rtx_data
-{
-  /* Vinsn corresponding to this insn.
-     We need this field to be accessible for every instruction - not only
-     for those that have luids - because when choosing an instruction from
-     ready list there is no other fast way to get corresponding vinsn which
-     holds all the data for any given insn_rtx.  */
-  vinsn_t get_vinsn_by_insn;
-};
-
-typedef struct _sel_insn_rtx_data sel_insn_rtx_data_def;
-typedef sel_insn_rtx_data_def *sel_insn_rtx_data_t;
-
-DEF_VEC_O (sel_insn_rtx_data_def);
-DEF_VEC_ALLOC_O (sel_insn_rtx_data_def, heap);
-
-extern VEC (sel_insn_rtx_data_def, heap) *s_i_r_d;
-
-#define SIRD(INSN) \
-(VEC_index (sel_insn_rtx_data_def, s_i_r_d, INSN_UID (INSN)))
-
-#define GET_VINSN_BY_INSN(INSN) (SIRD (INSN)->get_vinsn_by_insn)
-
-extern void sel_extend_insn_rtx_data (void);
-extern void sel_finish_insn_rtx_data (void);
-
 extern void sel_register_rtl_hooks (void);
 extern void sel_unregister_rtl_hooks (void);
 
@@ -926,7 +897,7 @@ extern ds_t has_dependence_p (rhs_t, insn_t, ds_t **);
 extern bool tick_check_p (rhs_t, deps_t, fence_t);
 
 /* Functions to work with insns.  */
-extern bool lhs_of_insn_equals_to_reg_p (insn_t, rtx);
+extern bool lhs_of_insn_equals_to_dest_p (insn_t, rtx);
 extern bool insn_rtx_valid (rtx);
 extern bool insn_eligible_for_subst_p (insn_t);
 extern void get_dest_and_mode (rtx, rtx *, enum machine_mode *);

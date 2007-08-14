@@ -554,10 +554,12 @@ schedule_ebbs (void)
 
     ebb_common_sched_info.fix_recovery_cfg = ebb_fix_recovery_cfg;
     ebb_common_sched_info.add_block = ebb_add_block;
-    ebb_common_sched_info.region_head_or_leaf_p = ebb_region_head_or_leaf_p;
     ebb_common_sched_info.use_glat = 1;
     ebb_common_sched_info.detach_life_info = 1;
     ebb_common_sched_info.sched_pass_id = SCHED_EBB_PASS;
+#ifdef ENABLE_CHECKING
+    ebb_common_sched_info.region_head_or_leaf_p = ebb_region_head_or_leaf_p;
+#endif
 
     common_sched_info = &ebb_common_sched_info;
 

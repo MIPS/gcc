@@ -1,3 +1,72 @@
+2007-08-14  Andrey Belevantsev  <abel@ispras.ru>
+	    Dmitry Melnik  <dm@ispras.ru>
+ 
+	* sched-ebb.c (sched_ebbs): Set ebb_region_jead_or_leaf_p
+	when ENABLE_CHECKING is defined.
+
+	* haifa-sched.c (haifa_sched_init, haifa_init_insn): Use 
+	sched_deps_init instead of sched_deps_local_init.
+	(haifa_sched_finish): Use sched_deps_finish.
+
+	* sel-sched.c (find_best_reg_for_rhs): Bail out early when insn 
+	doesn't set any registers.  
+	(moveup_rhs, moveup_rhs_inside_insn_group): Print correct rtx
+	when substituting.
+	(fill_ready_list): Factor out the code into ... 
+	(process_pipelined_exprs, process_spec_exprs, process_use_exprs,
+	fill_vec_av_set, convert_vec_av_set_to_ready): ... these 
+	new functions.
+	(find_best_rhs_and_reg_that_fits): Rename to find_best_expr. 
+	Adjust the caller.  Factor out the code into ...
+	(invoke_reorder_hooks, find_expr_for_ready, 
+	invoke_dfa_lookahead_guard, calculate_privileged_insns, 
+	invoke_aftermath_hooks, choose_best_insn): ... these new functions.
+	(get_dest_reg_from_orig_ops): Support also memory destinations.
+	Remove to get_dest_from_orig_ops.
+	(move_op): Adjust for the destination being memory.
+	(sel_region_init): Use sched_deps_init instead of 
+	sched_deps_local_init. Use free_rgn_deps.
+	(sel_region_finish): Free succs array.
+	(sel_global_init): Use sched_deps_init and sched_extend_target
+	instead of sel_extend_insn_rtx_data.
+	(sel_global_finish): Use sched_deps_finish instead of
+	sel_finish_insn_rtx_data.
+	
+	* sel-sched-ir.h (struct _sel_insn_rtx_data): Kill.
+	(sel_insn_rtx_data_def, sel_insn_rtx_data_t,
+	SIRD, GET_VINSN_BY_INSN): Ditto.
+	(s_i_r_d, sel_extend_insn_rtx_data, 
+	sel_finish_insn_rtx_data): Kill declaration.
+	(lhs_of_insn_equals_to_reg_p): Adjust declaration.
+
+	* sel-sched-ir.c (s_i_r_d): Remove variable.
+	(fence_clear): Use delete_deps_context instead of free_deps.
+	(lhs_of_insn_equals_to_reg_p): Rename to 
+	lhs_of_insn_equals_to_dest_p.  Adjust for destination being 
+	memory.
+	(sel_extend_insn_rtx_data, sel_finish_insn_rtx_data): Remove.
+	(extend_insn, create_insn_rtx_from_pattern_1): Use sched_deps_init 
+	instead of the above functions.
+
+	(lhs_and_rhs_separable_p): Use CONSTANT_P instead of the wrong
+	set of tests on constness.
+
+	* sched-deps.c (deps_extend_d_i_d): Make static. Do not init
+	obstack on each extension. Instead, do it ... 
+	(sched_deps_local_init): ... here.  Rename to sched_deps_init.
+	Rename create_caches_p to global_p, adjust code.  
+	(sched_deps_finish): New.  Move some code from ... 
+	(sched_deps_local_finish): ... here.  Adjust for the new function.
+
+	* sched_deps.h (sched_deps_init, sched_deps_finish): Declare.
+	* sched-int.h (free_rgn_deps): Declare.
+	* sched-rgn.c (free_rgn_deps): New.
+	* vecprim.h: Add definitions for a vector of unsigned int. 
+
+	* config/ia64/ia64.c (ia64_first_cycle_multipass_dfa_lookahead_guard): 
+	Fix whitespace.
+	* params.def (PARAM_SELSCHED_MAX_SCHED_TIMES): Fix typo.		
+
 2007-06-21  Andrey Belevantsev  <abel@ispras.ru>
 	Implement hashing of vinsns.  Precompute some of hard
 	regs info.

@@ -112,10 +112,6 @@ static VEC(loop_p, heap) *loop_nests = NULL;
 
 /* Saves blocks already in loop regions, indexed by bb->index.  */
 static sbitmap bbs_in_loop_rgns = NULL;
-
-/* A vector holding data for each insn rtx.  */
-VEC (sel_insn_rtx_data_def, heap) *s_i_r_d = NULL;
-
 
 
 /* Array containing reverse topological index of function basic blocks,
@@ -596,7 +592,7 @@ fence_clear (fence_t f)
     free (s);
 
   if (dc != NULL)
-    free_deps (dc);
+    delete_deps_context (dc);
 
   if (tc != NULL)
     delete_target_context (tc);
@@ -1216,11 +1212,11 @@ lhs_and_rhs_separable_p (rtx lhs, rtx rhs)
   if (lhs == NULL || rhs == NULL)
     return false;
 
-  /* Do not schedule CONST and CONST_INT as rhs: no point to use reg, 
-     where const can be used.  Moreover, scheduling const as rhs may lead
-     to modes mismatch cause consts don't have modes but they could be merged
-     from branches where the same const used in different modes.  */
-  if (GET_CODE (lhs) == CONST || GET_CODE (rhs) == CONST_INT)
+  /* Do not schedule CONST, CONST_INT and CONST_DOUBLE etc as rhs: no point 
+     to use reg, if const can be used.  Moreover, scheduling const as rhs may 
+     lead to mode mismatch cause consts don't have modes but they could be 
+     merged from branches where the same const used in different modes.  */
+  if (CONSTANT_P (rhs))
     return false;
 
   /* ??? Do not rename predicate registers to avoid ICEs in bundling.  */
@@ -2645,19 +2641,17 @@ tick_check_p (rhs_t rhs, deps_t dc_orig, fence_t fence)
 
 /* Functions to work with insns.  */
 
-/* Returns true if LHS of INSN is a register and it's the same register as
-   R2.  */
+/* Returns true if LHS of INSN is the same as DEST of an insn
+   being moved.  */
 bool
-lhs_of_insn_equals_to_reg_p (insn_t insn, rtx reg)
+lhs_of_insn_equals_to_dest_p (insn_t insn, rtx dest)
 {
   rtx lhs = INSN_LHS (insn);
 
-  gcc_assert (reg != NULL_RTX);
-
-  if (lhs == NULL)
+  if (lhs == NULL || dest == NULL)
     return false;
-
-  return REG_P (lhs) && (REGNO (lhs) == REGNO (reg));
+  
+  return rtx_equal_p (lhs, dest);
 }
 
 /* Returns whether INSN_RTX is valid in terms of target architecture.
@@ -2855,30 +2849,6 @@ sel_luid_for_non_insn (rtx x)
   return -1;
 }
 
-/* Extend data structures that are indexed by INSN_UID.  */
-void
-sel_extend_insn_rtx_data (void)
-{
-  sched_extend_target ();
-  sched_deps_local_init (false);
-
-  {
-    int new_size = get_max_uid () + 1;
-
-    VEC_safe_grow_cleared (sel_insn_rtx_data_def, heap, s_i_r_d, new_size);
-  }
-}
-
-/* Finalize data structures that are indexed by INSN_UID.  */
-void
-sel_finish_insn_rtx_data (void)
-{
-  VEC_free (sel_insn_rtx_data_def, heap, s_i_r_d);
-
-  /* Target will finalize its data structures in
-     targetm.sched.md_global_finish ().  */
-}
-
 /* Return seqno of the only predecessor of INSN.  */
 static int
 get_seqno_of_a_pred (insn_t insn)
@@ -2941,8 +2911,8 @@ VEC (sel_insn_data_def, heap) *s_i_d = NULL;
 static void
 extend_insn (void)
 {
-  /* Extend data structures that are indexed by INSN_UID.  */
-  sel_extend_insn_rtx_data ();
+  sched_extend_target ();
+  sched_deps_init (false);
 
   /* Extend data structures for insns from current region.  */
   VEC_safe_grow_cleared (sel_insn_data_def, heap, s_i_d,
@@ -4579,7 +4549,9 @@ create_insn_rtx_from_pattern_1 (rtx pattern, rtx label)
   end_sequence ();
 
   sched_init_luids (NULL, NULL, NULL, NULL);
-  sel_extend_insn_rtx_data ();
+
+  sched_extend_target ();
+  sched_deps_init (false);
 
   return insn_rtx;
 }

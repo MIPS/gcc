@@ -177,10 +177,10 @@ extern dw_t ds_weak (ds_t);
 extern ds_t ds_get_speculation_types (ds_t);
 extern ds_t ds_get_max_dep_weak (ds_t);
 
-extern void deps_extend_d_i_d (void);
 extern void deps_finish_d_i_d (void);
 
-extern void sched_deps_local_init (bool);
+extern void sched_deps_init (bool);
+extern void sched_deps_finish (void);
 extern void sched_deps_local_finish (void);
 
 extern void haifa_note_reg_set (int);

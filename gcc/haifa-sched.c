@@ -2817,7 +2817,7 @@ haifa_sched_init (void)
     VEC_ordered_remove (basic_block, bbs, 0);
 
     sched_init_luids (bbs, NULL, NULL, NULL);
-    sched_deps_local_init (true);
+    sched_deps_init (true);
     sched_extend_target ();
     haifa_init_h_i_d (bbs, NULL, NULL, NULL);
 
@@ -2873,6 +2873,7 @@ haifa_sched_finish (void)
   {
     haifa_finish_h_i_d ();
     sched_deps_local_finish ();
+    sched_deps_finish ();
     sched_finish_luids ();
     sched_finish_bbs ();
   }
@@ -4992,7 +4993,7 @@ haifa_init_insn (rtx insn)
 
   sched_init_luids (NULL, NULL, NULL, insn);
   sched_extend_target ();
-  sched_deps_local_init (false);
+  sched_deps_init (false);
   haifa_init_h_i_d (NULL, NULL, NULL, insn);
 
   {  

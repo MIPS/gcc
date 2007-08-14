@@ -997,6 +997,7 @@ extern void check_reg_live (bool);
 extern void compute_priorities (void);
 extern void debug_rgn_dependencies (int);
 extern void debug_dependencies (rtx, rtx);
+extern void free_rgn_deps (void);          
 extern int contributes_to_priority (rtx, rtx);
 extern void extend_rgns (int *, int *, sbitmap, int *);
 
