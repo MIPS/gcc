@@ -1,5 +1,13 @@
 2007-08-14  Aldy Hernandez  <aldyh@redhat.com>
 
+	* gimple.h (gimple_has_ops): New.
+	(gimple_modified): New.
+	(set_gimple_modified): New.
+	(gimple_switch_default_label): Call gimple_switch_label.
+	(gimple_switch_set_default_label): Call gimple_switch_set_label.
+
+2007-08-14  Aldy Hernandez  <aldyh@redhat.com>
+
 	* gimple.c (gimple_call_flags): Make sure this is a GIMPLE_CALL.
 	
 2007-08-14  Diego Novillo  <dnovillo@google.com>

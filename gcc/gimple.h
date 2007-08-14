@@ -412,6 +412,40 @@ gimple_locus_empty_p (gimple g)
   return gimple_locus (g).file == NULL && gimple_locus (g).line == 0;
 }
 
+
+/* Return TRUE if a gimple statement has register or memory operands.  */
+
+static inline bool
+gimple_has_ops (gimple g)
+{
+  return gimple_code (g) >= GIMPLE_ASSIGN && gimple_code (g) <= GIMPLE_RETURN;
+}
+
+
+/* Return TRUE if the given statement has operands and the modified
+   field has been set.  */
+
+static inline bool
+gimple_modified (gimple g)
+{
+  if (gimple_has_ops (g))
+    return (bool) g->with_ops.modified;
+  else
+    return false;
+}
+
+
+/* Set the MODIFIED flag to MODIFIEDP, iff the gimple stmt G has a
+   MODIFIED field.  */
+
+static inline void
+set_gimple_modified (gimple g, bool modifiedp)
+{
+  if (gimple_has_ops (g))
+    g->with_ops.modified = (unsigned) modifiedp;
+}
+
+
 /* Prototypes in gimple.c.  */
 extern gimple build_gimple_return (bool, tree);
 extern gimple build_gimple_assign (tree, tree);
@@ -1107,22 +1141,6 @@ gimple_switch_set_index (gimple gs, tree index)
   gs->with_ops.op[0] = index;
 }
 
-static inline tree
-gimple_switch_default_label (gimple gs)
-{
-  GIMPLE_CHECK (gs, GIMPLE_SWITCH);
-  gcc_assert (gs->with_ops.num_ops > 1);
-  return gs->with_ops.op[1];
-}
-
-static inline void
-gimple_switch_set_default_label (gimple gs, tree label)
-{
-  GIMPLE_CHECK (gs, GIMPLE_SWITCH);
-  gcc_assert (gs->with_ops.num_ops > 1);
-  gs->with_ops.op[1] = label;
-}
-
 /* Return the label numbered INDEX.  The default label is 0, followed by any
    labels in a switch statement.  */
 
@@ -1142,6 +1160,22 @@ gimple_switch_set_label (gimple gs, size_t index, tree label)
   GIMPLE_CHECK (gs, GIMPLE_SWITCH);
   gcc_assert (gs->with_ops.num_ops > index + 1);
   gs->with_ops.op[index + 1] = label;
+}
+
+/* Return the default label for a switch statement.  */
+
+static inline tree
+gimple_switch_default_label (gimple gs)
+{
+  return gimple_switch_label (gs, 0);
+}
+
+/* Set the default label for a switch statement.  */
+
+static inline void
+gimple_switch_set_default_label (gimple gs, tree label)
+{
+  gimple_switch_set_label (gs, 0, label);
 }
 
 
