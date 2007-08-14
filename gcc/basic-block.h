@@ -439,6 +439,12 @@ struct control_flow_graph GTY(())
        (INSN) && (INSN) != PREV_INSN (BB_HEAD (BB));	\
        (INSN) = PREV_INSN (INSN))
 
+#define FOR_BB_INSNS_SAFE(BB, INSN, CURR)			\
+  for ((INSN) = BB_HEAD (BB), (CURR) = (INSN) ? NEXT_INSN ((INSN)): NULL;	\
+       (INSN) && (INSN) != NEXT_INSN (BB_END (BB));	\
+       (INSN) = (CURR), (CURR) = (INSN) ? NEXT_INSN ((INSN)) : NULL)
+
+
 /* Cycles through _all_ basic blocks, even the fake ones (entry and
    exit block).  */
 

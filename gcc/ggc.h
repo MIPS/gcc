@@ -98,7 +98,7 @@ extern void *ggc_alloc_atomic_stat (size_t MEM_STAT_DECL);
   ((rtvec) ggc_alloc_zone (sizeof (struct rtvec_def) + ((NELT) - 1)	 \
 			   * sizeof (rtx), &rtl_zone))
 
-#define ggc_alloc_tree(LENGTH) ((tree) ggc_alloc_zone (LENGTH, &tree_zone))
+#define ggc_alloc_tree(LENGTH) (ggc_alloc_tree_node (LENGTH))
 
 #define htab_create_ggc(SIZE, HASH, EQ, DEL) \
   htab_create_alloc (SIZE, HASH, EQ, DEL, ggc_calloc, NULL)

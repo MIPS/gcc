@@ -1591,14 +1591,15 @@ static bool
 copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 {
   bool changed = false;
-  rtx insn;
+  rtx insn, next;
 
-  for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
+  for (insn = BB_HEAD (bb); ; insn = next)
     {
       int n_ops, i, alt, predicated;
       bool is_asm, any_replacements;
       rtx set;
       bool replaced[MAX_RECOG_OPERANDS];
+      next = NEXT_INSN (insn);
 
       if (! INSN_P (insn))
 	{

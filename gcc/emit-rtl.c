@@ -2931,14 +2931,19 @@ active_insn_p (rtx insn)
 rtx
 next_active_insn (rtx insn)
 {
-  while (insn)
+  rtx original = insn;
+  rtx dbg_rtx = insn;
+  rtx onebefore = NULL;
+  while (dbg_rtx)
     {
-      insn = NEXT_INSN (insn);
-      if (insn == 0 || active_insn_p (insn))
+      dbg_rtx = NEXT_INSN (dbg_rtx);
+      if (dbg_rtx == 0 || active_insn_p (dbg_rtx))
 	break;
+      onebefore = insn;
+      insn = dbg_rtx;
     }
-
-  return insn;
+  insn = original;
+  return dbg_rtx;
 }
 
 /* Find the last insn before INSN that really does something.  This routine
@@ -3559,6 +3564,9 @@ remove_insn (rtx insn)
       if (BB_END (bb) == insn)
 	BB_END (bb) = prev;
     }
+
+  /*  NEXT_INSN (insn) = (rtx)0xFDEFAAAA;
+      PREV_INSN (insn) = (rtx)0xFEFDAAAA; */ /* Not yet... */
 }
 
 /* Append CALL_FUSAGE to the CALL_INSN_FUNCTION_USAGE for CALL_INSN.  */

@@ -144,38 +144,41 @@ unsigned int
 purge_line_number_notes (void)
 {
   rtx last_note = 0;
-  rtx insn;
+  rtx insn, next;
   /* Delete extraneous line number notes.
      Note that two consecutive notes for different lines are not really
      extraneous.  There should be some indication where that line belonged,
      even if it became empty.  */
 
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (NOTE_P (insn))
-      {
-	if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG)
-	  /* Any previous line note was for the prologue; gdb wants a new
-	     note after the prologue even if it is for the same line.  */
-	  last_note = NULL_RTX;
-	else if (NOTE_LINE_NUMBER (insn) >= 0)
-	  {
-	    /* Delete this note if it is identical to previous note.  */
-	    if (last_note
+  for (insn = get_insns (); insn; insn = next)
+    {
+      next = NEXT_INSN (insn);
+      if (NOTE_P (insn))
+        {
+          if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG)
+            /* Any previous line note was for the prologue; gdb wants a new
+               note after the prologue even if it is for the same line.  */
+            last_note = NULL_RTX;
+          else if (NOTE_LINE_NUMBER (insn) >= 0)
+            {
+              /* Delete this note if it is identical to previous note.  */
+              if (last_note
 #ifdef USE_MAPPED_LOCATION
-		&& NOTE_SOURCE_LOCATION (insn) == NOTE_SOURCE_LOCATION (last_note)
+                  && NOTE_SOURCE_LOCATION (insn) == NOTE_SOURCE_LOCATION (last_note)
 #else
-		&& NOTE_SOURCE_FILE (insn) == NOTE_SOURCE_FILE (last_note)
-		&& NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last_note)
+                  && NOTE_SOURCE_FILE (insn) == NOTE_SOURCE_FILE (last_note)
+                  && NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last_note)
 #endif
-)
-	      {
-		delete_related_insns (insn);
-		continue;
-	      }
+                  )
+                {
+                  delete_related_insns (insn);
+                  continue;
+                }
 
-	    last_note = insn;
-	  }
-      }
+              last_note = insn;
+            }
+        }
+    }
   return 0;
 }
 

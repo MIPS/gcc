@@ -673,7 +673,7 @@ global_conflicts (void)
 {
   unsigned i;
   basic_block b;
-  rtx insn;
+  rtx insn, next;
   int *block_start_allocnos;
 
   /* Make a vector that mark_reg_{store,clobber} will store in.  */
@@ -789,6 +789,8 @@ global_conflicts (void)
 	  RTX_CODE code = GET_CODE (insn);
 	  rtx link;
 
+          next = NEXT_INSN (insn);
+
 	  /* Make regs_set an empty set.  */
 
 	  n_regs_set = 0;
@@ -880,7 +882,7 @@ global_conflicts (void)
 
 	  if (insn == BB_END (b))
 	    break;
-	  insn = NEXT_INSN (insn);
+	  insn = next;
 	}
     }
 

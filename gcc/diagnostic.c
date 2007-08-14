@@ -41,6 +41,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "opts.h"
+#include "output.h"
 
 
 /* Prototypes.  */
@@ -588,6 +589,8 @@ internal_error (const char *gmsgid, ...)
   report_diagnostic (&diagnostic);
   va_end (ap);
 
+  if (dump_file != NULL)
+    fflush (dump_file);
   gcc_unreachable ();
 }
 

@@ -2136,7 +2136,8 @@ fold-const.o : fold-const.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(GGC_H) $(TM_P_H) langhooks.h $(MD5_H)
 diagnostic.o : diagnostic.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) version.h $(TM_P_H) $(FLAGS_H) input.h toplev.h intl.h \
-   $(DIAGNOSTIC_H) langhooks.h $(LANGHOOKS_DEF_H) diagnostic.def opts.h
+   $(DIAGNOSTIC_H) langhooks.h $(LANGHOOKS_DEF_H) diagnostic.def opts.h \
+   output.h
 opts.o : opts.c opts.h options.h toplev.h $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TREE_H) $(TM_H) langhooks.h $(GGC_H) $(RTL_H) \
    output.h $(DIAGNOSTIC_H) $(TM_P_H) $(INSN_ATTR_H) intl.h $(TARGET_H) \
@@ -2332,7 +2333,7 @@ coverage.o : coverage.c $(GCOV_IO_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 cselib.o : cselib.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) $(REAL_H) insn-config.h $(RECOG_H) \
    $(EMIT_RTL_H) toplev.h output.h $(FUNCTION_H) cselib.h $(GGC_H) $(TM_P_H) \
-   gt-cselib.h $(PARAMS_H) alloc-pool.h $(HASHTAB_H) $(TARGET_H)
+   gt-cselib.h $(PARAMS_H) alloc-pool.h $(HASHTAB_H) $(TARGET_H) $(OBSTACK_H)
 cse.o : cse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h $(FLAGS_H) insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
    output.h $(FUNCTION_H) $(BASIC_BLOCK_H) $(GGC_H) $(TM_P_H) $(TIMEVAR_H) \

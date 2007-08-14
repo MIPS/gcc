@@ -1079,7 +1079,7 @@ static unsigned char size_lookup[257] =
   8
 };
 
-/* Typed allocation function.  Does nothing special in this collector.  */
+/* Typed allocation functions.  Do nothing special in this collector.  */
 
 void *
 ggc_alloc_typed_stat (enum gt_types_enum type ATTRIBUTE_UNUSED, size_t size
@@ -1087,6 +1087,47 @@ ggc_alloc_typed_stat (enum gt_types_enum type ATTRIBUTE_UNUSED, size_t size
 {
   return ggc_alloc_stat (size PASS_MEM_STAT);
 }
+
+void *
+ggc_alloc_atomic_stat (size_t size MEM_STAT_DECL)
+{
+  return ggc_alloc_stat (size PASS_MEM_STAT);
+}
+
+void *
+ggc_alloc_cleared_typed_stat (enum gt_types_enum type ATTRIBUTE_UNUSED,
+                              size_t size MEM_STAT_DECL)
+{
+  return ggc_alloc_cleared_stat (size PASS_MEM_STAT);
+}
+
+struct GC_ms_entry *
+gt_tggc_m_free_list_obj(GC_word * addr ATTRIBUTE_UNUSED,
+                        struct GC_ms_entry * mark_stack_ptr ATTRIBUTE_UNUSED,
+                        struct GC_ms_entry * mark_stack_limit ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable();
+  return NULL;
+}
+
+struct GC_ms_entry *
+gt_tggc_m_atomic_obj(GC_word * addr ATTRIBUTE_UNUSED,
+                     struct GC_ms_entry * mark_stack_ptr ATTRIBUTE_UNUSED,
+                     struct GC_ms_entry * mark_stack_limit ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable();
+  return NULL;
+}
+
+struct GC_ms_entry *
+gt_tggc_m_nonexistent_obj(GC_word * addr ATTRIBUTE_UNUSED,
+                          struct GC_ms_entry * mark_stack_ptr ATTRIBUTE_UNUSED,
+                          struct GC_ms_entry * mark_stack_limit ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable();
+  return NULL;
+}
+
 
 /* Allocate a chunk of memory of SIZE bytes.  Its contents are undefined.  */
 

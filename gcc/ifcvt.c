@@ -2465,7 +2465,7 @@ cond_move_process_if_block (struct ce_if_block *ce_info)
   basic_block then_bb = ce_info->then_bb;
   basic_block else_bb = ce_info->else_bb;
   struct noce_if_info if_info;
-  rtx jump, cond, insn, seq, cond_arg0, cond_arg1, loc_insn;
+  rtx jump, cond, insn, next, seq, cond_arg0, cond_arg1, loc_insn;
   int max_reg, size, c, i;
   rtx *then_vals;
   rtx *else_vals;
@@ -2610,12 +2610,12 @@ cond_move_process_if_block (struct ce_if_block *ce_info)
     }
   emit_insn_before_setloc (seq, jump, INSN_LOCATOR (loc_insn));
 
-  FOR_BB_INSNS (then_bb, insn)
+  FOR_BB_INSNS_SAFE (then_bb, insn, next)
     if (INSN_P (insn) && !JUMP_P (insn))
       delete_insn (insn);
   if (else_bb)
     {
-      FOR_BB_INSNS (else_bb, insn)
+      FOR_BB_INSNS_SAFE (else_bb, insn, next)
 	if (INSN_P (insn) && !JUMP_P (insn))
 	  delete_insn (insn);
     }

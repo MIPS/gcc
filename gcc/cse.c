@@ -6902,14 +6902,14 @@ cse_main (rtx f, int nregs)
   return cse_jumps_altered || recorded_label_ref;
 }
 
-/* Process a single basic block.  FROM and TO and the limits of the basic
+/* Process a single basic block.  FROM and TO are the limits of the basic
    block.  NEXT_BRANCH points to the branch path when following jumps or
    a null path when not following jumps.  */
 
 static rtx
 cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 {
-  rtx insn;
+  rtx insn, next;
   int to_usage = 0;
   rtx libcall_insn = NULL_RTX;
   int num_insns = 0;
@@ -6924,9 +6924,11 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
   if (to != 0 && LABEL_P (to))
     ++LABEL_NUSES (to);
 
-  for (insn = from; insn != to; insn = NEXT_INSN (insn))
+  for (insn = from; insn != to; insn = next)
     {
       enum rtx_code code = GET_CODE (insn);
+
+      next = NEXT_INSN (insn);
 
       /* If we have processed 1,000 insns, flush the hash table to
 	 avoid extreme quadratic behavior.  We must not include NOTEs
@@ -6953,7 +6955,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 	      if (status == PATH_TAKEN)
 		record_jump_equiv (insn, 1);
 	      else
-		invalidate_skipped_block (NEXT_INSN (insn));
+		invalidate_skipped_block (next);
 
 	      /* Set the last insn as the jump insn; it doesn't affect cc0.
 		 Then follow this branch.  */
@@ -6962,6 +6964,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 	      prev_insn = insn;
 #endif
 	      insn = JUMP_LABEL (insn);
+              next = NEXT_INSN (insn);
 	      continue;
 	    }
 	}
@@ -7043,6 +7046,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 	    break;
 
 	  insn = PREV_INSN (to);
+          next = NEXT_INSN (insn);
 	}
 
       /* See if it is ok to keep on going past the label
@@ -7058,6 +7062,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 	  rtx prev;
 
 	  insn = NEXT_INSN (to);
+          next = NEXT_INSN (insn);
 
 	  /* If TO was the last insn in the function, we are done.  */
 	  if (insn == 0)
@@ -7100,6 +7105,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 
 	  /* Back up so we process the first insn in the extension.  */
 	  insn = PREV_INSN (insn);
+          next = NEXT_INSN (insn);
 	}
     }
 
@@ -7551,7 +7557,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
   insn_count = 0;
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
-      rtx insn;
+      rtx insn, next;
       rtx end;
 
       if (e->flags & EDGE_COMPLEX)
@@ -7562,10 +7568,12 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
 	continue;
 
       end = NEXT_INSN (BB_END (e->dest));
-      for (insn = BB_HEAD (e->dest); insn != end; insn = NEXT_INSN (insn))
+      for (insn = BB_HEAD (e->dest); insn != end; insn = next)
 	{
 	  rtx set;
 
+          next = NEXT_INSN (insn);
+          
 	  if (! INSN_P (insn))
 	    continue;
 

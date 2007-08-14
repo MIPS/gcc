@@ -42,6 +42,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "params.h"
 #include "alloc-pool.h"
 #include "target.h"
+#include "obstack.h"
 
 static bool cselib_record_memory;
 static int entry_and_rtx_equal_p (const void *, const void *);
@@ -131,6 +132,7 @@ static cselib_val dummy_val;
    each time memory is invalidated.  */
 static cselib_val *first_containing_mem = &dummy_val;
 static alloc_pool elt_loc_list_pool, elt_list_pool, cselib_val_pool, value_pool;
+static struct obstack scratch_rtx_obstack;
 
 
 /* Allocate a struct elt_list and fill in its two elements with the
@@ -872,7 +874,9 @@ cselib_subst_to_values (rtx x)
 	  rtx t = cselib_subst_to_values (XEXP (x, i));
 
 	  if (t != XEXP (x, i) && x == copy)
-	    copy = shallow_copy_rtx (x);
+            {
+              copy = (rtx) obstack_copy (&scratch_rtx_obstack, x, rtx_size(x));
+            }
 
 	  XEXP (copy, i) = t;
 	}
@@ -1454,6 +1458,7 @@ cselib_init (bool record_memory)
   cselib_val_pool = create_alloc_pool ("cselib_val_list", 
 				       sizeof (cselib_val), 10);
   value_pool = create_alloc_pool ("value", RTX_CODE_SIZE (VALUE), 100);
+  gcc_obstack_init (&scratch_rtx_obstack);
   cselib_record_memory = record_memory;
   /* This is only created once.  */
   if (! callmem)
@@ -1489,6 +1494,7 @@ cselib_finish (void)
   free_alloc_pool (elt_loc_list_pool);
   free_alloc_pool (cselib_val_pool);
   free_alloc_pool (value_pool);
+  obstack_free (&scratch_rtx_obstack, NULL);
   cselib_clear_table ();
   htab_delete (cselib_hash_table);
   free (used_regs);

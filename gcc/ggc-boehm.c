@@ -147,27 +147,12 @@ void *
 ggc_realloc_stat (void *x, size_t size MEM_STAT_DECL)
 {
   void * result;
+  enum gt_types_enum object_type = (x == NULL) ? gt_types_enum_last
+      : *(get_type_offset (x));
 
-  size_t obj_plus_info_size;
-  if (x == NULL)
-    return ggc_alloc_stat (size PASS_MEM_STAT);
+  result = GC_REALLOC (x, size + OBJ_OVERHEAD);
 
-  if ((x != NULL) && (size == 0))
-    {
-      GC_FREE (x);
-      return NULL;
-    }
-
-  obj_plus_info_size = size + OBJ_OVERHEAD;
-
-  result = GC_MALLOC (obj_plus_info_size);
-  memcpy (result, x, GC_size (x));
-
-  *(get_type_offset (result)) = *(get_type_offset (x));
-
-  GC_FREE (x);
-
-  type_overhead += OBJ_OVERHEAD;
+  *(get_type_offset (result)) = object_type;
 
   return result;
 }
@@ -300,6 +285,8 @@ struct GC_ms_entry *mark_tagged_object(GC_word * addr,
 				       struct GC_ms_entry * mark_stack_limit ATTRIBUTE_UNUSED,
 				       GC_word env ATTRIBUTE_UNUSED)
 {
+  if (GC_base (addr) == NULL)
+    return mark_stack_ptr;
   return (typed_markers[get_block_type(addr)])(addr, mark_stack_ptr,
 					       mark_stack_limit);
 }
