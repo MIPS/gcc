@@ -1,3 +1,8 @@
+2007-08-15  Andrew Haley  <aph@redhat.com>
+
+	* configure.ac (extra_ldflags): Define.
+	* Makefile.am: Use extra_ldflags for all executables.
+
 2007-08-14  Andrew Haley  <aph@redhat.com>
 
 	* sysdep/arm/backtrace.h: Remove stubs for _Unwind_GetIPInfo,

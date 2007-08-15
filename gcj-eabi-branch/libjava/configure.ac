@@ -788,10 +788,11 @@ case "${host}" in
     extra_ldflags_libjava=-Wl,-single_module
     ;;
 arm*linux*eabi)
-    extra_ldflags_libjava=../libstdc++-v3/libsupc++/libsupc++.la
+    extra_ldflags=-L../libstdc++/src -lstdc++
     ;;
 esac
 AC_SUBST(extra_ldflags_libjava)
+AC_SUBST(extra_ldflags)
 
 # Allow the GC to be disabled.  Can be useful when debugging.
 AC_MSG_CHECKING([for garbage collector to use])
