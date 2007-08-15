@@ -1,3 +1,7 @@
+2007-08-15  Jim Blandy  <jimb@codesourcery.com>
+
+	* lto-read.c (lto_read_var_init): Mark arguments as unused.
+
 2007-08-07  Jim Blandy  <jimb@codesourcery.com>
 
 	* lto.c (lto_read_form): Complete attr_classes table.

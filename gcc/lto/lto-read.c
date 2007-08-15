@@ -1537,10 +1537,10 @@ lto_read_function_body (lto_info_fd *fd,
 }
 
 void 
-lto_read_var_init (lto_info_fd *fd,
-		   lto_context *context,
-		   tree var_decl,
-		   const void *data)
+lto_read_var_init (lto_info_fd *fd ATTRIBUTE_UNUSED,
+		   lto_context *context ATTRIBUTE_UNUSED,
+		   tree var_decl ATTRIBUTE_UNUSED,
+		   const void *data ATTRIBUTE_UNUSED)
 {
 }
 
