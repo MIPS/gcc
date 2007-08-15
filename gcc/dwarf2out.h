@@ -66,3 +66,7 @@ extern void lto_var_ref (tree var, lto_out_ref *ref);
 /* Upon return, *REF contains a reference to FN, which must be a
    FUNCTION_DECL.  */
 extern void lto_fn_ref (tree fn, lto_out_ref *ref);
+
+/* Upon return, *REF contains a reference to FIELD, which must be a
+   FIELD_DECL.  */
+extern void lto_field_ref (tree fn, lto_out_ref *ref);

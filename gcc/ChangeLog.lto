@@ -1,3 +1,8 @@
+2007-08-15  Jim Blandy  <jimb@codesourcery.com>
+
+	* dwarf2out.c (lto_field_ref, force_field_die): New functions.
+	* dwarf2out.h (lto_field_ref): New declaration.
+
 2007-08-05  Mark Mitchell  <mark@codesourcery.com>
 
 	* tree.h (FILE_SCOPE_P): New macro.

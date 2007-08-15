@@ -13441,6 +13441,28 @@ force_type_die (tree type)
   return type_die;
 }
 
+/* Returns the DIE for field.  A DIE will always be returned.  */
+
+static dw_die_ref
+force_field_die (tree field)
+{
+  dw_die_ref decl_die;
+  decl_die = lookup_decl_die (field);
+  if (!decl_die)
+    {
+      tree decl_context = DECL_CONTEXT (field);
+      gcc_assert (decl_context && TYPE_P (decl_context));
+      force_type_die (decl_context);
+
+      /* Forcing a die for the containing type should always generate
+         a die for this field.  */
+      decl_die = lookup_decl_die (field);
+      gcc_assert (decl_die);
+    }
+
+  return decl_die;
+}
+
 /* Force out any required namespaces to be able to output DECL,
    and return the new context_die for it, if it's changed.  */
 
@@ -14989,6 +15011,19 @@ lto_fn_ref (tree fn,
   die = force_decl_die (fn);
   /* Construct the reference.  */
   lto_init_ref (ref, die, DECL_CONTEXT (fn));
+}
+
+void
+lto_field_ref (tree field,
+               lto_out_ref *ref)
+{
+  dw_die_ref die;
+
+  gcc_assert (TREE_CODE (field) == FIELD_DECL);
+  /* Generate the DIE for FIELD.  */
+  die = force_field_die (field);
+  /* Construct the reference.  */
+  lto_init_ref (ref, die, DECL_CONTEXT (field));
 }
 
 #else
