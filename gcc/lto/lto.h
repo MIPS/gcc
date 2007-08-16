@@ -158,6 +158,11 @@ extern tree lto_resolve_fn_ref (lto_info_fd *info_fd,
 				lto_context *context,
 				const lto_ref *ref);
 
+/* Return the FIELD_DECL referred to by REF.  */
+extern tree lto_resolve_field_ref (lto_info_fd *info_fd,
+				lto_context *context,
+				const lto_ref *ref);
+
 /* lto-elf.c */
 
 /* Open the ELF input file indicated by FILENAME.  Return */

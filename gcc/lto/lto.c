@@ -2080,7 +2080,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_member_DIE (lto_info_fd *fd,
-		     lto_die_ptr die ATTRIBUTE_UNUSED,
+		     lto_die_ptr die,
 		     const DWARF2_abbrev *abbrev,
 		     lto_context *context)
 {
@@ -2265,6 +2265,10 @@ lto_read_member_DIE (lto_info_fd *fd,
   else
     layout_decl (decl, bitpos_align);
   DECL_CONTEXT (decl) = context->parentdata;
+
+  /* Record our new decl as having come from this die, so we can
+     resolve references to it from lto data.  */
+  lto_cache_store_DIE (fd, die, decl);
 
   /* Now set the offset explicitly.  This bit of code was stolen from the
      Ada front end.  */
@@ -3321,6 +3325,31 @@ lto_resolve_fn_ref (lto_info_fd *info_fd,
     XDELETE (new_context);
 
   return fn;
+}
+
+tree 
+lto_resolve_field_ref (lto_info_fd *info_fd,
+                       lto_context *context,
+                       const lto_ref *ref)
+{
+  lto_die_ptr die;
+  lto_context *new_context = context;
+  tree field;
+
+  /* At present, we only support a single DWARF section.  */
+  if (ref->section != 0)
+    lto_abi_mismatch_error ();
+  /* Map REF to a DIE.  */
+  die = lto_resolve_reference (info_fd, ref->offset, context, &new_context);
+  /* Map DIE to a variable.  */
+  field = lto_cache_lookup_DIE (info_fd, die, /*skip=*/false);
+  if (!field || TREE_CODE (field) != FIELD_DECL)
+    lto_file_corrupt_error ((lto_fd *)info_fd); 
+  /* Clean up.  */
+  if (new_context != context)
+    XDELETE (new_context);
+
+  return field;
 }
 
 void

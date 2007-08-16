@@ -1,3 +1,10 @@
+2007-08-16  Jim Blandy  <jimb@codesourcery.com>
+
+	* lto.c (lto_read_member_DIE): Record the tree we create in
+	fd->die_cache.  (Our 'die' argument is no longer unused.)
+	(lto_resolve_field_ref): New function.
+	* lto.h (lto_resolve_field_ref): New declaration.
+
 2007-08-15  Jim Blandy  <jimb@codesourcery.com>
 
 	* lto-read.c (lto_read_var_init): Mark arguments as unused.
