@@ -466,8 +466,8 @@ static void sched_analyze_1 (struct deps *, rtx, rtx);
 static void sched_analyze_2 (struct deps *, rtx, rtx);
 static void sched_analyze_insn (struct deps *, rtx, rtx);
 
-static rtx sched_get_condition (rtx);
-static int conditions_mutex_p (rtx, rtx);
+static bool sched_has_condition_p (rtx);
+static int conditions_mutex_p (rtx, rtx, bool, bool);
 
 static enum DEPS_ADJUST_RESULT maybe_add_or_update_back_dep_1 (rtx, rtx, 
 			       enum reg_note, ds_t, rtx, rtx, dep_link_t **);
@@ -500,16 +500,21 @@ deps_may_trap_p (rtx mem)
   return rtx_addr_can_trap_p (addr);
 }
 
-/* Find the condition under which INSN is executed.  */
 
+/* Find the condition under which INSN is executed.  If REV is not NULL,
+   it is set to TRUE when the returned comparison should be reversed
+   to get the actual condition.  */
 static rtx
-sched_get_condition (rtx insn)
+sched_get_condition_with_rev (rtx insn, bool *rev)
 {
   rtx pat = PATTERN (insn);
   rtx src;
 
   if (pat == 0)
     return 0;
+
+  if (rev)
+    *rev = false;
 
   if (GET_CODE (pat) == COND_EXEC)
     return COND_EXEC_TEST (pat);
@@ -528,22 +533,34 @@ sched_get_condition (rtx insn)
 
       if (revcode == UNKNOWN)
 	return 0;
-      return gen_rtx_fmt_ee (revcode, GET_MODE (cond), XEXP (cond, 0),
-			     XEXP (cond, 1));
+
+      if (rev)
+	*rev = true;
+      return cond;
     }
 
   return 0;
 }
 
-
-/* Return nonzero if conditions COND1 and COND2 can never be both true.  */
+/* True when we can find a condition under which INSN is executed.  */
+static bool
+sched_has_condition_p (rtx insn)
+{
+  return !! sched_get_condition_with_rev (insn, NULL);
+}
 
+
+
+/* Return nonzero if conditions COND1 and COND2 can never be both true.  */
 static int
-conditions_mutex_p (rtx cond1, rtx cond2)
+conditions_mutex_p (rtx cond1, rtx cond2, bool rev1, bool rev2)
 {
   if (COMPARISON_P (cond1)
       && COMPARISON_P (cond2)
-      && GET_CODE (cond1) == reversed_comparison_code (cond2, NULL)
+      && GET_CODE (cond1) ==
+	  (rev1==rev2
+	  ? reversed_comparison_code (cond2, NULL)
+	  : GET_CODE (cond2))
       && XEXP (cond1, 0) == XEXP (cond2, 0)
       && XEXP (cond1, 1) == XEXP (cond2, 1))
     return 1;
@@ -556,15 +573,16 @@ bool
 sched_insns_conditions_mutex_p (rtx insn1, rtx insn2)
 {
   rtx cond1, cond2;
+  bool rev1, rev2;
 
   /* flow.c doesn't handle conditional lifetimes entirely correctly;
      calls mess up the conditional lifetimes.  */
   if (!CALL_P (insn1) && !CALL_P (insn2))
     {
-      cond1 = sched_get_condition (insn1);
-      cond2 = sched_get_condition (insn2);
+      cond1 = sched_get_condition_with_rev (insn1, &rev1);
+      cond2 = sched_get_condition_with_rev (insn2, &rev2);
       if (cond1 && cond2
-	  && conditions_mutex_p (cond1, cond2)
+	  && conditions_mutex_p (cond1, cond2, rev1, rev2)
 	  /* Make sure first instruction doesn't affect condition of second
 	     instruction if switched.  */
 	  && !modified_in_p (cond1, insn2)
@@ -1885,7 +1903,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
     {
       /* In the case of barrier the most added dependencies are not
          real, so we use anti-dependence here.  */
-      if (sched_get_condition (insn))
+      if (sched_has_condition_p (insn))
 	{
 	  EXECUTE_IF_SET_IN_REG_SET (&deps->reg_last_in_use, 0, i, rsi)
 	    {
@@ -1924,7 +1942,10 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
 	  SET_REGNO_REG_SET (&deps->reg_last_in_use, i);
 	}
 
-      flush_pending_lists (deps, insn, true, true);
+      /* Flush pending lists on jumps, but not on speculative checks.  */
+      if (JUMP_P (insn) && !(SEL_SCHED_P 
+                             && sel_insn_is_speculation_check (insn)))
+	flush_pending_lists (deps, insn, true, true);
       CLEAR_REG_SET (&deps->reg_conditional_sets);
       reg_pending_barrier = NOT_A_BARRIER;
     }
@@ -1932,7 +1953,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
     {
       /* If the current insn is conditional, we can't free any
 	 of the lists.  */
-      if (sched_get_condition (insn))
+      if (sched_has_condition_p (insn))
 	{
 	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_uses, 0, i, rsi)
 	    {
@@ -2100,9 +2121,10 @@ deps_analyze_insn (struct deps *deps, rtx insn)
 
   if (NONJUMP_INSN_P (insn) || JUMP_P (insn))
     {
-      /* Make each JUMP_INSN a scheduling barrier for memory
-         references.  */
-      if (JUMP_P (insn))
+      /* Make each JUMP_INSN (but not a speculative check) 
+         a scheduling barrier for memory references.  */
+      if (JUMP_P (insn) && !(SEL_SCHED_P 
+                             && sel_insn_is_speculation_check (insn)))
         {
           /* Keep the list a reasonable size.  */
           if (deps->pending_flush_length++ > MAX_PENDING_LIST_LENGTH)

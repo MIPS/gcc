@@ -193,6 +193,8 @@ extern void advance_state (state_t);
 extern void sched_init (void);
 extern void sched_finish (void);
 
+extern bool sel_insn_is_speculation_check (rtx);
+
 /* Describe the ready list of the scheduler.
    VEC holds space enough for all insns in the current region.  VECLEN
    says how many exactly.

@@ -2939,7 +2939,7 @@ sched_rgn_init (bool single_blocks_p, bool ebbs_p)
   else
     {
       /* Compute the dominators and post dominators.  */
-      if (!SEL_SCHED_P || !flag_sel_sched_pipelining_outer_loops)
+      if (!SEL_SCHED_P)
 	calculate_dominance_info (CDI_DOMINATORS);
 
       /* Find regions.  */
@@ -2950,7 +2950,7 @@ sched_rgn_init (bool single_blocks_p, bool ebbs_p)
 
       /* For now.  This will move as more and more of haifa is converted
 	 to using the cfg code in flow.c.  */
-      if (!SEL_SCHED_P || !flag_sel_sched_pipelining_outer_loops)
+      if (!SEL_SCHED_P)
 	free_dominance_info (CDI_DOMINATORS);
     }
 

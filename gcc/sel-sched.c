@@ -202,6 +202,12 @@ static VEC(rhs_t, heap) *vec_av_set = NULL;
 
 /* This shows how many times the scheduler was run.  */
 static int sel_sched_region_run = 0;
+
+/* Variables to accumulate different statistics.  */
+static int stat_bookkeeping_copies;
+static int stat_insns_needed_bookkeeping;
+static int stat_renamed_scheduled;
+static int stat_substitutions_total;
 
 
 /* Forward declarations of static functions.  */
@@ -229,6 +235,27 @@ advance_one_cycle (fence_t fence)
   FENCE_STARTS_CYCLE_P (fence) = 1;
   can_issue_more = issue_rate;
   print ("Finished a cycle.  Current cycle = %d", FENCE_CYCLE (fence));
+}
+
+/* Returns true when SUCC in a fallthru bb of INSN, possibly
+   skipping empty basic blocks.  */
+static bool
+in_fallthru_bb_p (rtx insn, rtx succ)
+{
+  basic_block bb = BLOCK_FOR_INSN (insn);
+
+  if (bb == BLOCK_FOR_INSN (succ))
+    return true;
+
+  if (find_fallthru_edge (bb))
+    bb = find_fallthru_edge (bb)->dest;
+  else
+    return false;
+
+  while (sel_bb_empty_p (bb))
+    bb = bb->next_bb;
+
+  return bb == BLOCK_FOR_INSN (succ);
 }
 
 /* Construct successor fences from FENCE and put them in NEW_FENCES. 
@@ -264,7 +291,10 @@ extract_new_fences_from (fence_t fence, flist_tail_t new_fences,
 	  if (0 < seqno && seqno <= orig_max_seqno
 	      && (pipelining_p || INSN_SCHED_CYCLE (succ) <= 0))
 	    {
-	      bool b = in_same_ebb_p (insn, succ);
+	      bool b = in_same_ebb_p (insn, succ)
+                       || (!flag_sel_sched_reset_tc_on_join
+                           && in_fallthru_bb_p (insn, succ));
+
 
 	      print ("%d[%d] (state %s); ", INSN_UID (succ),
 		     BLOCK_NUM (succ), b ? "continue" : "reset");
@@ -1704,6 +1734,7 @@ moveup_rhs_inside_insn_group (rhs_t insn_to_move_up, insn_t through_insn)
 	  if (substitute_reg_in_rhs (insn_to_move_up, through_insn))
             {
               sel_print_rtl (EXPR_INSN_RTX (insn_to_move_up));
+	      EXPR_WAS_SUBSTITUTED (insn_to_move_up) = true;
               line_finish ();
           
 	      return MOVEUP_RHS_CHANGED;
@@ -1718,9 +1749,10 @@ moveup_rhs_inside_insn_group (rhs_t insn_to_move_up, insn_t through_insn)
   return MOVEUP_RHS_NULL;
 }
 
-#define CANT_MOVE_TRAPPING(insn_to_move_up, through_insn) \
-  (VINSN_MAY_TRAP_P (EXPR_VINSN (insn_to_move_up))        \
-   && !sel_insn_has_single_succ_p ((through_insn), SUCCS_ALL))
+#define CANT_MOVE_TRAPPING(insn_to_move_up, through_insn)     \
+  (VINSN_MAY_TRAP_P (EXPR_VINSN (insn_to_move_up))            \
+   && !sel_insn_has_single_succ_p ((through_insn), SUCCS_ALL) \
+   && !sel_insn_is_speculation_check (through_insn))
 
 /* Modifies INSN_TO_MOVE_UP so it can be moved through the THROUGH_INSN,
    performing necessary transformations.  When INSIDE_INSN_GROUP, 
@@ -1743,9 +1775,7 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
   if (VINSN_UNIQUE_P (vi))
     {
       if (/* Don't move branches for now.  */
-	  control_flow_insn_p (insn)
-	  /* Don't try to clone unique insns.  */
-	  || bookkeeping_can_be_created_if_moved_through_p (through_insn))
+	  control_flow_insn_p (insn))
 	return MOVEUP_RHS_NULL;
 
       if (CANT_MOVE (insn)
@@ -1763,15 +1793,7 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
 	return MOVEUP_RHS_NULL;
     }
   else
-    {
-      gcc_assert (!control_flow_insn_p (insn));
-
-      if (!bookkeeping_p
-	  && bookkeeping_can_be_created_if_moved_through_p (through_insn))
-	/* If bookkeeping is disabled don't try to move those insns that can
-	   possible generate one.  */
-	return MOVEUP_RHS_NULL;
-    }
+    gcc_assert (!control_flow_insn_p (insn));
 
   full_ds = has_dependence_p (insn_to_move_up, through_insn, &has_dep_p);
 
@@ -1847,7 +1869,10 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
 	  print ("After: ");
 
 	  if (substitute_reg_in_rhs (insn_to_move_up, through_insn))
-            sel_print_rtl (EXPR_INSN_RTX (insn_to_move_up));
+	    {
+	      EXPR_WAS_SUBSTITUTED (insn_to_move_up) = true;
+	      sel_print_rtl (EXPR_INSN_RTX (insn_to_move_up));
+	    }
 	  else
 	    {
 	      print ("Can't move up due to architecture constraints.\n");
@@ -2793,6 +2818,12 @@ sel_rank_for_schedule (const void *x, const void *y)
       return -1;
     }
 
+  /* Discourage scheduling of speculative checks.  */
+  val = (sel_insn_is_speculation_check (tmp_insn)
+	 - sel_insn_is_speculation_check (tmp2_insn));
+  if (val)
+    return val;
+
   /* Prefer not scheduled insn over scheduled one.  */
   val = EXPR_SCHED_TIMES (tmp) - EXPR_SCHED_TIMES (tmp2);
   if (val)
@@ -3534,12 +3565,60 @@ static void
 generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
 {
   basic_block src, bb = e2->dest;
-  basic_block new_bb;
+  basic_block new_bb = NULL;
   insn_t src_end = NULL_RTX;
   insn_t place_to_insert;
   /* Save the original destination of E1.  */
   basic_block empty_bb = e1->dest;
+  int new_seqno = INSN_SEQNO (join_point);
+  basic_block other_block = NULL;
 
+  /* Find a basic block that can hold bookkeeping.  If it can be found, do not
+     create new basic block, but insert bookkeeping there.  */
+  if (e1 == e2)
+    {
+      other_block = 
+        EDGE_COUNT (e1->dest->preds) > 2
+          ? NULL
+          : EDGE_PRED (e1->dest, 0) == e1
+            ? EDGE_PRED (e1->dest, 1)->src
+            : EDGE_PRED (e1->dest, 0)->src;
+    }
+  else
+    {
+      edge iter_edge = e1;
+      bool search_more = true;
+      do
+        {
+          search_more = iter_edge != e2;
+          /* There must be only one edge that enters path from e1 to e2 
+             from aside to be able to create bookkeeping in existing block.  */
+          if (EDGE_COUNT (iter_edge->dest->preds) == 2)
+            {
+              if (other_block == NULL)
+                other_block = 
+                  EDGE_PRED (iter_edge->dest, 0) == iter_edge
+                    ? EDGE_PRED (iter_edge->dest, 1)->src
+                    : EDGE_PRED (iter_edge->dest, 0)->src;
+              else
+                {
+                  /* Found additional edge leading to path from e1 to e2 
+                     from aside.  */
+                  other_block = NULL;
+                  break;
+                }
+            }
+          else if (EDGE_COUNT (iter_edge->dest->preds) > 2)
+            {
+              /* Several edges leading to path from e1 to e2 from aside.  */
+              other_block = NULL;
+              break;
+            }
+          iter_edge = EDGE_SUCC (iter_edge->dest, 0);
+        }
+      while (search_more);
+    }
+  
   print ("generate_bookkeeping_insn(%d->%d)", e1->src->index, 
 	 e2->dest->index);
 
@@ -3547,13 +3626,14 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
      true.  */
   gcc_assert (bb_note (bb) != BB_END (bb));
 
-  if (EDGE_COUNT (bb->preds) == 2)
+  /* Explore, if we can insert bookkeeping into OTHER_BLOCK in case edge
+     OTHER_BLOCK -> BB is fallthrough, meaning there is no jump there.  */
+  if (EDGE_COUNT (bb->preds) == 2 && other_block)
     {
       /* SRC is the block, in which we possibly can insert bookkeeping insn
          without creating new basic block.  It is the other (than E2->SRC)
          predecessor block of BB.  */
-      src = EDGE_PRED (bb, 0) == e2 
-        ? EDGE_PRED (bb, 1)->src : EDGE_PRED (bb, 0)->src;
+      src = other_block;
 
       /* Instruction, after which we would try to insert bookkeeping insn.  */
       src_end = BB_END (src);
@@ -3589,30 +3669,67 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
                       || e1 != single_pred_edge (latch));
         }
 
-      /* Split the head of the BB to insert BOOK_INSN there.  */
-      new_bb = sched_split_block (bb, NULL);
-  
-      /* Move note_list from the upper bb.  */
-      gcc_assert (BB_NOTE_LIST (new_bb) == NULL_RTX);
-      BB_NOTE_LIST (new_bb) = BB_NOTE_LIST (bb);
-      BB_NOTE_LIST (bb) = NULL_RTX;
-  
-      gcc_assert (e2->dest == bb);
-  
-      can_add_real_insns_p = true;
-      insn_init.what = INSN_INIT_WHAT_INSN;
-  
-      /* Make a jump skipping bookkeeping copy.  */
-      if (e1->flags & EDGE_FALLTHRU)
-        sel_redirect_edge_and_branch_force (e1, new_bb);
+      /* Explore, if we can insert bookkeeping into OTHER_BLOCK in case edge
+         OTHER_BLOCK -> BB is not fallthrough, meaning there is jump there.  */
+      if (other_block && EDGE_COUNT (other_block->succs) == 1
+          && (e1->flags & EDGE_FALLTHRU))
+        {
+          insn_t src_begin;
+
+          get_ebb_head_tail (other_block, other_block, &src_begin, &src_end);
+
+          gcc_assert (control_flow_insn_p (src_end));
+
+          if (/* Don't schedule speculative insns in recovery blocks.  */
+              /*EXPR_SPEC_DONE_DS (c_rhs)*/
+              /* Jump was scheduled.  */
+              /*|| */INSN_SCHED_TIMES (src_end) > 0
+              /* This is a floating bb header.  */
+              || (src_end == src_begin
+                  && EDGE_COUNT (other_block->preds) == 1
+                  && INSN_P (BB_END (EDGE_I (other_block->preds, 0)->src))
+                  && INSN_SCHED_TIMES (BB_END (EDGE_I (other_block->preds, 
+                                                       0)->src)) > 0))
+            new_bb = NULL;
+          else
+            {
+              new_bb = other_block;
+              place_to_insert = PREV_INSN (src_end);
+              new_seqno = INSN_SEQNO (src_end);
+              can_add_real_insns_p = true;
+              insn_init.what = INSN_INIT_WHAT_INSN;
+            }
+        }
       else
-        sel_redirect_edge_and_branch (e1, new_bb);
+        new_bb = NULL;
 
-      gcc_assert (e1->dest == new_bb);
+      if (!new_bb)
+        {
+          /* Split the head of the BB to insert BOOK_INSN there.  */
+          new_bb = sched_split_block (bb, NULL);
 
-      gcc_assert (sel_bb_empty_p (bb));
-      
-      place_to_insert = BB_END (bb);
+          /* Move note_list from the upper bb.  */
+          gcc_assert (BB_NOTE_LIST (new_bb) == NULL_RTX);
+          BB_NOTE_LIST (new_bb) = BB_NOTE_LIST (bb);
+          BB_NOTE_LIST (bb) = NULL_RTX;
+
+          gcc_assert (e2->dest == bb);
+
+          can_add_real_insns_p = true;
+          insn_init.what = INSN_INIT_WHAT_INSN;
+
+          /* Make a jump skipping bookkeeping copy.  */
+          if (e1->flags & EDGE_FALLTHRU)
+            sel_redirect_edge_and_branch_force (e1, new_bb);
+          else
+            sel_redirect_edge_and_branch (e1, new_bb);
+
+          gcc_assert (e1->dest == new_bb);
+
+          gcc_assert (sel_bb_empty_p (bb));
+
+          place_to_insert = BB_END (bb);
+        }
     }
   else
     place_to_insert = src_end;
@@ -3642,18 +3759,62 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
 	 its scheduling counter.  */
       --EXPR_SCHED_TIMES (new_expr);
 
-    new_insn = gen_insn_from_expr_after (new_expr, INSN_SEQNO (join_point),
-					 place_to_insert);
+    new_insn = gen_insn_from_expr_after (new_expr, new_seqno, place_to_insert);
 
     clear_expr (new_expr);
 
     gcc_assert ((src == NULL && BB_END (bb) == new_insn
 		 && sel_bb_head_p (new_insn))
+                || (src == NULL && control_flow_insn_p (BB_END (other_block))
+                    && PREV_INSN (BB_END (other_block)) == new_insn
+                    && INSN_SCHED_TIMES (BB_END (other_block)) == 0)
 		|| BB_END (src) == new_insn);
   }
+
+  stat_bookkeeping_copies++;
 }
 
+/* Remove from AV_PTR all insns that may need bookkeeping when scheduling 
+   on FENCE, but we are unable to copy them.  */
+static void
+remove_insns_that_need_bookkeeping (fence_t fence, av_set_t *av_ptr)
+{
+  rhs_t rhs;
+  av_set_iterator i;
+
+  /*  An expression does not need bookkeeping if it is available on all paths 
+      from current block to original block and current block dominates 
+      original block.  We check availability on all paths by examining 
+      EXPR_SPEC; this is not equivalent, because it may be positive even 
+      if expr is available on all paths (but if expr is not available on 
+      any path, EXPR_SPEC will be positive).  */
+
+  FOR_EACH_RHS_1 (rhs, i, av_ptr)
+    {
+      if (!control_flow_insn_p (EXPR_INSN_RTX (rhs))
+	  && (!bookkeeping_p || VINSN_UNIQUE_P (EXPR_VINSN (rhs)))
+	  && (EXPR_SPEC (rhs)
+	      || !EXPR_ORIG_BB_INDEX (rhs)
+	      || !dominated_by_p (CDI_DOMINATORS,
+				  BLOCK_FOR_INSN (FENCE_INSN (fence)),
+				  BASIC_BLOCK (EXPR_ORIG_BB_INDEX (rhs)))))
+	{
+	  line_start ();
+	  print ("Removed expr that would need bookkeeping (but disabled or"
+		 " expr was unique): ");
+	  dump_expr (rhs);
+	  line_finish ();
+	  av_set_iter_remove (&i);
+	}
+    }
+}
+
+/* Records the number of fill_insns runs for debugging purposes.  */
 static int fill_insns_run = 0;
+
+/* Records the maximal UID before moving up an instruction.  Used for
+   distinguishing between bookkeeping copies and original insns.  */
+static int max_uid_before_move_op = 0;
 
 /* Gather a parallel group of insns at FENCE and assign their seqno 
    to SEQNO.  All scheduled insns are gathered in SCHEDULED_INSNS_TAILPP 
@@ -3708,6 +3869,8 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
           av_set_union_and_clear (&av_vliw, &av1_copy);
         }
       while ((bnds1 = BLIST_NEXT (bnds1)));
+
+      remove_insns_that_need_bookkeeping (fence, &av_vliw);
 
       sel_dump_cfg ("after-compute_av");
 
@@ -3816,9 +3979,14 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
                      correct register in RHS then.  */
                   if (EXPR_SEPARABLE_P (rhs) && REG_P (EXPR_LHS (rhs))
                       && rhs_dest_regno (rhs) != rhs_dest_regno (rhs_vliw))
-                    replace_dest_with_reg_in_rhs (rhs, EXPR_LHS (rhs_vliw));
+		    {
+		      replace_dest_with_reg_in_rhs (rhs, EXPR_LHS (rhs_vliw));
+		      stat_renamed_scheduled++;
+		    }
 
 		  av_set_add (&rhs_seq, rhs);
+		  if (EXPR_WAS_SUBSTITUTED (rhs))
+		    stat_substitutions_total++;
 		}
             }
 
@@ -3832,6 +4000,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	    insn_t place_to_insert;
 	    expr_def _c_rhs, *c_rhs = &_c_rhs;
 	    bool b;
+	    int n_bookkeeping_copies_before_moveop;
 
 	    /* Init place_to_insert before calling move_op, as the later
 	       can possibly remove BND_TO (bnd).  */
@@ -3942,7 +4111,13 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 		 insert all necessary bookkeeping instructions and update the
 		 data sets.  After that all we have to do is add the operation
 		 at before BND_TO (BND).  */
+	      n_bookkeeping_copies_before_moveop = stat_bookkeeping_copies;
+	      max_uid_before_move_op = get_max_uid ();
+
 	      b = move_op (BND_TO (bnd), rhs_seq, NULL, NULL, NULL, c_rhs);
+
+	      if (stat_bookkeeping_copies > n_bookkeeping_copies_before_moveop)
+		stat_insns_needed_bookkeeping++;
 
 	      /* We should be able to find the expression we've chosen for 
 		 scheduling.  */
@@ -4258,6 +4433,9 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 	 stream, so subsequent update_data_sets () won't include this
 	 insn into av_set.
 	 For rhs we must make insn look like "INSN_REG (insn) := c_rhs".  */
+      if (INSN_UID (insn) > max_uid_before_move_op)
+	stat_bookkeeping_copies--;
+
       {
 	bool recovery_p = false;
 
@@ -4938,15 +5116,12 @@ sel_region_finish (void)
           advance_state (curr_state);
           last_clock = -1;
 
-          for (insn = head; insn != NEXT_INSN (tail);)
+          for (insn = head; insn != NEXT_INSN (tail); insn = NEXT_INSN (insn))
             {
               int cost;
   
               if (!INSN_P (insn))
-                {
-                  insn = NEXT_INSN (insn);
-                  continue;
-                }
+		continue;
 
               clock = INSN_SCHED_CYCLE (insn);
               cost = (last_clock == -1) ? 1 : clock - last_clock;
@@ -4967,8 +5142,6 @@ sel_region_finish (void)
 
                   last_clock = clock;
                 }
-
-              insn = NEXT_INSN (insn);
             }
 
           if (targetm.sched.md_finish)
@@ -5021,6 +5194,11 @@ sel_sched_region_2 (sel_sched_region_2_data_t data)
 {
   int orig_max_seqno = data->orig_max_seqno;
   int highest_seqno_in_use = orig_max_seqno;
+
+  stat_bookkeeping_copies = 0;
+  stat_insns_needed_bookkeeping = 0;
+  stat_renamed_scheduled = 0;
+  stat_substitutions_total = 0;
 
   while (fences)
     {
@@ -5182,6 +5360,12 @@ sel_sched_region_2 (sel_sched_region_2_data_t data)
 
   gcc_assert (data->orig_max_seqno == orig_max_seqno);
   data->highest_seqno_in_use = highest_seqno_in_use;
+
+  print ("stats: %d,%d,%d,%d",
+         stat_bookkeeping_copies,
+         stat_insns_needed_bookkeeping,
+         stat_renamed_scheduled,
+         stat_substitutions_total);
 }
 
 /* Schedule a region.  When pipelining, search for possibly never scheduled 
@@ -5428,6 +5612,8 @@ sel_global_init (void)
   if (!flag_sel_sched_pipelining)
     flag_sel_sched_pipelining_outer_loops = 0;
 
+  calculate_dominance_info (CDI_DOMINATORS);
+
   if (flag_sel_sched_pipelining_outer_loops)
     pipeline_outer_loops_init ();
 
@@ -5499,6 +5685,8 @@ sel_global_finish (void)
 
   if (flag_sel_sched_pipelining_outer_loops)
     pipeline_outer_loops_finish ();
+
+  free_dominance_info (CDI_DOMINATORS);
 }
 
 /* The entry point.  */

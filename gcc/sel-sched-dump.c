@@ -377,6 +377,14 @@ dump_expr_1 (expr_t expr, int flags)
 	print ("ds:%d;", spec_done_ds);
     }
 
+  if (flags & DUMP_EXPR_ORIG_BB)
+    {
+      int orig_bb = EXPR_ORIG_BB_INDEX (expr);
+
+      if (orig_bb != 0)
+	print ("orig_bb:%d", orig_bb);
+    }
+
   print ("]");
   line_finish ();
 }

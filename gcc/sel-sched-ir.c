@@ -1558,7 +1558,8 @@ vinsns_correlate_as_rhses_p (vinsn_t x, vinsn_t y)
 /* Initialize RHS.  */
 static void
 init_expr (expr_t expr, vinsn_t vi, int spec, int priority, int sched_times,
-	   ds_t spec_done_ds, ds_t spec_to_check_ds, VEC(unsigned, heap) *changed_on)
+	   int orig_bb_index, ds_t spec_done_ds, ds_t spec_to_check_ds,
+	   VEC(unsigned, heap) *changed_on, bool was_substituted)
 {
   vinsn_attach (vi);
 
@@ -1566,6 +1567,7 @@ init_expr (expr_t expr, vinsn_t vi, int spec, int priority, int sched_times,
   EXPR_SPEC (expr) = spec;
   EXPR_PRIORITY (expr) = priority;
   EXPR_SCHED_TIMES (expr) = sched_times;
+  EXPR_ORIG_BB_INDEX (expr) = orig_bb_index;
   EXPR_SPEC_DONE_DS (expr) = spec_done_ds;
   EXPR_SPEC_TO_CHECK_DS (expr) = spec_to_check_ds;
 
@@ -1573,6 +1575,8 @@ init_expr (expr_t expr, vinsn_t vi, int spec, int priority, int sched_times,
     EXPR_CHANGED_ON_INSNS (expr) = changed_on;
   else
     EXPR_CHANGED_ON_INSNS (expr) = NULL;
+
+  EXPR_WAS_SUBSTITUTED (expr) = was_substituted;
 }
 
 /* Make a copy of the rhs FROM into the rhs TO.  */
@@ -1583,8 +1587,9 @@ copy_expr (expr_t to, expr_t from)
 
   temp = VEC_copy (unsigned, heap, EXPR_CHANGED_ON_INSNS (from));
   init_expr (to, EXPR_VINSN (from), EXPR_SPEC (from), EXPR_PRIORITY (from),
-	     EXPR_SCHED_TIMES (from), EXPR_SPEC_DONE_DS (from),
-	     EXPR_SPEC_TO_CHECK_DS (from), temp);
+	     EXPR_SCHED_TIMES (from), EXPR_ORIG_BB_INDEX (from),
+	     EXPR_SPEC_DONE_DS (from), EXPR_SPEC_TO_CHECK_DS (from), temp,
+	     EXPR_WAS_SUBSTITUTED (from));
 }
 
 /* Same, but the final expr will not ever be in av sets, so don't copy 
@@ -1593,8 +1598,9 @@ void
 copy_expr_onside (expr_t to, expr_t from)
 {
   init_expr (to, EXPR_VINSN (from), EXPR_SPEC (from), EXPR_PRIORITY (from),
-	     EXPR_SCHED_TIMES (from), EXPR_SPEC_DONE_DS (from),
-	     EXPR_SPEC_TO_CHECK_DS (from), NULL);
+	     EXPR_SCHED_TIMES (from), 0,
+	     EXPR_SPEC_DONE_DS (from), EXPR_SPEC_TO_CHECK_DS (from), NULL,
+	     EXPR_WAS_SUBSTITUTED (from));
 }
 
 /* Merge bits of FROM rhs to TO rhs.  */
@@ -1615,6 +1621,9 @@ merge_expr_data (expr_t to, expr_t from)
   if (RHS_SCHED_TIMES (to) > RHS_SCHED_TIMES (from))
     RHS_SCHED_TIMES (to) = RHS_SCHED_TIMES (from);
 
+  if (EXPR_ORIG_BB_INDEX (to) != EXPR_ORIG_BB_INDEX (from))
+    EXPR_ORIG_BB_INDEX (to) = 0;
+
   EXPR_SPEC_DONE_DS (to) = ds_max_merge (EXPR_SPEC_DONE_DS (to),
 					 EXPR_SPEC_DONE_DS (from));
 
@@ -1626,6 +1635,7 @@ merge_expr_data (expr_t to, expr_t from)
        i++)
     insert_in_hash_vect (&EXPR_CHANGED_ON_INSNS (to), hash);
 
+  EXPR_WAS_SUBSTITUTED (to) |= EXPR_WAS_SUBSTITUTED (from);
 }
 
 /* Merge bits of FROM rhs to TO rhs.  Vinsns in the rhses should correlate.  */
@@ -2139,7 +2149,8 @@ init_global_and_expr_for_insn (insn_t insn)
 
     /* Initialize INSN's expr.  */
     init_expr (INSN_EXPR (insn), vinsn_create (insn, force_unique_p), 0,
-	       INSN_PRIORITY (insn), 0, spec_done_ds, 0, NULL);
+	       INSN_PRIORITY (insn), 0, BLOCK_NUM (insn), spec_done_ds, 0,
+	       NULL, false);
   }
 
   INSN_ANALYZED_DEPS (insn) = BITMAP_ALLOC (NULL);
@@ -2673,6 +2684,22 @@ insn_rtx_valid (rtx insn_rtx)
     return false;
 }
 
+/* Return s_i_d entry of INSN.  Callable from debugger.  */
+sel_insn_data_def
+insn_sid (insn_t insn)
+{
+  return *SID (insn);
+}
+
+/* True when INSN is a speculative check.  We can tell this by looking
+   at the data structures of the selective scheduler, not by examining
+   the pattern.  */
+bool
+sel_insn_is_speculation_check (rtx insn)
+{
+  return s_i_d && !! INSN_SPEC_CHECKED_DS (insn);
+}
+
 /* Returns whether INSN is eligible for substitution, i.e. it's a copy
    operation x := y, and RHS that is moved up through this insn should be
    substituted.  */
@@ -2892,15 +2919,6 @@ get_seqno_of_a_pred (insn_t insn)
 	}
     }
 
-#ifdef ENABLE_CHECKING
-  {
-    insn_t succ = cfg_succ (insn);
-
-    gcc_assert (succ != NULL
-		|| flag_sel_sched_pipelining_outer_loops);
-  }
-#endif
-
   return seqno;
 }
 
@@ -3032,6 +3050,8 @@ init_insn (insn_t insn)
 
   copy_expr (expr, x);
 
+  EXPR_ORIG_BB_INDEX (expr) = BLOCK_NUM (insn);
+
   if (insn_init_create_new_vinsn_p)
     change_vinsn_in_expr (expr, vinsn_create (insn, init_insn_force_unique_p));
 
@@ -3047,7 +3067,7 @@ static void
 init_simplejump (insn_t insn)
 {
   init_expr (INSN_EXPR (insn), vinsn_create (insn, false), 0, 0, 0, 
-             0, 0, NULL);
+             0, 0, 0, NULL, false);
 
   INSN_SEQNO (insn) = get_seqno_of_a_pred (insn);
 
@@ -4305,6 +4325,7 @@ static basic_block
 sel_split_block (basic_block bb, rtx after)
 {
   basic_block new_bb;
+  insn_t insn;
 
   can_add_real_insns_p = false;
   new_bb = sched_split_block_1 (bb, after);
@@ -4313,6 +4334,11 @@ sel_split_block (basic_block bb, rtx after)
   change_loops_latches (bb, new_bb);
 
   sel_add_or_remove_bb (new_bb, 1);
+
+  /* Update ORIG_BB_INDEX for insns moved into the new block.  */
+  FOR_BB_INSNS (new_bb, insn)
+   if (INSN_P (insn))
+     EXPR_ORIG_BB_INDEX (INSN_EXPR (insn)) = new_bb->index;
 
   if (sel_bb_empty_p (bb))
     {
@@ -5043,7 +5069,6 @@ void pipeline_outer_loops_finish (void)
     loop->aux = NULL;
 
   loop_optimizer_finalize ();
-  free_dominance_info (CDI_DOMINATORS);
 
   VEC_free (loop_p, heap, loop_nests);
 
@@ -5188,12 +5213,4 @@ sel_remove_loop_preheader (void)
     SET_LOOP_PREHEADER_BLOCKS (loop_outer (current_loop_nest),
 			       preheader_blocks);
 }
-
-/* Return s_i_d entry of INSN.  Callable from debugger.  */
-sel_insn_data_def
-insn_sid (insn_t insn)
-{
-  return *SID (insn);
-}
-
 #endif

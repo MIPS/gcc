@@ -904,6 +904,10 @@ fsel-sched-ebb-regions
 Common Report Var(flag_sel_sched_ebb_regions) Init(0)
 Run selective scheduling on extended basic block regions.
 
+fsel-sched-reset-tc-on-join
+Common Report Var(flag_sel_sched_reset_tc_on_join) Init(0)
+Reset scheduling context on join points.
+
 ; sched_stalled_insns means that insns can be moved prematurely from the queue
 ; of stalled insns into the ready list.
 fsched-stalled-insns

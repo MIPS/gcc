@@ -1,3 +1,68 @@
+2007-08-15  Alexander Monakov  <amonakov@ispras.ru>
+	    Dmitry Zhurikhin  <zhur@ispras.ru>
+	
+	* gcc/common.opt (fsel-sched-reset-tc-on-join): New option.
+	* gcc/config/ia64/ia64.c (group_barrier_needed): Add heuristic.
+	(struct bundle_state): New field.
+	(issue_nops_and_insn): Initialize it.
+	(insert_bundle_state): Minimize mid-bundle stop bits.
+	(bundling): Print number of mid-bundle stop bits.  Minimize mid-bundle
+	stop bits.  Check correct calculation of mid-bundle stop bits.
+	* gcc/haifa-sched.c (schedule_block): Call sched_init_luids to reset
+	scheduler datastructure before target generates new insns.
+	* gcc/sched-deps.c (sched_has_condition_p): New function.  Adjust
+	users of sched_get_condition to use it instead.
+	(conditions_mutex_p): Add arguments indicating which conditions are
+	reversed.  Use them.
+	(sched_get_condition_with_rev): Rename from sched_get_condition.  Add
+	argument to indicate whether returned condition is reversed.  Do not
+	generate new rtx when condition should be reversed; indicate it by
+	setting new argument instead.
+	(sched_insns_mutex_p): Use sched_get_condition_with_rev.
+	(deps_analyze_insn): Do not flush pending write lists on speculation
+	checks.  Do not make speculation check a scheduling barrier for memory
+	references.
+	* gcc/sched-int.h (sel_insn_is_speculation_check): Declare.
+	* gcc/sched-rgn.c (sched_rgn_init): Do not calculate and free
+	dominance info for selective scheduler here.
+	* gcc/sel-sched-dump.c (dump_expr_1): Print new field.
+	* gcc/sel-sched-dump.h (enum dump_expr): New member.
+	* gcc/sel-sched-ir.c (init_expr): New arguments.  Initialize new
+	fields of expr_t.
+	(copy_expr): Update to pass new arguments to init_expr.
+	(copy_expr_onside): Ditto.
+	(init_global_and_expr_for_insn): Ditto.
+	(init_simplejump): Ditto.
+	(merge_expr_data): Calculate new fields of expr_t.
+	(sel_insn_is_speculation_check): New function.
+	(get_seqno_of_a_pred): Remove wrong assertion.
+	(init_insn): Calculate new field of expr_t.
+	(sel_split_block): Ditto.
+	(pipeline_outer_loops_finish): Do not free dominance info here.
+	* gcc/sel-sched-ir.h (struct _expr): New fields.
+	(EXPR_ORIG_BB_INDEX): New accessor macro.
+	(EXPR_WAS_SUBSTITUTED): Ditto.
+	* gcc/sel-sched.c (stat_bookkeeping_copies,
+	stat_insns_needed_bookkeeping, stat_renamed_scheduled,
+	stat_substitutions_total): New global variables.
+	(in_fallthru_bb_p): New function.
+	(extract_new_fences_from): Use it. 
+	(moveup_rhs_inside_insn_group): Record whether expr was substituted.
+	(moveup_rhs): Ditto.  Do not disable motion of exprs that might need
+	bookkeeping.
+	(CANT_MOVE_TRAPPING): Allow moving trapping insns through speculation
+	checks.
+	(sel_rank_for_schedule): New heuristic.
+	(generate_bookkeeping_insn): Avoid creating new basic block.
+	(max_uid_before_move_op): New global variable.
+	(remove_insns_that_need_bookkeeping): New function.
+	(fill_insns): Use it.  Adjust statistical counters.
+	(move_op): Adjust statistical counter.
+	(sel_region_finish): Cleanup.
+	(sel_sched_region_2): Initialize statistical counters, print them.
+	(sel_global_init): Always calculate dominance info.
+	(sel_global_finish): Always free calculate dominance info.
+
 2007-08-14  Andrey Belevantsev  <abel@ispras.ru>
 	    Dmitry Melnik  <dm@ispras.ru>
  

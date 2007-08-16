@@ -97,6 +97,10 @@ struct _expr
   /* Number of times the insn was scheduled.  */
   int sched_times;
 
+  /* A basic block index this was originated from.  Zero when there is 
+     more than one originator.  */
+  int orig_bb_index;
+
   /* Instruction should be of SPEC_DONE_DS type in order to be moved to this
      point.  */
   ds_t spec_done_ds;
@@ -110,6 +114,10 @@ struct _expr
      could be scheduled, and its bookkeeping copies should be checked 
      instead.  */
   VEC(unsigned, heap) *changed_on_insns;
+
+  /* True when the expression was substituted.  Used for statistical 
+     purposes.  */
+  bool was_substituted;
 };
 
 typedef struct _expr expr_def;
@@ -129,9 +137,11 @@ typedef expr_t rhs_t;
 #define EXPR_SPEC(EXPR) ((EXPR)->spec)
 #define EXPR_PRIORITY(EXPR) ((EXPR)->priority)
 #define EXPR_SCHED_TIMES(EXPR) ((EXPR)->sched_times)
+#define EXPR_ORIG_BB_INDEX(EXPR) ((EXPR)->orig_bb_index)
 #define EXPR_SPEC_DONE_DS(EXPR) ((EXPR)->spec_done_ds)
 #define EXPR_SPEC_TO_CHECK_DS(EXPR) ((EXPR)->spec_to_check_ds)
 #define EXPR_CHANGED_ON_INSNS(EXPR) ((EXPR)->changed_on_insns)
+#define EXPR_WAS_SUBSTITUTED(EXPR) ((EXPR)->was_substituted)
 
 /* Obsolete. */
 #define RHS_VINSN(RHS) ((RHS)->vinsn)

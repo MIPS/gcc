@@ -5939,6 +5939,13 @@ group_barrier_needed (rtx insn)
 	 asm.  */
       if (! need_barrier)
 	need_barrier = rws_access_regno (REG_VOLATILE, flags, 0);
+
+      /* Force a barrier before a speculative check.  This is used to allow 
+         more instructions to move through the check and to minimize 
+         delaying of other instructions in case this checks stalls.  */
+      if (ia64_spec_check_p (insn))
+	need_barrier = 1;
+
       break;
 
     default:
@@ -7468,6 +7475,7 @@ struct bundle_state
   int accumulated_insns_num; /* number of all previous insns including
 				nops.  L is considered as 2 insns */
   int branch_deviation; /* deviation of previous branches from 3rd slots  */
+  int middle_bundle_stops; /* number of stop bits in the middle of bundles */
   struct bundle_state *next;  /* next state with the same insn_num  */
   struct bundle_state *originator; /* originator (previous insn state)  */
   /* All bundle states are in the following chain.  */
@@ -7610,9 +7618,15 @@ insert_bundle_state (struct bundle_state *bundle_state)
 		   || (((struct bundle_state *)
 			*entry_ptr)->accumulated_insns_num
 		       == bundle_state->accumulated_insns_num
-		       && ((struct bundle_state *)
-			   *entry_ptr)->branch_deviation
-		       > bundle_state->branch_deviation))))
+		       && (((struct bundle_state *)
+			    *entry_ptr)->branch_deviation
+			   > bundle_state->branch_deviation
+			   || (((struct bundle_state *)
+				*entry_ptr)->branch_deviation
+			       == bundle_state->branch_deviation
+			       && ((struct bundle_state *)
+				   *entry_ptr)->middle_bundle_stops
+			       > bundle_state->middle_bundle_stops))))))
 
     {
       struct bundle_state temp;
@@ -7706,6 +7720,7 @@ issue_nops_and_insn (struct bundle_state *originator, int before_nops_num,
   curr_state->accumulated_insns_num
     = originator->accumulated_insns_num + before_nops_num;
   curr_state->branch_deviation = originator->branch_deviation;
+  curr_state->middle_bundle_stops = originator->middle_bundle_stops;
   gcc_assert (insn);
   if (INSN_CODE (insn) == CODE_FOR_insn_group_barrier)
     {
@@ -7715,6 +7730,8 @@ issue_nops_and_insn (struct bundle_state *originator, int before_nops_num,
       if (!try_issue_insn (curr_state, insn))
 	return;
       memcpy (temp_dfa_state, curr_state->dfa_state, dfa_state_size);
+      if (curr_state->accumulated_insns_num % 3 != 0)
+        curr_state->middle_bundle_stops++;
       if (state_transition (temp_dfa_state, dfa_pre_cycle_insn) >= 0
 	  && curr_state->accumulated_insns_num % 3 != 0)
 	{
@@ -8026,6 +8043,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
   curr_state->cost = 0;
   curr_state->accumulated_insns_num = 0;
   curr_state->branch_deviation = 0;
+  curr_state->middle_bundle_stops = 0;
   curr_state->next = NULL;
   curr_state->originator = NULL;
   state_reset (curr_state->dfa_state);
@@ -8123,13 +8141,14 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 
 	    fprintf
 	      (dump,
-	       "//    Bundle state %d (orig %d, cost %d, nops %d/%d, insns %d, branch %d, state %d) for %d\n",
+	       "//    Bundle state %d (orig %d, cost %d, nops %d/%d, insns %d, branch %d, mid.stops %d state %d) for %d\n",
 	       curr_state->unique_num,
 	       (curr_state->originator == NULL
 		? -1 : curr_state->originator->unique_num),
 	       curr_state->cost,
 	       curr_state->before_nops_num, curr_state->after_nops_num,
 	       curr_state->accumulated_insns_num, curr_state->branch_deviation,
+               curr_state->middle_bundle_stops,
 	       (ia64_tune == PROCESSOR_ITANIUM
 		? ((struct DFA_chip *) curr_state->dfa_state)->oneb_automaton_state
 		: ((struct DFA_chip *) curr_state->dfa_state)->twob_automaton_state),
@@ -8156,8 +8175,12 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 		    < best_state->accumulated_insns_num
 		    || (curr_state->accumulated_insns_num
 			== best_state->accumulated_insns_num
-			&& curr_state->branch_deviation
-			< best_state->branch_deviation)))))
+			&& (curr_state->branch_deviation
+			    < best_state->branch_deviation
+                            || (curr_state->branch_deviation
+                                == best_state->branch_deviation
+                                && curr_state->middle_bundle_stops
+                                < best_state->middle_bundle_stops)))))))
       best_state = curr_state;
   /* Second (backward) pass: adding nops and templates.  */
   gcc_assert (best_state);
@@ -8183,13 +8206,14 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 
 	  fprintf
 	    (dump,
-	     "//    Best %d (orig %d, cost %d, nops %d/%d, insns %d, branch %d, state %d) for %d\n",
+	     "//    Best %d (orig %d, cost %d, nops %d/%d, insns %d, branch %d, mid.stops %d, state %d) for %d\n",
 	     curr_state->unique_num,
 	     (curr_state->originator == NULL
 	      ? -1 : curr_state->originator->unique_num),
 	     curr_state->cost,
 	     curr_state->before_nops_num, curr_state->after_nops_num,
 	     curr_state->accumulated_insns_num, curr_state->branch_deviation,
+             curr_state->middle_bundle_stops,
 	     (ia64_tune == PROCESSOR_ITANIUM
 	      ? ((struct DFA_chip *) curr_state->dfa_state)->oneb_automaton_state
 	      : ((struct DFA_chip *) curr_state->dfa_state)->twob_automaton_state),
@@ -8388,6 +8412,57 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 				     insn);
 	  }
       }
+
+#ifdef ENABLE_CHECKING
+  {
+    /* Assert right calculation of middle_bundle_stops.  */
+    int num = best_state->middle_bundle_stops;
+    bool start_bundle = true, end_bundle = false;
+
+    for (insn = NEXT_INSN (prev_head_insn);
+         insn && insn != tail;
+         insn = NEXT_INSN (insn))
+      {
+        if (!INSN_P (insn))
+          continue;
+        if (recog_memoized (insn) == CODE_FOR_bundle_selector)
+          start_bundle = true;
+        else 
+          {
+            rtx next_insn;
+
+            for (next_insn = NEXT_INSN (insn);
+                 next_insn && next_insn != tail;
+                 next_insn = NEXT_INSN (next_insn))
+              if (INSN_P (next_insn)
+                  && (ia64_safe_itanium_class (next_insn) 
+                      != ITANIUM_CLASS_IGNORE
+                      || recog_memoized (next_insn) 
+                         == CODE_FOR_bundle_selector)
+                  && GET_CODE (PATTERN (next_insn)) != USE
+                  && GET_CODE (PATTERN (next_insn)) != CLOBBER)
+                break;
+
+            end_bundle = next_insn == NULL_RTX
+                         || next_insn == tail
+                         || (INSN_P (next_insn)
+                             && recog_memoized (next_insn) 
+                                == CODE_FOR_bundle_selector);
+            if (recog_memoized (insn) == CODE_FOR_insn_group_barrier
+                && !start_bundle && !end_bundle
+		&& next_insn
+		&& GET_CODE (PATTERN (next_insn)) != ASM_INPUT
+		&& asm_noperands (PATTERN (next_insn)) < 0)
+              num--;
+
+            start_bundle = false;
+          }
+      }
+
+    gcc_assert (num == 0);
+  }
+#endif
+
   free (index_to_bundle_states);
   finish_bundle_state_table ();
   bundling_p = 0;
