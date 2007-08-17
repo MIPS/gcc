@@ -1,3 +1,11 @@
+2007-08-17  Aldy Hernandez  <aldyh@redhat.com>
+
+	Revert this change:
+
+	2007-08-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple.c (gimple_call_flags): Make sure this is a GIMPLE_CALL.
+	
 2007-08-14  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimple-iterator.c (gsi_split_seq_after): New.
