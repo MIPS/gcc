@@ -89,7 +89,8 @@ static void dump_debug_stream (struct input_block *, char, char);
 #endif
 
 static tree
-input_expr_operand (struct input_block *, struct fun_in *, struct function *, unsigned int);
+input_expr_operand (struct input_block *, struct fun_in *, struct function *, 
+                    enum LTO_tags);
 
 
 /* Return the next character of input from IB.  Abort if you
@@ -256,10 +257,10 @@ input_integer (struct input_block *ib, tree type)
 
 /* Return the next tag in the input block IB.  */
 
-static unsigned int
+static enum LTO_tags
 input_record_start (struct input_block *ib)
 {
-  unsigned int tag = input_1_unsigned (ib);
+  enum LTO_tags tag = input_1_unsigned (ib);
 
 #ifdef LTO_STREAM_DEBUGGING
   if (tag)
@@ -276,7 +277,7 @@ input_record_start (struct input_block *ib)
 static tree 
 input_list (struct input_block *ib, struct fun_in *fun_in, struct function *fn)
 {
-  unsigned int tag = input_record_start (ib);
+  enum LTO_tags tag = input_record_start (ib);
   tree first = NULL_TREE;
   if (tag)
     {
@@ -407,7 +408,7 @@ input_flags (struct input_block *ib, enum tree_code code)
 
 static tree
 input_expr_operand (struct input_block *ib, struct fun_in *fun_in, 
-		    struct function *fn, unsigned int tag)
+		    struct function *fn, enum LTO_tags tag)
 {
   enum tree_code code = tag_to_expr[tag];
   tree type = NULL_TREE;
@@ -541,7 +542,7 @@ input_expr_operand (struct input_block *ib, struct fun_in *fun_in,
 	    vec = VEC_alloc (constructor_elt, gc, len);
 	    while (i < len)
 	      {
-		unsigned int ctag = input_record_start (ib);
+		enum LTO_tags ctag = input_record_start (ib);
 		if (ctag == LTO_constructor_range)
 		  {
 		    tree op0 = input_integer (ib, get_type_ref (fun_in, ib));
@@ -766,6 +767,9 @@ input_expr_operand (struct input_block *ib, struct fun_in *fun_in,
 			     build2 (MODIFY_EXPR, NULL_TREE, op0, op1));
 	  }
 	  break;
+
+        default:
+          gcc_unreachable ();
 	}
       break;
 
@@ -963,7 +967,7 @@ input_local_vars (struct fun_in *fun_in, struct input_block *ib,
   fun_in->local_decls = xcalloc (count, sizeof (tree*));
   for (i = 0; i < count; i++)
     {
-      unsigned int tag = input_record_start (ib);
+      enum LTO_tags tag = input_record_start (ib);
       unsigned int variant = tag & 0xF;
       bool is_var = ((tag & 0xFFF0) == LTO_local_var_decl_body0);
 
@@ -1246,7 +1250,7 @@ input_ssa_names (struct fun_in *fun_in, struct input_block *ib, struct function 
 /* Read in the next basic block.  */
 
 static void
-input_bb (struct input_block *ib, unsigned int tag, 
+input_bb (struct input_block *ib, enum LTO_tags tag, 
 	  struct fun_in *fun_in, struct function *fn)
 {
   unsigned int index;
@@ -1296,7 +1300,7 @@ input_function (tree fn_decl, struct fun_in *fun_in,
 		struct input_block *ib)
 {
   struct function *fn = DECL_STRUCT_FUNCTION (fn_decl);
-  unsigned int tag = input_record_start (ib);
+  enum LTO_tags tag = input_record_start (ib);
 
   tree_register_cfg_hooks ();
   gcc_assert (tag == LTO_function);

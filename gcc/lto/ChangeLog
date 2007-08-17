@@ -1,3 +1,15 @@
+2007-08-17  Jim Blandy  <jimb@codesourcery.com>
+
+	Use enum LTO_tags where appropriate, instead of 'unsigned int'.
+	* lto-read.c (input_record_start): Fix return type, type of 'tag'.
+	(input_list): Fix type of 'tag'.
+	(input_expr_operand): Fix type of 'tag' argument.  Update
+	declaration.  Fix type of 'ctag'.  Add default case to switch,
+	since the type of the switched value is now an enum.
+	(input_local_vars): Fix type of 'tag'.
+	(input_bb): Fix type of 'tag' argument.
+	(input_function): Fix type of 'tag' argument.
+
 2007-08-16  Jim Blandy  <jimb@codesourcery.com>
 
 	* lto.c (lto_read_member_DIE): Record the tree we create in
