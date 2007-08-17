@@ -1,3 +1,8 @@
+2007-08-17  Andrew Haley  <aph@all6500.kos.to>
+
+	* config/arm/unwind-arm.c (__gnu_Unwind_Backtrace): Tidy.  Restore
+	non-core regs.
+
 2007-08-14  Andrew Haley  <aph@redhat.com>
 
 	* config/arm/unwind-arm.c (__gnu_Unwind_Backtrace): Set virtual IP

@@ -976,7 +976,10 @@ __gnu_Unwind_Backtrace(_Unwind_Trace_Fn trace, void * trace_argument,
     {
       /* Find the entry for this routine.  */
       if (get_eit_entry (ucbp, saved_vrs.core.r[R_PC]) != _URC_OK)
-	return _URC_FAILURE;
+	{
+	  code = _URC_FAILURE;
+	  goto finish;
+	}
 
       /* The dwarf unwinder assumes the context structure holds things
 	 like the function and LSDA pointers.  The ARM implementation
@@ -988,15 +991,21 @@ __gnu_Unwind_Backtrace(_Unwind_Trace_Fn trace, void * trace_argument,
       /* Call trace function.  */
       if ((*trace) ((_Unwind_Context *) &saved_vrs, trace_argument) 
 	  != _URC_NO_REASON)
-	return _URC_FAILURE;
+	{
+	  code = _URC_FAILURE;
+	  goto finish;
+	}
 
       /* Call the pr to decide what to do.  */
       code = ((personality_routine) UCB_PR_ADDR (ucbp))
 	(_US_VIRTUAL_UNWIND_FRAME | _US_FORCE_UNWIND, 
 	 ucbp, (void *) &saved_vrs);
     }
-  while (code != _URC_END_OF_STACK);
+  while (code != _URC_END_OF_STACK
+	 && code != _URC_FAILURE);
 
+ finish:
+  restore_non_core_regs (&saved_vrs);
   return code;
 }
 
