@@ -166,3 +166,7 @@
 	* lto-tree-tags.def (FIX_CEIL_EXPR, FIX_FLOOR_EXPR,
 	FIX_ROUND_EXPR): Removed dead tree types.
 	
+
+Local Variables:
+change-log-default-name: "ChangeLog.lto"
+End:
