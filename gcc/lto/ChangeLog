@@ -1,5 +1,8 @@
 2007-08-17  Jim Blandy  <jimb@codesourcery.com>
 
+	* lto.c (lto_read_variable_formal_parameter_constant_DIE): Remove
+	ATTRIBUTE_UNUSED from 'die' formal.
+
 	Use enum LTO_tags where appropriate, instead of 'unsigned int'.
 	* lto-read.c (input_record_start): Fix return type, type of 'tag'.
 	(input_list): Fix type of 'tag'.

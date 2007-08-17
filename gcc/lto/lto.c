@@ -1923,7 +1923,7 @@ lto_read_enumerator_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
-						 lto_die_ptr die ATTRIBUTE_UNUSED,
+						 lto_die_ptr die,
 						 const DWARF2_abbrev *abbrev,
 						 lto_context *context)
 {
