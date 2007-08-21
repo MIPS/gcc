@@ -266,10 +266,15 @@ typedef struct c_token GTY (())
    tokens of look-ahead; more are not needed for C.  */
 typedef struct c_parser GTY(())
 {
-  /* The look-ahead tokens.  */
-  c_token tokens[2];
-  /* How many look-ahead tokens are available (0, 1 or 2).  */
+  /* Memory allocated for the token buffer.  */
+  c_token * GTY ((length ("%h.buffer_length"))) buffer;
+  /* The number of tokens in the buffer.  */
+  size_t buffer_length;
+  /* Index of next available token.  */
+  size_t next_token;
+  /* Number of tokens we've already hacked.  */
   short tokens_avail;
+
   /* True if a syntax error is being recovered from; false otherwise.
      c_parser_error sets this flag.  It should clear this flag when
      enough tokens have been consumed to recover from the error.  */
@@ -289,8 +294,7 @@ typedef struct c_parser GTY(())
 } c_parser;
 
 
-/* The actual parser and external interface.  ??? Does this need to be
-   garbage-collected?  */
+/* The actual parser and external interface.  */
 
 static GTY (()) c_parser *the_parser;
 
@@ -300,8 +304,6 @@ static GTY (()) c_parser *the_parser;
 static void
 c_lex_one_token (c_parser *parser, c_token *token)
 {
-  timevar_push (TV_LEX);
-
   token->type = c_lex_with_flags (&token->value, &token->location, NULL,
 				  (parser->lex_untranslated_string
 				   ? C_LEX_STRING_NO_TRANSLATE : 0));
@@ -309,6 +311,26 @@ c_lex_one_token (c_parser *parser, c_token *token)
   token->keyword = RID_MAX;
   token->pragma_kind = PRAGMA_NONE;
   token->in_system_header = in_system_header;
+}
+
+/* Update the globals input_location and in_system_header from
+   TOKEN.  */
+static inline void
+c_parser_set_source_position_from_token (c_token *token)
+{
+  if (token->type != CPP_EOF)
+    {
+      input_location = token->location;
+      in_system_header = token->in_system_header;
+    }
+}
+
+/* Possibly modify a token before returning it from the lexer.  */
+
+static void
+c_hack_token (c_parser *parser, c_token *token)
+{
+  timevar_push (TV_LEX);
 
   switch (token->type)
     {
@@ -396,6 +418,45 @@ c_lex_one_token (c_parser *parser, c_token *token)
     default:
       break;
     }
+
+  c_parser_set_source_position_from_token (token);
+
+  timevar_pop (TV_LEX);
+}
+
+/* Lex the entire file into the parser's buffer.  */
+
+static void
+c_parser_lex_all (c_parser *parser)
+{
+#define C_LEXER_BUFFER_SIZE ((256 * 1024) / sizeof (c_token))
+
+  size_t pos = 0, alloc = C_LEXER_BUFFER_SIZE;
+  c_token *buffer;
+
+  timevar_push (TV_LEX);
+
+  buffer = GGC_CNEWVEC (c_token, alloc);
+
+  while (true)
+    {
+      if (pos >= alloc)
+	{
+	  size_t save = alloc;
+	  alloc *= 2;
+	  buffer = GGC_RESIZEVEC (c_token, buffer, alloc);
+	  memset (&buffer[save], 0, (alloc - save) * sizeof (c_token));
+	}
+      c_lex_one_token (parser, &buffer[pos]);
+
+      ++pos;
+      if (buffer[pos - 1].type == CPP_EOF)
+	break;
+    }
+
+  parser->buffer = buffer;
+  parser->buffer_length = pos + 1;
+
   timevar_pop (TV_LEX);
 }
 
@@ -407,10 +468,10 @@ c_parser_peek_token (c_parser *parser)
 {
   if (parser->tokens_avail == 0)
     {
-      c_lex_one_token (parser, &parser->tokens[0]);
+      c_hack_token (parser, &parser->buffer[parser->next_token]);
       parser->tokens_avail = 1;
     }
-  return &parser->tokens[0];
+  return &parser->buffer[parser->next_token];
 }
 
 /* Return true if the next token from PARSER has the indicated
@@ -593,13 +654,13 @@ static c_token *
 c_parser_peek_2nd_token (c_parser *parser)
 {
   if (parser->tokens_avail >= 2)
-    return &parser->tokens[1];
+    return &parser->buffer[parser->next_token + 1];
   gcc_assert (parser->tokens_avail == 1);
-  gcc_assert (parser->tokens[0].type != CPP_EOF);
-  gcc_assert (parser->tokens[0].type != CPP_PRAGMA_EOL);
-  c_lex_one_token (parser, &parser->tokens[1]);
+  gcc_assert (parser->buffer[parser->next_token].type != CPP_EOF);
+  gcc_assert (parser->buffer[parser->next_token].type != CPP_PRAGMA_EOL);
+  c_hack_token (parser, &parser->buffer[parser->next_token + 1]);
   parser->tokens_avail = 2;
-  return &parser->tokens[1];
+  return &parser->buffer[parser->next_token + 1];
 }
 
 /* Consume the next token from PARSER.  */
@@ -608,11 +669,12 @@ static void
 c_parser_consume_token (c_parser *parser)
 {
   gcc_assert (parser->tokens_avail >= 1);
-  gcc_assert (parser->tokens[0].type != CPP_EOF);
-  gcc_assert (!parser->in_pragma || parser->tokens[0].type != CPP_PRAGMA_EOL);
-  gcc_assert (parser->error || parser->tokens[0].type != CPP_PRAGMA);
-  if (parser->tokens_avail == 2)
-    parser->tokens[0] = parser->tokens[1];
+  gcc_assert (parser->buffer[parser->next_token].type != CPP_EOF);
+  gcc_assert (!parser->in_pragma
+	      || parser->buffer[parser->next_token].type != CPP_PRAGMA_EOL);
+  gcc_assert (parser->error
+	      || parser->buffer[parser->next_token].type != CPP_PRAGMA);
+  parser->next_token++;
   parser->tokens_avail--;
 }
 
@@ -624,23 +686,10 @@ c_parser_consume_pragma (c_parser *parser)
 {
   gcc_assert (!parser->in_pragma);
   gcc_assert (parser->tokens_avail >= 1);
-  gcc_assert (parser->tokens[0].type == CPP_PRAGMA);
-  if (parser->tokens_avail == 2)
-    parser->tokens[0] = parser->tokens[1];
+  gcc_assert (parser->buffer[parser->next_token].type == CPP_PRAGMA);
+  parser->next_token++;
   parser->tokens_avail--;
   parser->in_pragma = true;
-}
-
-/* Update the globals input_location and in_system_header from
-   TOKEN.  */
-static inline void
-c_parser_set_source_position_from_token (c_token *token)
-{
-  if (token->type != CPP_EOF)
-    {
-      input_location = token->location;
-      in_system_header = token->in_system_header;
-    }
 }
 
 /* Issue a diagnostic of the form
@@ -7831,12 +7880,15 @@ c_parse_file (void)
   memset (&tparser, 0, sizeof tparser);
   the_parser = &tparser;
 
-  if (c_parser_peek_token (&tparser)->pragma_kind == PRAGMA_GCC_PCH_PREPROCESS)
+  /* FIXME: see the C++ FE for what must be done to make this work
+     again.  */
+  if (0 && c_parser_peek_token (&tparser)->pragma_kind == PRAGMA_GCC_PCH_PREPROCESS)
     c_parser_pragma_pch_preprocess (&tparser);
 
   the_parser = GGC_NEW (c_parser);
   *the_parser = tparser;
 
+  c_parser_lex_all (the_parser);
   c_parser_translation_unit (the_parser);
   the_parser = NULL;
 }

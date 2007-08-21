@@ -1,5 +1,16 @@
 2007-08-20  Tom Tromey  <tromey@redhat.com>
 
+	* c-parser.c (the_parser): Updated comment.
+	(c_parser) <tokens>: Removed.
+	<buffer, buffer_length, next>: New fields.
+	(c_parser_lex_all): New function.
+	(c_hack_token): Likewise.
+	(c_lex_one_token): Simplify.
+	(c_parse_file): Use c_parser_lex_all.
+	(c_parser_set_source_position_from_token): Moved earlier.
+
+2007-08-20  Tom Tromey  <tromey@redhat.com>
+
 	* c-common.c (fname_as_string): Update.
 	* c-parser.c (c_parser) <lex_untranslated_string>: New field.
 	(c_lex_one_token): Update.  Add 'parser' argument.
