@@ -1573,13 +1573,15 @@ push_command_line_include (void)
 
 /* File change callback.  Has to handle -include files.  */
 static void
-cb_file_change (cpp_reader * ARG_UNUSED (pfile),
-		const struct line_map *new_map)
+cb_file_change (cpp_reader *pfile, const struct line_map *new_map)
 {
   if (flag_preprocess_only)
     pp_file_change (new_map);
   else
-    fe_file_change (new_map);
+    {
+      struct cpp_callbacks *cb = cpp_get_callbacks (pfile);
+      fe_file_change ((struct c_lex_state *) cb->user_data, new_map);
+    }
 
   if (new_map == 0 || (new_map->reason == LC_LEAVE && MAIN_FILE_P (new_map)))
     push_command_line_include ();

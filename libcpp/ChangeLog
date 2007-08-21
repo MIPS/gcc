@@ -1,3 +1,7 @@
+2007-08-21  Tom Tromey  <tromey@redhat.com>
+
+	* include/cpplib.h (struct cpp_callbacks) <user_data>: New field.
+
 2007-08-18  Tom Tromey  <tromey@redhat.com>
 
 	PR preprocessor/32974:

@@ -838,9 +838,20 @@ extern void init_c_lex (void);
 
 extern void c_cpp_builtins (cpp_reader *);
 
-/* Positive if an implicit `extern "C"' scope has just been entered;
-   negative if such a scope has just been exited.  */
-extern GTY(()) int pending_lang_change;
+/* State used by functions in c-lex.c.  This is passed to the lexer
+   via the user-data field in the cpp_reader's callback structure.  */
+struct c_lex_state
+{
+  /* Positive if an implicit `extern "C"' scope has just been entered;
+     negative if such a scope has just been exited.  */
+  int pending_lang_change;
+
+  /* Depth in C headers - C++ only.  */
+  int c_header_level;
+};
+
+/* Return the lexer state associated with a cppreader.  */
+struct c_lex_state *c_lex_get_state (cpp_reader *);
 
 /* Information recorded about each file examined during compilation.  */
 
@@ -913,7 +924,7 @@ extern const unsigned char executable_checksum[16];
 
 extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
-extern void fe_file_change (const struct line_map *);
+extern void fe_file_change (struct c_lex_state *, const struct line_map *);
 extern void c_parse_error (const char *, enum cpp_ttype, tree);
 
 /* Objective-C / Objective-C++ entry points.  */

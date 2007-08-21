@@ -46,9 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 static int header_time, body_time;
 static splay_tree file_info_tree;
 
-int pending_lang_change; /* If we need to switch languages - C++ only */
-int c_header_level;	 /* depth in C headers - C++ only */
-
 static tree interpret_integer (const cpp_token *, unsigned int);
 static tree interpret_float (const cpp_token *, unsigned int);
 static enum integer_type_kind narrowest_unsigned_type
@@ -70,6 +67,7 @@ init_c_lex (void)
 {
   struct cpp_callbacks *cb;
   struct c_fileinfo *toplevel;
+  struct c_lex_state *lstate;
 
   /* The get_fileinfo data structure must be initialized before
      cpp_read_main_file is called.  */
@@ -82,6 +80,15 @@ init_c_lex (void)
     }
 
   cb = cpp_get_callbacks (parse_in);
+
+  /* FIXME: pending_lang_change used to be GTY(())d in c-common.h.  Do
+     we need this for PCH?  If so we need a way for the PCH machinery
+     to see this struct.  Are we allocating this too early?  Also,
+     this is a memory leak right now.  */
+  lstate = XNEW (struct c_lex_state);
+  lstate->pending_lang_change = 0;
+  lstate->c_header_level = 0;
+  cb->user_data = lstate;
 
   cb->line_change = cb_line_change;
   cb->ident = cb_ident;
@@ -97,6 +104,13 @@ init_c_lex (void)
       cb->define = cb_define;
       cb->undef = cb_undef;
     }
+}
+
+struct c_lex_state *
+c_lex_get_state (cpp_reader *reader)
+{
+  struct cpp_callbacks *cb = cpp_get_callbacks (reader);
+  return (struct c_lex_state *) cb->user_data;
 }
 
 struct c_fileinfo *
@@ -201,7 +215,8 @@ cb_line_change (cpp_reader * ARG_UNUSED (pfile), const cpp_token *token,
 }
 
 void
-fe_file_change (const struct line_map *new_map)
+fe_file_change (struct c_lex_state * ARG_UNUSED (lstate),
+		const struct line_map *new_map)
 {
   if (new_map == NULL)
     return;
@@ -225,12 +240,12 @@ fe_file_change (const struct line_map *new_map)
 #endif
 	  (*debug_hooks->start_source_file) (included_at, new_map->to_file);
 #ifndef NO_IMPLICIT_EXTERN_C
-	  if (c_header_level)
-	    ++c_header_level;
+	  if (lstate->c_header_level)
+	    ++lstate->c_header_level;
 	  else if (new_map->sysp == 2)
 	    {
-	      c_header_level = 1;
-	      ++pending_lang_change;
+	      lstate->c_header_level = 1;
+	      ++lstate->pending_lang_change;
 	    }
 #endif
 	}
@@ -238,7 +253,7 @@ fe_file_change (const struct line_map *new_map)
   else if (new_map->reason == LC_LEAVE)
     {
 #ifndef NO_IMPLICIT_EXTERN_C
-      if (c_header_level && --c_header_level == 0)
+      if (lstate->c_header_level && --lstate->c_header_level == 0)
 	{
 	  if (new_map->sysp == 2)
 	    warning (0, "badly nested C headers from preprocessor");

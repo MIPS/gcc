@@ -176,7 +176,7 @@ static cp_token_position cp_lexer_token_position
 static cp_token *cp_lexer_token_at
   (cp_lexer *, cp_token_position);
 static void cp_lexer_get_preprocessor_token
-  (cp_lexer *, cp_token *);
+  (cp_lexer *, struct c_lex_state *, cp_token *);
 static inline cp_token *cp_lexer_peek_token
   (cp_lexer *);
 static cp_token *cp_lexer_peek_nth_token
@@ -271,6 +271,7 @@ cp_lexer_new_main (void)
   size_t alloc;
   size_t space;
   cp_token *buffer;
+  struct c_lex_state *lstate;
 
   /* It's possible that parsing the first pragma will load a PCH file,
      which is a GC collection point.  So we have to do that before
@@ -288,6 +289,8 @@ cp_lexer_new_main (void)
 #endif /* ENABLE_CHECKING */
   lexer->saved_tokens = VEC_alloc (cp_token_position, heap,
 				   CP_SAVED_TOKEN_STACK);
+
+  lstate = c_lex_get_state (parse_in);
 
   /* Create the buffer.  */
   alloc = CP_LEXER_BUFFER_SIZE;
@@ -309,7 +312,7 @@ cp_lexer_new_main (void)
 	  buffer = GGC_RESIZEVEC (cp_token, buffer, alloc);
 	  pos = buffer + space;
 	}
-      cp_lexer_get_preprocessor_token (lexer, pos);
+      cp_lexer_get_preprocessor_token (lexer, lstate, pos);
     }
   lexer->buffer = buffer;
   lexer->buffer_length = alloc - space;
@@ -404,11 +407,12 @@ cp_lexer_saving_tokens (const cp_lexer* lexer)
    processed strings.  */
 
 static void
-cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
+cp_lexer_get_preprocessor_token (cp_lexer *lexer, struct c_lex_state *lstate,
+				 cp_token *token)
 {
   static int is_extern_c = 0;
 
-   /* Get a new token from the preprocessor.  */
+  /* Get a new token from the preprocessor.  */
   token->type
     = c_lex_with_flags (&token->u.value, &token->location, &token->flags,
 			lexer == NULL ? 0 : C_LEX_RAW_STRINGS);
@@ -420,8 +424,8 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
   /* On some systems, some header files are surrounded by an
      implicit extern "C" block.  Set a flag in the token if it
      comes from such a header.  */
-  is_extern_c += pending_lang_change;
-  pending_lang_change = 0;
+  is_extern_c += lstate->pending_lang_change;
+  lstate->pending_lang_change = 0;
   token->implicit_extern_c = is_extern_c > 0;
 
   /* Check to see if this token is a keyword.  */
@@ -20306,17 +20310,18 @@ static void
 cp_parser_initial_pragma (cp_token *first_token)
 {
   tree name = NULL;
+  struct c_lex_state *lstate = c_lex_get_state (parse_in);
 
-  cp_lexer_get_preprocessor_token (NULL, first_token);
+  cp_lexer_get_preprocessor_token (NULL, lstate, first_token);
   if (first_token->pragma_kind != PRAGMA_GCC_PCH_PREPROCESS)
     return;
 
-  cp_lexer_get_preprocessor_token (NULL, first_token);
+  cp_lexer_get_preprocessor_token (NULL, lstate, first_token);
   if (first_token->type == CPP_STRING)
     {
       name = first_token->u.value;
 
-      cp_lexer_get_preprocessor_token (NULL, first_token);
+      cp_lexer_get_preprocessor_token (NULL, lstate, first_token);
       if (first_token->type != CPP_PRAGMA_EOL)
 	error ("junk at end of %<#pragma GCC pch_preprocess%>");
     }
@@ -20325,7 +20330,7 @@ cp_parser_initial_pragma (cp_token *first_token)
 
   /* Skip to the end of the pragma.  */
   while (first_token->type != CPP_PRAGMA_EOL && first_token->type != CPP_EOF)
-    cp_lexer_get_preprocessor_token (NULL, first_token);
+    cp_lexer_get_preprocessor_token (NULL, lstate, first_token);
 
   /* Now actually load the PCH file.  */
   if (name)
@@ -20334,7 +20339,7 @@ cp_parser_initial_pragma (cp_token *first_token)
   /* Read one more token to return to our caller.  We have to do this
      after reading the PCH file in, since its pointers have to be
      live.  */
-  cp_lexer_get_preprocessor_token (NULL, first_token);
+  cp_lexer_get_preprocessor_token (NULL, lstate, first_token);
 }
 
 /* Normal parsing of a pragma token.  Here we can (and must) use the

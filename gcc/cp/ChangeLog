@@ -1,3 +1,10 @@
+2007-08-21  Tom Tromey  <tromey@redhat.com>
+
+	* parser.c (cp_lexer_get_preprocessor_token): Update.  Added
+	'lstate' argument.
+	(cp_lexer_new_main): Update.
+	(cp_parser_initial_pragma): Likewise.
+
 2007-08-20  Tom Tromey  <tromey@redhat.com>
 
 	* parser.c (cp_lexer_new_main): Don't use

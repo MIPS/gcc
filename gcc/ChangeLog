@@ -1,3 +1,15 @@
+2007-08-21  Tom Tromey  <tromey@redhat.com>
+
+	* c-opts.c (cb_file_change): Update.
+	* c-lex.c (pending_lang_change, c_header_level): Removed.
+	(init_c_lex): Create a c_lex_state object.
+	(fe_file_change): Added c_lex_state argument.
+	(c_lex_get_state): New function.
+	* c-common.h (struct c_lex_state): New struct.
+	(pending_lang_change): Removed.
+	(fe_file_change): Update.
+	(c_lex_get_state): Declare.
+
 2007-08-20  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (the_parser): Updated comment.

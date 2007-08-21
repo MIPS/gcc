@@ -1,6 +1,6 @@
 /* Definitions for CPP library.
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004, 2005
+   2004, 2005, 2007
    Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
@@ -456,6 +456,10 @@ typedef const char *(*missing_header_cb)(cpp_reader *, const char *header, cpp_d
 /* Call backs to cpplib client.  */
 struct cpp_callbacks
 {
+  /* The caller can associate some data with the reader and store a
+     pointer to it here.  */
+  void *user_data;
+
   /* Called when a new line of preprocessed output is started.  */
   void (*line_change) (cpp_reader *, const cpp_token *, int);
 
