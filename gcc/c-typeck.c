@@ -1795,10 +1795,19 @@ lookup_field (tree decl, tree component)
 tree
 build_component_ref (tree datum, tree component)
 {
-  tree type = TREE_TYPE (datum);
-  enum tree_code code = TREE_CODE (type);
+  tree orig_type = TREE_TYPE (datum);
+  enum tree_code code = TREE_CODE (orig_type);
   tree field = NULL;
-  tree ref;
+  tree ref, type;
+
+  if (orig_type == error_mark_node)
+    type = orig_type;
+  else
+    {
+      type = C_SMASHED_TYPE_VARIANT (orig_type);
+      if (type != orig_type)
+	datum = build1 (VIEW_CONVERT_EXPR, type, datum);
+    }
 
   if (!objc_is_public (datum, component))
     return error_mark_node;
@@ -1836,7 +1845,7 @@ build_component_ref (tree datum, tree component)
 	    return error_mark_node;
 
 	  quals = TYPE_QUALS (strip_array_types (TREE_TYPE (subdatum)));
-	  quals |= TYPE_QUALS (TREE_TYPE (datum));
+	  quals |= TYPE_QUALS (type);
 	  subtype = c_build_qualified_type (TREE_TYPE (subdatum), quals);
 
 	  ref = build3 (COMPONENT_REF, subtype, datum, subdatum,
@@ -1850,6 +1859,7 @@ build_component_ref (tree datum, tree component)
 	    warn_deprecated_use (subdatum);
 
 	  datum = ref;
+	  type = TREE_TYPE (datum);
 
 	  field = TREE_CHAIN (field);
 	}
@@ -1896,9 +1906,16 @@ build_indirect_ref (tree ptr, const char *errorstring)
       else
 	{
 	  tree t = TREE_TYPE (type);
-	  tree ref;
+	  tree ref, t2;
 
 	  ref = build1 (INDIRECT_REF, t, pointer);
+
+	  t2 = C_SMASHED_TYPE_VARIANT (t);
+	  if (t != t2)
+	    {
+	      ref = build1 (VIEW_CONVERT_EXPR, t2, ref);
+	      t = t2;
+	    }
 
 	  if (!COMPLETE_OR_VOID_TYPE_P (t) && TREE_CODE (t) != ARRAY_TYPE)
 	    {
@@ -3101,6 +3118,7 @@ lvalue_p (tree ref)
     case REALPART_EXPR:
     case IMAGPART_EXPR:
     case COMPONENT_REF:
+    case VIEW_CONVERT_EXPR:
       return lvalue_p (TREE_OPERAND (ref, 0));
 
     case COMPOUND_LITERAL_EXPR:

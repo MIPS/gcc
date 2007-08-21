@@ -1,5 +1,83 @@
 2007-08-21  Tom Tromey  <tromey@redhat.com>
 
+	* c-common.c (fold_offsetof_1): Handle VIEW_CONVERT_EXPR.
+	* c-decl.c (bind): Added notify_ok argument.  Call
+	c_parser_bind_callback when needed.
+	(c_decl_re_bind): New function.
+	(push_file_scope): Update.
+	(pushtag): Likewise.
+	(decl_needs_merging): New function.
+	(diagnose_mismatched_decls): Added 'need_mergep' argument.  Call
+	decl_needs_merging.
+	(duplicate_decls): Added 'binding' argument.  Call
+	c_parser_note_smash.  Only merge decls when necessary.
+	(pushdecl): Update.
+	(pushdecl_top_level): Update.
+	(implicitly_declare): Update.
+	(undeclared_variable): Update.
+	(lookup_label): Update.
+	(declare_label): Update.
+	(define_label): Update.
+	(lookup_tag): Call c_parser_lookup_callback.
+	(lookup_name): Likewise.
+	(lookup_name_in_scope): Likewise.
+	(c_make_fname_decl): Update.
+	(c_builtin_function): Likewise.
+	(start_struct): Call c_parser_note_smash when needed.
+	(finish_struct): Only allocate TYPE_LANG_SPECIFIC if not already
+	allocated.
+	(start_enum): Rearrange.  call c_parser_note_smash when needed.
+	(finish_enum): Only allocate TYPE_LANG_SPECIFIC is not already
+	allocated.
+	(store_parm_decls_newstyle): Update.
+	* c-typeck.c (build_component_ref): Use smashed type variant.
+	(build_indirect_ref): Likewise.
+	(lvalue_p): Handle VIEW_CONVERT_EXPR.
+	* c-tree.h (struct lang_decl) <declaring_hunk>: New field.
+	(struct lang_type) <declaring_hunk>: Likewise.
+	(c_parser_bind_callback, c_parser_note_smash,
+	object_in_current_hunk_p, c_parser_find_binding,
+	c_parser_lookup_callback, c_decl_re_bind): Declare.
+	(C_SMASHED_VARIANT): New macro.
+	(C_SMASHED_TYPE_VARIANT): Likewise.
+	(C_SMASHED_P): Likewise.
+	* c-lex.c (fe_file_change): Update file_change field.
+	* c-common.h (struct c_lex_state) <file_change>: New field.
+	Update lang-flag comment.
+	* c-parser.c (parsed_hunk): New struct.
+	(c_parser) <used_hunks, first_hunk, prev_hunk,
+	current_hunk_binding, smash_map>: New fields.
+	(struct hunk_binding): New struct.
+	(hash_hunk_binding_entry): New function.
+	(eq_hunk_binding_entry): Likewise.
+	(traverse_hunk_binding_entry): Likewise.
+	(struct hunk_binding): New struct.
+	(hash_hunk_binding): New function.
+	(eq_hunk_binding): Likewise.
+	(global_hunk_map): New global.
+	(c_parser_bind_callback): New function.
+	(find_hunk_binding): Likewise.
+	(c_parser_lookup_callback): Likewise.
+	(object_in_current_hunk_p): Likewise.
+	(start_new_parsed_hunk): Likewise.
+	(finish_current_hunk): Likewise.
+	(create_hunk_binding_map): Likewise.
+	(struct smash_entry): New struct.
+	(hash_smash_entry): New function.
+	(eq_smash_entry): Likewise.
+	(c_parser_find_binding): Likewise.
+	(c_parser_note_smash): Likewise.
+	(c_parser_lex_all): Keep track of hunks.  Checksum tokens while
+	lexing.
+	(struct prereq_traverse_data): New struct.
+	(traverse_check_prereq): New function.
+	(can_reuse_hunk): Likewise.
+	(c_parser_translation_unit): Reuse hunks when possible.
+	(c_parse_file): Initialize new fields in parser.  Call
+	create_hunk_binding_map.
+
+2007-08-21  Tom Tromey  <tromey@redhat.com>
+
 	* c-opts.c (cb_file_change): Update.
 	* c-lex.c (pending_lang_change, c_header_level): Removed.
 	(init_c_lex): Create a c_lex_state object.

@@ -56,6 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "target.h"
 #include "cgraph.h"
+#include "md5.h"
 
 
 /* The reserved keyword table.  */
@@ -261,6 +262,24 @@ typedef struct c_token GTY (())
   location_t location;
 } c_token;
 
+/* This represents a sequence of tokens between two file change
+   events.  */
+struct parsed_hunk GTY ((chain_next ("%h.next")))
+{
+  /* Signature of the hunk.  */
+  unsigned char key[16];
+
+  /* Index of token starting this hunk.  We use indices here because
+     the lexer may need to realloc the token buffer.  */
+  size_t start_token;
+
+  /* Index of last token in this hunk.  */
+  size_t next_token;
+
+  /* Next in list.  */
+  struct parsed_hunk *next;
+};
+
 /* A parser structure recording information about the state and
    context of parsing.  Includes lexer information with up to two
    tokens of look-ahead; more are not needed for C.  */
@@ -274,6 +293,24 @@ typedef struct c_parser GTY(())
   size_t next_token;
   /* Number of tokens we've already hacked.  */
   short tokens_avail;
+
+  /* The hunks whose contents we've mapped in during this parse.  This
+     is used for prerequisite processing.  */
+  htab_t GTY ((param_is (struct hunk_binding))) used_hunks;
+
+  /* The first hunk on the list of hunks.  */
+  struct parsed_hunk *first_hunk;
+
+  /* The previous first hunk.  Even though it is only used in one
+     function, this has to be in the parser structure so that it is
+     seen by the GC.  */
+  struct parsed_hunk *prev_hunk;
+
+  /* The current hunk binding.  */
+  struct hunk_binding *current_hunk_binding;
+
+  /* Map decls and types onto their smashed variants.  */
+  htab_t GTY ((param_is (struct smash_entry))) smash_map;
 
   /* True if a syntax error is being recovered from; false otherwise.
      c_parser_error sets this flag.  It should clear this flag when
@@ -424,6 +461,356 @@ c_hack_token (c_parser *parser, c_token *token)
   timevar_pop (TV_LEX);
 }
 
+/* Map an identifier to a binding pair.  */
+struct hunk_binding_entry GTY (())
+{
+  /* The identifier.  */
+  tree name;
+  /* The enum/union/struct tag binding.  */
+  tree x1;
+  /* The variable/function/etc binding.  */
+  tree x2;
+};
+
+/* Hash function for a struct hunk_binding_entry.   */
+static hashval_t
+hash_hunk_binding_entry (const void *hbe)
+{
+  const struct hunk_binding_entry *binding
+    = (const struct hunk_binding_entry *) hbe;
+  return IDENTIFIER_HASH_VALUE (binding->name);
+}
+
+/* Equality function for a struct hunk_binding_entry.  */
+static int
+eq_hunk_binding_entry (const void *a, const void *b)
+{
+  const struct hunk_binding_entry *hbe_a
+    = (const struct hunk_binding_entry *) a;
+  const struct hunk_binding_entry *hbe_b
+    = (const struct hunk_binding_entry *) b;
+  /* Identifiers are still interned.  */
+  return hbe_a->name == hbe_b->name;
+}
+
+/* Called to map the contents of a struct hunk_binding_entry into the
+   current symbol table.  */
+static int
+traverse_hunk_binding_entry (void **slot, void *ignore ATTRIBUTE_UNUSED)
+{
+  struct hunk_binding_entry *hb = (struct hunk_binding_entry *) *slot;
+
+  if (hb->x1 != NULL_TREE)
+    c_decl_re_bind (hb->name, hb->x1);
+  if (hb->x2 != NULL_TREE)
+    c_decl_re_bind (hb->name, hb->x2);
+
+  return 1;
+}
+
+/* A hunk binding holds information about a parsed hunk.  It uses the
+   hunk's signature as a key, and contains information about the
+   hunk's various preconditions.  It also holds the parsed contents of
+   the hunk, in the form of a map from identifier names to values.  */
+struct hunk_binding GTY ((chain_next ("%h.next")))
+{
+  /* Signature of the hunk.  */
+  unsigned char key[16];
+  /* If not NULL, this is a multi-hunk binding.  Hunks listed here
+     must appear in order following the initial hunk.  All bindings
+     are registered in this binding; so we just re-use the already
+     created parsed hunks.  */
+  struct parsed_hunk *multi_list;
+  /* Location of the first token in this hunk.  */
+  location_t location;
+  /* Map names to bindings.  */
+  htab_t GTY ((param_is (struct hunk_binding_entry))) binding_map;
+  /* Set of all prerequisite hunks.  */
+  htab_t GTY ((param_is (struct hunk_binding))) prereqs;
+  /* Hunk bindings are kept on a linked list.  Each element in the
+     list has a different set of prerequisites.  */
+  struct hunk_binding *next;
+};
+
+/* Hash function for a struct hunk_binding.  */
+static hashval_t
+hash_hunk_binding (const void *hb)
+{
+  const struct hunk_binding *hunk = (const struct hunk_binding *) hb;
+  return iterative_hash (&hunk->key[0], 16, 0);
+}
+
+/* Equality function for a struct hunk_binding.  */
+static int
+eq_hunk_binding (const void *a, const void *b)
+{
+  const struct hunk_binding *hb_a = (const struct hunk_binding *) a;
+  const struct hunk_binding *hb_b = (const struct hunk_binding *) b;
+  return !memcmp (hb_a->key, hb_b->key, 16);
+}
+
+/* Map a hunk signature to its bindings.  This is a true global,
+   shared by all parsers.  */
+static GTY ((param_is (struct hunk_binding))) htab_t global_hunk_map;
+
+/* This is called when making a file-scope binding.  It registers the
+   new binding in the current hunk binding map.  */
+void
+c_parser_bind_callback (tree name, tree decl)
+{
+  struct hunk_binding_entry **slot;
+  struct hunk_binding_entry key;
+  /* We'd like this to be an argument to this function, but that
+     requires many changes.  */
+  c_parser *parser = the_parser;
+
+  if (!parser || !parser->current_hunk_binding)
+    return;
+
+  key.name = name;
+  slot = (struct hunk_binding_entry **)
+    htab_find_slot (parser->current_hunk_binding->binding_map, &key,
+		    INSERT);
+  if (!*slot)
+    {
+      *slot = GGC_NEW (struct hunk_binding_entry);
+      (*slot)->name = name;
+      (*slot)->x1 = NULL_TREE;
+      (*slot)->x2 = NULL_TREE;
+    }
+
+  if (TREE_CODE_CLASS (TREE_CODE (decl)) == tcc_declaration)
+    {
+      /* FIXME: probably should never be null here -- no
+	 re-registration allowed... ? */
+      if (DECL_LANG_SPECIFIC (decl) == NULL)
+	{
+	  DECL_LANG_SPECIFIC (decl)
+	    = ggc_alloc_cleared (sizeof (struct lang_decl));
+	  DECL_LANG_SPECIFIC (decl)->declaring_hunk
+	    = parser->current_hunk_binding;
+	}
+    }
+  else
+    {
+      gcc_assert (TREE_CODE_CLASS (TREE_CODE (decl)) == tcc_type);
+      if (! TYPE_LANG_SPECIFIC (decl))
+	TYPE_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_type);
+      if (! TYPE_LANG_SPECIFIC (decl)->declaring_hunk)
+	TYPE_LANG_SPECIFIC (decl)->declaring_hunk
+	  = parser->current_hunk_binding;
+    }
+
+  switch (TREE_CODE (decl))
+    {
+    case ENUMERAL_TYPE:
+    case UNION_TYPE:
+    case RECORD_TYPE:
+      (*slot)->x1 = decl;
+      break;
+
+    case VAR_DECL:
+    case FUNCTION_DECL:
+    case TYPE_DECL:
+    case CONST_DECL:
+    case PARM_DECL:
+    case ERROR_MARK:
+      (*slot)->x2 = decl;
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Return the hunk in which OBJ was defined.  If no such hunk can be
+   found, return NULL.  */
+static struct hunk_binding *
+find_hunk_binding (tree obj)
+{
+  struct hunk_binding *binding = NULL;
+  if (TREE_CODE_CLASS (TREE_CODE (obj)) == tcc_declaration)
+    {
+      /* FIXME: probably should never be null here -- no
+	 re-registration allowed... ? */
+      if (DECL_LANG_SPECIFIC (obj) != NULL)
+	binding = DECL_LANG_SPECIFIC (obj)->declaring_hunk;
+    }
+  else
+    {
+      gcc_assert (TREE_CODE_CLASS (TREE_CODE (obj)) == tcc_type);
+      if (TYPE_LANG_SPECIFIC (obj)
+	  && TYPE_LANG_SPECIFIC (obj)->declaring_hunk)
+	binding = TYPE_LANG_SPECIFIC (obj)->declaring_hunk;
+    }
+  return binding;
+}
+
+/* This is called whenever a name lookup succeeds a file scope.  It
+   registers a prerequisite for the resulting object's hunk with the
+   hunk currently being parsed.  */
+void
+c_parser_lookup_callback (tree result)
+{
+  struct hunk_binding *binding;
+  /* We'd like this to be an argument to this function, but that
+     requires many changes.  */
+  c_parser *parser = the_parser;
+
+  if (!parser || !parser->current_hunk_binding)
+    return;
+  binding = find_hunk_binding (result);
+
+  /* We might be using something declared in the current hunk -- don't
+     register that fact.  */
+  if (binding && binding != parser->current_hunk_binding)
+    {
+      htab_t prereqs = parser->current_hunk_binding->prereqs;
+      struct hunk_binding **slot
+	= (struct hunk_binding **) htab_find_slot (prereqs, binding, INSERT);
+      /* FIXME: assert that slot is empty? */
+      *slot = binding;
+    }
+}
+
+/* Return true if the object OBJ was declared in the current hunk.  */
+bool
+object_in_current_hunk_p (tree obj)
+{
+  struct hunk_binding *binding;
+  /* We'd like this to be an argument to this function, but that
+     requires many changes.  */
+  c_parser *parser = the_parser;
+
+  if (!parser || !parser->current_hunk_binding)
+    return false;
+  binding = find_hunk_binding (obj);
+
+  return binding == parser->current_hunk_binding;
+}
+
+/* Called when we start parsing a new hunk to initialize the hunk
+   binding.  */
+static void
+start_new_parsed_hunk (c_parser *parser, unsigned char new_signature[])
+{
+  parser->current_hunk_binding = GGC_NEW (struct hunk_binding);
+  memcpy (&parser->current_hunk_binding->key[0],
+	  new_signature, 16);
+  parser->current_hunk_binding->multi_list = NULL;
+  parser->current_hunk_binding->binding_map
+    = htab_create_ggc (20, hash_hunk_binding_entry, eq_hunk_binding_entry,
+		       NULL);
+  parser->current_hunk_binding->prereqs = htab_create_ggc (20,
+							   htab_hash_pointer,
+							   htab_eq_pointer,
+							   NULL);
+  parser->current_hunk_binding->location
+    = parser->buffer[parser->prev_hunk->start_token].location;
+  parser->current_hunk_binding->next = NULL;
+}
+
+/* Called when finished parsing a hunk.  Registers the parsed hunk
+   binding in the global hunk binding map.  */
+static void
+finish_current_hunk (c_parser *parser,
+		     struct parsed_hunk *initial,
+		     struct parsed_hunk *last_used)
+{
+  struct hunk_binding **slot;
+  slot = (struct hunk_binding **)
+    htab_find_slot (global_hunk_map,
+		    parser->current_hunk_binding,
+		    INSERT);
+  if (initial != last_used)
+    {
+      last_used->next = NULL;
+      parser->current_hunk_binding->multi_list = initial->next;
+    }
+
+  /* Chain.  */
+  parser->current_hunk_binding->next = *slot;
+  *slot = parser->current_hunk_binding;
+}
+
+/* Initialize the global hunk binding map.  */
+static void
+create_hunk_binding_map (void)
+{
+  if (!global_hunk_map)
+    global_hunk_map = htab_create_ggc (20, hash_hunk_binding,
+				       eq_hunk_binding, NULL);
+}
+
+
+
+/* Map an object (a type or a decl) to a smashed copy.  */
+struct smash_entry GTY (())
+{
+  /* The original object.  */
+  tree key;
+  /* The smashed variant.  */
+  tree value;
+};
+
+/* Hash function for a struct smash_entry.  */
+static hashval_t
+hash_smash_entry (const void *e)
+{
+  const struct smash_entry *se = (const struct smash_entry *) e;
+  return htab_hash_pointer (se->key);
+}
+
+/* Equality function for a struct smash_entry.  */
+static int
+eq_smash_entry (const void *e1, const void *e2)
+{
+  const struct smash_entry *se1 = (const struct smash_entry *) e1;
+  const struct smash_entry *se2 = (const struct smash_entry *) e2;
+  return se1->key == se2->key;
+}
+
+/* Given a decl (or a type), find its smashed variant.  If no smashed
+   variant is found, return the argument.  */
+tree
+c_parser_find_binding (tree decl)
+{
+  struct smash_entry **slot;
+  struct smash_entry temp;
+  /* We'd like this to be an argument to this function, but that
+     requires many changes.  */
+  c_parser *parser = the_parser;
+
+  temp.key = decl;
+  temp.value = NULL_TREE;
+  slot = (struct smash_entry **) htab_find_slot (parser->smash_map,
+						 &temp, NO_INSERT);
+  if (slot != NULL)
+    decl = (*slot)->value;
+  return decl;
+}
+
+/* This is a callback that is called when a decl or type is smashed.
+   It notes the relationship between the original decl (FROM) and the
+   smashed variant (TO).  */
+void
+c_parser_note_smash (tree from, tree to)
+{
+  struct smash_entry **slot;
+  struct smash_entry *entry = GGC_NEW (struct smash_entry);
+  /* We'd like this to be an argument to this function, but that
+     requires many changes.  */
+  c_parser *parser = the_parser;
+
+  entry->key = from;
+  entry->value = to;
+  slot = (struct smash_entry **) htab_find_slot (parser->smash_map,
+						 entry, INSERT);
+  gcc_assert (slot && !*slot);
+  *slot = entry;
+  C_SMASHED_P (from) = 1;
+}
+
 /* Lex the entire file into the parser's buffer.  */
 
 static void
@@ -431,12 +818,19 @@ c_parser_lex_all (c_parser *parser)
 {
 #define C_LEXER_BUFFER_SIZE ((256 * 1024) / sizeof (c_token))
 
-  size_t pos = 0, alloc = C_LEXER_BUFFER_SIZE;
+  size_t pos = 0, alloc = C_LEXER_BUFFER_SIZE, hunk_start;
   c_token *buffer;
+  struct md5_ctx current_hash;
+  struct parsed_hunk **next_hunk_pointer;
+  struct c_lex_state *lstate = c_lex_get_state (parse_in);
 
   timevar_push (TV_LEX);
 
   buffer = GGC_CNEWVEC (c_token, alloc);
+
+  md5_init_ctx (&current_hash);
+  next_hunk_pointer = &parser->first_hunk;
+  hunk_start = 0;
 
   while (true)
     {
@@ -448,6 +842,58 @@ c_parser_lex_all (c_parser *parser)
 	  memset (&buffer[save], 0, (alloc - save) * sizeof (c_token));
 	}
       c_lex_one_token (parser, &buffer[pos]);
+
+      /* If there was a file change event, it happened before this
+	 token.  */
+      if (lstate->file_change && hunk_start != (size_t) -1)
+	{
+	  struct parsed_hunk *hunk;
+
+	  hunk = GGC_NEW (struct parsed_hunk);
+	  md5_finish_ctx (&current_hash, &hunk->key[0]);
+
+	  hunk->start_token = hunk_start;
+	  hunk->next_token = pos;
+	  hunk->next = NULL;
+	  *next_hunk_pointer = hunk;
+	  next_hunk_pointer = &hunk->next;
+
+	  md5_init_ctx (&current_hash);
+	  hunk_start = (size_t) -1;
+	}
+      lstate->file_change = false;
+
+      if (hunk_start == (size_t) -1)
+	hunk_start = pos;
+
+      switch (buffer[pos].type)
+	{
+	case CPP_NAME:
+	  md5_process_bytes (IDENTIFIER_POINTER (buffer[pos].value),
+			     IDENTIFIER_LENGTH (buffer[pos].value),
+			     &current_hash);
+	  break;
+
+	case CPP_OBJC_STRING:
+	case CPP_WSTRING:
+	case CPP_STRING:
+	  md5_process_bytes (TREE_STRING_POINTER (buffer[pos].value),
+			     TREE_STRING_LENGTH (buffer[pos].value),
+			     &current_hash);
+	  break;
+
+	case CPP_NUMBER:
+	case CPP_AT_NAME:
+	case CPP_CHAR:
+	case CPP_WCHAR:
+	case CPP_PRAGMA:
+	  /* FIXME: cheap hack: do nothing*/
+	  break;
+
+	default:
+	  /*lalala*/
+	  break;
+	}
 
       ++pos;
       if (buffer[pos - 1].type == CPP_EOF)
@@ -1086,6 +1532,90 @@ static tree c_parser_objc_receiver (c_parser *);
 static tree c_parser_objc_message_args (c_parser *);
 static tree c_parser_objc_keywordexpr (c_parser *);
 
+/* Helper state for checking a hunk's prerequisites.  */
+struct prereq_traverse_data
+{
+  /* The associated parser.  */
+  c_parser *parser;
+  /* True if all prerequisites are satisfied, false otherwise.  */
+  bool result;
+};
+
+/* Check a single prerequisite hunk.  */
+static int
+traverse_check_prereq (void **valp, void *ptd)
+{
+  struct prereq_traverse_data *data = (struct prereq_traverse_data *) ptd;
+  struct hunk_binding *binding = (struct hunk_binding *) *valp;
+  if (!htab_find (data->parser->used_hunks, binding))
+    {
+      data->result = false;
+      return false;
+    }
+  return true;
+}
+
+/* Check to see if the next hunk has already been parsed and is
+   available for reuse.  Map in the bindings and return true if the
+   hunk was reused.  Return false otherwise.  */
+static bool
+can_reuse_hunk (c_parser *parser)
+{
+  struct hunk_binding temp, *binding;
+  struct parsed_hunk *binding_iter, *self_iter;
+
+  /* FIXME: kinda gross.  */
+  memcpy (&temp.key[0], &parser->first_hunk->key[0], 16);
+  binding = (struct hunk_binding *) htab_find (global_hunk_map, &temp);
+
+  for (; binding; binding = binding->next)
+    {
+      struct prereq_traverse_data data;
+
+      /* Check prerequisites for this binding.  */
+      data.parser = parser;
+      data.result = true;
+      htab_traverse_noresize (binding->prereqs, traverse_check_prereq, &data);
+      if (!data.result)
+	continue;
+
+      /* If we have a multi-hunk binding, check to make sure the
+	 current stream has the correct contents.  */
+      binding_iter = binding->multi_list;
+      self_iter = parser->first_hunk->next;
+      while (binding_iter && self_iter
+	     && !memcmp (&binding_iter->key[0],
+			 &self_iter->key[0], 16))
+	{
+	  binding_iter = binding_iter->next;
+	  self_iter = self_iter->next;
+	}
+      if (binding_iter == NULL)
+	break;
+    }
+
+  if (binding == NULL)
+    return false;
+
+  /* Make a note saying that we have used this hunk.  We only need to
+     mark the first in a sequence.  */
+  {
+    struct hunk_binding **slot = (struct hunk_binding **)
+      htab_find_slot (parser->used_hunks, binding, INSERT);
+    *slot = binding;
+  }
+
+  /* Map in the bindings.  */
+  htab_traverse_noresize (binding->binding_map, traverse_hunk_binding_entry,
+			  NULL);
+  parser->first_hunk = self_iter;
+  parser->next_token = self_iter->start_token;
+  /* FIXME: ... hmm... */
+  parser->tokens_avail = 0;
+
+  return true;
+}
+
 /* Parse a translation unit (C90 6.7, C99 6.9).
 
    translation-unit:
@@ -1112,11 +1642,49 @@ c_parser_translation_unit (c_parser *parser)
   else
     {
       void *obstack_position = obstack_alloc (&parser_obstack, 0);
+      bool parsed_any = false;
+      parser->prev_hunk = parser->first_hunk;
       do
 	{
+	  c_token *next_token;
+	  struct parsed_hunk *last_used = NULL;
+
 	  ggc_collect ();
+
+	  next_token = c_parser_peek_token (parser);
+
+	  /* Skip all the hunks that we've parsed.  */
+	  while (parser->first_hunk
+		 && (size_t) (next_token - &parser->buffer[0]) >= parser->first_hunk->next_token)
+	    {
+	      last_used = parser->first_hunk;
+	      parser->first_hunk = parser->first_hunk->next;
+	    }
+
+	  if (parser->first_hunk
+	      && (size_t) (next_token - &parser->buffer[0]) == parser->first_hunk->start_token)
+	    {
+	      if (parser->prev_hunk && parsed_any)
+		{
+		  gcc_assert (last_used->next == parser->first_hunk);
+		  finish_current_hunk (parser, parser->prev_hunk, last_used);
+		  parsed_any = false;
+		}
+
+	      parser->prev_hunk = parser->first_hunk;
+
+	      /* This will map in the saved bindings as a side
+		 effect.  */
+	      if (can_reuse_hunk (parser))
+		continue;
+
+	      /* Couldn't reuse, so parse and save this hunk.  */
+	      start_new_parsed_hunk (parser, parser->first_hunk->key);
+	    }
+
 	  c_parser_external_declaration (parser);
 	  obstack_free (&parser_obstack, obstack_position);
+	  parsed_any = true;
 	}
       while (c_parser_next_token_is_not (parser, CPP_EOF));
     }
@@ -7887,6 +8455,14 @@ c_parse_file (void)
 
   the_parser = GGC_NEW (c_parser);
   *the_parser = tparser;
+
+  the_parser->used_hunks = htab_create_ggc (20, htab_hash_pointer,
+					    htab_eq_pointer, NULL);
+  the_parser->smash_map = htab_create_ggc (20, hash_smash_entry, eq_smash_entry,
+					   NULL);
+
+  /* FIXME: should be in ordinary module initialization.  */
+  create_hunk_binding_map ();
 
   c_parser_lex_all (the_parser);
   c_parser_translation_unit (the_parser);

@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
    2: unused
    3: STATEMENT_LIST_HAS_LABEL (in STATEMENT_LIST)
    4: unused
+   5: C_SMASHED_P (in _TYPE or _DECL)
 */
 
 /* Reserved identifiers.  This is the union of all the keywords for C,
@@ -848,6 +849,10 @@ struct c_lex_state
 
   /* Depth in C headers - C++ only.  */
   int c_header_level;
+
+  /* True if a file change event happened before the token returned by
+     the lexer.  */
+  bool file_change;
 };
 
 /* Return the lexer state associated with a cppreader.  */

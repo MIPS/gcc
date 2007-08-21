@@ -6559,6 +6559,7 @@ fold_offsetof_1 (tree expr, tree stop_ref)
       return size_zero_node;
 
     case NOP_EXPR:
+    case VIEW_CONVERT_EXPR:
     case INDIRECT_REF:
       base = fold_offsetof_1 (TREE_OPERAND (expr, 0), stop_ref);
       gcc_assert (base == error_mark_node || base == size_zero_node);

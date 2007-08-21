@@ -34,7 +34,8 @@ along with GCC; see the file COPYING3.  If not see
 
 struct lang_decl GTY(())
 {
-  char dummy;
+  /* The hunk in which this decl was declared.  */
+  struct hunk_binding *declaring_hunk;
 };
 
 /* In a RECORD_TYPE or UNION_TYPE, nonzero if any component is read-only.  */
@@ -67,6 +68,9 @@ struct lang_type GTY(())
      as a list of adopted protocols or a pointer to a corresponding
      @interface.  See objc/objc-act.h for details.  */
   tree objc_info;
+
+  /* The hunk in which this type was declared.  */
+  struct hunk_binding *declaring_hunk;
 };
 
 /* Record whether a type or decl was written with nonconstant size.
@@ -438,6 +442,24 @@ struct c_enum_contents
 
 /* in c-parser.c */
 extern void c_parse_init (void);
+extern void c_parser_bind_callback (tree, tree);
+extern void c_parser_note_smash (tree, tree);
+extern bool object_in_current_hunk_p (tree);
+extern tree c_parser_find_binding (tree);
+extern void c_parser_lookup_callback (tree);
+
+/* True if this decl or type has been smashed.  */
+#define C_SMASHED_P(T) TREE_LANG_FLAG_5 (T)
+
+/* Return the smashed decl or type corresponding to ARG.  If ARG is
+   not smashed, return ARG.  */
+#define C_SMASHED_VARIANT(ARG) \
+  (((ARG) && C_SMASHED_P (ARG)) ? c_parser_find_binding (ARG) : (ARG))
+
+/* Return the smashed variant of TYPE.  This will look up the
+   canonical type if it exists.  FIXME: better comment here.  */
+#define C_SMASHED_TYPE_VARIANT(TYPE) \
+  C_SMASHED_VARIANT ((TYPE_CANONICAL (TYPE)) ? (TYPE_CANONICAL (TYPE)) : (TYPE))
 
 /* in c-aux-info.c */
 extern void gen_aux_info_record (tree, int, int, int);
@@ -451,6 +473,8 @@ extern int global_bindings_p (void);
 extern void push_scope (void);
 extern tree pop_scope (void);
 extern void insert_block (tree);
+
+extern void c_decl_re_bind (tree, tree);
 
 extern void c_init_decl_processing (void);
 extern void c_dup_lang_specific_decl (tree);

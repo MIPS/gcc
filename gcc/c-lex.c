@@ -218,6 +218,8 @@ void
 fe_file_change (struct c_lex_state * ARG_UNUSED (lstate),
 		const struct line_map *new_map)
 {
+  lstate->file_change = true;
+
   if (new_map == NULL)
     return;
 

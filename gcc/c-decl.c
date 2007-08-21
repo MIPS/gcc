@@ -457,7 +457,8 @@ c_print_identifier (FILE *file, tree node, int indent)
    which may be any of several kinds of DECL or TYPE or error_mark_node,
    in the scope SCOPE.  */
 static void
-bind (tree name, tree decl, struct c_scope *scope, bool invisible, bool nested)
+bind (tree name, tree decl, struct c_scope *scope, bool invisible, bool nested,
+      bool notify_ok)
 {
   struct c_binding *b, **here;
 
@@ -485,6 +486,9 @@ bind (tree name, tree decl, struct c_scope *scope, bool invisible, bool nested)
   if (!name)
     return;
 
+  if (notify_ok && B_IN_FILE_SCOPE (scope))
+    c_parser_bind_callback (name, decl);
+
   switch (TREE_CODE (decl))
     {
     case LABEL_DECL:     here = &I_LABEL_BINDING (name);   break;
@@ -510,6 +514,16 @@ bind (tree name, tree decl, struct c_scope *scope, bool invisible, bool nested)
 
   b->shadowed = *here;
   *here = b;
+}
+
+/* Re-bind NAME to DECL in the file scope.  This is called when
+   mapping in bindings from a parsed hunk.  */
+void
+c_decl_re_bind (tree name, tree decl)
+{
+  /* FIXME: perhaps should be using pushdecl, etc, here -- do we want
+     to re-smash in this thread?  */
+  bind (name, decl, file_scope, false, false, false);
 }
 
 /* Clear the binding structure B, stick it on the binding_freelist,
@@ -898,7 +912,7 @@ push_file_scope (void)
 
   for (decl = visible_builtins; decl; decl = TREE_CHAIN (decl))
     bind (DECL_NAME (decl), decl, file_scope,
-	  /*invisible=*/false, /*nested=*/true);
+	  /*invisible=*/false, /*nested=*/true, /*notify_ok=*/true);
 }
 
 void
@@ -954,7 +968,8 @@ pushtag (tree name, tree type)
   /* Record the identifier as the type's name if it has none.  */
   if (name && !TYPE_NAME (type))
     TYPE_NAME (type) = name;
-  bind (name, type, current_scope, /*invisible=*/false, /*nested=*/false);
+  bind (name, type, current_scope, /*invisible=*/false, /*nested=*/false,
+	/*notify_ok=*/true);
 
   /* Create a fake NULL-named TYPE_DECL node whose TREE_TYPE will be the
      tagged type we just added to the current scope.  This fake
@@ -1134,6 +1149,93 @@ locate_old_decl (tree decl, void (*diag)(const char *, ...) ATTRIBUTE_GCC_CDIAG(
     diag (G_("previous declaration of %q+D was here"), decl);
 }
 
+/* Subroutine of diagnose_mismatched_decls.  Return true if NEWDECL
+   and OLDDECL differ substantially, meaning in a way that merge_decls
+   would cause a modification.  */
+static bool
+decl_needs_merging (tree newdecl, tree olddecl, tree newtype, tree oldtype)
+{
+  tree merge;
+
+  merge = targetm.merge_decl_attributes (olddecl, newdecl);
+  if (merge != DECL_ATTRIBUTES (olddecl))
+    return true;
+  merge = composite_type (newtype, oldtype);
+  if (merge != oldtype)
+    return true;
+
+  if (TREE_READONLY (newdecl) != TREE_READONLY (olddecl))
+    return true;
+  if (TREE_THIS_VOLATILE (newdecl) != TREE_THIS_VOLATILE (olddecl))
+    return true;
+  if (TREE_DEPRECATED (newdecl) != TREE_DEPRECATED (olddecl))
+    return true;
+  if (DECL_INITIAL (newdecl) != DECL_INITIAL (olddecl))
+    return true;
+
+  if (CODE_CONTAINS_STRUCT (TREE_CODE (olddecl), TS_DECL_WITH_VIS))
+    {
+      /* FIXME: threadprivate attribute?  */
+      if (DECL_VISIBILITY_SPECIFIED (newdecl)
+	  != DECL_VISIBILITY_SPECIFIED (olddecl))
+	return true;
+      if (DECL_VISIBILITY_SPECIFIED (newdecl)
+	  && DECL_VISIBILITY (newdecl) != DECL_VISIBILITY (olddecl))
+	return true;
+
+      if (TREE_CODE (newdecl) == FUNCTION_DECL)
+	{
+	  if (DECL_STATIC_CONSTRUCTOR(newdecl)
+	      != DECL_STATIC_CONSTRUCTOR(olddecl))
+	    return true;
+	  if (DECL_STATIC_DESTRUCTOR (newdecl)
+	      != DECL_STATIC_DESTRUCTOR (olddecl))
+	    return true;
+	  if (DECL_NO_LIMIT_STACK (newdecl) != DECL_NO_LIMIT_STACK (olddecl))
+	    return true;
+	  if (DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (newdecl)
+	      != DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (olddecl))
+	    return true;
+	  if (TREE_THIS_VOLATILE (newdecl) != TREE_THIS_VOLATILE (olddecl))
+	    return true;
+	  if (TREE_READONLY (newdecl) != TREE_READONLY (olddecl))
+	    return true;
+	  if (DECL_IS_MALLOC (newdecl) != DECL_IS_MALLOC (olddecl))
+	    return true;
+	  if (DECL_IS_PURE (newdecl) != DECL_IS_PURE (olddecl))
+	    return true;
+	  if (DECL_IS_NOVOPS (newdecl) != DECL_IS_NOVOPS (olddecl))
+	    return true;
+
+	  if (TREE_PUBLIC (newdecl) != TREE_PUBLIC (olddecl))
+	    return true;
+	}
+
+      if (DECL_WEAK (newdecl) != DECL_WEAK (olddecl))
+	return true;
+    }
+
+  if (DECL_EXTERNAL (newdecl) != DECL_EXTERNAL (olddecl))
+    return true;
+  if (TREE_STATIC (newdecl) != TREE_STATIC (olddecl))
+    return true;
+  if (TREE_PUBLIC (newdecl) != TREE_PUBLIC (olddecl))
+    return true;
+
+  if (TREE_CODE (newdecl) == FUNCTION_DECL)
+    {
+      if (DECL_DECLARED_INLINE_P (newdecl) != DECL_DECLARED_INLINE_P (olddecl))
+	return true;
+      if (DECL_UNINLINABLE (newdecl) != DECL_UNINLINABLE (olddecl))
+	return true;
+      /* Always merge built-ins.  Bleah?  */
+      if (DECL_BUILT_IN (olddecl))
+	return true;
+    }
+
+  return false;
+}
+
 /* Subroutine of duplicate_decls.  Compare NEWDECL to OLDDECL.
    Returns true if the caller should proceed to merge the two, false
    if OLDDECL should simply be discarded.  As a side effect, issues
@@ -1144,7 +1246,8 @@ locate_old_decl (tree decl, void (*diag)(const char *, ...) ATTRIBUTE_GCC_CDIAG(
 
 static bool
 diagnose_mismatched_decls (tree newdecl, tree olddecl,
-			   tree *newtypep, tree *oldtypep)
+			   tree *newtypep, tree *oldtypep,
+			   bool *need_mergep)
 {
   tree newtype, oldtype;
   bool pedwarned = false;
@@ -1592,6 +1695,8 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       warned = true;
     }
 
+  *need_mergep = decl_needs_merging (newdecl, olddecl, *newtypep, *oldtypep);
+
   /* Report location of previous decl/defn in a consistent manner.  */
   if (warned || pedwarned)
     locate_old_decl (olddecl, pedwarned ? pedwarn : warning0);
@@ -1924,18 +2029,36 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
    true.  Otherwise, return false.  */
 
 static bool
-duplicate_decls (tree newdecl, tree olddecl)
+duplicate_decls (tree newdecl, tree olddecl, struct c_binding *binding)
 {
   tree newtype = NULL, oldtype = NULL;
+  bool need_merge = false;
 
-  if (!diagnose_mismatched_decls (newdecl, olddecl, &newtype, &oldtype))
+  if (!diagnose_mismatched_decls (newdecl, olddecl, &newtype, &oldtype,
+				  &need_merge))
     {
       /* Avoid `unused variable' and other warnings warnings for OLDDECL.  */
       TREE_NO_WARNING (olddecl) = 1;
       return false;
     }
 
-  merge_decls (newdecl, olddecl, newtype, oldtype);
+  if (need_merge)
+    {
+      if (B_IN_FILE_SCOPE (binding) && !object_in_current_hunk_p (olddecl))
+	{
+	  /* Modify a copy of OLDDECL and install that in the
+	     bindings.  */
+	  /* FIXME: we shouldn't need a copy -- we should just modify
+	     NEWDECL.  */
+	  tree copy = copy_node (olddecl);
+	  merge_decls (newdecl, copy, newtype, oldtype);
+	  gcc_assert (binding->decl == olddecl);
+	  binding->decl = copy;
+	  c_parser_note_smash (olddecl, copy);
+	}
+      else
+	merge_decls (newdecl, olddecl, newtype, oldtype);
+    }
   return true;
 }
 
@@ -2091,7 +2214,8 @@ pushdecl (tree x)
   /* Anonymous decls are just inserted in the scope.  */
   if (!name)
     {
-      bind (name, x, scope, /*invisible=*/false, /*nested=*/false);
+      bind (name, x, scope, /*invisible=*/false, /*nested=*/false,
+	    /*notify_ok=*/true);
       return x;
     }
 
@@ -2129,7 +2253,7 @@ pushdecl (tree x)
 		TREE_TYPE (b_use->decl) = b_use->type;
 	    }
 	}
-      if (duplicate_decls (x, b_use->decl))
+      if (duplicate_decls (x, b_use->decl, b))
 	{
 	  if (b_use != b)
 	    {
@@ -2233,7 +2357,7 @@ pushdecl (tree x)
 	 the static does not go in the externals scope.  */
       if (b
 	  && (TREE_PUBLIC (x) || same_translation_unit_p (x, b->decl))
-	  && duplicate_decls (x, b->decl))
+	  && duplicate_decls (x, b->decl, b))
 	{
 	  tree thistype;
 	  if (vistype)
@@ -2251,12 +2375,13 @@ pushdecl (tree x)
 	      = build_type_attribute_variant (thistype,
 					      TYPE_ATTRIBUTES (b->type));
 	  TREE_TYPE (b->decl) = thistype;
-	  bind (name, b->decl, scope, /*invisible=*/false, /*nested=*/true);
+	  bind (name, b->decl, scope, /*invisible=*/false, /*nested=*/true,
+		/*notify_ok=*/true);
 	  return b->decl;
 	}
       else if (TREE_PUBLIC (x))
 	{
-	  if (visdecl && !b && duplicate_decls (x, visdecl))
+	  if (visdecl && !b && duplicate_decls (x, visdecl, b))
 	    {
 	      /* An external declaration at block scope referring to a
 		 visible entity with internal linkage.  The composite
@@ -2269,7 +2394,7 @@ pushdecl (tree x)
 	  else
 	    {
 	      bind (name, x, external_scope, /*invisible=*/true,
-		    /*nested=*/false);
+		    /*nested=*/false, /*notify_ok=*/true);
 	      nested = true;
 	    }
 	}
@@ -2282,7 +2407,7 @@ pushdecl (tree x)
   if (TREE_CODE (x) == TYPE_DECL)
     clone_underlying_type (x);
 
-  bind (name, x, scope, /*invisible=*/false, nested);
+  bind (name, x, scope, /*invisible=*/false, nested, /*notify_ok=*/true);
 
   /* If x's type is incomplete because it's based on a
      structure or union which has not yet been fully declared,
@@ -2331,11 +2456,12 @@ pushdecl_top_level (tree x)
 
   if (TREE_PUBLIC (x))
     {
-      bind (name, x, external_scope, /*invisible=*/true, /*nested=*/false);
+      bind (name, x, external_scope, /*invisible=*/true, /*nested=*/false,
+	    /*notify_ok=*/true);
       nested = true;
     }
   if (file_scope)
-    bind (name, x, file_scope, /*invisible=*/false, nested);
+    bind (name, x, file_scope, /*invisible=*/false, nested, /*notify_ok=*/true);
 
   return x;
 }
@@ -2387,7 +2513,7 @@ implicitly_declare (tree functionid)
       if (!DECL_BUILT_IN (decl) && DECL_IS_BUILTIN (decl))
 	{
 	  bind (functionid, decl, file_scope,
-		/*invisible=*/false, /*nested=*/true);
+		/*invisible=*/false, /*nested=*/true, /*notify_ok=*/true);
 	  return decl;
 	}
       else
@@ -2428,7 +2554,7 @@ implicitly_declare (tree functionid)
 	  b->type = TREE_TYPE (decl);
 	  TREE_TYPE (decl) = newtype;
 	  bind (functionid, decl, current_scope,
-		/*invisible=*/false, /*nested=*/true);
+		/*invisible=*/false, /*nested=*/true, /*notify_ok=*/true);
 	  return decl;
 	}
     }
@@ -2491,7 +2617,8 @@ undeclared_variable (tree id, location_t loc)
 	 will be nonnull but current_function_scope will be null.  */
       scope = current_function_scope ? current_function_scope : current_scope;
     }
-  bind (id, error_mark_node, scope, /*invisible=*/false, /*nested=*/false);
+  bind (id, error_mark_node, scope, /*invisible=*/false, /*nested=*/false,
+	/*notify_ok=*/true);
 }
 
 /* Subroutine of lookup_label, declare_label, define_label: construct a
@@ -2545,7 +2672,7 @@ lookup_label (tree name)
 
   /* Ordinary labels go in the current function scope.  */
   bind (name, label, current_function_scope,
-	/*invisible=*/false, /*nested=*/false);
+	/*invisible=*/false, /*nested=*/false, /*notify_ok=*/true);
   return label;
 }
 
@@ -2575,7 +2702,7 @@ declare_label (tree name)
 
   /* Declared labels go in the current scope.  */
   bind (name, label, current_scope,
-	/*invisible=*/false, /*nested=*/false);
+	/*invisible=*/false, /*nested=*/false, /*notify_ok=*/true);
   return label;
 }
 
@@ -2622,7 +2749,7 @@ define_label (location_t location, tree name)
 
       /* Ordinary labels go in the current function scope.  */
       bind (name, label, current_function_scope,
-	    /*invisible=*/false, /*nested=*/false);
+	    /*invisible=*/false, /*nested=*/false, /*notify_ok=*/true);
     }
 
   if (!in_system_header && lookup_name (name))
@@ -2689,6 +2816,10 @@ lookup_tag (enum tree_code code, tree name, int thislevel_only)
       if (thislevel)
 	pending_xref_error ();
     }
+
+  if (B_IN_FILE_SCOPE (b))
+    c_parser_lookup_callback (b->decl);
+
   return b->decl;
 }
 
@@ -2717,7 +2848,11 @@ lookup_name (tree name)
 {
   struct c_binding *b = I_SYMBOL_BINDING (name);
   if (b && !b->invisible)
-    return b->decl;
+    {
+      if (B_IN_FILE_SCOPE (b))
+	c_parser_lookup_callback (b->decl);
+      return b->decl;
+    }
   return 0;
 }
 
@@ -2730,7 +2865,11 @@ lookup_name_in_scope (tree name, struct c_scope *scope)
 
   for (b = I_SYMBOL_BINDING (name); b; b = b->shadowed)
     if (B_IN_SCOPE (b, scope))
-      return b->decl;
+      {
+	if (B_IN_FILE_SCOPE (b))
+	  c_parser_lookup_callback (b->decl);
+	return b->decl;
+      }
   return 0;
 }
 
@@ -2830,7 +2969,7 @@ c_make_fname_decl (tree id, int type_dep)
     {
       DECL_CONTEXT (decl) = current_function_decl;
       bind (id, decl, current_function_scope,
-	    /*invisible=*/false, /*nested=*/false);
+	    /*invisible=*/false, /*nested=*/false, /*notify_ok=*/true);
     }
 
   finish_decl (decl, init, NULL_TREE);
@@ -2851,7 +2990,8 @@ c_builtin_function (tree decl)
   /* Should never be called on a symbol with a preexisting meaning.  */
   gcc_assert (!I_SYMBOL_BINDING (id));
 
-  bind (id, decl, external_scope, /*invisible=*/true, /*nested=*/false);
+  bind (id, decl, external_scope, /*invisible=*/true, /*nested=*/false,
+	/*notify_ok=*/true);
 
   /* Builtins in the implementation namespace are made visible without
      needing to be explicitly declared.  See push_file_scope.  */
@@ -5373,10 +5513,14 @@ start_struct (enum tree_code code, tree name)
 
   /* Otherwise create a forward-reference just so the tag is in scope.  */
 
-  if (ref == NULL_TREE || TREE_CODE (ref) != code)
+  if (ref == NULL_TREE || (TREE_CODE (ref) != code
+			   && !object_in_current_hunk_p (ref)))
     {
-      ref = make_node (code);
-      pushtag (name, ref);
+      tree newval = make_node (code);
+      pushtag (name, newval);
+      if (ref)
+	c_parser_note_smash (ref, newval);
+      ref = newval;
     }
 
   C_TYPE_BEING_DEFINED (ref) = 1;
@@ -5696,7 +5840,10 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	  ensure that this lives as long as the rest of the struct decl.
 	  All decls in an inline function need to be saved.  */
 
-	space = GGC_CNEW (struct lang_type);
+	if (TYPE_LANG_SPECIFIC (t))
+	  space = TYPE_LANG_SPECIFIC (t);
+	else
+	  space = GGC_CNEW (struct lang_type);
 	space2 = GGC_NEWVAR (struct sorted_fields_type,
 			     sizeof (struct sorted_fields_type) + len * sizeof (tree));
 
@@ -5802,26 +5949,33 @@ start_enum (struct c_enum_contents *the_enum, tree name)
   if (name != 0)
     enumtype = lookup_tag (ENUMERAL_TYPE, name, 1);
 
-  if (enumtype == 0 || TREE_CODE (enumtype) != ENUMERAL_TYPE)
+  if (enumtype && TREE_CODE (enumtype) == ENUMERAL_TYPE)
     {
-      enumtype = make_node (ENUMERAL_TYPE);
-      pushtag (name, enumtype);
+      if (C_TYPE_BEING_DEFINED (enumtype))
+	error ("nested redefinition of %<enum %E%>", name);
+
+      if (TYPE_VALUES (enumtype) != 0)
+	{
+	  /* This enum is a named one that has been declared already.  */
+	  error ("redeclaration of %<enum %E%>", name);
+
+	  /* Completely replace its old definition.
+	     The old enumerators remain defined, however.  */
+	  TYPE_VALUES (enumtype) = 0;
+	}
     }
 
-  if (C_TYPE_BEING_DEFINED (enumtype))
-    error ("nested redefinition of %<enum %E%>", name);
+  if (enumtype == 0 || (TREE_CODE (enumtype) != ENUMERAL_TYPE
+			&& !object_in_current_hunk_p (enumtype)))
+    {
+      tree newval = make_node (ENUMERAL_TYPE);
+      pushtag (name, newval);
+      if (enumtype)
+	c_parser_note_smash (enumtype, newval);
+      enumtype = newval;
+    }
 
   C_TYPE_BEING_DEFINED (enumtype) = 1;
-
-  if (TYPE_VALUES (enumtype) != 0)
-    {
-      /* This enum is a named one that has been declared already.  */
-      error ("redeclaration of %<enum %E%>", name);
-
-      /* Completely replace its old definition.
-	 The old enumerators remain defined, however.  */
-      TYPE_VALUES (enumtype) = 0;
-    }
 
   the_enum->enum_next_value = integer_zero_node;
   the_enum->enum_overflow = 0;
@@ -5942,7 +6096,10 @@ finish_enum (tree enumtype, tree values, tree attributes)
 
   /* Record the min/max values so that we can warn about bit-field
      enumerations that are too small for the values.  */
-  lt = GGC_CNEW (struct lang_type);
+  if (TYPE_LANG_SPECIFIC (enumtype))
+    lt = TYPE_LANG_SPECIFIC (enumtype);
+  else
+    lt = GGC_CNEW (struct lang_type);
   lt->enum_min = minnode;
   lt->enum_max = maxnode;
   TYPE_LANG_SPECIFIC (enumtype) = lt;
@@ -6314,7 +6471,7 @@ store_parm_decls_newstyle (tree fndecl, const struct c_arg_info *arg_info)
       if (DECL_NAME (decl))
 	{
 	  bind (DECL_NAME (decl), decl, current_scope,
-		/*invisible=*/false, /*nested=*/false);
+		/*invisible=*/false, /*nested=*/false, /*notify_ok=*/true);
 	  if (!TREE_USED (decl))
 	    warn_if_shadowing (decl);
 	}
@@ -6331,14 +6488,14 @@ store_parm_decls_newstyle (tree fndecl, const struct c_arg_info *arg_info)
       DECL_CONTEXT (decl) = current_function_decl;
       if (DECL_NAME (decl))
 	bind (DECL_NAME (decl), decl, current_scope,
-	      /*invisible=*/false, /*nested=*/false);
+	      /*invisible=*/false, /*nested=*/false, /*notify_ok=*/true);
     }
 
   /* And all the tag declarations.  */
   for (decl = arg_info->tags; decl; decl = TREE_CHAIN (decl))
     if (TREE_PURPOSE (decl))
       bind (TREE_PURPOSE (decl), TREE_VALUE (decl), current_scope,
-	    /*invisible=*/false, /*nested=*/false);
+	    /*invisible=*/false, /*nested=*/false, /*notify_ok=*/true);
 }
 
 /* Subroutine of store_parm_decls which handles old-style function
