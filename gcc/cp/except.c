@@ -1,6 +1,6 @@
 /* Handle exceptional things in C++.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2007  Free Software Foundation, Inc.
    Contributed by Michael Tiemann <tiemann@cygnus.com>
    Rewritten by Mike Stump <mrs@cygnus.com>, based upon an
    initial re-implementation courtesy Tad Hunt.
@@ -9,7 +9,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -18,9 +18,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -426,8 +425,9 @@ expand_start_catch_block (tree decl)
 	 generic exception header.  */
       exp = build_exc_ptr ();
       exp = build1 (NOP_EXPR, build_pointer_type (type), exp);
-      exp = build2 (MINUS_EXPR, TREE_TYPE (exp), exp,
-		    TYPE_SIZE_UNIT (TREE_TYPE (exp)));
+      exp = build2 (POINTER_PLUS_EXPR, TREE_TYPE (exp), exp,
+		    fold_build1 (NEGATE_EXPR, sizetype,
+			 	 TYPE_SIZE_UNIT (TREE_TYPE (exp))));
       exp = build_indirect_ref (exp, NULL);
       initialize_handler_parm (decl, exp);
       return type;
@@ -682,7 +682,7 @@ build_throw (tree exp)
 	 respectively.  */
       temp_type = is_bitfield_expr_with_lowered_type (exp);
       if (!temp_type)
-	temp_type = type_decays_to (TYPE_MAIN_VARIANT (TREE_TYPE (exp)));
+	temp_type = type_decays_to (TREE_TYPE (exp));
 
       /* OK, this is kind of wacky.  The standard says that we call
 	 terminate when the exception handling mechanism, after
@@ -709,12 +709,25 @@ build_throw (tree exp)
       /* And initialize the exception object.  */
       if (CLASS_TYPE_P (temp_type))
 	{
+	  int flags = LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING;
+
+	  /* Under C++0x [12.8/16 class.copy], a thrown lvalue is sometimes
+	     treated as an rvalue for the purposes of overload resolution
+	     to favor move constructors over copy constructors.  */
+	  if (/* Must be a local, automatic variable.  */
+	      TREE_CODE (exp) == VAR_DECL
+	      && DECL_CONTEXT (exp) == current_function_decl
+	      && ! TREE_STATIC (exp)
+	      /* The variable must not have the `volatile' qualifier.  */
+	      && !(cp_type_quals (TREE_TYPE (exp)) & TYPE_QUAL_VOLATILE))
+	    flags = flags | LOOKUP_PREFER_RVALUE;
+
 	  /* Call the copy constructor.  */
 	  exp = (build_special_member_call
 		 (object, complete_ctor_identifier,
 		  build_tree_list (NULL_TREE, exp),
 		  TREE_TYPE (object),
-		  LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING));
+		  flags));
 	  if (exp == error_mark_node)
 	    {
 	      error ("  in thrown expression");
@@ -769,7 +782,7 @@ build_throw (tree exp)
 	     we don't have to do them during unwinding.  But first wrap
 	     them in MUST_NOT_THROW_EXPR, since they are run after the
 	     exception object is initialized.  */
-	  walk_tree_without_duplicates (&temp_expr, wrap_cleanups_r, 0);
+	  cp_walk_tree_without_duplicates (&temp_expr, wrap_cleanups_r, 0);
 	  exp = build2 (COMPOUND_EXPR, TREE_TYPE (exp), temp_expr, exp);
 	  exp = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (exp), exp);
 	}

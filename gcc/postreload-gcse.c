@@ -1,12 +1,12 @@
 /* Post reload partially redundant load elimination
-   Copyright (C) 2004, 2005
+   Copyright (C) 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -178,10 +177,10 @@ static void free_mem (void);
 static bool oprs_unchanged_p (rtx, rtx, bool);
 static void record_last_reg_set_info (rtx, int);
 static void record_last_mem_set_info (rtx);
-static void record_last_set_info (rtx, rtx, void *);
+static void record_last_set_info (rtx, const_rtx, void *);
 static void record_opr_changes (rtx);
 
-static void find_mem_conflicts (rtx, rtx, void *);
+static void find_mem_conflicts (rtx, const_rtx, void *);
 static int load_killed_in_block_p (int, rtx, bool);
 static void reset_opr_set_tables (void);
 
@@ -198,8 +197,6 @@ static void dump_hash_table (FILE *);
 static bool reg_killed_on_edge (rtx, edge);
 static bool reg_used_on_edge (rtx, edge);
 
-static rtx reg_set_between_after_reload_p (rtx, rtx, rtx);
-static rtx reg_used_between_after_reload_p (rtx, rtx, rtx);
 static rtx get_avail_load_store_reg (rtx);
 
 static bool bb_has_well_behaved_predecessors (basic_block);
@@ -299,7 +296,7 @@ hash_expr (rtx x, int *do_not_record_p)
 static hashval_t
 hash_expr_for_htab (const void *expp)
 {
-  struct expr *exp = (struct expr *) expp;
+  const struct expr *const exp = (const struct expr *) expp;
   return exp->hash;
 }
 
@@ -309,8 +306,8 @@ hash_expr_for_htab (const void *expp)
 static int
 expr_equiv_p (const void *exp1p, const void *exp2p)
 {
-  struct expr *exp1 = (struct expr *) exp1p;
-  struct expr *exp2 = (struct expr *) exp2p;
+  const struct expr *const exp1 = (const struct expr *) exp1p;
+  const struct expr *const exp2 = (const struct expr *) exp2p;
   int equiv_p = exp_equiv_p (exp1->expr, exp2->expr, 0, true);
   
   gcc_assert (!equiv_p || exp1->hash == exp2->hash);
@@ -471,6 +468,22 @@ dump_hash_table (FILE *file)
   fprintf (file, "\n");
 }
 
+/* Return true if register X is recorded as being set by an instruction
+   whose CUID is greater than the one given.  */
+
+static bool
+reg_changed_after_insn_p (rtx x, int cuid)
+{
+  unsigned int regno, end_regno;
+
+  regno = REGNO (x);
+  end_regno = END_HARD_REGNO (x);
+  do
+    if (reg_avail_info[regno] > cuid)
+      return true;
+  while (++regno < end_regno);
+  return false;
+}
 
 /* Return nonzero if the operands of expression X are unchanged
    1) from the start of INSN's basic block up to but not including INSN
@@ -494,14 +507,9 @@ oprs_unchanged_p (rtx x, rtx insn, bool after_insn)
       /* We are called after register allocation.  */
       gcc_assert (REGNO (x) < FIRST_PSEUDO_REGISTER);
       if (after_insn)
-	/* If the last CUID setting the insn is less than the CUID of
-	   INSN, then reg X is not changed in or after INSN.  */
-	return reg_avail_info[REGNO (x)] < INSN_CUID (insn);
+	return !reg_changed_after_insn_p (x, INSN_CUID (insn) - 1);
       else
-	/* Reg X is not set before INSN in the current basic block if
-	   we have not yet recorded the CUID of an insn that touches
-	   the reg.  */
-	return reg_avail_info[REGNO (x)] == 0;
+	return !reg_changed_after_insn_p (x, 0);
 
     case MEM:
       if (load_killed_in_block_p (INSN_CUID (insn), x, after_insn))
@@ -563,7 +571,7 @@ static int mems_conflict_p;
    to a nonzero value.  */
 
 static void
-find_mem_conflicts (rtx dest, rtx setter ATTRIBUTE_UNUSED,
+find_mem_conflicts (rtx dest, const_rtx setter ATTRIBUTE_UNUSED,
 		    void *data)
 {
   rtx mem_op = (rtx) data;
@@ -663,7 +671,7 @@ record_last_mem_set_info (rtx insn)
    the SET is taking place.  */
 
 static void
-record_last_set_info (rtx dest, rtx setter ATTRIBUTE_UNUSED, void *data)
+record_last_set_info (rtx dest, const_rtx setter ATTRIBUTE_UNUSED, void *data)
 {
   rtx last_set_insn = (rtx) data;
 
@@ -718,11 +726,27 @@ record_opr_changes (rtx insn)
   /* Finally, if this is a call, record all call clobbers.  */
   if (CALL_P (insn))
     {
-      unsigned int regno;
+      unsigned int regno, end_regno;
+      rtx link, x;
 
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	if (TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
 	  record_last_reg_set_info (insn, regno);
+
+      for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
+	if (GET_CODE (XEXP (link, 0)) == CLOBBER)
+	  {
+	    x = XEXP (XEXP (link, 0), 0);
+	    if (REG_P (x))
+	      {
+		gcc_assert (HARD_REGISTER_P (x));
+	        regno = REGNO (x);
+		end_regno = END_HARD_REGNO (x);
+		do
+		  record_last_reg_set_info (insn, regno);
+		while (++regno < end_regno);
+	      }
+	  }
 
       if (! CONST_OR_PURE_CALL_P (insn))
 	record_last_mem_set_info (insn);
@@ -857,96 +881,6 @@ reg_used_on_edge (rtx reg, edge e)
   return false;
 }
 
-
-/* Return the insn that sets register REG or clobbers it in between
-   FROM_INSN and TO_INSN (exclusive of those two).
-   Just like reg_set_between but for hard registers and not pseudos.  */
-
-static rtx
-reg_set_between_after_reload_p (rtx reg, rtx from_insn, rtx to_insn)
-{
-  rtx insn;
-
-  /* We are called after register allocation.  */
-  gcc_assert (REG_P (reg) && REGNO (reg) < FIRST_PSEUDO_REGISTER);
-
-  if (from_insn == to_insn)
-    return NULL_RTX;
-
-  for (insn = NEXT_INSN (from_insn);
-       insn != to_insn;
-       insn = NEXT_INSN (insn))
-    if (INSN_P (insn))
-      {
-	if (set_of (reg, insn) != NULL_RTX)
-	  return insn;
-	if ((CALL_P (insn)
-	      && call_used_regs[REGNO (reg)])
-	    || find_reg_fusage (insn, CLOBBER, reg))
-	  return insn;
-
-	if (FIND_REG_INC_NOTE (insn, reg))
-	  return insn;
-      }
-
-  return NULL_RTX;
-}
-
-/* Return the insn that uses register REG in between FROM_INSN and TO_INSN
-   (exclusive of those two). Similar to reg_used_between but for hard
-   registers and not pseudos.  */
-
-static rtx
-reg_used_between_after_reload_p (rtx reg, rtx from_insn, rtx to_insn)
-{
-  rtx insn;
-
-  /* We are called after register allocation.  */
-  gcc_assert (REG_P (reg) && REGNO (reg) < FIRST_PSEUDO_REGISTER);
-
-  if (from_insn == to_insn)
-    return NULL_RTX;
-
-  for (insn = NEXT_INSN (from_insn);
-       insn != to_insn;
-       insn = NEXT_INSN (insn))
-    if (INSN_P (insn))
-      {
-	if (reg_overlap_mentioned_p (reg, PATTERN (insn))
-	    || (CALL_P (insn)
-		&& call_used_regs[REGNO (reg)])
-	    || find_reg_fusage (insn, USE, reg)
-	    || find_reg_fusage (insn, CLOBBER, reg))
-	  return insn;
-
-	if (FIND_REG_INC_NOTE (insn, reg))
-	  return insn;
-      }
-
-  return NULL_RTX;
-}
-
-/* Return true if REG is used, set, or killed between the beginning of
-   basic block BB and UP_TO_INSN.  Caches the result in reg_avail_info.  */
-
-static bool
-reg_set_or_used_since_bb_start (rtx reg, basic_block bb, rtx up_to_insn)
-{
-  rtx insn, start = PREV_INSN (BB_HEAD (bb));
-
-  if (reg_avail_info[REGNO (reg)] != 0)
-    return true;
-
-  insn = reg_used_between_after_reload_p (reg, start, up_to_insn);
-  if (! insn)
-    insn = reg_set_between_after_reload_p (reg, start, up_to_insn);
-
-  if (insn)
-    reg_avail_info[REGNO (reg)] = INSN_CUID (insn);
-
-  return insn != NULL_RTX;
-}
-
 /* Return the loaded/stored register of a load/store instruction.  */
 
 static rtx
@@ -1038,7 +972,8 @@ eliminate_partially_redundant_load (basic_block bb, rtx insn,
 
   /* Check that the loaded register is not used, set, or killed from the
      beginning of the block.  */
-  if (reg_set_or_used_since_bb_start (dest, bb, insn))
+  if (reg_changed_after_insn_p (dest, 0)
+      || reg_used_between_p (dest, PREV_INSN (BB_HEAD (bb)), insn))
     return;
 
   /* Check potential for replacing load with copy for predecessors.  */
@@ -1069,8 +1004,7 @@ eliminate_partially_redundant_load (basic_block bb, rtx insn,
 	      avail_insn = NULL;
 	      continue;
 	    }
-	  if (! reg_set_between_after_reload_p (avail_reg, avail_insn,
-						next_pred_bb_end))
+	  if (!reg_set_between_p (avail_reg, avail_insn, next_pred_bb_end))
 	    /* AVAIL_INSN remains non-null.  */
 	    break;
 	  else

@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -101,6 +101,7 @@
 
 /* Header files and definitions for __gnat_set_file_time_name.  */
 
+#define __NEW_STARLET 1
 #include <vms/rms.h>
 #include <vms/atrdef.h>
 #include <vms/fibdef.h>
@@ -119,17 +120,18 @@
     Y = tmptime * 10000000 + reftime; }
 
 /* descrip.h doesn't have everything ... */
+typedef struct fibdef* __fibdef_ptr32 __attribute__ (( mode (SI) ));
 struct dsc$descriptor_fib
 {
-  unsigned long fib$l_len;
-  struct fibdef *fib$l_addr;
+  unsigned int fib$l_len;
+  __fibdef_ptr32 fib$l_addr;
 };
 
 /* I/O Status Block.  */
 struct IOSB
 {
   unsigned short status, count;
-  unsigned long devdep;
+  unsigned int devdep;
 };
 
 static char *tryfile;
@@ -619,6 +621,25 @@ __gnat_get_debuggable_suffix_ptr (int *len, const char **value)
   return;
 }
 
+/* Returns the OS filename and corresponding encoding.  */
+
+void
+__gnat_os_filename (char *filename, char *w_filename,
+		    char *os_name, int *o_length,
+		    char *encoding, int *e_length)
+{
+#if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_DIRECTORY_STRUCTURE)
+  WS2SU (os_name, (TCHAR *)w_filename, o_length);
+  *o_length = strlen (os_name);
+  strcpy (encoding, "encoding=utf8");
+  *e_length = strlen (encoding);
+#else
+  strcpy (os_name, filename);
+  *o_length = strlen (filename);
+  *e_length = 0;
+#endif
+}
+
 FILE *
 __gnat_fopen (char *path, char *mode, int encoding)
 {
@@ -991,8 +1012,10 @@ __gnat_readdir (DIR *dirp, char *buffer, int *len)
 #elif defined (HAVE_READDIR_R)
   /* If possible, try to use the thread-safe version.  */
   if (readdir_r (dirp, buffer) != NULL)
-    *len = strlen (((struct dirent*) buffer)->d_name);
-    return ((struct dirent*) buffer)->d_name;
+    {
+      *len = strlen (((struct dirent*) buffer)->d_name);
+      return ((struct dirent*) buffer)->d_name;
+    }
   else
     return NULL;
 
@@ -1240,7 +1263,7 @@ __gnat_set_file_time_name (char *name, time_t time_stamp)
   struct
     {
       unsigned long long backup, create, expire, revise;
-      unsigned long uic;
+      unsigned int uic;
       union
 	{
 	  unsigned short value;
@@ -1513,20 +1536,54 @@ __gnat_stat (char *name, struct stat *statbuf)
 int
 __gnat_file_exists (char *name)
 {
+#ifdef __MINGW32__
+  /*  On Windows do not use __gnat_stat() because a bug in Microsoft
+  _stat() routine. When the system time-zone is set with a negative
+  offset the _stat() routine fails on specific files like CON:  */
+  TCHAR wname [GNAT_MAX_PATH_LEN + 2];
+
+  S2WSU (wname, name, GNAT_MAX_PATH_LEN + 2);
+  return GetFileAttributes (wname) != INVALID_FILE_ATTRIBUTES;
+#else
   struct stat statbuf;
 
   return !__gnat_stat (name, &statbuf);
+#endif
 }
 
 int
 __gnat_is_absolute_path (char *name, int length)
 {
+#ifdef __vxworks
+  /* On VxWorks systems, an absolute path can be represented (depending on
+     the host platform) as either /dir/file, or device:/dir/file, or
+     device:drive_letter:/dir/file. */
+
+  int index;
+
+  if (name[0] == '/')
+    return 1;
+
+  for (index = 0; index < length; index++)
+    {
+      if (name[index] == ':' &&
+          ((name[index + 1] == '/') ||
+           (isalpha (name[index + 1]) && index + 2 <= length &&
+            name[index + 2] == '/')))
+        return 1;
+
+      else if (name[index] == '/')
+        return 0;
+    }
+  return 0;
+#else
   return (length != 0) &&
      (*name == '/' || *name == DIR_SEPARATOR
 #if defined (__EMX__) || defined (MSDOS) || defined (WINNT)
       || (length > 1 && isalpha (name[0]) && name[1] == ':')
 #endif
 	  );
+#endif
 }
 
 int

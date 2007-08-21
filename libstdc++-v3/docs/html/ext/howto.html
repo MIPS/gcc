@@ -543,7 +543,7 @@
     </dd>
 
     <dt><a href="lwg-defects.html#432">432</a>:
-        <em>432. stringbuf::overflow() makes only one write position
+        <em>stringbuf::overflow() makes only one write position
 	    available</em>
     </dt>
     <dd>Implement the resolution, beyond DR 169.
@@ -553,6 +553,12 @@
         <em>bitset::to_string() hard to use</em>
     </dt>
     <dd>Add three overloads, taking fewer template arguments.
+    </dd>
+
+    <dt><a href="lwg-defects.html#438">438</a>:
+        <em>Ambiguity in the "do the right thing" clause</em>
+    </dt>
+    <dd>Implement the resolution, basically cast less.
     </dd>
 
     <dt><a href="lwg-defects.html#453">453</a>:
@@ -586,7 +592,7 @@
     <dd>Construct a <code>linear_congruential</code> engine and seed with it.
     </dd>
 
-    <dt><a href="lwg-active.html#526">526</a>:
+    <dt><a href="lwg-closed.html#526">526</a>:
         <em>Is it undefined if a function in the standard changes in
 	    parameters?</em>
     </dt>
@@ -607,16 +613,22 @@
     <dd>Add an auto_ptr&lt;void&gt; specialization.
     </dd>
 
-    <dt><a href="lwg-active.html#543">543</a>:
+    <dt><a href="lwg-defects.html#543">543</a>:
         <em>valarray slice default constructor</em>
     </dt>
     <dd>Follow the straightforward proposed resolution.
     </dd>
 
-    <dt><a href="lwg-active.html#586">586</a>:
+    <dt><a href="lwg-defects.html#586">586</a>:
         <em>string inserter not a formatted function</em>
     </dt>
     <dd>Change it to be a formatted output function (i.e. catch exceptions).
+    </dd>
+
+    <dt><a href="lwg-active.html#660">660</a>:
+        <em>Missing bitwise operations</em>
+    </dt>
+    <dd>Add the missing operations.
     </dd>
 <!--
     <dt><a href="lwg-defects.html#"></a>:

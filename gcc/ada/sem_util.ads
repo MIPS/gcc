@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,6 +27,8 @@
 --  Package containing utility procedures used throughout the semantics
 
 with Einfo;  use Einfo;
+with Namet;  use Namet;
+with Nmake;
 with Types;  use Types;
 with Uintp;  use Uintp;
 with Urealp; use Urealp;
@@ -40,6 +42,14 @@ package Sem_Util is
    procedure Add_Access_Type_To_Process (E : Entity_Id; A : Entity_Id);
    --  Add A to the list of access types to process when expanding the
    --  freeze node of E.
+
+   procedure Add_Global_Declaration (N : Node_Id);
+   --  These procedures adds a declaration N at the library level, to be
+   --  elaborated before any other code in the unit. It is used for example
+   --  for the entity that marks whether a unit has been elaborated. The
+   --  declaration is added to the Declarations list of the Aux_Decls_Node
+   --  for the current unit. The declarations are added in the current scope,
+   --  so the caller should push a new scope as required before the call.
 
    function Alignment_In_Bits (E : Entity_Id) return Uint;
    --  If the alignment of the type or object E is currently known to the
@@ -120,6 +130,11 @@ package Sem_Util is
    --  place error message on node N. Used in  object declarations, type
    --  conversions, qualified expressions.
 
+   procedure Check_Nested_Access (Ent : Entity_Id);
+   --  Check whether Ent denotes an entity declared in an uplevel scope, which
+   --  is accessed inside a nested procedure, and set Has_Up_Level_Access flag
+   --  accordingly. This is currently only enabled for VM_Target /= No_VM.
+
    procedure Check_Potentially_Blocking_Operation (N : Node_Id);
    --  N is one of the statement forms that is a potentially blocking
    --  operation. If it appears within a protected action, emit warning.
@@ -133,10 +148,30 @@ package Sem_Util is
    procedure Collect_Abstract_Interfaces
      (T                         : Entity_Id;
       Ifaces_List               : out Elist_Id;
-      Exclude_Parent_Interfaces : Boolean := False);
+      Exclude_Parent_Interfaces : Boolean := False;
+      Use_Full_View             : Boolean := True);
    --  Ada 2005 (AI-251): Collect whole list of abstract interfaces that are
    --  directly or indirectly implemented by T. Exclude_Parent_Interfaces is
    --  used to avoid addition of inherited interfaces to the generated list.
+   --  Use_Full_View is used to collect the interfaces using the full-view
+   --  (if available).
+
+   procedure Collect_Interface_Components
+     (Tagged_Type     : Entity_Id;
+      Components_List : out Elist_Id);
+   --  Ada 2005 (AI-251): Collect all the tag components associated with the
+   --  secondary dispatch tables of a tagged type.
+
+   procedure Collect_Interfaces_Info
+     (T               : Entity_Id;
+      Ifaces_List     : out Elist_Id;
+      Components_List : out Elist_Id;
+      Tags_List       : out Elist_Id);
+   --  Ada 2005 (AI-251): Collect all the interfaces associated with T plus
+   --  the record component and tag associated with each of these interfaces.
+   --  On exit Ifaces_List, Components_List and Tags_List have the same number
+   --  of elements, and elements at the same position on these tables provide
+   --  information on the same interface type.
 
    function Collect_Primitive_Operations (T : Entity_Id) return Elist_Id;
    --  Called upon type derivation and extension. We scan the declarative
@@ -258,6 +293,18 @@ package Sem_Util is
    --  denotes when analyzed. Subsequent uses of this id on a different
    --  type denote the discriminant at the same position in this new type.
 
+   function Find_Overridden_Synchronized_Primitive
+     (Def_Id      : Entity_Id;
+      First_Hom   : Entity_Id;
+      Ifaces_List : Elist_Id;
+      In_Scope    : Boolean) return Entity_Id;
+   --  Determine whether entry or subprogram Def_Id overrides a primitive
+   --  operation that belongs to one of the interfaces in Ifaces_List. A
+   --  specific homonym chain can be specified by setting First_Hom. Flag
+   --  In_Scope is used to designate whether the entry or subprogram was
+   --  declared inside the scope of the synchronized type or after. Return
+   --  the overridden entity or Empty.
+
    function First_Actual (Node : Node_Id) return Node_Id;
    --  Node is an N_Function_Call or N_Procedure_Call_Statement node. The
    --  result returned is the first actual parameter in declaration order
@@ -371,6 +418,12 @@ package Sem_Util is
    --  which is the innermost visible entity with the given name. See the
    --  body of Sem_Ch8 for further details on handling of entity visibility.
 
+   function Get_Renamed_Entity (E : Entity_Id) return Entity_Id;
+   --  Given an entity for an exception, package, subprogram or generic unit,
+   --  returns the ultimately renamed entity if this is a renaming. If this is
+   --  not a renamed entity, returns its argument. It is an error to call this
+   --  with any any other kind of entity.
+
    function Get_Subprogram_Entity (Nod : Node_Id) return Entity_Id;
    --  Nod is either a procedure call statement, or a function call, or
    --  an accept statement node. This procedure finds the Entity_Id of the
@@ -405,8 +458,12 @@ package Sem_Util is
    --  Result of Has_Compatible_Alignment test, description found below. Note
    --  that the values are arranged in increasing order of problematicness.
 
-   function Has_Abstract_Interfaces (Tagged_Type : Entity_Id) return Boolean;
-   --  Returns true if Tagged_Type implements some abstract interface
+   function Has_Abstract_Interfaces
+     (Tagged_Type   : Entity_Id;
+      Use_Full_View : Boolean := True) return Boolean;
+   --  Returns true if Tagged_Type implements some abstract interface. In case
+   --  private types the argument Use_Full_View controls if the check is done
+   --  using its full view (if available).
 
    function Has_Compatible_Alignment
      (Obj  : Entity_Id;
@@ -523,6 +580,10 @@ package Sem_Util is
    function Is_Atomic_Object (N : Node_Id) return Boolean;
    --  Determines if the given node denotes an atomic object in the sense
    --  of the legality checks described in RM C.6(12).
+
+   function Is_Coextension_Root (N : Node_Id) return Boolean;
+   --  Determine whether node N is an allocator which acts as a coextension
+   --  root.
 
    function Is_Controlling_Limited_Procedure
      (Proc_Nam : Entity_Id) return Boolean;
@@ -647,6 +708,9 @@ package Sem_Util is
    --  the N_Statement_Other_Than_Procedure_Call subtype from Sinfo).
    --  Note that a label is *not* a statement, and will return False.
 
+   function Is_Synchronized_Tagged_Type (E : Entity_Id) return Boolean;
+   --  Returns True if E is a synchronized tagged type (AARM 3.9.4 (6/2))
+
    function Is_Transfer (N : Node_Id) return Boolean;
    --  Returns True if the node N is a statement which is known to cause
    --  an unconditional transfer of control at runtime, i.e. the following
@@ -656,6 +720,12 @@ package Sem_Util is
    --  The argument is a Uint value which is the Boolean'Pos value of a
    --  Boolean operand (i.e. is either 0 for False, or 1 for True). This
    --  function simply tests if it is True (i.e. non-zero)
+
+   function Is_Value_Type (T : Entity_Id) return Boolean;
+   --  Returns true if type T represents a value type. This is only relevant to
+   --  CIL, will always return false for other targets.
+   --  What is a "value type", since this is not an Ada term, it should be
+   --  defined here ???
 
    function Is_Variable (N : Node_Id) return Boolean;
    --  Determines if the tree referenced by N represents a variable, i.e.
@@ -675,17 +745,16 @@ package Sem_Util is
    procedure Kill_Current_Values;
    --  This procedure is called to clear all constant indications from all
    --  entities in the current scope and in any parent scopes if the current
-   --  scope is a block or a package (and that recursion continues to the
-   --  top scope that is not a block or a package). This is used when the
-   --  sequential flow-of-control assumption is violated (occurence of a
-   --  label, head of a loop, or start of an exception handler). The effect
-   --  of the call is to clear the Constant_Value field (but we do not need
-   --  to clear the Is_True_Constant flag, since that only gets reset if
-   --  there really is an assignment somewhere in the entity scope). This
-   --  procedure also calls Kill_All_Checks, since this is a special case
-   --  of needing to forget saved values. This procedure also clears any
-   --  Is_Known_Non_Null flags in variables, constants or parameters
-   --  since these are also not known to be valid.
+   --  scope is a block or a package (and that recursion continues to the top
+   --  scope that is not a block or a package). This is used when the
+   --  sequential flow-of-control assumption is violated (occurence of a label,
+   --  head of a loop, or start of an exception handler). The effect of the
+   --  call is to clear the Constant_Value field (but we do not need to clear
+   --  the Is_True_Constant flag, since that only gets reset if there really is
+   --  an assignment somewhere in the entity scope). This procedure also calls
+   --  Kill_All_Checks, since this is a special case of needing to forget saved
+   --  values. This procedure also clears Is_Known_Non_Null flags in variables,
+   --  constants or parameters since these are also not known to be valid.
 
    procedure Kill_Current_Values (Ent : Entity_Id);
    --  This performs the same processing as described above for the form with
@@ -704,6 +773,28 @@ package Sem_Util is
    --  so. This differs from May_Be_Lvalue in that it defaults in the other
    --  direction. Cases which may possibly be assignments but are not known to
    --  be may return True from May_Be_Lvalue, but False from this function.
+
+   function Make_Simple_Return_Statement
+     (Sloc       : Source_Ptr;
+      Expression : Node_Id := Empty) return Node_Id
+     renames Nmake.Make_Return_Statement;
+   --  See Sinfo. We rename Make_Return_Statement to the correct Ada 2005
+   --  terminology here. Clients should use Make_Simple_Return_Statement.
+
+   Make_Return_Statement : constant := -2 ** 33;
+   --  Attempt to prevent accidental uses of Make_Return_Statement. If this
+   --  and the one in Nmake are both potentially use-visible, it will cause
+   --  a compilation error. Note that type and value are irrelevant.
+
+   N_Return_Statement : constant := -2**33;
+   --  Attempt to prevent accidental uses of N_Return_Statement; similar to
+   --  Make_Return_Statement above.
+
+   procedure Mark_Coextensions (Context_Nod : Node_Id; Root_Nod : Node_Id);
+   --  Given a node which designates the context of analysis and an origin in
+   --  the tree, traverse from Root_Nod and mark all allocators as either
+   --  dynamic or static depending on Context_Nod. Any erroneous marking is
+   --  cleaned up during resolution.
 
    function May_Be_Lvalue (N : Node_Id) return Boolean;
    --  Determines if N could be an lvalue (e.g. an assignment left hand side).
@@ -783,18 +874,6 @@ package Sem_Util is
    --  For convenience, qualified expressions applied to object names
    --  are also allowed as actuals for this function.
 
-   function Overrides_Synchronized_Primitive
-     (Def_Id      : Entity_Id;
-      First_Hom   : Entity_Id;
-      Ifaces_List : Elist_Id;
-      In_Scope    : Boolean := True) return Entity_Id;
-   --  Determine whether entry or subprogram Def_Id overrides a primitive
-   --  operation that belongs to one of the interfaces in Ifaces_List. A
-   --  specific homonym chain can be specified by setting First_Hom. Flag
-   --  In_Scope is used to designate whether the entry or subprogram was
-   --  declared inside the scope of the synchronized type or after. Return
-   --  the overriden entity or Empty.
-
    function Private_Component (Type_Id : Entity_Id) return Entity_Id;
    --  Returns some private component (if any) of the given Type_Id.
    --  Used to enforce the rules on visibility of operations on composite
@@ -870,7 +949,15 @@ package Sem_Util is
    --  capture actual value information, but we can capture conditional tests.
 
    function Same_Name (N1, N2 : Node_Id) return Boolean;
-   --  Determine if two (possibly expanded) names are the same name
+   --  Determine if two (possibly expanded) names are the same name. This is
+   --  a purely syntactic test, and N1 and N2 need not be analyzed.
+
+   function Same_Object (Node1, Node2 : Node_Id) return Boolean;
+   --  Determine if Node1 and Node2 are known to designate the same object.
+   --  This is a semantic test and both nodesmust be fully analyzed. A result
+   --  of True is decisively correct. A result of False does not necessarily
+   --  mean that different objects are designated, just that this could not
+   --  be reliably determined at compile time.
 
    function Same_Type (T1, T2 : Entity_Id) return Boolean;
    --  Determines if T1 and T2 represent exactly the same type. Two types
@@ -880,6 +967,13 @@ package Sem_Util is
    --  It is True if the types are known to be the same, but a result of
    --  False is indecisive (e.g. the compiler may not be able to tell that
    --  two constraints are identical).
+
+   function Same_Value (Node1, Node2 : Node_Id) return Boolean;
+   --  Determines if Node1 and Node2 are known to be the same value, which is
+   --  true if they are both compile time known values and have the same value,
+   --  or if they are the same object (in the sense of function Same_Object).
+   --  A result of False does not necessarily mean they have different values,
+   --  just that it is not possible to determine they have the same value.
 
    function Scope_Within_Or_Same (Scope1, Scope2 : Entity_Id) return Boolean;
    --  Determines if the entity Scope1 is the same as Scope2, or if it is
@@ -926,7 +1020,7 @@ package Sem_Util is
    --  value from T2 to T1. It does NOT copy the RM_Size field, which must be
    --  separately set if this is required to be copied also.
 
-   function Scope_Is_Transient  return Boolean;
+   function Scope_Is_Transient return Boolean;
    --  True if the current scope is transient
 
    function Static_Integer (N : Node_Id) return Uint;

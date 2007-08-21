@@ -92,7 +92,7 @@ next_char (format_data *fmt, int literal)
       fmt->format_string_len--;
       c = toupper (*fmt->format_string++);
     }
-  while (c == ' ' && !literal);
+  while ((c == ' ' || c == '\t') && !literal);
 
   return c;
 }
@@ -915,7 +915,7 @@ format_error (st_parameter_dt *dtp, const fnode *f, const char *message)
   if (f != NULL)
     fmt->format_string = f->source;
 
-  st_sprintf (buffer, "%s\n", message);
+  sprintf (buffer, "%s\n", message);
 
   j = fmt->format_string - dtp->format;
 

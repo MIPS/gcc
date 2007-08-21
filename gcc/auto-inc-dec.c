@@ -1,12 +1,12 @@
 /* Discovery of auto-inc and auto-dec instructions.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
    
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -42,16 +41,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "df.h"
 #include "dbgcnt.h"
 
-enum form
-  {
 /* This pass was originally removed from flow.c. However there is
    almost nothing that remains of that code.
 
    There are (4) basic forms that are matched:
 
-*/
-    FORM_PRE_ADD,
-/*
            a <- b + c
            ...
            *a
@@ -61,9 +55,6 @@ enum form
            a <- b
            ...
            *(a += c) pre
-*/
-    FORM_PRE_INC,
-/*
            a += c
            ...
            *a
@@ -71,9 +62,6 @@ enum form
         becomes
 
            *(a += c) pre
-*/
-    FORM_POST_ADD,
-/*
            *a
            ...
            b <- a + c
@@ -86,12 +74,6 @@ enum form
            b <- a
            ...
            *(b += c) post
-
-*/
-    FORM_POST_INC,
-    FORM_last
-  };
-/*
            *a
            ...
            a <- a + c
@@ -107,7 +89,7 @@ enum form
        HAVE_PRE_INCREMENT, HAVE_POST_INCREMENT, HAVE_PRE_DECREMENT or
        HAVE_POST_DECREMENT defined.
 
-    2) c is a contant not equal to the width of the value being accessed
+    2) c is a constant not equal to the width of the value being accessed
        by the pointer.  This is useful for machines that have
        HAVE_PRE_MODIFY_DISP, HAVE_POST_MODIFY_DISP defined.
 
@@ -167,8 +149,16 @@ enum form
 
            *(a += c) pre
 */
-
 #ifdef AUTO_INC_DEC
+
+enum form
+{
+  FORM_PRE_ADD,
+  FORM_PRE_INC,
+  FORM_POST_ADD,
+  FORM_POST_INC,
+  FORM_last
+};
 
 /* The states of the second operands of mem refs and inc insns.  If no
    second operand of the mem_ref was found, it is assumed to just be
@@ -224,7 +214,7 @@ set_inc_state (HOST_WIDE_INT val, int size)
    and location (relative to the mem reference) of inc insn.  */
 
 static bool initialized = false;
-static enum gen_form decision_table [INC_last][INC_last][FORM_last];
+static enum gen_form decision_table[INC_last][INC_last][FORM_last];
 
 static void
 init_decision_table (void)
@@ -361,7 +351,7 @@ static struct inc_insn
 static void 
 dump_inc_insn (FILE *file)
 {
-  const char * f = ((inc_insn.form == FORM_PRE_ADD) 
+  const char *f = ((inc_insn.form == FORM_PRE_ADD) 
 	      || (inc_insn.form == FORM_PRE_INC)) ? "pre" : "post";
 
   dump_insn_slim (file, inc_insn.insn);
@@ -406,7 +396,7 @@ static struct mem_insn
 {
   rtx insn;           /* The insn being parsed.  */
   rtx pat;            /* The pattern of the insn.  */
-  rtx *mem_pat;       /* The address of the field that holds the mem */
+  rtx *mem_loc;       /* The address of the field that holds the mem */
                       /* that is to be replaced.  */
   bool reg1_is_const; /* True if reg1 is const, false if reg1 is a reg.  */
   rtx reg0;
@@ -443,18 +433,18 @@ dump_mem_insn (FILE *file)
 
    The arrays are not cleared when we move from block to block so
    whenever an insn is retrieved from these arrays, it's block number
-   must be comared with the current block.
+   must be compared with the current block.
 */
 
-static rtx * reg_next_use = NULL;
-static rtx * reg_next_inc_use = NULL;
-static rtx * reg_next_def = NULL;
+static rtx *reg_next_use = NULL;
+static rtx *reg_next_inc_use = NULL;
+static rtx *reg_next_def = NULL;
 
 
 /* Move dead note that match PATTERN to TO_INSN from FROM_INSN.  We do
    not really care about moving any other notes from the inc or add
    insn.  Moving the REG_EQUAL and REG_EQUIV is clearly wrong and it
-   does not appear that there are any other kinds of relavant notes.  */
+   does not appear that there are any other kinds of relevant notes.  */
 
 static void 
 move_dead_notes (rtx to_insn, rtx from_insn, rtx pattern)
@@ -467,7 +457,7 @@ move_dead_notes (rtx to_insn, rtx from_insn, rtx pattern)
     {
       next_note = XEXP (note, 1);
       
-      if ((REG_NOTE_KIND(note) == REG_DEAD)
+      if ((REG_NOTE_KIND (note) == REG_DEAD)
 	  && pattern == XEXP (note, 0))
 	{
 	  XEXP (note, 1) = REG_NOTES (to_insn);
@@ -499,13 +489,14 @@ insert_move_insn_before (rtx next_insn, rtx dest_reg, rtx src_reg)
 }
 
   
-/* To have reached this point, the change is a legitimate one from a
-   dataflow point of view.  The only questions are is this a valid
-   change to the instruction and is this a profitable change to the
-   instruction.  */
+/* Change mem_insn.mem_loc so that uses NEW_ADDR which has an
+   increment of INC_REG.  To have reached this point, the change is a
+   legitimate one from a dataflow point of view.  The only questions
+   are is this a valid change to the instruction and is this a
+   profitable change to the instruction.  */
 
 static bool
-attempt_change (rtx new_addr_pat, rtx inc_reg)
+attempt_change (rtx new_addr, rtx inc_reg)
 {
   /* There are four cases: For the two cases that involve an add
      instruction, we are going to have to delete the add and insert a
@@ -519,14 +510,14 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
   basic_block bb = BASIC_BLOCK (BLOCK_NUM (mem_insn.insn));
   rtx mov_insn = NULL;
   int regno;
-  rtx mem = *mem_insn.mem_pat;
+  rtx mem = *mem_insn.mem_loc;
   enum machine_mode mode = GET_MODE (mem);
   rtx new_mem;
   int old_cost = 0;
   int new_cost = 0;
 
   PUT_MODE (mem_tmp, mode);
-  XEXP (mem_tmp, 0) = new_addr_pat;
+  XEXP (mem_tmp, 0) = new_addr;
 
   old_cost = rtx_cost (mem, 0) 
     + rtx_cost (PATTERN (inc_insn.insn), 0);
@@ -545,8 +536,8 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
      an offset even though we know the offset in many cases.  These
      assume you are changing where the address is pointing by the
      offset.  */
-  new_mem = replace_equiv_address_nv (mem, new_addr_pat);
-  if (! validate_change (mem_insn.insn, mem_insn.mem_pat, new_mem, 0))
+  new_mem = replace_equiv_address_nv (mem, new_addr);
+  if (! validate_change (mem_insn.insn, mem_insn.mem_loc, new_mem, 0))
     {
       if (dump_file)
 	fprintf (dump_file, "validation failure\n"); 
@@ -564,23 +555,23 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
       move_dead_notes (mov_insn, inc_insn.insn, inc_insn.reg0);
 
       regno = REGNO (inc_insn.reg_res);
-      reg_next_def [regno] = mov_insn;
-      reg_next_use [regno] = NULL;
+      reg_next_def[regno] = mov_insn;
+      reg_next_use[regno] = NULL;
       regno = REGNO (inc_insn.reg0);
-      reg_next_use [regno] = mov_insn;
+      reg_next_use[regno] = mov_insn;
       df_recompute_luids (bb);
       break;
 
     case FORM_POST_INC:
       regno = REGNO (inc_insn.reg_res);
-      if (reg_next_use [regno] == reg_next_inc_use[regno])
+      if (reg_next_use[regno] == reg_next_inc_use[regno])
 	reg_next_inc_use[regno] = NULL;
 
       /* Fallthru.  */
     case FORM_PRE_INC:
       regno = REGNO (inc_insn.reg_res);
-      reg_next_def [regno] = mem_insn.insn;
-      reg_next_use [regno] = NULL;
+      reg_next_def[regno] = mem_insn.insn;
+      reg_next_use[regno] = NULL;
 
       break;
 
@@ -593,31 +584,31 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
 	 pointer for the main iteration has not yet hit that.  It is
 	 still pointing to the mem insn. */
       regno = REGNO (inc_insn.reg_res);
-      reg_next_def [regno] = mem_insn.insn;
-      reg_next_use [regno] = NULL;
+      reg_next_def[regno] = mem_insn.insn;
+      reg_next_use[regno] = NULL;
 
       regno = REGNO (inc_insn.reg0);
-      reg_next_use [regno] = mem_insn.insn;
-      if ((reg_next_use [regno] == reg_next_inc_use[regno])
+      reg_next_use[regno] = mem_insn.insn;
+      if ((reg_next_use[regno] == reg_next_inc_use[regno])
 	  || (reg_next_inc_use[regno] == inc_insn.insn))
 	reg_next_inc_use[regno] = NULL;
       df_recompute_luids (bb);
       break;
 
     case FORM_last:
+    default:
       gcc_unreachable ();
     }
 
   if (!inc_insn.reg1_is_const)
     {
       regno = REGNO (inc_insn.reg1);
-      reg_next_use [regno] = mem_insn.insn;
-      if ((reg_next_use [regno] == reg_next_inc_use[regno])
+      reg_next_use[regno] = mem_insn.insn;
+      if ((reg_next_use[regno] == reg_next_inc_use[regno])
 	  || (reg_next_inc_use[regno] == inc_insn.insn))
 	reg_next_inc_use[regno] = NULL;
     }
 
-  /* Recompute the df info for the insns that have changed. */
   delete_insn (inc_insn.insn);
 
   if (dump_file && mov_insn)
@@ -650,11 +641,11 @@ static bool
 try_merge (void)
 {
   enum gen_form gen_form;
-  rtx mem = *mem_insn.mem_pat;
+  rtx mem = *mem_insn.mem_loc;
   rtx inc_reg = inc_insn.form == FORM_POST_ADD ?
     inc_insn.reg_res : mem_insn.reg0;
 
-  /* The width of the mem being access.  */
+  /* The width of the mem being accessed.  */
   int size = GET_MODE_SIZE (GET_MODE (mem));
   rtx last_insn = NULL;
 
@@ -669,6 +660,7 @@ try_merge (void)
       last_insn = inc_insn.insn;
       break;
     case FORM_last:
+    default:
       gcc_unreachable ();
     }
 
@@ -778,7 +770,7 @@ try_merge (void)
 }
 
 /* Return the next insn that uses (if reg_next_use is passed in
-   NEXT_ARRAY) or defines if reg_next_def is passed in NEXT_ARRAY)
+   NEXT_ARRAY) or defines (if reg_next_def is passed in NEXT_ARRAY)
    REGNO in BB.  */
 
 static rtx
@@ -826,7 +818,7 @@ reverse_inc (void)
    This function is called in two contexts, if BEFORE_MEM is true,
    this is called for each insn in the basic block.  If BEFORE_MEM is
    false, it is called for the instruction in the block that uses the
-   index register for som memory reference that is currently being
+   index register for some memory reference that is currently being
    processed.  */
 
 static bool
@@ -911,7 +903,7 @@ find_address (rtx *address_of_x)
 {
   rtx x = *address_of_x;
   enum rtx_code code = GET_CODE (x);
-  const char * const fmt = GET_RTX_FORMAT (code);
+  const char *const fmt = GET_RTX_FORMAT (code);
   int i;
   int value = 0;
   int tem;
@@ -919,7 +911,7 @@ find_address (rtx *address_of_x)
   if (code == MEM && rtx_equal_p (XEXP (x, 0), inc_insn.reg_res))
     {
       /* Match with *reg0.  */
-      mem_insn.mem_pat = address_of_x;
+      mem_insn.mem_loc = address_of_x;
       mem_insn.reg0 = inc_insn.reg_res;
       mem_insn.reg1_is_const = true;
       mem_insn.reg1_val = 0;
@@ -930,7 +922,7 @@ find_address (rtx *address_of_x)
       && rtx_equal_p (XEXP (XEXP (x, 0), 0), inc_insn.reg_res))
     {
       rtx b = XEXP (XEXP (x, 0), 1);
-      mem_insn.mem_pat = address_of_x;
+      mem_insn.mem_loc = address_of_x;
       mem_insn.reg0 = inc_insn.reg_res;
       mem_insn.reg1 = b;
       mem_insn.reg1_is_const = inc_insn.reg1_is_const;
@@ -1000,7 +992,7 @@ find_address (rtx *address_of_x)
    a suitable add or inc insn that follows the mem reference and
    determine if it is suitable to merge.
 
-   In the case where the MEM_)INSN has two registers in the reference,
+   In the case where the MEM_INSN has two registers in the reference,
    this function may be called recursively.  The first time looking
    for an add of the first register, and if that fails, looking for an
    add of the second register.  The FIRST_TRY parameter is used to
@@ -1202,7 +1194,7 @@ find_inc (bool first_try)
 		    return false;
 		}
 
-	      /* Need to check that there are no assignemnts to b
+	      /* Need to check that there are no assignments to b
 		 before the add insn.  */
 	      other_insn 
 		= get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
@@ -1283,7 +1275,7 @@ find_inc (bool first_try)
 	 next add or inc, not the next insn that used the
 	 reg.  Because we are going to increment the reg
 	 in this form, we need to make sure that there
-	 were no interveining uses of reg.  */
+	 were no intervening uses of reg.  */
       if (inc_insn.insn != other_insn)
 	return false;
     }
@@ -1301,13 +1293,13 @@ find_mem (rtx *address_of_x)
 {
   rtx x = *address_of_x;
   enum rtx_code code = GET_CODE (x);
-  const char * const fmt = GET_RTX_FORMAT (code);
+  const char *const fmt = GET_RTX_FORMAT (code);
   int i;
 
   if (code == MEM && REG_P (XEXP (x, 0)))
     {
       /* Match with *reg0.  */
-      mem_insn.mem_pat = address_of_x;
+      mem_insn.mem_loc = address_of_x;
       mem_insn.reg0 = XEXP (x, 0);
       mem_insn.reg1_is_const = true;
       mem_insn.reg1_val = 0;
@@ -1319,7 +1311,7 @@ find_mem (rtx *address_of_x)
       && REG_P (XEXP (XEXP (x, 0), 0)))
     {
       rtx reg1 = XEXP (XEXP (x, 0), 1);
-      mem_insn.mem_pat = address_of_x;
+      mem_insn.mem_loc = address_of_x;
       mem_insn.reg0 = XEXP (XEXP (x, 0), 0);
       mem_insn.reg1 = reg1;
       if (GET_CODE (reg1) == CONST_INT)
@@ -1513,7 +1505,7 @@ rest_of_handle_auto_inc_dec (void)
 
   mem_tmp = gen_rtx_MEM (Pmode, NULL_RTX);
 
-  df_ri_add_problem (0);
+  df_note_add_problem ();
   df_analyze ();
 
   reg_next_use = XCNEWVEC (rtx, max_reg);

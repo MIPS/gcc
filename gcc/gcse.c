@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* TODO
    - reordering of memory allocation and freeing to be more space efficient
@@ -524,7 +523,7 @@ static void free_gcse_mem (void);
 static void alloc_reg_set_mem (int);
 static void free_reg_set_mem (void);
 static void record_one_set (int, rtx);
-static void record_set_info (rtx, rtx, void *);
+static void record_set_info (rtx, const_rtx, void *);
 static void compute_sets (void);
 static void hash_scan_insn (rtx, struct hash_table *, int);
 static void hash_scan_set (rtx, rtx, struct hash_table *);
@@ -532,19 +531,19 @@ static void hash_scan_clobber (rtx, rtx, struct hash_table *);
 static void hash_scan_call (rtx, rtx, struct hash_table *);
 static int want_to_gcse_p (rtx);
 static bool can_assign_to_reg_p (rtx);
-static bool gcse_constant_p (rtx);
-static int oprs_unchanged_p (rtx, rtx, int);
-static int oprs_anticipatable_p (rtx, rtx);
-static int oprs_available_p (rtx, rtx);
+static bool gcse_constant_p (const_rtx);
+static int oprs_unchanged_p (const_rtx, const_rtx, int);
+static int oprs_anticipatable_p (const_rtx, const_rtx);
+static int oprs_available_p (const_rtx, const_rtx);
 static void insert_expr_in_table (rtx, enum machine_mode, rtx, int, int,
 				  struct hash_table *);
 static void insert_set_in_table (rtx, rtx, struct hash_table *);
-static unsigned int hash_expr (rtx, enum machine_mode, int *, int);
+static unsigned int hash_expr (const_rtx, enum machine_mode, int *, int);
 static unsigned int hash_set (int, int);
-static int expr_equiv_p (rtx, rtx);
+static int expr_equiv_p (const_rtx, const_rtx);
 static void record_last_reg_set_info (rtx, int);
 static void record_last_mem_set_info (rtx);
-static void record_last_set_info (rtx, rtx, void *);
+static void record_last_set_info (rtx, const_rtx, void *);
 static void compute_hash_table (struct hash_table *);
 static void alloc_hash_table (int, struct hash_table *, int);
 static void free_hash_table (struct hash_table *);
@@ -553,14 +552,14 @@ static void dump_hash_table (FILE *, const char *, struct hash_table *);
 static struct expr *lookup_set (unsigned int, struct hash_table *);
 static struct expr *next_set (unsigned int, struct expr *);
 static void reset_opr_set_tables (void);
-static int oprs_not_set_p (rtx, rtx);
+static int oprs_not_set_p (const_rtx, const_rtx);
 static void mark_call (rtx);
 static void mark_set (rtx, rtx);
 static void mark_clobber (rtx, rtx);
 static void mark_oprs_set (rtx);
 static void alloc_cprop_mem (int, int);
 static void free_cprop_mem (void);
-static void compute_transp (rtx, int, sbitmap *, int);
+static void compute_transp (const_rtx, int, sbitmap *, int);
 static void compute_transpout (void);
 static void compute_local_properties (sbitmap *, sbitmap *, sbitmap *,
 				      struct hash_table *);
@@ -569,16 +568,16 @@ static void find_used_regs (rtx *, void *);
 static int try_replace_reg (rtx, rtx, rtx);
 static struct expr *find_avail_set (int, rtx);
 static int cprop_jump (basic_block, rtx, rtx, rtx, rtx);
-static void mems_conflict_for_gcse_p (rtx, rtx, void *);
-static int load_killed_in_block_p (basic_block, int, rtx, int);
-static void canon_list_insert (rtx, rtx, void *);
+static void mems_conflict_for_gcse_p (rtx, const_rtx, void *);
+static int load_killed_in_block_p (const_basic_block, int, const_rtx, int);
+static void canon_list_insert (rtx, const_rtx, void *);
 static int cprop_insn (rtx, int);
 static int cprop (int);
 static void find_implicit_sets (void);
 static int one_cprop_pass (int, bool, bool);
 static bool constprop_register (rtx, rtx, rtx, bool);
 static struct expr *find_bypass_set (int, int);
-static bool reg_killed_on_edge (rtx, edge);
+static bool reg_killed_on_edge (const_rtx, const_edge);
 static int bypass_block (basic_block, rtx, rtx);
 static int bypass_conditional_jumps (void);
 static void alloc_pre_mem (int, int);
@@ -612,23 +611,23 @@ static struct ls_expr * find_rtx_in_ldst (rtx);
 static int enumerate_ldsts (void);
 static inline struct ls_expr * first_ls_expr (void);
 static inline struct ls_expr * next_ls_expr (struct ls_expr *);
-static int simple_mem (rtx);
+static int simple_mem (const_rtx);
 static void invalidate_any_buried_refs (rtx);
 static void compute_ld_motion_mems (void);
 static void trim_ld_motion_mems (void);
 static void update_ld_motion_stores (struct expr *);
-static void reg_set_info (rtx, rtx, void *);
-static void reg_clear_last_set (rtx, rtx, void *);
-static bool store_ops_ok (rtx, int *);
+static void reg_set_info (rtx, const_rtx, void *);
+static void reg_clear_last_set (rtx, const_rtx, void *);
+static bool store_ops_ok (const_rtx, int *);
 static rtx extract_mentioned_regs (rtx);
 static rtx extract_mentioned_regs_helper (rtx, rtx);
 static void find_moveable_store (rtx, int *, int *);
 static int compute_store_table (void);
-static bool load_kills_store (rtx, rtx, int);
-static bool find_loads (rtx, rtx, int);
-static bool store_killed_in_insn (rtx, rtx, rtx, int);
-static bool store_killed_after (rtx, rtx, rtx, basic_block, int *, rtx *);
-static bool store_killed_before (rtx, rtx, rtx, basic_block, int *);
+static bool load_kills_store (const_rtx, const_rtx, int);
+static bool find_loads (const_rtx, const_rtx, int);
+static bool store_killed_in_insn (const_rtx, const_rtx, const_rtx, int);
+static bool store_killed_after (const_rtx, const_rtx, const_rtx, const_basic_block, int *, rtx *);
+static bool store_killed_before (const_rtx, const_rtx, const_rtx, const_basic_block, int *);
 static void build_store_vectors (void);
 static void insert_insn_start_basic_block (rtx, basic_block);
 static int insert_store (struct ls_expr *, edge);
@@ -675,7 +674,7 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
      successors and predecessors.  */
   max_gcse_regno = max_reg_num ();
 
-  df_ri_add_problem (DF_RI_LIFE);
+  df_note_add_problem ();
   df_analyze ();
 
   if (dump_file)
@@ -794,7 +793,7 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
   alloc_gcse_mem ();
   /* This time, go ahead and allow cprop to alter jumps.  */
   timevar_push (TV_CPROP2);
-  one_cprop_pass (pass + 1, true, false);
+  one_cprop_pass (pass + 1, true, true);
   timevar_pop (TV_CPROP2);
   free_gcse_mem ();
 
@@ -811,7 +810,6 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
 
   /* We are finished with alias.  */
   end_alias_analysis ();
-  allocate_reg_info (max_reg_num (), FALSE, FALSE);
 
   if (!optimize_size && flag_gcse_sm)
     {
@@ -1131,7 +1129,7 @@ record_one_set (int regno, rtx insn)
    occurring.  */
 
 static void
-record_set_info (rtx dest, rtx setter ATTRIBUTE_UNUSED, void *data)
+record_set_info (rtx dest, const_rtx setter ATTRIBUTE_UNUSED, void *data)
 {
   rtx record_set_insn = (rtx) data;
 
@@ -1241,7 +1239,7 @@ can_assign_to_reg_p (rtx x)
    or from INSN to the end of INSN's basic block (if AVAIL_P != 0).  */
 
 static int
-oprs_unchanged_p (rtx x, rtx insn, int avail_p)
+oprs_unchanged_p (const_rtx x, const_rtx insn, int avail_p)
 {
   int i, j;
   enum rtx_code code;
@@ -1327,14 +1325,14 @@ static int gcse_mems_conflict_p;
    load_killed_in_block_p.  A memory reference for a load instruction,
    mems_conflict_for_gcse_p will see if a memory store conflicts with
    this memory load.  */
-static rtx gcse_mem_operand;
+static const_rtx gcse_mem_operand;
 
 /* DEST is the output of an instruction.  If it is a memory reference, and
    possibly conflicts with the load found in gcse_mem_operand, then set
    gcse_mems_conflict_p to a nonzero value.  */
 
 static void
-mems_conflict_for_gcse_p (rtx dest, rtx setter ATTRIBUTE_UNUSED,
+mems_conflict_for_gcse_p (rtx dest, const_rtx setter ATTRIBUTE_UNUSED,
 			  void *data ATTRIBUTE_UNUSED)
 {
   while (GET_CODE (dest) == SUBREG
@@ -1372,7 +1370,7 @@ mems_conflict_for_gcse_p (rtx dest, rtx setter ATTRIBUTE_UNUSED,
    AVAIL_P to 0.  */
 
 static int
-load_killed_in_block_p (basic_block bb, int uid_limit, rtx x, int avail_p)
+load_killed_in_block_p (const_basic_block bb, int uid_limit, const_rtx x, int avail_p)
 {
   rtx list_entry = modify_mem_list[bb->index];
 
@@ -1420,7 +1418,7 @@ load_killed_in_block_p (basic_block bb, int uid_limit, rtx x, int avail_p)
    the start of INSN's basic block up to but not including INSN.  */
 
 static int
-oprs_anticipatable_p (rtx x, rtx insn)
+oprs_anticipatable_p (const_rtx x, const_rtx insn)
 {
   return oprs_unchanged_p (x, insn, 0);
 }
@@ -1429,7 +1427,7 @@ oprs_anticipatable_p (rtx x, rtx insn)
    INSN to the end of INSN's basic block.  */
 
 static int
-oprs_available_p (rtx x, rtx insn)
+oprs_available_p (const_rtx x, const_rtx insn)
 {
   return oprs_unchanged_p (x, insn, 1);
 }
@@ -1442,7 +1440,7 @@ oprs_available_p (rtx x, rtx insn)
    the current size of the hash table to be probed.  */
 
 static unsigned int
-hash_expr (rtx x, enum machine_mode mode, int *do_not_record_p,
+hash_expr (const_rtx x, enum machine_mode mode, int *do_not_record_p,
 	   int hash_table_size)
 {
   unsigned int hash;
@@ -1473,7 +1471,7 @@ hash_set (int regno, int hash_table_size)
 /* Return nonzero if exp1 is equivalent to exp2.  */
 
 static int
-expr_equiv_p (rtx x, rtx y)
+expr_equiv_p (const_rtx x, const_rtx y)
 {
   return exp_equiv_p (x, y, 0, true);
 }
@@ -1662,7 +1660,7 @@ insert_set_in_table (rtx x, rtx insn, struct hash_table *table)
    the purposes of GCSE's constant propagation.  */
 
 static bool
-gcse_constant_p (rtx x)
+gcse_constant_p (const_rtx x)
 {
   /* Consider a COMPARE of two integers constant.  */
   if (GET_CODE (x) == COMPARE
@@ -1942,7 +1940,7 @@ record_last_reg_set_info (rtx insn, int regno)
    taken off pairwise.  */
 
 static void
-canon_list_insert (rtx dest ATTRIBUTE_UNUSED, rtx unused1 ATTRIBUTE_UNUSED,
+canon_list_insert (rtx dest ATTRIBUTE_UNUSED, const_rtx unused1 ATTRIBUTE_UNUSED,
 		   void * v_insn)
 {
   rtx dest_addr, insn;
@@ -2003,7 +2001,7 @@ record_last_mem_set_info (rtx insn)
    the SET is taking place.  */
 
 static void
-record_last_set_info (rtx dest, rtx setter ATTRIBUTE_UNUSED, void *data)
+record_last_set_info (rtx dest, const_rtx setter ATTRIBUTE_UNUSED, void *data)
 {
   rtx last_set_insn = (rtx) data;
 
@@ -2250,7 +2248,7 @@ reset_opr_set_tables (void)
    INSN's basic block.  */
 
 static int
-oprs_not_set_p (rtx x, rtx insn)
+oprs_not_set_p (const_rtx x, const_rtx insn)
 {
   int i, j;
   enum rtx_code code;
@@ -2428,7 +2426,7 @@ free_cprop_mem (void)
    bit in BMAP.  */
 
 static void
-compute_transp (rtx x, int indx, sbitmap *bmap, int set_p)
+compute_transp (const_rtx x, int indx, sbitmap *bmap, int set_p)
 {
   int i, j;
   basic_block bb;
@@ -2676,12 +2674,8 @@ try_replace_reg (rtx from, rtx to, rtx insn)
   /* If there is already a REG_EQUAL note, update the expression in it
      with our replacement.  */
   if (note != 0 && REG_NOTE_KIND (note) == REG_EQUAL)
-    {
-      set_unique_reg_note (insn, REG_EQUAL,
-  			   simplify_replace_rtx (XEXP (note, 0), from, to));
-      XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), from, to);
-      df_notes_rescan (insn);
-    }
+    set_unique_reg_note (insn, REG_EQUAL,
+			 simplify_replace_rtx (XEXP (note, 0), from, to));
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
     {
       /* If above failed and this is a single set, try to simplify the source of
@@ -2855,12 +2849,6 @@ cprop_jump (basic_block bb, rtx setcc, rtx jump, rtx from, rtx src)
       /* Remove REG_EQUAL note after simplification.  */
       if (note_src)
 	remove_note (jump, note);
-
-      /* If this has turned into an unconditional jump,
-	 then put a barrier after it so that the unreachable
-	 code will be deleted.  */
-      if (GET_CODE (SET_SRC (set)) == LABEL_REF)
-	emit_barrier_after (jump);
      }
 
 #ifdef HAVE_cc0
@@ -3324,10 +3312,10 @@ fis_get_condition (rtx jump)
    it.  COND is either an EQ or NE comparison.  */
 
 static bool
-implicit_set_cond_p (rtx cond)
+implicit_set_cond_p (const_rtx cond)
 {
-  enum machine_mode mode = GET_MODE (XEXP (cond, 0));
-  rtx cst = XEXP (cond, 1);
+  const enum machine_mode mode = GET_MODE (XEXP (cond, 0));
+  const_rtx cst = XEXP (cond, 1);
 
   /* We can't perform this optimization if either operand might be or might
      contain a signed zero.  */
@@ -3515,7 +3503,7 @@ find_bypass_set (int regno, int bb)
    valid prior to commit_edge_insertions.  */
 
 static bool
-reg_killed_on_edge (rtx reg, edge e)
+reg_killed_on_edge (const_rtx reg, const_edge e)
 {
   rtx insn;
 
@@ -4843,8 +4831,7 @@ static void
 hoist_code (void)
 {
   basic_block bb, dominated;
-  basic_block *domby;
-  unsigned int domby_len;
+  VEC (basic_block, heap) *domby;
   unsigned int i,j;
   struct expr **index_map;
   struct expr *expr;
@@ -4866,7 +4853,7 @@ hoist_code (void)
       int found = 0;
       int insn_inserted_p;
 
-      domby_len = get_dominated_by (CDI_DOMINATORS, bb, &domby);
+      domby = get_dominated_by (CDI_DOMINATORS, bb);
       /* Examine each expression that is very busy at the exit of this
 	 block.  These are the potentially hoistable expressions.  */
       for (i = 0; i < hoist_vbeout[bb->index]->n_bits; i++)
@@ -4879,9 +4866,8 @@ hoist_code (void)
 	      /* We've found a potentially hoistable expression, now
 		 we look at every block BB dominates to see if it
 		 computes the expression.  */
-	      for (j = 0; j < domby_len; j++)
+	      for (j = 0; VEC_iterate (basic_block, domby, j, dominated); j++)
 		{
-		  dominated = domby[j];
 		  /* Ignore self dominance.  */
 		  if (bb == dominated)
 		    continue;
@@ -4920,7 +4906,7 @@ hoist_code (void)
       /* If we found nothing to hoist, then quit now.  */
       if (! found)
         {
-	  free (domby);
+	  VEC_free (basic_block, heap, domby);
 	  continue;
 	}
 
@@ -4937,9 +4923,8 @@ hoist_code (void)
 	      /* We've found a potentially hoistable expression, now
 		 we look at every block BB dominates to see if it
 		 computes the expression.  */
-	      for (j = 0; j < domby_len; j++)
+	      for (j = 0; VEC_iterate (basic_block, domby, j, dominated); j++)
 		{
-		  dominated = domby[j];
 		  /* Ignore self dominance.  */
 		  if (bb == dominated)
 		    continue;
@@ -4990,7 +4975,7 @@ hoist_code (void)
 		}
 	    }
 	}
-      free (domby);
+      VEC_free (basic_block, heap, domby);
     }
 
   free (index_map);
@@ -5221,7 +5206,7 @@ next_ls_expr (struct ls_expr * ptr)
    ld_motion list, otherwise we let the usual aliasing take care of it.  */
 
 static int
-simple_mem (rtx x)
+simple_mem (const_rtx x)
 {
   if (! MEM_P (x))
     return 0;
@@ -5486,7 +5471,7 @@ static int num_stores;
    note_stores.  */
 
 static void
-reg_set_info (rtx dest, rtx setter ATTRIBUTE_UNUSED,
+reg_set_info (rtx dest, const_rtx setter ATTRIBUTE_UNUSED,
 	      void *data)
 {
   sbitmap bb_reg = data;
@@ -5506,7 +5491,7 @@ reg_set_info (rtx dest, rtx setter ATTRIBUTE_UNUSED,
    note_stores.  */
 
 static void
-reg_clear_last_set (rtx dest, rtx setter ATTRIBUTE_UNUSED,
+reg_clear_last_set (rtx dest, const_rtx setter ATTRIBUTE_UNUSED,
 	      void *data)
 {
   int *dead_vec = data;
@@ -5523,9 +5508,9 @@ reg_clear_last_set (rtx dest, rtx setter ATTRIBUTE_UNUSED,
    due to set of registers in bitmap REGS_SET.  */
 
 static bool
-store_ops_ok (rtx x, int *regs_set)
+store_ops_ok (const_rtx x, int *regs_set)
 {
-  rtx reg;
+  const_rtx reg;
 
   for (; x; x = XEXP (x, 1))
     {
@@ -5879,7 +5864,7 @@ compute_store_table (void)
    after the X.  */
 
 static bool
-load_kills_store (rtx x, rtx store_pattern, int after)
+load_kills_store (const_rtx x, const_rtx store_pattern, int after)
 {
   if (after)
     return anti_dependence (x, store_pattern);
@@ -5894,7 +5879,7 @@ load_kills_store (rtx x, rtx store_pattern, int after)
    after the insn X.  */
 
 static bool
-find_loads (rtx x, rtx store_pattern, int after)
+find_loads (const_rtx x, const_rtx store_pattern, int after)
 {
   const char * fmt;
   int i, j;
@@ -5926,14 +5911,47 @@ find_loads (rtx x, rtx store_pattern, int after)
   return ret;
 }
 
+static inline bool
+store_killed_in_pat (const_rtx x, const_rtx pat, int after)
+{
+  if (GET_CODE (pat) == SET)
+    {
+      rtx dest = SET_DEST (pat);
+
+      if (GET_CODE (dest) == ZERO_EXTRACT)
+	dest = XEXP (dest, 0);
+
+      /* Check for memory stores to aliased objects.  */
+      if (MEM_P (dest)
+	  && !expr_equiv_p (dest, x))
+	{
+	  if (after)
+	    {
+	      if (output_dependence (dest, x))
+		return true;
+	    }
+	  else
+	    {
+	      if (output_dependence (x, dest))
+		return true;
+	    }
+	}
+    }
+
+  if (find_loads (pat, x, after))
+    return true;
+
+  return false;
+}
+
 /* Check if INSN kills the store pattern X (is aliased with it).
    AFTER is true if we are checking the case when store X occurs
    after the insn.  Return true if it does.  */
 
 static bool
-store_killed_in_insn (rtx x, rtx x_regs, rtx insn, int after)
+store_killed_in_insn (const_rtx x, const_rtx x_regs, const_rtx insn, int after)
 {
-  rtx reg, base, note;
+  const_rtx reg, base, note, pat;
 
   if (!INSN_P (insn))
     return false;
@@ -5960,31 +5978,19 @@ store_killed_in_insn (rtx x, rtx x_regs, rtx insn, int after)
       return false;
     }
 
-  if (GET_CODE (PATTERN (insn)) == SET)
+  pat = PATTERN (insn);
+  if (GET_CODE (pat) == SET)
     {
-      rtx pat = PATTERN (insn);
-      rtx dest = SET_DEST (pat);
-
-      if (GET_CODE (dest) == ZERO_EXTRACT)
-	dest = XEXP (dest, 0);
-
-      /* Check for memory stores to aliased objects.  */
-      if (MEM_P (dest)
-	  && !expr_equiv_p (dest, x))
-	{
-	  if (after)
-	    {
-	      if (output_dependence (dest, x))
-		return true;
-	    }
-	  else
-	    {
-	      if (output_dependence (x, dest))
-		return true;
-	    }
-	}
-      if (find_loads (SET_SRC (pat), x, after))
+      if (store_killed_in_pat (x, pat, after))
 	return true;
+    }
+  else if (GET_CODE (pat) == PARALLEL)
+    {
+      int i;
+
+      for (i = 0; i < XVECLEN (pat, 0); i++)
+	if (store_killed_in_pat (x, XVECEXP (pat, 0, i), after))
+	  return true;
     }
   else if (find_loads (PATTERN (insn), x, after))
     return true;
@@ -6011,7 +6017,7 @@ store_killed_in_insn (rtx x, rtx x_regs, rtx insn, int after)
    is killed, return the last insn in that it occurs in FAIL_INSN.  */
 
 static bool
-store_killed_after (rtx x, rtx x_regs, rtx insn, basic_block bb,
+store_killed_after (const_rtx x, const_rtx x_regs, const_rtx insn, const_basic_block bb,
 		    int *regs_set_after, rtx *fail_insn)
 {
   rtx last = BB_END (bb), act;
@@ -6040,7 +6046,7 @@ store_killed_after (rtx x, rtx x_regs, rtx insn, basic_block bb,
    within basic block BB. X_REGS is list of registers mentioned in X.
    REGS_SET_BEFORE is bitmap of registers set before or in this insn.  */
 static bool
-store_killed_before (rtx x, rtx x_regs, rtx insn, basic_block bb,
+store_killed_before (const_rtx x, const_rtx x_regs, const_rtx insn, const_basic_block bb,
 		     int *regs_set_before)
 {
   rtx first = BB_HEAD (bb);
@@ -6155,8 +6161,7 @@ insert_insn_start_basic_block (rtx insn, basic_block bb)
   while (before != 0)
     {
       if (! LABEL_P (before)
-	  && (! NOTE_P (before)
-	      || NOTE_LINE_NUMBER (before) != NOTE_INSN_BASIC_BLOCK))
+	  && !NOTE_INSN_BASIC_BLOCK_P (before))
 	break;
       prev = before;
       if (prev == BB_END (bb))
@@ -6335,17 +6340,6 @@ replace_store_insn (rtx reg, rtx del, basic_block bb, struct ls_expr *smexpr)
 
   mem = smexpr->pattern;
   insn = gen_move_insn (reg, SET_SRC (single_set (del)));
-  insn = emit_insn_after (insn, del);
-
-  if (dump_file)
-    {
-      fprintf (dump_file,
-	       "STORE_MOTION  delete insn in BB %d:\n      ", bb->index);
-      print_inline_rtx (dump_file, del, 6);
-      fprintf (dump_file, "\nSTORE MOTION  replaced with insn:\n      ");
-      print_inline_rtx (dump_file, insn, 6);
-      fprintf (dump_file, "\n");
-    }
 
   for (ptr = ANTIC_STORE_LIST (smexpr); ptr; ptr = XEXP (ptr, 1))
     if (XEXP (ptr, 0) == del)
@@ -6371,6 +6365,20 @@ replace_store_insn (rtx reg, rtx del, basic_block bb, struct ls_expr *smexpr)
       pair = XEXP (note, 0);
       note = find_reg_note (pair, REG_RETVAL, NULL_RTX);
       XEXP (note, 0) = insn;
+    }
+
+  /* Emit the insn AFTER all the notes are transferred.
+     This is cheaper since we avoid df rescanning for the note change.  */
+  insn = emit_insn_after (insn, del);
+
+  if (dump_file)
+    {
+      fprintf (dump_file,
+	       "STORE_MOTION  delete insn in BB %d:\n      ", bb->index);
+      print_inline_rtx (dump_file, del, 6);
+      fprintf (dump_file, "\nSTORE MOTION  replaced with insn:\n      ");
+      print_inline_rtx (dump_file, insn, 6);
+      fprintf (dump_file, "\n");
     }
 
   delete_insn (del);
@@ -6590,7 +6598,6 @@ bypass_jumps (void)
 
   /* We are finished with alias.  */
   end_alias_analysis ();
-  allocate_reg_info (max_reg_num (), FALSE, FALSE);
 
   return changed;
 }
@@ -6699,6 +6706,7 @@ rest_of_handle_gcse (void)
     {
       timevar_push (TV_CSE);
       tem2 = cse_main (get_insns (), max_reg_num ());
+      df_finish_pass (false);
       purge_all_dead_edges ();
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
       timevar_pop (TV_CSE);

@@ -1,6 +1,6 @@
 ;;- Machine description for Renesas / SuperH SH.
 ;;  Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-;;  2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+;;  2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 ;;  Contributed by Steve Chamberlain (sac@cygnus.com).
 ;;  Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -8,7 +8,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 
 ;; ??? Should prepend a * to all pattern names which are not used.
@@ -420,10 +419,12 @@
 	 (eq_attr "type" "jump")
 	 (cond [(eq_attr "med_branch_p" "yes")
 		(const_int 2)
-		(and (eq (symbol_ref "GET_CODE (prev_nonnote_insn (insn))")
-                         (symbol_ref "INSN"))
-                     (eq (symbol_ref "INSN_CODE (prev_nonnote_insn (insn))")
-                         (symbol_ref "code_for_indirect_jump_scratch")))
+		(and (ne (symbol_ref "prev_nonnote_insn (insn)")
+			 (const_int 0))
+		     (and (eq (symbol_ref "GET_CODE (prev_nonnote_insn (insn))")
+			      (symbol_ref "INSN"))
+			  (eq (symbol_ref "INSN_CODE (prev_nonnote_insn (insn))")
+			      (symbol_ref "code_for_indirect_jump_scratch"))))
                 (cond [(eq_attr "braf_branch_p" "yes")
                        (const_int 6)
                        (eq (symbol_ref "flag_pic") (const_int 0))
@@ -455,10 +456,17 @@
 (include "sh4.md")
 
 (include "predicates.md")
+(include "constraints.md")
 
 ;; Definitions for filling delay slots
 
 (define_attr "needs_delay_slot" "yes,no" (const_string "no"))
+
+(define_attr "banked" "yes,no" 
+	(cond [(eq (symbol_ref "sh_loads_bankedreg_p (insn)")
+		   (const_int 1))
+	       (const_string "yes")]
+	      (const_string "no")))
 
 ;; ??? This should be (nil) instead of (const_int 0)
 (define_attr "hit_stack" "yes,no"
@@ -538,8 +546,9 @@
 		  (eq_attr "type" "!pload,prset"))
 	     (and (eq_attr "interrupt_function" "yes")
 		  (ior
-		   (ne (symbol_ref "TARGET_SH3") (const_int 0))
-		   (eq_attr "hit_stack" "no"))))) (nil) (nil)])
+		   (eq (symbol_ref "TARGET_SH3") (const_int 0))
+		   (eq_attr "hit_stack" "no")
+		   (eq_attr "banked" "no"))))) (nil) (nil)])
 
 ;; Since a call implicitly uses the PR register, we can't allow
 ;; a PR register store in a jsr delay slot.
@@ -975,7 +984,7 @@
     {
       rtx tmp;
 
-      if (no_new_pseudos)
+      if (!can_create_pseudo_p ())
 	FAIL;
 
       tmp = gen_reg_rtx (DImode);
@@ -1195,7 +1204,7 @@
 		   (match_operand:SI 3 "register_operand" "0"))
 		 (match_operand:SI 4 "arith_reg_or_0_operand" "r")))
    (clobber (match_scratch:SI 5 "=&r"))]
-  "TARGET_SHMEDIA && no_new_pseudos"
+  "TARGET_SHMEDIA && !can_create_pseudo_p ()"
   "#"
   "TARGET_SHMEDIA && reload_completed"
   [(pc)]
@@ -1217,7 +1226,7 @@
   "TARGET_PRETEND_CMOVE
    && (arith_reg_operand (operands[1], SImode)
        || (immediate_operand (operands[1], SImode)
-	   && CONST_OK_FOR_I08 (INTVAL (operands[1]))))"
+	   && satisfies_constraint_I08 (operands[1])))"
   "bt 0f\;mov %1,%0\\n0:"
   [(set_attr "type" "mt_group,arith") ;; poor approximation
    (set_attr "length" "4")])
@@ -1230,7 +1239,7 @@
   "TARGET_PRETEND_CMOVE
    && (arith_reg_operand (operands[1], SImode)
        || (immediate_operand (operands[1], SImode)
-	   && CONST_OK_FOR_I08 (INTVAL (operands[1]))))"
+	   && satisfies_constraint_I08 (operands[1])))"
   "bf 0f\;mov %1,%0\\n0:"
   [(set_attr "type" "mt_group,arith") ;; poor approximation
    (set_attr "length" "4")])
@@ -1279,7 +1288,7 @@
     {
       rtx tmp;
 
-      if (no_new_pseudos)
+      if (!can_create_pseudo_p ())
 	FAIL;
 
       tmp = gen_reg_rtx (SImode);
@@ -1388,7 +1397,7 @@
 {
   if (TARGET_SH1)
     {
-      if (no_new_pseudos && ! arith_reg_operand (operands[2], DImode))
+      if (!can_create_pseudo_p () && ! arith_reg_operand (operands[2], DImode))
         FAIL;
       operands[2] = force_reg (DImode, operands[2]);
       emit_insn (gen_adddi3_compact (operands[0], operands[1], operands[2]));
@@ -1683,7 +1692,8 @@
     }
   if (TARGET_SHMEDIA)
     {
-      if (no_new_pseudos && ! arith_reg_or_0_operand (operands[1], SImode))
+      if (!can_create_pseudo_p ()
+	  && ! arith_reg_or_0_operand (operands[1], SImode))
 	FAIL;
       if (operands[1] != const0_rtx && GET_CODE (operands[1]) != SUBREG)
 	operands[1] = force_reg (SImode, operands[1]);
@@ -1755,7 +1765,7 @@
    (clobber (reg:DI TR0_REG))
    (clobber (reg:DI TR1_REG))
    (clobber (reg:DI TR2_REG))
-   (use (match_operand 1 "target_operand" "b"))]
+   (use (match_operand 1 "target_reg_operand" "b"))]
   "TARGET_SHMEDIA && (! TARGET_SHMEDIA_FPU || ! TARGET_DIVIDE_FP)"
   "blink	%1, r18"
   [(set_attr "type" "sfunc")
@@ -1850,7 +1860,7 @@
   ""
   "
 {
-  rtx first, last;
+  rtx last;
 
   operands[3] = gen_reg_rtx (Pmode);
   /* Emit the move of the address to a pseudo outside of the libcall.  */
@@ -1914,13 +1924,9 @@
       function_symbol (operands[3], \"__udivsi3\", SFUNC_STATIC);
       last = gen_udivsi3_i1 (operands[0], operands[3]);
     }
-  first = emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
+  emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
   emit_move_insn (gen_rtx_REG (SImode, 5), operands[2]);
-  last = emit_insn (last);
-  /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
-     invariant code motion can move it.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last, REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
+  emit_insn (last);
   DONE;
 }")
 
@@ -1956,7 +1962,7 @@
    (clobber (reg:SI R20_REG))
    (clobber (reg:SI R21_REG))
    (clobber (reg:SI TR0_REG))
-   (use (match_operand 1 "target_operand" "b"))]
+   (use (match_operand 1 "target_reg_operand" "b"))]
   "TARGET_SHMEDIA && (! TARGET_SHMEDIA_FPU || ! TARGET_DIVIDE_FP)"
   "blink	%1, r18"
   [(set_attr "type" "sfunc")])
@@ -1970,7 +1976,7 @@
    (clobber (reg:SI R21_REG))
    (clobber (reg:SI TR0_REG))
    (use (reg:SI R20_REG))
-   (use (match_operand 1 "target_operand" "b"))]
+   (use (match_operand 1 "target_reg_operand" "b"))]
   "TARGET_SHMEDIA && (! TARGET_SHMEDIA_FPU || ! TARGET_DIVIDE_FP)"
   "blink	%1, r18"
   [(set_attr "type" "sfunc")])
@@ -2122,7 +2128,7 @@
   ""
   "
 {
-  rtx first, last;
+  rtx last;
 
   operands[3] = gen_reg_rtx (Pmode);
   /* Emit the move of the address to a pseudo outside of the libcall.  */
@@ -2261,13 +2267,9 @@
       function_symbol (operands[3], sh_divsi3_libfunc, SFUNC_GOT);
       last = gen_divsi3_i1 (operands[0], operands[3]);
     }
-  first = emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
+  emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
   emit_move_insn (gen_rtx_REG (SImode, 5), operands[2]);
-  last = emit_insn (last);
-  /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
-     invariant code motion can move it.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last, REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
+  emit_insn (last);
   DONE;
 }")
 
@@ -2355,7 +2357,7 @@ norm32: r25
    (clobber (match_operand:DI 8 "register_operand" "=r"))]
   "TARGET_SHMEDIA"
   "#"
-  "&& no_new_pseudos"
+  "&& !can_create_pseudo_p ()"
   [(pc)]
   "
 {
@@ -2399,7 +2401,7 @@ norm32: r25
    (clobber (match_operand:DI 4 "register_operand" "=r"))]
   "TARGET_SHMEDIA"
   "#"
-  "&& no_new_pseudos"
+  "&& !can_create_pseudo_p ()"
   [(pc)]
   "
 {
@@ -2443,7 +2445,7 @@ norm32: r25
    (clobber (match_operand:DI 13 "register_operand" "=r"))]
   "TARGET_SHMEDIA"
   "#"
-  "&& no_new_pseudos"
+  "&& !can_create_pseudo_p ()"
   [(pc)]
   "
 {
@@ -2510,7 +2512,7 @@ norm32: r25
    && (TARGET_DIVIDE_INV_MINLAT
        || TARGET_DIVIDE_INV20U || TARGET_DIVIDE_INV20L)"
   "#"
-  "&& no_new_pseudos"
+  "&& !can_create_pseudo_p ()"
   [(pc)]
   "
 {
@@ -2677,7 +2679,7 @@ label:
    (clobber (match_operand:DF 9 "fp_arith_reg_operand" ""))
    (clobber (match_operand:DF 10 "fp_arith_reg_operand" ""))
    (clobber (match_operand:DF 11 "fp_arith_reg_operand" ""))]
-  "TARGET_SHMEDIA_FPU && TARGET_DIVIDE_INV_FP && no_new_pseudos"
+  "TARGET_SHMEDIA_FPU && TARGET_DIVIDE_INV_FP && !can_create_pseudo_p ()"
   "#"
   "&& 1"
   [(set (match_dup 9) (float:DF (match_dup 1)))
@@ -2736,21 +2738,21 @@ label:
   "TARGET_SH1"
   "
 {
-  rtx first, last;
+  rtx insn, macl;
 
-  first = emit_insn (gen_mulhisi3_i (operands[1], operands[2]));
-  last = emit_move_insn (operands[0], gen_rtx_REG (SImode, MACL_REG));
-  /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
-     invariant code motion can move it.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last, REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
+  macl = gen_rtx_REG (SImode, MACL_REG);
+  start_sequence ();
+  emit_insn (gen_mulhisi3_i (operands[1], operands[2]));
+  insn = get_insns ();  
+  end_sequence ();
   /* expand_binop can't find a suitable code in umul_widen_optab to
      make a REG_EQUAL note from, so make one here.
      See also smulsi3_highpart.
      ??? Alternatively, we could put this at the calling site of expand_binop,
      i.e. expand_expr.  */
-  set_unique_reg_note (last, REG_EQUAL,
-		       copy_rtx (SET_SRC (single_set (first))));
+  /* Use emit_libcall_block for loop invariant code motion and to make
+     a REG_EQUAL note.  */
+  emit_libcall_block (insn, operands[0], macl, SET_SRC (single_set (insn)));
 
   DONE;
 }")
@@ -2766,21 +2768,21 @@ label:
   "TARGET_SH1"
   "
 {
-  rtx first, last;
+  rtx insn, macl;
 
-  first = emit_insn (gen_umulhisi3_i (operands[1], operands[2]));
-  last = emit_move_insn (operands[0], gen_rtx_REG (SImode, MACL_REG));
-  /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
-     invariant code motion can move it.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last, REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
+  macl = gen_rtx_REG (SImode, MACL_REG);
+  start_sequence ();
+  emit_insn (gen_umulhisi3_i (operands[1], operands[2]));
+  insn = get_insns ();  
+  end_sequence ();
   /* expand_binop can't find a suitable code in umul_widen_optab to
      make a REG_EQUAL note from, so make one here.
      See also smulsi3_highpart.
      ??? Alternatively, we could put this at the calling site of expand_binop,
      i.e. expand_expr.  */
-  set_unique_reg_note (last, REG_EQUAL,
-		       copy_rtx (SET_SRC (single_set (first))));
+  /* Use emit_libcall_block for loop invariant code motion and to make
+     a REG_EQUAL note.  */
+  emit_libcall_block (insn, operands[0], macl, SET_SRC (single_set (insn)));
 
   DONE;
 }")
@@ -2844,8 +2846,6 @@ label:
   "TARGET_SH1"
   "
 {
-  rtx first, last;
-
   if (!TARGET_SH2)
     {
       /* The address must be set outside the libcall,
@@ -2854,23 +2854,18 @@ label:
       rtx addr = force_reg (SImode, sym);
       rtx insns = gen_mulsi3_call (operands[0], operands[1],
 				   operands[2], addr);
-      first = insns;
-      last = emit_insn (insns);
+      emit_insn (insns);
     }
   else
     {
       rtx macl = gen_rtx_REG (SImode, MACL_REG);
 
-      first = emit_insn (gen_mul_l (operands[1], operands[2]));
+      emit_insn (gen_mul_l (operands[1], operands[2]));
       /* consec_sets_giv can only recognize the first insn that sets a
 	 giv as the giv insn.  So we must tag this also with a REG_EQUAL
 	 note.  */
-      last = emit_insn (gen_movsi_i ((operands[0]), macl));
+      emit_insn (gen_movsi_i ((operands[0]), macl));
     }
-  /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
-     invariant code motion can move it.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last, REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
   DONE;
 }")
 
@@ -3045,21 +3040,21 @@ label:
   "TARGET_SH2"
   "
 {
-  rtx first, last;
+  rtx insn, mach;
 
-  first = emit_insn (gen_smulsi3_highpart_i (operands[1], operands[2]));
-  last = emit_move_insn (operands[0], gen_rtx_REG (SImode, MACH_REG));
-  /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
-     invariant code motion can move it.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last, REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
+  mach = gen_rtx_REG (SImode, MACH_REG);
+  start_sequence ();
+  emit_insn (gen_smulsi3_highpart_i (operands[1], operands[2]));
+  insn = get_insns ();  
+  end_sequence ();
   /* expand_binop can't find a suitable code in mul_highpart_optab to
      make a REG_EQUAL note from, so make one here.
      See also {,u}mulhisi.
      ??? Alternatively, we could put this at the calling site of expand_binop,
      i.e. expand_mult_highpart.  */
-  set_unique_reg_note (last, REG_EQUAL,
-		       copy_rtx (SET_SRC (single_set (first))));
+  /* Use emit_libcall_block for loop invariant code motion and to make
+     a REG_EQUAL note.  */
+  emit_libcall_block (insn, operands[0], mach, SET_SRC (single_set (insn)));
 
   DONE;
 }")
@@ -3092,14 +3087,17 @@ label:
   "TARGET_SH2"
   "
 {
-  rtx first, last;
+  rtx insn, mach;
 
-  first = emit_insn (gen_umulsi3_highpart_i (operands[1], operands[2]));
-  last = emit_move_insn (operands[0], gen_rtx_REG (SImode, MACH_REG));
-  /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
-     invariant code motion can move it.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last, REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
+  mach = gen_rtx_REG (SImode, MACH_REG);
+  start_sequence ();
+  emit_insn (gen_umulsi3_highpart_i (operands[1], operands[2]));
+  insn = get_insns ();  
+  end_sequence ();
+  /* Use emit_libcall_block for loop invariant code motion and to make
+     a REG_EQUAL note.  */
+  emit_libcall_block (insn, operands[0], mach, SET_SRC (single_set (insn)));
+
   DONE;
 }")
 
@@ -3545,8 +3543,7 @@ label:
 		   (match_operand:SI 2 "nonmemory_operand" "r,M,P27,?ri")))
    (clobber (match_scratch:SI 3 "=X,X,X,&r"))]
   "TARGET_SH3
-   || (TARGET_SH1 && GET_CODE (operands[2]) == CONST_INT
-       && CONST_OK_FOR_P27 (INTVAL (operands[2])))"
+   || (TARGET_SH1 && satisfies_constraint_P27 (operands[2]))"
   "@
    shld	%2,%0
    add	%0,%0
@@ -3555,7 +3552,7 @@ label:
   "TARGET_SH3
    && reload_completed
    && GET_CODE (operands[2]) == CONST_INT
-   && ! CONST_OK_FOR_P27 (INTVAL (operands[2]))"
+   && ! satisfies_constraint_P27 (operands[2])"
   [(set (match_dup 3) (match_dup 2))
    (parallel
     [(set (match_dup 0) (ashift:SI (match_dup 1) (match_dup 3)))
@@ -3568,7 +3565,7 @@ label:
   [(set (match_operand:HI 0 "arith_reg_dest" "=r,r")
 	(ashift:HI (match_operand:HI 1 "arith_reg_operand" "0,0")
 		   (match_operand:HI 2 "const_int_operand" "M,P27")))]
-  "TARGET_SH1 && CONST_OK_FOR_P27 (INTVAL (operands[2]))"
+  "TARGET_SH1 && satisfies_constraint_P27 (operands[2])"
   "@
 	add	%0,%0
 	shll%O2	%0"
@@ -3863,7 +3860,7 @@ label:
 	(lshiftrt:SI (match_operand:SI 1 "arith_reg_operand" "0")
 		     (match_operand:SI 2 "const_int_operand" "M")))
    (clobber (reg:SI T_REG))]
-  "TARGET_SH1 && CONST_OK_FOR_M (INTVAL (operands[2]))"
+  "TARGET_SH1 && satisfies_constraint_M (operands[2])"
   "shlr	%0"
   [(set_attr "type" "arith")])
 
@@ -3871,8 +3868,8 @@ label:
   [(set (match_operand:SI 0 "arith_reg_dest" "=r")
 	(lshiftrt:SI (match_operand:SI 1 "arith_reg_operand" "0")
 		     (match_operand:SI 2 "const_int_operand" "P27")))]
-  "TARGET_SH1 && CONST_OK_FOR_P27 (INTVAL (operands[2]))
-   && ! CONST_OK_FOR_M (INTVAL (operands[2]))"
+  "TARGET_SH1 && satisfies_constraint_P27 (operands[2])
+   && ! satisfies_constraint_M (operands[2])"
   "shlr%O2	%0"
   [(set_attr "type" "arith")])
 
@@ -4968,7 +4965,36 @@ label:
 	! move optimized away"
   [(set_attr "type" "pcload_si,move,movi8,move,*,load_si,mac_gp,prget,arith,store,mac_mem,pstore,gp_mac,prset,mem_mac,pload,load,fstore,pcload_si,gp_fpul,fpul_gp,fmove,fmove,fmove,nil")
    (set_attr "late_fp_use" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,yes,*,*,yes,*,*,*,*")
-   (set_attr "length" "*,*,*,4,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,0")])
+   (set_attr_alternative "length"
+     [(const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 4)
+      (const_int 2)
+      (if_then_else
+	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
+	(const_int 4) (const_int 2))
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (if_then_else
+	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
+	(const_int 4) (const_int 2))
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 0)])])
 
 (define_insn "movsi_i_lowpart"
   [(set (strict_low_part (match_operand:SI 0 "general_movdst_operand" "+r,r,r,r,r,r,r,m,r"))
@@ -5123,7 +5149,7 @@ label:
 	(match_operand:SI 1 "immediate_operand" ""))]
   "TARGET_SHMEDIA && reload_completed
    && ((GET_CODE (operands[1]) == CONST_INT
-	&& ! CONST_OK_FOR_I16 (INTVAL (operands[1])))
+	&& ! satisfies_constraint_I16 (operands[1]))
        || GET_CODE (operands[1]) == CONST_DOUBLE)"
   [(set (subreg:DI (match_dup 0) 0) (match_dup 1))])
 
@@ -5335,7 +5361,7 @@ label:
   [(set (match_operand:HI 0 "register_operand" "")
 	(match_operand:HI 1 "immediate_operand" ""))]
   "TARGET_SHMEDIA && reload_completed
-   && ! CONST_OK_FOR_I16 (INTVAL (operands[1]))"
+   && ! satisfies_constraint_I16 (operands[1])"
   [(set (subreg:DI (match_dup 0) 0) (match_dup 1))])
 
 (define_expand "movhi"
@@ -5571,7 +5597,7 @@ label:
 	(match_operand:DI 1 "immediate_operand" ""))]
   "TARGET_SHMEDIA && reload_completed
    && GET_CODE (operands[1]) == CONST_INT
-   && ! CONST_OK_FOR_I16 (INTVAL (operands[1]))"
+   && ! satisfies_constraint_I16 (operands[1])"
   [(set (match_dup 0) (match_dup 2))
    (match_dup 1)]
   "
@@ -6571,6 +6597,30 @@ label:
   [(set_attr "type" "fmove,move,fmove,fmove,pcfload,fload,fstore,pcload,load,store,fmove,fmove,load,*,fpul_gp,gp_fpul,fstore,load,nil")
    (set_attr "late_fp_use" "*,*,*,*,*,*,yes,*,*,*,*,*,*,*,yes,*,yes,*,*")
    (set_attr "length" "*,*,*,*,4,2,2,*,*,*,2,2,2,4,2,2,2,2,0")
+   (set_attr_alternative "length"
+     [(const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 4)
+      (if_then_else
+	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
+	(const_int 4) (const_int 2))
+      (if_then_else
+	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
+	(const_int 4) (const_int 2))
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 4)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 0)])
    (set (attr "fp_mode") (if_then_else (eq_attr "fmovd" "yes")
 					   (const_string "single")
 					   (const_string "none")))])
@@ -6926,8 +6976,7 @@ label:
 
       sh_compare_op0 = force_reg (mode, sh_compare_op0);
       if (CONSTANT_P (sh_compare_op1)
-	  && (GET_CODE (sh_compare_op1) != CONST_INT
-	      || ! CONST_OK_FOR_I06 (INTVAL (sh_compare_op1))))
+	  && (! satisfies_constraint_I06 (sh_compare_op1)))
 	sh_compare_op1 = force_reg (mode, sh_compare_op1);
       emit_jump_insn (gen_beq_media (operands[0],
 				     sh_compare_op0, sh_compare_op1));
@@ -6960,8 +7009,7 @@ label:
 
       sh_compare_op0 = force_reg (mode, sh_compare_op0);
       if (CONSTANT_P (sh_compare_op1)
-	  && (GET_CODE (sh_compare_op1) != CONST_INT
-	      || ! CONST_OK_FOR_I06 (INTVAL (sh_compare_op1))))
+	  && (! satisfies_constraint_I06 (sh_compare_op1)))
 	sh_compare_op1 = force_reg (mode, sh_compare_op1);
       emit_jump_insn (gen_bne_media (operands[0],
 				     sh_compare_op0, sh_compare_op1));
@@ -7270,6 +7318,52 @@ label:
 		 ? gen_rtx_GE (VOIDmode, operands[4], const0_rtx)
 		 : gen_rtx_GT (VOIDmode, const0_rtx, operands[4]));
 }")
+
+; operand 0 is the loop count pseudo register
+; operand 1 is the number of loop iterations or 0 if it is unknown
+; operand 2 is the maximum number of loop iterations
+; operand 3 is the number of levels of enclosed loops
+; operand 4 is the label to jump to at the top of the loop
+
+(define_expand "doloop_end"
+  [(parallel [(set (pc) (if_then_else
+			  (ne:SI (match_operand:SI 0 "" "")
+			      (const_int 1))
+			  (label_ref (match_operand 4 "" ""))
+			  (pc)))
+	      (set (match_dup 0)
+		   (plus:SI (match_dup 0) (const_int -1)))
+	      (clobber (reg:SI T_REG))])]
+  "TARGET_SH2"
+  "
+{
+  if (GET_MODE (operands[0]) != SImode)
+    FAIL;
+}
+")
+
+(define_insn_and_split "doloop_end_split"
+  [(set (pc)
+	(if_then_else (ne:SI (match_operand:SI 0 "arith_reg_dest" "+r")
+			  (const_int 1))
+		      (label_ref (match_operand 1 "" ""))
+		      (pc)))
+   (set (match_dup 0)
+	(plus (match_dup 0) (const_int -1)))
+   (clobber (reg:SI T_REG))]
+  "TARGET_SH2"
+  "#"
+  ""
+  [(parallel [(set (reg:SI T_REG)
+		   (eq:SI (match_operand:SI 0 "arith_reg_dest" "+r")
+			  (const_int 1)))
+	      (set (match_dup 0) (plus:SI (match_dup 0) (const_int -1)))])
+   (set (pc) (if_then_else (eq (reg:SI T_REG) (const_int 0))
+			   (label_ref (match_operand 1 "" ""))
+			   (pc)))]
+""
+   [(set_attr "type" "cbranch")])
+
 
 ;; ------------------------------------------------------------------------
 ;; Jump and linkage insns
@@ -8322,19 +8416,14 @@ label:
 	  {
 	    rtx r0 = gen_rtx_REG (SImode, R0_REG);
 	    rtx tmp = gen_rtx_REG (SImode, MACL_REG);
-	    rtx i;
 
 	    /* We can't tell at this point whether the sibcall is a
 	       sibcall_compact and, if it is, whether it uses r0 or
 	       mach as operand 2, so let the instructions that
 	       preserve r0 be optimized away if r0 turns out to be
 	       dead.  */
-	    i = emit_insn_before (gen_rtx_SET (SImode, tmp, r0), insn);
-	    REG_NOTES (i) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					       REG_NOTES (i));
-	    i = emit_move_insn (r0, tmp);
-	    REG_NOTES (i) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
-					       REG_NOTES (i));
+	    emit_insn_before (gen_rtx_SET (SImode, tmp, r0), insn);
+	    emit_move_insn (r0, tmp);
 	    break;
 	  }
     }
@@ -8468,6 +8557,14 @@ label:
    (set (match_dup 0) (plus:SI (match_dup 0) (reg:SI R0_REG)))]
   "" "
 {
+  if (TARGET_VXWORKS_RTP)
+    {
+      rtx gott_base = gen_rtx_SYMBOL_REF (Pmode, VXWORKS_GOTT_BASE);
+      rtx gott_index = gen_rtx_SYMBOL_REF (Pmode, VXWORKS_GOTT_INDEX);
+      emit_insn (gen_vxworks_picreg (gott_base, gott_index));
+      DONE;
+    }
+
   operands[0] = gen_rtx_REG (Pmode, PIC_REG);
   operands[1] = gen_rtx_SYMBOL_REF (VOIDmode, GOT_SYMBOL_NAME);
 
@@ -8510,12 +8607,27 @@ label:
 }
 ")
 
+;; A helper for GOTaddr2picreg to finish up the initialization of the
+;; PIC register.
+
+(define_expand "vxworks_picreg"
+  [(set (reg:SI PIC_REG)
+	(const:SI (unspec:SI [(match_operand:SI 0 "" "")] UNSPEC_PIC)))
+   (set (reg:SI R0_REG)
+	(const:SI (unspec:SI [(match_operand:SI 1 "" "")] UNSPEC_PIC)))
+   (set (reg:SI PIC_REG)
+	(mem:SI (reg:SI PIC_REG)))
+   (set (reg:SI PIC_REG)
+	(mem:SI (plus:SI (reg:SI PIC_REG)
+			 (reg:SI R0_REG))))]
+  "TARGET_VXWORKS_RTP")
+
 (define_insn "*ptb"
   [(set (match_operand 0 "target_reg_operand" "=b")
 	(const (unspec [(match_operand 1 "" "Csy")]
 			     UNSPEC_DATALABEL)))]
   "TARGET_SHMEDIA && flag_pic
-   && EXTRA_CONSTRAINT_Csy (operands[1])"
+   && satisfies_constraint_Csy (operands[1])"
   "ptb/u	datalabel %1, %0"
   [(set_attr "type" "ptabs_media")
    (set_attr "length" "*")])
@@ -8577,8 +8689,8 @@ label:
 {
   rtx insn, mem;
 
-  operands[2] = no_new_pseudos ? operands[0] : gen_reg_rtx (Pmode);
-  operands[3] = no_new_pseudos ? operands[0] : gen_reg_rtx (Pmode);
+  operands[2] = !can_create_pseudo_p () ? operands[0] : gen_reg_rtx (Pmode);
+  operands[3] = !can_create_pseudo_p () ? operands[0] : gen_reg_rtx (Pmode);
 
   if (TARGET_SHMEDIA)
     {
@@ -8605,6 +8717,20 @@ label:
   emit_move_insn (operands[3], gen_rtx_PLUS (Pmode,
 					     operands[2],
 					     gen_rtx_REG (Pmode, PIC_REG)));
+
+  /* When stack protector inserts codes after the result is set to
+     R0, @(rX, r12) will cause a spill failure for R0.  Don't schedule
+     insns to avoid combining (set A (plus rX r12)) and (set op0 (mem A))
+     when rX is a GOT address for the guard symbol.  Ugly but doesn't
+     matter because this is a rare situation.  */
+  if (!TARGET_SHMEDIA
+      && flag_stack_protect
+      && GET_CODE (operands[1]) == CONST
+      && GET_CODE (XEXP (operands[1], 0)) == UNSPEC
+      && GET_CODE (XVECEXP (XEXP (operands[1], 0), 0, 0)) == SYMBOL_REF
+      && strcmp (XSTR (XVECEXP (XEXP (operands[1], 0), 0, 0), 0),
+		 \"__stack_chk_guard\") == 0)
+    emit_insn (gen_blockage ());
 
   /* N.B. This is not constant for a GOTPLT relocation.  */
   mem = gen_rtx_MEM (Pmode, operands[3]);
@@ -8663,7 +8789,9 @@ label:
   "
 {
   rtx gotoffsym, insn;
-  rtx t = no_new_pseudos ? operands[0] : gen_reg_rtx (GET_MODE (operands[0]));
+  rtx t = (!can_create_pseudo_p ()
+	   ? operands[0]
+	   : gen_reg_rtx (GET_MODE (operands[0])));
 
   gotoffsym = gen_sym2GOTOFF (operands[1]);
   PUT_MODE (gotoffsym, Pmode);
@@ -8783,7 +8911,9 @@ mov.l\\t1f,r4\\n\\
   "
 {
   rtx dtpoffsym, insn;
-  rtx t = no_new_pseudos ? operands[0] : gen_reg_rtx (GET_MODE (operands[0]));
+  rtx t = (!can_create_pseudo_p ()
+	   ? operands[0]
+	   : gen_reg_rtx (GET_MODE (operands[0])));
 
   dtpoffsym = gen_sym2DTPOFF (operands[1]);
   PUT_MODE (dtpoffsym, Pmode);
@@ -8840,7 +8970,7 @@ mov.l\\t1f,r0\\n\\
 }")
 
 (define_insn "load_gbr"
-  [(set (match_operand:SI 0 "register_operand" "") (reg:SI GBR_REG))
+  [(set (match_operand:SI 0 "register_operand" "=r") (reg:SI GBR_REG))
    (use (reg:SI GBR_REG))]
   ""
   "stc	gbr,%0"
@@ -9369,8 +9499,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
 
       switch (GET_MODE (sh_compare_op0))
 	{
@@ -9433,8 +9564,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
 
       switch (GET_MODE (sh_compare_op0))
 	{
@@ -9496,14 +9628,15 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
 
       switch (GET_MODE (sh_compare_op0))
 	{
 	case SImode:
 	  {
-	    tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
+	    tmp = !can_create_pseudo_p () ? reg : gen_reg_rtx (SImode);
 
 	    emit_insn (gen_cmpgtsi_media (tmp,
 					  sh_compare_op0, sh_compare_op1));
@@ -9513,7 +9646,7 @@ mov.l\\t1f,r0\\n\\
 
 	case DImode:
 	  {
-	    tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
+	    tmp = !can_create_pseudo_p () ? reg : gen_reg_rtx (SImode);
 
 	    emit_insn (gen_cmpgtdi_media (tmp,
 					  sh_compare_op0, sh_compare_op1));
@@ -9563,8 +9696,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p () ?
+	       gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9627,8 +9761,9 @@ mov.l\\t1f,r0\\n\\
 	mode = GET_MODE (sh_compare_op1);
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
       sh_compare_op0 = force_reg (mode, sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (mode, sh_compare_op1);
@@ -9637,7 +9772,7 @@ mov.l\\t1f,r0\\n\\
 	{
 	case SImode:
 	  {
-	    rtx tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
+	    rtx tmp = !can_create_pseudo_p () ? reg : gen_reg_rtx (SImode);
 
 	    emit_insn (gen_cmpgtsi_media (tmp,
 					  sh_compare_op1, sh_compare_op0));
@@ -9647,7 +9782,7 @@ mov.l\\t1f,r0\\n\\
 
 	case DImode:
 	  {
-	    rtx tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
+	    rtx tmp = !can_create_pseudo_p () ? reg : gen_reg_rtx (SImode);
 
 	    emit_insn (gen_cmpgtdi_media (tmp,
 					  sh_compare_op1, sh_compare_op0));
@@ -9711,8 +9846,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) == DImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9744,8 +9880,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) == DImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9777,8 +9914,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9786,7 +9924,7 @@ mov.l\\t1f,r0\\n\\
 				    : GET_MODE (sh_compare_op1),
 				    sh_compare_op1);
 
-      tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
+      tmp = !can_create_pseudo_p () ? reg : gen_reg_rtx (SImode);
 
       emit_insn (gen_cmpgtudi_media (tmp, sh_compare_op0, sh_compare_op1));
       emit_insn (gen_cmpeqdi_media (reg, tmp, const0_rtx));
@@ -9812,8 +9950,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9821,7 +9960,7 @@ mov.l\\t1f,r0\\n\\
 				    : GET_MODE (sh_compare_op1),
 				    sh_compare_op1);
 
-      tmp = no_new_pseudos ? operands[0] : gen_reg_rtx (SImode);
+      tmp = !can_create_pseudo_p () ? operands[0] : gen_reg_rtx (SImode);
 
       emit_insn (gen_cmpgtudi_media (tmp, sh_compare_op1, sh_compare_op0));
       emit_insn (gen_cmpeqdi_media (reg, tmp, const0_rtx));
@@ -9861,8 +10000,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
       if (! TARGET_SHMEDIA_FPU
 	  && GET_MODE (sh_compare_op0) != DImode
 	  && GET_MODE (sh_compare_op0) != SImode)
@@ -9875,7 +10015,7 @@ mov.l\\t1f,r0\\n\\
 				    : GET_MODE (sh_compare_op1),
 				    sh_compare_op1);
 
-      tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
+      tmp = !can_create_pseudo_p () ? reg : gen_reg_rtx (SImode);
 
       emit_insn (gen_seq (tmp));
       emit_insn (gen_cmpeqdi_media (reg, tmp, const0_rtx));
@@ -13439,18 +13579,21 @@ mov.l\\t1f,r0\\n\\
   [(prefetch (match_operand:SI 0 "register_operand" "r")
              (match_operand:SI 1 "const_int_operand" "n")
              (match_operand:SI 2 "const_int_operand" "n"))]
-  "TARGET_HARD_SH4 || TARGET_SHCOMPACT"
+  "(TARGET_HARD_SH4 || TARGET_SHCOMPACT) && !TARGET_VXWORKS_RTP"
   "*
 {
   return \"pref @%0\";
 }"
   [(set_attr "type" "other")])
 
+;; In user mode, the "pref" instruction will raise a RADDERR exception
+;; for accesses to [0x80000000,0xffffffff].  This makes it an unsuitable
+;; implementation of __builtin_prefetch for VxWorks RTPs.
 (define_expand "prefetch"
   [(prefetch (match_operand 0 "address_operand" "p")
              (match_operand:SI 1 "const_int_operand" "n")
              (match_operand:SI 2 "const_int_operand" "n"))]
-  "TARGET_HARD_SH4 || TARGET_SH5"
+  "(TARGET_HARD_SH4 || TARGET_SH5) && (TARGET_SHMEDIA || !TARGET_VXWORKS_RTP)"
   "
 {
   if (GET_MODE (operands[0]) != Pmode

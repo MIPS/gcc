@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,13 +16,13 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_FLAGS_H
 #define GCC_FLAGS_H
 
+#include "coretypes.h"
 #include "options.h"
 
 enum debug_info_type
@@ -53,6 +53,25 @@ enum debug_info_level
 
 /* Specify how much debugging info to generate.  */
 extern enum debug_info_level debug_info_level;
+
+/* A major contribution to object and executable size is debug
+   information size.  A major contribution to debug information
+   size is struct descriptions replicated in several object files.
+   The following function determines whether or not debug information
+   should be generated for a given struct.  The indirect parameter
+   indicates that the struct is being handled indirectly, via
+   a pointer.  See opts.c for the implementation. */
+
+enum debug_info_usage
+{
+  DINFO_USAGE_DFN,	/* A struct definition. */
+  DINFO_USAGE_DIR_USE,	/* A direct use, such as the type of a variable. */
+  DINFO_USAGE_IND_USE,	/* An indirect use, such as through a pointer. */
+  DINFO_USAGE_NUM_ENUMS	/* The number of enumerators. */
+};
+
+extern bool should_emit_struct_debug (tree type_decl, enum debug_info_usage);
+extern void set_struct_debug_option (const char *value);
 
 /* Nonzero means use GNU-only extensions in the generated symbolic
    debugging information.  */
@@ -101,6 +120,15 @@ extern bool extra_warnings;
    -Wunused option.  */
 
 extern void set_Wunused (int setting);
+
+/* Used to set the level of -Wstrict-aliasing, when no level is specified.  
+   The external way to set the default level is to use
+   -Wstrict-aliasing=level.  
+   ONOFF is assumed to take value 1 when -Wstrict-aliasing is specified,
+   and 0 otherwise.  After calling this function, wstrict_aliasing will be
+   set to the default value of -Wstrict_aliasing=level.  */
+
+extern void set_Wstrict_aliasing (int onoff);
 
 /* Nonzero means warn about any objects definitions whose size is larger
    than N bytes.  Also want about function definitions whose returned
@@ -221,10 +249,6 @@ extern int align_labels_log;
 extern int align_labels_max_skip;
 extern int align_functions_log;
 
-/* Like align_functions_log above, but used by front-ends to force the
-   minimum function alignment.  Zero means no alignment is forced.  */
-extern int force_align_functions_log;
-
 /* Nonzero if we dump in VCG format, not plain text.  */
 extern int dump_for_graph;
 
@@ -256,6 +280,10 @@ extern bool flag_speculative_prefetching_set;
 
 #define abi_version_at_least(N) \
   (flag_abi_version == 0 || flag_abi_version >= (N))
+
+/* Return whether the function should be excluded from
+   instrumentation.  */
+extern bool flag_instrument_functions_exclude_p (tree fndecl);
 
 /* True if the given mode has a NaN representation and the treatment of
    NaN operands is important.  Certain optimizations, such as folding

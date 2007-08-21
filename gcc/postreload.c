@@ -1,12 +1,13 @@
 /* Perform simple optimizations to clean up the result of reload.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -57,10 +57,10 @@ static int reload_cse_simplify_operands (rtx, rtx);
 
 static void reload_combine (void);
 static void reload_combine_note_use (rtx *, rtx);
-static void reload_combine_note_store (rtx, rtx, void *);
+static void reload_combine_note_store (rtx, const_rtx, void *);
 
 static void reload_cse_move2add (rtx);
-static void move2add_note_store (rtx, rtx, void *);
+static void move2add_note_store (rtx, const_rtx, void *);
 
 /* Call cse / combine like post-reload optimization phases.
    FIRST is the first instruction.  */
@@ -344,7 +344,7 @@ reload_cse_simplify_set (rtx set, rtx insn)
 	    }
 #endif
 
-	  validate_change (insn, &SET_SRC (set), copy_rtx (this_rtx), 1);
+	  validate_unshare_change (insn, &SET_SRC (set), this_rtx, 1);
 	  old_cost = this_cost, did_change = 1;
 	}
     }
@@ -742,9 +742,10 @@ reload_combine (void)
       if (LABEL_P (insn))
 	{
 	  HARD_REG_SET live;
+	  bitmap live_in = df_get_live_in (bb);
 
-	  REG_SET_TO_HARD_REG_SET (live, DF_LIVE_IN (bb));
-	  compute_use_by_pseudos (&live, DF_LIVE_IN (bb));
+	  REG_SET_TO_HARD_REG_SET (live, live_in);
+	  compute_use_by_pseudos (&live, live_in);
 	  COPY_HARD_REG_SET (LABEL_LIVE (insn), live);
 	  IOR_HARD_REG_SET (ever_live_at_start, live);
 	}
@@ -879,11 +880,11 @@ reload_combine (void)
 		 with REG_SUM.  */
 	      for (i = reg_state[regno].use_index;
 		   i < RELOAD_COMBINE_MAX_USES; i++)
-		validate_change (reg_state[regno].reg_use[i].insn,
-				 reg_state[regno].reg_use[i].usep,
-				 /* Each change must have its own
-				    replacement.  */
-				 copy_rtx (reg_sum), 1);
+		validate_unshare_change (reg_state[regno].reg_use[i].insn,
+				 	 reg_state[regno].reg_use[i].usep,
+				 	 /* Each change must have its own
+				    	    replacement.  */
+				 	 reg_sum, 1);
 
 	      if (apply_change_group ())
 		{
@@ -979,7 +980,7 @@ reload_combine (void)
    accordingly.  Called via note_stores from reload_combine.  */
 
 static void
-reload_combine_note_store (rtx dst, rtx set, void *data ATTRIBUTE_UNUSED)
+reload_combine_note_store (rtx dst, const_rtx set, void *data ATTRIBUTE_UNUSED)
 {
   int regno = 0;
   int i;
@@ -1418,7 +1419,7 @@ reload_cse_move2add (rtx first)
    Called from reload_cse_move2add via note_stores.  */
 
 static void
-move2add_note_store (rtx dst, rtx set, void *data ATTRIBUTE_UNUSED)
+move2add_note_store (rtx dst, const_rtx set, void *data ATTRIBUTE_UNUSED)
 {
   unsigned int regno = 0;
   unsigned int nregs = 0;

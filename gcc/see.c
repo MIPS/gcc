@@ -1,12 +1,12 @@
 /* Sign extension elimination optimization for GNU compiler.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Leehod Baruch <leehod@il.ibm.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
--Software Foundation; either version 2, or (at your option) any later
+-Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Problem description:
 --------------------
@@ -933,12 +932,12 @@ hash_del_properties (void *p)
 static int
 eq_descriptor_extension (const void *p1, const void *p2)
 {
-  const rtx insn = (rtx) p1;
-  const rtx element = (rtx) p2;
+  const_rtx const insn = (const_rtx) p1;
+  const_rtx const element = (const_rtx) p2;
   rtx set1 = single_set (insn);
   rtx dest_reg1;
   rtx set2 = NULL;
-  rtx dest_reg2 = NULL;
+  const_rtx dest_reg2 = NULL;
 
   gcc_assert (set1 && element && (REG_P (element) || INSN_P (element)));
 
@@ -962,7 +961,7 @@ eq_descriptor_extension (const void *p1, const void *p2)
 static hashval_t
 hash_descriptor_extension (const void *p)
 {
-  const rtx r = (rtx) p;
+  const_rtx const r = (const_rtx) p;
   rtx set, lhs;
 
   if (r && REG_P (r))
@@ -3253,7 +3252,7 @@ see_handle_relevant_uses (struct df_ref *ref, rtx insn)
   enum rtx_code extension_code;
   rtx reg = DF_REF_REAL_REG (ref);
 
-  root_entry = unionfind_root (&use_entry [DF_REF_ID (ref)]);
+  root_entry = unionfind_root (&use_entry[DF_REF_ID (ref)]);
   
   if (ENTRY_EI (root_entry)->relevancy != SIGN_EXTENDED_DEF
       && ENTRY_EI (root_entry)->relevancy != ZERO_EXTENDED_DEF)
@@ -3814,12 +3813,7 @@ gate_handle_see (void)
 static unsigned int
 rest_of_handle_see (void)
 {
-  int no_new_pseudos_bcp = no_new_pseudos;
-
-  no_new_pseudos = 0;
   see_main ();
-  no_new_pseudos = no_new_pseudos_bcp;
-  
   run_fast_dce ();
   return 0;
 }
@@ -3837,6 +3831,7 @@ struct tree_opt_pass pass_see =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
+  TODO_df_verify |
   TODO_df_finish |
   TODO_dump_func,			/* todo_flags_finish */
   'u'					/* letter */

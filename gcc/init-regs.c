@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -51,8 +50,13 @@ static void
 initialize_uninitialized_regs (void)
 {
   basic_block bb;
-  bool did_something = false;
   bitmap already_genned = BITMAP_ALLOC (NULL);
+
+  if (optimize == 1)
+    {
+      df_live_add_problem ();
+      df_live_set_all_dirty ();
+    }
 
   df_analyze ();
 
@@ -60,7 +64,7 @@ initialize_uninitialized_regs (void)
     {
       rtx insn;
       bitmap lr = DF_LR_IN (bb);
-      bitmap ur = DF_UR_IN (bb);
+      bitmap ur = DF_LIVE_IN (bb);
       bitmap_clear (already_genned);
 
       FOR_BB_INSNS (bb, insn)
@@ -103,7 +107,6 @@ initialize_uninitialized_regs (void)
 		  move_insn = get_insns ();
 		  end_sequence ();
 		  add_insn_before (move_insn, insn, bb);
-		  did_something = true;
 		  if (dump_file)
 		    fprintf (dump_file, 
 			     "adding initialization in %s of reg %d at in block %d for insn %d.\n", 
@@ -113,9 +116,10 @@ initialize_uninitialized_regs (void)
 	}
     }
 
+  if (optimize == 1)
+    df_remove_problem (df_live);
+
   BITMAP_FREE (already_genned);
-  if (did_something)
-    allocate_reg_life_data ();
 }
 
 static bool
@@ -127,9 +131,7 @@ gate_initialize_regs (void)
 static unsigned int
 rest_of_handle_initialize_regs (void)
 {
-  no_new_pseudos = 0;
   initialize_uninitialized_regs ();
-  no_new_pseudos = 1;
   return 0;
 }
 

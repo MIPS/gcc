@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,12 +31,11 @@ with Einfo;    use Einfo;
 with Elists;   use Elists;
 with Errout;   use Errout;
 with Exp_Aggr; use Exp_Aggr;
+with Exp_Ch6;  use Exp_Ch6;
 with Exp_Ch7;  use Exp_Ch7;
-with Hostparm; use Hostparm;
 with Inline;   use Inline;
 with Itypes;   use Itypes;
 with Lib;      use Lib;
-with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
@@ -91,8 +90,8 @@ package body Exp_Util is
        Pos    : out Entity_Id;
        Prefix : Entity_Id;
        Sum    : Node_Id;
-       Decls  : in out List_Id;
-       Stats  : in out List_Id);
+       Decls  : List_Id;
+       Stats  : List_Id);
    --  Common processing for Task_Array_Image and Task_Record_Image.
    --  Create local variables and assign prefix of name to result string.
 
@@ -127,8 +126,14 @@ package body Exp_Util is
       Literal_Typ : Entity_Id) return Node_Id;
    --  Produce a Range node whose bounds are:
    --    Low_Bound (Literal_Type) ..
-   --        Low_Bound (Literal_Type) + Length (Literal_Typ) - 1
+   --        Low_Bound (Literal_Type) + (Length (Literal_Typ) - 1)
    --  this is used for expanding declarations like X : String := "sdfgdfg";
+   --
+   --  If the index type of the target array is not integer, we generate:
+   --     Low_Bound (Literal_Type) ..
+   --        Literal_Type'Val
+   --          (Literal_Type'Pos (Low_Bound (Literal_Type))
+   --             + (Length (Literal_Typ) -1))
 
    function New_Class_Wide_Subtype
      (CW_Typ : Entity_Id;
@@ -402,8 +407,8 @@ package body Exp_Util is
       T : Entity_Id;
       --  Entity for name at one index position
 
-      Decls : List_Id := New_List;
-      Stats : List_Id := New_List;
+      Decls : constant List_Id := New_List;
+      Stats : constant List_Id := New_List;
 
    begin
       Pref := Make_Defining_Identifier (Loc, New_Internal_Name ('P'));
@@ -653,7 +658,7 @@ package body Exp_Util is
          Expr := Make_Function_Call (Loc,
            Name => New_Occurrence_Of (Defining_Entity (Fun), Loc));
 
-         if not In_Init_Proc then
+         if not In_Init_Proc and then VM_Target = No_VM then
             Set_Uses_Sec_Stack (Defining_Entity (Fun));
          end if;
       end if;
@@ -682,7 +687,7 @@ package body Exp_Util is
 
    begin
       Append_To (Stats,
-        Make_Return_Statement (Loc,
+        Make_Simple_Return_Statement (Loc,
           Expression => New_Occurrence_Of (Res, Loc)));
 
       Spec := Make_Function_Specification (Loc,
@@ -711,8 +716,8 @@ package body Exp_Util is
        Pos    : out Entity_Id;
        Prefix : Entity_Id;
        Sum    : Node_Id;
-       Decls  : in out List_Id;
-       Stats  : in out List_Id)
+       Decls  : List_Id;
+       Stats  : List_Id)
    is
    begin
       Len := Make_Defining_Identifier (Loc, New_Internal_Name ('L'));
@@ -807,8 +812,8 @@ package body Exp_Util is
       Sel : Entity_Id;
       --  Entity for selector name
 
-      Decls : List_Id := New_List;
-      Stats : List_Id := New_List;
+      Decls : constant List_Id := New_List;
+      Stats : constant List_Id := New_List;
 
    begin
       Pref := Make_Defining_Identifier (Loc, New_Internal_Name ('P'));
@@ -1054,36 +1059,17 @@ package body Exp_Util is
 
    procedure Ensure_Defined (Typ : Entity_Id; N : Node_Id) is
       IR : Node_Id;
-      P  : Node_Id;
 
    begin
-      if Is_Itype (Typ) then
+      --  An itype reference must only be created if this is a local
+      --  itype, so that gigi can elaborate it on the proper objstack.
+
+      if Is_Itype (Typ)
+        and then Scope (Typ) = Current_Scope
+      then
          IR := Make_Itype_Reference (Sloc (N));
          Set_Itype (IR, Typ);
-
-         if not In_Open_Scopes (Scope (Typ))
-           and then Is_Subprogram (Current_Scope)
-           and then Scope (Current_Scope) /= Standard_Standard
-         then
-            --  Insert node in front of subprogram, to avoid scope anomalies
-            --  in gigi.
-
-            P := Parent (N);
-            while Present (P)
-              and then Nkind (P) /= N_Subprogram_Body
-            loop
-               P := Parent (P);
-            end loop;
-
-            if Present (P) then
-               Insert_Action (P, IR);
-            else
-               Insert_Action (N, IR);
-            end if;
-
-         else
-            Insert_Action (N, IR);
-         end if;
+         Insert_Action (N, IR);
       end if;
    end Ensure_Defined;
 
@@ -1289,11 +1275,44 @@ package body Exp_Util is
       then
          null;
 
-      --  Nothing to be done if the type of the expression is limited, because
-      --  in this case the expression cannot be copied, and its use can only
-      --  be by reference and there is no need for the actual subtype.
+      --  In Ada95, Nothing to be done if the type of the expression is
+      --  limited, because in this case the expression cannot be copied,
+      --  and its use can only be by reference.
 
-      elsif Is_Limited_Type (Exp_Typ) then
+      --  In Ada2005, the context can be an object declaration whose expression
+      --  is a function that returns in place. If the nominal subtype has
+      --  unknown discriminants, the call still provides constraints on the
+      --  object, and we have to create an actual subtype from it.
+
+      --  If the type is class-wide, the expression is dynamically tagged and
+      --  we do not create an actual subtype either. Ditto for an interface.
+
+      elsif Is_Limited_Type (Exp_Typ)
+        and then
+         (Is_Class_Wide_Type (Exp_Typ)
+           or else Is_Interface (Exp_Typ)
+           or else not Has_Unknown_Discriminants (Exp_Typ)
+           or else not Is_Composite_Type (Unc_Type))
+      then
+         null;
+
+      --  For limited interfaces, nothing to be done
+
+      --  This branch may be redundant once the limited interface issue is
+      --  sorted out???
+
+      elsif Is_Interface (Exp_Typ)
+        and then Is_Limited_Interface (Exp_Typ)
+      then
+         null;
+
+      --  For limited objects initialized with build in place function calls,
+      --  nothing to be done; otherwise we prematurely introduce an N_Reference
+      --  node in the expression initializing the object, which breaks the
+      --  circuitry that detects and adds the additional arguments to the
+      --  called function.
+
+      elsif Is_Build_In_Place_Function_Call (Exp) then
          null;
 
       else
@@ -2106,6 +2125,44 @@ package body Exp_Util is
       end;
    end Get_Current_Value_Condition;
 
+   ---------------------------------
+   -- Has_Controlled_Coextensions --
+   ---------------------------------
+
+   function Has_Controlled_Coextensions (Typ : Entity_Id) return Boolean is
+      D_Typ : Entity_Id;
+      Discr : Entity_Id;
+
+   begin
+      --  Only consider record types
+
+      if Ekind (Typ) /= E_Record_Type
+        and then Ekind (Typ) /= E_Record_Subtype
+      then
+         return False;
+      end if;
+
+      if Has_Discriminants (Typ) then
+         Discr := First_Discriminant (Typ);
+         while Present (Discr) loop
+            D_Typ := Etype (Discr);
+
+            if Ekind (D_Typ) = E_Anonymous_Access_Type
+              and then
+                (Is_Controlled (Directly_Designated_Type (D_Typ))
+                   or else
+                 Is_Concurrent_Type (Directly_Designated_Type (D_Typ)))
+            then
+               return True;
+            end if;
+
+            Next_Discriminant (Discr);
+         end loop;
+      end if;
+
+      return False;
+   end Has_Controlled_Coextensions;
+
    --------------------
    -- Homonym_Number --
    --------------------
@@ -2419,6 +2476,7 @@ package body Exp_Util is
                N_Private_Extension_Declaration          |
                N_Private_Type_Declaration               |
                N_Procedure_Instantiation                |
+               N_Protected_Body                         |
                N_Protected_Body_Stub                    |
                N_Protected_Type_Declaration             |
                N_Single_Task_Declaration                |
@@ -2691,7 +2749,6 @@ package body Exp_Util is
                N_Pop_Storage_Error_Label                |
                N_Pragma_Argument_Association            |
                N_Procedure_Specification                |
-               N_Protected_Body                         |
                N_Protected_Definition                   |
                N_Push_Constraint_Error_Label            |
                N_Push_Program_Error_Label               |
@@ -2725,8 +2782,7 @@ package body Exp_Util is
                N_Variant                                |
                N_Variant_Part                           |
                N_Validate_Unchecked_Conversion          |
-               N_With_Clause                            |
-               N_With_Type_Clause
+               N_With_Clause
             =>
                null;
 
@@ -2755,13 +2811,14 @@ package body Exp_Util is
             P := Parent (N);
          end if;
       end loop;
-
    end Insert_Actions;
 
    --  Version with check(s) suppressed
 
    procedure Insert_Actions
-     (Assoc_Node : Node_Id; Ins_Actions : List_Id; Suppress : Check_Id)
+     (Assoc_Node  : Node_Id;
+      Ins_Actions : List_Id;
+      Suppress    : Check_Id)
    is
    begin
       if Suppress = All_Checks then
@@ -2810,7 +2867,8 @@ package body Exp_Util is
       Aux : constant Node_Id := Aux_Decls_Node (Cunit (Main_Unit));
 
    begin
-      New_Scope (Cunit_Entity (Main_Unit));
+      Push_Scope (Cunit_Entity (Main_Unit));
+      --  ??? should this be Current_Sem_Unit instead of Main_Unit?
 
       if No (Actions (Aux)) then
          Set_Actions (Aux, New_List (N));
@@ -2831,7 +2889,8 @@ package body Exp_Util is
 
    begin
       if Is_Non_Empty_List (L) then
-         New_Scope (Cunit_Entity (Main_Unit));
+         Push_Scope (Cunit_Entity (Main_Unit));
+         --  ??? should this be Current_Sem_Unit instead of Main_Unit?
 
          if No (Actions (Aux)) then
             Set_Actions (Aux, L);
@@ -2885,6 +2944,16 @@ package body Exp_Util is
 
       return True;
    end Is_All_Null_Statements;
+
+   ----------------------------------
+   -- Is_Library_Level_Tagged_Type --
+   ----------------------------------
+
+   function Is_Library_Level_Tagged_Type (Typ : Entity_Id) return Boolean is
+   begin
+      return Is_Tagged_Type (Typ)
+        and then Is_Library_Level_Entity (Typ);
+   end Is_Library_Level_Tagged_Type;
 
    -----------------------------------------
    -- Is_Predefined_Dispatching_Operation --
@@ -3078,14 +3147,7 @@ package body Exp_Util is
 
    function Is_Possibly_Unaligned_Slice (N : Node_Id) return Boolean is
    begin
-      --  ??? GCC3 will eventually handle strings with arbitrary alignments,
-      --  but for now the following check must be disabled.
-
-      --  if get_gcc_version >= 3 then
-      --     return False;
-      --  end if;
-
-      --  For renaming case, go to renamed object
+      --  Go to renamed object
 
       if Is_Entity_Name (N)
         and then Is_Object (Entity (N))
@@ -3331,7 +3393,7 @@ package body Exp_Util is
 
          if Warn then
             Error_Msg_F
-              ("?this code can never be executed and has been deleted", N);
+              ("?this code can never be executed and has been deleted!", N);
          end if;
 
          --  Recurse into block statements and bodies to process declarations
@@ -3459,7 +3521,7 @@ package body Exp_Util is
 
             Get_Current_Value_Condition (N, Op, Val);
 
-            if Nkind (Val) = N_Null then
+            if Known_Null (Val) then
                if Op = N_Op_Eq then
                   return False;
                elsif Op = N_Op_Ne then
@@ -3523,11 +3585,19 @@ package body Exp_Util is
             Val : Node_Id;
 
          begin
+            --  Constant null value is for sure null
+
+            if Ekind (E) = E_Constant
+              and then Known_Null (Constant_Value (E))
+            then
+               return True;
+            end if;
+
             --  First check if we are in decisive conditional
 
             Get_Current_Value_Condition (N, Op, Val);
 
-            if Nkind (Val) = N_Null then
+            if Known_Null (Val) then
                if Op = N_Op_Eq then
                   return True;
                elsif Op = N_Op_Ne then
@@ -3589,6 +3659,7 @@ package body Exp_Util is
       Loc         : constant Source_Ptr := Sloc (E);
       Root_Typ    : constant Entity_Id  := Root_Type (T);
       List_Def    : constant List_Id    := Empty_List;
+      Comp_List   : constant List_Id    := New_List;
       Equiv_Type  : Entity_Id;
       Range_Type  : Entity_Id;
       Str_Type    : Entity_Id;
@@ -3611,22 +3682,35 @@ package body Exp_Util is
                  Make_Subtype_From_Expr (E, Root_Typ)));
       end if;
 
-      --  subtype rg__xx is Storage_Offset range
-      --                           (Expr'size - typ'size) / Storage_Unit
+      --  Generate the range subtype declaration
 
       Range_Type := Make_Defining_Identifier (Loc, New_Internal_Name ('G'));
 
-      Sizexpr :=
-        Make_Op_Subtract (Loc,
-          Left_Opnd =>
-            Make_Attribute_Reference (Loc,
-              Prefix =>
-                OK_Convert_To (T, Duplicate_Subexpr_No_Checks (E)),
-              Attribute_Name => Name_Size),
-          Right_Opnd =>
-            Make_Attribute_Reference (Loc,
-              Prefix => New_Reference_To (Constr_Root, Loc),
-              Attribute_Name => Name_Object_Size));
+      if not Is_Interface (Root_Typ) then
+         --  subtype rg__xx is
+         --    Storage_Offset range 1 .. (Expr'size - typ'size) / Storage_Unit
+
+         Sizexpr :=
+           Make_Op_Subtract (Loc,
+             Left_Opnd =>
+               Make_Attribute_Reference (Loc,
+                 Prefix =>
+                   OK_Convert_To (T, Duplicate_Subexpr_No_Checks (E)),
+                 Attribute_Name => Name_Size),
+             Right_Opnd =>
+               Make_Attribute_Reference (Loc,
+                 Prefix => New_Reference_To (Constr_Root, Loc),
+                 Attribute_Name => Name_Object_Size));
+      else
+         --  subtype rg__xx is
+         --    Storage_Offset range 1 .. Expr'size / Storage_Unit
+
+         Sizexpr :=
+           Make_Attribute_Reference (Loc,
+             Prefix =>
+               OK_Convert_To (T, Duplicate_Subexpr_No_Checks (E)),
+             Attribute_Name => Name_Size);
+      end if;
 
       Set_Paren_Count (Sizexpr, 1);
 
@@ -3661,7 +3745,7 @@ package body Exp_Util is
                     New_List (New_Reference_To (Range_Type, Loc))))));
 
       --  type Equiv_T is record
-      --    _parent : Tnn;
+      --    [ _parent : Tnn; ]
       --    E : Str_Type;
       --  end Equiv_T;
 
@@ -3682,36 +3766,41 @@ package body Exp_Util is
       Set_Ekind (Equiv_Type, E_Record_Type);
       Set_Parent_Subtype (Equiv_Type, Constr_Root);
 
+      if not Is_Interface (Root_Typ) then
+         Append_To (Comp_List,
+           Make_Component_Declaration (Loc,
+             Defining_Identifier =>
+               Make_Defining_Identifier (Loc, Name_uParent),
+             Component_Definition =>
+               Make_Component_Definition (Loc,
+                 Aliased_Present    => False,
+                 Subtype_Indication => New_Reference_To (Constr_Root, Loc))));
+      end if;
+
+      Append_To (Comp_List,
+        Make_Component_Declaration (Loc,
+          Defining_Identifier =>
+            Make_Defining_Identifier (Loc,
+              Chars => New_Internal_Name ('C')),
+          Component_Definition =>
+            Make_Component_Definition (Loc,
+              Aliased_Present    => False,
+              Subtype_Indication => New_Reference_To (Str_Type, Loc))));
+
       Append_To (List_Def,
         Make_Full_Type_Declaration (Loc,
           Defining_Identifier => Equiv_Type,
-
           Type_Definition =>
             Make_Record_Definition (Loc,
-              Component_List => Make_Component_List (Loc,
-                Component_Items => New_List (
-                  Make_Component_Declaration (Loc,
-                    Defining_Identifier =>
-                      Make_Defining_Identifier (Loc, Name_uParent),
-                    Component_Definition =>
-                      Make_Component_Definition (Loc,
-                        Aliased_Present    => False,
-                        Subtype_Indication =>
-                          New_Reference_To (Constr_Root, Loc))),
+              Component_List =>
+                Make_Component_List (Loc,
+                  Component_Items => Comp_List,
+                  Variant_Part    => Empty))));
 
-                  Make_Component_Declaration (Loc,
-                    Defining_Identifier =>
-                      Make_Defining_Identifier (Loc,
-                        Chars => New_Internal_Name ('C')),
-                    Component_Definition =>
-                      Make_Component_Definition (Loc,
-                        Aliased_Present    => False,
-                        Subtype_Indication =>
-                          New_Reference_To (Str_Type, Loc)))),
+      --  Suppress all checks during the analysis of the expanded code
+      --  to avoid the generation of spurious warnings under ZFP run-time.
 
-                Variant_Part => Empty))));
-
-      Insert_Actions (E, List_Def);
+      Insert_Actions (E, List_Def, Suppress => All_Checks);
       return Equiv_Type;
    end Make_CW_Equivalent_Type;
 
@@ -3723,25 +3812,46 @@ package body Exp_Util is
      (Loc         : Source_Ptr;
       Literal_Typ : Entity_Id) return Node_Id
    is
-      Lo : constant Node_Id :=
-             New_Copy_Tree (String_Literal_Low_Bound (Literal_Typ));
+      Lo          : constant Node_Id :=
+                      New_Copy_Tree (String_Literal_Low_Bound (Literal_Typ));
+      Index       : constant Entity_Id := Etype (Lo);
+
+      Hi          : Node_Id;
+      Length_Expr : constant Node_Id :=
+                      Make_Op_Subtract (Loc,
+                        Left_Opnd =>
+                          Make_Integer_Literal (Loc,
+                            Intval => String_Literal_Length (Literal_Typ)),
+                        Right_Opnd =>
+                          Make_Integer_Literal (Loc, 1));
 
    begin
       Set_Analyzed (Lo, False);
 
+         if Is_Integer_Type (Index) then
+            Hi :=
+              Make_Op_Add (Loc,
+                Left_Opnd  => New_Copy_Tree (Lo),
+                Right_Opnd => Length_Expr);
+         else
+            Hi :=
+              Make_Attribute_Reference (Loc,
+                Attribute_Name => Name_Val,
+                Prefix => New_Occurrence_Of (Index, Loc),
+                Expressions => New_List (
+                 Make_Op_Add (Loc,
+                   Left_Opnd =>
+                     Make_Attribute_Reference (Loc,
+                       Attribute_Name => Name_Pos,
+                       Prefix => New_Occurrence_Of (Index, Loc),
+                       Expressions => New_List (New_Copy_Tree (Lo))),
+                  Right_Opnd => Length_Expr)));
+         end if;
+
          return
            Make_Range (Loc,
-             Low_Bound => Lo,
-
-             High_Bound =>
-               Make_Op_Subtract (Loc,
-                  Left_Opnd =>
-                    Make_Op_Add (Loc,
-                      Left_Opnd  => New_Copy_Tree (Lo),
-                      Right_Opnd =>
-                        Make_Integer_Literal (Loc,
-                          String_Literal_Length (Literal_Typ))),
-                  Right_Opnd => Make_Integer_Literal (Loc, 1)));
+             Low_Bound  => Lo,
+             High_Bound => Hi);
    end Make_Literal_Range;
 
    ----------------------------
@@ -3839,12 +3949,12 @@ package body Exp_Util is
             EQ_Typ     : Entity_Id := Empty;
 
          begin
-            --  A class-wide equivalent type is not needed when Java_VM
-            --  because the JVM back end handles the class-wide object
+            --  A class-wide equivalent type is not needed when VM_Target
+            --  because the VM back-ends handle the class-wide object
             --  initialization itself (and doesn't need or want the
             --  additional intermediate type to handle the assignment).
 
-            if Expander_Active and then not Java_VM then
+            if Expander_Active and then VM_Target = No_VM then
                EQ_Typ := Make_CW_Equivalent_Type (Unc_Typ, E);
             end if;
 
@@ -3952,6 +4062,22 @@ package body Exp_Util is
       return (Res);
    end New_Class_Wide_Subtype;
 
+   --------------------------------
+   -- Non_Limited_Designated_Type --
+   ---------------------------------
+
+   function Non_Limited_Designated_Type (T : Entity_Id) return Entity_Id is
+      Desig : constant Entity_Id := Designated_Type (T);
+   begin
+      if Ekind (Desig) = E_Incomplete_Type
+        and then Present (Non_Limited_View (Desig))
+      then
+         return Non_Limited_View (Desig);
+      else
+         return Desig;
+      end if;
+   end Non_Limited_Designated_Type;
+
    -----------------------------------
    -- OK_To_Do_Constant_Replacement --
    -----------------------------------
@@ -4018,6 +4144,69 @@ package body Exp_Util is
          return False;
       end if;
    end OK_To_Do_Constant_Replacement;
+
+   ------------------------------------
+   -- Possible_Bit_Aligned_Component --
+   ------------------------------------
+
+   function Possible_Bit_Aligned_Component (N : Node_Id) return Boolean is
+   begin
+      case Nkind (N) is
+
+         --  Case of indexed component
+
+         when N_Indexed_Component =>
+            declare
+               P    : constant Node_Id   := Prefix (N);
+               Ptyp : constant Entity_Id := Etype (P);
+
+            begin
+               --  If we know the component size and it is less than 64, then
+               --  we are definitely OK. The back end always does assignment
+               --  of misaligned small objects correctly.
+
+               if Known_Static_Component_Size (Ptyp)
+                 and then Component_Size (Ptyp) <= 64
+               then
+                  return False;
+
+               --  Otherwise, we need to test the prefix, to see if we are
+               --  indexing from a possibly unaligned component.
+
+               else
+                  return Possible_Bit_Aligned_Component (P);
+               end if;
+            end;
+
+         --  Case of selected component
+
+         when N_Selected_Component =>
+            declare
+               P    : constant Node_Id   := Prefix (N);
+               Comp : constant Entity_Id := Entity (Selector_Name (N));
+
+            begin
+               --  If there is no component clause, then we are in the clear
+               --  since the back end will never misalign a large component
+               --  unless it is forced to do so. In the clear means we need
+               --  only the recursive test on the prefix.
+
+               if Component_May_Be_Bit_Aligned (Comp) then
+                  return True;
+               else
+                  return Possible_Bit_Aligned_Component (P);
+               end if;
+            end;
+
+         --  If we have neither a record nor array component, it means that we
+         --  have fallen off the top testing prefixes recursively, and we now
+         --  have a stand alone object, where we don't have a problem.
+
+         when others =>
+            return False;
+
+      end case;
+   end Possible_Bit_Aligned_Component;
 
    -------------------------
    -- Remove_Side_Effects --
@@ -4171,6 +4360,17 @@ package body Exp_Util is
 
          elsif Compile_Time_Known_Value (N) then
             return True;
+
+         --  A variable renaming is not side-effet free, because the
+         --  renaming will function like a macro in the front-end in
+         --  some cases, and an assignment can modify the the component
+         --  designated by N, so we need to create a temporary for it.
+
+         elsif Is_Entity_Name (Original_Node (N))
+           and then Is_Renaming_Of_Object (Entity (Original_Node (N)))
+           and then Ekind (Entity (Original_Node (N))) /= E_Constant
+         then
+            return False;
          end if;
 
          --  For other than entity names and compile time known values,
@@ -4237,10 +4437,23 @@ package body Exp_Util is
                return Side_Effect_Free (Expression (N));
 
             --  A selected component is side effect free only if it is a
-            --  side effect free prefixed reference.
+            --  side effect free prefixed reference. If it designates a
+            --  component with a rep. clause it must be treated has having
+            --  a potential side effect, because it may be modified through
+            --  a renaming, and a subsequent use of the renaming as a macro
+            --  will yield the wrong value. This complex interaction between
+            --  renaming and removing side effects is a reminder that the
+            --  latter has become a headache to maintain, and that it should
+            --  be removed in favor of the gcc mechanism to capture values ???
 
             when N_Selected_Component =>
-               return Safe_Prefixed_Reference (N);
+               if Nkind (Parent (N)) = N_Explicit_Dereference
+                 and then Has_Non_Standard_Rep (Designated_Type (Etype (N)))
+               then
+                  return False;
+               else
+                  return Safe_Prefixed_Reference (N);
+               end if;
 
             --  A range is side effect free if the bounds are side effect free
 
@@ -4255,8 +4468,8 @@ package body Exp_Util is
                return Side_Effect_Free (Discrete_Range (N))
                  and then Safe_Prefixed_Reference (N);
 
-            --  A type conversion is side effect free if the expression
-            --  to be converted is side effect free.
+            --  A type conversion is side effect free if the expression to be
+            --  converted is side effect free.
 
             when N_Type_Conversion =>
                return Side_Effect_Free (Expression (N));
@@ -4332,8 +4545,7 @@ package body Exp_Util is
             return False;
 
          elsif Is_Entity_Name (N) then
-            return
-              Ekind (Entity (N)) = E_In_Parameter;
+            return Ekind (Entity (N)) = E_In_Parameter;
 
          elsif Nkind (N) = N_Indexed_Component
            or else Nkind (N) = N_Selected_Component
@@ -4359,19 +4571,19 @@ package body Exp_Util is
 
       Scope_Suppress := (others => True);
 
-      --  If it is a scalar type and we need to capture the value, just
-      --  make a copy.  Likewise for a function call.  And if we have a
-      --  volatile variable and Nam_Req is not set (see comments above
-      --  for Side_Effect_Free).
+      --  If it is a scalar type and we need to capture the value, just make
+      --  a copy. Likewise for a function or operator call. And if we have a
+      --  volatile variable and Nam_Req is not set (see comments above for
+      --  Side_Effect_Free).
 
       if Is_Elementary_Type (Exp_Type)
         and then (Variable_Ref
                    or else Nkind (Exp) = N_Function_Call
+                   or else Nkind (Exp) in N_Op
                    or else (not Name_Req
                              and then Is_Entity_Name (Exp)
                              and then Treat_As_Volatile (Entity (Exp))))
       then
-
          Def_Id := Make_Defining_Identifier (Loc, New_Internal_Name ('R'));
          Set_Etype (Def_Id, Exp_Type);
          Res := New_Reference_To (Def_Id, Loc);

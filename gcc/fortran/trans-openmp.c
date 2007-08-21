@@ -1,12 +1,12 @@
 /* OpenMP directive translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -50,9 +49,12 @@ gfc_omp_privatize_by_reference (tree decl)
 
   if (TREE_CODE (type) == POINTER_TYPE)
     {
-      /* POINTER/ALLOCATABLE have aggregate types, all user variables
-	 that have POINTER_TYPE type are supposed to be privatized
-	 by reference.  */
+      /* Array POINTER/ALLOCATABLE have aggregate types, all user variables
+	 that have POINTER_TYPE type and don't have GFC_POINTER_TYPE_P
+	 set are supposed to be privatized by reference.  */
+      if (GFC_POINTER_TYPE_P (type))
+	return false;
+
       if (!DECL_ARTIFICIAL (decl))
 	return true;
 
@@ -733,7 +735,7 @@ gfc_trans_omp_atomic (gfc_code *code)
 
   expr2 = code->expr2;
   if (expr2->expr_type == EXPR_FUNCTION
-      && expr2->value.function.isym->generic_id == GFC_ISYM_CONVERSION)
+      && expr2->value.function.isym->id == GFC_ISYM_CONVERSION)
     expr2 = expr2->value.function.actual->expr;
 
   if (expr2->expr_type == EXPR_OP)
@@ -773,7 +775,7 @@ gfc_trans_omp_atomic (gfc_code *code)
 	}
       e = expr2->value.op.op1;
       if (e->expr_type == EXPR_FUNCTION
-	  && e->value.function.isym->generic_id == GFC_ISYM_CONVERSION)
+	  && e->value.function.isym->id == GFC_ISYM_CONVERSION)
 	e = e->value.function.actual->expr;
       if (e->expr_type == EXPR_VARIABLE
 	  && e->symtree != NULL
@@ -786,7 +788,7 @@ gfc_trans_omp_atomic (gfc_code *code)
 	{
 	  e = expr2->value.op.op2;
 	  if (e->expr_type == EXPR_FUNCTION
-	      && e->value.function.isym->generic_id == GFC_ISYM_CONVERSION)
+	      && e->value.function.isym->id == GFC_ISYM_CONVERSION)
 	    e = e->value.function.actual->expr;
 	  gcc_assert (e->expr_type == EXPR_VARIABLE
 		      && e->symtree != NULL
@@ -800,7 +802,7 @@ gfc_trans_omp_atomic (gfc_code *code)
   else
     {
       gcc_assert (expr2->expr_type == EXPR_FUNCTION);
-      switch (expr2->value.function.isym->generic_id)
+      switch (expr2->value.function.isym->id)
 	{
 	case GFC_ISYM_MIN:
 	  op = MIN_EXPR;
@@ -1202,7 +1204,7 @@ gfc_trans_omp_sections (gfc_code *code, gfc_omp_clauses *clauses)
     }
   stmt = gfc_finish_block (&body);
 
-  stmt = build2_v (OMP_SECTIONS, stmt, omp_clauses);
+  stmt = build3_v (OMP_SECTIONS, stmt, omp_clauses, NULL_TREE);
   gfc_add_expr_to_block (&block, stmt);
 
   return gfc_finish_block (&block);

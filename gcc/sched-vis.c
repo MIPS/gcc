@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -34,9 +33,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 
 static char *safe_concat (char *, char *, const char *);
-static void print_exp (char *, rtx, int);
-static void print_value (char *, rtx, int);
-static void print_pattern (char *, rtx, int);
+static void print_exp (char *, const_rtx, int);
+static void print_value (char *, const_rtx, int);
+static void print_pattern (char *, const_rtx, int);
 
 #define BUF_LEN 2048
 
@@ -64,7 +63,7 @@ safe_concat (char *buf, char *cur, const char *str)
    may be stored in objects representing values.  */
 
 static void
-print_exp (char *buf, rtx x, int verbose)
+print_exp (char *buf, const_rtx x, int verbose)
 {
   char tmp[BUF_LEN];
   const char *st[4];
@@ -427,7 +426,7 @@ print_exp (char *buf, rtx x, int verbose)
    registers, labels, symbols and memory accesses.  */
 
 static void
-print_value (char *buf, rtx x, int verbose)
+print_value (char *buf, const_rtx x, int verbose)
 {
   char t[BUF_LEN];
   char *cur = buf;
@@ -442,7 +441,10 @@ print_value (char *buf, rtx x, int verbose)
       if (FLOAT_MODE_P (GET_MODE (x)))
 	real_to_decimal (t, CONST_DOUBLE_REAL_VALUE (x), sizeof (t), 0, 1);
       else
-	sprintf (t, "<0x%lx,0x%lx>", (long) CONST_DOUBLE_LOW (x), (long) CONST_DOUBLE_HIGH (x));
+	sprintf (t,
+		 "<" HOST_WIDE_INT_PRINT_HEX "," HOST_WIDE_INT_PRINT_HEX ">",
+		 (unsigned HOST_WIDE_INT) CONST_DOUBLE_LOW (x),
+		 (unsigned HOST_WIDE_INT) CONST_DOUBLE_HIGH (x));
       cur = safe_concat (buf, cur, t);
       break;
     case CONST_STRING:
@@ -526,7 +528,7 @@ print_value (char *buf, rtx x, int verbose)
 /* The next step in insn detalization, its pattern recognition.  */
 
 static void
-print_pattern (char *buf, rtx x, int verbose)
+print_pattern (char *buf, const_rtx x, int verbose)
 {
   char t1[BUF_LEN], t2[BUF_LEN], t3[BUF_LEN];
 
@@ -686,16 +688,8 @@ print_insn (char *buf, rtx x, int verbose)
       sprintf (buf, "i%4d: barrier", INSN_UID (x));
       break;
     case NOTE:
-      if (NOTE_LINE_NUMBER (x) > 0)
-	{
-	  expanded_location xloc;
-	  NOTE_EXPANDED_LOCATION (xloc, x);
-	  sprintf (buf, " %4d note \"%s\" %d", INSN_UID (x),
-		   xloc.file, xloc.line);
-	}
-      else
-	sprintf (buf, " %4d %s", INSN_UID (x),
-		 GET_NOTE_INSN_NAME (NOTE_LINE_NUMBER (x)));
+      sprintf (buf, " %4d %s", INSN_UID (x),
+	       GET_NOTE_INSN_NAME (NOTE_KIND (x)));
       break;
     default:
       sprintf (buf, "i%4d  <What %s?>", INSN_UID (x),

@@ -1,11 +1,11 @@
 /* Interprocedural analyses.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -482,7 +481,8 @@ ipa_callsite_compute_param (struct cgraph_edge *cs)
          we store CONST_IPATYPE and its value as the jump function 
          of this argument.  */
       else if (TREE_CODE (arg) == INTEGER_CST
-	       || TREE_CODE (arg) == REAL_CST)
+	       || TREE_CODE (arg) == REAL_CST
+	       || TREE_CODE (arg) == FIXED_CST)
 	{
 	  ipa_callsite_param_set_type (cs, arg_num, CONST_IPATYPE);
 	  ipa_callsite_param_set_info_type (cs, arg_num, arg);
@@ -496,7 +496,8 @@ ipa_callsite_compute_param (struct cgraph_edge *cs)
 	{
 	  cst_decl = TREE_OPERAND (arg, 0);
 	  if (TREE_CODE (DECL_INITIAL (cst_decl)) == INTEGER_CST
-	      || TREE_CODE (DECL_INITIAL (cst_decl)) == REAL_CST)
+	      || TREE_CODE (DECL_INITIAL (cst_decl)) == REAL_CST
+	      || TREE_CODE (DECL_INITIAL (cst_decl)) == FIXED_CST)
 	    {
 	      ipa_callsite_param_set_type (cs, arg_num,
 					   CONST_IPATYPE_REF);

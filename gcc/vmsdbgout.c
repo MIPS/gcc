@@ -1,6 +1,7 @@
 /* Output VMS debug format symbol table information from GCC.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
    Contributed by Douglas B. Rupp (rupp@gnat.com).
    Updated by Bernard W. Giroud (bgiroud@users.sourceforge.net).
 
@@ -8,7 +9,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +18,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -1150,7 +1150,8 @@ write_srccorr (int fileid, dst_file_info_entry file_info_entry,
     (src_command.dst_a_src_cmd_fields.dst_a_src_decl_src.dst_b_src_df_filename,
      "source_corr (filename length)", dosizeonly);
 
-  totsize += write_debug_string (file_info_entry.file_name,
+  totsize += write_debug_string (remap_debug_filename (
+				    file_info_entry.file_name),
 				 "source file name", dosizeonly);
   totsize += write_debug_data1 (src_cmdtrlr.dst_b_src_df_libmodname,
 				"source_corr (libmodname)", dosizeonly);

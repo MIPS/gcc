@@ -1,13 +1,13 @@
 /* Subroutines for insn-output.c for Matsushita MN10300 series
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -274,7 +273,7 @@ print_operand (FILE *file, rtx x, int code)
 	else
 	  print_operand (file, x, 0);
 	break;
-     
+
       case 'D':
 	switch (GET_CODE (x))
 	  {
@@ -387,7 +386,7 @@ print_operand (FILE *file, rtx x, int code)
 		      gcc_unreachable ();
 		    case VOIDmode:
 		    case DImode:
-		      print_operand_address (file, 
+		      print_operand_address (file,
 					     GEN_INT (CONST_DOUBLE_HIGH (x)));
 		      break;
 		    default:
@@ -882,7 +881,7 @@ expand_prologue (void)
 	default:
 	  gcc_unreachable ();
 	}
-	  
+
       /* Now prepare register a0, if we have decided to use it.  */
       switch (strategy)
 	{
@@ -900,11 +899,11 @@ expand_prologue (void)
 	    emit_insn (gen_addsi3 (reg, reg, GEN_INT (xsize)));
 	  reg = gen_rtx_POST_INC (SImode, reg);
 	  break;
-	  
+
 	default:
 	  gcc_unreachable ();
 	}
-      
+
       /* Now actually save the FP registers.  */
       for (i = FIRST_FP_REGNUM; i <= LAST_FP_REGNUM; ++i)
 	if (df_regs_ever_live_p (i) && ! call_used_regs[i])
@@ -924,7 +923,7 @@ expand_prologue (void)
 		  }
 		else
 		  addr = stack_pointer_rtx;
-		
+
 		xsize += 4;
 	      }
 
@@ -945,23 +944,7 @@ expand_prologue (void)
 			   stack_pointer_rtx,
 			   GEN_INT (-size)));
   if (flag_pic && df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM))
-    {
-      rtx insn = get_last_insn ();
-      rtx last = emit_insn (gen_GOTaddr2picreg ());
-
-      /* Mark these insns as possibly dead.  Sometimes, flow2 may
-	 delete all uses of the PIC register.  In this case, let it
-	 delete the initialization too.  */
-      do
-	{
-	  insn = NEXT_INSN (insn);
-
-	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-						const0_rtx,
-						REG_NOTES (insn));
-	}
-      while (insn != last);
-    }
+    emit_insn (gen_GOTaddr2picreg ());
 }
 
 void
@@ -1109,7 +1092,7 @@ expand_epilogue (void)
 					      + REG_SAVE_BYTES - 252)));
 	      size = 252 - REG_SAVE_BYTES - 4 * num_regs_to_save;
 	      break;
-	      
+
 	    case restore_a1:
 	      reg = gen_rtx_REG (SImode, FIRST_ADDRESS_REGNUM + 1);
 	      emit_insn (gen_movsi (reg, stack_pointer_rtx));
@@ -1130,7 +1113,7 @@ expand_epilogue (void)
 	if (df_regs_ever_live_p (i) && ! call_used_regs[i])
 	  {
 	    rtx addr;
-	    
+
 	    if (reg)
 	      addr = reg;
 	    else if (size)
@@ -1167,7 +1150,7 @@ expand_epilogue (void)
 
      If the stack size + register save area is more than 255 bytes,
      then the stack must be cut back here since the size + register
-     save size is too big for a ret/retf instruction. 
+     save size is too big for a ret/retf instruction.
 
      Else leave it alone, it will be cut back as part of the
      ret/retf instruction, or there wasn't any stack to begin with.
@@ -1333,7 +1316,7 @@ store_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 }
 
 /* What (if any) secondary registers are needed to move IN with mode
-   MODE into a register in register class CLASS. 
+   MODE into a register in register class CLASS.
 
    We might be able to simplify this.  */
 enum reg_class
@@ -1380,9 +1363,10 @@ mn10300_secondary_reload_class (enum reg_class class, enum machine_mode mode,
 	return DATA_OR_EXTENDED_REGS;
       return DATA_REGS;
     }
- 
+
   if (TARGET_AM33_2 && class == FP_REGS
-      && GET_CODE (in) == MEM && ! OK_FOR_Q (in))
+      && GET_CODE (in) == MEM
+      && ! (GET_CODE (in) == MEM && !CONSTANT_ADDRESS_P (XEXP (in, 0))))
     {
       if (TARGET_AM33)
 	return DATA_OR_EXTENDED_REGS;
@@ -1426,11 +1410,11 @@ initial_offset (int from, int to)
 	return (get_frame_size () + REG_SAVE_BYTES
 		+ 4 * fp_regs_to_save ()
 		+ (current_function_outgoing_args_size
-		   ? current_function_outgoing_args_size + 4 : 0)); 
+		   ? current_function_outgoing_args_size + 4 : 0));
       else
 	return (get_frame_size ()
 		+ (current_function_outgoing_args_size
-		   ? current_function_outgoing_args_size + 4 : 0)); 
+		   ? current_function_outgoing_args_size + 4 : 0));
     }
 
   /* The difference between the frame pointer and stack pointer is the sum
@@ -1439,7 +1423,7 @@ initial_offset (int from, int to)
   if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     return (get_frame_size ()
 	    + (current_function_outgoing_args_size
-	       ? current_function_outgoing_args_size + 4 : 0)); 
+	       ? current_function_outgoing_args_size + 4 : 0));
 
   gcc_unreachable ();
 }
@@ -1466,7 +1450,7 @@ mn10300_builtin_saveregs (void)
                    && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
                        != void_type_node)))
                 ? UNITS_PER_WORD : 0);
-  int set = get_varargs_alias_set ();
+  alias_set_type set = get_varargs_alias_set ();
 
   if (argadj)
     offset = plus_constant (current_function_arg_offset_rtx, argadj);
@@ -1624,7 +1608,7 @@ mn10300_function_value (tree valtype, tree func, int outgoing)
     = gen_rtx_EXPR_LIST (VOIDmode,
 			 gen_rtx_REG (mode, FIRST_ADDRESS_REGNUM),
 			 GEN_INT (0));
-  
+
   XVECEXP (rv, 0, 1)
     = gen_rtx_EXPR_LIST (VOIDmode,
 			 gen_rtx_REG (mode, FIRST_DATA_REGNUM),
@@ -1672,7 +1656,7 @@ output_tst (rtx operand, rtx insn)
 	}
 
       /* Are we setting a data register to zero (this does not win for
-	 address registers)? 
+	 address registers)?
 
 	 If it's a call clobbered register, have we past a call?
 
@@ -1688,7 +1672,7 @@ output_tst (rtx operand, rtx insn)
 	      == REGNO_REG_CLASS (REGNO (operand)))
 	  && REGNO_REG_CLASS (REGNO (SET_DEST (set))) != EXTENDED_REGS
 	  && REGNO (SET_DEST (set)) != REGNO (operand)
-	  && (!past_call 
+	  && (!past_call
 	      || !call_used_regs[REGNO (SET_DEST (set))]))
 	{
 	  rtx xoperands[2];
@@ -1707,7 +1691,7 @@ output_tst (rtx operand, rtx insn)
 	      != REGNO_REG_CLASS (REGNO (operand)))
 	  && REGNO_REG_CLASS (REGNO (SET_DEST (set))) == EXTENDED_REGS
 	  && REGNO (SET_DEST (set)) != REGNO (operand)
-	  && (!past_call 
+	  && (!past_call
 	      || !call_used_regs[REGNO (SET_DEST (set))]))
 	{
 	  rtx xoperands[2];
@@ -2087,7 +2071,7 @@ mn10300_wide_const_load_uses_clr (rtx operands[2])
 	val[1] = INTVAL (high);
       }
       break;
-      
+
     case CONST_DOUBLE:
       if (GET_MODE (operands[1]) == DFmode)
 	{
@@ -2103,7 +2087,7 @@ mn10300_wide_const_load_uses_clr (rtx operands[2])
 	  val[1] = CONST_DOUBLE_HIGH (operands[1]);
 	}
       break;
-      
+
     default:
       return false;
     }

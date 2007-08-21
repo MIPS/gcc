@@ -1,12 +1,13 @@
 /* Control flow optimization code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Try to match two basic blocks - or their ends - for structural equivalence.
    We scan the blocks from their ends backwards, and expect that insns are
@@ -327,7 +327,7 @@ note_local_live (struct equiv_info *info, rtx x, rtx y, int rvalue)
       if (reload_completed)
 	{
 	  unsigned x_regno ATTRIBUTE_UNUSED = REGNO (x);
-	  unsigned y_regno = REGNO (y);
+	  unsigned y_regno ATTRIBUTE_UNUSED = REGNO (y);
 	  enum machine_mode x_mode = GET_MODE (x);
 
 	  if (secondary_reload_class (0, REGNO_REG_CLASS (y_regno), x_mode, x)
@@ -430,7 +430,7 @@ rtx_equiv_p (rtx *xp, rtx y, int rvalue, struct equiv_info *info)
 	  return false;
 	else if (x_common_live)
 	  {
-	    if (! rvalue || info->input_cost < 0 || no_new_pseudos)
+	    if (! rvalue || info->input_cost < 0 || reload_completed)
 	      return false;
 	    /* If info->live_update is not set, we are processing notes.
 	       We then allow a match with x_input / y_input found in a
@@ -866,12 +866,8 @@ death_notes_match_p (rtx i1 ATTRIBUTE_UNUSED, rtx i2 ATTRIBUTE_UNUSED,
 	    SET_HARD_REG_BIT (i2_regset, regno);
 	  }
 
-      GO_IF_HARD_REG_EQUAL (i1_regset, i2_regset, done);
-
-      return false;
-
-    done:
-      ;
+      if (!hard_reg_set_equal_p (i1_regset, i2_regset))
+	return false;
     }
 #endif
   return true;

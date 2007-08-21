@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -796,8 +796,7 @@ package body Treepr is
 
       Notes := False;
 
-      if N not in
-        Atree_Private_Part.Nodes.First .. Atree_Private_Part.Nodes.Last then
+      if N > Atree_Private_Part.Nodes.Last then
          Print_Str (" (no such node)");
          Print_Eol;
          return;
@@ -1004,9 +1003,7 @@ package body Treepr is
          --  Print Etype field if present (printing of this field for entities
          --  is handled by the Print_Entity_Info procedure).
 
-         if Nkind (N) in N_Has_Etype
-           and then Present (Etype (N))
-         then
+         if Nkind (N) in N_Has_Etype and then Present (Etype (N)) then
             Print_Str (Prefix_Str_Char);
             Print_Str ("Etype = ");
             Print_Node_Ref (Etype (N));

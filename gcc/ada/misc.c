@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -90,7 +90,7 @@ static void gnat_finish_incomplete_decl	(tree);
 static unsigned int gnat_init_options	(unsigned int, const char **);
 static int gnat_handle_option		(size_t, const char *, int);
 static bool gnat_post_options		(const char **);
-static HOST_WIDE_INT gnat_get_alias_set	(tree);
+static alias_set_type gnat_get_alias_set (tree);
 static void gnat_print_decl		(FILE *, tree, int);
 static void gnat_print_type		(FILE *, tree, int);
 static const char *gnat_printable_name	(tree, int);
@@ -103,7 +103,7 @@ static rtx gnat_expand_expr		(tree, rtx, enum machine_mode, int,
 static void gnat_expand_body		(tree);
 static void internal_error_function	(const char *, va_list *);
 static void gnat_adjust_rli		(record_layout_info);
-static tree gnat_type_max_size		(tree);
+static tree gnat_type_max_size		(const_tree);
 
 /* Definitions for our language-specific hooks.  */
 
@@ -157,10 +157,6 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_TYPE_FOR_MODE	gnat_type_for_mode
 #undef  LANG_HOOKS_TYPE_FOR_SIZE
 #define LANG_HOOKS_TYPE_FOR_SIZE	gnat_type_for_size
-#undef  LANG_HOOKS_SIGNED_TYPE
-#define LANG_HOOKS_SIGNED_TYPE		gnat_signed_type
-#undef  LANG_HOOKS_UNSIGNED_TYPE
-#define LANG_HOOKS_UNSIGNED_TYPE	gnat_unsigned_type
 #undef  LANG_HOOKS_ATTRIBUTE_TABLE
 #define LANG_HOOKS_ATTRIBUTE_TABLE	gnat_internal_attribute_table
 #undef  LANG_HOOKS_BUILTIN_FUNCTION
@@ -304,6 +300,14 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
       gnat_argc++;
       break;
 
+    case OPT_feliminate_unused_debug_types:
+      /* We arrange for post_option to be able to only set the corresponding
+         flag to 1 when explicitely requested by the user.  We expect the
+         default flag value to be either 0 or positive, and expose a positive
+         -f as a negative value to post_option.  */
+      flag_eliminate_unused_debug_types = -value;
+      break;
+
     case OPT_fRTS_:
       gnat_argv[gnat_argc] = xstrdup ("-fRTS");
       gnat_argc++;
@@ -364,10 +368,13 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   if (flag_inline_functions)
     flag_inline_trees = 2;
 
-  /* The structural alias analysis machinery essentially assumes that
-     everything is addressable (modulo bit-fields) by disregarding
-     the TYPE_NONALIASED_COMPONENT and DECL_NONADDRESSABLE_P macros.  */
-  flag_tree_salias = 0;
+  /* Force eliminate_unused_debug_types to 0 unless an explicit positive
+     -f has been passed.  This forces the default to 0 for Ada, which might
+     differ from the common default.  */
+  if (flag_eliminate_unused_debug_types < 0)
+    flag_eliminate_unused_debug_types = 1;
+  else
+    flag_eliminate_unused_debug_types = 0;
 
   return false;
 }
@@ -473,7 +480,7 @@ gnat_compute_largest_alignment (void)
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if (mov_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
+    if (optab_handler (mov_optab, mode)->insn_code != CODE_FOR_nothing)
       largest_move_alignment = MIN (BIGGEST_ALIGNMENT,
 				    MAX (largest_move_alignment,
 					 GET_MODE_ALIGNMENT (mode)));
@@ -486,6 +493,11 @@ gnat_compute_largest_alignment (void)
 void
 gnat_init_gcc_eh (void)
 {
+#ifdef DWARF2_UNWIND_INFO
+  /* lang_dependent_init already called dwarf2out_frame_init if true.  */
+  int dwarf2out_frame_initialized = dwarf2out_do_frame ();
+#endif
+
   /* We shouldn't do anything if the No_Exceptions_Handler pragma is set,
      though. This could for instance lead to the emission of tables with
      references to symbols (such as the Ada eh personality routine) within
@@ -499,7 +511,9 @@ gnat_init_gcc_eh (void)
      right exception regions.  */
   using_eh_for_cleanups ();
 
-  eh_personality_libfunc = init_one_libfunc ("__gnat_eh_personality");
+  eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
+					     ? "__gnat_eh_personality_sj"
+					     : "__gnat_eh_personality");
   lang_eh_type_covers = gnat_eh_type_covers;
   lang_eh_runtime_type = gnat_eh_runtime_type;
   default_init_unwind_resume_libfunc ();
@@ -519,7 +533,7 @@ gnat_init_gcc_eh (void)
 
   init_eh ();
 #ifdef DWARF2_UNWIND_INFO
-  if (dwarf2out_do_frame ())
+  if (!dwarf2out_frame_initialized && dwarf2out_do_frame ())
     dwarf2out_frame_init ();
 #endif
 }
@@ -635,13 +649,6 @@ gnat_expand_expr (tree exp, rtx target, enum machine_mode tmode,
   tree type = TREE_TYPE (exp);
   tree new;
 
-  /* If this is a statement, call the expansion routine for statements.  */
-  if (IS_STMT (exp))
-    {
-      gnat_expand_stmt (exp);
-      return const0_rtx;
-    }
-
   /* Update EXP to be the new expression to expand.  */
   switch (TREE_CODE (exp))
     {
@@ -676,18 +683,7 @@ gnat_expand_expr (tree exp, rtx target, enum machine_mode tmode,
 static void
 gnat_expand_body (tree gnu_decl)
 {
-  if (!DECL_INITIAL (gnu_decl) || DECL_INITIAL (gnu_decl) == error_mark_node)
-    return;
-
   tree_rest_of_compilation (gnu_decl);
-
-  if (DECL_STATIC_CONSTRUCTOR (gnu_decl) && targetm.have_ctors_dtors)
-    targetm.asm_out.constructor (XEXP (DECL_RTL (gnu_decl), 0),
-                                 DEFAULT_INIT_PRIORITY);
-
-  if (DECL_STATIC_DESTRUCTOR (gnu_decl) && targetm.have_ctors_dtors)
-    targetm.asm_out.destructor (XEXP (DECL_RTL (gnu_decl), 0),
-                                DEFAULT_INIT_PRIORITY);
 }
 
 /* Adjusts the RLI used to layout a record after all the fields have been
@@ -745,7 +741,7 @@ gnat_eh_type_covers (tree a, tree b)
 
 /* Get the alias set corresponding to a type or expression.  */
 
-static HOST_WIDE_INT
+static alias_set_type
 gnat_get_alias_set (tree type)
 {
   /* If this is a padding type, use the type of the first field.  */
@@ -759,6 +755,10 @@ gnat_get_alias_set (tree type)
     return
       get_alias_set (TREE_TYPE (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (type)))));
 
+  /* If the type can alias any other types, return the alias set 0.  */
+  else if (TYPE_P (type)
+	   && TYPE_UNIVERSAL_ALIASING_P (TYPE_MAIN_VARIANT (type)))
+    return 0;
 
   return -1;
 }
@@ -767,7 +767,7 @@ gnat_get_alias_set (tree type)
    as a constant when possible.  */
 
 static tree
-gnat_type_max_size (tree gnu_type)
+gnat_type_max_size (const_tree gnu_type)
 {
   /* First see what we can get from TYPE_SIZE_UNIT, which might not
      be constant even for simple expressions if it has already been
@@ -902,14 +902,14 @@ enumerate_modes (void (*f) (int, int, int, int, int, int, unsigned int))
 	 any wider mode), meaning it is not supported by the hardware.  If
 	 this a complex or vector mode, we care about the inner mode.  */
       for (j = inner_mode; j != VOIDmode; j = GET_MODE_WIDER_MODE (j))
-	if (add_optab->handlers[j].insn_code != CODE_FOR_nothing)
+	if (optab_handler (add_optab, j)->insn_code != CODE_FOR_nothing)
 	  break;
 
       if (float_p)
 	{
 	  const struct real_format *fmt = REAL_MODE_FORMAT (inner_mode);
 
-	  mantissa = fmt->p * fmt->log2_b;
+	  mantissa = fmt->p;
 	}
 
       if (!skip_p && j != VOIDmode)

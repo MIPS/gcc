@@ -1,13 +1,14 @@
 /* Implements exception handling.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* An exception is an event that can be signaled from within a
@@ -1005,7 +1005,11 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
     for (prev_try = VEC_index (eh_region, cfun->eh->region_array, outer_region);
          prev_try && prev_try->type != ERT_TRY;
 	 prev_try = prev_try->outer)
-      ;
+      if (prev_try->type == ERT_MUST_NOT_THROW)
+	{
+	  prev_try = NULL;
+	  break;
+	}
 
   /* Remap all of the internal catch and cleanup linkages.  Since we 
      duplicate entire subtrees, all of the referenced regions will have
@@ -1125,8 +1129,8 @@ eh_region_outermost (struct function *ifun, int region_a, int region_b)
 static int
 t2r_eq (const void *pentry, const void *pdata)
 {
-  tree entry = (tree) pentry;
-  tree data = (tree) pdata;
+  const_tree const entry = (const_tree) pentry;
+  const_tree const data = (const_tree) pdata;
 
   return TREE_PURPOSE (entry) == data;
 }
@@ -1134,7 +1138,7 @@ t2r_eq (const void *pentry, const void *pdata)
 static hashval_t
 t2r_hash (const void *pentry)
 {
-  tree entry = (tree) pentry;
+  const_tree const entry = (const_tree) pentry;
   return TREE_HASH (TREE_PURPOSE (entry));
 }
 
@@ -1179,8 +1183,9 @@ struct ttypes_filter GTY(())
 static int
 ttypes_filter_eq (const void *pentry, const void *pdata)
 {
-  const struct ttypes_filter *entry = (const struct ttypes_filter *) pentry;
-  tree data = (tree) pdata;
+  const struct ttypes_filter *const entry
+    = (const struct ttypes_filter *) pentry;
+  const_tree const data = (const_tree) pdata;
 
   return entry->t == data;
 }
@@ -1898,9 +1903,9 @@ sjlj_emit_function_enter (rtx dispatch_label)
   for (fn_begin = get_insns (); ; fn_begin = NEXT_INSN (fn_begin))
     if (NOTE_P (fn_begin))
       {
-	if (NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_FUNCTION_BEG)
+	if (NOTE_KIND (fn_begin) == NOTE_INSN_FUNCTION_BEG)
 	  break;
-	else if (NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_BASIC_BLOCK)
+	else if (NOTE_INSN_BASIC_BLOCK_P (fn_begin))
 	  fn_begin_outside_block = false;
       }
 
@@ -2127,7 +2132,8 @@ finish_eh_generation (void)
 static hashval_t
 ehl_hash (const void *pentry)
 {
-  struct ehl_map_entry *entry = (struct ehl_map_entry *) pentry;
+  const struct ehl_map_entry *const entry
+    = (const struct ehl_map_entry *) pentry;
 
   /* 2^32 * ((sqrt(5) - 1) / 2) */
   const hashval_t scaled_golden_ratio = 0x9e3779b9;
@@ -2137,8 +2143,10 @@ ehl_hash (const void *pentry)
 static int
 ehl_eq (const void *pentry, const void *pdata)
 {
-  struct ehl_map_entry *entry = (struct ehl_map_entry *) pentry;
-  struct ehl_map_entry *data = (struct ehl_map_entry *) pdata;
+  const struct ehl_map_entry *const entry
+    = (const struct ehl_map_entry *) pentry;
+  const struct ehl_map_entry *const data
+    = (const struct ehl_map_entry *) pdata;
 
   return entry->label == data->label;
 }
@@ -2690,7 +2698,7 @@ can_throw_internal_1 (int region_number, bool is_resx)
 }
 
 bool
-can_throw_internal (rtx insn)
+can_throw_internal (const_rtx insn)
 {
   rtx note;
 
@@ -2744,7 +2752,7 @@ can_throw_external_1 (int region_number, bool is_resx)
 }
 
 bool
-can_throw_external (rtx insn)
+can_throw_external (const_rtx insn)
 {
   rtx note;
 
@@ -2859,7 +2867,7 @@ expand_builtin_unwind_init (void)
 {
   /* Set this so all the registers get saved in our frame; we need to be
      able to copy the saved values for any registers from frames we unwind.  */
-  current_function_has_nonlocal_label = 1;
+  current_function_calls_unwind_init = 1;
 
 #ifdef SETUP_FRAME_ADDRESSES
   SETUP_FRAME_ADDRESSES ();
@@ -2898,7 +2906,7 @@ expand_builtin_eh_return_data_regno (tree exp)
 rtx
 expand_builtin_extract_return_addr (tree addr_tree)
 {
-  rtx addr = expand_expr (addr_tree, NULL_RTX, Pmode, 0);
+  rtx addr = expand_expr (addr_tree, NULL_RTX, Pmode, EXPAND_NORMAL);
 
   if (GET_MODE (addr) != Pmode
       && GET_MODE (addr) != VOIDmode)
@@ -2930,7 +2938,7 @@ expand_builtin_extract_return_addr (tree addr_tree)
 rtx
 expand_builtin_frob_return_addr (tree addr_tree)
 {
-  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, 0);
+  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, EXPAND_NORMAL);
 
   addr = convert_memory_address (Pmode, addr);
 
@@ -2952,7 +2960,8 @@ expand_builtin_eh_return (tree stackadj_tree ATTRIBUTE_UNUSED,
   rtx tmp;
 
 #ifdef EH_RETURN_STACKADJ_RTX
-  tmp = expand_expr (stackadj_tree, cfun->eh->ehr_stackadj, VOIDmode, 0);
+  tmp = expand_expr (stackadj_tree, cfun->eh->ehr_stackadj,
+		     VOIDmode, EXPAND_NORMAL);
   tmp = convert_memory_address (Pmode, tmp);
   if (!cfun->eh->ehr_stackadj)
     cfun->eh->ehr_stackadj = copy_to_reg (tmp);
@@ -2960,7 +2969,8 @@ expand_builtin_eh_return (tree stackadj_tree ATTRIBUTE_UNUSED,
     emit_move_insn (cfun->eh->ehr_stackadj, tmp);
 #endif
 
-  tmp = expand_expr (handler_tree, cfun->eh->ehr_handler, VOIDmode, 0);
+  tmp = expand_expr (handler_tree, cfun->eh->ehr_handler,
+		     VOIDmode, EXPAND_NORMAL);
   tmp = convert_memory_address (Pmode, tmp);
   if (!cfun->eh->ehr_handler)
     cfun->eh->ehr_handler = copy_to_reg (tmp);
@@ -3018,7 +3028,7 @@ expand_eh_return (void)
 rtx
 expand_builtin_extend_pointer (tree addr_tree)
 {
-  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, 0);
+  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, EXPAND_NORMAL);
   int extend;
 
 #ifdef POINTERS_EXTEND_UNSIGNED

@@ -173,8 +173,12 @@ case "$THREADS" in
 	THREADLIBS=-pthread
       	;;
      *-*-solaris*)
-	AC_DEFINE(GC_SOLARIS_THREADS,1,[support for Solaris (thr_) threads])
 	AC_DEFINE(GC_SOLARIS_PTHREADS,1,[support for Solaris pthreads])
+	# Need to use alternate thread library, otherwise gctest hangs
+	# on Solaris 8.
+	multi_os_directory=`$CC -print-multi-os-directory`
+	THREADLIBS="-L/usr/lib/lwp/$multi_os_directory \
+		    -R/usr/lib/lwp/$multi_os_directory -lpthread -lthread -lrt"
 	;;
      *-*-irix*)
 	AC_DEFINE(GC_IRIX_THREADS,1,[support for Irix pthreads])
@@ -299,6 +303,14 @@ case "$host" in
     AC_CHECK_LIB(dl, dlopen, EXTRA_TEST_LIBS="$EXTRA_TEST_LIBS -ldl")
     ;;
 esac
+
+# extra LD Flags which are required for targets
+case "${host}" in
+  *-*-darwin*)
+    extra_ldflags_libgc=-Wl,-single_module
+    ;;
+esac
+AC_SUBST(extra_ldflags_libgc)
 
 AC_SUBST(EXTRA_TEST_LIBS)
 

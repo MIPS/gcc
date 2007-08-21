@@ -6,7 +6,7 @@
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -395,6 +394,27 @@ dump_type (tree t, int flags)
       pp_cxx_identifier (cxx_pp, "...");
       break;
 
+    case TYPE_ARGUMENT_PACK:
+      {
+        tree args = ARGUMENT_PACK_ARGS (t);
+        int i;
+        for (i = 0; i < TREE_VEC_LENGTH (args); ++i)
+          {
+            if (i)
+              pp_separate_with_comma (cxx_pp);
+            dump_type (TREE_VEC_ELT (args, i), flags);
+          }
+      }
+      break;
+
+    case DECLTYPE_TYPE:
+      pp_cxx_identifier (cxx_pp, "decltype");
+      pp_cxx_whitespace (cxx_pp);
+      pp_cxx_left_paren (cxx_pp);
+      dump_expr (DECLTYPE_TYPE_EXPR (t), flags & ~TFF_EXPR_IN_PARENS);
+      pp_cxx_right_paren (cxx_pp);
+      break;
+
     default:
       pp_unsupported_tree (cxx_pp, t);
       /* Fall through to error.  */
@@ -529,7 +549,15 @@ dump_type_prefix (tree t, int flags)
 	    pp_cxx_whitespace (cxx_pp);
 	    pp_cxx_left_paren (cxx_pp);
 	  }
-	pp_character (cxx_pp, "&*"[TREE_CODE (t) == POINTER_TYPE]);
+	if (TREE_CODE (t) == POINTER_TYPE)
+	  pp_character(cxx_pp, '*');
+	else if (TREE_CODE (t) == REFERENCE_TYPE)
+	{
+	  if (TYPE_REF_IS_RVALUE (t))
+	    pp_string (cxx_pp, "&&");
+	  else
+	    pp_character (cxx_pp, '&');
+	}
 	pp_base (cxx_pp)->padding = pp_before;
 	pp_cxx_cv_qualifier_seq (cxx_pp, t);
       }
@@ -590,6 +618,7 @@ dump_type_prefix (tree t, int flags)
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
     case TYPEOF_TYPE:
+    case DECLTYPE_TYPE:
       dump_type (t, flags);
       pp_base (cxx_pp)->padding = pp_before;
       break;
@@ -686,6 +715,7 @@ dump_type_suffix (tree t, int flags)
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
     case TYPEOF_TYPE:
+    case DECLTYPE_TYPE:
       break;
 
     default:
@@ -930,6 +960,10 @@ dump_decl (tree t, int flags)
 	pp_cxx_declaration (cxx_pp, t);
       else
 	pp_type_id (cxx_pp, t);
+      break;
+
+    case UNBOUND_CLASS_TEMPLATE:
+      dump_type (t, flags);
       break;
 
     default:
@@ -1499,7 +1533,7 @@ dump_expr (tree t, int flags)
 	else
 	  dump_expr (AGGR_INIT_EXPR_FN (t), 0);
       }
-      dump_aggr_init_expr_args (t, flags, false);
+      dump_aggr_init_expr_args (t, flags, true);
       break;
 
     case CALL_EXPR:
@@ -1520,13 +1554,13 @@ dump_expr (tree t, int flags)
 	    if (TREE_CODE (ob) == ADDR_EXPR)
 	      {
 		dump_expr (TREE_OPERAND (ob, 0), flags | TFF_EXPR_IN_PARENS);
-		pp_dot (cxx_pp);
+		pp_cxx_dot (cxx_pp);
 	      }
 	    else if (TREE_CODE (ob) != PARM_DECL
 		     || strcmp (IDENTIFIER_POINTER (DECL_NAME (ob)), "this"))
 	      {
 		dump_expr (ob, flags | TFF_EXPR_IN_PARENS);
-		pp_arrow (cxx_pp);
+		pp_cxx_arrow (cxx_pp);
 	      }
 	    skipfirst = true;
 	  }
@@ -1580,6 +1614,10 @@ dump_expr (tree t, int flags)
 	 operand in expand_expr, so don't go killing ourselves.  */
       if (TREE_OPERAND (t, 1))
 	dump_expr (TREE_OPERAND (t, 1), flags | TFF_EXPR_IN_PARENS);
+      break;
+
+    case POINTER_PLUS_EXPR:
+      dump_binary_op ("+", t, flags);
       break;
 
     case INIT_EXPR:
@@ -2528,8 +2566,8 @@ cp_cpp_error (cpp_reader *pfile ATTRIBUTE_UNUSED, int level,
 void
 maybe_warn_variadic_templates (void)
 {
-  if ((!flag_cpp0x || flag_iso) && !in_system_header)
-    /* We really want to surpress this warning in system headers,
+  if ((cxx_dialect == cxx98) && !in_system_header)
+    /* We really want to suppress this warning in system headers,
        because libstdc++ uses variadic templates even when we aren't
        in C++0x mode. */
     pedwarn ("ISO C++ does not include variadic templates");

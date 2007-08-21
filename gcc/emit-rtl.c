@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Middle-to-low level generation of rtx code and insns.
@@ -51,6 +50,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "insn-config.h"
 #include "recog.h"
 #include "real.h"
+#include "fixed-value.h"
 #include "bitmap.h"
 #include "basic-block.h"
 #include "ggc.h"
@@ -108,6 +108,10 @@ REAL_VALUE_TYPE dconsthalf;
 REAL_VALUE_TYPE dconstthird;
 REAL_VALUE_TYPE dconstsqrt2;
 REAL_VALUE_TYPE dconste;
+
+/* Record fixed-point constant 0 and 1.  */
+FIXED_VALUE_TYPE fconst0[MAX_FCONST0];
+FIXED_VALUE_TYPE fconst1[MAX_FCONST1];
 
 /* All references to the following fixed hard registers go through
    these unique rtl objects.  On machines where the frame-pointer and
@@ -168,8 +172,7 @@ static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
 
 static rtx make_call_insn_raw (rtx);
 static rtx change_address_1 (rtx, enum machine_mode, rtx, int);
-static void unshare_all_decls (tree);
-static void reset_used_decls (tree);
+static void set_used_decls (tree);
 static void mark_label_nuses (rtx);
 static hashval_t const_int_htab_hash (const void *);
 static int const_int_htab_eq (const void *, const void *);
@@ -178,7 +181,7 @@ static int const_double_htab_eq (const void *, const void *);
 static rtx lookup_const_double (rtx);
 static hashval_t mem_attrs_htab_hash (const void *);
 static int mem_attrs_htab_eq (const void *, const void *);
-static mem_attrs *get_mem_attrs (HOST_WIDE_INT, tree, rtx, rtx, unsigned int,
+static mem_attrs *get_mem_attrs (alias_set_type, tree, rtx, rtx, unsigned int,
 				 enum machine_mode);
 static hashval_t reg_attrs_htab_hash (const void *);
 static int reg_attrs_htab_eq (const void *, const void *);
@@ -196,7 +199,7 @@ int split_branch_probability = -1;
 static hashval_t
 const_int_htab_hash (const void *x)
 {
-  return (hashval_t) INTVAL ((rtx) x);
+  return (hashval_t) INTVAL ((const_rtx) x);
 }
 
 /* Returns nonzero if the value represented by X (which is really a
@@ -206,14 +209,14 @@ const_int_htab_hash (const void *x)
 static int
 const_int_htab_eq (const void *x, const void *y)
 {
-  return (INTVAL ((rtx) x) == *((const HOST_WIDE_INT *) y));
+  return (INTVAL ((const_rtx) x) == *((const HOST_WIDE_INT *) y));
 }
 
 /* Returns a hash code for X (which is really a CONST_DOUBLE).  */
 static hashval_t
 const_double_htab_hash (const void *x)
 {
-  rtx value = (rtx) x;
+  const_rtx const value = (const_rtx) x;
   hashval_t h;
 
   if (GET_MODE (value) == VOIDmode)
@@ -232,7 +235,7 @@ const_double_htab_hash (const void *x)
 static int
 const_double_htab_eq (const void *x, const void *y)
 {
-  rtx a = (rtx)x, b = (rtx)y;
+  const_rtx const a = (const_rtx)x, b = (const_rtx)y;
 
   if (GET_MODE (a) != GET_MODE (b))
     return 0;
@@ -249,7 +252,7 @@ const_double_htab_eq (const void *x, const void *y)
 static hashval_t
 mem_attrs_htab_hash (const void *x)
 {
-  mem_attrs *p = (mem_attrs *) x;
+  const mem_attrs *const p = (const mem_attrs *) x;
 
   return (p->alias ^ (p->align * 1000)
 	  ^ ((p->offset ? INTVAL (p->offset) : 0) * 50000)
@@ -264,8 +267,8 @@ mem_attrs_htab_hash (const void *x)
 static int
 mem_attrs_htab_eq (const void *x, const void *y)
 {
-  mem_attrs *p = (mem_attrs *) x;
-  mem_attrs *q = (mem_attrs *) y;
+  const mem_attrs *const p = (const mem_attrs *) x;
+  const mem_attrs *const q = (const mem_attrs *) y;
 
   return (p->alias == q->alias && p->offset == q->offset
 	  && p->size == q->size && p->align == q->align
@@ -279,7 +282,7 @@ mem_attrs_htab_eq (const void *x, const void *y)
    MEM of mode MODE.  */
 
 static mem_attrs *
-get_mem_attrs (HOST_WIDE_INT alias, tree expr, rtx offset, rtx size,
+get_mem_attrs (alias_set_type alias, tree expr, rtx offset, rtx size,
 	       unsigned int align, enum machine_mode mode)
 {
   mem_attrs attrs;
@@ -316,7 +319,7 @@ get_mem_attrs (HOST_WIDE_INT alias, tree expr, rtx offset, rtx size,
 static hashval_t
 reg_attrs_htab_hash (const void *x)
 {
-  reg_attrs *p = (reg_attrs *) x;
+  const reg_attrs *const p = (const reg_attrs *) x;
 
   return ((p->offset * 1000) ^ (long) p->decl);
 }
@@ -328,8 +331,8 @@ reg_attrs_htab_hash (const void *x)
 static int
 reg_attrs_htab_eq (const void *x, const void *y)
 {
-  reg_attrs *p = (reg_attrs *) x;
-  reg_attrs *q = (reg_attrs *) y;
+  const reg_attrs *const p = (const reg_attrs *) x;
+  const reg_attrs *const q = (const reg_attrs *) y;
 
   return (p->decl == q->decl && p->offset == q->offset);
 }
@@ -359,6 +362,21 @@ get_reg_attrs (tree decl, int offset)
 
   return *slot;
 }
+
+
+#if !HAVE_blockage
+/* Generate an empty ASM_INPUT, which is used to block attempts to schedule
+   across this insn. */
+
+rtx
+gen_blockage (void)
+{
+  rtx x = gen_rtx_ASM_INPUT (VOIDmode, "");
+  MEM_VOLATILE_P (x) = true;
+  return x;
+}
+#endif
+
 
 /* Generate a new REG rtx.  Make sure ORIGINAL_REGNO is set properly, and
    don't attempt to share with the various global pieces of rtl (such as
@@ -604,7 +622,7 @@ gen_tmp_stack_mem (enum machine_mode mode, rtx addr)
 
 bool
 validate_subreg (enum machine_mode omode, enum machine_mode imode,
-		 rtx reg, unsigned int offset)
+		 const_rtx reg, unsigned int offset)
 {
   unsigned int isize = GET_MODE_SIZE (imode);
   unsigned int osize = GET_MODE_SIZE (omode);
@@ -766,9 +784,7 @@ gen_reg_rtx (enum machine_mode mode)
   struct function *f = cfun;
   rtx val;
 
-  /* Don't let anything called after initial flow analysis create new
-     registers.  */
-  gcc_assert (!no_new_pseudos);
+  gcc_assert (can_create_pseudo_p ());
 
   if (generating_concat_p
       && (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
@@ -1272,7 +1288,7 @@ subreg_highpart_offset (enum machine_mode outermode, enum machine_mode innermode
    If X is not a SUBREG, always return 1 (it is its own low part!).  */
 
 int
-subreg_lowpart_p (rtx x)
+subreg_lowpart_p (const_rtx x)
 {
   if (GET_CODE (x) != SUBREG)
     return 1;
@@ -1414,7 +1430,7 @@ component_ref_for_mem_expr (tree ref)
    and 0 otherwise.  */
 
 int
-mem_expr_equal_p (tree expr1, tree expr2)
+mem_expr_equal_p (const_tree expr1, const_tree expr2)
 {
   if (expr1 == expr2)
     return 1;
@@ -1453,7 +1469,7 @@ void
 set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 				 HOST_WIDE_INT bitpos)
 {
-  HOST_WIDE_INT alias = MEM_ALIAS_SET (ref);
+  alias_set_type alias = MEM_ALIAS_SET (ref);
   tree expr = MEM_EXPR (ref);
   rtx offset = MEM_OFFSET (ref);
   rtx size = MEM_SIZE (ref);
@@ -1732,7 +1748,7 @@ set_mem_attrs_from_reg (rtx mem, rtx reg)
 /* Set the alias set of MEM to SET.  */
 
 void
-set_mem_alias_set (rtx mem, HOST_WIDE_INT set)
+set_mem_alias_set (rtx mem, alias_set_type set)
 {
 #ifdef ENABLE_CHECKING
   /* If the new and old alias sets don't conflict, something is wrong.  */
@@ -2116,17 +2132,8 @@ set_new_first_and_last_insn (rtx first, rtx last)
    structure.  This routine should only be called once.  */
 
 static void
-unshare_all_rtl_1 (tree fndecl, rtx insn)
+unshare_all_rtl_1 (rtx insn)
 {
-  tree decl;
-
-  /* Make sure that virtual parameters are not shared.  */
-  for (decl = DECL_ARGUMENTS (fndecl); decl; decl = TREE_CHAIN (decl))
-    SET_DECL_RTL (decl, copy_rtx_if_shared (DECL_RTL (decl)));
-
-  /* Make sure that virtual stack slots are not shared.  */
-  unshare_all_decls (DECL_INITIAL (fndecl));
-
   /* Unshare just about everything else.  */
   unshare_all_rtl_in_chain (insn);
 
@@ -2158,21 +2165,21 @@ unshare_all_rtl_again (rtx insn)
       }
 
   /* Make sure that virtual stack slots are not shared.  */
-  reset_used_decls (DECL_INITIAL (cfun->decl));
+  set_used_decls (DECL_INITIAL (cfun->decl));
 
   /* Make sure that virtual parameters are not shared.  */
   for (decl = DECL_ARGUMENTS (cfun->decl); decl; decl = TREE_CHAIN (decl))
-    reset_used_flags (DECL_RTL (decl));
+    set_used_flags (DECL_RTL (decl));
 
   reset_used_flags (stack_slot_list);
 
-  unshare_all_rtl_1 (cfun->decl, insn);
+  unshare_all_rtl_1 (insn);
 }
 
 unsigned int
 unshare_all_rtl (void)
 {
-  unshare_all_rtl_1 (current_function_decl, get_insns ());
+  unshare_all_rtl_1 (get_insns ());
   return 0;
 }
 
@@ -2232,11 +2239,7 @@ verify_rtx_sharing (rtx orig, rtx insn)
       break;
 
     case CONST:
-      /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
-	 a LABEL_REF, it isn't sharable.  */
-      if (GET_CODE (XEXP (x, 0)) == PLUS
-	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+      if (shared_const_p (orig))
 	return;
       break;
 
@@ -2354,38 +2357,29 @@ unshare_all_rtl_in_chain (rtx insn)
       }
 }
 
-/* Go through all virtual stack slots of a function and copy any
-   shared structure.  */
-static void
-unshare_all_decls (tree blk)
-{
-  tree t;
-
-  /* Copy shared decls.  */
-  for (t = BLOCK_VARS (blk); t; t = TREE_CHAIN (t))
-    if (DECL_RTL_SET_P (t))
-      SET_DECL_RTL (t, copy_rtx_if_shared (DECL_RTL (t)));
-
-  /* Now process sub-blocks.  */
-  for (t = BLOCK_SUBBLOCKS (blk); t; t = TREE_CHAIN (t))
-    unshare_all_decls (t);
-}
-
 /* Go through all virtual stack slots of a function and mark them as
-   not shared.  */
+   shared.  We never replace the DECL_RTLs themselves with a copy,
+   but expressions mentioned into a DECL_RTL cannot be shared with
+   expressions in the instruction stream.
+
+   Note that reload may convert pseudo registers into memories in-place.
+   Pseudo registers are always shared, but MEMs never are.  Thus if we
+   reset the used flags on MEMs in the instruction stream, we must set
+   them again on MEMs that appear in DECL_RTLs.  */
+
 static void
-reset_used_decls (tree blk)
+set_used_decls (tree blk)
 {
   tree t;
 
   /* Mark decls.  */
   for (t = BLOCK_VARS (blk); t; t = TREE_CHAIN (t))
     if (DECL_RTL_SET_P (t))
-      reset_used_flags (DECL_RTL (t));
+      set_used_flags (DECL_RTL (t));
 
   /* Now process sub-blocks.  */
   for (t = BLOCK_SUBBLOCKS (blk); t; t = TREE_CHAIN (t))
-    reset_used_decls (t);
+    set_used_decls (t);
 }
 
 /* Mark ORIG as in use, and return a copy of it if it was already in use.
@@ -2444,11 +2438,7 @@ repeat:
       break;
 
     case CONST:
-      /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
-	 a LABEL_REF, it isn't sharable.  */
-      if (GET_CODE (XEXP (x, 0)) == PLUS
-	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+      if (shared_const_p (x))
 	return;
       break;
 
@@ -2927,7 +2917,7 @@ last_call_insn (void)
    same as next_real_insn.  */
 
 int
-active_insn_p (rtx insn)
+active_insn_p (const_rtx insn)
 {
   return (CALL_P (insn) || JUMP_P (insn)
 	  || (NONJUMP_INSN_P (insn)
@@ -3144,7 +3134,7 @@ try_split (rtx pat, rtx trial, int last)
   rtx before = PREV_INSN (trial);
   rtx after = NEXT_INSN (trial);
   int has_barrier = 0;
-  rtx tem;
+  rtx tem, note_retval;
   rtx note, seq;
   int probability;
   rtx insn_last, insn;
@@ -3182,6 +3172,10 @@ try_split (rtx pat, rtx trial, int last)
 	break;
       insn_last = NEXT_INSN (insn_last);
     }
+
+  /* We will be adding the new sequence to the function.  The splitters
+     may have introduced invalid RTL sharing, so unshare the sequence now.  */
+  unshare_all_rtl_in_chain (seq);
 
   /* Mark labels.  */
   for (insn = insn_last; insn ; insn = PREV_INSN (insn))
@@ -3276,6 +3270,18 @@ try_split (rtx pat, rtx trial, int last)
 	  break;
 #endif
 
+	case REG_LIBCALL:
+	  /* Relink the insns with REG_LIBCALL note and with REG_RETVAL note 
+	     after split.  */
+	  REG_NOTES (insn_last) 
+	    = gen_rtx_INSN_LIST (REG_LIBCALL,
+				 XEXP (note, 0),
+				 REG_NOTES (insn_last)); 
+
+	  note_retval = find_reg_note (XEXP (note, 0), REG_RETVAL, NULL);
+	  XEXP (note_retval, 0) = insn_last;
+	  break;
+
 	default:
 	  break;
 	}
@@ -3331,7 +3337,7 @@ make_insn_raw (rtx pattern)
   PATTERN (insn) = pattern;
   INSN_CODE (insn) = -1;
   REG_NOTES (insn) = NULL;
-  INSN_LOCATOR (insn) = 0;
+  INSN_LOCATOR (insn) = curr_insn_locator ();
   BLOCK_FOR_INSN (insn) = NULL;
 
 #ifdef ENABLE_RTL_CHECKING
@@ -3363,7 +3369,7 @@ make_jump_insn_raw (rtx pattern)
   INSN_CODE (insn) = -1;
   REG_NOTES (insn) = NULL;
   JUMP_LABEL (insn) = NULL;
-  INSN_LOCATOR (insn) = 0;
+  INSN_LOCATOR (insn) = curr_insn_locator ();
   BLOCK_FOR_INSN (insn) = NULL;
 
   return insn;
@@ -3383,7 +3389,7 @@ make_call_insn_raw (rtx pattern)
   INSN_CODE (insn) = -1;
   REG_NOTES (insn) = NULL;
   CALL_INSN_FUNCTION_USAGE (insn) = NULL;
-  INSN_LOCATOR (insn) = 0;
+  INSN_LOCATOR (insn) = curr_insn_locator ();
   BLOCK_FOR_INSN (insn) = NULL;
 
   return insn;
@@ -3456,8 +3462,7 @@ add_insn_after (rtx insn, rtx after, basic_block bb)
       if (BB_END (bb) == after
 	  /* Avoid clobbering of structure when creating new BB.  */
 	  && !BARRIER_P (insn)
-	  && (!NOTE_P (insn)
-	      || NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK))
+	  && !NOTE_INSN_BASIC_BLOCK_P (insn))
 	BB_END (bb) = insn;
     }
 
@@ -3525,8 +3530,7 @@ add_insn_before (rtx insn, rtx before, basic_block bb)
       gcc_assert (BB_HEAD (bb) != insn
 		  /* Avoid clobbering of structure when creating new BB.  */
 		  || BARRIER_P (insn)
-		  || (NOTE_P (insn)
-		      && NOTE_LINE_NUMBER (insn) == NOTE_INSN_BASIC_BLOCK));
+		  || NOTE_INSN_BASIC_BLOCK_P (insn));
     }
 
   PREV_INSN (before) = insn;
@@ -3541,10 +3545,7 @@ void set_insn_deleted (rtx insn)
 {
   df_insn_delete (BLOCK_FOR_INSN (insn), INSN_UID (insn));
   PUT_CODE (insn, NOTE);
-#ifndef USE_MAPPED_LOCATION
-  NOTE_SOURCE_FILE (insn) = 0;
-#endif
-  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+  NOTE_KIND (insn) = NOTE_INSN_DELETED;
 }
 
 
@@ -3919,15 +3920,13 @@ emit_label_before (rtx label, rtx before)
 /* Emit a note of subtype SUBTYPE before the insn BEFORE.  */
 
 rtx
-emit_note_before (int subtype, rtx before)
+emit_note_before (enum insn_note subtype, rtx before)
 {
   rtx note = rtx_alloc (NOTE);
   INSN_UID (note) = cur_insn_uid++;
-#ifndef USE_MAPPED_LOCATION
-  NOTE_SOURCE_FILE (note) = 0;
-#endif
-  NOTE_LINE_NUMBER (note) = subtype;
+  NOTE_KIND (note) = subtype;
   BLOCK_FOR_INSN (note) = NULL;
+  memset (&NOTE_DATA (note), 0, sizeof (NOTE_DATA (note)));
 
   add_insn_before (note, before, NULL);
   return note;
@@ -4124,15 +4123,13 @@ emit_label_after (rtx label, rtx after)
 /* Emit a note of subtype SUBTYPE after the insn AFTER.  */
 
 rtx
-emit_note_after (int subtype, rtx after)
+emit_note_after (enum insn_note subtype, rtx after)
 {
   rtx note = rtx_alloc (NOTE);
   INSN_UID (note) = cur_insn_uid++;
-#ifndef USE_MAPPED_LOCATION
-  NOTE_SOURCE_FILE (note) = 0;
-#endif
-  NOTE_LINE_NUMBER (note) = subtype;
+  NOTE_KIND (note) = subtype;
   BLOCK_FOR_INSN (note) = NULL;
+  memset (&NOTE_DATA (note), 0, sizeof (NOTE_DATA (note)));
   add_insn_after (note, after, NULL);
   return note;
 }
@@ -4480,42 +4477,6 @@ emit_barrier (void)
   return barrier;
 }
 
-/* Make line numbering NOTE insn for LOCATION add it to the end
-   of the doubly-linked list, but only if line-numbers are desired for
-   debugging info and it doesn't match the previous one.  */
-
-rtx
-emit_line_note (location_t location)
-{
-  rtx note;
-  
-#ifdef USE_MAPPED_LOCATION
-  if (location == last_location)
-    return NULL_RTX;
-#else
-  if (location.file && last_location.file
-      && !strcmp (location.file, last_location.file)
-      && location.line == last_location.line)
-    return NULL_RTX;
-#endif
-  last_location = location;
-  
-  if (no_line_numbers)
-    {
-      cur_insn_uid++;
-      return NULL_RTX;
-    }
-
-#ifdef USE_MAPPED_LOCATION
-  note = emit_note ((int) location);
-#else
-  note = emit_note (location.line);
-  NOTE_SOURCE_FILE (note) = location.file;
-#endif
-  
-  return note;
-}
-
 /* Emit a copy of note ORIG.  */
 
 rtx
@@ -4527,7 +4488,7 @@ emit_note_copy (rtx orig)
   
   INSN_UID (note) = cur_insn_uid++;
   NOTE_DATA (note) = NOTE_DATA (orig);
-  NOTE_LINE_NUMBER (note) = NOTE_LINE_NUMBER (orig);
+  NOTE_KIND (note) = NOTE_KIND (orig);
   BLOCK_FOR_INSN (note) = NULL;
   add_insn (note);
   
@@ -4538,13 +4499,13 @@ emit_note_copy (rtx orig)
    and add it to the end of the doubly-linked list.  */
 
 rtx
-emit_note (int note_no)
+emit_note (enum insn_note kind)
 {
   rtx note;
 
   note = rtx_alloc (NOTE);
   INSN_UID (note) = cur_insn_uid++;
-  NOTE_LINE_NUMBER (note) = note_no;
+  NOTE_KIND (note) = kind;
   memset (&NOTE_DATA (note), 0, sizeof (NOTE_DATA (note)));
   BLOCK_FOR_INSN (note) = NULL;
   add_insn (note);
@@ -4740,6 +4701,18 @@ push_to_sequence (rtx first)
   last_insn = last;
 }
 
+/* Like push_to_sequence, but take the last insn as an argument to avoid
+   looping through the list.  */
+
+void
+push_to_sequence2 (rtx first, rtx last)
+{
+  start_sequence ();
+
+  first_insn = first;
+  last_insn = last;
+}
+
 /* Set up the outer-level insn chain
    as the current sequence, saving the previously current one.  */
 
@@ -4883,11 +4856,7 @@ copy_insn_1 (rtx orig)
       break;
 
     case CONST:
-      /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
-	 a LABEL_REF, it isn't sharable.  */
-      if (GET_CODE (XEXP (orig, 0)) == PLUS
-	  && GET_CODE (XEXP (XEXP (orig, 0), 0)) == SYMBOL_REF
-	  && GET_CODE (XEXP (XEXP (orig, 0), 1)) == CONST_INT)
+      if (shared_const_p (orig))
 	return orig;
       break;
 
@@ -5272,6 +5241,22 @@ init_emit_once (int line_numbers)
 	const_tiny_rtx[i][(int) mode] = GEN_INT (i);
     }
 
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_COMPLEX_INT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      rtx inner = const_tiny_rtx[0][(int)GET_MODE_INNER (mode)];
+      const_tiny_rtx[0][(int) mode] = gen_rtx_CONCAT (mode, inner, inner);
+    }
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_COMPLEX_FLOAT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      rtx inner = const_tiny_rtx[0][(int)GET_MODE_INNER (mode)];
+      const_tiny_rtx[0][(int) mode] = gen_rtx_CONCAT (mode, inner, inner);
+    }
+
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_INT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
@@ -5286,6 +5271,62 @@ init_emit_once (int line_numbers)
     {
       const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
       const_tiny_rtx[1][(int) mode] = gen_const_vector (mode, 1);
+    }
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_FRACT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      FCONST0(mode).data.high = 0;
+      FCONST0(mode).data.low = 0;
+      FCONST0(mode).mode = mode;
+    }
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_UFRACT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      FCONST0(mode).data.high = 0;
+      FCONST0(mode).data.low = 0;
+      FCONST0(mode).mode = mode;
+    }
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_ACCUM);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      FCONST0(mode).data.high = 0;
+      FCONST0(mode).data.low = 0;
+      FCONST0(mode).mode = mode;
+
+      /* We store the value 1.  */
+      FCONST1(mode).data.high = 0;
+      FCONST1(mode).data.low = 0;
+      FCONST1(mode).mode = mode;
+      lshift_double (1, 0, GET_MODE_FBIT (mode),
+                     2 * HOST_BITS_PER_WIDE_INT,
+                     &FCONST1(mode).data.low,
+		     &FCONST1(mode).data.high,
+                     SIGNED_FIXED_POINT_MODE_P (mode));
+    }
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_UACCUM);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      FCONST0(mode).data.high = 0;
+      FCONST0(mode).data.low = 0;
+      FCONST0(mode).mode = mode;
+
+      /* We store the value 1.  */
+      FCONST1(mode).data.high = 0;
+      FCONST1(mode).data.low = 0;
+      FCONST1(mode).mode = mode;
+      lshift_double (1, 0, GET_MODE_FBIT (mode),
+                     2 * HOST_BITS_PER_WIDE_INT,
+                     &FCONST1(mode).data.low,
+		     &FCONST1(mode).data.high,
+                     SIGNED_FIXED_POINT_MODE_P (mode));
     }
 
   for (i = (int) CCmode; i < (int) MAX_MACHINE_MODE; ++i)

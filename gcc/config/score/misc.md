@@ -1,5 +1,5 @@
 ;;  Machine description for Sunplus S+CORE
-;;  Copyright (C) 2005
+;;  Copyright (C) 2005, 2007
 ;;  Free Software Foundation, Inc.
 ;;  Contributed by Sunnorth.
 
@@ -7,7 +7,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
@@ -380,38 +379,3 @@
   [(set_attr "type" "arith")
    (set_attr "mode" "SI")])
 
-(define_insn "bitclr_c"
-  [(set (match_operand:SI 0 "register_operand" "=e,d")
-        (and:SI (match_operand:SI 1 "register_operand" "0,d")
-                (match_operand:SI 2 "const_npow2")))
-   (clobber (reg:CC CC_REGNUM))]
-  ""
-  "@
-   bitclr!    %0, %F2
-   bitclr.c   %0, %1, %F2"
-  [(set_attr "type" "arith")
-   (set_attr "mode" "SI")])
-
-(define_insn "bitset_c"
-  [(set (match_operand:SI 0 "register_operand" "=e,d")
-        (ior:SI (match_operand:SI 1 "register_operand" "0,d")
-                (match_operand:SI 2 "const_pow2")))
-   (clobber (reg:CC CC_REGNUM))]
-  ""
-  "@
-   bitset!    %0, %E2
-   bitset.c   %0, %1, %E2"
-  [(set_attr "type" "arith")
-   (set_attr "mode" "SI")])
-
-(define_insn "bittgl_c"
-  [(set (match_operand:SI 0 "register_operand" "=e,d")
-        (xor:SI (match_operand:SI 1 "register_operand" "0,d")
-                (match_operand:SI 2 "const_pow2")))
-   (clobber (reg:CC CC_REGNUM))]
-  ""
-  "@
-   bittgl!    %0, %E2
-   bittgl.c   %0, %1, %E2"
-  [(set_attr "type" "arith")
-   (set_attr "mode" "SI")])

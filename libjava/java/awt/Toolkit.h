@@ -37,7 +37,10 @@ extern "Java"
         class Component;
         class Container;
         class Cursor;
+        class Desktop;
         class Dialog;
+        class Dialog$ModalExclusionType;
+        class Dialog$ModalityType;
         class Dimension;
         class EventQueue;
         class FileDialog;
@@ -101,6 +104,7 @@ extern "Java"
           class CheckboxMenuItemPeer;
           class CheckboxPeer;
           class ChoicePeer;
+          class DesktopPeer;
           class DialogPeer;
           class FileDialogPeer;
           class FontPeer;
@@ -139,6 +143,7 @@ class java::awt::Toolkit : public ::java::lang::Object
 public:
   Toolkit();
 public: // actually protected
+  virtual ::java::awt::peer::DesktopPeer * createDesktopPeer(::java::awt::Desktop *) = 0;
   virtual ::java::awt::peer::ButtonPeer * createButton(::java::awt::Button *) = 0;
   virtual ::java::awt::peer::TextFieldPeer * createTextField(::java::awt::TextField *) = 0;
   virtual ::java::awt::peer::LabelPeer * createLabel(::java::awt::Label *) = 0;
@@ -226,6 +231,8 @@ public: // actually package-private
   virtual void globalDispatchEvent(::java::awt::AWTEvent *);
 public:
   virtual ::java::util::Map * mapInputMethodHighlight(::java::awt::im::InputMethodHighlight *) = 0;
+  virtual jboolean isModalExclusionTypeSupported(::java::awt::Dialog$ModalExclusionType *) = 0;
+  virtual jboolean isModalityTypeSupported(::java::awt::Dialog$ModalityType *) = 0;
 private:
   static void initAccessibility();
   static ::java::lang::String * default_toolkit_name;

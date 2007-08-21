@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,6 +31,7 @@ with Errout;   use Errout;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Lib;      use Lib;
+with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
@@ -457,7 +458,7 @@ package body Sem_Ch13 is
 
       if Warn_On_Obsolescent_Feature then
          Error_Msg_N
-           ("at clause is an obsolescent feature ('R'M 'J.7(2))?", N);
+           ("at clause is an obsolescent feature (RM J.7(2))?", N);
          Error_Msg_N
            ("\use address attribute definition clause instead?", N);
       end if;
@@ -633,6 +634,11 @@ package body Sem_Ch13 is
    --  Start of processing for Analyze_Attribute_Definition_Clause
 
    begin
+      if Ignore_Rep_Clauses then
+         Rewrite (N, Make_Null_Statement (Sloc (N)));
+         return;
+      end if;
+
       Analyze (Nam);
       Ent := Entity (Nam);
 
@@ -751,7 +757,7 @@ package body Sem_Ch13 is
                if Warn_On_Obsolescent_Feature then
                   Error_Msg_N
                     ("attaching interrupt to task entry is an " &
-                     "obsolescent feature ('R'M 'J.7.1)?", N);
+                     "obsolescent feature (RM J.7.1)?", N);
                   Error_Msg_N
                     ("\use interrupt procedure instead?", N);
                end if;
@@ -809,7 +815,7 @@ package body Sem_Ch13 is
                   elsif Present (Renamed_Object (U_Ent)) then
                      Error_Msg_N
                        ("address clause not allowed"
-                          & " for a renaming declaration ('R'M 13.1(6))", Nam);
+                          & " for a renaming declaration (RM 13.1(6))", Nam);
 
                   --  Imported variables can have an address clause, but then
                   --  the import is pretty meaningless except to suppress
@@ -1052,7 +1058,22 @@ package body Sem_Ch13 is
                  ("static string required for tag name!", Nam);
             end if;
 
-            Set_Has_External_Tag_Rep_Clause (U_Ent);
+            if VM_Target = No_VM then
+               Set_Has_External_Tag_Rep_Clause (U_Ent);
+            else
+               Error_Msg_Name_1 := Attr;
+               Error_Msg_N
+                 ("% attribute unsupported in this configuration", Nam);
+            end if;
+
+            if not Is_Library_Level_Entity (U_Ent) then
+               Error_Msg_NE
+                 ("?non-unique external tag supplied for &", N, U_Ent);
+               Error_Msg_N
+                 ("?\same external tag applies to all subprogram calls", N);
+               Error_Msg_N
+                 ("?\corresponding internal tag cannot be obtained", N);
+            end if;
          end External_Tag;
 
          -----------
@@ -1362,8 +1383,10 @@ package body Sem_Ch13 is
             --    type Q is access Float;
             --    for Q'Storage_Size use T'Storage_Size; -- incorrect
 
-            if Base_Type (T) = RTE (RE_Stack_Bounded_Pool) then
-               Error_Msg_N ("non-sharable internal Pool", Expr);
+            if RTE_Available (RE_Stack_Bounded_Pool)
+              and then Base_Type (T) = RTE (RE_Stack_Bounded_Pool)
+            then
+               Error_Msg_N ("non-shareable internal Pool", Expr);
                return;
             end if;
 
@@ -1443,7 +1466,7 @@ package body Sem_Ch13 is
                if Warn_On_Obsolescent_Feature then
                   Error_Msg_N
                     ("storage size clause for task is an " &
-                     "obsolescent feature ('R'M 'J.9)?", N);
+                     "obsolescent feature (RM J.9)?", N);
                   Error_Msg_N
                     ("\use Storage_Size pragma instead?", N);
                end if;
@@ -1502,6 +1525,10 @@ package body Sem_Ch13 is
             Size : constant Uint := Static_Integer (Expr);
 
          begin
+            if Ada_Version <= Ada_95 then
+               Check_Restriction (No_Implementation_Attributes, N);
+            end if;
+
             if Has_Stream_Size_Clause (U_Ent) then
                Error_Msg_N ("Stream_Size already given for &", Nam);
 
@@ -1708,6 +1735,10 @@ package body Sem_Ch13 is
       Max : Uint;
 
    begin
+      if Ignore_Rep_Clauses then
+         return;
+      end if;
+
       --  First some basic error checks
 
       Find_Type (Ident);
@@ -2009,6 +2040,10 @@ package body Sem_Ch13 is
       --  Points to N_Pragma node if Complete_Representation pragma present
 
    begin
+      if Ignore_Rep_Clauses then
+         return;
+      end if;
+
       Find_Type (Ident);
       Rectype := Entity (Ident);
 
@@ -2062,7 +2097,7 @@ package body Sem_Ch13 is
 
             if Warn_On_Obsolescent_Feature then
                Error_Msg_N
-                 ("mod clause is an obsolescent feature ('R'M 'J.8)?", N);
+                 ("mod clause is an obsolescent feature (RM J.8)?", N);
                Error_Msg_N
                  ("\use alignment attribute definition clause instead?", N);
             end if;
@@ -2071,10 +2106,13 @@ package body Sem_Ch13 is
                Analyze_List (P);
             end if;
 
-            --  In ASIS_Mode mode, expansion is disabled, but we must
-            --  convert the Mod clause into an alignment clause anyway, so
-            --  that the back-end can compute and back-annotate properly the
-            --  size and alignment of types that may include this record.
+            --  In ASIS_Mode mode, expansion is disabled, but we must convert
+            --  the Mod clause into an alignment clause anyway, so that the
+            --  back-end can compute and back-annotate properly the size and
+            --  alignment of types that may include this record.
+
+            --  This seems dubious, this destroys the source tree in a manner
+            --  not detectable by ASIS ???
 
             if Operating_Mode = Check_Semantics
               and then ASIS_Mode
@@ -2099,8 +2137,8 @@ package body Sem_Ch13 is
          end;
       end if;
 
-      --  Clear any existing component clauses for the type (this happens
-      --  with derived types, where we are now overriding the original)
+      --  Clear any existing component clauses for the type (this happens with
+      --  derived types, where we are now overriding the original)
 
       Comp := First_Component_Or_Discriminant (Rectype);
       while Present (Comp) loop
@@ -2116,9 +2154,9 @@ package body Sem_Ch13 is
          return;
       end if;
 
-      --  If a tag is present, then create a component clause that places
-      --  it at the start of the record (otherwise gigi may place it after
-      --  other fields that have rep clauses).
+      --  If a tag is present, then create a component clause that places it
+      --  at the start of the record (otherwise gigi may place it after other
+      --  fields that have rep clauses).
 
       Fent := First_Entity (Rectype);
 
@@ -2570,6 +2608,51 @@ package body Sem_Ch13 is
 
             Next_Component_Or_Discriminant (Comp);
          end loop;
+
+      --  If no Complete_Representation pragma, warn if missing components
+
+      elsif Warn_On_Unrepped_Components
+        and then not Warnings_Off (Rectype)
+      then
+         declare
+            Num_Repped_Components   : Nat := 0;
+            Num_Unrepped_Components : Nat := 0;
+
+         begin
+            --  First count number of repped and unrepped components
+
+            Comp := First_Component_Or_Discriminant (Rectype);
+            while Present (Comp) loop
+               if Present (Component_Clause (Comp)) then
+                  Num_Repped_Components := Num_Repped_Components + 1;
+               else
+                  Num_Unrepped_Components := Num_Unrepped_Components + 1;
+               end if;
+
+               Next_Component_Or_Discriminant (Comp);
+            end loop;
+
+            --  We are only interested in the case where there is at least one
+            --  unrepped component, and at least half the components have rep
+            --  clauses. We figure that if less than half have them, then the
+            --  partial rep clause is really intentional.
+
+            if Num_Unrepped_Components > 0
+              and then Num_Unrepped_Components < Num_Repped_Components
+            then
+               Comp := First_Component_Or_Discriminant (Rectype);
+               while Present (Comp) loop
+                  if No (Component_Clause (Comp)) then
+                     Error_Msg_Sloc := Sloc (Comp);
+                     Error_Msg_NE
+                       ("?no component clause given for & declared #",
+                        N, Comp);
+                  end if;
+
+                  Next_Component_Or_Discriminant (Comp);
+               end loop;
+            end if;
+         end;
       end if;
    end Analyze_Record_Representation_Clause;
 
@@ -2652,7 +2735,7 @@ package body Sem_Ch13 is
                            Nod, U_Ent);
                Error_Msg_NE
                  ("address for& cannot" &
-                    " depend on another address clause! ('R'M 13.1(22))!",
+                    " depend on another address clause! (RM 13.1(22))!",
                   Nod, U_Ent);
 
             elsif In_Same_Source_Unit (Entity (Nod), U_Ent)
@@ -2664,7 +2747,7 @@ package body Sem_Ch13 is
                Error_Msg_Name_1 := Chars (Entity (Nod));
                Error_Msg_Name_2 := Chars (U_Ent);
                Error_Msg_N
-                 ("\% must be defined before % ('R'M 13.1(22))!",
+                 ("\% must be defined before % (RM 13.1(22))!",
                   Nod);
             end if;
 
@@ -2685,7 +2768,7 @@ package body Sem_Ch13 is
                      Nod, U_Ent);
                   Error_Msg_N
                     ("\address cannot depend on component" &
-                     " of discriminated record ('R'M 13.1(22))!",
+                     " of discriminated record (RM 13.1(22))!",
                      Nod);
                else
                   Check_At_Constant_Address (Prefix (Nod));
@@ -2798,7 +2881,7 @@ package body Sem_Ch13 is
                      Error_Msg_Name_1 := Chars (Ent);
                      Error_Msg_Name_2 := Chars (U_Ent);
                      Error_Msg_N
-                       ("\% must be defined before % ('R'M 13.1(22))!",
+                       ("\% must be defined before % (RM 13.1(22))!",
                         Nod);
                   end if;
 
@@ -2814,11 +2897,11 @@ package body Sem_Ch13 is
                      Error_Msg_Name_1 := Chars (Ent);
                      Error_Msg_N
                        ("\reference to variable% not allowed"
-                          & " ('R'M 13.1(22))!", Nod);
+                          & " (RM 13.1(22))!", Nod);
                   else
                      Error_Msg_N
                        ("non-static expression not allowed"
-                          & " ('R'M 13.1(22))!", Nod);
+                          & " (RM 13.1(22))!", Nod);
                   end if;
                end if;
 
@@ -2926,7 +3009,7 @@ package body Sem_Ch13 is
                      Nod, U_Ent);
 
                   Error_Msg_NE
-                    ("\function & is not pure ('R'M 13.1(22))!",
+                    ("\function & is not pure (RM 13.1(22))!",
                      Nod, Entity (Name (Nod)));
 
                else
@@ -2941,7 +3024,7 @@ package body Sem_Ch13 is
                  ("invalid address clause for initialized object &!",
                   Nod, U_Ent);
                Error_Msg_NE
-                 ("\must be constant defined before& ('R'M 13.1(22))!",
+                 ("\must be constant defined before& (RM 13.1(22))!",
                   Nod, U_Ent);
          end case;
       end Check_Expr_Constants;
@@ -3472,7 +3555,7 @@ package body Sem_Ch13 is
              Specification => Build_Spec);
 
       --  For a tagged type, there is always a visible declaration for each
-      --  stream TSS (it is a predefined primitive operation), and the for the
+      --  stream TSS (it is a predefined primitive operation), and the
       --  completion of this declaration occurs at the freeze point, which is
       --  not always visible at places where the attribute definition clause is
       --  visible. So, we create a dummy entity here for the purpose of
@@ -3944,6 +4027,17 @@ package body Sem_Ch13 is
          return;
       end if;
 
+      --  Warn if conversion between two different convention pointers
+
+      if Is_Access_Type (Target)
+        and then Is_Access_Type (Source)
+        and then Convention (Target) /= Convention (Source)
+        and then Warn_On_Unchecked_Conversion
+      then
+         Error_Msg_N
+           ("?conversion between pointers with different conventions!", N);
+      end if;
+
       --  Make entry in unchecked conversion table for later processing
       --  by Validate_Unchecked_Conversions, which will check sizes and
       --  alignments (using values set by the back-end where possible).
@@ -4032,7 +4126,7 @@ package body Sem_Ch13 is
 
                if Source_Siz /= Target_Siz then
                   Error_Msg_N
-                    ("types for unchecked conversion have different sizes?",
+                    ("?types for unchecked conversion have different sizes!",
                      Enode);
 
                   if All_Errors_Mode then
@@ -4050,18 +4144,18 @@ package body Sem_Ch13 is
                      then
                         if Source_Siz > Target_Siz then
                            Error_Msg_N
-                             ("\^ high order bits of source will be ignored?",
+                             ("\?^ high order bits of source will be ignored!",
                               Enode);
 
                         elsif Is_Unsigned_Type (Source) then
                            Error_Msg_N
-                             ("\source will be extended with ^ high order " &
-                              "zero bits?", Enode);
+                             ("\?source will be extended with ^ high order " &
+                              "zero bits?!", Enode);
 
                         else
                            Error_Msg_N
-                             ("\source will be extended with ^ high order " &
-                              "sign bits?",
+                             ("\?source will be extended with ^ high order " &
+                              "sign bits!",
                               Enode);
                         end if;
 
@@ -4069,25 +4163,25 @@ package body Sem_Ch13 is
                         if Is_Discrete_Type (Target) then
                            if Bytes_Big_Endian then
                               Error_Msg_N
-                                ("\target value will include ^ undefined " &
-                                 "low order bits?",
+                                ("\?target value will include ^ undefined " &
+                                 "low order bits!",
                                  Enode);
                            else
                               Error_Msg_N
-                                ("\target value will include ^ undefined " &
-                                 "high order bits?",
+                                ("\?target value will include ^ undefined " &
+                                 "high order bits!",
                                  Enode);
                            end if;
 
                         else
                            Error_Msg_N
-                             ("\^ trailing bits of target value will be " &
-                              "undefined?", Enode);
+                             ("\?^ trailing bits of target value will be " &
+                              "undefined!", Enode);
                         end if;
 
                      else pragma Assert (Source_Siz > Target_Siz);
                         Error_Msg_N
-                          ("\^ trailing bits of source will be ignored?",
+                          ("\?^ trailing bits of source will be ignored!",
                            Enode);
                      end if;
                   end if;
@@ -4124,13 +4218,13 @@ package body Sem_Ch13 is
                            Error_Msg_Uint_2 := Source_Align;
                            Error_Msg_Node_2 := D_Source;
                            Error_Msg_NE
-                             ("alignment of & (^) is stricter than " &
-                              "alignment of & (^)?", Enode, D_Target);
+                             ("?alignment of & (^) is stricter than " &
+                              "alignment of & (^)!", Enode, D_Target);
 
                            if All_Errors_Mode then
                               Error_Msg_N
-                                ("\resulting access value may have invalid " &
-                                 "alignment?", Enode);
+                                ("\?resulting access value may have invalid " &
+                                 "alignment!", Enode);
                            end if;
                         end if;
                      end;

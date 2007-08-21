@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -61,15 +61,14 @@ package body Ch3 is
       Done    : out Boolean;
       In_Spec : Boolean);
    --  Scans out a single declarative item, or, in the case of a declaration
-   --  with a list of identifiers, a list of declarations, one for each of
-   --  the identifiers in the list. The declaration or declarations scanned
-   --  are appended to the given list. Done indicates whether or not there
-   --  may be additional declarative items to scan. If Done is True, then
-   --  a decision has been made that there are no more items to scan. If
-   --  Done is False, then there may be additional declarations to scan.
-   --  In_Spec is true if we are scanning a package declaration, and is used
-   --  to generate an appropriate message if a statement is encountered in
-   --  such a context.
+   --  with a list of identifiers, a list of declarations, one for each of the
+   --  identifiers in the list. The declaration or declarations scanned are
+   --  appended to the given list. Done indicates whether or not there may be
+   --  additional declarative items to scan. If Done is True, then a decision
+   --  has been made that there are no more items to scan. If Done is False,
+   --  then there may be additional declarations to scan. In_Spec is true if
+   --  we are scanning a package declaration, and is used to generate an
+   --  appropriate message if a statement is encountered in such a context.
 
    procedure P_Identifier_Declarations
      (Decls   : List_Id;
@@ -941,11 +940,12 @@ package body Ch3 is
 
             --  Ada 2005 (AI-441, AI-447): null_exclusion is illegal in Ada 95,
             --  except in the case of anonymous access types.
-            --  Allow_Anonymous_In_95 will be True if we're parsing a
-            --  formal parameter or discriminant, which are the only places
-            --  where anonymous access types occur in Ada 95. "Formal : not
-            --  null access ..." is legal in Ada 95, whereas "Formal : not
-            --  null Named_Access_Type" is not.
+
+            --  Allow_Anonymous_In_95 will be True if we're parsing a formal
+            --  parameter or discriminant, which are the only places where
+            --  anonymous access types occur in Ada 95. "Formal : not null
+            --  access ..." is legal in Ada 95, whereas "Formal : not null
+            --  Named_Access_Type" is not.
 
             if Ada_Version >= Ada_05
               or else (Ada_Version >= Ada_95
@@ -956,13 +956,17 @@ package body Ch3 is
 
             else
                Error_Msg
-                 ("null-excluding access is an Ada 2005 extension", Not_Loc);
+                 ("`NOT NULL` access type is an Ada 2005 extension", Not_Loc);
                Error_Msg
                  ("\unit should be compiled with -gnat05 switch", Not_Loc);
             end if;
 
          else
             Error_Msg_SP ("NULL expected");
+         end if;
+
+         if Token = Tok_New then
+            Error_Msg ("`NOT NULL` comes after NEW, not before", Not_Loc);
          end if;
 
          return True;
@@ -1014,7 +1018,7 @@ package body Ch3 is
          return Subtype_Mark;
       else
          if Not_Null_Present then
-            Error_Msg_SP ("constrained null-exclusion not allowed");
+            Error_Msg_SP ("`NOT NULL` not allowed if constraint given");
          end if;
 
          Indic_Node := New_Node (N_Subtype_Indication, Sloc (Subtype_Mark));
@@ -1471,8 +1475,8 @@ package body Ch3 is
 
             if Present (Init_Expr) then
                if Not_Null_Present then
-                  Error_Msg_SP ("null-exclusion not allowed in "
-                                & "numeric expression");
+                  Error_Msg_SP
+                    ("`NOT NULL` not allowed in numeric expression");
                end if;
 
                Decl_Node := New_Node (N_Number_Declaration, Ident_Sloc);
@@ -1638,7 +1642,7 @@ package body Ch3 is
                if Token_Is_Renames then
                   if Ada_Version < Ada_05 then
                      Error_Msg_SP
-                       ("null-exclusion not allowed in object renaming");
+                       ("`NOT NULL` not allowed in object renaming");
                      raise Error_Resync;
 
                   --  Ada 2005 (AI-423): Object renaming declaration with
@@ -1745,6 +1749,7 @@ package body Ch3 is
          if Present (Init_Expr) then
             if Nkind (Decl_Node) = N_Object_Declaration then
                Set_Expression (Decl_Node, Init_Expr);
+               Set_Has_Init_Expression (Decl_Node);
             else
                Error_Msg ("initialization not allowed here", Init_Loc);
             end if;
@@ -2404,7 +2409,7 @@ package body Ch3 is
    begin
       Constraint_Node := New_Node (N_Digits_Constraint, Token_Ptr);
       Scan; -- past DIGITS
-      Expr_Node := P_Expression_No_Right_Paren;
+      Expr_Node := P_Expression;
       Check_Simple_Expression_In_Ada_83 (Expr_Node);
       Set_Digits_Expression (Constraint_Node, Expr_Node);
 
@@ -2436,7 +2441,7 @@ package body Ch3 is
    begin
       Constraint_Node := New_Node (N_Delta_Constraint, Token_Ptr);
       Scan; -- past DELTA
-      Expr_Node := P_Expression_No_Right_Paren;
+      Expr_Node := P_Expression;
       Check_Simple_Expression_In_Ada_83 (Expr_Node);
       Set_Delta_Expression (Constraint_Node, Expr_Node);
 
@@ -2782,8 +2787,6 @@ package body Ch3 is
                Idents (Num_Idents) := P_Defining_Identifier (C_Comma_Colon);
             end loop;
 
-            T_Colon;
-
             --  If there are multiple identifiers, we repeatedly scan the
             --  type and initialization expression information by resetting
             --  the scan pointer (so that we get completely separate trees
@@ -2792,6 +2795,8 @@ package body Ch3 is
             if Num_Idents > 1 then
                Save_Scan_State (Scan_State);
             end if;
+
+            T_Colon;
 
             --  Loop through defining identifiers in list
 
@@ -2836,6 +2841,7 @@ package body Ch3 is
                exit Ident_Loop when Ident = Num_Idents;
                Ident := Ident + 1;
                Restore_Scan_State (Scan_State);
+               T_Colon;
             end loop Ident_Loop;
 
             exit Specification_Loop when Token /= Tok_Semicolon;
@@ -3261,8 +3267,6 @@ package body Ch3 is
          Idents (Num_Idents) := P_Defining_Identifier (C_Comma_Colon);
       end loop;
 
-      T_Colon;
-
       --  If there are multiple identifiers, we repeatedly scan the
       --  type and initialization expression information by resetting
       --  the scan pointer (so that we get completely separate trees
@@ -3271,6 +3275,8 @@ package body Ch3 is
       if Num_Idents > 1 then
          Save_Scan_State (Scan_State);
       end if;
+
+      T_Colon;
 
       --  Loop through defining identifiers in list
 
@@ -3359,6 +3365,7 @@ package body Ch3 is
          exit Ident_Loop when Ident = Num_Idents;
          Ident := Ident + 1;
          Restore_Scan_State (Scan_State);
+         T_Colon;
 
       end loop Ident_Loop;
 
@@ -3497,7 +3504,8 @@ package body Ch3 is
 
          else
             begin
-               Expr_Node := No_Right_Paren (P_Expression_Or_Range_Attribute);
+               Expr_Node := P_Expression_Or_Range_Attribute;
+               Check_No_Right_Paren;
 
                if Token = Tok_Colon
                  and then Nkind (Expr_Node) = N_Identifier
@@ -3594,7 +3602,7 @@ package body Ch3 is
 
       if Abstract_Present then
          Error_Msg_SP ("ABSTRACT not allowed in interface type definition " &
-                       "('R'M' 3.9.4(2/2))");
+                       "(RM 3.9.4(2/2))");
       end if;
 
       Scan; -- past INTERFACE
@@ -3975,7 +3983,9 @@ package body Ch3 is
       Scan_State : Saved_Scan_State;
 
    begin
-      if Style_Check then Style.Check_Indentation; end if;
+      if Style_Check then
+         Style.Check_Indentation;
+      end if;
 
       case Token is
 

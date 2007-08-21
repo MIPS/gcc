@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -56,14 +55,12 @@ static int java_handle_option (size_t scode, const char *arg, int value);
 static void put_decl_string (const char *, int);
 static void put_decl_node (tree);
 static void java_print_error_function (diagnostic_context *, const char *);
-static tree java_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
-					      void *, struct pointer_set_t *);
 static int merge_init_test_initialization (void * *, void *);
 static int inline_init_test_initialization (void * *, void *);
 static bool java_dump_tree (void *, tree);
 static void dump_compound_expr (dump_info_p, tree);
 static bool java_decl_ok_for_sibcall (tree);
-static tree java_get_callee_fndecl (tree);
+static tree java_get_callee_fndecl (const_tree);
 static void java_clear_binding_stack (void);
 
 #ifndef TARGET_OBJECT_SUFFIX
@@ -182,19 +179,12 @@ struct language_function GTY(())
 #define LANG_HOOKS_TYPE_FOR_MODE java_type_for_mode
 #undef LANG_HOOKS_TYPE_FOR_SIZE
 #define LANG_HOOKS_TYPE_FOR_SIZE java_type_for_size
-#undef LANG_HOOKS_SIGNED_TYPE
-#define LANG_HOOKS_SIGNED_TYPE java_signed_type
-#undef LANG_HOOKS_UNSIGNED_TYPE
-#define LANG_HOOKS_UNSIGNED_TYPE java_unsigned_type
 
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN java_dump_tree
 
 #undef LANG_HOOKS_GIMPLIFY_EXPR
 #define LANG_HOOKS_GIMPLIFY_EXPR java_gimplify_expr
-
-#undef LANG_HOOKS_TREE_INLINING_WALK_SUBTREES
-#define LANG_HOOKS_TREE_INLINING_WALK_SUBTREES java_tree_inlining_walk_subtrees
 
 #undef LANG_HOOKS_DECL_OK_FOR_SIBCALL
 #define LANG_HOOKS_DECL_OK_FOR_SIBCALL java_decl_ok_for_sibcall
@@ -358,13 +348,6 @@ java_init (void)
 
   if (!flag_indirect_dispatch)
     flag_indirect_classes = false;
-
-  /* Force minimum function alignment if g++ uses the least significant
-     bit of function pointers to store the virtual bit. This is required
-     to keep vtables compatible.  */
-  if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
-      && force_align_functions_log < 1)
-    force_align_functions_log = 1;
 
   jcf_path_seal (v_flag);
 
@@ -700,49 +683,6 @@ decl_constant_value (tree decl)
   return decl;
 }
 
-/* Walk the language specific tree nodes during inlining.  */
-
-static tree
-java_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
-				  int *subtrees ATTRIBUTE_UNUSED,
-				  walk_tree_fn func ATTRIBUTE_UNUSED,
-				  void *data ATTRIBUTE_UNUSED,
-				  struct pointer_set_t *pset ATTRIBUTE_UNUSED)
-{
-  enum tree_code code;
-  tree result;
-
-#define WALK_SUBTREE(NODE)				\
-  do							\
-    {							\
-      result = walk_tree (&(NODE), func, data, pset);	\
-      if (result)					\
-	return result;					\
-    }							\
-  while (0)
-
-  tree t = *tp;
-  if (!t)
-    return NULL_TREE;
-
-  code = TREE_CODE (t);
-  switch (code)
-    {
-    case BLOCK:
-      WALK_SUBTREE (BLOCK_EXPR_BODY (t));
-      return NULL_TREE;
-
-    case EXIT_BLOCK_EXPR:
-      *subtrees = 0;
-      return NULL_TREE;
-
-    default:
-      return NULL_TREE;
-    }
-
-  #undef WALK_SUBTREE
-}
-
 /* Every call to a static constructor has an associated boolean
    variable which is in the outermost scope of the calling method.
    This variable is used to avoid multiple calls to the static
@@ -917,15 +857,6 @@ java_dump_tree (void *dump_info, tree t)
       dump_child ("label", TREE_OPERAND (t, 0));
       return true;
 
-    case LABELED_BLOCK_EXPR:
-      dump_child ("label", LABELED_BLOCK_LABEL (t));
-      dump_child ("block", LABELED_BLOCK_BODY (t));
-      return true;
-
-    case EXIT_BLOCK_EXPR:
-      dump_child ("block", EXIT_BLOCK_LABELED_BLOCK (t));
-      return true;
-
     case BLOCK:
       if (BLOCK_EXPR_BODY (t))
 	{
@@ -975,7 +906,7 @@ java_decl_ok_for_sibcall (tree decl)
    will replace the indirection with a direct call, which undoes the
    purpose of the atable indirection.  */
 static tree
-java_get_callee_fndecl (tree call_expr)
+java_get_callee_fndecl (const_tree call_expr)
 {
   tree method, table, element, atable_methods;
 

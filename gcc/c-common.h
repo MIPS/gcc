@@ -1,12 +1,12 @@
 /* Definitions for c-common.c.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_C_COMMON_H
 #define GCC_C_COMMON_H
@@ -53,7 +52,7 @@ enum rid
   RID_VOLATILE, RID_SIGNED,  RID_AUTO,  RID_RESTRICT,
 
   /* C extensions */
-  RID_COMPLEX, RID_THREAD,
+  RID_COMPLEX, RID_THREAD, RID_SAT,
 
   /* C++ */
   RID_FRIEND, RID_VIRTUAL, RID_EXPLICIT, RID_EXPORT, RID_MUTABLE,
@@ -73,6 +72,7 @@ enum rid
   RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_CHOOSE_EXPR,
   RID_TYPES_COMPATIBLE_P,
   RID_DFLOAT32, RID_DFLOAT64, RID_DFLOAT128,
+  RID_FRACT, RID_ACCUM,
 
   /* Too many ways of getting the name of a function as a string */
   RID_FUNCTION_NAME, RID_PRETTY_FUNCTION_NAME, RID_C99_FUNCTION_NAME,
@@ -102,7 +102,7 @@ enum rid
   RID_IS_UNION,
 
   /* C++0x */
-  RID_STATIC_ASSERT,
+  RID_STATIC_ASSERT, RID_DECLTYPE,
 
   /* Objective-C */
   RID_AT_ENCODE,   RID_AT_END,
@@ -120,7 +120,7 @@ enum rid
   RID_LAST_MODIFIER = RID_ONEWAY,
 
   RID_FIRST_CXX0X = RID_STATIC_ASSERT,
-  RID_LAST_CXX0X = RID_STATIC_ASSERT,
+  RID_LAST_CXX0X = RID_DECLTYPE,
   RID_FIRST_AT = RID_AT_ENCODE,
   RID_LAST_AT = RID_AT_IMPLEMENTATION,
   RID_FIRST_PQ = RID_IN,
@@ -254,6 +254,8 @@ extern c_language_kind c_language;
 #define c_dialect_cxx()		(c_language & clk_cxx)
 #define c_dialect_objc()	(c_language & clk_objc)
 
+extern bool lang_fortran;
+
 /* Information about a statement tree.  */
 
 struct stmt_tree_s GTY(()) {
@@ -295,10 +297,6 @@ struct c_language_function GTY(()) {
 #define cur_stmt_list (current_stmt_tree ()->x_cur_stmt_list)
 
 /* Language-specific hooks.  */
-
-/* Callback that determines if it's ok for a function to have no
-   noreturn attribute.  */
-extern int (*lang_missing_noreturn_ok_p) (tree);
 
 /* If non-NULL, this function is called after a precompile header file
    is loaded.  */
@@ -541,10 +539,18 @@ extern int flag_access_control;
 
 extern int flag_check_new;
 
-/* Nonzero if we want to allow the use of experimental features that
-   are likely to become part of C++0x. */
+/* The supported C++ dialects.  */
 
-extern int flag_cpp0x;
+enum cxx_dialect {
+  /* C++98  */
+  cxx98,
+  /* Experimental features that are likely to become part of
+     C++0x.  */
+  cxx0x
+};
+
+/* The C++ dialect being used. C++98 is the default.  */
+extern enum cxx_dialect cxx_dialect;
 
 /* Nonzero if we want the new ISO rules for pushing a new scope for `for'
    initialization variables.
@@ -665,6 +671,8 @@ extern int c_common_handle_option (size_t code, const char *arg, int value);
 extern bool c_common_missing_argument (const char *opt, size_t code);
 extern tree c_common_type_for_mode (enum machine_mode, int);
 extern tree c_common_type_for_size (unsigned int, int);
+extern tree c_common_fixed_point_type_for_size (unsigned int, unsigned int,
+						int, int);
 extern tree c_common_unsigned_type (tree);
 extern tree c_common_signed_type (tree);
 extern tree c_common_signed_or_unsigned_type (int, tree);
@@ -676,11 +684,11 @@ extern tree c_sizeof_or_alignof_type (tree, bool, int);
 extern tree c_alignof_expr (tree);
 /* Print an error message for invalid operands to arith operation CODE.
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
-extern void binary_op_error (enum tree_code);
+extern void binary_op_error (enum tree_code, tree, tree);
 extern tree fix_string_type (tree);
 struct varray_head_tag;
 extern void constant_expression_warning (tree);
-extern void strict_aliasing_warning (tree, tree, tree);
+extern bool strict_aliasing_warning (tree, tree, tree);
 extern void empty_if_body_warning (tree, tree);
 extern void warnings_for_convert_and_check (tree, tree, tree);
 extern tree convert_and_check (tree, tree);
@@ -721,12 +729,14 @@ extern bool c_common_post_options (const char **);
 extern bool c_common_init (void);
 extern void c_common_finish (void);
 extern void c_common_parse_file (int);
-extern HOST_WIDE_INT c_common_get_alias_set (tree);
+extern alias_set_type c_common_get_alias_set (tree);
 extern void c_register_builtin_type (tree, const char*);
 extern bool c_promoting_integer_type_p (tree);
 extern int self_promoting_args_p (tree);
 extern tree strip_array_types (tree);
+extern const_tree const_strip_array_types (const_tree);
 extern tree strip_pointer_operator (tree);
+extern tree strip_pointer_or_array_types (tree);
 extern HOST_WIDE_INT c_common_to_target_charset (HOST_WIDE_INT);
 
 /* This is the basic parsing function.  */
@@ -1001,12 +1011,5 @@ extern tree c_omp_remap_decl (tree, bool);
 #ifndef GCC_DIAG_STYLE
 #define GCC_DIAG_STYLE __gcc_cdiag__
 #endif
-
-/* Functions called automatically at the beginning and end of execution.  */
-extern GTY (()) tree static_ctors;
-extern GTY (()) tree static_dtors;
-
-extern void c_record_cdtor_fn (tree);
-extern void c_build_cdtor_fns (void);
 
 #endif /* ! GCC_C_COMMON_H */

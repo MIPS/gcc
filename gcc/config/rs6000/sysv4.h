@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* Header files should be C++ aware in general.  */
 #undef  NO_IMPLICIT_EXTERN_C
@@ -608,7 +607,7 @@ extern int fixuplabelno;
 #endif
 
 /* Pass -G xxx to the compiler and set correct endian mode.  */
-#define	CC1_SPEC "%{G*} \
+#define	CC1_SPEC "%{G*} %(cc1_cpu) \
 %{mlittle|mlittle-endian: %(cc1_endian_little);           \
   mbig   |mbig-endian   : %(cc1_endian_big);              \
   mcall-aixdesc |					  \
@@ -756,7 +755,7 @@ extern int fixuplabelno;
   mcall-openbsd: %(startfile_openbsd)     ; \
                : %(startfile_default)     }"
 
-#define	STARTFILE_DEFAULT_SPEC ""
+#define	STARTFILE_DEFAULT_SPEC "ecrti.o%s crtbegin.o%s"
 
 /* Override svr4.h definition.  */
 #undef	LIB_SPEC
@@ -773,7 +772,7 @@ extern int fixuplabelno;
   mcall-openbsd: %(lib_openbsd)     ; \
                : %(lib_default)     }"
 
-#define LIB_DEFAULT_SPEC ""
+#define LIB_DEFAULT_SPEC "-lc"
 
 /* Override svr4.h definition.  */
 #undef	ENDFILE_SPEC
@@ -792,7 +791,7 @@ extern int fixuplabelno;
 
 #define CRTSAVRES_DEFAULT_SPEC "crtsavres.o%s"
 
-#define	ENDFILE_DEFAULT_SPEC ""
+#define	ENDFILE_DEFAULT_SPEC "crtend.o%s ecrtn.o%s"
 
 /* Motorola ADS support.  */
 #define LIB_ADS_SPEC "--start-group -lads -lc --end-group"

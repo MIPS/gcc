@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---         Copyright (C) 1992-2006, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2007, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -48,7 +48,6 @@ with System.Tasking.Entry_Calls;
 with System.Tasking.Initialization;
 --  used for Defer_Abort
 --           Undefer_Abort
---           Poll_Base_Priority_Change
 --           Do_Pending_Action
 
 with System.Tasking.Queuing;
@@ -70,6 +69,9 @@ with System.Tasking.Protected_Objects.Operations;
 
 with System.Tasking.Debug;
 --  used for Trace
+
+with System.Restrictions;
+--  used for Abort_Allowed
 
 with System.Parameters;
 --  used for Single_Lock
@@ -454,6 +456,7 @@ package body System.Tasking.Rendezvous is
       Entry_Call.Uninterpreted_Data := Uninterpreted_Data;
       Entry_Call.Called_Task := Acceptor;
       Entry_Call.Exception_To_Raise := Ada.Exceptions.Null_Id;
+      Entry_Call.With_Abort := True;
 
       --  Note: the caller will undefer abort on return (see WARNING above)
 
@@ -461,9 +464,7 @@ package body System.Tasking.Rendezvous is
          Lock_RTS;
       end if;
 
-      if not Task_Do_Or_Queue
-        (Self_Id, Entry_Call, With_Abort => True)
-      then
+      if not Task_Do_Or_Queue (Self_Id, Entry_Call) then
          STPO.Write_Lock (Self_Id);
          Utilities.Exit_One_ATC_Level (Self_Id);
          STPO.Unlock (Self_Id);
@@ -476,7 +477,7 @@ package body System.Tasking.Rendezvous is
             Send_Trace_Info (E_Missed, Acceptor);
          end if;
 
-         Initialization.Undefer_Abort (Self_Id);
+         Local_Undefer_Abort (Self_Id);
          raise Tasking_Error;
       end if;
 
@@ -506,7 +507,7 @@ package body System.Tasking.Rendezvous is
       Self_Id : constant Task_Id := STPO.Self;
 
    begin
-      Initialization.Defer_Abort (Self_Id);
+      Initialization.Defer_Abort_Nestable (Self_Id);
 
       if Single_Lock then
          Lock_RTS;
@@ -520,7 +521,7 @@ package body System.Tasking.Rendezvous is
          Unlock_RTS;
       end if;
 
-      Initialization.Undefer_Abort (Self_Id);
+      Initialization.Undefer_Abort_Nestable (Self_Id);
       return Result;
    end Callable;
 
@@ -644,9 +645,7 @@ package body System.Tasking.Rendezvous is
                   Lock_RTS;
                end if;
 
-               if not Task_Do_Or_Queue
-                 (Self_Id, Entry_Call, Entry_Call.Requeue_With_Abort)
-               then
+               if not Task_Do_Or_Queue (Self_Id, Entry_Call) then
                   if Single_Lock then
                      Unlock_RTS;
                   end if;
@@ -685,9 +684,7 @@ package body System.Tasking.Rendezvous is
                   end if;
 
                else
-                  POO.PO_Do_Or_Queue
-                    (Self_Id, Called_PO, Entry_Call,
-                     Entry_Call.Requeue_With_Abort);
+                  POO.PO_Do_Or_Queue (Self_Id, Called_PO, Entry_Call);
                   POO.PO_Service_Entries (Self_Id, Called_PO);
                end if;
             end if;
@@ -756,7 +753,7 @@ package body System.Tasking.Rendezvous is
       Entry_Call.E := Entry_Index (E);
       Entry_Call.Called_Task := Acceptor;
       Entry_Call.Called_PO := Null_Address;
-      Entry_Call.Requeue_With_Abort := With_Abort;
+      Entry_Call.With_Abort := With_Abort;
       Object.Call_In_Progress := null;
    end Requeue_Protected_To_Task_Entry;
 
@@ -775,7 +772,7 @@ package body System.Tasking.Rendezvous is
    begin
       Initialization.Defer_Abort (Self_Id);
       Entry_Call.Needs_Requeue := True;
-      Entry_Call.Requeue_With_Abort := With_Abort;
+      Entry_Call.With_Abort := With_Abort;
       Entry_Call.E := Entry_Index (E);
       Entry_Call.Called_Task := Acceptor;
       Initialization.Undefer_Abort (Self_Id);
@@ -923,7 +920,11 @@ package body System.Tasking.Rendezvous is
             then
                Uninterpreted_Data := Self_Id.Common.Call.Uninterpreted_Data;
 
-               pragma Assert (Self_Id.Deferral_Level = 1);
+               pragma Assert
+                 (Self_Id.Deferral_Level = 1
+                   or else
+                     (Self_Id.Deferral_Level = 0
+                       and then not Restrictions.Abort_Allowed));
 
                Initialization.Defer_Abort_Nestable (Self_Id);
 
@@ -1019,7 +1020,6 @@ package body System.Tasking.Rendezvous is
                Self_Id.Common.State := Delay_Sleep;
 
                loop
-                  Initialization.Poll_Base_Priority_Change (Self_Id);
                   exit when
                     Self_Id.Pending_ATC_Level < Self_Id.ATC_Nesting_Level;
                   Sleep (Self_Id, Delay_Sleep);
@@ -1098,6 +1098,11 @@ package body System.Tasking.Rendezvous is
       end if;
 
       Initialization.Undefer_Abort (Self_Id);
+
+      --  Call Yield to let other tasks get a chance to run as this is a
+      --  potential dispatching point.
+
+      Yield (Do_Yield => False);
       return Return_Count;
    end Task_Count;
 
@@ -1107,11 +1112,10 @@ package body System.Tasking.Rendezvous is
 
    function Task_Do_Or_Queue
      (Self_ID    : Task_Id;
-      Entry_Call : Entry_Call_Link;
-      With_Abort : Boolean) return Boolean
+      Entry_Call : Entry_Call_Link) return Boolean
    is
       E             : constant Task_Entry_Index :=
-        Task_Entry_Index (Entry_Call.E);
+                        Task_Entry_Index (Entry_Call.E);
       Old_State     : constant Entry_Call_State := Entry_Call.State;
       Acceptor      : constant Task_Id := Entry_Call.Called_Task;
       Parent        : constant Task_Id := Acceptor.Common.Parent;
@@ -1119,7 +1123,8 @@ package body System.Tasking.Rendezvous is
       Null_Body     : Boolean;
 
    begin
-      --  Find out whether Entry_Call can be accepted immediately.
+      --  Find out whether Entry_Call can be accepted immediately
+
       --  If the Acceptor is not callable, return False.
       --  If the rendezvous can start, initiate it.
       --  If the accept-body is trivial, also complete the rendezvous.
@@ -1262,7 +1267,7 @@ package body System.Tasking.Rendezvous is
       --  (re)enqueue the call, if the mode permits that.
 
       if Entry_Call.Mode /= Conditional_Call
-        or else not With_Abort
+        or else not Entry_Call.With_Abort
       then
          --  Timed_Call, Simple_Call, or Asynchronous_Call
 
@@ -1272,7 +1277,8 @@ package body System.Tasking.Rendezvous is
 
          pragma Assert (Old_State < Done);
 
-         Entry_Call.State := New_State (With_Abort, Entry_Call.State);
+         Entry_Call.State :=
+           New_State (Entry_Call.With_Abort, Entry_Call.State);
 
          STPO.Unlock (Acceptor);
 
@@ -1380,14 +1386,13 @@ package body System.Tasking.Rendezvous is
          Entry_Call.Called_Task := Acceptor;
          Entry_Call.Called_PO := Null_Address;
          Entry_Call.Exception_To_Raise := Ada.Exceptions.Null_Id;
+         Entry_Call.With_Abort := True;
 
          if Single_Lock then
             Lock_RTS;
          end if;
 
-         if not Task_Do_Or_Queue
-           (Self_Id, Entry_Call, With_Abort => True)
-         then
+         if not Task_Do_Or_Queue (Self_Id, Entry_Call) then
             STPO.Write_Lock (Self_Id);
             Utilities.Exit_One_ATC_Level (Self_Id);
             STPO.Unlock (Self_Id);
@@ -1562,6 +1567,8 @@ package body System.Tasking.Rendezvous is
             --  Wait for a normal call and a pending action until the
             --  Wakeup_Time is reached.
 
+            Self_Id.Common.State := Acceptor_Sleep;
+
             --  Try to remove calls to Sleep in the loop below by letting the
             --  caller a chance of getting ready immediately, using Unlock
             --  Yield. See similar action in Wait_For_Completion/Wait_For_Call.
@@ -1588,10 +1595,7 @@ package body System.Tasking.Rendezvous is
                Self_Id.Open_Accepts := null;
             end if;
 
-            Self_Id.Common.State := Acceptor_Sleep;
-
             loop
-               Initialization.Poll_Base_Priority_Change (Self_Id);
                exit when Self_Id.Open_Accepts = null;
 
                if Timedout then
@@ -1652,8 +1656,6 @@ package body System.Tasking.Rendezvous is
 
             Self_Id.Open_Accepts := null;
             Self_Id.Common.State := Acceptor_Sleep;
-
-            Initialization.Poll_Base_Priority_Change (Self_Id);
 
             STPO.Timed_Sleep (Self_Id, Timeout, Mode, Acceptor_Sleep,
               Timedout, Yielded);
@@ -1751,6 +1753,7 @@ package body System.Tasking.Rendezvous is
       Entry_Call.Called_Task := Acceptor;
       Entry_Call.Called_PO := Null_Address;
       Entry_Call.Exception_To_Raise := Ada.Exceptions.Null_Id;
+      Entry_Call.With_Abort := True;
 
       --  Note: the caller will undefer abort on return (see WARNING above)
 
@@ -1758,9 +1761,7 @@ package body System.Tasking.Rendezvous is
          Lock_RTS;
       end if;
 
-      if not Task_Do_Or_Queue
-       (Self_Id, Entry_Call, With_Abort => True)
-      then
+      if not Task_Do_Or_Queue (Self_Id, Entry_Call) then
          STPO.Write_Lock (Self_Id);
          Utilities.Exit_One_ATC_Level (Self_Id);
          STPO.Unlock (Self_Id);
@@ -1799,9 +1800,11 @@ package body System.Tasking.Rendezvous is
 
    procedure Wait_For_Call (Self_Id : Task_Id) is
    begin
+      Self_Id.Common.State := Acceptor_Sleep;
+
       --  Try to remove calls to Sleep in the loop below by letting the caller
       --  a chance of getting ready immediately, using Unlock & Yield.
-      --  See similar action in Wait_For_Completion & Selective_Wait.
+      --  See similar action in Wait_For_Completion & Timed_Selective_Wait.
 
       if Single_Lock then
          Unlock_RTS;
@@ -1825,13 +1828,8 @@ package body System.Tasking.Rendezvous is
          Self_Id.Open_Accepts := null;
       end if;
 
-      Self_Id.Common.State := Acceptor_Sleep;
-
       loop
-         Initialization.Poll_Base_Priority_Change (Self_Id);
-
          exit when Self_Id.Open_Accepts = null;
-
          Sleep (Self_Id, Acceptor_Sleep);
       end loop;
 

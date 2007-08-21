@@ -1,6 +1,6 @@
 /* Output routines for GCC for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -55,6 +54,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-gimple.h"
 #include "cfgloop.h"
 #include "alloc-pool.h"
+#include "tm-constrs.h"
 
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
@@ -87,6 +87,9 @@ static short *regmode_weight[2];
 
 /* Total SFmode and SImode weights of scheduled insns.  */
 static int curr_regmode_pressure[2];
+
+/* Number of r0 life regions.  */
+static int r0_life_regions;
 
 /* If true, skip cycles for Q -> R movement.  */
 static int skip_cycles = 0;
@@ -154,21 +157,6 @@ char sh_additional_register_names[ADDREGNAMES_SIZE] \
   [MAX_ADDITIONAL_REGISTER_NAME_LENGTH + 1]
   = SH_ADDITIONAL_REGISTER_NAMES_INITIALIZER;
 
-/* Provide reg_class from a letter such as appears in the machine
-   description.  *: target independently reserved letter.
-   reg_class_from_letter['e' - 'a'] is set to NO_REGS for TARGET_FMOVD.  */
-
-enum reg_class reg_class_from_letter[] =
-{
-  /* a */ ALL_REGS,  /* b */ TARGET_REGS, /* c */ FPSCR_REGS, /* d */ DF_REGS,
-  /* e */ FP_REGS,   /* f */ FP_REGS,  /* g **/ NO_REGS,     /* h */ NO_REGS,
-  /* i **/ NO_REGS,  /* j */ NO_REGS,  /* k */ SIBCALL_REGS, /* l */ PR_REGS,
-  /* m **/ NO_REGS,  /* n **/ NO_REGS, /* o **/ NO_REGS,     /* p **/ NO_REGS,
-  /* q */ NO_REGS,   /* r **/ NO_REGS, /* s **/ NO_REGS,     /* t */ T_REGS,
-  /* u */ NO_REGS,   /* v */ NO_REGS,  /* w */ FP0_REGS,     /* x */ MAC_REGS,
-  /* y */ FPUL_REGS, /* z */ R0_REGS
-};
-
 int assembler_dialect;
 
 static bool shmedia_space_reserved_for_target_registers;
@@ -193,7 +181,6 @@ static rtx push (int);
 static void pop (int);
 static void push_regs (HARD_REG_SET *, int);
 static int calc_live_regs (HARD_REG_SET *);
-static void mark_use (rtx, rtx *);
 static HOST_WIDE_INT rounded_frame_size (int);
 static rtx mark_constant_pool_use (rtx);
 const struct attribute_spec sh_attribute_table[];
@@ -210,6 +197,7 @@ static int sh_dfa_new_cycle (FILE *, int, rtx, int, int, int *sort_p);
 static short find_set_regmode_weight (rtx, enum machine_mode);
 static short find_insn_regmode_weight (rtx, enum machine_mode);
 static void find_regmode_weight (basic_block, enum machine_mode);
+static int find_r0_life_regions (basic_block);
 static void  sh_md_init_global (FILE *, int, int);
 static void  sh_md_finish_global (FILE *, int);
 static int rank_for_reorder (const void *, const void *);
@@ -234,7 +222,7 @@ static rtx sh_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static void sh_output_mi_thunk (FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT, tree);
 static void sh_file_start (void);
 static int flow_dependent_p (rtx, rtx);
-static void flow_dependent_p_1 (rtx, rtx, void *);
+static void flow_dependent_p_1 (rtx, const_rtx, void *);
 static int shiftcosts (rtx);
 static int andcosts (rtx);
 static int addsubcosts (rtx);
@@ -243,9 +231,6 @@ static bool unspec_caller_rtx_p (rtx);
 static bool sh_cannot_copy_insn_p (rtx);
 static bool sh_rtx_costs (rtx, int, int, int *);
 static int sh_address_cost (rtx);
-#ifdef TARGET_ADJUST_UNROLL_MAX
-static int sh_adjust_unroll_max (struct loop *, int, int, int, int);
-#endif
 static int sh_pr_n_sets (void);
 static rtx sh_allocate_initial_value (rtx);
 static int shmedia_target_regs_stack_space (HARD_REG_SET *);
@@ -271,7 +256,6 @@ static bool sh_callee_copies (CUMULATIVE_ARGS *, enum machine_mode,
 static int sh_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 			         tree, bool);
 static int sh_dwarf_calling_convention (tree);
-static int hard_regs_intersect_p (HARD_REG_SET *, HARD_REG_SET *);
 
 
 /* Initialize the GCC target structure.  */
@@ -469,11 +453,6 @@ static int hard_regs_intersect_p (HARD_REG_SET *, HARD_REG_SET *);
 #define TARGET_CXX_IMPORT_EXPORT_CLASS  symbian_import_export_class
 
 #endif /* SYMBIAN */
-
-#ifdef TARGET_ADJUST_UNROLL_MAX
-#undef TARGET_ADJUST_UNROLL_MAX
-#define TARGET_ADJUST_UNROLL_MAX sh_adjust_unroll_max
-#endif
 
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD sh_secondary_reload
@@ -1211,7 +1190,9 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 	    /* It's ok.  */;
 	  else
 	    {
-	      temp = no_new_pseudos ? operands[0] : gen_reg_rtx (Pmode);
+	      temp = (!can_create_pseudo_p ()
+		      ? operands[0]
+		      : gen_reg_rtx (Pmode));
 	      operands[1] = legitimize_pic_address (operands[1], mode, temp);
 	    }
 	}
@@ -1219,13 +1200,14 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 	       && GET_CODE (XEXP (operands[1], 0)) == PLUS
 	       && SYMBOLIC_CONST_P (XEXP (XEXP (operands[1], 0), 0)))
 	{
-	  temp = no_new_pseudos ? operands[0] : gen_reg_rtx (Pmode);
+	  temp = !can_create_pseudo_p () ? operands[0] : gen_reg_rtx (Pmode);
 	  temp = legitimize_pic_address (XEXP (XEXP (operands[1], 0), 0),
 					 mode, temp);
 	  operands[1] = expand_binop (mode, add_optab, temp,
 				      XEXP (XEXP (operands[1], 0), 1),
-				      no_new_pseudos ? temp
-				      : gen_reg_rtx (Pmode),
+				      (!can_create_pseudo_p ()
+				       ? temp
+				       : gen_reg_rtx (Pmode)),
 				      0, OPTAB_LIB_WIDEN);
 	}
     }
@@ -1317,7 +1299,7 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 		  if (flag_schedule_insns)
 		    emit_insn (gen_blockage ());
 		}
-	      tga_op1 = no_new_pseudos ? op0 : gen_reg_rtx (Pmode);
+	      tga_op1 = !can_create_pseudo_p () ? op0 : gen_reg_rtx (Pmode);
 	      tmp = gen_sym2GOTTPOFF (op1);
 	      emit_insn (gen_tls_initial_exec (tga_op1, tmp));
 	      op1 = tga_op1;
@@ -1408,7 +1390,7 @@ prepare_cbranch_operands (rtx *operands, enum machine_mode mode,
 	}
     }
   op1 = operands[1];
-  if (!no_new_pseudos)
+  if (can_create_pseudo_p ())
     operands[1] = force_reg (mode, op1);
   /* When we are handling DImode comparisons, we want to keep constants so
      that we can optimize the component comparisons; however, memory loads
@@ -1424,14 +1406,14 @@ prepare_cbranch_operands (rtx *operands, enum machine_mode mode,
 	  || (mode == SImode && operands[2] != CONST0_RTX (SImode)
 	      && ((comparison != EQ && comparison != NE)
 		  || (REG_P (op1) && REGNO (op1) != R0_REG)
-		  || !CONST_OK_FOR_I08 (INTVAL (operands[2]))))))
+		  || !satisfies_constraint_I08 (operands[2])))))
     {
       if (scratch && GET_MODE (scratch) == mode)
 	{
 	  emit_move_insn (scratch, operands[2]);
 	  operands[2] = scratch;
 	}
-      else if (!no_new_pseudos)
+      else if (can_create_pseudo_p ())
 	operands[2] = force_reg (mode, operands[2]);
     }
   return comparison;
@@ -2291,9 +2273,8 @@ andcosts (rtx x)
 
   if (TARGET_SHMEDIA)
     {
-      if (GET_CODE (XEXP (x, 1)) == CONST_INT
-	  && (CONST_OK_FOR_I10 (INTVAL (XEXP (x, 1)))
-	      || CONST_OK_FOR_J16 (INTVAL (XEXP (x, 1)))))
+      if (satisfies_constraint_I10 (XEXP (x, 1))
+	  || satisfies_constraint_J16 (XEXP (x, 1)))
 	return 1;
       else
 	return 1 + rtx_cost (XEXP (x, 1), AND);
@@ -3729,10 +3710,8 @@ broken_move (rtx insn)
 		&& FP_REGISTER_P (REGNO (SET_DEST (pat))))
 	  && ! (TARGET_SH2A
 		&& GET_MODE (SET_DEST (pat)) == SImode
-		&& GET_CODE (SET_SRC (pat)) == CONST_INT
-		&& CONST_OK_FOR_I20 (INTVAL (SET_SRC (pat))))
-	  && (GET_CODE (SET_SRC (pat)) != CONST_INT
-	      || ! CONST_OK_FOR_I08 (INTVAL (SET_SRC (pat)))))
+		&& satisfies_constraint_I20 (SET_SRC (pat)))
+	  && ! satisfies_constraint_I08 (SET_SRC (pat)))
 	return 1;
     }
 
@@ -5212,9 +5191,7 @@ split_branches (rtx first)
       {
 	/* Shorten_branches would split this instruction again,
 	   so transform it into a note.  */
-	PUT_CODE (insn, NOTE);
-	NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-	NOTE_SOURCE_FILE (insn) = 0;
+	SET_INSN_DELETED (insn);
       }
     else if (GET_CODE (insn) == JUMP_INSN
 	     /* Don't mess with ADDR_DIFF_VEC */
@@ -5591,7 +5568,13 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	      temp = scavenge_reg (&temps);
 	    }
 	  if (temp < 0 && live_regs_mask)
-	    temp = scavenge_reg (live_regs_mask);
+	    {
+	      HARD_REG_SET temps;
+
+	      COPY_HARD_REG_SET (temps, *live_regs_mask);
+	      CLEAR_HARD_REG_BIT (temps, REGNO (reg));
+	      temp = scavenge_reg (&temps);
+	    }
 	  if (temp < 0)
 	    {
 	      rtx adj_reg, tmp_reg, mem;
@@ -5640,6 +5623,9 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	      emit_move_insn (adj_reg, mem);
 	      mem = gen_tmp_stack_mem (Pmode, gen_rtx_POST_INC (Pmode, reg));
 	      emit_move_insn (tmp_reg, mem);
+	      /* Tell flow the insns that pop r4/r5 aren't dead.  */
+	      emit_insn (gen_rtx_USE (VOIDmode, tmp_reg));
+	      emit_insn (gen_rtx_USE (VOIDmode, adj_reg));
 	      return;
 	    }
 	  const_reg = gen_rtx_REG (GET_MODE (reg), temp);
@@ -5738,19 +5724,19 @@ pop (int rn)
 static void
 push_regs (HARD_REG_SET *mask, int interrupt_handler)
 {
-  int i;
+  int i = interrupt_handler ? LAST_BANKED_REG + 1 : 0;
   int skip_fpscr = 0;
 
   /* Push PR last; this gives better latencies after the prologue, and
      candidates for the return delay slot when there are no general
      registers pushed.  */
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+  for (; i < FIRST_PSEUDO_REGISTER; i++)
     {
       /* If this is an interrupt handler, and the SZ bit varies,
 	 and we have to push any floating point register, we need
 	 to switch to the correct precision first.  */
       if (i == FIRST_FP_REG && interrupt_handler && TARGET_FMOVD
-	  && hard_regs_intersect_p (mask, &reg_class_contents[DF_REGS]))
+	  && hard_reg_set_intersect_p (*mask, reg_class_contents[DF_REGS]))
 	{
 	  HARD_REG_SET unsaved;
 
@@ -5764,6 +5750,13 @@ push_regs (HARD_REG_SET *mask, int interrupt_handler)
 	  && TEST_HARD_REG_BIT (*mask, i))
 	push (i);
     }
+
+  /* Push banked registers last to improve delay slot opportunities.  */
+  if (interrupt_handler)
+    for (i = FIRST_BANKED_REG; i <= LAST_BANKED_REG; i++)
+      if (TEST_HARD_REG_BIT (*mask, i))
+	push (i);
+
   if (TEST_HARD_REG_BIT (*mask, PR_REG))
     push (PR_REG);
 }
@@ -5960,10 +5953,10 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
      Make sure we save at least one general purpose register when we need
      to save target registers.  */
   if (interrupt_handler
-      && hard_regs_intersect_p (live_regs_mask,
-				&reg_class_contents[TARGET_REGS])
-      && ! hard_regs_intersect_p (live_regs_mask,
-				  &reg_class_contents[GENERAL_REGS]))
+      && hard_reg_set_intersect_p (*live_regs_mask,
+				   reg_class_contents[TARGET_REGS])
+      && ! hard_reg_set_intersect_p (*live_regs_mask,
+				     reg_class_contents[GENERAL_REGS]))
     {
       SET_HARD_REG_BIT (*live_regs_mask, R0_REG);
       count += GET_MODE_SIZE (REGISTER_NATURAL_MODE (R0_REG));
@@ -6198,19 +6191,8 @@ sh_expand_prologue (void)
       int tr = sh_media_register_for_return ();
 
       if (tr >= 0)
-	{
-	  rtx insn = emit_move_insn (gen_rtx_REG (DImode, tr),
-				     gen_rtx_REG (DImode, PR_MEDIA_REG));
-
-	  /* ??? We should suppress saving pr when we don't need it, but this
-	     is tricky because of builtin_return_address.  */
-
-	  /* If this function only exits with sibcalls, this copy
-	     will be flagged as dead.  */
-	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-						const0_rtx,
-						REG_NOTES (insn));
-	}
+	emit_move_insn (gen_rtx_REG (DImode, tr),
+			gen_rtx_REG (DImode, PR_MEDIA_REG));
     }
 
   /* Emit the code for SETUP_VARARGS.  */
@@ -6459,23 +6441,7 @@ sh_expand_prologue (void)
     push_regs (&live_regs_mask, current_function_interrupt);
 
   if (flag_pic && df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM))
-    {
-      rtx insn = get_last_insn ();
-      rtx last = emit_insn (gen_GOTaddr2picreg ());
-
-      /* Mark these insns as possibly dead.  Sometimes, flow2 may
-	 delete all uses of the PIC register.  In this case, let it
-	 delete the initialization too.  */
-      do
-	{
-	  insn = NEXT_INSN (insn);
-
-	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-						const0_rtx,
-						REG_NOTES (insn));
-	}
-      while (insn != last);
-    }
+    emit_insn (gen_GOTaddr2picreg ());
 
   if (SHMEDIA_REGS_STACK_ADJUST ())
     {
@@ -6490,16 +6456,7 @@ sh_expand_prologue (void)
     }
 
   if (target_flags != save_flags && ! current_function_interrupt)
-    {
-      rtx insn = emit_insn (gen_toggle_sz ());
-
-      /* If we're lucky, a mode switch in the function body will
-	 overwrite fpscr, turning this insn dead.  Tell flow this
-	 insn is ok to delete.  */
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-					    const0_rtx,
-					    REG_NOTES (insn));
-    }
+    emit_insn (gen_toggle_sz ());
 
   target_flags = save_flags;
 
@@ -6720,17 +6677,14 @@ sh_expand_epilogue (bool sibcall_p)
 	    }
 
 	  insn = emit_move_insn (reg_rtx, mem_rtx);
-	  if (reg == PR_MEDIA_REG && sh_media_register_for_return () >= 0)
-	    /* This is dead, unless we return with a sibcall.  */
-	    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-						  const0_rtx,
-						  REG_NOTES (insn));
 	}
 
       gcc_assert (entry->offset + offset_base == d + d_rounding);
     }
   else /* ! TARGET_SH5 */
     {
+      int last_reg;
+
       save_size = 0;
       if (TEST_HARD_REG_BIT (live_regs_mask, PR_REG))
 	{
@@ -6738,19 +6692,33 @@ sh_expand_epilogue (bool sibcall_p)
 	    emit_insn (gen_blockage ());
 	  pop (PR_REG);
 	}
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+
+      /* Banked registers are poped first to avoid being scheduled in the
+	 delay slot. RTE switches banks before the ds instruction.  */
+      if (current_function_interrupt)
+	{
+	  for (i = FIRST_BANKED_REG; i <= LAST_BANKED_REG; i++)
+	    if (TEST_HARD_REG_BIT (live_regs_mask, i)) 
+	      pop (LAST_BANKED_REG - i);
+
+	  last_reg = FIRST_PSEUDO_REGISTER - LAST_BANKED_REG - 1;
+	}
+      else
+	last_reg = FIRST_PSEUDO_REGISTER;
+
+      for (i = 0; i < last_reg; i++)
 	{
 	  int j = (FIRST_PSEUDO_REGISTER - 1) - i;
 
 	  if (j == FPSCR_REG && current_function_interrupt && TARGET_FMOVD
-	      && hard_regs_intersect_p (&live_regs_mask,
-					&reg_class_contents[DF_REGS]))
+	      && hard_reg_set_intersect_p (live_regs_mask,
+					  reg_class_contents[DF_REGS]))
 	    fpscr_deferred = 1;
 	  else if (j != PR_REG && TEST_HARD_REG_BIT (live_regs_mask, j))
 	    pop (j);
+
 	  if (j == FIRST_FP_REG && fpscr_deferred)
 	    pop (FPSCR_REG);
-
 	}
     }
   if (target_flags != save_flags && ! current_function_interrupt)
@@ -6885,7 +6853,7 @@ sh_builtin_saveregs (void)
   int n_floatregs = MAX (0, NPARM_REGS (SFmode) - first_floatreg);
   rtx regbuf, fpregs;
   int bufsize, regno;
-  HOST_WIDE_INT alias_set;
+  alias_set_type alias_set;
 
   if (TARGET_SH5)
     {
@@ -7105,7 +7073,8 @@ sh_va_start (tree valist, rtx nextarg)
 		       valist, f_next_stack, NULL_TREE);
 
   /* Call __builtin_saveregs.  */
-  u = make_tree (ptr_type_node, expand_builtin_saveregs ());
+  u = make_tree (sizetype, expand_builtin_saveregs ());
+  u = fold_convert (ptr_type_node, u);
   t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_fp, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -7115,8 +7084,8 @@ sh_va_start (tree valist, rtx nextarg)
     nfp = 8 - nfp;
   else
     nfp = 0;
-  u = fold_build2 (PLUS_EXPR, ptr_type_node, u,
-		   build_int_cst (NULL_TREE, UNITS_PER_WORD * nfp));
+  u = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, u,
+		   size_int (UNITS_PER_WORD * nfp));
   t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_fp_limit, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -7130,8 +7099,8 @@ sh_va_start (tree valist, rtx nextarg)
     nint = 4 - nint;
   else
     nint = 0;
-  u = fold_build2 (PLUS_EXPR, ptr_type_node, u,
-		   build_int_cst (NULL_TREE, UNITS_PER_WORD * nint));
+  u = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, u,
+		   size_int (UNITS_PER_WORD * nint));
   t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_o_limit, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -7264,8 +7233,8 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  gimplify_and_add (tmp, pre_p);
 	  tmp = next_fp_limit;
 	  if (size > 4 && !is_double)
-	    tmp = build2 (PLUS_EXPR, TREE_TYPE (tmp), tmp,
-			  fold_convert (TREE_TYPE (tmp), size_int (4 - size)));
+	    tmp = build2 (POINTER_PLUS_EXPR, TREE_TYPE (tmp), tmp,
+			  size_int (4 - size));
 	  tmp = build2 (GE_EXPR, boolean_type_node, next_fp_tmp, tmp);
 	  cmp = build3 (COND_EXPR, void_type_node, tmp,
 		        build1 (GOTO_EXPR, void_type_node, lab_false),
@@ -7276,9 +7245,11 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  if (TYPE_ALIGN (eff_type) > BITS_PER_WORD
 	      || (is_double || size == 16))
 	    {
-	      tmp = fold_convert (ptr_type_node, size_int (UNITS_PER_WORD));
-	      tmp = build2 (BIT_AND_EXPR, ptr_type_node, next_fp_tmp, tmp);
-	      tmp = build2 (PLUS_EXPR, ptr_type_node, next_fp_tmp, tmp);
+	      tmp = fold_convert (sizetype, next_fp_tmp);
+	      tmp = build2 (BIT_AND_EXPR, sizetype, tmp,
+			    size_int (UNITS_PER_WORD));
+	      tmp = build2 (POINTER_PLUS_EXPR, ptr_type_node,
+			    next_fp_tmp, tmp);
 	      tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node,
 		  	    next_fp_tmp, tmp);
 	      gimplify_and_add (tmp, pre_p);
@@ -7324,8 +7295,8 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	}
       else
 	{
-	  tmp = fold_convert (ptr_type_node, size_int (rsize));
-	  tmp = build2 (PLUS_EXPR, ptr_type_node, next_o, tmp);
+	  tmp = build2 (POINTER_PLUS_EXPR, ptr_type_node, next_o,
+			size_int (rsize));
 	  tmp = build2 (GT_EXPR, boolean_type_node, tmp, next_o_limit);
 	  tmp = build3 (COND_EXPR, void_type_node, tmp,
 		        build1 (GOTO_EXPR, void_type_node, lab_false),
@@ -8353,7 +8324,7 @@ emit_fpu_switch (rtx scratch, int index)
     }
 
   src = DECL_RTL (fpscr_values);
-  if (no_new_pseudos)
+  if (!can_create_pseudo_p ())
     {
       emit_move_insn (scratch, XEXP (src, 0));
       if (index != 0)
@@ -8405,86 +8376,6 @@ expand_df_binop (rtx (*fun) (rtx, rtx, rtx, rtx), rtx *operands)
 			get_fpscr_rtx ()));
 }
 
-/* ??? gcc does flow analysis strictly after common subexpression
-   elimination.  As a result, common subexpression elimination fails
-   when there are some intervening statements setting the same register.
-   If we did nothing about this, this would hurt the precision switching
-   for SH4 badly.  There is some cse after reload, but it is unable to
-   undo the extra register pressure from the unused instructions, and
-   it cannot remove auto-increment loads.
-
-   A C code example that shows this flow/cse weakness for (at least) SH
-   and sparc (as of gcc ss-970706) is this:
-
-double
-f(double a)
-{
-  double d;
-  d = 0.1;
-  a += d;
-  d = 1.1;
-  d = 0.1;
-  a *= d;
-  return a;
-}
-
-   So we add another pass before common subexpression elimination, to
-   remove assignments that are dead due to a following assignment in the
-   same basic block.  */
-
-static void
-mark_use (rtx x, rtx *reg_set_block)
-{
-  enum rtx_code code;
-
-  if (! x)
-    return;
-  code = GET_CODE (x);
-  switch (code)
-    {
-    case REG:
-      {
-	int regno = REGNO (x);
-	int nregs = (regno < FIRST_PSEUDO_REGISTER
-		     ? HARD_REGNO_NREGS (regno, GET_MODE (x))
-		     : 1);
-	do
-	  {
-	    reg_set_block[regno + nregs - 1] = 0;
-	  }
-	while (--nregs);
-	break;
-      }
-    case SET:
-      {
-	rtx dest = SET_DEST (x);
-
-	if (GET_CODE (dest) == SUBREG)
-	  dest = SUBREG_REG (dest);
-	if (GET_CODE (dest) != REG)
-	  mark_use (dest, reg_set_block);
-	mark_use (SET_SRC (x), reg_set_block);
-	break;
-      }
-    case CLOBBER:
-      break;
-    default:
-      {
-	const char *fmt = GET_RTX_FORMAT (code);
-	int i, j;
-	for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-	  {
-	    if (fmt[i] == 'e')
-	      mark_use (XEXP (x, i), reg_set_block);
-	    else if (fmt[i] == 'E')
-	      for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-		mark_use (XVECEXP (x, i, j), reg_set_block);
-	  }
-	break;
-      }
-    }
-}
-
 static rtx get_free_reg (HARD_REG_SET);
 
 /* This function returns a register to use to load the address to load
@@ -8520,8 +8411,9 @@ fpscr_set_from_mem (int mode, HARD_REG_SET regs_live)
 {
   enum attr_fp_mode fp_mode = mode;
   enum attr_fp_mode norm_mode = ACTUAL_NORMAL_MODE (FP_MODE);
-  rtx addr_reg = get_free_reg (regs_live);
+  rtx addr_reg;
 
+  addr_reg = !can_create_pseudo_p () ? get_free_reg (regs_live) : NULL_RTX;
   emit_fpu_switch (addr_reg, fp_mode == norm_mode);
 }
 
@@ -9018,7 +8910,7 @@ flow_dependent_p (rtx insn, rtx dep_insn)
 
 /* A helper function for flow_dependent_p called through note_stores.  */
 static void
-flow_dependent_p_1 (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
+flow_dependent_p_1 (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
   rtx * pinsn = (rtx *) data;
 
@@ -9033,7 +8925,7 @@ flow_dependent_p_1 (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
 static int
 sh_pr_n_sets (void)
 {
-  return REG_N_SETS (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
+  return DF_REG_DEF_COUNT (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
 }
 
 /* Return where to allocate pseudo for a given hard register initial
@@ -9200,6 +9092,56 @@ ready_reorder (rtx *ready, int nready)
   SCHED_REORDER (ready, nready);
 }
 
+/* Count life regions of r0 for a block.  */
+static int
+find_r0_life_regions (basic_block b)
+{
+  rtx end, insn;
+  rtx pset;
+  rtx r0_reg;
+  int live;
+  int set;
+  int death = 0;
+
+  if (REGNO_REG_SET_P (df_get_live_in (b), R0_REG))
+    {
+      set = 1;
+      live = 1;
+    }
+  else
+    {
+      set = 0;
+      live = 0;
+    }
+
+  insn = BB_HEAD (b);
+  end = BB_END (b);
+  r0_reg = gen_rtx_REG (SImode, R0_REG);
+  while (1)
+    {
+      if (INSN_P (insn))
+	{
+	  if (find_regno_note (insn, REG_DEAD, R0_REG))
+	    {
+	      death++;
+	      live = 0;
+	    }
+	  if (!live
+	      && (pset = single_set (insn))
+	      && reg_overlap_mentioned_p (r0_reg, SET_DEST (pset))
+	      && !find_regno_note (insn, REG_UNUSED, R0_REG))
+	    {
+	      set++;
+	      live = 1;
+	    }
+	}
+      if (insn == end)
+	break;
+      insn = NEXT_INSN (insn);
+    }
+  return set - death;
+}
+
 /* Calculate regmode weights for all insns of all basic block.  */
 static void
 sh_md_init_global (FILE *dump ATTRIBUTE_UNUSED,
@@ -9210,11 +9152,14 @@ sh_md_init_global (FILE *dump ATTRIBUTE_UNUSED,
 
   regmode_weight[0] = (short *) xcalloc (old_max_uid, sizeof (short));
   regmode_weight[1] = (short *) xcalloc (old_max_uid, sizeof (short));
+  r0_life_regions = 0;
 
   FOR_EACH_BB_REVERSE (b)
   {
     find_regmode_weight (b, SImode);
     find_regmode_weight (b, SFmode);
+    if (!reload_completed)
+      r0_life_regions += find_r0_life_regions (b);
   }
 
   CURR_REGMODE_PRESSURE (SImode) = 0;
@@ -9275,7 +9220,6 @@ sh_md_init (FILE *dump ATTRIBUTE_UNUSED,
 /* Pressure on register r0 can lead to spill failures. so avoid sched1 for
    functions that already have high pressure on r0. */
 #define R0_MAX_LIFE_REGIONS 2
-#define R0_MAX_LIVE_LENGTH 12
 /* Register Pressure thresholds for SImode and SFmode registers.  */
 #define SIMODE_MAX_WEIGHT 5
 #define SFMODE_MAX_WEIGHT 10
@@ -9286,9 +9230,8 @@ high_pressure (enum machine_mode mode)
 {
   /* Pressure on register r0 can lead to spill failures. so avoid sched1 for
      functions that already have high pressure on r0. */
-  if ((REG_N_SETS (0) - REG_N_DEATHS (0)) >= R0_MAX_LIFE_REGIONS
-      && REG_LIVE_LENGTH (0) >= R0_MAX_LIVE_LENGTH)
-    return 1;
+   if (r0_life_regions >= R0_MAX_LIFE_REGIONS)
+     return 1;
 
   if (mode == SFmode)
     return (CURR_REGMODE_PRESSURE (SFmode) > SFMODE_MAX_WEIGHT);
@@ -9399,30 +9342,6 @@ sh_optimize_target_register_callee_saved (bool after_prologue_epilogue_gen)
     return 0;
   if (calc_live_regs (&dummy) >= 6 * 8)
     return 1;
-#if 0
-  /* This is a borderline case.  See if we got a nested loop, or a loop
-     with a call, or with more than 4 labels inside.  */
-  for (insn = get_insns(); insn; insn = NEXT_INSN (insn))
-    {
-      if (GET_CODE (insn) == NOTE
-	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
-	{
-	  int labels = 0;
-
-	  do
-	    {
-	      insn = NEXT_INSN (insn);
-	      if ((GET_CODE (insn) == NOTE
-		   && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
-		  || GET_CODE (insn) == CALL_INSN
-		  || (GET_CODE (insn) == CODE_LABEL && ++labels > 4))
-		return 1;
-	    }
-	  while (GET_CODE (insn) != NOTE
-		 || NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_END);
-	}
-    }
-#endif
   return 0;
 }
 
@@ -10132,9 +10051,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   reload_completed = 1;
   epilogue_completed = 1;
-  no_new_pseudos = 1;
   current_function_uses_only_leaf_regs = 1;
-  reset_block_changes ();
 
   emit_note (NOTE_INSN_PROLOGUE_END);
 
@@ -10291,7 +10208,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
      the insns emitted.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
 
-  insn_locators_initialize ();
+  insn_locators_alloc ();
   insns = get_insns ();
 
 #if 0
@@ -10340,25 +10257,8 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   final (insns, file, 1);
   final_end_function ();
 
-#if 0
-  if (optimize > 0)
-    {
-      /* Release all memory allocated by df.  */
-      if (rtl_df)
-	{
-	  df_finish (rtl_df);
-	  rtl_df = NULL;
-	}
-
-      /* Release the bitmap obstacks.  */
-      bitmap_obstack_release (&reg_obstack);
-      bitmap_obstack_release (NULL);
-    }
-#endif
-
   reload_completed = 0;
   epilogue_completed = 0;
-  no_new_pseudos = 0;
 }
 
 rtx
@@ -10435,11 +10335,12 @@ sh_get_pr_initial_val (void)
 
   /* If we haven't finished rtl generation, there might be a nonlocal label
      that we haven't seen yet.
-     ??? get_hard_reg_initial_val fails if it is called while no_new_pseudos
-     is set, unless it has been called before for the same register.  And even
-     then, we end in trouble if we didn't use the register in the same
-     basic block before.  So call get_hard_reg_initial_val now and wrap it
-     in an unspec if we might need to replace it.  */
+     ??? get_hard_reg_initial_val fails if it is called after register
+     allocation has started, unless it has been called before for the
+     same register.  And even then, we end in trouble if we didn't use
+     the register in the same basic block before.  So call
+     get_hard_reg_initial_val now and wrap it in an unspec if we might
+     need to replace it.  */
   /* ??? We also must do this for TARGET_SH1 in general, because otherwise
      combine can put the pseudo returned by get_hard_reg_initial_val into
      instructions that need a general purpose registers, which will fail to
@@ -10660,290 +10561,6 @@ sh_init_cumulative_args (CUMULATIVE_ARGS *  pcum,
     }
 }
 
-/* Determine if two hard register sets intersect.
-   Return 1 if they do.  */
-
-static int
-hard_regs_intersect_p (HARD_REG_SET *a, HARD_REG_SET *b)
-{
-  HARD_REG_SET c;
-  COPY_HARD_REG_SET (c, *a);
-  AND_HARD_REG_SET (c, *b);
-  GO_IF_HARD_REG_SUBSET (c, reg_class_contents[(int) NO_REGS], lose);
-  return 1;
-lose:
-  return 0;
-}
-
-#ifdef TARGET_ADJUST_UNROLL_MAX
-static int
-sh_adjust_unroll_max (struct loop * loop, int insn_count,
-		      int max_unrolled_insns, int strength_reduce_p,
-		      int unroll_type)
-{
-/* This doesn't work in 4.0 because the old unroller & loop.h  is gone.  */
-  if (TARGET_ADJUST_UNROLL && TARGET_SHMEDIA)
-    {
-      /* Throttle back loop unrolling so that the costs of using more
-	 targets than the eight target register we have don't outweigh
-	 the benefits of unrolling.  */
-      rtx insn;
-      int n_labels = 0, n_calls = 0, n_exit_dest = 0, n_inner_loops = -1;
-      int n_barriers = 0;
-      rtx dest;
-      int i;
-      rtx exit_dest[8];
-      int threshold;
-      int unroll_benefit = 0, mem_latency = 0;
-      int base_cost, best_cost, cost;
-      int factor, best_factor;
-      int n_dest;
-      unsigned max_iterations = 32767;
-      int n_iterations;
-      int need_precond = 0, precond = 0;
-      basic_block * bbs = get_loop_body (loop);
-      struct niter_desc *desc;
-
-      /* Assume that all labels inside the loop are used from inside the
-	 loop.  If the loop has multiple entry points, it is unlikely to
-	 be unrolled anyways.
-	 Also assume that all calls are to different functions.  That is
-	 somewhat pessimistic, but if you have lots of calls, unrolling the
-	 loop is not likely to gain you much in the first place.  */
-      i = loop->num_nodes - 1;
-      for (insn = BB_HEAD (bbs[i]); ; )
-	{
-	  if (GET_CODE (insn) == CODE_LABEL)
-	    n_labels++;
-	  else if (GET_CODE (insn) == CALL_INSN)
-	    n_calls++;
-	  else if (GET_CODE (insn) == NOTE
-		   && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
-	    n_inner_loops++;
-	  else if (GET_CODE (insn) == BARRIER)
-	    n_barriers++;
-	  if (insn != BB_END (bbs[i]))
-	    insn = NEXT_INSN (insn);
-	  else if (--i >= 0)
-	    insn = BB_HEAD (bbs[i]);
-	   else
-	    break;
-	}
-      free (bbs);
-      /* One label for the loop top is normal, and it won't be duplicated by
-	 unrolling.  */
-      if (n_labels <= 1)
-	return max_unrolled_insns;
-      if (n_inner_loops > 0)
-	return 0;
-      for (dest = loop->exit_labels; dest && n_exit_dest < 8;
-	   dest = LABEL_NEXTREF (dest))
-	{
-	  for (i = n_exit_dest - 1;
-	       i >= 0 && XEXP (dest, 0) != XEXP (exit_dest[i], 0); i--);
-	  if (i < 0)
-	    exit_dest[n_exit_dest++] = dest;
-	}
-      /* If the loop top and call and exit destinations are enough to fill up
-	 the target registers, we're unlikely to do any more damage by
-	 unrolling.  */
-      if (n_calls + n_exit_dest >= 7)
-	return max_unrolled_insns;
-
-      /* ??? In the new loop unroller, there is no longer any strength
-         reduction information available.  Thus, when it comes to unrolling,
-         we know the cost of everything, but we know the value of nothing.  */
-#if 0
-      if (strength_reduce_p
-	  && (unroll_type == LPT_UNROLL_RUNTIME
-	      || unroll_type == LPT_UNROLL_CONSTANT
-	      || unroll_type == LPT_PEEL_COMPLETELY))
-	{
-	  struct loop_ivs *ivs = LOOP_IVS (loop);
-	  struct iv_class *bl;
-
-	  /* We'll save one compare-and-branch in each loop body copy
-	     but the last one.  */
-	  unroll_benefit = 1;
-	  /* Assess the benefit of removing biv & giv updates.  */
-	  for (bl = ivs->list; bl; bl = bl->next)
-	    {
-	      rtx increment = biv_total_increment (bl);
-	      struct induction *v;
-
-	      if (increment && GET_CODE (increment) == CONST_INT)
-		{
-		  unroll_benefit++;
-		  for (v = bl->giv; v; v = v->next_iv)
-		    {
-		      if (! v->ignore && v->same == 0
-			  && GET_CODE (v->mult_val) == CONST_INT)
-			unroll_benefit++;
-		      /* If this giv uses an array, try to determine
-			 a maximum iteration count from the size of the
-			 array.  This need not be correct all the time,
-			 but should not be too far off the mark too often.  */
-		      while (v->giv_type == DEST_ADDR)
-			{
-			  rtx mem = PATTERN (v->insn);
-			  tree mem_expr, type, size_tree;
-
-			  if (GET_CODE (SET_SRC (mem)) == MEM)
-			    mem = SET_SRC (mem);
-			  else if (GET_CODE (SET_DEST (mem)) == MEM)
-			    mem = SET_DEST (mem);
-			  else
-			    break;
-			  mem_expr = MEM_EXPR (mem);
-			  if (! mem_expr)
-			    break;
-			  type = TREE_TYPE (mem_expr);
-			  if (TREE_CODE (type) != ARRAY_TYPE
-			      || ! TYPE_SIZE (type) || ! TYPE_SIZE_UNIT (type))
-			    break;
-			  size_tree = fold_build2 (TRUNC_DIV_EXPR,
-						   bitsizetype,
-						   TYPE_SIZE (type),
-						   TYPE_SIZE_UNIT (type));
-			  if (TREE_CODE (size_tree) == INTEGER_CST
-			      && ! TREE_INT_CST_HIGH (size_tree)
-			      && TREE_INT_CST_LOW  (size_tree) < max_iterations)
-			    max_iterations = TREE_INT_CST_LOW  (size_tree);
-			  break;
-			}
-		    }
-		}
-	    }
-	}
-#else /* 0 */
-      /* Assume there is at least some benefit.  */
-      unroll_benefit = 1;
-#endif /* 0 */
-
-      desc = get_simple_loop_desc (loop);
-      n_iterations = desc->const_iter ? desc->niter : 0;
-      max_iterations
-	= max_iterations < desc->niter_max ? max_iterations : desc->niter_max;
-
-      if (! strength_reduce_p || ! n_iterations)
-	need_precond = 1;
-      if (! n_iterations)
-	{
-	  n_iterations
-	    = max_iterations < 3 ? max_iterations : max_iterations * 3 / 4;
-	  if (! n_iterations)
-	    return 0;
-	}
-#if 0 /* ??? See above - missing induction variable information.  */
-      while (unroll_benefit > 1) /* no loop */
-	{
-	  /* We include the benefit of biv/ giv updates.  Check if some or
-	     all of these updates are likely to fit into a scheduling
-	     bubble of a load.
-	     We check for the following case:
-	     - All the insns leading to the first JUMP_INSN are in a strict
-	       dependency chain.
-	     - there is at least one memory reference in them.
-
-	     When we find such a pattern, we assume that we can hide as many
-	     updates as the total of the load latency is, if we have an
-	     unroll factor of at least two.  We might or might not also do
-	     this without unrolling, so rather than considering this as an
-	     extra unroll benefit, discount it in the unroll benefits of unroll
-	     factors higher than two.  */
-		
-	  rtx set, last_set;
-
-	  insn = next_active_insn (loop->start);
-	  last_set = single_set (insn);
-	  if (! last_set)
-	    break;
-	  if (GET_CODE (SET_SRC (last_set)) == MEM)
-	    mem_latency += 2;
-	  for (insn = NEXT_INSN (insn); insn != end; insn = NEXT_INSN (insn))
-	    {
-	      if (! INSN_P (insn))
-		continue;
-	      if (GET_CODE (insn) == JUMP_INSN)
-		break;
-	      if (! reg_referenced_p (SET_DEST (last_set), PATTERN (insn)))
-		{
-		  /* Check if this is a to-be-reduced giv insn.  */
-		  struct loop_ivs *ivs = LOOP_IVS (loop);
-		  struct iv_class *bl;
-		  struct induction *v;
-		  for (bl = ivs->list; bl; bl = bl->next)
-		    {
-		      if (bl->biv->insn == insn)
-			goto is_biv;
-		      for (v = bl->giv; v; v = v->next_iv)
-			if (v->insn == insn)
-			  goto is_giv;
-		    }
-		  mem_latency--;
-		is_biv:
-		is_giv:
-		  continue;
-		}
-	      set = single_set (insn);
-	      if (! set)
-		continue;
-	      if (GET_CODE (SET_SRC (set)) == MEM)
-		mem_latency += 2;
-	      last_set = set;
-	    }
-	  if (mem_latency < 0)
-	    mem_latency = 0;
-	  else if (mem_latency > unroll_benefit - 1)
-	    mem_latency = unroll_benefit - 1;
-	  break;
-	}
-#endif /* 0 */
-      if (n_labels + (unroll_benefit + n_labels * 8) / n_iterations
-	  <= unroll_benefit)
-	return max_unrolled_insns;
-
-      n_dest = n_labels + n_calls + n_exit_dest;
-      base_cost = n_dest <= 8 ? 0 : n_dest - 7;
-      best_cost = 0;
-      best_factor = 1;
-      if (n_barriers * 2 > n_labels - 1)
-	n_barriers = (n_labels - 1) / 2;
-      for (factor = 2; factor <= 8; factor++)
-	{
-	  /* Bump up preconditioning cost for each power of two.  */
-	  if (! (factor & (factor-1)))
-	    precond += 4;
-	  /* When preconditioning, only powers of two will be considered.  */
-	  else if (need_precond)
-	    continue;
-	  n_dest = ((unroll_type != LPT_PEEL_COMPLETELY)
-		    + (n_labels - 1) * factor + n_calls + n_exit_dest
-		    - (n_barriers * factor >> 1)
-		    + need_precond);
-	  cost
-	    = ((n_dest <= 8 ? 0 : n_dest - 7)
-	       - base_cost * factor
-	       - ((factor > 2 ? unroll_benefit - mem_latency : unroll_benefit)
-		  * (factor - (unroll_type != LPT_PEEL_COMPLETELY)))
-	       + ((unroll_benefit + 1 + (n_labels - 1) * factor)
-		  / n_iterations));
-	  if (need_precond)
-	    cost += (precond + unroll_benefit * factor / 2) / n_iterations;
-	  if (cost < best_cost)
-	    {
-	      best_cost = cost;
-	      best_factor = factor;
-	    }
-	}
-      threshold = best_factor * insn_count;
-      if (max_unrolled_insns > threshold)
-	max_unrolled_insns = threshold;
-    }
-  return max_unrolled_insns;
-}
-#endif /* TARGET_ADJUST_UNROLL_MAX */
-
 /* Replace any occurrence of FROM(n) in X with TO(n).  The function does
    not enter into CONST_DOUBLE for the replace.
 
@@ -11149,6 +10766,20 @@ sh_contains_memref_p (rtx insn)
   return for_each_rtx (&PATTERN (insn), &sh_contains_memref_p_1, NULL);
 }
 
+/* Return nonzero iff INSN loads a banked register.  */
+int
+sh_loads_bankedreg_p (rtx insn)
+{
+  if (GET_CODE (PATTERN (insn)) == SET)
+    {
+      rtx op = SET_DEST (PATTERN(insn));
+      if (REG_P (op) && BANKED_REGISTER_P (REGNO (op)))
+	return 1;
+    }
+
+  return 0;  
+}
+
 /* FNADDR is the MEM expression from a call expander.  Return an address
    to use in an SHmedia insn pattern.  */
 rtx
@@ -11231,7 +10862,7 @@ sh_secondary_reload (bool in_p, rtx x, enum reg_class class,
         return GENERAL_REGS;
       if (class == FPUL_REGS && immediate_operand (x, mode))
 	{
-	  if (GET_CODE (x) == CONST_INT && CONST_OK_FOR_I08 (INTVAL (x)))
+	  if (satisfies_constraint_I08 (x))
 	    return GENERAL_REGS;
 	  sri->icode = CODE_FOR_reload_insi__i_fpul;
 	  return NO_REGS;
@@ -11284,7 +10915,7 @@ sh_secondary_reload (bool in_p, rtx x, enum reg_class class,
     }
   if ((class == TARGET_REGS
        || (TARGET_SHMEDIA && class == SIBCALL_REGS))
-      && !EXTRA_CONSTRAINT_Csy (x)
+      && !satisfies_constraint_Csy (x)
       && (GET_CODE (x) != REG || ! GENERAL_REGISTER_P (REGNO (x))))
     return GENERAL_REGS;
   if ((class == MAC_REGS || class == PR_REGS)

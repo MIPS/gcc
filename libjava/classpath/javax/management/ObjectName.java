@@ -45,6 +45,11 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
 
+import java.io.IOException;
+import java.io.InvalidObjectException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+
 /**
  * <p>
  * An {@link ObjectName} instance represents the name of a management
@@ -66,7 +71,7 @@ import java.util.TreeMap;
  * is separated by commas, and largely consists of unordered key-value
  * pairs, separated by an equals sign ('=').  At most one element may
  * be an asterisk ('*'), which turns the {@link ObjectName} instance
- * into a <emph>property pattern</emph>.  In this situation, the pattern
+ * into a <emph>property list pattern</emph>.  In this situation, the pattern
  * matches a name if the name contains at least those key-value pairs
  * given and has the same domain.
  * </p>
@@ -84,6 +89,13 @@ import java.util.TreeMap;
  * (after expansion) are considered part of the value.
  * </p>
  * <p>
+ * Both quoted and unquoted values may contain the wildcard characters
+ * '?' and '*'.  A name with at least one value containing a wildcard
+ * character is known as a <emph>property value pattern</emph>.  A
+ * name is generally a <emph>property pattern</emph> if it is either
+ * a <emph>property list pattern</emph> or <emph>property value pattern</emph>.
+ * </p>
+ * <p>
  * Spaces are maintained within the different parts of the name.  Thus,
  * '<code>domain: key1 = value1 </code>' has a key ' key1 ' with value
  * ' value1 '.  Newlines are disallowed, except where escaped in quoted
@@ -97,30 +109,61 @@ public class ObjectName
   implements Serializable, QueryExp
 {
 
+  private static final long serialVersionUID = 1081892073854801359L;
+
+  /**
+   * The wildcard {@link ObjectName} {@code "*:*"}
+   *
+   * @since 1.6
+   */
+  public static final ObjectName WILDCARD;
+
   /**
    * The domain of the name.
    */
-  private String domain;
+  private transient String domain;
 
   /**
    * The properties, as key-value pairs.
    */
-  private TreeMap<String,String> properties = new TreeMap<String,String>();
+  private transient TreeMap<String,String> properties;
 
   /**
    * The properties as a string (stored for ordering).
    */
-  private String propertyListString;
+  private transient String propertyListString;
 
   /**
-   * True if this object name is a property pattern.
+   * True if this object name is a property list pattern.
    */
-  private boolean propertyPattern;
+  private transient boolean propertyListPattern;
+
+  /**
+   * True if this object name is a property value pattern.
+   */
+  private transient boolean propertyValuePattern;
 
   /**
    * The management server associated with this object name.
    */
-  private MBeanServer server;
+  private transient MBeanServer server;
+
+  /**
+   * Static initializer to set up the wildcard.
+   */
+  static
+  {
+    try
+      {
+	WILDCARD = new ObjectName("");
+      }
+    catch (MalformedObjectNameException e)
+      {
+	throw (InternalError) (new InternalError("A problem occurred " +
+						 "initializing the ObjectName " +
+						 "wildcard.").initCause(e));
+      }
+  }
 
   /**
    * Constructs an {@link ObjectName} instance from the given string,
@@ -145,38 +188,53 @@ public class ObjectName
   {
     if (name.length() == 0)
       name = "*:*";
+    parse(name);
+  }
 
+  /**
+   * Parse the name in the same form as the constructor.  Used by
+   * readObject().
+   */
+  private void parse(String name)
+    throws MalformedObjectNameException
+  {
     int domainSep = name.indexOf(':');
     if (domainSep == -1)
       throw new MalformedObjectNameException("No domain separator was found.");
     domain = name.substring(0, domainSep);
     String rest = name.substring(domainSep + 1);
-    if (rest.equals("*"))
-      propertyPattern = true;
-    else
+    properties = new TreeMap<String,String>();
+    String[] pairs = rest.split(",");
+    if (pairs.length == 0 && !isPattern())
+      throw new MalformedObjectNameException("A name that is not a " +
+					     "pattern must contain at " +
+					     "least one key-value pair.");
+    propertyListString = "";
+    for (int a = 0; a < pairs.length; ++a)
       {
-	if (rest.endsWith(",*"))
+	if (pairs[a].equals("*"))
 	  {
-	    propertyPattern = true;
-	    propertyListString = rest.substring(0, rest.length() - 2);
+	    if (propertyListPattern)
+	      throw new MalformedObjectNameException("Multiple wildcards " +
+						     "in properties.");
+	    propertyListPattern = true;
+	    continue;
 	  }
-	else
-	  propertyListString = rest;
-	String[] pairs = propertyListString.split(",");
-	if (pairs.length == 0 && !isPattern())
-	  throw new MalformedObjectNameException("A name that is not a " +
-						 "pattern must contain at " +
-						 "least one key-value pair.");
-	for (int a = 0; a < pairs.length; ++a)
-	  {
-	    int sep = pairs[a].indexOf('=');
-	    String key = pairs[a].substring(0, sep);
-	    if (properties.containsKey(key))
-	      throw new MalformedObjectNameException("The same key occurs " +
-						     "more than once.");
-	    properties.put(key, pairs[a].substring(sep + 1));
-	  }	
+	int sep = pairs[a].indexOf('=');
+	if (sep == -1)
+	  throw new MalformedObjectNameException("A key must be " +
+						 "followed by a value.");
+	String key = pairs[a].substring(0, sep);
+	if (properties.containsKey(key))
+	  throw new MalformedObjectNameException("The same key occurs " +
+						 "more than once.");
+	String value = pairs[a].substring(sep+1);
+	properties.put(key, value);
+	propertyListString += key + "=" + value + ",";
       }
+    if (propertyListString.length() > 0)
+      propertyListString =
+	propertyListString.substring(0, propertyListString.length() - 1);
     checkComponents();
   }
 
@@ -199,6 +257,7 @@ public class ObjectName
     throws MalformedObjectNameException
   {
     this.domain = domain;
+    properties = new TreeMap<String,String>();
     properties.put(key, value);
     checkComponents();
   }
@@ -221,6 +280,7 @@ public class ObjectName
     throws MalformedObjectNameException
   {
     this.domain = domain;
+    this.properties = new TreeMap<String,String>();
     this.properties.putAll(properties);
     checkComponents();
   }
@@ -243,16 +303,17 @@ public class ObjectName
     if (domain.indexOf('\n') != -1)
       throw new MalformedObjectNameException("The domain includes a newline " +
 					     "character.");
-    char[] chars = new char[] { ':', ',', '*', '?', '=' };
+    char[] keychars = new char[] { '\n', ':', ',', '*', '?', '=' };
+    char[] valchars = new char[] { '\n', ':', ',', '=' };
     Iterator i = properties.entrySet().iterator();
     while (i.hasNext())
       {
 	Map.Entry entry = (Map.Entry) i.next();
 	String key = (String) entry.getKey();
-	for (int a = 0; a < chars.length; ++a)
-	  if (key.indexOf(chars[a]) != -1)
+	for (int a = 0; a < keychars.length; ++a)
+	  if (key.indexOf(keychars[a]) != -1)
 	    throw new MalformedObjectNameException("A key contains a '" +
-						   chars[a] + "' " +
+						   keychars[a] + "' " +
 						   "character.");
 	String value = (String) entry.getValue();
 	int quote = value.indexOf('"');
@@ -264,8 +325,9 @@ public class ObjectName
 	      }
 	    catch (IllegalArgumentException e)
 	      {
-		throw new MalformedObjectNameException("The quoted value is " +
-						       "invalid.");
+		throw (MalformedObjectNameException)
+		  new MalformedObjectNameException("The quoted value is " +
+						   "invalid.").initCause(e);
 	      }
 	  }
 	else if (quote != -1)
@@ -273,12 +335,15 @@ public class ObjectName
 						 "a '\"' character.");
 	else
 	  {
-	    for (int a = 0; a < chars.length; ++a)
-	      if (value.indexOf(chars[a]) != -1)
+	    for (int a = 0; a < valchars.length; ++a)
+	      if (value.indexOf(valchars[a]) != -1)
 		throw new MalformedObjectNameException("A value contains " +
-						       "a '" + chars[a] + "' " +
+						       "a '" + valchars[a] + "' " +
 						       "character.");
+	    
 	  }
+	if (value.indexOf('*') != -1 || value.indexOf('?') != -1)
+	  propertyValuePattern = true;
       }
   }
 
@@ -641,14 +706,60 @@ public class ObjectName
   }
 
   /**
-   * Returns true if this object name is a property pattern.  This is
-   * the case if the list of properties contains an '*'.
+   * Returns true if this object name is a property list
+   * pattern, a property value pattern or both.
    *
-   * @return true if this is a property pattern.
+   * @return true if the properties of this name contain a pattern.
+   * @see #isPropertyListPattern
+   * @see #isPropertyValuePattern
    */
   public boolean isPropertyPattern()
   {
-    return propertyPattern;
+    return propertyListPattern || propertyValuePattern;
+  }
+
+  /**
+   * Returns true if this object name is a property list pattern.  This is
+   * the case if the list of properties contains an '*'.
+   *
+   * @return true if this is a property list pattern.
+   * @since 1.6
+   */
+  public boolean isPropertyListPattern()
+  {
+    return propertyListPattern;
+  }
+
+  /**
+   * Returns true if this object name is a property value pattern.  This is
+   * the case if one of the values contains a wildcard character,
+   * '?' or '*'.
+   *
+   * @return true if this is a property value pattern.
+   * @since 1.6
+   */
+  public boolean isPropertyValuePattern()
+  {
+    return propertyValuePattern;
+  }
+
+  /**
+   * Returns true if the value of the given key is a pattern.  This is
+   * the case if the value contains a wildcard character, '?' or '*'.
+   *
+   * @param key the key whose value should be checked.
+   * @return true if the value of the given key is a pattern.
+   * @since 1.6
+   * @throws NullPointerException if {@code key} is {@code null}.
+   * @throws IllegalArgumentException if {@code key} is not a valid
+   *                                  property.
+   */
+  public boolean isPropertyValuePattern(String key)
+  {
+    String value = getKeyProperty(key);
+    if (value == null)
+      throw new IllegalArgumentException(key + " is not a valid property.");
+    return value.indexOf('?') != -1 || value.indexOf('*') != -1;
   }
 
   /**
@@ -741,6 +852,55 @@ public class ObjectName
     return getCanonicalName();
   }
 
+
+  /**
+   * Serialize this {@link ObjectName}.  The serialized
+   * form is the same as the string parsed by the constructor.
+   *
+   * @param out the output stream to write to.
+   * @throws IOException if an I/O error occurs.
+   */
+  private void writeObject(ObjectOutputStream out)
+    throws IOException
+  {
+    out.defaultWriteObject();
+    StringBuffer buffer = new StringBuffer(getDomain());
+    buffer.append(':');
+    String properties = getKeyPropertyListString();
+    buffer.append(properties);
+    if (isPropertyPattern())
+      {
+       if (properties.length() == 0)
+         buffer.append("*");
+       else
+         buffer.append(",*");
+      }
+    out.writeObject(buffer.toString());
+  }
+
+  /**
+   * Reads the serialized form, which is that used
+   * by the constructor.
+   *
+   * @param in the input stream to read from.
+   * @throws IOException if an I/O error occurs.
+   */
+  private void readObject(ObjectInputStream in) 
+    throws IOException, ClassNotFoundException
+   {
+     in.defaultReadObject();
+     String objectName = (String)in.readObject();
+     try
+       {
+         parse(objectName);
+       }
+     catch (MalformedObjectNameException x)
+       {
+         throw new InvalidObjectException(x.toString());
+       }
+   }
+
+
   /**
    * Unquotes the supplied string.  The quotation marks are removed as
    * are the backslashes preceding the escaped characters ('"', '?',
@@ -773,10 +933,12 @@ public class ObjectName
 	  {
 	    n = q.charAt(++a);
 	    if (n != '"' && n != '?' && n != '*' &&
-		n != '\n' && n != '\\')
+		n != 'n' && n != '\\')
 	      throw new IllegalArgumentException("Illegal escaped character: "
 						 + n);
 	  }
+	else if (n == '"' || n == '\n') 
+	  throw new IllegalArgumentException("Illegal character: " + n);
 	builder.append(n);
       }
 

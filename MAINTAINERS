@@ -77,6 +77,7 @@ rs6000 port		David Edelsohn		dje@watson.ibm.com
 rs6000 vector extns	Aldy Hernandez		aldyh@redhat.com
 s390 port		Hartmut Penner		hpenner@de.ibm.com
 s390 port		Ulrich Weigand		uweigand@de.ibm.com
+s390 port		Andreas Krebbel		Andreas.Krebbel@de.ibm.com
 sh port			Alexandre Oliva		aoliva@redhat.com
 sh port			Kaz Kojima		kkojima@gcc.gnu.org
 sparc port		Richard Henderson	rth@redhat.com
@@ -102,6 +103,7 @@ DJGPP			DJ Delorie		dj@delorie.com
 freebsd			Loren J. Rittle		ljrittle@acm.org
 hpux			Dave Anglin		dave.anglin@nrc.ca
 hpux			Steve Ellcey		sje@cup.hp.com
+irix, osf		Rainer Orth		ro@TechFak.Uni-Bielefeld.DE
 netbsd			Jason Thorpe		thorpej@netbsd.org
 sco5, unixware, sco udk	Kean Johnston		jkj@sco.com
 sh-linux-gnu		Kaz Kojima		kkojima@gcc.gnu.org
@@ -118,19 +120,7 @@ C front end/ISO C99	Richard Henderson	rth@redhat.com
 Ada front end		Geert Bosch		bosch@gnat.com
 Ada front end		Robert Dewar		dewar@gnat.com
 Ada front end		Arnaud Charlet		charlet@act-europe.fr
-fortran 95		Paul Brook		paul@codesourcery.com
-fortran 95		Thomas Koenig		Thomas.Koenig@online.de
-fortran 95		Toon Moene		toon@moene.indiv.nluug.nl
-fortran 95		Jerry DeLisle		jvdelisle@gcc.gnu.org
-fortran 95		François-Xavier Coudert	fxcoudert@gcc.gnu.org
-fortran 95              Bud Davis               jmdavis@link.com
-fortran 95		Steve Kargl		sgk@troutmask.apl.washington.edu
-fortran 95              Erik Edelmann           erik.edelmann@iki.fi
-fortran 95		Paul Thomas		pault@gcc.gnu.org
-fortran 95		Tobias Schlüter		tobias.schlueter@physik.uni-muenchen.de
-fortran 95		Janne Blomqvist		jb@gcc.gnu.org
-fortran 95		Brooks Moses		brooks.moses@codesourcery.com
-fortran 95		Tobias Burnus		burnus@net-b.de
+Fortran			Paul Brook		paul@codesourcery.com
 c++			Jason Merrill		jason@redhat.com
 c++			Mark Mitchell		mark@codesourcery.com
 c++			Nathan Sidwell		nathan@codesourcery.com
@@ -144,7 +134,8 @@ treelang                James A. Morrison	phython@gcc.gnu.org
 
 			Various Maintainers
 
-cpplib			Per Bothner		per@bothner.com
+libcpp			Per Bothner		per@bothner.com
+libcpp			All C and C++ front end maintainers
 fp-bit			Ian Lance Taylor	ian@airs.com
 libdecnumber		Ben Elliston		bje@au.ibm.com
 libgcc			Ian Lance Taylor	ian@airs.com
@@ -203,7 +194,8 @@ option handling		Neil Booth		neil@daikokuya.co.uk
 testsuite		Janis Johnson		janis187@us.ibm.com
 middle-end		Roger Sayle		roger@eyesopen.com
 middle-end		Ian Lance Taylor	ian@airs.com
-tree-ssa		Diego Novillo		dnovillo@redhat.com
+middle-end		Diego Novillo		dnovillo@google.com
+tree-ssa		Diego Novillo		dnovillo@google.com
 tree-ssa		Andrew MacLeod		amacleod@redhat.com
 PRE			Daniel Berlin		dberlin@dberlin.org
 code sinking		Daniel Berlin		dberlin@dberlin.org
@@ -215,23 +207,54 @@ linear loop transforms	Daniel Berlin		dberlin@dberlin.org
 profile feedback	Jan Hubicka		jh@suse.cz
 type-safe vectors	Nathan Sidwell		nathan@codesourcery.com
 alias analysis		Daniel Berlin		dberlin@dberlin.org
-alias analysis		Diego Novillo		dnovillo@redhat.com
+alias analysis		Diego Novillo		dnovillo@google.com
 reload			Ulrich Weigand		uweigand@de.ibm.com
 dfp.c, related		Ben Elliston		bje@au.ibm.com
 RTL optimizers		Eric Botcazou		ebotcazou@libertysurf.fr
+auto-vectorizer		Richard Guenther	rguenther@suse.de
+auto-vectorizer		Zdenek Dvorak		ook@ucw.cz
+auto-vectorizer		Dorit Nuzman		dorit@il.ibm.com
+loop infrastructure	Zdenek Dvorak		ook@ucw.cz
 
-Note individuals who maintain parts of the compiler need approval to check
+Note that individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
 
 			Non-Algorithmic Maintainers
 
-loop optimizer		Zdenek Dvorak		dvorakz@suse.cz
+loop optimizer		Zdenek Dvorak		ook@ucw.cz
 loop optimizer		Daniel Berlin		dberlin@dberlin.org
 middle-end		Richard Guenther	rguenther@suse.de
+libcpp			Tom Tromey		tromey@redhat.com
+blanket write		Diego Novillo		dnovillo@google.com
+blanket write		Ian Lance Taylor	ian@airs.com
 
-Note individuals who maintain parts of the compiler as non-algorithmic
-maintainer need approval to check in algorithmic changes or changes
+Note that individuals who maintain parts of the compiler as non-algorithmic
+maintainers need approval to check in algorithmic changes or changes
 outside of the parts of the compiler they maintain.
+
+			Reviewers
+
+dataflow		Daniel Berlin		dberlin@dberlin.org
+dataflow		Paolo Bonzini		bonzini@gnu.org
+dataflow		Seongbae Park		seongbae.park@gmail.com
+dataflow 		Kenneth Zadeck		zadeck@naturalbridge.com
+Fortran			Janne Blomqvist		jb@gcc.gnu.org
+Fortran			Tobias Burnus		burnus@net-b.de
+Fortran			François-Xavier Coudert	fxcoudert@gcc.gnu.org
+Fortran			Bud Davis		jmdavis@link.com
+Fortran			Jerry DeLisle		jvdelisle@gcc.gnu.org
+Fortran			Erik Edelmann		erik.edelmann@iki.fi
+Fortran			Steve Kargl		sgk@troutmask.apl.washington.edu
+Fortran			Thomas Koenig		Thomas.Koenig@online.de
+Fortran			Toon Moene		toon@moene.indiv.nluug.nl
+Fortran			Brooks Moses		brooks.moses@codesourcery.com
+Fortran			Tobias Schlüter		tobias.schlueter@physik.uni-muenchen.de
+Fortran			Paul Thomas		pault@gcc.gnu.org
+
+
+Note that while reviewers can approve changes to parts of the compiler
+that they maintain, they still need approval for their own patches
+from other maintainers or reviewers.
 
 			Write After Approval	(last name alphabetical order)
 
@@ -239,6 +262,7 @@ Mark G. Adams                                   mark.g.adams@sympatico.ca
 Matt Austern                                    austern@google.com
 David Ayers                                     d.ayers@inode.at
 Giovanni Bajo					giovannibajo@gcc.gnu.org
+Simon Baldwin					simonb@google.com
 Scott Bambrough					scottb@netwinder.org
 Wolfgang Bangerth				bangerth@dealii.org
 Andrey Belevantsev                              abel@ispras.ru
@@ -254,10 +278,10 @@ Segher Boessenkool				segher@kernel.crashing.org
 Andrea Bona					andrea.bona@st.com
 Paolo Bonzini					bonzini@gnu.org
 Neil Booth					neil@daikokuya.co.uk
-Steven Bosscher					stevenb.gcc@gmail.com
 Robert Bowdidge                                 bowdidge@apple.com
 Joel Brobecker					brobecker@gnat.com
 Dave Brolley					brolley@redhat.com
+Julian Brown					julian@codesourcery.com
 Christian Bruel					christian.bruel@st.com
 Kevin Buettner					kevinb@redhat.com
 Andrew Cagney					cagney@redhat.com
@@ -269,10 +293,11 @@ William Cohen					wcohen@redhat.com
 Josh Conner					jconner@apple.com
 R. Kelley Cook					kcook@gcc.gnu.org
 Christian Cornelssen				ccorn@cs.tu-berlin.de
-Roberto Costa					roberto.costa@st.com
 Ian Dall					ian@beware.dropbear.id.au
 David Daney					ddaney@avtrex.com
+Benoit Dupont de Dinechin			benoit.dupont-de-dinechin@st.com
 Mohan Embar					gnustuff@thisiscool.com
+Revital Eres                                    eres@il.ibm.com 
 Marc Espie					espie@cvs.openbsd.org
 Rafael Ávila de Espíndola			rafael.espindola@gmail.com
 Ansgar Esztermann				ansgar@thphy.uni-duesseldorf.de
@@ -292,6 +317,7 @@ Mostafa Hagog					hagog@gcc.gnu.org
 Olivier Hainque					hainque@act-europe.fr
 Stuart Hastings					stuart@apple.com
 Matthew Hiller					hiller@redhat.com
+Dan Hipschman					dsh@google.com
 Manfred Hollstein				mh@suse.com
 Falk Hueffner					falk@debian.org
 Andrew John Hughes				gnu_andrew@member.fsf.org
@@ -309,17 +335,17 @@ Jeff Knaggs					jknaggs@redhat.com
 Michael Koch					konqueror@gmx.de
 Dave Korn					dave.korn@artimi.com
 Matt Kraai					kraai@ftbfs.org
-Andreas Krebbel					krebbel1@de.ibm.com
-Maxim Kuvyrkov					mkuvyrkov@ispras.ru
+Maxim Kuvyrkov					maxim@codesourcery.com
 Scott Robert Ladd				scott.ladd@coyotegulch.com
 Razya Ladelsky					razya@gcc.gnu.org
 Aaron W. LaFramboise				aaronavay62@aaronwl.com
+Rask Ingemann Lambertsen			rask@sygehus.dk
 Asher Langton					langton2@llnl.gov
 Chris Lattner					sabre@nondot.org
 Terry Laurenzo					tlaurenzo@gmail.com
 Marc Lehmann					pcg@goof.com
 Alan Lehotsky					apl@alum.mit.edu
-James Lemke					jim@lemke.org
+James Lemke					jwlemke@specifix.com
 Kriang Lerdsuwanakij				lerdsuwa@users.sourceforge.net
 Warren Levy					warrenl@cruzio.com
 Don Lindsay					dlindsay@redhat.com
@@ -330,26 +356,29 @@ Sandra Loosemore				sandra@codesourcery.com
 Manuel López-Ibáñez                             manu@gcc.gnu.org
 Dave Love					d.love@dl.ac.uk
 Martin v. Löwis					loewis@informatik.hu-berlin.de
-HJ Lu						hjl@lucon.org
+H.J. Lu						hjl@lucon.org
 Ziga Mahkovec					ziga.mahkovec@klika.si
 Simon Martin					simartin@users.sourceforge.net
 Ranjit Mathew					rmathew@hotmail.com
+Chris Matthews					chrismatthews@google.com
 Michael Matz					matz@suse.de
 Greg McGary					gkm@gnu.org
 Adam Megacz					adam@xwt.org
+Martin Michlmayr				tbm@cyrius.com
 Robert Millan					rmh@gcc.gnu.org
 Lee Millward					lee.millward@gmail.com
 Alan Modra					amodra@bigpond.net.au
 Catherine Moore					clm@redhat.com
 Dirk Mueller					dmueller@suse.de
 Adam Nemet					anemet@caviumnetworks.com
+Thomas Neumann					tneumann@users.sourceforge.net
 Dan Nicolaescu					dann@ics.uci.edu
 Dorit Nuzman					dorit@il.ibm.com
 David O'Brien					obrien@FreeBSD.org
 Carlos O'Donell					carlos@codesourcery.com
 Jeffrey D. Oldham				oldham@codesourcery.com
 Andrea Ornstein					andrea.ornstein@st.com
-Rainer Orth					ro@TechFak.Uni-Bielefeld.DE
+Seonbae Park					seongbae.park@gmail.com
 Devang Patel					dpatel@apple.com
 Alexandre Petit-Bianco				apbianco@redhat.com
 Nicolas Pitre					nico@cam.org
@@ -366,11 +395,13 @@ Gavin Romig-Koch				gavin@redhat.com
 Ira Rosen                                       irar@il.ibm.com
 Maciej W. Rozycki				macro@linux-mips.org
 Douglas Rupp					rupp@gnat.com
+Silvius Rus					rus@google.com
 Matthew Sachs					msachs@apple.com
 Svein Seldal                                    svein@dev.seldal.com
 Thiemo Seufer					ths@networkno.de
 Mark Shinwell					shinwell@codesourcery.com
 Franz Sirl					franz.sirl-kernel@lauterbach.com
+Jan Sjodin					jan.sjodin@amd.com
 Michael Sokolov					msokolov@ivan.Harhan.ORG
 Richard Stallman				rms@gnu.org
 Basile Starynkevitch				basile@starynkevitch.net
@@ -389,6 +420,7 @@ John Wehle					john@feith.com
 Florian Weimer					fw@deneb.enyo.de
 Zack Weinberg					zackw@panix.com
 Mark Wielaard					mark@gcc.gnu.org
+Ollie Wild					aaw@google.com
 Carlo Wood					carlo@alinoe.com
 Canqun Yang					canqun@nudt.edu.cn
 Kenneth Zadeck					zadeck@naturalbridge.com

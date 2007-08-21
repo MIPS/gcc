@@ -2,27 +2,27 @@
    Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
-This file is part of GCC.
+   This file is part of GCC.
 
-GCC is free software; you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
-version.
+   GCC is free software; you can redistribute it and/or modify it under
+   the terms of the GNU General Public License as published by the Free
+   Software Foundation; either version 3, or (at your option) any later
+   version.
 
-GCC is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+   WARRANTY; without even the implied warranty of MERCHANTABILITY or
+   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+   for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "bconfig.h"
 #include "system.h"
 #include "gengtype.h"
 #include "errors.h"	/* for fatal */
+#include "double-int.h"
 
 /* Data types, macros, etc. used only in this file.  */
 
@@ -1087,6 +1087,8 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 		t = rtx_tp, subname = "rt_rtx";
 	      else if (i == NOTE && aindex == 4)
 		t = note_union_tp, subname = "";
+	      else if (i == NOTE && aindex == 5)
+		t = scalar_tp, subname = "rt_int";
 	      else if (i == NOTE && aindex >= 7)
 		t = scalar_tp, subname = "rt_int";
 	      else if (i == ADDR_DIFF_VEC && aindex == 4)
@@ -1166,7 +1168,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	  subfields->opt = nodot;
 	  if (t == note_union_tp)
 	    subfields->opt = create_option (subfields->opt, "desc",
-					    "NOTE_LINE_NUMBER (&%0)");
+					    "NOTE_KIND (&%0)");
 	  if (t == symbol_union_tp)
 	    subfields->opt = create_option (subfields->opt, "desc",
 					    "CONSTANT_POOL_ADDRESS_P (&%0)");
@@ -1440,13 +1442,13 @@ static outf_p
 create_file (const char *name, const char *oname)
 {
   static const char *const hdr[] = {
-    "   Copyright (C) 2004 Free Software Foundation, Inc.\n",
+    "   Copyright (C) 2004, 2007 Free Software Foundation, Inc.\n",
     "\n",
     "This file is part of GCC.\n",
     "\n",
     "GCC is free software; you can redistribute it and/or modify it under\n",
     "the terms of the GNU General Public License as published by the Free\n",
-    "Software Foundation; either version 2, or (at your option) any later\n",
+    "Software Foundation; either version 3, or (at your option) any later\n",
     "version.\n",
     "\n",
     "GCC is distributed in the hope that it will be useful, but WITHOUT ANY\n",
@@ -1455,9 +1457,8 @@ create_file (const char *name, const char *oname)
     "for more details.\n",
     "\n",
     "You should have received a copy of the GNU General Public License\n",
-    "along with GCC; see the file COPYING.  If not, write to the Free\n",
-    "Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA\n",
-    "02110-1301, USA.  */\n",
+    "along with GCC; see the file COPYING3.  If not see\n",
+    "<http://www.gnu.org/licenses/>.  */\n",
     "\n",
     "/* This file is machine generated.  Do not edit.  */\n"
   };
@@ -1534,7 +1535,7 @@ open_base_files (void)
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
       "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
-      "cfglayout.h", "except.h", "output.h", NULL
+      "cfglayout.h", "except.h", "output.h", "cfgloop.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;
@@ -1748,7 +1749,7 @@ struct write_types_data
 
 static void output_escaped_param (struct walk_type_data *d,
 				  const char *, const char *);
-static void output_mangled_typename (outf_p, type_p);
+static void output_mangled_typename (outf_p, const_type_p);
 static void walk_type (type_p t, struct walk_type_data *d);
 static void write_func_for_structure
      (type_p orig_s, type_p s, type_p * param,
@@ -1801,7 +1802,7 @@ struct walk_type_data
 /* Print a mangled name representing T to OF.  */
 
 static void
-output_mangled_typename (outf_p of, type_p t)
+output_mangled_typename (outf_p of, const_type_p t)
 {
   if (t == NULL)
     oprintf (of, "Z");
@@ -2577,7 +2578,7 @@ write_types (type_p structures, type_p param_structs,
 	for (opt = s->u.s.opt; opt; opt = opt->next)
 	  if (strcmp (opt->name, "ptr_alias") == 0)
 	    {
-	      type_p t = (type_p) opt->info;
+	      const_type_p const t = (const_type_p) opt->info;
 	      if (t->kind == TYPE_STRUCT
 		  || t->kind == TYPE_UNION
 		  || t->kind == TYPE_LANG_STRUCT)
@@ -2756,7 +2757,7 @@ write_local (type_p structures, type_p param_structs)
 	for (opt = s->u.s.opt; opt; opt = opt->next)
 	  if (strcmp (opt->name, "ptr_alias") == 0)
 	    {
-	      type_p t = (type_p) opt->info;
+	      const_type_p const t = (const_type_p) opt->info;
 	      if (t->kind == TYPE_STRUCT
 		  || t->kind == TYPE_UNION
 		  || t->kind == TYPE_LANG_STRUCT)
@@ -3532,6 +3533,7 @@ main (int argc, char **argv)
   pos.line = __LINE__ + 1;
   do_scalar_typedef ("CUMULATIVE_ARGS", &pos); pos.line++;
   do_scalar_typedef ("REAL_VALUE_TYPE", &pos); pos.line++;
+  do_scalar_typedef ("FIXED_VALUE_TYPE", &pos); pos.line++;
   do_scalar_typedef ("double_int", &pos); pos.line++;
   do_scalar_typedef ("uint8", &pos); pos.line++;
   do_scalar_typedef ("jword", &pos); pos.line++;

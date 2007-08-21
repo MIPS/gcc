@@ -1,11 +1,11 @@
-/* Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+/* Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This header provides a declarative way of describing the types that
    are used when declaring builtin functions.
@@ -371,6 +370,8 @@ DEF_FUNCTION_TYPE_3 (BT_FN_I16_VPTR_I16_I16, BT_I16, BT_VOLATILE_PTR,
 		     BT_I16, BT_I16)
 DEF_FUNCTION_TYPE_3 (BT_FN_VOID_OMPFN_PTR_UINT, BT_VOID, BT_PTR_FN_VOID_PTR,
 		     BT_PTR, BT_UINT)
+DEF_FUNCTION_TYPE_3 (BT_FN_PTR_CONST_PTR_INT_SIZE, BT_PTR,
+		     BT_CONST_PTR, BT_INT, BT_SIZE)
 
 DEF_FUNCTION_TYPE_4 (BT_FN_SIZE_CONST_PTR_SIZE_SIZE_FILEPTR,
 		     BT_SIZE, BT_CONST_PTR, BT_SIZE, BT_SIZE, BT_FILEPTR)

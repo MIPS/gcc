@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -341,6 +340,7 @@ remap_type_1 (tree type, copy_body_data *id)
     {
     case INTEGER_TYPE:
     case REAL_TYPE:
+    case FIXED_POINT_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
       t = TYPE_MIN_VALUE (new);
@@ -428,7 +428,7 @@ remap_decls (tree decls, copy_body_data *id)
       /* We can not chain the local static declarations into the unexpanded_var_list
          as we can't duplicate them or break one decl rule.  Go ahead and link
          them into unexpanded_var_list.  */
-      if (!lang_hooks.tree_inlining.auto_var_in_fn_p (old_var, id->src_fn)
+      if (!auto_var_in_fn_p (old_var, id->src_fn)
 	  && !DECL_EXTERNAL (old_var))
 	{
 	  cfun->unexpanded_var_list = tree_cons (NULL_TREE, old_var,
@@ -586,7 +586,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
      variables.  We don't want to copy static variables; there's only
      one of those, no matter how many times we inline the containing
      function.  Similarly for globals from an outer function.  */
-  else if (lang_hooks.tree_inlining.auto_var_in_fn_p (*tp, fn))
+  else if (auto_var_in_fn_p (*tp, fn))
     {
       tree new_decl;
 
@@ -641,8 +641,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	 discarding.  */
       if (TREE_CODE (*tp) == GIMPLE_MODIFY_STMT
 	  && GIMPLE_STMT_OPERAND (*tp, 0) == GIMPLE_STMT_OPERAND (*tp, 1)
-	  && (lang_hooks.tree_inlining.auto_var_in_fn_p
-	      (GIMPLE_STMT_OPERAND (*tp, 0), fn)))
+	  && (auto_var_in_fn_p (GIMPLE_STMT_OPERAND (*tp, 0), fn)))
 	{
 	  /* Some assignments VAR = VAR; don't generate any rtl code
 	     and thus don't count as variable modification.  Avoid
@@ -731,7 +730,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	    (NULL_TREE,
 	     id->eh_region_offset + TREE_INT_CST_LOW (TREE_OPERAND (*tp, 0)));
 
-      if (!GIMPLE_TUPLE_P (*tp))
+      if (!GIMPLE_TUPLE_P (*tp) && TREE_CODE (*tp) != OMP_CLAUSE)
 	TREE_TYPE (*tp) = remap_type (TREE_TYPE (*tp), id);
 
       /* The copied TARGET_EXPR has never been expanded, even if the
@@ -1117,7 +1116,6 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count,
   new_cfun->unexpanded_var_list = NULL;
   new_cfun->cfg = NULL;
   new_cfun->decl = new_fndecl /*= copy_node (callee_fndecl)*/;
-  new_cfun->ib_boundaries_block = NULL;
   DECL_STRUCT_FUNCTION (new_fndecl) = new_cfun;
   push_cfun (new_cfun);
   init_empty_tree_cfg ();
@@ -1205,7 +1203,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
       new->aux = bb;
     }
 
-  last = n_basic_blocks;
+  last = last_basic_block;
   /* Now that we've duplicated the blocks, duplicate their edges.  */
   FOR_ALL_BB_FN (bb, cfun_to_copy)
     copy_edges_for_bb (bb, count_scale);
@@ -1219,7 +1217,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
     }
   /* Zero out AUX fields of newly created block during EH edge
      insertion. */
-  for (; last < n_basic_blocks; last++)
+  for (; last < last_basic_block; last++)
     BASIC_BLOCK (last)->aux = NULL;
   entry_block_map->aux = NULL;
   exit_block_map->aux = NULL;
@@ -1269,7 +1267,7 @@ self_inlining_addr_expr (tree value, tree fn)
 
   var = get_base_address (TREE_OPERAND (value, 0));
 
-  return var && lang_hooks.tree_inlining.auto_var_in_fn_p (var, fn);
+  return var && auto_var_in_fn_p (var, fn);
 }
 
 static void
@@ -1279,9 +1277,14 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
   tree init_stmt;
   tree var;
   tree var_sub;
-  tree rhs = value ? fold_convert (TREE_TYPE (p), value) : NULL;
+  tree rhs = value;
   tree def = (gimple_in_ssa_p (cfun)
 	      ? gimple_default_def (id->src_cfun, p) : NULL);
+
+  if (value
+      && value != error_mark_node
+      && !useless_type_conversion_p (TREE_TYPE (p), TREE_TYPE (value)))
+    rhs = fold_build1 (NOP_EXPR, TREE_TYPE (p), value);
 
   /* If the parameter is never assigned to, has no SSA_NAMEs created,
      we may not need to create a new variable here at all.  Instead, we may
@@ -1296,7 +1299,8 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 	 It is not big deal to prohibit constant propagation here as
 	 we will constant propagate in DOM1 pass anyway.  */
       if (is_gimple_min_invariant (value)
-	  && lang_hooks.types_compatible_p (TREE_TYPE (value), TREE_TYPE (p))
+	  && useless_type_conversion_p (TREE_TYPE (p),
+						 TREE_TYPE (value))
 	  /* We have to be very careful about ADDR_EXPR.  Make sure
 	     the base variable isn't a local variable of the inlined
 	     function, e.g., when doing recursive inlining, direct or
@@ -1452,7 +1456,6 @@ initialize_inlined_parameters (copy_body_data *id, tree exp,
   tree a;
   tree p;
   tree vars = NULL_TREE;
-  int argnum = 0;
   call_expr_arg_iterator iter;
   tree static_chain = CALL_EXPR_STATIC_CHAIN (exp);
 
@@ -1463,17 +1466,7 @@ initialize_inlined_parameters (copy_body_data *id, tree exp,
      equivalent VAR_DECL, appropriately initialized.  */
   for (p = parms, a = first_call_expr_arg (exp, &iter); p;
        a = next_call_expr_arg (&iter), p = TREE_CHAIN (p))
-    {
-      tree value;
-
-      ++argnum;
-
-      /* Find the initializer.  */
-      value = lang_hooks.tree_inlining.convert_parm_for_inlining
-	      (p, a, fn, argnum);
-
-      setup_one_parameter (id, p, value, fn, bb, &vars);
-    }
+    setup_one_parameter (id, p, a, fn, bb, &vars);
 
   /* Initialize the static chain.  */
   p = DECL_STRUCT_FUNCTION (fn)->static_chain_decl;
@@ -1585,7 +1578,7 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
       bool use_it = false;
 
       /* We can't use MODIFY_DEST if there's type promotion involved.  */
-      if (!lang_hooks.types_compatible_p (caller_type, callee_type))
+      if (!useless_type_conversion_p (callee_type, caller_type))
 	use_it = false;
 
       /* ??? If we're assigning to a variable sized type, then we must
@@ -1649,7 +1642,7 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
   /* Build the use expr.  If the return type of the function was
      promoted, convert it back to the expected type.  */
   use = var;
-  if (!lang_hooks.types_compatible_p (TREE_TYPE (var), caller_type))
+  if (!useless_type_conversion_p (caller_type, TREE_TYPE (var)))
     use = fold_convert (caller_type, var);
     
   STRIP_USELESS_TYPE_CONVERSION (use);
@@ -1921,6 +1914,15 @@ inlinable_function_p (tree fn)
   return inlinable;
 }
 
+/* Return true if we shall disregard inlining limits for the function
+   FN during inlining.  */
+
+bool
+disregard_inline_limits_p (tree fn)
+{
+  return lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL_TREE;
+}
+
 /* Estimate the cost of a memory move.  Use machine dependent
    word size and take possible memcpy call into account.  */
 
@@ -1990,6 +1992,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case BIND_EXPR:
     case WITH_CLEANUP_EXPR:
     case NOP_EXPR:
+    case CONVERT_EXPR:
     case VIEW_CONVERT_EXPR:
     case SAVE_EXPR:
     case ADDR_EXPR:
@@ -2016,6 +2019,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case OMP_CLAUSE:
     case OMP_RETURN:
     case OMP_CONTINUE:
+    case OMP_SECTIONS_SWITCH:
       break;
 
     /* We don't account constants for now.  Assume that the cost is amortized
@@ -2025,9 +2029,15 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case IDENTIFIER_NODE:
     case INTEGER_CST:
     case REAL_CST:
+    case FIXED_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
     case STRING_CST:
+      *walk_subtrees = 0;
+      return NULL;
+
+      /* CHANGE_DYNAMIC_TYPE_EXPR explicitly expands to nothing.  */
+    case CHANGE_DYNAMIC_TYPE_EXPR:
       *walk_subtrees = 0;
       return NULL;
 
@@ -2081,9 +2091,11 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case VEC_COND_EXPR:
 
     case PLUS_EXPR:
+    case POINTER_PLUS_EXPR:
     case MINUS_EXPR:
     case MULT_EXPR:
 
+    case FIXED_CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
 
     case NEGATE_EXPR:
@@ -2127,8 +2139,6 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case UNEQ_EXPR:
     case LTGT_EXPR:
 
-    case CONVERT_EXPR:
-
     case CONJ_EXPR:
 
     case PREDECREMENT_EXPR:
@@ -2149,8 +2159,11 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case VEC_WIDEN_MULT_LO_EXPR:
     case VEC_UNPACK_HI_EXPR:
     case VEC_UNPACK_LO_EXPR:
-    case VEC_PACK_MOD_EXPR:
+    case VEC_UNPACK_FLOAT_HI_EXPR:
+    case VEC_UNPACK_FLOAT_LO_EXPR:
+    case VEC_PACK_TRUNC_EXPR:
     case VEC_PACK_SAT_EXPR:
+    case VEC_PACK_FIX_TRUNC_EXPR:
 
     case WIDEN_MULT_EXPR:
 
@@ -2804,6 +2817,10 @@ optimize_inline_calls (tree fn)
 
   push_gimplify_context ();
 
+  /* We make no attempts to keep dominance info up-to-date.  */
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
+
   /* Reach the trees by walking over the CFG, and note the
      enclosing basic-blocks in the call edges.  */
   /* We walk the blocks going forward, because inlined function bodies
@@ -2814,10 +2831,6 @@ optimize_inline_calls (tree fn)
     gimple_expand_calls_inline (bb, &id);
 
   pop_gimplify_context (NULL);
-  /* Renumber the (code) basic_blocks consecutively.  */
-  compact_blocks ();
-  /* Renumber the lexical scoping (non-code) blocks consecutively.  */
-  number_blocks (fn);
 
 #ifdef ENABLE_CHECKING
     {
@@ -2830,19 +2843,23 @@ optimize_inline_calls (tree fn)
 	gcc_assert (e->inline_failed);
     }
 #endif
+  
+  /* Fold the statements before compacting/renumbering the basic blocks.  */
+  fold_marked_statements (last, id.statements_to_fold);
+  pointer_set_destroy (id.statements_to_fold);
+  
+  /* Renumber the (code) basic_blocks consecutively.  */
+  compact_blocks ();
+  /* Renumber the lexical scoping (non-code) blocks consecutively.  */
+  number_blocks (fn);
 
   /* We are not going to maintain the cgraph edges up to date.
      Kill it so it won't confuse us.  */
   cgraph_node_remove_callees (id.dst_node);
 
-  fold_marked_statements (last, id.statements_to_fold);
-  pointer_set_destroy (id.statements_to_fold);
   fold_cond_expr_cond ();
   if (current_function_has_nonlocal_label)
     make_nonlocal_label_edges ();
-  /* We make no attempts to keep dominance info up-to-date.  */
-  free_dominance_info (CDI_DOMINATORS);
-  free_dominance_info (CDI_POST_DOMINATORS);
   /* It would be nice to check SSA/CFG/statement consistency here, but it is
      not possible yet - the IPA passes might make various functions to not
      throw and they don't care to proactively update local EH info.  This is
@@ -3214,6 +3231,7 @@ copy_decl_to_var (tree decl, copy_body_data *id)
   TREE_READONLY (copy) = TREE_READONLY (decl);
   TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
   DECL_GIMPLE_REG_P (copy) = DECL_GIMPLE_REG_P (decl);
+  DECL_NO_TBAA_P (copy) = DECL_NO_TBAA_P (decl);
 
   return copy_decl_for_dup_finish (id, decl, copy);
 }
@@ -3240,6 +3258,7 @@ copy_result_decl_to_var (tree decl, copy_body_data *id)
     {
       TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
       DECL_GIMPLE_REG_P (copy) = DECL_GIMPLE_REG_P (decl);
+      DECL_NO_TBAA_P (copy) = DECL_NO_TBAA_P (decl);
     }
 
   return copy_decl_for_dup_finish (id, decl, copy);

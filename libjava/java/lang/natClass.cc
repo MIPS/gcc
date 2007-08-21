@@ -671,6 +671,7 @@ java::lang::Class::finalize (void)
   engine->unregister(this);
 }
 
+#ifdef INTERPRETER
 void
 _Jv_ClosureList::releaseClosures (_Jv_ClosureList **closures)
 {
@@ -692,6 +693,7 @@ _Jv_ClosureList::registerClosure (jclass klass, void *ptr)
   this->next = *closures;
   *closures = this;
 }
+#endif
 
 // This implements the initialization process for a class.  From Spec
 // section 12.4.2.
@@ -1653,39 +1655,6 @@ _Jv_LookupDeclaredMethod (jclass klass, _Jv_Utf8Const *name,
   return NULL;
 }
 
-// The rules for finding proxy methods are different: first we search
-// the interfaces implemented by a proxy, then the methods declared in
-// class Proxy.
-
-java::lang::reflect::Method *
-_Jv_LookupProxyMethod (jclass proxyClass, _Jv_Utf8Const *name,
-		       _Jv_Utf8Const *signature)
-{
-  using namespace java::lang::reflect;
-  jclass declaringClass;
-  _Jv_Method * m;
-
-  for (int i = 0; i < proxyClass->interface_count; i++)
-    {
-      declaringClass = proxyClass->interfaces[i];
-      m = _Jv_GetMethodLocal (declaringClass, name, signature);
-      if (m)
-	break;
-    }
-  if (!m)
-    m = _Jv_LookupDeclaredMethod (&Proxy::class$,
-				  name,
-				  signature,
-				  &declaringClass);
-
-  Method *rmethod = new Method ();
-  rmethod->offset = (char*) m - (char*) declaringClass->methods;
-  rmethod->declaringClass = declaringClass;
-  return rmethod;
-}
-
-
-
 java::lang::reflect::Method *
 _Jv_GetReflectedMethod (jclass klass, _Jv_Utf8Const *name,
 		       _Jv_Utf8Const *signature)
@@ -2098,6 +2067,7 @@ _Jv_GetClassState (jclass klass)
   return klass->state;
 }
 
+#ifdef INTERPRETER
 jstring
 _Jv_GetInterpClassSourceFile (jclass klass)
 {
@@ -2110,3 +2080,4 @@ _Jv_GetInterpClassSourceFile (jclass klass)
 
   return NULL;
 }
+#endif

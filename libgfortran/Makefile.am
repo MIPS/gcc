@@ -1,13 +1,21 @@
 ## Process this file with automake to produce Makefile.in
 
 
-ACLOCAL_AMFLAGS = -I ../config
+ACLOCAL_AMFLAGS = -I .. -I ../config
 
 ## May be used by toolexeclibdir.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
+## Symbol versioning (copied from libssp).
+if LIBGFOR_USE_SYMVER
+version_arg = -Wl,--version-script=$(srcdir)/gfortran.map
+else
+version_arg =
+endif
+
 toolexeclib_LTLIBRARIES = libgfortran.la
-libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` -lm $(extra_ldflags_libgfortran)
+libgfortran_la_LINK = $(LINK)
+libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` -lm $(extra_ldflags_libgfortran) $(version_arg)
 
 myexeclib_LTLIBRARIES = libgfortranbegin.la
 myexeclibdir = $(libdir)/gcc/$(target_alias)/$(gcc_version)$(MULTISUBDIR)
@@ -63,9 +71,11 @@ intrinsics/getcwd.c \
 intrinsics/getlog.c \
 intrinsics/getXid.c \
 intrinsics/hostnm.c \
-intrinsics/kill.c \
 intrinsics/ierrno.c \
 intrinsics/ishftc.c \
+intrinsics/iso_c_generated_procs.c \
+intrinsics/iso_c_binding.c \
+intrinsics/kill.c \
 intrinsics/link.c \
 intrinsics/malloc.c \
 intrinsics/mvbits.c \
@@ -422,10 +432,6 @@ i_pow_c = \
 $(srcdir)/generated/pow_i4_i4.c \
 $(srcdir)/generated/pow_i8_i4.c \
 $(srcdir)/generated/pow_i16_i4.c \
-$(srcdir)/generated/pow_r4_i4.c \
-$(srcdir)/generated/pow_r8_i4.c \
-$(srcdir)/generated/pow_r10_i4.c \
-$(srcdir)/generated/pow_r16_i4.c \
 $(srcdir)/generated/pow_c4_i4.c \
 $(srcdir)/generated/pow_c8_i4.c \
 $(srcdir)/generated/pow_c10_i4.c \

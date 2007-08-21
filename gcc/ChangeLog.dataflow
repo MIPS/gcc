@@ -1,3 +1,601 @@
+2007-06-07  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* emit-rtl.c (set_insn_deleted): Changed NOTE_LINE_NUMBER to
+	NOTE_KIND.
+	(emit_note_after): Fixed merge glitch.
+	* combine.c (try_combine):  Changed NOTE_LINE_NUMBER to
+	NOTE_KIND.
+	* reg-stack.c (convert_regs_1): Fixed merge glitch.
+	* config/rs6000/rs6000.c (no_global_regs_above): Fixed merge typo.
+	(rs6000_emit_prologue): Fixed merge glitch.
+
+2007-06-06  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* regrename.c (do_replace): Removed ifdefed out code.
+	* fwprop.c: Fixed copyright.
+	* testsuite/Changelog.dataflow: Merged entry into
+	testsuite/Changelog.  Deleted file.
+	* global.c: Fixed comments.
+	* recog.c (confirm_change_group): Fixed comments.
+	(peephole2_optimize): Removed ifdefed out code.
+	* gcse.c (try_replace_reg): Removed redundant changing and
+	rescanning of notes.
+	* rtl.h (SET_REGNO): Replaced brackets.
+	* stack-ptr-mod.c: Changed copyright years.
+
+2007-06-06  Seongbae Park  <seongbae.park@gmail.com>
+
+	* config/ia64/ia64.c (ia64_frame_info): Restored the comment
+	for the structure above. Removed left-over dead code from debugging.
+	(ia64_compute_frame_size): Comment cleanup.
+	(ia64_expand_prologue): Style fix. Debugging information header.
+	(ia64_init_expanders): Added a comment.
+	* config/ia64/ia64.h (ia64_init_expanders): Declaration moved
+	to ia64-protos.h
+	* config/ia64/ia64-protos.h (ia64_init_expanders): Declaration
+	moved from ia64.h
+
+2007-06-06  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* doc/rtl.text: Fixed spelling.
+	* dse.c (store_info, read_info, insn_info, bb_info, group_info,
+	deferred_change): Fixed formatting.
+	(step0): Renamed to dse_step0.
+	(step1): Renamed to dse_step1.
+	(step2_init): Renamed to dse_step2_init.
+	(step2_nospill): Renamed to dse_step2_nospill.
+	(step2_spill): Renamed to dse_step2_spill.
+	(step3_scan): Renamed to dse_step3_scan.
+	(step3_exit_block_scan): Renamed to dse_step3_exit_block_scan.
+	(step3): Renamed to dse_step3.
+	(step4_nospill): Renamed to dse_step4_nospill.
+	(step4_spill): Renamed to dse_step4_spill.
+	(step4): Renamed to dse_step4.
+	(step5_nospill): Renamed to dse_step5_nospill.
+	(step5_spill): Renamed to dse_step5_spill.
+	(step6): Renamed to dse_step6.
+	(rest_of_handle_dse): Updated names of functions.
+	* emit_rtl.c (verify_rtx_sharing, copy_rtx_if_shared_1,
+	copy_insn_1): Now calls shared_const_p.
+	* cselib.c (expand_loc, cselib_expand_value_rtx): Fixed comments.
+	(cselib_expand_value_rtx): Now calls shared_const_p.
+	* rtl.c (shared_const_p): New function.
+	(copy_rtx): Now calls shared_const_p.
+	* rtl.h (shared_const_p): New function.
+
+2007-06-06  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* combine.c (find_single_use_1): Fixed comment and changed 0 to NULL.
+	(find_single_use): Removed comment.
+	(delete_noop_move): Removed unnecessary continue and removed
+	nnoops counter.  Function now does not return anything.
+
+2007-05-31  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* bitmap.c (bitmap_elt_copy): Fixed comment.
+	* cfganal.c (inverted_post_order_compute): Fixed comment and
+	formatting of test.
+	* basic_block.h: Removed include rtl.h.
+	(enum bb_flags): Renumbered.
+	(FOR_EACH_BB_IN_REGION, FOR_EACH_BB_REVERSE_IN_REGION): Removed.
+	(FOR_BB_INSNS_SAFE, FOR_BB_INSNS_REVERSE_SAFE): Fixed formatting.
+	
+2007-05-30  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* auto-inc-dec.c: Updated copyright date.
+	(enum form, set_inc_state, dump_inc_insn, move_dead_notes,
+	insert_move_insn_before, attempt_change, try_merge, find_address, 
+	find_mem): Reformatted.
+	(reverse_inc, find_address): Fixed spelling.
+	(attempt_change, try_merge): Add default case.
+	* basic-block.h: Updated copyright date.
+	* bitmap.c: Updated copyright date.
+	* bitmap.h: Updated copyright date.
+	* cfganal.c: Updated copyright date.
+	* cfg.c: Updated copyright date.
+	* cfghooks.h: Updated copyright date.
+	* cfglayout.c: Updated copyright date.
+	* cfgloop.c: Updated copyright date.
+	* cfgloop.h: Updated copyright date.
+	* cfgrtl.c: Updated copyright date.
+	* combine.c: Updated copyright date.
+	* combine-stack-adj.c: Updated copyright date.
+	* config/arc/arc.c: Updated copyright date.
+	* config/arm/arm.c: (use_return_insn, 
+	arm_compute_save_reg0_reg12_mask, arm_get_frame_offsets,
+	arm_save_coproc_regs): Fixed formatting.
+	* config/bfin/bfin.c: Updated copyright date.
+	* config/c4x/c4x.c: Updated copyright date.
+	* config/c4x/c4x.h: Updated copyright date.
+	* config/cris/cris.c: Updated copyright date.
+	* config/crx/crx.c: Updated copyright date.
+	* config/crx/crx.h: Updated copyright date.
+	* config/darwin.c: Updated copyright date.
+	* config/frv/frv.c: Updated copyright date.
+	* config/h8300/h8300.c: Updated copyright date.
+	* config/h8300/h8300.md: Updated copyright date.
+	* config/ia64/ia64.h: Updated copyright date.
+	* config/iq2000/iq2000.c: Updated copyright date.
+	* config/iq2000/iq2000.h: Updated copyright date.
+	* config/m32c/m32c.c: Updated copyright date.
+	* config/m68hc11/m68hc11.c: Updated copyright date.
+	* config/m68k/m68k.c: Updated copyright date.
+	* config/mips/mips.c: Updated copyright date.
+	* config/mips/mips.md: Updated copyright date.
+	* config/mmix/mmix.c: Updated copyright date.
+	* config/mn10300/mn10300.c: Updated copyright date.
+	* config/mt/mt.c: Updated copyright date.
+	(mt_print_operand_simple_address, mt_print_operand): Fixed formatting.
+	* config/mt/mt.h: Updated copyright date and fixed formatting.
+       	* config/pa/pa.c: Updated copyright date.
+	* config/pa/pa.h: Updated copyright date.
+	* config/pdp11/pdp11.c: Updated copyright date.
+	* config/pdp11/pdp11.h: Updated copyright date.
+	* config/rs6000/predicates.md: Updated copyright date.
+	* config/s390/s390.c: Updated copyright date.
+	* config/score/score-mdaux.c: Updated copyright date.
+	* config/sh/sh.c: Updated copyright date.
+	* config/sh/sh.md: Updated copyright date.
+	* config/sparc/sparc.c: Updated copyright date.
+	* config/stormy16/stormy16.c: Updated copyright date.
+	* config/v850/v850.c: Updated copyright date.
+	* config/vax/vax.c: Updated copyright date.
+	* cselib.c: Updated copyright date.
+	(expand_loc): Fixed formatting.
+	* cselib.h: Updated copyright date.
+	* dbgcnt.c: Updated copyright date.
+	* dbgcnt.def: Updated copyright date.
+	* dbgcnt.h: Updated copyright date.
+	* dce.c: Updated copyright date.
+	(fast_dce): Fixed formatting.
+	* dce.h: Updated copyright date.
+	* ddg.c: Updated copyright date.
+	* ddg.h: Updated copyright date.
+	* df-core.c: Updated copyright date.
+	* df.h: Updated copyright date and fixed formatting.
+	* doc/cfg.texi: Updated copyright date.
+	* doc/rtl.texi: Updated copyright date.
+	* dominance.c: Updated copyright date.
+	* function.h: Updated copyright date.
+	* fwprop.c: Updated copyright date.
+	* global.c: Updated copyright date.
+	* integrate.c: Updated copyright date.
+	* local-alloc.c: Updated copyright date.
+	* loop-init.c: Updated copyright date.
+	* loop-invariant.c: Updated copyright date.
+	* loop-iv.c: Updated copyright date.
+	* optabs.h: Updated copyright date.
+	* output.h: Updated copyright date.
+	* postreload.c: Updated copyright date.
+	* postreload-gcse.c: Updated copyright date.
+	* recog.h: Updated copyright date.
+	* regmove.c: Updated copyright date.
+	* reg-notes.def: Updated copyright date.
+	* regrename.c: Updated copyright date.
+	* reg-stack.c: Updated copyright date.
+	* reload.c: Updated copyright date.
+	* reorg.c: Updated copyright date.
+	* resource.c: Updated copyright date.
+	* resource.h: Updated copyright date.
+	* rtl-factoring.c: Updated copyright date.
+	* sbitmap.c: Updated copyright date.
+	* sbitmap.h: Updated copyright date.
+	* sched-deps.c: Updated copyright date.
+	* sched-ebb.c: Updated copyright date.
+	* sched-int.h: Updated copyright date.
+	* sched-rgn.c: Updated copyright date.
+	* sched-vis.c: Updated copyright date.
+	* see.c: Updated copyright date.
+	(see_handle_relevant_uses): Fixed formatting.
+	* stack-ptr-mod.c: Updated copyright date.
+	* struct-equiv.c: Updated copyright date.
+	* tracer.c: Updated copyright date.
+	* web.c: Updated copyright date.
+
+2007-05-30  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* auto-inc-dec.c (mem_insn.mem_pat): Renamed mem_loc.
+	(attempt_change): Fixed comments and renamed new_addr_pat to new_addr.
+	(try_merge, attempt_change, find_address, find_mem): Renamed
+	mem_pat to mem_loc.
+
+2007-05-27  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df-core.c (df_hybrid_search_forward, df_hybrid_search_backward
+	df_iterative_dataflow): Removed.
+	* df.h (df_iterative_dataflow): Removed.
+	
+2007-05-27  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* dse.c (replace_inc_dec, delete_dead_store_insn, scan_insn, 
+	dse_record_singleton_alias_set, dse_confluence_0,
+	dse_confluence_n, step4, step5_nospill, step5_spill,
+	rest_of_handle_dse, pass_rtl_dse1, pass_rtl_dse2): Removed code
+	to allow dse to run on trunk in front of flow.c
+	(problem): Removed.
+	
+2007-05-26  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* bt-load.c: Include recog.h.
+	(move_btr_def): Use validate_replace_rtx instead of replace_rtx.
+
+2007-05-25  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* emit-rtl.c (try_split): Remove unnecessary setting/resetting
+	of the USED flags of TRIAL.
+
+2007-05-25  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* dse.c (insn_info.stack_read, group_info.frame_related): New
+	variable.
+	(get_group_info): Initialize frame_related.
+	(scan_insn, scan_reads_nospill): Remove frame_related stores from
+	consideration for const functions.
+	(step1, step2_init, step3_exit_block_scan): Use frame_related field.
+	(step3_scan, step5_nospill): Change parameters to scan_reads_nospill.
+	
+2007-05-25  Ian Lance Taylor  <iant@google.com>
+
+	* reload1.c (mark_home_live_1): New static function, broken out of
+	mark_home_live.
+	(mark_home_live): Call mark_home_live_1.
+	(scan_paradoxical_subregs): Call mark_home_live_1.
+
+2007-05-24  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/spu/spu.md (smulsi3_highpart): Unshare the rtl chain.
+	(umulsi3_highpart): Likewise.
+
+2007-05-24  Eric Christopher  <echristo@gmail.com>
+
+	* config/mips/mips.c (mips_save_reg_p): Use df_regs_ever_live_p.
+	(mips_output_mi_thunk): Use SET_REGNO.
+
+2007-05-23  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (sh_expand_prologue): Fix typo.
+
+2007-05-23 Paolo Bonzini <bonzini@gnu.org>
+
+	* emit-rtl.c [!HAVE_blockage]: Provide a gen_blockage routine here.
+	* rtl.h (gen_blockage): Add prototype.
+
+	* cse.c (last_bb_reg_used_in, reg_used_in_multiple_bb): Remove.
+	(mark_reg_use_bb): Remove.
+	(cse_main): Remove the initialization of reg_used_in_multiple_bb
+	and last_bb_reg_used_in, and the insn walk that calls mark_reg_use_bb.
+	(cse_ebb_live_in, cse_ebb_live_out): New.
+	(cse_extended_basic_block): Set them.
+	(make_regs_eqv): Use them.
+
+2007-05-23  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df-scan.c (df_get_regular_block_artificial_uses): Set the
+	HARD_FRAME_POINTER not the FRAME_POINTER after reload.  Set both
+	the HARD_FRAME_POINTER and the FRAME_POINTER before reload.
+	* dse.c (const_or_frame_p): Removed unnecessary test.
+	* config/s390/s390.c (s390_emit_prologue): Removed REG_MAYBE_DEAD
+	notes.
+	* config/spu/spu.c (frame_emit_add_imm, spu_expand_prologue): Ditto.
+	* config/i386/i386.c (ix86_expand_prologue): Ditto.
+	* config/sh/sh.c (sh_expand_prologue): Ditto.
+	* config/sh/sh.md (define_expand): Ditto.
+	* config/iq2000/iq2000.c (iq2000_expand_prologue): Ditto.
+	* config/mn10300/mn10300.c (expand_prologue): Ditto.
+	* config/ia64/ia64.c (spill_restore_mem, ia64_expand_prologue): Ditto.
+	* config/m68k/m68k.c (m68k_expand_prologue): Ditto.
+	* config/rs6000/rs6000.c (rs6000_maybe_dead): Removed.
+	(rs6000_emit_load_toc_table, rs6000_emit_prologue): Removed calls
+	to rs6000_maybe_dead.
+	* config/bfin/bfin.c (expand_interrupt_handler_prologue,
+	bfin_load_pic_reg): Removed REG_MAYBE_DEAD notes.
+	* reg-notes.def (MAYBE_DEAD): Removed.
+	* dce.c (deletable_insn_p): Removed test of RTX_FRAME_RELATED_P.
+	
+2007-05-21  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* dbgcnt.def: Fixed comment.
+	* df-scan.c (df_get_regular_block_artificial_uses): Added frame
+	pointer after reload if frame_pointer_needed.
+	* df.h (df_simulate_defs, df_simulate_uses): Made public.
+	* df-problems.c (df_simulate_defs, df_simulate_uses): Made public.
+	* dce.c (deletable_insn_p): Only allow frame-related insns to be
+	deleted if there is a REG_MAYBE_DEAD note.
+	(dce_process_block): Now uses df_simulate_defs and
+	df_simulate_uses.
+
+2007-05-20  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* cfg.c (dump_bb_info): Fixed dump formatting problem.
+	* dse.c (const_or_frame_p): New function.
+	(canon_address): Fixed dump info and now callse const_or_frame_p
+	rather than rtx_varies_p.  Also do simplification inside cselib.
+	(record_store): Fixed dump info.
+	* cselib.c (expand_loc): Fixed dump info.
+	(cselib_expand_value_rtx): Fixed dump info and now call
+	simplify_rtx on results of expansion.  
+
+2007-05-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* ifcvt.c (dead_or_predictable): Replaced insn dfa with new df
+	routines.
+	* recog.c (peephole2_optimize): Replaced
+	df_lr_simulate_artificial_refs_at_end and df_lr_simulate_one_insn
+	with df_simulate_artificial_refs_at_end and
+	df_simulate_one_insn_backwards.
+	* rtl-factoring.c (collect_pattern_seqs, clear_regs_live_in_seq):
+	Ditto.
+	* df.h (df_lr_simulate_artificial_refs_at_end, 
+	df_lr_simulate_one_insn): Removed.
+	(df_simulate_find_defs, df_simulate_artificial_refs_at_top,
+	df_simulate_one_insn_forwards, df_simulate_artificial_refs_at_end,
+	df_simulate_one_insn_backwards): Added.
+	* df-problems.c (df_lr_bb_local_compute): Removed unnecessary
+	tests.
+	(df_lr_simulate_artificial_refs_at_end, df_lr_simulate_one_insn):
+	Removed.
+	(df_simulate_find_defs, df_simulate_defs, df_simulate_uses,
+	df_simulate_fixup_sets, df_simulate_artificial_refs_at_top,
+	df_simulate_one_insn_forwards, df_simulate_artificial_refs_at_end,
+	df_simulate_one_insn_backwards): Added.
+
+2007-05-16  Seongbae Park <seongbae.park@gmail.com>
+
+	* ifcvt.c (dead_or_predicable): Update test_live as well as test_set.
+	(if_convert): New parameter RECOMPUTE_DOMINANCE.
+	(rest_of_handle_if_conversion, rest_of_handle_if_after_combine,
+	rest_of_handle_if_after_reload): New parameter to if_convert.
+
+2007-05-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* regstat.c (regstat_init_n_sets_and_refs, regstat_compute_ri,
+	regstat_compute_calls_crossed): Added time variable TV_REG_STATS.
+	* timevar.def (TV_REG_STATS): Added.
+	(TV_DF_RI): Deleted.
+	* df-problems.c (df_print_bb_index): Added identifer for eh blocks.
+	* dce.c (deletable_insn_p): Added code to not delete 
+	RTX_FRAME_RELATED_P insns.
+	(dce_process_block): Removed insns_deleted and added code to reset
+	live set before confluence function.  
+	(rest_of_handle_fast_dce): Added code to turn off df's version of dce if 
+	flag_dce is not set and added DF_NO_INSN_RESCAN to flags that are cleared.
+
+2007-05-10  Roman Zippel <zippel@linux-m68k.org>
+
+	* config/m68k/m68k.c: include df.h.
+	(m68k_output_mi_thunk): use SET_REGNO.
+
+2007-05-09  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* df-core.c (df_get_bb_dirty): Return false if df_live is null.
+
+2007-05-09  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (r0_life_regions): New variable.
+	(find_r0_life_regions): New static function.
+	(sh_md_init_global): Call find_r0_life_regions when
+	reload_completed isn't set.
+	(R0_MAX_LIVE_LENGTH): Remove.
+	(high__pressure): Return 1 if r0_life_regions is over
+	the given threshold.
+
+2007-05-08  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* regrename.c (regrename_optimize): Renamed df_ri_add_problem to 
+	df_note_add_problem.
+	* auto-inc-dec.c (rest_of_handle_auto_inc_dec): Ditto.
+	* sched_ebb.c (schedule_ebbs): Renamed df_ri_add_problem to
+	df_note_add_problem.  Added call to regstat_compute_calls_crossed
+	and regstat_free_calls_crossed and deleted call to
+	allocate_reg_life_data.
+	* regstat.c (regstat_init_n_sets_and_refs,
+	regstat_free_n_sets_and_refs, regstat_bb_compute_ri,
+	regstat_compute_ri, regstat_free_ri,
+	regstat_bb_compute_calls_crossed, regstat_compute_calls_crossed, 
+	regstat_free_calls_crossed): New functions.
+	* final.c (rest_of_handle_final): Removed call to free_reg_info.
+	* cfg.c (dump_reg_info): Many changes to accomodate new
+	implementation of REG_BASIC_BLOCK, REG_N_SETS, REG_N_DEATHS, 
+	REG_N_CALLS_CROSSED.
+	* toplev.c (finalize): Removed call to free_reg_info.
+	* regs.h (REG_BASIC_BLOCK, REG_N_SETS, REG_N_REFS, REG_N_DEATHS, 
+	REG_N_CALLS_CROSSED, REG_FREQ, REG_N_THROWING_CALLS_CROSSED,
+	REG_LIVE_LENGTH, REG_BASIC_BLOCK): Changed implementation.
+	(allocate_reg_life_data, allocate_reg_info, clear_reg_info_regno):
+	Removed.
+	* mode-switching.c (optimize_mode_switching): Removed call to 
+	df_ri_add_problem.
+	* modulo-sched.c (sms_schedule): Renamed df_ri_add_problem to
+	df_note_add_problem.  Added call to regstat_compute_calls_crossed
+	and regstat_free_calls_crossed
+	(rest_of_handle_sms): Deleted call to allocate_reg_info.
+	* global.c (compute_regsets): Moved all dataflow to local_alloc.
+	(rest_of_handle_global_alloc): Call regstat_free_n_sets_and_refs
+	and regstat_free_ri.
+	* ifcvt.c (dead_or_predicable, if_convert): Removed calls to
+	allocate_reg_info.
+	* timevar.def (TV_DF_NOTE): New timevar. 
+	* regmove.c (copy_src_to_dest, regmove_optimize, fixup_match_1):
+	Changed calls to REG_N_SETS that changed the value to
+	INC_REG_N_SETS.
+	(regmove_optimize): Moved calls that compute df and register info
+	to after early out for flag_non_call_exceptions.  Added calls to 
+	regstat_init_n_sets_and_refs, regstat_compute_ri,
+	regstat_free_n_sets_and_refs and regstat_free_ri.
+	* local_alloc (local_alloc, equiv_init_movable_p): Added
+	NUM_FIXED_BLOCKS to tests for REG_BASIC_BLOCK.
+	(update_equiv_regs): Added code to update bitvectors when certain
+	local allocations are done.  Changed REG_N_SETS to
+	DF_REG_DEF_COUNT.  Added NUM_FIXED_BLOCKS to tests for
+	REG_BASIC_BLOCK.
+	(rest_of_handle_local_alloc): Moved computation of UREC from
+	global to here.
+	* function.c (regno_clobbered_at_setjmp): Added to test to see if
+	regno was valid.  Moved function size test higher in call
+	heirarchy.
+	(setjmp_args_warning): Added tests to early out of check if
+	function is small or there are no setjmps.  
+	* df.h (DF_RI, df_ri, DF_RI_LIFE, DF_RI_SETJMP, df_ri_add_problem,
+	df_ri_get_setjmp_crosses): Deleted.
+	(DF_NOTE, df_note, df_note_add_problem): Added.
+	* gcse (gcse_main): Removed computation of RI information and
+	removed calls to allocate_reg_info.
+	* init-regs.c (initialize_uninitialized_regs): Removed call to
+	allocate_reg_life_data.
+      	* regclass.c (reg_info_data, reg_info_head, reg_pref_buffer,
+	allocate_reg_life_data, allocate_reg_info, clear_reg_info_regno):
+	Deleted.
+	(scan_one_insn): Changed some calls to REG_N_SETS and REG_N_REFS
+	to INC_REG_N_SETS and INC_REG_N_REFS.
+	(regclass): Allocate register information locally.
+	(free_reg_info): Changed the structures freed.	
+	(reg_scan): Removed call to allocate_reg_info and changed call to
+	REG_N_SETS to DF_REG_DEF_COUNT.
+	* combine (try_combine, remove_death, distribute_notes): Removed
+	computation of REG_N_DEATHS.  Changed some references to
+	REG_N_SETS to INC_REG_N_SETS.
+	(rest_of_handle_combine): Replaced call to df_ri_add_problem with
+	call to df_note_add_problem, and added call to
+	regstat_init_n_sets_and_refs and regstat_free_n_sets_and_refs.
+	* bb-reorder (rest_of_handle_partition_blocks): Removed call to
+	allocate_reg_life_data.
+	* df-problems.c (reg_n_info, df_ri_problem_p, df_ri_problem_data,
+	df_ri_alloc, df_ri_start_dump, df_ri_get_setjmp_crosses): Removed.
+	(print_note): Renamed df_print_note.
+	(df_kill_notes): Added parameters to save notes rather than just
+	let them die and remake them.
+	(df_set_note): New function.
+	(df_set_unused_notes_for_mw, df_set_dead_notes_for_mw,
+	df_create_unused_note, df_ri_bb_compute, df_ri_compute,
+	df_ri_free): Removed ri information computations.
+	(df_ri_bb_compute): Renamed to df_note_bb_compute.
+	(df_ri_compute): Renamed to df_note_compute.
+	(df_ri_free): Renamed to df_note_free.
+	(problem_RI): Renamed to problem_NOTE
+	(df_ri_add_problem): Renamed to df_note_add_problem.
+	* (reg-stack.c): Changed call to df_ri_add_problem to 
+	df_note_add_problem.
+	* combine-stack-adj.c (rest_of_handle_stack_adjustments): Ditto.
+	* (Makefile.in): Added regstat.o.
+	* sched-rgn.c (schedule_insns): Changed call to df_ri_add_problem to 
+	df_note_add_problem.  Added calls to regstat_compute_calls_crossed
+	and regstat_free_calls_crossed.
+	* basic_block.h (REG_BLOCK_UNKNOWN, REG_BLOCK_GLOBAL,
+	REG_BASIC_BLOCK): Moved to regs.h.
+	* config/sparc/sparc.c (sparc_check_64): Changed REG_N_SETS to
+	DF_REG_DEF_COUNT.
+	* config/sh/sh.c (flow_dependent_p_1): Ditto.
+	(sh_md_init): Removed useless attempt to measure pressure on R0.
+	* config/m68k/m68k.c (m68k_output_mi_thunk): Removed call to
+	allocate_reg_info.
+	* reload1.c (delete_output_reload): Added NUM_FIXED_BLOCKS to
+	tests for REG_BASIC_BLOCK.
+	
+2007-05-07  Seongbae Park  <seongbae.park@gmail.com>
+
+	* dse.c (add_wild_read): Do not remove read_info_t
+	that has non-zero alias_set.
+	(canon_address): Remove unused parameter for_read and bb_info.
+	Remove the unused code path, and update the dump message.
+	(record_store): Accomodate canon_address signature change.
+	(check_mem_read_rtx): Don't bail out early for wild_read.
+	(check_mem_read_rtx): Accomodate canon_address signature change.
+	(scan_insn): Move call insn handling after note_uses.
+
+2007-05-05  Ramana Radhakrishnan <ramana.r@gmail.com>
+	    Serge Belyshev  <belyshev@depni.sinp.msu.ru>
+	    Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* combine.c (recog_for_combine): Keep unused notes from being 
+	generated for scratch registers.
+	* config/alpha/alpha.c: Add include for df.h.
+	
+
+2007-05-01  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	Do not delete regnotes when recreating them.
+	* df-problems.c (df_kill_notes): Store notes into new parameters
+	rather than killing them.
+	(df_set_note): New function.
+	(df_set_unused_notes_for_mw, df_set_dead_notes_for_mw,
+	df_create_unused_note, df_ri_bb_compute): Call df_set_note to
+	create new notes.
+	
+2007-04-30  Seongbae Park <seongbae.park@gmail.com>
+
+	* df-scan.c (df_reorganize_refs_by_reg_by_insn):
+	Scan artificial defs and uses as well.
+	* passes.c (init_optimization_passes):
+	Move pass_stack_ptr_mod from after pass_inc_dec.
+
+2007-04-29  Steven Bosscher <steven@gcc.gnu.org>
+
+	Small cleanups without any semantics changes:
+	* df-scan.c (df_ref_record): Fix small style typo.
+	* df-core.c (df_hybrid_search_forward): Cleanup redundant loads.
+	(df_hybrid_search_backward): Likewise.
+	(df_worklist_dataflow): Check DIR against DF_NONE instead of 0.
+
+	Small speedups:
+	* haifa-sched.c (move_block_after_check): Mark df solutions dirty
+	here, instead of...
+	(move_succs): ...here.
+	* df-core.c (df_analyze): Only verify POSTORDER_INVERTED if
+	checking is enabled.
+
+	Fix Java bootstrap on ia64
+	* emit-rtl.c (try_split): Unshare RTL sequences produced by splitters.
+
+2007-04-27  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* timevar.def (TV_DF_UR): Removed.
+	* df-scan.c (df_scan_alloc): Change pool size.  
+	* df-core.c (df_finish_pass, rest_of_handle_df_initialize,
+	df_get_bb_dirty, df_verify): Merged df_ur and df_live problems
+	into df_live.
+	* global.c (compute_regsets, rest_of_handle_global_alloc): Ditto.
+	* df.h (DF_UR, DF_UR_BB_INFO, DF_UR_IN, DF_UR_OUT, df_ur,
+	df_ur_get_bb_info): Removed.
+	(df_ur_bb_info): Merged df_ur and df_live problems
+	into df_live.
+	* init-regs.c (initialize_uninitialized_regs): Changed DF_UR_IN to
+	DF_LIVE_IN.
+	* df_problems.c (df_ur_problem_data): Renamed to
+	df_live_problem_data.
+	(df_ur_set_bb_info): Renamed to df_live_set_bb_info.
+	(df_ur_free_bb_info): Renamed to df_live_free_bb_info.
+	(df_ur_alloc): Renamed to df_live_alloc.
+	(df_ur_reset): Renamed to df_live_reset.
+	(df_ur_bb_local_compute): Renamed to df_live_bb_local_compute.
+	(df_ur_local_compute): Renamed to df_live_local_compute.
+	(df_ur_init): Renamed to df_live_init.
+	(df_ur_confluence_n): Renamed to df_live_confluence_n.
+	(df_ur_transfer_function): Renamed to df_live_transfer_function.
+	(df_ur_local_finalize): Removed.
+	(df_ur_free): Renamed to df_live_free.
+	(df_ur_top_dump): Renamed to df_live_top_dump.
+	(df_ur_bottom_dump): Renamed to df_live_bottom_dump.
+	(df_ur_verify_solution_start): Renamed to
+	df_live_verify_solution_start.
+	(df_ur_verify_solution_end): Renamed to
+	df_live_verify_solution_end.
+	(problem_UR): Renamed to problem_LIVE.
+	(df_ur_add_problem): Renamed to df_live_add_problem.
+	(df_ur_verify_transfer_functions): Renamed to
+	df_live_verify_transfer_functions.
+	(df_live_set_bb_info, df_live_free_bb_info, df_live_alloc,
+	df_live_free, df_live_top_dump, df_live_bottom_dump, 
+	df_live_add_problem): Deleted.
+	(df_chain_fully_remove_problem): Changed pool alloc block size.
+	* dce.c (dce_marked_bitmap_obstack): Removed.
+	(marked_insn_p, mark_insn, init_dce, end_ud_dce, fini_dce,
+	fast_dce): Changed marked to be sbitmap rather than bitmap.
+	* alloc_pool.c (create_alloc_pool, pool_alloc, pool_free): Split
+	free_list into virgin_free_list and returned_free_list.
+	* alloc_pool.h (free_list): Split into virgin_free_list and
+	returned_free_list.
+	(virgin_elts_remaining): New variable.
+	
 2007-04-26  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* df-core.c (df_remove_problem): Allow df_ur and df_live 
@@ -3677,6 +4275,8 @@
 	* rtl.h (find_occurrence): Declare.
 	* rtlanal.c (find_occurrence): New.
 	(loc_mentioned_in_p): Accept a NULL value for IN.
+	(commutative_operand_precedence): Remove useless code looking
+	for constant RTX_EXTRA rtxen.
 	* common.opt (-fforward-propagate): New.
 	* tree-pass.h: Add forward propagation passes.
 	* passes.c: Ditto.

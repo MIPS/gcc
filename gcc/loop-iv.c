@@ -1,11 +1,11 @@
 /* Rtl-level induction variable analysis.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This is a simple analysis of induction variables of the loop.  The major use
    is for determining the number of iterations of a loop for loop unrolling,
@@ -244,7 +243,7 @@ biv_hash (const void *b)
 static int
 biv_eq (const void *b, const void *r)
 {
-  return ((const struct biv_entry *) b)->regno == REGNO ((rtx) r);
+  return ((const struct biv_entry *) b)->regno == REGNO ((const_rtx) r);
 }
 
 /* Prepare the data for an induction variable analysis of a LOOP.  */
@@ -347,6 +346,11 @@ iv_get_reaching_def (rtx insn, rtx reg, struct df_ref **def)
     return GRD_INVALID;
 
   adef = DF_REF_CHAIN (use)->ref;
+
+  /* We do not handle setting only part of the register.  */
+  if (adef->flags & DF_REF_READ_WRITE)
+    return GRD_INVALID;
+
   def_insn = DF_REF_INSN (adef);
   def_bb = DF_REF_BB (adef);
   use_bb = BLOCK_FOR_INSN (insn);
@@ -1044,7 +1048,7 @@ iv_analyze_def (struct df_ref *def, struct rtx_iv *iv)
 
   if (dump_file)
     {
-      fprintf (dump_file, "Analysing def of ");
+      fprintf (dump_file, "Analyzing def of ");
       print_rtl (dump_file, reg);
       fprintf (dump_file, " in insn ");
       print_rtl_single (dump_file, insn);
@@ -1106,7 +1110,7 @@ iv_analyze_op (rtx insn, rtx op, struct rtx_iv *iv)
 
   if (dump_file)
     {
-      fprintf (dump_file, "Analysing operand ");
+      fprintf (dump_file, "Analyzing operand ");
       print_rtl (dump_file, op);
       fprintf (dump_file, " of insn ");
       print_rtl_single (dump_file, insn);
@@ -1262,7 +1266,7 @@ iv_analysis_done (void)
     {
       clear_iv_info ();
       clean_slate = true;
-      df_finish_pass ();
+      df_finish_pass (true);
       htab_delete (bivs);
       free (iv_ref_table);
       iv_ref_table = NULL;
@@ -1304,7 +1308,7 @@ altered_reg_used (rtx *reg, void *alt)
 /* Marks registers altered by EXPR in set ALT.  */
 
 static void
-mark_altered (rtx expr, rtx by ATTRIBUTE_UNUSED, void *alt)
+mark_altered (rtx expr, const_rtx by ATTRIBUTE_UNUSED, void *alt)
 {
   if (GET_CODE (expr) == SUBREG)
     expr = SUBREG_REG (expr);
@@ -1322,7 +1326,7 @@ simple_rhs_p (rtx rhs)
   rtx op0, op1;
 
   if (CONSTANT_P (rhs)
-      || REG_P (rhs))
+      || (REG_P (rhs) && !HARD_REGISTER_P (rhs)))
     return true;
 
   switch (GET_CODE (rhs))
@@ -1332,9 +1336,9 @@ simple_rhs_p (rtx rhs)
       op0 = XEXP (rhs, 0);
       op1 = XEXP (rhs, 1);
       /* Allow reg + const sets only.  */
-      if (REG_P (op0) && CONSTANT_P (op1))
+      if (REG_P (op0) && !HARD_REGISTER_P (op0) && CONSTANT_P (op1))
 	return true;
-      if (REG_P (op1) && CONSTANT_P (op0))
+      if (REG_P (op1) && !HARD_REGISTER_P (op1) && CONSTANT_P (op0))
 	return true;
 
       return false;

@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -166,6 +165,7 @@ typedef struct change_t
   int old_code;
   rtx *loc;
   rtx old;
+  bool unshare;
 } change_t;
 
 static change_t *changes;
@@ -191,8 +191,8 @@ static int num_changes = 0;
    is not valid for the machine, suppress the change and return zero.
    Otherwise, perform the change and return 1.  */
 
-int
-validate_change (rtx object, rtx *loc, rtx new, int in_group)
+static bool
+validate_change_1 (rtx object, rtx *loc, rtx new, bool in_group, bool unshare)
 {
   rtx old = *loc;
 
@@ -219,6 +219,7 @@ validate_change (rtx object, rtx *loc, rtx new, int in_group)
   changes[num_changes].object = object;
   changes[num_changes].loc = loc;
   changes[num_changes].old = old;
+  changes[num_changes].unshare = unshare;
 
   if (object && !MEM_P (object))
     {
@@ -238,6 +239,25 @@ validate_change (rtx object, rtx *loc, rtx new, int in_group)
   else
     return apply_change_group ();
 }
+
+/* Wrapper for validate_change_1 without the UNSHARE argument defaulting
+   UNSHARE to false.  */
+
+bool
+validate_change (rtx object, rtx *loc, rtx new, bool in_group)
+{
+  return validate_change_1 (object, loc, new, in_group, false);
+}
+
+/* Wrapper for validate_change_1 without the UNSHARE argument defaulting
+   UNSHARE to true.  */
+
+bool
+validate_unshare_change (rtx object, rtx *loc, rtx new, bool in_group)
+{
+  return validate_change_1 (object, loc, new, in_group, true);
+}
+
 
 /* Keep X canonicalized if some changes have made it non-canonical; only
    modifies the operands of X, not (for example) its code.  Simplifications
@@ -407,21 +427,34 @@ verify_changes (int num)
 }
 
 /* A group of changes has previously been issued with validate_change
-   and verified with verify_changes.  Call df_set_bb_dirty of the
-   affected blocks, and clear num_changes.  */
+   and verified with verify_changes.  Call df_insn_rescan for each of
+   the insn changed and clear num_changes.  */
 
 void
 confirm_change_group (void)
 {
   int i;
+  rtx last_object = NULL;
 
   for (i = 0; i < num_changes; i++)
     {
       rtx object = changes[i].object;
-      if (object && INSN_P (object))
-	df_insn_rescan (object);
+
+      if (changes[i].unshare)
+	*changes[i].loc = copy_rtx (*changes[i].loc);
+
+      /* Avoid unnecesary rescaning when multiple changes to same instruction
+         are made.  */
+      if (object)
+	{
+	  if (object != last_object && last_object && INSN_P (last_object))
+	    df_insn_rescan (last_object);
+	  last_object = object;
+	}
     }
 
+  if (last_object && INSN_P (last_object))
+    df_insn_rescan (last_object);
   num_changes = 0;
 }
 
@@ -504,7 +537,7 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
       || (GET_CODE (x) == GET_CODE (from) && GET_MODE (x) == GET_MODE (from)
 	  && rtx_equal_p (x, from)))
     {
-      validate_change (object, loc, to, 1);
+      validate_unshare_change (object, loc, to, 1);
       return;
     }
 
@@ -1246,7 +1279,7 @@ comparison_operator (rtx op, enum machine_mode mode)
    Otherwise return -1.  */
 
 int
-asm_noperands (rtx body)
+asm_noperands (const_rtx body)
 {
   switch (GET_CODE (body))
     {
@@ -2551,21 +2584,9 @@ reg_fits_class_p (rtx operand, enum reg_class cl, int offset,
   if (cl == NO_REGS)
     return 0;
 
-  if (regno < FIRST_PSEUDO_REGISTER
-      && TEST_HARD_REG_BIT (reg_class_contents[(int) cl],
-			    regno + offset))
-    {
-      int sr;
-      regno += offset;
-      for (sr = hard_regno_nregs[regno][mode] - 1;
-	   sr > 0; sr--)
-	if (! TEST_HARD_REG_BIT (reg_class_contents[(int) cl],
-				 regno + sr))
-	  break;
-      return sr == 0;
-    }
-
-  return 0;
+  return (regno < FIRST_PSEUDO_REGISTER
+	  && in_hard_reg_set_p (reg_class_contents[(int) cl],
+				mode, regno + offset));
 }
 
 /* Split single instruction.  Helper function for split_all_insns and
@@ -2871,8 +2892,7 @@ peep2_find_free_register (int from, int to, const char *class_str,
 	}
       if (success)
 	{
-	  for (j = hard_regno_nregs[regno][mode] - 1; j >= 0; j--)
-	    SET_HARD_REG_BIT (*reg_set, regno + j);
+	  add_to_hard_reg_set (reg_set, mode, regno);
 
 	  /* Start the next search with the next register.  */
 	  if (++raw_regno >= FIRST_PSEUDO_REGISTER)
@@ -2894,9 +2914,6 @@ peephole2_optimize (void)
 {
   rtx insn, prev;
   bitmap live;
-#if 0
-  bitmap livep;
-#endif
   int i;
   basic_block bb;
   bool do_cleanup_cfg = false;
@@ -2909,9 +2926,6 @@ peephole2_optimize (void)
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
     peep2_insn_data[i].live_before = BITMAP_ALLOC (&reg_obstack);
   live = BITMAP_ALLOC (&reg_obstack);
-#if 0
-  livep = BITMAP_ALLOC (&reg_obstack);
-#endif  
 
   FOR_EACH_BB_REVERSE (bb)
     {
@@ -2925,7 +2939,8 @@ peephole2_optimize (void)
       peep2_current = MAX_INSNS_PER_PEEP2;
 
       /* Start up propagation.  */
-      df_lr_simulate_artificial_refs_at_end (bb, live);
+      bitmap_copy (live, DF_LR_OUT (bb));
+      df_simulate_artificial_refs_at_end (bb, live);
       bitmap_copy (peep2_insn_data[MAX_INSNS_PER_PEEP2].live_before, live);
 
       for (insn = BB_END (bb); ; insn = prev)
@@ -2945,7 +2960,7 @@ peephole2_optimize (void)
 		  && peep2_insn_data[peep2_current].insn == NULL_RTX)
 		peep2_current_count++;
 	      peep2_insn_data[peep2_current].insn = insn;
-	      df_lr_simulate_one_insn (bb, insn, live);
+	      df_simulate_one_insn_backwards (bb, insn, live);
 	      COPY_REG_SET (peep2_insn_data[peep2_current].live_before, live);
 
 	      if (RTX_FRAME_RELATED_P (insn))
@@ -3030,7 +3045,7 @@ peephole2_optimize (void)
 		  try = emit_insn_after_setloc (try, peep2_insn_data[i].insn,
 					        INSN_LOCATOR (peep2_insn_data[i].insn));
 		  before_try = PREV_INSN (insn);
-		  delete_insn_chain (insn, peep2_insn_data[i].insn);
+		  delete_insn_chain (insn, peep2_insn_data[i].insn, false);
 
 		  /* Re-insert the EH_REGION notes.  */
 		  if (note || (was_call && nonlocal_goto_handler_labels))
@@ -3107,7 +3122,7 @@ peephole2_optimize (void)
 			    peep2_current_count++;
 			  peep2_insn_data[i].insn = x;
 			  df_insn_rescan (x);
-			  df_lr_simulate_one_insn (bb, x, live);
+			  df_simulate_one_insn_backwards (bb, x, live);
 			  bitmap_copy (peep2_insn_data[i].live_before, live);
 			}
 		      x = PREV_INSN (x);
@@ -3136,9 +3151,6 @@ peephole2_optimize (void)
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
     BITMAP_FREE (peep2_insn_data[i].live_before);
   BITMAP_FREE (live);
-#if 0
-  BITMAP_FREE (livep);
-#endif
   if (do_rebuild_jump_labels)
     rebuild_jump_labels (get_insns ());
 }

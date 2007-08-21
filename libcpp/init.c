@@ -310,6 +310,7 @@ static const struct builtin builtin_array[] =
   B("__BASE_FILE__",	 BT_BASE_FILE),
   B("__LINE__",		 BT_SPECLINE),
   B("__INCLUDE_LEVEL__", BT_INCLUDE_LEVEL),
+  B("__COUNTER__",	 BT_COUNTER),
   /* Keep builtins not used for -traditional-cpp at the end, and
      update init_builtins() if any more are added.  */
   B("_Pragma",		 BT_PRAGMA),
@@ -349,11 +350,8 @@ mark_named_operators (cpp_reader *pfile)
     }
 }
 
-/* Read the builtins table above and enter them, and language-specific
-   macros, into the hash table.  HOSTED is true if this is a hosted
-   environment.  */
 void
-cpp_init_builtins (cpp_reader *pfile, int hosted)
+cpp_init_special_builtins (cpp_reader *pfile)
 {
   const struct builtin *b;
   size_t n = ARRAY_SIZE (builtin_array);
@@ -362,10 +360,7 @@ cpp_init_builtins (cpp_reader *pfile, int hosted)
     n -= 2;
   else if (! CPP_OPTION (pfile, stdc_0_in_system_headers)
 	   || CPP_OPTION (pfile, std))
-    {
-      n--;
-      _cpp_define_builtin (pfile, "__STDC__ 1");
-    }
+    n--;
 
   for (b = builtin_array; b < builtin_array + n; b++)
     {
@@ -374,6 +369,20 @@ cpp_init_builtins (cpp_reader *pfile, int hosted)
       hp->flags |= NODE_BUILTIN | NODE_WARN;
       hp->value.builtin = (enum builtin_type) b->value;
     }
+}
+
+/* Read the builtins table above and enter them, and language-specific
+   macros, into the hash table.  HOSTED is true if this is a hosted
+   environment.  */
+void
+cpp_init_builtins (cpp_reader *pfile, int hosted)
+{
+  cpp_init_special_builtins (pfile);
+
+  if (!CPP_OPTION (pfile, traditional)
+      && (! CPP_OPTION (pfile, stdc_0_in_system_headers)
+	  || CPP_OPTION (pfile, std)))
+    _cpp_define_builtin (pfile, "__STDC__ 1");
 
   if (CPP_OPTION (pfile, cplusplus))
     _cpp_define_builtin (pfile, "__cplusplus 1");
@@ -621,7 +630,8 @@ post_options (cpp_reader *pfile)
      preprocessed text.  Read preprocesed source in ISO mode.  */
   if (CPP_OPTION (pfile, preprocessed))
     {
-      pfile->state.prevent_expansion = 1;
+      if (!CPP_OPTION (pfile, directives_only))
+	pfile->state.prevent_expansion = 1;
       CPP_OPTION (pfile, traditional) = 0;
     }
 

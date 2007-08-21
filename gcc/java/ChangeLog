@@ -1,3 +1,208 @@
+2007-08-21  Paul Brook  <paul@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* jcf-dump.c (version): Use pkgversion_string.  Update copyright
+	date.
+
+2007-08-20  Richard Guenther  <rguenther@suse.de>
+
+	* lang.c (java_tree_inlining_walk_subtrees): Remove.
+	(LANG_HOOKS_TREE_INLINING_WALK_SUBTREES): Remove.
+
+2007-08-17  Tom Tromey  <tromey@redhat.com>
+
+	* typeck.c (find_method_in_interfaces): Update.
+	* jcf-parse.c (load_class): Update.
+	* java-gimplify.c (java_gimplify_component_ref): Removed.
+	(java_gimplify_modify_expr): Update.  Removed pre_p and post_p
+	arguments.
+	(java_gimplify_expr): Update.
+	* decl.c (java_init_decl_processing): Update.
+	* class.c (set_constant_value): Update.
+	(make_class_data): Update.
+	(finish_class): Update.
+	(build_static_field_ref): Update.
+	(is_compiled_class): Update.
+	(maybe_layout_super_class): Update.
+	(layout_class): Update.
+	(layout_class_method): Update.
+	* java-tree.h (CAN_COMPLETE_NORMALLY): Removed.
+	(lang_decl_var) <am, final_iud, cif>: Removed fields.
+	(lang_decl_func) <init_calls_this>: Removed field.
+	(lang_type) <dot_class, verify_method>: Removed fields.
+	(FIELD_NESTED_ACCESS): Removed.
+	(FIELD_NESTED_ACCESS_P): Removed.
+	(DECL_FIELD_FINAL_IUD): Removed.
+	(DECL_LOCAL_FINAL_IUD): Removed
+	(LOCAL_FINAL_P): Removed.
+	(FINAL_VARIABLE_P): Removed.
+	(CLASS_FINAL_VARIABLE_P): Removed.
+	(DECL_BIT_INDEX): Removed.
+	(DECL_INIT_CALLS_THIS): Removed.
+	(FIELD_LOCAL_ALIAS): Removed.
+	(FIELD_LOCAL_ALIAS_USED): Removed.
+	(FIELD_THISN): Removed.
+	(DECL_FUNCTION_INIT_TEST_CLASS): Removed.
+	(LOCAL_CLASS_INITIALIZATION_FLAG): Removed.
+	(LOCAL_CLASS_INITIALIZATION_FLAG_P): Removed.
+	(TYPE_DOT_CLASS): Removed.
+	(TYPE_VERIFY_METHOD): Removed.
+	(ID_CLASSDOLLAR_P): Removed.
+	(enum java_tree_index) <JTI_CLASSDOLLAR_IDENTIFIER_NODE>:
+	Removed.
+	(classdollar_identifier_node): Removed.
+	(TYPE_UNKNOWN): Removed.
+	(CLASS_FROM_SOURCE_P): Removed.
+	* expr.c (build_jni_stub): Update.
+	(force_evaluation_order): Update.
+	(build_java_empty_stmt): Update.
+	(build_class_init): Update.
+	(java_stack_swap): Update.
+	(build_jni_stub): Update.
+
+2007-08-17  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (LABEL_TYPE_STATE): Removed.
+	(load_type_state): Removed.
+	(LABEL_PC): Removed.
+	(LABEL_VERIFIED): Removed.
+	(type_states): Declare.
+	* expr.c (type_states): New global.
+	(load_type_state): Now static.  Use type_states.  Changed
+	argument.
+	(lookup_label): Don't set LABEL_PC.
+	(expand_byte_code): Don't use LABEL_VERIFIED.
+	(note_instructions): Initialize type_states.
+	* verify-glue.c (vfy_note_stack_depth): Rewrote.
+	(vfy_note_stack_type): Use type_states.
+	(vfy_note_local_type): Likewise.
+
+2007-08-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* jcf-parse.c (read_class, java_parse_file): Use CONST_CAST.
+	* jcf.h (JCF_FINISH): Likewise.
+
+2007-07-31  Nick Clifton  <nickc@redhat.com>
+
+	* java-gimplify.c: Change copyright header to refer to version 3
+	of the GNU General Public License and to point readers at the
+	COPYING3 file and the FSF's license web page.
+	* typeck.c, lang-specs.h, mangle_name.c, jcf-dump.c, class.c,
+	decl.c, config-lang.in, jcf-parse.c, constants.c, Make-lang.in,
+	resource.c, except.c, builtins.c, jvspec.c, java-tree.def,
+	javaop.def, jcf-path.c, verify-glue.c, jcf-depend.c, lang.opt,
+	jcf-reader.c, mangle.c, zextract.c, jcf-io.c, jcf.h, zipfile.h,
+	verify.h, java-except.h, win32-host.c, expr.c, jvgenmain.c,
+	parse.h, lang.c, java-tree.h, javaop.h, boehm.c: Likewise.
+
+2007-07-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* jcf-io.c (find_class): Fix -Wcast-qual warnings.
+
+2007-07-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* lang.c (java_get_callee_fndecl): Constify.
+
+2007-07-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* mangle.c (set_type_package_list): Constify.
+	* verify-glue.c (vfy_make_string): Delete.
+	* verify.h (vfy_make_string): Likewise.
+
+2007-07-26  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (push_labeled_block, pop_labeled_block): Remove.
+	(LABELED_BLOCK_LABEL, LABELED_BLOCK_BODY,
+	EXIT_BLOCK_LABELED_BLOCK): Likewise.
+	* lang.c (java_tree_inlining_walk_subtrees): Update.
+	(java_dump_tree): Likewise.
+	* java-tree.def (LABELED_BLOCK_EXPR, EXIT_BLOCK_EXPR, TRY_EXPR):
+	Remove.
+	* decl.c (push_labeled_block, pop_labeled_block): Remove.
+	* java-gimplify.c (java_gimplify_labeled_block_expr,
+	java_gimplify_exit_block_expr, java_gimplify_try_expr): Remove.
+	(java_gimplify_expr): Update.
+
+2007-07-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* class.c (java_treetreehash_hash, java_treetreehash_compare):
+	Constify. 
+	* expr.c (type_assertion_eq): Likewise.
+	* jcf-io.c (compare_path): Likewise.
+	* jcf-parse.c (cmpstringp): Likewise.
+	* verify-impl.c (get_one_type, compute_argument_types,
+	compute_return_type): Likewise. 
+
+2007-07-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR target/32462
+	PR libgcj/32465
+	* class.c (hide): Wrap in HAVE_GAS_HIDDEN.
+
+2007-07-12  Richard Guenther  <rguenther@suse.de>
+
+	* expr.c (expand_java_return): RETURN_EXPR has void type.
+	(build_jni_stub): Likewise.  Use a comparison against zero
+	for null-pointer test in COND_EXPR.
+	(build_field_ref): Build POINTER_PLUS_EXPR with correct
+	type.  Convert result instead.
+	(build_invokevirtual): Likewise.
+
+2007-07-09  Geoffrey Keating  <geoffk@apple.com>
+
+	PR 32617
+	* lang.c (java_init): Remove setting of force_align_functions_log.
+	* class.c (add_method_1): Set DECL_ALIGN of non-static method
+	to cope with ptrmemfunc_vbit_in_pfn.
+
+2007-07-03  David Daney  <ddaney@avtrex.com>
+
+	* java/Make-lang.in (doc/gcj.info): Add $(gcc_docdir) to 
+	include path.
+	(doc/gcj.dvi): Same.
+	(doc/gcj.pdf): Same.
+	(java/index.html): Same.
+
+2007-06-15 Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* class.c (make_class_data): Build the index in sizetype.
+	Use POINTER_PLUS_EXPR instead of PLUS_EXPR when
+	adding to a pointer type.
+	(build_symbol_entry): Likewise.
+	* expr.c (build_java_arrayaccess): Likewise.
+	(build_field_ref): Likewise.
+	(build_known_method_ref): Likewise.
+	(build_invokevirtual): Likewise.
+	* except.c (build_exception_object_ref): Do a
+	NEGATIVE and then a POINTER_PLUS_EXPR instead
+	of a MINUS_EXPR.
+
+2007-06-11  Rafael Avila de Espindola  <espindola@google.com>
+
+	* typeck.c (java_signed_type): Remove.
+	* lang.c (LANG_HOOKS_SIGNED_TYPE): Remove.
+	* java-tree.h (java_signed_type): Remove.
+
+2007-05-18  Geoffrey Keating  <geoffk@apple.com>
+
+	* jcf-dump.c (HANDLE_MAGIC): Use 'unsigned long' for %lx.
+	(print_constant): Likewise.
+
+2007-05-14  Rafael Avila de Espindola  <espindola@google.com>
+
+	* expr.c (build_java_binop): Use unsigned_type_for instead of
+	java_unsigned_type.
+	* java-tree.h (java_unsigned_type): Remove.
+	* lang.c (LANG_HOOKS_UNSIGNED_TYPE): Remove.
+	* typeck.c (java_unsigned_type): Remove.
+
+2007-04-21  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* java-tree.h (lang_tree_node): Use GENERIC_NEXT
+	instead of checking GIMPLE_STMT_P in chain_next.
+
 2007-04-06  Colin Walters  <walters@redhat.com>
 
 	https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=161701

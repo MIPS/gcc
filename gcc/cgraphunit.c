@@ -1,12 +1,12 @@
 /* Callgraph based interprocedural optimizations.
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This module implements main driver of compilation process as well as
    few basic interprocedural optimizers.
@@ -168,6 +167,80 @@ static void cgraph_output_pending_asms (void);
 
 static FILE *cgraph_dump_file;
 
+static GTY (()) tree static_ctors;
+static GTY (()) tree static_dtors;
+
+/* When target does not have ctors and dtors, we call all constructor
+   and destructor by special initialization/destruction function
+   recognized by collect2.  
+   
+   When we are going to build this function, collect all constructors and
+   destructors and turn them into normal functions.  */
+
+static void
+record_cdtor_fn (tree fndecl)
+{
+  struct cgraph_node *node;
+  if (targetm.have_ctors_dtors
+      || (!DECL_STATIC_CONSTRUCTOR (fndecl)
+	  && !DECL_STATIC_DESTRUCTOR (fndecl)))
+    return;
+
+  if (DECL_STATIC_CONSTRUCTOR (fndecl))
+    {
+      static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
+      DECL_STATIC_CONSTRUCTOR (fndecl) = 0;
+    }
+  if (DECL_STATIC_DESTRUCTOR (fndecl))
+    {
+      static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
+      DECL_STATIC_DESTRUCTOR (fndecl) = 0;
+    }
+  DECL_INLINE (fndecl) = 1;
+  node = cgraph_node (fndecl);
+  node->local.disregard_inline_limits = 1;
+  cgraph_mark_reachable_node (node);
+}
+
+/* Synthesize a function which calls all the global ctors or global
+   dtors in this file.  This is only used for targets which do not
+   support .ctors/.dtors sections.  */
+static void
+build_cdtor (int method_type, tree cdtors)
+{
+  tree body = 0;
+
+  if (!cdtors)
+    return;
+
+  for (; cdtors; cdtors = TREE_CHAIN (cdtors))
+    append_to_statement_list (build_function_call_expr (TREE_VALUE (cdtors), 0),
+			      &body);
+
+  cgraph_build_static_cdtor (method_type, body, DEFAULT_INIT_PRIORITY);
+}
+
+/* Generate functions to call static constructors and destructors
+   for targets that do not support .ctors/.dtors sections.  These
+   functions have magic names which are detected by collect2.  */
+
+static void
+cgraph_build_cdtor_fns (void)
+{
+  if (!targetm.have_ctors_dtors)
+    {
+      build_cdtor ('I', static_ctors); 
+      static_ctors = NULL_TREE;
+      build_cdtor ('D', static_dtors); 
+      static_dtors = NULL_TREE;
+    }
+  else
+    {
+      gcc_assert (!static_ctors);
+      gcc_assert (!static_dtors);
+    }
+}
+
 /* Determine if function DECL is needed.  That is, visible to something
    either outside this translation unit, something magic in the system
    configury, or (if not doing unit-at-a-time) to something we havn't
@@ -308,7 +381,7 @@ cgraph_process_new_functions (void)
 	  node->local.self_insns = estimate_num_insns (fndecl,
 						       &eni_inlining_weights);
 	  node->local.disregard_inline_limits
-	    = lang_hooks.tree_inlining.disregard_inline_limits (fndecl);
+	    |= disregard_inline_limits_p (fndecl);
 	  /* Inlining characteristics are maintained by the
 	     cgraph_mark_inline.  */
 	  node->global.insns = node->local.self_insns;
@@ -458,6 +531,7 @@ cgraph_finalize_function (tree decl, bool nested)
   node->decl = decl;
   node->local.finalized = true;
   node->lowered = DECL_STRUCT_FUNCTION (decl)->cfg != NULL;
+  record_cdtor_fn (node->decl);
   if (node->nested)
     lower_nested_functions (decl);
   gcc_assert (!node->nested);
@@ -690,20 +764,8 @@ cgraph_analyze_function (struct cgraph_node *node)
   current_function_decl = decl;
   push_cfun (DECL_STRUCT_FUNCTION (decl));
   cgraph_lower_function (node);
+  node->analyzed = true;
 
-  node->local.estimated_self_stack_size = estimated_stack_frame_size ();
-  node->global.estimated_stack_size = node->local.estimated_self_stack_size;
-  node->global.stack_frame_offset = 0;
-  node->local.inlinable = tree_inlinable_function_p (decl);
-  if (!flag_unit_at_a_time)
-    node->local.self_insns = estimate_num_insns (decl, &eni_inlining_weights);
-  if (node->local.inlinable)
-    node->local.disregard_inline_limits
-      = lang_hooks.tree_inlining.disregard_inline_limits (decl);
-  if (flag_really_no_inline && !node->local.disregard_inline_limits)
-    node->local.inlinable = 0;
-  /* Inlining characteristics are maintained by the cgraph_mark_inline.  */
-  node->global.insns = node->local.self_insns;
   if (!flag_unit_at_a_time)
     {
       bitmap_obstack_initialize (NULL);
@@ -714,7 +776,6 @@ cgraph_analyze_function (struct cgraph_node *node)
       bitmap_obstack_release (NULL);
     }
 
-  node->analyzed = true;
   pop_cfun ();
   current_function_decl = NULL;
 }
@@ -1191,7 +1252,7 @@ cgraph_preserve_function_body_p (tree decl)
   struct cgraph_node *node;
   if (!cgraph_global_info_ready)
     return (flag_really_no_inline
-	    ? lang_hooks.tree_inlining.disregard_inline_limits (decl)
+	    ? disregard_inline_limits_p (decl)
 	    : DECL_INLINE (decl));
   /* Look if there is any clone around.  */
   for (node = cgraph_node (decl); node; node = node->next_clone)
@@ -1222,6 +1283,10 @@ cgraph_optimize (void)
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
+
+  /* Call functions declared with the "constructor" or "destructor"
+     attribute.  */
+  cgraph_build_cdtor_fns ();
   if (!flag_unit_at_a_time)
     {
       cgraph_assemble_pending_functions ();
@@ -1366,9 +1431,11 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
     {
     case 'I':
       DECL_STATIC_CONSTRUCTOR (decl) = 1;
+      decl_init_priority_insert (decl, priority);
       break;
     case 'D':
       DECL_STATIC_DESTRUCTOR (decl) = 1;
+      decl_fini_priority_insert (decl, priority);
       break;
     default:
       gcc_unreachable ();
@@ -1378,17 +1445,6 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
 
   cgraph_add_new_function (decl, false);
   cgraph_mark_needed_node (cgraph_node (decl));
-
-  if (targetm.have_ctors_dtors)
-    {
-      void (*fn) (rtx, int);
-
-      if (which == 'I')
-	fn = targetm.asm_out.constructor;
-      else
-	fn = targetm.asm_out.destructor;
-      fn (XEXP (DECL_RTL (decl), 0), priority);
-    }
 }
 
 void
@@ -1581,3 +1637,5 @@ save_inline_function_body (struct cgraph_node *node)
 #endif
   return first_clone;
 }
+
+#include "gt-cgraphunit.h"

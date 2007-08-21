@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 /* stdio.h must precede rtl.h for FFS.  */
@@ -531,12 +530,10 @@ struct cse_basic_block_data
     } *path;
 };
 
-/* A simple bitmap to track which regs have sets in more than one
-   basic block.  */
-static sbitmap reg_used_in_multiple_bb;
 
-/* An array used to initialize REG_SET_IN_MULTIPLE_BB.  */
-static basic_block *last_bb_reg_used_in;
+/* Pointers to the live in/live out bitmaps for the boundaries of the
+   current EBB.  */
+static bitmap cse_ebb_live_in, cse_ebb_live_out;
 
 /* A simple bitmap to track which basic blocks have been visited
    already as part of an already processed extended basic block.  */
@@ -561,7 +558,7 @@ static struct table_elt *insert (rtx, struct table_elt *, unsigned,
 				 enum machine_mode);
 static void merge_equiv_classes (struct table_elt *, struct table_elt *);
 static void invalidate (rtx, enum machine_mode);
-static int cse_rtx_varies_p (rtx, int);
+static bool cse_rtx_varies_p (const_rtx, bool);
 static void remove_invalid_refs (unsigned int);
 static void remove_invalid_subreg_refs (unsigned int, unsigned int,
 					enum machine_mode);
@@ -941,9 +938,10 @@ make_regs_eqv (unsigned int new, unsigned int old)
       && ((new < FIRST_PSEUDO_REGISTER && FIXED_REGNO_P (new))
 	  || (new >= FIRST_PSEUDO_REGISTER
 	      && (firstr < FIRST_PSEUDO_REGISTER
-		  || (TEST_BIT (reg_used_in_multiple_bb, new)
-		      && last_bb_reg_used_in[new]->index
-			 > last_bb_reg_used_in[firstr]->index)))))
+		  || (bitmap_bit_p (cse_ebb_live_out, new)
+		      && !bitmap_bit_p (cse_ebb_live_out, firstr))
+		  || (bitmap_bit_p (cse_ebb_live_in, new)
+		      && !bitmap_bit_p (cse_ebb_live_in, firstr))))))
     {
       reg_eqv_table[firstr].prev = new;
       reg_eqv_table[new].next = firstr;
@@ -1027,9 +1025,7 @@ mention_regs (rtx x)
   if (code == REG)
     {
       unsigned int regno = REGNO (x);
-      unsigned int endregno
-	= regno + (regno >= FIRST_PSEUDO_REGISTER ? 1
-		   : hard_regno_nregs[regno][GET_MODE (x)]);
+      unsigned int endregno = END_REGNO (x);
       unsigned int i;
 
       for (i = regno; i < endregno; i++)
@@ -1411,14 +1407,7 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
 
   /* If X is a hard register, show it is being put in the table.  */
   if (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER)
-    {
-      unsigned int regno = REGNO (x);
-      unsigned int endregno = regno + hard_regno_nregs[regno][GET_MODE (x)];
-      unsigned int i;
-
-      for (i = regno; i < endregno; i++)
-	SET_HARD_REG_BIT (hard_regs_in_table, i);
-    }
+    add_to_hard_reg_set (&hard_regs_in_table, GET_MODE (x), REGNO (x));
 
   /* Put an element for X into the right hash bucket.  */
 
@@ -1721,8 +1710,7 @@ invalidate (rtx x, enum machine_mode full_mode)
 	  {
 	    HOST_WIDE_INT in_table
 	      = TEST_HARD_REG_BIT (hard_regs_in_table, regno);
-	    unsigned int endregno
-	      = regno + hard_regno_nregs[regno][GET_MODE (x)];
+	    unsigned int endregno = END_HARD_REGNO (x);
 	    unsigned int tregno, tendregno, rn;
 	    struct table_elt *p, *next;
 
@@ -1748,8 +1736,7 @@ invalidate (rtx x, enum machine_mode full_mode)
 		      continue;
 
 		    tregno = REGNO (p->exp);
-		    tendregno
-		      = tregno + hard_regno_nregs[tregno][GET_MODE (p->exp)];
+		    tendregno = END_HARD_REGNO (p->exp);
 		    if (tendregno > regno && tregno < endregno)
 		      remove_from_table (p, hash);
 		  }
@@ -1960,7 +1947,7 @@ invalidate_for_call (void)
 	    continue;
 
 	  regno = REGNO (p->exp);
-	  endregno = regno + hard_regno_nregs[regno][GET_MODE (p->exp)];
+	  endregno = END_HARD_REGNO (p->exp);
 
 	  for (i = regno; i < endregno; i++)
 	    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
@@ -2072,7 +2059,7 @@ hash_rtx_string (const char *ps)
    is just (int) MEM plus the hash code of the address.  */
 
 unsigned
-hash_rtx (rtx x, enum machine_mode mode, int *do_not_record_p,
+hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
 	  int *hash_arg_in_memory_p, bool have_reg_qty)
 {
   int i, j;
@@ -2386,7 +2373,7 @@ safe_hash (rtx x, enum machine_mode mode)
    If FOR_GCSE is true, we compare X and Y for equivalence for GCSE.  */
 
 int
-exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
+exp_equiv_p (const_rtx x, const_rtx y, int validate, bool for_gcse)
 {
   int i, j;
   enum rtx_code code;
@@ -2429,9 +2416,7 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
 	{
 	  unsigned int regno = REGNO (y);
 	  unsigned int i;
-	  unsigned int endregno
-	    = regno + (regno >= FIRST_PSEUDO_REGISTER ? 1
-		       : hard_regno_nregs[regno][GET_MODE (y)]);
+	  unsigned int endregno = END_REGNO (y);
 
 	  /* If the quantities are not the same, the expressions are not
 	     equivalent.  If there are and we are not to validate, they
@@ -2580,8 +2565,8 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
    executions of the program.  0 means X can be compared reliably
    against certain constants or near-constants.  */
 
-static int
-cse_rtx_varies_p (rtx x, int from_alias)
+static bool
+cse_rtx_varies_p (const_rtx x, bool from_alias)
 {
   /* We need not check for X and the equivalence class being of the same
      mode because if X is equivalent to a constant in some mode, it
@@ -4195,7 +4180,7 @@ cse_insn (rtx insn, rtx libcall_insn)
       canon_reg (XEXP (tem, 0), insn);
       apply_change_group ();
       src_eqv = fold_rtx (XEXP (tem, 0), insn);
-      XEXP (tem, 0) = src_eqv;
+      XEXP (tem, 0) = copy_rtx (src_eqv);
       df_notes_rescan (insn);
     }
 
@@ -4844,7 +4829,8 @@ cse_insn (rtx insn, rtx libcall_insn)
 	    ;
 
 	  /* Look for a substitution that makes a valid insn.  */
-	  else if (validate_change (insn, &SET_SRC (sets[i].rtl), trial, 0))
+	  else if (validate_unshare_change
+		     (insn, &SET_SRC (sets[i].rtl), trial, 0))
 	    {
 	      rtx new = canon_reg (SET_SRC (sets[i].rtl), insn);
 
@@ -5359,9 +5345,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 		 but it knows that reg_tick has been incremented, and
 		 it leaves reg_in_table as -1 .  */
 	      unsigned int regno = REGNO (x);
-	      unsigned int endregno
-		= regno + (regno >= FIRST_PSEUDO_REGISTER ? 1
-			   : hard_regno_nregs[regno][GET_MODE (x)]);
+	      unsigned int endregno = END_REGNO (x);
 	      unsigned int i;
 
 	      for (i = regno; i < endregno; i++)
@@ -6017,6 +6001,8 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
   qty_table = XNEWVEC (struct qty_table_elem, max_qty);
 
   new_basic_block ();
+  cse_ebb_live_in = df_get_live_in (ebb_data->path[0].bb);
+  cse_ebb_live_out = df_get_live_out (ebb_data->path[path_size - 1].bb);
   for (path_entry = 0; path_entry < path_size; path_entry++)
     {
       basic_block bb;
@@ -6187,30 +6173,6 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
   free (qty_table);
 }
 
-/* Set a bit in REG_USED_IN_MULTIPLE_BB if X points to a REG rtx, and
-   DATA (a basic block) is not the basic block stored in REG_USED_IN_BB
-   for this REG.  Anyway, update REG_USED_IN_BB.  */
-static int
-mark_reg_use_bb (rtx *x, void *data)
-{
-  basic_block bb = data;
-  rtx p = *x;
-  int regno;
-
-  if (!p)
-    return -1;
-  if (!REG_P (*x))
-    return 0;
-
-  regno = REGNO (*x);
-  if (last_bb_reg_used_in[regno] != bb)
-    {
-      if (last_bb_reg_used_in[regno])
-	SET_BIT (reg_used_in_multiple_bb, regno);
-      last_bb_reg_used_in[regno] = bb;
-    }
-  return -1;
-}
 
 /* Perform cse on the instructions of a function.
    F is the first instruction.
@@ -6254,18 +6216,6 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
   cse_visited_basic_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (cse_visited_basic_blocks);
 
-  reg_used_in_multiple_bb = sbitmap_alloc (nregs);
-  last_bb_reg_used_in = XCNEWVEC (basic_block, nregs);
-  sbitmap_zero (reg_used_in_multiple_bb);
-
-  FOR_EACH_BB (bb)
-    {
-      rtx insn;
-      FOR_BB_INSNS (bb, insn)
-	if (INSN_P (insn))
-	  for_each_rtx (&PATTERN (insn), mark_reg_use_bb, bb);
-    }
-
   /* Loop over basic blocks in reverse completion order (RPO),
      excluding the ENTRY and EXIT blocks.  */
   n_blocks = pre_and_rev_post_order_compute (NULL, rc_order, false);
@@ -6306,11 +6256,9 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
 
   /* Clean up.  */
   end_alias_analysis ();
-  free (last_bb_reg_used_in);
   free (reg_eqv_table);
   free (ebb_data.path);
   sbitmap_free (cse_visited_basic_blocks);
-  sbitmap_free (reg_used_in_multiple_bb);
   free (rc_order);
   rtl_hooks = general_rtl_hooks;
 

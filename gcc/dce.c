@@ -1,11 +1,11 @@
 /* RTL dead code elimination.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -53,23 +52,20 @@ static bool something_changed;
    yet been processed.  */
 static VEC(rtx,heap) *worklist;
 
-static bitmap_obstack dce_marked_bitmap_obstack;
 static bitmap_obstack dce_blocks_bitmap_obstack;
 static bitmap_obstack dce_tmp_bitmap_obstack;
 
-static bitmap marked = NULL;
+static sbitmap marked = NULL;
 
-/* Return true if INSN a normal instruction that can be deleted by the
-   DCE pass.  */
+/* A subroutine for which BODY is part of the instruction being tested;
+   either the top-level pattern, or an element of a PARALLEL.  The
+   instruction is known not to be a bare USE or CLOBBER.  */
 
 static bool
-deletable_insn_p (rtx insn, bool fast)
+deletable_insn_p_1 (rtx body)
 {
-  rtx x;
-
-  switch (GET_CODE (PATTERN (insn)))
+  switch (GET_CODE (body))
     {
-    case USE:
     case PREFETCH:
     case TRAP_IF:
       /* The UNSPEC case was added here because the ia-64 claims that
@@ -81,43 +77,69 @@ deletable_insn_p (rtx insn, bool fast)
     case UNSPEC:
       return false;
 
-    case CLOBBER:
-      if (fast)
-	{
-	  /* A CLOBBER of a dead pseudo register serves no purpose.
-	     That is not necessarily true for hard registers until
-	     after reload.  */
-	  x = XEXP (PATTERN (insn), 0);
-	  return REG_P (x) && (!HARD_REGISTER_P (x) || reload_completed);
-	}
-      else 
-	/* Because of the way that use-def chains are built, it is not
-	   possible to tell if the clobber is dead because it can
-	   never be the target of a use-def chain.  */
-	return false;
-
     default:
-      if (!NONJUMP_INSN_P (insn))
+      if (volatile_insn_p (body))
 	return false;
 
-      if (volatile_insn_p (PATTERN (insn)))
-	return false;
-
-      if (flag_non_call_exceptions && may_trap_p (PATTERN (insn)))
+      if (flag_non_call_exceptions && may_trap_p (body))
 	return false;
 
       return true;
     }
 }
 
+/* Return true if INSN is a normal instruction that can be deleted by
+   the DCE pass.  */
+
+static bool
+deletable_insn_p (rtx insn, bool fast)
+{
+  rtx body, x;
+  int i;
+
+  if (!NONJUMP_INSN_P (insn))
+    return false;
+
+  body = PATTERN (insn);
+  switch (GET_CODE (body))
+    {
+    case USE:
+      return false;
+
+    case CLOBBER:
+      if (fast)
+	{
+	  /* A CLOBBER of a dead pseudo register serves no purpose.
+	     That is not necessarily true for hard registers until
+	     after reload.  */
+	  x = XEXP (body, 0);
+	  return REG_P (x) && (!HARD_REGISTER_P (x) || reload_completed);
+	}
+      else
+	/* Because of the way that use-def chains are built, it is not
+	   possible to tell if the clobber is dead because it can
+	   never be the target of a use-def chain.  */
+	return false;
+
+    case PARALLEL:
+      for (i = XVECLEN (body, 0) - 1; i >= 0; i--)
+	if (!deletable_insn_p_1 (XVECEXP (body, 0, i)))
+	  return false;
+      return true;
+
+    default:
+      return deletable_insn_p_1 (body);
+    }
+}
+
 
 /* Return true if INSN has not been marked as needed.  */
 
-static inline bool
+static inline int
 marked_insn_p (rtx insn)
 {
   if (insn)
-    return bitmap_bit_p (marked, INSN_UID (insn));
+    return TEST_BIT (marked, INSN_UID (insn));
   else 
     /* Artificial defs are always needed and they do not have an
        insn.  */
@@ -135,7 +157,7 @@ mark_insn (rtx insn, bool fast)
     {
       if (!fast)
 	VEC_safe_push (rtx, heap, worklist, insn);
-      bitmap_set_bit (marked, INSN_UID (insn));
+      SET_BIT (marked, INSN_UID (insn));
       if (dump_file)
 	fprintf (dump_file, "  Adding insn %d to worklist\n", INSN_UID (insn));
     }
@@ -146,7 +168,7 @@ mark_insn (rtx insn, bool fast)
    instruction containing DEST.  */
 
 static void
-mark_nonreg_stores_1 (rtx dest, rtx pattern, void *data)
+mark_nonreg_stores_1 (rtx dest, const_rtx pattern, void *data)
 {
   if (GET_CODE (pattern) != CLOBBER && !REG_P (dest))
     mark_insn ((rtx) data, true);
@@ -157,7 +179,7 @@ mark_nonreg_stores_1 (rtx dest, rtx pattern, void *data)
    instruction containing DEST.  */
 
 static void
-mark_nonreg_stores_2 (rtx dest, rtx pattern, void *data)
+mark_nonreg_stores_2 (rtx dest, const_rtx pattern, void *data)
 {
   if (GET_CODE (pattern) != CLOBBER && !REG_P (dest))
     mark_insn ((rtx) data, false);
@@ -191,10 +213,10 @@ init_dce (bool fast)
   if (dump_file)
     df_dump (dump_file);
 
-  bitmap_obstack_initialize (&dce_marked_bitmap_obstack);
   bitmap_obstack_initialize (&dce_blocks_bitmap_obstack);
   bitmap_obstack_initialize (&dce_tmp_bitmap_obstack);
-  marked = BITMAP_ALLOC (&dce_marked_bitmap_obstack);
+  marked = sbitmap_alloc (get_max_uid () + 1);
+  sbitmap_zero (marked);
 }
 
 
@@ -375,7 +397,7 @@ prescan_insns_for_dce (bool fast)
 
 /* UD-based DSE routines. */
 
-/* Mark instructions that define artifically-used registers, such as
+/* Mark instructions that define artificially-used registers, such as
    the frame pointer and the stack pointer.  */
 
 static void
@@ -424,7 +446,7 @@ mark_reg_dependencies (rtx insn)
 static void
 end_ud_dce (void)
 {
-  BITMAP_FREE (marked);
+  sbitmap_free (marked);
   gcc_assert (VEC_empty (rtx, worklist));
 }
 
@@ -491,8 +513,7 @@ struct tree_opt_pass pass_ud_rtl_dce =
 static void
 fini_dce (void)
 {
-  BITMAP_FREE (marked);
-  bitmap_obstack_release (&dce_marked_bitmap_obstack);
+  sbitmap_free (marked);
   bitmap_obstack_release (&dce_blocks_bitmap_obstack);
   bitmap_obstack_release (&dce_tmp_bitmap_obstack);
   df_in_progress = false;
@@ -508,9 +529,6 @@ dce_process_block (basic_block bb, bool redo_out)
   bitmap local_live = BITMAP_ALLOC (&dce_tmp_bitmap_obstack);
   rtx insn;
   bool block_changed;
-#ifdef ENABLE_CHECKING
-  bool insns_deleted = false;
-#endif
   struct df_ref **def_rec, **use_rec;
   unsigned int bb_index = bb->index;
 
@@ -522,8 +540,15 @@ dce_process_block (basic_block bb, bool redo_out)
       edge e;
       edge_iterator ei;
       df_confluence_function_n con_fun_n = df_lr->problem->con_fun_n;
+      bitmap_clear (DF_LR_OUT (bb));
       FOR_EACH_EDGE (e, ei, bb->succs)
 	(*con_fun_n) (e);
+    }
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "processing block %d live out = ", bb->index);
+      df_print_regset (dump_file, DF_LR_OUT (bb));
     }
 
   bitmap_copy (local_live, DF_LR_OUT (bb));
@@ -553,7 +578,6 @@ dce_process_block (basic_block bb, bool redo_out)
 	  {	
 	    bool needed = false;
 
-
 	    /* The insn is needed if there is someone who uses the output.  */
 	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	      if (bitmap_bit_p (local_live, DF_REF_REGNO (*def_rec)))
@@ -582,64 +606,16 @@ dce_process_block (basic_block bb, bool redo_out)
 		else
 		  mark_insn (insn, true);
 	      }
-#ifdef ENABLE_CHECKING
-	    else
-	      insns_deleted = true;
-#endif
 	  }
 	
 	/* No matter if the instruction is needed or not, we remove
-	   any regno in the defs from the live set.  This code is a
-	   hacked up version of the regular scanning code in
-	   df-problems.c:df_lr_bb_local_compute.  It must stay in sync.
-	*/
-	if (CALL_P (insn))
-	  {
-	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-	      {
-		struct df_ref *def = *def_rec;
-		unsigned int dregno = DF_REF_REGNO (def);
-		
-		if (DF_REF_FLAGS (def) & DF_REF_MUST_CLOBBER)
-		  {
-		    if (dregno >= FIRST_PSEUDO_REGISTER
-			|| !(SIBLING_CALL_P (insn)
-			     && bitmap_bit_p (df->exit_block_uses, dregno)
-			     && !refers_to_regno_p (dregno, dregno+1,
-						    current_function_return_rtx,
-						    (rtx *)0)))
-		      {
-			/* If the def is to only part of the reg, it does
-			   not kill the other defs that reach here.  */
-			if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-			  bitmap_clear_bit (local_live, dregno);
-		      }
-		  }
-		else
-		  /* This is the return value.  */
-		  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-		    bitmap_clear_bit (local_live, dregno);
-	      }
-	  }
-	else
-	  {
-	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-	      {
-		struct df_ref *def = *def_rec;
-		unsigned int dregno = DF_REF_REGNO (def);
-		/* If the def is to only part of the reg, it does
-		   not kill the other defs that reach here.  */
-		if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-		  bitmap_clear_bit (local_live, dregno);
-	      }
-	  }
+	   any regno in the defs from the live set.  */
+	df_simulate_defs (insn, local_live);
 
+	/* On the other hand, we do not allow the dead uses to set
+	   anything in local_live.  */
 	if (marked_insn_p (insn))
-	  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
-	    {
-	      unsigned int regno = DF_REF_REGNO (*use_rec);
-	      bitmap_set_bit (local_live, regno);
-	    }
+	  df_simulate_uses (insn, local_live);
       }
   
   for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
@@ -662,12 +638,7 @@ dce_process_block (basic_block bb, bool redo_out)
 
   block_changed = !bitmap_equal_p (local_live, DF_LR_IN (bb));
   if (block_changed)
-    {
-#ifdef ENABLE_CHECKING
-      gcc_assert (insns_deleted);
-#endif
-      bitmap_copy (DF_LR_IN (bb), local_live);
-    }
+    bitmap_copy (DF_LR_IN (bb), local_live);
 
   BITMAP_FREE (local_live);
   return block_changed;
@@ -699,7 +670,7 @@ fast_dce (void)
       global_changed = false;
       for (i = 0; i < n_blocks; i++)
 	{
-	  int index = postorder [i];
+	  int index = postorder[i];
 	  basic_block bb = BASIC_BLOCK (index);
 	  bool local_changed;
 
@@ -719,15 +690,10 @@ fast_dce (void)
 	      edge_iterator ei;
 	      FOR_EACH_EDGE (e, ei, bb->preds)
 		if (bitmap_bit_p (processed, e->src->index))
-		  /* Be very tricky about when we need to iterate the
-		     analysis.  We only have redo the analysis if we
-		     delete an instrution from a block that used
-		     something that was live on entry to the block and
-		     we have already processed the pred of that block.
-
-		     Since we are processing the blocks postorder,
-		     that will only happen if the block is at the top
-		     of a loop and the pred is inside the loop.  */
+		  /* Be tricky about when we need to iterate the
+		     analysis.  We only have redo the analysis if the
+		     bitmaps change at the top of a block that is the
+		     entry to a loop.  */
 		  global_changed = true;
 		else
 		  bitmap_set_bit (redo_out, e->src->index);
@@ -743,7 +709,7 @@ fast_dce (void)
 	  /* So something was deleted that requires a redo.  Do it on
 	     the cheap.  */
 	  delete_unmarked_insns ();
-	  bitmap_clear (marked);
+	  sbitmap_zero (marked);
 	  bitmap_clear (processed);
 	  bitmap_clear (redo_out);
 	  
@@ -794,15 +760,19 @@ rest_of_handle_fast_dce (void)
 void
 run_fast_df_dce (void)
 {
-  /* If dce is able to delete something, it has to happen immediately.
-     Otherwise there will be problems handling the eq_notes.  */
-  enum df_changeable_flags old_flags = df_clear_flags (DF_DEFER_INSN_RESCAN);
-
-  df_in_progress = true;
-  rest_of_handle_fast_dce ();
-  df_set_flags (old_flags);
+  if (flag_dce)
+    {
+      /* If dce is able to delete something, it has to happen
+	 immediately.  Otherwise there will be problems handling the
+	 eq_notes.  */
+      enum df_changeable_flags old_flags 
+	= df_clear_flags (DF_DEFER_INSN_RESCAN + DF_NO_INSN_RESCAN);
+      
+      df_in_progress = true;
+      rest_of_handle_fast_dce ();
+      df_set_flags (old_flags);
+    }
 }
-
 
 static bool
 gate_fast_dce (void)

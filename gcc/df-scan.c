@@ -10,7 +10,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -19,10 +19,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.
-*/
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -278,7 +276,7 @@ df_scan_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 {
   struct df_scan_problem_data *problem_data;
   unsigned int insn_num = get_max_uid () + 1;
-  unsigned int block_size = 50;
+  unsigned int block_size = 400;
   basic_block bb;
 
   /* Given the number of pools, this is really faster than tearing
@@ -341,6 +339,7 @@ df_scan_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
   df->insns_to_delete = BITMAP_ALLOC (&problem_data->insn_bitmaps);
   df->insns_to_rescan = BITMAP_ALLOC (&problem_data->insn_bitmaps);
   df->insns_to_notes_rescan = BITMAP_ALLOC (&problem_data->insn_bitmaps);
+  df_scan->optional_p = false;
 }
 
 
@@ -432,9 +431,10 @@ static struct df_problem problem_SCAN =
   df_scan_start_block,        /* Debugging start block.  */
   NULL,                       /* Debugging end block.  */
   NULL,                       /* Incremental solution verify start.  */
-  NULL,                       /* Incremental solution verfiy end.  */
+  NULL,                       /* Incremental solution verify end.  */
   NULL,                       /* Dependent problem.  */
-  TV_DF_SCAN                  /* Timing variable.  */
+  TV_DF_SCAN,                 /* Timing variable.  */
+  false                       /* Reset blocks on dropping out of blocks_to_analyze.  */
 };
 
 
@@ -995,7 +995,7 @@ df_insn_delete (basic_block bb, unsigned int uid)
 
   insn_info = DF_INSN_UID_SAFE_GET (uid);
 
-  /* The client has defered rescanning.  */
+  /* The client has deferred rescanning.  */
   if (df->changeable_flags & DF_DEFER_INSN_RESCAN)
     {
       if (insn_info)
@@ -1005,7 +1005,7 @@ df_insn_delete (basic_block bb, unsigned int uid)
 	  bitmap_set_bit (df->insns_to_delete, uid);
 	}
       if (dump_file)
-	fprintf (dump_file, "defering deletion of insn with uid = %d.\n", uid);
+	fprintf (dump_file, "deferring deletion of insn with uid = %d.\n", uid);
       return;
     }
 
@@ -1104,7 +1104,7 @@ df_insn_rescan (rtx insn)
 
   insn_info = DF_INSN_UID_SAFE_GET (uid);
 
-  /* The client has defered rescanning.  */
+  /* The client has deferred rescanning.  */
   if (df->changeable_flags & DF_DEFER_INSN_RESCAN)
     {
       if (!insn_info)
@@ -1116,7 +1116,7 @@ df_insn_rescan (rtx insn)
 	  insn_info->mw_hardregs = df_null_mw_rec;
 	}
       if (dump_file)
-	fprintf (dump_file, "defering rescan insn with uid = %d.\n", uid);
+	fprintf (dump_file, "deferring rescan insn with uid = %d.\n", uid);
     
       bitmap_clear_bit (df->insns_to_delete, uid);
       bitmap_clear_bit (df->insns_to_notes_rescan, uid);
@@ -1214,7 +1214,7 @@ df_insn_rescan_all (void)
 }
 
 
-/* Process all of the defered rescans or deletions.  */
+/* Process all of the deferred rescans or deletions.  */
 
 void
 df_process_deferred_rescans (void)
@@ -1238,7 +1238,7 @@ df_process_deferred_rescans (void)
     }
 
   if (dump_file)
-    fprintf (dump_file, "starting the processing of defered insns\n");
+    fprintf (dump_file, "starting the processing of deferred insns\n");
 
   bitmap_copy (tmp, df->insns_to_delete);
   EXECUTE_IF_SET_IN_BITMAP (tmp, 0, uid, bi)
@@ -1265,7 +1265,7 @@ df_process_deferred_rescans (void)
     }
 
   if (dump_file)
-    fprintf (dump_file, "ending the processing of defered insns\n");
+    fprintf (dump_file, "ending the processing of deferred insns\n");
 
   BITMAP_FREE (tmp);
   bitmap_clear (df->insns_to_delete);
@@ -1420,13 +1420,26 @@ df_reorganize_refs_by_reg_by_insn (struct df_ref_info *ref_info,
     {
       basic_block bb = BASIC_BLOCK (bb_index);
       rtx insn;
+      struct df_ref **ref_rec;
+
+      if (include_defs)
+	for (ref_rec = df_get_artificial_defs (bb_index); *ref_rec; ref_rec++)
+	  {
+	    unsigned int regno = DF_REF_REGNO (*ref_rec);
+	    ref_info->count[regno]++;
+	  }
+      if (include_uses)
+	for (ref_rec = df_get_artificial_uses (bb_index); *ref_rec; ref_rec++)
+	  {
+	    unsigned int regno = DF_REF_REGNO (*ref_rec);
+	    ref_info->count[regno]++;
+	  }
 
       FOR_BB_INSNS (bb, insn)
 	{
 	  if (INSN_P (insn))
 	    {
 	      unsigned int uid = INSN_UID (insn);
-	      struct df_ref **ref_rec;
 	      
 	      if (include_defs)
 		for (ref_rec = DF_INSN_UID_DEFS (uid); *ref_rec; ref_rec++)
@@ -1461,13 +1474,40 @@ df_reorganize_refs_by_reg_by_insn (struct df_ref_info *ref_info,
     {
       basic_block bb = BASIC_BLOCK (bb_index);
       rtx insn;
+      struct df_ref **ref_rec;
+
+      if (include_defs)
+	for (ref_rec = df_get_artificial_defs (bb_index); *ref_rec; ref_rec++)
+	  {
+	    struct df_ref *ref = *ref_rec;
+	    unsigned int regno = DF_REF_REGNO (ref);
+	    if (regno >= start)
+	      {
+		unsigned int id
+		  = ref_info->begin[regno] + ref_info->count[regno]++;
+		DF_REF_ID (ref) = id;
+		ref_info->refs[id] = ref;
+	      }
+	  }
+      if (include_uses)
+	for (ref_rec = df_get_artificial_uses (bb_index); *ref_rec; ref_rec++)
+	  {
+	    struct df_ref *ref = *ref_rec;
+	    unsigned int regno = DF_REF_REGNO (ref);
+	    if (regno >= start)
+	      {
+		unsigned int id
+		  = ref_info->begin[regno] + ref_info->count[regno]++;
+		DF_REF_ID (ref) = id;
+		ref_info->refs[id] = ref;
+	      }
+	  }
 
       FOR_BB_INSNS (bb, insn)
 	{
 	  if (INSN_P (insn))
 	    {
 	      unsigned int uid = INSN_UID (insn);
-	      struct df_ref **ref_rec;
 	      
 	      if (include_defs)
 		for (ref_rec = DF_INSN_UID_DEFS (uid); *ref_rec; ref_rec++)
@@ -1595,7 +1635,7 @@ df_reorganize_refs_by_insn_bb (basic_block bb, unsigned int offset,
 }
 
 
-/* Organinze the refs by insn into the table in REF_INFO.  If
+/* Organize the refs by insn into the table in REF_INFO.  If
    blocks_to_analyze is defined, use that set, otherwise the entire
    program.  Include the defs if INCLUDE_DEFS. Include the uses if
    INCLUDE_USES. Include the eq_uses if INCLUDE_EQ_USES.  */
@@ -1969,7 +2009,7 @@ df_notes_rescan (rtx insn)
 
   insn_info = DF_INSN_UID_SAFE_GET (INSN_UID(insn));
 
-  /* The client has defered rescanning.  */
+  /* The client has deferred rescanning.  */
   if (df->changeable_flags & DF_DEFER_INSN_RESCAN)
     {
       if (!insn_info)
@@ -2106,8 +2146,8 @@ df_ref_equal_p (struct df_ref *ref1, struct df_ref *ref2)
 static int
 df_ref_compare (const void *r1, const void *r2)
 {
-  const struct df_ref *ref1 = *(struct df_ref **)r1;
-  const struct df_ref *ref2 = *(struct df_ref **)r2;
+  const struct df_ref *const ref1 = *(const struct df_ref *const*)r1;
+  const struct df_ref *const ref2 = *(const struct df_ref *const*)r2;
 
   if (ref1 == ref2)
     return 0;
@@ -2223,8 +2263,8 @@ df_mw_equal_p (struct df_mw_hardreg *mw1, struct df_mw_hardreg *mw2)
 static int
 df_mw_compare (const void *m1, const void *m2)
 {
-  const struct df_mw_hardreg *mw1 = *(struct df_mw_hardreg **)m1;
-  const struct df_mw_hardreg *mw2 = *(struct df_mw_hardreg **)m2;
+  const struct df_mw_hardreg *const mw1 = *(const struct df_mw_hardreg *const*)m1;
+  const struct df_mw_hardreg *const mw2 = *(const struct df_mw_hardreg *const*)m2;
 
   if (mw1 == mw2)
     return 0;
@@ -2585,7 +2625,6 @@ df_ref_record (struct df_collection_rec *collection_rec,
 	       enum df_ref_type ref_type, 
 	       enum df_ref_flags ref_flags) 
 {
-  rtx oldreg = reg;
   unsigned int regno;
 
   gcc_assert (REG_P (reg) || GET_CODE (reg) == SUBREG);
@@ -2604,11 +2643,10 @@ df_ref_record (struct df_collection_rec *collection_rec,
 	{
 	  regno += subreg_regno_offset (regno, GET_MODE (SUBREG_REG (reg)),
 					SUBREG_BYTE (reg), GET_MODE (reg));
-	  endregno = subreg_nregs (reg);
+	  endregno = regno + subreg_nregs (reg);
 	}
       else
-	endregno = hard_regno_nregs[regno][GET_MODE (reg)];
-      endregno += regno;
+	endregno = END_HARD_REGNO (reg);
 
       /*  If this is a multiword hardreg, we create some extra
 	  datastructures that will enable us to easily build REG_DEAD
@@ -2617,7 +2655,7 @@ df_ref_record (struct df_collection_rec *collection_rec,
 	{
 	  /* Sets to a subreg of a multiword register are partial. 
 	     Sets to a non-subreg of a multiword register are not.  */
-	  if (GET_CODE (oldreg) == SUBREG)
+	  if (GET_CODE (reg) == SUBREG)
 	    ref_flags |= DF_REF_PARTIAL;
 	  ref_flags |= DF_REF_MW_HARDREG;
 
@@ -2625,7 +2663,6 @@ df_ref_record (struct df_collection_rec *collection_rec,
 	  hardreg->type = ref_type;
 	  hardreg->flags = ref_flags;
 	  hardreg->mw_reg = reg;
-	  hardreg->loc = loc;
 	  hardreg->start_regno = regno;
 	  hardreg->end_regno = endregno - 1;
 	  hardreg->mw_order = df->ref_order++;
@@ -2637,7 +2674,7 @@ df_ref_record (struct df_collection_rec *collection_rec,
 	  ref = df_ref_create_structure (collection_rec, regno_reg_rtx[i], loc, 
 					 bb, insn, ref_type, ref_flags);
 
-          gcc_assert ( ORIGINAL_REGNO (DF_REF_REG (ref)) == i);
+          gcc_assert (ORIGINAL_REGNO (DF_REF_REG (ref)) == i);
 	}
     }
   else
@@ -2662,7 +2699,8 @@ df_read_modify_subreg_p (rtx x)
     return false;
   isize = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
   osize = GET_MODE_SIZE (GET_MODE (x));
-  return (isize > osize && isize > UNITS_PER_WORD);
+  return isize > osize
+	 && isize > REGMODE_NATURAL_SIZE (GET_MODE (SUBREG_REG (x)));
 }
 
 
@@ -2677,7 +2715,6 @@ df_def_record_1 (struct df_collection_rec *collection_rec,
 {
   rtx *loc;
   rtx dst;
-  bool dst_in_strict_lowpart = false;
 
  /* We may recursively call ourselves on EXPR_LIST when dealing with PARALLEL
      construct.  */
@@ -2708,37 +2745,26 @@ df_def_record_1 (struct df_collection_rec *collection_rec,
   /* Maybe, we should flag the use of STRICT_LOW_PART somehow.  It might
      be handy for the reg allocator.  */
   while (GET_CODE (dst) == STRICT_LOW_PART
-	 || GET_CODE (dst) == ZERO_EXTRACT
-	 || df_read_modify_subreg_p (dst))
+	 || GET_CODE (dst) == ZERO_EXTRACT)
     {
-#if 0
-      /* Strict low part always contains SUBREG, but we do not want to make
-	 it appear outside, as whole register is always considered.  */
-      if (GET_CODE (dst) == STRICT_LOW_PART)
-	{
-	  loc = &XEXP (dst, 0);
-	  dst = *loc;
-	}
-#endif
+      flags |= DF_REF_READ_WRITE | DF_REF_PARTIAL;
       loc = &XEXP (dst, 0);
-      if (GET_CODE (dst) == STRICT_LOW_PART)
-	dst_in_strict_lowpart = true;
       dst = *loc;
-      flags |= DF_REF_READ_WRITE;
-
     }
 
-  /* Sets to a subreg of a single word register are partial sets if
-     they are wrapped in a strict lowpart, and not partial otherwise.
-  */
-  if (GET_CODE (dst) == SUBREG && REG_P (SUBREG_REG (dst))
-      && dst_in_strict_lowpart)
-    flags |= DF_REF_PARTIAL;
-    
+  if (df_read_modify_subreg_p (dst))
+    flags |= DF_REF_READ_WRITE | DF_REF_PARTIAL;
+
   if (REG_P (dst)
       || (GET_CODE (dst) == SUBREG && REG_P (SUBREG_REG (dst))))
     df_ref_record (collection_rec, 
                    dst, loc, bb, insn, DF_REF_REG_DEF, flags);
+
+  /* We want to keep sp alive everywhere - by making all
+     writes to sp also use of sp. */
+  if (REG_P (dst) && REGNO (dst) == STACK_POINTER_REGNUM)
+    df_ref_record (collection_rec,
+               dst, NULL, bb, insn, DF_REF_REG_USE, flags);
 }
 
 
@@ -2943,9 +2969,9 @@ df_uses_record (struct df_collection_rec *collection_rec,
     case PRE_MODIFY:
     case POST_MODIFY:
       /* Catch the def of the register being modified.  */
-      flags |= DF_REF_READ_WRITE | DF_REF_PRE_POST_MODIFY;
       df_ref_record (collection_rec, XEXP (x, 0), &XEXP (x, 0), bb, insn, 
-		     DF_REF_REG_DEF, flags);
+		     DF_REF_REG_DEF,
+                     flags | DF_REF_READ_WRITE | DF_REF_PRE_POST_MODIFY);
 
       /* ... Fall through to handle uses ...  */
 
@@ -3040,9 +3066,16 @@ df_get_call_refs (struct df_collection_rec * collection_rec,
 			DF_REF_REG_USE, bb, insn, flags);
       else if (GET_CODE (XEXP (note, 0)) == CLOBBER)
 	{
-	  unsigned int regno = REGNO (XEXP (XEXP (note, 0), 0));
-	  if (!bitmap_bit_p (defs_generated, regno))
-	    df_defs_record (collection_rec, XEXP (note, 0), bb, insn, flags);
+	  if (REG_P (XEXP (XEXP (note, 0), 0)))
+	    {
+	      unsigned int regno = REGNO (XEXP (XEXP (note, 0), 0));
+	      if (!bitmap_bit_p (defs_generated, regno))
+		df_defs_record (collection_rec, XEXP (note, 0), bb,
+				insn, flags);
+	    }
+	  else
+	    df_uses_record (collection_rec, &XEXP (note, 0),
+		            DF_REF_REG_USE, bb, insn, flags);
 	}
     }
 
@@ -3243,7 +3276,7 @@ df_bb_refs_collect (struct df_collection_rec *collection_rec, basic_block bb)
   if (df_has_eh_preds (bb))
     {
       unsigned int i;
-      /* This code is putting in a artificial ref for the use at the
+      /* This code is putting in an artificial ref for the use at the
 	 TOP of the block that receives the exception.  It is too
 	 cumbersome to actually put the ref on the edge.  We could
 	 either model this at the top of the receiver block or the
@@ -3261,6 +3294,13 @@ df_bb_refs_collect (struct df_collection_rec *collection_rec, basic_block bb)
     }
 #endif
 
+  /* Add the hard_frame_pointer if this block is the target of a
+     non-local goto.  */
+  if (bb->flags & BB_NON_LOCAL_GOTO_TARGET)
+    df_ref_record (collection_rec, hard_frame_pointer_rtx, NULL,
+		   bb, NULL, DF_REF_REG_DEF, DF_REF_AT_TOP);
+ 
+  /* Add the artificial uses.  */
   if (bb->index >= NUM_FIXED_BLOCKS)
     {
       bitmap_iterator bi;
@@ -3337,23 +3377,32 @@ df_bb_refs_record (int bb_index, bool scan_insns)
 }
 
 
-/* Get the artificial use set for 
-   a regular (i.e. non-exit/non-entry) block. */
+/* Get the artificial use set for a regular (i.e. non-exit/non-entry)
+   block. */
 
 static void
 df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
 {
   bitmap_clear (regular_block_artificial_uses);
 
-  /* Before reload, there are a few registers that must be forced
-     live everywhere -- which might not already be the case for
-     blocks within infinite loops.  */
-  if (!reload_completed)
+  if (reload_completed)
+    {
+      if (frame_pointer_needed)
+	bitmap_set_bit (regular_block_artificial_uses, HARD_FRAME_POINTER_REGNUM);
+    }
+  else
+    /* Before reload, there are a few registers that must be forced
+       live everywhere -- which might not already be the case for
+       blocks within infinite loops.  */
     {
       /* Any reference to any pseudo before reload is a potential
 	 reference of the frame pointer.  */
       bitmap_set_bit (regular_block_artificial_uses, FRAME_POINTER_REGNUM);
       
+#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+      bitmap_set_bit (regular_block_artificial_uses, HARD_FRAME_POINTER_REGNUM);
+#endif
+
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
       /* Pseudos with argument area equivalences may require
 	 reloading via the argument pointer.  */
@@ -3379,7 +3428,7 @@ df_get_eh_block_artificial_uses (bitmap eh_block_artificial_uses)
 {
   bitmap_clear (eh_block_artificial_uses);
 
-  /* The following code (down thru the arg_pointer seting APPEARS
+  /* The following code (down thru the arg_pointer setting APPEARS
      to be necessary because there is nothing that actually
      describes what the exception handling code may actually need
      to keep alive.  */
@@ -3532,11 +3581,12 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
      it has to show up in the entry def set.  */
   if (df_need_static_chain_reg (cfun))
     {
-#if !defined (STATIC_CHAIN_INCOMING_REGNUM) \
-      || STATIC_CHAIN_REGNUM == STATIC_CHAIN_INCOMING_REGNUM
-      bitmap_set_bit (entry_block_defs, STATIC_CHAIN_REGNUM);
-#else 
+#ifdef STATIC_CHAIN_INCOMING_REGNUM
       bitmap_set_bit (entry_block_defs, STATIC_CHAIN_INCOMING_REGNUM);
+#else 
+#ifdef STATIC_CHAIN_REGNUM
+      bitmap_set_bit (entry_block_defs, STATIC_CHAIN_REGNUM);
+#endif
 #endif
     }
 }
@@ -3544,7 +3594,7 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
 
 /* Return the (conservative) set of hard registers that are defined on
    entry to the function.  
-   It uses df->entry_block_defs to determine which regster 
+   It uses df->entry_block_defs to determine which register 
    reference to include.  */
 
 static void
@@ -3627,18 +3677,9 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
   unsigned int i; 
 
   bitmap_clear (exit_block_uses);
-  
-  /* If exiting needs the right stack value, consider the stack
-     pointer live at the end of the function.  */
-  if ((HAVE_epilogue && epilogue_completed)
-      || !EXIT_IGNORE_STACK
-      || (!FRAME_POINTER_REQUIRED
-	  && !current_function_calls_alloca
-	  && flag_omit_frame_pointer)
-      || current_function_sp_is_unchanging)
-    {
-      bitmap_set_bit (exit_block_uses, STACK_POINTER_REGNUM);
-    }
+
+  /* Stack pointer is always live at the exit.  */
+  bitmap_set_bit (exit_block_uses, STACK_POINTER_REGNUM);
   
   /* Mark the frame pointer if needed at the end of the function.
      If we end up eliminating it, it will be removed from the live
@@ -4222,12 +4263,6 @@ df_scan_verify (void)
   bitmap eh_block_artificial_uses;
 
   if (!df)
-    return;
-
-  /* This is a hack, but a necessary one.  If you do not do this,
-     insn_attrtab can never be compiled in a bootstrap.  This
-     verification is just too expensive.  */
-  if (n_basic_blocks > 250)
     return;
 
   /* Verification is a 4 step process. */

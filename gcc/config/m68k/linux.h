@@ -1,13 +1,13 @@
 /* Definitions for Motorola 68k running Linux-based GNU systems with
    ELF format.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2006,
+   2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,17 +16,16 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (68k GNU/Linux with ELF)");
 
 /* Add %(asm_cpu_spec) to the svr4.h definition of ASM_SPEC.  */
 #undef ASM_SPEC
-#define ASM_SPEC \
-  "%(asm_cpu_spec) %{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*}"
+#define ASM_SPEC "%(asm_cpu_spec) %(asm_pcrel_spec) \
+  %{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*}"
 
 /* for 68k machines this only needs to be TRUE for the 68000 */
 
@@ -160,7 +159,7 @@ Boston, MA 02110-1301, USA.  */
 
 #undef FUNCTION_VALUE_REGNO_P
 #define FUNCTION_VALUE_REGNO_P(N) \
-  ((N) == 0 || (N) == 8 || (TARGET_68881 && (N) == 16))
+  ((N) == D0_REG || (N) == A0_REG || (TARGET_68881 && (N) == FP0_REG))
 
 /* Define this to be true when FUNCTION_VALUE_REGNO_P is true for
    more than one register.  */

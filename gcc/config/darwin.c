@@ -1,6 +1,6 @@
 /* Functions for generic Darwin as target machine for GNU C compiler.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
-   2005
+   2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -46,6 +45,7 @@ Boston, MA 02110-1301, USA.  */
 #include "toplev.h"
 #include "hashtab.h"
 #include "df.h"
+#include "debug.h"
 
 /* Darwin supports a feature called fix-and-continue, which is used
    for rapid turn around debugging.  When code is compiled with the
@@ -516,7 +516,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 	{
 #if defined (TARGET_TOC)
 	  /* Create a new register for CSE opportunities.  */
-	  rtx hi_reg = (no_new_pseudos ? reg : gen_reg_rtx (Pmode));
+	  rtx hi_reg = (!can_create_pseudo_p () ? reg : gen_reg_rtx (Pmode));
  	  emit_insn (gen_macho_high (hi_reg, orig));
  	  emit_insn (gen_macho_low (reg, hi_reg, orig));
 #else
@@ -533,7 +533,9 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 #endif
 
 #if defined (TARGET_TOC) /* i.e., PowerPC */
-	  rtx hi_sum_reg = (no_new_pseudos ? reg : gen_reg_rtx (Pmode));
+	  rtx hi_sum_reg = (!can_create_pseudo_p ()
+			    ? reg
+			    : gen_reg_rtx (Pmode));
 
 	  gcc_assert (reg);
 
@@ -705,7 +707,9 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		  || GET_CODE (XEXP (orig, 0)) == LABEL_REF))
 	    {
 #if defined (TARGET_TOC)	/* ppc  */
-	      rtx temp_reg = (no_new_pseudos) ? reg : gen_reg_rtx (Pmode);
+	      rtx temp_reg = (!can_create_pseudo_p ()
+			      ? reg :
+			      gen_reg_rtx (Pmode));
 	      rtx asym = XEXP (orig, 0);
 	      rtx mem;
 
@@ -728,7 +732,9 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 #if defined (TARGET_TOC) /* i.e., PowerPC */
 	      /* Generating a new reg may expose opportunities for
 		 common subexpression elimination.  */
-              rtx hi_sum_reg = no_new_pseudos ? reg : gen_reg_rtx (Pmode);
+              rtx hi_sum_reg = (!can_create_pseudo_p ()
+				? reg
+				: gen_reg_rtx (Pmode));
 	      rtx mem;
 	      rtx insn;
 	      rtx sum;
@@ -1416,14 +1422,14 @@ darwin_handle_kext_attribute (tree *node, tree name,
   /* APPLE KEXT stuff -- only applies with pure static C++ code.  */
   if (! TARGET_KEXTABI)
     {
-      warning (0, "%<%s%> 2.95 vtable-compatability attribute applies "
+      warning (0, "%<%s%> 2.95 vtable-compatibility attribute applies "
 	       "only when compiling a kext", IDENTIFIER_POINTER (name));
 
       *no_add_attrs = true;
     }
   else if (TREE_CODE (*node) != RECORD_TYPE)
     {
-      warning (0, "%<%s%> 2.95 vtable-compatability attribute applies "
+      warning (0, "%<%s%> 2.95 vtable-compatibility attribute applies "
 	       "only to C++ classes", IDENTIFIER_POINTER (name));
 
       *no_add_attrs = true;
@@ -1709,11 +1715,6 @@ darwin_kextabi_p (void) {
 void
 darwin_override_options (void)
 {
-  if (flag_apple_kext && strcmp (lang_hooks.name, "GNU C++") != 0)
-    {
-      warning (0, "command line option %<-fapple-kext%> is only valid for C++");
-      flag_apple_kext = 0;
-    }
   if (flag_mkernel || flag_apple_kext)
     {
       /* -mkernel implies -fapple-kext for C++ */
@@ -1727,6 +1728,11 @@ darwin_override_options (void)
       /* No -fnon-call-exceptions data in kexts.  */
       flag_non_call_exceptions = 0;
     }
+  if (flag_var_tracking
+      && strverscmp (darwin_macosx_version_min, "10.5") >= 0
+      && debug_info_level >= DINFO_LEVEL_NORMAL
+      && debug_hooks->var_location != do_nothing_debug_hooks.var_location)
+    flag_var_tracking_uninit = 1;
 }
 
 #include "gt-darwin.h"

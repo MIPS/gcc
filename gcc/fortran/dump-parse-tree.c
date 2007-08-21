@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Actually this is just a collection of routines that used to be
@@ -340,16 +339,6 @@ gfc_show_expr (gfc_expr *p)
       break;
 
     case EXPR_CONSTANT:
-      if (p->from_H || p->ts.type == BT_HOLLERITH)
-	{
-	  gfc_status ("%dH", p->value.character.length);
-	  c = p->value.character.string;
-	  for (i = 0; i < p->value.character.length; i++, c++)
-	    {
-	      gfc_status_char (*c);
-	    }
-	  break;
-	}
       switch (p->ts.type)
 	{
 	case BT_INTEGER:
@@ -405,9 +394,31 @@ gfc_show_expr (gfc_expr *p)
 	  gfc_status (")");
 	  break;
 
+	case BT_HOLLERITH:
+	  gfc_status ("%dH", p->representation.length);
+	  c = p->representation.string;
+	  for (i = 0; i < p->representation.length; i++, c++)
+	    {
+	      gfc_status_char (*c);
+	    }
+	  break;
+
 	default:
 	  gfc_status ("???");
 	  break;
+	}
+
+      if (p->representation.string)
+	{
+	  gfc_status (" {");
+	  c = p->representation.string;
+	  for (i = 0; i < p->representation.length; i++, c++)
+	    {
+	      gfc_status ("%.2x", (unsigned int) *c);
+	      if (i < p->representation.length - 1)
+		gfc_status_char (',');
+	    }
+	  gfc_status_char ('}');
 	}
 
       break;
@@ -460,21 +471,27 @@ gfc_show_expr (gfc_expr *p)
 	  gfc_status ("NEQV ");
 	  break;
 	case INTRINSIC_EQ:
+	case INTRINSIC_EQ_OS:
 	  gfc_status ("= ");
 	  break;
 	case INTRINSIC_NE:
-	  gfc_status ("<> ");
+	case INTRINSIC_NE_OS:
+	  gfc_status ("/= ");
 	  break;
 	case INTRINSIC_GT:
+	case INTRINSIC_GT_OS:
 	  gfc_status ("> ");
 	  break;
 	case INTRINSIC_GE:
+	case INTRINSIC_GE_OS:
 	  gfc_status (">= ");
 	  break;
 	case INTRINSIC_LT:
+	case INTRINSIC_LT_OS:
 	  gfc_status ("< ");
 	  break;
 	case INTRINSIC_LE:
+	case INTRINSIC_LE_OS:
 	  gfc_status ("<= ");
 	  break;
 	case INTRINSIC_NOT:
@@ -530,10 +547,11 @@ void
 gfc_show_attr (symbol_attribute *attr)
 {
 
-  gfc_status ("(%s %s %s %s", gfc_code2string (flavors, attr->flavor),
+  gfc_status ("(%s %s %s %s %s", gfc_code2string (flavors, attr->flavor),
 	      gfc_intent_string (attr->intent),
 	      gfc_code2string (access_types, attr->access),
-	      gfc_code2string (procedures, attr->proc));
+	      gfc_code2string (procedures, attr->proc),
+	      gfc_code2string (save_status, attr->save));
 
   if (attr->allocatable)
     gfc_status (" ALLOCATABLE");
@@ -549,8 +567,6 @@ gfc_show_attr (symbol_attribute *attr)
     gfc_status (" POINTER");
   if (attr->protected)
     gfc_status (" PROTECTED");
-  if (attr->save)
-    gfc_status (" SAVE");
   if (attr->value)
     gfc_status (" VALUE");
   if (attr->volatile_)
@@ -575,6 +591,8 @@ gfc_show_attr (symbol_attribute *attr)
   if (attr->in_common)
     gfc_status (" IN-COMMON");
 
+  if (attr->abstract)
+    gfc_status (" ABSTRACT INTERFACE");
   if (attr->function)
     gfc_status (" FUNCTION");
   if (attr->subroutine)
@@ -612,6 +630,8 @@ gfc_show_components (gfc_symbol *sym)
 	gfc_status (" DIMENSION");
       gfc_status_char (' ');
       gfc_show_array_spec (c->as);
+      if (c->access)
+	gfc_status (" %s", gfc_code2string (access_types, c->access));
       gfc_status (")");
       if (c->next != NULL)
 	gfc_status_char (' ');
@@ -1066,6 +1086,7 @@ gfc_show_code_node (int level, gfc_code *c)
       break;
 
     case EXEC_CALL:
+    case EXEC_ASSIGN_CALL:
       if (c->resolved_sym)
 	gfc_status ("CALL %s ", c->resolved_sym->name);
       else if (c->symtree)

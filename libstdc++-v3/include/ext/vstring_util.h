@@ -42,7 +42,8 @@
 #include <debug/debug.h>
 #include <bits/stl_function.h>  // For less
 #include <bits/functexcept.h>
-#include <locale>
+#include <bits/localefwd.h>
+#include <bits/ostream_insert.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
@@ -93,17 +94,6 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
 	  _CharT*  _M_p; // The actual data.
 	};
-
-      // For use in _M_construct (_S_construct) forward_iterator_tag.
-      template<typename _Type>
-        static bool
-        _S_is_null_pointer(_Type* __ptr)
-        { return __ptr == 0; }
-
-      template<typename _Type>
-        static bool
-        _S_is_null_pointer(_Type)
-        { return false; }
 
       // When __n = 1 way faster than the general multichar
       // traits_type::copy/move/assign.
@@ -175,12 +165,12 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       {
 	const difference_type __d = difference_type(__n1 - __n2);
 
-	if (__d > std::numeric_limits<int>::max())
-	  return std::numeric_limits<int>::max();
-	else if (__d < std::numeric_limits<int>::min())
-	  return std::numeric_limits<int>::min();
+	if (__d > __numeric_traits_integer<int>::__max)
+	  return __numeric_traits_integer<int>::__max;
+	else if (__d < __numeric_traits_integer<int>::__min)
+	  return __numeric_traits_integer<int>::__min;
 	else
-	  return int(__d);	
+	  return int(__d);
       }
     };
 

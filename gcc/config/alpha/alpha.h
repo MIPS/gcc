@@ -1,13 +1,13 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Target CPU builtins.  */
 #define TARGET_CPU_CPP_BUILTINS()			\
@@ -94,12 +93,6 @@ Boston, MA 02110-1301, USA.  */
 	}						\
     }							\
   while (0)
-#endif
-
-#define CPP_SPEC "%(cpp_subtarget)"
-
-#ifndef CPP_SUBTARGET_SPEC
-#define CPP_SUBTARGET_SPEC ""
 #endif
 
 #define WORD_SWITCH_TAKES_ARG(STR)		\
@@ -214,25 +207,6 @@ extern enum alpha_fp_trap_mode alpha_fptm;
 #define OPTION_DEFAULT_SPECS \
   {"cpu", "%{!mcpu=*:-mcpu=%(VALUE)}" }, \
   {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }
-
-/* This macro defines names of additional specifications to put in the
-   specs that can be used in various specifications like CC1_SPEC.  Its
-   definition is an initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   specification name, and a string constant that used by the GCC driver
-   program.
-
-   Do not define this macro if it does not need to do anything.  */
-
-#ifndef SUBTARGET_EXTRA_SPECS
-#define SUBTARGET_EXTRA_SPECS
-#endif
-
-#define EXTRA_SPECS				\
-  { "cpp_subtarget", CPP_SUBTARGET_SPEC },	\
-  SUBTARGET_EXTRA_SPECS
-
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
@@ -606,19 +580,6 @@ enum reg_class {
    in some cases it is preferable to use a more restrictive class.  */
 
 #define PREFERRED_RELOAD_CLASS  alpha_preferred_reload_class
-
-/* Loading and storing HImode or QImode values to and from memory
-   usually requires a scratch register.  The exceptions are loading
-   QImode and HImode from an aligned address to a general register
-   unless byte instructions are permitted.
-   We also cannot load an unaligned address or a paradoxical SUBREG into an
-   FP register.  */
-
-#define SECONDARY_INPUT_RELOAD_CLASS(CLASS,MODE,IN) \
-  alpha_secondary_reload_class((CLASS), (MODE), (IN), 1)
-
-#define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS,MODE,OUT) \
-  alpha_secondary_reload_class((CLASS), (MODE), (OUT), 0)
 
 /* If we are copying between general and FP registers, we need a memory
    location unless the FIX extension is available.  */

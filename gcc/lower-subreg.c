@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -282,6 +281,18 @@ find_decomposable_subregs (rtx *px, void *data)
 	  bitmap_set_bit (decomposable_context, regno);
 	  return -1;
 	}
+
+      /* If this is a cast from one mode to another, where the modes
+	 have the same size, and they are not tieable, then mark this
+	 register as non-decomposable.  If we decompose it we are
+	 likely to mess up whatever the backend is trying to do.  */
+      if (outer_words > 1
+	  && outer_size == inner_size
+	  && !MODES_TIEABLE_P (GET_MODE (x), GET_MODE (inner)))
+	{
+	  bitmap_set_bit (non_decomposable_context, regno);
+	  return -1;
+	}
     }
   else if (REG_P (x))
     {
@@ -514,8 +525,8 @@ resolve_subreg_use (rtx *px, void *data)
     {
       /* Return 1 to the caller to indicate that we found a direct
 	 reference to a register which is being decomposed.  This can
-	 happen inside notes.  */
-      gcc_assert (!insn);
+	 happen inside notes, multiword shift or zero-extend
+	 instructions.  */
       return 1;
     }
 
@@ -895,6 +906,15 @@ resolve_clobber (rtx pat, rtx insn)
   if (!resolve_reg_p (reg) && !resolve_subreg_p (reg))
     return false;
 
+  /* If this clobber has a REG_LIBCALL note, then it is the initial
+     clobber added by emit_no_conflict_block.  We were able to
+     decompose the register, so we no longer need the clobber.  */
+  if (find_reg_note (insn, REG_LIBCALL, NULL_RTX) != NULL_RTX)
+    {
+      delete_insn (insn);
+      return true;
+    }
+
   orig_mode = GET_MODE (reg);
   words = GET_MODE_SIZE (orig_mode);
   words = (words + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
@@ -916,6 +936,8 @@ resolve_clobber (rtx pat, rtx insn)
       emit_insn_after (x, insn);
     }
 
+  resolve_reg_notes (insn);
+
   return true;
 }
 
@@ -930,7 +952,160 @@ resolve_use (rtx pat, rtx insn)
       delete_insn (insn);
       return true;
     }
+
+  resolve_reg_notes (insn);
+
   return false;
+}
+
+/* Checks if INSN is a decomposable multiword-shift or zero-extend and
+   sets the decomposable_context bitmap accordingly.  A non-zero value
+   is returned if a decomposable insn has been found.  */
+
+static int
+find_decomposable_shift_zext (rtx insn)
+{
+  rtx set;
+  rtx op;
+  rtx op_operand;
+
+  set = single_set (insn);
+  if (!set)
+    return 0;
+
+  op = SET_SRC (set);
+  if (GET_CODE (op) != ASHIFT
+      && GET_CODE (op) != LSHIFTRT
+      && GET_CODE (op) != ZERO_EXTEND)
+    return 0;
+
+  op_operand = XEXP (op, 0);
+  if (!REG_P (SET_DEST (set)) || !REG_P (op_operand)
+      || HARD_REGISTER_NUM_P (REGNO (SET_DEST (set)))
+      || HARD_REGISTER_NUM_P (REGNO (op_operand))
+      || !SCALAR_INT_MODE_P (GET_MODE (op)))
+    return 0;
+
+  if (GET_CODE (op) == ZERO_EXTEND)
+    {
+      if (GET_MODE (op_operand) != word_mode
+	  || GET_MODE_BITSIZE (GET_MODE (op)) != 2 * BITS_PER_WORD)
+	return 0;
+    }
+  else /* left or right shift */
+    {
+      if (GET_CODE (XEXP (op, 1)) != CONST_INT
+	  || INTVAL (XEXP (op, 1)) < BITS_PER_WORD
+	  || GET_MODE_BITSIZE (GET_MODE (op_operand)) != 2 * BITS_PER_WORD)
+	return 0;
+    }
+
+  bitmap_set_bit (decomposable_context, REGNO (SET_DEST (set)));
+
+  if (GET_CODE (op) != ZERO_EXTEND)
+    bitmap_set_bit (decomposable_context, REGNO (op_operand));
+
+  return 1;
+}
+
+/* Decompose a more than word wide shift (in INSN) of a multiword
+   pseudo or a multiword zero-extend of a wordmode pseudo into a move
+   and 'set to zero' insn.  Return a pointer to the new insn when a
+   replacement was done.  */
+
+static rtx
+resolve_shift_zext (rtx insn)
+{
+  rtx set;
+  rtx op;
+  rtx op_operand;
+  rtx insns;
+  rtx src_reg, dest_reg, dest_zero;
+  int src_reg_num, dest_reg_num, offset1, offset2, src_offset;
+
+  set = single_set (insn);
+  if (!set)
+    return NULL_RTX;
+
+  op = SET_SRC (set);
+  if (GET_CODE (op) != ASHIFT
+      && GET_CODE (op) != LSHIFTRT
+      && GET_CODE (op) != ZERO_EXTEND)
+    return NULL_RTX;
+
+  op_operand = XEXP (op, 0);
+
+  if (!resolve_reg_p (SET_DEST (set)) && !resolve_reg_p (op_operand))
+    return NULL_RTX;
+
+  /* src_reg_num is the number of the word mode register which we
+     are operating on.  For a left shift and a zero_extend on little
+     endian machines this is register 0.  */
+  src_reg_num = GET_CODE (op) == LSHIFTRT ? 1 : 0;
+
+  if (WORDS_BIG_ENDIAN
+      && GET_MODE_SIZE (GET_MODE (op_operand)) > UNITS_PER_WORD)
+    src_reg_num = 1 - src_reg_num;
+
+  if (GET_CODE (op) == ZERO_EXTEND)
+    dest_reg_num = WORDS_BIG_ENDIAN ? 1 : 0;
+  else
+    dest_reg_num = 1 - src_reg_num;
+
+  offset1 = UNITS_PER_WORD * dest_reg_num;
+  offset2 = UNITS_PER_WORD * (1 - dest_reg_num);
+  src_offset = UNITS_PER_WORD * src_reg_num;
+
+  if (WORDS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
+    {
+      offset1 += UNITS_PER_WORD - 1;
+      offset2 += UNITS_PER_WORD - 1;
+      src_offset += UNITS_PER_WORD - 1;
+    }
+
+  start_sequence ();
+
+  dest_reg = simplify_gen_subreg_concatn (word_mode, SET_DEST (set),
+                                          GET_MODE (SET_DEST (set)),
+                                          offset1);
+  dest_zero = simplify_gen_subreg_concatn (word_mode, SET_DEST (set),
+                                           GET_MODE (SET_DEST (set)),
+                                           offset2);
+  src_reg = simplify_gen_subreg_concatn (word_mode, op_operand,
+                                         GET_MODE (op_operand),
+                                         src_offset);
+  if (GET_CODE (op) != ZERO_EXTEND)
+    {
+      int shift_count = INTVAL (XEXP (op, 1));
+      if (shift_count > BITS_PER_WORD)
+	src_reg = expand_shift (GET_CODE (op) == ASHIFT ?
+				LSHIFT_EXPR : RSHIFT_EXPR,
+				word_mode, src_reg,
+				build_int_cst (NULL_TREE,
+					       shift_count - BITS_PER_WORD),
+				dest_reg, 1);
+    }
+
+  if (dest_reg != src_reg)
+    emit_move_insn (dest_reg, src_reg);
+  emit_move_insn (dest_zero, CONST0_RTX (word_mode));
+  insns = get_insns ();
+
+  end_sequence ();
+
+  emit_insn_before (insns, insn);
+
+  if (dump_file)
+    {
+      rtx in;
+      fprintf (dump_file, "; Replacing insn: %d with insns: ", INSN_UID (insn));
+      for (in = insns; in != insn; in = NEXT_INSN (in))
+	fprintf (dump_file, "%d ", INSN_UID (in));
+      fprintf (dump_file, "\n");
+    }
+
+  delete_insn (insn);
+  return insns;
 }
 
 /* Look for registers which are always accessed via word-sized SUBREGs
@@ -990,6 +1165,9 @@ decompose_multiword_subregs (void)
 	  if (!INSN_P (insn)
 	      || GET_CODE (PATTERN (insn)) == CLOBBER
 	      || GET_CODE (PATTERN (insn)) == USE)
+	    continue;
+
+	  if (find_decomposable_shift_zext (insn))
 	    continue;
 
 	  recog_memoized (insn);
@@ -1058,7 +1236,6 @@ decompose_multiword_subregs (void)
   bitmap_and_compl_into (decomposable_context, non_decomposable_context);
   if (!bitmap_empty_p (decomposable_context))
     {
-      int hold_no_new_pseudos = no_new_pseudos;
       sbitmap sub_blocks;
       unsigned int i;
       sbitmap_iterator sbi;
@@ -1067,7 +1244,6 @@ decompose_multiword_subregs (void)
 
       propagate_pseudo_copies ();
 
-      no_new_pseudos = 0;
       sub_blocks = sbitmap_alloc (last_basic_block);
       sbitmap_zero (sub_blocks);
 
@@ -1081,25 +1257,17 @@ decompose_multiword_subregs (void)
 	  FOR_BB_INSNS (bb, insn)
 	    {
 	      rtx next, pat;
-	      bool changed;
 
 	      if (!INSN_P (insn))
 		continue;
 
 	      next = NEXT_INSN (insn);
-	      changed = false;
 
 	      pat = PATTERN (insn);
 	      if (GET_CODE (pat) == CLOBBER)
-		{
-		  if (resolve_clobber (pat, insn))
-		    changed = true;
-		}
+		resolve_clobber (pat, insn);
 	      else if (GET_CODE (pat) == USE)
-		{
-		  if (resolve_use (pat, insn))
-		    changed = true;
-		}
+		resolve_use (pat, insn);
 	      else
 		{
 		  rtx set;
@@ -1132,13 +1300,25 @@ decompose_multiword_subregs (void)
 		      insn = resolve_simple_move (set, insn);
 		      if (insn != orig_insn)
 			{
-			  changed = true;
+			  remove_retval_note (insn);
 
 			  recog_memoized (insn);
 			  extract_insn (insn);
 
 			  if (cfi)
 			    SET_BIT (sub_blocks, bb->index);
+			}
+		    }
+		  else
+		    {
+		      rtx decomposed_shift;
+
+		      decomposed_shift = resolve_shift_zext (insn);
+		      if (decomposed_shift != NULL_RTX)
+			{
+			  insn = decomposed_shift;
+			  recog_memoized (insn);
+			  extract_insn (insn);
 			}
 		    }
 
@@ -1163,13 +1343,11 @@ decompose_multiword_subregs (void)
 		      i = apply_change_group ();
 		      gcc_assert (i);
 
-		      changed = true;
+		      remove_retval_note (insn);
 		    }
 		}
 	    }
 	}
-
-      no_new_pseudos = hold_no_new_pseudos;
 
       /* If we had insns to split that caused control flow insns in the middle
 	 of a basic block, split those blocks now.  Note that we only handle

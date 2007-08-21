@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2006, Free Software Foundation, Inc          --
+--          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,15 +24,17 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Err_Vars;    use Err_Vars;
-with Namet;       use Namet;
+with Err_Vars; use Err_Vars;
+
+with GNAT.Case_Util; use GNAT.Case_Util;
+
 with Opt;         use Opt;
+with Prj.Attr;    use Prj.Attr;
+with Prj.Attr.PM; use Prj.Attr.PM;
 with Prj.Err;     use Prj.Err;
 with Prj.Strt;    use Prj.Strt;
 with Prj.Tree;    use Prj.Tree;
 with Snames;
-with Prj.Attr;    use Prj.Attr;
-with Prj.Attr.PM; use Prj.Attr.PM;
 with Uintp;       use Uintp;
 
 package body Prj.Dect is
@@ -209,17 +211,25 @@ package body Prj.Dect is
 
                if not Ignore then
                   Error_Msg_Name_1 := Token_Name;
-                  Error_Msg ("undefined attribute {", Token_Ptr);
+                  Error_Msg ("undefined attribute %%", Token_Ptr);
                end if;
             end if;
 
          --  Set, if appropriate the index case insensitivity flag
 
-         elsif Attribute_Kind_Of (Current_Attribute) in
+         else
+            if Is_Read_Only (Current_Attribute) then
+               Error_Msg
+                 ("read-only attribute cannot be given a value",
+                  Token_Ptr);
+            end if;
+
+            if Attribute_Kind_Of (Current_Attribute) in
                  Case_Insensitive_Associative_Array ..
                  Optional_Index_Case_Insensitive_Associative_Array
-         then
-            Set_Case_Insensitive (Attribute, In_Tree, To => True);
+            then
+               Set_Case_Insensitive (Attribute, In_Tree, To => True);
+            end if;
          end if;
 
          Scan (In_Tree); --  past the attribute name
@@ -273,7 +283,13 @@ package body Prj.Dect is
          Expect (Tok_String_Literal, "literal string");
 
          if Token = Tok_String_Literal then
-            Set_Associative_Array_Index_Of (Attribute, In_Tree, Token_Name);
+            Get_Name_String (Token_Name);
+
+            if Case_Insensitive (Attribute, In_Tree) then
+               To_Lower (Name_Buffer (1 .. Name_Len));
+            end if;
+
+            Set_Associative_Array_Index_Of (Attribute, In_Tree, Name_Find);
             Scan (In_Tree); --  past the literal string index
 
             if Token = Tok_At then
@@ -997,6 +1013,10 @@ package body Prj.Dect is
       end if;
 
       if Token = Tok_Renames then
+         if In_Configuration then
+            Error_Msg
+              ("no package renames in configuration projects", Token_Ptr);
+         end if;
 
          --  Scan past "renames"
 
@@ -1131,7 +1151,7 @@ package body Prj.Dect is
            and then Token_Name /= Name_Of (Package_Declaration, In_Tree)
          then
             Error_Msg_Name_1 := Name_Of (Package_Declaration, In_Tree);
-            Error_Msg ("expected {", Token_Ptr);
+            Error_Msg ("expected %%", Token_Ptr);
          end if;
 
          if Token /= Tok_Semicolon then

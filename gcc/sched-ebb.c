@@ -1,6 +1,7 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -8,7 +9,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +18,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -81,6 +81,19 @@ schedule_more_p (void)
   return sched_n_insns < n_insns;
 }
 
+/* Print dependency information about ebb between HEAD and TAIL.  */
+static void
+debug_ebb_dependencies (rtx head, rtx tail)
+{
+  fprintf (sched_dump,
+	   ";;   --------------- forward dependences: ------------ \n");
+
+  fprintf (sched_dump, "\n;;   --- EBB Dependences --- from bb%d to bb%d \n",
+	   BLOCK_NUM (head), BLOCK_NUM (tail));
+
+  debug_dependencies (head, tail);
+}
+
 /* Add all insns that are initially ready to the ready list READY.  Called
    once before scheduling a set of insns.  */
 
@@ -94,11 +107,9 @@ init_ready_list (void)
 
   sched_n_insns = 0;
 
-#if 0
   /* Print debugging information.  */
   if (sched_verbose >= 5)
-    debug_dependencies ();
-#endif
+    debug_ebb_dependencies (NEXT_INSN (prev_head), PREV_INSN (next_tail));
 
   /* Initialize ready list with all 'ready' insns in target block.
      Count number of insns in the target block being scheduled.  */
@@ -240,9 +251,9 @@ compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
 	 it may guard the fallthrough block from using a value that has
 	 conditionally overwritten that of the main codepath.  So we
 	 consider that it restores the value of the main codepath.  */
-      bitmap_and (set, DF_LIVE_IN (e->dest), cond_set);
+      bitmap_and (set, df_get_live_in (e->dest), cond_set);
     else
-      bitmap_ior_into (used, DF_LIVE_IN (e->dest));
+      bitmap_ior_into (used, df_get_live_in (e->dest));
 }
 
 /* Used in schedule_insns to initialize current_sched_info for scheduling
@@ -292,24 +303,26 @@ static struct sched_info ebb_sched_info =
 static basic_block
 earliest_block_with_similiar_load (basic_block last_block, rtx load_insn)
 {
-  dep_link_t back_link;
+  sd_iterator_def back_sd_it;
+  dep_t back_dep;
   basic_block bb, earliest_block = NULL;
 
-  FOR_EACH_DEP_LINK (back_link, INSN_BACK_DEPS (load_insn))
+  FOR_EACH_DEP (load_insn, SD_LIST_BACK, back_sd_it, back_dep)
     {
-      rtx insn1 = DEP_LINK_PRO (back_link);
+      rtx insn1 = DEP_PRO (back_dep);
 
-      if (DEP_LINK_KIND (back_link) == REG_DEP_TRUE)
+      if (DEP_TYPE (back_dep) == REG_DEP_TRUE)	
+	/* Found a DEF-USE dependence (insn1, load_insn).  */
 	{
-	  /* Found a DEF-USE dependence (insn1, load_insn).  */
-	  dep_link_t fore_link;
+	  sd_iterator_def fore_sd_it;
+	  dep_t fore_dep;
 
-	  FOR_EACH_DEP_LINK (fore_link, INSN_FORW_DEPS (insn1))
+	  FOR_EACH_DEP (insn1, SD_LIST_FORW, fore_sd_it, fore_dep)
 	    {
-	      rtx insn2 = DEP_LINK_CON (fore_link);
+	      rtx insn2 = DEP_CON (fore_dep);
 	      basic_block insn2_block = BLOCK_FOR_INSN (insn2);
 
-	      if (DEP_LINK_KIND (fore_link) == REG_DEP_TRUE)
+	      if (DEP_TYPE (fore_dep) == REG_DEP_TRUE)
 		{
 		  if (earliest_block != NULL
 		      && earliest_block->index < insn2_block->index)
@@ -384,23 +397,32 @@ add_deps_for_risky_insns (rtx head, rtx tail)
 	       rank.  */
 	    if (! sched_insns_conditions_mutex_p (insn, prev))
 	      {
-		if (!(current_sched_info->flags & DO_SPECULATION))
+		dep_def _dep, *dep = &_dep;
+
+		init_dep (dep, prev, insn, REG_DEP_ANTI);
+
+		if (!(current_sched_info->flags & USE_DEPS_LIST))
 		  {
 		    enum DEPS_ADJUST_RESULT res;
-		    
-		    res = add_or_update_back_dep (insn, prev,
-						  REG_DEP_ANTI, DEP_ANTI);
 
-		    if (res == DEP_CREATED)
-		      add_forw_dep (DEPS_LIST_FIRST (INSN_BACK_DEPS (insn)));
-		    else
-		      gcc_assert (res != DEP_CHANGED);
+		    res = sd_add_or_update_dep (dep, false);
+
+		    /* We can't change an existing dependency with
+		       DEP_ANTI.  */
+		    gcc_assert (res != DEP_CHANGED);
 		  }
 		else
-		  add_or_update_back_forw_dep (insn, prev, REG_DEP_ANTI,
-					       set_dep_weak (DEP_ANTI,
-							     BEGIN_CONTROL,
-							     MAX_DEP_WEAK));
+		  {
+		    if ((current_sched_info->flags & DO_SPECULATION)
+			&& (spec_info->mask & BEGIN_CONTROL))
+		      DEP_STATUS (dep) = set_dep_weak (DEP_ANTI, BEGIN_CONTROL,
+						       MAX_DEP_WEAK);
+
+		    sd_add_or_update_dep (dep, false);
+
+		    /* Dep_status could have been changed.
+		       No assertion here.  */
+		  }
 	      }
 
             break;
@@ -439,13 +461,10 @@ schedule_ebb (rtx head, rtx tail)
     {
       init_deps_global ();
 
-      /* Compute backward dependencies.  */
+      /* Compute dependencies.  */
       init_deps (&tmp_deps);
       sched_analyze (&tmp_deps, head, tail);
       free_deps (&tmp_deps);
-
-      /* Compute forward dependencies.  */
-      compute_forward_dependences (head, tail);
 
       add_deps_for_risky_insns (head, tail);
 
@@ -499,8 +518,12 @@ schedule_ebb (rtx head, rtx tail)
   
   /* Sanity check: verify that all region insns were scheduled.  */
   gcc_assert (sched_n_insns == n_insns);
-  head = current_sched_info->head;
-  tail = current_sched_info->tail;
+
+  /* Free dependencies.  */
+  sched_free_deps (current_sched_info->head, current_sched_info->tail, true);
+
+  gcc_assert (haifa_recovery_bb_ever_added_p
+	      || deps_pools_are_empty_p ());
 
   if (EDGE_COUNT (last_bb->preds) == 0)
     /* LAST_BB is unreachable.  */
@@ -539,9 +562,10 @@ schedule_ebbs (void)
   current_sched_info = &ebb_sched_info;
 
   df_set_flags (DF_LR_RUN_DCE);
-  df_ri_add_problem (DF_RI_LIFE);
+  df_note_add_problem ();
   df_analyze ();
   df_clear_flags (DF_LR_RUN_DCE);
+  regstat_compute_calls_crossed ();
   sched_init ();
 
   compute_bb_for_insn ();
@@ -591,15 +615,13 @@ schedule_ebbs (void)
     }
   bitmap_clear (&dont_calc_deps);
 
-  /* Updating register live information.  */
-  allocate_reg_life_data ();
-
   /* Reposition the prologue and epilogue notes in case we moved the
      prologue/epilogue insns.  */
   if (reload_completed)
     reposition_prologue_and_epilogue_notes ();
 
   sched_finish ();
+  regstat_free_calls_crossed ();
 }
 
 /* INSN has been added to/removed from current ebb.  */

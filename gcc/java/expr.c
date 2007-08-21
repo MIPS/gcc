@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -419,8 +418,8 @@ pop_type (tree type)
 static int
 type_assertion_eq (const void * k1_p, const void * k2_p)
 {
-  type_assertion k1 = *(type_assertion *)k1_p;
-  type_assertion k2 = *(type_assertion *)k2_p;
+  const type_assertion k1 = *(const type_assertion *)k1_p;
+  const type_assertion k2 = *(const type_assertion *)k2_p;
   return (k1.assertion_code == k2.assertion_code
           && k1.op1 == k2.op1
 	  && k1.op2 == k2.op2);
@@ -639,9 +638,8 @@ java_stack_swap (void)
   tree decl1, decl2;
 
   if (stack_pointer < 2
-      || (type1 = stack_type_map[stack_pointer - 1]) == TYPE_UNKNOWN
-      || (type2 = stack_type_map[stack_pointer - 2]) == TYPE_UNKNOWN
-      || type1 == TYPE_SECOND || type2 == TYPE_SECOND
+      || (type1 = stack_type_map[stack_pointer - 1]) == TYPE_SECOND
+      || (type2 = stack_type_map[stack_pointer - 2]) == TYPE_SECOND
       || TYPE_IS_WIDE (type1) || TYPE_IS_WIDE (type2))
     /* Bad stack swap.  */
     abort ();
@@ -929,13 +927,12 @@ build_java_arrayaccess (tree array, tree type, tree index)
 
   /* Multiply the index by the size of an element to obtain a byte
      offset.  Convert the result to a pointer to the element type.  */
-  index = fold_convert (TREE_TYPE (node),
-			build2 (MULT_EXPR, sizetype, 
-				fold_convert (sizetype, index), 
-				size_exp));
+  index = build2 (MULT_EXPR, sizetype, 
+		  fold_convert (sizetype, index), 
+		  size_exp);
 
   /* Sum the byte offset and the address of the data field.  */
-  node = fold_build2 (PLUS_EXPR, TREE_TYPE (node), node, index);
+  node = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (node), node, index);
 
   /* Finally, return
 
@@ -1287,7 +1284,7 @@ expand_java_return (tree type)
 	retval = build1(NOP_EXPR, TREE_TYPE(res), retval);
       
       TREE_SIDE_EFFECTS (retval) = 1;
-      java_add_stmt (build1 (RETURN_EXPR, TREE_TYPE (retval), retval));
+      java_add_stmt (build1 (RETURN_EXPR, void_type_node, retval));
     }
 }
 
@@ -1523,7 +1520,7 @@ build_java_binop (enum tree_code op, tree type, tree arg1, tree arg2)
     {
     case URSHIFT_EXPR:
       {
-	tree u_type = java_unsigned_type (type);
+	tree u_type = unsigned_type_for (type);
 	arg1 = convert (u_type, arg1);
 	arg1 = build_java_binop (RSHIFT_EXPR, u_type, arg1, arg2);
 	return convert (type, arg1);
@@ -1744,9 +1741,11 @@ build_field_ref (tree self_value, tree self_class, tree name)
 	  field_offset = fold (convert (sizetype, field_offset));
 	  self_value = java_check_reference (self_value, check);
 	  address 
-	    = fold_build2 (PLUS_EXPR, 
-			   build_pointer_type (TREE_TYPE (field_decl)),
+	    = fold_build2 (POINTER_PLUS_EXPR, 
+			   TREE_TYPE (self_value),
 			   self_value, field_offset);
+	  address = fold_convert (build_pointer_type (TREE_TYPE (field_decl)),
+				  address);
 	  return fold_build1 (INDIRECT_REF, TREE_TYPE (field_decl), address);
 	}
 
@@ -1772,7 +1771,6 @@ lookup_label (int pc)
     {
       /* The type of the address of a label is return_address_type_node. */
       tree decl = create_label_decl (name);
-      LABEL_PC (decl) = pc;
       return pushdecl (decl);
     }
 }
@@ -1801,8 +1799,14 @@ create_label_decl (tree name)
   return decl;
 }
 
-/* This maps a bytecode offset (PC) to various flags. */
+/* This maps a bytecode offset (PC) to various flags.  */
 char *instruction_bits;
+
+/* This is a vector of type states for the current method.  It is
+   indexed by PC.  Each element is a tree vector holding the type
+   state at that PC.  We only note type states at basic block
+   boundaries.  */
+VEC(tree, gc) *type_states;
 
 static void
 note_label (int current_pc ATTRIBUTE_UNUSED, int target_pc)
@@ -1993,13 +1997,7 @@ build_class_init (tree clas, tree expr)
 	  decl = build_decl (VAR_DECL, NULL_TREE,
 			     boolean_type_node);
 	  MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (decl);
-	  LOCAL_CLASS_INITIALIZATION_FLAG (decl) = 1;
 	  DECL_CONTEXT (decl) = current_function_decl;
-	  DECL_FUNCTION_INIT_TEST_CLASS (decl) = clas;
-	  /* Tell the check-init code to ignore this decl when not
-             optimizing class initialization. */
-	  if (!STATIC_CLASS_INIT_OPT_P ())
-	    DECL_BIT_INDEX (decl) = -1;
 	  DECL_INITIAL (decl) = boolean_false_node;
 	  /* Don't emit any symbolic debugging info for this decl.  */
 	  DECL_IGNORED_P (decl) = 1;	  
@@ -2228,8 +2226,8 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
 	  method_index++;
 	}
       method_index *= int_size_in_bytes (method_type_node);
-      ref = fold_build2 (PLUS_EXPR, method_ptr_type_node,
-			 ref, build_int_cst (NULL_TREE, method_index));
+      ref = fold_build2 (POINTER_PLUS_EXPR, method_ptr_type_node,
+			 ref, size_int (method_index));
       ref = build1 (INDIRECT_REF, method_type_node, ref);
       func = build3 (COMPONENT_REF, nativecode_ptr_type_node,
 		     ref, lookup_field (&method_type_node, ncode_ident),
@@ -2333,13 +2331,16 @@ build_invokevirtual (tree dtable, tree method, tree special)
 				   size_int (TARGET_VTABLE_USES_DESCRIPTORS));
     }
 
-  func = fold_build2 (PLUS_EXPR, nativecode_ptr_ptr_type_node, dtable,
-		      convert (nativecode_ptr_ptr_type_node, method_index));
+  func = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (dtable), dtable,
+		      convert (sizetype, method_index));
 
   if (TARGET_VTABLE_USES_DESCRIPTORS)
     func = build1 (NOP_EXPR, nativecode_ptr_type_node, func);
   else
-    func = build1 (INDIRECT_REF, nativecode_ptr_type_node, func);
+    {
+      func = fold_convert (nativecode_ptr_ptr_type_node, func);
+      func = build1 (INDIRECT_REF, nativecode_ptr_type_node, func);
+    }
 
   return func;
 }
@@ -2613,7 +2614,6 @@ build_jni_stub (tree method)
   int args_size = 0;
 
   tree klass = DECL_CONTEXT (method);
-  int from_class = ! CLASS_FROM_SOURCE_P (klass);
   klass = build_class_ref (klass);
 
   gcc_assert (METHOD_NATIVE (method) && flag_jni);
@@ -2643,25 +2643,16 @@ build_jni_stub (tree method)
   chainon (env_var, meth_var);
   build_result_decl (method);
 
-  /* One strange way that the front ends are different is that they
-     store arguments differently.  */
-  if (from_class)
-    method_args = DECL_ARGUMENTS (method);
-  else
-    method_args = BLOCK_EXPR_DECLS (DECL_FUNCTION_BODY (method));
+  method_args = DECL_ARGUMENTS (method);
   block = build_block (env_var, NULL_TREE, method_args, NULL_TREE);
   TREE_SIDE_EFFECTS (block) = 1;
-  /* When compiling from source we don't set the type of the block,
-     because that will prevent patch_return from ever being run.  */
-  if (from_class)
-    TREE_TYPE (block) = TREE_TYPE (TREE_TYPE (method));
+  TREE_TYPE (block) = TREE_TYPE (TREE_TYPE (method));
 
   /* Compute the local `env' by calling _Jv_GetJNIEnvNewFrame.  */
   body = build2 (MODIFY_EXPR, ptr_type_node, env_var,
 		 build_call_nary (ptr_type_node,
 				  build_address_of (soft_getjnienvnewframe_node),
 				  1, klass));
-  CAN_COMPLETE_NORMALLY (body) = 1;
 
   /* All the arguments to this method become arguments to the
      underlying JNI function.  If we had to wrap object arguments in a
@@ -2716,7 +2707,9 @@ build_jni_stub (tree method)
   jni_func_type = build_pointer_type (tem);
 
   jnifunc = build3 (COND_EXPR, ptr_type_node,
-		    meth_var, meth_var,
+		    build2 (NE_EXPR, boolean_type_node,
+			    meth_var, build_int_cst (TREE_TYPE (meth_var), 0)),
+		    meth_var,
 		    build2 (MODIFY_EXPR, ptr_type_node, meth_var,
 			    build_call_nary (ptr_type_node,
 					     build_address_of
@@ -2746,7 +2739,6 @@ build_jni_stub (tree method)
     }
 
   TREE_SIDE_EFFECTS (call) = 1;
-  CAN_COMPLETE_NORMALLY (call) = 1;
 
   body = build2 (COMPOUND_EXPR, void_type_node, body, call);
   TREE_SIDE_EFFECTS (body) = 1;
@@ -2756,7 +2748,6 @@ build_jni_stub (tree method)
 			  build_address_of (soft_jnipopsystemframe_node),
 			  1, env_var);
   TREE_SIDE_EFFECTS (call) = 1;
-  CAN_COMPLETE_NORMALLY (call) = 1;
   body = build2 (COMPOUND_EXPR, void_type_node, body, call);
   TREE_SIDE_EFFECTS (body) = 1;
 
@@ -2778,7 +2769,7 @@ build_jni_stub (tree method)
     }
 
   body = build2 (COMPOUND_EXPR, void_type_node, body,
-		 build1 (RETURN_EXPR, res_type, res_var));
+		 build1 (RETURN_EXPR, void_type_node, res_var));
   TREE_SIDE_EFFECTS (body) = 1;
   
   /* Prepend class initialization for static methods reachable from
@@ -2948,11 +2939,11 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
   TREE_THIS_VOLATILE (field_ref) = TREE_THIS_VOLATILE (field_decl);
 }
 
-void
-load_type_state (tree label)
+static void
+load_type_state (int pc)
 {
   int i;
-  tree vec = LABEL_TYPE_STATE (label);
+  tree vec = VEC_index (tree, type_states, pc);
   int cur_length = TREE_VEC_LENGTH (vec);
   stack_pointer = cur_length - DECL_MAX_LOCALS(current_function_decl);
   for (i = 0; i < cur_length; i++)
@@ -2995,6 +2986,8 @@ note_instructions (JCF *jcf, tree method)
   byte_ops = jcf->read_ptr;
   instruction_bits = xrealloc (instruction_bits, length + 1);
   memset (instruction_bits, 0, length + 1);
+  type_states = VEC_alloc (tree, gc, length + 1);
+  VEC_safe_grow_cleared (tree, gc, type_states, length + 1);
 
   /* This pass figures out which PC can be the targets of jumps. */
   for (PC = 0; PC < length;)
@@ -3153,8 +3146,8 @@ expand_byte_code (JCF *jcf, tree method)
           flush_quick_stack ();
 	  if ((instruction_bits [PC] & BCODE_TARGET) != 0)
 	    java_add_stmt (build1 (LABEL_EXPR, void_type_node, label));
-	  if (LABEL_VERIFIED (label) || PC == 0)
-	    load_type_state (label);
+	  if ((instruction_bits[PC] & BCODE_VERIFIED) != 0)
+	    load_type_state (PC);
 	}
 
       if (! (instruction_bits [PC] & BCODE_VERIFIED))
@@ -3738,7 +3731,6 @@ force_evaluation_order (tree node)
 	  cmp = build2 (COMPOUND_EXPR, TREE_TYPE (node), cmp, node);
 	  if (TREE_TYPE (cmp) != void_type_node)
 	    cmp = save_expr (cmp);
-	  CAN_COMPLETE_NORMALLY (cmp) = CAN_COMPLETE_NORMALLY (node);
 	  TREE_SIDE_EFFECTS (cmp) = 1;
 	  node = cmp;
 	}
@@ -3752,7 +3744,6 @@ tree
 build_java_empty_stmt (void)
 {
   tree t = build_empty_stmt ();
-  CAN_COMPLETE_NORMALLY (t) = 1;
   return t;
 }
 

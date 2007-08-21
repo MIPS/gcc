@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* dependency.c -- Expression dependency analysis code.  */
 /* There's probably quite a bit of duplication in this file.  We currently
@@ -222,7 +221,7 @@ gfc_dep_compare_expr (gfc_expr *e1, gfc_expr *e2)
       /* We should list the "constant" intrinsic functions.  Those
 	 without side-effects that provide equal results given equal
 	 argument lists.  */
-      switch (e1->value.function.isym->generic_id)
+      switch (e1->value.function.isym->id)
 	{
 	case GFC_ISYM_CONVERSION:
 	  /* Handle integer extensions specially, as __convert_i4_i8
@@ -373,7 +372,7 @@ gfc_get_noncopying_intrinsic_argument (gfc_expr *expr)
   if (expr->expr_type != EXPR_FUNCTION || !expr->value.function.isym)
     return NULL;
 
-  switch (expr->value.function.isym->generic_id)
+  switch (expr->value.function.isym->id)
     {
     case GFC_ISYM_TRANSPOSE:
       return expr->value.function.actual->expr;
@@ -1126,6 +1125,24 @@ gfc_full_array_ref_p (gfc_ref *ref)
 
   for (i = 0; i < ref->u.ar.dimen; i++)
     {
+      /* If we have a single element in the reference, we need to check
+	 that the array has a single element and that we actually reference
+	 the correct element.  */
+      if (ref->u.ar.dimen_type[i] == DIMEN_ELEMENT)
+	{
+	  if (!ref->u.ar.as
+	      || !ref->u.ar.as->lower[i]
+	      || !ref->u.ar.as->upper[i]
+	      || gfc_dep_compare_expr (ref->u.ar.as->lower[i],
+				       ref->u.ar.as->upper[i])
+	      || !ref->u.ar.start[i]
+	      || gfc_dep_compare_expr (ref->u.ar.start[i],
+				       ref->u.ar.as->lower[i]))
+	    return false;
+	  else
+	    continue;
+	}
+
       /* Check the lower bound.  */
       if (ref->u.ar.start[i]
 	  && (!ref->u.ar.as

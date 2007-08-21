@@ -121,6 +121,21 @@ if test "x$GCC" = "xyes"; then
 fi
 AC_SUBST(AM_FCFLAGS)
 AC_SUBST(AM_CFLAGS)
+AC_SUBST(CFLAGS)
+
+# Check for symbol versioning (copied from libssp).
+AC_MSG_CHECKING([whether symbol versioning is supported])
+cat > conftest.map <<EOF
+FOO_1.0 {
+  global: *foo*; bar; local: *;
+};
+EOF
+save_LDFLAGS="$LDFLAGS"
+LDFLAGS="$LDFLAGS -fPIC -shared -Wl,--version-script,./conftest.map"
+AC_TRY_LINK([int foo;],[],[gfortran_use_symver=yes],[gfortran_use_symver=no])
+LDFLAGS="$save_LDFLAGS"
+AC_MSG_RESULT($gfortran_use_symver)
+AM_CONDITIONAL(LIBGFOR_USE_SYMVER, [test "x$gfortran_use_symver" = xyes])
 
 # Find other programs we need.
 AC_CHECK_TOOL(AS, as)
@@ -161,10 +176,10 @@ AC_TYPE_OFF_T
 # check header files
 AC_STDC_HEADERS
 AC_HEADER_TIME
-AC_HAVE_HEADERS(stdlib.h string.h unistd.h signal.h)
+AC_HAVE_HEADERS(stdio.h stdlib.h string.h unistd.h signal.h stdarg.h)
 AC_CHECK_HEADERS(time.h sys/time.h sys/times.h sys/resource.h)
 AC_CHECK_HEADERS(sys/types.h sys/stat.h sys/wait.h floatingpoint.h ieeefp.h)
-AC_CHECK_HEADERS(fenv.h fptrap.h float.h execinfo.h)
+AC_CHECK_HEADERS(fenv.h fptrap.h float.h execinfo.h pwd.h)
 AC_CHECK_HEADER([complex.h],[AC_DEFINE([HAVE_COMPLEX_H], [1], [complex.h exists])])
 GCC_HEADER_STDINT(gstdint.h)
 
@@ -177,7 +192,7 @@ AC_CHECK_FUNCS(getrusage times mkstemp strtof strtold snprintf ftruncate chsize)
 AC_CHECK_FUNCS(chdir strerror getlogin gethostname kill link symlink perror)
 AC_CHECK_FUNCS(sleep time ttyname signal alarm ctime clock access fork execl)
 AC_CHECK_FUNCS(wait setmode execvp pipe dup2 close fdopen strcasestr getrlimit)
-AC_CHECK_FUNCS(gettimeofday stat fstat lstat)
+AC_CHECK_FUNCS(gettimeofday stat fstat lstat getpwuid vsnprintf)
 
 # Check for glibc backtrace functions
 AC_CHECK_FUNCS(backtrace backtrace_symbols)
@@ -190,9 +205,9 @@ AC_CHECK_LIB([c],[getgid],[AC_DEFINE([HAVE_GETGID],[1],[libc includes getgid])])
 AC_CHECK_LIB([c],[getpid],[AC_DEFINE([HAVE_GETPID],[1],[libc includes getpid])])
 AC_CHECK_LIB([c],[getppid],[AC_DEFINE([HAVE_GETPPID],[1],[libc includes getppid])])
 AC_CHECK_LIB([c],[getuid],[AC_DEFINE([HAVE_GETUID],[1],[libc includes getuid])])
+AC_CHECK_LIB([c],[geteuid],[AC_DEFINE([HAVE_GETEUID],[1],[libc includes geteuid])])
 
 # Check for C99 (and other IEEE) math functions
-# ??? This list seems awful long. Is there a better way to test for these?
 AC_CHECK_LIB([m],[acosf],[AC_DEFINE([HAVE_ACOSF],[1],[libm includes acosf])])
 AC_CHECK_LIB([m],[acos],[AC_DEFINE([HAVE_ACOS],[1],[libm includes acos])])
 AC_CHECK_LIB([m],[acosl],[AC_DEFINE([HAVE_ACOSL],[1],[libm includes acosl])])
@@ -286,6 +301,12 @@ AC_CHECK_LIB([m],[cpowl],[AC_DEFINE([HAVE_CPOWL],[1],[libm includes cpowl])])
 AC_CHECK_LIB([m],[roundf],[AC_DEFINE([HAVE_ROUNDF],[1],[libm includes roundf])])
 AC_CHECK_LIB([m],[round],[AC_DEFINE([HAVE_ROUND],[1],[libm includes round])])
 AC_CHECK_LIB([m],[roundl],[AC_DEFINE([HAVE_ROUNDL],[1],[libm includes roundl])])
+AC_CHECK_LIB([m],[lroundf],[AC_DEFINE([HAVE_LROUNDF],[1],[libm includes lroundf])])
+AC_CHECK_LIB([m],[lround],[AC_DEFINE([HAVE_LROUND],[1],[libm includes lround])])
+AC_CHECK_LIB([m],[lroundl],[AC_DEFINE([HAVE_LROUNDL],[1],[libm includes lroundl])])
+AC_CHECK_LIB([m],[llroundf],[AC_DEFINE([HAVE_LLROUNDF],[1],[libm includes llroundf])])
+AC_CHECK_LIB([m],[llround],[AC_DEFINE([HAVE_LLROUND],[1],[libm includes llround])])
+AC_CHECK_LIB([m],[llroundl],[AC_DEFINE([HAVE_LLROUNDL],[1],[libm includes llroundl])])
 AC_CHECK_LIB([m],[scalbnf],[AC_DEFINE([HAVE_SCALBNF],[1],[libm includes scalbnf])])
 AC_CHECK_LIB([m],[scalbn],[AC_DEFINE([HAVE_SCALBN],[1],[libm includes scalbn])])
 AC_CHECK_LIB([m],[scalbnl],[AC_DEFINE([HAVE_SCALBNL],[1],[libm includes scalbnl])])

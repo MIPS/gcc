@@ -5,7 +5,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -107,7 +106,7 @@ gimple_alloc_histogram_value (struct function *fun ATTRIBUTE_UNUSED,
 static hashval_t
 histogram_hash (const void *x)
 {
-  return htab_hash_pointer (((histogram_value)x)->hvalue.stmt);
+  return htab_hash_pointer (((const_histogram_value)x)->hvalue.stmt);
 }
 
 /* Return nonzero if decl_id of die_struct X is the same as UID of decl *Y.  */
@@ -115,7 +114,7 @@ histogram_hash (const void *x)
 static int
 histogram_eq (const void *x, const void *y)
 {
-  return ((histogram_value) x)->hvalue.stmt == (tree)y;
+  return ((const_histogram_value) x)->hvalue.stmt == (const_tree)y;
 }
 
 /* Set histogram for STMT.  */
@@ -527,8 +526,7 @@ tree_divmod_fixed_value (tree stmt, tree operation,
   stmt2 = build_gimple_modify_stmt (tmp1, op2);
   stmt3 = build3 (COND_EXPR, void_type_node,
 	    build2 (NE_EXPR, boolean_type_node, tmp1, tmpv),
-	    build1 (GOTO_EXPR, void_type_node, label_decl2),
-	    build1 (GOTO_EXPR, void_type_node, label_decl1));
+	    NULL_TREE, NULL_TREE);
   bsi_insert_before (&bsi, stmt1, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt2, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt3, BSI_SAME_STMT);
@@ -689,8 +687,7 @@ tree_mod_pow2 (tree stmt, tree operation, tree op1, tree op2, int prob,
   stmt4 = build3 (COND_EXPR, void_type_node,
 		  build2 (NE_EXPR, boolean_type_node,
 			  tmp3, build_int_cst (optype, 0)),
-		  build1 (GOTO_EXPR, void_type_node, label_decl2),
-	 	  build1 (GOTO_EXPR, void_type_node, label_decl1));
+		  NULL_TREE, NULL_TREE);
   bsi_insert_before (&bsi, stmt2, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt3, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt4, BSI_SAME_STMT);
@@ -845,9 +842,7 @@ tree_mod_subtract (tree stmt, tree operation, tree op1, tree op2,
   stmt2 = build_gimple_modify_stmt (tmp1, op2);
   stmt3 = build3 (COND_EXPR, void_type_node,
 	    build2 (LT_EXPR, boolean_type_node, result, tmp1),
-	    build1 (GOTO_EXPR, void_type_node, label_decl3),
-	    build1 (GOTO_EXPR, void_type_node, 
-		    ncounts ? label_decl1 : label_decl2));
+	    NULL_TREE, NULL_TREE);
   bsi_insert_before (&bsi, stmt1, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt2, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt3, BSI_SAME_STMT);
@@ -861,8 +856,7 @@ tree_mod_subtract (tree stmt, tree operation, tree op1, tree op2,
 						result, tmp1));
       stmt2 = build3 (COND_EXPR, void_type_node,
 		build2 (LT_EXPR, boolean_type_node, result, tmp1),
-		build1 (GOTO_EXPR, void_type_node, label_decl3),
-		build1 (GOTO_EXPR, void_type_node, label_decl2));
+		NULL_TREE, NULL_TREE);
       bsi_insert_before (&bsi, label1, BSI_SAME_STMT);
       bsi_insert_before (&bsi, stmt1, BSI_SAME_STMT);
       bsi_insert_before (&bsi, stmt2, BSI_SAME_STMT);
@@ -1084,8 +1078,7 @@ tree_ic (tree stmt, tree call, struct cgraph_node* direct_call,
   stmt2 = build_gimple_modify_stmt (tmp1, tmp);
   stmt3 = build3 (COND_EXPR, void_type_node,
 		  build2 (NE_EXPR, boolean_type_node, tmp1, tmpv),
-		  build1 (GOTO_EXPR, void_type_node, label_decl2),
-		  build1 (GOTO_EXPR, void_type_node, label_decl1));
+		  NULL_TREE, NULL_TREE);
   bsi_insert_before (&bsi, stmt1, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt2, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt3, BSI_SAME_STMT);
@@ -1288,8 +1281,7 @@ tree_stringop_fixed_value (tree stmt, tree value, int prob, gcov_type count,
   stmt2 = build_gimple_modify_stmt (tmp1, blck_size);
   stmt3 = build3 (COND_EXPR, void_type_node,
 	    build2 (NE_EXPR, boolean_type_node, tmp1, tmpv),
-	    build1 (GOTO_EXPR, void_type_node, label_decl2),
-	    build1 (GOTO_EXPR, void_type_node, label_decl1));
+	    NULL_TREE, NULL_TREE);
   bsi_insert_before (&bsi, stmt1, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt2, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt3, BSI_SAME_STMT);

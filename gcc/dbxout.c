@@ -1,13 +1,13 @@
 /* Output dbx-format symbol table information from GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Output dbx-format symbol table data.
@@ -984,6 +983,7 @@ dbxout_init (const char *input_file_name)
   char ltext_label_name[100];
   bool used_ltext_label_name = false;
   tree syms = lang_hooks.decls.getdecls ();
+  const char *mapped_name;
 
   typevec_len = 100;
   typevec = ggc_calloc (typevec_len, sizeof typevec[0]);
@@ -1009,6 +1009,7 @@ dbxout_init (const char *input_file_name)
 	    cwd = "/";
 	  else if (!IS_DIR_SEPARATOR (cwd[strlen (cwd) - 1]))
 	    cwd = concat (cwd, "/", NULL);
+	  cwd = remap_debug_filename (cwd);
 	}
 #ifdef DBX_OUTPUT_MAIN_SOURCE_DIRECTORY
       DBX_OUTPUT_MAIN_SOURCE_DIRECTORY (asm_out_file, cwd);
@@ -1019,10 +1020,11 @@ dbxout_init (const char *input_file_name)
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_DIRECTORY */
     }
 
+  mapped_name = remap_debug_filename (input_file_name);
 #ifdef DBX_OUTPUT_MAIN_SOURCE_FILENAME
-  DBX_OUTPUT_MAIN_SOURCE_FILENAME (asm_out_file, input_file_name);
+  DBX_OUTPUT_MAIN_SOURCE_FILENAME (asm_out_file, mapped_name);
 #else
-  dbxout_begin_simple_stabs_desc (input_file_name, N_SO, get_lang_number ());
+  dbxout_begin_simple_stabs_desc (mapped_name, N_SO, get_lang_number ());
   dbxout_stab_value_label (ltext_label_name);
   used_ltext_label_name = true;
 #endif
@@ -1164,7 +1166,7 @@ dbxout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
   n->prev = NULL;
   current_file->prev = n;
   n->bincl_status = BINCL_PENDING;
-  n->pending_bincl_name = filename;
+  n->pending_bincl_name = remap_debug_filename (filename);
   pending_bincls = 1;
   current_file = n;
 #endif
@@ -1230,7 +1232,7 @@ dbxout_source_file (const char *filename)
       if (current_function_decl == NULL_TREE)
 	switch_to_section (text_section);
 
-      dbxout_begin_simple_stabs (filename, N_SOL);
+      dbxout_begin_simple_stabs (remap_debug_filename (filename), N_SOL);
       dbxout_stab_value_internal_label ("Ltext", &source_label_number);
       lastfile = filename;
     }
@@ -1907,6 +1909,7 @@ dbxout_type (tree type, int full)
       break;
 
     case REAL_TYPE:
+    case FIXED_POINT_TYPE:
       /* This used to say `r1' and we used to take care
 	 to make sure that `int' was type number 1.  */
       stabstr_C ('r');

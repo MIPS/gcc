@@ -12,7 +12,7 @@ AC_CONFIG_HEADER(config.h)
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:9:0
+libtool_VERSION=6:10:0
 AC_SUBST(libtool_VERSION)
 
 # Find the rest of the source tree framework.
@@ -113,7 +113,7 @@ GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING([no])
 # No surprises, no surprises...
 GLIBCXX_ENABLE_THREADS
 GLIBCXX_ENABLE_ATOMIC_BUILTINS
-if test $atomicity_dir = cpu/generic/atomic_mutex ; then
+if test $atomicity_dir = cpu/generic/atomicity_mutex ; then
   AC_MSG_WARN([No native atomic operations are provided for this platform.])
   if test $target_thread_file = single; then
     AC_MSG_WARN([They cannot be faked when thread support is disabled.])
@@ -300,7 +300,8 @@ GLIBCXX_ENABLE_VISIBILITY([yes])
 
 ac_ldbl_compat=no
 case "$target" in
-  powerpc*-*-*gnu* | \
+  powerpc*-*-linux* | \
+  powerpc*-*-gnu* | \
   sparc*-*-linux* | \
   s390*-*-linux* | \
   alpha*-*-linux*)
@@ -355,10 +356,8 @@ GLIBCXX_EXPORT_INSTALL_INFO
 GLIBCXX_EXPORT_INCLUDES
 GLIBCXX_EXPORT_FLAGS
 
-if ${CONFIG_SHELL-/bin/sh} ./libtool --tag CXX --features |
-   grep "enable shared" > /dev/null;
-then
-  LIBSUPCXX_PICFLAGS=-prefer-pic
+if test "$enable_shared" = yes; then
+  LIBSUPCXX_PICFLAGS="-prefer-pic"
 else
   LIBSUPCXX_PICFLAGS=
 fi

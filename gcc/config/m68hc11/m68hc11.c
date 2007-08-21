@@ -1,5 +1,5 @@
 /* Subroutines for code generation on Motorola 68HC11 and 68HC12.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Note:
    A first 68HC11 port was made by Otto Lind (otto@coactive.com)
@@ -59,6 +58,7 @@ Note:
 #include "reload.h"
 #include "target.h"
 #include "target-def.h"
+#include "df.h"
 
 static void emit_move_after_reload (rtx, rtx, rtx);
 static rtx simplify_logical (enum machine_mode, int, rtx, rtx *);
@@ -4247,9 +4247,7 @@ m68hc11_check_z_replacement (rtx insn, struct replace_info *info)
 		  info->must_restore_reg = 0;
 		  info->found_call = 1;
 		  info->can_use_d = 0;
-		  PUT_CODE (insn, NOTE);
-		  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-		  NOTE_SOURCE_FILE (insn) = 0;
+		  SET_INSN_DELETED (insn);
 		  info->last = NEXT_INSN (insn);
 		  return 0;
 		}
@@ -4330,9 +4328,7 @@ m68hc11_check_z_replacement (rtx insn, struct replace_info *info)
 		  info->must_restore_reg = 0;
 		  info->found_call = 1;
 		  info->can_use_d = 0;
-		  PUT_CODE (insn, NOTE);
-		  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-		  NOTE_SOURCE_FILE (insn) = 0;
+		  SET_INSN_DELETED (insn);
 		  info->last = NEXT_INSN (insn);
 		  return 0;
 		}
@@ -5008,7 +5004,7 @@ static void
 m68hc11_reorg (void)
 {
   int split_done = 0;
-  rtx insn, first;
+  rtx first;
 
   z_replacement_completed = 0;
   z_reg = gen_rtx_REG (HImode, HARD_Z_REGNUM);
@@ -5040,29 +5036,9 @@ m68hc11_reorg (void)
      description to use the best assembly directives.  */
   if (optimize)
     {
-      /* Before recomputing the REG_DEAD notes, remove all of them.
-         This is necessary because the reload_cse_regs() pass can
-         have replaced some (MEM) with a register.  In that case,
-         the REG_DEAD that could exist for that register may become
-         wrong.  */
-      for (insn = first; insn; insn = NEXT_INSN (insn))
-        {
-          if (INSN_P (insn))
-            {
-              rtx *pnote;
-
-              pnote = &REG_NOTES (insn);
-              while (*pnote != 0)
-                {
-                  if (REG_NOTE_KIND (*pnote) == REG_DEAD)
-                    *pnote = XEXP (*pnote, 1);
-                  else
-                    pnote = &XEXP (*pnote, 1);
-                }
-            }
-        }
-
-      life_analysis (PROP_REG_INFO | PROP_DEATH_NOTES);
+      df_note_add_problem ();
+      df_analyze ();
+      df_remove_problem (df_note);
     }
 
   z_replacement_completed = 2;
@@ -5098,9 +5074,7 @@ m68hc11_reorg (void)
 	if (GET_CODE (body) == SET
 	    && rtx_equal_p (SET_SRC (body), SET_DEST (body)))
 	  {
-	    PUT_CODE (insn, NOTE);
-	    NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-	    NOTE_SOURCE_FILE (insn) = 0;
+	    SET_INSN_DELETED  (insn);
 	    continue;
 	  }
       }

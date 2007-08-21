@@ -1,12 +1,12 @@
 /* Callgraph handling code.
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_CGRAPH_H
 #define GCC_CGRAPH_H
@@ -410,4 +409,9 @@ varpool_next_static_initializer (struct varpool_node *node)
 void cgraph_clone_inlined_nodes (struct cgraph_edge *, bool, bool);
 void cgraph_mark_inline_edge (struct cgraph_edge *, bool);
 bool cgraph_default_inline_p (struct cgraph_node *, const char **);
+
+
+/* Create a new static variable of type TYPE.  */
+tree add_new_static_var (tree type);
+
 #endif  /* GCC_CGRAPH_H  */

@@ -5,7 +5,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -96,7 +95,13 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 	    }
 	}
     }
-
+  if (POINTER_TYPE_P (TREE_TYPE (base)))
+    {
+      step = fold_convert (sizetype, step);
+      if (incr_op == MINUS_EXPR)
+	step = fold_build1 (NEGATE_EXPR, sizetype, step);
+      incr_op = POINTER_PLUS_EXPR;
+    }
   /* Gimplify the step if necessary.  We put the computations in front of the
      loop (i.e. the step should be loop invariant).  */
   step = force_gimple_operand (step, &stmts, true, var);
@@ -244,7 +249,7 @@ find_uses_to_rename_use (basic_block bb, tree use, bitmap *use_blocks,
   def_loop = def_bb->loop_father;
 
   /* If the definition is not inside loop, it is not interesting.  */
-  if (!def_loop->outer)
+  if (!loop_outer (def_loop))
     return;
 
   if (!use_blocks[ver])
@@ -355,10 +360,17 @@ find_uses_to_rename (bitmap changed_bbs, bitmap *use_blocks, bitmap need_phis)
 void
 rewrite_into_loop_closed_ssa (bitmap changed_bbs, unsigned update_flag)
 {
-  bitmap loop_exits = get_loops_exits ();
+  bitmap loop_exits;
   bitmap *use_blocks;
   unsigned i, old_num_ssa_names;
-  bitmap names_to_rename = BITMAP_ALLOC (NULL);
+  bitmap names_to_rename;
+
+  loops_state_set (LOOP_CLOSED_SSA);
+  if (number_of_loops () <= 1)
+    return;
+
+  loop_exits = get_loops_exits ();
+  names_to_rename = BITMAP_ALLOC (NULL);
 
   /* If the pass has caused the SSA form to be out-of-date, update it
      now.  */
@@ -424,7 +436,7 @@ verify_loop_closed_ssa (void)
   tree phi;
   unsigned i;
 
-  if (current_loops == NULL)
+  if (number_of_loops () <= 1)
     return;
 
   verify_ssa (false);
@@ -497,7 +509,8 @@ ip_normal_pos (struct loop *loop)
 
   bb = single_pred (loop->latch);
   last = last_stmt (bb);
-  if (TREE_CODE (last) != COND_EXPR)
+  if (!last
+      || TREE_CODE (last) != COND_EXPR)
     return NULL;
 
   exit = EDGE_SUCC (bb, 0);
@@ -571,9 +584,9 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
 {
   unsigned first_new_block;
 
-  if (!(current_loops->state & LOOPS_HAVE_SIMPLE_LATCHES))
+  if (!loops_state_satisfies_p (LOOPS_HAVE_SIMPLE_LATCHES))
     return false;
-  if (!(current_loops->state & LOOPS_HAVE_PREHEADERS))
+  if (!loops_state_satisfies_p (LOOPS_HAVE_PREHEADERS))
     return false;
 
 #ifdef ENABLE_CHECKING
@@ -594,17 +607,6 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   scev_reset ();
 
   return true;
-}
-
-/* Build if (COND) goto THEN_LABEL; else goto ELSE_LABEL;  */
-
-static tree
-build_if_stmt (tree cond, tree then_label, tree else_label)
-{
-  return build3 (COND_EXPR, void_type_node,
-		 cond,
-		 build1 (GOTO_EXPR, void_type_node, then_label),
-		 build1 (GOTO_EXPR, void_type_node, else_label));
 }
 
 /* Returns true if we can unroll LOOP FACTOR times.  Number
@@ -667,12 +669,16 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
   tree base = desc->control.base;
   tree step = desc->control.step;
   tree bound = desc->bound;
-  tree type = TREE_TYPE (base);
+  tree type = TREE_TYPE (step);
   tree bigstep, delta;
   tree min = lower_bound_in_type (type, type);
   tree max = upper_bound_in_type (type, type);
   enum tree_code cmp = desc->cmp;
   tree cond = boolean_true_node, assum;
+
+  /* For pointers, do the arithmetics in the type of step (sizetype).  */
+  base = fold_convert (type, base);
+  bound = fold_convert (type, bound);
 
   *enter_cond = boolean_false_node;
   *exit_base = NULL_TREE;
@@ -924,9 +930,9 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
 				  REG_BR_PROB_BASE - exit->probability);
 
   bsi = bsi_last (exit_bb);
-  exit_if = build_if_stmt (boolean_true_node,
-			   tree_block_label (loop->latch),
-			   tree_block_label (rest));
+  exit_if = build3 (COND_EXPR, void_type_node, boolean_true_node,
+		    NULL_TREE, NULL_TREE);
+
   bsi_insert_after (&bsi, exit_if, BSI_NEW_STMT);
   new_exit = make_edge (exit_bb, rest, EDGE_FALSE_VALUE | irr);
   rescan_loop_exit (new_exit, true, false);
@@ -1029,8 +1035,9 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
   new_nonexit->count = exit_bb->count - new_exit->count;
   if (new_nonexit->count < 0)
     new_nonexit->count = 0;
-  scale_bbs_frequencies_int (&loop->latch, 1, new_nonexit->probability,
-			     prob);
+  if (prob > 0)
+    scale_bbs_frequencies_int (&loop->latch, 1, new_nonexit->probability,
+			       prob);
 
   /* Finally create the new counter for number of iterations and add the new
      exit instruction.  */

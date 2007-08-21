@@ -75,6 +75,9 @@ case "$host" in
   i?86-*-darwin*)
 	TARGET=X86_DARWIN; TARGETDIR=x86
 	;;
+  i?86-*-solaris2.1[[0-9]]*)
+	TARGET=X86_64; TARGETDIR=x86
+	;;
   i?86-*-*)
 	TARGET=X86; TARGETDIR=x86
 	;;
@@ -91,8 +94,6 @@ case "$host" in
 	TARGET=M68K; TARGETDIR=m68k
 	;;
 
-  mips64*-*)
-	;;
   mips-sgi-irix5.* | mips-sgi-irix6.*)
 	TARGET=MIPS_IRIX; TARGETDIR=mips
 	;;
@@ -200,6 +201,18 @@ fi
 AC_SUBST(HAVE_LONG_DOUBLE)
 
 AC_C_BIGENDIAN
+
+AC_CACHE_CHECK([assembler .cfi pseudo-op support],
+    libffi_cv_as_cfi_pseudo_op, [
+    libffi_cv_as_cfi_pseudo_op=unknown
+    AC_TRY_COMPILE([asm (".cfi_startproc\n\t.cfi_endproc");],,
+		   [libffi_cv_as_cfi_pseudo_op=yes],
+		   [libffi_cv_as_cfi_pseudo_op=no])
+])
+if test "x$libffi_cv_as_cfi_pseudo_op" = xyes; then
+    AC_DEFINE(HAVE_AS_CFI_PSEUDO_OP, 1,
+	      [Define if your assembler supports .cfi_* directives.])
+fi
 
 if test x$TARGET = xSPARC; then
     AC_CACHE_CHECK([assembler and linker support unaligned pc related relocs],

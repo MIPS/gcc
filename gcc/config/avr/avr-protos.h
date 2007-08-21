@@ -8,7 +8,7 @@
 
    GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 
 extern int function_arg_regno_p (int r);
@@ -86,6 +85,10 @@ extern const char *ashrsi3_out (rtx insn, rtx operands[], int *len);
 extern const char *lshrqi3_out (rtx insn, rtx operands[], int *len);
 extern const char *lshrhi3_out (rtx insn, rtx operands[], int *len);
 extern const char *lshrsi3_out (rtx insn, rtx operands[], int *len);
+
+extern void expand_prologue (void);
+extern void expand_epilogue (void);
+extern int avr_epilogue_uses (int regno);
 
 extern void avr_output_bld (rtx operands[], int bit_nr);
 extern void avr_output_addr_vec_elt (FILE *stream, int value);

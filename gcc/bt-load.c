@@ -1,12 +1,12 @@
 /* Perform branch target register load optimizations.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -37,6 +36,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm_p.h"
 #include "toplev.h"
 #include "tree-pass.h"
+#include "recog.h"
 #include "df.h"
 
 /* Target register optimizations - these are performed after reload.  */
@@ -111,8 +111,8 @@ typedef struct btr_def_s
 
 static int issue_rate;
 
-static int basic_block_freq (basic_block);
-static int insn_sets_btr_p (rtx, int, int *);
+static int basic_block_freq (const_basic_block);
+static int insn_sets_btr_p (const_rtx, int, int *);
 static rtx *find_btr_use (rtx);
 static int btr_referenced_p (rtx, rtx *);
 static int find_btr_reference (rtx *, void *);
@@ -140,8 +140,8 @@ static void btr_def_live_range (btr_def, HARD_REG_SET *);
 static void move_btr_def (basic_block, int, btr_def, bitmap, HARD_REG_SET *);
 static int migrate_btr_def (btr_def, int);
 static void migrate_btr_defs (enum reg_class, int);
-static int can_move_up (basic_block, rtx, int);
-static void note_btr_set (rtx, rtx, void *);
+static int can_move_up (const_basic_block, const_rtx, int);
+static void note_btr_set (rtx, const_rtx, void *);
 
 /* The following code performs code motion of target load instructions
    (instructions that set branch target registers), to move them
@@ -179,7 +179,7 @@ static int first_btr, last_btr;
 
 /* Return an estimate of the frequency of execution of block bb.  */
 static int
-basic_block_freq (basic_block bb)
+basic_block_freq (const_basic_block bb)
 {
   return bb->frequency;
 }
@@ -194,20 +194,17 @@ static int
 find_btr_reference (rtx *px, void *preg)
 {
   rtx x;
-  int regno, i;
 
   if (px == preg)
     return -1;
   x = *px;
   if (!REG_P (x))
     return 0;
-  regno = REGNO (x);
-  for (i = hard_regno_nregs[regno][GET_MODE (x)] - 1; i >= 0; i--)
-    if (TEST_HARD_REG_BIT (all_btrs, regno+i))
-      {
-	btr_reference_found = px;
-	return 1;
-      }
+  if (overlaps_hard_reg_set_p (all_btrs, GET_MODE (x), REGNO (x)))
+    {
+      btr_reference_found = px;
+      return 1;
+    }
   return -1;
 }
 
@@ -225,7 +222,7 @@ btr_referenced_p (rtx x, rtx *excludep)
    If such a set is found and REGNO is nonzero, assign the register number
    of the destination register to *REGNO.  */
 static int
-insn_sets_btr_p (rtx insn, int check_const, int *regno)
+insn_sets_btr_p (const_rtx insn, int check_const, int *regno)
 {
   rtx set;
 
@@ -426,7 +423,7 @@ typedef struct {
    straightforward definitions.  DATA points to information about the
    current basic block that needs updating.  */
 static void
-note_btr_set (rtx dest, rtx set ATTRIBUTE_UNUSED, void *data)
+note_btr_set (rtx dest, const_rtx set ATTRIBUTE_UNUSED, void *data)
 {
   defs_uses_info *info = data;
   int regno, end_regno;
@@ -434,7 +431,7 @@ note_btr_set (rtx dest, rtx set ATTRIBUTE_UNUSED, void *data)
   if (!REG_P (dest))
     return;
   regno = REGNO (dest);
-  end_regno = regno + hard_regno_nregs[regno][GET_MODE (dest)];
+  end_regno = END_HARD_REGNO (dest);
   for (; regno < end_regno; regno++)
     if (TEST_HARD_REG_BIT (all_btrs, regno))
       {
@@ -480,7 +477,7 @@ compute_defs_uses_and_gen (fibheap_t all_btr_defs, btr_def *def_array,
       CLEAR_HARD_REG_SET (info.btrs_written_in_block);
       for (reg = first_btr; reg <= last_btr; reg++)
 	if (TEST_HARD_REG_BIT (all_btrs, reg)
-	    && REGNO_REG_SET_P (DF_LIVE_IN (bb), reg))
+	    && REGNO_REG_SET_P (df_get_live_in (bb), reg))
 	  SET_HARD_REG_BIT (info.btrs_live_in_block, reg);
 
       for (insn = BB_HEAD (bb), last = NEXT_INSN (BB_END (bb));
@@ -581,7 +578,7 @@ compute_defs_uses_and_gen (fibheap_t all_btr_defs, btr_def *def_array,
       COPY_HARD_REG_SET (btrs_live[i], info.btrs_live_in_block);
       COPY_HARD_REG_SET (btrs_written[i], info.btrs_written_in_block);
 
-      REG_SET_TO_HARD_REG_SET (btrs_live_at_end[i], DF_LIVE_OUT (bb));
+      REG_SET_TO_HARD_REG_SET (btrs_live_at_end[i], df_get_live_out (bb));
       /* If this block ends in a jump insn, add any uses or even clobbers
 	 of branch target registers that it might have.  */
       for (insn = BB_END (bb); insn != BB_HEAD (bb) && ! INSN_P (insn); )
@@ -989,20 +986,19 @@ static int
 choose_btr (HARD_REG_SET used_btrs)
 {
   int i;
-  GO_IF_HARD_REG_SUBSET (all_btrs, used_btrs, give_up);
 
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    {
+  if (!hard_reg_set_subset_p (all_btrs, used_btrs))
+    for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+      {
 #ifdef REG_ALLOC_ORDER
-      int regno = reg_alloc_order[i];
+	int regno = reg_alloc_order[i];
 #else
-      int regno = i;
+	int regno = i;
 #endif
-      if (TEST_HARD_REG_BIT (all_btrs, regno)
-	  && !TEST_HARD_REG_BIT (used_btrs, regno))
-	return regno;
-    }
-give_up:
+	if (TEST_HARD_REG_BIT (all_btrs, regno)
+	    && !TEST_HARD_REG_BIT (used_btrs, regno))
+	  return regno;
+      }
   return -1;
 }
 
@@ -1231,7 +1227,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
 	replacement_rtx = btr_rtx;
       else
 	replacement_rtx = gen_rtx_REG (GET_MODE (user->use), btr);
-      replace_rtx (user->insn, user->use, replacement_rtx);
+      validate_replace_rtx (user->use, replacement_rtx, user->insn);
       user->use = replacement_rtx;
     }
 }
@@ -1239,7 +1235,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
 /* We anticipate intra-block scheduling to be done.  See if INSN could move
    up within BB by N_INSNS.  */
 static int
-can_move_up (basic_block bb, rtx insn, int n_insns)
+can_move_up (const_basic_block bb, const_rtx insn, int n_insns)
 {
   while (insn != BB_HEAD (bb) && n_insns > 0)
     {

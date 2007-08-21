@@ -1,13 +1,13 @@
 /* Get common system includes and various definitions and declarations based
    on autoconf macros.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #ifndef GCC_SYSTEM_H
@@ -611,9 +610,6 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 # define FALSE false
 #endif /* !__cplusplus */
 
-/* Get definition of double_int.  */
-#include "double-int.h"
-
 /* Some compilers do not allow the use of unsigned char in bitfields.  */
 #define BOOL_BITFIELD unsigned int
 
@@ -769,5 +765,19 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
  #pragma GCC poison bcopy bzero bcmp rindex
 
 #endif /* GCC >= 3.0 */
+
+/* This macro allows casting away const-ness to pass -Wcast-qual
+   warnings.  DO NOT USE THIS UNLESS YOU REALLY HAVE TO!  It should
+   only be used in certain specific cases.  One valid case is where
+   the C standard definitions or prototypes force you to.  E.g. if you
+   need to free a const object, or if you pass a const string to
+   execv, et al.  Another valid use would be in an allocation function
+   that creates const objects that need to be initialized.  Most other
+   cases should be viewed with extreme caution.  */
+#ifdef __GNUC__
+#define CONST_CAST(X) ((__extension__(union {__typeof(X)_q; void *_v;})(X))._v)
+#else
+#define CONST_CAST(X) ((void*)(X))
+#endif
 
 #endif /* ! GCC_SYSTEM_H */

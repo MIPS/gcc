@@ -6,7 +6,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -88,15 +87,15 @@ static int num_true_changes;
 static int cond_exec_changed_p;
 
 /* Forward references.  */
-static int count_bb_insns (basic_block);
-static bool cheap_bb_rtx_cost_p (basic_block, int);
+static int count_bb_insns (const_basic_block);
+static bool cheap_bb_rtx_cost_p (const_basic_block, int);
 static rtx first_active_insn (basic_block);
 static rtx last_active_insn (basic_block, int);
 static basic_block block_fallthru (basic_block);
 static int cond_exec_process_insns (ce_if_block_t *, rtx, rtx, rtx, rtx, int);
 static rtx cond_exec_get_condition (rtx);
 static rtx noce_get_condition (rtx, rtx *, bool);
-static int noce_operand_ok (rtx);
+static int noce_operand_ok (const_rtx);
 static void merge_if_block (ce_if_block_t *);
 static int find_cond_trap (basic_block, edge, edge);
 static basic_block find_if_header (basic_block, int);
@@ -114,7 +113,7 @@ static rtx block_has_only_trap (basic_block);
 /* Count the number of non-jump active insns in BB.  */
 
 static int
-count_bb_insns (basic_block bb)
+count_bb_insns (const_basic_block bb)
 {
   int count = 0;
   rtx insn = BB_HEAD (bb);
@@ -137,7 +136,7 @@ count_bb_insns (basic_block bb)
    false if the cost of any instruction could not be estimated.  */
 
 static bool
-cheap_bb_rtx_cost_p (basic_block bb, int max_cost)
+cheap_bb_rtx_cost_p (const_basic_block bb, int max_cost)
 {
   int count = 0;
   rtx insn = BB_HEAD (bb);
@@ -2072,7 +2071,7 @@ noce_get_condition (rtx jump, rtx *earliest, bool then_else_reversed)
 /* Return true if OP is ok for if-then-else processing.  */
 
 static int
-noce_operand_ok (rtx op)
+noce_operand_ok (const_rtx op)
 {
   /* We special-case memories, so handle any of them with
      no address side effects.  */
@@ -2088,7 +2087,7 @@ noce_operand_ok (rtx op)
 /* Return true if a write into MEM may trap or fault.  */
 
 static bool
-noce_mem_write_may_trap_or_fault_p (rtx mem)
+noce_mem_write_may_trap_or_fault_p (const_rtx mem)
 {
   rtx addr;
 
@@ -2938,7 +2937,7 @@ find_if_header (basic_block test_bb, int pass)
       && find_cond_trap (test_bb, then_edge, else_edge))
     goto success;
 
-  if (dom_computed[CDI_POST_DOMINATORS] >= DOM_NO_FAST_QUERY
+  if (dom_info_state (CDI_POST_DOMINATORS) >= DOM_NO_FAST_QUERY
       && (! HAVE_conditional_execution || reload_completed))
     {
       if (find_if_case_1 (test_bb, then_edge, else_edge))
@@ -3311,8 +3310,8 @@ find_cond_trap (basic_block test_bb, edge then_edge, edge else_edge)
     }
 
   /* Attempt to generate the conditional trap.  */
-  seq = gen_cond_trap (code, XEXP (cond, 0),
-		       XEXP (cond, 1),
+  seq = gen_cond_trap (code, copy_rtx (XEXP (cond, 0)),
+		       copy_rtx (XEXP (cond, 1)),
 		       TRAP_CODE (PATTERN (trap)));
   if (seq == NULL)
     return FALSE;
@@ -3802,10 +3801,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	 expander called from noce_emit_cmove), we must resize the
 	 array first.  */
       if (max_regno < max_reg_num ())
-	{
-	  max_regno = max_reg_num ();
-	  allocate_reg_info (max_regno, FALSE, FALSE);
-	}
+	max_regno = max_reg_num ();
 
       FOR_BB_INSNS (merge_bb, insn)
 	{
@@ -3837,18 +3833,16 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
       /* For TEST, we're interested in a range of insns, not a whole block.
 	 Moreover, we're interested in the insns live from OTHER_BB.  */
       
-      bitmap_copy (test_live, DF_LIVE_IN (other_bb));
+      /* The loop below takes the set of live registers 
+         after JUMP, and calculates the live set before EARLIEST. */
+      bitmap_copy (test_live, df_get_live_in (other_bb));
+      df_simulate_artificial_refs_at_end (test_bb, test_live);
       for (insn = jump; ; insn = prev)
 	{
 	  if (INSN_P (insn))
 	    {
-	      unsigned int uid = INSN_UID (insn);
-	      struct df_ref **def_rec;
-	      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
-		{
-		  struct df_ref *def = *def_rec;
-		  bitmap_set_bit (test_set, DF_REF_REGNO (def));
-		}
+	      df_simulate_find_defs (insn, test_set);
+	      df_simulate_one_insn_backwards (test_bb, insn, test_live);
 	    }
 	  prev = PREV_INSN (insn);
 	  if (insn == earliest)
@@ -3863,7 +3857,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 
       if (bitmap_intersect_p (test_set, merge_set)
 	  || bitmap_intersect_p (test_live, merge_set)
-	  || bitmap_intersect_p (test_set, DF_LIVE_IN (merge_bb)))
+	  || bitmap_intersect_p (test_set, df_get_live_in (merge_bb)))
 	fail = 1;
 
       BITMAP_FREE (merge_set);
@@ -3919,9 +3913,6 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
       if (end == BB_END (merge_bb))
 	BB_END (merge_bb) = PREV_INSN (head);
 
-      if (squeeze_notes (&head, &end))
-	return TRUE;
-
       /* PR 21767: When moving insns above a conditional branch, REG_EQUAL
 	 notes might become invalid.  */
       insn = head;
@@ -3961,29 +3952,28 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 /* Main entry point for all if-conversion.  */
 
 static void
-if_convert (void)
+if_convert (bool recompute_dominance)
 {
   basic_block bb;
   int pass;
+
+  if (optimize == 1)
+    {
+      df_live_add_problem ();
+      df_live_set_all_dirty ();
+    }
 
   num_possible_if_blocks = 0;
   num_updated_if_blocks = 0;
   num_true_changes = 0;
 
-  /* Some transformations in this pass can create new pseudos,
-     if the pass runs before reload.  Make sure we can do so.  */
-  gcc_assert (! no_new_pseudos || reload_completed);
-
   loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
-  if (current_loops)
-    {
-      mark_loop_exit_edges ();
-      loop_optimizer_finalize ();
-    }
+  mark_loop_exit_edges ();
+  loop_optimizer_finalize ();
   free_dominance_info (CDI_DOMINATORS);
 
   /* Compute postdominators if we think we'll use them.  */
-  if (HAVE_conditional_execution)
+  if (HAVE_conditional_execution || recompute_dominance)
     calculate_dominance_info (CDI_POST_DOMINATORS);
 
   df_set_flags (DF_LR_RUN_DCE);
@@ -4034,10 +4024,7 @@ if_convert (void)
 
   /* If we allocated new pseudos, we must resize the array for sched1.  */
   if (max_regno < max_reg_num ())
-    {
-      max_regno = max_reg_num ();
-      allocate_reg_info (max_regno, FALSE, FALSE);
-    }
+    max_regno = max_reg_num ();
 
   /* Write the final stats.  */
   if (dump_file && num_possible_if_blocks > 0)
@@ -4052,6 +4039,9 @@ if_convert (void)
 	       "%d true changes made.\n\n\n",
 	       num_true_changes);
     }
+
+  if (optimize == 1)
+    df_remove_problem (df_live);
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
@@ -4073,7 +4063,7 @@ rest_of_handle_if_conversion (void)
       if (dump_file)
         dump_flow_info (dump_file, dump_flags);
       cleanup_cfg (CLEANUP_EXPENSIVE);
-      if_convert ();
+      if_convert (false);
     }
 
   cleanup_cfg (0);
@@ -4110,9 +4100,7 @@ gate_handle_if_after_combine (void)
 static unsigned int
 rest_of_handle_if_after_combine (void)
 {
-  no_new_pseudos = 0;
-  if_convert ();
-  no_new_pseudos = 1;
+  if_convert (true);
   return 0;
 }
 
@@ -4139,14 +4127,13 @@ struct tree_opt_pass pass_if_after_combine =
 static bool
 gate_handle_if_after_reload (void)
 {
-  return (optimize > 0);
+  return (optimize > 0 && flag_if_conversion2);
 }
 
 static unsigned int
 rest_of_handle_if_after_reload (void)
 {
-  if (flag_if_conversion2)
-    if_convert ();
+  if_convert (true);
   return 0;
 }
 

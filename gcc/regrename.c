@@ -1,12 +1,12 @@
 /* Register renaming for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -89,7 +88,7 @@ static void scan_rtx (rtx, rtx *, enum reg_class, enum scan_actions,
 		      enum op_type, int);
 static struct du_chain *build_def_use (basic_block);
 static void dump_def_use_chain (struct du_chain *);
-static void note_sets (rtx, rtx, void *);
+static void note_sets (rtx, const_rtx, void *);
 static void clear_dead_regs (HARD_REG_SET *, enum machine_mode, rtx);
 static void merge_overlapping_regs (basic_block, HARD_REG_SET *,
 				    struct du_chain *);
@@ -98,24 +97,17 @@ static void merge_overlapping_regs (basic_block, HARD_REG_SET *,
    record them in *DATA (which is actually a HARD_REG_SET *).  */
 
 static void
-note_sets (rtx x, rtx set ATTRIBUTE_UNUSED, void *data)
+note_sets (rtx x, const_rtx set ATTRIBUTE_UNUSED, void *data)
 {
   HARD_REG_SET *pset = (HARD_REG_SET *) data;
-  unsigned int regno;
-  int nregs;
 
   if (GET_CODE (x) == SUBREG)
     x = SUBREG_REG (x);
   if (!REG_P (x))
     return;
-  regno = REGNO (x);
-  nregs = hard_regno_nregs[regno][GET_MODE (x)];
-
   /* There must not be pseudos at this point.  */
-  gcc_assert (regno + nregs <= FIRST_PSEUDO_REGISTER);
-
-  while (nregs-- > 0)
-    SET_HARD_REG_BIT (*pset, regno + nregs);
+  gcc_assert (HARD_REGISTER_P (x));
+  add_to_hard_reg_set (pset, GET_MODE (x), REGNO (x));
 }
 
 /* Clear all registers from *PSET for which a note of kind KIND can be found
@@ -129,14 +121,9 @@ clear_dead_regs (HARD_REG_SET *pset, enum machine_mode kind, rtx notes)
     if (REG_NOTE_KIND (note) == kind && REG_P (XEXP (note, 0)))
       {
 	rtx reg = XEXP (note, 0);
-	unsigned int regno = REGNO (reg);
-	int nregs = hard_regno_nregs[regno][GET_MODE (reg)];
-
 	/* There must not be pseudos at this point.  */
-	gcc_assert (regno + nregs <= FIRST_PSEUDO_REGISTER);
-
-	while (nregs-- > 0)
-	  CLEAR_HARD_REG_BIT (*pset, regno + nregs);
+	gcc_assert (HARD_REGISTER_P (reg));
+	remove_from_hard_reg_set (pset, GET_MODE (reg), REGNO (reg));
       }
 }
 
@@ -151,7 +138,7 @@ merge_overlapping_regs (basic_block b, HARD_REG_SET *pset,
   rtx insn;
   HARD_REG_SET live;
 
-  REG_SET_TO_HARD_REG_SET (live, DF_LIVE_IN (b));
+  REG_SET_TO_HARD_REG_SET (live, df_get_live_in (b));
   insn = BB_HEAD (b);
   while (t)
     {
@@ -195,7 +182,7 @@ regrename_optimize (void)
   char *first_obj;
 
   df_set_flags (DF_LR_RUN_DCE);
-  df_ri_add_problem (0);
+  df_note_add_problem ();
   df_analyze ();
   df_set_flags (DF_NO_INSN_RESCAN);
   
@@ -224,14 +211,9 @@ regrename_optimize (void)
       /* Don't clobber traceback for noreturn functions.  */
       if (frame_pointer_needed)
 	{
-	  int i;
-
-	  for (i = hard_regno_nregs[FRAME_POINTER_REGNUM][Pmode]; i--;)
-	    SET_HARD_REG_BIT (unavailable, FRAME_POINTER_REGNUM + i);
-
+	  add_to_hard_reg_set (&unavailable, Pmode, FRAME_POINTER_REGNUM);
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-	  for (i = hard_regno_nregs[HARD_FRAME_POINTER_REGNUM][Pmode]; i--;)
-	    SET_HARD_REG_BIT (unavailable, HARD_FRAME_POINTER_REGNUM + i);
+	  add_to_hard_reg_set (&unavailable, Pmode, HARD_FRAME_POINTER_REGNUM);
 #endif
 	}
 
@@ -382,9 +364,6 @@ do_replace (struct du_chain *chain, int reg)
       if (regno >= FIRST_PSEUDO_REGISTER)
 	ORIGINAL_REGNO (*chain->loc) = regno;
       REG_ATTRS (*chain->loc) = attr;
-#if 0
-      df_insn_rescan (chain->insn);
-#endif
       chain = chain->next_use;
     }
 }
@@ -1050,8 +1029,8 @@ static void kill_value_regno (unsigned, unsigned, struct value_data *);
 static void kill_value (rtx, struct value_data *);
 static void set_value_regno (unsigned, enum machine_mode, struct value_data *);
 static void init_value_data (struct value_data *);
-static void kill_clobbered_value (rtx, rtx, void *);
-static void kill_set_value (rtx, rtx, void *);
+static void kill_clobbered_value (rtx, const_rtx, void *);
+static void kill_set_value (rtx, const_rtx, void *);
 static int kill_autoinc_value (rtx *, void *);
 static void copy_value (rtx, rtx, struct value_data *);
 static bool mode_change_ok (enum machine_mode, enum machine_mode,
@@ -1191,7 +1170,7 @@ init_value_data (struct value_data *vd)
 /* Called through note_stores.  If X is clobbered, kill its value.  */
 
 static void
-kill_clobbered_value (rtx x, rtx set, void *data)
+kill_clobbered_value (rtx x, const_rtx set, void *data)
 {
   struct value_data *vd = data;
   if (GET_CODE (set) == CLOBBER)
@@ -1202,7 +1181,7 @@ kill_clobbered_value (rtx x, rtx set, void *data)
    current value and install it as the root of its own value list.  */
 
 static void
-kill_set_value (rtx x, rtx set, void *data)
+kill_set_value (rtx x, const_rtx set, void *data)
 {
   struct value_data *vd = data;
   if (GET_CODE (set) != CLOBBER)
@@ -1395,11 +1374,9 @@ find_oldest_value_reg (enum reg_class cl, rtx reg, struct value_data *vd)
     {
       enum machine_mode oldmode = vd->e[i].mode;
       rtx new;
-      unsigned int last;
 
-      for (last = i; last < i + hard_regno_nregs[i][mode]; last++)
-	if (!TEST_HARD_REG_BIT (reg_class_contents[cl], last))
-	  return NULL_RTX;
+      if (!in_hard_reg_set_p (reg_class_contents[cl], mode, i))
+	return NULL_RTX;
 
       new = maybe_mode_change (oldmode, vd->e[regno].mode, mode, i, regno);
       if (new)

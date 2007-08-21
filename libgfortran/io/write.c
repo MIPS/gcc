@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist output contributed by Paul Thomas
 
@@ -465,8 +465,8 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
   int leadzero;
   int nblanks;
   int i;
+  int sign_bit;
   sign_t sign;
-  double abslog;
 
   ft = f->format;
   w = f->u.real.w;
@@ -483,6 +483,7 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
      For an N digit exponent, this gives us (MIN_FIELD_WIDTH-5)-N digits
      after the decimal point, plus another one before the decimal point.  */
   sign = calculate_sign (dtp, value < 0.0);
+  sign_bit = signbit (value);
   if (value < 0)
     value = -value;
 
@@ -495,21 +496,9 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
 	value = value + 0.5;
     }
 
-  /* Printf always prints at least two exponent digits.  */
-  if (value == 0)
-    edigits = 2;
-  else
-    {
-#if defined(HAVE_GFC_REAL_10) || defined(HAVE_GFC_REAL_16)
-      abslog = fabs((double) log10l(value));
-#else
-      abslog = fabs(log10(value));
-#endif
-      if (abslog < 100)
-	edigits = 2;
-      else
-        edigits = 1 + (int) log10(abslog);
-    }
+  /* printf pads blanks for us on the exponent so we just need it big enough
+     to handle the largest number of exponent digits expected.  */
+  edigits=4;
 
   if (ft == FMT_F || ft == FMT_EN
       || ((ft == FMT_D || ft == FMT_E) && dtp->u.p.scale_factor != 0))
@@ -545,8 +534,13 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
    *   equal to the precision. The exponent always contains at least two
    *   digits; if the value is zero, the exponent is 00.
    */
+#ifdef HAVE_SNPRINTF
+  snprintf (buffer, sizeof (buffer), "%+-#" STR(MIN_FIELD_WIDTH) ".*"
+	   GFC_REAL_LARGEST_FORMAT "e", ndigits - 1, value);
+#else
   sprintf (buffer, "%+-#" STR(MIN_FIELD_WIDTH) ".*"
 	   GFC_REAL_LARGEST_FORMAT "e", ndigits - 1, value);
+#endif
 
   /* Check the resulting string has punctuation in the correct places.  */
   if (d != 0 && (buffer[2] != '.' || buffer[ndigits + 2] != 'e'))
@@ -555,9 +549,15 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
   /* Read the exponent back in.  */
   e = atoi (&buffer[ndigits + 3]) + 1;
 
-  /* Make sure zero comes out as 0.0e0.  */
+  /* Make sure zero comes out as 0.0e0.   */
   if (value == 0.0)
-    e = 0;
+    {
+      e = 0;
+      if (compile_options.sign_zero == 1)
+        sign = calculate_sign (dtp, sign_bit);
+      else
+	sign = calculate_sign (dtp, 0);
+    }
 
   /* Normalize the fractional component.  */
   buffer[2] = buffer[1];
@@ -759,7 +759,14 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
 	break;
     }
   if (i == ndigits)
-    sign = calculate_sign (dtp, 0);
+    {
+      /* The output is zero, so set the sign according to the sign bit unless
+	 -fno-sign-zero was specified.  */
+      if (compile_options.sign_zero == 1)
+        sign = calculate_sign (dtp, sign_bit);
+      else
+	sign = calculate_sign (dtp, 0);
+    }
 
   /* Work out how much padding is needed.  */
   nblanks = w - (nbefore + nzero + nafter + edigits + 1);
@@ -784,7 +791,6 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
 
   /* Pad to full field width.  */
 
-
   if ( ( nblanks > 0 ) && !dtp->u.p.no_leading_blank)
     {
       memset (out, ' ', nblanks);
@@ -805,16 +811,21 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
   if (nbefore > 0)
     {
       if (nbefore > ndigits)
-	i = ndigits;
+	{
+	  i = ndigits;
+	  memcpy (out, digits, i);
+	  ndigits = 0;
+	  while (i < nbefore)
+	    out[i++] = '0';
+	}
       else
-	i = nbefore;
-
-      memcpy (out, digits, i);
-      while (i < nbefore)
-	out[i++] = '0';
+	{
+	  i = nbefore;
+	  memcpy (out, digits, i);
+	  ndigits -= i;
+	}
 
       digits += i;
-      ndigits -= i;
       out += nbefore;
     }
   /* Output the decimal point.  */
@@ -1610,6 +1621,9 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
   char rep_buff[NML_DIGITS];
   namelist_info * cmp;
   namelist_info * retval = obj->next;
+  size_t base_name_len;
+  size_t base_var_name_len;
+  size_t tot_len;
 
   /* Write namelist variable names in upper case. If a derived type,
      nothing is output.  If a component, base and base_name are set.  */
@@ -1705,7 +1719,7 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 	{
 	  if (rep_ctr > 1)
 	    {
-	      st_sprintf(rep_buff, " %d*", rep_ctr);
+	      sprintf(rep_buff, " %d*", rep_ctr);
 	      write_character (dtp, rep_buff, strlen (rep_buff));
 	      dtp->u.p.no_leading_blank = 1;
 	    }
@@ -1755,32 +1769,43 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 
 	      /* First ext_name => get length of all possible components  */
 
-	      ext_name = (char*)get_mem ( (base_name ? strlen (base_name) : 0)
-					+ (base ? strlen (base->var_name) : 0)
+	      base_name_len = base_name ? strlen (base_name) : 0;
+	      base_var_name_len = base ? strlen (base->var_name) : 0;
+	      ext_name = (char*)get_mem ( base_name_len
+					+ base_var_name_len
 					+ strlen (obj->var_name)
 					+ obj->var_rank * NML_DIGITS
 					+ 1);
 
-	      strcpy(ext_name, base_name ? base_name : "");
-	      clen = base ? strlen (base->var_name) : 0;
-	      strcat (ext_name, obj->var_name + clen);
-
+	      memcpy (ext_name, base_name, base_name_len);
+	      clen = strlen (obj->var_name + base_var_name_len);
+	      memcpy (ext_name + base_name_len, 
+		      obj->var_name + base_var_name_len, clen);
+	      
 	      /* Append the qualifier.  */
 
+	      tot_len = base_name_len + clen;
 	      for (dim_i = 0; dim_i < obj->var_rank; dim_i++)
 		{
-		  strcat (ext_name, dim_i ? "" : "(");
-		  clen = strlen (ext_name);
-		  st_sprintf (ext_name + clen, "%d", (int) obj->ls[dim_i].idx);
-		  strcat (ext_name, (dim_i == obj->var_rank - 1) ? ")" : ",");
+		  if (!dim_i)
+		    {
+		      ext_name[tot_len] = '(';
+		      tot_len++;
+		    }
+		  sprintf (ext_name + tot_len, "%d", (int) obj->ls[dim_i].idx);
+		  tot_len += strlen (ext_name + tot_len);
+		  ext_name[tot_len] = (dim_i == obj->var_rank - 1) ? ')' : ',';
+		  tot_len++;
 		}
+
+	      ext_name[tot_len] = '\0';
 
 	      /* Now obj_name.  */
 
 	      obj_name_len = strlen (obj->var_name) + 1;
 	      obj_name = get_mem (obj_name_len+1);
-	      strcpy (obj_name, obj->var_name);
-	      strcat (obj_name, "%");
+	      memcpy (obj_name, obj->var_name, obj_name_len-1);
+	      memcpy (obj_name + obj_name_len-1, "%", 2);
 
 	      /* Now loop over the components. Update the component pointer
 		 with the return value from nml_write_obj => this loop jumps

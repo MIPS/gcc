@@ -2,23 +2,23 @@
    Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
-This program is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
+   This program is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by the
+   Free Software Foundation; either version 3, or (at your option) any
+   later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+   You should have received a copy of the GNU General Public License
+   along with this program; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.
 
- In other words, you are welcome to use, share and improve this program.
- You are forbidden to forbid anyone else to use, share and improve
- what you give them.   Help stamp out software-hoarding!  */
+   In other words, you are welcome to use, share and improve this program.
+   You are forbidden to forbid anyone else to use, share and improve
+   what you give them.   Help stamp out software-hoarding!  */
 
 /* See target.h for a description of what this file contains and how to
    use it.
@@ -350,10 +350,15 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
    TARGET_SCHED_SET_SCHED_FLAGS}
 
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
-#define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION default_builtin_vectorized_function
-#define TARGET_VECTORIZE_BUILTIN_CONVERSION default_builtin_vectorized_conversion
+#define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \
+  default_builtin_vectorized_function
+#define TARGET_VECTORIZE_BUILTIN_CONVERSION \
+  default_builtin_vectorized_conversion
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN 0
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD 0
+#define TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST 0
+#define TARGET_VECTOR_ALIGNMENT_REACHABLE \
+  default_builtin_vector_alignment_reachable
 
 #define TARGET_VECTORIZE                                                \
   {									\
@@ -361,15 +366,22 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
     TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION,			\
     TARGET_VECTORIZE_BUILTIN_CONVERSION,				\
     TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN,                            \
-    TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD				\
+    TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD,				\
+    TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST,			\
+    TARGET_VECTOR_ALIGNMENT_REACHABLE					\
   }
 
 #define TARGET_DEFAULT_TARGET_FLAGS 0
 
 #define TARGET_HANDLE_OPTION hook_bool_size_t_constcharptr_int_true
+#define TARGET_HELP NULL
 
 /* In except.c */
 #define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
+
+/* In libgcc2.c */
+#define TARGET_LIBGCC_CMP_RETURN_MODE  default_libgcc_cmp_return_mode
+#define TARGET_LIBGCC_SHIFT_COUNT_MODE default_libgcc_shift_count_mode
 
 /* In tree.c.  */
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_decl_attributes
@@ -384,6 +396,9 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
 #define TARGET_RESOLVE_OVERLOADED_BUILTIN NULL
 #define TARGET_FOLD_BUILTIN hook_tree_tree_tree_bool_null
+
+/* In tree-ssa-math-opts.c  */
+#define TARGET_BUILTIN_RECIPROCAL default_builtin_reciprocal
 
 /* In varasm.c.  */
 #ifndef TARGET_SECTION_TYPE_FLAGS
@@ -422,6 +437,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_DECIMAL_FLOAT_SUPPORTED_P default_decimal_float_supported_p
 #endif
 
+#ifndef TARGET_FIXED_POINT_SUPPORTED_P
+#define TARGET_FIXED_POINT_SUPPORTED_P default_fixed_point_supported_p
+#endif
+
 #ifndef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P hook_bool_mode_false
 #endif
@@ -453,7 +472,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_ALIGN_ANON_BITFIELD hook_bool_void_false
 #define TARGET_NARROW_VOLATILE_BITFIELD hook_bool_void_false
 #define TARGET_RTX_COSTS hook_bool_rtx_int_int_intp_false
-#define TARGET_MANGLE_FUNDAMENTAL_TYPE hook_constcharptr_tree_null
+#define TARGET_MANGLE_TYPE hook_constcharptr_tree_null
 #define TARGET_ALLOCATE_INITIAL_VALUE NULL
 
 #ifndef TARGET_INIT_LIBFUNCS
@@ -462,6 +481,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #ifndef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P hook_bool_tree_false
+#endif
+
+#ifndef TARGET_MANGLE_DECL_ASSEMBLER_NAME
+#define TARGET_MANGLE_DECL_ASSEMBLER_NAME default_mangle_decl_assembler_name
 #endif
 
 #ifndef TARGET_ENCODE_SECTION_INFO
@@ -569,6 +592,15 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_SECONDARY_RELOAD default_secondary_reload
 #endif
 
+/* C specific.  */
+#ifndef TARGET_C_MODE_FOR_SUFFIX
+#define TARGET_C_MODE_FOR_SUFFIX default_mode_for_suffix
+#endif
+
+#define TARGET_C				\
+  {						\
+    TARGET_C_MODE_FOR_SUFFIX			\
+  }
 
 /* C++ specific.  */
 #ifndef TARGET_CXX_GUARD_TYPE
@@ -648,7 +680,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_VECTORIZE,				\
   TARGET_DEFAULT_TARGET_FLAGS,			\
   TARGET_HANDLE_OPTION,				\
+  TARGET_HELP,					\
   TARGET_EH_RETURN_FILTER_MODE,			\
+  TARGET_LIBGCC_CMP_RETURN_MODE,                \
+  TARGET_LIBGCC_SHIFT_COUNT_MODE,               \
   TARGET_MERGE_DECL_ATTRIBUTES,			\
   TARGET_MERGE_TYPE_ATTRIBUTES,			\
   TARGET_ATTRIBUTE_TABLE,			\
@@ -658,13 +693,15 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P,	\
   TARGET_MS_BITFIELD_LAYOUT_P,			\
   TARGET_DECIMAL_FLOAT_SUPPORTED_P,		\
+  TARGET_FIXED_POINT_SUPPORTED_P,		\
   TARGET_ALIGN_ANON_BITFIELD,			\
   TARGET_NARROW_VOLATILE_BITFIELD,		\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
   TARGET_RESOLVE_OVERLOADED_BUILTIN,		\
   TARGET_FOLD_BUILTIN,				\
-  TARGET_MANGLE_FUNDAMENTAL_TYPE,		\
+  TARGET_BUILTIN_RECIPROCAL,			\
+  TARGET_MANGLE_TYPE,				\
   TARGET_INIT_LIBFUNCS,				\
   TARGET_SECTION_TYPE_FLAGS,			\
   TARGET_CANNOT_MODIFY_JUMPS_P,			\
@@ -681,6 +718,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_FUNCTION_OK_FOR_SIBCALL,		\
   TARGET_IN_SMALL_DATA_P,			\
   TARGET_BINDS_LOCAL_P,				\
+  TARGET_MANGLE_DECL_ASSEMBLER_NAME,		\
   TARGET_ENCODE_SECTION_INFO,			\
   TARGET_STRIP_NAME_ENCODING,			\
   TARGET_SHIFT_TRUNCATION_MASK,			\
@@ -718,8 +756,9 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_INVALID_UNARY_OP,			\
   TARGET_INVALID_BINARY_OP,			\
   TARGET_SECONDARY_RELOAD,			\
+  TARGET_C,					\
   TARGET_CXX,					\
-  TARGET_EXTRA_LIVE_ON_ENTRY,                    \
+  TARGET_EXTRA_LIVE_ON_ENTRY,			\
   TARGET_UNWIND_TABLES_DEFAULT,			\
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_SWITCHABLE_BSS_SECTIONS,		\

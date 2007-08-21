@@ -82,18 +82,24 @@ bits_headers = \
 	${bits_srcdir}/deque.tcc \
 	${bits_srcdir}/fstream.tcc \
 	${bits_srcdir}/functexcept.h \
+	${bits_srcdir}/functional_hash.h \
 	${bits_srcdir}/gslice.h \
 	${bits_srcdir}/gslice_array.h \
+	${bits_srcdir}/hashtable.h \
 	${bits_srcdir}/indirect_array.h \
 	${bits_srcdir}/ios_base.h \
 	${bits_srcdir}/istream.tcc \
 	${bits_srcdir}/list.tcc \
 	${bits_srcdir}/locale_classes.h \
+	${bits_srcdir}/locale_classes.tcc \
 	${bits_srcdir}/locale_facets.h \
 	${bits_srcdir}/locale_facets.tcc \
+	${bits_srcdir}/locale_facets_nonio.h \
+	${bits_srcdir}/locale_facets_nonio.tcc \
 	${bits_srcdir}/localefwd.h \
 	${bits_srcdir}/mask_array.h \
 	${bits_srcdir}/ostream.tcc \
+	${bits_srcdir}/ostream_insert.h \
 	${bits_srcdir}/postypes.h \
 	${bits_srcdir}/stream_iterator.h \
 	${bits_srcdir}/streambuf_iterator.h \
@@ -111,7 +117,7 @@ bits_headers = \
 	${bits_srcdir}/stl_iterator_base_types.h \
 	${bits_srcdir}/stl_list.h \
 	${bits_srcdir}/stl_map.h \
-	${bits_srcdir}/stl_memory.h \
+	${bits_srcdir}/stl_auto_ptr.h \
 	${bits_srcdir}/stl_multimap.h \
 	${bits_srcdir}/stl_multiset.h \
 	${bits_srcdir}/stl_numeric.h \
@@ -536,7 +542,6 @@ tr1_headers = \
 	${tr1_srcdir}/array \
 	${tr1_srcdir}/bessel_function.tcc \
 	${tr1_srcdir}/beta_function.tcc \
-	${tr1_srcdir}/boost_shared_ptr.h \
 	${tr1_srcdir}/ccomplex \
 	${tr1_srcdir}/cctype \
 	${tr1_srcdir}/cfenv \
@@ -544,7 +549,6 @@ tr1_headers = \
 	${tr1_srcdir}/cinttypes \
 	${tr1_srcdir}/climits \
 	${tr1_srcdir}/cmath \
-	${tr1_srcdir}/common.h \
 	${tr1_srcdir}/complex \
 	${tr1_srcdir}/complex.h \
 	${tr1_srcdir}/cstdarg \
@@ -564,9 +568,8 @@ tr1_headers = \
 	${tr1_srcdir}/functional \
 	${tr1_srcdir}/functional_hash.h \
 	${tr1_srcdir}/gamma.tcc \
-	${tr1_srcdir}/hashtable \
 	${tr1_srcdir}/hypergeometric.tcc \
-	${tr1_srcdir}/hashtable_policy.h \
+	${tr1_srcdir}/hashtable.h \
 	${tr1_srcdir}/inttypes.h \
 	${tr1_srcdir}/limits.h \
 	${tr1_srcdir}/math.h \
@@ -576,7 +579,6 @@ tr1_headers = \
 	${tr1_srcdir}/poly_laguerre.tcc \
 	${tr1_srcdir}/legendre_function.tcc \
 	${tr1_srcdir}/random \
-	${tr1_srcdir}/random.tcc \
 	${tr1_srcdir}/regex \
 	${tr1_srcdir}/riemann_zeta.tcc \
 	${tr1_srcdir}/special_function_util.h \
@@ -588,12 +590,41 @@ tr1_headers = \
 	${tr1_srcdir}/tgmath.h \
 	${tr1_srcdir}/tuple \
 	${tr1_srcdir}/type_traits \
-	${tr1_srcdir}/type_traits_fwd.h \
 	${tr1_srcdir}/unordered_set \
 	${tr1_srcdir}/unordered_map \
 	${tr1_srcdir}/utility \
 	${tr1_srcdir}/wchar.h \
 	${tr1_srcdir}/wctype.h
+
+
+tr1_impl_srcdir = ${glibcxx_srcdir}/include/tr1_impl
+tr1_impl_builddir = ./tr1_impl
+tr1_impl_headers = \
+	${tr1_impl_srcdir}/array \
+	${tr1_impl_srcdir}/boost_shared_ptr.h \
+	${tr1_impl_srcdir}/cctype \
+	${tr1_impl_srcdir}/cfenv \
+	${tr1_impl_srcdir}/cinttypes \
+	${tr1_impl_srcdir}/cmath \
+	${tr1_impl_srcdir}/complex \
+	${tr1_impl_srcdir}/cstdint \
+	${tr1_impl_srcdir}/cstdio \
+	${tr1_impl_srcdir}/cstdlib \
+	${tr1_impl_srcdir}/cwchar \
+	${tr1_impl_srcdir}/cwctype \
+	${tr1_impl_srcdir}/functional \
+	${tr1_impl_srcdir}/functional_hash.h \
+	${tr1_impl_srcdir}/hashtable \
+	${tr1_impl_srcdir}/hashtable_policy.h \
+	${tr1_impl_srcdir}/random \
+	${tr1_impl_srcdir}/random.tcc \
+	${tr1_impl_srcdir}/regex \
+	${tr1_impl_srcdir}/tuple \
+	${tr1_impl_srcdir}/type_traits \
+	${tr1_impl_srcdir}/type_traitsfwd.h \
+	${tr1_impl_srcdir}/unordered_map \
+	${tr1_impl_srcdir}/unordered_set \
+	${tr1_impl_srcdir}/utility
 
 
 # This is the common subset of C++ files that all three "C" header models use.
@@ -789,7 +820,7 @@ endif
 allstamped = \
 	stamp-std stamp-bits stamp-c_base stamp-c_base_extra \
 	stamp-c_compatibility  stamp-backward stamp-ext stamp-pb \
-	stamp-tr1 stamp-debug stamp-host
+	stamp-tr1 stamp-tr1-impl stamp-debug stamp-host
 
 # List of all files that are created by explicit building, editing, or
 # catenation.
@@ -928,6 +959,15 @@ stamp-tr1: ${tr1_headers}
 	fi ;\
 	$(STAMP) stamp-tr1
 
+stamp-tr1-impl: ${tr1_impl_headers}
+	@if [ ! -d "${tr1_impl_builddir}" ]; then \
+	    mkdir -p ${tr1_impl_builddir} ;\
+	fi ;\
+	if [ ! -f stamp-tr1-impl ]; then \
+	  (cd ${tr1_impl_builddir} && $(LN_S) $? . || true) ;\
+	fi ;\
+	$(STAMP) stamp-tr1-impl
+
 stamp-debug: ${debug_headers}
 	@if [ ! -d "${debug_builddir}" ]; then \
 	  mkdir -p ${debug_builddir} ;\
@@ -977,6 +1017,8 @@ stamp-visibility:
 	echo 0 > stamp-visibility
 endif
 
+# NB: The non-empty default ldbl_compat works around an AIX sed
+# oddity, see libstdc++/31957 for details.
 ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 			      ${glibcxx_srcdir}/include/bits/c++config \
 			      stamp-${host_alias} \
@@ -986,7 +1028,7 @@ ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 	@date=`cat ${toplevel_srcdir}/gcc/DATESTAMP` ;\
 	nsa_version=`cat stamp-namespace-version` ;\
 	visibility=`cat stamp-visibility` ;\
-	ldbl_compat='' ;\
+	ldbl_compat='s,g,g,' ;\
 	grep "^[ 	]*#[ 	]*define[ 	][ 	]*_GLIBCXX_LONG_DOUBLE_COMPAT[ 	][ 	]*1[ 	]*$$" \
 	${CONFIG_HEADER} > /dev/null 2>&1 \
 	&& ldbl_compat='s,^#undef _GLIBCXX_LONG_DOUBLE_COMPAT$$,#define _GLIBCXX_LONG_DOUBLE_COMPAT 1,' ;\
@@ -1154,6 +1196,9 @@ install-headers:
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${tr1_builddir}
 	for file in ${tr1_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${tr1_builddir}; done
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${tr1_impl_builddir}
+	for file in ${tr1_impl_headers}; do \
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${tr1_impl_builddir}; done
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${c_base_builddir}
 	for file in ${c_base_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${c_base_builddir}; done
@@ -1196,8 +1241,10 @@ clean-local:
 # developer tries to create them via make in the include build
 # directory. (This is more of an example of how this kind of rule can
 # be made.)
-.PRECIOUS: $(std_headers) $(c_base_headers) $(tr1_headers) $(ext_headers)
+.PRECIOUS: $(std_headers) $(c_base_headers) $(tr1_headers) $(tr1_impl_headers)
+	   $(ext_headers)
 $(std_headers): ; @:
 $(c_base_headers): ; @:
 $(tr1_headers): ; @:
+$(tr1_impl_headers): ; @:
 $(ext_headers): ; @:

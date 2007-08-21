@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -33,6 +32,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "debug.h" 
 #include "target.h"
 #include "output.h"
+#include "tree-gimple.h"
+#include "tree-flow.h"
 
 /*  This file contains basic routines manipulating variable pool.
 
@@ -457,6 +458,30 @@ varpool_output_debug_info (void)
 	node->next_needed = 0;
       }
   timevar_pop (TV_SYMOUT);
+}
+
+/* Create a new global variable of type TYPE.  */
+tree
+add_new_static_var (tree type)
+{
+  tree new_decl;
+  struct varpool_node *new_node;
+
+  new_decl = create_tmp_var (type, NULL);
+  DECL_NAME (new_decl) = create_tmp_var_name (NULL);
+  TREE_READONLY (new_decl) = 0;
+  TREE_STATIC (new_decl) = 1;
+  TREE_USED (new_decl) = 1;
+  DECL_CONTEXT (new_decl) = NULL_TREE;
+  DECL_ABSTRACT (new_decl) = 0;
+  lang_hooks.dup_lang_specific_decl (new_decl);
+  create_var_ann (new_decl);
+  new_node = varpool_node (new_decl);
+  varpool_mark_needed_node (new_node);
+  add_referenced_var (new_decl);
+  varpool_finalize_decl (new_decl);
+
+  return new_node->decl;
 }
 
 #include "gt-varpool.h"

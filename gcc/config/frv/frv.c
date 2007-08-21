@@ -1,4 +1,4 @@
-/* Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005
+/* Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -331,7 +330,7 @@ static int frv_cond_flags 			(rtx);
 static bool frv_regstate_conflict_p 		(regstate_t, regstate_t);
 static int frv_registers_conflict_p_1 		(rtx *, void *);
 static bool frv_registers_conflict_p 		(rtx);
-static void frv_registers_update_1 		(rtx, rtx, void *);
+static void frv_registers_update_1 		(rtx, const_rtx, void *);
 static void frv_registers_update 		(rtx);
 static void frv_start_packet 			(void);
 static void frv_start_packet_block 		(void);
@@ -2205,7 +2204,8 @@ frv_expand_builtin_va_start (tree valist, rtx nextarg)
     }
 
   t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (valist), valist,
-	      make_tree (ptr_type_node, nextarg));
+	      fold_convert (TREE_TYPE (valist),
+			    make_tree (sizetype, nextarg)));
   TREE_SIDE_EFFECTS (t) = 1;
 
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -5294,15 +5294,15 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
       for (j = CC_FIRST; j <= CC_LAST; j++)
 	if (TEST_HARD_REG_BIT (tmp_reg->regs, j))
 	  {
-	    if (REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, then_bb), j))
+	    if (REGNO_REG_SET_P (df_get_live_in (then_bb), j))
 	      continue;
 
 	    if (else_bb
-		&& REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, else_bb), j))
+		&& REGNO_REG_SET_P (df_get_live_in (else_bb), j))
 	      continue;
 
 	    if (join_bb
-		&& REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, join_bb), j))
+		&& REGNO_REG_SET_P (df_get_live_in (join_bb), j))
 	      continue;
 
 	    SET_HARD_REG_BIT (frv_ifcvt.nested_cc_ok_rewrite, j);
@@ -5324,7 +5324,7 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
 
       /* Remove anything live at the beginning of the join block from being
          available for allocation.  */
-      EXECUTE_IF_SET_IN_REG_SET (DF_LIVE_IN (rtl_df, join_bb), 0, regno, rsi)
+      EXECUTE_IF_SET_IN_REG_SET (df_get_live_in (join_bb), 0, regno, rsi)
 	{
 	  if (regno < FIRST_PSEUDO_REGISTER)
 	    CLEAR_HARD_REG_BIT (tmp_reg->regs, regno);
@@ -5368,7 +5368,7 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
 
       /* Anything live at the beginning of the block is obviously unavailable
          for allocation.  */
-      EXECUTE_IF_SET_IN_REG_SET (DF_LIVE_IN (rtl_df, bb[j]), 0, regno, rsi)
+      EXECUTE_IF_SET_IN_REG_SET (df_get_live_in (bb[j]), 0, regno, rsi)
 	{
 	  if (regno < FIRST_PSEUDO_REGISTER)
 	    CLEAR_HARD_REG_BIT (tmp_reg->regs, regno);
@@ -6021,17 +6021,15 @@ frv_ifcvt_modify_insn (ce_if_block_t *ce_info,
 		  limit scheduling of the combined block quite
 		  severely.  */
 	       && ce_info->join_bb
-	       && ! (REGNO_REG_SET_P
-		     (DF_LIVE_IN (rtl_df, ce_info->join_bb),
-		      REGNO (SET_DEST (set))))
+	       && ! (REGNO_REG_SET_P (df_get_live_in (ce_info->join_bb),
+				      REGNO (SET_DEST (set))))
 	       /* Similarly, we must not unconditionally set a reg
 		  used as scratch in the THEN branch if the same reg
 		  is live in the ELSE branch.  */
 	       && (! ce_info->else_bb
 		   || BLOCK_FOR_INSN (insn) == ce_info->else_bb
-		   || ! (REGNO_REG_SET_P
-			 (DF_LIVE_IN (rtl_df, ce_info->else_bb),
-			  REGNO (SET_DEST (set))))))
+		   || ! (REGNO_REG_SET_P (df_get_live_in (ce_info->else_bb),
+					  REGNO (SET_DEST (set))))))
 	pattern = set;
 
       else if (mode == QImode || mode == HImode || mode == SImode
@@ -7216,7 +7214,7 @@ frv_registers_conflict_p (rtx x)
    under which X is modified.  Update FRV_PACKET accordingly.  */
 
 static void
-frv_registers_update_1 (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
+frv_registers_update_1 (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
   unsigned int regno;
 
@@ -7754,7 +7752,7 @@ frv_extract_membar (struct frv_io *io, rtx insn)
    if X is a register and *DATA depends on X.  */
 
 static void
-frv_io_check_address (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
+frv_io_check_address (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
   rtx *other = data;
 
@@ -7766,7 +7764,7 @@ frv_io_check_address (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
    Remove every modified register from the set.  */
 
 static void
-frv_io_handle_set (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
+frv_io_handle_set (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
   HARD_REG_SET *set = data;
   unsigned int regno;

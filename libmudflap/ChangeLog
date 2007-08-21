@@ -1,3 +1,34 @@
+2007-07-26  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (clean-local): Removed.
+	(pth/mf-runtime.lo, pth/mf-heuristics.lo, pth/mf-hooks1.lo,
+	pth/mf-hooks2.lo, pth/mf-hooks3.lo): Likewise.
+	(libmudflapth_la_SOURCES): List sources.
+	(libmudflapth_la_LIBADD): Clear.
+	(libmudflapth_la_CFLAGS): New variable.
+
+2007-07-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* aclocal.m4: Regenerated.
+
+2007-06-02  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure: Regenerate.
+
+2007-05-31  Frank Ch. Eigler  <fche@redhat.com>
+
+	From Andi Kleen <ak@suse.de>:
+	* mf-runtime.c (options): Rename structure for compatibility with
+	glibc getopt_long.
+
+2007-05-23  Steve Ellcey  <sje@cup.hp.com>
+
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
 2007-03-14  Uros Bizjak  <ubizjak@gmail.com>
 
 	* testsuite/libmudflap.cth/pass59-frag.c (main): Fix casting of arg.

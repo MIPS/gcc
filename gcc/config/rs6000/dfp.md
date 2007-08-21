@@ -8,7 +8,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
+;; by the Free Software Foundation; either version 3, or (at your
 ;; option) any later version.
 
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -17,9 +17,41 @@
 ;; License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the
-;; Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-;; MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
+
+(define_expand "negdd2"
+  [(set (match_operand:DD 0 "gpc_reg_operand" "")
+	(neg:DD (match_operand:DD 1 "gpc_reg_operand" "")))]
+  "TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)"
+  "")
+
+(define_insn "*negdd2_fpr"
+  [(set (match_operand:DD 0 "gpc_reg_operand" "=f")
+	(neg:DD (match_operand:DD 1 "gpc_reg_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
+  "fneg %0,%1"
+  [(set_attr "type" "fp")])
+
+(define_expand "absdd2"
+  [(set (match_operand:DD 0 "gpc_reg_operand" "")
+	(abs:DD (match_operand:DD 1 "gpc_reg_operand" "")))]
+  "TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)"
+  "")
+
+(define_insn "*absdd2_fpr"
+  [(set (match_operand:DD 0 "gpc_reg_operand" "=f")
+	(abs:DD (match_operand:DD 1 "gpc_reg_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
+  "fabs %0,%1"
+  [(set_attr "type" "fp")])
+
+(define_insn "*nabsdd2_fpr"
+  [(set (match_operand:DD 0 "gpc_reg_operand" "=f")
+	(neg:DD (abs:DD (match_operand:DF 1 "gpc_reg_operand" "f"))))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
+  "fnabs %0,%1"
+  [(set_attr "type" "fp")])
 
 (define_expand "movdd"
   [(set (match_operand:DD 0 "nonimmediate_operand" "")
@@ -252,10 +284,36 @@
 
 ; ld/std require word-aligned displacements -> 'Y' constraint.
 ; List Y->r and r->Y before r->r for reload.
+(define_insn "*movdd_hardfloat64_mfpgpr"
+  [(set (match_operand:DD 0 "nonimmediate_operand" "=Y,r,!r,f,f,m,*c*l,!r,*h,!r,!r,!r,r,f")
+	(match_operand:DD 1 "input_operand" "r,Y,r,f,m,f,r,h,0,G,H,F,f,r"))]
+  "TARGET_POWERPC64 && TARGET_MFPGPR && TARGET_HARD_FLOAT && TARGET_FPRS
+   && (gpc_reg_operand (operands[0], DDmode)
+       || gpc_reg_operand (operands[1], DDmode))"
+  "@
+   std%U0%X0 %1,%0
+   ld%U1%X1 %0,%1
+   mr %0,%1
+   fmr %0,%1
+   lfd%U1%X1 %0,%1
+   stfd%U0%X0 %1,%0
+   mt%0 %1
+   mf%1 %0
+   {cror 0,0,0|nop}
+   #
+   #
+   #
+   mftgpr %0,%1
+   mffgpr %0,%1"
+  [(set_attr "type" "store,load,*,fp,fpload,fpstore,mtjmpr,mfjmpr,*,*,*,*,mftgpr,mffgpr")
+   (set_attr "length" "4,4,4,4,4,4,4,4,4,8,12,16,4,4")])
+
+; ld/std require word-aligned displacements -> 'Y' constraint.
+; List Y->r and r->Y before r->r for reload.(define_insn "*movdd_hardfloat64"
 (define_insn "*movdd_hardfloat64"
   [(set (match_operand:DD 0 "nonimmediate_operand" "=Y,r,!r,f,f,m,*c*l,!r,*h,!r,!r,!r")
 	(match_operand:DD 1 "input_operand" "r,Y,r,f,m,f,r,h,0,G,H,F"))]
-  "TARGET_POWERPC64 && TARGET_HARD_FLOAT && TARGET_FPRS
+  "TARGET_POWERPC64 && !TARGET_MFPGPR && TARGET_HARD_FLOAT && TARGET_FPRS
    && (gpc_reg_operand (operands[0], DDmode)
        || gpc_reg_operand (operands[1], DDmode))"
   "@
@@ -292,6 +350,39 @@
    {cror 0,0,0|nop}"
   [(set_attr "type" "load,store,*,mtjmpr,mfjmpr,*,*,*,*")
    (set_attr "length" "4,4,4,4,4,8,12,16,4")])
+
+(define_expand "negtd2"
+  [(set (match_operand:TD 0 "gpc_reg_operand" "")
+	(neg:TD (match_operand:TD 1 "gpc_reg_operand" "")))]
+  "TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)"
+  "")
+
+(define_insn "*negtd2_fpr"
+  [(set (match_operand:TD 0 "gpc_reg_operand" "=f")
+	(neg:TD (match_operand:TD 1 "gpc_reg_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
+  "fneg %0,%1"
+  [(set_attr "type" "fp")])
+
+(define_expand "abstd2"
+  [(set (match_operand:TD 0 "gpc_reg_operand" "")
+	(abs:TD (match_operand:TD 1 "gpc_reg_operand" "")))]
+  "TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)"
+  "")
+
+(define_insn "*abstd2_fpr"
+  [(set (match_operand:TD 0 "gpc_reg_operand" "=f")
+	(abs:TD (match_operand:TD 1 "gpc_reg_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
+  "fabs %0,%1"
+  [(set_attr "type" "fp")])
+
+(define_insn "*nabstd2_fpr"
+  [(set (match_operand:TD 0 "gpc_reg_operand" "=f")
+	(neg:TD (abs:TD (match_operand:DF 1 "gpc_reg_operand" "f"))))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
+  "fnabs %0,%1"
+  [(set_attr "type" "fp")])
 
 (define_expand "movtd"
   [(set (match_operand:TD 0 "general_operand" "")

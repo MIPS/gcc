@@ -5,7 +5,7 @@
 ;;
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; Return 1 if OP is the zero constant for MODE.
 (define_predicate "const0_operand"
@@ -434,7 +433,7 @@
 ;; use recog during reload, so pretending these codes are accepted 
 ;; pessimizes things a tad.
 
-(define_predicate "aligned_memory_operand"
+(define_special_predicate "aligned_memory_operand"
   (ior (match_test "op = resolve_reload_operand (op), 0")
        (match_code "mem"))
 {
@@ -462,7 +461,7 @@
 
 ;; Similar, but return 1 if OP is a MEM which is not alignable.
 
-(define_predicate "unaligned_memory_operand"
+(define_special_predicate "unaligned_memory_operand"
   (ior (match_test "op = resolve_reload_operand (op), 0")
        (match_code "mem"))
 {
@@ -489,20 +488,30 @@
 })
 
 ;; Return 1 if OP is any memory location.  During reload a pseudo matches.
-(define_predicate "any_memory_operand"
-  (ior (match_code "mem,reg")
-       (and (match_code "subreg")
-	    (match_test "GET_CODE (SUBREG_REG (op)) == REG"))))
+(define_special_predicate "any_memory_operand"
+  (match_code "mem,reg,subreg")
+{
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
 
-;; Return 1 if OP is either a register or an unaligned memory location.
-(define_predicate "reg_or_unaligned_mem_operand"
-  (ior (match_operand 0 "register_operand")
-       (match_operand 0 "unaligned_memory_operand")))
+  if (MEM_P (op))
+    return true;
+  if (reload_in_progress && REG_P (op))
+    {
+      unsigned regno = REGNO (op);
+      if (HARD_REGISTER_NUM_P (regno))
+	return false;
+      else
+	return reg_renumber[regno] < 0;
+    }
+
+  return false;
+})
 
 ;; Return 1 is OP is a memory location that is not a reference
 ;; (using an AND) to an unaligned location.  Take into account
 ;; what reload will do.
-(define_predicate "normal_memory_operand"
+(define_special_predicate "normal_memory_operand"
   (ior (match_test "op = resolve_reload_operand (op), 0")
        (and (match_code "mem")
 	    (match_test "GET_CODE (XEXP (op, 0)) != AND"))))

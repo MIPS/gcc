@@ -1,6 +1,6 @@
 /* Subroutines for assembler code output on the TMS320C[34]x
    Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2003,
-   2004, 2005
+   2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
@@ -10,7 +10,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -19,9 +19,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Some output-actions in c4x.md need these.  */
 #include "config.h"
@@ -2443,11 +2442,7 @@ c4x_reorg (void)
 	     with only the 'deleted' bit set.  Transform it into a note
 	     to avoid confusion of subsequent processing.  */
 	  if (INSN_DELETED_P (old))
-	    {
-	      PUT_CODE (old, NOTE);
-	      NOTE_LINE_NUMBER (old) = NOTE_INSN_DELETED;
-	      NOTE_SOURCE_FILE (old) = 0;
-	    }
+	    SET_INSN_DELETED (old);
 	}
     }
 }

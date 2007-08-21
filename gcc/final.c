@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This is the final pass of the compiler.
    It looks at the rtl code for a function and outputs assembler code.
@@ -78,6 +77,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coverage.h"
 #include "df.h"
 #include "vecprim.h"
+#include "ggc.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -1351,6 +1351,72 @@ asm_insn_count (rtx body)
 }
 #endif
 
+/* ??? This is probably the wrong place for these.  */
+/* Structure recording the mapping from source file and directory
+   names at compile time to those to be embedded in debug
+   information.  */
+typedef struct debug_prefix_map
+{
+  const char *old_prefix;
+  const char *new_prefix;
+  size_t old_len;
+  size_t new_len;
+  struct debug_prefix_map *next;
+} debug_prefix_map;
+
+/* Linked list of such structures.  */
+debug_prefix_map *debug_prefix_maps;
+
+
+/* Record a debug file prefix mapping.  ARG is the argument to
+   -fdebug-prefix-map and must be of the form OLD=NEW.  */
+
+void
+add_debug_prefix_map (const char *arg)
+{
+  debug_prefix_map *map;
+  const char *p;
+
+  p = strchr (arg, '=');
+  if (!p)
+    {
+      error ("invalid argument %qs to -fdebug-prefix-map", arg);
+      return;
+    }
+  map = XNEW (debug_prefix_map);
+  map->old_prefix = ggc_alloc_string (arg, p - arg);
+  map->old_len = p - arg;
+  p++;
+  map->new_prefix = ggc_strdup (p);
+  map->new_len = strlen (p);
+  map->next = debug_prefix_maps;
+  debug_prefix_maps = map;
+}
+
+/* Perform user-specified mapping of debug filename prefixes.  Return
+   the new name corresponding to FILENAME.  */
+
+const char *
+remap_debug_filename (const char *filename)
+{
+  debug_prefix_map *map;
+  char *s;
+  const char *name;
+  size_t name_len;
+
+  for (map = debug_prefix_maps; map; map = map->next)
+    if (strncmp (filename, map->old_prefix, map->old_len) == 0)
+      break;
+  if (!map)
+    return filename;
+  name = filename + map->old_len;
+  name_len = strlen (name) + 1;
+  s = (char *) alloca (name_len + map->new_len);
+  memcpy (s, map->new_prefix, map->new_len);
+  memcpy (s + map->new_len, name, name_len);
+  return ggc_strdup (s);
+}
+
 /* Output assembler code for the start of a function,
    and initialize some of the variables in this file
    for the new function.  The label for the function and associated
@@ -1529,33 +1595,6 @@ final (rtx first, FILE *file, int optimize)
 
   last_ignored_compare = 0;
 
-#ifdef SDB_DEBUGGING_INFO
-  /* When producing SDB debugging info, delete troublesome line number
-     notes from inlined functions in other files as well as duplicate
-     line number notes.  */
-  if (write_symbols == SDB_DEBUG)
-    {
-      rtx last = 0;
-      for (insn = first; insn; insn = NEXT_INSN (insn))
-	if (NOTE_P (insn) && NOTE_LINE_NUMBER (insn) > 0)
-	  {
-	    if (last != 0
-#ifdef USE_MAPPED_LOCATION
-		&& NOTE_SOURCE_LOCATION (insn) == NOTE_SOURCE_LOCATION (last)
-#else
-		&& NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last)
-		&& NOTE_SOURCE_FILE (insn) == NOTE_SOURCE_FILE (last)
-#endif
-	      )
-	      {
-		delete_insn (insn);	/* Use delete_note.  */
-		continue;
-	      }
-	    last = insn;
-	  }
-    }
-#endif
-
   for (insn = first; insn; insn = NEXT_INSN (insn))
     {
       if (INSN_UID (insn) > max_uid)       /* Find largest UID.  */
@@ -1679,7 +1718,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
   switch (GET_CODE (insn))
     {
     case NOTE:
-      switch (NOTE_LINE_NUMBER (insn))
+      switch (NOTE_KIND (insn))
 	{
 	case NOTE_INSN_DELETED:
 	  break;
@@ -1802,11 +1841,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  (*debug_hooks->var_location) (insn);
 	  break;
 
-	case 0:
-	  break;
-
 	default:
-	  gcc_assert (NOTE_LINE_NUMBER (insn) > 0);
+	  gcc_unreachable ();
 	  break;
 	}
       break;
@@ -3229,7 +3265,7 @@ output_asm_label (rtx x)
     x = XEXP (x, 0);
   if (LABEL_P (x)
       || (NOTE_P (x)
-	  && NOTE_LINE_NUMBER (x) == NOTE_INSN_DELETED_LABEL))
+	  && NOTE_KIND (x) == NOTE_INSN_DELETED_LABEL))
     ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (x));
   else
     output_operand_lossage ("'%%l' operand isn't a label");
@@ -4018,6 +4054,9 @@ rest_of_handle_final (void)
 
   user_defined_section_attribute = false;
 
+  /* Free up reg info memory.  */
+  free_reg_info ();
+
   if (! quiet_flag)
     fflush (asm_out_file);
 
@@ -4035,6 +4074,16 @@ rest_of_handle_final (void)
   timevar_push (TV_SYMOUT);
   (*debug_hooks->function_decl) (current_function_decl);
   timevar_pop (TV_SYMOUT);
+  if (DECL_STATIC_CONSTRUCTOR (current_function_decl)
+      && targetm.have_ctors_dtors)
+    targetm.asm_out.constructor (XEXP (DECL_RTL (current_function_decl), 0),
+				 decl_init_priority_lookup
+				   (current_function_decl));
+  if (DECL_STATIC_DESTRUCTOR (current_function_decl)
+      && targetm.have_ctors_dtors)
+    targetm.asm_out.destructor (XEXP (DECL_RTL (current_function_decl), 0),
+				decl_fini_priority_lookup
+				  (current_function_decl));
   return 0;
 }
 
@@ -4108,7 +4157,6 @@ rest_of_clean_state (void)
 
   reload_completed = 0;
   epilogue_completed = 0;
-  no_new_pseudos = 0;
 #ifdef STACK_REGS
   regstack_completed = 0;
 #endif
@@ -4164,27 +4212,3 @@ struct tree_opt_pass pass_clean_state =
   0                                     /* letter */
 };
 
-/* Set no_new_pseudos.  */
-static unsigned int
-rest_of_no_new_pseudos (void)
-{
-  no_new_pseudos = 1;
-  return 0;
-}
-
-struct tree_opt_pass pass_no_new_pseudos =
-{
-  NULL,			                /* name */
-  NULL,                                 /* gate */
-  rest_of_no_new_pseudos,               /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  'p'                                   /* letter */
-};

@@ -1,12 +1,12 @@
 /* Output routines for Sunplus S+CORE processor
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
    Contributed by Sunnorth.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -181,10 +180,11 @@ th_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   rtx this, temp1, temp2, insn, fnaddr;
 
   /* Pretend to be a post-reload pass while generating rtl.  */
-  no_new_pseudos = 1;
   reload_completed = 1;
-  reset_block_changes ();
 
+  /* Mark the end of the (empty) prologue.  */
+  emit_note (NOTE_INSN_PROLOGUE_END);
+ 
   /* We need two temporary registers in some cases.  */
   temp1 = gen_rtx_REG (Pmode, 8);
   temp2 = gen_rtx_REG (Pmode, 9);
@@ -231,7 +231,7 @@ th_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   /* Run just enough of rest_of_compilation.  This sequence was
      "borrowed" from alpha.c.  */
   insn = get_insns ();
-  insn_locators_initialize ();
+  insn_locators_alloc ();
   split_all_insns_noflow ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
@@ -241,7 +241,6 @@ th_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   /* Clean up the vars set above.  Note that final_end_function resets
      the global pointer for us.  */
   reload_completed = 0;
-  no_new_pseudos = 0;
 }
 
 /* Implement TARGET_STRICT_ARGUMENT_NAMING.  */
@@ -751,30 +750,13 @@ score_initialize_trampoline (rtx ADDR, rtx FUNC, rtx CHAIN)
 #define FFCACHE          "_flush_cache"
 #define CODE_SIZE        (TRAMPOLINE_INSNS * UNITS_PER_WORD)
 
-  unsigned int tramp[TRAMPOLINE_INSNS] = {
-    0x8103bc56,                         /* mv      r8, r3          */
-    0x9000bc05,                         /* bl      0x0x8           */
-    0xc1238000 | (CODE_SIZE - 8),       /* lw      r9, &func       */
-    0xc0038000
-    | (STATIC_CHAIN_REGNUM << 21)
-    | (CODE_SIZE - 4),                  /* lw  static chain reg, &chain */
-    0x8068bc56,                         /* mv      r3, r8          */
-    0x8009bc08,                         /* br      r9              */
-    0x0,
-    0x0,
-    };
   rtx pfunc, pchain;
-  int i;
-
-  for (i = 0; i < TRAMPOLINE_INSNS; i++)
-    emit_move_insn (gen_rtx_MEM (ptr_mode, plus_constant (ADDR, i << 2)),
-                    GEN_INT (tramp[i]));
 
   pfunc = plus_constant (ADDR, CODE_SIZE);
-  pchain = plus_constant (ADDR, CODE_SIZE + GET_MODE_SIZE (ptr_mode));
+  pchain = plus_constant (ADDR, CODE_SIZE + GET_MODE_SIZE (SImode));
 
-  emit_move_insn (gen_rtx_MEM (ptr_mode, pfunc), FUNC);
-  emit_move_insn (gen_rtx_MEM (ptr_mode, pchain), CHAIN);
+  emit_move_insn (gen_rtx_MEM (SImode, pfunc), FUNC);
+  emit_move_insn (gen_rtx_MEM (SImode, pchain), CHAIN);
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, FFCACHE),
                      0, VOIDmode, 2,
                      ADDR, Pmode,
@@ -813,7 +795,7 @@ score_address_p (enum machine_mode mode, rtx x, int strict)
 static rtx
 score_force_temporary (rtx dest, rtx value)
 {
-  if (!no_new_pseudos)
+  if (can_create_pseudo_p ())
     return force_reg (Pmode, value);
   else
     {
@@ -1168,7 +1150,7 @@ score_print_operand (FILE *file, rtx op, int c)
     {
       gcc_assert (code == CONST_INT);
       fprintf (file, HOST_WIDE_INT_PRINT_HEX,
-               (unsigned HOST_WIDE_INT) INTVAL (op) >> 16);
+               (INTVAL (op) >> 16) & 0xffff);
     }
   else if (c == 'D')
     {
@@ -1176,7 +1158,7 @@ score_print_operand (FILE *file, rtx op, int c)
         {
           rtx temp = gen_lowpart (SImode, op);
           gcc_assert (GET_MODE (op) == SFmode);
-          fprintf (file, HOST_WIDE_INT_PRINT_HEX, INTVAL (temp));
+          fprintf (file, HOST_WIDE_INT_PRINT_HEX, INTVAL (temp) & 0xffffffff);
         }
       else
         output_addr_const (file, op);
@@ -1301,8 +1283,11 @@ score_print_operand_address (FILE *file, rtx x)
                          INTVAL (addr.offset));
                 break;
               default:
-                fprintf (file, "[%s,%ld]", reg_names[REGNO (addr.reg)],
-                         INTVAL (addr.offset));
+                if (INTVAL(addr.offset) == 0)
+                  fprintf(file, "[%s]", reg_names[REGNO (addr.reg)]);
+                else 
+                  fprintf(file, "[%s, %ld]", reg_names[REGNO (addr.reg)], 
+                          INTVAL(addr.offset));
                 break;
               }
           }

@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Handle the inevitable errors.  A major catch here is that things
    flagged as errors in one match subroutine can conceivably be legal
@@ -114,18 +113,12 @@ error_string (const char *p)
 
 /* Print a formatted integer to the error buffer or output.  */
 
-#define IBUF_LEN 30
+#define IBUF_LEN 60
 
 static void
-error_integer (int i)
+error_uinteger (unsigned long int i)
 {
   char *p, int_buf[IBUF_LEN];
-
-  if (i < 0)
-    {
-      i = -i;
-      error_char ('-');
-    }
 
   p = int_buf + IBUF_LEN - 1;
   *p-- = '\0';
@@ -140,6 +133,22 @@ error_integer (int i)
     }
 
   error_string (p + 1);
+}
+
+static void
+error_integer (long int i)
+{
+  unsigned long int u;
+
+  if (i < 0)
+    {
+      u = (unsigned long int) -i;
+      error_char ('-');
+    }
+  else
+    u = i;
+
+  error_uinteger (u);
 }
 
 
@@ -369,7 +378,8 @@ show_loci (locus *l1, locus *l2)
 static void ATTRIBUTE_GCC_GFC(2,0)
 error_print (const char *type, const char *format0, va_list argp)
 {
-  enum { TYPE_CURRENTLOC, TYPE_LOCUS, TYPE_INTEGER, TYPE_CHAR, TYPE_STRING,
+  enum { TYPE_CURRENTLOC, TYPE_LOCUS, TYPE_INTEGER, TYPE_UINTEGER,
+         TYPE_LONGINT, TYPE_ULONGINT, TYPE_CHAR, TYPE_STRING,
 	 NOTYPE };
   struct
   {
@@ -378,6 +388,9 @@ error_print (const char *type, const char *format0, va_list argp)
     union
     {
       int intval;
+      unsigned int uintval;
+      long int longintval;
+      unsigned long int ulongintval;
       char charval;
       const char * stringval;
     } u;
@@ -414,7 +427,10 @@ error_print (const char *type, const char *format0, va_list argp)
 	continue;
 
       if (*format == '%')
-	continue;
+	{
+	  format++;
+	  continue;
+	}
 
       if (ISDIGIT (*format))
 	{
@@ -449,6 +465,19 @@ error_print (const char *type, const char *format0, va_list argp)
 	  case 'd':
 	  case 'i':
 	    arg[pos].type = TYPE_INTEGER;
+	    break;
+
+	  case 'u':
+	    arg[pos].type = TYPE_UINTEGER;
+
+	  case 'l':
+	    c = *format++;
+	    if (c == 'u')
+	      arg[pos].type = TYPE_ULONGINT;
+	    else if (c == 'i' || c == 'd')
+	      arg[pos].type = TYPE_LONGINT;
+	    else
+	      gcc_unreachable ();
 	    break;
 
 	  case 'c':
@@ -495,6 +524,18 @@ error_print (const char *type, const char *format0, va_list argp)
 
 	  case TYPE_INTEGER:
 	    arg[pos].u.intval = va_arg (argp, int);
+	    break;
+
+	  case TYPE_UINTEGER:
+	    arg[pos].u.uintval = va_arg (argp, unsigned int);
+	    break;
+
+	  case TYPE_LONGINT:
+	    arg[pos].u.longintval = va_arg (argp, long int);
+	    break;
+
+	  case TYPE_ULONGINT:
+	    arg[pos].u.ulongintval = va_arg (argp, unsigned long int);
 	    break;
 
 	  case TYPE_CHAR:
@@ -566,6 +607,19 @@ error_print (const char *type, const char *format0, va_list argp)
 	case 'i':
 	  error_integer (spec[n++].u.intval);
 	  break;
+
+	case 'u':
+	  error_uinteger (spec[n++].u.uintval);
+	  break;
+
+	case 'l':
+	  format++;
+	  if (*format == 'u')
+	    error_uinteger (spec[n++].u.ulongintval);
+	  else
+	    error_integer (spec[n++].u.longintval);
+	  break;
+
 	}
     }
 

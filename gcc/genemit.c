@@ -1,12 +1,12 @@
 /* Generate code from machine description to emit insns as rtl.
    Copyright (C) 1987, 1988, 1991, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2003, 2004, 2005 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "bconfig.h"
@@ -621,7 +620,7 @@ gen_split (rtx split)
   else
     {
       printf ("extern rtx gen_split_%d (rtx, rtx *);\n", insn_code_number);
-      printf ("rtx\ngen_split_%d (rtx curr_insn ATTRIBUTE_UNUSED, rtx *operands%s)\n", 
+      printf ("rtx\ngen_split_%d (rtx curr_insn ATTRIBUTE_UNUSED, rtx *operands%s)\n",
 	      insn_code_number, unused);
     }
   printf ("{\n");
@@ -854,9 +853,11 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"resource.h\"\n");
   printf ("#include \"reload.h\"\n");
   printf ("#include \"toplev.h\"\n");
+  printf ("#include \"regs.h\"\n");
   printf ("#include \"tm-constrs.h\"\n");
-  printf ("#include \"ggc.h\"\n\n");
-  printf ("#include \"basic-block.h\"\n\n");
+  printf ("#include \"ggc.h\"\n");
+  printf ("#include \"basic-block.h\"\n");
+  printf ("#include \"integrate.h\"\n\n");
   printf ("#define FAIL return (end_sequence (), _val)\n");
   printf ("#define DONE return (_val = get_insns (), end_sequence (), _val)\n\n");
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,7 +36,7 @@ with Ada.IO_Exceptions;           use Ada.IO_Exceptions;
 with Interfaces.C_Streams;        use Interfaces.C_Streams;
 with System.CRTL;
 with System.Soft_Links;
-with Unchecked_Deallocation;
+with Ada.Unchecked_Deallocation;
 
 package body System.File_IO is
 
@@ -86,6 +86,7 @@ package body System.File_IO is
    --  environment task is finalized.
 
    text_translation_required : Boolean;
+   for text_translation_required'Size use Character'Size;
    pragma Import
      (C, text_translation_required, "__gnat_text_translation_required");
    --  If true, add appropriate suffix to control string for Open
@@ -94,7 +95,7 @@ package body System.File_IO is
    -- Local Subprograms --
    -----------------------
 
-   procedure Free_String is new Unchecked_Deallocation (String, Pstring);
+   procedure Free_String is new Ada.Unchecked_Deallocation (String, Pstring);
 
    subtype Fopen_String is String (1 .. 4);
    --  Holds open string (longest is "w+b" & nul)
@@ -609,7 +610,13 @@ package body System.File_IO is
 
    function Is_Open (File : AFCB_Ptr) return Boolean is
    begin
-      return (File /= null);
+      --  We return True if the file is open, and the underlying file stream is
+      --  usable. In particular on Windows an application linked with -mwindows
+      --  option set does not have a console attached. In this case standard
+      --  files (Current_Output, Current_Error, Current_Input) are not created.
+      --  We want Is_Open (Current_Output) to return False in this case.
+
+      return File /= null and then fileno (File.Stream) /= -1;
    end Is_Open;
 
    -------------------

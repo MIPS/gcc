@@ -31,6 +31,7 @@ class java::io::File : public ::java::lang::Object
 public:
   virtual jboolean canRead();
   virtual jboolean canWrite();
+  virtual jboolean canExecute();
 private:
   jboolean performCreate();
 public:
@@ -93,6 +94,15 @@ private:
 public:
   static ::java::io::File * createTempFile(::java::lang::String *, ::java::lang::String *, ::java::io::File *);
 private:
+  jboolean setFilePermissions(jboolean, jboolean, jint);
+public:
+  virtual jboolean setReadable(jboolean);
+  virtual jboolean setReadable(jboolean, jboolean);
+  virtual jboolean setWritable(jboolean);
+  virtual jboolean setWritable(jboolean, jboolean);
+  virtual jboolean setExecutable(jboolean);
+  virtual jboolean setExecutable(jboolean, jboolean);
+private:
   jboolean performSetReadOnly();
 public:
   virtual jboolean setReadOnly();
@@ -101,8 +111,7 @@ private:
 public:
   static JArray< ::java::io::File * > * listRoots();
   static ::java::io::File * createTempFile(::java::lang::String *, ::java::lang::String *);
-  virtual jint compareTo(::java::io::File *);
-  virtual jint compareTo(::java::lang::Object *);
+  virtual jint File$compareTo(::java::io::File *);
 private:
   jboolean performRenameTo(::java::io::File *);
 public:
@@ -114,15 +123,20 @@ public:
 private:
   void checkWrite();
   void checkRead();
+  void checkExec();
 public:
   virtual void deleteOnExit();
 private:
   void writeObject(::java::io::ObjectOutputStream *);
   void readObject(::java::io::ObjectInputStream *);
+public:
+  virtual jint compareTo(::java::lang::Object *);
+private:
   static const jlong serialVersionUID = 301077366599181567LL;
   static const jint READ = 0;
   static const jint WRITE = 1;
   static const jint EXISTS = 2;
+  static const jint EXEC = 3;
   static const jint DIRECTORY = 0;
   static const jint ISFILE = 1;
   static const jint ISHIDDEN = 2;

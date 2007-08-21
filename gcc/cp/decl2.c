@@ -1,13 +1,13 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007  Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Process declarations and symbol lookup for C++ front end.
@@ -541,8 +540,8 @@ check_java_method (tree method)
    TEMPLATE_DECL, it can be NULL since the parameters can be extracted
    from the declaration. If the function is not a function template, it
    must be NULL.
-   It returns the original declaration for the function, or NULL_TREE
-   if no declaration was found (and an error was emitted).  */
+   It returns the original declaration for the function, NULL_TREE if
+   no declaration was found, error_mark_node if an error was emitted.  */
 
 tree
 check_classfn (tree ctype, tree function, tree template_parms)
@@ -678,16 +677,9 @@ check_classfn (tree ctype, tree function, tree template_parms)
     error ("no %q#D member function declared in class %qT",
 	   function, ctype);
 
-  /* If we did not find the method in the class, add it to avoid
-     spurious errors (unless the CTYPE is not yet defined, in which
-     case we'll only confuse ourselves when the function is declared
-     properly within the class.  */
-  if (COMPLETE_TYPE_P (ctype))
-    add_method (ctype, function, NULL_TREE);
-  
   if (pushed_scope)
     pop_scope (pushed_scope);
-  return NULL_TREE;
+  return error_mark_node;
 }
 
 /* DECL is a function with vague linkage.  Remember it so that at the
@@ -1057,6 +1049,7 @@ build_anon_union_vars (tree type, tree object)
 	  tree base;
 
 	  decl = build_decl (VAR_DECL, DECL_NAME (field), TREE_TYPE (field));
+	  DECL_ANON_UNION_VAR_P (decl) = 1;
 
 	  base = get_base_address (object);
 	  TREE_PUBLIC (decl) = TREE_PUBLIC (base);
@@ -1568,7 +1561,7 @@ static int
 type_visibility (tree type)
 {
   int vis = VISIBILITY_DEFAULT;
-  walk_tree_without_duplicates (&type, min_vis_r, &vis);
+  cp_walk_tree_without_duplicates (&type, min_vis_r, &vis);
   return vis;
 }
 
@@ -1683,25 +1676,10 @@ determine_visibility (tree decl)
   else
     use_template = 0;
 
-  /* Anything that is exported must have default visibility.  */
-  if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
-      && lookup_attribute ("dllexport",
-			   TREE_CODE (decl) == TYPE_DECL
-			   ? TYPE_ATTRIBUTES (TREE_TYPE (decl))
-			   : DECL_ATTRIBUTES (decl)))
-    {
-      DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
-      DECL_VISIBILITY_SPECIFIED (decl) = 1;
-    }
-
   /* If DECL is a member of a class, visibility specifiers on the
      class can influence the visibility of the DECL.  */
   if (DECL_CLASS_SCOPE_P (decl))
     class_type = DECL_CONTEXT (decl);
-  else if (TREE_CODE (decl) == VAR_DECL
-	   && DECL_TINFO_P (decl)
-	   && CLASS_TYPE_P (TREE_TYPE (DECL_NAME (decl))))
-    class_type = TREE_TYPE (DECL_NAME (decl));
   else
     {
       /* Not a class member.  */
@@ -1729,6 +1707,19 @@ determine_visibility (tree decl)
 	  /* Local classes in templates have CLASSTYPE_USE_TEMPLATE set,
 	     but have no TEMPLATE_INFO, so don't try to check it.  */
 	  use_template = 0;
+	}
+      else if (TREE_CODE (decl) == VAR_DECL && DECL_TINFO_P (decl)
+	       && flag_visibility_ms_compat)
+	{
+	  /* Under -fvisibility-ms-compat, types are visible by default,
+	     even though their contents aren't.  */
+	  tree underlying_type = TREE_TYPE (DECL_NAME (decl));
+	  int underlying_vis = type_visibility (underlying_type);
+	  if (underlying_vis == VISIBILITY_ANON
+	      || CLASSTYPE_VISIBILITY_SPECIFIED (underlying_type))
+	    constrain_visibility (decl, underlying_vis);
+	  else
+	    DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
 	}
       else if (TREE_CODE (decl) == VAR_DECL && DECL_TINFO_P (decl))
 	{
@@ -1787,7 +1778,8 @@ determine_visibility (tree decl)
     {
       /* Propagate anonymity from type to decl.  */
       int tvis = type_visibility (TREE_TYPE (decl));
-      if (tvis == VISIBILITY_ANON)
+      if (tvis == VISIBILITY_ANON
+	  || ! DECL_VISIBILITY_SPECIFIED (decl))
 	constrain_visibility (decl, tvis);
     }
 }
@@ -1798,18 +1790,20 @@ determine_visibility (tree decl)
 static void
 determine_visibility_from_class (tree decl, tree class_type)
 {
+  if (DECL_VISIBILITY_SPECIFIED (decl))
+    return;
+
   if (visibility_options.inlines_hidden
       /* Don't do this for inline templates; specializations might not be
 	 inline, and we don't want them to inherit the hidden
 	 visibility.  We'll set it here for all inline instantiations.  */
       && !processing_template_decl
-      && ! DECL_VISIBILITY_SPECIFIED (decl)
       && TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DECLARED_INLINE_P (decl)
       && (! DECL_LANG_SPECIFIC (decl)
 	  || ! DECL_EXPLICIT_INSTANTIATION (decl)))
     DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
-  else if (!DECL_VISIBILITY_SPECIFIED (decl))
+  else
     {
       /* Default to the class visibility.  */
       DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
@@ -1828,7 +1822,6 @@ determine_visibility_from_class (tree decl, tree class_type)
 	      && !DECL_CONSTRUCTION_VTABLE_P (decl)))
       && TREE_PUBLIC (decl)
       && !DECL_REALLY_EXTERN (decl)
-      && !DECL_VISIBILITY_SPECIFIED (decl)
       && !CLASSTYPE_VISIBILITY_SPECIFIED (class_type))
     targetm.cxx.determine_class_data_visibility (decl);
 }
@@ -1856,13 +1849,17 @@ constrain_class_visibility (tree type)
   for (t = TYPE_FIELDS (type); t; t = TREE_CHAIN (t))
     if (TREE_CODE (t) == FIELD_DECL && TREE_TYPE (t) != error_mark_node)
       {
-	tree ftype = strip_array_types (TREE_TYPE (t));
+	tree ftype = strip_pointer_or_array_types (TREE_TYPE (t));
 	int subvis = type_visibility (ftype);
 
 	if (subvis == VISIBILITY_ANON)
-	  warning (0, "\
+	  {
+	    if (strcmp (main_input_filename,
+	                DECL_SOURCE_FILE (TYPE_MAIN_DECL (ftype))))
+	      warning (0, "\
 %qT has a field %qD whose type uses the anonymous namespace",
-		   type, t);
+		       type, t);
+	  }
 	else if (IS_AGGR_TYPE (ftype)
 		 && vis < VISIBILITY_HIDDEN
 		 && subvis >= VISIBILITY_HIDDEN)
@@ -1877,9 +1874,13 @@ constrain_class_visibility (tree type)
       int subvis = type_visibility (TREE_TYPE (t));
 
       if (subvis == VISIBILITY_ANON)
-	warning (0, "\
+        {
+	  if (strcmp (main_input_filename,
+	              DECL_SOURCE_FILE (TYPE_MAIN_DECL (TREE_TYPE (t)))))
+	    warning (0, "\
 %qT has a base %qT whose type uses the anonymous namespace",
-		 type, TREE_TYPE (t));
+		     type, TREE_TYPE (t));
+	}
       else if (vis < VISIBILITY_HIDDEN
 	       && subvis >= VISIBILITY_HIDDEN)
 	warning (OPT_Wattributes, "\
@@ -2182,10 +2183,7 @@ build_cleanup (tree decl)
   if (TREE_CODE (type) == ARRAY_TYPE)
     temp = decl;
   else
-    {
-      cxx_mark_addressable (decl);
-      temp = build1 (ADDR_EXPR, build_pointer_type (type), decl);
-    }
+    temp = build_address (decl);
   temp = build_delete (TREE_TYPE (temp), temp,
 		       sfk_complete_destructor,
 		       LOOKUP_NORMAL|LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR, 0);
@@ -2325,9 +2323,11 @@ start_objects (int method_type, int initp)
 						 void_list_node));
   start_preparsed_function (fndecl, /*attrs=*/NULL_TREE, SF_PRE_PARSED);
 
-  /* It can be a static function as long as collect2 does not have
-     to scan the object file to find its ctor/dtor routine.  */
-  TREE_PUBLIC (current_function_decl) = ! targetm.have_ctors_dtors;
+  TREE_PUBLIC (current_function_decl) = 0;
+
+  /* Mark as artificial because it's not explicitly in the user's
+     source code.  */
+  DECL_ARTIFICIAL (current_function_decl) = 1;
 
   /* Mark this declaration as used to avoid spurious warnings.  */
   TREE_USED (current_function_decl) = 1;
@@ -2355,23 +2355,19 @@ finish_objects (int method_type, int initp, tree body)
   /* Finish up.  */
   finish_compound_stmt (body);
   fn = finish_function (0);
-  expand_or_defer_fn (fn);
 
-  /* When only doing semantic analysis, and no RTL generation, we
-     can't call functions that directly emit assembly code; there is
-     no assembly file in which to put the code.  */
-  if (flag_syntax_only)
-    return;
-
-  if (targetm.have_ctors_dtors)
+  if (method_type == 'I')
     {
-      rtx fnsym = XEXP (DECL_RTL (fn), 0);
-      cgraph_mark_needed_node (cgraph_node (fn));
-      if (method_type == 'I')
-	(* targetm.asm_out.constructor) (fnsym, initp);
-      else
-	(* targetm.asm_out.destructor) (fnsym, initp);
+      DECL_STATIC_CONSTRUCTOR (fn) = 1;
+      decl_init_priority_insert (fn, initp);
     }
+  else
+    {
+      DECL_STATIC_DESTRUCTOR (fn) = 1;
+      decl_fini_priority_insert (fn, initp);
+    }
+
+  expand_or_defer_fn (fn);
 }
 
 /* The names of the parameters to the function created to handle
@@ -3294,8 +3290,6 @@ cp_write_global_declarations (void)
   /* We're done with the splay-tree now.  */
   if (priority_info_map)
     splay_tree_delete (priority_info_map);
-
-  c_build_cdtor_fns ();
 
   /* Generate any missing aliases.  */
   maybe_apply_pending_pragma_weaks ();

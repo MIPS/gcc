@@ -1,5 +1,5 @@
 /* Allocation for dataflow support routines.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes 
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
@@ -10,7 +10,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -19,10 +19,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  
-*/
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /*
 OVERVIEW:
@@ -64,7 +62,7 @@ dataflow solution.  The transfer functions are only rebuilt if the
 some instruction within the block has changed.  
 
 The top layer is the dataflow solution itself.  The dataflow solution
-is computed by using an efficient iterative solver and the trasfer
+is computed by using an efficient iterative solver and the transfer
 functions.  The dataflow solution must be recomputed whenever the
 control changes or if one of the transfer function changes.
 
@@ -81,7 +79,7 @@ Here is an example of using the dataflow routines.
 
       df_dump (stderr);
 
-      df_finish_pass ();
+      df_finish_pass (false);
 
 DF_[ru,rd,urec,ri,chain]_ADD_PROBLEM adds a problem, defined by an
 instance to struct df_problem, to the set of problems solved in this
@@ -114,8 +112,8 @@ optimizations that reorder blocks invalidate the bitvector.
 DF_ANALYZE causes all of the defined problems to be (re)solved.  When
 DF_ANALYZE is completes, the IN and OUT sets for each basic block
 contain the computer information.  The DF_*_BB_INFO macros can be used
-to access these bitvectors.  All defered rescannings are down before
-the transfer functions are recompited.
+to access these bitvectors.  All deferred rescannings are down before
+the transfer functions are recomputed.
 
 DF_DUMP can then be called to dump the information produce to some
 file.  This calls DF_DUMP_START, to print the information that is not
@@ -126,7 +124,7 @@ can all be called separately as part of a larger dump function.
 
 DF_FINISH_PASS causes df_remove_problem to be called on all of the
 optional problems.  It also causes any insns whose scanning has been
-defered to be rescanned as well as clears all of the changeable flags.
+deferred to be rescanned as well as clears all of the changeable flags.
 Setting the pass manager TODO_df_finish flag causes this function to
 be run.  However, the pass manager will call df_finish_pass AFTER the
 pass dumping has been done, so if you want to see the results of the
@@ -146,7 +144,7 @@ There are four ways of doing the incremental scanning:
    For most modern rtl passes, this is certainly the easiest way to
    manage rescanning the insns.  This technique also has the advantage
    that the scanning information is always correct and can be relied
-   apon even after changes have been made to the instructions.  This
+   upon even after changes have been made to the instructions.  This
    technique is contra indicated in several cases:
 
    a) If def-use chains OR use-def chains (but not both) are built,
@@ -177,7 +175,7 @@ There are four ways of doing the incremental scanning:
       rescanned may be impractical.  Cse and regrename fall into this
       category.
 
-2) Defered rescanning - Calls to df_insn_rescan, df_notes_rescan, and
+2) Deferred rescanning - Calls to df_insn_rescan, df_notes_rescan, and
    df_insn_delete do not immediately change the insn but instead make
    a note that the insn needs to be rescanned.  The next call to
    df_analyze, df_finish_pass, or df_process_deferred_rescans will
@@ -190,7 +188,7 @@ There are four ways of doing the incremental scanning:
 
    To enable this mode, call df_set_flags (DF_DEFER_INSN_RESCAN).
    (This mode can be cleared by calling df_clear_flags
-   (DF_DEFER_INSN_RESCAN) but this does not cause the defered insns to
+   (DF_DEFER_INSN_RESCAN) but this does not cause the deferred insns to
    be rescanned.
 
    3) Total rescanning - In this mode the rescanning is disabled.
@@ -207,7 +205,7 @@ There are four ways of doing the incremental scanning:
    insns when only a small number of them have really changed.
 
 4) Do it yourself - In this mechanism, the pass updates the insns
-   itself using the low level df primatives.  Currently no pass does
+   itself using the low level df primitives.  Currently no pass does
    this, but it has the advantage that it is quite efficient given
    that the pass generally has exact knowledge of what it is changing.  
 
@@ -506,15 +504,17 @@ df_set_blocks (bitmap blocks)
 	bitmap_print (dump_file, blocks, "setting blocks to analyze ", "\n");
       if (df->blocks_to_analyze)
 	{
+	  /* This block is called to change the focus from one subset
+	     to another.  */
 	  int p;
 	  bitmap diff = BITMAP_ALLOC (&df_bitmap_obstack);
 	  bitmap_and_compl (diff, df->blocks_to_analyze, blocks);
-	  for (p = df->num_problems_defined - 1; p >= DF_FIRST_OPTIONAL_PROBLEM ;p--)
+	  for (p = 0; p < df->num_problems_defined; p++)
 	    {
 	      struct dataflow *dflow = df->problems_in_order[p];
-	      if (dflow->problem->reset_fun)
+	      if (dflow->optional_p && dflow->problem->reset_fun)
 		dflow->problem->reset_fun (df->blocks_to_analyze);
-	      else if (dflow->problem->free_bb_fun)
+	      else if (dflow->problem->free_blocks_on_set_blocks)
 		{
 		  bitmap_iterator bi;
 		  unsigned int bb_index;
@@ -539,33 +539,31 @@ df_set_blocks (bitmap blocks)
 	}
       else
 	{
-	  /* If we have not actually run scanning before, do not try
-	     to clear anything.  */
-	  if (df_scan->problem_data)
+	  /* This block of code is executed to change the focus from
+	     the entire function to a subset.  */
+	  bitmap blocks_to_reset = NULL;
+	  int p;
+	  for (p = 0; p < df->num_problems_defined; p++)
 	    {
-	      bitmap blocks_to_reset = NULL;
-	      int p;
-	      for (p = df->num_problems_defined - 1; p >= DF_FIRST_OPTIONAL_PROBLEM ;p--)
+	      struct dataflow *dflow = df->problems_in_order[p];
+	      if (dflow->optional_p && dflow->problem->reset_fun)
 		{
-		  struct dataflow *dflow = df->problems_in_order[p];
-		  if (dflow->problem->reset_fun)
+		  if (!blocks_to_reset)
 		    {
-		      if (!blocks_to_reset)
+		      basic_block bb;
+		      blocks_to_reset =
+			BITMAP_ALLOC (&df_bitmap_obstack);
+		      FOR_ALL_BB(bb)
 			{
-			  basic_block bb;
-			  blocks_to_reset =
-			    BITMAP_ALLOC (&df_bitmap_obstack);
-			  FOR_ALL_BB(bb)
-			    {
-			      bitmap_set_bit (blocks_to_reset, bb->index); 
-			    }
+			  bitmap_set_bit (blocks_to_reset, bb->index); 
 			}
-		      dflow->problem->reset_fun (blocks_to_reset);
 		    }
+		  dflow->problem->reset_fun (blocks_to_reset);
 		}
-	      if (blocks_to_reset)
-		BITMAP_FREE (blocks_to_reset);
 	    }
+	  if (blocks_to_reset)
+	    BITMAP_FREE (blocks_to_reset);
+
 	  df->blocks_to_analyze = BITMAP_ALLOC (&df_bitmap_obstack);
 	}
       bitmap_copy (df->blocks_to_analyze, blocks);
@@ -573,8 +571,10 @@ df_set_blocks (bitmap blocks)
     }
   else
     {
+      /* This block is executed to reset the focus to the entire
+	 function.  */
       if (dump_file)
-	fprintf (dump_file, "clearing blocks to analyze\n");
+	fprintf (dump_file, "clearing blocks_to_analyze\n");
       if (df->blocks_to_analyze)
 	{
 	  BITMAP_FREE (df->blocks_to_analyze);
@@ -599,7 +599,6 @@ df_remove_problem (struct dataflow *dflow)
 {
   struct df_problem *problem;
   int i;
-  int start = 0;
 
   if (!dflow)
     return;
@@ -607,18 +606,13 @@ df_remove_problem (struct dataflow *dflow)
   problem = dflow->problem;
   gcc_assert (problem->remove_problem_fun);
 
-  /* Normally only optional problems are removed, but during global,
-     we remove ur and live and replace it with urec.  */
-  if (problem->id >= DF_FIRST_OPTIONAL_PROBLEM)
-    start = DF_FIRST_OPTIONAL_PROBLEM;
-
   /* Delete any problems that depended on this problem first.  */
-  for (i = start; i < df->num_problems_defined; i++)
+  for (i = 0; i < df->num_problems_defined; i++)
     if (df->problems_in_order[i]->problem->dependent_problem == problem)
       df_remove_problem (df->problems_in_order[i]);
 
   /* Now remove this problem.  */
-  for (i = start; i < df->num_problems_defined; i++)
+  for (i = 0; i < df->num_problems_defined; i++)
     if (df->problems_in_order[i] == dflow)
       {
 	int j;
@@ -635,16 +629,16 @@ df_remove_problem (struct dataflow *dflow)
 
 
 /* Remove all of the problems that are not permanent.  Scanning, lr,
-   ur and live are permanent, the rest are removeable.  Also clear all
+   ur and live are permanent, the rest are removable.  Also clear all
    of the changeable_flags.  */
 
 void
-df_finish_pass (void)
+df_finish_pass (bool verify ATTRIBUTE_UNUSED)
 {
   int i;
   int removed = 0;
 
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_DF_CHECKING
   enum df_changeable_flags saved_flags;
 #endif
 
@@ -654,20 +648,23 @@ df_finish_pass (void)
   df_maybe_reorganize_def_refs (DF_REF_ORDER_NO_TABLE);
   df_maybe_reorganize_use_refs (DF_REF_ORDER_NO_TABLE);
 
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_DF_CHECKING
   saved_flags = df->changeable_flags;
 #endif
 
-  for (i = DF_FIRST_OPTIONAL_PROBLEM; i < df->num_problems_defined; i++)
+  for (i = 0; i < df->num_problems_defined; i++)
     {
       struct dataflow *dflow = df->problems_in_order[i];
       struct df_problem *problem = dflow->problem;
 
-      gcc_assert (problem->remove_problem_fun);
-      (problem->remove_problem_fun) ();
-      df->problems_in_order[i] = NULL;
-      df->problems_by_index[problem->id] = NULL;
-      removed++;
+      if (dflow->optional_p)
+	{
+	  gcc_assert (problem->remove_problem_fun);
+	  (problem->remove_problem_fun) ();
+	  df->problems_in_order[i] = NULL;
+	  df->problems_by_index[problem->id] = NULL;
+	  removed++;
+	}
     }
   df->num_problems_defined -= removed;
 
@@ -684,18 +681,23 @@ df_finish_pass (void)
       df->analyze_subset = false;
     }
 
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_DF_CHECKING
   /* Verification will fail in DF_NO_INSN_RESCAN.  */
   if (!(saved_flags & DF_NO_INSN_RESCAN))
     {
       df_lr_verify_transfer_functions ();
-      if (df_ur)
-	df_ur_verify_transfer_functions ();
+      if (df_live)
+	df_live_verify_transfer_functions ();
     }
 
 #ifdef DF_DEBUG_CFG
   df_set_clean_cfg ();
 #endif
+#endif
+
+#ifdef ENABLE_CHECKING
+  if (verify)
+    df->changeable_flags |= DF_VERIFY_SCHEDULED;
 #endif
 }
 
@@ -720,11 +722,8 @@ rest_of_handle_df_initialize (void)
 
   /* These three problems are permanent.  */
   df_lr_add_problem ();
-  if (optimize)
-    {
-      df_ur_add_problem ();
-      df_live_add_problem ();
-    }
+  if (optimize > 1)
+    df_live_add_problem ();
 
   df->postorder = XNEWVEC (int, last_basic_block);
   df->postorder_inverted = XNEWVEC (int, last_basic_block);
@@ -851,139 +850,6 @@ struct tree_opt_pass pass_df_finish =
 ----------------------------------------------------------------------------*/
 
 
-/* Hybrid search algorithm from "Implementation Techniques for
-   Efficient Data-Flow Analysis of Large Programs" 
-   by  Darren C. Atkinson, William G. Griswold.  */
-
-static void
-df_hybrid_search_forward (basic_block bb, 
-                          sbitmap pending,
-                          sbitmap visited,
-                          sbitmap considered,
-			  struct dataflow *dataflow)
-{
-  int result_changed;
-  int i = bb->index;
-  edge e;
-  edge_iterator ei;
-
-  SET_BIT (visited, bb->index);
-  gcc_assert (TEST_BIT (pending, bb->index));
-  RESET_BIT (pending, i);
-
-  /*  Calculate <conf_op> of predecessor_outs.  */
-  if (EDGE_COUNT (bb->preds) > 0)
-    FOR_EACH_EDGE (e, ei, bb->preds)
-      {
-	if (!TEST_BIT (considered, e->src->index))
-	  continue;
-	
-	dataflow->problem->con_fun_n (e);
-      }
-  else if (dataflow->problem->con_fun_0)
-    dataflow->problem->con_fun_0 (bb);
-  
-  result_changed = dataflow->problem->trans_fun (i);
-  
-  if (!result_changed)
-    return;
-  
-  FOR_EACH_EDGE (e, ei, bb->succs)
-    {
-      if (e->dest->index == i)
-	continue;
-      if (!TEST_BIT (considered, e->dest->index))
-	continue;
-      SET_BIT (pending, e->dest->index);
-    }
-
-  /* This loop below defeats the reverse postorder traversal completely,
-     because on the first block of the CFG,
-     this code visits the block by the DFS order 
-     all the way down to the bottom.  */
-  FOR_EACH_EDGE (e, ei, bb->succs)
-    {
-      if (e->dest->index == i)
-	continue;
-      
-      if (!TEST_BIT (considered, e->dest->index))
-	continue;
-
-      if (!TEST_BIT (visited, e->dest->index))
-	df_hybrid_search_forward (e->dest, 
-                                  pending,
-                                  visited,
-                                  considered,
-                                  dataflow);
-    }
-}
-
-static void
-df_hybrid_search_backward (basic_block bb,
-                           sbitmap pending,
-                           sbitmap visited,
-                           sbitmap considered,
-			   struct dataflow *dataflow)
-{
-  int result_changed;
-  int i = bb->index;
-  edge e;
-  edge_iterator ei;
-  
-  SET_BIT (visited, bb->index);
-  gcc_assert (TEST_BIT (pending, bb->index));
-  RESET_BIT (pending, i);
-
-  /*  Calculate <conf_op> of predecessor_outs.  */
-  if (EDGE_COUNT (bb->succs) > 0)
-    FOR_EACH_EDGE (e, ei, bb->succs)					
-      {								
-	if (!TEST_BIT (considered, e->dest->index))		
-	  continue;							
-	
-	dataflow->problem->con_fun_n (e);
-      }								
-  else if (dataflow->problem->con_fun_0)
-    dataflow->problem->con_fun_0 (bb);
-
-  result_changed = dataflow->problem->trans_fun (i);
-  
-  if (!result_changed)
-    return;
-  
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    {								
-      if (e->src->index == i)
-	continue;
-      
-      if (!TEST_BIT (considered, e->src->index))
-	continue;
-
-      SET_BIT (pending, e->src->index);
-    }								
-  
-  /* This loop below defeats the reverse postorder traversal completely,
-     because on the first block of the CFG,
-     this code visits the block by the DFS order 
-     all the way down to the bottom.  */
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    {
-      if (e->src->index == i)
-	continue;
-
-      if (!TEST_BIT (considered, e->src->index))
-	continue;
-
-      if (!TEST_BIT (visited, e->src->index))
-	df_hybrid_search_backward (e->src, 
-                                   pending,
-                                   visited,
-                                   considered,
-                                   dataflow);
-    }
-}
-
-
 /* Helper function for df_worklist_dataflow.
    Propagate the dataflow forward. 
    Given a BB_INDEX, do the dataflow propagation
@@ -1092,10 +958,11 @@ df_worklist_dataflow (struct dataflow *dataflow,
   unsigned int index;
   enum df_flow_dir dir = dataflow->problem->dir;
 
-  gcc_assert (dir);
+  gcc_assert (dir != DF_NONE);
 
   /* BBINDEX_TO_POSTORDER maps the bb->index to the reverse postorder.  */
-  bbindex_to_postorder = (unsigned int *)xmalloc (last_basic_block * sizeof (unsigned int));
+  bbindex_to_postorder =
+    (unsigned int *)xmalloc (last_basic_block * sizeof (unsigned int));
 
   /* Initialize the array to an out-of-bound value.  */
   for (i = 0; i < last_basic_block; i++)
@@ -1144,82 +1011,6 @@ df_worklist_dataflow (struct dataflow *dataflow,
 }
 
 
-/* This function will perform iterative bitvector dataflow described
-   by DATAFLOW, producing the in and out sets.  Only the part of the
-   cfg induced by blocks in DATAFLOW->order is taken into account.  */
-
-void
-df_iterative_dataflow (struct dataflow *dataflow,
-		       bitmap blocks_to_consider,  
-		       int *blocks_in_postorder, int n_blocks)
-{
-  unsigned int idx;
-  int i;
-  sbitmap visited = sbitmap_alloc (last_basic_block);
-  sbitmap pending = sbitmap_alloc (last_basic_block);
-  sbitmap considered = sbitmap_alloc (last_basic_block);
-  bitmap_iterator bi;
-
-  sbitmap_zero (visited);
-  sbitmap_zero (pending);
-  sbitmap_zero (considered);
-
-  gcc_assert (dataflow->problem->dir);
-
-  EXECUTE_IF_SET_IN_BITMAP (blocks_to_consider, 0, idx, bi)
-    {
-      SET_BIT (considered, idx);
-    }
-
-  for (i = 0; i < n_blocks; i++)
-    {
-      idx = blocks_in_postorder[i];
-      SET_BIT (pending, idx);
-    }
-
-  dataflow->problem->init_fun (blocks_to_consider);
-
-  while (1)
-    {
-      /* For forward problems, you want to pass in reverse postorder
-         and for backward problems you want postorder.  This has been
-         shown to be as good as you can do by several people, the
-         first being Mathew Hecht in his phd dissertation.
-
-	 The nodes are passed into this function in postorder.  */
-
-      for (i = 0; i < n_blocks; i++)
-        {
-          idx = blocks_in_postorder[i];
-          
-          if (TEST_BIT (pending, idx) && !TEST_BIT (visited, idx))
-            {
-              if (dataflow->problem->dir == DF_FORWARD)
-                df_hybrid_search_forward (BASIC_BLOCK (idx), 
-                                          pending,
-                                          visited,
-                                          considered,
-                                          dataflow);
-              else
-                df_hybrid_search_backward (BASIC_BLOCK (idx), 
-                                           pending,
-                                           visited,
-                                           considered,
-                                           dataflow);
-            }
-        }
-      if (sbitmap_first_set_bit (pending) == -1)
-	break;
-
-      sbitmap_zero (visited);
-    }
-
-  sbitmap_free (pending);
-  sbitmap_free (visited);
-  sbitmap_free (considered);
-}
-
-
 /* Remove the entries not in BLOCKS from the LIST of length LEN, preserving
    the order of the remaining entries.  Returns the length of the resulting
    list.  */
@@ -1251,7 +1042,7 @@ df_analyze_problem (struct dataflow *dflow,
 {
   timevar_push (dflow->problem->tv_id);
 
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_DF_CHECKING
   if (dflow->problem->verify_start_fun)
     dflow->problem->verify_start_fun ();
 #endif
@@ -1273,7 +1064,7 @@ df_analyze_problem (struct dataflow *dflow,
   if (dflow->problem->finalize_fun)
     dflow->problem->finalize_fun (blocks_to_consider);
 
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_DF_CHECKING
   if (dflow->problem->verify_end_fun)
     dflow->problem->verify_end_fun ();
 #endif
@@ -1303,21 +1094,31 @@ df_analyze (void)
   df->n_blocks = post_order_compute (df->postorder, true, true);
   df->n_blocks_inverted = inverted_post_order_compute (df->postorder_inverted);
 
+  /* These should be the same.  */
+  gcc_assert (df->n_blocks == df->n_blocks_inverted);
+
   /* We need to do this before the df_verify_all because this is
      not kept incrementally up to date.  */
   df_compute_regs_ever_live (false);
   df_process_deferred_rescans ();
 
-#ifdef ENABLE_CHECKING
   if (dump_file)
     fprintf (dump_file, "df_analyze called\n");
-  df_verify ();
-#endif 
+
+#ifndef ENABLE_DF_CHECKING
+  if (df->changeable_flags & DF_VERIFY_SCHEDULED)
+#endif
+    df_verify ();
 
   for (i = 0; i < df->n_blocks; i++)
     bitmap_set_bit (current_all_blocks, df->postorder[i]);
+
+#ifdef ENABLE_CHECKING
+  /* Verify that POSTORDER_INVERTED only contains blocks reachable from
+     the ENTRY block.  */
   for (i = 0; i < df->n_blocks_inverted; i++)
     gcc_assert (bitmap_bit_p (current_all_blocks, df->postorder_inverted[i]));
+#endif
 
   /* Make sure that we have pruned any unreachable blocks from these
      sets.  */
@@ -1485,8 +1286,8 @@ df_mark_solutions_dirty (void)
 bool 
 df_get_bb_dirty (basic_block bb)
 {
-  if (df)
-    return bitmap_bit_p (df_ur->out_of_date_transfer_functions, bb->index);
+  if (df && df_live)
+    return bitmap_bit_p (df_live->out_of_date_transfer_functions, bb->index);
   else 
     return false;
 }
@@ -1534,7 +1335,7 @@ df_compact_blocks (void)
   int i, p;
   basic_block bb;
   void **problem_temps;
-  int size = last_basic_block *sizeof (void *);
+  int size = last_basic_block * sizeof (void *);
   bitmap tmp = BITMAP_ALLOC (&df_bitmap_obstack);
   problem_temps = xmalloc (size);
 
@@ -1705,18 +1506,20 @@ df_bb_delete (int bb_index)
 /* Verify that there is a place for everything and everything is in
    its place.  This is too expensive to run after every pass in the
    mainline.  However this is an excellent debugging tool if the
-   dataflow infomation is not being updated properly.  You can just
+   dataflow information is not being updated properly.  You can just
    sprinkle calls in until you find the place that is changing an
    underlying structure without calling the proper updating
-   rountine.  */
+   routine.  */
 
 void
 df_verify (void)
 {
   df_scan_verify ();
+#ifdef ENABLE_DF_CHECKING
   df_lr_verify_transfer_functions ();
-  if (df_ur)
-    df_ur_verify_transfer_functions ();
+  if (df_live)
+    df_live_verify_transfer_functions ();
+#endif
 }
 
 #ifdef DF_DEBUG_CFG
@@ -1802,40 +1605,6 @@ df_set_clean_cfg (void)
 ----------------------------------------------------------------------------*/
 
 
-/* Return last use of REGNO within BB.  */
-
-struct df_ref *
-df_bb_regno_last_use_find (basic_block bb, unsigned int regno)
-{
-  rtx insn;
-  struct df_ref **use_rec;
-  unsigned int uid;
-
-  FOR_BB_INSNS_REVERSE (bb, insn)
-    {
-      if (!INSN_P (insn))
-	continue;
-
-      uid = INSN_UID (insn);
-      for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
-	{
-	  struct df_ref *use = *use_rec;
-	  if (DF_REF_REGNO (use) == regno)
-	    return use;
-	}
-
-      if (df->changeable_flags & DF_EQ_NOTES)
-	for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
-	  {
-	    struct df_ref *use = *use_rec;
-	    if (DF_REF_REGNO (use) == regno)
-	      return use;
-	  }
-    }
-  return NULL;
-}
-
-
 /* Return first def of REGNO within BB.  */
 
 struct df_ref *
@@ -1887,26 +1656,6 @@ df_bb_regno_last_def_find (basic_block bb, unsigned int regno)
 
   return NULL;
 }
-
-/* Return true if INSN defines REGNO.  */
-
-bool
-df_insn_regno_def_p (rtx insn, unsigned int regno)
-{
-  unsigned int uid;
-  struct df_ref **def_rec;
-
-  uid = INSN_UID (insn);
-  for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
-    {
-      struct df_ref *def = *def_rec;
-      if (DF_REF_REGNO (def) == regno)
-	return true;
-    }
-  
-  return false;
-}
-
 
 /* Finds the reference corresponding to the definition of REG in INSN.
    DF is the dataflow object.  */

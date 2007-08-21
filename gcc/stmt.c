@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This file handles the generation of rtl code from tree structure
    above the level of expressions, using subroutines in exp*.c and emit-rtl.c.
@@ -575,14 +574,9 @@ decl_overlaps_hard_reg_set_p (tree *declp, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  && REGNO (DECL_RTL (decl)) < FIRST_PSEUDO_REGISTER)
 	{
 	  rtx reg = DECL_RTL (decl);
-	  unsigned int regno;
 
-	  for (regno = REGNO (reg);
-	       regno < (REGNO (reg)
-			+ hard_regno_nregs[REGNO (reg)][GET_MODE (reg)]);
-	       regno++)
-	    if (TEST_HARD_REG_BIT (*regs, regno))
-	      return decl;
+	  if (overlaps_hard_reg_set_p (*regs, GET_MODE (reg), REGNO (reg)))
+	    return decl;
 	}
       walk_subtrees = 0;
     }
@@ -1083,6 +1077,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
     if (real_output_rtx[i])
       emit_move_insn (real_output_rtx[i], output_rtx[i]);
 
+  cfun->has_asm_statement = 1;
   free_temp_slots ();
 }
 
@@ -1119,7 +1114,7 @@ expand_asm_expr (tree exp)
     {
       if (o[i] != TREE_VALUE (tail))
 	{
-	  expand_assignment (o[i], TREE_VALUE (tail));
+	  expand_assignment (o[i], TREE_VALUE (tail), false);
 	  free_temp_slots ();
 
 	  /* Restore the original value so that it's correct the next
@@ -1362,7 +1357,7 @@ expand_expr_stmt (tree exp)
   rtx value;
   tree type;
 
-  value = expand_expr (exp, const0_rtx, VOIDmode, 0);
+  value = expand_expr (exp, const0_rtx, VOIDmode, EXPAND_NORMAL);
   if (GIMPLE_TUPLE_P (exp))
     type = void_type_node;
   else
@@ -1397,7 +1392,7 @@ expand_expr_stmt (tree exp)
    (potential) location of the expression.  */
 
 int
-warn_if_unused_value (tree exp, location_t locus)
+warn_if_unused_value (const_tree exp, location_t locus)
 {
  restart:
   if (TREE_USED (exp) || TREE_NO_WARNING (exp))
@@ -1728,7 +1723,7 @@ expand_return (tree retval)
       tree nt = build_qualified_type (ot, TYPE_QUALS (ot) | TYPE_QUAL_CONST);
 
       val = assign_temp (nt, 0, 0, 1);
-      val = expand_expr (retval_rhs, val, GET_MODE (val), 0);
+      val = expand_expr (retval_rhs, val, GET_MODE (val), EXPAND_NORMAL);
       val = force_not_mem (val);
       /* Return the calculated value.  */
       expand_value_return (val);
@@ -1736,7 +1731,7 @@ expand_return (tree retval)
   else
     {
       /* No hard reg used; calculate value into hard return reg.  */
-      expand_expr (retval, const0_rtx, VOIDmode, 0);
+      expand_expr (retval, const0_rtx, VOIDmode, EXPAND_NORMAL);
       expand_value_return (result_rtl);
     }
 }
@@ -1752,7 +1747,7 @@ expand_return (tree retval)
    *that* node in turn will point to the relevant FUNCTION_DECL node.  */
 
 int
-is_body_block (tree stmt)
+is_body_block (const_tree stmt)
 {
   if (lang_hooks.no_body_blocks)
     return 0;
@@ -1903,19 +1898,11 @@ expand_decl (tree decl)
 
       /* Note if the object is a user variable.  */
       if (!DECL_ARTIFICIAL (decl))
-	{
 	  mark_user_reg (DECL_RTL (decl));
 
-	  /* Trust user variables which have a pointer type to really
-	     be pointers.  Do not trust compiler generated temporaries
-	     as our type system is totally busted as it relates to
-	     pointer arithmetic which translates into lots of compiler
-	     generated objects with pointer types, but which are not really
-	     pointers.  */
-	  if (POINTER_TYPE_P (type))
-	    mark_reg_pointer (DECL_RTL (decl),
-			      TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
-	}
+      if (POINTER_TYPE_P (type))
+	mark_reg_pointer (DECL_RTL (decl),
+			  TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
     }
 
   else if (TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST
@@ -2148,7 +2135,7 @@ add_case_node (struct case_node *head, tree type, tree low, tree high,
 
 /* By default, enable case bit tests on targets with ashlsi3.  */
 #ifndef CASE_USE_BIT_TESTS
-#define CASE_USE_BIT_TESTS  (ashl_optab->handlers[word_mode].insn_code \
+#define CASE_USE_BIT_TESTS  (optab_handler (ashl_optab, word_mode)->insn_code \
 			     != CODE_FOR_nothing)
 #endif
 
@@ -2315,7 +2302,7 @@ expand_case (tree exp)
   rtx table_label;
   int ncases;
   rtx *labelvec;
-  int i, fail;
+  int i;
   rtx before_case, end, lab;
 
   tree vec = SWITCH_LABELS (exp);
@@ -2589,8 +2576,6 @@ expand_case (tree exp)
 
       before_case = NEXT_INSN (before_case);
       end = get_last_insn ();
-      fail = squeeze_notes (&before_case, &end);
-      gcc_assert (!fail);
       reorder_insns (before_case, end, start);
     }
 

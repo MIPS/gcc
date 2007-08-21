@@ -6,7 +6,7 @@ in
 #
 # Makefile for directory with subdirs to build.
 #   Copyright (C) 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-#   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation
+#   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -136,7 +136,8 @@ BUILD_EXPORTS = \
 	LDFLAGS="$(LDFLAGS_FOR_BUILD)"; export LDFLAGS; \
 	NM="$(NM_FOR_BUILD)"; export NM; \
 	RANLIB="$(RANLIB_FOR_BUILD)"; export RANLIB; \
-	WINDRES="$(WINDRES_FOR_BUILD)"; export WINDRES;
+	WINDRES="$(WINDRES_FOR_BUILD)"; export WINDRES; \
+	WINDMC="$(WINDMC_FOR_BUILD)"; export WINDMC;
 
 # This is the list of directories to built for the host system.
 SUBDIRS = @configdirs@
@@ -165,6 +166,7 @@ HOST_EXPORTS = \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
+	WINDMC="$(WINDMC)"; export WINDMC; \
 	OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
 	OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
 	AR_FOR_TARGET="$(AR_FOR_TARGET)"; export AR_FOR_TARGET; \
@@ -191,7 +193,6 @@ POSTSTAGE1_HOST_EXPORTS = \
 	  $$r/$(HOST_SUBDIR)/prev-gcc/xgcc$(exeext) \
 	  -B$$r/$(HOST_SUBDIR)/prev-gcc/ \
 	  -B$(build_tooldir)/bin/"; export CC_FOR_BUILD; \
-	CFLAGS="$(BOOT_CFLAGS)"; export CFLAGS; \
 	LDFLAGS="$(BOOT_LDFLAGS)"; export LDFLAGS;
 
 # Target libraries are put under this directory:
@@ -221,6 +222,7 @@ BASE_TARGET_EXPORTS = \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	STRIP="$(STRIP_FOR_TARGET)"; export STRIP; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	WINDMC="$(WINDMC_FOR_TARGET)"; export WINDMC; \
 	$(RPATH_ENVVAR)=`echo "$(HOST_LIB_PATH)$(TARGET_LIB_PATH)$$$(RPATH_ENVVAR)" | sed 's,::*,:,g;s,^:*,,;s,:*$$,,'`; export $(RPATH_ENVVAR);
 
 RAW_CXX_TARGET_EXPORTS = \
@@ -299,6 +301,7 @@ OBJDUMP = @OBJDUMP@
 RANLIB = @RANLIB@
 STRIP = @STRIP@
 WINDRES = @WINDRES@
+WINDMC = @WINDMC@
 
 GNATBIND = @GNATBIND@
 GNATMAKE = @GNATMAKE@
@@ -319,6 +322,14 @@ PICFLAG =
 STAGE1_CFLAGS=@stage1_cflags@
 STAGE1_CHECKING=@stage1_checking@
 STAGE1_LANGUAGES=@stage1_languages@
+
+STAGE2_CFLAGS=$(BOOT_CFLAGS)
+STAGE3_CFLAGS=$(BOOT_CFLAGS)
+STAGE4_CFLAGS=$(BOOT_CFLAGS)
+
+do-compare = @do_compare@
+do-compare3 = $(do-compare)
+do-compare-debug = $(SHELL) $(srcdir)/contrib/compare-debug $$f1 $$f2
 
 # -----------------------------------------------
 # Programs producing files for the TARGET machine
@@ -348,6 +359,7 @@ OBJDUMP_FOR_TARGET=@OBJDUMP_FOR_TARGET@
 RANLIB_FOR_TARGET=@RANLIB_FOR_TARGET@
 STRIP_FOR_TARGET=@STRIP_FOR_TARGET@
 WINDRES_FOR_TARGET=@WINDRES_FOR_TARGET@
+WINDMC_FOR_TARGET=@WINDMC_FOR_TARGET@
 
 COMPILER_AS_FOR_TARGET=@COMPILER_AS_FOR_TARGET@
 COMPILER_LD_FOR_TARGET=@COMPILER_LD_FOR_TARGET@
@@ -357,9 +369,12 @@ COMPILER_NM_FOR_TARGET=@COMPILER_NM_FOR_TARGET@
 # CFLAGS will be just -g.  We want to ensure that TARGET libraries
 # (which we know are built with gcc) are built with optimizations so
 # prepend -O2 when setting CFLAGS_FOR_TARGET.
-CFLAGS_FOR_TARGET = -O2 $(CFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET)
+CFLAGS_FOR_TARGET = -O2 $(CFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \
+	$(DEBUG_PREFIX_CFLAGS_FOR_TARGET)
 SYSROOT_CFLAGS_FOR_TARGET = @SYSROOT_CFLAGS_FOR_TARGET@
-CXXFLAGS_FOR_TARGET = $(CXXFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET)
+DEBUG_PREFIX_CFLAGS_FOR_TARGET = @DEBUG_PREFIX_CFLAGS_FOR_TARGET@
+CXXFLAGS_FOR_TARGET = $(CXXFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \
+	$(DEBUG_PREFIX_CFLAGS_FOR_TARGET)
 LIBCFLAGS_FOR_TARGET = $(CFLAGS_FOR_TARGET)
 LIBCXXFLAGS_FOR_TARGET = $(CXXFLAGS_FOR_TARGET) -fno-implicit-templates
 LDFLAGS_FOR_TARGET = 
@@ -435,7 +450,8 @@ EXTRA_HOST_FLAGS = \
 	'OBJDUMP=$(OBJDUMP)' \
 	'RANLIB=$(RANLIB)' \
 	'STRIP=$(STRIP)' \
-	'WINDRES=$(WINDRES)'
+	'WINDRES=$(WINDRES)' \
+	'WINDMC=$(WINDMC)'
 
 FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_HOST_FLAGS)
 
@@ -456,8 +472,6 @@ X11_FLAGS_TO_PASS = \
 POSTSTAGE1_FLAGS_TO_PASS = \
 	CC="$${CC}" CC_FOR_BUILD="$${CC_FOR_BUILD}" \
 	GNATBIND="$$r/$(HOST_SUBDIR)/prev-gcc/gnatbind" \
-	CFLAGS="$(BOOT_CFLAGS)" \
-	LIBCFLAGS="$(BOOT_CFLAGS)" \
 	LDFLAGS="$(BOOT_LDFLAGS)" \
 	"`echo 'ADAFLAGS=$(BOOT_ADAFLAGS)' | sed -e s'/[^=][^=]*=$$/XFOO=/'`"
 
@@ -480,7 +494,8 @@ EXTRA_TARGET_FLAGS = \
 	'NM=$(COMPILER_NM_FOR_TARGET)' \
 	'OBJDUMP=$$(OBJDUMP_FOR_TARGET)' \
 	'RANLIB=$$(RANLIB_FOR_TARGET)' \
-	'WINDRES=$$(WINDRES_FOR_TARGET)'
+	'WINDRES=$$(WINDRES_FOR_TARGET)' \
+	'WINDMC=$$(WINDMC_FOR_TARGET)'
 
 TARGET_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_TARGET_FLAGS)
 
@@ -824,6 +839,8 @@ configure-stage[+id+]-[+prefix+][+module+]:
 	[+ ENDIF check_multilibs +]test ! -f [+subdir+]/[+module+]/Makefile || exit 0; \
 	[+exports+][+ IF prev +] \
 	[+poststage1_exports+][+ ENDIF prev +] \
+	CFLAGS="[+stage_cflags+]"; export CFLAGS; \
+	LIBCFLAGS="[+stage_cflags+]"; export LIBCFLAGS; \
 	echo Configuring stage [+id+] in [+subdir+]/[+module+] ; \
 	$(SHELL) $(srcdir)/mkinstalldirs [+subdir+]/[+module+] ; \
 	cd [+subdir+]/[+module+] || exit 1; \
@@ -880,9 +897,10 @@ all-stage[+id+]-[+prefix+][+module+]: configure-stage[+id+]-[+prefix+][+module+]
 	[+exports+][+ IF prev +] \
 	[+poststage1_exports+][+ ENDIF prev +] \
 	cd [+subdir+]/[+module+] && \
-	$(MAKE) [+args+] [+ IF prev
-		+][+poststage1_args+][+ ENDIF prev
-		+] [+stage_make_flags+] [+extra_make_flags+] \
+	$(MAKE) [+args+] \
+		CFLAGS="[+stage_cflags+]" LIBCFLAGS="[+stage_cflags+]" [+
+		IF prev +][+poststage1_args+][+ ENDIF prev
+		+] [+extra_make_flags+] \
 		$(TARGET-stage[+id+]-[+prefix+][+module+])
 
 maybe-clean-stage[+id+]-[+prefix+][+module+]: clean-stage[+id+]-[+prefix+][+module+]
@@ -897,7 +915,7 @@ clean-stage[+id+]-[+prefix+][+module+]:
 	cd [+subdir+]/[+module+] && \
 	$(MAKE) [+args+] [+ IF prev +] \
 		[+poststage1_args+] [+ ENDIF prev +] \
-		[+stage_make_flags+] [+extra_make_flags+] clean
+		[+extra_make_flags+] clean
 @endif [+prefix+][+module+]-bootstrap
 
 [+ ENDFOR bootstrap_stage +]
@@ -1005,7 +1023,7 @@ maybe-[+make_target+]-[+module+]: [+make_target+]-[+module+]
 	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
 	          [+make_target+]) \
 	  || exit 1
 [+ ENDIF +]
@@ -1121,7 +1139,7 @@ ENDIF raw_cxx +]
 	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
 	          [+extra_make_flags+] [+make_target+]) \
 	  || exit 1
 [+ ENDIF +]
@@ -1267,7 +1285,7 @@ stage[+id+]-end:: [+ FOR host_modules +][+ IF bootstrap +]
 	fi
 	rm -f stage_current
 
-# Bubble a bugfix through all the stages up to stage [+id+].  They are
+# Bubble a bug fix through all the stages up to stage [+id+].  They are
 # remade, but not reconfigured.  The next stage (if any) will not be
 # reconfigured as well.
 .PHONY: stage[+id+]-bubble
@@ -1309,7 +1327,7 @@ do-clean: clean-stage[+id+]
 	cd .. ; \
 	for file in $${files} ; do \
 	  f1=$$r/stage[+prev+]-gcc/$$file; f2=$$r/stage[+id+]-gcc/$$file; \
-	  @do_compare@ > /dev/null 2>&1; \
+	  $(do-[+compare-target+]) > /dev/null 2>&1; \
 	  if test $$? -eq 1; then \
 	    case $$file in \
 	      ./cc*-checksum$(objext) | ./libgcc/* ) \
@@ -1361,12 +1379,21 @@ do-clean: clean-stage[+id+]
 .PHONY: distclean-stage[+id+]
 distclean-stage[+id+]::
 	@: $(MAKE); $(stage)
+	@test "`cat stage_last`" != stage[+id+] || rm -f stage_last
 	rm -rf stage[+id+]-* [+
 	  IF compare-target +][+compare-target+] [+ ENDIF compare-target +]
 
 [+ IF cleanstrap-target +]
 .PHONY: [+cleanstrap-target+]
-[+cleanstrap-target+]: distclean [+bootstrap-target+]
+[+cleanstrap-target+]: do-distclean local-clean
+	echo stage[+id+] > stage_final
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) stage[+id+]-bubble
+	@: $(MAKE); $(unstage)
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(TARGET_FLAGS_TO_PASS) all-host all-target
 [+ ENDIF cleanstrap-target +]
 @endif gcc-bootstrap
 

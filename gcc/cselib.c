@@ -1,12 +1,12 @@
 /* Common subexpression elimination library for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -234,7 +233,7 @@ static int
 entry_and_rtx_equal_p (const void *entry, const void *x_arg)
 {
   struct elt_loc_list *l;
-  const cselib_val *v = (const cselib_val *) entry;
+  const cselib_val *const v = (const cselib_val *) entry;
   rtx x = (rtx) x_arg;
   enum machine_mode mode = GET_MODE (x);
 
@@ -266,7 +265,7 @@ entry_and_rtx_equal_p (const void *entry, const void *x_arg)
 static hashval_t
 get_value_hash (const void *entry)
 {
-  const cselib_val *v = (const cselib_val *) entry;
+  const cselib_val *const v = (const cselib_val *) entry;
   return v->value;
 }
 
@@ -276,9 +275,9 @@ get_value_hash (const void *entry)
    removed.  */
 
 int
-references_value_p (rtx x, int only_useless)
+references_value_p (const_rtx x, int only_useless)
 {
-  enum rtx_code code = GET_CODE (x);
+  const enum rtx_code code = GET_CODE (x);
   const char *fmt = GET_RTX_FORMAT (code);
   int i, j;
 
@@ -385,7 +384,7 @@ remove_useless_values (void)
    VOIDmode.  */
 
 enum machine_mode
-cselib_reg_set_mode (rtx x)
+cselib_reg_set_mode (const_rtx x)
 {
   if (!REG_P (x))
     return GET_MODE (x);
@@ -837,21 +836,14 @@ cselib_lookup_mem (rtx x, int create)
    expand to the same place.  */
 
 static rtx 
-expand_loc (struct elt_loc_list * p, bitmap regs_active, int max_depth)
+expand_loc (struct elt_loc_list *p, bitmap regs_active, int max_depth)
 {
   rtx reg_result = NULL;
   unsigned int regno = UINT_MAX;
-  struct elt_loc_list * p_in = p;
+  struct elt_loc_list *p_in = p;
 
   for (; p; p = p -> next)
     {
-      if (dump_file)
-	{
-	  fprintf (dump_file, "substitution: ");
-	  print_inline_rtx (dump_file, p->loc, 0);
-	  fprintf (dump_file, "\n");
-	}
-      
       /* Avoid infinite recursion trying to expand a reg into a
 	 the same reg.  */
       if ((REG_P (p->loc)) 
@@ -868,7 +860,13 @@ expand_loc (struct elt_loc_list * p, bitmap regs_active, int max_depth)
 	continue;
       else if (!REG_P (p->loc))
 	{
-	  rtx result = cselib_expand_value_rtx (p->loc, regs_active, max_depth - 1);
+	  rtx result;
+	  if (dump_file)
+	    {
+	      print_inline_rtx (dump_file, p->loc, 0);
+	      fprintf (dump_file, "\n");
+	    }
+	  result = cselib_expand_value_rtx (p->loc, regs_active, max_depth - 1);
 	  if (result)
 	    return result;
 	}
@@ -877,16 +875,30 @@ expand_loc (struct elt_loc_list * p, bitmap regs_active, int max_depth)
   
   if (regno != UINT_MAX)
     {
-      rtx result = cselib_expand_value_rtx (reg_result, regs_active, max_depth - 1);
+      rtx result;
+      if (dump_file)
+	fprintf (dump_file, "r%d\n", regno);
+
+      result = cselib_expand_value_rtx (reg_result, regs_active, max_depth - 1);
       if (result)
 	return result;
     }
 
+  if (dump_file)
+    {
+      if (reg_result)
+	{
+	  print_inline_rtx (dump_file, reg_result, 0);
+	  fprintf (dump_file, "\n");
+	}
+      else 
+	fprintf (dump_file, "NULL\n");
+    }
   return reg_result;
 }
 
 
-/* Forward substitute and expand an expression out to it's roots.
+/* Forward substitute and expand an expression out to its roots.
    This is the opposite of common subexpression.  Because local value
    numbering is such a weak optimization, the expanded expression is
    pretty much unique (not from a pointer equals point of view but
@@ -907,7 +919,7 @@ expand_loc (struct elt_loc_list * p, bitmap regs_active, int max_depth)
 rtx
 cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 {
-  rtx copy;
+  rtx copy, scopy;
   int i, j;
   RTX_CODE code;
   const char *format_ptr;
@@ -934,21 +946,21 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 	      rtx result;
 	      int regno = REGNO (orig);
 	      
-	      /* The several thing that we are not willing to do (this
-		 is requirement of dse and if others potiential uses
+	      /* The only thing that we are not willing to do (this
+		 is requirement of dse and if others potential uses
 		 need this function we should add a parm to control
 		 it) is that we will not substitute the
 		 STACK_POINTER_REGNUM, FRAME_POINTER or the
 		 HARD_FRAME_POINTER.
 
-		 Thses expansions confuses the code that notices that
+		 These expansions confuses the code that notices that
 		 stores into the frame go dead at the end of the
 		 function and that the frame is not effected by calls
 		 to subroutines.  If you allow the
 		 STACK_POINTER_REGNUM substitution, then dse will
 		 think that parameter pushing also goes dead which is
 		 wrong.  If you allow the FRAME_POINTER or the
-		 HARD_FRAME_POINTER then you loose the opportunity to
+		 HARD_FRAME_POINTER then you lose the opportunity to
 		 make the frame assumptions.  */
 	      if (regno == STACK_POINTER_REGNUM
 		  || regno == FRAME_POINTER_REGNUM
@@ -956,6 +968,10 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 		return orig;
 
 	      bitmap_set_bit (regs_active, regno);
+
+	      if (dump_file)
+		fprintf (dump_file, "expanding: r%d into: ", regno);
+
 	      result = expand_loc (l->elt->locs, regs_active, max_depth);
 	      bitmap_clear_bit (regs_active, regno);
 
@@ -982,23 +998,29 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
       break;
 
     case CONST:
-      /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
-	 a LABEL_REF, it isn't sharable.  */
-      if (GET_CODE (XEXP (orig, 0)) == PLUS
-	  && GET_CODE (XEXP (XEXP (orig, 0), 0)) == SYMBOL_REF
-	  && GET_CODE (XEXP (XEXP (orig, 0), 1)) == CONST_INT)
+      if (shared_const_p (orig))
 	return orig;
       break;
 
 
     case VALUE:
-      return expand_loc (CSELIB_VAL_PTR (orig)->locs, regs_active, max_depth);
-
-      /* A MEM with a constant address is not sharable.  The problem is that
-	 the constant address may need to be reloaded.  If the mem is shared,
-	 then reloading one copy of this mem will cause all copies to appear
-	 to have been reloaded.  */
-
+      {
+	rtx result;
+	if (dump_file)
+	  fprintf (dump_file, "expanding value %s into: ", GET_MODE_NAME (GET_MODE (orig)));
+	
+	result = expand_loc (CSELIB_VAL_PTR (orig)->locs, regs_active, max_depth);
+	if (result 
+	    && GET_CODE (result) == CONST_INT
+	    && GET_MODE (orig) != VOIDmode)
+	  {
+	    result = gen_rtx_CONST (GET_MODE (orig), result);
+	    if (dump_file)
+	      fprintf (dump_file, "  wrapping const_int result in const to preserve mode %s\n", 
+		       GET_MODE_NAME (GET_MODE (orig)));
+	  }
+	return result;
+      }
     default:
       break;
     }
@@ -1054,6 +1076,10 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
       default:
 	gcc_unreachable ();
       }
+
+  scopy = simplify_rtx (copy);
+  if (scopy)
+    return scopy;
   return copy;
 }
 
@@ -1263,7 +1289,7 @@ cselib_invalidate_regno (unsigned int regno, enum machine_mode mode)
       else
 	i = regno - max_value_regs;
 
-      endregno = regno + hard_regno_nregs[regno][mode];
+      endregno = end_hard_regno (mode, regno);
     }
   else
     {
@@ -1284,7 +1310,7 @@ cselib_invalidate_regno (unsigned int regno, enum machine_mode mode)
 	  unsigned int this_last = i;
 
 	  if (i < FIRST_PSEUDO_REGISTER && v != NULL)
-	    this_last += hard_regno_nregs[i][GET_MODE (v->val_rtx)] - 1;
+	    this_last = end_hard_regno (GET_MODE (v->val_rtx), i) - 1;
 
 	  if (this_last < regno || v == NULL)
 	    {
@@ -1328,8 +1354,8 @@ cselib_invalidate_regno (unsigned int regno, enum machine_mode mode)
    executions of the program.  0 means X can be compared reliably
    against certain constants or near-constants.  */
 
-static int
-cselib_rtx_varies_p (rtx x ATTRIBUTE_UNUSED, int from_alias ATTRIBUTE_UNUSED)
+static bool
+cselib_rtx_varies_p (const_rtx x ATTRIBUTE_UNUSED, bool from_alias ATTRIBUTE_UNUSED)
 {
   /* We actually don't need to verify very hard.  This is because
      if X has actually changed, we invalidate the memory anyway,
@@ -1442,7 +1468,7 @@ cselib_invalidate_rtx (rtx dest)
 /* A wrapper for cselib_invalidate_rtx to be called via note_stores.  */
 
 static void
-cselib_invalidate_rtx_note_stores (rtx dest, rtx ignore ATTRIBUTE_UNUSED,
+cselib_invalidate_rtx_note_stores (rtx dest, const_rtx ignore ATTRIBUTE_UNUSED,
 				   void *data ATTRIBUTE_UNUSED)
 {
   cselib_invalidate_rtx (dest);

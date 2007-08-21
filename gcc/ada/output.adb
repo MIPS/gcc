@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,7 +31,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with GNAT.OS_Lib; use GNAT.OS_Lib;
+with System.OS_Lib; use System.OS_Lib;
 
 package body Output is
 
@@ -254,10 +254,27 @@ package body Output is
 
    procedure Write_Eol is
    begin
+      --  Remove any trailing space
+
+      while Next_Col > 1 and then Buffer (Next_Col - 1) = ' ' loop
+         Next_Col := Next_Col - 1;
+      end loop;
+
       Buffer (Next_Col) := ASCII.LF;
       Next_Col := Next_Col + 1;
       Flush_Buffer;
    end Write_Eol;
+
+   ---------------------------
+   -- Write_Eol_Keep_Blanks --
+   ---------------------------
+
+   procedure Write_Eol_Keep_Blanks is
+   begin
+      Buffer (Next_Col) := ASCII.LF;
+      Next_Col := Next_Col + 1;
+      Flush_Buffer;
+   end Write_Eol_Keep_Blanks;
 
    ----------------------
    -- Write_Erase_Char --

@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -188,7 +187,7 @@ mode_for_size (unsigned int size, enum mode_class class, int limit)
 /* Similar, except passed a tree node.  */
 
 enum machine_mode
-mode_for_size_tree (tree size, enum mode_class class, int limit)
+mode_for_size_tree (const_tree size, enum mode_class class, int limit)
 {
   unsigned HOST_WIDE_INT uhwi;
   unsigned int ui;
@@ -237,6 +236,14 @@ int_mode_for_mode (enum machine_mode mode)
     case MODE_DECIMAL_FLOAT:
     case MODE_VECTOR_INT:
     case MODE_VECTOR_FLOAT:
+    case MODE_FRACT:
+    case MODE_ACCUM:
+    case MODE_UFRACT:
+    case MODE_UACCUM:
+    case MODE_VECTOR_FRACT:
+    case MODE_VECTOR_ACCUM:
+    case MODE_VECTOR_UFRACT:
+    case MODE_VECTOR_UACCUM:
       mode = mode_for_size (GET_MODE_BITSIZE (mode), MODE_INT, 0);
       break;
 
@@ -1603,6 +1610,12 @@ layout_type (tree type)
       TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (TYPE_MODE (type)));
       break;
 
+   case FIXED_POINT_TYPE:
+     /* TYPE_MODE (type) has been set already.  */
+     TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
+     TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (TYPE_MODE (type)));
+     break;
+
     case COMPLEX_TYPE:
       TYPE_UNSIGNED (type) = TYPE_UNSIGNED (TREE_TYPE (type));
       TYPE_MODE (type)
@@ -1630,6 +1643,14 @@ layout_type (tree type)
 	    /* First, look for a supported vector type.  */
 	    if (SCALAR_FLOAT_MODE_P (innermode))
 	      mode = MIN_MODE_VECTOR_FLOAT;
+	    else if (SCALAR_FRACT_MODE_P (innermode))
+	      mode = MIN_MODE_VECTOR_FRACT;
+	    else if (SCALAR_UFRACT_MODE_P (innermode))
+	      mode = MIN_MODE_VECTOR_UFRACT;
+	    else if (SCALAR_ACCUM_MODE_P (innermode))
+	      mode = MIN_MODE_VECTOR_ACCUM;
+	    else if (SCALAR_UACCUM_MODE_P (innermode))
+	      mode = MIN_MODE_VECTOR_UACCUM;
 	    else
 	      mode = MIN_MODE_VECTOR_INT;
 
@@ -1651,6 +1672,7 @@ layout_type (tree type)
 	      TYPE_MODE (type) = mode;
 	  }
 
+	TYPE_SATURATING (type) = TYPE_SATURATING (TREE_TYPE (type));
         TYPE_UNSIGNED (type) = TYPE_UNSIGNED (TREE_TYPE (type));
 	TYPE_SIZE_UNIT (type) = int_const_binop (MULT_EXPR,
 					         TYPE_SIZE_UNIT (innertype),
@@ -1808,8 +1830,7 @@ layout_type (tree type)
 
 	    if (TYPE_MODE (type) != BLKmode
 		&& STRICT_ALIGNMENT && TYPE_ALIGN (type) < BIGGEST_ALIGNMENT
-		&& TYPE_ALIGN (type) < GET_MODE_ALIGNMENT (TYPE_MODE (type))
-		&& TYPE_MODE (type) != BLKmode)
+		&& TYPE_ALIGN (type) < GET_MODE_ALIGNMENT (TYPE_MODE (type)))
 	      {
 		TYPE_NO_FORCE_BLK (type) = 1;
 		TYPE_MODE (type) = BLKmode;
@@ -1907,6 +1928,58 @@ make_unsigned_type (int precision)
   return type;
 }
 
+/* Create and return a type for fract of PRECISION bits, UNSIGNEDP,
+   and SATP.  */
+
+tree
+make_fract_type (int precision, int unsignedp, int satp)
+{
+  tree type = make_node (FIXED_POINT_TYPE);
+
+  TYPE_PRECISION (type) = precision;
+
+  if (satp)
+    TYPE_SATURATING (type) = 1;
+
+  /* Lay out the type: set its alignment, size, etc.  */
+  if (unsignedp)
+    {
+      TYPE_UNSIGNED (type) = 1;
+      TYPE_MODE (type) = mode_for_size (precision, MODE_UFRACT, 0);
+    }
+  else
+    TYPE_MODE (type) = mode_for_size (precision, MODE_FRACT, 0);
+  layout_type (type);
+
+  return type;
+}
+
+/* Create and return a type for accum of PRECISION bits, UNSIGNEDP,
+   and SATP.  */
+
+tree
+make_accum_type (int precision, int unsignedp, int satp)
+{
+  tree type = make_node (FIXED_POINT_TYPE);
+
+  TYPE_PRECISION (type) = precision;
+
+  if (satp)
+    TYPE_SATURATING (type) = 1;
+
+  /* Lay out the type: set its alignment, size, etc.  */
+  if (unsignedp)
+    {
+      TYPE_UNSIGNED (type) = 1;
+      TYPE_MODE (type) = mode_for_size (precision, MODE_UACCUM, 0);
+    }
+  else
+    TYPE_MODE (type) = mode_for_size (precision, MODE_ACCUM, 0);
+  layout_type (type);
+
+  return type;
+}
+
 /* Initialize sizetype and bitsizetype to a reasonable and temporary
    value to enable integer types to be created.  */
 

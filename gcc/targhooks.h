@@ -1,11 +1,11 @@
 /* Default target hook functions.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 extern void default_external_libcall (rtx);
 
@@ -31,6 +30,8 @@ extern rtx default_builtin_setjmp_frame_value (void);
 extern bool default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *);
 
 extern enum machine_mode default_eh_return_filter_mode (void);
+extern enum machine_mode default_libgcc_cmp_return_mode (void);
+extern enum machine_mode default_libgcc_shift_count_mode (void);
 extern unsigned HOST_WIDE_INT default_shift_truncation_mask
   (enum machine_mode);
 extern unsigned int default_min_divisions_for_recip_mul (enum machine_mode);
@@ -39,6 +40,8 @@ extern int default_mode_rep_extended (enum machine_mode, enum machine_mode);
 extern tree default_stack_protect_guard (void);
 extern tree default_external_stack_protect_fail (void);
 extern tree default_hidden_stack_protect_fail (void);
+
+extern enum machine_mode default_mode_for_suffix (char);
 
 extern tree default_cxx_guard_type (void);
 extern tree default_cxx_get_cookie_size (tree);
@@ -52,14 +55,18 @@ extern void default_unwind_emit (FILE *, rtx);
 
 extern bool default_scalar_mode_supported_p (enum machine_mode);
 extern bool default_decimal_float_supported_p (void);
+extern bool default_fixed_point_supported_p (void);
 
 extern const char * default_invalid_within_doloop (rtx);
 
-extern bool default_narrow_bitfield (void);
-
-extern tree default_builtin_vectorized_function (enum built_in_function, tree, tree);
+extern tree default_builtin_vectorized_function
+  (enum built_in_function, tree, tree);
 
 extern tree default_builtin_vectorized_conversion (enum tree_code, tree);
+
+extern tree default_builtin_reciprocal (enum built_in_function, bool, bool);
+
+extern bool default_builtin_vector_alignment_reachable (tree, bool);
 
 /* These are here, and not in hooks.[ch], because not all users of
    hooks.h include tm.h, and thus we don't have CUMULATIVE_ARGS.  */
@@ -84,3 +91,4 @@ extern enum reg_class default_secondary_reload (bool, rtx, enum reg_class,
 extern void hook_void_bitmap (bitmap);
 extern bool default_handle_c_option (size_t, const char *, int);
 extern int default_reloc_rw_mask (void);
+extern tree default_mangle_decl_assembler_name (tree, tree);

@@ -1,5 +1,5 @@
 /* Common declarations for all of libgfortran.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -31,9 +31,11 @@ Boston, MA 02110-1301, USA.  */
 #ifndef LIBGFOR_H
 #define LIBGFOR_H
 
+#include <stdio.h>
 #include <math.h>
 #include <stddef.h>
 #include <float.h>
+#include <stdarg.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846264338327
@@ -321,6 +323,9 @@ typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_16) gfc_array_l16;
 #define GFC_DTYPE_TYPE_MASK 0x38
 #define GFC_DTYPE_SIZE_SHIFT 6
 
+/* added for f03.  --Rickett, 02.28.06 */
+#define GFC_NUM_RANK_BITS 3
+
 enum
 {
   GFC_DTYPE_UNKNOWN = 0,
@@ -368,6 +373,9 @@ options_t;
 extern options_t options;
 internal_proto(options);
 
+extern void handler (int);
+internal_proto(handler);
+
 
 /* Compile-time options that will influence the library.  */
 
@@ -379,8 +387,10 @@ typedef struct
   int convert;
   int dump_core;
   int backtrace;
+  int sign_zero;
   size_t record_marker;
   int max_subrecord_length;
+  int bounds_check;
 }
 compile_options_t;
 
@@ -401,7 +411,9 @@ typedef struct
 }
 st_option;
 
-/* Runtime errors.  The EOR and EOF errors are required to be negative.  */
+/* Runtime errors.  The EOR and EOF errors are required to be negative.
+   These codes must be kept sychronized with their equivalents in
+   gcc/fortran/gfortran.h .  */
 
 typedef enum
 {
@@ -534,16 +546,18 @@ st_parameter_common;
 #define IOPARM_OPEN_HAS_PAD             (1 << 16)
 #define IOPARM_OPEN_HAS_CONVERT         (1 << 17)
 
-
-/* main.c */
-
-extern void stupid_function_name_for_static_linking (void);
-internal_proto(stupid_function_name_for_static_linking);
+/* library start function and end macro.  These can be expanded if needed
+   in the future.  cmp is st_parameter_common *cmp  */
 
 extern void library_start (st_parameter_common *);
 internal_proto(library_start);
 
 #define library_end()
+
+/* main.c */
+
+extern void stupid_function_name_for_static_linking (void);
+internal_proto(stupid_function_name_for_static_linking);
 
 extern void set_args (int, char **);
 export_proto(set_args);
@@ -579,13 +593,18 @@ extern const char *xtoa (GFC_UINTEGER_LARGEST, char *, size_t);
 internal_proto(xtoa);
 
 extern void os_error (const char *) __attribute__ ((noreturn));
-internal_proto(os_error);
+iexport_proto(os_error);
 
 extern void show_locus (st_parameter_common *);
 internal_proto(show_locus);
 
-extern void runtime_error (const char *) __attribute__ ((noreturn));
+extern void runtime_error (const char *, ...)
+     __attribute__ ((noreturn, format (printf, 1, 2)));
 iexport_proto(runtime_error);
+
+extern void runtime_error_at (const char *, const char *, ...)
+     __attribute__ ((noreturn, format (printf, 2, 3)));
+iexport_proto(runtime_error_at);
 
 extern void internal_error (st_parameter_common *, const char *)
   __attribute__ ((noreturn));
@@ -594,15 +613,11 @@ internal_proto(internal_error);
 extern const char *get_oserror (void);
 internal_proto(get_oserror);
 
-extern void st_sprintf (char *, const char *, ...)
-  __attribute__ ((format (printf, 2, 3)));
-internal_proto(st_sprintf);
-
 extern const char *translate_error (int);
 internal_proto(translate_error);
 
 extern void generate_error (st_parameter_common *, int, const char *);
-internal_proto(generate_error);
+iexport_proto(generate_error);
 
 extern try notify_std (st_parameter_common *, int, const char *);
 internal_proto(notify_std);
@@ -623,11 +638,8 @@ internal_proto(get_mem);
 extern void free_mem (void *);
 internal_proto(free_mem);
 
-extern void *internal_malloc_size (size_t);
+extern void *internal_malloc_size (size_t) __attribute__ ((malloc));
 internal_proto(internal_malloc_size);
-
-extern void internal_free (void *);
-iexport_proto(internal_free);
 
 /* environ.c */
 
@@ -645,18 +657,23 @@ internal_proto(get_unformatted_convert);
 
 /* string.c */
 
-extern int find_option (st_parameter_common *, const char *, int,
+extern int find_option (st_parameter_common *, const char *, gfc_charlen_type,
 			const st_option *, const char *);
 internal_proto(find_option);
 
-extern int fstrlen (const char *, int);
+extern gfc_charlen_type fstrlen (const char *, gfc_charlen_type);
 internal_proto(fstrlen);
 
-extern void fstrcpy (char *, int, const char *, int);
+extern gfc_charlen_type fstrcpy (char *, gfc_charlen_type, const char *, gfc_charlen_type);
 internal_proto(fstrcpy);
 
-extern void cf_strcpy (char *, int, const char *);
+extern gfc_charlen_type cf_strcpy (char *, gfc_charlen_type, const char *);
 internal_proto(cf_strcpy);
+
+/* io/intrinsics.c */
+
+extern void flush_all_units (void);
+internal_proto(flush_all_units);
 
 /* io.c */
 
@@ -673,9 +690,15 @@ extern int st_printf (const char *, ...)
   __attribute__ ((format (printf, 1, 2)));
 internal_proto(st_printf);
 
+extern int st_vprintf (const char *, va_list);
+internal_proto(st_vprintf);
+
+extern char * filename_from_unit (int);
+internal_proto(filename_from_unit);
+
 /* stop.c */
 
-extern void stop_numeric (GFC_INTEGER_4);
+extern void stop_numeric (GFC_INTEGER_4) __attribute__ ((noreturn));
 iexport_proto(stop_numeric);
 
 /* reshape_packed.c */
@@ -739,15 +762,18 @@ internal_proto(internal_unpack_c16);
 
 /* string_intrinsics.c */
 
-extern GFC_INTEGER_4 compare_string (GFC_INTEGER_4, const char *,
-				     GFC_INTEGER_4, const char *);
+extern int compare_string (GFC_INTEGER_4, const char *,
+			   GFC_INTEGER_4, const char *);
 iexport_proto(compare_string);
 
 /* random.c */
 
-extern void random_seed (GFC_INTEGER_4 * size, gfc_array_i4 * put,
-			 gfc_array_i4 * get);
-iexport_proto(random_seed);
+extern void random_seed_i4 (GFC_INTEGER_4 * size, gfc_array_i4 * put,
+			    gfc_array_i4 * get);
+iexport_proto(random_seed_i4);
+extern void random_seed_i8 (GFC_INTEGER_8 * size, gfc_array_i8 * put,
+			    gfc_array_i8 * get);
+iexport_proto(random_seed_i8);
 
 /* size.c */
 

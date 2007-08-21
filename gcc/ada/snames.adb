@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,9 +31,9 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Namet; use Namet;
 with Opt;   use Opt;
 with Table;
+with Types; use Types;
 
 package body Snames is
 
@@ -118,9 +118,11 @@ package body Snames is
      "put#" &
      "put_line#" &
      "to#" &
+     "exception_traces#" &
      "finalization#" &
      "finalization_root#" &
      "interfaces#" &
+     "most_recent_exception#" &
      "standard#" &
      "system#" &
      "text_io#" &
@@ -178,6 +180,7 @@ package body Snames is
      "ada_2005#" &
      "assertion_policy#" &
      "c_pass_by_copy#" &
+     "check_name#" &
      "compile_time_error#" &
      "compile_time_warning#" &
      "component_alignment#" &
@@ -187,11 +190,11 @@ package body Snames is
      "discard_names#" &
      "elaboration_checks#" &
      "eliminate#" &
-     "explicit_overriding#" &
      "extend_system#" &
      "extensions_allowed#" &
      "external_name_casing#" &
      "float_representation#" &
+     "implicit_packing#" &
      "initialize_scalars#" &
      "interrupt_state#" &
      "license#" &
@@ -232,6 +235,7 @@ package body Snames is
      "atomic#" &
      "atomic_components#" &
      "attach_handler#" &
+     "cil_constructor#" &
      "comment#" &
      "common_object#" &
      "complete_representation#" &
@@ -283,10 +287,10 @@ package body Snames is
      "main#" &
      "main_storage#" &
      "memory_size#" &
+     "no_body#" &
      "no_return#" &
      "obsolescent#" &
      "optimize#" &
-     "optional_overriding#" &
      "pack#" &
      "page#" &
      "passive#" &
@@ -303,6 +307,7 @@ package body Snames is
      "shared#" &
      "shared_passive#" &
      "source_reference#" &
+     "static_elaboration_desired#" &
      "stream_convert#" &
      "subtitle#" &
      "suppress_all#" &
@@ -312,11 +317,11 @@ package body Snames is
      "task_info#" &
      "task_name#" &
      "task_storage#" &
-     "thread_body#" &
      "time_slice#" &
      "title#" &
      "unchecked_union#" &
      "unimplemented_unit#" &
+     "universal_aliasing#" &
      "unreferenced#" &
      "unreferenced_objects#" &
      "unreserve_all_interrupts#" &
@@ -325,6 +330,7 @@ package body Snames is
      "weak_external#" &
      "ada#" &
      "assembler#" &
+     "cil#" &
      "cobol#" &
      "cpp#" &
      "fortran#" &
@@ -444,6 +450,7 @@ package body Snames is
      "digits#" &
      "elaborated#" &
      "emax#" &
+     "enabled#" &
      "enum_rep#" &
      "epsilon#" &
      "exponent#" &
@@ -669,16 +676,12 @@ package body Snames is
      "archive_indexer#" &
      "archive_suffix#" &
      "binder#" &
-     "binder_driver#" &
+     "binder_prefix#" &
      "body_suffix#" &
      "builder#" &
      "builder_switches#" &
      "compiler#" &
-     "compiler_driver#" &
      "compiler_kind#" &
-     "compiler_minimum_options#" &
-     "compiler_pic_option#" &
-     "compute_dependency#" &
      "config_body_file_name#" &
      "config_body_file_name_pattern#" &
      "config_file_switches#" &
@@ -686,20 +689,18 @@ package body Snames is
      "config_spec_file_name#" &
      "config_spec_file_name_pattern#" &
      "cross_reference#" &
-     "default_builder_switches#" &
-     "default_global_compiler_switches#" &
      "default_language#" &
-     "default_linker#" &
      "default_switches#" &
+     "dependency_driver#" &
      "dependency_file_kind#" &
-     "dependency_option#" &
+     "dependency_switches#" &
+     "driver#" &
      "exec_dir#" &
      "executable#" &
      "executable_suffix#" &
      "extends#" &
      "externally_built#" &
      "finder#" &
-     "global_compiler_switches#" &
      "global_configuration_pragmas#" &
      "global_config_file#" &
      "gnatls#" &
@@ -724,13 +725,14 @@ package body Snames is
      "library_name#" &
      "library_major_minor_id_supported#" &
      "library_options#" &
+     "library_partial_linker#" &
      "library_reference_symbol_file#" &
      "library_src_dir#" &
      "library_support#" &
      "library_symbol_file#" &
      "library_symbol_policy#" &
      "library_version#" &
-     "library_version_options#" &
+     "library_version_switches#" &
      "linker#" &
      "linker_executable_option#" &
      "linker_lib_dir_option#" &
@@ -742,17 +744,20 @@ package body Snames is
      "mapping_spec_suffix#" &
      "mapping_body_suffix#" &
      "metrics#" &
-     "minimum_binder_options#" &
      "naming#" &
      "objects_path#" &
      "objects_path_file#" &
      "object_dir#" &
+     "pic_option#" &
      "pretty_printer#" &
+     "prefix#" &
      "project#" &
      "roots#" &
+     "removed_source_dirs#" &
+     "required_switches#" &
      "run_path_option#" &
      "runtime_project#" &
-     "shared_library_minimum_options#" &
+     "shared_library_minimum_switches#" &
      "shared_library_prefix#" &
      "shared_library_suffix#" &
      "separate_suffix#" &
@@ -767,6 +772,7 @@ package body Snames is
      "stack#" &
      "switches#" &
      "symbolic_link_supported#" &
+     "toolchain_description#" &
      "toolchain_version#" &
      "unaligned_valid#" &
      "interface#" &
@@ -845,15 +851,6 @@ package body Snames is
       return Attribute_Id'Val (N - First_Attribute_Name);
    end Get_Attribute_Id;
 
-   ------------------
-   -- Get_Check_Id --
-   ------------------
-
-   function Get_Check_Id (N : Name_Id) return Check_Id is
-   begin
-      return Check_Id'Val (N - First_Check_Name);
-   end Get_Check_Id;
-
    -----------------------
    -- Get_Convention_Id --
    -----------------------
@@ -864,6 +861,7 @@ package body Snames is
          when Name_Ada        => return Convention_Ada;
          when Name_Assembler  => return Convention_Assembler;
          when Name_C          => return Convention_C;
+         when Name_CIL        => return Convention_CIL;
          when Name_COBOL      => return Convention_COBOL;
          when Name_CPP        => return Convention_CPP;
          when Name_Fortran    => return Convention_Fortran;
@@ -896,6 +894,7 @@ package body Snames is
          when Convention_Ada       => return Name_Ada;
          when Convention_Assembler => return Name_Assembler;
          when Convention_C         => return Name_C;
+         when Convention_CIL       => return Name_CIL;
          when Convention_COBOL     => return Name_COBOL;
          when Convention_CPP       => return Name_CPP;
          when Convention_Entry     => return Name_Entry;
@@ -1021,15 +1020,6 @@ package body Snames is
    begin
       return N in First_Attribute_Name .. Last_Attribute_Name;
    end Is_Attribute_Name;
-
-   -------------------
-   -- Is_Check_Name --
-   -------------------
-
-   function Is_Check_Name (N : Name_Id) return Boolean is
-   begin
-      return N in First_Check_Name .. Last_Check_Name;
-   end Is_Check_Name;
 
    ------------------------
    -- Is_Convention_Name --

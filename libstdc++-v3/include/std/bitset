@@ -51,11 +51,11 @@
 #pragma GCC system_header
 
 #include <cstddef>     // For size_t
-#include <cstring>     // For memset
 #include <string>
 #include <bits/functexcept.h>   // For invalid_argument, out_of_range,
                                 // overflow_error
 #include <iosfwd>
+#include <cxxabi-forced.h>
 
 #define _GLIBCXX_BITSET_BITS_PER_WORD  (__CHAR_BIT__ * sizeof(unsigned long))
 #define _GLIBCXX_BITSET_WORDS(__n) \
@@ -164,7 +164,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 
       void
       _M_do_reset()
-      { std::memset(_M_w, 0, _Nw * sizeof(_WordT)); }
+      { __builtin_memset(_M_w, 0, _Nw * sizeof(_WordT)); }
 
       bool
       _M_is_equal(const _Base_bitset<_Nw>& __x) const
@@ -1240,7 +1240,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 	{
 	  try
 	    {
-	      basic_streambuf<_CharT, _Traits>* __buf = __is.rdbuf();
 	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
 	      // 303. Bitset input operator underspecified
 	      const char_type __zero = __is.widen('0');
@@ -1249,7 +1248,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 		{
 		  static typename _Traits::int_type __eof = _Traits::eof();
 		  
-		  typename _Traits::int_type __c1 = __buf->sbumpc();
+		  typename _Traits::int_type __c1 = __is.rdbuf()->sbumpc();
 		  if (_Traits::eq_int_type(__c1, __eof))
 		    {
 		      __state |= __ios_base::eofbit;
@@ -1262,14 +1261,20 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 			__tmp.push_back('0');
 		      else if (__c2 == __one)
 			__tmp.push_back('1');
-		      else if (_Traits::eq_int_type(__buf->sputbackc(__c2),
-						    __eof))
+		      else if (_Traits::
+			       eq_int_type(__is.rdbuf()->sputbackc(__c2),
+					   __eof))
 			{
 			  __state |= __ios_base::failbit;
 			  break;
 			}
 		    }
 		}
+	    }
+	  catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      __is._M_setstate(__ios_base::badbit);		
+	      __throw_exception_again;
 	    }
 	  catch(...)
 	    { __is._M_setstate(__ios_base::badbit); }

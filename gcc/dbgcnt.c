@@ -1,11 +1,11 @@
 /* Debug counter for debugging support
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,15 +14,15 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  
 
 See dbgcnt.def for usage information.  */
 
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "errors.h"
 
 #include "dbgcnt.h"
 
@@ -70,7 +70,7 @@ dbg_cnt_set_limit_by_index (enum debug_counter index, int value)
   fprintf (stderr, "dbg_cnt '%s' set to %d\n", map[index].name, value);
 }
 
-static void
+static bool
 dbg_cnt_set_limit_by_name (const char *name, int len, int value)
 {
   int i;
@@ -79,29 +79,66 @@ dbg_cnt_set_limit_by_name (const char *name, int len, int value)
       break;
 
   if (i < 0)
-    return;
+    return false;
 
   dbg_cnt_set_limit_by_index (i, value);
+  return true;
+}
+
+
+/* Process a single "name:value" pair.
+   Returns NULL if there's no valid pair is found.
+   Otherwise returns a pointer to the end of the pair. */
+
+static const char *
+dbg_cnt_process_single_pair (const char *arg)
+{
+   char *colon = strchr (arg, ':');
+   char *endptr = NULL;
+   int value;
+   
+   if (colon == NULL)
+     return NULL;
+
+   value = strtol (colon + 1, &endptr, 10);
+
+   if (endptr != NULL && endptr != colon + 1
+       && dbg_cnt_set_limit_by_name (arg, colon - arg, value))
+     return endptr;
+   
+   return NULL;
 }
 
 void
 dbg_cnt_process_opt (const char *arg)
 {
-   char *colon = strchr (arg, ':');
-   char *comma;
-   
-   if (colon == NULL)
-     return;
+   const char *start = arg;
+   const char *next;
+   do {
+     next = dbg_cnt_process_single_pair (arg);
+     if (next == NULL)
+       break;
+   } while (*next == ',' && (arg = next + 1));
 
-   dbg_cnt_set_limit_by_name (arg, colon - arg, atoi (colon + 1));
-
-   comma = strchr (colon + 1, ',');
-   while (comma)
+   if (next == NULL || *next != 0)
      {
-       colon = strchr (comma + 1, ':');
-       if (colon == NULL || !(colon[1] >= '0' && colon[1] <= '9'))
-         return;
-       dbg_cnt_set_limit_by_name (comma + 1, colon - (comma + 1), atoi (colon + 1));
-       comma = strchr (colon + 1, ',');
+       char *buffer = alloca (arg - start + 2);
+       sprintf (buffer, "%*c", (int)(1 + (arg - start)), '^');
+       error ("Can not find a valid counter:value pair:");
+       error ("-fdbg-cnt=%s", start);
+       error ("          %s", buffer);
      }
+}
+
+/* Print name, limit and count of all counters.   */
+
+void dbg_cnt_list_all_counters (void)
+{
+  int i;
+  printf ("  %-30s %-5s %-5s\n", "counter name",  "limit", "value");
+  printf ("----------------------------------------------\n");
+  for (i = 0; i < debug_counter_number_of_counters; i++)
+    printf ("  %-30s %5d %5u\n",
+            map[i].name, limit[map[i].counter], count[map[i].counter]);
+  printf ("\n");
 }

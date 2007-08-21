@@ -1,11 +1,11 @@
 /* Definitions of target machine for GNU compiler.  Sun 68000/68020 version.
-   Copyright (C) 2000, 2002, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,14 +14,13 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Define functions defined in aux-output.c and used in templates.  */
 
 #ifdef RTX_CODE
-extern bool m68k_interrupt_function_p (tree);
+extern enum m68k_function_kind m68k_get_function_kind (tree);
 extern HOST_WIDE_INT m68k_initial_elimination_offset (int from, int to);
 
 extern void split_di (rtx[], int, rtx[], rtx[]);

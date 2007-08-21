@@ -1,13 +1,13 @@
 /* Subroutines for insn-output.c for Motorola 68000 family.
    Copyright (C) 1987, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2003, 2004, 2005, 2006
+   2001, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -43,6 +42,7 @@ Boston, MA 02110-1301, USA.  */
 #include "target-def.h"
 #include "debug.h"
 #include "flags.h"
+#include "df.h"
 
 enum reg_class regno_reg_class[] =
 {
@@ -54,20 +54,6 @@ enum reg_class regno_reg_class[] =
   FP_REGS, FP_REGS, FP_REGS, FP_REGS,
   ADDR_REGS
 };
-
-
-/* The ASM_DOT macro allows easy string pasting to handle the differences
-   between MOTOROLA and MIT syntaxes in asm_fprintf(), which doesn't
-   support the %. option.  */
-#if MOTOROLA
-# define ASM_DOT "."
-# define ASM_DOTW ".w"
-# define ASM_DOTL ".l"
-#else
-# define ASM_DOT ""
-# define ASM_DOTW ""
-# define ASM_DOTL ""
-#endif
 
 
 /* The minimum number of integer registers that we want to save with the
@@ -222,7 +208,9 @@ int m68k_last_compare_had_fp_operands;
 static const struct attribute_spec m68k_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "interrupt", 0, 0, true,  false, false, m68k_handle_fndecl_attribute },
   { "interrupt_handler", 0, 0, true,  false, false, m68k_handle_fndecl_attribute },
+  { "interrupt_thread", 0, 0, true,  false, false, m68k_handle_fndecl_attribute },
   { NULL,                0, 0, false, false, false, NULL }
 };
 
@@ -244,7 +232,8 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 #define FL_FOR_isa_aplus (FL_FOR_isa_a | FL_ISA_APLUS | FL_CF_USP)
 /* Note ISA_B doesn't necessarily include USP (user stack pointer) support.  */
 #define FL_FOR_isa_b     (FL_FOR_isa_a | FL_ISA_B | FL_CF_HWDIV)
-#define FL_FOR_isa_c     (FL_FOR_isa_b | FL_ISA_C | FL_CF_USP)
+/* ISA_C is not upwardly compatible with ISA_B.  */
+#define FL_FOR_isa_c     (FL_FOR_isa_a | FL_ISA_C | FL_CF_HWDIV | FL_CF_USP)
 
 enum m68k_isa
 {
@@ -307,9 +296,7 @@ static const struct m68k_target_selection all_isas[] =
   { "isaaplus", mcf5271,    NULL,  ucfv2,    isa_aplus, (FL_FOR_isa_aplus
 							 | FL_CF_HWDIV) },
   { "isab",     mcf5407,    NULL,  ucfv4,    isa_b,     FL_FOR_isa_b },
-  { "isac",     unk_device, NULL,  ucfv4,    isa_c,     (FL_FOR_isa_c
-							 | FL_CF_FPU
-							 | FL_CF_EMAC) },
+  { "isac",     unk_device, NULL,  ucfv4,    isa_c,     FL_FOR_isa_c },
   { NULL,       unk_device, NULL,  unk_arch, isa_max,   0 }
 };
 
@@ -539,12 +526,6 @@ override_options (void)
 	      : (m68k_cpu_flags & FL_COLDFIRE) != 0 ? FPUTYPE_COLDFIRE
 	      : FPUTYPE_68881);
 
-  if (TARGET_COLDFIRE_FPU)
-    {
-      REAL_MODE_FORMAT (SFmode) = &coldfire_single_format;
-      REAL_MODE_FORMAT (DFmode) = &coldfire_double_format;
-    }
-
   /* Sanity check to ensure that msep-data and mid-sahred-library are not
    * both specified together.  Doing so simply doesn't make sense.
    */
@@ -582,20 +563,27 @@ override_options (void)
   else if (TARGET_ID_SHARED_LIBRARY)
     /* All addresses must be loaded from the GOT.  */
     ;
-  else if (TARGET_68020 || TARGET_ISAB)
+  else if (TARGET_68020 || TARGET_ISAB || TARGET_ISAC)
     {
       if (TARGET_PCREL)
-	{
-	  m68k_symbolic_call = "bsr.l %c0";
-	  m68k_symbolic_jump = "bra.l %c0";
-	}
+	m68k_symbolic_call = "bsr.l %c0";
       else
 	{
 #if defined(USE_GAS)
 	  m68k_symbolic_call = "bsr.l %p0";
-	  m68k_symbolic_jump = "bra.l %p0";
 #else
 	  m68k_symbolic_call = "bsr %p0";
+#endif
+	}
+      if (TARGET_ISAC)
+	/* No unconditional long branch */;
+      else if (TARGET_PCREL)
+	m68k_symbolic_jump = "bra.l %c0";
+      else
+	{
+#if defined(USE_GAS)
+	  m68k_symbolic_jump = "bra.l %p0";
+#else
 	  m68k_symbolic_jump = "bra %p0";
 #endif
 	}
@@ -633,18 +621,32 @@ m68k_cpp_cpu_family (const char *prefix)
   return concat ("__m", prefix, "_family_", m68k_cpu_entry->family, NULL);
 }
 
-/* Return nonzero if FUNC is an interrupt function as specified by the
-   "interrupt_handler" attribute.  */
-bool
-m68k_interrupt_function_p (tree func)
+/* Return m68k_fk_interrupt_handler if FUNC has an "interrupt" or
+   "interrupt_handler" attribute and interrupt_thread if FUNC has an
+   "interrupt_thread" attribute.  Otherwise, return
+   m68k_fk_normal_function.  */
+
+enum m68k_function_kind
+m68k_get_function_kind (tree func)
 {
   tree a;
 
   if (TREE_CODE (func) != FUNCTION_DECL)
     return false;
 
+  a = lookup_attribute ("interrupt", DECL_ATTRIBUTES (func));
+  if (a != NULL_TREE)
+    return m68k_fk_interrupt_handler;
+
   a = lookup_attribute ("interrupt_handler", DECL_ATTRIBUTES (func));
-  return (a != NULL_TREE);
+  if (a != NULL_TREE)
+    return m68k_fk_interrupt_handler;
+
+  a = lookup_attribute ("interrupt_thread", DECL_ATTRIBUTES (func));
+  if (a != NULL_TREE)
+    return m68k_fk_interrupt_thread;
+
+  return m68k_fk_normal_function;
 }
 
 /* Handle an attribute requiring a FUNCTION_DECL; arguments as in
@@ -662,6 +664,19 @@ m68k_handle_fndecl_attribute (tree *node, tree name,
       *no_add_attrs = true;
     }
 
+  if (m68k_get_function_kind (*node) != m68k_fk_normal_function)
+    {
+      error ("multiple interrupt attributes not allowed");
+      *no_add_attrs = true;
+    }
+
+  if (!TARGET_FIDOA
+      && !strcmp (IDENTIFIER_POINTER (name), "interrupt_thread"))
+    {
+      error ("interrupt_thread is available only on fido");
+      *no_add_attrs = true;
+    }
+
   return NULL_TREE;
 }
 
@@ -670,7 +685,10 @@ m68k_compute_frame_layout (void)
 {
   int regno, saved;
   unsigned int mask;
-  bool interrupt_handler = m68k_interrupt_function_p (current_function_decl);
+  enum m68k_function_kind func_kind =
+    m68k_get_function_kind (current_function_decl);
+  bool interrupt_handler = func_kind == m68k_fk_interrupt_handler;
+  bool interrupt_thread = func_kind == m68k_fk_interrupt_thread;
 
   /* Only compute the frame once per function.
      Don't cache information until reload has been completed.  */
@@ -681,12 +699,15 @@ m68k_compute_frame_layout (void)
   current_frame.size = (get_frame_size () + 3) & -4;
 
   mask = saved = 0;
-  for (regno = 0; regno < 16; regno++)
-    if (m68k_save_reg (regno, interrupt_handler))
-      {
-	mask |= 1 << (regno - D0_REG);
-	saved++;
-      }
+
+  /* Interrupt thread does not need to save any register.  */
+  if (!interrupt_thread)
+    for (regno = 0; regno < 16; regno++)
+      if (m68k_save_reg (regno, interrupt_handler))
+	{
+	  mask |= 1 << (regno - D0_REG);
+	  saved++;
+	}
   current_frame.offset = saved * 4;
   current_frame.reg_no = saved;
   current_frame.reg_mask = mask;
@@ -695,12 +716,14 @@ m68k_compute_frame_layout (void)
   mask = saved = 0;
   if (TARGET_HARD_FLOAT)
     {
-      for (regno = 16; regno < 24; regno++)
-	if (m68k_save_reg (regno, interrupt_handler))
-	  {
-	    mask |= 1 << (regno - FP0_REG);
-	    saved++;
-	  }
+      /* Interrupt thread does not need to save any register.  */
+      if (!interrupt_thread)
+	for (regno = 16; regno < 24; regno++)
+	  if (m68k_save_reg (regno, interrupt_handler))
+	    {
+	      mask |= 1 << (regno - FP0_REG);
+	      saved++;
+	    }
       current_frame.foffset = saved * TARGET_FP_REG_SIZE;
       current_frame.offset += current_frame.foffset;
     }
@@ -1006,12 +1029,7 @@ m68k_expand_prologue (void)
   if (flag_pic
       && !TARGET_SEP_DATA
       && current_function_uses_pic_offset_table)
-    {
-      insn = emit_insn (gen_load_got (pic_offset_table_rtx));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-					    const0_rtx,
-					    REG_NOTES (insn));
-    }
+    insn = emit_insn (gen_load_got (pic_offset_table_rtx));
 }
 
 /* Return true if a simple (return) instruction is sufficient for this
@@ -1195,7 +1213,7 @@ m68k_expand_epilogue (bool sibcall_p)
 			   EH_RETURN_STACKADJ_RTX));
 
   if (!sibcall_p)
-    emit_insn (gen_rtx_RETURN (VOIDmode));
+    emit_jump_insn (gen_rtx_RETURN (VOIDmode));
 }
 
 /* Return true if X is a valid comparison operator for the dbcc 
@@ -1550,6 +1568,27 @@ output_btst (rtx *operands, rtx countop, rtx dataop, rtx insn, int signpos)
       if (count == 7
 	  && next_insn_tests_no_inequality (insn))
 	return "tst%.b %1";
+      /* Try to use `movew to ccr' followed by the appropriate branch insn.
+         On some m68k variants unfortunately that's slower than btst.
+         On 68000 and higher, that should also work for all HImode operands. */
+      if (TUNE_CPU32 || TARGET_COLDFIRE || optimize_size)
+	{
+	  if (count == 3 && DATA_REG_P (operands[1])
+	      && next_insn_tests_no_inequality (insn))
+	    {
+	    cc_status.flags = CC_NOT_NEGATIVE | CC_Z_IN_NOT_N | CC_NO_OVERFLOW;
+	    return "move%.w %1,%%ccr";
+	    }
+	  if (count == 2 && DATA_REG_P (operands[1])
+	      && next_insn_tests_no_inequality (insn))
+	    {
+	    cc_status.flags = CC_NOT_NEGATIVE | CC_INVERTED | CC_NO_OVERFLOW;
+	    return "move%.w %1,%%ccr";
+	    }
+	  /* count == 1 followed by bvc/bvs and
+	     count == 0 followed by bcc/bcs are also possible, but need
+	     m68k-specific CC_Z_IN_NOT_V and CC_Z_IN_NOT_C flags. */
+	}
 
       cc_status.flags = CC_NOT_NEGATIVE;
     }
@@ -1569,7 +1608,7 @@ m68k_legitimate_base_reg_p (rtx x, bool strict_p)
   return (REG_P (x)
 	  && (strict_p
 	      ? REGNO_OK_FOR_BASE_P (REGNO (x))
-	      : !DATA_REGNO_P (REGNO (x)) && !FP_REGNO_P (REGNO (x))));
+	      : REGNO_OK_FOR_BASE_NONSTRICT_P (REGNO (x))));
 }
 
 /* Return true if X is a legitimate index register.  STRICT_P says
@@ -1584,7 +1623,7 @@ m68k_legitimate_index_reg_p (rtx x, bool strict_p)
   return (REG_P (x)
 	  && (strict_p
 	      ? REGNO_OK_FOR_INDEX_P (REGNO (x))
-	      : !FP_REGNO_P (REGNO (x))));
+	      : REGNO_OK_FOR_INDEX_NONSTRICT_P (REGNO (x))));
 }
 
 /* Return true if X is a legitimate index expression for a (d8,An,Xn) or
@@ -4089,10 +4128,7 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   rtx this_slot, offset, addr, mem, insn;
 
   /* Pretend to be a post-reload pass while generating rtl.  */
-  no_new_pseudos = 1;
   reload_completed = 1;
-  reset_block_changes ();
-  allocate_reg_info (FIRST_PSEUDO_REGISTER, true, true);
 
   /* The "this" pointer is stored at 4(%sp).  */
   this_slot = gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx, 4));
@@ -4147,7 +4183,7 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 	  /* Use the static chain register as a temporary (call-clobbered)
 	     GOT pointer for this function.  We can use the static chain
 	     register because it isn't live on entry to the thunk.  */
-	  REGNO (pic_offset_table_rtx) = STATIC_CHAIN_REGNUM;
+	  SET_REGNO (pic_offset_table_rtx, STATIC_CHAIN_REGNUM);
 	  emit_insn (gen_load_got (pic_offset_table_rtx));
 	}
       legitimize_pic_address (XEXP (mem, 0), Pmode, static_chain_rtx);
@@ -4165,11 +4201,10 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 
   /* Clean up the vars set above.  */
   reload_completed = 0;
-  no_new_pseudos = 0;
 
   /* Restore the original PIC register.  */
   if (flag_pic)
-    REGNO (pic_offset_table_rtx) = PIC_REG;
+    SET_REGNO (pic_offset_table_rtx, PIC_REG);
 }
 
 /* Worker function for TARGET_STRUCT_VALUE_RTX.  */
@@ -4191,7 +4226,8 @@ m68k_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
      saved by the prologue, even if they would normally be
      call-clobbered.  */
 
-  if (m68k_interrupt_function_p (current_function_decl)
+  if ((m68k_get_function_kind (current_function_decl)
+       == m68k_fk_interrupt_handler)
       && !df_regs_ever_live_p (new_reg))
     return 0;
 
@@ -4302,12 +4338,12 @@ m68k_libcall_value (enum machine_mode mode)
   case DFmode:
   case XFmode:
     if (TARGET_68881)
-      return gen_rtx_REG (mode, 16);
+      return gen_rtx_REG (mode, FP0_REG);
     break;
   default:
     break;
   }
-  return gen_rtx_REG (mode, 0);
+  return gen_rtx_REG (mode, D0_REG);
 }
 
 rtx
@@ -4321,7 +4357,7 @@ m68k_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
   case DFmode:
   case XFmode:
     if (TARGET_68881)
-      return gen_rtx_REG (mode, 16);
+      return gen_rtx_REG (mode, FP0_REG);
     break;
   default:
     break;

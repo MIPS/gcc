@@ -1,11 +1,12 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -49,12 +49,11 @@ static void record_effective_endpoints (void);
 static rtx label_for_bb (basic_block);
 static void fixup_reorder_chain (void);
 
-static void set_block_levels (tree, int);
 static void change_scope (rtx, tree, tree);
 
 void verify_insn_chain (void);
 static void fixup_fallthru_exit_predecessor (void);
-static tree insn_scope (rtx);
+static tree insn_scope (const_rtx);
 
 rtx
 unlink_insn_chain (rtx first, rtx last)
@@ -100,15 +99,11 @@ skip_insns_after_block (basic_block bb)
 	  continue;
 
 	case NOTE:
-	  switch (NOTE_LINE_NUMBER (insn))
+	  switch (NOTE_KIND (insn))
 	    {
 	    case NOTE_INSN_BLOCK_END:
-	      last_insn = insn;
+	      gcc_unreachable ();
 	      continue;
-	    case NOTE_INSN_DELETED:
-	    case NOTE_INSN_DELETED_LABEL:
-	      continue;
-
 	    default:
 	      continue;
 	      break;
@@ -148,9 +143,11 @@ skip_insns_after_block (basic_block bb)
     {
       prev = PREV_INSN (insn);
       if (NOTE_P (insn))
-	switch (NOTE_LINE_NUMBER (insn))
+	switch (NOTE_KIND (insn))
 	  {
 	  case NOTE_INSN_BLOCK_END:
+	    gcc_unreachable ();
+	    break;
 	  case NOTE_INSN_DELETED:
 	  case NOTE_INSN_DELETED_LABEL:
 	    continue;
@@ -193,7 +190,7 @@ record_effective_endpoints (void)
   for (insn = get_insns ();
        insn
        && NOTE_P (insn)
-       && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK;
+       && NOTE_KIND (insn) != NOTE_INSN_BASIC_BLOCK;
        insn = NEXT_INSN (insn))
     continue;
   /* No basic blocks at all?  */
@@ -233,120 +230,111 @@ record_effective_endpoints (void)
    than the following one.  Similarly for the other properties.  */
 static VEC(int,heap) *block_locators_locs;
 static GTY(()) VEC(tree,gc) *block_locators_blocks;
-static VEC(int,heap) *line_locators_locs;
-static VEC(int,heap) *line_locators_lines;
-static VEC(int,heap) *file_locators_locs;
-static GTY(()) varray_type file_locators_files;
+static VEC(int,heap) *locations_locators_locs;
+DEF_VEC_O(location_t);
+DEF_VEC_ALLOC_O(location_t,heap);
+static VEC(location_t,heap) *locations_locators_vals;
 int prologue_locator;
 int epilogue_locator;
 
-/* During the RTL expansion the lexical blocks and line numbers are
-   represented via INSN_NOTEs.  Replace them by representation using
-   INSN_LOCATORs.  */
+/* Hold current location information and last location information, so the
+   datastructures are built lazily only when some instructions in given
+   place are needed.  */
+location_t curr_location, last_location;
+static tree curr_block, last_block;
+static int curr_rtl_loc = -1;
 
-unsigned int
-insn_locators_initialize (void)
+/* Allocate insn locator datastructure.  */
+void
+insn_locators_alloc (void)
 {
-  tree block = NULL;
-  tree last_block = NULL;
-  rtx insn, next;
-  int loc = 0;
-  int line_number = 0, last_line_number = 0;
-  const char *file_name = NULL, *last_file_name = NULL;
-
   prologue_locator = epilogue_locator = 0;
 
   block_locators_locs = VEC_alloc (int, heap, 32);
   block_locators_blocks = VEC_alloc (tree, gc, 32);
-  line_locators_locs = VEC_alloc (int, heap, 32);
-  line_locators_lines = VEC_alloc (int, heap, 32);
-  file_locators_locs = VEC_alloc (int, heap, 32);
-  VARRAY_CHAR_PTR_INIT (file_locators_files, 32, "file_locators_files");
+  locations_locators_locs = VEC_alloc (int, heap, 32);
+  locations_locators_vals = VEC_alloc (location_t, heap, 32);
 
-  for (insn = get_insns (); insn; insn = next)
-    {
-      int active = 0;
-
-      next = NEXT_INSN (insn);
-
-      if (NOTE_P (insn))
-	{
-	  gcc_assert (NOTE_LINE_NUMBER (insn) != NOTE_INSN_BLOCK_BEG
-		      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BLOCK_END);
-	  if (NOTE_LINE_NUMBER (insn) > 0)
-	    {
-	      expanded_location xloc;
-	      NOTE_EXPANDED_LOCATION (xloc, insn);
-	      line_number = xloc.line;
-	      file_name = xloc.file;
-	      delete_insn (insn);
-	    }
-	}
-      else
-	active = (active_insn_p (insn)
-		  && GET_CODE (PATTERN (insn)) != ADDR_VEC
-		  && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC);
-
-      check_block_change (insn, &block);
-
-      if (active
-	  || !next
-	  || (!prologue_locator && file_name))
-	{
-	  if (last_block != block)
-	    {
-	      loc++;
-	      VEC_safe_push (int, heap, block_locators_locs, loc);
-	      VEC_safe_push (tree, gc, block_locators_blocks, block);
-	      last_block = block;
-	    }
-	  if (last_line_number != line_number)
-	    {
-	      loc++;
-	      VEC_safe_push (int, heap, line_locators_locs, loc);
-	      VEC_safe_push (int, heap, line_locators_lines, line_number);
-	      last_line_number = line_number;
-	    }
-	  if (last_file_name != file_name)
-	    {
-	      loc++;
-	      VEC_safe_push (int, heap, file_locators_locs, loc);
-	      VARRAY_PUSH_CHAR_PTR (file_locators_files, (char *) file_name);
-	      last_file_name = file_name;
-	    }
-	  if (!prologue_locator && file_name)
-	    prologue_locator = loc;
-	  if (!next)
-	    epilogue_locator = loc;
-	  if (active)
-	    INSN_LOCATOR (insn) = loc;
-	}
-    }
-
-  /* Tag the blocks with a depth number so that change_scope can find
-     the common parent easily.  */
-  set_block_levels (DECL_INITIAL (cfun->decl), 0);
-
-  free_block_changes ();
-  return 0;
+#ifdef USE_MAPPED_LOCATION
+  last_location = -1;
+  curr_location = -1;
+#else
+  last_location.line = -1;
+  curr_location.line = -1;
+#endif
+  curr_block = NULL;
+  last_block = NULL;
+  curr_rtl_loc = 0;
 }
 
-struct tree_opt_pass pass_insn_locators_initialize =
+/* At the end of emit stage, clear current location.  */
+void
+insn_locators_finalize (void)
 {
-  "locators",                           /* name */
-  NULL,                                 /* gate */
-  insn_locators_initialize,             /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
-};
+  if (curr_rtl_loc >= 0)
+    epilogue_locator = curr_insn_locator ();
+  curr_rtl_loc = -1;
+}
+
+/* Set current location.  */
+void
+set_curr_insn_source_location (location_t location)
+{
+  /* IV opts calls into RTL expansion to compute costs of operations.  At this
+     time locators are not initialized.  */
+  if (curr_rtl_loc == -1)
+    return;
+#ifdef USE_MAPPED_LOCATION
+  if (location == last_location)
+    return;
+#else
+  if (location.file && last_location.file
+      && !strcmp (location.file, last_location.file)
+      && location.line == last_location.line)
+    return;
+#endif
+  curr_location = location;
+}
+
+/* Set current scope block. */
+void
+set_curr_insn_block (tree b)
+{
+  /* IV opts calls into RTL expansion to compute costs of operations.  At this
+     time locators are not initialized.  */
+  if (curr_rtl_loc == -1)
+    return;
+  if (b)
+    curr_block = b;
+}
+
+/* Return current insn locator.  */
+int
+curr_insn_locator (void)
+{
+  if (curr_rtl_loc == -1)
+    return 0;
+  if (last_block != curr_block)
+    {
+      curr_rtl_loc++;
+      VEC_safe_push (int, heap, block_locators_locs, curr_rtl_loc);
+      VEC_safe_push (tree, gc, block_locators_blocks, curr_block);
+      last_block = curr_block;
+    }
+#ifdef USE_MAPPED_LOCATION
+  if (last_location != curr_location)
+#else
+  if (last_location.file != curr_location.file
+      || last_location.line != curr_location.line)
+#endif
+    {
+      curr_rtl_loc++;
+      VEC_safe_push (int, heap, locations_locators_locs, curr_rtl_loc);
+      VEC_safe_push (location_t, heap, locations_locators_vals, &curr_location);
+      last_location = curr_location;
+    }
+  return curr_rtl_loc;
+}
 
 static unsigned int
 into_cfg_layout_mode (void)
@@ -402,20 +390,6 @@ struct tree_opt_pass pass_outof_cfg_layout_mode =
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
-
-/* For each lexical block, set BLOCK_NUMBER to the depth at which it is
-   found in the block tree.  */
-
-static void
-set_block_levels (tree block, int level)
-{
-  while (block)
-    {
-      BLOCK_NUMBER (block) = level;
-      set_block_levels (BLOCK_SUBBLOCKS (block), level + 1);
-      block = BLOCK_CHAIN (block);
-    }
-}
 
 /* Return sope resulting from combination of S1 and S2.  */
 static tree
@@ -476,7 +450,7 @@ change_scope (rtx orig_insn, tree s1, tree s2)
 
 /* Return lexical scope block insn belong to.  */
 static tree
-insn_scope (rtx insn)
+insn_scope (const_rtx insn)
 {
   int max = VEC_length (int, block_locators_locs);
   int min = 0;
@@ -515,18 +489,16 @@ insn_scope (rtx insn)
 }
 
 /* Return line number of the statement specified by the locator.  */
-int
-locator_line (int loc)
+static location_t
+locator_location (int loc)
 {
-  int max = VEC_length (int, line_locators_locs);
+  int max = VEC_length (int, locations_locators_locs);
   int min = 0;
 
-  if (!max || !loc)
-    return 0;
   while (1)
     {
       int pos = (min + max) / 2;
-      int tmp = VEC_index (int, line_locators_locs, pos);
+      int tmp = VEC_index (int, locations_locators_locs, pos);
 
       if (tmp <= loc && min != pos)
 	min = pos;
@@ -538,12 +510,24 @@ locator_line (int loc)
 	  break;
 	}
     }
-  return VEC_index (int, line_locators_lines, min);
+  return *VEC_index (location_t, locations_locators_vals, min);
+}
+
+/* Return source line of the statement that produced this insn.  */
+int
+locator_line (int loc)
+{
+  expanded_location xloc;
+  if (!loc)
+    return 0;
+  else
+    xloc = expand_location (locator_location (loc));
+  return xloc.line;
 }
 
 /* Return line number of the statement that produced this insn.  */
 int
-insn_line (rtx insn)
+insn_line (const_rtx insn)
 {
   return locator_line (INSN_LOCATOR (insn));
 }
@@ -552,32 +536,17 @@ insn_line (rtx insn)
 const char *
 locator_file (int loc)
 {
-  int max = VEC_length (int, file_locators_locs);
-  int min = 0;
-
-  if (!max || !loc)
-    return NULL;
-  while (1)
-    {
-      int pos = (min + max) / 2;
-      int tmp = VEC_index (int, file_locators_locs, pos);
-
-      if (tmp <= loc && min != pos)
-	min = pos;
-      else if (tmp > loc && max != pos)
-	max = pos;
-      else
-	{
-	  min = pos;
-	  break;
-	}
-    }
-   return VARRAY_CHAR_PTR (file_locators_files, min);
+  expanded_location xloc;
+  if (!loc)
+    return 0;
+  else
+    xloc = expand_location (locator_location (loc));
+  return xloc.file;
 }
 
 /* Return source file of the statement that produced this insn.  */
 const char *
-insn_file (rtx insn)
+insn_file (const_rtx insn)
 {
   return locator_file (INSN_LOCATOR (insn));
 }
@@ -659,7 +628,7 @@ relink_block_chain (bool stay_in_cfglayout_mode)
       fprintf (dump_file, "Reordered sequence:\n");
       for (bb = ENTRY_BLOCK_PTR->next_bb, index = NUM_FIXED_BLOCKS;
 	   bb;
-	   bb = bb->aux, index++)
+	   bb = (basic_block) bb->aux, index++)
 	{
 	  fprintf (dump_file, " %i ", index);
 	  if (get_bb_original (bb))
@@ -677,7 +646,7 @@ relink_block_chain (bool stay_in_cfglayout_mode)
   /* Now reorder the blocks.  */
   prev_bb = ENTRY_BLOCK_PTR;
   bb = ENTRY_BLOCK_PTR->next_bb;
-  for (; bb; prev_bb = bb, bb = bb->aux)
+  for (; bb; prev_bb = bb, bb = (basic_block) bb->aux)
     {
       bb->prev_bb = prev_bb;
       prev_bb->next_bb = bb;
@@ -725,7 +694,7 @@ fixup_reorder_chain (void)
   /* First do the bulk reordering -- rechain the blocks without regard to
      the needed changes to jumps and labels.  */
 
-  for (bb = ENTRY_BLOCK_PTR->next_bb; bb; bb = bb->aux)
+  for (bb = ENTRY_BLOCK_PTR->next_bb; bb; bb = (basic_block) bb->aux)
     {
       if (bb->il.rtl->header)
 	{
@@ -768,7 +737,7 @@ fixup_reorder_chain (void)
   /* Now add jumps and labels as needed to match the blocks new
      outgoing edges.  */
 
-  for (bb = ENTRY_BLOCK_PTR->next_bb; bb ; bb = bb->aux)
+  for (bb = ENTRY_BLOCK_PTR->next_bb; bb ; bb = (basic_block) bb->aux)
     {
       edge e_fall, e_taken, e;
       rtx bb_end_insn;
@@ -983,14 +952,64 @@ fixup_fallthru_exit_predecessor (void)
 	}
 
       while (c->aux != bb)
-	c = c->aux;
+	c = (basic_block) c->aux;
 
       c->aux = bb->aux;
       while (c->aux)
-	c = c->aux;
+	c = (basic_block) c->aux;
 
       c->aux = bb;
       bb->aux = NULL;
+    }
+}
+
+/* In case there are more than one fallthru predecessors of exit, force that
+   there is only one.  */
+
+static void
+force_one_exit_fallthru (void)
+{
+  edge e, predecessor = NULL;
+  bool more = false;
+  edge_iterator ei;
+  basic_block forwarder, bb;
+
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+    if (e->flags & EDGE_FALLTHRU)
+      {
+	if (predecessor == NULL)
+	  predecessor = e;
+	else
+	  {
+	    more = true;
+	    break;
+	  }
+      }
+
+  if (!more)
+    return;
+
+  /* Exit has several fallthru predecessors.  Create a forwarder block for
+     them.  */
+  forwarder = split_edge (predecessor);
+  for (ei = ei_start (EXIT_BLOCK_PTR->preds); (e = ei_safe_edge (ei)); )
+    {
+      if (e->src == forwarder
+	  || !(e->flags & EDGE_FALLTHRU))
+	ei_next (&ei);
+      else
+	redirect_edge_and_branch_force (e, forwarder);
+    }
+
+  /* Fix up the chain of blocks -- make FORWARDER immediately precede the
+     exit block.  */
+  FOR_EACH_BB (bb)
+    {
+      if (bb->aux == NULL && bb != forwarder)
+	{
+	  bb->aux = forwarder;
+	  break;
+	}
     }
 }
 
@@ -1063,7 +1082,7 @@ duplicate_insn_chain (rtx from, rtx to)
 	  break;
 
 	case NOTE:
-	  switch (NOTE_LINE_NUMBER (insn))
+	  switch (NOTE_KIND (insn))
 	    {
 	      /* In case prologue is empty and function contain label
 		 in first BB, we may want to copy the block.  */
@@ -1089,11 +1108,7 @@ duplicate_insn_chain (rtx from, rtx to)
 	    default:
 	      /* All other notes should have already been eliminated.
 	       */
-	      gcc_assert (NOTE_LINE_NUMBER (insn) >= 0);
-
-	      /* It is possible that no_line_number is set and the note
-		 won't be emitted.  */
-	      emit_note_copy (insn);
+	      gcc_unreachable ();
 	    }
 	  break;
 	default:
@@ -1156,11 +1171,21 @@ cfg_layout_duplicate_bb (basic_block bb)
 void
 cfg_layout_initialize (unsigned int flags)
 {
+  rtx x;
+  basic_block bb;
+
   initialize_original_copy_tables ();
 
   cfg_layout_rtl_register_cfg_hooks ();
 
   record_effective_endpoints ();
+
+  /* Make sure that the targets of non local gotos are marked.  */
+  for (x = nonlocal_goto_handler_labels; x; x = XEXP (x, 1))
+    {
+      bb = BLOCK_FOR_INSN (XEXP (x, 0));
+      bb->flags |= BB_NON_LOCAL_GOTO_TARGET;
+    }
 
   cleanup_cfg (CLEANUP_CFGLAYOUT | flags);
 }
@@ -1202,6 +1227,7 @@ cfg_layout_finalize (void)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
+  force_one_exit_fallthru ();
   rtl_register_cfg_hooks ();
   if (reload_completed
 #ifdef HAVE_epilogue

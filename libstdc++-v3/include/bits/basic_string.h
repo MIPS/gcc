@@ -395,12 +395,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       {
 	const difference_type __d = difference_type(__n1 - __n2);
 
-	if (__d > numeric_limits<int>::max())
-	  return numeric_limits<int>::max();
-	else if (__d < numeric_limits<int>::min())
-	  return numeric_limits<int>::min();
+	if (__d > __gnu_cxx::__numeric_traits<int>::__max)
+	  return __gnu_cxx::__numeric_traits<int>::__max;
+	else if (__d < __gnu_cxx::__numeric_traits<int>::__min)
+	  return __gnu_cxx::__numeric_traits<int>::__min;
 	else
-	  return int(__d);	
+	  return int(__d);
       }
 
       void
@@ -1467,12 +1467,13 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
           return _S_construct(__beg, __end, __a, _Tag());
 	}
 
-      template<class _InIterator>
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 438. Ambiguity in the "do the right thing" clause
+      template<class _Integer>
         static _CharT*
-        _S_construct_aux(_InIterator __beg, _InIterator __end,
+        _S_construct_aux(_Integer __beg, _Integer __end,
 			 const _Alloc& __a, __true_type)
-	{ return _S_construct(static_cast<size_type>(__beg),
-			      static_cast<value_type>(__end), __a); }
+        { return _S_construct(static_cast<size_type>(__beg), __end, __a); }
 
       template<class _InIterator>
         static _CharT*
@@ -2156,6 +2157,15 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	       const basic_string<_CharT, _Traits, _Alloc>& __rhs)
     { return __lhs.compare(__rhs) == 0; }
 
+  template<typename _CharT>
+    inline
+    typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value, bool>::__type
+    operator==(const basic_string<_CharT>& __lhs,
+	       const basic_string<_CharT>& __rhs)
+    { return (__lhs.size() == __rhs.size()
+	      && !std::char_traits<_CharT>::compare(__lhs.data(), __rhs.data(),
+						    __lhs.size())); }
+
   /**
    *  @brief  Test equivalence of C string and string.
    *  @param lhs  C string.
@@ -2191,7 +2201,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     inline bool
     operator!=(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
 	       const basic_string<_CharT, _Traits, _Alloc>& __rhs)
-    { return __rhs.compare(__lhs) != 0; }
+    { return !(__lhs == __rhs); }
 
   /**
    *  @brief  Test difference of C string and string.
@@ -2203,7 +2213,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     inline bool
     operator!=(const _CharT* __lhs,
 	       const basic_string<_CharT, _Traits, _Alloc>& __rhs)
-    { return __rhs.compare(__lhs) != 0; }
+    { return !(__lhs == __rhs); }
 
   /**
    *  @brief  Test difference of string and C string.
@@ -2215,7 +2225,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     inline bool
     operator!=(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
 	       const _CharT* __rhs)
-    { return __lhs.compare(__rhs) != 0; }
+    { return !(__lhs == __rhs); }
 
   // operator <
   /**
@@ -2414,7 +2424,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 586. string inserter not a formatted function
-      return __os._M_insert(__str.data(), __str.size());
+      return __ostream_insert(__os, __str.data(), __str.size());
     }
 
   /**

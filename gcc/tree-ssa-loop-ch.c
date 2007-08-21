@@ -1,11 +1,11 @@
 /* Loop header copying on trees.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -133,8 +132,11 @@ copy_loop_headers (void)
 
   loop_optimizer_init (LOOPS_HAVE_PREHEADERS
 		       | LOOPS_HAVE_SIMPLE_LATCHES);
-  if (!current_loops)
-    return 0;
+  if (number_of_loops () <= 1)
+    {
+      loop_optimizer_finalize ();
+      return 0;
+    }
 
 #ifdef ENABLE_CHECKING
   verify_loop_structure ();
@@ -198,6 +200,27 @@ copy_loop_headers (void)
 	{
 	  fprintf (dump_file, "Duplication failed.\n");
 	  continue;
+	}
+
+      /* If the loop has the form "for (i = j; i < j + 10; i++)" then
+	 this copying can introduce a case where we rely on undefined
+	 signed overflow to eliminate the preheader condition, because
+	 we assume that "j < j + 10" is true.  We don't want to warn
+	 about that case for -Wstrict-overflow, because in general we
+	 don't warn about overflow involving loops.  Prevent the
+	 warning by setting TREE_NO_WARNING.  */
+      if (warn_strict_overflow > 0)
+	{
+	  unsigned int i;
+
+	  for (i = 0; i < n_bbs; ++i)
+	    {
+	      tree last;
+
+	      last = last_stmt (copied_bbs[i]);
+	      if (TREE_CODE (last) == COND_EXPR)
+		TREE_NO_WARNING (last) = 1;
+	    }
 	}
 
       /* Ensure that the latch and the preheader is simple (we know that they

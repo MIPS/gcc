@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,11 +36,11 @@ with Exp_Ch9;  use Exp_Ch9;
 with Exp_Ch11; use Exp_Ch11;
 with Exp_Dbug; use Exp_Dbug;
 with Exp_Dist; use Exp_Dist;
+with Exp_Disp; use Exp_Disp;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Freeze;   use Freeze;
 with Lib;      use Lib;
-with Hostparm; use Hostparm;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
@@ -58,6 +58,7 @@ with Sem_Type; use Sem_Type;
 with Sem_Util; use Sem_Util;
 with Snames;   use Snames;
 with Stand;    use Stand;
+with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Uintp;    use Uintp;
 
@@ -90,27 +91,33 @@ package body Exp_Ch7 is
    --      declaration and the secondary stack deallocation is done in the
    --      proper enclosing scope (see Wrap_Transient_Declaration for details)
 
-   --  Note about function returning tagged types: It has been decided to
-   --  always allocate their result in the secondary stack while it is not
+   --  Note about functions returning tagged types: It has been decided to
+   --  always allocate their result in the secondary stack, even though is not
    --  absolutely mandatory when the tagged type is constrained because the
    --  caller knows the size of the returned object and thus could allocate the
-   --  result in the primary stack. But, allocating them always in the
-   --  secondary stack simplifies many implementation hassles:
+   --  result in the primary stack. An exception to this is when the function
+   --  builds its result in place, as is done for functions with inherently
+   --  limited result types for Ada 2005. In that case, certain callers may
+   --  pass the address of a constrained object as the target object for the
+   --  function result.
 
-   --    - If it is dispatching function call, the computation of the size of
+   --  By allocating tagged results in the secondary stack a number of
+   --  implementation difficulties are avoided:
+
+   --    - If it is a dispatching function call, the computation of the size of
    --      the result is possible but complex from the outside.
 
    --    - If the returned type is controlled, the assignment of the returned
    --      value to the anonymous object involves an Adjust, and we have no
-   --      easy way to access the anonymous object created by the back-end
+   --      easy way to access the anonymous object created by the back end.
 
    --    - If the returned type is class-wide, this is an unconstrained type
-   --      anyway
+   --      anyway.
 
-   --  Furthermore, the little loss in efficiency which is the result of this
-   --  decision is not such a big deal because function returning tagged types
-   --  are not very much used in real life as opposed to functions returning
-   --  access to a tagged type
+   --  Furthermore, the small loss in efficiency which is the result of this
+   --  decision is not such a big deal because functions returning tagged types
+   --  are not as common in practice compared to functions returning access to
+   --  a tagged type.
 
    --------------------------------------------------
    -- Transient Blocks and Finalization Management --
@@ -245,8 +252,8 @@ package body Exp_Ch7 is
    --  controlled components (Has_Controlled_Component flag set). In the first
    --  case the procedures to call are the user-defined primitive operations
    --  Initialize/Adjust/Finalize. In the second case, GNAT generates
-   --  Deep_Initialize, Deep_Adjust and Deep_Finalize that are in charge of
-   --  calling the former procedures on the controlled components.
+   --  Deep_Initialize, Deep_Adjust and Deep_Finalize that are in charge
+   --  of calling the former procedures on the controlled components.
 
    --  For records with Has_Controlled_Component set, a hidden "controller"
    --  component is inserted. This controller component contains its own
@@ -255,9 +262,9 @@ package body Exp_Ch7 is
    --  technique facilitates the management of objects whose number of
    --  controlled components changes during execution. This controller
    --  component is itself controlled and is attached to the upper-level
-   --  finalization chain. Its adjust primitive is in charge of calling
-   --  adjust on the components and adusting the finalization pointer to
-   --  match their new location (see a-finali.adb).
+   --  finalization chain. Its adjust primitive is in charge of calling adjust
+   --  on the components and adusting the finalization pointer to match their
+   --  new location (see a-finali.adb).
 
    --  It is not possible to use a similar technique for arrays that have
    --  Has_Controlled_Component set. In this case, deep procedures are
@@ -265,11 +272,11 @@ package body Exp_Ch7 is
    --  detachment on the finalization list for all component.
 
    --  Initialize calls: they are generated for declarations or dynamic
-   --  allocations of Controlled objects with no initial value. They are
-   --  always followed by an attachment to the current Finalization
-   --  Chain. For the dynamic allocation case this the chain attached to
-   --  the scope of the access type definition otherwise, this is the chain
-   --  of the current scope.
+   --  allocations of Controlled objects with no initial value. They are always
+   --  followed by an attachment to the current Finalization Chain. For the
+   --  dynamic allocation case this the chain attached to the scope of the
+   --  access type definition otherwise, this is the chain of the current
+   --  scope.
 
    --  Adjust Calls: They are generated on 2 occasions: (1) for
    --  declarations or dynamic allocations of Controlled objects with an
@@ -280,26 +287,31 @@ package body Exp_Ch7 is
    --  Finalization Calls: They are generated on (1) scope exit, (2)
    --  assignments, (3) unchecked deallocations. In case (3) they have to
    --  be detached from the final chain, in case (2) they must not and in
-   --  case (1) this is not important since we are exiting the scope
-   --  anyway.
+   --  case (1) this is not important since we are exiting the scope anyway.
 
    --  Other details:
-   --    - Type extensions will have a new record controller at each derivation
-   --      level containing controlled components.
-   --    - For types that are both Is_Controlled and Has_Controlled_Components,
-   --      the record controller and the object itself are handled separately.
-   --      It could seem simpler to attach the object at the end of its record
-   --      controller but this would not tackle view conversions properly.
-   --    - A classwide type can always potentially have controlled components
-   --      but the record controller of the corresponding actual type may not
-   --      be known at compile time so the dispatch table contains a special
-   --      field that allows to compute the offset of the record controller
-   --      dynamically. See s-finimp.Deep_Tag_Attach and a-tags.RC_Offset
+
+   --    Type extensions will have a new record controller at each derivation
+   --    level containing controlled components. The record controller for
+   --    the parent/ancestor is attached to the finalization list of the
+   --    extension's record controller (i.e. the parent is like a component
+   --    of the extension).
+
+   --    For types that are both Is_Controlled and Has_Controlled_Components,
+   --    the record controller and the object itself are handled separately.
+   --    It could seem simpler to attach the object at the end of its record
+   --    controller but this would not tackle view conversions properly.
+
+   --    A classwide type can always potentially have controlled components
+   --    but the record controller of the corresponding actual type may not
+   --    be known at compile time so the dispatch table contains a special
+   --    field that allows to compute the offset of the record controller
+   --    dynamically. See s-finimp.Deep_Tag_Attach and a-tags.RC_Offset.
 
    --  Here is a simple example of the expansion of a controlled block :
 
    --    declare
-   --       X : Controlled ;
+   --       X : Controlled;
    --       Y : Controlled := Init;
    --
    --       type R is record
@@ -358,10 +370,10 @@ package body Exp_Ch7 is
    --    end;
 
    function Global_Flist_Ref (Flist_Ref : Node_Id) return Boolean;
-   --  Return True if Flist_Ref refers to a global final list, either
-   --  the object GLobal_Final_List which is used to attach standalone
-   --  objects, or any of the list controllers associated with library
-   --  level access to controlled objects
+   --  Return True if Flist_Ref refers to a global final list, either the
+   --  object Global_Final_List which is used to attach standalone objects,
+   --  or any of the list controllers associated with library-level access
+   --  to controlled objects.
 
    procedure Clean_Simple_Protected_Objects (N : Node_Id);
    --  Protected objects without entries are not controlled types, and the
@@ -1031,6 +1043,12 @@ package body Exp_Ch7 is
       Wrap_Node : Node_Id;
 
    begin
+      --  Nothing to do for virtual machines where memory is GCed
+
+      if VM_Target /= No_VM then
+         return;
+      end if;
+
       --  Do not create a transient scope if we are already inside one
 
       for S in reverse Scope_Stack.First .. Scope_Stack.Last loop
@@ -1066,7 +1084,7 @@ package body Exp_Ch7 is
          null;
 
       else
-         New_Scope (New_Internal_Entity (E_Block, Current_Scope, Loc, 'B'));
+         Push_Scope (New_Internal_Entity (E_Block, Current_Scope, Loc, 'B'));
          Set_Scope_Is_Transient;
 
          if Sec_Stack then
@@ -1089,27 +1107,25 @@ package body Exp_Ch7 is
    ----------------------------
 
    procedure Expand_Cleanup_Actions (N : Node_Id) is
-      Loc                  :  Source_Ptr;
-      S                    : constant Entity_Id  :=
-                               Current_Scope;
-      Flist                : constant Entity_Id  :=
-                               Finalization_Chain_Entity (S);
-      Is_Task              : constant Boolean    :=
-                               (Nkind (Original_Node (N)) = N_Task_Body);
-      Is_Master            : constant Boolean    :=
+      S       : constant Entity_Id  := Current_Scope;
+      Flist   : constant Entity_Id := Finalization_Chain_Entity (S);
+      Is_Task : constant Boolean := Nkind (Original_Node (N)) = N_Task_Body;
+
+      Is_Master            : constant Boolean :=
                                Nkind (N) /= N_Entry_Body
                                  and then Is_Task_Master (N);
-      Is_Protected         : constant Boolean    :=
+      Is_Protected         : constant Boolean :=
                                Nkind (N) = N_Subprogram_Body
                                  and then Is_Protected_Subprogram_Body (N);
-      Is_Task_Allocation   : constant Boolean    :=
+      Is_Task_Allocation   : constant Boolean :=
                                Nkind (N) = N_Block_Statement
                                  and then Is_Task_Allocation_Block (N);
-      Is_Asynchronous_Call : constant Boolean    :=
+      Is_Asynchronous_Call : constant Boolean :=
                                Nkind (N) = N_Block_Statement
                                  and then Is_Asynchronous_Call_Block (N);
 
       Clean     : Entity_Id;
+      Loc       : Source_Ptr;
       Mark      : Entity_Id := Empty;
       New_Decls : constant List_Id := New_List;
       Blok      : Node_Id;
@@ -1120,21 +1136,19 @@ package body Exp_Ch7 is
       Old_Poll  : Boolean;
 
    begin
+      --  If we are generating expanded code for debugging purposes, use
+      --  the Sloc of the point of insertion for the cleanup code. The Sloc
+      --  will be updated subsequently to reference the proper line in the
+      --  .dg file.  If we are not debugging generated code, use instead
+      --  No_Location, so that no debug information is generated for the
+      --  cleanup code. This makes the behavior of the NEXT command in GDB
+      --  monotonic, and makes the placement of breakpoints more accurate.
 
-      --  Compute a location that is not directly in the user code in
-      --  order to avoid to generate confusing debug info. A good
-      --  approximation is the name of the outer user-defined scope
-
-      declare
-         S1 : Entity_Id := S;
-
-      begin
-         while not Comes_From_Source (S1) and then S1 /= Standard_Standard loop
-            S1 := Scope (S1);
-         end loop;
-
-         Loc := Sloc (S1);
-      end;
+      if Debug_Generated_Code then
+         Loc := Sloc (S);
+      else
+         Loc := No_Location;
+      end if;
 
       --  There are cleanup actions only if the secondary stack needs
       --  releasing or some finalizations are needed or in the context
@@ -1194,12 +1208,12 @@ package body Exp_Ch7 is
       --  If secondary stack is in use, expand:
       --    _Mxx : constant Mark_Id := SS_Mark;
 
-      --  Suppress calls to SS_Mark and SS_Release if Java_VM,
-      --  since we never use the secondary stack on the JVM.
+      --  Suppress calls to SS_Mark and SS_Release if VM_Target,
+      --  since we never use the secondary stack on the VM.
 
       if Uses_Sec_Stack (Current_Scope)
         and then not Sec_Stack_Needed_For_Return (Current_Scope)
-        and then not Java_VM
+        and then VM_Target = No_VM
       then
          Mark := Make_Defining_Identifier (Loc, New_Internal_Name ('M'));
          Append_To (New_Decls,
@@ -1402,12 +1416,12 @@ package body Exp_Ch7 is
    --  Start of processing for Expand_Ctrl_Function_Call
 
    begin
-      --  Optimization, if the returned value (which is on the sec-stack)
-      --  is returned again, no need to copy/readjust/finalize, we can just
-      --  pass the value thru (see Expand_N_Return_Statement), and thus no
+      --  Optimization, if the returned value (which is on the sec-stack) is
+      --  returned again, no need to copy/readjust/finalize, we can just pass
+      --  the value thru (see Expand_N_Simple_Return_Statement), and thus no
       --  attachment is needed
 
-      if Nkind (Parent (N)) = N_Return_Statement then
+      if Nkind (Parent (N)) = N_Simple_Return_Statement then
          return;
       end if;
 
@@ -1565,7 +1579,14 @@ package body Exp_Ch7 is
       --  This is done only for non-generic packages
 
       if Ekind (Ent) = E_Package then
-         New_Scope (Corresponding_Spec (N));
+         Push_Scope (Corresponding_Spec (N));
+
+         --  Build dispatch tables of library level tagged types
+
+         if Is_Compilation_Unit (Ent) then
+            Build_Static_Dispatch_Tables (N);
+         end if;
+
          Build_Task_Activation_Call (N);
          Pop_Scope;
       end if;
@@ -1582,23 +1603,21 @@ package body Exp_Ch7 is
    -- Expand_N_Package_Declaration --
    ----------------------------------
 
-   --  Add call to Activate_Tasks if there are tasks declared and the
-   --  package has no body. Note that in Ada83,  this may result in
-   --  premature activation of some tasks, given that we cannot tell
-   --  whether a body will eventually appear.
+   --  Add call to Activate_Tasks if there are tasks declared and the package
+   --  has no body. Note that in Ada83, this may result in premature activation
+   --  of some tasks, given that we cannot tell whether a body will eventually
+   --  appear.
 
    procedure Expand_N_Package_Declaration (N : Node_Id) is
-      Spec    : constant Node_Id := Specification (N);
+      Spec    : constant Node_Id   := Specification (N);
+      Id      : constant Entity_Id := Defining_Entity (N);
       Decls   : List_Id;
-
-      No_Body : Boolean;
+      No_Body : Boolean := False;
       --  True in the case of a package declaration that is a compilation unit
       --  and for which no associated body will be compiled in
       --  this compilation.
+
    begin
-
-      No_Body := False;
-
       --  Case of a package declaration other than a compilation unit
 
       if Nkind (Parent (N)) /= N_Compilation_Unit then
@@ -1607,7 +1626,7 @@ package body Exp_Ch7 is
       --  Case of a compilation unit that does not require a body
 
       elsif not Body_Required (Parent (N))
-        and then not Unit_Requires_Body (Defining_Entity (N))
+        and then not Unit_Requires_Body (Id)
       then
          No_Body := True;
 
@@ -1618,7 +1637,7 @@ package body Exp_Ch7 is
       --  spec).
 
       elsif Parent (N) = Cunit (Main_Unit)
-        and then Is_Remote_Call_Interface (Defining_Entity (N))
+        and then Is_Remote_Call_Interface (Id)
         and then Distribution_Stub_Mode = Generate_Caller_Stub_Body
       then
          No_Body := True;
@@ -1629,10 +1648,9 @@ package body Exp_Ch7 is
       --  have a specific separate compilation unit for that).
 
       if No_Body then
+         Push_Scope (Id);
 
-         New_Scope (Defining_Entity (N));
-
-         if Has_RACW (Defining_Entity (N)) then
+         if Has_RACW (Id) then
 
             --  Generate RACW subprogram bodies
 
@@ -1647,7 +1665,7 @@ package body Exp_Ch7 is
                Set_Visible_Declarations (Spec, Decls);
             end if;
 
-            Append_RACW_Bodies (Decls, Defining_Entity (N));
+            Append_RACW_Bodies (Decls, Id);
             Analyze_List (Decls);
          end if;
 
@@ -1659,6 +1677,15 @@ package body Exp_Ch7 is
          end if;
 
          Pop_Scope;
+      end if;
+
+      --  Build dispatch tables of library level tagged types
+
+      if Is_Compilation_Unit (Id)
+        or else (Is_Generic_Instance (Id)
+                   and then Is_Library_Level_Entity (Id))
+      then
+         Build_Static_Dispatch_Tables (N);
       end if;
 
       --  Note: it is not necessary to worry about generating a subprogram
@@ -1686,7 +1713,7 @@ package body Exp_Ch7 is
 
    begin
       --  Case of an internal component. The Final list is the record
-      --  controller of the enclosing record
+      --  controller of the enclosing record.
 
       if Present (Ref) then
          R := Ref;
@@ -1729,7 +1756,9 @@ package body Exp_Ch7 is
       --  context is a declaration or an assignment.
 
       elsif Is_Access_Type (E)
-        and then Ekind (E) /= E_Anonymous_Access_Type
+        and then (Ekind (E) /= E_Anonymous_Access_Type
+                    or else
+                  Present (Associated_Final_Chain (E)))
       then
          if not From_With_Type (E) then
             return
@@ -1763,15 +1792,15 @@ package body Exp_Ch7 is
             return New_Reference_To (RTE (RE_Global_Final_List), Sloc (E));
          else
             if No (Finalization_Chain_Entity (S)) then
-
-               Id := Make_Defining_Identifier (Sloc (S),
-                 New_Internal_Name ('F'));
+               Id :=
+                 Make_Defining_Identifier (Sloc (S),
+                   Chars => New_Internal_Name ('F'));
                Set_Finalization_Chain_Entity (S, Id);
 
                --  Set momentarily some semantics attributes to allow normal
                --  analysis of expansions containing references to this chain.
                --  Will be fully decorated during the expansion of the scope
-               --  itself
+               --  itself.
 
                Set_Ekind (Id, E_Variable);
                Set_Etype (Id, RTE (RE_Finalizable_Ptr));
@@ -1801,7 +1830,7 @@ package body Exp_Ch7 is
 
             --  Simple statement can be wrapped
 
-            when N_Pragma               =>
+            when N_Pragma =>
                return The_Parent;
 
             --  Usually assignments are good candidate for wrapping
@@ -1864,7 +1893,7 @@ package body Exp_Ch7 is
                  N_Terminate_Alternative            =>
                return P;
 
-            when N_Attribute_Reference              =>
+            when N_Attribute_Reference =>
 
                if Is_Procedure_Attribute_Name
                     (Attribute_Name (The_Parent))
@@ -1876,7 +1905,7 @@ package body Exp_Ch7 is
             --  expression in a raise_with_expression uses the secondary
             --  stack, for example.
 
-            when N_Raise_Statement  =>
+            when N_Raise_Statement =>
                return The_Parent;
 
             --  If the expression is within the iteration scheme of a loop,
@@ -1897,7 +1926,7 @@ package body Exp_Ch7 is
             --  The return statement is not to be wrapped when the function
             --  itself needs wrapping at the outer-level
 
-            when N_Return_Statement            =>
+            when N_Simple_Return_Statement =>
                declare
                   Applies_To : constant Entity_Id :=
                                  Return_Applies_To
@@ -2016,12 +2045,17 @@ package body Exp_Ch7 is
       Target : Node_Id;
 
    begin
-      --  If the node to be wrapped is the triggering alternative of an
+      --  If the node to be wrapped is the triggering statement of an
       --  asynchronous select, it is not part of a statement list. The
       --  actions must be inserted before the Select itself, which is
-      --  part of some list of statements.
+      --  part of some list of statements. Note that the triggering
+      --  alternative includes the triggering statement and an optional
+      --  statement list. If the node to be wrapped is part of that list,
+      --  the normal insertion applies.
 
-      if Nkind (Parent (Node_To_Be_Wrapped)) = N_Triggering_Alternative then
+      if Nkind (Parent (Node_To_Be_Wrapped)) = N_Triggering_Alternative
+        and then not Is_List_Member (Node_To_Be_Wrapped)
+      then
          Target := Parent (Parent (Node_To_Be_Wrapped));
       else
          Target := N;
@@ -2661,12 +2695,7 @@ package body Exp_Ch7 is
           Parameter_Type      => New_Reference_To (Type_B, Loc)));
 
       if Prim = Finalize_Case or else Prim = Adjust_Case then
-         Handler := New_List (
-           Make_Implicit_Exception_Handler (Loc,
-             Exception_Choices => New_List (Make_Others_Choice (Loc)),
-             Statements        => New_List (
-               Make_Raise_Program_Error (Loc,
-                 Reason => PE_Finalize_Raised_Exception))));
+         Handler := New_List (Make_Handler_For_Ctrl_Operation (Loc));
       end if;
 
       Proc_Name :=
@@ -2932,6 +2961,61 @@ package body Exp_Ch7 is
       return Res;
    end Make_Final_Call;
 
+   -------------------------------------
+   -- Make_Handler_For_Ctrl_Operation --
+   -------------------------------------
+
+   --  Generate:
+
+   --    when E : others =>
+   --      Raise_From_Controlled_Operation (X => E);
+
+   --  or:
+
+   --    when others =>
+   --      raise Program_Error [finalize raised exception];
+
+   --  depending on whether Raise_From_Controlled_Operation is available
+
+   function Make_Handler_For_Ctrl_Operation
+     (Loc : Source_Ptr) return Node_Id
+   is
+      E_Occ : Entity_Id;
+      --  Choice parameter (for the first case above)
+
+      Raise_Node : Node_Id;
+      --  Procedure call or raise statement
+
+   begin
+      if RTE_Available (RE_Raise_From_Controlled_Operation) then
+
+         --  Standard runtime: add choice parameter E, and pass it to
+         --  Raise_From_Controlled_Operation so that the original exception
+         --  name and message can be recorded in the exception message for
+         --  Program_Error.
+
+         E_Occ := Make_Defining_Identifier (Loc, Name_E);
+         Raise_Node := Make_Procedure_Call_Statement (Loc,
+                         Name =>
+                           New_Occurrence_Of (
+                             RTE (RE_Raise_From_Controlled_Operation), Loc),
+                         Parameter_Associations => New_List (
+                           New_Occurrence_Of (E_Occ, Loc)));
+
+      else
+         --  Restricted runtime: exception messages are not supported
+
+         E_Occ := Empty;
+         Raise_Node := Make_Raise_Program_Error (Loc,
+                         Reason => PE_Finalize_Raised_Exception);
+      end if;
+
+      return Make_Implicit_Exception_Handler (Loc,
+               Exception_Choices => New_List (Make_Others_Choice (Loc)),
+               Choice_Parameter  => E_Occ,
+               Statements        => New_List (Raise_Node));
+   end Make_Handler_For_Ctrl_Operation;
+
    --------------------
    -- Make_Init_Call --
    --------------------
@@ -3069,9 +3153,10 @@ package body Exp_Ch7 is
    begin
       --  Case where only secondary stack use is involved
 
-      if Uses_Sec_Stack (Current_Scope)
+      if VM_Target = No_VM
+        and then Uses_Sec_Stack (Current_Scope)
         and then No (Flist)
-        and then Nkind (Action) /= N_Return_Statement
+        and then Nkind (Action) /= N_Simple_Return_Statement
         and then Nkind (Par) /= N_Exception_Handler
       then
 
@@ -3136,7 +3221,6 @@ package body Exp_Ch7 is
 
       declare
          Last_Inserted : Node_Id := Prev (Action);
-
       begin
          if Present (Last_Inserted) then
             Freeze_All (First_Entity (Current_Scope), Last_Inserted);
@@ -3340,7 +3424,7 @@ package body Exp_Ch7 is
       --  released upon its exit unless this is a function that returns on
       --  the sec stack in which case this will be done by the caller.
 
-      if Uses_SS then
+      if VM_Target = No_VM and then Uses_SS then
          S := Enclosing_Dynamic_Scope (S);
 
          if Ekind (S) = E_Function
@@ -3428,7 +3512,7 @@ package body Exp_Ch7 is
    --       end _Clean;
 
    --    begin
-   --       <Instr uction>;
+   --       <Instruction>;
    --    at end
    --       _Clean;
    --    end;

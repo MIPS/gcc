@@ -380,6 +380,7 @@ _Jv_AllocRawObj (jsize size)
   return (void *) GC_MALLOC (size ? size : 1);
 }
 
+#ifdef INTERPRETER
 typedef _Jv_ClosureList *closure_list_pointer;
 
 /* Release closures in a _Jv_ClosureList.  */
@@ -402,6 +403,7 @@ _Jv_ClosureListFinalizer ()
 				     NULL, NULL, NULL);
   return clpp;
 }
+#endif // INTERPRETER
 
 static void
 call_finalizer (GC_PTR obj, GC_PTR client_data)
@@ -719,6 +721,17 @@ _Jv_ResumeThread (_Jv_Thread_t *thread)
 #if defined(GC_PTHREADS) && !defined(GC_SOLARIS_THREADS) \
      && !defined(GC_WIN32_THREADS) && !defined(GC_DARWIN_THREADS)
   GC_resume_thread (_Jv_GetPlatformThreadID (thread));
+#endif
+}
+
+int
+_Jv_IsThreadSuspended (_Jv_Thread_t *thread)
+{
+#if defined(GC_PTHREADS) && !defined(GC_SOLARIS_THREADS) \
+     && !defined(GC_WIN32_THREADS) && !defined(GC_DARWIN_THREADS)
+  return GC_is_thread_suspended (_Jv_GetPlatformThreadID (thread));
+#else
+  return 0;
 #endif
 }
 

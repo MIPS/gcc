@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -73,7 +72,7 @@ static bool deps_seen;
 static bool verbose;
 
 /* If -lang-fortran seen.  */
-static bool lang_fortran = false;
+bool lang_fortran = false;
 
 /* Dependency output file.  */
 static const char *deps_file;
@@ -231,6 +230,9 @@ c_common_init_options (unsigned int argc, const char **argv)
   flag_exceptions = c_dialect_cxx ();
   warn_pointer_arith = c_dialect_cxx ();
   warn_write_strings = c_dialect_cxx();
+
+  /* By default, C99-like requirements for complex multiply and divide.  */
+  flag_complex_method = 2;
 
   deferred_opts = XNEWVEC (struct deferred_opt, argc);
 
@@ -400,7 +402,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       if (c_dialect_cxx ())
 	warn_sign_compare = value;
       warn_switch = value;
-      warn_strict_aliasing = value;
+      set_Wstrict_aliasing (value);
       warn_address = value;
       warn_strict_overflow = value;
       warn_array_bounds = value;
@@ -614,6 +616,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	result = 0;
       else
 	disable_builtin_function (arg);
+      break;
+
+    case OPT_fdirectives_only:
+      cpp_opts->directives_only = 1;
       break;
 
     case OPT_fdollars_in_identifiers:
@@ -832,6 +838,18 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_gen_declaration = 1;
       break;
 
+    case OPT_femit_struct_debug_baseonly:
+      set_struct_debug_option ("base");
+      break;
+
+    case OPT_femit_struct_debug_reduced:
+      set_struct_debug_option ("dir:ord:sys,dir:gen:any,ind:base");
+      break;
+
+    case OPT_femit_struct_debug_detailed_:
+      set_struct_debug_option (arg);
+      break;
+
     case OPT_idirafter:
       add_path (xstrdup (arg), AFTER, 0, true);
       break;
@@ -1047,10 +1065,13 @@ c_common_post_options (const char **pfilename)
   if (flag_objc_exceptions && !flag_objc_sjlj_exceptions)
     flag_exceptions = 1;
 
-  /* -Wextra implies -Wclobbered, -Wempty-body, -Wsign-compare, 
+  /* -Wextra implies -Wtype-limits, -Wclobbered, 
+     -Wempty-body, -Wsign-compare, 
      -Wmissing-field-initializers, -Wmissing-parameter-type
      -Wold-style-declaration, and -Woverride-init, 
      but not if explicitly overridden.  */
+  if (warn_type_limits == -1)
+    warn_type_limits = extra_warnings;
   if (warn_clobbered == -1)
     warn_clobbered = extra_warnings;
   if (warn_empty_body == -1)
@@ -1092,7 +1113,14 @@ c_common_post_options (const char **pfilename)
 	}
       if (flag_inline_functions)
 	flag_inline_trees = 2;
-    }
+    } 
+
+  /* In C, -Wconversion enables -Wsign-conversion (unless disabled
+     through -Wno-sign-conversion). While in C++,
+     -Wsign-conversion needs to be requested explicitly.  */
+  if (warn_sign_conversion == -1)
+    warn_sign_conversion =  (c_dialect_cxx ()) ? 0 : warn_conversion;
+
 
   /* Special format checking options don't work without -Wformat; warn if
      they are used.  */
@@ -1116,14 +1144,9 @@ c_common_post_options (const char **pfilename)
   if (warn_implicit_function_declaration == -1) 
     warn_implicit_function_declaration = flag_isoc99;
 
-  /* C99 requires special handling of complex multiplication and division;
-     -ffast-math and -fcx-limited-range are handled in process_options.  */
-  if (flag_isoc99)
-    flag_complex_method = 2;
-
   /* If we're allowing C++0x constructs, don't warn about C++0x
      compatibility problems.  */
-  if (flag_cpp0x)
+  if (cxx_dialect == cxx0x)
     warn_cxx0x_compat = 0;
 
   if (flag_preprocess_only)
@@ -1387,6 +1410,11 @@ sanitize_cpp_opts (void)
   if (flag_dump_macros == 'M')
     flag_no_output = 1;
 
+  /* By default, -fdirectives-only implies -dD.  This allows subsequent phases
+     to perform proper macro expansion.  */
+  if (cpp_opts->directives_only && !cpp_opts->preprocessed && !flag_dump_macros)
+    flag_dump_macros = 'D';
+
   /* Disable -dD, -dN and -dI if normal output is suppressed.  Allow
      -dM since at least glibc relies on -M -dM to work.  */
   /* Also, flag_no_output implies flag_no_line_commands, always.  */
@@ -1417,6 +1445,14 @@ sanitize_cpp_opts (void)
      actually output the current directory?  */
   if (flag_working_directory == -1)
     flag_working_directory = (debug_info_level != DINFO_LEVEL_NONE);
+
+  if (cpp_opts->directives_only)
+    {
+      if (warn_unused_macros)
+	error ("-fdirectives-only is incompatible with -Wunused_macros");
+      if (cpp_opts->traditional)
+	error ("-fdirectives-only is incompatible with -traditional");
+    }
 }
 
 /* Add include path with a prefix at the front of its name.  */
@@ -1500,6 +1536,8 @@ finish_options (void)
 	    }
 	}
     }
+  else if (cpp_opts->directives_only)
+    cpp_init_special_builtins (parse_in);
 
   include_cursor = 0;
   push_command_line_include ();
@@ -1588,6 +1626,7 @@ set_std_cxx98 (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
+  cxx_dialect = cxx98;
 }
 
 /* Set the C++ 0x working draft "standard" (without GNU extensions if ISO).  */
@@ -1598,7 +1637,7 @@ set_std_cxx0x (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
-  flag_cpp0x = 1;
+  cxx_dialect = cxx0x;
 }
 
 /* Handle setting implicit to ON.  */

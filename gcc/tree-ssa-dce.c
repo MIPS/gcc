@@ -1,5 +1,6 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Ben Elliston <bje@redhat.com>
    and Andrew MacLeod <amacleod@redhat.com>
    Adapted to use control dependence by Steven Bosscher, SUSE Labs.
@@ -8,7 +9,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -17,9 +18,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Dead code elimination.
 
@@ -286,6 +286,7 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
     case ASM_EXPR:
     case RESX_EXPR:
     case RETURN_EXPR:
+    case CHANGE_DYNAMIC_TYPE_EXPR:
       mark_stmt_necessary (stmt, true);
       return;
 
@@ -591,7 +592,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
       basic_block post_dom_bb;
 
       /* The post dominance info has to be up-to-date.  */
-      gcc_assert (dom_computed[CDI_POST_DOMINATORS] == DOM_OK);
+      gcc_assert (dom_info_state (CDI_POST_DOMINATORS) == DOM_OK);
       /* Get the immediate post dominator of bb.  */
       post_dom_bb = get_immediate_dominator (CDI_POST_DOMINATORS, bb);
 
@@ -607,7 +608,6 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	 3. If the post dominator has PHI nodes we may be able to compute
 	    the right PHI args for them.
 
-
 	 In each of these cases we must remove the control statement
 	 as it may reference SSA_NAMEs which are going to be removed and
 	 we remove all but one outgoing edge from the block.  */
@@ -620,6 +620,11 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	  /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
 	  redirect_edge_and_branch (EDGE_SUCC (bb, 0), post_dom_bb);
 	  PENDING_STMT (EDGE_SUCC (bb, 0)) = NULL;
+
+	  /* It is not sufficient to set cfg_altered below during edge
+	     removal, in case BB has two successors and one of them
+	     is POST_DOM_BB.  */
+	  cfg_altered = true;
 	}
       EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
       EDGE_SUCC (bb, 0)->count = bb->count;
@@ -698,6 +703,7 @@ eliminate_unnecessary_stmts (void)
 			  == SSA_NAME)
 		      && !TEST_BIT (processed, SSA_NAME_VERSION (name)))
 		    {
+		      tree oldlhs = GIMPLE_STMT_OPERAND (t, 0);
 		      something_changed = true;
 		      if (dump_file && (dump_flags & TDF_DETAILS))
 			{
@@ -711,6 +717,7 @@ eliminate_unnecessary_stmts (void)
 		      maybe_clean_or_replace_eh_stmt (t, call);
 		      mark_symbols_for_renaming (call);
 		      pop_stmt_changes (bsi_stmt_ptr (i));
+		      release_ssa_name (oldlhs);
 		    }
 		  notice_special_calls (call);
 		}
@@ -718,6 +725,7 @@ eliminate_unnecessary_stmts (void)
 	    }
 	}
     }
+
   return something_changed;
 }
 
@@ -837,8 +845,8 @@ perform_tree_ssa_dce (bool aggressive)
   something_changed |= eliminate_unnecessary_stmts ();
   something_changed |= cfg_altered;
 
-  if (aggressive && something_changed)
-    free_dominance_info (CDI_POST_DOMINATORS);
+  /* We do not update postdominators, so free them unconditionally.  */
+  free_dominance_info (CDI_POST_DOMINATORS);
 
   /* If we removed paths in the CFG, then we need to update
      dominators as well.  I haven't investigated the possibility

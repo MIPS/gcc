@@ -1,11 +1,11 @@
 /* Dead store elimination
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -168,7 +167,8 @@ dse_initialize_block_local_data (struct dom_walk_data *walk_data,
 				 bool recycled)
 {
   struct dse_block_local_data *bd
-    = VEC_last (void_p, walk_data->block_data_stack);
+    = (struct dse_block_local_data *)
+	VEC_last (void_p, walk_data->block_data_stack);
 
   /* If we are given a recycled block local data structure, ensure any
      bitmap associated with the block is cleared.  */
@@ -190,7 +190,7 @@ static tree
 memory_ssa_name_same (tree *expr_p, int *walk_subtrees ATTRIBUTE_UNUSED,
 		      void *data)
 {
-  struct address_walk_data *walk_data = data;
+  struct address_walk_data *walk_data = (struct address_walk_data *) data;
   tree expr = *expr_p;
   tree def_stmt;
   basic_block def_bb;
@@ -237,6 +237,59 @@ memory_address_same (tree store1, tree store2)
 	  == NULL);
 }
 
+/* Return the use stmt for the lhs of STMT following the virtual
+   def-use chains.  Returns the MODIFY_EXPR stmt which lhs is equal to
+   the lhs of STMT or NULL_TREE if no such stmt can be found.  */
+static tree 
+get_use_of_stmt_lhs (tree stmt,
+		     use_operand_p * first_use_p,
+		     use_operand_p * use_p, tree * use_stmt)
+{
+  tree usevar, lhs;
+  def_operand_p def_p;
+
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+    return NULL_TREE;
+
+  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+
+  /* The stmt must have a single VDEF.  */
+  def_p = SINGLE_SSA_DEF_OPERAND (stmt, SSA_OP_VDEF);
+  if (def_p == NULL_DEF_OPERAND_P)
+    return NULL_TREE;
+
+  if (!has_single_use (DEF_FROM_PTR (def_p)))
+    return NULL_TREE;
+  /* Get the immediate use of the def.  */
+  single_imm_use (DEF_FROM_PTR (def_p), use_p, use_stmt);
+  gcc_assert (*use_p != NULL_USE_OPERAND_P);
+  first_use_p = use_p;
+  if (TREE_CODE (*use_stmt) != GIMPLE_MODIFY_STMT)
+    return NULL_TREE;
+
+  do
+    {
+      /* Look at the use stmt and see if it's LHS matches
+         stmt's lhs SSA_NAME.  */
+      def_p = SINGLE_SSA_DEF_OPERAND (*use_stmt, SSA_OP_VDEF);
+      if (def_p == NULL_DEF_OPERAND_P)
+	return NULL_TREE;
+
+      usevar = GIMPLE_STMT_OPERAND (*use_stmt, 0);
+      if (operand_equal_p (usevar, lhs, 0))
+	return *use_stmt;
+
+      if (!has_single_use (DEF_FROM_PTR (def_p)))
+	return NULL_TREE;
+      single_imm_use (DEF_FROM_PTR (def_p), use_p, use_stmt);
+      gcc_assert (*use_p != NULL_USE_OPERAND_P);
+      if (TREE_CODE (*use_stmt) != GIMPLE_MODIFY_STMT)
+	return NULL_TREE;
+    }
+  while (1);
+
+  return NULL_TREE;
+}
 
 /* A helper of dse_optimize_stmt.
    Given a GIMPLE_MODIFY_STMT in STMT, check that each VDEF has one
@@ -562,8 +615,10 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 		   block_stmt_iterator bsi)
 {
   struct dse_block_local_data *bd
-    = VEC_last (void_p, walk_data->block_data_stack);
-  struct dse_global_data *dse_gd = walk_data->global_data;
+    = (struct dse_block_local_data *)
+	VEC_last (void_p, walk_data->block_data_stack);
+  struct dse_global_data *dse_gd
+    = (struct dse_global_data *) walk_data->global_data;
   tree stmt = bsi_stmt (bsi);
   stmt_ann_t ann = stmt_ann (stmt);
 
@@ -593,10 +648,29 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
       /* If this is a partial store into an aggregate, record it.  */
       dse_record_partial_aggregate_store (stmt, dse_gd);
 
-      /* If we have precisely one immediate use at this point, then we may
-	 have found redundant store.  Make sure that the stores are to
-	 the same memory location.  This includes checking that any
-	 SSA-form variables in the address will have the same values.  */
+      if (use_p != NULL_USE_OPERAND_P
+          && bitmap_bit_p (dse_gd->stores, get_stmt_uid (use_stmt))
+          && (!operand_equal_p (GIMPLE_STMT_OPERAND (stmt, 0),
+                                GIMPLE_STMT_OPERAND (use_stmt, 0), 0)
+              && !dse_partial_kill_p (stmt, dse_gd))
+          && memory_address_same (stmt, use_stmt))
+        {
+          /* If we have precisely one immediate use at this point, but
+             the stores are not to the same memory location then walk the
+             virtual def-use chain to get the stmt which stores to that same
+             memory location.  */
+          if (get_use_of_stmt_lhs (stmt, &first_use_p, &use_p, &use_stmt) ==
+              NULL_TREE)
+            {
+              record_voperand_set (dse_gd->stores, &bd->stores, ann->uid);
+              return;
+            }
+        }
+
+      /* If we have precisely one immediate use at this point and the
+	 stores are to the same memory location or there is a chain of
+	 virtual uses from stmt and the stmt which stores to that same
+	 memory location, then we may have found redundant store.  */
       if (use_p != NULL_USE_OPERAND_P
 	  && bitmap_bit_p (dse_gd->stores, get_stmt_uid (use_stmt))
 	  && (operand_equal_p (GIMPLE_STMT_OPERAND (stmt, 0),
@@ -650,8 +724,10 @@ static void
 dse_record_phis (struct dom_walk_data *walk_data, basic_block bb)
 {
   struct dse_block_local_data *bd
-    = VEC_last (void_p, walk_data->block_data_stack);
-  struct dse_global_data *dse_gd = walk_data->global_data;
+    = (struct dse_block_local_data *)
+	VEC_last (void_p, walk_data->block_data_stack);
+  struct dse_global_data *dse_gd
+    = (struct dse_global_data *) walk_data->global_data;
   tree phi;
 
   for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
@@ -666,8 +742,10 @@ dse_finalize_block (struct dom_walk_data *walk_data,
 		    basic_block bb ATTRIBUTE_UNUSED)
 {
   struct dse_block_local_data *bd
-    = VEC_last (void_p, walk_data->block_data_stack);
-  struct dse_global_data *dse_gd = walk_data->global_data;
+    = (struct dse_block_local_data *)
+	VEC_last (void_p, walk_data->block_data_stack);
+  struct dse_global_data *dse_gd
+    = (struct dse_global_data *) walk_data->global_data;
   bitmap stores = dse_gd->stores;
   unsigned int i;
   bitmap_iterator bi;

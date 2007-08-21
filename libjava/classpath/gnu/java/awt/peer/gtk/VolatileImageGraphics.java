@@ -86,7 +86,17 @@ public class VolatileImageGraphics extends ComponentGraphics
 
   public GraphicsConfiguration getDeviceConfiguration()
   {
-    return owner.component.getGraphicsConfiguration();
+    GraphicsConfiguration conf;
+    if (owner.component != null)
+      {
+        conf = owner.component.getGraphicsConfiguration();
+      }
+    else
+      {
+        return java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+          .getDefaultScreenDevice().getDefaultConfiguration();
+      }
+    return conf;
   }
 
   public Graphics create()
@@ -207,11 +217,11 @@ public class VolatileImageGraphics extends ComponentGraphics
     if (img instanceof GtkVolatileImage
         && (comp == null || comp instanceof AlphaComposite))
       {
-	owner.drawVolatile( ((GtkVolatileImage)img).nativePointer, 
-			    x, y,
-			    ((GtkVolatileImage)img).width, 
-			    ((GtkVolatileImage)img).height );
-	return true;
+        owner.drawVolatile( ((GtkVolatileImage)img).nativePointer, 
+                            x, y,
+                            ((GtkVolatileImage)img).width, 
+                            ((GtkVolatileImage)img).height );
+        return true;
       }      
     return super.drawImage( img, x, y, observer );
   }
@@ -222,9 +232,9 @@ public class VolatileImageGraphics extends ComponentGraphics
     if ((img instanceof GtkVolatileImage)
         && (comp == null || comp instanceof AlphaComposite))
       {
-	owner.drawVolatile( ((GtkVolatileImage)img).nativePointer, 
-			    x, y, width, height );
-	return true;
+        owner.drawVolatile( ((GtkVolatileImage)img).nativePointer, 
+                            x, y, width, height );
+        return true;
       }      
     return super.drawImage( img, x, y, width, height, observer );
   }
@@ -254,8 +264,8 @@ public class VolatileImageGraphics extends ComponentGraphics
     transform.transform(points, 0, points, 0, 2);
     
     Rectangle2D deviceBounds = new Rectangle2D.Double(points[0], points[1],
-                                                       points[2] - points[0],
-                                                       points[3] - points[1]);
+                                                      points[2] - points[0],
+                                                      points[3] - points[1]);
     Rectangle2D.intersect(deviceBounds, this.getClipInDevSpace(), deviceBounds);
     
     current = current.getSubimage((int)deviceBounds.getX(),

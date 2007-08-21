@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #ifndef GCC_TREE_PASS_H
@@ -70,6 +69,9 @@ enum tree_dump_index
 #define TDF_GRAPH	(1 << 13)	/* a graph dump is being emitted */
 #define TDF_MEMSYMS	(1 << 14)	/* display memory symbols in expr.
                                            Implies TDF_VOPS.  */
+
+#define TDF_DIAGNOSTIC	(1 << 15)	/* A dump to be put in a diagnostic
+					   message.  */
 
 extern char *get_dump_file_name (enum tree_dump_index);
 extern int dump_enabled_p (enum tree_dump_index);
@@ -147,12 +149,11 @@ struct dump_file_info
 #define PROP_gimple_leh		(1 << 2)	/* lowered eh */
 #define PROP_cfg		(1 << 3)
 #define PROP_referenced_vars	(1 << 4)
-#define PROP_pta		(1 << 5)
-#define PROP_ssa		(1 << 6)
-#define PROP_no_crit_edges      (1 << 7)
-#define PROP_rtl		(1 << 8)
-#define PROP_alias		(1 << 9)
-#define PROP_gimple_lomp	(1 << 10)	/* lowered OpenMP directives */
+#define PROP_ssa		(1 << 5)
+#define PROP_no_crit_edges      (1 << 6)
+#define PROP_rtl		(1 << 7)
+#define PROP_alias		(1 << 8)
+#define PROP_gimple_lomp	(1 << 9)	/* lowered OpenMP directives */
 
 #define PROP_trees \
   (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh | PROP_gimple_lomp)
@@ -218,7 +219,16 @@ struct dump_file_info
 /* Call df_finish at the end of the pass.  This is done after all of
    the dumpers have been allowed to run so that they have access to
    the instance before it is destroyed.  */
-#define TODO_df_finish                  (1 << 15)
+#define TODO_df_finish                  (1 << 16)
+
+/* Call df_verify at the end of the pass if checking is enabled.  */
+#define TODO_df_verify                  (1 << 17)
+
+/* Internally used for the first instance of a pass.  */
+#define TODO_mark_first_instance	(1 << 18)
+
+/* Rebuild aliasing info.  */
+#define TODO_rebuild_alias                (1 << 19)
 
 #define TODO_update_ssa_any		\
     (TODO_update_ssa			\
@@ -249,6 +259,7 @@ extern struct tree_opt_pass pass_tree_loop;
 extern struct tree_opt_pass pass_tree_loop_init;
 extern struct tree_opt_pass pass_lim;
 extern struct tree_opt_pass pass_tree_unswitch;
+extern struct tree_opt_pass pass_predcom;
 extern struct tree_opt_pass pass_iv_canon;
 extern struct tree_opt_pass pass_scev_cprop;
 extern struct tree_opt_pass pass_empty_loop;
@@ -269,7 +280,6 @@ extern struct tree_opt_pass pass_dce;
 extern struct tree_opt_pass pass_dce_loop;
 extern struct tree_opt_pass pass_cd_dce;
 extern struct tree_opt_pass pass_merge_phi;
-extern struct tree_opt_pass pass_may_alias;
 extern struct tree_opt_pass pass_split_crit_edges;
 extern struct tree_opt_pass pass_pre;
 extern struct tree_opt_pass pass_profile;
@@ -286,10 +296,13 @@ extern struct tree_opt_pass pass_early_warn_uninitialized;
 extern struct tree_opt_pass pass_late_warn_uninitialized;
 extern struct tree_opt_pass pass_cse_reciprocals;
 extern struct tree_opt_pass pass_cse_sincos;
+extern struct tree_opt_pass pass_convert_to_rsqrt;
 extern struct tree_opt_pass pass_warn_function_return;
 extern struct tree_opt_pass pass_warn_function_noreturn;
 extern struct tree_opt_pass pass_phiopt;
 extern struct tree_opt_pass pass_forwprop;
+extern struct tree_opt_pass pass_phiprop;
+extern struct tree_opt_pass pass_tree_ifcombine;
 extern struct tree_opt_pass pass_dse;
 extern struct tree_opt_pass pass_nrv;
 extern struct tree_opt_pass pass_mark_used_blocks;
@@ -313,6 +326,7 @@ extern struct tree_opt_pass pass_build_cgraph_edges;
 extern struct tree_opt_pass pass_reset_cc_flags;
 
 /* IPA Passes */
+extern struct tree_opt_pass pass_ipa_matrix_reorg;
 extern struct tree_opt_pass pass_ipa_cp;
 extern struct tree_opt_pass pass_ipa_inline;
 extern struct tree_opt_pass pass_ipa_early_inline;
@@ -333,7 +347,6 @@ extern struct tree_opt_pass pass_fixup_cfg;
 
 extern struct tree_opt_pass pass_init_function;
 extern struct tree_opt_pass pass_jump;
-extern struct tree_opt_pass pass_insn_locators_initialize;
 extern struct tree_opt_pass pass_rtl_eh;
 extern struct tree_opt_pass pass_initial_value_sets;
 extern struct tree_opt_pass pass_unshare_all_rtl;
@@ -374,12 +387,12 @@ extern struct tree_opt_pass pass_regclass_init;
 extern struct tree_opt_pass pass_subregs_of_mode_init;
 extern struct tree_opt_pass pass_subregs_of_mode_finish;
 extern struct tree_opt_pass pass_inc_dec;
-extern struct tree_opt_pass pass_no_new_pseudos;
 extern struct tree_opt_pass pass_stack_ptr_mod;
 extern struct tree_opt_pass pass_initialize_regs;
 extern struct tree_opt_pass pass_combine;
 extern struct tree_opt_pass pass_if_after_combine;
 extern struct tree_opt_pass pass_partition_blocks;
+extern struct tree_opt_pass pass_match_asm_constraints;
 extern struct tree_opt_pass pass_regmove;
 extern struct tree_opt_pass pass_split_all_insns;
 extern struct tree_opt_pass pass_lower_subreg2;
@@ -438,5 +451,14 @@ extern void execute_pass_list (struct tree_opt_pass *);
 extern void execute_ipa_pass_list (struct tree_opt_pass *);
 extern void print_current_pass (FILE *);
 extern void debug_pass (void);
+
+/* Set to true if the pass is called the first time during compilation of the
+   current function.  Note that using this information in the optimization
+   passes is considered not to be clean, and it should be avoided if possible.
+   This flag is currently used to prevent loops from being peeled repeatedly
+   in jump threading; it will be removed once we preserve loop structures
+   throughout the compilation -- we will be able to mark the affected loops
+   directly in jump threading, and avoid peeling them next time.  */
+extern bool first_pass_instance;
 
 #endif /* GCC_TREE_PASS_H */

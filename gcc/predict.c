@@ -1,12 +1,12 @@
 /* Branch prediction routines for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* References:
 
@@ -60,6 +59,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "tree-scalar-evolution.h"
 #include "cfgloop.h"
+#include "pointer-set.h"
 
 /* real constants: 0, 1, 1-1/REG_BR_PROB_BASE, REG_BR_PROB_BASE,
 		   1/REG_BR_PROB_BASE, 0.5, BB_FREQ_MAX.  */
@@ -77,7 +77,7 @@ static void dump_prediction (FILE *, enum br_predictor, int, basic_block, int);
 static void predict_paths_leading_to (basic_block, int *, enum br_predictor, enum prediction);
 static void compute_function_frequency (void);
 static void choose_function_section (void);
-static bool can_predict_insn_p (rtx);
+static bool can_predict_insn_p (const_rtx);
 
 /* Information we hold about each branch predictor.
    Filled using information from predict.def.  */
@@ -111,7 +111,7 @@ static const struct predictor_info predictor_info[]= {
    for maximal performance.  */
 
 bool
-maybe_hot_bb_p (basic_block bb)
+maybe_hot_bb_p (const_basic_block bb)
 {
   if (profile_info && flag_branch_probabilities
       && (bb->count
@@ -132,7 +132,7 @@ maybe_hot_bb_p (basic_block bb)
 /* Return true in case BB is cold and should be optimized for size.  */
 
 bool
-probably_cold_bb_p (basic_block bb)
+probably_cold_bb_p (const_basic_block bb)
 {
   if (profile_info && flag_branch_probabilities
       && (bb->count
@@ -148,7 +148,7 @@ probably_cold_bb_p (basic_block bb)
 
 /* Return true in case BB is probably never executed.  */
 bool
-probably_never_executed_bb_p (basic_block bb)
+probably_never_executed_bb_p (const_basic_block bb)
 {
   if (profile_info && flag_branch_probabilities)
     return ((bb->count + profile_info->runs / 2) / profile_info->runs) == 0;
@@ -174,6 +174,11 @@ rtl_predicted_by_p (basic_block bb, enum br_predictor predictor)
   return false;
 }
 
+/* This map contains for a basic block the list of predictions for the
+   outgoing edges.  */
+
+static struct pointer_map_t *bb_predictions;
+
 /* Return true if the one of outgoing edges is already predicted by
    PREDICTOR.  */
 
@@ -181,7 +186,12 @@ bool
 tree_predicted_by_p (basic_block bb, enum br_predictor predictor)
 {
   struct edge_prediction *i;
-  for (i = bb->predictions; i; i = i->ep_next)
+  void **preds = pointer_map_contains (bb_predictions, bb);
+
+  if (!preds)
+    return false;
+  
+  for (i = *preds; i; i = i->ep_next)
     if (i->ep_predictor == predictor)
       return true;
   return false;
@@ -213,14 +223,14 @@ probability_reliable_p (int prob)
 
 /* Same predicate as above, working on edges.  */
 bool
-edge_probability_reliable_p (edge e)
+edge_probability_reliable_p (const_edge e)
 {
   return probability_reliable_p (e->probability);
 }
 
 /* Same predicate as edge_probability_reliable_p, working on notes.  */
 bool
-br_prob_note_reliable_p (rtx note)
+br_prob_note_reliable_p (const_rtx note)
 {
   gcc_assert (REG_NOTE_KIND (note) == REG_BR_PROB);
   return probability_reliable_p (INTVAL (XEXP (note, 0)));
@@ -283,10 +293,11 @@ tree_predict_edge (edge e, enum br_predictor predictor, int probability)
   if ((e->src != ENTRY_BLOCK_PTR && EDGE_COUNT (e->src->succs) > 1)
       && flag_guess_branch_prob && optimize)
     {
-      struct edge_prediction *i = ggc_alloc (sizeof (struct edge_prediction));
+      struct edge_prediction *i = XNEW (struct edge_prediction);
+      void **preds = pointer_map_insert (bb_predictions, e->src);
 
-      i->ep_next = e->src->predictions;
-      e->src->predictions = i;
+      i->ep_next = *preds;
+      *preds = i;
       i->ep_probability = probability;
       i->ep_predictor = predictor;
       i->ep_edge = e;
@@ -298,24 +309,56 @@ tree_predict_edge (edge e, enum br_predictor predictor, int probability)
 void
 remove_predictions_associated_with_edge (edge e)
 {
-  if (e->src->predictions)
+  void **preds;
+  
+  if (!bb_predictions)
+    return;
+
+  preds = pointer_map_contains (bb_predictions, e->src);
+
+  if (preds)
     {
-      struct edge_prediction **prediction = &e->src->predictions;
+      struct edge_prediction **prediction = (struct edge_prediction **) preds;
+      struct edge_prediction *next;
+
       while (*prediction)
 	{
 	  if ((*prediction)->ep_edge == e)
-	    *prediction = (*prediction)->ep_next;
+	    {
+	      next = (*prediction)->ep_next;
+	      free (*prediction);
+	      *prediction = next;
+	    }
 	  else
 	    prediction = &((*prediction)->ep_next);
 	}
     }
 }
 
+/* Clears the list of predictions stored for BB.  */
+
+static void
+clear_bb_predictions (basic_block bb)
+{
+  void **preds = pointer_map_contains (bb_predictions, bb);
+  struct edge_prediction *pred, *next;
+
+  if (!preds)
+    return;
+
+  for (pred = *preds; pred; pred = next)
+    {
+      next = pred->ep_next;
+      free (pred);
+    }
+  *preds = NULL;
+}
+
 /* Return true when we can store prediction on insn INSN.
    At the moment we represent predictions only on conditional
    jumps, not at computed jump or other complicated cases.  */
 static bool
-can_predict_insn_p (rtx insn)
+can_predict_insn_p (const_rtx insn)
 {
   return (JUMP_P (insn)
 	  && any_condjump_p (insn)
@@ -538,6 +581,7 @@ combine_predictions_for_bb (basic_block bb)
   int nedges = 0;
   edge e, first = NULL, second = NULL;
   edge_iterator ei;
+  void **preds;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
     if (!(e->flags & (EDGE_EH | EDGE_FAKE)))
@@ -559,7 +603,7 @@ combine_predictions_for_bb (basic_block bb)
     {
       if (!bb->count)
 	set_even_probabilities (bb);
-      bb->predictions = NULL;
+      clear_bb_predictions (bb);
       if (dump_file)
 	fprintf (dump_file, "%i edges in bb %i predicted to even probabilities\n",
 		 nedges, bb->index);
@@ -569,31 +613,36 @@ combine_predictions_for_bb (basic_block bb)
   if (dump_file)
     fprintf (dump_file, "Predictions for bb %i\n", bb->index);
 
-  /* We implement "first match" heuristics and use probability guessed
-     by predictor with smallest index.  */
-  for (pred = bb->predictions; pred; pred = pred->ep_next)
+  preds = pointer_map_contains (bb_predictions, bb);
+  if (preds)
     {
-      int predictor = pred->ep_predictor;
-      int probability = pred->ep_probability;
+      /* We implement "first match" heuristics and use probability guessed
+	 by predictor with smallest index.  */
+      for (pred = *preds; pred; pred = pred->ep_next)
+	{
+	  int predictor = pred->ep_predictor;
+	  int probability = pred->ep_probability;
 
-      if (pred->ep_edge != first)
-	probability = REG_BR_PROB_BASE - probability;
+	  if (pred->ep_edge != first)
+	    probability = REG_BR_PROB_BASE - probability;
 
-      found = true;
-      if (best_predictor > predictor)
-	best_probability = probability, best_predictor = predictor;
+	  found = true;
+	  if (best_predictor > predictor)
+	    best_probability = probability, best_predictor = predictor;
 
-      d = (combined_probability * probability
-	   + (REG_BR_PROB_BASE - combined_probability)
-	   * (REG_BR_PROB_BASE - probability));
+	  d = (combined_probability * probability
+	       + (REG_BR_PROB_BASE - combined_probability)
+	       * (REG_BR_PROB_BASE - probability));
 
-      /* Use FP math to avoid overflows of 32bit integers.  */
-      if (d == 0)
-	/* If one probability is 0% and one 100%, avoid division by zero.  */
-	combined_probability = REG_BR_PROB_BASE / 2;
-      else
-	combined_probability = (((double) combined_probability) * probability
-				* REG_BR_PROB_BASE / d + 0.5);
+	  /* Use FP math to avoid overflows of 32bit integers.  */
+	  if (d == 0)
+	    /* If one probability is 0% and one 100%, avoid division by zero.  */
+	    combined_probability = REG_BR_PROB_BASE / 2;
+	  else
+	    combined_probability = (((double) combined_probability)
+				    * probability
+		    		    * REG_BR_PROB_BASE / d + 0.5);
+	}
     }
 
   /* Decide which heuristic to use.  In case we didn't match anything,
@@ -617,17 +666,20 @@ combine_predictions_for_bb (basic_block bb)
     combined_probability = best_probability;
   dump_prediction (dump_file, PRED_COMBINED, combined_probability, bb, true);
 
-  for (pred = bb->predictions; pred; pred = pred->ep_next)
+  if (preds)
     {
-      int predictor = pred->ep_predictor;
-      int probability = pred->ep_probability;
+      for (pred = *preds; pred; pred = pred->ep_next)
+	{
+	  int predictor = pred->ep_predictor;
+	  int probability = pred->ep_probability;
 
-      if (pred->ep_edge != EDGE_SUCC (bb, 0))
-	probability = REG_BR_PROB_BASE - probability;
-      dump_prediction (dump_file, predictor, probability, bb,
-		       !first_match || best_predictor == predictor);
+	  if (pred->ep_edge != EDGE_SUCC (bb, 0))
+	    probability = REG_BR_PROB_BASE - probability;
+	  dump_prediction (dump_file, predictor, probability, bb,
+			   !first_match || best_predictor == predictor);
+	}
     }
-  bb->predictions = NULL;
+  clear_bb_predictions (bb);
 
   if (!bb->count)
     {
@@ -1187,7 +1239,8 @@ apply_return_prediction (int *heads)
   FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     {
       return_stmt = last_stmt (e->src);
-      if (TREE_CODE (return_stmt) == RETURN_EXPR)
+      if (return_stmt
+	  && TREE_CODE (return_stmt) == RETURN_EXPR)
 	break;
     }
   if (!e)
@@ -1278,6 +1331,20 @@ call_expr:;
   free (heads);
 }
 
+#ifdef ENABLE_CHECKING
+
+/* Callback for pointer_map_traverse, asserts that the pointer map is
+   empty.  */
+
+static bool
+assert_is_empty (const void *key ATTRIBUTE_UNUSED, void **value,
+		 void *data ATTRIBUTE_UNUSED)
+{
+  gcc_assert (!*value);
+  return false;
+}
+#endif
+
 /* Predict branch probabilities and estimate profile of the tree CFG.  */
 static unsigned int
 tree_estimate_probability (void)
@@ -1285,19 +1352,22 @@ tree_estimate_probability (void)
   basic_block bb;
 
   loop_optimizer_init (0);
-  if (current_loops && dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     flow_loops_dump (dump_file, NULL, 0);
 
   add_noreturn_fake_exit_edges ();
   connect_infinite_loops_to_exit ();
-  calculate_dominance_info (CDI_DOMINATORS);
+  /* We use loop_niter_by_eval, which requires that the loops have
+     preheaders.  */
+  create_preheaders (CP_SIMPLE_PREHEADERS);
   calculate_dominance_info (CDI_POST_DOMINATORS);
 
+  bb_predictions = pointer_map_create ();
   tree_bb_level_predictions ();
 
   mark_irreducible_loops ();
   record_loop_exits ();
-  if (current_loops)
+  if (number_of_loops () > 1)
     predict_loops ();
 
   FOR_EACH_BB (bb)
@@ -1380,6 +1450,12 @@ tree_estimate_probability (void)
     }
   FOR_EACH_BB (bb)
     combine_predictions_for_bb (bb);
+
+#ifdef ENABLE_CHECKING
+  pointer_map_traverse (bb_predictions, assert_is_empty, NULL);
+#endif
+  pointer_map_destroy (bb_predictions);
+  bb_predictions = NULL;
 
   strip_builtin_expect ();
   estimate_bb_frequencies ();
@@ -1654,7 +1730,7 @@ estimate_loops (void)
   basic_block bb;
 
   /* Start by estimating the frequencies in the loops.  */
-  if (current_loops)
+  if (number_of_loops () > 1)
     estimate_loops_at_level (current_loops->tree_root->inner);
 
   /* Now propagate the frequencies through all the blocks.  */

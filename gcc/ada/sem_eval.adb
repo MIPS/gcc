@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,6 +33,7 @@ with Errout;   use Errout;
 with Eval_Fat; use Eval_Fat;
 with Exp_Util; use Exp_Util;
 with Lib;      use Lib;
+with Namet;    use Namet;
 with Nmake;    use Nmake;
 with Nlists;   use Nlists;
 with Opt;      use Opt;
@@ -1500,7 +1501,7 @@ package body Sem_Eval is
                Set_Etype (N, Etype (Right));
             end if;
 
-            Fold_Str (N, End_String, True);
+            Fold_Str (N, End_String, Static => True);
          end if;
       end;
    end Eval_Concatenation;
@@ -2262,11 +2263,13 @@ package body Sem_Eval is
       --  then we can replace the entire result by False. We only
       --  do this for one dimensional arrays, because the case of
       --  multi-dimensional arrays is rare and too much trouble!
+      --  If one of the operands is an illegal aggregate, its type
+      --  might still be an arbitrary composite type, so nothing to do.
 
       if Is_Array_Type (Typ)
+        and then Typ /= Any_Composite
         and then Number_Dimensions (Typ) = 1
-        and then (Nkind (N) = N_Op_Eq
-                    or else Nkind (N) = N_Op_Ne)
+        and then (Nkind (N) = N_Op_Eq or else Nkind (N) = N_Op_Ne)
       then
          if Raises_Constraint_Error (Left)
            or else Raises_Constraint_Error (Right)
@@ -2276,9 +2279,9 @@ package body Sem_Eval is
 
          declare
             procedure Get_Static_Length (Op : Node_Id; Len : out Uint);
-            --  If Op is an expression for a constrained array with a
-            --  known at compile time length, then Len is set to this
-            --  (non-negative length). Otherwise Len is set to minus 1.
+            --  If Op is an expression for a constrained array with a known
+            --  at compile time length, then Len is set to this (non-negative
+            --  length). Otherwise Len is set to minus 1.
 
             -----------------------
             -- Get_Static_Length --
@@ -2729,7 +2732,7 @@ package body Sem_Eval is
       --  Fold conversion, case of string type. The result is not static
 
       if Is_String_Type (Target_Type) then
-         Fold_Str (N, Strval (Get_String_Val (Operand)), False);
+         Fold_Str (N, Strval (Get_String_Val (Operand)), Static => False);
 
          return;
 
@@ -2963,9 +2966,9 @@ package body Sem_Eval is
       Val    : Uint;
 
    begin
-      --  If already in cache, then we know it's compile time known and
-      --  we can return the value that was previously stored in the cache
-      --  since compile time known values cannot change :-)
+      --  If already in cache, then we know it's compile time known and we can
+      --  return the value that was previously stored in the cache since
+      --  compile time known values cannot change.
 
       if CV_Ent.N = N then
          return CV_Ent.V;
@@ -4092,45 +4095,53 @@ package body Sem_Eval is
             DL1 : constant Elist_Id := Discriminant_Constraint (T1);
             DL2 : constant Elist_Id := Discriminant_Constraint (T2);
 
-            DA1 : Elmt_Id := First_Elmt (DL1);
-            DA2 : Elmt_Id := First_Elmt (DL2);
+            DA1 : Elmt_Id;
+            DA2 : Elmt_Id;
 
          begin
             if DL1 = DL2 then
                return True;
-
             elsif Is_Constrained (T1) /= Is_Constrained (T2) then
                return False;
             end if;
 
-            while Present (DA1) loop
-               declare
-                  Expr1 : constant Node_Id := Node (DA1);
-                  Expr2 : constant Node_Id := Node (DA2);
+            --  Now loop through the discriminant constraints
 
-               begin
-                  if not Is_Static_Expression (Expr1)
-                    or else not Is_Static_Expression (Expr2)
-                  then
-                     return False;
+            --  Note: the guard here seems necessary, since it is possible at
+            --  least for DL1 to be No_Elist. Not clear this is reasonable ???
 
-                  --  If either expression raised a constraint error,
-                  --  consider the expressions as matching, since this
-                  --  helps to prevent cascading errors.
+            if Present (DL1) and then Present (DL2) then
+               DA1 := First_Elmt (DL1);
+               DA2 := First_Elmt (DL2);
+               while Present (DA1) loop
+                  declare
+                     Expr1 : constant Node_Id := Node (DA1);
+                     Expr2 : constant Node_Id := Node (DA2);
 
-                  elsif Raises_Constraint_Error (Expr1)
-                    or else Raises_Constraint_Error (Expr2)
-                  then
-                     null;
+                  begin
+                     if not Is_Static_Expression (Expr1)
+                       or else not Is_Static_Expression (Expr2)
+                     then
+                        return False;
 
-                  elsif Expr_Value (Expr1) /= Expr_Value (Expr2) then
-                     return False;
-                  end if;
-               end;
+                        --  If either expression raised a constraint error,
+                        --  consider the expressions as matching, since this
+                        --  helps to prevent cascading errors.
 
-               Next_Elmt (DA1);
-               Next_Elmt (DA2);
-            end loop;
+                     elsif Raises_Constraint_Error (Expr1)
+                       or else Raises_Constraint_Error (Expr2)
+                     then
+                        null;
+
+                     elsif Expr_Value (Expr1) /= Expr_Value (Expr2) then
+                        return False;
+                     end if;
+                  end;
+
+                  Next_Elmt (DA1);
+                  Next_Elmt (DA2);
+               end loop;
+            end if;
          end;
 
          return True;
@@ -4439,7 +4450,7 @@ package body Sem_Eval is
          if Raises_Constraint_Error (Expr) then
             Error_Msg_N
               ("expression raises exception, cannot be static " &
-               "('R'M 4.9(34))!", N);
+               "(RM 4.9(34))!", N);
             return;
          end if;
 
@@ -4458,7 +4469,7 @@ package body Sem_Eval is
          then
             Error_Msg_N
               ("static expression must have scalar or string type " &
-               "('R'M 4.9(2))!", N);
+               "(RM 4.9(2))!", N);
             return;
          end if;
       end if;
@@ -4475,19 +4486,19 @@ package body Sem_Eval is
             elsif Ekind (E) = E_Constant then
                if not Is_Static_Expression (Constant_Value (E)) then
                   Error_Msg_NE
-                    ("& is not a static constant ('R'M 4.9(5))!", N, E);
+                    ("& is not a static constant (RM 4.9(5))!", N, E);
                end if;
 
             else
                Error_Msg_NE
                  ("& is not static constant or named number " &
-                  "('R'M 4.9(5))!", N, E);
+                  "(RM 4.9(5))!", N, E);
             end if;
 
          when N_Binary_Op | N_And_Then | N_Or_Else | N_Membership_Test =>
             if Nkind (N) in N_Op_Shift then
                Error_Msg_N
-                ("shift functions are never static ('R'M 4.9(6,18))!", N);
+                ("shift functions are never static (RM 4.9(6,18))!", N);
 
             else
                Why_Not_Static (Left_Opnd (N));
@@ -4511,7 +4522,7 @@ package body Sem_Eval is
             if Attribute_Name (N) = Name_Size then
                Error_Msg_N
                  ("size attribute is only static for scalar type " &
-                  "('R'M 4.9(7,8))", N);
+                  "(RM 4.9(7,8))", N);
 
             --  Flag array cases
 
@@ -4524,14 +4535,14 @@ package body Sem_Eval is
                then
                   Error_Msg_N
                     ("static array attribute must be Length, First, or Last " &
-                     "('R'M 4.9(8))!", N);
+                     "(RM 4.9(8))!", N);
 
                --  Since we know the expression is not-static (we already
                --  tested for this, must mean array is not static).
 
                else
                   Error_Msg_N
-                    ("prefix is non-static array ('R'M 4.9(8))!", Prefix (N));
+                    ("prefix is non-static array (RM 4.9(8))!", Prefix (N));
                end if;
 
                return;
@@ -4545,7 +4556,7 @@ package body Sem_Eval is
             then
                Error_Msg_N
                  ("attribute of generic type is never static " &
-                  "('R'M 4.9(7,8))!", N);
+                  "(RM 4.9(7,8))!", N);
 
             elsif Is_Static_Subtype (E) then
                null;
@@ -4553,43 +4564,43 @@ package body Sem_Eval is
             elsif Is_Scalar_Type (E) then
                Error_Msg_N
                  ("prefix type for attribute is not static scalar subtype " &
-                  "('R'M 4.9(7))!", N);
+                  "(RM 4.9(7))!", N);
 
             else
                Error_Msg_N
                  ("static attribute must apply to array/scalar type " &
-                  "('R'M 4.9(7,8))!", N);
+                  "(RM 4.9(7,8))!", N);
             end if;
 
          when N_String_Literal =>
             Error_Msg_N
-              ("subtype of string literal is non-static ('R'M 4.9(4))!", N);
+              ("subtype of string literal is non-static (RM 4.9(4))!", N);
 
          when N_Explicit_Dereference =>
             Error_Msg_N
-              ("explicit dereference is never static ('R'M 4.9)!", N);
+              ("explicit dereference is never static (RM 4.9)!", N);
 
          when N_Function_Call =>
             Why_Not_Static_List (Parameter_Associations (N));
-            Error_Msg_N ("non-static function call ('R'M 4.9(6,18))!", N);
+            Error_Msg_N ("non-static function call (RM 4.9(6,18))!", N);
 
          when N_Parameter_Association =>
             Why_Not_Static (Explicit_Actual_Parameter (N));
 
          when N_Indexed_Component =>
             Error_Msg_N
-              ("indexed component is never static ('R'M 4.9)!", N);
+              ("indexed component is never static (RM 4.9)!", N);
 
          when N_Procedure_Call_Statement =>
             Error_Msg_N
-              ("procedure call is never static ('R'M 4.9)!", N);
+              ("procedure call is never static (RM 4.9)!", N);
 
          when N_Qualified_Expression =>
             Why_Not_Static (Expression (N));
 
          when N_Aggregate | N_Extension_Aggregate =>
             Error_Msg_N
-              ("an aggregate is never static ('R'M 4.9)!", N);
+              ("an aggregate is never static (RM 4.9)!", N);
 
          when N_Range =>
             Why_Not_Static (Low_Bound (N));
@@ -4603,11 +4614,11 @@ package body Sem_Eval is
 
          when N_Selected_Component =>
             Error_Msg_N
-              ("selected component is never static ('R'M 4.9)!", N);
+              ("selected component is never static (RM 4.9)!", N);
 
          when N_Slice =>
             Error_Msg_N
-              ("slice is never static ('R'M 4.9)!", N);
+              ("slice is never static (RM 4.9)!", N);
 
          when N_Type_Conversion =>
             Why_Not_Static (Expression (N));
@@ -4617,12 +4628,12 @@ package body Sem_Eval is
             then
                Error_Msg_N
                  ("static conversion requires static scalar subtype result " &
-                  "('R'M 4.9(9))!", N);
+                  "(RM 4.9(9))!", N);
             end if;
 
          when N_Unchecked_Type_Conversion =>
             Error_Msg_N
-              ("unchecked type conversion is never static ('R'M 4.9)!", N);
+              ("unchecked type conversion is never static (RM 4.9)!", N);
 
          when others =>
             null;

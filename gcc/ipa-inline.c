@@ -1,12 +1,12 @@
 /* Inlining decision heuristics.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2007 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /*  Inlining decision heuristics
 
@@ -288,8 +287,8 @@ cgraph_mark_inline (struct cgraph_edge *edge)
   struct cgraph_node *to = edge->caller;
   struct cgraph_node *what = edge->callee;
   struct cgraph_edge *e, *next;
-  int times = 0;
 
+  gcc_assert (!CALL_CANNOT_INLINE_P (edge->call_stmt));
   /* Look for all calls, mark them inline and clone recursively
      all inlined functions.  */
   for (e = what->callers; e; e = next)
@@ -300,10 +299,9 @@ cgraph_mark_inline (struct cgraph_edge *edge)
           cgraph_mark_inline_edge (e, true);
 	  if (e == edge)
 	    edge = next;
-	  times++;
 	}
     }
-  gcc_assert (times);
+
   return edge;
 }
 
@@ -584,7 +582,7 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
       for (edge = node->callers; edge; edge = edge->next_caller)
 	if (edge->aux)
 	  {
-	    fibheap_delete_node (heap, edge->aux);
+	    fibheap_delete_node (heap, (fibnode_t) edge->aux);
 	    edge->aux = NULL;
 	    if (edge->inline_failed)
 	      edge->inline_failed = failed_reason;
@@ -598,7 +596,7 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
 	int badness = cgraph_edge_badness (edge);
 	if (edge->aux)
 	  {
-	    fibnode_t n = edge->aux;
+	    fibnode_t n = (fibnode_t) edge->aux;
 	    gcc_assert (n->data == edge);
 	    if (n->key == badness)
 	      continue;
@@ -606,7 +604,7 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
 	    /* fibheap_replace_key only increase the keys.  */
 	    if (fibheap_replace_key (heap, n, badness))
 	      continue;
-	    fibheap_delete_node (heap, edge->aux);
+	    fibheap_delete_node (heap, (fibnode_t) edge->aux);
 	  }
 	edge->aux = fibheap_insert (heap, badness, edge);
       }
@@ -668,6 +666,9 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
   int depth = 0;
   int n = 0;
 
+  if (optimize_size)
+    return false;
+
   if (DECL_DECLARED_INLINE_P (node->decl))
     {
       limit = PARAM_VALUE (PARAM_MAX_INLINE_INSNS_RECURSIVE);
@@ -703,7 +704,8 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
 	 && (cgraph_estimate_size_after_inlining (1, node, master_clone)
 	     <= limit))
     {
-      struct cgraph_edge *curr = fibheap_extract_min (heap);
+      struct cgraph_edge *curr
+	= (struct cgraph_edge *) fibheap_extract_min (heap);
       struct cgraph_node *cnode;
 
       depth = 1;
@@ -715,7 +717,7 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
 	{
           if (dump_file)
 	    fprintf (dump_file, 
-		     "   maxmal depth reached\n");
+		     "   maximal depth reached\n");
 	  continue;
 	}
 
@@ -854,7 +856,8 @@ cgraph_decide_inlining_of_small_functions (void)
   max_insns = compute_max_insns (overall_insns);
   min_insns = overall_insns;
 
-  while (overall_insns <= max_insns && (edge = fibheap_extract_min (heap)))
+  while (overall_insns <= max_insns
+	 && (edge = (struct cgraph_edge *) fibheap_extract_min (heap)))
     {
       int old_insns = overall_insns;
       struct cgraph_node *where;
@@ -913,7 +916,7 @@ cgraph_decide_inlining_of_small_functions (void)
 	    }
 	}
 
-      if (!cgraph_maybe_hot_edge_p (edge) && growth > 0)
+      if ((!cgraph_maybe_hot_edge_p (edge) || optimize_size) && growth > 0)
 	{
           if (!cgraph_recursive_inlining_p (edge->caller, edge->callee,
 				            &edge->inline_failed))
@@ -948,8 +951,9 @@ cgraph_decide_inlining_of_small_functions (void)
       else
 	{
 	  struct cgraph_node *callee;
-	  if (!cgraph_check_inline_limits (edge->caller, edge->callee,
-					   &edge->inline_failed, true))
+	  if (CALL_CANNOT_INLINE_P (edge->call_stmt)
+	      || !cgraph_check_inline_limits (edge->caller, edge->callee,
+					      &edge->inline_failed, true))
 	    {
 	      if (dump_file)
 		fprintf (dump_file, " Not inlining into %s:%s.\n",
@@ -991,7 +995,7 @@ cgraph_decide_inlining_of_small_functions (void)
 	    fprintf (dump_file, "New minimal insns reached: %i\n", min_insns);
 	}
     }
-  while ((edge = fibheap_extract_min (heap)) != NULL)
+  while ((edge = (struct cgraph_edge *) fibheap_extract_min (heap)) != NULL)
     {
       gcc_assert (edge->aux);
       edge->aux = NULL;
@@ -1073,7 +1077,7 @@ cgraph_decide_inlining (void)
       for (e = node->callers; e; e = next)
 	{
 	  next = e->next_caller;
-	  if (!e->inline_failed)
+	  if (!e->inline_failed || CALL_CANNOT_INLINE_P (e->call_stmt))
 	    continue;
 	  if (cgraph_recursive_inlining_p (e->caller, e->callee,
 				  	   &e->inline_failed))
@@ -1114,6 +1118,7 @@ cgraph_decide_inlining (void)
 
 	  if (node->callers && !node->callers->next_caller && !node->needed
 	      && node->local.inlinable && node->callers->inline_failed
+	      && !CALL_CANNOT_INLINE_P (node->callers->call_stmt)
 	      && !DECL_EXTERNAL (node->decl) && !DECL_COMDAT (node->decl))
 	    {
 	      if (dump_file)
@@ -1178,7 +1183,7 @@ static bool
 try_inline (struct cgraph_edge *e, enum inlining_mode mode, int depth)
 {
   struct cgraph_node *callee = e->callee;
-  enum inlining_mode callee_mode = (size_t) callee->aux;
+  enum inlining_mode callee_mode = (enum inlining_mode) (size_t) callee->aux;
   bool always_inline = e->callee->local.disregard_inline_limits;
 
   /* We've hit cycle?  */
@@ -1255,7 +1260,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
   verify_cgraph_node (node);
 #endif
 
-  old_mode = (size_t)node->aux;
+  old_mode = (enum inlining_mode) (size_t)node->aux;
 
   if (mode != INLINE_ALWAYS_INLINE
       && lookup_attribute ("flatten", DECL_ATTRIBUTES (node->decl)) != NULL)
@@ -1275,6 +1280,8 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
     {
       if (!e->callee->local.disregard_inline_limits
 	  && (mode != INLINE_ALL || !e->callee->local.inlinable))
+	continue;
+      if (CALL_CANNOT_INLINE_P (e->call_stmt))
 	continue;
       /* When the edge is already inlined, we just need to recurse into
 	 it in order to fully flatten the leaves.  */
@@ -1373,7 +1380,8 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	    continue;
 	  }
 	if (!cgraph_check_inline_limits (node, e->callee, &e->inline_failed,
-				        false))
+				        false)
+	    || CALL_CANNOT_INLINE_P (e->call_stmt))
 	  {
 	    if (dump_file)
 	      {
@@ -1444,7 +1452,7 @@ cgraph_early_inlining (void)
   if (sorrycount || errorcount)
     return 0;
   if (cgraph_decide_inlining_incrementally (node,
-					    flag_unit_at_a_time
+					    flag_unit_at_a_time || optimize_size
 					    ? INLINE_SIZE : INLINE_SPEED, 0))
     {
       timevar_push (TV_INTEGRATION);
@@ -1519,9 +1527,9 @@ compute_inline_parameters (void)
   node->local.inlinable = tree_inlinable_function_p (current_function_decl);
   node->local.self_insns = estimate_num_insns (current_function_decl,
 					       &eni_inlining_weights);
-  if (node->local.inlinable)
+  if (node->local.inlinable && !node->local.disregard_inline_limits)
     node->local.disregard_inline_limits
-      = lang_hooks.tree_inlining.disregard_inline_limits (current_function_decl);
+      = disregard_inline_limits_p (current_function_decl);
   if (flag_really_no_inline && !node->local.disregard_inline_limits)
     node->local.inlinable = 0;
   /* Inlining characteristics are maintained by the cgraph_mark_inline.  */

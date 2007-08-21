@@ -8,7 +8,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Conditional constant propagation (CCP) is based on the SSA
    propagation engine (tree-ssa-propagate.c).  Constant assignments of
@@ -899,8 +898,7 @@ ccp_fold (tree stmt)
 	}
 
       if ((code == NOP_EXPR || code == CONVERT_EXPR)
-	  && tree_ssa_useless_type_conversion_1 (TREE_TYPE (rhs),
-		  				 TREE_TYPE (op0)))
+	  && useless_type_conversion_p (TREE_TYPE (rhs), TREE_TYPE (op0)))
 	return op0;
       return fold_unary (code, TREE_TYPE (rhs), op0);
     }
@@ -1054,8 +1052,9 @@ fold_const_aggregate_ref (tree t)
 	          == MODE_INT)
 	      && GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (TREE_TYPE (ctor)))) == 1
 	      && compare_tree_int (idx, TREE_STRING_LENGTH (ctor)) < 0)
-	    return build_int_cst (TREE_TYPE (t), (TREE_STRING_POINTER (ctor)
-					          [TREE_INT_CST_LOW (idx)]));
+	    return build_int_cst_type (TREE_TYPE (t),
+				       (TREE_STRING_POINTER (ctor)
+					[TREE_INT_CST_LOW (idx)]));
 	  return NULL_TREE;
 	}
 
@@ -1550,7 +1549,7 @@ widen_bitfield (tree val, tree field, tree var)
 static tree
 maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
 {
-  tree min_idx, idx, elt_offset = integer_zero_node;
+  tree min_idx, idx, idx_type, elt_offset = integer_zero_node;
   tree array_type, elt_type, elt_size;
 
   /* If BASE is an ARRAY_REF, we can pick up another offset (this time
@@ -1576,55 +1575,65 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
   if (TREE_CODE (array_type) != ARRAY_TYPE)
     return NULL_TREE;
   elt_type = TREE_TYPE (array_type);
-  if (!lang_hooks.types_compatible_p (orig_type, elt_type))
+  if (!useless_type_conversion_p (orig_type, elt_type))
     return NULL_TREE;
-	
+
+  /* Use signed size type for intermediate computation on the index.  */
+  idx_type = signed_type_for (size_type_node);
+
   /* If OFFSET and ELT_OFFSET are zero, we don't care about the size of the
      element type (so we can use the alignment if it's not constant).
      Otherwise, compute the offset as an index by using a division.  If the
      division isn't exact, then don't do anything.  */
   elt_size = TYPE_SIZE_UNIT (elt_type);
+  if (!elt_size)
+    return NULL;
   if (integer_zerop (offset))
     {
       if (TREE_CODE (elt_size) != INTEGER_CST)
 	elt_size = size_int (TYPE_ALIGN (elt_type));
 
-      idx = integer_zero_node;
+      idx = build_int_cst (idx_type, 0);
     }
   else
     {
       unsigned HOST_WIDE_INT lquo, lrem;
       HOST_WIDE_INT hquo, hrem;
+      double_int soffset;
 
+      /* The final array offset should be signed, so we need
+	 to sign-extend the (possibly pointer) offset here
+	 and use signed division.  */
+      soffset = double_int_sext (tree_to_double_int (offset),
+				 TYPE_PRECISION (TREE_TYPE (offset)));
       if (TREE_CODE (elt_size) != INTEGER_CST
-	  || div_and_round_double (TRUNC_DIV_EXPR, 1,
-				   TREE_INT_CST_LOW (offset),
-				   TREE_INT_CST_HIGH (offset),
+	  || div_and_round_double (TRUNC_DIV_EXPR, 0,
+				   soffset.low, soffset.high,
 				   TREE_INT_CST_LOW (elt_size),
 				   TREE_INT_CST_HIGH (elt_size),
 				   &lquo, &hquo, &lrem, &hrem)
 	  || lrem || hrem)
 	return NULL_TREE;
 
-      idx = build_int_cst_wide (TREE_TYPE (offset), lquo, hquo);
+      idx = build_int_cst_wide (idx_type, lquo, hquo);
     }
 
   /* Assume the low bound is zero.  If there is a domain type, get the
      low bound, if any, convert the index into that type, and add the
      low bound.  */
-  min_idx = integer_zero_node;
+  min_idx = build_int_cst (idx_type, 0);
   if (TYPE_DOMAIN (array_type))
     {
-      if (TYPE_MIN_VALUE (TYPE_DOMAIN (array_type)))
-	min_idx = TYPE_MIN_VALUE (TYPE_DOMAIN (array_type));
+      idx_type = TYPE_DOMAIN (array_type);
+      if (TYPE_MIN_VALUE (idx_type))
+	min_idx = TYPE_MIN_VALUE (idx_type);
       else
-	min_idx = fold_convert (TYPE_DOMAIN (array_type), min_idx);
+	min_idx = fold_convert (idx_type, min_idx);
 
       if (TREE_CODE (min_idx) != INTEGER_CST)
 	return NULL_TREE;
 
-      idx = fold_convert (TYPE_DOMAIN (array_type), idx);
-      elt_offset = fold_convert (TYPE_DOMAIN (array_type), elt_offset);
+      elt_offset = fold_convert (idx_type, elt_offset);
     }
 
   if (!integer_zerop (min_idx))
@@ -1632,22 +1641,24 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
   if (!integer_zerop (elt_offset))
     idx = int_const_binop (PLUS_EXPR, idx, elt_offset, 0);
 
-  return build4 (ARRAY_REF, orig_type, base, idx, min_idx,
-		 size_int (tree_low_cst (elt_size, 1)
-			   / (TYPE_ALIGN_UNIT (elt_type))));
+  /* Make sure to possibly truncate late after offsetting.  */
+  idx = fold_convert (idx_type, idx);
+
+  return build4 (ARRAY_REF, orig_type, base, idx, NULL_TREE, NULL_TREE);
 }
 
 
-/* A subroutine of fold_stmt_r.  Attempts to fold *(S+O) to S.X.
+/* Attempt to fold *(S+O) to S.X.
    BASE is a record type.  OFFSET is a byte displacement.  ORIG_TYPE
    is the desired result type.  */
-/* ??? This doesn't handle class inheritance.  */
 
 static tree
 maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 				    tree orig_type, bool base_is_ptr)
 {
   tree f, t, field_type, tail_array_field, field_offset;
+  tree ret;
+  tree new_base;
 
   if (TREE_CODE (record_type) != RECORD_TYPE
       && TREE_CODE (record_type) != UNION_TYPE
@@ -1655,7 +1666,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
     return NULL_TREE;
 
   /* Short-circuit silly cases.  */
-  if (lang_hooks.types_compatible_p (record_type, orig_type))
+  if (useless_type_conversion_p (record_type, orig_type))
     return NULL_TREE;
 
   tail_array_field = NULL_TREE;
@@ -1668,6 +1679,8 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
       if (DECL_BIT_FIELD (f))
 	continue;
 
+      if (!DECL_FIELD_OFFSET (f))
+	continue;
       field_offset = byte_position (f);
       if (TREE_CODE (field_offset) != INTEGER_CST)
 	continue;
@@ -1691,7 +1704,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
       /* Here we exactly match the offset being checked.  If the types match,
 	 then we can return that field.  */
       if (cmp == 0
-	  && lang_hooks.types_compatible_p (orig_type, field_type))
+	  && useless_type_conversion_p (orig_type, field_type))
 	{
 	  if (base_is_ptr)
 	    base = build1 (INDIRECT_REF, record_type, base);
@@ -1719,8 +1732,20 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 
       /* If we matched, then set offset to the displacement into
 	 this field.  */
-      offset = t;
-      goto found;
+      if (base_is_ptr)
+	new_base = build1 (INDIRECT_REF, record_type, base);
+      else
+	new_base = base;
+      new_base = build3 (COMPONENT_REF, field_type, new_base, f, NULL_TREE);
+
+      /* Recurse to possibly find the match.  */
+      ret = maybe_fold_offset_to_array_ref (new_base, t, orig_type);
+      if (ret)
+	return ret;
+      ret = maybe_fold_offset_to_component_ref (field_type, new_base, t,
+						orig_type, false);
+      if (ret)
+	return ret;
     }
 
   if (!tail_array_field)
@@ -1730,7 +1755,6 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
   field_type = TREE_TYPE (f);
   offset = int_const_binop (MINUS_EXPR, offset, byte_position (f), 1);
 
- found:
   /* If we get here, we've got an aggregate field, and a possibly 
      nonzero offset into them.  Recurse and hope for a valid match.  */
   if (base_is_ptr)
@@ -1744,6 +1768,69 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 					     orig_type, false);
 }
 
+/* Attempt to express (ORIG_TYPE)BASE+OFFSET as BASE->field_of_orig_type
+   or BASE[index] or by combination of those. 
+
+   Before attempting the conversion strip off existing ADDR_EXPRs and
+   handled component refs.  */
+
+tree
+maybe_fold_offset_to_reference (tree base, tree offset, tree orig_type)
+{
+  tree ret;
+  tree type;
+  bool base_is_ptr = true;
+
+  STRIP_NOPS (base);
+  if (TREE_CODE (base) == ADDR_EXPR)
+    {
+      base_is_ptr = false;
+
+      base = TREE_OPERAND (base, 0);
+
+      /* Handle case where existing COMPONENT_REF pick e.g. wrong field of union,
+	 so it needs to be removed and new COMPONENT_REF constructed.
+	 The wrong COMPONENT_REF are often constructed by folding the
+	 (type *)&object within the expression (type *)&object+offset  */
+      if (handled_component_p (base) && 0)
+	{
+          HOST_WIDE_INT sub_offset, size, maxsize;
+	  tree newbase;
+	  newbase = get_ref_base_and_extent (base, &sub_offset,
+					     &size, &maxsize);
+	  gcc_assert (newbase);
+	  gcc_assert (!(sub_offset & (BITS_PER_UNIT - 1)));
+	  if (size == maxsize)
+	    {
+	      base = newbase;
+	      if (sub_offset)
+		offset = int_const_binop (PLUS_EXPR, offset,
+					  build_int_cst (TREE_TYPE (offset),
+					  sub_offset / BITS_PER_UNIT), 1);
+	    }
+	}
+      if (useless_type_conversion_p (orig_type, TREE_TYPE (base))
+	  && integer_zerop (offset))
+	return base;
+      type = TREE_TYPE (base);
+    }
+  else
+    {
+      base_is_ptr = true;
+      if (!POINTER_TYPE_P (TREE_TYPE (base)))
+	return NULL_TREE;
+      type = TREE_TYPE (TREE_TYPE (base));
+    }
+  ret = maybe_fold_offset_to_component_ref (type, base, offset,
+					    orig_type, base_is_ptr);
+  if (!ret)
+    {
+      if (base_is_ptr)
+	base = build1 (INDIRECT_REF, type, base);
+      ret = maybe_fold_offset_to_array_ref (base, offset, orig_type);
+    }
+  return ret;
+}
 
 /* A subroutine of fold_stmt_r.  Attempt to simplify *(BASE+OFFSET).
    Return the simplified expression, or NULL if nothing could be done.  */
@@ -1752,6 +1839,7 @@ static tree
 maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 {
   tree t;
+  bool volatile_p = TREE_THIS_VOLATILE (expr);
 
   /* We may well have constructed a double-nested PLUS_EXPR via multiple
      substitutions.  Fold that down to one.  Remove NON_LVALUE_EXPRs that
@@ -1765,8 +1853,8 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
   if (t)
     return t;
 
-  /* Add in any offset from a PLUS_EXPR.  */
-  if (TREE_CODE (base) == PLUS_EXPR)
+  /* Add in any offset from a POINTER_PLUS_EXPR.  */
+  if (TREE_CODE (base) == POINTER_PLUS_EXPR)
     {
       tree offset2;
 
@@ -1775,11 +1863,14 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 	return NULL_TREE;
       base = TREE_OPERAND (base, 0);
 
-      offset = int_const_binop (PLUS_EXPR, offset, offset2, 1);
+      offset = fold_convert (sizetype,
+			     int_const_binop (PLUS_EXPR, offset, offset2, 1));
     }
 
   if (TREE_CODE (base) == ADDR_EXPR)
     {
+      tree base_addr = base;
+
       /* Strip the ADDR_EXPR.  */
       base = TREE_OPERAND (base, 0);
 
@@ -1788,24 +1879,14 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 	  && ccp_decl_initial_min_invariant (DECL_INITIAL (base)))
 	return DECL_INITIAL (base);
 
-      /* Try folding *(&B+O) to B[X].  */
-      t = maybe_fold_offset_to_array_ref (base, offset, TREE_TYPE (expr));
-      if (t)
-	return t;
-
       /* Try folding *(&B+O) to B.X.  */
-      t = maybe_fold_offset_to_component_ref (TREE_TYPE (base), base, offset,
-					      TREE_TYPE (expr), false);
+      t = maybe_fold_offset_to_reference (base_addr, offset,
+					  TREE_TYPE (expr));
       if (t)
-	return t;
-
-      /* Fold *&B to B.  We can only do this if EXPR is the same type
-	 as BASE.  We can't do this if EXPR is the element type of an array
-	 and BASE is the array.  */
-      if (integer_zerop (offset)
-	  && lang_hooks.types_compatible_p (TREE_TYPE (base),
-					    TREE_TYPE (expr)))
-	return base;
+	{
+	  TREE_THIS_VOLATILE (t) = volatile_p;
+	  return t;
+	}
     }
   else
     {
@@ -1834,9 +1915,8 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
       /* Try folding *(B+O) to B->X.  Still an improvement.  */
       if (POINTER_TYPE_P (TREE_TYPE (base)))
 	{
-          t = maybe_fold_offset_to_component_ref (TREE_TYPE (TREE_TYPE (base)),
-						  base, offset,
-						  TREE_TYPE (expr), true);
+          t = maybe_fold_offset_to_reference (base, offset,
+				              TREE_TYPE (expr));
 	  if (t)
 	    return t;
 	}
@@ -1847,7 +1927,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 }
 
 
-/* A subroutine of fold_stmt_r.  EXPR is a PLUS_EXPR.
+/* A subroutine of fold_stmt_r.  EXPR is a POINTER_PLUS_EXPR.
 
    A quaint feature extant in our address arithmetic is that there
    can be hidden type changes here.  The type of the result need
@@ -1856,7 +1936,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
    What we're after here is an expression of the form
 	(T *)(&array + const)
    where the cast doesn't actually exist, but is implicit in the
-   type of the PLUS_EXPR.  We'd like to turn this into
+   type of the POINTER_PLUS_EXPR.  We'd like to turn this into
 	&array[x]
    which may be able to propagate further.  */
 
@@ -1868,18 +1948,9 @@ maybe_fold_stmt_addition (tree expr)
   tree ptr_type = TREE_TYPE (expr);
   tree ptd_type;
   tree t;
-  bool subtract = (TREE_CODE (expr) == MINUS_EXPR);
 
-  /* We're only interested in pointer arithmetic.  */
-  if (!POINTER_TYPE_P (ptr_type))
-    return NULL_TREE;
-  /* Canonicalize the integral operand to op1.  */
-  if (INTEGRAL_TYPE_P (TREE_TYPE (op0)))
-    {
-      if (subtract)
-	return NULL_TREE;
-      t = op0, op0 = op1, op1 = t;
-    }
+  gcc_assert (TREE_CODE (expr) == POINTER_PLUS_EXPR);
+
   /* It had better be a constant.  */
   if (TREE_CODE (op1) != INTEGER_CST)
     return NULL_TREE;
@@ -1925,30 +1996,9 @@ maybe_fold_stmt_addition (tree expr)
       array_idx = int_const_binop (MULT_EXPR, array_idx, elt_size, 0);
 
       /* Update the operands for the next round, or for folding.  */
-      /* If we're manipulating unsigned types, then folding into negative
-	 values can produce incorrect results.  Particularly if the type
-	 is smaller than the width of the pointer.  */
-      if (subtract
-	  && TYPE_UNSIGNED (TREE_TYPE (op1))
-	  && tree_int_cst_lt (array_idx, op1))
-	return NULL;
-      op1 = int_const_binop (subtract ? MINUS_EXPR : PLUS_EXPR,
+      op1 = int_const_binop (PLUS_EXPR,
 			     array_idx, op1, 0);
-      subtract = false;
       op0 = array_obj;
-    }
-
-  /* If we weren't able to fold the subtraction into another array reference,
-     canonicalize the integer for passing to the array and component ref
-     simplification functions.  */
-  if (subtract)
-    {
-      if (TYPE_UNSIGNED (TREE_TYPE (op1)))
-	return NULL;
-      op1 = fold_unary (NEGATE_EXPR, TREE_TYPE (op1), op1);
-      /* ??? In theory fold should always produce another integer.  */
-      if (op1 == NULL || TREE_CODE (op1) != INTEGER_CST)
-	return NULL;
     }
 
   ptd_type = TREE_TYPE (ptr_type);
@@ -1998,6 +2048,21 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 				    integer_zero_node);
       break;
 
+    case NOP_EXPR:
+      t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
+      if (t)
+	return t;
+      *walk_subtrees = 0;
+
+      if (POINTER_TYPE_P (TREE_TYPE (expr))
+	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 0)))
+	  && (t = maybe_fold_offset_to_reference
+		      (TREE_OPERAND (expr, 0),
+		       integer_zero_node,
+		       TREE_TYPE (TREE_TYPE (expr)))))
+        t = build_fold_addr_expr_with_type (t, TREE_TYPE (expr));
+      break;
+
       /* ??? Could handle more ARRAY_REFs here, as a variant of INDIRECT_REF.
 	 We'd only want to bother decomposing an existing ARRAY_REF if
 	 the base array is found to have another offset contained within.
@@ -2025,8 +2090,7 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
         recompute_tree_invariant_for_addr_expr (expr);
       return NULL_TREE;
 
-    case PLUS_EXPR:
-    case MINUS_EXPR:
+    case POINTER_PLUS_EXPR:
       t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
       if (t)
 	return t;
@@ -2304,14 +2368,14 @@ ccp_fold_builtin (tree stmt, tree fn)
     case BUILT_IN_STRLEN:
       if (val[0])
 	{
-	  tree new = fold_convert (TREE_TYPE (fn), val[0]);
+	  tree new_val = fold_convert (TREE_TYPE (fn), val[0]);
 
 	  /* If the result is not a valid gimple value, or not a cast
 	     of a valid gimple value, then we can not use the result.  */
-	  if (is_gimple_val (new)
-	      || (is_gimple_cast (new)
-		  && is_gimple_val (TREE_OPERAND (new, 0))))
-	    return new;
+	  if (is_gimple_val (new_val)
+	      || (is_gimple_cast (new_val)
+		  && is_gimple_val (TREE_OPERAND (new_val, 0))))
+	    return new_val;
 	}
       break;
 
@@ -2576,6 +2640,8 @@ execute_fold_all_builtins (void)
 {
   bool cfg_changed = false;
   basic_block bb;
+  unsigned int todoflags = 0;
+  
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator i;
@@ -2633,6 +2699,7 @@ execute_fold_all_builtins (void)
 		{
 		  bool ok = set_rhs (stmtp, result);
 		  gcc_assert (ok);
+		  todoflags |= TODO_rebuild_alias;
 		}
 	    }
 
@@ -2664,9 +2731,12 @@ execute_fold_all_builtins (void)
 	    bsi_next (&i);
 	}
     }
-
+  
   /* Delete unreachable blocks.  */
-  return cfg_changed ? TODO_cleanup_cfg : 0;
+  if (cfg_changed)
+    todoflags |= TODO_cleanup_cfg;
+  
+  return todoflags;
 }
 
 

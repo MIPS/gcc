@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,11 +27,11 @@
 with Atree;    use Atree;
 with Einfo;    use Einfo;
 with Elists;   use Elists;
+with Exp_Atag; use Exp_Atag;
 with Exp_Strm; use Exp_Strm;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Lib;      use Lib;
-with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
@@ -162,12 +162,12 @@ package body Exp_Dist is
       Vis_Decl           : Node_Id;
       All_Calls_Remote_E : Entity_Id;
       Proxy_Object_Addr  : out Entity_Id);
-   --  Add the proxy type necessary to call the subprogram declared
-   --  by Vis_Decl through a remote access to subprogram type.
-   --  All_Calls_Remote_E must be Standard_True if a pragma All_Calls_Remote
-   --  applies, Standard_False otherwise. The new proxy type is appended
-   --  to Decls. Proxy_Object_Addr is a constant of type System.Address that
-   --  designates an instance of the proxy object.
+   --  Add the proxy type required, on the receiving (server) side, to handle
+   --  calls to the subprogram declared by Vis_Decl through a remote access
+   --  to subprogram type. All_Calls_Remote_E must be Standard_True if a pragma
+   --  All_Calls_Remote applies, Standard_False otherwise. The new proxy type
+   --  is appended to Decls. Proxy_Object_Addr is a constant of type
+   --  System.Address that designates an instance of the proxy object.
 
    function Build_Remote_Subprogram_Proxy_Type
      (Loc            : Source_Ptr;
@@ -489,11 +489,12 @@ package body Exp_Dist is
    type RPC_Target (PCS_Kind : PCS_Names) is record
       case PCS_Kind is
          when Name_PolyORB_DSA =>
-            Object       : Node_Id;
+            Object : Node_Id;
             --  An expression whose value is a PolyORB reference to the target
             --  object.
+
          when others           =>
-            Partition    : Entity_Id;
+            Partition : Entity_Id;
             --  A variable containing the Partition_ID of the target parition
 
             RPC_Receiver : Node_Id;
@@ -605,9 +606,8 @@ package body Exp_Dist is
 
       --  Support for generating DSA code that uses the GARLIC PCS
 
-      --  The subprograms below provide the GARLIC versions of
-      --  the corresponding Specific_<subprogram> routine declared
-      --  above.
+      --  The subprograms below provide the GARLIC versions of the
+      --  corresponding Specific_<subprogram> routine declared above.
 
       procedure Add_RACW_Features
         (RACW_Type         : Entity_Id;
@@ -642,8 +642,8 @@ package body Exp_Dist is
          Controlling_Parameter : Entity_Id) return RPC_Target;
 
       procedure Build_Stub_Type
-        (RACW_Type : Entity_Id;
-         Stub_Type : Entity_Id;
+        (RACW_Type         : Entity_Id;
+         Stub_Type         : Entity_Id;
          Stub_Type_Decl    : out Node_Id;
          RPC_Receiver_Decl : out Node_Id);
 
@@ -680,9 +680,8 @@ package body Exp_Dist is
 
       --  Support for generating DSA code that uses the PolyORB PCS
 
-      --  The subprograms below provide the PolyORB versions of
-      --  the corresponding Specific_<subprogram> routine declared
-      --  above.
+      --  The subprograms below provide the PolyORB versions of the
+      --  corresponding Specific_<subprogram> routine declared above.
 
       procedure Add_RACW_Features
         (RACW_Type         : Entity_Id;
@@ -763,13 +762,15 @@ package body Exp_Dist is
          --  over the PolyORB generic middleware components, it is necessary to
          --  generate several supporting subprograms for each application data
          --  type used in inter-partition communication. These subprograms are:
-         --    * a Typecode function returning a high-level description of the
-         --      type's structure;
-         --    * two conversion functions allowing conversion of values of the
-         --      type from and to the generic data containers used by PolyORB.
-         --      These generic containers are called 'Any' type values after
-         --      the CORBA terminology, and hence the conversion subprograms
-         --      are named To_Any and From_Any.
+
+         --    A Typecode function returning a high-level description of the
+         --    type's structure;
+
+         --    Two conversion functions allowing conversion of values of the
+         --    type from and to the generic data containers used by PolyORB.
+         --    These generic containers are called 'Any' type values after the
+         --    CORBA terminology, and hence the conversion subprograms are
+         --    named To_Any and From_Any.
 
          function Build_From_Any_Call
            (Typ   : Entity_Id;
@@ -871,18 +872,18 @@ package body Exp_Dist is
       --  Subprogram id 0 is reserved for calls received from
       --  remote access-to-subprogram dereferences.
 
-      Current_Declaration       : Node_Id;
-      Loc                       : constant Source_Ptr := Sloc (Pkg_Spec);
-      RCI_Instantiation         : Node_Id;
-      Subp_Stubs                : Node_Id;
-      Subp_Str                  : String_Id;
+      Current_Declaration : Node_Id;
+      Loc                 : constant Source_Ptr := Sloc (Pkg_Spec);
+      RCI_Instantiation   : Node_Id;
+      Subp_Stubs          : Node_Id;
+      Subp_Str            : String_Id;
 
    begin
       --  The first thing added is an instantiation of the generic package
-      --  System.Partition_Interface.RCI_Locator with the name of this
-      --  remote package. This will act as an interface with the name server
-      --  to determine the Partition_ID and the RPC_Receiver for the
-      --  receiver of this package.
+      --  System.Partition_Interface.RCI_Locator with the name of this remote
+      --  package. This will act as an interface with the name server to
+      --  determine the Partition_ID and the RPC_Receiver for the receiver
+      --  of this package.
 
       RCI_Instantiation := RCI_Package_Locator (Loc, Pkg_Spec);
       RCI_Cache         := Defining_Unit_Name (RCI_Instantiation);
@@ -890,11 +891,11 @@ package body Exp_Dist is
       Append_To (Decls, RCI_Instantiation);
       Analyze (RCI_Instantiation);
 
-      --  For each subprogram declaration visible in the spec, we do
-      --  build a body. We also increment a counter to assign a different
-      --  Subprogram_Id to each subprograms. The receiving stubs processing
-      --  do use the same mechanism and will thus assign the same Id and
-      --  do the correct dispatching.
+      --  For each subprogram declaration visible in the spec, we do build a
+      --  body. We also increment a counter to assign a different Subprogram_Id
+      --  to each subprograms. The receiving stubs processing do use the same
+      --  mechanism and will thus assign the same Id and do the correct
+      --  dispatching.
 
       Overload_Counter_Table.Reset;
       PolyORB_Support.Reserve_NamingContext_Methods;
@@ -994,8 +995,7 @@ package body Exp_Dist is
       if Nkind (Parameter) = N_Defining_Identifier then
          Get_Name_String (Chars (Parameter));
       else
-         Get_Name_String (Chars (Defining_Identifier
-                                  (Parameter)));
+         Get_Name_String (Chars (Defining_Identifier (Parameter)));
       end if;
 
       Parameter_Name_String := String_From_Name_Buffer;
@@ -1010,8 +1010,8 @@ package body Exp_Dist is
          Parameter_Mode := New_Occurrence_Of (RTE (RE_Mode_In), Loc);
 
       else
-         Parameter_Mode := Parameter_Passing_Mode (Loc,
-                             Parameter, Constrained);
+         Parameter_Mode :=
+           Parameter_Passing_Mode (Loc, Parameter, Constrained);
       end if;
 
       return
@@ -1166,6 +1166,7 @@ package body Exp_Dist is
       else
          --  Validate_RACW_Primitives will be called when the designated type
          --  is frozen, see Exp_Ch3.Freeze_Type.
+
          --  ??? Shouldn't we have a pragma Assert (not Is_Frozen (Desig))?
 
          Add_Access_Type_To_Process (E => Desig, A => RACW_Type);
@@ -1218,15 +1219,11 @@ package body Exp_Dist is
       Current_Primitive_Spec   : Node_Id;
       Current_Primitive_Decl   : Node_Id;
       Current_Primitive_Number : Int := 0;
-
-      Current_Primitive_Alias : Node_Id;
-
-      Current_Receiver      : Entity_Id;
-      Current_Receiver_Body : Node_Id;
-
-      RPC_Receiver_Decl : Node_Id;
-
-      Possibly_Asynchronous : Boolean;
+      Current_Primitive_Alias  : Node_Id;
+      Current_Receiver         : Entity_Id;
+      Current_Receiver_Body    : Node_Id;
+      RPC_Receiver_Decl        : Node_Id;
+      Possibly_Asynchronous    : Boolean;
 
    begin
       if not Expander_Active then
@@ -1234,15 +1231,16 @@ package body Exp_Dist is
       end if;
 
       if not Is_RAS then
-         RPC_Receiver := Make_Defining_Identifier (Loc,
-                           New_Internal_Name ('P'));
-         Specific_Build_RPC_Receiver_Body (
-           RPC_Receiver => RPC_Receiver,
-           Request      => RPC_Receiver_Request,
-           Subp_Id      => RPC_Receiver_Subp_Id,
-           Subp_Index   => RPC_Receiver_Subp_Index,
-           Stmts        => RPC_Receiver_Statements,
-           Decl         => RPC_Receiver_Decl);
+         RPC_Receiver :=
+           Make_Defining_Identifier (Loc,
+             Chars => New_Internal_Name ('P'));
+         Specific_Build_RPC_Receiver_Body
+           (RPC_Receiver => RPC_Receiver,
+            Request      => RPC_Receiver_Request,
+            Subp_Id      => RPC_Receiver_Subp_Id,
+            Subp_Index   => RPC_Receiver_Subp_Index,
+            Stmts        => RPC_Receiver_Statements,
+            Decl         => RPC_Receiver_Decl);
 
          if Get_PCS_Name = Name_PolyORB_DSA then
 
@@ -1270,7 +1268,12 @@ package body Exp_Dist is
 
             if Chars (Current_Primitive) /= Name_uSize
               and then Chars (Current_Primitive) /= Name_uAlignment
-              and then not Is_TSS (Current_Primitive, TSS_Deep_Finalize)
+              and then not
+                (Is_TSS (Current_Primitive, TSS_Deep_Finalize) or else
+                 Is_TSS (Current_Primitive, TSS_Stream_Input)  or else
+                 Is_TSS (Current_Primitive, TSS_Stream_Output) or else
+                 Is_TSS (Current_Primitive, TSS_Stream_Read)   or else
+                 Is_TSS (Current_Primitive, TSS_Stream_Write))
             then
                --  The first thing to do is build an up-to-date copy of the
                --  spec with all the formals referencing Designated_Type
@@ -1331,10 +1334,10 @@ package body Exp_Dist is
                        RACW_Type                => Stub_Elements.RACW_Type);
                   Append_To (Body_Decls, Current_Primitive_Body);
 
-                  --  Analyzing the body here would cause the Stub type to be
-                  --  frozen, thus preventing subsequent primitive
-                  --  declarations. For this reason, it will be analyzed later
-                  --  in the regular flow (and in the context of the
+                  --  Analyzing the body here would cause the Stub type to
+                  --  be frozen, thus preventing subsequent primitive
+                  --  declarations. For this reason, it will be analyzed
+                  --  later in the regular flow (and in the context of the
                   --  appropriate unit body, see Append_RACW_Bodies).
 
                end if;
@@ -1442,8 +1445,7 @@ package body Exp_Dist is
    procedure Add_RAS_Dereference_TSS (N : Node_Id) is
       Loc : constant Source_Ptr := Sloc (N);
 
-      Type_Def : constant Node_Id   := Type_Definition (N);
-
+      Type_Def  : constant Node_Id   := Type_Definition (N);
       RAS_Type  : constant Entity_Id := Defining_Identifier (N);
       Fat_Type  : constant Entity_Id := Equivalent_Type (RAS_Type);
       RACW_Type : constant Entity_Id := Underlying_RACW_Type (RAS_Type);
@@ -1535,9 +1537,9 @@ package body Exp_Dist is
 
          --  Generate a dummy body. This code will never actually be executed,
          --  because null is the only legal value for a degenerate RAS type.
-         --  For legality's sake (in order to avoid generating a function
-         --  that does not contain a return statement), we include a dummy
-         --  recursive call on the TSS itself.
+         --  For legality's sake (in order to avoid generating a function that
+         --  does not contain a return statement), we include a dummy recursive
+         --  call on the TSS itself.
 
          Append_To (Stmts,
            Make_Raise_Program_Error (Loc, Reason => PE_Explicit_Raise));
@@ -1560,7 +1562,7 @@ package body Exp_Dist is
 
       if Is_Function then
          Append_To (Stmts,
-            Make_Return_Statement (Loc,
+            Make_Simple_Return_Statement (Loc,
               Expression =>
                 Make_Function_Call (Loc,
                   Name                   => RACW_Primitive_Name,
@@ -1731,7 +1733,7 @@ package body Exp_Dist is
                Actuals);
       else
          Perform_Call :=
-           Make_Return_Statement (Loc,
+           Make_Simple_Return_Statement (Loc,
              Expression =>
            Make_Function_Call (Loc,
              Name =>
@@ -1848,18 +1850,18 @@ package body Exp_Dist is
          return;
       end if;
 
-      Existing         := False;
-      Stub_Type        :=
-        Make_Defining_Identifier (Loc, New_Internal_Name ('S'));
+      Existing := False;
+      Stub_Type :=
+        Make_Defining_Identifier (Loc,
+          Chars => New_Internal_Name ('S'));
       Stub_Type_Access :=
         Make_Defining_Identifier (Loc,
-          New_External_Name (
-            Related_Id => Chars (Stub_Type),
-            Suffix     => 'A'));
+          Chars => New_External_Name
+                     (Related_Id => Chars (Stub_Type), Suffix => 'A'));
 
-      Specific_Build_Stub_Type (
-        RACW_Type, Stub_Type,
-        Stub_Type_Decl, RPC_Receiver_Decl);
+      Specific_Build_Stub_Type
+        (RACW_Type, Stub_Type,
+         Stub_Type_Decl, RPC_Receiver_Decl);
 
       Stub_Type_Access_Decl :=
         Make_Full_Type_Declaration (Loc,
@@ -1903,7 +1905,6 @@ package body Exp_Dist is
 
    procedure Append_RACW_Bodies (Decls : List_Id; Spec_Id : Entity_Id) is
       E : Entity_Id;
-
    begin
       E := First_Entity (Spec_Id);
       while Present (E) loop
@@ -2705,14 +2706,14 @@ package body Exp_Dist is
 
             begin
                if Ekind (Scop) = E_Package_Body then
-                  New_Scope (Spec_Entity (Scop));
+                  Push_Scope (Spec_Entity (Scop));
 
                elsif Ekind (Scop) = E_Subprogram_Body then
-                  New_Scope
+                  Push_Scope
                      (Corresponding_Spec (Unit_Declaration_Node (Scop)));
 
                else
-                  New_Scope (Scop);
+                  Push_Scope (Scop);
                end if;
 
                Analyze (RCI_Locator);
@@ -2750,7 +2751,7 @@ package body Exp_Dist is
       Spec  : constant Node_Id := Specification (Unit_Node);
       Decls : constant List_Id := Visible_Declarations (Spec);
    begin
-      New_Scope (Scope_Of_Spec (Spec));
+      Push_Scope (Scope_Of_Spec (Spec));
       Add_Calling_Stubs_To_Declarations
         (Specification (Unit_Node), Decls);
       Pop_Scope;
@@ -2761,9 +2762,10 @@ package body Exp_Dist is
    -----------------------------------
 
    procedure Expand_Receiving_Stubs_Bodies (Unit_Node : Node_Id) is
-      Spec  : Node_Id;
-      Decls : List_Id;
-      Temp  : List_Id;
+      Spec        : Node_Id;
+      Decls       : List_Id;
+      Stubs_Decls : List_Id;
+      Stubs_Stmts : List_Id;
 
    begin
       if Nkind (Unit_Node) = N_Package_Declaration then
@@ -2774,19 +2776,33 @@ package body Exp_Dist is
             Decls := Visible_Declarations (Spec);
          end if;
 
-         New_Scope (Scope_Of_Spec (Spec));
-         Specific_Add_Receiving_Stubs_To_Declarations
-           (Spec, Decls, Decls);
+         Push_Scope (Scope_Of_Spec (Spec));
+         Specific_Add_Receiving_Stubs_To_Declarations (Spec, Decls, Decls);
+
       else
-         Spec  :=
+         Spec :=
            Package_Specification_Of_Scope (Corresponding_Spec (Unit_Node));
          Decls := Declarations (Unit_Node);
 
-         New_Scope (Scope_Of_Spec (Unit_Node));
-         Temp := New_List;
+         Push_Scope (Scope_Of_Spec (Unit_Node));
+         Stubs_Decls := New_List;
+         Stubs_Stmts := New_List;
          Specific_Add_Receiving_Stubs_To_Declarations
-           (Spec, Temp, Statements (Handled_Statement_Sequence (Unit_Node)));
-         Insert_List_Before (First (Decls), Temp);
+           (Spec, Stubs_Decls, Stubs_Stmts);
+
+         Insert_List_Before (First (Decls), Stubs_Decls);
+
+         declare
+            HSS_Stmts : constant List_Id :=
+                          Statements (Handled_Statement_Sequence (Unit_Node));
+            First_HSS_Stmt : constant Node_Id := First (HSS_Stmts);
+         begin
+            if No (First_HSS_Stmt) then
+               Append_List_To (HSS_Stmts, Stubs_Stmts);
+            else
+               Insert_List_Before (First_HSS_Stmt, Stubs_Stmts);
+            end if;
+         end;
       end if;
 
       Pop_Scope;
@@ -3029,7 +3045,7 @@ package body Exp_Dist is
                Make_Assignment_Statement (Loc,
                  Name       => Result,
                  Expression => Make_Null (Loc)),
-               Make_Return_Statement (Loc))));
+               Make_Simple_Return_Statement (Loc))));
 
          --  If the RACW denotes an object created on the current partition,
          --  Local_Statements will be executed. The real object will be used.
@@ -3459,7 +3475,7 @@ package body Exp_Dist is
                    Make_Op_Not (Loc,
                      New_Occurrence_Of (All_Calls_Remote, Loc))),
              Then_Statements => New_List (
-               Make_Return_Statement (Loc,
+               Make_Simple_Return_Statement (Loc,
                  Unchecked_Convert_To (Fat_Type,
                    OK_Convert_To (RTE (RE_Address),
                      New_Occurrence_Of (Proxy_Addr, Loc)))))),
@@ -3496,7 +3512,7 @@ package body Exp_Dist is
          --  Return the newly created value
 
          Append_To (Proc_Statements,
-           Make_Return_Statement (Loc,
+           Make_Simple_Return_Statement (Loc,
              Expression =>
                Unchecked_Convert_To (Fat_Type,
                  New_Occurrence_Of (Stub_Ptr, Loc))));
@@ -3645,17 +3661,17 @@ package body Exp_Dist is
 
          --    - a package RPC receiver must be built. This subprogram
          --      will get a Subprogram_Id from the incoming stream
-         --      and will dispatch the call to the right subprogram
+         --      and will dispatch the call to the right subprogram;
 
-         --    - a receiving stub for any subprogram visible in the package
+         --    - a receiving stub for each subprogram visible in the package
          --      spec. This stub will read all the parameters from the stream,
          --      and put the result as well as the exception occurrence in the
-         --      output stream
+         --      output stream;
 
          --    - a dummy package with an empty spec and a body made of an
          --      elaboration part, whose job is to register the receiving
          --      part of this RCI package on the name server. This is done
-         --      by calling System.Partition_Interface.Register_Receiving_Stub
+         --      by calling System.Partition_Interface.Register_Receiving_Stub.
 
          Build_RPC_Receiver_Body (
            RPC_Receiver => Pkg_RPC_Receiver,
@@ -3861,75 +3877,120 @@ package body Exp_Dist is
                          High_Bound =>
                            Make_Integer_Literal (Loc,
                              First_RCI_Subprogram_Id
-                             + List_Length (Subp_Info_List) - 1))))),
-             Expression          =>
-               Make_Aggregate (Loc,
-                 Component_Associations => Subp_Info_List)));
+                             + List_Length (Subp_Info_List) - 1)))))));
+
+         --  For a degenerate RCI with no visible subprograms, Subp_Info_List
+         --  has zero length, and the declaration is for an empty array, in
+         --  which case no initialization aggregate must be generated.
+
+         if Present (First (Subp_Info_List)) then
+            Set_Expression (Last (Decls),
+              Make_Aggregate (Loc,
+                Component_Associations => Subp_Info_List));
+
+         --  No initialization provided: remove CONSTANT so that the
+         --  declaration is not an incomplete deferred constant.
+
+         else
+            Set_Constant_Present (Last (Decls), False);
+         end if;
+
          Analyze (Last (Decls));
 
-         Append_To (Decls,
-           Make_Subprogram_Body (Loc,
-             Specification =>
-               Copy_Specification (Loc, Parent (Lookup_RAS_Info)),
-             Declarations =>
-               No_List,
-             Handled_Statement_Sequence =>
-               Make_Handled_Sequence_Of_Statements (Loc,
-                 Statements => New_List (
-                   Make_Return_Statement (Loc,
-                     Expression => OK_Convert_To (RTE (RE_Unsigned_64),
-                       Make_Selected_Component (Loc,
-                         Prefix =>
-                           Make_Indexed_Component (Loc,
-                             Prefix =>
-                               New_Occurrence_Of (Subp_Info_Array, Loc),
-                             Expressions => New_List (
-                               Convert_To (Standard_Integer,
-                                 Make_Identifier (Loc, Name_Subp_Id)))),
-                         Selector_Name =>
-                           Make_Identifier (Loc, Name_Addr))))))));
+         declare
+            Subp_Info_Addr : Node_Id;
+            --  Return statement for Lookup_RAS_Info: address of the subprogram
+            --  information record for the requested subprogram id.
+
+         begin
+            if Present (First (Subp_Info_List)) then
+               Subp_Info_Addr :=
+                 Make_Selected_Component (Loc,
+                   Prefix =>
+                     Make_Indexed_Component (Loc,
+                       Prefix =>
+                         New_Occurrence_Of (Subp_Info_Array, Loc),
+                       Expressions => New_List (
+                         Convert_To (Standard_Integer,
+                           Make_Identifier (Loc, Name_Subp_Id)))),
+                   Selector_Name =>
+                     Make_Identifier (Loc, Name_Addr));
+
+            --  Case of no visible subprogram: just raise Constraint_Error, we
+            --  know for sure we got junk from a remote partition.
+
+            else
+               Subp_Info_Addr :=
+                 Make_Raise_Constraint_Error (Loc,
+                    Reason => CE_Range_Check_Failed);
+               Set_Etype (Subp_Info_Addr, RTE (RE_Unsigned_64));
+            end if;
+
+            Append_To (Decls,
+              Make_Subprogram_Body (Loc,
+                Specification =>
+                  Copy_Specification (Loc, Parent (Lookup_RAS_Info)),
+                Declarations =>
+                  No_List,
+                Handled_Statement_Sequence =>
+                  Make_Handled_Sequence_Of_Statements (Loc,
+                    Statements => New_List (
+                      Make_Simple_Return_Statement (Loc,
+                        Expression =>
+                          OK_Convert_To (RTE (RE_Unsigned_64),
+                                         Subp_Info_Addr))))));
+         end;
+
          Analyze (Last (Decls));
 
          Append_To (Decls, Pkg_RPC_Receiver_Body);
          Analyze (Last (Decls));
 
          Get_Library_Unit_Name_String (Pkg_Spec);
+
+         --  Name
+
          Append_To (Register_Pkg_Actuals,
-            --  Name
            Make_String_Literal (Loc,
              Strval => String_From_Name_Buffer));
 
+         --  Receiver
+
          Append_To (Register_Pkg_Actuals,
-            --  Receiver
            Make_Attribute_Reference (Loc,
              Prefix         =>
                New_Occurrence_Of (Pkg_RPC_Receiver, Loc),
              Attribute_Name =>
                Name_Unrestricted_Access));
 
+         --  Version
+
          Append_To (Register_Pkg_Actuals,
-            --  Version
            Make_Attribute_Reference (Loc,
              Prefix         =>
                New_Occurrence_Of (Defining_Entity (Pkg_Spec), Loc),
              Attribute_Name =>
                Name_Version));
 
+         --  Subp_Info
+
          Append_To (Register_Pkg_Actuals,
-            --  Subp_Info
            Make_Attribute_Reference (Loc,
              Prefix         =>
                New_Occurrence_Of (Subp_Info_Array, Loc),
              Attribute_Name =>
                Name_Address));
 
+         --  Subp_Info_Len
+
          Append_To (Register_Pkg_Actuals,
-            --  Subp_Info_Len
            Make_Attribute_Reference (Loc,
              Prefix         =>
                New_Occurrence_Of (Subp_Info_Array, Loc),
              Attribute_Name =>
                Name_Length));
+
+         --  Generate the call
 
          Append_To (Stmts,
            Make_Procedure_Call_Statement (Loc,
@@ -4283,7 +4344,7 @@ package body Exp_Dist is
 
                Append_To (Non_Asynchronous_Statements,
                  Make_Tag_Check (Loc,
-                   Make_Return_Statement (Loc,
+                   Make_Simple_Return_Statement (Loc,
                      Expression =>
                        Make_Attribute_Reference (Loc,
                          Prefix         =>
@@ -4932,6 +4993,18 @@ package body Exp_Dist is
                        Name                   => Called_Subprogram,
                        Parameter_Associations => Parameter_List)));
 
+               if Is_Class_Wide_Type (Etyp) then
+
+                  --  For a remote call to a function with a class-wide type,
+                  --  check that the returned value satisfies the requirements
+                  --  of E.4(18).
+
+                  Append_To (Inner_Decls,
+                    Make_Transportable_Check (Loc,
+                      New_Occurrence_Of (Result, Loc)));
+
+               end if;
+
                Append_To (After_Statements,
                  Make_Attribute_Reference (Loc,
                    Prefix         => New_Occurrence_Of (Etyp, Loc),
@@ -5156,7 +5229,7 @@ package body Exp_Dist is
           Handled_Statement_Sequence =>
             Make_Handled_Sequence_Of_Statements (Loc, New_List (
               Make_Tag_Check (Loc,
-                Make_Return_Statement (Loc,
+                Make_Simple_Return_Statement (Loc,
                   Make_Attribute_Reference (Loc,
                     Prefix         => New_Occurrence_Of (Var_Type, Loc),
                     Attribute_Name => Name_Input,
@@ -5194,6 +5267,25 @@ package body Exp_Dist is
                and then Etype (Subtype_Mark (Typ)) = Stub_Type)
         or else Etype (Typ) = Stub_Type;
    end Is_RACW_Controlling_Formal;
+
+   ------------------------------
+   -- Make_Transportable_Check --
+   ------------------------------
+
+   function Make_Transportable_Check
+     (Loc  : Source_Ptr;
+      Expr : Node_Id) return Node_Id is
+   begin
+      return
+        Make_Raise_Program_Error (Loc,
+          Condition       =>
+            Make_Op_Not (Loc,
+              Build_Get_Transportable (Loc,
+                Make_Selected_Component (Loc,
+                  Prefix        => Expr,
+                  Selector_Name => Make_Identifier (Loc, Name_uTag)))),
+          Reason => PE_Non_Transportable_Actual);
+   end Make_Transportable_Check;
 
    -----------------------------
    -- Make_Selected_Component --
@@ -5599,7 +5691,7 @@ package body Exp_Dist is
                  Parameter_Associations => New_List (
                    New_Occurrence_Of (Reference, Loc))),
              Then_Statements => New_List (
-               Make_Return_Statement (Loc,
+               Make_Simple_Return_Statement (Loc,
                  Expression =>
                    Make_Null (Loc)))));
 
@@ -5679,7 +5771,7 @@ package body Exp_Dist is
          end if;
 
          Local_Statements := New_List (
-           Make_Return_Statement (Loc,
+           Make_Simple_Return_Statement (Loc,
              Expression =>
                Unchecked_Convert_To (RACW_Type,
                  New_Occurrence_Of (Addr, Loc))));
@@ -5692,7 +5784,7 @@ package body Exp_Dist is
              Else_Statements => Stub_Statements));
 
          Append_To (Statements,
-           Make_Return_Statement (Loc,
+           Make_Simple_Return_Statement (Loc,
              Expression => Unchecked_Convert_To (RACW_Type,
                New_Occurrence_Of (Stubbed_Result, Loc))));
 
@@ -6003,7 +6095,7 @@ package body Exp_Dist is
                      Defining_Identifier (
                        Stub_Elements.RPC_Receiver_Decl),
                  Selector_Name => Name_Obj_TypeCode))),
-           Make_Return_Statement (Loc,
+           Make_Simple_Return_Statement (Loc,
              Expression =>
                New_Occurrence_Of (Any, Loc)));
 
@@ -6090,7 +6182,7 @@ package body Exp_Dist is
              Handled_Statement_Sequence =>
                Make_Handled_Sequence_Of_Statements (Loc,
                  Statements => New_List (
-                   Make_Return_Statement (Loc,
+                   Make_Simple_Return_Statement (Loc,
                      Expression =>
                        Make_Selected_Component (Loc,
                          Prefix =>
@@ -6451,7 +6543,7 @@ package body Exp_Dist is
                        New_Occurrence_Of (All_Calls_Remote, Loc)),
 
                    Then_Statements => New_List (
-                     Make_Return_Statement (Loc,
+                     Make_Simple_Return_Statement (Loc,
                        Unchecked_Convert_To (Fat_Type,
                          New_Occurrence_Of (Local_Addr, Loc))))))));
 
@@ -6494,7 +6586,7 @@ package body Exp_Dist is
              Stub_Ptr, Stub_Elements.Stub_Type));
 
          Append_To (Proc_Statements,
-           Make_Return_Statement (Loc,
+           Make_Simple_Return_Statement (Loc,
              Expression =>
                Unchecked_Convert_To (Fat_Type,
                  New_Occurrence_Of (Stub_Ptr, Loc))));
@@ -6562,7 +6654,7 @@ package body Exp_Dist is
 
       begin
          Statements := New_List (
-           Make_Return_Statement (Loc,
+           Make_Simple_Return_Statement (Loc,
              Expression =>
                Make_Aggregate (Loc,
                  Component_Associations => New_List (
@@ -6645,7 +6737,7 @@ package body Exp_Dist is
                New_Occurrence_Of (Any, Loc),
                PolyORB_Support.Helpers.Build_TypeCode_Call (Loc,
                  RAS_Type, Decls))),
-           Make_Return_Statement (Loc,
+           Make_Simple_Return_Statement (Loc,
              Expression =>
                New_Occurrence_Of (Any, Loc)));
 
@@ -6703,7 +6795,7 @@ package body Exp_Dist is
              Handled_Statement_Sequence =>
                Make_Handled_Sequence_Of_Statements (Loc,
                  Statements => New_List (
-                   Make_Return_Statement (Loc,
+                   Make_Simple_Return_Statement (Loc,
                      Expression =>
                        Make_Function_Call (Loc,
                          Name =>
@@ -6826,7 +6918,7 @@ package body Exp_Dist is
               or else not
                 Is_Asynchronous (Defining_Entity (Specification (Declaration)))
             then
-               Append_To (Case_Stmts, Make_Return_Statement (Loc));
+               Append_To (Case_Stmts, Make_Simple_Return_Statement (Loc));
             end if;
 
             Append_To (RPC_Receiver_Cases,
@@ -6873,17 +6965,17 @@ package body Exp_Dist is
 
          --    - a package RPC receiver must be built. This subprogram
          --      will get a Subprogram_Id from the incoming stream
-         --      and will dispatch the call to the right subprogram
+         --      and will dispatch the call to the right subprogram;
 
-         --    - a receiving stub for any subprogram visible in the package
+         --    - a receiving stub for each subprogram visible in the package
          --      spec. This stub will read all the parameters from the stream,
          --      and put the result as well as the exception occurrence in the
-         --      output stream
+         --      output stream;
 
          --    - a dummy package with an empty spec and a body made of an
          --      elaboration part, whose job is to register the receiving
          --      part of this RCI package on the name server. This is done
-         --      by calling System.Partition_Interface.Register_Receiving_Stub
+         --      by calling System.Partition_Interface.Register_Receiving_Stub.
 
          Build_RPC_Receiver_Body (
            RPC_Receiver => Pkg_RPC_Receiver,
@@ -6921,41 +7013,6 @@ package body Exp_Dist is
                  Selector_Name => Name_Target),
                New_Occurrence_Of (Is_Local, Loc),
                New_Occurrence_Of (Local_Address, Loc))));
-
-         --  Determine whether the reference that was used to make
-         --  the call was the base RCI reference (in which case
-         --  Local_Address is 0, and the method identifier from the
-         --  request must be used to determine which subprogram is
-         --  called) or a reference identifying one particular subprogram
-         --  (in which case Local_Address is the address of that
-         --  subprogram, and the method name from the request is
-         --  ignored).
-         --  In each case, cascaded elsifs are used to determine the
-         --  proper subprogram index. Using hash tables might be
-         --  more efficient.
-
-         Append_To (Pkg_RPC_Receiver_Statements,
-           Make_Implicit_If_Statement (Pkg_Spec,
-             Condition =>
-               Make_Op_Ne (Loc,
-                 Left_Opnd  => New_Occurrence_Of (Local_Address, Loc),
-                 Right_Opnd => New_Occurrence_Of (RTE (RE_Null_Address), Loc)),
-             Then_Statements => New_List (
-               Make_Implicit_If_Statement (Pkg_Spec,
-                 Condition =>
-                   New_Occurrence_Of (Standard_False, Loc),
-                 Then_Statements => New_List (
-                   Make_Null_Statement (Loc)),
-                 Elsif_Parts =>
-                   Dispatch_On_Address)),
-             Else_Statements => New_List (
-               Make_Implicit_If_Statement (Pkg_Spec,
-                 Condition =>
-                   New_Occurrence_Of (Standard_False, Loc),
-                 Then_Statements => New_List (
-                   Make_Null_Statement (Loc)),
-                 Elsif_Parts =>
-                   Dispatch_On_Name))));
 
          --  For each subprogram, the receiving stub will be built and a
          --  case statement will be made on the Subprogram_Id to dispatch
@@ -7076,6 +7133,88 @@ package body Exp_Dist is
             Next (Current_Declaration);
          end loop;
 
+         Append_To (Decls,
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => Subp_Info_Array,
+             Constant_Present    => True,
+             Aliased_Present     => True,
+             Object_Definition   =>
+               Make_Subtype_Indication (Loc,
+                 Subtype_Mark =>
+                   New_Occurrence_Of (RTE (RE_RCI_Subp_Info_Array), Loc),
+                 Constraint =>
+                   Make_Index_Or_Discriminant_Constraint (Loc,
+                     New_List (
+                       Make_Range (Loc,
+                         Low_Bound  => Make_Integer_Literal (Loc,
+                           First_RCI_Subprogram_Id),
+                         High_Bound =>
+                           Make_Integer_Literal (Loc,
+                             First_RCI_Subprogram_Id
+                             + List_Length (Subp_Info_List) - 1)))))));
+
+         if Present (First (Subp_Info_List)) then
+            Set_Expression (Last (Decls),
+              Make_Aggregate (Loc,
+                Component_Associations => Subp_Info_List));
+
+            --  Generate the dispatch statement to determine the subprogram id
+            --  of the called subprogram.
+
+            --  We first test whether the reference that was used to make the
+            --  call was the base RCI reference (in which case Local_Address is
+            --  zero, and the method identifier from the request must be used
+            --  to determine which subprogram is called) or a reference
+            --  identifying one particular subprogram (in which case
+            --  Local_Address is the address of that subprogram, and the
+            --  method name from the request is ignored). The latter occurs
+            --  for the case of a call through a remote access-to-subprogram.
+
+            --  In each case, cascaded elsifs are used to determine the proper
+            --  subprogram index. Using hash tables might be more efficient.
+
+            Append_To (Pkg_RPC_Receiver_Statements,
+              Make_Implicit_If_Statement (Pkg_Spec,
+                Condition =>
+                  Make_Op_Ne (Loc,
+                    Left_Opnd  => New_Occurrence_Of
+                                    (Local_Address, Loc),
+                    Right_Opnd => New_Occurrence_Of
+                                    (RTE (RE_Null_Address), Loc)),
+                Then_Statements => New_List (
+                  Make_Implicit_If_Statement (Pkg_Spec,
+                    Condition =>
+                      New_Occurrence_Of (Standard_False, Loc),
+                    Then_Statements => New_List (
+                      Make_Null_Statement (Loc)),
+                    Elsif_Parts =>
+                      Dispatch_On_Address)),
+
+                Else_Statements => New_List (
+                  Make_Implicit_If_Statement (Pkg_Spec,
+                    Condition =>
+                      New_Occurrence_Of (Standard_False, Loc),
+                    Then_Statements => New_List (
+                      Make_Null_Statement (Loc)),
+                    Elsif_Parts =>
+                      Dispatch_On_Name))));
+
+         else
+            --  For a degenerate RCI with no visible subprograms,
+            --  Subp_Info_List has zero length, and the declaration is for an
+            --  empty array, in which case no initialization aggregate must be
+            --  generated. We do not generate a Dispatch_Statement either.
+
+            --  No initialization provided: remove CONSTANT so that the
+            --  declaration is not an incomplete deferred constant.
+
+            Set_Constant_Present (Last (Decls), False);
+         end if;
+
+         --  Analyze Subp_Info_Array declaration
+
+         Analyze (Last (Decls));
+
          --  If we receive an invalid Subprogram_Id, it is best to do nothing
          --  rather than raising an exception since we do not want someone
          --  to crash a remote partition by sending invalid subprogram ids.
@@ -7097,29 +7236,8 @@ package body Exp_Dist is
                New_Occurrence_Of (Subp_Index, Loc),
              Alternatives => Pkg_RPC_Receiver_Cases));
 
-         Append_To (Decls,
-           Make_Object_Declaration (Loc,
-             Defining_Identifier => Subp_Info_Array,
-             Constant_Present    => True,
-             Aliased_Present     => True,
-             Object_Definition   =>
-               Make_Subtype_Indication (Loc,
-                 Subtype_Mark =>
-                   New_Occurrence_Of (RTE (RE_RCI_Subp_Info_Array), Loc),
-                 Constraint =>
-                   Make_Index_Or_Discriminant_Constraint (Loc,
-                     New_List (
-                       Make_Range (Loc,
-                         Low_Bound  => Make_Integer_Literal (Loc,
-                           First_RCI_Subprogram_Id),
-                         High_Bound =>
-                           Make_Integer_Literal (Loc,
-                             First_RCI_Subprogram_Id
-                             + List_Length (Subp_Info_List) - 1))))),
-             Expression          =>
-               Make_Aggregate (Loc,
-                 Component_Associations => Subp_Info_List)));
-         Analyze (Last (Decls));
+         --  Pkg_RPC_Receiver body is now complete: insert it into the tree and
+         --  analyze it.
 
          Append_To (Decls, Pkg_RPC_Receiver_Body);
          Analyze (Last (Decls));
@@ -7578,7 +7696,7 @@ package body Exp_Dist is
 
                Append_To (Non_Asynchronous_Statements,
                  Make_Tag_Check (Loc,
-                   Make_Return_Statement (Loc,
+                   Make_Simple_Return_Statement (Loc,
                      PolyORB_Support.Helpers.Build_From_Any_Call (
                          Etype (Result_Definition (Spec)),
                          Make_Selected_Component (Loc,
@@ -8183,6 +8301,18 @@ package body Exp_Dist is
                        Name                   => Called_Subprogram,
                        Parameter_Associations => Parameter_List)));
 
+               if Is_Class_Wide_Type (Etyp) then
+
+                  --  For a remote call to a function with a class-wide type,
+                  --  check that the returned value satisfies the requirements
+                  --  of E.4(18).
+
+                  Append_To (Inner_Decls,
+                    Make_Transportable_Check (Loc,
+                      New_Occurrence_Of (Result, Loc)));
+
+               end if;
+
                Set_Etype (Result, Etyp);
                Append_To (After_Statements,
                  Make_Procedure_Call_Statement (Loc,
@@ -8584,7 +8714,7 @@ package body Exp_Dist is
               and then not Is_Tagged_Type (Typ)
             then
                Append_To (Stms,
-                 Make_Return_Statement (Loc,
+                 Make_Simple_Return_Statement (Loc,
                    Expression =>
                      OK_Convert_To (
                        Typ,
@@ -8599,7 +8729,7 @@ package body Exp_Dist is
             then
                if Nkind (Declaration_Node (Typ)) = N_Subtype_Declaration then
                   Append_To (Stms,
-                    Make_Return_Statement (Loc,
+                    Make_Simple_Return_Statement (Loc,
                       Expression =>
                         OK_Convert_To (
                           Typ,
@@ -8836,7 +8966,7 @@ package body Exp_Dist is
                        Counter   => Component_Counter);
 
                      Append_To (Stms,
-                       Make_Return_Statement (Loc,
+                       Make_Simple_Return_Statement (Loc,
                          Expression => New_Occurrence_Of (Res, Loc)));
                   end;
                end if;
@@ -9083,13 +9213,13 @@ package body Exp_Dist is
                     Any_Parameter, Counter);
 
                   Append_To (Stms,
-                    Make_Return_Statement (Loc,
+                    Make_Simple_Return_Statement (Loc,
                       Expression => New_Occurrence_Of (Res, Loc)));
                end;
 
             elsif Is_Integer_Type (Typ) or else Is_Unsigned_Type (Typ) then
                Append_To (Stms,
-                 Make_Return_Statement (Loc,
+                 Make_Simple_Return_Statement (Loc,
                    Expression =>
                      Unchecked_Convert_To (
                        Typ,
@@ -9172,7 +9302,7 @@ package body Exp_Dist is
                             Parameter_Associations =>
                               New_List (
                                 New_Occurrence_Of (Strm, Loc))),
-                          Make_Return_Statement (Loc,
+                          Make_Simple_Return_Statement (Loc,
                             Expression => New_Occurrence_Of (Res, Loc))))));
 
                end;
@@ -9962,7 +10092,7 @@ package body Exp_Dist is
             end if;
 
             Append_To (Stms,
-              Make_Return_Statement (Loc,
+              Make_Simple_Return_Statement (Loc,
                 Expression => New_Occurrence_Of (Any, Loc)));
 
             Decl :=
@@ -10265,7 +10395,7 @@ package body Exp_Dist is
             procedure Return_Constructed_TypeCode (Kind : Entity_Id) is
             begin
                Append_To (Stms,
-                 Make_Return_Statement (Loc,
+                 Make_Simple_Return_Statement (Loc,
                    Expression =>
                       Make_Constructed_TypeCode (Kind, Parameters)));
             end Return_Constructed_TypeCode;
@@ -10430,13 +10560,7 @@ package body Exp_Dist is
                                             Make_Integer_Literal (Loc, J);
                                        end if;
                                        Append_To (Union_TC_Params,
-                                         Make_Function_Call (Loc,
-                                           Name => New_Occurrence_Of
-                                             (RTE (RE_TA_A), Loc),
-                                           Parameter_Associations =>
-                                             New_List (
-                                               Build_To_Any_Call
-                                                 (Expr, Decls))));
+                                         Build_To_Any_Call (Expr, Decls));
 
                                        Add_Params_For_Variant_Components;
                                        J := J + Uint_1;
@@ -10474,8 +10598,7 @@ package body Exp_Dist is
 
                                  --  Add a placeholder member label
                                  --  for the default case.
-                                 --  It must be of the discriminant
-                                 --  type.
+                                 --  It must be of the discriminant type.
 
                                  declare
                                     Exp : constant Node_Id :=
@@ -10486,30 +10609,21 @@ package body Exp_Dist is
                                  begin
                                     Set_Etype (Exp, Discriminant_Type);
                                     Append_To (Union_TC_Params,
-                                      Make_Function_Call (Loc,
-                                        Name => New_Occurrence_Of
-                                          (RTE (RE_TA_A), Loc),
-                                        Parameter_Associations =>
-                                          New_List (
-                                            Build_To_Any_Call
-                                              (Exp, Decls))));
+                                      Build_To_Any_Call (Exp, Decls));
                                  end;
 
                                  Add_Params_For_Variant_Components;
 
                               when others =>
+
+                                 --  Case of an explicit choice
+
                                  declare
                                     Exp : constant Node_Id :=
                                       New_Copy_Tree (Choice);
                                  begin
                                     Append_To (Union_TC_Params,
-                                      Make_Function_Call (Loc,
-                                        Name => New_Occurrence_Of
-                                          (RTE (RE_TA_A), Loc),
-                                        Parameter_Associations =>
-                                          New_List (
-                                            Build_To_Any_Call
-                                              (Exp, Decls))));
+                                      Build_To_Any_Call (Exp, Decls));
                                  end;
 
                                  Add_Params_For_Variant_Components;

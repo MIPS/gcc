@@ -1,6 +1,7 @@
 /* Perform instruction reorganizations for delay slot filling.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu).
    Hacked by Michael Tiemann (tiemann@cygnus.com).
 
@@ -8,7 +9,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +18,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Instruction reorganization pass.
 
@@ -3171,16 +3171,9 @@ delete_prior_computation (rtx note, rtx insn)
 		   && REG_P (SET_DEST (pat)))
 	    {
 	      int dest_regno = REGNO (SET_DEST (pat));
-	      int dest_endregno
-		= (dest_regno
-		   + (dest_regno < FIRST_PSEUDO_REGISTER
-		      ? hard_regno_nregs[dest_regno]
-					[GET_MODE (SET_DEST (pat))] : 1));
+	      int dest_endregno = END_REGNO (SET_DEST (pat));
 	      int regno = REGNO (reg);
-	      int endregno
-		= (regno
-		   + (regno < FIRST_PSEUDO_REGISTER
-		      ? hard_regno_nregs[regno][GET_MODE (reg)] : 1));
+	      int endregno = END_REGNO (reg);
 
 	      if (dest_regno >= regno
 		  && dest_endregno <= endregno)
@@ -3808,7 +3801,7 @@ dbr_schedule (rtx first)
       if (INSN_UID (insn) > max_uid)
 	max_uid = INSN_UID (insn);
       if (NOTE_P (insn)
-	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_EPILOGUE_BEG)
+	  && NOTE_KIND (insn) == NOTE_INSN_EPILOGUE_BEG)
 	epilogue_insn = insn;
     }
 

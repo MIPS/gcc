@@ -1,9 +1,9 @@
-#   Copyright (C) 1997, 1999, 2000, 2003, 2004, 2005, 2006
+#   Copyright (C) 1997, 1999, 2000, 2003, 2004, 2005, 2006, 2007
 #   Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -12,8 +12,8 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
 
 load_lib dg.exp
 load_lib file-format.exp
@@ -427,8 +427,8 @@ proc cleanup-dump { suffix } {
 
 # Remove files kept by --save-temps for the current test.
 #
-# Currently this is only .i files, but more can be added if there are
-# tests generating them.
+# Currently this is only .i, .ii and .s files, but more can be added
+# if there are tests generating them.
 proc cleanup-saved-temps { } {
     global additional_sources
 
@@ -452,6 +452,24 @@ proc cleanup-saved-temps { } {
 proc cleanup-modules { modlist } {
     foreach modname $modlist {
 	remove-build-file [string tolower $modname].mod
+    }
+}
+
+# Scan Fortran modules for a given regexp.
+#
+# Argument 0 is the module name
+# Argument 1 is the regexp to match
+proc scan-module { args } {
+    set modfilename [string tolower [lindex $args 0]].mod
+    set fd [open $modfilename r]
+    set text [read $fd]
+    close $fd
+
+    upvar 2 name testcase
+    if [regexp -- [lindex $args 1] $text] {
+      pass "$testcase scan-module [lindex $args 1]"
+    } else {
+      fail "$testcase scan-module [lindex $args 1]"
     }
 }
 
@@ -539,6 +557,68 @@ if { [info procs saved-dg-test] == [list] } {
 	    unset compiler_conditional_xfail_data
 	}
     }
+}
+
+if { [info procs saved-dg-warning] == [list] \
+     && [info exists gcc_warning_prefix] } {
+    rename dg-warning saved-dg-warning
+
+    proc dg-warning { args } {
+	# Make this variable available here and to the saved proc.
+	upvar dg-messages dg-messages
+	global gcc_warning_prefix
+
+ 	process-message saved-dg-warning "$gcc_warning_prefix" "$args"
+    }
+}
+
+if { [info procs saved-dg-error] == [list] \
+     && [info exists gcc_error_prefix] } {
+    rename dg-error saved-dg-error
+
+    proc dg-error { args } {
+	# Make this variable available here and to the saved proc.
+	upvar dg-messages dg-messages
+	global gcc_error_prefix
+
+	process-message saved-dg-error "$gcc_error_prefix" "$args"
+    }
+}
+
+# Modify the regular expression saved by a DejaGnu message directive to
+# include a prefix and to force the expression to match a single line.
+# MSGPROC is the procedure to call.
+# MSGPREFIX is the prefix to prepend.
+# DGARGS is the original argument list.
+
+proc process-message { msgproc msgprefix dgargs } {
+    upvar dg-messages dg-messages
+
+    # Process the dg- directive, including adding the regular expression
+    # to the new message entry in dg-messages.
+    set msgcnt [llength ${dg-messages}]
+    catch { eval $msgproc $dgargs }
+
+    # If the target expression wasn't satisfied there is no new message.
+    if { [llength ${dg-messages}] == $msgcnt } {
+	return;
+    }
+
+    # Prepend the message prefix to the regular expression and make
+    # it match a single line.
+    set newentry [lindex ${dg-messages} end]
+    set expmsg [lindex $newentry 2]
+    set expmsg "$msgprefix\[^\n]*$expmsg"
+    set newentry [lreplace $newentry 2 2 $expmsg]
+    set dg-messages [lreplace ${dg-messages} end end $newentry]
+    verbose "process-message:\n${dg-messages}" 2
+}
+
+# Look for messages that don't have standard prefixes.
+
+proc dg-message { args } {
+    upvar dg-messages dg-messages
+    process-message saved-dg-warning "" $args
 }
 
 set additional_prunes ""

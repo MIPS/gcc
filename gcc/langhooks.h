@@ -1,11 +1,12 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_LANG_HOOKS_H
 #define GCC_LANG_HOOKS_H
@@ -35,18 +35,8 @@ typedef void (*lang_print_tree_hook) (FILE *, tree, int indent);
 
 struct lang_hooks_for_tree_inlining
 {
-  tree (*walk_subtrees) (tree *, int *,
-			 tree (*) (tree *, int *, void *),
-			 void *, struct pointer_set_t*);
   int (*cannot_inline_tree_fn) (tree *);
-  int (*disregard_inline_limits) (tree);
-  tree (*add_pending_fn_decls) (void *, tree);
-  int (*auto_var_in_fn_p) (tree, tree);
-  int (*anon_aggr_type_p) (tree);
   bool (*var_mod_type_p) (tree, tree);
-  int (*start_inlining) (tree);
-  void (*end_inlining) (tree);
-  tree (*convert_parm_for_inlining) (tree, tree, tree, int);
 };
 
 struct lang_hooks_for_callgraph
@@ -88,7 +78,7 @@ struct lang_hooks_for_tree_dump
   bool (*dump_tree) (void *, tree);
 
   /* Determine type qualifiers in a language-specific way.  */
-  int (*type_quals) (tree);
+  int (*type_quals) (const_tree);
 };
 
 /* Hooks related to types.  */
@@ -107,17 +97,9 @@ struct lang_hooks_for_types
      integer type with at least that precision.  */
   tree (*type_for_size) (unsigned, int);
 
-  /* Given an integer type T, return a type like T but unsigned.
-     If T is unsigned, the value is T.  */
-  tree (*unsigned_type) (tree);
-
-  /* Given an integer type T, return a type like T but signed.
-     If T is signed, the value is T.  */
-  tree (*signed_type) (tree);
-
-  /* Return a type the same as TYPE except unsigned or signed
-     according to UNSIGNEDP.  */
-  tree (*signed_or_unsigned_type) (int, tree);
+  /* True if the type is an instantiation of a generic type,
+     e.g. C++ template implicit specializations.  */
+  bool (*generic_p) (const_tree);
 
   /* Given a type, apply default promotions to unnamed function
      arguments and return the new type.  Return the same type if no
@@ -138,11 +120,11 @@ struct lang_hooks_for_types
      invalid use of an incomplete type.  VALUE is the expression that
      was used (or 0 if that isn't known) and TYPE is the type that was
      invalid.  */
-  void (*incomplete_type_error) (tree value, tree type);
+  void (*incomplete_type_error) (const_tree value, const_tree type);
 
   /* Called from assign_temp to return the maximum size, if there is one,
      for a type.  */
-  tree (*max_size) (tree);
+  tree (*max_size) (const_tree);
 
   /* Register language specific type size variables as potentially OpenMP
      firstprivate variables.  */
@@ -178,14 +160,11 @@ struct lang_hooks_for_decls
 
   /* Returns true when we should warn for an unused global DECL.
      We will already have checked that it has static binding.  */
-  bool (*warn_unused_global) (tree);
+  bool (*warn_unused_global) (const_tree);
 
   /* Obtain a list of globals and do final output on them at end
      of compilation */
   void (*final_write_globals) (void);
-
-  /* Do necessary preparations before assemble_variable can proceed.  */
-  void (*prepare_assemble_variable) (tree);
 
   /* True if this decl may be called via a sibcall.  */
   bool (*ok_for_sibcall) (tree);
@@ -300,7 +279,7 @@ struct lang_hooks
 
   /* Called to obtain the alias set to be used for an expression or type.
      Returns -1 if the language does nothing special for it.  */
-  HOST_WIDE_INT (*get_alias_set) (tree);
+  alias_set_type (*get_alias_set) (tree);
 
   /* Called with an expression that is to be processed as a constant.
      Returns either the same expression or a language-independent
@@ -380,7 +359,7 @@ struct lang_hooks
   int (*types_compatible_p) (tree x, tree y);
 
   /* Given a CALL_EXPR, return a function decl that is its target.  */
-  tree (*lang_get_callee_fndecl) (tree);
+  tree (*lang_get_callee_fndecl) (const_tree);
 
   /* Called by report_error_function to print out function name.  */
   void (*print_error_function) (struct diagnostic_context *, const char *);
@@ -389,7 +368,7 @@ struct lang_hooks
      expression in a language-dependent way.  Returns a tree for the size
      in bytes.  A frontend can call lhd_expr_size to get the default
      semantics in cases that it doesn't want to handle specially.  */
-  tree (*expr_size) (tree);
+  tree (*expr_size) (const_tree);
 
   /* Convert a character from the host's to the target's character
      set.  The character should be in what C calls the "basic source
@@ -452,6 +431,5 @@ extern tree add_builtin_function (const char *name, tree type,
 				  int function_code, enum built_in_class cl,
 				  const char *library_name,
 				  tree attrs);
-extern tree lhd_signed_or_unsigned_type (int unsignedp, tree type);
 
 #endif /* GCC_LANG_HOOKS_H */

@@ -1,12 +1,13 @@
 /* Move registers around to reduce number of move instructions needed.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* This module looks for cases where matching constraints would force
@@ -62,7 +62,7 @@ struct match {
 
 static rtx discover_flags_reg (void);
 static void mark_flags_life_zones (rtx);
-static void flags_set_1 (rtx, rtx, void *);
+static void flags_set_1 (rtx, const_rtx, void *);
 
 static int try_auto_increment (rtx, rtx, rtx, rtx, HOST_WIDE_INT, int);
 static int find_matches (rtx, struct match *);
@@ -324,7 +324,7 @@ mark_flags_life_zones (rtx flags)
       {
 	int i;
 	for (i = 0; i < flags_nregs; ++i)
-	  live |= REGNO_REG_SET_P (DF_LIVE_IN (block), flags_regno + i);
+	  live |= REGNO_REG_SET_P (df_get_live_in (block), flags_regno + i);
       }
 #endif
 
@@ -371,7 +371,7 @@ mark_flags_life_zones (rtx flags)
 /* A subroutine of mark_flags_life_zones, called through note_stores.  */
 
 static void
-flags_set_1 (rtx x, rtx pat, void *data ATTRIBUTE_UNUSED)
+flags_set_1 (rtx x, const_rtx pat, void *data ATTRIBUTE_UNUSED)
 {
   if (GET_CODE (pat) == SET
       && reg_overlap_mentioned_p (x, flags_set_1_rtx))
@@ -869,7 +869,7 @@ copy_src_to_dest (rtx insn, rtx src, rtx dest)
 
       /* Update the various register tables.  */
       dest_regno = REGNO (dest);
-      REG_N_SETS (dest_regno) ++;
+      INC_REG_N_SETS (dest_regno, 1);
       REG_LIVE_LENGTH (dest_regno)++;
       src_regno = REGNO (src);
       if (! find_reg_note (move_insn, REG_DEAD, src))
@@ -1080,13 +1080,16 @@ regmove_optimize (rtx f, int nregs)
   int i;
   rtx copy_src, copy_dst;
 
-  df_ri_add_problem (DF_RI_LIFE);
-  df_analyze ();
-
   /* ??? Hack.  Regmove doesn't examine the CFG, and gets mightily
      confused by non-call exceptions ending blocks.  */
   if (flag_non_call_exceptions)
     return;
+
+  df_note_add_problem ();
+  df_analyze ();
+
+  regstat_init_n_sets_and_refs ();
+  regstat_compute_ri ();
 
   /* Find out where a potential flags register is live, and so that we
      can suppress some optimizations in those zones.  */
@@ -1489,8 +1492,8 @@ regmove_optimize (rtx f, int nregs)
 		  dstno = REGNO (dst);
 		  srcno = REGNO (src);
 
-		  REG_N_SETS (dstno)++;
-		  REG_N_SETS (srcno)--;
+		  INC_REG_N_SETS (dstno, 1);
+		  INC_REG_N_SETS (srcno, -1);
 
 		  REG_N_CALLS_CROSSED (dstno) += num_calls;
 		  REG_N_CALLS_CROSSED (srcno) -= num_calls;
@@ -1530,6 +1533,8 @@ regmove_optimize (rtx f, int nregs)
       free (reg_set_in_bb);
       reg_set_in_bb = NULL;
     }
+  regstat_free_n_sets_and_refs ();
+  regstat_free_ri ();
 }
 
 /* Returns nonzero if INSN's pattern has matching constraints for any operand.
@@ -1884,7 +1889,7 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 	  && try_auto_increment (search_end, post_inc, 0, src, newconst, 1))
 	post_inc = 0;
       validate_change (insn, &XEXP (SET_SRC (set), 1), GEN_INT (insn_const), 0);
-      REG_N_SETS (REGNO (src))++;
+      INC_REG_N_SETS (REGNO (src), 1);
       REG_LIVE_LENGTH (REGNO (src))++;
     }
   if (overlap)
@@ -1951,7 +1956,7 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 	      && validate_change (insn, &SET_SRC (set), XEXP (note, 0), 0))
 	    {
 	      delete_insn (q);
-	      REG_N_SETS (REGNO (src))--;
+	      INC_REG_N_SETS (REGNO (src), -1);
 	      REG_N_CALLS_CROSSED (REGNO (src)) -= num_calls2;
 	      REG_LIVE_LENGTH (REGNO (src)) -= s_length2;
 	      insn_const = 0;
@@ -2023,8 +2028,8 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
       REG_N_CALLS_CROSSED (REGNO (src)) += s_num_calls;
     }
 
-  REG_N_SETS (REGNO (src))++;
-  REG_N_SETS (REGNO (dst))--;
+  INC_REG_N_SETS (REGNO (src), 1);
+  INC_REG_N_SETS (REGNO (dst), -1);
 
   REG_N_CALLS_CROSSED (REGNO (dst)) -= num_calls;
 

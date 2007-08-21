@@ -1,3 +1,868 @@
+2007-08-16  Samuel Thibault  <samuel.thibault@ens-lyon.org>
+
+	* configure.host (gnu*): Set use_libgcj_bc to yes.
+
+2007-08-15  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.java (internalGetFields): Use LinkedHashSet.
+	* classpath/lib/java/lang/Class.class: Rebuilt.
+
+2007-08-15  Samuel Thibault  <samuel.thibault@ens-lyon.org>
+
+	* java/lang/natPosixProcess.cc (sigchld_handler) [!SA_SIGINFO]: Remove
+	'si' and 'third' parameters.  Disable calling
+	pmi->old_sigaction.sa_sigaction.
+	(java::lang::PosixProcess*ProcessManager::init) [!SA_SIGINFO]: Set
+	sa.sa_handler instead of sa.sa_sigaction, don't set SA_SIGINFO flag.
+
+2007-08-09  Andrew Haley  <aph@redhat.com>
+
+	* testsuite/lib/libjava.exp (libjava_invoke): Log the invocation.
+
+2007-08-08  Samuel Thibault  <samuel.thibault@ens-lyon.org>
+
+	* java/net/natVMInetAddressPosix.cc
+	(java::net::VMInetAddress::getLocalHostname) [!MAXHOSTNAMELEN]:
+	Allocate buffer dynamically.
+
+2007-08-04  Alfred M. Szmidt  <ams@gnu.org>
+
+	* java/io/natFilePosix.cc (init_native) [!MAXPATHLEN]: Define to 0.
+	* java/io/File.java (createTempFile): Don't truncate if the system
+	doesn't have a limit on the length of a file name.
+	* classpath/lib/java/io/File.class: Regenerate.
+
+2007-08-04  Matthias Klose  <doko@ubuntu.com>
+
+	Import GNU Classpath (libgcj-import-20070727).
+
+	* Regenerate class and header files.
+	* Regenerate auto* files.
+
+	* include/jvm.h:
+	* jni-libjvm.cc (Jv_JNI_InvokeFunctions): Rename type.
+	* jni.cc (_Jv_JNIFunctions, _Jv_JNI_InvokeFunctions): Likewise.
+	* jni.cc (_Jv_JNI_CallAnyMethodA, _Jv_JNI_CallAnyVoidMethodA,
+	_Jv_JNI_CallMethodA, _Jv_JNI_CallVoidMethodA,
+	_Jv_JNI_CallStaticMethodA, _Jv_JNI_CallStaticVoidMethodA,
+	_Jv_JNI_NewObjectA, _Jv_JNI_SetPrimitiveArrayRegion): Constify
+	jvalue parameter.
+	* java/lang/reflect/natMethod.cc (_Jv_CallAnyMethodA): Likewise.
+
+	* java/lang/VMFloat.java (toString, parseFloat): New.
+
+	* gnu/awt/xlib/XToolkit.java (setAlwaysOnTop, isModalityTypeSupported,
+	isModalExclusionTypeSupported): New (stub only).
+	* gnu/awt/xlib/XCanvasPeer.java (requestFocus): Likewise.
+	* gnu/awt/xlib/XFramePeer.java (updateMinimumSize, updateIconImages,
+	updateFocusableWindowState, setModalBlocked, getBoundsPrivate,
+	setAlwaysOnTop): Likewise.
+	* gnu/awt/xlib/XFontPeer.java (canDisplay): Update signature.
+
+	* scripts/makemake.tcl: Ignore gnu/javax/sound/sampled/gstreamer,
+	ignore javax.sound.sampled.spi.MixerProvider, ignore .in files.
+
+	* HACKING: Mention --enable-gstreamer-peer, removal of generated files.
+
+2007-07-31  David Daney  <ddaney@avtrex.com>
+
+	* HACKING: Document regenerating configure and aclocal.m4.
+
+2007-07-31  David Daney  <ddaney@avtrex.com>
+
+	* configure.ac (INTERPRETER): New AM_CONDITIONAL.
+	* scripts/makemake.tcl (package_map): Mark jdwp and jvmti packages
+	as being for interpreter only.  Place interpreter related files in
+	'if INTERPRETER' block.
+	(interpreter_package_files): New list.
+	(interpreter_header_vars): Ditto.
+	(emit_package_rule_to_list): Renamed from emit_package_rule with
+	new target list parameter.
+	(emit_package_rule): Rewritten to call emit_package_rule_to_list.
+	(emit_interpreter_rule): New function.
+	(emit_source_var): Place interpreter related files in
+	interpreter_header_vars.
+	* Makefile.am (ACLOCAL_AMFLAGS): Add -I libltdl.
+	(libgcj_interpret_source_files): New variable.
+	(libgcj_la_SOURCES): Move jvmti.cc and  interpret.cc to
+	libgcj_interpret_source_files and include
+	libgcj_interpret_source_files.
+	(nat_jdwp_source_files): New variable.
+	(nat_jvmti_source_files): Ditto.
+	(nat_source_files): Move jdwp and jvmti related files to
+	nat_jdwp_source_files and nat_jvmti_source_files and include
+	nat_jdwp_source_files and nat_jvmti_source_files.
+	* Makefile.in: Regenerate.
+	* include/Makefile.in: Ditto.
+	* testsuite/Makefile.in: Ditto.
+	* gcj/Makefile.in: Ditto.
+	* sources.am: Ditto.
+	* configure: Ditto.
+	* include/config.h.in: Ditto.
+	* interpret.cc: Remove #ifdef INTERPRETER block.
+	* stacktrace.cc (UnwindTraceFn): Do not handle proxy frames if
+	interpreter disabled.
+	* include/java-interp.h (_Jv_FrameType): Move outside of
+	#ifdef INTERPRETER block.
+	* include/execution.h (_Jv_IndirectCompiledEngine::do_get_closure_list,
+	_Jv_InterpreterEngine, _Jv_soleInterpreterEngine): Place in
+	#ifdef INTERPRETER block.
+	* jni.cc (jvmti.h, jvmti-int.h):  Only include if INTERPRETER is
+	defined.
+	(_Jv_JNI_PopSystemFrame, _Jv_JNI_GetEnv): Only do jvmti processing
+	if INTERPRETER is defined.
+	* prims.cc (jvmti.h, jvmti-int.h, Jdwp.h, VMVirtualMachine.h):  Only
+	include if INTERPRETER is defined.
+	(defaultJdwpOptions, jdwpOptions, jvmti_agent_onload_func,
+	jvmti_agent_onunload_func, jvmti_agentonload, jvmti_agentonunload,
+	jvmti_agent_opts, load_jvmti_agent): Only define if INTERPRETER is
+	defined.
+	(parse_x_arg): Only process 'runjdwp:' if INTERPRETER is defined.
+	(parse_init_args): Only process jvmti related options if
+	INTERPRETER is defined.
+	(_Jv_CreateJavaVM): Only call _Jv_JVMTI_Init if INTERPRETER is
+	defined.
+	(_Jv_RunMain): Only do jvmti and jdwp processing if INTERPRETER is
+	defined.
+	* link.cc (jvmti.h, jvmti-int.h):  Only include if INTERPRETER is
+	defined.
+	(_Jv_ThrowNoClassDefFoundError, _Jv_Linker::create_error_method):
+	Define if if INTERPRETER is not defined.
+	(_Jv_Linker::wait_for_state): Only do jvmti proccessing if
+	INTERPRETER is defined.
+	* boehm.cc (closure_list_pointer, finalize_closure_list,
+	_Jv_ClosureListFinalizer): Only define if INTERPRETER is
+	defined.
+	* java/lang/natThread.cc (jvmti.h, jvmti-int.h):  Only include if
+	INTERPRETER is defined.
+	(finish_, _Jv_NotifyThreadStart): Only do jvmti proccessing if
+	INTERPRETER is defined.
+	* java/lang/Class.h (_Jv_InterpreterEngine): Move declaration
+	and friend declaration inside #ifdef INTERPRETER block.
+	* java/lang/natClass.cc (_Jv_ClosureList::releaseClosures,
+	_Jv_ClosureList::registerClosure, _Jv_GetInterpClassSourceFile):
+	Only define if INTERPRETER is defined.
+	* java/lang/reflect/natVMProxy.cc (UnsupportedOperationException.h):
+	Include.
+	(generateProxyClass): Throw UnsupportedOperationException unless
+	INTERPRETER is defined.
+
+2007-07-29  Matthias Klose  <doko@ubuntu.com>
+
+	* HACKING: Document regenerating configure.
+
+2007-07-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libgcj/32929
+	* aclocal.m4: Regenerated.
+	* configure: Likewise.
+
+2007-07-28  Matthias Klose  <doko@ubuntu.com>
+
+	* configure.ac: Encode the libgcj soversion in dbexecdir,
+	pass --with-native-libdir to classpath configure.
+	* configure: Regenerate.
+
+2007-07-28  Matthias Klose  <doko@ubuntu.com>
+
+	* classpath/jvmti.h: Remove.
+
+2007-07-27  Tom Tromey  <tromey@redhat.com>
+
+	* Rebuild .class files with new ecj.
+
+2007-07-23  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.ac (mips-sgi-irix6*): Override SYSTEMSPEC.
+	* configure: Regenerate.
+
+2007-07-16  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	PR target/32340
+	* configure.host (arm*-elf | strongarm*-elf | xscale*-elf): Use the
+	new sysdeps/arm directory.
+
+2007-07-15  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/File.java: Implement Comparable<File>.
+	(compareTo): Removed.
+	* java/io/File.h: Rebuilt.
+	* classpath/lib/java/io/File.class: Rebuilt.
+
+2007-07-14  Tom Tromey  <tromey@redhat.com>
+
+	* Rebuilt .class files.
+
+2007-07-15  Andrew Haley  <aph@redhat.com>
+
+	* configure.host: 
+	arm*-linux-gnu -> arm*-linux*.
+
+2007-07-14  Krister Walfridsson  <cato@df.lth.se>
+
+	* gnu/gcj/util/natGCInfo.cc: Use HAVE_STRERROR_R.
+	* configure.ac: Remove check for strerror, add check for strerror_r.
+	* configure: Regenerate.
+	* include/config.h.in: Regenerate.
+
+2007-07-13  Andrew Haley  <aph@redhat.com>
+
+	* libgcj.ver: Add __gcj_personality_sj0.
+
+	* testsuite/libjava.jvmti/jvmti-interp.exp: Likewise.
+	* testsuite/libjava.jni/jni.exp: Use -fdollars-in-identifiers.
+	* testsuite/libjava.jni/cni.exp: Use -fdollars-in-identifiers.
+	* testsuite/libjava.jvmti/jvmti.exp (gcj_jvmti_compile_cxx_to_o): Likewise.
+
+	* gnu/classpath/natVMStackWalker.cc (getCallingClassLoader): Check
+	klass is non-null.
+	* java/lang/reflect/natField.cc (getAddr): Call
+	_Jv_StackTrace::GetCallingClass only if CALLER is non-null.
+	* java/lang/reflect/natVMProxy.cc (run_proxy): Use
+	_Jv_getFieldInternal to get field proxyClass.m.
+	(_Jv_getFieldInternal): New function.
+
+2007-07-11  Andrew Haley  <aph@redhat.com>
+
+	* configure.host (arm*-linux-gnu): New.
+	* sysdep/arm/locks.h: New.
+
+2007-07-13  Roger Sayle  <roger@eyesopen.com>
+
+	* java/lang/natPosixProcess.cc: Include <sys/time.h> before
+	<sys/resource.h> to restore bootstrap on powerpc-apple-darwin7.9.0.
+
+2007-07-12  Matthias Klose  <doko@ubuntu.com>
+
+	* gnu/classpath/jdwp/util/MethodResult.h,
+	gnu/classpath/jdwp/value/ObjectValue.h: Regenerate.
+
+2007-07-11  Keith Seitz  <keiths@redhat.com>
+
+	* interpret.cc (get_local_var_table) [DIRECT_THREADED]: Make sure the
+	method is compiled.
+	* testsuite/libjava.jvmti/interp/getlocalvartable.out: Revise
+	for compiled methods.
+
+2007-07-10  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR libgcj/32651
+	* configure.host (mips-sgi-irix6*): Set sysdeps_dir.
+	Disable interpreter.
+	
+2007-07-05  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* java/lang/natPosixProcess.cc: Reorder includes to fix compilation
+	on hppa2.0w-hp-hpux11.11.
+	Remove include of <gcj/cni.h>.
+
+2007-07-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* aclocal.m4: Regenerated.
+
+2007-07-03  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* java/lang/Class.h: Remove redundant 'class java::*::* declarations.
+
+2007-07-02  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR libgcj/30513
+	* configure.host (i[3-6]86-*): Undef sun.
+
+2007-06-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* testsuite/libjava.jvmti/jvmti-interp.exp (gij_jvmti_test_one):
+	Fix a typo.
+
+2007-06-28  Jan Nijtmans  <nijtmans@users.sourceforge.net>
+
+	PR libgcj/30999:
+	* jni_md.h: Add the possibility to compile jni code with.
+	-fvisibility=hidden. This causes all symbols to be hidden
+	except the JNI functions which need to be exported.
+
+2007-06-28  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* testsuite/libjava.jvmti/jvmti-interp.exp (gij_jvmti_test_one): Pass
+	the cxxldlibflags to exec_gij to have the right libstdc++ invoked.
+
+2007-07-21  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/VMVirtualMachine.h: Regenerate.
+
+2007-07-20  Keith Seitz  <keiths@redhat.com>
+
+	* classpath/lib/gnu/classpath/jdwp/value/StringValue.class:
+	Regenerate.
+
+2007-07-20  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/VMVirtualMachine.java (executeMethod):
+	Update from reference implementation.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (executeMethod):
+	Update parameter list to match new VMVirtualMachine interface.
+	* classpath/lib/gnu/classpath/jdwp/processor/ClassTypeCommandSet.class:
+	Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/processor/
+	ObjectReferenceCommandSet.class: Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/value/ObjectValue.class: Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/VMVirtualMachine.class: Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/util/MethodResult.class: Regenerate.
+
+2007-06-18  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/gcj/jvmti/Breakpoint.java: Make abstract.
+	(method): Change from private to protected.
+	(location): Likewise.
+	(Breakpoint): Change argument list to take only integer type.
+	Add default constructor.
+	(initialize_native): Renamed to ...
+	(_save_insn): ... this to make function more explicit.
+	(execute): New method.
+	* gnu/gcj/jvmti/Breakpoint.h: Regenerate.
+	* gnu/gcj/jvmti/natBreakpoint.cc (initialize_native): Rename to...
+	(_save_insn): ... this.
+	(install): Save the original instruction.
+	* gnu/gcj/jvmti/NormalBreakpoint.java: New file.
+	* gnu/gcj/jvmti/NormalBreakpoint.h: New file.
+	* gnu/gcj/jvmti/natNormalBreakpoint.cc: New file.
+	* gnu/gcj/jvmti/BreakpointManager.java (newBreakpoint):
+	Instantiate a NormalBreakpoint instead of Breakpoint.
+	* interpret-run.cc (insn_breakpoint): Remove breakpoint actions
+	and call Breakpoint.execute to do them.
+	* classpath/lib/gnu/gcj/jvmti/Breakpoint.class: Regenerate.
+	* classpath/lib/gnu/gcj/jvmti/BreakpointManager.class: Likewise.
+	* classpath/lib/gnu/gcj/jvmti/NormalBreakpoint.class: New file.
+	* sources.am: Regenerate.
+	* Makefile.am (nat_source_files): Add natNormalBreakpoint.cc.
+	* Makefile.in: Regenerated.
+
+2007-06-14  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (_Jv_LocalVarTableEntry): Add union
+	for bytecode_pc and direct-threaded pc.
+	Add field descriptions inline.
+	* defineclass.cc (read_one_code_attribute): Change from
+	bytecode_start_pc to bytecode_pc.
+	Remove unused variable "len".
+	* interpret.cc (compile): Remap the variable table, too.
+	(get_local_var_table) [DIRECT_THREADED]: Use insn_index on the
+	start location to map from pc_t to code index.
+
+2007-06-09  Keith Seitz  <keiths@redhat.com>
+
+	* testsuite/libjava.jvmti/dummyagent.c (Agent_OnLoad):
+	Add missing return value.
+
+2007-06-03  Matthias Klose  <doko@ubuntu.com>
+
+	* java/io/natFileWin32.cc (setFilePermissions): New (stub only).
+	_access: Handle EXEC query, stub only.
+
+2007-06-03  Matthias Klose  <doko@ubuntu.com>
+
+	Merged from classpath:
+	* gnu/java/nio/SelectorProviderImpl.java: Whitespace merge.
+	* java/lang/System.java(inheritedChannel): New.
+	* java/lang/Character.java: Remove stray`;'.
+	* java/net/MulticastSocket.java: Merged.
+	* java/text/DateFormatSymbols.java(getInstance): New, comment updates.
+	* java/text/Collator.java(getInstance): Merged.
+	* java/util/Calendar.java: New attributes ALL_STYLES, SHORT, LONG.
+	getDisplayName, getDisplayNames: New.
+	* java/util/logging/Logger.java: Merged.
+	* Regenerate .class and .h files.
+
+2007-06-03  Matthias Klose  <doko@ubuntu.com>
+
+	* java/io/File.java: Merge with classpath-0.95, new method
+	setFilePermissions, new attribute EXEC.
+	* java/io/natFilePosix.cc (setFilePermissions): New.
+	_access: Handle EXEC query.
+	* classpath/lib/java/io/File.class, java/io/File.h: Regenerate.
+
+2007-06-03  Matthias Klose  <doko@ubuntu.com>
+
+	Imported GNU Classpath 0.95.
+
+	* classpath/Makefile.in,
+	classpath/native/jni/midi-dssi/Makefile.in,
+	classpath/native/jni/classpath/Makefile.in,
+	classpath/native/jni/Makefile.in,
+	classpath/native/jni/gconf-peer/Makefile.in,
+	classpath/native/jni/java-io/Makefile.in,
+	classpath/native/jni/native-lib/Makefile.in,
+	classpath/native/jni/java-util/Makefile.in,
+	classpath/native/jni/midi-alsa/Makefile.in,
+	classpath/native/jni/java-lang/Makefile.in,
+	classpath/native/jni/java-nio/Makefile.in,
+	classpath/native/jni/java-net/Makefile.in,
+	classpath/native/jni/xmlj/Makefile.in,
+	classpath/native/jni/qt-peer/Makefile.in,
+	classpath/native/jni/gtk-peer/Makefile.in,
+	classpath/native/Makefile.in, classpath/native/jawt/Makefile.in,
+	classpath/native/fdlibm/Makefile.in,
+	classpath/native/plugin/Makefile.in,
+	classpath/resource/Makefile.in, classpath/scripts/Makefile.in,
+	classpath/tools/Makefile.in, classpath/doc/Makefile.in,
+	classpath/doc/api/Makefile.in, classpath/lib/Makefile.in,
+	classpath/external/Makefile.in,	classpath/external/jsr166/Makefile.in,
+	classpath/external/sax/Makefile.in,
+	classpath/external/w3c_dom/Makefile.in,
+	classpath/external/relaxngDatatype/Makefile.in,
+	classpath/include/Makefile.in,
+	classpath/examples/Makefile.in: Regenerate.
+	* classpath/config.guess, classpath/config.sub,
+	classpath/ltmain.sh : Update.
+	* classpath/configure, classpath/depcomp, classpath/missing,
+	classpath/aclocal.m4, classpath/install-sh: Regenerate.
+
+	* gnu/classpath/Configuration.java (CLASSPATH_VERSION): Now 0.95.
+	* sources.am: Regenerate.
+	* Makefile.in: Regenerate.
+
+	* Update the .class files and generated CNI header files, add new
+	.class and generated CNI header files.
+	* Remove generated files for removed java source files:
+	classpath/gnu/java/net/BASE64.java,
+	classpath/gnu/java/security/util/Base64.java,
+	classpath/gnu/java/awt/peer/gtk/GThreadMutex.java,
+	classpath/gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java,
+	classpath/gnu/java/awt/font/autofit/Scaler.java,
+	classpath/gnu/classpath/jdwp/util/Value.java,
+	classpath/gnu/javax/net/ssl/Base64.java.
+	* Remove empty directories.
+
+	* Makefile.am(nat_source_files): Add natVMOperatingSystemMXBeanImpl.cc.
+	* java/lang/Class.java(setAccessible): Merge from classpath.
+	* java/util/Locale.java: Remove.
+	* gnu/java/lang/management/VMOperatingSystemMXBeanImpl.java,
+	gnu/java/lang/management/natVMOperatingSystemMXBeanImpl.cc: New.
+	* gcj/javaprims.h: Update class declarations.
+	* scripts/classes.pl: Update usage.
+	* HACKING: Mention to build all peers.
+
+2007-06-02  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure: Regenerate.
+
+2007-05-31  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_NewClassFromInitializer): Clear
+	INTERPRETED access modifier.
+
+2007-05-31  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR libjava/32098
+	* configure: Regenerated.
+	* aclocal.m4: Regenerated.
+
+2007-05-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libjava/32098
+	* configure: Regenerated.
+
+2007-05-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure.ac: Don't include ../config/confsubdir.m4.
+	* aclocal.m4: Regenerated.
+	* configure: Likewise.
+
+2007-05-27  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/32078
+	* configure.ac: Include confsubdir.m4.
+	* configure: Regenerate.
+
+2007-05-24  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (_Jv_InterpFrame::get_pc): Only deduct
+	one when pc_ptr is non-NULL.
+
+	* prims.cc (parse_init_args): Enable JVMTI with agentlib
+	and agentpath options.
+
+	* testsuite/lib/libjava.exp (exec_gij): Add new addl_flags
+	parameter.
+	* testsuite/libjava.jvmti/jvmti-interp.exp (gij_jvmti_test_one):
+	Pass '-agentlib:dummyagent' when executing gij.
+	(gij_jvmti_run): Build dummy JVMTI agent before running tests,
+	and remove it when finished.
+	* testsuite/libjava.jvmti/dummyagent.c: New file.
+
+2007-05-23  Steve Ellcey  <sje@cup.hp.com>
+
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+	* gcj/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2007-05-17  Kyle Galloway  <kgallowa@redhat.com>
+
+	* classpath/gnu/classpath/jdwp/processor/ReferenceTypeCommandSet.java
+	(executeMethods): Remove cast to ClassReferenceTypeId.
+	* classpath/lib/gnu/classpath/jdwp/processor/
+	ReferenceTypeCommandSet.class: Rebuilt.
+
+2007-05-17  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/natVMMethod.cc (getModifiers): Check for native
+	classes and mark methods as native appropriately.
+
+2007-05-17  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/VMFrame.java (<init>): Add parameter for "this"
+	pointer.
+	* gnu/classpath/jdwp/VMFrame.h: Regenerated.
+	* classpath/lib/gnu/classpath/jdwp/VMFrame.class: Rebuilt.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (getFrame): Use new
+	VMFrame constructor.
+
+2007-05-16  David Daney  <ddaney@avtrex.com>
+
+	* include/java-stack.h (_Jv_FrameInfo): Remove union definition.
+	(_Jv_StackFrame): Remove commented out code.
+	(_Jv_UnwindState): Remove superfluous 'typedef'.
+	* sun/misc/natUnsafe.cc (spinlock): Add white space to quiet
+	compiler warnings.
+	* gnu/java/lang/management/natVMMemoryPoolMXBeanImpl.cc
+	(getCollectionUsage): Don't declare unused parameter n.
+	(getMemoryManagerNames): Same.
+	* gnu/gcj/util/natGCInfo.cc (gc_debug_info): Remove superfluous
+	'typedef'.
+
+2007-05-16  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (breakpoint_at): Declare.
+	* interpret.cc (breakpoint_at): New function.
+	* gnu/classpath/jdwp/VMVirtualMachine.java (_event_list):
+	New member.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (initialize):
+	Initialize _event_list.
+	(handle_single_step): If there is a breakpoint at the
+	location at which we are stopping, do not send the notification.
+	Instead add the event to a list of events that occur at this
+	location.
+	(jdwpBreakpointCB): If the event list is not empty, send
+	whatever events are in it and the breakpoint event in a single
+	notification.
+	Mark parameter jni_env as MAYBE_UNUSED.
+	* classpath/lib/gnu/classpath/jdwp/VMVirtualMachine.class:
+	Regenerated.
+	* gnu/classpath/jdwp/VMVirtualMachine.h: Regenerated.
+
+2007-05-15  David Daney  <ddaney@avtrex.com>
+
+	* classpath/lib/javax/swing/text/html/HTMLEditorKit.class: Regenerate
+	* gnu/java/awt/peer/gtk/ComponentGraphics.h: Same.
+
+2007-05-15  Keith Seitz  <keiths@redhat.com>
+
+	* interpret.cc (STOREA): Rewrite using temporary variable to
+	avoid double-macro expansion side-effects.
+	(STOREI): Likewise.
+	(STOREF): Likewise.
+	(STOREL)[SIZEOF_VOID_P == 8]: Likewise.
+	(STORED)[SIZEOF_VOID_P == 8]: Likewise.
+	(STOREL)[SIZEOF_VOID_P != 8]: Likewise.
+	(STORED)[SIZEOF_VOID_P != 8]: Likewise.
+	(POKEI): Likewise.
+
+2007-05-12  David Daney  <ddaney@avtrex.com>
+
+	PR libgcj/29324
+	* include/posix-threads.h (_Jv_BlockSigchld): Declare.
+	(_Jv_UnBlockSigchld): Same.
+	* posix-threads.cc: Include posix-threads.h.
+	(block_sigchld) Rename to...
+	(_Jv_BlockSigchld) ... this.
+	(_Jv_UnBlockSigchld): New function.
+	(_Jv_InitThreads): Call _Jv_BlockSigchld in place of block_sigchld.
+	(_Jv_ThreadStart): Same.
+	* java/lang/PosixProcess$ProcessManager.h: Regenerate.
+	* java/lang/PosixProcess.java: Clean up imports.
+	(ProcessManager): Make final.
+	(ProcessManager.queue): Genericise and make private.
+	(ProcessManager.pidToProcess): Remove.
+	(ProcessManager.liveProcesses): New field.
+	(ProcessManager.reaperPID): Remove.
+	(ProcessManager.nativeData): New field.
+	(ProcessManager.removeProcessFromMap): Remove.
+	(ProcessManager.addProcessToMap):Remove.
+	(ProcessManager.addToLiveProcesses): New method.
+	(ProcessManager.run): Rewritten.
+	(ProcessManager.reap): Change method signature,
+	(getErrorStream): Correct formatting.
+	(getInputStream): Same.
+	(spawn): Add process to liveProcesses list.
+	(pid): Make package private.
+	* java/lang/PosixProcess.h: Regenerate.
+	* java/lang/natPosixProcess.cc: Include posix.h and posix-threads.h.
+	Add useing namespace java::lang.
+	(ProcessManagerInternal): New struct.
+	(sigchld_handler): Rewritten.
+	(init): Rewritten.
+	(waitForSignal): Same.
+	(reap): Same.
+	(signalReaper): Same.
+	(nativeDestroy): Call kill as ::kill.
+	(nativeSpawn): Correct formatting.
+	* classpath/lib/java/lang/PosixProcess$EOFInputStream.class: Regenerate.
+	* classpath/lib/java/lang/PosixProcess.class: Same.
+	* classpath/lib/java/lang/PosixProcess$ProcessManager.class: Same.
+
+2007-05-07  Ian Lance Taylor  <iant@google.com>
+
+	PR java/31842
+	* java/lang/natString.cc (_Jv_FormatInt): Avoid undefined signed
+	overflow.
+
+2007-05-07  Keith Seitz  <keiths@redhat.com>
+
+	* classpath/lib/gnu/classpath/jdwp/Jdwp.class: Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/Jdwp$1.class: Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/event/Event.class:
+	Regenerate.
+	* classpath/lib/gnu/classpath/jdwp/transport/JdwpConnection.class:
+	Regenerate.
+	* gnu/classpath/jdwp/Jdwp.h: Regenerate.
+	* gnu/classpath/jdwp/event/Event.h: Regenerate.
+	* gnu/classpath/jdwp/transport/JdwpConnection.h: Regenerate.
+
+2007-05-04  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (getClassMethod): Change
+	to use JVMTI.
+
+2007-05-03  Keith Seitz  <keiths@redhat.com>
+
+	* interpret.cc: Don't include ExceptionEvent.h.
+	* gnu/gcj/jvmti/natExceptionEvent.cc: Remove.
+	* Makefile.am (nat_source_files): Remove natExceptionEvent.cc.
+	* Makefile.in: Regenerated.
+
+2007-05-03  Keith Seitz  <keiths@redhat.com>
+
+	* include/jvmti-int.h (_Jv_ReportJVMTIExceptionThrow):
+	Declare.
+	* interpret.cc (_Jv_ReportJVMTIExceptionThrow): New function.
+	(find_catch_location): New function.
+	(REPORT_EXCEPTION): New macro.
+	(throw_internal_error): Use REPORT_EXCEPTION.
+	(throw_incompatible_class_change_error): Likewise.
+	(throw_null_pointer_exception): Likewise.
+	(throw_class_format_error): Likewise.
+	* interpret-run.cc (INTERP_REPORT_EXCEPTION)[DEBUG]: Set
+	to REPORT_EXCEPTION.
+	(INTERP_REPORT_EXCEPTION)[!DEBUG]: Make nop.
+	(insn_new): Use INTERP_REPORT_EXCEPTION.
+	(insn_athrow): Likewise.
+	Remove previous JVMTI exception notifications.
+	Add JVMTI ExceptionCatch notificatin.
+	* jni.cc (_Jv_PopSystemFrame): Notify JVMTI clients of
+	exception throw.
+	* gnu/gcj/jvmti/ExceptionEvent.java: Removed.
+	* gnu/gcj/jvmti/ExceptionEvent.h: Removed. 
+	* classpath/lib/gnu/gcj/jvmti/ExceptionEvent.class: Removed.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(jdwpExceptionCB): New function.
+	(jdwpVMInitCB): Set Exception event handler and enable.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
+2007-05-03  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=237304
+	* Makefile.in: Regenerate.
+	* scripts/makemake.tcl (scan_directory): Treat default.css as a
+	property file.
+	* classpath/javax/swing/text/html/default.css: Move to...
+	* classpath/resource/javax/swing/text/html/default.css: New file.
+	* classpath/javax/swing/text/html/HTMLEditorKit.java
+	(getStyleSheet): Throw RuntimeException when style loading fails.
+	* sources.am (property_files): Add
+	classpath/resource/javax/swing/text/html/default.css.
+
+2007-05-02  Tom Tromey  <tromey@redhat.com>
+
+	https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=238755
+	* java/lang/natCharacter.cc (Character::getType): Handle negative
+	code points.
+	(Character::toLowerCase): Likewise.
+	(Character::toUpperCase): Likewise.
+	(Character::digit): Likewise.
+	(Character::getNumericValue): Likewise.
+	(Character::getDirectionality): Likewise.
+	(Character::toTitleCase): Likewise.
+
+2007-04-30  Keith Seitz  <keiths@redhat.com>
+
+	* interpret-run.cc (NEXT_INSN)[DEBUG]: Advance PC before
+	executing the instruction.
+	* include/java-interp.h (_Jv_InterpFrame::get_pc): Subtract
+	one insn from the frame's PC. _Jv_InterpMethod::run et al
+	will advance the PC before executing the instruction.
+
+2007-04-27  Keith Seitz  <keiths@redhat.com>
+
+	* classpath/lib/gnu/classpath/jdwp/Jdwp.class: Regenerated.
+	* classpath/lib/gnu/classpath/jdwp/event/EventManager.class:
+	Regenerated.
+	* gnu/classpath/jdwp/event/EventManager.h: Regenerated.
+
+2007-04-27  Keith Seitz  <keiths@redhat.com>
+
+	* classpath/lib/gnu/classpath/jdwp/event/filters/
+	LocationOnlyFilter.class: Regenerated;
+	* classpath/lib/gnu/classpath/jdwp/util/Location.class:
+	Regenerated.
+	* gnu/classpath/jdwp/VMMethod.java
+	* classpath/lib/gnu/classpath/jdwp/VMMethod.class:
+	Regenerated.
+	* gnu/classpath/jdwp/VMMethod.h: Regenerated.
+	* gnu/classpath/jdwp/util/Location.h: Regenerated.
+
+2007-04-27  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/CairoGraphics2D.h: Regenerate.
+	* gnu/java/awt/peer/gtk/ComponentGraphics.h: Regenerate.
+
+2007-04-25  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/VMIdManager.java (getObjectId): Deal with null
+	objects.
+	(get): Deal with ObjectId of 0. 
+
+2007-04-24  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR libgcj/31084
+	* java/lang/natVMProcess.cc: Include platform.h before jvm.h.
+
+2007-04-24  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.java
+	(getThreadStatus): Implement.
+
+2007-04-24  Keith Seitz  <keiths@redhat.com>
+
+	* headers.txt (gnu/gcj/jvmti/Breakpoint.h)[DIRECT_THREADED]:
+	Add _Jv_RewriteBreakpointInsn friend declaration.
+	* gnu/gcj/jvmti/natBreakpoint.cc (_Jv_RewriteBreakpointInsn)
+	[DIRECT_THREADED]: New function.
+	* gnu/gcj/jvmti/Breakpoint.h: Regenerate.
+	* interpret-run.cc: Define new REWRITE_INSN macro.
+	Changed all occurrences of insn rewriting to call REWRITE_INSN.
+
+2007-04-23  Keith Seitz  <keiths@redhat.com>
+
+	* include/no-gc.h (_Jv_IsThreadSuspended): Declare.
+	* include/boehm-gc.h (_Jv_IsThreadSuspended): Likewise.
+	* boehm.cc (_Jv_IsThreadSuspended): New function.
+	* nogc.cc (_Jv_IsThreadSuspended): Likewise.
+	* jvmti.cc (_Jv_JVMTI_GetThreadState): New function.
+	(_Jv_JVMTI_Interface): Define GetThreadState.
+
+2007-04-23  Kyle Galloway  <kgallowa@redhat.com>
+
+	* include/java-interp.h (_Jv_InterpFrame): Add pointer to the
+	interpreter PC.
+	(<init>): Add a pointer to the interpreter PC as a parameter with
+	default value NULL.
+	(get_pc): New method.
+	* interpret-run.cc: If debugging, pass a pointer to the PC when
+	creating the stack frame.
+	* jvmti.cc (_Jv_JVMTI_GetStackTrace): Call _Jv_InterpFrame::get_pc
+	to get the PC.
+
+2007-04-23  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (getSourceFile): Check
+	for null source file and throw an exception indicating this.
+
+2007-04-20  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/gcj/jvmti/BreakpointManager.java (newBreakpoint):
+	Install the new breakpoint into the bytecode.
+	(deleteBreakpoint): Remove the breakpoint from the bytecode.
+	* classpath/lib/gnu/gcj/jvmti/BreakpointManager.class:
+	Regenerate.
+	* gnu/gcj/jvmti/natBreakpoint.cc (initialize_native):
+	Don't install the breakpoint here.
+
+2007-04-19  Keith Seitz  <keiths@redhat.com>
+
+	* interpret-run.cc [insn_breakpoint]: Save the original
+	insn for the breakpoint before posting the JVMTI notification.
+
+2007-04-19  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/javax/net/ssl/provider/SSLSocketFactoryImpl.h: Rebuilt.
+
+2007-04-18  Tom Tromey  <tromey@redhat.com>
+
+	* Regenerated headers with new gjavah.
+
+2007-04-18  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/reflect/natVMProxy.cc (ncode_closure): Add
+	method_index.
+	(generateProxyClass): Add field $Proxy0.m.  Store methods array in
+	it.
+	(run_proxy): Retrieve the method to invoke from in $Proxy0.m.
+	* java/lang/Class.h: Remove _Jv_LookupProxyMethod.
+	* java/lang/natClass.cc: Likewise.
+	* headers.txt: Likewise.
+	* java/lang/reflect/Method.h: Likewise.
+
+2007-04-16  Andrew Haley  <aph@redhat.com>
+
+	* gnu/gcj/runtime/BootClassLoader.java (getBootURLLoader): New
+	method.
+	(bootGetResource): Use getBootURLLoader() to load resources.
+	(bootGetResources): Likewise.
+
+	* java/lang/reflect/natMethod.cc (Method::invoke): In invoke also
+	check that the method's declaring class is accessible.
+
+2007-04-10  Keith Seitz  <keiths@redhat.com>
+
+	* sources.am: Regenerate.
+	* Makefile.in: Likewise.
+
+2007-04-09  Kyle Galloway  <kgallowa@redhat.com>
+
+	* interpret-run.cc: If debugging, check if args is NULL before
+	getting the "this" pointer.
+
+2007-04-09  Kyle Galloway  <kgallowa@redhat.com>
+
+	* classpath/gnu/classpath/jdwp/value/ArrayValue.java: New file.
+	* classpath/lib/gnu/classpath/jdwp/value/ArrayValue.class: New file.
+	* gnu/classpath/jdwp/ArrayValue.h: New file.
+	* gnu/classpath/jdwp/natVMFrame.cc (getValue): Add array case.
+	(setValue): Ditto. 
+
+2007-04-09  David Daney  <ddaney@avtrex.com>
+
+	PR libgcj/23758
+	* java/lang/natPosixProcess.cc (nativeSpawn): Move building of
+	environment before the fork.
+	* testsuite/libjava.lang/Process_7.java: New test.
+	* testsuite/libjava.lang/Process_7.out: Its expected results.
+	* testsuite/libjava.lang/Process_7.jar: Generated file.
+
+2007-04-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* prims.cc (load_jvmti_agent): Add the missing `,'.
+
+2007-04-09  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gij.cc (main): Accept -agentlib and -agentpath options.
+	* prims.cc (parse_init_args): Deal with -agentlib and -agentpath.
+	(load_jvmti_agent): New function.
+
 2007-04-04  Tania Bento  <tbento@redhat.com>
 
 	* java/text/DecimalFormatSymbols.java: Added the year 2007 to

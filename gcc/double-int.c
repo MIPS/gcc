@@ -1,11 +1,11 @@
 /* Operations with long integers.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -113,7 +112,7 @@ double_int_sext (double_int cst, unsigned prec)
    is unsigned.  */
 
 double_int
-tree_to_double_int (tree cst)
+tree_to_double_int (const_tree cst)
 {
   /* We do not need to call double_int_restrict here to ensure the semantics as
      described, as this is the default one for trees.  */
@@ -305,7 +304,7 @@ double_int_to_tree (tree type, double_int cst)
    to be the same as the signedness of TYPE.  */
 
 bool
-double_int_fits_to_tree_p (tree type, double_int cst)
+double_int_fits_to_tree_p (const_tree type, double_int cst)
 {
   double_int ext = double_int_ext (cst,
 				   TYPE_PRECISION (type),
@@ -363,9 +362,9 @@ double_int_scmp (double_int a, double_int b)
     return -1;
   if (a.high > b.high)
     return 1;
-  if ((HOST_WIDE_INT) a.low < (HOST_WIDE_INT) b.low)
+  if (a.low < b.low)
     return -1;
-  if ((HOST_WIDE_INT) a.low > (HOST_WIDE_INT) b.low)
+  if (a.low > b.low)
     return 1;
 
   return 0;
@@ -412,4 +411,82 @@ dump_double_int (FILE *file, double_int cst, bool uns)
     digits[n] = double_int_split_digit (&cst, 10);
   for (i = n - 1; i >= 0; i--)
     fprintf (file, "%u", digits[i]);
+}
+
+
+/* Sets RESULT to VAL, taken unsigned if UNS is true and as signed
+   otherwise.  */
+
+void
+mpz_set_double_int (mpz_t result, double_int val, bool uns)
+{
+  bool negate = false;
+  unsigned HOST_WIDE_INT vp[2];
+
+  if (!uns && double_int_negative_p (val))
+    {
+      negate = true;
+      val = double_int_neg (val);
+    }
+
+  vp[0] = val.low;
+  vp[1] = (unsigned HOST_WIDE_INT) val.high;
+  mpz_import (result, 2, -1, sizeof (HOST_WIDE_INT), 0, 0, vp);
+
+  if (negate)
+    mpz_neg (result, result);
+}
+
+/* Returns VAL converted to TYPE.  If WRAP is true, then out-of-range
+   values of VAL will be wrapped; otherwise, they will be set to the
+   appropriate minimum or maximum TYPE bound.  */
+
+double_int
+mpz_get_double_int (const_tree type, mpz_t val, bool wrap)
+{
+  unsigned HOST_WIDE_INT *vp;
+  size_t count, numb;
+  double_int res;
+
+  if (!wrap)
+    {  
+      mpz_t min, max;
+
+      mpz_init (min);
+      mpz_init (max);
+      get_type_static_bounds (type, min, max);
+
+      if (mpz_cmp (val, min) < 0)
+	mpz_set (val, min);
+      else if (mpz_cmp (val, max) > 0)
+	mpz_set (val, max);
+
+      mpz_clear (min);
+      mpz_clear (max);
+    }
+
+  /* Determine the number of unsigned HOST_WIDE_INT that are required
+     for representing the value.  The code to calculate count is
+     extracted from the GMP manual, section "Integer Import and Export":
+     http://gmplib.org/manual/Integer-Import-and-Export.html  */
+  numb = 8*sizeof(HOST_WIDE_INT);
+  count = (mpz_sizeinbase (val, 2) + numb-1) / numb;
+  if (count < 2)
+    count = 2;
+  vp = (unsigned HOST_WIDE_INT *) alloca (count * sizeof(HOST_WIDE_INT));
+
+  vp[0] = 0;
+  vp[1] = 0;
+  mpz_export (vp, &count, -1, sizeof (HOST_WIDE_INT), 0, 0, val);
+
+  gcc_assert (wrap || count <= 2);
+
+  res.low = vp[0];
+  res.high = (HOST_WIDE_INT) vp[1];
+
+  res = double_int_ext (res, TYPE_PRECISION (type), TYPE_UNSIGNED (type));
+  if (mpz_sgn (val) < 0)
+    res = double_int_neg (res);
+
+  return res;
 }

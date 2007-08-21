@@ -5,7 +5,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -200,7 +199,7 @@ static VEC(scb_t,heap) *scb_stack;
 /* Return the DECL_UID of the base variable of T.  */
 
 static inline unsigned
-get_name_decl (tree t)
+get_name_decl (const_tree t)
 {
   if (TREE_CODE (t) != SSA_NAME)
     return DECL_UID (t);
@@ -214,12 +213,10 @@ get_name_decl (tree t)
 static int
 operand_build_cmp (const void *p, const void *q)
 {
-  tree e1 = *((const tree *)p);
-  tree e2 = *((const tree *)q);
-  unsigned int u1,u2;
-
-  u1 = get_name_decl (e1);
-  u2 = get_name_decl (e2);
+  const_tree const e1 = *((const_tree const *)p);
+  const_tree const e2 = *((const_tree const *)q);
+  const unsigned int u1 = get_name_decl (e1);
+  const unsigned int u2 = get_name_decl (e2);
 
   /* We want to sort in ascending order.  They can never be equal.  */
 #ifdef ENABLE_CHECKING
@@ -592,13 +589,13 @@ set_virtual_use_link (use_operand_p ptr, tree stmt)
 static inline def_optype_p 
 add_def_op (tree *op, def_optype_p last)
 {
-  def_optype_p new;
+  def_optype_p new_def;
 
-  new = alloc_def ();
-  DEF_OP_PTR (new) = op;
-  last->next = new;
-  new->next = NULL;
-  return new;
+  new_def = alloc_def ();
+  DEF_OP_PTR (new_def) = op;
+  last->next = new_def;
+  new_def->next = NULL;
+  return new_def;
 }
 
 
@@ -607,14 +604,14 @@ add_def_op (tree *op, def_optype_p last)
 static inline use_optype_p
 add_use_op (tree stmt, tree *op, use_optype_p last)
 {
-  use_optype_p new;
+  use_optype_p new_use;
 
-  new = alloc_use ();
-  USE_OP_PTR (new)->use = op;
-  link_imm_use_stmt (USE_OP_PTR (new), *op, stmt);
-  last->next = new;
-  new->next = NULL;
-  return new;
+  new_use = alloc_use ();
+  USE_OP_PTR (new_use)->use = op;
+  link_imm_use_stmt (USE_OP_PTR (new_use), *op, stmt);
+  last->next = new_use;
+  new_use->next = NULL;
+  return new_use;
 }
 
 
@@ -625,22 +622,23 @@ add_use_op (tree stmt, tree *op, use_optype_p last)
 static inline voptype_p
 add_vop (tree stmt, tree op, int num, voptype_p prev)
 {
-  voptype_p new;
+  voptype_p new_vop;
   int x;
 
-  new = alloc_vop (num);
+  new_vop = alloc_vop (num);
   for (x = 0; x < num; x++)
     {
-      VUSE_OP_PTR (new, x)->prev = NULL;
-      SET_VUSE_OP (new, x, op);
-      VUSE_OP_PTR (new, x)->use = &new->usev.uses[x].use_var;
-      link_imm_use_stmt (VUSE_OP_PTR (new, x), new->usev.uses[x].use_var, stmt);
+      VUSE_OP_PTR (new_vop, x)->prev = NULL;
+      SET_VUSE_OP (new_vop, x, op);
+      VUSE_OP_PTR (new_vop, x)->use = &new_vop->usev.uses[x].use_var;
+      link_imm_use_stmt (VUSE_OP_PTR (new_vop, x),
+			 new_vop->usev.uses[x].use_var, stmt);
     }
 
   if (prev)
-    prev->next = new;
-  new->next = NULL;
-  return new;
+    prev->next = new_vop;
+  new_vop->next = NULL;
+  return new_vop;
 }
 
 
@@ -650,9 +648,9 @@ add_vop (tree stmt, tree op, int num, voptype_p prev)
 static inline voptype_p
 add_vuse_op (tree stmt, tree op, int num, voptype_p last)
 {
-  voptype_p new = add_vop (stmt, op, num, last);
-  VDEF_RESULT (new) = NULL_TREE;
-  return new;
+  voptype_p new_vop = add_vop (stmt, op, num, last);
+  VDEF_RESULT (new_vop) = NULL_TREE;
+  return new_vop;
 }
 
 
@@ -662,104 +660,11 @@ add_vuse_op (tree stmt, tree op, int num, voptype_p last)
 static inline voptype_p
 add_vdef_op (tree stmt, tree op, int num, voptype_p last)
 {
-  voptype_p new = add_vop (stmt, op, num, last);
-  VDEF_RESULT (new) = op;
-  return new;
+  voptype_p new_vop = add_vop (stmt, op, num, last);
+  VDEF_RESULT (new_vop) = op;
+  return new_vop;
 }
   
-
-/* Reallocate the virtual operand PTR so that it has NUM_ELEM use slots.  ROOT
-   is the head of the operand list it belongs to.  */
-
-static inline struct voptype_d *
-realloc_vop (struct voptype_d *ptr, unsigned int num_elem,
-	     struct voptype_d **root)
-{
-  unsigned int x, lim;
-  tree stmt, val;
-  struct voptype_d *ret, *tmp;
-
-  if (VUSE_VECT_NUM_ELEM (ptr->usev) == num_elem)
-    return ptr; 
-
-  val = VUSE_OP (ptr, 0);
-  if (TREE_CODE (val) == SSA_NAME)
-    val = SSA_NAME_VAR (val);
-
-  stmt = USE_STMT (VUSE_OP_PTR (ptr, 0));
-
-  /* Delink all the existing uses.  */
-  for (x = 0; x < VUSE_VECT_NUM_ELEM (ptr->usev); x++)
-    {
-      use_operand_p use_p = VUSE_OP_PTR (ptr, x);
-      delink_imm_use (use_p);
-    }
-
-  /* If we want less space, simply use this one, and shrink the size.  */
-  if (VUSE_VECT_NUM_ELEM (ptr->usev) > num_elem)
-    {
-      VUSE_VECT_NUM_ELEM (ptr->usev) = num_elem;
-      return ptr;
-    }
-
-  /* It is growing.  Allocate a new one and replace the old one.  */
-  ret = add_vuse_op (stmt, val, num_elem, ptr);
-
-  /* Clear PTR and add its memory to the free list.  */
-  lim = VUSE_VECT_NUM_ELEM (ptr->usev);
-  memset (ptr, 0,
-          sizeof (struct voptype_d) + sizeof (vuse_element_t) * (lim- 1));
-  add_vop_to_freelist (ptr);
-
-  /* Now simply remove the old one.  */
-  if (*root == ptr)
-    {
-      *root = ret;
-      return ret;
-    }
-  else
-    for (tmp = *root; 
-	 tmp != NULL && tmp->next != ptr; 
-	 tmp = tmp->next)
-      {
-	tmp->next = ret;
-	return ret;
-      }
-
-  /* The pointer passed in isn't in STMT's VDEF lists.  */
-  gcc_unreachable ();
-}
- 
-
-/* Reallocate the PTR vdef so that it has NUM_ELEM use slots.  */
-
-struct voptype_d *
-realloc_vdef (struct voptype_d *ptr, unsigned int num_elem)
-{
-  tree val, stmt;
-  struct voptype_d *ret;
-
-  val = VDEF_RESULT (ptr);
-  stmt = USE_STMT (VDEF_OP_PTR (ptr, 0));
-  ret = realloc_vop (ptr, num_elem, &(VDEF_OPS (stmt)));
-  VDEF_RESULT (ret) = val;
-  return ret;
-}
-  
-
-/* Reallocate the PTR vuse so that it has NUM_ELEM use slots.  */
-
-struct voptype_d *
-realloc_vuse (struct voptype_d *ptr, unsigned int num_elem)
-{
-  tree stmt;
-  struct voptype_d *ret;
-
-  stmt = USE_STMT (VUSE_OP_PTR (ptr, 0));
-  ret = realloc_vop (ptr, num_elem, &(VUSE_OPS (stmt)));
-  return ret;
-}
-
 
 /* Takes elements from build_defs and turns them into def operands of STMT.
    TODO -- Make build_defs VEC of tree *.  */
@@ -1072,6 +977,7 @@ finalize_ssa_vuse_ops (tree stmt)
 	SET_USE (VUSE_OP_PTR (last, (int) i), op);
 
       VUSE_OPS (stmt) = last;
+      VEC_free (tree, heap, new_ops);
     }
 
 #ifdef ENABLE_CHECKING
@@ -1275,7 +1181,9 @@ append_vuse (tree var)
 /* REF is a tree that contains the entire pointer dereference
    expression, if available, or NULL otherwise.  ALIAS is the variable
    we are asking if REF can access.  OFFSET and SIZE come from the
-   memory access expression that generated this virtual operand.  */
+   memory access expression that generated this virtual operand.
+
+   XXX: We should handle the NO_ALIAS attributes here.  */
 
 static bool
 access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
@@ -1291,6 +1199,11 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
   if (alias == gimple_global_var (cfun))
     return true;
 
+  /* If ref is a TARGET_MEM_REF, just return true, as we can't really
+     disambiguate them right now.  */
+  if (ref && TREE_CODE (ref) == TARGET_MEM_REF)
+    return true;
+  
   /* If ALIAS is an SFT, it can't be touched if the offset     
      and size of the access is not overlapping with the SFT offset and
      size.  This is only true if we are accessing through a pointer
@@ -1384,6 +1297,7 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
 	   && flag_strict_aliasing
 	   && TREE_CODE (ref) != INDIRECT_REF
 	   && !MTAG_P (alias)
+	   && base
 	   && (TREE_CODE (base) != INDIRECT_REF
 	       || TREE_CODE (TREE_TYPE (base)) != UNION_TYPE)
 	   && !AGGREGATE_TYPE_P (TREE_TYPE (alias))
@@ -1429,6 +1343,106 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
   return true;
 }
 
+/* Add the actual variables FULL_REF can access, given a member of
+   full_ref's points-to set VAR, where FULL_REF is an access of SIZE at
+   OFFSET from var. IS_CALL_SITE is true if this is a call, and IS_DEF
+   is true if this is supposed to be a vdef, and false if this should
+   be a VUSE.
+
+   The real purpose of this function is to take a points-to set for a
+   pointer to a structure, say
+
+   struct s {
+     int a;
+     int b;
+   } foo, *foop = &foo;
+
+   and discover which variables an access, such as foop->b, can alias.
+   
+   This is necessary because foop only actually points to foo's first
+   member, so that is all the points-to set contains.  However, an access
+   to foop->a may be touching some single SFT if we have created some
+   SFT's for a structure.  */
+
+static bool
+add_vars_for_offset (tree full_ref, tree var, HOST_WIDE_INT offset,
+		     HOST_WIDE_INT size, bool is_call_site, bool is_def)
+{
+  /* Call-clobbered tags may have non-call-clobbered
+     symbols in their alias sets.  Ignore them if we are
+     adding VOPs for a call site.  */
+  if (is_call_site && !is_call_clobbered (var))
+    return false;
+
+  /* For offset 0, we already have the right variable.  If there is no
+     full_ref, this is not a place we care about (All component
+     related accesses that go through pointers will have full_ref not
+     NULL).
+     Any var for which we didn't create SFT's can't be
+     distinguished.  */
+  if (!full_ref || (offset == 0 && size != -1)
+      || (TREE_CODE (var) != STRUCT_FIELD_TAG
+	  && (!var_can_have_subvars (var) || !get_subvars_for_var (var))))
+    {
+      if (!access_can_touch_variable (full_ref, var, offset, size))
+	return false;
+
+      if (is_def)
+	append_vdef (var);
+      else
+	append_vuse (var);
+      return true;
+    }
+  else if (TREE_CODE (var) == STRUCT_FIELD_TAG)
+    {      
+      if (size == -1)
+	{
+	  bool added = false;
+	  subvar_t sv = get_subvars_for_var (SFT_PARENT_VAR (var));
+	  for (; sv; sv = sv->next)
+	    {
+	      if (overlap_subvar (SFT_OFFSET (var) + offset, size,
+				  sv->var, NULL)
+		  && access_can_touch_variable (full_ref, sv->var,
+						offset, size))
+		{
+		  added = true;
+		  if (is_def)
+		    append_vdef (sv->var);
+		  else
+		    append_vuse (sv->var);
+		}
+	    }
+	  return added;
+	}
+      else
+	{
+	  bool added = false;
+	  subvar_t sv = get_subvars_for_var (SFT_PARENT_VAR (var));
+	  for (; sv; sv = sv->next)
+	    {
+	      /* Once we hit the end of the parts that could touch,
+		 stop looking.  */
+	      if (SFT_OFFSET (var) + offset + size <= SFT_OFFSET (sv->var))
+		break;
+	      if (overlap_subvar (SFT_OFFSET (var) + offset, size,
+				  sv->var, NULL)
+		  && access_can_touch_variable (full_ref, sv->var, offset, 
+						size))
+		{
+		  added = true;
+		  if (is_def)
+		    append_vdef (sv->var);
+		  else
+		    append_vuse (sv->var);
+		}
+	    }
+	  return added;
+	}
+    }
+  
+  return false;
+}
 
 /* Add VAR to the virtual operands array.  FLAGS is as in
    get_expr_operands.  FULL_REF is a tree that contains the entire
@@ -1437,7 +1451,7 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
    generated this virtual operand.  IS_CALL_SITE is true if the
    affected statement is a call site.  */
 
-static void 
+static void
 add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 		     tree full_ref, HOST_WIDE_INT offset,
 		     HOST_WIDE_INT size, bool is_call_site)
@@ -1510,17 +1524,8 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 	  EXECUTE_IF_SET_IN_BITMAP (aliases, 0, i, bi)
 	    {
 	      al = referenced_var (i);
-	      if (!access_can_touch_variable (full_ref, al, offset, size))
-		continue;
-
-	      /* Call-clobbered tags may have non-call-clobbered
-		 symbols in their alias sets.  Ignore them if we are
-		 adding VOPs for a call site.  */
-	      if (is_call_site && !is_call_clobbered (al))
-		continue;
-
-	      none_added = false;
-	      append_vdef (al);
+	      none_added &= !add_vars_for_offset (full_ref, al, offset, size,
+						  is_call_site, true);
 	    }
 
 	  /* If the variable is also an alias tag, add a virtual
@@ -1537,9 +1542,7 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 	  if (none_added
 	      || (TREE_CODE (var) == SYMBOL_MEMORY_TAG
 		  && is_call_site))
-	    {
-	      append_vdef (var);
-	    }
+	    append_vdef (var);
 	}
       else
 	{
@@ -1547,17 +1550,9 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 	  EXECUTE_IF_SET_IN_BITMAP (aliases, 0, i, bi)
 	    {
 	      al = referenced_var (i);
-	      if (!access_can_touch_variable (full_ref, al, offset, size))
-		continue;
-
-	      /* Call-clobbered tags may have non-call-clobbered
-		 symbols in their alias sets.  Ignore them if we are
-		 adding VOPs for a call site.  */
-	      if (is_call_site && !is_call_clobbered (al))
-		continue;
-
-	      none_added = false;
-	      append_vuse (al);
+	      none_added &= !add_vars_for_offset (full_ref, al, offset, size,
+						  is_call_site, false);
+	      
 	    }
 	  
 	  /* Even if no aliases have been added, we still need to
@@ -1714,9 +1709,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags,
 static void
 get_tmr_operands (tree stmt, tree expr, int flags)
 {
-  tree tag, ref;
-  HOST_WIDE_INT offset, size, maxsize;
-  subvar_t svars, sv;
+  tree tag;
   stmt_ann_t s_ann = stmt_ann (stmt);
 
   /* This statement references memory.  */
@@ -1736,23 +1729,13 @@ get_tmr_operands (tree stmt, tree expr, int flags)
       s_ann->has_volatile_ops = true;
       return;
     }
-
-  if (DECL_P (tag))
+  if (!MTAG_P (tag))
     {
       get_expr_operands (stmt, &tag, flags);
       return;
     }
 
-  ref = get_ref_base_and_extent (tag, &offset, &size, &maxsize);
-  gcc_assert (ref != NULL_TREE);
-  svars = get_subvars_for_var (ref);
-  for (sv = svars; sv; sv = sv->next)
-    {
-      bool exact;		
-
-      if (overlap_subvar (offset, maxsize, sv->var, &exact))
-	add_stmt_operand (&sv->var, s_ann, flags);
-    }
+  add_virtual_operand (tag, s_ann, flags, expr, 0, -1, false);
 }
 
 
@@ -1767,11 +1750,6 @@ add_call_clobber_ops (tree stmt, tree callee)
   stmt_ann_t s_ann = stmt_ann (stmt);
   bitmap not_read_b, not_written_b;
   
-  /* Functions that are not const, pure or never return may clobber
-     call-clobbered variables.  */
-  if (s_ann)
-    s_ann->makes_clobbering_call = true;
-
   /* If we created .GLOBAL_VAR earlier, just use it.  */
   if (gimple_global_var (cfun))
     {
@@ -2058,7 +2036,7 @@ static void
 get_expr_operands (tree stmt, tree *expr_p, int flags)
 {
   enum tree_code code;
-  enum tree_code_class class;
+  enum tree_code_class codeclass;
   tree expr = *expr_p;
   stmt_ann_t s_ann = stmt_ann (stmt);
 
@@ -2066,7 +2044,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     return;
 
   code = TREE_CODE (expr);
-  class = TREE_CODE_CLASS (code);
+  codeclass = TREE_CODE_CLASS (code);
 
   switch (code)
     {
@@ -2126,7 +2104,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 
     case ALIGN_INDIRECT_REF:
     case INDIRECT_REF:
-      get_indirect_ref_operands (stmt, expr, flags, NULL_TREE, 0, -1, true);
+      get_indirect_ref_operands (stmt, expr, flags, expr, 0, -1, true);
       return;
 
     case TARGET_MEM_REF:
@@ -2169,6 +2147,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 
 	    if (!none)
 	      flags |= opf_no_vops;
+
+	    if (TREE_THIS_VOLATILE (expr))
+	      get_stmt_ann (stmt)->has_volatile_ops = true;
 	  }
 	else if (TREE_CODE (ref) == INDIRECT_REF)
 	  {
@@ -2264,6 +2245,10 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
         return;
       }
 
+    case CHANGE_DYNAMIC_TYPE_EXPR:
+      get_expr_operands (stmt, &CHANGE_DYNAMIC_TYPE_LOCATION (expr), opf_use);
+      return;
+
     case BLOCK:
     case FUNCTION_DECL:
     case EXC_PTR_EXPR:
@@ -2283,11 +2268,11 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       return;
 
     default:
-      if (class == tcc_unary)
+      if (codeclass == tcc_unary)
 	goto do_unary;
-      if (class == tcc_binary || class == tcc_comparison)
+      if (codeclass == tcc_binary || codeclass == tcc_comparison)
 	goto do_binary;
-      if (class == tcc_constant || class == tcc_type)
+      if (codeclass == tcc_constant || codeclass == tcc_type)
 	return;
     }
 
@@ -2793,7 +2778,7 @@ push_stmt_changes (tree *stmt_p)
   if (TREE_CODE (stmt) == PHI_NODE)
     return;
 
-  buf = xmalloc (sizeof *buf);
+  buf = XNEW (struct scb_d);
   memset (buf, 0, sizeof *buf);
 
   buf->stmt_p = stmt_p;
@@ -2979,90 +2964,4 @@ stmt_references_memory_p (tree stmt)
     return false;
 
   return stmt_ann (stmt)->references_memory;
-}
-
-
-/* Return the memory partition tag (MPT) associated with memory
-   symbol SYM.  From a correctness standpoint, memory partitions can
-   be assigned in any arbitrary fashion as long as this rule is
-   observed: Given two memory partitions MPT.i and MPT.j, they must
-   not contain symbols in common.
-
-   Memory partitions are used when putting the program into Memory-SSA
-   form.  In particular, in Memory-SSA PHI nodes are not computed for
-   individual memory symbols.  They are computed for memory
-   partitions.  This reduces the amount of PHI nodes in the SSA graph
-   at the expense of precision (i.e., it makes unrelated stores affect
-   each other).
-   
-   However, it is possible to increase precision by changing this
-   partitioning scheme.  For instance, if the partitioning scheme is
-   such that get_mpt_for is the identity function (that is,
-   get_mpt_for (s) = s), this will result in ultimate precision at the
-   expense of huge SSA webs.
-
-   At the other extreme, a partitioning scheme that groups all the
-   symbols in the same set results in minimal SSA webs and almost
-   total loss of precision.  */
-
-tree
-get_mpt_for (tree sym)
-{
-  tree mpt;
-
-  /* Don't create a new tag unnecessarily.  */
-  mpt = memory_partition (sym);
-  if (mpt == NULL_TREE)
-    {
-      mpt = create_tag_raw (MEMORY_PARTITION_TAG, TREE_TYPE (sym), "MPT");
-      TREE_ADDRESSABLE (mpt) = 0;
-      MTAG_GLOBAL (mpt) = 1;
-      add_referenced_var (mpt);
-      VEC_safe_push (tree, heap, gimple_ssa_operands (cfun)->mpt_table, mpt);
-      MPT_SYMBOLS (mpt) = BITMAP_ALLOC (&operands_bitmap_obstack);
-      set_memory_partition (sym, mpt);
-    }
-
-  return mpt;
-}
-
-
-/* Dump memory partition information to FILE.  */
-
-void
-dump_memory_partitions (FILE *file)
-{
-  unsigned i, npart;
-  unsigned long nsyms;
-  tree mpt;
-
-  fprintf (file, "\nMemory partitions\n\n");
-  for (i = 0, npart = 0, nsyms = 0;
-      VEC_iterate (tree, gimple_ssa_operands (cfun)->mpt_table, i, mpt);
-      i++)
-    {
-      if (mpt)
-	{
-	  bitmap syms = MPT_SYMBOLS (mpt);
-	  unsigned long n = bitmap_count_bits (syms);
-
-	  fprintf (file, "#%u: ", i);
-	  print_generic_expr (file, mpt, 0);
-	  fprintf (file, ": %lu elements: ", n);
-	  dump_decl_set (file, syms);
-	  npart++;
-	  nsyms += n;
-	}
-    }
-
-  fprintf (file, "\n%u memory partitions holding %lu symbols\n", npart, nsyms);
-}
-
-
-/* Dump memory partition information to stderr.  */
-
-void
-debug_memory_partitions (void)
-{
-  dump_memory_partitions (stderr);
 }

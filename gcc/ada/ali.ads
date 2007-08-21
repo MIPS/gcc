@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -30,6 +30,7 @@
 
 with Casing;  use Casing;
 with Gnatvsn; use Gnatvsn;
+with Namet;   use Namet;
 with Rident;  use Rident;
 with Table;
 with Types;   use Types;
@@ -90,7 +91,7 @@ package ALI is
       Afile : File_Name_Type;
       --  Name of ALI file
 
-      Ofile_Full_Name : Name_Id;
+      Ofile_Full_Name : File_Name_Type;
       --  Full name of object file corresponding to the ALI file
 
       Sfile : File_Name_Type;
@@ -260,16 +261,16 @@ package ALI is
       --  have an elaboration routine (since it has no elaboration code).
 
       Pure : Boolean;
-      --  Indicates presence of PU parameter for a pure package
+      --  Indicates presence of PU parameter for a package having pragma Pure
 
       Dynamic_Elab : Boolean;
-      --  Set to True if the unit was compiled with dynamic elaboration
-      --  checks (i.e. either -gnatE or pragma Elaboration_Checks (RM)
-      --  was used to compile the unit).
+      --  Set to True if the unit was compiled with dynamic elaboration checks
+      --  (i.e. either -gnatE or pragma Elaboration_Checks (RM) was used to
+      --  compile the unit).
 
       Elaborate_Body : Boolean;
-      --  Indicates presence of EB parameter for a package which has a
-      --  pragma Preelaborate_Body.
+      --  Indicates presence of EB parameter for a package which has a pragma
+      --  Elaborate_Body, and also for generic package instantiations.
 
       Set_Elab_Entity : Boolean;
       --  Indicates presence of EE parameter for a unit which has an
@@ -277,20 +278,20 @@ package ALI is
       --  elaboration of the entity.
 
       Has_RACW : Boolean;
-      --  Indicates presence of RA parameter for a package that declares
-      --  at least one Remote Access to Class_Wide (RACW) object.
+      --  Indicates presence of RA parameter for a package that declares at
+      --  least one Remote Access to Class_Wide (RACW) object.
 
       Remote_Types : Boolean;
       --  Indicates presence of RT parameter for a package which has a
       --  pragma Remote_Types.
 
       Shared_Passive : Boolean;
-      --  Indicates presence of SP parameter for a package which has a
-      --  pragma Shared_Passive.
+      --  Indicates presence of SP parameter for a package which has a pragma
+      --  Shared_Passive.
 
       RCI : Boolean;
-      --  Indicates presence of RC parameter for a package which has a
-      --  pragma Remote_Call_Interface.
+      --  Indicates presence of RC parameter for a package which has a pragma
+      --  Remote_Call_Interface.
 
       Predefined : Boolean;
       --  Indicates if unit is language predefined (or a child of such a unit)
@@ -326,13 +327,13 @@ package ALI is
 
       Icasing : Casing_Type;
       --  Indicates casing of identifiers in source file for this unit. This
-      --  is used for informational output, and also for constructing the
-      --  main unit if it is being built in Ada.
+      --  is used for informational output, and also for constructing the main
+      --  unit if it is being built in Ada.
 
       Kcasing : Casing_Type;
-      --  Indicates casing of keyowords in source file for this unit. This
-      --  is used for informational output, and also for constructing the
-      --  main unit if it is being built in Ada.
+      --  Indicates casing of keywords in source file for this unit. This is
+      --  used for informational output, and also for constructing the main
+      --  unit if it is being built in Ada.
 
       Elab_Position : aliased Natural;
       --  Initialized to zero. Set non-zero when a unit is chosen and
@@ -741,7 +742,7 @@ package ALI is
       File_Num : Sdep_Id;
       --  Dependency number for file (entry in Sdep.Table)
 
-      File_Name : Name_Id;
+      File_Name : File_Name_Type;
       --  Name of file
 
       First_Entity : Nat;

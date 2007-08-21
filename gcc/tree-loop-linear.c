@@ -1,12 +1,12 @@
 /* Linear Loop transforms
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -117,7 +116,7 @@ gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations,
 
       for (j = 0; j < DDR_NUM_DIST_VECTS (ddr); j++)
 	{
-	  int dist = DDR_DIST_VECT (ddr, j)[loop->depth - first_loop->depth];
+	  int dist = DDR_DIST_VECT (ddr, j)[loop_depth (loop) - loop_depth (first_loop)];
 
 	  if (dist == 0)
 	    (*nb_deps_not_carried_by_loop) += 1;
@@ -200,7 +199,7 @@ try_interchange_loops (lambda_trans_matrix trans,
        loop_j; 
        loop_j = loop_j->inner)
     for (loop_i = first_loop; 
-	 loop_i->depth < loop_j->depth; 
+	 loop_depth (loop_i) < loop_depth (loop_j); 
 	 loop_i = loop_i->inner)
       {
 	gather_interchange_stats (dependence_relations, datarefs,
@@ -230,14 +229,14 @@ try_interchange_loops (lambda_trans_matrix trans,
 	    || double_int_ucmp (access_strides_i, access_strides_j) < 0)
 	  {
 	    lambda_matrix_row_exchange (LTM_MATRIX (trans),
-					loop_i->depth - first_loop->depth,
-					loop_j->depth - first_loop->depth);
+					loop_depth (loop_i) - loop_depth (first_loop),
+					loop_depth (loop_j) - loop_depth (first_loop));
 	    /* Validate the resulting matrix.  When the transformation
 	       is not valid, reverse to the previous transformation.  */
 	    if (!lambda_transform_legal_p (trans, depth, dependence_relations))
 	      lambda_matrix_row_exchange (LTM_MATRIX (trans), 
-					  loop_i->depth - first_loop->depth, 
-					  loop_j->depth - first_loop->depth);
+					  loop_depth (loop_i) - loop_depth (first_loop), 
+					  loop_depth (loop_j) - loop_depth (first_loop));
 	  }
       }
 

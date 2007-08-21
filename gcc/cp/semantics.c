@@ -12,7 +12,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful, but
@@ -20,10 +20,9 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -1343,8 +1342,13 @@ finish_label_stmt (tree name)
 void
 finish_label_decl (tree name)
 {
-  tree decl = declare_local_label (name);
-  add_decl_expr (decl);
+  if (!at_function_scope_p ())
+    {
+      error ("__label__ declarations are only allowed in function scopes");
+      return;
+    }
+
+  add_decl_expr (declare_local_label (name));
 }
 
 /* When DECL goes out of scope, make sure that CLEANUP is executed.  */
@@ -2283,6 +2287,11 @@ finish_member_declaration (tree decl)
   /* Mark the DECL as a member of the current class.  */
   DECL_CONTEXT (decl) = current_class_type;
 
+  /* Check for bare parameter packs in the member variable declaration.  */
+  if (TREE_CODE (decl) == FIELD_DECL
+      && !check_for_bare_parameter_packs (TREE_TYPE (decl)))
+    TREE_TYPE (decl) = error_mark_node;
+
   /* [dcl.link]
 
      A C language linkage is ignored for the names of class members
@@ -2930,6 +2939,7 @@ finish_typeof (tree expr)
     {
       type = make_aggr_type (TYPEOF_TYPE);
       TYPEOF_TYPE_EXPR (type) = expr;
+      SET_TYPE_STRUCTURAL_EQUALITY (type);
 
       return type;
     }
@@ -3174,9 +3184,9 @@ expand_or_defer_fn (tree fn)
     }
 
   /* Replace AGGR_INIT_EXPRs with appropriate CALL_EXPRs.  */
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
-				simplify_aggr_init_exprs_r,
-				NULL);
+  cp_walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
+				   simplify_aggr_init_exprs_r,
+				   NULL);
 
   /* If this is a constructor or destructor body, we have to clone
      it.  */
@@ -3187,10 +3197,6 @@ expand_or_defer_fn (tree fn)
       TREE_ASM_WRITTEN (fn) = 1;
       return;
     }
-
-  /* Keep track of functions declared with the "constructor" and
-     "destructor" attribute.  */
-  c_record_cdtor_fn (fn);
 
   /* We make a decision about linkage for these functions at the end
      of the compilation.  Until that point, we do not want the back
@@ -3330,7 +3336,7 @@ finalize_nrv (tree *tp, tree var, tree result)
   data.var = var;
   data.result = result;
   data.visited = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
-  walk_tree (tp, finalize_nrv_r, &data, 0);
+  cp_walk_tree (tp, finalize_nrv_r, &data, 0);
   htab_delete (data.visited);
 }
 
@@ -3376,14 +3382,17 @@ finish_omp_clauses (tree clauses)
 	    {
 	      if (processing_template_decl)
 		break;
-	      error ("%qE is not a variable in clause %qs", t, name);
+	      if (DECL_P (t))
+		error ("%qD is not a variable in clause %qs", t, name);
+	      else
+		error ("%qE is not a variable in clause %qs", t, name);
 	      remove = true;
 	    }
 	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
 		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t))
 		   || bitmap_bit_p (&lastprivate_head, DECL_UID (t)))
 	    {
-	      error ("%qE appears more than once in data clauses", t);
+	      error ("%qD appears more than once in data clauses", t);
 	      remove = true;
 	    }
 	  else
@@ -3627,7 +3636,8 @@ finish_omp_clauses (tree clauses)
 	 Save the results, because later we won't be in the right context
 	 for making these queries.  */
       if (CLASS_TYPE_P (inner_type)
-	  && (need_default_ctor || need_copy_ctor || need_copy_assignment))
+	  && (need_default_ctor || need_copy_ctor || need_copy_assignment)
+	  && !type_dependent_expression_p (t))
 	{
 	  int save_errorcount = errorcount;
 	  tree info;
@@ -3655,6 +3665,17 @@ finish_omp_clauses (tree clauses)
 	      t = build_special_member_call (NULL_TREE,
 					     complete_ctor_identifier,
 					     t, inner_type, LOOKUP_NORMAL);
+
+	      if (targetm.cxx.cdtor_returns_this ())
+		/* Because constructors and destructors return this,
+		   the call will have been cast to "void".  Remove the
+		   cast here.  We would like to use STRIP_NOPS, but it
+		   wouldn't work here because TYPE_MODE (t) and
+		   TYPE_MODE (TREE_OPERAND (t, 0)) are different.
+		   They are VOIDmode and Pmode, respectively.  */
+		if (TREE_CODE (t) == NOP_EXPR)
+		  t = TREE_OPERAND (t, 0);
+
 	      t = get_callee_fndecl (t);
 	      TREE_VEC_ELT (info, 0) = t;
 	    }
@@ -3666,6 +3687,17 @@ finish_omp_clauses (tree clauses)
 	      t = build1 (INDIRECT_REF, inner_type, t);
 	      t = build_special_member_call (t, complete_dtor_identifier,
 					     NULL, inner_type, LOOKUP_NORMAL);
+
+	      if (targetm.cxx.cdtor_returns_this ())
+		/* Because constructors and destructors return this,
+		   the call will have been cast to "void".  Remove the
+		   cast here.  We would like to use STRIP_NOPS, but it
+		   wouldn't work here because TYPE_MODE (t) and
+		   TYPE_MODE (TREE_OPERAND (t, 0)) are different.
+		   They are VOIDmode and Pmode, respectively.  */
+		if (TREE_CODE (t) == NOP_EXPR)
+		  t = TREE_OPERAND (t, 0);
+
 	      t = get_callee_fndecl (t);
 	      TREE_VEC_ELT (info, 1) = t;
 	    }
@@ -3804,6 +3836,8 @@ tree
 finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 		tree incr, tree body, tree pre_body)
 {
+  tree omp_for;
+
   if (decl == NULL)
     {
       if (init != NULL)
@@ -3881,8 +3915,31 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       add_stmt (pre_body);
       pre_body = NULL;
     }
+
+  init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
   init = build_modify_expr (decl, NOP_EXPR, init);
-  return c_finish_omp_for (locus, decl, init, cond, incr, body, pre_body);
+  if (cond && TREE_SIDE_EFFECTS (cond) && COMPARISON_CLASS_P (cond))
+    {
+      int n = TREE_SIDE_EFFECTS (TREE_OPERAND (cond, 1)) != 0;
+      tree t = TREE_OPERAND (cond, n);
+
+      TREE_OPERAND (cond, n)
+	= fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+    }
+  omp_for = c_finish_omp_for (locus, decl, init, cond, incr, body, pre_body);
+  if (omp_for != NULL
+      && TREE_CODE (OMP_FOR_INCR (omp_for)) == MODIFY_EXPR
+      && TREE_SIDE_EFFECTS (TREE_OPERAND (OMP_FOR_INCR (omp_for), 1))
+      && BINARY_CLASS_P (TREE_OPERAND (OMP_FOR_INCR (omp_for), 1)))
+    {
+      tree t = TREE_OPERAND (OMP_FOR_INCR (omp_for), 1);
+      int n = TREE_SIDE_EFFECTS (TREE_OPERAND (t, 1)) != 0;
+
+      TREE_OPERAND (t, n)
+	= fold_build_cleanup_point_expr (TREE_TYPE (TREE_OPERAND (t, n)),
+					 TREE_OPERAND (t, n));
+    }
+  return omp_for;
 }
 
 void
@@ -4006,63 +4063,200 @@ finish_static_assert (tree condition, tree message, location_t location,
       input_location = saved_loc;
     }
 }
+
+/* Implements the C++0x decltype keyword. Returns the type of EXPR,
+   suitable for use as a type-specifier.
 
-/* Called from trait_expr_value to evaluate either __has_nothrow_copy or 
-   __has_nothrow_assign, depending on copy_p.  */
+   ID_EXPRESSION_OR_MEMBER_ACCESS_P is true when EXPR was parsed as an
+   id-expression or a class member access, FALSE when it was parsed as
+   a full expression.  */
+tree
+finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
+{
+  tree orig_expr = expr;
+  tree type;
+
+  if (type_dependent_expression_p (expr))
+    {
+      type = make_aggr_type (DECLTYPE_TYPE);
+      DECLTYPE_TYPE_EXPR (type) = expr;
+      DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (type)
+        = id_expression_or_member_access_p;
+      SET_TYPE_STRUCTURAL_EQUALITY (type);
+
+      return type;
+    }
+
+  /* The type denoted by decltype(e) is defined as follows:  */
+
+  if (id_expression_or_member_access_p)
+    {
+      /* If e is an id-expression or a class member access (5.2.5
+         [expr.ref]), decltype(e) is defined as the type of the entity
+         named by e. If there is no such entity, or e names a set of
+         overloaded functions, the program is ill-formed.  */
+      if (TREE_CODE (expr) == IDENTIFIER_NODE)
+        expr = lookup_name (expr);
+
+      if (TREE_CODE (expr) == INDIRECT_REF)
+        /* This can happen when the expression is, e.g., "a.b". Just
+           look at the underlying operand.  */
+        expr = TREE_OPERAND (expr, 0);
+
+      if (TREE_CODE (expr) == OFFSET_REF
+          || TREE_CODE (expr) == MEMBER_REF)
+        /* We're only interested in the field itself. If it is a
+           BASELINK, we will need to see through it in the next
+           step.  */
+        expr = TREE_OPERAND (expr, 1);
+
+      if (TREE_CODE (expr) == BASELINK)
+        /* See through BASELINK nodes to the underlying functions.  */
+        expr = BASELINK_FUNCTIONS (expr);
+
+      if (TREE_CODE (expr) == OVERLOAD)
+        {
+          if (OVL_CHAIN (expr))
+            {
+              error ("%qE refers to a set of overloaded functions", orig_expr);
+              return error_mark_node;
+            }
+          else
+            /* An overload set containing only one function: just look
+               at that function.  */
+            expr = OVL_FUNCTION (expr);
+        }
+
+      switch (TREE_CODE (expr))
+        {
+        case FIELD_DECL:
+          if (DECL_C_BIT_FIELD (expr))
+            {
+              type = DECL_BIT_FIELD_TYPE (expr);
+              break;
+            }
+          /* Fall through for fields that aren't bitfields.  */
+
+        case FUNCTION_DECL:
+        case VAR_DECL:
+        case CONST_DECL:
+        case PARM_DECL:
+        case RESULT_DECL:
+          type = TREE_TYPE (expr);
+          break;
+
+        case ERROR_MARK:
+          type = error_mark_node;
+          break;
+
+        case COMPONENT_REF:
+          type = is_bitfield_expr_with_lowered_type (expr);
+          if (!type)
+            type = TREE_TYPE (TREE_OPERAND (expr, 1));
+          break;
+
+        case BIT_FIELD_REF:
+          gcc_unreachable ();
+
+        case INTEGER_CST:
+          /* We can get here when the id-expression refers to an
+             enumerator.  */
+          type = TREE_TYPE (expr);
+          break;
+
+        default:
+          gcc_assert (TYPE_P (expr) || DECL_P (expr));
+          error ("argument to decltype must be an expression");
+          return error_mark_node;
+        }
+    }
+  else
+    {
+      tree fndecl;
+
+      if (TREE_CODE (expr) == CALL_EXPR
+          && (fndecl = get_callee_fndecl (expr))
+          && (fndecl != error_mark_node))
+        /* If e is a function call (5.2.2 [expr.call]) or an
+           invocation of an overloaded operator (parentheses around e
+           are ignored), decltype(e) is defined as the return type of
+           that function.  */
+        type = TREE_TYPE (TREE_TYPE (fndecl));
+      else 
+        {
+          type = is_bitfield_expr_with_lowered_type (expr);
+          if (type)
+            {
+              /* Bitfields are special, because their type encodes the
+                 number of bits they store.  If the expression referenced a
+                 bitfield, TYPE now has the declared type of that
+                 bitfield.  */
+              type = cp_build_qualified_type (type, 
+                                              cp_type_quals (TREE_TYPE (expr)));
+              
+              if (real_lvalue_p (expr))
+                type = build_reference_type (type);
+            }
+          else
+            {
+              /* Otherwise, where T is the type of e, if e is an lvalue,
+                 decltype(e) is defined as T&, otherwise decltype(e) is
+                 defined as T.  */
+              type = TREE_TYPE (expr);
+              if (expr == current_class_ptr)
+                /* If the expression is just "this", we want the
+                   cv-unqualified pointer for the "this" type.  */
+                type = TYPE_MAIN_VARIANT (type);
+              else if (real_lvalue_p (expr))
+                {
+                  if (TREE_CODE (type) != REFERENCE_TYPE)
+                    type = build_reference_type (type);
+                }
+              else
+                type = non_reference (type);
+            }
+        }
+    }
+
+  if (!type || type == unknown_type_node)
+    {
+      error ("type of %qE is unknown", expr);
+      return error_mark_node;
+    }
+
+  return type;
+}
+
+/* Called from trait_expr_value to evaluate either __has_nothrow_assign or 
+   __has_nothrow_copy, depending on assign_p.  */
 
 static bool
-classtype_has_nothrow_copy_or_assign_p (tree type, bool copy_p)
+classtype_has_nothrow_assign_or_copy_p (tree type, bool assign_p)
 {
-  if ((copy_p && TYPE_HAS_INIT_REF (type))
-      || (!copy_p && TYPE_HAS_ASSIGN_REF (type)))
+  tree fns;
+
+  if (assign_p)
     {
-      bool const_p = false;
-      tree t;
-
-      struct copy_data 
-      {
-	tree name;
-	int quals;
-      } data;
-
-      data.name = copy_p ? NULL_TREE : ansi_assopname (NOP_EXPR);
-
-      data.quals = TYPE_QUAL_CONST;
-      t = locate_copy (type, &data);
-      if (t)
-	{
-	  const_p = true;
-	  if (!TREE_NOTHROW (t))
-	    return false;
-	}
-
-      if (copy_p || !CP_TYPE_CONST_P (type))
-	{
-	  data.quals = TYPE_UNQUALIFIED;
-	  t = locate_copy (type, &data);
-	  if (t && !TREE_NOTHROW (t))
-	    return false;
-
-	  data.quals = TYPE_QUAL_VOLATILE;
-	  t = locate_copy (type, &data);
-	  if (t && !TREE_NOTHROW (t))
-	    return false;
-	}
-
-      data.quals = (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
-      t = locate_copy (type, &data);
-      if (t)
-	{
-	  const_p = true;
-	  if (!TREE_NOTHROW (t))
-	    return false;
-	}
-
-      if (!copy_p && CP_TYPE_CONST_P (type) && !const_p)
+      int ix;
+      ix = lookup_fnfields_1 (type, ansi_assopname (NOP_EXPR));
+      if (ix < 0)
 	return false;
+      fns = VEC_index (tree, CLASSTYPE_METHOD_VEC (type), ix);
+    } 
+  else if (TYPE_HAS_INIT_REF (type))
+    {
+      /* If construction of the copy constructor was postponed, create
+	 it now.  */
+      if (CLASSTYPE_LAZY_COPY_CTOR (type))
+	lazily_declare_fn (sfk_copy_constructor, type);
+      fns = CLASSTYPE_CONSTRUCTORS (type);
     }
   else
     return false;
+
+  for (; fns; fns = OVL_NEXT (fns))
+    if (!TREE_NOTHROW (OVL_CURRENT (fns)))
+      return false;
 
   return true;
 }
@@ -4080,9 +4274,11 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
   switch (kind)
     {
     case CPTK_HAS_NOTHROW_ASSIGN:
-      return (trait_expr_value (CPTK_HAS_TRIVIAL_ASSIGN, type1, type2)
-	      || (CLASS_TYPE_P (type1)
-		  && classtype_has_nothrow_copy_or_assign_p (type1, false)));
+      return (!CP_TYPE_CONST_P (type1) && type_code1 != REFERENCE_TYPE
+	      && (trait_expr_value (CPTK_HAS_TRIVIAL_ASSIGN, type1, type2)
+		  || (CLASS_TYPE_P (type1)
+		      && classtype_has_nothrow_assign_or_copy_p (type1,
+								 true))));
 
     case CPTK_HAS_TRIVIAL_ASSIGN:
       return (!CP_TYPE_CONST_P (type1) && type_code1 != REFERENCE_TYPE
@@ -4104,7 +4300,7 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
     case CPTK_HAS_NOTHROW_COPY:
       return (trait_expr_value (CPTK_HAS_TRIVIAL_COPY, type1, type2)
 	      || (CLASS_TYPE_P (type1)
-		  && classtype_has_nothrow_copy_or_assign_p (type1, true)));
+		  && classtype_has_nothrow_assign_or_copy_p (type1, false)));
 
     case CPTK_HAS_TRIVIAL_COPY:
       return (pod_type_p (type1) || type_code1 == REFERENCE_TYPE
@@ -4199,11 +4395,15 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
       return trait_expr;
     }
 
+  complete_type (type1);
+  if (type2)
+    complete_type (type2);
+
   /* The only required diagnostic.  */
   if (kind == CPTK_IS_BASE_OF
       && NON_UNION_CLASS_TYPE_P (type1) && NON_UNION_CLASS_TYPE_P (type2)
       && !same_type_ignoring_top_level_qualifiers_p (type1, type2)
-      && !COMPLETE_TYPE_P (complete_type (type2)))
+      && !COMPLETE_TYPE_P (type2))
     {
       error ("incomplete type %qT not allowed", type2);
       return error_mark_node;

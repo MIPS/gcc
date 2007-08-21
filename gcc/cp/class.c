@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* High-level class interface.  */
@@ -303,7 +302,18 @@ build_base_path (enum tree_code code,
 	 field, because other parts of the compiler know that such
 	 expressions are always non-NULL.  */
       if (!virtual_access && integer_zerop (offset))
-	return build_nop (build_pointer_type (target_type), expr);
+	{
+	  tree class_type;
+	  /* TARGET_TYPE has been extracted from BINFO, and, is
+	     therefore always cv-unqualified.  Extract the
+	     cv-qualifiers from EXPR so that the expression returned
+	     matches the input.  */
+	  class_type = TREE_TYPE (TREE_TYPE (expr));
+	  target_type
+	    = cp_build_qualified_type (target_type,
+				       cp_type_quals (class_type));
+	  return build_nop (build_pointer_type (target_type), expr);
+	}
       null_test = error_mark_node;
     }
 
@@ -356,8 +366,8 @@ build_base_path (enum tree_code code,
 	v_offset = build_vfield_ref (build_indirect_ref (expr, NULL),
 				     TREE_TYPE (TREE_TYPE (expr)));
 
-      v_offset = build2 (PLUS_EXPR, TREE_TYPE (v_offset),
-			 v_offset,  BINFO_VPTR_FIELD (v_binfo));
+      v_offset = build2 (POINTER_PLUS_EXPR, TREE_TYPE (v_offset),
+			 v_offset, fold_convert (sizetype, BINFO_VPTR_FIELD (v_binfo)));
       v_offset = build1 (NOP_EXPR,
 			 build_pointer_type (ptrdiff_type_node),
 			 v_offset);
@@ -395,7 +405,12 @@ build_base_path (enum tree_code code,
   expr = build1 (NOP_EXPR, ptr_target_type, expr);
 
   if (!integer_zerop (offset))
-    expr = build2 (code, ptr_target_type, expr, offset);
+    {
+      offset = fold_convert (sizetype, offset);
+      if (code == MINUS_EXPR)
+	offset = fold_build1 (NEGATE_EXPR, sizetype, offset);
+      expr = build2 (POINTER_PLUS_EXPR, ptr_target_type, expr, offset);
+    }
   else
     null_test = NULL;
 
@@ -520,12 +535,18 @@ convert_to_base_statically (tree expr, tree base)
       tree pointer_type;
 
       pointer_type = build_pointer_type (expr_type);
+
+      /* We use fold_build2 and fold_convert below to simplify the trees
+	 provided to the optimizers.  It is not safe to call these functions
+	 when processing a template because they do not handle C++-specific
+	 trees.  */
+      gcc_assert (!processing_template_decl);
       expr = build_unary_op (ADDR_EXPR, expr, /*noconvert=*/1);
       if (!integer_zerop (BINFO_OFFSET (base)))
-	  expr = build2 (PLUS_EXPR, pointer_type, expr,
-			 build_nop (pointer_type, BINFO_OFFSET (base)));
-      expr = build_nop (build_pointer_type (BINFO_TYPE (base)), expr);
-      expr = build1 (INDIRECT_REF, BINFO_TYPE (base), expr);
+        expr = fold_build2 (POINTER_PLUS_EXPR, pointer_type, expr,
+			    fold_convert (sizetype, BINFO_OFFSET (base)));
+      expr = fold_convert (build_pointer_type (BINFO_TYPE (base)), expr);
+      expr = build_fold_indirect_ref (expr);
     }
 
   return expr;
@@ -5099,17 +5120,19 @@ finish_struct_1 (tree t)
       tree dtor;
 
       dtor = CLASSTYPE_DESTRUCTORS (t);
-      /* Warn only if the dtor is non-private or the class has
-	 friends.  */
       if (/* An implicitly declared destructor is always public.  And,
 	     if it were virtual, we would have created it by now.  */
 	  !dtor
 	  || (!DECL_VINDEX (dtor)
-	      && (!TREE_PRIVATE (dtor)
-		  || CLASSTYPE_FRIEND_CLASSES (t)
-		  || DECL_FRIENDLIST (TYPE_MAIN_DECL (t)))))
-	warning (0, "%q#T has virtual functions but non-virtual destructor",
-		 t);
+	      && (/* public non-virtual */
+		  (!TREE_PRIVATE (dtor) && !TREE_PROTECTED (dtor))
+		   || (/* non-public non-virtual with friends */
+		       (TREE_PRIVATE (dtor) || TREE_PROTECTED (dtor))
+			&& (CLASSTYPE_FRIEND_CLASSES (t)
+			|| DECL_FRIENDLIST (TYPE_MAIN_DECL (t)))))))
+	warning (OPT_Wnon_virtual_dtor,
+		 "%q#T has virtual functions and accessible"
+		 " non-virtual destructor", t);
     }
 
   complete_vars (t);
@@ -5227,16 +5250,17 @@ finish_struct (tree t, tree attributes)
    before this function is called.  */
 
 static tree
-fixed_type_or_null (tree instance, int* nonnull, int* cdtorp)
+fixed_type_or_null (tree instance, int *nonnull, int *cdtorp)
 {
+#define RECUR(T) fixed_type_or_null((T), nonnull, cdtorp)
+
   switch (TREE_CODE (instance))
     {
     case INDIRECT_REF:
       if (POINTER_TYPE_P (TREE_TYPE (instance)))
 	return NULL_TREE;
       else
-	return fixed_type_or_null (TREE_OPERAND (instance, 0),
-				   nonnull, cdtorp);
+	return RECUR (TREE_OPERAND (instance, 0));
 
     case CALL_EXPR:
       /* This is a call to a constructor, hence it's never zero.  */
@@ -5256,20 +5280,22 @@ fixed_type_or_null (tree instance, int* nonnull, int* cdtorp)
 	    *nonnull = 1;
 	  return TREE_TYPE (instance);
 	}
-      return fixed_type_or_null (TREE_OPERAND (instance, 0), nonnull, cdtorp);
+      return RECUR (TREE_OPERAND (instance, 0));
 
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
       if (TREE_CODE (TREE_OPERAND (instance, 0)) == ADDR_EXPR)
-	return fixed_type_or_null (TREE_OPERAND (instance, 0), nonnull, cdtorp);
+	return RECUR (TREE_OPERAND (instance, 0));
       if (TREE_CODE (TREE_OPERAND (instance, 1)) == INTEGER_CST)
 	/* Propagate nonnull.  */
-	return fixed_type_or_null (TREE_OPERAND (instance, 0), nonnull, cdtorp);
+	return RECUR (TREE_OPERAND (instance, 0));
+
       return NULL_TREE;
 
     case NOP_EXPR:
     case CONVERT_EXPR:
-      return fixed_type_or_null (TREE_OPERAND (instance, 0), nonnull, cdtorp);
+      return RECUR (TREE_OPERAND (instance, 0));
 
     case ADDR_EXPR:
       instance = TREE_OPERAND (instance, 0);
@@ -5282,14 +5308,14 @@ fixed_type_or_null (tree instance, int* nonnull, int* cdtorp)
 	  if (t && DECL_P (t))
 	    *nonnull = 1;
 	}
-      return fixed_type_or_null (instance, nonnull, cdtorp);
+      return RECUR (instance);
 
     case COMPONENT_REF:
       /* If this component is really a base class reference, then the field
 	 itself isn't definitive.  */
       if (DECL_FIELD_IS_BASE (TREE_OPERAND (instance, 1)))
-	return fixed_type_or_null (TREE_OPERAND (instance, 0), nonnull, cdtorp);
-      return fixed_type_or_null (TREE_OPERAND (instance, 1), nonnull, cdtorp);
+	return RECUR (TREE_OPERAND (instance, 0));
+      return RECUR (TREE_OPERAND (instance, 1));
 
     case VAR_DECL:
     case FIELD_DECL:
@@ -5327,22 +5353,33 @@ fixed_type_or_null (tree instance, int* nonnull, int* cdtorp)
 	}
       else if (TREE_CODE (TREE_TYPE (instance)) == REFERENCE_TYPE)
 	{
+	  /* We only need one hash table because it is always left empty.  */
+	  static htab_t ht;
+	  if (!ht)
+	    ht = htab_create (37, 
+			      htab_hash_pointer,
+			      htab_eq_pointer,
+			      /*htab_del=*/NULL);
+
 	  /* Reference variables should be references to objects.  */
 	  if (nonnull)
 	    *nonnull = 1;
 
-	  /* DECL_VAR_MARKED_P is used to prevent recursion; a
+	  /* Enter the INSTANCE in a table to prevent recursion; a
 	     variable's initializer may refer to the variable
 	     itself.  */
 	  if (TREE_CODE (instance) == VAR_DECL
 	      && DECL_INITIAL (instance)
-	      && !DECL_VAR_MARKED_P (instance))
+	      && !htab_find (ht, instance))
 	    {
 	      tree type;
-	      DECL_VAR_MARKED_P (instance) = 1;
-	      type = fixed_type_or_null (DECL_INITIAL (instance),
-					 nonnull, cdtorp);
-	      DECL_VAR_MARKED_P (instance) = 0;
+	      void **slot;
+
+	      slot = htab_find_slot (ht, instance, INSERT);
+	      *slot = instance;
+	      type = RECUR (DECL_INITIAL (instance));
+	      htab_remove_elt (ht, instance);
+
 	      return type;
 	    }
 	}
@@ -5351,6 +5388,7 @@ fixed_type_or_null (tree instance, int* nonnull, int* cdtorp)
     default:
       return NULL_TREE;
     }
+#undef RECUR
 }
 
 /* Return nonzero if the dynamic type of INSTANCE is known, and
@@ -5372,7 +5410,6 @@ resolves_to_fixed_type_p (tree instance, int* nonnull)
 {
   tree t = TREE_TYPE (instance);
   int cdtorp = 0;
-
   tree fixed = fixed_type_or_null (instance, nonnull, &cdtorp);
   if (fixed == NULL_TREE)
     return 0;
@@ -6310,7 +6347,7 @@ get_vtbl_decl_for_binfo (tree binfo)
   tree decl;
 
   decl = BINFO_VTABLE (binfo);
-  if (decl && TREE_CODE (decl) == PLUS_EXPR)
+  if (decl && TREE_CODE (decl) == POINTER_PLUS_EXPR)
     {
       gcc_assert (TREE_CODE (TREE_OPERAND (decl, 0)) == ADDR_EXPR);
       decl = TREE_OPERAND (TREE_OPERAND (decl, 0), 0);
@@ -7096,7 +7133,7 @@ dfs_accumulate_vtbl_inits (tree binfo,
       index = size_binop (MULT_EXPR,
 			  TYPE_SIZE_UNIT (vtable_entry_type),
 			  index);
-      vtbl = build2 (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, index);
+      vtbl = build2 (POINTER_PLUS_EXPR, TREE_TYPE (vtbl), vtbl, index);
     }
 
   if (ctor_vtbl_p)

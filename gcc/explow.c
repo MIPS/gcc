@@ -1,13 +1,13 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
    Copyright (C) 1987, 1991, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -251,7 +250,7 @@ expr_size (tree exp)
       size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (size, exp);
     }
 
-  return expand_expr (size, NULL_RTX, TYPE_MODE (sizetype), 0);
+  return expand_expr (size, NULL_RTX, TYPE_MODE (sizetype), EXPAND_NORMAL);
 }
 
 /* Return a wide integer for the size in bytes of the value of EXP, or -1
@@ -794,7 +793,7 @@ promote_mode (tree type, enum machine_mode mode, int *punsignedp,
     {
 #ifdef PROMOTE_FUNCTION_MODE
     case INTEGER_TYPE:   case ENUMERAL_TYPE:   case BOOLEAN_TYPE:
-    case REAL_TYPE:      case OFFSET_TYPE:
+    case REAL_TYPE:      case OFFSET_TYPE:     case FIXED_POINT_TYPE:
 #ifdef PROMOTE_MODE
       if (for_call)
 	{

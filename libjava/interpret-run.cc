@@ -12,6 +12,8 @@ details.  */
  * compiled directly.	*/
 
   using namespace java::lang::reflect;
+  
+  pc_t pc = NULL;
 
   // FRAME_DESC registers this particular invocation as the top-most
   // interpreter frame.  This lets the stack tracing code (for
@@ -20,7 +22,12 @@ details.  */
   // destructor so it cleans up automatically when the interpreter
   // returns.
   java::lang::Thread *thread = java::lang::Thread::currentThread();
+  
+#ifdef DEBUG
+  _Jv_InterpFrame frame_desc (meth, thread, NULL, &pc);
+#else
   _Jv_InterpFrame frame_desc (meth, thread);
+#endif
 
   _Jv_word stack[meth->max_stack];
   _Jv_word *sp = stack;
@@ -46,9 +53,13 @@ details.  */
   // If the method is non-static, we need to set the type for the "this" pointer.
   if ((method->accflags & java::lang::reflect::Modifier::STATIC) == 0)
     {
-      // Set the "this" pointer for this frame
-      _Jv_word *this_ptr = reinterpret_cast<_Jv_word *> (args);
-      frame_desc.obj_ptr = this_ptr[0].o;
+      if (args)
+        {
+          // Set the "this" pointer for this frame.
+          _Jv_word *this_ptr = reinterpret_cast<_Jv_word *> (args);
+          frame_desc.obj_ptr = this_ptr[0].o;
+        }
+
       frame_desc.locals_type[0] = 'o';
       type_ctr++;
     }
@@ -330,8 +341,6 @@ details.  */
 #endif
   };
 
-  pc_t pc;
-
 #ifdef DIRECT_THREADED
 
 #ifdef DEBUG
@@ -339,21 +348,50 @@ details.  */
 #define NEXT_INSN							\
   do									\
     {									\
+      pc_t insn = pc++;							\
       if (JVMTI_REQUESTED_EVENT (SingleStep))				\
 	{								\
 	  JNIEnv *env = _Jv_GetCurrentJNIEnv ();			\
 	  jmethodID method = meth->self;				\
-	  jlocation loc = meth->insn_index (pc);			\
+	  jlocation loc = meth->insn_index (insn);			\
 	  _Jv_JVMTI_PostEvent (JVMTI_EVENT_SINGLE_STEP, thread,		\
 			       env, method, loc);			\
 	}								\
-      goto *((pc++)->insn);						\
+      goto *(insn->insn);						\
     }									\
   while (0)
-#else
+
+#undef REWRITE_INSN
+#define REWRITE_INSN(INSN,SLOT,VALUE)					\
+  do {									\
+    if (pc[-2].insn == breakpoint_insn->insn)				\
+      {									\
+	using namespace ::gnu::gcj::jvmti;				\
+	jlocation location = meth->insn_index (pc - 2);			\
+	_Jv_RewriteBreakpointInsn (meth->self, location, (pc_t) INSN);	\
+      }									\
+    else								\
+      pc[-2].insn = INSN;						\
+									\
+    pc[-1].SLOT = VALUE;						\
+  }									\
+  while (0)
+
+#undef INTERP_REPORT_EXCEPTION
+#define INTERP_REPORT_EXCEPTION(Jthrowable) REPORT_EXCEPTION (Jthrowable)
+#else // !DEBUG
 #undef NEXT_INSN
 #define NEXT_INSN goto *((pc++)->insn)
-#endif
+#define REWRITE_INSN(INSN,SLOT,VALUE)		\
+  do {						\
+    pc[-2].insn = INSN;				\
+    pc[-1].SLOT = VALUE;			\
+  }						\
+  while (0)
+
+#undef INTERP_REPORT_EXCEPTION
+#define INTERP_REPORT_EXCEPTION(Jthrowable) /* not needed when not debugging */
+#endif // !DEBUG
 
 #define INTVAL() ((pc++)->int_val)
 #define AVAL() ((pc++)->datum)
@@ -502,8 +540,7 @@ details.  */
 #ifdef DIRECT_THREADED
 	// Rewrite instruction so that we use a faster pre-resolved
 	// method.
-	pc[-2].insn = &&invokevirtual_resolved;
-	pc[-1].datum = rmeth;
+	REWRITE_INSN (&&invokevirtual_resolved, datum, rmeth);
 #endif /* DIRECT_THREADED */
       }
       goto perform_invoke;
@@ -1837,8 +1874,7 @@ details.  */
 	  }
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = newinsn;
-	pc[-1].datum = field->u.addr;
+	REWRITE_INSN (newinsn, datum, field->u.addr);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -1928,8 +1964,7 @@ details.  */
 	  }
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = newinsn;
-	pc[-1].int_val = field_offset;
+	REWRITE_INSN (newinsn, int_val, field_offset);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -2044,8 +2079,7 @@ details.  */
 	  }
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = newinsn;
-	pc[-1].datum = field->u.addr;
+	REWRITE_INSN (newinsn, datum, field->u.addr);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -2143,8 +2177,7 @@ details.  */
 	  }
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = newinsn;
-	pc[-1].int_val = field_offset;
+	REWRITE_INSN (newinsn, int_val, field_offset);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -2219,8 +2252,7 @@ details.  */
 #ifdef DIRECT_THREADED
 	// Rewrite instruction so that we use a faster pre-resolved
 	// method.
-	pc[-2].insn = &&invokespecial_resolved;
-	pc[-1].datum = rmeth;
+	REWRITE_INSN (&&invokespecial_resolved, datum, rmeth);
 #endif /* DIRECT_THREADED */
       }
       goto perform_invoke;
@@ -2257,8 +2289,7 @@ details.  */
 #ifdef DIRECT_THREADED
 	// Rewrite instruction so that we use a faster pre-resolved
 	// method.
-	pc[-2].insn = &&invokestatic_resolved;
-	pc[-1].datum = rmeth;
+	REWRITE_INSN (&&invokestatic_resolved, datum, rmeth);
 #endif /* DIRECT_THREADED */
       }
       goto perform_invoke;
@@ -2296,8 +2327,7 @@ details.  */
 #ifdef DIRECT_THREADED
 	// Rewrite instruction so that we use a faster pre-resolved
 	// method.
-	pc[-2].insn = &&invokeinterface_resolved;
-	pc[-1].datum = rmeth;
+	REWRITE_INSN (&&invokeinterface_resolved, datum, rmeth);
 #else
 	// Skip dummy bytes.
 	pc += 2;
@@ -2330,13 +2360,16 @@ details.  */
 	/* VM spec, section 3.11.5 */
 	if ((klass->getModifiers() & Modifier::ABSTRACT)
 	    || klass->isInterface())
-	  throw new java::lang::InstantiationException;
+	  {
+	    jthrowable t = new java::lang::InstantiationException;
+	    INTERP_REPORT_EXCEPTION (t);
+	    throw t;
+	  }
 	jobject res = _Jv_AllocObject (klass);
 	PUSHA (res);
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = &&new_resolved;
-	pc[-1].datum = klass;
+	REWRITE_INSN (&&new_resolved, datum, klass);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -2371,8 +2404,7 @@ details.  */
 	PUSHA (result);
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = &&anewarray_resolved;
-	pc[-1].datum = klass;
+	REWRITE_INSN (&&anewarray_resolved, datum, klass);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -2399,7 +2431,9 @@ details.  */
     insn_athrow:
       {
 	jobject value = POPA();
-	throw static_cast<jthrowable>(value);
+	jthrowable t = static_cast<jthrowable> (value);
+	INTERP_REPORT_EXCEPTION (t);
+	throw t;
       }
       NEXT_INSN;
 
@@ -2416,8 +2450,7 @@ details.  */
 	PUSHA (value);
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = &&checkcast_resolved;
-	pc[-1].datum = to;
+	REWRITE_INSN (&&checkcast_resolved, datum, to);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -2444,8 +2477,7 @@ details.  */
 	PUSHI (to->isInstance (value));
 
 #ifdef DIRECT_THREADED
-	pc[-2].insn = &&instanceof_resolved;
-	pc[-1].datum = to;
+	REWRITE_INSN (&&instanceof_resolved, datum, to);
 #endif /* DIRECT_THREADED */
       }
       NEXT_INSN;
@@ -2587,27 +2619,23 @@ details.  */
 
     insn_breakpoint:
       {
-	JvAssert (JVMTI_REQUESTED_EVENT (Breakpoint));
-
-	// Send JVMTI notification
 	using namespace ::java::lang;
 	jmethodID method = meth->self;
 	jlocation location = meth->insn_index (pc - 1);
-	Thread *thread = Thread::currentThread ();
-	JNIEnv *jni_env = _Jv_GetCurrentJNIEnv ();
 
-	_Jv_JVMTI_PostEvent (JVMTI_EVENT_BREAKPOINT, thread, jni_env,
-			     method, location);
-
-	// Continue execution
 	using namespace gnu::gcj::jvmti;
 	Breakpoint *bp
 	  = BreakpointManager::getBreakpoint (reinterpret_cast<jlong> (method),
 					      location);
 	JvAssert (bp != NULL);
 
+	// Save the insn here since the breakpoint could be removed
+	// before the JVMTI notification returns.
 	pc_t opc = reinterpret_cast<pc_t> (bp->getInsn ());
 
+	bp->execute ();
+
+	// Continue execution
 #ifdef DIRECT_THREADED
 	goto *(opc->insn);
 #else
@@ -2617,10 +2645,6 @@ details.  */
     }
   catch (java::lang::Throwable *ex)
     {
-#ifdef DEBUG
-       // This needs to be done before the pc is changed.
-       jlong throw_loc = meth->insn_index (pc);
-#endif
       // Check if the exception is handled and, if so, set the pc to the start
       // of the appropriate catch block.
       if (meth->check_handler (&pc, meth, ex))
@@ -2628,27 +2652,19 @@ details.  */
           sp = stack;
           sp++->o = ex; // Push exception.
 #ifdef DEBUG
-          if (JVMTI_REQUESTED_EVENT (Exception))
+          if (JVMTI_REQUESTED_EVENT (ExceptionCatch))
             {
               using namespace gnu::gcj::jvmti;
-              jlong throw_meth = reinterpret_cast<jlong> (meth->get_method ());
+              jlong catch_meth = reinterpret_cast<jlong> (meth->get_method ());
               jlong catch_loc = meth->insn_index (pc);
-              ExceptionEvent::postExceptionEvent (thread, throw_meth,
-                                                  throw_loc, ex, throw_meth,
-                                                  catch_loc);
+	      _Jv_JVMTI_PostEvent (JVMTI_EVENT_EXCEPTION_CATCH, thread,
+				   _Jv_GetCurrentJNIEnv (), catch_meth,
+				   catch_loc, ex);
             }
 #endif
           NEXT_INSN;
         }
-#ifdef DEBUG
-      if (JVMTI_REQUESTED_EVENT (Exception))
-        {
-          using namespace gnu::gcj::jvmti;
-          jlong throw_meth = reinterpret_cast<jlong> (meth->get_method ());
-          ExceptionEvent::postExceptionEvent (thread, throw_meth, throw_loc,
-                                              ex, NULL, NULL);
-        }
-#endif
+
       // No handler, so re-throw.
       throw ex;
     }

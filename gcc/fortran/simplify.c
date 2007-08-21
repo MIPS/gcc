@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -26,6 +25,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "gfortran.h"
 #include "arith.h"
 #include "intrinsic.h"
+#include "target-memory.h"
 
 gfc_expr gfc_bad_expr;
 
@@ -115,19 +115,31 @@ get_kind (bt type, gfc_expr *k, const char *name, int default_kind)
     {
       gfc_error ("KIND parameter of %s at %L must be an initialization "
 		 "expression", name, &k->where);
-
       return -1;
     }
 
   if (gfc_extract_int (k, &kind) != NULL
       || gfc_validate_kind (type, kind, true) < 0)
     {
-
       gfc_error ("Invalid KIND parameter of %s at %L", name, &k->where);
       return -1;
     }
 
   return kind;
+}
+
+
+/* Helper function to get an integer constant with a kind number given
+   by an integer constant expression.  */
+static gfc_expr *
+int_expr_with_kind (int i, gfc_expr *kind, const char *name)
+{
+  gfc_expr *res = gfc_int_expr (i);
+  res->ts.kind = get_kind (BT_INTEGER, kind, name, gfc_default_integer_kind); 
+  if (res->ts.kind == -1)
+    return NULL;
+  else
+    return res;
 }
 
 
@@ -245,14 +257,18 @@ gfc_simplify_abs (gfc_expr *e)
    systems that gfortran currently works on are ASCII.  */
 
 gfc_expr *
-gfc_simplify_achar (gfc_expr *e)
+gfc_simplify_achar (gfc_expr *e, gfc_expr *k)
 {
   gfc_expr *result;
-  int c;
+  int c, kind;
   const char *ch;
 
   if (e->expr_type != EXPR_CONSTANT)
     return NULL;
+
+  kind = get_kind (BT_CHARACTER, k, "ACHAR", gfc_default_character_kind);
+  if (kind == -1)
+    return &gfc_bad_expr;
 
   ch = gfc_extract_int (e, &c);
 
@@ -263,8 +279,7 @@ gfc_simplify_achar (gfc_expr *e)
     gfc_warning ("Argument of ACHAR function at %L outside of range [0,127]",
 		 &e->where);
 
-  result = gfc_constant_result (BT_CHARACTER, gfc_default_character_kind,
-				&e->where);
+  result = gfc_constant_result (BT_CHARACTER, kind, &e->where);
 
   result->value.character.string = gfc_getmem (2);
 
@@ -1198,7 +1213,7 @@ gfc_simplify_huge (gfc_expr *e)
    systems that gfortran currently works on are ASCII.  */
 
 gfc_expr *
-gfc_simplify_iachar (gfc_expr *e)
+gfc_simplify_iachar (gfc_expr *e, gfc_expr *kind)
 {
   gfc_expr *result;
   int index;
@@ -1218,7 +1233,9 @@ gfc_simplify_iachar (gfc_expr *e)
     gfc_warning ("Argument of IACHAR function at %L outside of range 0..127",
 		 &e->where);
 
-  result = gfc_int_expr (index);
+  if ((result = int_expr_with_kind (index, kind, "IACHAR")) == NULL)
+    return &gfc_bad_expr;
+
   result->where = e->where;
 
   return range_check (result, "IACHAR");
@@ -1380,7 +1397,7 @@ gfc_simplify_ibset (gfc_expr *x, gfc_expr *y)
 
 
 gfc_expr *
-gfc_simplify_ichar (gfc_expr *e)
+gfc_simplify_ichar (gfc_expr *e, gfc_expr *kind)
 {
   gfc_expr *result;
   int index;
@@ -1399,7 +1416,9 @@ gfc_simplify_ichar (gfc_expr *e)
   if (index < 0 || index > UCHAR_MAX)
     gfc_internal_error("Argument of ICHAR at %L out of range", &e->where);
 
-  result = gfc_int_expr (index);
+  if ((result = int_expr_with_kind (index, kind, "ICHAR")) == NULL)
+    return &gfc_bad_expr;
+
   result->where = e->where;
   return range_check (result, "ICHAR");
 }
@@ -1422,7 +1441,7 @@ gfc_simplify_ieor (gfc_expr *x, gfc_expr *y)
 
 
 gfc_expr *
-gfc_simplify_index (gfc_expr *x, gfc_expr *y, gfc_expr *b)
+gfc_simplify_index (gfc_expr *x, gfc_expr *y, gfc_expr *b, gfc_expr *kind)
 {
   gfc_expr *result;
   int back, len, lensub;
@@ -1436,8 +1455,11 @@ gfc_simplify_index (gfc_expr *x, gfc_expr *y, gfc_expr *b)
   else
     back = 0;
 
-  result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
-				&x->where);
+  k = get_kind (BT_INTEGER, kind, "INDEX", gfc_default_integer_kind); 
+  if (k == -1)
+    return &gfc_bad_expr;
+
+  result = gfc_constant_result (BT_INTEGER, k, &x->where);
 
   len = x->value.character.length;
   lensub = y->value.character.length;
@@ -1938,19 +1960,62 @@ gfc_simplify_kind (gfc_expr *e)
 
 
 static gfc_expr *
-simplify_bound (gfc_expr *array, gfc_expr *dim, int upper)
+simplify_bound_dim (gfc_expr *array, gfc_expr *kind, int d, int upper,
+		    gfc_array_spec *as)
+{
+  gfc_expr *l, *u, *result;
+  int k;
+
+  /* The last dimension of an assumed-size array is special.  */
+  if (d == as->rank && as->type == AS_ASSUMED_SIZE && !upper)
+    {
+      if (as->lower[d-1]->expr_type == EXPR_CONSTANT)
+	return gfc_copy_expr (as->lower[d-1]);
+      else
+	return NULL;
+    }
+
+  /* Then, we need to know the extent of the given dimension.  */
+  l = as->lower[d-1];
+  u = as->upper[d-1];
+
+  if (l->expr_type != EXPR_CONSTANT || u->expr_type != EXPR_CONSTANT)
+    return NULL;
+
+  k = get_kind (BT_INTEGER, kind, upper ? "UBOUND" : "LBOUND",
+		gfc_default_integer_kind); 
+  if (k == -1)
+    return &gfc_bad_expr;
+
+  result = gfc_constant_result (BT_INTEGER, k, &array->where);
+
+  if (mpz_cmp (l->value.integer, u->value.integer) > 0)
+    {
+      /* Zero extent.  */
+      if (upper)
+	mpz_set_si (result->value.integer, 0);
+      else
+	mpz_set_si (result->value.integer, 1);
+    }
+  else
+    {
+      /* Nonzero extent.  */
+      if (upper)
+	mpz_set (result->value.integer, u->value.integer);
+      else
+	mpz_set (result->value.integer, l->value.integer);
+    }
+
+  return range_check (result, upper ? "UBOUND" : "LBOUND");
+}
+
+
+static gfc_expr *
+simplify_bound (gfc_expr *array, gfc_expr *dim, gfc_expr *kind, int upper)
 {
   gfc_ref *ref;
   gfc_array_spec *as;
-  gfc_expr *l, *u, *result;
   int d;
-
-  if (dim == NULL)
-    /* TODO: Simplify constant multi-dimensional bounds.  */
-    return NULL;
-
-  if (dim->expr_type != EXPR_CONSTANT)
-    return NULL;
 
   if (array->expr_type != EXPR_VARIABLE)
     return NULL;
@@ -1992,103 +2057,147 @@ simplify_bound (gfc_expr *array, gfc_expr *dim, int upper)
   gcc_unreachable ();
 
  done:
+
   if (as->type == AS_DEFERRED || as->type == AS_ASSUMED_SHAPE)
     return NULL;
 
-  d = mpz_get_si (dim->value.integer);
-
-  if (d < 1 || d > as->rank
-      || (d == as->rank && as->type == AS_ASSUMED_SIZE && upper))
+  if (dim == NULL)
     {
-      gfc_error ("DIM argument at %L is out of bounds", &dim->where);
-      return &gfc_bad_expr;
-    }
+      /* Multi-dimensional bounds.  */
+      gfc_expr *bounds[GFC_MAX_DIMENSIONS];
+      gfc_expr *e;
+      gfc_constructor *head, *tail;
+      int k;
 
-  /* The last dimension of an assumed-size array is special.  */
-  if (d == as->rank && as->type == AS_ASSUMED_SIZE && !upper)
-    {
-      if (as->lower[d-1]->expr_type == EXPR_CONSTANT)
-	return gfc_copy_expr (as->lower[d-1]);
-      else
-	return NULL;
-    }
+      /* UBOUND(ARRAY) is not valid for an assumed-size array.  */
+      if (upper && as->type == AS_ASSUMED_SIZE)
+	{
+	  /* An error message will be emitted in
+	     check_assumed_size_reference (resolve.c).  */
+	  return &gfc_bad_expr;
+	}
 
-  /* Then, we need to know the extent of the given dimension.  */
-  l = as->lower[d-1];
-  u = as->upper[d-1];
+      /* Simplify the bounds for each dimension.  */
+      for (d = 0; d < array->rank; d++)
+	{
+	  bounds[d] = simplify_bound_dim (array, kind, d + 1, upper, as);
+	  if (bounds[d] == NULL || bounds[d] == &gfc_bad_expr)
+	    {
+	      int j;
 
-  if (l->expr_type != EXPR_CONSTANT || u->expr_type != EXPR_CONSTANT)
-    return NULL;
+	      for (j = 0; j < d; j++)
+		gfc_free_expr (bounds[j]);
+	      return bounds[d];
+	    }
+	}
 
-  result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
-				&array->where);
+      /* Allocate the result expression.  */
+      e = gfc_get_expr ();
+      e->where = array->where;
+      e->expr_type = EXPR_ARRAY;
+      e->ts.type = BT_INTEGER;
+      k = get_kind (BT_INTEGER, kind, upper ? "UBOUND" : "LBOUND",
+		    gfc_default_integer_kind); 
+      if (k == -1)
+	return &gfc_bad_expr;
+      e->ts.kind = k;
 
-  if (mpz_cmp (l->value.integer, u->value.integer) > 0)
-    {
-      /* Zero extent.  */
-      if (upper)
-	mpz_set_si (result->value.integer, 0);
-      else
-	mpz_set_si (result->value.integer, 1);
+      /* The result is a rank 1 array; its size is the rank of the first
+	 argument to {L,U}BOUND.  */
+      e->rank = 1;
+      e->shape = gfc_get_shape (1);
+      mpz_init_set_ui (e->shape[0], array->rank);
+
+      /* Create the constructor for this array.  */
+      head = tail = NULL;
+      for (d = 0; d < array->rank; d++)
+	{
+	  /* Get a new constructor element.  */
+	  if (head == NULL)
+	    head = tail = gfc_get_constructor ();
+	  else
+	    {
+	      tail->next = gfc_get_constructor ();
+	      tail = tail->next;
+	    }
+
+	  tail->where = e->where;
+	  tail->expr = bounds[d];
+	}
+      e->value.constructor = head;
+
+      return e;
     }
   else
     {
-      /* Nonzero extent.  */
-      if (upper)
-	mpz_set (result->value.integer, u->value.integer);
-      else
-	mpz_set (result->value.integer, l->value.integer);
+      /* A DIM argument is specified.  */
+      if (dim->expr_type != EXPR_CONSTANT)
+	return NULL;
+
+      d = mpz_get_si (dim->value.integer);
+
+      if (d < 1 || d > as->rank
+	  || (d == as->rank && as->type == AS_ASSUMED_SIZE && upper))
+	{
+	  gfc_error ("DIM argument at %L is out of bounds", &dim->where);
+	  return &gfc_bad_expr;
+	}
+
+      return simplify_bound_dim (array, kind, d, upper, as);
     }
-
-  return range_check (result, upper ? "UBOUND" : "LBOUND");
 }
 
 
 gfc_expr *
-gfc_simplify_lbound (gfc_expr *array, gfc_expr *dim)
+gfc_simplify_lbound (gfc_expr *array, gfc_expr *dim, gfc_expr *kind)
 {
-  return simplify_bound (array, dim, 0);
+  return simplify_bound (array, dim, kind, 0);
 }
 
 
 gfc_expr *
-gfc_simplify_len (gfc_expr *e)
+gfc_simplify_len (gfc_expr *e, gfc_expr *kind)
 {
   gfc_expr *result;
+  int k = get_kind (BT_INTEGER, kind, "LEN", gfc_default_integer_kind);
+
+  if (k == -1)
+    return &gfc_bad_expr;
 
   if (e->expr_type == EXPR_CONSTANT)
     {
-      result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
-				    &e->where);
+      result = gfc_constant_result (BT_INTEGER, k, &e->where);
       mpz_set_si (result->value.integer, e->value.character.length);
       return range_check (result, "LEN");
     }
 
   if (e->ts.cl != NULL && e->ts.cl->length != NULL
-      && e->ts.cl->length->expr_type == EXPR_CONSTANT)
+      && e->ts.cl->length->expr_type == EXPR_CONSTANT
+      && e->ts.cl->length->ts.type == BT_INTEGER)
     {
-      result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
-				    &e->where);
+      result = gfc_constant_result (BT_INTEGER, k, &e->where);
       mpz_set (result->value.integer, e->ts.cl->length->value.integer);
       return range_check (result, "LEN");
     }
-  
+
   return NULL;
 }
 
 
 gfc_expr *
-gfc_simplify_len_trim (gfc_expr *e)
+gfc_simplify_len_trim (gfc_expr *e, gfc_expr *kind)
 {
   gfc_expr *result;
   int count, len, lentrim, i;
+  int k = get_kind (BT_INTEGER, kind, "LEN_TRIM", gfc_default_integer_kind);
+
+  if (k == -1)
+    return &gfc_bad_expr;
 
   if (e->expr_type != EXPR_CONSTANT)
     return NULL;
 
-  result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
-				&e->where);
-
+  result = gfc_constant_result (BT_INTEGER, k, &e->where);
   len = e->value.character.length;
 
   for (count = 0, i = 1; i <= len; i++)
@@ -2289,7 +2398,6 @@ simplify_min_max (gfc_expr *expr, int sign)
 	  if (mpz_cmp (arg->expr->value.integer,
 		       extremum->expr->value.integer) * sign > 0)
 	    mpz_set (extremum->expr->value.integer, arg->expr->value.integer);
-
 	  break;
 
 	case BT_REAL:
@@ -2297,11 +2405,40 @@ simplify_min_max (gfc_expr *expr, int sign)
 	      * sign > 0)
 	    mpfr_set (extremum->expr->value.real, arg->expr->value.real,
 		      GFC_RND_MODE);
-
 	  break;
 
+	case BT_CHARACTER:
+#define LENGTH(x) ((x)->expr->value.character.length)
+#define STRING(x) ((x)->expr->value.character.string)
+	  if (LENGTH(extremum) < LENGTH(arg))
+	    {
+	      char * tmp = STRING(extremum);
+
+	      STRING(extremum) = gfc_getmem (LENGTH(arg) + 1);
+	      memcpy (STRING(extremum), tmp, LENGTH(extremum));
+	      memset (&STRING(extremum)[LENGTH(extremum)], ' ',
+		      LENGTH(arg) - LENGTH(extremum));
+	      STRING(extremum)[LENGTH(arg)] = '\0';  /* For debugger  */
+	      LENGTH(extremum) = LENGTH(arg);
+	      gfc_free (tmp);
+	    }
+
+	  if (gfc_compare_string (arg->expr, extremum->expr) * sign > 0)
+	    {
+	      gfc_free (STRING(extremum));
+	      STRING(extremum) = gfc_getmem (LENGTH(extremum) + 1);
+	      memcpy (STRING(extremum), STRING(arg), LENGTH(arg));
+	      memset (&STRING(extremum)[LENGTH(arg)], ' ',
+		      LENGTH(extremum) - LENGTH(arg));
+	      STRING(extremum)[LENGTH(extremum)] = '\0';  /* For debugger  */
+	    }
+#undef LENGTH
+#undef STRING
+	  break;
+	      
+
 	default:
-	  gfc_internal_error ("gfc_simplify_max(): Bad type in arglist");
+	  gfc_internal_error ("simplify_min_max(): Bad type in arglist");
 	}
 
       /* Delete the extra constant argument.  */
@@ -2569,13 +2706,8 @@ gfc_simplify_new_line (gfc_expr *e)
 {
   gfc_expr *result;
 
-  if (e->expr_type != EXPR_CONSTANT)
-    return NULL;
-
   result = gfc_constant_result (BT_CHARACTER, e->ts.kind, &e->where);
-
   result->value.character.string = gfc_getmem (2);
-
   result->value.character.length = 1;
   result->value.character.string[0] = '\n';
   result->value.character.string[1] = '\0';     /* For debugger */
@@ -2790,6 +2922,7 @@ gfc_simplify_repeat (gfc_expr *e, gfc_expr *n)
   gfc_expr *result;
   int i, j, len, ncop, nlen;
   mpz_t ncopies;
+  bool have_length = false;
 
   /* If NCOPIES isn't a constant, there's nothing we can do.  */
   if (n->expr_type != EXPR_CONSTANT)
@@ -2804,29 +2937,49 @@ gfc_simplify_repeat (gfc_expr *e, gfc_expr *n)
     }
 
   /* If we don't know the character length, we can do no more.  */
-  if (e->ts.cl == NULL || e->ts.cl->length == NULL
-      || e->ts.cl->length->expr_type != EXPR_CONSTANT)
+  if (e->ts.cl && e->ts.cl->length
+	&& e->ts.cl->length->expr_type == EXPR_CONSTANT)
+    {
+      len = mpz_get_si (e->ts.cl->length->value.integer);
+      have_length = true;
+    }
+  else if (e->expr_type == EXPR_CONSTANT
+	     && (e->ts.cl == NULL || e->ts.cl->length == NULL))
+    {
+      len = e->value.character.length;
+    }
+  else
     return NULL;
 
   /* If the source length is 0, any value of NCOPIES is valid
      and everything behaves as if NCOPIES == 0.  */
   mpz_init (ncopies);
-  if (mpz_sgn (e->ts.cl->length->value.integer) == 0)
+  if (len == 0)
     mpz_set_ui (ncopies, 0);
   else
     mpz_set (ncopies, n->value.integer);
 
   /* Check that NCOPIES isn't too large.  */
-  if (mpz_sgn (e->ts.cl->length->value.integer) != 0)
+  if (len)
     {
-      mpz_t max;
+      mpz_t max, mlen;
       int i;
 
       /* Compute the maximum value allowed for NCOPIES: huge(cl) / len.  */
       mpz_init (max);
       i = gfc_validate_kind (BT_INTEGER, gfc_charlen_int_kind, false);
-      mpz_tdiv_q (max, gfc_integer_kinds[i].huge,
-		  e->ts.cl->length->value.integer);
+
+      if (have_length)
+	{
+	  mpz_tdiv_q (max, gfc_integer_kinds[i].huge,
+		      e->ts.cl->length->value.integer);
+	}
+      else
+	{
+	  mpz_init_set_si (mlen, len);
+	  mpz_tdiv_q (max, gfc_integer_kinds[i].huge, mlen);
+	  mpz_clear (mlen);
+	}
 
       /* The check itself.  */
       if (mpz_cmp (ncopies, max) > 0)
@@ -2842,13 +2995,16 @@ gfc_simplify_repeat (gfc_expr *e, gfc_expr *n)
     }
   mpz_clear (ncopies);
 
-  /* For further simplication, we need the character string to be
+  /* For further simplification, we need the character string to be
      constant.  */
   if (e->expr_type != EXPR_CONSTANT)
     return NULL;
 
-  if (mpz_sgn (e->ts.cl->length->value.integer) != 0)
-    gcc_assert (gfc_extract_int (n, &ncop) == NULL);
+  if (len || mpz_sgn (e->ts.cl->length->value.integer) != 0)
+    {
+      const char *res = gfc_extract_int (n, &ncop);
+      gcc_assert (res == NULL);
+    }
   else
     ncop = 0;
 
@@ -3204,12 +3360,16 @@ gfc_simplify_scale (gfc_expr *x, gfc_expr *i)
 
 
 gfc_expr *
-gfc_simplify_scan (gfc_expr *e, gfc_expr *c, gfc_expr *b)
+gfc_simplify_scan (gfc_expr *e, gfc_expr *c, gfc_expr *b, gfc_expr *kind)
 {
   gfc_expr *result;
   int back;
   size_t i;
   size_t indx, len, lenc;
+  int k = get_kind (BT_INTEGER, kind, "SCAN", gfc_default_integer_kind);
+
+  if (k == -1)
+    return &gfc_bad_expr;
 
   if (e->expr_type != EXPR_CONSTANT || c->expr_type != EXPR_CONSTANT)
     return NULL;
@@ -3219,8 +3379,7 @@ gfc_simplify_scan (gfc_expr *e, gfc_expr *c, gfc_expr *b)
   else
     back = 0;
 
-  result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
-				&e->where);
+  result = gfc_constant_result (BT_INTEGER, k, &e->where);
 
   len = e->value.character.length;
   lenc = c->value.character.length;
@@ -3426,7 +3585,7 @@ gfc_simplify_shape (gfc_expr *source)
 	{
 	  mpz_set_ui (e->value.integer, n + 1);
 
-	  f = gfc_simplify_size (source, e);
+	  f = gfc_simplify_size (source, e, NULL);
 	  gfc_free_expr (e);
 	  if (f == NULL)
 	    {
@@ -3447,11 +3606,15 @@ gfc_simplify_shape (gfc_expr *source)
 
 
 gfc_expr *
-gfc_simplify_size (gfc_expr *array, gfc_expr *dim)
+gfc_simplify_size (gfc_expr *array, gfc_expr *dim, gfc_expr *kind)
 {
   mpz_t size;
   gfc_expr *result;
   int d;
+  int k = get_kind (BT_INTEGER, kind, "SCAN", gfc_default_integer_kind);
+
+  if (k == -1)
+    return &gfc_bad_expr;
 
   if (dim == NULL)
     {
@@ -3468,11 +3631,8 @@ gfc_simplify_size (gfc_expr *array, gfc_expr *dim)
 	return NULL;
     }
 
-  result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
-				&array->where);
-
+  result = gfc_constant_result (BT_INTEGER, k, &array->where);
   mpz_set (result->value.integer, size);
-
   return result;
 }
 
@@ -3795,12 +3955,81 @@ gfc_simplify_tiny (gfc_expr *e)
 gfc_expr *
 gfc_simplify_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
 {
-  /* Reference mold and size to suppress warning.  */
-  if (gfc_init_expr && (mold || size))
-    gfc_error ("TRANSFER intrinsic not implemented for initialization at %L",
-	       &source->where);
+  gfc_expr *result;
+  gfc_expr *mold_element;
+  size_t source_size;
+  size_t result_size;
+  size_t result_elt_size;
+  size_t buffer_size;
+  mpz_t tmp;
+  unsigned char *buffer;
 
-  return NULL;
+  if (!gfc_is_constant_expr (source)
+	|| !gfc_is_constant_expr (size))
+    return NULL;
+
+  /* Calculate the size of the source.  */
+  if (source->expr_type == EXPR_ARRAY
+      && gfc_array_size (source, &tmp) == FAILURE)
+    gfc_internal_error ("Failure getting length of a constant array.");
+
+  source_size = gfc_target_expr_size (source);
+
+  /* Create an empty new expression with the appropriate characteristics.  */
+  result = gfc_constant_result (mold->ts.type, mold->ts.kind,
+				&source->where);
+  result->ts = mold->ts;
+
+  mold_element = mold->expr_type == EXPR_ARRAY
+		 ? mold->value.constructor->expr
+		 : mold;
+
+  /* Set result character length, if needed.  Note that this needs to be
+     set even for array expressions, in order to pass this information into 
+     gfc_target_interpret_expr.  */
+  if (result->ts.type == BT_CHARACTER)
+    result->value.character.length = mold_element->value.character.length;
+  
+  /* Set the number of elements in the result, and determine its size.  */
+  result_elt_size = gfc_target_expr_size (mold_element);
+  if (mold->expr_type == EXPR_ARRAY || mold->rank || size)
+    {
+      int result_length;
+
+      result->expr_type = EXPR_ARRAY;
+      result->rank = 1;
+
+      if (size)
+	result_length = (size_t)mpz_get_ui (size->value.integer);
+      else
+	{
+	  result_length = source_size / result_elt_size;
+	  if (result_length * result_elt_size < source_size)
+	    result_length += 1;
+	}
+
+      result->shape = gfc_get_shape (1);
+      mpz_init_set_ui (result->shape[0], result_length);
+
+      result_size = result_length * result_elt_size;
+    }
+  else
+    {
+      result->rank = 0;
+      result_size = result_elt_size;
+    }
+
+  /* Allocate the buffer to store the binary version of the source.  */
+  buffer_size = MAX (source_size, result_size);
+  buffer = (unsigned char*)alloca (buffer_size);
+
+  /* Now write source to the buffer.  */
+  gfc_target_encode_expr (source, buffer, buffer_size);
+
+  /* And read the buffer back into the new expression.  */
+  gfc_target_interpret_expr (buffer, buffer_size, result);
+
+  return result;
 }
 
 
@@ -3840,19 +4069,23 @@ gfc_simplify_trim (gfc_expr *e)
 
 
 gfc_expr *
-gfc_simplify_ubound (gfc_expr *array, gfc_expr *dim)
+gfc_simplify_ubound (gfc_expr *array, gfc_expr *dim, gfc_expr *kind)
 {
-  return simplify_bound (array, dim, 1);
+  return simplify_bound (array, dim, kind, 1);
 }
 
 
 gfc_expr *
-gfc_simplify_verify (gfc_expr *s, gfc_expr *set, gfc_expr *b)
+gfc_simplify_verify (gfc_expr *s, gfc_expr *set, gfc_expr *b, gfc_expr *kind)
 {
   gfc_expr *result;
   int back;
   size_t index, len, lenset;
   size_t i;
+  int k = get_kind (BT_INTEGER, kind, "VERIFY", gfc_default_integer_kind);
+
+  if (k == -1)
+    return &gfc_bad_expr;
 
   if (s->expr_type != EXPR_CONSTANT || set->expr_type != EXPR_CONSTANT)
     return NULL;
@@ -3862,8 +4095,7 @@ gfc_simplify_verify (gfc_expr *s, gfc_expr *set, gfc_expr *b)
   else
     back = 0;
 
-  result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
-				&s->where);
+  result = gfc_constant_result (BT_INTEGER, k, &s->where);
 
   len = s->value.character.length;
   lenset = set->value.character.length;

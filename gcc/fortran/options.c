@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -94,6 +93,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_preprocessed = 0;
   gfc_option.flag_automatic = 1;
   gfc_option.flag_backslash = 1;
+  gfc_option.flag_module_private = 0;
   gfc_option.flag_backtrace = 0;
   gfc_option.flag_allow_leading_underscore = 0;
   gfc_option.flag_dump_core = 0;
@@ -102,6 +102,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_cray_pointer = 0;
   gfc_option.flag_d_lines = -1;
   gfc_option.flag_openmp = 0;
+  gfc_option.flag_sign_zero = 1;
 
   gfc_option.fpe = 0;
 
@@ -116,10 +117,6 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
 
   /* -fshort-enums can be default on some targets.  */
   gfc_option.fshort_enums = targetm.default_short_enums ();
-
-  /* Increase MAX_ALIASED_VOPS to account for different characteristics
-     of Fortran regarding VOPs.  */
-  MAX_ALIASED_VOPS = 50;
 
   return CL_Fortran;
 }
@@ -243,7 +240,7 @@ gfc_post_options (const char **pfilename)
     gfc_add_include_path (".", true);
 
   if (canon_source_file != gfc_source_file)
-    gfc_free ((void *) canon_source_file);
+    gfc_free (CONST_CAST (canon_source_file));
 
   /* Decide which form the file will be read in as.  */
 
@@ -542,6 +539,8 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_ffree_line_length_:
+      if (value != 0 && value < 4)
+	gfc_fatal_error ("Free line length must be at least three.");
       gfc_option.free_line_length = value;
       break;
 
@@ -551,6 +550,13 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fsecond_underscore:
       gfc_option.flag_second_underscore = value;
+      break;
+
+    case OPT_static_libgfortran:
+#ifndef HAVE_LD_STATIC_DYNAMIC
+      gfc_fatal_error ("-static-libgfortran is not supported in this "
+		       "configuration");
+#endif
       break;
 
     case OPT_fimplicit_none:
@@ -570,6 +576,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.flag_max_stack_var_size = value;
       break;
 
+    case OPT_fmodule_private:
+      gfc_option.flag_module_private = value;
+      break;
+      
     case OPT_frange_check:
       gfc_option.flag_range_check = value;
       break;
@@ -612,6 +622,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
     case OPT_J:
     case OPT_M:
       gfc_handle_module_path_options (arg);
+      break;
+    
+    case OPT_fsign_zero:
+      gfc_option.flag_sign_zero = value;
       break;
     
     case OPT_ffpe_trap_:

@@ -1,3 +1,123 @@
+2007-08-18  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/32974:
+	* directives.c (parse_include): Don't check for EOL when
+	processing #pragma dependency.
+
+2007-07-30  Ollie Wild  <aaw@google.com>
+
+	* directives-only.c: New file.
+	* internal.h (struct _cpp_dir_only_callbacks): New.
+	(_cpp_preprocess_dir_only): New function.
+	* directives.c (_cpp_handle_directive): Check directives_only before
+	disabling execution of indented directives.
+	* files.c (_cpp_stack_file): Add directives_only check.
+	* include/cpplib.h (struct cpp_options): Add directives_only.
+	(cpp_init_special_builtins): New function.
+	* init.c (cpp_init_special_builtins): New function.
+	(cpp_init_builtins): Move builtin_array initialization to
+	cpp_init_special_builtins.
+	(post_options): Check directives_only before setting
+	pfile->state.prevent_expansion = 1.
+	* macro.c (_cpp_builtin_macro_text): Print an error if __COUNTER__
+	is expanded inside a directive while -fdirectives-only is enabled.
+	* Makefile.in (libcpp_a_OBJS): Add directives-only.o.
+	(libcpp_a_SOURCES): Add directives-only.c.
+
+2007-07-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	* traditional.c (_cpp_scan_out_logical_line): Initialize
+	fmacro.args, fmacro.node, fmacro.offset, fmacro.line and
+	fmacro.args to prevent 'may be used uninitialized' warning.
+
+2007-07-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* include/cpplib.h (CPP_N_WIDTH_MD, CPP_N_MD_W, CPP_N_MD_Q):
+	Add new constants.
+	* expr.c (interpret_float_suffix): Process 'w', 'W', 'q' and 'Q'
+	suffixes.  Return CPP_N_MD_W for 'w' or 'W' suffixes and CPP_N_MD_Q
+	for 'q' or 'Q' suffixes.
+
+2007-06-17  Danny Smith  <dannysmith@users.sourceforge.net
+
+	* files.c (open_file): Correct typo.
+
+2007-06-16  Vladimir Prus  <vladimir@codesourcery.com>
+
+	* files.c (open_file): Prevent the call
+	for stat from overwriting errno.
+
+2007-06-09  Vladimir Prus  <vladimir@codesourcery.com>
+
+	* files.c (open_file): Account for the
+        fact that on windows, opening a directory gives
+        EACCES.
+
+2007-06-05  Joerg Wunsch  <j.gnu@uriah.heep.sax.de>
+
+	PR preprocessor/23479
+	* expr.c (cpp_classify_number): Implement 0b-prefixed binary
+	integer constants.
+	(append_digit): Likewise.
+	* include/cpplib.h: Add CPP_N_BINARY, to be used for 0b-prefixed
+	binary integer constants.
+
+2007-05-31  Dave Korn  <dave.korn@artimi.com>
+
+	PR preprocessor/14331
+	* lex.c (_cpp_get_fresh_line):  Don't warn if no newline at EOF.
+
+2007-05-24  Ollie Wild  <aaw@google.com>
+
+	* macro.c (_cpp_builtin_macro_text): Handle BT_COUNTER.
+	* pch.c (cpp_write_pch_deps): Save __COUNTER__ state.
+	(cpp_write_pch_state): Save __COUNTER__ state.
+	(cpp_valid_state): Check valid __COUNTER__ state.
+	(cpp_read_state): Read new __COUNTER__ state.
+	* include/cpplib.h (enum builtin_type): Add BT_COUNTER enumerator.
+	* init.c (builtin_array): Add __COUNTER__/BT_COUNTER.
+	* internal.h (struct cpp_reader): Add counter member.
+
+2007-05-23  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR preprocessor/20077
+	* macro.c (create_iso_definition): Fixed the method to determine
+	whether the token-pasting operator appears at the beginning or the end
+	of a macro.
+
+2007-05-21  Ian Lance Taylor  <iant@google.com>
+
+	* internal.h (struct cpp_reader): Add new fields:
+	nonexistent_file_hash and nonexistent_file_ob.
+	* files.c: Include "obstack.h".
+	(find_file_in_dir): Before trying to open the file, look up the
+	path name in the hash table of nonexistent files.  After failing
+	to open the file, add the path name to the hash table.
+	(_cpp_find_file): Cache the results of looking up the file name
+	starting with the quote and bracket chain heads, if we can.
+	(nonexistent_file_hash_eq): New static function.
+	(_cpp_init_files): Initialize pfile->nonexistent_file_hash and
+	pfile->nonexistent_file_ob.
+	(_cpp_cleanup_files): Free pfile->nonexistent_file_hash and
+	pfile->nonexistent_file_ob.
+
+2007-05-14  Janis Johnson  <janis187@us.ibm.com>
+
+        * expr.c (cpp_classify_number): Warn about dfp constant for -pedantic.
+
+	PR c/31924
+	* expr.c (interpret_float_suffix): Check for invalid suffix.
+
+2007-05-02  Eric Christopher  <echristo@apple.com>
+
+	* expr.c (num_div_op): Don't overflow if the result is
+	zero.
+
+2007-05-02  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/28709:
+	* macro.c (paste_tokens): Remove PASTE_LEFT from the old lhs.
+
 2007-03-30  Michael Meissner  <michael.meissner@amd.com>
 
 	* directives.c (lex_macro_node_from_str): Fix alloca call to be

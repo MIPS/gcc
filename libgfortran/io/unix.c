@@ -97,7 +97,6 @@ typedef struct
   gfc_offset dirty_offset;	/* Start of modified bytes in buffer */
   gfc_offset file_length;	/* Length of the file, -1 if not seekable. */
 
-  char *buffer;
   int len;			/* Physical length of the current buffer */
   int active;			/* Length of valid bytes in the buffer */
 
@@ -106,16 +105,42 @@ typedef struct
 
   int special_file;		/* =1 if the fd refers to a special file */
 
-  unsigned unbuffered:1;
+  int unbuffered;               /* =1 if the stream is not buffered */
 
+  char *buffer;
   char small_buffer[BUFFER_SIZE];
-
 }
 unix_stream;
 
-extern stream *init_error_stream (unix_stream *);
-internal_proto(init_error_stream);
 
+/* Stream structure for internal files. Fields must be kept in sync
+   with unix_stream above, except for the buffer. For internal files
+   we point the buffer pointer directly at the destination memory.  */
+
+typedef struct
+{
+  stream st;
+
+  int fd;
+  gfc_offset buffer_offset;	/* File offset of the start of the buffer */
+  gfc_offset physical_offset;	/* Current physical file offset */
+  gfc_offset logical_offset;	/* Current logical file offset */
+  gfc_offset dirty_offset;	/* Start of modified bytes in buffer */
+  gfc_offset file_length;	/* Length of the file, -1 if not seekable. */
+
+  int len;			/* Physical length of the current buffer */
+  int active;			/* Length of valid bytes in the buffer */
+
+  int prot;
+  int ndirty;			/* Dirty bytes starting at dirty_offset */
+
+  int special_file;		/* =1 if the fd refers to a special file */
+
+  int unbuffered;               /* =1 if the stream is not buffered */
+
+  char *buffer;
+}
+int_stream;
 
 /* This implementation of stream I/O is based on the paper:
  *
@@ -492,7 +517,7 @@ fd_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
       if (n < 0)
 	return NULL;
 
-      s->physical_offset = where + n;
+      s->physical_offset = m + n;
       s->active += n;
     }
   else
@@ -503,7 +528,7 @@ fd_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
       if (do_read (s, s->buffer + s->active, &n) != 0)
 	return NULL;
 
-      s->physical_offset = where + n;
+      s->physical_offset = m + n;
       s->active += n;
     }
 
@@ -558,7 +583,7 @@ fd_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
         s->ndirty = where + *len - start;  
       else    
         s->ndirty = s->dirty_offset + s->ndirty - start;  
-        s->dirty_offset = start;
+      s->dirty_offset = start;
     }
 
   s->logical_offset = where + *len;
@@ -601,10 +626,14 @@ fd_seek (unix_stream * s, gfc_offset offset)
       return SUCCESS;
     }
 
-  s->physical_offset = s->logical_offset = offset;
-  s->active = 0;
+  if (lseek (s->fd, offset, SEEK_SET) >= 0)
+    {
+      s->physical_offset = s->logical_offset = offset;
+      s->active = 0;
+      return SUCCESS;
+    }
 
-  return (lseek (s->fd, offset, SEEK_SET) < 0) ? FAILURE : SUCCESS;
+  return FAILURE;
 }
 
 
@@ -827,7 +856,7 @@ fd_open (unix_stream * s)
 
 
 static char *
-mem_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
+mem_alloc_r_at (int_stream * s, int *len, gfc_offset where)
 {
   gfc_offset n;
 
@@ -848,7 +877,7 @@ mem_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
 
 
 static char *
-mem_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
+mem_alloc_w_at (int_stream * s, int *len, gfc_offset where)
 {
   gfc_offset m;
 
@@ -876,7 +905,7 @@ mem_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
    routines use mem_alloc_r_at.  */
 
 static int
-mem_read (unix_stream * s, void * buf, size_t * nbytes)
+mem_read (int_stream * s, void * buf, size_t * nbytes)
 {
   void *p;
   int tmp;
@@ -902,7 +931,7 @@ mem_read (unix_stream * s, void * buf, size_t * nbytes)
    routines use mem_alloc_w_at.  */
 
 static int
-mem_write (unix_stream * s, const void * buf, size_t * nbytes)
+mem_write (int_stream * s, const void * buf, size_t * nbytes)
 {
   void *p;
   int tmp;
@@ -926,7 +955,7 @@ mem_write (unix_stream * s, const void * buf, size_t * nbytes)
 
 
 static int
-mem_seek (unix_stream * s, gfc_offset offset)
+mem_seek (int_stream * s, gfc_offset offset)
 {
   if (offset > s->file_length)
     {
@@ -940,7 +969,7 @@ mem_seek (unix_stream * s, gfc_offset offset)
 
 
 static try
-mem_set (unix_stream * s, int c, size_t n)
+mem_set (int_stream * s, int c, size_t n)
 {
   void *p;
   int len;
@@ -959,14 +988,14 @@ mem_set (unix_stream * s, int c, size_t n)
 
 
 static int
-mem_truncate (unix_stream * s __attribute__ ((unused)))
+mem_truncate (int_stream * s __attribute__ ((unused)))
 {
   return SUCCESS;
 }
 
 
 static try
-mem_close (unix_stream * s)
+mem_close (int_stream * s)
 {
   if (s != NULL)
     free_mem (s);
@@ -976,7 +1005,7 @@ mem_close (unix_stream * s)
 
 
 static try
-mem_sfree (unix_stream * s __attribute__ ((unused)))
+mem_sfree (int_stream * s __attribute__ ((unused)))
 {
   return SUCCESS;
 }
@@ -993,7 +1022,7 @@ mem_sfree (unix_stream * s __attribute__ ((unused)))
 void
 empty_internal_buffer(stream *strm)
 {
-  unix_stream * s = (unix_stream *) strm;
+  int_stream * s = (int_stream *) strm;
   memset(s->buffer, ' ', s->file_length);
 }
 
@@ -1002,10 +1031,10 @@ empty_internal_buffer(stream *strm)
 stream *
 open_internal (char *base, int length)
 {
-  unix_stream *s;
+  int_stream *s;
 
-  s = get_mem (sizeof (unix_stream));
-  memset (s, '\0', sizeof (unix_stream));
+  s = get_mem (sizeof (int_stream));
+  memset (s, '\0', sizeof (int_stream));
 
   s->buffer = base;
   s->buffer_offset = 0;
@@ -1122,7 +1151,7 @@ tempfile (st_parameter_open *opp)
 
   template = get_mem (strlen (tempdir) + 20);
 
-  st_sprintf (template, "%s/gfortrantmpXXXXXX", tempdir);
+  sprintf (template, "%s/gfortrantmpXXXXXX", tempdir);
 
 #ifdef HAVE_MKSTEMP
 
@@ -1352,122 +1381,59 @@ error_stream (void)
   return fd_to_stream (STDERR_FILENO, PROT_WRITE);
 }
 
-/* init_error_stream()-- Return a pointer to the error stream.  This
- * subroutine is called when the stream is needed, rather than at
- * initialization.  We want to work even if memory has been seriously
- * corrupted. */
 
-stream *
-init_error_stream (unix_stream *error)
+/* st_vprintf()-- vprintf function for error output.  To avoid buffer
+   overruns, we limit the length of the buffer to ST_VPRINTF_SIZE.  2k
+   is big enough to completely fill a 80x25 terminal, so it shuld be
+   OK.  We use a direct write() because it is simpler and least likely
+   to be clobbered by memory corruption.  Writing an error message
+   longer than that is an error.  */
+
+#define ST_VPRINTF_SIZE 2048
+
+int
+st_vprintf (const char *format, va_list ap)
 {
-  memset (error, '\0', sizeof (*error));
+  static char buffer[ST_VPRINTF_SIZE];
+  int written;
+  int fd;
 
-  error->fd = options.use_stderr ? STDERR_FILENO : STDOUT_FILENO;
+  fd = options.use_stderr ? STDERR_FILENO : STDOUT_FILENO;
+#ifdef HAVE_VSNPRINTF
+  written = vsnprintf(buffer, ST_VPRINTF_SIZE, format, ap);
+#else
+  written = vsprintf(buffer, format, ap);
 
-  error->st.alloc_w_at = (void *) fd_alloc_w_at;
-  error->st.sfree = (void *) fd_sfree;
+  if (written >= ST_VPRINTF_SIZE-1)
+    {
+      /* The error message was longer than our buffer.  Ouch.  Because
+	 we may have messed up things badly, report the error and
+	 quit.  */
+#define ERROR_MESSAGE "Internal error: buffer overrun in st_vprintf()\n"
+      write (fd, buffer, ST_VPRINTF_SIZE-1);
+      write (fd, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+      sys_exit(2);
+#undef ERROR_MESSAGE
 
-  error->unbuffered = 1;
-  error->buffer = error->small_buffer;
+    }
+#endif
 
-  return (stream *) error;
+  written = write (fd, buffer, written);
+  return written;
 }
 
-/* st_printf()-- simple printf() function for streams that handles the
- * formats %d, %s and %c.  This function handles printing of error
- * messages that originate within the library itself, not from a user
- * program. */
+/* st_printf()-- printf() function for error output.  This just calls
+   st_vprintf() to do the actual work.  */
 
 int
 st_printf (const char *format, ...)
 {
-  int count, total;
-  va_list arg;
-  char *p;
-  const char *q;
-  stream *s;
-  char itoa_buf[GFC_ITOA_BUF_SIZE];
-  unix_stream err_stream;
-
-  total = 0;
-  s = init_error_stream (&err_stream);
-  va_start (arg, format);
-
-  for (;;)
-    {
-      count = 0;
-
-      while (format[count] != '%' && format[count] != '\0')
-	count++;
-
-      if (count != 0)
-	{
-	  p = salloc_w (s, &count);
-	  memmove (p, format, count);
-	  sfree (s);
-	}
-
-      total += count;
-      format += count;
-      if (*format++ == '\0')
-	break;
-
-      switch (*format)
-	{
-	case 'c':
-	  count = 1;
-
-	  p = salloc_w (s, &count);
-	  *p = (char) va_arg (arg, int);
-
-	  sfree (s);
-	  break;
-
-	case 'd':
-	  q = gfc_itoa (va_arg (arg, int), itoa_buf, sizeof (itoa_buf));
-	  count = strlen (q);
-
-	  p = salloc_w (s, &count);
-	  memmove (p, q, count);
-	  sfree (s);
-	  break;
-
-	case 'x':
-	  q = xtoa (va_arg (arg, unsigned), itoa_buf, sizeof (itoa_buf));
-	  count = strlen (q);
-
-	  p = salloc_w (s, &count);
-	  memmove (p, q, count);
-	  sfree (s);
-	  break;
-
-	case 's':
-	  q = va_arg (arg, char *);
-	  count = strlen (q);
-
-	  p = salloc_w (s, &count);
-	  memmove (p, q, count);
-	  sfree (s);
-	  break;
-
-	case '\0':
-	  return total;
-
-	default:
-	  count = 2;
-	  p = salloc_w (s, &count);
-	  p[0] = format[-1];
-	  p[1] = format[0];
-	  sfree (s);
-	  break;
-	}
-
-      total += count;
-      format++;
-    }
-
-  va_end (arg);
-  return total;
+  int written;
+  va_list ap;
+  va_start (ap, format);
+  written = st_vprintf(format, ap);
+  va_end (ap);
+  return written;
 }
 
 
@@ -1912,7 +1878,7 @@ stream_isatty (stream *s)
 }
 
 char *
-stream_ttyname (stream *s)
+stream_ttyname (stream *s __attribute__ ((unused)))
 {
 #ifdef HAVE_TTYNAME
   return ttyname (((unix_stream *) s)->fd);

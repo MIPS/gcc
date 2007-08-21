@@ -8,7 +8,7 @@
 
    GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* This file contains timing variable definitions, used by timevar.h
    and timevar.c.
@@ -62,11 +61,11 @@ DEFTIMEVAR (TV_DF_SCAN		     , "df scan insns")
 DEFTIMEVAR (TV_DF_RU		     , "df reaching uses")
 DEFTIMEVAR (TV_DF_RD		     , "df reaching defs")
 DEFTIMEVAR (TV_DF_LR		     , "df live regs")
-DEFTIMEVAR (TV_DF_UR		     , "df uninitialized regs")
 DEFTIMEVAR (TV_DF_LIVE		     , "df live&initialized regs")
 DEFTIMEVAR (TV_DF_UREC		     , "df uninitialized regs 2")
 DEFTIMEVAR (TV_DF_CHAIN		     , "df use-def / def-use chains")
-DEFTIMEVAR (TV_DF_RI		     , "df register information")
+DEFTIMEVAR (TV_DF_NOTE		     , "df reg dead/unused notes")
+DEFTIMEVAR (TV_REG_STATS	     , "register information")
 
 DEFTIMEVAR (TV_ALIAS_ANALYSIS	     , "alias analysis")
 DEFTIMEVAR (TV_REG_SCAN		     , "register scan")
@@ -88,6 +87,9 @@ DEFTIMEVAR (TV_TREE_STORE_COPY_PROP  , "tree store copy prop")
 DEFTIMEVAR (TV_FIND_REFERENCED_VARS  , "tree find ref. vars")
 DEFTIMEVAR (TV_TREE_PTA		     , "tree PTA")
 DEFTIMEVAR (TV_TREE_MAY_ALIAS        , "tree alias analysis")
+DEFTIMEVAR (TV_CALL_CLOBBER          , "tree call clobbering")
+DEFTIMEVAR (TV_FLOW_SENSITIVE        , "tree flow sensitive alias")
+DEFTIMEVAR (TV_FLOW_INSENSITIVE      , "tree flow insensitive alias")
 DEFTIMEVAR (TV_MEMORY_PARTITIONING   , "tree memory partitioning")
 DEFTIMEVAR (TV_TREE_INSERT_PHI_NODES , "tree PHI insertion")
 DEFTIMEVAR (TV_TREE_SSA_REWRITE_BLOCKS, "tree SSA rewrite")
@@ -123,6 +125,7 @@ DEFTIMEVAR (TV_TREE_LINEAR_TRANSFORM , "tree loop linear")
 DEFTIMEVAR (TV_CHECK_DATA_DEPS       , "tree check data dependences")
 DEFTIMEVAR (TV_TREE_PREFETCH	     , "tree prefetching")
 DEFTIMEVAR (TV_TREE_LOOP_IVOPTS	     , "tree iv optimization")
+DEFTIMEVAR (TV_PREDCOM		     , "predictive commoning")
 DEFTIMEVAR (TV_TREE_LOOP_INIT	     , "tree loop init")
 DEFTIMEVAR (TV_TREE_LOOP_FINI	     , "tree loop fini")
 DEFTIMEVAR (TV_TREE_CH		     , "tree copy headers")
@@ -186,6 +189,7 @@ DEFTIMEVAR (TV_REG_STACK             , "reg stack")
 DEFTIMEVAR (TV_FINAL                 , "final")
 DEFTIMEVAR (TV_SYMOUT                , "symout")
 DEFTIMEVAR (TV_VAR_TRACKING          , "variable tracking")
+DEFTIMEVAR (TV_TREE_IFCOMBINE        , "tree if-combine")
 
 /* Everything else in rest_of_compilation not included above.  */
 DEFTIMEVAR (TV_REST_OF_COMPILATION   , "rest of compilation")

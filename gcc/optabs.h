@@ -1,12 +1,12 @@
 /* Definitions for code generation pass of GNU compiler.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006 
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_OPTABS_H
 #define GCC_OPTABS_H
@@ -86,6 +85,18 @@ enum optab_index
   OTI_umul_widen,
   /* Widening multiply of one unsigned and one signed operand.  */
   OTI_usmul_widen,
+  /* Signed multiply and add with the result and addend one machine mode
+     wider than the multiplicand and multiplier.  */
+  OTI_smadd_widen,
+  /* Unsigned multiply and add with the result and addend one machine mode
+     wider than the multiplicand and multiplier.  */
+  OTI_umadd_widen,
+  /* Signed multiply and subtract the result and minuend one machine mode
+     wider than the multiplicand and multiplier.  */
+  OTI_smsub_widen,
+  /* Unsigned multiply and subtract the result and minuend one machine mode
+     wider than the multiplicand and multiplier.  */
+  OTI_umsub_widen,
 
   /* Signed divide */
   OTI_sdiv,
@@ -139,6 +150,8 @@ enum optab_index
   OTI_movstrict,
   /* Move, with a misaligned memory.  */
   OTI_movmisalign,
+  /* Nontemporal store.  */
+  OTI_storent,
 
   /* Unary operations */
   /* Negation */
@@ -205,7 +218,8 @@ enum optab_index
   OTI_atan,
   /* Copy sign */
   OTI_copysign,
-
+  /* Signbit */
+  OTI_signbit,
   /* Test for infinite value */
   OTI_isinf,
 
@@ -278,16 +292,31 @@ enum optab_index
   OTI_vec_widen_umult_lo,
   OTI_vec_widen_smult_hi,
   OTI_vec_widen_smult_lo,
-  /* Extract and widen the high/low part of a vector of signed/unsigned 
-     elements.  */
+  /* Extract and widen the high/low part of a vector of signed or
+     floating point elements.  */
   OTI_vec_unpacks_hi,
   OTI_vec_unpacks_lo,
+  /* Extract and widen the high/low part of a vector of unsigned
+     elements.  */
   OTI_vec_unpacku_hi,
   OTI_vec_unpacku_lo,
+
+  /* Extract, convert to floating point and widen the high/low part of
+     a vector of signed or unsigned integer elements.  */
+  OTI_vec_unpacks_float_hi,
+  OTI_vec_unpacks_float_lo,
+  OTI_vec_unpacku_float_hi,
+  OTI_vec_unpacku_float_lo,
+
   /* Narrow (demote) and merge the elements of two vectors.  */
-  OTI_vec_pack_mod,
+  OTI_vec_pack_trunc,
   OTI_vec_pack_usat,
   OTI_vec_pack_ssat,
+
+  /* Convert to signed/unsigned integer, narrow and merge elements
+     of two vectors of floating point elements.  */
+  OTI_vec_pack_sfix_trunc,
+  OTI_vec_pack_ufix_trunc,
 
   /* Perform a raise to the power of integer.  */
   OTI_powi,
@@ -307,6 +336,10 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define smul_widen_optab (optab_table[OTI_smul_widen])
 #define umul_widen_optab (optab_table[OTI_umul_widen])
 #define usmul_widen_optab (optab_table[OTI_usmul_widen])
+#define smadd_widen_optab (optab_table[OTI_smadd_widen])
+#define umadd_widen_optab (optab_table[OTI_umadd_widen])
+#define smsub_widen_optab (optab_table[OTI_smsub_widen])
+#define umsub_widen_optab (optab_table[OTI_umsub_widen])
 #define sdiv_optab (optab_table[OTI_sdiv])
 #define smulv_optab (optab_table[OTI_smulv])
 #define sdivv_optab (optab_table[OTI_sdivv])
@@ -336,6 +369,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define mov_optab (optab_table[OTI_mov])
 #define movstrict_optab (optab_table[OTI_movstrict])
 #define movmisalign_optab (optab_table[OTI_movmisalign])
+#define storent_optab (optab_table[OTI_storent])
 
 #define neg_optab (optab_table[OTI_neg])
 #define negv_optab (optab_table[OTI_negv])
@@ -375,7 +409,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define tan_optab (optab_table[OTI_tan])
 #define atan_optab (optab_table[OTI_atan])
 #define copysign_optab (optab_table[OTI_copysign])
-
+#define signbit_optab (optab_table[OTI_signbit])
 #define isinf_optab (optab_table[OTI_isinf])
 
 #define cmp_optab (optab_table[OTI_cmp])
@@ -404,7 +438,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define reduc_umin_optab (optab_table[OTI_reduc_umin])
 #define reduc_splus_optab (optab_table[OTI_reduc_splus])
 #define reduc_uplus_optab (optab_table[OTI_reduc_uplus])
-                                                                                
+
 #define ssum_widen_optab (optab_table[OTI_ssum_widen])
 #define usum_widen_optab (optab_table[OTI_usum_widen])
 #define sdot_prod_optab (optab_table[OTI_sdot_prod])
@@ -425,13 +459,19 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_widen_smult_hi_optab (optab_table[OTI_vec_widen_smult_hi])
 #define vec_widen_smult_lo_optab (optab_table[OTI_vec_widen_smult_lo])
 #define vec_unpacks_hi_optab (optab_table[OTI_vec_unpacks_hi])
-#define vec_unpacku_hi_optab (optab_table[OTI_vec_unpacku_hi])
 #define vec_unpacks_lo_optab (optab_table[OTI_vec_unpacks_lo])
+#define vec_unpacku_hi_optab (optab_table[OTI_vec_unpacku_hi])
 #define vec_unpacku_lo_optab (optab_table[OTI_vec_unpacku_lo])
-#define vec_pack_mod_optab (optab_table[OTI_vec_pack_mod])
+#define vec_unpacks_float_hi_optab (optab_table[OTI_vec_unpacks_float_hi])
+#define vec_unpacks_float_lo_optab (optab_table[OTI_vec_unpacks_float_lo])
+#define vec_unpacku_float_hi_optab (optab_table[OTI_vec_unpacku_float_hi])
+#define vec_unpacku_float_lo_optab (optab_table[OTI_vec_unpacku_float_lo])
+#define vec_pack_trunc_optab (optab_table[OTI_vec_pack_trunc])
 #define vec_pack_ssat_optab (optab_table[OTI_vec_pack_ssat])
 #define vec_pack_usat_optab (optab_table[OTI_vec_pack_usat])
-                                                                                
+#define vec_pack_sfix_trunc_optab (optab_table[OTI_vec_pack_sfix_trunc])
+#define vec_pack_ufix_trunc_optab (optab_table[OTI_vec_pack_ufix_trunc])
+
 #define powi_optab (optab_table[OTI_powi])
 
 /* Conversion optabs have their own table and indexes.  */
@@ -664,5 +704,9 @@ extern rtx expand_vec_cond_expr (tree, rtx);
 
 /* Generate code for VEC_LSHIFT_EXPR and VEC_RSHIFT_EXPR.  */
 extern rtx expand_vec_shift_expr (tree, rtx);
+
+#define optab_handler(optab,mode) (&(optab)->handlers[(int) (mode)])
+#define convert_optab_handler(optab,mode,mode2) \
+	(&(optab)->handlers[(int) (mode)][(int) (mode2)])
 
 #endif /* GCC_OPTABS_H */

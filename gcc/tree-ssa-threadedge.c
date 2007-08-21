@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -488,7 +487,19 @@ simplify_control_stmt_condition (edge e,
    Note it is quite common for the first block inside a loop to
    end with a conditional which is either always true or always
    false when reached via the loop backedge.  Thus we do not want
-   to blindly disable threading across a loop backedge.  */
+   to blindly disable threading across a loop backedge.
+ 
+   DUMMY_COND is a shared cond_expr used by condition simplification as scratch,
+   to avoid allocating memory.
+ 
+   HANDLE_DOMINATING_ASSERTS is true if we should try to replace operands of
+   the simplified condition with left-hand sides of ASSERT_EXPRs they are
+   used in.
+ 
+   STACK is used to undo temporary equivalences created during the walk of
+   E->dest.
+
+   SIMPLIFY is a pass-specific function used to simplify statements.  */
 
 void
 thread_across_edge (tree dummy_cond,

@@ -12,7 +12,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -21,9 +21,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* For a detailed description, see "Constraint-Based Array Dependence
    Analysis" William Pugh, David Wonnacott, TOPLAS'98 and David
@@ -1696,7 +1695,7 @@ normalize_omega_problem (omega_pb pb)
 			if (dump_file && (dump_flags & TDF_DETAILS))
 			  {
 			    fprintf (dump_file,
-				     "Removing Redudant Equation: ");
+				     "Removing Redundant Equation: ");
 			    omega_print_geq (dump_file, pb, &(pb->geqs[e2]));
 			    fprintf (dump_file, "\n");
 			    fprintf (dump_file,
@@ -1714,7 +1713,7 @@ normalize_omega_problem (omega_pb pb)
 		  {
 		    if (dump_file && (dump_flags & TDF_DETAILS))
 		      {
-			fprintf (dump_file, "Removing Redudant Equation: ");
+			fprintf (dump_file, "Removing Redundant Equation: ");
 			omega_print_geq (dump_file, pb, &(pb->geqs[e]));
 			fprintf (dump_file, "\n");
 			fprintf (dump_file, "[b]      Made Redundant by: ");
@@ -1736,7 +1735,7 @@ normalize_omega_problem (omega_pb pb)
 		  {
 		    if (dump_file && (dump_flags & TDF_DETAILS))
 		      {
-			fprintf (dump_file, "Removing Redudant Equation: ");
+			fprintf (dump_file, "Removing Redundant Equation: ");
 			omega_print_geq (dump_file, pb, &(pb->geqs[e2]));
 			fprintf (dump_file, "\n");
 			fprintf (dump_file, "[c]      Made Redundant by: ");
@@ -1750,7 +1749,7 @@ normalize_omega_problem (omega_pb pb)
 		  {
 		    if (dump_file && (dump_flags & TDF_DETAILS))
 		      {
-			fprintf (dump_file, "Removing Redudant Equation: ");
+			fprintf (dump_file, "Removing Redundant Equation: ");
 			omega_print_geq (dump_file, pb, &(pb->geqs[e]));
 			fprintf (dump_file, "\n");
 			fprintf (dump_file, "[d]      Made Redundant by: ");
@@ -1806,13 +1805,13 @@ cleanout_wildcards (omega_pb pb)
     for (i = n_vars; !omega_safe_var_p (pb, i); i--)
       if (pb->eqs[e].coef[i] != 0)
 	{
-	  /* i is the last non-zero non-safe variable.  */
+	  /* i is the last nonzero non-safe variable.  */
 
 	  for (j = i - 1; !omega_safe_var_p (pb, j); j--)
 	    if (pb->eqs[e].coef[j] != 0)
 	      break;
 
-	  /* j is the next non-zero non-safe variable, or points
+	  /* j is the next nonzero non-safe variable, or points
 	     to a safe variable: it is then a wildcard variable.  */
 
 	  /* Clean it out.  */
@@ -2094,7 +2093,7 @@ omega_eliminate_redundant (omega_pb pb, bool expensive)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "in eliminate Redudant:\n");
+      fprintf (dump_file, "in eliminate Redundant:\n");
       omega_print_problem (dump_file, pb);
     }
 
@@ -2454,7 +2453,7 @@ coalesce (omega_pb pb)
 {
   int e, e2;
   int colors = 0;
-  bool *is_dead = XNEWVEC (bool, OMEGA_MAX_GEQS);
+  bool *is_dead;
   int found_something = 0;
 
   for (e = 0; e < pb->num_geqs; e++)
@@ -2463,6 +2462,8 @@ coalesce (omega_pb pb)
 
   if (colors < 2)
     return;
+
+  is_dead = XNEWVEC (bool, OMEGA_MAX_GEQS);
 
   for (e = 0; e < pb->num_geqs; e++)
     is_dead[e] = false;
@@ -3174,9 +3175,9 @@ omega_solve_eq (omega_pb pb, enum omega_result desired_res)
 	if (eqn->coef[j])
 	  break;
 
-      /* i is the position of last non-zero coefficient,
+      /* i is the position of last nonzero coefficient,
 	 g is the coefficient of i,
-	 j is the position of next non-zero coefficient.  */
+	 j is the position of next nonzero coefficient.  */
 
       if (j == 0)
 	{
@@ -4663,7 +4664,7 @@ omega_solve_geq (omega_pb pb, enum omega_result desired_res)
 
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
-		  fprintf (dump_file, "lower bound coeeficients = ");
+		  fprintf (dump_file, "lower bound coefficients = ");
 
 		  for (j = 0; j < lower_bounds; j++)
 		    fprintf (dump_file, " %d",
@@ -4950,7 +4951,7 @@ omega_problem_has_red_equations (omega_pb pb)
     {
       if (!result)
 	fprintf (dump_file,
-		 "******************** Redudant Red Equations eliminated!!\n");
+		 "******************** Redundant Red Equations eliminated!!\n");
       else
 	fprintf (dump_file,
 		 "******************** Red Equations remain\n");

@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -166,7 +165,7 @@ cmpstringp (const void *p1, const void *p2)
      pointers to char", but strcmp() arguments are "pointers
      to char", hence the following cast plus dereference */
 
-  return strcmp(*(char **) p1, *(char **) p2);
+  return strcmp(*(const char *const*) p1, *(const char *const*) p2);
 }
 
 /* Create an array of strings, one for each source file that we've
@@ -1302,7 +1301,7 @@ read_class (tree name)
       if (path_name == 0)
 	return 0;
       else
-	free((char *) path_name);
+	free(CONST_CAST (path_name));
     }
 
   current_jcf = jcf;
@@ -1365,11 +1364,6 @@ load_class (tree class_or_name, int verbose)
 	= ((TYPE_JCF (type) && JCF_SEEN_IN_ZIP (TYPE_JCF (type)))
 	   || CLASS_FROM_CURRENTLY_COMPILED_P (type));
     }
-
-  /* If the class is from source code, then it must already be loaded.  */
-  class_decl = IDENTIFIER_CLASS_VALUE (name);
-  if (class_decl && CLASS_FROM_SOURCE_P (TREE_TYPE (class_decl)))
-    return;
 
   saved = name;
   
@@ -1784,7 +1778,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
       file_list = list;
     }
   else
-    list = (char *) main_input_filename;
+    list = (char *) CONST_CAST (main_input_filename);
 
   while (list)
     {

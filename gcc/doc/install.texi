@@ -324,13 +324,11 @@ Necessary to build libgcj, the GCJ runtime.
 
 @heading Tools/packages necessary for modifying GCC
 @table @asis
-@item autoconf versions 2.13 and 2.59
+@item autoconf version 2.59
 @itemx GNU m4 version 1.4 (or later)
 
 Necessary when modifying @file{configure.ac}, @file{aclocal.m4}, etc.@:
-to regenerate @file{configure} and @file{config.in} files.  Most
-directories require autoconf 2.59 (exactly), but the toplevel
-still requires autoconf 2.13 (exactly).
+to regenerate @file{configure} and @file{config.in} files.
 
 @item automake version 1.9.6
 
@@ -583,6 +581,29 @@ To configure GCC:
    % @var{srcdir}/configure [@var{options}] [@var{target}]
 @end smallexample
 
+@heading Distributor options
+
+If you will be distributing binary versions of GCC, with modifications
+to the source code, you should use the options described in this
+section to make clear that your version contains modifications.
+
+@table @code
+@item --with-pkgversion=@var{version}
+Specify a string that identifies your package.  You may wish
+to include a build number or build date.  This version string will be
+included in the output of @command{gcc --version}.  This suffix does
+not replace the default version string, only the @samp{GCC} part.
+
+The default value is @samp{GCC}.
+
+@item --with-bugurl=@var{url}
+Specify the URL that users should visit if they wish to report a bug.
+You are of course welcome to forward bugs reported to you to the FSF,
+if you determine that they are not bugs in your modifications.
+
+The default value refers to the FSF's GCC bug tracker.
+
+@end table
 
 @heading Target specification
 @itemize @bullet
@@ -1319,6 +1340,13 @@ or @samp{dpd}).  The @samp{bid} (binary integer decimal) format is
 default on i386 and x86_64 systems, and the @samp{dpd} (densely packed
 decimal) format is default on PowerPC systems.
 
+@item --enable-fixed-point
+@itemx --disable-fixed-point
+Enable (or disable) support for C fixed-point arithmetic.
+This option is enabled by default for some targets (such as MIPS) which
+have hardware-support for fixed-point operations.  On other targets, you
+may enable this option manually.
+
 @item --with-long-double-128
 Specify if @code{long double} type should be 128-bit by default on selected
 GNU/Linux architectures.  If using @code{--without-long-double-128},
@@ -1346,6 +1374,11 @@ GCC, you can explicitly specify the directory where they are installed
 @option{--with-mpfr-include=@var{mpfrinstalldir}/include}.  If these
 shorthand assumptions are not correct, you can use the explicit
 include and lib options directly.
+
+@item --with-debug-prefix-map=@var{map}
+Convert source directory names using @option{-fdebug-prefix-map} when
+building runtime libraries.  @samp{@var{map}} is a space-separated
+list of maps of the form @samp{@var{old}=@var{new}}.
 
 @end table
 
@@ -1766,6 +1799,13 @@ To build a cross compiler, we first recommend building and installing a
 native compiler.  You can then use the native GCC compiler to build the
 cross compiler.  The installed native compiler needs to be GCC version
 2.95 or later.
+
+If the cross compiler is to be built with support for the Java
+programming language and the ability to compile .java source files is
+desired, the installed native compiler used to build the cross
+compiler needs to be the same GCC version as the cross compiler.  In
+addition the cross compiler needs to be configured with
+@option{--with-ecj-jar=@dots{}}.
 
 Assuming you have already installed a native copy of GCC and configured
 your cross compiler, issue the command @command{make}, which performs the
@@ -3688,8 +3728,7 @@ To enable debugging for the O32 ABI, you must use GNU @command{as} from
 GNU binutils 2.15 or later.  You may also use GNU @command{ld}, but
 this is not required and currently causes some problems with Ada.
 
-The @option{--enable-threads} option doesn't currently work, a patch is
-in preparation for a future release.  The @option{--enable-libgcj}
+The @option{--enable-libgcj}
 option is disabled by default: IRIX 6 uses a very low default limit
 (20480) for the command line length.  Although @command{libtool} contains a
 workaround for this problem, at least the N64 @samp{libgcj} is known not
