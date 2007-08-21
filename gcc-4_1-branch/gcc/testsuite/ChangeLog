@@ -1,3 +1,8 @@
+2007-08-21  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport from mainline:
+	gcc.dg/dfp/fe-convert-1.c: Check for overflow.
+
 2007-08-15  Janis Johnson  <janis187@us.ibm.com>
 
 	* gcc.target/powerpc/dfp-dd.c: New test.
