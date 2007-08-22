@@ -1,5 +1,9 @@
 2007-08-22  Andrew Haley  <aph@redhat.com>
 
+	* configure.host (BACKTRACESPEC): Add arm*-linux*.
+
+2007-08-22  Andrew Haley  <aph@redhat.com>
+
 	* configure.ac (LIBSTDCXXSPEC): New.
 	* configure.host: Add arm*-linux* to pthread test.
 	* configure.ac (LIBGCJTESTSPEC): Add path to libstdc++ for ARM
