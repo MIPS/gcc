@@ -197,6 +197,7 @@ case "${host}" in
   i[34567]86*-linux* | \
   powerpc*-linux* | \
   alpha*-linux* | \
+  arm*-linux* | \
   s390*-linux* | \
   sparc*-linux* | \
   ia64-* | \

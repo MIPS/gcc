@@ -1,3 +1,14 @@
+2007-08-22  Andrew Haley  <aph@redhat.com>
+
+	* configure.ac (LIBSTDCXXSPEC): New.
+	* configure.host: Add arm*-linux* to pthread test.
+	* configure.ac (LIBGCJTESTSPEC): Add path to libstdc++ for ARM
+	EABI.
+	* testsuite/libjava.jni/jni.exp (gcj_jni_compile_c_to_so): Use
+	-fexceptions for ARM EABI.
+	* testsuite/lib/libjava.exp (libjava_arguments): Add libgcj-test.spec.
+	(libjava_invoke): Log the invocation.
+
 2007-08-15  Andrew Haley  <aph@redhat.com>
 
 	* configure.ac (extra_ldflags): Define.

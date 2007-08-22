@@ -763,9 +763,6 @@ case "${host}" in
 esac
 AC_SUBST(SYSTEMSPEC)
 
-LIBGCJTESTSPEC="-L`${PWDCMD-pwd}`/.libs -rpath `${PWDCMD-pwd}`/.libs"
-AC_SUBST(LIBGCJTESTSPEC)
-
 AC_ARG_WITH(system-zlib,
   AS_HELP_STRING([--with-system-zlib],
                  [use installed libz]))
@@ -779,6 +776,9 @@ AC_PATH_XTRA
 # FIXME: this should be _libs on some hosts.
 libsubdir=.libs
 
+LIBGCJTESTSPEC="-L`${PWDCMD-pwd}`/.libs -rpath `${PWDCMD-pwd}`/.libs"
+
+LIBSTDCXXSPEC=
 # extra LD Flags which are required for targets
 case "${host}" in
 *-*-darwin[[0-7]].*)
@@ -788,11 +788,19 @@ case "${host}" in
     extra_ldflags_libjava=-Wl,-single_module
     ;;
 arm*linux*eabi)
-    extra_ldflags=-L../libstdc++/src -lstdc++
+    # Some of the ARM unwinder code is actually in libstdc++.  We
+    # could in principle replicate it in libgcj, but it's better to
+    # have a dependency on libstdc++.
+    extra_ldflags='-L$(here)/../libstdc++-v3/src/.libs -lstdc++'
+    LIBSTDCXXSPEC=-lstdc++
+    LIBGCJTESTSPEC="-L`${PWDCMD-pwd}`/.libs -L`${PWDCMD-pwd}`/../libstdc++-v3/src/.libs -rpath `${PWDCMD-pwd}`/.libs:`${PWDCMD-pwd}`/../libstdc++-v3/src/.libs -lstdc++"
     ;;
 esac
 AC_SUBST(extra_ldflags_libjava)
 AC_SUBST(extra_ldflags)
+AC_SUBST(LIBSTDCXXSPEC)
+
+AC_SUBST(LIBGCJTESTSPEC)
 
 # Allow the GC to be disabled.  Can be useful when debugging.
 AC_MSG_CHECKING([for garbage collector to use])
