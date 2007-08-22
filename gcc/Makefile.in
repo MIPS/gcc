@@ -803,7 +803,7 @@ MKDEPS_H = $(srcdir)/../libcpp/include/mkdeps.h
 SYMTAB_H = $(srcdir)/../libcpp/include/symtab.h
 CPP_ID_DATA_H = $(CPPLIB_H) $(srcdir)/../libcpp/include/cpp-id-data.h
 TREE_DUMP_H = tree-dump.h $(SPLAY_TREE_H)
-TREE_GIMPLE_H = tree-gimple.h tree-iterator.h gimple.h gimple-iterator.h
+TREE_GIMPLE_H = tree-gimple.h tree-iterator.h $(GIMPLE_H)
 TREE_FLOW_H = tree-flow.h tree-flow-inline.h tree-ssa-operands.h \
 		bitmap.h $(BASIC_BLOCK_H) hard-reg-set.h $(TREE_GIMPLE_H) \
 		$(HASHTAB_H) $(CGRAPH_H) $(IPA_REFERENCE_H)

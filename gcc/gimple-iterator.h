@@ -22,7 +22,6 @@ Boston, MA 02110-1301, USA.  */
 #ifndef GCC_SEQ_ITERATOR_H
 #define GCC_SEQ_ITERATOR_H
 #include "ggc.h"
-#include "gimple.h"
 
 /* Iterator object for GIMPLE statement sequences.  */
 

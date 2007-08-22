@@ -279,8 +279,12 @@ struct gimple_statement_omp_single GTY(())
 };
 
 /* GIMPLE_OMP_RETURN */
-/* Flags stored in GIMPLE_OMP_RETURN's subcode flags.*/
+/* Flags stored in GIMPLE_OMP_RETURN's subcode flags.  */
 #define OMP_RETURN_NOWAIT_FLAG 1 << 0
+
+/* GIMPLE_OMP_SECTION */
+/* Flags stored in GIMPLE_OMP_SECTION's subcode flags.  */
+#define OMP_SECTION_LAST_FLAG 1 << 0
 
 enum gimple_statement_structure_enum {
 #define DEFGSSTRUCT(SYM, STRING)	SYM,
@@ -443,6 +447,28 @@ set_gimple_modified (gimple g, bool modifiedp)
 {
   if (gimple_has_ops (g))
     g->with_ops.modified = (unsigned) modifiedp;
+}
+
+
+/* Returns TRUE if a statement is a GIMPLE_OMP_RETURN and has the
+   OMP_RETURN_NOWAIT_FLAG set.  */
+
+static inline bool
+gimple_omp_return_nowait_p (gimple g)
+{
+  gcc_assert (gimple_code (g) == GIMPLE_OMP_RETURN);
+  return gimple_flags (g) & OMP_RETURN_NOWAIT_FLAG;
+}
+
+
+/* Returns TRUE if a statement is a GIMPLE_OMP_SECtiON and has the
+   OMP_SECTION_LAST_FLAG set.  */
+
+static inline bool
+gimple_omp_section_last_p (gimple g)
+{
+  gcc_assert (gimple_code (g) == GIMPLE_OMP_SECTION);
+  return gimple_flags (g) & OMP_SECTION_LAST_FLAG;
 }
 
 
@@ -1127,6 +1153,13 @@ gimple_switch_num_labels (gimple gs)
   return gs->with_ops.num_ops - 1;
 }
 
+static inline void
+gimple_switch_set_num_labels (gimple g, size_t nlabels)
+{
+  GIMPLE_CHECK (g, GIMPLE_SWITCH);
+  g->with_ops.num_ops = nlabels + 1;
+}
+
 static inline tree
 gimple_switch_index (gimple gs)
 {
@@ -1372,7 +1405,6 @@ gimple_omp_sections_set_clauses (gimple gs, tree clauses)
 }
 
 
-
 /* get or set the OMP_FOR_COND stored in the subcode flags */
 static inline void
 gimple_assign_omp_for_cond (gimple gs, enum gimple_cond cond)
@@ -1404,6 +1436,17 @@ gimple_return_set_retval (gimple gs, tree retval)
   GIMPLE_CHECK (gs, GIMPLE_RETURN);
   gcc_assert (gs->with_ops.num_ops == 1);
   gs->with_ops.op[0] = retval;
+}
+
+
+/* GIMPLE_NOP.  */
+
+/* Returns TRUE if a stmt is a GIMPLE_NOP.  */
+
+static inline bool
+gimple_nop_p (gimple g)
+{
+  return gimple_code (g) == GIMPLE_NOP;
 }
 
 #include "gimple-iterator.h"

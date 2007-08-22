@@ -1,3 +1,15 @@
+2007-08-22  Aldy Hernandez  <aldyh@redhat.com>
+
+	* Makefile.in (TREE_GIMPLE_H): Depend on GIMPLE_H.
+
+	* gimple-iterator.h: Do not include gimple.h.
+
+	* gimple.h (OMP_SECTION_LAST_FLAG): New.
+	(gimple_omp_return_nowait_p): New.
+	(gimple_omp_section_last_p): New.
+	(gimple_switch_set_num_labels): New.
+	(gimple_nop_p): New.
+	
 2007-08-17  Aldy Hernandez  <aldyh@redhat.com>
 
 	Revert this change:
