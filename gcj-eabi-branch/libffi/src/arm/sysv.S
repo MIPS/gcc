@@ -92,6 +92,7 @@
 	bx	pc
 	nop
 	.arm
+	.fnstart
 /* A hook to tell gdb that we've switched to ARM mode.  Also used to call
    directly from other local arm routines.  */
 _L__\name:		
@@ -102,6 +103,7 @@ _L__\name:
 	.align 0
 	.arm
 	ENTRY(\name)
+	.fnstart
 .endm
 #endif
 
@@ -134,7 +136,10 @@ _L__\name:
 ARM_FUNC_START ffi_call_SYSV
 	@ Save registers
         stmfd	sp!, {r0-r3, fp, lr}
+	.save	{r0-r3, fp, lr}
 	mov	fp, sp
+
+	.setfp	fp, sp
 
 	@ Make room for all of the new args.
 	sub	sp, fp, r2
@@ -205,6 +210,7 @@ LSYM(Lepilogue):
 	RETLDM	"r0-r3,fp"
 
 .ffi_call_SYSV_end:
+	.fnend
         .size    CNAME(ffi_call_SYSV),.ffi_call_SYSV_end-CNAME(ffi_call_SYSV)
 
 /*
@@ -216,9 +222,12 @@ LSYM(Lepilogue):
 */
 
 ARM_FUNC_START ffi_closure_SYSV
+	.pad #16
 	add	ip, sp, #16
 	stmfd	sp!, {ip, lr}
+	.save	{r0, lr}
 	add	r2, sp, #8
+	.pad #16
 	sub	sp, sp, #16
 	str	sp, [sp, #8]
 	add	r1, sp, #8
@@ -273,5 +282,6 @@ ARM_FUNC_START ffi_closure_SYSV
 #endif
 
 .ffi_closure_SYSV_end:
+	.fnend
         .size    CNAME(ffi_closure_SYSV),.ffi_closure_SYSV_end-CNAME(ffi_closure_SYSV)
 
