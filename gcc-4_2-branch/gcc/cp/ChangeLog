@@ -1,3 +1,25 @@
+2007-08-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/29365
+	* pt.c (outermost_tinst_level): New function.
+	* lex.c (in_main_input_context): New function.
+	* cp-tree.h: Declare it.
+	* decl2.c (constrain_class_visibility): Use it to avoid warning
+	about uses of the anonymous namespace in the main input file.
+
+2007-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/32992
+	* typeck.c (check_return_expr): Don't NRV optimize vars in
+	anonymous unions.
+	* decl.c (finish_function): Comment fix.
+
+2007-08-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/32112
+	* error.c (dump_decl): Deal with UNBOUND_CLASS_TEMPLATE.
+	* cxx-pretty-print.c (pp_cxx_unqualified_id): Likewise.
+
 2007-08-10  Paolo Carlini  <pcarlini@suse.de>
 
 	PR c++/17763

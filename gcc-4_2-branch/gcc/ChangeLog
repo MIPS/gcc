@@ -1,3 +1,23 @@
+2007-08-22  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/32563
+	* tree.c (host_integerp): Treat sizetype as signed as it is
+	sign-extended.
+
+2007-08-20  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/mips/predicates.md (const_call_insn_operand): Invoke
+	SYMBOL_REF_LONG_CALL_P only on SYMBOL_REFs.
+
+2007-08-17  Chen liqin  <liqin@sunnorth.com.cn>
+
+        * config/score/score.md : Update pattern tablejump.
+        * config/score/score.c : Update score_initialize_trampoline 
+        function.
+        * config/score/score.h (TRAMPOLINE_TEMPLATE): Added macro.
+        (TRAMPOLINE_INSNS, TRAMPOLINE_SIZE) Update macro.
+        * doc/contrib.texi: Add my entry.
+
 2007-08-02  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	* config/s390/s390.md ("*xordi3_cconly"): Change xr to xg.

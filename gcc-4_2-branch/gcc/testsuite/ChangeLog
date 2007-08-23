@@ -1,3 +1,34 @@
+2007-08-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33142
+	* gcc.c-torture/execute/pr33142.c: New testcase.
+
+2007-08-22  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/32563
+	* g++.dg/torture/pr32563.C: New testcase.
+
+	Backport from mainline:
+	2007-05-30  Richard Guenther  <rguenther@suse.de>
+
+	* g++.dg/dg.exp: Prune torture/.
+	* g++.dg/torture/dg-torture.exp: New testsuite.
+
+2007-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/32992
+	* g++.dg/opt/nrv14.C: New test.
+
+2007-08-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/32112
+	* g++.dg/template/error26.C: New.
+
+2007-08-17  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/32190
+	* g++.dg/parse/error31.C: New.
+
 2007-08-10  Paolo Carlini  <pcarlini@suse.de>
 
 	PR c++/17763
