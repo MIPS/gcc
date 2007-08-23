@@ -1054,7 +1054,7 @@ ipcp_insert_stage (void)
       if (const_param > 0)
 	{
 	  push_cfun (DECL_STRUCT_FUNCTION (node1->decl));
-	  tree_register_cfg_hooks ();
+	  gimple_register_cfg_hooks ();
 	  current_function_decl = node1->decl;
 
 	  for (i = 0; i < count; i++)

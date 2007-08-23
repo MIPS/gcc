@@ -956,7 +956,7 @@ vn_phi_lookup (tree phi)
       VEC_safe_push (tree, heap, shared_lookup_phiargs, def);
     }
   vp1.phiargs = shared_lookup_phiargs;
-  vp1.block = bb_for_stmt (phi);
+  vp1.block = gimple_bb (phi);
   vp1.hashcode = vn_phi_compute_hash (&vp1);
   slot = htab_find_slot_with_hash (current_info->phis, &vp1, vp1.hashcode,
 				   NO_INSERT);
@@ -984,7 +984,7 @@ vn_phi_insert (tree phi, tree result)
       VEC_safe_push (tree, heap, args, def);
     }
   vp1->phiargs = args;
-  vp1->block = bb_for_stmt (phi);
+  vp1->block = gimple_bb (phi);
   vp1->result = result;
   vp1->hashcode = vn_phi_compute_hash (vp1);
 
@@ -1683,8 +1683,8 @@ compare_ops (const void *pa, const void *pb)
   else if (IS_EMPTY_STMT (opstmtb))
     return 1;
 
-  bba = bb_for_stmt (opstmta);
-  bbb = bb_for_stmt (opstmtb);
+  bba = gimple_bb (opstmta);
+  bbb = gimple_bb (opstmtb);
 
   if (!bba && !bbb)
     return 0;

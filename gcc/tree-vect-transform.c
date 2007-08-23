@@ -1132,7 +1132,7 @@ get_initial_def_for_induction (tree iv_phi)
   tree stmts;
   tree stmt = NULL_TREE;
   block_stmt_iterator si;
-  basic_block bb = bb_for_stmt (iv_phi);
+  basic_block bb = gimple_bb (iv_phi);
 
   gcc_assert (phi_info);
   gcc_assert (ncopies >= 1);
@@ -1976,7 +1976,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
   exit_phi = NULL;
   FOR_EACH_IMM_USE_FAST (use_p, imm_iter, scalar_dest)
     {
-      if (!flow_bb_inside_loop_p (loop, bb_for_stmt (USE_STMT (use_p))))
+      if (!flow_bb_inside_loop_p (loop, gimple_bb (USE_STMT (use_p))))
 	{
 	  exit_phi = USE_STMT (use_p);
 	  break;

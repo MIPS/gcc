@@ -6800,24 +6800,22 @@ force_gimple_operand_bsi (block_stmt_iterator *bsi ATTRIBUTE_UNUSED, tree expr,
   struct gimple_sequence stmts;
 
   expr = force_gimple_operand (expr, &stmts, simple_p, var);
-#if 0
-/* FIXME tuples */
-  if (stmts)
+
+  if (!gimple_seq_empty_p (&stmts))
     {
       if (gimple_in_ssa_p (cfun))
 	{
-	  tree_stmt_iterator tsi;
+	  gimple_stmt_iterator *gsi;
 
-	  for (tsi = tsi_start (stmts); !tsi_end_p (tsi); tsi_next (&tsi))
-	    mark_symbols_for_renaming (tsi_stmt (tsi));
+	  for (gsi = gsi_start (&stmts); !gsi_end_p (gsi); gsi_next (gsi))
+	    mark_symbols_for_renaming (gsi_stmt (gsi));
 	}
 
       if (before)
-	bsi_insert_before (bsi, stmts, m);
+	bsi_insert_seq_before (bsi, &stmts, m);
       else
-	bsi_insert_after (bsi, stmts, m);
+	bsi_insert_seq_after (bsi, &stmts, m);
     }
-#endif
 
   return expr;
 }

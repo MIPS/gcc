@@ -2881,7 +2881,7 @@ static void
 dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
   edge e;
-  tree stmt;
+  gimple stmt;
   edge_iterator ei;
 
   if (flags & TDF_BLOCKS)
@@ -2932,7 +2932,7 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
   else
     {
       stmt = first_stmt (bb);
-      if (!stmt || TREE_CODE (stmt) != LABEL_EXPR)
+      if (!stmt || gimple_code (stmt) != GIMPLE_LABEL)
 	{
 	  INDENT (indent - 2);
 	  pp_string (buffer, "<bb ");
@@ -3062,7 +3062,7 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 #ifdef USE_MAPPED_LOCATION
 	  && e->goto_locus != UNKNOWN_LOCATION
 #else
-	  && e->goto_locus
+	  && !IS_LOCATION_EMPTY (e->goto_locus)
 #endif
 	  )
 	{
@@ -3070,7 +3070,7 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 #ifdef USE_MAPPED_LOCATION
 	  goto_xloc = expand_location (e->goto_locus);
 #else
-	  goto_xloc = *e->goto_locus;
+	  goto_xloc = e->goto_locus;
 #endif
 	  pp_character (buffer, '[');
 	  if (goto_xloc.file)

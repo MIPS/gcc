@@ -996,7 +996,7 @@ cgraph_add_new_function (tree fndecl, bool lowered)
 	   to expansion.  */
 	push_cfun (DECL_STRUCT_FUNCTION (fndecl));
 	current_function_decl = fndecl;
-	tree_register_cfg_hooks ();
+	gimple_register_cfg_hooks ();
 	if (!lowered)
           tree_lowering_passes (fndecl);
 	bitmap_obstack_initialize (NULL);

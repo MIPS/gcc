@@ -502,7 +502,7 @@ mf_build_check_statement_for (tree base, tree limit,
      the CFG.  This allows us to insert the statements we're about to
      construct into the right basic blocks.  */
 
-  cond_bb = bb_for_stmt (bsi_stmt (*instr_bsi));
+  cond_bb = gimple_bb (bsi_stmt (*instr_bsi));
   bsi = *instr_bsi;
   bsi_prev (&bsi);
   if (! bsi_end_p (bsi))

@@ -1744,7 +1744,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 					     invariants, MIN_EXPR, &stmts);
       exit = single_exit (temp);
       exitcond = get_loop_exit_condition (temp);
-      bb = bb_for_stmt (exitcond);
+      bb = gimple_bb (exitcond);
       bsi = bsi_after_labels (bb);
       if (stmts)
 	bsi_insert_before (&bsi, stmts, BSI_NEW_STMT);
@@ -2083,7 +2083,7 @@ exit_phi_for_loop_p (struct loop *loop, tree stmt)
   
   if (TREE_CODE (stmt) != PHI_NODE
       || PHI_NUM_ARGS (stmt) != 1
-      || bb_for_stmt (stmt) != single_exit (loop)->dest)
+      || gimple_bb (stmt) != single_exit (loop)->dest)
     return false;
   
   return true;
@@ -2107,7 +2107,7 @@ can_put_in_inner_loop (struct loop *inner, tree stmt)
     {
       if (!exit_phi_for_loop_p (inner, USE_STMT (use_p)))
 	{
-	  basic_block immbb = bb_for_stmt (USE_STMT (use_p));
+	  basic_block immbb = gimple_bb (USE_STMT (use_p));
 
 	  if (!flow_bb_inside_loop_p (inner, immbb))
 	    return false;
@@ -2130,7 +2130,7 @@ can_put_after_inner_loop (struct loop *loop, tree stmt)
     {
       if (!exit_phi_for_loop_p (loop, USE_STMT (use_p)))
 	{
-	  basic_block immbb = bb_for_stmt (USE_STMT (use_p));
+	  basic_block immbb = gimple_bb (USE_STMT (use_p));
 	  
 	  if (!dominated_by_p (CDI_DOMINATORS,
 			       immbb,
@@ -2206,7 +2206,7 @@ can_convert_to_perfect_nest (struct loop *loop)
 		     in the inner loop.  */
 		  if (TREE_CODE (op0) == SSA_NAME)
 		    FOR_EACH_IMM_USE_FAST (use_a, imm_iter, op0)
-		      if (bb_for_stmt (USE_STMT (use_a))->loop_father
+		      if (gimple_bb (USE_STMT (use_a))->loop_father
 			  == loop->inner)
 			goto fail;
 
@@ -2216,7 +2216,7 @@ can_convert_to_perfect_nest (struct loop *loop)
 
 		      /* The variables should not be used in both loops.  */
 		      FOR_EACH_IMM_USE_FAST (use_b, imm_iter, op)
-		      if (bb_for_stmt (USE_STMT (use_b))->loop_father
+		      if (gimple_bb (USE_STMT (use_b))->loop_father
 			  == loop->inner)
 			goto fail;
 
@@ -2232,8 +2232,8 @@ can_convert_to_perfect_nest (struct loop *loop)
 			      {
 				tree arg_stmt = SSA_NAME_DEF_STMT (arg);
 
-				if (bb_for_stmt (arg_stmt)
-				    && (bb_for_stmt (arg_stmt)->loop_father
+				if (gimple_bb (arg_stmt)
+				    && (gimple_bb (arg_stmt)->loop_father
 					== loop->inner))
 				  goto fail;
 			      }
@@ -2250,7 +2250,7 @@ can_convert_to_perfect_nest (struct loop *loop)
 		 handle this case right now.  This test ensures that the
 		 statement comes completely *after* the inner loop.  */
 	      if (!dominated_by_p (CDI_DOMINATORS,
-				   bb_for_stmt (stmt), 
+				   gimple_bb (stmt), 
 				   loop->inner->header))
 		goto fail;
 	    }

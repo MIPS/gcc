@@ -239,12 +239,12 @@ get_rank (tree e)
 	return find_operand_rank (e);
 
       stmt = SSA_NAME_DEF_STMT (e);
-      if (bb_for_stmt (stmt) == NULL)
+      if (gimple_bb (stmt) == NULL)
 	return 0;
 
       if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
 	  || !ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
-	return bb_rank[bb_for_stmt (stmt)->index];
+	return bb_rank[gimple_bb (stmt)->index];
 
       /* If we already have a rank for this expression, use that.  */
       rank = find_operand_rank (e);
@@ -254,7 +254,7 @@ get_rank (tree e)
       /* Otherwise, find the maximum rank for the operands, or the bb
 	 rank, whichever is less.   */
       rank = 0;
-      maxrank = bb_rank[bb_for_stmt(stmt)->index];
+      maxrank = bb_rank[gimple_bb(stmt)->index];
       rhs = GIMPLE_STMT_OPERAND (stmt, 1);
       n = TREE_OPERAND_LENGTH (rhs);
       if (n == 0)

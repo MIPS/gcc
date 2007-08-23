@@ -812,7 +812,7 @@ branch_prob (void)
 	     if (blah) goto something;
 	     is not computed twice.  */
 	  if (last && EXPR_LOCUS (last)
-	      && e->goto_locus
+	      && !IS_LOCATION_EMPTY (e->goto_locus)
 	      && !single_succ_p (bb)
 #ifdef USE_MAPPED_LOCATION
 	      && (LOCATION_FILE (e->goto_locus)
@@ -820,8 +820,9 @@ branch_prob (void)
 		  || (LOCATION_LINE (e->goto_locus)
 		      != LOCATION_LINE (EXPR_LOCATION  (last)))))
 #else
-	      && (e->goto_locus->file != EXPR_LOCUS (last)->file
-		  || (e->goto_locus->line != EXPR_LOCUS (last)->line)))
+	      && (LOCATION_FILE (e->goto_locus) != EXPR_LOCUS (last)->file
+		  || (LOCATION_LINE (e->goto_locus)
+		      != EXPR_LOCUS (last)->line)))
 #endif
 	    {
 	      basic_block new = split_edge (e);
@@ -1018,18 +1019,13 @@ branch_prob (void)
 
 	  /* Notice GOTO expressions we eliminated while constructing the
 	     CFG.  */
-	  if (single_succ_p (bb) && single_succ_edge (bb)->goto_locus)
+	  if (single_succ_p (bb)
+	      && !IS_LOCATION_EMPTY (single_succ_edge (bb)->goto_locus))
 	    {
-	      /* ??? source_locus type is marked deprecated in input.h.  */
-	      source_locus curr_location = single_succ_edge (bb)->goto_locus;
+	      location_t curr_location = single_succ_edge (bb)->goto_locus;
 	      /* ??? The FILE/LINE API is inconsistent for these cases.  */
-#ifdef USE_MAPPED_LOCATION 
 	      output_location (LOCATION_FILE (curr_location),
 			       LOCATION_LINE (curr_location), &offset, bb);
-#else
-	      output_location (curr_location->file, curr_location->line,
-			       &offset, bb);
-#endif
 	    }
 
 	  if (offset)

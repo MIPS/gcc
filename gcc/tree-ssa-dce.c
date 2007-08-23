@@ -323,7 +323,7 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
       return;
 
     case COND_EXPR:
-      gcc_assert (EDGE_COUNT (bb_for_stmt (stmt)->succs) == 2);
+      gcc_assert (EDGE_COUNT (gimple_bb (stmt)->succs) == 2);
       /* Fall through.  */
 
     case SWITCH_EXPR:
@@ -465,7 +465,7 @@ propagate_necessity (struct edge_list *el)
 	  /* Mark the last statements of the basic blocks that the block
 	     containing STMT is control dependent on, but only if we haven't
 	     already done so.  */
-	  basic_block bb = bb_for_stmt (stmt);
+	  basic_block bb = gimple_bb (stmt);
 	  if (bb != ENTRY_BLOCK_PTR
 	      && ! TEST_BIT (visited_control_parents, bb->index))
 	    {

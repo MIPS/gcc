@@ -919,9 +919,9 @@ translate_vuses_through_block (VEC (tree, gc) *vuses,
     {
       tree phi = SSA_NAME_DEF_STMT (oldvuse);
       if (TREE_CODE (phi) == PHI_NODE
-	  && bb_for_stmt (phi) == phiblock)
+	  && gimple_bb (phi) == phiblock)
 	{
-	  edge e = find_edge (block, bb_for_stmt (phi));
+	  edge e = find_edge (block, gimple_bb (phi));
 	  if (e)
 	    {
 	      tree def = PHI_ARG_DEF (phi, e->dest_idx);
@@ -1313,12 +1313,12 @@ phi_translate_1 (tree expr, bitmap_set_t set1, bitmap_set_t set2,
 
 	def_stmt = SSA_NAME_DEF_STMT (expr);
 	if (TREE_CODE (def_stmt) == PHI_NODE
-	    && bb_for_stmt (def_stmt) == phiblock)
+	    && gimple_bb (def_stmt) == phiblock)
 	  phi = def_stmt;
 	else
 	  return expr;
 
-	e = find_edge (pred, bb_for_stmt (phi));
+	e = find_edge (pred, gimple_bb (phi));
 	if (e)
 	  {
 	    tree val;
@@ -1452,7 +1452,7 @@ value_dies_in_block_x (tree expr, basic_block block)
     {
       tree def = SSA_NAME_DEF_STMT (vuse);
 
-      if (bb_for_stmt (def) != block)
+      if (gimple_bb (def) != block)
 	continue;
       if (TREE_CODE (def) == PHI_NODE)
 	continue;
@@ -3192,6 +3192,8 @@ insert_fake_stores (void)
 static void
 realify_fake_stores (void)
 {
+  /* FIXME tuples */
+#if 0
   unsigned int i;
   tree stmt;
 
@@ -3222,6 +3224,7 @@ realify_fake_stores (void)
       else
 	release_defs (stmt);
     }
+#endif
 }
 
 /* Given an SSA_NAME, see if SCCVN has a value number for it, and if
@@ -3658,7 +3661,7 @@ eliminate (void)
 		  if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
 		    {
 		      bitmap_set_bit (need_eh_cleanup,
-				      bb_for_stmt (stmt)->index);
+				      gimple_bb (stmt)->index);
 		      if (dump_file && (dump_flags & TDF_DETAILS))
 			fprintf (dump_file, "  Removed EH side effects.\n");
 		    }

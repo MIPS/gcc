@@ -403,7 +403,7 @@ loop_phi_node_p (tree phi)
      property: "all the loop-phi-nodes of a loop are contained in the
      loop's header basic block".  */
 
-  return loop_containing_stmt (phi)->header == bb_for_stmt (phi);
+  return loop_containing_stmt (phi)->header == gimple_bb (phi);
 }
 
 /* Compute the scalar evolution for EVOLUTION_FN after crossing LOOP.
@@ -1489,7 +1489,7 @@ analyze_initial_condition (tree loop_phi_node)
 {
   int i;
   tree init_cond = chrec_not_analyzed_yet;
-  struct loop *loop = bb_for_stmt (loop_phi_node)->loop_father;
+  struct loop *loop = gimple_bb (loop_phi_node)->loop_father;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1732,7 +1732,7 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res)
     return interpret_rhs_modify_stmt (loop, NULL_TREE, var, type);
 
   def = SSA_NAME_DEF_STMT (var);
-  bb = bb_for_stmt (def);
+  bb = gimple_bb (def);
   def_loop = bb ? bb->loop_father : NULL;
 
   if (bb == NULL
@@ -1966,7 +1966,7 @@ instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache
   switch (TREE_CODE (chrec))
     {
     case SSA_NAME:
-      def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (chrec));
+      def_bb = gimple_bb (SSA_NAME_DEF_STMT (chrec));
 
       /* A parameter (or loop invariant and we do not want to include
 	 evolutions in outer loops), nothing to do.  */
@@ -2636,7 +2636,7 @@ bool
 simple_iv (struct loop *loop, tree stmt, tree op, affine_iv *iv,
 	   bool allow_nonconstant_step)
 {
-  basic_block bb = bb_for_stmt (stmt);
+  basic_block bb = gimple_bb (stmt);
   tree type, ev;
   bool folded_casts;
 

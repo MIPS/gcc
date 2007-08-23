@@ -426,7 +426,10 @@ bound_difference (struct loop *loop, tree x, tree y, bounds *bnds)
       if (!(e->flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
 	continue;
 
+      /* FIXME tuples
       cond = COND_EXPR_COND (last_stmt (e->src));
+      */
+      cond = NULL; /* FIXME tuples */
       if (!COMPARISON_CLASS_P (cond))
 	continue;
       c0 = TREE_OPERAND (cond, 0);
@@ -1424,7 +1427,7 @@ expand_simple_operations (tree expr)
 
       /* Avoid propagating through loop exit phi nodes, which
 	 could break loop-closed SSA form restrictions.  */
-      dest = bb_for_stmt (stmt);
+      dest = gimple_bb (stmt);
       src = single_pred (dest);
       if (TREE_CODE (e) == SSA_NAME
 	  && src->loop_father != dest->loop_father)
@@ -1605,7 +1608,10 @@ simplify_using_initial_conditions (struct loop *loop, tree expr)
       if (!(e->flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
 	continue;
 
+      /* FIXME tuples
       cond = COND_EXPR_COND (last_stmt (e->src));
+      */
+      cond = NULL; /* FIXME tuples */
       if (e->flags & EDGE_FALSE_VALUE)
 	cond = invert_truthvalue (cond);
       expr = tree_simplify_using_condition (cond, expr);
@@ -1920,7 +1926,7 @@ chain_of_csts_start (struct loop *loop, tree x)
 {
   tree stmt = SSA_NAME_DEF_STMT (x);
   tree use;
-  basic_block bb = bb_for_stmt (stmt);
+  basic_block bb = gimple_bb (stmt);
 
   if (!bb
       || !flow_bb_inside_loop_p (loop, bb))
@@ -2396,7 +2402,7 @@ record_estimate (struct loop *loop, tree bound, double_int i_bound,
   if (is_exit
       || (exit != NULL
 	  && dominated_by_p (CDI_DOMINATORS,
-			     exit->src, bb_for_stmt (at_stmt))))
+			     exit->src, gimple_bb (at_stmt))))
     delta = double_int_one;
   else
     delta = double_int_two;
@@ -2833,7 +2839,7 @@ estimate_numbers_of_iterations (void)
 bool
 stmt_dominates_stmt_p (tree s1, tree s2)
 {
-  basic_block bb1 = bb_for_stmt (s1), bb2 = bb_for_stmt (s2);
+  basic_block bb1 = gimple_bb (s1), bb2 = gimple_bb (s2);
 
   if (!bb1
       || s1 == s2)
@@ -2901,7 +2907,7 @@ n_of_executions_at_most (tree stmt,
   else
     {
       if (!stmt
-	  || (bb_for_stmt (stmt) != bb_for_stmt (niter_bound->stmt)
+	  || (gimple_bb (stmt) != gimple_bb (niter_bound->stmt)
 	      && !stmt_dominates_stmt_p (niter_bound->stmt, stmt)))
 	{
 	  bound = double_int_add (bound, double_int_one);

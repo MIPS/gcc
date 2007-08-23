@@ -490,10 +490,10 @@ split_bbs_on_noreturn_calls (void)
 
   /* Detect cases where a mid-block call is now known not to return.  */
   if (cfun->gimple_df)
-    while (VEC_length (tree, MODIFIED_NORETURN_CALLS (cfun)))
+    while (VEC_length (gimple, MODIFIED_NORETURN_CALLS (cfun)))
       {
-	stmt = VEC_pop (tree, MODIFIED_NORETURN_CALLS (cfun));
-	bb = bb_for_stmt (stmt);
+	stmt = VEC_pop (gimple, MODIFIED_NORETURN_CALLS (cfun));
+	bb = gimple_bb (stmt);
 	if (bb == NULL
 	    || last_stmt (bb) == stmt
 	    || !noreturn_call_p (stmt))
@@ -898,7 +898,7 @@ merge_phi_nodes (void)
 	      /* Get the single use of the result of this PHI node.  */
   	      if (!single_imm_use (result, &imm_use, &use_stmt)
 		  || TREE_CODE (use_stmt) != PHI_NODE
-		  || bb_for_stmt (use_stmt) != dest
+		  || gimple_bb (use_stmt) != dest
 		  || PHI_ARG_DEF (use_stmt, dest_idx) != result)
 		break;
 	    }

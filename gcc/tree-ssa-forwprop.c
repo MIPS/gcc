@@ -473,7 +473,7 @@ tidy_after_forward_propagate_addr (tree stmt)
 {
   /* We may have turned a trapping insn into a non-trapping insn.  */
   if (maybe_clean_or_replace_eh_stmt (stmt, stmt)
-      && tree_purge_dead_eh_edges (bb_for_stmt (stmt)))
+      && tree_purge_dead_eh_edges (gimple_bb (stmt)))
     cfg_changed = true;
 
   if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == ADDR_EXPR)
@@ -690,7 +690,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
 static bool
 forward_propagate_addr_expr (tree name, tree rhs)
 {
-  int stmt_loop_depth = bb_for_stmt (SSA_NAME_DEF_STMT (name))->loop_depth;
+  int stmt_loop_depth = gimple_bb (SSA_NAME_DEF_STMT (name))->loop_depth;
   imm_use_iterator iter;
   tree use_stmt;
   bool all = true;
@@ -711,7 +711,7 @@ forward_propagate_addr_expr (tree name, tree rhs)
       /* If the use is in a deeper loop nest, then we do not want
 	to propagate the ADDR_EXPR into the loop as that is likely
 	adding expression evaluations into the loop.  */
-      if (bb_for_stmt (use_stmt)->loop_depth > stmt_loop_depth)
+      if (gimple_bb (use_stmt)->loop_depth > stmt_loop_depth)
 	{
 	  all = false;
 	  continue;
@@ -1104,7 +1104,7 @@ phivn_valid_p (struct phiprop_d *phivn, tree name, basic_block bb)
 	  if (((TREE_CODE (use_stmt) == GIMPLE_MODIFY_STMT
 	        && !ZERO_SSA_OPERANDS (use_stmt, SSA_OP_VDEF))
 	       || TREE_CODE (use_stmt) == PHI_NODE)
-	      && !dominated_by_p (CDI_DOMINATORS, bb_for_stmt (use_stmt), bb))
+	      && !dominated_by_p (CDI_DOMINATORS, gimple_bb (use_stmt), bb))
 	    {
 	      ok = false;
 	      BREAK_FROM_IMM_USE_STMT (ui2);
@@ -1256,7 +1256,7 @@ propagate_with_phi (basic_block bb, tree phi, struct phiprop_d *phivn, size_t n)
 	    && TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1)) == INDIRECT_REF
 	    && TREE_OPERAND (GIMPLE_STMT_OPERAND (use_stmt, 1), 0) == ptr
 	    /* We cannot replace a load that may throw or is volatile.  */
-	    && !tree_can_throw_internal (use_stmt)))
+	    && !stmt_can_throw_internal (use_stmt)))
 	continue;
 
       /* Check if we can move the loads.  The def stmts of all virtual uses
@@ -1265,9 +1265,9 @@ propagate_with_phi (basic_block bb, tree phi, struct phiprop_d *phivn, size_t n)
 	{
 	  tree def_stmt = SSA_NAME_DEF_STMT (vuse);
 	  if (!SSA_NAME_IS_DEFAULT_DEF (vuse)
-	      && (bb_for_stmt (def_stmt) == bb
+	      && (gimple_bb (def_stmt) == bb
 		  || !dominated_by_p (CDI_DOMINATORS,
-				      bb, bb_for_stmt (def_stmt))))
+				      bb, gimple_bb (def_stmt))))
 	    goto next;
 	}
 

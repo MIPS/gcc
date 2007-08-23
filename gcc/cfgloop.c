@@ -590,7 +590,7 @@ find_subloop_latch_edge_by_ivs (struct loop *loop, VEC (edge, heap) *latches)
       if (TREE_CODE (lop) != SSA_NAME
 	  || SSA_NAME_DEF_STMT (lop) == phi)
 	continue;
-      bb = bb_for_stmt (SSA_NAME_DEF_STMT (lop));
+      bb = gimple_bb (SSA_NAME_DEF_STMT (lop));
       if (!bb || !flow_bb_inside_loop_p (loop, bb))
 	continue;
 

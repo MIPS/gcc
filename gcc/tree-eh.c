@@ -92,13 +92,13 @@ record_stmt_eh_region (struct eh_region *region, tree t)
 }
 
 void
-add_stmt_to_eh_region_fn (struct function *ifun, tree t, int num)
+add_stmt_to_eh_region_fn (struct function *ifun, gimple t, int num)
 {
   struct throw_stmt_node *n;
   void **slot;
 
   gcc_assert (num >= 0);
-  gcc_assert (TREE_CODE (t) != RESX_EXPR);
+  gcc_assert (gimple_code (t) != GIMPLE_RESX);
 
   n = GGC_NEW (struct throw_stmt_node);
   n->stmt = t;
@@ -115,13 +115,13 @@ add_stmt_to_eh_region_fn (struct function *ifun, tree t, int num)
 }
 
 void
-add_stmt_to_eh_region (tree t, int num)
+add_stmt_to_eh_region (gimple t, int num)
 {
   add_stmt_to_eh_region_fn (cfun, t, num);
 }
 
 bool
-remove_stmt_from_eh_region_fn (struct function *ifun, tree t)
+remove_stmt_from_eh_region_fn (struct function *ifun, gimple t)
 {
   struct throw_stmt_node dummy;
   void **slot;
@@ -142,13 +142,13 @@ remove_stmt_from_eh_region_fn (struct function *ifun, tree t)
 }
 
 bool
-remove_stmt_from_eh_region (tree t)
+remove_stmt_from_eh_region (gimple t)
 {
   return remove_stmt_from_eh_region_fn (cfun, t);
 }
 
 int
-lookup_stmt_eh_region_fn (struct function *ifun, tree t)
+lookup_stmt_eh_region_fn (struct function *ifun, gimple t)
 {
   struct throw_stmt_node *p, n;
 
@@ -163,7 +163,7 @@ lookup_stmt_eh_region_fn (struct function *ifun, tree t)
 }
 
 int
-lookup_stmt_eh_region (tree t)
+lookup_stmt_eh_region (gimple t)
 {
   /* We can get called from initialized data when -fnon-call-exceptions
      is on; prevent crash.  */
@@ -1716,21 +1716,21 @@ make_eh_edge (struct eh_region *region, void *data)
   stmt = (tree) data;
   lab = get_eh_region_tree_label (region);
 
-  src = bb_for_stmt (stmt);
+  src = gimple_bb (stmt);
   dst = label_to_block (lab);
 
   make_edge (src, dst, EDGE_ABNORMAL | EDGE_EH);
 }
 
 void
-make_eh_edges (tree stmt)
+make_eh_edges (gimple stmt)
 {
   int region_nr;
   bool is_resx;
 
-  if (TREE_CODE (stmt) == RESX_EXPR)
+  if (gimple_code (stmt) == GIMPLE_RESX)
     {
-      region_nr = TREE_INT_CST_LOW (TREE_OPERAND (stmt, 0));
+      region_nr = gimple_resx_region (stmt);
       is_resx = true;
     }
   else
@@ -1758,7 +1758,7 @@ mark_eh_edge (struct eh_region *region, void *data)
   stmt = (tree) data;
   lab = get_eh_region_tree_label (region);
 
-  src = bb_for_stmt (stmt);
+  src = gimple_bb (stmt);
   dst = label_to_block (lab);
 
   e = find_edge (src, dst);
@@ -1789,7 +1789,7 @@ verify_eh_edges (tree stmt)
 {
   int region_nr;
   bool is_resx;
-  basic_block bb = bb_for_stmt (stmt);
+  basic_block bb = gimple_bb (stmt);
   edge_iterator ei;
   edge e;
 
@@ -2013,13 +2013,16 @@ tree_could_throw_p (tree t)
 }
 
 bool
-tree_can_throw_internal (tree stmt)
+stmt_can_throw_internal (gimple stmt)
 {
   int region_nr;
   bool is_resx = false;
 
-  if (TREE_CODE (stmt) == RESX_EXPR)
-    region_nr = TREE_INT_CST_LOW (TREE_OPERAND (stmt, 0)), is_resx = true;
+  if (gimple_code (stmt) == GIMPLE_RESX)
+    {
+      region_nr = gimple_resx_region (stmt);
+      is_resx = true;
+    }
   else
     region_nr = lookup_stmt_eh_region (stmt);
   if (region_nr < 0)
@@ -2049,7 +2052,7 @@ tree_can_throw_external (tree stmt)
    done that my require an EH edge purge.  */
 
 bool 
-maybe_clean_or_replace_eh_stmt (tree old_stmt, tree new_stmt) 
+maybe_clean_or_replace_eh_stmt (gimple old_stmt, gimple new_stmt) 
 {
   int region_nr = lookup_stmt_eh_region (old_stmt);
 

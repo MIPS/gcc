@@ -110,10 +110,10 @@ extern bool eh_region_outer_p (struct function *, int, int);
 extern int eh_region_outermost (struct function *, int, int);
 
 /* tree-eh.c */
-extern void add_stmt_to_eh_region_fn (struct function *, tree, int);
-extern bool remove_stmt_from_eh_region_fn (struct function *, tree);
-extern int lookup_stmt_eh_region_fn (struct function *, tree);
-extern int lookup_stmt_eh_region (tree);
+extern void add_stmt_to_eh_region_fn (struct function *, gimple, int);
+extern bool remove_stmt_from_eh_region_fn (struct function *, gimple);
+extern int lookup_stmt_eh_region_fn (struct function *, gimple);
+extern int lookup_stmt_eh_region (gimple);
 extern bool verify_eh_edges (tree);
 
 /* If non-NULL, this is a function that returns an expression to be
@@ -169,7 +169,7 @@ extern tree (*lang_eh_runtime_type) (tree);
 
 struct throw_stmt_node GTY(())
 {
-  tree stmt;
+  gimple stmt;
   int region_nr;
 };
 

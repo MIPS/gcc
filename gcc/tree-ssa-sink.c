@@ -240,7 +240,7 @@ nearest_common_dominator_of_uses (tree stmt)
 	    }
 	  else
 	    {
-	      useblock = bb_for_stmt (usestmt);
+	      useblock = gimple_bb (usestmt);
 	    }
 
 	  /* Short circuit. Nothing dominates the entry block.  */
@@ -386,7 +386,7 @@ statement_sink_location (tree stmt, basic_block frombb, basic_block *tobb,
   use = USE_STMT (one_use);
   if (TREE_CODE (use) != PHI_NODE)
     {
-      sinkbb = bb_for_stmt (use);
+      sinkbb = gimple_bb (use);
       if (sinkbb == frombb || sinkbb->loop_depth > frombb->loop_depth
 	  || sinkbb->loop_father != frombb->loop_father)
 	return false;
@@ -412,7 +412,7 @@ statement_sink_location (tree stmt, basic_block frombb, basic_block *tobb,
      If the use is a phi, and is in the same bb as the def, 
      we can't sink it.  */
 
-  if (bb_for_stmt (use) == frombb)
+  if (gimple_bb (use) == frombb)
     return false;
   if (sinkbb == frombb || sinkbb->loop_depth > frombb->loop_depth
       || sinkbb->loop_father != frombb->loop_father)

@@ -1,9 +1,180 @@
 2007-08-22  Aldy Hernandez  <aldyh@redhat.com>
 
+	Change all instances of bb_for_stmt to gimple_bb throughout.
+
+	* gimple.h (gimple_omp_parallel_combined_p): New.
+	* tree-ssa-operands.h (update_stmt_operands): Argument is now
+	gimple.
+	* tree-ssa-threadupdate.c (rederiction_block_p): Use gimple_nop_p
+	instead of IS_EMPTY_STMT.
+	* tree-ssa-loop-niter.c: Disable use of COND_EXPR_COND.
+	* tree-pretty-print.c (dump_bb_header): Adjust for tuples.
+	* cgraph.c (cgraph_add_new_function): Rename
+	tree_register_cfg_hooks to gimple_register_cfg_hooks.
+	* value-prof.c (set_histogram_value): Stmt type is now gimple.
+	(gimple_histogram_value): Same.
+	(gimple_remove_histogram_value): Same.
+	(gimple_remove_stmt_histograms): Same.
+	* tree.h (struct ssa_use_operand_d): Same.
+	* value-prof.h (struct histogram_value_t): Same.
+	Change gimple_*histogram* prototypes to use gimple instead of
+	tree.
+	* ipa-cp.c (ipcp_insert_stage): Rename tree_register_cfg_hooks to
+	gimple_register_cfg_hooks.
+	* cfghooks.c (gimple_register_cfg_hooks): Rename from
+	tree_register_cfg_hooks.  Initialize cfg_hooks to gimple_cfg_hooks.
+	(current_ir_type): Rename tree_cfg_hooks to gimple_cfg_hooks.
+	* input.h (IS_LOCATION_EMPTY): New.
+	* cfghooks.h: Rename tree_cfg_hooks to gimple_cfg_hooks.  Rename
+	tree_register_cfg_hooks to gimple_register_cfg_hooks.
+	* omp-low.c (determine_parallel_type): Adjust for tuples.
+	(expand_omp_parallel): Rename bb_stmt_list to bb_seq.
+	(expand_omp_for_generic): Call gimple_omp_return_nowait_p.
+	(expand_omp_for_static_nochunk): Same.
+	(expand_omp_sections): Call gimple_omp_section_last_p.
+	(expand_omp_single): Comment out call to find_omp_clause.
+	Call gimple_omp_return_nowait_p.
+	* cgraphunit.c: Rename tree_register_cfg_hooks to
+	gimple_register_cfg_hooks.
+	* tree-ssa-propagate.c: Comment out non working code.
+	* matrix-reorg.c (matrix_reorg): Rename tree_register_cfg_hooks to
+	gimple_register_cfg_hooks.
+	* tree-eh.c (add_stmt_to_eh_region_fn): Change `t' type to gimple.
+	Adjust accordingly.
+	(add_stmt_to_eh_region): Same.
+	(remove_stmt_from_eh_region_fn): Same.
+	(remove_stmt_from_eh_region): Same.
+	(lookup_stmt_eh_region_fn): Same.
+	(lookup_stmt_eh_region): Same.
+	(make_eh_edges): Adjust for tuples.
+	(stmt_can_throw_internal): Rename from tree_can_throw_internal.
+	Adjust for tuples.
+	(maybe_clean_or_replace_eh_stmt): Arg types are now gimple.
+	* tree-vectorizer.c: Rename tree_register_cfg_hooks to
+	gimple_register_cfg_hooks.
+	* tree-if-conv.c (combine_blocks): Adjust for tuples.
+	* profile.c (branch_prob): Same.
+	* tree-flow-inline.h (bb_for_stmt): Remove.
+	(get_lineno): Adjust for tuples.
+	(noreturn_call_p): Same.
+	(mark_stmt_modified): Same.
+	(update_stmt): Same.
+	(update_stmt_if_modified): Same.
+	(stmt_modified_p): Same.
+	(link_imm_use_stmt): Same.
+	(relink_imm_use_stmt): Same.
+	(single_imm_use): Same.
+	(gimple_phi_arg_def): New.
+	(gimple_phi_arg_edge): New.
+	(phi_nodes): Adjust for tuples.
+	(phi_nodes_ptr): Same.
+	(set_phi_nodes): Same.
+	(bb_seq): Rename from bb_stmt_list and adjust for tuples.
+	(set_bb_seq): Rename from set_bb_stmt_list and adjust for tuples.
+	(bsi_start): Adjust for tuples.
+	(bsi_after_labels): Adjust for tuples.
+	(bsi_last): Same.
+	(bsi_next): Same.
+	(bsi_prev): Same.
+	(bsi_stmt): Same.
+	(bsi_stmt_ptr): Same.
+	(loop_containing_stmt): Same.
+	(delink_stmt_imm_use): Same.
+	(first_imm_use_stmt): Same.
+	(next_imm_use_stmt): Same.
+	* gimplify.c (force_gimple_operand_bsi): Same.
+	* coretypes.h (const_gimple): New.
+	* tree-ssa-phiopt.c (empty_block_p): Call gimple_nop_p.
+	(conditional_replacement): Comment out COND_EXPR_COND.
+	(value_replacement): Comment out COND_EXPR_COND.
+	(minmax_replacement): Same.
+	(abs_replacement): Same.
+	* except.h (*eh_region*): Change trees to gimple.
+	(struct throw_stmt_node): Change stmt type to gimple.
+	* cfgexpand.c (label_rtx_for_bb): Adjust for tuples.
+	(expand_gimple_cond_expr): Same.
+	(expand_gimple_basic_block): Same.
+	* tree-cfgcleanup.c (split_bbs_on_noreturn_calls): Same.
+	* tree-ssa-pre.c (realify_fake_stores): Comment out non working
+	code.
+	* tree-ssa-forwprop.c (propagate_with_phi): Rename
+	tree_can_throw_internal stmt_can_throw_internal.
+	* tree-inline.c (copy_edges_for_bb): Rename
+	tree_can_throw_internal to stmt_can_throw_internal.
+	(initialize_cfun): Same.
+	(copy_cfg_body): Same.
+	(gimple_expand_calls_inline): Same.
+	(make_nonlocal_label_edges): Rename tree_can_make_abnormal_goto to
+	stmt_can_make_abnormal_goto.
+	* tree-optimize.c (tree_lowering_passes): Rename
+	tree_register_cfg_hooks to gimple_register_cfg_hooks.
+	(tree_rest_of_compilation): Same.
+	* tree-flow.h (struct gimple_df): Make modified_noreturn_calls a
+	vector of gimple types.
+	Adjust prototypes for tuples.
+	(struct block_stmt_iterator): Make iterator a gimple iterator.
+	(enum bsi_iterator_update): Remove BSI_CHAIN_START and
+	BSI_CHAIN_END.
+	* Makefile.in (tree-cfg.o): Depend on GIMPLE_H.
+	(GTFILES): Move gimple.[hc] entries before tree-flow.h.
+	* basic-block.h (struct edge_def): Make goto_locus of type
+	location_t.
+	(union basic_block_il_dependent): Adjust for tuples.
+	(gimple_bb_info): Rename from tree_bb_info.  Adjust for tuples.
+	* tree-cfg.c: Include gimple.h.
+	Adjust prototypes for tuples.
+	(build_gimple_cfg): Rename from build_tree_cfg.  Adjust for
+	tuples.
+	(execute_build_cfg): Rename build_tree_cfg call to
+	build_gimple_cfg.
+	(factor_computed_gotos): Adjust for tuples.
+	(make_blocks): Same.
+	(create_bb): Same.
+	(fold_cond_expr_cond): Same.
+	(make_edges): Same.
+	(make_cond_expr_edges): Same.
+	(make_switch_expr_edges): Same.
+	(make_goto_expr_edges): Same.
+	(cleanup_dead_labels): Same.
+	(group_case_labels): Same.
+	(tree_can_merge_blocks_p): Same.
+	(replace_uses_by): Same.
+	(tree_merge_blocks): Same.
+	(is_ctrl): Same.
+	(is_ctrl_altering_stmt): Same.
+	(computed_goto_p): Same.
+	(simple_goto_p): Same.
+	(stmt_can_make_abnormal_goto): Rename from
+	tree_can_make_abnormal_goto.
+	Adjust for tuples.
+	(stmt_starts_bb_p): Adjust for tuples.
+	(stmt_ends_bb_p): Same.
+	(first_stmt): Same.
+	(last_stmt): Same.
+	(last_and_only_stmt): Same.
+	(set_bb_for_stmt): Same.
+	(change_bb_for_stmt): Same.
+	(bsi_for_stmt): Same.
+	(update_modified_stmt): Rename from update_modified_stmts.
+	Adjust for tuples.
+	Handle only one statement.
+	(bsi_insert_before): Adjust for tuples.
+	(bsi_insert_after): Same.
+	(bsi_insert_seq_before): New.
+	(bsi_insert_seq_after): New.
+	(bsi_remove): Ajust for tuples.
+	(bsi_replace): Same.
+	(verify_stmt): Same.
+	(gimple_split_block): Rename from tree_split_block.
+	Adjust for tuples.
+	(tree_purge_dead_abnormal_call_edges): Adjust for tuples.
+	(tree_cfg_hooks): Same.
+	* tree-ssa-operands.c (update_stmt_operands): Same.
+
+2007-08-22  Aldy Hernandez  <aldyh@redhat.com>
+
 	* Makefile.in (TREE_GIMPLE_H): Depend on GIMPLE_H.
-
 	* gimple-iterator.h: Do not include gimple.h.
-
 	* gimple.h (OMP_SECTION_LAST_FLAG): New.
 	(gimple_omp_return_nowait_p): New.
 	(gimple_omp_section_last_p): New.

@@ -1021,7 +1021,7 @@ copy_edges_for_bb (basic_block bb, int count_scale)
          into a COMPONENT_REF which doesn't.  If the copy
          can throw, the original could also throw.  */
 
-      if (tree_can_throw_internal (copy_stmt))
+      if (stmt_can_throw_internal (copy_stmt))
 	{
 	  if (!bsi_end_p (bsi))
 	    /* Note that bb's predecessor edges aren't necessarily
@@ -1037,7 +1037,7 @@ copy_edges_for_bb (basic_block bb, int count_scale)
            make_eh_edges (copy_stmt);
 
 	   if (gimple_in_ssa_p (cfun))
-	     update_ssa_across_eh_edges (bb_for_stmt (copy_stmt));
+	     update_ssa_across_eh_edges (gimple_bb (copy_stmt));
 	}
     }
 }
@@ -1113,7 +1113,7 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count,
     frequency_scale = count_scale;
 
   /* Register specific tree functions.  */
-  tree_register_cfg_hooks ();
+  gimple_register_cfg_hooks ();
   *new_cfun = *DECL_STRUCT_FUNCTION (callee_fndecl);
   new_cfun->funcdef_no = get_next_funcdef_no ();
   VALUE_HISTOGRAMS (new_cfun) = NULL;
@@ -1178,7 +1178,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
     frequency_scale = count_scale;
 
   /* Register specific tree functions.  */
-  tree_register_cfg_hooks ();
+  gimple_register_cfg_hooks ();
 
   /* Must have a CFG here at this point.  */
   gcc_assert (ENTRY_BLOCK_PTR_FOR_FUNCTION
@@ -2668,7 +2668,7 @@ gimple_expand_calls_inline (basic_block bb, copy_body_data *id)
   block_stmt_iterator bsi;
 
   /* Register specific tree functions.  */
-  tree_register_cfg_hooks ();
+  gimple_register_cfg_hooks ();
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
       tree *expr_p = bsi_stmt_ptr (bsi);
@@ -2739,7 +2739,7 @@ make_nonlocal_label_edges (void)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  tree stmt = bsi_stmt (bsi);
-	  if (tree_can_make_abnormal_goto (stmt))
+	  if (stmt_can_make_abnormal_goto (stmt))
 	    {
 	      if (stmt == bsi_stmt (bsi_last (bb)))
 		{

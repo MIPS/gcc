@@ -50,9 +50,9 @@ cfg_layout_rtl_register_cfg_hooks (void)
 /* Initialization of functions specific to the tree IR.  */
 
 void
-tree_register_cfg_hooks (void)
+gimple_register_cfg_hooks (void)
 {
-  cfg_hooks = &tree_cfg_hooks;
+  cfg_hooks = &gimple_cfg_hooks;
 }
 
 /* Returns current ir type.  */
@@ -60,7 +60,7 @@ tree_register_cfg_hooks (void)
 enum ir_type
 current_ir_type (void)
 {
-  if (cfg_hooks == &tree_cfg_hooks)
+  if (cfg_hooks == &gimple_cfg_hooks)
     return IR_GIMPLE;
   else if (cfg_hooks == &rtl_cfg_hooks)
     return IR_RTL_CFGRTL;

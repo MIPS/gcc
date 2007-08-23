@@ -703,7 +703,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
     {
       tree *stmt_p = VEC_last (tree_p, stmts_to_rescan);
       tree stmt = *stmt_p;
-      basic_block stmt_bb = bb_for_stmt (stmt);
+      basic_block stmt_bb = gimple_bb (stmt);
 
       if (stmt_bb != bb)
 	break;
@@ -1102,7 +1102,7 @@ loop_depth_of_name (tree x)
      Note that there may not actually be a bb for this statement, if the
      ssa_name is live on entry.  */
   defstmt = SSA_NAME_DEF_STMT (x);
-  defbb = bb_for_stmt (defstmt);
+  defbb = gimple_bb (defstmt);
   if (!defbb)
     return 0;
 
@@ -2265,7 +2265,7 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 	     mark its containing block as needing EH cleanups.  */
 	  if (maybe_clean_or_replace_eh_stmt (use_stmt, use_stmt))
 	    {
-	      bitmap_set_bit (need_eh_cleanup, bb_for_stmt (use_stmt)->index);
+	      bitmap_set_bit (need_eh_cleanup, gimple_bb (use_stmt)->index);
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "  Flagged to clear EH edges.\n");
 	    }
@@ -2301,7 +2301,7 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 
 	      if (is_gimple_min_invariant (val))
 		{
-		  basic_block bb = bb_for_stmt (use_stmt);
+		  basic_block bb = gimple_bb (use_stmt);
 		  edge te = find_taken_edge (bb, val);
 		  edge_iterator ei;
 		  edge e;
@@ -2336,7 +2336,7 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 			ei_next (&ei);
 		    }
 
-		  bsi = bsi_last (bb_for_stmt (use_stmt));
+		  bsi = bsi_last (gimple_bb (use_stmt));
 		  bsi_remove (&bsi, true);
 
 		  /* And fixup the flags on the single remaining edge.  */

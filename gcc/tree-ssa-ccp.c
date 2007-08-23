@@ -1332,7 +1332,7 @@ visit_cond_stmt (tree stmt, edge *taken_edge_p)
   prop_value_t val;
   basic_block block;
 
-  block = bb_for_stmt (stmt);
+  block = gimple_bb (stmt);
   val = evaluate_stmt (stmt);
 
   /* Find which edge out of the conditional block will be taken and add it

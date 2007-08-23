@@ -93,7 +93,7 @@ lhs_of_dominating_assert (tree op, basic_block bb, tree stmt)
           && TREE_CODE (use_stmt) == GIMPLE_MODIFY_STMT
           && TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1)) == ASSERT_EXPR
           && TREE_OPERAND (GIMPLE_STMT_OPERAND (use_stmt, 1), 0) == op
-	  && dominated_by_p (CDI_DOMINATORS, bb, bb_for_stmt (use_stmt)))
+	  && dominated_by_p (CDI_DOMINATORS, bb, gimple_bb (use_stmt)))
 	{
 	  return GIMPLE_STMT_OPERAND (use_stmt, 0);
 	}
@@ -177,7 +177,7 @@ record_temporary_equivalences_from_phis (edge e, VEC(tree, heap) **stack)
       if (src != dst
 	  && TREE_CODE (src) == SSA_NAME
 	  && TREE_CODE (SSA_NAME_DEF_STMT (src)) == PHI_NODE
-	  && bb_for_stmt (SSA_NAME_DEF_STMT (src)) == e->dest)
+	  && gimple_bb (SSA_NAME_DEF_STMT (src)) == e->dest)
 	return false;
 
       /* We consider any non-virtual PHI as a statement since it
@@ -526,7 +526,7 @@ thread_across_edge (tree dummy_cond,
 
           if (TREE_CODE (use) == SSA_NAME
 	      && TREE_CODE (SSA_NAME_DEF_STMT (use)) != PHI_NODE
-	      && bb_for_stmt (SSA_NAME_DEF_STMT (use)) == e->dest)
+	      && gimple_bb (SSA_NAME_DEF_STMT (use)) == e->dest)
 	    goto fail;
 	}
     }

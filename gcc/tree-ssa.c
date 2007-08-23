@@ -626,7 +626,7 @@ verify_ssa (bool check_modified_stmt)
 	  stmt = SSA_NAME_DEF_STMT (name);
 	  if (!IS_EMPTY_STMT (stmt))
 	    {
-	      basic_block bb = bb_for_stmt (stmt);
+	      basic_block bb = gimple_bb (stmt);
 	      verify_def (bb, definition_block,
 			  name, stmt, !is_gimple_reg (name));
 

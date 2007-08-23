@@ -130,7 +130,7 @@ struct edge_def GTY(())
   PTR GTY ((skip (""))) aux;
 
   /* Location of any goto implicit in the edge, during tree-ssa.  */
-  source_locus goto_locus;
+  location_t goto_locus;
 
   int flags;			/* see EDGE_* below  */
   int probability;		/* biased by REG_BR_PROB_BASE */
@@ -231,7 +231,7 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   struct basic_block_def *next_bb;
 
   union basic_block_il_dependent {
-      struct tree_bb_info * GTY ((tag ("0"))) tree;
+      struct gimple_bb_info * GTY ((tag ("0"))) gimple;
       struct rtl_bb_info * GTY ((tag ("1"))) rtl;
     } GTY ((desc ("((%1.flags & BB_RTL) != 0)"))) il;
 
@@ -266,13 +266,15 @@ struct rtl_bb_info GTY(())
   int visited;
 };
 
-struct tree_bb_info GTY(())
+struct gimple_bb_info GTY(())
 {
-  /* Pointers to the first and last trees of the block.  */
-  tree stmt_list;
+  /* FIXME tuples: Arghh, these should be struct gimple_sequence, not
+     pointers.  */
+  /* Statements in a block.  */
+  gimple_seq seq;
 
-  /* Chain of PHI nodes for this block.  */
-  tree phi_nodes;
+  /* PHI nodes for this block.  */
+  gimple_seq phi_nodes;
 };
 
 typedef struct basic_block_def *basic_block;
@@ -383,7 +385,7 @@ struct control_flow_graph GTY(())
   int x_last_basic_block;
 
   /* Mapping of labels to their associated blocks.  At present
-     only used for the tree CFG.  */
+     only used for the gimple CFG.  */
   VEC(basic_block,gc) *x_label_to_block_map;
 
   enum profile_status {

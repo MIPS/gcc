@@ -1884,7 +1884,7 @@ typedef struct ssa_use_operand_d GTY(())
 {
   struct ssa_use_operand_d* GTY((skip(""))) prev;
   struct ssa_use_operand_d* GTY((skip(""))) next;
-  tree GTY((skip(""))) stmt;
+  gimple GTY((skip(""))) stmt;
   tree *GTY((skip(""))) use;
 } ssa_use_operand_t;
 

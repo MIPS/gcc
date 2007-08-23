@@ -50,6 +50,7 @@ typedef union tree_node *tree;
 union gimple_statement_d;
 typedef union gimple_statement_d *gimple;
 typedef const union tree_node *const_tree;
+typedef const union gimple_statement_d *const_gimple;
 union section;
 typedef union section section;
 struct gimple_sequence;

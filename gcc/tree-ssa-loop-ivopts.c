@@ -532,7 +532,7 @@ name_info (struct ivopts_data *data, tree name)
 static bool
 stmt_after_ip_normal_pos (struct loop *loop, tree stmt)
 {
-  basic_block bb = ip_normal_pos (loop), sbb = bb_for_stmt (stmt);
+  basic_block bb = ip_normal_pos (loop), sbb = gimple_bb (stmt);
 
   gcc_assert (bb);
 
@@ -551,8 +551,8 @@ stmt_after_ip_normal_pos (struct loop *loop, tree stmt)
 static bool
 stmt_after_ip_original_pos (struct iv_cand *cand, tree stmt)
 {
-  basic_block cand_bb = bb_for_stmt (cand->incremented_at);
-  basic_block stmt_bb = bb_for_stmt (stmt);
+  basic_block cand_bb = gimple_bb (cand->incremented_at);
+  basic_block stmt_bb = gimple_bb (stmt);
   block_stmt_iterator bsi;
 
   if (!dominated_by_p (CDI_DOMINATORS, stmt_bb, cand_bb))
@@ -845,7 +845,7 @@ get_iv (struct ivopts_data *data, tree var)
 
   if (!name_info (data, var)->iv)
     {
-      bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
+      bb = gimple_bb (SSA_NAME_DEF_STMT (var));
 
       if (!bb
 	  || !flow_bb_inside_loop_p (data->current_loop, bb))
@@ -861,7 +861,7 @@ get_iv (struct ivopts_data *data, tree var)
 static tree
 determine_biv_step (tree phi)
 {
-  struct loop *loop = bb_for_stmt (phi)->loop_father;
+  struct loop *loop = gimple_bb (phi)->loop_father;
   tree name = PHI_RESULT (phi);
   affine_iv iv;
 
@@ -932,7 +932,7 @@ mark_bivs (struct ivopts_data *data)
 	continue;
 
       /* If the increment is in the subloop, ignore it.  */
-      incr_bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
+      incr_bb = gimple_bb (SSA_NAME_DEF_STMT (var));
       if (incr_bb->loop_father != data->current_loop
 	  || (incr_bb->flags & BB_IRREDUCIBLE_LOOP))
 	continue;
@@ -1089,7 +1089,7 @@ record_invariant (struct ivopts_data *data, tree op, bool nonlinear_use)
       || !is_gimple_reg (op))
     return;
 
-  bb = bb_for_stmt (SSA_NAME_DEF_STMT (op));
+  bb = gimple_bb (SSA_NAME_DEF_STMT (op));
   if (bb
       && flow_bb_inside_loop_p (data->current_loop, bb))
     return;
@@ -1254,7 +1254,7 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
 
   if (TREE_CODE (expr) == SSA_NAME)
     {
-      def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (expr));
+      def_bb = gimple_bb (SSA_NAME_DEF_STMT (expr));
       if (def_bb
 	  && flow_bb_inside_loop_p (loop, def_bb))
 	return false;
@@ -1632,7 +1632,7 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
     }
 
   if (TREE_CODE (stmt) == PHI_NODE
-      && bb_for_stmt (stmt) == data->current_loop->header)
+      && gimple_bb (stmt) == data->current_loop->header)
     {
       lhs = PHI_RESULT (stmt);
       iv = get_iv (data, lhs);
@@ -3606,7 +3606,7 @@ iv_elimination_compare (struct ivopts_data *data, struct iv_use *use)
   basic_block ex_bb;
   edge exit;
 
-  ex_bb = bb_for_stmt (use->stmt);
+  ex_bb = gimple_bb (use->stmt);
   exit = EDGE_SUCC (ex_bb, 0);
   if (flow_bb_inside_loop_p (loop, exit->dest))
     exit = EDGE_SUCC (ex_bb, 1);
@@ -3633,7 +3633,7 @@ may_eliminate_iv (struct ivopts_data *data,
 
   /* For now works only for exits that dominate the loop latch.  TODO -- extend
      for other conditions inside loop body.  */
-  ex_bb = bb_for_stmt (use->stmt);
+  ex_bb = gimple_bb (use->stmt);
   if (use->stmt != last_stmt (ex_bb)
       || TREE_CODE (use->stmt) != COND_EXPR)
     return false;
@@ -4934,7 +4934,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       if (name_info (data, tgt)->preserve_biv)
 	return;
 
-      bsi = bsi_after_labels (bb_for_stmt (use->stmt));
+      bsi = bsi_after_labels (gimple_bb (use->stmt));
       break;
 
     case GIMPLE_MODIFY_STMT:

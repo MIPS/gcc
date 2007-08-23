@@ -92,6 +92,9 @@ extern void restore_input_file_stack (int);
 #define LOCATION_FILE(LOC) ((expand_location (LOC)).file)
 #define LOCATION_LINE(LOC) ((expand_location (LOC)).line)
 
+#define IS_LOCATION_EMPTY(LOC) (LOCATION_FILE ((LOC)) == NULL \
+    				|| LOCATION_LINE ((LOC)) == NULL)
+
 #define input_line LOCATION_LINE(input_location)
 #define input_filename LOCATION_FILE(input_location)
 

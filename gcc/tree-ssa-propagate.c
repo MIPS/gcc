@@ -335,7 +335,7 @@ simulate_stmt (tree stmt)
 	{
 	  edge e;
 	  edge_iterator ei;
-	  basic_block bb = bb_for_stmt (stmt);
+	  basic_block bb = gimple_bb (stmt);
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    add_control_edge (e);
 	}
@@ -385,7 +385,7 @@ process_ssa_edge_worklist (VEC(tree,gc) **worklist)
 	  print_generic_stmt (dump_file, stmt, dump_flags);
 	}
 
-      bb = bb_for_stmt (stmt);
+      bb = gimple_bb (stmt);
 
       /* PHI nodes are always visited, regardless of whether or not
 	 the destination block is executable.  Otherwise, visit the
@@ -501,6 +501,8 @@ ssa_prop_init (void)
     if (ssa_name (i))
       SSA_NAME_VALUE (ssa_name (i)) = NULL_TREE;
 
+  /* FIXME tuples */
+#if 0
   /* Initially assume that every edge in the CFG is not executable.
      (including the edges coming out of ENTRY_BLOCK_PTR).  */
   FOR_ALL_BB (bb)
@@ -513,6 +515,7 @@ ssa_prop_init (void)
       FOR_EACH_EDGE (e, ei, bb->succs)
 	e->flags &= ~EDGE_EXECUTABLE;
     }
+#endif
 
   /* Seed the algorithm by adding the successors of the entry block to the
      edge worklist.  */

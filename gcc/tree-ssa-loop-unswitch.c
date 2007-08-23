@@ -116,7 +116,7 @@ tree_may_unswitch_on (basic_block bb, struct loop *loop)
   FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
     {
       def = SSA_NAME_DEF_STMT (use);
-      def_bb = bb_for_stmt (def);
+      def_bb = gimple_bb (def);
       if (def_bb
 	  && flow_bb_inside_loop_p (loop, def_bb))
 	return NULL_TREE;

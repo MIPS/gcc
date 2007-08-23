@@ -775,7 +775,7 @@ set_var_live_on_entry (tree ssa_name, tree_live_info_p live)
   stmt = SSA_NAME_DEF_STMT (ssa_name);
   if (stmt)
     {
-      def_bb = bb_for_stmt (stmt);
+      def_bb = gimple_bb (stmt);
       /* Mark defs in liveout bitmap temporarily.  */
       if (def_bb)
 	bitmap_set_bit (live->liveout[def_bb->index], p);
@@ -806,7 +806,7 @@ set_var_live_on_entry (tree ssa_name, tree_live_info_p live)
       else
         {
 	  /* If its not defined in this block, its live on entry.  */
-	  basic_block use_bb = bb_for_stmt (use_stmt);
+	  basic_block use_bb = gimple_bb (use_stmt);
 	  if (use_bb != def_bb)
 	    add_block = use_bb;
 	}  
@@ -1031,7 +1031,7 @@ verify_live_on_entry (tree_live_info_p live)
 	  bitmap loe;
 	  var = partition_to_var (map, i);
 	  stmt = SSA_NAME_DEF_STMT (var);
-	  tmp = bb_for_stmt (stmt);
+	  tmp = gimple_bb (stmt);
 	  d = gimple_default_def (cfun, SSA_NAME_VAR (var));
 
 	  loe = live_on_entry (live, e->dest);

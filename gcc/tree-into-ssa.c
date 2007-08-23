@@ -2356,7 +2356,7 @@ mark_def_interesting (tree var, tree stmt, basic_block bb, bool insert_phi_p)
 static inline void
 mark_use_interesting (tree var, tree stmt, basic_block bb, bool insert_phi_p)
 {
-  basic_block def_bb = bb_for_stmt (stmt);
+  basic_block def_bb = gimple_bb (stmt);
 
   mark_block_for_update (def_bb);
   mark_block_for_update (bb);
@@ -2479,7 +2479,7 @@ prepare_use_sites_for (tree name, bool insert_phi_p)
   FOR_EACH_IMM_USE_FAST (use_p, iter, name)
     {
       tree stmt = USE_STMT (use_p);
-      basic_block bb = bb_for_stmt (stmt);
+      basic_block bb = gimple_bb (stmt);
 
       if (TREE_CODE (stmt) == PHI_NODE)
 	{
@@ -2511,7 +2511,7 @@ prepare_def_site_for (tree name, bool insert_phi_p)
 	      || !bitmap_bit_p (names_to_release, SSA_NAME_VERSION (name)));
 
   stmt = SSA_NAME_DEF_STMT (name);
-  bb = bb_for_stmt (stmt);
+  bb = gimple_bb (stmt);
   if (bb)
     {
       gcc_assert (bb->index < last_basic_block);
@@ -2745,7 +2745,7 @@ create_new_def_for (tree old_name, tree stmt, def_operand_p def)
     {
       edge e;
       edge_iterator ei;
-      basic_block bb = bb_for_stmt (stmt);
+      basic_block bb = gimple_bb (stmt);
 
       /* If needed, mark NEW_NAME as occurring in an abnormal PHI node. */
       FOR_EACH_EDGE (e, ei, bb->preds)

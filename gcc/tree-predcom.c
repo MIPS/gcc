@@ -776,7 +776,7 @@ split_data_refs_to_components (struct loop *loop,
 
       dataref->always_accessed
 	      = dominated_by_p (CDI_DOMINATORS, last_always_executed,
-				bb_for_stmt (dataref->stmt));
+				gimple_bb (dataref->stmt));
       dataref->pos = VEC_length (dref, comp->refs);
       VEC_quick_push (dref, comp->refs, dataref);
     }
@@ -812,7 +812,7 @@ suitable_component_p (struct loop *loop, struct component *comp)
 
   for (i = 0; VEC_iterate (dref, comp->refs, i, a); i++)
     {
-      ba = bb_for_stmt (a->stmt);
+      ba = gimple_bb (a->stmt);
 
       if (!just_once_each_iteration_p (loop, ba))
 	return false;
@@ -1227,7 +1227,7 @@ replace_ref_with (tree stmt, tree new, bool set, bool in_lhs)
       gcc_assert (!in_lhs && !set);
 
       val = PHI_RESULT (stmt);
-      bsi = bsi_after_labels (bb_for_stmt (stmt));
+      bsi = bsi_after_labels (gimple_bb (stmt));
       remove_phi_node (stmt, NULL_TREE, false);
 
       /* Turn the phi node into GIMPLE_MODIFY_STMT.  */
@@ -1898,7 +1898,7 @@ base_names_in_chain_on (struct loop *loop, tree name, tree var)
       FOR_EACH_IMM_USE_STMT (stmt, iter, name)
 	{
 	  if (TREE_CODE (stmt) == PHI_NODE
-	      && flow_bb_inside_loop_p (loop, bb_for_stmt (stmt)))
+	      && flow_bb_inside_loop_p (loop, gimple_bb (stmt)))
 	    {
 	      phi = stmt;
 	      BREAK_FROM_IMM_USE_STMT (iter);
@@ -1907,10 +1907,10 @@ base_names_in_chain_on (struct loop *loop, tree name, tree var)
       if (!phi)
 	return;
 
-      if (bb_for_stmt (phi) == loop->header)
+      if (gimple_bb (phi) == loop->header)
 	e = loop_latch_edge (loop);
       else
-	e = single_pred_edge (bb_for_stmt (stmt));
+	e = single_pred_edge (gimple_bb (stmt));
 
       name = PHI_RESULT (phi);
       SSA_NAME_VAR (name) = var;
@@ -1946,9 +1946,9 @@ eliminate_temp_copies (struct loop *loop, bitmap tmp_vars)
 		statement (in that case, some register copies will be present
 		in loop latch in the final code, corresponding to the newly
 		created looparound phi nodes).  */
-	     && bb_for_stmt (stmt) != loop->header)
+	     && gimple_bb (stmt) != loop->header)
 	{
-	  gcc_assert (single_pred_p (bb_for_stmt (stmt)));
+	  gcc_assert (single_pred_p (gimple_bb (stmt)));
 	  use = PHI_ARG_DEF (stmt, 0);
 	  stmt = SSA_NAME_DEF_STMT (use);
 	}

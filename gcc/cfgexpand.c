@@ -1252,8 +1252,9 @@ static struct pointer_map_t *lab_rtx_for_bb;
 static rtx
 label_rtx_for_bb (basic_block bb)
 {
-  tree_stmt_iterator tsi;
-  tree lab, lab_stmt;
+  tree_stmt_iterator *gsi;
+  tree lab;
+  gimple lab_stmt;
   void **elt;
 
   if (bb->flags & BB_RTL)
@@ -1265,13 +1266,13 @@ label_rtx_for_bb (basic_block bb)
 
   /* Find the tree label if it is present.  */
      
-  for (tsi = tsi_start (bb_stmt_list (bb)); !tsi_end_p (tsi); tsi_next (&tsi))
+  for (gsi = gsi_start (bb_seq (bb)); !gsi_end_p (gsi); gsi_next (gsi))
     {
-      lab_stmt = tsi_stmt (tsi);
-      if (TREE_CODE (lab_stmt) != LABEL_EXPR)
+      lab_stmt = gsi_stmt (gsi);
+      if (gimple_code (lab_stmt) != GIMPLE_LABEL)
 	break;
 
-      lab = LABEL_EXPR_LABEL (lab_stmt);
+      lab = gimple_label_label (lab_stmt);
       if (DECL_NONLOCAL (lab))
 	break;
 
@@ -1319,8 +1320,8 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
       jumpif (pred, label_rtx_for_bb (true_edge->dest));
       add_reg_br_prob_note (last, true_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
-      if (true_edge->goto_locus)
-  	set_curr_insn_source_location (*true_edge->goto_locus);
+      if (!IS_LOCATION_EMPTY (true_edge->goto_locus))
+  	set_curr_insn_source_location (true_edge->goto_locus);
       false_edge->flags |= EDGE_FALLTHRU;
       return NULL;
     }
@@ -1329,8 +1330,8 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
       jumpifnot (pred, label_rtx_for_bb (false_edge->dest));
       add_reg_br_prob_note (last, false_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
-      if (false_edge->goto_locus)
-  	set_curr_insn_source_location (*false_edge->goto_locus);
+      if (!IS_LOCATION_EMPTY (false_edge->goto_locus))
+  	set_curr_insn_source_location (false_edge->goto_locus);
       true_edge->flags |= EDGE_FALLTHRU;
       return NULL;
     }
@@ -1360,8 +1361,8 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
 
   maybe_dump_rtl_for_tree_stmt (stmt, last2);
 
-  if (false_edge->goto_locus)
-    set_curr_insn_source_location (*false_edge->goto_locus);
+  if (!IS_LOCATION_EMPTY (false_edge->goto_locus))
+    set_curr_insn_source_location (false_edge->goto_locus);
 
   return new_bb;
 }
@@ -1479,7 +1480,7 @@ static basic_block
 expand_gimple_basic_block (basic_block bb)
 {
   tree_stmt_iterator tsi;
-  tree stmts = bb_stmt_list (bb);
+  tree stmts = bb_seq (bb);
   tree stmt = NULL;
   rtx note, last;
   edge e;
@@ -1493,7 +1494,7 @@ expand_gimple_basic_block (basic_block bb)
 	       bb->index);
     }
 
-  bb->il.tree = NULL;
+  bb->il.gimple = NULL;
   init_rtl_bb_info (bb);
   bb->flags |= BB_RTL;
 
@@ -1627,8 +1628,8 @@ expand_gimple_basic_block (basic_block bb)
   if (e && e->dest != bb->next_bb)
     {
       emit_jump (label_rtx_for_bb (e->dest));
-      if (e->goto_locus)
-        set_curr_insn_source_location (*e->goto_locus);
+      if (!IS_LOCATION_EMPTY (e->goto_locus))
+        set_curr_insn_source_location (e->goto_locus);
       e->flags &= ~EDGE_FALLTHRU;
     }
 

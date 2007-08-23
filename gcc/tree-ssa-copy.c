@@ -681,7 +681,7 @@ copy_prop_visit_cond_stmt (tree stmt, edge *taken_edge_p)
 					  op0, op1);
 	  if (folded_cond)
 	    {
-	      basic_block bb = bb_for_stmt (stmt);
+	      basic_block bb = gimple_bb (stmt);
 	      *taken_edge_p = find_taken_edge (bb, folded_cond);
 	      if (*taken_edge_p)
 		retval = SSA_PROP_INTERESTING;

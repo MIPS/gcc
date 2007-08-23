@@ -2322,24 +2322,18 @@ free_ssa_operands (stmt_operands_p ops)
 /* Get the operands of statement STMT.  */
 
 void
-update_stmt_operands (tree stmt)
+update_stmt_operands (gimple stmt)
 {
-  stmt_ann_t ann = get_stmt_ann (stmt);
-
   /* If update_stmt_operands is called before SSA is initialized, do
      nothing.  */
   if (!ssa_operands_active ())
     return;
 
-  /* The optimizers cannot handle statements that are nothing but a
-     _DECL.  This indicates a bug in the gimplifier.  */
-  gcc_assert (!SSA_VAR_P (stmt));
-
   timevar_push (TV_TREE_OPS);
 
-  gcc_assert (ann->modified);
+  gcc_assert (gimple_modified (stmt));
   build_ssa_operands (stmt);
-  ann->modified = 0;
+  set_gimple_modified (stmt, true);
 
   timevar_pop (TV_TREE_OPS);
 }

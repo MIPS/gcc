@@ -268,7 +268,7 @@ tree_if_convert_cond_expr (struct loop *loop, tree stmt, tree cond,
 
   c = COND_EXPR_COND (stmt);
 
-  extract_true_false_edges_from_block (bb_for_stmt (stmt),
+  extract_true_false_edges_from_block (gimple_bb (stmt),
  				       &true_edge, &false_edge);
 
   /* Add new condition into destination's predicate list.  */
@@ -284,7 +284,7 @@ tree_if_convert_cond_expr (struct loop *loop, tree stmt, tree cond,
   /* Now this conditional statement is redundant. Remove it.
      But, do not remove exit condition! Update exit condition
      using new condition.  */
-  if (!bb_with_exit_edge_p (loop, bb_for_stmt (stmt)))
+  if (!bb_with_exit_edge_p (loop, gimple_bb (stmt)))
     {
       bsi_remove (bsi, true);
       cond = NULL_TREE;
@@ -816,7 +816,7 @@ replace_phi_with_cond_gimple_modify_stmt (tree phi, tree cond,
   gcc_assert (PHI_NUM_ARGS (phi) == 2);
 
   /* Find basic block and initialize iterator.  */
-  bb = bb_for_stmt (phi);
+  bb = gimple_bb (phi);
 
   /* Use condition that is not TRUTH_NOT_EXPR in conditional modify expr.  */
   if (EDGE_PRED (bb, 1)->src == true_bb)
@@ -963,7 +963,7 @@ combine_blocks (struct loop *loop)
   for (i = 1; i < orig_loop_num_nodes; i++)
     {
       block_stmt_iterator bsi;
-      tree_stmt_iterator last;
+      gimple_stmt_iterator *last;
 
       bb = ifc_bbs[i];
 
@@ -983,9 +983,9 @@ combine_blocks (struct loop *loop)
 	}
 
       /* Update stmt list.  */
-      last = tsi_last (bb_stmt_list (merge_target_bb));
-      tsi_link_after (&last, bb_stmt_list (bb), TSI_NEW_STMT);
-      set_bb_stmt_list (bb, NULL);
+      last = gsi_last (bb_seq (merge_target_bb));
+      gsi_link_after (last, bb_seq (bb), GSI_NEW_STMT);
+      set_bb_seq (bb, NULL);
 
       delete_basic_block (bb);
     }

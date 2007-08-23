@@ -1068,7 +1068,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop,
    cfg_hooks->split_edge, the function tree_split_edge 
    is actually called and, when calling cfg_hooks->duplicate_block,
    the function tree_duplicate_bb is called.  */
-  tree_register_cfg_hooks ();
+  gimple_register_cfg_hooks ();
 
 
   /* 1. Generate a copy of LOOP and put it on E (E is the entry/exit of LOOP).
@@ -1691,7 +1691,7 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
       return false;
     }
 
-  bb = bb_for_stmt (*def_stmt);
+  bb = gimple_bb (*def_stmt);
   if (!flow_bb_inside_loop_p (loop, bb))
     *dt = vect_invariant_def;
   else
@@ -2023,7 +2023,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
   FOR_EACH_IMM_USE_FAST (use_p, imm_iter, name)
     {
       tree use_stmt = USE_STMT (use_p);
-      if (flow_bb_inside_loop_p (loop, bb_for_stmt (use_stmt))
+      if (flow_bb_inside_loop_p (loop, gimple_bb (use_stmt))
 	  && vinfo_for_stmt (use_stmt)
 	  && !is_pattern_stmt_p (vinfo_for_stmt (use_stmt)))
         nloop_uses++;
@@ -2065,7 +2065,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
   FOR_EACH_IMM_USE_FAST (use_p, imm_iter, name)
     {
       tree use_stmt = USE_STMT (use_p);
-      if (flow_bb_inside_loop_p (loop, bb_for_stmt (use_stmt))
+      if (flow_bb_inside_loop_p (loop, gimple_bb (use_stmt))
 	  && vinfo_for_stmt (use_stmt)
 	  && !is_pattern_stmt_p (vinfo_for_stmt (use_stmt)))
 	nloop_uses++;
@@ -2183,7 +2183,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
      or it's an induction (defined by some phi node).  */
 
   if (def2 == phi
-      && flow_bb_inside_loop_p (loop, bb_for_stmt (def1))
+      && flow_bb_inside_loop_p (loop, gimple_bb (def1))
       && (TREE_CODE (def1) == GIMPLE_MODIFY_STMT 
 	  || STMT_VINFO_DEF_TYPE (vinfo_for_stmt (def1)) == vect_induction_def))
     {
@@ -2195,7 +2195,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
       return def_stmt;
     }
   else if (def1 == phi
-	   && flow_bb_inside_loop_p (loop, bb_for_stmt (def2))
+	   && flow_bb_inside_loop_p (loop, gimple_bb (def2))
 	   && (TREE_CODE (def2) == GIMPLE_MODIFY_STMT 
 	       || STMT_VINFO_DEF_TYPE (vinfo_for_stmt (def2)) == vect_induction_def))
     {

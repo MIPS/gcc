@@ -122,12 +122,12 @@ struct gimple_df GTY(())
   /* Array of all variables referenced in the function.  */
   htab_t GTY((param_is (struct int_tree_map))) referenced_vars;
 
-  /* A list of all the noreturn calls passed to modify_stmt.
+  /* A vector of all the noreturn calls passed to modify_stmt.
      cleanup_control_flow uses it to detect cases where a mid-block
      indirect call has been turned into a noreturn call.  When this
      happens, all the instructions after the call are no longer
      reachable and must be deleted as dead.  */
-  VEC(tree,gc) *modified_noreturn_calls;
+  VEC(gimple,gc) *modified_noreturn_calls;
 
   /* Array of all SSA_NAMEs used in the function.  */
   VEC(tree,gc) *ssa_names;
@@ -528,13 +528,13 @@ static inline stmt_ann_t stmt_ann (tree);
 static inline bool has_stmt_ann (tree);
 static inline stmt_ann_t get_stmt_ann (tree);
 static inline enum tree_ann_type ann_type (tree_ann_t);
-static inline basic_block bb_for_stmt (tree);
-extern void set_bb_for_stmt (tree, basic_block);
-static inline bool noreturn_call_p (tree);
-static inline void update_stmt (tree);
-static inline bool stmt_modified_p (tree);
+static inline basic_block bb_for_stmt (gimple);
+extern void set_bb_for_stmt (gimple, basic_block);
+static inline bool noreturn_call_p (gimple);
+static inline void update_stmt (gimple);
+static inline bool stmt_modified_p (gimple);
 static inline bitmap may_aliases (const_tree);
-static inline int get_lineno (tree);
+static inline int get_lineno (gimple);
 static inline bitmap addresses_taken (tree);
 
 /*---------------------------------------------------------------------------
@@ -549,8 +549,8 @@ struct edge_prediction GTY((chain_next ("%h.ep_next")))
 };
 
 /* Accessors for basic block annotations.  */
-static inline tree phi_nodes (basic_block);
-static inline void set_phi_nodes (basic_block, tree);
+static inline gimple_seq phi_nodes (basic_block);
+static inline void set_phi_nodes (basic_block, gimple_seq);
 
 /*---------------------------------------------------------------------------
 			      Global declarations
@@ -623,19 +623,23 @@ extern bool referenced_var_check_and_insert (tree);
 			      Block iterators
 ---------------------------------------------------------------------------*/
 
+/* FIXME tuples: We should get rid of block_stmt_iterators altogether.
+   Using gimple_stmt_iterator should be enough.  We can change
+   bsi_start(bb) to gsi_start(bb_body (bb)).  */
+
 typedef struct {
-  tree_stmt_iterator tsi;
+  gimple_stmt_iterator *gsi;
   basic_block bb;
 } block_stmt_iterator;
 
 static inline block_stmt_iterator bsi_start (basic_block);
 static inline block_stmt_iterator bsi_last (basic_block);
 static inline block_stmt_iterator bsi_after_labels (basic_block);
-block_stmt_iterator bsi_for_stmt (tree);
+block_stmt_iterator bsi_for_stmt (gimple);
 static inline bool bsi_end_p (block_stmt_iterator);
 static inline void bsi_next (block_stmt_iterator *);
 static inline void bsi_prev (block_stmt_iterator *);
-static inline tree bsi_stmt (block_stmt_iterator);
+static inline gimple bsi_stmt (block_stmt_iterator);
 static inline tree * bsi_stmt_ptr (block_stmt_iterator);
 
 extern void bsi_remove (block_stmt_iterator *, bool);
@@ -649,17 +653,19 @@ enum bsi_iterator_update
      mean exactly the same as their TSI_* counterparts.  */
   BSI_NEW_STMT,
   BSI_SAME_STMT,
-  BSI_CHAIN_START,
-  BSI_CHAIN_END,
   BSI_CONTINUE_LINKING
 };
 
-extern void bsi_insert_before (block_stmt_iterator *, tree,
+extern void bsi_insert_before (block_stmt_iterator *, gimple,
 			       enum bsi_iterator_update);
-extern void bsi_insert_after (block_stmt_iterator *, tree,
+extern void bsi_insert_after (block_stmt_iterator *, gimple,
 			      enum bsi_iterator_update);
+extern void bsi_insert_seq_before (block_stmt_iterator *, gimple_seq,
+				   enum bsi_iterator_update);
+extern void bsi_insert_seq_after (block_stmt_iterator *, gimple_seq,
+				  enum bsi_iterator_update);
 
-extern void bsi_replace (const block_stmt_iterator *, tree, bool);
+extern void bsi_replace (const block_stmt_iterator *, gimple, bool);
 
 /*---------------------------------------------------------------------------
 			      OpenMP Region Tree
@@ -718,12 +724,12 @@ extern void free_omp_regions (void);
 #define PENDING_STMT(e)	((e)->insns.t)
 
 extern void delete_tree_cfg_annotations (void);
-extern bool stmt_ends_bb_p (tree);
-extern bool is_ctrl_stmt (const_tree);
-extern bool is_ctrl_altering_stmt (tree);
-extern bool computed_goto_p (const_tree);
-extern bool simple_goto_p (const_tree);
-extern bool tree_can_make_abnormal_goto (const_tree);
+extern bool stmt_ends_bb_p (gimple);
+extern bool is_ctrl_stmt (const_gimple);
+extern bool is_ctrl_altering_stmt (gimple);
+extern bool computed_goto_p (const_gimple);
+extern bool simple_goto_p (const_gimple);
+extern bool stmt_can_make_abnormal_goto (const_gimple);
 extern basic_block single_noncomplex_succ (basic_block bb);
 extern void tree_dump_bb (basic_block, FILE *, int);
 extern void debug_tree_bb (basic_block);
@@ -736,9 +742,9 @@ extern void debug_loop_ir (void);
 extern void print_loop_ir (FILE *);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
-extern tree first_stmt (basic_block);
-extern tree last_stmt (basic_block);
-extern tree last_and_only_stmt (basic_block);
+extern gimple first_stmt (basic_block);
+extern gimple last_stmt (basic_block);
+extern gimple last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern basic_block label_to_block_fn (struct function *, tree);
 #define label_to_block(t) (label_to_block_fn (cfun, t))
@@ -1065,15 +1071,14 @@ static inline void set_is_used (tree);
 static inline bool unmodifiable_var_p (const_tree);
 
 /* In tree-eh.c  */
-extern void make_eh_edges (tree);
+extern void make_eh_edges (gimple);
 extern bool tree_could_trap_p (tree);
 extern bool tree_could_throw_p (tree);
-extern bool tree_can_throw_internal (tree);
-extern bool tree_can_throw_external (tree);
-extern int lookup_stmt_eh_region (tree);
-extern void add_stmt_to_eh_region (tree, int);
-extern bool remove_stmt_from_eh_region (tree);
-extern bool maybe_clean_or_replace_eh_stmt (tree, tree);
+extern bool stmt_can_throw_internal (gimple);
+extern int lookup_stmt_eh_region (gimple);
+extern void add_stmt_to_eh_region (gimple, int);
+extern bool remove_stmt_from_eh_region (gimple);
+extern bool maybe_clean_or_replace_eh_stmt (gimple, gimple);
 
 /* In tree-ssa-pre.c  */
 void add_to_value (tree, tree);

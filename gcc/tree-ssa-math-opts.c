@@ -348,7 +348,7 @@ static inline void
 replace_reciprocal (use_operand_p use_p)
 {
   tree use_stmt = USE_STMT (use_p);
-  basic_block bb = bb_for_stmt (use_stmt);
+  basic_block bb = gimple_bb (use_stmt);
   struct occurrence *occ = (struct occurrence *) bb->aux;
 
   if (occ->recip_def && use_stmt != occ->recip_def_stmt)
@@ -408,7 +408,7 @@ execute_cse_reciprocals_1 (block_stmt_iterator *def_bsi, tree def)
       tree use_stmt = USE_STMT (use_p);
       if (is_division_by (use_stmt, def))
 	{
-	  register_division_in (bb_for_stmt (use_stmt));
+	  register_division_in (gimple_bb (use_stmt));
 	  count++;
 	}
     }
@@ -580,7 +580,7 @@ static bool
 maybe_record_sincos (VEC(tree, heap) **stmts,
 		     basic_block *top_bb, tree use_stmt)
 {
-  basic_block use_bb = bb_for_stmt (use_stmt);
+  basic_block use_bb = gimple_bb (use_stmt);
   if (*top_bb
       && (*top_bb == use_bb
 	  || dominated_by_p (CDI_DOMINATORS, use_bb, *top_bb)))
@@ -658,7 +658,7 @@ execute_cse_sincos_1 (tree name)
   call = build_call_expr (fndecl, 1, name);
   stmt = build_gimple_modify_stmt (res, call);
   def_stmt = SSA_NAME_DEF_STMT (name);
-  if (bb_for_stmt (def_stmt) == top_bb
+  if (gimple_bb (def_stmt) == top_bb
       && TREE_CODE (def_stmt) == GIMPLE_MODIFY_STMT)
     {
       bsi = bsi_for_stmt (def_stmt);

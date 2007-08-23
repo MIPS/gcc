@@ -876,11 +876,11 @@ update_mem_sym_stats_from_stmt (tree var, tree stmt, long num_direct_reads,
   stats = get_mem_sym_stats_for (var);
 
   stats->num_direct_reads += num_direct_reads;
-  stats->frequency_reads += ((long) bb_for_stmt (stmt)->frequency
+  stats->frequency_reads += ((long) gimple_bb (stmt)->frequency
                              * num_direct_reads);
 
   stats->num_direct_writes += num_direct_writes;
-  stats->frequency_writes += ((long) bb_for_stmt (stmt)->frequency
+  stats->frequency_writes += ((long) gimple_bb (stmt)->frequency
                               * num_direct_writes);
 }
 

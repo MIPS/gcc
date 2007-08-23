@@ -362,7 +362,7 @@ tree_lowering_passes (tree fn)
 
   current_function_decl = fn;
   push_cfun (DECL_STRUCT_FUNCTION (fn));
-  tree_register_cfg_hooks ();
+  gimple_register_cfg_hooks ();
   bitmap_obstack_initialize (NULL);
   execute_pass_list (all_lowering_passes);
   if (optimize && cgraph_global_info_ready)
@@ -406,7 +406,7 @@ tree_rest_of_compilation (tree fndecl)
      not safe to try to expand expressions involving them.  */
   cfun->x_dont_save_pending_sizes_p = 1;
   
-  tree_register_cfg_hooks ();
+  gimple_register_cfg_hooks ();
 
   bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
   /* Perform all tree transforms and optimizations.  */

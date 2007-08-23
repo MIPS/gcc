@@ -2275,7 +2275,7 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
     {
       FOR_EACH_IMM_USE_FAST (use_p, imm_iter, DEF_FROM_PTR (def_p))
 	{
-	  basic_block bb = bb_for_stmt (USE_STMT (use_p));
+	  basic_block bb = gimple_bb (USE_STMT (use_p));
 	  if (!flow_bb_inside_loop_p (loop, bb))
 	    {
 	      if (vect_print_dump_info (REPORT_DETAILS))
@@ -2344,7 +2344,7 @@ process_use (tree stmt, tree use, loop_vec_info loop_vinfo, bool live_p,
   if (!def_stmt || IS_EMPTY_STMT (def_stmt))
     return true;
 
-  def_bb = bb_for_stmt (def_stmt);
+  def_bb = gimple_bb (def_stmt);
   if (!flow_bb_inside_loop_p (loop, def_bb))
     return true;
 

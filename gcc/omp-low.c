@@ -350,7 +350,7 @@ get_ws_args_for (tree ws_stmt)
       /* Number of sections is equal to the number of edges from the
 	 OMP_SECTIONS_SWITCH statement, except for the one to the exit
 	 of the sections region.  */
-      basic_block bb = single_succ (bb_for_stmt (ws_stmt));
+      basic_block bb = single_succ (gimple_bb (ws_stmt));
       t = build_int_cst (unsigned_type_node, EDGE_COUNT (bb->succs) - 1);
       t = tree_cons (NULL, t, NULL);
       return t;
@@ -389,7 +389,7 @@ determine_parallel_type (struct omp_region *region)
   if (single_succ (par_entry_bb) == ws_entry_bb
       && single_succ (ws_exit_bb) == par_exit_bb
       && workshare_safe_to_combine_p (par_entry_bb, ws_entry_bb)
-      && (OMP_PARALLEL_COMBINED (last_stmt (par_entry_bb))
+      && (gimple_omp_parallel_combined_p (last_stmt (par_entry_bb))
 	  || (last_and_only_stmt (ws_entry_bb)
 	      && last_and_only_stmt (par_exit_bb))))
     {
@@ -2497,7 +2497,7 @@ expand_omp_parallel (struct omp_region *region)
       /* Declare local variables needed in CHILD_CFUN.  */
       block = DECL_INITIAL (child_fn);
       BLOCK_VARS (block) = list2chain (child_cfun->unexpanded_var_list);
-      DECL_SAVED_TREE (child_fn) = bb_stmt_list (single_succ (entry_bb));
+      DECL_SAVED_TREE (child_fn) = bb_seq (single_succ (entry_bb));
 
       /* Reset DECL_CONTEXT on locals and function arguments.  */
       for (t = BLOCK_VARS (block); t; t = TREE_CHAIN (t))
@@ -2695,7 +2695,7 @@ expand_omp_for_generic (struct omp_region *region,
 
   /* Add the loop cleanup function.  */
   si = bsi_last (exit_bb);
-  if (OMP_RETURN_NOWAIT (bsi_stmt (si)))
+  if (gimple_omp_return_nowait_p (bsi_stmt (si)))
     t = built_in_decls[BUILT_IN_GOMP_LOOP_END_NOWAIT];
   else
     t = built_in_decls[BUILT_IN_GOMP_LOOP_END];
@@ -2872,7 +2872,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 
   /* Replace the OMP_RETURN with a barrier, or nothing.  */
   si = bsi_last (exit_bb);
-  if (!OMP_RETURN_NOWAIT (bsi_stmt (si)))
+  if (!gimple_omp_return_nowait_p (bsi_stmt (si)))
     {
       list = alloc_stmt_list ();
       build_omp_barrier (&list);
@@ -3063,7 +3063,7 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
 
   /* Replace the OMP_RETURN with a barrier, or nothing.  */
   si = bsi_last (exit_bb);
-  if (!OMP_RETURN_NOWAIT (bsi_stmt (si)))
+  if (!gimple_omp_return_nowait_p (bsi_stmt (si)))
     {
       list = alloc_stmt_list ();
       build_omp_barrier (&list);
@@ -3230,7 +3230,7 @@ expand_omp_sections (struct omp_region *region)
 
       si = bsi_last (s_entry_bb);
       gcc_assert (TREE_CODE (bsi_stmt (si)) == OMP_SECTION);
-      gcc_assert (i < len || OMP_SECTION_LAST (bsi_stmt (si)));
+      gcc_assert (i < len || gimple_omp_section_last_p (bsi_stmt (si)));
       bsi_remove (&si, true);
       single_succ_edge (s_entry_bb)->flags = EDGE_FALLTHRU;
 
@@ -3269,7 +3269,7 @@ expand_omp_sections (struct omp_region *region)
 
       /* Cleanup function replaces OMP_RETURN in EXIT_BB.  */
       si = bsi_last (l2_bb);
-      if (OMP_RETURN_NOWAIT (bsi_stmt (si)))
+      if (gimple_omp_return_nowait_p (bsi_stmt (si)))
 	t = built_in_decls[BUILT_IN_GOMP_SECTIONS_END_NOWAIT];
       else
 	t = built_in_decls[BUILT_IN_GOMP_SECTIONS_END];
@@ -3307,15 +3307,17 @@ expand_omp_single (struct omp_region *region)
   /* The terminal barrier at the end of a GOMP_single_copy sequence cannot
      be removed.  We need to ensure that the thread that entered the single
      does not exit before the data is copied out by the other threads.  */
+  /* FIXME tuples
   if (find_omp_clause (OMP_SINGLE_CLAUSES (bsi_stmt (si)),
 		       OMP_CLAUSE_COPYPRIVATE))
     need_barrier = true;
+  */
   gcc_assert (TREE_CODE (bsi_stmt (si)) == OMP_SINGLE);
   bsi_remove (&si, true);
   single_succ_edge (entry_bb)->flags = EDGE_FALLTHRU;
 
   si = bsi_last (exit_bb);
-  if (!OMP_RETURN_NOWAIT (bsi_stmt (si)) || need_barrier)
+  if (!gimple_omp_return_nowait_p (bsi_stmt (si)) || need_barrier)
     {
       tree t = alloc_stmt_list ();
       build_omp_barrier (&t);

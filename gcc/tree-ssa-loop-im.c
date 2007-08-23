@@ -308,7 +308,7 @@ outermost_invariant_loop (tree def, struct loop *loop)
     return superloop_at_depth (loop, 1);
 
   def_stmt = SSA_NAME_DEF_STMT (def);
-  def_bb = bb_for_stmt (def_stmt);
+  def_bb = gimple_bb (def_stmt);
   if (!def_bb)
     return superloop_at_depth (loop, 1);
 
@@ -377,7 +377,7 @@ add_dependency (tree def, struct lim_aux_data *data, struct loop *loop,
 		bool add_cost)
 {
   tree def_stmt = SSA_NAME_DEF_STMT (def);
-  basic_block def_bb = bb_for_stmt (def_stmt);
+  basic_block def_bb = gimple_bb (def_stmt);
   struct loop *max_loop;
   struct depend *dep;
 
@@ -485,7 +485,7 @@ stmt_cost (tree stmt)
 static bool
 determine_max_movement (tree stmt, bool must_preserve_exec)
 {
-  basic_block bb = bb_for_stmt (stmt);
+  basic_block bb = gimple_bb (stmt);
   struct loop *loop = bb->loop_father;
   struct loop *level;
   struct lim_aux_data *lim_data = LIM_DATA (stmt);
@@ -519,7 +519,7 @@ determine_max_movement (tree stmt, bool must_preserve_exec)
 static void
 set_level (tree stmt, struct loop *orig_loop, struct loop *level)
 {
-  struct loop *stmt_loop = bb_for_stmt (stmt)->loop_father;
+  struct loop *stmt_loop = gimple_bb (stmt)->loop_father;
   struct depend *dep;
 
   stmt_loop = find_common_loop (orig_loop, stmt_loop);
@@ -545,7 +545,7 @@ set_level (tree stmt, struct loop *orig_loop, struct loop *level)
 static void
 set_profitable_level (tree stmt)
 {
-  set_level (stmt, bb_for_stmt (stmt)->loop_father, LIM_DATA (stmt)->max_loop);
+  set_level (stmt, gimple_bb (stmt)->loop_father, LIM_DATA (stmt)->max_loop);
 }
 
 /* Returns true if STMT is not a pure call.  */

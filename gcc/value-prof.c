@@ -120,7 +120,7 @@ histogram_eq (const void *x, const void *y)
 /* Set histogram for STMT.  */
 
 static void
-set_histogram_value (struct function *fun, tree stmt, histogram_value hist)
+set_histogram_value (struct function *fun, gimple stmt, histogram_value hist)
 {
   void **loc;
   if (!hist && !VALUE_HISTOGRAMS (fun))
@@ -143,7 +143,7 @@ set_histogram_value (struct function *fun, tree stmt, histogram_value hist)
 /* Get histogram list for STMT.  */
 
 histogram_value
-gimple_histogram_value (struct function *fun, tree stmt)
+gimple_histogram_value (struct function *fun, gimple stmt)
 {
   if (!VALUE_HISTOGRAMS (fun))
     return NULL;
@@ -163,7 +163,8 @@ gimple_add_histogram_value (struct function *fun, tree stmt, histogram_value his
 /* Remove histogram HIST from STMT's histogram list.  */
 
 void
-gimple_remove_histogram_value (struct function *fun, tree stmt, histogram_value hist)
+gimple_remove_histogram_value (struct function *fun, gimple stmt,
+			       histogram_value hist)
 {
   histogram_value hist2 = gimple_histogram_value (fun, stmt);
   if (hist == hist2)
@@ -311,7 +312,7 @@ dump_histograms_for_stmt (struct function *fun, FILE *dump_file, tree stmt)
 /* Remove all histograms associated with STMT.  */
 
 void
-gimple_remove_stmt_histograms (struct function *fun, tree stmt)
+gimple_remove_stmt_histograms (struct function *fun, gimple stmt)
 {
   histogram_value val;
   while ((val = gimple_histogram_value (fun, stmt)) != NULL)
@@ -479,9 +480,9 @@ tree_value_profile_transformations (void)
 	      stmt = bsi_stmt (bsi);
 	      changed = true;
 	      /* Original statement may no longer be in the same block. */
-	      if (bb != bb_for_stmt (stmt))
+	      if (bb != gimple_bb (stmt))
 		{
-	          bb = bb_for_stmt (stmt);
+	          bb = gimple_bb (stmt);
 		  bsi = bsi_for_stmt (stmt);
 		}
 	    }
@@ -517,7 +518,7 @@ tree_divmod_fixed_value (tree stmt, tree operation,
   edge e12, e13, e23, e24, e34;
   block_stmt_iterator bsi;
 
-  bb = bb_for_stmt (stmt);
+  bb = gimple_bb (stmt);
   bsi = bsi_for_stmt (stmt);
 
   tmpv = create_tmp_var (optype, "PROF");
@@ -624,10 +625,10 @@ tree_divmod_fixed_value_transform (tree stmt)
      that for the transformation to fire the value must be constant
      at least 50% of time (and 75% gives the guarantee of usage).  */
   if (simple_cst_equal (op2, value) != 1 || 2 * count < all
-      || !maybe_hot_bb_p (bb_for_stmt (stmt)))
+      || !maybe_hot_bb_p (gimple_bb (stmt)))
     return false;
 
-  if (check_counter (stmt, "value", all, bb_for_stmt (stmt)->count))
+  if (check_counter (stmt, "value", all, gimple_bb (stmt)->count))
     return false;
 
   /* Compute probability of taking the optimal path.  */
@@ -674,7 +675,7 @@ tree_mod_pow2 (tree stmt, tree operation, tree op1, tree op2, int prob,
   block_stmt_iterator bsi;
   tree result = create_tmp_var (optype, "PROF");
 
-  bb = bb_for_stmt (stmt);
+  bb = gimple_bb (stmt);
   bsi = bsi_for_stmt (stmt);
 
   tmp2 = create_tmp_var (optype, "PROF");
@@ -782,7 +783,7 @@ tree_mod_pow2_value_transform (tree stmt)
 
   /* We require that we hit a power of 2 at least half of all evaluations.  */
   if (simple_cst_equal (op2, value) != 1 || count < wrong_values
-      || !maybe_hot_bb_p (bb_for_stmt (stmt)))
+      || !maybe_hot_bb_p (gimple_bb (stmt)))
     return false;
 
   if (dump_file)
@@ -794,7 +795,7 @@ tree_mod_pow2_value_transform (tree stmt)
   /* Compute probability of taking the optimal path.  */
   all = count + wrong_values;
 
-  if (check_counter (stmt, "pow2", all, bb_for_stmt (stmt)->count))
+  if (check_counter (stmt, "pow2", all, gimple_bb (stmt)->count))
     return false;
 
   prob = (count * REG_BR_PROB_BASE + all / 2) / all;
@@ -834,7 +835,7 @@ tree_mod_subtract (tree stmt, tree operation, tree op1, tree op2,
   block_stmt_iterator bsi;
   tree result = create_tmp_var (optype, "PROF");
 
-  bb = bb_for_stmt (stmt);
+  bb = gimple_bb (stmt);
   bsi = bsi_for_stmt (stmt);
 
   tmp1 = create_tmp_var (optype, "PROF");
@@ -969,7 +970,7 @@ tree_mod_subtract_transform (tree stmt)
   count2 = histogram->hvalue.counters[1];
 
   /* Compute probability of taking the optimal path.  */
-  if (check_counter (stmt, "interval", all, bb_for_stmt (stmt)->count))
+  if (check_counter (stmt, "interval", all, gimple_bb (stmt)->count))
     {
       gimple_remove_histogram_value (cfun, stmt, histogram);
       return false;
@@ -985,7 +986,7 @@ tree_mod_subtract_transform (tree stmt)
 	break;
     }
   if (i == steps
-      || !maybe_hot_bb_p (bb_for_stmt (stmt)))
+      || !maybe_hot_bb_p (gimple_bb (stmt)))
     return false;
 
   gimple_remove_histogram_value (cfun, stmt, histogram);
@@ -1066,7 +1067,7 @@ tree_ic (tree stmt, tree call, struct cgraph_node* direct_call,
   block_stmt_iterator bsi;
   int region;
 
-  bb = bb_for_stmt (stmt);
+  bb = gimple_bb (stmt);
   bsi = bsi_for_stmt (stmt);
 
   tmpv = create_tmp_var (optype, "PROF");
@@ -1258,7 +1259,7 @@ tree_stringop_fixed_value (tree stmt, tree value, int prob, gcov_type count,
   tree optype = TREE_TYPE (blck_size);
   int region;
 
-  bb = bb_for_stmt (stmt);
+  bb = gimple_bb (stmt);
   bsi = bsi_for_stmt (stmt);
 
   if (bsi_end_p (bsi))
@@ -1373,9 +1374,9 @@ tree_stringops_transform (block_stmt_iterator *bsi)
   /* We require that count is at least half of all; this means
      that for the transformation to fire the value must be constant
      at least 80% of time.  */
-  if ((6 * count / 5) < all || !maybe_hot_bb_p (bb_for_stmt (stmt)))
+  if ((6 * count / 5) < all || !maybe_hot_bb_p (gimple_bb (stmt)))
     return false;
-  if (check_counter (stmt, "value", all, bb_for_stmt (stmt)->count))
+  if (check_counter (stmt, "value", all, gimple_bb (stmt)->count))
     return false;
   prob = (count * REG_BR_PROB_BASE + all / 2) / all;
   dest = CALL_EXPR_ARG (call, 0);

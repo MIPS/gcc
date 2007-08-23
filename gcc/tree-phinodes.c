@@ -373,7 +373,7 @@ add_phi_arg (tree phi, tree def, edge e)
 {
   basic_block bb = e->dest;
 
-  gcc_assert (bb == bb_for_stmt (phi));
+  gcc_assert (bb == gimple_bb (phi));
 
   /* We resize PHI nodes upon edge creation.  We should always have
      enough room at this point.  */
@@ -457,7 +457,7 @@ remove_phi_node (tree phi, tree prev, bool release_lhs_p)
     }
   else
     {
-      for (loc = phi_nodes_ptr (bb_for_stmt (phi));
+      for (loc = phi_nodes_ptr (gimple_bb (phi));
 	   *loc != phi;
 	   loc = &PHI_CHAIN (*loc))
 	;

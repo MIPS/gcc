@@ -133,7 +133,7 @@ static void
 add_exit_phis_edge (basic_block exit, tree use)
 {
   tree phi, def_stmt = SSA_NAME_DEF_STMT (use);
-  basic_block def_bb = bb_for_stmt (def_stmt);
+  basic_block def_bb = gimple_bb (def_stmt);
   struct loop *def_loop;
   edge e;
   edge_iterator ei;
@@ -164,7 +164,7 @@ add_exit_phis_var (tree var, bitmap livein, bitmap exits)
 {
   bitmap def;
   unsigned index;
-  basic_block def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
+  basic_block def_bb = gimple_bb (SSA_NAME_DEF_STMT (var));
   bitmap_iterator bi;
 
   if (is_gimple_reg (var))
@@ -243,7 +243,7 @@ find_uses_to_rename_use (basic_block bb, tree use, bitmap *use_blocks,
     return;
 
   ver = SSA_NAME_VERSION (use);
-  def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (use));
+  def_bb = gimple_bb (SSA_NAME_DEF_STMT (use));
   if (!def_bb)
     return;
   def_loop = def_bb->loop_father;
@@ -269,7 +269,7 @@ find_uses_to_rename_stmt (tree stmt, bitmap *use_blocks, bitmap need_phis)
 {
   ssa_op_iter iter;
   tree var;
-  basic_block bb = bb_for_stmt (stmt);
+  basic_block bb = gimple_bb (stmt);
 
   FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_USES)
     find_uses_to_rename_use (bb, var, use_blocks, need_phis);
@@ -409,7 +409,7 @@ check_loop_closed_ssa_use (basic_block bb, tree use)
     return;
 
   def = SSA_NAME_DEF_STMT (use);
-  def_bb = bb_for_stmt (def);
+  def_bb = gimple_bb (def);
   gcc_assert (!def_bb
 	      || flow_bb_inside_loop_p (def_bb->loop_father, bb));
 }

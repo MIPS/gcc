@@ -927,7 +927,7 @@ analyze_transpose (void **slot, void *data ATTRIBUTE_UNUSED)
 		    {
 		      acc_info->iterated_by_inner_most_loop_p = 1;
 		      mi->dim_hot_level[acc_info->level] +=
-			bb_for_stmt (acc_info->stmt)->count;
+			gimple_bb (acc_info->stmt)->count;
 		    }
 
 		}
@@ -1736,7 +1736,7 @@ transform_access_sites (void **slot, void *data ATTRIBUTE_UNUSED)
 	}
       if (acc_info->is_alloc)
 	{
-	  if (acc_info->level >= 0 && bb_for_stmt (acc_info->stmt))
+	  if (acc_info->level >= 0 && gimple_bb (acc_info->stmt))
 	    {
 	      ssa_op_iter iter;
 	      tree def;
@@ -2228,7 +2228,7 @@ matrix_reorg (void)
 	current_function_decl = node->decl;
 	push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	bitmap_obstack_initialize (NULL);
-	tree_register_cfg_hooks ();
+	gimple_register_cfg_hooks ();
 
 	if (!gimple_in_ssa_p (cfun))
 	  {
@@ -2293,7 +2293,7 @@ matrix_reorg (void)
 	current_function_decl = node->decl;
 	push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	bitmap_obstack_initialize (NULL);
-	tree_register_cfg_hooks ();
+	gimple_register_cfg_hooks ();
 	record_all_accesses_in_func ();
 	htab_traverse (matrices_to_reorg, transform_access_sites, NULL);
 	free_dominance_info (CDI_DOMINATORS);

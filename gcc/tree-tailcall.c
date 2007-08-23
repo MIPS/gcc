@@ -210,8 +210,8 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
     return NULL_TREE;
 
   /* Mark the blocks in the chain leading to the end.  */
-  at_bb = bb_for_stmt (at);
-  call_bb = bb_for_stmt (bsi_stmt (bsi));
+  at_bb = gimple_bb (at);
+  call_bb = gimple_bb (bsi_stmt (bsi));
   for (bb = call_bb; bb != at_bb; bb = single_succ (bb))
     bb->aux = &bb->aux;
   bb->aux = &bb->aux;
@@ -219,7 +219,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
   while (1)
     { 
       at = SSA_NAME_DEF_STMT (expr);
-      bb = bb_for_stmt (at);
+      bb = gimple_bb (at);
 
       /* The default definition or defined before the chain.  */
       if (!bb || !bb->aux)

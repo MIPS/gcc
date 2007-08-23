@@ -279,12 +279,16 @@ struct gimple_statement_omp_single GTY(())
 };
 
 /* GIMPLE_OMP_RETURN */
-/* Flags stored in GIMPLE_OMP_RETURN's subcode flags.  */
+/* Flags stored in GIMPLE_OMP_RETURN's flags.  */
 #define OMP_RETURN_NOWAIT_FLAG 1 << 0
 
 /* GIMPLE_OMP_SECTION */
-/* Flags stored in GIMPLE_OMP_SECTION's subcode flags.  */
+/* Flags stored in GIMPLE_OMP_SECTION's flags.  */
 #define OMP_SECTION_LAST_FLAG 1 << 0
+
+/* GIMPLE_OMP_PARALLEL */
+/* Flags stored in GIMPLE_OMP_PARALLEL's flags.  */
+#define OMP_PARALLEL_COMBINED_FLAG 1 << 0
 
 enum gimple_statement_structure_enum {
 #define DEFGSSTRUCT(SYM, STRING)	SYM,
@@ -461,7 +465,7 @@ gimple_omp_return_nowait_p (gimple g)
 }
 
 
-/* Returns TRUE if a statement is a GIMPLE_OMP_SECtiON and has the
+/* Returns TRUE if a statement is a GIMPLE_OMP_SECTION and has the
    OMP_SECTION_LAST_FLAG set.  */
 
 static inline bool
@@ -469,6 +473,17 @@ gimple_omp_section_last_p (gimple g)
 {
   gcc_assert (gimple_code (g) == GIMPLE_OMP_SECTION);
   return gimple_flags (g) & OMP_SECTION_LAST_FLAG;
+}
+
+
+/* Returns TRUE if a GIMPLE_OMP_PARALLEL has the OMP_PARALLEL_COMBINED_FLAG
+   set.  */
+
+static inline bool
+gimple_omp_parallel_combined_p (gimple g)
+{
+  gcc_assert (gimple_code (g) == GIMPLE_OMP_PARALLEL);
+  return gimple_flags (g) & OMP_PARALLEL_COMBINED_FLAG;
 }
 
 

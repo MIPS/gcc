@@ -3284,7 +3284,7 @@ infer_value_range (tree stmt, tree op, enum tree_code *comp_code_p, tree *val_p)
      successors, there is no point inferring anything about any of its
      operands.  We would not be able to find a proper insertion point
      for the assertion, anyway.  */
-  if (stmt_ends_bb_p (stmt) && EDGE_COUNT (bb_for_stmt (stmt)->succs) == 0)
+  if (stmt_ends_bb_p (stmt) && EDGE_COUNT (gimple_bb (stmt)->succs) == 0)
     return false;
 
   /* We can only assume that a pointer dereference will yield
@@ -5151,7 +5151,7 @@ vrp_visit_cond_stmt (tree stmt, edge *taken_edge_p)
   if (val)
     {
       if (!sop)
-	*taken_edge_p = find_taken_edge (bb_for_stmt (stmt), val);
+	*taken_edge_p = find_taken_edge (gimple_bb (stmt), val);
       else
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))

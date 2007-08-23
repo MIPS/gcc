@@ -372,7 +372,7 @@ cgraph_process_new_functions (void)
 	     transformations that has been already performed on the whole
 	     cgraph but not on this function.  */
 
-	  tree_register_cfg_hooks ();
+	  gimple_register_cfg_hooks ();
 	  if (!node->analyzed)
 	    cgraph_analyze_function (node);
 	  push_cfun (DECL_STRUCT_FUNCTION (fndecl));
@@ -769,7 +769,7 @@ cgraph_analyze_function (struct cgraph_node *node)
   if (!flag_unit_at_a_time)
     {
       bitmap_obstack_initialize (NULL);
-      tree_register_cfg_hooks ();
+      gimple_register_cfg_hooks ();
       execute_pass_list (pass_early_local_passes.sub);
       free_dominance_info (CDI_POST_DOMINATORS);
       free_dominance_info (CDI_DOMINATORS);
@@ -1258,7 +1258,7 @@ ipa_passes (void)
 {
   cfun = NULL;
   current_function_decl = NULL;
-  tree_register_cfg_hooks ();
+  gimple_register_cfg_hooks ();
   bitmap_obstack_initialize (NULL);
   execute_ipa_pass_list (all_ipa_passes);
   bitmap_obstack_release (NULL);

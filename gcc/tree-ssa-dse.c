@@ -204,7 +204,7 @@ memory_ssa_name_same (tree *expr_p, int *walk_subtrees ATTRIBUTE_UNUSED,
     return NULL_TREE;
 
   def_stmt = SSA_NAME_DEF_STMT (expr);
-  def_bb = bb_for_stmt (def_stmt);
+  def_bb = gimple_bb (def_stmt);
 
   /* DEF_STMT must dominate both stores.  So if it is in the same
      basic block as one, it does not post-dominate that store.  */
@@ -229,8 +229,8 @@ memory_address_same (tree store1, tree store2)
 {
   struct address_walk_data walk_data;
 
-  walk_data.store1_bb = bb_for_stmt (store1);
-  walk_data.store2_bb = bb_for_stmt (store2);
+  walk_data.store1_bb = gimple_bb (store1);
+  walk_data.store2_bb = gimple_bb (store2);
 
   return (walk_tree (&GIMPLE_STMT_OPERAND (store1, 0), memory_ssa_name_same,
 		     &walk_data, NULL)

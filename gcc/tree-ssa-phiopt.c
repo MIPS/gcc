@@ -305,7 +305,7 @@ empty_block_p (basic_block bb)
   bsi = bsi_start (bb);
   while (!bsi_end_p (bsi)
 	  && (TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR
-	      || IS_EMPTY_STMT (bsi_stmt (bsi))))
+	      || gimple_nop_p (bsi_stmt (bsi))))
     bsi_next (&bsi);
 
   if (!bsi_end_p (bsi))
@@ -322,7 +322,7 @@ static void
 replace_phi_edge_with_variable (basic_block cond_block,
 				edge e, tree phi, tree new_tree)
 {
-  basic_block bb = bb_for_stmt (phi);
+  basic_block bb = gimple_bb (phi);
   basic_block block_to_remove;
   block_stmt_iterator bsi;
 
@@ -397,7 +397,10 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
      variable to optimize this case as it would likely create
      non-gimple code when the condition was converted to the
      result's type.  */
+  /* FIXME tuples
   cond = COND_EXPR_COND (last_stmt (cond_bb));
+  */
+  cond = NULL; /* FIXME tuples */
   result = PHI_RESULT (phi);
   if (TREE_CODE (cond) != SSA_NAME
       && !useless_type_conversion_p (TREE_TYPE (result), TREE_TYPE (cond)))
@@ -554,7 +557,10 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
   if (!empty_block_p (middle_bb))
     return false;
 
+  /* FIXME tuples
   cond = COND_EXPR_COND (last_stmt (cond_bb));
+  */
+  cond = NULL; /* FIXME tuples */
 
   /* This transformation is only valid for equality comparisons.  */
   if (TREE_CODE (cond) != NE_EXPR && TREE_CODE (cond) != EQ_EXPR)
@@ -634,7 +640,10 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
   if (HONOR_NANS (TYPE_MODE (type)))
     return false;
 
+  /* FIXME tuples
   cond = COND_EXPR_COND (last_stmt (cond_bb));
+  */
+  cond = NULL; /* FIXME tuples */
   cmp = TREE_CODE (cond);
   result = PHI_RESULT (phi);
 
@@ -914,7 +923,10 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
       && !(lhs == arg1 && rhs == arg0))
     return false;
 
+  /* FIXME tuples
   cond = COND_EXPR_COND (last_stmt (cond_bb));
+  */
+  cond = NULL; /* FIXME tuples */
   result = PHI_RESULT (phi);
 
   /* Only relationals comparing arg[01] against zero are interesting.  */

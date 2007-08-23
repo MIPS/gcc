@@ -376,7 +376,7 @@ is_replaceable_p (tree stmt)
     return false;
 
   /* If the use isn't in this block, it wont be replaced either.  */
-  if (bb_for_stmt (use_stmt) != bb_for_stmt (stmt))
+  if (gimple_bb (use_stmt) != gimple_bb (stmt))
     return false;
 
   /* Used in this block, but at the TOP of the block, not the end.  */
