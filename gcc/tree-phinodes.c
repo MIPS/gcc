@@ -312,7 +312,13 @@ reserve_phi_args_for_new_edge (basic_block bb)
   int len = EDGE_COUNT (bb->preds);
   int cap = ideal_phi_node_len (len + 4);
 
+  /* FIXME tuples: We no longer have phi_nodes_ptr.  Must rewrite
+     this.  */
+#if 0
   for (loc = phi_nodes_ptr (bb);
+#else
+       for (loc = NULL;
+#endif
        *loc;
        loc = &PHI_CHAIN (*loc))
     {
@@ -457,7 +463,13 @@ remove_phi_node (tree phi, tree prev, bool release_lhs_p)
     }
   else
     {
+      /* FIXME tuples: We no longer have phi_nodes_ptr.  Must rework
+	 this.  */
+#if 0
       for (loc = phi_nodes_ptr (gimple_bb (phi));
+#else
+	   for (loc = NULL;
+#endif
 	   *loc != phi;
 	   loc = &PHI_CHAIN (*loc))
 	;

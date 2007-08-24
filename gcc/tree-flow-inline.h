@@ -302,8 +302,14 @@ may_aliases (const_tree var)
 static inline int
 get_lineno (gimple stmt)
 {
+  location_t loc;
+
   if (!stmt)
-    return;
+    return -1;
+
+  loc = gimple_locus (stmt);
+  if (loc.line == 0 && loc.file == 0)
+    return -1;
 
   return gimple_locus (stmt).line;
 }
@@ -631,15 +637,6 @@ phi_nodes (basic_block bb)
   return bb->il.gimple->phi_nodes;
 }
 
-/* Return pointer to the list of PHI nodes for basic block BB.  */
-
-static inline tree *
-phi_nodes_ptr (basic_block bb)
-{
-  gcc_assert (!(bb->flags & BB_RTL));
-  return &bb->il.gimple->phi_nodes;
-}
-
 /* Phi nodes of a basic block BB to L.  */
 
 static inline void
@@ -660,17 +657,17 @@ phi_arg_index_from_use (use_operand_p use)
 {
   struct phi_arg_d *element, *root;
   int index;
-  tree phi;
+  gimple phi;
 
   /* Since the use is the first thing in a PHI argument element, we can
      calculate its index based on casting it to an argument, and performing
      pointer arithmetic.  */
 
   phi = USE_STMT (use);
-  gcc_assert (TREE_CODE (phi) == PHI_NODE);
+  gcc_assert (gimple_code (phi) == GIMPLE_PHI);
 
   element = (struct phi_arg_d *)use;
-  root = &(PHI_ARG_ELT (phi, 0));
+  root = gimple_phi_arg (phi, 0);
   index = element - root;
 
 #ifdef ENABLE_CHECKING
@@ -678,7 +675,7 @@ phi_arg_index_from_use (use_operand_p use)
      then imm_use is likely not the first element in phi_arg_d.  */
   gcc_assert (
 	  (((char *)element - (char *)root) % sizeof (struct phi_arg_d)) == 0);
-  gcc_assert (index >= 0 && index < PHI_ARG_CAPACITY (phi));
+  gcc_assert (index >= 0 && index < (int) gimple_phi_capacity (phi));
 #endif
  
  return index;
@@ -824,7 +821,7 @@ bsi_stmt (block_stmt_iterator i)
 /* Return a pointer to the statement that block statement iterator I
    is currently at.  */
 static inline tree *
-bsi_stmt_ptr (block_stmt_iterator i)
+bsi_stmt_ptr (block_stmt_iterator i ATTRIBUTE_UNUSED)
 {
   /* FIXME tuples!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   return tsi_stmt_ptr (i.tsi);
@@ -1085,10 +1082,6 @@ clear_and_done_ssa_iter (ssa_op_iter *ptr)
 static inline void
 op_iter_init (ssa_op_iter *ptr, tree stmt, int flags)
 {
-#ifdef ENABLE_CHECKING
-  gcc_assert (stmt_ann (stmt));
-#endif
-
   ptr->defs = (flags & SSA_OP_DEF) ? DEF_OPS (stmt) : NULL;
   ptr->uses = (flags & SSA_OP_USE) ? USE_OPS (stmt) : NULL;
   ptr->vuses = (flags & SSA_OP_VUSE) ? VUSE_OPS (stmt) : NULL;
@@ -1515,7 +1508,7 @@ next_imm_use_stmt (imm_use_iterator *imm)
     {
       if (imm->iter_node.prev != NULL)
 	delink_imm_use (&imm->iter_node);
-      return NULL_TREE;
+      return NULL;
     }
 
   link_use_stmts_after (imm->imm_use, imm);

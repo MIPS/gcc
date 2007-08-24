@@ -1,5 +1,21 @@
 2007-08-22  Aldy Hernandez  <aldyh@redhat.com>
 
+	* tree-phinodes.c (reserve_phi_args_for_new_edge): Comment out
+	call to phi_nodes_ptr.
+	(remove_phi_node): Same.
+	* tree-flow-inline.h (get_lineno): Work with empty statements or
+	empty locations.
+	(phi_nodes_ptr): Remove.
+	(phi_arg_index_from_use): Adjust for tuples.
+	(bsi_stmt_ptr): Add ATTRIBUTE_UNUSED.
+	(op_iter_init): Remove assertion.
+	(next_imm_use_stmt): Change NULL_TREE to NULL.
+	* tree-dfa.c (mark_symbols_for_renaming): Adjust for tuples.
+	* tree-flow.h: Remove bb_for_stmt prototype.
+	(mark_symbols_for_renaming): Make argument gimple.
+
+2007-08-22  Aldy Hernandez  <aldyh@redhat.com>
+
 	Change all instances of bb_for_stmt to gimple_bb throughout.
 
 	* gimple.h (gimple_omp_parallel_combined_p): New.
