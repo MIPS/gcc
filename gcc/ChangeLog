@@ -1,3 +1,13 @@
+2007-08-24  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c (c_parser_find_decl_boundary): New function.
+	(start_new_parsed_hunk): Changed arguments.
+	(c_parser_update_checksum): New function.
+	(c_parser_checksum_buffer): Likewise.
+	(c_parser_lex_all): Use c_parser_update_checksum.
+	(can_reuse_hunk): Changed arguments.
+	(c_parser_translation_unit): Handle per-decl hunks.
+
 2007-08-21  Tom Tromey  <tromey@redhat.com>
 
 	* c-common.c (fold_offsetof_1): Handle VIEW_CONVERT_EXPR.

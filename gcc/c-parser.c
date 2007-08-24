@@ -461,6 +461,78 @@ c_hack_token (c_parser *parser, c_token *token)
   timevar_pop (TV_LEX);
 }
 
+/* Scan forward in the token stream and find the boundary of the next
+   declaration or definition.  This scan should not hack any tokens.
+   Return 0 if the boundary could not be determined.  The result is
+   the index of the final token contained in the declaration or
+   definition.  */
+static size_t
+c_parser_find_decl_boundary (c_parser *parser)
+{
+  size_t result = parser->next_token;
+  c_token *token = &parser->buffer[result];
+  int brace_depth = 0;
+  enum cpp_ttype finish = CPP_SEMICOLON;
+
+  /* Don't bother storing pragmas or asm, just re-parse them.  */
+  if (token->type == CPP_PRAGMA
+      || (token->type == CPP_NAME
+	  && C_IS_RESERVED_WORD (token->value)
+	  && C_RID_CODE (token->value) == RID_ASM))
+    return 0;
+
+  while (token->type != CPP_EOF)
+    {
+      if (token->type == CPP_OPEN_BRACE)
+	{
+#define RID_IS_SEU(RID) \
+      (((RID) == RID_ENUM) || ((RID) == RID_STRUCT) || ((RID) == RID_UNION))
+#define TOKEN_IS_SEU(TOKEN)						\
+	  (((((TOKEN).type == CPP_NAME) && C_IS_RESERVED_WORD ((TOKEN).value)) \
+	    || ((TOKEN).type == CPP_KEYWORD))				\
+	   && (RID_IS_SEU (C_RID_CODE ((TOKEN).value))))
+
+	  /* If we see a top-level open brace, it might be a function
+	     definition, but it might be something like 'union {x}' or
+	     'union name {x}'.  Here we differentiate the cases.  If
+	     we see what think is a function definition, then we know
+	     we are finished when we see the closing brace.  */
+	  if (brace_depth == 0
+	      && ! ((result > parser->next_token
+		     && TOKEN_IS_SEU (token[-1]))
+		    || (result - 1 > parser->next_token
+			&& TOKEN_IS_SEU (token[-2]))))
+	    {
+	      finish = CPP_CLOSE_BRACE;
+	    }
+	  ++brace_depth;
+#undef RID_IS_SEU
+#undef TOKEN_IS_SEU
+	}
+      else if (token->type == CPP_CLOSE_BRACE)
+	{
+	  --brace_depth;
+	  /* Not sure if this is needed -- but bail out if we see
+	     something weird.  */
+	  if (brace_depth < 0)
+	    return 0;
+	}
+
+      /* No 'else' here since we might have just seen the closing
+	 brace of a function definition.  */
+      if (token->type == finish && brace_depth == 0)
+	break;
+
+      ++result;
+      ++token;
+    }
+
+  /* If we saw a single token it must have been a semicolon.  It is
+     better to re-parse this since it declares nothing but may emit a
+     warning.  */
+  return result == parser->next_token ? 0 : result;
+}
+
 /* Map an identifier to a binding pair.  */
 struct hunk_binding_entry GTY (())
 {
@@ -692,21 +764,22 @@ object_in_current_hunk_p (tree obj)
 /* Called when we start parsing a new hunk to initialize the hunk
    binding.  */
 static void
-start_new_parsed_hunk (c_parser *parser, unsigned char new_signature[])
+start_new_parsed_hunk (c_parser *parser, unsigned char new_signature[],
+		       size_t table_size, location_t location)
 {
   parser->current_hunk_binding = GGC_NEW (struct hunk_binding);
   memcpy (&parser->current_hunk_binding->key[0],
 	  new_signature, 16);
   parser->current_hunk_binding->multi_list = NULL;
   parser->current_hunk_binding->binding_map
-    = htab_create_ggc (20, hash_hunk_binding_entry, eq_hunk_binding_entry,
+    = htab_create_ggc (table_size,
+		       hash_hunk_binding_entry, eq_hunk_binding_entry,
 		       NULL);
-  parser->current_hunk_binding->prereqs = htab_create_ggc (20,
+  parser->current_hunk_binding->prereqs = htab_create_ggc (table_size,
 							   htab_hash_pointer,
 							   htab_eq_pointer,
 							   NULL);
-  parser->current_hunk_binding->location
-    = parser->buffer[parser->prev_hunk->start_token].location;
+  parser->current_hunk_binding->location = location;
   parser->current_hunk_binding->next = NULL;
 }
 
@@ -719,9 +792,7 @@ finish_current_hunk (c_parser *parser,
 {
   struct hunk_binding **slot;
   slot = (struct hunk_binding **)
-    htab_find_slot (global_hunk_map,
-		    parser->current_hunk_binding,
-		    INSERT);
+    htab_find_slot (global_hunk_map, parser->current_hunk_binding, INSERT);
   if (initial != last_used)
     {
       last_used->next = NULL;
@@ -811,6 +882,52 @@ c_parser_note_smash (tree from, tree to)
   C_SMASHED_P (from) = 1;
 }
 
+/* Update a checksum with a single token.  */
+static void
+c_parser_update_checksum (struct md5_ctx *current_hash, c_token *token)
+{
+  switch (token->type)
+    {
+    case CPP_NAME:
+      md5_process_bytes (IDENTIFIER_POINTER (token->value),
+			 IDENTIFIER_LENGTH (token->value),
+			 current_hash);
+      break;
+
+    case CPP_OBJC_STRING:
+    case CPP_WSTRING:
+    case CPP_STRING:
+      md5_process_bytes (TREE_STRING_POINTER (token->value),
+			 TREE_STRING_LENGTH (token->value),
+			 current_hash);
+      break;
+
+    case CPP_NUMBER:
+    case CPP_AT_NAME:
+    case CPP_CHAR:
+    case CPP_WCHAR:
+    case CPP_PRAGMA:
+      /* FIXME: cheap hack: do nothing*/
+      break;
+
+    default:
+      /*lalala*/
+      break;
+    }
+}
+
+/* Checksum a piece of a token buffer.  */
+static void
+c_parser_checksum_buffer (c_parser *parser, size_t first, size_t last,
+			  unsigned char result[])
+{
+  struct md5_ctx current_hash;
+  md5_init_ctx (&current_hash);
+  for (; first <= last; ++first)
+    c_parser_update_checksum (&current_hash, &parser->buffer[first]);
+  md5_finish_ctx (&current_hash, &result[0]);
+}
+
 /* Lex the entire file into the parser's buffer.  */
 
 static void
@@ -866,34 +983,7 @@ c_parser_lex_all (c_parser *parser)
       if (hunk_start == (size_t) -1)
 	hunk_start = pos;
 
-      switch (buffer[pos].type)
-	{
-	case CPP_NAME:
-	  md5_process_bytes (IDENTIFIER_POINTER (buffer[pos].value),
-			     IDENTIFIER_LENGTH (buffer[pos].value),
-			     &current_hash);
-	  break;
-
-	case CPP_OBJC_STRING:
-	case CPP_WSTRING:
-	case CPP_STRING:
-	  md5_process_bytes (TREE_STRING_POINTER (buffer[pos].value),
-			     TREE_STRING_LENGTH (buffer[pos].value),
-			     &current_hash);
-	  break;
-
-	case CPP_NUMBER:
-	case CPP_AT_NAME:
-	case CPP_CHAR:
-	case CPP_WCHAR:
-	case CPP_PRAGMA:
-	  /* FIXME: cheap hack: do nothing*/
-	  break;
-
-	default:
-	  /*lalala*/
-	  break;
-	}
+      c_parser_update_checksum (&current_hash, &buffer[pos]);
 
       ++pos;
       if (buffer[pos - 1].type == CPP_EOF)
@@ -1555,17 +1645,18 @@ traverse_check_prereq (void **valp, void *ptd)
   return true;
 }
 
-/* Check to see if the next hunk has already been parsed and is
-   available for reuse.  Map in the bindings and return true if the
-   hunk was reused.  Return false otherwise.  */
+/* Check to see if the HUNK has already been parsed and is available
+   for reuse.  Map in the bindings and return true if the hunk was
+   reused.  Return false otherwise.  */
 static bool
-can_reuse_hunk (c_parser *parser)
+can_reuse_hunk (c_parser *parser, struct parsed_hunk *hunk,
+		bool update_parser)
 {
-  struct hunk_binding temp, *binding;
+  struct hunk_binding temp, *binding, **slot;
   struct parsed_hunk *binding_iter, *self_iter;
 
   /* FIXME: kinda gross.  */
-  memcpy (&temp.key[0], &parser->first_hunk->key[0], 16);
+  memcpy (&temp.key[0], &hunk->key[0], 16);
   binding = (struct hunk_binding *) htab_find (global_hunk_map, &temp);
 
   for (; binding; binding = binding->next)
@@ -1582,10 +1673,10 @@ can_reuse_hunk (c_parser *parser)
       /* If we have a multi-hunk binding, check to make sure the
 	 current stream has the correct contents.  */
       binding_iter = binding->multi_list;
-      self_iter = parser->first_hunk->next;
-      while (binding_iter && self_iter
-	     && !memcmp (&binding_iter->key[0],
-			 &self_iter->key[0], 16))
+      self_iter = hunk->next;
+      while (binding_iter
+	     && self_iter
+	     && !memcmp (&binding_iter->key[0], &self_iter->key[0], 16))
 	{
 	  binding_iter = binding_iter->next;
 	  self_iter = self_iter->next;
@@ -1599,17 +1690,18 @@ can_reuse_hunk (c_parser *parser)
 
   /* Make a note saying that we have used this hunk.  We only need to
      mark the first in a sequence.  */
-  {
-    struct hunk_binding **slot = (struct hunk_binding **)
-      htab_find_slot (parser->used_hunks, binding, INSERT);
-    *slot = binding;
-  }
+  slot = (struct hunk_binding **) htab_find_slot (parser->used_hunks,
+						  binding, INSERT);
+  *slot = binding;
 
   /* Map in the bindings.  */
   htab_traverse_noresize (binding->binding_map, traverse_hunk_binding_entry,
 			  NULL);
-  parser->first_hunk = self_iter;
-  parser->next_token = self_iter->start_token;
+  if (update_parser)
+    {
+      parser->first_hunk = self_iter;
+      parser->next_token = self_iter->start_token;
+    }
   /* FIXME: ... hmm... */
   parser->tokens_avail = 0;
 
@@ -1646,23 +1738,23 @@ c_parser_translation_unit (c_parser *parser)
       parser->prev_hunk = parser->first_hunk;
       do
 	{
-	  c_token *next_token;
 	  struct parsed_hunk *last_used = NULL;
 
 	  ggc_collect ();
 
-	  next_token = c_parser_peek_token (parser);
-
-	  /* Skip all the hunks that we've parsed.  */
+	  /* Skip all the hunks that we've handled.  */
 	  while (parser->first_hunk
-		 && (size_t) (next_token - &parser->buffer[0]) >= parser->first_hunk->next_token)
+		 && parser->next_token >= parser->first_hunk->next_token)
 	    {
 	      last_used = parser->first_hunk;
 	      parser->first_hunk = parser->first_hunk->next;
 	    }
 
+	  /* If we've reached the start of a new (file-change-based)
+	     hunk, and there was a hunk open, close it and save its
+	     contents.  */
 	  if (parser->first_hunk
-	      && (size_t) (next_token - &parser->buffer[0]) == parser->first_hunk->start_token)
+	      && parser->next_token == parser->first_hunk->start_token)
 	    {
 	      if (parser->prev_hunk && parsed_any)
 		{
@@ -1672,14 +1764,57 @@ c_parser_translation_unit (c_parser *parser)
 		}
 
 	      parser->prev_hunk = parser->first_hunk;
+	    }
 
-	      /* This will map in the saved bindings as a side
-		 effect.  */
-	      if (can_reuse_hunk (parser))
+	  /* If we are not in a system header (FIXME: should be a bit
+	     more strict -- anything not owned by the user should be
+	     chunked), then we choose to hunk by the declaration, and
+	     not by file change events.  */
+	  if (!parser->buffer[parser->next_token].in_system_header)
+	    {
+	      struct parsed_hunk isolani;
+	      /* We don't really need to set all the fields here, but
+		 it does let us modify the functions that might refer
+		 to this structure without being overly careful.  */
+	      isolani.start_token = parser->next_token;
+	      isolani.next_token = c_parser_find_decl_boundary (parser);
+	      isolani.next = NULL;
+
+	      if (isolani.next_token != 0)
+		{
+		  /* Found the declaration bounds.  */
+		  c_parser_checksum_buffer (parser, isolani.start_token,
+					    isolani.next_token, isolani.key);
+		  if (can_reuse_hunk (parser, &isolani, false))
+		    {
+		      /* Everything was mapped in via side effect, but
+			 we still have to update the token
+			 pointer.  */
+		      parser->next_token = isolani.next_token + 1;
+		    }
+		  else
+		    {
+		      start_new_parsed_hunk (parser, isolani.key, 1,
+					     parser->buffer[isolani.start_token].location);
+		      c_parser_external_declaration (parser);
+		      finish_current_hunk (parser, &isolani, &isolani);
+		      gcc_assert (parsed_any == false);
+		    }
+		  continue;
+		}
+	    }
+	  else if (parser->first_hunk
+		   && parser->next_token == parser->first_hunk->start_token)
+	    {
+	      /* This will map in the saved bindings and update the
+		 token pointer as side effects.  */
+	      if (can_reuse_hunk (parser, parser->first_hunk, true))
 		continue;
 
 	      /* Couldn't reuse, so parse and save this hunk.  */
-	      start_new_parsed_hunk (parser, parser->first_hunk->key);
+	      start_new_parsed_hunk (parser, parser->first_hunk->key,
+				     20,
+				     parser->buffer[parser->prev_hunk->start_token].location);
 	    }
 
 	  c_parser_external_declaration (parser);
