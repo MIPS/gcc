@@ -826,6 +826,7 @@ extern void record_vars_into (tree, tree);
 extern void record_vars (tree);
 extern bool block_may_fallthru (tree);
 extern bool gimple_seq_may_fallthru (gimple_seq);
+extern bool gimple_stmt_may_fallthru (gimple);
 
 /* In tree-ssa-alias.c  */
 extern void dump_may_aliases_for (FILE *, tree);

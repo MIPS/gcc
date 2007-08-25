@@ -30,7 +30,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "real.h"
 #include "hashtab.h"
 #include "tree-flow.h"
-#include "gimple-iterator.h"
 #include "tree-pass.h"
 #include "gimple.h"
 

@@ -18,8 +18,8 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#ifndef _TREE_SIMPLE_H
-#define _TREE_SIMPLE_H 1
+#ifndef _TREE_GIMPLE_H
+#define _TREE_GIMPLE_H 1
 
 #include "tree-iterator.h"
 #include "gimple.h"
@@ -132,7 +132,7 @@ extern enum gimplify_status gimplify_expr (tree *, gimple_seq, gimple_seq,
 extern void gimplify_type_sizes (tree, gimple_seq);
 extern void gimplify_one_sizepos (tree *, gimple_seq);
 extern bool gimplify_stmt (tree *, gimple_seq);
-extern void gimplify_body (tree *, gimple_seq, tree, bool);
+extern gimple gimplify_body (tree *, tree, bool);
 extern void push_gimplify_context (void);
 extern void pop_gimplify_context (gimple);
 extern void gimplify_and_add (tree, gimple_seq);
@@ -162,64 +162,4 @@ extern void insert_field_into_struct (tree, tree);
 /* In gimplify.c.  */
 extern void gimplify_function_tree (tree);
 
-/* Convenience routines to walk all statements of a gimple function.
-   The difference between these walkers and the generic walk_tree is
-   that walk_stmt provides context information to the callback
-   routine to know whether it is currently on the LHS or RHS of an
-   assignment (IS_LHS) or contexts where only GIMPLE values are
-   allowed (VAL_ONLY).
-   
-   This is useful in walkers that need to re-write sub-expressions
-   inside statements while making sure the result is still in GIMPLE
-   form.
-
-   Note that this is useful exclusively before the code is converted
-   into SSA form.  Once the program is in SSA form, the standard
-   operand interface should be used to analyze/modify statements.  */
-
-struct walk_stmt_info
-{
-  /* For each statement, we invoke CALLBACK via walk_tree.  The passed
-     data is a walk_stmt_info structure.  */
-  walk_tree_fn callback;
-
-  /* Points to the current statement being walked.  */
-  tree_stmt_iterator tsi;
-  
-  /* Additional data that CALLBACK may want to carry through the
-     recursion.  */
-  void *info;
-
-  /* Indicates whether the *TP being examined may be replaced 
-     with something that matches is_gimple_val (if true) or something
-     slightly more complicated (if false).  "Something" technically 
-     means the common subset of is_gimple_lvalue and is_gimple_rhs, 
-     but we never try to form anything more complicated than that, so
-     we don't bother checking.
-
-     Also note that CALLBACK should update this flag while walking the
-     sub-expressions of a statement.  For instance, when walking the
-     statement 'foo (&var)', the flag VAL_ONLY will initially be set
-     to true, however, when walking &var, the operand of that
-     ADDR_EXPR does not need to be a GIMPLE value.  */
-  bool val_only;
-
-  /* True if we are currently walking the LHS of an assignment.  */
-  bool is_lhs;
-
-  /* Optional.  Set to true by CALLBACK if it made any changes.  */
-  bool changed;
-
-  /* True if we're interested in seeing BIND_EXPRs.  */
-  bool want_bind_expr;
-
-  /* True if we're interested in seeing RETURN_EXPRs.  */
-  bool want_return_expr;
-
-  /* True if we're interested in location information.  */
-  bool want_locations;
-};
-
-void walk_stmts (struct walk_stmt_info *, tree *);
-
-#endif /* _TREE_SIMPLE_H  */
+#endif /* _TREE_GIMPLE_H  */

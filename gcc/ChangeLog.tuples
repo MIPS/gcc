@@ -1,3 +1,113 @@
+2007-08-25  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (build_gimple_modify_stmt_stat): Add depecrate note.
+	* omp-low.c (scan_omp_1): Disable.
+	(scan_omp): Likewise.
+	(lower_omp_for): Likewise.
+	(lower_omp_parallel): Likewise.
+	(lower_omp_1): Likewise.
+	(lower_omp): Likewise.
+	(diagnose_sb_1): Likewise.
+	(diagnose_sb_2): Likewise.
+	(diagnose_omp_structured_block_errors): Likewise.
+	* tree-gimple.h (_TREE_GIMPLE_H): Rename from _TREE_SIMPLE_H.
+	(gimplify_body): Return the new GIMPLE body.
+	(struct walk_stmt_info): Move to gimple.h.
+	* gimple-low.c (lower_function_body): Assert that the function
+	body is a single GIMPLE_BIND statement.
+	Create a new gimple sequence to lower the existing body.
+	Replace the function body with the new lowered sequence.
+	(pass_lower_cf): Enable GIMPLE lowering.
+	(lower_omp_directive): Disable.
+	(lower_stmt): Do not call lower_omp_directive.
+	(gimple_stmt_may_fallthru): Factor out of ...
+	(gimple_seq_may_fallthru): ... here.
+	* gimple-iterator.c (gsi_replace): New.
+	* gimple-iterator.h (gsi_replace): Declare.
+	* gimple-pretty-print.c: Do not include gimple-iterator.h
+	* gimplify.c (gimplify_asm_expr): Tidy.
+	Store the whole TREE_LIST node in the inputs and outputs vectors.
+	(gimple_push_cleanup): Disable completely.
+	(gimplify_body): Return a GIMPLE_BIND holding the gimplified
+	body.
+	Update all users.
+	(gimplify_function_tree): Create a GIMPLE sequence to hold
+	the gimplified body.
+	* tree-flow.h (gimple_stmt_may_fallthru): Declare.
+	* Makefile.in (GIMPLE_H): Add gimple-iterator.h.
+
+2007-08-25  Diego Novillo  <dnovillo@google.com>
+
+	* tree-nested.c: Re-implement to use GIMPLE tuples.
+	(init_tmp_var_with_call): New.
+	(init_tmp_var): Adapt to GIMPLE tuples.
+	(save_tmp_var): Likewise.
+	(convert_nl_goto_receiver): Likewise.
+	(finalize_nesting_tree_1): Likewise.
+	(gsi_gimplify_val): Likewise.
+	Rename from tsi_gimplify_val.  Update all users.
+	(walk_asm_expr): Remove.
+	(walk_stmts): Remove.
+	(walk_body): Call walk_gimple_seq.
+	Add new argument callback_op.  Update all users.
+	(walk_function): Add argument callback_op.  Update all users.
+	(convert_nonlocal_reference_op): Rename from
+	convert_nonlocal_omp_reference.  Update all users.
+	(convert_nonlocal_reference_stmt): New.  Handle GIMPLE
+	statements that used to be tree nodes.
+	(convert_local_reference_op): Rename from
+	convert_local_reference.  Update all users.
+	(convert_local_reference_stmt): New.  Handle GIMPLE statements
+	that used to be tree nodes.
+	(convert_nl_goto_reference): Convert to walk_stmt_fn callback.
+	Update all users.
+	(convert_tramp_reference_op): Rename from
+	convert_tramp_reference.  Update all users.
+	(convert_tramp_reference_stmt): New.  Handle GIMPLE statements
+	that used to be tree nodes.
+	(convert_gimple_call): Rename from convert_call_expr.  Convert
+	to be a walk_stmt_fn callback.
+	* gimple.c (gimple_seq_add): Rename from gimple_add.  Update
+	all users.
+	(walk_gimple_seq): Rename from walk_seq_ops.  Update all
+	users.
+	(walk_gimple_stmt): Rename from walk_tuple_ops.  Update all
+	users.
+	Use two callback functions one for statements and another for
+	operands.  If either is NULL do not invoke it.
+	Allow callbacks to replace operands.
+	(WALKIT): Remove.
+	(walk_gimple_asm): New.
+	* gimple.h: Include ggc.h
+	(gimple_seq_alloc): New.  Use everywhere a GIMPLE sequence is
+	allocated.
+	(gimple_op_ptr): New.
+	(gimple_call_arg_ptr): New.
+	(gimple_catch_types_ptr): New.
+	(gimple_eh_filter_types_ptr): New.
+	(gimple_omp_critical_name_ptr): New.
+	(gimple_omp_for_clauses_ptr): New.
+	(gimple_omp_for_index_ptr): New.
+	(gimple_omp_for_initial_ptr): New.
+	(gimple_omp_for_final_ptr): New.
+	(gimple_omp_for_incr_ptr): New.
+	(gimple_omp_parallel_clauses_ptr): New.
+	(gimple_omp_parallel_child_fn_ptr): New.
+	(gimple_omp_parallel_data_arg_ptr): New.
+	(gimple_omp_single_clauses_ptr): New.
+	(gimple_omp_sections_clauses_ptr): New.
+	(walk_stmt_fn): New type.
+	(struct walk_stmt_info): Move from tree-gimple.h.
+	Rename field callback to callback_op.
+	Add new field callback_stmt.
+	Replace field tsi with gsi of type gimple_stmt_iterator.
+	(walk_gimple_seq): Declare.
+	(walk_gimple_stmt): Declare.
+	* tree-cfg.c (execute_build_cfg): Do not call
+	build_gimple_cfg.
+	(pass_build_cfg): Enable.
+	Disable TODO_verify_stmts and TODO_cleanup_cfg.
+
 2007-08-22  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-phinodes.c (reserve_phi_args_for_new_edge): Comment out

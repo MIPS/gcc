@@ -1089,18 +1089,18 @@ gimplify_bind_expr (tree *expr_p, gimple_seq pre_p)
 
       gs = build_gimple_try (gimple_bind_body (gimple_bind), NULL,
 	  		     GIMPLE_TRY_FINALLY);
-      gimple_add (gimple_try_cleanup (gs), stack_restore);
+      gimple_seq_add (gimple_try_cleanup (gs), stack_restore);
 
       gimple_seq_init (&empty_seq);
       gimple_bind_set_body (gimple_bind, &empty_seq);
-      gimple_add (gimple_bind_body (gimple_bind), stack_save);
-      gimple_add (gimple_bind_body (gimple_bind), gs);
+      gimple_seq_add (gimple_bind_body (gimple_bind), stack_save);
+      gimple_seq_add (gimple_bind_body (gimple_bind), gs);
     }
 
   gimplify_ctxp->save_stack = old_save_stack;
   gimple_pop_bind_expr ();
 
-  gimple_add (pre_p, gimple_bind);
+  gimple_seq_add (pre_p, gimple_bind);
 
   if (temp)
     {
@@ -1130,7 +1130,7 @@ gimplify_return_expr (tree stmt, gimple_seq pre_p)
     {
       bool use_return_decl_p = ret_expr && TREE_CODE (ret_expr) == RESULT_DECL;
       gimple ret = build_gimple_return (use_return_decl_p, ret_expr);
-      gimple_add (pre_p, ret);
+      gimple_seq_add (pre_p, ret);
       return GS_ALL_DONE;
     }
 
@@ -1186,7 +1186,7 @@ gimplify_return_expr (tree stmt, gimple_seq pre_p)
 
   gimplify_and_add (TREE_OPERAND (stmt, 0), pre_p);
 
-  gimple_add (pre_p, build_gimple_return (result == result_decl, result));
+  gimple_seq_add (pre_p, build_gimple_return (result == result_decl, result));
 
   return GS_ALL_DONE;
 }
@@ -1284,16 +1284,16 @@ gimplify_loop_expr (tree *expr_p, gimple_seq pre_p)
   tree saved_label = gimplify_ctxp->exit_label;
   tree start_label = create_artificial_label ();
 
-  gimple_add (pre_p, build_gimple_label (start_label));
+  gimple_seq_add (pre_p, build_gimple_label (start_label));
 
   gimplify_ctxp->exit_label = NULL_TREE;
 
   gimplify_and_add (LOOP_EXPR_BODY (*expr_p), pre_p);
 
-  gimple_add (pre_p, build_gimple_goto (start_label));
+  gimple_seq_add (pre_p, build_gimple_goto (start_label));
 
   if (gimplify_ctxp->exit_label)
-    gimple_add (pre_p, build_gimple_label (gimplify_ctxp->exit_label));
+    gimple_seq_add (pre_p, build_gimple_label (gimplify_ctxp->exit_label));
 
   gimplify_ctxp->exit_label = saved_label;
 
@@ -1448,7 +1448,7 @@ gimplify_switch_expr (tree *expr_p, gimple_seq pre_p)
 	  tree def_lab = build3 (CASE_LABEL_EXPR, void_type_node, NULL_TREE,
 	                         NULL_TREE, create_artificial_label ());
 	  gimple new_default = build_gimple_label (def_lab);
-	  gimple_add (&switch_body_seq, new_default);
+	  gimple_seq_add (&switch_body_seq, new_default);
 	  default_case = gimple_label_label (new_default);
 	}
 
@@ -1457,7 +1457,7 @@ gimplify_switch_expr (tree *expr_p, gimple_seq pre_p)
 
       gimple_switch = build_gimple_switch_vec (SWITCH_COND (switch_expr), 
                                                default_case, labels);
-      gimple_add (pre_p, gimple_switch);
+      gimple_seq_add (pre_p, gimple_switch);
       gimple_seq_append (pre_p, &switch_body_seq);
       VEC_free(tree, heap, labels);
     }
@@ -1483,7 +1483,7 @@ gimplify_case_label_expr (tree *expr_p, gimple_seq pre_p)
   gimple gimple_label = build_gimple_label (*expr_p);
   VEC_safe_push (tree, heap, ctxp->case_labels,
                  gimple_label_label (gimple_label));
-  gimple_add (pre_p, gimple_label);
+  gimple_seq_add (pre_p, gimple_label);
 
   return GS_ALL_DONE;
 }
@@ -2245,7 +2245,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq pre_p, bool want_value)
   /* Now add the GIMPLE call to PRE_P.  If WANT_VALUE is set, we need
      to create the appropriate temporary for the call's LHS.  */
   call = build_gimple_call_vec (fndecl ? fndecl : CALL_EXPR_FN (*expr_p), args);
-  gimple_add (pre_p, call);
+  gimple_seq_add (pre_p, call);
   if (want_value)
     {
       tree lhs = get_tmp_var_for (call);
@@ -2692,14 +2692,14 @@ gimplify_cond_expr (tree *expr_p, gimple_seq pre_p, fallback_t fallback)
                                        label_false);
     }
 
-  gimple_add (pre_p, gimple_cond);
-  gimple_add (pre_p, build_gimple_label (label_true));
+  gimple_seq_add (pre_p, gimple_cond);
+  gimple_seq_add (pre_p, build_gimple_label (label_true));
   have_then_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 1), pre_p);
   label_cont = create_artificial_label ();
-  gimple_add (pre_p, build_gimple_goto (label_cont));
-  gimple_add (pre_p, build_gimple_label (label_false));
+  gimple_seq_add (pre_p, build_gimple_goto (label_cont));
+  gimple_seq_add (pre_p, build_gimple_label (label_false));
   have_else_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 2), pre_p);
-  gimple_add (pre_p, build_gimple_label (label_cont));
+  gimple_seq_add (pre_p, build_gimple_label (label_cont));
 
   gimple_pop_condition (pre_p);
 
@@ -2747,13 +2747,13 @@ gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value,
       /* tmp = memcpy() */
       t = create_tmp_var (TREE_TYPE (to_ptr), NULL);
       gimple_call_set_lhs (gs, t);
-      gimple_add (seq_p, gs);
+      gimple_seq_add (seq_p, gs);
 
       *expr_p = build1 (INDIRECT_REF, TREE_TYPE (to), t);
       return GS_ALL_DONE;
     }
 
-  gimple_add (seq_p, gs);
+  gimple_seq_add (seq_p, gs);
   *expr_p = NULL;
   return GS_ALL_DONE;
 }
@@ -2781,13 +2781,13 @@ gimplify_modify_expr_to_memset (tree *expr_p, tree size, bool want_value,
       /* tmp = memset() */
       t = create_tmp_var (TREE_TYPE (to_ptr), NULL);
       gimple_call_set_lhs (gs, t);
-      gimple_add (seq_p, gs);
+      gimple_seq_add (seq_p, gs);
 
       *expr_p = build1 (INDIRECT_REF, TREE_TYPE (to), t);
       return GS_ALL_DONE;
     }
 
-  gimple_add (seq_p, gs);
+  gimple_seq_add (seq_p, gs);
   *expr_p = NULL;
   return GS_ALL_DONE;
 }
@@ -2950,10 +2950,10 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
   /* Create and initialize the index variable.  */
   var_type = TREE_TYPE (upper);
   var = create_tmp_var (var_type, NULL);
-  gimple_add (pre_p, build_gimple_assign (var, lower));
+  gimple_seq_add (pre_p, build_gimple_assign (var, lower));
 
   /* Add the loop entry label.  */
-  gimple_add (pre_p, build_gimple_label (loop_entry_label));
+  gimple_seq_add (pre_p, build_gimple_label (loop_entry_label));
 
   /* Build the reference.  */
   cref = build4 (ARRAY_REF, array_elt_type, unshare_expr (object),
@@ -2968,23 +2968,23 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
     gimplify_init_ctor_eval (cref, CONSTRUCTOR_ELTS (value),
 			     pre_p, cleared);
   else
-    gimple_add (pre_p, build_gimple_assign (cref, value));
+    gimple_seq_add (pre_p, build_gimple_assign (cref, value));
 
   /* We exit the loop when the index var is equal to the upper bound.  */
-  gimple_add (pre_p,
+  gimple_seq_add (pre_p,
 	  build_gimple_cond (GIMPLE_COND_EQ, var, upper, loop_exit_label,
 	                     NULL_TREE));
 
   /* Otherwise, increment the index var...  */
   tmp = build2 (PLUS_EXPR, var_type, var,
 		fold_convert (var_type, integer_one_node));
-  gimple_add (pre_p, build_gimple_assign (var, tmp));
+  gimple_seq_add (pre_p, build_gimple_assign (var, tmp));
 
   /* ...and jump back to the loop entry.  */
-  gimple_add (pre_p, build_gimple_goto (loop_entry_label));
+  gimple_seq_add (pre_p, build_gimple_goto (loop_entry_label));
 
   /* Add the loop exit label.  */
-  gimple_add (pre_p, build_gimple_label (loop_exit_label));
+  gimple_seq_add (pre_p, build_gimple_label (loop_exit_label));
 }
 
 /* Return true if FDECL is accessing a field that is zero sized.  */
@@ -3085,7 +3085,7 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 	gimplify_init_ctor_eval (cref, CONSTRUCTOR_ELTS (value),
 				 pre_p, cleared);
       else
-	gimple_add (pre_p, build_gimple_assign (cref, value));
+	gimple_seq_add (pre_p, build_gimple_assign (cref, value));
     }
 }
 
@@ -3388,7 +3388,7 @@ gimplify_init_constructor (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 	  tree lhs = TREE_OPERAND (*expr_p, 0);
 	  tree rhs = TREE_OPERAND (*expr_p, 1);
 	  gimple init = build_gimple_assign (lhs, rhs);
-	  gimple_add (pre_p, init);
+	  gimple_seq_add (pre_p, init);
 	  *expr_p = NULL;
 	}
 
@@ -3724,7 +3724,7 @@ gimplify_modify_expr_complex_part (tree *expr_p, gimple_seq pre_p,
   else
     new_rhs = build2 (COMPLEX_EXPR, TREE_TYPE (lhs), realpart, imagpart);
 
-  gimple_add (pre_p, build_gimple_assign (lhs, new_rhs));
+  gimple_seq_add (pre_p, build_gimple_assign (lhs, new_rhs));
   *expr_p = (want_value) ? rhs : NULL_TREE;
 
   return GS_ALL_DONE;
@@ -3843,7 +3843,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
       SET_DECL_DEBUG_EXPR (*from_p, *to_p);
     }
 
-  gimple_add (pre_p, build_gimple_assign (*to_p, *from_p));
+  gimple_seq_add (pre_p, build_gimple_assign (*to_p, *from_p));
 
   if (want_value)
     {
@@ -4103,22 +4103,23 @@ gimplify_addr_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 static enum gimplify_status
 gimplify_asm_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 {
-  tree expr = *expr_p;
-  int noutputs = list_length (ASM_OUTPUTS (expr));
-  const char **oconstraints
-    = (const char **) alloca ((noutputs) * sizeof (const char *));
+  tree expr;
+  int noutputs;
+  const char **oconstraints;
   int i;
   tree link;
   const char *constraint;
   bool allows_mem, allows_reg, is_inout;
   enum gimplify_status ret, tret;
-  
   gimple stmt;
-  
   VEC(tree, gc) *inputs;
   VEC(tree, gc) *outputs;
   VEC(tree, gc) *clobbers;
   
+  expr = *expr_p;
+  noutputs = list_length (ASM_OUTPUTS (expr));
+  oconstraints = (const char **) alloca ((noutputs) * sizeof (const char *));
+
   inputs = VEC_alloc (tree, gc, 5);
   outputs = VEC_alloc (tree, gc, 5);
   clobbers = VEC_alloc (tree, gc, 5);
@@ -4127,14 +4128,16 @@ gimplify_asm_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
   for (i = 0, link = ASM_OUTPUTS (expr); link; ++i, link = TREE_CHAIN (link))
     {
       size_t constraint_len;
-      oconstraints[i] = constraint
+
+      oconstraints[i]
+	= constraint
 	= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
       constraint_len = strlen (constraint);
       if (constraint_len == 0)
         continue;
 
-      parse_output_constraint (&constraint, i, 0, 0,
-			       &allows_mem, &allows_reg, &is_inout);
+      parse_output_constraint (&constraint, i, 0, 0, &allows_mem, &allows_reg,
+	                       &is_inout);
 
       if (!allows_reg && allows_mem)
 	mark_addressable (TREE_VALUE (link));
@@ -4148,7 +4151,7 @@ gimplify_asm_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 	  ret = tret;
 	}
 
-      VEC_safe_push (tree, gc, outputs, TREE_VALUE (link));
+      VEC_safe_push (tree, gc, outputs, link);
 
       if (is_inout)
 	{
@@ -4282,15 +4285,16 @@ gimplify_asm_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 	  if (tret == GS_ERROR)
 	    ret = tret;
 	}
-      VEC_safe_push (tree, gc, inputs, TREE_VALUE (link));
+
+      VEC_safe_push (tree, gc, inputs, link);
     }
   
   for (link = ASM_CLOBBERS (expr); link; ++i, link = TREE_CHAIN (link))
-      VEC_safe_push (tree, gc, clobbers, TREE_VALUE (link));
+      VEC_safe_push (tree, gc, clobbers, link);
     
-    stmt = build_gimple_asm_vec (TREE_STRING_POINTER (ASM_STRING(expr)),
-                           inputs, outputs, clobbers);
-  gimple_add (pre_p, stmt);
+  stmt = build_gimple_asm_vec (TREE_STRING_POINTER (ASM_STRING(expr)),
+                               inputs, outputs, clobbers);
+  gimple_seq_add (pre_p, stmt);
   return ret;
 }
 
@@ -4387,6 +4391,8 @@ gimplify_cleanup_point_expr (tree *expr_p, tree *pre_p)
 static void
 gimple_push_cleanup (tree var, tree cleanup, bool eh_only, gimple_seq pre_p)
 {
+/* FIXME tuples */
+#if 0 /* FIXME tuples */
   tree wce;
 
   /* Errors can result in improperly nested cleanups.  Which results in
@@ -4417,17 +4423,14 @@ gimple_push_cleanup (tree var, tree cleanup, bool eh_only, gimple_seq pre_p)
 	   val
       */
 
-#if 0 /* FIXME tuples */
-/* FIXME tuples */
       tree flag = create_tmp_var (boolean_type_node, "cleanup");
       gimple ffalse = build_gimple_assign (flag, boolean_false_node);
       gimple ftrue = build_gimple_assign (flag, boolean_true_node);
       cleanup = build3 (COND_EXPR, void_type_node, flag, cleanup, NULL);
       wce = build1 (WITH_CLEANUP_EXPR, void_type_node, cleanup);
-      gimple_add (&gimplify_ctxp->conditional_cleanups, ffalse);
+      gimple_seq_add (&gimplify_ctxp->conditional_cleanups, ffalse);
       gimple_seq_append (&gimplify_ctxp->conditional_cleanups, wce);
-      gimple_add (pre_p, ftrue);
-#endif
+      gimple_seq_add (pre_p, ftrue);
 
       /* Because of this manipulation, and the EH edges that jump
 	 threading cannot redirect, the temporary (VAR) will appear
@@ -4438,13 +4441,11 @@ gimple_push_cleanup (tree var, tree cleanup, bool eh_only, gimple_seq pre_p)
     {
       wce = build1 (WITH_CLEANUP_EXPR, void_type_node, cleanup);
       CLEANUP_EH_ONLY (wce) = eh_only;
-#if 0
-/* FIXME tuples */
       append_to_statement_list (wce, pre_p);
-#endif
     }
 
   gimplify_stmt (&TREE_OPERAND (wce, 0), pre_p);
+#endif
 }
 
 /* Gimplify a TARGET_EXPR which doesn't appear on the rhs of an INIT_EXPR.  */
@@ -5950,14 +5951,14 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 	  if (TREE_CODE (GOTO_DESTINATION (*expr_p)) != LABEL_DECL)
 	    ret = gimplify_expr (&GOTO_DESTINATION (*expr_p), pre_p,
 				 NULL, is_gimple_val, fb_rvalue);
-	  gimple_add (pre_p, build_gimple_goto (GOTO_DESTINATION (*expr_p)));
+	  gimple_seq_add (pre_p, build_gimple_goto (GOTO_DESTINATION (*expr_p)));
 	  break;
 
 	case LABEL_EXPR:
 	  ret = GS_ALL_DONE;
 	  gcc_assert (decl_function_context (LABEL_EXPR_LABEL (*expr_p))
 		      == current_function_decl);
-	  gimple_add (pre_p, build_gimple_label (LABEL_EXPR_LABEL (*expr_p)));
+	  gimple_seq_add (pre_p, build_gimple_label (LABEL_EXPR_LABEL (*expr_p)));
 	  break;
 
 	case CASE_LABEL_EXPR:
@@ -6044,7 +6045,7 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 	    gimplify_and_add (TREE_OPERAND (*expr_p, 0), gimple_try_eval (try));
 	    gimplify_and_add (TREE_OPERAND (*expr_p, 1),
 			      gimple_try_cleanup (try));
-	    gimple_add (pre_p, try);
+	    gimple_seq_add (pre_p, try);
 
 	    ret = GS_ALL_DONE;
 	    break;
@@ -6602,15 +6603,16 @@ gimplify_one_sizepos (tree *expr_p, gimple_seq stmt_p)
 }
 
 
-/* Gimplify the body of statements pointed to by BODY_P and store the
-   corresponding GIMPLE sequence in SEQ_P.  FNDECL is the function
-   decl containing BODY.  */
+/* Gimplify the body of statements pointed to by BODY_P and return a
+   GIMPLE_BIND containing the sequence of GIMPLE statements
+   corresponding to BODY_P.  FNDECL is the function decl containing
+   *BODY_P.  */
 
-void
-gimplify_body (tree *body_p, gimple_seq seq_p, tree fndecl, bool do_parms)
+gimple
+gimplify_body (tree *body_p, tree fndecl, bool do_parms)
 {
   location_t saved_location = input_location;
-  struct gimple_sequence parm_stmts;
+  struct gimple_sequence parm_stmts, seq;
   gimple outer_bind;
 
   timevar_push (TV_TREE_GIMPLIFY);
@@ -6636,24 +6638,25 @@ gimplify_body (tree *body_p, gimple_seq seq_p, tree fndecl, bool do_parms)
     gimple_seq_init (&parm_stmts);
 
   /* Gimplify the function's body.  */
-  gimplify_stmt (body_p, seq_p);
+  gimple_seq_init (&seq);
+  gimplify_stmt (body_p, &seq);
 
-  outer_bind = gimple_seq_first (seq_p);
+  outer_bind = gimple_seq_first (&seq);
   if (!outer_bind)
     {
       outer_bind = build_gimple_nop ();
-      gimple_add (seq_p, outer_bind);
+      gimple_seq_add (&seq, outer_bind);
     }
 
   /* If there isn't an outer GIMPLE_BIND, add one.  */
   if (gimple_code (outer_bind) != GIMPLE_BIND)
-    outer_bind = build_gimple_bind (NULL_TREE, seq_p);
+    outer_bind = build_gimple_bind (NULL_TREE, &seq);
 
   *body_p = NULL_TREE;
 
   /* If we had callee-copies statements, insert them at the beginning
      of the function.  */
-  if (gimple_seq_empty_p (&parm_stmts) != false)
+  if (!gimple_seq_empty_p (&parm_stmts))
     {
       gimple_seq_append (&parm_stmts, gimple_bind_body (outer_bind));
       gimple_bind_set_body (outer_bind, &parm_stmts);
@@ -6672,6 +6675,8 @@ gimplify_body (tree *body_p, gimple_seq seq_p, tree fndecl, bool do_parms)
 
   timevar_pop (TV_TREE_GIMPLIFY);
   input_location = saved_location;
+
+  return outer_bind;
 }
 
 /* Entry point to the gimplification pass.  FNDECL is the FUNCTION_DECL
@@ -6685,6 +6690,7 @@ gimplify_function_tree (tree fndecl)
 {
   tree oldfn, parm, ret;
   gimple_seq seq;
+  gimple bind;
 
   oldfn = current_function_decl;
   current_function_decl = fndecl;
@@ -6710,8 +6716,8 @@ gimplify_function_tree (tree fndecl)
       && !needs_to_live_in_memory (ret))
     DECL_GIMPLE_REG_P (ret) = 1;
 
-  seq = (gimple_seq) ggc_alloc_cleared (sizeof (*seq));
-  gimplify_body (&DECL_SAVED_TREE (fndecl), seq, fndecl, true);
+  bind = gimplify_body (&DECL_SAVED_TREE (fndecl), fndecl, true);
+  seq = gimple_bind_body (bind);
 
   /* If we're instrumenting function entry/exit, then prepend the call to
      the entry hook and wrap the whole function in a TRY_FINALLY_EXPR to
@@ -6722,23 +6728,22 @@ gimplify_function_tree (tree fndecl)
       && !flag_instrument_functions_exclude_p (fndecl))
     {
       tree x;
-      gimple tf, bind;
+      gimple tf;
 
       tf = build_gimple_try (seq, NULL, GIMPLE_TRY_FINALLY);
       x = implicit_built_in_decls[BUILT_IN_PROFILE_FUNC_EXIT];
-      gimple_add (gimple_try_cleanup (tf), build_gimple_call (x, 0));
+      gimple_seq_add (gimple_try_cleanup (tf), build_gimple_call (x, 0));
 
       bind = build_gimple_bind (NULL, NULL);
       x = implicit_built_in_decls[BUILT_IN_PROFILE_FUNC_ENTER];
-      gimple_add (gimple_bind_body (bind), build_gimple_call (x, 0));
-      gimple_add (gimple_bind_body (bind), tf);
-
-      gimple_seq_init (seq);
-      gimple_add (seq, bind);
+      gimple_seq_add (gimple_bind_body (bind), build_gimple_call (x, 0));
+      gimple_seq_add (gimple_bind_body (bind), tf);
     }
 
   /* The tree body of the function is no longer needed, replace it
      with the new GIMPLE body.  */
+  seq = gimple_seq_alloc ();
+  gimple_seq_add (seq, bind);
   set_gimple_body (fndecl, seq);
   DECL_SAVED_TREE (fndecl) = NULL_TREE;
 

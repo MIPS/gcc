@@ -21,6 +21,7 @@ Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_SEQ_ITERATOR_H
 #define GCC_SEQ_ITERATOR_H
+
 #include "ggc.h"
 
 /* Iterator object for GIMPLE statement sequences.  */
@@ -110,7 +111,6 @@ gsi_stmt (gimple_stmt_iterator *i)
   return i->stmt;
 }
 
-
 enum gsi_iterator_update
 {
   GSI_NEW_STMT,		/* Only valid when single statement is added, move
@@ -131,5 +131,6 @@ void gsi_link_after (gimple_stmt_iterator *, gimple, enum gsi_iterator_update);
 void gsi_delink (gimple_stmt_iterator *);
 gimple_seq gsi_split_seq_after (const gimple_stmt_iterator *);
 gimple_seq gsi_split_seq_before (gimple_stmt_iterator *);
+void gsi_replace (gimple_stmt_iterator *, gimple, bool);
 
 #endif /* GCC_SEQ_ITERATOR_H */

@@ -1337,6 +1337,12 @@ check_omp_nesting_restrictions (tree t, omp_context *ctx)
 static tree
 scan_omp_1 (tree *tp, int *walk_subtrees, void *data)
 {
+  /* FIXME tuples.  This routine needs to be split up into two.  One
+     dealing with statements, to be used as a CALLBACK_STMT and the
+     other dealing with operands, to be used as a CALLBACK_OP.  Since
+     statements and operands are now of different types, we need the
+     two different callbacks.  */
+#if 0
   struct walk_stmt_info *wi = data;
   omp_context *ctx = wi->info;
   tree t = *tp;
@@ -1404,6 +1410,7 @@ scan_omp_1 (tree *tp, int *walk_subtrees, void *data)
     }
 
   return NULL_TREE;
+#endif
 }
 
 
@@ -1417,6 +1424,9 @@ scan_omp (tree *stmt_p, omp_context *ctx)
   location_t saved_location;
   struct walk_stmt_info wi;
 
+  /* FIXME tuples.  Convert to use the new walk_gimple_seq/walk_gimple_stmt
+     routines.  */
+#if 0
   memset (&wi, 0, sizeof (wi));
   wi.callback = scan_omp_1;
   wi.info = ctx;
@@ -1426,6 +1436,7 @@ scan_omp (tree *stmt_p, omp_context *ctx)
   saved_location = input_location;
   walk_stmts (&wi, stmt_p);
   input_location = saved_location;
+#endif
 }
 
 /* Re-gimplification and code generation routines.  */
@@ -4076,6 +4087,12 @@ lower_omp_for (tree *stmt_p, omp_context *ctx)
 static tree
 check_combined_parallel (tree *tp, int *walk_subtrees, void *data)
 {
+  /* FIXME tuples.  This routine needs to be split up into two.  One
+     dealing with statements, to be used as a CALLBACK_STMT and the
+     other dealing with operands, to be used as a CALLBACK_OP.  Since
+     statements and operands are now of different types, we need the
+     two different callbacks.  */
+#if 0
   struct walk_stmt_info *wi = data;
   int *info = wi->info;
 
@@ -4091,6 +4108,7 @@ check_combined_parallel (tree *tp, int *walk_subtrees, void *data)
       break;
     }
   return NULL;
+#endif
 }
 
 /* Lower the OpenMP parallel directive in *STMT_P.  CTX holds context
@@ -4114,11 +4132,15 @@ lower_omp_parallel (tree *stmt_p, omp_context *ctx)
       struct walk_stmt_info wi;
       int ws_num = 0;
 
+      /* FIXME tuples.  This needs to be changed to use the new
+	 walk_gimple_stmt routine.  */
+#if 0
       memset (&wi, 0, sizeof (wi));
       wi.callback = check_combined_parallel;
       wi.info = &ws_num;
       wi.val_only = true;
       walk_stmts (&wi, &par_bind);
+#endif
       if (ws_num == 1)
 	OMP_PARALLEL_COMBINED (stmt) = 1;
     }
@@ -4200,7 +4222,8 @@ lower_regimplify (tree *tp, struct walk_stmt_info *wi)
     gs = gimplify_expr (tp, &pre, NULL, is_gimple_formal_tmp_var, fb_rvalue);
   gcc_assert (gs == GS_ALL_DONE);
 
-  /* FIXME tuples.  Need a gimple_seq_insert_before.  WI->TSI must be a GS_SEQ.  */
+  /* FIXME tuples.  Need a gimple_seq_insert_before.  WI->TSI must be
+     a GS_SEQ. */
 #if 0
   if (!gimple_seq_empty_p (&pre))
     tsi_link_before (&wi->tsi, pre, TSI_SAME_STMT);
@@ -4246,6 +4269,12 @@ save_tmp_var (tree exp, tree_stmt_iterator *tsi)
 static tree
 lower_omp_1 (tree *tp, int *walk_subtrees, void *data)
 {
+  /* FIXME tuples.  This routine needs to be split up into two.  One
+     dealing with statements, to be used as a CALLBACK_STMT and the
+     other dealing with operands, to be used as a CALLBACK_OP.  Since
+     statements and operands are now of different types, we need the
+     two different callbacks.  */
+#if 0
   struct walk_stmt_info *wi = data;
   omp_context *ctx = wi->info;
   tree t = *tp;
@@ -4349,11 +4378,14 @@ lower_omp_1 (tree *tp, int *walk_subtrees, void *data)
     }
 
   return NULL_TREE;
+#endif
 }
 
 static void
 lower_omp (tree *stmt_p, omp_context *ctx)
 {
+  /* FIXME tuples.  This needs to use the new walk_gimple_seq routine.  */
+#if 0
   struct walk_stmt_info wi;
 
   memset (&wi, 0, sizeof (wi));
@@ -4363,6 +4395,7 @@ lower_omp (tree *stmt_p, omp_context *ctx)
   wi.want_locations = true;
 
   walk_stmts (&wi, stmt_p);
+#endif
 }
 
 /* Main entry point.  */
@@ -4461,6 +4494,12 @@ diagnose_sb_0 (tree *stmt_p, tree branch_ctx, tree label_ctx)
 static tree
 diagnose_sb_1 (tree *tp, int *walk_subtrees, void *data)
 {
+  /* FIXME tuples.  This routine needs to be split up into two.  One
+     dealing with statements, to be used as a CALLBACK_STMT and the
+     other dealing with operands, to be used as a CALLBACK_OP.  Since
+     statements and operands are now of different types, we need the
+     two different callbacks.  */
+#if 0
   struct walk_stmt_info *wi = data;
   tree context = (tree) wi->info;
   tree inner_context;
@@ -4507,6 +4546,7 @@ diagnose_sb_1 (tree *tp, int *walk_subtrees, void *data)
     }
 
   return NULL_TREE;
+#endif
 }
 
 /* Pass 2: Check each branch and see if its context differs from that of
@@ -4515,6 +4555,12 @@ diagnose_sb_1 (tree *tp, int *walk_subtrees, void *data)
 static tree
 diagnose_sb_2 (tree *tp, int *walk_subtrees, void *data)
 {
+  /* FIXME tuples.  This routine needs to be split up into two.  One
+     dealing with statements, to be used as a CALLBACK_STMT and the
+     other dealing with operands, to be used as a CALLBACK_OP.  Since
+     statements and operands are now of different types, we need the
+     two different callbacks.  */
+#if 0
   struct walk_stmt_info *wi = data;
   tree context = (tree) wi->info;
   splay_tree_node n;
@@ -4582,6 +4628,7 @@ diagnose_sb_2 (tree *tp, int *walk_subtrees, void *data)
     }
 
   return NULL_TREE;
+#endif
 }
 
 void
@@ -4594,15 +4641,19 @@ diagnose_omp_structured_block_errors (tree fndecl)
 
   all_labels = splay_tree_new (splay_tree_compare_pointers, 0, 0);
 
+  /* FIXME tuples.  Convert to use the new walk_gimple_seq/walk_gimple_stmt
+     routines.  */
+#if 0
   memset (&wi, 0, sizeof (wi));
   wi.callback = diagnose_sb_1;
   walk_stmts (&wi, &DECL_SAVED_TREE (fndecl));
 
   memset (&wi, 0, sizeof (wi));
-  wi.callback = diagnose_sb_2;
+  wi.callback_stmt = diagnose_sb_2;
   wi.want_locations = true;
   wi.want_return_expr = true;
   walk_stmts (&wi, &DECL_SAVED_TREE (fndecl));
+#endif
 
   splay_tree_delete (all_labels);
   all_labels = NULL;

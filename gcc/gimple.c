@@ -834,7 +834,7 @@ gimple_range_check_failed (const gimple gs, const char *file, int line,
 /* Link a gimple statement(s) to the end of the sequence SEQ.  */
 
 void
-gimple_add (gimple_seq seq, gimple gs)
+gimple_seq_add (gimple_seq seq, gimple gs)
 {
   /* Make sure this stmt is not part of another chain.  */
   gcc_assert (gimple_prev (gs) == NULL && gimple_next (gs) == NULL);
@@ -878,120 +878,193 @@ gimple_seq_append (gimple_seq dst, gimple_seq src)
 }
 
 
-/* Visit all the tuples in sequence SEQ, and apply FUNC to all the tree leaves
-   in the tuples.  The trees in the tuples encountered will be walked with
-   walk_tree().  FUNC, DATA, and PSET are as in walk_tree.
-
-   You cannot use this function to rewrite trees, as the address of
-   thre trees passed to walk_tree are local to this function.
-   Besides, you shouldn't be rewriting trees this late in the
-   game.  */
+/* Walk all the statements in the sequence SEQ calling walk_gimple_stmt
+   on each one.  WI is as in walk_gimple_stmt.  */
 
 void
-walk_seq_ops (gimple_seq seq, walk_tree_fn func, void *data,
-	      struct pointer_set_t *pset)
+walk_gimple_seq (gimple_seq seq, struct walk_stmt_info *wi)
 {
   gimple_stmt_iterator *gsi;
 
   for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (gsi))
-    walk_tuple_ops (gsi_stmt (gsi), func, data, pset);
+    {
+      wi->gsi = gsi;
+      walk_gimple_stmt (gsi_stmt (gsi), wi);
+    }
 }
 
 
-/* Helper function of walk_seq_ops.  Walks one tuple's trees.  The
-   arguments are as in walk_seq_ops, except GS is the tuple to
-   walk.  */
-#define WALKIT(__this) leaf = (__this), walk_tree (&leaf, func, data, pset)
+/* Helper function for walk_gimple_stmt.  Walk operands of a GIMPLE_ASM.  */
+
+static void
+walk_gimple_asm (gimple stmt, struct walk_stmt_info *wi)
+{
+  unsigned noutputs = gimple_asm_noutputs (stmt);
+  const char **oconstraints
+    = (const char **) alloca ((noutputs) * sizeof (const char *));
+  unsigned i;
+  const char *constraint;
+  bool allows_mem, allows_reg, is_inout;
+
+  wi->is_lhs = true;
+  for (i = 0; i < noutputs; i++)
+    {
+      tree op = gimple_asm_output_op (stmt, i);
+      constraint = TREE_STRING_POINTER (TREE_PURPOSE (op));
+      oconstraints[i] = constraint;
+      parse_output_constraint (&constraint, i, 0, 0, &allows_mem, &allows_reg,
+	                       &is_inout);
+      wi->val_only = (allows_reg || !allows_mem);
+      walk_tree (&TREE_VALUE (op), wi->callback_op, wi, NULL);
+    }
+
+  for (i = 0; i < gimple_asm_ninputs (stmt); i++)
+    {
+      tree op = gimple_asm_input_op (stmt, i);
+      constraint = TREE_STRING_POINTER (TREE_PURPOSE (op));
+      parse_input_constraint (&constraint, 0, 0, noutputs, 0,
+			      oconstraints, &allows_mem, &allows_reg);
+      wi->val_only = (allows_reg || !allows_mem);
+
+      /* Although input "m" is not really a LHS, we need a lvalue.  */
+      wi->is_lhs = !wi->val_only;
+      walk_tree (&TREE_VALUE (op), wi->callback_op, wi, NULL);
+    }
+
+  wi->is_lhs = false;
+  wi->val_only = true;
+}
+
+
+
+/* Walk GIMPLE statement STMT using traversal state stored in WI.  The
+   callback WI->CALLBACK_STMT is called and then the operands of STMT
+   are traversed, calling WI->CALLBACK_OP on each one.  */
+
 void
-walk_tuple_ops (gimple gs, walk_tree_fn func, void *data,
-		struct pointer_set_t *pset)
+walk_gimple_stmt (gimple stmt, struct walk_stmt_info *wi)
 {
   unsigned int i;
-  tree leaf;
   enum gimple_statement_structure_enum gss;
 
-  gss = gimple_statement_structure (gs);
-  if (gss == GSS_WITH_OPS || gss == GSS_WITH_MEM_OPS || gss == GSS_ASM)
-    for (i = 0; i < gimple_num_ops (gs); i++)
-      WALKIT (gimple_op (gs, i));
-  else
-    switch (gimple_code (gs))
-      {
-      case GIMPLE_BIND:
-	WALKIT (gimple_bind_vars (gs));
-	walk_seq_ops (gimple_bind_body (gs), func, data, pset);
-	break;
+  if (wi->want_locations && !gimple_locus_empty_p (stmt))
+    input_location = gimple_locus (stmt);
 
-      case GIMPLE_CATCH:
-	WALKIT (gimple_catch_types (gs));
-	walk_seq_ops (gimple_catch_handler (gs), func, data, pset);
-	break;
+  /* Invoke the statement callback.  Return if the callback handled
+     all of STMT operands by itself.  */
+  if (wi->callback_stmt)
+    if (wi->callback_stmt (stmt, wi) == false)
+      return;
 
-      case GIMPLE_EH_FILTER:
-	WALKIT (gimple_eh_filter_types (gs));
-	walk_seq_ops (gimple_eh_filter_failure (gs), func, data, pset);
-	break;
+  /* If no callback was defined for operands, ignore them.  */
+  if (wi->callback_op == NULL)
+    return;
 
-      case GIMPLE_PHI:
-	WALKIT (gimple_phi_result (gs));
-	break;
+  /* Invoke WI->CALLBACK_OP on every operand of STMT.  */
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_ASSIGN:
+      /* A formal temporary LHS may use a COMPONENT_REF RHS.  */
+      wi->val_only = !is_gimple_formal_tmp_var (gimple_assign_lhs (stmt));
+      walk_tree (gimple_op_ptr (stmt, 1), wi->callback_op, wi, NULL);
 
-      case GIMPLE_TRY:
-	walk_seq_ops (gimple_try_eval (gs), func, data, pset);
-	walk_seq_ops (gimple_try_cleanup (gs), func, data, pset);
-	break;
+      /* If the RHS is appropriate for a memory, we may use a
+	COMPONENT_REF on the LHS.  */
+      wi->val_only = !is_gimple_mem_rhs (gimple_assign_rhs1 (stmt));
+      wi->is_lhs = true;
+      walk_tree (gimple_op_ptr (stmt, 0), wi->callback_op, wi, NULL);
 
-      case GIMPLE_OMP_CRITICAL:
-	walk_seq_ops (gimple_omp_body (gs), func, data, pset);
-	WALKIT (gimple_omp_critical_name (gs));
-	break;
+      wi->val_only = true;
+      wi->is_lhs = false;
+      break;
 
-	/* Just a body.  */
-      case GIMPLE_OMP_CONTINUE:
-      case GIMPLE_OMP_MASTER:
-      case GIMPLE_OMP_ORDERED:
-      case GIMPLE_OMP_SECTION:
-	walk_seq_ops (gimple_omp_body (gs), func, data, pset);
-	break;
+    case GIMPLE_BIND:
+      walk_gimple_seq (gimple_bind_body (stmt), wi);
+      break;
 
-      case GIMPLE_OMP_FOR:
-	walk_seq_ops (gimple_omp_body (gs), func, data, pset);
-	WALKIT (gimple_omp_for_clauses (gs));
-	WALKIT (gimple_omp_for_index (gs));
-	WALKIT (gimple_omp_for_initial (gs));
-	WALKIT (gimple_omp_for_final (gs));
-	WALKIT (gimple_omp_for_incr (gs));
-	walk_seq_ops (gimple_omp_for_pre_body (gs), func, data, pset);
-	break;
+    case GIMPLE_CATCH:
+      walk_tree (gimple_catch_types_ptr (stmt), wi->callback_op, wi, NULL);
+      walk_gimple_seq (gimple_catch_handler (stmt), wi);
+      break;
 
-      case GIMPLE_OMP_PARALLEL:
-	walk_seq_ops (gimple_omp_body (gs), func, data, pset);
-	WALKIT (gimple_omp_parallel_clauses (gs));
-	WALKIT (gimple_omp_parallel_child_fn (gs));
-	WALKIT (gimple_omp_parallel_data_arg (gs));
-	break;
+    case GIMPLE_EH_FILTER:
+      walk_tree (gimple_eh_filter_types_ptr (stmt), wi->callback_op, wi, NULL);
+      walk_gimple_seq (gimple_eh_filter_failure (stmt), wi);
+      break;
 
-      case GIMPLE_OMP_SECTIONS:
-	walk_seq_ops (gimple_omp_body (gs), func, data, pset);
-	WALKIT (gimple_omp_sections_clauses (gs));
-	break;
+    case GIMPLE_TRY:
+      walk_gimple_seq (gimple_try_eval (stmt), wi);
+      walk_gimple_seq (gimple_try_cleanup (stmt), wi);
+      break;
 
-      case GIMPLE_OMP_SINGLE:
-	walk_seq_ops (gimple_omp_body (gs), func, data, pset);
-	WALKIT (gimple_omp_single_clauses (gs));
-	break;
+    case GIMPLE_ASM:
+      walk_gimple_asm (stmt, wi);
+      break;
 
-	/* Tuples that do not have trees.  */
-      case GIMPLE_NOP:
-      case GIMPLE_RESX:
-      case GIMPLE_OMP_RETURN:
-	break;
+    case GIMPLE_OMP_CRITICAL:
+      walk_gimple_seq (gimple_omp_body (stmt), wi);
+      walk_tree (gimple_omp_critical_name_ptr (stmt), wi->callback_op, wi,
+		 NULL);
+      break;
 
-      default:
-	debug_gimple_stmt (gs);
-	gcc_unreachable ();
-	break;
-      }
+      /* Just a body.  */
+    case GIMPLE_OMP_CONTINUE:
+    case GIMPLE_OMP_MASTER:
+    case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_SECTION:
+      walk_gimple_seq (gimple_omp_body (stmt), wi);
+      break;
+
+    case GIMPLE_OMP_FOR:
+      walk_gimple_seq (gimple_omp_body (stmt), wi);
+      walk_tree (gimple_omp_for_clauses_ptr (stmt), wi->callback_op, wi, NULL);
+      walk_tree (gimple_omp_for_index_ptr (stmt), wi->callback_op, wi, NULL);
+      walk_tree (gimple_omp_for_initial_ptr (stmt), wi->callback_op, wi, NULL);
+      walk_tree (gimple_omp_for_final_ptr (stmt), wi->callback_op, wi, NULL);
+      walk_tree (gimple_omp_for_incr_ptr (stmt), wi->callback_op, wi, NULL);
+      walk_gimple_seq (gimple_omp_for_pre_body (stmt), wi);
+      break;
+
+    case GIMPLE_OMP_PARALLEL:
+      walk_gimple_seq (gimple_omp_body (stmt), wi);
+      walk_tree (gimple_omp_parallel_clauses_ptr (stmt), wi->callback_op, wi,
+	         NULL);
+      walk_tree (gimple_omp_parallel_child_fn_ptr (stmt), wi->callback_op, wi,
+	         NULL);
+      walk_tree (gimple_omp_parallel_data_arg_ptr (stmt), wi->callback_op, wi,
+	         NULL);
+      break;
+
+    case GIMPLE_OMP_SECTIONS:
+      walk_gimple_seq (gimple_omp_body (stmt), wi);
+      walk_tree (gimple_omp_sections_clauses_ptr (stmt), wi->callback_op, wi,
+	         NULL);
+      break;
+
+    case GIMPLE_OMP_SINGLE:
+      walk_gimple_seq (gimple_omp_body (stmt), wi);
+      walk_tree (gimple_omp_single_clauses_ptr (stmt), wi->callback_op, wi,
+	         NULL);
+      break;
+
+      /* Tuples that do not have operands.  */
+    case GIMPLE_NOP:
+    case GIMPLE_RESX:
+    case GIMPLE_OMP_RETURN:
+      break;
+
+    default:
+      gss = gimple_statement_structure (stmt);
+      if (gss == GSS_WITH_OPS || gss == GSS_WITH_MEM_OPS)
+	for (i = 0; i < gimple_num_ops (stmt); i++)
+	  walk_tree (gimple_op_ptr (stmt, i), wi->callback_op, wi, NULL);
+      else
+	{
+	  debug_gimple_stmt (stmt);
+	  gcc_unreachable ();
+	}
+      break;
+    }
 }
 
 

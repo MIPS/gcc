@@ -91,13 +91,17 @@ static unsigned int
 lower_function_body (void)
 {
   struct lower_data data;
-  gimple_seq body_seq = gimple_body (current_function_decl);
-  gimple bind = gimple_seq_first (body_seq);
+  gimple_seq body = gimple_body (current_function_decl);
+  gimple_seq lowered_body;
   gimple_stmt_iterator *i;
+  gimple bind;
   tree t;
   gimple x;
 
-  gcc_assert (gimple_code (bind) == GIMPLE_BIND);
+  /* The gimplifier should've left a body of exactly one statement,
+     namely a GIMPLE_BIND.  */
+  gcc_assert (gimple_seq_first (body) == gimple_seq_last (body)
+	      && gimple_code (gimple_seq_first (body)) == GIMPLE_BIND);
 
   memset (&data, 0, sizeof (data));
   data.block = DECL_INITIAL (current_function_decl);
@@ -106,17 +110,22 @@ lower_function_body (void)
   TREE_ASM_WRITTEN (data.block) = 1;
   data.return_statements = VEC_alloc (return_statements_t, heap, 8);
 
-  gimple_seq_init (body_seq);
-  gimple_add (body_seq, bind);
-  i = gsi_start (body_seq);
+  bind = gimple_seq_first (body);
+  lowered_body = gimple_seq_alloc ();
+  gimple_seq_add (lowered_body, bind);
+  i = gsi_start (lowered_body);
   lower_gimple_bind (i, &data);
 
-  i = gsi_last (body_seq);
+  /* Once the old body has been lowered, replace it with the new
+     lowered sequence.  */
+  set_gimple_body (current_function_decl, lowered_body);
+
+  i = gsi_last (lowered_body);
 
   /* If the function falls off the end, we need a null return statement.
      If we've already got one in the return_statements vector, we don't
      need to do anything special.  Otherwise build one by hand.  */
-  if (gimple_seq_may_fallthru (body_seq)
+  if (gimple_seq_may_fallthru (lowered_body)
       && (VEC_empty (return_statements_t, data.return_statements)
 	  || gimple_return_retval
 	       (VEC_last (return_statements_t,
@@ -210,7 +219,7 @@ struct tree_opt_pass pass_lower_cf =
   0,					/* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
+  ,1					/* works_with_tuples_p */
 };
 
 
@@ -231,6 +240,8 @@ lower_sequence (gimple_seq seq, struct lower_data *data)
 /* Lower the OpenMP directive statement pointed by GSI.  DATA is
    passed through the recursion.  */
 
+  /* FIXME tuples.  */
+#if 0
 static void
 lower_omp_directive (gimple_stmt_iterator *gsi, struct lower_data *data)
 {
@@ -238,14 +249,13 @@ lower_omp_directive (gimple_stmt_iterator *gsi, struct lower_data *data)
   
   stmt = gsi_stmt (gsi);
 
-  /* FIXME tuples
   lower_sequence (OMP_BODY (stmt), data);
   gsi_link_before (gsi, stmt, GSI_SAME_STMT);
   gsi_link_before (gsi, OMP_BODY (stmt), GSI_SAME_STMT);
   OMP_BODY (stmt) = NULL_TREE;
-  */
   gsi_delink (gsi);
 }
+#endif
 
 
 /* Lower statement TSI.  DATA is passed through the recursion.  */
@@ -315,9 +325,12 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
       }
       break;
 
+    /* FIXME tuples.  */
+#if 0
     case GIMPLE_OMP_PARALLEL:
       lower_omp_directive (gsi, data);
       return;
+#endif
 
     default:
       gcc_unreachable ();
@@ -429,7 +442,7 @@ try_catch_may_fallthru (tree stmt)
 }
 
 
-/* Same as above, but for a gimple GIMPLE_TRY_FINALLY.  */
+/* Same as above, but for a GIMPLE_TRY_CATCH.  */
 
 static bool
 gimple_try_catch_may_fallthru (gimple stmt)
@@ -548,13 +561,15 @@ block_may_fallthru (tree block)
 }
 
 
-/* The same as above, but for gimple sequences.  */
+/* Try to determine if we can continue executing the statement
+   immediately following STMT.  This guess need not be 100% accurate;
+   simply be conservative and return true if we don't know.  This is
+   used only to avoid stupidly generating extra code. If we're wrong,
+   we'll just delete the extra code later.  */
 
 bool
-gimple_seq_may_fallthru (gimple_seq seq)
+gimple_stmt_may_fallthru (gimple stmt)
 {
-  gimple stmt = gimple_seq_last (seq);
-
   if (!stmt)
     return true;
 
@@ -603,14 +618,24 @@ gimple_seq_may_fallthru (gimple_seq seq)
       /* Functions that do not return do not fall through.  */
       return (gimple_call_flags (stmt) & ECF_NORETURN) == 0;
     
-    /* FIXME tuples
+    /* FIXME tuples.  No CLEANUP_POINT_EXPR in GIMPLE.  Needed?  */
+#if 0
     case CLEANUP_POINT_EXPR:
       return block_may_fallthru (TREE_OPERAND (stmt, 0));
-      */
+#endif
 
     default:
       return true;
     }
+}
+
+
+/* Same as gimple_stmt_may_fallthru, but for the gimple sequence SEQ.  */
+
+bool
+gimple_seq_may_fallthru (gimple_seq seq)
+{
+  return gimple_stmt_may_fallthru (gimple_seq_last (seq));
 }
 
 

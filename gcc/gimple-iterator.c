@@ -96,7 +96,7 @@ gsi_link_before (gimple_stmt_iterator *i,
   struct gimple_sequence tseq;
 
   gimple_seq_init (&tseq);
-  gimple_add (&tseq, g);
+  gimple_seq_add (&tseq, g);
   gsi_link_seq_before (i, &tseq, mode);
 }
 
@@ -171,7 +171,7 @@ gsi_link_after (gimple_stmt_iterator *i,
   struct gimple_sequence tseq;
 
   gimple_seq_init (&tseq);
-  gimple_add (&tseq, g);
+  gimple_seq_add (&tseq, g);
   gsi_link_seq_after (i, &tseq, mode);
 }
 
@@ -219,7 +219,7 @@ gsi_split_seq_after (const gimple_stmt_iterator *i)
   next = gimple_next (cur);
 
   old_seq = i->seq;
-  new_seq = (gimple_seq) ggc_alloc_cleared (sizeof (*new_seq));
+  new_seq = gimple_seq_alloc ();
 
   gimple_seq_set_first (new_seq, next);
   gimple_seq_set_last (new_seq, gimple_seq_last (old_seq));
@@ -246,7 +246,7 @@ gsi_split_seq_before (gimple_stmt_iterator *i)
   prev = gimple_prev (cur);
 
   old_seq = i->seq;
-  new_seq = (gimple_seq) ggc_alloc_cleared (sizeof (*new_seq));
+  new_seq = gimple_seq_alloc ();
   i->seq = new_seq;
 
   gimple_seq_set_first (new_seq, cur);
@@ -259,4 +259,51 @@ gsi_split_seq_before (gimple_stmt_iterator *i)
     gimple_seq_set_first (old_seq, NULL);
 
   return new_seq;
+}
+
+
+/* Replace the statement pointed-to by GSI to STMT.  If UPDATE_EH_INFO
+   is true, the exception handling information of the original
+   statement is moved to the new statement.  */
+
+void
+gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info)
+{
+#if 0
+  int eh_region;
+#endif
+  gimple orig_stmt = gsi_stmt (gsi);
+
+  if (stmt == orig_stmt)
+    return;
+
+  set_gimple_locus (stmt, gimple_locus (orig_stmt));
+  set_gimple_bb (stmt, gimple_bb (orig_stmt));
+
+  /* FIXME tuples.  Enable after converting tree-eh.c  */
+#if 0
+  /* Preserve EH region information from the original statement, if
+     requested by the caller.  */
+  if (update_eh_info)
+    {
+      eh_region = lookup_stmt_eh_region (orig_stmt);
+      if (eh_region >= 0)
+	{
+	  remove_stmt_from_eh_region (orig_stmt);
+	  add_stmt_to_eh_region (stmt, eh_region);
+	}
+    }
+
+  gimple_duplicate_stmt_histograms (cfun, stmt, cfun, orig_stmt);
+  gimple_remove_stmt_histograms (cfun, orig_stmt);
+  delink_stmt_imm_use (orig_stmt);
+#endif
+
+  /* FIXME tuples.  Enable after converting tree-ssa-operands.c.  */
+#if 0
+  mark_stmt_modified (stmt);
+  update_modified_stmts (stmt);
+#endif
+
+  gsi->stmt = stmt;
 }

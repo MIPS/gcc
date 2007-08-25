@@ -5098,9 +5098,9 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq pre_p,
 	  gimplify_and_add (t, pre_p);
 	}
 
-      gimple_add (pre_p, build_gimple_goto (lab_over));
+      gimple_seq_add (pre_p, build_gimple_goto (lab_over));
 
-      gimple_add (pre_p, build_gimple_label (lab_false));
+      gimple_seq_add (pre_p, build_gimple_label (lab_false));
     }
 
   /* ... otherwise out of the overflow area.  */
@@ -5130,7 +5130,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq pre_p,
   gimplify_and_add (t, pre_p);
 
   if (container)
-    gimple_add (pre_p, build_gimple_label (lab_over));
+    gimple_seq_add (pre_p, build_gimple_label (lab_over));
 
   ptrtype = build_pointer_type (type);
   addr = fold_convert (ptrtype, addr);

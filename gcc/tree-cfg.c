@@ -139,7 +139,7 @@ init_empty_tree_cfg (void)
 			      Create basic blocks
 ---------------------------------------------------------------------------*/
 
-/* Entry point to the CFG builder for trees.  SEQ to the sequence of
+/* Entry point to the CFG builder for trees.  SEQ is the sequence of
    statements to be added to the flowgraph.  */
 
 static void
@@ -208,7 +208,9 @@ build_gimple_cfg (gimple_seq seq)
 static unsigned int
 execute_build_cfg (void)
 {
+#if 0
   build_gimple_cfg (gimple_body (current_function_decl));
+#endif
   set_gimple_body (current_function_decl, NULL);
   return 0;
 }
@@ -222,13 +224,13 @@ struct tree_opt_pass pass_build_cfg =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_CFG,				/* tv_id */
-  PROP_gimple_leh,			/* properties_required */
+  0, /* FIXME tuples PROP_gimple_leh, *//* properties_required */
   PROP_cfg,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_verify_stmts | TODO_cleanup_cfg,	/* todo_flags_finish */
+  0, /* FIXME tuples TODO_verify_stmts | TODO_cleanup_cfg,*/	/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
+  ,1					/* works_with_tuples_p */
 };
 
 /* Search the CFG for any computed gotos.  If found, factor them to a
