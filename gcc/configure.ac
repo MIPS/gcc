@@ -648,6 +648,28 @@ AC_DEFINE_UNQUOTED(ENABLE_DECIMAL_BID_FORMAT, $bid,
 [Define to 1 to specify that we are using the BID decimal floating
 point format instead of DPD])
 
+# Enable C extension for fixed-point arithmetic.
+AC_ARG_ENABLE(fixed-point,
+[  --enable-fixed-point    enable fixed-point arithmetic extension to C],
+[
+],
+[
+  case $target in
+    mips*-*-*)
+      enable_fixed_point=yes
+      ;;
+    *)
+      AC_MSG_WARN(fixed-point is not supported for this target, ignored)
+      enable_fixed_point=no
+      ;;
+  esac
+])
+AC_SUBST(enable_fixed_point)
+
+fixedpoint=`if test $enable_fixed_point = yes; then echo 1; else echo 0; fi`
+AC_DEFINE_UNQUOTED(ENABLE_FIXED_POINT, $fixedpoint,
+[Define to 1 to enable fixed-point arithmetic extension to C.])
+
 # Enable threads
 # Pass with no value to take the default
 # Pass with a value to specify a thread package
@@ -753,6 +775,9 @@ AC_ARG_ENABLE(intermodule,
 esac],
 [onestep=""])
 AC_SUBST(onestep)
+
+ACX_PKGVERSION([gimple-tuples-branch rev. 127831])
+ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel
 # configure # script.
@@ -2115,9 +2140,16 @@ L2:],
   as_ver=`$gcc_cv_as --version 2>/dev/null | sed 1q`
   if echo "$as_ver" | grep GNU > /dev/null; then
 changequote(,)dnl
-    as_ver=`echo $as_ver | sed -e 's/GNU assembler \([0-9.][0-9.]*\).*/\1/'`
-    as_major=`echo $as_ver | sed 's/\..*//'`
-    as_minor=`echo $as_ver | sed 's/[^.]*\.\([0-9]*\).*/\1/'`
+    as_vers=`echo $as_ver | sed -n \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
+	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 -].*$,\1,p'`
+    as_major=`expr "$as_vers" : '\([0-9]*\)'`
+    as_minor=`expr "$as_vers" : '[0-9]*\.\([0-9]*\)'`
 changequote([,])dnl
     if test $as_major -eq 2 && test $as_minor -lt 11
     then :
@@ -3075,6 +3107,12 @@ if test x"$insn" != x; then
    fi],
   [AC_DEFINE(HAVE_AS_GSTABS_DEBUG_FLAG, 1,
 [Define if your assembler supports the --gstabs option.])])
+
+ gcc_GAS_CHECK_FEATURE([--debug-prefix-map option],
+  gcc_cv_as_debug_prefix_map_flag,
+  [2,18,0], [--debug-prefix-map /a=/b], [$insn],,
+  [AC_DEFINE(HAVE_AS_DEBUG_PREFIX_MAP, 1,
+[Define if your assembler supports the --debug-prefix-map option.])])
 fi
 
 AC_CACHE_CHECK([assembler for tolerance to line number 0],

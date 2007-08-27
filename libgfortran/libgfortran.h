@@ -70,6 +70,16 @@ typedef off_t gfc_offset;
 #endif
 
 
+/* On mingw, work around the buggy Windows snprintf() by using the one
+   mingw provides, __mingw_snprintf().  We also provide a prototype for
+   __mingw_snprintf(), because the mingw headers currently don't have one.  */
+#if HAVE_MINGW_SNPRINTF
+extern int __mingw_snprintf (char *, size_t, const char *, ...);
+#undef snprintf
+#define snprintf __mingw_snprintf
+#endif
+
+
 /* For a library, a standard prefix is a requirement in order to partition
    the namespace.  IPREFIX is for symbols intended to be internal to the
    library.  */
@@ -223,8 +233,8 @@ typedef GFC_INTEGER_4 gfc_charlen_type;
 extern int l8_to_l4_offset;
 internal_proto(l8_to_l4_offset);
 
-#define GFOR_POINTER_L8_TO_L4(p8) \
-  (l8_to_l4_offset + (GFC_LOGICAL_4 *)(p8))
+#define GFOR_POINTER_TO_L1(p, kind) \
+  (l8_to_l4_offset * (kind - 1) + (GFC_LOGICAL_1 *)(p))
 
 #define GFC_INTEGER_1_HUGE \
   (GFC_INTEGER_1)((((GFC_UINTEGER_1)1) << 7) - 1)
@@ -312,6 +322,8 @@ typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_COMPLEX_10) gfc_array_c10;
 #ifdef HAVE_GFC_COMPLEX_16
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_COMPLEX_16) gfc_array_c16;
 #endif
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_1) gfc_array_l1;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_2) gfc_array_l2;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_4) gfc_array_l4;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_8) gfc_array_l8;
 #ifdef HAVE_GFC_LOGICAL_16

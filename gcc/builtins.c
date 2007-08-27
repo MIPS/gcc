@@ -125,7 +125,6 @@ static rtx expand_builtin_bcopy (tree, int);
 static rtx expand_builtin_strcpy (tree, tree, rtx, enum machine_mode);
 static rtx expand_builtin_strcpy_args (tree, tree, tree, rtx, enum machine_mode);
 static rtx expand_builtin_stpcpy (tree, rtx, enum machine_mode);
-static rtx builtin_strncpy_read_str (void *, HOST_WIDE_INT, enum machine_mode);
 static rtx expand_builtin_strncpy (tree, rtx, enum machine_mode);
 static rtx builtin_memset_gen_str (void *, HOST_WIDE_INT, enum machine_mode);
 static rtx expand_builtin_memset (tree, rtx, enum machine_mode);
@@ -1813,7 +1812,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
   tree fndecl = get_callee_fndecl (exp);
   enum machine_mode mode;
   bool errno_set = false;
-  tree arg, narg;
+  tree arg;
 
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
@@ -1886,12 +1885,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
       /* Wrap the computation of the argument in a SAVE_EXPR, as we may
 	 need to expand the argument again.  This way, we will not perform
 	 side-effects more the once.  */
-      narg = builtin_save_expr (arg);
-      if (narg != arg)
-	{
-	  arg = narg;
-	  exp = build_call_expr (fndecl, 1, arg);
-	}
+      CALL_EXPR_ARG (exp, 0) = arg = builtin_save_expr (arg);
 
       op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
@@ -1979,10 +1973,9 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   rtx op0, op1, insns;
   int op1_type = REAL_TYPE;
   tree fndecl = get_callee_fndecl (exp);
-  tree arg0, arg1, narg;
+  tree arg0, arg1;
   enum machine_mode mode;
   bool errno_set = true;
-  bool stable = true;
 
   switch (DECL_FUNCTION_CODE (fndecl))
     {
@@ -2039,21 +2032,8 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
     errno_set = false;
 
   /* Always stabilize the argument list.  */
-  narg = builtin_save_expr (arg1);
-  if (narg != arg1)
-    {
-      arg1 = narg;
-      stable = false;
-    }
-  narg = builtin_save_expr (arg0);
-  if (narg != arg0)
-    {
-      arg0 = narg;
-      stable = false;
-    }
-
-  if (! stable)
-    exp = build_call_expr (fndecl, 2, arg0, arg1);
+  CALL_EXPR_ARG (exp, 0) = arg0 = builtin_save_expr (arg0);
+  CALL_EXPR_ARG (exp, 1) = arg1 = builtin_save_expr (arg1);
 
   op0 = expand_expr (arg0, subtarget, VOIDmode, EXPAND_NORMAL);
   op1 = expand_normal (arg1);
@@ -2099,7 +2079,7 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
   rtx op0, insns;
   tree fndecl = get_callee_fndecl (exp);
   enum machine_mode mode;
-  tree arg, narg;
+  tree arg;
 
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
@@ -2139,12 +2119,7 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
       /* Wrap the computation of the argument in a SAVE_EXPR, as we may
 	 need to expand the argument again.  This way, we will not perform
 	 side-effects more the once.  */
-      narg = save_expr (arg);
-      if (narg != arg)
-	{
-	  arg = narg;
-	  exp = build_call_expr (fndecl, 1, arg);
-	}
+      CALL_EXPR_ARG (exp, 0) = arg = builtin_save_expr (arg);
 
       op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
@@ -2211,7 +2186,7 @@ expand_builtin_interclass_mathfn (tree exp, rtx target, rtx subtarget)
   tree fndecl = get_callee_fndecl (exp);
   enum machine_mode mode;
   bool errno_set = false;
-  tree arg, narg;
+  tree arg;
 
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
@@ -2257,12 +2232,7 @@ expand_builtin_interclass_mathfn (tree exp, rtx target, rtx subtarget)
       /* Wrap the computation of the argument in a SAVE_EXPR, as we may
 	 need to expand the argument again.  This way, we will not perform
 	 side-effects more the once.  */
-      narg = builtin_save_expr (arg);
-      if (narg != arg)
-	{
-	  arg = narg;
-	  exp = build_call_expr (fndecl, 1, arg);
-	}
+      CALL_EXPR_ARG (exp, 0) = arg = builtin_save_expr (arg);
 
       op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
@@ -2516,7 +2486,7 @@ expand_builtin_int_roundingfn (tree exp, rtx target, rtx subtarget)
   enum built_in_function fallback_fn;
   tree fallback_fndecl;
   enum machine_mode mode;
-  tree arg, narg;
+  tree arg;
 
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     gcc_unreachable ();
@@ -2549,12 +2519,7 @@ expand_builtin_int_roundingfn (tree exp, rtx target, rtx subtarget)
   /* Wrap the computation of the argument in a SAVE_EXPR, as we may
      need to expand the argument again.  This way, we will not perform
      side-effects more the once.  */
-  narg = builtin_save_expr (arg);
-  if (narg != arg)
-    {
-      arg = narg;
-      exp = build_call_expr (fndecl, 1, arg);
-    }
+  CALL_EXPR_ARG (exp, 0) = arg = builtin_save_expr (arg);
 
   op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
@@ -2646,7 +2611,7 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target, rtx subtarget)
   convert_optab builtin_optab;
   rtx op0, insns;
   tree fndecl = get_callee_fndecl (exp);
-  tree arg, narg;
+  tree arg;
   enum machine_mode mode;
 
   /* There's no easy way to detect the case we need to set EDOM.  */
@@ -2678,12 +2643,7 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target, rtx subtarget)
   /* Wrap the computation of the argument in a SAVE_EXPR, as we may
      need to expand the argument again.  This way, we will not perform
      side-effects more the once.  */
-  narg = builtin_save_expr (arg);
-  if (narg != arg)
-    {
-      arg = narg;
-      exp = build_call_expr (fndecl, 1, arg);
-    }
+  CALL_EXPR_ARG (exp, 0) = arg = builtin_save_expr (arg);
 
   op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
@@ -3371,11 +3331,11 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
 	  && GET_CODE (len_rtx) == CONST_INT
 	  && (unsigned HOST_WIDE_INT) INTVAL (len_rtx) <= strlen (src_str) + 1
 	  && can_store_by_pieces (INTVAL (len_rtx), builtin_memcpy_read_str,
-				  (void *) src_str, dest_align))
+				  (void *) src_str, dest_align, false))
 	{
 	  dest_mem = store_by_pieces (dest_mem, INTVAL (len_rtx),
 				      builtin_memcpy_read_str,
-				      (void *) src_str, dest_align, 0);
+				      (void *) src_str, dest_align, false, 0);
 	  dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
 	  dest_mem = convert_memory_address (ptr_mode, dest_mem);
 	  return dest_mem;
@@ -3484,13 +3444,14 @@ expand_builtin_mempcpy_args (tree dest, tree src, tree len, tree type,
 	  && GET_CODE (len_rtx) == CONST_INT
 	  && (unsigned HOST_WIDE_INT) INTVAL (len_rtx) <= strlen (src_str) + 1
 	  && can_store_by_pieces (INTVAL (len_rtx), builtin_memcpy_read_str,
-				  (void *) src_str, dest_align))
+				  (void *) src_str, dest_align, false))
 	{
 	  dest_mem = get_memory_rtx (dest, len);
 	  set_mem_align (dest_mem, dest_align);
 	  dest_mem = store_by_pieces (dest_mem, INTVAL (len_rtx),
 				      builtin_memcpy_read_str,
-				      (void *) src_str, dest_align, endp);
+				      (void *) src_str, dest_align,
+				      false, endp);
 	  dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
 	  dest_mem = convert_memory_address (ptr_mode, dest_mem);
 	  return dest_mem;
@@ -3773,7 +3734,7 @@ expand_builtin_stpcpy (tree exp, rtx target, enum machine_mode mode)
    bytes from constant string DATA + OFFSET and return it as target
    constant.  */
 
-static rtx
+rtx
 builtin_strncpy_read_str (void *data, HOST_WIDE_INT offset,
 			  enum machine_mode mode)
 {
@@ -3832,13 +3793,13 @@ expand_builtin_strncpy (tree exp, rtx target, enum machine_mode mode)
 	  if (!p || dest_align == 0 || !host_integerp (len, 1)
 	      || !can_store_by_pieces (tree_low_cst (len, 1),
 				       builtin_strncpy_read_str,
-				       (void *) p, dest_align))
+				       (void *) p, dest_align, false))
 	    return NULL_RTX;
 
 	  dest_mem = get_memory_rtx (dest, len);
 	  store_by_pieces (dest_mem, tree_low_cst (len, 1),
 			   builtin_strncpy_read_str,
-			   (void *) p, dest_align, 0);
+			   (void *) p, dest_align, false, 0);
 	  dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
 	  dest_mem = convert_memory_address (ptr_mode, dest_mem);
 	  return dest_mem;
@@ -3966,14 +3927,15 @@ expand_builtin_memset_args (tree dest, tree val, tree len,
        * We can't pass builtin_memset_gen_str as that emits RTL.  */
       c = 1;
       if (host_integerp (len, 1)
-	  && !(optimize_size && tree_low_cst (len, 1) > 1)
 	  && can_store_by_pieces (tree_low_cst (len, 1),
-				  builtin_memset_read_str, &c, dest_align))
+				  builtin_memset_read_str, &c, dest_align,
+				  true))
 	{
 	  val_rtx = force_reg (TYPE_MODE (unsigned_char_type_node),
 			       val_rtx);
 	  store_by_pieces (dest_mem, tree_low_cst (len, 1),
-			   builtin_memset_gen_str, val_rtx, dest_align, 0);
+			   builtin_memset_gen_str, val_rtx, dest_align,
+			   true, 0);
 	}
       else if (!set_storage_via_setmem (dest_mem, len_rtx, val_rtx,
 					dest_align, expected_align,
@@ -3991,11 +3953,11 @@ expand_builtin_memset_args (tree dest, tree val, tree len,
   if (c)
     {
       if (host_integerp (len, 1)
-	  && !(optimize_size && tree_low_cst (len, 1) > 1)
 	  && can_store_by_pieces (tree_low_cst (len, 1),
-				  builtin_memset_read_str, &c, dest_align))
+				  builtin_memset_read_str, &c, dest_align,
+				  true))
 	store_by_pieces (dest_mem, tree_low_cst (len, 1),
-			 builtin_memset_read_str, &c, dest_align, 0);
+			 builtin_memset_read_str, &c, dest_align, true, 0);
       else if (!set_storage_via_setmem (dest_mem, len_rtx, GEN_INT (c),
 					dest_align, expected_align,
 					expected_size))

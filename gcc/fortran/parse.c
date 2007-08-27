@@ -172,6 +172,8 @@ decode_statement (void)
   switch (c)
     {
     case 'a':
+      match ("abstract% interface", gfc_match_abstract_interface,
+	     ST_INTERFACE);
       match ("allocate", gfc_match_allocate, ST_ALLOCATE);
       match ("allocatable", gfc_match_allocatable, ST_ATTR_DECL);
       match ("assign", gfc_match_assign, ST_LABEL_ASSIGNMENT);
@@ -1542,11 +1544,11 @@ parse_derived (void)
 	case ST_END_TYPE:
 	  compiling_type = 0;
 
-	  if (!seen_component)
-	    {
-	      gfc_error ("Derived type definition at %C has no components");
-	      error_flag = 1;
-	    }
+	  if (!seen_component
+	      && (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Derived type "
+			         "definition at %C without components")
+		  == FAILURE))
+	    error_flag = 1;
 
 	  accept_statement (ST_END_TYPE);
 	  break;
@@ -1793,6 +1795,15 @@ loop:
 			   "generic subroutine interface");
 	    }
 	}
+    }
+
+  if (current_interface.type == INTERFACE_ABSTRACT)
+    {
+      gfc_new_block->attr.abstract = 1;
+      if (gfc_is_intrinsic_typename (gfc_new_block->name))
+	gfc_error ("Name '%s' of ABSTRACT INTERFACE at %C "
+		   "cannot be the same as an intrinsic type",
+		   gfc_new_block->name);
     }
 
   push_state (&s2, new_state, gfc_new_block);

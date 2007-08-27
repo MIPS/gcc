@@ -3938,8 +3938,9 @@ start_decl (const cp_declarator *declarator,
 				       > template_class_depth (context))
 				      ? current_template_parms
 				      : NULL_TREE);
-	  if (field && duplicate_decls (decl, field,
-					/*newdecl_is_friend=*/false))
+	  if (field && field != error_mark_node
+	      && duplicate_decls (decl, field,
+				 /*newdecl_is_friend=*/false))
 	    decl = field;
 	}
 
@@ -6365,13 +6366,15 @@ grokfndecl (tree ctype,
       && (! TYPE_FOR_JAVA (ctype) || check_java_method (decl))
       && check)
     {
-      tree old_decl;
+      tree old_decl = check_classfn (ctype, decl,
+				     (processing_template_decl
+				      > template_class_depth (ctype))
+				     ? current_template_parms
+				     : NULL_TREE);
 
-      old_decl = check_classfn (ctype, decl,
-				(processing_template_decl
-				 > template_class_depth (ctype))
-				? current_template_parms
-				: NULL_TREE);
+      if (old_decl == error_mark_node)
+	return NULL_TREE;
+
       if (old_decl)
 	{
 	  tree ok;
@@ -8959,7 +8962,7 @@ require_complete_types_for_parms (tree parms)
 /* Returns nonzero if T is a local variable.  */
 
 int
-local_variable_p (tree t)
+local_variable_p (const_tree t)
 {
   if ((TREE_CODE (t) == VAR_DECL
        /* A VAR_DECL with a context that is a _TYPE is a static data
@@ -8971,18 +8974,6 @@ local_variable_p (tree t)
     return 1;
 
   return 0;
-}
-
-/* Returns nonzero if T is an automatic local variable or a label.
-   (These are the declarations that need to be remapped when the code
-   containing them is duplicated.)  */
-
-int
-nonstatic_local_decl_p (tree t)
-{
-  return ((local_variable_p (t) && !TREE_STATIC (t))
-	  || TREE_CODE (t) == LABEL_DECL
-	  || TREE_CODE (t) == RESULT_DECL);
 }
 
 /* Like local_variable_p, but suitable for use as a tree-walking
@@ -9058,8 +9049,7 @@ check_default_argument (tree decl, tree arg)
 
      The keyword `this' shall not be used in a default argument of a
      member function.  */
-  var = walk_tree_without_duplicates (&arg, local_variable_p_walkfn,
-				      NULL);
+  var = cp_walk_tree_without_duplicates (&arg, local_variable_p_walkfn, NULL);
   if (var)
     {
       error ("default argument %qE uses local variable %qD", arg, var);
@@ -9214,7 +9204,7 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
    operator.  */
 
 int
-copy_fn_p (tree d)
+copy_fn_p (const_tree d)
 {
   tree args;
   tree arg_type;
@@ -9270,7 +9260,7 @@ copy_fn_p (tree d)
    operator, false otherwise.  */
 
 bool
-move_fn_p (tree d)
+move_fn_p (const_tree d)
 {
   tree args;
   tree arg_type;
@@ -9369,7 +9359,7 @@ void grok_special_member_properties (tree decl)
    if the class has a constructor of the form X(X).  */
 
 int
-grok_ctor_properties (tree ctype, tree decl)
+grok_ctor_properties (const_tree ctype, const_tree decl)
 {
   int ctor_parm = copy_fn_p (decl);
 
@@ -11566,7 +11556,7 @@ finish_function (int flags)
   gcc_assert (stmts_are_full_exprs_p ());
 
   /* Set up the named return value optimization, if we can.  Candidate
-     variables are selected in check_return_value.  */
+     variables are selected in check_return_expr.  */
   if (current_function_return_value)
     {
       tree r = current_function_return_value;
@@ -12035,7 +12025,6 @@ cp_tree_node_structure (union lang_tree_node * t)
     case IDENTIFIER_NODE:	return TS_CP_IDENTIFIER;
     case OVERLOAD:		return TS_CP_OVERLOAD;
     case TEMPLATE_PARM_INDEX:	return TS_CP_TPI;
-    case TINST_LEVEL:		return TS_CP_TINST_LEVEL;
     case PTRMEM_CST:		return TS_CP_PTRMEM;
     case BASELINK:		return TS_CP_BASELINK;
     case STATIC_ASSERT:		return TS_CP_STATIC_ASSERT;

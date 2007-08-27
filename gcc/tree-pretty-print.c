@@ -83,6 +83,8 @@ do_niy (pretty_printer *buffer, tree node)
   pp_string (buffer, " >>>\n");
 }
 
+/* Debugging function to print out a generic expression.  */
+
 void
 debug_generic_expr (tree t)
 {
@@ -90,12 +92,16 @@ debug_generic_expr (tree t)
   fprintf (stderr, "\n");
 }
 
+/* Debugging function to print out a generic statement.  */
+
 void
 debug_generic_stmt (tree t)
 {
   print_generic_stmt (stderr, t, TDF_VOPS|TDF_MEMSYMS);
   fprintf (stderr, "\n");
 }
+
+/* Debugging function to print out a chain of trees .  */
 
 void
 debug_tree_chain (tree t)
@@ -1074,6 +1080,13 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       if (TREE_CODE (node) == GIMPLE_MODIFY_STMT
 	  && MOVE_NONTEMPORAL (node))
 	pp_string (buffer, "{nt}");
+      if (TREE_CODE (node) == GIMPLE_MODIFY_STMT)
+	{
+	stmt_ann_t ann;
+        if ((ann = stmt_ann (node))
+	    && ann->has_volatile_ops)
+	  pp_string (buffer, "{v}");
+        }
       pp_space (buffer);
       dump_generic_node (buffer, GENERIC_TREE_OPERAND (node, 1), spc, flags,
 	  		 false);

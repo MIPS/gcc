@@ -655,21 +655,27 @@ proper position among the other output files.  */
 #define LINKER_NAME "collect2"
 #endif
 
+#ifdef HAVE_AS_DEBUG_PREFIX_MAP
+#define ASM_MAP " %{fdebug-prefix-map=*:--debug-prefix-map %*}"
+#else
+#define ASM_MAP ""
+#endif
+
 /* Define ASM_DEBUG_SPEC to be a spec suitable for translating '-g'
    to the assembler.  */
 #ifndef ASM_DEBUG_SPEC
 # if defined(DBX_DEBUGGING_INFO) && defined(DWARF2_DEBUGGING_INFO) \
      && defined(HAVE_AS_GDWARF2_DEBUG_FLAG) && defined(HAVE_AS_GSTABS_DEBUG_FLAG)
-#  define ASM_DEBUG_SPEC					\
-      (PREFERRED_DEBUGGING_TYPE == DBX_DEBUG			\
-       ? "%{gdwarf-2*:--gdwarf2}%{!gdwarf-2*:%{g*:--gstabs}}"	\
-       : "%{gstabs*:--gstabs}%{!gstabs*:%{g*:--gdwarf2}}")
+#  define ASM_DEBUG_SPEC						\
+      (PREFERRED_DEBUGGING_TYPE == DBX_DEBUG				\
+       ? "%{gdwarf-2*:--gdwarf2}%{!gdwarf-2*:%{g*:--gstabs}}" ASM_MAP	\
+       : "%{gstabs*:--gstabs}%{!gstabs*:%{g*:--gdwarf2}}" ASM_MAP)
 # else
 #  if defined(DBX_DEBUGGING_INFO) && defined(HAVE_AS_GSTABS_DEBUG_FLAG)
-#   define ASM_DEBUG_SPEC "%{g*:--gstabs}"
+#   define ASM_DEBUG_SPEC "%{g*:--gstabs}" ASM_MAP
 #  endif
 #  if defined(DWARF2_DEBUGGING_INFO) && defined(HAVE_AS_GDWARF2_DEBUG_FLAG)
-#   define ASM_DEBUG_SPEC "%{g*:--gdwarf2}"
+#   define ASM_DEBUG_SPEC "%{g*:--gdwarf2}" ASM_MAP
 #  endif
 # endif
 #endif
@@ -3591,7 +3597,8 @@ process_command (int argc, const char **argv)
       else if (strcmp (argv[i], "-fversion") == 0)
 	{
 	  /* translate_options () has turned --version into -fversion.  */
-	  printf (_("%s (GCC) %s\n"), programname, version_string);
+	  printf (_("%s %s%s\n"), programname, pkgversion_string,
+		  version_string);
 	  printf ("Copyright %s 2007 Free Software Foundation, Inc.\n",
 		  _("(C)"));
 	  fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
@@ -6509,10 +6516,10 @@ main (int argc, char **argv)
 
       if (! strncmp (version_string, compiler_version, n)
 	  && compiler_version[n] == 0)
-	notice ("gcc version %s\n", version_string);
+	notice ("gcc version %s %s\n", version_string, pkgversion_string);
       else
-	notice ("gcc driver version %s executing gcc version %s\n",
-		version_string, compiler_version);
+	notice ("gcc driver version %s %sexecuting gcc version %s\n",
+		version_string, pkgversion_string, compiler_version);
 
       if (n_infiles == 0)
 	return (0);

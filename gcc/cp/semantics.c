@@ -436,7 +436,7 @@ add_decl_expr (tree decl)
    declared is not an anonymous union" [class.union].  */
 
 int
-anon_aggr_type_p (tree node)
+anon_aggr_type_p (const_tree node)
 {
   return ANON_AGGR_TYPE_P (node);
 }
@@ -3184,9 +3184,9 @@ expand_or_defer_fn (tree fn)
     }
 
   /* Replace AGGR_INIT_EXPRs with appropriate CALL_EXPRs.  */
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
-				simplify_aggr_init_exprs_r,
-				NULL);
+  cp_walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
+				   simplify_aggr_init_exprs_r,
+				   NULL);
 
   /* If this is a constructor or destructor body, we have to clone
      it.  */
@@ -3336,7 +3336,7 @@ finalize_nrv (tree *tp, tree var, tree result)
   data.var = var;
   data.result = result;
   data.visited = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
-  walk_tree (tp, finalize_nrv_r, &data, 0);
+  cp_walk_tree (tp, finalize_nrv_r, &data, 0);
   htab_delete (data.visited);
 }
 
@@ -3665,6 +3665,17 @@ finish_omp_clauses (tree clauses)
 	      t = build_special_member_call (NULL_TREE,
 					     complete_ctor_identifier,
 					     t, inner_type, LOOKUP_NORMAL);
+
+	      if (targetm.cxx.cdtor_returns_this ())
+		/* Because constructors and destructors return this,
+		   the call will have been cast to "void".  Remove the
+		   cast here.  We would like to use STRIP_NOPS, but it
+		   wouldn't work here because TYPE_MODE (t) and
+		   TYPE_MODE (TREE_OPERAND (t, 0)) are different.
+		   They are VOIDmode and Pmode, respectively.  */
+		if (TREE_CODE (t) == NOP_EXPR)
+		  t = TREE_OPERAND (t, 0);
+
 	      t = get_callee_fndecl (t);
 	      TREE_VEC_ELT (info, 0) = t;
 	    }
@@ -3676,6 +3687,17 @@ finish_omp_clauses (tree clauses)
 	      t = build1 (INDIRECT_REF, inner_type, t);
 	      t = build_special_member_call (t, complete_dtor_identifier,
 					     NULL, inner_type, LOOKUP_NORMAL);
+
+	      if (targetm.cxx.cdtor_returns_this ())
+		/* Because constructors and destructors return this,
+		   the call will have been cast to "void".  Remove the
+		   cast here.  We would like to use STRIP_NOPS, but it
+		   wouldn't work here because TYPE_MODE (t) and
+		   TYPE_MODE (TREE_OPERAND (t, 0)) are different.
+		   They are VOIDmode and Pmode, respectively.  */
+		if (TREE_CODE (t) == NOP_EXPR)
+		  t = TREE_OPERAND (t, 0);
+
 	      t = get_callee_fndecl (t);
 	      TREE_VEC_ELT (info, 1) = t;
 	    }

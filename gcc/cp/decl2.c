@@ -540,8 +540,8 @@ check_java_method (tree method)
    TEMPLATE_DECL, it can be NULL since the parameters can be extracted
    from the declaration. If the function is not a function template, it
    must be NULL.
-   It returns the original declaration for the function, or NULL_TREE
-   if no declaration was found (and an error was emitted).  */
+   It returns the original declaration for the function, NULL_TREE if
+   no declaration was found, error_mark_node if an error was emitted.  */
 
 tree
 check_classfn (tree ctype, tree function, tree template_parms)
@@ -677,16 +677,9 @@ check_classfn (tree ctype, tree function, tree template_parms)
     error ("no %q#D member function declared in class %qT",
 	   function, ctype);
 
-  /* If we did not find the method in the class, add it to avoid
-     spurious errors (unless the CTYPE is not yet defined, in which
-     case we'll only confuse ourselves when the function is declared
-     properly within the class.  */
-  if (COMPLETE_TYPE_P (ctype))
-    add_method (ctype, function, NULL_TREE);
-  
   if (pushed_scope)
     pop_scope (pushed_scope);
-  return NULL_TREE;
+  return error_mark_node;
 }
 
 /* DECL is a function with vague linkage.  Remember it so that at the
@@ -1568,7 +1561,7 @@ static int
 type_visibility (tree type)
 {
   int vis = VISIBILITY_DEFAULT;
-  walk_tree_without_duplicates (&type, min_vis_r, &vis);
+  cp_walk_tree_without_duplicates (&type, min_vis_r, &vis);
   return vis;
 }
 
@@ -1861,8 +1854,7 @@ constrain_class_visibility (tree type)
 
 	if (subvis == VISIBILITY_ANON)
 	  {
-	    if (strcmp (main_input_filename,
-	                DECL_SOURCE_FILE (TYPE_MAIN_DECL (ftype))))
+	    if (!in_main_input_context ())
 	      warning (0, "\
 %qT has a field %qD whose type uses the anonymous namespace",
 		       type, t);
@@ -1882,8 +1874,7 @@ constrain_class_visibility (tree type)
 
       if (subvis == VISIBILITY_ANON)
         {
-	  if (strcmp (main_input_filename,
-	              DECL_SOURCE_FILE (TYPE_MAIN_DECL (TREE_TYPE (t)))))
+	  if (!in_main_input_context())
 	    warning (0, "\
 %qT has a base %qT whose type uses the anonymous namespace",
 		     type, TREE_TYPE (t));

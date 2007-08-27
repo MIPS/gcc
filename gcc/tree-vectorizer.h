@@ -53,7 +53,8 @@ enum operation_type {
 enum dr_alignment_support {
   dr_unaligned_unsupported,
   dr_unaligned_supported,
-  dr_unaligned_software_pipeline,
+  dr_explicit_realign,
+  dr_explicit_realign_optimized,
   dr_aligned
 };
 
@@ -91,9 +92,6 @@ typedef struct _loop_vec_info {
 
   /* The loop basic blocks.  */
   basic_block *bbs;
-
-  /* The loop exit_condition.  */
-  tree exit_cond;
 
   /* Number of iterations.  */
   tree num_iters;
@@ -133,6 +131,10 @@ typedef struct _loop_vec_info {
   /* All data dependences in the loop.  */
   VEC (ddr_p, heap) *ddrs;
 
+  /* Data Dependence Relations defining address ranges that are candidates
+     for a run-time aliasing check.  */
+  VEC (ddr_p, heap) *may_alias_ddrs;
+
   /* Statements in the loop that have data references that are candidates for a
      runtime (loop versioning) misalignment check.  */
   VEC(tree,heap) *may_misalign_stmts;
@@ -144,7 +146,6 @@ typedef struct _loop_vec_info {
 /* Access Functions.  */
 #define LOOP_VINFO_LOOP(L)            (L)->loop
 #define LOOP_VINFO_BBS(L)             (L)->bbs
-#define LOOP_VINFO_EXIT_COND(L)       (L)->exit_cond
 #define LOOP_VINFO_NITERS(L)          (L)->num_iters
 #define LOOP_VINFO_COST_MODEL_MIN_ITERS(L)	(L)->min_profitable_iters
 #define LOOP_VINFO_VECTORIZABLE_P(L)  (L)->vectorizable
@@ -157,6 +158,7 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_UNALIGNED_DR(L)    (L)->unaligned_dr
 #define LOOP_VINFO_MAY_MISALIGN_STMTS(L) (L)->may_misalign_stmts
 #define LOOP_VINFO_LOC(L)             (L)->loop_line_number
+#define LOOP_VINFO_MAY_ALIAS_DDRS(L)  (L)->may_alias_ddrs
 
 #define NITERS_KNOWN_P(n)                     \
 (host_integerp ((n),0)                        \
@@ -164,6 +166,19 @@ typedef struct _loop_vec_info {
 
 #define LOOP_VINFO_NITERS_KNOWN_P(L)                     \
 NITERS_KNOWN_P((L)->num_iters)
+
+static inline loop_vec_info
+loop_vec_info_for_loop (struct loop *loop)
+{
+  return (loop_vec_info) loop->aux;
+}
+
+static inline bool
+nested_in_vect_loop_p (struct loop *loop, tree stmt)
+{
+  return (loop->inner 
+          && (loop->inner == (gimple_bb (stmt))->loop_father));
+}
 
 /*-----------------------------------------------------------------*/
 /* Info on vectorized defs.                                        */
@@ -180,12 +195,15 @@ enum stmt_vec_info_type {
   induc_vec_info_type,
   type_promotion_vec_info_type,
   type_demotion_vec_info_type,
-  type_conversion_vec_info_type
+  type_conversion_vec_info_type,
+  loop_exit_ctrl_vec_info_type
 };
 
 /* Indicates whether/how a variable is used in the loop.  */
 enum vect_relevant {
   vect_unused_in_loop = 0,
+  vect_used_in_outer_by_reduction,
+  vect_used_in_outer,
 
   /* defs that feed computations that end up (only) in a reduction. These
      defs may be used by non-reduction stmts, but eventually, any 
@@ -232,8 +250,17 @@ typedef struct _stmt_vec_info {
      data-ref (array/pointer/struct access). A GIMPLE stmt is expected to have 
      at most one such data-ref.  **/
 
-  /* Information about the data-ref (access function, etc).  */
+  /* Information about the data-ref (access function, etc),
+     relative to the inner-most containing loop.  */
   struct data_reference *data_ref_info;
+
+  /* Information about the data-ref relative to this loop
+     nest (the loop that is being considered for vectorization).  */
+  tree dr_base_address;
+  tree dr_init;
+  tree dr_offset;
+  tree dr_step;
+  tree dr_aligned_to;
 
   /* Stmt is part of some pattern (computation idiom)  */
   bool in_pattern_p;
@@ -293,6 +320,13 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_VECTYPE(S)              (S)->vectype
 #define STMT_VINFO_VEC_STMT(S)             (S)->vectorized_stmt
 #define STMT_VINFO_DATA_REF(S)             (S)->data_ref_info
+
+#define STMT_VINFO_DR_BASE_ADDRESS(S)      (S)->dr_base_address
+#define STMT_VINFO_DR_INIT(S)              (S)->dr_init
+#define STMT_VINFO_DR_OFFSET(S)            (S)->dr_offset
+#define STMT_VINFO_DR_STEP(S)              (S)->dr_step
+#define STMT_VINFO_DR_ALIGNED_TO(S)        (S)->dr_aligned_to
+
 #define STMT_VINFO_IN_PATTERN_P(S)         (S)->in_pattern_p
 #define STMT_VINFO_RELATED_STMT(S)         (S)->related_stmt
 #define STMT_VINFO_SAME_ALIGN_REFS(S)      (S)->same_align_refs
@@ -403,6 +437,15 @@ is_pattern_stmt_p (stmt_vec_info stmt_info)
   return false;
 }
 
+static inline bool
+is_loop_header_bb_p (basic_block bb)
+{
+  if (bb == (bb->loop_father)->header)
+    return true;
+  gcc_assert (EDGE_COUNT (bb->preds) == 1);
+  return false;
+}
+
 /*-----------------------------------------------------------------*/
 /* Info on data references alignment.                              */
 /*-----------------------------------------------------------------*/
@@ -448,7 +491,7 @@ extern bitmap vect_memsyms_to_rename;
 extern struct loop *slpeel_tree_peel_loop_to_edge 
   (struct loop *, edge, tree, tree, bool, unsigned int);
 extern void slpeel_make_loop_iterate_ntimes (struct loop *, tree);
-extern bool slpeel_can_duplicate_loop_p (struct loop *, edge);
+extern bool slpeel_can_duplicate_loop_p (const struct loop *, const_edge);
 #ifdef ENABLE_CHECKING
 extern void slpeel_verify_cfg_after_peeling (struct loop *, struct loop *);
 #endif
@@ -462,19 +505,19 @@ extern tree get_vectype_for_scalar_type (tree);
 extern bool vect_is_simple_use (tree, loop_vec_info, tree *, tree *,
 				enum vect_def_type *);
 extern bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *);
-extern tree vect_is_simple_reduction (struct loop *, tree);
-extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
+extern tree vect_is_simple_reduction (loop_vec_info, tree);
+extern bool vect_can_force_dr_alignment_p (const_tree, unsigned int);
 extern enum dr_alignment_support vect_supportable_dr_alignment
   (struct data_reference *);
 extern bool reduction_code_for_scalar_code (enum tree_code, enum tree_code *);
 extern bool supportable_widening_operation (enum tree_code, tree, tree,
   tree *, tree *, enum tree_code *, enum tree_code *);
-extern bool supportable_narrowing_operation (enum tree_code, tree, tree,
-					     enum tree_code *);
+extern bool supportable_narrowing_operation (enum tree_code, const_tree,
+					     const_tree, enum tree_code *);
 
 /* Creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
-extern void destroy_loop_vec_info (loop_vec_info);
+extern void destroy_loop_vec_info (loop_vec_info, bool);
 extern stmt_vec_info new_stmt_vec_info (tree stmt, loop_vec_info);
 
 

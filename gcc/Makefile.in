@@ -728,10 +728,17 @@ TM_H      = $(GTM_H) insn-constants.h insn-flags.h options.h
 BASEVER     := $(srcdir)/BASE-VER  # 4.x.y
 DEVPHASE    := $(srcdir)/DEV-PHASE # experimental, prerelease, ""
 DATESTAMP   := $(srcdir)/DATESTAMP # YYYYMMDD or empty
+REVISION    := $(srcdir)/REVISION  # [BRANCH revision XXXXXX]
 
 BASEVER_c   := $(shell cat $(BASEVER))
 DEVPHASE_c  := $(shell cat $(DEVPHASE))
 DATESTAMP_c := $(shell cat $(DATESTAMP))
+
+ifeq (,$(wildcard $(REVISION)))
+REVISION_c  :=
+else
+REVISION_c  := $(shell cat $(REVISION))
+endif
 
 version     := $(BASEVER_c)
 
@@ -743,6 +750,17 @@ version     := $(BASEVER_c)
 BASEVER_s   := "\"$(BASEVER_c)\""
 DEVPHASE_s  := "\"$(if $(DEVPHASE_c), ($(DEVPHASE_c)))\""
 DATESTAMP_s := "\"$(if $(DEVPHASE_c), $(DATESTAMP_c))\""
+PKGVERSION_s:= "\"@PKGVERSION@\""
+BUGURL_s    := "\"@REPORT_BUGS_TO@\""
+
+PKGVERSION  := @PKGVERSION@
+BUGURL_TEXI := @REPORT_BUGS_TEXI@
+
+ifdef REVISION_c
+REVISION_s  := "\"$(if $(DEVPHASE_c), $(REVISION_c))\""
+else
+REVISION_s  :=
+endif
 
 # Shorthand variables for dependency lists.
 TARGET_H = $(TM_H) target.h insn-modes.h
@@ -752,7 +770,7 @@ HOSTHOOKS_DEF_H = hosthooks-def.h $(HOOKS_H)
 LANGHOOKS_DEF_H = langhooks-def.h $(HOOKS_H)
 TARGET_DEF_H = target-def.h $(HOOKS_H)
 RTL_BASE_H = rtl.h rtl.def $(MACHMODE_H) reg-notes.def insn-notes.def \
-  input.h $(REAL_H) statistics.h vec.h
+  input.h $(REAL_H) statistics.h vec.h fixed-value.h
 RTL_H = $(RTL_BASE_H) genrtl.h
 PARAMS_H = params.h params.def
 BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def
@@ -1891,10 +1909,16 @@ gcc-options.o: options.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) opts.h intl
 
 dumpvers: dumpvers.c
 
+ifdef REVISION_s
+version.o: version.c version.h $(REVISION) $(DATESTAMP) $(BASEVER) $(DEVPHASE)
+else
 version.o: version.c version.h $(DATESTAMP) $(BASEVER) $(DEVPHASE)
+endif
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
 	-DBASEVER=$(BASEVER_s) -DDATESTAMP=$(DATESTAMP_s) \
-	-DDEVPHASE=$(DEVPHASE_s) -c $(srcdir)/version.c $(OUTPUT_OPTION)
+	-DREVISION=$(REVISION_s) \
+	-DDEVPHASE=$(DEVPHASE_s) -DPKGVERSION=$(PKGVERSION_s) \
+	-DBUGURL=$(BUGURL_s) -c $(srcdir)/version.c $(OUTPUT_OPTION)
 
 gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 	$(VARRAY_H) $(HASHTAB_H) $(SPLAY_TREE_H) bitmap.h $(TREE_H) $(RTL_H) \
@@ -1946,7 +1970,7 @@ tree-inline.o : tree-inline.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(VARRAY_H) $(HASHTAB_H) $(SPLAY_TREE_H) toplev.h \
    langhooks.h $(TREE_INLINE_H) $(CGRAPH_H) intl.h $(FUNCTION_H) $(TREE_GIMPLE_H) \
    debug.h $(DIAGNOSTIC_H) $(TREE_FLOW_H) tree-iterator.h tree-mudflap.h \
-   ipa-prop.h value-prof.h
+   ipa-prop.h value-prof.h $(TARGET_H) $(INTEGRATE_H)
 print-tree.o : print-tree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(GGC_H) langhooks.h $(REAL_H) tree-iterator.h fixed-value.h
 stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -2104,7 +2128,7 @@ tree-ssa-operands.o : tree-ssa-operands.c $(TREE_FLOW_H) $(CONFIG_H) \
    coretypes.h langhooks.h $(IPA_REFERENCE_H)
 tree-eh.o : tree-eh.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_H) $(FLAGS_H) $(FUNCTION_H) except.h langhooks.h \
-   $(GGC_H) tree-pass.h coretypes.h $(TIMEVAR_H) $(TM_P_H) \
+   $(GGC_H) tree-pass.h coretypes.h $(TIMEVAR_H) $(TM_P_H) pointer-set.h \
    $(TREE_DUMP_H) $(TREE_INLINE_H) tree-iterator.h toplev.h
 tree-ssa-loop.o : tree-ssa-loop.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) \
@@ -2289,7 +2313,7 @@ diagnostic.o : diagnostic.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 opts.o : opts.c opts.h options.h toplev.h $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TREE_H) $(TM_H) langhooks.h $(GGC_H) $(RTL_H) \
    output.h $(DIAGNOSTIC_H) $(TM_P_H) $(INSN_ATTR_H) intl.h $(TARGET_H) \
-   $(FLAGS_H) $(PARAMS_H) tree-pass.h $(DBGCNT_H)
+   $(FLAGS_H) $(PARAMS_H) tree-pass.h $(DBGCNT_H) debug.h
 opts-common.o : opts-common.c opts.h $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h intl.h
 targhooks.o : targhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
@@ -2779,7 +2803,7 @@ final.o : final.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    insn-config.h $(INSN_ATTR_H) $(FUNCTION_H) output.h hard-reg-set.h \
    except.h debug.h xcoffout.h toplev.h reload.h dwarf2out.h tree-pass.h \
    $(BASIC_BLOCK_H) $(TM_P_H) $(TARGET_H) $(EXPR_H) $(CFGLAYOUT_H) dbxout.h \
-   $(TIMEVAR_H) $(CGRAPH_H) $(COVERAGE_H) $(REAL_H) $(DF_H) vecprim.h
+   $(TIMEVAR_H) $(CGRAPH_H) $(COVERAGE_H) $(REAL_H) $(DF_H) vecprim.h $(GGC_H)
 recog.o : recog.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(FUNCTION_H) $(BASIC_BLOCK_H) $(REGS_H) $(RECOG_H) $(EXPR_H) \
    $(FLAGS_H) insn-config.h $(INSN_ATTR_H) toplev.h output.h reload.h \
@@ -2868,13 +2892,15 @@ mips-tdump.o : mips-tdump.c $(CONFIG_H) $(RTL_H) $(SYSTEM_H) coretypes.h \
 # FIXME: writing proper dependencies for this is a *LOT* of work.
 libbackend.o : $(OBJS-common:.o=.c) $(out_file) \
   insn-config.h insn-flags.h insn-codes.h insn-constants.h \
-  insn-attr.h  $(DATESTAMP) $(BASEVER) $(DEVPHASE)
+  insn-attr.h  $(DATESTAMP) $(BASEVER) $(DEVPHASE) gcov-iov.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
 	  -DTARGET_NAME=\"$(target_noncanonical)\" \
 	  -DLOCALEDIR=\"$(localedir)\" \
 	  -c $(filter %.c,$^) -o $@  \
 	  -DBASEVER=$(BASEVER_s) -DDATESTAMP=$(DATESTAMP_s) \
-	  -DDEVPHASE=$(DEVPHASE_s) -combine
+	  -DREVISION=$(REVISION_s) \
+	  -DDEVPHASE=$(DEVPHASE_s) -DPKGVERSION=$(PKGVERSION_s) \
+	  -DBUGURL=$(BUGURL_s) -combine
 
 #
 # Generate header and source files from the machine description,
@@ -3083,7 +3109,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/targhooks.c $(out_file) $(srcdir)/passes.c $(srcdir)/cgraphunit.c \
   @all_gtfiles@
 
-GTFILES_H = $(subst /,-, $(subst $(srcdir)/,gt-, $(subst .c,.h, \
+GTFILES_H = $(subst /,-, $(patsubst $(srcdir)/%,gt-%, $(patsubst %.c,%.h, \
 		  $(filter %.c, $(GTFILES)))))
 
 GTFILES_LANG_H = $(patsubst [%], gtype-%.h, $(filter [%], $(GTFILES)))
@@ -3621,6 +3647,10 @@ gcc-vers.texi: $(BASEVER) $(DEVPHASE)
 	 else echo "@clear DEVELOPMENT"; \
 	 fi) > $@T
 	echo "@set srcdir $(srcdir)" >> $@T
+	if [ -n "$(PKGVERSION)" ]; then \
+	  echo "@set VERSION_PACKAGE $(PKGVERSION)" >> $@T; \
+	fi
+	echo "@set BUGURL $(BUGURL_TEXI)" >> $@T; \
 	mv -f $@T $@
 
 
@@ -3732,7 +3762,7 @@ doc/%.7: %.pod
 
 %.pod: %.texi
 	$(STAMP) $@
-	-$(TEXI2POD) $< > $@
+	-$(TEXI2POD) -DBUGURL="$(BUGURL_TEXI)" $< > $@
 
 .INTERMEDIATE: cpp.pod gcc.pod gfdl.pod fsf-funding.pod
 cpp.pod: cpp.texi cppenv.texi cppopts.texi

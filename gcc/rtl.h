@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "real.h"
 #include "vec.h"
+#include "fixed-value.h"
 #include "alias.h"
 
 #undef FFS  /* Some systems predefine this symbol; don't let it interfere.  */
@@ -308,6 +309,7 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
     HOST_WIDE_INT hwint[1];
     struct block_symbol block_sym;
     struct real_value rv;
+    struct fixed_value fv;
   } GTY ((special ("rtx_def"), desc ("GET_CODE (&%0)"))) u;
 };
 
@@ -530,6 +532,13 @@ struct rtvec_def GTY(()) {
 				 __LINE__, __FUNCTION__);		\
    &_rtx->u.rv; })
 
+#define XCNMPFV(RTX, C, M) __extension__				\
+({ __typeof (RTX) const _rtx = (RTX);					\
+   if (GET_CODE (_rtx) != (C) || GET_MODE (_rtx) == (M))		\
+     rtl_check_failed_code_mode (_rtx, (C), (M), true, __FILE__,	\
+				 __LINE__, __FUNCTION__);		\
+   &_rtx->u.fv; })
+
 #define BLOCK_SYMBOL_CHECK(RTX) __extension__				\
 ({ __typeof (RTX) const _symbol = (RTX);				\
    const unsigned int flags = RTL_CHECKC1 (_symbol, 1, SYMBOL_REF).rt_int; \
@@ -574,6 +583,7 @@ extern void rtvec_check_failed_bounds (const_rtvec, int, const char *, int,
 #define XCMWINT(RTX, N, C, M)	    ((RTX)->u.hwint[N])
 #define XCNMWINT(RTX, N, C, M)	    ((RTX)->u.hwint[N])
 #define XCNMPRV(RTX, C, M)	    (&(RTX)->u.rv)
+#define XCNMPFV(RTX, C, M)	    (&(RTX)->u.fv)
 #define BLOCK_SYMBOL_CHECK(RTX)	    (&(RTX)->u.block_sym)
 
 #endif
@@ -1010,6 +1020,13 @@ rhs_regno (const_rtx x)
 #define CONST_DOUBLE_HIGH(r) XCMWINT (r, 1, CONST_DOUBLE, VOIDmode)
 #define CONST_DOUBLE_REAL_VALUE(r) \
   ((const struct real_value *) XCNMPRV (r, CONST_DOUBLE, VOIDmode))
+
+#define CONST_FIXED_VALUE(r) \
+  ((const struct fixed_value *) XCNMPFV (r, CONST_FIXED, VOIDmode))
+#define CONST_FIXED_VALUE_HIGH(r) \
+  ((HOST_WIDE_INT) (CONST_FIXED_VALUE(r)->data.high))
+#define CONST_FIXED_VALUE_LOW(r) \
+  ((HOST_WIDE_INT) (CONST_FIXED_VALUE(r)->data.low))
 
 /* For a CONST_VECTOR, return element #n.  */
 #define CONST_VECTOR_ELT(RTX, N) XCVECEXP (RTX, 0, N, CONST_VECTOR)
@@ -1576,16 +1593,26 @@ extern rtx make_jump_insn_raw (rtx);
 extern void add_function_usage_to (rtx, rtx);
 extern rtx last_call_insn (void);
 extern rtx previous_insn (rtx);
+extern const_rtx const_previous_insn (const_rtx);
 extern rtx next_insn (rtx);
+extern const_rtx const_next_insn (const_rtx);
 extern rtx prev_nonnote_insn (rtx);
+extern const_rtx const_prev_nonnote_insn (const_rtx);
 extern rtx next_nonnote_insn (rtx);
+extern const_rtx const_next_nonnote_insn (const_rtx);
 extern rtx prev_real_insn (rtx);
+extern const_rtx const_prev_real_insn (const_rtx);
 extern rtx next_real_insn (rtx);
+extern const_rtx const_next_real_insn (const_rtx);
 extern rtx prev_active_insn (rtx);
+extern const_rtx const_prev_active_insn (const_rtx);
 extern rtx next_active_insn (rtx);
+extern const_rtx const_next_active_insn (const_rtx);
 extern int active_insn_p (const_rtx);
 extern rtx prev_label (rtx);
+extern const_rtx const_prev_label (const_rtx);
 extern rtx next_label (rtx);
+extern const_rtx const_next_label (const_rtx);
 extern rtx skip_consecutive_labels (rtx);
 extern rtx next_cc0_user (rtx);
 extern rtx prev_cc0_setter (rtx);
@@ -1646,7 +1673,7 @@ extern rtx simplify_subreg (enum machine_mode, rtx, enum machine_mode,
 extern rtx simplify_gen_subreg (enum machine_mode, rtx, enum machine_mode,
 				unsigned int);
 extern rtx simplify_replace_rtx (rtx, const_rtx, rtx);
-extern rtx simplify_rtx (rtx);
+extern rtx simplify_rtx (const_rtx);
 extern rtx avoid_constant_pool_reference (rtx);
 extern bool mode_signbit_p (enum machine_mode, const_rtx);
 
@@ -1691,9 +1718,9 @@ extern int reg_used_between_p (const_rtx, const_rtx, const_rtx);
 extern int reg_set_between_p (const_rtx, const_rtx, const_rtx);
 extern int commutative_operand_precedence (rtx);
 extern bool swap_commutative_operands_p (rtx, rtx);
-extern int modified_between_p (rtx, rtx, rtx);
+extern int modified_between_p (const_rtx, const_rtx, const_rtx);
 extern int no_labels_between_p (const_rtx, const_rtx);
-extern int modified_in_p (rtx, rtx);
+extern int modified_in_p (const_rtx, const_rtx);
 extern int reg_set_p (const_rtx, const_rtx);
 extern rtx single_set_2 (const_rtx, const_rtx);
 extern int multiple_sets (const_rtx);
@@ -1704,6 +1731,7 @@ extern int refers_to_regno_p (unsigned int, unsigned int, const_rtx, rtx *);
 extern int reg_overlap_mentioned_p (const_rtx, const_rtx);
 extern const_rtx set_of (const_rtx, const_rtx);
 extern void note_stores (const_rtx, void (*) (rtx, const_rtx, void *), void *);
+extern void const_note_stores (const_rtx, void (*) (const_rtx, const_rtx, const void *), const void *);
 extern void note_uses (rtx *, void (*) (rtx *, void *), void *);
 extern int dead_or_set_p (const_rtx, const_rtx);
 extern int dead_or_set_regno_p (const_rtx, unsigned int);
@@ -1736,7 +1764,7 @@ extern int in_expr_list_p (const_rtx, const_rtx);
 extern void remove_node_from_expr_list (const_rtx, rtx *);
 extern int loc_mentioned_in_p (rtx *, const_rtx);
 extern rtx find_first_parameter_load (rtx, rtx);
-extern bool keep_with_call_p (rtx);
+extern bool keep_with_call_p (const_rtx);
 extern bool label_is_jump_target_p (const_rtx, const_rtx);
 extern int insn_rtx_cost (rtx);
 
@@ -2011,7 +2039,7 @@ extern int condjump_p (const_rtx);
 extern int any_condjump_p (const_rtx);
 extern int any_uncondjump_p (const_rtx);
 extern rtx pc_set (const_rtx);
-extern rtx condjump_label (rtx);
+extern rtx condjump_label (const_rtx);
 extern int simplejump_p (const_rtx);
 extern int returnjump_p (rtx);
 extern int onlyjump_p (const_rtx);
@@ -2019,17 +2047,17 @@ extern int only_sets_cc0_p (const_rtx);
 extern int sets_cc0_p (const_rtx);
 extern int invert_jump_1 (rtx, rtx);
 extern int invert_jump (rtx, rtx, int);
-extern int rtx_renumbered_equal_p (rtx, rtx);
+extern int rtx_renumbered_equal_p (const_rtx, const_rtx);
 extern int true_regnum (const_rtx);
 extern unsigned int reg_or_subregno (const_rtx);
 extern int redirect_jump_1 (rtx, rtx);
 extern void redirect_jump_2 (rtx, rtx, rtx, int, int);
 extern int redirect_jump (rtx, rtx, int);
 extern void rebuild_jump_labels (rtx);
-extern rtx reversed_comparison (rtx, enum machine_mode);
-extern enum rtx_code reversed_comparison_code (rtx, rtx);
-extern enum rtx_code reversed_comparison_code_parts (enum rtx_code, rtx,
-						     rtx, rtx);
+extern rtx reversed_comparison (const_rtx, enum machine_mode);
+extern enum rtx_code reversed_comparison_code (const_rtx, const_rtx);
+extern enum rtx_code reversed_comparison_code_parts (enum rtx_code, const_rtx,
+						     const_rtx, const_rtx);
 extern void delete_for_peephole (rtx, rtx);
 extern int condjump_in_parallel_p (const_rtx);
 
@@ -2049,6 +2077,7 @@ extern int get_max_uid (void);
 extern int in_sequence_p (void);
 extern void force_next_line_note (void);
 extern void init_emit (void);
+extern void init_emit_regs (void);
 extern void init_emit_once (int);
 extern void push_topmost_sequence (void);
 extern void pop_topmost_sequence (void);
@@ -2130,7 +2159,7 @@ extern rtx move_by_pieces (rtx, rtx, unsigned HOST_WIDE_INT,
 			   unsigned int, int);
 
 /* In cfgrtl.c */
-extern void print_rtl_with_bb (FILE *, rtx);
+extern void print_rtl_with_bb (FILE *, const_rtx);
 
 /* In cfg.c.  */
 extern void dump_reg_info (FILE *);
@@ -2158,7 +2187,7 @@ extern void build_insn_chain (rtx);
 extern int reg_classes_intersect_p (enum reg_class, enum reg_class);
 extern int reg_class_subset_p (enum reg_class, enum reg_class);
 extern void globalize_reg (int);
-extern void init_reg_modes_once (void);
+extern void init_reg_modes_target (void);
 extern void init_regs (void);
 extern void init_fake_stack_mems (void);
 extern void init_reg_sets (void);
@@ -2201,7 +2230,7 @@ extern rtx emit_library_call_value (rtx, rtx, enum libcall_type,
 
 /* In varasm.c */
 extern void init_varasm_once (void);
-extern enum tls_model decl_default_tls_model (tree);
+extern enum tls_model decl_default_tls_model (const_tree);
   
 /* In rtl.c */
 extern void traverse_md_constants (int (*) (void **, void *), void *);
@@ -2226,17 +2255,17 @@ extern int canon_true_dependence (const_rtx, enum machine_mode, rtx, const_rtx,
 extern int read_dependence (const_rtx, const_rtx);
 extern int anti_dependence (const_rtx, const_rtx);
 extern int output_dependence (const_rtx, const_rtx);
-extern void init_alias_once (void);
+extern void init_alias_target (void);
 extern void init_alias_analysis (void);
 extern void end_alias_analysis (void);
-extern bool memory_modified_in_insn_p (rtx, rtx);
+extern bool memory_modified_in_insn_p (const_rtx, const_rtx);
 extern rtx find_base_term (rtx);
 extern rtx gen_hard_reg_clobber (enum machine_mode, unsigned int);
 extern rtx get_reg_known_value (unsigned int);
 extern bool get_reg_known_equiv_p (unsigned int);
 
 #ifdef STACK_REGS
-extern int stack_regs_mentioned (rtx insn);
+extern int stack_regs_mentioned (const_rtx insn);
 #endif
 
 /* In toplev.c */

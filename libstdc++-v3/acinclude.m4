@@ -1258,6 +1258,62 @@ AC_DEFUN([GLIBCXX_CHECK_RANDOM_TR1], [
 ])
 
 dnl
+dnl Check whether macros, etc are present for <system_error>
+dnl
+AC_DEFUN([GLIBCXX_CHECK_SYSTEM_ERROR], [
+
+  AC_MSG_CHECKING([for EOWNERDEAD])
+  AC_CACHE_VAL(ac_system_error1, [
+  AC_TRY_COMPILE([#include <errno.h>], [ int i = EOWNERDEAD; ],
+             [ac_system_error1=yes], [ac_system_error1=no])
+  ])
+  AC_MSG_RESULT($ac_system_error1)
+  if test x"$ac_system_error1" = x"yes"; then
+    AC_DEFINE(HAVE_EOWNERDEAD, 1, [Define if EOWNERDEAD exists.])
+  fi
+
+  AC_MSG_CHECKING([for ENOTRECOVERABLE])
+  AC_CACHE_VAL(ac_system_error2, [
+  AC_TRY_COMPILE([#include <errno.h>], [ int i = ENOTRECOVERABLE; ],
+             [ac_system_error2=yes], [ac_system_error2=no])
+  ])
+  AC_MSG_RESULT($ac_system_error2)
+  if test x"$ac_system_error2" = x"yes"; then
+    AC_DEFINE(HAVE_ENOTRECOVERABLE, 1, [Define if ENOTRECOVERABLE exists.])
+  fi
+
+  AC_MSG_CHECKING([for ENOLINK])
+  AC_CACHE_VAL(ac_system_error3, [
+  AC_TRY_COMPILE([#include <errno.h>], [ int i = ENOLINK; ],
+             [ac_system_error3=yes], [ac_system_error3=no])
+  ])
+  AC_MSG_RESULT($ac_system_error3)
+  if test x"$ac_system_error3" = x"yes"; then
+    AC_DEFINE(HAVE_ENOLINK, 1, [Define if ENOLINK exists.])
+  fi
+
+  AC_MSG_CHECKING([for EPROTO])
+  AC_CACHE_VAL(ac_system_error_4, [
+  AC_TRY_COMPILE([#include <errno.h>], [ int i = EPROTO; ],
+             [ac_system_error_4=yes], [ac_system_error_4=no])
+  ])
+  AC_MSG_RESULT($ac_system_error_4)
+  if test x"$ac_system_error_4" = x"yes"; then
+    AC_DEFINE(HAVE_EPROTO, 1, [Define if EPROTO exists.])
+  fi
+
+  AC_MSG_CHECKING([for sys_nerr])
+  AC_CACHE_VAL(ac_system_error9, [
+  AC_TRY_COMPILE([#include <errno.h> ], [ int i = sys_nerr; ],
+             [ac_system_error9=yes], [ac_system_error9=no])
+  ])
+  AC_MSG_RESULT($ac_system_error9)
+  if test x"$ac_system_error9" = x"yes"; then
+    AC_DEFINE(HAVE_SYS_NERR, 1, [Define if sys_nerr exists.])
+  fi
+])
+
+dnl
 dnl Check for what type of C headers to use.
 dnl
 dnl --enable-cheaders= [does stuff].

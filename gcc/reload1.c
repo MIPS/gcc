@@ -448,7 +448,8 @@ static int reloads_conflict (int, int);
 static rtx gen_reload (rtx, rtx, int, enum reload_type);
 static rtx emit_insn_if_valid_for_reload (rtx);
 
-/* Initialize the reload pass once per compilation.  */
+/* Initialize the reload pass.  This is called at the beginning of compilation
+   and may be called again if the target is reinitialized.  */
 
 void
 init_reload (void)
@@ -2411,6 +2412,7 @@ eliminate_regs_1 (rtx x, enum machine_mode mem_mode, rtx insn,
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
@@ -2804,6 +2806,7 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
@@ -3952,6 +3955,7 @@ scan_paradoxical_subregs (rtx x)
     case SYMBOL_REF:
     case LABEL_REF:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR: /* shouldn't happen, but just in case.  */
     case CC0:
     case PC:

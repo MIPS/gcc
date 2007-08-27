@@ -353,7 +353,7 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   dbxout_end_source_file,
   dbxout_begin_block,
   dbxout_end_block,
-  debug_true_tree,		         /* ignore_block */
+  debug_true_const_tree,	         /* ignore_block */
   dbxout_source_line,		         /* source_line */
   dbxout_begin_prologue,	         /* begin_prologue */
   debug_nothing_int_charstar,	         /* end_prologue */
@@ -389,7 +389,7 @@ const struct gcc_debug_hooks xcoff_debug_hooks =
   dbxout_end_source_file,
   xcoffout_begin_block,
   xcoffout_end_block,
-  debug_true_tree,		         /* ignore_block */
+  debug_true_const_tree,	         /* ignore_block */
   xcoffout_source_line,
   xcoffout_begin_prologue,	         /* begin_prologue */
   debug_nothing_int_charstar,	         /* end_prologue */
@@ -983,6 +983,7 @@ dbxout_init (const char *input_file_name)
   char ltext_label_name[100];
   bool used_ltext_label_name = false;
   tree syms = lang_hooks.decls.getdecls ();
+  const char *mapped_name;
 
   typevec_len = 100;
   typevec = ggc_calloc (typevec_len, sizeof typevec[0]);
@@ -1008,6 +1009,7 @@ dbxout_init (const char *input_file_name)
 	    cwd = "/";
 	  else if (!IS_DIR_SEPARATOR (cwd[strlen (cwd) - 1]))
 	    cwd = concat (cwd, "/", NULL);
+	  cwd = remap_debug_filename (cwd);
 	}
 #ifdef DBX_OUTPUT_MAIN_SOURCE_DIRECTORY
       DBX_OUTPUT_MAIN_SOURCE_DIRECTORY (asm_out_file, cwd);
@@ -1018,10 +1020,11 @@ dbxout_init (const char *input_file_name)
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_DIRECTORY */
     }
 
+  mapped_name = remap_debug_filename (input_file_name);
 #ifdef DBX_OUTPUT_MAIN_SOURCE_FILENAME
-  DBX_OUTPUT_MAIN_SOURCE_FILENAME (asm_out_file, input_file_name);
+  DBX_OUTPUT_MAIN_SOURCE_FILENAME (asm_out_file, mapped_name);
 #else
-  dbxout_begin_simple_stabs_desc (input_file_name, N_SO, get_lang_number ());
+  dbxout_begin_simple_stabs_desc (mapped_name, N_SO, get_lang_number ());
   dbxout_stab_value_label (ltext_label_name);
   used_ltext_label_name = true;
 #endif
@@ -1163,7 +1166,7 @@ dbxout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
   n->prev = NULL;
   current_file->prev = n;
   n->bincl_status = BINCL_PENDING;
-  n->pending_bincl_name = filename;
+  n->pending_bincl_name = remap_debug_filename (filename);
   pending_bincls = 1;
   current_file = n;
 #endif
@@ -1229,7 +1232,7 @@ dbxout_source_file (const char *filename)
       if (current_function_decl == NULL_TREE)
 	switch_to_section (text_section);
 
-      dbxout_begin_simple_stabs (filename, N_SOL);
+      dbxout_begin_simple_stabs (remap_debug_filename (filename), N_SOL);
       dbxout_stab_value_internal_label ("Ltext", &source_label_number);
       lastfile = filename;
     }

@@ -11,7 +11,8 @@
 
 @c man begin COPYRIGHT
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+2007 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.2 or
@@ -54,7 +55,7 @@ and the Info entries for @file{gcc}, @file{cpp}, @file{as},
 @c man end
 @c man begin BUGS
 For instructions on reporting bugs, see
-@w{@uref{http://gcc.gnu.org/bugs.html}}.
+@w{@value{BUGURL}}.
 @c man end
 @c man begin AUTHOR
 See the Info entry for @command{gcc}, or
@@ -303,6 +304,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftest-coverage  -ftime-report -fvar-tracking @gol
 -g  -g@var{level}  -gcoff -gdwarf-2 @gol
 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
+-fdebug-prefix-map=@var{old}=@var{new} @gol
 -femit-struct-debug-baseonly -femit-struct-debug-reduced @gol
 -femit-struct-debug-detailed@r{[}=@var{spec-list}@r{]} @gol
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
@@ -448,7 +450,7 @@ Objective-C and Objective-C++ Dialects}.
 -mstack-check-l1  -mid-shared-library  -mno-id-shared-library @gol
 -mshared-library-id=@var{n}  -mleaf-id-shared-library @gol
 -mno-leaf-id-shared-library  -msep-data  -mno-sep-data  -mlong-calls @gol
--mno-long-calls}
+-mno-long-calls -mfast-fp}
 
 @emph{CRIS Options}
 @gccoptlist{-mcpu=@var{cpu}  -march=@var{cpu}  -mtune=@var{cpu} @gol
@@ -2010,9 +2012,10 @@ public static member functions.
 
 @item -Wnon-virtual-dtor @r{(C++ only)}
 @opindex Wnon-virtual-dtor
-Warn when a class appears to be polymorphic, thereby requiring a virtual
-destructor, yet it declares a non-virtual one.  This warning is also
-enabled if -Weffc++ is specified.
+Warn when a class has virtual functions and accessible non-virtual
+destructor, in which case it would be possible but unsafe to delete
+an instance of a derived class through a pointer to the base class.
+This warning is also enabled if -Weffc++ is specified.
 
 @item -Wreorder @r{(C++ only)}
 @opindex Wreorder
@@ -4143,6 +4146,11 @@ You may need to experiment to determine the best settings for your application.
 The default is @samp{-femit-struct-debug-detailed=all}.
 
 This option works only with DWARF 2.
+
+@item -fdebug-prefix-map=@var{old}=@var{new}
+@opindex fdebug-prefix-map
+When compiling files in directory @file{@var{old}}, record debugging
+information describing them as in @file{@var{new}} instead.
 
 @cindex @command{prof}
 @item -p
@@ -6741,10 +6749,15 @@ value is 500.
 When set to 1, use expensive methods to eliminate all redundant
 constraints.  The default value is 0.
 
-@item vect-max-version-checks
-The maximum number of runtime checks that can be performed when doing
-loop versioning in the vectorizer.  See option ftree-vect-loop-version
-for more information.
+@item vect-max-version-for-alignment-checks
+The maximum number of runtime checks that can be performed when
+doing loop versioning for alignment in the vectorizer.  See option
+ftree-vect-loop-version for more information.
+
+@item vect-max-version-for-alias-checks
+The maximum number of runtime checks that can be performed when
+doing loop versioning for alias in the vectorizer.  See option
+ftree-vect-loop-version for more information.
 
 @item max-iterations-to-track
 
@@ -8599,6 +8612,12 @@ This feature is not enabled by default.  Specifying
 @option{-mno-long-calls} will restore the default behavior.  Note these
 switches have no effect on how the compiler generates code to handle
 function calls via function pointers.
+
+@item -mfast-fp
+@opindex mfast-fp
+Link with the fast floating-point library. This library relaxes some of
+the IEEE floating-point standard's rules for checking inputs against
+Not-a-Number (NAN), in the interest of performance.
 @end table
 
 @node CRIS Options

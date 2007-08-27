@@ -52,12 +52,14 @@ typedef int (*tree_fn_t) (tree, void*);
 
 /* The PENDING_TEMPLATES is a TREE_LIST of templates whose
    instantiations have been deferred, either because their definitions
-   were not yet available, or because we were putting off doing the work.
-   The TREE_PURPOSE of each entry is either a DECL (for a function or
-   static data member), or a TYPE (for a class) indicating what we are
-   hoping to instantiate.  The TREE_VALUE is not used.  */
-static GTY(()) tree pending_templates;
-static GTY(()) tree last_pending_template;
+   were not yet available, or because we were putting off doing the work.  */
+struct pending_template GTY (()) {
+  struct pending_template *next;
+  struct tinst_level *tinst;
+};
+
+static GTY(()) struct pending_template *pending_templates;
+static GTY(()) struct pending_template *last_pending_template;
 
 int processing_template_parmlist;
 static int template_header_count;
@@ -65,7 +67,7 @@ static int template_header_count;
 static GTY(()) tree saved_trees;
 static VEC(int,heap) *inline_parm_levels;
 
-static GTY(()) tree current_tinst_level;
+static GTY(()) struct tinst_level *current_tinst_level;
 
 static GTY(()) tree saved_access_scope;
 
@@ -104,7 +106,7 @@ static int unify (tree, tree, tree, tree, int);
 static void add_pending_template (tree);
 static int push_tinst_level (tree);
 static void pop_tinst_level (void);
-static void reopen_tinst_level (tree);
+static tree reopen_tinst_level (struct tinst_level *);
 static tree tsubst_initializer_list (tree, tree);
 static tree get_class_bindings (tree, tree, tree);
 static tree coerce_template_parms (tree, tree, tree, tsubst_flags_t,
@@ -1980,7 +1982,7 @@ check_explicit_specialization (tree declarator,
 		 context.  */
 	      fns = lookup_qualified_name (CP_DECL_CONTEXT (decl), dname,
 					   false, true);
-	      if (!fns || !is_overloaded_fn (fns))
+	      if (fns == error_mark_node || !is_overloaded_fn (fns))
 		{
 		  error ("%qD is not a template function", dname);
 		  fns = error_mark_node;
@@ -2262,10 +2264,10 @@ check_explicit_specialization (tree declarator,
    DECL_TEMPLATE_PARMS.  */
 
 int
-comp_template_parms (tree parms1, tree parms2)
+comp_template_parms (const_tree parms1, const_tree parms2)
 {
-  tree p1;
-  tree p2;
+  const_tree p1;
+  const_tree p2;
 
   if (parms1 == parms2)
     return 1;
@@ -2316,7 +2318,7 @@ comp_template_parms (tree parms1, tree parms2)
 
 /* Determine whether PARM is a parameter pack.  */
 bool 
-template_parameter_pack_p (tree parm)
+template_parameter_pack_p (const_tree parm)
 {
   /* Determine if we have a non-type template parameter pack.  */
   if (TREE_CODE (parm) == PARM_DECL)
@@ -2391,7 +2393,7 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
   if (TYPE_P (t))
     {
       tree context = TYPE_CONTEXT (t);
-      walk_tree (&context, &find_parameter_packs_r, ppd, ppd->visited);
+      cp_walk_tree (&context, &find_parameter_packs_r, ppd, ppd->visited);
     }
 
   /* This switch statement will return immediately if we don't find a
@@ -2405,8 +2407,8 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
 
     case BOUND_TEMPLATE_TEMPLATE_PARM:
       /* Check the template arguments.  */
-      walk_tree (&TYPE_TI_ARGS (t), &find_parameter_packs_r, ppd, 
-		 ppd->visited);
+      cp_walk_tree (&TYPE_TI_ARGS (t), &find_parameter_packs_r, ppd, 
+		    ppd->visited);
 
       /* Dig out the underlying TEMPLATE_TEMPLATE_PARM.  */
       t = TYPE_TI_TEMPLATE (t);
@@ -2442,7 +2444,7 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
       if (TYPE_TEMPLATE_INFO (t))
         {
           tree args = TREE_VALUE (TYPE_TEMPLATE_INFO (t));
-          walk_tree (&args, &find_parameter_packs_r, ppd, ppd->visited);
+          cp_walk_tree (&args, &find_parameter_packs_r, ppd, ppd->visited);
         }
 
       *walk_subtrees = 0;
@@ -2462,8 +2464,8 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
       return NULL_TREE;
 
     case INTEGER_TYPE:
-      walk_tree (&TYPE_MAX_VALUE (t), &find_parameter_packs_r, 
-		 ppd, ppd->visited);
+      cp_walk_tree (&TYPE_MAX_VALUE (t), &find_parameter_packs_r, 
+		    ppd, ppd->visited);
       *walk_subtrees = 0;
       return NULL_TREE;
 
@@ -2485,7 +2487,7 @@ uses_parameter_packs (tree t)
   struct find_parameter_pack_data ppd;
   ppd.parameter_packs = &parameter_packs;
   ppd.visited = pointer_set_create ();
-  walk_tree (&t, &find_parameter_packs_r, &ppd, ppd.visited);
+  cp_walk_tree (&t, &find_parameter_packs_r, &ppd, ppd.visited);
   pointer_set_destroy (ppd.visited);
   return parameter_packs != NULL_TREE;
 }
@@ -2535,8 +2537,8 @@ make_pack_expansion (tree arg)
          class expansion.  */
       ppd.visited = pointer_set_create ();
       ppd.parameter_packs = &parameter_packs;
-      walk_tree (&TREE_PURPOSE (arg), &find_parameter_packs_r, 
-                 &ppd, ppd.visited);
+      cp_walk_tree (&TREE_PURPOSE (arg), &find_parameter_packs_r, 
+                    &ppd, ppd.visited);
 
       if (parameter_packs == NULL_TREE)
         {
@@ -2553,8 +2555,8 @@ make_pack_expansion (tree arg)
             {
               /* Determine which parameter packs will be expanded in this
                  argument.  */
-              walk_tree (&TREE_VALUE (value), &find_parameter_packs_r, 
-                         &ppd, ppd.visited);
+              cp_walk_tree (&TREE_VALUE (value), &find_parameter_packs_r, 
+                            &ppd, ppd.visited);
             }
         }
 
@@ -2592,7 +2594,7 @@ make_pack_expansion (tree arg)
   /* Determine which parameter packs will be expanded.  */
   ppd.parameter_packs = &parameter_packs;
   ppd.visited = pointer_set_create ();
-  walk_tree (&arg, &find_parameter_packs_r, &ppd, ppd.visited);
+  cp_walk_tree (&arg, &find_parameter_packs_r, &ppd, ppd.visited);
   pointer_set_destroy (ppd.visited);
 
   /* Make sure we found some parameter packs.  */
@@ -2637,7 +2639,7 @@ check_for_bare_parameter_packs (tree t)
 
   ppd.parameter_packs = &parameter_packs;
   ppd.visited = pointer_set_create ();
-  walk_tree (&t, &find_parameter_packs_r, &ppd, ppd.visited);
+  cp_walk_tree (&t, &find_parameter_packs_r, &ppd, ppd.visited);
   pointer_set_destroy (ppd.visited);
 
   if (parameter_packs) 
@@ -3913,7 +3915,9 @@ push_template_decl_real (tree decl, bool is_friend)
 	    if (current == decl)
 	      current = ctx;
 	    else
-	      current = TYPE_CONTEXT (current);
+	      current = (TYPE_P (current)
+			 ? TYPE_CONTEXT (current)
+			 : DECL_CONTEXT (current));
 	  }
     }
 
@@ -5137,7 +5141,7 @@ add_pending_template (tree d)
   tree ti = (TYPE_P (d)
 	     ? CLASSTYPE_TEMPLATE_INFO (d)
 	     : DECL_TEMPLATE_INFO (d));
-  tree pt;
+  struct pending_template *pt;
   int level;
 
   if (TI_PENDING_TEMPLATE_FLAG (ti))
@@ -5146,14 +5150,16 @@ add_pending_template (tree d)
   /* We are called both from instantiate_decl, where we've already had a
      tinst_level pushed, and instantiate_template, where we haven't.
      Compensate.  */
-  level = !(current_tinst_level && TINST_DECL (current_tinst_level) == d);
+  level = !current_tinst_level || current_tinst_level->decl != d;
 
   if (level)
     push_tinst_level (d);
 
-  pt = tree_cons (current_tinst_level, d, NULL_TREE);
+  pt = GGC_NEW (struct pending_template);
+  pt->next = NULL;
+  pt->tinst = current_tinst_level;
   if (last_pending_template)
-    TREE_CHAIN (last_pending_template) = pt;
+    last_pending_template->next = pt;
   else
     pending_templates = pt;
 
@@ -5894,10 +5900,10 @@ for_each_template_parm (tree t, tree_fn_t fn, void* data,
     pfd.visited = visited;
   else
     pfd.visited = pointer_set_create ();
-  result = walk_tree (&t,
-		      for_each_template_parm_r,
-		      &pfd,
-		      pfd.visited) != NULL_TREE;
+  result = cp_walk_tree (&t,
+		         for_each_template_parm_r,
+		         &pfd,
+		         pfd.visited) != NULL_TREE;
 
   /* Clean up.  */
   if (!visited)
@@ -5972,7 +5978,7 @@ static int last_template_error_tick;
 static int
 push_tinst_level (tree d)
 {
-  tree new;
+  struct tinst_level *new;
 
   if (tinst_depth >= max_tinst_depth)
     {
@@ -5992,11 +5998,11 @@ push_tinst_level (tree d)
       return 0;
     }
 
-  new = make_node (TINST_LEVEL);
-  TINST_DECL (new) = d;
-  TINST_LOCATION (new) = input_location;
-  TINST_IN_SYSTEM_HEADER_P (new) = in_system_header;
-  TREE_CHAIN (new) = current_tinst_level;
+  new = GGC_NEW (struct tinst_level);
+  new->decl = d;
+  new->locus = input_location;
+  new->in_system_header_p = in_system_header;
+  new->next = current_tinst_level;
   current_tinst_level = new;
 
   ++tinst_depth;
@@ -6015,32 +6021,44 @@ push_tinst_level (tree d)
 static void
 pop_tinst_level (void)
 {
-  tree old = current_tinst_level;
-
   /* Restore the filename and line number stashed away when we started
      this instantiation.  */
-  input_location = TINST_LOCATION (old);
-  in_system_header = TINST_IN_SYSTEM_HEADER_P (old);
-  current_tinst_level = TREE_CHAIN (old);
+  input_location = current_tinst_level->locus;
+  in_system_header = current_tinst_level->in_system_header_p;
+  current_tinst_level = current_tinst_level->next;
   --tinst_depth;
   ++tinst_level_tick;
 }
 
 /* We're instantiating a deferred template; restore the template
    instantiation context in which the instantiation was requested, which
-   is one step out from LEVEL.  */
+   is one step out from LEVEL.  Return the corresponding DECL or TYPE.  */
 
-static void
-reopen_tinst_level (tree level)
+static tree
+reopen_tinst_level (struct tinst_level *level)
 {
-  tree t;
+  struct tinst_level *t;
 
   tinst_depth = 0;
-  for (t = level; t; t = TREE_CHAIN (t))
+  for (t = level; t; t = t->next)
     ++tinst_depth;
 
   current_tinst_level = level;
   pop_tinst_level ();
+  return level->decl;
+}
+
+/* Returns the TINST_LEVEL which gives the original instantiation
+   context.  */
+
+struct tinst_level *
+outermost_tinst_level (void)
+{
+  struct tinst_level *level = current_tinst_level;
+  if (level)
+    while (level->next)
+      level = level->next;
+  return level;
 }
 
 /* DECL is a friend FUNCTION_DECL or TEMPLATE_DECL.  ARGS is the
@@ -14438,6 +14456,10 @@ instantiate_decl (tree d, int defer_ok,
 		   tf_warning_or_error, tmpl,
 		   /*integral_constant_expression_p=*/false);
 
+      /* Set the current input_location to the end of the function
+         so that finish_function knows where we are.  */
+      input_location = DECL_STRUCT_FUNCTION (code_pattern)->function_end_locus;
+
       /* We don't need the local specializations any more.  */
       htab_delete (local_specializations);
       local_specializations = saved_local_specializations;
@@ -14471,8 +14493,6 @@ out:
 void
 instantiate_pending_templates (int retries)
 {
-  tree *t;
-  tree last = NULL_TREE;
   int reconsider;
   location_t saved_loc = input_location;
   int saved_in_system_header = in_system_header;
@@ -14482,7 +14502,7 @@ instantiate_pending_templates (int retries)
      to avoid infinite loop.  */
   if (pending_templates && retries >= max_tinst_depth)
     {
-      tree decl = TREE_VALUE (pending_templates);
+      tree decl = pending_templates->tinst->decl;
 
       error ("template instantiation depth exceeds maximum of %d"
 	     " instantiating %q+D, possibly from virtual table generation"
@@ -14496,14 +14516,13 @@ instantiate_pending_templates (int retries)
 
   do
     {
+      struct pending_template **t = &pending_templates;
+      struct pending_template *last = NULL;
       reconsider = 0;
-
-      t = &pending_templates;
       while (*t)
 	{
-	  tree instantiation = TREE_VALUE (*t);
-
-	  reopen_tinst_level (TREE_PURPOSE (*t));
+	  tree instantiation = reopen_tinst_level ((*t)->tinst);
+	  bool complete = false;
 
 	  if (TYPE_P (instantiation))
 	    {
@@ -14524,15 +14543,7 @@ instantiate_pending_templates (int retries)
 		    reconsider = 1;
 		}
 
-	      if (COMPLETE_TYPE_P (instantiation))
-		/* If INSTANTIATION has been instantiated, then we don't
-		   need to consider it again in the future.  */
-		*t = TREE_CHAIN (*t);
-	      else
-		{
-		  last = *t;
-		  t = &TREE_CHAIN (*t);
-		}
+	      complete = COMPLETE_TYPE_P (instantiation);
 	    }
 	  else
 	    {
@@ -14547,19 +14558,21 @@ instantiate_pending_templates (int retries)
 		    reconsider = 1;
 		}
 
-	      if (DECL_TEMPLATE_SPECIALIZATION (instantiation)
-		  || DECL_TEMPLATE_INSTANTIATED (instantiation))
-		/* If INSTANTIATION has been instantiated, then we don't
-		   need to consider it again in the future.  */
-		*t = TREE_CHAIN (*t);
-	      else
-		{
-		  last = *t;
-		  t = &TREE_CHAIN (*t);
-		}
+	      complete = (DECL_TEMPLATE_SPECIALIZATION (instantiation)
+			  || DECL_TEMPLATE_INSTANTIATED (instantiation));
+	    }
+
+	  if (complete)
+	    /* If INSTANTIATION has been instantiated, then we don't
+	       need to consider it again in the future.  */
+	    *t = (*t)->next;
+	  else
+	    {
+	      last = *t;
+	      t = &(*t)->next;
 	    }
 	  tinst_depth = 0;
-	  current_tinst_level = NULL_TREE;
+	  current_tinst_level = NULL;
 	}
       last_pending_template = last;
     }
@@ -14808,7 +14821,7 @@ record_last_problematic_instantiation (void)
   last_template_error_tick = tinst_level_tick;
 }
 
-tree
+struct tinst_level *
 current_instantiation (void)
 {
   return current_tinst_level;
@@ -15307,7 +15320,7 @@ type_dependent_expression_p (tree expression)
    contains a type-dependent expression.  */
 
 bool
-any_type_dependent_arguments_p (tree args)
+any_type_dependent_arguments_p (const_tree args)
 {
   while (args)
     {
@@ -15324,7 +15337,7 @@ any_type_dependent_arguments_p (tree args)
    expressions) contains any value-dependent expressions.  */
 
 bool
-any_value_dependent_elements_p (tree list)
+any_value_dependent_elements_p (const_tree list)
 {
   for (; list; list = TREE_CHAIN (list))
     if (value_dependent_expression_p (TREE_VALUE (list)))
@@ -15419,7 +15432,7 @@ any_template_arguments_need_structural_equality_p (tree args)
    any dependent arguments.  */
 
 bool
-any_dependent_template_arguments_p (tree args)
+any_dependent_template_arguments_p (const_tree args)
 {
   int i;
   int j;
@@ -15431,7 +15444,7 @@ any_dependent_template_arguments_p (tree args)
 
   for (i = 0; i < TMPL_ARGS_DEPTH (args); ++i)
     {
-      tree level = TMPL_ARGS_LEVEL (args, i + 1);
+      const_tree level = TMPL_ARGS_LEVEL (args, i + 1);
       for (j = 0; j < TREE_VEC_LENGTH (level); ++j)
 	if (dependent_template_arg_p (TREE_VEC_ELT (level, j)))
 	  return true;

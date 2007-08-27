@@ -140,7 +140,8 @@ conditional_register_usage (void)
 /* Examine machine-dependent attributes of function type FUNTYPE and return its
    type.  See the definition of E_FUNKIND.  */
 
-static e_funkind funkind (tree funtype)
+static e_funkind
+funkind (const_tree funtype)
 {
   tree attrs = TYPE_ATTRIBUTES (funtype);
   if (lookup_attribute ("interrupt_handler", attrs))
@@ -1310,26 +1311,31 @@ print_operand (FILE *file, rtx x, char code)
 	case REG:
 	  if (code == 'h')
 	    {
-	      gcc_assert (REGNO (x) < 32);
-	      fprintf (file, "%s", short_reg_names[REGNO (x)]);
-	      /*fprintf (file, "\n%d\n ", REGNO (x));*/
-	      break;
+	      if (REGNO (x) < 32)
+		fprintf (file, "%s", short_reg_names[REGNO (x)]);
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else if (code == 'd')
 	    {
-	      gcc_assert (REGNO (x) < 32);
-	      fprintf (file, "%s", high_reg_names[REGNO (x)]);
-	      break;
+	      if (REGNO (x) < 32)
+		fprintf (file, "%s", high_reg_names[REGNO (x)]);
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else if (code == 'w')
 	    {
-	      gcc_assert (REGNO (x) == REG_A0 || REGNO (x) == REG_A1);
-	      fprintf (file, "%s.w", reg_names[REGNO (x)]);
+	      if (REGNO (x) == REG_A0 || REGNO (x) == REG_A1)
+		fprintf (file, "%s.w", reg_names[REGNO (x)]);
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else if (code == 'x')
 	    {
-	      gcc_assert (REGNO (x) == REG_A0 || REGNO (x) == REG_A1);
-	      fprintf (file, "%s.x", reg_names[REGNO (x)]);
+	      if (REGNO (x) == REG_A0 || REGNO (x) == REG_A1)
+		fprintf (file, "%s.x", reg_names[REGNO (x)]);
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else if (code == 'v')
 	    {
@@ -1342,18 +1348,24 @@ print_operand (FILE *file, rtx x, char code)
 	    }
 	  else if (code == 'D')
 	    {
-	      fprintf (file, "%s", dregs_pair_names[REGNO (x)]);
+	      if (D_REGNO_P (REGNO (x)))
+		fprintf (file, "%s", dregs_pair_names[REGNO (x)]);
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else if (code == 'H')
 	    {
-	      gcc_assert (mode == DImode || mode == DFmode);
-	      gcc_assert (REG_P (x));
-	      fprintf (file, "%s", reg_names[REGNO (x) + 1]);
+	      if ((mode == DImode || mode == DFmode) && REG_P (x))
+		fprintf (file, "%s", reg_names[REGNO (x) + 1]);
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else if (code == 'T')
 	    {
-	      gcc_assert (D_REGNO_P (REGNO (x)));
-	      fprintf (file, "%s", byte_reg_names[REGNO (x)]);
+	      if (D_REGNO_P (REGNO (x)))
+		fprintf (file, "%s", byte_reg_names[REGNO (x)]);
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else 
 	    fprintf (file, "%s", reg_names[REGNO (x)]);
@@ -1608,7 +1620,7 @@ bfin_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 static bool
 bfin_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 			enum machine_mode mode ATTRIBUTE_UNUSED,
-			tree type, bool named ATTRIBUTE_UNUSED)
+			const_tree type, bool named ATTRIBUTE_UNUSED)
 {
   return type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST;
 }
@@ -1618,7 +1630,7 @@ bfin_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
    RETURN_IN_MEMORY.  */
 
 int
-bfin_return_in_memory (tree type)
+bfin_return_in_memory (const_tree type)
 {
   int size = int_size_in_bytes (type);
   return size > 2 * UNITS_PER_WORD || size == -1;
@@ -4567,7 +4579,7 @@ handle_int_attribute (tree *node, tree name,
    warning to be generated).  */
 
 static int
-bfin_comp_type_attributes (tree type1, tree type2)
+bfin_comp_type_attributes (const_tree type1, const_tree type2)
 {
   e_funkind kind1, kind2;
 
@@ -5365,7 +5377,7 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK bfin_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
-#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_const_tree_hwi_hwi_const_tree_true
 
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST bfin_adjust_cost
@@ -5374,11 +5386,11 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 #define TARGET_SCHED_ISSUE_RATE bfin_issue_rate
 
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES bfin_arg_partial_bytes

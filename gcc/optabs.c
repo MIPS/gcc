@@ -256,7 +256,7 @@ widen_operand (rtx op, enum machine_mode mode, enum machine_mode oldmode,
    or division) but probably ought to be relied on more widely
    throughout the expander.  */
 optab
-optab_for_tree_code (enum tree_code code, tree type)
+optab_for_tree_code (enum tree_code code, const_tree type)
 {
   bool trapv;
   switch (code)
@@ -5563,7 +5563,7 @@ set_conv_libfunc (convert_optab optable, enum machine_mode tmode,
     convert_optab_handler (optable, tmode, fmode)->libfunc = 0;
 }
 
-/* Call this once to initialize the contents of the optabs
+/* Call this to initialize the contents of the optabs
    appropriately for the current target machine.  */
 
 void

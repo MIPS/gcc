@@ -629,7 +629,7 @@ addresses_taken (tree stmt)
 /* Return the PHI nodes for basic block BB, or NULL if there are no
    PHI nodes.  */
 static inline gimple_seq
-phi_nodes (basic_block bb)
+phi_nodes (const_basic_block bb)
 {
   gcc_assert (!(bb->flags & BB_RTL));
   if (!bb->il.gimple)
@@ -722,7 +722,7 @@ phi_ssa_name_p (const_tree t)
 /* Returns the sequence of statements in BB.  */
 
 static inline gimple_seq
-bb_seq (basic_block bb)
+bb_seq (const_basic_block bb)
 {
   gcc_assert (!(bb->flags & BB_RTL));
   return bb->il.gimple->seq;
@@ -750,6 +750,21 @@ bsi_start (basic_block bb)
     }
   else
     bsi.gsi = gsi_start (bb_seq (bb));
+  bsi.bb = bb;
+  return bsi;
+}
+
+static inline const_block_stmt_iterator
+cbsi_start (const_basic_block bb)
+{
+  const_block_stmt_iterator bsi;
+  if (bb->index < NUM_FIXED_BLOCKS)
+    {
+      bsi.tsi.ptr = NULL;
+      bsi.tsi.container = NULL;
+    }
+  else
+    bsi.tsi = ctsi_start (bb_seq (bb));
   bsi.bb = bb;
   return bsi;
 }
@@ -786,12 +801,34 @@ bsi_last (basic_block bb)
   return bsi;
 }
 
+static inline const_block_stmt_iterator
+cbsi_last (const_basic_block bb)
+{
+  const_block_stmt_iterator bsi;
+
+  if (bb->index < NUM_FIXED_BLOCKS)
+    {
+      bsi.tsi.ptr = NULL;
+      bsi.tsi.container = NULL;
+    }
+  else
+    bsi.tsi = ctsi_last (bb_seq (bb));
+  bsi.bb = bb;
+  return bsi;
+}
+
 /* Return true if block statement iterator I has reached the end of
    the basic block.  */
 static inline bool
 bsi_end_p (block_stmt_iterator i)
 {
   return gsi_end_p (i.gsi);
+}
+
+static inline bool
+cbsi_end_p (const_block_stmt_iterator i)
+{
+  return ctsi_end_p (i.tsi);
 }
 
 /* Modify block statement iterator I so that it is at the next
@@ -802,6 +839,12 @@ bsi_next (block_stmt_iterator *i)
   gsi_next (i->gsi);
 }
 
+static inline void
+cbsi_next (const_block_stmt_iterator *i)
+{
+  ctsi_next (&i->tsi);
+}
+
 /* Modify block statement iterator I so that it is at the previous
    statement in the basic block.  */
 static inline void
@@ -810,12 +853,24 @@ bsi_prev (block_stmt_iterator *i)
   gsi_prev (i->gsi);
 }
 
+static inline void
+cbsi_prev (const_block_stmt_iterator *i)
+{
+  ctsi_prev (&i->tsi);
+}
+
 /* Return the statement that block statement iterator I is currently
    at.  */
 static inline gimple
 bsi_stmt (block_stmt_iterator i)
 {
   return gsi_stmt (i.gsi);
+}
+
+static inline const_tree
+cbsi_stmt (const_block_stmt_iterator i)
+{
+  return ctsi_stmt (i.tsi);
 }
 
 /* Return a pointer to the statement that block statement iterator I
@@ -1513,7 +1568,6 @@ next_imm_use_stmt (imm_use_iterator *imm)
 
   link_use_stmts_after (imm->imm_use, imm);
   return USE_STMT (imm->imm_use);
-
 }
 
 /* This routine will return the first use on the stmt IMM currently refers

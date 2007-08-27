@@ -51,6 +51,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-prop.h"
 #include "value-prof.h"
 #include "tree-pass.h"
+#include "target.h"
+#include "integrate.h"
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -428,7 +430,7 @@ remap_decls (tree decls, copy_body_data *id)
       /* We can not chain the local static declarations into the unexpanded_var_list
          as we can't duplicate them or break one decl rule.  Go ahead and link
          them into unexpanded_var_list.  */
-      if (!lang_hooks.tree_inlining.auto_var_in_fn_p (old_var, id->src_fn)
+      if (!auto_var_in_fn_p (old_var, id->src_fn)
 	  && !DECL_EXTERNAL (old_var))
 	{
 	  cfun->unexpanded_var_list = tree_cons (NULL_TREE, old_var,
@@ -586,7 +588,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
      variables.  We don't want to copy static variables; there's only
      one of those, no matter how many times we inline the containing
      function.  Similarly for globals from an outer function.  */
-  else if (lang_hooks.tree_inlining.auto_var_in_fn_p (*tp, fn))
+  else if (auto_var_in_fn_p (*tp, fn))
     {
       tree new_decl;
 
@@ -641,8 +643,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	 discarding.  */
       if (TREE_CODE (*tp) == GIMPLE_MODIFY_STMT
 	  && GIMPLE_STMT_OPERAND (*tp, 0) == GIMPLE_STMT_OPERAND (*tp, 1)
-	  && (lang_hooks.tree_inlining.auto_var_in_fn_p
-	      (GIMPLE_STMT_OPERAND (*tp, 0), fn)))
+	  && (auto_var_in_fn_p (GIMPLE_STMT_OPERAND (*tp, 0), fn)))
 	{
 	  /* Some assignments VAR = VAR; don't generate any rtl code
 	     and thus don't count as variable modification.  Avoid
@@ -1271,7 +1272,7 @@ self_inlining_addr_expr (tree value, tree fn)
 
   var = get_base_address (TREE_OPERAND (value, 0));
 
-  return var && lang_hooks.tree_inlining.auto_var_in_fn_p (var, fn);
+  return var && auto_var_in_fn_p (var, fn);
 }
 
 static void
@@ -1855,18 +1856,44 @@ static bool
 inlinable_function_p (tree fn)
 {
   bool inlinable = true;
+  bool do_warning;
+  tree always_inline;
 
   /* If we've already decided this function shouldn't be inlined,
      there's no need to check again.  */
   if (DECL_UNINLINABLE (fn))
     return false;
 
-  /* See if there is any language-specific reason it cannot be
-     inlined.  (It is important that this hook be called early because
-     in C++ it may result in template instantiation.)
-     If the function is not inlinable for language-specific reasons,
-     it is left up to the langhook to explain why.  */
-  inlinable = !lang_hooks.tree_inlining.cannot_inline_tree_fn (&fn);
+  /* We only warn for functions declared `inline' by the user.  */
+  do_warning = (warn_inline
+		&& DECL_INLINE (fn)
+		&& DECL_DECLARED_INLINE_P (fn)
+		&& !DECL_IN_SYSTEM_HEADER (fn));
+
+  always_inline = lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn));
+
+  if (flag_really_no_inline
+      && always_inline == NULL)
+    {
+      if (do_warning)
+        warning (OPT_Winline, "function %q+F can never be inlined because it "
+                 "is suppressed using -fno-inline", fn);
+      inlinable = false;
+    }
+
+  /* Don't auto-inline anything that might not be bound within
+     this unit of translation.  */
+  else if (!DECL_DECLARED_INLINE_P (fn)
+	   && DECL_REPLACEABLE_P (fn))
+    inlinable = false;
+
+  else if (!function_attribute_inlinable_p (fn))
+    {
+      if (do_warning)
+        warning (OPT_Winline, "function %q+F can never be inlined because it "
+                 "uses attributes conflicting with inlining", fn);
+      inlinable = false;
+    }
 
   /* If we don't have the function body available, we can't inline it.
      However, this should not be recorded since we also get here for
@@ -1900,14 +1927,8 @@ inlinable_function_p (tree fn)
 	 about functions that would for example call alloca.  But since
 	 this a property of the function, just one warning is enough.
 	 As a bonus we can now give more details about the reason why a
-	 function is not inlinable.
-	 We only warn for functions declared `inline' by the user.  */
-      bool do_warning = (warn_inline
-			 && DECL_INLINE (fn)
-			 && DECL_DECLARED_INLINE_P (fn)
-			 && !DECL_IN_SYSTEM_HEADER (fn));
-
-      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
+	 function is not inlinable.  */
+      if (always_inline)
 	sorry (inline_forbidden_reason, fn);
       else if (do_warning)
 	warning (OPT_Winline, inline_forbidden_reason, fn);
@@ -1919,6 +1940,20 @@ inlinable_function_p (tree fn)
   DECL_UNINLINABLE (fn) = !inlinable;
 
   return inlinable;
+}
+
+/* Return true if we shall disregard inlining limits for the function
+   FN during inlining.  */
+
+bool
+disregard_inline_limits_p (tree fn)
+{
+  /* GNU extern inline functions are supposed to be cheap.  */
+  if (DECL_DECLARED_INLINE_P (fn)
+      && DECL_EXTERNAL (fn))
+    return true;
+
+  return lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL_TREE;
 }
 
 /* Estimate the cost of a memory move.  Use machine dependent
@@ -2829,10 +2864,6 @@ optimize_inline_calls (tree fn)
     gimple_expand_calls_inline (bb, &id);
 
   pop_gimplify_context (NULL);
-  /* Renumber the (code) basic_blocks consecutively.  */
-  compact_blocks ();
-  /* Renumber the lexical scoping (non-code) blocks consecutively.  */
-  number_blocks (fn);
 
 #ifdef ENABLE_CHECKING
     {
@@ -2845,13 +2876,20 @@ optimize_inline_calls (tree fn)
 	gcc_assert (e->inline_failed);
     }
 #endif
+  
+  /* Fold the statements before compacting/renumbering the basic blocks.  */
+  fold_marked_statements (last, id.statements_to_fold);
+  pointer_set_destroy (id.statements_to_fold);
+  
+  /* Renumber the (code) basic_blocks consecutively.  */
+  compact_blocks ();
+  /* Renumber the lexical scoping (non-code) blocks consecutively.  */
+  number_blocks (fn);
 
   /* We are not going to maintain the cgraph edges up to date.
      Kill it so it won't confuse us.  */
   cgraph_node_remove_callees (id.dst_node);
 
-  fold_marked_statements (last, id.statements_to_fold);
-  pointer_set_destroy (id.statements_to_fold);
   fold_cond_expr_cond ();
   if (current_function_has_nonlocal_label)
     make_nonlocal_label_edges ();

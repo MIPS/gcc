@@ -209,10 +209,6 @@ typedef enum
 gfc_intrinsic_op;
 
 
-/* Strings for all intrinsic operators.  */
-extern mstring intrinsic_operators[];
-
-
 /* This macro is the number of intrinsic operators that exist.
    Assumptions are made about the numbering of the interface_op enums.  */
 #define GFC_INTRINSIC_OPS GFC_INTRINSIC_END
@@ -260,7 +256,7 @@ gfc_statement;
 typedef enum
 {
   INTERFACE_NAMELESS = 1, INTERFACE_GENERIC,
-  INTERFACE_INTRINSIC_OP, INTERFACE_USER_OP
+  INTERFACE_INTRINSIC_OP, INTERFACE_USER_OP, INTERFACE_ABSTRACT
 }
 interface_type;
 
@@ -391,6 +387,7 @@ enum gfc_isym_id
   GFC_ISYM_FSEEK,
   GFC_ISYM_FSTAT,
   GFC_ISYM_FTELL,
+  GFC_ISYM_GAMMA,
   GFC_ISYM_GERROR,
   GFC_ISYM_GETARG,
   GFC_ISYM_GET_COMMAND,
@@ -434,6 +431,7 @@ enum gfc_isym_id
   GFC_ISYM_LBOUND,
   GFC_ISYM_LEN,
   GFC_ISYM_LEN_TRIM,
+  GFC_ISYM_LGAMMA,
   GFC_ISYM_LGE,
   GFC_ISYM_LGT,
   GFC_ISYM_LINK,
@@ -658,7 +656,7 @@ typedef struct
 
   /* Function/subroutine attributes */
   unsigned sequence:1, elemental:1, pure:1, recursive:1;
-  unsigned unmaskable:1, masked:1, contained:1, mod_proc:1;
+  unsigned unmaskable:1, masked:1, contained:1, mod_proc:1, abstract:1;
 
   /* This is set if the subroutine doesn't return.  Currently, this
      is only possible for intrinsic subroutines.  */
@@ -1867,6 +1865,7 @@ typedef struct
   int flag_openmp;
   int flag_sign_zero;
   int flag_module_private;
+  int flag_recursive;
 
   int fpe;
 
@@ -1962,10 +1961,7 @@ void gfc_clear_ts (gfc_typespec *);
 FILE *gfc_open_file (const char *);
 const char *gfc_basic_typename (bt);
 const char *gfc_typename (gfc_typespec *);
-
-#define gfc_op2string(OP) (OP == INTRINSIC_ASSIGN ? \
-			   "=" : gfc_code2string (intrinsic_operators, OP))
-
+const char *gfc_op2string (gfc_intrinsic_op);
 const char *gfc_code2string (const mstring *, int);
 int gfc_string2code (const mstring *, const char *);
 const char *gfc_intent_string (sym_intent);
@@ -2056,6 +2052,7 @@ try gfc_add_new_implicit_range (int, int);
 try gfc_merge_new_implicit (gfc_typespec *);
 void gfc_set_implicit_none (void);
 void gfc_check_function_type (gfc_namespace *);
+bool gfc_is_intrinsic_typename (const char *);
 
 gfc_typespec *gfc_get_default_type (gfc_symbol *, gfc_namespace *);
 try gfc_set_default_type (gfc_symbol *, int, gfc_namespace *);

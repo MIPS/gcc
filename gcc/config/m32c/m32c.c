@@ -64,13 +64,13 @@ static tree interrupt_handler (tree *, tree, tree, int, bool *);
 static tree function_vector_handler (tree *, tree, tree, int, bool *);
 static int interrupt_p (tree node);
 static bool m32c_asm_integer (rtx, unsigned int, int);
-static int m32c_comp_type_attributes (tree, tree);
+static int m32c_comp_type_attributes (const_tree, const_tree);
 static bool m32c_fixed_condition_code_regs (unsigned int *, unsigned int *);
 static struct machine_function *m32c_init_machine_status (void);
 static void m32c_insert_attributes (tree, tree *);
 static bool m32c_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
-				    tree, bool);
-static bool m32c_promote_prototypes (tree);
+				    const_tree, bool);
+static bool m32c_promote_prototypes (const_tree);
 static int m32c_pushm_popm (Push_Pop_Type);
 static bool m32c_strict_argument_naming (CUMULATIVE_ARGS *);
 static rtx m32c_struct_value_rtx (tree, int);
@@ -445,7 +445,7 @@ m32c_init_expanders (void)
 #undef TARGET_PROMOTE_FUNCTION_RETURN
 #define TARGET_PROMOTE_FUNCTION_RETURN m32c_promote_function_return
 bool
-m32c_promote_function_return (tree fntype ATTRIBUTE_UNUSED)
+m32c_promote_function_return (const_tree fntype ATTRIBUTE_UNUSED)
 {
   return false;
 }
@@ -1427,7 +1427,7 @@ m32c_initial_elimination_offset (int from, int to)
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES m32c_promote_prototypes
 static bool
-m32c_promote_prototypes (tree fntype ATTRIBUTE_UNUSED)
+m32c_promote_prototypes (const_tree fntype ATTRIBUTE_UNUSED)
 {
   return 0;
 }
@@ -1514,7 +1514,7 @@ m32c_function_arg (CUMULATIVE_ARGS * ca,
 static bool
 m32c_pass_by_reference (CUMULATIVE_ARGS * ca ATTRIBUTE_UNUSED,
 			enum machine_mode mode ATTRIBUTE_UNUSED,
-			tree type ATTRIBUTE_UNUSED,
+			const_tree type ATTRIBUTE_UNUSED,
 			bool named ATTRIBUTE_UNUSED)
 {
   return 0;
@@ -1639,10 +1639,10 @@ m32c_libcall_value (enum machine_mode mode)
 /* Implements FUNCTION_VALUE.  Functions and libcalls have the same
    conventions.  */
 rtx
-m32c_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
+m32c_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED)
 {
   /* return reg or parallel */
-  enum machine_mode mode = TYPE_MODE (valtype);
+  const enum machine_mode mode = TYPE_MODE (valtype);
   return m32c_libcall_value (mode);
 }
 
@@ -2829,8 +2829,8 @@ static const struct attribute_spec m32c_attribute_table[] = {
 #undef TARGET_COMP_TYPE_ATTRIBUTES
 #define TARGET_COMP_TYPE_ATTRIBUTES m32c_comp_type_attributes
 static int
-m32c_comp_type_attributes (tree type1 ATTRIBUTE_UNUSED,
-			   tree type2 ATTRIBUTE_UNUSED)
+m32c_comp_type_attributes (const_tree type1 ATTRIBUTE_UNUSED,
+			   const_tree type2 ATTRIBUTE_UNUSED)
 {
   /* 0=incompatible 1=compatible 2=warning */
   return 1;

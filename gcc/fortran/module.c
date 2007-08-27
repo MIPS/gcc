@@ -612,6 +612,9 @@ gfc_match_use (void)
 		 == FAILURE))
 	    goto cleanup;
 
+	  if (type == INTERFACE_USER_OP)
+	    new->operator = INTRINSIC_USER;
+
 	  if (only_flag)
 	    {
 	      if (m != MATCH_YES)
@@ -655,6 +658,9 @@ gfc_match_use (void)
 	case INTERFACE_INTRINSIC_OP:
 	  new->operator = operator;
 	  break;
+
+	default:
+	  gcc_unreachable ();
 	}
 
       if (gfc_match_eos () == MATCH_YES)
@@ -677,10 +683,12 @@ cleanup:
 /* Given a name and a number, inst, return the inst name
    under which to load this symbol. Returns NULL if this
    symbol shouldn't be loaded. If inst is zero, returns
-   the number of instances of this name.  */
+   the number of instances of this name. If interface is
+   true, a user-defined operator is sought, otherwise only
+   non-operators are sought.  */
 
 static const char *
-find_use_name_n (const char *name, int *inst)
+find_use_name_n (const char *name, int *inst, bool interface)
 {
   gfc_use_rename *u;
   int i;
@@ -688,7 +696,9 @@ find_use_name_n (const char *name, int *inst)
   i = 0;
   for (u = gfc_rename_list; u; u = u->next)
     {
-      if (strcmp (u->use_name, name) != 0)
+      if (strcmp (u->use_name, name) != 0
+	  || (u->operator == INTRINSIC_USER && !interface)
+	  || (u->operator != INTRINSIC_USER &&  interface))
 	continue;
       if (++i == *inst)
 	break;
@@ -713,21 +723,21 @@ find_use_name_n (const char *name, int *inst)
    Returns NULL if this symbol shouldn't be loaded.  */
 
 static const char *
-find_use_name (const char *name)
+find_use_name (const char *name, bool interface)
 {
   int i = 1;
-  return find_use_name_n (name, &i);
+  return find_use_name_n (name, &i, interface);
 }
 
 
 /* Given a real name, return the number of use names associated with it.  */
 
 static int
-number_use_names (const char *name)
+number_use_names (const char *name, bool interface)
 {
   int i = 0;
   const char *c;
-  c = find_use_name_n (name, &i);
+  c = find_use_name_n (name, &i, interface);
   return i;
 }
 
@@ -1381,7 +1391,8 @@ write_atom (atom_type atom, const void *v)
    written.  */
 
 static void mio_expr (gfc_expr **);
-static void mio_symbol_ref (gfc_symbol **);
+pointer_info *mio_symbol_ref (gfc_symbol **);
+pointer_info *mio_interface_rest (gfc_interface **);
 static void mio_symtree_ref (gfc_symtree **);
 
 /* Read or write an enumerated value.  On writing, we return the input
@@ -1512,7 +1523,7 @@ typedef enum
   AB_ELEMENTAL, AB_PURE, AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT,
   AB_CRAY_POINTER, AB_CRAY_POINTEE, AB_THREADPRIVATE, AB_ALLOC_COMP,
   AB_POINTER_COMP, AB_PRIVATE_COMP, AB_VALUE, AB_VOLATILE, AB_PROTECTED,
-  AB_IS_BIND_C, AB_IS_C_INTEROP, AB_IS_ISO_C
+  AB_IS_BIND_C, AB_IS_C_INTEROP, AB_IS_ISO_C, AB_ABSTRACT
 }
 ab_attribute;
 
@@ -1550,6 +1561,7 @@ static const mstring attr_bits[] =
     minit ("POINTER_COMP", AB_POINTER_COMP),
     minit ("PRIVATE_COMP", AB_PRIVATE_COMP),
     minit ("PROTECTED", AB_PROTECTED),
+    minit ("ABSTRACT", AB_ABSTRACT),
     minit (NULL, -1)
 };
 
@@ -1632,6 +1644,8 @@ mio_symbol_attribute (symbol_attribute *attr)
 	MIO_NAME (ab_attribute) (AB_SUBROUTINE, attr_bits);
       if (attr->generic)
 	MIO_NAME (ab_attribute) (AB_GENERIC, attr_bits);
+      if (attr->abstract)
+	MIO_NAME (ab_attribute) (AB_ABSTRACT, attr_bits);
 
       if (attr->sequence)
 	MIO_NAME (ab_attribute) (AB_SEQUENCE, attr_bits);
@@ -1731,6 +1745,9 @@ mio_symbol_attribute (symbol_attribute *attr)
 	      break;
 	    case AB_GENERIC:
 	      attr->generic = 1;
+	      break;
+	    case AB_ABSTRACT:
+	      attr->abstract = 1;
 	      break;
 	    case AB_SEQUENCE:
 	      attr->sequence = 1;
@@ -2231,7 +2248,7 @@ mio_formal_arglist (gfc_symbol *sym)
 
 /* Save or restore a reference to a symbol node.  */
 
-void
+pointer_info *
 mio_symbol_ref (gfc_symbol **symp)
 {
   pointer_info *p;
@@ -2250,6 +2267,7 @@ mio_symbol_ref (gfc_symbol **symp)
       if (p->u.rsym.state == UNUSED)
 	p->u.rsym.state = NEEDED;
     }
+  return p;
 }
 
 
@@ -2869,7 +2887,7 @@ mio_namelist (gfc_symbol *sym)
 	 conditionally?  */
       if (sym->attr.flavor == FL_NAMELIST)
 	{
-	  check_name = find_use_name (sym->name);
+	  check_name = find_use_name (sym->name, false);
 	  if (check_name && strcmp (check_name, sym->name) != 0)
 	    gfc_error ("Namelist %s cannot be renamed by USE "
 		       "association to %s", sym->name, check_name);
@@ -2900,10 +2918,11 @@ mio_namelist (gfc_symbol *sym)
    interfaces.  Checking for duplicate and ambiguous interfaces has to
    be done later when all symbols have been loaded.  */
 
-static void
+pointer_info *
 mio_interface_rest (gfc_interface **ip)
 {
   gfc_interface *tail, *p;
+  pointer_info *pi = NULL;
 
   if (iomode == IO_OUTPUT)
     {
@@ -2929,7 +2948,7 @@ mio_interface_rest (gfc_interface **ip)
 
 	  p = gfc_get_interface ();
 	  p->where = gfc_current_locus;
-	  mio_symbol_ref (&p->sym);
+	  pi = mio_symbol_ref (&p->sym);
 
 	  if (tail == NULL)
 	    *ip = p;
@@ -2941,6 +2960,7 @@ mio_interface_rest (gfc_interface **ip)
     }
 
   mio_rparen ();
+  return pi;
 }
 
 
@@ -3120,6 +3140,8 @@ load_operator_interfaces (void)
   const char *p;
   char name[GFC_MAX_SYMBOL_LEN + 1], module[GFC_MAX_SYMBOL_LEN + 1];
   gfc_user_op *uop;
+  pointer_info *pi = NULL;
+  int n, i;
 
   mio_lparen ();
 
@@ -3130,16 +3152,34 @@ load_operator_interfaces (void)
       mio_internal_string (name);
       mio_internal_string (module);
 
-      /* Decide if we need to load this one or not.  */
-      p = find_use_name (name);
-      if (p == NULL)
+      n = number_use_names (name, true);
+      n = n ? n : 1;
+
+      for (i = 1; i <= n; i++)
 	{
-	  while (parse_atom () != ATOM_RPAREN);
-	}
-      else
-	{
-	  uop = gfc_get_uop (p);
-	  mio_interface_rest (&uop->operator);
+	  /* Decide if we need to load this one or not.  */
+	  p = find_use_name_n (name, &i, true);
+
+	  if (p == NULL)
+	    {
+	      while (parse_atom () != ATOM_RPAREN);
+	      continue;
+	    }
+
+	  if (i == 1)
+	    {
+	      uop = gfc_get_uop (p);
+	      pi = mio_interface_rest (&uop->operator);
+	    }
+	  else
+	    {
+	      if (gfc_find_uop (p, NULL))
+		continue;
+	      uop = gfc_get_uop (p);
+	      uop->operator = gfc_get_interface ();
+	      uop->operator->where = gfc_current_locus;
+	      add_fixup (pi->integer, &uop->operator->sym);
+	    }
 	}
     }
 
@@ -3168,18 +3208,18 @@ load_generic_interfaces (void)
       mio_internal_string (name);
       mio_internal_string (module);
 
-      n = number_use_names (name);
+      n = number_use_names (name, false);
       n = n ? n : 1;
 
       for (i = 1; i <= n; i++)
 	{
 	  /* Decide if we need to load this one or not.  */
-	  p = find_use_name_n (name, &i);
+	  p = find_use_name_n (name, &i, false);
 
 	  if (p == NULL || gfc_find_symbol (p, NULL, 0, &sym))
 	    {
 	      while (parse_atom () != ATOM_RPAREN);
-		continue;
+	      continue;
 	    }
 
 	  if (sym == NULL)
@@ -3548,14 +3588,14 @@ read_module (void)
 
       /* See how many use names there are.  If none, go through the start
 	 of the loop at least once.  */
-      nuse = number_use_names (name);
+      nuse = number_use_names (name, false);
       if (nuse == 0)
 	nuse = 1;
 
       for (j = 1; j <= nuse; j++)
 	{
 	  /* Get the jth local name for this symbol.  */
-	  p = find_use_name_n (name, &j);
+	  p = find_use_name_n (name, &j, false);
 
 	  if (p == NULL && strcmp (name, module_name) == 0)
 	    p = name;
@@ -3958,7 +3998,7 @@ write_generic (gfc_symbol *sym)
     sym->module = gfc_get_string (module_name);
 
   /* See how many use names there are.  If none, use the symbol name.  */
-  nuse = number_use_names (sym->name);
+  nuse = number_use_names (sym->name, false);
   if (nuse == 0)
     {
       mio_symbol_interface (&sym->name, &sym->module, &sym->generic);
@@ -3968,7 +4008,7 @@ write_generic (gfc_symbol *sym)
   for (j = 1; j <= nuse; j++)
     {
       /* Get the jth local name for this symbol.  */
-      p = find_use_name_n (sym->name, &j);
+      p = find_use_name_n (sym->name, &j, false);
 
       mio_symbol_interface (&p, &sym->module, &sym->generic);
     }

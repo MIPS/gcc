@@ -1,3 +1,212 @@
+2007-08-27  Tobias Burnus  <burnus@net-b.de>
+
+	* simplify.c (gfc_simplify_lgamma): Fix mpfr_lgamma call.
+
+2007-08-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33055
+	* trans-io.c (create_dummy_iostat): New function to create a unique
+	dummy variable expression to use with IOSTAT.
+	(gfc_trans_inquire): Use the new function to pass unit number error info
+	to run-time library if a regular IOSTAT variable was not given.
+
+2007-08-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gfortran.h (gfc_isym_id): Add GFC_ISYM_GAMMA and
+	GFC_ISYM_LGAMMA.
+
+2007-08-26  Asher Langton  <langton2@llnl.gov>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.h (gfc_option_t): Add flag_recursive.
+	* lang.opt: Add -frecursive option and update -fopenmp.
+	* invoke.texi (-frecursive): Document new option.
+	(-fopenmp,-fno-automatic,-fmax-stack-var-size): Update.
+	* options.c (gfc_init_options, gfc_post_options,
+	gfc_handle_option): Add -frecursive and modify -fopenmp.
+	(gfc_post_options): Add warning for conflicting flags.
+
+2007-08-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/31298
+	* module.c (mio_symbol_ref,mio_interface_rest):  Return pointer_info.
+	(load_operator_interfaces): Support multible loading of an operator.
+
+2007-08-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32985
+	* match.c (gfc_match_common): Remove SEQUENCE diagnostics.
+	* resolve.c (resolve_common_blocks): Add SEQUENCE diagnostics;
+	fix walking through the tree.
+
+2007-08-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32980
+	* intrinsic.h (gfc_simplify_gamma,gfc_simplify_lgamma,
+	gfc_resolve_gamma,gfc_resolve_lgamma): New function declations.
+	* mathbuiltins.def: Define GAMMA and LGAMMA.
+	* intrinsic.c (add_functions): Add GAMMA, DGAMMA, LGAMMA, ALGAMA
+	and DLGAMA.
+	* simplify.c (gfc_simplify_gamma,gfc_simplify_lgamma): New functions.
+	* iresolve.c (gfc_resolve_gamma,gfc_resolve_lgamma): New functions.
+	* intrinsic.texi: Add documentation for GAMMA and LGAMMA.
+
+2007-08-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33188
+	* parse.c (parse_derived): Support empty derived type
+	definitions for Fortran 2003.
+
+2007-08-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* trans-openmp.c (gfc_omp_privatize_by_reference): Constify.
+	* trans.h (gfc_omp_privatize_by_reference): Likewise.
+
+2007-08-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33178
+	* intrinsic.c (gfc_intrinsic_func_interface): Fix initialization
+	expression check.
+
+2007-08-24  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/32972
+	* iresolve.c:  Don't convert array masks.
+
+2007-08-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33139
+	* trans-array.c (gfc_conv_expr_descriptor): Copy bounds for
+	whole-array pointer assignments.
+
+2007-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (variable_decl): Don't share charlen structs if
+	length == NULL.
+	* trans-decl.c (create_function_arglist): Assert
+	f->sym->ts.cl->backend_decl is NULL instead of unsharing
+	charlen struct here.
+
+2007-08-23  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/33095
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmax): Remove
+	runtime error checking.
+
+2007-08-22  Roger Sayle  <roger@eyesopen.com>
+	    Tobias Schlüter <tobias.schlueter@physik.uni-muenchen.de>
+
+	* match.c (intrinsic_operators): Delete.
+	(gfc_match_intrinsic_op): Rewrite matcher to avoid calling
+	gfc_match_strings.
+
+2007-08-22  Christopher D. Rickett  <crickett@lanl.gov>
+
+	PR fortran/33020
+	* resolve.c (gfc_iso_c_sub_interface): Remove setting of type and
+	kind for optional SHAPE parameter of C_F_POINTER.
+
+2007-08-22  Janus Weil  <jaydub66@gmail.com>
+
+	* decl.c (match_attr_spec): Pass on errors from gfc_match_bind_c.
+	(gfc_match_bind_c): Bugfix in check for NAME= with abstract interfaces.
+	(gfc_match_mopdproc): Bugfix to reject module procedures in
+	abstract interfaces.
+
+2007-08-22  Kai Tietz  <kai.tietz@onevision.com>
+
+	* f95-lang.c: (gfc_init_decl_processing): Choose sizetype by using
+	Pmode.
+
+2007-08-21  Paul Brook  <paul@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* gfortranspec.c (lang_specific_driver): Use pkgversion_string.
+	* Make-lang.in (gfortran.pod): Define BUGURL.
+	* invoke.texi: Use BUGURL for bug-reporting instructions.
+
+2007-08-19  Roger Sayle  <roger@eyesopen.com>
+
+	* match.c (intrinsic_operators): Make static.
+	(gfc_op2string): New function for converting a gfc_intrinsic_op to
+	to a "const char*", replacing the macro of the same name.
+	* gfortran.h (intrinsic_operators): Delete prototype.
+	(gfc_op2string): Replace macro with function prototype.
+
+2007-08-18  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.h (gfc_is_intrinsic_typename): Add declaration.
+	* symbol.c (gfc_is_intrinsic_typename): New function.
+	* parse.c (decode_statement): Check for space in ABSTRACT INTERFACE.
+	(parse_interface): Use gfc_is_intrinsic_typename.
+	* decl.c (gfc_match_derived_decl): Ditto.
+	* module.c (gfc_match_use): Use gcc_unreachable() for
+	INTERFACE_ABSTRACT in switch().
+
+2007-08-18  Roger Sayle  <roger@eyesopen.com>
+
+	* primary.c (match_logical_constant_string): New function to match
+	a ".true." or a ".false.".
+	(match_logical_constant): Use it instead of gfc_match_strings.
+
+2007-08-18  Paul Thomas  <pault@gcc.gnu.org>
+	    Janus Weil  <jaydub66@gmail.com>
+
+	* interface.c (gfc_match_interface,gfc_match_abstract_interface,
+	gfc_match_end_interface,gfc_add_interface): Add abstract interface.
+	* dump-parse-tree.c (gfc_show_attr): Ditto.
+	* gfortran.h (interface_type,symbol_attribute): Ditto.
+	* module.c (gfc_match_use,ab_attribute,attr_bits,
+	mio_symbol_attribute): Ditto.
+	* resolve.c (resolve_function): Ditto.
+	* match.h: Ditto.
+	* parse.c (decode_statement): Ditto.
+	(parse_interface): Ditto, check for C1203 (name of abstract interface
+	cannot be the same as an intrinsic type).
+	* decl.c (gfc_match_bind_c): Check for NAME= with abstract interfaces.
+	(access_attr_decl): Handle Abstract interfaces.
+
+2007-08-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32881
+	* expr.c (gfc_check_pointer_assign): If the rhs is the
+	initialization expression for the rhs, there is no error.
+
+2007-08-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32875
+	* trans-array.c	(get_array_ctor_strlen): Set the character
+	length of a zero length array to zero.
+
+2007-08-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33072
+	* module.c (gfc_match_use): Mark user operators as such.
+	(find_use_name_n): Distinguish between operators and other symbols.
+	(find_use_name,number_use_names,mio_namelist,
+	 load_operator_interfaces,load_generic_interfaces,read_module,
+	 write_generic): Update find_use_name_n calls.
+
+2007-08-15  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/29459
+	* trans.c (gfc_create_var_np): Do not emit warnings for
+	anonymous variables.
+
+2007-08-15  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/33066
+	* decl.c (gfc_get_type_attr_spec): Fix whitespace.
+	(gfc_match_derived_decl): Fix logic.
+
+2007-08-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/33073
+	* trans-intrinsic.c (build_fixbound_expr): Convert to result type
+	in all cases.
+
 2007-08-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR fortran/32594

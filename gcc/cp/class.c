@@ -1774,7 +1774,7 @@ layout_vtable_decl (tree binfo, int n)
    have the same signature.  */
 
 int
-same_signature_p (tree fndecl, tree base_fndecl)
+same_signature_p (const_tree fndecl, const_tree base_fndecl)
 {
   /* One destructor overrides another if they are the same kind of
      destructor.  */
@@ -5120,17 +5120,19 @@ finish_struct_1 (tree t)
       tree dtor;
 
       dtor = CLASSTYPE_DESTRUCTORS (t);
-      /* Warn only if the dtor is non-private or the class has
-	 friends.  */
       if (/* An implicitly declared destructor is always public.  And,
 	     if it were virtual, we would have created it by now.  */
 	  !dtor
 	  || (!DECL_VINDEX (dtor)
-	      && (!TREE_PRIVATE (dtor)
-		  || CLASSTYPE_FRIEND_CLASSES (t)
-		  || DECL_FRIENDLIST (TYPE_MAIN_DECL (t)))))
-	warning (0, "%q#T has virtual functions but non-virtual destructor",
-		 t);
+	      && (/* public non-virtual */
+		  (!TREE_PRIVATE (dtor) && !TREE_PROTECTED (dtor))
+		   || (/* non-public non-virtual with friends */
+		       (TREE_PRIVATE (dtor) || TREE_PROTECTED (dtor))
+			&& (CLASSTYPE_FRIEND_CLASSES (t)
+			|| DECL_FRIENDLIST (TYPE_MAIN_DECL (t)))))))
+	warning (OPT_Wnon_virtual_dtor,
+		 "%q#T has virtual functions and accessible"
+		 " non-virtual destructor", t);
     }
 
   complete_vars (t);

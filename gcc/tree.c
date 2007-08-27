@@ -1801,7 +1801,7 @@ tree_cons_stat (tree purpose, tree value, tree chain MEM_STAT_DECL)
    make_unsigned_type).  */
 
 tree
-size_in_bytes (tree type)
+size_in_bytes (const_tree type)
 {
   tree t;
 
@@ -1847,7 +1847,7 @@ int_size_in_bytes (const_tree type)
    or return -1 if the size can vary or is larger than an integer.  */
 
 HOST_WIDE_INT
-max_int_size_in_bytes (tree type)
+max_int_size_in_bytes (const_tree type)
 {
   HOST_WIDE_INT size = -1;
   tree size_tree;
@@ -3813,20 +3813,28 @@ is_attribute_p (const char *attr, const_tree ident)
    returns the first occurrence; the TREE_CHAIN of the return value should
    be passed back in if further occurrences are wanted.  */
 
+#define LOOKUP_ATTRIBUTE_BODY(TYPE) do { \
+  TYPE l; \
+  size_t attr_len = strlen (attr_name); \
+  for (l = list; l; l = TREE_CHAIN (l)) \
+    { \
+      gcc_assert (TREE_CODE (TREE_PURPOSE (l)) == IDENTIFIER_NODE); \
+      if (is_attribute_with_length_p (attr_name, attr_len, TREE_PURPOSE (l))) \
+	return l; \
+    } \
+  return NULL_TREE; \
+} while (0)
+
 tree
 lookup_attribute (const char *attr_name, tree list)
 {
-  tree l;
-  size_t attr_len = strlen (attr_name);
+  LOOKUP_ATTRIBUTE_BODY(tree);
+}
 
-  for (l = list; l; l = TREE_CHAIN (l))
-    {
-      gcc_assert (TREE_CODE (TREE_PURPOSE (l)) == IDENTIFIER_NODE);
-      if (is_attribute_with_length_p (attr_name, attr_len, TREE_PURPOSE (l)))
-	return l;
-    }
-
-  return NULL_TREE;
+const_tree
+const_lookup_attribute (const char *attr_name, const_tree list)
+{
+  LOOKUP_ATTRIBUTE_BODY(const_tree);
 }
 
 /* Remove any instances of attribute ATTR_NAME in LIST and return the
@@ -4759,7 +4767,7 @@ attribute_hash_list (const_tree list, hashval_t hashcode)
    equivalent to l1.  */
 
 int
-attribute_list_equal (tree l1, tree l2)
+attribute_list_equal (const_tree l1, const_tree l2)
 {
   return attribute_list_contained (l1, l2)
 	 && attribute_list_contained (l2, l1);
@@ -4774,9 +4782,9 @@ attribute_list_equal (tree l1, tree l2)
    correctly.  */
 
 int
-attribute_list_contained (tree l1, tree l2)
+attribute_list_contained (const_tree l1, const_tree l2)
 {
-  tree t1, t2;
+  const_tree t1, t2;
 
   /* First check the obvious, maybe the lists are identical.  */
   if (l1 == l2)
@@ -4795,11 +4803,11 @@ attribute_list_contained (tree l1, tree l2)
 
   for (; t2 != 0; t2 = TREE_CHAIN (t2))
     {
-      tree attr;
-      for (attr = lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)), l1);
+      const_tree attr;
+      for (attr = const_lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)), l1);
 	   attr != NULL_TREE;
-	   attr = lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)),
-				    TREE_CHAIN (attr)))
+	   attr = const_lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)),
+					  TREE_CHAIN (attr)))
 	{
 	  if (TREE_VALUE (t2) != NULL
 	      && TREE_CODE (TREE_VALUE (t2)) == TREE_LIST
@@ -4938,7 +4946,8 @@ host_integerp (const_tree t, int pos)
 	       && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) >= 0)
 	      || (! pos && TREE_INT_CST_HIGH (t) == -1
 		  && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) < 0
-		  && !TYPE_UNSIGNED (TREE_TYPE (t)))
+		  && (!TYPE_UNSIGNED (TREE_TYPE (t))
+		      || TYPE_IS_SIZETYPE (TREE_TYPE (t))))
 	      || (pos && TREE_INT_CST_HIGH (t) == 0)));
 }
 
@@ -6321,7 +6330,7 @@ int_fits_type_p (const_tree c, const_tree type)
    precision of the type are returned instead.  */
 
 void
-get_type_static_bounds (tree type, mpz_t min, mpz_t max)
+get_type_static_bounds (const_tree type, mpz_t min, mpz_t max)
 {
   if (!POINTER_TYPE_P (type) && TYPE_MIN_VALUE (type)
       && TREE_CODE (TYPE_MIN_VALUE (type)) == INTEGER_CST)
@@ -6356,6 +6365,19 @@ get_type_static_bounds (tree type, mpz_t min, mpz_t max)
     }
 }
 
+/* auto_var_in_fn_p is called to determine whether VAR is an automatic
+   variable defined in function FN.  */
+
+bool
+auto_var_in_fn_p (const_tree var, const_tree fn)
+{
+  return (DECL_P (var) && DECL_CONTEXT (var) == fn
+	  && (((TREE_CODE (var) == VAR_DECL || TREE_CODE (var) == PARM_DECL)
+	       && ! TREE_STATIC (var))
+	      || TREE_CODE (var) == LABEL_DECL
+	      || TREE_CODE (var) == RESULT_DECL));
+}
+
 /* Subprogram of following function.  Called by walk_tree.
 
    Return *TP if it is an automatic variable or parameter of the
@@ -6370,7 +6392,7 @@ find_var_from_fn (tree *tp, int *walk_subtrees, void *data)
     *walk_subtrees = 0;
 
   else if (DECL_P (*tp)
-	   && lang_hooks.tree_inlining.auto_var_in_fn_p (*tp, fn))
+	   && auto_var_in_fn_p (*tp, fn))
     return *tp;
 
   return NULL_TREE;
@@ -7611,10 +7633,7 @@ reconstruct_complex_type (tree type, tree bottom)
   else
     return bottom;
 
-  TYPE_READONLY (outer) = TYPE_READONLY (type);
-  TYPE_VOLATILE (outer) = TYPE_VOLATILE (type);
-
-  return outer;
+  return build_qualified_type (outer, TYPE_QUALS (type));
 }
 
 /* Returns a vector tree node given a mode (integer, vector, or BLKmode) and
@@ -7964,7 +7983,7 @@ range_in_array_bounds_p (tree ref)
    location.  */
 
 bool
-needs_to_live_in_memory (tree t)
+needs_to_live_in_memory (const_tree t)
 {
   if (TREE_CODE (t) == SSA_NAME)
     t = SSA_NAME_VAR (t);
@@ -8238,7 +8257,7 @@ num_ending_zeros (const_tree x)
 #define WALK_SUBTREE(NODE)				\
   do							\
     {							\
-      result = walk_tree (&(NODE), func, data, pset);	\
+      result = walk_tree_1 (&(NODE), func, data, pset, lh);	\
       if (result)					\
 	return result;					\
     }							\
@@ -8250,7 +8269,7 @@ num_ending_zeros (const_tree x)
 
 static tree
 walk_type_fields (tree type, walk_tree_fn func, void *data,
-		  struct pointer_set_t *pset)
+		  struct pointer_set_t *pset, walk_tree_lh lh)
 {
   tree result = NULL_TREE;
 
@@ -8330,7 +8349,8 @@ walk_type_fields (tree type, walk_tree_fn func, void *data,
    and to avoid visiting a node more than once.  */
 
 tree
-walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
+walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
+	     struct pointer_set_t *pset, walk_tree_lh lh)
 {
   enum tree_code code;
   int walk_subtrees;
@@ -8377,10 +8397,12 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 	return NULL_TREE;
     }
 
-  result = lang_hooks.tree_inlining.walk_subtrees (tp, &walk_subtrees, func,
-						   data, pset);
-  if (result || !walk_subtrees)
-    return result;
+  if (lh)
+    {
+      result = (*lh) (tp, &walk_subtrees, func, data, pset);
+      if (result || !walk_subtrees)
+        return result;
+    }
 
   switch (code)
     {
@@ -8534,7 +8556,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 	  if (result || !walk_subtrees)
 	    return result;
 
-	  result = walk_type_fields (*type_p, func, data, pset);
+	  result = walk_type_fields (*type_p, func, data, pset, lh);
 	  if (result)
 	    return result;
 
@@ -8599,7 +8621,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 	}
       /* If this is a type, walk the needed fields in the type.  */
       else if (TYPE_P (*tp))
-	return walk_type_fields (*tp, func, data, pset);
+	return walk_type_fields (*tp, func, data, pset, lh);
       break;
     }
 
@@ -8613,13 +8635,14 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 /* Like walk_tree, but does not walk duplicate nodes more than once.  */
 
 tree
-walk_tree_without_duplicates (tree *tp, walk_tree_fn func, void *data)
+walk_tree_without_duplicates_1 (tree *tp, walk_tree_fn func, void *data,
+				walk_tree_lh lh)
 {
   tree result;
   struct pointer_set_t *pset;
 
   pset = pointer_set_create ();
-  result = walk_tree (tp, func, data, pset);
+  result = walk_tree_1 (tp, func, data, pset, lh);
   pointer_set_destroy (pset);
   return result;
 }
@@ -8629,10 +8652,10 @@ walk_tree_without_duplicates (tree *tp, walk_tree_fn func, void *data)
    empty statements.  */
 
 bool
-empty_body_p (tree stmt)
+empty_body_p (const_tree stmt)
 {
-  tree_stmt_iterator i;
-  tree body;
+  const_tree_stmt_iterator i;
+  const_tree body;
 
   if (IS_EMPTY_STMT (stmt))
     return true;
@@ -8643,8 +8666,8 @@ empty_body_p (tree stmt)
   else
     return false;
 
-  for (i = tsi_start (body); !tsi_end_p (i); tsi_next (&i))
-    if (!empty_body_p (tsi_stmt (i)))
+  for (i = ctsi_start (body); !ctsi_end_p (i); ctsi_next (&i))
+    if (!empty_body_p (ctsi_stmt (i)))
       return false;
 
   return true;

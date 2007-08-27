@@ -498,10 +498,6 @@ struct stmt_ann_d GTY(())
 
   /* Nonzero if the statement makes references to volatile storage.  */
   unsigned has_volatile_ops : 1;
-
-  /* Nonzero if the statement makes a function call that may clobber global
-     and local addressable variables.  */
-  unsigned makes_clobbering_call : 1;
 };
 
 union tree_ann_d GTY((desc ("ann_type ((tree_ann_t)&%h)")))
@@ -548,7 +544,7 @@ struct edge_prediction GTY((chain_next ("%h.ep_next")))
 };
 
 /* Accessors for basic block annotations.  */
-static inline gimple_seq phi_nodes (basic_block);
+static inline gimple_seq phi_nodes (const_basic_block);
 static inline void set_phi_nodes (basic_block, gimple_seq);
 
 /*---------------------------------------------------------------------------
@@ -631,8 +627,15 @@ typedef struct {
   basic_block bb;
 } block_stmt_iterator;
 
+typedef struct {
+  const_tree_stmt_iterator tsi;
+  const_basic_block bb;
+} const_block_stmt_iterator;
+
 static inline block_stmt_iterator bsi_start (basic_block);
+static inline const_block_stmt_iterator cbsi_start (const_basic_block);
 static inline block_stmt_iterator bsi_last (basic_block);
+static inline const_block_stmt_iterator cbsi_last (const_basic_block);
 static inline block_stmt_iterator bsi_after_labels (basic_block);
 block_stmt_iterator bsi_for_stmt (gimple);
 static inline bool bsi_end_p (block_stmt_iterator);
@@ -723,9 +726,9 @@ extern void free_omp_regions (void);
 #define PENDING_STMT(e)	((e)->insns.t)
 
 extern void delete_tree_cfg_annotations (void);
-extern bool stmt_ends_bb_p (gimple);
+extern bool stmt_ends_bb_p (const_gimple);
 extern bool is_ctrl_stmt (const_gimple);
-extern bool is_ctrl_altering_stmt (gimple);
+extern bool is_ctrl_altering_stmt (const_gimple);
 extern bool computed_goto_p (const_gimple);
 extern bool simple_goto_p (const_gimple);
 extern bool stmt_can_make_abnormal_goto (const_gimple);
@@ -742,7 +745,9 @@ extern void print_loop_ir (FILE *);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
 extern gimple first_stmt (basic_block);
+extern const_gimple const_first_stmt (const_basic_block);
 extern gimple last_stmt (basic_block);
+extern const_gimple const_last_stmt (const_basic_block);
 extern gimple last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern basic_block label_to_block_fn (struct function *, tree);
@@ -824,11 +829,12 @@ extern tree phi_reverse (tree);
 /* In gimple-low.c  */
 extern void record_vars_into (tree, tree);
 extern void record_vars (tree);
-extern bool block_may_fallthru (tree);
+extern bool block_may_fallthru (const_tree);
 extern bool gimple_seq_may_fallthru (gimple_seq);
 extern bool gimple_stmt_may_fallthru (gimple);
 
 /* In tree-ssa-alias.c  */
+extern unsigned int compute_may_aliases (void);
 extern void dump_may_aliases_for (FILE *, tree);
 extern void debug_may_aliases_for (tree);
 extern void dump_alias_info (FILE *);
@@ -962,11 +968,11 @@ struct tree_niter_desc
 
 /* In tree-vectorizer.c */
 unsigned vectorize_loops (void);
-extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
+extern bool vect_can_force_dr_alignment_p (const_tree, unsigned int);
 extern tree get_vectype_for_scalar_type (tree);
 
 /* In tree-ssa-phiopt.c */
-bool empty_block_p (basic_block);
+bool empty_block_p (const_basic_block);
 basic_block *blocks_in_phiopt_order (void);
 
 /* In tree-ssa-loop*.c  */
@@ -1074,8 +1080,8 @@ static inline bool unmodifiable_var_p (const_tree);
 extern void make_eh_edges (gimple);
 extern bool tree_could_trap_p (tree);
 extern bool tree_could_throw_p (tree);
-extern bool stmt_can_throw_internal (gimple);
-extern int lookup_stmt_eh_region (gimple);
+extern bool stmt_can_throw_internal (const_gimple);
+extern bool tree_can_throw_external (tree);
 extern void add_stmt_to_eh_region (gimple, int);
 extern bool remove_stmt_from_eh_region (gimple);
 extern bool maybe_clean_or_replace_eh_stmt (gimple, gimple);

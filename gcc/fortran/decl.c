@@ -1462,10 +1462,11 @@ variable_decl (int elem)
 	  break;
 
 	/* Non-constant lengths need to be copied after the first
-	   element.  */
+	   element.  Also copy assumed lengths.  */
 	case MATCH_NO:
-	  if (elem > 1 && current_ts.cl->length
-	      && current_ts.cl->length->expr_type != EXPR_CONSTANT)
+	  if (elem > 1
+	      && (current_ts.cl->length == NULL
+		  || current_ts.cl->length->expr_type != EXPR_CONSTANT))
 	    {
 	      cl = gfc_get_charlen ();
 	      cl->next = gfc_current_ns->cl_list;
@@ -2549,8 +2550,11 @@ match_attr_spec (void)
 	      /* Chomp the comma.  */
 	      peek_char = gfc_next_char ();
 	      /* Try and match the bind(c).  */
-	      if (gfc_match_bind_c (NULL) == MATCH_YES)
+	      m = gfc_match_bind_c (NULL);
+	      if (m == MATCH_YES)
 		d = DECL_IS_BIND_C;
+	      else if (m == MATCH_ERROR)
+		goto cleanup;
 	    }
 	}
 
@@ -4182,7 +4186,14 @@ gfc_match_bind_c (gfc_symbol *sym)
       if (sym != NULL && sym->name != NULL && has_name_equals == 0)
 	strncpy (sym->binding_label, sym->name, strlen (sym->name) + 1);
     }
-	      
+
+  if (has_name_equals && gfc_current_state () == COMP_INTERFACE
+      && current_interface.type == INTERFACE_ABSTRACT)
+    {
+      gfc_error ("NAME not allowed on BIND(C) for ABSTRACT INTERFACE at %C");
+      return MATCH_ERROR;
+    }
+
   return MATCH_YES;
 }
 
@@ -4842,6 +4853,7 @@ access_attr_decl (gfc_statement st)
       switch (type)
 	{
 	case INTERFACE_NAMELESS:
+	case INTERFACE_ABSTRACT:
 	  goto syntax;
 
 	case INTERFACE_GENERIC:
@@ -5320,7 +5332,8 @@ gfc_match_modproc (void)
 
   if (gfc_state_stack->state != COMP_INTERFACE
       || gfc_state_stack->previous == NULL
-      || current_interface.type == INTERFACE_NAMELESS)
+      || current_interface.type == INTERFACE_NAMELESS
+      || current_interface.type == INTERFACE_ABSTRACT)
     {
       gfc_error ("MODULE PROCEDURE at %C must be in a generic module "
 		 "interface");
@@ -5404,7 +5417,7 @@ gfc_get_type_attr_spec (symbol_attribute *attr)
       if (gfc_add_access (attr, ACCESS_PUBLIC, NULL, NULL) == FAILURE)
 	return MATCH_ERROR;
     }
-  else if(gfc_match(" , bind ( c )") == MATCH_YES)
+  else if (gfc_match(" , bind ( c )") == MATCH_YES)
     {
       /* If the type is defined to be bind(c) it then needs to make
 	 sure that all fields are interoperable.  This will
@@ -5435,6 +5448,7 @@ gfc_match_derived_decl (void)
   gfc_symbol *sym;
   match m;
   match is_type_attr_spec = MATCH_NO;
+  bool seen_attr = false;
 
   if (gfc_current_state () == COMP_DERIVED)
     return MATCH_NO;
@@ -5446,9 +5460,11 @@ gfc_match_derived_decl (void)
       is_type_attr_spec = gfc_get_type_attr_spec (&attr);
       if (is_type_attr_spec == MATCH_ERROR)
 	return MATCH_ERROR;
+      if (is_type_attr_spec == MATCH_YES)
+	seen_attr = true;
     } while (is_type_attr_spec == MATCH_YES);
 
-  if (gfc_match (" ::") != MATCH_YES && attr.access != ACCESS_UNKNOWN)
+  if (gfc_match (" ::") != MATCH_YES && seen_attr)
     {
       gfc_error ("Expected :: in TYPE definition at %C");
       return MATCH_ERROR;
@@ -5458,17 +5474,8 @@ gfc_match_derived_decl (void)
   if (m != MATCH_YES)
     return m;
 
-  /* Make sure the name isn't the name of an intrinsic type.  The
-     'double {precision,complex}' types don't get past the name
-     matcher, unless they're written as a single word or in fixed
-     form.  */
-  if (strcmp (name, "integer") == 0
-      || strcmp (name, "real") == 0
-      || strcmp (name, "character") == 0
-      || strcmp (name, "logical") == 0
-      || strcmp (name, "complex") == 0
-      || strcmp (name, "doubleprecision") == 0
-      || strcmp (name, "doublecomplex") == 0)
+  /* Make sure the name is not the name of an intrinsic type.  */
+  if (gfc_is_intrinsic_typename (name))
     {
       gfc_error ("Type name '%s' at %C cannot be the same as an intrinsic "
 		 "type", name);

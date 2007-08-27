@@ -1,3 +1,10 @@
+2007-08-27  Diego Novillo  <dnovillo@google.com>
+
+	Merge with mainline @127831.
+	
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+	
 2007-08-25  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c (build_gimple_modify_stmt_stat): Add depecrate note.

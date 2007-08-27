@@ -628,12 +628,25 @@ typedef struct score_args
   fprintf (FILE, " .set nor1 \n");                                 \
 }
 
+#define TRAMPOLINE_TEMPLATE(STREAM)                                \
+{                                                                  \
+  fprintf (STREAM, "\t.set r1\n");                                 \
+  fprintf (STREAM, "\tmv r31, r3\n");                              \
+  fprintf (STREAM, "\tbl nextinsn\n");                             \
+  fprintf (STREAM, "nextinsn:\n");                                 \
+  fprintf (STREAM, "\tlw r1, [r3, 6*4-8]\n");                      \
+  fprintf (STREAM, "\tlw r23, [r3, 6*4-4]\n");                     \
+  fprintf (STREAM, "\tmv r3, r31\n");                              \
+  fprintf (STREAM, "\tbr! r1\n");                                  \
+  fprintf (STREAM, "\tnop!\n");                                    \
+  fprintf (STREAM, "\t.set nor1\n");                               \
+}
+
 /* Trampolines for Nested Functions.  */
-#define TRAMPOLINE_INSNS                8
+#define TRAMPOLINE_INSNS                6
 
 /* A C expression for the size in bytes of the trampoline, as an integer.  */
-#define TRAMPOLINE_SIZE \
-  (TRAMPOLINE_INSNS * GET_MODE_SIZE (SImode) + GET_MODE_SIZE (ptr_mode) * 2)
+#define TRAMPOLINE_SIZE                (24 + GET_MODE_SIZE (ptr_mode) * 2)
 
 /* A C statement to initialize the variable parts of a trampoline.
    ADDR is an RTX for the address of the trampoline; FNADDR is an
@@ -778,7 +791,7 @@ typedef struct score_args
 
 #undef ASM_DECLARE_OBJECT_NAME
 #define ASM_DECLARE_OBJECT_NAME(STREAM, NAME, DECL) \
-  score_declare_object (STREAM, NAME, "", ":\n", 0)
+  score_declare_object (STREAM, NAME, "", ":\n")
 
 /* This says how to output an external.  It would be possible not to
    output anything and let undefined symbol become external. However

@@ -682,7 +682,7 @@ build_throw (tree exp)
 	 respectively.  */
       temp_type = is_bitfield_expr_with_lowered_type (exp);
       if (!temp_type)
-	temp_type = type_decays_to (TYPE_MAIN_VARIANT (TREE_TYPE (exp)));
+	temp_type = type_decays_to (TREE_TYPE (exp));
 
       /* OK, this is kind of wacky.  The standard says that we call
 	 terminate when the exception handling mechanism, after
@@ -782,7 +782,7 @@ build_throw (tree exp)
 	     we don't have to do them during unwinding.  But first wrap
 	     them in MUST_NOT_THROW_EXPR, since they are run after the
 	     exception object is initialized.  */
-	  walk_tree_without_duplicates (&temp_expr, wrap_cleanups_r, 0);
+	  cp_walk_tree_without_duplicates (&temp_expr, wrap_cleanups_r, 0);
 	  exp = build2 (COMPOUND_EXPR, TREE_TYPE (exp), temp_expr, exp);
 	  exp = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (exp), exp);
 	}
@@ -905,7 +905,7 @@ is_admissible_throw_operand (tree expr)
 #include "cfns.h"
 
 int
-nothrow_libfn_p (tree fn)
+nothrow_libfn_p (const_tree fn)
 {
   tree id;
 

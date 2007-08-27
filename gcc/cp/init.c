@@ -1134,7 +1134,6 @@ build_aggr_init (tree exp, tree init, int flags)
     /* Just know that we've seen something for this node.  */
     TREE_USED (exp) = 1;
 
-  TREE_TYPE (exp) = TYPE_MAIN_VARIANT (type);
   is_global = begin_init_stmts (&stmt_expr, &compound_stmt);
   destroy_temps = stmts_are_full_exprs_p ();
   current_stmt_tree ()->stmts_are_full_exprs_p = 0;
@@ -1142,7 +1141,6 @@ build_aggr_init (tree exp, tree init, int flags)
 		      init, LOOKUP_NORMAL|flags);
   stmt_expr = finish_init_stmts (is_global, stmt_expr, compound_stmt);
   current_stmt_tree ()->stmts_are_full_exprs_p = destroy_temps;
-  TREE_TYPE (exp) = type;
   TREE_READONLY (exp) = was_const;
   TREE_THIS_VOLATILE (exp) = was_volatile;
 
@@ -1656,7 +1654,7 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
      beginning of the storage allocated for an array-new expression in
      order to store the number of elements.  */
   tree cookie_size = NULL_TREE;
-  tree placement_var;
+  tree placement_expr;
   /* True if the function we are calling is a placement allocation
      function.  */
   bool placement_allocation_fn_p;
@@ -1749,17 +1747,16 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
   alloc_fn = NULL_TREE;
 
   /* If PLACEMENT is a simple pointer type, then copy it into
-     PLACEMENT_VAR.  */
+     PLACEMENT_EXPR.  */
   if (processing_template_decl
       || placement == NULL_TREE
       || TREE_CHAIN (placement) != NULL_TREE
       || TREE_CODE (TREE_TYPE (TREE_VALUE (placement))) != POINTER_TYPE)
-    placement_var = NULL_TREE;
+    placement_expr = NULL_TREE;
   else
     {
-      placement_var = get_temp_regvar (TREE_TYPE (TREE_VALUE (placement)),
-				       TREE_VALUE (placement));
-      placement = tree_cons (NULL_TREE, placement_var, NULL_TREE);
+      placement_expr = get_target_expr (TREE_VALUE (placement));
+      placement = tree_cons (NULL_TREE, placement_expr, NULL_TREE);
     }
 
   /* Allocate the object.  */
@@ -1857,7 +1854,7 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
     {
       rval = build_nop (pointer_type, alloc_call);
       if (placement != NULL)
-	rval = avoid_placement_new_aliasing (rval, placement_var);
+	rval = avoid_placement_new_aliasing (rval, placement_expr);
       return rval;
     }
 
@@ -2122,7 +2119,7 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
   gcc_assert (!lvalue_p (rval));
 
   if (placement != NULL)
-    rval = avoid_placement_new_aliasing (rval, placement_var);
+    rval = avoid_placement_new_aliasing (rval, placement_expr);
 
   return rval;
 }
@@ -2321,7 +2318,7 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
   tbase = create_temporary_var (ptype);
   tbase_init = build_modify_expr (tbase, NOP_EXPR,
 				  fold_build2 (POINTER_PLUS_EXPR, ptype,
-					       base,
+					       fold_convert (ptype, base),
 					       virtual_size));
   DECL_REGISTER (tbase) = 1;
   controller = build3 (BIND_EXPR, void_type_node, tbase,

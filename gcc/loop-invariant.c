@@ -185,6 +185,7 @@ check_maybe_invariant (rtx x)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case SYMBOL_REF:
     case CONST:
     case LABEL_REF:
@@ -283,6 +284,7 @@ hash_invariant_expr_1 (rtx insn, rtx x)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case SYMBOL_REF:
     case CONST:
     case LABEL_REF:
@@ -343,6 +345,7 @@ invariant_expr_equal_p (rtx insn1, rtx e1, rtx insn2, rtx e2)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case SYMBOL_REF:
     case CONST:
     case LABEL_REF:
@@ -1123,7 +1126,7 @@ find_invariants_to_move (void)
 {
   unsigned i, regs_used, regs_needed = 0, new_regs;
   struct invariant *inv = NULL;
-  unsigned int n_regs = DF_REG_SIZE ();
+  unsigned int n_regs = DF_REG_SIZE (df);
 
   if (!VEC_length (invariant_p, invariants))
     return;

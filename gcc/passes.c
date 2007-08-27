@@ -553,7 +553,6 @@ init_optimization_passes (void)
     {
       struct tree_opt_pass **p = &pass_all_optimizations.sub;
       NEXT_PASS (pass_create_structure_vars);
-      NEXT_PASS (pass_may_alias);
       NEXT_PASS (pass_return_slot);
       NEXT_PASS (pass_rename_ssa_copies);
 
@@ -568,26 +567,19 @@ init_optimization_passes (void)
       NEXT_PASS (pass_vrp);
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_dominator);
-
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
 	 run the full propagators, run a specialized pass which
 	 only examines PHIs to discover const/copy propagation
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
-
       NEXT_PASS (pass_tree_ifcombine);
       NEXT_PASS (pass_phiopt);
-      NEXT_PASS (pass_may_alias);
       NEXT_PASS (pass_tail_recursion);
       NEXT_PASS (pass_ch);
       NEXT_PASS (pass_stdarg);
       NEXT_PASS (pass_lower_complex);
       NEXT_PASS (pass_sra);
-      /* FIXME: SRA may generate arbitrary gimple code, exposing new
-	 aliased and call-clobbered variables.  As mentioned below,
-	 pass_may_alias should be a TODO item.  */
-      NEXT_PASS (pass_may_alias);
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_dominator);
 
@@ -601,7 +593,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_reassoc);
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_dse);
-      NEXT_PASS (pass_may_alias);
       NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_object_sizes);
@@ -609,13 +600,8 @@ init_optimization_passes (void)
       NEXT_PASS (pass_store_copy_prop);
       NEXT_PASS (pass_fold_builtins);
       NEXT_PASS (pass_cse_sincos);
-      /* FIXME: May alias should a TODO but for 4.0.0,
-	 we add may_alias right after fold builtins
-	 which can create arbitrary GIMPLE.  */
-      NEXT_PASS (pass_may_alias);
       NEXT_PASS (pass_split_crit_edges);
       NEXT_PASS (pass_pre);
-      NEXT_PASS (pass_may_alias);
       NEXT_PASS (pass_sink_code);
       NEXT_PASS (pass_tree_loop);
 	{
@@ -639,9 +625,6 @@ init_optimization_passes (void)
 	      NEXT_PASS (pass_lower_vector_ssa);
 	      NEXT_PASS (pass_dce_loop);
 	    }
-	  /* NEXT_PASS (pass_may_alias) cannot be done again because the
-	     vectorizer creates alias relations that are not supported by
-	     pass_may_alias.  */
 	  NEXT_PASS (pass_complete_unroll);
 	  NEXT_PASS (pass_loop_prefetch);
 	  NEXT_PASS (pass_iv_optimize);
@@ -652,7 +635,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_reassoc);
       NEXT_PASS (pass_vrp);
       NEXT_PASS (pass_dominator);
-
+      
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
 	 run the full propagators, run a specialized pass which
@@ -914,7 +897,13 @@ execute_function_todo (void *data)
       update_ssa (update_flags);
       cfun->last_verified &= ~TODO_verify_ssa;
     }
-
+  
+  if (flags & TODO_rebuild_alias)
+    {
+      compute_may_aliases ();
+      cfun->curr_properties |= PROP_alias;
+    }
+  
   if (flags & TODO_remove_unused_locals)
     remove_unused_locals ();
 

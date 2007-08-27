@@ -1769,14 +1769,10 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
     case MINUS:
       /* We can't assume x-x is 0 even with non-IEEE floating point,
 	 but since it is zero except in very strange circumstances, we
-	 will treat it as zero with -funsafe-math-optimizations and
-	 -ffinite-math-only.  */
+	 will treat it as zero with -ffinite-math-only.  */
       if (rtx_equal_p (trueop0, trueop1)
 	  && ! side_effects_p (op0)
-	  && (! FLOAT_MODE_P (mode)
-	      || (flag_unsafe_math_optimizations
-		  && !HONOR_NANS (mode)
-		  && !HONOR_INFINITIES (mode))))
+	  && (!FLOAT_MODE_P (mode) || !HONOR_NANS (mode)))
 	return CONST0_RTX (mode);
 
       /* Change subtraction from zero into negation.  (0 - x) is the
@@ -5023,10 +5019,10 @@ simplify_gen_subreg (enum machine_mode outermode, rtx op,
     simplification and 1 for tree simplification.  */
 
 rtx
-simplify_rtx (rtx x)
+simplify_rtx (const_rtx x)
 {
-  enum rtx_code code = GET_CODE (x);
-  enum machine_mode mode = GET_MODE (x);
+  const enum rtx_code code = GET_CODE (x);
+  const enum machine_mode mode = GET_MODE (x);
 
   switch (GET_RTX_CLASS (code))
     {

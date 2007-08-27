@@ -112,8 +112,8 @@ extern int eh_region_outermost (struct function *, int, int);
 /* tree-eh.c */
 extern void add_stmt_to_eh_region_fn (struct function *, gimple, int);
 extern bool remove_stmt_from_eh_region_fn (struct function *, gimple);
-extern int lookup_stmt_eh_region_fn (struct function *, gimple);
-extern int lookup_stmt_eh_region (gimple);
+extern int lookup_stmt_eh_region_fn (struct function *, const_gimple);
+extern int lookup_stmt_eh_region (const_gimple);
 extern bool verify_eh_edges (tree);
 
 /* If non-NULL, this is a function that returns an expression to be

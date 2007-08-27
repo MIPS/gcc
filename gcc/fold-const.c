@@ -8397,6 +8397,29 @@ fold_unary (enum tree_code code, tree type, tree op0)
 					     	   TREE_OPERAND (arg0, 1)))))
 	return fold_build2 (BIT_XOR_EXPR, type,
 			    fold_convert (type, TREE_OPERAND (arg0, 0)), tem);
+      /* Perform BIT_NOT_EXPR on each element individually.  */
+      else if (TREE_CODE (arg0) == VECTOR_CST)
+	{
+	  tree elements = TREE_VECTOR_CST_ELTS (arg0), elem, list = NULL_TREE;
+	  int count = TYPE_VECTOR_SUBPARTS (type), i;
+
+	  for (i = 0; i < count; i++)
+	    {
+	      if (elements)
+		{
+		  elem = TREE_VALUE (elements);
+		  elem = fold_unary (BIT_NOT_EXPR, TREE_TYPE (type), elem);
+		  if (elem == NULL_TREE)
+		    break;
+		  elements = TREE_CHAIN (elements);
+		}
+	      else
+		elem = build_int_cst (TREE_TYPE (type), -1);
+	      list = tree_cons (NULL_TREE, elem, list);
+	    }
+	  if (i == count)
+	    return build_vector (type, nreverse (list));
+	}
 
       return NULL_TREE;
 
@@ -9532,7 +9555,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       if (POINTER_TYPE_P (TREE_TYPE (arg1))
 	  && INTEGRAL_TYPE_P (TREE_TYPE (arg0)))
         return fold_build2 (POINTER_PLUS_EXPR, type,
-	                    fold_convert (type, arg1), fold_convert (sizetype, arg0));
+			    fold_convert (type, arg1),
+			    fold_convert (sizetype, arg0));
 
       /* (PTR +p B) +p A -> PTR +p (B + A) */
       if (TREE_CODE (arg0) == POINTER_PLUS_EXPR)
@@ -9540,8 +9564,11 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	  tree inner;
 	  tree arg01 = fold_convert (sizetype, TREE_OPERAND (arg0, 1));
 	  tree arg00 = TREE_OPERAND (arg0, 0);
-	  inner = fold_build2 (PLUS_EXPR, sizetype, arg01, fold_convert (sizetype, arg1));
-	  return fold_build2 (POINTER_PLUS_EXPR, type, arg00, inner);
+	  inner = fold_build2 (PLUS_EXPR, sizetype,
+			       arg01, fold_convert (sizetype, arg1));
+	  return fold_convert (type,
+			       fold_build2 (POINTER_PLUS_EXPR,
+					    TREE_TYPE (arg00), arg00, inner));
 	}
 
       /* PTR_CST +p CST -> CST1 */
@@ -9559,6 +9586,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	}
 
       return NULL_TREE;
+
     case PLUS_EXPR:
       /* PTR + INT -> (INT)(PTR p+ INT) */
       if (POINTER_TYPE_P (TREE_TYPE (arg0))
@@ -10121,10 +10149,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	 Also note that operand_equal_p is always false if an operand
 	 is volatile.  */
 
-      if ((! FLOAT_TYPE_P (type)
-	   || (flag_unsafe_math_optimizations
-	       && !HONOR_NANS (TYPE_MODE (type))
-	       && !HONOR_INFINITIES (TYPE_MODE (type))))
+      if ((!FLOAT_TYPE_P (type) || !HONOR_NANS (TYPE_MODE (type)))
 	  && operand_equal_p (arg0, arg1, 0))
 	return fold_convert (type, integer_zero_node);
 
@@ -10480,7 +10505,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       if (TREE_CODE (arg0) == BIT_NOT_EXPR
 	  && operand_equal_p (TREE_OPERAND (arg0, 0), arg1, 0))
 	{
-	  t1 = build_int_cst_type (type, -1);
+	  t1 = fold_convert (type, integer_zero_node);
+	  t1 = fold_unary (BIT_NOT_EXPR, type, t1);
 	  return omit_one_operand (type, t1, arg1);
 	}
 
@@ -10488,7 +10514,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       if (TREE_CODE (arg1) == BIT_NOT_EXPR
 	  && operand_equal_p (arg0, TREE_OPERAND (arg1, 0), 0))
 	{
-	  t1 = build_int_cst_type (type, -1);
+	  t1 = fold_convert (type, integer_zero_node);
+	  t1 = fold_unary (BIT_NOT_EXPR, type, t1);
 	  return omit_one_operand (type, t1, arg0);
 	}
 
@@ -10594,7 +10621,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       if (TREE_CODE (arg0) == BIT_NOT_EXPR
 	  && operand_equal_p (TREE_OPERAND (arg0, 0), arg1, 0))
 	{
-	  t1 = build_int_cst_type (type, -1);
+	  t1 = fold_convert (type, integer_zero_node);
+	  t1 = fold_unary (BIT_NOT_EXPR, type, t1);
 	  return omit_one_operand (type, t1, arg1);
 	}
 
@@ -10602,7 +10630,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       if (TREE_CODE (arg1) == BIT_NOT_EXPR
 	  && operand_equal_p (arg0, TREE_OPERAND (arg1, 0), 0))
 	{
-	  t1 = build_int_cst_type (type, -1);
+	  t1 = fold_convert (type, integer_zero_node);
+	  t1 = fold_unary (BIT_NOT_EXPR, type, t1);
 	  return omit_one_operand (type, t1, arg0);
 	}
 
