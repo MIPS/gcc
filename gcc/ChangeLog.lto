@@ -1,3 +1,17 @@
+2007-08-28  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-function-out.c (output_block): Added
+	local_decl_index_stream, debug_decl_index_stream,
+	local_decls_index and local_decls_index_d.
+	(output_local_vars): Add code to write a seperate stream
+	containing the index of each local var.
+	(output_local_vars_index): New function.
+	(produce_asm, output_function): Write new streams.
+	(lto_static_init): Do not write flags or types for FIELD_DECLS.
+	* lto-tags.h (lto_debug_context): Added decl_index_data.
+	
+	
+	
 2007-08-15  Jim Blandy  <jimb@codesourcery.com>
 
 	* dwarf2out.c (lto_field_ref, force_field_die): New functions.

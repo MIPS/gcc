@@ -210,6 +210,8 @@ struct output_block
 {
   /* The stream that the main tree codes are written to.  */
   struct output_stream *main_stream;
+  /* The stream that contains the indexes for the local name table.  */
+  struct output_stream *local_decl_index_stream;
   /* The stream that contains the local name table.  */
   struct output_stream *local_decl_stream;
   /* The stream that contains the names for the named_labels.  */
@@ -222,6 +224,8 @@ struct output_block
   struct output_stream *cfg_stream;
 
 #ifdef LTO_STREAM_DEBUGGING
+  /* The stream that contains the local decls index debugging information.  */
+  struct output_stream *debug_decl_index_stream;
   /* The stream that contains the local decls debugging information.  */
   struct output_stream *debug_decl_stream;
   /* The stream that contains the labels debugging information.  */
@@ -245,6 +249,10 @@ struct output_block
      we have seen so far and the indexes assigned to them.  */
   htab_t local_decl_hash_table;
   unsigned int next_local_decl_index;
+  VEC(int,heap) *local_decls_index;
+#ifdef LTO_STREAM_DEBUGGING
+  VEC(int,heap) *local_decls_index_d;
+#endif
   VEC(tree,heap) *local_decls;
 
   /* The hash table that contains the set of field_decls we have
@@ -723,8 +731,13 @@ output_local_decl_ref (struct output_block *ob, tree name)
   /* Push the new local var or param onto a vector for later
      processing.  */
   if (new)
-    VEC_safe_push (tree, heap, ob->local_decls, name);
-
+    {
+      VEC_safe_push (tree, heap, ob->local_decls, name);
+      VEC_safe_push (int, heap, ob->local_decls_index, 0);
+#ifdef LTO_STREAM_DEBUGGING
+      VEC_safe_push (int, heap, ob->local_decls_index_d, 0);
+#endif
+    }
 }
 
 /* Look up LABEL in the type table and write the uleb128 index for it.  */
@@ -1426,9 +1439,9 @@ output_local_vars (struct output_block *ob)
   unsigned int index = 0;
 
   /* We have found MOST of the local vars by scanning the function.
-     There is always the possibility that there may be some lurking on
-     the fields (such as the two size fields) of the local vars that
-     we must put out.
+     However, many local vars have other local vars inside them.  So
+     this function uses the same mechanism that the function is output
+     in order to put out these local_vars.
 
      The easiest way to get all of this stuff generated is to play
      pointer games with the streams and reuse the code for putting out
@@ -1442,7 +1455,7 @@ output_local_vars (struct output_block *ob)
 
   while (index < VEC_length (tree, ob->local_decls))
     {
-      tree decl = VEC_index (tree, ob->local_decls, index++);
+      tree decl = VEC_index (tree, ob->local_decls, index);
       unsigned int variant = 0;
       bool is_var = (TREE_CODE (decl) == VAR_DECL);
       bool needs_backing_var
@@ -1462,6 +1475,11 @@ output_local_vars (struct output_block *ob)
 	     : LTO_parm_decl_body0)
 	+ variant;
 
+      VEC_replace (int, ob->local_decls_index, index, ob->main_stream->total_size);
+#ifdef LTO_STREAM_DEBUGGING
+      VEC_replace (int, ob->local_decls_index_d, index, ob->debug_decl_stream->total_size);
+#endif
+      index++;
       output_record_start (ob, NULL, NULL, tag);
 
       /* Put out the name if there is one.  */
@@ -1503,6 +1521,29 @@ output_local_vars (struct output_block *ob)
       LTO_DEBUG_UNDENT();
     }
 
+  ob->main_stream = tmp_stream;
+}
+
+
+/* Output the local var_decls index and parm_decls index to OB.  */
+
+static void
+output_local_vars_index (struct output_block *ob)
+{
+  unsigned int index = 0;
+  unsigned int stop;
+
+  struct output_stream *tmp_stream = ob->main_stream;
+  ob->main_stream = ob->local_decl_index_stream;
+
+  stop = VEC_length (int, ob->local_decls_index);
+  for (index = 0; index < stop; index++)
+    {
+      output_uleb128 (ob, VEC_index (int, ob->local_decls_index, index));
+#ifdef LTO_STREAM_DEBUGGING
+      output_uleb128 (ob, VEC_index (int, ob->local_decls_index_d, index));
+#endif
+    }
   ob->main_stream = tmp_stream;
 }
 
@@ -1718,16 +1759,19 @@ produce_asm (struct output_block *ob, tree function)
   function_header.named_label_size = ob->named_label_stream->total_size;
   function_header.ssa_names_size = ob->ssa_names_stream->total_size;
   function_header.cfg_size = ob->cfg_stream->total_size;
+  function_header.local_decls_index_size = ob->local_decl_index_stream->total_size;
   function_header.local_decls_size = ob->local_decl_stream->total_size;
   function_header.main_size = ob->main_stream->total_size;
   function_header.string_size = ob->string_stream->total_size;
 #ifdef LTO_STREAM_DEBUGGING
+  function_header.debug_decl_index_size = ob->debug_decl_index_stream->total_size;
   function_header.debug_decl_size = ob->debug_decl_stream->total_size;
   function_header.debug_label_size = ob->debug_label_stream->total_size;
   function_header.debug_ssa_names_size = ob->debug_ssa_names_stream->total_size;
   function_header.debug_cfg_size = ob->debug_cfg_stream->total_size;
   function_header.debug_main_size = ob->debug_main_stream->total_size;
 #else
+  function_header.debug_decl_index_size = -1;
   function_header.debug_decl_size = -1;
   function_header.debug_label_size = -1;
   function_header.debug_ssa_names_size = -1;
@@ -1738,21 +1782,16 @@ produce_asm (struct output_block *ob, tree function)
   assemble_string ((const char *)&function_header, 
 		   sizeof (struct lto_function_header));
 
-  /* Write the global type references.  */
+  /* Write the global function references.  */
   for (index = 0; VEC_iterate(tree, ob->field_decls, index, decl); index++)
     {
-#ifdef GIMPLE_SYMBOL_TABLE_WORKS
-      lto_field_ref (decl, out_ref);
-#else
-      out_ref.section = 0;
-      out_ref.base_label = "0";
-      out_ref.label = "0";
-#endif
+      lto_field_ref (decl, &out_ref);
       dw2_asm_output_data (8, out_ref.section, " ");
-      dw2_asm_output_delta (8, out_ref.label, out_ref.base_label, " ");
+      dw2_asm_output_delta (8, out_ref.label,
+			    out_ref.base_label, " ");
     }
 
-  /* Write the global type references.  */
+  /* Write the global function references.  */
   for (index = 0; VEC_iterate(tree, ob->fn_decls, index, decl); index++)
     {
       lto_fn_ref (decl, &out_ref);
@@ -1761,7 +1800,7 @@ produce_asm (struct output_block *ob, tree function)
 			    out_ref.base_label, " ");
     }
 
-  /* Write the global type references.  */
+  /* Write the global var references.  */
   for (index = 0; VEC_iterate(tree, ob->var_decls, index, decl); index++)
     {
       lto_var_ref (decl, &out_ref);
@@ -1784,10 +1823,12 @@ produce_asm (struct output_block *ob, tree function)
   write_stream (ob->named_label_stream);
   write_stream (ob->ssa_names_stream);
   write_stream (ob->cfg_stream);
+  write_stream (ob->local_decl_index_stream);
   write_stream (ob->local_decl_stream);
   write_stream (ob->main_stream);
   write_stream (ob->string_stream);
 #ifdef LTO_STREAM_DEBUGGING
+  write_stream (ob->debug_decl_index_stream);
   write_stream (ob->debug_decl_stream);
   write_stream (ob->debug_label_stream);
   write_stream (ob->debug_ssa_names_stream);
@@ -1815,7 +1856,6 @@ lto_static_init (void)
   lto_flags_needed_for = sbitmap_alloc (NUM_TREE_CODES);
   sbitmap_ones (lto_flags_needed_for);
   RESET_BIT (lto_flags_needed_for, FIELD_DECL);
-  RESET_BIT (lto_flags_needed_for, FIELD_DECL);
   RESET_BIT (lto_flags_needed_for, FUNCTION_DECL);
   RESET_BIT (lto_flags_needed_for, PARM_DECL);
   RESET_BIT (lto_flags_needed_for, SSA_NAME);
@@ -1828,6 +1868,7 @@ lto_static_init (void)
   sbitmap_ones (lto_types_needed_for);
   RESET_BIT (lto_types_needed_for, ASM_EXPR);
   RESET_BIT (lto_types_needed_for, CASE_LABEL_EXPR);
+  RESET_BIT (lto_types_needed_for, FIELD_DECL);
   RESET_BIT (lto_types_needed_for, GIMPLE_MODIFY_STMT);
   RESET_BIT (lto_types_needed_for, LABEL_DECL);
   RESET_BIT (lto_types_needed_for, LABEL_EXPR);
@@ -1913,6 +1954,7 @@ output_function (tree function)
 
   ob->main_stream = xcalloc (1, sizeof (struct output_stream));
   ob->string_stream = xcalloc (1, sizeof (struct output_stream));
+  ob->local_decl_index_stream = xcalloc (1, sizeof (struct output_stream));
   ob->local_decl_stream = xcalloc (1, sizeof (struct output_stream));
   ob->named_label_stream = xcalloc (1, sizeof (struct output_stream));
   ob->ssa_names_stream = xcalloc (1, sizeof (struct output_stream));
@@ -1986,6 +2028,9 @@ output_function (tree function)
   LTO_SET_DEBUGGING_STREAM (debug_decl_stream, decl_data)
   output_local_vars (ob);
 
+  LTO_SET_DEBUGGING_STREAM (debug_decl_index_stream, decl_index_data)
+  output_local_vars_index (ob);
+
   /* Create a file to hold the pickled output of this function.  This
      is a temp standin until we start writing sections.  */
   produce_asm (ob, function);
@@ -1997,6 +2042,8 @@ output_function (tree function)
   htab_delete (ob->var_decl_hash_table);
   htab_delete (ob->string_hash_table);
   htab_delete (ob->type_hash_table);
+  VEC_free (int, heap, ob->local_decls_index);
+  VEC_free (int, heap, ob->local_decls_index_d);
   VEC_free (tree, heap, ob->local_decls);
   VEC_free (tree, heap, ob->field_decls);
   VEC_free (tree, heap, ob->fn_decls);

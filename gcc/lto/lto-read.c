@@ -64,6 +64,10 @@ struct fun_in
   tree *fn_decls;           /* The function decls.  */
   tree *var_decls;          /* The global or static var_decls.  */
   tree *types;              /* All of the types.  */
+  int *local_decls_index;   /* The offsets to decode the local_decls.  */
+#ifdef LTO_STREAM_DEBUGGING
+  int *local_decls_index_d; /* The offsets to decode the local_decls debug info.  */
+#endif
   tree *local_decls;        /* The local var_decls and the parm_decls.  */
   tree *labels;             /* All of the labels.  */
   const char * strings;     /* The string table.  */
@@ -91,6 +95,8 @@ static void dump_debug_stream (struct input_block *, char, char);
 static tree
 input_expr_operand (struct input_block *, struct fun_in *, struct function *, 
                     enum LTO_tags);
+static tree
+input_local_var (struct fun_in *, struct input_block *, struct function *, unsigned int i);
 
 
 /* Return the next character of input from IB.  Abort if you
@@ -586,6 +592,7 @@ input_expr_operand (struct input_block *ib, struct fun_in *fun_in,
       break;
 
     case VAR_DECL:
+    case PARM_DECL:
       if (tag == LTO_var_decl1)
 	/* Static or externs are here.  */
 	result = fun_in->var_decls [input_uleb128 (ib)];
@@ -594,21 +601,37 @@ input_expr_operand (struct input_block *ib, struct fun_in *fun_in,
 	  /* Locals are here.  */
 	  int lv_index = input_uleb128 (ib);
 	  result = fun_in->local_decls [lv_index];
-	  /* There is a rare case where the local var decl in the
-	     table will be NULL.  This is caused if the subtrees of
-	     var_decls reference other local var decls.  Create an
-	     empty one now and the local decl reading code will fill
-	     in the fields later rather than creating its own.  */
 	  if (result == NULL)
 	    {
-	      result = build_decl (VAR_DECL, NULL_TREE, NULL_TREE);
+	      struct input_block lib;
+
+#ifdef LTO_STREAM_DEBUGGING
+	      struct input_block *current = lto_debug_context.current_data;
+	      struct input_block debug;
+	      int current_indent = lto_debug_context.indent;
+
+	      debug.data = current->data;
+	      debug.len = current->len;
+	      debug.p = fun_in->local_decls_index_d[lv_index];
+
+	      lto_debug_context.indent = 0;
+	      lto_debug_context.current_data = &debug;
+#endif
+
+	      lib.data = ib->data;
+	      lib.len = ib->len;
+	      lib.p = fun_in->local_decls_index[lv_index];
+
+	      result = input_local_var (fun_in, &lib, fn, lv_index); 
 	      fun_in->local_decls [lv_index] = result;
+
+#ifdef LTO_STREAM_DEBUGGING
+	      lto_debug_context.indent = current_indent;
+	      lto_debug_context.current_data = current;
+#endif
+
 	    }
 	}
-      break;
-
-    case PARM_DECL:
-      result = fun_in->local_decls [input_uleb128 (ib)];
       break;
 
     case LABEL_DECL:
@@ -892,7 +915,7 @@ input_globals (struct lto_function_header * header,
 	      lto_info_fd *fd,
 	      lto_context *context,	
 	      struct fun_in *fun_in, 
-	      lto_ref in_field_decls[] ATTRIBUTE_UNUSED,
+	      lto_ref in_field_decls[],
 	      lto_ref in_fn_decls[],
 	      lto_ref in_var_decls[],
 	      lto_ref in_types[])
@@ -903,14 +926,10 @@ input_globals (struct lto_function_header * header,
   fun_in->var_decls   = xcalloc (header->num_var_decls, sizeof (tree*));
   fun_in->types       = xcalloc (header->num_types, sizeof (tree*));
 
-  /* FIXME: The test for zero section can go away when everything gets
-     working.  */
-  /*
   for (i=0; i<header->num_field_decls; i++)
     if (in_field_decls[i].section)
       fun_in->field_decls[i] 
-        = lto_resolve_field_ref (fd, context, in_field_decls[i]);
-  */
+        = lto_resolve_field_ref (fd, context, &in_field_decls[i]);
 
   for (i=0; i<header->num_fn_decls; i++)
     if (in_fn_decls[i].section)
@@ -955,6 +974,125 @@ input_labels (struct fun_in *fun_in, struct input_block *ib,
       = build_decl (LABEL_DECL, NULL_TREE, void_type_node);
  }
 
+
+/* Input the local var index table.  */
+
+
+static void
+input_local_vars_index (struct fun_in *fun_in, struct input_block *ib, 
+			unsigned int count)
+{
+  unsigned int i;
+  fun_in->local_decls_index = xcalloc (count, sizeof (unsigned int));
+#ifdef LTO_STREAM_DEBUGGING
+  fun_in->local_decls_index_d = xcalloc (count, sizeof (unsigned int));
+#endif
+
+  for (i = 0; i < count; i++)
+    {
+      fun_in->local_decls_index[i] = input_uleb128 (ib); 
+#ifdef LTO_STREAM_DEBUGGING
+      fun_in->local_decls_index_d[i] = input_uleb128 (ib); 
+#endif
+    }
+}
+
+
+/* Input local var I from IB.  */
+
+static tree
+input_local_var (struct fun_in *fun_in, struct input_block *ib, 
+		 struct function *fn, unsigned int i)
+{
+  enum LTO_tags tag;
+  unsigned int variant;
+  bool is_var;
+  unsigned int name_index;
+  tree name;
+  tree type;
+  unsigned HOST_WIDE_INT flags;
+  const char *new_file = NULL;
+  int new_line = -1;
+  tree result;
+
+  tag = input_record_start (ib);
+  variant = tag & 0xF;
+  is_var = ((tag & 0xFFF0) == LTO_local_var_decl_body0);
+  
+  name_index = input_uleb128 (ib);
+  if (name_index)
+    {
+      unsigned int len;
+      const char *s = input_string_internal (fun_in, name_index, &len);
+      name = get_identifier_with_length (s, len);
+    }
+  else 
+    name = NULL_TREE;
+  
+  type = get_type_ref (fun_in, ib);
+  gcc_assert (type);
+  
+  if (is_var)
+    result = build_decl (VAR_DECL, name, type);
+  else
+    result = build_decl (PARM_DECL, name, type);
+
+  fun_in->local_decls[i] = result;
+  
+  if (!is_var)
+    DECL_ARG_TYPE (result) = get_type_ref (fun_in, ib);
+  
+  LTO_DEBUG_TOKEN ("flags");
+  flags = input_uleb128 (ib);
+  
+  /* FIXME: Need to figure out how to set the line number.  */
+  if (flags & 0x2)
+    {
+      unsigned int len;
+      LTO_DEBUG_TOKEN ("file");
+      new_file = input_string_internal (fun_in, input_uleb128 (ib), &len);
+    }
+  if (flags & 0x1)
+    {
+      LTO_DEBUG_TOKEN ("line");
+      new_line = input_uleb128 (ib);
+    }
+  
+  LTO_DEBUG_TOKEN ("align");
+  DECL_ALIGN (result) = input_uleb128 (ib);
+  LTO_DEBUG_TOKEN ("size");
+  DECL_SIZE (result) 
+    = input_expr_operand (ib, fun_in, fn, input_record_start (ib));
+  
+  if (variant & 0x1)
+    {
+      LTO_DEBUG_TOKEN ("attributes");
+      DECL_ATTRIBUTES (result) 
+	= input_expr_operand (ib, fun_in, fn, input_record_start (ib));
+    }
+  if (variant & 0x2)
+    DECL_SIZE_UNIT (result) 
+      = input_expr_operand (ib, fun_in, fn, input_record_start (ib));
+  if (variant & 0x4)
+    SET_DECL_DEBUG_EXPR (result, 
+			 input_expr_operand (ib, fun_in, fn, 
+					     input_record_start (ib)));
+  if (variant & 0x8)
+    DECL_ABSTRACT_ORIGIN (result) 
+      = input_expr_operand (ib, fun_in, fn, input_record_start (ib));
+  
+  process_flags (result, flags);
+  LTO_DEBUG_UNDENT();
+
+  /* Record the variable.  */
+  if (is_var)
+    fn->unexpanded_var_list = tree_cons (NULL_TREE, result,
+					 fn->unexpanded_var_list);
+
+  return result;
+}
+
+
 /* Load COUNT local var_decls and parm_decls from a DATA segment SIZE
    bytes long using FUN_IN.  */
 
@@ -966,89 +1104,17 @@ input_local_vars (struct fun_in *fun_in, struct input_block *ib,
 
   fun_in->local_decls = xcalloc (count, sizeof (tree*));
   for (i = 0; i < count; i++)
-    {
-      enum LTO_tags tag = input_record_start (ib);
-      unsigned int variant = tag & 0xF;
-      bool is_var = ((tag & 0xFFF0) == LTO_local_var_decl_body0);
-
-      unsigned int name_index;
-      tree name;
-      tree type;
-      unsigned HOST_WIDE_INT flags;
-      const char *new_file = NULL;
-      int new_line = -1;
-      tree result = fun_in->local_decls[i];
-
-      name_index = input_uleb128 (ib);
-      if (name_index)
-	{
-	  unsigned int len;
-	  const char *s = input_string_internal (fun_in, name_index, &len);
-	  name = get_identifier_with_length (s, len);
-	}
-      else 
-	name = NULL_TREE;
-
-      type = get_type_ref (fun_in, ib);
-
-      /* The result may not be NULL here because if any of the
-	 subtrees of some prior local var_decl referenced this local
-	 decl, a blank var decl would have been created and inserted
-	 here.  However, the normal case is that it will be NULL.  */ 
-      if (result == NULL)
-	{
-	  if (is_var)
-	    result = build_decl (VAR_DECL, name, type);
-	  else
-	    result = build_decl (PARM_DECL, name, type);
-	}
-      fun_in->local_decls[i] = result;
-
-      if (!is_var)
-	DECL_ARG_TYPE (result) = get_type_ref (fun_in, ib);
-
-      LTO_DEBUG_TOKEN ("flags");
-      flags = input_uleb128 (ib);
-
-      /* FIXME: Need to figure out how to set the line number.  */
-      if (flags & 0x2)
-	{
-	  unsigned int len;
-	  LTO_DEBUG_TOKEN ("file");
-	  new_file = input_string_internal (fun_in, input_uleb128 (ib), &len);
-	}
-      if (flags & 0x1)
-	{
-	  LTO_DEBUG_TOKEN ("line");
-	  new_line = input_uleb128 (ib);
-	}
-
-      LTO_DEBUG_TOKEN ("align");
-      DECL_ALIGN (result) = input_uleb128 (ib);
-      LTO_DEBUG_TOKEN ("size");
-      DECL_SIZE (result) 
-	= input_expr_operand (ib, fun_in, fn, input_record_start (ib));
-
-      if (variant & 0x1)
-	{
-	  LTO_DEBUG_TOKEN ("attributes");
-          DECL_ATTRIBUTES (result) 
-	    = input_expr_operand (ib, fun_in, fn, input_record_start (ib));
-	}
-      if (variant & 0x2)
-	DECL_SIZE_UNIT (result) 
-	  = input_expr_operand (ib, fun_in, fn, input_record_start (ib));
-      if (variant & 0x4)
-	SET_DECL_DEBUG_EXPR (result, 
-			     input_expr_operand (ib, fun_in, fn, 
-						 input_record_start (ib)));
-      if (variant & 0x8)
-        DECL_ABSTRACT_ORIGIN (result) 
-	  = input_expr_operand (ib, fun_in, fn, input_record_start (ib));
-
-      process_flags (result, flags);
-      LTO_DEBUG_UNDENT();
-    }
+    /* Some local decls may have already been read in if they are used
+       as part of a previous local_decl.  */
+    if (!fun_in->local_decls[i])
+      {
+#ifdef LTO_STREAM_DEBUGGING
+	((struct input_block *)lto_debug_context.current_data)->p 
+	  = fun_in->local_decls_index_d[i]; 
+#endif
+	ib->p = fun_in->local_decls_index[i];
+	input_local_var (fun_in, ib, fn, i);
+      }
 }
 
 
@@ -1452,17 +1518,21 @@ lto_read_function_body (lto_info_fd *fd,
     = named_label_offset + header->named_label_size;
   int32_t cfg_offset 
     = ssa_names_offset + header->ssa_names_size;
-  int32_t local_decls_offset = cfg_offset + header->cfg_size;
+  int32_t local_decls_index_offset = cfg_offset + header->cfg_size;
+  int32_t local_decls_offset = local_decls_index_offset + header->local_decls_index_size;
   int32_t main_offset = local_decls_offset + header->local_decls_size;
   int32_t string_offset = main_offset + header->main_size;
 
 #ifdef LTO_STREAM_DEBUGGING
-  int32_t debug_decl_offset = string_offset + header->string_size;
+  int32_t debug_decl_index_offset = string_offset + header->string_size;
+  int32_t debug_decl_offset = debug_decl_index_offset + header->debug_decl_index_size;
   int32_t debug_label_offset = debug_decl_offset + header->debug_decl_size;
   int32_t debug_ssa_names_offset = debug_label_offset + header->debug_label_size;
   int32_t debug_cfg_offset = debug_ssa_names_offset + header->debug_ssa_names_size;
   int32_t debug_main_offset = debug_cfg_offset + header->debug_cfg_size;
 
+  struct input_block debug_decl_index 
+    = {data + debug_decl_index_offset, 0, header->debug_decl_index_size};
   struct input_block debug_decl 
     = {data + debug_decl_offset, 0, header->debug_decl_size};
   struct input_block debug_label 
@@ -1489,6 +1559,8 @@ lto_read_function_body (lto_info_fd *fd,
     = {data + ssa_names_offset, 0, header->ssa_names_size};
   struct input_block ib_cfg 
     = {data + cfg_offset, 0, header->cfg_size};
+  struct input_block ib_local_decls_index 
+    = {data + local_decls_index_offset, 0, header->local_decls_index_size};
   struct input_block ib_local_decls 
     = {data + local_decls_offset, 0, header->local_decls_size};
   struct input_block ib_main 
@@ -1516,6 +1588,11 @@ lto_read_function_body (lto_info_fd *fd,
 		header->num_named_labels, header->num_unnamed_labels);
 
 #ifdef LTO_STREAM_DEBUGGING
+  lto_debug_context.current_data = &debug_decl_index;
+#endif
+  input_local_vars_index (&fun_in, &ib_local_decls_index, header->num_local_decls);
+
+#ifdef LTO_STREAM_DEBUGGING
   lto_debug_context.current_data = &debug_decl;
 #endif
   input_local_vars (&fun_in, &ib_local_decls, fn, header->num_local_decls);
@@ -1538,6 +1615,14 @@ lto_read_function_body (lto_info_fd *fd,
 #endif
   /* Set up the struct function.  */
   input_function (fn_decl, &fun_in, &ib_main);
+
+  free (fun_in.field_decls);
+  free (fun_in.fn_decls);
+  free (fun_in.var_decls);
+  free (fun_in.types);
+  free (fun_in.labels);
+  free (fun_in.local_decls_index);
+  free (fun_in.local_decls_index_d);
 }
 
 void 

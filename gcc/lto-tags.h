@@ -39,20 +39,20 @@
    The encoding for a function consists of 8 (9 in debugging mode),
    sections of information.
 
-   1) The header.
-   2) FIELD_DECLS.
-   3) FUNCTION_DECLS.
-   4) global VAR_DECLS.
-   5) types.
-   6) Names for the labels that have names
-   7) The ssa names.
-   8) The control flow graph.
-   9) Gimple for local decls.
-   10)Gimple for the function.
-   11)Strings.
-   12-14)Redundant information to aid in debugging the stream.
-      This is only present if the compiler is built with
-      LTO_STREAM_DEBUGGING defined.
+   1)    The header.
+   2)    FIELD_DECLS.
+   3)    FUNCTION_DECLS.
+   4)    global VAR_DECLS.
+   5)    types.
+   6)    Names for the labels that have names
+   7)    The ssa names.
+   8)    The control flow graph.
+   9-10) Gimple for local decls.
+   11)   Gimple for the function.
+   12)   Strings.
+   13)   Redundant information to aid in debugging the stream.
+         This is only present if the compiler is built with
+         LTO_STREAM_DEBUGGING defined.
 
    Sections 1-5 are in plain text that can easily be read in the
    assembly file.  Sections 6-8 will be zlib encoded in the future.
@@ -76,9 +76,11 @@ struct lto_function_header
   int32_t named_label_size;       /* Size of names for named labels.  */
   int32_t ssa_names_size;         /* Size of the SSA_NAMES table.  */
   int32_t cfg_size;               /* Size of the cfg.  */
+  int32_t local_decls_index_size; /* Size of local par and var decl index region. */
   int32_t local_decls_size;       /* Size of local par and var decl region. */
   int32_t main_size;              /* Size of main gimple body of function.  */
   int32_t string_size;            /* Size of the string table.  */
+  int32_t debug_decl_index_size;  /* Size of local decl index debugging information.  */
   int32_t debug_decl_size;        /* Size of local decl debugging information.  */
   int32_t debug_label_size;       /* Size of label stream debugging information.  */
   int32_t debug_ssa_names_size;   /* Size of ssa_names stream debugging information.  */
@@ -113,7 +115,11 @@ struct lto_function_header
 
    8) THE CFG. 
 
-   9-10) GIMPLE FOR THE LOCAL DECLS AND THE FUNCTION BODY.
+   9) Index into the local decls.  Since local decls can have local
+      decls inside them, they must be read in randomly in order to
+      properly restore them.  
+
+   10-11) GIMPLE FOR THE LOCAL DECLS AND THE FUNCTION BODY.
 
      The gimple consists of a set of records.
 
@@ -224,12 +230,12 @@ struct lto_function_header
 			  to terminate the statements and exception
 			  regions within this block.
 
-   11) STRINGS
+   12) STRINGS
 
      String are represented in the table as pairs, a length in ULEB128
      form followed by the data for the string.
 
-   12) STREAM DEBUGGING
+   13) STREAM DEBUGGING
      
      If the preprocessor symbol LTO_STREAM_DEBUGGING is defined, the
      gimple is encoded into .o file as two streams.  The first stream
@@ -502,6 +508,7 @@ struct lto_debug_context
   lto_debug_out out;
   int indent;
   void * current_data;
+  void * decl_index_data;
   void * decl_data;
   void * label_data;
   void * ssa_names_data;
