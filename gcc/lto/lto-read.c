@@ -589,6 +589,7 @@ input_expr_operand (struct input_block *ib, struct fun_in *fun_in,
 
     case FUNCTION_DECL:
       result = fun_in->fn_decls [input_uleb128 (ib)];
+      gcc_assert (result);
       break;
 
     case VAR_DECL:
@@ -927,19 +928,16 @@ input_globals (struct lto_function_header * header,
   fun_in->types       = xcalloc (header->num_types, sizeof (tree*));
 
   for (i=0; i<header->num_field_decls; i++)
-    if (in_field_decls[i].section)
-      fun_in->field_decls[i] 
-        = lto_resolve_field_ref (fd, context, &in_field_decls[i]);
+    fun_in->field_decls[i] 
+      = lto_resolve_field_ref (fd, context, &in_field_decls[i]);
 
   for (i=0; i<header->num_fn_decls; i++)
-    if (in_fn_decls[i].section)
-      fun_in->fn_decls[i] 
-	= lto_resolve_fn_ref (fd, context, &in_fn_decls[i]);
+    fun_in->fn_decls[i] 
+      = lto_resolve_fn_ref (fd, context, &in_fn_decls[i]);
 
   for (i=0; i<header->num_var_decls; i++)
-    if (in_var_decls[i].section)
-      fun_in->var_decls[i] 
-	= lto_resolve_var_ref (fd, context, &in_var_decls[i]);
+    fun_in->var_decls[i] 
+      = lto_resolve_var_ref (fd, context, &in_var_decls[i]);
 
   for (i=0; i<header->num_types; i++)
     fun_in->types[i] = lto_resolve_type_ref (fd, context, &in_types[i]);

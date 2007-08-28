@@ -1,5 +1,11 @@
 2007-08-28  Kenneth Zadeck <zadeck@naturalbridge.com>
 
+        * lto-read.c (input_expr_operand): Assert that there really is a
+	FUNCTION_DECL.
+	(input_globals): Removed checks on 0 section.
+	
+2007-08-28  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* lto-read.c (fun_in): Added local_decls_index and
 	local_decls_index_d.  
 	(input_expr_operand): Changed inputting of PARM_DECLs and VAR_DECLs.
