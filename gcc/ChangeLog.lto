@@ -1,5 +1,11 @@
 2007-08-28  Kenneth Zadeck <zadeck@naturalbridge.com>
 
+	* lto-function-out (output_expr_operand): Reorder the fields
+	in the stream for CALL_EXPRs.
+	(lto_static_init): Do not put out types for FUNCTION_DECLs.
+
+2007-08-28  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* lto-function-out.c (output_block): Added
 	local_decl_index_stream, debug_decl_index_stream,
 	local_decls_index and local_decls_index_d.
@@ -9,8 +15,6 @@
 	(produce_asm, output_function): Write new streams.
 	(lto_static_init): Do not write flags or types for FIELD_DECLS.
 	* lto-tags.h (lto_debug_context): Added decl_index_data.
-	
-	
 	
 2007-08-15  Jim Blandy  <jimb@codesourcery.com>
 

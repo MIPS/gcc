@@ -1,6 +1,6 @@
 2007-08-28  Kenneth Zadeck <zadeck@naturalbridge.com>
 
-	*lto-read.c (fun_in): Added local_decls_index and
+	* lto-read.c (fun_in): Added local_decls_index and
 	local_decls_index_d.  
 	(input_expr_operand): Changed inputting of PARM_DECLs and VAR_DECLs.
 	(input_globals): Enabled code to handle FIELD_DECLs.

@@ -1232,17 +1232,19 @@ output_expr_operand (struct output_block *ob, tree expr)
       {
 	unsigned int count = TREE_INT_CST_LOW (TREE_OPERAND (expr, 0));
 	unsigned int i;
-	output_uleb128 (ob, count);
 
 	/* Operand 2 is the call chain.  */
 	if (TREE_OPERAND (expr, 2))
 	  {
 	    output_record_start (ob, expr, expr, LTO_call_expr1);
+	    output_uleb128 (ob, count);
 	    output_expr_operand (ob, TREE_OPERAND (expr, 2));
 	  }
 	else
-	  output_record_start (ob, expr, expr, LTO_call_expr0);
-
+	  {
+	    output_record_start (ob, expr, expr, LTO_call_expr0);
+	    output_uleb128 (ob, count);
+	  }
 	output_expr_operand (ob, TREE_OPERAND (expr, 1));
 	for (i = 3; i < count; i++)
 	  output_expr_operand (ob, TREE_OPERAND (expr, i));
@@ -1869,6 +1871,7 @@ lto_static_init (void)
   RESET_BIT (lto_types_needed_for, ASM_EXPR);
   RESET_BIT (lto_types_needed_for, CASE_LABEL_EXPR);
   RESET_BIT (lto_types_needed_for, FIELD_DECL);
+  RESET_BIT (lto_types_needed_for, FUNCTION_DECL);
   RESET_BIT (lto_types_needed_for, GIMPLE_MODIFY_STMT);
   RESET_BIT (lto_types_needed_for, LABEL_DECL);
   RESET_BIT (lto_types_needed_for, LABEL_EXPR);
