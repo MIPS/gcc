@@ -299,16 +299,16 @@ blocks_in_phiopt_order (void)
 bool
 empty_block_p (const_basic_block bb)
 {
-  const_block_stmt_iterator bsi;
+  block_stmt_iterator bsi;
 
   /* BB must have no executable statements.  */
-  bsi = cbsi_start (bb);
-  while (!cbsi_end_p (bsi)
-	  && (TREE_CODE (cbsi_stmt (bsi)) == LABEL_EXPR
-	      || gimple_nop_p (cbsi_stmt (bsi))))
-    cbsi_next (&bsi);
+  bsi = bsi_start (bb);
+  while (!bsi_end_p (bsi)
+	  && (TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR
+	      || gimple_nop_p (bsi_stmt (bsi))))
+    bsi_next (&bsi);
 
-  if (!cbsi_end_p (bsi))
+  if (!bsi_end_p (bsi))
     return false;
 
   return true;

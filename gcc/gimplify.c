@@ -754,7 +754,7 @@ gimple_add_tmp_var (tree tmp)
 /* Determines whether to assign a locus to the statement GS.  */
 
 static bool
-should_carry_locus_p (const_gimple gs)
+should_carry_locus_p (gimple gs)
 {
   /* Don't emit a line note for a label.  We particularly don't want to
      emit one for the break label, since it doesn't actually correspond

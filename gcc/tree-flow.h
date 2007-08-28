@@ -633,9 +633,7 @@ typedef struct {
 } const_block_stmt_iterator;
 
 static inline block_stmt_iterator bsi_start (basic_block);
-static inline const_block_stmt_iterator cbsi_start (const_basic_block);
 static inline block_stmt_iterator bsi_last (basic_block);
-static inline const_block_stmt_iterator cbsi_last (const_basic_block);
 static inline block_stmt_iterator bsi_after_labels (basic_block);
 block_stmt_iterator bsi_for_stmt (gimple);
 static inline bool bsi_end_p (block_stmt_iterator);
@@ -726,12 +724,12 @@ extern void free_omp_regions (void);
 #define PENDING_STMT(e)	((e)->insns.t)
 
 extern void delete_tree_cfg_annotations (void);
-extern bool stmt_ends_bb_p (const_gimple);
-extern bool is_ctrl_stmt (const_gimple);
-extern bool is_ctrl_altering_stmt (const_gimple);
-extern bool computed_goto_p (const_gimple);
-extern bool simple_goto_p (const_gimple);
-extern bool stmt_can_make_abnormal_goto (const_gimple);
+extern bool stmt_ends_bb_p (gimple);
+extern bool is_ctrl_stmt (gimple);
+extern bool is_ctrl_altering_stmt (gimple);
+extern bool computed_goto_p (gimple);
+extern bool simple_goto_p (gimple);
+extern bool stmt_can_make_abnormal_goto (gimple);
 extern basic_block single_noncomplex_succ (basic_block bb);
 extern void tree_dump_bb (basic_block, FILE *, int);
 extern void debug_tree_bb (basic_block);
@@ -745,9 +743,7 @@ extern void print_loop_ir (FILE *);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
 extern gimple first_stmt (basic_block);
-extern const_gimple const_first_stmt (const_basic_block);
 extern gimple last_stmt (basic_block);
-extern const_gimple const_last_stmt (const_basic_block);
 extern gimple last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern basic_block label_to_block_fn (struct function *, tree);
@@ -1080,7 +1076,7 @@ static inline bool unmodifiable_var_p (const_tree);
 extern void make_eh_edges (gimple);
 extern bool tree_could_trap_p (tree);
 extern bool tree_could_throw_p (tree);
-extern bool stmt_can_throw_internal (const_gimple);
+extern bool stmt_can_throw_internal (gimple);
 extern bool tree_can_throw_external (tree);
 extern void add_stmt_to_eh_region (gimple, int);
 extern bool remove_stmt_from_eh_region (gimple);

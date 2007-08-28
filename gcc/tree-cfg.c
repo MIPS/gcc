@@ -97,7 +97,7 @@ static edge tree_try_redirect_by_replacing_jump (edge, basic_block);
 static unsigned int split_critical_edges (void);
 
 /* Various helpers.  */
-static inline bool stmt_starts_bb_p (const_gimple, const_gimple);
+static inline bool stmt_starts_bb_p (gimple, gimple);
 static int tree_verify_flow_info (void);
 static void tree_make_forwarder_block (edge);
 static void tree_cfg2vcg (FILE *);
@@ -1141,8 +1141,8 @@ group_case_labels (void)
 static bool
 tree_can_merge_blocks_p (const_basic_block a, const_basic_block b)
 {
-  const_gimple stmt;
-  const_block_stmt_iterator bsi;
+  gimple stmt;
+  block_stmt_iterator bsi;
   gimple_seq phis;
 
   if (!single_succ_p (a))
@@ -1162,7 +1162,7 @@ tree_can_merge_blocks_p (const_basic_block a, const_basic_block b)
 
   /* If A ends by a statement causing exceptions or something similar, we
      cannot merge the blocks.  */
-  stmt = const_last_stmt (a);
+  stmt = last_stmt (a);
   if (stmt && stmt_ends_bb_p (stmt))
     return false;
 
@@ -1195,9 +1195,9 @@ tree_can_merge_blocks_p (const_basic_block a, const_basic_block b)
     }
 
   /* Do not remove user labels.  */
-  for (bsi = cbsi_start (b); !cbsi_end_p (bsi); cbsi_next (&bsi))
+  for (bsi = bsi_start (b); !bsi_end_p (bsi); bsi_next (&bsi))
     {
-      stmt = cbsi_stmt (bsi);
+      stmt = bsi_stmt (bsi);
       if (gimple_code (stmt) != GIMPLE_LABEL)
 	break;
       if (!DECL_ARTIFICIAL (gimple_label_label (stmt)))
@@ -2450,7 +2450,7 @@ tree_cfg2vcg (FILE *file)
 /* Return true if T represents a stmt that always transfers control.  */
 
 bool
-is_ctrl_stmt (const_gimple t)
+is_ctrl_stmt (gimple t)
 {
   return gimple_code (t) == GIMPLE_COND
     || gimple_code (t) == GIMPLE_SWITCH
@@ -2464,7 +2464,7 @@ is_ctrl_stmt (const_gimple t)
    (e.g., a call to a non-returning function).  */
 
 bool
-is_ctrl_altering_stmt (const_gimple t)
+is_ctrl_altering_stmt (gimple t)
 {
   gcc_assert (t);
 
@@ -2493,7 +2493,7 @@ is_ctrl_altering_stmt (const_gimple t)
 /* FIXME tuples: This is unused elsewhere.  It should be a static.  */
 
 bool
-computed_goto_p (const_gimple t)
+computed_goto_p (gimple t)
 {
   return (gimple_code (t) == GIMPLE_GOTO
 	  && TREE_CODE (gimple_goto_dest (t)) != LABEL_DECL);
@@ -2503,7 +2503,7 @@ computed_goto_p (const_gimple t)
 /* Return true if T is a simple local goto.  */
 
 bool
-simple_goto_p (const_gimple t)
+simple_goto_p (gimple t)
 {
   return (gimple_code (t) == GIMPLE_GOTO
 	  && TREE_CODE (gimple_goto_dest (t)) == LABEL_DECL);
@@ -2514,7 +2514,7 @@ simple_goto_p (const_gimple t)
    Transfers of control flow associated with EH are excluded.  */
 
 bool
-stmt_can_make_abnormal_goto (const_gimple t)
+stmt_can_make_abnormal_goto (gimple t)
 {
   if (computed_goto_p (t))
     return true;
@@ -2533,7 +2533,7 @@ stmt_can_make_abnormal_goto (const_gimple t)
    label.  */
 
 static inline bool
-stmt_starts_bb_p (const_gimple stmt, const_gimple prev_stmt)
+stmt_starts_bb_p (gimple stmt, gimple prev_stmt)
 {
   if (stmt == NULL)
     return false;
@@ -2567,7 +2567,7 @@ stmt_starts_bb_p (const_gimple stmt, const_gimple prev_stmt)
 /* Return true if T should end a basic block.  */
 
 bool
-stmt_ends_bb_p (const_gimple t)
+stmt_ends_bb_p (gimple t)
 {
   return is_ctrl_stmt (t) || is_ctrl_altering_stmt (t);
 }
@@ -2601,13 +2601,6 @@ first_stmt (basic_block bb)
   return !bsi_end_p (i) ? bsi_stmt (i) : NULL_TREE;
 }
 
-const_gimple
-const_first_stmt (const_basic_block bb)
-{
-  const_block_stmt_iterator i = cbsi_start (bb);
-  return !cbsi_end_p (i) ? cbsi_stmt (i) : NULL_TREE;
-}
-
 /* Return the last statement in basic block BB.  */
 
 gimple
@@ -2615,13 +2608,6 @@ last_stmt (basic_block bb)
 {
   block_stmt_iterator b = bsi_last (bb);
   return !bsi_end_p (b) ? bsi_stmt (b) : NULL_TREE;
-}
-
-const_gimple
-const_last_stmt (const_basic_block bb)
-{
-  const_block_stmt_iterator b = cbsi_last (bb);
-  return !cbsi_end_p (b) ? cbsi_stmt (b) : NULL_TREE;
 }
 
 /* Return the last statement of an otherwise empty block.  Return NULL
@@ -5944,8 +5930,8 @@ debug_loop_ir (void)
 static bool
 tree_block_ends_with_call_p (const_basic_block bb)
 {
-  const_block_stmt_iterator bsi = cbsi_last (bb);
-  return const_get_call_expr_in (cbsi_stmt (bsi)) != NULL;
+  block_stmt_iterator bsi = bsi_last (bb);
+  return get_call_expr_in (bsi_stmt (bsi)) != NULL;
 }
 
 
@@ -5955,7 +5941,7 @@ tree_block_ends_with_call_p (const_basic_block bb)
 static bool
 tree_block_ends_with_condjump_p (const_basic_block bb)
 {
-  const_tree stmt = const_last_stmt (bb);
+  tree stmt = last_stmt (bb);
   return (stmt && TREE_CODE (stmt) == COND_EXPR);
 }
 

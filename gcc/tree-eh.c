@@ -148,7 +148,7 @@ remove_stmt_from_eh_region (gimple t)
 }
 
 int
-lookup_stmt_eh_region_fn (struct function *ifun, const_gimple t)
+lookup_stmt_eh_region_fn (struct function *ifun, gimple t)
 {
   struct throw_stmt_node *p, n;
 
@@ -165,7 +165,7 @@ lookup_stmt_eh_region_fn (struct function *ifun, const_gimple t)
 }
 
 int
-lookup_stmt_eh_region (const_gimple t)
+lookup_stmt_eh_region (gimple t)
 {
   /* We can get called from initialized data when -fnon-call-exceptions
      is on; prevent crash.  */
@@ -2035,7 +2035,7 @@ tree_could_throw_p (tree t)
 }
 
 bool
-stmt_can_throw_internal (const_gimple stmt)
+stmt_can_throw_internal (gimple stmt)
 {
   int region_nr;
   bool is_resx = false;

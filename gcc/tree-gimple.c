@@ -470,11 +470,6 @@ get_call_expr_in (tree t)
   GET_CALL_EXPR_IN_BODY;
 }
 
-const_tree
-const_get_call_expr_in (const_tree t)
-{
-  GET_CALL_EXPR_IN_BODY;
-}
 
 /* Given a memory reference expression T, return its base address.
    The base address of a memory reference expression is the main
