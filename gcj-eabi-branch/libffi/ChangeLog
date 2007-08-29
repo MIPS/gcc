@@ -1,3 +1,8 @@
+2007-08-29  Andrew Haley  <aph@redhat.com>
+
+	* src/arm/sysv.S (UNWIND): New.
+	(Whole file): Conditionally compile unwinder directives.
+
 2007-08-14  Andrew Haley  <aph@redhat.com>
 
 	* src/arm/sysv.S: Add unwinder directives.
