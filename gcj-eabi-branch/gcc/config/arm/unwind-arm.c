@@ -978,7 +978,7 @@ __gnu_Unwind_Backtrace(_Unwind_Trace_Fn trace, void * trace_argument,
       if (get_eit_entry (ucbp, saved_vrs.core.r[R_PC]) != _URC_OK)
 	{
 	  code = _URC_FAILURE;
-	  goto finish;
+	  break;
 	}
 
       /* The dwarf unwinder assumes the context structure holds things
@@ -993,7 +993,7 @@ __gnu_Unwind_Backtrace(_Unwind_Trace_Fn trace, void * trace_argument,
 	  != _URC_NO_REASON)
 	{
 	  code = _URC_FAILURE;
-	  goto finish;
+	  break;
 	}
 
       /* Call the pr to decide what to do.  */

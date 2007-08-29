@@ -1,4 +1,9 @@
-2007-08-17  Andrew Haley  <aph@all6500.kos.to>
+2007-08-29  Andrew Haley  <aph@redhat.com>
+
+	* config/arm/unwind-arm.c (__gnu_Unwind_Backtrace): Don't use
+	goto, use break.
+
+2007-08-17  Andrew Haley  <aph@redhat.com>
 
 	* config/arm/unwind-arm.c (__gnu_Unwind_Backtrace): Tidy.  Restore
 	non-core regs.
