@@ -1073,7 +1073,7 @@ clear_and_done_ssa_iter (ssa_op_iter *ptr)
   ptr->iter_type = ssa_op_iter_none;
   ptr->phi_i = 0;
   ptr->num_phi = 0;
-  ptr->phi_stmt = NULL_TREE;
+  ptr->phi_stmt = NULL;
   ptr->done = true;
   ptr->vuse_index = 0;
   ptr->mayuse_index = 0;
@@ -1092,7 +1092,7 @@ op_iter_init (ssa_op_iter *ptr, gimple stmt, int flags)
 
   ptr->phi_i = 0;
   ptr->num_phi = 0;
-  ptr->phi_stmt = NULL_TREE;
+  ptr->phi_stmt = NULL;
   ptr->vuse_index = 0;
   ptr->mayuse_index = 0;
 }
@@ -1338,9 +1338,9 @@ single_phi_def (tree stmt, int flags)
 /* Initialize the iterator PTR for uses matching FLAGS in PHI.  FLAGS should
    be either SSA_OP_USES or SSA_OP_VIRTUAL_USES.  */
 static inline use_operand_p
-op_iter_init_phiuse (ssa_op_iter *ptr, tree phi, int flags)
+op_iter_init_phiuse (ssa_op_iter *ptr, gimple phi, int flags)
 {
-  tree phi_def = PHI_RESULT (phi);
+  tree phi_def = gimple_phi_result (phi);
   int comp;
 
   clear_and_done_ssa_iter (ptr);
@@ -1358,7 +1358,7 @@ op_iter_init_phiuse (ssa_op_iter *ptr, tree phi, int flags)
     }
 
   ptr->phi_stmt = phi;
-  ptr->num_phi = PHI_NUM_ARGS (phi);
+  ptr->num_phi = gimple_phi_nargs (phi);
   ptr->iter_type = ssa_op_iter_use;
   return op_iter_next_use (ptr);
 }

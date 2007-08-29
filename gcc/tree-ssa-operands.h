@@ -213,8 +213,8 @@ extern void debug_decl_set (bitmap);
 extern bool ssa_operands_active (void);
 
 extern void add_to_addressable_set (tree, bitmap *);
-extern void push_stmt_changes (tree *);
-extern void pop_stmt_changes (tree *);
+extern void push_stmt_changes (gimple *);
+extern void pop_stmt_changes (gimple *);
 extern void discard_stmt_changes (tree *);
 
 enum ssa_op_iter_type {
@@ -240,7 +240,7 @@ typedef struct ssa_operand_iterator_d
   enum ssa_op_iter_type iter_type;
   int phi_i;
   int num_phi;
-  tree phi_stmt;
+  gimple phi_stmt;
   bool done;
   unsigned int vuse_index;
   unsigned int mayuse_index;

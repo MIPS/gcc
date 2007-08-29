@@ -1,5 +1,35 @@
 2007-08-29  Aldy Hernandez  <aldyh@redhat.com>
 
+	* tree-ssa-operands.h (pop_stmt_changes, push_stmt_changes):
+	Argument is gimple.
+	(struct ssa_operand_iterator_d): Member phi_stmt is gimple.
+	* value-prof.c (gimple_add_histogram_value): Adjust for tuples.
+	(gimple_duplicate_stmt_histograms): Same.
+	* value-prof.h (gimple_add_histogram_value): Same.
+	(gimple_duplicate_stmt_histograms): Same.
+	* tree-flow-inline.h (clear_and_done_ssa_iter): Same.
+	(op_iter_init): Same.
+	(op_iter_init_phiuse): Same.
+	* tree-flow.h (stmt_references_memory_p): Same.
+	* tree-cfg.c (tree_can_merge_blocks_p): Same.
+	(remove_bb): Same.
+	(find_taken_edge): Same.
+	(tree_cfg2vcg): Same.
+	(first_stmt): Same.
+	(last_stmt): Same.
+	(bsi_move_after): Same.
+	(bsi_move_before): Same.
+	(tree_find_edge_insert_loc): Same.
+	Remove code handling a GIMPLE_MODIFY_STMT inside a RETURN_EXPR.
+	(delete_tree_cfg_annotations): Remove code to remove annotations.
+	* tree-ssa-operands.c (struct scb_d): Stmt_p is a gimple *.
+	(push_stmt_changes): Adjust for tuples.
+	(mark_difference_for_renaming): Same.
+	(pop_stmt_changes): Same.
+	(stmt_references_memory_p): Same.
+
+2007-08-29  Aldy Hernandez  <aldyh@redhat.com>
+
 	* tree-ssa-operands.h: Remove DEF_OPS, USE_OPS, VUSE_OPS,
 	VDEF_OPS, LOADED_SYMS, STORED_SYMS.
 	* tree-pretty-print.c (dump_generic_node): Adjust accordingly.

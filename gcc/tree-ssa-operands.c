@@ -178,7 +178,7 @@ static int n_initialized = 0;
 struct scb_d
 {
   /* Pointer to the statement being modified.  */
-  tree *stmt_p;
+  gimple *stmt_p;
 
   /* If the statement references memory these are the sets of symbols
      loaded and stored by the statement.  */
@@ -2763,15 +2763,15 @@ debug_immediate_uses_for (tree var)
    needed to keep the SSA form up to date.  */
 
 void
-push_stmt_changes (tree *stmt_p)
+push_stmt_changes (gimple *stmt_p)
 {
-  tree stmt;
+  gimple stmt;
   scb_t buf;
-  
+
   stmt = *stmt_p;
 
   /* It makes no sense to keep track of PHI nodes.  */
-  if (TREE_CODE (stmt) == PHI_NODE)
+  if (gimple_code (stmt) == GIMPLE_PHI)
     return;
 
   buf = XNEW (struct scb_d);
@@ -2839,9 +2839,10 @@ mark_difference_for_renaming (bitmap s1, bitmap s2)
    the statement.  */
 
 void
-pop_stmt_changes (tree *stmt_p)
+pop_stmt_changes (gimple *stmt_p)
 {
-  tree op, stmt;
+  tree op;
+  gimple stmt;
   ssa_op_iter iter;
   bitmap loads, stores;
   scb_t buf;
@@ -2849,7 +2850,7 @@ pop_stmt_changes (tree *stmt_p)
   stmt = *stmt_p;
 
   /* It makes no sense to keep track of PHI nodes.  */
-  if (TREE_CODE (stmt) == PHI_NODE)
+  if (gimple_code (stmt) == GIMPLE_PHI)
     return;
 
   buf = VEC_pop (scb_t, scb_stack);
@@ -2954,10 +2955,11 @@ discard_stmt_changes (tree *stmt_p)
 /* Returns true if statement STMT may access memory.  */
 
 bool
-stmt_references_memory_p (tree stmt)
+stmt_references_memory_p (gimple stmt)
 {
-  if (!gimple_ssa_operands (cfun)->ops_active || TREE_CODE (stmt) == PHI_NODE)
+  if (!gimple_ssa_operands (cfun)->ops_active
+      || gimple_code (stmt) == GIMPLE_PHI)
     return false;
 
-  return stmt_ann (stmt)->references_memory;
+  return gimple_has_mem_ops (stmt);
 }

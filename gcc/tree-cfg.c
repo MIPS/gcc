@@ -105,7 +105,7 @@ static inline void change_bb_for_stmt (gimple, basic_block);
 
 /* Flowgraph optimization and cleanup.  */
 static void tree_merge_blocks (basic_block, basic_block);
-static bool tree_can_merge_blocks_p (const_basic_block, const_basic_block);
+static bool tree_can_merge_blocks_p (basic_block, basic_block);
 static void remove_bb (basic_block);
 static edge find_taken_edge_computed_goto (basic_block, tree);
 static edge find_taken_edge_cond_expr (basic_block, tree);
@@ -1139,7 +1139,7 @@ group_case_labels (void)
 /* Checks whether we can merge block B into block A.  */
 
 static bool
-tree_can_merge_blocks_p (const_basic_block a, const_basic_block b)
+tree_can_merge_blocks_p (basic_block a, basic_block b)
 {
   gimple stmt;
   block_stmt_iterator bsi;
@@ -1365,7 +1365,7 @@ tree_merge_blocks (basic_block a, basic_block b)
 
   /* Merge the chains.  */
   last = gsi_last (bb_seq (a));
-  gsi_link_after (&last, bb_seq (b), GSI_NEW_STMT);
+  gsi_link_after (last, bb_seq (b), GSI_NEW_STMT);
   set_bb_seq (b, NULL);
 
   if (cfgcleanup_altered_bbs)
@@ -2010,10 +2010,10 @@ remove_bb (basic_block bb)
     {
       for (i = bsi_start (bb); !bsi_end_p (i);)
 	{
-	  tree stmt = bsi_stmt (i);
-	  if (TREE_CODE (stmt) == LABEL_EXPR
-	      && (FORCED_LABEL (LABEL_EXPR_LABEL (stmt))
-		  || DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt))))
+	  gimple stmt = bsi_stmt (i);
+	  if (gimple_code (stmt) == GIMPLE_LABEL
+	      && (FORCED_LABEL (gimple_label_label (stmt))
+		  || DECL_NONLOCAL (gimple_label_label (stmt))))
 	    {
 	      basic_block new_bb;
 	      block_stmt_iterator new_bsi;
@@ -2021,10 +2021,10 @@ remove_bb (basic_block bb)
 	      /* A non-reachable non-local label may still be referenced.
 		 But it no longer needs to carry the extra semantics of
 		 non-locality.  */
-	      if (DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)))
+	      if (DECL_NONLOCAL (gimple_label_label (stmt)))
 		{
-		  DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)) = 0;
-		  FORCED_LABEL (LABEL_EXPR_LABEL (stmt)) = 1;
+		  DECL_NONLOCAL (gimple_label_label (stmt)) = 0;
+		  FORCED_LABEL (gimple_label_label (stmt)) = 1;
 		}
 
 	      new_bb = bb->prev_bb;
@@ -2087,7 +2087,7 @@ remove_bb (basic_block bb)
 edge
 find_taken_edge (basic_block bb, tree val)
 {
-  tree stmt;
+  gimple stmt;
 
   stmt = last_stmt (bb);
 
@@ -2390,17 +2390,17 @@ tree_cfg2vcg (FILE *file)
 
   FOR_EACH_BB (bb)
     {
-      enum tree_code head_code, end_code;
+      enum gimple_code head_code, end_code;
       const char *head_name, *end_name;
       int head_line = 0;
       int end_line = 0;
-      tree first = first_stmt (bb);
-      tree last = last_stmt (bb);
+      gimple first = first_stmt (bb);
+      gimple last = last_stmt (bb);
 
       if (first)
 	{
-	  head_code = TREE_CODE (first);
-	  head_name = tree_code_name[head_code];
+	  head_code = gimple_code (first);
+	  head_name = gimple_code_name[head_code];
 	  head_line = get_lineno (first);
 	}
       else
@@ -2408,8 +2408,8 @@ tree_cfg2vcg (FILE *file)
 
       if (last)
 	{
-	  end_code = TREE_CODE (last);
-	  end_name = tree_code_name[end_code];
+	  end_code = gimple_code (last);
+	  end_name = gimple_code_name[end_code];
 	  end_line = get_lineno (last);
 	}
       else
@@ -2572,22 +2572,11 @@ stmt_ends_bb_p (gimple t)
   return is_ctrl_stmt (t) || is_ctrl_altering_stmt (t);
 }
 
-/* Remove block annotations and other datastructures.  */
+/* Remove block annotations and other data structures.  */
 
 void
 delete_tree_cfg_annotations (void)
 {
-  basic_block bb;
-  block_stmt_iterator bsi;
-
-  /* Remove annotations from every tree in the function.  */
-  FOR_EACH_BB (bb)
-    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-      {
-	tree stmt = bsi_stmt (bsi);
-	ggc_free (stmt->base.ann);
-	stmt->base.ann = NULL;
-      }
   label_to_block_map = NULL;
 }
 
@@ -2598,7 +2587,7 @@ gimple
 first_stmt (basic_block bb)
 {
   block_stmt_iterator i = bsi_start (bb);
-  return !bsi_end_p (i) ? bsi_stmt (i) : NULL_TREE;
+  return !bsi_end_p (i) ? bsi_stmt (i) : NULL;
 }
 
 /* Return the last statement in basic block BB.  */
@@ -2607,7 +2596,7 @@ gimple
 last_stmt (basic_block bb)
 {
   block_stmt_iterator b = bsi_last (bb);
-  return !bsi_end_p (b) ? bsi_stmt (b) : NULL_TREE;
+  return !bsi_end_p (b) ? bsi_stmt (b) : NULL;
 }
 
 /* Return the last statement of an otherwise empty block.  Return NULL
@@ -2805,7 +2794,7 @@ bsi_remove (block_stmt_iterator *i, bool remove_eh_info)
 void
 bsi_move_after (block_stmt_iterator *from, block_stmt_iterator *to)
 {
-  tree stmt = bsi_stmt (*from);
+  gimple stmt = bsi_stmt (*from);
   bsi_remove (from, false);
   /* We must have BSI_NEW_STMT here, as bsi_move_after is sometimes used to
      move statements to an empty block.  */
@@ -2818,7 +2807,7 @@ bsi_move_after (block_stmt_iterator *from, block_stmt_iterator *to)
 void
 bsi_move_before (block_stmt_iterator *from, block_stmt_iterator *to)
 {
-  tree stmt = bsi_stmt (*from);
+  gimple stmt = bsi_stmt (*from);
   bsi_remove (from, false);
   /* For consistency with bsi_move_after, it might be better to have
      BSI_NEW_STMT here; however, that breaks several places that expect
@@ -2854,7 +2843,7 @@ bsi_replace (const block_stmt_iterator *bsi, gimple stmt, bool update_eh_info)
 
   if (stmt == orig_stmt)
     return;
-  set_gimple_locus (stmt, *EXPR_LOCUS (orig_stmt));
+  set_gimple_locus (stmt, gimple_locus (orig_stmt));
   set_bb_for_stmt (stmt, bsi->bb);
 
   /* Preserve EH region information from the original statement, if
@@ -2893,7 +2882,7 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
 			   basic_block *new_bb)
 {
   basic_block dest, src;
-  tree tmp;
+  gimple tmp;
 
   dest = e->dest;
  restart:
@@ -2915,7 +2904,7 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
 
       /* Make sure we insert after any leading labels.  */
       tmp = bsi_stmt (*bsi);
-      while (TREE_CODE (tmp) == LABEL_EXPR)
+      while (gimple_code (tmp) == GIMPLE_LABEL)
 	{
 	  bsi_next (bsi);
 	  if (bsi_end_p (*bsi))
@@ -2948,17 +2937,8 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
       if (!stmt_ends_bb_p (tmp))
 	return true;
 
-      /* Insert code just before returning the value.  We may need to decompose
-         the return in the case it contains non-trivial operand.  */
-      if (TREE_CODE (tmp) == RETURN_EXPR)
+      if (gimple_code (tmp) == GIMPLE_RETURN)
         {
-	  tree op = TREE_OPERAND (tmp, 0);
-	  if (op && !is_gimple_val (op))
-	    {
-	      gcc_assert (TREE_CODE (op) == GIMPLE_MODIFY_STMT);
-	      bsi_insert_before (bsi, op, BSI_NEW_STMT);
-	      TREE_OPERAND (tmp, 0) = GIMPLE_STMT_OPERAND (op, 0);
-	    }
 	  bsi_prev (bsi);
 	  return true;
         }

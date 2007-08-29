@@ -154,7 +154,7 @@ gimple_histogram_value (struct function *fun, gimple stmt)
 /* Add histogram for STMT.  */
 
 void
-gimple_add_histogram_value (struct function *fun, tree stmt, histogram_value hist)
+gimple_add_histogram_value (struct function *fun, gimple stmt, histogram_value hist)
 {
   hist->hvalue.next = gimple_histogram_value (fun, stmt);
   set_histogram_value (fun, stmt, hist);
@@ -322,8 +322,8 @@ gimple_remove_stmt_histograms (struct function *fun, gimple stmt)
 /* Duplicate all histograms associates with OSTMT to STMT.  */
 
 void
-gimple_duplicate_stmt_histograms (struct function *fun, tree stmt,
-				  struct function *ofun, tree ostmt)
+gimple_duplicate_stmt_histograms (struct function *fun, gimple stmt,
+				  struct function *ofun, gimple ostmt)
 {
   histogram_value val;
   for (val = gimple_histogram_value (ofun, ostmt); val != NULL; val = val->hvalue.next)
