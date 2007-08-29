@@ -1715,7 +1715,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	pp_string (buffer, ">");
 
 	if (stmt_references_memory_p (node) && (flags & TDF_MEMSYMS))
-	  dump_symbols (buffer, STORED_SYMS (node), flags);
+	  dump_symbols (buffer, gimple_stored_syms (node), flags);
       }
       break;
 
@@ -2808,27 +2808,27 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
      contain symbol information (this happens before aliases have been
      computed).  */
   if ((flags & TDF_MEMSYMS)
-      && VUSE_OPS (stmt) == NULL
-      && VDEF_OPS (stmt) == NULL)
+      && gimple_vuse_ops (stmt) == NULL
+      && gimple_vdef_ops (stmt) == NULL)
     {
-      if (LOADED_SYMS (stmt))
+      if (gimple_loaded_syms (stmt))
 	{
 	  pp_string (buffer, "# LOADS: ");
-	  dump_symbols (buffer, LOADED_SYMS (stmt), flags);
+	  dump_symbols (buffer, gimple_loaded_syms (stmt), flags);
 	  newline_and_indent (buffer, spc);
 	}
 
-      if (STORED_SYMS (stmt))
+      if (gimple_stored_syms (stmt))
 	{
 	  pp_string (buffer, "# STORES: ");
-	  dump_symbols (buffer, STORED_SYMS (stmt), flags);
+	  dump_symbols (buffer, gimple_stored_syms (stmt), flags);
 	  newline_and_indent (buffer, spc);
 	}
 
       return;
     }
 
-  vuses = VUSE_OPS (stmt);
+  vuses = gimple_vuse_ops (stmt);
   while (vuses)
     {
       pp_string (buffer, "# VUSE <");
@@ -2844,13 +2844,13 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
       pp_string (buffer, ">");
 
       if (flags & TDF_MEMSYMS)
-	dump_symbols (buffer, LOADED_SYMS (stmt), flags);
+	dump_symbols (buffer, gimple_loaded_syms (stmt), flags);
 
       newline_and_indent (buffer, spc);
       vuses = vuses->next;
     }
 
-  vdefs = VDEF_OPS (stmt);
+  vdefs = gimple_vdef_ops (stmt);
   while (vdefs)
     {
       pp_string (buffer, "# ");
@@ -2868,7 +2868,7 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
       pp_string (buffer, ">");
 
       if ((flags & TDF_MEMSYMS) && vdefs->next == NULL)
-	dump_symbols (buffer, STORED_SYMS (stmt), flags);
+	dump_symbols (buffer, gimple_stored_syms (stmt), flags);
 
       newline_and_indent (buffer, spc);
       vdefs = vdefs->next;

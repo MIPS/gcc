@@ -4068,8 +4068,8 @@ create_structure_vars (void)
 	    unsigned int i;
 	    bitmap_iterator bi;
 
-	    if (STORED_SYMS (stmt))
-	       EXECUTE_IF_SET_IN_BITMAP (STORED_SYMS (stmt), 0, i, bi)
+	    if (gimple_stored_syms (stmt))
+	       EXECUTE_IF_SET_IN_BITMAP (gimple_stored_syms (stmt), 0, i, bi)
 		{
 		  tree sym = referenced_var_lookup (i);
 		  if (get_subvars_for_var (sym))
@@ -4079,8 +4079,8 @@ create_structure_vars (void)
 		    }
 		}
 
-	    if (LOADED_SYMS (stmt) && !update)
-	       EXECUTE_IF_SET_IN_BITMAP (LOADED_SYMS (stmt), 0, i, bi)
+	    if (gimple_loaded_syms (stmt) && !update)
+	       EXECUTE_IF_SET_IN_BITMAP (gimple_loaded_syms (stmt), 0, i, bi)
 		{
 		  tree sym = referenced_var_lookup (i);
 		  if (get_subvars_for_var (sym))

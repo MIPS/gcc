@@ -1081,13 +1081,13 @@ clear_and_done_ssa_iter (ssa_op_iter *ptr)
 
 /* Initialize the iterator PTR to the virtual defs in STMT.  */
 static inline void
-op_iter_init (ssa_op_iter *ptr, tree stmt, int flags)
+op_iter_init (ssa_op_iter *ptr, gimple stmt, int flags)
 {
-  ptr->defs = (flags & SSA_OP_DEF) ? DEF_OPS (stmt) : NULL;
-  ptr->uses = (flags & SSA_OP_USE) ? USE_OPS (stmt) : NULL;
-  ptr->vuses = (flags & SSA_OP_VUSE) ? VUSE_OPS (stmt) : NULL;
-  ptr->vdefs = (flags & SSA_OP_VDEF) ? VDEF_OPS (stmt) : NULL;
-  ptr->mayuses = (flags & SSA_OP_VMAYUSE) ? VDEF_OPS (stmt) : NULL;
+  ptr->defs = (flags & SSA_OP_DEF) ? gimple_def_ops (stmt) : NULL;
+  ptr->uses = (flags & SSA_OP_USE) ? gimple_use_ops (stmt) : NULL;
+  ptr->vuses = (flags & SSA_OP_VUSE) ? gimple_vuse_ops (stmt) : NULL;
+  ptr->vdefs = (flags & SSA_OP_VDEF) ? gimple_vdef_ops (stmt) : NULL;
+  ptr->mayuses = (flags & SSA_OP_VMAYUSE) ? gimple_vdef_ops (stmt) : NULL;
   ptr->done = false;
 
   ptr->phi_i = 0;
@@ -1100,7 +1100,7 @@ op_iter_init (ssa_op_iter *ptr, tree stmt, int flags)
 /* Initialize iterator PTR to the use operands in STMT based on FLAGS. Return
    the first use.  */
 static inline use_operand_p
-op_iter_init_use (ssa_op_iter *ptr, tree stmt, int flags)
+op_iter_init_use (ssa_op_iter *ptr, gimple stmt, int flags)
 {
   gcc_assert ((flags & SSA_OP_ALL_DEFS) == 0);
   op_iter_init (ptr, stmt, flags);
@@ -1111,7 +1111,7 @@ op_iter_init_use (ssa_op_iter *ptr, tree stmt, int flags)
 /* Initialize iterator PTR to the def operands in STMT based on FLAGS. Return
    the first def.  */
 static inline def_operand_p
-op_iter_init_def (ssa_op_iter *ptr, tree stmt, int flags)
+op_iter_init_def (ssa_op_iter *ptr, gimple stmt, int flags)
 {
   gcc_assert ((flags & SSA_OP_ALL_USES) == 0);
   op_iter_init (ptr, stmt, flags);
@@ -1122,7 +1122,7 @@ op_iter_init_def (ssa_op_iter *ptr, tree stmt, int flags)
 /* Initialize iterator PTR to the operands in STMT based on FLAGS. Return
    the first operand as a tree.  */
 static inline tree
-op_iter_init_tree (ssa_op_iter *ptr, tree stmt, int flags)
+op_iter_init_tree (ssa_op_iter *ptr, gimple stmt, int flags)
 {
   op_iter_init (ptr, stmt, flags);
   ptr->iter_type = ssa_op_iter_tree;
@@ -1171,7 +1171,7 @@ op_iter_next_mustdef (use_operand_p *use, def_operand_p *def,
 /* Initialize iterator PTR to the operands in STMT.  Return the first operands
    in USE and DEF.  */
 static inline void
-op_iter_init_vdef (ssa_op_iter *ptr, tree stmt, vuse_vec_p *use, 
+op_iter_init_vdef (ssa_op_iter *ptr, gimple stmt, vuse_vec_p *use, 
 		     def_operand_p *def)
 {
   gcc_assert (TREE_CODE (stmt) != PHI_NODE);
@@ -1185,7 +1185,7 @@ op_iter_init_vdef (ssa_op_iter *ptr, tree stmt, vuse_vec_p *use,
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
    return NULL.  */
 static inline tree
-single_ssa_tree_operand (tree stmt, int flags)
+single_ssa_tree_operand (gimple stmt, int flags)
 {
   tree var;
   ssa_op_iter iter;
@@ -1203,7 +1203,7 @@ single_ssa_tree_operand (tree stmt, int flags)
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
    return NULL.  */
 static inline use_operand_p
-single_ssa_use_operand (tree stmt, int flags)
+single_ssa_use_operand (gimple stmt, int flags)
 {
   use_operand_p var;
   ssa_op_iter iter;
@@ -1222,7 +1222,7 @@ single_ssa_use_operand (tree stmt, int flags)
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
    return NULL.  */
 static inline def_operand_p
-single_ssa_def_operand (tree stmt, int flags)
+single_ssa_def_operand (gimple stmt, int flags)
 {
   def_operand_p var;
   ssa_op_iter iter;
@@ -1240,7 +1240,7 @@ single_ssa_def_operand (tree stmt, int flags)
 /* Return true if there are zero operands in STMT matching the type 
    given in FLAGS.  */
 static inline bool
-zero_ssa_operands (tree stmt, int flags)
+zero_ssa_operands (gimple stmt, int flags)
 {
   ssa_op_iter iter;
 
@@ -1251,7 +1251,7 @@ zero_ssa_operands (tree stmt, int flags)
 
 /* Return the number of operands matching FLAGS in STMT.  */
 static inline int
-num_ssa_operands (tree stmt, int flags)
+num_ssa_operands (gimple stmt, int flags)
 {
   ssa_op_iter iter;
   tree t;
@@ -1279,7 +1279,7 @@ delink_stmt_imm_use (gimple stmt)
 /* This routine will compare all the operands matching FLAGS in STMT1 to those
    in STMT2.  TRUE is returned if they are the same.  STMTs can be NULL.  */
 static inline bool
-compare_ssa_operands_equal (tree stmt1, tree stmt2, int flags)
+compare_ssa_operands_equal (gimple stmt1, gimple stmt2, int flags)
 {
   ssa_op_iter iter1, iter2;
   tree op1 = NULL_TREE;
@@ -1289,8 +1289,8 @@ compare_ssa_operands_equal (tree stmt1, tree stmt2, int flags)
   if (stmt1 == stmt2)
     return true;
 
-  look1 = stmt1 && stmt_ann (stmt1);
-  look2 = stmt2 && stmt_ann (stmt2);
+  look1 = stmt1 != NULL;
+  look2 = stmt2 != NULL;
 
   if (look1)
     {
@@ -1447,7 +1447,7 @@ link_use_stmts_after (use_operand_p head, imm_use_iterator *imm)
 {
   use_operand_p use_p;
   use_operand_p last_p = head;
-  tree head_stmt = USE_STMT (head);
+  gimple head_stmt = USE_STMT (head);
   tree use = USE_FROM_PTR (head);
   ssa_op_iter op_iter;
   int flag;
@@ -1455,7 +1455,7 @@ link_use_stmts_after (use_operand_p head, imm_use_iterator *imm)
   /* Only look at virtual or real uses, depending on the type of HEAD.  */
   flag = (is_gimple_reg (use) ? SSA_OP_USE : SSA_OP_VIRTUAL_USES);
 
-  if (TREE_CODE (head_stmt) == PHI_NODE)
+  if (gimple_code (head_stmt) == GIMPLE_PHI)
     {
       FOR_EACH_PHI_ARG (use_p, head_stmt, op_iter, flag)
 	if (USE_FROM_PTR (use_p) == use)

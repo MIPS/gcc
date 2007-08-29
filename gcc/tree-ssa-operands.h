@@ -159,14 +159,6 @@ typedef struct stmt_operands_d *stmt_operands_p;
 
 #define USE_STMT(USE)		(USE)->stmt
 
-#define DEF_OPS(STMT)		(stmt_ann (STMT)->operands.def_ops)
-#define USE_OPS(STMT)		(stmt_ann (STMT)->operands.use_ops)
-#define VUSE_OPS(STMT)		(stmt_ann (STMT)->operands.vuse_ops)
-#define VDEF_OPS(STMT)		(stmt_ann (STMT)->operands.vdef_ops)
-
-#define LOADED_SYMS(STMT)	(stmt_ann (STMT)->operands.loads)
-#define STORED_SYMS(STMT)	(stmt_ann (STMT)->operands.stores)
-
 #define USE_OP_PTR(OP)		(&((OP)->use_ptr))
 #define USE_OP(OP)		(USE_FROM_PTR (USE_OP_PTR (OP)))
 

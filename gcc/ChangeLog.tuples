@@ -1,4 +1,41 @@
-2007-08-27  Aldy Hernandez  <aldyh@redhat.com>
+2007-08-29  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-ssa-operands.h: Remove DEF_OPS, USE_OPS, VUSE_OPS,
+	VDEF_OPS, LOADED_SYMS, STORED_SYMS.
+	* tree-pretty-print.c (dump_generic_node): Adjust accordingly.
+	(dump_vops): use gimple_v*_ops.  Adjust accordingly.
+	* gimple.def: Add to comment.
+	* tree-ssa-alias.c (create_structure_vars): Adjust for tuples.
+	* tree-flow-inline.h (op_iter_init): Make stmt gimple.  Use
+	gimple_*_ops functions.
+	(op_iter_init_use): Make stmt gimple.
+	(op_iter_init_def): Same.
+	(op_iter_init_vdef): Same.
+	(single_ssa_tree_operand): Same.
+	(single_ssa_use_operand): Same.
+	(single_ssa_def_operand): Same.
+	(zero_ssa_operands): Same.
+	(num_ssa_operands): Same.
+	(compare_ssa_operands_equal): Make stmt[12] gimple.
+	(link_use_stmts_after): Adjust for tuples.
+	* tree-ssa-structalias.c (update_alias_info): Use
+	gimple_stored_syms and gimple_loaded_syms.
+	* gimple.h (gimple_has_mem_ops): New.
+	(gimple_def_ops): New.
+	(set_gimple_def_ops): New.
+	(gimple_use_ops): New.
+	(set_gimple_use_ops): New.
+	(gimple_vuse_ops): New.
+	(set_gimple_vuse_ops): New.
+	(gimple_vdef_ops): New.
+	(set_gimple_vdef_ops): New.
+	(gimple_loaded_syms): New.
+	(gimple_stored_syms): New.
+	* tree-ssa-operands.c (finalize_ssa_defs): Adjust for tuples.
+	(copy_virtual_operands): Same.
+	(swap_tree_operands): Same.
+
+2007-08-28  Aldy Hernandez  <aldyh@redhat.com>
 
 	* Revert the parts of Kaveh's constification patch.that duplicate
 	API calls.

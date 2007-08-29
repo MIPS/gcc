@@ -3505,8 +3505,8 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	 dereferences (e.g., MEMORY_VAR = *PTR) or if a call site has
 	 memory symbols in its argument list, but these cases do not
 	 occur so frequently as to constitute a serious problem.  */
-      if (STORED_SYMS (stmt))
-	EXECUTE_IF_SET_IN_BITMAP (STORED_SYMS (stmt), 0, i, bi)
+      if (gimple_stored_syms (stmt))
+	EXECUTE_IF_SET_IN_BITMAP (gimple_stored_syms (stmt), 0, i, bi)
 	  {
 	    tree sym = referenced_var (i);
 	    pointer_set_insert (ai->written_vars, sym);
@@ -3518,11 +3518,11 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	  }
 
       if (!stmt_dereferences_ptr_p
-	  && LOADED_SYMS (stmt)
+	  && gimple_loaded_syms (stmt)
 	  && stmt_escape_type != ESCAPE_TO_CALL
 	  && stmt_escape_type != ESCAPE_TO_PURE_CONST
 	  && stmt_escape_type != ESCAPE_TO_ASM)
-	EXECUTE_IF_SET_IN_BITMAP (LOADED_SYMS (stmt), 0, i, bi)
+	EXECUTE_IF_SET_IN_BITMAP (gimple_loaded_syms (stmt), 0, i, bi)
 	  update_mem_sym_stats_from_stmt (referenced_var (i), stmt, 1, 0);
     }
 }

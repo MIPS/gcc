@@ -436,6 +436,96 @@ gimple_has_ops (gimple g)
 }
 
 
+/* Return TRUE if a gimple stmt has memory operands.  */
+
+static inline bool
+gimple_has_mem_ops (gimple g)
+{
+  return gimple_code (g) >= GIMPLE_ASM
+    && gimple_code (g) <= GIMPLE_WITH_MEM_OPS;
+}
+
+
+/* SSA operand accesors.  */
+
+
+static inline struct def_optype_d *
+gimple_def_ops (gimple g)
+{
+  if (!gimple_has_ops (g))
+    return NULL;
+  return g->with_ops.def_ops;
+}
+
+static inline void
+set_gimple_def_ops (gimple g, struct def_optype_d *def)
+{
+  gcc_assert (gimple_has_ops (g));
+  g->with_ops.def_ops = def;
+}
+
+static inline struct use_optype_d *
+gimple_use_ops (gimple g)
+{
+  if (!gimple_has_ops (g))
+    return NULL;
+  return g->with_ops.use_ops;
+}
+
+static inline void
+set_gimple_use_ops (gimple g, struct use_optype_d *use)
+{
+  gcc_assert (gimple_has_ops (g));
+  g->with_ops.use_ops = use;
+}
+
+static inline struct voptype_d *
+gimple_vuse_ops (gimple g)
+{
+  if (!gimple_has_mem_ops (g))
+    return NULL;
+  return g->with_mem_ops.vuse_ops;
+}
+
+static inline void
+set_gimple_vuse_ops (gimple g, struct voptype_d *ops)
+{
+  gcc_assert (gimple_has_mem_ops (g));
+  g->with_mem_ops.vuse_ops = ops;
+}
+
+static inline struct voptype_d *
+gimple_vdef_ops (gimple g)
+{
+  if (!gimple_has_mem_ops (g))
+    return NULL;
+  return g->with_mem_ops.vdef_ops;
+}
+
+static inline void
+set_gimple_vdef_ops (gimple g, struct voptype_d *ops)
+{
+  gcc_assert (gimple_has_mem_ops (g));
+  g->with_mem_ops.vdef_ops = ops;
+}
+
+static inline bitmap
+gimple_loaded_syms (gimple g)
+{
+  if (!gimple_has_mem_ops (g))
+    return NULL;
+  return g->with_mem_ops.loads;
+}
+
+static inline bitmap
+gimple_stored_syms (gimple g)
+{
+  if (!gimple_has_mem_ops (g))
+    return NULL;
+  return g->with_mem_ops.stores;
+}
+
+
 /* Return TRUE if the given statement has operands and the modified
    field has been set.  */
 

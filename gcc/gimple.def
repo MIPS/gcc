@@ -37,14 +37,15 @@ DEFGSCODE(GIMPLE_GOTO, "gimple_goto")
 DEFGSCODE(GIMPLE_LABEL, "gimple_label")
 DEFGSCODE(GIMPLE_SWITCH, "gimple_switch")
 
-/* Do not rearrange the codes between GIMPLE_ASM and GIMPLE_RETURN.  It's
-   exposed by GIMPLE_RANGE_CHECK calls.  These are all the GIMPLE
-   statements with memory and register operands.  */
+/* Do not rearrange the codes between GIMPLE_ASM and GIMPLE_WITH_MEM_OPS.  It's
+   exposed by GIMPLE_RANGE_CHECK calls.  These are all the GIMPLE statements
+   with memory and register operands.  */
+
 DEFGSCODE(GIMPLE_ASM, "gimple_asm")
 DEFGSCODE(GIMPLE_CALL, "gimple_call")
 DEFGSCODE(GIMPLE_RETURN, "gimple_return")
-
 DEFGSCODE(GIMPLE_WITH_MEM_OPS, "gimple_with_mem_ops")
+
 DEFGSCODE(GIMPLE_OMP, "gimple_omp")
 DEFGSCODE(GIMPLE_BIND, "gimple_bind")
 DEFGSCODE(GIMPLE_CATCH, "gimple_catch")
