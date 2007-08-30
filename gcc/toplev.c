@@ -82,6 +82,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "tree-mudflap.h"
 #include "tree-pass.h"
+#include "server.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -1386,7 +1387,11 @@ print_switch_values (print_switch_fn_type print_fn)
 static void
 init_asm_output (const char *name)
 {
-  if (name == NULL && asm_file_name == 0)
+  if (asm_out_file)
+    {
+      /* Already initialized elsewhere.  */
+    }
+  else if (name == NULL && asm_file_name == 0)
     asm_out_file = stdout;
   else
     {
@@ -2159,6 +2164,73 @@ do_compile (void)
   timevar_print (stderr);
 }
 
+static struct pex_obj *
+start_as (char **as_argv)
+{
+  struct pex_obj *px;
+  int pxerr;
+
+  px = pex_init (PEX_USE_PIPES, "as", NULL);
+  if (px)
+    {
+      const char *errstr;
+
+      /* Note that asm_out_file is conditional on BUFSIZ and is
+	 redeclared in a number of files.  Yay.  */
+      asm_out_file = pex_input_pipe (px, 0);
+
+      errstr = pex_run (px, PEX_LAST | PEX_SEARCH, as_argv[0], as_argv + 1,
+			NULL, NULL, &pxerr);
+      if (errstr)
+	{
+	  /* FIXME.  */
+	  error ("failed to exec as: %s", errstr);
+	  pex_free (px);
+	  px = NULL;
+	}
+    }
+  
+  return px;
+}
+
+void
+server_callback (int fd, char **cc1_argv, char **as_argv)
+{
+  struct pex_obj *px;
+
+  /* For now, work single-threaded and just stomp on global state as
+     needed.  */
+
+  /* The diagnostic machinery doesn't need this, but pex does.  Also
+     GCC itself seems to write to stderr a lot ... */
+  dup2 (fd, 2);
+
+  /* FIXME: reset errorcount and sorrycount?  Make a new
+     global_dc?  */
+
+  px = start_as (as_argv);
+
+  if (px)
+    {
+      int n;
+      for (n = 0; cc1_argv[n]; ++n)
+	;
+      decode_options (n, (const char **) cc1_argv);
+      init_local_tick ();		/* FIXME... */
+      do_compile ();
+
+      /* FIXME: send a single byte back to the client for status?
+	 FIXME: this function should return an error indication.  */
+
+      pex_free (px);
+    }
+
+  /* Make sure to close dup'd stderr, so that client will terminate
+     properly.  The server loop will take care of the fd we were
+     passed.  */
+  close (2);
+}
+
 /* Entry point of cc1, cc1plus, jc1, f771, etc.
    Exit code is FATAL_EXIT_CODE if can't open files or if there were
    any errors, or SUCCESS_EXIT_CODE if compilation succeeded.
@@ -2172,6 +2244,13 @@ toplev_main (unsigned int argc, const char **argv)
 
   /* Initialization of GCC's environment, and diagnostics.  */
   general_init (argv[0]);
+
+  if (argc == 2 && !strncmp (argv[1], "-fserver=", 9))
+    {
+      int fd = atoi (argv[1] + 9);
+      server_main_loop (argv[0], fd);
+      return SUCCESS_EXIT_CODE;
+    }
 
   /* Parse the options and do minimal processing; basically just
      enough to default flags appropriately.  */

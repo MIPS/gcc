@@ -1,3 +1,24 @@
+2007-08-30  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in (OBJS-common): Added server.o.
+	(GCC_OBJS): Likewise.
+	(toplev.o): Added server.h.
+	(gcc.o): Likewise.
+	(server.o): New target.
+	* toplev.c (toplev_main): Handle -fserver.
+	Include server.h.
+	(init_asm_output): Don't open file if already open.
+	(server_callback): New function.
+	* server.h: New file.
+	* server.c: New file.
+	* gcc.c (server): New global.
+	(use_server): Likewise.
+	(option_map): Added --server.
+	(process_command): Recognize -server.
+	Include server.h.
+	(execute): Send commands to server.
+	(server_callback): New function.
+
 2007-08-24  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_parser_find_decl_boundary): New function.

@@ -962,7 +962,7 @@ C_TARGET_OBJS=@c_target_objs@
 CXX_TARGET_OBJS=@cxx_target_objs@
 
 # Object files for gcc driver.
-GCC_OBJS = gcc.o opts-common.o gcc-options.o
+GCC_OBJS = gcc.o opts-common.o gcc-options.o server.o
 
 # Language-specific object files for C and Objective C.
 C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
@@ -1116,6 +1116,7 @@ OBJS-common = \
 	sched-vis.o \
 	sdbout.o \
 	see.o \
+	server.o \
 	simplify-rtx.o \
 	sreal.o \
 	stack-ptr-mod.o \
@@ -1843,7 +1844,7 @@ DRIVER_DEFINES = \
 
 gcc.o: gcc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) intl.h multilib.h \
     Makefile $(lang_specs_files) specs.h prefix.h $(GCC_H) $(FLAGS_H) \
-    configargs.h $(OBSTACK_H) opts.h
+    configargs.h $(OBSTACK_H) opts.h server.h
 	(SHLIB_LINK='$(SHLIB_LINK)' \
 	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
@@ -1942,6 +1943,7 @@ convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 
 double-int.o: double-int.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H)
 
+server.o : server.c $(CONFIG_H) $(SYSTEM_H) coretypes.h server.h errors.h
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) toplev.h $(TREE_INLINE_H) $(RTL_H) insn-config.h $(INTEGRATE_H) \
    langhooks.h $(LANGHOOKS_DEF_H) $(FLAGS_H) $(GGC_H) $(DIAGNOSTIC_H) intl.h \
@@ -2311,7 +2313,7 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    value-prof.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) \
    langhooks.h insn-flags.h $(CFGLAYOUT_H) $(CFGLOOP_H) hosthooks.h \
    $(CGRAPH_H) $(COVERAGE_H) alloc-pool.h $(GGC_H) $(INTEGRATE_H) \
-   $(CPPLIB_H) opts.h params.def tree-mudflap.h $(REAL_H) tree-pass.h
+   $(CPPLIB_H) opts.h params.def tree-mudflap.h $(REAL_H) tree-pass.h server.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
 	  -DTARGET_NAME=\"$(target_noncanonical)\" \
 	  -c $(srcdir)/toplev.c $(OUTPUT_OPTION)

@@ -86,6 +86,7 @@ compilation is specified by a string called a "spec".  */
 #include "gcc.h"
 #include "flags.h"
 #include "opts.h"
+#include "server.h"
 
 /* By default there is no special suffix for target executables.  */
 /* FIXME: when autoconf is fixed, remove the host check - dj */
@@ -194,6 +195,15 @@ static int print_subprocess_help;
    (if this is supported by the system - see pexecute.c).  */
 
 static int report_times;
+
+/* Flag indicating that we should start a server process.  */
+
+static int server;
+
+/* Flag indicating that we should attempt to connect to a server
+   process.  */
+
+static int use_server;
 
 /* Nonzero means place this string before uses of /, so that include
    and library files can be found in an alternate location.  */
@@ -1154,6 +1164,7 @@ static const struct option_map option_map[] =
    {"--quiet", "-q", 0},
    {"--resource", "-fcompile-resource=", "aj"},
    {"--save-temps", "-save-temps", 0},
+   {"--server", "-server", 0},
    {"--shared", "-shared", 0},
    {"--silent", "-q", 0},
    {"--specs", "-specs=", "aj"},
@@ -2931,6 +2942,23 @@ execute (void)
 #endif /* DEBUG */
     }
 
+  if (use_server)
+    {
+      for (i = 0; i < n_commands; ++i)
+	{
+	  if (i == 0)
+	    {
+	      if (!client_connect (commands[i].argv[0]))
+		fatal ("couldn't start server: %s", commands[i].argv[0]);
+	    }
+	  if (!client_send_command (commands[i].argv))
+	    fatal ("couldn't send command to server: %s", commands[i].argv[0]);
+	}
+      client_wait ();
+      execution_count++;
+      return 0;
+    }
+
 #ifdef ENABLE_VALGRIND_CHECKING
   /* Run the each command through valgrind.  To simplify prepending the
      path to valgrind and the option "-q" (for quiet operation unless
@@ -3788,6 +3816,11 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  use_pipes = 1;
 	  n_switches++;
 	}
+      else if (strcmp (argv[i], "-server") == 0)
+	{
+	  server = 1;
+	  n_switches++;
+	}
       else if (strcmp (argv[i], "-###") == 0)
 	{
 	  /* This is similar to -v except that there is no execution
@@ -4158,6 +4191,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       else if (strncmp (argv[i], "-specs=", 7) == 0)
 	;
       else if (strcmp (argv[i], "-time") == 0)
+	;
+      else if (strcmp (argv[i], "-server") == 0)
 	;
       else if (strcmp (argv[i], "-###") == 0)
 	;
@@ -6128,6 +6163,12 @@ main (int argc, char **argv)
 
   xmalloc_set_program_name (programname);
 
+  if (getenv ("GCCSERVER") != NULL)
+    {
+      use_server = 1;
+      use_pipes = 1;		/* FIXME... need better processing */
+    }
+
   expandargv (&argc, &argv);
 
   /* Determine if any expansions were made.  */
@@ -6482,6 +6523,13 @@ main (int argc, char **argv)
       /* We do not exit here.  Instead we have created a fake input file
 	 called 'help-dummy' which needs to be compiled, and we pass this
 	 on the various sub-processes, along with the --help switch.  */
+    }
+
+  if (server)
+    {
+      /* FIXME: allow more than cc1... */
+      server_start (find_a_file (&exec_prefixes, "cc1", X_OK, 0));
+      return 0;
     }
 
   if (verbose_flag)
@@ -7937,4 +7985,14 @@ print_asm_header_spec_function (int arg ATTRIBUTE_UNUSED,
   printf (_("Use \"-Wa,OPTION\" to pass \"OPTION\" to the assembler.\n\n"));
   fflush (stdout);
   return NULL;
+}
+
+
+
+void
+server_callback (int ARG_UNUSED (fd),
+		 char ** ARG_UNUSED (cc1_argv),
+		 char ** ARG_UNUSED (as_argv))
+{
+  gcc_unreachable ();
 }
