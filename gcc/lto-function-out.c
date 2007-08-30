@@ -297,6 +297,126 @@ struct output_block
 static void output_expr_operand (struct output_block *, tree);
 
 
+#ifdef LTO_STREAM_DEBUGGING
+#define LTO_SET_DEBUGGING_STREAM(STREAM,CONTEXT)	\
+do { \
+  ob-> STREAM = xcalloc (1, sizeof (struct output_stream)); \
+  lto_debug_context. CONTEXT = ob-> STREAM; \
+  lto_debug_context.current_data = ob-> STREAM; \
+  gcc_assert (lto_debug_context.indent == 0);  \
+} while (0)
+#define LTO_CLEAR_DEBUGGING_STREAM(STREAM) \
+  free (ob-> STREAM)
+#else
+#define LTO_SET_DEBUGGING_STREAM(STREAM,CONTEXT)
+#define LTO_CLEAR_DEBUGGING_STREAM(STREAM)  (void)0
+#endif
+
+
+/* Create the output block and return it.  IS_FUNTION is true if this
+   is for a function and false for a constructor.  */
+
+static struct output_block *
+create_output_block (bool is_function)
+{
+  struct output_block *ob = xcalloc (1, sizeof (struct output_block));
+
+  ob->main_stream = xcalloc (1, sizeof (struct output_stream));
+  ob->string_stream = xcalloc (1, sizeof (struct output_stream));
+  if (is_function)
+    {
+      ob->local_decl_index_stream = xcalloc (1, sizeof (struct output_stream));
+      ob->local_decl_stream = xcalloc (1, sizeof (struct output_stream));
+      ob->named_label_stream = xcalloc (1, sizeof (struct output_stream));
+      ob->ssa_names_stream = xcalloc (1, sizeof (struct output_stream));
+      ob->cfg_stream = xcalloc (1, sizeof (struct output_stream));
+    }
+#ifdef LTO_STREAM_DEBUGGING
+  lto_debug_context.out = debug_out_fun;
+  lto_debug_context.indent = 0;
+#endif
+
+  ob->last_file = NULL;
+  ob->last_line = -1;
+
+  if (is_function)
+    {
+      ob->label_hash_table
+	= htab_create (37, hash_label_slot_node, eq_label_slot_node, free);
+      ob->local_decl_hash_table
+	= htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
+    }
+
+  ob->field_decl_hash_table
+    = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
+  ob->fn_decl_hash_table
+    = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
+  ob->var_decl_hash_table
+    = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
+  ob->string_hash_table
+    = htab_create (37, hash_string_slot_node, eq_string_slot_node, free);
+  ob->type_hash_table
+    = htab_create (37, hash_type_slot_node, eq_type_slot_node, free);
+
+  /* The unnamed labels must all be negative.  */
+  ob->next_unnamed_label_index = -1;
+  return ob;
+}
+
+
+/* Destroy the output block OB.  IS_FUNTION is true if this is for a
+   function and false for a constructor.  */
+
+static void
+destroy_output_block (struct output_block * ob, bool is_function)
+{
+  if (is_function)
+    {
+      htab_delete (ob->label_hash_table);
+      htab_delete (ob->local_decl_hash_table);
+    }
+  htab_delete (ob->field_decl_hash_table);
+  htab_delete (ob->fn_decl_hash_table);
+  htab_delete (ob->var_decl_hash_table);
+  htab_delete (ob->string_hash_table);
+  htab_delete (ob->type_hash_table);
+
+  free (ob->main_stream);
+  free (ob->string_stream);
+  if (is_function)
+    {
+      free (ob->local_decl_index_stream);
+      free (ob->local_decl_stream);
+      free (ob->named_label_stream);
+      free (ob->ssa_names_stream);
+      free (ob->cfg_stream);
+    }
+
+  LTO_CLEAR_DEBUGGING_STREAM (debug_main_stream);
+  if (is_function)
+    {
+      LTO_CLEAR_DEBUGGING_STREAM (debug_label_stream);
+      LTO_CLEAR_DEBUGGING_STREAM (debug_ssa_names_stream);
+      LTO_CLEAR_DEBUGGING_STREAM (debug_cfg_stream);
+      LTO_CLEAR_DEBUGGING_STREAM (debug_decl_stream);
+      LTO_CLEAR_DEBUGGING_STREAM (debug_decl_index_stream);
+    }
+
+  if (is_function)
+    {
+      VEC_free (int, heap, ob->local_decls_index);
+      VEC_free (int, heap, ob->local_decls_index_d);
+      VEC_free (tree, heap, ob->named_labels);
+    }
+  VEC_free (tree, heap, ob->local_decls);
+  VEC_free (tree, heap, ob->field_decls);
+  VEC_free (tree, heap, ob->fn_decls);
+  VEC_free (tree, heap, ob->var_decls);
+  VEC_free (tree, heap, ob->types);
+
+  free (ob);
+}
+
 /* Write all of the chars in OBS to the assembler.  Recycle the blocks
    in obs as this is being done.  */
 
@@ -1728,63 +1848,74 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 }
 
 
-/* Create the header in the file.  */
+/* Create the header in the file using OB for t.  */
 
 static void
-produce_asm (struct output_block *ob, tree function)
+produce_asm (struct output_block *ob, tree t, bool is_function)
 {
   int index;
   tree decl;
   tree type;
-  const char *fn = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (function));
-  const char *section_name = concat (LTO_SECTION_NAME_PREFIX, fn, NULL);
-  struct lto_function_header function_header;
+  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t));
+  const char *section_name = concat (LTO_SECTION_NAME_PREFIX, name, NULL);
+  struct lto_header header;
   lto_out_ref out_ref = {0, NULL, NULL};
 
+  memset (&header, 0, sizeof (struct lto_header)); 
+
   /* The entire header is stream computed here.  */
-  switch_to_section (get_section (section_name, SECTION_DEBUG, function));
+  switch_to_section (get_section (section_name, SECTION_DEBUG, t));
   
   /* Write the header which says how to decode the pieces of the
-     function.  */
-  function_header.major_version = LTO_major_version;
-  function_header.minor_version = LTO_minor_version;
+     t.  */
+  header.major_version = LTO_major_version;
+  header.minor_version = LTO_minor_version;
   
-  function_header.num_field_decls = VEC_length (tree, ob->field_decls);
-  function_header.num_fn_decls = VEC_length (tree, ob->fn_decls);
-  function_header.num_var_decls = VEC_length (tree, ob->var_decls);
-  function_header.num_types = VEC_length (tree, ob->types);
-  function_header.num_local_decls = VEC_length (tree, ob->local_decls);
-  function_header.num_named_labels = ob->next_named_label_index;
-  function_header.num_unnamed_labels = -ob->next_unnamed_label_index;
-
-  function_header.compressed_size = 0;
-  function_header.named_label_size = ob->named_label_stream->total_size;
-  function_header.ssa_names_size = ob->ssa_names_stream->total_size;
-  function_header.cfg_size = ob->cfg_stream->total_size;
-  function_header.local_decls_index_size = ob->local_decl_index_stream->total_size;
-  function_header.local_decls_size = ob->local_decl_stream->total_size;
-  function_header.main_size = ob->main_stream->total_size;
-  function_header.string_size = ob->string_stream->total_size;
+  header.num_field_decls = VEC_length (tree, ob->field_decls);
+  header.num_fn_decls = VEC_length (tree, ob->fn_decls);
+  header.num_var_decls = VEC_length (tree, ob->var_decls);
+  header.num_types = VEC_length (tree, ob->types);
+  if (is_function)
+    {
+      header.num_local_decls = VEC_length (tree, ob->local_decls);
+      header.num_named_labels = ob->next_named_label_index;
+      header.num_unnamed_labels = -ob->next_unnamed_label_index;
+    }
+  header.compressed_size = 0;
+  
+  if (is_function)
+    {
+      header.named_label_size = ob->named_label_stream->total_size;
+      header.ssa_names_size = ob->ssa_names_stream->total_size;
+      header.cfg_size = ob->cfg_stream->total_size;
+      header.local_decls_index_size = ob->local_decl_index_stream->total_size;
+      header.local_decls_size = ob->local_decl_stream->total_size;
+    }
+  header.main_size = ob->main_stream->total_size;
+  header.string_size = ob->string_stream->total_size;
 #ifdef LTO_STREAM_DEBUGGING
-  function_header.debug_decl_index_size = ob->debug_decl_index_stream->total_size;
-  function_header.debug_decl_size = ob->debug_decl_stream->total_size;
-  function_header.debug_label_size = ob->debug_label_stream->total_size;
-  function_header.debug_ssa_names_size = ob->debug_ssa_names_stream->total_size;
-  function_header.debug_cfg_size = ob->debug_cfg_stream->total_size;
-  function_header.debug_main_size = ob->debug_main_stream->total_size;
+  if (is_function)
+    {
+      header.debug_decl_index_size = ob->debug_decl_index_stream->total_size;
+      header.debug_decl_size = ob->debug_decl_stream->total_size;
+      header.debug_label_size = ob->debug_label_stream->total_size;
+      header.debug_ssa_names_size = ob->debug_ssa_names_stream->total_size;
+      header.debug_cfg_size = ob->debug_cfg_stream->total_size;
+    }
+  header.debug_main_size = ob->debug_main_stream->total_size;
 #else
-  function_header.debug_decl_index_size = -1;
-  function_header.debug_decl_size = -1;
-  function_header.debug_label_size = -1;
-  function_header.debug_ssa_names_size = -1;
-  function_header.debug_cfg_size = -1;
-  function_header.debug_main_size = -1;
+  header.debug_decl_index_size = -1;
+  header.debug_decl_size = -1;
+  header.debug_label_size = -1;
+  header.debug_ssa_names_size = -1;
+  header.debug_cfg_size = -1;
+  header.debug_main_size = -1;
 #endif
 
-  assemble_string ((const char *)&function_header, 
-		   sizeof (struct lto_function_header));
+  assemble_string ((const char *)&header, 
+		   sizeof (struct lto_header));
 
-  /* Write the global function references.  */
+  /* Write the global field references.  */
   for (index = 0; VEC_iterate(tree, ob->field_decls, index, decl); index++)
     {
       lto_field_ref (decl, &out_ref);
@@ -1822,19 +1953,25 @@ produce_asm (struct output_block *ob, tree function)
 
   /* Put all of the gimple and the string table out the asm file as a
      block of text.  */
-  write_stream (ob->named_label_stream);
-  write_stream (ob->ssa_names_stream);
-  write_stream (ob->cfg_stream);
-  write_stream (ob->local_decl_index_stream);
-  write_stream (ob->local_decl_stream);
+  if (is_function)
+    {
+      write_stream (ob->named_label_stream);
+      write_stream (ob->ssa_names_stream);
+      write_stream (ob->cfg_stream);
+      write_stream (ob->local_decl_index_stream);
+      write_stream (ob->local_decl_stream);
+    }
   write_stream (ob->main_stream);
   write_stream (ob->string_stream);
 #ifdef LTO_STREAM_DEBUGGING
-  write_stream (ob->debug_decl_index_stream);
-  write_stream (ob->debug_decl_stream);
-  write_stream (ob->debug_label_stream);
-  write_stream (ob->debug_ssa_names_stream);
-  write_stream (ob->debug_cfg_stream);
+  if (is_function)
+    {
+      write_stream (ob->debug_decl_index_stream);
+      write_stream (ob->debug_decl_stream);
+      write_stream (ob->debug_label_stream);
+      write_stream (ob->debug_ssa_names_stream);
+      write_stream (ob->debug_cfg_stream);
+    }
   write_stream (ob->debug_main_stream);
 #endif
 }
@@ -1934,18 +2071,6 @@ lto_static_init_local (void)
 static int function_num;
 #endif
 
-#ifdef LTO_STREAM_DEBUGGING
-#define LTO_SET_DEBUGGING_STREAM(STREAM,CONTEXT)	\
-{ \
-  ob-> STREAM = xcalloc (1, sizeof (struct output_stream)); \
-  lto_debug_context. CONTEXT = ob-> STREAM; \
-  lto_debug_context.current_data = ob-> STREAM; \
-  gcc_assert (lto_debug_context.indent == 0);  \
-}
-#else
-#define LTO_SET_DEBUGGING_STREAM(STREAM,CONTEXT)
-#endif
-
 /* Output FN.  */
 
 static void
@@ -1953,46 +2078,9 @@ output_function (tree function)
 {
   struct function *fn = DECL_STRUCT_FUNCTION (function);
   basic_block bb;
-  struct output_block *ob = xcalloc (1, sizeof (struct output_block));
+  struct output_block *ob = create_output_block (true);
 
-  ob->main_stream = xcalloc (1, sizeof (struct output_stream));
-  ob->string_stream = xcalloc (1, sizeof (struct output_stream));
-  ob->local_decl_index_stream = xcalloc (1, sizeof (struct output_stream));
-  ob->local_decl_stream = xcalloc (1, sizeof (struct output_stream));
-  ob->named_label_stream = xcalloc (1, sizeof (struct output_stream));
-  ob->ssa_names_stream = xcalloc (1, sizeof (struct output_stream));
-  ob->cfg_stream = xcalloc (1, sizeof (struct output_stream));
-#ifdef LTO_STREAM_DEBUGGING
-  lto_debug_context.out = debug_out_fun;
-  lto_debug_context.indent = 0;
-#endif
-
-  ob->last_file = NULL;
-  ob->last_line = -1;
-
-  /* This file code is just a hack to get the stuff where it can be
-     measured.  The real lto will put the info into the assembly
-     stream.  */
-
-  ob->label_hash_table
-    = htab_create (37, hash_label_slot_node, eq_label_slot_node, free);
-  ob->local_decl_hash_table
-    = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
-  ob->field_decl_hash_table
-    = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
-  ob->fn_decl_hash_table
-    = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
-  ob->var_decl_hash_table
-    = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
-  ob->string_hash_table
-    = htab_create (37, hash_string_slot_node, eq_string_slot_node, free);
-  ob->type_hash_table
-    = htab_create (37, hash_type_slot_node, eq_type_slot_node, free);
-
-  /* The unnamed labels must all be negative.  */
-  ob->next_unnamed_label_index = -1;
-
-  LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data)
+  LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
 
   /* Make string 0 be a NULL string.  */
   output_1_stream (ob->string_stream, 0);
@@ -2019,41 +2107,52 @@ output_function (tree function)
   output_zero (ob);
   LTO_DEBUG_UNDENT();
 
-  LTO_SET_DEBUGGING_STREAM (debug_label_stream, label_data)
+  LTO_SET_DEBUGGING_STREAM (debug_label_stream, label_data);
   output_named_labels (ob);
 
-  LTO_SET_DEBUGGING_STREAM (debug_ssa_names_stream, ssa_names_data)
+  LTO_SET_DEBUGGING_STREAM (debug_ssa_names_stream, ssa_names_data);
   output_ssa_names (ob, fn);
 
-  LTO_SET_DEBUGGING_STREAM (debug_cfg_stream, cfg_data)
+  LTO_SET_DEBUGGING_STREAM (debug_cfg_stream, cfg_data);
   output_cfg (ob, fn);
 
-  LTO_SET_DEBUGGING_STREAM (debug_decl_stream, decl_data)
+  LTO_SET_DEBUGGING_STREAM (debug_decl_stream, decl_data);
   output_local_vars (ob);
 
-  LTO_SET_DEBUGGING_STREAM (debug_decl_index_stream, decl_index_data)
+  LTO_SET_DEBUGGING_STREAM (debug_decl_index_stream, decl_index_data);
   output_local_vars_index (ob);
 
   /* Create a file to hold the pickled output of this function.  This
      is a temp standin until we start writing sections.  */
-  produce_asm (ob, function);
+  produce_asm (ob, function, true);
 
-  htab_delete (ob->label_hash_table);
-  htab_delete (ob->local_decl_hash_table);
-  htab_delete (ob->field_decl_hash_table);
-  htab_delete (ob->fn_decl_hash_table);
-  htab_delete (ob->var_decl_hash_table);
-  htab_delete (ob->string_hash_table);
-  htab_delete (ob->type_hash_table);
-  VEC_free (int, heap, ob->local_decls_index);
-  VEC_free (int, heap, ob->local_decls_index_d);
-  VEC_free (tree, heap, ob->local_decls);
-  VEC_free (tree, heap, ob->field_decls);
-  VEC_free (tree, heap, ob->fn_decls);
-  VEC_free (tree, heap, ob->named_labels);
-  VEC_free (tree, heap, ob->var_decls);
-  VEC_free (tree, heap, ob->types);
-  free (ob);
+  destroy_output_block (ob, true);
+}
+
+
+/* Output constructor for VAR.  */
+
+static void
+output_constructor_or_init (tree var)
+{
+  struct output_block *ob = create_output_block (false);
+
+  LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
+
+  /* Make string 0 be a NULL string.  */
+  output_1_stream (ob->string_stream, 0);
+
+  LTO_DEBUG_INDENT_TOKEN ("init");
+  output_expr_operand (ob, DECL_INITIAL (var));
+
+  /* The terminator for the constructor.  */
+  output_zero (ob);
+
+  /* Create a file to hold the pickled output of this function.  This
+     is a temp standin until we start writing sections.  */
+  produce_asm (ob, var, false);
+
+  destroy_output_block (ob, false);
 }
 
 
@@ -2063,6 +2162,8 @@ static unsigned int
 lto_output (void)
 {
   struct cgraph_node *node;
+  struct varpool_node *vnode;
+
   section *saved_section = in_section;
 
   lto_static_init_local ();
@@ -2072,6 +2173,11 @@ lto_output (void)
   for (node = cgraph_nodes; node; node = node->next)
     if (node->analyzed && cgraph_is_master_clone (node, false))
       output_function (node->decl);
+
+  /* Process the static vars that have initializers or
+     constructors.  */
+  FOR_EACH_STATIC_INITIALIZER (vnode)
+    output_constructor_or_init (vnode->decl);
 
   /* Put back the assembly section that was there before we started
      writing lto info.  */

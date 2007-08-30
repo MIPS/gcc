@@ -60,8 +60,9 @@
    1) THE HEADER.
 */
 
-/* The is the first part of the record for a function in the .o file.  */
-struct lto_function_header
+/* The is the first part of the record for a function or constructor
+   in the .o file.  */
+struct lto_header
 {
   int16_t major_version;          /* LTO_major_version. */
   int16_t minor_version;          /* LTO_minor_version. */
