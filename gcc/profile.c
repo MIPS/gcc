@@ -49,6 +49,9 @@ along with GCC; see the file COPYING3.  If not see
 /* ??? Should calculate branch probabilities before instrumenting code, since
    then we can use arc counts to help decide which arcs to instrument.  */
 
+/* FIXME tuples.  */
+#if 0
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -95,10 +98,14 @@ struct bb_info {
 #define EDGE_INFO(e)  ((struct edge_info *) (e)->aux)
 #define BB_INFO(b)  ((struct bb_info *) (b)->aux)
 
+#endif
+
 /* Counter summary from the last set of coverage counts read.  */
 
 const struct gcov_ctr_summary *profile_info;
 
+/* FIXME tuples  */
+#if 0
 /* Collect statistics on the performance of this pass for the entire source
    file.  */
 
@@ -1258,4 +1265,4 @@ tree_register_profile_hooks (void)
   gcc_assert (current_ir_type () == IR_GIMPLE);
   profile_hooks = &tree_profile_hooks;
 }
-
+#endif

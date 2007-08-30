@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -33,6 +34,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 
 
+/* FIXME tuples.  */
+#if 0
 /* For each complex ssa name, a lattice value.  We're interested in finding
    out whether a complex number is degenerate in some way, having only real
    or only complex parts.  */
@@ -1475,12 +1478,15 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
     }
 }
 
+#endif
 
 /* Entry point for complex operation lowering during optimization.  */
 
 static unsigned int
 tree_lower_complex (void)
 {
+  /* FIXME tuples  */
+#if 0
   int old_last_basic_block;
   block_stmt_iterator bsi;
   basic_block bb;
@@ -1521,6 +1527,9 @@ tree_lower_complex (void)
   VEC_free (tree, heap, complex_ssa_name_components);
   VEC_free (complex_lattice_t, heap, complex_lattice_values);
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 struct tree_opt_pass pass_lower_complex = 
@@ -1550,6 +1559,8 @@ struct tree_opt_pass pass_lower_complex =
 static unsigned int
 tree_lower_complex_O0 (void)
 {
+  /* FIXME tuples  */
+#if 0
   int old_last_basic_block = last_basic_block;
   block_stmt_iterator bsi;
   basic_block bb;
@@ -1562,6 +1573,9 @@ tree_lower_complex_O0 (void)
 	expand_complex_operations_1 (&bsi);
     }
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 static bool

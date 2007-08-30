@@ -40,6 +40,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-vectorizer.h"
 #include "toplev.h"
 
+/* FIXME tuples.  */
+#if 0
 /* Main analysis functions.  */
 static loop_vec_info vect_analyze_loop_form (struct loop *);
 static bool vect_analyze_data_refs (loop_vec_info);
@@ -3435,3 +3437,4 @@ vect_analyze_loop (struct loop *loop)
 
   return loop_vinfo;
 }
+#endif

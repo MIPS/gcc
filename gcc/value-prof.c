@@ -45,6 +45,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "pointer-set.h"
 
+/* FIXME tuples.  */
+#if 0
 static struct value_prof_hooks *value_prof_hooks;
 
 /* In this file value profile based optimizations are placed.  Currently the
@@ -1707,3 +1709,4 @@ value_profile_transformations (void)
 }
 
 
+#endif

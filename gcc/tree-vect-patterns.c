@@ -40,6 +40,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "toplev.h"
 
+/* FIXME tuples.  */
+#if 0
 /* Function prototypes */
 static void vect_pattern_recog_1 
   (tree (* ) (tree, tree *, tree *), block_stmt_iterator);
@@ -830,3 +832,4 @@ vect_pattern_recog (loop_vec_info loop_vinfo)
         }
     }
 }
+#endif

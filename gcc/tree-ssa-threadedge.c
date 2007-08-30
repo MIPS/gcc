@@ -43,6 +43,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "params.h"
 
+/* FIXME tuples.  */
+#if 0
 /* To avoid code explosion due to jump threading, we limit the
    number of statements we are going to copy.  This variable
    holds the number of statements currently seen that we'll have
@@ -570,3 +572,4 @@ thread_across_edge (tree dummy_cond,
  fail:
   remove_temporary_equivalences (stack);
 }
+#endif

@@ -88,14 +88,16 @@ along with GCC; see the file COPYING3.  If not see
 */
 
 static void
-gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations,
-			  VEC (data_reference_p, heap) *datarefs,
-			  struct loop *loop,
-			  struct loop *first_loop,
-			  unsigned int *dependence_steps, 
-			  unsigned int *nb_deps_not_carried_by_loop, 
-			  double_int *access_strides)
+gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations ATTRIBUTE_UNUSED,
+			  VEC (data_reference_p, heap) *datarefs ATTRIBUTE_UNUSED,
+			  struct loop *loop ATTRIBUTE_UNUSED,
+			  struct loop *first_loop ATTRIBUTE_UNUSED,
+			  unsigned int *dependence_steps ATTRIBUTE_UNUSED, 
+			  unsigned int *nb_deps_not_carried_by_loop ATTRIBUTE_UNUSED, 
+			  double_int *access_strides ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   unsigned int i, j;
   struct data_dependence_relation *ddr;
   struct data_reference *dr;
@@ -161,6 +163,9 @@ gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations,
 	  (*access_strides) = double_int_add (*access_strides, dstride);
 	}
     }
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Attempt to apply interchange transformations to TRANS to maximize the

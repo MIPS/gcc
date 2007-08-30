@@ -6666,7 +6666,12 @@ c_gimple_diagnostics_recursively (tree fndecl)
 
   /* Notice when OpenMP structured block constraints are violated.  */
   if (flag_openmp)
+    /* FIXME tuples.  */
+#if 0
     diagnose_omp_structured_block_errors (fndecl);
+#else
+  gcc_unreachable ();
+#endif
 
   /* Finalize all nested functions now.  */
   cgn = cgraph_node (fndecl);

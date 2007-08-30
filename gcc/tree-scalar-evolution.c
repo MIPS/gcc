@@ -252,6 +252,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "params.h"
 
+/* FIXME tuples.  */
+#if 0
 static tree analyze_scalar_evolution_1 (struct loop *, tree, tree);
 
 /* The cached information about a ssa name VAR, claiming that inside LOOP,
@@ -2726,6 +2728,8 @@ scev_finalize (void)
 unsigned int
 scev_const_prop (void)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb;
   tree name, phi, next_phi, type, ev;
   struct loop *loop, *ex_loop;
@@ -2859,6 +2863,10 @@ scev_const_prop (void)
 	}
     }
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 #include "gt-tree-scalar-evolution.h"
+#endif

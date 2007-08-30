@@ -37,6 +37,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 
 
+/* FIXME tuples.  */
+#if 0
 /* Build a constant of type TYPE, made of VALUE's bits replicated
    every TYPE_SIZE (INNER_TYPE) bits to fit TYPE's precision.  */
 static tree
@@ -567,3 +569,4 @@ struct tree_opt_pass pass_lower_vector_ssa =
 };
 
 #include "gt-tree-vect-generic.h"
+#endif

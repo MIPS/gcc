@@ -44,6 +44,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "params.h"
 
+/* FIXME tuples.  */
+#if 0
 /* This file implements optimizations on the dominator tree.  */
 
 
@@ -231,6 +233,7 @@ free_all_edge_infos (void)
 	}
     }
 }
+#endif
 
 /* Jump threading, redundancy elimination and const/copy propagation. 
 
@@ -241,6 +244,8 @@ free_all_edge_infos (void)
 static unsigned int
 tree_ssa_dominator_optimize (void)
 {
+  /* FIXME tuples.  */
+#if 0
   struct dom_walk_data walk_data;
   unsigned int i;
 
@@ -359,6 +364,9 @@ tree_ssa_dominator_optimize (void)
   VEC_free (tree, heap, const_and_copies_stack);
   VEC_free (tree_p, heap, stmts_to_rescan);
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 static bool
@@ -389,6 +397,8 @@ struct tree_opt_pass pass_dominator =
 };
 
 
+/* FIXME tuples.  */
+#if 0
 /* Given a stmt CONDSTMT containing a COND_EXPR, canonicalize the
    COND_EXPR into a canonical form.  */
 
@@ -2428,6 +2438,7 @@ eliminate_degenerate_phis_1 (basic_block bb, bitmap interesting_names)
        son = next_dom_son (CDI_DOMINATORS, son))
     eliminate_degenerate_phis_1 (son, interesting_names);
 }
+#endif
 
 
 /* A very simple pass to eliminate degenerate PHI nodes from the
@@ -2459,6 +2470,8 @@ eliminate_degenerate_phis_1 (basic_block bb, bitmap interesting_names)
 static unsigned int
 eliminate_degenerate_phis (void)
 {
+  /* FIXME tuples.  */
+#if 0
   bitmap interesting_names;
   bitmap interesting_names1;
 
@@ -2532,6 +2545,9 @@ eliminate_degenerate_phis (void)
   BITMAP_FREE (interesting_names);
   BITMAP_FREE (interesting_names1);
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 struct tree_opt_pass pass_phi_only_cprop =

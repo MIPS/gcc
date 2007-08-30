@@ -1,3 +1,190 @@
+2007-08-30  Chris Matthews  <chrismatthews@google.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* gimplify.c (gimplify_body): Call verify_gimple_seq if
+	ENABLE_TYPES_CHECKING is set.
+	* gimple.h (is_gimple_omp): New.
+	* tree-cfg.c (verify_gimple_tree_expr): Rename from
+	verify_gimple_expr.
+	Verify tree nodes that should disappear after conversion to
+	GIMPLE.
+	Do not handle COND_EXPR, CALL_EXPR.
+	(verify_gimple_modify_stmt): Remove.
+	(verify_gimple_call): New.
+	(verify_gimple_cond): New.
+	(verify_gimple_assign): New.
+	(verify_gimple_return): New.
+	(verify_gimple_switch): New.
+	(verify_gimple_stmt):  Change input argument to type gimple.
+	Call new verifiers.
+	(verify_gimple_seq): Rename from verify_gimple_1.
+
+2007-08-30  Diego Novillo  <dnovillo@google.com>
+
+	* gimple-low.c (gimple_try_catch_may_fallthru): Call
+	gimple_code instead of gimple_flags.
+	* gimple.c (set_gimple_body): Use gimple_seq instead of gimple
+	when accessing vector gimple_bodies_vec.
+	(gimple_body): Likewise.
+	(gimple_assign_copy_p): New.
+	* gimple.h (enum gimple_try_kind): New.
+	(GIMPLE_TRY_CATCH): Move inside enum gimple_try_kind.
+	(GIMPLE_TRY_FINALLY): Likewise.
+	(gimple_assign_copy_p): Declare.
+	(gimple_assign_rhs_code): New.
+	Update callers that used to call gimple_flags.
+	(gimple_cond_code): New.
+	Update callers that used to call gimple_flags.
+	(gimple_try_kind): New.
+	(gimple_nop_p): Tidy comment.
+	* gimple-pretty-print.c (dump_unary_rhs): New.
+	(dump_gimple_assign): Call it.
+
+2007-08-30  Diego Novillo  <dnovillo@google.com>
+
+	* gimplify.c (gimplify_cond_expr): When gimplifying a ?: call
+	gimplify_stmt with the expression just built instead of the
+	original expression.
+	Use the correct labels when calling build_gimple_cond.
+
+
+2007-08-30  Diego Novillo  <dnovillo@google.com>
+
+	* tree-vrp.c: Disable.
+	* tree-loop-linear.c: Disable.
+	* tree-into-ssa.c: Disable.
+	* tree-ssa-loop-im.c: Disable.
+	* tree-complex.c: Disable.
+	* cgraphbuild.c: Disable most functions.
+	* tree-ssa-threadupdate.c: Disable.
+	* tree-ssa-loop-niter.c: Disable.
+	* tree-pretty-print.c: Disable.
+	* tree-ssa-loop-unswitch.c: Disable.
+	* tree-ssa-loop-manip.c: Disable.
+	* value-prof.c: Disable.
+	* tree-tailcall.c: Disable.
+	* tree-ssa-loop-ch.c: Disable.
+	* tree-scalar-evolution.c: Disable.
+	* tree-phinodes.c: Disable.
+	* omp-low.c: Disable.
+	* tree-ssa-dse.c: Disable.
+	* ipa-reference.c: Disable.
+	* tree-ssa-uncprop.c: Disable.
+	* tree-ssa-sccvn.c: Disable.
+	* cgraphunit.c (verify_cgraph_node): Disable basic block traversal.
+	* tree-ssa-copyrename.c: Disable.
+	* tree-ssa-ccp.c: Disable most functions.
+	* tree-ssa-loop-ivopts.c: Disable.
+	* tree-stdarg.c: Disable.
+	* tree-ssa-math-opts.c: Disable.
+	* tree-ssa-dom.c: Disable most functions.
+	* tree-nrv.c: Disable.
+	* tree-ssa-propagate.c: Disable.
+	* gimple-dummy.c: New file.
+	* tree-ssa-alias.c: Disable most functions.
+	* tree-ssa-sink.c: Disable.
+	* expr.c (expand_expr_real): Disable call to
+	lookup_stmt_eh_region.
+	* tree-ssa-loop-ivcanon.c: Disable.
+	* predict.c (strip_builtin_expect): Disable.
+	(tree_predict_by_opcode): Disable.
+	(return_prediction): Disable.
+	(apply_return_prediction): Disable.
+	(tree_bb_level_predictions): Disable.
+	(tree_estimate_probability): Disable.
+	(predict_paths_leading_to): Disable.
+	* gimple-iterator.c (gsi_replace): Mark unused arguments with
+	ATTRIBUTE_UNUSED.
+	* tree-ssa-ifcombine.c: Disable.
+	* matrix-reorg.c: Disable.
+	* c-decl.c (c_gimple_diagnostics_recursively): Disable call to
+	diagnose_omp_structured_block_errors.
+	* tree-eh.c: Disable most functions.
+	* tree-vectorizer.c: Disable.
+	* tree-vectorizer.h (nested_in_vect_loop_p): Disable.
+	* ipa-type-escape.c: Disable.
+	* tree-if-conv.c: Disable.
+	* profile.c: Disable.
+	* tree-data-ref.c: Disable.
+	* tree-flow-inline.h (bsi_start): Set bsi.gsi to NULL if the
+	block is invalid.
+	(bsi_last): Likewise.
+	(op_iter_next_use): Disable call to PHI_ARG_DEF_PTR.
+	* tree-vect-analyze.c: Disable.
+	* gimplify.c (gimple_conditional_context): Disable.
+	(gimple_push_cleanup): Disable.
+	(gimplify_omp_parallel): Disable calls to
+	push_gimplify_context and pop_gimplify_context.
+	* tree-ssa-phiopt.c: Disable.
+	* calls.c (emit_call_1): Disable calls to lookup_stmt_eh_region.
+	(expand_call): Likewise.
+	(emit_library_call_value_1): Initialize low_to_save and
+	high_to_save.
+	* tree-ssa-coalesce.c: Disable.
+	* tree-dfa.c (make_rename_temp): Disable call to
+	mark_sym_for_renaming.
+	(find_new_referenced_vars_1): Likewise.
+	(collect_dfa_stats): Disable CFG iteration.
+	(collect_dfa_stats_r): Disable.
+	(mark_symbols_for_renaming): Disable.
+	* cfgexpand.c (maybe_dump_rtl_for_tree_stmt): Disable.
+	(label_rtx_for_bb): Disable.
+	(expand_gimple_cond_expr): Disable.
+	(expand_gimple_tailcall): Disable.
+	(expand_gimple_basic_block): Disable.
+	* tree-cfgcleanup.c: Disable.
+	* tree-ssa-pre.c: Disable.
+	* tree-ssa-live.c: Disable.
+	* tree-sra.c: Disable most functions..
+	* tree-predcom.c: Disable.
+	* tree-mudflap.c: Disable.
+	* ipa-prop.c: Disable.
+	* tree-ssa-copy.c (may_propagate_copy): Disable.
+	(propagate_value): Disable.
+	(execute_copy_prop): Disable.
+	(do_copy_prop): Disable.
+	(store_copy_prop): Disable.
+	* tree-ssa-forwprop.c: Disable.
+	* tree-ssa-dce.c: Disable.
+	* tree-vect-patterns.c: Disable.
+	* tree-ssa-ter.c: Disable.
+	* tree-ssa.c: Disable.
+	* lambda-code.c: Disable.
+	* tree-ssa-loop-prefetch.c: Disable.
+	* tree-inline.c: Disable most functions.
+	* tree-optimize.c (execute_fixup_cfg_pre_ipa): Disable.
+	(execute_fixup_cfg): Disable.
+	(execute_cleanup_cfg_post_optimizing): Disable.
+	(execute_fixup_cfg): Disable.
+	* tree-vect-transform.c: Disable.
+	* tree-object-size.c: Disable.
+	* tree-outof-ssa.c: Disable.
+	* cfgloop.c (find_subloop_latch_edge_by_profile): Disable.
+	(find_subloop_latch_edge_by_ivs): Disable.
+	* tree-profile.c: Disable most functions.
+	* c-gimplify.c (add_block_to_enclosing): Disable.
+	* tree-vect-generic.c: Disable.
+	* tree-flow.h (struct function_ann_d): Disable field
+	reference_vars_info.
+	* Makefile.in: Force -Werror even during stage 1.
+	(OBJS-common): Add gimple-dummy.o.
+	(GTFILES): Remove tree-scalar-evolution.c,
+	tree-ssa-propagate.c, tree-vect-generic.c,
+	tree-ssa-structalias.h, tree-ssa-structalias.c,
+	ipa-reference.h, omp-low.c, tree-phinodes.c, ipa-reference.c
+	* tree-ssa-structalias.c: Disable.
+	* tree-cfg.c: Disable most functions.
+	* passes.c (finish_optimization_passes): Disable call to
+	end_branch_prob.
+	(init_optimization_passes): Disable the registration of
+	several passes.
+	(execute_function_todo): Disable calls to update_ssa and
+	need_ssa_update_p.
+	* tree-ssa-reassoc.c: Disable.
+	* tree-ssanames.c: Disable.
+	* tree-ssa-threadedge.c: Disable.
+	* tree-ssa-operands.c: Disable.
+
 2007-08-29  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-ssa-operands.h (pop_stmt_changes, push_stmt_changes):

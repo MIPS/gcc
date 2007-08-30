@@ -38,6 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "tree-chrec.h"
 
+/* FIXME tuples.  */
+#if 0
 /* Set of SSA names found during the dominator traversal of a
    sub-graph in find_assert_locations.  */
 static sbitmap found_in_subgraph;
@@ -6145,3 +6147,4 @@ struct tree_opt_pass pass_vrp =
   0					/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

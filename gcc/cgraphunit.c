@@ -668,6 +668,8 @@ verify_cgraph_node (struct cgraph_node *node)
 	  FOR_EACH_BB_FN (this_block, this_cfun)
 	    for (bsi = bsi_start (this_block); !bsi_end_p (bsi); bsi_next (&bsi))
 	      {
+		/* FIXME tuples.  */
+#if 0
 		tree stmt = bsi_stmt (bsi);
 		tree call = get_call_expr_in (stmt);
 		tree decl;
@@ -699,6 +701,9 @@ verify_cgraph_node (struct cgraph_node *node)
 			error_found = true;
 		      }
 		  }
+#else
+		gcc_unreachable ();
+#endif
 	      }
 	  pointer_set_destroy (visited_nodes);
 	}

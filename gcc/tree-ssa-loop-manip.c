@@ -38,6 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-inline.h"
 
+/* FIXME tuples.  */
+#if 0
 /* Creates an induction variable with value BASE + STEP * iteration in LOOP.
    It is expected that neither BASE nor STEP are shared with other expressions
    (unless the sharing rules allow this).  Use VAR as a base var_decl for it
@@ -1068,3 +1070,4 @@ tree_unroll_loop (struct loop *loop, unsigned factor,
   tree_transform_and_unroll_loop (loop, factor, exit, desc,
 				  NULL, NULL);
 }
+#endif

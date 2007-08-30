@@ -37,6 +37,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tree-inline.h"
 
+/* FIXME tuples.  */
+#if 0
 /* Duplicates headers of loops if they are small enough, so that the statements
    in the loop body are always executed when the loop is entered.  This
    increases effectiveness of code motion optimizations, and reduces the need
@@ -260,3 +262,4 @@ struct tree_opt_pass pass_ch =
   0					/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

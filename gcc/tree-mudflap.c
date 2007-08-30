@@ -56,7 +56,10 @@ along with GCC; see the file COPYING3.  If not see
 /* Helpers.  */
 static tree mf_build_string (const char *string);
 static tree mf_varname_tree (tree);
+/* FIXME tuples.  */
+#if 0
 static tree mf_file_function_line_tree (location_t);
+#endif
 
 /* Indirection-related instrumentation.  */
 static void mf_decl_cache_locals (void);
@@ -197,6 +200,8 @@ mf_varname_tree (tree decl)
 
 /* And another friend, for producing a simpler message.  */
 
+/* FIXME tuples.  */
+#if 0
 static tree
 mf_file_function_line_tree (location_t location)
 {
@@ -243,6 +248,7 @@ mf_file_function_line_tree (location_t location)
 
   return result;
 }
+#endif
 
 
 /* global tree nodes */
@@ -466,11 +472,21 @@ mf_decl_cache_locals (void)
      globals into the cache variables.  */
   g = build_gimple_assign (mf_cache_shift_decl_l, mf_cache_shift_decl);
   set_gimple_locus (g, DECL_SOURCE_LOCATION (current_function_decl));
+  /* FIXME tuples.  */
+#if 0
   insert_edge_copies (g, ENTRY_BLOCK_PTR);
+#else
+  gcc_unreachable ();
+#endif
 
   g = build_gimple_assign (mf_cache_mask_decl_l, mf_cache_mask_decl);
   set_gimple_locus (g, DECL_SOURCE_LOCATION (current_function_decl));
+  /* FIXME tuples.  */
+#if 0
   insert_edge_copies (g, ENTRY_BLOCK_PTR);
+#else
+  gcc_unreachable ();
+#endif
 
   bsi_commit_edge_inserts ();
 }
@@ -484,6 +500,8 @@ mf_decl_clear_locals (void)
   mf_cache_mask_decl_l = NULL_TREE;
 }
 
+/* FIXME tuples.  */
+#if 0
 static void
 mf_build_check_statement_for (tree base, tree limit,
                               block_stmt_iterator *instr_bsi,
@@ -661,7 +679,12 @@ mf_build_check_statement_for (tree base, tree limit,
      the statement we're instrumenting was originally in.  */
   bsi = bsi_last (cond_bb);
   for (tsi = head; ! tsi_end_p (tsi); tsi_next (&tsi))
+    /* FIXME tuples.  */
+#if 0
     bsi_insert_after (&bsi, tsi_stmt (tsi), BSI_CONTINUE_LINKING);
+#else
+    gcc_unreachable ();
+#endif
 
   /*  Now build up the body of the cache-miss handling:
 
@@ -699,10 +722,16 @@ mf_build_check_statement_for (tree base, tree limit,
   /* Insert the check code in the THEN block.  */
   bsi = bsi_start (then_bb);
   for (tsi = head; ! tsi_end_p (tsi); tsi_next (&tsi))
+    /* FIXME tuples.  */
+#if 0
     bsi_insert_after (&bsi, tsi_stmt (tsi), BSI_CONTINUE_LINKING);
+#else
+    gcc_unreachable ();
+#endif
 
   *instr_bsi = bsi_start (join_bb);
 }
+#endif
 
 
 /* Check whether the given decl, generally a VAR_DECL or PARM_DECL, is
@@ -727,6 +756,8 @@ mf_decl_eligible_p (tree decl)
 }
 
 
+/* FIXME tuples.  */
+#if 0
 static void
 mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
                    location_t *locus, tree dirflag)
@@ -910,6 +941,7 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
 
   mf_build_check_statement_for (base, limit, iter, locus, dirflag);
 }
+#endif
 
 static void
 mf_xform_derefs (void)
@@ -924,6 +956,8 @@ mf_xform_derefs (void)
       next = bb->next_bb;
       for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
         {
+	  /* FIXME tuples.  */
+#if 0
           tree s = bsi_stmt (i);
 
           /* Only a few GIMPLE statements can reference memory.  */
@@ -952,6 +986,9 @@ mf_xform_derefs (void)
             default:
               ;
             }
+#else
+	  gcc_unreachable ();
+#endif
         }
       bb = next;
     }

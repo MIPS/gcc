@@ -58,6 +58,8 @@ struct nrv_data
   tree result;
 };
 
+/* FIXME tuples.  */
+#if 0
 static tree finalize_nrv_r (tree *, int *, void *);
 
 /* Callback for the tree walker.
@@ -87,6 +89,7 @@ finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
   /* Keep iterating.  */
   return NULL_TREE;
 }
+#endif
 
 /* Main entry point for return value optimizations.
 
@@ -103,6 +106,8 @@ finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
 static unsigned int
 tree_nrv (void)
 {
+  /* FIXME tuples.  */
+#if 0
   tree result = DECL_RESULT (current_function_decl);
   tree result_type = TREE_TYPE (result);
   tree found = NULL;
@@ -219,6 +224,9 @@ tree_nrv (void)
   /* FOUND is no longer used.  Ensure it gets removed.  */
   var_ann (found)->used = 0;
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 struct tree_opt_pass pass_nrv = 
@@ -247,6 +255,8 @@ struct tree_opt_pass pass_nrv =
    subvars are clobbered.  Note that we could do better, for example, by
    attempting to doing points-to analysis on INDIRECT_REFs.  */
 
+/* FIXME tuples.  */
+#if 0
 static bool
 dest_safe_for_nrv_p (tree dest)
 {
@@ -268,6 +278,7 @@ dest_safe_for_nrv_p (tree dest)
       return false;
   return true;
 }
+#endif
 
 /* Walk through the function looking for GIMPLE_MODIFY_STMTs with calls that
    return in memory on the RHS.  For each of these, determine whether it is
@@ -284,6 +295,8 @@ dest_safe_for_nrv_p (tree dest)
 static unsigned int
 execute_return_slot_opt (void)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb;
 
   FOR_EACH_BB (bb)
@@ -306,6 +319,9 @@ execute_return_slot_opt (void)
 	}
     }
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 struct tree_opt_pass pass_return_slot = 

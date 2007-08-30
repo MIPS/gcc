@@ -34,6 +34,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "flags.h"
 
+/* FIXME tuples.  */
+#if 0
 /* This pass propagates the RHS of assignment statements into use
    sites of the LHS of the assignment.  It's basically a specialized
    form of tree combination.   It is hoped all of this can disappear
@@ -1369,3 +1371,4 @@ struct tree_opt_pass pass_phiprop = {
   0				/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

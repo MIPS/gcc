@@ -267,7 +267,7 @@ gsi_split_seq_before (gimple_stmt_iterator *i)
    statement is moved to the new statement.  */
 
 void
-gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info)
+gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info ATTRIBUTE_UNUSED)
 {
 #if 0
   int eh_region;

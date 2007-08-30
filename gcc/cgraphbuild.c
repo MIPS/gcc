@@ -84,6 +84,8 @@ record_reference (tree *tp, int *walk_subtrees, void *data)
    NODE.  Those get either nullified or usually overwritten by more precise
    reason later.  */
 
+/* FIXME tuples.  */
+#if 0
 static void
 initialize_inline_failed (struct cgraph_node *node)
 {
@@ -104,6 +106,7 @@ initialize_inline_failed (struct cgraph_node *node)
 	e->inline_failed = N_("function not considered for inlining");
     }
 }
+#endif
 
 /* Create cgraph edges for function calls.
    Also look for functions and variables having addresses taken.  */
@@ -111,6 +114,8 @@ initialize_inline_failed (struct cgraph_node *node)
 static unsigned int
 build_cgraph_edges (void)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb;
   struct cgraph_node *node = cgraph_node (current_function_decl);
   struct pointer_set_t *visited_nodes = pointer_set_create ();
@@ -169,6 +174,9 @@ build_cgraph_edges (void)
   pointer_set_destroy (visited_nodes);
   initialize_inline_failed (node);
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 struct tree_opt_pass pass_build_cgraph_edges =
@@ -206,6 +214,8 @@ record_references_in_initializer (tree decl)
 static unsigned int
 rebuild_cgraph_edges (void)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb;
   struct cgraph_node *node = cgraph_node (current_function_decl);
   block_stmt_iterator bsi;
@@ -238,6 +248,9 @@ rebuild_cgraph_edges (void)
   initialize_inline_failed (node);
   gcc_assert (!node->global.inlined_to);
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 struct tree_opt_pass pass_rebuild_cgraph_edges =

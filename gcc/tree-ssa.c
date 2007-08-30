@@ -45,6 +45,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "toplev.h"
 
+/* FIXME tuples.  */
+#if 0
 /* Remove the corresponding arguments from the PHI nodes in E's
    destination block and redirect it to DEST.  Return redirected edge.
    The list of removed arguments is stored in PENDING_STMT (e).  */
@@ -884,6 +886,7 @@ delete_tree_ssa (void)
 
   cfun->gimple_df = NULL;
 }
+#endif
 
 /* Helper function for useless_type_conversion_p.  */
 
@@ -1082,6 +1085,8 @@ tree_ssa_useless_type_conversion (tree expr)
 }
 
 
+/* FIXME tuples.  */
+#if 0
 /* Internal helper for walk_use_def_chains.  VAR, FN and DATA are as
    described in walk_use_def_chains.
    
@@ -1380,3 +1385,4 @@ struct tree_opt_pass pass_late_warn_uninitialized =
   0				        /* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

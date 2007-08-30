@@ -31,6 +31,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-live.h"
 
 
+/* FIXME tuples.  */
+#if 0
 /* Temporary Expression Replacement (TER)
 
    Replace SSA version variables during out-of-ssa with their defining
@@ -732,4 +734,5 @@ debug_ter (FILE *f, temp_expr_table_p t)
 
   fprintf (f, "\n----------\n");
 }
+#endif
 #endif

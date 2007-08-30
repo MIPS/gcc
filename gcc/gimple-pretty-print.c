@@ -139,13 +139,69 @@ debug_gimple_seq (gimple_seq seq)
 }
 
 
+/* Helper for dump_gimple_assign.  Print the unary RHS of the
+   assignment GS.  BUFFER, SPC and FLAGS are as in dump_gimple_stmt.  */
+
+static void
+dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  enum tree_code rhs_code = gimple_assign_rhs_code (gs);
+  tree lhs = gimple_assign_lhs (gs);
+  tree rhs = gimple_assign_rhs1 (gs);
+
+  switch (rhs_code)
+    {
+    case FIXED_CONVERT_EXPR:
+    case FIX_TRUNC_EXPR:
+    case FLOAT_EXPR:
+    case CONVERT_EXPR:
+      pp_string (buffer, tree_code_name [rhs_code]);
+      pp_string (buffer, " <");
+      dump_generic_node (buffer, TREE_TYPE (lhs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, rhs, spc, flags, false);
+      pp_string (buffer, ">");
+      break;
+
+    case NOP_EXPR:
+      pp_string (buffer, "(");
+      dump_generic_node (buffer, TREE_TYPE (lhs), spc, flags, false);
+      pp_string (buffer, ") ");
+      dump_generic_node (buffer, rhs, spc, flags, false);
+      break;
+
+    default:
+      if (TREE_CODE_CLASS (rhs_code) == tcc_declaration
+	  || TREE_CODE_CLASS (rhs_code) == tcc_constant
+	  || TREE_CODE_CLASS (rhs_code) == tcc_reference
+	  || rhs_code == SSA_NAME)
+	; /* do nothing.  */
+      else if (rhs_code == ADDR_EXPR)
+	pp_string (buffer, "&");
+      else if (rhs_code == BIT_NOT_EXPR)
+	pp_string (buffer, "~");
+      else if (rhs_code == TRUTH_NOT_EXPR)
+	pp_string (buffer, "!");
+      else
+	{
+	  pp_string (buffer, "[");
+	  pp_string (buffer, tree_code_name [rhs_code]);
+	  pp_string (buffer, "] ");
+	}
+
+      dump_generic_node (buffer, rhs, spc, flags, false);
+      break;
+    }
+}
+
+
 /* Helper for dump_gimple_assign.  Print the binary RHS of the
    assignment GS.  BUFFER, SPC and FLAGS are as in dump_gimple_stmt.  */
 
 static void
 dump_binary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  switch (gimple_flags (gs))
+  switch (gimple_assign_rhs_code (gs))
     {
     case COMPLEX_EXPR:
       pp_string (buffer, "COMPLEX_EXPR <");
@@ -158,7 +214,7 @@ dump_binary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
     default:
       dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
       pp_space (buffer);
-      pp_string (buffer, op_symbol_code (gimple_flags (gs)));
+      pp_string (buffer, op_symbol_code (gimple_assign_rhs_code (gs)));
       pp_space (buffer);
       dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
     }
@@ -177,7 +233,7 @@ dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
   pp_space (buffer);
 
   if (gimple_num_ops (gs) == 2)
-    dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
+    dump_unary_rhs (buffer, gs, spc, flags);
   else if (gimple_num_ops (gs) == 3)
     dump_binary_rhs (buffer, gs, spc, flags);
   else
@@ -285,7 +341,7 @@ dump_gimple_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
   pp_string (buffer, "if (");
   dump_generic_node (buffer, gimple_cond_lhs (gs), spc, flags, false);
   pp_space (buffer);
-  pp_string (buffer, op_gimple_cond (gimple_flags (gs)));
+  pp_string (buffer, op_gimple_cond (gimple_cond_code (gs)));
   pp_space (buffer);
   dump_generic_node (buffer, gimple_cond_rhs (gs), spc, flags, false);
   pp_character (buffer, ')');
@@ -371,10 +427,12 @@ dump_gimple_try (pretty_printer *buffer, gimple gs, int spc, int flags)
   newline_and_indent (buffer, spc + 2);
   dump_gimple_seq (buffer, gimple_try_eval (gs), spc + 2, flags);
   newline_and_indent (buffer, spc);
-  if (gimple_flags (gs) == GIMPLE_TRY_CATCH)
+  if (gimple_try_kind (gs) == GIMPLE_TRY_CATCH)
     pp_string (buffer, "} catch {");
-  else
+  else if (gimple_try_kind (gs) == GIMPLE_TRY_FINALLY)
     pp_string (buffer, "} finally {");
+  else
+    pp_string (buffer, "} <UNKNOWN GIMPLE_TRY> {");
   newline_and_indent (buffer, spc + 2);
   dump_gimple_seq (buffer, gimple_try_cleanup (gs), spc + 2, flags);
   newline_and_indent (buffer, spc);

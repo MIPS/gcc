@@ -167,7 +167,8 @@ coverageexts = .{gcda,gcno}
 # with other compilers.
 # CXX_COMPAT_WARN are C++ source compatibility warnings.
 LOOSE_WARN = @loose_warn@
-STRICT_WARN = @strict_warn@
+# FIXME tuples.  Do not merge this!
+STRICT_WARN = @strict_warn@ -Werror
 CXX_COMPAT_WARN = @cxx_compat_warn@
 
 # This is set by --enable-checking.  The idea is to catch forgotten
@@ -1217,7 +1218,8 @@ OBJS-common = \
 	version.o \
 	vmsdbgout.o \
 	web.o \
-	xcoffout.o
+	xcoffout.o \
+	gimple-dummy.o	# FIXME tuples.  Do not merge.
 
 # Target object files.
 OBJS-md = $(out_object_file)
@@ -2288,6 +2290,8 @@ tree-gimple.o : tree-gimple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
    output.h $(TREE_FLOW_H)
 gimple.o : gimple.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
    $(GGC_H) $(TREE_GIMPLE_H) $(GIMPLE_H) $(DIAGNOSTIC_H) gt-gimple.h
+# FIXME tuples.  Do not merge.
+gimple-dummy.o: gimple-dummy.c $(CONFIG_H) $(SYSTEM_H)
 gimple-pretty-print.o : gimple-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(DIAGNOSTIC_H) $(REAL_H) $(HASHTAB_H) $(TREE_FLOW_H) \
    $(TM_H) coretypes.h tree-pass.h $(GIMPLE_H)
@@ -3073,6 +3077,16 @@ s-constrs-h: $(MD_DEPS) build/genpreds$(build_exeext)
 	$(SHELL) $(srcdir)/../move-if-change tmp-constrs.h tm-constrs.h
 	$(STAMP) s-constrs-h
 
+# FIXME tuples.  Do not merge.
+# $(srcdir)/tree-scalar-evolution.c 
+# $(srcdir)/tree-ssa-propagate.c
+# $(srcdir)/tree-vect-generic.c 
+# $(srcdir)/tree-ssa-structalias.h 
+# $(srcdir)/tree-ssa-structalias.c 
+# $(srcdir)/ipa-reference.h 
+# $(srcdir)/omp-low.c 
+# $(srcdir)/tree-phinodes.c 
+# $(srcdir)/ipa-reference.c
 GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(CPP_ID_DATA_H) $(host_xm_file_list) \
   $(tm_file_list) $(HASHTAB_H) $(SPLAY_TREE_H) $(srcdir)/bitmap.h \
@@ -3080,7 +3094,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/optabs.h $(srcdir)/tree.h $(srcdir)/function.h $(srcdir)/libfuncs.h $(SYMTAB_H) \
   $(srcdir)/real.h $(srcdir)/varray.h $(srcdir)/insn-addr.h $(srcdir)/hwint.h \
   $(srcdir)/fixed-value.h \
-  $(srcdir)/ipa-reference.h $(srcdir)/output.h $(srcdir)/cfgloop.h \
+  $(srcdir)/output.h $(srcdir)/cfgloop.h \
   $(srcdir)/cselib.h $(srcdir)/basic-block.h  $(srcdir)/cgraph.h \
   $(srcdir)/reload.h $(srcdir)/caller-save.c \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
@@ -3095,17 +3109,15 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/sdbout.c $(srcdir)/stor-layout.c \
   $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
   $(srcdir)/gimple.h $(srcdir)/gimple.c \
-  $(srcdir)/tree-mudflap.c $(srcdir)/tree-flow.h $(srcdir)/tree-scalar-evolution.c \
+  $(srcdir)/tree-mudflap.c $(srcdir)/tree-flow.h \
   $(srcdir)/tree-ssanames.c $(srcdir)/tree-eh.c $(srcdir)/tree-ssa-address.c \
-  $(srcdir)/tree-phinodes.c $(srcdir)/tree-cfg.c \
-  $(srcdir)/tree-dfa.c $(srcdir)/tree-ssa-propagate.c \
+  $(srcdir)/tree-cfg.c \
+  $(srcdir)/tree-dfa.c \
   $(srcdir)/tree-iterator.c $(srcdir)/gimplify.c \
-  $(srcdir)/tree-chrec.h $(srcdir)/tree-vect-generic.c \
+  $(srcdir)/tree-chrec.h \
   $(srcdir)/tree-ssa-operands.h \
   $(srcdir)/tree-profile.c $(srcdir)/tree-nested.c \
-  $(srcdir)/ipa-reference.c $(srcdir)/tree-ssa-structalias.h \
-  $(srcdir)/tree-ssa-structalias.c \
-  $(srcdir)/omp-low.c $(srcdir)/varpool.c \
+  $(srcdir)/varpool.c \
   $(srcdir)/targhooks.c $(out_file) $(srcdir)/passes.c $(srcdir)/cgraphunit.c \
   @all_gtfiles@
 

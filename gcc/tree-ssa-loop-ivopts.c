@@ -92,6 +92,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-affine.h"
 #include "target.h"
 
+/* FIXME tuples.  */
+#if 0
 /* The infinite cost.  */
 #define INFTY 10000000
 
@@ -5383,3 +5385,4 @@ tree_ssa_iv_optimize (void)
 
   tree_ssa_iv_optimize_finalize (&data);
 }
+#endif

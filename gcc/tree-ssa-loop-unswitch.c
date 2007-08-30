@@ -37,6 +37,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-inline.h"
 
+/* FIXME tuples.  */
+#if 0
 /* This file implements the loop unswitching, i.e. transformation of loops like
 
    while (A)
@@ -283,3 +285,4 @@ tree_unswitch_loop (struct loop *loop,
 		       NULL, prob_true, prob_true,
 		       REG_BR_PROB_BASE - prob_true, false);
 }
+#endif

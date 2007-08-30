@@ -29,6 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "toplev.h"
 
+/* FIXME tuples.  */
+#if 0
 /* Rewriting a function into SSA form can create a huge number of PHIs
    many of which may be thrown away shortly after their creation if jumps
    were threaded through PHI nodes.
@@ -503,3 +505,4 @@ phi_reverse (tree phi)
 }
 
 #include "gt-tree-phinodes.h"
+#endif

@@ -57,8 +57,10 @@ along with GCC; see the file COPYING3.  If not see
 /* Return true if we may propagate ORIG into DEST, false otherwise.  */
 
 bool
-may_propagate_copy (tree dest, tree orig)
+may_propagate_copy (tree dest ATTRIBUTE_UNUSED, tree orig ATTRIBUTE_UNUSED)
 {
+/* FIXME tuples.  */
+#if 0
   tree type_d = TREE_TYPE (dest);
   tree type_o = TREE_TYPE (orig);
 
@@ -179,8 +181,13 @@ may_propagate_copy (tree dest, tree orig)
 
   /* Anything else is OK.  */
   return true;
+#else
+  gcc_unreachable ();
+#endif
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Similarly, but we know that we're propagating into an ASM_EXPR.  */
 
 bool
@@ -308,6 +315,7 @@ replace_exp_1 (use_operand_p op_p, tree val,
   else
     SET_USE (op_p, unsave_expr_now (val));
 }
+#endif
 
 
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
@@ -317,12 +325,19 @@ replace_exp_1 (use_operand_p op_p, tree val,
    checks to ensure validity of the const/copy propagation.  */
 
 void
-propagate_value (use_operand_p op_p, tree val)
+propagate_value (use_operand_p op_p ATTRIBUTE_UNUSED, tree val ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   replace_exp_1 (op_p, val, true);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
+/* FIXME tuples.  */
+#if 0
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
    into the tree pointed to by OP_P.
 
@@ -1112,6 +1127,7 @@ execute_copy_prop (bool store_copy_prop)
   ssa_propagate (copy_prop_visit_stmt, copy_prop_visit_phi_node);
   fini_copy_prop ();
 }
+#endif
 
 
 static bool
@@ -1123,8 +1139,13 @@ gate_copy_prop (void)
 static unsigned int
 do_copy_prop (void)
 {
+  /* FIXME tuples.  */
+#if 0
   execute_copy_prop (false);
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 struct tree_opt_pass pass_copy_prop =
@@ -1162,9 +1183,14 @@ gate_store_copy_prop (void)
 static unsigned int
 store_copy_prop (void)
 {
+  /* FIXME tuples.  */
+#if 0
   /* If STORE-COPY-PROP is not enabled, we just run regular COPY-PROP.  */
   execute_copy_prop (flag_tree_store_copy_prop != 0);
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 struct tree_opt_pass pass_store_copy_prop =

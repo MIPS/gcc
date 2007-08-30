@@ -33,6 +33,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 
 
+/* FIXME tuples.  */
+#if 0
 /* This set of routines implements a coalesce_list.  This is an object which
    is used to track pairs of ssa_names which are desirable to coalesce
    together to avoid copies.  Costs are associated with each pair, and when 
@@ -1372,4 +1374,4 @@ coalesce_ssa_name (void)
 
   return map;
 }
-
+#endif

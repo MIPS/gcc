@@ -150,8 +150,13 @@ struct tree_opt_pass pass_all_early_optimizations =
 static unsigned int
 execute_cleanup_cfg_pre_ipa (void)
 {
+  /* FIXME tuples  */
+#if 0
   cleanup_tree_cfg ();
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 struct tree_opt_pass pass_cleanup_cfg =
@@ -182,7 +187,12 @@ static unsigned int
 execute_cleanup_cfg_post_optimizing (void)
 {
   fold_cond_expr_cond ();
+  /* FIXME tuples  */
+#if 0
   cleanup_tree_cfg ();
+#else
+  gcc_unreachable ();
+#endif
   cleanup_dead_labels ();
   group_case_labels ();
   return 0;
@@ -277,6 +287,8 @@ struct tree_opt_pass pass_free_cfg_annotations =
 unsigned int
 execute_fixup_cfg (void)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb;
   block_stmt_iterator bsi;
   int todo = gimple_in_ssa_p (cfun) ? TODO_verify_ssa : 0;
@@ -316,6 +328,9 @@ execute_fixup_cfg (void)
     dump_tree_cfg (dump_file, dump_flags);
 
   return todo;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Do the actions required to initialize internal data structures used

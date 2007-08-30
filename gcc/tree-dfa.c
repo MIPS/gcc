@@ -230,7 +230,12 @@ make_rename_temp (tree type, const char *prefix)
   if (gimple_referenced_vars (cfun))
     {
       add_referenced_var (t);
+      /* FIXME tuples */
+#if 0
       mark_sym_for_renaming (t);
+#else
+      gcc_unreachable ();
+#endif
     }
 
   return t;
@@ -539,7 +544,10 @@ static void
 collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
 {
   struct pointer_set_t *pset;
+  /* FIXME tuples */
+#if 0
   basic_block bb;
+#endif
   block_stmt_iterator i;
 
   gcc_assert (dfa_stats_p);
@@ -557,6 +565,8 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
 
   pointer_set_destroy (pset);
 
+  /* FIXME tuples */
+#if 0
   FOR_EACH_BB (bb)
     {
       tree phi;
@@ -568,6 +578,7 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
 	    dfa_stats_p->max_num_phi_args = PHI_NUM_ARGS (phi);
 	}
     }
+#endif
 }
 
 
@@ -575,9 +586,11 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
    children.  */
 
 static tree
-collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-		     void *data)
+collect_dfa_stats_r (tree *tp ATTRIBUTE_UNUSED, int *walk_subtrees ATTRIBUTE_UNUSED,
+		     void *data ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples */
+#if 0
   tree t = *tp;
   struct dfa_stats_d *dfa_stats_p = (struct dfa_stats_d *)data;
 
@@ -605,6 +618,9 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
     }
 
   return NULL;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -823,8 +839,10 @@ get_virtual_var (tree var)
    combination push_stmt_changes/pop_stmt_changes.  */
 
 void
-mark_symbols_for_renaming (gimple stmt)
+mark_symbols_for_renaming (gimple stmt ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples  */
+#if 0
   tree op;
   ssa_op_iter iter;
 
@@ -834,6 +852,9 @@ mark_symbols_for_renaming (gimple stmt)
   FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_OPERANDS)
     if (DECL_P (op))
       mark_sym_for_renaming (op);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -849,7 +870,12 @@ find_new_referenced_vars_1 (tree *tp, int *walk_subtrees,
   if (TREE_CODE (t) == VAR_DECL && !var_ann (t))
     {
       add_referenced_var (t);
+      /* FIXME tuples */
+#if 0
       mark_sym_for_renaming (t);
+#else
+      gcc_unreachable ();
+#endif
     }
 
   if (IS_TYPE_OR_DECL_P (t))

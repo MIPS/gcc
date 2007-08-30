@@ -6935,10 +6935,15 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
 
   if (flag_non_call_exceptions)
     {
+      /* FIXME tuples.  */
+#if 0
       rn = lookup_stmt_eh_region (exp);
       /* If rn < 0, then either (1) tree-ssa not used or (2) doesn't throw.  */
       if (rn >= 0)
 	last = get_last_insn ();
+#else
+      gcc_unreachable ();
+#endif
     }
 
   /* If this is an expression of some kind and it has an associated line

@@ -67,6 +67,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "tree-scalar-evolution.h"
 
+/* FIXME tuples.  */
+#if 0
 static struct stmt_stats
 {
   int total;
@@ -955,3 +957,4 @@ struct tree_opt_pass pass_cd_dce =
   0					/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

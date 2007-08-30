@@ -80,10 +80,15 @@ struct cfg_stats_d
 static struct cfg_stats_d cfg_stats;
 
 /* Nonzero if we found a computed goto while building basic blocks.  */
+/* FIXME tuples.  */
+#if 0
 static bool found_computed_goto;
+#endif
 
 /* Basic blocks and flowgraphs.  */
 static basic_block create_bb (void *, void *, basic_block);
+/* FIXME tuples.  */
+#if 0
 static void make_blocks (gimple_seq);
 static void factor_computed_gotos (void);
 
@@ -92,25 +97,38 @@ static void make_edges (void);
 static void make_cond_expr_edges (basic_block);
 static void make_switch_expr_edges (basic_block);
 static void make_goto_expr_edges (basic_block);
+#endif
+/* FIXME tuples.  */
+#if 0
 static edge tree_redirect_edge_and_branch (edge, basic_block);
 static edge tree_try_redirect_by_replacing_jump (edge, basic_block);
+#endif
 static unsigned int split_critical_edges (void);
 
 /* Various helpers.  */
 static inline bool stmt_starts_bb_p (gimple, gimple);
+/* FIXME tuples.  */
+#if 0
 static int tree_verify_flow_info (void);
 static void tree_make_forwarder_block (edge);
 static void tree_cfg2vcg (FILE *);
+#endif
 static inline void change_bb_for_stmt (gimple, basic_block);
 
 /* Flowgraph optimization and cleanup.  */
 static void tree_merge_blocks (basic_block, basic_block);
+/* FIXME tuples  */
+#if 0
 static bool tree_can_merge_blocks_p (basic_block, basic_block);
+#endif
 static void remove_bb (basic_block);
 static edge find_taken_edge_computed_goto (basic_block, tree);
 static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
+/* FIXME tuples  */
+#if 0
 static tree find_case_label_for_value (tree, tree);
+#endif
 
 void
 init_empty_tree_cfg (void)
@@ -142,6 +160,8 @@ init_empty_tree_cfg (void)
 /* Entry point to the CFG builder for trees.  SEQ is the sequence of
    statements to be added to the flowgraph.  */
 
+/* FIXME tuples.  */
+#if 0
 static void
 build_gimple_cfg (gimple_seq seq)
 {
@@ -204,6 +224,7 @@ build_gimple_cfg (gimple_seq seq)
   if (dump_file)
     dump_tree_cfg (dump_file, dump_flags);
 }
+#endif
 
 static unsigned int
 execute_build_cfg (void)
@@ -238,6 +259,8 @@ struct tree_opt_pass pass_build_cfg =
    that we can un-factor the gotos after we have converted back to
    normal form.  */
 
+/* FIXME tuples  */
+#if 0
 static void
 factor_computed_gotos (void)
 {
@@ -307,10 +330,13 @@ factor_computed_gotos (void)
 	}
     }
 }
+#endif
 
 
 /* Build a flowgraph for the sequence of stmts SEQ.  */
 
+/* FIXME tuples  */
+#if 0
 static void
 make_blocks (gimple_seq seq)
 {
@@ -354,6 +380,7 @@ make_blocks (gimple_seq seq)
       first_stmt_of_seq = false;
     }
 }
+#endif
 
 
 /* Create and return a new empty basic block after bb AFTER.  */
@@ -437,6 +464,8 @@ fold_cond_expr_cond (void)
 
 /* Join all the blocks in the flowgraph.  */
 
+/* FIXME tuples.  */
+#if 0
 static void
 make_edges (void)
 {
@@ -596,19 +625,19 @@ make_edges (void)
 	make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
     }
 
-#if 0
-  /* FIXME tuples */
   if (root_omp_region)
     free_omp_regions ();
-#endif
 
   /* Fold COND_EXPR_COND of each COND_EXPR.  */
   fold_cond_expr_cond ();
 }
+#endif
 
 
 /* Create the edges for a GIMPLE_COND starting at block BB.  */
 
+/* FIXME tuples.  */
+#if 0
 static void
 make_cond_expr_edges (basic_block bb)
 {
@@ -646,6 +675,7 @@ make_cond_expr_edges (basic_block bb)
   gimple_cond_set_true_label (entry, NULL);
   gimple_cond_set_false_label (entry, NULL);
 }
+#endif
 
 
 /* Called for each element in the hash table (P) as we delete the
@@ -682,11 +712,14 @@ start_recording_case_labels (void)
 
 /* Return nonzero if we are recording information for case labels.  */
 
+/* FIXME tuples  */
+#if 0
 static bool
 recording_case_labels_p (void)
 {
   return (edge_to_cases != NULL);
 }
+#endif
 
 /* Stop recording information mapping edges to case labels and
    remove any information we have recorded.  */
@@ -703,6 +736,8 @@ end_recording_case_labels (void)
 
    Otherwise return NULL.  */
 
+/* FIXME tuples.  */
+#if 0
 static tree
 get_cases_for_edge (edge e, tree t)
 {
@@ -759,6 +794,7 @@ make_switch_expr_edges (basic_block bb)
       make_edge (bb, label_bb, 0);
     }
 }
+#endif
 
 
 /* Return the basic block holding label DEST.  */
@@ -820,6 +856,8 @@ make_abnormal_goto_edges (basic_block bb, bool for_call)
 
 /* Create edges for a goto statement at block BB.  */
 
+/* FIXME tuples.  */
+#if 0
 static void
 make_goto_expr_edges (basic_block bb)
 {
@@ -839,6 +877,7 @@ make_goto_expr_edges (basic_block bb)
   /* A computed GOTO creates abnormal edges.  */
   make_abnormal_goto_edges (bb, false);
 }
+#endif
 
 
 /*---------------------------------------------------------------------------
@@ -1138,6 +1177,8 @@ group_case_labels (void)
 
 /* Checks whether we can merge block B into block A.  */
 
+/* FIXME tuples.  */
+#if 0
 static bool
 tree_can_merge_blocks_p (basic_block a, basic_block b)
 {
@@ -1211,12 +1252,15 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
 
   return true;
 }
+#endif
 
 /* Replaces all uses of NAME by VAL.  */
 
 void
-replace_uses_by (tree name, tree val)
+replace_uses_by (tree name ATTRIBUTE_UNUSED, tree val ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   imm_use_iterator imm_iter;
   use_operand_p use;
   gimple stmt;
@@ -1277,16 +1321,21 @@ replace_uses_by (tree name, tree val)
 	  substitute_in_loop_info (loop, name, val);
 	}
     }
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Merge block B into block A.  */
 
 static void
-tree_merge_blocks (basic_block a, basic_block b)
+tree_merge_blocks (basic_block a ATTRIBUTE_UNUSED, basic_block b ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   block_stmt_iterator bsi;
   gimple_stmt_iterator *last, *gsi;
-  gimple_seq phis;
+  gimple_seq phis = phi_nodes (b);
 
   if (dump_file)
     fprintf (dump_file, "Merging blocks %d and %d\n", a->index, b->index);
@@ -1365,11 +1414,14 @@ tree_merge_blocks (basic_block a, basic_block b)
 
   /* Merge the chains.  */
   last = gsi_last (bb_seq (a));
-  gsi_link_after (last, bb_seq (b), GSI_NEW_STMT);
+  gsi_link_after (last, gimple_seq_first (bb_seq (b)), GSI_NEW_STMT);
   set_bb_seq (b, NULL);
 
   if (cfgcleanup_altered_bbs)
     bitmap_set_bit (cfgcleanup_altered_bbs, a->index);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -1858,8 +1910,13 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
       data->last_goto = NULL;
       notice_special_calls (t);
       update_call_expr_flags (t);
+      /* FIXME tuples.  */
+#if 0
       if (tree_could_throw_p (t))
 	data->may_throw = true;
+#else
+      gcc_unreachable ();
+#endif
       break;
 
     case MODIFY_EXPR:
@@ -1874,8 +1931,13 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
 	  update_call_expr_flags (op);
 	  notice_special_calls (op);
 	}
+      /* FIXME tuples.  */
+#if 0
       if (tree_could_throw_p (t))
 	data->may_throw = true;
+#else
+      gcc_unreachable ();
+#endif
       break;
 
     case STATEMENT_LIST:
@@ -1952,8 +2014,10 @@ struct tree_opt_pass pass_remove_useless_stmts =
 /* Remove PHI nodes associated with basic block BB and all edges out of BB.  */
 
 static void
-remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
+remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree phi;
 
   /* Since this block is no longer reachable, we can just delete all
@@ -1969,6 +2033,9 @@ remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
   /* Remove edges to BB's successors.  */
   while (EDGE_COUNT (bb->succs) > 0)
     remove_edge (EDGE_SUCC (bb, 0));
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -1978,10 +2045,13 @@ static void
 remove_bb (basic_block bb)
 {
   block_stmt_iterator i;
+  /* FIXME tuples.  */
+#if 0
 #ifdef USE_MAPPED_LOCATION
   source_location loc = UNKNOWN_LOCATION;
 #else
   source_locus loc = 0;
+#endif
 #endif
 
   if (dump_file)
@@ -2039,7 +2109,12 @@ remove_bb (basic_block bb)
 		 final_cleanup calls this function via
 		 cleanup_tree_cfg.  */
 	      if (gimple_in_ssa_p (cfun))
+		/* FIXME tuples  */
+#if 0
 		release_defs (stmt);
+#else
+		gcc_unreachable ();
+#endif
 
 	      bsi_remove (&i, true);
 	    }
@@ -2048,6 +2123,8 @@ remove_bb (basic_block bb)
 	     jump threading, thus resulting in bogus warnings.  Not great,
 	     since this way we lose warnings for gotos in the original
 	     program that are indeed unreachable.  */
+	  /* FIXME tuples.  */
+#if 0
 	  if (TREE_CODE (stmt) != GOTO_EXPR && EXPR_HAS_LOCATION (stmt) && !loc)
 	    {
 #ifdef USE_MAPPED_LOCATION
@@ -2060,6 +2137,9 @@ remove_bb (basic_block bb)
 		loc = t;
 #endif
 	    }
+#else
+	      gcc_unreachable ();
+#endif
 	}
     }
 
@@ -2067,12 +2147,15 @@ remove_bb (basic_block bb)
      block is unreachable.  We walk statements backwards in the
      loop above, so the last statement we process is the first statement
      in the block.  */
+/* FIXME tuples.  */
+#if 0
 #ifdef USE_MAPPED_LOCATION
   if (loc > BUILTINS_LOCATION)
     warning (OPT_Wunreachable_code, "%Hwill never be executed", &loc);
 #else
   if (loc)
     warning (OPT_Wunreachable_code, "%Hwill never be executed", loc);
+#endif
 #endif
 
   remove_phi_nodes_and_edges_for_unreachable_block (bb);
@@ -2161,8 +2244,10 @@ find_taken_edge_cond_expr (basic_block bb, tree val)
    NULL if any edge may be taken.  */
 
 static edge
-find_taken_edge_switch_expr (basic_block bb, tree val)
+find_taken_edge_switch_expr (basic_block bb ATTRIBUTE_UNUSED, tree val ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree switch_expr, taken_case;
   basic_block dest_bb;
   edge e;
@@ -2174,6 +2259,9 @@ find_taken_edge_switch_expr (basic_block bb, tree val)
   e = find_edge (bb, dest_bb);
   gcc_assert (e);
   return e;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -2181,6 +2269,8 @@ find_taken_edge_switch_expr (basic_block bb, tree val)
    We can make optimal use here of the fact that the case labels are
    sorted: We can do a binary search for a case matching VAL.  */
 
+/* FIXME tuples.  */
+#if 0
 static tree
 find_case_label_for_value (tree switch_expr, tree val)
 {
@@ -2218,6 +2308,7 @@ find_case_label_for_value (tree switch_expr, tree val)
 
   return default_case;
 }
+#endif
 
 
 
@@ -2359,6 +2450,8 @@ debug_cfg_stats (void)
 
 /* Dump the flowgraph to a .vcg FILE.  */
 
+/* FIXME tuples.  */
+#if 0
 static void
 tree_cfg2vcg (FILE *file)
 {
@@ -2440,6 +2533,7 @@ tree_cfg2vcg (FILE *file)
 
   fputs ("}\n\n", file);
 }
+#endif
 
 
 
@@ -2484,8 +2578,13 @@ is_ctrl_altering_stmt (gimple t)
   if (OMP_DIRECTIVE_P (t))
     return true;
 
+  /* FIXME tuples.  */
+#if 0
   /* If a statement can throw, it alters control flow.  */
   return stmt_can_throw_internal (t);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -2783,8 +2882,13 @@ bsi_remove (block_stmt_iterator *i, bool remove_eh_info)
   mark_stmt_modified (t);
   if (remove_eh_info)
     {
+      /* FIXME tuples  */
+#if 0
       remove_stmt_from_eh_region (t);
       gimple_remove_stmt_histograms (cfun, t);
+#else
+      gcc_unreachable ();
+#endif
     }
 }
 
@@ -2838,7 +2942,10 @@ bsi_move_to_bb_end (block_stmt_iterator *from, basic_block bb)
 void
 bsi_replace (const block_stmt_iterator *bsi, gimple stmt, bool update_eh_info)
 {
+  /* FIXME tuples */
+#if 0
   int eh_region;
+#endif
   gimple orig_stmt = bsi_stmt (*bsi);
 
   if (stmt == orig_stmt)
@@ -2850,20 +2957,30 @@ bsi_replace (const block_stmt_iterator *bsi, gimple stmt, bool update_eh_info)
      requested by the caller.  */
   if (update_eh_info)
     {
+      /* FIXME tuples  */
+#if 0
       eh_region = lookup_stmt_eh_region (orig_stmt);
       if (eh_region >= 0)
 	{
 	  remove_stmt_from_eh_region (orig_stmt);
 	  add_stmt_to_eh_region (stmt, eh_region);
 	}
+#else
+      gcc_unreachable ();
+#endif
     }
 
   gimple_duplicate_stmt_histograms (cfun, stmt, cfun, orig_stmt);
   gimple_remove_stmt_histograms (cfun, orig_stmt);
   delink_stmt_imm_use (orig_stmt);
+  /* FIXME tuples.  */
+#if 0
   *bsi_stmt_ptr (*bsi) = stmt;
   mark_stmt_modified (stmt);
   update_modified_stmt (stmt);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -2877,6 +2994,8 @@ bsi_replace (const block_stmt_iterator *bsi, gimple stmt, bool update_eh_info)
    or false if it should be done before the location.  If new basic block
    has to be created, it is stored in *NEW_BB.  */
 
+/* FIXME tuples.  */
+#if 0
 static bool
 tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
 			   basic_block *new_bb)
@@ -2951,6 +3070,7 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
   e = single_pred_edge (dest);
   goto restart;
 }
+#endif
 
 
 /* This routine will commit all pending edge insertions, creating any new
@@ -2975,8 +3095,10 @@ bsi_commit_edge_inserts (void)
    to this block, otherwise set it to NULL.  */
 
 void
-bsi_commit_one_edge_insert (edge e, basic_block *new_bb)
+bsi_commit_one_edge_insert (edge e ATTRIBUTE_UNUSED, basic_block *new_bb ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   if (new_bb)
     *new_bb = NULL;
   if (PENDING_STMT (e))
@@ -2991,6 +3113,9 @@ bsi_commit_one_edge_insert (edge e, basic_block *new_bb)
       else
 	bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
     }
+#else
+      gcc_unreachable ();
+#endif
 }
 
 
@@ -3007,8 +3132,10 @@ bsi_insert_on_edge (edge e, tree stmt)
    block has to be created, it is returned.  */
 
 basic_block
-bsi_insert_on_edge_immediate (edge e, tree stmt)
+bsi_insert_on_edge_immediate (edge e ATTRIBUTE_UNUSED, tree stmt ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   block_stmt_iterator bsi;
   basic_block new_bb = NULL;
 
@@ -3020,6 +3147,9 @@ bsi_insert_on_edge_immediate (edge e, tree stmt)
     bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
 
   return new_bb;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /*---------------------------------------------------------------------------
@@ -3029,8 +3159,10 @@ bsi_insert_on_edge_immediate (edge e, tree stmt)
 /* Reinstall those PHI arguments queued in OLD_EDGE to NEW_EDGE.  */
 
 static void
-reinstall_phi_args (edge new_edge, edge old_edge)
+reinstall_phi_args (edge new_edge ATTRIBUTE_UNUSED, edge old_edge ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree var, phi;
 
   if (!PENDING_STMT (old_edge))
@@ -3049,6 +3181,9 @@ reinstall_phi_args (edge new_edge, edge old_edge)
     }
 
   PENDING_STMT (old_edge) = NULL;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Returns the basic block after which the new basic block created
@@ -3101,6 +3236,8 @@ tree_split_edge (edge edge_in)
    properly noticed as such.  The DATA is an int* that is 1 if TP was seen
    inside a PHI node.  */
 
+/* FIXME tuples.  */
+#if 0
 static tree
 verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
@@ -3356,6 +3493,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
 #undef CHECK_OP
 }
+#endif
 
 /* Verifies if EXPR is a valid GIMPLE unary expression.  Returns true
    if there is an error, otherwise false.  */
@@ -3534,21 +3672,54 @@ verify_gimple_reference (tree expr)
   return verify_gimple_min_lval (expr);
 }
 
-/* Verify the GIMPLE expression EXPR.  Returns true if there is an
+
+/* Verify the gimplified tree expression EXPR.  Returns true if there is an
    error, otherwise false.  */
 
 static bool
-verify_gimple_expr (tree expr)
+verify_gimple_tree_expr (tree expr)
 {
   tree type = TREE_TYPE (expr);
 
   if (is_gimple_val (expr))
     return false;
-
+  
   /* Special codes we cannot handle via their class.  */
   switch (TREE_CODE (expr))
     {
+    /* Verify the things we can have.  */
+    case VAR_DECL:
+    case LABEL_DECL:
+    case CASE_LABEL_EXPR:
+    case FUNCTION_DECL:
+    case TYPE_DECL:
+    case PARM_DECL:
+    case RESULT_DECL:
+    case WITH_SIZE_EXPR:
     case NOP_EXPR:
+      return false;
+      
+    /*  After gimplification we should not have any of these.  */
+    case ASM_EXPR:
+    case BIND_EXPR:
+    case CALL_EXPR:
+    case COND_EXPR:
+    case TREE_LIST:
+    case COMPOUND_EXPR:
+    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
+    case INIT_EXPR:
+    case GOTO_EXPR:
+    case LABEL_EXPR:
+    case RETURN_EXPR:
+    case TRY_FINALLY_EXPR:
+    case TRY_CATCH_EXPR:
+    case EH_FILTER_EXPR:
+    case STATEMENT_LIST:
+      {
+        error ("tree node that should already be gimple.");
+        return true;
+      }
     case CONVERT_EXPR:
       {
 	tree op = TREE_OPERAND (expr, 0);
@@ -3731,35 +3902,6 @@ verify_gimple_expr (tree expr)
 	return false;
       }
 
-    case COND_EXPR:
-      {
-	tree op0 = TREE_OPERAND (expr, 0);
-	tree op1 = TREE_OPERAND (expr, 1);
-	tree op2 = TREE_OPERAND (expr, 2);
-	if ((!is_gimple_val (op1)
-	     && TREE_CODE (TREE_TYPE (op1)) != VOID_TYPE)
-	    || (!is_gimple_val (op2)
-		&& TREE_CODE (TREE_TYPE (op2)) != VOID_TYPE))
-	  {
-	    error ("invalid operands in conditional expression");
-	    return true;
-	  }
-	if (!INTEGRAL_TYPE_P (TREE_TYPE (op0))
-	    || (TREE_CODE (TREE_TYPE (op1)) != VOID_TYPE
-	        && !useless_type_conversion_p (type, TREE_TYPE (op1)))
-	    || (TREE_CODE (TREE_TYPE (op2)) != VOID_TYPE
-	        && !useless_type_conversion_p (type, TREE_TYPE (op2))))
-	  {
-	    error ("type mismatch in conditional expression");
-	    debug_generic_stmt (type);
-	    debug_generic_stmt (TREE_TYPE (op0));
-	    debug_generic_stmt (TREE_TYPE (op1));
-	    debug_generic_stmt (TREE_TYPE (op2));
-	    return true;
-	  }
-	return verify_gimple_expr (op0);
-      }
-
     case ADDR_EXPR:
       {
 	tree op = TREE_OPERAND (expr, 0);
@@ -3839,17 +3981,15 @@ verify_gimple_expr (tree expr)
 	return false;
       }
 
-    case CALL_EXPR:
-      /* FIXME.  The C frontend passes unpromoted arguments in case it
-	 didn't see a function declaration before the call.  */
-      return false;
-
     default:;
     }
 
   /* Generic handling via classes.  */
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
+    case tcc_type:
+      return false;
+
     case tcc_unary:
       return verify_gimple_unary_expr (expr);
 
@@ -3898,66 +4038,276 @@ verify_gimple_expr (tree expr)
   return false;
 }
 
-/* Verify the GIMPLE assignment statement STMT.  Returns true if there
-   is an error, otherwise false.  */
+/* Verify the contents of a GIMPLE_CALL STMT.  Returns true when there
+   is a problem, otherwise false.  */
 
 static bool
-verify_gimple_modify_stmt (const_tree stmt)
+verify_gimple_call (gimple stmt)
 {
-  tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
-  tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+  bool failed = false;
+  unsigned int i;
 
-  gcc_assert (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT);
+  if (gimple_call_lhs (stmt))
+    failed |= verify_gimple_tree_expr (gimple_call_lhs (stmt));
 
-  if (!useless_type_conversion_p (TREE_TYPE (lhs),
-				  TREE_TYPE (rhs)))
+  failed |= verify_gimple_tree_expr (gimple_call_fn (stmt));
+  failed |= verify_gimple_tree_expr (gimple_call_return_type (stmt));
+
+  if (gimple_call_chain (stmt))
+    failed |= verify_gimple_tree_expr (gimple_call_chain (stmt));
+
+  for (i = 0; i < gimple_call_nargs (stmt); i++)
+    failed |= verify_gimple_tree_expr (gimple_call_arg (stmt,i));
+
+  return failed;
+}
+
+
+/* Verify the contents of a GIMPLE_COND STMT.  Returns true when there
+   is a problem, otherwise false.  */
+
+static bool
+verify_gimple_cond (gimple stmt)
+{
+  bool failed = false;
+  
+  failed |= verify_gimple_tree_expr (gimple_cond_lhs (stmt));
+  failed |= verify_gimple_tree_expr (gimple_cond_rhs (stmt));
+  failed |= verify_gimple_tree_expr (gimple_cond_true_label (stmt));
+  failed |= verify_gimple_tree_expr (gimple_cond_false_label (stmt));
+
+  return failed;
+}
+
+
+/* Verify the contents of a GIMPLE_ASSIGN STMT.  Returns true when there
+   is a problem, otherwise false.  */
+
+static bool
+verify_gimple_assign (gimple stmt)
+{
+  enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
+  tree lhs = gimple_assign_lhs (stmt);
+  tree rhs1 = gimple_assign_rhs1 (stmt);
+  tree rhs2 = (gimple_num_ops (stmt) == 3) ? gimple_assign_rhs2 (stmt) : NULL;
+
+  /* Verify that the types of the LHS and the RHS operands are 
+     compatible.  This verification largely depends on what kind of
+     operation is done on the RHS of the assignment.  It is not always
+     the case that all the types of the operands must match (e.g.,
+     'a = (unsigned long) b' or 'ptr = ptr + 1').  */
+  if (rhs_code == NOP_EXPR
+      || rhs_code == CONVERT_EXPR
+      || rhs_code == FLOAT_EXPR
+      || rhs_code == FIX_TRUNC_EXPR
+      || rhs_code == FIXED_CONVERT_EXPR)
     {
-      error ("non-trivial conversion at assignment");
-      debug_generic_expr (TREE_TYPE (lhs));
-      debug_generic_expr (TREE_TYPE (rhs));
-      return true;
+      /* Type casts are OK.  */
+      return false;
+    }
+  else if (TREE_CODE_CLASS (rhs_code) == tcc_comparison)
+    {
+      /* For comparisons, check that the two operands on the RHS are
+	 of compatible types and that the LHS is an integral type.  */
+      if (!useless_type_conversion_p (TREE_TYPE (rhs1), TREE_TYPE (rhs2)))
+	{
+	  if (POINTER_TYPE_P (TREE_TYPE (rhs1))
+	      && POINTER_TYPE_P (TREE_TYPE (rhs2)))
+	    {
+	      /* Comparing pointers is always fine.  FIXME, really?  */
+	      ;
+	    }
+	  else
+	    {
+	      error ("incompatible types in comparison");
+	      debug_generic_expr (TREE_TYPE (rhs1));
+	      debug_generic_expr (TREE_TYPE (rhs2));
+	      return true;
+	    }
+	}
+
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (lhs)))
+	{
+	  error ("assignment of a conditional expression to a non-integral");
+	  debug_generic_expr (TREE_TYPE (lhs));
+	  return true;
+	}
+    }
+  else if (rhs_code == TRUTH_ANDIF_EXPR
+           || rhs_code == TRUTH_ORIF_EXPR
+	   || rhs_code == TRUTH_AND_EXPR
+	   || rhs_code == TRUTH_OR_EXPR
+	   || rhs_code == TRUTH_XOR_EXPR
+	   || rhs_code == TRUTH_NOT_EXPR)
+    {
+      /* The types just have to be integral types.  */
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (lhs))
+	  || !INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
+	  || (rhs2 && !INTEGRAL_TYPE_P (TREE_TYPE (rhs2))))
+	{
+	  error ("boolean expression using non-integral operands");
+	  return true;
+	}
+    }
+  else if (rhs_code == ADDR_EXPR)
+    {
+      if (!POINTER_TYPE_P (TREE_TYPE (lhs)))
+	{
+	  error ("address assignment to a non-pointer variable");
+	  return true;
+	}
+
+      return false;
+    }
+  else if (rhs_code == POINTER_PLUS_EXPR)
+    {
+      /* The LHS should be a pointer type and the RHS should be of the
+	 form ptr + integral.  */
+      if (!POINTER_TYPE_P (TREE_TYPE (lhs)))
+	{
+	  error ("non-pointer type in a POINTER_PLUS_EXPR");
+	  debug_generic_expr (TREE_TYPE (lhs));
+	  return true;
+	}
+
+      if (!POINTER_TYPE_P (TREE_TYPE (rhs1)))
+	{
+	  error ("non-pointer type in a POINTER_PLUS_EXPR");
+	  debug_generic_expr (TREE_TYPE (rhs1));
+	  return true;
+	}
+
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (rhs2)))
+	{
+	  error ("non-integral addition in a POINTER_PLUS_EXPR");
+	  debug_generic_expr (TREE_TYPE (rhs2));
+	  return true;
+	}
+    }
+  else if (rhs_code == LSHIFT_EXPR
+	   || rhs_code == RSHIFT_EXPR
+	   || rhs_code == LROTATE_EXPR
+	   || rhs_code == RROTATE_EXPR
+	   || rhs_code == BIT_IOR_EXPR
+	   || rhs_code == BIT_XOR_EXPR
+	   || rhs_code == BIT_AND_EXPR
+	   || rhs_code == BIT_NOT_EXPR)
+    {
+      /* Bitwise operators must operate on integral types, but they
+	 are not required to be the same.  */
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (lhs))
+	  || !INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
+	  || (rhs2 && !INTEGRAL_TYPE_P (TREE_TYPE (rhs2))))
+	{
+	  error ("bitwise operation on non-integral type");
+	  return true;
+	}
+    }
+  else if (rhs_code == COMPLEX_EXPR)
+    {
+      /* The LHS must be of complex type and the two RHS operands must
+	 be of compatible types.  */
+      if (TREE_CODE (TREE_TYPE (lhs)) != COMPLEX_TYPE)
+	{
+	  error ("assignment of COMPLEX_EXPR to non-complex");
+	  debug_generic_expr (TREE_TYPE (lhs));
+	  return true;
+	}
+
+      if (!useless_type_conversion_p (TREE_TYPE (rhs1), TREE_TYPE (rhs2)))
+	{
+	  error ("type mismatch in COMPLEX_EXPR operands");
+	  debug_generic_expr (TREE_TYPE (rhs1));
+	  debug_generic_expr (TREE_TYPE (rhs2));
+	  return true;
+	}
+    }
+  else
+    {
+      /* For any other assignment, the LHS and RHS must have
+	 compatible types.  */
+      size_t i;
+      tree type = TREE_TYPE (lhs);
+      for (i = 1; i < gimple_num_ops (stmt); i++)
+	if (!useless_type_conversion_p (type, TREE_TYPE (gimple_op (stmt, i))))
+	  {
+	    error ("non-trivial conversion at assignment");
+	    debug_generic_expr (TREE_TYPE (lhs));
+	    debug_generic_expr (TREE_TYPE (gimple_op (stmt, i)));
+	    return true;
+	  }
     }
 
-  /* Loads/stores from/to a variable are ok.  */
-  if ((is_gimple_val (lhs)
-       && is_gimple_variable (rhs))
-      || (is_gimple_val (rhs)
-	  && is_gimple_variable (lhs)))
-    return false;
+  if (gimple_assign_copy_p (stmt))
+    {
+      tree rhs = rhs1;
 
-  /* Aggregate copies are ok.  */
-  if (!is_gimple_reg_type (TREE_TYPE (lhs))
-      && !is_gimple_reg_type (TREE_TYPE (rhs)))
-    return false;
+      /* Loads/stores from/to a variable are ok.  */
+      if ((is_gimple_val (lhs)
+	    && is_gimple_variable (rhs))
+	  || (is_gimple_val (rhs)
+	    && is_gimple_variable (lhs)))
+	return false;
 
-  /* We might get 'loads' from a parameter which is not a gimple value.  */
-  if (TREE_CODE (rhs) == PARM_DECL)
-    return verify_gimple_expr (lhs);
+      /* Aggregate copies are ok.  */
+      if (!is_gimple_reg_type (TREE_TYPE (lhs))
+	  && !is_gimple_reg_type (TREE_TYPE (rhs)))
+	return false;
 
-  if (!is_gimple_variable (lhs)
-      && verify_gimple_expr (lhs))
-    return true;
+      /* We might get 'loads' from a parameter which is not a gimple value.  */
+      if (TREE_CODE (rhs) == PARM_DECL)
+	return verify_gimple_tree_expr (lhs);
 
-  if (!is_gimple_variable (rhs)
-      && verify_gimple_expr (rhs))
-    return true;
+      if (!is_gimple_variable (lhs)
+	  && verify_gimple_tree_expr (lhs))
+	return true;
+
+      if (!is_gimple_variable (rhs)
+	  && verify_gimple_tree_expr (rhs))
+	return true;
+    }
 
   return false;
 }
 
-/* Verify the GIMPLE statement STMT.  Returns true if there is an
+
+/* Verify the contents of a GIMPLE_RETURN STMT.  Returns true when there
+   is a problem, otherwise false.  */
+
+static bool
+verify_gimple_return (gimple stmt)
+{
+  tree op = gimple_return_retval (stmt);
+
+  if (op == NULL || TREE_CODE (op) == RESULT_DECL)
+    return false;
+  
+  return verify_gimple_tree_expr (op);
+}
+
+
+/* Verify the contents of a GIMPLE_SWITCH STMT.  Returns true when there
+   is a problem, otherwise false.  */
+
+static bool
+verify_gimple_switch (gimple stmt)
+{
+  if (!is_gimple_val (gimple_switch_index (stmt)))
+    {
+      error ("invalid operand to switch statement");
+      debug_generic_expr (gimple_switch_index (stmt));
+    }
+  return false;
+}
+
+  /* Verify the GIMPLE statement STMT.  Returns true if there is an
    error, otherwise false.  */
 
 static bool
-verify_gimple_stmt (tree stmt)
+verify_gimple_stmt (gimple stmt)
 {
-  if (!is_gimple_stmt (stmt))
-    {
-      error ("is not a valid GIMPLE statement");
-      return true;
-    }
 
-  if (OMP_DIRECTIVE_P (stmt))
+  if (is_gimple_omp (stmt))
     {
       /* OpenMP directives are validated by the FE and never operated
 	 on by the optimizers.  Furthermore, OMP_FOR may contain
@@ -3968,103 +4318,105 @@ verify_gimple_stmt (tree stmt)
       return false;
     }
 
-  switch (TREE_CODE (stmt))
+  switch (gimple_code (stmt))
     {
+    /* we plan to remove these - so no point checking them.  */
     case GIMPLE_MODIFY_STMT:
-      return verify_gimple_modify_stmt (stmt);
+      return true; 
 
-    case GOTO_EXPR:
-    case LABEL_EXPR:
+    case GIMPLE_GOTO:
+      return verify_gimple_tree_expr (gimple_goto_dest (stmt));
+    case GIMPLE_LABEL:
+      return verify_gimple_tree_expr (gimple_label_label (stmt));
+    case GIMPLE_NOP:
       return false;
-
-    case SWITCH_EXPR:
-      if (!is_gimple_val (TREE_OPERAND (stmt, 0)))
-	{
-	  error ("invalid operand to switch statement");
-	  debug_generic_expr (TREE_OPERAND (stmt, 0));
-	}
-      return false;
-
-    case RETURN_EXPR:
-      {
-	tree op = TREE_OPERAND (stmt, 0);
-
-	if (TREE_CODE (TREE_TYPE (stmt)) != VOID_TYPE)
-	  {
-	    error ("type error in return expression");
-	    return true;
-	  }
-
-	if (op == NULL_TREE
-	    || TREE_CODE (op) == RESULT_DECL)
-	  return false;
-
-	return verify_gimple_modify_stmt (op);
-      }
-
-    case CALL_EXPR:
-    case COND_EXPR:
-      return verify_gimple_expr (stmt);
-
-    case NOP_EXPR:
-    case CHANGE_DYNAMIC_TYPE_EXPR:
-    case ASM_EXPR:
-      return false;
-
+    case GIMPLE_SWITCH:
+      return verify_gimple_switch (stmt);
+    case GIMPLE_RETURN:
+      return verify_gimple_return (stmt);
+    case GIMPLE_CALL:
+      return verify_gimple_call (stmt);
+    case GIMPLE_COND:
+      return verify_gimple_cond (stmt);
+    case GIMPLE_ASM:
+      return gimple_asm_string (stmt) == NULL;
+    case GIMPLE_ASSIGN:
+      return verify_gimple_assign (stmt);
+    case GIMPLE_PHI:
+      return verify_gimple_tree_expr (gimple_phi_result (stmt));
     default:
       gcc_unreachable ();
     }
 }
 
-/* Verify the GIMPLE statements inside the statement list STMTS.  */
+
+/* Verify the GIMPLE statements inside the sequence STMTS.  */
 
 void
-verify_gimple_1 (tree stmts)
+verify_gimple_seq (gimple_seq stmts)
 {
-  tree_stmt_iterator tsi;
+  gimple_stmt_iterator* ittr;
 
-  for (tsi = tsi_start (stmts); !tsi_end_p (tsi); tsi_next (&tsi))
+  for (ittr = gsi_start (stmts); !gsi_end_p (ittr); gsi_next (ittr))
     {
-      tree stmt = tsi_stmt (tsi);
+      gimple stmt = gsi_stmt (ittr);
 
-      switch (TREE_CODE (stmt))
-	{
-	case BIND_EXPR:
-	  verify_gimple_1 (BIND_EXPR_BODY (stmt));
-	  break;
+      switch (gimple_code (stmt))
+        {
+          case GIMPLE_BIND:
+            if (gimple_bind_vars (stmt))
+              if (verify_gimple_tree_expr (gimple_bind_vars (stmt)))
+                error ("could not verify bind expr's variables.");
+            verify_gimple_seq (gimple_bind_body (stmt));
+            break;
 
-	case TRY_CATCH_EXPR:
-	case TRY_FINALLY_EXPR:
-	  verify_gimple_1 (TREE_OPERAND (stmt, 0));
-	  verify_gimple_1 (TREE_OPERAND (stmt, 1));
-	  break;
+          case GIMPLE_TRY:
+            verify_gimple_seq (gimple_try_eval (stmt));
+            verify_gimple_seq (gimple_try_cleanup (stmt));
+            break;
 
-	case CATCH_EXPR:
-	  verify_gimple_1 (CATCH_BODY (stmt));
-	  break;
+          case EH_FILTER_EXPR:
+            verify_gimple_seq (gimple_eh_filter_failure (stmt));
+            break;
 
-	case EH_FILTER_EXPR:
-	  verify_gimple_1 (EH_FILTER_FAILURE (stmt));
-	  break;
+          case GIMPLE_CATCH:
+             verify_gimple_seq (gimple_catch_handler (stmt));
+             break;
 
-	default:
-	  if (verify_gimple_stmt (stmt))
-	    debug_generic_expr (stmt);
-	}
+          case GIMPLE_OMP_CRITICAL:
+          case GIMPLE_OMP_CONTINUE:
+          case GIMPLE_OMP_MASTER:
+          case GIMPLE_OMP_ORDERED:
+          case GIMPLE_OMP_SECTION:
+          case GIMPLE_OMP_FOR:
+          case GIMPLE_OMP_PARALLEL:
+          case GIMPLE_OMP_SECTIONS:
+          case GIMPLE_OMP_SINGLE:
+            break;
+          /* Tuples that do not have trees.  */
+          case GIMPLE_NOP:
+          case GIMPLE_RESX:
+          case GIMPLE_OMP_RETURN:
+            break;
+
+          default:
+            if (verify_gimple_stmt (stmt))
+	      {
+		error ("verifier found an invalid statement.");
+		debug_gimple_stmt (stmt);
+		gcc_unreachable ();
+	      }
+        }
+      
     }
 }
 
-/* Verify the GIMPLE statements inside the current function.  */
-
-void
-verify_gimple (void)
-{
-  verify_gimple_1 (BIND_EXPR_BODY (DECL_SAVED_TREE (cfun->decl)));
-}
 
 /* Verify STMT, return true if STMT is not in GIMPLE form.
    TODO: Implement type checking.  */
 
+/* FIXME tuples.  */
+#if 0
 static bool
 verify_stmt (tree stmt, bool last_in_block)
 {
@@ -4119,10 +4471,13 @@ verify_stmt (tree stmt, bool last_in_block)
   debug_generic_stmt (stmt);
   return true;
 }
+#endif
 
 
 /* Return true when the T can be shared.  */
 
+/* FIXME tuples.  */
+#if 0
 static bool
 tree_node_can_be_shared (tree t)
 {
@@ -4148,10 +4503,13 @@ tree_node_can_be_shared (tree t)
 
   return false;
 }
+#endif
 
 
 /* Called via walk_trees.  Verify tree sharing.  */
 
+/* FIXME tuples.  */
+#if 0
 static tree
 verify_node_sharing (tree * tp, int *walk_subtrees, void *data)
 {
@@ -4168,10 +4526,13 @@ verify_node_sharing (tree * tp, int *walk_subtrees, void *data)
 
   return NULL;
 }
+#endif
 
 
 /* Helper function for verify_gimple_tuples.  */
 
+/* FIXME tuples.  */
+#if 0
 static tree
 verify_gimple_tuples_1 (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 			 void *data ATTRIBUTE_UNUSED)
@@ -4188,17 +4549,23 @@ verify_gimple_tuples_1 (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
       return NULL_TREE;
     }
 }
+#endif
 
 /* Verify that there are no trees that should have been converted to
    gimple tuples.  Return true if T contains a node that should have
    been converted to a gimple tuple, but hasn't.  */
 
+/* FIXME tuples.  */
+#if 0
 static bool
 verify_gimple_tuples (tree t)
 {
   return walk_tree (&t, verify_gimple_tuples_1, NULL, NULL) != NULL;
 }
+#endif
 
+/* FIXME tuples.  */
+#if 0
 static bool eh_error_found;
 static int
 verify_eh_throw_stmt_node (void **slot, void *data)
@@ -4214,12 +4581,15 @@ verify_eh_throw_stmt_node (void **slot, void *data)
     }
   return 0;
 }
+#endif
 
 /* Verify the GIMPLE statement chain.  */
 
 void
 verify_stmts (void)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb;
   block_stmt_iterator bsi;
   bool err = false;
@@ -4319,11 +4689,14 @@ verify_stmts (void)
   pointer_set_destroy (visited_stmts);
   verify_histograms ();
   timevar_pop (TV_TREE_STMT_VERIFY);
+#endif
 }
 
 
 /* Verifies that the flow information is OK.  */
 
+/* FIXME tuples.  */
+#if 0
 static int
 tree_verify_flow_info (void)
 {
@@ -4617,11 +4990,14 @@ tree_verify_flow_info (void)
 
   return err;
 }
+#endif
 
 
 /* Updates phi nodes after creating a forwarder block joined
    by edge FALLTHRU.  */
 
+/* FIXME tuples.  */
+#if 0
 static void
 tree_make_forwarder_block (edge fallthru)
 {
@@ -4659,14 +5035,17 @@ tree_make_forwarder_block (edge fallthru)
       flush_pending_stmts (e);
     }
 }
+#endif
 
 
 /* Return a non-special label in the head of basic block BLOCK.
    Create one if it doesn't exist.  */
 
 tree
-tree_block_label (basic_block bb)
+tree_block_label (basic_block bb ATTRIBUTE_UNUSED)
 {
+/* FIXME tuples.  */
+#if 0
   block_stmt_iterator i, s = bsi_start (bb);
   bool first = true;
   tree label, stmt;
@@ -4689,6 +5068,9 @@ tree_block_label (basic_block bb)
   stmt = build1 (LABEL_EXPR, void_type_node, label);
   bsi_insert_before (&s, stmt, BSI_NEW_STMT);
   return label;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -4698,6 +5080,8 @@ tree_block_label (basic_block bb)
    parameters and return values are equivalent to
    redirect_edge_and_branch.  */
 
+/* FIXME tuples.  */
+#if 0
 static edge
 tree_try_redirect_by_replacing_jump (edge e, basic_block target)
 {
@@ -4729,11 +5113,14 @@ tree_try_redirect_by_replacing_jump (edge e, basic_block target)
 
   return NULL;
 }
+#endif
 
 
 /* Redirect E to DEST.  Return NULL on failure.  Otherwise, return the
    edge representing the redirected branch.  */
 
+/* FIXME tuples.  */
+#if 0
 static edge
 tree_redirect_edge_and_branch (edge e, basic_block dest)
 {
@@ -4839,6 +5226,7 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
 
   return e;
 }
+#endif
 
 /* Returns true if it is possible to remove edge E by redirecting
    it to the destination of the other edge from E->src.  */
@@ -4854,6 +5242,8 @@ tree_can_remove_branch_p (const_edge e)
 
 /* Simple wrapper, as we can always redirect fallthru edges.  */
 
+/* FIXME tuples.  */
+#if 0
 static basic_block
 tree_redirect_edge_and_branch_force (edge e, basic_block dest)
 {
@@ -4862,11 +5252,14 @@ tree_redirect_edge_and_branch_force (edge e, basic_block dest)
 
   return NULL;
 }
+#endif
 
 
 /* Splits basic block BB after statement STMT (but at least after the
    labels).  If STMT is NULL, BB is split just after the labels.  */
 
+/* FIXME tuples.  */
+#if 0
 static basic_block
 gimple_split_block (basic_block bb, void *stmt)
 {
@@ -4920,6 +5313,7 @@ gimple_split_block (basic_block bb, void *stmt)
 
   return new_bb;
 }
+#endif
 
 
 /* Moves basic block BB after block AFTER.  */
@@ -4949,6 +5343,8 @@ tree_can_duplicate_bb_p (const_basic_block bb ATTRIBUTE_UNUSED)
 /* Create a duplicate of the basic block BB.  NOTE: This does not
    preserve SSA form.  */
 
+/* FIXME tuples.  */
+#if 0
 static basic_block
 tree_duplicate_bb (basic_block bb)
 {
@@ -5000,6 +5396,7 @@ tree_duplicate_bb (basic_block bb)
 
   return new_bb;
 }
+#endif
 
 
 /* Basic block BB_COPY was created by code duplication.  Add phi node
@@ -5007,8 +5404,10 @@ tree_duplicate_bb (basic_block bb)
    duplicated have BB_DUPLICATED set.  */
 
 void
-add_phi_args_after_copy_bb (basic_block bb_copy)
+add_phi_args_after_copy_bb (basic_block bb_copy ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb, dest;
   edge e, e_copy;
   edge_iterator ei;
@@ -5049,6 +5448,7 @@ add_phi_args_after_copy_bb (basic_block bb_copy)
 	  add_phi_arg (phi_copy, def, e_copy);
 	}
     }
+#endif
 }
 
 /* Blocks in REGION_COPY array of length N_REGION were created by
@@ -5137,7 +5537,12 @@ tree_duplicate_sese_region (edge entry, edge exit,
       free_region_copy = true;
     }
 
+  /* FIXME tuples */
+#if 0
   gcc_assert (!need_ssa_update_p ());
+#else
+  gcc_unreachable ();
+#endif
 
   /* Record blocks outside the region that are dominated by something
      inside.  */
@@ -5207,8 +5612,13 @@ tree_duplicate_sese_region (edge entry, edge exit,
   /* Add the other PHI node arguments.  */
   add_phi_args_after_copy (region_copy, n_region);
 
+  /* FIXME tuples.  */
+#if 0
   /* Update the SSA web.  */
   update_ssa (TODO_update_ssa);
+#else
+  gcc_unreachable ();
+#endif
 
   if (free_region_copy)
     free (region_copy);
@@ -5332,6 +5742,8 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
    On exit, local variables that need to be removed from
    CFUN->UNEXPANDED_VAR_LIST will have been added to VARS_TO_REMOVE.  */
 
+/* FIXME tuples.  */
+#if 0
 static void
 move_block_to_fn (struct function *dest_cfun, basic_block bb,
 		  basic_block after, bool update_edge_count_p,
@@ -5437,10 +5849,13 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	}
     }
 }
+#endif
 
 /* Examine the statements in BB (which is in SRC_CFUN); find and return
    the outermost EH region.  Use REGION as the incoming base EH region.  */
 
+/* FIXME tuples.  */
+#if 0
 static int
 find_outermost_region_in_block (struct function *src_cfun,
 				basic_block bb, int region)
@@ -5493,6 +5908,7 @@ new_label_mapper (tree decl, void *data)
 
   return m->to;
 }
+#endif
 
 /* Move a single-entry, single-exit region delimited by ENTRY_BB and
    EXIT_BB to function DEST_CFUN.  The whole region is replaced by a
@@ -5509,9 +5925,11 @@ new_label_mapper (tree decl, void *data)
    associated with DEST_CFUN.  */
 
 basic_block
-move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
-		        basic_block exit_bb)
+move_sese_region_to_fn (struct function *dest_cfun ATTRIBUTE_UNUSED, basic_block entry_bb ATTRIBUTE_UNUSED,
+		        basic_block exit_bb ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   VEC(basic_block,heap) *bbs;
   basic_block after, bb, *entry_pred, *exit_succ;
   struct function *saved_cfun;
@@ -5676,6 +6094,9 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
   VEC_free (basic_block, heap, bbs);
 
   return bb;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -5907,17 +6328,22 @@ debug_loop_ir (void)
    instructions that must stay with the call.  Return false,
    otherwise.  */
 
+/* FIXME tuples.  */
+#if 0
 static bool
 tree_block_ends_with_call_p (const_basic_block bb)
 {
   block_stmt_iterator bsi = bsi_last (bb);
   return get_call_expr_in (bsi_stmt (bsi)) != NULL;
 }
+#endif
 
 
 /* Return true if BB ends with a conditional branch.  Return false,
    otherwise.  */
 
+/* FIXME tuples.  */
+#if 0
 static bool
 tree_block_ends_with_condjump_p (const_basic_block bb)
 {
@@ -5952,6 +6378,7 @@ need_fake_edge_p (tree t)
 
   return false;
 }
+#endif
 
 
 /* Add fake edges to the function exit for any non constant and non
@@ -5962,6 +6389,8 @@ need_fake_edge_p (tree t)
    The goal is to expose cases in which entering a basic block does
    not imply that all subsequent instructions must be executed.  */
 
+/* FIXME tuples.  */
+#if 0
 static int
 tree_flow_call_edges_add (sbitmap blocks)
 {
@@ -6070,12 +6499,15 @@ tree_flow_call_edges_add (sbitmap blocks)
 
   return blocks_split;
 }
+#endif
 
 /* Purge dead abnormal call edges from basic block BB.  */
 
 bool
-tree_purge_dead_abnormal_call_edges (basic_block bb)
+tree_purge_dead_abnormal_call_edges (basic_block bb ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   bool changed = tree_purge_dead_eh_edges (bb);
 
   if (current_function_has_nonlocal_label)
@@ -6102,6 +6534,9 @@ tree_purge_dead_abnormal_call_edges (basic_block bb)
     }
 
   return changed;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Stores all basic blocks dominated by BB to DOM_BBS.  */
@@ -6243,8 +6678,10 @@ remove_edge_and_dominated_blocks (edge e)
 /* Purge dead EH edges from basic block BB.  */
 
 bool
-tree_purge_dead_eh_edges (basic_block bb)
+tree_purge_dead_eh_edges (basic_block bb ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   bool changed = false;
   edge e;
   edge_iterator ei;
@@ -6265,6 +6702,9 @@ tree_purge_dead_eh_edges (basic_block bb)
     }
 
   return changed;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 bool
@@ -6314,9 +6754,10 @@ tree_execute_on_shrinking_pred (edge e)
    on the edge by split_edge(). Later, additional edge 'e' was created to
    connect 'new_head' and 'first'. Now this routine adds phi args on this
    additional edge 'e' that new_head to second edge received as part of edge
-   splitting.
-*/
+   splitting.  */
 
+/* FIXME tuples.  */
+#if 0
 static void
 tree_lv_adjust_loop_header_phi (basic_block first, basic_block second,
 				basic_block new_head, edge e)
@@ -6343,6 +6784,7 @@ tree_lv_adjust_loop_header_phi (basic_block first, basic_block second,
 /* Adds a if else statement to COND_BB with condition COND_EXPR.
    SECOND_HEAD is the destination of the THEN and FIRST_HEAD is
    the destination of the ELSE part.  */
+
 static void
 tree_lv_add_condition_to_bb (basic_block first_head ATTRIBUTE_UNUSED,
 			     basic_block second_head ATTRIBUTE_UNUSED,
@@ -6366,35 +6808,36 @@ tree_lv_add_condition_to_bb (basic_block first_head ATTRIBUTE_UNUSED,
   e0->flags &= ~EDGE_FALLTHRU;
   e0->flags |= EDGE_FALSE_VALUE;
 }
+#endif
 
 struct cfg_hooks gimple_cfg_hooks = {
   "gimple",
-  tree_verify_flow_info,
+  0 /* FIXME tuples tree_verify_flow_info */,
   tree_dump_bb,			/* dump_bb  */
   create_bb,			/* create_basic_block  */
-  tree_redirect_edge_and_branch,/* redirect_edge_and_branch  */
-  tree_redirect_edge_and_branch_force,/* redirect_edge_and_branch_force  */
+  0 /* FIXME tuples tree_redirect_edge_and_branch */,/* redirect_edge_and_branch  */
+  0 /* FIXME tuples tree_redirect_edge_and_branch_force */,/* redirect_edge_and_branch_force  */
   tree_can_remove_branch_p,	/* can_remove_branch_p  */
   remove_bb,			/* delete_basic_block  */
-  gimple_split_block,		/* split_block  */
+  0 /* FIXME tuples gimple_split_block */,		/* split_block  */
   tree_move_block_after,	/* move_block_after  */
-  tree_can_merge_blocks_p,	/* can_merge_blocks_p  */
+  0 /* FIXME tuples tree_can_merge_blocks_p */,	/* can_merge_blocks_p  */
   tree_merge_blocks,		/* merge_blocks  */
   tree_predict_edge,		/* predict_edge  */
   tree_predicted_by_p,		/* predicted_by_p  */
   tree_can_duplicate_bb_p,	/* can_duplicate_block_p  */
-  tree_duplicate_bb,		/* duplicate_block  */
+  0 /* FIXME tuples tree_duplicate_bb */,		/* duplicate_block  */
   tree_split_edge,		/* split_edge  */
-  tree_make_forwarder_block,	/* make_forward_block  */
+  0 /* FIXME tuples tree_make_forwarder_block */,	/* make_forward_block  */
   NULL,				/* tidy_fallthru_edge  */
-  tree_block_ends_with_call_p,	/* block_ends_with_call_p */
-  tree_block_ends_with_condjump_p, /* block_ends_with_condjump_p */
-  tree_flow_call_edges_add,     /* flow_call_edges_add */
+  0 /* FIXME tuples tree_block_ends_with_call_p */,	/* block_ends_with_call_p */
+  0 /* FIXME tuples tree_block_ends_with_condjump_p */, /* block_ends_with_condjump_p */
+  0 /* FIXME tuples tree_flow_call_edges_add */,     /* flow_call_edges_add */
   tree_execute_on_growing_pred,	/* execute_on_growing_pred */
   tree_execute_on_shrinking_pred, /* execute_on_shrinking_pred */
   tree_duplicate_loop_to_header_edge, /* duplicate loop for trees */
-  tree_lv_add_condition_to_bb, /* lv_add_condition_to_bb */
-  tree_lv_adjust_loop_header_phi, /* lv_adjust_loop_header_phi*/
+  0 /* FIXME tuples tree_lv_add_condition_to_bb */, /* lv_add_condition_to_bb */
+  0 /* FIXME tuples tree_lv_adjust_loop_header_phi */, /* lv_adjust_loop_header_phi*/
   extract_true_false_edges_from_block, /* extract_cond_bb_edges */
   flush_pending_stmts		/* flush_pending_stmts */
 };
@@ -6450,8 +6893,10 @@ struct tree_opt_pass pass_split_crit_edges =
    EXP before the current statement in BSI.  */
 
 tree
-gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
+gimplify_val (block_stmt_iterator *bsi ATTRIBUTE_UNUSED, tree type ATTRIBUTE_UNUSED, tree exp ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples  */
+#if 0
   tree t, new_stmt, orig_stmt;
 
   if (is_gimple_val (exp))
@@ -6469,6 +6914,9 @@ gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
     mark_symbols_for_renaming (new_stmt);
 
   return t;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Build a ternary operation and gimplify it.  Emit code before BSI.
@@ -6520,6 +6968,8 @@ gimplify_build1 (block_stmt_iterator *bsi, enum tree_code code, tree type,
 
 /* Emit return warnings.  */
 
+/* FIXME tuples  */
+#if 0
 static unsigned int
 execute_warn_function_return (void)
 {
@@ -6595,6 +7045,7 @@ execute_warn_function_return (void)
     }
   return 0;
 }
+#endif
 
 
 /* Given a basic block B which ends with a conditional and has
@@ -6625,7 +7076,7 @@ struct tree_opt_pass pass_warn_function_return =
 {
   NULL,					/* name */
   NULL,					/* gate */
-  execute_warn_function_return,		/* execute */
+  0 /* FIXME tuples execute_warn_function_return */,		/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

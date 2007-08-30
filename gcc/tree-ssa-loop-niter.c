@@ -43,6 +43,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "gmp.h"
 
+/* FIXME tuples.  */
+#if 0
 #define SWAP(X, Y) do { affine_iv *tmp = (X); (X) = (Y); (Y) = tmp; } while (0)
 
 /* The maximum number of dominator BBs we search for conditions
@@ -3075,3 +3077,4 @@ substitute_in_loop_info (struct loop *loop, tree name, tree val)
 {
   loop->nb_iterations = simplify_replace_tree (loop->nb_iterations, name, val);
 }
+#endif

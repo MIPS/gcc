@@ -209,9 +209,11 @@ struct gimple_statement_try GTY(())
   struct gimple_sequence cleanup;
 };
 
-/* Flags stored in GIMPLE_TRY's subcode flags.  */
-#define GIMPLE_TRY_CATCH 1 << 0
-#define GIMPLE_TRY_FINALLY 1 << 1
+/* Kind of GIMPLE_TRY statements.  Either try/catch or try/finally.  */
+enum gimple_try_kind {
+  GIMPLE_TRY_CATCH = 1,
+  GIMPLE_TRY_FINALLY = 2
+};
 
 
 /* GIMPLE_ASM */
@@ -622,6 +624,7 @@ void set_gimple_body (tree, gimple_seq);
 gimple_seq gimple_body (tree);
 void gimple_seq_append (gimple_seq, gimple_seq);
 int gimple_call_flags (gimple);
+bool gimple_assign_copy_p (gimple);
 
 extern const char *const gimple_code_name[];
 
@@ -703,6 +706,13 @@ gimple_set_op (gimple gs, size_t i, tree op)
 
 
 /* GIMPLE_ASSIGN accessors.  */
+
+static inline enum tree_code
+gimple_assign_rhs_code (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
+  return (enum tree_code) gimple_flags (gs);
+}
 
 static inline tree
 gimple_assign_operand (gimple gs, size_t opno)
@@ -865,6 +875,13 @@ gimple_call_set_arg (gimple gs, size_t index, tree arg)
 
 
 /* GIMPLE_COND accessors. */
+
+static inline enum tree_code
+gimple_cond_code (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_COND);
+  return (enum tree_code) gimple_flags (gs);
+}
 
 static inline tree
 gimple_cond_lhs (gimple gs)
@@ -1170,6 +1187,13 @@ gimple_eh_filter_set_failure (gimple gs, gimple_seq failure)
 
 
 /* GIMPLE_TRY accessors. */
+
+static inline enum gimple_try_kind
+gimple_try_kind (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_TRY);
+  return (enum gimple_try_kind) gimple_flags (gs);
+}
 
 static inline gimple_seq
 gimple_try_eval (gimple gs)
@@ -1651,9 +1675,27 @@ gimple_return_set_retval (gimple gs, tree retval)
 }
 
 
+/* Returns true when the gimple statment STMT is any of the OpenMP types.  */
+
+static inline bool
+is_gimple_omp (gimple stmt)
+{
+  return (gimple_code (stmt) == GIMPLE_OMP_PARALLEL
+	  || gimple_code (stmt) == GIMPLE_OMP_FOR
+	  || gimple_code (stmt) == GIMPLE_OMP_SECTIONS
+	  || gimple_code (stmt) == GIMPLE_OMP_SINGLE
+	  || gimple_code (stmt) == GIMPLE_OMP_SECTION
+	  || gimple_code (stmt) == GIMPLE_OMP_MASTER
+	  || gimple_code (stmt) == GIMPLE_OMP_ORDERED
+	  || gimple_code (stmt) == GIMPLE_OMP_CRITICAL
+	  || gimple_code (stmt) == GIMPLE_OMP_RETURN
+	  || gimple_code (stmt) == GIMPLE_OMP_CONTINUE);
+}
+
+
 /* GIMPLE_NOP.  */
 
-/* Returns TRUE if a stmt is a GIMPLE_NOP.  */
+/* Returns TRUE if statement G is a GIMPLE_NOP.  */
 
 static inline bool
 gimple_nop_p (gimple g)

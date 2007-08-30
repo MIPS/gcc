@@ -209,6 +209,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 
 
+     /* FIXME tuples.  */
+#if 0
 /* Possible lattice values.  */
 typedef enum
 {
@@ -1542,6 +1544,7 @@ widen_bitfield (tree val, tree field, tree var)
 
   return wide_val;
 }
+#endif
 
 
 /* A subroutine of fold_stmt_r.  Attempts to fold *(A+O) to A[X].
@@ -1834,6 +1837,8 @@ maybe_fold_offset_to_reference (tree base, tree offset, tree orig_type)
   return ret;
 }
 
+/* FIXME tuples.  */
+#if 0
 /* A subroutine of fold_stmt_r.  Attempt to simplify *(BASE+OFFSET).
    Return the simplified expression, or NULL if nothing could be done.  */
 
@@ -2766,3 +2771,4 @@ struct tree_opt_pass pass_fold_builtins =
   0					/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

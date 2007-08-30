@@ -236,7 +236,7 @@ prepare_call_address (rtx funexp, rtx static_chain_value,
    denote registers used by the called function.  */
 
 static void
-emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
+emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNUSED,
 	     tree funtype ATTRIBUTE_UNUSED,
 	     HOST_WIDE_INT stack_size ATTRIBUTE_UNUSED,
 	     HOST_WIDE_INT rounded_stack_size,
@@ -382,6 +382,8 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
 					       REG_NOTES (call_insn));
   else
     {
+      /* FIXME tuples  */
+#if 0
       int rn = lookup_stmt_eh_region (fntree);
 
       /* If rn < 0, then either (1) tree-ssa not used or (2) doesn't
@@ -390,6 +392,9 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
 	REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_EH_REGION, GEN_INT (rn),
 						   REG_NOTES (call_insn));
       note_current_region_may_contain_throw ();
+#else
+      gcc_unreachable ();
+#endif
     }
 
   if (ecf_flags & ECF_NORETURN)
@@ -2256,12 +2261,17 @@ expand_call (tree exp, rtx target, int ignore)
      expanding a call, as that means we're an argument.  Don't try if
      there's cleanups, as we know there's code to follow the call.  */
 
+  /* FIXME tuples.  */
+#if 0
   if (currently_expanding_call++ != 0
       || !flag_optimize_sibling_calls
       || args_size.var
       || lookup_stmt_eh_region (exp) >= 0
       || dbg_cnt (tail_call) == false)
     try_tail_call = 0;
+#else
+  gcc_unreachable ();
+#endif
 
   /*  Rest of purposes for tail call optimizations to fail.  */
   if (
@@ -3310,7 +3320,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 #ifdef REG_PARM_STACK_SPACE
   /* Define the boundary of the register parm stack space that needs to be
      save, if any.  */
-  int low_to_save, high_to_save;
+  int low_to_save = 0, high_to_save = 0;
   rtx save_area = 0;            /* Place that it is saved.  */
 #endif
 

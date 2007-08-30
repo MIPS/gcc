@@ -458,7 +458,7 @@ gimple_try_catch_may_fallthru (gimple stmt)
     return true;
 
   i = gsi_start (gimple_try_cleanup (stmt));
-  switch (gimple_flags (gsi_stmt (i)))
+  switch (gimple_code (gsi_stmt (i)))
     {
     case GIMPLE_CATCH:
       /* We expect to see a sequence of GIMPLE_CATCH stmts, each with a

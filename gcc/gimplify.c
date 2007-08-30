@@ -222,11 +222,14 @@ gimple_current_bind_expr (void)
 /* Returns true iff there is a COND_EXPR between us and the innermost
    CLEANUP_POINT_EXPR.  This info is used by gimple_push_cleanup.  */
 
+/* FIXME tuples.  */
+#if 0
 static bool
 gimple_conditional_context (void)
 {
   return gimplify_ctxp->conditions > 0;
 }
+#endif
 
 /* Note that we've entered a COND_EXPR.  */
 
@@ -2608,7 +2611,7 @@ gimplify_cond_expr (tree *expr_p, gimple_seq pre_p, fallback_t fallback)
       recalculate_side_effects (expr);
 
       /* Move the COND_EXPR to the prequeue.  */
-      gimplify_stmt (expr_p, pre_p);
+      gimplify_stmt (&expr, pre_p);
 
       *expr_p = result;
       return GS_ALL_DONE;
@@ -2682,8 +2685,8 @@ gimplify_cond_expr (tree *expr_p, gimple_seq pre_p, fallback_t fallback)
     {
       arm1 = TREE_OPERAND (TREE_OPERAND (expr, 0), 0);
       arm2 = TREE_OPERAND (TREE_OPERAND (expr, 0), 1);
-      gimple_cond = build_gimple_cond (pred, arm1, arm2, label_false,
-                                       label_true);
+      gimple_cond = build_gimple_cond (pred, arm1, arm2, label_true,
+				       label_false);
     }
   else
     {
@@ -4389,7 +4392,7 @@ gimplify_cleanup_point_expr (tree *expr_p, tree *pre_p)
    is the cleanup action required.  */
 
 static void
-gimple_push_cleanup (tree var, tree cleanup, bool eh_only, gimple_seq pre_p)
+gimple_push_cleanup (tree var ATTRIBUTE_UNUSED, tree cleanup ATTRIBUTE_UNUSED, bool eh_only ATTRIBUTE_UNUSED, gimple_seq pre_p ATTRIBUTE_UNUSED)
 {
 /* FIXME tuples */
 #if 0 /* FIXME tuples */
@@ -4923,10 +4926,15 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq pre_p, bool in_parallel,
 	      gimplify_omp_ctxp = ctx;
 	      push_gimplify_context ();
 	      gimplify_stmt (&OMP_CLAUSE_REDUCTION_INIT (c), pre_p);
+	      /* FIXME tuples.  */
+#if 0
 	      pop_gimplify_context (OMP_CLAUSE_REDUCTION_INIT (c));
 	      push_gimplify_context ();
 	      gimplify_stmt (&OMP_CLAUSE_REDUCTION_MERGE (c), pre_p);
 	      pop_gimplify_context (OMP_CLAUSE_REDUCTION_MERGE (c));
+#else
+	      gcc_unreachable ();
+#endif
 	      gimplify_omp_ctxp = outer_ctx;
 	    }
 	  if (notice_outer)
@@ -5140,10 +5148,15 @@ gimplify_omp_parallel (tree *expr_p, gimple_seq pre_p)
 
   gimplify_stmt (&OMP_PARALLEL_BODY (expr), pre_p);
 
+  /* FIXME tuples.  */
+#if 0
   if (TREE_CODE (OMP_PARALLEL_BODY (expr)) == BIND_EXPR)
     pop_gimplify_context (OMP_PARALLEL_BODY (expr));
   else
     pop_gimplify_context (NULL);
+#else
+  gcc_unreachable ();
+#endif
 
   gimplify_adjust_omp_clauses (&OMP_PARALLEL_CLAUSES (expr));
 
@@ -6665,12 +6678,9 @@ gimplify_body (tree *body_p, tree fndecl, bool do_parms)
   pop_gimplify_context (outer_bind);
   gcc_assert (gimplify_ctxp == NULL);
 
-  /* FIXME tuples: We need a version of this for tuples.  */
-#if 0
 #ifdef ENABLE_TYPES_CHECKING
   if (!errorcount && !sorrycount)
-    verify_gimple_1 (BIND_EXPR_BODY (*body_p));
-#endif
+    verify_gimple_seq (gimple_bind_body (outer_bind));
 #endif
 
   timevar_pop (TV_TREE_GIMPLIFY);

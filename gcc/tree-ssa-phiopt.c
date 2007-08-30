@@ -34,6 +34,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dump.h"
 #include "langhooks.h"
 
+/* FIXME tuples.  */
+#if 0
 static unsigned int tree_ssa_phiopt (void);
 static bool conditional_replacement (basic_block, basic_block,
 				     edge, edge, tree, tree, tree);
@@ -1031,3 +1033,4 @@ struct tree_opt_pass pass_phiopt =
   0					/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

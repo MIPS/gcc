@@ -99,6 +99,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 
 
+/* FIXME tuples.  */
+#if 0
 /* This structure represents one basic block that either computes a
    division, or is a common dominator for basic block that compute a
    division.  */
@@ -868,3 +870,4 @@ struct tree_opt_pass pass_convert_to_rsqrt =
   0				        /* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

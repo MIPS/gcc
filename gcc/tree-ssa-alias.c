@@ -49,6 +49,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "alloc-pool.h"
 
+/* FIXME tuples.  */
+#if 0
 /* Broad overview of how aliasing works:
    
    First we compute points-to sets, which is done in
@@ -1100,8 +1102,13 @@ find_partition_for (mem_sym_stats_t mp_p)
 
   mp_p->partitioned_p = true;
 
+  /* FIXME tuples.  */
+#if 0
   mark_sym_for_renaming (mp_p->var);
   mark_sym_for_renaming (mpt);
+#else
+  gcc_unreachable ();
+#endif
 
   return mpt;
 }
@@ -1351,9 +1358,19 @@ build_mp_info (struct mem_ref_stats_d *mem_ref_stats,
 	 marked for renaming.  */
       if ((old_mpt = memory_partition (var)) != NULL)
 	{
+	  /* FIXME tuples.  */
+#if 0
 	  mark_sym_for_renaming (old_mpt);
+#else
+	  gcc_unreachable ();
+#endif
 	  set_memory_partition (var, NULL_TREE);
+	  /* FIXME tuples.  */
+#if 0
 	  mark_sym_for_renaming (var);
+#else
+	  gcc_unreachable ();
+#endif
 	}
 
       sym_stats = get_mem_sym_stats_for (var);
@@ -1565,7 +1582,7 @@ done:
 
   timevar_pop (TV_MEMORY_PARTITIONING);
 }
-
+#endif
 
 /* Compute may-alias information for every variable referenced in function
    FNDECL.
@@ -1680,6 +1697,8 @@ done:
 unsigned int
 compute_may_aliases (void)
 {
+  /* FIXME tuples.  */
+#if 0
   struct alias_info *ai;
 
   timevar_push (TV_TREE_MAY_ALIAS);
@@ -1777,14 +1796,24 @@ compute_may_aliases (void)
   /* Deallocate memory used by aliasing data structures.  */
   delete_alias_info (ai);
 
+  /* FIXME tuples.  */
+#if 0
   if (need_ssa_update_p ())
     update_ssa (TODO_update_ssa);
+#else
+  gcc_unreachable ();
+#endif
 
   timevar_pop (TV_TREE_MAY_ALIAS);
   
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Data structure used to count the number of dereferences to PTR
    inside an expression.  */
 struct count_ptr_d
@@ -3274,7 +3303,7 @@ get_ptr_info (tree t)
 
   return pi;
 }
-
+#endif
 
 /* Dump points-to information for SSA_NAME PTR into FILE.  */
 
@@ -3329,8 +3358,10 @@ debug_points_to_info_for (tree var)
    it needs to traverse the whole CFG looking for pointer SSA_NAMEs.  */
 
 void
-dump_points_to_info (FILE *file)
+dump_points_to_info (FILE *file ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb;
   block_stmt_iterator si;
   ssa_op_iter iter;
@@ -3378,9 +3409,14 @@ dump_points_to_info (FILE *file)
     }
 
   fprintf (file, "\n");
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
+/* FIXME tuples.  */
+#if 0
 /* Dump points-to info pointed to by PTO into STDERR.  */
 
 void
@@ -3388,6 +3424,7 @@ debug_points_to_info (void)
 {
   dump_points_to_info (stderr);
 }
+#endif
 
 /* Dump to FILE the list of variables that may be aliasing VAR.  */
 
@@ -3415,6 +3452,8 @@ dump_may_aliases_for (FILE *file, tree var)
 }
 
 
+/* FIXME tuples.  */
+#if 0
 /* Dump to stderr the list of variables that may be aliasing VAR.  */
 
 void
@@ -4004,12 +4043,15 @@ find_used_portions (tree *tp, int *walk_subtrees, void *lhs_p)
     }
   return NULL_TREE;
 }
+#endif
 
 /* Create structure field variables for structures used in this function.  */
 
 static unsigned int
 create_structure_vars (void)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb;
   safe_referenced_var_iterator rvi;
   VEC (tree, heap) *varvec = NULL;
@@ -4108,6 +4150,9 @@ create_structure_vars (void)
       }
 
   return TODO_rebuild_alias;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 static bool

@@ -1222,6 +1222,8 @@ expand_used_vars (void)
    for STMT to the dump file.  SINCE is the last RTX after which the RTL
    generated for STMT should have been appended.  */
 
+/* FIXME tuples.  */
+#if 0
 static void
 maybe_dump_rtl_for_tree_stmt (tree stmt, rtx since)
 {
@@ -1234,6 +1236,7 @@ maybe_dump_rtl_for_tree_stmt (tree stmt, rtx since)
       print_rtl (dump_file, since ? NEXT_INSN (since) : since);
     }
 }
+#endif
 
 /* Maps the blocks that do not contain tree labels to rtx labels.  */
 
@@ -1241,8 +1244,10 @@ static struct pointer_map_t *lab_rtx_for_bb;
 
 /* Returns the label_rtx expression for a label starting basic block BB.  */
 
+/* FIXME tuples.  */
+#if 0
 static rtx
-label_rtx_for_bb (basic_block bb)
+label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
 {
   tree_stmt_iterator *gsi;
   tree lab;
@@ -1275,11 +1280,14 @@ label_rtx_for_bb (basic_block bb)
   *elt = gen_label_rtx ();
   return (rtx) *elt;
 }
+#endif
 
 /* A subroutine of expand_gimple_basic_block.  Expand one COND_EXPR.
    Returns a new basic block if we've terminated the current basic
    block and created a new one.  */
 
+/* FIXME tuples.  */
+#if 0
 static basic_block
 expand_gimple_cond_expr (basic_block bb, tree stmt)
 {
@@ -1312,8 +1320,13 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
       jumpif (pred, label_rtx_for_bb (true_edge->dest));
       add_reg_br_prob_note (last, true_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
+      /* FIXME tuples.  */
+#if 0
       if (!IS_LOCATION_EMPTY (true_edge->goto_locus))
   	set_curr_insn_source_location (true_edge->goto_locus);
+#else
+      gcc_unreachable ();
+#endif
       false_edge->flags |= EDGE_FALLTHRU;
       return NULL;
     }
@@ -1322,8 +1335,13 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
       jumpifnot (pred, label_rtx_for_bb (false_edge->dest));
       add_reg_br_prob_note (last, false_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
+      /* FIXME tuples.  */
+#if 0
       if (!IS_LOCATION_EMPTY (false_edge->goto_locus))
   	set_curr_insn_source_location (false_edge->goto_locus);
+#else
+      gcc_unreachable ();
+#endif
       true_edge->flags |= EDGE_FALLTHRU;
       return NULL;
     }
@@ -1353,11 +1371,17 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
 
   maybe_dump_rtl_for_tree_stmt (stmt, last2);
 
+  /* FIXME tuples.  */
+#if 0
   if (!IS_LOCATION_EMPTY (false_edge->goto_locus))
     set_curr_insn_source_location (false_edge->goto_locus);
+#else
+  gcc_unreachable ();
+#endif
 
   return new_bb;
 }
+#endif
 
 /* A subroutine of expand_gimple_basic_block.  Expand one CALL_EXPR
    that has CALL_EXPR_TAILCALL set.  Returns non-null if we actually
@@ -1369,6 +1393,8 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
    where the NaN result goes through the external function (with a
    tailcall) and the normal result happens via a sqrt instruction.  */
 
+/* FIXME tuples.  */
+#if 0
 static basic_block
 expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
 {
@@ -1465,12 +1491,15 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
 
   return bb;
 }
+#endif
 
 /* Expand basic block BB from GIMPLE trees to RTL.  */
 
 static basic_block
 expand_gimple_basic_block (basic_block bb)
 {
+  /* FIXME tuples.  */
+#if 0
   tree_stmt_iterator tsi;
   tree stmts = bb_seq (bb);
   tree stmt = NULL;
@@ -1637,6 +1666,9 @@ expand_gimple_basic_block (basic_block bb)
   BB_END (bb) = last;
 
   update_bb_for_insn (bb);
+#else
+  gcc_unreachable ();
+#endif
 
   return bb;
 }

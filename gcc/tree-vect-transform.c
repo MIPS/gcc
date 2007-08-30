@@ -45,6 +45,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "real.h"
 
+/* FIXME tuples.  */
+#if 0
 /* Utility functions for the code transformation.  */
 static bool vect_transform_stmt (tree, block_stmt_iterator *, bool *);
 static tree vect_create_destination_var (tree, tree);
@@ -6861,3 +6863,4 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   if (loop->inner && vect_print_dump_info (REPORT_VECTORIZED_LOOPS))
     fprintf (vect_dump, "OUTER LOOP VECTORIZED.");
 }
+#endif

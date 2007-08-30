@@ -56,6 +56,9 @@ along with GCC; see the file COPYING3.  If not see
        what cleanups it makes sense to try on the block.  */
 bitmap cfgcleanup_altered_bbs;
 
+/* FIXME tuples.  */
+#if 0
+
 /* Remove any fallthru edge from EV.  Return true if an edge was removed.  */
 
 static bool
@@ -813,6 +816,7 @@ remove_forwarder_block_with_phi (basic_block bb)
      to DEST.  */
   delete_basic_block (bb);
 }
+#endif
 
 /* This pass merges PHI nodes if one feeds into another.  For example,
    suppose we have the following:
@@ -842,6 +846,8 @@ remove_forwarder_block_with_phi (basic_block bb)
 static unsigned int
 merge_phi_nodes (void)
 {
+  /* FIXME tuples  */
+#if 0
   basic_block *worklist = XNEWVEC (basic_block, n_basic_blocks);
   basic_block *current = worklist;
   basic_block bb;
@@ -919,6 +925,9 @@ merge_phi_nodes (void)
 
   free (worklist);
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 static bool
@@ -927,7 +936,8 @@ gate_merge_phi (void)
   return 1;
 }
 
-struct tree_opt_pass pass_merge_phi = {
+struct tree_opt_pass pass_merge_phi =
+{
   "mergephi",			/* name */
   gate_merge_phi,		/* gate */
   merge_phi_nodes,		/* execute */

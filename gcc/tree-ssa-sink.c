@@ -42,6 +42,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "cfgloop.h"
 
+/* FIXME tuples.  */
+#if 0
 /* TODO:
    1. Sinking store only using scalar promotion (IE without moving the RHS):
 
@@ -574,3 +576,4 @@ struct tree_opt_pass pass_sink_code =
   0					/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

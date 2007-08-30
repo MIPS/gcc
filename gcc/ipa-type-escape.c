@@ -54,6 +54,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "langhooks.h"
 
+/* FIXME tuples.  */
+#if 0
 /* Some of the aliasing is called very early, before this phase is
    called.  To assure that this is not a problem, we keep track of if
    this phase has been run.  */
@@ -2176,3 +2178,4 @@ struct tree_opt_pass pass_ipa_type_escape =
   ,0					/* works_with_tuples_p */
 };
 
+#endif

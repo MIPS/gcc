@@ -94,6 +94,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "langhooks.h"
 
+/* FIXME tuples.  */
+#if 0
+
 static struct datadep_stats
 {
   int num_dependence_tests;
@@ -4275,6 +4278,7 @@ analyze_all_data_dependences (struct loop *loop)
   free_dependence_relations (dependence_relations);
   free_data_refs (datarefs);
 }
+#endif
 
 /* Computes all the data dependences and check that the results of
    several analyzers are the same.  */
@@ -4282,13 +4286,20 @@ analyze_all_data_dependences (struct loop *loop)
 void
 tree_check_data_deps (void)
 {
+  /* FIXME tuples.  */
+#if 0
   loop_iterator li;
   struct loop *loop_nest;
 
   FOR_EACH_LOOP (li, loop_nest, 0)
     analyze_all_data_dependences (loop_nest);
+#else
+  gcc_unreachable ();
+#endif
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Free the memory used by a data dependence relation DDR.  */
 
 void
@@ -4531,3 +4542,4 @@ build_rdg (struct loop *loop)
 
   return rdg;
 }
+#endif

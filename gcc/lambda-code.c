@@ -1250,6 +1250,8 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   phi = SSA_NAME_DEF_STMT (inductionvar);
   if (TREE_CODE (phi) != PHI_NODE)
     {
+/* FIXME tuples.  */
+#if 0
       phi = SINGLE_SSA_TREE_OPERAND (phi, SSA_OP_USE);
       if (!phi)
 	{
@@ -1270,7 +1272,9 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
 		     "Unable to convert loop: Cannot find PHI node for induction variable\n");
 	  return NULL;
 	}
-
+#else
+      gcc_unreachable ();
+#endif
     }
 
   /* The induction variable name/version we want to put in the array is the
@@ -1522,10 +1526,12 @@ gcc_loopnest_to_lambda_loopnest (struct loop *loop_nest,
    variables for the loop this LBV is from.  TYPE is the tree type to use for
    the variables and trees involved.  */
 
+/* FIXME tuples.  */
+#if 0
 static tree
 lbv_to_gcc_expression (lambda_body_vector lbv, 
 		       tree type, VEC(tree,heap) *induction_vars, 
-		       tree *stmts_to_insert)
+		       tree *stmts_to_insert ATTRIBUTE_UNUSED)
 {
   int k;
   tree resvar;
@@ -1540,6 +1546,7 @@ lbv_to_gcc_expression (lambda_body_vector lbv,
   add_referenced_var (resvar);
   return force_gimple_operand (fold (expr), stmts_to_insert, true, resvar);
 }
+#endif
 
 /* Convert a linear expression from coefficient and constant form to a
    gcc tree.
@@ -1554,6 +1561,8 @@ lbv_to_gcc_expression (lambda_body_vector lbv,
    STMTS_TO_INSERT Is a pointer to the statement list we fill in with
    statements that need to be inserted for the linear expression.  */
 
+  /* FIXME tuples.  */
+#if 0
 static tree
 lle_to_gcc_expression (lambda_linear_expression lle,
 		       lambda_linear_expression offset,
@@ -1614,6 +1623,7 @@ lle_to_gcc_expression (lambda_linear_expression lle,
   add_referenced_var (resvar);
   return force_gimple_operand (fold (expr), stmts_to_insert, true, resvar);
 }
+#endif
 
 /* Remove the induction variable defined at IV_STMT.  */
 
@@ -1626,17 +1636,25 @@ remove_iv (tree iv_stmt)
 
       for (i = 0; i < PHI_NUM_ARGS (iv_stmt); i++)
 	{
+	  /* FIXME tuples.  */
+#if 0
 	  tree stmt;
 	  imm_use_iterator imm_iter;
+#endif
 	  tree arg = PHI_ARG_DEF (iv_stmt, i);
 	  bool used = false;
 
 	  if (TREE_CODE (arg) != SSA_NAME)
 	    continue;
 
+	  /* FIXME tuples.  */
+#if 0
 	  FOR_EACH_IMM_USE_STMT (stmt, imm_iter, arg)
 	    if (stmt != iv_stmt)
 	      used = true;
+#else
+	  gcc_unreachable ();
+#endif
 
 	  if (!used)
 	    remove_iv (SSA_NAME_DEF_STMT (arg));
@@ -1646,10 +1664,15 @@ remove_iv (tree iv_stmt)
     }
   else
     {
+      /* FIXME tuples.  */
+#if 0
       block_stmt_iterator bsi = bsi_for_stmt (iv_stmt);
 
       bsi_remove (&bsi, true);
       release_defs (iv_stmt); 
+#else
+      gcc_unreachable ();
+#endif
     }
 }
 
@@ -1667,12 +1690,14 @@ remove_iv (tree iv_stmt)
    NEW_LOOPNEST.  */
 
 void
-lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
-				 VEC(tree,heap) *old_ivs,
-				 VEC(tree,heap) *invariants,
-				 lambda_loopnest new_loopnest,
-				 lambda_trans_matrix transform)
+lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest ATTRIBUTE_UNUSED,
+				 VEC(tree,heap) *old_ivs ATTRIBUTE_UNUSED,
+				 VEC(tree,heap) *invariants ATTRIBUTE_UNUSED,
+				 lambda_loopnest new_loopnest ATTRIBUTE_UNUSED,
+				 lambda_trans_matrix transform ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   struct loop *temp;
   size_t i = 0;
   size_t depth = 0;
@@ -1746,6 +1771,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       exitcond = get_loop_exit_condition (temp);
       bb = gimple_bb (exitcond);
       bsi = bsi_after_labels (bb);
+      /* FIXME tuples.  */
       if (stmts)
 	bsi_insert_before (&bsi, stmts, BSI_NEW_STMT);
 
@@ -1840,11 +1866,16 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       remove_iv (oldiv_stmt);
     }
   VEC_free (tree, heap, new_ivs);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Return TRUE if this is not interesting statement from the perspective of
    determining if we have a perfect loop nest.  */
 
+/* FIXME tuples.  */
+#if 0
 static bool
 not_interesting_stmt (tree stmt)
 {
@@ -1856,9 +1887,12 @@ not_interesting_stmt (tree stmt)
     return true;
   return false;
 }
+#endif
 
 /* Return TRUE if PHI uses DEF for it's in-the-loop edge for LOOP.  */
 
+/* FIXME tuples.  */
+#if 0
 static bool
 phi_loop_edge_uses_def (struct loop *loop, tree phi, tree def)
 {
@@ -1869,9 +1903,12 @@ phi_loop_edge_uses_def (struct loop *loop, tree phi, tree def)
 	return true;
   return false;
 }
+#endif
 
 /* Return TRUE if STMT is a use of PHI_RESULT.  */
 
+  /* FIXME tuples.  */
+#if 0
 static bool
 stmt_uses_phi_result (tree stmt, tree phi_result)
 {
@@ -1881,6 +1918,7 @@ stmt_uses_phi_result (tree stmt, tree phi_result)
      of the form x +- constant for our pass.  */
   return (use == phi_result);
 }
+#endif
 
 /* STMT is a bumper stmt for LOOP if the version it defines is used in the
    in-loop-edge in a phi node, and the operand it uses is the result of that
@@ -1888,6 +1926,8 @@ stmt_uses_phi_result (tree stmt, tree phi_result)
    I.E. i_29 = i_3 + 1
         i_3 = PHI (0, i_29);  */
 
+  /* FIXME tuples.  */
+#if 0
 static bool
 stmt_is_bumper_for_loop (struct loop *loop, tree stmt)
 {
@@ -1912,6 +1952,7 @@ stmt_is_bumper_for_loop (struct loop *loop, tree stmt)
     }
   return false;
 }
+#endif
 
 
 /* Return true if LOOP is a perfect loop nest.
@@ -1941,8 +1982,10 @@ stmt_is_bumper_for_loop (struct loop *loop, tree stmt)
    the induction variable increment, and jump back to the top of the loop).  */
 
 bool
-perfect_nest_p (struct loop *loop)
+perfect_nest_p (struct loop *loop ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block *bbs;
   size_t i;
   tree exit_cond;
@@ -1973,6 +2016,9 @@ perfect_nest_p (struct loop *loop)
   if (loop->inner)    
     return perfect_nest_p (loop->inner);
   return true;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Replace the USES of X in STMT, or uses with the same step as X with Y.
@@ -1981,6 +2027,8 @@ perfect_nest_p (struct loop *loop)
    iterator where new temporaries should be inserted at the beginning
    of body basic block.  */
 
+  /* FIXME tuples */
+#if 0
 static void
 replace_uses_equiv_to_x_with_y (struct loop *loop, tree stmt, tree x, 
 				int xstep, tree y, tree yinit,
@@ -2074,13 +2122,15 @@ replace_uses_equiv_to_x_with_y (struct loop *loop, tree stmt, tree x,
       *(struct tree_map **) loc = h;
     }
 }
+#endif
 
 /* Return true if STMT is an exit PHI for LOOP */
 
+  /* FIXME tuples.  */
+#if 0
 static bool
 exit_phi_for_loop_p (struct loop *loop, tree stmt)
 {
-  
   if (TREE_CODE (stmt) != PHI_NODE
       || PHI_NUM_ARGS (stmt) != 1
       || gimple_bb (stmt) != single_exit (loop)->dest)
@@ -2088,10 +2138,13 @@ exit_phi_for_loop_p (struct loop *loop, tree stmt)
   
   return true;
 }
+#endif
 
 /* Return true if STMT can be put back into the loop INNER, by
    copying it to the beginning of that loop and changing the uses.  */
 
+  /* FIXME tuples.  */
+#if 0
 static bool
 can_put_in_inner_loop (struct loop *inner, tree stmt)
 {
@@ -2115,8 +2168,12 @@ can_put_in_inner_loop (struct loop *inner, tree stmt)
     }
   return true;  
 }
+#endif
 
 /* Return true if STMT can be put *after* the inner loop of LOOP.  */
+
+  /* FIXME tuples.  */
+#if 0
 static bool
 can_put_after_inner_loop (struct loop *loop, tree stmt)
 {
@@ -2141,6 +2198,7 @@ can_put_after_inner_loop (struct loop *loop, tree stmt)
     }
   return true;
 }
+#endif
 
 
 
@@ -2149,8 +2207,10 @@ can_put_after_inner_loop (struct loop *loop, tree stmt)
    depth 2, where all of the statements occur after the inner loop.  */
 
 static bool
-can_convert_to_perfect_nest (struct loop *loop)
+can_convert_to_perfect_nest (struct loop *loop ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block *bbs;
   tree exit_condition, phi;
   size_t i;
@@ -2272,6 +2332,9 @@ can_convert_to_perfect_nest (struct loop *loop)
  fail:
   free (bbs);
   return false;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Transform the loop nest into a perfect nest, if possible.
@@ -2311,12 +2374,14 @@ can_convert_to_perfect_nest (struct loop *loop)
    Return FALSE if we can't make this loop into a perfect nest.  */
 
 static bool
-perfect_nestify (struct loop *loop,
-		 VEC(tree,heap) *lbounds,
-		 VEC(tree,heap) *ubounds,
-		 VEC(int,heap) *steps,
-		 VEC(tree,heap) *loopivs)
+perfect_nestify (struct loop *loop ATTRIBUTE_UNUSED,
+		 VEC(tree,heap) *lbounds ATTRIBUTE_UNUSED,
+		 VEC(tree,heap) *ubounds ATTRIBUTE_UNUSED,
+		 VEC(int,heap) *steps ATTRIBUTE_UNUSED,
+		 VEC(tree,heap) *loopivs ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block *bbs;
   tree exit_condition;
   tree cond_stmt;
@@ -2502,6 +2567,9 @@ perfect_nestify (struct loop *loop,
   free (bbs);
   htab_delete (replacements);
   return perfect_nest_p (loop);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Return true if TRANS is a legal transformation matrix that respects

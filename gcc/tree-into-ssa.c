@@ -49,6 +49,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "vecprim.h"
 
+/* FIXME tuples.  */
+#if 0
+
 /* This file builds the SSA form for a function as described in:
    R. Cytron, J. Ferrante, B. Rosen, M. Wegman, and K. Zadeck. Efficiently
    Computing Static Single Assignment Form and the Control Dependence
@@ -102,6 +105,8 @@ static htab_t def_blocks;
      associated with the current block.  */
 static VEC(tree,heap) *block_defs_stack;
 
+#endif
+
 /* Set of existing SSA names being replaced by update_ssa.  */
 static sbitmap old_ssa_names;
 
@@ -110,10 +115,13 @@ static sbitmap old_ssa_names;
    the operations done on them are presence tests.  */
 static sbitmap new_ssa_names;
 
+
 /* Symbols whose SSA form needs to be updated or created for the first
    time.  */
 static bitmap syms_to_rename;
 
+/* FIXME tuples.  */
+#if 0
 /* Subset of SYMS_TO_RENAME.  Contains all the GIMPLE register symbols
    that have been marked for renaming.  */
 static bitmap regs_to_rename;
@@ -121,12 +129,15 @@ static bitmap regs_to_rename;
 /* Subset of SYMS_TO_RENAME.  Contains all the memory symbols
    that have been marked for renaming.  */
 static bitmap mem_syms_to_rename;
+#endif
 
 /* Set of SSA names that have been marked to be released after they
    were registered in the replacement table.  They will be finally
    released after we finish updating the SSA web.  */
 static bitmap names_to_release;
 
+/* FIXME tuples.  */
+#if 0
 /* For each block, the PHI nodes that need to be rewritten are stored into
    these vectors.  */
 typedef VEC(tree, heap) *tree_vec;
@@ -152,6 +163,8 @@ struct repl_map_d
   bitmap set;
 };
 
+#endif
+
 /* NEW -> OLD_SET replacement table.  If we are replacing several
    existing SSA names O_1, O_2, ..., O_j with a new name N_i,
    then REPL_TBL[N_i] = { O_1, O_2, ..., O_j }.  */
@@ -164,6 +177,8 @@ static bool need_to_initialize_update_ssa_p = true;
 /* true if update_ssa needs to update virtual operands.  */
 static bool need_to_update_vops_p = false;
 
+/* FIXME tuples.  */
+#if 0
 /* Statistics kept by update_ssa to use in the virtual mapping
    heuristic.  If the number of virtual mappings is beyond certain
    threshold, the updater will switch from using the mappings into
@@ -360,6 +375,7 @@ set_current_def (tree var, tree def)
   else
     var_ann (var)->current_def = def;
 }
+#endif
 
 
 /* Compute global livein information given the set of blockx where
@@ -371,8 +387,10 @@ set_current_def (tree var, tree def)
    for LIVEIN).  */
 
 void
-compute_global_livein (bitmap livein, bitmap def_blocks)
+compute_global_livein (bitmap livein ATTRIBUTE_UNUSED, bitmap def_blocks ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb, *worklist, *tos;
   unsigned i;
   bitmap_iterator bi;
@@ -410,9 +428,14 @@ compute_global_livein (bitmap livein, bitmap def_blocks)
     }
 
   free (worklist);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
+/* FIXME tuples.  */
+#if 0
 /* Cleans up the REWRITE_THIS_STMT and REGISTER_DEFS_IN_THIS_STMT flags for
    all statements in basic block BB.  */
 
@@ -1455,6 +1478,7 @@ rewrite_finalize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     }
 }
 
+#endif
 
 /* Dump bitmap SET (assumed to contain VAR_DECLs) to FILE.  */
 
@@ -1489,6 +1513,8 @@ debug_decl_set (bitmap set)
   dump_decl_set (stderr, set);
 }
 
+/* FIXME tuples */
+#if 0
 
 /* Dump the renaming stack (block_defs_stack) to FILE.  Traverse the
    stack up to a maximum of N levels.  If N is -1, the whole stack is
@@ -2227,7 +2253,7 @@ fini_ssa_renamer (void)
 
   cfun->gimple_df->in_ssa_p = true;
 }
-
+#endif
 
 /* Main entry point into the SSA builder.  The renaming process
    proceeds in four main phases:
@@ -2249,6 +2275,8 @@ fini_ssa_renamer (void)
 static unsigned int
 rewrite_into_ssa (void)
 {
+  /* FIXME tuples  */
+#if 0
   bitmap *dfs;
   basic_block bb;
   sbitmap interesting_blocks;
@@ -2295,6 +2323,9 @@ rewrite_into_ssa (void)
 
   timevar_pop (TV_TREE_SSA_OTHER);
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -2319,6 +2350,8 @@ struct tree_opt_pass pass_build_ssa =
 };
 
 
+/* FIXME tuples  */
+#if 0
 /* Mark the definition of VAR at STMT and BB as interesting for the
    renamer.  BLOCKS is the set of blocks that need updating.  */
 
@@ -2728,6 +2761,7 @@ delete_update_ssa (void)
   BITMAP_FREE (blocks_to_update);
 }
 
+#endif
 
 /* Create a new name for OLD_NAME in statement STMT and replace the
    operand pointed to by DEF_P with the newly created name.  Return
@@ -2735,8 +2769,10 @@ delete_update_ssa (void)
    update_ssa's tables.  */
 
 tree
-create_new_def_for (tree old_name, tree stmt, def_operand_p def)
+create_new_def_for (tree old_name ATTRIBUTE_UNUSED, tree stmt ATTRIBUTE_UNUSED, def_operand_p def ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree new_name = duplicate_ssa_name (old_name, stmt);
 
   SET_DEF (def, new_name);
@@ -2764,6 +2800,9 @@ create_new_def_for (tree old_name, tree stmt, def_operand_p def)
   set_current_def (old_name, new_name);
 
   return new_name;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -2772,12 +2811,17 @@ create_new_def_for (tree old_name, tree stmt, def_operand_p def)
    update_ssa.  */
 
 void
-register_new_name_mapping (tree new, tree old)
+register_new_name_mapping (tree new ATTRIBUTE_UNUSED, tree old ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   if (need_to_initialize_update_ssa_p)
     init_update_ssa ();
 
   add_new_name_mapping (new, old);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -2786,8 +2830,13 @@ register_new_name_mapping (tree new, tree old)
 void
 mark_sym_for_renaming (tree sym)
 {
+  /* FIXME tuples.  */
+#if 0
   if (need_to_initialize_update_ssa_p)
     init_update_ssa ();
+#else
+  gcc_unreachable ();
+#endif
 
   /* FIXME.  Why do we need this?  */
   {
@@ -2822,8 +2871,13 @@ mark_set_for_renaming (bitmap set)
   if (set == NULL || bitmap_empty_p (set))
     return;
 
+  /* FIXME tuples.  */
+#if 0
   if (need_to_initialize_update_ssa_p)
     init_update_ssa ();
+#else
+  gcc_unreachable ();
+#endif
 
   EXECUTE_IF_SET_IN_BITMAP (set, 0, i, bi)
     mark_sym_for_renaming (referenced_var (i));
@@ -2849,14 +2903,19 @@ name_mappings_registered_p (void)
 /* Return true if name N has been registered in the replacement table.  */
 
 bool
-name_registered_for_update_p (tree n)
+name_registered_for_update_p (tree n ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   if (!need_ssa_update_p ())
     return false;
 
   return is_new_name (n)
          || is_old_name (n)
 	 || symbol_marked_for_renaming (SSA_NAME_VAR (n));
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -2890,6 +2949,8 @@ release_ssa_name_after_update_ssa (tree name)
   bitmap_set_bit (names_to_release, SSA_NAME_VERSION (name));
 }
 
+/* FIXME tuples.  */
+#if 0
 
 /* Insert new PHI nodes to replace VAR.  DFS contains dominance
    frontier information.  BLOCKS is the set of blocks to be updated.
@@ -3066,6 +3127,7 @@ switch_virtuals_to_full_rewrite (void)
 
   mark_set_for_renaming (update_ssa_stats.virtual_symbols);
 }
+#endif
 
 
 /* Given a set of newly created SSA names (NEW_SSA_NAMES) and a set of
@@ -3133,8 +3195,10 @@ switch_virtuals_to_full_rewrite (void)
    TODO_update_ssa*.  */
 
 void
-update_ssa (unsigned update_flags)
+update_ssa (unsigned update_flags ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb, start_bb;
   bitmap_iterator bi;
   unsigned i = 0;
@@ -3362,4 +3426,7 @@ done:
   delete_update_ssa ();
 
   timevar_pop (TV_TREE_SSA_INCREMENTAL);
+#else
+  gcc_unreachable ();
+#endif
 }

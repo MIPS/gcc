@@ -38,6 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "langhooks.h"
 
+/* FIXME tuples.  */
+#if 0
 /* The following routines implement the SSA copy renaming phase.
 
    This optimization looks for copies between 2 SSA_NAMES, either through a
@@ -403,4 +405,4 @@ struct tree_opt_pass pass_rename_ssa_copies =
   0					/* letter */
   ,0					/* works_with_tuples_p */
 }; 
-
+#endif

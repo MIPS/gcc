@@ -45,8 +45,7 @@ along with GCC; see the file COPYING3.  If not see
    Currently must be run after inlining decisions have been made since
    otherwise, the local sets will not contain information that is
    consistent with post inlined state.  The global sets are not prone
-   to this problem since they are by definition transitive.  
-*/
+   to this problem since they are by definition transitive.  */
 
 #include "config.h"
 #include "system.h"
@@ -70,6 +69,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "langhooks.h"
 
+/* FIXME tuples.  */
+#if 0
 /* This splay tree contains all of the static variables that are
    being considered by the compilation level alias analysis.  For
    module_at_a_time compilation, this is the set of static but not
@@ -1348,4 +1349,4 @@ struct tree_opt_pass pass_ipa_reference =
 };
 
 #include "gt-ipa-reference.h"
-
+#endif

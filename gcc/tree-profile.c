@@ -185,6 +185,8 @@ tree_gen_edge_profiler (int edgeno, edge e)
 /* Emits code to get VALUE to instrument at BSI, and returns the
    variable containing the value.  */
 
+/* FIXME tuples.  */
+#if 0
 static tree
 prepare_instrumented_value (block_stmt_iterator *bsi,
 			    histogram_value value)
@@ -193,14 +195,17 @@ prepare_instrumented_value (block_stmt_iterator *bsi,
   return force_gimple_operand_bsi (bsi, fold_convert (gcov_type_node, val),
 				   true, NULL_TREE, true, BSI_SAME_STMT);
 }
+#endif
 
 /* Output instructions as GIMPLE trees to increment the interval histogram 
    counter.  VALUE is the expression whose value is profiled.  TAG is the 
    tag of the section for counters, BASE is offset of the counter position.  */
 
 static void
-tree_gen_interval_profiler (histogram_value value, unsigned tag, unsigned base)
+tree_gen_interval_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag ATTRIBUTE_UNUSED, unsigned base ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
   tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
@@ -215,6 +220,9 @@ tree_gen_interval_profiler (histogram_value value, unsigned tag, unsigned base)
   call = build_call_expr (tree_interval_profiler_fn, 4,
 			  ref_ptr, val, start, steps);
   bsi_insert_before (&bsi, call, BSI_SAME_STMT);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Output instructions as GIMPLE trees to increment the power of two histogram 
@@ -222,8 +230,10 @@ tree_gen_interval_profiler (histogram_value value, unsigned tag, unsigned base)
    of the section for counters, BASE is offset of the counter position.  */
 
 static void
-tree_gen_pow2_profiler (histogram_value value, unsigned tag, unsigned base)
+tree_gen_pow2_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag ATTRIBUTE_UNUSED, unsigned base ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
   tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
@@ -235,6 +245,9 @@ tree_gen_pow2_profiler (histogram_value value, unsigned tag, unsigned base)
   val = prepare_instrumented_value (&bsi, value);
   call = build_call_expr (tree_pow2_profiler_fn, 2, ref_ptr, val);
   bsi_insert_before (&bsi, call, BSI_SAME_STMT);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Output instructions as GIMPLE trees for code to find the most common value.
@@ -242,8 +255,10 @@ tree_gen_pow2_profiler (histogram_value value, unsigned tag, unsigned base)
    section for counters, BASE is offset of the counter position.  */
 
 static void
-tree_gen_one_value_profiler (histogram_value value, unsigned tag, unsigned base)
+tree_gen_one_value_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag ATTRIBUTE_UNUSED, unsigned base ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
   tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
@@ -255,6 +270,9 @@ tree_gen_one_value_profiler (histogram_value value, unsigned tag, unsigned base)
   val = prepare_instrumented_value (&bsi, value);
   call = build_call_expr (tree_one_value_profiler_fn, 2, ref_ptr, val);
   bsi_insert_before (&bsi, call, BSI_SAME_STMT);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -265,8 +283,10 @@ tree_gen_one_value_profiler (histogram_value value, unsigned tag, unsigned base)
    counter position.  */
 
 static void
-tree_gen_ic_profiler (histogram_value value, unsigned tag, unsigned base)
+tree_gen_ic_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag ATTRIBUTE_UNUSED, unsigned base ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree tmp1, stmt1, stmt2, stmt3;
   tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
@@ -290,6 +310,9 @@ tree_gen_ic_profiler (histogram_value value, unsigned tag, unsigned base)
   bsi_insert_before (&bsi, stmt1, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt2, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt3, BSI_SAME_STMT);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -301,6 +324,8 @@ tree_gen_ic_profiler (histogram_value value, unsigned tag, unsigned base)
 static void
 tree_gen_ic_func_profiler (void)
 {
+  /* FIXME tuples.  */
+#if 0
   struct cgraph_node * c_node = cgraph_node (current_function_decl);
   block_stmt_iterator bsi;
   edge e;
@@ -334,6 +359,9 @@ tree_gen_ic_func_profiler (void)
 			       ic_void_ptr_var);
       bsi_insert_after (&bsi, stmt1, BSI_NEW_STMT);
     }
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Output instructions as GIMPLE trees for code to find the most common value 
@@ -358,8 +386,10 @@ tree_gen_const_delta_profiler (histogram_value value ATTRIBUTE_UNUSED,
    tag of the section for counters, BASE is offset of the counter position.  */
 
 static void
-tree_gen_average_profiler (histogram_value value, unsigned tag, unsigned base)
+tree_gen_average_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag ATTRIBUTE_UNUSED, unsigned base ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
   tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
@@ -372,6 +402,9 @@ tree_gen_average_profiler (histogram_value value, unsigned tag, unsigned base)
   val = prepare_instrumented_value (&bsi, value);
   call = build_call_expr (tree_average_profiler_fn, 2, ref_ptr, val);
   bsi_insert_before (&bsi, call, BSI_SAME_STMT);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Output instructions as GIMPLE trees to increment the ior histogram 
@@ -379,8 +412,10 @@ tree_gen_average_profiler (histogram_value value, unsigned tag, unsigned base)
    tag of the section for counters, BASE is offset of the counter position.  */
 
 static void
-tree_gen_ior_profiler (histogram_value value, unsigned tag, unsigned base)
+tree_gen_ior_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag ATTRIBUTE_UNUSED, unsigned base ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
   tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
@@ -392,6 +427,9 @@ tree_gen_ior_profiler (histogram_value value, unsigned tag, unsigned base)
   val = prepare_instrumented_value (&bsi, value);
   call = build_call_expr (tree_ior_profiler_fn, 2, ref_ptr, val);
   bsi_insert_before (&bsi, call, BSI_SAME_STMT);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Return 1 if tree-based profiling is in effect, else 0.
@@ -403,7 +441,12 @@ do_tree_profiling (void)
 {
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
+      /* FIXME tuples.  */
+#if 0
       tree_register_profile_hooks ();
+#else
+      gcc_unreachable ();
+#endif
       tree_register_value_prof_hooks ();
       return true;
     }
@@ -417,7 +460,12 @@ tree_profiling (void)
      the gcov datastructure initializer.  */
   if (cgraph_state == CGRAPH_STATE_FINISHED)
     return 0;
+  /* FIXME tuples.  */
+#if 0
   branch_prob ();
+#else
+  gcc_unreachable ();
+#endif
 
   if (! flag_branch_probabilities 
       && flag_profile_values)

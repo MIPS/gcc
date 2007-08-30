@@ -53,6 +53,8 @@
 #include "alias.h"
 #include "pointer-set.h"
 
+/* FIXME tuples.  */
+#if 0
 /* The idea behind this analyzer is to generate set constraints from the
    program, then solve the resulting constraints in order to generate the
    points-to sets.
@@ -5445,6 +5447,7 @@ delete_points_to_sets (void)
   free_alloc_pool (constraint_pool);
   have_alias_info = false;
 }
+#endif
 
 /* Return true if we should execute IPA PTA.  */
 static bool
@@ -5460,6 +5463,8 @@ gate_ipa_pta (void)
 static unsigned int
 ipa_pta_execute (void)
 {
+  /* FIXME tuples.  */
+#if 0
   struct cgraph_node *node;
   struct scc_info *si;
 
@@ -5563,6 +5568,9 @@ ipa_pta_execute (void)
   delete_alias_heapvars ();
   delete_points_to_sets ();
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 struct tree_opt_pass pass_ipa_pta =
@@ -5583,6 +5591,8 @@ struct tree_opt_pass pass_ipa_pta =
   ,0					/* works_with_tuples_p */
 };
 
+/* FIXME tuples.  */
+#if 0
 /* Initialize the heapvar for statement mapping.  */
 void
 init_alias_heapvars (void)
@@ -5599,5 +5609,5 @@ delete_alias_heapvars (void)
   heapvar_for_stmt = NULL;
 }
 
-
 #include "gt-tree-ssa-structalias.h"
+#endif

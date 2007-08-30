@@ -74,7 +74,10 @@ static sreal real_zero, real_one, real_almost_one, real_br_prob_base,
 
 static void combine_predictions_for_insn (rtx, basic_block);
 static void dump_prediction (FILE *, enum br_predictor, int, basic_block, int);
+/* FIXME tuples  */
+#if 0
 static void predict_paths_leading_to (basic_block, int *, enum br_predictor, enum prediction);
+#endif
 static void compute_function_frequency (void);
 static void choose_function_section (void);
 static bool can_predict_insn_p (const_rtx);
@@ -1038,6 +1041,8 @@ expr_expected_value (tree expr, bitmap visited)
 static void
 strip_builtin_expect (void)
 {
+/* FIXME tuples.  */
+#if 0
   basic_block bb;
   FOR_EACH_BB (bb)
     {
@@ -1061,12 +1066,17 @@ strip_builtin_expect (void)
 	    }
 	}
     }
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Predict using opcode of the last statement in basic block.  */
 static void
-tree_predict_by_opcode (basic_block bb)
+tree_predict_by_opcode (basic_block bb ATTRIBUTE_UNUSED)
 {
+/* FIXME tuples.  */
+#if 0
   tree stmt = last_stmt (bb);
   edge then_edge;
   tree cond;
@@ -1180,9 +1190,15 @@ tree_predict_by_opcode (basic_block bb)
       default:
 	break;
       }
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Try to guess whether the value of return means error code.  */
+
+/* FIXME tuples */
+#if 0
 static enum br_predictor
 return_prediction (tree val, enum prediction *prediction)
 {
@@ -1221,9 +1237,12 @@ return_prediction (tree val, enum prediction *prediction)
     }
   return PRED_NO_PREDICTION;
 }
+#endif
 
 /* Find the basic block with return expression and look up for possible
    return value trying to apply RETURN_PREDICTION heuristics.  */
+/* FIXME tuples.  */
+#if 0
 static void
 apply_return_prediction (int *heads)
 {
@@ -1277,6 +1296,7 @@ apply_return_prediction (int *heads)
 				    direction);
       }
 }
+#endif
 
 /* Look for basic block that contains unlikely to happen events
    (such as noreturn calls) and mark all paths leading to execution
@@ -1285,6 +1305,8 @@ apply_return_prediction (int *heads)
 static void
 tree_bb_level_predictions (void)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb;
   int *heads;
 
@@ -1329,6 +1351,9 @@ call_expr:;
     }
 
   free (heads);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 #ifdef ENABLE_CHECKING
@@ -1431,6 +1456,7 @@ tree_estimate_probability (void)
 	      for (bi = bsi_start (e->dest); !bsi_end_p (bi);
 		   bsi_next (&bi))
 		{
+#if 0
 		  tree stmt = bsi_stmt (bi);
 		  if ((TREE_CODE (stmt) == CALL_EXPR
 		       || (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
@@ -1443,6 +1469,9 @@ tree_estimate_probability (void)
 		      predict_edge_def (e, PRED_CALL, NOT_TAKEN);
 		      break;
 		    }
+#else
+		  gcc_unreachable ();
+#endif
 		}
 	    }
 	}
@@ -1475,6 +1504,8 @@ tree_estimate_probability (void)
    such that we do not post-dominate it) (but we fill this information
    on demand, so -1 may be there in case this was not needed yet).  */
 
+/* FIXME tuples */
+#if 0
 static void
 predict_paths_leading_to (basic_block bb, int *heads, enum br_predictor pred,
 			  enum prediction taken)
@@ -1522,6 +1553,7 @@ predict_paths_leading_to (basic_block bb, int *heads, enum br_predictor pred,
 	&& dominated_by_p (CDI_POST_DOMINATORS, e->dest, bb))
       predict_edge_def (e, pred, taken);
 }
+#endif
 
 /* This is used to carry information about basic blocks.  It is
    attached to the AUX field of the standard CFG block.  */

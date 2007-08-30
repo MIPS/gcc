@@ -410,6 +410,8 @@ dump_omp_clauses (pretty_printer *buffer, tree clause, int spc, int flags)
 /* Dump the set of decls SYMS.  BUFFER, SPC and FLAGS are as in
    dump_generic_node.  */
 
+/* FIXME tuples.  */
+#if 0
 static void
 dump_symbols (pretty_printer *buffer, bitmap syms, int flags)
 {
@@ -432,6 +434,7 @@ dump_symbols (pretty_printer *buffer, bitmap syms, int flags)
       pp_string (buffer, "}");
     }
 }
+#endif
 
 
 /* Dump the node NODE on the pretty_printer BUFFER, SPC spaces of indent.
@@ -1714,8 +1717,13 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  }
 	pp_string (buffer, ">");
 
+	/* FIXME tuples.  */
+#if 0
 	if (stmt_references_memory_p (node) && (flags & TDF_MEMSYMS))
 	  dump_symbols (buffer, gimple_stored_syms (node), flags);
+#else
+	gcc_unreachable ();
+#endif
       }
       break;
 
@@ -2795,8 +2803,10 @@ newline_and_indent (pretty_printer *buffer, int spc)
 
 
 static void
-dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
+dump_vops (pretty_printer *buffer ATTRIBUTE_UNUSED, tree stmt ATTRIBUTE_UNUSED, int spc ATTRIBUTE_UNUSED, int flags ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   struct voptype_d *vdefs;
   struct voptype_d *vuses;
   int i, n;
@@ -2873,6 +2883,9 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
       newline_and_indent (buffer, spc);
       vdefs = vdefs->next;
     }
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -2890,6 +2903,8 @@ dump_generic_bb (FILE *file, basic_block bb, int indent, int flags)
 /* Dumps header of basic block BB to buffer BUFFER indented by INDENT
    spaces and details described by flags.  */
 
+/* FIXME tuples.  */
+#if 0
 static void
 dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
@@ -2957,10 +2972,13 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
   pp_write_text_to_stream (buffer);
   check_bb_profile (bb, buffer->buffer->stream);
 }
+#endif
 
 /* Dumps end of basic block BB to buffer BUFFER indented by INDENT
    spaces.  */
 
+/* FIXME tuples.  */
+#if 0
 static void
 dump_bb_end (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
@@ -2983,10 +3001,13 @@ dump_bb_end (pretty_printer *buffer, basic_block bb, int indent, int flags)
       dump_edge_info (buffer->buffer->stream, e, 1);
   pp_newline (buffer);
 }
+#endif
 
 /* Dump PHI nodes of basic block BB to BUFFER with details described
    by FLAGS and indented by INDENT spaces.  */
 
+  /* FIXME tuples.  */
+#if 0
 static void
 dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
@@ -3005,11 +3026,14 @@ dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
         }
     }
 }
+#endif
 
 
 /* Dump jump to basic block BB that is represented implicitly in the cfg
    to BUFFER.  */
 
+  /* FIXME tuples.  */
+#if 0
 static void
 pp_cfg_jump (pretty_printer *buffer, basic_block bb)
 {
@@ -3028,10 +3052,13 @@ pp_cfg_jump (pretty_printer *buffer, basic_block bb)
     }
   pp_semicolon (buffer);
 }
+#endif
 
 /* Dump edges represented implicitly in basic block BB to BUFFER, indented
    by INDENT spaces, with details given by FLAGS.  */
 
+  /* FIXME tuples.  */
+#if 0
 static void
 dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 		     int flags)
@@ -3099,14 +3126,17 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
       pp_newline (buffer);
     }
 }
+#endif
 
 /* Dumps basic block BB to buffer BUFFER with details described by FLAGS and
    indented by INDENT spaces.  */
 
 static void
-dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
-		      int indent, int flags)
+dump_generic_bb_buff (pretty_printer *buffer ATTRIBUTE_UNUSED, basic_block bb ATTRIBUTE_UNUSED,
+		      int indent ATTRIBUTE_UNUSED, int flags ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   block_stmt_iterator bsi;
   tree stmt;
   int label_indent = indent - 2;
@@ -3136,4 +3166,7 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
 
   if (flags & TDF_BLOCKS)
     dump_bb_end (buffer, bb, indent, flags);
+#else
+  gcc_unreachable ();
+#endif
 }

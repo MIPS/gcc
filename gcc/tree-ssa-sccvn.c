@@ -45,6 +45,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "tree-ssa-sccvn.h"
 
+/* FIXME tuples.  */
+#if 0
 /* This algorithm is based on the SCC algorithm presented by Keith
    Cooper and L. Taylor Simpson in "SCC-Based Value numbering"
    (http://citeseer.ist.psu.edu/41805.html).  In
@@ -2052,3 +2054,4 @@ run_scc_vn (void)
 	}
     }
 }
+#endif

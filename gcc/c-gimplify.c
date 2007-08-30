@@ -115,8 +115,10 @@ c_genericize (tree fndecl)
 }
 
 static void
-add_block_to_enclosing (tree block)
+add_block_to_enclosing (tree block ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree enclosing;
 
   for (enclosing = gimple_current_bind_expr ();
@@ -126,6 +128,9 @@ add_block_to_enclosing (tree block)
 
   enclosing = BIND_EXPR_BLOCK (enclosing);
   BLOCK_SUBBLOCKS (enclosing) = chainon (BLOCK_SUBBLOCKS (enclosing), block);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Genericize a scope by creating a new BIND_EXPR.

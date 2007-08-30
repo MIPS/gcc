@@ -48,6 +48,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-data-ref.h"
 #include "optabs.h"
 
+/* FIXME tuples.  */
+#if 0
 /* This pass inserts prefetch instructions to optimize cache usage during
    accesses to arrays in loops.  It processes loops sequentially and:
 
@@ -1594,3 +1596,4 @@ tree_ssa_prefetch_arrays (void)
   free_original_copy_tables ();
   return todo_flags;
 }
+#endif

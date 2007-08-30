@@ -54,6 +54,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tree-inline.h"
 
+/* FIXME tuples.  */
+#if 0
 /* Specifies types of loops that may be unrolled.  */
 
 enum unroll_level
@@ -562,3 +564,4 @@ remove_empty_loops (void)
     }
   return 0;
 }
+#endif

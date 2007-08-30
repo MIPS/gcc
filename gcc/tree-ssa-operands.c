@@ -74,6 +74,8 @@ along with GCC; see the file COPYING3.  If not see
   vector for VUSE, then the new vector will also be modified such that 
   it contains 'a_5' rather than 'a'.  */
 
+/* FIXME tuples.  */
+#if 0
 
 /* Structure storing statistics on how many call clobbers we have, and
    how many where avoided.  */
@@ -2963,3 +2965,4 @@ stmt_references_memory_p (gimple stmt)
 
   return gimple_has_mem_ops (stmt);
 }
+#endif

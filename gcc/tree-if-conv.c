@@ -100,6 +100,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "target.h"
 
+/* FIXME tuples.  */
+#if 0
+
 /* local function prototypes */
 static unsigned int main_tree_if_conversion (void);
 static tree tree_if_convert_stmt (struct loop *loop, tree, tree,
@@ -1119,12 +1122,15 @@ bb_with_exit_edge_p (struct loop *loop, basic_block bb)
 
   return exit_edge_found;
 }
+#endif
 
 /* Tree if-conversion pass management.  */
 
 static unsigned int
 main_tree_if_conversion (void)
 {
+  /* FIXME tuples  */
+#if 0
   loop_iterator li;
   struct loop *loop;
 
@@ -1136,6 +1142,9 @@ main_tree_if_conversion (void)
       tree_if_conversion (loop, true);
     }
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 static bool

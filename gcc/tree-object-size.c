@@ -29,6 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 
+/* FIXME tuples.  */
+#if 0
 struct object_size_info
 {
   int object_size_type;
@@ -988,13 +990,15 @@ fini_object_sizes (void)
       object_sizes[object_size_type] = NULL;
     }
 }
-
+#endif
 
 /* Simple pass to optimize all __builtin_object_size () builtins.  */
 
 static unsigned int
 compute_object_sizes (void)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb;
   FOR_EACH_BB (bb)
     {
@@ -1061,6 +1065,9 @@ compute_object_sizes (void)
 
   fini_object_sizes ();
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 struct tree_opt_pass pass_object_sizes =

@@ -174,10 +174,15 @@ loop_vec_info_for_loop (struct loop *loop)
 }
 
 static inline bool
-nested_in_vect_loop_p (struct loop *loop, tree stmt)
+nested_in_vect_loop_p (struct loop *loop ATTRIBUTE_UNUSED, tree stmt ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   return (loop->inner 
           && (loop->inner == (gimple_bb (stmt))->loop_father));
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /*-----------------------------------------------------------------*/

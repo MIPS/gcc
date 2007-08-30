@@ -124,6 +124,8 @@ eni_weights eni_size_weights;
 
 eni_weights eni_time_weights;
 
+/* FIXME tuples.  */
+#if 0
 /* Prototypes.  */
 
 static tree declare_return_variable (copy_body_data *, tree, tree, tree *);
@@ -136,12 +138,16 @@ static tree mark_local_for_remap_r (tree *, int *, void *);
 static void unsave_expr_1 (tree);
 static tree unsave_r (tree *, int *, void *);
 static void declare_inline_vars (tree, tree);
+#endif
 static void remap_save_expr (tree *, void *, int *);
+/* FIXME tuples.  */
+#if 0
 static void add_lexical_block (tree current_block, tree new_block);
 static tree copy_decl_to_var (tree, copy_body_data *);
 static tree copy_result_decl_to_var (tree, copy_body_data *);
 static tree copy_decl_no_change (tree, copy_body_data *);
 static tree copy_decl_maybe_to_var (tree, copy_body_data *);
+#endif
 
 /* Insert a tree->tree mapping for ID.  Despite the name suggests
    that the trees should be variables, it is used for more than that.  */
@@ -157,6 +163,8 @@ insert_decl_map (copy_body_data *id, tree key, tree value)
     *pointer_map_insert (id->decl_map, value) = value;
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Construct new SSA name for old NAME. ID is the inline context.  */
 
 static tree
@@ -200,6 +208,7 @@ remap_ssa_name (tree name, copy_body_data *id)
     insert_decl_map (id, name, new);
   return new;
 }
+#endif
 
 /* Remap DECL during the copying of the BLOCK tree for the function.  */
 
@@ -256,11 +265,16 @@ remap_decl (tree decl, copy_body_data *id)
 	  get_var_ann (t);
 	  if (TREE_CODE (decl) != PARM_DECL && def)
 	    {
+	      /* FIXME tuples.  */
+#if 0
 	      tree map = remap_ssa_name (def, id);
 	      /* Watch out RESULT_DECLs whose SSA names map directly
 		 to them.  */
 	      if (TREE_CODE (map) == SSA_NAME)
 	        set_default_def (t, map);
+#else
+	      gcc_unreachable ();
+#endif
 	    }
 	  add_referenced_var (t);
 	}
@@ -487,6 +501,8 @@ remap_block (tree *block, copy_body_data *id)
   insert_decl_map (id, old_block, new_block);
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Copy the whole block tree and root it in id->block.  */
 static tree
 remap_blocks (tree block, copy_body_data *id)
@@ -518,6 +534,7 @@ copy_statement_list (tree *tp)
   for (; !tsi_end_p (oi); tsi_next (&oi))
     tsi_link_after (&ni, tsi_stmt (oi), TSI_NEW_STMT);
 }
+#endif
 
 static void
 copy_bind_expr (tree *tp, int *walk_subtrees, copy_body_data *id)
@@ -579,9 +596,14 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
     }
   else if (TREE_CODE (*tp) == SSA_NAME)
     {
+      /* FIXME tuples.  */
+#if 0
       *tp = remap_ssa_name (*tp, id);
       *walk_subtrees = 0;
       return NULL;
+#else
+      gcc_unreachable ();
+#endif
     }
 
   /* Local variables and labels need to be replaced by equivalent
@@ -601,7 +623,12 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       *walk_subtrees = 0;
     }
   else if (TREE_CODE (*tp) == STATEMENT_LIST)
+    /* FIXME tuples.  */
+#if 0
     copy_statement_list (tp);
+#else
+  gcc_unreachable ();
+#endif
   else if (TREE_CODE (*tp) == SAVE_EXPR)
     remap_save_expr (tp, id->decl_map, walk_subtrees);
   else if (TREE_CODE (*tp) == LABEL_DECL
@@ -763,6 +790,8 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Copy basic block, scale profile accordingly.  Edges will be taken care of
    later  */
 
@@ -802,15 +831,12 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 
 	  gimple_duplicate_stmt_histograms (cfun, stmt, id->src_cfun, orig_stmt);
 
-#if 0
-	  /* FIXME tuples */
 	  /* With return slot optimization we can end up with
 	     non-gimple (foo *)&this->m, fix that here.  */
 	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
 	      && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == NOP_EXPR
 	      && !is_gimple_val (TREE_OPERAND (GIMPLE_STMT_OPERAND (stmt, 1), 0)))
 	    gimplify_stmt (&stmt);
-#endif
 
           bsi_insert_after (&copy_bsi, stmt, BSI_NEW_STMT);
 
@@ -1428,10 +1454,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
           tree_stmt_iterator i;
 
 	  push_gimplify_context ();
-#if 0
-	  /* FIXME tuples */
 	  gimplify_stmt (&init_stmt);
-#endif
 	  if (gimple_in_ssa_p (cfun)
               && init_stmt && TREE_CODE (init_stmt) == STATEMENT_LIST)
 	    {
@@ -1941,6 +1964,7 @@ inlinable_function_p (tree fn)
 
   return inlinable;
 }
+#endif
 
 /* Return true if we shall disregard inlining limits for the function
    FN during inlining.  */
@@ -1956,6 +1980,8 @@ disregard_inline_limits_p (tree fn)
   return lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL_TREE;
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Estimate the cost of a memory move.  Use machine dependent
    word size and take possible memcpy call into account.  */
 
@@ -2327,6 +2353,7 @@ estimate_num_insns (tree expr, eni_weights *weights)
 
   return data.count;
 }
+#endif
 
 /* Initializes weights used by estimate_num_insns.  */
 
@@ -2374,6 +2401,8 @@ pop_cfun (void)
   cfun = VEC_pop (function_p, cfun_stack);
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Install new lexical TREE_BLOCK underneath 'current_block'.  */
 static void
 add_lexical_block (tree current_block, tree new_block)
@@ -2931,6 +2960,7 @@ clone_body (tree clone, tree fn, void *arg_map)
   /* Actually copy the body.  */
   append_to_statement_list_force (copy_generic_body (&id), &DECL_SAVED_TREE (clone));
 }
+#endif
 
 /* Passed to walk_tree.  Copies the node pointed to, if appropriate.  */
 
@@ -3039,6 +3069,8 @@ remap_save_expr (tree *tp, void *st_, int *walk_subtrees)
   *tp = t;
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Called via walk_tree.  If *TP points to a DECL_STMT for a local label,
    copies the declaration and enters it in the splay_tree in DATA (which is
    really an `copy_body_data *').  */
@@ -3528,6 +3560,7 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
 	      || DECL_STRUCT_FUNCTION (current_function_decl) == cfun);
   return;
 }
+#endif
 
 /* Duplicate a type, fields and all.  */
 

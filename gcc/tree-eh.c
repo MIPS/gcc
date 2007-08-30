@@ -47,6 +47,9 @@ using_eh_for_cleanups (void)
 {
   using_eh_for_cleanups_p = 1;
 }
+/* FIXME tuples.  */
+#if 0
+
 
 /* Misc functions used in this file.  */
 
@@ -1688,10 +1691,13 @@ lower_eh_constructs_1 (struct leh_state *state, tree *tp)
       break;
     }
 }
+#endif
 
 static unsigned int
 lower_eh_constructs (void)
 {
+  /* FIXME tuples  */
+#if 0
   struct leh_state null_state;
   tree *tp = &DECL_SAVED_TREE (current_function_decl);
 
@@ -1706,6 +1712,9 @@ lower_eh_constructs (void)
 
   collect_eh_region_array ();
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 struct tree_opt_pass pass_lower_eh =
@@ -1726,6 +1735,8 @@ struct tree_opt_pass pass_lower_eh =
   ,0					/* works_with_tuples_p */
 };
 
+/* FIXME tuples  */
+#if 0
 
 /* Construct EH edges for STMT.  */
 
@@ -1857,6 +1868,7 @@ verify_eh_edges (tree stmt)
     }
   return mark_eh_edge_found_error;
 }
+#endif
 
 
 /* Return true if the expr can trap, as in dereferencing an invalid pointer
@@ -2035,8 +2047,10 @@ tree_could_throw_p (tree t)
 }
 
 bool
-stmt_can_throw_internal (gimple stmt)
+stmt_can_throw_internal (gimple stmt ATTRIBUTE_UNUSED)
 {
+/* FIXME tuples */
+#if 0
   int region_nr;
   bool is_resx = false;
 
@@ -2050,11 +2064,16 @@ stmt_can_throw_internal (gimple stmt)
   if (region_nr < 0)
     return false;
   return can_throw_internal_1 (region_nr, is_resx);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 bool
-tree_can_throw_external (tree stmt)
+tree_can_throw_external (tree stmt ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   int region_nr;
   bool is_resx = false;
 
@@ -2066,6 +2085,9 @@ tree_can_throw_external (tree stmt)
     return tree_could_throw_p (stmt);
   else
     return can_throw_external_1 (region_nr, is_resx);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Given a statement OLD_STMT and a new statement NEW_STMT that has replaced
@@ -2074,8 +2096,10 @@ tree_can_throw_external (tree stmt)
    done that my require an EH edge purge.  */
 
 bool 
-maybe_clean_or_replace_eh_stmt (gimple old_stmt, gimple new_stmt) 
+maybe_clean_or_replace_eh_stmt (gimple old_stmt ATTRIBUTE_UNUSED, gimple new_stmt ATTRIBUTE_UNUSED) 
 {
+  /* FIXME tuples.  */
+#if 0
   int region_nr = lookup_stmt_eh_region (old_stmt);
 
   if (region_nr >= 0)
@@ -2096,4 +2120,7 @@ maybe_clean_or_replace_eh_stmt (gimple old_stmt, gimple new_stmt)
     }
 
   return false;
+#else
+  gcc_unreachable ();
+#endif
 }

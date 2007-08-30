@@ -40,6 +40,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
 
+/* FIXME tuples.  */
+#if 0
 /* The basic structure describing an equivalency created by traversing
    an edge.  Traversing the edge effectively means that we can assume
    that we've seen an assignment LHS = RHS.  */
@@ -623,3 +625,4 @@ struct tree_opt_pass pass_uncprop =
   0					/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

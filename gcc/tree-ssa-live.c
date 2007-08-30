@@ -32,6 +32,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "flags.h"
 
+/* FIXME tuples.  */
+#if 0
 #ifdef ENABLE_CHECKING
 static void  verify_live_on_entry (tree_live_info_p);
 #endif
@@ -1097,4 +1099,5 @@ verify_live_on_entry (tree_live_info_p live)
     }
   gcc_assert (num <= 0);
 }
+#endif
 #endif

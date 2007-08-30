@@ -1082,14 +1082,14 @@ set_gimple_body (tree fn, gimple_seq seq)
   slot = pointer_map_insert (gimple_bodies_map, fn);
   if (*slot == NULL)
     {
-      VEC_safe_push (gimple, gc, gimple_bodies_vec, seq);
-      index = VEC_length (gimple, gimple_bodies_vec) - 1;
+      VEC_safe_push (gimple_seq, gc, gimple_bodies_vec, seq);
+      index = VEC_length (gimple_seq, gimple_bodies_vec) - 1;
       *slot = (void *) index;
     }
   else
     {
       index = (size_t) *slot;
-      VEC_replace (gimple, gimple_bodies_vec, index, seq);
+      VEC_replace (gimple_seq, gimple_bodies_vec, index, seq);
     }
 }
   
@@ -1105,7 +1105,7 @@ gimple_body (tree fn)
       && (slot = pointer_map_contains (gimple_bodies_map, fn)))
     {
       size_t ix = (size_t) *slot;
-      return VEC_index (gimple, gimple_bodies_vec, ix);
+      return VEC_index (gimple_seq, gimple_bodies_vec, ix);
     }
   
   return NULL;
@@ -1135,6 +1135,16 @@ gimple_call_flags (gimple stmt)
     }
 
   return flags;
+}
+
+/* Return true if GS is a copy assignment.  */
+
+bool
+gimple_assign_copy_p (gimple gs)
+{
+  return (gimple_code (gs) == GIMPLE_ASSIGN
+          && gimple_num_ops (gs) == 2
+	  && is_gimple_val (gimple_op (gs, 1)));
 }
 
 #include "gt-gimple.h"

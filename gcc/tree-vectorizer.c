@@ -146,6 +146,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-vectorizer.h"
 #include "tree-pass.h"
 
+/* FIXME tuples.  */
+#if 0
 /*************************************************************************
   Simple Loop Peeling Utilities
  *************************************************************************/
@@ -2591,3 +2593,4 @@ struct tree_opt_pass pass_ipa_increase_alignment =
   0					/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

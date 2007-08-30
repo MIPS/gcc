@@ -202,6 +202,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-affine.h"
 #include "tree-inline.h"
 
+   /* FIXME tuples.  */
+#if 0
 /* The maximum number of iterations between the considered memory
    references.  */
 
@@ -2579,12 +2581,15 @@ end: ;
 
   return unroll;
 }
+#endif
 
 /* Runs predictive commoning.  */
 
 unsigned
 tree_predictive_commoning (void)
 {
+  /* FIXME tuples.  */
+#if 0
   bool unrolled = false;
   struct loop *loop;
   loop_iterator li;
@@ -2604,4 +2609,7 @@ tree_predictive_commoning (void)
   free_original_copy_tables ();
 
   return ret;
+#else
+  gcc_unreachable ();
+#endif
 }

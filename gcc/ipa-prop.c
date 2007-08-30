@@ -31,6 +31,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "timevar.h"
 
+/* FIXME tuples.  */
+#if 0
 /* This file contains interfaces that can be used for various IPA 
    optimizations:
 
@@ -659,3 +661,4 @@ ipa_method_modify_print (FILE * f)
 	}
     }
 }
+#endif

@@ -35,6 +35,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 
 
+/* FIXME tuples.  */
+#if 0
 /* Used to hold all the components required to do SSA PHI elimination.
    The node and pred/succ list is a simple linear list of nodes and
    edges represented as pairs of nodes.
@@ -1270,6 +1272,7 @@ insert_backedge_copies (void)
 	}
     }
 }
+#endif
 
 /* Take the current function out of SSA form, translating PHIs as described in
    R. Morgan, ``Building an Optimizing Compiler'',
@@ -1278,6 +1281,8 @@ insert_backedge_copies (void)
 static unsigned int
 rewrite_out_of_ssa (void)
 {
+  /* FIXME tuples.  */
+#if 0
   /* If elimination of a PHI requires inserting a copy on a backedge,
      then we will have to split the backedge which has numerous
      undesirable performance effects.
@@ -1298,6 +1303,9 @@ rewrite_out_of_ssa (void)
 
   cfun->gimple_df->in_ssa_p = false;
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 

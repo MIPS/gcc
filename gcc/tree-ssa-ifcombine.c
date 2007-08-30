@@ -30,6 +30,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-dump.h"
 
+/* FIXME tuples.  */
+#if 0
 /* This pass combines COND_EXPRs to simplify control flow.  It
    currently recognizes bit tests and comparisons in chains that
    represent logical and or logical or of two COND_EXPRs.
@@ -621,3 +623,4 @@ struct tree_opt_pass pass_tree_ifcombine = {
   0				/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

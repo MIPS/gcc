@@ -36,6 +36,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "sbitmap.h"
 
+/* FIXME tuples.  */
+#if 0
 /* This file implements dead store elimination.
 
    A dead store is a store into a memory location which will later be
@@ -919,3 +921,4 @@ struct tree_opt_pass pass_dse = {
   0				/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

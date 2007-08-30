@@ -744,10 +744,7 @@ bsi_start (basic_block bb)
 {
   block_stmt_iterator bsi;
   if (bb->index < NUM_FIXED_BLOCKS)
-    {
-      bsi.gsi->stmt = NULL;
-      bsi.gsi->seq = NULL;
-    }
+    bsi.gsi = NULL;
   else
     bsi.gsi = gsi_start (bb_seq (bb));
   bsi.bb = bb;
@@ -776,10 +773,7 @@ bsi_last (basic_block bb)
   block_stmt_iterator bsi;
 
   if (bb->index < NUM_FIXED_BLOCKS)
-    {
-      bsi.gsi->stmt = NULL;
-      bsi.gsi->seq = NULL;
-    }
+    bsi.gsi = NULL;
   else
     bsi.gsi = gsi_last (bb_seq (bb));
   bsi.bb = bb;
@@ -975,7 +969,12 @@ op_iter_next_use (ssa_op_iter *ptr)
     }
   if (ptr->phi_i < ptr->num_phi)
     {
+      /* FIXME tuples.  */
+#if 0
       return PHI_ARG_DEF_PTR (ptr->phi_stmt, (ptr->phi_i)++);
+#else
+      gcc_unreachable ();
+#endif
     }
   ptr->done = true;
   return NULL_USE_OPERAND_P;

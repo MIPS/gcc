@@ -39,6 +39,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "real.h"
 #include "hashtab.h"
 
+/* FIXME tuples.  */
+#if 0
 /* TODO:  Support for predicated code motion.  I.e.
 
    while (1)
@@ -1641,3 +1643,4 @@ tree_ssa_lim (void)
 
   tree_ssa_lim_finalize ();
 }
+#endif

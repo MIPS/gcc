@@ -46,6 +46,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "tree-ssa-sccvn.h"
 
+/* FIXME tuples.  */
+#if 0
 /* TODO:
 
    1. Avail sets can be shared by making an avail_find_leader that
@@ -3192,8 +3194,6 @@ insert_fake_stores (void)
 static void
 realify_fake_stores (void)
 {
-  /* FIXME tuples */
-#if 0
   unsigned int i;
   tree stmt;
 
@@ -3224,7 +3224,6 @@ realify_fake_stores (void)
       else
 	release_defs (stmt);
     }
-#endif
 }
 
 /* Given an SSA_NAME, see if SCCVN has a value number for it, and if
@@ -3910,14 +3909,16 @@ fini_pre (void)
   if (current_loops != NULL)
     loop_optimizer_finalize ();
 }
+#endif
 
 /* Main entry point to the SSA-PRE pass.  DO_FRE is true if the caller
    only wants to do full redundancy elimination.  */
 
 static void
-execute_pre (bool do_fre)
+execute_pre (bool do_fre ATTRIBUTE_UNUSED)
 {
-
+  /* FIXME tuples.  */
+#if 0
   do_partial_partial = optimize > 2;
   init_pre (do_fre);
 
@@ -3976,6 +3977,7 @@ execute_pre (bool do_fre)
     }
 
   fini_pre ();
+#endif
 }
 
 /* Gate and execute functions for PRE.  */

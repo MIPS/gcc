@@ -39,6 +39,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "pointer-set.h"
 
+/* FIXME tuples.  */
+#if 0
 /*  This is a simple global reassociation pass.  It is, in part, based
     on the LLVM pass of the same name (They do some things more/less
     than we do, in different orders, etc).
@@ -1504,3 +1506,4 @@ struct tree_opt_pass pass_reassoc =
   0					/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

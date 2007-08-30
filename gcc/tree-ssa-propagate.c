@@ -41,6 +41,9 @@
 #include "varray.h"
 #include "vec.h"
 
+/* FIXME tuples.  */
+#if 0
+
 /* This file implements a generic value propagation engine based on
    the same propagation used by the SSA-CCP algorithm [1].
 
@@ -905,9 +908,11 @@ static struct prop_stats_d prop_stats;
    constant was replaced.  */
 
 bool
-replace_uses_in (tree stmt, bool *replaced_addresses_p,
-		 prop_value_t *prop_value)
+replace_uses_in (tree stmt ATTRIBUTE_UNUSED, bool *replaced_addresses_p ATTRIBUTE_UNUSED,
+		 prop_value_t *prop_value ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   bool replaced = false;
   use_operand_p use;
   ssa_op_iter iter;
@@ -940,6 +945,9 @@ replace_uses_in (tree stmt, bool *replaced_addresses_p,
     }
 
   return replaced;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -1005,9 +1013,11 @@ replace_uses_in (tree stmt, bool *replaced_addresses_p,
       replace_uses_in.  */
 
 static bool
-replace_vuses_in (tree stmt, bool *replaced_addresses_p,
-                  prop_value_t *prop_value)
+replace_vuses_in (tree stmt ATTRIBUTE_UNUSED, bool *replaced_addresses_p ATTRIBUTE_UNUSED,
+                  prop_value_t *prop_value ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   bool replaced = false;
   ssa_op_iter iter;
   use_operand_p vuse;
@@ -1076,6 +1086,9 @@ replace_vuses_in (tree stmt, bool *replaced_addresses_p,
     }
 
   return replaced;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -1319,3 +1332,4 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 }
 
 #include "gt-tree-ssa-propagate.h"
+#endif

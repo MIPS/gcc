@@ -36,6 +36,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "dbgcnt.h"
 
+/* FIXME tuples.  */
+#if 0
 /* The file implements the tail recursion elimination.  It is also used to
    analyze the tail calls in general, passing the results to the rtl level
    where they are used for sibcall optimization.
@@ -1051,3 +1053,4 @@ struct tree_opt_pass pass_tail_calls =
   0					/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

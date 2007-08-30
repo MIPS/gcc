@@ -107,9 +107,7 @@ along with GCC; see the file COPYING3.  If not see
 
   Both optimizations are described in the paper "Matrix flattening and 
   transposing in GCC" which was presented in GCC summit 2006. 
-  http://www.gccsummit.org/2006/2006-GCC-Summit-Proceedings.pdf
-
- */
+  http://www.gccsummit.org/2006/2006-GCC-Summit-Proceedings.pdf.  */
 
 #include "config.h"
 #include "system.h"
@@ -145,8 +143,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
 
-/*
-   We need to collect a lot of data from the original malloc,
+  /* FIXME tuples.  */
+#if 0
+/* We need to collect a lot of data from the original malloc,
    particularly as the gimplifier has converted:
 
    orig_var = (struct_type *) malloc (x * sizeof (struct_type *));
@@ -2333,3 +2332,4 @@ struct tree_opt_pass pass_ipa_matrix_reorg = {
   0				/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif

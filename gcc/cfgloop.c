@@ -563,12 +563,15 @@ find_subloop_latch_edge_by_profile (VEC (edge, heap) *latches)
    another edge.  */
 
 static edge
-find_subloop_latch_edge_by_ivs (struct loop *loop, VEC (edge, heap) *latches)
+find_subloop_latch_edge_by_ivs (struct loop *loop ATTRIBUTE_UNUSED, VEC (edge, heap) *latches)
 {
   edge e, latch = VEC_index (edge, latches, 0);
   unsigned i;
+  /* FIXME tuples.  */
+#if 0
   tree phi, lop;
   basic_block bb;
+#endif
 
   /* Find the candidate for the latch edge.  */
   for (i = 1; VEC_iterate (edge, latches, i, e); i++)
@@ -582,6 +585,8 @@ find_subloop_latch_edge_by_ivs (struct loop *loop, VEC (edge, heap) *latches)
 
   /* Check for a phi node that would deny that this is a latch edge of
      a subloop.  */
+  /* FIXME tuples.  */
+#if 0
   for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
     {
       lop = PHI_ARG_DEF_FROM_EDGE (phi, latch);
@@ -599,6 +604,9 @@ find_subloop_latch_edge_by_ivs (struct loop *loop, VEC (edge, heap) *latches)
 	    && PHI_ARG_DEF_FROM_EDGE (phi, e) == lop)
 	  return NULL;
     }
+#else
+  gcc_unreachable ();
+#endif
 
   if (dump_file)
     fprintf (dump_file,

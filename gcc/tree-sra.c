@@ -50,6 +50,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 
 
+/* FIXME tuples.  */
+#if 0
 /* This object of this pass is to replace a non-addressable aggregate with a
    set of independent variables.  Most of the time, all of these variables
    will be scalars.  But a secondary objective is to break up larger
@@ -1612,7 +1614,12 @@ decide_instantiations (void)
     }
   bitmap_clear (&done_head);
   
+  /* FIXME tuples.  */
+#if 0
   mark_set_for_renaming (sra_candidates);
+#else
+  gcc_unreachable ();
+#endif
 
   if (dump_file)
     fputc ('\n', dump_file);
@@ -1637,7 +1644,12 @@ mark_all_v_defs_1 (tree stmt)
     {
       if (TREE_CODE (sym) == SSA_NAME)
 	sym = SSA_NAME_VAR (sym);
+      /* FIXME tuples.  */
+#if 0
       mark_sym_for_renaming (sym);
+#else
+      gcc_unreachable ();
+#endif
     }
 }
 
@@ -2380,12 +2392,16 @@ sra_init_cache (void)
   sra_type_decomp_cache = BITMAP_ALLOC (NULL);
   sra_type_inst_cache = BITMAP_ALLOC (NULL);
 }
+#endif
+
 
 /* Main entry point.  */
 
 static unsigned int
 tree_sra (void)
 {
+  /* FIXME tuples.  */
+#if 0
   /* Initialize local variables.  */
   todoflags = 0;
   gcc_obstack_init (&sra_obstack);
@@ -2413,11 +2429,16 @@ tree_sra (void)
   BITMAP_FREE (sra_type_inst_cache);
   obstack_free (&sra_obstack, NULL);
   return todoflags;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 static unsigned int
 tree_sra_early (void)
 {
+  /* FIXME tuples.  */
+#if 0
   unsigned int ret;
 
   early_sra = true;
@@ -2425,6 +2446,9 @@ tree_sra_early (void)
   early_sra = false;
 
   return ret & ~TODO_rebuild_alias;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 static bool

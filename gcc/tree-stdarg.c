@@ -31,6 +31,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-stdarg.h"
 
+/* FIXME tuples.  */
+#if 0
 /* A simple pass that attempts to optimize stdarg functions on architectures
    that need to save register arguments to stack on entry to stdarg functions.
    If the function doesn't use any va_start macros, no registers need to
@@ -926,3 +928,4 @@ struct tree_opt_pass pass_stdarg =
   0					/* letter */
   ,0					/* works_with_tuples_p */
 };
+#endif
