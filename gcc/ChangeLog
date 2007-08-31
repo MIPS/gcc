@@ -1,3 +1,62 @@
+2007-08-22  Janis Johnson  <janis187@us.ibm.com>
+
+	* config/dfp-bit.c (DFP_TO_DFP): Check for overflow.
+
+	* doc/libgcc.texi (Decimal float library routines): Fix formatting
+	and rearrange floating point conversion functions into different
+	categories.
+
+2007-08-22  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* target.h (struct gcc_target.sched: dfa_pre_advance_cycle,
+	dfa_post_advance_cycle): New scheduler hooks.
+	* target-def.h (TARGET_SCHED_DFA_PRE_ADVANCE_CYCLE,
+	TARGET_SCHED_DFA_POST_ADVANCE_CYCLE): New macros to initialize
+	new hooks.
+	(TARGET_SCHED): Use them.
+	* doc/tm.texi (TARGET_SCHED_DFA_PRE_ADVANCE_CYCLE,
+	TARGET_SCHED_DFA_POST_ADVANCE_CYCLE): Document new hooks.
+	* haifa-sched.c (advance_one_cycle): Invoke new hooks.
+
+	* genautomata.c (insn_has_dfa_reservation_p): New DFA interface
+	function to facilitate debugging.
+	(INSN_HAS_DFA_RESERVATION_P_FUNC_NAME): New macro.
+	(output_insn_has_dfa_reservation_p): New static function to output
+	insn_has_dfa_reservation_p ().
+	(write_automata): Use it.
+	* genattr.c (main): Output declaration for
+	insn_has_dfa_reservation_p ().
+
+2007-08-22  Christian Bruel  <christian.bruel@st.com>	
+            Richard Guenther <rguenther@suse.de>
+	
+	* fold-const.c (fold_binary): Optimize A-A if -ffinite-math-only.
+	* simplify_rtx (simplify_binary_operation_1): Likewise.
+		
+2007-08-22  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	PR rtl-optimization/32557
+	* df-problems.c (df_note_bb_compute): Use mws->start_regno instead
+	of REGNO (mws->mw_reg).
+
+2007-08-22  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33007
+	* builtins.c (expand_builtin_int_roundingfn): Replace call
+	argument wrapped with SAVE_EXPR directly.
+	(expand_builtin_int_roundingfn_2): Likewise.
+
+2007-08-22  Richard Guenther  <rguenther@suse.de>
+
+	* tree-inline.c (inlinable_function_p): Restore disregarding
+	inline limits for GNU extern inline functions.
+
+2007-08-22  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/32563
+	* tree.c (host_integerp): Treat sizetype as signed as it is
+	sign-extended.
+
 2007-08-21  Ian Lance Taylor  <iant@google.com>
 
 	PR tree-optimization/33134
