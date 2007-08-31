@@ -1,3 +1,217 @@
+2007-08-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31879
+	PR fortran/31197
+	PR fortran/31258
+	PR fortran/32703
+	* gfortran.h : Add prototype for gfc_resolve_substring_charlen.
+	* resolve.c (gfc_resolve_substring_charlen): New function.
+	(resolve_ref): Call gfc_resolve_substring_charlen.
+	(gfc_resolve_character_operator): New function.
+	(gfc_resolve_expr): Call the new functions in cases where the
+	character length is missing.
+	* iresolve.c (cshift, eoshift, merge, pack, reshape, spread,
+	transpose, unpack): Call gfc_resolve_substring_charlen for
+	source expressions that are character and have a reference.
+	* trans.h (gfc_trans_init_string_length) Change name to
+	gfc_conv_string_length; modify references in trans-expr.c,
+	trans-array.c and trans-decl.c.
+	* trans-expr.c (gfc_trans_string_length): Handle case of no
+	backend_decl.
+	(gfc_conv_aliased_arg): Remove code for treating substrings
+	and replace with call to gfc_trans_string_length.
+	* trans-array.c (gfc_conv_expr_descriptor): Remove code for
+	treating strings and call gfc_trans_string_length instead.
+
+2007-08-30  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33228
+	* interface.c (check_interface0): Improve error for external procs.
+	(check_sym_interfaces): Fix checking of module procedures.
+
+2007-08-29  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32989
+	* iresolve.c (gfc_resolve_getarg): Handle non-default integer
+	kinds.
+	* check.c (gfc_check_getarg): New function
+	* intrinsic.h: Add prototype for gfc_check_getarg.
+	* intrinsic.c (add_subroutines): Add reference to gfc_check_getarg.
+	* intrinsic.texi (GETARG): Adjust documentation.
+
+2007-08-29  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+	    Tobias Burnus  <burnus@gcc.gnu.org>
+
+	PR fortran/33105
+	* intrinsic.c (add_functions): Add IS_IOSTAT_END and
+	IS_IOSTAT_EOR intrinsics.
+	* gfortran.h (gfc_isym_id): Add GFC_ISYM_IS_IOSTAT_END and
+	GFC_ISYM_IS_IOSTAT_EOR.
+	* trans-intrinsic.c (gfc_conv_has_intvalue): New function.
+	(gfc_conv_intrinsic_function): Call gfc_conv_has_intvalue for
+	GFC_ISYM_IS_IOSTAT_END and GFC_ISYM_IS_IOSTAT_EOR.
+	* intrinsic.texi: Add IS_IOSTAT_END and IS_IOSTAT_EOR.
+
+2007-08-28  Christopher D. Rickett  <crickett@lanl.gov>
+
+	PR fortran/33215
+	* decl.c (build_sym): Pass number of identifiers on line to
+	set_binding_label.
+	(set_binding_label): Verify that only one identifier given if
+	NAME= specified, even if the given binding label has zero length.
+	(gfc_match_bind_c): Remove declaration for has_name_equals because
+	it hides the static global one that is needed.
+
+2007-08-29  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* trans-array.c (gfc_grow_array): Use gfc_call_realloc.
+	(gfc_array_allocate): Use gfc_allocate_with_status and
+	gfc_allocate_array_with_status.
+	(gfc_array_deallocate): Use gfc_deallocate_with_status.
+	(gfc_trans_dealloc_allocated): Use gfc_deallocate_with_status.
+	* trans-stmt.c (gfc_trans_allocate): Use gfc_allocate_with_status.
+	(gfc_trans_deallocate): Use gfc_deallocate_with_status.
+	* trans.c (gfc_allocate_with_status, gfc_allocate_array_with_status,
+	gfc_deallocate_with_status, gfc_call_realloc): New functions.
+	* trans.h (gfc_allocate_with_status, gfc_allocate_array_with_status,
+	gfc_deallocate_with_status, gfc_call_realloc): New prototypes.
+	(gfor_fndecl_internal_realloc, gfor_fndecl_allocate,
+	gfor_fndecl_allocate_array, gfor_fndecl_deallocate): Remove.
+	* f95-lang.c (gfc_init_builtin_functions): Create decl for
+	BUILT_IN_REALLOC.
+	* trans-decl.c (gfor_fndecl_internal_realloc,
+	gfor_fndecl_allocate, gfor_fndecl_allocate_array,
+	gfor_fndecl_deallocate): Remove function decls.
+	(gfc_build_builtin_function_decls): Likewise.
+
+2007-08-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33055
+	Revert previous patch.
+
+2007-08-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/22244
+	* Make-lang.in (fortran/trans-types.o): Depend on $(FLAGS_H).
+	* trans-types.c: Include flags.h.
+	(gfc_get_nodesc_array_type): Add TYPE_DECL TYPE_NAME with
+	correct bounds and dimensions for packed arrays.
+
+2007-08-27  Tobias Burnus  <burnus@net-b.de>
+
+	* simplify.c (gfc_simplify_lgamma): Fix mpfr_lgamma call.
+
+2007-08-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33055
+	* trans-io.c (create_dummy_iostat): New function to create a unique
+	dummy variable expression to use with IOSTAT.
+	(gfc_trans_inquire): Use the new function to pass unit number error info
+	to run-time library if a regular IOSTAT variable was not given.
+
+2007-08-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gfortran.h (gfc_isym_id): Add GFC_ISYM_GAMMA and
+	GFC_ISYM_LGAMMA.
+
+2007-08-26  Asher Langton  <langton2@llnl.gov>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.h (gfc_option_t): Add flag_recursive.
+	* lang.opt: Add -frecursive option and update -fopenmp.
+	* invoke.texi (-frecursive): Document new option.
+	(-fopenmp,-fno-automatic,-fmax-stack-var-size): Update.
+	* options.c (gfc_init_options, gfc_post_options,
+	gfc_handle_option): Add -frecursive and modify -fopenmp.
+	(gfc_post_options): Add warning for conflicting flags.
+
+2007-08-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/31298
+	* module.c (mio_symbol_ref,mio_interface_rest):  Return pointer_info.
+	(load_operator_interfaces): Support multible loading of an operator.
+
+2007-08-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32985
+	* match.c (gfc_match_common): Remove SEQUENCE diagnostics.
+	* resolve.c (resolve_common_blocks): Add SEQUENCE diagnostics;
+	fix walking through the tree.
+
+2007-08-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32980
+	* intrinsic.h (gfc_simplify_gamma,gfc_simplify_lgamma,
+	gfc_resolve_gamma,gfc_resolve_lgamma): New function declations.
+	* mathbuiltins.def: Define GAMMA and LGAMMA.
+	* intrinsic.c (add_functions): Add GAMMA, DGAMMA, LGAMMA, ALGAMA
+	and DLGAMA.
+	* simplify.c (gfc_simplify_gamma,gfc_simplify_lgamma): New functions.
+	* iresolve.c (gfc_resolve_gamma,gfc_resolve_lgamma): New functions.
+	* intrinsic.texi: Add documentation for GAMMA and LGAMMA.
+
+2007-08-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33188
+	* parse.c (parse_derived): Support empty derived type
+	definitions for Fortran 2003.
+
+2007-08-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* trans-openmp.c (gfc_omp_privatize_by_reference): Constify.
+	* trans.h (gfc_omp_privatize_by_reference): Likewise.
+
+2007-08-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33178
+	* intrinsic.c (gfc_intrinsic_func_interface): Fix initialization
+	expression check.
+
+2007-08-24  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/32972
+	* iresolve.c:  Don't convert array masks.
+
+2007-08-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33139
+	* trans-array.c (gfc_conv_expr_descriptor): Copy bounds for
+	whole-array pointer assignments.
+
+2007-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (variable_decl): Don't share charlen structs if
+	length == NULL.
+	* trans-decl.c (create_function_arglist): Assert
+	f->sym->ts.cl->backend_decl is NULL instead of unsharing
+	charlen struct here.
+
+2007-08-23  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/33095
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmax): Remove
+	runtime error checking.
+
+2007-08-22  Roger Sayle  <roger@eyesopen.com>
+	    Tobias Schlüter <tobias.schlueter@physik.uni-muenchen.de>
+
+	* match.c (intrinsic_operators): Delete.
+	(gfc_match_intrinsic_op): Rewrite matcher to avoid calling
+	gfc_match_strings.
+
+2007-08-22  Christopher D. Rickett  <crickett@lanl.gov>
+
+	PR fortran/33020
+	* resolve.c (gfc_iso_c_sub_interface): Remove setting of type and
+	kind for optional SHAPE parameter of C_F_POINTER.
+
+2007-08-22  Janus Weil  <jaydub66@gmail.com>
+
+	* decl.c (match_attr_spec): Pass on errors from gfc_match_bind_c.
+	(gfc_match_bind_c): Bugfix in check for NAME= with abstract interfaces.
+	(gfc_match_mopdproc): Bugfix to reject module procedures in
+	abstract interfaces.
+
 2007-08-22  Kai Tietz  <kai.tietz@onevision.com>
 
 	* f95-lang.c: (gfc_init_decl_processing): Choose sizetype by using

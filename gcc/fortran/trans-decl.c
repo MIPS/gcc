@@ -73,10 +73,6 @@ tree gfc_static_ctors;
 
 /* Function declarations for builtin library functions.  */
 
-tree gfor_fndecl_internal_realloc;
-tree gfor_fndecl_allocate;
-tree gfor_fndecl_allocate_array;
-tree gfor_fndecl_deallocate;
 tree gfor_fndecl_pause_numeric;
 tree gfor_fndecl_pause_string;
 tree gfor_fndecl_stop_numeric;
@@ -1458,25 +1454,8 @@ create_function_arglist (gfc_symbol * sym)
 	  if (!f->sym->ts.cl->length)
 	    {
 	      TREE_USED (length) = 1;
-	      if (!f->sym->ts.cl->backend_decl)
-		f->sym->ts.cl->backend_decl = length;
-	      else
-		{
-		  /* there is already another variable using this
-		     gfc_charlen node, build a new one for this variable
-		     and chain it into the list of gfc_charlens.
-		     This happens for e.g. in the case
-		     CHARACTER(*)::c1,c2
-		     since CHARACTER declarations on the same line share
-		     the same gfc_charlen node.  */
-		  gfc_charlen *cl;
-	      
-		  cl = gfc_get_charlen ();
-		  cl->backend_decl = length;
-		  cl->next = f->sym->ts.cl->next;
-		  f->sym->ts.cl->next = cl;
-		  f->sym->ts.cl = cl;
-		}
+	      gcc_assert (!f->sym->ts.cl->backend_decl);
+	      f->sym->ts.cl->backend_decl = length;
 	    }
 
 	  hidden_typelist = TREE_CHAIN (hidden_typelist);
@@ -2290,35 +2269,10 @@ void
 gfc_build_builtin_function_decls (void)
 {
   tree gfc_int4_type_node = gfc_get_int_type (4);
-  tree gfc_pint4_type_node = build_pointer_type (gfc_int4_type_node);
-
-  gfor_fndecl_internal_realloc =
-    gfc_build_library_function_decl (get_identifier
-				     (PREFIX("internal_realloc")),
-				     pvoid_type_node, 2, pvoid_type_node,
-				     gfc_array_index_type);
-
-  gfor_fndecl_allocate =
-    gfc_build_library_function_decl (get_identifier (PREFIX("allocate")),
-				     pvoid_type_node, 2,
-				     gfc_array_index_type, gfc_pint4_type_node);
-  DECL_IS_MALLOC (gfor_fndecl_allocate) = 1;
-
-  gfor_fndecl_allocate_array =
-    gfc_build_library_function_decl (get_identifier (PREFIX("allocate_array")),
-				     pvoid_type_node, 3, pvoid_type_node,
-				     gfc_array_index_type, gfc_pint4_type_node);
-  DECL_IS_MALLOC (gfor_fndecl_allocate_array) = 1;
-
-  gfor_fndecl_deallocate =
-    gfc_build_library_function_decl (get_identifier (PREFIX("deallocate")),
-				     void_type_node, 2, pvoid_type_node,
-				     gfc_pint4_type_node);
 
   gfor_fndecl_stop_numeric =
     gfc_build_library_function_decl (get_identifier (PREFIX("stop_numeric")),
 				     void_type_node, 1, gfc_int4_type_node);
-
   /* Stop doesn't return.  */
   TREE_THIS_VOLATILE (gfor_fndecl_stop_numeric) = 1;
 
@@ -2420,7 +2374,7 @@ gfc_trans_dummy_character (gfc_symbol *sym, gfc_charlen *cl, tree fnbody)
   gfc_start_block (&body);
 
   /* Evaluate the string length expression.  */
-  gfc_trans_init_string_length (cl, &body);
+  gfc_conv_string_length (cl, &body);
 
   gfc_trans_vla_type_sizes (sym, &body);
 
@@ -2444,7 +2398,7 @@ gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
   gfc_start_block (&body);
 
   /* Evaluate the string length expression.  */
-  gfc_trans_init_string_length (sym->ts.cl, &body);
+  gfc_conv_string_length (sym->ts.cl, &body);
 
   gfc_trans_vla_type_sizes (sym, &body);
 

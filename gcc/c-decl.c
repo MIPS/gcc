@@ -1819,6 +1819,11 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 
 	  DECL_UNINLINABLE (newdecl) = DECL_UNINLINABLE (olddecl)
 	    = (DECL_UNINLINABLE (newdecl) || DECL_UNINLINABLE (olddecl));
+
+	  DECL_DISREGARD_INLINE_LIMITS (newdecl)
+	    = DECL_DISREGARD_INLINE_LIMITS (olddecl)
+	    = (DECL_DISREGARD_INLINE_LIMITS (newdecl)
+	       || DECL_DISREGARD_INLINE_LIMITS (olddecl));
 	}
 
       if (DECL_BUILT_IN (olddecl))
@@ -1930,7 +1935,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 
   if (!diagnose_mismatched_decls (newdecl, olddecl, &newtype, &oldtype))
     {
-      /* Avoid `unused variable' and other warnings warnings for OLDDECL.  */
+      /* Avoid `unused variable' and other warnings for OLDDECL.  */
       TREE_NO_WARNING (olddecl) = 1;
       return false;
     }
@@ -2028,11 +2033,7 @@ warn_if_shadowing (tree new_decl)
 
     Obviously, we don't want to generate a duplicate ..._TYPE node if
     the TYPE_DECL node that we are now processing really represents a
-    standard built-in type.
-
-    Since all standard types are effectively declared at line zero
-    in the source file, we can easily check to see if we are working
-    on a standard type by checking the current value of lineno.  */
+    standard built-in type.  */
 
 static void
 clone_underlying_type (tree x)
@@ -6775,6 +6776,11 @@ finish_function (void)
   /* Finalize the ELF visibility for the function.  */
   c_determine_visibility (fndecl);
 
+  /* For GNU C extern inline functions disregard inline limits.  */
+  if (DECL_EXTERNAL (fndecl) 
+      && DECL_DECLARED_INLINE_P (fndecl))
+    DECL_DISREGARD_INLINE_LIMITS (fndecl) = 1;
+
   /* Genericize before inlining.  Delay genericizing nested functions
      until their parent function is genericized.  Since finalizing
      requires GENERIC, delay that as well.  */
@@ -6977,7 +6983,7 @@ current_stmt_tree (void)
    C.  */
 
 int
-anon_aggr_type_p (tree ARG_UNUSED (node))
+anon_aggr_type_p (const_tree ARG_UNUSED (node))
 {
   return 0;
 }

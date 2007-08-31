@@ -2133,9 +2133,16 @@ L2:],
   as_ver=`$gcc_cv_as --version 2>/dev/null | sed 1q`
   if echo "$as_ver" | grep GNU > /dev/null; then
 changequote(,)dnl
-    as_ver=`echo $as_ver | sed -e 's/GNU assembler \([0-9.][0-9.]*\).*/\1/'`
-    as_major=`echo $as_ver | sed 's/\..*//'`
-    as_minor=`echo $as_ver | sed 's/[^.]*\.\([0-9]*\).*/\1/'`
+    as_vers=`echo $as_ver | sed -n \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
+	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 -].*$,\1,p'`
+    as_major=`expr "$as_vers" : '\([0-9]*\)'`
+    as_minor=`expr "$as_vers" : '[0-9]*\.\([0-9]*\)'`
 changequote([,])dnl
     if test $as_major -eq 2 && test $as_minor -lt 11
     then :
@@ -3096,7 +3103,7 @@ if test x"$insn" != x; then
 
  gcc_GAS_CHECK_FEATURE([--debug-prefix-map option],
   gcc_cv_as_debug_prefix_map_flag,
-  [2,19,0], [--debug-prefix-map /a=/b], [$insn],,
+  [2,18,0], [--debug-prefix-map /a=/b], [$insn],,
   [AC_DEFINE(HAVE_AS_DEBUG_PREFIX_MAP, 1,
 [Define if your assembler supports the --debug-prefix-map option.])])
 fi

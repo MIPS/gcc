@@ -164,6 +164,10 @@ static GTY ((if_marked ("ggc_marked_p"), param_is (struct reg_attrs)))
 static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
      htab_t const_double_htab;
 
+/* A hash table storing all CONST_FIXEDs.  */
+static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
+     htab_t const_fixed_htab;
+
 #define first_insn (cfun->emit->x_first_insn)
 #define last_insn (cfun->emit->x_last_insn)
 #define cur_insn_uid (cfun->emit->x_cur_insn_uid)
@@ -179,6 +183,9 @@ static int const_int_htab_eq (const void *, const void *);
 static hashval_t const_double_htab_hash (const void *);
 static int const_double_htab_eq (const void *, const void *);
 static rtx lookup_const_double (rtx);
+static hashval_t const_fixed_htab_hash (const void *);
+static int const_fixed_htab_eq (const void *, const void *);
+static rtx lookup_const_fixed (rtx);
 static hashval_t mem_attrs_htab_hash (const void *);
 static int mem_attrs_htab_eq (const void *, const void *);
 static mem_attrs *get_mem_attrs (alias_set_type, tree, rtx, rtx, unsigned int,
@@ -245,6 +252,33 @@ const_double_htab_eq (const void *x, const void *y)
   else
     return real_identical (CONST_DOUBLE_REAL_VALUE (a),
 			   CONST_DOUBLE_REAL_VALUE (b));
+}
+
+/* Returns a hash code for X (which is really a CONST_FIXED).  */
+
+static hashval_t
+const_fixed_htab_hash (const void *x)
+{
+  const_rtx const value = (const_rtx) x;
+  hashval_t h;
+
+  h = fixed_hash (CONST_FIXED_VALUE (value));
+  /* MODE is used in the comparison, so it should be in the hash.  */
+  h ^= GET_MODE (value);
+  return h;
+}
+
+/* Returns nonzero if the value represented by X (really a ...)
+   is the same as that represented by Y (really a ...).  */
+
+static int
+const_fixed_htab_eq (const void *x, const void *y)
+{
+  const_rtx const a = (const_rtx) x, b = (const_rtx) y;
+
+  if (GET_MODE (a) != GET_MODE (b))
+    return 0;
+  return fixed_identical (CONST_FIXED_VALUE (a), CONST_FIXED_VALUE (b));
 }
 
 /* Returns a hash code for X (which is a really a mem_attrs *).  */
@@ -450,6 +484,34 @@ const_double_from_real_value (REAL_VALUE_TYPE value, enum machine_mode mode)
   real->u.rv = value;
 
   return lookup_const_double (real);
+}
+
+/* Determine whether FIXED, a CONST_FIXED, already exists in the
+   hash table.  If so, return its counterpart; otherwise add it
+   to the hash table and return it.  */
+
+static rtx
+lookup_const_fixed (rtx fixed)
+{
+  void **slot = htab_find_slot (const_fixed_htab, fixed, INSERT);
+  if (*slot == 0)
+    *slot = fixed;
+
+  return (rtx) *slot;
+}
+
+/* Return a CONST_FIXED rtx for a fixed-point value specified by
+   VALUE in mode MODE.  */
+
+rtx
+const_fixed_from_fixed_value (FIXED_VALUE_TYPE value, enum machine_mode mode)
+{
+  rtx fixed = rtx_alloc (CONST_FIXED);
+  PUT_MODE (fixed, mode);
+
+  fixed->u.fv = value;
+
+  return lookup_const_fixed (fixed);
 }
 
 /* Return a CONST_DOUBLE or CONST_INT for a value specified as a pair
@@ -2224,6 +2286,7 @@ verify_rtx_sharing (rtx orig, rtx insn)
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -2423,6 +2486,7 @@ repeat:
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -2540,6 +2604,7 @@ repeat:
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
@@ -2609,6 +2674,7 @@ set_used_flags (rtx x)
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
@@ -2799,102 +2865,168 @@ get_max_uid (void)
 /* Return the next insn.  If it is a SEQUENCE, return the first insn
    of the sequence.  */
 
+#define NEXT_INSN_BODY do { \
+  if (insn) \
+    { \
+      insn = NEXT_INSN (insn); \
+      if (insn && NONJUMP_INSN_P (insn) \
+	  && GET_CODE (PATTERN (insn)) == SEQUENCE) \
+	insn = XVECEXP (PATTERN (insn), 0, 0); \
+    } \
+  return insn; \
+} while (0)
+
 rtx
 next_insn (rtx insn)
 {
-  if (insn)
-    {
-      insn = NEXT_INSN (insn);
-      if (insn && NONJUMP_INSN_P (insn)
-	  && GET_CODE (PATTERN (insn)) == SEQUENCE)
-	insn = XVECEXP (PATTERN (insn), 0, 0);
-    }
-
-  return insn;
+  NEXT_INSN_BODY;
 }
+
+const_rtx
+const_next_insn (const_rtx insn)
+{
+  NEXT_INSN_BODY;
+}
+
+#undef NEXT_INSN_BODY
 
 /* Return the previous insn.  If it is a SEQUENCE, return the last insn
    of the sequence.  */
 
+#define PREVIOUS_INSN_BODY do { \
+  if (insn) \
+    { \
+      insn = PREV_INSN (insn); \
+      if (insn && NONJUMP_INSN_P (insn) \
+	  && GET_CODE (PATTERN (insn)) == SEQUENCE) \
+	insn = XVECEXP (PATTERN (insn), 0, XVECLEN (PATTERN (insn), 0) - 1); \
+    } \
+  return insn; \
+} while (0)
+
 rtx
 previous_insn (rtx insn)
 {
-  if (insn)
-    {
-      insn = PREV_INSN (insn);
-      if (insn && NONJUMP_INSN_P (insn)
-	  && GET_CODE (PATTERN (insn)) == SEQUENCE)
-	insn = XVECEXP (PATTERN (insn), 0, XVECLEN (PATTERN (insn), 0) - 1);
-    }
-
-  return insn;
+  PREVIOUS_INSN_BODY;
 }
+
+const_rtx
+const_previous_insn (const_rtx insn)
+{
+  PREVIOUS_INSN_BODY;
+}
+
+#undef PREVIOUS_INSN_BODY
 
 /* Return the next insn after INSN that is not a NOTE.  This routine does not
    look inside SEQUENCEs.  */
 
+#define NEXT_NONNOTE_INSN_BODY do { \
+  while (insn) \
+    { \
+      insn = NEXT_INSN (insn); \
+      if (insn == 0 || !NOTE_P (insn)) \
+	break; \
+    } \
+  return insn; \
+} while (0)
+
 rtx
 next_nonnote_insn (rtx insn)
 {
-  while (insn)
-    {
-      insn = NEXT_INSN (insn);
-      if (insn == 0 || !NOTE_P (insn))
-	break;
-    }
-
-  return insn;
+  NEXT_NONNOTE_INSN_BODY;
 }
+
+const_rtx
+const_next_nonnote_insn (const_rtx insn)
+{
+  NEXT_NONNOTE_INSN_BODY;
+}
+
+#undef NEXT_NONNOTE_INSN_BODY
 
 /* Return the previous insn before INSN that is not a NOTE.  This routine does
    not look inside SEQUENCEs.  */
 
+#define PREV_NONNOTE_INSN_BODY do { \
+  while (insn) \
+    { \
+      insn = PREV_INSN (insn); \
+      if (insn == 0 || !NOTE_P (insn)) \
+	break; \
+    } \
+  return insn; \
+} while (0)
+
 rtx
 prev_nonnote_insn (rtx insn)
 {
-  while (insn)
-    {
-      insn = PREV_INSN (insn);
-      if (insn == 0 || !NOTE_P (insn))
-	break;
-    }
-
-  return insn;
+  PREV_NONNOTE_INSN_BODY;
 }
+
+const_rtx
+const_prev_nonnote_insn (const_rtx insn)
+{
+  PREV_NONNOTE_INSN_BODY;
+}
+
+#undef PREV_NONNOTE_INSN_BODY
 
 /* Return the next INSN, CALL_INSN or JUMP_INSN after INSN;
    or 0, if there is none.  This routine does not look inside
    SEQUENCEs.  */
 
+#define NEXT_REAL_INSN_BODY do { \
+  while (insn) \
+    { \
+      insn = NEXT_INSN (insn); \
+      if (insn == 0 || INSN_P (insn)) \
+	break; \
+    } \
+  return insn; \
+} while (0)
+
 rtx
 next_real_insn (rtx insn)
 {
-  while (insn)
-    {
-      insn = NEXT_INSN (insn);
-      if (insn == 0 || INSN_P (insn))
-	break;
-    }
-
-  return insn;
+  NEXT_REAL_INSN_BODY;
 }
+
+const_rtx
+const_next_real_insn (const_rtx insn)
+{
+  NEXT_REAL_INSN_BODY;
+}
+
+#undef NEXT_REAL_INSN_BODY
 
 /* Return the last INSN, CALL_INSN or JUMP_INSN before INSN;
    or 0, if there is none.  This routine does not look inside
    SEQUENCEs.  */
 
+#define PREV_REAL_INSN_BODY do { \
+  while (insn) \
+    { \
+      insn = PREV_INSN (insn); \
+      if (insn == 0 || INSN_P (insn)) \
+	break; \
+    } \
+  return insn; \
+} while (0)
+
 rtx
 prev_real_insn (rtx insn)
 {
-  while (insn)
-    {
-      insn = PREV_INSN (insn);
-      if (insn == 0 || INSN_P (insn))
-	break;
-    }
-
-  return insn;
+  PREV_REAL_INSN_BODY;
 }
+
+const_rtx
+const_prev_real_insn (const_rtx insn)
+{
+  PREV_REAL_INSN_BODY;
+}
+
+#undef PREV_REAL_INSN_BODY
 
 /* Return the last CALL_INSN in the current list, or 0 if there is none.
    This routine does not look inside SEQUENCEs.  */
@@ -2926,65 +3058,109 @@ active_insn_p (const_rtx insn)
 		      && GET_CODE (PATTERN (insn)) != CLOBBER))));
 }
 
+#define NEXT_ACTIVE_INSN_BODY do { \
+  while (insn) \
+    { \
+      insn = NEXT_INSN (insn); \
+      if (insn == 0 || active_insn_p (insn)) \
+	break; \
+    } \
+  return insn;\
+} while (0)
+
 rtx
 next_active_insn (rtx insn)
 {
-  while (insn)
-    {
-      insn = NEXT_INSN (insn);
-      if (insn == 0 || active_insn_p (insn))
-	break;
-    }
-
-  return insn;
+  NEXT_ACTIVE_INSN_BODY;
 }
+
+const_rtx
+const_next_active_insn (const_rtx insn)
+{
+  NEXT_ACTIVE_INSN_BODY;
+}
+
+#undef NEXT_ACTIVE_INSN_BODY
 
 /* Find the last insn before INSN that really does something.  This routine
    does not look inside SEQUENCEs.  Until reload has completed, this is the
    same as prev_real_insn.  */
 
+#define PREV_ACTIVE_INSN_BODY do { \
+  while (insn) \
+    { \
+      insn = PREV_INSN (insn);\
+      if (insn == 0 || active_insn_p (insn)) \
+	break; \
+    } \
+  return insn; \
+} while (0)
+
 rtx
 prev_active_insn (rtx insn)
 {
-  while (insn)
-    {
-      insn = PREV_INSN (insn);
-      if (insn == 0 || active_insn_p (insn))
-	break;
-    }
-
-  return insn;
+  PREV_ACTIVE_INSN_BODY;
 }
 
+const_rtx
+const_prev_active_insn (const_rtx insn)
+{
+  PREV_ACTIVE_INSN_BODY;
+}
+
+#undef PREV_ACTIVE_INSN_BODY
+
 /* Return the next CODE_LABEL after the insn INSN, or 0 if there is none.  */
+
+#define NEXT_LABEL_BODY do { \
+  while (insn) \
+    { \
+      insn = NEXT_INSN (insn); \
+      if (insn == 0 || LABEL_P (insn)) \
+	break; \
+    } \
+  return insn; \
+} while (0)
 
 rtx
 next_label (rtx insn)
 {
-  while (insn)
-    {
-      insn = NEXT_INSN (insn);
-      if (insn == 0 || LABEL_P (insn))
-	break;
-    }
-
-  return insn;
+  NEXT_LABEL_BODY;
 }
 
+const_rtx
+const_next_label (const_rtx insn)
+{
+  NEXT_LABEL_BODY;
+}
+
+#undef NEXT_LABEL_BODY
+
 /* Return the last CODE_LABEL before the insn INSN, or 0 if there is none.  */
+
+#define PREV_LABEL_BODY do { \
+  while (insn) \
+    { \
+      insn = PREV_INSN (insn); \
+      if (insn == 0 || LABEL_P (insn)) \
+	break; \
+    } \
+  return insn; \
+} while (0)
 
 rtx
 prev_label (rtx insn)
 {
-  while (insn)
-    {
-      insn = PREV_INSN (insn);
-      if (insn == 0 || LABEL_P (insn))
-	break;
-    }
-
-  return insn;
+  PREV_LABEL_BODY;
 }
+
+const_rtx
+const_prev_label (const_rtx insn)
+{
+  PREV_LABEL_BODY;
+}
+
+#undef PREV_LABEL_BODY
 
 /* Return the last label to mark the same position as LABEL.  Return null
    if LABEL itself is null.  */
@@ -4838,6 +5014,7 @@ copy_insn_1 (rtx orig)
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
@@ -5083,6 +5260,74 @@ gen_rtx_CONST_VECTOR (enum machine_mode mode, rtvec v)
   return gen_rtx_raw_CONST_VECTOR (mode, v);
 }
 
+/* Initialise global register information required by all functions.  */
+
+void
+init_emit_regs (void)
+{
+  int i;
+
+  /* Reset register attributes */
+  htab_empty (reg_attrs_htab);
+
+  /* We need reg_raw_mode, so initialize the modes now.  */
+  init_reg_modes_target ();
+
+  /* Assign register numbers to the globally defined register rtx.  */
+  pc_rtx = gen_rtx_PC (VOIDmode);
+  cc0_rtx = gen_rtx_CC0 (VOIDmode);
+  stack_pointer_rtx = gen_raw_REG (Pmode, STACK_POINTER_REGNUM);
+  frame_pointer_rtx = gen_raw_REG (Pmode, FRAME_POINTER_REGNUM);
+  hard_frame_pointer_rtx = gen_raw_REG (Pmode, HARD_FRAME_POINTER_REGNUM);
+  arg_pointer_rtx = gen_raw_REG (Pmode, ARG_POINTER_REGNUM);
+  virtual_incoming_args_rtx =
+    gen_raw_REG (Pmode, VIRTUAL_INCOMING_ARGS_REGNUM);
+  virtual_stack_vars_rtx =
+    gen_raw_REG (Pmode, VIRTUAL_STACK_VARS_REGNUM);
+  virtual_stack_dynamic_rtx =
+    gen_raw_REG (Pmode, VIRTUAL_STACK_DYNAMIC_REGNUM);
+  virtual_outgoing_args_rtx =
+    gen_raw_REG (Pmode, VIRTUAL_OUTGOING_ARGS_REGNUM);
+  virtual_cfa_rtx = gen_raw_REG (Pmode, VIRTUAL_CFA_REGNUM);
+
+  /* Initialize RTL for commonly used hard registers.  These are
+     copied into regno_reg_rtx as we begin to compile each function.  */
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    static_regno_reg_rtx[i] = gen_raw_REG (reg_raw_mode[i], i);
+
+#ifdef RETURN_ADDRESS_POINTER_REGNUM
+  return_address_pointer_rtx
+    = gen_raw_REG (Pmode, RETURN_ADDRESS_POINTER_REGNUM);
+#endif
+
+#ifdef STATIC_CHAIN_REGNUM
+  static_chain_rtx = gen_rtx_REG (Pmode, STATIC_CHAIN_REGNUM);
+
+#ifdef STATIC_CHAIN_INCOMING_REGNUM
+  if (STATIC_CHAIN_INCOMING_REGNUM != STATIC_CHAIN_REGNUM)
+    static_chain_incoming_rtx
+      = gen_rtx_REG (Pmode, STATIC_CHAIN_INCOMING_REGNUM);
+  else
+#endif
+    static_chain_incoming_rtx = static_chain_rtx;
+#endif
+
+#ifdef STATIC_CHAIN
+  static_chain_rtx = STATIC_CHAIN;
+
+#ifdef STATIC_CHAIN_INCOMING
+  static_chain_incoming_rtx = STATIC_CHAIN_INCOMING;
+#else
+  static_chain_incoming_rtx = static_chain_rtx;
+#endif
+#endif
+
+  if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)
+    pic_offset_table_rtx = gen_raw_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
+  else
+    pic_offset_table_rtx = NULL_RTX;
+}
+
 /* Create some permanent unique rtl objects shared between all functions.
    LINE_NUMBERS is nonzero if line numbers are to be generated.  */
 
@@ -5093,16 +5338,16 @@ init_emit_once (int line_numbers)
   enum machine_mode mode;
   enum machine_mode double_mode;
 
-  /* We need reg_raw_mode, so initialize the modes now.  */
-  init_reg_modes_once ();
-
-  /* Initialize the CONST_INT, CONST_DOUBLE, and memory attribute hash
-     tables.  */
+  /* Initialize the CONST_INT, CONST_DOUBLE, CONST_FIXED, and memory attribute
+     hash tables.  */
   const_int_htab = htab_create_ggc (37, const_int_htab_hash,
 				    const_int_htab_eq, NULL);
 
   const_double_htab = htab_create_ggc (37, const_double_htab_hash,
 				       const_double_htab_eq, NULL);
+
+  const_fixed_htab = htab_create_ggc (37, const_fixed_htab_hash,
+				      const_fixed_htab_eq, NULL);
 
   mem_attrs_htab = htab_create_ggc (37, mem_attrs_htab_hash,
 				    mem_attrs_htab_eq, NULL);
@@ -5140,34 +5385,6 @@ init_emit_once (int line_numbers)
     }
 
   ptr_mode = mode_for_size (POINTER_SIZE, GET_MODE_CLASS (Pmode), 0);
-
-  /* Assign register numbers to the globally defined register rtx.
-     This must be done at runtime because the register number field
-     is in a union and some compilers can't initialize unions.  */
-
-  pc_rtx = gen_rtx_PC (VOIDmode);
-  cc0_rtx = gen_rtx_CC0 (VOIDmode);
-  stack_pointer_rtx = gen_raw_REG (Pmode, STACK_POINTER_REGNUM);
-  frame_pointer_rtx = gen_raw_REG (Pmode, FRAME_POINTER_REGNUM);
-  if (hard_frame_pointer_rtx == 0)
-    hard_frame_pointer_rtx = gen_raw_REG (Pmode,
-					  HARD_FRAME_POINTER_REGNUM);
-  if (arg_pointer_rtx == 0)
-    arg_pointer_rtx = gen_raw_REG (Pmode, ARG_POINTER_REGNUM);
-  virtual_incoming_args_rtx =
-    gen_raw_REG (Pmode, VIRTUAL_INCOMING_ARGS_REGNUM);
-  virtual_stack_vars_rtx =
-    gen_raw_REG (Pmode, VIRTUAL_STACK_VARS_REGNUM);
-  virtual_stack_dynamic_rtx =
-    gen_raw_REG (Pmode, VIRTUAL_STACK_DYNAMIC_REGNUM);
-  virtual_outgoing_args_rtx =
-    gen_raw_REG (Pmode, VIRTUAL_OUTGOING_ARGS_REGNUM);
-  virtual_cfa_rtx = gen_raw_REG (Pmode, VIRTUAL_CFA_REGNUM);
-
-  /* Initialize RTL for commonly used hard registers.  These are
-     copied into regno_reg_rtx as we begin to compile each function.  */
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    static_regno_reg_rtx[i] = gen_raw_REG (reg_raw_mode[i], i);
 
 #ifdef INIT_EXPANDERS
   /* This is to initialize {init|mark|free}_machine_status before the first
@@ -5280,6 +5497,8 @@ init_emit_once (int line_numbers)
       FCONST0(mode).data.high = 0;
       FCONST0(mode).data.low = 0;
       FCONST0(mode).mode = mode;
+      const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
+				      FCONST0 (mode), mode);
     }
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_UFRACT);
@@ -5289,6 +5508,8 @@ init_emit_once (int line_numbers)
       FCONST0(mode).data.high = 0;
       FCONST0(mode).data.low = 0;
       FCONST0(mode).mode = mode;
+      const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
+				      FCONST0 (mode), mode);
     }
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_ACCUM);
@@ -5298,6 +5519,8 @@ init_emit_once (int line_numbers)
       FCONST0(mode).data.high = 0;
       FCONST0(mode).data.low = 0;
       FCONST0(mode).mode = mode;
+      const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
+				      FCONST0 (mode), mode);
 
       /* We store the value 1.  */
       FCONST1(mode).data.high = 0;
@@ -5308,6 +5531,8 @@ init_emit_once (int line_numbers)
                      &FCONST1(mode).data.low,
 		     &FCONST1(mode).data.high,
                      SIGNED_FIXED_POINT_MODE_P (mode));
+      const_tiny_rtx[1][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
+				      FCONST1 (mode), mode);
     }
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_UACCUM);
@@ -5317,6 +5542,8 @@ init_emit_once (int line_numbers)
       FCONST0(mode).data.high = 0;
       FCONST0(mode).data.low = 0;
       FCONST0(mode).mode = mode;
+      const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
+				      FCONST0 (mode), mode);
 
       /* We store the value 1.  */
       FCONST1(mode).data.high = 0;
@@ -5327,6 +5554,38 @@ init_emit_once (int line_numbers)
                      &FCONST1(mode).data.low,
 		     &FCONST1(mode).data.high,
                      SIGNED_FIXED_POINT_MODE_P (mode));
+      const_tiny_rtx[1][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
+				      FCONST1 (mode), mode);
+    }
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_FRACT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
+    }
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_UFRACT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
+    }
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_ACCUM);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
+      const_tiny_rtx[1][(int) mode] = gen_const_vector (mode, 1);
+    }
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_UACCUM);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
+      const_tiny_rtx[1][(int) mode] = gen_const_vector (mode, 1);
     }
 
   for (i = (int) CCmode; i < (int) MAX_MACHINE_MODE; ++i)
@@ -5336,36 +5595,6 @@ init_emit_once (int line_numbers)
   const_tiny_rtx[0][(int) BImode] = const0_rtx;
   if (STORE_FLAG_VALUE == 1)
     const_tiny_rtx[1][(int) BImode] = const1_rtx;
-
-#ifdef RETURN_ADDRESS_POINTER_REGNUM
-  return_address_pointer_rtx
-    = gen_raw_REG (Pmode, RETURN_ADDRESS_POINTER_REGNUM);
-#endif
-
-#ifdef STATIC_CHAIN_REGNUM
-  static_chain_rtx = gen_rtx_REG (Pmode, STATIC_CHAIN_REGNUM);
-
-#ifdef STATIC_CHAIN_INCOMING_REGNUM
-  if (STATIC_CHAIN_INCOMING_REGNUM != STATIC_CHAIN_REGNUM)
-    static_chain_incoming_rtx
-      = gen_rtx_REG (Pmode, STATIC_CHAIN_INCOMING_REGNUM);
-  else
-#endif
-    static_chain_incoming_rtx = static_chain_rtx;
-#endif
-
-#ifdef STATIC_CHAIN
-  static_chain_rtx = STATIC_CHAIN;
-
-#ifdef STATIC_CHAIN_INCOMING
-  static_chain_incoming_rtx = STATIC_CHAIN_INCOMING;
-#else
-  static_chain_incoming_rtx = static_chain_rtx;
-#endif
-#endif
-
-  if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)
-    pic_offset_table_rtx = gen_raw_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
 }
 
 /* Produce exact duplicate of insn INSN after AFTER.

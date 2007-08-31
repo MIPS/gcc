@@ -134,6 +134,9 @@ static void m68k_compute_frame_layout (void);
 static bool m68k_save_reg (unsigned int regno, bool interrupt_handler);
 static bool m68k_ok_for_sibcall_p (tree, tree);
 static bool m68k_rtx_costs (rtx, int, int, int *);
+#if M68K_HONOR_TARGET_STRICT_ALIGNMENT
+static bool m68k_return_in_memory (tree, tree);
+#endif
 
 
 /* Specify the identification number of the library being built */
@@ -177,7 +180,7 @@ int m68k_last_compare_had_fp_operands;
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK m68k_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
-#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_const_tree_hwi_hwi_const_tree_true
 
 #undef TARGET_ASM_FILE_START_APP_OFF
 #define TARGET_ASM_FILE_START_APP_OFF true
@@ -194,7 +197,7 @@ int m68k_last_compare_had_fp_operands;
 #define TARGET_ATTRIBUTE_TABLE m68k_attribute_table
 
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX m68k_struct_value_rtx
@@ -204,6 +207,11 @@ int m68k_last_compare_had_fp_operands;
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL m68k_ok_for_sibcall_p
+
+#if M68K_HONOR_TARGET_STRICT_ALIGNMENT
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY m68k_return_in_memory
+#endif
 
 static const struct attribute_spec m68k_attribute_table[] =
 {
@@ -631,9 +639,8 @@ m68k_get_function_kind (tree func)
 {
   tree a;
 
-  if (TREE_CODE (func) != FUNCTION_DECL)
-    return false;
-
+  gcc_assert (TREE_CODE (func) == FUNCTION_DECL);
+  
   a = lookup_attribute ("interrupt", DECL_ATTRIBUTES (func));
   if (a != NULL_TREE)
     return m68k_fk_interrupt_handler;
@@ -1250,14 +1257,30 @@ flags_in_68881 (void)
   return cc_status.flags & CC_IN_68881;
 }
 
-/* Implement TARGET_FUNCTION_OK_FOR_SIBCALL_P.  We cannot use sibcalls
-   for nested functions because we use the static chain register for
-   indirect calls.  */
+/* Implement TARGET_FUNCTION_OK_FOR_SIBCALL_P.  */
 
 static bool
-m68k_ok_for_sibcall_p (tree decl ATTRIBUTE_UNUSED, tree exp)
+m68k_ok_for_sibcall_p (tree decl, tree exp)
 {
-  return TREE_OPERAND (exp, 2) == NULL;
+  enum m68k_function_kind kind;
+  
+  /* We cannot use sibcalls for nested functions because we use the
+     static chain register for indirect calls.  */
+  if (CALL_EXPR_STATIC_CHAIN (exp))
+    return false;
+
+  kind = m68k_get_function_kind (current_function_decl);
+  if (kind == m68k_fk_normal_function)
+    /* We can always sibcall from a normal function, because it's
+       undefined if it is calling an interrupt function.  */
+    return true;
+
+  /* Otherwise we can only sibcall if the function kind is known to be
+     the same.  */
+  if (decl && m68k_get_function_kind (decl) == kind)
+    return true;
+  
+  return false;
 }
 
 /* Convert X to a legitimate function call memory reference and return the
@@ -4347,7 +4370,7 @@ m68k_libcall_value (enum machine_mode mode)
 }
 
 rtx
-m68k_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
+m68k_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode;
 
@@ -4386,3 +4409,25 @@ m68k_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
   else
     return gen_rtx_REG (mode, D0_REG);
 }
+
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
+#if M68K_HONOR_TARGET_STRICT_ALIGNMENT
+static bool
+m68k_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+{
+  enum machine_mode mode = TYPE_MODE (type);
+
+  if (mode == BLKmode)
+    return true;
+
+  /* If TYPE's known alignment is less than the alignment of MODE that
+     would contain the structure, then return in memory.  We need to
+     do so to maintain the compatibility between code compiled with
+     -mstrict-align and that compiled with -mno-strict-align.  */
+  if (AGGREGATE_TYPE_P (type)
+      && TYPE_ALIGN (type) < GET_MODE_ALIGNMENT (mode))
+    return true;
+
+  return false;
+}
+#endif

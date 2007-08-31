@@ -583,7 +583,8 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
       /* (neg (lt x 0)) is (ashiftrt X C) if STORE_FLAG_VALUE is 1.  */
       /* (neg (lt x 0)) is (lshiftrt X C) if STORE_FLAG_VALUE is -1.  */
       if (GET_CODE (op) == LT
-	  && XEXP (op, 1) == const0_rtx)
+	  && XEXP (op, 1) == const0_rtx
+	  && SCALAR_INT_MODE_P (GET_MODE (XEXP (op, 0))))
 	{
 	  enum machine_mode inner = GET_MODE (XEXP (op, 0));
 	  int isize = GET_MODE_BITSIZE (inner);
@@ -1148,6 +1149,7 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
 	case SS_TRUNCATE:
 	case US_TRUNCATE:
 	case SS_NEG:
+	case US_NEG:
 	  return 0;
 
 	default:
@@ -2564,6 +2566,7 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 
     case ASHIFT:
     case SS_ASHIFT:
+    case US_ASHIFT:
       if (trueop1 == CONST0_RTX (mode))
 	return op0;
       if (trueop0 == CONST0_RTX (mode) && ! side_effects_p (op1))
@@ -2643,6 +2646,10 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
     case US_PLUS:
     case SS_MINUS:
     case US_MINUS:
+    case SS_MULT:
+    case US_MULT:
+    case SS_DIV:
+    case US_DIV:
       /* ??? There are simplifications that can be done.  */
       return 0;
 
@@ -2658,6 +2665,85 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	  if (GET_CODE (trueop0) == CONST_VECTOR)
 	    return CONST_VECTOR_ELT (trueop0, INTVAL (XVECEXP
 						      (trueop1, 0, 0)));
+
+	  /* Extract a scalar element from a nested VEC_SELECT expression
+	     (with optional nested VEC_CONCAT expression).  Some targets
+	     (i386) extract scalar element from a vector using chain of
+	     nested VEC_SELECT expressions.  When input operand is a memory
+	     operand, this operation can be simplified to a simple scalar
+	     load from an offseted memory address.  */
+	  if (GET_CODE (trueop0) == VEC_SELECT)
+	    {
+	      rtx op0 = XEXP (trueop0, 0);
+	      rtx op1 = XEXP (trueop0, 1);
+
+	      enum machine_mode opmode = GET_MODE (op0);
+	      int elt_size = GET_MODE_SIZE (GET_MODE_INNER (opmode));
+	      int n_elts = GET_MODE_SIZE (opmode) / elt_size;
+
+	      int i = INTVAL (XVECEXP (trueop1, 0, 0));
+	      int elem;
+
+	      rtvec vec;
+	      rtx tmp_op, tmp;
+
+	      gcc_assert (GET_CODE (op1) == PARALLEL);
+	      gcc_assert (i < n_elts);
+
+	      /* Select element, pointed by nested selector.  */
+	      elem = INTVAL (XVECEXP (op1, 0, i));
+
+	      /* Handle the case when nested VEC_SELECT wraps VEC_CONCAT.  */
+	      if (GET_CODE (op0) == VEC_CONCAT)
+		{
+		  rtx op00 = XEXP (op0, 0);
+		  rtx op01 = XEXP (op0, 1);
+
+		  enum machine_mode mode00, mode01;
+		  int n_elts00, n_elts01;
+
+		  mode00 = GET_MODE (op00);
+		  mode01 = GET_MODE (op01);
+
+		  /* Find out number of elements of each operand.  */
+		  if (VECTOR_MODE_P (mode00))
+		    {
+		      elt_size = GET_MODE_SIZE (GET_MODE_INNER (mode00));
+		      n_elts00 = GET_MODE_SIZE (mode00) / elt_size;
+		    }
+		  else
+		    n_elts00 = 1;
+
+		  if (VECTOR_MODE_P (mode01))
+		    {
+		      elt_size = GET_MODE_SIZE (GET_MODE_INNER (mode01));
+		      n_elts01 = GET_MODE_SIZE (mode01) / elt_size;
+		    }
+		  else
+		    n_elts01 = 1;
+
+		  gcc_assert (n_elts == n_elts00 + n_elts01);
+
+		  /* Select correct operand of VEC_CONCAT
+		     and adjust selector. */
+		  if (elem < n_elts01)
+		    tmp_op = op00;
+		  else
+		    {
+		      tmp_op = op01;
+		      elem -= n_elts00;
+		    }
+		}
+	      else
+		tmp_op = op0;
+
+	      vec = rtvec_alloc (1);
+	      RTVEC_ELT (vec, 0) = GEN_INT (elem);
+
+	      tmp = gen_rtx_fmt_ee (code, mode,
+				    tmp_op, gen_rtx_PARALLEL (VOIDmode, vec));
+	      return tmp;
+	    }
 	}
       else
 	{
@@ -3273,7 +3359,12 @@ simplify_const_binary_operation (enum rtx_code code, enum machine_mode mode,
 	case US_PLUS:
 	case SS_MINUS:
 	case US_MINUS:
+	case SS_MULT:
+	case US_MULT:
+	case SS_DIV:
+	case US_DIV:
 	case SS_ASHIFT:
+	case US_ASHIFT:
 	  /* ??? There are simplifications that can be done.  */
 	  return 0;
 	  
@@ -4386,8 +4477,9 @@ simplify_ternary_operation (enum rtx_code code, enum machine_mode mode,
   return 0;
 }
 
-/* Evaluate a SUBREG of a CONST_INT or CONST_DOUBLE or CONST_VECTOR,
-   returning another CONST_INT or CONST_DOUBLE or CONST_VECTOR.
+/* Evaluate a SUBREG of a CONST_INT or CONST_DOUBLE or CONST_FIXED
+   or CONST_VECTOR,
+   returning another CONST_INT or CONST_DOUBLE or CONST_FIXED or CONST_VECTOR.
 
    Works by unpacking OP into a collection of 8-bit values
    represented as a little-endian array of 'unsigned char', selecting by BYTE,
@@ -4525,6 +4617,25 @@ simplify_immed_subreg (enum machine_mode outermode, rtx op,
 		*vp++ = 0;
 	    }
 	  break;
+
+        case CONST_FIXED:
+	  if (elem_bitsize <= HOST_BITS_PER_WIDE_INT)
+	    {
+	      for (i = 0; i < elem_bitsize; i += value_bit)
+		*vp++ = CONST_FIXED_VALUE_LOW (el) >> i;
+	    }
+	  else
+	    {
+	      for (i = 0; i < HOST_BITS_PER_WIDE_INT; i += value_bit)
+		*vp++ = CONST_FIXED_VALUE_LOW (el) >> i;
+              for (; i < 2 * HOST_BITS_PER_WIDE_INT && i < elem_bitsize;
+		   i += value_bit)
+		*vp++ = CONST_FIXED_VALUE_HIGH (el)
+			>> (i - HOST_BITS_PER_WIDE_INT);
+	      for (; i < elem_bitsize; i += value_bit)
+		*vp++ = 0;
+	    }
+          break;
 	  
 	default:
 	  gcc_unreachable ();
@@ -4643,6 +4754,28 @@ simplify_immed_subreg (enum machine_mode outermode, rtx op,
 	    elems[elem] = CONST_DOUBLE_FROM_REAL_VALUE (r, outer_submode);
 	  }
 	  break;
+
+	case MODE_FRACT:
+	case MODE_UFRACT:
+	case MODE_ACCUM:
+	case MODE_UACCUM:
+	  {
+	    FIXED_VALUE_TYPE f;
+	    f.data.low = 0;
+	    f.data.high = 0;
+	    f.mode = outer_submode;
+
+	    for (i = 0;
+		 i < HOST_BITS_PER_WIDE_INT && i < elem_bitsize;
+		 i += value_bit)
+	      f.data.low |= (HOST_WIDE_INT)(*vp++ & value_mask) << i;
+	    for (; i < elem_bitsize; i += value_bit)
+	      f.data.high |= ((HOST_WIDE_INT)(*vp++ & value_mask)
+			     << (i - HOST_BITS_PER_WIDE_INT));
+
+	    elems[elem] = CONST_FIXED_FROM_FIXED_VALUE (f, outer_submode);
+          }
+          break;
 	    
 	default:
 	  gcc_unreachable ();
@@ -4677,6 +4810,7 @@ simplify_subreg (enum machine_mode outermode, rtx op,
 
   if (GET_CODE (op) == CONST_INT
       || GET_CODE (op) == CONST_DOUBLE
+      || GET_CODE (op) == CONST_FIXED
       || GET_CODE (op) == CONST_VECTOR)
     return simplify_immed_subreg (outermode, op, innermode, byte);
 
@@ -5019,10 +5153,10 @@ simplify_gen_subreg (enum machine_mode outermode, rtx op,
     simplification and 1 for tree simplification.  */
 
 rtx
-simplify_rtx (rtx x)
+simplify_rtx (const_rtx x)
 {
-  enum rtx_code code = GET_CODE (x);
-  enum machine_mode mode = GET_MODE (x);
+  const enum rtx_code code = GET_CODE (x);
+  const enum machine_mode mode = GET_MODE (x);
 
   switch (GET_RTX_CLASS (code))
     {

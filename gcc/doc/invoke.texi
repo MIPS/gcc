@@ -450,7 +450,7 @@ Objective-C and Objective-C++ Dialects}.
 -mstack-check-l1  -mid-shared-library  -mno-id-shared-library @gol
 -mshared-library-id=@var{n}  -mleaf-id-shared-library @gol
 -mno-leaf-id-shared-library  -msep-data  -mno-sep-data  -mlong-calls @gol
--mno-long-calls}
+-mno-long-calls -mfast-fp -minline-plt}
 
 @emph{CRIS Options}
 @gccoptlist{-mcpu=@var{cpu}  -march=@var{cpu}  -mtune=@var{cpu} @gol
@@ -557,7 +557,7 @@ Objective-C and Objective-C++ Dialects}.
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
--mpc32 -mpc64 -mpc80 mstackrealign @gol
+-mveclibabi=@var{type} -mpc32 -mpc64 -mpc80 -mstackrealign @gol
 -momit-leaf-frame-pointer  -mno-red-zone -mno-tls-direct-seg-refs @gol
 -mcmodel=@var{code-model} @gol
 -m32  -m64 -mlarge-data-threshold=@var{num}}
@@ -8612,6 +8612,17 @@ This feature is not enabled by default.  Specifying
 @option{-mno-long-calls} will restore the default behavior.  Note these
 switches have no effect on how the compiler generates code to handle
 function calls via function pointers.
+
+@item -mfast-fp
+@opindex mfast-fp
+Link with the fast floating-point library. This library relaxes some of
+the IEEE floating-point standard's rules for checking inputs against
+Not-a-Number (NAN), in the interest of performance.
+
+@item -minline-plt
+@opindex minline-plt
+Enable inlining of PLT entries in function calls to functions that are
+not known to bind locally.  It has no effect without @option{-mfdpic}.
 @end table
 
 @node CRIS Options
@@ -10428,6 +10439,19 @@ This option will enable GCC to use RCPSS and RSQRTSS instructions (and their
 vectorized variants RCPPS and RSQRTPS) instead of DIVSS and SQRTSS (and their
 vectorized variants).  These instructions will be generated only when
 @option{-funsafe-math-optimizations} is enabled.
+
+@item -mveclibabi=@var{type}
+@opindex mveclibabi
+Specifies the ABI type to use for vectorizing intrinsics using an
+external library.  Supported types are @code{acml} for the AMD
+math core library style of interfacing.  GCC will currently emit
+calls to @code{__vrd2_sin}, @code{__vrd2_cos}, @code{__vrd2_exp},
+@code{__vrd2_log}, @code{__vrd2_log2}, @code{__vrd2_log10},
+@code{__vrs4_sinf}, @code{__vrs4_cosf}, @code{__vrs4_expf},
+@code{__vrs4_logf}, @code{__vrs4_log2f}, @code{__vrs4_log10f}
+and @code{__vrs4_powf} when using this type and @option{-ftree-vectorize}
+is enabled.  A ACML ABI compatible library will have to be specified
+at link time.
 
 @item -mpush-args
 @itemx -mno-push-args

@@ -1453,6 +1453,16 @@ add_functions (void)
 
   make_generic ("fput", GFC_ISYM_FPUT, GFC_STD_GNU);
 
+  add_sym_1 ("gamma", GFC_ISYM_GAMMA, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_fn_r, gfc_simplify_gamma, gfc_resolve_gamma,
+	     x, BT_REAL, dr, REQUIRED);
+
+  add_sym_1 ("dgamma", GFC_ISYM_GAMMA, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_fn_r, gfc_simplify_gamma, gfc_resolve_gamma,
+	     x, BT_REAL, dr, REQUIRED);
+
+  make_generic ("gamma", GFC_ISYM_GAMMA, GFC_STD_GNU);
+
   /* Unix IDs (g77 compatibility)  */
   add_sym_1 ("getcwd", GFC_ISYM_GETCWD, NO_CLASS, ACTUAL_NO, BT_INTEGER, di,  GFC_STD_GNU,
 	     NULL, NULL, gfc_resolve_getcwd,
@@ -1623,6 +1633,18 @@ add_functions (void)
 
   make_generic ("isatty", GFC_ISYM_ISATTY, GFC_STD_GNU);
 
+  add_sym_1 ("is_iostat_end", GFC_ISYM_IS_IOSTAT_END,
+	     CLASS_ELEMENTAL, ACTUAL_NO, BT_LOGICAL, dl, GFC_STD_F2003,
+	     gfc_check_i, NULL, NULL, i, BT_INTEGER, 0, REQUIRED);
+
+  make_generic ("is_iostat_end", GFC_ISYM_IS_IOSTAT_END, GFC_STD_F2003);
+
+  add_sym_1 ("is_iostat_eor", GFC_ISYM_IS_IOSTAT_EOR,
+	     CLASS_ELEMENTAL, ACTUAL_NO, BT_LOGICAL, dl, GFC_STD_F2003,
+	     gfc_check_i, NULL, NULL, i, BT_INTEGER, 0, REQUIRED);
+
+  make_generic ("is_iostat_eor", GFC_ISYM_IS_IOSTAT_EOR, GFC_STD_F2003);
+
   add_sym_1 ("isnan", GFC_ISYM_ISNAN, CLASS_ELEMENTAL, ACTUAL_NO, BT_LOGICAL,
 	     dl, GFC_STD_GNU, gfc_check_isnan, NULL, NULL,
 	     x, BT_REAL, 0, REQUIRED);
@@ -1689,6 +1711,21 @@ add_functions (void)
   make_alias ("lnblnk", GFC_STD_GNU);
 
   make_generic ("len_trim", GFC_ISYM_LEN_TRIM, GFC_STD_F95);
+
+  add_sym_1 ("lgamma", GFC_ISYM_LGAMMA, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_fn_r, gfc_simplify_lgamma, gfc_resolve_lgamma,
+	     x, BT_REAL, dr, REQUIRED);
+
+  add_sym_1 ("algama", GFC_ISYM_LGAMMA, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_fn_r, gfc_simplify_lgamma, gfc_resolve_lgamma,
+	     x, BT_REAL, dr, REQUIRED);
+
+  add_sym_1 ("dlgama", GFC_ISYM_LGAMMA, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_fn_r, gfc_simplify_lgamma, gfc_resolve_lgamma,
+	     x, BT_REAL, dr, REQUIRED);
+
+  make_generic ("lgamma", GFC_ISYM_LGAMMA, GFC_STD_GNU);
+
 
   add_sym_2 ("lge", GFC_ISYM_LGE, CLASS_ELEMENTAL, ACTUAL_NO, BT_LOGICAL, dl, GFC_STD_F77,
 	     NULL, gfc_simplify_lge, NULL,
@@ -2340,7 +2377,7 @@ add_subroutines (void)
     *val = "value", *num = "number", *name = "name",
     *trim_name = "trim_name", *ut = "unit", *han = "handler",
     *sec = "seconds", *res = "result", *of = "offset", *md = "mode",
-    *whence = "whence";
+    *whence = "whence", *pos = "pos";
 
   int di, dr, dc, dl, ii;
 
@@ -2424,8 +2461,8 @@ add_subroutines (void)
 	      REQUIRED);
 
   add_sym_2s ("getarg", GFC_ISYM_GETARG, NO_CLASS, BT_UNKNOWN, 0, GFC_STD_GNU,
-	      NULL, NULL, gfc_resolve_getarg,
-	      c, BT_INTEGER, di, REQUIRED, vl, BT_CHARACTER, dc, REQUIRED);
+	      gfc_check_getarg, NULL, gfc_resolve_getarg,
+	      pos, BT_INTEGER, di, REQUIRED, val, BT_CHARACTER, dc, REQUIRED);
 
   add_sym_1s ("getlog", GFC_ISYM_GETLOG, NO_CLASS, BT_UNKNOWN, 0, GFC_STD_GNU,
 	      gfc_check_getlog, NULL, gfc_resolve_getlog, c, BT_CHARACTER,
@@ -3409,12 +3446,10 @@ got_specific:
      (4)   A reference to an elemental standard intrinsic function,
            where each argument is an initialization expression  */
 
-  if (gfc_init_expr 
-      && isym->elemental
-      && (expr->ts.type != BT_INTEGER || expr->ts.type != BT_CHARACTER)
-      && gfc_notify_std (GFC_STD_F2003, "Extension: Evaluation of "
-			"nonstandard initialization expression at %L",
-			&expr->where) == FAILURE)
+  if (gfc_init_expr && isym->elemental && flag
+      && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Elemental function "
+			"as initialization expression with non-integer/non-"
+		        "character arguments at %L", &expr->where) == FAILURE)
     return MATCH_ERROR;
 
   return MATCH_YES;

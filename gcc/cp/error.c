@@ -82,7 +82,8 @@ static const char *function_category (tree);
 static void maybe_print_instantiation_context (diagnostic_context *);
 static void print_instantiation_full_context (diagnostic_context *);
 static void print_instantiation_partial_context (diagnostic_context *,
-						 tree, location_t);
+						 struct tinst_level *,
+						 location_t);
 static void cp_diagnostic_starter (diagnostic_context *, diagnostic_info *);
 static void cp_diagnostic_finalizer (diagnostic_context *, diagnostic_info *);
 static void cp_print_error_function (diagnostic_context *, diagnostic_info *);
@@ -1438,10 +1439,14 @@ static tree
 resolve_virtual_fun_from_obj_type_ref (tree ref)
 {
   tree obj_type = TREE_TYPE (OBJ_TYPE_REF_OBJECT (ref));
-  int index = tree_low_cst (OBJ_TYPE_REF_TOKEN (ref), 1);
+  HOST_WIDE_INT index = tree_low_cst (OBJ_TYPE_REF_TOKEN (ref), 1);
   tree fun = BINFO_VIRTUALS (TYPE_BINFO (TREE_TYPE (obj_type)));
-    while (index--)
+  while (index)
+    {
       fun = TREE_CHAIN (fun);
+      index -= (TARGET_VTABLE_USES_DESCRIPTORS
+		? TARGET_VTABLE_USES_DESCRIPTORS : 1);
+    }
 
   return BV_FN (fun);
 }
@@ -1472,6 +1477,7 @@ dump_expr (tree t, int flags)
     case INTEGER_CST:
     case REAL_CST:
     case STRING_CST:
+    case COMPLEX_CST:
       pp_constant (cxx_pp, t);
       break;
 
@@ -2043,6 +2049,11 @@ dump_expr (tree t, int flags)
       pp_id_expression (cxx_pp, t);
       break;
 
+    case TEMPLATE_TYPE_PARM:
+    case BOUND_TEMPLATE_TEMPLATE_PARM:
+      dump_type (t, flags);
+      break;
+
       /*  This list is incomplete, but should suffice for now.
 	  It is very important that `sorry' does not call
 	  `report_error_function'.  That could cause an infinite loop.  */
@@ -2384,30 +2395,30 @@ function_category (tree fn)
 static void
 print_instantiation_full_context (diagnostic_context *context)
 {
-  tree p = current_instantiation ();
+  struct tinst_level *p = current_instantiation ();
   location_t location = input_location;
 
   if (p)
     {
-      if (current_function_decl != TINST_DECL (p)
+      if (current_function_decl != p->decl
 	  && current_function_decl != NULL_TREE)
 	/* We can get here during the processing of some synthesized
-	   method.  Then, TINST_DECL (p) will be the function that's causing
+	   method.  Then, P->DECL will be the function that's causing
 	   the synthesis.  */
 	;
       else
 	{
-	  if (current_function_decl == TINST_DECL (p))
+	  if (current_function_decl == p->decl)
 	    /* Avoid redundancy with the "In function" line.  */;
 	  else
 	    pp_verbatim (context->printer,
 			 "%s: In instantiation of %qs:\n",
 			 LOCATION_FILE (location),
-			 decl_as_string (TINST_DECL (p),
+			 decl_as_string (p->decl,
 					 TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
 
-	  location = TINST_LOCATION (p);
-	  p = TREE_CHAIN (p);
+	  location = p->locus;
+	  p = p->next;
 	}
     }
 
@@ -2417,19 +2428,19 @@ print_instantiation_full_context (diagnostic_context *context)
 /* Same as above but less verbose.  */
 static void
 print_instantiation_partial_context (diagnostic_context *context,
-				     tree t, location_t loc)
+				     struct tinst_level *t, location_t loc)
 {
   expanded_location xloc;
-  for (; ; t = TREE_CHAIN (t))
+  for (; ; t = t->next)
     {
       xloc = expand_location (loc);
-      if (t == NULL_TREE)
+      if (t == NULL)
 	break;
       pp_verbatim (context->printer, "%s:%d:   instantiated from %qs\n",
 		   xloc.file, xloc.line,
-		   decl_as_string (TINST_DECL (t),
+		   decl_as_string (t->decl,
 				   TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
-      loc = TINST_LOCATION (t);
+      loc = t->locus;
     }
   pp_verbatim (context->printer, "%s:%d:   instantiated from here",
 	       xloc.file, xloc.line);

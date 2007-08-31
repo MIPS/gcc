@@ -980,9 +980,10 @@ build_sym (const char *name, gfc_charlen *cl,
     {
       if (sym->binding_label[0] == '\0')
         {
-          /* Here, we're not checking the numIdents (the last param).
-             This could be an error we're letting slip through!  */
-          if (set_binding_label (sym->binding_label, sym->name, 1) == FAILURE)
+	  /* Set the binding label and verify that if a NAME= was specified
+	     then only one identifier was in the entity-decl-list.  */
+	  if (set_binding_label (sym->binding_label, sym->name,
+				 num_idents_on_line) == FAILURE)
             return FAILURE;
         }
     }
@@ -1462,10 +1463,11 @@ variable_decl (int elem)
 	  break;
 
 	/* Non-constant lengths need to be copied after the first
-	   element.  */
+	   element.  Also copy assumed lengths.  */
 	case MATCH_NO:
-	  if (elem > 1 && current_ts.cl->length
-	      && current_ts.cl->length->expr_type != EXPR_CONSTANT)
+	  if (elem > 1
+	      && (current_ts.cl->length == NULL
+		  || current_ts.cl->length->expr_type != EXPR_CONSTANT))
 	    {
 	      cl = gfc_get_charlen ();
 	      cl->next = gfc_current_ns->cl_list;
@@ -2549,8 +2551,11 @@ match_attr_spec (void)
 	      /* Chomp the comma.  */
 	      peek_char = gfc_next_char ();
 	      /* Try and match the bind(c).  */
-	      if (gfc_match_bind_c (NULL) == MATCH_YES)
+	      m = gfc_match_bind_c (NULL);
+	      if (m == MATCH_YES)
 		d = DECL_IS_BIND_C;
+	      else if (m == MATCH_ERROR)
+		goto cleanup;
 	    }
 	}
 
@@ -2843,15 +2848,15 @@ cleanup:
 try
 set_binding_label (char *dest_label, const char *sym_name, int num_idents)
 {
+  if (num_idents > 1 && has_name_equals)
+    {
+      gfc_error ("Multiple identifiers provided with "
+		 "single NAME= specifier at %C");
+      return FAILURE;
+    }
+
   if (curr_binding_label[0] != '\0')
     {
-      if (num_idents > 1 || num_idents_on_line > 1)
-        {
-          gfc_error ("Multiple identifiers provided with "
-                     "single NAME= specifier at %C");
-          return FAILURE;
-        }
-
       /* Binding label given; store in temp holder til have sym.  */
       strncpy (dest_label, curr_binding_label,
                strlen (curr_binding_label) + 1);
@@ -4080,7 +4085,6 @@ gfc_match_bind_c (gfc_symbol *sym)
   char binding_label[GFC_MAX_SYMBOL_LEN + 1];
   match double_quote;
   match single_quote;
-  int has_name_equals = 0;
 
   /* Initialize the flag that specifies whether we encountered a NAME= 
      specifier or not.  */
@@ -4183,7 +4187,8 @@ gfc_match_bind_c (gfc_symbol *sym)
 	strncpy (sym->binding_label, sym->name, strlen (sym->name) + 1);
     }
 
-  if (has_name_equals && current_interface.type == INTERFACE_ABSTRACT)
+  if (has_name_equals && gfc_current_state () == COMP_INTERFACE
+      && current_interface.type == INTERFACE_ABSTRACT)
     {
       gfc_error ("NAME not allowed on BIND(C) for ABSTRACT INTERFACE at %C");
       return MATCH_ERROR;
@@ -5327,7 +5332,8 @@ gfc_match_modproc (void)
 
   if (gfc_state_stack->state != COMP_INTERFACE
       || gfc_state_stack->previous == NULL
-      || current_interface.type == INTERFACE_NAMELESS)
+      || current_interface.type == INTERFACE_NAMELESS
+      || current_interface.type == INTERFACE_ABSTRACT)
     {
       gfc_error ("MODULE PROCEDURE at %C must be in a generic module "
 		 "interface");

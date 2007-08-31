@@ -387,6 +387,7 @@ enum gfc_isym_id
   GFC_ISYM_FSEEK,
   GFC_ISYM_FSTAT,
   GFC_ISYM_FTELL,
+  GFC_ISYM_GAMMA,
   GFC_ISYM_GERROR,
   GFC_ISYM_GETARG,
   GFC_ISYM_GET_COMMAND,
@@ -418,6 +419,8 @@ enum gfc_isym_id
   GFC_ISYM_IOR,
   GFC_ISYM_IRAND,
   GFC_ISYM_ISATTY,
+  GFC_ISYM_IS_IOSTAT_END,
+  GFC_ISYM_IS_IOSTAT_EOR,
   GFC_ISYM_ISNAN,
   GFC_ISYM_ISHFT,
   GFC_ISYM_ISHFTC,
@@ -430,6 +433,7 @@ enum gfc_isym_id
   GFC_ISYM_LBOUND,
   GFC_ISYM_LEN,
   GFC_ISYM_LEN_TRIM,
+  GFC_ISYM_LGAMMA,
   GFC_ISYM_LGE,
   GFC_ISYM_LGT,
   GFC_ISYM_LINK,
@@ -1863,6 +1867,7 @@ typedef struct
   int flag_openmp;
   int flag_sign_zero;
   int flag_module_private;
+  int flag_recursive;
 
   int fpe;
 
@@ -2262,6 +2267,7 @@ try gfc_resolve_iterator (gfc_iterator *, bool);
 try gfc_resolve_index (gfc_expr *, int);
 try gfc_resolve_dim_arg (gfc_expr *);
 int gfc_is_formal_arg (void);
+void gfc_resolve_substring_charlen (gfc_expr *);
 match gfc_iso_c_sub_interface(gfc_code *, gfc_symbol *);
 
 

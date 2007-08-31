@@ -267,7 +267,7 @@ machopic_define_symbol (rtx mem)
   SYMBOL_REF_FLAGS (sym_ref) |= MACHO_SYMBOL_FLAG_DEFINED;
 }
 
-static GTY(()) char * function_base;
+static GTY(()) const char * function_base;
 
 const char *
 machopic_function_base_name (void)
@@ -276,8 +276,7 @@ machopic_function_base_name (void)
   gcc_assert (!MACHO_DYNAMIC_NO_PIC_P);
 
   if (function_base == NULL)
-    function_base =
-      (char *) ggc_alloc_string ("<pic base>", sizeof ("<pic base>"));
+    function_base = ggc_alloc_string ("<pic base>", sizeof ("<pic base>"));
 
   current_function_uses_pic_offset_table = 1;
 
@@ -1672,7 +1671,7 @@ darwin_file_end (void)
    functions at dynamic-link time, except for vtables in kexts.  */
 
 bool
-darwin_binds_local_p (tree decl)
+darwin_binds_local_p (const_tree decl)
 {
   return default_binds_local_p_1 (decl,
 				  TARGET_KEXTABI && DARWIN_VTABLE_P (decl));

@@ -121,6 +121,7 @@ Some basic guidelines for editing this document:
 * @code{FSEEK}:         FSEEK,     Low level file positioning subroutine
 * @code{FSTAT}:         FSTAT,     Get file status
 * @code{FTELL}:         FTELL,     Current stream position
+* @code{GAMMA}:         GAMMA,     Gamma function
 * @code{GERROR}:        GERROR,    Get last system error message
 * @code{GETARG}:        GETARG,    Get command line arguments
 * @code{GET_COMMAND}:   GET_COMMAND, Get the entire command line
@@ -151,6 +152,8 @@ Some basic guidelines for editing this document:
 * @code{INT8}:          INT8,      Convert to 64-bit integer type
 * @code{IOR}:           IOR,       Bitwise logical or
 * @code{IRAND}:         IRAND,     Integer pseudo-random number
+* @code{IS_IOSTAT_END}:  IS_IOSTAT_END, Test for end-of-file value
+* @code{IS_IOSTAT_EOR}:  IS_IOSTAT_EOR, Test for end-of-record value
 * @code{ISATTY}:        ISATTY,    Whether a unit is a terminal device
 * @code{ISHFT}:         ISHFT,     Shift bits
 * @code{ISHFTC}:        ISHFTC,    Shift bits circularly
@@ -161,6 +164,7 @@ Some basic guidelines for editing this document:
 * @code{LBOUND}:        LBOUND,    Lower dimension bounds of an array
 * @code{LEN}:           LEN,       Length of a character entity
 * @code{LEN_TRIM}:      LEN_TRIM,  Length of a character entity without trailing blank characters
+* @code{LGAMMA}:        LGAMMA,    Logarithm of the Gamma function
 * @code{LGE}:           LGE,       Lexical greater than or equal
 * @code{LGT}:           LGT,       Lexical greater than
 * @code{LINK}:          LINK,      Create a hard link
@@ -4484,6 +4488,65 @@ END PROGRAM
 
 
 
+@node GAMMA
+@section @code{GAMMA} --- Gamma function
+@fnindex GAMMA
+@fnindex DGAMMA
+@cindex Gamma function
+@cindex Factorial function
+
+@table @asis
+@item @emph{Description}:
+@code{GAMMA(X)} computes Gamma (@math{\Gamma}) of @var{X}. For positive,
+integer values of @var{X} the Gamma function simplifies to the factorial
+function @math{\Gamma(x)=(x-1)!}.
+
+@tex
+$$
+\Gamma(x) = \int_0^\infty t^{x-1}{\rm e}^{-t}\,{\rm d}t
+$$
+@end tex
+
+@item @emph{Standard}:
+GNU Extension
+
+@item @emph{Class}:
+Elemental function
+
+@item @emph{Syntax}:
+@code{X = GAMMA(X)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .70
+@item @var{X} @tab Shall be of type @code{REAL} and neither zero
+nor a negative integer.
+@end multitable
+
+@item @emph{Return value}:
+The return value is of type @code{REAL} of the same kind as @var{X}.
+
+@item @emph{Example}:
+@smallexample
+program test_gamma
+  real :: x = 1.0
+  x = gamma(x) ! returns 1.0
+end program test_gamma
+@end smallexample
+
+@item @emph{Specific names}:
+@multitable @columnfractions .20 .20 .20 .25
+@item Name             @tab Argument         @tab Return type       @tab Standard
+@item @code{GAMMA(X)}  @tab @code{REAL(4) X} @tab @code{REAL(4)}    @tab GNU Extension
+@item @code{DGAMMA(X)} @tab @code{REAL(8) X} @tab @code{REAL(8)}    @tab GNU Extension
+@end multitable
+
+@item @emph{See also}:
+Logarithm of the Gamma function: @ref{LGAMMA}
+
+@end table
+
+
+
 @node GERROR
 @section @code{GERROR} --- Get last system error message
 @fnindex GERROR
@@ -4546,21 +4609,22 @@ GNU extension
 Subroutine
 
 @item @emph{Syntax}:
-@code{CALL GETARG(N, ARG)}
+@code{CALL GETARG(POS, VALUE)}
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
-@item @var{N}   @tab Shall be of type @code{INTEGER(4)}, @math{@var{N} \geq 0}
-@item @var{ARG} @tab Shall be of type @code{CHARACTER(*)}. 
+@item @var{POS}   @tab Shall be of type @code{INTEGER} and not wider than
+the default integer kind; @math{@var{POS} \geq 0}
+@item @var{VALUE} @tab Shall be of type @code{CHARACTER(*)}. 
 @end multitable
 
 @item @emph{Return value}:
-After @code{GETARG} returns, the @var{ARG} argument holds the @var{N}th 
-command line argument. If @var{ARG} can not hold the argument, it is 
-truncated to fit the length of @var{ARG}. If there are less than @var{N}
-arguments specified at the command line, @var{ARG} will be filled with blanks.
-If @math{@var{N} = 0}, @var{ARG} is set to the name of the program (on systems
-that support this feature).
+After @code{GETARG} returns, the @var{VALUE} argument holds the
+@var{POS}th command line argument. If @var{VALUE} can not hold the
+argument, it is truncated to fit the length of @var{VALUE}. If there are
+less than @var{POS} arguments specified at the command line, @var{VALUE}
+will be filled with blanks. If @math{@var{POS} = 0}, @var{VALUE} is set
+to the name of the program (on systems that support this feature).
 
 @item @emph{Example}:
 @smallexample
@@ -5817,6 +5881,96 @@ end program test_irand
 
 
 
+@node IS_IOSTAT_END
+@section @code{IS_IOSTAT_END} --- Test for end-of-file value
+@fnindex IS_IOSTAT_END
+@cindex IOSTAT, end of file
+
+@table @asis
+@item @emph{Description}:
+@code{IS_IOSTAT_END} tests whether an variable has the value of the I/O
+status ``end of file''. The function is equivalent to comparing the variable
+with the @code{IOSTAT_END} parameter of the intrinsic module
+@code{ISO_FORTRAN_ENV}.
+
+@item @emph{Standard}:
+Fortran 2003.
+
+@item @emph{Class}:
+Elemental function
+
+@item @emph{Syntax}:
+@code{RESULT = IS_IOSTAT_END(I)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .70
+@item @var{I} @tab Shall be of the type @code{INTEGER}.
+@end multitable
+
+@item @emph{Return value}:
+Returns a @code{LOGICAL} of the default kind, which @code{.TRUE.} if
+@var{I} has the value which indicates an end of file condition for
+IOSTAT= specifiers, and is @code{.FALSE.} otherwise.
+
+@item @emph{Example}:
+@smallexample
+PROGRAM iostat
+  IMPLICIT NONE
+  INTEGER :: stat, i
+  OPEN(88, FILE='test.dat')
+  READ(88, *, IOSTAT=stat) i
+  IF(IS_IOSTAT_END(stat)) STOP 'END OF FILE'
+END PROGRAM
+@end smallexample
+@end table
+
+
+
+@node IS_IOSTAT_EOR
+@section @code{IS_IOSTAT_EOR} --- Test for end-of-record value
+@fnindex IS_IOSTAT_EOR
+@cindex IOSTAT, end of record
+
+@table @asis
+@item @emph{Description}:
+@code{IS_IOSTAT_EOR} tests whether an variable has the value of the I/O
+status ``end of record''. The function is equivalent to comparing the
+variable with the @code{IOSTAT_EOR} parameter of the intrinsic module
+@code{ISO_FORTRAN_ENV}.
+
+@item @emph{Standard}:
+Fortran 2003.
+
+@item @emph{Class}:
+Elemental function
+
+@item @emph{Syntax}:
+@code{RESULT = IS_IOSTAT_EOR(I)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .70
+@item @var{I} @tab Shall be of the type @code{INTEGER}.
+@end multitable
+
+@item @emph{Return value}:
+Returns a @code{LOGICAL} of the default kind, which @code{.TRUE.} if
+@var{I} has the value which indicates an end of file condition for
+IOSTAT= specifiers, and is @code{.FALSE.} otherwise.
+
+@item @emph{Example}:
+@smallexample
+PROGRAM iostat
+  IMPLICIT NONE
+  INTEGER :: stat, i(50)
+  OPEN(88, FILE='test.dat', FORM='UNFORMATTED')
+  READ(88, IOSTAT=stat) i
+  IF(IS_IOSTAT_EOR(stat)) STOP 'END OF RECORD'
+END PROGRAM
+@end smallexample
+@end table
+
+
+
 @node ISATTY
 @section @code{ISATTY} --- Whether a unit is a terminal device.
 @fnindex ISATTY
@@ -6226,6 +6380,60 @@ The return value is of type @code{INTEGER} and of kind @var{KIND}. If
 
 @item @emph{See also}:
 @ref{LEN}, @ref{ADJUSTL}, @ref{ADJUSTR}
+@end table
+
+
+
+@node LGAMMA
+@section @code{LGAMMA} --- Logarithm of the Gamma function
+@fnindex GAMMA
+@fnindex ALGAMA
+@fnindex DLGAMA
+@cindex Gamma function, logarithm of
+@cindex 
+
+@table @asis
+@item @emph{Description}:
+@code{GAMMA(X)} computes the natural logrithm of the absolute value of the
+Gamma (@math{\Gamma}) function.
+
+@item @emph{Standard}:
+GNU Extension
+
+@item @emph{Class}:
+Elemental function
+
+@item @emph{Syntax}:
+@code{X = LGAMMA(X)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .70
+@item @var{X} @tab Shall be of type @code{REAL} and neither zero
+nor a negative integer.
+@end multitable
+
+@item @emph{Return value}:
+The return value is of type @code{REAL} of the same kind as @var{X}.
+
+@item @emph{Example}:
+@smallexample
+program test_log_gamma
+  real :: x = 1.0
+  x = lgamma(x) ! returns 0.0
+end program test_log_gamma
+@end smallexample
+
+@item @emph{Specific names}:
+@multitable @columnfractions .20 .20 .20 .25
+@item Name             @tab Argument         @tab Return type       @tab Standard
+@item @code{LGAMMA(X)} @tab @code{REAL(4) X} @tab @code{REAL(4)}    @tab GNU Extension
+@item @code{ALGAMA(X)} @tab @code{REAL(4) X} @tab @code{REAL(4)}    @tab GNU Extension
+@item @code{DLGAMA(X)} @tab @code{REAL(8) X} @tab @code{REAL(8)}    @tab GNU Extension
+@end multitable
+
+@item @emph{See also}:
+Gamma function: @ref{GAMMA}
+
 @end table
 
 

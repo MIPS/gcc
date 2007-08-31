@@ -1647,6 +1647,7 @@ typedef struct equiv_class_label
   bitmap labels;
   hashval_t hashcode;
 } *equiv_class_label_t;
+typedef const struct equiv_class_label *const_equiv_class_label_t;
 
 /* A hashtable for mapping a bitmap of labels->pointer equivalence
    classes.  */
@@ -1661,7 +1662,7 @@ static htab_t location_equiv_class_table;
 static hashval_t
 equiv_class_label_hash (const void *p)
 {
-  const equiv_class_label_t ecl = (equiv_class_label_t) p;
+  const_equiv_class_label_t const ecl = (const_equiv_class_label_t) p;
   return ecl->hashcode;
 }
 
@@ -1670,8 +1671,8 @@ equiv_class_label_hash (const void *p)
 static int
 equiv_class_label_eq (const void *p1, const void *p2)
 {
-  const equiv_class_label_t eql1 = (equiv_class_label_t) p1;
-  const equiv_class_label_t eql2 = (equiv_class_label_t) p2;
+  const_equiv_class_label_t const eql1 = (const_equiv_class_label_t) p1;
+  const_equiv_class_label_t const eql2 = (const_equiv_class_label_t) p2;
   return bitmap_equal_p (eql1->labels, eql2->labels);
 }
 
@@ -3654,6 +3655,27 @@ handle_rhs_call  (tree rhs)
     }
 }
 
+/* For non-IPA mode, generate constraints necessary for a call
+   that returns a pointer and assigns it to LHS.  This simply makes
+   the LHS point to anything.  */
+
+static void
+handle_lhs_call (tree lhs)
+{
+  VEC(ce_s, heap) *lhsc = NULL;
+  struct constraint_expr rhsc;
+  unsigned int j;
+  struct constraint_expr *lhsp;
+
+  rhsc.var = anything_id;
+  rhsc.offset = 0;
+  rhsc.type = ADDRESSOF;
+  get_constraint_for (lhs, &lhsc);
+  for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp); j++)
+    process_constraint_1 (new_constraint (*lhsp, rhsc), true);
+  VEC_free (ce_s, heap, lhsc);
+}
+
 /* Walk statement T setting up aliasing constraints according to the
    references found in T.  This function is the main part of the
    constraint builder.  AI points to auxiliary alias information used
@@ -3725,7 +3747,11 @@ find_func_aliases (tree origt)
       if (!in_ipa_mode)
 	{
 	  if (TREE_CODE (t) == GIMPLE_MODIFY_STMT)
-	    handle_rhs_call (GIMPLE_STMT_OPERAND (t, 1));
+	    {
+	      handle_rhs_call (GIMPLE_STMT_OPERAND (t, 1));
+	      if (POINTER_TYPE_P (TREE_TYPE (GIMPLE_STMT_OPERAND (t, 1))))
+		handle_lhs_call (GIMPLE_STMT_OPERAND (t, 0));
+	    }
 	  else
 	    handle_rhs_call (t);
 	}

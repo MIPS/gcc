@@ -2311,7 +2311,7 @@ struct tree_type GTY(())
   tree reference_to;
   union tree_type_symtab {
     int GTY ((tag ("0"))) address;
-    char * GTY ((tag ("1"))) pointer;
+    const char * GTY ((tag ("1"))) pointer;
     struct die_struct * GTY ((tag ("2"))) die;
   } GTY ((desc ("debug_hooks == &sdb_debug_hooks ? 1 : debug_hooks == &dwarf2_debug_hooks ? 2 : 0"),
 	  descbits ("2"))) symtab;
@@ -3273,6 +3273,13 @@ struct tree_decl_non_common GTY(())
 #define DECL_DECLARED_INLINE_P(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->function_decl.declared_inline_flag)
 
+/* Nonzero in a FUNCTION_DECL that should be always inlined by the inliner
+   disregarding size and cost heuristics.  This is equivalent to using
+   the always_inline attribute without the required diagnostics if the
+   function cannot be inlined.  */
+#define DECL_DISREGARD_INLINE_LIMITS(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.disregard_inline_limits)
+
 /* For FUNCTION_DECL, this holds a pointer to a structure ("struct function")
    that describes the status of this function.  */
 #define DECL_STRUCT_FUNCTION(NODE) (FUNCTION_DECL_CHECK (NODE)->function_decl.f)
@@ -3299,27 +3306,33 @@ struct tree_function_decl GTY(())
 {
   struct tree_decl_non_common common;
 
+  struct function *f;
+
   /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
-     DECL_FUNCTION_CODE.  Otherwise unused.  */
-  enum built_in_function function_code;
+     DECL_FUNCTION_CODE.  Otherwise unused.
+     ???  The bitfield needs to be able to hold all target function
+	  codes as well.  */
+  ENUM_BITFIELD(built_in_function) function_code : 11;
+  ENUM_BITFIELD(built_in_class) built_in_class : 2;
 
   unsigned static_ctor_flag : 1;
   unsigned static_dtor_flag : 1;
   unsigned uninlinable : 1;
+
   unsigned possibly_inlined : 1;
   unsigned novops_flag : 1;
   unsigned returns_twice_flag : 1;
   unsigned malloc_flag : 1;
   unsigned pure_flag : 1;
-
   unsigned declared_inline_flag : 1;
   unsigned regdecl_flag : 1;
   unsigned inline_flag : 1;
+
   unsigned no_instrument_function_entry_exit : 1;
   unsigned no_limit_stack : 1;
-  ENUM_BITFIELD(built_in_class) built_in_class : 2;
+  unsigned disregard_inline_limits : 1;
 
-  struct function *f;
+  /* 5 bits left */
 };
 
 /* For a TYPE_DECL, holds the "original" type.  (TREE_TYPE has the copy.) */
@@ -3998,8 +4011,8 @@ extern bool range_in_array_bounds_p (tree);
 extern tree value_member (tree, tree);
 extern tree purpose_member (const_tree, tree);
 
-extern int attribute_list_equal (tree, tree);
-extern int attribute_list_contained (tree, tree);
+extern int attribute_list_equal (const_tree, const_tree);
+extern int attribute_list_contained (const_tree, const_tree);
 extern int tree_int_cst_equal (const_tree, const_tree);
 extern int tree_int_cst_lt (const_tree, const_tree);
 extern int tree_int_cst_compare (const_tree, const_tree);
@@ -4143,6 +4156,7 @@ extern int is_attribute_p (const char *, const_tree);
    of the attribute or NULL_TREE if not found.  */
 
 extern tree lookup_attribute (const char *, tree);
+extern const_tree const_lookup_attribute (const char *, const_tree);
 
 /* Remove any instances of attribute ATTR_NAME in LIST and return the
    modified list.  */
@@ -4606,11 +4620,11 @@ extern bool commutative_tree_code (enum tree_code);
 extern tree upper_bound_in_type (tree, tree);
 extern tree lower_bound_in_type (tree, tree);
 extern int operand_equal_for_phi_arg_p (const_tree, const_tree);
-extern bool empty_body_p (tree);
+extern bool empty_body_p (const_tree);
 extern tree call_expr_arg (tree, int);
 extern tree *call_expr_argp (tree, int);
 extern tree call_expr_arglist (tree);
-extern bool auto_var_in_fn_p (tree, tree);
+extern bool auto_var_in_fn_p (const_tree, const_tree);
 
 /* In stmt.c */
 
@@ -4803,7 +4817,7 @@ extern void expand_function_start (tree);
 extern void stack_protect_prologue (void);
 extern void stack_protect_epilogue (void);
 extern void recompute_tree_invariant_for_addr_expr (tree);
-extern bool needs_to_live_in_memory (tree);
+extern bool needs_to_live_in_memory (const_tree);
 extern tree reconstruct_complex_type (tree, tree);
 
 extern int real_onep (const_tree);
@@ -4858,7 +4872,7 @@ extern void free_temp_slots (void);
 extern void pop_temp_slots (void);
 extern void push_temp_slots (void);
 extern void preserve_temp_slots (rtx);
-extern int aggregate_value_p (tree, tree);
+extern int aggregate_value_p (const_tree, const_tree);
 extern void push_function_context (void);
 extern void pop_function_context (void);
 extern void push_function_context_to (tree);
@@ -4921,8 +4935,8 @@ extern int call_expr_flags (const_tree);
 
 extern int setjmp_call_p (const_tree);
 extern bool alloca_call_p (const_tree);
-extern bool must_pass_in_stack_var_size (enum machine_mode, tree);
-extern bool must_pass_in_stack_var_size_or_pad (enum machine_mode, tree);
+extern bool must_pass_in_stack_var_size (enum machine_mode, const_tree);
+extern bool must_pass_in_stack_var_size_or_pad (enum machine_mode, const_tree);
 
 /* In attribs.c.  */
 
@@ -5142,8 +5156,8 @@ extern tree tree_mem_ref_addr (tree, tree);
 extern void copy_mem_ref_info (tree, tree);
 
 /* In tree-vrp.c */
-extern bool ssa_name_nonzero_p (tree);
-extern bool ssa_name_nonnegative_p (tree);
+extern bool ssa_name_nonzero_p (const_tree);
+extern bool ssa_name_nonnegative_p (const_tree);
 
 /* In tree-object-size.c.  */
 extern void init_object_sizes (void);

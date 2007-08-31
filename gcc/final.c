@@ -1523,7 +1523,9 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
 
 #if defined(ASM_OUTPUT_REG_PUSH)
   if (sval && svrtx != NULL_RTX && REG_P (svrtx))
-    ASM_OUTPUT_REG_PUSH (file, REGNO (svrtx));
+    {
+      ASM_OUTPUT_REG_PUSH (file, REGNO (svrtx));
+    }
 #endif
 
 #if defined(STATIC_CHAIN_INCOMING_REGNUM) && defined(ASM_OUTPUT_REG_PUSH)
@@ -1554,7 +1556,9 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
 
 #if defined(ASM_OUTPUT_REG_PUSH)
   if (sval && svrtx != NULL_RTX && REG_P (svrtx))
-    ASM_OUTPUT_REG_POP (file, REGNO (svrtx));
+    {
+      ASM_OUTPUT_REG_POP (file, REGNO (svrtx));
+    }
 #endif
 }
 
@@ -3371,6 +3375,10 @@ output_addr_const (FILE *file, rtx x)
 	/* We can't handle floating point constants;
 	   PRINT_OPERAND must handle them.  */
 	output_operand_lossage ("floating constant misused");
+      break;
+
+    case CONST_FIXED:
+      fprintf (file, HOST_WIDE_INT_PRINT_HEX, CONST_FIXED_VALUE_LOW (x));
       break;
 
     case PLUS:

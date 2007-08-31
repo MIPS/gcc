@@ -3678,12 +3678,6 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
       TYPE_REFERENCE_TO (ntype) = 0;
       TYPE_ATTRIBUTES (ntype) = attribute;
 
-      if (TYPE_STRUCTURAL_EQUALITY_P (ttype))
-	SET_TYPE_STRUCTURAL_EQUALITY (ntype);
-      else
-	TYPE_CANONICAL (ntype)
-	  = build_qualified_type (TYPE_CANONICAL (ttype), quals);
-
       /* Create a new main variant of TYPE.  */
       TYPE_MAIN_VARIANT (ntype) = ntype;
       TYPE_NEXT_VARIANT (ntype) = 0;
@@ -3726,8 +3720,12 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
       /* If the target-dependent attributes make NTYPE different from
 	 its canonical type, we will need to use structural equality
 	 checks for this qualified type. */
-      if (!targetm.comp_type_attributes (ntype, ttype))
+      ttype = build_qualified_type (ttype, TYPE_UNQUALIFIED);
+      if (TYPE_STRUCTURAL_EQUALITY_P (ttype)
+          || !targetm.comp_type_attributes (ntype, ttype))
 	SET_TYPE_STRUCTURAL_EQUALITY (ntype);
+      else
+	TYPE_CANONICAL (ntype) = TYPE_CANONICAL (ttype);
 
       ttype = build_qualified_type (ntype, quals);
     }
@@ -3811,20 +3809,28 @@ is_attribute_p (const char *attr, const_tree ident)
    returns the first occurrence; the TREE_CHAIN of the return value should
    be passed back in if further occurrences are wanted.  */
 
+#define LOOKUP_ATTRIBUTE_BODY(TYPE) do { \
+  TYPE l; \
+  size_t attr_len = strlen (attr_name); \
+  for (l = list; l; l = TREE_CHAIN (l)) \
+    { \
+      gcc_assert (TREE_CODE (TREE_PURPOSE (l)) == IDENTIFIER_NODE); \
+      if (is_attribute_with_length_p (attr_name, attr_len, TREE_PURPOSE (l))) \
+	return l; \
+    } \
+  return NULL_TREE; \
+} while (0)
+
 tree
 lookup_attribute (const char *attr_name, tree list)
 {
-  tree l;
-  size_t attr_len = strlen (attr_name);
+  LOOKUP_ATTRIBUTE_BODY(tree);
+}
 
-  for (l = list; l; l = TREE_CHAIN (l))
-    {
-      gcc_assert (TREE_CODE (TREE_PURPOSE (l)) == IDENTIFIER_NODE);
-      if (is_attribute_with_length_p (attr_name, attr_len, TREE_PURPOSE (l)))
-	return l;
-    }
-
-  return NULL_TREE;
+const_tree
+const_lookup_attribute (const char *attr_name, const_tree list)
+{
+  LOOKUP_ATTRIBUTE_BODY(const_tree);
 }
 
 /* Remove any instances of attribute ATTR_NAME in LIST and return the
@@ -4757,7 +4763,7 @@ attribute_hash_list (const_tree list, hashval_t hashcode)
    equivalent to l1.  */
 
 int
-attribute_list_equal (tree l1, tree l2)
+attribute_list_equal (const_tree l1, const_tree l2)
 {
   return attribute_list_contained (l1, l2)
 	 && attribute_list_contained (l2, l1);
@@ -4772,9 +4778,9 @@ attribute_list_equal (tree l1, tree l2)
    correctly.  */
 
 int
-attribute_list_contained (tree l1, tree l2)
+attribute_list_contained (const_tree l1, const_tree l2)
 {
-  tree t1, t2;
+  const_tree t1, t2;
 
   /* First check the obvious, maybe the lists are identical.  */
   if (l1 == l2)
@@ -4793,11 +4799,11 @@ attribute_list_contained (tree l1, tree l2)
 
   for (; t2 != 0; t2 = TREE_CHAIN (t2))
     {
-      tree attr;
-      for (attr = lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)), l1);
+      const_tree attr;
+      for (attr = const_lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)), l1);
 	   attr != NULL_TREE;
-	   attr = lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)),
-				    TREE_CHAIN (attr)))
+	   attr = const_lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)),
+					  TREE_CHAIN (attr)))
 	{
 	  if (TREE_VALUE (t2) != NULL
 	      && TREE_CODE (TREE_VALUE (t2)) == TREE_LIST
@@ -6359,7 +6365,7 @@ get_type_static_bounds (const_tree type, mpz_t min, mpz_t max)
    variable defined in function FN.  */
 
 bool
-auto_var_in_fn_p (tree var, tree fn)
+auto_var_in_fn_p (const_tree var, const_tree fn)
 {
   return (DECL_P (var) && DECL_CONTEXT (var) == fn
 	  && (((TREE_CODE (var) == VAR_DECL || TREE_CODE (var) == PARM_DECL)
@@ -7973,7 +7979,7 @@ range_in_array_bounds_p (tree ref)
    location.  */
 
 bool
-needs_to_live_in_memory (tree t)
+needs_to_live_in_memory (const_tree t)
 {
   if (TREE_CODE (t) == SSA_NAME)
     t = SSA_NAME_VAR (t);
@@ -8642,10 +8648,10 @@ walk_tree_without_duplicates_1 (tree *tp, walk_tree_fn func, void *data,
    empty statements.  */
 
 bool
-empty_body_p (tree stmt)
+empty_body_p (const_tree stmt)
 {
-  tree_stmt_iterator i;
-  tree body;
+  const_tree_stmt_iterator i;
+  const_tree body;
 
   if (IS_EMPTY_STMT (stmt))
     return true;
@@ -8656,8 +8662,8 @@ empty_body_p (tree stmt)
   else
     return false;
 
-  for (i = tsi_start (body); !tsi_end_p (i); tsi_next (&i))
-    if (!empty_body_p (tsi_stmt (i)))
+  for (i = ctsi_start (body); !ctsi_end_p (i); ctsi_next (&i))
+    if (!empty_body_p (ctsi_stmt (i)))
       return false;
 
   return true;

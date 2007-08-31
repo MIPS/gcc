@@ -1534,6 +1534,7 @@ noce_get_alt_condition (struct noce_if_info *if_info, rtx target,
       /* First, look to see if we put a constant in a register.  */
       prev_insn = prev_nonnote_insn (if_info->cond_earliest);
       if (prev_insn
+	  && BLOCK_NUM (prev_insn) == BLOCK_NUM (if_info->cond_earliest)
 	  && INSN_P (prev_insn)
 	  && GET_CODE (PATTERN (prev_insn)) == SET)
 	{
@@ -1772,6 +1773,7 @@ noce_try_abs (struct noce_if_info *if_info)
     {
       rtx set, insn = prev_nonnote_insn (earliest);
       if (insn
+	  && BLOCK_NUM (insn) == BLOCK_NUM (earliest)
 	  && (set = single_set (insn))
 	  && rtx_equal_p (SET_DEST (set), c))
 	{
@@ -2198,6 +2200,7 @@ noce_process_if_block (struct noce_if_info *if_info)
 	 COND_EARLIEST to JUMP.  Make sure the relevant data is still
 	 intact.  */
       if (! insn_b
+	  || BLOCK_NUM (insn_b) != BLOCK_NUM (if_info->cond_earliest)
 	  || !NONJUMP_INSN_P (insn_b)
 	  || (set_b = single_set (insn_b)) == NULL_RTX
 	  || ! rtx_equal_p (x, SET_DEST (set_b))
@@ -2650,6 +2653,7 @@ noce_find_if_block (basic_block test_bb,
   basic_block then_bb, else_bb, join_bb;
   bool then_else_reversed = false;
   rtx jump, cond;
+  rtx cond_earliest;
   struct noce_if_info if_info;
 
   /* We only ever should get here before reload.  */
@@ -2725,7 +2729,7 @@ noce_find_if_block (basic_block test_bb,
 
   /* If this is not a standard conditional jump, we can't parse it.  */
   cond = noce_get_condition (jump,
-			     &if_info.cond_earliest,
+			     &cond_earliest,
 			     then_else_reversed);
   if (!cond)
     return FALSE;
@@ -2741,6 +2745,7 @@ noce_find_if_block (basic_block test_bb,
   if_info.else_bb = else_bb;
   if_info.join_bb = join_bb;
   if_info.cond = cond;
+  if_info.cond_earliest = cond_earliest;
   if_info.jump = jump;
   if_info.then_else_reversed = then_else_reversed;
 

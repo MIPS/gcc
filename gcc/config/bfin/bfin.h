@@ -76,6 +76,8 @@ extern int target_flags;
 	builtin_define ("__BFIN_FDPIC__");	\
       if (TARGET_ID_SHARED_LIBRARY)		\
 	builtin_define ("__ID_SHARED_LIB__");	\
+      if (flag_no_builtin)			\
+	builtin_define ("__NO_BUILTIN");	\
     }                                           \
   while (0)
 #endif
@@ -89,9 +91,9 @@ extern int target_flags;
 # define SUBTARGET_DRIVER_SELF_SPECS
 #endif
 
-#define LINK_GCC_C_SEQUENCE_SPEC \
-  "%{mfdpic:%{!static: %L} %{static: %G %L %G}} \
-  %{!mfdpic:%G %L %G}"
+#define LINK_GCC_C_SEQUENCE_SPEC "\
+  %{mfast-fp:-lbffastfp} %G %L %{mfast-fp:-lbffastfp} %G \
+"
 
 /* A C string constant that tells the GCC driver program options to pass to
    the assembler.  It can also specify how to translate options you give to GNU

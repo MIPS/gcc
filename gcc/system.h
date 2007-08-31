@@ -774,10 +774,17 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
    execv, et al.  Another valid use would be in an allocation function
    that creates const objects that need to be initialized.  Most other
    cases should be viewed with extreme caution.  */
-#ifdef __GNUC__
+
+#if defined(__GNUC__) && GCC_VERSION != 4000
+/* GCC 4.0.x has a bug where it may ICE on this expression.  */
 #define CONST_CAST(X) ((__extension__(union {__typeof(X)_q; void *_v;})(X))._v)
 #else
 #define CONST_CAST(X) ((void*)(X))
+#endif
+
+/* Acivate -Wcast-qual as a warning (not an error/-Werror).  */
+#if GCC_VERSION >= 4003
+#pragma GCC diagnostic warning "-Wcast-qual"
 #endif
 
 #endif /* ! GCC_SYSTEM_H */

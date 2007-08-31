@@ -606,49 +606,58 @@ resolve_entries (gfc_namespace *ns)
 static void
 resolve_common_blocks (gfc_symtree *common_root)
 {
-   gfc_symtree *symtree;
-   gfc_symbol *sym;
+  gfc_symbol *sym, *csym;
 
-   if (common_root == NULL)
-     return;
+  if (common_root == NULL)
+    return;
 
-   for (symtree = common_root; symtree->left; symtree = symtree->left);
+  if (common_root->left)
+    resolve_common_blocks (common_root->left);
+  if (common_root->right)
+    resolve_common_blocks (common_root->right);
 
-   for (; symtree; symtree = symtree->right)
-     {
-	gfc_find_symbol (symtree->name, gfc_current_ns, 0, &sym);
-	if (sym == NULL)
-	  continue;
+  for (csym = common_root->n.common->head; csym; csym = csym->common_next)
+    {
+      if (csym->ts.type == BT_DERIVED
+	  && !(csym->ts.derived->attr.sequence
+	       || csym->ts.derived->attr.is_bind_c))
+	{
+	    gfc_error_now ("Derived type variable '%s' in COMMON at %L "
+			   "has neither the SEQUENCE nor the BIND(C) "
+			   "attribute", csym->name,
+			   &csym->declared_at);
+	}
+      else if (csym->ts.type == BT_DERIVED
+	       && csym->ts.derived->attr.alloc_comp)
+	{
+	    gfc_error_now ("Derived type variable '%s' in COMMON at %L "
+			   "has an ultimate component that is "
+			   "allocatable", csym->name,
+			   &csym->declared_at);
+	}
+    }
 
-	if (sym->attr.flavor == FL_PARAMETER)
-	  {
-	    gfc_error ("COMMON block '%s' at %L is used as PARAMETER at %L",
-		       sym->name, &symtree->n.common->where,
-		       &sym->declared_at);
-	  }
+  gfc_find_symbol (common_root->name, gfc_current_ns, 0, &sym);
+  if (sym == NULL)
+    return;
 
-	if (sym->attr.intrinsic)
-	  {
-	    gfc_error ("COMMON block '%s' at %L is also an intrinsic "
-		       "procedure", sym->name,
-		       &symtree->n.common->where);
-	  }
-	else if (sym->attr.result
-		 ||(sym->attr.function && gfc_current_ns->proc_name == sym))
-	  {
-	    gfc_notify_std (GFC_STD_F2003, "Fortran 2003: COMMON block '%s' "
-			    "at %L that is also a function result", sym->name,
-			    &symtree->n.common->where);
-	  }
-	else if (sym->attr.flavor == FL_PROCEDURE
-		&& sym->attr.proc != PROC_INTERNAL
-		&& sym->attr.proc != PROC_ST_FUNCTION)
-	  {
-	    gfc_notify_std (GFC_STD_F2003, "Fortran 2003: COMMON block '%s' "
-			    "at %L that is also a global procedure", sym->name,
-			    &symtree->n.common->where);
-	  }
-     }
+  if (sym->attr.flavor == FL_PARAMETER)
+    gfc_error ("COMMON block '%s' at %L is used as PARAMETER at %L",
+	       sym->name, &common_root->n.common->where, &sym->declared_at);
+
+  if (sym->attr.intrinsic)
+    gfc_error ("COMMON block '%s' at %L is also an intrinsic procedure",
+	       sym->name, &common_root->n.common->where);
+  else if (sym->attr.result
+	   ||(sym->attr.function && gfc_current_ns->proc_name == sym))
+    gfc_notify_std (GFC_STD_F2003, "Fortran 2003: COMMON block '%s' at %L "
+		    "that is also a function result", sym->name,
+		    &common_root->n.common->where);
+  else if (sym->attr.flavor == FL_PROCEDURE && sym->attr.proc != PROC_INTERNAL
+	   && sym->attr.proc != PROC_ST_FUNCTION)
+    gfc_notify_std (GFC_STD_F2003, "Fortran 2003: COMMON block '%s' at %L "
+		    "that is also a global procedure", sym->name,
+		    &common_root->n.common->where);
 }
 
 
@@ -2351,11 +2360,6 @@ gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
      formal args) before resolving.  */
   gfc_procedure_use (sym, &c->ext.actual, &(c->loc));
 
-  /* Give the optional SHAPE formal arg a type now that we've done our
-     initial checking against the actual.  */
-  if (sym->intmod_sym_id == ISOCBINDING_F_POINTER)
-    sym->formal->next->next->sym->ts.type = BT_INTEGER;
-
   if ((sym->intmod_sym_id == ISOCBINDING_F_POINTER) ||
       (sym->intmod_sym_id == ISOCBINDING_F_PROCPOINTER))
     {
@@ -2395,13 +2399,6 @@ gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
 	{
 	  /* the 1 means to add the optional arg to formal list */
 	  new_sym = get_iso_c_sym (sym, name, binding_label, 1);
-	 
-	  /* Set the kind for the SHAPE array to that of the actual
-	     (if given).  */
-	  if (c->ext.actual != NULL && c->ext.actual->next != NULL
-	      && c->ext.actual->next->expr->rank != 0)
-	    new_sym->formal->next->next->sym->ts.kind =
-	      c->ext.actual->next->next->expr->ts.kind;
 	 
 	  /* for error reporting, say it's declared where the original was */
 	  new_sym->declared_at = sym->declared_at;
@@ -3538,6 +3535,70 @@ resolve_substring (gfc_ref *ref)
 }
 
 
+/* This function supplies missing substring charlens.  */
+
+void
+gfc_resolve_substring_charlen (gfc_expr *e)
+{
+  gfc_ref *char_ref;
+  gfc_expr *start, *end;
+
+  for (char_ref = e->ref; char_ref; char_ref = char_ref->next)
+    if (char_ref->type == REF_SUBSTRING)
+      break;
+
+  if (!char_ref)
+    return;
+
+  gcc_assert (char_ref->next == NULL);
+
+  if (e->ts.cl)
+    {
+      if (e->ts.cl->length)
+	gfc_free_expr (e->ts.cl->length);
+      else if (e->expr_type == EXPR_VARIABLE
+		 && e->symtree->n.sym->attr.dummy)
+	return;
+    }
+
+  e->ts.type = BT_CHARACTER;
+  e->ts.kind = gfc_default_character_kind;
+
+  if (!e->ts.cl)
+    {
+      e->ts.cl = gfc_get_charlen ();
+      e->ts.cl->next = gfc_current_ns->cl_list;
+      gfc_current_ns->cl_list = e->ts.cl;
+    }
+
+  if (char_ref->u.ss.start)
+    start = gfc_copy_expr (char_ref->u.ss.start);
+  else
+    start = gfc_int_expr (1);
+
+  if (char_ref->u.ss.end)
+    end = gfc_copy_expr (char_ref->u.ss.end);
+  else if (e->expr_type == EXPR_VARIABLE)
+    end = gfc_copy_expr (e->symtree->n.sym->ts.cl->length);
+  else
+    end = NULL;
+
+  if (!start || !end)
+    return;
+
+  /* Length = (end - start +1).  */
+  e->ts.cl->length = gfc_subtract (end, start);
+  e->ts.cl->length = gfc_add (e->ts.cl->length, gfc_int_expr (1));
+
+  e->ts.cl->length->ts.type = BT_INTEGER;
+  e->ts.cl->length->ts.kind = gfc_charlen_int_kind;;
+
+  /* Make sure that the length is simplified.  */
+  gfc_simplify_expr (e->ts.cl->length, 1);
+  gfc_resolve_expr (e->ts.cl->length);
+}
+
+
 /* Resolve subtype references.  */
 
 static try
@@ -3911,6 +3972,78 @@ check_host_association (gfc_expr *e)
 }
 
 
+static void
+gfc_resolve_character_operator (gfc_expr *e)
+{
+  gfc_expr *op1 = e->value.op.op1;
+  gfc_expr *op2 = e->value.op.op2;
+  gfc_expr *e1 = NULL;
+  gfc_expr *e2 = NULL;
+
+  gcc_assert (e->value.op.operator == INTRINSIC_CONCAT);
+
+  if (op1->ts.cl && op1->ts.cl->length)
+    e1 = gfc_copy_expr (op1->ts.cl->length);
+  else if (op1->expr_type == EXPR_CONSTANT)
+    e1 = gfc_int_expr (op1->value.character.length);
+
+  if (op2->ts.cl && op2->ts.cl->length)
+    e2 = gfc_copy_expr (op2->ts.cl->length);
+  else if (op2->expr_type == EXPR_CONSTANT)
+    e2 = gfc_int_expr (op2->value.character.length);
+
+  e->ts.cl = gfc_get_charlen ();
+  e->ts.cl->next = gfc_current_ns->cl_list;
+  gfc_current_ns->cl_list = e->ts.cl;
+
+  if (!e1 || !e2)
+    return;
+
+  e->ts.cl->length = gfc_add (e1, e2);
+  e->ts.cl->length->ts.type = BT_INTEGER;
+  e->ts.cl->length->ts.kind = gfc_charlen_int_kind;;
+  gfc_simplify_expr (e->ts.cl->length, 0);
+  gfc_resolve_expr (e->ts.cl->length);
+
+  return;
+}
+
+
+/*  Ensure that an character expression has a charlen and, if possible, a
+    length expression.  */
+
+static void
+fixup_charlen (gfc_expr *e)
+{
+  /* The cases fall through so that changes in expression type and the need
+     for multiple fixes are picked up.  In all circumstances, a charlen should
+     be available for the middle end to hang a backend_decl on.  */
+  switch (e->expr_type)
+    {
+    case EXPR_OP:
+      gfc_resolve_character_operator (e);
+
+    case EXPR_ARRAY:
+      if (e->expr_type == EXPR_ARRAY)
+	gfc_resolve_character_array_constructor (e);
+
+    case EXPR_SUBSTRING:
+      if (!e->ts.cl && e->ref)
+	gfc_resolve_substring_charlen (e);
+
+    default:
+      if (!e->ts.cl)
+	{
+	  e->ts.cl = gfc_get_charlen ();
+	  e->ts.cl->next = gfc_current_ns->cl_list;
+	  gfc_current_ns->cl_list = e->ts.cl;
+	}
+
+      break;
+    }
+}
+
+
 /* Resolve an expression.  That is, make sure that types of operands agree
    with their operators, intrinsic operators are converted to function calls
    for overloaded types and unresolved function references are resolved.  */
@@ -3940,6 +4073,11 @@ gfc_resolve_expr (gfc_expr *e)
 	  if (t == SUCCESS)
 	    expression_rank (e);
 	}
+
+      if (e->ts.type == BT_CHARACTER && e->ts.cl == NULL && e->ref
+	    && e->ref->type != REF_SUBSTRING)
+	gfc_resolve_substring_charlen (e);
+
       break;
 
     case EXPR_SUBSTRING:
@@ -3987,6 +4125,9 @@ gfc_resolve_expr (gfc_expr *e)
     default:
       gfc_internal_error ("gfc_resolve_expr(): Bad expression type");
     }
+
+  if (e->ts.type == BT_CHARACTER && t == SUCCESS && !e->ts.cl)
+    fixup_charlen (e);
 
   return t;
 }

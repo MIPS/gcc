@@ -1088,6 +1088,9 @@ do {									\
    place emms and femms instructions.  */
 #define UNITS_PER_SIMD_WORD (TARGET_SSE ? 16 : UNITS_PER_WORD)
 
+#define VALID_DFP_MODE_P(MODE)						\
+    ((MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode)
+
 #define VALID_FP_MODE_P(MODE)						\
     ((MODE) == SFmode || (MODE) == DFmode || (MODE) == XFmode		\
      || (MODE) == SCmode || (MODE) == DCmode || (MODE) == XCmode)	\
@@ -2229,7 +2232,7 @@ do {									\
    print_operand function.  */
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE) \
-  ((CODE) == '*' || (CODE) == '+' || (CODE) == '&')
+  ((CODE) == '*' || (CODE) == '+' || (CODE) == '&' || (CODE) == ';')
 
 #define PRINT_OPERAND(FILE, X, CODE)  \
   print_operand ((FILE), (X), (CODE))

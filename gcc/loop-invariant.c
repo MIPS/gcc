@@ -185,6 +185,7 @@ check_maybe_invariant (rtx x)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case SYMBOL_REF:
     case CONST:
     case LABEL_REF:
@@ -283,6 +284,7 @@ hash_invariant_expr_1 (rtx insn, rtx x)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case SYMBOL_REF:
     case CONST:
     case LABEL_REF:
@@ -343,6 +345,7 @@ invariant_expr_equal_p (rtx insn1, rtx e1, rtx insn2, rtx e2)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case SYMBOL_REF:
     case CONST:
     case LABEL_REF:
@@ -641,6 +644,7 @@ find_defs (struct loop *loop, basic_block *body)
 
   if (dump_file)
     {
+      df_dump_region (dump_file);
       fprintf (dump_file, "*****starting processing of loop  ******\n");
       print_rtl_with_bb (dump_file, get_insns ());
       fprintf (dump_file, "*****ending processing of loop  ******\n");

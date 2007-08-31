@@ -1573,8 +1573,8 @@ static bool ext_80387_constants_init = 0;
 
 
 static struct machine_function * ix86_init_machine_status (void);
-static rtx ix86_function_value (tree, tree, bool);
-static int ix86_function_regparm (tree, tree);
+static rtx ix86_function_value (const_tree, const_tree, bool);
+static int ix86_function_regparm (const_tree, const_tree);
 static void ix86_compute_frame_layout (struct ix86_frame *);
 static bool ix86_expand_vector_init_one_nonzero (bool, enum machine_mode,
 						 rtx, rtx, int);
@@ -1619,6 +1619,10 @@ static int ix86_isa_flags_explicit;
 #define OPTION_MASK_ISA_SSE4_UNSET OPTION_MASK_ISA_SSE4_1_UNSET
 
 #define OPTION_MASK_ISA_SSE4A_UNSET OPTION_MASK_ISA_SSE4
+
+/* Vectorization library interface and handlers.  */
+tree (*ix86_veclib_handler)(enum built_in_function, tree, tree) = NULL;
+static tree ix86_veclibabi_acml (enum built_in_function, tree, tree);
 
 /* Implement TARGET_HANDLE_OPTION.  */
 
@@ -2409,6 +2413,16 @@ override_options (void)
   if (!TARGET_80387)
     target_flags &= ~MASK_FLOAT_RETURNS;
 
+  /* Use external vectorized library in vectorizing intrinsics.  */
+  if (ix86_veclibabi_string)
+    {
+      if (strcmp (ix86_veclibabi_string, "acml") == 0)
+	ix86_veclib_handler = ix86_veclibabi_acml;
+      else
+	error ("unknown vectorization library ABI type (%s) for "
+	       "-mveclibabi= switch", ix86_veclibabi_string);
+    }
+
   if ((x86_accumulate_outgoing_args & ix86_tune_mask)
       && !(target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
       && !optimize_size)
@@ -2905,7 +2919,7 @@ ix86_handle_cconv_attribute (tree *node, tree name,
    warning to be generated).  */
 
 static int
-ix86_comp_type_attributes (tree type1, tree type2)
+ix86_comp_type_attributes (const_tree type1, const_tree type2)
 {
   /* Check for mismatch of non-default calling convention.  */
   const char *const rtdstr = TARGET_RTD ? "cdecl" : "stdcall";
@@ -2938,7 +2952,7 @@ ix86_comp_type_attributes (tree type1, tree type2)
    or considering a libcall.  */
 
 static int
-ix86_function_regparm (tree type, tree decl)
+ix86_function_regparm (const_tree type, const_tree decl)
 {
   tree attr;
   int regparm = ix86_regparm;
@@ -2957,7 +2971,8 @@ ix86_function_regparm (tree type, tree decl)
   if (decl && TREE_CODE (decl) == FUNCTION_DECL
       && flag_unit_at_a_time && !profile_flag)
     {
-      struct cgraph_local_info *i = cgraph_local_info (decl);
+      /* FIXME: remove this CONST_CAST when cgraph.[ch] is constified.  */
+      struct cgraph_local_info *i = cgraph_local_info ((tree)CONST_CAST(decl));
       if (i && i->local)
 	{
 	  int local_regparm, globals = 0, regno;
@@ -3011,7 +3026,7 @@ ix86_function_regparm (tree type, tree decl)
    indirectly or considering a libcall.  Otherwise return 0.  */
 
 static int
-ix86_function_sseregparm (tree type, tree decl)
+ix86_function_sseregparm (const_tree type, const_tree decl)
 {
   gcc_assert (!TARGET_64BIT);
 
@@ -3038,7 +3053,8 @@ ix86_function_sseregparm (tree type, tree decl)
      (and DFmode for SSE2) arguments in SSE registers.  */
   if (decl && TARGET_SSE_MATH && flag_unit_at_a_time && !profile_flag)
     {
-      struct cgraph_local_info *i = cgraph_local_info (decl);
+      /* FIXME: remove this CONST_CAST when cgraph.[ch] is constified.  */
+      struct cgraph_local_info *i = cgraph_local_info ((tree)CONST_CAST(decl));
       if (i && i->local)
 	return TARGET_SSE2 ? 2 : 1;
     }
@@ -3182,7 +3198,7 @@ ix86_function_arg_regno_p (int regno)
 /* Return if we do not know how to pass TYPE solely in registers.  */
 
 static bool
-ix86_must_pass_in_stack (enum machine_mode mode, tree type)
+ix86_must_pass_in_stack (enum machine_mode mode, const_tree type)
 {
   if (must_pass_in_stack_var_size_or_pad (mode, type))
     return true;
@@ -3263,7 +3279,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
    the middle-end decides to do with these vector types.  */
 
 static enum machine_mode
-type_natural_mode (tree type)
+type_natural_mode (const_tree type)
 {
   enum machine_mode mode = TYPE_MODE (type);
 
@@ -3377,7 +3393,7 @@ merge_classes (enum x86_64_reg_class class1, enum x86_64_reg_class class2)
 */
 
 static int
-classify_argument (enum machine_mode mode, tree type,
+classify_argument (enum machine_mode mode, const_tree type,
 		   enum x86_64_reg_class classes[MAX_CLASSES], int bit_offset)
 {
   HOST_WIDE_INT bytes =
@@ -3649,7 +3665,7 @@ classify_argument (enum machine_mode mode, tree type,
 /* Examine the argument and return set number of register required in each
    class.  Return 0 iff parameter should be passed in memory.  */
 static int
-examine_argument (enum machine_mode mode, tree type, int in_return,
+examine_argument (enum machine_mode mode, const_tree type, int in_return,
 		  int *int_nregs, int *sse_nregs)
 {
   enum x86_64_reg_class regclass[MAX_CLASSES];
@@ -3692,7 +3708,7 @@ examine_argument (enum machine_mode mode, tree type, int in_return,
 
 static rtx
 construct_container (enum machine_mode mode, enum machine_mode orig_mode,
-		     tree type, int in_return, int nintregs, int nsseregs,
+		     const_tree type, int in_return, int nintregs, int nsseregs,
 		     const int *intreg, int sse_regno)
 {
   /* The following variables hold the static issued_error state.  */
@@ -4191,7 +4207,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode omode,
 static bool
 ix86_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 			enum machine_mode mode ATTRIBUTE_UNUSED,
-			tree type, bool named ATTRIBUTE_UNUSED)
+			const_tree type, bool named ATTRIBUTE_UNUSED)
 {
   if (TARGET_64BIT_MS_ABI)
     {
@@ -4342,7 +4358,7 @@ ix86_function_value_regno_p (int regno)
 
 static rtx
 function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
-		   tree fntype, tree fn)
+		   const_tree fntype, const_tree fn)
 {
   unsigned int regno;
 
@@ -4381,7 +4397,7 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
 
 static rtx
 function_value_64 (enum machine_mode orig_mode, enum machine_mode mode,
-		   tree valtype)
+		   const_tree valtype)
 {
   rtx ret;
 
@@ -4438,10 +4454,10 @@ function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode)
 }
 
 static rtx
-ix86_function_value_1 (tree valtype, tree fntype_or_decl,
+ix86_function_value_1 (const_tree valtype, const_tree fntype_or_decl,
 		       enum machine_mode orig_mode, enum machine_mode mode)
 {
-  tree fn, fntype;
+  const_tree fn, fntype;
 
   fn = NULL_TREE;
   if (fntype_or_decl && DECL_P (fntype_or_decl))
@@ -4457,7 +4473,7 @@ ix86_function_value_1 (tree valtype, tree fntype_or_decl,
 }
 
 static rtx
-ix86_function_value (tree valtype, tree fntype_or_decl,
+ix86_function_value (const_tree valtype, const_tree fntype_or_decl,
 		     bool outgoing ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode, orig_mode;
@@ -4476,7 +4492,7 @@ ix86_libcall_value (enum machine_mode mode)
 /* Return true iff type is returned in memory.  */
 
 static int
-return_in_memory_32 (tree type, enum machine_mode mode)
+return_in_memory_32 (const_tree type, enum machine_mode mode)
 {
   HOST_WIDE_INT size;
 
@@ -4516,14 +4532,14 @@ return_in_memory_32 (tree type, enum machine_mode mode)
 }
 
 static int
-return_in_memory_64 (tree type, enum machine_mode mode)
+return_in_memory_64 (const_tree type, enum machine_mode mode)
 {
   int needed_intregs, needed_sseregs;
   return !examine_argument (mode, type, 1, &needed_intregs, &needed_sseregs);
 }
 
 static int
-return_in_memory_ms_64 (tree type, enum machine_mode mode)
+return_in_memory_ms_64 (const_tree type, enum machine_mode mode)
 {
   HOST_WIDE_INT size = int_size_in_bytes (type);
 
@@ -4536,9 +4552,9 @@ return_in_memory_ms_64 (tree type, enum machine_mode mode)
 }
 
 int
-ix86_return_in_memory (tree type)
+ix86_return_in_memory (const_tree type)
 {
-  enum machine_mode mode = type_natural_mode (type);
+  const enum machine_mode mode = type_natural_mode (type);
 
   if (TARGET_64BIT_MS_ABI)
     return return_in_memory_ms_64 (type, mode);
@@ -4554,7 +4570,7 @@ ix86_return_in_memory (tree type)
    are returned in memory, rather than in MMX registers.  */
 
 int 
-ix86_sol10_return_in_memory (tree type)
+ix86_sol10_return_in_memory (const_tree type)
 {
   int size;
   enum machine_mode mode = type_natural_mode (type);
@@ -8495,6 +8511,8 @@ get_some_local_dynamic_name (void)
    X -- don't print any sort of PIC '@' suffix for a symbol.
    & -- print some in-use local-dynamic symbol name.
    H -- print a memory address offset by 8; used for sse high-parts
+   + -- print a branch hint as 'cs' or 'ds' prefix
+   ; -- print a semicolon (after prefixes due to bug in older gas).
  */
 
 void
@@ -8776,6 +8794,15 @@ print_operand (FILE *file, rtx x, int code)
 	      }
 	    return;
 	  }
+
+	case ';':
+#if TARGET_MACHO
+	  fputs (" ; ", file);
+#else
+	  fputc (' ', file);
+#endif
+	  return;
+
 	default:
 	    output_operand_lossage ("invalid operand code '%c'", code);
 	}
@@ -11460,26 +11487,24 @@ ix86_expand_fp_compare (enum rtx_code code, rtx op0, rtx op1, rtx scratch,
   ix86_fp_comparison_codes (code, &bypass_code, &first_code, &second_code);
 
   /* Do fcomi/sahf based test when profitable.  */
-  if ((TARGET_CMOVE || TARGET_SAHF)
+  if (ix86_fp_comparison_arithmetics_cost (code) > cost
       && (bypass_code == UNKNOWN || bypass_test)
-      && (second_code == UNKNOWN || second_test)
-      && ix86_fp_comparison_arithmetics_cost (code) > cost)
+      && (second_code == UNKNOWN || second_test))
     {
+      tmp = gen_rtx_COMPARE (fpcmp_mode, op0, op1);
+      tmp = gen_rtx_SET (VOIDmode, gen_rtx_REG (fpcmp_mode, FLAGS_REG),
+			 tmp);
       if (TARGET_CMOVE)
-	{
-	  tmp = gen_rtx_COMPARE (fpcmp_mode, op0, op1);
-	  tmp = gen_rtx_SET (VOIDmode, gen_rtx_REG (fpcmp_mode, FLAGS_REG),
-			     tmp);
-	  emit_insn (tmp);
-	}
+	emit_insn (tmp);
       else
 	{
-	  tmp = gen_rtx_COMPARE (fpcmp_mode, op0, op1);
-	  tmp2 = gen_rtx_UNSPEC (HImode, gen_rtvec (1, tmp), UNSPEC_FNSTSW);
+	  gcc_assert (TARGET_SAHF);
+
 	  if (!scratch)
 	    scratch = gen_reg_rtx (HImode);
-	  emit_insn (gen_rtx_SET (VOIDmode, scratch, tmp2));
-	  emit_insn (gen_x86_sahf_1 (scratch));
+	  tmp2 = gen_rtx_CLOBBER (VOIDmode, scratch);
+
+	  emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, tmp, tmp2)));
 	}
 
       /* The FP codes work out to act like unsigned.  */
@@ -11706,8 +11731,7 @@ ix86_expand_branch (enum rtx_code code, rtx label)
 	/* Check whether we will use the natural sequence with one jump.  If
 	   so, we can expand jump early.  Otherwise delay expansion by
 	   creating compound insn to not confuse optimizers.  */
-	if (bypass_code == UNKNOWN && second_code == UNKNOWN
-	    && TARGET_CMOVE)
+	if (bypass_code == UNKNOWN && second_code == UNKNOWN)
 	  {
 	    ix86_split_fp_branch (code, ix86_compare_op0, ix86_compare_op1,
 				  gen_rtx_LABEL_REF (VOIDmode, label),
@@ -19924,32 +19948,121 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
       if (out_mode == DFmode && out_n == 2
 	  && in_mode == DFmode && in_n == 2)
 	return ix86_builtins[IX86_BUILTIN_SQRTPD];
-      return NULL_TREE;
+      break;
 
     case BUILT_IN_SQRTF:
       if (out_mode == SFmode && out_n == 4
 	  && in_mode == SFmode && in_n == 4)
 	return ix86_builtins[IX86_BUILTIN_SQRTPS];
-      return NULL_TREE;
+      break;
 
     case BUILT_IN_LRINT:
       if (out_mode == SImode && out_n == 4
 	  && in_mode == DFmode && in_n == 2)
 	return ix86_builtins[IX86_BUILTIN_VEC_PACK_SFIX];
-      return NULL_TREE;
+      break;
 
     case BUILT_IN_LRINTF:
       if (out_mode == SImode && out_n == 4
 	  && in_mode == SFmode && in_n == 4)
 	return ix86_builtins[IX86_BUILTIN_CVTPS2DQ];
-      return NULL_TREE;
+      break;
 
     default:
       ;
     }
 
+  /* Dispatch to a handler for a vectorization library.  */
+  if (ix86_veclib_handler)
+    return (*ix86_veclib_handler)(fn, type_out, type_in);
+
   return NULL_TREE;
 }
+
+/* Handler for an ACML-style interface to a library with vectorized
+   intrinsics.  */
+
+static tree
+ix86_veclibabi_acml (enum built_in_function fn, tree type_out, tree type_in)
+{
+  char name[20] = "__vr.._";
+  tree fntype, new_fndecl, args;
+  unsigned arity;
+  const char *bname;
+  enum machine_mode el_mode, in_mode;
+  int n, in_n;
+
+  /* The ACML is 64bits only and suitable for unsafe math only as
+     it does not correctly support parts of IEEE with the required
+     precision such as denormals.  */
+  if (!TARGET_64BIT
+      || !flag_unsafe_math_optimizations)
+    return NULL_TREE;
+
+  el_mode = TYPE_MODE (TREE_TYPE (type_out));
+  n = TYPE_VECTOR_SUBPARTS (type_out);
+  in_mode = TYPE_MODE (TREE_TYPE (type_in));
+  in_n = TYPE_VECTOR_SUBPARTS (type_in);
+  if (el_mode != in_mode
+      || n != in_n)
+    return NULL_TREE;
+
+  switch (fn)
+    {
+    case BUILT_IN_SIN:
+    case BUILT_IN_COS:
+    case BUILT_IN_EXP:
+    case BUILT_IN_LOG:
+    case BUILT_IN_LOG2:
+    case BUILT_IN_LOG10:
+      name[4] = 'd';
+      name[5] = '2';
+      if (el_mode != DFmode
+	  || n != 2)
+	return NULL_TREE;
+      break;
+
+    case BUILT_IN_SINF:
+    case BUILT_IN_COSF:
+    case BUILT_IN_EXPF:
+    case BUILT_IN_POWF:
+    case BUILT_IN_LOGF:
+    case BUILT_IN_LOG2F:
+    case BUILT_IN_LOG10F:
+      name[4] = 's';
+      name[5] = '4';
+      if (el_mode != SFmode
+	  || n != 4)
+	return NULL_TREE;
+      break;
+    
+    default:
+      return NULL_TREE;
+    }
+
+  bname = IDENTIFIER_POINTER (DECL_NAME (implicit_built_in_decls[fn]));
+  sprintf (name + 7, "%s", bname+10);
+
+  arity = 0;
+  for (args = DECL_ARGUMENTS (implicit_built_in_decls[fn]); args;
+       args = TREE_CHAIN (args))
+    arity++;
+
+  if (arity == 1)
+    fntype = build_function_type_list (type_out, type_in, NULL);
+  else
+    fntype = build_function_type_list (type_out, type_in, type_in, NULL);
+
+  /* Build a function declaration for the vectorized function.  */
+  new_fndecl = build_decl (FUNCTION_DECL, get_identifier (name), fntype);
+  TREE_PUBLIC (new_fndecl) = 1;
+  DECL_EXTERNAL (new_fndecl) = 1;
+  DECL_IS_NOVOPS (new_fndecl) = 1;
+  TREE_READONLY (new_fndecl) = 1;
+
+  return new_fndecl;
+}
+
 
 /* Returns a decl of a function that implements conversion of the
    input vector of type TYPE, or NULL_TREE if it is not available.  */
@@ -20558,6 +20671,8 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     return 1;
   else if (VALID_FP_MODE_P (mode))
     return 1;
+  else if (VALID_DFP_MODE_P (mode))
+    return 1;
   /* Lots of MMX code casts 8 byte vector modes to DImode.  If we then go
      on to use that value in smaller contexts, this can easily force a
      pseudo to be allocated to GENERAL_REGS.  Since this is no worse than
@@ -21141,7 +21256,7 @@ ix86_handle_struct_attribute (tree *node, tree name,
 }
 
 static bool
-ix86_ms_bitfield_layout_p (tree record_type)
+ix86_ms_bitfield_layout_p (const_tree record_type)
 {
   return (TARGET_MS_BITFIELD_LAYOUT &&
 	  !lookup_attribute ("gcc_struct", TYPE_ATTRIBUTES (record_type)))
@@ -21183,9 +21298,9 @@ x86_this_parameter (tree function)
 /* Determine whether x86_output_mi_thunk can succeed.  */
 
 static bool
-x86_can_output_mi_thunk (tree thunk ATTRIBUTE_UNUSED,
+x86_can_output_mi_thunk (const_tree thunk ATTRIBUTE_UNUSED,
 			 HOST_WIDE_INT delta ATTRIBUTE_UNUSED,
-			 HOST_WIDE_INT vcall_offset, tree function)
+			 HOST_WIDE_INT vcall_offset, const_tree function)
 {
   /* 64-bit can handle anything.  */
   if (TARGET_64BIT)
@@ -22825,7 +22940,7 @@ i386_solaris_elf_named_section (const char *name, unsigned int flags,
 /* Return the mangling of TYPE if it is an extended fundamental type.  */
 
 static const char *
-ix86_mangle_type (tree type)
+ix86_mangle_type (const_tree type)
 {
   type = TYPE_MAIN_VARIANT (type);
 
@@ -23571,7 +23686,7 @@ static const struct attribute_spec ix86_attribute_table[] =
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM ix86_cannot_force_const_mem
 #undef TARGET_USE_BLOCKS_FOR_CONSTANT_P
-#define TARGET_USE_BLOCKS_FOR_CONSTANT_P hook_bool_mode_rtx_true
+#define TARGET_USE_BLOCKS_FOR_CONSTANT_P hook_bool_mode_const_rtx_true
 
 #undef TARGET_DELEGITIMIZE_ADDRESS
 #define TARGET_DELEGITIMIZE_ADDRESS ix86_delegitimize_address
@@ -23625,7 +23740,7 @@ static const struct attribute_spec ix86_attribute_table[] =
 #define TARGET_MD_ASM_CLOBBERS ix86_md_asm_clobbers
 
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX ix86_struct_value_rtx
 #undef TARGET_SETUP_INCOMING_VARARGS

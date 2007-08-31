@@ -140,7 +140,8 @@ conditional_register_usage (void)
 /* Examine machine-dependent attributes of function type FUNTYPE and return its
    type.  See the definition of E_FUNKIND.  */
 
-static e_funkind funkind (tree funtype)
+static e_funkind
+funkind (const_tree funtype)
 {
   tree attrs = TYPE_ATTRIBUTES (funtype);
   if (lookup_attribute ("interrupt_handler", attrs))
@@ -1310,26 +1311,31 @@ print_operand (FILE *file, rtx x, char code)
 	case REG:
 	  if (code == 'h')
 	    {
-	      gcc_assert (REGNO (x) < 32);
-	      fprintf (file, "%s", short_reg_names[REGNO (x)]);
-	      /*fprintf (file, "\n%d\n ", REGNO (x));*/
-	      break;
+	      if (REGNO (x) < 32)
+		fprintf (file, "%s", short_reg_names[REGNO (x)]);
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else if (code == 'd')
 	    {
-	      gcc_assert (REGNO (x) < 32);
-	      fprintf (file, "%s", high_reg_names[REGNO (x)]);
-	      break;
+	      if (REGNO (x) < 32)
+		fprintf (file, "%s", high_reg_names[REGNO (x)]);
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else if (code == 'w')
 	    {
-	      gcc_assert (REGNO (x) == REG_A0 || REGNO (x) == REG_A1);
-	      fprintf (file, "%s.w", reg_names[REGNO (x)]);
+	      if (REGNO (x) == REG_A0 || REGNO (x) == REG_A1)
+		fprintf (file, "%s.w", reg_names[REGNO (x)]);
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else if (code == 'x')
 	    {
-	      gcc_assert (REGNO (x) == REG_A0 || REGNO (x) == REG_A1);
-	      fprintf (file, "%s.x", reg_names[REGNO (x)]);
+	      if (REGNO (x) == REG_A0 || REGNO (x) == REG_A1)
+		fprintf (file, "%s.x", reg_names[REGNO (x)]);
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else if (code == 'v')
 	    {
@@ -1342,18 +1348,24 @@ print_operand (FILE *file, rtx x, char code)
 	    }
 	  else if (code == 'D')
 	    {
-	      fprintf (file, "%s", dregs_pair_names[REGNO (x)]);
+	      if (D_REGNO_P (REGNO (x)))
+		fprintf (file, "%s", dregs_pair_names[REGNO (x)]);
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else if (code == 'H')
 	    {
-	      gcc_assert (mode == DImode || mode == DFmode);
-	      gcc_assert (REG_P (x));
-	      fprintf (file, "%s", reg_names[REGNO (x) + 1]);
+	      if ((mode == DImode || mode == DFmode) && REG_P (x))
+		fprintf (file, "%s", reg_names[REGNO (x) + 1]);
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else if (code == 'T')
 	    {
-	      gcc_assert (D_REGNO_P (REGNO (x)));
-	      fprintf (file, "%s", byte_reg_names[REGNO (x)]);
+	      if (D_REGNO_P (REGNO (x)))
+		fprintf (file, "%s", byte_reg_names[REGNO (x)]);
+	      else
+		output_operand_lossage ("invalid operand for code '%c'", code);
 	    }
 	  else 
 	    fprintf (file, "%s", reg_names[REGNO (x)]);
@@ -1608,7 +1620,7 @@ bfin_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 static bool
 bfin_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 			enum machine_mode mode ATTRIBUTE_UNUSED,
-			tree type, bool named ATTRIBUTE_UNUSED)
+			const_tree type, bool named ATTRIBUTE_UNUSED)
 {
   return type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST;
 }
@@ -1618,7 +1630,7 @@ bfin_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
    RETURN_IN_MEMORY.  */
 
 int
-bfin_return_in_memory (tree type)
+bfin_return_in_memory (const_tree type)
 {
   int size = int_size_in_bytes (type);
   return size > 2 * UNITS_PER_WORD || size == -1;
@@ -1867,8 +1879,30 @@ bfin_expand_call (rtx retval, rtx fnaddr, rtx callarg1, rtx cookie, int sibcall)
 
   if (TARGET_FDPIC)
     {
+      int caller_has_l1_text, callee_has_l1_text;
+
+      caller_has_l1_text = callee_has_l1_text = 0;
+
+      if (lookup_attribute ("l1_text",
+			    DECL_ATTRIBUTES (cfun->decl)) != NULL_TREE)
+	caller_has_l1_text = 1;
+
+      if (GET_CODE (callee) == SYMBOL_REF
+	  && SYMBOL_REF_DECL (callee) && DECL_P (SYMBOL_REF_DECL (callee))
+	  && lookup_attribute
+	       ("l1_text",
+		DECL_ATTRIBUTES (SYMBOL_REF_DECL (callee))) != NULL_TREE)
+	callee_has_l1_text = 1;
+
       if (GET_CODE (callee) != SYMBOL_REF
-	  || bfin_longcall_p (callee, INTVAL (cookie)))
+	  || bfin_longcall_p (callee, INTVAL (cookie))
+	  || (GET_CODE (callee) == SYMBOL_REF
+	      && !SYMBOL_REF_LOCAL_P (callee)
+	      && TARGET_INLINE_PLT)
+	  || caller_has_l1_text != callee_has_l1_text
+	  || (caller_has_l1_text && callee_has_l1_text
+	      && (GET_CODE (callee) != SYMBOL_REF
+		  || !SYMBOL_REF_LOCAL_P (callee))))
 	{
 	  rtx addr = callee;
 	  if (! address_operand (addr, Pmode))
@@ -4567,7 +4601,7 @@ handle_int_attribute (tree *node, tree name,
    warning to be generated).  */
 
 static int
-bfin_comp_type_attributes (tree type1, tree type2)
+bfin_comp_type_attributes (const_tree type1, const_tree type2)
 {
   e_funkind kind1, kind2;
 
@@ -4631,6 +4665,91 @@ bfin_handle_longcall_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+/* Handle a "l1_text" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+bfin_handle_l1_text_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+			       int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree decl = *node;
+
+  if (TREE_CODE (decl) != FUNCTION_DECL)
+    {
+      error ("`%s' attribute only applies to functions",
+	     IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  /* The decl may have already been given a section attribute
+     from a previous declaration. Ensure they match.  */
+  else if (DECL_SECTION_NAME (decl) != NULL_TREE
+	   && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+		      ".l1.text") != 0)
+    {
+      error ("section of %q+D conflicts with previous declaration",
+	     decl);
+      *no_add_attrs = true;
+    }
+  else
+    DECL_SECTION_NAME (decl) = build_string (9, ".l1.text");
+
+  return NULL_TREE;
+}
+
+/* Handle a "l1_data", "l1_data_A" or "l1_data_B" attribute;
+   arguments as in struct attribute_spec.handler.  */
+
+static tree
+bfin_handle_l1_data_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+			       int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree decl = *node;
+
+  if (TREE_CODE (decl) != VAR_DECL)
+    {
+      error ("`%s' attribute only applies to variables",
+	     IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else if (current_function_decl != NULL_TREE
+	   && !TREE_STATIC (decl))
+    {
+      error ("`%s' attribute cannot be specified for local variables",
+	     IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else
+    {
+      const char *section_name;
+
+      if (strcmp (IDENTIFIER_POINTER (name), "l1_data") == 0)
+	section_name = ".l1.data";
+      else if (strcmp (IDENTIFIER_POINTER (name), "l1_data_A") == 0)
+	section_name = ".l1.data.A";
+      else if (strcmp (IDENTIFIER_POINTER (name), "l1_data_B") == 0)
+	section_name = ".l1.data.B";
+      else
+	gcc_unreachable ();
+
+      /* The decl may have already been given a section attribute
+	 from a previous declaration. Ensure they match.  */
+      if (DECL_SECTION_NAME (decl) != NULL_TREE
+	  && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+		     section_name) != 0)
+	{
+	  error ("section of %q+D conflicts with previous declaration",
+		 decl);
+	  *no_add_attrs = true;
+	}
+      else
+	DECL_SECTION_NAME (decl)
+	  = build_string (strlen (section_name) + 1, section_name);
+    }
+
+ return NULL_TREE;
+}
+
 /* Table of valid machine attributes.  */
 const struct attribute_spec bfin_attribute_table[] =
 {
@@ -4643,6 +4762,10 @@ const struct attribute_spec bfin_attribute_table[] =
   { "saveall", 0, 0, false, true,  true, NULL },
   { "longcall",  0, 0, false, true,  true,  bfin_handle_longcall_attribute },
   { "shortcall", 0, 0, false, true,  true,  bfin_handle_longcall_attribute },
+  { "l1_text", 0, 0, true, false, false,  bfin_handle_l1_text_attribute },
+  { "l1_data", 0, 0, true, false, false,  bfin_handle_l1_data_attribute },
+  { "l1_data_A", 0, 0, true, false, false, bfin_handle_l1_data_attribute },
+  { "l1_data_B", 0, 0, true, false, false,  bfin_handle_l1_data_attribute },
   { NULL, 0, 0, false, false, false, NULL }
 };
 
@@ -5288,25 +5411,25 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 	  || GET_MODE (target) != V2HImode
 	  || ! (*insn_data[icode].operand[0].predicate) (target, V2HImode))
 	target = gen_reg_rtx (tmode);
-      if (! register_operand (op0, GET_MODE (op0)))
-	op0 = copy_to_mode_reg (GET_MODE (op0), op0);
       if (! register_operand (op1, GET_MODE (op1)))
 	op1 = copy_to_mode_reg (GET_MODE (op1), op1);
+      if (! register_operand (op2, GET_MODE (op2)))
+	op2 = copy_to_mode_reg (GET_MODE (op2), op2);
 
       tmp1 = gen_reg_rtx (SImode);
       tmp2 = gen_reg_rtx (SImode);
-      emit_insn (gen_ashlsi3 (tmp1, gen_lowpart (SImode, op2), GEN_INT (16)));
-      emit_move_insn (tmp2, gen_lowpart (SImode, op2));
+      emit_insn (gen_ashlsi3 (tmp1, gen_lowpart (SImode, op0), GEN_INT (16)));
+      emit_move_insn (tmp2, gen_lowpart (SImode, op0));
       emit_insn (gen_movstricthi_1 (gen_lowpart (HImode, tmp2), const0_rtx));
       emit_insn (gen_load_accumulator_pair (accvec, tmp1, tmp2));
-      emit_insn (gen_flag_macv2hi_parts_acconly (accvec, op0, op1, const0_rtx,
+      emit_insn (gen_flag_macv2hi_parts_acconly (accvec, op1, op2, const0_rtx,
 						 const0_rtx, const0_rtx,
 						 const1_rtx, accvec, const0_rtx,
 						 const0_rtx,
 						 GEN_INT (MACFLAG_W32)));
       tmp1 = (fcode == BFIN_BUILTIN_CPLX_MAC_16 ? const1_rtx : const0_rtx);
       tmp2 = (fcode == BFIN_BUILTIN_CPLX_MAC_16 ? const0_rtx : const1_rtx);
-      emit_insn (gen_flag_macv2hi_parts (target, op0, op1, const1_rtx,
+      emit_insn (gen_flag_macv2hi_parts (target, op1, op2, const1_rtx,
 					 const1_rtx, const1_rtx,
 					 const0_rtx, accvec, tmp1, tmp2,
 					 GEN_INT (MACFLAG_NONE), accvec));
@@ -5365,7 +5488,7 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK bfin_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
-#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_const_tree_hwi_hwi_const_tree_true
 
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST bfin_adjust_cost
@@ -5374,11 +5497,11 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 #define TARGET_SCHED_ISSUE_RATE bfin_issue_rate
 
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES bfin_arg_partial_bytes

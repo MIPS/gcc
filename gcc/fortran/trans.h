@@ -340,7 +340,7 @@ tree gfc_conv_string_tmp (gfc_se *, tree, tree);
 /* Get the string length variable belonging to an expression.  */
 tree gfc_get_expr_charlen (gfc_expr *);
 /* Initialize a string length variable.  */
-void gfc_trans_init_string_length (gfc_charlen *, stmtblock_t *);
+void gfc_conv_string_length (gfc_charlen *, stmtblock_t *);
 /* Ensure type sizes can be gimplified.  */
 void gfc_trans_vla_type_sizes (gfc_symbol *, stmtblock_t *);
 
@@ -450,6 +450,18 @@ tree gfc_call_free (tree);
 /* Allocate memory after performing a few checks.  */
 tree gfc_call_malloc (stmtblock_t *, tree, tree);
 
+/* Allocate memory for arrays, with optional status variable.  */
+tree gfc_allocate_array_with_status (stmtblock_t *, tree, tree, tree);
+
+/* Allocate memory, with optional status variable.  */
+tree gfc_allocate_with_status (stmtblock_t *, tree, tree);
+
+/* Generate code to deallocate an array.  */
+tree gfc_deallocate_with_status (tree, tree, bool);
+
+/* Generate code to call realloc().  */
+tree gfc_call_realloc (stmtblock_t *, tree, tree);
+
 /* Generate code for an assignment, includes scalarization.  */
 tree gfc_trans_assignment (gfc_expr *, gfc_expr *, bool);
 
@@ -474,7 +486,7 @@ tree gfc_truthvalue_conversion (tree);
 tree gfc_builtin_function (tree);
 
 /* In trans-openmp.c */
-bool gfc_omp_privatize_by_reference (tree);
+bool gfc_omp_privatize_by_reference (const_tree);
 enum omp_clause_default_kind gfc_omp_predetermined_sharing (tree);
 tree gfc_omp_clause_default_ctor (tree, tree);
 bool gfc_omp_disregard_value_expr (tree, bool);
@@ -483,10 +495,6 @@ struct gimplify_omp_ctx;
 void gfc_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *, tree);
 
 /* Runtime library function decls.  */
-extern GTY(()) tree gfor_fndecl_internal_realloc;
-extern GTY(()) tree gfor_fndecl_allocate;
-extern GTY(()) tree gfor_fndecl_allocate_array;
-extern GTY(()) tree gfor_fndecl_deallocate;
 extern GTY(()) tree gfor_fndecl_pause_numeric;
 extern GTY(()) tree gfor_fndecl_pause_string;
 extern GTY(()) tree gfor_fndecl_stop_numeric;
