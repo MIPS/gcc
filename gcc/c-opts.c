@@ -107,6 +107,9 @@ static size_t deferred_count;
 /* Number of deferred options scanned for -include.  */
 static size_t include_cursor;
 
+/* Include chains.  */
+static struct c_incpath *include_chains;
+
 static void set_Wimplicit (int);
 static void handle_OPT_d (const char *);
 static void set_std_cxx98 (int);
@@ -116,7 +119,7 @@ static void set_std_c99 (int);
 static void check_deps_environment_vars (void);
 static void handle_deferred_opts (void);
 static void sanitize_cpp_opts (void);
-static void add_prefixed_path (const char *, size_t);
+static void add_prefixed_path (struct c_incpath *, const char *, size_t);
 static void push_command_line_include (void);
 static void cb_file_change (cpp_reader *, const struct line_map *);
 static void cb_dir_change (cpp_reader *, const char *);
@@ -197,12 +200,50 @@ defer_opt (enum opt_code code, const char *arg)
   deferred_count++;
 }
 
+/* Clean up if this module has previously been initialized.  */
+static void
+clean_up (void)
+{
+  cpp_opts = NULL;
+  if (parse_in)
+    {
+      cpp_destroy (parse_in);
+      parse_in = NULL;
+    }
+  out_fname = NULL;
+  out_stream = NULL;
+  deps_file = NULL;
+  iprefix = NULL;
+  imultilib = NULL;
+  sysroot = TARGET_SYSTEM_ROOT;
+  std_inc = true;
+  std_cxx_inc = true;
+  quote_chain_split = false;
+  /* FIXME: reset all warning options, etc.  */
+  deferred_count = 0;
+  include_cursor = 0;
+  if (deferred_opts)
+    {
+      XDELETEVEC (deferred_opts);
+      deferred_opts = NULL;
+    }
+  if (include_chains)
+    {
+      delete_c_incpath (include_chains);
+      include_chains = NULL;
+    }
+}
+
 /* Common initialization before parsing options.  */
 unsigned int
 c_common_init_options (unsigned int argc, const char **argv)
 {
   static const unsigned int lang_flags[] = {CL_C, CL_ObjC, CL_CXX, CL_ObjCXX};
   unsigned int i, result;
+
+  clean_up ();
+
+  include_chains = new_c_incpath ();
 
   /* This is conditionalized only because that is the way the front
      ends used to do it.  Maybe this should be unconditional?  */
@@ -329,13 +370,13 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_I:
       if (strcmp (arg, "-"))
-	add_path (xstrdup (arg), BRACKET, 0, true);
+	add_path (include_chains, xstrdup (arg), BRACKET, 0, true);
       else
 	{
 	  if (quote_chain_split)
 	    error ("-I- specified twice");
 	  quote_chain_split = true;
-	  split_quote_chain ();
+	  split_quote_chain (include_chains);
 	  inform ("obsolete option -I- used, please use -iquote instead");
 	}
       break;
@@ -851,7 +892,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_idirafter:
-      add_path (xstrdup (arg), AFTER, 0, true);
+      add_path (include_chains, xstrdup (arg), AFTER, 0, true);
       break;
 
     case OPT_imacros:
@@ -868,7 +909,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_iquote:
-      add_path (xstrdup (arg), QUOTE, 0, true);
+      add_path (include_chains, xstrdup (arg), QUOTE, 0, true);
       break;
 
     case OPT_isysroot:
@@ -876,15 +917,15 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_isystem:
-      add_path (xstrdup (arg), SYSTEM, 0, true);
+      add_path (include_chains, xstrdup (arg), SYSTEM, 0, true);
       break;
 
     case OPT_iwithprefix:
-      add_prefixed_path (arg, SYSTEM);
+      add_prefixed_path (include_chains, arg, SYSTEM);
       break;
 
     case OPT_iwithprefixbefore:
-      add_prefixed_path (arg, BRACKET);
+      add_prefixed_path (include_chains, arg, BRACKET);
       break;
 
     case OPT_lang_asm:
@@ -1030,7 +1071,8 @@ c_common_post_options (const char **pfilename)
 
   sanitize_cpp_opts ();
 
-  register_include_chains (parse_in, sysroot, iprefix, imultilib,
+  register_include_chains (include_chains,
+			   parse_in, sysroot, iprefix, imultilib,
 			   std_inc, std_cxx_inc && c_dialect_cxx (), verbose);
 
 #ifdef C_COMMON_OVERRIDE_OPTIONS
@@ -1190,14 +1232,7 @@ c_common_post_options (const char **pfilename)
      immediately.  */
   errorcount += cpp_errors (parse_in);
 
-  *pfilename = this_input_filename
-    = cpp_read_main_file (parse_in, in_fnames[0]);
-  /* Don't do any compilation or preprocessing if there is no input file.  */
-  if (this_input_filename == NULL)
-    {
-      errorcount++;
-      return false;
-    }
+  *pfilename = in_fnames[0];	/* FIXME: not quite as nice ... ? */
 
   if (flag_working_directory
       && flag_preprocess_only && !flag_no_line_commands)
@@ -1267,9 +1302,14 @@ c_common_parse_file (int set_yydebug)
 	gcc_unreachable ();
     }
 
-  i = 0;
-  for (;;)
+  for (i = 0; i < num_in_fnames; ++i)
     {
+      cpp_undef_all (parse_in);
+      this_input_filename = cpp_read_main_file (parse_in, in_fnames[i]);
+      /* If an input file is missing, abandon further compilation.
+	 cpplib has issued a diagnostic.  */
+      if (!this_input_filename)
+	break;
       /* Start the main input file, if the debug writer wants it. */
       if (debug_hooks->start_end_main_source_file)
 	(*debug_hooks->start_source_file) (0, this_input_filename);
@@ -1282,15 +1322,6 @@ c_common_parse_file (int set_yydebug)
       /* And end the main input file, if the debug writer wants it  */
       if (debug_hooks->start_end_main_source_file)
 	(*debug_hooks->end_source_file) (0);
-      if (++i >= num_in_fnames)
-	break;
-      cpp_undef_all (parse_in);
-      this_input_filename
-	= cpp_read_main_file (parse_in, in_fnames[i]);
-      /* If an input file is missing, abandon further compilation.
-	 cpplib has issued a diagnostic.  */
-      if (!this_input_filename)
-	break;
     }
 }
 
@@ -1457,7 +1488,7 @@ sanitize_cpp_opts (void)
 
 /* Add include path with a prefix at the front of its name.  */
 static void
-add_prefixed_path (const char *suffix, size_t chain)
+add_prefixed_path (struct c_incpath *incpath, const char *suffix, size_t chain)
 {
   char *path;
   const char *prefix;
@@ -1472,7 +1503,7 @@ add_prefixed_path (const char *suffix, size_t chain)
   memcpy (path + prefix_len, suffix, suffix_len);
   path[prefix_len + suffix_len] = '\0';
 
-  add_path (path, chain, 0, false);
+  add_path (incpath, path, chain, 0, false);
 }
 
 /* Handle -D, -U, -A, -imacros, and the first -include.  */

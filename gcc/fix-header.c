@@ -83,7 +83,8 @@
 
 #ifdef TARGET_EXTRA_INCLUDES
 void
-TARGET_EXTRA_INCLUDES (const char *sysroot ATTRIBUTE_UNUSED,
+TARGET_EXTRA_INCLUDES (struct c_incpath *incpath ATTRIBUTE_UNUSED,
+		       const char *sysroot ATTRIBUTE_UNUSED,
 		       const char *iprefix ATTRIBUTE_UNUSED,
 		       int stdinc ATTRIBUTE_UNUSED)
 {
@@ -92,7 +93,8 @@ TARGET_EXTRA_INCLUDES (const char *sysroot ATTRIBUTE_UNUSED,
 
 #ifdef TARGET_EXTRA_PRE_INCLUDES 
 void
-TARGET_EXTRA_PRE_INCLUDES (const char *sysroot ATTRIBUTE_UNUSED,
+TARGET_EXTRA_PRE_INCLUDES (struct c_incpath *incpath ATTRIBUTE_UNUSED,
+			   const char *sysroot ATTRIBUTE_UNUSED,
 			   const char *iprefix ATTRIBUTE_UNUSED,
 			   int stdinc ATTRIBUTE_UNUSED)
 {

@@ -2205,8 +2205,8 @@ server_callback (int fd, char **cc1_argv, char **as_argv)
      GCC itself seems to write to stderr a lot ... */
   dup2 (fd, 2);
 
-  /* FIXME: reset errorcount and sorrycount?  Make a new
-     global_dc?  */
+  /* FIXME: reset errorcount and sorrycount.  Maybe make a new
+     global_dc?  Arrange to unlink assembler output file on error.  */
 
   px = start_as (as_argv);
 
@@ -2248,6 +2248,9 @@ toplev_main (unsigned int argc, const char **argv)
   if (argc == 2 && !strncmp (argv[1], "-fserver=", 9))
     {
       int fd = atoi (argv[1] + 9);
+      /* Unit-at-a-time is needed to enable the C type-merging
+	 machinery.  */
+      flag_unit_at_a_time = 1;
       server_main_loop (argv[0], fd);
       return SUCCESS_EXIT_CODE;
     }

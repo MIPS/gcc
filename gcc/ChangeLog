@@ -1,5 +1,41 @@
 2007-08-31  Tom Tromey  <tromey@redhat.com>
 
+	* toplev.c (toplev_main): Set flag_unit_at_a_time when in server
+	mode.
+	* opts.c (clean_up): New function.
+	(decode_options): Call it.
+	* fix-header.c (TARGET_EXTRA_INCLUDES): Add c_incpath argument.
+	(TARGET_EXTRA_PRE_INCLUDES): Likewise.
+	* c-incpath.h (struct target_c_incpath_s) <extra_pre_includes,
+	extra_includes>: Add c_incpath argument.
+	(struct c_incpath): Declare.
+	(new_c_incpath, delete_c_incpath): Likewise.
+	(split_quote_chain, add_path, register_include_chains,
+	add_cpp_dir_path): Add c_incpath argument.
+	* c-incpath.c (new_c_incpath): New function.
+	(struct c_incpath): New struct.
+	(heads, tails, quote_ignores_source_dir): No longer global.
+	(delete_c_incpath): New function.
+	(add_sysroot_to_chain): Added 'incpath' argument.
+	(merge_include_chains): Likewise.
+	(split_quote_chain): Likewise.
+	(add_cpp_dir_path): Likewise.
+	(add_path): Likewise.
+	(register_include_chains): Likewise.
+	(add_env_var_paths): Likewise.
+	(add_standard_paths): Likewise.
+	(hook_void_charptr_charptr_int): Likewise.
+	* c-opts.c (clean_up): New function.
+	(c_common_init_options): Use it.  Set include_chains.
+	(include_chains): New global.
+	(c_common_handle_option): Update.
+	(add_prefixed_path): Added c_incpath argument.
+	(c_common_post_options): Update.
+	(c_common_post_options): Don't parse first file here...
+	(c_common_parse_file): ... parse it here.
+
+2007-08-31  Tom Tromey  <tromey@redhat.com>
+
 	* server.h (client_kill_server): Declare.
 	* gcc.c (kill_server): New global.
 	(option_map): Added --kill-server.

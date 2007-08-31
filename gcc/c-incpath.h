@@ -15,17 +15,25 @@
    along with this program; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
-extern void split_quote_chain (void);
-extern void add_path (char *, int, int, bool);
-extern void register_include_chains (cpp_reader *, const char *,
+/* An instance of this holds all the state for a given set of include
+   chains.  This structure is intentionally opaque.  */
+struct c_incpath;
+
+extern struct c_incpath *new_c_incpath (void);
+extern void delete_c_incpath (struct c_incpath *);
+extern void split_quote_chain (struct c_incpath *);
+extern void add_path (struct c_incpath *, char *, int, int, bool);
+extern void register_include_chains (struct c_incpath *,
+				     cpp_reader *, const char *,
 				     const char *, const char *,
 				     int, int, int);
-extern void add_cpp_dir_path (struct cpp_dir *, int);
+extern void add_cpp_dir_path (struct c_incpath *, struct cpp_dir *, int);
 
 struct target_c_incpath_s {
   /* Do extra includes processing.  STDINC is false iff -nostdinc was given.  */
-  void (*extra_pre_includes) (const char *, const char *, int);
-  void (*extra_includes) (const char *, const char *, int);
+  void (*extra_pre_includes) (struct c_incpath *, const char *,
+			      const char *, int);
+  void (*extra_includes) (struct c_incpath *, const char *, const char *, int);
 };
 
 extern struct target_c_incpath_s target_c_incpath;

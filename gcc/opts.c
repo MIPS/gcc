@@ -729,12 +729,27 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
     }
 }
 
+/* Reset this module.  */
+static void
+clean_up (void)
+{
+  if (in_fnames)
+    {
+      free (in_fnames);
+      in_fnames = NULL;
+      num_in_fnames = 0;
+    }
+}
+
 /* Parse command line options and set default flag values.  Do minimal
    options processing.  */
 void
 decode_options (unsigned int argc, const char **argv)
 {
   unsigned int i, lang_mask;
+
+  /* Clean up from previous run.  */
+  clean_up ();
 
   /* Perform language-specific options initialization.  */
   lang_mask = lang_hooks.init_options (argc, argv);
