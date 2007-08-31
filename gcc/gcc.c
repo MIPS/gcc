@@ -200,6 +200,10 @@ static int report_times;
 
 static int server;
 
+/* Flag indicating that we should kill a running server process.  */
+
+static int kill_server;
+
 /* Flag indicating that we should attempt to connect to a server
    process.  */
 
@@ -1129,6 +1133,7 @@ static const struct option_map option_map[] =
    {"--include-with-prefix", "-iwithprefix", "a"},
    {"--include-with-prefix-before", "-iwithprefixbefore", "a"},
    {"--include-with-prefix-after", "-iwithprefix", "a"},
+   {"--kill-server", "-kill-server", 0},
    {"--language", "-x", "a"},
    {"--library-directory", "-L", "a"},
    {"--machine", "-m", "aj"},
@@ -3821,6 +3826,11 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  server = 1;
 	  n_switches++;
 	}
+      else if (strcmp (argv[i], "-kill-server") == 0)
+	{
+	  kill_server = 1;
+	  n_switches++;
+	}
       else if (strcmp (argv[i], "-###") == 0)
 	{
 	  /* This is similar to -v except that there is no execution
@@ -4193,6 +4203,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       else if (strcmp (argv[i], "-time") == 0)
 	;
       else if (strcmp (argv[i], "-server") == 0)
+	;
+      else if (strcmp (argv[i], "-kill-server") == 0)
 	;
       else if (strcmp (argv[i], "-###") == 0)
 	;
@@ -6529,6 +6541,13 @@ main (int argc, char **argv)
     {
       /* FIXME: allow more than cc1... */
       server_start (find_a_file (&exec_prefixes, "cc1", X_OK, 0));
+      return 0;
+    }
+
+  if (kill_server)
+    {
+      /* FIXME: allow more than cc1... */
+      client_kill_server (find_a_file (&exec_prefixes, "cc1", X_OK, 0));
       return 0;
     }
 

@@ -207,7 +207,7 @@ split_argv (char *buffer)
 
 /* Helper function for server_main_loop.  Read a request from the file
    descriptor REQFD and take action.  */
-static void
+static bool
 request_and_response (int reqfd)
 {
   char **argvs[2];
@@ -259,7 +259,9 @@ request_and_response (int reqfd)
 	}
       else if (cmd == 'K')
 	{
-	  /* Kill server.  FIXME.  */
+	  /* Kill server.  In the single-threaded server, it is ok to
+	     simply tell the main loop to exit.  */
+	  return false;
 	}
       else
 	{
@@ -267,6 +269,7 @@ request_and_response (int reqfd)
 	  break;
 	}
     }
+  return true;
 }
 
 /* Main loop of the server.  Creates a server socket and listens to
@@ -279,6 +282,7 @@ server_main_loop (const char *progname, int fd)
 {
   int sockfd = open_socket (progname);
   char reply = 't';
+  bool result = true;
 
   if (sockfd < 0)
     {
@@ -295,7 +299,7 @@ server_main_loop (const char *progname, int fd)
 
   listen (sockfd, 5);
 
-  while (true)
+  while (result)
     {
       int reqfd = accept (sockfd, NULL, 0);
       if (reqfd < 0)
@@ -303,7 +307,7 @@ server_main_loop (const char *progname, int fd)
 	  error ("error while accepting: %s", xstrerror (errno));
 	  break;
 	}
-      request_and_response (reqfd);
+      result = request_and_response (reqfd);
       close (reqfd);
     }
 
@@ -379,16 +383,13 @@ client_send_command (const char **argv)
   return result;
 }
 
-/* Called by the client after submitting all its jobs.  This waits for
-   the server to complete the tasks.  It reads from the server
-   connection and prints errors to stderr.  Both 'client_connect' and
-   'client_send_command' must have been successfully called before
-   calling this.  */
-void
-client_wait (void)
+/* Helper for client_wait and client_kill_server.  Send a
+   single-letter command to the server and pipe the server's output to
+   our stderr.  */
+static void
+send_command_and_wait (char cmd)
 {
   gcc_assert (connection_fd >= 0);
-  char cmd = 'D';
 
   if (write (connection_fd, &cmd, 1) != 1)
     return;
@@ -403,4 +404,28 @@ client_wait (void)
 	break;
       fwrite (buffer, 1, len, stderr);
     }
+}
+
+/* Called by the client after submitting all its jobs.  This waits for
+   the server to complete the tasks.  It reads from the server
+   connection and prints errors to stderr.  Both 'client_connect' and
+   'client_send_command' must have been successfully called before
+   calling this.  */
+void
+client_wait (void)
+{
+  send_command_and_wait ('D');
+}
+
+/* Request that the server exit.  PROGNAME is the path name of the
+   server executable.  */
+void
+client_kill_server (const char *progname)
+{
+  if (!client_connect (progname))
+    {
+      error ("couldn't connect to server: %s", xstrerror (errno));
+      return;
+    }
+  send_command_and_wait ('K');
 }

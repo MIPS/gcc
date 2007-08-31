@@ -1,3 +1,17 @@
+2007-08-31  Tom Tromey  <tromey@redhat.com>
+
+	* server.h (client_kill_server): Declare.
+	* gcc.c (kill_server): New global.
+	(option_map): Added --kill-server.
+	(process_command): Handle -kill-server.
+	(main): Likewise.
+	* server.c (request_and_response): Changed return type.  Handle
+	'K' request.
+	(server_main_loop): Use request_and_response return value.
+	(send_command_and_wait): New function.
+	(client_wait): Use it.
+	(client_kill_server): New function.
+
 2007-08-30  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in (OBJS-common): Added server.o.
