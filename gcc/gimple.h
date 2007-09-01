@@ -182,8 +182,8 @@ struct gimple_statement_eh_filter GTY(())
 struct gimple_statement_phi GTY(())
 {
   struct gimple_statement_base base;
-  unsigned capacity;
-  unsigned nargs;
+  size_t capacity;
+  size_t nargs;
   tree result;
   struct phi_arg_d GTY ((length ("%h.nargs"))) args[1];
 };
@@ -601,7 +601,7 @@ gimple build_gimple_asm_vec (const char *, VEC(tree,gc) *, VEC(tree,gc) *,
 gimple build_gimple_catch (tree, gimple_seq);
 gimple build_gimple_eh_filter (tree, gimple_seq);
 gimple build_gimple_try (gimple_seq, gimple_seq, unsigned int);
-gimple build_gimple_phi (unsigned, unsigned, tree, ...);
+gimple build_gimple_phi (size_t, size_t, tree, ...);
 gimple build_gimple_resx (int);
 gimple build_gimple_switch (unsigned int, tree, tree, ...);
 gimple build_gimple_switch_vec (tree, tree, VEC(tree,heap) *);
@@ -1226,7 +1226,7 @@ gimple_try_set_cleanup (gimple gs, gimple_seq cleanup)
 
 /* GIMPLE_PHI accessors. */
 
-static inline unsigned int
+static inline size_t
 gimple_phi_capacity (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_PHI);
@@ -1234,13 +1234,13 @@ gimple_phi_capacity (gimple gs)
 }
 
 static inline void
-gimple_phi_set_capacity (gimple gs, unsigned int capacity)
+gimple_phi_set_capacity (gimple gs, size_t capacity)
 {
   GIMPLE_CHECK (gs, GIMPLE_PHI);
   gs->gimple_phi.capacity = capacity;
 }
 
-static inline unsigned int
+static inline size_t
 gimple_phi_nargs (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_PHI);
@@ -1248,7 +1248,7 @@ gimple_phi_nargs (gimple gs)
 }
 
 static inline void
-gimple_phi_set_nargs (gimple gs, unsigned int nargs)
+gimple_phi_set_nargs (gimple gs, size_t nargs)
 {
   GIMPLE_CHECK (gs, GIMPLE_PHI);
   gs->gimple_phi.nargs = nargs;
@@ -1269,7 +1269,7 @@ gimple_phi_set_result (gimple gs, tree result)
 }
 
 static inline struct phi_arg_d *
-gimple_phi_arg (gimple gs, unsigned int index)
+gimple_phi_arg (gimple gs, size_t index)
 {
   GIMPLE_CHECK (gs, GIMPLE_PHI);
   gcc_assert (index <= gs->gimple_phi.nargs);
@@ -1277,7 +1277,7 @@ gimple_phi_arg (gimple gs, unsigned int index)
 }
 
 static inline void
-gimple_phi_set_arg (gimple gs, unsigned int index, struct phi_arg_d * phiarg)
+gimple_phi_set_arg (gimple gs, size_t index, struct phi_arg_d * phiarg)
 {
   GIMPLE_CHECK (gs, GIMPLE_PHI);
   gcc_assert (index <= gs->gimple_phi.nargs);

@@ -466,10 +466,10 @@ build_gimple_try (gimple_seq eval, gimple_seq cleanup,
    ... phi_arg_d* for the incomming edges to this node.  */
 
 gimple
-build_gimple_phi (unsigned capacity, unsigned nargs, tree result, ...)
+build_gimple_phi (size_t capacity, size_t nargs, tree result, ...)
 {
   gimple p;
-  unsigned int i;
+  size_t i;
   va_list va;
   p = ggc_alloc_cleared (sizeof (struct gimple_statement_phi)
 			 + (sizeof (struct phi_arg_d) * (nargs - 1)) );

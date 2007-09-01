@@ -759,8 +759,7 @@ extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
 extern void verify_stmts (void);
 extern void verify_gimple (void);
-extern void verify_gimple_seq (gimple_seq);
-extern void verify_gimple_1 (gimple_seq);
+extern void verify_types_in_gimple_seq (gimple_seq);
 extern tree tree_block_label (basic_block);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,

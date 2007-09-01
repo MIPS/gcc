@@ -179,8 +179,7 @@ is_gimple_condexpr (tree t)
 bool
 is_gimple_addressable (tree t)
 {
-  return (is_gimple_id (t) || handled_component_p (t)
-	  || INDIRECT_REF_P (t));
+  return (is_gimple_id (t) || handled_component_p (t) || INDIRECT_REF_P (t));
 }
 
 /* Return true if T is a GIMPLE minimal invariant.  It's a restricted

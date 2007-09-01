@@ -6680,7 +6680,7 @@ gimplify_body (tree *body_p, tree fndecl, bool do_parms)
 
 #ifdef ENABLE_TYPES_CHECKING
   if (!errorcount && !sorrycount)
-    verify_gimple_seq (gimple_bind_body (outer_bind));
+    verify_types_in_gimple_seq (gimple_bind_body (outer_bind));
 #endif
 
   timevar_pop (TV_TREE_GIMPLIFY);

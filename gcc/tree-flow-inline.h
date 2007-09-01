@@ -602,7 +602,7 @@ get_phi_arg_def_ptr (tree phi, int i)
 /* Convenience function analogous to PHI_ARG_DEF.  */
 
 static inline tree
-gimple_phi_arg_def (gimple gs, unsigned int index)
+gimple_phi_arg_def (gimple gs, size_t index)
 {
   struct phi_arg_d *pd = gimple_phi_arg (gs, index);
   return get_use_from_ptr (&pd->imm_use);
@@ -611,7 +611,7 @@ gimple_phi_arg_def (gimple gs, unsigned int index)
 /* Convenience function analogous to PHI_ARG_EDGE.  */
 
 static inline edge
-gimple_phi_arg_edge (gimple gs, unsigned int i)
+gimple_phi_arg_edge (gimple gs, size_t i)
 {
   return EDGE_PRED (gimple_bb (gs), i);
 }
@@ -656,7 +656,7 @@ static inline int
 phi_arg_index_from_use (use_operand_p use)
 {
   struct phi_arg_d *element, *root;
-  int index;
+  size_t index;
   gimple phi;
 
   /* Since the use is the first thing in a PHI argument element, we can
@@ -675,7 +675,7 @@ phi_arg_index_from_use (use_operand_p use)
      then imm_use is likely not the first element in phi_arg_d.  */
   gcc_assert (
 	  (((char *)element - (char *)root) % sizeof (struct phi_arg_d)) == 0);
-  gcc_assert (index >= 0 && index < (int) gimple_phi_capacity (phi));
+  gcc_assert (index < gimple_phi_capacity (phi));
 #endif
  
  return index;

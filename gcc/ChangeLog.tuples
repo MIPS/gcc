@@ -1,3 +1,34 @@
+2007-08-31  Diego Novillo  <dnovillo@google.com>
+
+	* tree-gimple.c (is_gimple_addressable): Tidy.
+	* Makefile.in (tree-ssa-structalias.o): Disable dependency on
+	GTY header file.
+	(tree-ssa-propagate.o): Likewise.
+	(tree-phinodes.o): Likewise.
+	(tree-scalar-evolution.o): Likewise.
+	(tree-vect-generic.o): Likewise.
+	* gimple.h (struct gimple_statement_phi): Change type of
+	fields 'capacity' and 'nargs' to size_t.
+	Update all users.
+	* tree-cfg.c (verify_gimple_unary_expr): Remove.  Update all
+	users.
+	(verify_gimple_binary_expr): Remove.  Update all users.
+	(verify_types_in_gimple_min_lval): Rename from
+	verify_gimple_min_lval.
+	(verify_types_in_gimple_reference): Rename from
+	verify_gimple_reference.
+	(verify_gimple_tree_expr): Remove.
+	Move checks to verify_types_in_gimple_assign.
+	(verify_types_in_gimple_call): Rename from verify_gimple_call.
+	(verify_types_in_gimple_cond): Rename from verify_gimple_cond.
+	(verify_types_in_gimple_assign): Rename from verify_gimple_assign.
+	(verify_types_in_gimple_switch): Rename from verify_gimple_switch.
+	(verify_types_in_gimple_phi): New.
+	verify_types_in_gimple_return): Rename from
+	verify_gimple_return.
+	(verify_types_in_gimple_stmt): Rename from verify_gimple_stmt.
+	(verify_types_in_gimple_seq): Rename from verify_gimple_seq.
+
 2007-08-30  Chris Matthews  <chrismatthews@google.com>
 	    Diego Novillo  <dnovillo@google.com>
 
