@@ -1,5 +1,10 @@
 2007-09-04  Tom Tromey  <tromey@redhat.com>
 
+	* c-parser.c (c_parser_bind_callback): Don't bind error nodes.
+	(finish_current_hunk): Don't save hunks with errors.
+
+2007-09-04  Tom Tromey  <tromey@redhat.com>
+
 	* c-parser.c (c_parser_bind_callback): Use GGC_CNEW.
 	(c_parser_translation_unit): Added assert.
 	(c_parser_find_decl_boundary): Handle structure initialization.

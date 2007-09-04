@@ -639,7 +639,8 @@ c_parser_bind_callback (tree name, tree decl)
      requires many changes.  */
   c_parser *parser = the_parser;
 
-  if (!parser || !parser->current_hunk_binding)
+  if (!parser || !parser->current_hunk_binding
+      || TREE_CODE (decl) == ERROR_MARK)
     return;
 
   key.name = name;
@@ -792,6 +793,13 @@ finish_current_hunk (c_parser *parser,
 		     struct parsed_hunk *last_used)
 {
   struct hunk_binding **slot;
+
+  /* If we saw an error while parsing, stop saving hunks -- just drop
+     them.  FIXME: maybe consider only doing this if there is a change
+     in the number of errors while parsing a hunk.  */
+  if (errorcount)
+    return;
+
   slot = (struct hunk_binding **)
     htab_find_slot (global_hunk_map, parser->current_hunk_binding, INSERT);
   if (initial != last_used)
