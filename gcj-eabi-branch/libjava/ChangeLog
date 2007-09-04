@@ -1,3 +1,10 @@
+2007-09-04  Andrew Haley  <aph@redhat.com>
+
+	PR java/27908
+	* testsuite/libjava.lang/PR27908.java
+	({run1,run2,run3}.isRunning): New Method.
+	(main): Fix race condition.
+
 2007-08-29  Andrew Haley  <aph@redhat.com>
 
 	* gnu/classpath/natVMStackWalker.cc (VMStackWalker::getCallingClass):
