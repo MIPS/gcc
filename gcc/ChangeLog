@@ -1,3 +1,9 @@
+2007-09-04  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c (c_parser_bind_callback): Use GGC_CNEW.
+	(c_parser_translation_unit): Added assert.
+	(c_parser_find_decl_boundary): Handle structure initialization.
+
 2007-08-31  Tom Tromey  <tromey@redhat.com>
 
 	* toplev.c (toplev_main): Set flag_unit_at_a_time when in server

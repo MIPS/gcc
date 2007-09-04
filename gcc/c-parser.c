@@ -494,12 +494,15 @@ c_parser_find_decl_boundary (c_parser *parser)
 
 	  /* If we see a top-level open brace, it might be a function
 	     definition, but it might be something like 'union {x}' or
-	     'union name {x}'.  Here we differentiate the cases.  If
-	     we see what think is a function definition, then we know
-	     we are finished when we see the closing brace.  */
+	     'union name {x}'.  We might also see a structure
+	     initialization like 'char *z[] = { ... }'.  Here we
+	     differentiate the cases.  If we see what think is a
+	     function definition, then we know we are finished when we
+	     see the closing brace.  */
 	  if (brace_depth == 0
 	      && ! ((result > parser->next_token
-		     && TOKEN_IS_SEU (token[-1]))
+		     && (TOKEN_IS_SEU (token[-1])
+			 || token[-1].type == CPP_EQ))
 		    || (result - 1 > parser->next_token
 			&& TOKEN_IS_SEU (token[-2]))))
 	    {
@@ -645,10 +648,8 @@ c_parser_bind_callback (tree name, tree decl)
 		    INSERT);
   if (!*slot)
     {
-      *slot = GGC_NEW (struct hunk_binding_entry);
+      *slot = GGC_CNEW (struct hunk_binding_entry);
       (*slot)->name = name;
-      (*slot)->x1 = NULL_TREE;
-      (*slot)->x2 = NULL_TREE;
     }
 
   if (TREE_CODE_CLASS (TREE_CODE (decl)) == tcc_declaration)
@@ -1799,6 +1800,7 @@ c_parser_translation_unit (c_parser *parser)
 		      c_parser_external_declaration (parser);
 		      finish_current_hunk (parser, &isolani, &isolani);
 		      gcc_assert (parsed_any == false);
+		      gcc_assert (parser->next_token == isolani.next_token + 1);
 		    }
 		  continue;
 		}
