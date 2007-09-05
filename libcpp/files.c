@@ -801,7 +801,8 @@ _cpp_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
   pfile->mi_cmacro = 0;
 
   /* Generate the call back.  */
-  _cpp_do_file_change (pfile, LC_ENTER, file->path, 1, sysp);
+  _cpp_do_file_change (pfile, LC_ENTER, file->path, 1, sysp,
+		       file->st.st_uid == getuid ());
 
   return true;
 }
@@ -1124,7 +1125,8 @@ cpp_make_system_header (cpp_reader *pfile, int syshdr, int externc)
     flags = 1 + (externc != 0);
   pfile->buffer->sysp = flags;
   _cpp_do_file_change (pfile, LC_RENAME, map->to_file,
-		       SOURCE_LINE (map, pfile->line_table->highest_line), flags);
+		       SOURCE_LINE (map, pfile->line_table->highest_line),
+		       flags, 0);
 }
 
 /* Allow the client to change the current file.  Used by the front end
@@ -1134,7 +1136,7 @@ void
 cpp_change_file (cpp_reader *pfile, enum lc_reason reason,
 		 const char *new_name)
 {
-  _cpp_do_file_change (pfile, reason, new_name, 1, 0);
+  _cpp_do_file_change (pfile, reason, new_name, 1, 0, 0);
 }
 
 /* Callback function for htab_traverse.  */

@@ -572,7 +572,7 @@ extern void _cpp_do__Pragma (cpp_reader *);
 extern void _cpp_init_directives (cpp_reader *);
 extern void _cpp_init_internal_pragmas (cpp_reader *);
 extern void _cpp_do_file_change (cpp_reader *, enum lc_reason, const char *,
-				 unsigned int, unsigned int);
+				 unsigned int, unsigned int, unsigned int);
 extern void _cpp_pop_buffer (cpp_reader *);
 
 /* In directives.c */

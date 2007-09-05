@@ -1,5 +1,5 @@
 /* Map logical line numbers to (source file, line number) pairs.
-   Copyright (C) 2001, 2003, 2004
+   Copyright (C) 2001, 2003, 2004, 2007
    Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
@@ -56,6 +56,8 @@ struct line_map
   ENUM_BITFIELD (lc_reason) reason : CHAR_BIT;
   /* The sysp field isn't really needed now that it's in cpp_buffer.  */
   unsigned char sysp;
+  /* True if the file is owned by the current user.  */
+  unsigned int user_owned : 1;
   /* Number of the low-order source_location bits used for a column number.  */
   unsigned int column_bits : 8;
 };

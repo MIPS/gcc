@@ -215,8 +215,7 @@ cb_line_change (cpp_reader * ARG_UNUSED (pfile), const cpp_token *token,
 }
 
 void
-fe_file_change (struct c_lex_state * ARG_UNUSED (lstate),
-		const struct line_map *new_map)
+fe_file_change (struct c_lex_state *lstate, const struct line_map *new_map)
 {
   lstate->file_change = true;
 
@@ -269,6 +268,7 @@ fe_file_change (struct c_lex_state * ARG_UNUSED (lstate),
 
   update_header_times (new_map->to_file);
   in_system_header = new_map->sysp != 0;
+  lstate->user_owned = new_map->user_owned;
 #ifdef USE_MAPPED_LOCATION
   input_location = new_map->start_location;
 #else

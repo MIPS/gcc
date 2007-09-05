@@ -851,6 +851,7 @@ do_line (cpp_reader *pfile)
      sysp right now.  */
 
   unsigned char map_sysp = map->sysp;
+  unsigned int map_user_owned = map->user_owned;
   const cpp_token *token;
   const char *new_file = map->to_file;
   unsigned long new_lineno;
@@ -891,7 +892,7 @@ do_line (cpp_reader *pfile)
 
   skip_rest_of_line (pfile);
   _cpp_do_file_change (pfile, LC_RENAME, new_file, new_lineno,
-		       map_sysp);
+		       map_sysp, map_user_owned);
 }
 
 /* Interpret the # 44 "file" [flags] notation, which has slightly
@@ -967,7 +968,8 @@ do_linemarker (cpp_reader *pfile)
     }
 
   skip_rest_of_line (pfile);
-  _cpp_do_file_change (pfile, reason, new_file, new_lineno, new_sysp);
+  /* FIXME: perhaps store user_owned in the flags?  */
+  _cpp_do_file_change (pfile, reason, new_file, new_lineno, new_sysp, 0);
 }
 
 /* Arrange the file_change callback.  pfile->line has changed to
@@ -977,12 +979,17 @@ do_linemarker (cpp_reader *pfile)
 void
 _cpp_do_file_change (cpp_reader *pfile, enum lc_reason reason,
 		     const char *to_file, unsigned int file_line,
-		     unsigned int sysp)
+		     unsigned int sysp, unsigned int user_owned)
 {
   const struct line_map *map = linemap_add (pfile->line_table, reason, sysp,
 					    to_file, file_line);
   if (map != NULL)
-    linemap_line_start (pfile->line_table, map->to_line, 127);
+    {
+      /* FIXME */
+      struct line_map *m2 = (struct line_map *) map;
+      m2->user_owned = user_owned;
+      linemap_line_start (pfile->line_table, map->to_line, 127);
+    }
 
   if (pfile->cb.file_change)
     pfile->cb.file_change (pfile, map);
@@ -2274,7 +2281,7 @@ _cpp_pop_buffer (cpp_reader *pfile)
     {
       _cpp_pop_file_buffer (pfile, inc);
 
-      _cpp_do_file_change (pfile, LC_LEAVE, 0, 0, 0);
+      _cpp_do_file_change (pfile, LC_LEAVE, 0, 0, 0, 0);
     }
 }
 

@@ -256,6 +256,8 @@ typedef struct c_token GTY (())
   ENUM_BITFIELD (pragma_kind) pragma_kind : 7;
   /* True if this token is from a system header.  */
   BOOL_BITFIELD in_system_header : 1;
+  /* True if this token comes from a header owned by the user.  */
+  BOOL_BITFIELD user_owned : 1;
   /* The value associated with this token, if any.  */
   tree value;
   /* The location at which this token was found.  */
@@ -968,6 +970,7 @@ c_parser_lex_all (c_parser *parser)
 	  memset (&buffer[save], 0, (alloc - save) * sizeof (c_token));
 	}
       c_lex_one_token (parser, &buffer[pos]);
+      buffer[pos].user_owned = lstate->user_owned;
 
       /* If there was a file change event, it happened before this
 	 token.  */
@@ -1775,11 +1778,12 @@ c_parser_translation_unit (c_parser *parser)
 	      parser->prev_hunk = parser->first_hunk;
 	    }
 
-	  /* If we are not in a system header (FIXME: should be a bit
-	     more strict -- anything not owned by the user should be
-	     chunked), then we choose to hunk by the declaration, and
-	     not by file change events.  */
-	  if (!parser->buffer[parser->next_token].in_system_header)
+	  /* If we are not in a system header and we are in a
+	     user-owned header, then we choose to hunk by the
+	     declaration, and not by file change events.  FIXME: this
+	     means compilations by root can be somewhat weird.  */
+	  if (!parser->buffer[parser->next_token].in_system_header
+	      && parser->buffer[parser->next_token].user_owned)
 	    {
 	      struct parsed_hunk isolani;
 	      /* We don't really need to set all the fields here, but

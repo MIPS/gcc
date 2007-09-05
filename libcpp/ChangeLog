@@ -1,3 +1,15 @@
+2007-09-05  Tom Tromey  <tromey@redhat.com>
+
+	* files.c (_cpp_stack_file): Update.
+	(cpp_make_system_header): Update.
+	(cpp_change_file): Update.
+	* directives.c (do_line): Update.
+	(do_linemarker): Update.
+	(_cpp_do_file_change): Added 'user_owned' argument.
+	(_cpp_pop_buffer): Update.
+	* internal.h (_cpp_do_file_change): Added argument.
+	* include/line-map.h (struct line_map) <user_owned>: New field.
+
 2007-08-21  Tom Tromey  <tromey@redhat.com>
 
 	* include/cpplib.h (struct cpp_callbacks) <user_data>: New field.

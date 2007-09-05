@@ -853,6 +853,9 @@ struct c_lex_state
   /* True if a file change event happened before the token returned by
      the lexer.  */
   bool file_change;
+
+  /* True if the current header is owned by the user.  */
+  bool user_owned;
 };
 
 /* Return the lexer state associated with a cppreader.  */
