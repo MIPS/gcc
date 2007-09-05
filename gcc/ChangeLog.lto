@@ -1,3 +1,9 @@
+2007-09-05  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphbuild.c (build_cgraph_edges): Export.
+	* cgraph.h (build_cgraph_edges): Declare.
+	* cgraphunit.c (cgraph_finalize_function): Rebuild cgraph edges.
+
 2007-08-29  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-function-out.c (LTO_SET_DEBUGGING_STREAM): Now swallows

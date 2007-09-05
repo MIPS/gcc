@@ -108,7 +108,7 @@ initialize_inline_failed (struct cgraph_node *node)
 /* Create cgraph edges for function calls.
    Also look for functions and variables having addresses taken.  */
 
-static unsigned int
+unsigned int
 build_cgraph_edges (void)
 {
   basic_block bb;

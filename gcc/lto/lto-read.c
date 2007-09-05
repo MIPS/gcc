@@ -1669,7 +1669,7 @@ lto_read_var_init (lto_info_fd *fd,
 		   tree var_decl,
 		   const void *data)
 {
-  lto_read_body (fd, context, var_decl, data, false);
+    lto_read_body (fd, context, var_decl, data, false);
 }
 
 /* Dump the debug STREAM, and two characters B and C.  */
