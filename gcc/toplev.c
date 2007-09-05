@@ -2117,6 +2117,7 @@ finalize (void)
 	fatal_error ("error writing to %s: %m", asm_file_name);
       if (fclose (asm_out_file) != 0)
 	fatal_error ("error closing %s: %m", asm_file_name);
+      asm_out_file = NULL;
     }
 
   finish_optimization_passes ();
@@ -2212,7 +2213,7 @@ server_callback (int fd, char **cc1_argv, char **as_argv)
 
   if (px)
     {
-      int n;
+      int n, result;
       for (n = 0; cc1_argv[n]; ++n)
 	;
       decode_options (n, (const char **) cc1_argv);
@@ -2221,7 +2222,7 @@ server_callback (int fd, char **cc1_argv, char **as_argv)
 
       /* FIXME: send a single byte back to the client for status?
 	 FIXME: this function should return an error indication.  */
-
+      pex_get_status (px, 1, &result);
       pex_free (px);
     }
 

@@ -1,5 +1,10 @@
 2007-09-05  Tom Tromey  <tromey@redhat.com>
 
+	* toplev.c (server_callback): Call pex_get_status.
+	(finalize): Clear asm_out_file.
+
+2007-09-05  Tom Tromey  <tromey@redhat.com>
+
 	* c-parser.c (c_token) <user_owned>: New field.
 	(c_parser_lex_all): Set user_owned field on token.
 	* c-lex.c (fe_file_change): Set user_owned field in c_lex_state.
