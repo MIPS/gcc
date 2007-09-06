@@ -119,6 +119,9 @@ static int set_yydebug;
 /* True if we don't need a backend (e.g. preprocessing only).  */
 static bool no_backend;
 
+/* True if we're running as a server.  */
+static bool server_mode;
+
 /* Length of line when printing switch values.  */
 #define MAX_LINE 75
 
@@ -1056,10 +1059,16 @@ compile_file (void)
   if (flag_syntax_only)
     return;
 
+  if (server_mode && server_start_back_end ())
+    return;
+
   lang_hooks.decls.final_write_globals ();
 
   if (errorcount || sorrycount)
-    return;
+    {
+      /* FIXME: server mode... */
+      return;
+    }
 
   varpool_assemble_pending_decls ();
   finish_aliases_2 ();
@@ -1114,6 +1123,14 @@ compile_file (void)
      into the assembly file here, and hence we can not output anything to the
      assembly file after this point.  */
   targetm.asm_out.file_end ();
+
+  /* FIXME: this is a bit lame, but our caller doesn't know if we
+     forked.  */
+  if (server_mode)
+    {
+      finalize ();
+      exit (0);
+    }
 }
 
 /* Parse a -d... command line switch.  */
@@ -2226,6 +2243,14 @@ server_callback (int fd, char **cc1_argv, char **as_argv)
       pex_free (px);
     }
 
+  /* Clean up after this compilation.  FIXME: instead of clean_up()
+     running before a job, as we have in a couple files, we should
+     clean each module after compilation.  This will reduce peak
+     memory use.  */
+  cgraph_reset ();
+  cgraph_unit_reset ();
+  ggc_collect ();
+
   /* Make sure to close dup'd stderr, so that client will terminate
      properly.  The server loop will take care of the fd we were
      passed.  */
@@ -2252,6 +2277,7 @@ toplev_main (unsigned int argc, const char **argv)
       /* Unit-at-a-time is needed to enable the C type-merging
 	 machinery.  */
       flag_unit_at_a_time = 1;
+      server_mode = true;
       server_main_loop (argv[0], fd);
       return SUCCESS_EXIT_CODE;
     }

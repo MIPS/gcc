@@ -1,3 +1,17 @@
+2007-09-06  Tom Tromey  <tromey@redhat.com>
+
+	* server.h (server_start_back_end): Declare.
+	* server.c (server_start_back_end): New function.
+	* cgraph.h (cgraph_unit_reset, cgraph_reset): Declare.
+	* cgraphunit.c (cgraph_unit_reset): New function.
+	* cgraph.c (cgraph_reset): New function.
+	* toplev.c (server_callback): Garbage collect.  Reset cgraph
+	modules.
+	(server_mode): New global.
+	(toplev_main): Set it.
+	(compile_file): Call server_start_back_end.
+	(do_compile): Only initialize front end once.
+
 2007-09-05  Tom Tromey  <tromey@redhat.com>
 
 	* toplev.c (server_callback): Call pex_get_status.

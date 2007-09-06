@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Functions for the server to use.  */
 extern void server_start (char *);
 extern void server_main_loop (const char *progname, int);
+extern bool server_start_back_end (void);
 
 /* Functions for the client to use.  */
 extern bool client_connect (const char *);

@@ -131,6 +131,24 @@ static GTY(()) struct cgraph_asm_node *cgraph_asm_last_node;
    them, to support -fno-toplevel-reorder.  */
 int cgraph_order;
 
+void
+cgraph_reset (void)
+{
+  cgraph_hash = NULL;
+  cgraph_nodes = NULL;
+  cgraph_nodes_queue = NULL;
+  cgraph_new_nodes = NULL;
+  cgraph_n_nodes = 0;
+  cgraph_max_uid = 0;
+  cgraph_max_pid = 0;
+  cgraph_global_info_ready = false;
+  cgraph_state = CGRAPH_STATE_CONSTRUCTION;
+  cgraph_function_flags_ready = false;
+  cgraph_asm_nodes = NULL;
+  cgraph_asm_last_node = NULL;
+  cgraph_order = 0;
+}
+
 static hashval_t hash_node (const void *);
 static int eq_node (const void *, const void *);
 

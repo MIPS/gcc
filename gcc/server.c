@@ -316,6 +316,33 @@ server_main_loop (const char *progname, int fd)
     unlink (server_socket_name);
 }
 
+/* Fork to let the back end do its work.  Returns true in the parent,
+   false in the child.  Will print a message and return true if there
+   is an error.  The parent waits for the child to exit.  */
+bool
+server_start_back_end (void)
+{
+  pid_t child;
+  int status;
+
+  child = fork ();
+  if (child == -1)
+    {
+      error ("fork of server failed: %s", xstrerror (errno));
+      return true;
+    }
+  else if (child == 0)
+    {
+      /* Child process.  */
+      return false;
+    }
+
+  /* Parent.  */
+  waitpid (child, &status, 0);
+  /* FIXME: handle STATUS somehow.  */
+  return true;
+}
+
 /* Make a connection to a running server.  PROGNAME is the name of the
    server to connect to.  Returns true on success, false on
    failure.  */

@@ -287,6 +287,7 @@ extern GTY(()) struct cgraph_asm_node *cgraph_asm_nodes;
 extern GTY(()) int cgraph_order;
 
 /* In cgraph.c  */
+void cgraph_reset (void);
 void dump_cgraph (FILE *);
 void dump_cgraph_node (FILE *, struct cgraph_node *);
 void cgraph_insert_node_to_hashtable (struct cgraph_node *node);
@@ -324,6 +325,7 @@ struct cgraph_node *cgraph_master_clone (struct cgraph_node *);
 void cgraph_add_new_function (tree, bool);
 
 /* In cgraphunit.c  */
+void cgraph_unit_reset (void);
 void cgraph_finalize_function (tree, bool);
 void cgraph_finalize_compilation_unit (void);
 void cgraph_optimize (void);

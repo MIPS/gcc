@@ -170,6 +170,13 @@ static FILE *cgraph_dump_file;
 static GTY (()) tree static_ctors;
 static GTY (()) tree static_dtors;
 
+void
+cgraph_unit_reset (void)
+{
+  static_ctors = NULL_TREE;
+  static_dtors = NULL_TREE;
+}
+
 /* When target does not have ctors and dtors, we call all constructor
    and destructor by special initialization/destruction function
    recognized by collect2.  
