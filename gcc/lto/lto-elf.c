@@ -60,16 +60,19 @@ typedef struct lto_elf_file lto_elf_file;
 /* Forward Declarations */
 
 static const void *
-lto_elf_map_fn_body (lto_file *file, const char *fn);
+lto_elf_map_lto_section (lto_file *file, const char *id);
+
+static const void *
+lto_elf_map_optional_lto_section (lto_file *file, const char *id);
 
 static void
 lto_elf_unmap_fn_body (lto_file *file, const char *fn, const void *data);
 
 /* The vtable for ELF input files.  */
 static const lto_file_vtable lto_elf_file_vtable = {
-  lto_elf_map_fn_body,
+  lto_elf_map_lto_section,
   lto_elf_unmap_fn_body,
-  lto_elf_map_fn_body,
+  lto_elf_map_optional_lto_section,
   lto_elf_unmap_fn_body
 };
 
@@ -127,9 +130,10 @@ lto_elf_free_shdr (lto_elf_file *elf_file, Elf64_Shdr *shdr)
     free (shdr);
 }
 
-/* A helper function to find the section named SECTION_NAME in ELF_FILE, and
-   return its data.  Emits an appropriate error message and returns NULL
-   if a unique section with that name is not found.  */
+/* A helper function to find the section named SECTION_NAME in
+   ELF_FILE, and return its data.  If we can't find a section by that
+   name, return NULL, but don't report an error.  If anything else
+   goes wrong, report an error and return NULL.  */
 
 static Elf_Data *
 lto_elf_find_section_data (lto_elf_file *elf_file, const char *section_name)
@@ -145,12 +149,6 @@ lto_elf_find_section_data (lto_elf_file *elf_file, const char *section_name)
       Elf64_Shdr *shdr;
       size_t offset;
       const char *name;
-
-      if (!section)
-	{
-	  error ("could not read section information: %s", elf_errmsg (0));
-	  return NULL;
-	}
 
       /* Get the name of this section.  */
       shdr = lto_elf_get_shdr (elf_file, section);
@@ -179,10 +177,7 @@ lto_elf_find_section_data (lto_elf_file *elf_file, const char *section_name)
 	}
     }
   if (! result)
-    {
-      error ("missing %qs section", section_name);
-      return NULL;
-    }
+    return NULL;
 
   data = elf_getdata (result, NULL);
   if (!data)
@@ -396,14 +391,22 @@ lto_elf_file_open (const char *filename)
   /* Find the .debug_info and .debug_abbrev sections.  */
   data = lto_elf_find_section_data (elf_file, ".debug_info");
   if (!data)
-    goto fail;
+    {
+      error ("could not read %qs section: %s",
+             ".debug_info", elf_errmsg (0));
+      goto fail;
+    }
   fd = (lto_fd *) &result->debug_info;
   fd->start = (const char *) data->d_buf;
   fd->end = fd->start + data->d_size;
 
   data = lto_elf_find_section_data (elf_file, ".debug_abbrev");
   if (!data)
-    goto fail;
+    {
+      error ("could not read %qs section: %s", 
+             ".debug_abbrev", elf_errmsg (0));
+      goto fail;
+    }
   fd = (lto_fd *) &result->debug_abbrev;
   fd->start = (const char *) data->d_buf;
   fd->end = fd->start + data->d_size;
@@ -429,13 +432,13 @@ lto_elf_file_close (lto_file *file)
   lto_file_close (file);
 }
 
-const void *
-lto_elf_map_fn_body (lto_file *file,
-		     const char *fn)
+static const void *
+lto_elf_map_optional_lto_section (lto_file *file,
+                                  const char *id)
 {
   /* Look in the ELF file to find the actual data, which should be
      in the section named LTO_SECTION_NAME_PREFIX || "the function name".  */
-  const char *name = concat (LTO_SECTION_NAME_PREFIX, fn, NULL);
+  const char *name = concat (LTO_SECTION_NAME_PREFIX, id, NULL);
   Elf_Data *data = lto_elf_find_section_data ((lto_elf_file *)file, name);
 
   free ((void *)name);
@@ -446,7 +449,21 @@ lto_elf_map_fn_body (lto_file *file,
     return (const void *)(data->d_buf);
 }
 
-void
+/* Like lto_elf_map_optional_lto_section, but report an error
+   if the section is not present.  */
+static const void *
+lto_elf_map_lto_section (lto_file *file,
+                         const char *id)
+{
+  const void *data = lto_elf_map_optional_lto_section (file, id);
+
+  if (! data)
+    error ("unable to find LTO data for %qs: %s", id, elf_errmsg (0));
+
+  return data;
+}
+
+static void
 lto_elf_unmap_fn_body (lto_file *file ATTRIBUTE_UNUSED, 
 		       const char *fn ATTRIBUTE_UNUSED, 
 		       const void *data ATTRIBUTE_UNUSED)
