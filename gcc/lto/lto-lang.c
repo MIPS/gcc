@@ -52,6 +52,10 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
+/* This variable keeps a table for types for each precision so that we only 
+   allocate each of them once. Signed and unsigned types are kept separate.  */
+static GTY(()) tree signed_and_unsigned_types[MAX_BITS_PER_WORD + 1][2];
+
 /* Language hooks.  */
 
 static bool 
@@ -73,9 +77,22 @@ lto_type_for_mode (enum machine_mode mode ATTRIBUTE_UNUSED,
 
 static tree
 lto_type_for_size (unsigned precision ATTRIBUTE_UNUSED, 
-		   int unsigned_p ATTRIBUTE_UNUSED)
+		   int unsignedp ATTRIBUTE_UNUSED)
 {
-  gcc_unreachable ();
+  tree t = NULL_TREE;
+
+  if (precision <= MAX_BITS_PER_WORD
+      && signed_and_unsigned_types[precision][unsignedp] != 0)
+    return signed_and_unsigned_types[precision][unsignedp];
+
+  if (unsignedp)
+    t = signed_and_unsigned_types[precision][1]
+      = make_unsigned_type (precision);
+  else
+    t = signed_and_unsigned_types[precision][0]
+      = make_signed_type (precision);
+  
+  return t;
 }
 
 static int
@@ -91,9 +108,15 @@ lto_insert_block (tree block ATTRIBUTE_UNUSED)
 }
 
 static void
-lto_set_decl_assembler_name (tree decl ATTRIBUTE_UNUSED)
+lto_set_decl_assembler_name (tree decl)
 {
-  gcc_unreachable ();
+  /* This is lhd_set_decl_assembler_name without performing name
+     mangling.  */
+  const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
+  char *label;
+
+  ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
+  SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
 }
 
 static tree
