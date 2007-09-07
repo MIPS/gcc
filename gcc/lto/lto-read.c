@@ -1504,10 +1504,10 @@ lto_static_init_local (void)
 }
 
 
-/* Read the body form DATA for function FN and fill it in.  FD and
-   CONTEXT are magic cookies used to resolve global decls and
-   types.  */
- 
+/* Read the body form DATA for tree T and fill it in.
+   FD and CONTEXT are magic cookies used to resolve global decls and
+   types.  IN_FUNCTION should be true if DATA describes the
+   body of a function, or false otherwise.  */
 static void 
 lto_read_body (lto_info_fd *fd,
 	       lto_context *context,
