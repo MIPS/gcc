@@ -2881,14 +2881,23 @@ lookup_name_in_scope (tree name, struct c_scope *scope)
 void
 c_init_decl_processing (void)
 {
+  static bool did_it = false;
+
   location_t save_loc = input_location;
 
   /* Initialize reserved words for parser.  */
-  c_parse_init ();
+  if (!did_it)
+    {
+      /* FIXME: should redo this but also reset things which were
+	 previously reserved words.  Must look at the canonical
+	 spelling issue; see comment there.  */
+      c_parse_init ();
+    }
 
   current_function_decl = 0;
 
-  gcc_obstack_init (&parser_obstack);
+  if (!did_it)
+    gcc_obstack_init (&parser_obstack);
 
   /* Make the externals scope.  */
   push_scope ();
@@ -2904,18 +2913,22 @@ c_init_decl_processing (void)
   input_location.line = 0;
 #endif
 
-  build_common_tree_nodes (flag_signed_char, false);
+  if (!did_it)
+    {
+      build_common_tree_nodes (flag_signed_char, false);
 
-  c_common_nodes_and_builtins ();
+      c_common_nodes_and_builtins ();
 
-  /* In C, comparisons and TRUTH_* expressions have type int.  */
-  truthvalue_type_node = integer_type_node;
-  truthvalue_true_node = integer_one_node;
-  truthvalue_false_node = integer_zero_node;
+      /* In C, comparisons and TRUTH_* expressions have type int.  */
+      truthvalue_type_node = integer_type_node;
+      truthvalue_true_node = integer_one_node;
+      truthvalue_false_node = integer_zero_node;
 
-  /* Even in C99, which has a real boolean type.  */
-  pushdecl (build_decl (TYPE_DECL, get_identifier ("_Bool"),
-			boolean_type_node));
+      /* Even in C99, which has a real boolean type.  */
+      pushdecl (build_decl (TYPE_DECL, get_identifier ("_Bool"),
+			    boolean_type_node));
+    }
+  did_it = true;
 
   input_location = save_loc;
 
@@ -8013,9 +8026,10 @@ c_write_global_declarations_2 (tree globals)
 static GTY(()) tree ext_block;
 
 void
-c_write_global_declarations (void)
+c_clear_binding_stack (void)
 {
-  tree t;
+  /* Clear this in case of early exit.  */
+  ext_block = NULL;
 
   /* We don't want to do this if generating a PCH.  */
   if (pch_file)
@@ -8027,6 +8041,7 @@ c_write_global_declarations (void)
     return;
 
   /* Close the external scope.  */
+  /* FIXME: we're keeping ext_block around too long in the server.  */
   ext_block = pop_scope ();
   external_scope = 0;
   gcc_assert (!current_scope);
@@ -8042,6 +8057,15 @@ c_write_global_declarations (void)
 	  dump_end (TDI_tu, stream);
 	}
     }
+}
+
+void
+c_write_global_declarations (void)
+{
+  tree t;
+
+  if (!ext_block)
+    return;
 
   /* Process all file scopes in this compilation, and the external_scope,
      through wrapup_global_declarations and check_global_declarations.  */

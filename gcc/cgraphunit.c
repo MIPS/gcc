@@ -170,11 +170,20 @@ static FILE *cgraph_dump_file;
 static GTY (()) tree static_ctors;
 static GTY (()) tree static_dtors;
 
+/* Keep track of already processed nodes when called multiple times
+   for intermodule optimization.  */
+static struct cgraph_node *first_analyzed;
+static struct varpool_node *first_analyzed_var;
+static int counter = 0;
+
 void
 cgraph_unit_reset (void)
 {
   static_ctors = NULL_TREE;
   static_dtors = NULL_TREE;
+  first_analyzed = NULL;
+  first_analyzed_var = NULL;
+  counter = 0;
 }
 
 /* When target does not have ctors and dtors, we call all constructor
@@ -874,11 +883,7 @@ process_function_and_variable_attributes (struct cgraph_node *first,
 static void
 cgraph_analyze_functions (void)
 {
-  /* Keep track of already processed nodes when called multiple times for
-     intermodule optimization.  */
-  static struct cgraph_node *first_analyzed;
   struct cgraph_node *first_processed = first_analyzed;
-  static struct varpool_node *first_analyzed_var;
   struct cgraph_node *node, *next;
 
   process_function_and_variable_attributes (first_processed,
@@ -1401,7 +1406,6 @@ cgraph_optimize (void)
 void
 cgraph_build_static_cdtor (char which, tree body, int priority)
 {
-  static int counter = 0;
   char which_buf[16];
   tree decl, name, resdecl;
 

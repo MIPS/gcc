@@ -295,7 +295,7 @@ server_main_loop (const char *progname, int fd)
 
   write (fd, &reply, 1);
   close (fd);
-  fprintf (stderr, "server is ready\n");
+  fprintf (stderr, "server is ready; pid = %ld\n", (long) getpid ());
 
   listen (sockfd, 5);
 

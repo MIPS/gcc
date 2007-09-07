@@ -649,6 +649,7 @@ extern bool c_eh_initialized_p;
 
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);
+extern void c_clear_binding_stack (void);
 extern void c_write_global_declarations (void);
 
 /* In order for the format checking to accept the C frontend

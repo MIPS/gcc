@@ -920,6 +920,9 @@ c_invoke_pragma_handler (unsigned int id)
 void
 init_pragma (void)
 {
+  if (registered_pragmas)
+    VEC_free (pragma_handler, heap, registered_pragmas);
+
   if (flag_openmp && !flag_preprocess_only)
     {
       struct omp_pragma_def { const char *name; unsigned int id; };

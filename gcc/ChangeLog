@@ -1,3 +1,21 @@
+2007-09-07  Tom Tromey  <tromey@redhat.com>
+
+	* c-pragma.c (init_pragma): Free pragma vector if already
+	allocated.
+	* c-lang.c (LANG_HOOKS_CLEAR_BINDING_STACK): Define.
+	* c-tree.h (c_clear_binding_stack): Declare.
+	* c-decl.c (c_init_decl_processing): Only initialize some things
+	once.
+	(c_clear_binding_stack): New function.
+	(c_write_global_declarations): Move code to c_clear_binding_stack.
+	* dwarf2out.c (dwarf2out_init): Initialize more globals.
+	* server.c (server_main_loop): Print server pid.
+	* cgraphunit.c (first_analyzed, first_analyzed_var, counter): Move
+	out of function scope.
+	(cgraph_unit_reset): Reset them.
+	* toplev.c (compile_file): Return bool.
+	(do_compile): Exit child process in server mode.
+
 2007-09-06  Tom Tromey  <tromey@redhat.com>
 
 	* server.h (server_start_back_end): Declare.

@@ -111,7 +111,7 @@ static void finalize (void);
 
 static void crash_signal (int) ATTRIBUTE_NORETURN;
 static void setup_core_dumping (void);
-static void compile_file (void);
+static bool compile_file (void);
 
 /* Nonzero to dump debug info whilst parsing (-dy option).  */
 static int set_yydebug;
@@ -1031,9 +1031,10 @@ restore_input_file_stack (int tick)
 }
 
 /* Compile an entire translation unit.  Write a file of assembly
-   output and various debugging dumps.  */
+   output and various debugging dumps.  Returns true if the caller
+   should exit after cleanup.  This is only valid in server mode.  */
 
-static void
+static bool
 compile_file (void)
 {
   /* Initialize yet another pass.  */
@@ -1057,18 +1058,15 @@ compile_file (void)
   timevar_pop (TV_PARSE);
 
   if (flag_syntax_only)
-    return;
+    return false;
 
   if (server_mode && server_start_back_end ())
-    return;
+    return false;
 
   lang_hooks.decls.final_write_globals ();
 
   if (errorcount || sorrycount)
-    {
-      /* FIXME: server mode... */
-      return;
-    }
+    return true;
 
   varpool_assemble_pending_decls ();
   finish_aliases_2 ();
@@ -1124,13 +1122,7 @@ compile_file (void)
      assembly file after this point.  */
   targetm.asm_out.file_end ();
 
-  /* FIXME: this is a bit lame, but our caller doesn't know if we
-     forked.  */
-  if (server_mode)
-    {
-      finalize ();
-      exit (0);
-    }
+  return true;
 }
 
 /* Parse a -d... command line switch.  */
@@ -2161,6 +2153,8 @@ do_compile (void)
   /* Don't do any more if an error has already occurred.  */
   if (!errorcount)
     {
+      bool should_exit = false;
+
       /* This must be run always, because it is needed to compute the FP
 	 predefined macros, such as __LDBL_MAX__, for targets using non
 	 default FP formats.  */
@@ -2172,9 +2166,16 @@ do_compile (void)
 
       /* Language-dependent initialization.  Returns true on success.  */
       if (lang_dependent_init (main_input_filename))
-	compile_file ();
+	should_exit = compile_file ();
 
       finalize ();
+
+      if (should_exit && server_mode)
+	{
+	  /* We forked in compile_file, and this is the child process.
+	     The compile is done, so exit.  */
+	  exit (0);
+	}
     }
 
   /* Stop timing and print the times.  */

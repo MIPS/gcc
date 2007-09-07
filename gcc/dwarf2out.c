@@ -14276,6 +14276,37 @@ dwarf2out_undef (unsigned int lineno ATTRIBUTE_UNUSED,
 static void
 dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
 {
+  /* In server mode we might have been previously initialized.  So,
+     reset some things there that we may not clean up when forked.  */
+#ifdef DWARF2_DEBUGGING_INFO
+  next_die_offset = 0;
+  current_function_has_inlines = false;
+#endif
+  comp_unit_die = NULL;
+  limbo_die_list = NULL;
+  line_info_table_in_use = 0;
+  have_multiple_function_sections = false;
+  separate_line_info_table = NULL;
+  separate_line_info_table_allocated = 0;
+  separate_line_info_table_in_use = 0;
+  arange_table = NULL;
+  arange_table_allocated = 0;
+  arange_table_in_use = 0;
+  ranges_table = NULL;
+  ranges_table_allocated = 0;
+  ranges_table_in_use = 0;
+  ranges_by_label = NULL;
+  ranges_by_label_allocated = 0;
+  ranges_by_label_in_use = 0;
+  have_location_lists = false;
+  loclabel_num = 0;
+  last_emitted_file = NULL;
+  label_num = 0;
+  file_table_last_lookup = NULL;
+  text_section_used = false;
+  cold_text_section_used = false;
+  cold_text_section = NULL;
+
   /* Allocate the file_table.  */
   file_table = htab_create_ggc (50, file_table_hash,
 				file_table_eq, NULL);
