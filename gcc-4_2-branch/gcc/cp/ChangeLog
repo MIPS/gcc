@@ -1,3 +1,19 @@
+2007-09-06  Jason Merrill  <jason@redhat.com>
+
+	* decl2.c (get_guard): Copy visibility from the guarded variable.
+
+2007-09-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/32674
+	* decl.c (cp_finish_decl): When processing_template_decl,
+	deal correctly with init as TREE_LIST.
+
+2007-09-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33210
+	* cxx-pretty-print.c (pp_cxx_unqualified_id): Deal with
+	BOUND_TEMPLATE_TEMPLATE_PARM.
+
 2007-09-04  Jason Merrill  <jason@redhat.com>
 
 	PR c++/14032
