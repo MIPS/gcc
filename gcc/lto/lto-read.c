@@ -708,6 +708,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	  TREE_OPERAND (result, i) 
 	    = input_expr_operand (ib, data_in, fn, 
 				  input_record_start (ib));
+        TREE_TYPE (result) = type;
       }
       break;
 

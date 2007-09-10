@@ -1,3 +1,7 @@
+2007-09-10  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-read.c (lto_read): Set the type of the newly created CALL_EXPR.
+
 2007-09-07  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto-lang.c (signed_and_unsigned_types): New variable.
