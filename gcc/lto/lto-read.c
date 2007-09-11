@@ -554,6 +554,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 		    tree op0 = input_integer (ib, get_type_ref (data_in, ib));
 		    tree op1 = input_integer (ib, get_type_ref (data_in, ib));
 		    purpose = build2 (RANGE_EXPR, sizetype, op0, op1);
+		    LTO_DEBUG_UNDENT();
 		  }
 		else
 		  {
@@ -568,7 +569,6 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 		    purpose = NULL_TREE;
 		    i++;
 		  }
-		LTO_DEBUG_UNDENT();
 	      }
 	  }
 	result = build_constructor (type, vec);
@@ -1399,9 +1399,10 @@ static void
 input_constructor (tree var, struct data_in *data_in, 
 		   struct input_block *ib)
 {
-  enum LTO_tags tag = input_record_start (ib);
+  enum LTO_tags tag;
 
   LTO_DEBUG_INDENT_TOKEN ("init");
+  tag = input_record_start (ib);
   DECL_INITIAL (var) = input_expr_operand (ib, data_in, NULL, tag);
 }
 
@@ -1644,9 +1645,12 @@ lto_read_body (lto_info_fd *fd,
   free (data_in.fn_decls);
   free (data_in.var_decls);
   free (data_in.types);
-  free (data_in.labels);
-  free (data_in.local_decls_index);
-  free (data_in.local_decls_index_d);
+  if (in_function)
+    {
+      free (data_in.labels);
+      free (data_in.local_decls_index);
+      free (data_in.local_decls_index_d);
+    }
 }
 
 
@@ -1670,7 +1674,7 @@ lto_read_var_init (lto_info_fd *fd,
 		   tree var_decl,
 		   const void *data)
 {
-    lto_read_body (fd, context, var_decl, data, false);
+  lto_read_body (fd, context, var_decl, data, false);
 }
 
 /* Dump the debug STREAM, and two characters B and C.  */
