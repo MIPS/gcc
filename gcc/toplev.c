@@ -1105,6 +1105,10 @@ compile_file (void)
   /* Flush any pending external directives.  */
   process_pending_assemble_externals ();
 
+  /* Emit LTO marker if LTO info has been previously emitted.  */
+  if (flag_generate_lto)
+    fprintf (asm_out_file,".globl\tgnu_lto_v1\n");
+
   /* Attach a special .ident directive to the end of the file to identify
      the version of GCC which compiled this code.  The format of the .ident
      string is patterned after the ones produced by native SVR4 compilers.  */

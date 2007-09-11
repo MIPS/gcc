@@ -708,10 +708,12 @@ proper position among the other output files.  */
 /* We want %{T*} after %{L*} and %D so that it can be used to specify linker
    scripts which exist in user specified directories, or in standard
    directories.  */
+/* We pass the -flto flag on to the linker, which is expected
+   to understand it.  In practice, this means it had better be collect2.  */
 #ifndef LINK_COMMAND_SPEC
 #define LINK_COMMAND_SPEC "\
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
-    %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
+    %(linker) %{flto} %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
     %{static:} %{L*} %(mfwrap) %(link_libgcc) %o\
     %{fopenmp:%:include(libgomp.spec)%(link_gomp)} %(mflib)\

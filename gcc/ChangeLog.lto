@@ -1,3 +1,22 @@
+2007-09-11  Bill Maddox  <maddox@google.com>
+
+	Add `gcc' driver support for link-time code generation (LTO).
+
+	* collect2.c (enum pass): Add new literal PASS_LTOINFO.
+	(lto_flag, lto_objects, lto_o_file): New variables.
+	(struct lto_object, struct lto_object_list): New structures.
+	(collect_exit, handler): Remove LTO temporary output file on exit.
+	(add_lto_object): New function.
+	(maybe_run_lto_and_relink): New function. Perform link time code
+	generation and relinking for object files containing LTO information.
+	(main): Invoke maybe_run_lto_and_relink().
+	(dump_argv): New function.  For debugging, currently disabled.
+	(scan_prog_file): Add LTO information pass.
+	* gcc.c (LINK_COMMAND_SPEC): Pass `-flto' switch to linker, i.e.,
+	collect2.
+	* toplev.c (compile_file): Emit assembler directive to create
+	the `gnu_lto_v1' marker symbol when compiling with `-flto'.
+
 2007-09-11  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-function-out.c (lto_static_init): Added type for STRING_CST.
