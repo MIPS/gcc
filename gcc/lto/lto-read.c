@@ -473,6 +473,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
     case STRING_CST:
       result = input_string (data_in, input_uleb128 (ib));
+      TREE_TYPE (result) = type;
       break;
 
     case VECTOR_CST:

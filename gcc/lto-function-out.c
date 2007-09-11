@@ -2006,7 +2006,6 @@ lto_static_init (void)
   RESET_BIT (lto_types_needed_for, PHI_NODE);
   RESET_BIT (lto_types_needed_for, RESX_EXPR);
   RESET_BIT (lto_types_needed_for, SSA_NAME);
-  RESET_BIT (lto_types_needed_for, STRING_CST);
   RESET_BIT (lto_types_needed_for, SWITCH_EXPR);
   RESET_BIT (lto_types_needed_for, VAR_DECL);
 #else
