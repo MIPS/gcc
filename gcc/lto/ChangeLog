@@ -1,3 +1,7 @@
+2007-09-11  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-read.c (input_expr_operand): Added type for STRING_CST.
+	
 2007-09-10  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto-read.c (lto_read): Set the type of the newly created CALL_EXPR.
