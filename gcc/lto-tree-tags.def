@@ -132,6 +132,7 @@
   MAP_EXPR_TAG(NOP_EXPR, LTO_nop_expr)
   MAP_EXPR_TAG(OBJ_TYPE_REF, LTO_obj_type_ref)
   MAP_EXPR_TAG(ORDERED_EXPR, LTO_ordered_expr)
+  MAP_EXPR_TAG(POINTER_PLUS_EXPR, LTO_pointer_plus_expr)
   MAP_EXPR_TAG(PLUS_EXPR, LTO_plus_expr)
   MAP_EXPR_TAG(RDIV_EXPR, LTO_rdiv_expr)
   MAP_EXPR_TAG(REALIGN_LOAD_EXPR, LTO_realign_load_expr)

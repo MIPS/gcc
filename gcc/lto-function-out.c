@@ -1129,24 +1129,13 @@ output_constructor (struct output_block *ob, tree ctor)
 	  LTO_DEBUG_UNDENT ();
 	}
 
-      switch (TREE_CODE (value))
+      if (TREE_CODE (value) == CONSTRUCTOR)
 	{
-	case CONSTRUCTOR:
 	  output_constructor (ob, value);
 	  LTO_DEBUG_UNDENT ();
-	  break;
-	case INTEGER_CST:
-	case REAL_CST:
-	case STRING_CST:
-	case COMPLEX_CST:
-	case VECTOR_CST:
-	  output_expr_operand (ob, value);
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	  break;
 	}
+      else 
+	output_expr_operand (ob, value);
     }
 }
 
