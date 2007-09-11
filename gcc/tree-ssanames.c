@@ -113,7 +113,7 @@ ssanames_print_statistics (void)
    definition).  */
 
 tree
-make_ssa_name (tree var, tree stmt)
+make_ssa_name (tree var, gimple stmt)
 {
   tree t;
   use_operand_p imm;
@@ -283,8 +283,10 @@ duplicate_ssa_name_ptr_info (tree name, struct ptr_info_def *ptr_info)
 /* Release all the SSA_NAMEs created by STMT.  */
 
 void
-release_defs (tree stmt)
+release_defs (gimple stmt)
 {
+  /* FIXME tuples.  */
+#if 0
   tree def;
   ssa_op_iter iter;
 
@@ -295,6 +297,9 @@ release_defs (tree stmt)
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     if (TREE_CODE (def) == SSA_NAME)
       release_ssa_name (def);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 

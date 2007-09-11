@@ -538,11 +538,9 @@ walk_body (walk_stmt_fn callback_stmt, walk_tree_fn callback_op,
   struct walk_stmt_info wi;
 
   memset (&wi, 0, sizeof (wi));
-  wi.callback_stmt = callback_stmt;
-  wi.callback_op = callback_op;
   wi.info = info;
   wi.val_only = true;
-  walk_gimple_seq (seq, &wi);
+  walk_gimple_seq (seq, callback_stmt, callback_op, &wi);
 }
 
 

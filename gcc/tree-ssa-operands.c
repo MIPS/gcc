@@ -257,7 +257,7 @@ operand_build_sort_virtual (VEC(tree,heap) *list)
 	 sizeof (tree),
 	 operand_build_cmp);
 }
-
+#endif
 
 /*  Return true if the SSA operands cache is active.  */
 
@@ -268,6 +268,8 @@ ssa_operands_active (void)
 }
 
 
+/* FIXME tuples.  */
+#if 0
 /* VOPs are of variable sized, so the free list maps "free buckets" to the 
    following table:  
     bucket   # operands

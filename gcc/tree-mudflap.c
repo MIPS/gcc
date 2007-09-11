@@ -488,7 +488,7 @@ mf_decl_cache_locals (void)
   gcc_unreachable ();
 #endif
 
-  bsi_commit_edge_inserts ();
+  gsi_commit_edge_inserts ();
 }
 
 
@@ -946,6 +946,8 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
 static void
 mf_xform_derefs (void)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb, next;
   block_stmt_iterator i;
   int saved_last_basic_block = last_basic_block;
@@ -956,8 +958,6 @@ mf_xform_derefs (void)
       next = bb->next_bb;
       for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
         {
-	  /* FIXME tuples.  */
-#if 0
           tree s = bsi_stmt (i);
 
           /* Only a few GIMPLE statements can reference memory.  */
@@ -986,13 +986,13 @@ mf_xform_derefs (void)
             default:
               ;
             }
-#else
-	  gcc_unreachable ();
-#endif
         }
       bb = next;
     }
   while (bb && bb->index <= saved_last_basic_block);
+#else
+	  gcc_unreachable ();
+#endif
 }
 
 /* ------------------------------------------------------------------------ */

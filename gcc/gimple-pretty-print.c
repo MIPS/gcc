@@ -145,7 +145,7 @@ debug_gimple_seq (gimple_seq seq)
 static void
 dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  enum tree_code rhs_code = gimple_assign_rhs_code (gs);
+  enum tree_code rhs_code = gimple_assign_subcode (gs);
   tree lhs = gimple_assign_lhs (gs);
   tree rhs = gimple_assign_rhs1 (gs);
 
@@ -201,7 +201,7 @@ dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
 static void
 dump_binary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  switch (gimple_assign_rhs_code (gs))
+  switch (gimple_assign_subcode (gs))
     {
     case COMPLEX_EXPR:
       pp_string (buffer, "COMPLEX_EXPR <");
@@ -214,7 +214,7 @@ dump_binary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
     default:
       dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
       pp_space (buffer);
-      pp_string (buffer, op_symbol_code (gimple_assign_rhs_code (gs)));
+      pp_string (buffer, op_symbol_code (gimple_assign_subcode (gs)));
       pp_space (buffer);
       dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
     }
@@ -315,19 +315,6 @@ dump_gimple_switch (pretty_printer *buffer, gimple gs, int spc, int flags)
 }
 
 
-/* Return the symbol associated with the GIMPLE_COND predicate PRED.  */
-
-static const char *
-op_gimple_cond (enum gimple_cond pred)
-{
-  /* These must be in sync with enum gimple_cond.  */
-  static const char *table[] =
-    { "<", ">", "<=", ">=", "==", "!=" };
-
-  return table[(int) pred];
-}
-
-
 /* Dump the gimple conditional GS.  BUFFER, SPC and FLAGS are as in
    dump_gimple_stmt.  */
 
@@ -341,28 +328,13 @@ dump_gimple_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
   pp_string (buffer, "if (");
   dump_generic_node (buffer, gimple_cond_lhs (gs), spc, flags, false);
   pp_space (buffer);
-  pp_string (buffer, op_gimple_cond (gimple_cond_code (gs)));
+  pp_string (buffer, tree_code_name [gimple_cond_code (gs)]);
   pp_space (buffer);
   dump_generic_node (buffer, gimple_cond_rhs (gs), spc, flags, false);
-  pp_character (buffer, ')');
-  newline_and_indent (buffer, spc + 2);
-  pp_character (buffer, '{');
-  newline_and_indent (buffer, spc + 4);
-  pp_string (buffer, "goto ");
+  pp_string (buffer, ") goto ");
   dump_generic_node (buffer, gimple_cond_true_label (gs), spc, flags, false);
-  pp_character (buffer, ';');
-  newline_and_indent (buffer, spc + 2);
-  pp_character (buffer, '}');
-  newline_and_indent (buffer, spc);
-  pp_string (buffer, "else");
-  newline_and_indent (buffer, spc + 2);
-  pp_character (buffer, '{');
-  newline_and_indent (buffer, spc + 4);
-  pp_string (buffer, "goto ");
+  pp_string (buffer, " else goto ");
   dump_generic_node (buffer, gimple_cond_false_label (gs), spc, flags, false);
-  pp_character (buffer, ';');
-  newline_and_indent (buffer, spc + 2);
-  pp_character (buffer, '}');
 }
 
 

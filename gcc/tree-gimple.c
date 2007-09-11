@@ -41,9 +41,8 @@ along with GCC; see the file COPYING3.  If not see
    be used on the RHS of GIMPLE assignments.  */
 
 enum gimple_rhs_class
-get_gimple_rhs_class (tree t)
+get_gimple_rhs_class (enum tree_code code)
 {
-  enum tree_code code = TREE_CODE (t);
   enum tree_code_class class = TREE_CODE_CLASS (code);
   
   switch (class)
@@ -56,6 +55,8 @@ get_gimple_rhs_class (tree t)
       return GIMPLE_BINARY_RHS;
 
     case tcc_constant:
+    case tcc_declaration:
+    case tcc_reference:
       return GIMPLE_SINGLE_RHS;
 
     default:
@@ -84,9 +85,6 @@ get_gimple_rhs_class (tree t)
       break;
     }
 
-  if (is_gimple_lvalue (t) || is_gimple_val (t))
-    return GIMPLE_SINGLE_RHS;
-
   return GIMPLE_INVALID_RHS;
 }
 
@@ -96,7 +94,10 @@ get_gimple_rhs_class (tree t)
 bool
 is_gimple_formal_tmp_rhs (tree t)
 {
-  return get_gimple_rhs_class (t) != GIMPLE_INVALID_RHS;
+  if (is_gimple_lvalue (t) || is_gimple_val (t))
+    return true;
+
+  return get_gimple_rhs_class (TREE_CODE (t)) != GIMPLE_INVALID_RHS;
 }
 
 /* Returns true iff T is a valid RHS for an assignment to a renamed

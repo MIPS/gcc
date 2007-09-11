@@ -554,9 +554,11 @@ struct name_expansion
    ...  */
 
 void
-tree_to_aff_combination_expand (tree expr, tree type, aff_tree *comb,
-				struct pointer_map_t **cache)
+tree_to_aff_combination_expand (tree expr ATTRIBUTE_UNUSED, tree type ATTRIBUTE_UNUSED, aff_tree *comb ATTRIBUTE_UNUSED,
+				struct pointer_map_t **cache ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   unsigned i;
   aff_tree to_add, current, curre;
   tree e, def, rhs;
@@ -620,6 +622,9 @@ tree_to_aff_combination_expand (tree expr, tree type, aff_tree *comb,
       aff_combination_add (&to_add, &curre);
     }
   aff_combination_add (comb, &to_add);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Frees memory occupied by struct name_expansion in *VALUE.  Callback for

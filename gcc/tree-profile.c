@@ -166,8 +166,10 @@ tree_init_edge_profiler (void)
    bsi_insert_on_edge to preserve the order.  */
 
 static void
-tree_gen_edge_profiler (int edgeno, edge e)
+tree_gen_edge_profiler (int edgeno ATTRIBUTE_UNUSED, edge e ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree tmp1 = create_tmp_var (gcov_type_node, "PROF");
   tree tmp2 = create_tmp_var (gcov_type_node, "PROF");
   tree ref = tree_coverage_counter_ref (GCOV_COUNTER_ARCS, edgeno);
@@ -180,6 +182,9 @@ tree_gen_edge_profiler (int edgeno, edge e)
   bsi_insert_on_edge (e, stmt1);
   bsi_insert_on_edge (e, stmt2);
   bsi_insert_on_edge (e, stmt3);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Emits code to get VALUE to instrument at BSI, and returns the

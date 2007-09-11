@@ -65,7 +65,10 @@ struct dfa_stats_d
 
 /* Local functions.  */
 static void collect_dfa_stats (struct dfa_stats_d *);
+/* FIXME tuples.  */
+#if 0
 static tree collect_dfa_stats_r (tree *, int *, void *);
+#endif
 static tree find_vars_r (tree *, int *, void *);
 
 
@@ -83,17 +86,22 @@ static tree find_vars_r (tree *, int *, void *);
 static unsigned int
 find_referenced_vars (void)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb;
-  block_stmt_iterator si;
+  gimple_stmt_iterator *si;
 
   FOR_EACH_BB (bb)
-    for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+    for (si = gsi_start (bb); !bsi_end_p (si); bsi_next (&si))
       {
 	tree *stmt_p = bsi_stmt_ptr (si);
 	walk_tree (stmt_p, find_vars_r, NULL, NULL);
       }
 
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 struct tree_opt_pass pass_referenced_vars =
@@ -541,13 +549,12 @@ debug_dfa_stats (void)
    DFA_STATS_P.  */
 
 static void
-collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
+collect_dfa_stats (struct dfa_stats_d *dfa_stats_p ATTRIBUTE_UNUSED)
 {
-  struct pointer_set_t *pset;
   /* FIXME tuples */
 #if 0
+  struct pointer_set_t *pset;
   basic_block bb;
-#endif
   block_stmt_iterator i;
 
   gcc_assert (dfa_stats_p);
@@ -565,8 +572,6 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
 
   pointer_set_destroy (pset);
 
-  /* FIXME tuples */
-#if 0
   FOR_EACH_BB (bb)
     {
       tree phi;
@@ -578,19 +583,20 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
 	    dfa_stats_p->max_num_phi_args = PHI_NUM_ARGS (phi);
 	}
     }
+#else
+  gcc_unreachable ();
 #endif
 }
 
 
+/* FIXME tuples */
+#if 0
 /* Callback for walk_tree to collect DFA statistics for a tree and its
    children.  */
 
 static tree
-collect_dfa_stats_r (tree *tp ATTRIBUTE_UNUSED, int *walk_subtrees ATTRIBUTE_UNUSED,
-		     void *data ATTRIBUTE_UNUSED)
+collect_dfa_stats_r (tree *tp, int *walk_subtrees, void *data)
 {
-  /* FIXME tuples */
-#if 0
   tree t = *tp;
   struct dfa_stats_d *dfa_stats_p = (struct dfa_stats_d *)data;
 
@@ -618,10 +624,8 @@ collect_dfa_stats_r (tree *tp ATTRIBUTE_UNUSED, int *walk_subtrees ATTRIBUTE_UNU
     }
 
   return NULL;
-#else
-  gcc_unreachable ();
-#endif
 }
+#endif
 
 
 /*---------------------------------------------------------------------------

@@ -28,8 +28,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 DEFGSCODE(GIMPLE_BASE, "gimple_base")
 DEFGSCODE(GIMPLE_WITH_OPS, "gimple_with_ops")
 
-/* Do not rearrange the codes between GIMPLE_ASSIGN and GIMPLE_RETURN.  It's
-   exposed by GIMPLE_RANGE_CHECK calls.  These are all the GIMPLE
+/* Do not rearrange the codes between GIMPLE_ASSIGN and GIMPLE_RETURN.
+   It's exposed by GIMPLE_RANGE_CHECK calls.  These are all the GIMPLE
    statements with register operands.  */
 DEFGSCODE(GIMPLE_ASSIGN, "gimple_assign")
 DEFGSCODE(GIMPLE_COND, "gimple_cond")
@@ -37,10 +37,10 @@ DEFGSCODE(GIMPLE_GOTO, "gimple_goto")
 DEFGSCODE(GIMPLE_LABEL, "gimple_label")
 DEFGSCODE(GIMPLE_SWITCH, "gimple_switch")
 
-/* Do not rearrange the codes between GIMPLE_ASM and GIMPLE_WITH_MEM_OPS.  It's
-   exposed by GIMPLE_RANGE_CHECK calls.  These are all the GIMPLE statements
-   with memory and register operands.  */
-
+/* Do not rearrange the codes between GIMPLE_ASM and
+   GIMPLE_WITH_MEM_OPS.  It's exposed by GIMPLE_RANGE_CHECK calls.
+   These are all the GIMPLE statements with memory and register
+   operands.  */
 DEFGSCODE(GIMPLE_ASM, "gimple_asm")
 DEFGSCODE(GIMPLE_CALL, "gimple_call")
 DEFGSCODE(GIMPLE_RETURN, "gimple_return")

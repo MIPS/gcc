@@ -131,7 +131,7 @@ lower_function_body (void)
 	       (VEC_last (return_statements_t,
 			  data.return_statements)->stmt) != NULL))
     {
-      x = build_gimple_return (false, NULL);
+      x = build_gimple_return (NULL);
       set_gimple_locus (x, cfun->function_end_locus);
       gsi_link_after (i, x, GSI_CONTINUE_LINKING);
     }
@@ -253,7 +253,7 @@ lower_omp_directive (gimple_stmt_iterator *gsi, struct lower_data *data)
   gsi_link_before (gsi, stmt, GSI_SAME_STMT);
   gsi_link_before (gsi, OMP_BODY (stmt), GSI_SAME_STMT);
   OMP_BODY (stmt) = NULL_TREE;
-  gsi_delink (gsi);
+  gsi_remove (gsi, false);
 }
 #endif
 
@@ -390,7 +390,7 @@ lower_gimple_bind (gimple_stmt_iterator *gsi, struct lower_data *data)
 
   /* The GIMPLE_BIND no longer carries any useful information -- kill it.  */
   gsi_link_seq_before (gsi, gimple_bind_body (stmt), GSI_SAME_STMT);
-  gsi_delink (gsi);
+  gsi_remove (gsi, false);
 }
 
 /* Try to determine whether a TRY_CATCH expression can fall through.
@@ -450,7 +450,7 @@ gimple_try_catch_may_fallthru (gimple stmt)
   gimple_stmt_iterator *i;
 
   /* We don't handle GIMPLE_TRY_FINALLY.  */
-  gcc_assert (gimple_flags (stmt) == GIMPLE_TRY_CATCH);
+  gcc_assert (gimple_try_kind (stmt) == GIMPLE_TRY_CATCH);
 
   /* If the TRY block can fall through, the whole TRY_CATCH can
      fall through.  */
@@ -596,7 +596,7 @@ gimple_stmt_may_fallthru (gimple stmt)
       return gimple_seq_may_fallthru (gimple_bind_body (stmt));
 
     case GIMPLE_TRY:
-      if (gimple_flags (stmt) == GIMPLE_TRY_CATCH)
+      if (gimple_try_kind (stmt) == GIMPLE_TRY_CATCH)
         return gimple_try_catch_may_fallthru (stmt);
 
       /* It must be a GIMPLE_TRY_FINALLY.  */
@@ -669,7 +669,7 @@ lower_gimple_return (gimple_stmt_iterator *gsi, struct lower_data *data)
   t = build_gimple_goto (tmp_rs.label);
   set_gimple_locus (t, gimple_locus (stmt));
   gsi_link_before (gsi, t, GSI_SAME_STMT);
-  gsi_delink (gsi);
+  gsi_remove (gsi, false);
 }
 
 /* Lower a __builtin_setjmp TSI.
@@ -785,7 +785,7 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
   gsi_link_before (gsi, g, GSI_SAME_STMT);
 
   /* Remove the call to __builtin_setjmp.  */
-  gsi_delink (gsi);
+  gsi_remove (gsi, false);
 }
 
 

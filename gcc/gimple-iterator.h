@@ -111,6 +111,26 @@ gsi_stmt (gimple_stmt_iterator *i)
   return i->stmt;
 }
 
+
+/* Remove the current stmt from the sequence.  The iterator is updated to
+   point to the next statement.
+
+   When REMOVE_EH_INFO is true we remove the statement pointed to by
+   iterator I from the EH tables.  Otherwise we do not modify the EH
+   tables.
+
+   Generally, REMOVE_EH_INFO should be true when the statement is going to
+   be removed from the IL and not reinserted elsewhere.  */
+
+static inline void
+gsi_remove (gimple_stmt_iterator *i, bool remove_eh_info)
+{
+  gimple stmt = i->stmt;
+  gimple_seq seq = i->seq;
+  gsi_next (i);
+  gimple_remove (stmt, seq, remove_eh_info);
+}
+
 enum gsi_iterator_update
 {
   GSI_NEW_STMT,		/* Only valid when single statement is added, move
@@ -128,9 +148,20 @@ void gsi_link_before (gimple_stmt_iterator *, gimple,
 void gsi_link_seq_after (gimple_stmt_iterator *, gimple_seq,
 			 enum gsi_iterator_update);
 void gsi_link_after (gimple_stmt_iterator *, gimple, enum gsi_iterator_update);
-void gsi_delink (gimple_stmt_iterator *);
 gimple_seq gsi_split_seq_after (const gimple_stmt_iterator *);
 gimple_seq gsi_split_seq_before (gimple_stmt_iterator *);
 void gsi_replace (gimple_stmt_iterator *, gimple, bool);
+void gsi_insert_before (gimple_stmt_iterator *, gimple,
+			enum gsi_iterator_update);
+void gsi_insert_seq_before (gimple_stmt_iterator *, gimple_seq,
+		       enum gsi_iterator_update);
+void gsi_insert_after (gimple_stmt_iterator *, gimple,
+		       enum gsi_iterator_update);
+void gsi_insert_seq_after (gimple_stmt_iterator *, gimple_seq,
+			   enum gsi_iterator_update);
+gimple_stmt_iterator *gsi_for_stmt (gimple);
+void gsi_move_after (gimple_stmt_iterator *, gimple_stmt_iterator *);
+void gsi_move_before (gimple_stmt_iterator *, gimple_stmt_iterator *);
+void gsi_move_to_bb_end (gimple_stmt_iterator *, struct basic_block_def *);
 
 #endif /* GCC_SEQ_ITERATOR_H */

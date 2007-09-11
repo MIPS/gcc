@@ -541,20 +541,20 @@ void vect_pattern_recog (loop_vec_info);
 
 
 /** In tree-vect-transform.c  **/
-extern bool vectorizable_load (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_store (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_type_promotion (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_type_demotion (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_conversion (tree, block_stmt_iterator *, 
+extern bool vectorizable_load (tree, gimple_stmt_iterator *, tree *);
+extern bool vectorizable_store (tree, gimple_stmt_iterator *, tree *);
+extern bool vectorizable_operation (tree, gimple_stmt_iterator *, tree *);
+extern bool vectorizable_type_promotion (tree, gimple_stmt_iterator *, tree *);
+extern bool vectorizable_type_demotion (tree, gimple_stmt_iterator *, tree *);
+extern bool vectorizable_conversion (tree, gimple_stmt_iterator *, 
 				     tree *);
-extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_assignment (tree, gimple_stmt_iterator *, tree *);
 extern tree vectorizable_function (tree, tree, tree);
-extern bool vectorizable_call (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_condition (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_live_operation (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_reduction (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_induction (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_call (tree, gimple_stmt_iterator *, tree *);
+extern bool vectorizable_condition (tree, gimple_stmt_iterator *, tree *);
+extern bool vectorizable_live_operation (tree, gimple_stmt_iterator *, tree *);
+extern bool vectorizable_reduction (tree, gimple_stmt_iterator *, tree *);
+extern bool vectorizable_induction (tree, gimple_stmt_iterator *, tree *);
 extern int  vect_estimate_min_profitable_iters (loop_vec_info);
 /* Driver for transformation stage.  */
 extern void vect_transform_loop (loop_vec_info);

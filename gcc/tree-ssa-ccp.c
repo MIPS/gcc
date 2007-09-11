@@ -267,6 +267,7 @@ debug_lattice_value (prop_value_t val)
   dump_lattice_value (stderr, "", val);
   fprintf (stderr, "\n");
 }
+#endif
 
 
 /* The regular is_gimple_min_invariant does a shallow test of the object.
@@ -294,6 +295,9 @@ ccp_decl_initial_min_invariant (tree t)
   return true;
 }
 
+
+/* FIXME tuples.  */
+#if 0
 /* If SYM is a constant variable with known value, return the value.
    NULL_TREE is returned otherwise.  */
 
@@ -1837,8 +1841,6 @@ maybe_fold_offset_to_reference (tree base, tree offset, tree orig_type)
   return ret;
 }
 
-/* FIXME tuples.  */
-#if 0
 /* A subroutine of fold_stmt_r.  Attempt to simplify *(BASE+OFFSET).
    Return the simplified expression, or NULL if nothing could be done.  */
 
@@ -1934,6 +1936,8 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 }
 
 
+/* FIXME tuples.  */
+#if 0
 /* A subroutine of fold_stmt_r.  EXPR is a POINTER_PLUS_EXPR.
 
    A quaint feature extant in our address arithmetic is that there
@@ -2020,13 +2024,14 @@ maybe_fold_stmt_addition (tree expr)
 
   return t;
 }
+#endif
 
 /* For passing state through walk_tree into fold_stmt_r and its
    children.  */
 
 struct fold_stmt_r_data
 {
-  tree stmt;
+  gimple stmt;
   bool *changed_p;
   bool *inside_addr_expr_p;
 };
@@ -2037,10 +2042,15 @@ struct fold_stmt_r_data
 static tree
 fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 {
-  struct fold_stmt_r_data *fold_stmt_r_data = (struct fold_stmt_r_data *) data;
-  bool *inside_addr_expr_p = fold_stmt_r_data->inside_addr_expr_p;
-  bool *changed_p = fold_stmt_r_data->changed_p;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  struct fold_stmt_r_data *fold_stmt_r_data;
+  bool *inside_addr_expr_p;
+  bool *changed_p;
   tree expr = *expr_p, t;
+
+  fold_stmt_r_data = (struct fold_stmt_r_data *) wi->info;
+  inside_addr_expr_p = fold_stmt_r_data->inside_addr_expr_p;
+  changed_p = fold_stmt_r_data->changed_p;
 
   /* ??? It'd be nice if walk_tree had a pre-order option.  */
   switch (TREE_CODE (expr))
@@ -2103,6 +2113,8 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       return NULL_TREE;
 
     case POINTER_PLUS_EXPR:
+      /* FIXME tuples.  */
+#if 0
       t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
       if (t)
 	return t;
@@ -2112,6 +2124,9 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       *walk_subtrees = 0;
 
       t = maybe_fold_stmt_addition (expr);
+#else
+      gcc_unreachable ();
+#endif
       break;
 
     case COMPONENT_REF:
@@ -2140,6 +2155,8 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       break;
 
     case COND_EXPR:
+      /* FIXME tuples.  */
+#if 0
       if (COMPARISON_CLASS_P (TREE_OPERAND (expr, 0)))
         {
 	  tree op0 = TREE_OPERAND (expr, 0);
@@ -2158,6 +2175,9 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 	      break;
 	    }
         }
+#else
+      gcc_unreachable ();
+#endif
       return NULL_TREE;
 
     default:
@@ -2174,6 +2194,8 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 }
 
 
+/* FIXME tuples.  */
+#if 0
 /* Return the string length, maximum string length or maximum value of
    ARG in LENGTH.
    If ARG is an SSA name variable, follow its use-def chains.  If LENGTH
@@ -2570,16 +2592,20 @@ fold_stmt (tree *stmt_p)
 
   return changed;
 }
+#endif
 
 /* Perform the minimal folding on statement STMT.  Only operations like
    *&x created by constant propagation are handled.  The statement cannot
-   be replaced with a new one.  */
+   be replaced with a new one.  Return true if the statement was
+   changed, false otherwise.  */
 
 bool
-fold_stmt_inplace (tree stmt)
+fold_stmt_inplace (gimple stmt)
 {
-  tree old_stmt = stmt, rhs, new_rhs;
+  enum gimple_code code;
+  tree new_rhs;
   struct fold_stmt_r_data fold_stmt_r_data;
+  struct walk_stmt_info wi;
   bool changed = false;
   bool inside_addr_expr = false;
 
@@ -2587,23 +2613,55 @@ fold_stmt_inplace (tree stmt)
   fold_stmt_r_data.changed_p = &changed;
   fold_stmt_r_data.inside_addr_expr_p = &inside_addr_expr;
 
-  walk_tree (&stmt, fold_stmt_r, &fold_stmt_r_data, NULL);
-  gcc_assert (stmt == old_stmt);
+  memset (&wi, 0, sizeof (wi));
+  wi.info = &fold_stmt_r_data;
 
-  rhs = get_rhs (stmt);
-  if (!rhs || rhs == stmt)
-    return changed;
+  /* Fold the individual operands.  */
+  walk_gimple_stmt (stmt, NULL, fold_stmt_r, &wi);
 
-  new_rhs = fold (rhs);
-  STRIP_USELESS_TYPE_CONVERSION (new_rhs);
-  if (new_rhs == rhs)
-    return changed;
+  /* Fold the main computation performed by the statement.  */
+  code = gimple_code (stmt);
+  if (code == GIMPLE_ASSIGN)
+    {
+      tree lhs = gimple_assign_lhs (stmt);
+      tree rhs1 = gimple_assign_rhs1 (stmt);
+      tree rhs2 = gimple_assign_rhs2 (stmt);
+      tree type = TREE_TYPE (lhs);
+      enum tree_code rhs_code;
+      enum gimple_rhs_class rhs_class;
 
+      rhs_code = gimple_assign_subcode (stmt);
+      rhs_class = get_gimple_rhs_class (rhs_code);
+      if (rhs_class == GIMPLE_BINARY_RHS)
+	new_rhs = fold_binary (rhs_code, type, rhs1, rhs2);
+      else if (rhs_class == GIMPLE_UNARY_RHS)
+	new_rhs = fold_unary (rhs_code, type, rhs1);
+      else if (rhs_class == GIMPLE_SINGLE_RHS)
+	new_rhs = rhs1;
+      else
+	gcc_unreachable ();
+    }
+  else if (code == GIMPLE_COND)
+    new_rhs = fold_binary (gimple_cond_code (stmt), boolean_type_node,
+			   gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
+  else
+    {
+      /* No other statement has a foldable expression, so folding its
+	 individual operands is enough.  */
+      return changed;
+    }
+
+  /* FIXME tuples.  */
+#if 0
   changed |= set_rhs (&stmt, new_rhs);
-  gcc_assert (stmt == old_stmt);
+#else
+  gcc_unreachable ();
+#endif
 
   return changed;
 }
+/* FIXME tuples.  */
+#if 0
 
 /* Convert EXPR into a GIMPLE value suitable for substitution on the
    RHS of an assignment.  Insert the necessary statements before

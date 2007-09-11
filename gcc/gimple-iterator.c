@@ -22,8 +22,10 @@ Boston, MA 02110-1301, USA.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "gimple.h"
+#include "tree-flow.h"
 
 /* Links a sequence of statements before the current statement.  */
 
@@ -176,34 +178,6 @@ gsi_link_after (gimple_stmt_iterator *i,
 }
 
 
-/* Remove the current stmt from the sequence.  The iterator is updated to
-   point to the next statement.  */
-
-void
-gsi_delink (gimple_stmt_iterator *i)
-{
-  gimple cur = i->stmt;
-  gimple next = gimple_next (cur);
-  gimple prev = gimple_prev (cur);
-
-  if (prev)
-    set_gimple_next (prev, next);
-  else
-    gimple_seq_set_first (i->seq, next);
-  if (next)
-    set_gimple_prev (next, prev);
-  else
-    gimple_seq_set_last (i->seq, prev);
-
-  /* Clear any links this statement may have, just in case someone is
-     still using it.  */
-  set_gimple_next (i->stmt, NULL);
-  set_gimple_prev (i->stmt, NULL);
-
-  i->stmt = next;
-}
-
-
 /* Move all statements in the sequence after I to a new sequence.  I
    itself is unchanged.  */
 
@@ -306,4 +280,133 @@ gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info ATTRIBU
 #endif
 
   gsi->stmt = stmt;
+}
+
+
+/* Mark the statement T as modified, and update it.  */
+
+static inline void
+update_modified_stmt (gimple t)
+{
+  /* FIXME tuples: Perhaps we should cache the output from
+     ssa_operands_active, or make it inline ??  */
+  if (!ssa_operands_active ())
+    return;
+  update_stmt_if_modified (t);
+}
+
+
+/* Insert statement STMT before the statement pointed-to by iterator
+   I, update STMT's basic block and scan it for new operands.  M
+   specifies how to update iterator I after insertion (see enum
+   gsi_iterator_update).  */
+
+void
+gsi_insert_before (gimple_stmt_iterator *i, gimple stmt,
+		   enum gsi_iterator_update m)
+{
+  set_gimple_bb (stmt, gimple_bb (gsi_stmt (i)));
+  update_modified_stmt (stmt);
+  gsi_link_before (i, stmt, m);
+}
+
+
+/* Like gsi_insert_before, but for all the statements in SEQ.  */
+
+void
+gsi_insert_seq_before (gimple_stmt_iterator *i, gimple_seq seq,
+		       enum gsi_iterator_update m)
+{
+  gimple_stmt_iterator *gsi;
+
+  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (gsi))
+    gsi_insert_before (i, gsi_stmt (gsi), m);
+}
+
+
+/* Insert statement STMT after the statement pointed-to by iterator I,
+   update STMT's basic block and scan it for new operands.  M
+   specifies how to update iterator I after insertion (see enum
+   gsi_iterator_update).  */
+
+void
+gsi_insert_after (gimple_stmt_iterator *i, gimple stmt,
+		  enum gsi_iterator_update m)
+{
+  set_gimple_bb (stmt, gimple_bb (gsi_stmt (i)));
+  update_modified_stmt (stmt);
+  gsi_link_after (i, stmt, m);
+}
+
+
+/* Like gsi_insert_after, but for all the statements in SEQ.  */
+
+void
+gsi_insert_seq_after (gimple_stmt_iterator *i, gimple_seq seq,
+		      enum gsi_iterator_update m)
+{
+  gimple_stmt_iterator *gsi;
+
+  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (gsi))
+    gsi_insert_after (i, gsi_stmt (gsi), m);
+}
+
+
+/* Finds iterator for STMT.  */
+
+gimple_stmt_iterator *
+gsi_for_stmt (gimple stmt)
+{
+  gimple_stmt_iterator *gsi;
+
+  for (gsi = gsi_start (bb_seq (gimple_bb (stmt))); !gsi_end_p (gsi);
+       gsi_next (gsi))
+    if (gsi_stmt (gsi) == stmt)
+      return gsi;
+
+  gcc_unreachable ();
+}
+
+
+/* Move the statement at FROM so it comes right after the statement at TO.  */
+
+void
+gsi_move_after (gimple_stmt_iterator *from, gimple_stmt_iterator *to)
+{
+  gimple stmt = gsi_stmt (from);
+  gsi_remove (from, false);
+
+  /* We must have GSI_NEW_STMT here, as gsi_move_after is sometimes used to
+     move statements to an empty block.  */
+  gsi_insert_after (to, stmt, GSI_NEW_STMT);
+}
+
+
+/* Move the statement at FROM so it comes right before the statement at TO.  */
+
+void
+gsi_move_before (gimple_stmt_iterator *from, gimple_stmt_iterator *to)
+{
+  gimple stmt = gsi_stmt (from);
+  gsi_remove (from, false);
+
+  /* For consistency with gsi_move_after, it might be better to have
+     GSI_NEW_STMT here; however, that breaks several places that expect
+     that TO does not change.  */
+  gsi_insert_before (to, stmt, GSI_SAME_STMT);
+}
+
+
+/* Move the statement at FROM to the end of basic block BB.  */
+
+void
+gsi_move_to_bb_end (gimple_stmt_iterator *from, basic_block bb)
+{
+  gimple_stmt_iterator *last = gsi_last (bb_seq (bb));
+
+  /* Have to check gsi_end_p because it could be an empty block.  */
+  if (!gsi_end_p (last) && is_ctrl_stmt (gsi_stmt (last)))
+    gsi_move_before (from, last);
+  else
+    gsi_move_after (from, last);
 }

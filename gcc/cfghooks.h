@@ -61,7 +61,7 @@ struct cfg_hooks
   bool (*move_block_after) (basic_block b, basic_block a);
 
   /* Return true when blocks A and B can be merged into single basic block.  */
-  bool (*can_merge_blocks_p) (const_basic_block a, const_basic_block b);
+  bool (*can_merge_blocks_p) (basic_block a, basic_block b);
 
   /* Merge blocks A and B.  */
   void (*merge_blocks) (basic_block a, basic_block b);
@@ -151,7 +151,7 @@ extern void delete_basic_block (basic_block);
 extern basic_block split_edge (edge);
 extern basic_block create_basic_block (void *, void *, basic_block);
 extern basic_block create_empty_bb (basic_block);
-extern bool can_merge_blocks_p (const_basic_block, const_basic_block);
+extern bool can_merge_blocks_p (basic_block, basic_block);
 extern void merge_blocks (basic_block, basic_block);
 extern edge make_forwarder_block (basic_block, bool (*)(edge),
 				  void (*) (basic_block));

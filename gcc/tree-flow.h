@@ -527,7 +527,6 @@ static inline stmt_ann_t stmt_ann (tree);
 static inline bool has_stmt_ann (tree);
 static inline stmt_ann_t get_stmt_ann (tree);
 static inline enum tree_ann_type ann_type (tree_ann_t);
-extern void set_bb_for_stmt (gimple, basic_block);
 static inline bool noreturn_call_p (gimple);
 static inline void update_stmt (gimple);
 static inline bool stmt_modified_p (gimple);
@@ -618,59 +617,6 @@ extern bool referenced_var_check_and_insert (tree);
 #define PERCENT(x,y) ((float)(x) * 100.0 / (float)(y))
 
 /*---------------------------------------------------------------------------
-			      Block iterators
----------------------------------------------------------------------------*/
-
-/* FIXME tuples: We should get rid of block_stmt_iterators altogether.
-   Using gimple_stmt_iterator should be enough.  We can change
-   bsi_start(bb) to gsi_start(bb_body (bb)).  */
-
-typedef struct {
-  gimple_stmt_iterator *gsi;
-  basic_block bb;
-} block_stmt_iterator;
-
-typedef struct {
-  const_tree_stmt_iterator tsi;
-  const_basic_block bb;
-} const_block_stmt_iterator;
-
-static inline block_stmt_iterator bsi_start (basic_block);
-static inline block_stmt_iterator bsi_last (basic_block);
-static inline block_stmt_iterator bsi_after_labels (basic_block);
-block_stmt_iterator bsi_for_stmt (gimple);
-static inline bool bsi_end_p (block_stmt_iterator);
-static inline void bsi_next (block_stmt_iterator *);
-static inline void bsi_prev (block_stmt_iterator *);
-static inline gimple bsi_stmt (block_stmt_iterator);
-static inline tree * bsi_stmt_ptr (block_stmt_iterator);
-
-extern void bsi_remove (block_stmt_iterator *, bool);
-extern void bsi_move_before (block_stmt_iterator *, block_stmt_iterator *);
-extern void bsi_move_after (block_stmt_iterator *, block_stmt_iterator *);
-extern void bsi_move_to_bb_end (block_stmt_iterator *, basic_block);
-
-enum bsi_iterator_update
-{
-  /* Note that these are intentionally in the same order as TSI_FOO.  They
-     mean exactly the same as their TSI_* counterparts.  */
-  BSI_NEW_STMT,
-  BSI_SAME_STMT,
-  BSI_CONTINUE_LINKING
-};
-
-extern void bsi_insert_before (block_stmt_iterator *, gimple,
-			       enum bsi_iterator_update);
-extern void bsi_insert_after (block_stmt_iterator *, gimple,
-			      enum bsi_iterator_update);
-extern void bsi_insert_seq_before (block_stmt_iterator *, gimple_seq,
-				   enum bsi_iterator_update);
-extern void bsi_insert_seq_after (block_stmt_iterator *, gimple_seq,
-				  enum bsi_iterator_update);
-
-extern void bsi_replace (const block_stmt_iterator *, gimple, bool);
-
-/*---------------------------------------------------------------------------
 			      OpenMP Region Tree
 ---------------------------------------------------------------------------*/
 
@@ -751,10 +697,10 @@ extern gimple last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern basic_block label_to_block_fn (struct function *, tree);
 #define label_to_block(t) (label_to_block_fn (cfun, t))
-extern void bsi_insert_on_edge (edge, tree);
-extern basic_block bsi_insert_on_edge_immediate (edge, tree);
-extern void bsi_commit_one_edge_insert (edge, basic_block *);
-extern void bsi_commit_edge_inserts (void);
+extern void gsi_insert_on_edge (edge, tree);
+extern basic_block gsi_insert_on_edge_immediate (edge, tree);
+extern void gsi_commit_one_edge_insert (edge, basic_block *);
+extern void gsi_commit_edge_inserts (void);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
 extern void verify_stmts (void);
@@ -769,12 +715,12 @@ extern void add_phi_args_after_copy (basic_block *, unsigned);
 extern bool tree_purge_dead_abnormal_call_edges (basic_block);
 extern bool tree_purge_dead_eh_edges (basic_block);
 extern bool tree_purge_all_dead_eh_edges (const_bitmap);
-extern tree gimplify_val (block_stmt_iterator *, tree, tree);
-extern tree gimplify_build1 (block_stmt_iterator *, enum tree_code,
+extern tree gimplify_val (gimple_stmt_iterator *, tree, tree);
+extern tree gimplify_build1 (gimple_stmt_iterator *, enum tree_code,
 			     tree, tree);
-extern tree gimplify_build2 (block_stmt_iterator *, enum tree_code,
+extern tree gimplify_build2 (gimple_stmt_iterator *, enum tree_code,
 			     tree, tree, tree);
-extern tree gimplify_build3 (block_stmt_iterator *, enum tree_code,
+extern tree gimplify_build3 (gimple_stmt_iterator *, enum tree_code,
 			     tree, tree, tree, tree);
 extern void init_empty_tree_cfg (void);
 extern void fold_cond_expr_cond (void);
@@ -819,11 +765,10 @@ extern struct mem_sym_stats_d *mem_sym_stats (struct function *, tree);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
-extern tree create_phi_node (tree, basic_block);
-extern void add_phi_arg (tree, tree, edge);
+extern gimple create_phi_node (tree, basic_block);
+extern void add_phi_arg (gimple, tree, edge);
 extern void remove_phi_args (edge);
-extern void remove_phi_node (tree, tree, bool);
-extern tree phi_reverse (tree);
+extern void remove_phi_node (gimple, bool);
 
 /* In gimple-low.c  */
 extern void record_vars_into (tree, tree);
@@ -902,8 +847,8 @@ tree get_current_def (tree);
 void set_current_def (tree, tree);
 
 /* In tree-ssa-ccp.c  */
-bool fold_stmt (tree *);
-bool fold_stmt_inplace (tree);
+bool fold_stmt (gimple *);
+bool fold_stmt_inplace (gimple);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-vrp.c  */
@@ -1003,11 +948,11 @@ void free_numbers_of_iterations_estimates_loop (struct loop *);
 void rewrite_into_loop_closed_ssa (bitmap, unsigned);
 void verify_loop_closed_ssa (void);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
-void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
+void create_iv (tree, tree, tree, struct loop *, gimple_stmt_iterator *, bool,
 		tree *, tree *);
 void split_loop_exit_edge (edge);
 unsigned force_expr_to_var_cost (tree);
-void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
+void standard_iv_increment_position (struct loop *, gimple_stmt_iterator *,
 				     bool *);
 basic_block ip_end_pos (struct loop *);
 basic_block ip_normal_pos (struct loop *);
@@ -1112,8 +1057,8 @@ bool is_hidden_global_store (tree);
 
 /* In tree-sra.c  */
 void insert_edge_copies (tree, basic_block);
-void sra_insert_before (block_stmt_iterator *, tree);
-void sra_insert_after (block_stmt_iterator *, tree);
+void sra_insert_before (gimple_stmt_iterator *, tree);
+void sra_insert_after (gimple_stmt_iterator *, tree);
 void sra_init_cache (void);
 bool sra_type_can_be_decomposed_p (tree);
 
@@ -1134,8 +1079,8 @@ extern void register_jump_thread (edge, edge);
 
 /* In gimplify.c  */
 tree force_gimple_operand (tree, gimple_seq, bool, tree);
-tree force_gimple_operand_bsi (block_stmt_iterator *, tree, bool, tree,
-			       bool, enum bsi_iterator_update);
+tree force_gimple_operand_gsi (gimple_stmt_iterator *, tree, bool, tree,
+			       bool, enum gsi_iterator_update);
 
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);
@@ -1153,7 +1098,7 @@ struct mem_address
 };
 
 struct affine_tree_combination;
-tree create_mem_ref (block_stmt_iterator *, tree, 
+tree create_mem_ref (gimple_stmt_iterator *, tree, 
 		     struct affine_tree_combination *);
 rtx addr_for_mem_ref (struct mem_address *, bool);
 void get_address_description (tree, struct mem_address *);

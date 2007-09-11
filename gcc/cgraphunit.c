@@ -575,7 +575,7 @@ verify_cgraph_node (struct cgraph_node *node)
   struct cgraph_node *main_clone;
   struct function *this_cfun = DECL_STRUCT_FUNCTION (node->decl);
   basic_block this_block;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator *gsi;
   bool error_found = false;
 
   if (errorcount || sorrycount)
@@ -666,11 +666,12 @@ verify_cgraph_node (struct cgraph_node *node)
 	  /* Reach the trees by walking over the CFG, and note the
 	     enclosing basic-blocks in the call edges.  */
 	  FOR_EACH_BB_FN (this_block, this_cfun)
-	    for (bsi = bsi_start (this_block); !bsi_end_p (bsi); bsi_next (&bsi))
+	    for (gsi = gsi_start (bb_seq (this_block)); !gsi_end_p (gsi);
+		 gsi_next (gsi))
 	      {
 		/* FIXME tuples.  */
 #if 0
-		tree stmt = bsi_stmt (bsi);
+		tree stmt = gsi_stmt (gsi);
 		tree call = get_call_expr_in (stmt);
 		tree decl;
 		if (call && (decl = get_callee_fndecl (call)))

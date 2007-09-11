@@ -144,7 +144,10 @@ static bool lle_equal (lambda_linear_expression, lambda_linear_expression,
 static lambda_lattice lambda_lattice_new (int, int);
 static lambda_lattice lambda_lattice_compute_base (lambda_loopnest);
 
+/* FIXME tuples.  */
+#if 0
 static tree find_induction_var_from_exit_cond (struct loop *);
+#endif
 static bool can_convert_to_perfect_nest (struct loop *);
 
 /* Create a new lambda body vector.  */
@@ -1108,6 +1111,8 @@ lambda_loopnest_transform (lambda_loopnest nest, lambda_trans_matrix trans)
    is the amount we have to add/subtract from the expression because of the
    type of comparison it is used in.  */
 
+/* FIXME tuples.  */
+#if 0
 static lambda_linear_expression
 gcc_tree_to_linear_expression (int depth, tree expr,
 			       VEC(tree,heap) *outerinductionvars,
@@ -1163,6 +1168,7 @@ gcc_tree_to_linear_expression (int depth, tree expr,
 
   return lle;
 }
+#endif
 
 /* Return the depth of the loopnest NEST */
 
@@ -1204,14 +1210,16 @@ invariant_in_loop_and_outer_loops (struct loop *loop, tree op)
    OUTERINDUCTIONVARS is an array of induction variables for outer loops.  */
 
 static lambda_loop
-gcc_loop_to_lambda_loop (struct loop *loop, int depth,
-			 VEC(tree,heap) ** invariants,
-			 tree * ourinductionvar,
-			 VEC(tree,heap) * outerinductionvars,
-			 VEC(tree,heap) ** lboundvars,
-			 VEC(tree,heap) ** uboundvars,
-			 VEC(int,heap) ** steps)
+gcc_loop_to_lambda_loop (struct loop *loop ATTRIBUTE_UNUSED, int depth ATTRIBUTE_UNUSED,
+			 VEC(tree,heap) ** invariants ATTRIBUTE_UNUSED,
+			 tree * ourinductionvar ATTRIBUTE_UNUSED,
+			 VEC(tree,heap) * outerinductionvars ATTRIBUTE_UNUSED,
+			 VEC(tree,heap) ** lboundvars ATTRIBUTE_UNUSED,
+			 VEC(tree,heap) ** uboundvars ATTRIBUTE_UNUSED,
+			 VEC(int,heap) ** steps ATTRIBUTE_UNUSED)
 {
+/* FIXME tuples.  */
+#if 0
   tree phi;
   tree exit_cond;
   tree access_fn, inductionvar;
@@ -1250,8 +1258,6 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   phi = SSA_NAME_DEF_STMT (inductionvar);
   if (TREE_CODE (phi) != PHI_NODE)
     {
-/* FIXME tuples.  */
-#if 0
       phi = SINGLE_SSA_TREE_OPERAND (phi, SSA_OP_USE);
       if (!phi)
 	{
@@ -1272,9 +1278,6 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
 		     "Unable to convert loop: Cannot find PHI node for induction variable\n");
 	  return NULL;
 	}
-#else
-      gcc_unreachable ();
-#endif
     }
 
   /* The induction variable name/version we want to put in the array is the
@@ -1413,8 +1416,13 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   LL_LOWER_BOUND (lloop) = lbound;
   LL_UPPER_BOUND (lloop) = ubound;
   return lloop;
+#else
+      gcc_unreachable ();
+#endif
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Given a LOOP, find the induction variable it is testing against in the exit
    condition.  Return the induction variable if found, NULL otherwise.  */
 
@@ -1446,6 +1454,7 @@ find_induction_var_from_exit_cond (struct loop *loop)
     return NULL_TREE;
   return ivarop;
 }
+#endif
 
 DEF_VEC_P(lambda_loop);
 DEF_VEC_ALLOC_P(lambda_loop,heap);
@@ -1625,10 +1634,12 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 }
 #endif
 
+  /* FIXME tuples.  */
+#if 0
 /* Remove the induction variable defined at IV_STMT.  */
 
 static void
-remove_iv (tree iv_stmt)
+remove_iv (tree iv_stmt ATTRIBUTE_UNUSED)
 {
   if (TREE_CODE (iv_stmt) == PHI_NODE)
     {
@@ -1636,25 +1647,17 @@ remove_iv (tree iv_stmt)
 
       for (i = 0; i < PHI_NUM_ARGS (iv_stmt); i++)
 	{
-	  /* FIXME tuples.  */
-#if 0
 	  tree stmt;
 	  imm_use_iterator imm_iter;
-#endif
 	  tree arg = PHI_ARG_DEF (iv_stmt, i);
 	  bool used = false;
 
 	  if (TREE_CODE (arg) != SSA_NAME)
 	    continue;
 
-	  /* FIXME tuples.  */
-#if 0
 	  FOR_EACH_IMM_USE_STMT (stmt, imm_iter, arg)
 	    if (stmt != iv_stmt)
 	      used = true;
-#else
-	  gcc_unreachable ();
-#endif
 
 	  if (!used)
 	    remove_iv (SSA_NAME_DEF_STMT (arg));
@@ -1664,17 +1667,13 @@ remove_iv (tree iv_stmt)
     }
   else
     {
-      /* FIXME tuples.  */
-#if 0
       block_stmt_iterator bsi = bsi_for_stmt (iv_stmt);
 
       bsi_remove (&bsi, true);
       release_defs (iv_stmt); 
-#else
-      gcc_unreachable ();
-#endif
     }
 }
+#endif
 
 
 /* Transform a lambda loopnest NEW_LOOPNEST, which had TRANSFORM applied to

@@ -1835,10 +1835,8 @@ struct tree_exp GTY(())
    only field that can be relied upon.  */
 #define SSA_NAME_VAR(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.var
 
-/* Returns the statement which defines this reference.   Note that
-   we use the same field when chaining SSA_NAME nodes together on
-   the SSA_NAME freelist.  */
-#define SSA_NAME_DEF_STMT(NODE)	SSA_NAME_CHECK (NODE)->common.chain
+/* Returns the statement which defines this SSA name.  */
+#define SSA_NAME_DEF_STMT(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.def_stmt
 
 /* Returns the SSA version number of this SSA name.  Note that in
    tree SSA, version numbers are not per variable and may be recycled.  */
@@ -1897,6 +1895,9 @@ struct tree_ssa_name GTY(())
 
   /* _DECL wrapped by this SSA name.  */
   tree var;
+
+  /* Statement that defines this SSA name.  */
+  gimple def_stmt;
 
   /* SSA version number.  */
   unsigned int version;
@@ -3865,11 +3866,11 @@ extern void phinodes_print_statistics (void);
 
 extern void init_ssanames (void);
 extern void fini_ssanames (void);
-extern tree make_ssa_name (tree, tree);
+extern tree make_ssa_name (tree, gimple);
 extern tree duplicate_ssa_name (tree, tree);
 extern void duplicate_ssa_name_ptr_info (tree, struct ptr_info_def *);
 extern void release_ssa_name (tree);
-extern void release_defs (tree);
+extern void release_defs (gimple);
 extern void replace_ssa_name_symbol (tree, tree);
 
 #ifdef GATHER_STATISTICS
@@ -4671,7 +4672,7 @@ extern tree fold_ignored_result (tree);
 extern tree fold_abs_const (tree, tree);
 extern tree fold_indirect_ref_1 (tree, tree);
 extern void fold_defer_overflow_warnings (void);
-extern void fold_undefer_overflow_warnings (bool, tree, int);
+extern void fold_undefer_overflow_warnings (bool, gimple, int);
 extern void fold_undefer_and_ignore_overflow_warnings (void);
 extern bool fold_deferring_overflow_warnings_p (void);
 extern tree maybe_fold_offset_to_reference (tree, tree, tree);

@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "langhooks.h"
 #include "tree-iterator.h"
+#include "diagnostic.h"
 
 /* Define the hash table of nodes already seen.
    Such nodes are not repeated; brief cross-references are used.  */
@@ -883,8 +884,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	case SSA_NAME:
 	  print_node_brief (file, "var", SSA_NAME_VAR (node), indent + 4);
-	  print_node_brief (file, "def_stmt",
-			    SSA_NAME_DEF_STMT (node), indent + 4);
+	  fprintf (file, "def_stmt ");
+	  print_gimple_stmt (file, SSA_NAME_DEF_STMT (node), indent + 4, 0);
 
 	  indent_to (file, indent + 4);
 	  fprintf (file, "version %u", SSA_NAME_VERSION (node));

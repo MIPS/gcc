@@ -980,7 +980,7 @@ combine_blocks (struct loop *loop)
 	    bsi_remove (&bsi, true);
 	  else
 	    {
-	      set_bb_for_stmt (bsi_stmt (bsi), merge_target_bb);
+	      set_gimple_bb (bsi_stmt (bsi), merge_target_bb);
 	      bsi_next (&bsi);
 	    }
 	}

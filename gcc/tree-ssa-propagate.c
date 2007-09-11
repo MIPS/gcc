@@ -544,7 +544,7 @@ ssa_prop_fini (void)
 /* Get the main expression from statement STMT.  */
 
 tree
-get_rhs (tree stmt)
+get_rhs (gimple stmt)
 {
   enum tree_code code = TREE_CODE (stmt);
 

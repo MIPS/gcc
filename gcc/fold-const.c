@@ -64,6 +64,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "langhooks.h"
 #include "md5.h"
+#include "gimple.h"
 
 /* Nonzero if we are folding constants inside an initializer; zero
    otherwise.  */
@@ -952,7 +953,7 @@ fold_defer_overflow_warnings (void)
    deferred code.  */
 
 void
-fold_undefer_overflow_warnings (bool issue, tree stmt, int code)
+fold_undefer_overflow_warnings (bool issue, gimple stmt, int code)
 {
   const char *warnmsg;
   location_t locus;
@@ -982,10 +983,10 @@ fold_undefer_overflow_warnings (bool issue, tree stmt, int code)
   if (!issue_strict_overflow_warning (code))
     return;
 
-  if (stmt == NULL_TREE || !expr_has_location (stmt))
+  if (stmt == NULL)
     locus = input_location;
   else
-    locus = expr_location (stmt);
+    locus = gimple_locus (stmt);
   warning (OPT_Wstrict_overflow, "%H%s", &locus, warnmsg);
 }
 
@@ -995,7 +996,7 @@ fold_undefer_overflow_warnings (bool issue, tree stmt, int code)
 void
 fold_undefer_and_ignore_overflow_warnings (void)
 {
-  fold_undefer_overflow_warnings (false, NULL_TREE, 0);
+  fold_undefer_overflow_warnings (false, NULL, 0);
 }
 
 /* Whether we are deferring overflow warnings.  */

@@ -338,6 +338,8 @@ remove_predictions_associated_with_edge (edge e)
     }
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Clears the list of predictions stored for BB.  */
 
 static void
@@ -356,6 +358,7 @@ clear_bb_predictions (basic_block bb)
     }
   *preds = NULL;
 }
+#endif
 
 /* Return true when we can store prediction on insn INSN.
    At the moment we represent predictions only on conditional
@@ -568,6 +571,8 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
     single_succ_edge (bb)->probability = REG_BR_PROB_BASE;
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Combine predictions into single probability and store them into CFG.
    Remove now useless prediction entries.  */
 
@@ -690,7 +695,10 @@ combine_predictions_for_bb (basic_block bb)
       second->probability = REG_BR_PROB_BASE - combined_probability;
     }
 }
+#endif
 
+/* FIXME tuples.  */
+#if 0
 /* Predict edge probabilities by exploiting loop structure.  */
 
 static void
@@ -826,6 +834,7 @@ predict_loops (void)
 
   scev_finalize ();
 }
+#endif
 
 /* Attempt to predict probabilities of BB outgoing edges using local
    properties.  */
@@ -942,8 +951,10 @@ guess_outgoing_edge_probabilities (basic_block bb)
    propagation based prediction), but such tricks shall go to new
    implementation.  */
 
+  /* FIXME tuples.  */
+#if 0
 static tree
-expr_expected_value (tree expr, bitmap visited)
+expr_expected_value (tree expr ATTRIBUTE_UNUSED, bitmap visited ATTRIBUTE_UNUSED)
 {
   if (TREE_CONSTANT (expr))
     return expr;
@@ -1041,8 +1052,6 @@ expr_expected_value (tree expr, bitmap visited)
 static void
 strip_builtin_expect (void)
 {
-/* FIXME tuples.  */
-#if 0
   basic_block bb;
   FOR_EACH_BB (bb)
     {
@@ -1066,17 +1075,12 @@ strip_builtin_expect (void)
 	    }
 	}
     }
-#else
-  gcc_unreachable ();
-#endif
 }
 
 /* Predict using opcode of the last statement in basic block.  */
 static void
 tree_predict_by_opcode (basic_block bb ATTRIBUTE_UNUSED)
 {
-/* FIXME tuples.  */
-#if 0
   tree stmt = last_stmt (bb);
   edge then_edge;
   tree cond;
@@ -1190,15 +1194,10 @@ tree_predict_by_opcode (basic_block bb ATTRIBUTE_UNUSED)
       default:
 	break;
       }
-#else
-  gcc_unreachable ();
-#endif
 }
 
 /* Try to guess whether the value of return means error code.  */
 
-/* FIXME tuples */
-#if 0
 static enum br_predictor
 return_prediction (tree val, enum prediction *prediction)
 {
@@ -1296,7 +1295,6 @@ apply_return_prediction (int *heads)
 				    direction);
       }
 }
-#endif
 
 /* Look for basic block that contains unlikely to happen events
    (such as noreturn calls) and mark all paths leading to execution
@@ -1305,8 +1303,6 @@ apply_return_prediction (int *heads)
 static void
 tree_bb_level_predictions (void)
 {
-  /* FIXME tuples.  */
-#if 0
   basic_block bb;
   int *heads;
 
@@ -1351,13 +1347,13 @@ call_expr:;
     }
 
   free (heads);
-#else
-  gcc_unreachable ();
-#endif
 }
+#endif
 
 #ifdef ENABLE_CHECKING
 
+/* FIXME tuples.  */
+#if 0
 /* Callback for pointer_map_traverse, asserts that the pointer map is
    empty.  */
 
@@ -1369,11 +1365,14 @@ assert_is_empty (const void *key ATTRIBUTE_UNUSED, void **value,
   return false;
 }
 #endif
+#endif
 
 /* Predict branch probabilities and estimate profile of the tree CFG.  */
 static unsigned int
 tree_estimate_probability (void)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb;
 
   loop_optimizer_init (0);
@@ -1456,7 +1455,6 @@ tree_estimate_probability (void)
 	      for (bi = bsi_start (e->dest); !bsi_end_p (bi);
 		   bsi_next (&bi))
 		{
-#if 0
 		  tree stmt = bsi_stmt (bi);
 		  if ((TREE_CODE (stmt) == CALL_EXPR
 		       || (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
@@ -1469,9 +1467,6 @@ tree_estimate_probability (void)
 		      predict_edge_def (e, PRED_CALL, NOT_TAKEN);
 		      break;
 		    }
-#else
-		  gcc_unreachable ();
-#endif
 		}
 	    }
 	}
@@ -1496,6 +1491,9 @@ tree_estimate_probability (void)
   if (profile_status == PROFILE_ABSENT)
     profile_status = PROFILE_GUESSED;
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Sets branch probabilities according to PREDiction and

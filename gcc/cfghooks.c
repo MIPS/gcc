@@ -616,7 +616,7 @@ create_empty_bb (basic_block after)
 /* Checks whether we may merge blocks BB1 and BB2.  */
 
 bool
-can_merge_blocks_p (const_basic_block bb1, const_basic_block bb2)
+can_merge_blocks_p (basic_block bb1, basic_block bb2)
 {
   bool ret;
 

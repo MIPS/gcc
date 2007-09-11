@@ -1812,6 +1812,8 @@ construct_exit_block (void)
    Look for ARRAY_REF nodes with non-constant indexes and mark them
    addressable.  */
 
+/* FIXME tuples.  */
+#if 0
 static tree
 discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
 				   void *data ATTRIBUTE_UNUSED)
@@ -1849,6 +1851,7 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
 
   return NULL_TREE;
 }
+#endif
 
 /* RTL expansion is not able to compile array references with variable
    offsets for arrays stored in single register.  Discover such
@@ -1858,6 +1861,8 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
 static void
 discover_nonconstant_array_refs (void)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb;
   block_stmt_iterator bsi;
 
@@ -1867,6 +1872,9 @@ discover_nonconstant_array_refs (void)
 	walk_tree (bsi_stmt_ptr (bsi), discover_nonconstant_array_refs_r,
 		   NULL , NULL);
     }
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Translate the intermediate representation contained in the CFG

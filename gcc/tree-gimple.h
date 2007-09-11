@@ -103,7 +103,7 @@ extern bool is_gimple_call_addr (tree);
 extern tree get_call_expr_in (tree t);
 
 extern void recalculate_side_effects (tree);
-extern enum gimple_rhs_class get_gimple_rhs_class (tree);
+extern enum gimple_rhs_class get_gimple_rhs_class (enum tree_code);
 
 /* FIXME we should deduce this from the predicate.  */
 typedef enum fallback_t {

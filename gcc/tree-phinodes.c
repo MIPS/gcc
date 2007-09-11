@@ -352,7 +352,7 @@ reserve_phi_args_for_new_edge (basic_block bb)
 
 /* Create a new PHI node for variable VAR at basic block BB.  */
 
-tree
+gimple
 create_phi_node (tree var, basic_block bb)
 {
   tree phi;
@@ -364,7 +364,7 @@ create_phi_node (tree var, basic_block bb)
   set_phi_nodes (bb, phi);
 
   /* Associate BB to the PHI node.  */
-  set_bb_for_stmt (phi, bb);
+  set_gimple_bb (phi, bb);
 
   return phi;
 }
@@ -377,7 +377,7 @@ create_phi_node (tree var, basic_block bb)
    PHI points to the reallocated phi node when we return.  */
 
 void
-add_phi_arg (tree phi, tree def, edge e)
+add_phi_arg (gimple phi, tree def, edge e)
 {
   basic_block bb = e->dest;
 
@@ -449,59 +449,20 @@ remove_phi_args (edge e)
 }
 
 
-/* Remove PHI node PHI from basic block BB.  If PREV is non-NULL, it is
-   used as the node immediately before PHI in the linked list.  If
-   RELEASE_LHS_P is true, the LHS of this PHI node is released into
-   the free pool of SSA names.  */
+/* Remove PHI node PHI from basic block BB.  If RELEASE_LHS_P is true,
+   the LHS of this PHI node is released into the free pool of SSA
+   names.  */
 
 void
-remove_phi_node (tree phi, tree prev, bool release_lhs_p)
+remove_phi_node (gimple phi, bool release_lhs_p)
 {
-  tree *loc;
-
-  if (prev)
-    {
-      loc = &PHI_CHAIN (prev);
-    }
-  else
-    {
-      /* FIXME tuples: We no longer have phi_nodes_ptr.  Must rework
-	 this.  */
-#if 0
-      for (loc = phi_nodes_ptr (gimple_bb (phi));
-#else
-	   for (loc = NULL;
-#endif
-	   *loc != phi;
-	   loc = &PHI_CHAIN (*loc))
-	;
-    }
-
-  /* Remove PHI from the chain.  */
-  *loc = PHI_CHAIN (phi);
+  gimple_remove (phi, phi_nodes (gimple_bb (phi)));
 
   /* If we are deleting the PHI node, then we should release the
      SSA_NAME node so that it can be reused.  */
   release_phi_node (phi);
   if (release_lhs_p)
-    release_ssa_name (PHI_RESULT (phi));
-}
-
-
-/* Reverse the order of PHI nodes in the chain PHI.
-   Return the new head of the chain (old last PHI node).  */
-
-tree
-phi_reverse (tree phi)
-{
-  tree prev = NULL_TREE, next;
-  for (; phi; phi = next)
-    {
-      next = PHI_CHAIN (phi);
-      PHI_CHAIN (phi) = prev;
-      prev = phi;
-    }
-  return prev;
+    release_ssa_name (gimple_phi_result (phi));
 }
 
 #include "gt-tree-phinodes.h"

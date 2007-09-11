@@ -546,14 +546,19 @@ analyze_function (struct cgraph_node *fn)
       
       FOR_EACH_BB_FN (this_block, this_cfun)
 	{
-	  block_stmt_iterator bsi;
-	  for (bsi = bsi_start (this_block); !bsi_end_p (bsi); bsi_next (&bsi))
+	  /* FIXME tuples.  */
+#if 0
+	  gimple_stmt_iterator *gsi;
+	  for (gsi = gsi_start (this_block); !gsi_end_p (gsi); gsi_next (&gsi))
 	    {
-	      walk_tree (bsi_stmt_ptr (bsi), scan_function, 
+	      walk_tree (gsi_stmt_ptr (gsi), scan_function, 
 			 fn, visited_nodes);
 	      if (l->pure_const_state == IPA_NEITHER) 
 		goto end;
 	    }
+#else
+	  gcc_unreachable ();
+#endif
 	}
 
       if (l->pure_const_state != IPA_NEITHER)
@@ -580,7 +585,10 @@ analyze_function (struct cgraph_node *fn)
 	}
     }
 
+  /* FIXME tuples.  */
+#if 0
 end:
+#endif
   if (dump_file)
     {
       fprintf (dump_file, "after local analysis of %s with initial value = %d\n ", 

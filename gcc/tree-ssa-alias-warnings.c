@@ -191,6 +191,8 @@ static void find_references_in_function (void);
 
 
 
+/* FIXME tuples.  */
+#if 0
 /* Get main type of tree TYPE, stripping array dimensions and qualifiers.  */
 
 static tree
@@ -229,6 +231,7 @@ struct_class_union_p (tree type)
 	  || TREE_CODE (type) == UNION_TYPE
 	  || TREE_CODE (type) == QUAL_UNION_TYPE);
 }
+#endif
 
 
 
@@ -248,6 +251,8 @@ struct alias_match
 };
 
 
+/* FIXME tuples.  */
+#if 0
 /* Callback for find_alias_site.  Return true if the right hand site
    of STMT matches DATA.  */
 
@@ -280,8 +285,11 @@ find_alias_site_helper (tree var ATTRIBUTE_UNUSED, tree stmt, void *data)
   match->site = stmt;
   return true;
 }
+#endif
 
 
+/* FIXME tuples.  */
+#if 0
 /* Find the statement where OBJECT1 gets aliased to OBJECT2.
    If IS_PTR2 is true, consider OBJECT2 to be the name of a pointer or
    reference rather than the actual aliased object.
@@ -304,6 +312,7 @@ find_alias_site (tree object1, bool is_ptr1 ATTRIBUTE_UNUSED,
   walk_use_def_chains (object1, find_alias_site_helper, &match, false);
   return match.site;
 }
+#endif
 
 
 /* Structure to store temporary results when trying to figure out whether
@@ -508,6 +517,8 @@ reference_table (bool build)
 }
 
 
+/* FIXME tuples.  */
+#if 0
 /* Callback for find_references_in_function.
    Check whether *TP is an object reference or pointer dereference for the
    variables given in ((struct match_info*)DATA)->OBJS or
@@ -546,6 +557,7 @@ finish:
   parent_tree_code = TREE_CODE (*tp);
   return NULL_TREE;
 }
+#endif
 
 
 /* Find all the references to aliased variables in the current function.  */
@@ -553,6 +565,8 @@ finish:
 static void
 find_references_in_function (void)
 {
+  /* FIXME tuples.  */
+#if 0
   basic_block bb;
   block_stmt_iterator i;
 
@@ -560,9 +574,14 @@ find_references_in_function (void)
     for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
       walk_tree (bsi_stmt_ptr (i), find_references_in_tree_helper,
 		 (void *) *bsi_stmt_ptr (i), NULL);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
+/* FIXME tuples.  */
+#if 0
 /* Find the reference site for OBJECT.
    If IS_PTR is true, look for dereferences of OBJECT instead.
    XXX: only the first site is returned in the current
@@ -624,6 +643,7 @@ maybe_find_missing_stmts (tree object1, bool is_ptr1,
   if (!*deref_site2 && *alias_site)
     *deref_site2 = *alias_site;
 }
+#endif
 
 
 /* Callback for find_first_artificial_name.
@@ -669,6 +689,8 @@ get_var_name (tree var)
 }
 
 
+/* FIXME tuples.  */
+#if 0
 /* Return "*" if OBJECT is not the actual alias but a pointer to it, or
    "" otherwise.
    IS_PTR is true when OBJECT is not the actual alias.
@@ -683,7 +705,6 @@ get_maybe_star_prefix (tree object, bool is_ptr)
   return (is_ptr
           && TREE_CODE (TREE_TYPE (object)) == POINTER_TYPE) ? "*" : "";
 }
-
 
 /* Callback for contains_node_type_p.
    Returns true if *T has tree code *(int*)DATA.  */
@@ -897,13 +918,16 @@ skip_this_pointer (tree ptr ATTRIBUTE_UNUSED, struct ptr_info_def *pi)
 
   return false;
 }
+#endif
 
 
 /* Find aliasing to named objects for pointer PTR.  */
 
 static void
-dsa_named_for (tree ptr)
+dsa_named_for (tree ptr ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
 
   if (pi)
@@ -927,6 +951,9 @@ dsa_named_for (tree ptr)
 	    }
 	}
     }
+#else
+  gcc_unreachable ();
+#endif
 }
 
 

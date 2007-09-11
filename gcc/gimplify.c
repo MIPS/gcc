@@ -1131,8 +1131,7 @@ gimplify_return_expr (tree stmt, gimple_seq pre_p)
       || TREE_CODE (ret_expr) == RESULT_DECL
       || ret_expr == error_mark_node)
     {
-      bool use_return_decl_p = ret_expr && TREE_CODE (ret_expr) == RESULT_DECL;
-      gimple ret = build_gimple_return (use_return_decl_p, ret_expr);
+      gimple ret = build_gimple_return (ret_expr);
       gimple_seq_add (pre_p, ret);
       return GS_ALL_DONE;
     }
@@ -1189,7 +1188,7 @@ gimplify_return_expr (tree stmt, gimple_seq pre_p)
 
   gimplify_and_add (TREE_OPERAND (stmt, 0), pre_p);
 
-  gimple_seq_add (pre_p, build_gimple_return (result == result_decl, result));
+  gimple_seq_add (pre_p, build_gimple_return (result));
 
   return GS_ALL_DONE;
 }
@@ -1346,6 +1345,7 @@ compare_case_labels (const void *p1, const void *p2)
 
   return tree_int_cst_compare (CASE_LOW (case1), CASE_LOW (case2));
 }
+
 
 /* Sort the case labels in LABEL_VEC in place in ascending order.  */
 
@@ -2564,7 +2564,7 @@ gimplify_cond_expr (tree *expr_p, gimple_seq pre_p, fallback_t fallback)
   tree label_true, label_false, label_cont;
   bool have_then_clause_p, have_else_clause_p;
   gimple gimple_cond;
-  enum gimple_cond pred;
+  enum tree_code pred_code;
 
   type = TREE_TYPE (expr);
 
@@ -2655,45 +2655,21 @@ gimplify_cond_expr (tree *expr_p, gimple_seq pre_p, fallback_t fallback)
   label_false = create_artificial_label ();
 
   arm1 = arm2 = NULL_TREE;
-  switch (TREE_CODE (TREE_OPERAND (expr, 0)))
+  pred_code = TREE_CODE (TREE_OPERAND (expr, 0));
+  if (TREE_CODE_CLASS (pred_code) != tcc_comparison)
     {
-    case LT_EXPR:
-      pred = GIMPLE_COND_LT;
-      break;
-    case LE_EXPR:
-      pred = GIMPLE_COND_LE;
-      break;
-    case GT_EXPR:
-      pred = GIMPLE_COND_GT;
-      break;
-    case GE_EXPR:
-      pred = GIMPLE_COND_GE;
-      break;
-    case EQ_EXPR:
-      pred = GIMPLE_COND_EQ;
-      break;
-    case NE_EXPR:
-      pred = GIMPLE_COND_NE;
-      break;
-    default:
-      pred = GIMPLE_COND_NE;
+      pred_code = NE_EXPR;
       arm1 = TREE_OPERAND (expr, 0);
-      arm2 = boolean_false_node;
-      break;
-    }
-  if (arm1 == NULL_TREE)
-    {
-      arm1 = TREE_OPERAND (TREE_OPERAND (expr, 0), 0);
-      arm2 = TREE_OPERAND (TREE_OPERAND (expr, 0), 1);
-      gimple_cond = build_gimple_cond (pred, arm1, arm2, label_true,
-				       label_false);
+      arm2 = fold_convert (TREE_TYPE (arm1), integer_zero_node);
     }
   else
     {
-      /* Use canonical comparison with false.  */
-      gimple_cond = build_gimple_cond (pred, arm1, arm2, label_true,
-                                       label_false);
+      arm1 = TREE_OPERAND (TREE_OPERAND (expr, 0), 0);
+      arm2 = TREE_OPERAND (TREE_OPERAND (expr, 0), 1);
     }
+
+  gimple_cond = build_gimple_cond (pred_code, arm1, arm2, label_true,
+                                   label_false);
 
   gimple_seq_add (pre_p, gimple_cond);
   gimple_seq_add (pre_p, build_gimple_label (label_true));
@@ -2707,14 +2683,9 @@ gimplify_cond_expr (tree *expr_p, gimple_seq pre_p, fallback_t fallback)
   gimple_pop_condition (pre_p);
 
   if (ret == GS_ERROR)
-    ;
-  else if (have_then_clause_p)
+    ; /* Do nothing.  */
+  else if (have_then_clause_p || have_else_clause_p)
     ret = GS_ALL_DONE;
-  else if (have_else_clause_p)
-    {
-      /* Rewrite "if (a); else b" into "if (!a) b"  */
-      gimple_cond_invert (gimple_cond);
-    }
   else
     {
       /* Both arms are empty; replace the COND_EXPR with its predicate.  */
@@ -2974,9 +2945,8 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
     gimple_seq_add (pre_p, build_gimple_assign (cref, value));
 
   /* We exit the loop when the index var is equal to the upper bound.  */
-  gimple_seq_add (pre_p,
-	  build_gimple_cond (GIMPLE_COND_EQ, var, upper, loop_exit_label,
-	                     NULL_TREE));
+  gimple_seq_add (pre_p, build_gimple_cond (EQ_EXPR, var, upper,
+					    loop_exit_label, NULL_TREE));
 
   /* Otherwise, increment the index var...  */
   tmp = build2 (PLUS_EXPR, var_type, var,
@@ -3653,52 +3623,6 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
   return ret;
 }
 
-/* Destructively convert the TREE pointer in TP into a gimple tuple if
-   appropriate.  */
-
-static void
-tree_to_gimple_tuple (tree *tp)
-{
-
-  switch (TREE_CODE (*tp))
-    {
-    case GIMPLE_MODIFY_STMT:
-      return;
-    case MODIFY_EXPR:
-      {
-        struct gimple_stmt *gs;
-	tree lhs = TREE_OPERAND (*tp, 0);
-	bool def_stmt_self_p = false;
-
-	if (TREE_CODE (lhs) == SSA_NAME)
-	  {
-	    if (SSA_NAME_DEF_STMT (lhs) == *tp)
-	      def_stmt_self_p = true;
-	  }
-
-        gs = &make_node (GIMPLE_MODIFY_STMT)->gstmt;
-        gs->base = (*tp)->base;
-        /* The set to base above overwrites the CODE.  */
-        TREE_SET_CODE ((tree) gs, GIMPLE_MODIFY_STMT);
-
-        gs->locus = EXPR_LOCUS (*tp);
-        gs->operands[0] = TREE_OPERAND (*tp, 0);
-        gs->operands[1] = TREE_OPERAND (*tp, 1);
-        gs->block = TREE_BLOCK (*tp);
-        *tp = (tree)gs;
-
-	/* If we re-gimplify a set to an SSA_NAME, we must change the
-	   SSA name's DEF_STMT link.  */
-	if (def_stmt_self_p)
-	  SSA_NAME_DEF_STMT (GIMPLE_STMT_OPERAND (*tp, 0)) = *tp;
-
-        return;
-      }
-    default:
-      break;
-    }
-}
-
 /* Promote partial stores to COMPLEX variables to total stores.  *EXPR_P is
    a MODIFY_EXPR with a lhs of a REAL/IMAGPART_EXPR of a variable with
    DECL_GIMPLE_REG_P set.  */
@@ -3755,6 +3679,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
   tree *from_p = &GENERIC_TREE_OPERAND (*expr_p, 1);
   tree *to_p = &GENERIC_TREE_OPERAND (*expr_p, 0);
   enum gimplify_status ret = GS_UNHANDLED;
+  gimple assign;
 
   gcc_assert (TREE_CODE (*expr_p) == MODIFY_EXPR
 	      || TREE_CODE (*expr_p) == GIMPLE_MODIFY_STMT
@@ -3825,19 +3750,13 @@ gimplify_modify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
       && is_gimple_reg (TREE_OPERAND (*to_p, 0)))
     return gimplify_modify_expr_complex_part (expr_p, pre_p, want_value);
 
-  if (gimplify_ctxp->into_ssa && is_gimple_reg (*to_p))
-    {
-      /* If we've somehow already got an SSA_NAME on the LHS, then
-	 we're probably modified it twice.  Not good.  */
-      gcc_assert (TREE_CODE (*to_p) != SSA_NAME);
-      *to_p = make_ssa_name (*to_p, *expr_p);
-    }
-
   /* Try to alleviate the effects of the gimplification creating artificial
      temporaries (see for example is_gimple_reg_rhs) on the debug info.  */
   if (!gimplify_ctxp->into_ssa
-      && DECL_P (*from_p) && DECL_IGNORED_P (*from_p)
-      && DECL_P (*to_p) && !DECL_IGNORED_P (*to_p))
+      && DECL_P (*from_p)
+      && DECL_IGNORED_P (*from_p)
+      && DECL_P (*to_p)
+      && !DECL_IGNORED_P (*to_p))
     {
       if (!DECL_NAME (*from_p) && DECL_NAME (*to_p))
 	DECL_NAME (*from_p)
@@ -3846,7 +3765,16 @@ gimplify_modify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
       SET_DECL_DEBUG_EXPR (*from_p, *to_p);
     }
 
-  gimple_seq_add (pre_p, build_gimple_assign (*to_p, *from_p));
+  assign = build_gimple_assign (*to_p, *from_p);
+  gimple_seq_add (pre_p, assign);
+
+  if (gimplify_ctxp->into_ssa && is_gimple_reg (*to_p))
+    {
+      /* If we've somehow already got an SSA_NAME on the LHS, then
+	 we're probably modified it twice.  Not good.  */
+      gcc_assert (TREE_CODE (*to_p) != SSA_NAME);
+      *to_p = make_ssa_name (*to_p, assign);
+    }
 
   if (want_value)
     {
@@ -5196,7 +5124,8 @@ gimplify_omp_for (tree *expr_p, gimple_seq pre_p)
 #endif
   
 
-  tree_to_gimple_tuple (&OMP_FOR_INIT (for_stmt));
+  /* FIXME tuples.  Handle OMP_FOR_INIT.  */
+  gcc_unreachable ();
 
   t = OMP_FOR_COND (for_stmt);
   gcc_assert (COMPARISON_CLASS_P (t));
@@ -5209,7 +5138,8 @@ gimplify_omp_for (tree *expr_p, gimple_seq pre_p)
 			is_gimple_val, fb_rvalue);
 #endif
 
-  tree_to_gimple_tuple (&OMP_FOR_INCR (for_stmt));
+  /* FIXME tuples.  Handle OMP_FOR_INCR.  */
+  gcc_unreachable ();
   t = OMP_FOR_INCR (for_stmt);
   switch (TREE_CODE (t))
     {
@@ -6802,15 +6732,15 @@ force_gimple_operand (tree expr, gimple_seq stmts, bool simple, tree var)
 }
 
 /* Invokes force_gimple_operand for EXPR with parameters SIMPLE_P and VAR.  If
-   some statements are produced, emits them at BSI.  If BEFORE is true.
-   the statements are appended before BSI, otherwise they are appended after
-   it.  M specifies the way BSI moves after insertion (BSI_SAME_STMT or
-   BSI_CONTINUE_LINKING are the usual values).  */
+   some statements are produced, emits them at GSI.  If BEFORE is true.
+   the statements are appended before GSI, otherwise they are appended after
+   it.  M specifies the way GSI moves after insertion (GSI_SAME_STMT or
+   GSI_CONTINUE_LINKING are the usual values).  */
 
 tree
-force_gimple_operand_bsi (block_stmt_iterator *bsi ATTRIBUTE_UNUSED, tree expr,
+force_gimple_operand_gsi (gimple_stmt_iterator *gsi ATTRIBUTE_UNUSED, tree expr,
 			  bool simple_p, tree var, bool before ATTRIBUTE_UNUSED,
-			  enum bsi_iterator_update m ATTRIBUTE_UNUSED)
+			  enum gsi_iterator_update m ATTRIBUTE_UNUSED)
 {
   struct gimple_sequence stmts;
 
@@ -6827,9 +6757,9 @@ force_gimple_operand_bsi (block_stmt_iterator *bsi ATTRIBUTE_UNUSED, tree expr,
 	}
 
       if (before)
-	bsi_insert_seq_before (bsi, &stmts, m);
+	gsi_insert_seq_before (gsi, &stmts, m);
       else
-	bsi_insert_seq_after (bsi, &stmts, m);
+	gsi_insert_seq_after (gsi, &stmts, m);
     }
 
   return expr;

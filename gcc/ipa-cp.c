@@ -449,7 +449,7 @@ constant_val_insert (tree parm1, tree val)
   if (init_stmt)
     {
       e_step = single_succ_edge (ENTRY_BLOCK_PTR_FOR_FUNCTION (cfun));
-      bsi_insert_on_edge_immediate (e_step, init_stmt);
+      gsi_insert_on_edge_immediate (e_step, init_stmt);
     }
 }
 

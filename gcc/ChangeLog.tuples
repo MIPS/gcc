@@ -1,3 +1,149 @@
+2007-09-11  Diego Novillo  <dnovillo@google.com>
+
+	* tree.h (struct tree_ssa_name): Add field def_stmt.
+	(SSA_NAME_DEF_STMT): Return it.
+	* tree-phinodes.c (create_phi_node): Return gimple.
+	Update all callers.
+	(add_phi_args): Change PHI argument to gimple.  Update all
+	callers.
+	(remove_phi_node): Call gimple_remove.
+	(phi_reverse): Remove.  Update all users.
+	* tree-ssa-alias-warnings.c: Disable.
+	* input.h (IS_LOCATION_EMPTY): Fix comparison of LOCATION_LINE.
+	* fold-const.c: Include gimple.h.
+	(fold_undefer_overflow_warnings): Change type of argument STMT to
+	gimple.  Update all users.
+	* cfghooks.h (struct cfg_hooks)<can_merge_blocks_p>: Change
+	arguments to basic_block.  Update all users.
+	* tree-gimple.c (get_gimple_rhs_class): Change argument to
+	enum tree_code.  Update all users.  Move calls to
+	is_gimple_lvalue and is gimple_val...
+	(is_gimple_formal_tmp_rhs): ... here.
+	* tree-ssa-ccp.c (fold_stmt_r): Enable.
+	(fold_stmt): Enable.
+	(fold_stmt_inplace): Enable.  Adapt to tuples.
+	* ipa-pure-const.c (analyze_function): Disable.
+	* tree-ssa-propagate.c (get_rhs): Adapt to tuples.  Update all
+	users.
+	* gimple-dummy.c (ssa_operands_active): Remove dummy function.
+	(remove_stmt_from_eh_region, create_phi_node, add_phi_arg,
+	substitute_in_loop_info, release_defs, push_stmt_changes,
+	pop_stmt_changes, replace_exp): Add dummy functions.
+	* predict.c: Disable.
+	* gimple-iterator.c: Include tm.h and tree-flow.h
+	(gsi_delink): Remove.  Update all users.
+	(update_modified_stmt): Move from tree-cfg.c.
+	(gsi_insert_before): New.
+	(gsi_insert_seq_before): New.
+	(gsi_insert_after): New.
+	(gsi_insert_seq_after): New.
+	(gsi_for_stmt): New.
+	(gsi_move_after): New.
+	(gsi_move_before): New.
+	(gsi_move_to_bb_end): New.
+	* gimple-iterator.h (gsi_remove): New.
+	* tree-eh.c (add_stmt_to_eh_region_fn): Add comment
+	(add_stmt_to_eh_region): Likewise.
+	(remove_stmt_from_eh_region_fn): Likewise.
+	(remove_stmt_from_eh_region): Likewise.
+	(lookup_stmt_eh_region_fn): Likewise.
+	(lookup_stmt_eh_region): Likewise.
+	(tree_could_throw_p): Likewise.
+	(stmt_can_throw_internal): Likewise.
+	(tree_can_throw_external): Likewise.
+	* gimple-pretty-print.c (op_gimple_cond): Remove.  Update all
+	users.
+	* tree-affine.c (tree_to_aff_combination_expand): Disable.
+	* tree-flow-inline.h (op_iter_init_vdef): Call gimple_code
+	instead of TREE_CODE.
+	* gimplify.c (gimplify_cond_expr): Use enum tree_code instead
+	of enum gimple_cond as the subcode for GIMPLE_COND.
+	Do not switch around the conditional when the then clause is empty.
+	(tree_to_gimple_tuple): Remove.  Update all users.
+	(gimplify_omp_for):
+	(force_gimple_operand_gsi): Rename from force_gimple_operand_bsi.  Update all users.
+	* tree-dfa.c (find_referenced_vars): Disable.
+	(collect_dfa_stats): Likewise.
+	(collect_dfa_stats_r): Likewise.
+	* cfgexpand.c: Disable.
+	* tree-mudflap.c: Disable.
+	* print-tree.c: Include diagnostic.h.
+	(print_node): Call print_gimple_stmt when printing SSA_NAMEs.
+	* lambda-code.c: Disable.
+	* tree-profile.c (tree_init_edge_profiler): Disable.
+	(tree_gen_edge_profiler): Disable.
+	* tree-flow.h (block_stmt_iterator): Remove.  Update all users.
+	(const_block_stmt_iterator): Likewise.
+	* Makefile.in (print-tree.o): Add dependency on $(DIAGNOSTIC_H).
+	(gimple-iterator.o): Add dependency on $(TREE_FLOW_H) and
+	value-prof.h.
+	(gimple.o): Likewise.
+	(fold-const.o): Add dependency on $(GIMPLE_H).
+	* gimple.c: Include tm.h, hard-reg-set.h, basic-block.h,
+	tree-flow.h and value-prof.h.
+	(build_gimple_with_ops): Do not allocate operands if NUM_OPS == 0.
+	(build_gimple_return): Remove argument RESULT_DECL_P.  Update
+	all users.
+	(build_gimple_cond): Use enum tree_code instead of enum
+	gimple_cond as the subcode.  Update all users.
+	(gimple_cond_invert): Remove.  Update all users.
+	(walk_gimple_seq): Add arguments CALLBACK_STMT and
+	CALLBACK_OP.  Update all users.
+	(walk_gimple_asm): Likewise.
+	(walk_gimple_stmt): Likewise.
+	(gimple_remove): New.
+	(gimple_seq_reverse): New.
+	(set_gimple_bb): New.
+	* gimple.h (gimple_statement_base): Split field 'flags' into
+	fields 'subcode' and 'flags'.  Update all users.
+	(gimple_statement_with_ops): Rename field 'base' to
+	'gsbase'.  Update all users.
+	(gimple_statement_omp): Likewise.
+	(gimple_statement_bind): Likewise.
+	(gimple_statement_catch): Likewise.
+	(gimple_statement_eh_filter): Likewise.
+	(gimple_statement_phi): Likewise.
+	(gimple_statement_resx): Likewise.
+	(gimple_statement_try): Likewise.
+	(gimple_statement_omp_parallel): Likewise.
+	(enum gimple_cond): Remove.  Update all users.
+	(GIMPLE_NO_WARNING): Define.
+	(set_gimple_flags): Assert that FLAGS fits in 8 bits.
+	(add_gimple_flag): Likewise.
+	(set_gimple_subcode): New.  Use instead of set_gimple_flags
+	everywhere.
+	(gimple_subcode): New.  Use instead of gimple_flags
+	everywhere.
+	(gimple_no_warning_p): New.
+	(gimple_cond_set_code): New.
+	(gimple_cond_make_false): New.
+	(gimple_cond_make_true): New.
+	(gimple_phi_num_args): Rename from gimple_phi_nargs.  Update
+	all users.
+	* tree-cfg.c (build_gimple_cfg): Return immediately.
+	(set_bb_for_stmt): Remove.  Move functionality to
+	set_gimple_bb.  Update all users.
+	(factor_computed_gotos):
+	(bsi_for_stmt): Remove.
+	(bsi_insert_before): Remove.
+	(bsi_insert_seq_before): Remove.
+	(bsi_insert_after): Remove.
+	(bsi_insert_seq_after): Remove.
+	(bsi_remove): Remove.
+	(bsi_move_after): Remove.
+	(bsi_move_before): Remove.
+	(bsi_move_to_bb_end): Remove.
+	(bsi_replace): Remove.
+	(tree_verify_flow_info): Adapt to tuples.
+	(tree_make_forwarder_block): Likewise.
+	(tree_try_redirect_by_replacing_jump): Likewise.
+	(tree_redirect_edge_and_branch): Likewise.
+	(tree_purge_dead_eh_edges): Likewise.
+	(gimple_cfg_hooks): Enable some hooks.
+	* tree-ssanames.c (make_ssa_name): Change type of STMT to
+	gimple.  Update all users.
+	* tree-ssa-operands.c (ssa_operands_active): Enable.
+
 2007-08-31  Diego Novillo  <dnovillo@google.com>
 
 	* tree-gimple.c (is_gimple_addressable): Tidy.

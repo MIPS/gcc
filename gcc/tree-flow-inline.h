@@ -637,7 +637,7 @@ phi_nodes (const_basic_block bb)
   return bb->il.gimple->phi_nodes;
 }
 
-/* Phi nodes of a basic block BB to L.  */
+/* Set PHI nodes of a basic block BB to SEQ.  */
 
 static inline void
 set_phi_nodes (basic_block bb, gimple_seq seq)
@@ -646,8 +646,9 @@ set_phi_nodes (basic_block bb, gimple_seq seq)
 
   gcc_assert (!(bb->flags & BB_RTL));
   bb->il.gimple->phi_nodes = seq;
-  for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (i))
-    set_bb_for_stmt (gsi_stmt (i), bb);
+  if (seq)
+    for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (i))
+      set_gimple_bb (gsi_stmt (i), bb);
 }
 
 /* Return the phi argument which contains the specified use.  */
@@ -737,6 +738,8 @@ set_bb_seq (basic_block bb, gimple_seq seq)
   bb->il.gimple->seq = seq;
 }
 
+/* FIXME tuples.  bsi_* deprecated in favour of gsi_*  */
+#if 0
 /* Return a block_stmt_iterator that points to beginning of basic
    block BB.  */
 static inline block_stmt_iterator
@@ -818,11 +821,9 @@ bsi_stmt (block_stmt_iterator i)
 static inline tree *
 bsi_stmt_ptr (block_stmt_iterator i ATTRIBUTE_UNUSED)
 {
-  /* FIXME tuples!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   return tsi_stmt_ptr (i.tsi);
-  */
-  return NULL;
 }
+#endif
 
 /* Returns the loop of the statement STMT.  */
 
@@ -1173,7 +1174,7 @@ static inline void
 op_iter_init_vdef (ssa_op_iter *ptr, gimple stmt, vuse_vec_p *use, 
 		     def_operand_p *def)
 {
-  gcc_assert (TREE_CODE (stmt) != PHI_NODE);
+  gcc_assert (gimple_code (stmt) != GIMPLE_PHI);
 
   op_iter_init (ptr, stmt, SSA_OP_VMAYUSE);
   ptr->iter_type = ssa_op_iter_vdef;
@@ -1357,7 +1358,7 @@ op_iter_init_phiuse (ssa_op_iter *ptr, gimple phi, int flags)
     }
 
   ptr->phi_stmt = phi;
-  ptr->num_phi = gimple_phi_nargs (phi);
+  ptr->num_phi = gimple_phi_num_args (phi);
   ptr->iter_type = ssa_op_iter_use;
   return op_iter_next_use (ptr);
 }

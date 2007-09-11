@@ -1419,8 +1419,8 @@ scan_omp_1 (tree *tp, int *walk_subtrees, void *data)
    information about the OpenMP directives and clauses found during
    the scan.  */
 
-  /* FIXME tuples.  Convert to use the new walk_gimple_seq/walk_gimple_stmt
-     routines.  */
+/* FIXME tuples.  Convert to use the new walk_gimple_seq/walk_gimple_stmt
+   routines.  */
 static void
 scan_omp (tree *stmt_p, omp_context *ctx)
 {
@@ -4138,10 +4138,9 @@ lower_omp_parallel (tree *stmt_p, omp_context *ctx)
       /* FIXME tuples.  This needs to be changed to use the new
 	 walk_gimple_stmt routine.  */
       memset (&wi, 0, sizeof (wi));
-      wi.callback = check_combined_parallel;
       wi.info = &ws_num;
       wi.val_only = true;
-      walk_stmts (&wi, &par_bind);
+      walk_stmts (&wi, check_combined_parallel, NULL, &par_bind);
       if (ws_num == 1)
 	OMP_PARALLEL_COMBINED (stmt) = 1;
     }
@@ -4643,8 +4642,7 @@ diagnose_omp_structured_block_errors (tree fndecl)
   /* FIXME tuples.  Convert to use the new walk_gimple_seq/walk_gimple_stmt
      routines.  */
   memset (&wi, 0, sizeof (wi));
-  wi.callback = diagnose_sb_1;
-  walk_stmts (&wi, &DECL_SAVED_TREE (fndecl));
+  walk_stmts (&wi, diagnose_sb_1, NULL, &DECL_SAVED_TREE (fndecl));
 
   memset (&wi, 0, sizeof (wi));
   wi.callback_stmt = diagnose_sb_2;

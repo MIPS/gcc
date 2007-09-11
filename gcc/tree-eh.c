@@ -94,6 +94,9 @@ record_stmt_eh_region (struct eh_region *region, tree t)
   add_stmt_to_eh_region (t, get_eh_region_number (region));
 }
 
+
+/* Add statement T in function IFUN to EH region NUM.  */
+
 void
 add_stmt_to_eh_region_fn (struct function *ifun, gimple t, int num)
 {
@@ -117,11 +120,18 @@ add_stmt_to_eh_region_fn (struct function *ifun, gimple t, int num)
   *slot = n;
 }
 
+
+/* Add statement T in the current function (cfun) to EH region number
+   NUM.  */
+
 void
 add_stmt_to_eh_region (gimple t, int num)
 {
   add_stmt_to_eh_region_fn (cfun, t, num);
 }
+
+
+/* Remove statement T in function IFUN from the EH region holding it.  */
 
 bool
 remove_stmt_from_eh_region_fn (struct function *ifun, gimple t)
@@ -144,11 +154,21 @@ remove_stmt_from_eh_region_fn (struct function *ifun, gimple t)
     return false;
 }
 
+
+/* Remove statement T in the current function (cfun) from the EH
+   region holding it.  */
+
 bool
 remove_stmt_from_eh_region (gimple t)
 {
   return remove_stmt_from_eh_region_fn (cfun, t);
 }
+
+
+/* Determine if statement T is inside an EH region in function IFUN.
+   Return the EH region number if found, return -2 if IFUN does not
+   have an EH table and -1 if T could not be found in IFUN's EH region
+   table.  */
 
 int
 lookup_stmt_eh_region_fn (struct function *ifun, gimple t)
@@ -158,14 +178,16 @@ lookup_stmt_eh_region_fn (struct function *ifun, gimple t)
   if (!get_eh_throw_stmt_table (ifun))
     return -2;
 
-  /* The CONST_CAST is okay because we don't modify n.stmt throughout
-     its scope, or the scope of p.  */
-  n.stmt = (tree) CONST_CAST (t);
-  p = (struct throw_stmt_node *) htab_find (get_eh_throw_stmt_table (ifun),
-                                            &n);
-
+  n.stmt = t;
+  p = (struct throw_stmt_node *) htab_find (get_eh_throw_stmt_table (ifun), &n);
   return (p ? p->region_nr : -1);
 }
+
+
+/* Determine if statement T is inside an EH region in the current
+   function (cfun).  Return the EH region number if found, return -2
+   if IFUN does not have an EH table and -1 if T could not be found in
+   IFUN's EH region table.  */
 
 int
 lookup_stmt_eh_region (gimple t)
@@ -1866,6 +1888,7 @@ verify_eh_edges (tree stmt)
 	}
       e->aux = NULL;
     }
+
   return mark_eh_edge_found_error;
 }
 #endif
@@ -2024,6 +2047,9 @@ tree_could_trap_p (tree expr)
     }
 }
 
+
+/* Return true if statement T could throw an exception.  */
+
 bool
 tree_could_throw_p (tree t)
 {
@@ -2045,6 +2071,10 @@ tree_could_throw_p (tree t)
     return tree_could_trap_p (t);
   return false;
 }
+
+
+/* Return true if STMT can throw an exception that is caught within
+   the current function (CFUN).  */
 
 bool
 stmt_can_throw_internal (gimple stmt ATTRIBUTE_UNUSED)
@@ -2069,6 +2099,10 @@ stmt_can_throw_internal (gimple stmt ATTRIBUTE_UNUSED)
 #endif
 }
 
+
+/* Return true if STMT can throw an exception that is visible outside
+   the current function (CFUN).  */
+
 bool
 tree_can_throw_external (tree stmt ATTRIBUTE_UNUSED)
 {
@@ -2089,6 +2123,7 @@ tree_can_throw_external (tree stmt ATTRIBUTE_UNUSED)
   gcc_unreachable ();
 #endif
 }
+
 
 /* Given a statement OLD_STMT and a new statement NEW_STMT that has replaced
    OLD_STMT in the function, remove OLD_STMT from the EH table and put NEW_STMT
