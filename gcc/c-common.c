@@ -3130,10 +3130,6 @@ c_common_get_alias_set (tree t)
   if (c_language != clk_c || flag_isoc99)
     return -1;
 
-  /* Save time if there's only one input file.  */
-  if (num_in_fnames == 1)
-    return -1;
-
   /* Pointers need special handling if they point to any type that
      needs special handling (below).  */
   if (TREE_CODE (t) == POINTER_TYPE)

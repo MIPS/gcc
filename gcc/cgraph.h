@@ -355,6 +355,7 @@ int cgraph_postorder (struct cgraph_node **);
 extern GTY(()) struct varpool_node *varpool_nodes_queue;
 extern GTY(()) struct varpool_node *varpool_nodes;
 
+void varpool_reset (void);
 struct varpool_node *varpool_node (tree);
 struct varpool_node *varpool_node_for_asm (tree asmname);
 void varpool_mark_needed_node (struct varpool_node *);

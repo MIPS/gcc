@@ -176,6 +176,8 @@ static struct cgraph_node *first_analyzed;
 static struct varpool_node *first_analyzed_var;
 static int counter = 0;
 
+/* Reset this module in preparation for the next compilation unit.  */
+
 void
 cgraph_unit_reset (void)
 {

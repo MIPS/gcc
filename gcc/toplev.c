@@ -2235,6 +2235,9 @@ server_callback (int fd, char **cc1_argv, char **as_argv)
       for (n = 0; cc1_argv[n]; ++n)
 	;
       decode_options (n, (const char **) cc1_argv);
+
+      flag_unit_at_a_time = 1;
+
       init_local_tick ();		/* FIXME... */
       do_compile ();
 
@@ -2250,6 +2253,7 @@ server_callback (int fd, char **cc1_argv, char **as_argv)
      memory use.  */
   cgraph_reset ();
   cgraph_unit_reset ();
+  varpool_reset ();
   ggc_collect ();
 
   /* Make sure to close dup'd stderr, so that client will terminate
@@ -2275,9 +2279,6 @@ toplev_main (unsigned int argc, const char **argv)
   if (argc == 2 && !strncmp (argv[1], "-fserver=", 9))
     {
       int fd = atoi (argv[1] + 9);
-      /* Unit-at-a-time is needed to enable the C type-merging
-	 machinery.  */
-      flag_unit_at_a_time = 1;
       server_mode = true;
       server_main_loop (argv[0], fd);
       return SUCCESS_EXIT_CODE;

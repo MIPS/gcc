@@ -523,7 +523,15 @@ c_decl_re_bind (tree name, tree decl)
 {
   /* FIXME: perhaps should be using pushdecl, etc, here -- do we want
      to re-smash in this thread?  */
-  bind (name, decl, file_scope, false, false, false);
+  bind (name, decl, file_scope, /*invisible=*/false, /*nested=*/false,
+	/*notify_ok=*/false);
+  /* FIXME: more problems related to the above.  We need to re-declare
+     in the external scope sometimes.  But what about smashing?  And
+     other semantics of pushdecl?  Does this work for builtins which
+     are put into the external scope?  */
+  if (TREE_PUBLIC (decl))
+    bind (name, decl, external_scope, /*invisible=*/false, /*nested=*/true,
+	  /*notify_ok=*/false);
 }
 
 /* Clear the binding structure B, stick it on the binding_freelist,
@@ -2895,6 +2903,7 @@ c_init_decl_processing (void)
     }
 
   current_function_decl = 0;
+  all_translation_units = NULL_TREE;
 
   if (!did_it)
     gcc_obstack_init (&parser_obstack);
@@ -6429,10 +6438,12 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
     }
 
   /* Record the decl so that the function name is defined.
-     If we already have a decl for this name, and it is a FUNCTION_DECL,
-     use the old decl.  */
+     If we already have a decl for this name, note that we smashed it.  */
 
-  current_function_decl = pushdecl (decl1);
+  old_decl = pushdecl (decl1);
+  if (decl1 != old_decl)
+    c_parser_note_smash (old_decl, decl1);
+  current_function_decl = decl1;
 
   push_scope ();
   declare_parm_level ();
@@ -8064,15 +8075,13 @@ c_write_global_declarations (void)
 {
   tree t;
 
-  if (!ext_block)
-    return;
-
   /* Process all file scopes in this compilation, and the external_scope,
      through wrapup_global_declarations and check_global_declarations.  */
   for (t = all_translation_units; t; t = TREE_CHAIN (t))
     c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
   c_write_global_declarations_1 (BLOCK_VARS (ext_block));
 
+  
   /* We're done parsing; proceed to optimize and emit assembly.
      FIXME: shouldn't be the front end's responsibility to call this.  */
   cgraph_optimize ();

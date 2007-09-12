@@ -888,7 +888,9 @@ c_parser_note_smash (tree from, tree to)
   entry->value = to;
   slot = (struct smash_entry **) htab_find_slot (parser->smash_map,
 						 entry, INSERT);
-  gcc_assert (slot && !*slot);
+  /* We might see multiple smashes for a given base decl.  We always
+     use the most recent value.  */
+  /*   gcc_assert (slot && !*slot); */
   *slot = entry;
   C_SMASHED_P (from) = 1;
 }

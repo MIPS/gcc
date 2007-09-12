@@ -131,6 +131,9 @@ static GTY(()) struct cgraph_asm_node *cgraph_asm_last_node;
    them, to support -fno-toplevel-reorder.  */
 int cgraph_order;
 
+
+/* Reset this module in preparation for the next compilation unit.  */
+
 void
 cgraph_reset (void)
 {

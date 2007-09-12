@@ -1,3 +1,20 @@
+2007-09-12  Tom Tromey  <tromey@redhat.com>
+
+	* c-common.c (c_common_get_alias_set): Don't check num_in_fnames.
+	* c-parser.c (c_parser_note_smash): Disable assertion.
+	* varpool.c (varpool_reset): New function.
+	(dump_varpool): Iterate using 'next', not 'next_needed'.
+	* cgraph.h (varpool_reset): Declare.
+	* cgraph.c (cgraph_reset): Document.
+	* cgraphunit.c (cgraph_unit_reset): Document.
+	* toplev.c (server_callback): Set flag_unit_at_a_time here...
+	(toplev_main): ... not here.
+	(server_callback): Call varpool_reset.
+	* c-decl.c (c_write_global_declarations): Don't exit early.
+	(start_function): Handle decl smashing.
+	(c_decl_re_bind): Re-bind public decls in the external scope.
+	(c_init_decl_processing): Reset all_translation_units.
+
 2007-09-07  Tom Tromey  <tromey@redhat.com>
 
 	* c-pragma.c (init_pragma): Free pragma vector if already

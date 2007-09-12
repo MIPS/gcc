@@ -76,6 +76,18 @@ static GTY(()) struct varpool_node *varpool_first_unanalyzed_node;
 /* Lists all assembled variables to be sent to debugger output later on.  */
 static GTY(()) struct varpool_node *varpool_assembled_nodes_queue;
 
+/* Reset this module in preparation for the next compilation unit.  */
+void
+varpool_reset (void)
+{
+  varpool_hash = NULL;
+  varpool_nodes = NULL;
+  varpool_nodes_queue = NULL;
+  varpool_last_needed_node = NULL;
+  varpool_first_unanalyzed_node = NULL;
+  varpool_assembled_nodes_queue = NULL;
+}
+
 /* Return name of the node used in debug output.  */
 static const char *
 varpool_node_name (struct varpool_node *node)
@@ -158,7 +170,7 @@ dump_varpool (FILE *f)
   struct varpool_node *node;
 
   fprintf (f, "variable pool:\n\n");
-  for (node = varpool_nodes; node; node = node->next_needed)
+  for (node = varpool_nodes; node; node = node->next)
     dump_varpool_node (f, node);
 }
 
