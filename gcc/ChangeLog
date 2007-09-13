@@ -1,3 +1,7 @@
+2007-09-13  Tom Tromey  <tromey@redhat.com>
+
+	* gcc.c (execute): Fall back to exec if connection fails.
+
 2007-09-12  Tom Tromey  <tromey@redhat.com>
 
 	* c-common.c (c_common_get_alias_set): Don't check num_in_fnames.

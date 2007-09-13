@@ -2947,15 +2947,11 @@ execute (void)
 #endif /* DEBUG */
     }
 
-  if (use_server)
+  /* Maybe we should warn the user if the connection fails?  */
+  if (use_server && client_connect (commands[0].argv[0]))
     {
       for (i = 0; i < n_commands; ++i)
 	{
-	  if (i == 0)
-	    {
-	      if (!client_connect (commands[i].argv[0]))
-		fatal ("couldn't start server: %s", commands[i].argv[0]);
-	    }
 	  if (!client_send_command (commands[i].argv))
 	    fatal ("couldn't send command to server: %s", commands[i].argv[0]);
 	}
