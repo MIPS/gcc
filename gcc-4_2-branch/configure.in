@@ -732,7 +732,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs gprof target-libgloss ${libgcj}"
     ;;
   mips64*-*-linux*)
-    noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs target-newlib target-libgloss"
     ;;
   mips*-*-linux*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss"
