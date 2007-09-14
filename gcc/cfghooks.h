@@ -28,7 +28,7 @@ struct cfg_hooks
 
   /* Debugging.  */
   int (*verify_flow_info) (void);
-  void (*dump_bb) (basic_block, FILE *, int);
+  void (*dump_bb) (basic_block, FILE *, int, int);
 
   /* Basic CFG manipulation.  */
 

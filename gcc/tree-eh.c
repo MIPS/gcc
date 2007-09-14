@@ -129,6 +129,7 @@ add_stmt_to_eh_region (gimple t, int num)
 {
   add_stmt_to_eh_region_fn (cfun, t, num);
 }
+#endif
 
 
 /* Remove statement T in function IFUN from the EH region holding it.  */
@@ -164,7 +165,6 @@ remove_stmt_from_eh_region (gimple t)
   return remove_stmt_from_eh_region_fn (cfun, t);
 }
 
-
 /* Determine if statement T is inside an EH region in function IFUN.
    Return the EH region number if found, return -2 if IFUN does not
    have an EH table and -1 if T could not be found in IFUN's EH region
@@ -196,9 +196,12 @@ lookup_stmt_eh_region (gimple t)
      is on; prevent crash.  */
   if (!cfun)
     return -1;
+
   return lookup_stmt_eh_region_fn (cfun, t);
 }
 
+/* FIXME tuples.  */
+#if 0
 
 /* First pass of EH node decomposition.  Build up a tree of TRY_FINALLY_EXPR
    nodes and LABEL_DECL nodes.  We will use this during the second phase to
@@ -2077,10 +2080,8 @@ tree_could_throw_p (tree t)
    the current function (CFUN).  */
 
 bool
-stmt_can_throw_internal (gimple stmt ATTRIBUTE_UNUSED)
+stmt_can_throw_internal (gimple stmt)
 {
-/* FIXME tuples */
-#if 0
   int region_nr;
   bool is_resx = false;
 
@@ -2091,12 +2092,11 @@ stmt_can_throw_internal (gimple stmt ATTRIBUTE_UNUSED)
     }
   else
     region_nr = lookup_stmt_eh_region (stmt);
+
   if (region_nr < 0)
     return false;
+
   return can_throw_internal_1 (region_nr, is_resx);
-#else
-  gcc_unreachable ();
-#endif
 }
 
 

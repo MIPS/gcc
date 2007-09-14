@@ -102,6 +102,7 @@ gimple_alloc_histogram_value (struct function *fun ATTRIBUTE_UNUSED,
    hist->type = type;
    return hist;
 }
+#endif
 
 /* Hash value for histogram.  */
 
@@ -116,7 +117,7 @@ histogram_hash (const void *x)
 static int
 histogram_eq (const void *x, const void *y)
 {
-  return ((const_histogram_value) x)->hvalue.stmt == (const_tree)y;
+  return ((const_histogram_value) x)->hvalue.stmt == (gimple)y;
 }
 
 /* Set histogram for STMT.  */
@@ -153,6 +154,8 @@ gimple_histogram_value (struct function *fun, gimple stmt)
                               htab_hash_pointer (stmt));
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Add histogram for STMT.  */
 
 void
@@ -161,6 +164,8 @@ gimple_add_histogram_value (struct function *fun, gimple stmt, histogram_value h
   hist->hvalue.next = gimple_histogram_value (fun, stmt);
   set_histogram_value (fun, stmt, hist);
 }
+#endif
+
 
 /* Remove histogram HIST from STMT's histogram list.  */
 
@@ -186,6 +191,8 @@ gimple_remove_histogram_value (struct function *fun, gimple stmt,
   free (hist);
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Lookup histogram of type TYPE in the STMT.  */
 
 histogram_value
@@ -197,6 +204,7 @@ gimple_histogram_value_of_type (struct function *fun, tree stmt, enum hist_type 
       return hist;
   return NULL;
 }
+#endif
 
 /* Dump information about HIST to DUMP_FILE.  */
 
@@ -304,7 +312,7 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
 /* Dump all histograms attached to STMT to DUMP_FILE.  */
 
 void
-dump_histograms_for_stmt (struct function *fun, FILE *dump_file, tree stmt)
+dump_histograms_for_stmt (struct function *fun, FILE *dump_file, gimple stmt)
 {
   histogram_value hist;
   for (hist = gimple_histogram_value (fun, stmt); hist; hist = hist->hvalue.next)
@@ -321,6 +329,8 @@ gimple_remove_stmt_histograms (struct function *fun, gimple stmt)
     gimple_remove_histogram_value (fun, stmt, val);
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Duplicate all histograms associates with OSTMT to STMT.  */
 
 void

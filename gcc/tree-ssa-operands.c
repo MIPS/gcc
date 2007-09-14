@@ -2954,6 +2954,7 @@ discard_stmt_changes (tree *stmt_p)
   buf->stmt_p = NULL;
   free (buf);
 }
+#endif
 
 
 /* Returns true if statement STMT may access memory.  */
@@ -2967,4 +2968,3 @@ stmt_references_memory_p (gimple stmt)
 
   return gimple_has_mem_ops (stmt);
 }
-#endif

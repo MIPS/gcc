@@ -38,8 +38,11 @@ gsi_start (gimple_seq seq)
 {
   gimple_stmt_iterator *i = ggc_alloc_cleared (sizeof (gimple_stmt_iterator));
 
-  i->stmt = gimple_seq_first (seq);
-  i->seq = seq;
+  if (seq)
+    {
+      i->stmt = gimple_seq_first (seq);
+      i->seq = seq;
+    }
 
   return i;
 }

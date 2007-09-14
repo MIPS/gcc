@@ -32,6 +32,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "gimple.h"
+#include "value-prof.h"
 
 #define INDENT(SPACE)							\
   do { int i; for (i = 0; i < SPACE; i++) pp_space (buffer); } while (0)
@@ -324,7 +325,6 @@ dump_gimple_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
   if (flags & TDF_DETAILS)
     pp_string (buffer, "GIMPLE_COND tuple");
 
-  newline_and_indent (buffer, spc);
   pp_string (buffer, "if (");
   dump_generic_node (buffer, gimple_cond_lhs (gs), spc, flags, false);
   pp_space (buffer);
@@ -362,8 +362,6 @@ dump_gimple_bind (pretty_printer *buffer, gimple gs, int spc, int flags)
   if (flags & TDF_DETAILS)
     pp_string (buffer, "GIMPLE_BIND tuple");
 
-  newline_and_indent (buffer, spc);
-
   pp_character (buffer, '{');
   newline_and_indent (buffer, spc + 2);
   if (!(flags & TDF_SLIM))
@@ -394,7 +392,6 @@ dump_gimple_try (pretty_printer *buffer, gimple gs, int spc, int flags)
   if (flags & TDF_DETAILS)
     pp_string (buffer, "GIMPLE_TRY tuple");
 
-  newline_and_indent (buffer, spc);
   pp_string (buffer, "try {");
   newline_and_indent (buffer, spc + 2);
   dump_gimple_seq (buffer, gimple_try_eval (gs), spc + 2, flags);
@@ -419,9 +416,8 @@ static void
 dump_gimple_asm (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
   unsigned int i;
-  newline_and_indent (buffer, spc);
-  pp_string (buffer, "__asm__ (");
 
+  pp_string (buffer, "__asm__ (");
   pp_string (buffer, gimple_asm_string (gs));
 
   if (gimple_asm_ninputs (gs)
@@ -458,7 +454,60 @@ dump_gimple_asm (pretty_printer *buffer, gimple gs, int spc, int flags)
 }
 
 
-/* Dump the gimple statement GS on the pretty_printer BUFFER, SPC
+/* Dump the set of decls SYMS.  BUFFER, SPC and FLAGS are as in
+   dump_generic_node.  */
+
+static void
+dump_symbols (pretty_printer *buffer, bitmap syms, int flags)
+{
+  unsigned i;
+  bitmap_iterator bi;
+
+  if (syms == NULL)
+    pp_string (buffer, "NIL");
+  else
+    {
+      pp_string (buffer, " { ");
+
+      EXECUTE_IF_SET_IN_BITMAP (syms, 0, i, bi)
+	{
+	  tree sym = referenced_var_lookup (i);
+	  dump_generic_node (buffer, sym, 0, flags, false);
+	  pp_string (buffer, " ");
+	}
+
+      pp_string (buffer, "}");
+    }
+}
+
+
+/* Dump a PHI node PHI.  BUFFER, SPC and FLAGS are as in
+   dump_gimple_stmt.  */
+
+static void
+dump_gimple_phi (pretty_printer *buffer, gimple phi, int spc, int flags)
+{
+  size_t i;
+
+  dump_generic_node (buffer, gimple_phi_result (phi), spc, flags, false);
+  pp_string (buffer, " = PHI <");
+  for (i = 0; i < gimple_phi_num_args (phi); i++)
+    {
+      dump_generic_node (buffer, gimple_phi_arg_def (phi, i), spc, flags,
+			 false);
+      pp_string (buffer, "(");
+      pp_decimal_int (buffer, gimple_phi_arg_edge (phi, i)->src->index);
+      pp_string (buffer, ")");
+      if (i < gimple_phi_num_args (phi) - 1)
+	pp_string (buffer, ", ");
+    }
+  pp_string (buffer, ">");
+
+  if (stmt_references_memory_p (phi) && (flags & TDF_MEMSYMS))
+    dump_symbols (buffer, gimple_stored_syms (phi), flags);
+}
+
+/* Dump the gimple statement GS on the pretty printer BUFFER, SPC
    spaces of indent.  FLAGS specifies details to show in the dump (see
    TDF_* in tree.h).  */
 
@@ -470,7 +519,6 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 
   switch (gimple_code (gs))
     {
-      
     case GIMPLE_ASM:
       dump_gimple_asm (buffer, gs, spc, flags);
       break;
@@ -516,10 +564,184 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_gimple_try (buffer, gs, spc, flags);
       break;
 
+    case GIMPLE_PHI:
+      dump_gimple_phi (buffer, gs, spc, flags);
+      break;
+
     default:
       GIMPLE_NIY;
     }
 
   newline_and_indent (buffer, spc);
   pp_write_text_to_stream (buffer);
+}
+
+
+/* Dumps header of basic block BB to buffer BUFFER indented by INDENT
+   spaces and details described by flags.  */
+
+static void
+dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
+{
+  edge e;
+  gimple stmt;
+  edge_iterator ei;
+
+  if (flags & TDF_BLOCKS)
+    {
+      INDENT (indent);
+      pp_string (buffer, "# BLOCK ");
+      pp_decimal_int (buffer, bb->index);
+      if (bb->frequency)
+	{
+          pp_string (buffer, " freq:");
+          pp_decimal_int (buffer, bb->frequency);
+	}
+      if (bb->count)
+	{
+          pp_string (buffer, " count:");
+          pp_widest_integer (buffer, bb->count);
+	}
+
+      if (flags & TDF_LINENO)
+	{
+	  gimple_stmt_iterator *gsi;
+
+	  for (gsi = gsi_start (bb_seq (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+	    if (get_lineno (gsi_stmt (gsi)) != -1)
+	      {
+		pp_string (buffer, ", starting at line ");
+		pp_decimal_int (buffer, get_lineno (gsi_stmt (gsi)));
+		break;
+	      }
+	}
+      newline_and_indent (buffer, indent);
+
+      pp_string (buffer, "# PRED:");
+      pp_write_text_to_stream (buffer);
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	if (flags & TDF_SLIM)
+	  {
+	    pp_string (buffer, " ");
+	    if (e->src == ENTRY_BLOCK_PTR)
+	      pp_string (buffer, "ENTRY");
+	    else
+	      pp_decimal_int (buffer, e->src->index);
+	  }
+	else
+	  dump_edge_info (buffer->buffer->stream, e, 0);
+      pp_newline (buffer);
+    }
+  else
+    {
+      stmt = first_stmt (bb);
+      if (!stmt || gimple_code (stmt) != GIMPLE_LABEL)
+	{
+	  INDENT (indent - 2);
+	  pp_string (buffer, "<bb ");
+	  pp_decimal_int (buffer, bb->index);
+	  pp_string (buffer, ">:");
+	  pp_newline (buffer);
+	}
+    }
+  pp_write_text_to_stream (buffer);
+  check_bb_profile (bb, buffer->buffer->stream);
+}
+
+
+/* Dumps end of basic block BB to buffer BUFFER indented by INDENT
+   spaces.  */
+
+static void
+dump_bb_end (pretty_printer *buffer, basic_block bb, int indent, int flags)
+{
+  edge e;
+  edge_iterator ei;
+
+  INDENT (indent);
+  pp_string (buffer, "# SUCC:");
+  pp_write_text_to_stream (buffer);
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (flags & TDF_SLIM)
+      {
+	pp_string (buffer, " ");
+	if (e->dest == EXIT_BLOCK_PTR)
+	  pp_string (buffer, "EXIT");
+	else
+	  pp_decimal_int (buffer, e->dest->index);
+      }
+    else
+      dump_edge_info (buffer->buffer->stream, e, 1);
+  pp_newline (buffer);
+}
+
+
+/* Dump PHI nodes of basic block BB to BUFFER with details described
+   by FLAGS and indented by INDENT spaces.  */
+
+static void
+dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
+{
+  gimple_stmt_iterator *i;
+
+  for (i = gsi_start (phi_nodes (bb)); !gsi_end_p (i); gsi_next (i))
+    {
+      gimple phi = gsi_stmt (i);
+      if (is_gimple_reg (gimple_phi_result (phi)) || (flags & TDF_VOPS))
+        {
+          INDENT (indent);
+          pp_string (buffer, "# ");
+          dump_gimple_phi (buffer, phi, indent, flags);
+          pp_newline (buffer);
+        }
+    }
+}
+
+
+/* Dumps basic block BB to buffer BUFFER with details described by FLAGS and
+   indented by INDENT spaces.  */
+
+static void
+gimple_dump_bb_buff (pretty_printer *buffer, basic_block bb, int indent,
+		     int flags)
+{
+  gimple_stmt_iterator *gsi;
+  gimple stmt;
+  int label_indent = indent - 2;
+
+  if (label_indent < 0)
+    label_indent = 0;
+
+  dump_bb_header (buffer, bb, indent, flags);
+  dump_phi_nodes (buffer, bb, indent, flags);
+
+  for (gsi = gsi_start (bb_seq (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+    {
+      int curr_indent;
+
+      stmt = gsi_stmt (gsi);
+
+      curr_indent = gimple_code (stmt) == GIMPLE_LABEL ? label_indent : indent;
+
+      INDENT (curr_indent);
+      dump_gimple_stmt (buffer, stmt, curr_indent, flags);
+      dump_histograms_for_stmt (cfun, buffer->buffer->stream, stmt);
+    }
+
+  /*dump_implicit_edges (buffer, bb, indent, flags);*/
+
+  if (flags & TDF_BLOCKS)
+    dump_bb_end (buffer, bb, indent, flags);
+}
+
+
+/* Dumps basic block BB to FILE with details described by FLAGS and
+   indented by INDENT spaces.  */
+
+void
+gimple_dump_bb (basic_block bb, FILE *file, int indent, int flags)
+{
+  maybe_init_pretty_print (file);
+  gimple_dump_bb_buff (&buffer, bb, indent, flags);
+  pp_flush (&buffer);
 }

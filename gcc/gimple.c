@@ -1137,6 +1137,7 @@ gimple_call_flags (gimple stmt)
   return flags;
 }
 
+
 /* Return true if GS is a copy assignment.  */
 
 bool

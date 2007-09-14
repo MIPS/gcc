@@ -1,3 +1,53 @@
+2007-09-13  Diego Novillo  <dnovillo@google.com>
+
+	* tree-pretty-print.c (dump_symbols, dump_generic_bb,
+	dump_bb_header, dump_bb_end, dump_phi_nodes, pp_cfg_jump,
+	dump_implicit_edges, dump_generic_bb_buff): Remove.
+	* value-prof.c (histogram_eq): Enable.
+	(dump_histograms_for_stmt): Adapt to tuples.
+	* value-prof.h (struct):
+	* cfghooks.h (struct cfg_hooks)<dump_bb>: Add int argument.
+	Update all users.
+	* gimple-dummy.c (gimple_remove_stmt_histograms,
+	remove_stmt_from_eh_region): Remove.
+	* gimple-iterator.h (gsi_start): Support NULL sequences.
+	* tree-eh.c (add_stmt_to_eh_region): Enable.
+	(remove_stmt_from_eh_region): Enable.
+	(lookup_stmt_eh_region): Enable.
+	(tree_could_throw_p): Enable.
+	(stmt_can_throw_internal): Enable.
+	* gimple-pretty-print.c: Include value-prof.h
+	(dump_gimple_cond): Do not insert a newline initially.
+	(dump_gimple_bind): Likewise.
+	(dump_gimple_try): Likewise.
+	(dump_gimple_asm): Likewise.
+	(dump_symbols): Move from tree-pretty-print.c
+	(dump_gimple_phi): New.
+	(dump_gimple_stmt): Call it..
+	(dump_bb_header): Move from tree-pretty-print.c
+	(dump_bb_end): Likewise.
+	(dump_phi_nodes): Likewise.
+	(gimple_dump_bb_buff): New.
+	(gimple_dump_bb): New.
+	* Makefile.in (gimple-pretty-print.o): Add dependency
+	value-prof.h
+	* tree-cfg.c (fold_cond_expr_cond): Handle cases where
+	fold_binary returns NULL.
+	(make_cond_expr_edges): Take locus from the first statement of
+	the destination blocks.
+	(tree_dump_bb): Remove.
+	(gimple_debug_bb): Rename from debug_tree_bb.
+	Update all users.
+	(gimple_debug_bb_n): Rename from debug_tree_bb_n.
+	Update all users.
+	(gimple_debug_cfg): Rename from debug_tree_cfg.
+	Update all users.
+	(gimple_dump_cfg): Rename from dump_tree_cfg.
+	Update all users.
+	(is_ctrl_altering_stmt): Call gimple_call_flags to determine
+	whether the function is const/pure.
+	* tree-ssa-operands.c (stmt_references_memory_p): Enable.
+
 2007-09-11  Diego Novillo  <dnovillo@google.com>
 
 	* tree.h (struct tree_ssa_name): Add field def_stmt.

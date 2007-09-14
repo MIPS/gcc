@@ -290,7 +290,7 @@ dump_bb (basic_block bb, FILE *outf, int indent)
   putc ('\n', outf);
 
   if (cfg_hooks->dump_bb)
-    cfg_hooks->dump_bb (bb, outf, indent);
+    cfg_hooks->dump_bb (bb, outf, indent, 0);
 }
 
 /* Redirect edge E to the given basic block DEST and update underlying program

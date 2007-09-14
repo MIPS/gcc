@@ -208,7 +208,7 @@ build_gimple_cfg (gimple_seq seq)
 
   /* Dump a textual representation of the flowgraph.  */
   if (dump_file)
-    dump_tree_cfg (dump_file, dump_flags);
+    gimple_dump_cfg (dump_file, dump_flags);
 }
 
 static unsigned int
@@ -421,8 +421,14 @@ fold_cond_expr_cond (void)
 	  fold_defer_overflow_warnings ();
 	  cond = fold_binary (gimple_cond_code (stmt), boolean_type_node,
 			      gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
-	  zerop = integer_zerop (cond);
-	  onep = integer_onep (cond);
+	  if (cond)
+	    {
+	      zerop = integer_zerop (cond);
+	      onep = integer_onep (cond);
+	    }
+	  else
+	    zerop = onep = false;
+
 	  fold_undefer_overflow_warnings (((zerop || onep)
 					   && !gimple_no_warning_p (stmt)),
 					  stmt,
@@ -613,6 +619,7 @@ static void
 make_cond_expr_edges (basic_block bb)
 {
   gimple entry = last_stmt (bb);
+  gimple then_stmt, else_stmt;
   basic_block then_bb, else_bb;
   tree then_label, else_label;
   edge e;
@@ -625,26 +632,15 @@ make_cond_expr_edges (basic_block bb)
   else_label = gimple_cond_false_label (entry);
   then_bb = label_to_block (then_label);
   else_bb = label_to_block (else_label);
+  then_stmt = first_stmt (then_bb);
+  else_stmt = first_stmt (else_bb);
 
   e = make_edge (bb, then_bb, EDGE_TRUE_VALUE);
-#ifdef USE_MAPPED_LOCATION
-  e->goto_locus = EXPR_LOCATION (then_label);
-#else
-  e->goto_locus = *EXPR_LOCUS (then_label);
-#endif
+  e->goto_locus = gimple_locus (then_stmt);
+
   e = make_edge (bb, else_bb, EDGE_FALSE_VALUE);
   if (e)
-    {
-#ifdef USE_MAPPED_LOCATION
-      e->goto_locus = EXPR_LOCATION (else_label);
-#else
-      e->goto_locus = *EXPR_LOCUS (else_label);
-#endif
-    }
-
-  /* We do not need the branches anymore.  */
-  gimple_cond_set_true_label (entry, NULL);
-  gimple_cond_set_false_label (entry, NULL);
+    e->goto_locus = gimple_locus (else_stmt);
 }
 
 
@@ -2234,34 +2230,21 @@ find_case_label_for_value (gimple switch_stmt, tree val)
 }
 
 
-/*---------------------------------------------------------------------------
-			      Debugging functions
----------------------------------------------------------------------------*/
-
-/* Dump tree-specific information of block BB to file OUTF.  */
-
-void
-tree_dump_bb (basic_block bb, FILE *outf, int indent)
-{
-  dump_generic_bb (outf, bb, indent, TDF_VOPS|TDF_MEMSYMS);
-}
-
-
 /* Dump a basic block on stderr.  */
 
 void
-debug_tree_bb (basic_block bb)
+gimple_debug_bb (basic_block bb)
 {
-  dump_bb (bb, stderr, 0);
+  gimple_dump_bb (bb, stderr, 0, TDF_VOPS|TDF_MEMSYMS);
 }
 
 
 /* Dump basic block with index N on stderr.  */
 
 basic_block
-debug_tree_bb_n (int n)
+gimple_debug_bb_n (int n)
 {
-  debug_tree_bb (BASIC_BLOCK (n));
+  gimple_debug_bb (BASIC_BLOCK (n));
   return BASIC_BLOCK (n);
 }
 
@@ -2272,9 +2255,9 @@ debug_tree_bb_n (int n)
    (see TDF_* in tree-pass.h).  */
 
 void
-debug_tree_cfg (int flags)
+gimple_debug_cfg (int flags)
 {
-  dump_tree_cfg (stderr, flags);
+  gimple_dump_cfg (stderr, flags);
 }
 
 
@@ -2284,7 +2267,7 @@ debug_tree_cfg (int flags)
    tree.h).  */
 
 void
-dump_tree_cfg (FILE *file, int flags)
+gimple_dump_cfg (FILE *file, int flags)
 {
   if (flags & TDF_DETAILS)
     {
@@ -2482,9 +2465,12 @@ is_ctrl_altering_stmt (gimple t)
 
   if (gimple_code (t) == GIMPLE_CALL)
     {
+      int flags = gimple_call_flags (t);
+
       /* A non-pure/const call alters flow control if the current
 	 function has nonlocal labels.  */
-      if (/*TREE_SIDE_EFFECTS (call) && */current_function_has_nonlocal_label)
+      if (!(flags & (ECF_CONST | ECF_PURE))
+	  && current_function_has_nonlocal_label)
 	return true;
 
       /* A call also alters control flow if it does not return.  */
@@ -5618,7 +5604,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
 	fprintf (file, "\n");
 
       FOR_EACH_BB (bb)
-	dump_generic_bb (file, bb, 2, flags);
+	gimple_dump_bb (bb, file, 2, flags);
 
       fprintf (file, "}\n");
       check_bb_profile (EXIT_BLOCK_PTR, file);
@@ -5742,7 +5728,7 @@ print_loop (FILE *file, struct loop *loop, int indent)
 
 	/* Print the basic_block's body.  */
 	fprintf (file, "%s  {\n", s_indent);
-	tree_dump_bb (bb, file, indent + 4);
+	gimple_dump_bb (bb, file, indent + 4, TDF_VOPS|TDF_MEMSYMS);
 	fprintf (file, "%s  }\n", s_indent);
       }
 
@@ -6259,7 +6245,7 @@ tree_lv_add_condition_to_bb (basic_block first_head ATTRIBUTE_UNUSED,
 struct cfg_hooks gimple_cfg_hooks = {
   "gimple",
   tree_verify_flow_info,
-  tree_dump_bb,			/* dump_bb  */
+  gimple_dump_bb,		/* dump_bb  */
   create_bb,			/* create_basic_block  */
   0 /* FIXME tuples tree_redirect_edge_and_branch */,/* redirect_edge_and_branch  */
   0 /* FIXME tuples tree_redirect_edge_and_branch_force */,/* redirect_edge_and_branch_force  */
