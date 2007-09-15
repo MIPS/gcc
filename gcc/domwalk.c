@@ -201,8 +201,7 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 		  (*walk_data->before_dom_children_walk_stmts) (walk_data, bb,
 								gsi);
 	      else
-		for (gsi = gsi_start (bb_seq (bb)); !gsi_end_p (gsi);
-		     gsi_next (gsi))
+		for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
 		  (*walk_data->before_dom_children_walk_stmts) (walk_data, bb,
 								gsi);
 	    }
@@ -243,8 +242,7 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 		  (*walk_data->after_dom_children_walk_stmts) (walk_data, bb,
 							       gsi);
 	      else
-		for (gsi = gsi_start (bb_seq (bb)); !gsi_end_p (gsi);
-		     gsi_next (gsi))
+		for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
 		  (*walk_data->after_dom_children_walk_stmts) (walk_data, bb,
 							       gsi);
 	    }

@@ -59,7 +59,7 @@ static const int initial_cfg_capacity = 20;
 /* This hash table allows us to efficiently lookup all CASE_LABEL_EXPRs
    which use a particular edge.  The CASE_LABEL_EXPRs are chained together
    via their TREE_CHAIN field, which we clear after we're done with the
-   hash table to prevent problems with duplication of SWITCH_EXPRs.
+   hash table to prevent problems with duplication of GIMPLE_SWITCHes.
 
    Access to this list of CASE_LABEL_EXPRs allows us to efficiently
    update the case vector in response to edge redirections.
@@ -83,14 +83,13 @@ static struct cfg_stats_d cfg_stats;
 static bool found_computed_goto;
 
 /* Basic blocks and flowgraphs.  */
-static basic_block create_bb (void *, void *, basic_block);
 static void make_blocks (gimple_seq);
 static void factor_computed_gotos (void);
 
 /* Edges.  */
 static void make_edges (void);
 static void make_cond_expr_edges (basic_block);
-static void make_switch_expr_edges (basic_block);
+static void make_gimple_switch_edges (basic_block);
 static void make_goto_expr_edges (basic_block);
 /* FIXME tuples.  */
 #if 0
@@ -148,9 +147,6 @@ init_empty_tree_cfg (void)
 static void
 build_gimple_cfg (gimple_seq seq)
 {
-  /* FIXME tuples.  */
-  return;
-
   /* Register specific gimple functions.  */
   gimple_register_cfg_hooks ();
 
@@ -277,10 +273,10 @@ factor_computed_gotos (void)
 	  /* The first time we find a computed goto we need to create
 	     the factored goto block and the variable each original
 	     computed goto will use for their goto destination.  */
-	  if (! factored_computed_goto)
+	  if (!factored_computed_goto)
 	    {
 	      basic_block new_bb = create_empty_bb (bb);
-	      gimple_stmt_iterator *new_gsi = gsi_start (bb_seq (new_bb));
+	      gimple_stmt_iterator *new_gsi = gsi_start_bb (new_bb);
 
 	      /* Create the destination of the factored goto.  Each original
 		 computed goto will put its desired destination into this
@@ -376,7 +372,7 @@ create_bb (void *h, void *e, basic_block after)
   bb->index = last_basic_block;
   bb->flags = BB_NEW;
   bb->il.gimple = GGC_CNEW (struct gimple_bb_info);
-  set_bb_seq (bb, (gimple_seq) h);
+  set_bb_seq (bb, h ? (gimple_seq) h : gimple_seq_alloc ());
 
   /* Add the new block to the linked list of blocks.  */
   link_block (bb, after);
@@ -447,7 +443,10 @@ static void
 make_edges (void)
 {
   basic_block bb;
+  /* FIXME tuples.  */
+#if 0
   struct omp_region *cur_region = NULL;
+#endif
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
@@ -477,7 +476,7 @@ make_edges (void)
 	      fallthru = false;
 	      break;
 	    case GIMPLE_SWITCH:
-	      make_switch_expr_edges (bb);
+	      make_gimple_switch_edges (bb);
 	      fallthru = false;
 	      break;
 	    case GIMPLE_RESX:
@@ -501,12 +500,7 @@ make_edges (void)
 
 	      /* If this statement has reachable exception handlers, then
 		 create abnormal edges to them.  */
-	      /* FIXME tuples.  */
-#if 0
 	      make_eh_edges (last);
-#else
-	      gcc_unreachable ();
-#endif
 
 	      /* Some calls are known not to return.  */
 	      fallthru = !(gimple_call_flags (last) & ECF_NORETURN);
@@ -516,8 +510,6 @@ make_edges (void)
 	      fallthru = true;
 	      break;
 
-	      /* FIXME tuples */
-#if 0
 	    case OMP_PARALLEL:
 	    case OMP_FOR:
 	    case OMP_SINGLE:
@@ -525,29 +517,50 @@ make_edges (void)
 	    case OMP_ORDERED:
 	    case OMP_CRITICAL:
 	    case OMP_SECTION:
+	      /* FIXME tuples.  */
+#if 0
 	      cur_region = new_omp_region (bb, code, cur_region);
 	      fallthru = true;
+#else
+	      gcc_unreachable ();
+#endif
 	      break;
 
 	    case OMP_SECTIONS:
+	      /* FIXME tuples.  */
+#if 0
 	      cur_region = new_omp_region (bb, code, cur_region);
 	      fallthru = true;
+#else
+	      gcc_unreachable ();
+#endif
 	      break;
 
 	    case OMP_SECTIONS_SWITCH:
+	      /* FIXME tuples.  */
+#if 0
 	      fallthru = false;
-	      break;
+#else
+	      gcc_unreachable ();
 #endif
+	      break;
 
 	    case OMP_RETURN:
+	      /* FIXME tuples.  */
+#if 0
 	      /* In the case of an OMP_SECTION, the edge will go somewhere
 		 other than the next block.  This will be created later.  */
 	      cur_region->exit = bb;
 	      fallthru = cur_region->type != OMP_SECTION;
 	      cur_region = cur_region->outer;
+#else
+	      gcc_unreachable ();
+#endif
 	      break;
 
 	    case OMP_CONTINUE:
+	      /* FIXME tuples.  */
+#if 0
 	      cur_region->cont = bb;
 	      switch (cur_region->type)
 		{
@@ -588,6 +601,9 @@ make_edges (void)
 		default:
 		  gcc_unreachable ();
 		}
+#else
+	      gcc_unreachable ();
+#endif
 	      break;
 
 	    default:
@@ -745,7 +761,7 @@ get_cases_for_edge (edge e, gimple t)
 /* Create the edges for a GIMPLE_SWITCH starting at block BB.  */
 
 static void
-make_switch_expr_edges (basic_block bb)
+make_gimple_switch_edges (basic_block bb)
 {
   gimple entry = last_stmt (bb);
   size_t i, n;
@@ -773,8 +789,7 @@ label_to_block_fn (struct function *ifun, tree dest)
      and undefined variable warnings quite right.  */
   if ((errorcount || sorrycount) && uid < 0)
     {
-      gimple_stmt_iterator *gsi =
-	gsi_start (bb_seq (BASIC_BLOCK (NUM_FIXED_BLOCKS)));
+      gimple_stmt_iterator *gsi = gsi_start_bb (BASIC_BLOCK (NUM_FIXED_BLOCKS));
       gimple stmt;
 
       stmt = build_gimple_label (dest);
@@ -797,8 +812,7 @@ make_abnormal_goto_edges (basic_block bb, bool for_call)
   gimple_stmt_iterator *gsi;
 
   FOR_EACH_BB (target_bb)
-    for (gsi = gsi_start (bb_seq (target_bb)); !gsi_end_p (gsi);
-	 gsi_next (gsi))
+    for (gsi = gsi_start_bb (target_bb); !gsi_end_p (gsi); gsi_next (gsi))
       {
 	gimple label_stmt = gsi_stmt (gsi);
 	tree target;
@@ -886,7 +900,9 @@ update_eh_label (struct eh_region *region)
     }
 }
 
+
 /* Given LABEL return the first label in the same basic block.  */
+
 static tree
 main_block_label (tree label)
 {
@@ -921,7 +937,7 @@ cleanup_dead_labels (void)
     {
       gimple_stmt_iterator *i;
 
-      for (i = gsi_start (bb_seq (bb)); !gsi_end_p (i); gsi_next (i))
+      for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (i))
 	{
 	  tree label;
 	  gimple stmt = gsi_stmt (i);
@@ -963,28 +979,29 @@ cleanup_dead_labels (void)
 	{
 	case GIMPLE_COND:
 	  {
-	    tree true_label, false_label;
+	    tree new_true_label, new_false_label;
 
-	    true_label = gimple_cond_true_label (stmt);
-	    false_label = gimple_cond_false_label (stmt);
+	    new_true_label = main_block_label (gimple_cond_true_label (stmt));
+	    new_false_label = main_block_label (gimple_cond_false_label (stmt));
 
-	    if (true_label)
-	      gimple_cond_set_true_label (stmt, main_block_label (true_label));
-	    if (false_label)
-	      gimple_cond_set_false_label (stmt,
-					   main_block_label (false_label));
+	    if (new_true_label)
+	      gimple_cond_set_true_label (stmt, new_true_label);
+
+	    if (new_false_label)
+	      gimple_cond_set_false_label (stmt, new_false_label);
 	    break;
 	  }
 
-	case SWITCH_EXPR:
+	case GIMPLE_SWITCH:
 	  {
-	    unsigned int i, n = gimple_switch_num_labels (stmt);
+	    size_t i, n = gimple_switch_num_labels (stmt);
 
 	    /* Replace all destination labels.  */
 	    for (i = 0; i < n; ++i)
 	      {
-		tree label = main_block_label (gimple_switch_label (stmt, i));
-		gimple_switch_set_label (stmt, i, label);
+		tree case_label = gimple_switch_label (stmt, i);
+		tree label = main_block_label (CASE_LABEL (case_label));
+		CASE_LABEL (case_label) = label;
 	      }
 	    break;
 	  }
@@ -992,10 +1009,10 @@ cleanup_dead_labels (void)
 	/* We have to handle gotos until they're removed, and we don't
 	   remove them until after we've created the CFG edges.  */
 	case GIMPLE_GOTO:
-          if (! computed_goto_p (stmt))
+          if (!computed_goto_p (stmt))
 	    {
-	      gimple_goto_set_dest (stmt,
-				    main_block_label (gimple_goto_dest (stmt)));
+	      tree new_dest = main_block_label (gimple_goto_dest (stmt));
+	      gimple_goto_set_dest (stmt, new_dest);
 	      break;
 	    }
 
@@ -1021,7 +1038,7 @@ cleanup_dead_labels (void)
       if (!label_for_bb[bb->index].used)
 	label_for_this_bb = NULL;
 
-      for (i = gsi_start (bb_seq (bb)); !gsi_end_p (i); )
+      for (i = gsi_start_bb (bb); !gsi_end_p (i); )
 	{
 	  tree label;
 	  gimple stmt = gsi_stmt (i);
@@ -1032,7 +1049,7 @@ cleanup_dead_labels (void)
 	  label = gimple_label_label (stmt);
 
 	  if (label == label_for_this_bb
-	      || ! DECL_ARTIFICIAL (label)
+	      || !DECL_ARTIFICIAL (label)
 	      || DECL_NONLOCAL (label)
 	      || FORCED_LABEL (label))
 	    gsi_next (i);
@@ -1061,11 +1078,12 @@ group_case_labels (void)
 	{
 	  int old_size = gimple_switch_num_labels (stmt);
 	  int i, j, new_size = old_size;
-	  tree default_case = gimple_switch_default_label (stmt);
+	  tree default_case;
 	  tree default_label;
 
 	  /* The default label is always the first case in a switch
 	     statement after gimplification.  */
+	  default_case = gimple_switch_default_label (stmt);
 	  default_label = CASE_LABEL (default_case);
 
 	  /* Look for possible opportunities to merge cases.
@@ -1168,7 +1186,8 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
     return false;
 
   /* Do not allow a block with only a non-local label to be merged.  */
-  if (stmt && gimple_code (stmt) == GIMPLE_LABEL
+  if (stmt
+      && gimple_code (stmt) == GIMPLE_LABEL
       && DECL_NONLOCAL (gimple_label_label (stmt)))
     return false;
 
@@ -1196,7 +1215,7 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
     }
 
   /* Do not remove user labels.  */
-  for (gsi = gsi_start (bb_seq (b)); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start_bb (b); !gsi_end_p (gsi); gsi_next (gsi))
     {
       stmt = gsi_stmt (gsi);
       if (gimple_code (stmt) != GIMPLE_LABEL)
@@ -1340,7 +1359,7 @@ tree_merge_blocks (basic_block a, basic_block b)
   gcc_assert (!last_stmt (a) || !stmt_ends_bb_p (last_stmt (a)));
 
   /* Remove labels from B and set gimple_bb to A for other statements.  */
-  for (gsi = gsi_start (bb_seq (b)); !gsi_end_p (gsi);)
+  for (gsi = gsi_start_bb (b); !gsi_end_p (gsi);)
     {
       if (gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL)
 	{
@@ -1356,7 +1375,7 @@ tree_merge_blocks (basic_block a, basic_block b)
 	     label.  Instead we move the label to the start of block A.  */
 	  if (FORCED_LABEL (gimple_label_label (label)))
 	    {
-	      gimple_stmt_iterator *dest_gsi = gsi_start (bb_seq (a));
+	      gimple_stmt_iterator *dest_gsi = gsi_start_bb (a);
 	      gsi_insert_before (dest_gsi, label, GSI_NEW_STMT);
 	    }
 	}
@@ -2028,7 +2047,7 @@ remove_bb (basic_block bb)
   /* Remove all the instructions in the block.  */
   if (bb_seq (bb) != NULL)
     {
-      for (i = gsi_start (bb_seq (bb)); !gsi_end_p (i);)
+      for (i = gsi_start_bb (bb); !gsi_end_p (i);)
 	{
 	  gimple stmt = gsi_stmt (i);
 	  if (gimple_code (stmt) == GIMPLE_LABEL
@@ -2048,7 +2067,7 @@ remove_bb (basic_block bb)
 		}
 
 	      new_bb = bb->prev_bb;
-	      new_gsi = gsi_start (bb_seq (new_bb));
+	      new_gsi = gsi_start_bb (new_bb);
 	      gsi_remove (i, false);
 	      gsi_insert_before (new_gsi, stmt, GSI_NEW_STMT);
 	    }
@@ -2584,7 +2603,7 @@ delete_tree_cfg_annotations (void)
 gimple
 first_stmt (basic_block bb)
 {
-  gimple_stmt_iterator *i = gsi_start (bb_seq (bb));
+  gimple_stmt_iterator *i = gsi_start_bb (bb);
   return !gsi_end_p (i) ? gsi_stmt (i) : NULL;
 }
 
@@ -2678,7 +2697,7 @@ tree_find_edge_insert_loc (edge e, gimple_stmt_iterator **gsi,
       && ! phi_nodes (dest)
       && dest != EXIT_BLOCK_PTR)
     {
-      *gsi = gsi_start (bb_seq (dest));
+      *gsi = gsi_start_bb (dest);
       if (gsi_end_p (*gsi))
 	return true;
 
@@ -3766,8 +3785,7 @@ verify_types_in_gimple_stmt (gimple stmt)
       return verify_types_in_gimple_assign (stmt);
 
     case GIMPLE_LABEL:
-      return TREE_CODE (gimple_label_label (stmt)) != CASE_LABEL_EXPR
-	     && TREE_CODE (gimple_label_label (stmt)) != LABEL_DECL;
+      return TREE_CODE (gimple_label_label (stmt)) != LABEL_DECL;
 
     case GIMPLE_CALL:
       return verify_types_in_gimple_call (stmt);
@@ -4177,7 +4195,7 @@ tree_verify_flow_info (void)
       stmt = NULL;
 
       /* Skip labels on the start of basic block.  */
-      for (gsi = gsi_start (bb_seq (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
 	{
 	  tree label;
 	  gimple prev_stmt = stmt;

@@ -720,24 +720,6 @@ phi_ssa_name_p (const_tree t)
 
 /*  -----------------------------------------------------------------------  */
 
-/* Returns the sequence of statements in BB.  */
-
-static inline gimple_seq
-bb_seq (const_basic_block bb)
-{
-  gcc_assert (!(bb->flags & BB_RTL));
-  return bb->il.gimple->seq;
-}
-
-/* Sets the sequence of statements in BB to SEQ.  */
-
-static inline void
-set_bb_seq (basic_block bb, gimple_seq seq)
-{
-  gcc_assert (!(bb->flags & BB_RTL));
-  bb->il.gimple->seq = seq;
-}
-
 /* FIXME tuples.  bsi_* deprecated in favour of gsi_*  */
 #if 0
 /* Return a block_stmt_iterator that points to beginning of basic
@@ -749,7 +731,7 @@ bsi_start (basic_block bb)
   if (bb->index < NUM_FIXED_BLOCKS)
     bsi.gsi = NULL;
   else
-    bsi.gsi = gsi_start (bb_seq (bb));
+    bsi.gsi = gsi_start_bb (bb);
   bsi.bb = bb;
   return bsi;
 }

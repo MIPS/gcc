@@ -1002,7 +1002,8 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
    PARM_DECLs that belong to outer functions.  This handles statements
    that are not handled via the standard recursion done in
    walk_gimple_stmt.  STMT is the statement to examine, DATA is as in
-   convert_nonlocal_reference_op.  */
+   convert_nonlocal_reference_op.  Return true if all the operands of STMT
+   have been handled by this function.  */
 
 static bool
 convert_nonlocal_reference_stmt (gimple stmt, void *data)
@@ -1020,7 +1021,7 @@ convert_nonlocal_reference_stmt (gimple stmt, void *data)
 	{
 	  wi->val_only = true;
 	  wi->is_lhs = false;
-	  return false;
+	  return true;
 	}
       break;
 
@@ -1071,10 +1072,11 @@ convert_nonlocal_reference_stmt (gimple stmt, void *data)
     default:
       /* For every other statement that we are not interested in
 	 handling here, let the walker traverse the operands.  */
-      return true;
+      return false;
     }
 
-  return false;
+  /* We have handled all of STMT operands, no need to traverse the operands.  */
+  return true;
 }
 
 
@@ -1395,10 +1397,11 @@ convert_local_reference_stmt (gimple stmt, void *data)
     default:
       /* For every other statement that we are not interested in
 	 handling here, let the walker traverse the operands.  */
-      return true;
+      return false;
     }
 
-  return false;
+  /* Indicate that we have handled all the operands ourselves.  */
+  return true;
 }
 
 
@@ -1455,8 +1458,10 @@ convert_nl_goto_reference (gimple stmt, void *data)
 			    build_addr (new_label, target_context), x);
   gsi_replace (wi->gsi, call, false);
 
-  return false;
+  /* We have handled all of STMT's operands, no need to keep going.  */
+  return true;
 }
+
 
 /* Called via walk_function+walk_tree, rewrite all LABEL_EXPRs that 
    are referenced via nonlocal goto from a nested function.  The rewrite
@@ -1592,14 +1597,14 @@ convert_tramp_reference_stmt (gimple stmt, void *data)
 	  walk_tree (gimple_call_arg_ptr (stmt, i), convert_tramp_reference_op,
 		     wi, NULL);
 
-	return false;
+	return true;
       }
 
     default:
       break;
     }
 
-  return true;
+  return false;
 }
 
 
@@ -1628,8 +1633,7 @@ convert_gimple_call (gimple stmt, void *data)
 	{
 	  gimple_call_set_chain (stmt, get_static_chain (info, target_context,
 							 wi->gsi));
-	  info->static_chain_added
-	    |= (1 << (info->context != target_context));
+	  info->static_chain_added |= (1 << (info->context != target_context));
 	}
       break;
 
@@ -1673,10 +1677,11 @@ convert_gimple_call (gimple stmt, void *data)
       break;
 
     default:
-      break;
+      /* Keep looking for other statements and operands.  */
+      return false;
     }
 
-  return false;
+  return true;
 }
 
 

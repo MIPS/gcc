@@ -1760,18 +1760,17 @@ struct tree_opt_pass pass_lower_eh =
   ,0					/* works_with_tuples_p */
 };
 
-/* FIXME tuples  */
-#if 0
 
 /* Construct EH edges for STMT.  */
 
 static void
 make_eh_edge (struct eh_region *region, void *data)
 {
-  tree stmt, lab;
+  gimple stmt;
+  tree lab;
   basic_block src, dst;
 
-  stmt = (tree) data;
+  stmt = (gimple) data;
   lab = get_eh_region_tree_label (region);
 
   src = gimple_bb (stmt);
@@ -1802,6 +1801,8 @@ make_eh_edges (gimple stmt)
   foreach_reachable_handler (region_nr, is_resx, make_eh_edge, stmt);
 }
 
+/* FIXME tuples.  */
+#if 0
 static bool mark_eh_edge_found_error;
 
 /* Mark edge make_eh_edge would create for given region by setting it aux

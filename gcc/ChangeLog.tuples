@@ -1,3 +1,43 @@
+2007-09-15  Diego Novillo  <dnovillo@google.com>
+
+	* gimple-iterator.c (gsi_replace): Call gsi_insert_before and
+	gsi_remove to do the replacement.
+	(gsi_insert_before): Take the basic block from the iterator.
+	(gsi_insert_after): Likewise.
+	* gimple-iterator.h: Move inside gimple.h.
+	* tree-eh.c (make_eh_edge, make_eh_edges): Enable.
+	* gimple-pretty-print.c (dump_gimple_seq, dump_gimple_cond,
+	dump_gimple_bind, dump_gimple_try): Do not handle TDF_DETAILS.
+	(dump_gimple_switch): Fix display of case labels.
+	(dump_gimple_stmt): Handle TDF_DIAGNOSTIC.
+	(pp_cfg_jump): New.
+	(dump_implicit_edges): New.
+	(gimple_dump_bb_buff): Call it.
+	* domwalk.c (walk_dominator_tree):
+	* gimplify.c (gimplify_switch_expr): Fix generation of
+	GIMPLE_SWITCH labels.
+	(gimplify_case_label_expr): Emit a label for CASE_LABEL
+	instead of the CASE_LABEL_EXPR.
+	* Makefile.in (GIMPLE_H): Add dependency on BASIC_BLOCK_H.
+	* gimple.c (walk_gimple_stmt): Reverse meaning of return value
+	of CALLBACK_STMT.  Update all users.
+	Walk sub-statements of statements with bodies.
+	* gimple.h (GCC_GIMPLE_H): Rename from GCC_GIMPLE_IR_H.
+	Include vec.h, tm.h, hard-reg-set.h and basic-block.h.
+	(bb_seq, set_bb_seq): Move from tree-flow-inline.h
+	(gimple_label_set_label): Do not allow CASE_LABEL_EXPR.
+	(gsi_start_bb): New.  Update all users that were calling
+	gsi_start (bb_seq ()).
+	(struct gimple_stmt_iterator): Add field 'bb'.
+	* tree-cfg.c (build_gimple_cfg): Enable.
+	(create_bb): Create a new sequence if the given one is NULL.
+	(make_gimple_switch_edges): Rename from make_switch_expr_edges.
+	Update all users.
+	(cleanup_dead_labels): Fix handling of GIMPLE_SWITCH.
+	(group_case_labels): Likewise.
+	(verify_types_in_gimple_stmt): Do not allow CASE_LABEL_EXPR in
+	a GIMPLE_LABEL.
+
 2007-09-13  Diego Novillo  <dnovillo@google.com>
 
 	* tree-pretty-print.c (dump_symbols, dump_generic_bb,

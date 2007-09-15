@@ -20,11 +20,15 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
-#ifndef GCC_GIMPLE_IR_H
-#define GCC_GIMPLE_IR_H
+#ifndef GCC_GIMPLE_H
+#define GCC_GIMPLE_H
 
 #include "pointer-set.h"
+#include "vec.h"
 #include "ggc.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "basic-block.h"
 
 DEF_VEC_P(gimple);
 DEF_VEC_ALLOC_P(gimple,heap);
@@ -100,6 +104,26 @@ gimple_seq_empty_p (gimple_seq s)
 {
   return s->first == NULL;
 }
+
+
+/* Returns the sequence of statements in BB.  */
+
+static inline gimple_seq
+bb_seq (const_basic_block bb)
+{
+  gcc_assert (!(bb->flags & BB_RTL));
+  return bb->il.gimple->seq;
+}
+
+/* Sets the sequence of statements in BB to SEQ.  */
+
+static inline void
+set_bb_seq (basic_block bb, gimple_seq seq)
+{
+  gcc_assert (!(bb->flags & BB_RTL));
+  bb->il.gimple->seq = seq;
+}
+
 
 /* Data structure definitions for GIMPLE tuples.  */
 
@@ -1010,8 +1034,7 @@ gimple_label_set_label (gimple gs, tree label)
 {
   GIMPLE_CHECK (gs, GIMPLE_LABEL);
   gcc_assert (gs->with_ops.num_ops == 1);
-  gcc_assert (TREE_CODE (label) == LABEL_DECL
-	      || TREE_CODE (label) == CASE_LABEL_EXPR);
+  gcc_assert (TREE_CODE (label) == LABEL_DECL);
   gs->with_ops.op[0] = label;
 }
 
@@ -1754,7 +1777,209 @@ gimple_nop_p (gimple g)
   return gimple_code (g) == GIMPLE_NOP;
 }
 
-#include "gimple-iterator.h"
+
+/* Iterator object for GIMPLE statement sequences.  */
+
+typedef struct {
+    /* Current statement.  */
+    gimple stmt;
+
+    /* Sequence and basic block holding the statement.  These fields
+       are necessary to handle edge cases such as one a statement is
+       added to an empty basic block or when the last statement of a
+       block/sequence is removed.  */
+    gimple_seq seq;
+    basic_block bb;
+} gimple_stmt_iterator;
+
+
+/* Return a new iterator pointing to GIMPLE_SEQ's first statement.  */
+
+static inline gimple_stmt_iterator *
+gsi_start (gimple_seq seq)
+{
+  gimple_stmt_iterator *i = ggc_alloc_cleared (sizeof (gimple_stmt_iterator));
+
+  if (seq)
+    {
+      i->stmt = gimple_seq_first (seq);
+      i->seq = seq;
+    }
+
+  if (i->stmt)
+    i->bb = gimple_bb (i->stmt);
+
+  return i;
+}
+
+
+/* Return a new iterator pointing to the first statement in basic block BB.  */
+
+static inline gimple_stmt_iterator *
+gsi_start_bb (basic_block bb)
+{
+  gimple_stmt_iterator *i = ggc_alloc_cleared (sizeof (gimple_stmt_iterator));
+  gimple_seq seq = bb_seq (bb);
+
+  if (seq)
+    {
+      i->stmt = gimple_seq_first (seq);
+      i->seq = seq;
+    }
+
+  i->bb = bb;
+
+  return i;
+}
+
+
+/* Return a new iterator initially pointing to GIMPLE_SEQ's last statement.  */
+
+static inline gimple_stmt_iterator *
+gsi_last (gimple_seq seq)
+{
+  gimple_stmt_iterator *i = ggc_alloc_cleared (sizeof (gimple_stmt_iterator));
+
+  if (seq)
+    {
+      i->stmt = gimple_seq_last (seq);
+      i->seq = seq;
+    }
+
+  if (i->stmt)
+    i->bb = gimple_bb (i->stmt);
+
+  return i;
+}
+
+
+/* Return a new iterator pointing to the first statement in basic block BB.  */
+
+static inline gimple_stmt_iterator *
+gsi_last_bb (basic_block bb)
+{
+  gimple_stmt_iterator *i = ggc_alloc_cleared (sizeof (gimple_stmt_iterator));
+  gimple_seq seq = bb_seq (bb);
+
+  if (seq)
+    {
+      i->stmt = gimple_seq_last (seq);
+      i->seq = seq;
+    }
+
+  i->bb = bb;
+
+  return i;
+}
+
+
+/* Return TRUE if at the end of I.  */
+
+static inline bool
+gsi_end_p (gimple_stmt_iterator *i)
+{
+  return i->stmt == NULL;
+}
+
+/* Return TRUE if we're one statement before the end of I.  */
+
+static inline bool
+gsi_one_before_end_p (gimple_stmt_iterator *i)
+{
+  return i->stmt == gimple_seq_last (i->seq);
+}
+
+/* Return the next gimple statement in I.  */
+
+static inline void
+gsi_next (gimple_stmt_iterator *i)
+{
+#if defined ENABLE_GIMPLE_CHECKING
+  /* The last statement of the sequence should not have anything
+     chained after it.  */
+  gimple next = gimple_next (i->stmt);
+  if (i->stmt == gimple_seq_last (i->seq))
+    gcc_assert (next == NULL);
+#endif
+  i->stmt = gimple_next (i->stmt);
+}
+
+/* Return the previous gimple statement in I.  */
+
+static inline void
+gsi_prev (gimple_stmt_iterator *i)
+{
+#if defined ENABLE_GIMPLE_CHECKING
+  /* The first statement of the sequence should not have anything
+     chained before it.  */
+  gimple prev = gimple_prev (i->stmt);
+  if (i->stmt == gimple_seq_first (i->seq))
+    gcc_assert (prev == NULL);
+#endif
+  i->stmt = gimple_prev (i->stmt);
+}
+
+/* Return the current stmt.  */
+
+static inline gimple
+gsi_stmt (gimple_stmt_iterator *i)
+{
+  return i->stmt;
+}
+
+
+/* Remove the current stmt from the sequence.  The iterator is updated to
+   point to the next statement.
+
+   When REMOVE_EH_INFO is true we remove the statement pointed to by
+   iterator I from the EH tables.  Otherwise we do not modify the EH
+   tables.
+
+   Generally, REMOVE_EH_INFO should be true when the statement is going to
+   be removed from the IL and not reinserted elsewhere.  */
+
+static inline void
+gsi_remove (gimple_stmt_iterator *i, bool remove_eh_info)
+{
+  gimple stmt = i->stmt;
+  gimple_seq seq = i->seq;
+  gsi_next (i);
+  gimple_remove (stmt, seq, remove_eh_info);
+}
+
+enum gsi_iterator_update
+{
+  GSI_NEW_STMT,		/* Only valid when single statement is added, move
+			   iterator to it.  */
+  GSI_SAME_STMT,	/* Leave the iterator at the same statement.  */
+  GSI_CONTINUE_LINKING	/* Move iterator to whatever position is suitable
+			   for linking other statements in the same
+			   direction.  */
+};
+
+void gsi_link_seq_before (gimple_stmt_iterator *, gimple_seq,
+			  enum gsi_iterator_update);
+void gsi_link_before (gimple_stmt_iterator *, gimple,
+    		      enum gsi_iterator_update);
+void gsi_link_seq_after (gimple_stmt_iterator *, gimple_seq,
+			 enum gsi_iterator_update);
+void gsi_link_after (gimple_stmt_iterator *, gimple, enum gsi_iterator_update);
+gimple_seq gsi_split_seq_after (const gimple_stmt_iterator *);
+gimple_seq gsi_split_seq_before (gimple_stmt_iterator *);
+void gsi_replace (gimple_stmt_iterator *, gimple, bool);
+void gsi_insert_before (gimple_stmt_iterator *, gimple,
+			enum gsi_iterator_update);
+void gsi_insert_seq_before (gimple_stmt_iterator *, gimple_seq,
+		       enum gsi_iterator_update);
+void gsi_insert_after (gimple_stmt_iterator *, gimple,
+		       enum gsi_iterator_update);
+void gsi_insert_seq_after (gimple_stmt_iterator *, gimple_seq,
+			   enum gsi_iterator_update);
+gimple_stmt_iterator *gsi_for_stmt (gimple);
+void gsi_move_after (gimple_stmt_iterator *, gimple_stmt_iterator *);
+void gsi_move_before (gimple_stmt_iterator *, gimple_stmt_iterator *);
+void gsi_move_to_bb_end (gimple_stmt_iterator *, struct basic_block_def *);
+
 
 /* Callback for walk_gimple_stmt.  Called for every statement found
    during traversal.  */
@@ -1808,4 +2033,4 @@ void walk_gimple_seq (gimple_seq, walk_stmt_fn, walk_tree_fn,
 void walk_gimple_stmt (gimple, walk_stmt_fn, walk_tree_fn,
 		       struct walk_stmt_info *);
 
-#endif  /* GCC_GIMPLE_IR_H */
+#endif  /* GCC_GIMPLE_H */

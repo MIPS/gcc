@@ -166,8 +166,7 @@ gsi_link_seq_after (gimple_stmt_iterator *i, gimple_seq seq,
 /* Links one gimple statement after the current statement.  */
 
 void
-gsi_link_after (gimple_stmt_iterator *i,
-    		gimple g,
+gsi_link_after (gimple_stmt_iterator *i, gimple g,
 		enum gsi_iterator_update mode)
 {
   struct gimple_sequence tseq;
@@ -241,7 +240,7 @@ gsi_split_seq_before (gimple_stmt_iterator *i)
    statement is moved to the new statement.  */
 
 void
-gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info ATTRIBUTE_UNUSED)
+gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info)
 {
 #if 0
   int eh_region;
@@ -252,7 +251,9 @@ gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info ATTRIBU
     return;
 
   set_gimple_locus (stmt, gimple_locus (orig_stmt));
-  set_gimple_bb (stmt, gimple_bb (orig_stmt));
+  gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
+  gsi_remove (gsi, update_eh_info);
+  gsi->stmt = stmt;
 
   /* FIXME tuples.  Enable after converting tree-eh.c  */
 #if 0
@@ -278,8 +279,6 @@ gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info ATTRIBU
   mark_stmt_modified (stmt);
   update_modified_stmts (stmt);
 #endif
-
-  gsi->stmt = stmt;
 }
 
 
@@ -305,7 +304,7 @@ void
 gsi_insert_before (gimple_stmt_iterator *i, gimple stmt,
 		   enum gsi_iterator_update m)
 {
-  set_gimple_bb (stmt, gimple_bb (gsi_stmt (i)));
+  set_gimple_bb (stmt, i->bb);
   update_modified_stmt (stmt);
   gsi_link_before (i, stmt, m);
 }
@@ -333,7 +332,7 @@ void
 gsi_insert_after (gimple_stmt_iterator *i, gimple stmt,
 		  enum gsi_iterator_update m)
 {
-  set_gimple_bb (stmt, gimple_bb (gsi_stmt (i)));
+  set_gimple_bb (stmt, i->bb);
   update_modified_stmt (stmt);
   gsi_link_after (i, stmt, m);
 }
@@ -359,8 +358,7 @@ gsi_for_stmt (gimple stmt)
 {
   gimple_stmt_iterator *gsi;
 
-  for (gsi = gsi_start (bb_seq (gimple_bb (stmt))); !gsi_end_p (gsi);
-       gsi_next (gsi))
+  for (gsi = gsi_start_bb (gimple_bb (stmt)); !gsi_end_p (gsi); gsi_next (gsi))
     if (gsi_stmt (gsi) == stmt)
       return gsi;
 

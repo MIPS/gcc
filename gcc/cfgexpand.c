@@ -1263,7 +1263,7 @@ label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
 
   /* Find the tree label if it is present.  */
      
-  for (gsi = gsi_start (bb_seq (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
     {
       lab_stmt = gsi_stmt (gsi);
       if (gimple_code (lab_stmt) != GIMPLE_LABEL)

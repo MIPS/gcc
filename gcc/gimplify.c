@@ -1444,15 +1444,16 @@ gimplify_switch_expr (tree *expr_p, gimple_seq pre_p)
 	}
       len = i;
 
-      if (! default_case)
+      if (!default_case)
 	{
+	  gimple new_default;
+
 	  /* If the switch has no default label, add one, so that we jump
 	     around the switch body.  */
-	  tree def_lab = build3 (CASE_LABEL_EXPR, void_type_node, NULL_TREE,
+	  default_case = build3 (CASE_LABEL_EXPR, void_type_node, NULL_TREE,
 	                         NULL_TREE, create_artificial_label ());
-	  gimple new_default = build_gimple_label (def_lab);
+	  new_default = build_gimple_label (CASE_LABEL (default_case));
 	  gimple_seq_add (&switch_body_seq, new_default);
-	  default_case = gimple_label_label (new_default);
 	}
 
       if (!VEC_empty (tree, labels))
@@ -1483,9 +1484,8 @@ gimplify_case_label_expr (tree *expr_p, gimple_seq pre_p)
     if (ctxp->case_labels)
       break;
 
-  gimple gimple_label = build_gimple_label (*expr_p);
-  VEC_safe_push (tree, heap, ctxp->case_labels,
-                 gimple_label_label (gimple_label));
+  gimple gimple_label = build_gimple_label (CASE_LABEL (*expr_p));
+  VEC_safe_push (tree, heap, ctxp->case_labels, *expr_p);
   gimple_seq_add (pre_p, gimple_label);
 
   return GS_ALL_DONE;

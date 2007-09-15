@@ -112,9 +112,9 @@ dump_gimple_seq (pretty_printer *buffer, gimple_seq seq, int spc, int flags)
   for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (i))
     {
       gimple gs = gsi_stmt (i);
-      if (flags & TDF_DETAILS)
-	pp_string (buffer, "gimpleir: ");
+      INDENT (spc);
       dump_gimple_stmt (buffer, gs, spc, flags);
+      pp_newline (buffer);
     }
 }
 
@@ -307,8 +307,10 @@ dump_gimple_switch (pretty_printer *buffer, gimple gs, int spc, int flags)
   pp_string (buffer, ") <");
   for (i = 0; i < gimple_switch_num_labels (gs); i++)
     {
-      dump_generic_node (buffer, gimple_switch_label (gs, i), spc, flags,
-                         false);
+      tree case_label = gimple_switch_label (gs, i);
+      dump_generic_node (buffer, case_label, spc, flags, false);
+      pp_string (buffer, " ");
+      dump_generic_node (buffer, CASE_LABEL (case_label), spc, flags, false);
       if (i < gimple_switch_num_labels (gs) - 1)
         pp_string (buffer, ", ");
     }
@@ -322,9 +324,6 @@ dump_gimple_switch (pretty_printer *buffer, gimple gs, int spc, int flags)
 static void
 dump_gimple_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  if (flags & TDF_DETAILS)
-    pp_string (buffer, "GIMPLE_COND tuple");
-
   pp_string (buffer, "if (");
   dump_generic_node (buffer, gimple_cond_lhs (gs), spc, flags, false);
   pp_space (buffer);
@@ -340,7 +339,7 @@ dump_gimple_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
 
 /* Dump a GIMPLE_LABEL tuple on the pretty_printer BUFFER, SPC
    spaces of indent.  FLAGS specifies details to show in the dump (see
-   TDF_* in tree.h)*/
+   TDF_* in tree.h).  */
 
 static void
 dump_gimple_label (pretty_printer *buffer, gimple gs, int spc, int flags)
@@ -359,9 +358,6 @@ dump_gimple_label (pretty_printer *buffer, gimple gs, int spc, int flags)
 static void
 dump_gimple_bind (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  if (flags & TDF_DETAILS)
-    pp_string (buffer, "GIMPLE_BIND tuple");
-
   pp_character (buffer, '{');
   newline_and_indent (buffer, spc + 2);
   if (!(flags & TDF_SLIM))
@@ -389,9 +385,6 @@ dump_gimple_bind (pretty_printer *buffer, gimple gs, int spc, int flags)
 static void
 dump_gimple_try (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  if (flags & TDF_DETAILS)
-    pp_string (buffer, "GIMPLE_TRY tuple");
-
   pp_string (buffer, "try {");
   newline_and_indent (buffer, spc + 2);
   dump_gimple_seq (buffer, gimple_try_eval (gs), spc + 2, flags);
@@ -572,8 +565,11 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       GIMPLE_NIY;
     }
 
-  newline_and_indent (buffer, spc);
-  pp_write_text_to_stream (buffer);
+  /* If we're building a diagnostic, the formatted text will be
+     written into BUFFER's stream by the caller; otherwise, write it
+     now.  */
+  if (!(flags & TDF_DIAGNOSTIC))
+    pp_write_text_to_stream (buffer);
 }
 
 
@@ -607,7 +603,7 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 	{
 	  gimple_stmt_iterator *gsi;
 
-	  for (gsi = gsi_start (bb_seq (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
 	    if (get_lineno (gsi_stmt (gsi)) != -1)
 	      {
 		pp_string (buffer, ", starting at line ");
@@ -698,6 +694,81 @@ dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
 }
 
 
+/* Dump jump to basic block BB that is represented implicitly in the cfg
+   to BUFFER.  */
+
+static void
+pp_cfg_jump (pretty_printer *buffer, basic_block bb)
+{
+  gimple stmt;
+
+  stmt = first_stmt (bb);
+
+  pp_string (buffer, "goto <bb ");
+  pp_decimal_int (buffer, bb->index);
+  pp_string (buffer, ">");
+  if (stmt && gimple_code (stmt) == GIMPLE_LABEL)
+    {
+      pp_string (buffer, " (");
+      dump_generic_node (buffer, gimple_label_label (stmt), 0, 0, false);
+      pp_string (buffer, ")");
+    }
+}
+
+
+/* Dump edges represented implicitly in basic block BB to BUFFER, indented
+   by INDENT spaces, with details given by FLAGS.  */
+
+static void
+dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
+		     int flags)
+{
+  edge e;
+  edge_iterator ei;
+  gimple stmt;
+
+  stmt = last_stmt (bb);
+
+  /* If there is a fallthru edge, we may need to add an artificial
+     goto to the dump.  */
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (e->flags & EDGE_FALLTHRU)
+      break;
+
+  if (e && e->dest != bb->next_bb)
+    {
+      INDENT (indent);
+
+      if ((flags & TDF_LINENO)
+#ifdef USE_MAPPED_LOCATION
+	  && e->goto_locus != UNKNOWN_LOCATION
+#else
+	  && !IS_LOCATION_EMPTY (e->goto_locus)
+#endif
+	  )
+	{
+	  expanded_location goto_xloc;
+#ifdef USE_MAPPED_LOCATION
+	  goto_xloc = expand_location (e->goto_locus);
+#else
+	  goto_xloc = e->goto_locus;
+#endif
+	  pp_character (buffer, '[');
+	  if (goto_xloc.file)
+	    {
+	      pp_string (buffer, goto_xloc.file);
+	      pp_string (buffer, " : ");
+	    }
+	  pp_decimal_int (buffer, goto_xloc.line);
+	  pp_string (buffer, "] ");
+	}
+
+      pp_cfg_jump (buffer, e->dest);
+      pp_newline (buffer);
+    }
+}
+
+
 /* Dumps basic block BB to buffer BUFFER with details described by FLAGS and
    indented by INDENT spaces.  */
 
@@ -715,7 +786,7 @@ gimple_dump_bb_buff (pretty_printer *buffer, basic_block bb, int indent,
   dump_bb_header (buffer, bb, indent, flags);
   dump_phi_nodes (buffer, bb, indent, flags);
 
-  for (gsi = gsi_start (bb_seq (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
     {
       int curr_indent;
 
@@ -725,10 +796,11 @@ gimple_dump_bb_buff (pretty_printer *buffer, basic_block bb, int indent,
 
       INDENT (curr_indent);
       dump_gimple_stmt (buffer, stmt, curr_indent, flags);
+      pp_newline (buffer);
       dump_histograms_for_stmt (cfun, buffer->buffer->stream, stmt);
     }
 
-  /*dump_implicit_edges (buffer, bb, indent, flags);*/
+  dump_implicit_edges (buffer, bb, indent, flags);
 
   if (flags & TDF_BLOCKS)
     dump_bb_end (buffer, bb, indent, flags);

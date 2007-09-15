@@ -666,7 +666,7 @@ verify_cgraph_node (struct cgraph_node *node)
 	  /* Reach the trees by walking over the CFG, and note the
 	     enclosing basic-blocks in the call edges.  */
 	  FOR_EACH_BB_FN (this_block, this_cfun)
-	    for (gsi = gsi_start (bb_seq (this_block)); !gsi_end_p (gsi);
+	    for (gsi = gsi_start_bb (this_block); !gsi_end_p (gsi);
 		 gsi_next (gsi))
 	      {
 		/* FIXME tuples.  */
