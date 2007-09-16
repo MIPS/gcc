@@ -9,6 +9,12 @@
 	enabling libgcj.
 	* configure: Regenerate.
 
+2007-09-07  Andrew Haley  <aph@redhat.com>
+
+	* configure.ac (noconfigdirs): Remove target-libffi and
+	target-libjava.
+	* configure: Regenerate.
+
 2007-07-19  Release Manager
 
 	* GCC 4.2.1 released.
