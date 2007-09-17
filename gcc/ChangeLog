@@ -1,3 +1,7 @@
+2007-09-17  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in (server.o): Added rule; include valgrind defines.
+
 2007-09-13  Tom Tromey  <tromey@redhat.com>
 
 	* gcc.c (execute): Fall back to exec if connection fails.

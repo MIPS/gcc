@@ -1944,6 +1944,9 @@ convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 double-int.o: double-int.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H)
 
 server.o : server.c $(CONFIG_H) $(SYSTEM_H) coretypes.h server.h errors.h
+	$(CC) -c $(VALGRIND_DRIVER_DEFINES) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	  $< $(OUTPUT_OPTION)
+
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) toplev.h $(TREE_INLINE_H) $(RTL_H) insn-config.h $(INTEGRATE_H) \
    langhooks.h $(LANGHOOKS_DEF_H) $(FLAGS_H) $(GGC_H) $(DIAGNOSTIC_H) intl.h \
