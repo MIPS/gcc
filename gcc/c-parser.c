@@ -657,22 +657,20 @@ c_parser_bind_callback (tree name, tree decl)
 
   if (TREE_CODE_CLASS (TREE_CODE (decl)) == tcc_declaration)
     {
-      /* FIXME: probably should never be null here -- no
+      if (!DECL_LANG_SPECIFIC (decl))
+	DECL_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_decl);
+      /* FIXME: probably should never be non-null here -- no
 	 re-registration allowed... ? */
-      if (DECL_LANG_SPECIFIC (decl) == NULL)
-	{
-	  DECL_LANG_SPECIFIC (decl)
-	    = ggc_alloc_cleared (sizeof (struct lang_decl));
-	  DECL_LANG_SPECIFIC (decl)->declaring_hunk
-	    = parser->current_hunk_binding;
-	}
+      if (!DECL_LANG_SPECIFIC (decl)->declaring_hunk)
+	DECL_LANG_SPECIFIC (decl)->declaring_hunk
+	  = parser->current_hunk_binding;
     }
   else
     {
       gcc_assert (TREE_CODE_CLASS (TREE_CODE (decl)) == tcc_type);
-      if (! TYPE_LANG_SPECIFIC (decl))
+      if (!TYPE_LANG_SPECIFIC (decl))
 	TYPE_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_type);
-      if (! TYPE_LANG_SPECIFIC (decl)->declaring_hunk)
+      if (!TYPE_LANG_SPECIFIC (decl)->declaring_hunk)
 	TYPE_LANG_SPECIFIC (decl)->declaring_hunk
 	  = parser->current_hunk_binding;
     }
@@ -709,14 +707,13 @@ find_hunk_binding (tree obj)
     {
       /* FIXME: probably should never be null here -- no
 	 re-registration allowed... ? */
-      if (DECL_LANG_SPECIFIC (obj) != NULL)
+      if (DECL_LANG_SPECIFIC (obj))
 	binding = DECL_LANG_SPECIFIC (obj)->declaring_hunk;
     }
   else
     {
       gcc_assert (TREE_CODE_CLASS (TREE_CODE (obj)) == tcc_type);
-      if (TYPE_LANG_SPECIFIC (obj)
-	  && TYPE_LANG_SPECIFIC (obj)->declaring_hunk)
+      if (TYPE_LANG_SPECIFIC (obj))
 	binding = TYPE_LANG_SPECIFIC (obj)->declaring_hunk;
     }
   return binding;
@@ -1677,6 +1674,15 @@ can_reuse_hunk (c_parser *parser, struct parsed_hunk *hunk,
     {
       struct prereq_traverse_data data;
 
+      /* We can't re-use a hunk twice in one compilation unit.  FIXME:
+	 this is a weird restriction and I think will go away once we
+	 have anti-dependencies.  The issue here is that if we see 2
+	 decls "extern int f;" the second time we will re_bind the
+	 same decl, eventually tripping over the GC since the decl's
+	 chain will point to itself (as part of scope popping).  */
+      if (htab_find (parser->used_hunks, binding))
+	return false;
+
       /* Check prerequisites for this binding.  */
       data.parser = parser;
       data.result = true;
@@ -1795,6 +1801,8 @@ c_parser_translation_unit (c_parser *parser)
 	      isolani.next_token = c_parser_find_decl_boundary (parser);
 	      isolani.next = NULL;
 
+	      gcc_assert (parsed_any == false);
+
 	      if (isolani.next_token != 0)
 		{
 		  /* Found the declaration bounds.  */
@@ -1813,11 +1821,21 @@ c_parser_translation_unit (c_parser *parser)
 					     parser->buffer[isolani.start_token].location);
 		      c_parser_external_declaration (parser);
 		      finish_current_hunk (parser, &isolani, &isolani);
-		      gcc_assert (parsed_any == false);
 		      gcc_assert (parser->next_token == isolani.next_token + 1);
 		    }
-		  continue;
 		}
+	      else
+		{
+		  /* We couldn't guess an ending point, but we're
+		     still in a user file.  Parse it but don't save it
+		     in a hunk.  We do this to avoid confusing the
+		     "parsed_any" logic in the containing loop.  */
+		  /* FIXME: should be recording pragma state.  */
+		  c_parser_external_declaration (parser);
+		}
+
+	      obstack_free (&parser_obstack, obstack_position);
+	      continue;
 	    }
 	  else if (parser->first_hunk
 		   && parser->next_token == parser->first_hunk->start_token)

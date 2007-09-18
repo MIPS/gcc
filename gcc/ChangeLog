@@ -1,5 +1,12 @@
 2007-09-18  Tom Tromey  <tromey@redhat.com>
 
+	* c-parser.c (c_parser_bind_callback): Normalized.
+	(can_reuse_hunk): Don't allow hunk reuse.
+	(c_parser_translation_unit): Don't let "user code" fall through.
+	* c-decl.c (duplicate_decls): Comment assert.
+
+2007-09-18  Tom Tromey  <tromey@redhat.com>
+
 	* c-opts.c (c_common_post_options): Call cpp_read_main_file when
 	preprocessing only.
 
