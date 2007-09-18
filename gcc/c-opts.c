@@ -1232,7 +1232,11 @@ c_common_post_options (const char **pfilename)
      immediately.  */
   errorcount += cpp_errors (parse_in);
 
-  *pfilename = in_fnames[0];	/* FIXME: not quite as nice ... ? */
+  if (flag_preprocess_only)
+    *pfilename = this_input_filename = cpp_read_main_file (parse_in,
+							   in_fnames[0]);
+  else
+    *pfilename = in_fnames[0];	/* FIXME: not quite as nice ... ? */
 
   if (flag_working_directory
       && flag_preprocess_only && !flag_no_line_commands)

@@ -1,3 +1,8 @@
+2007-09-18  Tom Tromey  <tromey@redhat.com>
+
+	* c-opts.c (c_common_post_options): Call cpp_read_main_file when
+	preprocessing only.
+
 2007-09-17  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in (server.o): Added rule; include valgrind defines.
