@@ -1,3 +1,7 @@
+2007-09-19  Tom Tromey  <tromey@redhat.com>
+
+	* c-decl.c (pushdecl): Pass b_use, not b, to duplicate_decls.
+
 2007-09-18  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_parser_bind_callback): Normalized.

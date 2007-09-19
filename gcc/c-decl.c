@@ -2259,10 +2259,10 @@ pushdecl (tree x)
 	    {
 	      b_use = b_ext;
 	      if (b_use->type)
-		TREE_TYPE (b_use->decl) = b_use->type;
+		TREE_TYPE (b_use->decl) = b_use->type; /* FIXME!!! */
 	    }
 	}
-      if (duplicate_decls (x, b_use->decl, b))
+      if (duplicate_decls (x, b_use->decl, b_use))
 	{
 	  if (b_use != b)
 	    {
@@ -2280,7 +2280,7 @@ pushdecl (tree x)
 		  = build_type_attribute_variant (thistype,
 						  TYPE_ATTRIBUTES
 						  (b_use->type));
-	      TREE_TYPE (b_use->decl) = thistype;
+	      TREE_TYPE (b_use->decl) = thistype; /* FIXME!!! */
 	    }
 	  return b_use->decl;
 	}
@@ -2357,7 +2357,7 @@ pushdecl (tree x)
 	 composite of the visible types only.  */
       if (b && (TREE_PUBLIC (x) || same_translation_unit_p (x, b->decl))
 	  && b->type)
-	TREE_TYPE (b->decl) = b->type;
+	TREE_TYPE (b->decl) = b->type; /* FIXME!!! */
 
       /* The point of the same_translation_unit_p check here is,
 	 we want to detect a duplicate decl for a construct like
@@ -2383,7 +2383,7 @@ pushdecl (tree x)
 	    thistype
 	      = build_type_attribute_variant (thistype,
 					      TYPE_ATTRIBUTES (b->type));
-	  TREE_TYPE (b->decl) = thistype;
+	  TREE_TYPE (b->decl) = thistype; /* FIXME!!! */
 	  bind (name, b->decl, scope, /*invisible=*/false, /*nested=*/true,
 		/*notify_ok=*/true);
 	  return b->decl;
